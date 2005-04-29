@@ -1,4 +1,4 @@
-.TH "ZSHZLE" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHZLE" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshzle \- zsh command line editor
 .\" Yodl file: Zsh/zle.yo
@@ -302,7 +302,11 @@ are entirely distinct, although they are initialized to the same bindings
 by `\fBbindkey \-m\fP'\&.
 .RE
 .TP
-\fBvared\fP [ \fB\-Aache\fP ] [ \fB\-p\fP \fIprompt\fP ] [ \fB\-r\fP \fIrprompt\fP ] \fIname\fP
+.PD 0
+\fBvared\fP [ \fB\-Aache\fP ] [ \fB\-p\fP \fIprompt\fP ] [ \fB\-r\fP \fIrprompt\fP ]
+.TP
+.PD
+  [ \-M \fImain\-keymap\fP ] [ \-m \fIvicmd\-keymap\fP ] \fIname\fP
 The value of the parameter \fIname\fP is loaded into the edit
 buffer, and the line editor is invoked\&.  When the editor exits,
 \fIname\fP is set to the string value returned by the editor\&.
@@ -327,10 +331,20 @@ created automatically, even without \fB\-c\fP\&.
 If the \fB\-p\fP flag is given, the following string will be taken as
 the prompt to display at the left\&.  If the \fB\-r\fP flag is given,
 the following string gives the prompt to display at the right\&.  If the
-\fB\-h\fP flag is specified, the history can be accessed from ZLE\&. If the 
+\fB\-h\fP flag is specified, the history can be accessed from ZLE\&. If the
 \fB\-e\fP flag is given, typing \fB^D\fP (Control\-D) on an empty line
 causes \fBvared\fP to exit immediately with a non\-zero return value\&.
+.PP
+The \fB\-M\fP option gives a keymap to link to the \fBmain\fP keymap during
+editing, and the \fB\-m\fP option gives a keymap to link to the \fBvicmd\fP
+keymap during editing\&.  For vi\-style editing, this allows a pair of keymaps
+to override \fBviins\fP and \fBvicmd\fP\&.  For emacs\-style editing, only \fB\-M\fP
+is normally needed but the \fB\-m\fP option may still be used\&.  On exit, the
+previous keymaps will be restored\&.
 .RE
+.TP
+.PD 0
+\fBzle\fP
 .TP
 .PD 0
 \fBzle\fP \fB\-l\fP [ \fB\-L\fP | \fB\-a\fP ] [ \fIstring\fP \&.\&.\&. ]
@@ -365,14 +379,20 @@ causes \fBvared\fP to exit immediately with a non\-zero return value\&.
 .PD 0
 \fBzle\fP \fB\-I\fP
 .TP
-.PD 0
-\fBzle\fP \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-N ]\fP \fIargs\fP \&.\&.\&.
-.TP
 .PD
-\fBzle\fP
+\fBzle\fP \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-N ]\fP \fIargs\fP \&.\&.\&.
 The \fBzle\fP builtin performs a number of different actions concerning
-ZLE\&.  Which operation it performs depends on its options:
+ZLE\&.
 .RS
+.PP
+With no options and no arguments, only the return status will be
+set\&.  It is zero if ZLE is currently active and widgets could be
+invoked using this builtin command and non\-zero otherwise\&.
+Note that even if non\-zero status is returned, zle may still be active as
+part of the completion system; this does not allow direct calls to ZLE
+widgets\&.
+.PP
+Otherwise, which operation it performs depends on its options:
 .PP
 .PD 0
 .TP
@@ -438,7 +458,9 @@ immediately after return from the widget\&.
 This command can safely be called outside user defined widgets; if zle is
 active, the display will be refreshed, while if zle is not active, the
 command has no effect\&.  In this case there will usually be no other
-arguments\&.  The status is zero if zle was active, else one\&.
+arguments\&.
+.PP
+The status is zero if zle was active, else one\&.
 .RE
 .TP
 \fB\-M\fP \fIstring\fP
@@ -566,9 +588,10 @@ to minimise disruption\&.
 Note that there are normally better ways of manipulating the display from
 within zle widgets; see, for example, `\fBzle \-R\fP' above\&.
 .PP
-The status is zero if zle is active and the current zle display has
-been invalidated (even if this was by a previous call to `\fBzle \-I\fP'),
-else one\&.
+The returned status is zero if zle was invalidated, even though
+this may have been by a previous call to `\fBzle \-I\fP' or by a system
+notification\&.  To test if a zle widget may be called at this point, execute
+\fBzle\fP with no arguments and examine the return status\&.
 .RE
 .TP
 \fIwidget\fP \fB[ \-n\fP \fInum\fP \fB]\fP \fB[ \-N ]\fP \fIargs\fP \&.\&.\&.
@@ -600,10 +623,6 @@ unless the \fBBEEP\fP options was unset or the widget was called via the
 it should call the \fBbeep\fP widget directly\&.
 .RE
 .RE
-.PP
-With no options and no arguments, only the return status will be
-set\&. It is zero if ZLE is currently active and widgets could be
-invoked using this builtin command and non\-zero if ZLE is not active\&.
 .RE
 .RE
 .PP
@@ -657,6 +676,25 @@ The number of screen lines needed for the edit buffer currently
 displayed on screen (i\&.e\&. without any changes to the preceding
 parameters done after the last redisplay); read\-only\&.
 .TP
+\fBCONTEXT\fP (scalar)
+The context in which zle was called to read a line; read\-only\&.  One of
+the values:
+.PD 0
+.TP
+.PD
+start
+The start of a command line (at prompt \fBPS1\fP)\&.
+.TP
+cont
+A continuation to a command line (at prompt \fBPS2\fP)\&.
+.TP
+select
+In a \fBselect\fP loop\&.
+.TP
+vared
+Editing a variable in \fBvared\fP\&.
+.RE
+.TP
 \fBCURSOR\fP (integer)
 The offset of the cursor, within the edit buffer\&.  This is in the range
 0 to \fB$#BUFFER\fP, and is by definition equal to \fB$#LBUFFER\fP\&.
@@ -668,7 +706,13 @@ The last item to be cut using one of the `\fBkill\-\fP' commands; the
 string which the next yank would insert in the line\&.
 .TP
 \fBHISTNO\fP (integer)
-The current history number; read\-only\&.
+The current history number\&.  Setting this has the same effect as
+moving up or down in the history to the corresponding history line\&.
+An attempt to set it is ignored if the line is not stored in the
+history\&.  Note this is not the same as the parameter \fBHISTCMD\fP,
+which always gives the number of the history line being added to the main
+shell's history\&.  \fBHISTNO\fP refers to the line being retrieved within
+zle\&.
 .TP
 \fBKEYMAP\fP (scalar)
 The name of the currently selected keymap; read\-only\&.
@@ -742,6 +786,48 @@ cursor remains between the old \fB$LBUFFER\fP and the new \fB$RBUFFER\fP\&.
 .TP
 \fBWIDGET\fP (scalar)
 The name of the widget currently being executed; read\-only\&.
+.TP
+\fBWIDGETFUNC\fP (scalar)
+The name of the shell function that implements a widget defined with
+either \fBzle \-N\fP or \fBzle \-C\fP\&.  In the former case, this is the second
+argument to the \fBzle \-N\fP command that defined the widget, or
+the first argument if there was no second argument\&.  In the latter case
+this is the the third argument to the \fBzle \-C\fP command that defined the
+widget\&.  Read\-only\&.
+.TP
+\fBWIDGETSTYLE\fP (scalar)
+Describes the implementation behind the completion widget currently being
+executed; the second argument that followed \fBzle \-C\fP when the widget was
+defined\&.  This is the name of a builtin completion widget\&.  For widgets
+defined with \fBzle \-N\fP this is set to the empty string\&.  Read\-only\&.
+.PP
+.SS "Special Widget"
+.PP
+There is one user\-defined widget which is special to the shell\&.
+If it does not exist, no special action is taken\&.  The environment
+provided is identical to that for any other editing widget\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBzle\-line\-init\fP
+Executed every time the line editor is started to read a new line
+of input\&.  The following example puts the line editor into vi command
+mode when it starts up\&.
+.RS
+.PP
+.RS
+.nf
+\fBzle\-line\-init() { zle \-K vicmd; }
+zle \-N zle\-line\-init\fP
+.fi
+.RE
+.PP
+(The command inside the function sets the keymap directly; it is
+equivalent to \fBzle vi\-cmd\-mode\fP\&.)
+.RE
+.RE
+.PP
 .SH "STANDARD WIDGETS"
 The following is a list of all the standard widgets,
 and their default bindings in emacs mode,
@@ -1176,7 +1262,7 @@ Copy the area from the cursor to the mark to the kill buffer\&.
 \fBcopy\-prev\-word\fP (ESC\-^_) (unbound) (unbound)
 Duplicate the word to the left of the cursor\&.
 .TP
-\fBcopy\-prev\-shell\-word\fP (ESC\-^_) (unbound) (unbound)
+\fBcopy\-prev\-shell\-word\fP
 Like \fBcopy\-prev\-word\fP, but the word is found by using shell parsing, 
 whereas \fBcopy\-prev\-word\fP looks for blanks\&. This makes a difference
 when the word is quoted and contains spaces\&.
@@ -1605,6 +1691,21 @@ using the \fBsend\-break\fP widget\&.
 .TP
 \fBredisplay\fP (unbound) (^R) (^R)
 Redisplays the edit buffer\&.
+.TP
+\fBreset\-prompt\fP (unbound) (unbound) (unbound)
+Force the prompts on both the left and right of the screen to be
+re\-expanded, then redisplay the edit buffer\&.  This
+reflects changes both to the prompt variables themselves and changes
+in the expansion of the values (for example, changes in time or
+directory, or changes to the value of variables referred to by the
+prompt)\&.
+.RS
+.PP
+Otherwise, the prompt is only expanded each time zle starts, and
+when the display as been interrupted by output from another part of the
+shell (such as a job notification) which causes the command line to be
+reprinted\&.
+.RE
 .TP
 \fBsend\-break\fP (^G ESC\-^G) (unbound) (unbound)
 Abort the current editor function, e\&.g\&. \fBexecute\-named\-command\fP, or the

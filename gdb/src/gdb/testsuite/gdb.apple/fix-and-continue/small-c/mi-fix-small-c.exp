@@ -1,4 +1,4 @@
-# Copyright 2003
+# Copyright 2003, 2004
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -52,11 +52,16 @@ if [mi_run_to_main] then {
 
 mi_next "first next"
 
+
 # Build a new b.c
 
-mi_gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 2 of b.c"
+
+remote_exec build "make -C $objdir/$subdir stage2"
+
+# mi_gdb_test "shell make -C $objdir/$subdir stage2" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 2 of b.c"
 
 mi_gdb_test "38-file-fix-file $objdir/$subdir/b-bundlized.o2 $objdir/$subdir/b.c" ".*38\\^done,replaced-functions=\\\[\\\]" "Bring in fixed b.c version 2"
+
 
 # Step down into a combination of to-be-fixed and not-to-be-fixed functions.
 
@@ -74,17 +79,20 @@ mi_gdb_test "34-stack-list-frames 0 0" "34\\^done.*\"fred\".*" "verify that we'r
 mi_next "step over fred print statement"
 
 mi_gdb_test "-exec-step" ".*" "step into slurry()"
+
 mi_gdb_test "35-stack-list-frames 0 0" "35\\^done.*\"slurry\".*" "verify that we're in slurry()"
 
 
 # Build a new verison of b.c
 
 
-mi_gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 3 of b.c"
+remote_exec build "make -C $objdir/$subdir stage3"
 
-mi_gdb_test "838-file-fix-file $objdir/$subdir/b-bundlized.o3 $objdir/$subdir/b.c" ".*838\\^done,replaced-functions=\\\[\{thread-id=\"1\",replaced=\\\[frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"bar\",file=\"b.c\",line=\"26\",dir=\".*\"\},frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"slurry\",file=\"b.c\",line=\"40\",dir=\".*\"\}\\\]\}\\\]" "Bring in fixed b.c version 3"
+# mi_gdb_test "shell make -C $objdir/$subdir stage3" ".*gcc.*b.o.*b-bundlized.o.*b.o.*\\^done" "make version 3 of b.c"
 
-mi_gdb_test "183-thread-set-pc 1 b.c:36" ".*183\\^done,frame=.*,func=\"slurry\",.*line=\"40\".*" "Set \$pc to the new slurry"
+mi_gdb_test "838-file-fix-file $objdir/$subdir/b-bundlized.o3 $objdir/$subdir/b.c" ".*838\\^done,replaced-functions=\\\[\{thread-id=\"1\",replaced=\\\[frame=\{level=\"2\",addr=\"$hex\",fp=\"$hex\",func=\"bar\",file=\"b.c\",line=\"2\[67\]\",dir=\".*\"\},frame=\{level=\"0\",addr=\"$hex\",fp=\"$hex\",func=\"slurry\",file=\"b.c\",line=\"40\",dir=\".*\"\}\\\]\}\\\]" "Bring in fixed b.c version 3"
+
+mi_gdb_test "183-thread-set-pc 1 b.c:36" ".*183\\^done,frame=.*,func=\"slurry\",.*line=\"38\".*" "Set \$pc to the new slurry"
 
 gdb_exit
 

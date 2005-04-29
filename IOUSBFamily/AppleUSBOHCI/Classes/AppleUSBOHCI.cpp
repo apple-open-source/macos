@@ -57,7 +57,7 @@ static int GetEDType(AppleOHCIEndpointDescriptorPtr pED);
 extern void print_td(AppleOHCIGeneralTransferDescriptorPtr pTD);
 extern void print_itd(AppleOHCIIsochTransferDescriptorPtr x);
 
-OSDefineMetaClassAndStructors(AppleUSBOHCI, IOUSBController)
+OSDefineMetaClassAndStructors(AppleUSBOHCI, IOUSBControllerV2)
 
 bool 
 AppleUSBOHCI::init(OSDictionary * propTable)
@@ -81,7 +81,9 @@ AppleUSBOHCI::init(OSDictionary * propTable)
     //
     _producerCount = 1;
     _consumerCount = 1;
-    
+
+    _controllerSpeed = kUSBDeviceSpeedFull;	
+
     return (true);
 }
 
@@ -115,13 +117,13 @@ AppleUSBOHCI::SetVendorInfo(void)
     OSData		*vendProp, *deviceProp, *revisionProp;
 
     // get this chips vendID, deviceID, revisionID
-    vendProp     = (OSData *) _device->getProperty( "vendor-id" );
+    vendProp     = OSDynamicCast(OSData, _device->getProperty( "vendor-id" ));
     if (vendProp)
         _vendorID = *((UInt32 *) vendProp->getBytesNoCopy());
-    deviceProp   = (OSData *) _device->getProperty( "device-id" );
+    deviceProp   = OSDynamicCast(OSData, _device->getProperty( "device-id" ));
     if (deviceProp)
-        _deviceID   = *((UInt32 *) deviceProp->getBytesNoCopy());
-    revisionProp = (OSData *) _device->getProperty( "revision-id" );
+        _deviceID = *((UInt32 *) deviceProp->getBytesNoCopy());
+    revisionProp = OSDynamicCast(OSData, _device->getProperty( "revision-id" ));
     if (revisionProp)
         _revisionID = *((UInt32 *) revisionProp->getBytesNoCopy());
 }
@@ -195,7 +197,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
             
             // We need to check to see if there are ports that we really should suspend
             //
-            suspendProp     = (OSData *) provider->getProperty( "AAPL,SuspendablePorts" );
+            suspendProp     = OSDynamicCast(OSData, provider->getProperty( "AAPL,SuspendablePorts" ));
             if (suspendProp)
             {
                 // Only allow suspend on certain ports
@@ -250,7 +252,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         IOSync();
 
       // Set the HC to write the donehead to the HCCA, and enable interrupts
-        _pOHCIRegisters->hcInterruptStatus = USBToHostLong(kOHCIHcInterrupt_WDH);
+        _pOHCIRegisters->hcInterruptStatus = HostToUSBLong(kOHCIHcInterrupt_WDH);
         IOSync();
 
 	// Enable the interrupt delivery.
@@ -273,7 +275,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
         // this formula is from the OHCI spec, section 5.4
         hcFSMPS = ((((hcFI-kOHCIMax_OverHead) * 6)/7) << kOHCIHcFmInterval_FSMPSPhase);
         hcPS = (hcFI * 9) / 10;			// per spec- 90%
-        _pOHCIRegisters->hcFmInterval = HostToUSBLong(hcFI | hcFSMPS);
+	_pOHCIRegisters->hcFmInterval = HostToUSBLong(hcFI | hcFSMPS);
         _pOHCIRegisters->hcPeriodicStart = HostToUSBLong(hcPS);
 
         IOSync();
@@ -299,7 +301,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 
         // Initialize the Root Hub registers
 	if (_errataBits & kErrataDisableOvercurrent)
-	    _pOHCIRegisters->hcRhDescriptorA |= USBToHostLong(kOHCIHcRhDescriptorA_NOCP);
+	    _pOHCIRegisters->hcRhDescriptorA |= HostToUSBLong(kOHCIHcRhDescriptorA_NOCP);
 	_pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE); // should be SRWE which should be identical to DRWE
         IOSync();
 
@@ -477,7 +479,7 @@ AppleUSBOHCI::doCallback(AppleOHCIGeneralTransferDescriptorPtr	nextTD,
     IOPhysicalAddress				PhysAddr;
 
     pED = nextTD->pEndpoint;
-    pED->pShared->flags |= HostToUSBWord(kOHCIEDControl_K);				// mark endpoint as skipped
+    pED->pShared->flags |= HostToUSBLong(kOHCIEDControl_K);				// mark endpoint as skipped
     PhysAddr = (IOPhysicalAddress) USBToHostLong(pED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask;
     nextTD = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(PhysAddr);
 
@@ -515,7 +517,7 @@ AppleUSBOHCI::doCallback(AppleOHCIGeneralTransferDescriptorPtr	nextTD,
             completion = pCurrentTD->command->GetUSLCompletion();
             pCurrentTD->uimFlags &= ~kUIMFlagsCallbackTD;
             DeallocateTD(pCurrentTD);
-            pED->pShared->flags &= ~HostToUSBWord(kOHCIEDControl_K);				// mark endpoint as not skipped
+            pED->pShared->flags &= ~HostToUSBLong(kOHCIEDControl_K);				// mark endpoint as not skipped
             Complete(completion,
                      TranslateStatusToUSBError(transferStatus),
                      bufferSizeRemaining);
@@ -784,6 +786,11 @@ AppleUSBOHCI::AllocateITD(void)
 	}
     }
     
+    for(int i=0; i<8; i++)
+    {
+        freeITD->pShared->offset[i] = 0;
+    }
+
     _pFreeITD = freeITD->pLogicalNext;
     freeITD->pLogicalNext = NULL;
     freeITD->uimFlags = 0;
@@ -1113,13 +1120,12 @@ AppleUSBOHCI::ProcessCompletedITD (AppleOHCIIsochTransferDescriptorPtr pITD, IOR
 
     if (itdConditionCode == kOHCIITDConditionDataOverrun)
     {
-            // The OHCI controller sets the status to DATAOVERRUN in this case.  However, we translate it to kIOReturnIsoTooOld
-            // so that a client need not look at every frame list to determine that they were not sent.  If it gets a 
-            // kIOReturnIsoTooOld, then it can assume that all the frames have a not sent error.
-            //
-            status = kIOReturnIsoTooOld; 
-
-            USBLog(5,"%s[%p]::ProcessCompletedITD: Data Overrun in Isoch xfer. Entire TD (%p) was too late, will return kIOReturnIsoTooOld (0x%x)", getName(), this,pITD, status);
+		// The OHCI controller sets the status to DATAOVERRUN in the case where the TD could not go out because there was not time
+		// left in the frame.  This is called a Time Error and is in Section 4.3.2.3.5.3 of the OHCI spec.  We will return this as a no bandwidth error.
+		//
+		status = kIOReturnNoBandwidth; 
+		
+		USBLog(5,"%s[%p]::ProcessCompletedITD: Time Error in Isoch xfer (%p) -- not enough time to send the whole TD, returning kIOReturnNoBandwidth (0x%x)", getName(), this, pITD, status);
     }
     
     // Do some calculations related to the low latency isoch TDs:
@@ -1429,7 +1435,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
             pHCDoneTD->pShared->nextTD = tempED->pShared->tdQueueHeadPtr & HostToUSBLong(kOHCIHeadPMask);
             pHCDoneTD->pLogicalNext = AppleUSBOHCIgtdMemoryBlock::GetGTDFromPhysical(USBToHostLong(tempED->pShared->tdQueueHeadPtr) & kOHCIHeadPMask);
 
-            tempED->pShared->tdQueueHeadPtr = USBToHostLong(pHCDoneTD->pPhysical) | (tempED->pShared->tdQueueHeadPtr & HostToUSBLong( kOHCIEDToggleBitMask));
+            tempED->pShared->tdQueueHeadPtr = HostToUSBLong(pHCDoneTD->pPhysical) | (tempED->pShared->tdQueueHeadPtr & HostToUSBLong( kOHCIEDToggleBitMask));
             _pOHCIRegisters->hcCommandStatus = HostToUSBLong(kOHCIHcCommandStatus_BLF);
         }
         else if ( (pHCDoneTD->pType == kOHCIIsochronousInType) || (pHCDoneTD->pType == kOHCIIsochronousOutType) || (pHCDoneTD->pType == kOHCIIsochronousInLowLatencyType) || (pHCDoneTD->pType == kOHCIIsochronousOutLowLatencyType) )
@@ -1466,7 +1472,7 @@ AppleUSBOHCI::DoDoneQueueProcessing(IOPhysicalAddress cachedWriteDoneQueueHead, 
 	    {
 		if (errStatus != kIOReturnSuccess)
                 {
-                    USBLog(5, "AppleUSBOHCI::DoDoneQueueProcessing - processing a short packet");
+                    USBLog(5, "AppleUSBOHCI::DoDoneQueueProcessing - with error (0x%x)", errStatus);
                     doCallback(pHCDoneTD, transferStatus, bufferSizeRemaining);
                 }
                 DeallocateTD(pHCDoneTD);
@@ -1692,7 +1698,7 @@ AppleUSBOHCI::ReturnOneTransaction(
     UInt32					tail;
     UInt32					bufferSizeRemaining = 0;
 
-    USBError(1, "+%s[%p]::ReturnOneTransaction(%p, %p, %x)", getName(), this, transaction, pED, err);
+    USBLog(2, "+%s[%p]::ReturnOneTransaction(%p, %p, %x)", getName(), this, transaction, pED, err);
     
     // first mark the pED as skipped so we don't conflict
     pED->pShared->flags |= HostToUSBLong (kOHCIEDControl_K);
@@ -1799,7 +1805,8 @@ void
 AppleUSBOHCI::stop(IOService * provider)
 {
     USBLog(5, "%s[%p]::stop isInactive = %d", getName(), this, isInactive());
-    return super::stop(provider);
+    
+	super::stop(provider);
 }
 
 
@@ -1850,7 +1857,7 @@ AppleUSBOHCI::UIMInitializeForPowerUp(void)
     hcDoneHead = USBToHostLong(_pOHCIRegisters->hcDoneHead);
     if ( hcDoneHead != NULL )
     {
-        USBError(1,"%s[%p]::UIMInitialize Non-NULL hcDoneHead: %p", getName(), this, hcDoneHead );
+        USBError(1,"%s[%p]::UIMInitializeForPowerUp Non-NULL hcDoneHead: %p", getName(), this, hcDoneHead );
 
         // Reset it now
         //
@@ -1904,7 +1911,7 @@ AppleUSBOHCI::UIMInitializeForPowerUp(void)
 
     // Initialize the Root Hub registers
     if (_errataBits & kErrataDisableOvercurrent)
-        _pOHCIRegisters->hcRhDescriptorA |= USBToHostLong(kOHCIHcRhDescriptorA_NOCP);
+        _pOHCIRegisters->hcRhDescriptorA |= HostToUSBLong(kOHCIHcRhDescriptorA_NOCP);
     _pOHCIRegisters->hcRhStatus = HostToUSBLong(kOHCIHcRhStatus_OCIC | kOHCIHcRhStatus_DRWE); // should be SRWE which should be identical to DRWE
     
     OHCIRootHubPower(1 /* kOn */);

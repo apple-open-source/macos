@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_init.c,v 1.1 1998/12/13 07:37:46 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_init.c,v 1.2 2003/11/17 22:20:40 dawes Exp $ */
 /*
  * INTEL DG/UX RELEASE 4.20 MU03
  * Copyright 1997 Takis Psarogiannakopoulos Cambridge,UK
@@ -36,9 +36,7 @@ static Bool Protect0 = FALSE;
 static int VTnum = -1;
 
 extern void xf86VTRequest(
-#if NeedFunctionPrototypes
 	int
-#endif
 );
 
 void xf86OpenConsole()

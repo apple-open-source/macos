@@ -1,14 +1,17 @@
 /* include/portable.h.  Generated automatically by configure.  */
 /* include/portable.h.in.  Generated automatically from configure.in by autoheader.  */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _LDAP_PORTABLE_H
@@ -171,7 +174,7 @@
 /* #undef HAVE_GETPASSPHRASE */
 
 /* Define if you have the getpeereid function.  */
-/* #undef HAVE_GETPEEREID */
+#define HAVE_GETPEEREID 1
 
 /* Define if you have the getpwnam function.  */
 #define HAVE_GETPWNAM 1
@@ -273,7 +276,7 @@
 #define HAVE_SIGNAL 1
 
 /* Define if you have the sigset function.  */
-/* #undef HAVE_SIGSET */
+#define HAVE_SIGSET 1
 
 /* Define if you have the snprintf function.  */
 #define HAVE_SNPRINTF 1
@@ -302,8 +305,17 @@
 /* Define if you have the strtol function.  */
 #define HAVE_STRTOL 1
 
+/* Define if you have the strtoll function.  */
+#define HAVE_STRTOLL 1
+
+/* Define if you have the strtoq function.  */
+#define HAVE_STRTOQ 1
+
 /* Define if you have the strtoul function.  */
 #define HAVE_STRTOUL 1
+
+/* Define if you have the strtouq function.  */
+#define HAVE_STRTOUQ 1
 
 /* Define if you have the sysconf function.  */
 #define HAVE_SYSCONF 1
@@ -341,6 +353,9 @@
 /* Define if you have the <assert.h> header file.  */
 #define HAVE_ASSERT_H 1
 
+/* Define if you have the <bits/types.h> header file.  */
+/* #undef HAVE_BITS_TYPES_H */
+
 /* Define if you have the <conio.h> header file.  */
 /* #undef HAVE_CONIO_H */
 
@@ -366,7 +381,7 @@
 #define HAVE_DIRENT_H 1
 
 /* Define if you have the <dlfcn.h> header file.  */
-/* #undef HAVE_DLFCN_H */
+#define HAVE_DLFCN_H 1
 
 /* Define if you have the <errno.h> header file.  */
 #define HAVE_ERRNO_H 1
@@ -434,9 +449,6 @@
 /* Define if you have the <memory.h> header file.  */
 #define HAVE_MEMORY_H 1
 
-/* Define if you have the <ncurses.h> header file.  */
-#define HAVE_NCURSES_H 1
-
 /* Define if you have the <ndbm.h> header file.  */
 /* #undef HAVE_NDBM_H */
 
@@ -463,12 +475,6 @@
 
 /* Define if you have the <pwd.h> header file.  */
 #define HAVE_PWD_H 1
-
-/* Define if you have the <readline/history.h> header file.  */
-/* #undef HAVE_READLINE_HISTORY_H */
-
-/* Define if you have the <readline/readline.h> header file.  */
-/* #undef HAVE_READLINE_READLINE_H */
 
 /* Define if you have the <regex.h> header file.  */
 #define HAVE_REGEX_H 1
@@ -578,9 +584,6 @@
 /* Define if you have the <tcpd.h> header file.  */
 /* #undef HAVE_TCPD_H */
 
-/* Define if you have the <termcap.h> header file.  */
-#define HAVE_TERMCAP_H 1
-
 /* Define if you have the <termios.h> header file.  */
 #define HAVE_TERMIOS_H 1
 
@@ -601,9 +604,6 @@
 
 /* Define if you have the bind library (-lbind).  */
 /* #undef HAVE_LIBBIND */
-
-/* Define if you have the dl library (-ldl).  */
-/* #undef HAVE_LIBDL */
 
 /* Define if you have the gen library (-lgen).  */
 /* #undef HAVE_LIBGEN */
@@ -630,22 +630,22 @@
 #define OPENLDAP_PACKAGE "OpenLDAP"
 
 /* Version */
-#define OPENLDAP_VERSION "2.1.22"
+#define OPENLDAP_VERSION "2.2.19"
 
 /* Version */
-#define LDAP_VENDOR_VERSION 20122
+#define LDAP_VENDOR_VERSION 20219
 
 /* Major */
 #define LDAP_VENDOR_VERSION_MAJOR 2
 
 /* Minor */
-#define LDAP_VENDOR_VERSION_MINOR 1
+#define LDAP_VENDOR_VERSION_MINOR 2
 
 /* Patch */
-#define LDAP_VENDOR_VERSION_PATCH 22
+#define LDAP_VENDOR_VERSION_PATCH 19
 
 /* define this if you have mkversion */
-/* #undef HAVE_MKVERSION */
+#define HAVE_MKVERSION 1
 
 /* defined to be the EXE extension */
 #define EXEEXT ""
@@ -794,29 +794,17 @@
 /* define if you have -lwrap */
 /* #undef HAVE_TCPD */
 
-/* define if you have -ltermcap */
-#define HAVE_TERMCAP 1
-
-/* define if you have -lncurses */
-/* #undef HAVE_NCURSES */
-
-/* define if you have no termcap support */
-/* #undef NO_TERMCAP */
-
 /* define if you have Cyrus SASL */
 #define HAVE_CYRUS_SASL 1
 
 /* define if your SASL library has sasl_version() */
-/* #undef HAVE_SASL_VERSION */
+#define HAVE_SASL_VERSION 1
 
 /* set to urandom device */
 #define URANDOM_DEVICE "/dev/urandom"
 
 /* define if you actually have FreeBSD fetch(3) */
 /* #undef HAVE_FETCH */
-
-/* define if you have -lreadline */
-/* #undef HAVE_READLINE */
 
 /* define if crypt(3) is available */
 #define HAVE_CRYPT 1
@@ -826,6 +814,9 @@
 
 /* define if you have -lslp */
 /* #undef HAVE_SLP */
+
+/* define if you have 'long long' */
+#define HAVE_LONG_LONG 1
 
 /* Define to `int' if <sys/types.h> does not define. */
 /* #undef mode_t */
@@ -878,6 +869,9 @@
 /* The number of bytes in type long */
 #define SIZEOF_LONG 4
 
+/* The number of bytes in type wchar_t */
+#define SIZEOF_WCHAR_T 4
+
 /* define to you inet_aton(3) is available */
 #define HAVE_INET_ATON 1
 
@@ -905,6 +899,12 @@
 /* define if you actually have sys_errlist in your libs */
 #define HAVE_SYS_ERRLIST 1
 
+/* define if you have libtool -ltdl */
+/* #undef HAVE_LIBLTDL */
+
+/* define this to add SLAPI code */
+/* #undef LDAP_SLAPI */
+
 /* define this to add debugging code */
 #define LDAP_DEBUG 1
 
@@ -921,22 +921,16 @@
 #define LDAP_PF_INET6 1
 
 /* define to support cleartext passwords */
-#define SLAPD_CLEARTEXT 1
+/* #undef SLAPD_CLEARTEXT */
 
 /* define to support crypt(3) passwords */
 #define SLAPD_CRYPT 1
-
-/* define to support Kerberos passwords */
-/* #undef SLAPD_KPASSWD */
 
 /* define to support SASL passwords */
 /* #undef SLAPD_SPASSWD */
 
 /* define to support multimaster replication */
 /* #undef SLAPD_MULTIMASTER */
-
-/* define to support phonetic */
-/* #undef SLAPD_PHONETIC */
 
 /* define to support reverse lookups */
 /* #undef SLAPD_RLOOKUPS */
@@ -947,80 +941,62 @@
 /* define to support modules */
 /* #undef SLAPD_MODULES */
 
-/* define to support BDB backend */
-#define SLAPD_BDB 1
+/* statically linked module */
+#define SLAPD_MOD_STATIC 1
 
-/* define to support dynamic BDB backend */
-/* #undef SLAPD_BDB_DYNAMIC */
+/* dynamically linked module */
+#define SLAPD_MOD_DYNAMIC 2
+
+/* define to support BDB backend */
+#define SLAPD_BDB SLAPD_MOD_STATIC
 
 /* define to support DNS SRV backend */
 /* #undef SLAPD_DNSSRV */
 
-/* define to support dynamic DNS SRV backend */
-/* #undef SLAPD_DNSSRV_DYNAMIC */
+/* define to support HDB backend */
+/* #undef SLAPD_HDB */
 
 /* define to support LDAP backend */
 /* #undef SLAPD_LDAP */
 
-/* define to support dynamic LDAP backend */
-/* #undef SLAPD_LDAP_DYNAMIC */
-
 /* define to support LDBM backend */
-#define SLAPD_LDBM 1
-
-/* define to support dynamic LDBM backend */
-/* #undef SLAPD_LDBM_DYNAMIC */
+#define SLAPD_LDBM SLAPD_MOD_STATIC
 
 /* define to support LDAP Metadirectory backend */
 /* #undef SLAPD_META */
 
-/* define to support dynamic LDAP Metadirectory backend */
-/* #undef SLAPD_META_DYNAMIC */
-
 /* define to support cn=Monitor backend */
-/* #undef SLAPD_MONITOR */
-
-/* define to support dynamic cn=Monitor backend */
-/* #undef SLAPD_MONITOR_DYNAMIC */
+#define SLAPD_MONITOR SLAPD_MOD_STATIC
 
 /* define to support NULL backend */
 /* #undef SLAPD_NULL */
 
-/* define to support dynamic NULL backend */
-/* #undef SLAPD_NULL_DYNAMIC */
-
 /* define to support NetInfo backend */
-#define SLAPD_NETINFO 1
-
-/* define to support dynamic NetInfo backend */
-/* #undef SLAPD_NETINFO_DYNAMIC */
+#define SLAPD_NETINFO SLAPD_MOD_STATIC
 
 /* define to support PASSWD backend */
 /* #undef SLAPD_PASSWD */
 
-/* define to support dynamic PASSWD backend */
-/* #undef SLAPD_PASSWD_DYNAMIC */
-
 /* define to support PERL backend */
 /* #undef SLAPD_PERL */
-
-/* define to support dynamic PERL backend */
-/* #undef SLAPD_PERL_DYNAMIC */
 
 /* define to support SHELL backend */
 /* #undef SLAPD_SHELL */
 
-/* define to support dynamic SHELL backend */
-/* #undef SLAPD_SHELL_DYNAMIC */
-
 /* define to support SQL backend */
 /* #undef SLAPD_SQL */
 
-/* define to support dynamic SQL backend */
-/* #undef SLAPD_SQL_DYNAMIC */
+/* define for Dynamic Group overlay */
+/* #undef SLAPD_OVER_DYNGROUP */
+
+/* define for Proxy Cache overlay */
+/* #undef SLAPD_OVER_PROXYCACHE */
 
 /* define to enable rewriting in back-ldap and back-meta */
-/* #undef ENABLE_REWRITE */
+#define ENABLE_REWRITE 1
+
+/* define to enable slapi library */
+/* #undef ENABLE_SLAPI */
 
 
 /* begin of postamble */
@@ -1035,10 +1011,6 @@
 #define LDAP_NEEDS_PROTOTYPES 1
 #endif
 
-#ifdef HAVE_STDDEF_H
-#	include <stddef.h>
-#endif
-
 #ifndef LDAP_REL_ENG
 #if (LDAP_VENDOR_VERSION == 000000) && !defined(LDAP_DEVEL)
 #define LDAP_DEVEL
@@ -1046,9 +1018,10 @@
 #if defined(LDAP_DEVEL) && !defined(LDAP_TEST)
 #define LDAP_TEST
 #endif
-#if defined(LDAP_TEST) && !defined(LDAP_DEBUG)
-#define LDAP_DEBUG
 #endif
+
+#ifdef HAVE_STDDEF_H
+#	include <stddef.h>
 #endif
 
 #ifdef HAVE_EBCDIC 
@@ -1064,9 +1037,12 @@
 #define vsprintf ber_pvt_vsprintf
 #endif
 
+#include "ac/fdset.h"
+
 #include "ldap_cdefs.h"
 #include "ldap_features.h"
 
 #include "ac/assert.h"
+#include "ac/localize.h"
 
 #endif /* _LDAP_PORTABLE_H */

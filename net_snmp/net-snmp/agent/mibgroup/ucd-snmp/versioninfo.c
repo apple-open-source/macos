@@ -109,11 +109,11 @@ var_extensible_version(struct variable *vp,
         long_ret = name[8];
         return ((u_char *) (&long_ret));
     case VERTAG:
-        sprintf(errmsg, NetSnmpVersionInfo);
+        sprintf(errmsg, netsnmp_get_version());
         *var_len = strlen(errmsg);
         return ((u_char *) errmsg);
     case VERDATE:
-        sprintf(errmsg, "$Date: 2003/05/29 00:03:08 $");
+        sprintf(errmsg, "$Date: 2004/01/27 17:24:26 $");
         *var_len = strlen(errmsg);
         return ((u_char *) errmsg);
     case VERCDATE:
@@ -124,7 +124,7 @@ var_extensible_version(struct variable *vp,
         return ((u_char *) errmsg);
     case VERIDENT:
         sprintf(errmsg,
-                "$Id: versioninfo.c,v 1.1.1.2 2003/05/29 00:03:08 rbraun Exp $");
+                "$Id: versioninfo.c,v 5.2 2004/01/27 17:24:26 slif Exp $");
         *var_len = strlen(errmsg);
         return ((u_char *) errmsg);
     case VERCONFIG:

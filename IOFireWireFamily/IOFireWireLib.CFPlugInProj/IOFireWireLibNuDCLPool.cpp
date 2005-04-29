@@ -21,11 +21,13 @@
 #define CHECK_DCL( _type, _pointer ) if (!CAST_DCL(_type, _pointer)) { DebugLog("could not cast DCL %p to type ##_type!\n", _pointer); return ; }
 #define CHECK_DCL_IORETURN( _type, _pointer ) if (!CAST_DCL(_type, _pointer)) { return kIOReturnUnsupported ; }
 #define CHECK_DCL_NULL( _type, _pointer ) if (!CAST_DCL( _type, _pointer )) { return NULL ; }
+#define CHECK_DCL_ZERO( _type, _pointer ) if (!CAST_DCL( _type, _pointer )) { return 0 ; }
 #else
 #define CAST_DCL( _type, _pointer ) ((_type)_pointer)
 #define CHECK_DCL( _type, _pointer )
 #define CHECK_DCL_IORETURN( _type, _pointer )
 #define CHECK_DCL_NULL( _type, _pointer )
+#define CHECK_DCL_ZERO( _type, _pointer )
 #endif
 
 #undef super
@@ -142,7 +144,7 @@ namespace IOFireWireLib {
 		{
 			const NuDCL *	dcl = reinterpret_cast< const NuDCL* >( :: CFArrayGetValueAtIndex( fProgram, index ) ) ;
 
-			exportBytes += dcl->Export( NULL, NULL, NULL ) ;		// find export data size needed
+			exportBytes += dcl->Export( NULL, NULL, 0 ) ;		// find export data size needed
 		}
 		
 		vm_allocate( mach_task_self(), outExportData, exportBytes, true /*anywhere*/ ) ;
@@ -513,7 +515,7 @@ namespace IOFireWireLib {
 	UInt32
 	NuDCLPoolCOM::S_GetDCLRanges( NuDCLRef dcl, UInt32 maxRanges, IOVirtualRange* outRanges  )
 	{
-		CHECK_DCL_NULL( NuDCL*, dcl ) ;
+		CHECK_DCL_ZERO( NuDCL*, dcl ) ;
 
 		return CAST_DCL( NuDCL*, dcl )->GetRanges( maxRanges, outRanges ) ;
 	}
@@ -521,7 +523,7 @@ namespace IOFireWireLib {
 	UInt32
 	NuDCLPoolCOM::S_CountDCLRanges( NuDCLRef dcl )
 	{
-		CHECK_DCL_NULL( NuDCL*, dcl ) ;
+		CHECK_DCL_ZERO( NuDCL*, dcl ) ;
 		
 		return CAST_DCL( NuDCL*, dcl )->CountRanges() ;
 	}
@@ -538,7 +540,7 @@ namespace IOFireWireLib {
 	IOByteCount
 	NuDCLPoolCOM::S_GetDCLSize( NuDCLRef dcl )
 	{
-		CHECK_DCL_NULL( NuDCL*, dcl ) ;
+		CHECK_DCL_ZERO( NuDCL*, dcl ) ;
 		
 		return CAST_DCL( NuDCL*, dcl )->GetSize() ;
 	}
@@ -680,7 +682,7 @@ namespace IOFireWireLib {
 	UInt32
 	NuDCLPoolCOM :: S_GetDCLFlags( NuDCLRef dcl )
 	{
-		CHECK_DCL_NULL( NuDCL*, dcl ) ;
+		CHECK_DCL_ZERO( NuDCL*, dcl ) ;
 	
 		return CAST_DCL( NuDCL*, dcl )->GetFlags() ;
 	}
@@ -749,7 +751,7 @@ namespace IOFireWireLib {
 	UInt8
 	NuDCLPoolCOM::S_GetDCLSyncBits( NuDCLRef dcl )
 	{
-		CHECK_DCL_NULL( SendNuDCL*, dcl ) ;
+		CHECK_DCL_ZERO( SendNuDCL*, dcl ) ;
 		
 		return CAST_DCL( SendNuDCL *, dcl )->GetSync() ;
 	}
@@ -766,7 +768,7 @@ namespace IOFireWireLib {
 	UInt8
 	NuDCLPoolCOM::S_GetDCLTagBits( NuDCLRef dcl )
 	{
-		CHECK_DCL_NULL( SendNuDCL *, dcl ) ;
+		CHECK_DCL_ZERO( SendNuDCL *, dcl ) ;
 
 		return CAST_DCL( SendNuDCL *, dcl )->GetTag() ;
 	}

@@ -91,17 +91,16 @@ exec_global(interact, gflag)
 	int n;
 	char *cmd = NULL;
 
-#ifdef BACKWARDS
+
 	if (!interact) {
-		if (!strcmp(ibufp, "\n"))
+		if (posixly_correct) {
+			if ((cmd = get_extended_line(&n, 0)) == NULL)
+				return ERR;
+		} else if (!strcmp(ibufp, "\n"))
 			cmd = "p\n";		/* null cmd-list == `p' */
 		else if ((cmd = get_extended_line(&n, 0)) == NULL)
 			return ERR;
 	}
-#else
-	if (!interact && (cmd = get_extended_line(&n, 0)) == NULL)
-		return ERR;
-#endif
 	clear_undo_stack();
 	while ((lp = next_active_node()) != NULL) {
 		if ((current_addr = get_line_node_addr(lp)) < 0)

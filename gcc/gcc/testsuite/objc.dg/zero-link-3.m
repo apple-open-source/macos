@@ -1,4 +1,3 @@
-/* APPLE LOCAL file zero link */
 /* Check that the '-fzero-link' flag doesn't prevent messaging from working. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime -fzero-link -lobjc" } */
@@ -23,4 +22,3 @@ int main(void) {
   CHECK_IF(val == 1593);
   return 0;
 }
-

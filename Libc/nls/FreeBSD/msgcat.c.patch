@@ -1,5 +1,14 @@
---- msgcat.c.orig	Sun Oct 27 09:44:33 2002
-+++ msgcat.c	Sat May  3 14:19:40 2003
+--- msgcat.c.orig	2004-11-25 11:38:30.000000000 -0800
++++ msgcat.c	2005-02-27 12:06:52.000000000 -0800
+@@ -45,7 +45,7 @@
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <limits.h>
+-#include <locale.h>
++#include <xlocale.h>
+ #include <nl_types.h>
+ #include <stdio.h>
+ #include <stdlib.h>
 @@ -54,7 +54,7 @@
  #include "un-namespace.h"
  
@@ -8,4 +17,13 @@
 +#include "setlocale.h"        /* for ENCODING_LEN */
  
  #define _DEFAULT_NLS_PATH "/usr/share/nls/%L/%N.cat:/usr/share/nls/%N/%L:/usr/local/share/nls/%L/%N.cat:/usr/local/share/nls/%N/%L"
+ 
+@@ -87,7 +87,7 @@
+ 		return (loadCat(name));
+ 
+ 	if (type == NL_CAT_LOCALE)
+-		lang = setlocale(LC_MESSAGES, NULL);
++		lang = (char *)querylocale(LC_MESSAGES_MASK, NULL);
+ 	else
+ 		lang = getenv("LANG");
  

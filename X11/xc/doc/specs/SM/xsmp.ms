@@ -1,5 +1,6 @@
 .\" Use tbl, -ms, and macros.t
 .\" $Xorg: xsmp.ms,v 1.3 2000/08/17 19:42:19 cpqbld Exp $
+.\" $XFree86: xc/doc/specs/SM/xsmp.ms,v 1.2 2003/07/09 15:27:25 tsi Exp $
 .EH ''''
 .OH ''''
 .EF ''''
@@ -10,9 +11,9 @@
 .TL
 \s+2\fBX Session Management Protocol\fP\s-2
 .sp
-X Consortium Standard
+X.Org Standard
 .sp
-X Version 11, Release 6.4
+X Version 11, Release 6.7
 .AU
 Mike Wexler
 .AI
@@ -22,8 +23,8 @@ Kubota Pacific Computer, Inc.
 This document specifies a protocol that facilitates the management of groups
 of client applications by a session manager.  The session manager can cause
 clients to save their state, to shut down, and to be restarted into a
-previously saved state.  This protocol is layered on top of the X
-Consortium's ICE protocol.
+previously saved state.  This protocol is layered on top of the X.Org
+ICE protocol.
 .AE
 .LP
 .bp
@@ -31,9 +32,9 @@ Consortium's ICE protocol.
 .sp 8
 .LP
 .DS C
-X Window System is a trademark of X Consortium, Inc.
+X Window System is a trademark of The Open Group.
 .sp
-Copyright \(co 1992, 1993, 1994 X Consortium
+Copyright \(co 1992, 1993, 1994, 2002 The Open Group.
 .DE
 .sp 3
 .LP
@@ -264,8 +265,9 @@ Version.  This is currently the character `1'.
 Address type and address.  The address type will be one of
 .DS
 .ta 0.5i
-`1'	a 4-byte IP address encoded as 8 hexadecimal digits
+`1'	a 4-byte IPv4 address encoded as 8 hexadecimal digits
 `2'	a 6-byte DECNET address encoded as 12 hexadecimal digits
+`6'	a 16-byte IPv6 address encoded as 32 hexadecimal digits
 .DE
 .IP
 The address is the one of the network addresses of the machine where the

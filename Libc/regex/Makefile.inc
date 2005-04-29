@@ -4,12 +4,13 @@
 # regex sources
 .PATH: ${.CURDIR}/regex
 
-CFLAGS+=-DPOSIX_MISTAKE
-
 .include "Makefile.fbsd_begin"
-FBSDSRCS= regcomp.c regerror.c regexec.c regfree.c
-FBSDORIGHDRS= cclass.h cname.h engine.c regex2.h utils.h
+FBSDMISRCS= regcomp.c regerror.c regexec.c regfree.c
+CFLAGS-regcomp-fbsd.c+= -DPOSIX_MISTAKE
+FBSDHDRS= cclass.h cname.h engine.c regex2.h utils.h
 .include "Makefile.fbsd_end"
+
+UNIX03SRCS += regcomp.c
 
 .if ${LIB} == "c"
 .include "Makefile.fbsd_begin"

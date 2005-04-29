@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: codes.h,v 1.4 2003/02/13 20:15:37 rjs3 Exp $ */
+/* $Id: codes.h,v 1.5 2005/03/05 00:37:09 dasenbro Exp $ */
 
 #ifndef _CODES_H_
 #define _CODES_H_

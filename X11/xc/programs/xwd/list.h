@@ -34,6 +34,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
     -------------------------------------------------------------------- **/
+/* $XFree86: xc/programs/xwd/list.h,v 1.6 2003/11/17 22:20:54 dawes Exp $ */
 
 #ifndef LIST_DEF
 #define LIST_DEF
@@ -54,65 +55,41 @@ typedef struct _list_item {
 } list, list_item, *list_ptr;
 
 typedef void (*DESTRUCT_FUNC_PTR)(
-#if NeedFunctionPrototypes
 void *
-#endif
 );
 
 void zero_list( 
-#if NeedFunctionPrototypes
           list_ptr 
-#endif
     );
 int add_to_list (
-#if NeedFunctionPrototypes
           list_ptr , void *
-#endif
     );
 list_ptr new_list (
-#if NeedFunctionPrototypes
           void
-#endif
     );
 list_ptr dup_list_head (
-#if NeedFunctionPrototypes
           list_ptr , int 
-#endif
     );
 unsigned int list_length( 
-#if NeedFunctionPrototypes
           list_ptr 
-#endif
     );
 void *delete_from_list (
-#if NeedFunctionPrototypes
           list_ptr , void *
-#endif
     );
 void delete_list( 
-#if NeedFunctionPrototypes
           list_ptr , int 
-#endif
     );
 void delete_list_destroying (
-#if NeedFunctionPrototypes
           list_ptr , DESTRUCT_FUNC_PTR
-#endif
     );
 void *first_in_list (
-#if NeedFunctionPrototypes
           list_ptr 
-#endif
     );
 void *next_in_list (
-#if NeedFunctionPrototypes
           list_ptr 
-#endif
     );
 int list_is_empty (
-#if NeedFunctionPrototypes
           list_ptr 
-#endif
     );
 
 #endif

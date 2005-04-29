@@ -1,6 +1,0 @@
-/WORDS_BIGENDIAN/c
-#if __BIG_ENDIAN__
-#define WORDS_BIGENDIAN 1
-#endif /* __BIG_ENDIAN__ */
-.
-w

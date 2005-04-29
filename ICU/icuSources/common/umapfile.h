@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2001, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************/
@@ -28,6 +28,5 @@
 
 UBool   uprv_mapFile(UDataMemory *pdm, const char *path);
 void    uprv_unmapFile(UDataMemory *pData);
-char *  uprv_computeDirPath(const char *path, char *pathBuffer);
 
 #endif

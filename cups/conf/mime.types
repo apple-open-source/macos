@@ -1,9 +1,9 @@
 #
-# "$Id: mime.types,v 1.1.1.9 2003/04/11 21:07:16 jlovell Exp $"
+# "$Id: mime.types,v 1.2 2005/02/25 19:31:50 jlovell Exp $"
 #
 #   MIME types file for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products.
+#   Copyright 1997-2005 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -76,6 +76,7 @@ application/postscript		ai eps ps string(0,%!) string(0,<04>%!) \
 				contains(0,128,<1B>%-12345X) + \
 				(contains(0,1024,"LANGUAGE=POSTSCRIPT") \
 				 contains(0,1024,"LANGUAGE = Postscript") \
+				 contains(0,1024,"LANGUAGE = PostScript") \
 				 contains(0,1024,"LANGUAGE = POSTSCRIPT"))
 application/vnd.hp-HPGL		hpgl string(0,<1B>&)\
 				string(0,<1B>E<1B>%0B) \
@@ -154,8 +155,8 @@ application/vnd.cups-raw	(string(0,<1B>E) + !string(2,<1B>%0B)) \
 # -oraw option.
 #
 
-#application/octet-stream
+application/octet-stream
 
 #
-# End of "$Id: mime.types,v 1.1.1.9 2003/04/11 21:07:16 jlovell Exp $".
+# End of "$Id: mime.types,v 1.2 2005/02/25 19:31:50 jlovell Exp $".
 #

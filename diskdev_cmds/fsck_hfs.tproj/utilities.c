@@ -66,8 +66,8 @@
 
 #include "fsck_hfs.h"
 
-static char *rawname __P((char *name));
-static char *unrawname __P((char *name));
+char *rawname __P((char *name));
+char *unrawname __P((char *name));
 
 
 int
@@ -202,7 +202,7 @@ retry:
 }
 
 
-static char *
+char *
 rawname(char *name)
 
 {
@@ -221,7 +221,7 @@ rawname(char *name)
 }
 
 
-static char *
+char *
 unrawname(char *name)
 {
 	char *dp;

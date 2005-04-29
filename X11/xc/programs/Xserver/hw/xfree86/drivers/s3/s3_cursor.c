@@ -24,7 +24,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_cursor.c,v 1.1 2001/07/02 10:46:04 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_cursor.c,v 1.2 2003/07/17 08:19:36 eich Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -195,7 +195,9 @@ static void S3LoadCursorImage(ScrnInfoPtr pScrn, unsigned char *image)
 
 static Bool S3UseHWCursor(ScreenPtr pScreen, CursorPtr pCurs)
 {
-	return TRUE;
+	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+	S3Ptr pS3 = S3PTR(pScrn);
+	return (pS3->hwCursor);
 }
 
 

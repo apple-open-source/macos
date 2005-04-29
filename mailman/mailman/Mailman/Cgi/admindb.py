@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -189,6 +189,11 @@ def main():
                 + ' <em>%s</em>' % mlist.real_name))
         if not details:
             form.AddItem(Center(SubmitButton('submit', _('Submit All Data'))))
+        form.AddItem(Center(
+            CheckBox('discardalldefersp', 0).Format() +
+            '&nbsp;' +
+            _('Discard all messages marked <em>Defer</em>')
+            ))
         # Add a link back to the overview, if we're not viewing the overview!
         adminurl = mlist.GetScriptURL('admin', absolute=1)
         d = {'listname'  : mlist.real_name,
@@ -231,6 +236,11 @@ def main():
         if addform:
             doc.AddItem(form)
             form.AddItem('<hr>')
+            form.AddItem(Center(
+                CheckBox('discardalldefersp', 0).Format() +
+                '&nbsp;' +
+                _('Discard all messages marked <em>Defer</em>')
+                ))
             form.AddItem(Center(SubmitButton('submit', _('Submit All Data'))))
         doc.AddItem(mlist.GetMailmanFooter())
         print doc.Format()
@@ -674,6 +684,11 @@ def process_form(mlist, doc, cgidata):
                 sender = unquote_plus(k[len(prefix):])
                 value = cgidata.getvalue(k)
                 senderactions.setdefault(sender, {})[action] = value
+    # discard-all-defers
+    try:
+	discardalldefersp = cgidata.getvalue('discardalldefersp', 0)
+    except ValueError:
+	discardalldefersp = 0
     for sender in senderactions.keys():
         actions = senderactions[sender]
         # Handle what to do about all this sender's held messages
@@ -681,6 +696,8 @@ def process_form(mlist, doc, cgidata):
             action = int(actions.get('senderaction', mm_cfg.DEFER))
         except ValueError:
             action = mm_cfg.DEFER
+	if action == mm_cfg.DEFER and discardalldefersp:
+	    action = mm_cfg.DISCARD
         if action in (mm_cfg.DEFER, mm_cfg.APPROVE,
                       mm_cfg.REJECT, mm_cfg.DISCARD):
             preserve = actions.get('senderpreserve', 0)

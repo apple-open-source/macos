@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -11,10 +11,9 @@
 #define STRENUM_H
 
 #include "unicode/uobject.h"
+#include "unicode/unistr.h"
 
 U_NAMESPACE_BEGIN
-
-class UnicodeString;
 
 /**
  * Base class for 'pure' C++ implementations of uenum api.  Adds a
@@ -43,120 +42,206 @@ class UnicodeString;
  * upon any subsequent call to the enumeration's destructor, next,
  * unext, snext, or reset.</p>
  *
- * @draft ICU 2.4 
+ * ICU 2.8 adds some default implementations and helper functions
+ * for subclasses.
+ *
+ * @stable ICU 2.4 
  */
 class U_COMMON_API StringEnumeration : public UObject { 
- public:
-  /**
-   * Destructor.
-   * @draft ICU 2.4
-   */
-  virtual ~StringEnumeration();
+public:
+    /**
+     * Destructor.
+     * @stable ICU 2.4
+     */
+    virtual ~StringEnumeration();
 
-  /**
-   * <p>Return the number of elements that the iterator traverses.  If
-   * the iterator is out of sync with its service, status is set to
-   * U_ENUM_OUT_OF_SYNC_ERROR, and the return value is zero.</p>
-   *
-   * <p>The return value will not change except possibly as a result of
-   * a subsequent call to reset, or if the iterator becomes out of sync.</p>
-   *
-   * <p>This is a convenience function. It can end up being very
-   * expensive as all the items might have to be pre-fetched
-   * (depending on the storage format of the data being
-   * traversed).</p>
-   *
-   * @param status the error code.
-   * @return number of elements in the iterator.
-   *
-   * @draft ICU 2.4 */
-  virtual int32_t count(UErrorCode& status) const = 0;
+    /**
+     * Clone this object, an instance of a subclass of StringEnumeration.
+     * Clones can be used concurrently in multiple threads.
+     * If a subclass does not implement clone(), or if an error occurs,
+     * then NULL is returned.
+     * The clone functions in all subclasses return a base class pointer
+     * because some compilers do not support covariant (same-as-this)
+     * return types; cast to the appropriate subclass if necessary.
+     * The caller must delete the clone.
+     *
+     * @return a clone of this object
+     *
+     * @see getDynamicClassID
+     * @draft ICU 2.8
+     */
+    virtual StringEnumeration *clone() const;
 
-  /**
-   * <p>Returns the next element as a NUL-terminated char*.  If there
-   * are no more elements, returns NULL.  If the resultLength pointer
-   * is not NULL, the length of the string (not counting the
-   * terminating NUL) is returned at that address.  If an error
-   * status is returned, the value at resultLength is undefined.</p>
-   *
-   * <p>The returned pointer is owned by this iterator and must not be
-   * deleted by the caller.  The pointer is valid until the next call
-   * to next, unext, snext, reset, or the enumerator's destructor.</p>
-   *
-   * <p>If the iterator is out of sync with its service, status is set
-   * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
-   *
-   * <p>If the native service string is a UChar* string, it is
-   * converted to char* with the invariant converter.  If the
-   * conversion fails (because a character cannot be converted) then
-   * status is set to U_INVARIANT_CONVERSION_ERROR and the return
-   * value is undefined (though not NULL).</p>
-   *
-   * @param status the error code.
-   * @param resultLength a pointer to receive the length, can be NULL.
-   * @return a pointer to the string, or NULL.
-   *
-   * @draft ICU 2.4 
-   */
-  virtual const char* next(int32_t *resultLength, UErrorCode& status) = 0;
+    /**
+     * <p>Return the number of elements that the iterator traverses.  If
+     * the iterator is out of sync with its service, status is set to
+     * U_ENUM_OUT_OF_SYNC_ERROR, and the return value is zero.</p>
+     *
+     * <p>The return value will not change except possibly as a result of
+     * a subsequent call to reset, or if the iterator becomes out of sync.</p>
+     *
+     * <p>This is a convenience function. It can end up being very
+     * expensive as all the items might have to be pre-fetched
+     * (depending on the storage format of the data being
+     * traversed).</p>
+     *
+     * @param status the error code.
+     * @return number of elements in the iterator.
+     *
+     * @stable ICU 2.4 */
+    virtual int32_t count(UErrorCode& status) const = 0;
 
-  /**
-   * <p>Returns the next element as a NUL-terminated UChar*.  If there
-   * are no more elements, returns NULL.  If the resultLength pointer
-   * is not NULL, the length of the string (not counting the
-   * terminating NUL) is returned at that address.  If an error
-   * status is returned, the value at resultLength is undefined.</p>
-   *
-   * <p>The returned pointer is owned by this iterator and must not be
-   * deleted by the caller.  The pointer is valid until the next call
-   * to next, unext, snext, reset, or the enumerator's destructor.</p>
-   *
-   * <p>If the iterator is out of sync with its service, status is set
-   * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
-   *
-   * @param status the error code.
-   * @param resultLength a ponter to receive the length, can be NULL.
-   * @return a pointer to the string, or NULL.
-   *
-   * @draft ICU 2.4 
-   */
-  virtual const UChar* unext(int32_t *resultLength, UErrorCode& status) = 0;
+    /**
+     * <p>Returns the next element as a NUL-terminated char*.  If there
+     * are no more elements, returns NULL.  If the resultLength pointer
+     * is not NULL, the length of the string (not counting the
+     * terminating NUL) is returned at that address.  If an error
+     * status is returned, the value at resultLength is undefined.</p>
+     *
+     * <p>The returned pointer is owned by this iterator and must not be
+     * deleted by the caller.  The pointer is valid until the next call
+     * to next, unext, snext, reset, or the enumerator's destructor.</p>
+     *
+     * <p>If the iterator is out of sync with its service, status is set
+     * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
+     *
+     * <p>If the native service string is a UChar* string, it is
+     * converted to char* with the invariant converter.  If the
+     * conversion fails (because a character cannot be converted) then
+     * status is set to U_INVARIANT_CONVERSION_ERROR and the return
+     * value is undefined (though not NULL).</p>
+     *
+     * Starting with ICU 2.8, the default implementation calls snext()
+     * and handles the conversion.
+     *
+     * @param status the error code.
+     * @param resultLength a pointer to receive the length, can be NULL.
+     * @return a pointer to the string, or NULL.
+     *
+     * @stable ICU 2.4 
+     */
+    virtual const char* next(int32_t *resultLength, UErrorCode& status);
 
-  /**
-   * <p>Returns the next element a UnicodeString*.  If there are no
-   * more elements, returns NULL.</p>
-   *
-   * <p>The returned pointer is owned by this iterator and must not be
-   * deleted by the caller.  The pointer is valid until the next call
-   * to next, unext, snext, reset, or the enumerator's destructor.</p>
-   *
-   * <p>If the iterator is out of sync with its service, status is set
-   * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
-   *
-   * @param status the error code.
-   * @return a pointer to the string, or NULL.
-   *
-   * @draft ICU 2.4 
-   */
-  virtual const UnicodeString* snext(UErrorCode& status) = 0;
+    /**
+     * <p>Returns the next element as a NUL-terminated UChar*.  If there
+     * are no more elements, returns NULL.  If the resultLength pointer
+     * is not NULL, the length of the string (not counting the
+     * terminating NUL) is returned at that address.  If an error
+     * status is returned, the value at resultLength is undefined.</p>
+     *
+     * <p>The returned pointer is owned by this iterator and must not be
+     * deleted by the caller.  The pointer is valid until the next call
+     * to next, unext, snext, reset, or the enumerator's destructor.</p>
+     *
+     * <p>If the iterator is out of sync with its service, status is set
+     * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
+     *
+     * Starting with ICU 2.8, the default implementation calls snext()
+     * and handles the conversion.
+     *
+     * @param status the error code.
+     * @param resultLength a ponter to receive the length, can be NULL.
+     * @return a pointer to the string, or NULL.
+     *
+     * @stable ICU 2.4 
+     */
+    virtual const UChar* unext(int32_t *resultLength, UErrorCode& status);
 
-  /**
-   * <p>Resets the iterator.  This re-establishes sync with the
-   * service and rewinds the iterator to start at the first
-   * element.</p>
-   *
-   * <p>Previous pointers returned by next, unext, or snext become
-   * invalid, and the value returned by count might change.</p>
-   *
-   * @param status the error code.
-   *
-   * @draft ICU 2.4 
-   */
-  virtual void reset(UErrorCode& status) = 0;
+    /**
+     * <p>Returns the next element a UnicodeString*.  If there are no
+     * more elements, returns NULL.</p>
+     *
+     * <p>The returned pointer is owned by this iterator and must not be
+     * deleted by the caller.  The pointer is valid until the next call
+     * to next, unext, snext, reset, or the enumerator's destructor.</p>
+     *
+     * <p>If the iterator is out of sync with its service, status is set
+     * to U_ENUM_OUT_OF_SYNC_ERROR and NULL is returned.</p>
+     *
+     * @param status the error code.
+     * @return a pointer to the string, or NULL.
+     *
+     * @stable ICU 2.4 
+     */
+    virtual const UnicodeString* snext(UErrorCode& status) = 0;
+
+    /**
+     * <p>Resets the iterator.  This re-establishes sync with the
+     * service and rewinds the iterator to start at the first
+     * element.</p>
+     *
+     * <p>Previous pointers returned by next, unext, or snext become
+     * invalid, and the value returned by count might change.</p>
+     *
+     * @param status the error code.
+     *
+     * @stable ICU 2.4 
+     */
+    virtual void reset(UErrorCode& status) = 0;
+
+protected:
+    /**
+     * UnicodeString field for use with default implementations and subclasses.
+     * @draft ICU 2.8
+     */
+    UnicodeString unistr;
+    /**
+     * char * default buffer for use with default implementations and subclasses.
+     * @draft ICU 2.8
+     */
+    char charsBuffer[32];
+    /**
+     * char * buffer for use with default implementations and subclasses.
+     * Allocated in constructor and in ensureCharsCapacity().
+     * @draft ICU 2.8
+     */
+    char *chars;
+    /**
+     * Capacity of chars, for use with default implementations and subclasses.
+     * @draft ICU 2.8
+     */
+    int32_t charsCapacity;
+
+    /**
+     * Default constructor for use with default implementations and subclasses.
+     * @draft ICU 2.8
+     */
+    StringEnumeration();
+
+    /**
+     * Ensures that chars is at least as large as the requested capacity.
+     * For use with default implementations and subclasses.
+     *
+     * @param capacity Requested capacity.
+     * @param status ICU in/out error code.
+     * @draft ICU 2.8
+     */
+    void ensureCharsCapacity(int32_t capacity, UErrorCode &status);
+
+    /**
+     * Converts s to Unicode and sets unistr to the result.
+     * For use with default implementations and subclasses,
+     * especially for implementations of snext() in terms of next().
+     * This is provided with a helper function instead of a default implementation
+     * of snext() to avoid potential infinite loops between next() and snext().
+     *
+     * For example:
+     * \code
+     * const UnicodeString* snext(UErrorCode& status) {
+     *   int32_t resultLength=0;
+     *   const char *s=next(&resultLength, status);
+     *   return setChars(s, resultLength, status);
+     * }
+     * \endcode
+     *
+     * @param s String to be converted to Unicode.
+     * @param length Length of the string.
+     * @param status ICU in/out error code.
+     * @return A pointer to unistr.
+     * @draft ICU 2.8
+     */
+    UnicodeString *setChars(const char *s, int32_t length, UErrorCode &status);
 };
-
-inline StringEnumeration::~StringEnumeration() {
-}
 
 U_NAMESPACE_END
 

@@ -1,9 +1,28 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.26.2.3 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
 /* ava.c - routines for dealing with attribute value assertions */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ava.c,v 1.34.2.4 2004/04/12 18:13:21 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
 
 #include "portable.h"
 
@@ -17,23 +36,24 @@
 
 void
 ava_free(
-    AttributeAssertion *ava,
-    int	freeit
+	Operation *op,
+	AttributeAssertion *ava,
+	int	freeit
 )
 {
-	free( ava->aa_value.bv_val );
+	op->o_tmpfree( ava->aa_value.bv_val, op->o_tmpmemctx );
 	if ( freeit ) {
-		ch_free( (char *) ava );
+		op->o_tmpfree( (char *) ava, op->o_tmpmemctx );
 	}
 }
 
 int
 get_ava(
-    BerElement	*ber,
-    AttributeAssertion	**ava,
+	Operation *op,
+	BerElement	*ber,
+	AttributeAssertion	**ava,
 	unsigned usage,
-	const char **text
-)
+	const char **text )
 {
 	int rc;
 	ber_tag_t rtag;
@@ -52,22 +72,37 @@ get_ava(
 		return SLAPD_DISCONNECT;
 	}
 
-	aa = ch_malloc( sizeof( AttributeAssertion ) );
+	aa = op->o_tmpalloc( sizeof( AttributeAssertion ), op->o_tmpmemctx );
 	aa->aa_desc = NULL;
 	aa->aa_value.bv_val = NULL;
 
 	rc = slap_bv2ad( &type, &aa->aa_desc, text );
 
 	if( rc != LDAP_SUCCESS ) {
-		ch_free( aa );
+#ifdef NEW_LOGGING
+		LDAP_LOG( FILTER, ERR,
+		"get_ava: unknown attributeType %s\n", type.bv_val, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_FILTER,
+		"get_ava: unknown attributeType %s\n", type.bv_val, 0, 0 );
+#endif
+		op->o_tmpfree( aa, op->o_tmpmemctx );
 		return rc;
 	}
 
-	rc = value_validate_normalize( aa->aa_desc, usage,
-		&value, &aa->aa_value, text );
+	rc = asserted_value_validate_normalize(
+		aa->aa_desc, ad_mr(aa->aa_desc, usage),
+		usage, &value, &aa->aa_value, text, op->o_tmpmemctx );
 
 	if( rc != LDAP_SUCCESS ) {
-		ch_free( aa );
+#ifdef NEW_LOGGING
+		LDAP_LOG( FILTER, ERR,
+		"get_ava: illegal value for attributeType %s\n", type.bv_val, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_FILTER,
+		"get_ava: illegal value for attributeType %s\n", type.bv_val, 0, 0 );
+#endif
+		op->o_tmpfree( aa, op->o_tmpmemctx );
 		return rc;
 	}
 

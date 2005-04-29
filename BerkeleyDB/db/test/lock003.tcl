@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: lock003.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: lock003.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 # TEST	lock003
 # TEST	Exercise multi-process aspects of lock.  Generate a bunch of parallel
@@ -55,8 +55,10 @@ proc lock003 { {iter 500} {max 1000} {procs 5} } {
 	watch_procs $pidlist 30 10800
 
 	# Check for test failure
-	set e [eval findfail [glob $testdir/lock003.*.out]]
-	error_check_good "FAIL: error message(s) in log files" $e 0
+	set errstrings [eval findfail [glob $testdir/lock003.*.out]]
+	foreach str $errstrings {
+		puts "FAIL: error message in .out file: $str"
+	}
 
 	# Remove log files
 	for { set i 0 } {$i < $procs} {incr i} {

@@ -57,11 +57,6 @@ Changes for the 5.16 release (the cctools-499.2 release):
 - Added a dummy definition of __cxa_finalize() to resolve a dyld link
   failure due to changes in Libc-326. Radar bug #3586910.
 
-Changes for the SUPanWheat 10.3.9 release (the cctools-495.9 release):
-- Fixed a problem with weak symbols for rdar bug #4062410.  If the 
-  main executable has bind-at-load set, then weak undefines were never bound
-  even if a definition was found.
-
 Changes for the SUPanLavender 10.3.4 release (the cctools-495.8 release):
 - Fixed a problem with the change for Radar bug #3622330 in cctools-494.4 in
   relocate_symbol_pointers_in_object_image() in symbols.c in that the code that

@@ -1,3 +1,5 @@
+// $XFree86: xc/programs/xkbcomp/symbols/yu,v 1.5 2003/10/24 20:38:20 tsi Exp $
+//
 // Converted keytable file to xkb/symbols/ file
 // with mk_xkb by root@linux.chanae.stben.be Tue Sep 30 00:34:26 MET DST 1997
 
@@ -52,7 +54,7 @@ xkb_symbols "basic" {
 			[ bracketright			]	};
     key <AC08> {	[         k,	K        	],
 			[   lstroke			]	};
-    key <AC09> {	[         l,	l        	],
+    key <AC09> {	[         l,	L        	],
 			[   Lstroke			]	};
     key <AC10> {	[    ccaron,	Ccaron   	]	};
     key <AC11> {	[    cacute,	Cacute   	],

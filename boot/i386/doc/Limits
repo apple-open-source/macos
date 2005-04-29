@@ -1,11 +1,2 @@
-Limits on various things
-
-Sarld can only be 128k long (when loaded).
-Drivers relocatable files can't be bigger than 320K.
-Kernel symbols can't be bigger than 512k.
-Sarld can't use more than 1024k of malloc memory.
-Kernel symbols can't be more than 512k bytes long.
-Kernel + drivers can't be more than 5.5Mb.
-
 The memory map and sizes of various things are in libsa/memory.h.
 

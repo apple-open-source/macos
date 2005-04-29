@@ -42,16 +42,18 @@ import java.io.IOException;
 import java.io.FileDescriptor;
 
 /**
- * Written using on-line Java Platform 1.2 API Specification, as well
- * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
- * Status:  Believed complete and correct.
- *
- * <p>This abstract class models a datagram socket implementation.  An
+ * This abstract class models a datagram socket implementation.  An
  * actual implementation class would implement these methods, probably
  * via redirecting them to native code.
+ * <p>
+ * Written using on-line Java Platform 1.2 API Specification, as well
+ * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
+ * <p>
+ * Status:  Believed complete and correct.
  *
  * @author Aaron M. Renn (arenn@urbanophile.com)
  * @author Warren Levy <warrenl@cygnus.com>
+ * @since 1.1
  */
 public abstract class DatagramSocketImpl implements SocketOptions
 {
@@ -106,8 +108,28 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * @return The port number of the sender of the packet
    *
    * @exception IOException If an error occurs
+   * @exception PortUnreachableException May be thrown if the socket is
+   * connected to a currently unreachable destination. Note, there is no
+   * guarantee that the exception will be thrown.
    */
   protected abstract int peek(InetAddress i) throws IOException;
+
+  /**
+   * Takes a peek at the next packet received.  This packet is not consumed.
+   * With the next peekData/receive operation this packet will be read again.
+   * 
+   * @param p The DatagramPacket to fill in with the data sent.
+   *
+   * @return The port number of the sender of the packet.
+   * 
+   * @exception IOException If an error occurs
+   * @exception PortUnreachableException May be thrown if the socket is
+   * connected to a currently unreachable destination. Note, there is no
+   * guarantee that the exception will be thrown.
+   * 
+   * @since 1.4
+   */
+  protected abstract int peekData (DatagramPacket p) throws IOException;
 
   /**
    * Transmits the specified packet of data to the network.  The destination
@@ -116,6 +138,9 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * @param p The packet to send
    *
    * @exception IOException If an error occurs
+   * @exception PortUnreachableException May be thrown if the socket is
+   * connected to a currently unreachable destination. Note, there is no
+   * guarantee that the exception will be thrown.
    */
   protected abstract void send(DatagramPacket p) throws IOException;
 
@@ -127,8 +152,36 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * @param p A place to store the incoming packet.
    *
    * @exception IOException If an error occurs
+   * @exception PortUnreachableException May be thrown if the socket is
+   * connected to a currently unreachable destination. Note, there is no
+   * guarantee that the exception will be thrown.
    */
   protected abstract void receive(DatagramPacket p) throws IOException;
+
+  /**
+   * Connects the socket to a host specified by address and port.
+   *
+   * @param address The InetAddress of the host to connect to
+   * @param port The port number of the host to connect to
+   *
+   * @exception SocketException If an error occurs
+   *
+   * @since 1.4
+   */
+  protected void connect (InetAddress address, int port) throws SocketException
+  {
+    // This method has to be overwritten by real implementations
+  }
+
+  /**
+   * Disconnects the socket.
+   * 
+   * @since 1.4
+   */
+  protected void disconnect ()
+  {
+    // This method has to be overwritten by real implementations
+  }
 
   /**
    * Sets the Time to Live (TTL) setting on this socket to the specified
@@ -187,6 +240,35 @@ public abstract class DatagramSocketImpl implements SocketOptions
   protected abstract void leave(InetAddress inetaddr) throws IOException;
 
   /**
+   * Causes this socket to join the specified multicast group on a specified
+   * device 
+   * 
+   * @param mcastaddr The address to leave
+   * @param netIf The specified network interface to join the group at
+   *
+   * @exception IOException If an error occurs
+   * 
+   * @since 1.4
+   */
+  protected abstract void joinGroup (SocketAddress mcastaddr,
+		                     NetworkInterface netIf)
+    throws IOException;
+
+  /**
+   * Leaves a multicast group
+   * 
+   * @param mcastaddr The address to join
+   * @param netIf The specified network interface to leave the group at
+   *
+   * @exception IOException If an error occurs
+   * 
+   * @since 1.4
+   */
+  protected abstract void leaveGroup (SocketAddress mcastaddr,
+		                      NetworkInterface netIf)
+    throws IOException;
+  
+  /**
    * Returns the FileDescriptor for this socket
    */
   protected FileDescriptor getFileDescriptor()
@@ -206,7 +288,7 @@ public abstract class DatagramSocketImpl implements SocketOptions
    * Sets the specified option on a socket to the passed in object.  For
    * options that take an integer argument, the passed in object is an
    * <code>Integer</code>.  For options that are set to on or off, the
-   * value passed will be a <code>Boolean</code>.   The <code>option_id</code> 
+   * value passed will be a <code>Boolean</code>.   The <code>option_id</code>
    * parameter is one of the defined constants in the superinterface.
    *
    * @param option_id The identifier of the option
@@ -219,9 +301,9 @@ public abstract class DatagramSocketImpl implements SocketOptions
     throws SocketException;
 
   /**
-   * Returns the current setting of the specified option.  The 
-   * <code>Object</code> returned will be an <code>Integer</code> for options 
-   * that have integer values.  For options that are set to on or off, a 
+   * Returns the current setting of the specified option.  The
+   * <code>Object</code> returned will be an <code>Integer</code> for options
+   * that have integer values.  For options that are set to on or off, a
    * <code>Boolean</code> will be returned.   The <code>option_id</code>
    * is one of the defined constants in the superinterface.
    *

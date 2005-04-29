@@ -1,5 +1,5 @@
 #!/bin/sh
-# $XFree86: xc/programs/xterm/vttests/8colors.sh,v 1.4 2002/09/30 00:39:08 dickey Exp $
+# $XFree86: xc/programs/xterm/vttests/8colors.sh,v 1.5 2003/05/19 00:52:30 dickey Exp $
 #
 # -- Thomas Dickey (1999/3/27)
 # Show a simple 8-color test pattern
@@ -25,7 +25,13 @@ for verb in printf print ; do
 done
 rm -f $TMP
 
-trap '$CMD $OPT "[0m"; exit' 0 1 2 5 15
+if ( trap "echo exit" EXIT 2>/dev/null ) >/dev/null
+then
+    trap '$CMD $OPT "[0m"; exit' EXIT HUP INT TRAP TERM
+else
+    trap '$CMD $OPT "[0m"; exit' 0    1   2   5    15
+fi
+
 echo "[0m"
 while true
 do

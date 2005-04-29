@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2924: Origin of test
+dnl ../doc/m4.texinfo:2925: Origin of test
 define(`vice', `esyscmd(grep Vice ../COPYING)')
 dnl @result{}
 vice

@@ -19,6 +19,11 @@ void            send_enterprise_trap_vars(int trap, int specific,
                                           oid * enterprise,
                                           int enterprise_length,
                                           netsnmp_variable_list * vars);
+int             netsnmp_send_traps(int trap, int specific,
+                          oid * enterprise, int enterprise_length,
+                          netsnmp_variable_list * vars,
+                          /* These next two are currently unused */
+                          char * context, int flags);
 void            snmpd_parse_config_authtrap(const char *, char *);
 void            snmpd_parse_config_trapsink(const char *, char *);
 void            snmpd_parse_config_trap2sink(const char *, char *);
@@ -33,6 +38,11 @@ void            send_trap_to_sess(netsnmp_session * sess,
 int             create_trap_session(char *, u_short, char *, int, int);
 int             add_trap_session(netsnmp_session *, int, int, int);
 int             remove_trap_session(netsnmp_session *);
+
+void                   convert_v2_to_v1(netsnmp_variable_list *, netsnmp_pdu *);
+netsnmp_variable_list *convert_v1_to_v2(netsnmp_pdu *);
+netsnmp_pdu    *convert_v2pdu_to_v1(netsnmp_pdu *);
+netsnmp_pdu    *convert_v1pdu_to_v2(netsnmp_pdu *);
 
 #ifdef __cplusplus
 }

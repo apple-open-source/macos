@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -34,9 +34,11 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.awt.image;
 
-import java.awt.*;
+import java.awt.Point;
+import java.awt.Rectangle;
 
 /**
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
@@ -79,8 +81,15 @@ public class Raster
     this.minY = aRegion.y;
     this.width = aRegion.width;
     this.height = aRegion.height;
-    this.sampleModelTranslateX = sampleModelTranslate.x;
-    this.sampleModelTranslateY = sampleModelTranslate.y;
+    
+    // If sampleModelTranslate is null, use (0,0).  Methods such as
+    // Raster.createRaster are specified to allow for a null argument.
+    if (sampleModelTranslate != null)
+    {
+      this.sampleModelTranslateX = sampleModelTranslate.x;
+      this.sampleModelTranslateY = sampleModelTranslate.y;
+    }
+
     this.numBands = sampleModel.getNumBands();
     this.numDataElements = sampleModel.getNumDataElements();
     this.parent = parent;
@@ -443,4 +452,25 @@ public class Raster
 				  y-sampleModelTranslateY,
 				  w, h, b, dArray, dataBuffer);
   }
+  
+  /**
+   * Create a String representing the stat of this Raster.
+   * @return A String representing the stat of this Raster.
+   * @see java.lang.Object#toString()
+   */
+  public String toString()
+  {
+    StringBuffer result = new StringBuffer();
+    
+    result.append(getClass().getName());
+    result.append("[(");
+    result.append(minX).append(",").append(minY).append("), ");
+    result.append(width).append(" x ").append(height).append(",");
+    result.append(sampleModel).append(",");
+    result.append(dataBuffer);
+    result.append("]");
+    
+    return result.toString();
+  }
+  
 }

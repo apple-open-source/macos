@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: lock002.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: lock002.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 # TEST	lock002
 # TEST	Exercise basic multi-process aspects of lock.

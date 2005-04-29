@@ -29,7 +29,7 @@
 # Author: Thomas Dickey
 #    and: Ilya Zakharevich
 #
-# $Id: Caps.keys,v 1.1.1.1 2001/11/29 20:40:53 jevans Exp $
+# $Id: Caps.keys,v 1.2 2002/04/20 15:43:49 tom Exp $
 #
 # This is an adaptation of ncurses' termcap/terminfo capability table, which
 # is illustrates an experimental extension to describe alt-, shift- and
@@ -799,10 +799,10 @@ set_a_background		setab	str	AB	-		-	-----	Set background color to #1, using ANSI
 pkey_plab			pfxl	str	xl	-		-	-----	Program function key #1 to type string #2 and show string #3
 device_type			devt	str	dv	-		-	-----	Indicate language/codeset support
 code_set_init			csin	str	ci	-		-	-----	Init sequence for multiple codesets
-set0_des_seq			s0ds	str	s0	-		-	-----	Shift to code set 0 (EUC set 0, ASCII)
-set1_des_seq			s1ds	str	s1	-		-	-----	Shift to code set 1
-set2_des_seq			s2ds	str	s2	-		-	-----	Shift to code set 2
-set3_des_seq			s3ds	str	s3	-		-	-----	Shift to code set 3
+set0_des_seq			s0ds	str	s0	-		-	-----	Shift to codeset 0 (EUC set 0, ASCII)
+set1_des_seq			s1ds	str	s1	-		-	-----	Shift to codeset 1
+set2_des_seq			s2ds	str	s2	-		-	-----	Shift to codeset 2
+set3_des_seq			s3ds	str	s3	-		-	-----	Shift to codeset 3
 set_lr_margin			smglr	str	ML	-		-	-----	Set both left and right margins to #1, #2.  (ML is not in BSD termcap).
 set_tb_margin			smgtb	str	MT	-		-	-----	Sets both top and bottom margins to #1, #2
 bit_image_repeat		birep	str	Xy	-		-	-----	Repeat bit image cell #1 #2 times

@@ -1,36 +1,36 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
    Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
 
-   This file is part of GNU CC.
+   This file is part of GCC.
 
-   GNU CC is free software; you can redistribute it and/or modify
+   GCC is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
 
-   GNU CC is distributed in the hope that it will be useful,
+   GCC is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with GNU CC; see the file COPYING.  If not, write to
+   along with GCC; see the file COPYING.  If not, write to
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
 /* RUN-TIME TARGET SPECIFICATION.  */
-
-#include "hwint.h"
 
 #define C4x   1
 
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
+      /* ??? HACK.  We shouldn't have flag_inline_trees at all.  */ \
+      extern int flag_inline_trees;		\
       if (!TARGET_SMALL)			\
 	builtin_define ("_BIGMODEL");		\
       if (!TARGET_MEMPARM)			\
@@ -237,7 +237,7 @@
   { "no-force", -FORCE_FLAG,						\
     N_("Allow RTL generation to emit invalid 3 operand insns") },	\
   { "loop-unsigned", LOOP_UNSIGNED_FLAG,				\
-    N_("Allow unsigned interation counts for RPTB/DB") },		\
+    N_("Allow unsigned iteration counts for RPTB/DB") },		\
   { "no-loop-unsigned", -LOOP_UNSIGNED_FLAG,				\
     N_("Disallow unsigned iteration counts for RPTB/DB") },		\
   { "preserve-float", PRESERVE_FLOAT_FLAG,				\
@@ -306,11 +306,14 @@ extern int target_flags;
 #define TARGET_C40		(target_flags & C40_FLAG)
 #define TARGET_C44		(target_flags & C44_FLAG)
 
-/* Define some options to control code generation.  */
+/* Nonzero to use load_immed_addr pattern rather than forcing memory
+   addresses into memory.  */
 #define TARGET_LOAD_ADDRESS	(1 || (! TARGET_C3X && ! TARGET_SMALL))
+
 /* Nonzero to convert direct memory references into HIGH/LO_SUM pairs
    during RTL generation.  */
 #define TARGET_EXPOSE_LDP	0
+
 /* Nonzero to force loading of direct memory references into a register.  */
 #define TARGET_LOAD_DIRECT_MEMS	0
 
@@ -320,17 +323,15 @@ extern int target_flags;
 
 #define TARGET_RPTS_CYCLES(CYCLES) (TARGET_RPTS || (CYCLES) < c4x_rpts_cycles)
 
-#define	BCT_CHECK_LOOP_ITERATIONS  !(TARGET_LOOP_UNSIGNED)
-
 /* -mcpu=XX    with XX = target DSP version number.  */
 
 extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 
 #define TARGET_OPTIONS						\
 { {"rpts=", &c4x_rpts_cycles_string,				\
-   N_("Specify maximum number of iterations for RPTS") },	\
+   N_("Specify maximum number of iterations for RPTS"), 0},	\
   {"cpu=", &c4x_cpu_version_string,				\
-   N_("Select CPU to generate code for") } }
+   N_("Select CPU to generate code for"), 0} }
 
 /* Sometimes certain combinations of command options do not make sense
    on a particular target machine.  You can define a macro
@@ -775,9 +776,9 @@ enum reg_class
    is defined since the MPY|ADD insns require the classes R0R1_REGS and
    R2R3_REGS which are used by the function return registers (R0,R1) and
    the register arguments (R2,R3), respectively.  I'm reluctant to define
-   this macro since it stomps on many potential optimisations.  Ideally
+   this macro since it stomps on many potential optimizations.  Ideally
    it should have a register class argument so that not all the register
-   classes gets penalised for the sake of a naughty few...  For long
+   classes gets penalized for the sake of a naughty few...  For long
    double arithmetic we need two additional registers that we can use as
    spill registers.  */
 
@@ -1113,7 +1114,7 @@ typedef struct c4x_args
 }
 CUMULATIVE_ARGS;
 
-#define INIT_CUMULATIVE_ARGS(CUM,FNTYPE,LIBNAME,INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
   (c4x_init_cumulative_args (&CUM, FNTYPE, LIBNAME))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
@@ -1128,10 +1129,6 @@ CUMULATIVE_ARGS;
    the profitability is marginal anyway.  */
 
 #define CALLER_SAVE_PROFITABLE(REFS,CALLS) 0
-
-/* Never pass data by reference.  */
-
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM, MODE, TYPE, NAMED) 0
 
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) 0
 
@@ -1150,22 +1147,16 @@ CUMULATIVE_ARGS;
 /* How Scalar Function Values Are Returned.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-	gen_rtx(REG, TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (TYPE_MODE(VALTYPE), R0_REGNO)	/* Return in R0.  */
 
 #define LIBCALL_VALUE(MODE) \
-	gen_rtx(REG, MODE, R0_REGNO)	/* Return in R0.  */
+	gen_rtx_REG (MODE, R0_REGNO)	/* Return in R0.  */
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) ((REGNO) == R0_REGNO)
 
 /* How Large Values Are Returned.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN	0
-#define STRUCT_VALUE_REGNUM		AR0_REGNO	/* AR0.  */
-
-/* Varargs handling.  */
-
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  c4x_va_arg (valist, type)
 
 /* Generating Code for Profiling.  */
 
@@ -1192,93 +1183,6 @@ CUMULATIVE_ARGS;
 	fprintf (FILE, "\tcall\tmcount\n");			\
 	fprintf (FILE, "\tpop\tar2\n");				\
      }
-
-/* Implicit Calls to Library Routines.  */
-
-#define MULQI3_LIBCALL      "__mulqi3"
-#define DIVQI3_LIBCALL      "__divqi3"
-#define UDIVQI3_LIBCALL     "__udivqi3"
-#define MODQI3_LIBCALL      "__modqi3"
-#define UMODQI3_LIBCALL     "__umodqi3"
-
-#define DIVQF3_LIBCALL      "__divqf3"
-
-#define MULHF3_LIBCALL      "__mulhf3"
-#define DIVHF3_LIBCALL      "__divhf3"
-
-#define MULHI3_LIBCALL      "__mulhi3"
-#define SMULHI3_LIBCALL     "__smulhi3_high"
-#define UMULHI3_LIBCALL     "__umulhi3_high"
-#define DIVHI3_LIBCALL      "__divhi3"
-#define UDIVHI3_LIBCALL     "__udivhi3"
-#define MODHI3_LIBCALL      "__modhi3"
-#define UMODHI3_LIBCALL     "__umodhi3"
-
-#define FLOATHIQF2_LIBCALL  "__floathiqf2"
-#define FLOATUNSHIQF2_LIBCALL  "__ufloathiqf2"
-#define FIX_TRUNCQFHI2_LIBCALL "__fix_truncqfhi2"
-#define FIXUNS_TRUNCQFHI2_LIBCALL "__ufix_truncqfhi2"
-
-#define FLOATHIHF2_LIBCALL  "__floathihf2"
-#define FLOATUNSHIHF2_LIBCALL  "__ufloathihf2"
-#define FIX_TRUNCHFHI2_LIBCALL "__fix_trunchfhi2"
-#define FIXUNS_TRUNCHFHI2_LIBCALL "__ufix_trunchfhi2"
-
-#define FFS_LIBCALL	    "__ffs"
-
-#define INIT_TARGET_OPTABS \
-  do { \
-    smul_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (MULQI3_LIBCALL);		\
-    sdiv_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (DIVQI3_LIBCALL);		\
-    udiv_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (UDIVQI3_LIBCALL);		\
-    smod_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (MODQI3_LIBCALL);		\
-    umod_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (UMODQI3_LIBCALL);		\
-    sdiv_optab->handlers[(int) QFmode].libfunc		\
-      = init_one_libfunc (DIVQF3_LIBCALL);		\
-    smul_optab->handlers[(int) HFmode].libfunc		\
-      = init_one_libfunc (MULHF3_LIBCALL);		\
-    sdiv_optab->handlers[(int) HFmode].libfunc		\
-      = init_one_libfunc (DIVHF3_LIBCALL);		\
-    smul_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (MULHI3_LIBCALL);		\
-    sdiv_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (DIVHI3_LIBCALL);		\
-    udiv_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (UDIVHI3_LIBCALL);		\
-    smod_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (MODHI3_LIBCALL);		\
-    umod_optab->handlers[(int) HImode].libfunc		\
-      = init_one_libfunc (UMODHI3_LIBCALL);		\
-    ffs_optab->handlers[(int) QImode].libfunc		\
-      = init_one_libfunc (FFS_LIBCALL);			\
-    smulhi3_libfunc					\
-      = init_one_libfunc(SMULHI3_LIBCALL);		\
-    umulhi3_libfunc					\
-      = init_one_libfunc(UMULHI3_LIBCALL);		\
-    fix_truncqfhi2_libfunc				\
-      = init_one_libfunc(FIX_TRUNCQFHI2_LIBCALL);	\
-    fixuns_truncqfhi2_libfunc				\
-      = init_one_libfunc(FIXUNS_TRUNCQFHI2_LIBCALL);	\
-    fix_trunchfhi2_libfunc				\
-      = init_one_libfunc(FIX_TRUNCHFHI2_LIBCALL);	\
-    fixuns_trunchfhi2_libfunc				\
-      = init_one_libfunc(FIXUNS_TRUNCHFHI2_LIBCALL);	\
-    floathiqf2_libfunc					\
-      = init_one_libfunc(FLOATHIQF2_LIBCALL);		\
-    floatunshiqf2_libfunc				\
-      = init_one_libfunc(FLOATUNSHIQF2_LIBCALL);	\
-    floathihf2_libfunc					\
-      = init_one_libfunc(FLOATHIHF2_LIBCALL);		\
-    floatunshihf2_libfunc				\
-      = init_one_libfunc(FLOATUNSHIHF2_LIBCALL);	\
-  } while (0)
-
-#define TARGET_MEM_FUNCTIONS
 
 /* CC_NOOVmode should be used when the first operand is a PLUS, MINUS, NEG
    or MULT.
@@ -1332,7 +1236,7 @@ CUMULATIVE_ARGS;
 
 #ifndef REG_OK_STRICT
 
-/* Nonzero if X is a hard or pseudo reg that can be used as an base.  */
+/* Nonzero if X is a hard or pseudo reg that can be used as a base.  */
 
 #define REG_OK_FOR_BASE_P(X) IS_ADDR_OR_PSEUDO_REG(X)
 
@@ -1342,7 +1246,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 0))				\
+  if (c4x_legitimate_address_p (MODE, X, 0))				\
     goto ADDR;								\
 }
 
@@ -1358,7 +1262,7 @@ CUMULATIVE_ARGS;
 
 #define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)				\
 {									\
-  if (c4x_check_legit_addr (MODE, X, 1))				\
+  if (c4x_legitimate_address_p (MODE, X, 1))				\
     goto ADDR;								\
 }
 
@@ -1367,6 +1271,7 @@ CUMULATIVE_ARGS;
 #define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN) \
 {									\
   rtx new;								\
+									\
   new = c4x_legitimize_address (X, MODE);				\
   if (new != NULL_RTX)							\
   {									\
@@ -1388,7 +1293,7 @@ CUMULATIVE_ARGS;
       if (! TARGET_SMALL)						\
 	{								\
           int i;							\
-      	  X = gen_rtx_LO_SUM (GET_MODE (X),				\
+      	  (X) = gen_rtx_LO_SUM (GET_MODE (X),				\
 			      gen_rtx_HIGH (GET_MODE (X), X), X);	\
           i = push_reload (XEXP (X, 0), NULL_RTX,			\
 			   &XEXP (X, 0), NULL,				\
@@ -1398,6 +1303,12 @@ CUMULATIVE_ARGS;
 	     normally not be used so force it.  */			\
           rld[i].reg_rtx = gen_rtx_REG (Pmode, DP_REGNO); 		\
           rld[i].nocombine = 1; 					\
+        }								\
+      else								\
+        {								\
+          /* make_memloc in reload will substitute invalid memory       \
+             references.  We need to fix them up.  */                   \
+          (X) = gen_rtx_LO_SUM (Pmode, gen_rtx_REG (Pmode, DP_REGNO), (X)); \
         }								\
       goto WIN;								\
    }									\
@@ -1461,107 +1372,7 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Descripting Relative Cost of Operations.  */
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE. 
-
-   Note that we return, rather than break so that rtx_cost doesn't
-   include CONST_COSTS otherwise expand_mult will think that it is
-   cheaper to synthesize a multiply rather than to use a multiply
-   instruction.  I think this is because the algorithm synth_mult
-   doesn't take into account the loading of the operands, whereas the
-   calculation of mult_cost does. 
-*/
-
-
-#define RTX_COSTS(RTX, CODE, OUTER_CODE)				\
-    case PLUS:								\
-    case MINUS:								\
-    case AND:								\
-    case IOR:								\
-    case XOR:								\
-    case ASHIFT:							\
-    case ASHIFTRT:							\
-    case LSHIFTRT:							\
-    return COSTS_N_INSNS (1);						\
-    case MULT:								\
-    return COSTS_N_INSNS (GET_MODE_CLASS (GET_MODE (RTX)) == MODE_FLOAT \
-			  || TARGET_MPYI ? 1 : 14);			\
-    case DIV:								\
-    case UDIV:								\
-    case MOD: 								\
-    case UMOD:								\
-    return COSTS_N_INSNS (GET_MODE_CLASS (GET_MODE (RTX)) == MODE_FLOAT	\
-			  ? 15 : 50);
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.
-
-   An insn is assumed to cost 4 units.
-   COSTS_N_INSNS (N) is defined as (N) * 4 - 2.
-
-   Some small integers are effectively free for the C40.  We should
-   also consider if we are using the small memory model.  With
-   the big memory model we require an extra insn for a constant
-   loaded from memory.  
-
-   This is used by expand_binop to decide whether to force a constant
-   into a register.  If the cost is greater than 2 and the constant
-   is used within a short loop, it gets forced into a register.  
-   Ideally, there should be some weighting as to how mnay times it is used
-   within the loop.  */
-
-#define SHIFT_CODE_P(C) ((C) == ASHIFT || (C) == ASHIFTRT || (C) == LSHIFTRT)
-
-#define LOGICAL_CODE_P(C) ((C) == NOT || (C) == AND \
-                           || (C) == IOR || (C) == XOR)
-
-#define NON_COMMUTATIVE_CODE_P ((C) == MINUS || (C) == COMPARE)
-
-#define CONST_COSTS(RTX,CODE,OUTER_CODE)			\
-	case CONST_INT:						\
-           if (c4x_J_constant (RTX))				\
-	     return 0;						\
-	   if (! TARGET_C3X					\
-	       && OUTER_CODE == AND				\
-               && GET_CODE (RTX) == CONST_INT			\
-	       && (INTVAL (RTX) == 255 || INTVAL (RTX) == 65535))	\
-	     return 0;						\
-	   if (! TARGET_C3X					\
-	       && (OUTER_CODE == ASHIFTRT || OUTER_CODE == LSHIFTRT)	\
-               && GET_CODE (RTX) == CONST_INT			\
-	       && (INTVAL (RTX) == 16 || INTVAL (RTX) == 24))	\
-	     return 0;						\
-           if (TARGET_C3X && SHIFT_CODE_P (OUTER_CODE))		\
-	     return 3;						\
-           if (LOGICAL_CODE_P (OUTER_CODE) 			\
-               ? c4x_L_constant (RTX) : c4x_I_constant (RTX))	\
-	     return 2;						\
-	case CONST:						\
-	case LABEL_REF:						\
-	case SYMBOL_REF:					\
-	   return 4;						\
-	case CONST_DOUBLE:					\
-	   if (c4x_H_constant (RTX))				\
-	     return 2;						\
-           if (GET_MODE (RTX) == QFmode)			\
-	     return 4;						\
-           else							\
-	     return 8;
-
-/* Compute the cost of an address.  This is meant to approximate the size
-   and/or execution delay of an insn using that address.  If the cost is
-   approximated by the RTL complexity, including CONST_COSTS above, as
-   is usually the case for CISC machines, this macro should not be defined.
-   For aggressively RISCy machines, only one insn format is allowed, so
-   this macro should be a constant.  The value of this macro only matters
-   for valid addresses.  We handle the most common address without 
-   a call to c4x_address_cost.  */
-
-#define ADDRESS_COST(ADDR) (REG_P (ADDR) ? 1 : c4x_address_cost (ADDR))
+/* Describing Relative Cost of Operations.  */
 
 #define	CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
 if (REG_P (OP1) && ! REG_P (OP0))			\
@@ -1619,9 +1430,9 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
   FINI_SECTION_FUNCTION
 
 #define INIT_SECTION_FUNCTION					\
-extern void init_section PARAMS ((void));			\
+extern void init_section (void);				\
 void								\
-init_section ()							\
+init_section (void)						\
 {								\
   if (in_section != in_init)					\
     {								\
@@ -1641,56 +1452,11 @@ fini_section ()							\
     }								\
 }
 
-#define ASM_STABS_OP "\t.stabs\t"
-
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
 
-/* The TI assembler wants to have hex numbers this way.  */
-
-#undef HOST_WIDE_INT_PRINT_HEX
-#ifndef HOST_WIDE_INT_PRINT_HEX
-# if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_INT
-#  define HOST_WIDE_INT_PRINT_HEX "0%xh"
-# else
-#  if HOST_BITS_PER_WIDE_INT == HOST_BITS_PER_LONG
-#   define HOST_WIDE_INT_PRINT_HEX "0%lxh"
-#  else
-#   define HOST_WIDE_INT_PRINT_HEX "0%llxh"
-#  endif
-# endif
-#endif /* ! HOST_WIDE_INT_PRINT_HEX */
 
 /* Overall Framework of an Assembler File.  */
-/* We need to have a data section we can identify so that we can set
-   the DP register back to a data pointer in the small memory model.
-   This is only required for ISRs if we are paranoid that someone
-   may have quietly changed this register on the sly.  */
-
-#define ASM_FILE_START(FILE)					\
-{								\
-    int dspversion = 0;						\
-    if (TARGET_C30) dspversion = 30;				\
-    if (TARGET_C31) dspversion = 31;				\
-    if (TARGET_C32) dspversion = 32;				\
-    if (TARGET_C33) dspversion = 33;                            \
-    if (TARGET_C40) dspversion = 40;				\
-    if (TARGET_C44) dspversion = 44;				\
-    fprintf (FILE, "\t.version\t%d\n", dspversion);		\
-    fprintf (FILE, "\t.file\t");				\
-    if (TARGET_TI)						\
-      {								\
-        const char *p;						\
-        const char *after_dir = main_input_filename;		\
-	for (p = main_input_filename; *p; p++)			\
-	  if (*p == '/')					\
-	    after_dir = p + 1;					\
-	output_quoted_string (FILE, after_dir);			\
-      }								\
-    else							\
-      output_quoted_string (FILE, main_input_filename);		\
-    fputs ("\n\t.data\ndata_sec:\n", FILE);			\
-}
 
 #define ASM_COMMENT_START ";"
 
@@ -1709,25 +1475,9 @@ fini_section ()							\
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
 c4x_external_ref (NAME)
 
-/* A C statement to output on FILE an assembler pseudo-op to
-   declare a library function named external.
-   (Only needed to keep asm30 happy for ___divqf3 etc.)  */
-
-#define ASM_OUTPUT_EXTERNAL_LIBCALL(FILE, FUN) \
-c4x_external_ref (XSTR (FUN, 0))
-
-#define	ASM_FILE_END(FILE) \
-c4x_file_end (FILE)
-
 /* The prefix to add to user-visible assembler symbols.  */
 
 #define USER_LABEL_PREFIX "_"
-
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-	fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -1735,15 +1485,7 @@ c4x_file_end (FILE)
    This is suitable for output with `assemble_name'.  */
 
 #define ASM_GENERATE_INTERNAL_LABEL(BUFFER, PREFIX, NUM) \
-    sprintf (BUFFER, "*%s%d", PREFIX, NUM)
-
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)  \
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),    \
-  sprintf ((OUTPUT), "%s$%d", (NAME), (LABELNO)))
+    sprintf (BUFFER, "*%s%lu", PREFIX, (unsigned long)(NUM))
 
 /* A C statement to output to the stdio stream STREAM assembler code which
    defines (equates) the symbol NAME to have the value VALUE.  */
@@ -1798,7 +1540,7 @@ do {						\
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( fputs ("\t.bss\t", FILE),			\
   assemble_name (FILE, (NAME)),		\
-  fprintf (FILE, ",%u\n", (ROUNDED)))
+  fprintf (FILE, ",%u\n", (int)(ROUNDED)))
 
 /* This says how to output an assembler line to define a global
    uninitialized variable.  */
@@ -1809,7 +1551,7 @@ do {						\
    assemble_name (FILE, (NAME)),	\
    fputs ("\n\t.bss\t", FILE),	\
    assemble_name (FILE, (NAME)),	\
-   fprintf (FILE, ",%u\n", (ROUNDED)))
+   fprintf (FILE, ",%u\n", (int)(ROUNDED)))
 
 #undef ASM_OUTPUT_BSS
 #define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ALIGN)   \
@@ -1817,7 +1559,7 @@ do {						\
    assemble_name (FILE, (NAME)),	\
    fputs ("\n\t.bss\t", FILE),	\
    assemble_name (FILE, (NAME)),	\
-   fprintf (FILE, ",%u\n", (SIZE)))
+   fprintf (FILE, ",%u\n", (int)(SIZE)))
 
 /* Macros Controlling Initialization Routines.  */
 
@@ -1856,18 +1598,17 @@ do {						\
 #define PRINT_OPERAND_ADDRESS(FILE, X) c4x_print_operand_address(FILE, X)
 
 /* C4x specific pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do {				\
-  cpp_register_pragma (PFILE, 0, "CODE_SECTION", c4x_pr_CODE_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "DATA_SECTION", c4x_pr_DATA_SECTION);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_EXT_CALLED", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_IS_SYSTEM", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NEVER_RETURNS",			\
-		       c4x_pr_FUNC_NEVER_RETURNS);			\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "FUNC_NO_IND_ASG", c4x_pr_ignored);	\
-  cpp_register_pragma (PFILE, 0, "INTERRUPT", c4x_pr_INTERRUPT);	\
+#define REGISTER_TARGET_PRAGMAS() do {					  \
+  c_register_pragma (0, "CODE_SECTION", c4x_pr_CODE_SECTION);		  \
+  c_register_pragma (0, "DATA_SECTION", c4x_pr_DATA_SECTION);		  \
+  c_register_pragma (0, "FUNC_CANNOT_INLINE", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_EXT_CALLED", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_IS_PURE", c4x_pr_FUNC_IS_PURE);		  \
+  c_register_pragma (0, "FUNC_IS_SYSTEM", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NEVER_RETURNS", c4x_pr_FUNC_NEVER_RETURNS); \
+  c_register_pragma (0, "FUNC_NO_GLOBAL_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "FUNC_NO_IND_ASG", c4x_pr_ignored);		  \
+  c_register_pragma (0, "INTERRUPT", c4x_pr_INTERRUPT);			  \
 } while (0)
 
 /* Assembler Commands for Alignment.  */
@@ -2021,33 +1762,33 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
-			       plus_constant (tramp, 0)), tmp1);	\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
+			       plus_constant (TRAMP, 0)), tmp1);	\
       tmp1 = expand_and (QImode, FNADDR, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1069), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
-			       plus_constant (tramp, 2)), tmp1);	\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
+			       plus_constant (TRAMP, 2)), tmp1);	\
       tmp1 = expand_shift (RSHIFT_EXPR, QImode, CXT,			\
 			   size_int (16), 0, 1);			\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x5068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
-			       plus_constant (tramp, 3)), tmp1);	\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
+			       plus_constant (TRAMP, 3)), tmp1);	\
       tmp1 = expand_and (QImode, CXT, GEN_INT (0xffff), 0);		\
       tmp2 = expand_shift (LSHIFT_EXPR, QImode,				\
 			   GEN_INT (0x1068), size_int (16), 0, 1);	\
       emit_insn (gen_iorqi3 (tmp1, tmp1, tmp2));			\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
-			       plus_constant (tramp, 6)), tmp1);	\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
+			       plus_constant (TRAMP, 6)), tmp1);	\
     }									\
   else									\
     {									\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 8)), FNADDR); 	\
-      emit_move_insn (gen_rtx (MEM, QImode,				\
+      emit_move_insn (gen_rtx_MEM (QImode,				\
 			       plus_constant (TRAMP, 9)), CXT); 	\
     }									\
 }
@@ -2082,15 +1823,6 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
    is done just by pretending it is already truncated.  */
 
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-/* We need to use direct addressing for large constants and addresses
-   that cannot fit within an instruction.  We must check for these
-   after after the final jump optimisation pass, since this may
-   introduce a local_move insn for a SYMBOL_REF.  This pass
-   must come before delayed branch slot filling since it can generate
-   additional instructions.  */
-
-#define MACHINE_DEPENDENT_REORG(INSNS) c4x_process_after_reload(INSNS)
 
 #define DBR_OUTPUT_SEQEND(FILE)				\
 if (final_sequence != NULL_RTX)				\
@@ -2165,3 +1897,8 @@ enum c4x_builtins
   C4X_BUILTIN_FRIEEE,	/*	frieee	   (only C4x)	*/
   C4X_BUILTIN_RCPF	/*	fast_invf  (only C4x)	*/
 };
+
+
+/* Hack to overcome use of libgcc2.c using auto-host.h to determine
+   HAVE_GAS_HIDDEN.  */
+#undef HAVE_GAS_HIDDEN

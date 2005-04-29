@@ -48,9 +48,15 @@ sub handler ($$) {
 	$pr->set_mtime;
     }
 
+    my $old_status = $r->status;
+
     $rc = $pr->run(@_);
     $pr->chdir_file("$Apache::Server::CWD/");
-    return ($rc != OK) ? $rc : $pr->status;
+
+    my $pr_status = $pr->status;
+    $r->status($old_status);
+
+    return ($rc != OK) ? $rc : $pr_status;
 }
 
 1;

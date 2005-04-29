@@ -4,7 +4,7 @@
         HEADERSEARCH = (../at); 
         H_FILES = (atrun.h); 
         OTHER_LINKED = (atrun.c); 
-        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.dist, atrun.8); 
+        OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.dist, atrun.8, com.apple.atrun.plist); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 
         PUBLIC_HEADERS = (); 

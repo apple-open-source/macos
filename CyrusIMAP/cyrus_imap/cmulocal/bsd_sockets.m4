@@ -1,7 +1,7 @@
 dnl bsd_sockets.m4--which socket libraries do we need? 
 dnl Derrick Brashear
 dnl from Zephyr
-dnl $Id: bsd_sockets.m4,v 1.9 2003/10/08 20:35:24 rjs3 Exp $
+dnl $Id: bsd_sockets.m4,v 1.5 2005/03/05 00:36:06 dasenbro Exp $
 
 dnl Hacked on by Rob Earhart to not just toss stuff in LIBS
 dnl It now puts everything required for sockets into LIB_SOCKET

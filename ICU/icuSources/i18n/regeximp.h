@@ -1,5 +1,5 @@
 // 
-//   Copyright (C) 2002-2003 International Business Machines Corporation 
+//   Copyright (C) 2002-2004 International Business Machines Corporation 
 //   and others. All rights reserved.  
 //
 //   file:  regeximp.h
@@ -16,38 +16,37 @@
 
 U_NAMESPACE_BEGIN
 
+#ifdef REGEX_DEBUG   /* For debugging, define REGEX_DEBUG in regex.h, not here in this file. */
 //
-//  debugging support.  Enable one or more of the #defines immediately following
+//  debugging options.  Enable one or more of the three #defines immediately following
 //
-#ifdef _DEBUG
+
 //#define REGEX_SCAN_DEBUG
-//#define REGEX_DUMP_DEBUG
-//#define REGEX_RUN_DEBUG
-#endif
+#define REGEX_DUMP_DEBUG
+#define REGEX_RUN_DEBUG
+
 //  End of #defines inteded to be directly set.
 
-#if defined(REGEX_SCAN_DEBUG) || defined(REGEX_RUN_DEBUG) || defined(REGEX_DUMP_DEBUG)
-#define REGEX_DEBUG 1
 #include <stdio.h>
 #endif
 
 #ifdef REGEX_SCAN_DEBUG
-#define REGEX_SCAN_DEBUG_PRINTF printf
+#define REGEX_SCAN_DEBUG_PRINTF(a) printf a
 #else
-#define REGEX_SCAN_DEBUG_PRINTF
+#define REGEX_SCAN_DEBUG_PRINTF(a)
 #endif
 
 #ifdef REGEX_DUMP_DEBUG
-#define REGEX_DUMP_DEBUG_PRINTF printf
+#define REGEX_DUMP_DEBUG_PRINTF(a) printf a
 #else
-#define REGEX_DUMP_DEBUG_PRINTF
+#define REGEX_DUMP_DEBUG_PRINTF(a)
 #endif
 
 #ifdef REGEX_RUN_DEBUG
-#define REGEX_RUN_DEBUG_PRINTF printf
-#define REGEX_DUMP_DEBUG_PRINTF printf
+#define REGEX_RUN_DEBUG_PRINTF(a) printf a
+#define REGEX_DUMP_DEBUG_PRINTF(a) printf a
 #else
-#define REGEX_RUN_DEBUG_PRINTF
+#define REGEX_RUN_DEBUG_PRINTF(a)
 #endif
 
 
@@ -165,10 +164,12 @@ enum {
      URX_LOOP_C        = 51,   // Continue a [set]* or OneChar* loop.
                                //   Operand is a matcher static data location.
                                //   Must always immediately follow  LOOP_x_I instruction.
-     URX_LOOP_DOT_I    = 52    // .*, initialization of the optimized loop.
+     URX_LOOP_DOT_I    = 52,   // .*, initialization of the optimized loop.
                                //   Operand value:
                                //      0:  Normal (. doesn't match new-line) mode.
                                //      1:  . matches new-line mode.
+     URX_BACKSLASH_BU  = 53    // \b or \B in UREGEX_UWORD mode, using Unicode style
+                               //   word boundaries.
 
 };           
 
@@ -227,7 +228,8 @@ enum {
         "STAT_SETREF_N",       \
         "LOOP_SR_I",           \
         "LOOP_C",              \
-        "LOOP_DOT_I"
+        "LOOP_DOT_I",          \
+        "BACKSLASH_BU"
 
 
 //
@@ -324,7 +326,7 @@ inline void  Regex8BitSet::add(UChar32 c) {
 
 inline void Regex8BitSet::init(const UnicodeSet *s) {
     if (s != NULL) {
-        for (int i=0; i<255; i++) {
+        for (int i=0; i<=255; i++) {
             if (s->contains(i)) {
                 this->add(i);
             }

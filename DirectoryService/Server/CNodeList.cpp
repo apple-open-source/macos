@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <mach/mach_time.h>	// for dsTimeStamp
 
 #include "CLog.h"
 #include "CNodeList.h"
@@ -1290,21 +1291,30 @@ sInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
 
 			case eDSEndsWith:
 				uiInStrLen = ::strlen( inStr );
-				uiStrLen = ::strlen( inLeaf->fNodeName );
-				if ( uiInStrLen <= uiStrLen )
+				if (uiInStrLen > 1) //means that there is something after the first delimiter passed in with the inStr
 				{
-					aString1 = inLeaf->fNodeName + (uiStrLen - uiInStrLen);
-					if ( ::strcmp( aString1, inStr ) == 0 )
+					uiStrLen = ::strlen( inLeaf->fNodeName );
+					if ( uiInStrLen <= uiStrLen )
 					{
-						bAddToBuff = true;
+						aString1 = inLeaf->fNodeName + (uiStrLen - uiInStrLen + 1);
+						aString2 = inStr + 1;
+						if ( ::strcmp( aString1, aString2 ) == 0 )
+						{
+							bAddToBuff = true;
+						}
 					}
 				}
 				break;
 
 			case eDSContains:
-				if ( ::strstr( inLeaf->fNodeName, inStr ) != nil )
+				uiInStrLen = ::strlen( inStr );
+				if (uiInStrLen > 1) //means that there is something after the first delimiter passed in with the inStr
 				{
-					bAddToBuff = true;
+					aString2 = inStr + 1;
+					if ( ::strstr( inLeaf->fNodeName, aString2 ) != nil )
+					{
+						bAddToBuff = true;
+					}
 				}
 				break;
 
@@ -1352,52 +1362,58 @@ sInt32 CNodeList::DoGetNode ( sTreeNode		   *inLeaf,
 
 			case eDSiEndsWith:
 				uiInStrLen = ::strlen( inStr );
-				uiStrLen = ::strlen( inLeaf->fNodeName );
-				if ( uiInStrLen <= uiStrLen )
+				if (uiInStrLen > 1) //means that there is something after the first delimiter passed in with the inStr
 				{
-					aString1 = inStr;
-					aString2 = inLeaf->fNodeName + ( uiStrLen - uiInStrLen );
-					bAddToBuff = true;
-					while ( *aString1 != '\0' )
+					uiStrLen = ::strlen( inLeaf->fNodeName );
+					if ( uiInStrLen <= uiStrLen )
 					{
-						if ( ::toupper( *aString2 ) != ::toupper( *aString1 ) )
+						aString1 = inStr + 1;
+						aString2 = inLeaf->fNodeName + ( uiStrLen - uiInStrLen + 1 );
+						bAddToBuff = true;
+						while ( *aString1 != '\0' )
 						{
-							bAddToBuff = false;
-							break;
+							if ( ::toupper( *aString2 ) != ::toupper( *aString1 ) )
+							{
+								bAddToBuff = false;
+								break;
+							}
+							aString2++;
+							aString1++;
 						}
-						aString2++;
-						aString1++;
 					}
 				}
 				break;
 
 			case eDSiContains:
 				uiInStrLen = ::strlen( inStr );
-				uiStrLen = ::strlen( inLeaf->fNodeName );
-				if ( uiInStrLen <= uiStrLen )
+				if (uiInStrLen > 1) //means that there is something after the first delimiter passed in with the inStr
 				{
-					CString		tmpStr1( 128 );
-					CString		tmpStr2( 128 );
-
-					aString1 = inStr;
-					aString2 = inLeaf->fNodeName;
-					bAddToBuff = false;
-
-					while ( *aString1 != '\0' )
+					uiStrLen = ::strlen( inLeaf->fNodeName );
+					if ( uiInStrLen <= uiStrLen )
 					{
-						tmpStr1.Append( ::toupper( *aString1 ) );
-						aString1++;
-					}
+						CString		tmpStr1( 128 );
+						CString		tmpStr2( 128 );
 
-					while ( *aString2 != '\0' )
-					{
-						tmpStr2.Append( ::toupper( *aString2 ) );
-						aString2++;
-					}
+						aString1 = inStr + 1;
+						aString2 = inLeaf->fNodeName;
+						bAddToBuff = false;
 
-					if ( ::strstr( tmpStr2.GetData(), tmpStr1.GetData() ) != nil )
-					{
-						bAddToBuff = true;
+						while ( *aString1 != '\0' )
+						{
+							tmpStr1.Append( ::toupper( *aString1 ) );
+							aString1++;
+						}
+
+						while ( *aString2 != '\0' )
+						{
+							tmpStr2.Append( ::toupper( *aString2 ) );
+							aString2++;
+						}
+
+						if ( ::strstr( tmpStr2.GetData(), tmpStr1.GetData() ) != nil )
+						{
+							bAddToBuff = true;
+						}
 					}
 				}
 				break;
@@ -1988,7 +2004,7 @@ sInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff
 void CNodeList::WaitForAuthenticationSearchNode( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForAuthenticationSN.Wait();
@@ -1998,8 +2014,38 @@ void CNodeList::WaitForAuthenticationSearchNode( void )
 		// Check every .5 seconds
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
-		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		// check over max of 2 minutes
+		if ( dsTimestamp() > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	//additional wait until the plugin is deemed active
+	waitTime = dsTimestamp() + USEC_PER_SEC*2;
+	bool bHitCondition = true;
+	while ( fAuthenticationSearchNode != nil )
+	{
+		if ( fAuthenticationSearchNode->fPlugInPtr != nil )
+		{
+			uInt32 uiState = 0;
+			sInt32 stateResult = gPlugins->GetState( fAuthenticationSearchNode->fPlugInPtr->GetPluginName(), &uiState );
+			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
+			{
+				break;
+			}
+			if (bHitCondition)
+			{
+				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
+				bHitCondition = false;
+			}
+		}
+		// Check every .2 seconds
+		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+
+		// check over max of 2 seconds 
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;
@@ -2019,7 +2065,7 @@ void CNodeList::WaitForAuthenticationSearchNode( void )
 void CNodeList:: WaitForContactsSearchNode ( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForContactsSN.Wait();
@@ -2029,8 +2075,38 @@ void CNodeList:: WaitForContactsSearchNode ( void )
 		// Check every .5 seconds
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
-		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		// check over max of 2 minutes
+		if ( dsTimestamp() > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	//additional wait until the plugin is deemed active
+	waitTime = dsTimestamp() + USEC_PER_SEC*2;
+	bool bHitCondition = true;
+	while ( fContactsSearchNode != nil )
+	{
+		if ( fContactsSearchNode->fPlugInPtr != nil )
+		{
+			uInt32 uiState = 0;
+			sInt32 stateResult = gPlugins->GetState( fContactsSearchNode->fPlugInPtr->GetPluginName(), &uiState );
+			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
+			{
+				break;
+			}
+			if (bHitCondition)
+			{
+				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
+				bHitCondition = false;
+			}
+		}
+		// Check every .2 seconds
+		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+
+		// check over max of 2 seconds 
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;
@@ -2050,7 +2126,7 @@ void CNodeList:: WaitForContactsSearchNode ( void )
 void CNodeList:: WaitForNetworkSearchNode ( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForNetworkSN.Wait();
@@ -2060,8 +2136,38 @@ void CNodeList:: WaitForNetworkSearchNode ( void )
 		// Check every .5 seconds
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
-		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		// check over max of 2 minutes
+		if ( dsTimestamp() > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	//additional wait until the plugin is deemed active
+	waitTime = dsTimestamp() + USEC_PER_SEC*2;
+	bool bHitCondition = true;
+	while ( fNetworkSearchNode != nil )
+	{
+		if ( fNetworkSearchNode->fPlugInPtr != nil )
+		{
+			uInt32 uiState = 0;
+			sInt32 stateResult = gPlugins->GetState( fNetworkSearchNode->fPlugInPtr->GetPluginName(), &uiState );
+			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
+			{
+				break;
+			}
+			if (bHitCondition)
+			{
+				DBGLOG( kLogApplication, "Hit the Search plugin race condition between init and active" );
+				bHitCondition = false;
+			}
+		}
+		// Check every .2 seconds
+		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+
+		// check over max of 2 seconds 
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;
@@ -2081,7 +2187,7 @@ void CNodeList:: WaitForNetworkSearchNode ( void )
 void CNodeList::WaitForLocalNode( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForLN.Wait();
@@ -2091,8 +2197,38 @@ void CNodeList::WaitForLocalNode( void )
 		// Check every .5 seconds
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
-		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		// check over max of 2 minutes
+		if ( dsTimestamp() > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	//additional wait until the plugin is deemed active
+	waitTime = dsTimestamp() + USEC_PER_SEC*2;
+	bool bHitCondition = true;
+	while ( fLocalNode != nil )
+	{
+		if ( fLocalNode->fPlugInPtr != nil )
+		{
+			uInt32 uiState = 0;
+			sInt32 stateResult = gPlugins->GetState( fLocalNode->fPlugInPtr->GetPluginName(), &uiState );
+			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
+			{
+				break;
+			}
+			if (bHitCondition)
+			{
+				DBGLOG( kLogApplication, "Hit the Local Netinfo plugin race condition between init and active" );
+				bHitCondition = false;
+			}
+		}
+		// Check every .2 seconds
+		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+
+		// check over max of 2 seconds 
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;
@@ -2112,7 +2248,7 @@ void CNodeList::WaitForLocalNode( void )
 void CNodeList::WaitForConfigureNode( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForConfigureN.Wait();
@@ -2122,8 +2258,38 @@ void CNodeList::WaitForConfigureNode( void )
 		// Check every .5 seconds
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
-		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		// check over max of 2 minutes
+		if ( dsTimestamp() > waitTime )
+		{
+			// We have waited as long as we are going to at this time
+			break;
+		} 
+	}
+
+	//additional wait until the plugin is deemed active
+	waitTime = dsTimestamp() + USEC_PER_SEC*2;
+	bool bHitCondition = true;
+	while ( fConfigureNode != nil )
+	{
+		if ( fConfigureNode->fPlugInPtr != nil )
+		{
+			uInt32 uiState = 0;
+			sInt32 stateResult = gPlugins->GetState( fConfigureNode->fPlugInPtr->GetPluginName(), &uiState );
+			if ( (stateResult == eDSNoErr) && ( uiState & kActive ) )
+			{
+				break;
+			}
+			if (bHitCondition)
+			{
+				DBGLOG( kLogApplication, "Hit the Configure plugin race condition between init and active" );
+				bHitCondition = false;
+			}
+		}
+		// Check every .2 seconds
+		timedWait.Wait( (uInt32)(.2 * kMilliSecsPerSec) );
+
+		// check over max of 2 seconds 
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;
@@ -2142,7 +2308,7 @@ void CNodeList::WaitForConfigureNode( void )
 void CNodeList::WaitForDHCPLDAPv3Init( void )
 {
 	DSSemaphore		timedWait;
-	time_t			waitTime	= ::time( nil ) + 120;
+	double			waitTime	= dsTimestamp() + USEC_PER_SEC*120;
 
 	// Grab the wait semaphore
 	fWaitForDHCPLDAPv3InitFlag.Wait();
@@ -2153,7 +2319,7 @@ void CNodeList::WaitForDHCPLDAPv3Init( void )
 		timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
 
 		// Wait for 2 minutes
-		if ( ::time( nil ) > waitTime )
+		if ( dsTimestamp() > waitTime )
 		{
 			// We have waited as long as we are going to at this time
 			break;

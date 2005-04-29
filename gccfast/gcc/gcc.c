@@ -253,6 +253,7 @@ static struct macosx_vers {
   { "10.1", 1010 },
   { "10.2", 1020 },
   { "10.3", 1030 },
+  { "10.4", 1040 },
   { NULL, 0 }
 };  
 /* APPLE LOCAL end constant cfstrings */
@@ -884,7 +885,6 @@ static const char *asm_options =
 /* APPLE LOCAL fat builds */
 /* APPLE LOCAL Symbol Separation */
 /* Add fsave-repository constructs for Symbol Separation */
-/* APPLE LOCAL -fast */
 "%a %Y \
  %{fastf:-force_cpusubtype_ALL}\
  %{@:-o %f%u%O}\
@@ -2819,8 +2819,8 @@ execute ()
 	if (string)
 	  commands[n_commands].argv[0] = string;
 	/* APPLE LOCAL begin radar 2466994 - pass linker output through c++filt  ilr */
-	else if (strcmp (commands[n_commands].prog, "c++filt3") == 0
-		 && access ("/usr/bin/c++filt3", X_OK) != 0)
+	else if (strcmp (commands[n_commands].prog, "c++filt") == 0
+		 && access ("/usr/bin/c++filt", X_OK) != 0)
 	  continue;
 	/* APPLE LOCAL end radar 2466994 - pass linker output through c++filt  ilr */
 	n_commands++;

@@ -1,4 +1,6 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/drv/common/Imakefile,v 1.6 2001/04/03 02:29:34 dawes Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/drv/common/Imakefile,v 1.7 2003/09/28 20:15:06 alanh Exp $
+
+#include <Threads.tmpl>
 
 #if GlxUseBuiltInDRIDriver
 #define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
@@ -17,7 +19,14 @@ XCOMM $XFree86: xc/lib/GL/mesa/src/drv/common/Imakefile,v 1.6 2001/04/03 02:29:3
 #define MesaDrvCommonBuildDir /**/
 #include "Imakefile.inc"
 
-      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES)
+#if defined(i386Architecture) && MesaUseX86Asm
+#include "../../X86/Imakefile.inc"
+#endif
+#ifdef SparcArchitecture
+#include "../../SPARC/Imakefile.inc"
+#endif
+
+      DEFINES = $(ALLOC_DEFINES) $(DRI_DEFINES) $(MESA_ASM_DEFINES)
      INCLUDES = $(X_INCLUDES) $(MESA_INCLUDES) $(DRI_INCLUDES)
 
          SRCS = $(COMMONSRCS) 

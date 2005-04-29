@@ -23,7 +23,7 @@
 .\" dealing in this Software without prior written authorization from The
 .\" Open Group.
 .\"
-.\" $XFree86: xc/config/util/makestrs.man,v 3.8 2001/12/14 19:53:22 dawes Exp $
+.\" $XFree86: xc/config/util/makestrs.man,v 3.9 2003/05/29 21:48:03 herrb Exp $
 .\"
 .TH MAKESTRS 1 __xorgversion__
 .SH NAME
@@ -65,7 +65,7 @@ V Application Binary Interface, i.e. SVR4.
 may be used in addition to 
 .I -intelabi 
 for situations 
-where the vendor wishes to maintain binary compatiblity between 
+where the vendor wishes to maintain binary compatibility between 
 X11R6 public-patch 11 (and earlier) and X11R6 public-patch 12 (and later).
 .LP
 .I -functionabi 

@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFindFrom.c,v 1.8 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -56,7 +55,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFindFrom.c,v 1.8 2000/07/09 00:08
  *	determine when it has been found.
  *
  * Results:
- *	The found node or NILLNODE
+ *	The found node or NULL
  *
  * Side Effects:
  *	None.
@@ -67,14 +66,14 @@ LstNode
 Lst_FindFrom (l, ln, d, cProc)
     Lst		      	l;
     register LstNode    ln;
-    register ClientData d;
-    register int	(*cProc) __P((ClientData, ClientData));
+    register void * d;
+    register int	(*cProc)(void *, void *);
 {
     register ListNode	tln;
     Boolean		found = FALSE;
 
     if (!LstValid (l) || LstIsEmpty (l) || !LstNodeValid (ln, l)) {
-	return (NILLNODE);
+	return (NULL);
     }
 
     tln = (ListNode)ln;
@@ -86,12 +85,12 @@ Lst_FindFrom (l, ln, d, cProc)
 	} else {
 	    tln = tln->nextPtr;
 	}
-    } while (tln != (ListNode)ln && tln != NilListNode);
+    } while (tln != (ListNode)ln && tln != NULL);
 
     if (found) {
 	return ((LstNode)tln);
     } else {
-	return (NILLNODE);
+	return (NULL);
     }
 }
 

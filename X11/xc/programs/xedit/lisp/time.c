@@ -27,10 +27,10 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/time.c,v 1.7 2002/11/08 08:00:57 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/time.c,v 1.10 2003/04/27 18:17:35 tsi Exp $ */
 
-#include "time.h"
-#include "bytecode.h"
+#include "lisp/time.h"
+#include "lisp/bytecode.h"
 
 /*
  * Implementation
@@ -41,6 +41,7 @@ Lisp_Time(LispBuiltin *builtin)
  time form
  */
 {
+#ifndef __UNIXOS2__
     struct itimerval real, virt, prof;
     unsigned long count;
     long sec, usec;
@@ -135,4 +136,8 @@ Lisp_Time(LispBuiltin *builtin)
     lisp__data.gc.timebits = 0;
 
     return (result);
+#else
+    LispMessage("\"Lisp_Time\" not implemented under OS/2");
+    return (NIL);
+#endif
 }

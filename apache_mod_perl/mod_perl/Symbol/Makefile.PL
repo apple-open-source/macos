@@ -6,4 +6,5 @@ WriteMakefile(
     'dist'    => {
 	COMPRESS=> 'gzip -9f', SUFFIX=>'gz',
     },
+    LDDLFLAGS  => "$ENV{RC_CFLAGS} $Config{lddlflags}",
 );

@@ -1,11 +1,11 @@
 /*****************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: postit2.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: postit2.c,v 1.4 2004/08/23 14:22:52 bagder Exp $
  *
  * Example code that uploads a file name 'foo' to a remote script that accepts
  * "HTML form based" (as described in RFC1738) uploads using HTTP POST.
@@ -21,9 +21,6 @@
  * This exact source code has not been verified to work.
  */
 
-/* to make this work under windows, use the win32-functions from the
-   win32socket.c file as well */
-
 #include <stdio.h>
 #include <string.h>
 
@@ -31,19 +28,17 @@
 #include <curl/types.h>
 #include <curl/easy.h>
 
-#if LIBCURL_VERSION_NUM < 0x070900
-#error "curl_formadd() is not introduced until libcurl 7.9 and later"
-#endif
-
 int main(int argc, char *argv[])
 {
   CURL *curl;
   CURLcode res;
 
-  struct HttpPost *formpost=NULL;
-  struct HttpPost *lastptr=NULL;
+  struct curl_httppost *formpost=NULL;
+  struct curl_httppost *lastptr=NULL;
   struct curl_slist *headerlist=NULL;
   char buf[] = "Expect:";
+
+  curl_global_init(CURL_GLOBAL_ALL);
 
   /* Fill in the file upload field */
   curl_formadd(&formpost,
@@ -58,7 +53,7 @@ int main(int argc, char *argv[])
                CURLFORM_COPYNAME, "filename",
                CURLFORM_COPYCONTENTS, "postit2.c",
                CURLFORM_END);
-  
+
 
   /* Fill in the submit field too, even if this is rarely needed */
   curl_formadd(&formpost,

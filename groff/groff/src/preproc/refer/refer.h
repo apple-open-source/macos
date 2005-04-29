@@ -1,5 +1,6 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 2001, 2004
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -72,6 +73,6 @@ void command_error(const char *,
 		   const errarg &arg2 = empty_errarg,
 		   const errarg &arg3 = empty_errarg);
 
-struct reference;
+class reference;
 
 void compute_labels(reference **, int);

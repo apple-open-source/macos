@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XDesWin.man,v 1.2 2001/01/27 18:19:58 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XDesWin.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,17 +144,10 @@
 .SH NAME
 XDestroyWindow, XDestroySubwindows \- destroy windows
 .SH SYNTAX
-XDestroyWindow\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XDestroySubwindows\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
+.HP
+int XDestroyWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
+.HP
+int XDestroySubwindows\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

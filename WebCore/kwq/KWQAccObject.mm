@@ -1916,7 +1916,7 @@ static void AXAttributedStringAppendReplaced (NSMutableAttributedString *attrStr
         return NULL;
         
     NodeImpl* node = document->ownerElement();
-    if (!node)
+    if (!document)
         return NULL;
 
     return node->renderer();

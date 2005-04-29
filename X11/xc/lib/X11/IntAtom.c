@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/IntAtom.c,v 1.6 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/IntAtom.c,v 1.7 2003/11/17 22:20:07 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
@@ -159,17 +159,11 @@ _XUpdateAtomCache(dpy, name, atom, sig, idx, n)
     }
 }
 
-#if NeedFunctionPrototypes
-Atom XInternAtom (
+Atom
+XInternAtom (
     Display *dpy,
     const char *name,
     Bool onlyIfExists)
-#else
-Atom XInternAtom (dpy, name, onlyIfExists)
-    Display *dpy;
-    char *name;
-    Bool onlyIfExists;
-#endif
 {
     Atom atom;
     unsigned long sig;

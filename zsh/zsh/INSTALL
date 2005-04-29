@@ -15,7 +15,7 @@ MAKING AND INSTALLING
 Check MACHINES File
 -------------------
 
-Check the file MACHINES in the subdirectory Etc to see the architectures
+Check the file MACHINES in the top directory to see the architectures
 that zsh is known to compile on, as well as any special instructions
 for your particular architecture.  Most architectures will not require any
 special instructions.
@@ -243,7 +243,7 @@ which reduce memory usage on some systems. To use these, add the option
   --enable-zsh-mem
 when invoking "configure".
 
-You should check Etc/MACHINES to see if there are specific recommendations
+You should check MACHINES to see if there are specific recommendations
 about using the zsh malloc routines on your particular architecture.
 
 Debugging Routines
@@ -330,6 +330,19 @@ $fpath array on shell startup.  This directory will not be affected by
 `make uninstall' or `make uninstall.fns', although the version-specific
 directory and its contents will be deleted.
 
+Function depth
+--------------
+
+Shell functions may be called recursively.  In order to detect infinite
+recursion the shell has a limit on the depth to which functions may be
+called:  note that this is a single limit for all functions, not a limit
+for each function called recursively.  The default for the limit is 4096.
+The limit may be altered to the value MAX by passing the option
+--enable-max-function-depth=MAX to configure.  Alternatively, the limit may
+be disabled with --disable-max-function-depth.  However, this is not
+recommended as it is likely to cause the shell to crash on an infinite
+recursion.
+
 Support for large files and integers
 ------------------------------------
 
@@ -358,6 +371,39 @@ correct handling of these types.
 
 None of this is relevant for 64-bit systems; zsh should compile and run
 without problems if (sizeof(long) == 8).
+
+Searching for additional features
+---------------------------------
+
+Various additional features are turned off by default to avoid
+compatibility problems.
+
+--enable-pcre:
+
+Zsh has a module which allows the pcre regular expression library to be
+used via shell builtins.  Compiling this library into the shell with
+dynamic loading (the default where available) produces a dependency on the
+library libpcre.so.  This is a problem on systems where zsh needs to be
+available at boot before the directory containing libpcre.so (for example
+/usr/lib or /usr/local/lib) is mounted.  For this reason, pcre support will
+only be searched for if the option --enable-pcre is passed to configure.
+
+(Future versions of the shell may have a better fix for this problem.)
+
+--enable-cap:
+
+This searches for POSIX capabilities; if found, the `cap' library
+is available and the shell will use these to determine if the
+shell is running in some privileged mode.  This is turned off by
+default as on some systems non-standard headers (in particular AIX) are
+required.  A direct fix for that problem would be appreciated.
+
+A test for the function tcsetpgrp is turned on by default.  The test
+needs to run the function to determine if the implementation is
+usable. However, this can cause problems when configure is run without
+a controlling terminal (eg. from cron).  To avoid this, use
+--with-tcsetpgrp or --without-tcsetpgrp to tell configure whether the
+function should be used.
 
 Options For Configure
 ---------------------

@@ -1,4 +1,8 @@
-#! /bin/sh -x
+#! /bin/sh
+
+# $XFree86: xc/extras/ogl-sample/main/doc/man/tools/mmdoc,v 1.4 2003/10/22 19:45:56 tsi Exp $
+
+set -x
 
 #	@(#)mmdoc	1.21	/doccenter/tmadm/src/shell/s.mmdoc
 #	general documentation generator

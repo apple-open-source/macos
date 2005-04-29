@@ -1,38 +1,27 @@
 /*
-	KLog.h
-	standard dot.h for KLog
-	
-	$Source: /cvs/root/IOUSBFamily/USBProberV2/KLog/KLog.h,v $
-	$Log: KLog.h,v $
-	Revision 1.1  2003/08/22 05:15:54  nano
-	Added KLog.kext sources
-	
-	Revision 1.4  2001/10/13 02:27:29  bubba
-	Got rid of need for config.h file.
-	
-	Revision 1.3  2001/10/09 23:12:28  bubba
-	Updated version to 1.0.2, removed non-building targets from the BUILD_ALL
-	target, upped the buffers to allow faster logging.
-	
-	Revision 1.2  2001/08/20 21:33:51  bubba
-	Cleaned up code a bit.
-	
-	Revision 1.1  2001/08/13 22:37:19  davidson
-	initial commit of iLogger into io/Tools directory.  Also added the
-	BT-iLoggerPlugin in the ToolSources of Odin.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
-	Revision 1.5  2001/07/27 20:02:10  bubba
-	According to convention, 'v' denotes functions that take a va_list parameter. I had these backwards
-	when I made the logger changes. And since I'm a conventional guy (or not), I changed the function
-	names to reflect this naming convention.
-	
-	Revision 1.4  2001/07/26 20:38:38  davidson
-	Updates! Just some basic code cleanup, renamed some vars, etc.
-	
-	Revision 1.3  2001/07/26 18:23:49  bubba
-	Fix misprinted values in the logging mechanism.
-	
-*/
 
 #ifndef KLOG_H	
 #define KLOG_H

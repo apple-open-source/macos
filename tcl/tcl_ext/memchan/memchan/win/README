@@ -1,0 +1,39 @@
+
+		Memory Channels in Tcl
+		(Version 2.2a4 / AUG-20-2002)
+
+		Andreas Kupries	(a.kupries@westend.com)
+
+This is the README file for the Windows version of the Memchan extension
+-----------------------------------------------------------------------
+
+Please follow the instructions in the HTML file
+
+	doc/html/memchan_cwin.html
+
+for compilation and installation of this package.
+
+
+In order to compile Memchan for Windows, you need the following items:
+
+	Memchan 2.2a4 Source Distribution
+	Tcl 7.6, 8.0* Source or binary distribution
+
+	Either	MS Visual C++ 2.x/4.x/5.x
+	or	the Cygwin GCC port (and associated tools)
+
+In the "win" subdirectory of the source release you will find
+
+	makefile.vc, makefile,vc5 and Makefile.gnu
+
+These are the makefiles to use with either MS VC 4.x, 5.x or the Cygwin
+environment. You should copy the appropriate file to "makefile" and then
+update the paths at the top to reflect your system configuration.  Now
+you can use "nmake" (MS) or ? (Cygwin) from a DOS Window to build the
+extension.
+
+For MS VC++ make sure that you added the paths (and their 'bin' sub-
+directories) in the following make variables (see your Makefile) to your
+PATH environment variable:
+
+	TOOLS32, TOOLS32_rc and MS_LIBPATH

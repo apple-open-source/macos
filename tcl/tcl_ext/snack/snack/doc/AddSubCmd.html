@@ -1,0 +1,39 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.6 [en] (X11; I; HP-UX B.10.20 9000/778) [Netscape]">
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_AddSubCmd - add a new sub-command to a Snack object command
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<br><b>Snack_AddSubCmd</b>(snackCmd, cmdName, cmdProc, delCmdProc)
+<h3>
+ARGUMENTS</h3>
+int <b>snackCmd</b> (in)
+<br>&nbsp;&nbsp;&nbsp; A flag specifying which command category the new
+sub-command belongs to. Valid values are SNACK_SOUND_CMD, SNACK_MIXER_CMD,
+or SNACK_AUDIO_CMD.
+<p>char <b>*cmdName</b> (in)
+<br>&nbsp;&nbsp;&nbsp; Name of the new sub-command.
+<p>Snack_CmdProc <b>*cmdProc</b> (in)
+<br>&nbsp;&nbsp;&nbsp; Implementation of the new sub-command. cmdProc will
+be called whenever cmdName is invoked as a sub-command.
+<p>Snack_DelCmdProc <b>*delCmdProc</b> (in)
+<br>&nbsp;&nbsp;&nbsp; Procedure to invoke before deleting the object command.
+<h3>
+DESCRIPTION</h3>
+Snack_AddSubCmd defines a new sub-command for a Snack object command and
+associates with it procedure <i>cmdProc</i>, such that whenever <i>cmdName</i>
+is invoked as a sub-command (e.g., via a call to Tcl_EvalObj) the Tcl interpreter
+will call <i>cmdProc</i> to process the command. New sound sub-commands
+must call Snack_GetSound() to determine which sound they invoked on. <i>delCmdProc</i>
+is called during clean-up when unloading the extension.
+<br>&nbsp;
+</body>
+</html>

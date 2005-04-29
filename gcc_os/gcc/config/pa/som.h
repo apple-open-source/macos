@@ -19,7 +19,8 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* So we can conditionalize small amounts of code in pa.c or pa.md.  */
-#define OBJ_SOM
+#undef TARGET_SOM
+#define TARGET_SOM 1
 
 /* We do not use BINCL stabs in SOM.
    ??? If it does not hurt, we probably should to avoid useless divergence
@@ -130,8 +131,7 @@ do {								\
    that the section name will have a "." prefix.  */
 #define ASM_OUTPUT_FUNCTION_PREFIX(FILE, NAME) \
   {									\
-    const char *name;							\
-    STRIP_NAME_ENCODING (name, NAME);					\
+    const char *name = (*targetm.strip_name_encoding) (NAME);		\
     if (TARGET_GAS && in_section == in_text) 				\
       fputs ("\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE); \
     else if (TARGET_GAS)						\
@@ -198,10 +198,9 @@ do {								\
 		   }							\
 	       }							\
 	     /* anonymous args */					\
-	     if ((TYPE_ARG_TYPES (tree_type) != 0			\
-		  && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (tree_type)))\
-		      != void_type_node))				\
-		 || current_function_varargs)				\
+	     if (TYPE_ARG_TYPES (tree_type) != 0			\
+		 && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (tree_type)))\
+		     != void_type_node))				\
 	       {							\
 		 for (; i < 4; i++)					\
 		   fprintf (FILE, ",ARGW%d=GR", i);			\
@@ -249,7 +248,34 @@ do {  \
 /* Supposedly the assembler rejects the command if there is no tab!  */
 #define READONLY_DATA_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n"
 
-#define READONLY_DATA_SECTION readonly_data
+#define EXTRA_SECTIONS in_readonly_data
+
+#define EXTRA_SECTION_FUNCTIONS						\
+extern void readonly_data PARAMS ((void));				\
+void									\
+readonly_data ()							\
+{									\
+  if (in_section != in_readonly_data)					\
+    {									\
+      in_section = in_readonly_data;					\
+      fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
+    }									\
+}
+
+/* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
+   which reference data within the $TEXT$ space (for example constant
+   strings in the $LIT$ subspace).
+
+   The assemblers (GAS and HP as) both have problems with handling
+   the difference of two symbols which is the other correct way to
+   reference constant data during PIC code generation.
+
+   So, there's no way to reference constant data which is in the
+   $TEXT$ space during PIC generation.  Instead place all constant
+   data into the $PRIVATE$ subspace (this reduces sharing, but it
+   works correctly).  */
+
+#define READONLY_DATA_SECTION (flag_pic ? data_section : readonly_data)
 
 /* Output before writable data.  */
 
@@ -266,38 +292,6 @@ do {  \
 
    So, we force exception information into the data section.  */
 #define TARGET_ASM_EXCEPTION_SECTION data_section
-
-/* Define the .bss section for ASM_OUTPUT_LOCAL to use.  */
-
-#define EXTRA_SECTIONS in_readonly_data
-
-/* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
-   which reference data within the $TEXT$ space (for example constant
-   strings in the $LIT$ subspace).
-
-   The assemblers (GAS and HP as) both have problems with handling
-   the difference of two symbols which is the other correct way to
-   reference constant data during PIC code generation.
-
-   So, there's no way to reference constant data which is in the
-   $TEXT$ space during PIC generation.  Instead place all constant
-   data into the $PRIVATE$ subspace (this reduces sharing, but it
-   works correctly).  */
-
-#define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data PARAMS ((void));				\
-void									\
-readonly_data ()							\
-{									\
-  if (in_section != in_readonly_data)					\
-    {									\
-      if (flag_pic)							\
-	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);		\
-      else								\
-	fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
-      in_section = in_readonly_data;					\
-    }									\
-}
 
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.
@@ -326,7 +320,7 @@ readonly_data ()							\
    "imported", even library calls. They look a bit different, so
    here's this macro.
 
-   Also note not all libcall names are passed to ENCODE_SECTION_INFO
+   Also note not all libcall names are passed to pa_encode_section_info
    (__main for example).  To make sure all libcall names have section
    info recorded in them, we do it here.  We must also ensure that
    we don't import a libcall that has been previously exported since
@@ -339,7 +333,7 @@ readonly_data ()							\
        if (!function_label_operand (RTL, VOIDmode))			\
 	 hppa_encode_label (RTL);					\
 									\
-       STRIP_NAME_ENCODING (name, XSTR ((RTL), 0));			\
+       name = (*targetm.strip_name_encoding) (XSTR ((RTL), 0));		\
        id = maybe_get_identifier (name);				\
        if (! id || ! TREE_SYMBOL_REFERENCED (id))			\
 	 {								\
@@ -368,6 +362,61 @@ do {						\
 /* The .align directive in the HP assembler allows up to a 32 alignment.  */
 #define MAX_OFILE_ALIGNMENT 32768
 
-/* SOM does not support the init_priority C++ attribute.  */
-#undef SUPPORTS_INIT_PRIORITY
-#define SUPPORTS_INIT_PRIORITY 0
+/* The SOM linker hardcodes paths into binaries.  As a result, dotdots
+   must be removed from library prefixes to prevent binaries from depending
+   on the location of the GCC tool directory.  The downside is GCC
+   cannot be moved after installation using a symlink.  */
+#define ALWAYS_STRIP_DOTDOT 1
+
+/* Aggregates with a single float or double field should be passed and
+   returned in the general registers.  */
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) (MODE==SFmode || MODE==DFmode)
+
+/* If GAS supports weak, we can support weak when we have working linker
+   support for secondary definitions and are generating code for GAS.  */
+#ifdef HAVE_GAS_WEAK
+#define SUPPORTS_WEAK (TARGET_SOM_SDEF && TARGET_GAS)
+#else
+#define SUPPORTS_WEAK 0
+#endif
+
+/* We can support one only if we support weak.  */
+#define SUPPORTS_ONE_ONLY SUPPORTS_WEAK
+
+/* Use weak (secondary definitions) to make one only declarations.  */
+#define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
+
+/* This is how we tell the assembler that a symbol is weak.  The SOM
+   weak implementation uses the secondary definition (sdef) flag.
+
+   The behavior of sdef symbols is similar to ELF weak symbols in that
+   multiple definitions can occur without incurring a link error.
+   However, they differ in the following ways:
+     1) Undefined sdef symbols are not allowed.
+     2) The linker searches for undefined sdef symbols and will load an
+	archive library member to resolve an undefined sdef symbol.
+     3) The exported symbol from a shared library is a primary symbol
+        rather than a sdef symbol.  Thus, more care is needed in the
+	ordering of libraries.
+
+   It appears that the linker discards extra copies of "weak" functions
+   when linking shared libraries, independent of whether or not they
+   are in their own section.  In linking final executables, -Wl,-O can
+   be used to remove dead procedures.  Thus, support for named sections
+   is not needed and in previous testing caused problems with various
+   HP tools.  */
+#define ASM_WEAKEN_LABEL(FILE,NAME) \
+  do { fputs ("\t.weak\t", FILE);				\
+       assemble_name (FILE, NAME);				\
+       fputc ('\n', FILE);					\
+       if (! FUNCTION_NAME_P (NAME))				\
+	 {							\
+	   fputs ("\t.EXPORT ", FILE);				\
+	   assemble_name (FILE, NAME);				\
+	   fputs (",DATA\n", FILE);				\
+	 }							\
+  } while (0)
+
+/* We can't handle weak aliases, and therefore can't support pragma weak.
+   Suppress the use of pragma weak in gthr-dce.h and gthr-posix.h.  */
+#define GTHREAD_USE_WEAK 0

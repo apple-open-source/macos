@@ -1,0 +1,18 @@
+David Coe & Pierre Humblet write:
+
+To run man with Cygnus cygwin B20.1 you will need groff and associated
+utilities, for example from
+
+ftp://ftp.franken.de/pub/win32/develop/gnuwin32/cygwin32/porters/Hirmke_Michael/B20/groff-1.10-cygwin-b20-bin.tar.gz
+
+Adjust the paths in configure and man2html/Makefile.in to suit your
+installation.
+
+man-1.5f builds with:
+    CC="gcc -DNONLS -DLC_MESSAGES=6" ./configure -d +traditional
+then issue:
+    make
+then:
+    make install
+
+Edit the installed man.conf to suit your site.

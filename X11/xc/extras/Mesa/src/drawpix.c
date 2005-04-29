@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.1
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,22 +23,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "colormac.h"
 #include "context.h"
 #include "drawpix.h"
 #include "feedback.h"
 #include "macros.h"
-#include "mem.h"
 #include "mmath.h"
 #include "state.h"
 #include "mtypes.h"
-#endif
-
 
 
 /*
@@ -75,14 +69,15 @@ _mesa_DrawPixels( GLsizei width, GLsizei height,
 			     &ctx->Unpack, pixels);
    }
    else if (ctx->RenderMode==GL_FEEDBACK) {
+      /* Feedback the current raster pos info */
       if (ctx->Current.RasterPosValid) {
-	 FLUSH_CURRENT(ctx, 0);
+	 FLUSH_CURRENT( ctx, 0 );
          FEEDBACK_TOKEN( ctx, (GLfloat) (GLint) GL_DRAW_PIXEL_TOKEN );
          _mesa_feedback_vertex( ctx,
 				ctx->Current.RasterPos,
 				ctx->Current.RasterColor,
-				ctx->Current.RasterIndex, 
-				ctx->Current.RasterTexCoord );
+				ctx->Current.RasterIndex,
+				ctx->Current.RasterTexCoords[0] );
       }
    }
    else if (ctx->RenderMode==GL_SELECT) {
@@ -102,7 +97,8 @@ _mesa_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height,
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (width < 0 || height < 0) {
-      _mesa_error( ctx, GL_INVALID_VALUE, "glReadPixels(width or height < 0)" );
+      _mesa_error( ctx, GL_INVALID_VALUE,
+                   "glReadPixels(width=%d height=%d)", width, height );
       return;
    }
 
@@ -116,7 +112,6 @@ _mesa_ReadPixels( GLint x, GLint y, GLsizei width, GLsizei height,
 
    ctx->Driver.ReadPixels(ctx, x, y, width, height,
 			  format, type, &ctx->Pack, pixels);
-
 }
 
 
@@ -155,13 +150,13 @@ _mesa_CopyPixels( GLint srcx, GLint srcy, GLsizei width, GLsizei height,
    }
    else if (ctx->RenderMode == GL_FEEDBACK) {
       if (ctx->Current.RasterPosValid) {
-	 FLUSH_CURRENT(ctx, 0);
+         FLUSH_CURRENT( ctx, 0 );
          FEEDBACK_TOKEN( ctx, (GLfloat) (GLint) GL_COPY_PIXEL_TOKEN );
-         _mesa_feedback_vertex( ctx,
-				ctx->Current.RasterPos,
-				ctx->Current.RasterColor,
-				ctx->Current.RasterIndex, 
-				ctx->Current.RasterTexCoord );
+         _mesa_feedback_vertex( ctx, 
+                                ctx->Current.RasterPos,
+                                ctx->Current.RasterColor,
+                                ctx->Current.RasterIndex,
+                                ctx->Current.RasterTexCoords[0] );
       }
    }
    else if (ctx->RenderMode == GL_SELECT) {
@@ -210,7 +205,7 @@ _mesa_Bitmap( GLsizei width, GLsizei height,
 				ctx->Current.RasterPos,
 				ctx->Current.RasterColor,
 				ctx->Current.RasterIndex, 
-				ctx->Current.RasterTexCoord );
+				ctx->Current.RasterTexCoords[0] );
       }
    }
    else if (ctx->RenderMode==GL_SELECT) {
@@ -221,3 +216,68 @@ _mesa_Bitmap( GLsizei width, GLsizei height,
    ctx->Current.RasterPos[0] += xmove;
    ctx->Current.RasterPos[1] += ymove;
 }
+
+
+
+#if 0  /* experimental */
+/*
+ * Execute glDrawDepthPixelsMESA().  This function accepts both a color
+ * image and depth (Z) image.  Rasterization produces fragments with
+ * color and Z taken from these images.  This function is intended for
+ * Z-compositing.  Normally, this operation requires two glDrawPixels
+ * calls with stencil testing.
+ */
+void
+_mesa_DrawDepthPixelsMESA( GLsizei width, GLsizei height,
+                           GLenum colorFormat, GLenum colorType,
+                           const GLvoid *colors,
+                           GLenum depthType, const GLvoid *depths )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   if (width < 0 || height < 0) {
+      _mesa_error( ctx, GL_INVALID_VALUE,
+                   "glDrawDepthPixelsMESA(width or height < 0" );
+      return;
+   }
+
+   if (ctx->RenderMode==GL_RENDER) {
+      GLint x, y;
+      if (!colors || !depths || !ctx->Current.RasterPosValid) {
+	 return;
+      }
+
+      if (ctx->NewState) {
+         _mesa_update_state(ctx);
+      }
+
+      /* Round, to satisfy conformance tests (matches SGI's OpenGL) */
+      x = IROUND(ctx->Current.RasterPos[0]);
+      y = IROUND(ctx->Current.RasterPos[1]);
+
+      ctx->OcclusionResult = GL_TRUE;
+      ctx->Driver.DrawDepthPixelsMESA(ctx, x, y, width, height,
+                                      colorFormat, colorType, colors,
+                                      depthType, depths, &ctx->Unpack);
+   }
+   else if (ctx->RenderMode==GL_FEEDBACK) {
+      /* Feedback the current raster pos info */
+      if (ctx->Current.RasterPosValid) {
+	 FLUSH_CURRENT( ctx, 0 );
+         FEEDBACK_TOKEN( ctx, (GLfloat) (GLint) GL_DRAW_PIXEL_TOKEN );
+         _mesa_feedback_vertex( ctx,
+				ctx->Current.RasterPos,
+				ctx->Current.RasterColor,
+				ctx->Current.RasterIndex,
+				ctx->Current.RasterTexCoords[0] );
+      }
+   }
+   else if (ctx->RenderMode==GL_SELECT) {
+      if (ctx->Current.RasterPosValid) {
+         _mesa_update_hitflag( ctx, ctx->Current.RasterPos[2] );
+      }
+   }
+}
+
+#endif

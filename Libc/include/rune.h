@@ -1,25 +1,3 @@
-/*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -63,26 +41,33 @@
 
 #include <runetype.h>
 #include <stdio.h>
+#include <AvailabilityMacros.h>
+
+/*--------------------------- DEPRECIATED -------------------------------
+ * This interface is depreciated and will eventually be removed.  The ISO C99
+ * extended multibyte and wide character facilities should be used instead.
+ * See multibyte(3) and related man pages for further details.
+ *--------------------------- DEPRECIATED -------------------------------*/
 
 #define	_PATH_LOCALE	"/usr/share/locale"
 
-#define _INVALID_RUNE   _CurrentRuneLocale->invalid_rune
+#define _INVALID_RUNE   _CurrentRuneLocale->__invalid_rune
 
-#define __sgetrune      _CurrentRuneLocale->sgetrune
-#define __sputrune      _CurrentRuneLocale->sputrune
+#define __sgetrune      _CurrentRuneLocale->__sgetrune
+#define __sputrune      _CurrentRuneLocale->__sputrune
 
 #define sgetrune(s, n, r)       (*__sgetrune)((s), (n), (r))
 #define sputrune(c, s, n, r)    (*__sputrune)((c), (s), (n), (r))
 
 __BEGIN_DECLS
-char	*mbrune(const char *, rune_t);
-char	*mbrrune(const char *, rune_t);
-char	*mbmb(const char *, char *);
-long	 fgetrune(FILE *);
-int	 fputrune(rune_t, FILE *);
-int	 fungetrune(rune_t, FILE *);
-int	 setrunelocale(char *);
-void	 setinvalidrune(rune_t);
+char	*mbrune(const char *, rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+char	*mbrrune(const char *, rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+char	*mbmb(const char *, char *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+long	 fgetrune(FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int	 fputrune(rune_t, FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int	 fungetrune(rune_t, FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int	 setrunelocale(char *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+void	 setinvalidrune(rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 __END_DECLS
 
 #endif	/*! _RUNE_H_ */

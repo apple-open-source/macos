@@ -27,6 +27,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
+/* $XFree86: xc/programs/xkbprint/xkbprint.h,v 1.2 2003/11/17 22:20:53 dawes Exp $ */
 
 #define	LABEL_AUTO	-1
 #define	LABEL_NONE	0
@@ -58,19 +59,15 @@ typedef struct _XKBPrintArgs {
 
 extern Bool
 DumpInternalFont(
-#if NeedFunctionPrototypes
 	FILE *		/* out */,
 	char *		/* fontName */
-#endif
 );
 
 extern Bool
 GeometryToPostScript(
-#if NeedFunctionPrototypes
 	FILE *		/* out */,
 	XkbFileInfo *	/* result */,
 	XKBPrintArgs *	/* args */
-#endif
 );
 
 #endif /* _XKBPRINT_H_ */

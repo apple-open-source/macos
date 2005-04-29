@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/lib/xkbfile/xkbdraw.c,v 1.3 2001/07/29 05:01:13 tsi Exp $ */
+/* $XFree86: xc/lib/xkbfile/xkbdraw.c,v 1.4 2003/11/17 22:20:23 dawes Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -40,14 +40,7 @@
 #include "XKBfileInt.h"
 
 static void
-#if NeedFunctionPrototypes
 _XkbAddDrawable(XkbDrawablePtr *pfirst,XkbDrawablePtr *plast,XkbDrawablePtr tmp)
-#else
-_XkbAddDrawable(pfirst,plast,tmp)
-    XkbDrawablePtr *	pfirst;
-    XkbDrawablePtr *	plast;
-    XkbDrawablePtr	tmp;
-#endif
 {
 XkbDrawablePtr	old;
 
@@ -74,13 +67,7 @@ XkbDrawablePtr	old;
 }
 
 XkbDrawablePtr
-#if NeedFunctionPrototypes
 XkbGetOrderedDrawables(XkbGeometryPtr geom,XkbSectionPtr section)
-#else
-XkbGetOrderedDrawables(geom,section)
-    XkbGeometryPtr	geom;
-    XkbSectionPtr	section;
-#endif
 {
 XkbDrawablePtr	first,last,tmp;
 int		i;
@@ -133,12 +120,7 @@ int		i;
 }
 
 void
-#if NeedFunctionPrototypes
 XkbFreeOrderedDrawables(XkbDrawablePtr draw)
-#else
-XkbFreeOrderedDrawables(draw)
-    XkbDrawablePtr	draw;
-#endif
 {
 XkbDrawablePtr	tmp;
 

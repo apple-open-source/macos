@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_refresh.c,v 1.1.1.2 2002/01/03 23:53:40 jevans Exp $")
+MODULE_ID("$Id: lib_refresh.c,v 1.32 2002/05/26 00:17:04 tom Exp $")
 
 NCURSES_EXPORT(int)
 wrefresh(WINDOW *win)
@@ -132,8 +132,8 @@ wnoutrefresh(WINDOW *win)
     /* limit(n) */
     limit_x = win->_maxx;
     /* limit(j) */
-    if (limit_x > win->_maxx)
-	limit_x = win->_maxx;
+    if (limit_x > newscr->_maxx - begx)
+	limit_x = newscr->_maxx - begx;
 
     for (i = 0, m = begy + win->_yoffset;
 	 i <= win->_maxy && m <= newscr->_maxy;

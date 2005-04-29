@@ -29,8 +29,6 @@
 #if !defined (GDBSTABS_H)
 #define GDBSTABS_H
 
-#define	SECT_OFF_MAX	64	/* Count of possible values */
-
 /* The stab_section_info chain remembers info from the ELF symbol table,
    while psymtabs are being built for the other symbol tables in the 
    objfile.  It is destroyed at the complation of psymtab-reading.
@@ -39,9 +37,10 @@
 struct stab_section_info
   {
     char *filename;
-    CORE_ADDR sections[SECT_OFF_MAX];
     struct stab_section_info *next;
     int found;			/* Count of times it's found in searching */
+    size_t num_sections;
+    CORE_ADDR sections[1];
   };
 
 /* Information is passed among various dbxread routines for accessing
@@ -52,6 +51,8 @@ struct dbx_symfile_info
   {
     CORE_ADDR text_addr;	/* Start of text section */
     int text_size;		/* Size of text section */
+    CORE_ADDR coalesced_text_addr;	/* Start of coalesced_text section */
+    int coalesced_text_size;		/* Size of coalesced_text section */
     int symcount;		/* How many symbols are there in the file */
     char *stringtab;		/* The actual string table */
     int stringtab_size;		/* Its size */
@@ -68,20 +69,43 @@ struct dbx_symfile_info
     /* Pointers to BFD sections.  These are used to speed up the building of
        minimal symbols.  */
     asection *text_section;
+    asection *coalesced_text_section;
     asection *data_section;
     asection *bss_section;
+
+    /* Pointer to the separate ".stab" section, if there is one.  */
+    asection *stab_section;
+
+    /* APPLE LOCAL: Record the # and offset of local stab nlist records and
+       non-local stab nlist records.  If this information is not provided
+       by the static link editor, these will have 0 values. */
+
+    file_ptr local_stab_offset;
+    int local_stab_count;
+    file_ptr nonlocal_stab_offset;
+    int nonlocal_stab_count;
   };
 
 #define DBX_SYMFILE_INFO(o)	((o)->sym_stab_info)
 #define DBX_TEXT_ADDR(o)	(DBX_SYMFILE_INFO(o)->text_addr)
 #define DBX_TEXT_SIZE(o)	(DBX_SYMFILE_INFO(o)->text_size)
+#define DBX_COALESCED_TEXT_ADDR(o)	(DBX_SYMFILE_INFO(o)->coalesced_text_addr)
+#define DBX_COALESCED_TEXT_SIZE(o)	(DBX_SYMFILE_INFO(o)->coalesced_text_size)
 #define DBX_SYMCOUNT(o)		(DBX_SYMFILE_INFO(o)->symcount)
 #define DBX_STRINGTAB(o)	(DBX_SYMFILE_INFO(o)->stringtab)
 #define DBX_STRINGTAB_SIZE(o)	(DBX_SYMFILE_INFO(o)->stringtab_size)
 #define DBX_SYMTAB_OFFSET(o)	(DBX_SYMFILE_INFO(o)->symtab_offset)
 #define DBX_SYMBOL_SIZE(o)	(DBX_SYMFILE_INFO(o)->symbol_size)
 #define DBX_TEXT_SECTION(o)	(DBX_SYMFILE_INFO(o)->text_section)
+#define DBX_COALESCED_TEXT_SECTION(o)	(DBX_SYMFILE_INFO(o)->coalesced_text_section)
 #define DBX_DATA_SECTION(o)	(DBX_SYMFILE_INFO(o)->data_section)
 #define DBX_BSS_SECTION(o)	(DBX_SYMFILE_INFO(o)->bss_section)
+#define DBX_STAB_SECTION(o)	(DBX_SYMFILE_INFO(o)->stab_section)
+
+/* APPLE LOCAL: Accessors for the local / non-local stab nlist records */
+#define DBX_LOCAL_STAB_OFFSET(o) (DBX_SYMFILE_INFO(o)->local_stab_offset)
+#define DBX_LOCAL_STAB_COUNT(o) (DBX_SYMFILE_INFO(o)->local_stab_count)
+#define DBX_NONLOCAL_STAB_OFFSET(o) (DBX_SYMFILE_INFO(o)->nonlocal_stab_offset)
+#define DBX_NONLOCAL_STAB_COUNT(o) (DBX_SYMFILE_INFO(o)->nonlocal_stab_count)
 
 #endif /* GDBSTABS_H */

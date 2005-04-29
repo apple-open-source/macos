@@ -25,7 +25,7 @@
  * 
  * Authors: Rickard E. (Rik) Faith <faith@valinux.com>
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/drm/xf86drmSL.c,v 1.3 2000/06/17 00:03:34 martin Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/drm/xf86drmSL.c,v 1.4 2003/09/24 03:16:59 dawes Exp $
  *
  * DESCRIPTION
  *
@@ -345,16 +345,16 @@ void N(SLDump)(void *l)
 		   list->magic, SL_ENTRY_MAGIC);
 	}
 	printf("\nEntry %p <0x%08lx, %p> has %2d levels\n",
-	       entry, entry->key, entry->value, entry->levels);
+	       (void *)entry, entry->key, entry->value, entry->levels);
 	for (i = 0; i < entry->levels; i++) {
 	    if (entry->forward[i]) {
 		printf("   %2d: %p <0x%08lx, %p>\n",
 		       i,
-		       entry->forward[i],
+		       (void *)entry->forward[i],
 		       entry->forward[i]->key,
 		       entry->forward[i]->value);
 	    } else {
-		printf("   %2d: %p\n", i, entry->forward[i]);
+		printf("   %2d: %p\n", i, (void *)entry->forward[i]);
 	    }
 	}
     }

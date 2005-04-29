@@ -1,0 +1,96 @@
+/*
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+
+#ifndef _APPLERAIDMIRRORSET_H
+#define _APPLERAIDMIRRORSET_H
+
+#define kAppleRAIDLevelNameMirror "Mirror"
+
+extern const OSSymbol * gAppleRAIDMirrorName;
+    
+class AppleRAIDMirrorSet : public AppleRAIDSet
+{
+    OSDeclareDefaultStructors(AppleRAIDMirrorSet);
+
+ private:
+    UInt32			arExpectingLiveAdd;
+    thread_call_t		arSetCompleteThreadCall;
+    
+    AppleRAIDMember *		arRebuildingMember;
+    thread_call_t		arRebuildThreadCall;
+    
+    queue_head_t		arFailedRequestQueue;
+
+
+ protected:
+    virtual bool init(void);
+    virtual bool initWithHeader(OSDictionary * header, bool firstTime);
+    virtual void free();
+
+    virtual void rebuildStart(void);
+    virtual void rebuild(void);
+    virtual void rebuildComplete(bool wasRebuilt);
+
+    virtual void getRecoverQueue(queue_head_t *oldRequestQueue, queue_head_t *newRequestQueue);
+    virtual bool recover(void);
+
+public:
+    static AppleRAIDSet * createRAIDSet(AppleRAIDMember * firstMember);
+    virtual bool addMember(AppleRAIDMember * member);
+
+    virtual bool resizeSet(UInt32 newMemberCount);
+    virtual bool startSet(void);
+    virtual bool publishSet(void);
+
+    virtual bool isSetComplete(void);
+    virtual bool bumpOnError(void);
+
+    virtual void setCompleteTimeout(void);
+
+    virtual void completeRAIDRequest(AppleRAIDStorageRequest *storageRequest);
+    
+    virtual AppleRAIDMemoryDescriptor * allocateMemoryDescriptor(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
+};
+
+
+
+class AppleRAIDMirrorMemoryDescriptor : public AppleRAIDMemoryDescriptor
+{
+    OSDeclareDefaultStructors(AppleRAIDMirrorMemoryDescriptor);
+    
+private:
+    UInt32		mdMemberCount;
+    UInt32		mdSetBlockSize;
+    UInt32		mdSetBlockStart;
+    UInt32		mdSetBlockOffset;
+    
+protected:
+    virtual bool initWithStorageRequest(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
+    virtual bool configureForMemoryDescriptor(IOMemoryDescriptor *memoryDescriptor, UInt64 byteStart, UInt32 activeIndex);
+    
+public:
+    static AppleRAIDMemoryDescriptor *withStorageRequest(AppleRAIDStorageRequest *storageRequest, UInt32 memberIndex);
+    virtual IOPhysicalAddress getPhysicalSegment(IOByteCount offset, IOByteCount *length);
+};
+
+#endif /* ! _APPLERAIDMIRRORSET_H */

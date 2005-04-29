@@ -191,7 +191,7 @@ sInt32 DNSBrowserThread::StartServiceLookup( CFStringRef domain, CFStringRef ser
         DBGLOG("StartServiceLookup, waiting for mRunLoopRef\n");
         SmartSleep(500000);
     }
-        
+    
     CFStreamError 				error = {(CFStreamErrorDomain)0, 0};
     CFNetServiceClientContext 	c = {0, this, NULL, NULL, CopyBrowserDescription};
     CFNetServiceBrowserRef 		searchingBrowser = CFNetServiceBrowserCreate(NULL, BrowserCallBack, &c);
@@ -289,7 +289,7 @@ static void BrowserCallBack(CFNetServiceBrowserRef browser, CFOptionFlags flags,
     }
     else
     {
-        if ( getenv("NSLDEBUG") )
+        if ( IsNSLDebuggingEnabled() )
         {
             DBGLOG( "Browser received %s service.  Service info:\n",
                     (flags & kCFNetServiceFlagRemove) ? "remove" : "add");

@@ -132,12 +132,12 @@ comfortable to add one additional XKB term - group. You can think of a group
 as of a vector of columns per each keycode (naturally the dimension of this
 vector may differ for different keycodes). What is it good for? The group is
 not very useful unless you intend to use more than one logically different
-set of symbols (like more than one alphabet) defined in a single mapping
-table. But then, the group has a natural meaning - each symbol set has its
-own group and changing it means selecting a different one.  XKB approach
-allows up to four different groups. The columns inside each group are called
-(shift) levels. The X server knows the current group and reports it together
-with modifier set and with a keycode in key events.
+set of symbols (like more than one alphabet) defined in a single mapping ta-
+ble. But then, the group has a natural meaning - each symbol set has its own
+group and changing it means selecting a different one.  XKB approach allows
+up to four different groups. The columns inside each group are called (shift)
+levels. The X server knows the current group and reports it together with
+modifier set and with a keycode in key events.
 
 To sum it up:
 
@@ -505,7 +505,7 @@ rules file described above the .lst file could look like:
 
 And that should be it. Enjoy creating your own xkb mapping.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Enhancing.sgml,v 1.2 2003/02/25 19:31:02 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/XKB-Enhancing.sgml,v 1.2 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.XKB-Enhancing,v 1.2 2003/02/25 21:32:35 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.XKB-Enhancing,v 1.4 2003/10/19 19:57:13 dawes Exp $

@@ -31,7 +31,7 @@
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
  ****************************************************************************/
 
-/* $Id: capdefaults.c,v 1.1.1.1 2001/11/29 20:40:52 jevans Exp $ */
+/* $Id: capdefaults.c,v 1.12 2000/01/02 02:34:56 tom Exp $ */
 
     /*
      * Compute obsolete capabilities.  The reason this is an include file is

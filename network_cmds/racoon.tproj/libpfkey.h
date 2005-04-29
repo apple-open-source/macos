@@ -30,6 +30,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __LIBPFKEY_H__
+#define __LIBPFKEY_H__
+
 struct sadb_msg;
 extern void pfkey_sadump __P((struct sadb_msg *));
 extern void pfkey_spdump __P((struct sadb_msg *));
@@ -88,3 +91,7 @@ struct sadb_msg *pfkey_recv __P((int));
 int pfkey_send __P((int, struct sadb_msg *, int));
 int pfkey_align __P((struct sadb_msg *, caddr_t *));
 int pfkey_check __P((caddr_t *));
+
+
+#endif /* __LIBPFKEY_H__ */
+

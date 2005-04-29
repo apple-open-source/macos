@@ -26,7 +26,7 @@
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/arith.c,v 1.6 2002/02/18 20:51:57 herrb Exp $ */
+/* $XFree86: xc/lib/font/Type1/arith.c,v 1.7 2003/05/27 22:26:45 tsi Exp $ */
 
  /* ARITH    CWEB         V0006 ********                             */
 /*
@@ -382,14 +382,12 @@ FPmult(fractpel u, fractpel v)
   DLrightshift(w, FRACTBITS);
 #ifndef LONG64
   if (w.high != 0 || SIGNBITON(w.low)) {
-        IfTrace2(TRUE,"FPmult: overflow, %px%p\n", u, v);
         w.low = TOFRACTPEL(MAXSHORT);
   }
  
   return ((negative) ? -w.low : w.low);
 #else
   if (w & 0xffffffff80000000L ) {
-        IfTrace2(TRUE,"FPmult: overflow, %px%p\n", u, v);
         ret = TOFRACTPEL(MAXSHORT);
   }
   else
@@ -427,7 +425,6 @@ FPdiv(fractpel dividend, fractpel divisor)
        w.high = dividend >> (LONGSIZE - FRACTBITS);
        DLdiv(&w, divisor);
        if (w.high != 0 || SIGNBITON(w.low)) {
-               IfTrace2(TRUE,"FPdiv: overflow, %p/%p\n", dividend, divisor);
                w.low = TOFRACTPEL(MAXSHORT);
        }
        return( (negative) ? -w.low : w.low);
@@ -435,7 +432,6 @@ FPdiv(fractpel dividend, fractpel divisor)
        w = ((long)dividend) << FRACTBITS;
        DLdiv(&w, divisor);
        if (w & 0xffffffff80000000L ) {
-               IfTrace2(TRUE,"FPdiv: overflow, %p/%p\n", dividend, divisor);
                ret = TOFRACTPEL(MAXSHORT);
        }
        else
@@ -471,13 +467,11 @@ FPstarslash(fractpel a,   /* result = a * b / c                              */
        DLdiv(&w, c);
 #ifndef LONG64
        if (w.high != 0 || SIGNBITON(w.low)) {
-               IfTrace3(TRUE,"FPstarslash: overflow, %p*%p/%p\n", a, b, c);
                w.low = TOFRACTPEL(MAXSHORT);
        }
        return((negative) ? -w.low : w.low);
 #else
        if (w & 0xffffffff80000000L ) {
-               IfTrace3(TRUE,"FPstarslash: overflow, %p*%p/%p\n", a, b, c);
                ret = TOFRACTPEL(MAXSHORT);
        }
        else

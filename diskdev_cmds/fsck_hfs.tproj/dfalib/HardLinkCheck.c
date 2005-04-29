@@ -248,9 +248,12 @@ CheckHardLinks(void *cookie)
 					filename, &len);
 		filename[len] = '\0';
 		
-		if ( 	(strstr(filename, HFS_DELETE_PREFIX) == filename) &&
-				(gp->calculatedVCB->vcbDriverWriteRef != -1) ) {
-				
+		/* Report Orphaned nodes in verify or on read-only volumes when:
+		 * 1. Volume was unmounted cleanly.
+		 * 2. fsck is being run in debug mode.
+		 */
+		if ((strstr(filename, HFS_DELETE_PREFIX) == filename) &&
+			(gp->logLevel == kDebugLog)) {
 			RecordOrphanINode(gp, folderID, filename);
 			continue;		
 		}

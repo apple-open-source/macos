@@ -32,6 +32,8 @@
  */
 /* $XFree86: xc/programs/Xserver/hw/darwin/bundle/quartzCursor.c,v 1.15 2001/12/22 05:28:35 torrey Exp $ */
 
+#include <CoreGraphics/CoreGraphics.h>
+
 #include "quartz.h"
 #include "quartz-cursor.h"
 #include "Xplugin.h"
@@ -44,8 +46,6 @@
 #include "globals.h"
 #include "servermd.h"
 #include "dixevents.h"
-
-#include <CoreGraphics/CoreGraphics.h>
 
 typedef struct {
     int                     CursorVisible;

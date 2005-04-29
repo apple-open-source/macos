@@ -35,6 +35,7 @@ class IOFireWireMagicMatchingNub : public IOService
 
 	public:
 		virtual bool matchPropertyTable( OSDictionary * table );
+		virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
     
 };
 

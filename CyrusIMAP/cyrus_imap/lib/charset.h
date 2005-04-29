@@ -39,7 +39,7 @@
  *
  */
 /*
- * $Id: charset.h,v 1.19 2003/10/22 18:50:12 rjs3 Exp $
+ * $Id: charset.h,v 1.5 2005/03/05 00:37:12 dasenbro Exp $
  */
 
 #ifndef INCLUDED_CHARSET_H

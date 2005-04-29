@@ -3,7 +3,7 @@
 @setfilename standards.info
 @settitle GNU Coding Standards
 @c This date is automagically updated when you save this file:
-@set lastupdate November 23, 2002
+@set lastupdate April 29, 2003
 @c %**end of header
 
 @dircategory GNU organization
@@ -229,18 +229,27 @@ packages or documentation.
 
 Trademark acknowledgements are the statements that such-and-such is a
 trademark of so-and-so.  The GNU Project has no objection to the basic
-idea of trademarks, but these acknowledgements feel like kowtowing, so
-we don't use them.  There is no legal requirement for them.
+idea of trademarks, but these acknowledgements feel like kowtowing, 
+and there is no legal requirement for them, so we don't use them.
 
 What is legally required, as regards other people's trademarks, is to
-avoid using them in ways which a reader might read as naming or labeling
-our own programs or activities.  For example, since ``Objective C'' is
-(or at least was) a trademark, we made sure to say that we provide a
-``compiler for the Objective C language'' rather than an ``Objective C
-compiler''.  The latter is meant to be short for the former, but it does
-not explicitly state the relationship, so it could be misinterpreted as
-using ``Objective C'' as a label for the compiler rather than for the
-language.
+avoid using them in ways which a reader might reasonably understand as
+naming or labeling our own programs or activities.  For example, since
+``Objective C'' is (or at least was) a trademark, we made sure to say
+that we provide a ``compiler for the Objective C language'' rather
+than an ``Objective C compiler''.  The latter would have been meant as
+a shorter way of saying the former, but it does not explicitly state
+the relationship, so it could be misinterpreted as using ``Objective
+C'' as a label for the compiler rather than for the language.
+
+Please don't use ``win'' as an abbreviation for Microsoft Windows in
+GNU software or documentation.  In hacker terminology, calling
+something a "win" is a form of praise.  If you wish to praise
+Microsoft Windows when speaking on your own, by all means do so, but
+not in GNU software.  Usually we write the word ``windows'' in full,
+but when brevity is very important (as in file names and sometimes
+symbol names), we abbreviate it to ``w''.  For instance, the files and
+functions in Emacs that deal with Windows start with @samp{w32}.
 
 @node Design Advice
 @chapter General Program Design
@@ -473,6 +482,7 @@ For example, please write
     ...
 @end smallexample
 
+@noindent
 instead of:
 
 @smallexample
@@ -485,11 +495,12 @@ instead of:
 
 A modern compiler such as GCC will generate exactly the same code in
 both cases, and we have been using similar techniques with good success
-in several projects.
+in several projects.  Of course, the former method assumes that
+@code{HAS_FOO} is defined as either 0 or 1.
 
 While this is not a silver bullet solving all portability problems,
-following this policy would have saved the GCC project alone many person
-hours if not days per year.
+and is not always appropriate, following this policy would have saved
+GCC developers many hours, or even days, per year.
 
 In the case of function-like macros like @code{REVERSIBLE_CC_MODE} in
 GCC which cannot be simply used in @code{if( ...)} statements, there is
@@ -739,8 +750,9 @@ input from a source other than a terminal, it is not interactive and
 would do best to print error messages using the noninteractive style.)
 
 The string @var{message} should not begin with a capital letter when
-it follows a program name and/or file name.  Also, it should not end
-with a period.
+it follows a program name and/or file name, because that isn't the
+beginning of a sentence.  (The sentence conceptually starts at the
+beginning of the line.)  Also, it should not end with a period.
 
 Error messages from interactive programs, and other messages such as
 usage messages, should start with a capital letter.  But they should not
@@ -836,8 +848,15 @@ option as another way to specify it.  This will lead to more consistency
 among GNU utilities, and fewer idiosyncracies for users to remember.
 
 @cindex standard command-line options
+@cindex options, standard command-line
+@cindex CGI programs, standard options for
+@cindex PATH_INFO, specifying standard options as
 All programs should support two standard options: @samp{--version}
-and @samp{--help}.
+and @samp{--help}.  CGI programs should accept these as command-line
+options, and also if given as the @env{PATH_INFO}; for instance,
+visiting @url{http://example.org/p.cgi/--help} in a browser should
+output the same information as inokving @samp{p.cgi --help} from the
+command line.
 
 @table @code
 @cindex @samp{--version} option
@@ -2610,6 +2629,15 @@ that is the case, it is better to spend your time adding features that
 will be useful on GNU and GNU/Linux, rather than on supporting other
 incompatible systems.
 
+If you do support Windows, please do not abbreviate it as ``win''.  In
+hacker terminology, calling something a ``win'' is a form of praise.
+You're free to praise Microsoft Windows on your own if you want, but
+please don't do this in GNU packages.  Instead of abbreviating
+``Windows'' to ``un'', you can write it in full or abbreviate it to
+``woe'' or ``w''.  In GNU Emacs, for instance, we use @samp{w32} in
+file names of Windows-specific files, but the macro for Windows
+conditionals is called @code{WINDOWSNT}.
+
 It is a good idea to define the ``feature test macro''
 @code{_GNU_SOURCE} when compiling your C files.  When you compile on GNU
 or GNU/Linux, this will enable the declarations of GNU library extension
@@ -3233,6 +3261,11 @@ code.  For example, ``New function'' is enough for the change log when
 you add a function, because there should be a comment before the
 function definition to explain what it does.
 
+In the past, we recommended not mentioning changes in non-software
+files (manuals, help files, etc.) in change logs.  However, we've been
+advised that it is a good idea to include them, for the sake of
+copyright records.
+
 However, sometimes it is useful to write one line to describe the
 overall purpose of a batch of changes.
 
@@ -3247,9 +3280,9 @@ Then describe the changes you made to that function or variable.
 @cindex change logs, style
 
 Here are some simple examples of change log entries, starting with the
-header line that says who made the change and when, followed by
-descriptions of specific changes.  (These examples are drawn from Emacs
-and GCC.)
+header line that says who made the change and when it was installed,
+followed by descriptions of specific changes.  (These examples are
+drawn from Emacs and GCC.)
 
 @example
 1998-08-17  Richard Stallman  <rms@@gnu.org>
@@ -3293,6 +3326,27 @@ Break long lists of function names by closing continued lines with
 (Fexecute_extended_command): Deal with `keymap' property.
 @end example
 
+When you install someone else's changes, put the contributor's name in
+the change log entry rather than in the text of the entry.  In other
+words, write this:
+
+@example
+2002-07-14  John Doe  <jdoe@@gnu.org>
+
+        * sewing.c: Make it sew.
+@end example
+
+@noindent
+rather than this:
+
+@example
+2002-07-14  Usual Maintainer  <usual@@gnu.org>
+
+        * sewing.c: Make it sew.  Patch by jdoe@@gnu.org.
+@end example
+
+As for the date, that should be the date you applied the change.
+
 @node Simple Changes
 @subsection Simple Changes
 
@@ -3314,12 +3368,17 @@ When you change just comments or doc strings, it is enough to write an
 entry for the file, without mentioning the functions.  Just ``Doc
 fixes'' is enough for the change log.
 
-There's no need to make change log entries for documentation files.
-This is because documentation is not susceptible to bugs that are hard
-to fix.  Documentation does not consist of parts that must interact in a
-precisely engineered fashion.  To correct an error, you need not know
-the history of the erroneous passage; it is enough to compare what the
-documentation says with the way the program actually works.
+There's no technical need to make change log entries for documentation
+files.  This is because documentation is not susceptible to bugs that
+are hard to fix.  Documentation does not consist of parts that must
+interact in a precisely engineered fashion.  To correct an error, you
+need not know the history of the erroneous passage; it is enough to
+compare what the documentation says with the way the program actually
+works.
+
+However, you should keep change logs for documentation files when the
+project gets copyright assignments from its contributors, so as to
+make the records of authorship more accurate.
 
 @node Conditional Changes
 @subsection Conditional Changes
@@ -3623,6 +3682,10 @@ ignore most of its arguments.
 @section Making Releases
 @cindex packaging
 
+You should identify each release with a pair of version numbers, a
+major version and a minor.  We have no objection to using more than
+two numbers, but it is very unlikely that you really need them.
+
 Package the distribution of @code{Foo version 69.96} up in a gzipped tar
 file with the name @file{foo-69.96.tar.gz}.  It should unpack into a
 subdirectory named @file{foo-69.96}.
@@ -3670,13 +3733,6 @@ ownership and permissions of the files from the tar archive will be
 able to extract all the files even if the user is unprivileged.
 
 Make sure that all the files in the distribution are world-readable.
-
-Make sure that no file name in the distribution is more than 14
-characters long.  Likewise, no file created by building the program
-should have a name longer than 14 characters.  The reason for this is
-that some systems adhere to a foolish interpretation of the @sc{posix}
-standard, and refuse to open a longer name, rather than truncating as
-they did in the past.
 
 Don't include any symbolic links in the distribution itself.  If the tar
 file contains symbolic links, then people cannot even unpack it on

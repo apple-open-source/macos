@@ -1,0 +1,62 @@
+
+This document describes to compile and install memchan on various
+systems.
+
+UNIX
+====
+
+There are 2 sets of files for building memchan on Unix-like system.
+
+1)	The most recent set is called the 'TEA' buildsystem and all
+	relevant files (configure, Makefile.in, ...) reside in the
+	toplevel directory of the memchan source distribution.
+
+	Use this set when compiling memchan against a Tcl core of
+	version 8.2 or higher.
+
+2)	The older set has no specific name and resides in the 'unix'
+	subdirectory of the memchan source distribution.
+
+	Use this set when compiling memchan against a Tcl core less
+	than 8.2, but greater or equal to 8.0.
+
+	Versions of tthe tcl core below version 8.0 of the core are not
+	supported.
+
+
+The standard usage of both sets is identical:
+
+1)	Switch into the directory containing the set.
+2)	Execute the 'configure' script to configure the distribution
+3)	Call the 'make' command with either no target or the target
+	'all' to compile memchan.
+4)	Execute 'make install' to install the generated binaries.
+
+WIN*
+====
+
+People having a cygwin environment and a VC++ compile can use the TEA
+build system in the toplevel directory to compile memchan (provided
+that a tcl core of version 8.2 or higher is used). It will be
+necessary to set CC=cl to enforce the usage of the MS VC++ compiler.
+
+For all other situations there are three makefiles for windows, all
+residing in the subdirectory "win" of the memchan distribution.
+
+1)	makefile.vc	Use this with MS VC++ 6 IDE.
+2)	makefile.vc5	Use this with MS VC++ 5 IDE.
+3)	Makefile.gnu	Use this with the cygwin gcc compiler.
+
+Adapting memchan to the configuration of the system it is built on is
+done by manually editing the relevant makefile and then executing
+'nmake' (or 'gmake' in case of (3)) for that makefile.
+
+The makefiles contain instructions on how to adapt them.
+
+
+MAC
+===
+
+It is currently not known how to compile memchan on a Mac. People who
+do so are asked to provide feedback and possibly project files, etc.,
+whatever they used to perform the compilation.

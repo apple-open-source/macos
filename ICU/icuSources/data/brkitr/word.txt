@@ -1,132 +1,236 @@
 #
-#   Copyright (C) 2002-2003, International Business Machines Corporation and others.
-#       All Rights Reserved.
+# Copyright (C) 2002-2004, International Business Machines Corporation 
+# and others. All Rights Reserved.
 #
-#   file:  word.txt   
+# file:  word.txt
 #
-#   ICU Word Break Rules
+# ICU Word Break Rules
 #      See Unicode Standard Annex #29.
-#      These rules are based on Version 4.0.0, dated 2003-04-17
+#      These rules are based on Version 4.1 draft, dated 2004-11-11
 #
 
-
-
-####################################################################################
+##############################################################################
 #
 #  Character class definitions from TR 29
 #
-####################################################################################
-$Katakana  = [[:Script = KATAKANA:] [:name = KATAKANA-HIRAGANA PROLONGED SOUND MARK:] 
-                                   [:name = HALFWIDTH KATAKANA-HIRAGANA PROLONGED SOUND MARK:]
-                                   [:name = HALFWIDTH KATAKANA VOICED SOUND MARK:]
-                                   [:name = HALFWIDTH KATAKANA SEMI-VOICED SOUND MARK:]];
+##############################################################################
+
+!!chain;
+
+$Katakana  = [[:Script = KATAKANA:]
+			  [:name = VERTICAL KANA REPEAT MARK:]
+			  [:name = VERTICAL KANA REPEAT WITH VOICED SOUND MARK:]
+			  [:name = VERTICAL KANA REPEAT MARK UPPER HALF:]
+			  [:name = VERTICAL KANA REPEAT WITH VOICED SOUND MARK UPPER HALF:]
+			  [:name = VERTICAL KANA REPEAT MARK LOWER HALF:]
+			  [:name = KATAKANA-HIRAGANA VOICED SOUND MARK:]
+			  [:name = KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK:]
+			  [:name = KATAKANA-HIRAGANA DOUBLE HYPHEN:]
+			  [:name = KATAKANA-HIRAGANA PROLONGED SOUND MARK:]
+			  [:name = HALFWIDTH KATAKANA-HIRAGANA PROLONGED SOUND MARK:]
+			  [:name = HALFWIDTH KATAKANA VOICED SOUND MARK:]
+			  [:name = HALFWIDTH KATAKANA SEMI-VOICED SOUND MARK:]];
 
 
-$ALetter   = [[:Alphabetic:] [:name= HEBREW PUNCTUATION GERESH:] 
-                           - [:Ideographic:]
-                           - $Katakana
-                           - [:Script = Thai:]
-                           - [:Script = Lao:]
-                           - [:Script = Hiragana:]];
-                           
-$MidLetter = [[:name = APOSTROPHE:] [:name = MIDDLE DOT:]  [:name = HEBREW PUNCTUATION GERSHAYIM:]
-              [:name = RIGHT SINGLE QUOTATION MARK:] [:name = HYPHENATION POINT:]];  
-              
-$MidNumLet = [[:name = FULL STOP:] [:name = COLON:]];
+$ALetter   = [[:Alphabetic:] [:name= HEBREW PUNCTUATION GERESH:]
+						   - [:Ideographic:]
+						   - $Katakana
+						   - [:Script = Hiragana:]
+						   - [:Script = Lao:]
+						   - [:Grapheme_Extend = TRUE:]];
+						   
+$MidLetter = [[:name = APOSTROPHE:] [:name = MIDDLE DOT:]
+			  [:name = HEBREW PUNCTUATION GERSHAYIM:]
+			  [:name = RIGHT SINGLE QUOTATION MARK:]
+			  [:name = HYPHENATION POINT:]
+			  [:name = COLON:]];
 
-$MidNum    = [[:LineBreak = Infix_Numeric:] - $MidNumLet];
-$Numeric   = [:LineBreak = Numeric:];
-
+			
+$MidNum    = [[:LineBreak = Infix_Numeric:] - [:name = COLON:]];
+$Numeric   = [[:Nd:][:name = ARABIC DECIMAL SEPARATOR:][:name = ARABIC THOUSANDS SEPARATOR:]];
+$ExtendNumLet = [[:Connector_Punctuation:] 
+			- [:name = KATAKANA MIDDLE DOT:]
+			- [:name = HALFWIDTH KATAKANA MIDDLE DOT:]];
+			
+			
 
 #
 #  Character Class Definitions.
 #    The names are those from TR29.
 #
-$CR         = \u000d;
-$LF         = \u000a;
-$Control    = [[:Zl:] [:Zp:] [:Cc:] [:Cf:]];
-$Extend     = [[:Grapheme_Extend = TRUE:]]; 
+
+$CR             = \u000d;
+$LF             = \u000a;
+$Extend         = [[:Grapheme_Extend = TRUE:]];
+$Control        = [[:Zl:] [:Zp:] [:Cc:] [:Cf:] - $Extend];
+$Format         = [[:Cf:] - $Extend];
+$Hiragana       = [:Hiragana:];
+$Ideographic    = [:IDEOGRAPHIC:];
+
+$ALetterEx      = $ALetter     $Extend*;
+$NumericEx      = $Numeric     $Extend*;
+$MidNumEx       = $MidNum      $Extend*;
+$MidLetterEx    = $MidLetter   $Extend*;
+$KatakanaEx     = $Katakana    $Extend*;
+$ExtendNumLetEx = $ExtendNumLet $Extend*;
+
+## -------------------------------------------------
+
+!!forward;
 
 
+# Rule 3 - don't break grapheme clusters.
+# see character breaks
 
-
-####################################################################################
-#
-#  Word Break Rules.    Definitions and Rules specific to word break begin Here. 
-#
-####################################################################################
-
-$Format    = [[:Cf:]];
-
-
-
-# Rule 3:  Treat a grapheme cluster as if it were a single character.
-#          Hangul Syllables are easier to deal with here than they are in Grapheme Clusters
-#          because we don't need to find the boundaries between adjacent syllables -
-#          they won't be word boundaries.
-#
-
-
-#
-#  "Extended"  definitions.  Grapheme Cluster + Format Chars, treated like the base char.
-#
-$ALetterEx    = $ALetter   $Extend*; 
-$NumericEx    = $Numeric   $Extend*;
-$MidNumEx     = $MidNum    $Extend*;
-$MidNumLetEx  = $MidNumLet $Extend*;
-$MidLetterEx  = $MidLetter $Extend*;
-$KatakanaEx   = $Katakana  $Extend*;
-$FormatEx     = $Format    $Extend*;
-
-
-#
-#  Numbers.  Rules 8, 11, 12 form the TR.
-#
-$NumberSequence = $NumericEx ($FormatEx* ($MidNumEx | $MidNumLetEx)? $FormatEx* $NumericEx)*;
-$NumberSequence {100};
-
-#
-#  Words.  Alpha-numerics.  Rule 5, 6, 7, 9, 10
-#     - must include at least one letter. 
-#     - may include both letters and numbers.
-#     - may include  MideLetter, MidNumber punctuation.
-#
-$LetterSequence = $ALetterEx ($FormatEx* ($MidLetterEx | $MidNumLetEx)? $FormatEx* $ALetterEx)*;     # rules #6, #7
-($NumberSequence $FormatEx*)? $LetterSequence ($FormatEx* ($NumberSequence | $LetterSequence))* {200};
-
-#
-#  Do not break between Katakana.   Rule #13.
-#
-$KatakanaEx ($FormatEx* $KatakanaEx)* {300};
-[:Hiragana:] $Extend* {300};
-
-#
-#  Ideographic Characters.  Stand by themselves as words.
-#                           Separated from the "Everything Else" rule, below, only so that they
-#                           can be tagged with a return value.   TODO:  is this what we want?
-#
-[:IDEOGRAPHIC:] $Extend* {400};
-
-#
-#  Everything Else, with no tag.
-#                   Non-Control chars combine with $Extend (combining) chars.
-#                   Controls are do not.
-#
-[^$Control [:Ideographic:]] $Extend*;
 $CR $LF;
+#[^$Control] $Extend*;
+#$NumericEx $Extend* {100};
+#$ALetterEx $Extend* {200};
+[^$Control] $Extend+;
+$NumericEx {100};
+$ALetterEx {200};
+$KatakanaEx {300};
 
-#
-#  Reverse Rules.   Back up over any of the chars that can group together.
-#                   (Reverse rules do not need to be exact; they can back up  too far,
-#                   but must back up at least enough, and must stop on a boundary.)
-#
+# rule 5
 
-# NonStarters are the set of all characters that can appear at the 2nd - nth position of
-#    a word.   (They may also be the first.)   The reverse rule skips over these, until it
-#    reaches something that can only be the start (and probably only) char in a "word".
-#    A space or punctuation meets the test.
-#
-$NonStarters = [$Numeric $ALetter $Katakana $MidLetter $MidNum $MidNumLet $Extend $Format];
+$ALetterEx $Format* $ALetterEx {200};
 
-#!.*;
-! ($NonStarters* | \n \r) .;
+# rule 6 and 7
+$ALetterEx $Format* $MidLetterEx  $Format* $ALetterEx {200};
+
+# rule 8
+
+$NumericEx $Format* $NumericEx {100};
+
+# rule 9
+
+$ALetterEx $Format* $NumericEx {200};
+
+# rule 10
+
+$NumericEx $Format* $ALetterEx {200};
+
+# rule 11 and 12 
+
+$NumericEx $Format* $MidNumEx $Format* $NumericEx {100};
+
+# rule 13
+
+$KatakanaEx  $Format* $KatakanaEx {300};
+$Hiragana    $Extend* {300};
+$Ideographic $Extend* {400};
+
+# rule 13a/b
+
+$ALetterEx  $Format* $ExtendNumLetEx {200};    #  (13a)
+$NumericEx  $Format* $ExtendNumLetEx {100};    #  (13a)
+$KatakanaEx $Format* $ExtendNumLetEx {300};    #  (13a)
+$ExtendNumLetEx $Format* $ExtendNumLetEx{200}; #  (13a)
+
+$ExtendNumLetEx $Format* $ALetterEx  {200};    #  (13b)
+$ExtendNumLetEx $Format* $NumericEx  {100};    #  (13b)
+$ExtendNumLetEx $Format* $KatakanaEx {300};    #  (13b)
+ 
+
+
+## -------------------------------------------------
+
+!!reverse;
+
+$BackALetterEx     = $Extend* $ALetter;
+$BackNumericEx     = $Extend* $Numeric;
+$BackMidNumEx      = $Extend* $MidNum;
+$BackMidLetterEx   = $Extend* $MidLetter;
+$BackKatakanaEx    = $Extend* $Katakana;
+$BackExtendNumLetEx= $Extend* $ExtendNumLet;
+
+$LF $CR;
+
+# see character breaks
+
+$Extend* [^$Control];
+
+# rule 5
+
+$BackALetterEx $Format* $BackALetterEx;
+
+# rule 6 and 7
+
+$BackALetterEx $Format* $BackMidLetterEx $Format* $BackALetterEx;
+
+
+# rule 8
+
+$BackNumericEx $Format* $BackNumericEx;
+
+# rule 9
+
+$BackNumericEx  $Format* $BackALetterEx;
+
+# rule 10
+
+$BackALetterEx $Format* $BackNumericEx;
+
+# rule 11 and 12
+
+$BackNumericEx $Format* $BackMidNumEx $Format* $BackNumericEx;
+
+# rule 13
+
+$BackKatakanaEx $Format* $BackKatakanaEx;
+
+# rules 13 a/b
+#
+($BackALetterEx | $BackNumericEx | $BackKatakanaEx | $BackExtendNumLetEx) $Format* $BackExtendNumLetEx; 
+$BackExtendNumLetEx $Format* ($BackALetterEx | $BackNumericEx | $BackKatakanaEx);        
+
+## -------------------------------------------------
+
+!!safe_reverse;
+
+# rule 3
+$Extend+ [^$Extend];
+$Extend+;               # comes into play when buffer _begins_ with an $Extend+.
+
+# rule 4
+$Format+ $BackALetterEx;
+$Format+ $BackNumericEx;
+$Format+ $BackMidLetterEx;
+$Format+ $BackMidNumEx;
+$Format+ $BackKatakanaEx;
+$Format+ $BackExtendNumLetEx;
+
+
+# rule 6
+$MidLetter $Format* $BackALetterEx;
+
+# rule 11
+$MidNum $Format* $BackNumericEx;
+
+## -------------------------------------------------
+
+!!safe_forward;
+
+# rule 3
+$Extend+;
+
+# rule 4
+$Extend* $Format+ $ALetterEx;
+$Extend* $Format+ $NumericEx;
+$Extend* $Format+ $MidLetterEx;
+$Extend* $Format+ $MidNumEx;
+$Extend* $Format+ $KatakanaEx;
+$Extend* $Format+ $ExtendNumLetEx;
+
+$Extend+ $Format* $ALetterEx;
+$Extend+ $Format* $NumericEx;
+$Extend+ $Format* $MidLetterEx;
+$Extend+ $Format* $MidNumEx;
+$Extend+ $Format* $KatakanaEx;
+$Extend+ $Format* $ExtendNumLetEx;
+
+# rule 6
+$MidLetterEx $Format* $ALetterEx;
+
+# rule 11
+$MidNumEx $Format* $NumericEx;

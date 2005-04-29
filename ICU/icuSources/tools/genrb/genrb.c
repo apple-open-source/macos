@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2003, International Business Machines
+*   Copyright (C) 1998-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -17,17 +17,18 @@
 */
 
 #include "genrb.h"
+#include "unicode/uclean.h"
 
 /* Protos */
 static void  processFile(const char *filename, const char* cp, const char *inputDir, const char *outputDir, const char *packageName, UErrorCode *status);
-static char *make_res_filename(const char *filename, const char *outputDir, 
+static char *make_res_filename(const char *filename, const char *outputDir,
                                const char *packageName, UErrorCode *status);
 
 /* File suffixes */
 #define RES_SUFFIX ".res"
 #define COL_SUFFIX ".col"
 
-static char theCurrentFileName[4096];
+static char theCurrentFileName[2048];
 const char *gCurrentFileName = theCurrentFileName;
 #ifdef XP_MAC_CONSOLE
 #include <console.h>
@@ -48,7 +49,7 @@ enum
     COPYRIGHT,
     PACKAGE_NAME,
     BUNDLE_NAME,
-    WRITE_XML,
+    WRITE_XLIFF,
     TOUCHFILE,
     STRICT,
     NO_BINARY_COLLATION,
@@ -70,7 +71,7 @@ UOption options[]={
                       UOPTION_COPYRIGHT,
                       UOPTION_PACKAGE_NAME,
                       UOPTION_BUNDLE_NAME,
-                      UOPTION_DEF( "write-xml", 'x', UOPT_NO_ARG),
+                      UOPTION_DEF( "write-xliff", 'x', UOPT_OPTIONAL_ARG),
                       UOPTION_DEF( "touchfile", 't', UOPT_NO_ARG),
                       UOPTION_DEF( "strict",    'k', UOPT_NO_ARG), /* 14 */
                       UOPTION_DEF( "noBinaryCollation", 'C', UOPT_NO_ARG),/* 15 */
@@ -79,14 +80,14 @@ UOption options[]={
                   };
 
 static     UBool       write_java = FALSE;
-static     UBool       write_xml = FALSE;
+static     UBool       write_xliff = FALSE;
 static     UBool       touchfile = FALSE;
 static     const char* outputEnc ="";
 static     const char* gPackageName=NULL;
 static     const char* bundleName=NULL;
 /*added by Jing*/
 static     const char* language = NULL;
-
+static     const char* xliffOutputFileName = NULL;
 int
 main(int argc,
      char* argv[])
@@ -97,7 +98,7 @@ main(int argc,
     const char *inputDir  = NULL;
     const char *encoding  = "";
     int         i;
-    
+
     U_MAIN_INIT_ARGS(argc, argv);
 
     argc = u_parseArgs(argc, argv, (int32_t)(sizeof(options)/sizeof(options[0])), options);
@@ -146,15 +147,15 @@ main(int argc,
                 "\t                         defaults to ASCII and \\uXXXX format.\n"
                 "\t-p or --package-name     For ICU4J: package name for writing the ListResourceBundle for ICU4J,\n"
                 "\t                         defaults to com.ibm.icu.impl.data\n"
-                "\t                         For ICU4C: Package name on output. Specfiying\n"
+                "\t                         For ICU4C: Package name for the .res files on output. Specfiying\n"
                 "\t                         'ICUDATA' defaults to the current ICU4C data name.\n");
         fprintf(stderr,
                 "\t-b or --bundle-name      bundle name for writing the ListResourceBundle for ICU4J,\n"
                 "\t                         defaults to LocaleElements\n"
-                "\t-x or --write-xml        write a XML file for the resource bundle.\n"
+                "\t-x or --write-xliff      write a XLIFF file for the resource bundle. Followed by an optional output file name.\n"
                 "\t-k or --strict           use pedantic parsing of syntax\n"
                 /*added by Jing*/
-                "\t-l or --language         language code compliant with ISO 639.\n");
+                "\t-l or --language         For XLIFF: language code compliant with ISO 639.\n");
 
         return argc < 0 ? U_ILLEGAL_ARGUMENT_ERROR : U_ZERO_ERROR;
     }
@@ -194,7 +195,7 @@ main(int argc,
 
     if(options[TOUCHFILE].doesOccur) {
         if(gPackageName == NULL) {
-            fprintf(stderr, "%s: Don't use touchfile (-t) option with no package.\n", 
+            fprintf(stderr, "%s: Don't use touchfile (-t) option with no package.\n",
                     argv[0]);
             return -1;
         }
@@ -208,6 +209,18 @@ main(int argc,
     if(options[ICUDATADIR].doesOccur) {
         u_setDataDirectory(options[ICUDATADIR].value);
     }
+    /* Initialize ICU */
+    u_init(&status);
+    if (U_FAILURE(status) && status != U_FILE_ACCESS_ERROR) {
+        /* Note: u_init() will try to open ICU property data.
+         *       failures here are expected when building ICU from scratch.
+         *       ignore them.
+        */
+        fprintf(stderr, "%s: can not initialize ICU.  status = %s\n",
+            argv[0], u_errorName(status));
+        exit(1);
+    }
+    status = U_ZERO_ERROR;
     if(options[WRITE_JAVA].doesOccur) {
         write_java = TRUE;
         outputEnc = options[WRITE_JAVA].value;
@@ -217,8 +230,11 @@ main(int argc,
         bundleName = options[BUNDLE_NAME].value;
     }
 
-    if(options[WRITE_XML].doesOccur) {
-        write_xml = TRUE;
+    if(options[WRITE_XLIFF].doesOccur) {
+        write_xliff = TRUE;
+        if(options[WRITE_XLIFF].value != NULL){
+            xliffOutputFileName = options[WRITE_XLIFF].value;
+        }
     }
 
     if(options[NO_BINARY_COLLATION].doesOccur) {
@@ -226,7 +242,7 @@ main(int argc,
     } else {
       initParser(TRUE);
     }
-    
+
     /*added by Jing*/
     if(options[LANGUAGE].doesOccur) {
         language = options[LANGUAGE].value;
@@ -236,7 +252,7 @@ main(int argc,
     for(i = 1; i < argc; ++i) {
         status = U_ZERO_ERROR;
         arg    = getLongPathname(argv[i]);
-        
+
         if (inputDir) {
             uprv_strcpy(theCurrentFileName, inputDir);
             uprv_strcat(theCurrentFileName, U_FILE_SEP_STRING);
@@ -265,10 +281,10 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
     char           *inputDirBuf  = NULL;
 
     char           outputFileName[256];
-    
+
     int32_t dirlen  = 0;
     int32_t filelen = 0;
-    
+
     if (status==NULL || U_FAILURE(*status)) {
         return;
     }
@@ -284,12 +300,12 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
         openFileName[0] = '\0';
         if (filenameBegin != NULL) {
             /*
-             * When a filename ../../../data/root.txt is specified, 
+             * When a filename ../../../data/root.txt is specified,
              * we presume that the input directory is ../../../data
              * This is very important when the resource file includes
              * another file, like UCARules.txt or thaidict.brk.
              */
-            int32_t filenameSize = filenameBegin - filename + 1;
+            int32_t filenameSize = (int32_t)(filenameBegin - filename + 1);
             inputDirBuf = uprv_strncpy((char *)uprv_malloc(filenameSize), filename, filenameSize);
 
             /* test for NULL */
@@ -316,7 +332,7 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
 
             openFileName[0] = '\0';
             /*
-             * append the input dir to openFileName if the first char in 
+             * append the input dir to openFileName if the first char in
              * filename is not file seperation char and the last char input directory is  not '.'.
              * This is to support :
              * genrb -s. /home/icu/data
@@ -341,16 +357,16 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
             }
 
             uprv_strcpy(openFileName, inputDir);
-        
+
         }
     }
 
     uprv_strcat(openFileName, filename);
 
     ucbuf = ucbuf_open(openFileName, &cp,getShowWarning(),TRUE, status);
-    
+
     if(*status == U_FILE_ACCESS_ERROR) {
-        
+
         fprintf(stderr, "couldn't open file %s\n", openFileName == NULL ? filename : openFileName);
         goto finish;
     }
@@ -359,7 +375,7 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
         goto finish;
     }
     /* auto detected popular encodings? */
-    if (cp!=NULL) {
+    if (cp!=NULL && isVerbose()) {
         printf("autodetected encoding %s\n", cp);
     }
     /* Parse the data into an SRBRoot */
@@ -396,12 +412,12 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
             }
             else
             {
-                T_FileStream_write(q, msg, uprv_strlen(msg));
+                T_FileStream_write(q, msg, (int32_t)uprv_strlen(msg));
                 T_FileStream_close(q);
             }
             uprv_free(tfname);
         }
-        
+
     }
     if(U_FAILURE(*status)) {
         fprintf(stderr, "couldn't make the res fileName for  bundle %s. Error:%s\n", filename,u_errorName(*status));
@@ -409,8 +425,8 @@ processFile(const char *filename, const char *cp, const char *inputDir, const ch
     }
     if(write_java== TRUE){
         bundle_write_java(data,outputDir,outputEnc, outputFileName, sizeof(outputFileName),packageName,bundleName,status);
-    }else if(write_xml ==TRUE){
-        bundle_write_xml(data,outputDir,outputEnc, filename, outputFileName, sizeof(outputFileName),language, packageName,status);
+    }else if(write_xliff ==TRUE){
+        bundle_write_xml(data,outputDir,outputEnc, filename, outputFileName, sizeof(outputFileName),language, xliffOutputFileName,status);
     }else{
         /* Write the data to the file */
         bundle_write(data, outputDir, packageName, outputFileName, sizeof(outputFileName), status);
@@ -457,7 +473,7 @@ make_res_filename(const char *filename,
 
     if(packageName != NULL)
     {
-        pkgLen = 1 + uprv_strlen(packageName);
+        pkgLen = (int32_t)(1 + uprv_strlen(packageName));
     }
 
     /* setup */

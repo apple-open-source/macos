@@ -15,6 +15,7 @@ uid_t			T_IV
 gid_t			T_IV
 Apache::Scoreboard      O_HvRV
 Apache::URI		T_PTROBJ    
+STRLEN                  T_UV
 
 # "perlobject.map"  Dean Roehrich, version 19960302
 #

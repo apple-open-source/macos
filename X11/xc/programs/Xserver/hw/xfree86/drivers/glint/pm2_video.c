@@ -21,7 +21,7 @@
  *  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  */
  
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_video.c,v 1.23 2002/12/02 22:52:30 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_video.c,v 1.26 2003/11/10 18:22:20 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -35,15 +35,6 @@
 
 #include "glint_regs.h"
 #include "glint.h"
-
-#ifndef XvExtension
-
-void Permedia2VideoInit(ScreenPtr pScreen) {}
-void Permedia2VideoUninit(ScrnInfoPtr pScrn) {}
-void Permedia2VideoEnterVT(ScrnInfoPtr pScrn) {}
-void Permedia2VideoLeaveVT(ScrnInfoPtr pScrn) {}
-
-#else
 
 #undef MIN
 #undef ABS
@@ -746,8 +737,9 @@ AllocateBuffers(PortPrivPtr pPPriv,
 	    j = pPPriv->BufferStride / bytespp;
 
 	    if (j <= w && j <= 2048 && (j & 31) == 0 &&
-		(pPPriv->BufferPProd = partprodPermedia[j >> 5]) >= 0)
+		partprodPermedia[j >> 5] >= 0)
 	    {
+		pPPriv->BufferPProd = partprodPermedia[j >> 5];
 		pPPriv->pFBArea[i] = xf86AllocateOffscreenArea(pScrn->pScreen,
     		    w, h, 8 >> BPPSHIFT(pGlint), NULL, NULL, (pointer) pPPriv);
 
@@ -990,6 +982,7 @@ static void
 BlackOut(PortPrivPtr pPPriv, RegionPtr pRegion)
 {
     ScrnInfoPtr pScrn = pPPriv->pAdaptor->pScrn;
+    ScreenPtr pScreen = pScrn->pScreen;
     GLINTPtr pGlint = GLINTPTR(pScrn);
     RegionRec DRegion;
     BoxRec DBox;
@@ -3200,5 +3193,3 @@ Permedia2VideoInit(ScreenPtr pScreen)
 	DeleteAdaptorPriv(pAPriv);
     }
 }
-
-#endif /* XvExtension */

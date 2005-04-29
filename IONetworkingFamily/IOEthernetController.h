@@ -32,6 +32,18 @@
 #ifndef _IOETHERNETCONTROLLER_H
 #define _IOETHERNETCONTROLLER_H
 
+#ifndef __MBUF_TRANSITION_STRIP
+#ifdef __MBUF_TRANSITION_
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO mbuf_t
+# endif
+#else
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO struct mbuf *
+# endif
+#endif
+#endif
+
 #include <IOKit/network/IONetworkController.h>
 
 /*! @defined kIOEthernetControllerClass
@@ -69,9 +81,9 @@
 
 #define kIOEthernetWakeOnLANFilterGroup   "IOEthernetWakeOnLANFilterGroup"
 
-/*! @enum Enumeration of wake-On-LAN filters.
-    @discussion An enumeration of all filters in the wake-on-LAN filter
-        group. Each filter listed will respond to a network event that
+/*! @enum WakeOnLANFilters.
+    @abstract All filters in the wake-on-LAN filter group.
+    @discussion Each filter listed will respond to a network event that
         will trigger a system wake-up.
     @constant kIOEthernetWakeOnMagicPacket Reception of a Magic Packet.
     @constant kIOEthernetWakeOnPacketAddressMatch Reception of a packet
@@ -94,20 +106,21 @@ struct IOEthernetAddress {
 	UInt8 bytes[kIOEthernetAddressSize];
 };
 
-/*!	@defined gIOEthernetWakeOnLANFilterGroup
+/*! @const gIOEthernetWakeOnLANFilterGroup
     @discussion gIOEthernetWakeOnLANFilterGroup is an OSSymbol object
-        that contains the name of the Ethernet wake-on-LAN filter group
-        defined by kIOEthernetWakeOnLANFilterGroup. */
+    that contains the name of the Ethernet wake-on-LAN filter group
+    defined by kIOEthernetWakeOnLANFilterGroup. */
 
 extern const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
 
-/*! @class IOEthernetController : public IONetworkController
-    @abstract An abstract superclass for Ethernet controllers. Ethernet 
-    controller drivers should subclass IOEthernetController, and implement
+/*! @class IOEthernetController
+    @abstract Abstract superclass for Ethernet controllers. 
+    @discussion Ethernet controller drivers should subclass IOEthernetController, and implement
     or override the hardware specific methods to create an Ethernet driver.
     An interface object (an IOEthernetInterface instance) must be
     instantiated by the driver, through attachInterface(), to connect
-    the controller driver to the data link layer. */
+    the controller driver to the data link layer. 
+*/
 
 class IOEthernetController : public IONetworkController
 {
@@ -124,20 +137,21 @@ public:
 
 /*! @function initialize
     @abstract IOEthernetController class initializer.
-    @discussion Create global OSSymbol objects that are used as keys. */
+    @discussion Creates global OSSymbol objects that are used as keys. */
 
     static void initialize();
 
 /*! @function init
-    @abstract Initialize an IOEthernetController object.
+    @abstract Initializes an IOEthernetController object.
     @param properties A dictionary object containing a property table
         associated with this instance.
-    @result true on success, false otherwise. */ 
+    @result Returns true on success, false otherwise. 
+*/ 
 
     virtual bool init(OSDictionary * properties);
 
 /*! @function getPacketFilters
-    @abstract Get the set of packet filters supported by the Ethernet 
+    @abstract Gets the set of packet filters supported by the Ethernet 
     controller in the given filter group.
     @discussion The default implementation of the abstract method inherited
     from IONetworkController. When the filter group specified is
@@ -147,19 +161,20 @@ public:
     return value will be set to zero (0). Subclasses must override this
     method if their filtering capability differs from what is reported by
     this default implementation. This method is called from the workloop
-    context, and the result is published to the I/O Kit registry.
+    context, and the result is published to the I/O Kit Registry.
     @param group The name of the filter group.
     @param filters Pointer to the mask of supported filters returned by
     	this method.
-    @result kIOReturnSuccess. Drivers that override this
+    @result Returns kIOReturnSuccess. Drivers that override this
     method must return kIOReturnSuccess to indicate success, or an error 
-    return code otherwise. */
+    return code otherwise. 
+*/
 
     virtual IOReturn getPacketFilters(const OSSymbol * group,
                                       UInt32 *         filters) const;
 
 /*! @function enablePacketFilter
-    @abstract Enable one of the supported packet filters from the
+    @abstract Enables one of the supported packet filters from the
     given filter group.
     @discussion The default implementation of the abstract method inherited
     from IONetworkController. This method will call setMulticastMode() or
@@ -174,11 +189,12 @@ public:
     @param aFilter The filter to enable.
     @param enabledFilters All filters currently enabled by the client.
     @param options Optional flags for the enable request.
-    @result The return from setMulticastMode() or setPromiscuousMode() if
-    either of those two methods are called. kIOReturnSuccess if the filter
+    @result Returns the value returned by setMulticastMode() or setPromiscuousMode() if
+    either of those two methods are called. Returns kIOReturnSuccess if the filter
     specified is kIOPacketFilterUnicast or kIOPacketFilterBroadcast.
-    kIOReturnUnsupported if the filter group specified is not
-    gIONetworkFilterGroup. */
+    Returns kIOReturnUnsupported if the filter group specified is not
+    gIONetworkFilterGroup. 
+*/
 
     virtual IOReturn enablePacketFilter(const OSSymbol * group,
                                         UInt32           aFilter,
@@ -186,7 +202,7 @@ public:
                                         IOOptionBits     options = 0);
 
 /*! @function disablePacketFilter
-    @abstract Disable a packet filter that is currently enabled from the
+    @abstract Disables a packet filter that is currently enabled from the
     given filter group.
     @discussion The default implementation of the abstract method inherited
     from IONetworkController. This method will call setMulticastMode() or
@@ -201,11 +217,12 @@ public:
     @param aFilter The filter to disable.
     @param enabledFilters All filters currently enabled by the client.
     @param options Optional flags for the disable request.
-    @result The return from setMulticastMode() or setPromiscuousMode() if
-    either of those two methods are called. kIOReturnSuccess if the filter
+    @result Returns the value returned by setMulticastMode() or setPromiscuousMode() if
+    either of those two methods are called. Returns kIOReturnSuccess if the filter
     specified is kIOPacketFilterUnicast or kIOPacketFilterBroadcast.
-    kIOReturnUnsupported if the filter group specified is not
-    gIONetworkFilterGroup. */
+    Returns kIOReturnUnsupported if the filter group specified is not
+    gIONetworkFilterGroup. 
+*/
 
     virtual IOReturn disablePacketFilter(const OSSymbol * group,
                                          UInt32           aFilter,
@@ -213,7 +230,7 @@ public:
                                          IOOptionBits     options = 0);
 
 /*! @function getHardwareAddress
-    @abstract Get the Ethernet controller's station address.
+    @abstract Gets the Ethernet controller's station address.
     @discussion The default implementation of the abstract method inherited
     from IONetworkController. This method will call the overloaded form
     IOEthernetController::getHardwareAddress() that subclasses are expected
@@ -223,13 +240,14 @@ public:
     @param inOutAddrBytes The size of the address buffer provided by the
            client, and replaced by this method with the actual size of
            the hardware address in bytes.
-    @result kIOReturnSuccess on success, or an error otherwise. */
+    @result Returns kIOReturnSuccess on success, or an error otherwise. 
+*/
 
     virtual IOReturn getHardwareAddress(void *   addr,
                                         UInt32 * inOutAddrBytes);
 
 /*! @function setHardwareAddress
-    @abstract Set or change the station address used by the Ethernet
+    @abstract Sets or changes the station address used by the Ethernet
     controller.
     @discussion The default implementation of the abstract method inherited
     from IONetworkController. This method will call the overloaded form
@@ -239,51 +257,56 @@ public:
     the client.
     @param addrBytes The size of the address buffer provided by the
     client in bytes.
-    @result kIOReturnSuccess on success, or an error otherwise. */
+    @result Returns kIOReturnSuccess on success, or an error otherwise. 
+*/
 
     virtual IOReturn setHardwareAddress(const void * addr,
                                         UInt32       addrBytes);
 
 /*! @function getMaxPacketSize
-    @abstract Get the maximum packet size supported by the Ethernet
+    @abstract Gets the maximum packet size supported by the Ethernet
         controller, including the frame header and FCS.
     @param maxSize Pointer to the return value.
-    @result kIOReturnSuccess on success, or an error code otherwise. */
+    @result Returns kIOReturnSuccess on success, or an error code otherwise. 
+*/
 
     virtual IOReturn getMaxPacketSize(UInt32 * maxSize) const;
 
 /*! @function getMinPacketSize
-    @abstract Get the minimum packet size supported by the Ethernet
+    @abstract Gets the minimum packet size supported by the Ethernet
         controller, including the frame header and FCS.
     @param minSize Pointer to the return value.
-    @result kIOReturnSuccess on success, or an error code otherwise. */
+    @result Returns kIOReturnSuccess on success, or an error code otherwise. 
+*/
 
     virtual IOReturn getMinPacketSize(UInt32 * minSize) const;
 
 /*! @function getPacketFilters
-    @abstract Get the set of packet filters supported by the Ethernet 
+    @abstract Gets the set of packet filters supported by the Ethernet 
     controller in the network filter group.
     @param filters Pointer to the return value containing a mask of
     supported filters.
-    @result kIOReturnSuccess. Drivers that override this
+    @result Returns kIOReturnSuccess. Drivers that override this
     method must return kIOReturnSuccess to indicate success, or an error 
-    return code otherwise. */
+    return code otherwise. 
+*/
 
     virtual IOReturn getPacketFilters(UInt32 * filters) const;
 
 /*! @function getHardwareAddress
-    @abstract Get the Ethernet controller's permanent station address.
-    @discussion. Ethernet drivers must implement this method, by reading the
+    @abstract Gets the Ethernet controller's permanent station address.
+    @discussion Ethernet drivers must implement this method, by reading the
     address from hardware and writing it to the buffer provided. This method
     is called from the workloop context.
     @param addrP Pointer to an IOEthernetAddress where the hardware address
     should be returned.
-    @result kIOReturnSuccess on success, or an error return code otherwise. */
+    @result Returns kIOReturnSuccess on success, or an error return code otherwise. 
+*/
 
     virtual IOReturn getHardwareAddress(IOEthernetAddress * addrP) = 0;
 
 /*! @function setHardwareAddress
-    @abstract Set or change the station address used by the Ethernet
+    @abstract Sets or changes the station address used by the Ethernet
         controller.
     @discussion This method is called in response to a client command to
     change the station address used by the Ethernet controller. Implementation
@@ -292,36 +315,39 @@ public:
     address.
     @result The default implementation will always return kIOReturnUnsupported.
     If overridden, drivers must return kIOReturnSuccess on success, or an error
-    return code otherwise. */
+    return code otherwise. 
+*/
 
     virtual IOReturn setHardwareAddress(const IOEthernetAddress * addrP);
 
 /*! @function setMulticastMode
-    @abstract Enable or disable multicast mode.
+    @abstract Enables or disables multicast mode.
     @discussion Called by enablePacketFilter() or disablePacketFilter()
     when there is a change in the activation state of the multicast filter
     identified by kIOPacketFilterMulticast. This method is called from the
     workloop context.
     @param active True to enable multicast mode, false to disable it.
-    @result kIOReturnUnsupported. If overridden, drivers must return
-    kIOReturnSuccess on success, or an error return code otherwise. */
+    @result Returns kIOReturnUnsupported. If overridden, drivers must return
+    kIOReturnSuccess on success, or an error return code otherwise. 
+*/
 
     virtual IOReturn setMulticastMode(bool active);
 
 /*! @function setMulticastList
-    @abstract Set the list of multicast addresses that the multicast filter
+    @abstract Sets the list of multicast addresses a multicast filter
     should use to match against the destination address of an incoming frame.
-    The frame should be accepted when a match occurs.
-    @discussion Called when the multicast group membership of an interface
+    @discussion This method sets the list of multicast addresses that the multicast filter
+    should use to match against the destination address of an incoming frame.
+    The frame should be accepted when a match occurs.  Called when the multicast group membership of an interface
     object is changed. Drivers that support kIOPacketFilterMulticast should
     override this method and update the hardware multicast filter using the
     list of Ethernet addresses provided. Perfect multicast filtering is
-    preferred if supported by the hardware, to order to reduce the number of
+    preferred if supported by the hardware, in order to reduce the number of
     unwanted packets received. If the number of multicast addresses in the
     list exceeds what the hardware is capable of supporting, or if perfect
     filtering is not supported, then ideally the hardware should be programmed
-    to perform imperfect filtering, thorugh some form of hash filtering
-    mechanism. Only at the last resort should the driver enable reception of
+    to perform imperfect filtering, through some form of hash filtering
+    mechanism. Only as a last resort should the driver enable reception of
     all multicast packets to satisfy this request. This method is called
     from the workloop context, and only if the driver reports
     kIOPacketFilterMulticast support in getPacketFilters().
@@ -329,68 +355,74 @@ public:
         ignored if the count argument is 0.
     @param count The number of Ethernet addresses in the list. This value
         will be zero when the list becomes empty.
-    @result kIOReturnUnsupported. Drivers must return kIOReturnSuccess to
-    indicate success, or an error return code otherwise. */
+    @result Returns kIOReturnUnsupported. Drivers must return kIOReturnSuccess to
+    indicate success, or an error return code otherwise. 
+*/
 
     virtual IOReturn setMulticastList(IOEthernetAddress * addrs, 
                                       UInt32              count);
 
 /*! @function setPromiscuousMode
-    @abstract Enable or disable promiscuous mode.
+    @abstract Enables or disables promiscuous mode.
     @discussion Called by enablePacketFilter() or disablePacketFilter()
     when there is a change in the activation state of the promiscuous
     filter identified by kIOPacketFilterPromiscuous. This method is 
     called from the workloop context.
     @param active True to enable promiscuous mode, false to disable it.
-    @result kIOReturnUnsupported. If overridden, drivers must return
-    kIOReturnSuccess on success, or an error return code otherwise. */
+    @result Returns kIOReturnUnsupported. If overridden, drivers must return
+    kIOReturnSuccess on success, or an error return code otherwise. 
+*/
 
     virtual IOReturn setPromiscuousMode(bool active);
 
 /*! @function setWakeOnMagicPacket
-    @abstract Enable or disable the wake on Magic Packet support.
+    @abstract Enables or disables the wake on Magic Packet support.
     @discussion Called by enablePacketFilter() or disablePacketFilter()
     when there is a change in the activation state of the wake-on-LAN
     filter identified by kIOEthernetWakeOnMagicPacket. This method is
     called from the workloop context.
     @param active True to enable support for system wake on reception
     of a Magic Packet, false to disable it.
-    @result kIOReturnUnsupported. If overridden, drivers must return
-    kIOReturnSuccess on success, or an error return code otherwise. */
+    @result Returns kIOReturnUnsupported. If overridden, drivers must return
+    kIOReturnSuccess on success, or an error return code otherwise. 
+*/
 
     virtual IOReturn setWakeOnMagicPacket(bool active);
 
 protected:
 
 /*! @function createInterface
-    @abstract Create an IOEthernetInterface object.
-    @discussion Allocate and return a new IOEthernetInterface instance.
+    @abstract Creates an IOEthernetInterface object.
+    @discussion This method allocates and returns a new IOEthernetInterface instance.
     A subclass of IONetworkController must implement this method and return
     a matching interface object. The implementation in IOEthernetController
     will return an IOEthernetInterface object. Subclasses of
     IOEthernetController, such as Ethernet controller drivers, will have
     little reason to override this implementation.
-    @result A newly allocated and initialized IOEthernetInterface object. */
+    @result Returns a newly allocated and initialized IOEthernetInterface object. 
+*/
 
     virtual IONetworkInterface * createInterface();
 
 /*! @function free
-    @abstract Free the IOEthernetController instance. Release resources,
+    @abstract Frees the IOEthernetController instance. 
+    @discussion This method releases resources, and is
     then followed by a call to super::free(). */
 
     virtual void free();
 
 /*! @function publishProperties
-    @abstract Publish Ethernet controller properties and capabilities.
-    @discussion Publish Ethernet controller properties to the property
+    @abstract Publishes Ethernet controller properties and capabilities.
+    @discussion This method publishes Ethernet controller properties to the property
     table. For instance, getHardwareAddress() is called to fetch the
     hardware address, and the address is then published to the property
     table. This method call is synchronized by the workloop's gate,
     and must never be called directly by subclasses.
-    @result true if all properties and capabilities were discovered,
+    @result Returns true if all properties and capabilities were discovered,
     and published successfully, false otherwise. Returning false will
     prevent client objects from attaching to the Ethernet controller
-    since a property that a client relies upon may be missing. */
+    since a property that a client relies upon may be missing. 
+*/
 
     virtual bool publishProperties();
 
@@ -407,7 +439,7 @@ protected:
 		false if no vlan tag stuffing is required for this packet. */
 
     OSMetaClassDeclareReservedUsed( IOEthernetController,  0);
-	virtual bool getVlanTagDemand(mbuf *m, UInt32 *vlanTag);
+	virtual bool getVlanTagDemand(__MBUF_PROTO m, UInt32 *vlanTag);
 
 	/*! @function setVlanTag
 		@abstract Encode a received packet with the vlan tag result reported
@@ -421,7 +453,7 @@ protected:
 		in the low order 16 bits.  The hi order word is currently unused and should be set to 0. */
 
 	OSMetaClassDeclareReservedUsed( IOEthernetController,  1);
-	virtual void setVlanTag(mbuf *m, UInt32 vlanTag);
+	virtual void setVlanTag(__MBUF_PROTO m, UInt32 vlanTag);
 	
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOEthernetController,  2);

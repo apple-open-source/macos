@@ -1,3 +1,27 @@
+2003-04-29  Mark Mitchell  <mark@codesourcery.com>
+
+	PR c++/10551
+	* pt.c (mark_decl_instantiated): Defer all explicit instantiations
+	that have not yet been written out.
+
+2003-04-29  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (maybe_commonize_var): Further tweak support for systems
+	without weak symbols.
+
+2003-04-27  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl.c (maybe_commonize_var): Make the code match the comments.
+	* pt.c (instantiate_decl): Move call to import_export_decl.
+
+2003-04-25  Mark Mitchell  <mark@codesourcery.com>
+
+	* decl2.c (finish_file): Don't call import_export_decl for
+	functions that are not defined.
+	(handle_class_head): Robustify.
+	* pt.c (instantiate_decl): Do not call cp_finish_decl for
+	variables that are not defined.
+
 2003-04-02  Geoffrey Keating  <geoffk@apple.com>
 
 	* mangle.c: Include gt-cp-mangle.h.

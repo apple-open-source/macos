@@ -102,10 +102,13 @@
 OTHER_LIBS += -lobjc
 
 MANDIR= /usr/share/man/man8
+LAUNCHDAEMONS = $(SYSTEM_LIBRARY_DIR)/LaunchDaemons
 
 install_extra:
 	$(MKDIRS) $(DSTROOT)$(MANDIR)
 	install -c -m 444 bootpd.8 $(DSTROOT)$(MANDIR)/bootpd.8
+	$(MKDIRS) $(DSTROOT)$(LAUNCHDAEMONS)
+	install -c -m 644 bootps.plist $(DSTROOT)$(LAUNCHDAEMONS)/bootps.plist
 
 AFPUsers: AFPUsers.c AFPUsers.h
 	cc -Wall -g -DTEST_AFPUSERS -o AFPUsers AFPUsers.c -I../bootplib ../bootplib/NICache.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/NIDomain.c ../bootplib/util.c ../bootplib/netinfo.c

@@ -4,3 +4,8 @@ BEFORE_INSTALL += debug profile
 AFTER_INSTALL = after_install
 DEFSFILES = notify_ipc.defs
 OTHER_OFILES = notify_ipcUser.o
+
+# for building 64-bit
+# <rdar://problem/3820802> Libnotify needs to build with gcc-3.5 and 3-way fat
+export CCOMPILER = /usr/bin/gcc-3.5
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

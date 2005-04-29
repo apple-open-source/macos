@@ -1,5 +1,5 @@
 /*
-* Copyright (C) {1997-2003}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
 ********************************************************************************
 *
 * File NUMFMT.H
@@ -31,10 +31,15 @@
 
 U_NAMESPACE_BEGIN
 
+#if !UCONFIG_NO_SERVICE
 class NumberFormatFactory;
 class StringEnumeration;
 
+/**
+ * @internal
+ */
 typedef const void* URegistryKey;
+#endif
 
 /**
  * Abstract base class for all number formats.  Provides interface for
@@ -76,7 +81,7 @@ typedef const void* URegistryKey;
  *         myString += " ; ";
  *     }
  *     cout << " Example 2: " << myString << endl;
- * \endcide
+ * \endcode
  * </pre>
  * To format a number for a different Locale, specify it in the
  * call to createInstance().
@@ -128,6 +133,11 @@ typedef const void* URegistryKey;
  * widthToAlignmentPoint) before drawing the text.  It also works
  * where there is no decimal, but possibly additional characters at
  * the end, e.g. with parentheses in negative numbers: "(12)" for -12.
+ * <p>
+ * <em>User subclasses are not supported.</em> While clients may write
+ * subclasses, such code will not necessarily work and will not be
+ * guaranteed to work stably from release to release.
+ *
  * @stable ICU 2.0
  */
 class U_I18N_API NumberFormat : public Format {
@@ -196,8 +206,8 @@ public:
      * <P>
      * Before calling, set parse_pos.index to the offset you want to
      * start parsing at in the source. After calling, parse_pos.index
-     * is the end of the text you parsed.  If error occurs, index is
-     * unchanged.
+     * indicates the position after the successfully parsed text.  If
+     * an error occurs, parse_pos.index is unchanged.
      * <P>
      * When parsing, leading whitespace is discarded (with successful
      * parse), while trailing whitespace is left as is.
@@ -248,6 +258,19 @@ public:
                             UnicodeString& appendTo) const;
 
     /**
+     * Format an int64 number. These methods call the NumberFormat
+     * pure virtual format() methods with the default FieldPosition.
+     *
+     * @param number    The value to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @return          Reference to 'appendTo' parameter.
+     * @draft ICU 2.8
+     */
+    UnicodeString& format(  int64_t number,
+                            UnicodeString& appendTo) const;
+
+    /**
      * Format a double number. Concrete subclasses must implement
      * these pure virtual methods.
      *
@@ -278,6 +301,22 @@ public:
                                   UnicodeString& appendTo,
                                   FieldPosition& pos) const = 0;
 
+    /**
+     * Format an int64 number. (Not abstract to retain compatibility
+     * with earlier releases, however subclasses should override this
+     * method as it just delegates to format(int32_t number...);
+     *
+     * @param number    The value to be formatted.
+     * @param appendTo  Output parameter to receive result.
+     *                  Result is appended to existing contents.
+     * @param pos       On input: an alignment field, if desired.
+     *                  On output: the offsets of the alignment field.
+     * @return          Reference to 'appendTo' parameter.
+     * @draft ICU 2.8
+    */
+    virtual UnicodeString& format(int64_t number,
+                                  UnicodeString& appendTo,
+                                  FieldPosition& pos) const;
     /**
      * Redeclared Format method.
      * @param obj       The object to be formatted.
@@ -337,6 +376,29 @@ public:
                         UErrorCode& status) const;
 
     /**
+     * Parses text from the given string as a currency amount.  Unlike
+     * the parse() method, this method will attempt to parse a generic
+     * currency name, searching for a match of this object's locale's
+     * currency display names, or for a 3-letter ISO currency code.
+     * This method will fail if this format is not a currency format,
+     * that is, if it does not contain the currency pattern symbol
+     * (U+00A4) in its prefix or suffix.
+     *
+     * @param text the string to parse
+     * @param result output parameter to receive result. This will have
+     * its currency set to the parsed ISO currency code.
+     * @param pos input-output position; on input, the position within
+     * text to match; must have 0 <= pos.getIndex() < text.length();
+     * on output, the position after the last matched character. If
+     * the parse fails, the position in unchanged upon output.
+     * @return a reference to result
+     * @internal
+     */
+    virtual Formattable& parseCurrency(const UnicodeString& text,
+                                       Formattable& result,
+                                       ParsePosition& pos) const;
+
+    /**
      * Return true if this format will parse numbers as integers
      * only.  For example in the English locale, with ParseIntegerOnly
      * true, the string "1234." would be parsed as the integer value
@@ -344,7 +406,7 @@ public:
      * the exact format accepted by the parse operation is locale
      * dependant and determined by sub-classes of NumberFormat.
      * @return    true if this format will parse numbers as integers
-     *            only. 
+     *            only.
      * @stable ICU 2.0
      */
     UBool isParseIntegerOnly(void) const;
@@ -366,7 +428,7 @@ public:
      * is locale dependant.
      * @stable ICU 2.0
      */
-    static NumberFormat* createInstance(UErrorCode&);
+    static NumberFormat* U_EXPORT2 createInstance(UErrorCode&);
 
     /**
      * Returns the default number format for the specified locale.
@@ -376,49 +438,49 @@ public:
      * @param inLocale    the given locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createInstance(const Locale& inLocale,
+    static NumberFormat* U_EXPORT2 createInstance(const Locale& inLocale,
                                         UErrorCode&);
 
     /**
      * Returns a currency format for the current default locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createCurrencyInstance(UErrorCode&);
+    static NumberFormat* U_EXPORT2 createCurrencyInstance(UErrorCode&);
 
     /**
      * Returns a currency format for the specified locale.
      * @param inLocale    the given locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createCurrencyInstance(const Locale& inLocale,
+    static NumberFormat* U_EXPORT2 createCurrencyInstance(const Locale& inLocale,
                                                 UErrorCode&);
 
     /**
      * Returns a percentage format for the current default locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createPercentInstance(UErrorCode&);
+    static NumberFormat* U_EXPORT2 createPercentInstance(UErrorCode&);
 
     /**
      * Returns a percentage format for the specified locale.
      * @param inLocale    the given locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createPercentInstance(const Locale& inLocale,
+    static NumberFormat* U_EXPORT2 createPercentInstance(const Locale& inLocale,
                                                UErrorCode&);
 
     /**
      * Returns a scientific format for the current default locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createScientificInstance(UErrorCode&);
+    static NumberFormat* U_EXPORT2 createScientificInstance(UErrorCode&);
 
     /**
      * Returns a scientific format for the specified locale.
      * @param inLocale    the given locale.
      * @stable ICU 2.0
      */
-    static NumberFormat* createScientificInstance(const Locale& inLocale,
+    static NumberFormat* U_EXPORT2 createScientificInstance(const Locale& inLocale,
                                                 UErrorCode&);
 
     /**
@@ -426,16 +488,17 @@ public:
      * @param count    Output param to receive the size of the locales
      * @stable ICU 2.0
      */
-    static const Locale* getAvailableLocales(int32_t& count);
+    static const Locale* U_EXPORT2 getAvailableLocales(int32_t& count);
 
+#if !UCONFIG_NO_SERVICE
     /**
      * Register a new NumberFormatFactory.  The factory will be adopted.
      * @param toAdopt the NumberFormatFactory instance to be adopted
      * @param status the in/out status code, no special meanings are assigned
      * @return a registry key that can be used to unregister this factory
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    static URegistryKey registerFactory(NumberFormatFactory* toAdopt, UErrorCode& status);
+    static URegistryKey U_EXPORT2 registerFactory(NumberFormatFactory* toAdopt, UErrorCode& status);
 
     /**
      * Unregister a previously-registered NumberFormatFactory using the key returned from the
@@ -444,17 +507,18 @@ public:
      * @param key the registry key returned by a previous call to registerFactory
      * @param status the in/out status code, no special meanings are assigned
      * @return TRUE if the factory for the key was successfully unregistered
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    static UBool unregister(URegistryKey key, UErrorCode& status);
+    static UBool U_EXPORT2 unregister(URegistryKey key, UErrorCode& status);
 
     /**
-     * Return a StringEnumeration over the locales available at the time of the call, 
+     * Return a StringEnumeration over the locales available at the time of the call,
      * including registered locales.
      * @return a StringEnumeration over the locales available at the time of the call
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    static StringEnumeration* getAvailableLocales(void);
+    static StringEnumeration* U_EXPORT2 getAvailableLocales(void);
+#endif /* UCONFIG_NO_SERVICE */
 
     /**
      * Returns true if grouping is used in this format. For example,
@@ -469,7 +533,7 @@ public:
 
     /**
      * Set whether or not grouping will be used in this format.
-     * @param newValue    True, grouping will be used in this format. 
+     * @param newValue    True, grouping will be used in this format.
      * @see getGroupingUsed
      * @stable ICU 2.0
      */
@@ -492,7 +556,7 @@ public:
      * of minimumIntegerDigits, then minimumIntegerDigits will also be set to
      * the new value.
      *
-     * @param newValue    the new value for the maximum number of digits 
+     * @param newValue    the new value for the maximum number of digits
      *                    allowed in the integer portion of a number.
      * @see getMaximumIntegerDigits
      * @stable ICU 2.0
@@ -574,33 +638,31 @@ public:
      * @param theCurrency a 3-letter ISO code indicating new currency
      * to use.  It need not be null-terminated.  May be the empty
      * string or NULL to indicate no currency.
-     * @draft ICU 2.6
+     * @param ec input-output error code
+     * @draft ICU 3.0
      */
-    virtual void setCurrency(const UChar* theCurrency);
+    virtual void setCurrency(const UChar* theCurrency, UErrorCode& ec);
 
     /**
      * Gets the currency used to display currency
      * amounts.  This may be an empty string for some subclasses.
      * @return a 3-letter null-terminated ISO code indicating
      * the currency in use, or a pointer to the empty string.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     const UChar* getCurrency() const;
 
 public:
 
     /**
-     * Return the class ID for this class.  This is useful only for
-     * comparing to a return value from getDynamicClassID().  For example:
-     * <pre>
-     * .   Base* polymorphic_pointer = createPolymorphicObject();
-     * .   if (polymorphic_pointer->getDynamicClassID() ==
-     * .       Derived::getStaticClassID()) ...
-     * </pre>
+     * Return the class ID for this class.  This is useful for
+     * comparing to a return value from getDynamicClassID(). Note that,
+     * because NumberFormat is an abstract base class, no fully constructed object
+     * will have the class ID returned by NumberFormat::getStaticClassID().
      * @return The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static inline UClassID getStaticClassID(void);
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
      * Returns a unique class ID POLYMORPHICALLY.  Pure virtual override.
@@ -635,12 +697,21 @@ protected:
      */
     NumberFormat& operator=(const NumberFormat&);
 
+    /**
+     * Returns the currency in effect for this formatter.  Subclasses
+     * should override this method as needed.  Unlike getCurrency(),
+     * this method should never return "".
+     * @result output parameter for null-terminated result, which must
+     * have a capacity of at least 4
+     * @internal
+     */
+    virtual void getEffectiveCurrency(UChar* result, UErrorCode& ec) const;
+
 private:
     static const int32_t fgMaxIntegerDigits;
     static const int32_t fgMinIntegerDigits;
 
 private:
-    static const char fgClassID;
 
     enum EStyles {
         kNumberStyle,
@@ -649,17 +720,17 @@ private:
         kScientificStyle,
         kStyleCount // ALWAYS LAST ENUM: number of styles
     };
-    
+
     /**
      * Creates the specified decimal format style of the desired locale.
-	 * Hook for service registration, uses makeInstance directly if no services
-	 * registered.
+     * Hook for service registration, uses makeInstance directly if no services
+     * registered.
      * @param desiredLocale    the given locale.
      * @param choice           the given style.
      * @param success          Output param filled with success/failure status.
      * @return                 A new NumberFormat instance.
      */
-    static NumberFormat* createInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
+    static NumberFormat* U_EXPORT2 createInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
 
     /**
      * Creates the specified decimal format style of the desired locale.
@@ -668,7 +739,7 @@ private:
      * @param success          Output param filled with success/failure status.
      * @return                 A new NumberFormat instance.
      */
-	static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
+    static NumberFormat* makeInstance(const Locale& desiredLocale, EStyles choice, UErrorCode& success);
     static const int32_t    fgNumberPatternsCount;
     static const UChar* const fgLastResortNumberPatterns[];
 
@@ -680,103 +751,97 @@ private:
     UBool      fParseIntegerOnly;
 
     // ISO currency code
-    UChar      currency[4];
+    UChar      fCurrency[4];
 
-	friend class ICUNumberFormatFactory; // access to makeInstance, EStyles
-	friend class ICUNumberFormatService;
+    friend class ICUNumberFormatFactory; // access to makeInstance, EStyles
+    friend class ICUNumberFormatService;
 };
 
+#if !UCONFIG_NO_SERVICE
 /**
  * A NumberFormatFactory is used to register new number formats.  The factory
  * should be able to create any of the predefined formats for each locale it
  * supports.  When registered, the locales it supports extend or override the
  * locale already supported by ICU.
  *
- * @prototype
+ * @stable ICU 2.6
  */
 class U_I18N_API NumberFormatFactory : public UObject {
 public:
 
     /**
+     * Destructor
+     * @draft ICU 3.0
+     */
+    virtual ~NumberFormatFactory();
+
+    /**
      * Return true if this factory will be visible.  Default is true.
      * If not visible, the locales supported by this factory will not
      * be listed by getAvailableLocales.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     virtual UBool visible(void) const = 0;
 
     /**
      * Return the locale names directly supported by this factory.  The number of names
      * is returned in count;
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    virtual const UnicodeString * const getSupportedIDs(int32_t &count, UErrorCode& status) const = 0;
+    virtual const UnicodeString * getSupportedIDs(int32_t &count, UErrorCode& status) const = 0;
 
     /**
      * Return a number format of the appropriate type.  If the locale
      * is not supported, return null.  If the locale is supported, but
      * the type is not provided by this service, return null.  Otherwise
      * return an appropriate instance of NumberFormat.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     virtual NumberFormat* createFormat(const Locale& loc, UNumberFormatStyle formatType) = 0;
 };
 
-    /**
-     * A NumberFormatFactory that supports a single locale.  It can be visible or invisible.
-     * @prototype 
-     */
+/**
+ * A NumberFormatFactory that supports a single locale.  It can be visible or invisible.
+ * @draft ICU 3.0
+ */
 class U_I18N_API SimpleNumberFormatFactory : public NumberFormatFactory {
 protected:
     /**
      * True if the locale supported by this factory is visible.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     const UBool _visible;
 
     /**
      * The locale supported by this factory, as a UnicodeString.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     UnicodeString _id;
 
 public:
     /**
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    SimpleNumberFormatFactory(const Locale& locale, UBool visible = TRUE)
-      : _visible(visible)
-      , _id(locale.getName())
-    {
-    }
+    SimpleNumberFormatFactory(const Locale& locale, UBool visible = TRUE);
 
     /**
-     * @draft ICU 2.6
+     * @draft ICU 3.0
      */
-    virtual UBool visible(void) const {
-        return _visible;
-    }
+    virtual ~SimpleNumberFormatFactory();
 
     /**
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
-    virtual const UnicodeString * const getSupportedIDs(int32_t &count, UErrorCode& status) const 
-      {
-        if (U_SUCCESS(status)) {
-          count = 1;
-          return &_id;
-        }
-        count = 0;
-        return NULL;
-      }
+    virtual UBool visible(void) const;
+
+    /**
+     * @stable ICU 2.6
+     */
+    virtual const UnicodeString * getSupportedIDs(int32_t &count, UErrorCode& status) const;
 };
-
+#endif /* #if !UCONFIG_NO_SERVICE */
 
 // -------------------------------------
-
-inline UClassID
-NumberFormat::getStaticClassID(void)
-{ return (UClassID)&fgClassID; }
 
 inline UBool
 NumberFormat::isParseIntegerOnly() const

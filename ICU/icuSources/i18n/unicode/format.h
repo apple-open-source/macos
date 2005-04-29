@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-* Copyright (C) {1997-2003}, International Business Machines Corporation and others. All Rights Reserved.
+* Copyright (C) {1997-2004}, International Business Machines Corporation and others. All Rights Reserved.
 ********************************************************************************
 *
 * File FORMAT.H
@@ -25,14 +25,15 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-#include "unicode/uobject.h"
 #include "unicode/unistr.h"
 #include "unicode/fmtable.h"
 #include "unicode/fieldpos.h"
 #include "unicode/parsepos.h"
 #include "unicode/parseerr.h" 
+#include "unicode/locid.h"
 
 U_NAMESPACE_BEGIN
+
 /**
  * Base class for all formats.  This is an abstract base class which
  * specifies the protocol for classes which convert other objects or
@@ -79,19 +80,15 @@ U_NAMESPACE_BEGIN
  * retured for methods which take no ParsePosition.  For the method
  * that takes a ParsePosition, the index parameter is left unchanged.
  * <P>
- * [Subclassing.] All base classes that provide static functions that
- * create objects for Locales must implement the following static:
- * <pre>
- * \code
- *       public static const Locale* getAvailableLocales(long&)
- * \endcode
- * </pre>
+ * <em>User subclasses are not supported.</em> While clients may write
+ * subclasses, such code will not necessarily work and will not be
+ * guaranteed to work stably from release to release.
  */
 class U_I18N_API Format : public UObject {
 public:
 
     /** Destructor
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual ~Format();
 
@@ -221,12 +218,7 @@ public:
      * This method is to implement a simple version of RTTI, since not all
      * C++ compilers support genuine RTTI.  Polymorphic operator==() and
      * clone() methods call this method.
-     * <P>
      * Concrete subclasses of Format must implement getDynamicClassID()
-     * and also a static method and data member:
-     *
-     *      static UClassID getStaticClassID() { return (UClassID)&fgClassID; }
-     *      static char fgClassID;
      *
      * @return          The class ID for this object. All objects of a
      *                  given class have the same class ID.  Objects of
@@ -234,6 +226,26 @@ public:
      * @stable ICU 2.0
      */
     virtual UClassID getDynamicClassID() const = 0;
+
+    /** Get the locale for this format object. You can choose between valid and actual locale.
+     *  @param type type of the locale we're looking for (valid or actual) 
+     *  @param status error code for the operation
+     *  @return the locale
+     *  @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+     */
+    Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const;
+
+    /** Get the locale for this format object. You can choose between valid and actual locale.
+     *  @param type type of the locale we're looking for (valid or actual) 
+     *  @param status error code for the operation
+     *  @return the locale
+     *  @internal
+     */
+    const char* getLocaleID(ULocDataLocaleType type, UErrorCode &status) const;
+
+ protected:
+    /** @draft ICU 2.8 */
+    void setLocaleIDs(const char* valid, const char* actual);
 
 protected:
     /**
@@ -259,11 +271,15 @@ protected:
      * @param pattern The pattern to copy into the parseError
      * @param pos The position in pattern where the error occured
      * @param parseError The UParseError object to fill in
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     static void syntaxError(const UnicodeString& pattern,
                             int32_t pos,
                             UParseError& parseError);
+
+ private:
+    char actualLocale[ULOC_FULLNAME_CAPACITY];
+    char validLocale[ULOC_FULLNAME_CAPACITY];
 };
 
 U_NAMESPACE_END

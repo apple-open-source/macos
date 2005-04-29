@@ -1,0 +1,187 @@
+<!doctype HTML public "-//W3O//DTD W3 HTML 2.0//EN">
+  <head>
+    <link href="tclsoap.css" rel="stylesheet" type="text/css">
+    <title>SOAP URL Domain Package for TclHTTPD</title>
+    <meta http-equiv="Description" name="Description"
+      content="SOAP package for Tcl. Provides remote procedure calls
+      using the SOAP protocol over HTTP." />
+    <meta http-equiv="Keywords" name="Keywords"
+      content="Tcl,SOAP,Simple Object Access Protocol,XML,tclHTTPD" />
+  </head>
+
+  <!-- --------------------------------------------------------------------- -->
+
+  <body>
+  <table class="globaltable">
+  <tr><td class="header" width="15%">
+      <a href="http://sourceforge.net">
+         <img align="middle" alt="SourceForge Logo" border="0" height="31" 
+             src="http://sourceforge.net/sflogo.php?group_id=25970"
+             width="88"></a>
+      </td>
+      <td class="header" width="70%">
+           <h1>Tcl SOAP Server Utility Package</h1>
+      </td>
+      <td class="logo" width="15%">
+        <img src="tclsoap.gif" alt="TclSOAP Logo" align="middle"
+        border="0" height="84" width="57" />
+      </td>
+  </tr>
+
+  <tr><td class="sidebar">
+    <table>
+<tr><td class="sidehead">Project</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/projects/tclsoap">Project Page</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/project/showfiles.php?group_id=25970">File Releases</A></td></tr>
+<tr><td class="sideelt"><A href="TclSOAP.html">WebPage</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/docman/?group_id=25970">Documentation</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/forum/?group_id=25970">Forums</A></td></tr>
+<tr><td class="sideelt"><a href="http://cvs.sourceforge.net/cgi-bin/viewcvs.cgi/tclsoap/tclsoap">Browse CVS</a></td></tr>
+
+<tr><td class="sidehead">Interop</td></tr>
+<tr><td class="sideelt"><a href="silab/round1.html">Round 1 Tests</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2base.html">Round 2 Base</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2B.html">Round 2B</a></td></tr>
+<tr><td class="sideelt"><a href="silab/round2C.html">Round 2C</a></td></tr>
+
+<tr><td class="sidehead">Support</td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385859&group_id=25970&func=browse">Bugs</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385860&group_id=25970&func=browse">Support Requests</A></td></tr>
+<tr><td class="sideelt"><A href="http://sourceforge.net/tracker/?aid=385861&group_id=25970&func=browse">Patches</A></td></tr>
+<tr><td class="sideelt"><a href="http://sourceforge.net/tracker/?aid=385862&group_id=25970&func=browse">Feature Requests</A></td></tr>
+    </table></td>
+
+<td class="body" colspan="2">
+<div class="body">
+
+  <!-- ----------------------------------------------------------------- -->
+
+  <p>The <tt>SOAP::Domain</tt> package provides a wrapper enabling the
+  simple use of Tcl procedures as SOAP methods. The package is
+  designed to operate with the tclhttpd web server but in principal
+  could be converted to another server fairly easily. </p>
+
+  <p>As an example of its use enter the following code and save as
+  <tt>soap1.tcl</tt> in the custom subdirectory of the tclhttp
+  server. (Alternatively source this script into a running
+  server).</p>
+
+<pre>package require SOAP::Domain
+
+namespace eval urn:tclsoap:Test1 {
+
+   proc square {num} {
+      if { [catch {expr $num + 0}] } {
+         error "parameter num must be a number"
+      }
+      return [expr {$num * $num}]
+   }
+
+   SOAP::export square
+
+}
+
+SOAP::Domain::register -prefix /soap \
+    -namespace urn:tclsoap:Test1 -uri urn:tclsoap:Test1
+  </pre>
+
+  <p>This block of code loads the SOAP server utilities (the
+  SOAP::Domain package) and registers a handler for the /soap URL
+  namespace with the http server. The effect of this is that any URL
+  under /soap will be handled by SOAP::Domain::domain_handler. This
+  procedure examines incoming SOAP requests and attempts to evaluate
+  corresponding procedures in the specified namespace. By specifying a
+  namespace we can isolate the soap procedures from any other
+  procedures defined in the server. If we require an additional level
+  of security we can specify a named slave interpreter rather than a
+  namespace and then define our soap methods within the slave
+  interpreter.</p>
+
+  <p>We then define our SOAP method in a namespace (generally life is
+  simpler if this is the same as the XML namespace). We also must
+  publish the public methods. This is to prevent exposing Tcl internal
+  commands like <tt>exec</tt> accidentally.</p>
+
+  <p>We can test the above server by entering the following script to
+  get a SOAP command in Tcl to use this service.</p>
+
+<pre>% package require SOAP
+1.6
+% SOAP::create square \
+           -uri urn:tclsoap:Test1 \
+           -proxy http://localhost:8015/soap \
+           -params {num integer}
+::square
+% square 8
+64
+  </pre>
+
+  <p>Errors returned by the Tcl procedure are converted into SOAP
+  Fault reply packets. According to the SOAP 1.1 specification the
+  presence of a detail element under the Fault element is indicative
+  of a failure in evaluating the body of the SOAP
+  request. For errors thrown by the evaluated procedure this package
+  generates a Fault packet and places the contents of the global
+  errorInfo variable into the detail element.</p>
+
+  <p>To illustrate this, if we evaluate the following in the server</p>
+
+<pre>% square Hello
+SOAP-ENV:Client {parameter num must be a number}
+
+% SOAP::dump square
+&lt;?xml version='1.0'?&gt;
+&lt;SOAP-ENV:Envelope 
+  xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance" 
+  xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" 
+  xmlns:xsd="http://www.w3.org/1999/XMLSchema"&gt;
+  &lt;SOAP-ENV:Body&gt;
+    &lt;SOAP-ENV:Fault&gt;
+      &lt;faultcode&gt;SOAP-ENV:Client&lt;/faultcode&gt;
+      &lt;faultstring&gt;parameter num must be a number&lt;/faultstring&gt;
+      &lt;detail&gt;
+        &lt;e:errorInfo xmlns:e="urn:TclSOAP-ErrorInfo"&gt;
+          &lt;errorCode&gt;NONE&lt;/errorCode&gt;
+          &lt;stackTrace&gt;parameter num must be a number
+    while executing
+&quot;error &quot;parameter num must be a number&quot;&quot;
+    (procedure &quot;::urn:tclsoap:Test1::square&quot; line 3)
+    invoked from within
+&quot;::urn:tclsoap:Test1::square Hello&quot;
+    invoked from within
+&quot;interp eval $xmlinterp [list $xmlns] $argValues&quot;&lt;/stackTrace&gt;
+        &lt;/e:errorInfo&gt;
+      &lt;/detail&gt;
+    &lt;/SOAP-ENV:Fault&gt;
+  &lt;/SOAP-ENV:Body&gt;
+&lt;/SOAP-ENV:Envelope&gt;
+  </pre>
+
+  <p>As can be seen from the XML data, if an error is raised by the Tcl
+  implementation of the SOAP method then the SOAP::Domain package
+  includes the stack trace (from the global variable errorLevel) as
+  one of the detail elements. This is very useful for debugging such
+  procedures.</p>
+
+  <p>There is a sample service in <tt>samples/tclhttpd-sample.tcl</tt>
+  and also a rather complete example implementing the interoperability
+  test suite in <tt>cgi-bin/soap/soapinterop.tcl</tt>.</p>
+
+  <br /><br />
+  <!-- ----------------------------------------------------------------- -->
+
+</div>
+</td></tr>
+<tr class="footer">
+<td class="footer" colspan="2">
+$Id: SOAPURLDomain.html,v 1.8 2002/02/27 01:01:36 patthoyts Exp $
+</td></tr>
+
+    </table>
+  </body>
+</html>
+
+<!-- Local variables:           -->
+<!--   truncate-lines: "t"      -->
+<!--   indent-tabs-mode: nil    -->
+<!-- End:                       -->

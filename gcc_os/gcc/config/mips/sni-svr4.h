@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.  SNI SINIX version.
-   Copyright (C) 1996, 1997, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1999, 2000, 2002 Free Software Foundation, Inc.
    Contributed by Marco Walther (Marco.Walther@mch.sni.de).
 
 This file is part of GNU CC.
@@ -21,19 +21,24 @@ Boston, MA 02111-1307, USA.  */
 
 #define MIPS_SVR4
 
-#define CPP_PREDEFINES "\
--Dmips -Dunix -Dhost_mips -DMIPSEB -DR3000 -DSYSTYPE_SVR4 -Dsinix -DSNI \
--D_mips -D_unix -D_host_mips -D_MIPSEB -D_R3000 -D_SYSTYPE_SVR4 \
--Asystem=unix -Asystem=svr4 -Acpu=mips -Amachine=mips"
-
-#define SUBTARGET_CPP_SIZE_SPEC "\
--D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int"
+#define TARGET_OS_CPP_BUILTINS()			\
+    do {						\
+	builtin_define_std ("host_mips");		\
+	builtin_define_std ("SYSTYPE_SVR4");		\
+	builtin_define_std ("unix");			\
+	builtin_define_std ("mips");			\
+	builtin_define_std ("sinix");			\
+	builtin_define_std ("SNI");			\
+	builtin_assert ("system=unix");			\
+	builtin_assert ("system=svr4");			\
+	builtin_assert ("machine=mips");		\
+} while (0)
 
 #define LINK_SPEC "\
 %{G*} \
 %{!mgas: \
 	%{dy} %{dn}}"
-		    
+
 #define LIB_SPEC "\
 	%{p:-lprof1} \
 	%{!p:%{pg:-lprof1} \
@@ -53,9 +58,6 @@ Boston, MA 02111-1307, USA.  */
 
 #define getpagesize()	sysconf(_SC_PAGE_SIZE)
 #endif /*  L_trampoline */
-
-/* Generate calls to memcpy, etc., not bcopy, etc.  */
-#define TARGET_MEM_FUNCTIONS
 
 #define OBJECT_FORMAT_ELF
 

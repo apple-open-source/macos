@@ -28,9 +28,10 @@
 #include <sys/socket.h>
 #include <sys/syslog.h>
 #include <sys/protosw.h>
+#include <kern/locks.h>
+
 #include <net/if_types.h>
-#include <net/dlil.h>
-#include <net/if_var.h>
+#include <net/if.h>
 
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppplink.h"
@@ -73,7 +74,7 @@ int pppoe_listen(struct socket *so, struct proc *p);
 
 // callback from rfc layer
 void pppoe_event(void *data, u_int32_t event, u_int32_t msg);
-int pppoe_input(void *data, struct mbuf *m);
+int pppoe_input(void *data, mbuf_t m);
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -82,6 +83,8 @@ struct pr_usrreqs 	pppoe_usr;	/* pr_usrreqs extension to the protosw */
 struct protosw 		pppoe;		/* describe the protocol switch */
 
 u_long			pppoe_timer_count;
+
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -122,17 +125,17 @@ int pppoe_add(struct domain *domain)
     pppoe_usr.pru_shutdown 	= pppoe_shutdown;
     pppoe_usr.pru_sockaddr 	= pru_sockaddr_notsupp;
     pppoe_usr.pru_sosend 	= sosend;
-    pppoe_usr.pru_soreceive 	= soreceive;
-    pppoe_usr.pru_sopoll 	= sopoll;
+    pppoe_usr.pru_soreceive = soreceive;
+    pppoe_usr.pru_sopoll 	= pru_sopoll_notsupp;
 
 
     bzero(&pppoe, sizeof(struct protosw));
-    pppoe.pr_type	= SOCK_DGRAM;
+    pppoe.pr_type		= SOCK_DGRAM;
     pppoe.pr_domain 	= domain;
     pppoe.pr_protocol 	= PPPPROTO_PPPOE;
-    pppoe.pr_flags 	= PR_ATOMIC|PR_CONNREQUIRED;
+    pppoe.pr_flags		= PR_ATOMIC|PR_CONNREQUIRED|PR_PROTOLOCK;
     pppoe.pr_ctloutput 	= pppoe_ctloutput;
-    pppoe.pr_init 	= pppoe_init;
+    pppoe.pr_init		= pppoe_init;
     pppoe.pr_slowtimo  	= pppoe_slowtimo;
     pppoe.pr_usrreqs 	= &pppoe_usr;
 
@@ -184,6 +187,8 @@ int pppoe_ctloutput(struct socket *so, struct sockopt *sopt)
     u_int16_t	val;
     u_int32_t	lval;
     u_char 	str[IFNAMSIZ];
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     //log(LOGVAL, "pppoe_ctloutput, so = 0x%x\n", so);
 
@@ -313,9 +318,11 @@ slow timer function, called every 500ms
 ----------------------------------------------------------------------------- */
 void pppoe_slowtimo()
 {
-
+	
+	lck_mtx_lock(ppp_domain_mutex);
     // run the slowtimer only every second
     if (pppoe_timer_count++ % 2) {
+		lck_mtx_unlock(ppp_domain_mutex);
         return;
     }
 
@@ -323,6 +330,7 @@ void pppoe_slowtimo()
     // is slow_timer called when no socket exist for that proto ?
     // we should probably used real timer function, directly instantiated from rfc.
     pppoe_rfc_timer();
+	lck_mtx_unlock(ppp_domain_mutex);
 
 }
 
@@ -358,10 +366,13 @@ int pppoe_attach (struct socket *so, int proto, struct proc *p)
     unit = 0;
    
     // call pppoe init with the rfc specific structure
+	lck_mtx_lock(ppp_domain_mutex);
     if (pppoe_rfc_new_client(so, (void**)&(so->so_pcb), pppoe_input, pppoe_event)) {
+		lck_mtx_unlock(ppp_domain_mutex);
         return ENOMEM;
     }
-
+	lck_mtx_unlock(ppp_domain_mutex);
+	
     return 0;
 }
 
@@ -373,6 +384,8 @@ int pppoe_detach(struct socket *so)
 {
 
     //log(LOGVAL, "pppoe_detach, so = 0x%x, dom_ref = %d\n", so, so->so_proto->pr_domain->dom_refs);
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         pppoe_wan_detach((struct ppp_link *)so->so_tpcb);
@@ -382,6 +395,7 @@ int pppoe_detach(struct socket *so)
         pppoe_rfc_free_client(so->so_pcb);
         so->so_pcb = 0;
     }
+	so->so_flags |= SOF_PCBCLEARING;
     return 0;
 }
 
@@ -391,6 +405,8 @@ this function is not yet complete
 int pppoe_shutdown(struct socket *so)
 {
     int 	error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_shutdown, so = 0x%x\n", so);
 
@@ -406,6 +422,8 @@ int pppoe_bind(struct socket *so, struct sockaddr *nam, struct proc *p)
 {
     int 		error = 0;
     struct sockaddr_pppoe *adr = (struct sockaddr_pppoe *)nam;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_bind, so = 0x%x\n", so);
 
@@ -423,6 +441,8 @@ int pppoe_connect(struct socket *so, struct sockaddr *nam, struct proc *p)
 {
     int 		error = 0;
     struct sockaddr_pppoe *adr = (struct sockaddr_pppoe *)nam;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_connect, so = 0x%x\n", so);
 
@@ -443,6 +463,8 @@ int pppoe_disconnect(struct socket *so)
 {
 
     //log(LOGVAL, "pppoe_disconnect, so = 0x%x\n", so);
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     // disconnect pppoe protocol
     if (pppoe_rfc_disconnect(so->so_pcb)) {
@@ -459,6 +481,8 @@ Prepare to accept connections
 int pppoe_listen(struct socket *so, struct proc *p)
 {
     int 		error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_listen, so = 0x%x\n", so);
 
@@ -477,6 +501,8 @@ int pppoe_accept(struct socket *so, struct sockaddr **nam)
     struct sockaddr_pppoe *addr;
 
     //log(LOGVAL, "pppoe_accept, so = 0x%x\n", so);
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     *nam = 0;
     if (pppoe_rfc_accept(so->so_pcb))
@@ -504,10 +530,12 @@ Called by socket layer to abort call
 int pppoe_abort(struct socket *so)
 {
     int 		error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_abort, so = 0x%x\n", so);
 
-    if (pppoe_rfc_abort(so->so_pcb))
+    if (pppoe_rfc_abort(so->so_pcb, 1))
         error = EINVAL; // XXX ???
 
     soisdisconnected(so); // let's say we are disconnected anyway...
@@ -521,6 +549,8 @@ int pppoe_control(struct socket *so, u_long cmd, caddr_t data,
                   struct ifnet *ifp, struct proc *p)
 {
     int 		error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_control : so = 0x%x, cmd = %d\n", so, cmd);
 
@@ -560,12 +590,13 @@ int pppoe_send(struct socket *so, int flags, struct mbuf *m,
 {
 
     int 		error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     //log(LOGVAL, "pppoe_send, so = 0x%x\n", so);
 
-    if (pppoe_rfc_output(so->so_pcb, m)) {
-        error = ENOTCONN; // XXX ???
-        // shall I free the buffer ???
+    if (error = pppoe_rfc_output(so->so_pcb, (mbuf_t)m)) {
+        m_freem(m);
     }
 
     return error;
@@ -584,8 +615,10 @@ called from pppoe_rfc when change state occurs
 ----------------------------------------------------------------------------- */
 void pppoe_event(void *data, u_int32_t event, u_int32_t msg)
 {
-    static int 		ignore = 0; // change it
     struct socket 	*so = (struct socket *)data, *so2;
+	struct sockaddr_pppoe addr;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     switch (event) {
         case PPPOE_EVT_RINGING:
@@ -607,12 +640,21 @@ void pppoe_event(void *data, u_int32_t event, u_int32_t msg)
              wether we have only one active listening socket, or whatever makes sense.
              in case of PPPoE, let's say we can continue listening....
              */
-            so2 = sonewconn(so, SS_ISCONFIRMING);	// create the accepting connection
+			 
+			addr.ppp.ppp_len = sizeof(struct sockaddr_pppoe);
+			addr.ppp.ppp_family = AF_PPP;
+			addr.ppp.ppp_proto = PPPPROTO_PPPOE;
+			addr.ppp.ppp_cookie = 0;
+			addr.pppoe_ac_name[0] = 0;
+			addr.pppoe_service[0] = 0;
+
+            so2 = sonewconn(so, SS_ISCONFIRMING, (struct sockaddr*)(&addr));	// create the accepting connection
             //log(LOGVAL, "pppoe_event, so = 0x%x, so2 = 0x%x, evt = PPPOE_EVT_RINGING\n", so, so2);
-            pppoe_rfc_clone(so->so_pcb, so2->so_pcb);	// transfer all the RFC info to the new connection, including ringing state
-            ignore = 1;					// set a flag to ignore the abort resulting events
-            pppoe_rfc_abort(so->so_pcb);		// abort the ring on the listening connection
-            ignore = 0;					// reset the flag
+            
+			if (so2)
+				pppoe_rfc_clone(so->so_pcb, so2->so_pcb);	// transfer all the RFC info to the new connection, including ringing state
+
+            pppoe_rfc_abort(so->so_pcb, 0);		// abort the ring on the listening connection
             pppoe_rfc_listen(so->so_pcb);		// relisten again, because pppoe can handle multiple connections
             break;
 
@@ -620,9 +662,8 @@ void pppoe_event(void *data, u_int32_t event, u_int32_t msg)
             //log(LOGVAL, "pppoe_event, so = 0x%x, evt = PPPOE_EVT_CONNECTED\n", so);
             soisconnected(so);
             break;
+
         case PPPOE_EVT_DISCONNECTED:
-            if (ignore)	// this event is due to the abort, following the ring (may be need to find a better way)
-                break;
             //log(LOGVAL, "pppoe_event, so = 0x%x, evt = PPPOE_EVT_DISCONNECTED\n", so);
             so->so_error = msg;
      
@@ -638,9 +679,11 @@ void pppoe_event(void *data, u_int32_t event, u_int32_t msg)
 /* -----------------------------------------------------------------------------
 called from pppoe_rfc when data are present
 ----------------------------------------------------------------------------- */
-int pppoe_input(void *data, struct mbuf *m)
+int pppoe_input(void *data, mbuf_t m)
 {
     struct socket 	*so = (struct socket *)data;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (so->so_tpcb) {
         // we are hooked to ppp
@@ -649,13 +692,13 @@ int pppoe_input(void *data, struct mbuf *m)
 
     //log(LOGVAL, "pppoe_input, so = 0x%x, len = %d\n", so, m_pkthdr.len);
 
-    if (sbspace(&so->so_rcv) < m->m_pkthdr.len) {
-        m_freem(m);
-        log(LOGVAL, "pppoe_input no space, so = 0x%x, len = %d\n", so, m->m_pkthdr.len);
+    if (sbspace(&so->so_rcv) < mbuf_pkthdr_len(m)) {
+        mbuf_freem(m);
+        log(LOGVAL, "pppoe_input no space, so = 0x%x, len = %d\n", so, mbuf_pkthdr_len(m));
         return 0;
     }
 
-    sbappendrecord(&so->so_rcv, m);
+    sbappendrecord(&so->so_rcv, (struct mbuf*)m);
     sorwakeup(so);
     return 0;
 }

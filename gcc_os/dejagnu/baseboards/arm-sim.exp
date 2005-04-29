@@ -26,15 +26,12 @@ setup_sim arm;
 # The compiler used to build for this board. This has *nothing* to do
 # with what compiler is tested if we're testing gcc.
 set_board_info compiler 	"[find_gcc]"
-
 # The basic set of flags needed to build "hello world" for this
 # board. This board uses libgloss and newlib.
 set_board_info cflags 	"[libgloss_include_flags] [newlib_include_flags]"
 set_board_info ldflags 	"[libgloss_link_flags] [newlib_link_flags] $additional_options"
-
 # This board doesn't use a linker script.
 set_board_info ldscript "";
-
 # The simulator doesn't return exit statuses and we need to indicate this.
 set_board_info needs_status_wrapper  1
 

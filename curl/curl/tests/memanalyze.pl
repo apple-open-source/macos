@@ -6,14 +6,30 @@
 # MEM mprintf.c:1103 realloc(e5718, 64) = e6118
 # MEM sendf.c:232 free(f6520)
 
-do {
+my $mallocs=0;
+my $callocs=0;
+my $reallocs=0;
+my $strdups=0;
+my $showlimit;
+
+while(1) {
     if($ARGV[0] eq "-v") {
         $verbose=1;
+        shift @ARGV;
     }
     elsif($ARGV[0] eq "-t") {
         $trace=1;
+        shift @ARGV;
     }
-} while (shift @ARGV);
+    elsif($ARGV[0] eq "-l") {
+        # only show what alloc that caused a memlimit failure
+        $showlimit=1;
+        shift @ARGV;
+    }
+    else {
+        last;
+    }
+}
 
 my $maxmem;
 
@@ -26,11 +42,45 @@ sub newtotal {
     }
 }
 
-while(<STDIN>) {
+my $file = $ARGV[0];
+
+if(! -f $file) {
+    print "Usage: memanalyze.pl [options] <dump file>\n",
+    "Options:\n",
+    " -l  memlimit failure displayed\n",
+    " -v  Verbose\n",
+    " -t  Trace\n";
+    exit;
+}
+
+open(FILE, "<$file");
+
+if($showlimit) {
+    while(<FILE>) {
+        if(/^LIMIT.*memlimit$/) {
+            print $_;
+            last;
+        }
+    }
+    close(FILE);
+    exit;
+}
+
+
+
+while(<FILE>) {
     chomp $_;
     $line = $_;
 
-    if($line =~ /^MEM ([^:]*):(\d*) (.*)/) {
+    if($line =~ /^LIMIT ([^ ]*):(\d*) (.*)/) {
+        # new memory limit test prefix
+        my $i = $3;
+        my ($source, $linenum) = ($1, $2);
+        if($trace && ($i =~ /([^ ]*) reached memlimit/)) {
+            print "LIMIT: $1 returned error at $source:$linenum\n";
+        }
+    }
+    elsif($line =~ /^MEM ([^ ]*):(\d*) (.*)/) {
         # generic match for the filename+linenumber
         $source = $1;
         $linenum = $2;
@@ -38,7 +88,7 @@ while(<STDIN>) {
 
         if($function =~ /free\(0x([0-9a-f]*)/) {
             $addr = $1;
-            if($sizeataddr{$addr} == 0) {
+            if(!exists $sizeataddr{$addr}) {
                 print "FREE ERROR: No memory allocated: $line\n";
             }
             elsif(-1 == $sizeataddr{$addr}) {
@@ -66,7 +116,7 @@ while(<STDIN>) {
 
             if($sizeataddr{$addr}>0) {
                 # this means weeeeeirdo
-                print "Fucked up debug compile, rebuild curl now\n";
+                print "Mixed debug compile, rebuild curl now\n";
             }
 
             $sizeataddr{$addr}=$size;
@@ -79,6 +129,31 @@ while(<STDIN>) {
 
             newtotal($totalmem);
             $mallocs++;
+
+            $getmem{$addr}="$source:$linenum";
+        }
+        elsif($function =~ /calloc\((\d*),(\d*)\) = 0x([0-9a-f]*)/) {
+            $size = $1*$2;
+            $addr = $3;
+
+            $arg1 = $1;
+            $arg2 = $2;
+
+            if($sizeataddr{$addr}>0) {
+                # this means weeeeeirdo
+                print "Mixed debug compile, rebuild curl now\n";
+            }
+
+            $sizeataddr{$addr}=$size;
+            $totalmem += $size;
+
+            if($trace) {
+                print "CALLOC: calloc($arg1,$arg2) at $source:$linenum",
+                " makes totally $totalmem bytes\n";
+            }
+
+            newtotal($totalmem);
+            $callocs++;
 
             $getmem{$addr}="$source:$linenum";
         }
@@ -130,7 +205,7 @@ while(<STDIN>) {
         }        
     }
     # FD url.c:1282 socket() = 5
-    elsif($_ =~ /^FD ([^:]*):(\d*) (.*)/) {
+    elsif($_ =~ /^FD ([^ ]*):(\d*) (.*)/) {
         # generic match for the filename+linenumber
         $source = $1;
         $linenum = $2;
@@ -157,19 +232,19 @@ while(<STDIN>) {
         }
     }
     # FILE url.c:1282 fopen("blabla") = 0x5ddd
-    elsif($_ =~ /^FILE ([^:]*):(\d*) (.*)/) {
+    elsif($_ =~ /^FILE ([^ ]*):(\d*) (.*)/) {
         # generic match for the filename+linenumber
         $source = $1;
         $linenum = $2;
         $function = $3;
 
-        if($function =~ /fopen\(\"([^\"]*)\"\) = (\(nil\)|0x([0-9a-f]*))/) {
-            if($2 eq "(nil)") {
+        if($function =~ /fopen\(\"([^\"]*)\",\"([^\"]*)\"\) = (\(nil\)|0x([0-9a-f]*))/) {
+            if($3 eq "(nil)") {
                 ;
             }
             else {
-                $fopen{$3}=1;
-                $fopenfile{$3}="$source:$linenum";
+                $fopen{$4}=1;
+                $fopenfile{$4}="$source:$linenum";
                 $fopens++;
             }
         }
@@ -184,8 +259,13 @@ while(<STDIN>) {
             }
         }
     }
+    # GETNAME url.c:1901 getnameinfo()
+    elsif($_ =~ /^GETNAME ([^ ]*):(\d*) (.*)/) {
+        # not much to do
+    }
+
     # ADDR url.c:1282 getaddrinfo() = 0x5ddd
-    elsif($_ =~ /^ADDR ([^:]*):(\d*) (.*)/) {
+    elsif($_ =~ /^ADDR ([^ ]*):(\d*) (.*)/) {
         # generic match for the filename+linenumber
         $source = $1;
         $linenum = $2;
@@ -219,6 +299,7 @@ while(<STDIN>) {
         print "Not recognized prefix line: $line\n";
     }
 }
+close(FILE);
 
 if($totalmem) {
     print "Leak detected: memory still allocated: $totalmem bytes\n";
@@ -262,8 +343,10 @@ if($addrinfos) {
 if($verbose) {
     print "Mallocs: $mallocs\n",
     "Reallocs: $reallocs\n",
+    "Callocs: $callocs\n",
     "Strdups:  $strdups\n",
-    "Frees: $frees\n";
+    "Frees: $frees\n",
+    "Allocations: ".($mallocs + $callocs + $reallocs + $strdups)."\n";
 
     print "Maximum allocated: $maxmem\n";
 }

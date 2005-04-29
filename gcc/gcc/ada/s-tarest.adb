@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                                                                          --
---         Copyright (C) 1999-2001, Free Software Foundation, Inc.          --
+--         Copyright (C) 1999-2004, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies, Inc. (http://www.gnat.com).     --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -52,7 +51,6 @@ with System.Parameters;
 
 with System.Task_Info;
 --  used for Task_Info_Type
---           Task_Image_Type
 
 with System.Task_Primitives.Operations;
 --  used for Enter_Task
@@ -68,6 +66,9 @@ with System.Soft_Links;
 --  This package also provides initialization routines for task specific data.
 --  The GNARL must call these to be sure that all non-tasking
 --  Ada constructs will work.
+
+with System.Soft_Links.Tasking;
+--  Used for Init_Tasking_Soft_Links
 
 with System.Secondary_Stack;
 --  used for SS_Init;
@@ -107,30 +108,17 @@ package body System.Tasking.Restricted.Stages is
    --  all nested locks must be released before other tasks competing for the
    --  tasking lock are released.
 
-   function Get_Jmpbuf_Address return Address;
-   procedure Set_Jmpbuf_Address (Addr : Address);
+   -----------------------
+   -- Local Subprograms --
+   -----------------------
 
-   function Get_Sec_Stack_Addr return Address;
-   procedure Set_Sec_Stack_Addr (Addr : Address);
-
-   function  Get_Machine_State_Addr return Address;
-   procedure Set_Machine_State_Addr (Addr : Address);
-
-   function Get_Current_Excep return SSL.EOA;
-
-   procedure Timed_Delay_T (Time : Duration; Mode : Integer);
-
-   ------------------------
-   --  Local Subprograms --
-   ------------------------
-
-   procedure Task_Wrapper (Self_ID : Task_ID);
+   procedure Task_Wrapper (Self_ID : Task_Id);
    --  This is the procedure that is called by the GNULL from the
    --  new context when a task is created. It waits for activation
    --  and then calls the task body procedure. When the task body
    --  procedure completes, it terminates the task.
 
-   procedure Terminate_Task (Self_ID : Task_ID);
+   procedure Terminate_Task (Self_ID : Task_Id);
    --  Terminate the calling task.
    --  This should only be called by the Task_Wrapper procedure.
 
@@ -158,45 +146,6 @@ package body System.Tasking.Restricted.Stages is
       STPO.Unlock (Global_Task_Lock'Access, Global_Lock => True);
    end Task_Unlock;
 
-   ----------------------
-   -- Soft-Link Bodies --
-   ----------------------
-
-   function Get_Current_Excep return SSL.EOA is
-   begin
-      return STPO.Self.Common.Compiler_Data.Current_Excep'Access;
-   end Get_Current_Excep;
-
-   function Get_Jmpbuf_Address return  Address is
-   begin
-      return STPO.Self.Common.Compiler_Data.Jmpbuf_Address;
-   end Get_Jmpbuf_Address;
-
-   function Get_Machine_State_Addr return Address is
-   begin
-      return STPO.Self.Common.Compiler_Data.Machine_State_Addr;
-   end Get_Machine_State_Addr;
-
-   function Get_Sec_Stack_Addr return  Address is
-   begin
-      return STPO.Self.Common.Compiler_Data.Sec_Stack_Addr;
-   end Get_Sec_Stack_Addr;
-
-   procedure Set_Jmpbuf_Address (Addr : Address) is
-   begin
-      STPO.Self.Common.Compiler_Data.Jmpbuf_Address := Addr;
-   end Set_Jmpbuf_Address;
-
-   procedure Set_Machine_State_Addr (Addr : Address) is
-   begin
-      STPO.Self.Common.Compiler_Data.Machine_State_Addr := Addr;
-   end Set_Machine_State_Addr;
-
-   procedure Set_Sec_Stack_Addr (Addr : Address) is
-   begin
-      STPO.Self.Common.Compiler_Data.Sec_Stack_Addr := Addr;
-   end Set_Sec_Stack_Addr;
-
    ------------------
    -- Task_Wrapper --
    ------------------
@@ -210,9 +159,13 @@ package body System.Tasking.Restricted.Stages is
    --  of the current thread, since it should be at a fixed offset from the
    --  stack base.
 
-   procedure Task_Wrapper (Self_ID : Task_ID) is
-      ID : Task_ID := Self_ID;
+   procedure Task_Wrapper (Self_ID : Task_Id) is
+      ID : Task_Id := Self_ID;
       pragma Volatile (ID);
+
+      pragma Warnings (Off, ID);
+      --  Turn off warnings (stand alone volatile constant has to be
+      --  imported, so we cannot just make ID constant).
 
       --  Do not delete this variable.
       --  In some targets, we need this variable to implement a fast Self.
@@ -258,15 +211,6 @@ package body System.Tasking.Restricted.Stages is
       end;
    end Task_Wrapper;
 
-   -------------------
-   -- Timed_Delay_T --
-   -------------------
-
-   procedure Timed_Delay_T (Time : Duration; Mode : Integer) is
-   begin
-      STPO.Timed_Delay (STPO.Self, Time, Mode);
-   end Timed_Delay_T;
-
    -----------------------
    -- Restricted GNARLI --
    -----------------------
@@ -284,8 +228,8 @@ package body System.Tasking.Restricted.Stages is
    procedure Activate_Restricted_Tasks
      (Chain_Access : Activation_Chain_Access)
    is
-      Self_ID       : constant Task_ID := STPO.Self;
-      C             : Task_ID;
+      Self_ID       : constant Task_Id := STPO.Self;
+      C             : Task_Id;
       Activate_Prio : System.Any_Priority;
       Success       : Boolean;
 
@@ -373,8 +317,8 @@ package body System.Tasking.Restricted.Stages is
    --  activator.
 
    procedure Complete_Restricted_Activation is
-      Self_ID   : constant Task_ID := STPO.Self;
-      Activator : constant Task_ID := Self_ID.Common.Activator;
+      Self_ID   : constant Task_Id := STPO.Self;
+      Activator : constant Task_Id := Self_ID.Common.Activator;
 
    begin
       if Single_Lock then
@@ -432,28 +376,31 @@ package body System.Tasking.Restricted.Stages is
 
    procedure Create_Restricted_Task
      (Priority      : Integer;
+      Stack_Address : System.Address;
       Size          : System.Parameters.Size_Type;
       Task_Info     : System.Task_Info.Task_Info_Type;
       State         : Task_Procedure_Access;
       Discriminants : System.Address;
       Elaborated    : Access_Boolean;
       Chain         : in out Activation_Chain;
-      Task_Image    : System.Task_Info.Task_Image_Type;
-      Created_Task  : out Task_ID)
+      Task_Image    : String;
+      Created_Task  : Task_Id)
    is
-      T             : Task_ID;
-      Self_ID       : constant Task_ID := STPO.Self;
+      Self_ID       : constant Task_Id := STPO.Self;
       Base_Priority : System.Any_Priority;
       Success       : Boolean;
 
    begin
+      --  Stack is not preallocated on this target, so that
+      --  Stack_Address must be null.
+
+      pragma Assert (Stack_Address = Null_Address);
+
       if Priority = Unspecified_Priority then
          Base_Priority := Self_ID.Common.Base_Priority;
       else
          Base_Priority := System.Any_Priority (Priority);
       end if;
-
-      T := New_ATCB (0);
 
       if Single_Lock then
          Lock_RTS;
@@ -466,7 +413,7 @@ package body System.Tasking.Restricted.Stages is
 
       Initialize_ATCB
         (Self_ID, State, Discriminants, Self_ID, Elaborated, Base_Priority,
-         Task_Info, Size, T, Success);
+         Task_Info, Size, Created_Task, Success);
 
       --  If we do our job right then there should never be any failures,
       --  which was probably said about the Titanic; so just to be safe,
@@ -482,8 +429,13 @@ package body System.Tasking.Restricted.Stages is
          raise Program_Error;
       end if;
 
-      T.Entry_Calls (1).Self := T;
-      T.Common.Task_Image    := Task_Image;
+      Created_Task.Entry_Calls (1).Self := Created_Task;
+
+      Created_Task.Common.Task_Image_Len :=
+        Integer'Min (Created_Task.Common.Task_Image'Length, Task_Image'Length);
+      Created_Task.Common.Task_Image
+        (1 .. Created_Task.Common.Task_Image_Len) := Task_Image;
+
       Unlock (Self_ID);
 
       if Single_Lock then
@@ -493,10 +445,9 @@ package body System.Tasking.Restricted.Stages is
       --  Create TSD as early as possible in the creation of a task, since it
       --  may be used by the operation of Ada code within the task.
 
-      SSL.Create_TSD (T.Common.Compiler_Data);
-      T.Common.Activation_Link := Chain.T_ID;
-      Chain.T_ID   := T;
-      Created_Task := T;
+      SSL.Create_TSD (Created_Task.Common.Compiler_Data);
+      Created_Task.Common.Activation_Link := Chain.T_ID;
+      Chain.T_ID := Created_Task;
    end Create_Restricted_Task;
 
    ---------------------------
@@ -508,7 +459,8 @@ package body System.Tasking.Restricted.Stages is
    --  forever, since none of the dependent tasks are expected to terminate
 
    procedure Finalize_Global_Tasks is
-      Self_ID : constant Task_ID := STPO.Self;
+      Self_ID : constant Task_Id := STPO.Self;
+
    begin
       pragma Assert (Self_ID = STPO.Environment_Task);
 
@@ -533,7 +485,7 @@ package body System.Tasking.Restricted.Stages is
    -- Restricted_Terminated --
    ---------------------------
 
-   function Restricted_Terminated (T : Task_ID) return Boolean is
+   function Restricted_Terminated (T : Task_Id) return Boolean is
    begin
       return T.Common.State = Terminated;
    end Restricted_Terminated;
@@ -542,7 +494,7 @@ package body System.Tasking.Restricted.Stages is
    -- Terminate_Task --
    --------------------
 
-   procedure Terminate_Task (Self_ID : Task_ID) is
+   procedure Terminate_Task (Self_ID : Task_Id) is
    begin
       Self_ID.Common.State := Terminated;
    end Terminate_Task;
@@ -560,27 +512,14 @@ package body System.Tasking.Restricted.Stages is
       --  Notify that the tasking run time has been elaborated so that
       --  the tasking version of the soft links can be used.
 
-      SSL.Lock_Task              := Task_Lock'Access;
-      SSL.Unlock_Task            := Task_Unlock'Access;
+      SSL.Lock_Task   := Task_Lock'Access;
+      SSL.Unlock_Task := Task_Unlock'Access;
+      SSL.Adafinal    := Finalize_Global_Tasks'Access;
 
-      SSL.Get_Jmpbuf_Address     := Get_Jmpbuf_Address'Access;
-      SSL.Set_Jmpbuf_Address     := Set_Jmpbuf_Address'Access;
-      SSL.Get_Machine_State_Addr := Get_Machine_State_Addr'Access;
-      SSL.Set_Machine_State_Addr := Set_Machine_State_Addr'Access;
-      SSL.Get_Current_Excep      := Get_Current_Excep'Access;
-      SSL.Set_Jmpbuf_Address     (SSL.Get_Jmpbuf_Address_NT);
-      SSL.Set_Machine_State_Addr (SSL.Get_Machine_State_Addr_NT);
+      --  Initialize the tasking soft links (if not done yet) that are common
+      --  to the full and the restricted run times.
 
-      SSL.Get_Sec_Stack_Addr     := Get_Sec_Stack_Addr'Access;
-      SSL.Set_Sec_Stack_Addr     := Set_Sec_Stack_Addr'Access;
-
-      --  No need to create a new Secondary Stack, since we will use the
-      --  default one created in s-secsta.adb
-
-      Set_Sec_Stack_Addr (SSL.Get_Sec_Stack_Addr_NT);
-
-      SSL.Timed_Delay            := Timed_Delay_T'Access;
-      SSL.Adafinal               := Finalize_Global_Tasks'Access;
+      SSL.Tasking.Init_Tasking_Soft_Links;
    end Init_RTS;
 
 begin

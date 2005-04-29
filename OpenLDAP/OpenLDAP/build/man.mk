@@ -1,11 +1,18 @@
-# $OpenLDAP: pkg/ldap/build/man.mk,v 1.23.2.2 2003/03/03 17:10:01 kurt Exp $
-## Copyright 1998-2003 The OpenLDAP Foundation
-## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
-## of this package for details.
+# $OpenLDAP: pkg/ldap/build/man.mk,v 1.25.2.2 2004/01/01 18:16:25 kurt Exp $
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 ##---------------------------------------------------------------------------
-##
-## Makefile Template for Manual Pages
-##
+#
+# Makefile Template for Manual Pages
+#
 
 MANDIR=$(mandir)/man$(MANSECT)
 TMP_SUFFIX=tmp

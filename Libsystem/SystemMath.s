@@ -25,7 +25,7 @@
 
 #if defined (__ppc__) || defined(ppc)
 
-	.section	__TEXT, __VLib_Container, regular
+	.section	__TEXT, __VLib_Container, regular, no_dead_strip
 
 	.align	2
 
@@ -388,7 +388,7 @@ VLib_ExportNames:
 	.long	0x72696E74
 	.long	0x66000000
 
-	.section	__TEXT, __VLib_Exports, symbol_stubs, none, 8
+	.section	__TEXT, __VLib_Exports, symbol_stubs, no_dead_strip, 8
 
 	.align	2
 
@@ -1217,7 +1217,7 @@ VLib_ExportSymbols:
 
 	.globl	cfm_stub_binding_helper
 
-	.section	__DATA, __VLib_Func_BPs, lazy_symbol_pointers
+	.section	__DATA, __VLib_Func_BPs, lazy_symbol_pointers, no_dead_strip
 
 	.align	2
 
@@ -2041,7 +2041,7 @@ sprintf_bp:
 	.indirect_symbol	_sprintf
 	.long	cfm_stub_binding_helper
 
-	.section	__DATA, __VLib_Data_BPs, non_lazy_symbol_pointers
+	.section	__DATA, __VLib_Data_BPs, non_lazy_symbol_pointers, no_dead_strip
 
 	.align	2
 

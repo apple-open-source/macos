@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
-#include "c-lex.h"
 #include "c-common.h"
 #include "output.h"
 #include "tm_p.h"
@@ -37,11 +36,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #define GCC_BAD(msgid) do { warning (msgid); return; } while (0)
 #define GCC_BAD2(msgid, arg) do { warning (msgid, arg); return; } while (0)
 
-#ifdef HANDLE_PRAGMA_PACK
-static void handle_pragma_pack PARAMS ((cpp_reader *));
-
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-typedef struct align_stack
+typedef struct align_stack GTY(())
 {
   int                  alignment;
   unsigned int         num_pushes;
@@ -49,8 +44,15 @@ typedef struct align_stack
   struct align_stack * prev;
 } align_stack;
 
-static struct align_stack * alignment_stack = NULL;
+static GTY(()) struct align_stack * alignment_stack;
 
+/* APPLE LOCAL Macintosh alignment */
+/* Cut out all of this so the compiler doesn't complain.  */
+#if 0
+#ifdef HANDLE_PRAGMA_PACK
+static void handle_pragma_pack PARAMS ((cpp_reader *));
+
+#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
 /* If we have a "global" #pragma pack(<n>) in effect when the first
    #pragma pack(push,<n>) is encountered, this stores the value of 
    maximum_field_alignment in effect.  When the final pop_alignment() 
@@ -62,7 +64,6 @@ static int default_alignment;
 
 static void push_alignment PARAMS ((int, tree));
 static void pop_alignment  PARAMS ((tree));
-static void mark_align_stack PARAMS ((void *));
 
 /* Push an alignment value onto the stack.  */
 static void
@@ -76,7 +77,7 @@ push_alignment (alignment, id)
     {
       align_stack * entry;
 
-      entry = (align_stack *) xmalloc (sizeof (* entry));
+      entry = (align_stack *) ggc_alloc (sizeof (* entry));
 
       entry->alignment  = alignment;
       entry->num_pushes = 1;
@@ -138,22 +139,7 @@ pop_alignment (id)
       else
 	maximum_field_alignment = entry->alignment;
 
-      free (alignment_stack);
-
       alignment_stack = entry;
-    }
-}
-
-static void
-mark_align_stack (p)
-    void *p;
-{
-  align_stack *a = *(align_stack **) p;
-
-  while (a)
-    {
-      ggc_mark_tree (a->id);
-      a = a->prev;
     }
 }
 #else  /* not HANDLE_PRAGMA_PACK_PUSH_POP */
@@ -272,21 +258,32 @@ handle_pragma_pack (dummy)
     }
 }
 #endif  /* HANDLE_PRAGMA_PACK */
+/* APPLE LOCAL Macintosh alignment */
+#endif /* 0 */
+
+static GTY(()) tree pending_weaks;
 
 #ifdef HANDLE_PRAGMA_WEAK
 static void apply_pragma_weak PARAMS ((tree, tree));
 static void handle_pragma_weak PARAMS ((cpp_reader *));
-
-static tree pending_weaks;
 
 static void
 apply_pragma_weak (decl, value)
      tree decl, value;
 {
   if (value)
-    decl_attributes (&decl, build_tree_list (get_identifier ("alias"),
-				             build_tree_list (NULL, value)),
-		     0);
+    {
+      value = build_string (IDENTIFIER_LENGTH (value),
+			    IDENTIFIER_POINTER (value));
+      decl_attributes (&decl, build_tree_list (get_identifier ("alias"),
+					       build_tree_list (NULL, value)),
+		       0);
+    }
+
+  if (SUPPORTS_WEAK && DECL_EXTERNAL (decl) && TREE_USED (decl)
+      && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
+    warning_with_decl (decl, "applying #pragma weak `%s' after first use results in unspecified behavior");
+
   declare_weak (decl);
 }
 
@@ -339,7 +336,11 @@ handle_pragma_weak (dummy)
 
   decl = identifier_global_value (name);
   if (decl && TREE_CODE_CLASS (TREE_CODE (decl)) == 'd')
-    apply_pragma_weak (decl, value);
+    {
+      apply_pragma_weak (decl, value);
+      if (value)
+	assemble_alias (decl, value);
+    }
   else
     pending_weaks = tree_cons (name, value, pending_weaks);
 }
@@ -351,10 +352,10 @@ maybe_apply_pragma_weak (decl)
 }
 #endif /* HANDLE_PRAGMA_WEAK */
 
+static GTY(()) tree pending_redefine_extname;
+
 #ifdef HANDLE_PRAGMA_REDEFINE_EXTNAME
 static void handle_pragma_redefine_extname PARAMS ((cpp_reader *));
-
-static tree pending_redefine_extname;
 
 /* #pragma redefined_extname oldname newname */
 static void
@@ -387,15 +388,22 @@ handle_pragma_redefine_extname (dummy)
       SET_DECL_ASSEMBLER_NAME (decl, newname);
     }
   else
-    pending_redefine_extname
-      = tree_cons (oldname, newname, pending_redefine_extname);
+    add_to_renaming_pragma_list(oldname, newname);
 }
 #endif
 
+void
+add_to_renaming_pragma_list (oldname, newname)
+	tree oldname, newname;
+{
+  pending_redefine_extname
+    = tree_cons (oldname, newname, pending_redefine_extname);
+}
+
+static GTY(()) tree pragma_extern_prefix;
+
 #ifdef HANDLE_PRAGMA_EXTERN_PREFIX
 static void handle_pragma_extern_prefix PARAMS ((cpp_reader *));
-
-static tree pragma_extern_prefix;
 
 /* #pragma extern_prefix "prefix" */
 static void
@@ -448,7 +456,6 @@ maybe_apply_renaming_pragma (decl, asmname)
       asmname = build_string (strlen (oldasmname), oldasmname);
     }
 
-#ifdef HANDLE_PRAGMA_REDEFINE_EXTNAME
   {
     tree *p, t;
 
@@ -464,7 +471,6 @@ maybe_apply_renaming_pragma (decl, asmname)
 	  return build_string (strlen (newname), newname);
 	}
   }
-#endif
 
 #ifdef HANDLE_PRAGMA_EXTERN_PREFIX
   if (pragma_extern_prefix && !asmname)
@@ -487,32 +493,33 @@ init_pragma ()
 #if 0
 /* We disable the handling of pragma pack here because it is handled
    in config/darwin-c.c.  */
+/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
 #ifdef HANDLE_PRAGMA_PACK
   cpp_register_pragma (parse_in, 0, "pack", handle_pragma_pack);
 #endif
-#endif
-/* APPLE LOCAL end Macintosh alignment 2002-1-22 ff */
+/* APPLE LOCAL Macintosh alignment 2002-1-22 ff */
+#endif /* 0 */
 #ifdef HANDLE_PRAGMA_WEAK
   cpp_register_pragma (parse_in, 0, "weak", handle_pragma_weak);
-  ggc_add_tree_root (&pending_weaks, 1);
 #endif
 #ifdef HANDLE_PRAGMA_REDEFINE_EXTNAME
   cpp_register_pragma (parse_in, 0, "redefine_extname",
 		       handle_pragma_redefine_extname);
-  ggc_add_tree_root (&pending_redefine_extname, 1);
 #endif
 #ifdef HANDLE_PRAGMA_EXTERN_PREFIX
   cpp_register_pragma (parse_in, 0, "extern_prefix",
 		       handle_pragma_extern_prefix);
-  ggc_add_tree_root (&pragma_extern_prefix, 1);
 #endif
 
+  /* APPLE LOCAL begin OS pragma hook */
+  /* Allow registration of OS-specific but arch-independent pragmas.  */
+#ifdef REGISTER_OS_PRAGMAS
+  REGISTER_OS_PRAGMAS (parse_in);
+#endif
+  /* APPLE LOCAL end OS pragma hook */
 #ifdef REGISTER_TARGET_PRAGMAS
   REGISTER_TARGET_PRAGMAS (parse_in);
 #endif
-
-#ifdef HANDLE_PRAGMA_PACK_PUSH_POP
-  ggc_add_root (&alignment_stack, 1, sizeof(alignment_stack),
-		mark_align_stack);
-#endif
 }
+
+#include "gt-c-pragma.h"

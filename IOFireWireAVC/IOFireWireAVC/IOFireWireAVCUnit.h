@@ -26,6 +26,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/firewire/IOFWRegs.h>
 #include <IOKit/firewire/IOFWAddressSpace.h>
+#include <IOKit/firewire/IOFWCommand.h>
 #include <IOKit/avc/IOFireWireAVCConsts.h>
 
 extern const OSSymbol *gIOAVCUnitType;
@@ -33,6 +34,67 @@ extern const OSSymbol *gIOAVCUnitType;
 class IOFireWireNub;
 class IOFireWireAVCCommand;
 class IOFireWirePCRSpace;
+class IOFireWireAVCUnit;
+class IOFireWireAVCSubUnit;
+class IOFireWireAVCAsynchronousCommand;
+class IOFireWireAVCNub;
+
+// The callback prototype for AVC Asynchronous Commands
+typedef void (*IOFireWireAVCAsynchronousCommandCallback)(void *pRefCon, IOFireWireAVCAsynchronousCommand *pCommandObject);
+
+/*!
+@class IOFireWireAVCAsynchronousCommand
+*/
+class IOFireWireAVCAsynchronousCommand : public IOCommand 
+{
+    OSDeclareDefaultStructors(IOFireWireAVCAsynchronousCommand)
+	void free(void);
+
+	friend class IOFireWireAVCUnit;
+	
+protected:
+	/*! @struct ExpansionData
+    @discussion This structure will be used to expand the capablilties of the class in the future.
+    */
+    struct ExpansionData { };
+
+	/*! @var reserved
+		Reserved for future use.  (Internal use only)  */
+    ExpansionData *reserved;
+	
+public:
+	IOReturn init(const UInt8 * command, UInt32 len, IOFireWireAVCAsynchronousCommandCallback completionCallback, void *pClientRefCon);
+	IOReturn submit(IOFireWireAVCNub *pAVCNub);
+	IOReturn cancel(void);
+	IOReturn reinit(const UInt8 * command, UInt32 cmdLen);
+
+	// This function returns true if this command is currently waiting for a response
+	bool isPending(void);
+	
+	IOFWAVCAsyncCommandState cmdState;
+	void	*pRefCon;
+	UInt8	*pCommandBuf;
+	UInt32	cmdLen;
+	UInt8	*pInterimResponseBuf;
+	UInt32	interimResponseLen;
+	UInt8	*pFinalResponseBuf;
+	UInt32	finalResponseLen;
+
+protected:
+	IOFireWireAVCAsynchronousCommandCallback fCallback;
+	IOFireWireAVCUnit *fAVCUnit;
+	IOMemoryDescriptor *fMem;
+	IOFWCommand *fWriteCmd;
+	IOFWDelayCommand *fDelayCmd;
+    UInt16 fWriteNodeID;
+	UInt32 fWriteGen;
+	
+private:
+	OSMetaClassDeclareReservedUnused(IOFireWireAVCAsynchronousCommand, 0);
+    OSMetaClassDeclareReservedUnused(IOFireWireAVCAsynchronousCommand, 1);
+    OSMetaClassDeclareReservedUnused(IOFireWireAVCAsynchronousCommand, 2);
+    OSMetaClassDeclareReservedUnused(IOFireWireAVCAsynchronousCommand, 3);
+};
 
 /*!
     @class IOFireWireAVCNub
@@ -87,13 +149,12 @@ public:
     timeout.
 */
     virtual IOReturn updateAVCCommandTimeout() = 0;
-    
+
 private:
     OSMetaClassDeclareReservedUsed(IOFireWireAVCNub, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 2);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCNub, 3);
-
 };
 
 /*!
@@ -104,6 +165,8 @@ class IOFireWireAVCUnit : public IOFireWireAVCNub
 {
     OSDeclareDefaultStructors(IOFireWireAVCUnit)
 
+	friend class IOFireWireAVCAsynchronousCommand;
+	
 protected:
     IOFWPseudoAddressSpace *fFCPResponseSpace;
     IOLock *avcLock;
@@ -115,13 +178,17 @@ protected:
     IOLock *cmdLock;
 	
 /*! @struct ExpansionData
-    @discussion This structure will be used to expand the capablilties of the class in the future.
+    @discussion This structure is used to expand the capablilties of the class in a binary compatible way
     */    
-    struct ExpansionData { };
+    struct ExpansionData
+	{
+		OSArray * fAVCAsyncCommands;
+		IOFireWireController *fControl;
+	};
 
-/*! @var reserved
-    Reserved for future use.  (Internal use only)  */
-    ExpansionData *reserved;
+/*! @var fIOFireWireAVCUnitExpansion 
+      */
+    ExpansionData *fIOFireWireAVCUnitExpansion;
     
     static UInt32 AVCResponse(void *refcon, UInt16 nodeID, IOFWSpeed &speed,
                     FWAddress addr, UInt32 len, const void *buf, IOFWRequestRefCon requestRefcon);
@@ -131,7 +198,10 @@ protected:
     virtual void free(void);
     
     virtual void updateSubUnits(bool firstTime);
-    
+
+	static void AVCAsynchRequestWriteDone(void *refcon, IOReturn status, IOFireWireNub *device, IOFWCommand *fwCmd);
+	static void AVCAsynchDelayDone(void *refcon, IOReturn status, IOFireWireBus *bus, IOFWBusCommand *fwCmd);
+
 public:
     // IOService overrides
     virtual bool start(IOService *provider);
@@ -207,7 +277,16 @@ public:
 */
     virtual IOReturn updateAVCCommandTimeout();
 
+protected:
+	UInt32 indexOfAVCAsynchronousCommandObject(IOFireWireAVCAsynchronousCommand *pCommandObject);
+	void removeAVCAsynchronousCommandObjectAtIndex(UInt32 index);
+
+	void lockAVCAsynchronousCommandLock();
+
+	void unlockAVCAsynchronousCommandLock();
+	
 private:
+		
     OSMetaClassDeclareReservedUnused(IOFireWireAVCUnit, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCUnit, 1);
     OSMetaClassDeclareReservedUnused(IOFireWireAVCUnit, 2);
@@ -222,6 +301,8 @@ private:
 class IOFireWireAVCSubUnit : public IOFireWireAVCNub
 {
     OSDeclareDefaultStructors(IOFireWireAVCSubUnit)
+	
+	friend class IOFireWireAVCAsynchronousCommand;
 
 protected:
     IOFireWireAVCUnit *fAVCUnit;

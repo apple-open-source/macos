@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwc.c,v 1.6 2002/10/16 12:09:43 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwc.c,v 1.12 2004/07/20 08:27:27 tjr Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -35,28 +35,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwc.c,v 1.6 2002/10/16 12:09:43 tjr Ex
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
-
-static __inline wint_t	__fgetwc_nbf(FILE *);
-
-/*
- * Non-MT-safe version.
- */
-wint_t
-__fgetwc(FILE *fp)
-{
-	wint_t wc;
-
-	if (MB_CUR_MAX == 1) {
-		/*
-		 * Assume we're using a single-byte locale. A safer test
-		 * might be to check _CurrentRuneLocale->encoding.
-		 */
-		wc = (wint_t)__sgetc(fp);
-	} else
-		wc = __fgetwc_nbf(fp);
-
-	return (wc);
-}
+#include "mblocal.h"
 
 /*
  * MT-safe version.
@@ -74,36 +53,44 @@ fgetwc(FILE *fp)
 	return (r);
 }
 
-static __inline wint_t
-__fgetwc_nbf(FILE *fp)
+/*
+ * Non-MT-safe version.
+ */
+wint_t
+__fgetwc(FILE *fp)
 {
-	char buf[MB_LEN_MAX];
-	mbstate_t mbs;
-	size_t n, nconv;
-	int c;
 	wchar_t wc;
+	size_t nconv;
 
-	n = 0;
-	while (n < MB_CUR_MAX) {
-		if ((c = __sgetc(fp)) == EOF) {
-			if (n == 0)
-				return (WEOF);
-			break;
-		}
-		buf[n++] = (char)c;
-		memset(&mbs, 0, sizeof(mbs));
-		nconv = mbrtowc(&wc, buf, n, &mbs);
-		if (nconv == n)
-			return (wc);
-		else if (nconv == 0)
-			return (L'\0');
-		else if (nconv == (size_t)-1)
-			break;
+	if (fp->_r <= 0 && __srefill(fp))
+		return (WEOF);
+	if (MB_CUR_MAX == 1) {
+		/* Fast path for single-byte encodings. */
+		wc = *fp->_p++;
+		fp->_r--;
+		return (wc);
 	}
-
-	while (n-- != 0)
-		__ungetc((unsigned char)buf[n], fp);
-	errno = EILSEQ;
+	do {
+		nconv = __mbrtowc(&wc, fp->_p, fp->_r, &fp->_extra->mbstate);
+		if (nconv == (size_t)-1)
+			break;
+		else if (nconv == (size_t)-2)
+			continue;
+		else if (nconv == 0) {
+			/*
+			 * Assume that the only valid representation of
+			 * the null wide character is a single null byte.
+			 */
+			fp->_p++;
+			fp->_r--;
+			return (L'\0');
+		} else {
+			fp->_p += nconv;
+			fp->_r -= nconv;
+			return (wc);
+		}
+	} while (__srefill(fp) == 0);
 	fp->_flags |= __SERR;
+	errno = EILSEQ;
 	return (WEOF);
 }

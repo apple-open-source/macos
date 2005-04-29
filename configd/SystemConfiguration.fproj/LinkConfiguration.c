@@ -445,10 +445,17 @@ __getMTULimits(char	ifr_name[IFNAMSIZ],
 	io_registry_entry_t	io_interface	= 0;
 	io_registry_entry_t	io_controller	= 0;
 	kern_return_t		kr;
-	mach_port_t		masterPort	= MACH_PORT_NULL;
+	static mach_port_t      masterPort	= MACH_PORT_NULL;
 	CFMutableDictionaryRef	matchingDict;
 
 	/* look for a matching interface in the IORegistry */
+
+	if (masterPort == MACH_PORT_NULL) {
+		kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
+		if (kr != KERN_SUCCESS) {
+			return FALSE;
+		}
+	}
 
 	matchingDict = IOBSDNameMatching(masterPort, 0, ifr_name);
 	if (matchingDict) {
@@ -531,7 +538,7 @@ NetworkInterfaceCopyMTU(CFStringRef	interface,
 
 	bzero((void *)&ifr, sizeof(ifr));
 	if (_SC_cfstring_to_cstring(interface, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("could not convert inteface name"));
+		SCLog(TRUE, LOG_ERR, CFSTR("could not convert interface name"));
 		goto done;
 	}
 
@@ -552,37 +559,21 @@ NetworkInterfaceCopyMTU(CFStringRef	interface,
 
 	/* get valid MTU range */
 
-	if (mtu_min || mtu_max) {
-		ok = __getMTULimits(ifr.ifr_name, mtu_min, mtu_max);
-		if (!ok) {
-			struct ifreq	vifr;
-			struct vlanreq	vreq;
+	if (mtu_min != NULL || mtu_max != NULL) {
+		if (ioctl(sock, SIOCGIFDEVMTU, (caddr_t)&ifr) == 0) {
+			struct ifdevmtu *	devmtu_p;
 
-			// check if this is a vlan
-
-			bzero(&vifr, sizeof(vifr));
-			bzero(&vreq, sizeof(vreq));
-			strncpy(vifr.ifr_name, ifr.ifr_name, sizeof(vifr.ifr_name));
-			vifr.ifr_data = (caddr_t)&vreq;
-
-			if (ioctl(sock, SIOCGETVLAN, (caddr_t)&vifr) == 0) {
-				/*
-				 * yes, pass parent device MTU settings
-				 *
-				 *   min == parent device minimum MTU
-				 *   max == parent device current MTU
-				 */
-				if (mtu_min) {
-					(void) __getMTULimits(vreq.vlr_parent, mtu_min, NULL);
-				}
-				if (mtu_max) {
-					bzero(&vifr, sizeof(vifr));
-					strncpy(vifr.ifr_name, vreq.vlr_parent, sizeof(vifr.ifr_name));
-					if (ioctl(sock, SIOCGIFMTU, (caddr_t)&vifr) == 0) {
-						*mtu_max = vifr.ifr_mtu;
-					}
-				}
+			devmtu_p = &ifr.ifr_devmtu;
+			if (mtu_min != NULL) {
+				*mtu_min = (devmtu_p->ifdm_min > IF_MINMTU)
+					? devmtu_p->ifdm_min : IF_MINMTU;
 			}
+			if (mtu_max != NULL) {
+				*mtu_max = devmtu_p->ifdm_max;
+			}
+		}
+		else {
+			(void)__getMTULimits(ifr.ifr_name, mtu_min, mtu_max);
 		}
 	}
 

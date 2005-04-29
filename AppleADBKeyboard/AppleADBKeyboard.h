@@ -83,7 +83,10 @@ char	_fnvirtualmap[130];  //Fake fn key being held down
 IOLock *  _keybrdLock;  
 IOLock	*_packetLock;	//This lock serializes packets coming to us from the PMU
 bool _oneshotCAPSLOCK;
+UInt32  _capsLockState;
 
+thread_call_t   ledThreadCall;
+thread_call_t   rebootThreadCall;
 
 public:
 
@@ -95,6 +98,11 @@ bool		_sticky_fn_ON, _stickymodeON;	  //Get from HIDSystem
 bool start ( IOService * theNub );
 void stop( IOService * provider );
 void free( void );
+bool open(  IOService *                 client,
+            IOOptionBits                options,
+            KeyboardEventAction         keAction,
+            KeyboardSpecialEventAction  kseAction,
+            UpdateEventFlagsAction      uefAction);
 AbsoluteTime getTimeLastNonmodKeydown (void);
 IOReturn packet (UInt8 * data, IOByteCount length, UInt8 adbCommand );
 void dispatchKeyboardEvent(unsigned int keyCode,

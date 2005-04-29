@@ -47,7 +47,7 @@
 #include <Security/Security.h>
 #include "../../Helpers/vpnd/RASSchemaDefinitions.h"
 #include "../../Helpers/pppd/pppd.h"
-#include "../../Helpers/pppd/chap.h"
+#include "../../Helpers/pppd/chap-new.h"
 #include "../../Helpers/pppd/chap_ms.h"
 #include "../../Family/ppp_comp.h"
 #include "DSUser.h"
@@ -60,16 +60,21 @@ static CFBundleRef 	bundle = 0;
 
 extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
 extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
+extern int mppe_keys_set;		/* Have the MPPE keys been set? */
 
 static int dsauth_check(void);
 static int dsauth_ip_allowed_address(u_int32_t addr);
 static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **paddrs, struct wordlist **popts);
-static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cstate);
-static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, char* user, u_char *remmd, int remmd_len);
+static int dsauth_chap(char *name, char *ourname, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *response,
+			unsigned char *message, int message_space);
+static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, char* user, u_char *remmd, 
+			int remmd_len, tAttributeValueEntryPtr authAuthorityAttr);
 static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_int32_t *passwordSize, char **password);
 static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_t *password_len, char **password);
 static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNodeReference *user_node, 
-            tAttributeValueEntryPtr *recordNameAttr);
+            tAttributeValueEntryPtr *recordNameAttr, tAttributeValueEntryPtr *authAuthorityAttr);
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by pppd
@@ -85,8 +90,8 @@ int start(CFBundleRef ref)
     pap_auth_hook = dsauth_pap;
 
     chap_check_hook = dsauth_check;
-    chap_auth_hook = dsauth_chap;
-    
+    chap_verify_hook = dsauth_chap;
+   
     allowed_address_hook = dsauth_ip_allowed_address;
 
     //add_options(Options);
@@ -118,19 +123,20 @@ static int dsauth_ip_allowed_address(u_int32_t addr)
 //----------------------------------------------------------------------
 static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **paddrs, struct wordlist **popts)
 {
-    tDirReference 		dirRef;
-    tDirNodeReference		userNode = 0;
-    tDataNodePtr		authTypeDataNodePtr = 0;
-    tDataBufferPtr		authDataBufPtr = 0;
-    tDataBufferPtr		responseDataBufPtr = 0;
+    tDirReference				dirRef;
+    tDirNodeReference			userNode = 0;
+    tDataNodePtr				authTypeDataNodePtr = 0;
+    tDataBufferPtr				authDataBufPtr = 0;
+    tDataBufferPtr				responseDataBufPtr = 0;
     tAttributeValueEntryPtr 	recordNameAttr = 0;
-    tDirStatus 			dsResult = eDSNoErr;
-    char			*ptr;
-    int				authResult = 0;
-    u_int32_t			userShortNameSize;
+    tAttributeValueEntryPtr 	authAuthorityAttr = 0;
+    tDirStatus					dsResult = eDSNoErr;
+    char						*ptr;
+    int							authResult = 0;
+    u_int32_t					userShortNameSize;
     
-    u_int32_t			passwordSize = strlen(passwd);
-    u_int32_t			authDataSize;
+    u_int32_t					passwordSize = strlen(passwd);
+    u_int32_t					authDataSize;
 
     if ((dsResult = dsOpenDirService(&dirRef)) == eDSNoErr) {    
 
@@ -143,7 +149,7 @@ static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **p
             goto cleanup;
         }
 
-        if (dsauth_find_user_node(dirRef, user, &userNode, &recordNameAttr) == 0) {            
+        if (dsauth_find_user_node(dirRef, user, &userNode, &recordNameAttr, &authAuthorityAttr) == 0) {            
             userShortNameSize = recordNameAttr->fAttributeValueData.fBufferLength;
             authDataSize = userShortNameSize + passwordSize + (2 * sizeof(u_int32_t));
             
@@ -174,6 +180,7 @@ static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **p
             }
             dsCloseDirNode(userNode); 					// returned from dsauth_find_user()
             dsDeallocAttributeValueEntry(dirRef, recordNameAttr); 
+            dsDeallocAttributeValueEntry(dirRef, authAuthorityAttr); 
         }
     
 cleanup:
@@ -199,29 +206,37 @@ cleanup:
 #define CHALLENGE_SIZE		16
 #define NT_RESPONSE_SIZE	24
 
-static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cstate)
+static int dsauth_chap(char *name, char *ourname, int id,
+			struct chap_digest_type *digest,
+			unsigned char *challenge, unsigned char *response,
+			unsigned char *message, int message_space)
 {
-    tDirReference 		dirRef;
-    tDirNodeReference		userNode = 0;
-    tDataNodePtr		authTypeDataNodePtr = 0;
-    tDataBufferPtr		authDataBufPtr = 0;
-    tDataBufferPtr		responseDataBufPtr = 0;
+    tDirReference				dirRef;
+    tDirNodeReference			userNode = 0;
+    tDataNodePtr				authTypeDataNodePtr = 0;
+    tDataBufferPtr				authDataBufPtr = 0;
+    tDataBufferPtr				responseDataBufPtr = 0;
     tAttributeValueEntryPtr 	recordNameAttr = 0;
-    tDirStatus 			dsResult = eDSNoErr;
-    int				authResult = CHAP_FAILURE;
-    char			*ptr;
-    MS_Chap2Response		*resp;  
-    u_int32_t			userShortNameSize;
-    u_int32_t			userNameSize = strlen(user);
-    u_int32_t			authDataSize;
+    tAttributeValueEntryPtr 	authAuthorityAttr = 0;
+    tDirStatus					dsResult = eDSNoErr;
+    int							authResult = 0;
+    char						*ptr;
+    MS_Chap2Response			*resp;  
+    u_int32_t					userShortNameSize;
+    u_int32_t					userNameSize = strlen(name);
+    u_int32_t					authDataSize;
+    int							challenge_len, response_len;
     
-    // currently only support MS-CHAPv2
-    if (cstate->chal_type != CHAP_MICROSOFT_V2
-    	||	remmd_len != MS_CHAP2_RESPONSE_LEN
-    	||	cstate->chal_len != CHALLENGE_SIZE)
-        return CHAP_FAILURE;
+    challenge_len = *challenge++;	/* skip length, is 16 */
+    response_len = *response++;
 
-    resp = (MS_Chap2Response*)remmd;
+    // currently only support MS-CHAPv2
+    if (digest->code != CHAP_MICROSOFT_V2
+    	||	response_len != MS_CHAP2_RESPONSE_LEN
+    	||	challenge_len != CHALLENGE_SIZE)
+        return 0;
+
+    resp = (MS_Chap2Response*)response;
     if ((dsResult = dsOpenDirService(&dirRef)) == eDSNoErr) {     
     
         if ((responseDataBufPtr = dsDataBufferAllocate(dirRef, BUF_LEN)) == 0) {
@@ -233,7 +248,7 @@ static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cst
             goto cleanup;
         }
 
-        if (dsauth_find_user_node(dirRef, user, &userNode, &recordNameAttr) == 0) {  
+        if (dsauth_find_user_node(dirRef, name, &userNode, &recordNameAttr, &authAuthorityAttr) == 0) {  
             userShortNameSize = recordNameAttr->fAttributeValueData.fBufferLength;
             authDataSize = userNameSize + userShortNameSize + NT_RESPONSE_SIZE + (2 * CHALLENGE_SIZE) + (5 * sizeof(u_int32_t));   
             if ((authDataBufPtr = dsDataBufferAllocate(dirRef, authDataSize)) != 0) {   
@@ -251,7 +266,7 @@ static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cst
                 // 4 byte length & server challenge
                 *((u_int32_t*)ptr) = CHALLENGE_SIZE;
                 ptr += sizeof(u_int32_t);
-                memcpy(ptr, cstate->challenge, CHALLENGE_SIZE);
+                memcpy(ptr, challenge, CHALLENGE_SIZE);
                 ptr += CHALLENGE_SIZE;
                 
                 // 4 byte length & peer challenge
@@ -269,7 +284,7 @@ static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cst
                 // 4 byte length & user name (repeated)
                 *((u_int32_t*)ptr) = userNameSize;
                 ptr += sizeof(u_int32_t);
-                memcpy(ptr, user, userNameSize);
+                memcpy(ptr, name, userNameSize);
                 
                 if ((dsResult = dsDoDirNodeAuth(userNode, authTypeDataNodePtr, TRUE, authDataBufPtr, 
                         responseDataBufPtr, 0)) == eDSNoErr) {						
@@ -277,16 +292,21 @@ static int dsauth_chap(char *user, u_char *remmd, int remmd_len, chap_state *cst
                     // setup return data
                     if ((responseDataBufPtr->fBufferLength == MS_AUTH_RESPONSE_LENGTH + 4)
                                 && *((u_int32_t*)(responseDataBufPtr->fBufferData)) == MS_AUTH_RESPONSE_LENGTH) {
-                        memcpy(cstate->saresponse, responseDataBufPtr->fBufferData + 4, MS_AUTH_RESPONSE_LENGTH);
-                        cstate->saresponse[MS_AUTH_RESPONSE_LENGTH] = 0;
-                        cstate->resp_length = MS_AUTH_RESPONSE_LENGTH;
-                        authResult = CHAP_SUCCESS;
-                        dsauth_set_mppe_keys(dirRef, userNode, recordNameAttr->fAttributeValueData.fBufferData, remmd, remmd_len);
+
+                        responseDataBufPtr->fBufferData[4 + MS_AUTH_RESPONSE_LENGTH] = 0;
+                         if (resp->Flags[0])
+                                slprintf(message, message_space, "S=%s", responseDataBufPtr->fBufferData + 4);
+                        else
+                                slprintf(message, message_space, "S=%s M=%s",
+                                        responseDataBufPtr->fBufferData + 4, "Access granted");
+                        authResult = 1;
+                        dsauth_set_mppe_keys(dirRef, userNode, recordNameAttr->fAttributeValueData.fBufferData, response, response_len, authAuthorityAttr);
                     } 
                 } 
             }
             dsCloseDirNode(userNode);
             dsDeallocAttributeValueEntry(dirRef, recordNameAttr);
+            dsDeallocAttributeValueEntry(dirRef, authAuthorityAttr);
         }
     
 cleanup:
@@ -311,25 +331,54 @@ cleanup:
 //		know if the keys are actually going to be needed
 //		at this point.
 //----------------------------------------------------------------------
-static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, char* user, u_char *remmd, int remmd_len)
+static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNode, char* user, u_char *remmd, 
+		int remmd_len, tAttributeValueEntryPtr authAuthorityAttr)
 {
     tDataNodePtr		authTypeDataNodePtr = 0;
     tDataNodePtr		authKeysDataNodePtr = 0;
     tDataBufferPtr		authDataBufPtr = 0;
     tDataBufferPtr		responseDataBufPtr = 0;
     tDirStatus 			dsResult = eDSNoErr;
-    char			*ptr;
-    MS_Chap2Response		*resp;  
-    char			*keyaccessPassword = 0;
-    char			*keyaccessName = 0;
+    char				*ptr, *tagStart;
+    MS_Chap2Response	*resp;  
+    char				*keyaccessPassword = 0;
+    char				*keyaccessName = 0;
     u_int32_t			keyaccessNameSize;
     u_int32_t			keyaccessPasswordSize;
-    int				len;
+    int					len, useKeyAgent, i;
     u_int32_t			userNameSize = strlen(user);
 
-    dsauth_get_admin_acct(&keyaccessNameSize, &keyaccessName, &keyaccessPasswordSize, &keyaccessPassword);
-    if (keyaccessName == 0)
-        return;	
+    mppe_keys_set = 0;
+	useKeyAgent = 0;
+
+	// parse authAuthorityAttribute to determine if key agent needs to be used.
+	// auth authority tag will be between 2 semicolons.
+	tagStart = 0;
+	ptr = authAuthorityAttr->fAttributeValueData.fBufferData;
+	for (i = 0; i < authAuthorityAttr->fAttributeValueData.fBufferLength; i++) {
+		if (*ptr == ';') {
+			if (tagStart == 0)
+				tagStart = ptr + 1;
+			else
+				break;
+		}
+		ptr++;
+	}
+	
+	if (*ptr != ';')
+		return;
+	if (strncmp(tagStart, kDSTagAuthAuthorityPasswordServer, ptr - tagStart) == 0) {
+		useKeyAgent = 1;
+		dsauth_get_admin_acct(&keyaccessNameSize, &keyaccessName, &keyaccessPasswordSize, &keyaccessPassword);
+		if (keyaccessName == 0) {
+			error("DSAuth plugin: Could not retrieve key agent account information.\n");
+			return;
+		}
+	} else if (strncmp(tagStart, kDSTagAuthAuthorityShadowHash, ptr - tagStart) == 0) {
+		useKeyAgent = 0;
+	}
+	else
+		return;		// unsupported authentication authority - don't set the keys
         
     resp = (MS_Chap2Response*)remmd;
     
@@ -351,64 +400,72 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
         goto cleanup;
     }
 
-    ptr = (char*)(authDataBufPtr->fBufferData);
-    
-    // 4 byte length & admin name
-    *((u_int32_t*)ptr) = keyaccessNameSize;
-    ptr += sizeof(u_int32_t);
-    memcpy(ptr, keyaccessName, keyaccessNameSize);
-    ptr += keyaccessNameSize;
+	if (useKeyAgent) {
+	
+		// need to use key agent to get MPPE keys for user in LDAP domain	
+		ptr = (char*)(authDataBufPtr->fBufferData);
+		
+		// 4 byte length & admin name
+		*((u_int32_t*)ptr) = keyaccessNameSize;
+		ptr += sizeof(u_int32_t);
+		memcpy(ptr, keyaccessName, keyaccessNameSize);
+		ptr += keyaccessNameSize;
 
-    // 4 byte length & password
-    *((u_int32_t*)ptr) = keyaccessPasswordSize;
-    ptr += sizeof(u_int32_t);
-    memcpy(ptr, keyaccessPassword, keyaccessPasswordSize);
-    
-    authDataBufPtr->fBufferLength = keyaccessNameSize + keyaccessPasswordSize + (2 * sizeof(u_int32_t));
-    
-    // authenticate to the user node                        
-    if ((dsResult = dsDoDirNodeAuth(userNode, authTypeDataNodePtr, false, authDataBufPtr, 
-            responseDataBufPtr, 0)) == eDSNoErr) {	
-        ptr = (char*)(authDataBufPtr->fBufferData);
+		// 4 byte length & password
+		*((u_int32_t*)ptr) = keyaccessPasswordSize;
+		ptr += sizeof(u_int32_t);
+		memcpy(ptr, keyaccessPassword, keyaccessPasswordSize);
+		
+		authDataBufPtr->fBufferLength = keyaccessNameSize + keyaccessPasswordSize + (2 * sizeof(u_int32_t));
+		
+		// authenticate to the user node          
+		if ((dsResult = dsDoDirNodeAuth(userNode, authTypeDataNodePtr, false, authDataBufPtr, 
+				responseDataBufPtr, 0)) != eDSNoErr) {
+			error("DSAuth plugin: Could not authenticate key agent for encryption key retrieval.\n");
+			goto cleanup;
+		}
+	}
+			
+	ptr = (char*)(authDataBufPtr->fBufferData);
+	// get the mppe keys
+	
+	// 4 byte length & user name
+	*((u_int32_t*)ptr) = userNameSize;
+	ptr += sizeof(u_int32_t);
+	memcpy(ptr, user, userNameSize);
+	ptr += userNameSize;
 
-        // get the mppe keys
-        
-        // 4 byte length & user name
-        *((u_int32_t*)ptr) = userNameSize;
-        ptr += sizeof(u_int32_t);
-        memcpy(ptr, user, userNameSize);
-        ptr += userNameSize;
+	// 4 byte length & client digest
+	*((u_int32_t*)ptr) = NT_RESPONSE_SIZE;
+	ptr += sizeof(u_int32_t);
+	memcpy(ptr, resp->NTResp, NT_RESPONSE_SIZE);
+	ptr += NT_RESPONSE_SIZE;
 
-        // 4 byte length & client digest
-        *((u_int32_t*)ptr) = NT_RESPONSE_SIZE;
-        ptr += sizeof(u_int32_t);
-        memcpy(ptr, resp->NTResp, NT_RESPONSE_SIZE);
-        ptr += NT_RESPONSE_SIZE;
+	// 4 byte length and master key len - always 128
+	*((u_int32_t*)ptr) = 1;
+	ptr += sizeof(u_int32_t);
+	*ptr = MPPE_MAX_KEY_LEN;
 
-        // 4 byte length and master key len - always 128
-        *((u_int32_t*)ptr) = 1;
-        ptr += sizeof(u_int32_t);
-        *ptr = MPPE_MAX_KEY_LEN;
-    
-        authDataBufPtr->fBufferLength = userNameSize + NT_RESPONSE_SIZE + 1 + (3 * sizeof(u_int32_t));
+	authDataBufPtr->fBufferLength = userNameSize + NT_RESPONSE_SIZE + 1 + (3 * sizeof(u_int32_t));
 
-        // get the keys
-        if ((dsResult = dsDoDirNodeAuth(userNode, authKeysDataNodePtr, false, authDataBufPtr, 
-            responseDataBufPtr, 0)) == eDSNoErr) {						
-            if (responseDataBufPtr->fBufferLength == (2 * sizeof(u_int32_t)) + (2 * MPPE_MAX_KEY_LEN)) {
-                ptr = (char*)(responseDataBufPtr->fBufferData);
-                len = *((u_int32_t*)ptr);
-                ptr += sizeof(u_int32_t);
-                if (len == sizeof(mppe_send_key))
-                        memcpy(mppe_send_key, ptr, sizeof(mppe_send_key));
-                ptr += len;
-                len = *((u_int32_t*)ptr);
-                ptr += sizeof(u_int32_t);
-                if (len == sizeof(mppe_recv_key))
-                        memcpy(mppe_recv_key, ptr, sizeof(mppe_recv_key));
-            }
-        }
-    }
+	// get the keys
+	if ((dsResult = dsDoDirNodeAuth(userNode, authKeysDataNodePtr, false, authDataBufPtr, 
+		responseDataBufPtr, 0)) == eDSNoErr) {						
+		if (responseDataBufPtr->fBufferLength == (2 * sizeof(u_int32_t)) + (2 * MPPE_MAX_KEY_LEN)) {
+			ptr = (char*)(responseDataBufPtr->fBufferData);
+			len = *((u_int32_t*)ptr);
+			ptr += sizeof(u_int32_t);
+			if (len == sizeof(mppe_send_key))
+					memcpy(mppe_send_key, ptr, sizeof(mppe_send_key));
+			ptr += len;
+			len = *((u_int32_t*)ptr);
+			ptr += sizeof(u_int32_t);
+			if (len == sizeof(mppe_recv_key))
+					memcpy(mppe_recv_key, ptr, sizeof(mppe_recv_key));
+			mppe_keys_set = 1;
+		}
+	} else
+		error("DSAuth plugin: Failed to retrieve MPPE encryption keys from the password server.\n");
         
 cleanup:
     if (keyaccessPassword) {
@@ -437,9 +494,9 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
 
     SCPreferencesRef 	prefs;
     CFPropertyListRef	globals;
-    CFStringRef		acctNameRef;
-    char		namestr[256];
-    u_int32_t		namelen;
+    CFStringRef			acctNameRef;
+    char				namestr[256];
+    u_int32_t			namelen;
        
     *passwordSize = 0;
     *password = 0;
@@ -449,7 +506,7 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
     //
     // get the acct name from the plist
     //
-    if ((prefs = SCPreferencesCreate(0, SCSTR("pppd"), kRASServerPrefsFileName)) != 0) {
+    if ((prefs = SCPreferencesCreate(0, CFSTR("pppd"), kRASServerPrefsFileName)) != 0) {
         // get globals dict from the plist
         if ((globals = SCPreferencesGetValue(prefs, kRASGlobals)) != 0) {
             // retrieve the password server account id
@@ -465,7 +522,8 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
                         if (acctName != 0)
                             memcpy(*acctName, namestr, namelen + 1);
                        }
-                }
+                } else
+					error("DSAuth plugin: Key access user name not valid.\n");
             }
         }
         CFRelease(prefs);
@@ -491,27 +549,30 @@ static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_
       
     if (status == noErr)
         return 0;
-    else 
+    else {
+		error("DSAuth plugin: Error %d while retrieving key agent password from the system keychain.\n", status);
         return -1;
+	}
 }
     
 //----------------------------------------------------------------------
 //	dsauth_find_user_node
 //----------------------------------------------------------------------
 static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNodeReference *user_node,
-                        tAttributeValueEntryPtr *recordNameAttr)
+                        tAttributeValueEntryPtr *recordNameAttr, tAttributeValueEntryPtr *authAuthorityAttr)
 {
     
-    tDirStatus			dsResult = eDSNoErr;
-    tDataListPtr		userPathDataListPtr = 0;
-    unsigned long		searchNodeCount;
+    tDirStatus				dsResult = eDSNoErr;
+    tDataListPtr			userPathDataListPtr = 0;
+    unsigned long			searchNodeCount;
     tAttributeValueEntryPtr	userNodePath = 0;
     tDirNodeReference 		searchNodeRef = 0;
 
     
     *user_node = 0;	// init return values
     *recordNameAttr = 0;
-    
+    *authAuthorityAttr = 0;
+
     // get search node ref
     if ((dsResult = dsauth_get_search_node_ref(dirRef, 1, &searchNodeRef, &searchNodeCount)) == eDSNoErr) {
         // get the meta node location attribute from the user's record
@@ -524,16 +585,20 @@ static int dsauth_find_user_node(tDirReference dirRef, char *user_name, tDirNode
             }
             if (dsResult == eDSNoErr)
                 dsResult = dsauth_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrRecordName, recordNameAttr);
+			if (dsResult == eDSNoErr)
+                dsResult = dsauth_get_user_attr(dirRef, searchNodeRef, user_name, kDSNAttrAuthenticationAuthority, authAuthorityAttr);
         }
         if (userNodePath)
             dsDeallocAttributeValueEntry(dirRef, userNodePath);
         dsCloseDirNode(searchNodeRef);		// close the search node ref
     }
-    if (dsResult != eDSNoErr || *user_node == 0 || *recordNameAttr == 0) {
+    if (dsResult != eDSNoErr || *user_node == 0 || *recordNameAttr == 0 || *authAuthorityAttr == 0) {
         if (*user_node)
             dsCloseDirNode(*user_node);
         if (*recordNameAttr)
             dsDeallocAttributeValueEntry(dirRef, *recordNameAttr);
+        if (*authAuthorityAttr)
+            dsDeallocAttributeValueEntry(dirRef, *authAuthorityAttr);
         return -1;
     }
     return 0;

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2003, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -117,13 +117,6 @@ u_parseCodePointRange(const char *s,
                       uint32_t *pStart, uint32_t *pEnd,
                       UErrorCode *pErrorCode);
 
-
-U_CAPI const UChar * U_EXPORT2
-u_strSkipWhiteSpace(const UChar *s, int32_t length);
-
-
-U_CAPI const UChar * U_EXPORT2
-u_strTrailingWhiteSpaceStart(const UChar *s, int32_t length);
 
 U_CAPI int32_t U_EXPORT2
 u_parseUTF8(const char *source, int32_t sLen, char *dest, int32_t destCapacity, UErrorCode *status);

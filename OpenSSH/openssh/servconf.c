@@ -10,23 +10,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: servconf.c,v 1.116 2003/02/21 09:05:53 markus Exp $");
-
-#if defined(KRB4)
-#include <krb.h>
-#endif
-#if defined(KRB5)
-#ifdef HEIMDAL
-#include <krb.h>
-#else
-/* Bodge - but then, so is using the kerberos IV KEYFILE to get a Kerberos V
- * keytab */
-#define KEYFILE "/etc/krb5.keytab"
-#endif
-#endif
-#ifdef AFS
-#include <kafs.h>
-#endif
+RCSID("$OpenBSD: servconf.c,v 1.130 2003/12/23 16:12:10 jakob Exp $");
 
 #include "ssh.h"
 #include "log.h"
@@ -56,7 +40,7 @@ initialize_server_options(ServerOptions *options)
 	memset(options, 0, sizeof(*options));
 
 	/* Portable-specific options */
-	options->pam_authentication_via_kbd_int = -1;
+	options->use_pam = -1;
 
 	/* Standard Options */
 	options->num_ports = 0;
@@ -77,38 +61,30 @@ initialize_server_options(ServerOptions *options)
 	options->x11_use_localhost = -1;
 	options->xauth_location = NULL;
 	options->strict_modes = -1;
-	options->keepalives = -1;
+	options->tcp_keep_alive = -1;
 	options->log_facility = SYSLOG_FACILITY_NOT_SET;
 	options->log_level = SYSLOG_LEVEL_NOT_SET;
-	options->rhosts_authentication = -1;
 	options->rhosts_rsa_authentication = -1;
 	options->hostbased_authentication = -1;
 	options->hostbased_uses_name_from_packet_only = -1;
 	options->rsa_authentication = -1;
 	options->pubkey_authentication = -1;
-#ifdef GSSAPI
-	options->gss_authentication=-1;
-	options->gss_keyex=-1;
-	options->gss_use_session_ccache = -1;
-	options->gss_cleanup_creds = -1;
-#endif
-#if defined(KRB4) || defined(KRB5)
 	options->kerberos_authentication = -1;
 	options->kerberos_or_local_passwd = -1;
 	options->kerberos_ticket_cleanup = -1;
-#endif
-#if defined(AFS) || defined(KRB5)
-	options->kerberos_tgt_passing = -1;
-#endif
-#ifdef AFS
-	options->afs_token_passing = -1;
-#endif
+	options->kerberos_get_afs_token = -1;
+	options->gss_authentication=-1;
+	options->gss_nomic_authentication = -1;
+	options->gss_keyex = -1;
+	options->gss_use_session_ccache = -1;
+	options->gss_cleanup_creds = -1;
 	options->password_authentication = -1;
 	options->kbd_interactive_authentication = -1;
 	options->challenge_response_authentication = -1;
 	options->permit_empty_passwd = -1;
 	options->permit_user_env = -1;
 	options->use_login = -1;
+	options->sacl_support = -1;
 	options->compression = -1;
 	options->allow_tcp_forwarding = -1;
 	options->num_allow_users = 0;
@@ -124,7 +100,7 @@ initialize_server_options(ServerOptions *options)
 	options->max_startups_rate = -1;
 	options->max_startups = -1;
 	options->banner = NULL;
-	options->verify_reverse_mapping = -1;
+	options->use_dns = -1;
 	options->client_alive_interval = -1;
 	options->client_alive_count_max = -1;
 	options->authorized_keys_file = NULL;
@@ -138,8 +114,8 @@ void
 fill_default_server_options(ServerOptions *options)
 {
 	/* Portable-specific options */
-	if (options->pam_authentication_via_kbd_int == -1)
-		options->pam_authentication_via_kbd_int = 0;
+	if (options->use_pam == -1)
+		options->use_pam = 1;
 
 	/* Standard Options */
 	if (options->protocol == SSH_PROTO_UNKNOWN)
@@ -188,14 +164,12 @@ fill_default_server_options(ServerOptions *options)
 		options->xauth_location = _PATH_XAUTH;
 	if (options->strict_modes == -1)
 		options->strict_modes = 1;
-	if (options->keepalives == -1)
-		options->keepalives = 1;
+	if (options->tcp_keep_alive == -1)
+		options->tcp_keep_alive = 1;
 	if (options->log_facility == SYSLOG_FACILITY_NOT_SET)
 		options->log_facility = SYSLOG_FACILITY_AUTH;
 	if (options->log_level == SYSLOG_LEVEL_NOT_SET)
 		options->log_level = SYSLOG_LEVEL_INFO;
-	if (options->rhosts_authentication == -1)
-		options->rhosts_authentication = 0;
 	if (options->rhosts_rsa_authentication == -1)
 		options->rhosts_rsa_authentication = 0;
 	if (options->hostbased_authentication == -1)
@@ -206,32 +180,24 @@ fill_default_server_options(ServerOptions *options)
 		options->rsa_authentication = 1;
 	if (options->pubkey_authentication == -1)
 		options->pubkey_authentication = 1;
-#ifdef GSSAPI
-	if (options->gss_authentication == -1)
-		options->gss_authentication = 1;
-	if (options->gss_keyex == -1)
-		options->gss_keyex =1;
-	if (options->gss_use_session_ccache == -1)
-		options->gss_use_session_ccache = 1;
-	if (options->gss_cleanup_creds == -1)
-		options->gss_cleanup_creds = 1;
-#endif
-#if defined(KRB4) || defined(KRB5)
 	if (options->kerberos_authentication == -1)
 		options->kerberos_authentication = 0;
 	if (options->kerberos_or_local_passwd == -1)
 		options->kerberos_or_local_passwd = 1;
 	if (options->kerberos_ticket_cleanup == -1)
 		options->kerberos_ticket_cleanup = 1;
-#endif
-#if defined(AFS) || defined(KRB5)
-	if (options->kerberos_tgt_passing == -1)
-		options->kerberos_tgt_passing = 0;
-#endif
-#ifdef AFS
-	if (options->afs_token_passing == -1)
-		options->afs_token_passing = 0;
-#endif
+	if (options->kerberos_get_afs_token == -1)
+		options->kerberos_get_afs_token = 0;
+	if (options->gss_authentication == -1)
+		options->gss_authentication = 1;
+	if (options->gss_nomic_authentication == -1)
+	  options->gss_nomic_authentication = options->gss_authentication;
+	if (options->gss_keyex == -1)
+		options->gss_keyex =1;
+	if (options->gss_use_session_ccache == -1)
+	  options->gss_use_session_ccache  = 1;
+	if (options->gss_cleanup_creds == -1)
+		options->gss_cleanup_creds = 1;
 	if (options->password_authentication == -1)
 		options->password_authentication = 1;
 	if (options->kbd_interactive_authentication == -1)
@@ -256,8 +222,8 @@ fill_default_server_options(ServerOptions *options)
 		options->max_startups_rate = 100;		/* 100% */
 	if (options->max_startups_begin == -1)
 		options->max_startups_begin = options->max_startups;
-	if (options->verify_reverse_mapping == -1)
-		options->verify_reverse_mapping = 0;
+	if (options->use_dns == -1)
+		options->use_dns = 1;
 	if (options->client_alive_interval == -1)
 		options->client_alive_interval = 0;
 	if (options->client_alive_count_max == -1)
@@ -291,37 +257,30 @@ fill_default_server_options(ServerOptions *options)
 typedef enum {
 	sBadOption,		/* == unknown option */
 	/* Portable-specific options */
-	sPAMAuthenticationViaKbdInt,
+	sUsePAM,
 	/* Standard Options */
 	sPort, sHostKeyFile, sServerKeyBits, sLoginGraceTime, sKeyRegenerationTime,
 	sPermitRootLogin, sLogFacility, sLogLevel,
-	sRhostsAuthentication, sRhostsRSAAuthentication, sRSAAuthentication,
-#ifdef GSSAPI
-	sGssAuthentication, sGssKeyEx, sGssUseSessionCredCache, sGssCleanupCreds,
-#endif
-#if defined(KRB4) || defined(KRB5)
+	sRhostsRSAAuthentication, sRSAAuthentication,
 	sKerberosAuthentication, sKerberosOrLocalPasswd, sKerberosTicketCleanup,
-#endif
-#if defined(AFS) || defined(KRB5)
-	sKerberosTgtPassing,
-#endif
-#ifdef AFS
-	sAFSTokenPassing,
-#endif
-	sChallengeResponseAuthentication,
+	sKerberosGetAFSToken,
+	sKerberosTgtPassing, sChallengeResponseAuthentication,
 	sPasswordAuthentication, sKbdInteractiveAuthentication, sListenAddress,
 	sPrintMotd, sPrintLastLog, sIgnoreRhosts,
 	sX11Forwarding, sX11DisplayOffset, sX11UseLocalhost,
-	sStrictModes, sEmptyPasswd, sKeepAlives,
+	sStrictModes, sEmptyPasswd, sTCPKeepAlive,
 	sPermitUserEnvironment, sUseLogin, sAllowTcpForwarding, sCompression,
 	sAllowUsers, sDenyUsers, sAllowGroups, sDenyGroups,
 	sIgnoreUserKnownHosts, sCiphers, sMacs, sProtocol, sPidFile,
 	sGatewayPorts, sPubkeyAuthentication, sXAuthLocation, sSubsystem, sMaxStartups,
-	sBanner, sVerifyReverseMapping, sHostbasedAuthentication,
+	sBanner, sUseDNS, sHostbasedAuthentication,
 	sHostbasedUsesNameFromPacketOnly, sClientAliveInterval,
 	sClientAliveCountMax, sAuthorizedKeysFile, sAuthorizedKeysFile2,
+	sGssAuthentication, sGssKeyEx, sGssNoMICAuthentication,
+	sGssUseSessionCredCache, sGssCleanupCreds,
 	sUsePrivilegeSeparation,
-	sDeprecated
+	sSACLSupport,
+	sDeprecated, sUnsupported
 } ServerOpCodes;
 
 /* Textual representation of the tokens. */
@@ -330,7 +289,12 @@ static struct {
 	ServerOpCodes opcode;
 } keywords[] = {
 	/* Portable-specific options */
-	{ "PAMAuthenticationViaKbdInt", sPAMAuthenticationViaKbdInt },
+#ifdef USE_PAM
+	{ "usepam", sUsePAM },
+#else
+	{ "usepam", sUnsupported },
+#endif
+	{ "pamauthenticationviakbdint", sDeprecated },
 	/* Standard Options */
 	{ "port", sPort },
 	{ "hostkey", sHostKeyFile },
@@ -342,30 +306,41 @@ static struct {
 	{ "permitrootlogin", sPermitRootLogin },
 	{ "syslogfacility", sLogFacility },
 	{ "loglevel", sLogLevel },
-	{ "rhostsauthentication", sRhostsAuthentication },
+	{ "rhostsauthentication", sDeprecated },
 	{ "rhostsrsaauthentication", sRhostsRSAAuthentication },
 	{ "hostbasedauthentication", sHostbasedAuthentication },
 	{ "hostbasedusesnamefrompacketonly", sHostbasedUsesNameFromPacketOnly },
 	{ "rsaauthentication", sRSAAuthentication },
 	{ "pubkeyauthentication", sPubkeyAuthentication },
 	{ "dsaauthentication", sPubkeyAuthentication },			/* alias */
-#ifdef GSSAPI
-	{ "gssapiauthentication", sGssAuthentication },
-	{ "gssapikeyexchange", sGssKeyEx },
-	{ "gssusesessionccache", sGssUseSessionCredCache },
-	{ "gssapiusesessioncredcache", sGssUseSessionCredCache },
-	{ "gssapicleanupcreds", sGssCleanupCreds },
-#endif
-#if defined(KRB4) || defined(KRB5)
+#ifdef KRB5
 	{ "kerberosauthentication", sKerberosAuthentication },
 	{ "kerberosorlocalpasswd", sKerberosOrLocalPasswd },
 	{ "kerberosticketcleanup", sKerberosTicketCleanup },
+#ifdef USE_AFS
+	{ "kerberosgetafstoken", sKerberosGetAFSToken },
+#else
+	{ "kerberosgetafstoken", sUnsupported },
 #endif
-#if defined(AFS) || defined(KRB5)
-	{ "kerberostgtpassing", sKerberosTgtPassing },
+#else
+	{ "kerberosauthentication", sUnsupported },
+	{ "kerberosorlocalpasswd", sUnsupported },
+	{ "kerberosticketcleanup", sUnsupported },
+	{ "kerberosgetafstoken", sUnsupported },
 #endif
-#ifdef AFS
-	{ "afstokenpassing", sAFSTokenPassing },
+	{ "kerberostgtpassing", sUnsupported },
+	{ "afstokenpassing", sUnsupported },
+#ifdef GSSAPI
+	{ "gssapiauthentication", sGssAuthentication },
+	{"gssapinomicauthentication", sGssNoMICAuthentication},
+	{ "gssapikeyexchange", sGssKeyEx },
+	{ "gssusesessionccache", sGssUseSessionCredCache },
+	{ "gssapiusesessioncredcache", sGssUseSessionCredCache },
+	{ "gssapicleanupcredentials", sGssCleanupCreds },
+#else
+	{ "gssapiauthentication", sUnsupported },
+	{"gssapinomicauthentication", sUnsupported },
+	{ "gssapicleanupcredentials", sUnsupported },
 #endif
 	{ "passwordauthentication", sPasswordAuthentication },
 	{ "kbdinteractiveauthentication", sKbdInteractiveAuthentication },
@@ -386,7 +361,8 @@ static struct {
 	{ "permituserenvironment", sPermitUserEnvironment },
 	{ "uselogin", sUseLogin },
 	{ "compression", sCompression },
-	{ "keepalive", sKeepAlives },
+	{ "tcpkeepalive", sTCPKeepAlive },
+	{ "keepalive", sTCPKeepAlive },				/* obsolete alias */
 	{ "allowtcpforwarding", sAllowTcpForwarding },
 	{ "allowusers", sAllowUsers },
 	{ "denyusers", sDenyUsers },
@@ -399,13 +375,15 @@ static struct {
 	{ "subsystem", sSubsystem },
 	{ "maxstartups", sMaxStartups },
 	{ "banner", sBanner },
-	{ "verifyreversemapping", sVerifyReverseMapping },
-	{ "reversemappingcheck", sVerifyReverseMapping },
+	{ "usedns", sUseDNS },
+	{ "verifyreversemapping", sDeprecated },
+	{ "reversemappingcheck", sDeprecated },
 	{ "clientaliveinterval", sClientAliveInterval },
 	{ "clientalivecountmax", sClientAliveCountMax },
 	{ "authorizedkeysfile", sAuthorizedKeysFile },
 	{ "authorizedkeysfile2", sAuthorizedKeysFile2 },
 	{ "useprivilegeseparation", sUsePrivilegeSeparation},
+	{ "saclsupport", sSACLSupport },
 	{ NULL, sBadOption }
 };
 
@@ -484,8 +462,8 @@ process_server_config_line(ServerOptions *options, char *line,
 	opcode = parse_token(arg, filename, linenum);
 	switch (opcode) {
 	/* Portable-specific options */
-	case sPAMAuthenticationViaKbdInt:
-		intptr = &options->pam_authentication_via_kbd_int;
+	case sUsePAM:
+		intptr = &options->use_pam;
 		goto parse_flag;
 
 	/* Standard Options */
@@ -648,10 +626,6 @@ parse_flag:
 		intptr = &options->ignore_user_known_hosts;
 		goto parse_flag;
 
-	case sRhostsAuthentication:
-		intptr = &options->rhosts_authentication;
-		goto parse_flag;
-
 	case sRhostsRSAAuthentication:
 		intptr = &options->rhosts_rsa_authentication;
 		goto parse_flag;
@@ -671,21 +645,7 @@ parse_flag:
 	case sPubkeyAuthentication:
 		intptr = &options->pubkey_authentication;
 		goto parse_flag;
-#ifdef GSSAPI
-	case sGssAuthentication:
-		intptr = &options->gss_authentication;
-		goto parse_flag;
-	case sGssKeyEx:
-		intptr = &options->gss_keyex;
-		goto parse_flag;
-	case sGssUseSessionCredCache:
-		intptr = &options->gss_use_session_ccache;
-		goto parse_flag;
-	case sGssCleanupCreds:
-		intptr = &options->gss_cleanup_creds;
-		goto parse_flag;
-#endif
-#if defined(KRB4) || defined(KRB5)
+
 	case sKerberosAuthentication:
 		intptr = &options->kerberos_authentication;
 		goto parse_flag;
@@ -697,17 +657,30 @@ parse_flag:
 	case sKerberosTicketCleanup:
 		intptr = &options->kerberos_ticket_cleanup;
 		goto parse_flag;
-#endif
-#if defined(AFS) || defined(KRB5)
-	case sKerberosTgtPassing:
-		intptr = &options->kerberos_tgt_passing;
+
+	case sKerberosGetAFSToken:
+		intptr = &options->kerberos_get_afs_token;
 		goto parse_flag;
-#endif
-#ifdef AFS
-	case sAFSTokenPassing:
-		intptr = &options->afs_token_passing;
+
+	case sGssAuthentication:
+		intptr = &options->gss_authentication;
 		goto parse_flag;
-#endif
+
+			case sGssNoMICAuthentication:
+		intptr = &options->gss_nomic_authentication;
+		goto parse_flag;
+
+	case sGssKeyEx:
+		intptr = &options->gss_keyex;
+		goto parse_flag;
+
+	case sGssUseSessionCredCache:
+		intptr = &options->gss_use_session_ccache;
+		goto parse_flag;
+
+	case sGssCleanupCreds:
+		intptr = &options->gss_cleanup_creds;
+		goto parse_flag;
 
 	case sPasswordAuthentication:
 		intptr = &options->password_authentication;
@@ -745,12 +718,16 @@ parse_flag:
 		charptr = &options->xauth_location;
 		goto parse_filename;
 
+	case sSACLSupport:
+		intptr = &options->sacl_support;
+		goto parse_flag;
+
 	case sStrictModes:
 		intptr = &options->strict_modes;
 		goto parse_flag;
 
-	case sKeepAlives:
-		intptr = &options->keepalives;
+	case sTCPKeepAlive:
+		intptr = &options->tcp_keep_alive;
 		goto parse_flag;
 
 	case sEmptyPasswd:
@@ -773,8 +750,8 @@ parse_flag:
 		intptr = &options->gateway_ports;
 		goto parse_flag;
 
-	case sVerifyReverseMapping:
-		intptr = &options->verify_reverse_mapping;
+	case sUseDNS:
+		intptr = &options->use_dns;
 		goto parse_flag;
 
 	case sLogFacility:
@@ -950,7 +927,14 @@ parse_flag:
 		goto parse_int;
 
 	case sDeprecated:
-		log("%s line %d: Deprecated option %s",
+		logit("%s line %d: Deprecated option %s",
+		    filename, linenum, arg);
+		while (arg)
+		    arg = strdelim(&cp);
+		break;
+
+	case sUnsupported:
+		logit("%s line %d: Unsupported option %s",
 		    filename, linenum, arg);
 		while (arg)
 		    arg = strdelim(&cp);

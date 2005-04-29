@@ -1,12 +1,12 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed friends
 class B {
 
    friend class A;
 
    enum {
-      bEnum = 1,
-   }; // ERROR - comma
+      bEnum = 1, // { dg-error "comma at end" }
+   };
 
    int bArray[ bEnum ];
 

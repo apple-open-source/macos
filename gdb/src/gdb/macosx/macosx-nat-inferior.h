@@ -35,7 +35,7 @@ struct macosx_inferior_status
   macosx_exception_thread_status exception_status;
 #if WITH_CFM
   macosx_cfm_thread_status cfm_status;
-#endif /* WITH_CFM */
+#endif                          /* WITH_CFM */
   macosx_dyld_thread_status dyld_status;
 };
 typedef struct macosx_inferior_status macosx_inferior_status;
@@ -46,9 +46,9 @@ struct private_thread_info
 };
 
 void macosx_check_new_threads ();
-ptid_t macosx_wait (struct macosx_inferior_status *inferior, 
-                  struct target_waitstatus *status,
-		  gdb_client_data client_data);
+ptid_t macosx_wait (struct macosx_inferior_status *inferior,
+                    struct target_waitstatus *status,
+                    gdb_client_data client_data);
 
 extern int inferior_bind_exception_port_flag;
 extern int inferior_bind_notify_port_flag;
@@ -56,11 +56,11 @@ extern int inferior_handle_exceptions_flag;
 
 /* from rhapsody-nat.c and macosx-nat.c */
 
-void macosx_create_inferior_for_task
-  PARAMS ((struct macosx_inferior_status *inferior, task_t task, int pid));
+void macosx_create_inferior_for_task (struct macosx_inferior_status *inferior,
+                                      task_t task, int pid);
 
-void macosx_fetch_task_info PARAMS ((struct kinfo_proc **info, size_t *count));
+void macosx_fetch_task_info (struct kinfo_proc ** info, size_t * count);
 
-char **macosx_process_completer PARAMS ((char *text, char *word));
+char **macosx_process_completer (char *text, char *word);
 
 #endif /* __GDB_MACOSX_NAT_INFERIOR_H__ */

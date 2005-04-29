@@ -1,6 +1,6 @@
 .TH SLAPADD 8C "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.11.2.4 2003/03/24 03:37:43 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man8/slapadd.8,v 1.15.2.7 2004/07/25 21:53:13 hyc Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 slapadd \- Add entries to a SLAPD database
@@ -9,13 +9,15 @@ slapadd \- Add entries to a SLAPD database
 .B [\-v]
 .B [\-c]
 .B [\-u]
+.B [\-p]
+.B [\-r]
+.B [\-w]
 .B [\-d level]
 .B [\-b suffix]
 .B [\-n dbnum]
+.B [\-i rid1,rid2,...]
 .B [\-f slapd.conf]
 .B [\-l ldif-file]
-.B 
-.LP
 .SH DESCRIPTION
 .LP
 .B Slapadd
@@ -47,6 +49,25 @@ enable continue (ignore errors) mode.
 .B \-u
 enable dry-run (don't write to backend) mode.
 .TP
+.BI \-p
+If the LDIF input represents a syncrepl consumer replica,
+promote it to the syncrepl provider's content after adding
+the entries.
+.TP
+.BI \-r
+If  the  LDIF  input represents a  syncrepl  provider, demote 
+it  to  the syncrepl consumer replica after adding the entries.
+.TP
+.BI \-w
+When used with either 
+.B \-p
+or
+.B \-r,
+rebuild the new syncrepl
+information from the contents of the added entries.
+The syncrepl information contained in the LDIF input
+file is ignored.
+.TP
 .BI \-d " level"
 enable debugging messages as defined by the specified
 .IR level .
@@ -65,6 +86,11 @@ configuration file.  The
 cannot be used in conjunction with the
 .B \-b
 option.
+.TP
+.BI \-i " rid1,rid2,..."
+Specify the replication ids for one or more syncrepl consumer
+replicas contained in the LDIF input. If omitted, 0 is used
+as the replication id.
 .TP
 .BI \-f " slapd.conf"
 specify an alternative
@@ -85,7 +111,7 @@ use
 .BR ldapadd (1)
 when adding new entries into an existing directory.
 .SH EXAMPLES
-To import a entries specified in file
+To import the entries specified in file
 .B ldif
 into your
 .BR slapd (8)
@@ -105,7 +131,7 @@ database give the command:
 .LP
 "OpenLDAP Administrator's Guide" (http://www.OpenLDAP.org/doc/admin/)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

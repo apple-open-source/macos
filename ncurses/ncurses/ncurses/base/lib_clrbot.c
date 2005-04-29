@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_clrbot.c,v 1.1.1.2 2002/01/03 23:53:37 jevans Exp $")
+MODULE_ID("$Id: lib_clrbot.c,v 1.19 2001/12/19 01:05:59 tom Exp $")
 
 NCURSES_EXPORT(int)
 wclrtobot(WINDOW *win)

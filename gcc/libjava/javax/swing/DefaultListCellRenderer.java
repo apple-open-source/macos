@@ -1,5 +1,5 @@
 /* DefaultListCellRenderer.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,217 +37,141 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.io.*;
-import javax.swing.border.*;
-import javax.swing.plaf.*;
+import java.awt.Component;
+import java.awt.Rectangle;
+import java.io.Serializable;
+import javax.swing.border.Border;
+import javax.swing.border.EmptyBorder;
+
 
 /**
- * DefaultListCellRenderer
- * @author	Andrew Selkirk
- * @version	1.0
+ * DefaultListCellRenderer. This class is responsible for rendering  list
+ * cells.
+ *
+ * @author Andrew Selkirk
+ * @version 1.0
  */
-public class DefaultListCellRenderer extends JLabel 
-		implements ListCellRenderer, Serializable {
+public class DefaultListCellRenderer extends JLabel implements ListCellRenderer,
+                                                               Serializable
+{
+  static final long serialVersionUID = 7708947179685189462L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+  public static class UIResource extends DefaultListCellRenderer
+    implements javax.swing.plaf.UIResource
+  {
+    public UIResource()
+    {
+    }
+  }
 
-	/**
-	 * UIResource
-	 */
-	public static class UIResource extends DefaultListCellRenderer 
-			implements javax.swing.plaf.UIResource {
+  /**
+   * This border is used whenever renderer doesn't have a focus.
+   */
+  protected static Border noFocusBorder = new EmptyBorder(1, 1, 1, 1);
 
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
+  /**
+   * getListCellRendererComponent
+   *
+   * @param list JList list for the 'value'
+   * @param value object that should be rendered in the cell
+   * @param index index of the cell
+   * @param isSelected draw cell highlighted if isSelected is true
+   * @param cellHasFocus draw focus rectangle around cell if the cell has
+   *        focus
+   *
+   * @return Component that will be painted to the desired cell.
+   */
+  public Component getListCellRendererComponent(JList list, Object value,
+                                                int index, boolean isSelected,
+                                                boolean cellHasFocus)
+  {
+    String s = value.toString();
+    setText(s);
+    setOpaque(true);
 
-		/**
-		 * Constructor UIResource
-		 */
-		public UIResource() {
-			// TODO
-		} // UIResource()
+    if (isSelected)
+      {
+	setBackground(list.getSelectionBackground());
+	setForeground(list.getSelectionForeground());
+      }
+    else
+      {
+	setBackground(list.getBackground());
+	setForeground(list.getForeground());
+      }
 
+    setEnabled(list.isEnabled());
+    setFont(list.getFont());
 
-	} // UIResource
+    // Use focusCellHighlightBorder when renderer has focus and 
+    // noFocusBorder otherwise
+    
+    if (cellHasFocus)
+      setBorder(UIManager.getBorder("List.focusCellHighlightBorder"));
+    else
+      setBorder(noFocusBorder);
 
+    return this;
+  }
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  public void validate()
+  {
+  }
 
-	/**
-	 * noFocusBorder
-	 */
-	protected static Border noFocusBorder = null; // TODO
+  public void revalidate()
+  {
+  }
 
+  public void repaint(long tm, int x, int y, int w, int h)
+  {
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  public void repaint(Rectangle rect)
+  {
+  }
 
-	/**
-	 * Constructor DefaultListCellRenderer
-	 */
-	public DefaultListCellRenderer() {
-		// TODO
-	} // DefaultListCellRenderer()
+  protected void firePropertyChange(String propertyName, Object oldValue,
+                                    Object newValue)
+  {
+  }
 
+  public void firePropertyChange(String propertyName, byte oldValue,
+                                 byte newValue)
+  {
+  }
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  public void firePropertyChange(String propertyName, char oldValue,
+                                 char newValue)
+  {
+  }
 
-	/**
-	 * getListCellRendererComponent
-	 * @param list TODO
-	 * @param value TODO
-	 * @param index TODO
-	 * @param isSelected TODO
-	 * @param cellHasFocus TODO
-	 * @returns Component
-	 */
-	public Component getListCellRendererComponent(JList list,
-			Object value, int index, boolean isSelected, boolean cellHasFocus) {
-		return null; // TODO
-	} // getListCellRendererComponent()
+  public void firePropertyChange(String propertyName, short oldValue,
+                                 short newValue)
+  {
+  }
 
-	/**
-	 * validate
-	 */
-	public void validate() {
-		// TODO
-	} // validate()
+  public void firePropertyChange(String propertyName, int oldValue,
+                                 int newValue)
+  {
+  }
 
-	/**
-	 * revalidate
-	 */
-	public void revalidate() {
-		// TODO
-	} // revalidate()
+  public void firePropertyChange(String propertyName, long oldValue,
+                                 long newValue)
+  {
+  }
 
-	/**
-	 * repaint
-	 * @param tm TODO
-	 * @param x TODO
-	 * @param y TODO
-	 * @param w TODO
-	 * @param h TODO
-	 */
-	public void repaint(long tm, int x, int y, int w, int h) {
-		// TODO
-	} // repaint()
+  public void firePropertyChange(String propertyName, float oldValue,
+                                 float newValue)
+  {
+  }
 
-	/**
-	 * repaint
-	 * @param rect TODO
-	 */
-	public void repaint(Rectangle rect) {
-		// TODO
-	} // repaint()
+  public void firePropertyChange(String propertyName, double oldValue,
+                                 double newValue)
+  {
+  }
 
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	protected void firePropertyChange(String propertyName,
-			Object oldValue, Object newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			byte oldValue, byte newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			char oldValue, char newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			short oldValue, short newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			int oldValue, int newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			long oldValue, long newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			float oldValue, float newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			double oldValue, double newValue) {
-		// TODO
-	} // firePropertyChange()
-
-	/**
-	 * firePropertyChange
-	 * @param propertyName TODO
-	 * @param oldValue TODO
-	 * @param newValue TODO
-	 */
-	public void firePropertyChange(String propertyName, 
-			boolean oldValue, boolean newValue) {
-		// TODO
-	} // firePropertyChange()
-
-
-} // DefaultListCellRenderer
+  public void firePropertyChange(String propertyName, boolean oldValue,
+                                 boolean newValue)
+  {
+  }
+}

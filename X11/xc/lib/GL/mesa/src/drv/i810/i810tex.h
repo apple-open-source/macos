@@ -27,16 +27,13 @@
 #define I810TEX_INC
 
 #include "mtypes.h"
-#include "mmath.h"
 #include "mm.h"
 
 #include "i810context.h"
 #include "i810_3d_reg.h"
+#include "texmem.h"
 
-
-#define I810_TEX_MAXLEVELS 10
-
-
+#define I810_TEX_MAXLEVELS 11
 
 /* For shared texture space managment, these texture objects may also
  * be used as proxies for regions of texture memory containing other
@@ -51,21 +48,14 @@
  * 't->globj == 0' 
  */
 struct i810_texture_object_t {
-   struct i810_texture_object_t *next, *prev;
-
-   GLuint age;   
-   struct gl_texture_object *globj;
+   driTextureObject base;
      
    int Pitch;
    int Height;
    int texelBytes;
-   int totalSize;
-
-   PMemBlock MemBlock;   
    char *BufAddr;
    
    GLuint max_level;
-   GLuint dirty_images;
 
    struct { 
       const struct gl_texture_image *image;
@@ -77,25 +67,12 @@ struct i810_texture_object_t {
    GLuint Setup[I810_TEX_SETUP_SIZE];
    GLuint dirty;
 
-   GLint firstLevel, lastLevel;  /* upload tObj->Image[first .. lastLevel] */
 };		
 
 void i810UpdateTextureState( GLcontext *ctx );
 void i810InitTextureFuncs( GLcontext *ctx );
 
 void i810DestroyTexObj( i810ContextPtr imesa, i810TextureObjectPtr t );
-void i810SwapOutTexObj( i810ContextPtr imesa, i810TextureObjectPtr t );
-void i810UploadTexImages( i810ContextPtr imesa, i810TextureObjectPtr t );
-
-void i810ResetGlobalLRU( i810ContextPtr imesa );
-void i810TexturesGone( i810ContextPtr imesa, 
-		       GLuint start, GLuint end, 
-		       GLuint in_use ); 
-
-void i810PrintLocalLRU( i810ContextPtr imesa );
-void i810PrintGlobalLRU( i810ContextPtr imesa );
-void i810UpdateTexLRU( i810ContextPtr imesa, i810TextureObjectPtr t );
-
-
+int i810UploadTexImagesLocked( i810ContextPtr imesa, i810TextureObjectPtr t );
 
 #endif

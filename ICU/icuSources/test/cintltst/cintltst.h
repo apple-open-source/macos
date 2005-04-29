@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -20,6 +20,7 @@ The main root for C API tests
 #define _CINTLTST
 
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "unicode/ctest.h"
 
 #ifndef U_USE_DEPRECATED_API
@@ -72,5 +73,37 @@ U_CFUNC const char* loadTestData(UErrorCode* err);
  */
 #define myErrorName(errorCode) u_errorName(errorCode)
 
+
+/**
+ * Call this once to get a consistent timezone. Use ctest_resetTimeZone to set it back to the original value.
+ * @param optionalTimeZone Set this to a requested timezone.
+ *      Set to NULL to use the standard test timezone (Pacific Time)
+ */
+U_CFUNC void ctest_setTimeZone(const char *optionalTimeZone, UErrorCode *status);
+/**
+ * Call this once get back the original timezone
+ */
+U_CFUNC void ctest_resetTimeZone(void);
+
+/**
+ * Assert that the given UErrorCode succeeds, and return TRUE if it does.
+ */
+U_CFUNC UBool assertSuccess(const char* msg, UErrorCode* ec);
+
+/**
+ * Assert that the UBool is TRUE, and return TRUE if it does.
+ *
+ * NOTE: Use 'int condition' rather than 'UBool condition' so the
+ * compiler doesn't complain about integral conversion of expressions
+ * like 'p != 0'.
+ */
+U_CFUNC UBool assertTrue(const char* msg, int condition);
+
+/**
+ * Assert that the actualString equals the expectedString, and return
+ * TRUE if it does.
+ */
+U_CFUNC UBool assertEquals(const char* msg, const char* expectedString,
+                           const char* actualString);
 
 #endif

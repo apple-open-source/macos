@@ -39,3 +39,5 @@ diff_excludes="-x objcp-parse.c -x objcp-parse.y "
 # the object files we need, along with the libraries (libstdc++,
 # libobjc).
 lang_requires="objc c++"
+
+gtfiles="\$(srcdir)/objcp/objcp-root.h \$(srcdir)/cp/mangle.c \$(srcdir)/objc/objc-act.c \$(srcdir)/objc/objc-act.h \$(srcdir)/cp/cp-tree.h \$(srcdir)/cp/decl.h \$(srcdir)/cp/lex.h \$(srcdir)/cp/call.c \$(srcdir)/cp/decl.c \$(srcdir)/cp/decl2.c \$(srcdir)/cp/cp-parse.in \$(srcdir)/cp/pt.c \$(srcdir)/cp/repo.c \$(srcdir)/cp/spew.c \$(srcdir)/cp/tree.c \$(srcdir)/c-common.c \$(srcdir)/c-common.h \$(srcdir)/c-pragma.c"

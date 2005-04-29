@@ -9,7 +9,7 @@
 #include <sys/malloc.h>
 #include <sys/smb_apple.h>
 #include <sys/utfconv.h>
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 #include "iconv_converter_if.h"
 
@@ -271,7 +271,7 @@ iconv_codepage_open(struct iconv_converter_class *dcp,
 	#pragma unused(cspf)
 	struct iconv_codepage *dp;
 
-	dp = (struct iconv_codepage *)kobj_create((struct kobj_class*)dcp, M_ICONV, M_WAITOK);
+	dp = (struct iconv_codepage *)kobj_create((struct kobj_class*)dcp, M_ICONV);
 	if (strcmp(csp->cp_to, "utf-8") == 0) {
 		dp->d_convtbl = (void *)cp437_to_ucs2;
 		dp->d_type = ICONV_TOLOCAL;

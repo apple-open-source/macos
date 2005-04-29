@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __MISC_H__
+#define __MISC_H__
+
+
 #define BIT2STR(b) bit2str(b, sizeof(b)<<3)
 
 #ifdef HAVE_FUNCTION_MACRO
@@ -44,3 +48,7 @@ extern const char *debug_location __P((const char *, int, const char *));
 extern int getfsize __P((char *));
 struct timeval;
 extern double timedelta __P((struct timeval *, struct timeval *));
+
+
+#endif /* __MISC_H__ */
+

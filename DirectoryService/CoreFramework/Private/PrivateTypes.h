@@ -28,7 +28,7 @@
 #ifndef __PrivateTypes_h__
 #define	__PrivateTypes_h__	1
 
-#include "DirServicesTypes.h"
+#include <DirectoryService/DirServicesTypes.h>
 
 typedef		char					sInt8;
 typedef		unsigned char			uInt8;
@@ -41,6 +41,9 @@ typedef		unsigned long			uInt32;
 
 typedef		long long				sInt64;
 typedef		unsigned long long		uInt64;
+
+// the following are already part of MacTypes.h causes warnings for other plugins
+#ifndef __MACTYPES__
 
 typedef		unsigned char			Byte;
 typedef		signed char				SignedByte;
@@ -61,10 +64,12 @@ typedef uInt32 						OptionBits;
 
 typedef unsigned char				Boolean;
 
+#endif
+
 #ifdef DSDEBUGFW
 	#include <syslog.h>
 
-	#define kStdErr LOG_INFO
+	#define kStdErr LOG_ALERT
 
 	#define LOG syslog
 	#define LOG1 syslog
@@ -124,6 +129,14 @@ enum {
 	kAuthSecureHash				= 1238,
 	kAuthReadSecureHash			= 1239,
 	kAuthWriteSecureHash		= 1240,
+	kAuthMSCHAP2				= 1241,
+	kAuthMSLMCHAP2ChangePasswd	= 1242,
+	kAuthNTSetWorkstationPasswd	= 1243,
+	kAuthNTSetNTHash			= 1244,
+	kAuthSetLMHash				= 1245,
+	kAuthSMBWorkstationCredentialSessionKey	= 1246,
+	kAuthSMB_NTUserSessionKey	= 1247,
+	kAuthNTLMv2					= 1248,
 	
     kAuthGetPolicy				= 1278,
     kAuthSetPolicy				= 1279,
@@ -137,7 +150,18 @@ enum {
     kAuthNewUser				= 1287,
     kAuthGetIDByName			= 1288,
 	kAuthSyncSetupReplica		= 1289,
-	kAuthListReplicas			= 1290
+	kAuthListReplicas			= 1290,
+	kAuthGetEffectivePolicy		= 1291,
+	kAuthSetPolicyAsRoot		= 1292,
+	kAuthGetDisabledUsers		= 1293,
+	kAuthGetKerberosPrincipal	= 1294,
+	kAuthVPN_PPTPMasterKeys		= 1295,
+	kAuthEncryptToUser			= 1296,
+	kAuthDecrypt				= 1297,
+	kAuthSetPasswdCheckAdmin	= 1298,
+	kAuthNewUserWithPolicy		= 1299,
+	kAuthSetShadowHashWindows	= 1300,
+	kAuthSetShadowHashSecure	= 1301
 };
 
 #ifndef nil
@@ -198,5 +222,78 @@ typedef enum {
 typedef enum {
 	kDSEvalutateState = 1
 } eDSTransitionType;
+
+//memory cleanup macro definitions
+
+//check for nil, free, set to nil
+#define DSFreePassword( inPasswordPtr )				\
+{													\
+	if ( inPasswordPtr != nil )						\
+	{												\
+		bzero(inPasswordPtr,strlen(inPasswordPtr));	\
+		free(inPasswordPtr);						\
+		inPasswordPtr = nil;						\
+	}												\
+} if (true)
+
+//check for nil, free, set to nil
+#define DSFreeString( inStringPtr )		\
+{										\
+	if ( inStringPtr != nil )			\
+	{									\
+		free(inStringPtr);				\
+		inStringPtr = nil;				\
+	}									\
+} if (true)
+
+//check for nil, check for nil entries, free entries, set entries to nil, free list, set list to nil
+#define DSFreeStringList( inStringListPtr )		\
+{												\
+	if ( inStringListPtr != nil )				\
+	{											\
+		uInt32 strCnt = 0;						\
+		while(inStringListPtr[strCnt] != nil)   \
+		{										\
+			free(inStringListPtr[strCnt]);		\
+			inStringListPtr[strCnt] = nil;		\
+			strCnt++;							\
+		}										\
+		free(inStringListPtr);					\
+		inStringListPtr = nil;					\
+	}											\
+} if (true)
+
+// check if inCFRef is NULL, if not, release it and set it to NULL
+#define DSCFRelease( inCFRef )	\
+{								\
+	if( inCFRef != NULL )		\
+	{							\
+		CFRelease( inCFRef );   \
+		inCFRef = NULL;			\
+	}							\
+}
+
+// check if inClassPtr is NULL, if not, delete it and set it to NULL
+#define DSDelete( inClassPtr )		\
+{									\
+	if( inClassPtr != NULL )		\
+	{								\
+		delete inClassPtr;			\
+		inClassPtr = NULL;			\
+	}								\
+}
+
+// check if inMemoryPtr is NULL, if not, free it and set it to NULL
+#define DSFree( inMemoryPtr )			\
+{										\
+	if ( inMemoryPtr != NULL )			\
+	{									\
+		free( inMemoryPtr );			\
+		inMemoryPtr = NULL;				\
+	}									\
+}
+
+// check if a string is empty; cheaper than strlen(inString) != 0
+#define DSIsStringEmpty( inString )	( inString == NULL || inString[0] == '\0' )
 
 #endif

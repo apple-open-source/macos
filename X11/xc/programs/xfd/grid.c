@@ -26,13 +26,14 @@ in this Software without prior written authorization from The Open Group.
  * *
  * Author:  Jim Fulton, MIT X Consortium
  */
-/* $XFree86: xc/programs/xfd/grid.c,v 1.9 2002/07/06 00:46:42 keithp Exp $ */
+/* $XFree86: xc/programs/xfd/grid.c,v 1.10 2003/12/19 02:05:39 dawes Exp $ */
 
 
 #include <X11/IntrinsicP.h>
 #include <X11/StringDefs.h>
 #include <X11/Xaw/SimpleP.h>
 #include <X11/Xmu/Converters.h>
+#include <X11/Xos.h>
 #include "gridP.h"
 
 #ifdef XKB

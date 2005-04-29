@@ -1,0 +1,281 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+These objects are used to pass around untyped data without concern about
+clean-up.  They know whether the bytes need to be de-allocated when these
+objects go out of scope.  Small amounts of data are stored in the object.
+<P>
+
+Objects of this class are used a lot within Metakit to manipulate its own
+data items generically.  The <A HREF="c4_BytesProp.html" >c4_BytesProp</A> class allows storing binary
+data explicitly in a file.  If such data files must be portable, then the 
+application itself must define a generic format to deal with byte order.
+<P>
+
+How to store an object in binary form in a row (this is not portable):
+<P>
+
+
+<PRE>    struct MyStruct { ... };
+    MyStruct something;</PRE>
+<P>
+
+
+<PRE>    <A HREF="c4_BytesProp.html" >c4_BytesProp</A> pData ("Data");
+    <A HREF="c4_Row.html" >c4_Row</A> row;</PRE>
+<P>
+
+
+<PRE>    pData (row) = <A HREF="c4_Bytes.html" >c4_Bytes</A> (&amp;something, sizeof something);
+</PRE>
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Bytes_Contents___const"><dt>
+	  <nobr>
+	  const t4_byte* 
+	  <b>Contents</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a pointer to the contents</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_NONAME"><dt>
+	  <nobr>
+	  union 
+	  <b><A HREF='c4_Bytes___NONAME.html'>NONAME</A></b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_SetBuffer_int__"><dt>
+	  <nobr>
+	  t4_byte* 
+	  <b>SetBuffer</b> (int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Define contents as a freshly allocated buffer of given size</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_SetBufferClear_int__"><dt>
+	  <nobr>
+	  t4_byte* 
+	  <b>SetBufferClear</b> (int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Allocate a buffer and fills its contents with zero bytes</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_Size___const"><dt>
+	  <nobr>
+	  int 
+	  <b>Size</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the number of bytes of its contents</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_Swap_c4_Bytes___"><dt>
+	  <nobr>
+	  void 
+	  <b>Swap</b> (<A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Swap the contents and ownership of two byte objects</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__LoseCopy___"><dt>
+	  <nobr>
+	  void 
+	  <b>_LoseCopy</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__MakeCopy___"><dt>
+	  <nobr>
+	  void 
+	  <b>_MakeCopy</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__buffer__kMaxBuf_"><dt>
+	  <nobr>
+	  t4_byte 
+	  <b>_buffer [kMaxBuf]</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__copy"><dt>
+	  <nobr>
+	  bool 
+	  <b>_copy</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__size"><dt>
+	  <nobr>
+	  int 
+	  <b>_size</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_c4_Bytes__"><dt>
+	  <nobr>
+	  
+	  <b>c4_Bytes</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct an empty binary object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_c4_Bytes_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Bytes</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Copy constructor </font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_c4_Bytes_constint_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Bytes</b> (const void* buffer_, int length_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct an object with contents, no copy</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_c4_Bytes_constintbool_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Bytes</b> (const void* buffer_, int length_, bool makeCopy_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct an object with contents, optionally as a copy</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_enum_1"><dt>
+	  <nobr>
+	  
+	  <b>enum</b> { kMaxBuf = 16 };
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; bytes_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assignment, this may make a private copy of contents</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Bytes__c4_Bytes__"><dt>
+	  <nobr>
+	  
+	  <b>~c4_Bytes</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Destructor</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Bytes</b>
+</font>
+
+</body></html>

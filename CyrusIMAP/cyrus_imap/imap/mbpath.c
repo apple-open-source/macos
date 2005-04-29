@@ -1,6 +1,6 @@
 /* mbpath.c -- help the sysadmin to find the path matching the mailbox
  *
- * $Id: mbpath.c,v 1.18 2004/06/02 17:35:08 ken3 Exp $
+ * $Id: mbpath.c,v 1.5 2005/03/05 00:36:59 dasenbro Exp $
  * 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -42,7 +42,7 @@
  *
  */
 
-/* static char _rcsid[] = "$Id: mbpath.c,v 1.18 2004/06/02 17:35:08 ken3 Exp $"; */
+/* static char _rcsid[] = "$Id: mbpath.c,v 1.5 2005/03/05 00:36:59 dasenbro Exp $"; */
 
 #include <config.h>
 
@@ -90,7 +90,6 @@ usage(void) {
 int
 main(int argc, char **argv)
 {
-  char *p;
   char *path;
   int rc, i, quiet = 0, stop_on_error=0;
   int opt;		/* getopt() returns an int */
@@ -126,8 +125,6 @@ main(int argc, char **argv)
   for (i = optind; i < argc; i++) {
     (void)memset(&path, 0, sizeof(path));
 
-    if ((p = strchr(argv[i], '.'))!=NULL) *p = '/';
-
     /* Translate mailboxname */
     (*mbpath_namespace.mboxname_tointernal)(&mbpath_namespace, argv[i], NULL, buf);
 
@@ -155,5 +152,5 @@ main(int argc, char **argv)
   return 0;
 }
 
-/* $Header: /cvs/src/cyrus/imap/mbpath.c,v 1.18 2004/06/02 17:35:08 ken3 Exp $ */
+/* $Header: /cvs/repository/iservers/Servers/cyrus/cyrus_imap/imap/mbpath.c,v 1.5 2005/03/05 00:36:59 dasenbro Exp $ */
 

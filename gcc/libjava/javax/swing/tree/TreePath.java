@@ -35,16 +35,21 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.tree;
 
-// Imports
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * TreePath
  * @author Andrew Selkirk
  */
-public class TreePath implements Serializable {
+public class TreePath implements Serializable
+{
+  static final long serialVersionUID = 4380036194768077479L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

@@ -1,10 +1,10 @@
 # Microsoft Developer Studio Project File - Name="cvsnt" - Package Owner=<4>
-# Microsoft Developer Studio Generated Build File, Format Version 5.00
+# Microsoft Developer Studio Generated Build File, Format Version 6.00
 # ** DO NOT EDIT **
 
 # TARGTYPE "Win32 (x86) Console Application" 0x0103
 
-CFG=cvsnt - Win32 Release
+CFG=cvsnt - Win32 Debug
 !MESSAGE This is not a valid makefile. To build this project using NMAKE,
 !MESSAGE use the Export Makefile command and run
 !MESSAGE 
@@ -13,7 +13,7 @@ CFG=cvsnt - Win32 Release
 !MESSAGE You can specify a configuration when running NMAKE
 !MESSAGE by defining the macro CFG on the command line. For example:
 !MESSAGE 
-!MESSAGE NMAKE /f "cvsnt.mak" CFG="cvsnt - Win32 Release"
+!MESSAGE NMAKE /f "cvsnt.mak" CFG="cvsnt - Win32 Debug"
 !MESSAGE 
 !MESSAGE Possible choices for configuration are:
 !MESSAGE 
@@ -22,6 +22,7 @@ CFG=cvsnt - Win32 Release
 !MESSAGE 
 
 # Begin Project
+# PROP AllowPerConfigDependencies 0
 # PROP Scc_ProjName ""
 # PROP Scc_LocalPath ""
 CPP=cl.exe
@@ -31,46 +32,50 @@ RSC=rc.exe
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 0
-# PROP BASE Output_Dir ".\WinRel"
-# PROP BASE Intermediate_Dir ".\WinRel"
+# PROP BASE Output_Dir "WinRel"
+# PROP BASE Intermediate_Dir "WinRel"
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 0
-# PROP Output_Dir ".\WinRel"
-# PROP Intermediate_Dir ".\WinRel"
-# ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /W3 /GX /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /D "NDEBUG" /D "WIN32" /D "_CONSOLE" /D "HAVE_CONFIG_H" /Fr /YX /FD /c
-# SUBTRACT CPP /WX
+# PROP Output_Dir "WinRel"
+# PROP Intermediate_Dir "WinRel"
+# PROP Ignore_Export_Lib 0
+# ADD BASE CPP /nologo /W3 /GX /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /D "NDEBUG" /D "WANT_WIN_COMPILER_VERSION" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /YX /FD /c
+# SUBTRACT BASE CPP /WX /Fr
+# ADD CPP /nologo /W3 /GX /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /I ".\WinDebug" /D "NDEBUG" /D "WANT_WIN_COMPILER_VERSION" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /YX /FD /c
+# SUBTRACT CPP /WX /Fr
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
 LINK32=link.exe
-# ADD BASE LINK32 advapi32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /machine:I386 /out:".\WinRel\cvs.exe"
+# ADD BASE LINK32 diff\WinRel\libdiff.lib lib\WinRel\libcvs.lib zlib\WinRel\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /machine:I386 /out:".\WinRel\cvs.exe"
+# ADD LINK32 diff\WinRel\libdiff.lib lib\WinRel\libcvs.lib zlib\WinRel\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /machine:I386 /out:".\WinRel\cvs.exe"
 
 !ELSEIF  "$(CFG)" == "cvsnt - Win32 Debug"
 
 # PROP BASE Use_MFC 0
 # PROP BASE Use_Debug_Libraries 1
-# PROP BASE Output_Dir ".\WinDebug"
-# PROP BASE Intermediate_Dir ".\WinDebug"
+# PROP BASE Output_Dir "WinDebug"
+# PROP BASE Intermediate_Dir "WinDebug"
 # PROP Use_MFC 0
 # PROP Use_Debug_Libraries 1
-# PROP Output_Dir ".\WinDebug"
-# PROP Intermediate_Dir ".\WinDebug"
+# PROP Output_Dir "WinDebug"
+# PROP Intermediate_Dir "WinDebug"
 # PROP Ignore_Export_Lib 0
-# ADD BASE CPP /nologo /W3 /GX /Zi /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /FR /YX /c
-# ADD CPP /nologo /W3 /Gm /GX /Zi /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /D "_DEBUG" /D "WIN32" /D "_CONSOLE" /D "HAVE_CONFIG_H" /YX /FD /c
-# SUBTRACT CPP /Fr
+# ADD BASE CPP /nologo /W3 /Gm /GX /Zi /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /D "_DEBUG" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /D "WANT_WIN_COMPILER_VERSION" /YX /FD /c
+# SUBTRACT BASE CPP /Fr
+# ADD CPP /nologo /W3 /Gm /GX /Zi /Ob1 /I ".\windows-NT" /I ".\lib" /I ".\src" /I ".\zlib" /I ".\diff" /D "_DEBUG" /D "_CONSOLE" /D "HAVE_CONFIG_H" /D "WIN32" /D "WANT_WIN_COMPILER_VERSION" /YX /FD /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
 # ADD BASE BSC32 /nologo
 # ADD BSC32 /nologo
 LINK32=link.exe
-# ADD BASE LINK32 advapi32.lib /nologo /subsystem:console /debug /machine:I386
-# ADD LINK32 wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /debug /machine:I386 /out:".\WinDebug\cvs.exe"
+# ADD BASE LINK32 diff\WinDebug\libdiff.lib lib\WinDebug\libcvs.lib zlib\WinDebug\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /pdb:".\WinDebug\cvs.pdb" /debug /machine:I386 /out:".\WinDebug\cvs.exe"
+# SUBTRACT BASE LINK32 /pdb:none
+# ADD LINK32 diff\WinDebug\libdiff.lib lib\WinDebug\libcvs.lib zlib\WinDebug\libz.lib wsock32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib /nologo /subsystem:console /pdb:".\WinDebug\cvs.pdb" /debug /machine:I386 /out:".\WinDebug\cvs.exe"
+# SUBTRACT LINK32 /pdb:none
 
 !ENDIF 
 
@@ -87,31 +92,15 @@ SOURCE=.\src\add.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\zlib\adler32.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\admin.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\analyze.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\argmatch.c
+SOURCE=.\src\annotate.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\src\buffer.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\src\ChangeLog
-# End Source File
-# Begin Source File
-
-SOURCE=".\windows-NT\ChangeLog"
 # End Source File
 # Begin Source File
 
@@ -131,23 +120,7 @@ SOURCE=.\src\client.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\cmpbuf.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\commit.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\compress.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\context.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\crc32.c
 # End Source File
 # Begin Source File
 
@@ -159,55 +132,7 @@ SOURCE=.\src\cvsrc.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\zlib\deflate.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\diff.c
-
-!IF  "$(CFG)" == "cvsnt - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "cvsnt - Win32 Debug"
-
-# PROP Intermediate_Dir ".\diff"
-# PROP Ignore_Default_Tool 1
-# Begin Custom Build
-InputPath=.\diff\diff.c
-
-"diff\diff.obj" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	cl /MLd /W3 /Gm /GX /Zi /Ob1 /I ".\diff" /I ".\lib" /I ".\src" /I\
- ".\windows-NT" /D  "HAVE_CONFIG_H" /Fp".\diff" /YX /Fo".\diff\diff.obj"\
- /Fd".\diff" /FD /c  diff\diff.c
-
-# End Custom Build
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\diff.c
-
-!IF  "$(CFG)" == "cvsnt - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "cvsnt - Win32 Debug"
-
-# SUBTRACT CPP /nologo
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\diff3.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\dir.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\ed.c
 # End Source File
 # Begin Source File
 
@@ -239,43 +164,11 @@ SOURCE=.\src\find_names.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\lib\fnmatch.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\getdate.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\getline.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\getopt.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\getopt1.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\getwd.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\gzio.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\hash.c
 # End Source File
 # Begin Source File
 
 SOURCE=.\src\history.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\ifdef.c
 # End Source File
 # Begin Source File
 
@@ -287,31 +180,7 @@ SOURCE=.\src\import.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\zlib\infblock.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\infcodes.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\inffast.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\inflate.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\inftrees.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\infutil.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\io.c
+SOURCE=".\windows-NT\JmgStat.c"
 # End Source File
 # Begin Source File
 
@@ -332,10 +201,6 @@ SOURCE=.\src\logmsg.c
 # Begin Source File
 
 SOURCE=.\src\main.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\md5.c
 # End Source File
 # Begin Source File
 
@@ -360,10 +225,6 @@ SOURCE=".\windows-NT\ndir.c"
 # Begin Source File
 
 SOURCE=.\src\no_diff.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\normal.c
 # End Source File
 # Begin Source File
 
@@ -395,10 +256,6 @@ SOURCE=.\src\recurse.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\lib\regex.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\release.c
 # End Source File
 # Begin Source File
@@ -415,15 +272,7 @@ SOURCE=.\src\root.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\src\rtag.c
-# End Source File
-# Begin Source File
-
 SOURCE=".\windows-NT\run.c"
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\savecwd.c
 # End Source File
 # Begin Source File
 
@@ -435,15 +284,11 @@ SOURCE=.\src\server.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\side.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\sighandle.c
-# End Source File
-# Begin Source File
-
 SOURCE=".\windows-NT\sockerror.c"
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\stack.c
 # End Source File
 # Begin Source File
 
@@ -455,10 +300,6 @@ SOURCE=.\src\status.c
 # End Source File
 # Begin Source File
 
-SOURCE=".\windows-NT\stripslash.c"
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\subr.c
 # End Source File
 # Begin Source File
@@ -467,53 +308,11 @@ SOURCE=.\src\tag.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\zlib\trees.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\uncompr.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\update.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\util.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\valloc.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\vasprintf.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\vers_ts.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\diff\version.c
-
-!IF  "$(CFG)" == "cvsnt - Win32 Release"
-
-!ELSEIF  "$(CFG)" == "cvsnt - Win32 Debug"
-
-# PROP Intermediate_Dir ".\diff"
-# PROP Ignore_Default_Tool 1
-# Begin Custom Build
-InputPath=.\diff\version.c
-
-"diff\version.obj" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	cl /MLd /W3 /Gm /GX /Zi /Ob1 /Fp".\diff\" /YX /Fo".\diff\" /Fd".\diff\" /FD /c\
-  diff/version.c
-
-# End Custom Build
-
-!ENDIF 
-
 # End Source File
 # Begin Source File
 
@@ -529,7 +328,7 @@ SOURCE=.\src\watch.c
 # End Source File
 # Begin Source File
 
-SOURCE=".\windows-NT\win32.c"
+SOURCE=".\windows-NT\woe32.c"
 # End Source File
 # Begin Source File
 
@@ -537,19 +336,7 @@ SOURCE=.\src\wrapper.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\lib\xgetwd.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\lib\yesno.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\zlib.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\zlib\zutil.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -565,7 +352,11 @@ SOURCE=.\src\client.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\cmpbuf.h
+SOURCE=".\windows-NT\config.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\cvs.h
 # End Source File
 # Begin Source File
 
@@ -573,7 +364,7 @@ SOURCE=.\zlib\deflate.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\diff.h
+SOURCE=.\diff\diffrun.h
 # End Source File
 # Begin Source File
 
@@ -597,7 +388,15 @@ SOURCE=.\lib\getopt.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\hardlink.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\hash.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\history.h
 # End Source File
 # Begin Source File
 
@@ -618,6 +417,10 @@ SOURCE=.\zlib\inftrees.h
 # Begin Source File
 
 SOURCE=.\zlib\infutil.h
+# End Source File
+# Begin Source File
+
+SOURCE=".\windows-NT\JmgStat.h"
 # End Source File
 # Begin Source File
 
@@ -649,6 +452,10 @@ SOURCE=.\lib\regex.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\root.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\lib\savecwd.h
 # End Source File
 # Begin Source File
@@ -657,7 +464,11 @@ SOURCE=.\src\server.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\diff\system.h
+SOURCE=.\src\stack.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\system.h
 # End Source File
 # Begin Source File
 
@@ -665,16 +476,32 @@ SOURCE=.\src\update.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\lib\wait.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\watch.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xsize.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\lib\xtime.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zlib\zconf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\zlib\zlib.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\zlib\zutil.h
 # End Source File
-# End Group
-# Begin Group "Resource Files"
-
-# PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;cnt;rtf;gif;jpg;jpeg;jpe"
 # End Group
 # End Target
 # End Project

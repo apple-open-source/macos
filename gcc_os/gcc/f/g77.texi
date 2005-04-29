@@ -2,7 +2,7 @@
 @c %**start of header
 @setfilename g77.info
 
-@set last-update 2002-04-20
+@set last-update 2002-04-29
 @set copyrights-g77 1995,1996,1997,1998,1999,2000,2001,2002
 
 @include root.texi
@@ -23,33 +23,6 @@
 @c To produce a porter-only manual, use the "portg77.info" setfilename,
 @c and make sure the following does NOT begin with '@c':
 @c @clear USING
-
-@c 6/27/96 FSF DO wants smallbook fmt for 1st bound edition. (from gcc.texi)
-@c @smallbook
-
-@c i also commented out the finalout command, so if there *are* any
-@c overfulls, you'll (hopefully) see the rectangle in the right hand
-@c margin. -- burley 1999-03-13 (from mew's comment in gcc.texi).
-@c @finalout
-
-@macro gcctabopt{body}
-@code{\body\}
-@end macro
-@macro gccoptlist{body}
-@smallexample
-\body\
-@end smallexample
-@end macro
-@c Makeinfo handles the above macro OK, TeX needs manual line breaks;
-@c they get lost at some point in handling the macro.  But if @macro is
-@c used here rather than @alias, it produces double line breaks.
-@iftex
-@alias gol = *
-@end iftex
-@ifnottex
-@macro gol
-@end macro
-@end ifnottex
 
 @ifset INTERNALS
 @ifset USING
@@ -89,6 +62,29 @@
 @c \global\normaloffset =0.75in
 @c @end tex
 
+@copying
+Copyright @copyright{} @value{copyrights-g77} Free Software Foundation, Inc.
+
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.2 or
+any later version published by the Free Software Foundation; with the
+Invariant Sections being ``GNU General Public License'' and ``Funding
+Free Software'', the Front-Cover
+texts being (a) (see below), and with the Back-Cover Texts being (b)
+(see below).  A copy of the license is included in the section entitled
+``GNU Free Documentation License''.
+
+(a) The FSF's Front-Cover Text is:
+
+     A GNU Manual
+
+(b) The FSF's Back-Cover Text is:
+
+     You have freedom to copy and modify this GNU Manual, like GNU
+     software.  Copies published by the Free Software Foundation raise
+     funds for GNU development.
+@end copying
+
 @ifinfo
 @dircategory Programming
 @direntry
@@ -114,27 +110,7 @@ Published by the Free Software Foundation
 59 Temple Place - Suite 330
 Boston, MA 02111-1307 USA
 
-Copyright (C) @value{copyrights-g77} Free Software Foundation, Inc.
-
-
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with the
-Invariant Sections being ``GNU General Public License'' and ``Funding
-Free Software'', the Front-Cover
-texts being (a) (see below), and with the Back-Cover Texts being (b)
-(see below).  A copy of the license is included in the section entitled
-``GNU Free Documentation License''.
-
-(a) The FSF's Front-Cover Text is:
-
-     A GNU Manual
-
-(b) The FSF's Back-Cover Text is:
-
-     You have freedom to copy and modify this GNU Manual, like GNU
-     software.  Copies published by the Free Software Foundation raise
-     funds for GNU development.
+@insertcopying
 @end ifinfo
 
 Contributed by James Craig Burley (@email{@value{email-burley}}).
@@ -142,7 +118,6 @@ Inspired by a first pass at translating @file{g77-0.5.16/f/DOC} that
 was contributed to Craig by David Ronis (@email{ronis@@onsager.chem.mcgill.ca}).
 
 @setchapternewpage odd
-@c @finalout
 @titlepage
 @ifset INTERNALS
 @ifset USING
@@ -164,8 +139,6 @@ was contributed to Craig by David Ronis (@email{ronis@@onsager.chem.mcgill.ca}).
 @center for version @value{which-g77}
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} @value{copyrights-g77} Free Software Foundation, Inc.
-@sp 2
 For the @value{which-g77} Version*
 @sp 1
 Published by the Free Software Foundation @*
@@ -175,24 +148,7 @@ Boston, MA 02111-1307, USA@*
 @c Printed copies are available for $? each.@*
 @c ISBN ???
 @sp 1
-Permission is granted to copy, distribute and/or modify this document
-under the terms of the GNU Free Documentation License, Version 1.1 or
-any later version published by the Free Software Foundation; with the
-Invariant Sections being ``GNU General Public License'' and ``Funding
-Free Software'', the Front-Cover
-texts being (a) (see below), and with the Back-Cover Texts being (b)
-(see below).  A copy of the license is included in the section entitled
-``GNU Free Documentation License''.
-
-(a) The FSF's Front-Cover Text is:
-
-     A GNU Manual
-
-(b) The FSF's Back-Cover Text is:
-
-     You have freedom to copy and modify this GNU Manual, like GNU
-     software.  Copies published by the Free Software Foundation raise
-     funds for GNU development.
+@insertcopying
 @end titlepage
 @summarycontents
 @contents
@@ -275,7 +231,7 @@ most consistent with the @command{g77} product in that version.
 
 * M: Diagnostics.   Diagnostics produced by @command{g77}.
 
-* Index::           Index of concepts and symbol names.
+* Keyword Index::   Index of concepts and symbol names.
 @end menu
 @c yes, the "M: " @emph{is} intentional -- bad.def references it (CMPAMBIG)!
 
@@ -1045,7 +1001,7 @@ As such, GNU users rarely need consider just what kind of underlying
 hardware (or, in many cases, operating system) they are using at any
 particular time.
 They can use and write software designed for a general-purpose,
-widely portable, heterogenous environment---the GNU environment.
+widely portable, heterogeneous environment---the GNU environment.
 
 In line with this philosophy, GNU Fortran must evolve into a product
 that is widely ported and portable not only in the sense that it can
@@ -5643,9 +5599,9 @@ The important thing about linking @command{g77}-compiled
 code with C++ is that the prototypes for the @command{g77}
 routines must specify C linkage to avoid name mangling.
 So, use an @samp{extern "C"} declaration.
-@command{f2c}'s @option{-C++} option will take care
-of this when generating skeletons or prototype files as above, and also
-avoid clashes with C++ reserved words in addition to those in C@.
+@command{f2c}'s @option{-C++} option will not take care
+of this when generating skeletons or prototype files as above, however,
+it will avoid clashes with C++ reserved words in addition to those in C@.
 
 @node Startup Code
 @subsection Startup Code
@@ -6283,7 +6239,7 @@ single-dimensional array, so at least the dimensionality of the array
 is preserved.
 
 Debuggers that understand Fortran should have no trouble with
-non-zero low bounds, but for non-Fortran debuggers, especially
+nonzero low bounds, but for non-Fortran debuggers, especially
 C debuggers, the above example might have a C equivalent of
 @samp{a[4305]}.
 This calculation is arrived at by eliminating the subtraction
@@ -7512,7 +7468,7 @@ set up this kind of aliasing.
 
 (The FORTRAN 77 standard's prohibition of this sort of
 overlap, generally referred to therein as ``storage
-assocation'', appears in Sections 15.9.3.6.
+association'', appears in Sections 15.9.3.6.
 This prohibition allows implementations, such as @command{g77},
 to, for example, implement the passing of procedures and
 even values in @code{COMMON} via copy operations into local,
@@ -8547,7 +8503,7 @@ If a formatted @code{WRITE} produces an endless stream of spaces, check
 that your program is linked against the correct version of the C library.
 The configuration process takes care to account for your
 system's normal @file{libc} not being ANSI-standard, which will
-otherwise cause this behaviour.
+otherwise cause this behavior.
 If your system's default library is
 ANSI-standard and you subsequently link against a non-ANSI one, there
 might be problems such as this one.
@@ -9460,9 +9416,9 @@ general control over whether or not floating-point exceptions are trapped or
 ignored.
 (Ignoring them typically results in NaN values being
 propagated in systems that conform to IEEE 754.)
-The behaviour is normally inherited from the system-dependent startup
+The behavior is normally inherited from the system-dependent startup
 code, though some targets, such as the Alpha, have code generation
-options which change the behaviour.
+options which change the behavior.
 
 Most systems provide some C-callable mechanism to change this; this can
 be invoked at startup using @command{gcc}'s @code{constructor} attribute.
@@ -12262,8 +12218,8 @@ that is not Year-2000 (Y2K) compliant.
 
 @end ifset
 
-@node Index
-@unnumbered Index
+@node Keyword Index
+@unnumbered Keyword Index
 
 @printindex cp
 @bye

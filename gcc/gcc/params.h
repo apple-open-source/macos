@@ -1,5 +1,5 @@
 /* params.h - Run-time parameters.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -59,13 +59,11 @@ extern param_info *compiler_params;
 
 /* Add the N PARAMS to the current list of compiler parameters.  */
 
-extern void add_params
-  PARAMS ((const param_info params[], size_t n));
+extern void add_params (const param_info params[], size_t n);
 
 /* Set the VALUE associated with the parameter given by NAME.  */
 
-extern void set_param_value
-  PARAMS ((const char *name, int value));
+extern void set_param_value (const char *name, int value);
 
 
 /* The parameters in use by language-independent code.  */
@@ -96,6 +94,8 @@ typedef enum compiler_param
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_AUTO)
 #define MAX_INLINE_INSNS_RTL \
   PARAM_VALUE (PARAM_MAX_INLINE_INSNS_RTL)
+#define MAX_VARIABLE_EXPANSIONS \
+  PARAM_VALUE (PARAM_MAX_VARIABLE_EXPANSIONS)
 #define MAX_DELAY_SLOT_INSN_SEARCH \
   PARAM_VALUE (PARAM_MAX_DELAY_SLOT_INSN_SEARCH)
 #define MAX_DELAY_SLOT_LIVE_SEARCH \
@@ -106,6 +106,24 @@ typedef enum compiler_param
   ((size_t) PARAM_VALUE (PARAM_MAX_GCSE_MEMORY))
 #define MAX_GCSE_PASSES \
   PARAM_VALUE (PARAM_MAX_GCSE_PASSES)
+#define GCSE_AFTER_RELOAD_PARTIAL_FRACTION \
+  PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_PARTIAL_FRACTION)
+#define GCSE_AFTER_RELOAD_CRITICAL_FRACTION \
+  PARAM_VALUE (PARAM_GCSE_AFTER_RELOAD_CRITICAL_FRACTION)
 #define MAX_UNROLLED_INSNS \
   PARAM_VALUE (PARAM_MAX_UNROLLED_INSNS)
+#define MAX_SMS_LOOP_NUMBER \
+  PARAM_VALUE (PARAM_MAX_SMS_LOOP_NUMBER)
+#define SMS_MAX_II_FACTOR \
+  PARAM_VALUE (PARAM_SMS_MAX_II_FACTOR)
+#define SMS_DFA_HISTORY \
+  PARAM_VALUE (PARAM_SMS_DFA_HISTORY)
+#define SMS_LOOP_AVERAGE_COUNT_THRESHOLD \
+  PARAM_VALUE (PARAM_SMS_LOOP_AVERAGE_COUNT_THRESHOLD)
+#define GLOBAL_VAR_THRESHOLD \
+  PARAM_VALUE (PARAM_GLOBAL_VAR_THRESHOLD)
+#define MAX_ALIASED_VOPS \
+  PARAM_VALUE (PARAM_MAX_ALIASED_VOPS)
+#define INTEGER_SHARE_LIMIT \
+  PARAM_VALUE (PARAM_INTEGER_SHARE_LIMIT)
 #endif /* ! GCC_PARAMS_H */

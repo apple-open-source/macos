@@ -1,11 +1,11 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed old-abort
 class B
         {
 public:
         int i;
         };
-int operator & (const B &s) { return ( s.i  );};
+int operator & (const B &s) { return ( s.i  );}
 
 
 

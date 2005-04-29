@@ -4,7 +4,7 @@
 # gmon sources
 .PATH: ${.CURDIR}/gmon
 
-SRCS+=	gmon.c 
+MISRCS+= gmon.c 
 
 #.if ${LIB} == "c"
 #MAN+=	moncontrol.3
@@ -15,8 +15,12 @@ SRCS+=	gmon.c
 # mcount cannot be compiled with profiling
 gmon.po: 
 	${CC} -O -pipe -arch ${MACHINE_ARCH} -Wmost -g -fno-common \
-		-no-cpp-precomp -force_cpusubtype_ALL -I${.CURDIR}/include  \
-		-I${.CURDIR}/include/objc -c ${.CURDIR}/gmon/gmon.c -o gmon.po
+		-no-cpp-precomp -force_cpusubtype_ALL \
+		-I${.CURDIR}/include \
+		-I${INCLUDEDIR} \
+		-I${INCLUDEDIR}/objc \
+		${PRIVINC} \
+		-c ${.CURDIR}/gmon/gmon.c -o gmon.po
 
 #gmon.po: gmon.o
 #	cp gmon.o gmon.po

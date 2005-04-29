@@ -1,17 +1,16 @@
 /************************************************************************
  *	Collection of standard library substitute routines		*
  *									*
- *	Copyright (c) 1990-1997, S.R. van den Berg, The Netherlands	*
+ *	Copyright (c) 1990-2001, S.R. van den Berg, The Netherlands	*
  *	Copyright (c) 1999-2001, Philip Guenther, The United States	*
  *							of America	*
  *	#include "../README"						*
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: sublib.c,v 1.1.1.2 2001/07/20 19:38:19 bbraun Exp $";
+ "$Id: sublib.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "includes.h"
-#include "acommon.h"
 #include "sublib.h"
 
 #ifdef NOmemmove
@@ -47,7 +46,7 @@ jidesc:;
 #include "shell.h"
 
 #ifdef NOstrpbrk
-char*strpbrk(st,del)const char*const st,*del;
+char*sstrpbrk(st,del)const char*const st,*del;
 { const char*f=0,*t;
   for(f=0;*del;)
      if((t=strchr(st,*del++))&&(!f||t<f))
@@ -75,36 +74,44 @@ typedef unsigned chartype;
 
 char*sstrstr(phaystack,pneedle)const char*const phaystack;
  const char*const pneedle;
-{ register const uchar*haystack,*needle;register chartype b,c;
+{ register const uchar*haystack,*needle;register chartype b;
+  const uchar*rneedle;
   haystack=(const uchar*)phaystack;
   if(b= *(needle=(const uchar*)pneedle))
-   { haystack--;				  /* possible ANSI violation */
-     do
-	if(!(c= *++haystack))
-	   goto ret0;
-     while(c!=b);
+   { register chartype c;
+     haystack--;				  /* possible ANSI violation */
+     ;{ register chartype a;
+	do
+	   if(!(a= *++haystack))
+	      goto ret0;
+	while(a!=b);
+      }
      if(!(c= *++needle))
 	goto foundneedle;
      ++needle;
      goto jin;
      for(;;)
       { ;{ register chartype a;
+	   if(0)
+jin:	    { if((a= *++haystack)==c)
+		 goto crest;
+	    }
+	   else
+	      a= *++haystack;
 	   do
-	    { if(!(a= *++haystack))
-		 goto ret0;
-	      if(a==b)
-		 break;
-	      if(!(a= *++haystack))
-		 goto ret0;
-shloop:;    }
-	   while(a!=b);
-jin:	   if(!(a= *++haystack))
-	      goto ret0;
-	   if(a!=c)
-	      goto shloop;
+	    { for(;a!=b;a= *++haystack)
+	       { if(!a)
+		    goto ret0;
+		 if((a= *++haystack)==b)
+		    break;
+		 if(!a)
+		    goto ret0;
+	       }
+	    }
+	   while((a= *++haystack)!=c);
 	 }
-	;{ register chartype a;
-	   ;{ register const uchar*rhaystack,*rneedle;
+crest:	;{ register chartype a;
+	   ;{ register const uchar*rhaystack;
 	      if(*(rhaystack=haystack--+1)==(a= *(rneedle=needle)))
 		 do
 		  { if(!a)
@@ -138,7 +145,7 @@ void bbzero(s,n)void *s;size_t n;
 #endif
 
 #ifdef NOstrlcat
-size_t strlcat(dst,src,size)char *dst;const char*src;size_t size;
+size_t sstrlcat(dst,src,size)char *dst;const char*src;size_t size;
 { const char*start=dst;
   if(size>0)
    { size--;					/* reserve space for the NUL */
@@ -150,23 +157,33 @@ size_t strlcat(dst,src,size)char *dst;const char*src;size_t size;
    }
   return dst-start+strlen(src);
 }
+
+size_t sstrlcpy(dst,src,size)char *dst;const char*src;size_t size;
+{ const char*start=dst;
+  if(size>0)
+   { size--;					/* reserve space for the NUL */
+     while(size>0&&*src)			     /* copy over characters */
+	size--,*dst++= *src++;
+     *dst='\0';					    /* hasta la vista, baby! */
+   }
+  return dst-start+strlen(src);
+}
 #endif
 
 #ifdef NOstrerror
-#define ERRSTR "Error number "
-char *strerror(int err)
-{ static char errbuf[STRLEN(ERRSTR)+sizeNUM(int)+1]=ERRSTR;
+char *sstrerror(int err)
+{
 #ifndef NOsys_errlist
+  extern int sys_nerr;extern char*sys_errlist[];
   if(err>=0&&err<sys_nerr)
      return sys_errlist[err];
 #endif
-  ultstr(0,(unsigned int)err,errbuf+STRLEN(ERRSTR));
-  return errbuf;
+  return "Unknown error";
 }
 #endif
 			    /* strtol replacement which lacks range checking */
 #ifdef NOstrtol
-long strtol(start,ptr,base)const char*start,**const ptr;int base;
+long sstrtol(start,ptr,base)const char*start,**const ptr;int base;
 { long result;const char*str=start;unsigned i;int sign,found;
   if(base<(sign=found=result=0)||base>=36)
      goto fault;

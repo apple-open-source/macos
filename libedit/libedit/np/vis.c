@@ -34,7 +34,10 @@
  * SUCH DAMAGE.
  */
 
+#include "config.h"
+#ifdef HAVE_SYS_CDEFS_H
 #include <sys/cdefs.h>
+#endif
 #if defined(LIBC_SCCS) && !defined(lint)
 __RCSID("$NetBSD: vis.c,v 1.22 2002/03/23 17:38:27 christos Exp $");
 #endif /* LIBC_SCCS and not lint */
@@ -44,6 +47,9 @@ __RCSID("$NetBSD: vis.c,v 1.22 2002/03/23 17:38:27 christos Exp $");
 #include <assert.h>
 #include "np/vis.h"
 #include <stdlib.h>
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
 
 #ifdef __weak_alias
 __weak_alias(strsvis,_strsvis)
@@ -67,10 +73,10 @@ __weak_alias(vis,_vis)
 #define BELL '\007'
 #endif
 
-#define isoctal(c)	(((u_char)(c)) >= '0' && ((u_char)(c)) <= '7')
+#define isoctal(c)	(((unsigned char)(c)) >= '0' && ((unsigned char)(c)) <= '7')
 #define iswhite(c)	(c == ' ' || c == '\t' || c == '\n')
 #define issafe(c)	(c == '\b' || c == BELL || c == '\r')
-#define xtoa(c)		"0123456789abcdef"[c]
+#define xtoa(c)         "0123456789abcdef"[(int)(c)]
 
 #define MAXEXTRAS       5
 
@@ -163,8 +169,8 @@ do {									      \
 	if (isc) break;							      \
 	if (isextra || ((c & 0177) == ' ') || (flag & VIS_OCTAL)) {	      \
 		*dst++ = '\\';						      \
-		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 6) & 03) + '0';    \
-		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 3) & 07) + '0';    \
+		*dst++ = (unsigned char)(((unsigned int)(unsigned char)c >> 6) & 03) + '0';    \
+		*dst++ = (unsigned char)(((unsigned int)(unsigned char)c >> 3) & 07) + '0';    \
 		*dst++ =			     (c	      & 07) + '0';    \
 	} else {							      \
 		if ((flag & VIS_NOSLASH) == 0) *dst++ = '\\';		      \
@@ -229,7 +235,7 @@ strsvis(dst, src, flag, extra)
 	int flag;
 	const char *extra;
 {
-	char c;
+	int  c;
 	char *start;
 	char *nextra;
 
@@ -257,7 +263,7 @@ strsvisx(dst, src, len, flag, extra)
 	int flag;
 	const char *extra;
 {
-	char c;
+	int  c;
 	char *start;
 	char *nextra;
 

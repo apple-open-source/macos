@@ -77,8 +77,9 @@ IOUSBUserClientInit::start(IOService* provider)
     OSObject *		dictObj = NULL;
     OSDictionary *	providerMergeProperties = NULL;
     bool 		result = false;
+    OSObject *          userClientClass = NULL;
 
-    USBLog(3,"+%s[%p]::start(%p) - provider = %s", getName(), this, provider, provider->getName());
+    USBLog(6,"+%s[%p]::start(%p) - provider = %s", getName(), this, provider, provider->getName());
 
     // Get our dictionary to merge
     //
@@ -90,7 +91,14 @@ IOUSBUserClientInit::start(IOService* provider)
 
     result = MergeDictionaryIntoProvider(provider, providerMergeProperties) ;
 
-    USBLog(3,"-%s[%p]::start", getName(), this);
+    // Now, check to see if our provider has an "IOUSBUserClientClass".  If it does, then use it as
+    // the "IOUserClientClass" for the provider
+    //
+    userClientClass = provider->getProperty("IOUSBUserClientClass");
+    if (userClientClass)
+        provider->setProperty("IOUserClientClass", userClientClass);
+    
+    USBLog(6,"-%s[%p]::start", getName(), this);
     
     return result ;
 }
@@ -112,7 +120,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
     OSCollectionIterator * 	iter = NULL;
     bool			result = false;
 
-    USBLog(3,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
+    USBLog(6,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
 
     if (!provider || !dictionaryToMerge)
         return false;
@@ -135,18 +143,18 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
             // Get the symbol name for debugging
             //
             str = dictionaryEntry->getCStringNoCopy();
-            USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
 
             // Check to see if our destination already has the same entry.
             //
             providerProperty = provider->getProperty(dictionaryEntry);
             if ( providerProperty )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
                 providerDictionary = OSDynamicCast(OSDictionary, providerProperty);
                 if ( providerDictionary )
                 {
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
                 }
             }
             
@@ -155,7 +163,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
             sourceDictionary = OSDynamicCast(OSDictionary, dictionaryToMerge->getObject(dictionaryEntry));
             if ( sourceDictionary )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
             }
             
             if ( providerDictionary &&  sourceDictionary )
@@ -180,9 +188,9 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                 // Get the size of our provider's dictionary so that we can check later whether it changed
                 //
                 providerSize = providerDictionary->getCapacity();
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
                 
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
 
                 // Recursively merge the two dictionaries
                 //
@@ -199,14 +207,14 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                         USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, providerSize, providerSizeAfterMerge);
                     }
                     
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
 
                     // OK, now we can just set the property in our provider
                     //
                     result = provider->setProperty( dictionaryEntry, localCopyOfProvidersDictionary );
                     if ( !result )
                     {
-                        USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s , returned false", getName(), this, str);
+                        USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s , returned false", getName(), this, str);
                         break;
                     }
                 }
@@ -214,7 +222,7 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
                 {
                     // If we got an error merging dictionaries, then just bail out without doing anything
                     //
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, sourceDictionary, providerDictionary);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  MergeDictionaryIntoDictionary(%p,%p) returned false", getName(), this, sourceDictionary, providerDictionary);
                     break;
                 }
             }
@@ -222,18 +230,18 @@ IOUSBUserClientInit::MergeDictionaryIntoProvider(IOService * provider, OSDiction
             {
                 // Not a dictionary, so just set the property
                 //
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
                 result = provider->setProperty(dictionaryEntry, dictionaryToMerge->getObject(dictionaryEntry));
                 if ( !result )
                 {
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s, returned false", getName(), this, str);
+                    USBLog(6,"%s[%p]::MergeDictionaryIntoProvider  setProperty %s, returned false", getName(), this, str);
                     break;
                 }
             }
         }
         iter->release();
     }
-    USBLog(3,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
+    USBLog(6,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
 
     return result;
 }
@@ -257,7 +265,7 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
     OSObject*			targetObject = NULL ;
     bool			result = false;
 
-    USBLog(3,"+%s[%p]::MergeDictionaryIntoDictionary(%p => %p)", getName(), this, parentSourceDictionary, parentTargetDictionary);
+    USBLog(6,"+%s[%p]::MergeDictionaryIntoDictionary(%p => %p)", getName(), this, parentSourceDictionary, parentTargetDictionary);
 
     if (!parentSourceDictionary || !parentTargetDictionary)
         return false ;
@@ -276,7 +284,7 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
         // Get the symbol name for debugging
         //
         str = keyObject->getCStringNoCopy();
-        USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  merging \"%s\"", getName(), this, str);
+        USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  merging \"%s\"", getName(), this, str);
 
         // Check to see if our destination already has the same entry.
         //
@@ -285,7 +293,7 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
         {
             childTargetDictionary = OSDynamicCast(OSDictionary, childTargetObject);
             if ( childTargetDictionary )
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  target object %s is a dictionary (%p)", getName(), this, str, childTargetDictionary);
         }
 
         // See if our source entry is also a dictionary
@@ -293,7 +301,7 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
         childSourceDictionary = OSDynamicCast(OSDictionary, parentSourceDictionary->getObject(keyObject));
         if ( childSourceDictionary )
         {
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  source dictionary had %s as a dictionary (%p)", getName(), this, str, childSourceDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  source dictionary had %s as a dictionary (%p)", getName(), this, str, childSourceDictionary);
         }
 
         if ( childTargetDictionary && childSourceDictionary)
@@ -301,11 +309,11 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
             // Our destination dictionary already has the entry for this same object AND our
             // source is also a dcitionary, so we need to recursively add it.
             //
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing(%p,%p)", getName(), this, childSourceDictionary, childTargetDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  recursing(%p,%p)", getName(), this, childSourceDictionary, childTargetDictionary);
             result = MergeDictionaryIntoDictionary(childSourceDictionary, childTargetDictionary) ;
             if ( !result )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  recursing (%p,%p) failed", getName(), this, childSourceDictionary, childTargetDictionary);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  recursing (%p,%p) failed", getName(), this, childSourceDictionary, childTargetDictionary);
                 break;
             }
         }
@@ -313,11 +321,11 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
         {
             // We have a property that we need to merge into our parent dictionary.
             //
-            USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  setting object %s into dictionary %p", getName(), this, str, parentTargetDictionary);
+            USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  setting object %s into dictionary %p", getName(), this, str, parentTargetDictionary);
             result = parentTargetDictionary->setObject(keyObject, parentSourceDictionary->getObject(keyObject)) ;
             if ( !result )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoDictionary  setObject %s, returned false", getName(), this, str);
+                USBLog(6,"%s[%p]::MergeDictionaryIntoDictionary  setObject %s, returned false", getName(), this, str);
                 break;
             }
         }
@@ -326,6 +334,6 @@ IOUSBUserClientInit::MergeDictionaryIntoDictionary(OSDictionary * parentSourceDi
 
     srcIterator->release();
 
-    USBLog(3,"-%s[%p]::MergeDictionaryIntoDictionary(%p=>(%p)  result %d", getName(), this, parentSourceDictionary, parentTargetDictionary, result);
+    USBLog(6,"-%s[%p]::MergeDictionaryIntoDictionary(%p=>(%p)  result %d", getName(), this, parentSourceDictionary, parentTargetDictionary, result);
     return result;
 }

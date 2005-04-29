@@ -1,14 +1,22 @@
-# $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/Makefile.in,v 1.6.2.1 2002/06/21 01:15:06 kurt Exp $
-########################################################################### 
-#   Copyright 2000, OpenLDAP Foundation, All rights reserved.
+# Makefile.in for back-dnssrv
+# $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/Makefile.in,v 1.8.2.3 2004/04/12 18:20:13 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## Portions Copyright 1998-2003 Kurt D. Zeilenga.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 #
-#   Redistribution and use in source and binary forms are permitted only
-#   as authorized by the OpenLDAP Public License.  A copy of this
-#   license is available at http://www.OpenLDAP.org/license.html or
-#   in file LICENSE in the top-level directory of the distribution.
-########################################################################### 
-# DNSSRV backend written by Kurt Zeilenga
-##########################################################################
+# ACKNOWLEDGEMENTS:
+#  The DNSSRV backend was written by Kurt D. Zeilenga.
+#
 
 SRCS	= init.c bind.c search.c config.c referral.c
 OBJS	= init.lo bind.lo search.lo config.lo referral.lo
@@ -18,7 +26,6 @@ LDAP_LIBDIR= ../../../libraries
 
 BUILD_OPT = "--enable-dnssrv"
 BUILD_MOD = @BUILD_DNSSRV@
-BUILD_MOD_DYNAMIC = @BUILD_DNSSRV_DYNAMIC@
 
 mod_DEFS = -DSLAPD_IMPORT
 MOD_DEFS = $(@BUILD_DNSSRV@_DEFS)

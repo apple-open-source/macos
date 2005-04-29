@@ -59,6 +59,7 @@ $END
 #include "bashgetopt.h"
 
 extern int dot_found_in_search;
+extern int posixly_correct;
 extern char *this_command_name;
 
 static int add_hashed_command __P((char *, int));
@@ -121,10 +122,11 @@ hash_builtin (list)
 
   /* We want hash -r to be silent, but hash -- to print hashing info, so
      we test expunge_hash_table. */
+
   if (list == 0 && expunge_hash_table == 0)
     {
-      if (print_hashed_commands (list_portably) == 0)
-	printf ("%s: hash table empty\n", this_command_name);
+      if (print_hashed_commands (list_portably) == 0 && !posixly_correct)
+		fprintf (stdout, "%s: hash table empty\n", this_command_name);
 
       return (EXECUTION_SUCCESS);
     }

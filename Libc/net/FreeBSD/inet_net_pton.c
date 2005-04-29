@@ -19,7 +19,7 @@
 static const char orig_rcsid[] = "From Id: inet_net_pton.c,v 1.8 1996/11/21 10:28:12 vixie Exp $";
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/net/inet_net_pton.c,v 1.8 2002/03/22 21:52:29 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/net/inet_net_pton.c,v 1.9 2003/09/15 23:38:06 fenner Exp $");
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -186,7 +186,7 @@ inet_net_pton_ipv4(src, dst, size)
 		else			/* Class A */
 			bits = 8;
 		/* If imputed mask is narrower than specified octets, widen. */
-		if (bits >= 8 && bits < ((dst - odst) * 8))
+		if (bits < ((dst - odst) * 8))
 			bits = (dst - odst) * 8;
 	}
 	/* Extend network to cover the actual mask. */

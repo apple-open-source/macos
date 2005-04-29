@@ -4,7 +4,7 @@ Destination = $(DSTROOT)/usr/share/man
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Subdirectories with their own makefiles
-SubDirs = man5
+SubDirs = man5 man7 man8
 
 install::
 	$(_v) for subdir in $(SubDirs); do						\

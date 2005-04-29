@@ -6,8 +6,7 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                                                                          *
- *           Copyright (C) 1992-2001 Free Software Foundation, Inc.         *
+ *           Copyright (C) 1992-2004 Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,15 +27,17 @@
 /* This is the contribution to the `default_compilers' array in gcc.c for
    GNAT.  */
 
-  {".ads", "@ada", 0},
-  {".adb", "@ada", 0},
+  {".ads", "@ada", 0, 0, 0},
+  {".adb", "@ada", 0, 0, 0},
   {"@ada",
-   "gnat1 %{^I*} %{k8:-gnatk8} %{w:-gnatws} %1 %{!Q:-quiet} %{nostdinc*}\
-    -dumpbase %{.adb:%b.adb}%{.ads:%b.ads}%{!.adb:%{!.ads:%b.ada}}\
-    %{g*} %{O*} %{W*} %{w} %{p} %{pg:-p} %{m*} %{a} %{f*} %{d*}\
-    %{!S:%{o*:%w%*-gnatO}} \
+   "\
  %{pg:%{fomit-frame-pointer:%e-pg and -fomit-frame-pointer are incompatible}}\
-    %i %{S:%W{o*}%{!o*:-o %b.s}}%{!S:-o %{|!pipe:%g.s}} |\n\
-    %{!S:%{!gnatc:%{!gnatz:%{!gnats:as %a %Y %{c:%W{o*}%{!o*:-o %w%b%O}}\
-				    %{!c:%e-c or -S required for Ada}\
-				    %{!pipe:%g.s} %A\n}}}} ", 0},
+ %{!S:%{!c:%e-c or -S required for Ada}}\
+ gnat1 %{I*} %{k8:-gnatk8} %{w:-gnatws} %1 %{!Q:-quiet} %{nostdinc*}\
+    %{nostdlib*}\
+    -dumpbase %{.adb:%b.adb}%{.ads:%b.ads}%{!.adb:%{!.ads:%b.ada}}\
+    %{O*} %{W*} %{w} %{p} %{pg:-p} %{a} %{f*} %{d*} %{g*&m*} \
+    %{!S:%{o*:%w%*-gnatO}} \
+    %i %{S:%W{o*}%{!o*:-o %b.s}} \
+    %{gnatc*|gnats*: -o %j} \
+    %{!gnatc*:%{!gnats*:%(invoke_as)}}", 0, 0, 0},

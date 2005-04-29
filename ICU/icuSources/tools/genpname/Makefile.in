@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/genpname
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Steven R. Loomis
 
@@ -16,11 +16,13 @@ include $(top_builddir)/icudefs.mk
 ## Build directory information
 subdir = tools/genpname
 
+TARGET_STUB_NAME = genpname
+
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(OBJECTS) $(TARGET)
+CLEANFILES = *~ $(DEPS)
 
 ## Target information
-TARGET = genpname$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
@@ -32,7 +34,7 @@ DEPS = $(OBJECTS:.o=.d)
 ## List of phony targets
 .PHONY : all all-local install install-local clean clean-local		\
 distclean distclean-local dist dist-local check	\
-check-local build-data
+check-local
 
 ## Clear suffix list
 .SUFFIXES :
@@ -45,11 +47,11 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 
-all-local: $(TARGET) build-data $(MAN_FILES)
+all-local: $(TARGET) $(MAN_FILES)
 
 install-local: all-local 
 	$(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)
 
 dist-local:
 

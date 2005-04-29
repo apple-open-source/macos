@@ -1,5 +1,7 @@
+#ifndef __APPLE__
 #ifndef LINT
-static const char rcsid[] = "$Header: /cvs/root/netinfo/resolver/dst_api.c,v 1.2 2003/02/18 16:52:03 majka Exp $";
+static const char rcsid[] = "$Header: /cvs/root/netinfo/resolver/dst_api.c,v 1.3 2003/10/16 22:13:09 majka Exp $";
+#endif
 #endif
 
 /*

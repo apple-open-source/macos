@@ -1,0 +1,227 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin doctoc_fmt n 1.0]
+[copyright {2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Documentation tools}]
+[titledesc {Specification of simple tcl markup for table of contents}]
+[description]
+[para]
+
+This manpage specifies a documentation format for tables of
+contents. It is intended to complement both the [syscmd doctools]
+format for writing manpages and the [syscmd docidx] format for writing
+indices.  See [syscmd doctools_fmt] and [syscmd docidx_fmt] for the
+specification of these two formats
+
+[para]
+
+This format is called [syscmd doctoc].
+
+It provides all the necessary commands to write a table of contents
+for a group of manpages. It is simpler than TMML, but convertible into
+it.
+
+Like for the [syscmd doctools] and [syscmd docidx] formats a package
+is provided implementing a generic framework for the conversion of
+[syscmd doctoc] to a number of different output formats, like HTML,
+TMML, nroff, LaTeX, etc.
+
+The package is called [package doctools::toc], its documentation can
+be found in [syscmd doctoc].
+
+
+People wishing to write a formatting engine for the conversion of
+[syscmd doctoc] into a new output format have to read
+[syscmd doctoc_api]. This manpage will explain the interface between
+the generic package and such engines.
+
+
+[section OVERVIEW]
+
+[syscmd doctoc] is similar to LaTex in that it consists primarily of
+text, with markup commands embedded into it. The format used to mark
+something as command is different from LaTeX however. All text between
+matching pairs of [lb] and [rb] is a command, possibly with
+arguments. Note that both brackets have to be on the same line for a
+command to be recognized.
+
+
+[para]
+
+In this format plain text is not allowed, except for whitespace, which
+can be used to separate the formatting commands described in the next
+section ([sectref {FORMATTING COMMANDS}]).
+
+
+[section {FORMATTING COMMANDS}]
+
+First a number of generic commands useable anywhere in a
+[syscmd doctoc] file.
+
+[list_begin definitions]
+
+[call [cmd vset] [arg varname] [arg value] ]
+
+Sets the formatter variable [arg varname] to the specified
+[arg value]. Returns the empty string.
+
+[call [cmd vset] [arg varname]]
+
+Returns the value associated with the formatter variable
+[arg varname].
+
+[call [cmd include] [arg filename]]
+
+Instructs the system to insert the expanded contents of the file named
+[arg filename] in its own place.
+
+[call [cmd comment] [arg text]]
+
+Declares that the marked [arg text] is a comment.
+
+[list_end]
+
+
+Commands to insert special plain text. These bracket commands are
+necessary as plain brackets are used to denote the beginnings and
+endings of the formatting commands and thus cannot be used as normal
+characters anymore.
+
+[list_begin definitions]
+
+[call [cmd lb]]
+
+Introduces a left bracket into the output.
+
+[call [cmd rb]]
+
+Introduces a right bracket into the output.
+
+[list_end]
+
+
+
+And now the relevant markup commands.
+
+[list_begin definitions]
+
+[call [cmd toc_begin] [arg text] [arg title]]
+
+This command starts a table of contents. It has to be the very first
+[term markup] command in a [syscmd doctoc] file. Plain text is not
+allowed to come before this command. Only the generic commands (see
+above: [cmd vset], [cmd include], [cmd comment]) can be used before
+it.
+
+[nl]
+
+The [arg text] argument provides a label for the whole group of
+manpages listed in the table of contents. Often this is the name of
+the package (or extension) the manpages belong to.
+
+[nl]
+
+The [arg title] argument provides the title for the whole table of
+contents.
+
+[nl]
+
+The table of contents has to contain at least either one toc element
+([cmd item]) or one division.
+
+
+[call [cmd toc_end]]
+
+This command closes a table of contents. Nothing is allowed to follow
+it.
+
+
+[call [cmd division_start] [arg text]]
+
+This command and its counterpart [cmd division_end] can be used to give
+the table of contents additional structure.
+
+[nl]
+
+Each division starts with [cmd division_start], is ended by [cmd division_end]
+
+and has a title provided through the argument [arg title]. The
+contents of a division are like for the whole table of contents,
+i.e. a series of either toc elements or divisions. The latter means
+that divisions can be nested.
+
+[nl]
+
+The division has to contain at least either one toc element
+([cmd item]) or one division.
+
+
+[call [cmd division_end]]
+
+This command closes a toc division. See [cmd division_start] above for
+the detailed explanation.
+
+
+[call [cmd item] [arg file] [arg label] [arg desc]]
+
+This command describes an individual toc element. The [arg file]
+argument refers to the file containing the actual manpage, and the
+[arg desc] provides a short descriptive text of that manpage. The
+argument [arg label] can be used by engines supporting hyperlinks to
+give the link a nice text (instead of the symbolic filename).
+
+[nl]
+
+To preserve convertibility of this format to various output formats
+the filename argument is considered a symbolic name. The actual name
+of the file will be inserted by the formatting engine used to convert
+the input, based on a mapping from symbolic to actual names given to
+it.
+
+[list_end]
+
+[section NOTES]
+
+[list_begin enum]
+[enum]
+The commands for the [syscmd doctoc] format are closely modeled on the
+TMML tags used for describing collections of manpages.
+
+[enum]
+
+Using an appropriate formatting engine and some glue code it is
+possible to automatically generate a document in [syscmd doctoc]
+format from a collection of manpages in [syscmd doctools] format.
+
+
+[list_end]
+
+[section EXAMPLE]
+
+As an example a table of contents for all manpages belonging to this
+module (doctools) of package [package tcllib].
+
+[para]
+
+[example {
+[toc_begin tcllib/doctools {Documentation tools}]
+[division_start {Basic format}]
+[item dtformat.man    {doctools format specification}]
+[item dtformatter.man {doctools engine interface}]
+[item doctools.man    {Package to handle doctools input and engines}]
+[division_end]
+[division_start {Table of Contents}]
+[item dtocformat.man    {doctoc format specification}]
+[item dtocformatter.man {doctoc engine interface}]
+[item doctoc.man        {Package to handle doctoc input and engines}]
+[division_end]
+[division_start {Indices}]
+[item dtidxformat.man    {docindex format specification}]
+[item dtidxformatter.man {docindex engine interface}]
+[item docindex.man       {Package to handle docindex input and engines}]
+[division_end]
+[toc_end]
+}]
+
+[see_also doctools_fmt docidx_fmt doctoc_api doctoc]
+[keywords markup {generic markup} toc {table of contents} TMML HTML nroff LaTeX]
+[manpage_end]

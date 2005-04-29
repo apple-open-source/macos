@@ -172,10 +172,31 @@ int vfswrap_open(vfs_handle_struct *handle, connection_struct *conn, const char 
 int vfswrap_close(vfs_handle_struct *handle, files_struct *fsp, int fd)
 {
 	int result;
+#ifdef WITH_BRLM
+	BRLMStatus brlm_status = BRLMMiscErr;
+#endif
 
 	START_PROFILE(syscall_close);
 
+#ifdef WITH_BRLM
+if (lp_BRLM())
+{
+	if (fsp->brlm_ref) {
+		brlm_status = BRLMCloseRef(fsp->brlm_ref);
+	fsp->brlm_ref = 0;
+	if (BRLMNoErr == brlm_status)
+		result = 0;
+	else
+		result = -1;
+}
+	DEBUG(6,("vfswrap_close: [%d]BRLMCloseRef file(%s) ref(%X)\n", brlm_status, fsp->fsp_name, fsp->brlm_ref));
+} else {
+#endif
 	result = close(fd);
+#ifdef WITH_BRLM
+       }       /* lp_BRLM */   
+#endif         
+	
 	END_PROFILE(syscall_close);
 	return result;
 }

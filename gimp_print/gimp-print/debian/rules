@@ -1,6 +1,6 @@
 #!/usr/bin/make -f
-# rules to package GIMP-Print
-# $Id: rules,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $
+# rules to package Gimp-Print
+# $Id: rules,v 1.1.1.2 2004/07/23 06:26:25 jlovell Exp $
 #
 # Uncomment this to turn on verbose mode. 
 #export DH_VERBOSE=1
@@ -23,31 +23,41 @@ endif
 
 # Get upstream version, and define libgimpprint suffix
 UPSTREAM_VERSION = $(shell dpkg-parsechangelog | grep ^Version | sed "s/.* //" | sed "s/-[^-]*$$//")
-#LIBRARY_VERSION =  -$(UPSTREAM_VERSION)
-LIBRARY_VERSION = 1
+UPSTREAM_VERSION_COMPACT = $(shell echo '$(UPSTREAM_VERSION)' | sed "s/\(.*\..*\)\..*/\1/"
+LIBRARY_VERSION =  -$(UPSTREAM_VERSION)
+#LIBRARY_VERSION = 1
 
 autoconfigure: autoconfigure-stamp
-autoconfigure-stamp: debian/control debian/libgimpprint-doc.doc-base debian/libgimpprint-doc.install
+autoconfigure-stamp: debian/control debian/libgimpprint.install debian/libgimpprint-doc.doc-base.developer debian/libgimpprint-doc.doc-base.reference debian/libgimpprint-doc.install
 	dh_testdir
-
+# Create versioned symlinks
 	cd debian; \
 	for file in libgimpprint*; do \
-	  ln -sf $$file `echo $$file | sed -e 's/libgimpprint/libgimpprint$(LIBRARY_VERSION)/'`; \
+	ln -sfv $$file `echo $$file | sed -e 's/\(libgimpprint[[:alpha:]]*\)\(.*\)/\1$(LIBRARY_VERSION)\2/'`; \
 	done
 	rm debian/libgimpprint$(LIBRARY_VERSION)*.in
 	mkdir debian/build; \
 	cd debian/build; \
-	BUILD_PACKAGE=true ../../configure --host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) --prefix=/usr --mandir=\$${prefix}/share/man --infodir=\$${prefix}/share/info --enable-static --enable-shared --without-gimp --with-cups --with-ijs --with-foomatic --disable-test --without-translated-ppds --disable-cups-level3-ps --enable-maintainer-mode
+	../../configure --host=$(DEB_HOST_GNU_TYPE) \
+	  --build=$(DEB_BUILD_GNU_TYPE) \
+	  --prefix=/usr --mandir=\$${prefix}/share/man \
+	  --enable-static --enable-shared --disable-rpath \
+	  --with-modules=dlopen \
+	  --with-gimp --with-cups --with-ijs \
+	  --with-foomatic --with-foomatic3 \
+	  --disable-test \
+	  --enable-cups-level3-ppds --disable-translated-ppds \
+	  --disable-cups-level3-ps --disable-static-genppd \
+	  --enable-maintainer-mode 
 	touch autoconfigure-stamp
+
 
 build: build-stamp debian/control
 build-stamp: autoconfigure-stamp
 	dh_testdir
 
 	cd debian/build; \
-	$(MAKE); \
-	cd src/gimp; \
-	$(MAKE) print
+	$(MAKE)
 
 	touch build-stamp
 
@@ -62,12 +72,12 @@ clean: debian/control
 	  cp -f /usr/share/misc/config.guess scripts/config.guess
 
 	rm -rf debian/build debian/install
-	rm -rf debian/libgimpprint-doc.doc-base debian/libgimpprint-doc.install
+	rm -rf debian/libgimpprint.install debian/libgimpprint-doc.doc-base.developer debian/libgimpprint-doc.doc-base.reference debian/libgimpprint-doc.install
 	rm -rf debian/libgimpprint$(LIBRARY_VERSION).files
 	rm -rf debian/libgimpprint$(LIBRARY_VERSION).postinst
 	-$(MAKE) distclean
 
-	rm -rf $(CURDIR)/debian/libgimpprint$(LIBRARY_VERSION)*
+	rm -rf $(CURDIR)/debian/libgimpprint*$(LIBRARY_VERSION)*
 	dh_clean
 
 install: DH_OPTIONS=
@@ -80,9 +90,6 @@ install: build debian/control
 	cd debian/build; \
 	$(MAKE) DESTDIR=`pwd`/../install install
 
-	scripts/mkinstalldirs debian/gimp1.2-print/usr/lib/gimp/1.2/plug-ins
-	/usr/bin/install -c debian/build/src/gimp/.libs/print debian/gimp1.2-print/usr/lib/gimp/1.2/plug-ins/print
-
 	dh_install
 
 
@@ -90,33 +97,13 @@ install: build debian/control
 binary-indep: build install ChangeLog
 	dh_testdir -i
 	dh_testroot -i
-#	dh_installdebconf -i
 	dh_installdocs -i
-	  cd debian/libgimpprint$(LIBRARY_VERSION)-doc/usr/share/doc/libgimpprint$(LIBRARY_VERSION)-doc/html; \
-	  if test ! -f gimpprint.html; then \
-	    ln -s gimpprint_toc.html gimpprint.html; \
-	  fi
-	  cd debian/gimpprint-doc/usr/share/doc/gimpprint-doc/html; \
-	  if test ! -f index.html; then \
-	    ln -s book1.html index.html; \
-	  fi
 	dh_installexamples -i
-#	dh_installmenu -i
-#	dh_installlogrotate -i
-#	dh_installemacsen -i
-#	dh_installpam -i
-#	dh_installmime -i
-#	dh_installinit -i
-#	dh_installcron -i
-#	dh_installmanpages -i
-	dh_installinfo -i -plibgimpprint$(LIBRARY_VERSION)-doc debian/install/usr/share/info/*
-	dh_undocumented -i
 	dh_installchangelogs -i NEWS
 	dh_link -i
 	dh_compress -i
 	dh_fixperms -i
 	dh_installdeb -i
-#	dh_perl -i
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i
@@ -125,29 +112,24 @@ binary-indep: build install ChangeLog
 binary-arch: build install ChangeLog
 	dh_testdir -a
 	dh_testroot -a
-#	dh_installdebconf -a
 	dh_installdocs -a
 	  cp src/cups/README debian/cupsys-driver-gimpprint/usr/share/doc/cupsys-driver-gimpprint/README.cups
+	  mv debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppd.8 debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppd.5.0.8
+	  mv debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppdconfig.8 debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppdconfig.5.0.8
+	  mv debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppdupdate.8 debian/cupsys-driver-gimpprint/usr/share/man/man8/cups-genppdupdate.5.0.8
 	dh_installexamples -a
-#	dh_installmenu -a
-#	dh_installlogrotate -a
-#	dh_installemacsen -a
-#	dh_installpam -a
-#	dh_installmime -a
-#	dh_installinit -a
-#	dh_installcron -a
-#	dh_installmanpages -a
-#	dh_installinfo -a
-#	dh_undocumented -a
 	dh_installchangelogs -a NEWS
 	dh_strip -a
 	dh_link -a
 	dh_compress -a
 	dh_fixperms -a
-	dh_makeshlibs -a -V
+# Strip DT_RPATH from CUPS binaries.
+	find debian/cupsys-driver-gimpprint/usr/lib -type f -perm +0111 -print0 | xargs -0 chrpath --delete
+	chrpath --delete debian/cupsys-driver-gimpprint/usr/sbin/cups-genppd.5.0
+	dh_makeshlibs -a -V -X usr/lib/gimp-print
 	dh_installdeb -a
-#	dh_perl -a
-	dh_shlibdeps -a -l`pwd`/debian/libgimpprint$(LIBRARY_VERSION)/usr/lib
+	dh_shlibdeps -a -X usr/lib/gimp-print -l`pwd`/debian/libgimpprint$(LIBRARY_VERSION)/usr/lib
+	dh_perl -a
 	dh_gencontrol -a
 	dh_md5sums -a
 	dh_builddeb -a
@@ -162,29 +144,29 @@ changelog-stamp: build
 SEDPATTERN = -e "s/\#UPSTREAM_VERSION\#/$(UPSTREAM_VERSION)/g" -e "s/\#LIBRARY_VERSION\#/$(LIBRARY_VERSION)/g"
 
 # Make sure debian/control is up-to-date.
-debian/control: debian/changelog debian/control.in
-	sed $(SEDPATTERN) <debian/control.in >debian/control
+debian/control: debian/control.in debian/changelog
+	sed $(SEDPATTERN) <$< >$@
 
 # Make sure debian/libgimpprint-doc.doc-base is up-to-date.
-debian/libgimpprint-doc.doc-base: debian/changelog debian/libgimpprint-doc.doc-base.in
-	sed $(SEDPATTERN) <debian/libgimpprint-doc.doc-base.in >debian/libgimpprint-doc.doc-base
+debian/libgimpprint-doc.doc-base.developer: debian/libgimpprint-doc.doc-base.developer.in debian/changelog
+	sed $(SEDPATTERN) <$< >$@
+
+# Make sure debian/libgimpprint-doc.doc-base is up-to-date.
+debian/libgimpprint-doc.doc-base.reference: debian/libgimpprint-doc.doc-base.reference.in debian/changelog
+	sed $(SEDPATTERN) <$< >$@
 
 # Make sure debian/libgimpprint-doc.install is up-to-date.
-debian/libgimpprint-doc.install: debian/changelog debian/libgimpprint-doc.install.in
-	sed $(SEDPATTERN) <debian/libgimpprint-doc.install.in >debian/libgimpprint-doc.install
+debian/libgimpprint.install: debian/libgimpprint.install.in debian/changelog
+	sed $(SEDPATTERN) <$< >$@
+
+# Make sure debian/libgimpprint-doc.install is up-to-date.
+debian/libgimpprint-doc.install: debian/libgimpprint-doc.install.in debian/changelog
+	sed $(SEDPATTERN) <$< >$@
 
 
 # Make sure that configure is up-to-date.
-configure: configure.in scripts/install-sh
-	if test -f configure.in; then \
-	  if test -f autogen.sh; then \
-	    export NOCONFIGURE=TRUE; \
-	    /bin/sh autogen.sh; \
-	  fi \
-	fi
-
-configure.in: configure.in.in
-	if test -f configure.in.in; then \
+configure: configure.ac scripts/install-sh
+	if test -f configure.ac; then \
 	  if test -f autogen.sh; then \
 	    NOCONFIGURE=TRUE /bin/sh autogen.sh; \
 	  fi \
@@ -195,6 +177,4 @@ scripts/install-sh:
 	  NOCONFIGURE=TRUE /bin/sh autogen.sh; \
 	fi
 
-configure.in.in:
-
-.PHONY: build clean binary-indep binary-arch binary install autoconfigure NEWS
+.PHONY: build clean binary-indep binary-arch binary install autoconfigure

@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Dec 6 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: handleDevice.c,v 1.36 2003/08/04 06:50:05 ssen Exp $
+ *  $Id: handleDevice.c,v 1.47 2005/02/08 00:18:45 ssen Exp $
  *
  *
  */
@@ -38,6 +36,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 #include <sys/paths.h>
 #include <string.h>
 
@@ -48,12 +47,14 @@
 #include "bless.h"
 
 extern int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+extern int setboot(BLContextPtr context, char *device, CFDataRef bootxData,
+				   CFDataRef labelData);
 
-int modeDevice(BLContextPtr context, struct clopt commandlineopts[klast], struct clarg actargs[klast]) {
+int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
     int err = 0;
-
-    off_t wrapperBytesLeft = 0;
-    struct stat sb;
+	CFDataRef labeldata = NULL;
+	CFDataRef bootXdata = NULL;
+	
 
     if(!(geteuid() == 0)) {
 		blesscontextprintf(context, kBLLogLevelError,  "Not run as root\n" );
@@ -61,132 +62,55 @@ int modeDevice(BLContextPtr context, struct clopt commandlineopts[klast], struct
     }
 
 
-    if(actargs[ksystem].present && actargs[kwrapper].present) {
-		snprintf(actargs[kwrapper].argument, kMaxArgLength-1, "%s"_PATH_RSRCFORKSPEC,
-		   actargs[ksystem].argument);
-		actargs[kwrapper].argument[kMaxArgLength-1] = '\0';
-    }
 
 
-    if(actargs[kformat].present) {
-        if(!strcmp("hfs", actargs[kformat].argument)
-	   || !actargs[kformat].hasArg) {
-           
-	  if(actargs[kwrapper].present) {
-	    stat(actargs[kwrapper].argument, &sb);
-	    if(err < 0) {
-	      blesscontextprintf(context, kBLLogLevelError,  "Could not find system file for wrapper %s\n", actargs[kwrapper].argument );
-	      return 1;
-            }
-	    
-            wrapperBytesLeft += sb.st_size + 512;
-	  }
-           
-        err = BLFormatHFS(context, actargs[kdevice].argument,
-                                wrapperBytesLeft,
-                                ( actargs[klabel].present ?
-                                (char *)actargs[klabel].argument :
-                                kDefaultHFSLabel),
-                                ( actargs[kfsargs].present ?
-                                (char *)actargs[kfsargs].argument :
-                                ""));
-            if(err) {
-                blesscontextprintf(context, kBLLogLevelError,  "Error while formatting %s\n", actargs[kdevice].argument );
-                return 1;
-            }
-        } else {
-            blesscontextprintf(context, kBLLogLevelError,  "Unsupported filesystem %s\n", actargs[kformat].argument );
-            return 1;
-        }
-    }
-
-    if(actargs[kwrapper].present) {
-
-        if(!actargs[kmount].present) {
-			blesscontextprintf(context, kBLLogLevelVerbose,  "No temporary mount point specified for wrapper, using /mnt\n" );
-			strcpy(actargs[kmount].argument, "/mnt");
-                        actargs[kmount].present = 1;
-        }
-
-        err = BLMountHFSWrapper(context, actargs[kdevice].argument, actargs[kmount].argument);
-        if(err) {
-            blesscontextprintf(context, kBLLogLevelError,  "Error while mounting wrapper for %s\n", actargs[kdevice].argument );
-            return 1;
-        }
-
-        blesscontextprintf(context, kBLLogLevelVerbose,  "Wrapper for %s mounted at %s\n", actargs[kdevice].argument, actargs[kmount].argument );
-
-        err = BLUpdateHFSWrapper(context, actargs[kmount].argument, actargs[kwrapper].argument);
-        if(err) {
-            blesscontextprintf(context, kBLLogLevelError,  "Error %d while updating wrapper for %s\n", err, actargs[kdevice].argument );
-            return 1;
-        }
-
-        if(actargs[kbootblockfile].present) {
-	    CFDataRef bbdata = NULL;
-	    
-			err = BLLoadFile(context, actargs[kbootblockfile].argument, 0, &bbdata);
-			    if(err) {
-				    blesscontextprintf(context, kBLLogLevelError, "Can't get boot blocks from data-fork file %s\n",
-				actargs[kbootblockfile].argument);
-				    return 1;
-			    } else {
-				    blesscontextprintf(context, kBLLogLevelVerbose,  "Boot blocks read from %s\n", actargs[kbootblockfile].argument );
-			    }
-			
-			err = BLSetBootBlocks(context, actargs[kmount].argument, bbdata);
-			CFRelease(bbdata);
-
-			if(err) {
-				blesscontextprintf(context, kBLLogLevelError,  "Can't set boot blocks for %s\n", actargs[kmount].argument );
-				return 1;
-			} else {
-				blesscontextprintf(context, kBLLogLevelVerbose,  "Boot blocks set successfully\n" );
-			}
-        }
-
-        err = BLUnmountHFSWrapper(context, actargs[kdevice].argument, actargs[kmount].argument);
-        if(err) {
-            blesscontextprintf(context, kBLLogLevelError,  "Error while unmounting wrapper for %s\n", actargs[kdevice].argument );
-            return 1;
-        }
-    }
-
-
+    /* try to grovel the HFS+ catalog and update a label if present */
+	if(actargs[klabelfile].present) {
+		err = BLLoadFile(context, actargs[klabelfile].argument, 0, &labeldata);
+		if(err) {
+			blesscontextprintf(context, kBLLogLevelError, "Can't load label '%s'\n",
+							   actargs[klabelfile].argument);
+			return 2;
+		}
+	} else if(actargs[klabel].present) {
+		err = BLGenerateOFLabel(context, actargs[klabel].argument, &labeldata);
+		if(err) {
+			blesscontextprintf(context, kBLLogLevelError, "Can't render label '%s'\n",
+							   actargs[klabel].argument);
+			return 3;
+		}
+	}
     
+	if(actargs[kbootinfo].present) {
+		if(!actargs[kbootinfo].hasArg) {
+            blesscontextprintf(context, kBLLogLevelError,
+							   "BootX file must be specified in Device Mode\n");
+			return 4;
+        }
+		
+		err = BLLoadFile(context, actargs[kbootinfo].argument, 0, &bootXdata);
+		if(err) {
+			blesscontextprintf(context, kBLLogLevelError,  "Could not load BootX data from %s\n",
+							   actargs[kbootinfo].argument);
+		}
+	}
+		
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
-	unsigned char parDev[MNAMELEN];
-	unsigned long slice;
-	BLPartitionType ptype;
-
-	err = BLGetParentDeviceAndPartitionType(context, actargs[kdevice].argument, parDev, &slice, &ptype);
-	if(err) {
-	    return 3;
+		err = setboot(context, actargs[kdevice].argument, bootXdata, labeldata);
+		if(err) {
+			return 3;
+		}
+    } else if(labeldata) {
+		err = BLSetOFLabelForDevice(context, actargs[kdevice].argument, labeldata);
+		if(err) {
+			blesscontextprintf(context, kBLLogLevelError,  "Error while setting label for %s\n", actargs[kdevice].argument );
+			return 3;
+		}		
 	}
 
-	blesscontextprintf(context, kBLLogLevelVerbose, "Device '%s' is part of an %s partition map\n",
-		    actargs[kdevice].argument,
-		    ptype == kBLPartitionType_APM ? "Apple" : (ptype == kBLPartitionType_MBR ? "MBR" : "Unknown"));
-
-	if(ptype == kBLPartitionType_MBR) {
-	    err = BLSetActiveBIOSBootDevice(context, actargs[kdevice].argument);
-	    if(err) {
-		blesscontextprintf(context, kBLLogLevelError,  "Can't set active boot partition\n" );
-		return 4;
-	    } else {
-		blesscontextprintf(context, kBLLogLevelVerbose,  "%s set as active boot partition\n" , actargs[kdevice].argument);
-	    }
-	} else if(ptype == kBLPartitionType_APM && BLIsOpenFirmwarePresent(context)) {
-	    err = BLSetOpenFirmwareBootDevice(context, actargs[kdevice].argument);
-	    if(err) {
-		blesscontextprintf(context, kBLLogLevelError,  "Can't set Open Firmware\n" );
-		return 1;
-	    } else {
-		blesscontextprintf(context, kBLLogLevelVerbose,  "Open Firmware set successfully\n" );
-	    }
-	}
-    }
+	if(labeldata) CFRelease(labeldata);
+	if(bootXdata) CFRelease(bootXdata);
 
     return 0;
 }

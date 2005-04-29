@@ -1,0 +1,69 @@
+# Commands covered: sound length
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test length-1.1 {length command, get length in samples} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s length -unit samples]
+  $s destroy
+  set res
+} {15820}
+
+test length-1.2 {length command, set length in samples} {
+  set s [snack::sound snd]
+  $s length 1000000 -unit samples
+  set res [$s length]
+  $s destroy
+  set res
+} {1000000}
+
+test length-1.3 {length command, set length in seconds} {
+  set s [snack::sound snd]
+  $s length 10 -unit seconds
+  set res [$s length]
+  $s destroy
+  set res
+} {160000}
+
+test length-1.4 {length command, get length in seconds} {
+  set s [snack::sound snd]
+  $s length 16000
+  set res [$s length -unit seconds]
+  $s destroy
+  set res
+} {1.0}
+
+test length-1.5 {length command, set length for linked sound} {
+  set s [snack::sound snd -file ""]
+  catch {$s length 1000000} msg
+  $s destroy
+  set msg
+} {setting sound length only works with in-memory sounds}
+
+test length-2.1 {length command, set length in samples, change channels} {
+  set s [snack::sound snd -channels 2]
+  $s length 1000000
+  $s configure -channels 1
+  set res [$s length]
+  $s destroy
+  set res
+} {2000000}
+
+test length-2.2 {length command, set length in samples, change channels} {
+  set s [snack::sound snd -channels 1]
+  $s length 900000
+  $s configure -channels 9
+  set res [$s length]
+  $s destroy
+  set res
+} {100000}
+
+# cleanup
+::tcltest::cleanupTests
+return

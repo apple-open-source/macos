@@ -1,5 +1,5 @@
 .\"***************************************************************************
-.\" Copyright (c) 1998,2002 Free Software Foundation, Inc.                   *
+.\" Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
 .\"                                                                          *
 .\" Permission is hereby granted, free of charge, to any person obtaining a  *
 .\" copy of this software and associated documentation files (the            *
@@ -26,15 +26,14 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" Author: Thomas E. Dickey <dickey@clark.net> 1996,1997,2002
+.\" Author: Thomas E. Dickey 1996,1997,2002
 .\"
-.\" $Id: resizeterm.3x,v 1.1.1.2 2002/02/15 21:55:21 jevans Exp $
+.\" $Id: resizeterm.3x,v 1.10 2003/10/25 20:41:08 tom Exp $
 .TH resizeterm 3X ""
 .SH NAME
 \fBis_term_resized\fR,
 \fBresize_term\fR,
 \fBresizeterm\fR - change the curses terminal size
-..
 .SH SYNOPSIS
 \fB#include <curses.h>\fR
 
@@ -43,7 +42,6 @@
 \fBint resize_term(int lines, int columns);\fR
 .br
 \fBint resizeterm(int lines, int columns);\fR
-..
 .SH DESCRIPTION
 This is an extension to the curses library.
 It provides callers with a hook into the \fBncurses\fR data to resize windows,
@@ -65,19 +63,16 @@ without additional interaction with the application.
 A support function \fBis_term_resized\fR is provided so that applications
 can check if the \fBresize_term\fR function would modify the window structures.
 It returns TRUE if the windows would be modified, and FALSE otherwise.
-..
 .SH RETURN VALUE
 Except as notes, these function return
 the integer \fBERR\fR upon failure and \fBOK\fR on success.
 They will fail if either of the dimensions are less than or equal to zero,
 or if an error occurs while (re)allocating memory for the windows.
-..
 .SH NOTES
 While these functions are intended to be used to support a signal handler
 (i.e., for SIGWINCH), care should be taken to avoid invoking them in a
 context where \fBmalloc\fR or \fBrealloc\fR may have been interrupted,
 since it uses those functions.
-..
 .PP
 If ncurses is configured to supply its own SIGWINCH handler,
 the \fBresizeterm\fR function ungetch's a \fBKEY_RESIZE\fR which
@@ -85,10 +80,8 @@ will be read on the next call to \fBgetch\fR.
 This is used to alert an application that the screen size has changed,
 and that it should repaint special features such as pads that cannot
 be done automatically.
-..
 .SH SEE ALSO
 \fBwresize\fR(3X).
-..
 .SH AUTHOR
 Thomas Dickey (from an equivalent function written in 1988 for BSD curses).
 .\"#

@@ -25,5 +25,5 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(utimes, 1)
+UNIX_SYSCALL(utimes, 2)
 	ret

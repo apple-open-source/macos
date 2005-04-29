@@ -225,24 +225,14 @@ Functions with the tt(#autoload) tag are marked for autoloading but
 are not otherwise treated specially.  Typically they are to be called
 from within one of the completion functions.  Any var(options) supplied
 will be passed to the tt(autoload) builtin; a typical use is tt(+X) to
-force the function to be loaded immediately.  Note that the tt(-U) flag is
-always added implicitly.
+force the function to be loaded immediately.  Note that the tt(-U) and
+tt(-z) flags are always added implicitly.
 )
 enditem()
 
 The tt(#) is part of the tag name and no white space is allowed after it.
 The tt(#compdef) tags use the tt(compdef) function described below; the
 main difference is that the name of the function is supplied implicitly.
-
-Note also that the functions for the completion system assume that the
-tt(KSH_AUTOLOAD) option is not set.  They cannot be loaded if it is
-set.  To avoid having to unset tt(KSH_AUTOLOAD), you can instead use one or
-more tt(zwc) file(s) that have been created with the command tt(zcompile
--z) to load the functions for the completion system; see
-ifzman(zmanref(zshbuiltins))\
-ifnzman(noderef(Shell Builtin Commands))\
-.  This forces the functions to be autoloaded the way zsh normally
-loads functions.
 
 The special contexts for which completion functions can be defined are:
 
@@ -1034,7 +1024,9 @@ words beginning with a tilde or parameter expansion should be
 expanded.  For example, if there are parameters
 tt(foo) and tt(foobar), the string `tt($foo)' will only be expanded if 
 tt(accept-exact) is set to `true'; otherwise the completion system will
-be allowed to complete tt($foo) to tt($foobar).
+be allowed to complete tt($foo) to tt($foobar). If the style is set to
+`continue', _expand will add the expansion as a match and the completion
+system will also be allowed to continue.
 )
 kindex(add-space, completion style)
 item(tt(add-space))(
@@ -1137,6 +1129,11 @@ Note that the completion function generally has to call the specified
 command for each attempt to generate the completion list.  Hence
 care should be taken to specify only commands that take a short
 time to run, and in particular to avoid any that may never terminate.
+)
+kindex(command-path, completion style)
+item(tt(command-path))(
+This is a list of directories to search for commands to complete.  The
+default for this style is the value of the special parameter tt(path).
 )
 kindex(commands, completion style)
 item(tt(commands))(
@@ -2150,6 +2147,13 @@ completing words for the dict command. It allows words from different
 dictionary databases to be added separately.
 The default for this style is `false'.
 )
+kindex(show-completer, completion style)
+item(tt(show-completer))(
+Tested whenever a new completer is tried.  If it is true, the completion
+system outputs a progress message in the listing area showing what
+completer is being tried.  The message will be overwritten by any output
+when completions are found and is removed after completion is finished.
+)
 kindex(single-ignored, completion style)
 item(tt(single-ignored))(
 This is used by the tt(_ignored) completer when there is only one match.
@@ -2160,12 +2164,22 @@ is started, making it easy to select either of them.
 )
 kindex(sort, completion style)
 item(tt(sort))(
-If set to `true', completing words from the command
-history sorts the words alphabetically instead of
-keeping them in the order in which they appear in the history (from
-youngest to oldest).
+Many completion widgets call tt(_description) at some point which
+decides whether the matches are added sorted or unsorted (often
+indirectly via tt(_wanted) or tt(_requested)).  This style can be set
+explicitly to one of the usual true or false values as an override.
+If it is not set for the context, the standard behaviour of the
+calling widget is used.
 
-This is also used by the tt(_expand) completer. If it is set to
+The style is tested first against the full context including the tag, and
+if that fails to produce a value against the context without the tag.
+
+If the calling widget explicitly requests unsorted matches, this is usually
+honoured.  However, the default (unsorted) behaviour of completion
+for the command history may be overridden by setting the style to
+tt(true).
+
+In the tt(_expand) completer, if it is set to
 `true', the expansions generated will always be sorted.  If it is set
 to `tt(menu)', then the expansions are only sorted when they are offered 
 as single strings but not in the string containing all possible
@@ -2772,12 +2786,13 @@ not be used.
 )
 findex(_menu)
 item(tt(_menu))(
-This completer is a simple example function implemented to show how
-menu completion can be done in shell code.  It should be used as the
-first completer and has the effect of making later completers perform
-menu completion.  Note that this is independent of the setting of the
-tt(MENU_COMPLETE) option and does not work with the other
-menu completion widgets such as tt(reverse-menu-complete), or
+This completer was written as simple example function to show how menu
+completion can be enabled in shell code. However, it has the notable
+effect of disabling menu selection which can be useful with
+tt(_generic) based widgets. It should be used as the first completer in
+the list.  Note that this is independent of the setting of the
+tt(MENU_COMPLETE) option and does not work with the other menu
+completion widgets such as tt(reverse-menu-complete), or
 tt(accept-and-menu-complete).
 )
 findex(_oldlist)
@@ -3819,7 +3834,7 @@ As an example, consider a command taking the options tt(-n) and
 tt(-none), where tt(-n) must be followed by a numeric value in the
 same word.  By using:
 
-example(_argument '-n-: :_guard "[0-9]#" "numeric value"' '-none')
+example(_arguments '-n-: :_guard "[0-9]#" "numeric value"' '-none')
 
 tt(_arguments) can be made to both display the message `tt(numeric
 value)' and complete options after `tt(-n<TAB>)'.  If the `tt(-n)' is
@@ -4153,7 +4168,7 @@ findex(_retrieve_cache)
 item(tt(_retrieve_cache) var(cache_identifier))(
 This function retrieves completion information from the file given by
 var(cache_identifier), stored in a directory specified by the
-tt(cache-path) style which defaults to tt(~/.zsh/cache).  The return value
+tt(cache-path) style which defaults to tt(~/.zcompcache).  The return value
 is zero if retrieval was successful.  It will only attempt retrieval
 if the tt(use-cache) style is set, so you can call this function
 without worrying about whether the user wanted to use the caching
@@ -4203,7 +4218,7 @@ even in different instances of the shell.
 
 The var(cache_identifier) specifies the file which the data should be
 dumped to.  The file is stored in a directory specified by the
-tt(cache-path) style which defaults to tt(~/.zsh/cache).  The remaining
+tt(cache-path) style which defaults to tt(~/.zcompcache).  The remaining
 var(params) arguments are the parameters to dump to the file.
 
 The return value is zero if storage was successful.  The function will

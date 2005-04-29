@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,18 +25,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mbsinit.c,v 1.1 2002/08/18 06:30:10 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mbsinit.c,v 1.3 2004/05/12 14:09:04 tjr Exp $");
 
 #include <wchar.h>
+#include "mblocal.h"
 
 int
-mbsinit(const mbstate_t *ps __unused)
+mbsinit(const mbstate_t *ps)
 {
 
-	/*
-	 * Stateful multibyte conversion is not supported; there are no
-	 * states other than the initial state.
-	 */
-
-	return (1);
+	return (__mbsinit(ps));
 }

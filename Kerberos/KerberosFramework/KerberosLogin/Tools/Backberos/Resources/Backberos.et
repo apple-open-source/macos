@@ -1,0 +1,12 @@
+#ifdef mw_rez
+    #include <KerberosSupport/ErrorList.r>
+#else
+    #include "ErrorList.r"
+#endif
+
+resource 'ErrT' (128, "Backberos")
+{
+	{
+		11111, "Backberos Error 1", "Backberos Long Error 1"
+	}
+};

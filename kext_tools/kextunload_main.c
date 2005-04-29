@@ -342,15 +342,14 @@ int main(int argc, const char *argv[]) {
              exit_code = 1;
              goto finish;
         }
-/* PR-3416740: we shouldn't return with an error if kextunload fails for unspecified reasons, like when the kext isn't 
-loaded.  This isn't optimal, but it's what we did in Jaguar. -DH */
- /*        if (kern_result != KERN_SUCCESS) {
+/* PR-3424027: we are now returning an error for unspecified kernel failures. -DH */
+         if (kern_result != KERN_SUCCESS) {
              if (!format_kern_result(kern_result)) {
                  exit_code = 1;
                  goto finish;
              }
              exit_code = 1;
-        }*/
+        }
         verbose_log("unload kext %s %s",
             kext_name,
             kern_result == KERN_SUCCESS ? "succeeded" : "failed",

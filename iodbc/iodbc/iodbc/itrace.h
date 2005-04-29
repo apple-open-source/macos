@@ -1,7 +1,7 @@
 /*
  *  itrace.h
  *
- *  $Id: itrace.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: itrace.h,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Trace functions
  *
@@ -73,127 +73,78 @@
 #ifndef	_ITRACE_H
 #define _ITRACE_H
 
-#ifdef	DEBUG
+/*
+ *  Trace function prototypes
+ */
+#include "trace/proto.h"
 
-#ifndef NO_TRACE
-#define NO_TRACE
-#endif
+extern int ODBCSharedTraceFlag;
 
-#endif
 
-#define TRACE_TYPE_APP2DM	1
-#define TRACE_TYPE_DM2DRV	2
-#define TRACE_TYPE_DRV2DM	3
-
-#define TRACE_TYPE_RETURN	4
-
-extern HPROC _iodbcdm_gettrproc (void FAR * stm, int procid, int type);
-
-#ifdef NO_TRACE
-#define TRACE_CALL( stm, trace_on, procid, plist )
+/*
+ *  Usefull macros
+ */
+#ifdef NO_TRACING
+#define TRACE(X)
 #else
-#define TRACE_CALL( stm, trace_on, plist )\
-	{\
-		if( trace_on)\
-		{\
-			HPROC	hproc;\
-\
-			hproc = _iodbcdm_gettrproc(stm, procid, TRACE_TYPE_APP2DM);\
-\
-			if( hproc )\
-				hproc plist;\
-		}\
-	}
+#define TRACE(X)	if (ODBCSharedTraceFlag) X
 #endif
 
-#ifdef NO_TRACE
-#define TRACE_DM2DRV( stm, procid, plist )
-#else
-#define TRACE_DM2DRV( stm, procid, plist )\
-	{\
-		HPROC	hproc;\
-\
-		hproc = _iodbcdm_gettrproc(stm, procid, TRACE_TYPE_DM2DRV);\
-\
-		if( hproc )\
-			hproc plist;\
-	}
-#endif
+#define TRACE_ENTER	0, retcode
+#define TRACE_LEAVE	1, retcode
 
-#ifdef NO_TRACE
-#define TRACE_DRV2DM( stm, procid, plist )
-#else
-#define TRACE_DRV2DM( stm, procid, plist ) \
-	{\
-		HPROC	hproc;\
-\
-		hproc = _iodbcdm_gettrproc( stm, procid, TRACE_TYPE_DRV2DM);\
-\
-		if( hproc )\
-				hproc plist;\
-	}
-#endif
-
-#ifdef NO_TRACE
-#define TRACE_RETURN( stm, trace_on, ret )
-#else
-#define TRACE_RETURN( stm, trace_on, ret )\
-	{\
-		if( trace_on ) {\
-			HPROC hproc;\
-\
-			hproc = _iodbcdm_gettrproc( stm, 0, TRACE_TYPE_RETURN);\
-\
-			if( hproc )\
-				hproc( stm, ret );\
-		}\
-	}
-#endif
 
 #define CALL_DRIVER_FUNC( hdbc, errHandle, ret, proc, plist ) \
     { \
-      ret = proc plist; \
-      if (errHandle) ((GENV_t FAR *)(errHandle))->rc = ret; \
+	ret = proc plist; \
+	if (errHandle) ((GENV_t *)(errHandle))->rc = ret; \
     }
 
-#ifdef	NO_TRACE
-#define CALL_DRIVER( hdbc, errHandle, ret, proc, procid, plist ) \
-	{\
-		DBC_t FAR*	pdbc = (DBC_t FAR*)(hdbc);\
-		ENV_t FAR*      penv = (ENV_t FAR*)(pdbc->henv);\
-\
-	        if (!penv->thread_safe)\
-			MUTEX_LOCK (penv->drv_lock);\
-\
-		CALL_DRIVER_FUNC( hdbc, errHandle, ret, proc, plist )
-\
-	        if (!penv->thread_safe)\
-			MUTEX_UNLOCK (penv->drv_lock);\
-\
-	}
-#else
-#define CALL_DRIVER( hdbc, errHandle, ret, proc, procid, plist ) \
-	{\
-		DBC_t FAR*	pdbc = (DBC_t FAR*)(hdbc);\
-		ENV_t FAR*      penv = (ENV_t FAR*)(pdbc->henv);\
-\
-	        if (!penv->thread_safe)\
-			MUTEX_LOCK (penv->drv_lock);\
-\
-		if( pdbc->trace ) {\
-			TRACE_DM2DRV( pdbc->tstm, procid, plist )\
-			CALL_DRIVER_FUNC( hdbc, errHandle, ret, proc, plist );\
-			TRACE_DRV2DM( pdbc->tstm, procid, plist )\
-			TRACE_RETURN( pdbc->tstm, 1, ret )\
-		}\
-		else\
-			CALL_DRIVER_FUNC( hdbc, errHandle, ret, proc, plist );\
-\
-	        if (!penv->thread_safe)\
-			MUTEX_UNLOCK (penv->drv_lock);\
-\
-	}
-#endif
 
+#define CALL_DRIVER( hdbc, errHandle, ret, proc, procid, plist ) \
+    {\
+	DBC_t *	t_pdbc = (DBC_t *)(hdbc);\
+	ENV_t * t_penv = (ENV_t *)(t_pdbc->henv);\
+\
+	if (!t_penv->thread_safe)\
+	    MUTEX_LOCK (t_penv->drv_lock);\
+\
+	CALL_DRIVER_FUNC( hdbc, errHandle, ret, proc, plist )\
+\
+	if (!t_penv->thread_safe)\
+	    MUTEX_UNLOCK (t_penv->drv_lock);\
+    }
+
+#define CALL_UDRIVER(hdbc, errHandle, retcode, hproc, unicode_driver, procid, plist) \
+    { \
+	if (unicode_driver) \
+	{ \
+	    /* SQL_XXX_W */ \
+	    if ((hproc = _iodbcdm_getproc (hdbc, procid ## W)) \
+		!= SQL_NULL_HPROC) \
+	    { \
+		CALL_DRIVER (hdbc, errHandle, retcode, hproc, \
+		    procid ## W, plist) \
+	    } \
+	} \
+	else \
+	{ \
+	    /* SQL_XXX */   \
+	    /* SQL_XXX_A */ \
+	    if ((hproc = _iodbcdm_getproc (hdbc, procid)) \
+		!= SQL_NULL_HPROC) \
+	    { \
+		CALL_DRIVER (hdbc, errHandle, retcode, hproc, \
+		    procid, plist) \
+	    } \
+	    else \
+	      if ((hproc = _iodbcdm_getproc (hdbc, procid ## A)) \
+		  != SQL_NULL_HPROC) \
+	      { \
+		  CALL_DRIVER (hdbc, errHandle, retcode, hproc, \
+		      procid ## A, plist) \
+	      } \
+	} \
+    }
 
 #endif

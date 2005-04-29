@@ -1,0 +1,18 @@
+#if __POWERPC__
+#pragma precompile_target "MkWrapHeaderPPC++"
+#elif __CFM68K__
+#pragma precompile_target "MkWrapHeaderCFM68K++"
+#else
+#pragma precompile_target "MkWrapHeader68K++"
+#endif
+
+//#include "tclMacCommonPch.h"
+#include <ansi_prefix.mac.h>
+
+#include "Mk4release.h"
+
+//#pragma export on
+#include "mk4.h"
+#include "python.h"
+//#pragma export reset
+

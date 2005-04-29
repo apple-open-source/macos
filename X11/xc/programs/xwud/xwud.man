@@ -23,16 +23,17 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xwud/xwud.man,v 1.9 2002/04/22 20:53:11 herrb Exp $
+.\" $XFree86: xc/programs/xwud/xwud.man,v 1.10 2003/11/15 02:40:28 dawes Exp $
 .\"
 .TH XWUD 1 __xorgversion__
 .SH NAME
 xwud - image displayer for X
 .SH SYNOPSIS
 .B "xwud"
-[-in \fIfile\fP] [-noclick] [-geometry \fIgeom\fP] [-display \fIdisplay\fP]
-[-new] [-std <maptype>] [-raw] [-vis <vis-type-or-id>] [-scale]
-[-help] [-rv] [-plane \fInumber\fP] [-fg \fIcolor\fP] [-bg \fIcolor\fP]
+[\-in \fIfile\fP] [\-noclick] [\-geometry \fIgeom\fP] [\-display \fIdisplay\fP]
+[\-new] [\-std <maptype>] [\-raw] [\-vis <vis-type-or-id>] [\-scale]
+[\-help] [\-rv] [\-plane \fInumber\fP] [\-fg \fIcolor\fP] [\-bg \fIcolor\fP]
+[\-dumpheader]
 .SH DESCRIPTION
 .PP
 .I Xwud
@@ -43,37 +44,41 @@ in a specially formatted dump file, such as produced by \fIxwd(1)\fP.
 .SH OPTIONS
 .PP
 .TP 8
-.B "-bg \fIcolor\fP"
+.B "\-bg \fIcolor\fP"
 If a bitmap image (or a single plane of an image) is displayed, this option
 can be used to specify the color to display for the "0" bits in the image.
 .PP
 .TP 8
-.B "-display \fIdisplay\fP"
+.B "\-display \fIdisplay\fP"
 This option allows you to specify the server to connect to; see \fIX(__miscmansuffix__)\fP.
 .PP
 .TP 8
-.B "-fg \fIcolor\fP"
+.B \-dumpheader
+This option prints out the XWD header information only.  Nothing is displayed.
+.PP
+.TP 8
+.B "\-fg \fIcolor\fP"
 If a bitmap image (or a single plane of an image) is displayed, this option
 can be used to specify the color to display for the "1" bits in the image.
 .PP
 .TP 8
-.B "-geometry \fIgeom\fP"
+.B "\-geometry \fIgeom\fP"
 This option allows you to specify the size and position of the window.
 Typically you will only want to specify the position, and let the size
 default to the actual size of the image.
 .PP
 .TP 8
-.B "-help"
+.B "\-help"
 Print out a short description of the allowable options.
 .PP
 .TP 8
-.B "-in \fIfile\fP"
+.B "\-in \fIfile\fP"
 This option allows the user to explicitly specify the input 
 file on the command line.  If no input file is given, the standard input
 is assumed.
 .PP
 .TP 8
-.B -new
+.B \-new
 This option forces creation of a new colormap for displaying the image.
 If the image characteristics happen to match those of the display, this
 can get the image on the screen faster, but at the cost of using a new
@@ -81,19 +86,19 @@ colormap (which on most displays will cause other windows to go
 technicolor).
 .PP
 .TP 8
-.B "-noclick"
+.B "\-noclick"
 Clicking any button in the window will terminate the application,
 unless this option is specified.  Termination can always be achieved
 by typing 'q', 'Q', or ctrl-c.
 .PP
 .TP 8
-.B "-plane \fInumber\fP"
+.B "\-plane \fInumber\fP"
 You can select a single bit plane of the image to display
 with this option.  Planes are numbered with zero being the least
 significant bit.
 .PP
 .TP 8
-.B -raw
+.B \-raw
 This option forces the image to be displayed with whatever color values
 happen to currently exist on the screen.  This option is mostly useful when
 undumping an image back onto the same screen that the image originally
@@ -101,18 +106,18 @@ came from, while the original windows are still on the screen, and results
 in getting the image on the screen faster.
 .PP
 .TP 8
-.B -rv
+.B \-rv
 If a bitmap image (or a single plane of an image) is displayed, this option
 forces the foreground and background colors to be swapped.  This may be
 needed when displaying a bitmap image which has the color sense of pixel
 values "0" and "1" reversed from what they are on your display.
 .PP
 .TP 8
-.B -scale
+.B \-scale
 Allow the window to be resized, and scale the image to the size of the window.
 .PP
 .TP 8
-.B "-std \fImaptype\fP"
+.B "\-std \fImaptype\fP"
 This option causes the image to be displayed using the specified
 Standard Colormap.  The property name is obtained by converting the
 type to upper case, prepending "RGB_", and appending "_MAP".
@@ -120,7 +125,7 @@ Typical types are "best", "default", and "gray".  See \fIxstdcmap(1)\fP
 for one way of creating Standard Colormaps.
 .PP
 .TP 8
-.B "-vis \fIvis-type-or-id\fP"
+.B "\-vis \fIvis-type-or-id\fP"
 This option allows you to specify a particular visual or visual class.
 The default is to pick the "best" one.  A particular class can be
 specified: "StaticGray", "GrayScale", "StaticColor", "PseudoColor",

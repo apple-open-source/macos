@@ -1,7 +1,192 @@
+2004-12-02  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.h: Reset BFD_MACH_O_CPU_TYPE_POWERPC_64 to the real
+	value.  19 is gone...
+	* mach-o.c (bfd_mach_o_convert_architecture): Change to
+	accomodate new BFD_MACH_O_CPU_TYPE_POWERPC_64.
+	(bfd_mach_o_scan_start_address): Add a case for PPC64.
+	
+2004-11-24  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.c (bfd_mach_o_core_fetch_environment): In some cases
+	(when the core file is malformed) we can end up exiting the
+	main loop without having found the environment.  In that case
+	we should return an error code.
+	
+2004-11-23  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_symtab): Nuke another
+	place where we had a hard-coded size for nlist.
+	
+2004-11-15  Jim Ingham  <jingham@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_dysymtab): Don't hard-code
+	the size of an nlist entry, get it from the mach-o version
+	like everybody else.
+	
+2004-11-10  Jason Molenda  (jmolenda@apple.com)
+
+	* mach-o.c (bfd_mach_o_archive_p): Comment.
+
+2004-10-14  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (BFD_MACH_O_CPU_IS64BIT): New constant.
+	* mach-o.c (bfd_mach_o_convert_architecture): Handle the new
+	64-bit specifier (bitfield instead of a value of 19).
+
+2004-10-11  Jason Molenda  (jmolenda@apple.com)
+
+	* mach-o.c (bfd_mach_o_core_file_failing_command): Handle
+	return value of 0 correctly.
+
+2004-10-05  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.h (bfd_mach_o_versoin): Add prototype.
+	* mach-o.c (bfd_mach_o_version): New function.
+	(bfd_mach_o_core_file_failing_command): Trim off the
+	non-command-line part of the string.
+
+2004-09-21  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_core_parse_environment): New function.
+	Check for four consecutive null characters, not necessarily a
+	null longword (to match the behavior of otool).
+	(bfd_mach_o_fetch_environment): Update to use
+	bfd_mach_o_core_parse_environment.
+
+2004-09-15  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.c (bfd_mach_o_scan_read_segment): 64-bit fixes.
+	(bfd_mach_o_scan_write_segment): 64-bit fixes.
+
+2004-08-30  Klee Dienes  <kdienes@apple.com>
+
+	* mach-o.h (enum bfd_mach_o_load_command_type): Add
+	BFD_MACH_O_LC_SEGMENT_64.
+	(enum bfd_mach_o_cpu_subtype): New enumerated type.
+	(enum bfd_mach_o_section_type): Add BFD_MACH_O_S_GB_ZEROFILL.
+	(struct bfd_mach_o_header): Add 'reserved' and 'version'.
+	(struct bfd_mach_o_section): Add 'reserved3'.
+	(struct bfd_mach_o_segment_common): Add 'maxprot' and 'initprot'.
+	
+	* mach-o.c (bfd_mach_o_scan_read_section_32): Add prototype.
+	(bfd_mach_o_scan_read_section_64): Add prototype.
+	(bfd_mach_o_scan_write_section_32): Add prototype.
+	(bfd_mach_o_scan_write_section_64): Add prototype.
+	(bfd_mach_o_scan_read_segment_32): Add prototype.
+	(bfd_mach_o_scan_read_segment_64): Add prototype.
+	(bfd_mach_o_scan_write_segment_32): Add prototype.
+	(bfd_mach_o_scan_write_segment_64): Add prototype.
+	(bfd_mach_o_scan_read_section): Add new 'wide' argument.
+	(bfd_mach_o_scan_write_section): Add new 'wide' argument.
+	(bfd_mach_o_scan_read_segment): Add new 'wide' argument.
+	(bfd_mach_o_scan_write_segment): Add new 'wide' argument.
+	
+	(bfd_mach_o_write_contents): Update to support Mach-O 2.0.
+	(bfd_mach_o_write_header): Update to support Mach-O 2.0.
+	(bfd_mach_o_read_header): Update to support Mach-O 2.0.
+	(bfd_mach_o_make_bfd_section): Recognize BFD_MACH_O_S_GB_ZEROFILL.
+	(bfd_mach_o_scan_read_section_32): New function.
+	(bfd_mach_o_scan_write_section_32): New function.
+	(bfd_mach_o_scan_read_segment_32): New function.
+	(bfd_mach_o_scan_write_segment_32): New function.
+	(bfd_mach_o_scan_write_symtab_symbols): Update to support Mach-O 2.0.
+	(bfd_mach_o_scan_read_dysymtab): Update to support Mach-O 2.0.
+	
+2004-08-24  Jason Molenda  (jmolenda@apple.com)
+
+	* mach-o.c (bfd_mach_o_scan_read_dysymtab): Create two
+	new fake sections, LC_DYSYMTAB.localstabs and LC_DYSYMTAB.nonlocalstabs
+        to transmit the information from the DYSYMTAB load command
+	that the static link editor is creating.  Do a bunch of sanity
+	checks on the provided numbers to make sure the layout is as
+	expected before we create these sections.
+
+2004-08-23  Jim Ingham  <jingham@apple.com>
+
+	* Adding a xvec entry to specify the writeable mode
+	when getting the section contents.  Useful for getting
+	mmapped files you don't intend to alter.
+        * bfd-in2.h: Define the new function, add it to the
+	xvec structure & the COPY macro.
+	* libbfd-in.h: declare the new _with_mode function.
+	* libbfd.c (_bfd_generic_get_section_contents_window_with_mode):
+	New func.
+	(_bfd_generic_get_section_contents_window): Use the new version
+	with writeable == FALSE.
+	* section.c (bfd_get_section_contents_in_window_with_mode): New
+	function.
+	
+	* aout-adobe.c, aout-target.h, aout-tic30.c, binary.c,
+	bout.c, coff-alpha.c, coff-mips.c, coff-rs6000.c,
+	coff64-rs6000.c, elfxx-target.h, i386msdos.c, i386os9k.c,
+	ihex.c, mach-o.c, mmo.c, pef.c, ppcboot.c, som.c, srec.c,
+	tekhex.c, versados.c, xsym.c: All the clients of
+	_bfd_generic_get_section_contents_in_window should be able
+	to use the generic version of the with_mode function.
+
+	* bfdwin.c (bfd_get_file_window) have to put a pointer
+	to the new data & size in the public as well as the private
+	parts of the window.
+	
+2004-08-03  Jason Molenda  (jmolenda@apple.com)
+
+	* mach-o.h: Minor typeo corrections in comment.
+
+2004-07-28  Klee Dienes  <kdienes@apple.com>
+
+	* cpu-powerpc.c (bfd_powerpc_archs): Mark the 970 as a 64-bit
+	architecture.
+
+2004-07-19  Klee Dienes  <kdienes@apple.com>
+	    Miklos Fazekas <boga@mac.com>
+
+	* xsym.c
+	(bfd_sym_parse_file_reference_v33r0
+	bfd_sym_parse_resources_table_entry_v33r0
+	bfd_sym_parse_modules_table_entry_v33r0
+	bfd_sym_parse_file_references_table_entry_v33r0
+	bfd_sym_parse_contained_modules_table_entry_v33r0
+	bfd_sym_parse_contained_variables_table_entry_v33r0
+	bfd_sym_parse_contained_statements_table_entry_v33r0
+	bfd_sym_parse_file_references_index_table_entry_v33r0):
+	New functions, to parse 3.3R0-style CodeWarrior xSym files.
+	(Based on code from Miklos Fazekas <boga@mac.com>).
+	(bfd_sym_read_header, bfd_sym_read_version,
+	bfd_sym_fetch_modules_table_entry,
+	bfd_sym_fetch_file_references_table_entry,
+	bfd_sym_fetch_contained_modules_table_entry,
+	bfd_sym_fetch_contained_variables_table_entry,
+	bfd_sym_fetch_contained_statements_table,
+	bfd_sym_fetch_file_references_index_table_entry,
+	bfd_sym_fetch_constant_pool_entry, bfd_sym_fetch_type_table_entry,
+	bfd_sym_print_file_references_index_table):
+	Update to recognize and dispatch 3.3R0-version files.
+	(Based on code from Miklos Fazekas <boga@mac.com>).
+
+	* xsym.h: Remove 'PARAMS' declarations.  Add constants and
+	prototypes for 3.3R0-style CodeWarrior xSym files.  
+	(Based on code from Miklos Fazekas <boga@mac.com>).
+
+2004-06-15  Jason Molenda  (jmolenda@apple.com)
+
+	* config.bfd (targ_underscore): Set to 'yes' on Darwin platforms
+	so cxxfilt will properly handle ld's output.
+
+2004-05-06  Klee Dienes <kdienes@apple.com>
+
+	* mach-o.h (bfd_mach_o_cpu_type): Add BFD_MACH_O_CPU_TYPE_POWERPC_64.
+	* mach-o.c (bfd_mach_o_convert_architecture): Add subtype
+	(machine) support for all architectures, including bfd_mach_ppc64.
+
+2004-04-08  Jason Molenda  (jmolenda@apple.com)
+
+	* bfdio.c (_bfd_io_close): Pass the return value up the stack.
+
 2003-08-06  Klee Dienes  <kdienes@apple.com>
 
-	* bfdio.c (bfd_get_mtime): When BFD_IN_MEMORY is set, don't try to
-	provide a valid mtime (since none exists).
+        * bfdio.c (bfd_get_mtime): When BFD_IN_MEMORY is set, don't try to
+        provide a valid mtime (since none exists).
 
 2003-07-22  Klee Dienes  <kdienes@apple.com>
 

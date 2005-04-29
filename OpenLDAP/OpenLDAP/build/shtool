@@ -1,5 +1,5 @@
 #!/bin/sh
-# $OpenLDAP: pkg/ldap/build/shtool,v 1.2.2.2 2002/12/30 04:07:57 kurt Exp $
+# $OpenLDAP: pkg/ldap/build/shtool,v 1.4 2002/12/22 07:10:22 kurt Exp $
 # This file is distributed with OpenLDAP Software, but is an
 # an independently licensed program.
 

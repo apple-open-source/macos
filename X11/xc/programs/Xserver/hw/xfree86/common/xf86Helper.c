@@ -1,10 +1,56 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Helper.c,v 1.128 2003/02/26 23:45:24 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Helper.c,v 1.137 2004/02/13 23:58:37 dawes Exp $ */
 
 /*
- * Copyright (c) 1997-1998 by The XFree86 Project, Inc.
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
  *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
  * Authors: Dirk Hohndel <hohndel@XFree86.Org>
  *          David Dawes <dawes@XFree86.Org>
+ *          ... and others
  *
  * This file includes the helper functions that the server provides for
  * different drivers.
@@ -38,7 +84,6 @@
 #endif
 
 static int xf86ScrnInfoPrivateCount = 0;
-static FILE *logfile = NULL;
 
 
 #ifdef XFree86LOADER
@@ -405,6 +450,14 @@ xf86AddPixFormat(ScrnInfoPtr pScrn, int depth, int bpp, int pad)
 /* Can the screen handle 24bpp pixmaps for 32bpp fb */
 #define DO_PIX24FOR32(f) ((f & Support32bppFb) && (f & SupportConvert24to32))
 
+#ifndef GLOBAL_DEFAULT_DEPTH
+#define GLOBAL_DEFAULT_DEPTH 16
+#endif
+
+#ifndef GLOBAL_DEFAULT_FBBPP
+#define GLOBAL_DEFAULT_FBBPP 16
+#endif
+
 Bool
 xf86SetDepthBpp(ScrnInfoPtr scrp, int depth, int dummy, int fbbpp,
 		int depth24flags)
@@ -449,6 +502,39 @@ xf86SetDepthBpp(ScrnInfoPtr scrp, int depth, int dummy, int fbbpp,
 	    scrp->depth = scrp->confScreen->defaultdepth;
 	    scrp->depthFrom = X_CONFIG;
 	}
+
+	if (scrp->confScreen->defaultfbbpp <= 0 &&
+	    scrp->confScreen->defaultdepth <= 0) {
+	    /*
+	     * Check for DefaultDepth and DefaultFbBpp options in the
+	     * Device sections.
+	     */
+	    int i;
+	    GDevPtr device;
+	    Bool found = FALSE;
+
+	    for (i = 0; i < scrp->numEntities; i++) {
+		device = xf86GetDevFromEntity(scrp->entityList[i],
+					      scrp->entityInstanceList[i]);
+		if (device && device->options) {
+		    if (xf86FindOption(device->options, "DefaultDepth")) {
+			scrp->depth = xf86SetIntOption(device->options,
+						       "DefaultDepth", -1);
+			scrp->depthFrom = X_CONFIG;
+			found = TRUE;
+		    }
+		    if (xf86FindOption(device->options, "DefaultFbBpp")) {
+			scrp->bitsPerPixel = xf86SetIntOption(device->options,
+							      "DefaultFbBpp",
+							      -1);
+			scrp->bitsPerPixelFrom = X_CONFIG;
+			found = TRUE;
+		    }
+		}
+		if (found)
+		    break;
+	    }
+	}
     }
 
     /* If none of these is set, pick a default */
@@ -459,8 +545,8 @@ xf86SetDepthBpp(ScrnInfoPtr scrp, int depth, int dummy, int fbbpp,
 	    if (depth > 0)
 		scrp->depth = depth;
 	} else {
-	    scrp->bitsPerPixel = 8;
-	    scrp->depth = 8;
+	    scrp->bitsPerPixel = GLOBAL_DEFAULT_FBBPP;
+	    scrp->depth = GLOBAL_DEFAULT_DEPTH;
 	}
     }
 
@@ -610,11 +696,46 @@ xf86SetDepthBpp(ScrnInfoPtr scrp, int depth, int dummy, int fbbpp,
 	    break;
 	}
     }
+
+    /*
+     * If an exact match can't be found, see if there is one with no
+     * depth or fbbpp specified.
+     */
     if (i == scrp->confScreen->numdisplays) {
-	xf86DrvMsg(scrp->scrnIndex, X_ERROR, "No Display subsection "
-		   "in Screen section \"%s\" for depth/fbbpp %d/%d\n",
+	for (i = 0, disp = scrp->confScreen->displays;
+	     i < scrp->confScreen->numdisplays; i++, disp++) {
+	    if (disp->depth <= 0 && disp->fbbpp <= 0) {
+		scrp->display = disp;
+		break;
+	    }
+	}
+    }
+
+    /*
+     * If all else fails, create a default one.
+     */
+    if (i == scrp->confScreen->numdisplays) {
+	scrp->confScreen->numdisplays++;
+	scrp->confScreen->displays =
+		xnfrealloc(scrp->confScreen->displays,
+			   scrp->confScreen->numdisplays * sizeof(DispRec));
+	xf86DrvMsg(scrp->scrnIndex, X_INFO,
+		   "Creating default Display subsection in Screen section\n"
+		   "\t\"%s\" for depth/fbbpp %d/%d\n",
 		   scrp->confScreen->id, scrp->depth, scrp->bitsPerPixel);
-	return FALSE;
+	memset(&scrp->confScreen->displays[i], 0, sizeof(DispRec));
+	scrp->confScreen->displays[i].blackColour.red = -1;
+	scrp->confScreen->displays[i].blackColour.green = -1;
+	scrp->confScreen->displays[i].blackColour.blue = -1;
+	scrp->confScreen->displays[i].whiteColour.red = -1;
+	scrp->confScreen->displays[i].whiteColour.green = -1;
+	scrp->confScreen->displays[i].whiteColour.blue = -1;
+	scrp->confScreen->displays[i].defaultVisual = -1;
+	scrp->confScreen->displays[i].modes = xnfalloc(sizeof(char *));
+	scrp->confScreen->displays[i].modes[0] = NULL;
+	scrp->confScreen->displays[i].depth = depth;
+	scrp->confScreen->displays[i].fbbpp = fbbpp;
+	scrp->display = &scrp->confScreen->displays[i];
     }
 
     /*
@@ -720,15 +841,17 @@ xf86SetWeight(ScrnInfoPtr scrp, rgb weight, rgb mask)
 
     if (scrp->weight.red)
 	xf86DrvMsg(scrp->scrnIndex, weightFrom, "RGB weight %d%d%d\n",
-		   scrp->weight.red, scrp->weight.green, scrp->weight.blue);
+		   (int)scrp->weight.red, (int)scrp->weight.green,
+		   (int)scrp->weight.blue);
 
     if (scrp->depth > MAX_PSEUDO_DEPTH &&
 	(scrp->depth != scrp->weight.red + scrp->weight.green +
 			scrp->weight.blue)) {
 	xf86DrvMsg(scrp->scrnIndex, X_ERROR,
 		   "Weight given (%d%d%d) is inconsistent with the "
-		   "depth (%d)\n", scrp->weight.red, scrp->weight.green,
-		   scrp->weight.blue, scrp->depth);
+		   "depth (%d)\n",
+		   (int)scrp->weight.red, (int)scrp->weight.green,
+		   (int)scrp->weight.blue, scrp->depth);
 	return FALSE;
     }
     if (scrp->depth > MAX_PSEUDO_DEPTH && scrp->weight.red) {
@@ -1194,123 +1317,36 @@ xf86EnableDisableFBAccess(int scrnIndex, Bool enable)
     }
 }
 
-/* Buffer to hold log data written before the log file is opened */
-static char *saveBuffer = NULL;
-static int size = 0, unused = 0, pos = 0;
-
-/* These functions do the actual writes. */
-static void
-VWrite(int verb, const char *f, va_list args)
-{
-    static char buffer[1024];
-    int len = 0;
-
-    /*
-     * Since a va_list can only be processed once, write the string to a
-     * buffer, and then write the buffer out to the appropriate output
-     * stream(s).
-     */
-    if (verb < 0 || xf86LogVerbose >= verb || xf86Verbose >= verb) {
-	vsnprintf(buffer, sizeof(buffer), f, args);
-	len = strlen(buffer);
-    }
-    if ((verb < 0 || xf86Verbose >= verb) && len > 0)
-	fwrite(buffer, len, 1, stderr);
-    if ((verb < 0 || xf86LogVerbose >= verb) && len > 0) {
-	if (logfile) {
-	    fwrite(buffer, len, 1, logfile);
-	    if (xf86Info.log) {
-		fflush(logfile);
-		if (xf86Info.log == LogSync)
-		    fsync(fileno(logfile));
-	    }
-	} else {
-	    /*
-	     * Note, this code is used before OsInit() has been called, so
-	     * xalloc and friends can't be used.
-	     */
-	    if (len > unused) {
-		size += 1024;
-		unused += 1024;
-		saveBuffer = realloc(saveBuffer, size);
-		if (!saveBuffer)
-		    FatalError("realloc() failed while saving log messages\n");
-	    }
-	    unused -= len;
-	    memcpy(saveBuffer + pos, buffer, len);
-	    pos += len;
-	}
-    }
-}
-
-static void
-Write(int verb, const char *f, ...)
-{
-    va_list args;
-
-    va_start(args, f);
-    VWrite(verb, f, args);
-    va_end(args);
-}
-
 /* Print driver messages in the standard format */
+
+#undef PREFIX_SIZE
+#define PREFIX_SIZE 14
 
 void
 xf86VDrvMsgVerb(int scrnIndex, MessageType type, int verb, const char *format,
 		va_list args)
 {
-    char *s = X_UNKNOWN_STRING;
-    
-    /* Ignore verbosity for X_ERROR */
-    if (xf86Verbose >= verb || xf86LogVerbose >= verb || type == X_ERROR) {
-	switch (type) {
-	case X_PROBED:
-	    s = X_PROBE_STRING;
-	    break;
-	case X_CONFIG:
-	    s = X_CONFIG_STRING;
-	    break;
-	case X_DEFAULT:
-	    s = X_DEFAULT_STRING;
-	    break;
-	case X_CMDLINE:
-	    s = X_CMDLINE_STRING;
-	    break;
-	case X_NOTICE:
-	    s = X_NOTICE_STRING;
-	    break;
-	case X_ERROR:
-	    s = X_ERROR_STRING;
-	    if (verb > 0)
-		verb = 0;
-	    break;
-	case X_WARNING:
-	    s = X_WARNING_STRING;
-	    break;
-	case X_INFO:
-	    s = X_INFO_STRING;
-	    break;
-	case X_NOT_IMPLEMENTED:
-	    s = X_NOT_IMPLEMENTED_STRING;
-	    break;
-	case X_NONE:
-	    s = NULL;
-	    break;
-	}
+    char *tmpFormat;
 
-	if (s != NULL)
-	    Write(verb, "%s ", s);
-	if (scrnIndex >= 0 && scrnIndex < xf86NumScreens)
-	    Write(verb, "%s(%d): ", xf86Screens[scrnIndex]->name, scrnIndex);
-	VWrite(verb, format, args);
-#if 0
-	if (type == X_ERROR && xf86Verbose < xf86LogVerbose) {
-	    fprintf(stderr, X_ERROR_STRING " Please check the log file \"%s\""
-			" >before<\n\treporting a problem.\n", xf86LogFile);
-	}
-#endif
-    }
+    /* Prefix the scrnIndex name to the format string. */
+    if (scrnIndex >= 0 && scrnIndex < xf86NumScreens &&
+	xf86Screens[scrnIndex]->name) {
+	tmpFormat = xalloc(strlen(format) +
+			   strlen(xf86Screens[scrnIndex]->name) +
+			   PREFIX_SIZE + 1);
+	if (!tmpFormat)
+	    return;
+
+	snprintf(tmpFormat, PREFIX_SIZE + 1, "%s(%d): ",
+		 xf86Screens[scrnIndex]->name, scrnIndex);
+
+	strcat(tmpFormat, format);
+	LogVMessageVerb(type, verb, tmpFormat, args);
+	xfree(tmpFormat);
+    } else
+	LogVMessageVerb(type, verb, format, args);
 }
+#undef PREFIX_SIZE
 
 /* Print driver messages, with verbose level specified directly */
 void
@@ -1365,7 +1401,7 @@ xf86ErrorFVerb(int verb, const char *format, ...)
 
     va_start(ap, format);
     if (xf86Verbose >= verb || xf86LogVerbose >= verb)
-	VWrite(verb, format, ap);
+	LogVWrite(verb, format, ap);
     va_end(ap);
 }
 
@@ -1377,15 +1413,10 @@ xf86ErrorF(const char *format, ...)
 
     va_start(ap, format);
     if (xf86Verbose >= 1 || xf86LogVerbose >= 1)
-	VWrite(1, format, ap);
+	LogVWrite(1, format, ap);
     va_end(ap);
 }
 
-void
-OsVendorVErrorF(const char *f, va_list args)
-{
-    VWrite(-1, f, args);
-}
 
 void
 xf86LogInit()
@@ -1398,59 +1429,28 @@ xf86LogInit()
     /* Get the log file name */
     if (xf86LogFileFrom == X_DEFAULT) {
 	/* Append the display number and ".log" */
-	lf = malloc(strlen(xf86LogFile) + strlen(display) +
+	lf = malloc(strlen(xf86LogFile) + strlen("%s") +
 		    strlen(LOGSUFFIX) + 1);
 	if (!lf)
 	    FatalError("Cannot allocate space for the log file name\n");
-	sprintf(lf, "%s%s" LOGSUFFIX, xf86LogFile, display);
+	sprintf(lf, "%s%%s" LOGSUFFIX, xf86LogFile);
 	xf86LogFile = lf;
     }
-    {
-	struct stat buf;
-	if (!stat(xf86LogFile,&buf) && S_ISREG(buf.st_mode)) {
-	    char *oldlog = (char *)malloc(strlen(xf86LogFile)
-					  + strlen(LOGOLDSUFFIX));
-	    if (!oldlog)
-		FatalError("Cannot allocate space for the log file name\n");
-	    sprintf(oldlog, "%s" LOGOLDSUFFIX, xf86LogFile);
-	    if (rename(xf86LogFile,oldlog) == -1)
-		FatalError("Cannot move old logfile \"%s\"\n",oldlog);
-	    free(oldlog);
-	}
-    }
-    
-    if ((logfile = fopen(xf86LogFile, "w")) == NULL)
-	FatalError("Cannot open log file \"%s\"\n", xf86LogFile);
-    xf86LogFileWasOpened = TRUE;
-    setvbuf(logfile, NULL, _IONBF, 0);
-#ifdef DDXOSVERRORF
-    if (!OsVendorVErrorFProc)
-	OsVendorVErrorFProc = OsVendorVErrorF;
-#endif
 
-    /* Flush saved log information */
-    if (saveBuffer && size > 0) {
-	fwrite(saveBuffer, pos, 1, logfile);
-	if (xf86Info.log) {
-	    fflush(logfile);
-	    if (xf86Info.log == LogFlush)
-		fsync(fileno(logfile));
-	}
-	free(saveBuffer);	/* Note, must be free(), not xfree() */
-	saveBuffer = 0;
-	size = 0;
-    }
+    xf86LogFile = LogInit(xf86LogFile, LOGOLDSUFFIX);
+    xf86LogFileWasOpened = TRUE;
+
+    xf86SetVerbosity(xf86Verbose);
+    xf86SetLogVerbosity(xf86LogVerbose);
 
 #undef LOGSUFFIX
+#undef LOGOLDSUFFIX
 }
 
 void
 xf86CloseLog()
 {
-    if (logfile) {
-	fclose(logfile);
-	logfile = NULL;
-    }
+    LogClose();
 }
 
 
@@ -1826,7 +1826,7 @@ xf86MatchPciInstances(const char *driverName, int vendorID,
 		    if (dev || devBus)
 			xf86MsgVerb(X_WARNING, 0,
 			    "%s: More than one matching Device section "
-			    "found: %s\n", devList[j]->identifier);
+			    "found: %s\n", driverName, devList[j]->identifier);
 		    else
 			dev = devList[j];
 		}
@@ -2232,7 +2232,6 @@ xf86GetVerbosity()
 {
     return max(xf86Verbose, xf86LogVerbose);
 }
-
 
 Pix24Flags
 xf86GetPix24()
@@ -2909,11 +2908,12 @@ int
 xf86RegisterRootWindowProperty(int ScrnIndex, Atom property, Atom type,
 			       int format, unsigned long len, pointer value )
 {
-    PropertyPtr pNewProp, pRegProp;
+    RootWinPropPtr pNewProp = NULL, pRegProp;
     int i;
+    Bool existing = FALSE;
 
 #ifdef DEBUG
-    ErrorF("xf86RegisterRootWindowProperty(%d, %d, %d, %d, %d, %p)\n",
+    ErrorF("xf86RegisterRootWindowProperty(%d, %ld, %ld, %d, %ld, %p)\n",
 	   ScrnIndex, property, type, format, len, value);
 #endif
 
@@ -2921,19 +2921,35 @@ xf86RegisterRootWindowProperty(int ScrnIndex, Atom property, Atom type,
       return(BadMatch);
     }
 
-    if ( (pNewProp = (PropertyPtr)xalloc(sizeof(PropertyRec)))==NULL ) {
-      return(BadAlloc);
+    if (xf86RegisteredPropertiesTable &&
+	xf86RegisteredPropertiesTable[ScrnIndex]) {
+      for (pNewProp = xf86RegisteredPropertiesTable[ScrnIndex];
+	   pNewProp; pNewProp = pNewProp->next) {
+	if (strcmp(pNewProp->name, NameForAtom(property)) == 0)
+	  break;
+      }
     }
 
-    pNewProp->propertyName = property;
+    if (!pNewProp) {
+      if ((pNewProp = (RootWinPropPtr)xalloc(sizeof(RootWinProp))) == NULL) {
+	return(BadAlloc);
+      }
+      /*
+       * We will put this property at the end of the list so that
+       * the changes are made in the order they were requested.
+       */
+      pNewProp->next = NULL;
+    } else {
+      if (pNewProp->name)
+	xfree(pNewProp->name);
+      existing = TRUE;
+    }
+
+    pNewProp->name = xnfstrdup(NameForAtom(property));
     pNewProp->type = type;
     pNewProp->format = format;
     pNewProp->size = len;
     pNewProp->data = value;
-    /* We will put this property at the end of the list so that
-     * the changes are made in the order they were requested.
-     */
-    pNewProp->next = NULL;
  
 #ifdef DEBUG
     ErrorF("new property filled\n");
@@ -2944,7 +2960,7 @@ xf86RegisterRootWindowProperty(int ScrnIndex, Atom property, Atom type,
       ErrorF("creating xf86RegisteredPropertiesTable[] size %d\n",
 	     xf86NumScreens);
 #endif
-      if ( NULL==(xf86RegisteredPropertiesTable=(PropertyPtr*)xnfcalloc(sizeof(PropertyPtr),xf86NumScreens) )) {
+      if ( NULL==(xf86RegisteredPropertiesTable=(RootWinPropPtr*)xnfcalloc(sizeof(RootWinProp),xf86NumScreens) )) {
 	return(BadAlloc);
       }
       for (i=0; i<xf86NumScreens; i++) {
@@ -2954,22 +2970,24 @@ xf86RegisterRootWindowProperty(int ScrnIndex, Atom property, Atom type,
 
 #ifdef DEBUG
     ErrorF("xf86RegisteredPropertiesTable %p\n",
-	   xf86RegisteredPropertiesTable);
+	   (void *)xf86RegisteredPropertiesTable);
     ErrorF("xf86RegisteredPropertiesTable[%d] %p\n",
-	   ScrnIndex, xf86RegisteredPropertiesTable[ScrnIndex]);
+	   ScrnIndex, (void *)xf86RegisteredPropertiesTable[ScrnIndex]);
 #endif
 
-    if ( xf86RegisteredPropertiesTable[ScrnIndex] == NULL) {
-      xf86RegisteredPropertiesTable[ScrnIndex] = pNewProp;
-    } else {
-      pRegProp = xf86RegisteredPropertiesTable[ScrnIndex];
-      while (pRegProp->next != NULL) {
+    if (!existing) {
+      if ( xf86RegisteredPropertiesTable[ScrnIndex] == NULL) {
+	xf86RegisteredPropertiesTable[ScrnIndex] = pNewProp;
+      } else {
+	pRegProp = xf86RegisteredPropertiesTable[ScrnIndex];
+	while (pRegProp->next != NULL) {
 #ifdef DEBUG
-	ErrorF("- next %p\n", pRegProp);
+	  ErrorF("- next %p\n", (void *)pRegProp);
 #endif
-	pRegProp = pRegProp->next;
+	  pRegProp = pRegProp->next;
+        }
+	pRegProp->next = pNewProp;
       }
-      pRegProp->next = pNewProp;
     }
 #ifdef DEBUG
     ErrorF("xf86RegisterRootWindowProperty succeeded\n");

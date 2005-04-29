@@ -1,5 +1,5 @@
 # *******************************************************************************
-# * Copyright (C) 2001, International Business Machines
+# * Copyright (C) 2001-2003, International Business Machines
 # * Corporation and others.  All Rights Reserved.
 # *******************************************************************************
 #
@@ -11,13 +11,14 @@
 <mb_cur_max>        1
 <mb_cur_min>        1
 <uconv_class>       "MBCS"
-<subchar>	        \xff
-<icu:state>	        0, 5-9, ff
+<subchar>           \xff
+<icu:state>         0, 5-9, ff
 
 CHARMAP
 
 # fromUnicode result is zero byte from other than U+0000
 <U20ac>     \x00 |0
+<U20ad>     \x00 |1
 
 # nothing special
 <U0005>     \x05 |0

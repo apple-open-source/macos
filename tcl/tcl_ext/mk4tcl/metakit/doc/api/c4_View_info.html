@@ -1,0 +1,924 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+Views act like pointers to the actual collections, setting a view to a new
+value does not alter the collection to which this view pointed previously.
+<P>
+
+The protocol used for this class mimics the way many other collection
+classes are defined. For example, when used with MFC, you will see member
+definitions such as <A HREF="c4_View.html" >c4_View</A>::GetSize, <A HREF="c4_View.html" >c4_View</A>::GetAt, <A HREF="c4_View.html" >c4_View</A>::InsertAt.
+<P>
+
+The elements of views can be referred to by their 0-based index, which
+produces a row-reference of type <A HREF="c4_RowRef.html" >c4_RowRef</A>.  These row references can
+be copied, used to get or set properties, or dereferenced (in which case
+an object of class <A HREF="c4_Row.html" >c4_Row</A> is returned).  Taking the address of a row
+reference produces a <A HREF="c4_Cursor.html" >c4_Cursor</A>, which acts very much like a pointer.
+<P>
+
+The following code creates a view with 1 row and 2 properties:
+<P>
+
+
+<PRE>    <A HREF="c4_StringProp.html" >c4_StringProp</A> pName ("Name");
+    <A HREF="c4_IntProp.html" >c4_IntProp</A> pAge ("Age");</PRE>
+<P>
+
+
+<PRE>    <A HREF="c4_Row.html" >c4_Row</A> data;
+    pName (data) = "John Williams";
+    pAge (data) = 43;</PRE>
+<P>
+
+
+<PRE>    <A HREF="c4_View.html" >c4_View</A> myView;
+    myView.Add(row);
+</PRE>
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_View_Add_const__"><dt>
+	  <nobr>
+	  int 
+	  <b>Add</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Add a new entry, same as "SetAtGrow(GetSize(), ...)".</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_AddProperty_const__"><dt>
+	  <nobr>
+	  int 
+	  <b>AddProperty</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; property_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Adds a property column to a view if not already present</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Clone___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Clone</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a new view with the same structure but no data</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Compare_const__const"><dt>
+	  <nobr>
+	  int 
+	  <b>Compare</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Concat_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Concat</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Constructs a view which has all rows of this view, and all rows
+ of the second view appended. The structure of the second view
+ is assumed to be identical to this one. This operation is a bit
+ similar to appending all rows from the second view, but it does
+ not actually store the result anywhere, it just looks like it.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Counts_constconst__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Counts</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_IntProp.html" >c4_IntProp</A>&#38; name_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  <ul><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>keys_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>the properties in this view determine the grouping</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>name_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>name of the new count property defined in result</FONT></I></TD></TR>
+</TABLE>
+</ul>
+	   This is similar to <A HREF="c4_View.html" >c4_View</A>::GroupBy, but it determines only the
+ number of rows in each group and does not create a nested view.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Describe___const"><dt>
+	  <nobr>
+	  const char* 
+	  <b>Describe</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a description of the structure</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Description_const__"><dt>
+	  <nobr>
+	  static const char* 
+	  <b>Description</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a homogenized description of this view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Different_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Different</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Calculates the "XOR" of two sets. This will only work if both
+ input views are sets, i.e. they have no duplicate rows in them.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Duplicate_bool__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Duplicate</b> (bool deepCopy_ =false) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a new view with a copy of the data</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_ElementAt_int__"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>ElementAt</b> (int index_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Element access, for use as RHS or LHS</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Find_constint__const"><dt>
+	  <nobr>
+	  int 
+	  <b>Find</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; key_, int start_ =0) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Find index of the the next entry matching the specified key</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_FindPropIndexByName_const__const"><dt>
+	  <nobr>
+	  int 
+	  <b>FindPropIndexByName</b> (const char* name_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Find the index of a property, given its name</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_FindProperty_int__"><dt>
+	  <nobr>
+	  int 
+	  <b>FindProperty</b> (int id_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Find the index of a property, given its id</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GetAt_int__const"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>GetAt</b> (int index_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a reference to specified entry</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GetIndexOf_const__const"><dt>
+	  <nobr>
+	  int 
+	  <b>GetIndexOf</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the index of the specified row in this view (or -1)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GetItem_intintc4_Bytes___const"><dt>
+	  <nobr>
+	  bool 
+	  <b>GetItem</b> (int row_, int col_, <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  <ul><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>row_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>row index, range [0 .. GetSize())</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>col_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>property index, range [0 .. NumProperties())</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>buf_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>buffer for the result</FONT></I></TD></TR>
+</TABLE>
+</ul>
+	   This can be used to access view data in a generalized way.
+ Useful for c4_CustomViewers which are based on other views.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GetSize___const"><dt>
+	  <nobr>
+	  int 
+	  <b>GetSize</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the number of entries</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GetUpperBound___const"><dt>
+	  <nobr>
+	  int 
+	  <b>GetUpperBound</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return highest index (size - 1)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_GroupBy_constconst__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>GroupBy</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_ViewProp.html" >c4_ViewProp</A>&#38; name_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  <ul><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>keys_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>the properties in this view determine the grouping</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>name_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>name of the new subview defined in result</FONT></I></TD></TR>
+</TABLE>
+</ul>
+	   This operation is similar to the SQL 'GROUP BY', but it takes
+ advantage of the fact that Metakit supports nested views. The
+ view returned from this member has one row per distinct group,
+ with an extra view property holding the remaining properties.
+ If there are N rows in the original view matching key X, then
+ the result is a row for key X, with a subview of N rows. The
+ properties of the subview are all the properties not in the key.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_InsertAt_intconst__"><dt>
+	  <nobr>
+	  void 
+	  <b>InsertAt</b> (int index_, const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Insert a copy of the contents of another view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_InsertAt_intconstint__"><dt>
+	  <nobr>
+	  void 
+	  <b>InsertAt</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_, int count_ =1);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Insert one or more copies of an entry</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Intersect_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Intersect</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Calculates the set intersection. This will only work if both
+ input views are sets, i.e. they have no duplicate rows in them.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Join_constconstbool__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Join</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; keys_, const <A HREF="c4_View.html" >c4_View</A>&#38; view_, bool outer_ =false) <i>const</i>;
+	  </nobr>
+	<dd>
+	  <ul><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>keys_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>the properties in this view determine the join</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>view_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>second view participating in the join</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>outer_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>true: keep rows with no match in second view</FONT></I></TD></TR>
+</TABLE>
+</ul>
+	  
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_JoinProp_constbool__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>JoinProp</b> (const <A HREF="c4_ViewProp.html" >c4_ViewProp</A>&#38; sub_, bool outer_ =false) <i>const</i>;
+	  </nobr>
+	<dd>
+	  <ul><TABLE BORDER=0 CELLSPACING=0 CELLPADDING=0>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>sub_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>name of the subview to expand</FONT></I></TD></TR>
+<TR><TD><B><FONT FACE=Helvetica SIZE=2>outer_</FONT></B></TD><TD width=20></TD><TD><I><FONT FACE=Helvetica SIZE=2>true: keep rows with empty subviews</FONT></I></TD></TR>
+</TABLE>
+</ul>
+	   This operation is the inverse of <A HREF="c4_View.html" >c4_View</A>::GroupBy, expanding
+ all rows in specified subview and returning a view which looks
+ as if the rows in each subview were "expanded in place".
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Minus_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Minus</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Calculates set-difference of this view minus arg view. Result
+ is a subset, unlike <A HREF="c4_View.html" >c4_View</A>::Different. Will only work if both
+ input views are sets, i.e. they have no duplicate rows in them.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_NthProperty_int__const"><dt>
+	  <nobr>
+	  const <A HREF="c4_Property.html" >c4_Property</A>&#38; 
+	  <b>NthProperty</b> (int column_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the id of the N-th property</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_NumProperties___const"><dt>
+	  <nobr>
+	  int 
+	  <b>NumProperties</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the number of properties</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Pair_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Pair</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   This is like a row-by-row concatenation. Both views must have
+ the same number of rows, the result has all properties from
+ this view plus any other properties from the other view.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Product_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Product</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   The cartesian product is defined as every combination of rows
+ in both views. The number of entries is the product of the
+ number of entries in the two views, properties which are present
+ in both views will use the values defined in this view.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Project_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Project</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view with the specified property arrangement</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_ProjectWithout_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>ProjectWithout</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create derived view with some properties omitted</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_RelocateRows_intintc4_View_int__"><dt>
+	  <nobr>
+	  bool 
+	  <b>RelocateRows</b> (int from_, int count_, <A HREF="c4_View.html" >c4_View</A>&#38; dest_, int pos_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Move attached rows to somewhere else in same storage</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_RemapWith_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>RemapWith</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Remapping constructs a view with the rows indicated by another
+ view. The first property in the order_ view must be an int
+ property with index values referring to this one. The size of
+ the resulting view is determined by the order_ view and can
+ differ, for example to act as a subset selection (if smaller).
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_RemoveAll___"><dt>
+	  <nobr>
+	  void 
+	  <b>RemoveAll</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Remove all entries (sets size to zero)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_RemoveAt_intint__"><dt>
+	  <nobr>
+	  void 
+	  <b>RemoveAt</b> (int index_, int count_ =1);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Remove entries starting at the given index</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Rename_constconst__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Rename</b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; old_, const <A HREF="c4_Property.html" >c4_Property</A>&#38; new_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view with one property renamed (must be of same type)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Search_const__const"><dt>
+	  <nobr>
+	  int 
+	  <b>Search</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; key_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Search for a key, using the native sort order of the view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Select_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Select</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; criterium_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view with rows matching the specified value</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SelectRange_constconst__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>SelectRange</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; rowLow_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; rowHigh_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view with row values within the specified range</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SetAt_intconst__"><dt>
+	  <nobr>
+	  void 
+	  <b>SetAt</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	   Replace an entry with the contents of another row. If the
+ row contains subviews, they will be replaced as well, but
+ there are two cases: if this is an attached view, all the
+ subview rows will be copied (deep copy), whereas for an
+ unattached view the new subviews will be shared with the 
+ original (shallow copy).
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SetAtGrow_intconst__"><dt>
+	  <nobr>
+	  void 
+	  <b>SetAtGrow</b> (int index_, const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Set an entry, growing the view if needed</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SetSize_intint__"><dt>
+	  <nobr>
+	  void 
+	  <b>SetSize</b> (int newSize_, int growBy_ =-1);
+	  </nobr>
+	<dd>
+	  
+	   Since views act like dynamic arrays, you can quickly
+ change their size. Increasing the size will append rows
+ with zero/empty values, while decreasing it will delete
+ the last rows. The growBy_ parameter is currently unused.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Slice_intintint__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Slice</b> (int start_, int limit_ =-1, int step_ =1) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Returns a view which is a subset, either a contiguous range, or
+ a "slice" with element taken from every step_ entries. If the
+ step is negative, the same entries are returned, but in reverse
+ order (start_ is still lower index, it'll then be returned last).
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Sort___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Sort</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view with all rows in natural (property-wise) order</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SortOn_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>SortOn</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create view sorted according to the specified properties</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_SortOnReverse_constconst__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>SortOnReverse</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; order_, const <A HREF="c4_View.html" >c4_View</A>&#38; orderDown_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Create sorted view, with some properties sorted in reverse</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Structure___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Structure</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a view which describes the structure of this view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Union_const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Union</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Calculates the set union. This will only work if both input
+ views are sets, i.e. they have no duplicate rows in them.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_Unique___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Unique</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	   Returns a subset which does not contain any duplicate rows.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View__DecSeqRef___"><dt>
+	  <nobr>
+	  void 
+	  <b>_DecSeqRef</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View__IncSeqRef___"><dt>
+	  <nobr>
+	  void 
+	  <b>_IncSeqRef</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View__seq"><dt>
+	  <nobr>
+	  <A HREF="c4_Sequence.html" >c4_Sequence</A>* 
+	  <b>_seq</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_c4_View_c4_CustomViewer__"><dt>
+	  <nobr>
+	  
+	  <b>c4_View</b> (<A HREF="c4_CustomViewer.html" >c4_CustomViewer</A>* viewer_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a view based on a custom viewer</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_c4_View_c4_Sequence__"><dt>
+	  <nobr>
+	  
+	  <b>c4_View</b> (<A HREF="c4_Sequence.html" >c4_Sequence</A>* implementation_ =0);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a view based on a sequence</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_c4_View_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_View</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct an empty view with one propertyConstruct a view from another one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_c4_View_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_View</b> (const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct an empty view with one propertyConstruct a view from another one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_operator___const__const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>operator, </b> (const <A HREF="c4_Property.html" >c4_Property</A>&#38; property_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a view like the first, with a property appended to it</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_View.html" >c4_View</A>&#38; source_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Make this view the same as another one</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View_operator___int__const"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>operator[]</b> (int index_) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Shorthand for <A HREF="c4_View.html" >c4_View</A>::GetAt</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_View__c4_View__"><dt>
+	  <nobr>
+	  
+	  <b>~c4_View</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Destructor, decrements reference count</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_View</b>
+</font>
+
+</body></html>

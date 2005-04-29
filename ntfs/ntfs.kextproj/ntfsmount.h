@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2004 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfsmount.h,v 1.3 1999/07/26 14:02:32 jdolecek Exp $	*/
 
 /*-
@@ -28,16 +52,17 @@
  * $FreeBSD: src/sys/fs/ntfs/ntfsmount.h,v 1.7 2001/09/08 23:03:52 semenu Exp $
  */
 
-#define	NTFS_MFLAG_CASEINS	0x00000001
-#define	NTFS_MFLAG_ALLNAMES	0x00000002
-#define	NTFSMNT_U2WTABLE	0x00000004
+#define	NTFS_MFLAG_CASE_SENSITIVE	0x00000001
+#define	NTFS_MFLAG_ALLNAMES			0x00000002
+/*¥ #define	NTFSMNT_U2WTABLE		0x00000004 */
 
 struct ntfs_args {
+#ifndef KERNEL
 	char	*fspec;			/* block special device to mount */
-	struct	export_args export;	/* network export information */
-	uid_t	uid;			/* uid that owns ntfs files */
-	gid_t	gid;			/* gid that owns ntfs files */
-	mode_t	mode;			/* mask to be applied for ntfs perms */
-	u_long	flag;			/* additional flags */
-	u_int16_t u2w[256];		/* Unix to Wchar */
+#endif
+	uid_t		uid;			/* uid that owns ntfs files */
+	gid_t		gid;			/* gid that owns ntfs files */
+	mode_t		mode;			/* mask to be applied for ntfs perms */
+	uint32_t	flag;			/* additional flags */
+	uint16_t	u2w[256];		/* Unix to Wchar */
 };

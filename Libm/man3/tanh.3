@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)tanh.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: tanh.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: tanh.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
 .Dd November 20, 2002
 .Dt TANH 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn tanh "double x"
-.\\.Ft float
-.\\.Fn tanhf "float x"
+.Ft long double
+.Fn tanhl "long double x"
+.Ft float
+.Fn tanhf "float x"
 .Sh DESCRIPTION
 The
 .Fn tanh
-.\\and
-.\\.Fn tanhf
 function computes the hyperbolic tangent of
 .Fa x .
 .Sh SPECIAL VALUES
@@ -71,6 +71,4 @@ returns ±1.
 .Sh STANDARDS
 The
 .Fn tanh
-.\\and
-.\\.Fn tanhf
 function conforms to ISO/IEC 9899:1999(E).

@@ -1,0 +1,34 @@
+--- fwprintf.c.orig	2003-05-20 15:22:42.000000000 -0700
++++ fwprintf.c	2005-02-23 16:28:45.000000000 -0800
+@@ -27,6 +27,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fwprintf.c,v 1.1 2002/09/21 13:00:30 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <stdarg.h>
+ #include <stdio.h>
+ #include <wchar.h>
+@@ -38,7 +40,21 @@
+ 	va_list ap;
+ 
+ 	va_start(ap, fmt);
+-	ret = vfwprintf(fp, fmt, ap);
++	ret = vfwprintf_l(fp, __current_locale(), fmt, ap);
++	va_end(ap);
++
++	return (ret);
++}
++
++int
++fwprintf_l(FILE * __restrict fp, locale_t loc, const wchar_t * __restrict fmt, ...)
++{
++	int ret;
++	va_list ap;
++
++	/* no need to call NORMALIZE_LOCALE(loc) because vfwprintf_l will */
++	va_start(ap, fmt);
++	ret = vfwprintf_l(fp, loc, fmt, ap);
+ 	va_end(ap);
+ 
+ 	return (ret);

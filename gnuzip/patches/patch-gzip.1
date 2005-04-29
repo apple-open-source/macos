@@ -1,0 +1,22 @@
+--- gzip.1.orig	Mon Sep 30 02:58:04 2002
++++ gzip.1	Tue Feb 22 18:55:51 2005
+@@ -150,7 +150,9 @@
+ will uncompress files that have the correct magic number whether
+ they have a
+ .B "\&.gz"
+-suffix or not.
++suffix or not. In POSIX mode zcat will append
++.B ".Z"
++to all filenames that do not have that suffix.
+ .PP
+ .I Gzip
+ uses the Lempel-Ziv algorithm used in
+@@ -384,7 +386,7 @@
+ avoid a conflict with the symbol set for invocation of the program.
+ .SH "SEE ALSO"
+ znew(1), zcmp(1), zmore(1), zforce(1), gzexe(1), zip(1), unzip(1), compress(1),
+-pack(1), compact(1)
++pack(1), compact(1), compat(5)
+ .PP
+ The
+ .I gzip

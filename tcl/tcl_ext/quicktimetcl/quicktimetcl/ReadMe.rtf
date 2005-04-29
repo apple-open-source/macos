@@ -1,0 +1,124 @@
+{\rtf1\mac\ansicpg10000\cocoartf102
+{\fonttbl\f0\fswiss\fcharset77 Helvetica;\f1\fswiss\fcharset77 Helvetica-Bold;}
+{\colortbl;\red255\green255\blue255;}
+\paperw11905\paperh16841\margl1440\margr1440\vieww12220\viewh13540\viewkind0
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1506\ql\qnatural
+
+\f0\fs24 \cf0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1506\ql\qnatural
+
+\f1\b\fs28 \cf0 README for QuickTimeTcl 3.1
+\f0\b0\fs24 \
+\
+QuickTimeTcl is an extension to Tcl/Tk on Mac OS X and Windows that provides many bindings to QuickTime from Tcl/Tk. Starting with this release, support for Mac OS Classic has been abandoned. \
+ \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1506\ql\qnatural
+
+\f1\b \cf0 Documentation
+\f0\b0 :\
+\
+For more documentation, see the manual pages in the 'docs' folder. These contain the latest information. There are also some simple tcl example code in the 'ExampleCode' folder that can be helpful; just source them in.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1505\ql\qnatural
+
+\f1\b \cf0 \
+Requirements
+\f0\b0 :\
+\
+Tcl/Tk 8.4 (8.4.4 on Mac OS X) and QuickTime 5 or higher.\
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1506\ql\qnatural
+\cf0 \
+\pard\tx720\tx1440\tx2160\tx2880\tx3600\tx4320\tx5040\tx5760\tx6480\tx7200\tx7920\tx8640\ri1506\ql\qnatural
+
+\f1\b \cf0 Testing
+\f0\b0 :\
+\
+The current version of QuickTimeTcl is developed and tested on Mac OS X 10.2 and Windows 2000 using Tcl/Tk 8.4. \
+\
+
+\f1\b QuickTime
+\f0\b0 :\
+\
+Download QuickTime from "http://www.apple.com/quicktime/download", or get a standalone installer from (good for switching between versions or if you are behind a firewall) "http://www.apple.com/quicktime/download/support". You don't need the pay (Pro) version. Not even I have it and that works fine anyway. Many things, altough not all, you pay for can be reproduced by some coding using this package :-)\
+    \
+
+\f1\b Installing
+\f0\b0 :\
+\
+Just run the installer on the respective platform, or:\
+    \
+
+\f1\b Mac OS X
+\f0\b0 : Make a folder QuickTimeTcl3.1 with the QuickTimeTcl.dylib and pkgIndex.tcl files inside, and put this folder either in /Library/Tcl/ or ~/Library/Tcl/.\
+\
+
+\f1\b Windows
+\f0\b0 : put the QuickTimeTcl directory inside the lib directory of the Tcl directory, as:\
+    \
+        Program\
+            ...\
+            Tcl\
+                bin\
+                doc\
+                include\
+                lib\
+                    ...\
+                    QuickTimeTcl\
+                        QuickTimeTcl.dll\
+                        pkgIndex.tcl\
+                    ...\
+\
+\
+
+\f1\b WebCams on Windows:
+\f0\b0 \
+\
+On Windows, the 'vdig' (video digitizer) component which should be the hardware manufacturers responsibilty is sadly lacking on most WebCams. The grabber is therefore only tested with an emulated 'vdig' component WinVdig from www.vdig.com (.org). If you never got a QuickTime 'vdig' component with your PC camera, try WinVdig. Note, however, that this is only a second best solution.                 \
+   \
+
+\f1\b Compiling:
+\f0\b0 \
+ \
+Mac OS X:\
+\
+Use 'pbxbild clean install' in the directory of the ProjectBuilder file.\
+\
+Win32:\
+\
+If you compile under windows the 'Cursor' symbol in 'X.h' need to be redefined as 'XCursor', just as what is done on the Mac.         \
+    \
+
+\f1\b BUGS:
+\f0\b0    \
+\
+If you want to see some printouts of what is happening inside QuickTimeTcl, use the command 'quicktimetcl::debuglevel 3'.\
+    \
+-   There are some tuning to be done to get maximal performance for QTVR panoramas; the cursor flashes which is perhaps the cause.\
+                    \
+-   (Windows) -resizable not working.\
+\
+-  The effect command not implemented yet for Mac OS X.\
+            \
+\
+
+\f1\b LICENSE:
+\f0\b0 \
+          \
+This software is distributed under the BSD license. c.f. http://www.opensource.org/licenses/bsd-license \
+    \
+\
+
+\f1\b Acknowledgements: 
+\f0\b0   \
+Bruce O'Neel made the original version of QuickTimeTcl; The Windows port contains some tiny code fragments from Steve Aronson.\
+\
+Enjoy,  Mats Bengtsson\
+\
+matben@privat.utfors.se\
+\
+Hamngatan 21\
+SE-582 26  Linkoping\
+Sweden\
+\
+ \'a9 1998 Bruce O'Neel, \'a9 2000-2003 Mats Bengtsson\
+  \
+}

@@ -84,7 +84,6 @@ typedef struct
 	uint32_t state;
 	void *private;
 	list_t *client_list;
-	pthread_mutex_t *lock;
 } name_info_t;
 
 typedef struct
@@ -116,8 +115,7 @@ typedef struct
 	name_info_t **controlled_name;
 	uint32_t controlled_name_count;
 	uint32_t client_id;
-	pthread_mutex_t *name_lock;
-	pthread_mutex_t *client_lock;
+	pthread_mutex_t *lock;
 	uint32_t session_count;
 	task_t *session;
 	int sock;
@@ -130,6 +128,8 @@ uint32_t _notify_lib_post(notify_state_t *ns, const char *name, uint32_t uid, ui
 uint32_t _notify_lib_check(notify_state_t *ns, uint32_t cid, int *check);
 uint32_t _notify_lib_get_state(notify_state_t *ns, uint32_t cid, int *state);
 uint32_t _notify_lib_set_state(notify_state_t *ns, uint32_t cid, int state, uint32_t uid, uint32_t gid);
+uint32_t _notify_lib_get_val(notify_state_t *ns, uint32_t cid, int *val);
+uint32_t _notify_lib_set_val(notify_state_t *ns, uint32_t cid, int val, uint32_t uid, uint32_t gid);
 
 uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, task_t session, uint32_t slot, uint32_t uid, uint32_t gid, uint32_t *out_token);
 uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, task_t session, uint32_t sig, uint32_t uid, uint32_t gid, uint32_t *out_token);

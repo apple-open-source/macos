@@ -45,7 +45,7 @@ RSC=rc.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
-# ADD CPP /nologo /G6 /MT /Za /W3 /GX /Zi /Ox /Ob0 /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
+# ADD CPP /nologo /G6 /MT /Za /W3 /GX /Zi /Ox /Ob0 /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /I "..\..\tools\ctestfw" /D "WIN32" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -53,7 +53,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:I386
-# ADD LINK32 /nologo /subsystem:console /machine:I386 /pdbtype:sept /libpath:"..\..\..\lib"
+# ADD LINK32 icuuc.lib icuin.lib icutu.lib ctestfw.lib /nologo /subsystem:console /machine:I386 /pdbtype:sept /libpath:"..\..\..\lib"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "intltest - Win32 Debug"
@@ -71,7 +71,7 @@ LINK32=link.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FD /GZ /c
-# ADD CPP /nologo /G6 /MTd /Za /W3 /Gm /GX /ZI /Od /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "UDATA_MAP_DLL" /FR /FD /GZ /c
+# ADD CPP /nologo /G6 /MTd /Za /W3 /Gm /GX /ZI /Od /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /I "..\..\tools\ctestfw" /D "WIN32" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "UDATA_MAP_DLL" /FR /FD /GZ /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -79,7 +79,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept /libpath:"..\..\..\lib" /warn:3
+# ADD LINK32 icuucd.lib icuind.lib icutud.lib ctestfwd.lib /nologo /subsystem:console /debug /machine:I386 /pdbtype:sept /libpath:"..\..\..\lib" /warn:3
 # SUBTRACT LINK32 /pdb:none /map
 
 !ELSEIF  "$(CFG)" == "intltest - Win64 Release"
@@ -97,7 +97,7 @@ LINK32=link.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /GX /O2 /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /FD /c
-# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /QIA64_fmaopt /Wp64 /Zm600 /c
+# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /I "..\..\tools\ctestfw" /D "WIN64" /D "NDEBUG" /D "_CONSOLE" /D "_MBCS" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /Wp64 /Zm600 /c
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
 # ADD RSC /l 0x409 /d "NDEBUG"
 BSC32=bscmake.exe
@@ -105,7 +105,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /machine:IX86 /machine:IA64
-# ADD LINK32 icuuc.lib icuin.lib icutu.lib /nologo /subsystem:console /machine:IX86 /pdbtype:sept /libpath:"..\..\..\lib" /machine:IA64
+# ADD LINK32 icuuc.lib icuin.lib icutu.lib ctestfw.lib /nologo /subsystem:console /machine:IX86 /pdbtype:sept /libpath:"..\..\..\lib" /machine:IA64
 
 !ELSEIF  "$(CFG)" == "intltest - Win64 Debug"
 
@@ -122,7 +122,7 @@ LINK32=link.exe
 # PROP Target_Dir ""
 MTL=midl.exe
 # ADD BASE CPP /nologo /W3 /Gm /GX /ZI /Od /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /FD /GZ /c
-# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "UDATA_MAP_DLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /QIA64_fmaopt /Wp64 /Zm600 /c
+# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\..\include" /I "..\..\..\source\common" /I "..\..\..\source\i18n" /I "..\..\tools\toolutil" /I "..\..\tools\ctestfw" /D "WIN64" /D "_DEBUG" /D "_CONSOLE" /D "_MBCS" /D "UDATA_MAP_DLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /Wp64 /Zm600 /c
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
 # ADD RSC /l 0x409 /d "_DEBUG"
 BSC32=bscmake.exe
@@ -130,7 +130,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /subsystem:console /debug /machine:IX86 /pdbtype:sept /machine:IA64
-# ADD LINK32 icuucd.lib icuind.lib icutud.lib /nologo /subsystem:console /incremental:no /debug /machine:IX86 /pdbtype:sept /libpath:"..\..\..\lib\\" /libpath:"..\..\..\lib" /machine:IA64
+# ADD LINK32 icuucd.lib icuind.lib icutud.lib ctestfwd.lib /nologo /subsystem:console /incremental:no /debug /machine:IX86 /pdbtype:sept /libpath:"..\..\..\lib\\" /libpath:"..\..\..\lib" /machine:IA64
 
 !ENDIF 
 
@@ -372,6 +372,14 @@ SOURCE=.\ucaconf.h
 # Begin Group "collections"
 
 # PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\v32test.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\v32test.h
+# End Source File
 # End Group
 # Begin Group "configuration"
 
@@ -379,6 +387,7 @@ SOURCE=.\ucaconf.h
 # Begin Source File
 
 SOURCE=.\strtest.cpp
+# ADD CPP /Ze
 # End Source File
 # Begin Source File
 
@@ -395,19 +404,23 @@ SOURCE=.\tsmthred.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\tsmutex.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\tsmutex.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\tsputil.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\tsputil.h
+# End Source File
+# End Group
+# Begin Group "conversion"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\convtest.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\convtest.h
 # End Source File
 # End Group
 # Begin Group "data & memory"
@@ -425,6 +438,22 @@ SOURCE=.\uobjtest.h
 # Begin Group "formatting"
 
 # PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\astrotst.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\astrotst.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\calcasts.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\calcasts.h
+# End Source File
 # Begin Source File
 
 SOURCE=.\callimts.cpp
@@ -520,6 +549,14 @@ SOURCE=.\itrbnf.cpp
 # Begin Source File
 
 SOURCE=.\itrbnf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\itrbnfp.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\itrbnfp.h
 # End Source File
 # Begin Source File
 
@@ -702,17 +739,49 @@ SOURCE=.\restsnew.cpp
 SOURCE=.\restsnew.h
 # End Source File
 # End Group
-# Begin Group "misc"
+# Begin Group "idna"
 
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=.\datamap.cpp
+SOURCE=.\idnaref.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\datamap.h
+SOURCE=.\idnaref.h
 # End Source File
+# Begin Source File
+
+SOURCE=.\nptrans.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\nptrans.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\punyref.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\punyref.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\testidn.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\testidna.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\testidna.h
+# End Source File
+# End Group
+# Begin Group "misc"
+
+# PROP Default_Filter ""
 # Begin Source File
 
 SOURCE=.\intltest.cpp
@@ -739,14 +808,6 @@ SOURCE=.\itutil.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\testdata.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\testdata.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\testutil.cpp
 # End Source File
 # Begin Source File
@@ -755,11 +816,19 @@ SOURCE=.\testutil.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\tstdtmod.cpp
+SOURCE=.\textfile.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\tstdtmod.h
+SOURCE=.\textfile.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tokiter.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\tokiter.h
 # End Source File
 # End Group
 # Begin Group "normalization"
@@ -891,14 +960,6 @@ SOURCE=.\cpdtrtst.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\hxuntrts.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\hxuntrts.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\ittrans.cpp
 # End Source File
 # Begin Source File
@@ -944,62 +1005,6 @@ SOURCE=.\trnserr.cpp
 # Begin Source File
 
 SOURCE=.\trnserr.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\ufltlgts.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\ufltlgts.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\unhxtrts.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\unhxtrts.h
-# End Source File
-# End Group
-# Begin Group "idna"
-
-# PROP Default_Filter "*.c,*.h"
-# Begin Source File
-
-SOURCE=.\idnaref.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\idnaref.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\nptrans.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\nptrans.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\punyref.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\punyref.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\testidn.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\testidna.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\testidna.h
 # End Source File
 # End Group
 # End Target

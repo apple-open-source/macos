@@ -1,0 +1,45 @@
+--- towlower.3.orig	Fri Mar 11 19:44:47 2005
++++ towlower.3	Fri Mar 11 19:50:47 2005
+@@ -40,7 +40,8 @@
+ .Dt TOWLOWER 3
+ .Os
+ .Sh NAME
+-.Nm towlower
++.Nm towlower ,
++.Nm towlower_l
+ .Nd "upper case to lower case letter conversion (wide character version)"
+ .Sh LIBRARY
+ .Lb libc
+@@ -48,11 +49,22 @@
+ .In wctype.h
+ .Ft wint_t
+ .Fn towlower "wint_t wc"
++.In xlocale.h
++.Ft wint_t
++.Fn towlower_l "wint_t wc" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn towlower
+ function converts an upper-case letter to the corresponding lower-case
+ letter.
++.Pp
++While the
++.Fn towlower
++function uses the current locale, the
++.Fn towlower_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If the argument is an upper-case letter, the
+ .Fn towlower
+@@ -62,7 +74,8 @@
+ .Xr iswlower 3 ,
+ .Xr tolower 3 ,
+ .Xr towupper 3 ,
+-.Xr wctrans 3
++.Xr wctrans 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn towlower

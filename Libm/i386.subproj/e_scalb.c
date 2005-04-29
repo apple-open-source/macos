@@ -21,9 +21,7 @@ __RCSID("$NetBSD: e_scalb.c,v 1.8 1999/07/02 15:37:41 simonb Exp $");
  * should use scalbn() instead.
  */
 
-#include "math.h"
-#include "math_private.h"
-
+extern double scalbn ( double, int );
 double scalb(double x, int fn)
 {
 	return scalbn(x,fn);

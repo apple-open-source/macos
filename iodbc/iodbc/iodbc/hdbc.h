@@ -1,7 +1,7 @@
 /*
  *  hdbc.h
  *
- *  $Id: hdbc.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: hdbc.h,v 1.3 2004/11/11 01:52:37 luesang Exp $
  *
  *  Data source connect object management functions
  *
@@ -80,7 +80,8 @@
 typedef struct _drvopt
   {
     SQLUSMALLINT Option;
-    SQLUINTEGER  Param;
+    SQLULEN Param;
+    SQLCHAR      waMode;
 
     struct _drvopt *next;
   } 
@@ -92,7 +93,7 @@ typedef struct DBC
     HERR herr;
     SQLRETURN rc;
 
-    struct DBC FAR * next;
+    struct DBC * next;
 
     HENV genv;			/* back point to global env object */
 
@@ -117,11 +118,8 @@ typedef struct DBC
     SWORD cb_commit;
     SWORD cb_rollback;
 
-    char FAR * current_qualifier;
-
-    int trace;				/* trace flag */
-    char FAR * tfile;
-    void FAR * tstm;			/* trace stream */
+    wchar_t * current_qualifier;
+    char current_qualifier_WA;
 
     SWORD dbc_cip;			/* Call in Progess flag */
 
@@ -130,30 +128,42 @@ typedef struct DBC
   }
 DBC_t;
 
-#define IS_VALID_HDBC(x) \
-	((x) != SQL_NULL_HDBC && ((DBC_t FAR *)(x))->type == SQL_HANDLE_DBC)
 
-#define ENTER_HDBC(pdbc) \
+#define IS_VALID_HDBC(x) \
+	((x) != SQL_NULL_HDBC && ((DBC_t *)(x))->type == SQL_HANDLE_DBC)
+
+
+#define ENTER_HDBC(hdbc, holdlock, trace) \
+	CONN(pdbc, hdbc); \
+        SQLRETURN retcode = SQL_SUCCESS; \
         ODBC_LOCK();\
+	TRACE(trace); \
     	if (!IS_VALID_HDBC (pdbc)) \
 	  { \
-	    ODBC_UNLOCK (); \
-	    return SQL_INVALID_HANDLE; \
+	    retcode = SQL_INVALID_HANDLE; \
+	    goto done; \
 	  } \
 	else if (pdbc->dbc_cip) \
           { \
 	    PUSHSQLERR (pdbc->herr, en_S1010); \
-	    ODBC_UNLOCK(); \
-	    return SQL_ERROR; \
+	    retcode = SQL_ERROR; \
+	    goto done; \
 	  } \
 	pdbc->dbc_cip = 1; \
 	CLEAR_ERRORS (pdbc); \
-	ODBC_UNLOCK();
+	if (!holdlock) \
+	  ODBC_UNLOCK()
 
 
-#define LEAVE_HDBC(pdbc, err) \
+#define LEAVE_HDBC(hdbc, holdlock, trace) \
+	if (!holdlock) \
+	  ODBC_LOCK (); \
 	pdbc->dbc_cip = 0; \
-	return (err);
+    done: \
+    	TRACE(trace); \
+	ODBC_UNLOCK (); \
+	return (retcode)
+
 
 /* 
  * Note:
@@ -189,9 +199,11 @@ enum
 SQLRETURN SQL_API _iodbcdm_SetConnectOption (
     SQLHDBC hdbc,
     SQLUSMALLINT fOption, 
-    SQLUINTEGER vParam);
+    SQLULEN vParam,
+    SQLCHAR waMode);
 SQLRETURN SQL_API _iodbcdm_GetConnectOption (
     SQLHDBC hdbc,
     SQLUSMALLINT fOption, 
-    SQLPOINTER pvParam);
+    SQLPOINTER pvParam,
+    SQLCHAR waMode);
 #endif

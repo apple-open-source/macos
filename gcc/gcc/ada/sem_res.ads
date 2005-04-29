@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-1999 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,8 +28,7 @@
 --  package Sem_Aggr contains the actual resolution routines for aggregates,
 --  which are separated off since aggregate processing is complex.
 
-with Snames; use Snames;
-with Types;  use Types;
+with Types; use Types;
 
 package Sem_Res is
 
@@ -47,7 +45,7 @@ package Sem_Res is
 
    --  Since in practice a lot of semantic analysis has to be postponed until
    --  types are known (e.g. static folding, setting of suppress flags), the
-   --  Resolve routines also complete the semantic analyze, and also call the
+   --  Resolve routines also complete the semantic analysis, and call the
    --  expander for possibly expansion of the completely type resolved node.
 
    procedure Resolve (N : Node_Id; Typ : Entity_Id);
@@ -59,6 +57,12 @@ package Sem_Res is
    --  resolve routines do various other processing, e.g. static evaluation.
    --  If a Suppress argument is present, then the resolution is done with the
    --  specified check suppressed (can be All_Checks to suppress all checks).
+
+   procedure Resolve (N : Node_Id);
+   --  A version of Resolve where the type to be used for resolution is
+   --  taken from the Etype (N). This is commonly used in cases where the
+   --  context does not add anything and the first pass of analysis found
+   --  the correct expected type.
 
    procedure Resolve_Discrete_Subtype_Indication
      (N   : Node_Id;
@@ -93,8 +97,7 @@ package Sem_Res is
    --  Several forms of names can denote calls to entities without para-
    --  meters. The context determines whether the name denotes the entity
    --  or a call to it. When it is a call, the node must be rebuilt
-   --  accordingly (deprocedured, in A68 terms) and renalyzed to obtain
-   --  possible interpretations.
+   --  accordingly and renalyzed to obtain possible interpretations.
    --
    --  The name may be that of an overloadable construct, or it can be an
    --  explicit dereference of a prefix that denotes an access to subprogram.
@@ -113,5 +116,11 @@ package Sem_Res is
    procedure Pre_Analyze_And_Resolve (N : Node_Id);
    --  Same, but use type of node because context does not impose a single
    --  type.
+
+private
+   procedure Resolve_Implicit_Type (N : Node_Id) renames Resolve;
+   pragma Inline (Resolve_Implicit_Type);
+   --  We use this renaming to make the application of Inline very explicit
+   --  to this version, since other versions of Resolve are not inlined.
 
 end Sem_Res;

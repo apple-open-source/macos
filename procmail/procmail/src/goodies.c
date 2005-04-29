@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: goodies.c,v 1.1.1.2 2001/07/20 19:38:16 bbraun Exp $";
+ "$Id: goodies.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "procmail.h"
 #include "sublib.h"
@@ -312,9 +312,9 @@ simplsplit: { char*q;
 		 skipping|=1,p=fencepost;
 	    }
 	   else
-copyit:	    { strncpy(p,startb,fencepost-p+2);		   /* simply copy it */
-	      if(fencepost[1]!='\0')		      /* did we truncate it? */
-		 skipping|=1,*fencepost='\0';
+copyit:	    { size_t len=fencepost-p+1;
+	      if(strlcpy(p,startb,len)>=len)		   /* simply copy it */
+		 skipping|=1;			      /* did we truncate it? */
 	      if(got<=SKIPPING_SPACE)		/* can only occur if sarg!=0 */
 		 got=NORMAL_TEXT;
 	      p=strchr(p,'\0');

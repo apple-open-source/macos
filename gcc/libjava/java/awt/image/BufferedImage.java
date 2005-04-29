@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -37,10 +37,18 @@ exception statement from your version. */
 
 package java.awt.image;
 
-import java.awt.*;
-import java.awt.color.*;
-import java.util.*;
-
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.Transparency;
+import java.awt.color.ColorSpace;
+import java.util.Hashtable;
+import java.util.Vector;
+import java.util.HashSet;
+import java.util.Iterator;
 import gnu.java.awt.ComponentDataBlitOp;
 
 /**
@@ -53,8 +61,8 @@ import gnu.java.awt.ComponentDataBlitOp;
  * 
  * @author Rolf W. Rasmussen <rolfwr@ii.uib.no>
  */
-public class BufferedImage extends java.awt.Image
-    //implements java.awt.image.WritableRenderedImage
+public class BufferedImage extends Image
+  implements WritableRenderedImage
 {
   public static final int TYPE_CUSTOM         =  0,
                           TYPE_INT_RGB        =  1,
@@ -88,6 +96,8 @@ public class BufferedImage extends java.awt.Image
 				   0x03e0,
 				   0x001f,
 				   DataBuffer.TYPE_USHORT};
+
+  Vector observers;
   
   public BufferedImage(int w, int h, int type)
   {
@@ -248,7 +258,8 @@ public class BufferedImage extends java.awt.Image
   public WritableRaster copyData(WritableRaster dest)
   {
     if (dest == null)
-      dest = raster.createCompatibleWritableRaster();
+      dest = raster.createCompatibleWritableRaster(getMinX(), getMinY(),
+                                                   getWidth(),getHeight());
 
     int x = dest.getMinX();
     int y = dest.getMinY();
@@ -260,16 +271,24 @@ public class BufferedImage extends java.awt.Image
       raster.createWritableChild(x, y, w, h, x, y,
 				 null  // same bands
 				 );
-    
-    // Refer to ComponentDataBlitOp for optimized data blitting:
-    ComponentDataBlitOp.INSTANCE.filter(src, dest);
+    if (src.getSampleModel () instanceof ComponentSampleModel
+        && dest.getSampleModel () instanceof ComponentSampleModel)
+      // Refer to ComponentDataBlitOp for optimized data blitting:
+      ComponentDataBlitOp.INSTANCE.filter(src, dest);
+    else
+      {
+        // slower path
+        int samples[] = src.getPixels (x, y, w, h, (int [])null);
+        dest.setPixels (x, y, w, h, samples);
+      }
     return dest;
   }
 
   public Graphics2D createGraphics()
   {
-    throw new UnsupportedOperationException("not implemented");
-    // will require a lot of effort to implement
+    GraphicsEnvironment env;
+    env = GraphicsEnvironment.getLocalGraphicsEnvironment ();
+    return env.createGraphics (this);
   }
 
   public void flush() {
@@ -425,7 +444,57 @@ public class BufferedImage extends java.awt.Image
     
   public ImageProducer getSource()
   {
-    throw new UnsupportedOperationException("not implemented");
+    return new ImageProducer() {
+        
+        HashSet consumers = new HashSet();
+
+        public void addConsumer(ImageConsumer ic)
+        {
+          consumers.add(ic);
+        }
+
+        public boolean isConsumer(ImageConsumer ic)
+        {
+          return consumers.contains(ic);
+        }
+
+        public void removeConsumer(ImageConsumer ic)
+        {
+          consumers.remove(ic);
+        }
+
+        public void startProduction(ImageConsumer ic)
+        {
+          int x = 0;
+          int y = 0;
+          int width = getWidth();
+          int height = getHeight();
+          int stride = width;
+          int offset = 0;
+          int[] pixels = getRGB(x, y, 
+                                width, height, 
+                                (int[])null, offset, stride);
+          ColorModel model = getColorModel();
+
+          consumers.add(ic);
+
+          Iterator i = consumers.iterator();
+          while(i.hasNext())
+            {
+              ImageConsumer c = (ImageConsumer) i.next();
+              c.setHints(ImageConsumer.SINGLEPASS);
+              c.setDimensions(getWidth(), getHeight());
+              c.setPixels(x, y, width, height, model, pixels, offset, stride);
+              c.imageComplete(ImageConsumer.STATICIMAGEDONE);
+            }
+        }
+
+        public void requestTopDownLeftRightResend(ImageConsumer ic)
+        {
+          startProduction(ic);
+        }
+
+      };
   }
   
   public Vector getSources()
@@ -533,9 +602,18 @@ public class BufferedImage extends java.awt.Image
       raster.createWritableChild(x, y, w, h, x, y,
 				 null  // same bands
 				 );
-    
-    // Refer to ComponentDataBlitOp for optimized data blitting:
-    ComponentDataBlitOp.INSTANCE.filter(src, dest);
+
+    if (src.getSampleModel () instanceof ComponentSampleModel
+        && dest.getSampleModel () instanceof ComponentSampleModel)
+
+      // Refer to ComponentDataBlitOp for optimized data blitting:
+      ComponentDataBlitOp.INSTANCE.filter(src, dest);
+    else
+      {
+        // slower path
+        int samples[] = src.getPixels (x, y, w, h, (int [])null);
+        dest.setPixels (x, y, w, h, samples);
+      }
   }
 
   public void setRGB(int x, int y, int argb)
@@ -566,7 +644,48 @@ public class BufferedImage extends java.awt.Image
     
   public String toString()
   {
-    // FIXME: implement:
-    return super.toString();
+    StringBuffer buf;
+
+    buf = new StringBuffer(/* estimated length */ 120);
+    buf.append("BufferedImage@");
+    buf.append(Integer.toHexString(hashCode()));
+    buf.append(": type=");
+    buf.append(type);
+    buf.append(' ');
+    buf.append(colorModel);
+    buf.append(' ');
+    buf.append(raster);
+
+    return buf.toString();
+  }
+
+
+  /**
+   * Adds a tile observer. If the observer is already present, it receives
+   * multiple notifications.
+   *
+   * @param to The TileObserver to add.
+   */
+  public void addTileObserver (TileObserver to)
+  {
+    if (observers == null)
+      observers = new Vector ();
+	
+    observers.add (to);
+  }
+	
+  /**
+   * Removes a tile observer. If the observer was not registered,
+   * nothing happens. If the observer was registered for multiple
+   * notifications, it is now registered for one fewer notification.
+   *
+   * @param to The TileObserver to remove.
+   */
+  public void removeTileObserver (TileObserver to)
+  {
+    if (observers == null)
+      return;
+	
+    observers.remove (to);
   }
 }

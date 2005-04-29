@@ -1,0 +1,25 @@
+--- wscanf.3.orig	Fri Mar 11 17:09:15 2005
++++ wscanf.3	Fri Mar 11 16:43:04 2005
+@@ -134,6 +134,12 @@
+ when an input character does not match such a format character.
+ Scanning also stops
+ when an input conversion cannot be made (see below).
++.Pp
++Extended locale versions of these functions are documented in
++.Xr wscanf_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh CONVERSIONS
+ Following the
+ .Cm %
+@@ -459,7 +465,8 @@
+ .Xr wcstod 3 ,
+ .Xr wcstol 3 ,
+ .Xr wcstoul 3 ,
+-.Xr wprintf 3
++.Xr wprintf 3 ,
++.Xr wscanf_l 3
+ .Sh STANDARDS
+ The
+ .Fn fwscanf ,

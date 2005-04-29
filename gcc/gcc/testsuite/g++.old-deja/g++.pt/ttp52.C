@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 template<class A,class B> class mymap {};
 
@@ -7,12 +7,10 @@ template<class Key,
          template<class, class > class MapT> 
 class base 
 {
-  
 };
 
 // specialization
 template<class Key, class Value>
-class base<Key, Value, mymap<int, int > >	
-{						// ERROR - type/value mismatch
-  
+class base<Key, Value, mymap<int, int > > // { dg-error "type/value|class template" }
+{
 };

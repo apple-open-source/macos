@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XGrDvKey.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XGrDvKey.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,46 +17,18 @@
 .SH NAME
 XGrabDeviceKey, XUngrabDeviceKey \- grab/ungrab extension input device Keys
 .SH SYNTAX
-XGrabDeviceKey\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIKey\fP\^, \fImodifiers\fP\^, 
-\fImodifier_device\fP\^, \fIgrab_window\fP\^, \fIowner_events\fP\^, 
-.br
-\fIevent_count\fP\^, \fIevent_list\fP\^, \fIthis_device_mode\fP\^, 
-\fIother_devices_mode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      unsigned int \fIKey\fP\^;
-.br
-      unsigned int \fImodifiers\fP\^;
-.br
-      XDevice *\fImodifier_device\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
-.br
-      Bool \fIowner_events\fP\^;
-.br
-      unsigned int \fIevent_count\fP\^;	
-.br
-      XEventClass \fIevent_list\fP\^;	
-.br
-      int \fIthis_device_mode\fP\^, \fIother_devices_mode\fP\^;
-.sp
-XUngrabDeviceKey\^(\fIdisplay\fP\^, \fIdevice\fP\^, \fIKey\fP\^, \fImodifiers\fP\^, 
-\fImodifier_device\fP\^, \fIgrab_window\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      unsigned int \fIKey\fP\^;
-.br
-      unsigned int \fImodifiers\fP\^;
-.br
-      XDevice *\fImodifier_device\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
+.SP
+.HP
+int XGrabDeviceKey\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^,
+unsigned int \fIKey\fP\^, unsigned int \fImodifiers\fP\^, XDevice
+*\fImodifier_device\fP\^, Window \fIgrab_window\fP\^, Bool
+\fIowner_events\fP\^, unsigned int \fIevent_count\fP\^, XEventClass
+\fIevent_list\fP\^, int \fIthis_device_mode\fP\^, int
+\fIother_devices_mode\fP\^); 
+.HP
+int XUngrabDeviceKey\^(Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^,
+unsigned int \fIKey\fP\^, unsigned int \fImodifiers\fP\^, XDevice
+*\fImodifier_device\fP\^, Window \fIgrab_window\fP\^); 
 .SH ARGUMENTS
 .ds Bu grabbed or released
 .TP 12

@@ -43,7 +43,7 @@
 //	* Typedefs and enums
 // --------------------------------------------------------------------------------------------
 
-// IP address string  --  Need to change this for IPV6 -- MED --
+// IP address string
 typedef char		IPAddrStr[ MAXIPADDRSTRLEN ]; // define a type for "ddd.ddd.ddd.ddd\0"
 
 enum { kMaxHostNameLength = 255 };
@@ -59,9 +59,10 @@ typedef	 struct MSInetHostInfo
 } MSInetHostInfo;
 
 typedef struct MultiHomeIPInfo {
-	InetHost		IPAddress;				// our IP address
-	IPAddrStr		IPAddressString;		// ASCII IP address string ddd.ddd.ddd.ddd\0
-	InetDomainName	DNSName;				// our host name	
+	InetHost			IPAddress;				// our IP address
+	IPAddrStr			IPAddressString;		// ASCII IP address string ddd.ddd.ddd.ddd\0
+	InetDomainName		DNSName;				// our host name
+	MultiHomeIPInfo    *pNext;
 } MultiHomeIPInfo;
 
 	
@@ -95,15 +96,10 @@ public:
 
 	// local host information
 	static Boolean		IsTCPAvailable			( void ) { return sTCPAvailable; }
-	static Boolean		IsAppleTalkAvailable	( void ) { return sAppleTalkAvailable; }
 
-	static const char *	GetOurNodeName			( void ) { return sLocalNodeName; }
-	static const char *	GetLocalHostName		( void ) { return sLocalHostName; }
-	static InetHost		GetLocalHostIPAddress	( void ) { return sLocalHostIPAddr; }
 	static int			GetOurIPAddressCount	( void ) { return sIPAddrCount; }
 	static InetHost		GetOurIPAddress 		( short inIndex = kPrimaryIPAddr );
 	static const char *	GetOurIPAddressString	( short inIndex = kPrimaryIPAddr );
-	static void			GetOurIPAddressString2	( short inIndex, char *ioBuffer, int inBufferSize );
 
 	static Boolean		DoesIPAddrMatch			( InetHost inIPAddr );
 
@@ -124,20 +120,11 @@ protected:
 	// Data members
 
 	static Boolean			sNetworkInitialized;
-	static Boolean			sAppleTalkAvailable;
 	static Boolean			sTCPAvailable;
 
 	static short			sIPAddrCount;		// count of IP addresses for this server
-	static short			sAliasCount;
 
-	static InetDomainName	sLocalNodeName;		// our system node name
-
-	static InetDomainName	sLocalHostName;		// our "localhost" loopback name and address
-	static InetHost			sLocalHostIPAddr;	// 127.0.0.1
-
-	static MultiHomeIPInfo	sIPInfo[ kMaxIPAddrs ];
-	static IPAddressInfo	sAddrList[ kMaxIPAddrs ];
-	static InetDomainName	sAliasList[ kMaxIPAddrs ];
+	static MultiHomeIPInfo	*sIPInfo;
 
 	static DSMutexSemaphore	*sNetSemaphore;
 			

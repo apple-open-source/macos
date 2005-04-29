@@ -1,13 +1,38 @@
 #!/bin/sh
 
 #
-# $XFree86: xc/programs/Xserver/hw/xfree86/etc/Xinstall.sh,v 1.48 2003/02/24 04:24:17 dawes Exp $
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/Xinstall.sh,v 1.73 2004/02/29 00:09:28 dawes Exp $
 #
 # Copyright © 2000 by Precision Insight, Inc.
 # Copyright © 2000, 2001 by VA Linux Systems, Inc.
-# Copyright © 1996-2003 by The XFree86 Project, Inc.
+# Copyright © 1996-2004 by The XFree86 Project, Inc.
 #
-# This script should be used to install XFree86 4.3.0.
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+# THE COPYRIGHT HOLDER(S) OR AUTHOR(S) BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
+# Except as contained in this notice, the name of the copyright holder(s)
+# and author(s) shall not be used in advertising or otherwise to promote
+# the sale, use or other dealings in this Software without prior written
+# authorization from the copyright holder(s) and author(s).
+#
+
+#
+# This script should be used to install XFree86 4.4.0.
 #
 # Parts of this script are based on the old preinst.sh and postinst.sh
 # scripts.
@@ -24,20 +49,16 @@ SNAPSHOT=n
 
 if [ $SNAPSHOT = y ]; then
 	FULLPREFIX=XXX
-	VERSION=4.2.99.902
+	VERSION=4.3.99.903
 	PATCHLEVEL=0
 	FULLVERSION=$VERSION
 else
-	FULLPREFIX=4.3
+	FULLPREFIX=4.4
 	PATCHLEVEL=0
 	VERSION=$FULLPREFIX.$PATCHLEVEL
 	FULLVERSION=$FULLPREFIX.0
 fi
 SCRIPTVERSION=$VERSION
-
-# XXX Could get this (and above) version info from imake...
-FreetypeCurrent=9
-FreetypeAge=3
 
 BINDISTFULLPREFIX=
 BINDISTPATCHLEVEL=
@@ -85,10 +106,13 @@ RUNDIR=$ROOTDIR/usr/X11R6
 ETCDIR=$ROOTDIR/etc
 VARDIR=$ROOTDIR/var
 
-OLDFILES=""
+OLDFILES=" \
+	$RUNDIR/include/freetype2/ft2build.h \
+	"
 
 OLDDIRS=" \
 	$RUNDIR/lib/X11/xkb/compiled \
+	$RUNDIR/lib/X11/xkb/geometry/hp \
 	"
 
 OLDMODULES=" \
@@ -132,12 +156,11 @@ OPTDIST=" \
 	Xvfb.tgz \
 	Xf100.tgz \
 	Xfcyr.tgz \
-	Xflat2.tgz \
-	Xfnon.tgz \
 	Xfscl.tgz \
 	Xhtml.tgz \
 	Xjdoc.tgz \
 	Xps.tgz \
+	Xpdf.tgz \
 	"
 
 ETCDLINKS=" \
@@ -175,7 +198,7 @@ XSERVERCMD="$RUNDIR/bin/XFree86"
 
 VERSIONFILE=".XFree86_Version"
 
-WDIR=`pwd`
+WDIR="`pwd`"
 
 DOUPDATE=
 DOBASE=
@@ -245,14 +268,12 @@ Description()
 		echo "X print server";;
 	Xvfb*)
 		echo "Virtual framebuffer X server";;
+	Xdrm*)
+		echo "DRM kernel module source";;
 	Xf100*)
 		echo "100dpi fonts";;
 	Xfcyr*)
 		echo "Cyrillic fonts";;
-	Xflat2*)
-		echo "Latin-2 fonts";;
-	Xfnon*)
-		echo "Some large fonts";;
 	Xfscl*)
 		echo "Scaled fonts (Speedo, Type1 and TTF)";;
 	Xhtml*)
@@ -261,6 +282,8 @@ Description()
 		echo "Docs in Japanese";;
 	Xps*)
 		echo "Docs in PostScript";;
+	Xpdf*)
+		echo "Docs in PDF";;
 	Xaout*)
 		echo "a.out compatibility libraries";;
 	Xquartz*)
@@ -272,6 +295,33 @@ Description()
 	esac
 }
 
+CheckUtil()
+{
+	if [ X"$1" = X-t ]; then
+		shift
+		testonly=1
+	else
+		testonly=""
+	fi
+
+	# check if 'which' works
+	if which /bin/sh > /dev/null 2>&1; then
+		if which $1 > /dev/null 2>&1; then
+			return 0
+		else
+			if [ "$testonly" ]; then
+				return 1
+			else
+				echo "Cannot find the \"$1\" command."
+				echo "Aborting"
+				exit 1
+			fi
+		fi
+	else
+		return 0
+	fi
+}
+
 ReadLink()
 {
 	rltmp="`ls -l $1`"
@@ -281,6 +331,8 @@ ReadLink()
 
 GetOsInfo()
 {
+	CheckUtil uname
+
 	echo "Checking which OS you're running..."
 
 	OsName="`uname`"
@@ -304,7 +356,8 @@ GetOsInfo()
 	# Find the object type, where needed
 
 	case "$OsName" in
-	Linux|FreeBSD|NetBSD)
+	FreeBSD|NetBSD|OpenBSD)
+		CheckUtil file
 		if file -L /bin/sh | grep ELF > /dev/null 2>&1; then
 			OsObjFormat=ELF
 		else
@@ -346,41 +399,63 @@ GetOsInfo()
 		;;
 	esac
 
-	# Find the libc version, where needed
-	case "$OsName" in
-	Linux)
-		tmp="`ldd /bin/sh | grep libc.so 2> /dev/null`"
-		LibcPath=`expr "$tmp" : '[^/]*\(/[^ ]*\)'`
-		tmp="`strings $LibcPath | grep -i 'c library'`"
-		OsLibcMajor=`expr "$tmp" : '.* \([0-9][0-9]*\)'`
-		OsLibcMinor=`expr "$tmp" : '.* [0-9][0-9]*\.\([0-9][0-9]*\)'`
-		OsLibcTeeny=`expr "$tmp" : '.* [0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\)'`
-		case "$OsLibcMajor" in
-		2)
-			# 2 is the glibc version
-			OsLibcMajor=6
-			;;
-		esac
-		;;
-	esac
+	if [ X"$1" = X-l ]; then
+		# Find the libc version, where needed
+		case "$OsName" in
+		Linux)
+			tmp="`ldd /bin/sh | grep libc.so 2> /dev/null`"
+			LibcPath=`expr "$tmp" : '[^/]*\(/[^ ]*\)'`
 
-	if [ X"$OsLibcMajor" != X ]; then
-		Echo "libc version is '$OsLibcMajor"
-		if [ X"$OsLibcMinor" != X ]; then
-			Echo ".$OsLibcMinor"
-			if [ X"$OsLibcTeeny" != X ]; then
-				Echo ".$OsLibcTeeny"
-				if [ $OsLibcTeeny -gt 80 ]; then
-					OsLibcMinor=`expr $OsLibcMinor + 1`
+			# If strings is available, it is the best way to get the
+			# libc version.
+
+			if CheckUtil -t strings; then
+				tmp="`strings $LibcPath | grep -i 'c library'`"
+			else
+				if [ $L $LibcPath ]; then
+					tmp=`ReadLink $LibcPath`
+					# This assumes libc-maj.min.teeny.so
+					tmp="`echo $tmp | sed 's/-/ /'`"
+				else
+					tmp=""
 				fi
 			fi
-			Echo "'"
-			Echo " ($OsLibcMajor.$OsLibcMinor)"
-		else
-			Echo "'"
+
+			OsLibcMajor=`expr "$tmp" : '.* \([0-9][0-9]*\)'`
+			OsLibcMinor=`expr "$tmp" : '.* [0-9][0-9]*\.\([0-9][0-9]*\)'`
+			OsLibcTeeny=`expr "$tmp" : '.* [0-9][0-9]*\.[0-9][0-9]*\.\([0-9][0-9]*\)'`
+			case "$OsLibcMajor" in
+			2)
+				# 2 is the glibc version
+				OsLibcMajor=6
+				;;
+			"")
+				echo "Cannot find the glibc version."
+				echo "Aborting."
+				exit 1
+			esac
+			;;
+		esac
+
+		if [ X"$OsLibcMajor" != X ]; then
+			Echo "libc version is '$OsLibcMajor"
+			if [ X"$OsLibcMinor" != X ]; then
+				Echo ".$OsLibcMinor"
+				if [ X"$OsLibcTeeny" != X ]; then
+					Echo ".$OsLibcTeeny"
+					if [ $OsLibcTeeny -gt 80 ]; then
+						OsLibcMinor=`expr $OsLibcMinor + 1`
+					fi
+				fi
+				Echo "'"
+				Echo " ($OsLibcMajor.$OsLibcMinor)"
+			else
+				Echo "'"
+			fi
+			echo "."
 		fi
-		echo "."
 	fi
+
 #	if [ X"$needNL" = XYES ]; then
 #		echo ""
 #	fi
@@ -393,36 +468,32 @@ DoOsChecks()
 
 	case "$OsName" in
 	Linux)
-		case "$OsObjFormat" in
-		ELF)
-			# Check ldconfig
-			LDSO=`/sbin/ldconfig -v -n | awk '{ print $3 }'`
-			# if LDSO is empty ldconfig may be Version 2
-			if [ X"$LDSO" = X ]; then
-				LDSO=`/sbin/ldconfig -V | awk 'NR == 1 { print $4 }'`
-			fi
-			LDSOMIN=`echo $LDSO | awk -F[.-] '{ print $3 }'`
-			LDSOMID=`echo $LDSO | awk -F[.-] '{ print $2 }'`
-			LDSOMAJ=`echo $LDSO | awk -F[.-] '{ print $1 }'`
-			if [ "$LDSOMAJ" -gt 1 ]; then
+		# Check ldconfig
+		LDSO=`/sbin/ldconfig -v -n | awk '{ print $3 }'`
+		# if LDSO is empty ldconfig may be Version 2
+		if [ X"$LDSO" = X ]; then
+			LDSO=`/sbin/ldconfig -V | awk 'NR == 1 { print $4 }'`
+		fi
+		LDSOMIN=`echo $LDSO | awk -F[.-] '{ print $3 }'`
+		LDSOMID=`echo $LDSO | awk -F[.-] '{ print $2 }'`
+		LDSOMAJ=`echo $LDSO | awk -F[.-] '{ print $1 }'`
+		if [ "$LDSOMAJ" -gt 1 ]; then
+			: OK
+		else
+			if [ "$LDSOMID" -gt 7 ]; then
 				: OK
 			else
-				if [ "$LDSOMID" -gt 7 ]; then
+				if [ "$LDSOMIN" -ge 14 ]; then
 					: OK
 				else
-					if [ "$LDSOMIN" -ge 14 ]; then
-						: OK
-					else
-						echo ""
-						echo "Before continuing, you will need to get a"
-						echo "current version of ld.so.  Version 1.7.14 or"
-						echo "newer will do."
-						NEEDSOMETHING=YES
-					fi
+					echo ""
+					echo "Before continuing, you will need to get a"
+					echo "current version of ld.so.  Version 1.7.14 or"
+					echo "newer will do."
+					NEEDSOMETHING=YES
 				fi
 			fi
-			;;
-		esac
+		fi
 		# The /dev/tty0 check is left out.  Presumably nobody has a system where
 		# this is missing any more.
 		;;
@@ -435,7 +506,7 @@ FindDistName()
 	CYGWIN*)
 		case "$OsArch" in
 		i*86)
-			DistName="Cygwin-ix86"
+			DistName="Cygwin"
 			;;
 		*)
 			Message="Cygwin binaries are only available for ix86 platforms"
@@ -452,11 +523,21 @@ FindDistName()
 			1.4* | 5.*)
 				DistName="Darwin-ppc-5.x"
 				;;
-			6.*)
+			6.[0-2]*)
+				if [ -d /System/Library/Frameworks/ApplicationServices.framework ]; then
+					Message="No binaries available for Mac OS X 10.2.0 - 10.2.2"
+				else
+					DistName="Darwin-ppc-6.x"
+				fi
+				;;
+			6.[3-9]*)
 				DistName="Darwin-ppc-6.x"
 				;;
-			[7-9].*)
-				Message="No Darwin/ppc binaries available for this OS version. Try Darwin-ppc-6.x"
+			7.*)
+				DistName="Darwin-ppc-7.x"
+				;;
+			[8-9].*)
+				Message="No Darwin/ppc binaries available for this OS version.  Try Darwin-ppc-7.x"
 				;;
 			*)
 				Message="No Darwin/ppc binaries available for this OS version"
@@ -468,11 +549,11 @@ FindDistName()
 			1.4* | 5.*)
 				DistName="Darwin-ix86-5.x"
 				;;
-			6.*)
-				DistName="Darwin-ix86-6.x"
+			6.* | 7.*)
+				DistName="Darwin-ix86-7.x"
 				;;
-			[7-9].*)
-				Message="No Darwin/ix86 binaries available for this OS version. Try Darwin-ix86-6.x"
+			[8-9].*)
+				Message="No Darwin/ix86 binaries available for this OS version.  Try Darwin-ix86-7.x"
 				;;
 			*)
 				Message="No Darwin/ix86 binaries available for this OS version"
@@ -561,20 +642,16 @@ FindDistName()
 				2)
 					DistName="Linux-ix86-glibc22"
 					;;
+				3)
+					DistName="Linux-ix86-glibc23"
+					;;
 				*)
-					Message="No dist available for glibc 2.$OsLibcMinor.  Try Linux-ix86-glibc22"
+					Message="No dist available for glibc 2.$OsLibcMinor.  Try Linux-ix86-glibc23"
 					;;
 				esac
 				;;
 			*)
-				case "$OsObjFormat" in
-				a.out)
-					Message="Linux a.out is no longer supported"
-					;;
-				*)
-					Message="No Linux/ix86 binaries for this libc version"
-					;;
-				esac
+				Message="No Linux/ix86 binaries for this libc version"
 				;;
 			esac
 			;;
@@ -596,8 +673,11 @@ FindDistName()
 			6.1)
 				DistName="Linux-alpha-glibc21"
 				;;
+			6.2)
+				DistName="Linux-alpha-glibc22"
+				;;
 			6.*)
-				Message="No Linux/alpha binaries for glibc 2.$OsLibcMinor.  Try Linux-alpha-glibc21"
+				Message="No Linux/alpha binaries for glibc 2.$OsLibcMinor.  Try Linux-alpha-glibc22"
 				;;
 			*)
 				Message="No Linux/alpha binaries for this libc version"
@@ -614,6 +694,20 @@ FindDistName()
 				;;
 			esac
 			;;
+		x86_64|amd64)
+			case "$OsLibcMajor.$OsLibcMinor" in
+			6.2)
+				DistName="Linux-amd64-glibc22"
+				;;
+			6.[3-9]*)
+				Message="No dist available for glibc 2.$OsLibcMinor.  Try Linux-amd64-glibc22"
+				;;
+			*)
+				Message="No Linux/AMD64 binaries for this libc version"
+				;;
+			esac
+			;;
+		
 		*)
 			Message="No Linux binaries available for this architecture"
 			;;
@@ -632,7 +726,7 @@ FindDistName()
 					DistName="NetBSD-1.4.x"
 					;;
 				*)
-					DistName="NetBSD-1.5"
+					DistName="NetBSD-1.6 or NetBSD 1.5"
 					;;
 				esac
 				;;
@@ -650,11 +744,14 @@ FindDistName()
 		case "$OsArch" in
 		i386)
 			case "$OsVersion" in
-			3.0*)	# Check this
-				DistName="OpenBSD-3.0"
+			2.*)
+				DistName="OpenBSD-2.8"
+				;;
+			3.4*)	# Check this
+				DistName="OpenBSD-3.4"
 				;;
 			*)
-				Message="No OpenBSD/i386 binaries available for this version"
+				Message="No OpenBSD/i386 binaries available for this version.   Try OpenBSD-3.4."
 				;;
 			esac
 			;;
@@ -673,8 +770,11 @@ FindDistName()
 			5.8*)
 				DistName="Solaris-8"
 				;;
-			*)
-				Message="No Solaris/x86 binaries available for this version"
+			5.9*)
+				DistName="Solaris-9"
+				;;
+			5.10*)
+				Message="No Solaris/x86 binaries available for this version.  Try Solaris-9."
 				;;
 			esac
 			;;
@@ -740,7 +840,7 @@ GetBindistVersion()
 	fi
 	rm -f $VERSIONFILE
 	if [ X$VERSTARBALL != X ]; then
-		$TAR xzf $VERSTARBALL $VERSIONFILE
+		"$TAR" xzf $VERSTARBALL $VERSIONFILE
 	fi
 	if [ -f $VERSIONFILE ]; then
 		BINDISTVERSION=`cat $VERSIONFILE`
@@ -855,7 +955,7 @@ InstallUpdate()
 	echo "Installing the update binary distribution"
 	echo ""
 	for i in $UPDATEDIST $EXTRAUPDATE; do
-		(cd $RUNDIR; $EXTRACT $WDIR/$i)
+		(cd $RUNDIR; "$EXTRACT" "$WDIR"/$i)
 	done
 
 	# Make sure that $RUNDIR/lib isn't group/other writable
@@ -895,9 +995,11 @@ InstallUpdate()
 	echo "Update installation complete."
 }
 
+CheckUtil expr
+CheckUtil grep
 
 if [ X"$1" = "X-check" ]; then
-	GetOsInfo
+	GetOsInfo -l
 	FindDistName
 	exit 0
 fi
@@ -932,6 +1034,10 @@ fi
 
 GetOsInfo
 
+CheckUtil sed
+CheckUtil fgrep 
+CheckUtil basename
+
 # Make OS-specific adjustments
 
 case "$OsName" in
@@ -947,9 +1053,17 @@ Darwin)
             SERVDIST="Xxserv.tgz"
         fi
 	;;
-FreeBSD|NetBSD|OpenBSD)
+FreeBSD)
 	VARDIST="Xvar.tgz"
 	XKBDBDIR="$VARDIR/db/xkb"
+	EXTRAOPTDIST="Xdrm.tgz"
+	;;
+OpenBSD)
+	VARDIST="Xvar.tgz"
+	XKBDBDIR="$VARDIR/db/xkb"
+	;;
+NetBSD)
+	EXTRAOPTDIST="Xdrm.tgz"
 	;;
 Interactive)	# Need the correct name for this
 	EXTRADIST="Xbin1.tgz"
@@ -958,6 +1072,7 @@ Interactive)	# Need the correct name for this
 Linux)
 	VARDIST="Xvar.tgz"
 	XKBDBDIR="$VARDIR/lib/xkb"
+	EXTRAOPTDIST="Xdrm.tgz"
 	;;
 esac
 
@@ -969,7 +1084,7 @@ esac
 if [ -f extract ]; then
 	ExtractExists=YES
 	chmod +x extract
-	if ./extract --version | head -1 | \
+	if ./extract --version | sed 1q | \
 	  fgrep "extract (XFree86 version" > /dev/null 2>&1; then
 		ExtractOK=YES
 	else
@@ -984,7 +1099,7 @@ if [ X"$ExtractOK" != XYES ]; then
 		rm -f extract
 		ln extract.exe extract
 		chmod +x extract
-		if ./extract --version | head -1 | \
+		if ./extract --version | sed 1q | \
 		  fgrep "extract (XFree86 version" > /dev/null 2>&1; then
 			ExtractOK=YES
 		else
@@ -1038,8 +1153,8 @@ CYGWIN*)
 	;;
 esac
 
-EXTRACT=$WDIR/extract
-TAR=$WDIR/gnu-tar
+EXTRACT="$WDIR"/extract
+TAR="$WDIR"/gnu-tar
 
 CheckInstallType "$@"
 
@@ -1219,8 +1334,8 @@ if [ X"$EtcDirToMove" != X -o X"$EtcFileToMove" != X ]; then
 			if [ ! -d $ETCDIR/X11/$i ]; then
 				mkdir $ETCDIR/X11/$i
 			fi
-			$TAR -C $RUNDIR/lib/X11/$i -c -f - . | \
-				$TAR -C $ETCDIR/X11/$i -v -x -p -U -f - && \
+			"$TAR" -C $RUNDIR/lib/X11/$i -c -f - . | \
+				"$TAR" -C $ETCDIR/X11/$i -v -x -p -U -f - && \
 				rm -fr $RUNDIR/lib/X11/$i && \
 				ln -s $ETCDIR/X11/$i $RUNDIR/lib/X11/$i
 		done
@@ -1241,7 +1356,7 @@ fi
 echo "Extracting $ETCDIST into a temporary location ..."
 rm -fr .etctmp
 mkdir .etctmp
-(cd .etctmp; $EXTRACT $WDIR/$ETCDIST)
+(cd .etctmp; "$EXTRACT" "$WDIR"/$ETCDIST)
 for i in $ETCDLINKS; do
 	DoCopy=YES
 	if [ -d $RUNDIR/lib/X11/$i ]; then
@@ -1270,8 +1385,8 @@ for i in $ETCDLINKS; do
 				mkdir $RUNDIR/lib/X11/$i
 			fi
 		fi
-		$TAR -C .etctmp/X11/$i -c -f - . | \
-			$TAR -C $RUNDIR/lib/X11/$i -v -x -p -U -f -
+		"$TAR" -C .etctmp/X11/$i -c -f - . | \
+			"$TAR" -C $RUNDIR/lib/X11/$i -v -x -p -U -f -
 	fi
 done
 for i in $ETCFLINKS; do
@@ -1306,8 +1421,8 @@ if [ X"$XKBDIR" != X ]; then
 		if [ ! -d $XKBDIR ]; then
 			mkdir $XKBDIR
 		fi
-		$TAR -C .etctmp/X11/xkb -c -f - . | \
-			$TAR -C $XKBDIR -v -x -p -U -f -
+		"$TAR" -C .etctmp/X11/xkb -c -f - . | \
+			"$TAR" -C $XKBDIR -v -x -p -U -f -
 	fi
 fi
 for i in $ETCFONTFILES; do
@@ -1335,10 +1450,10 @@ echo ""
 echo "Installing the mandatory parts of the binary distribution"
 echo ""
 for i in $BASEDIST $SERVDIST; do
-	(cd $RUNDIR; $EXTRACT $WDIR/$i)
+	(cd $RUNDIR; "$EXTRACT" "$WDIR"/$i)
 done
 if [ X"$VARDIST" != X ]; then
-	(cd $VARDIR; $EXTRACT $WDIR/$VARDIST)
+	(cd $VARDIR; "$EXTRACT" "$WDIR"/$VARDIST)
 fi
 
 if [ X"$XKBDIR" != X -a X"$XKBDIR" != X"$RUNDIR/lib/X11/xkb/compiled" -a \
@@ -1357,7 +1472,7 @@ for i in $UPDDIST; do
 			: skip this one
 			;;
 		*)
-			(cd $RUNDIR; $EXTRACT $WDIR/$i)
+			(cd $RUNDIR; "$EXTRACT" "$WDIR"/$i)
 			;;
 		esac
 	fi
@@ -1373,7 +1488,7 @@ for i in $OPTDIST $EXTRAOPTDIST; do
 			: skip this one
 			;;
 		*)
-			(cd $RUNDIR; $EXTRACT $WDIR/$i)
+			(cd $RUNDIR; "$EXTRACT" "$WDIR"/$i)
 			;;
 		esac
 	fi
@@ -1542,35 +1657,25 @@ if [ -f $RUNDIR/lib/libGL.so ]; then
 	esac
 fi
 
-# Create compatibility links for the freetype library on systems where the
-# major version gets incremented even though the library is compatible with
-# older versions.
+# Check for documentation files with old extensions and remove them.
+for i in $RUNDIR/lib/X11/doc/*.txt; do
+	base=`basename $i .txt`
+	old="RUNDIR/lib/X11/doc/$base.TXT"
+	if [ -f "$old" ]; then
+		echo "Removing old file $old (replaced by $base.txt)"
+		rm -f "$old"
+	fi
+done
 
-echo ""
-echo "Checking if compatibility links for the FreeType2 library are needed ..."
-if [ -f $RUNDIR/lib/libfreetype.so.$FreetypeCurrent ]; then
-	v=`expr $FreetypeCurrent - $FreetypeAge`
-	while [ $v != $FreetypeCurrent ]; do
-		if [ ! -f $RUNDIR/lib/libfreetype.so.$v ]; then
-			rm -f $RUNDIR/lib/libfreetype.so.$v
-			ln -s libfreetype.so.$FreetypeCurrent $RUNDIR/lib/libfreetype.so.$v
-			echo "Linking libfreetype.so.$FreetypeCurrent to $RUNDIR/lib/libfreetype.so.$v"
-		fi
-		v=`expr $v + 1`
-	done
-fi
+for i in $RUNDIR/lib/X11/doc/PostScript/*.PS; do
+	base=`basename $i .ps`
+	old="RUNDIR/lib/X11/doc/$base.PS"
+	if [ -f "$old" ]; then
+		echo "Removing old file $old (replaced by $base.ps)"
+		rm -f "$old"
+	fi
+done
 
-if [ -f $RUNDIR/lib/libfreetype.so.$FreetypeCurrent.0 ]; then
-	v=`expr $FreetypeCurrent - $FreetypeAge`
-	while [ $v != $FreetypeCurrent ]; do
-		if [ ! -f $RUNDIR/lib/libfreetype.so.$v.0 ]; then
-			rm -f $RUNDIR/lib/libfreetype.so.$v.0
-			ln -s libfreetype.so.$FreetypeCurrent.0 $RUNDIR/lib/libfreetype.so.$v.0
-			echo "Linking libfreetype.so.$FreetypeCurrent.0 to $RUNDIR/lib/libfreetype.so.$v".0
-		fi
-		v=`expr $v + 1`
-	done
-fi
 
 # Need to run ldconfig on some OSs
 case "$OsName" in
@@ -1674,6 +1779,68 @@ if [ -d $RUNDIR/lib/modules ]; then
 			echo "move or delete them if you use the xtt font module."
 		fi
 	fi
+fi
+
+case "$OsName" in
+FreeBSD|NetBSD)
+	DRMBUILDDIR="$RUNDIR/src/bsd/drm/kernel"
+	;;
+Linux)
+	DRMBUILDDIR="$RUNDIR/src/linux/drm/kernel"
+	;;
+esac
+
+DoDrmBuild=
+
+if [ -f $DRMBUILDDIR/Makefile ]; then
+	echo ""
+	echo "If you have source for your current kernel installed, you can"
+	echo "have new DRM kernel modules built and installed.  Note: this will"
+	echo "overwrite any existing DRM kernel modules you may have installed."
+	echo "If you'd prefer to save them before installing new ones, answer 'n'"
+	echo "here and follow the build/install instructions manually later."
+	echo ""
+	Echo "Do you want to build and install new DRM kernel modules? (y/n) [n] "
+	read response
+	case "$response" in
+	[yY]*)
+		DoDrmBuild=1
+		;;
+	*)
+		echo ""
+		echo "To build the DRM modules manually, run 'make' from the"
+		echo "$DRMBUILDDIR directory.  Once built, install"
+		echo "them by running 'make install' from the same directory."
+		;;
+	esac
+fi
+
+if [ X"$DoDrmBuild" != X ]; then
+	cd $DRMBUILDDIR && \
+		echo "" && \
+		echo "Building DRM modules" && \
+		make clean > build.log 2>&1 && \
+		make >> build.log 2>&1
+	if [ $? != 0 ]; then
+		echo ""
+		echo "DRM module build failed."
+		echo "See $DRMBUILDDIR/build.log for details."
+	else
+		echo ""
+		echo "Installing DRM modules"
+		make install > install.log 2>&1
+		if [ $? != 0 ]; then
+			echo ""
+			echo "DRM module install failed."
+			echo "See $DRMBUILDDIR/install.log for details."
+		else
+			echo ""
+			echo "DRM module build and install was successful."
+			echo "You may need to manually unload the old module and reload"
+			echo "the new ones, or reboot to have this done automatically."
+		fi
+	fi
+	cd $WDIR
 fi
 
 echo ""

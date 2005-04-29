@@ -29,10 +29,14 @@
 /****************************************************************************
  *  Author: Thomas E. Dickey <dickey@clark.net> 1996,1997                   *
  ****************************************************************************/
-/* $Id: nc_alloc.h,v 1.1.1.2 2002/01/03 23:53:21 jevans Exp $ */
+/* $Id: nc_alloc.h,v 1.11 2002/07/20 13:16:40 tom Exp $ */
 
 #ifndef NC_ALLOC_included
 #define NC_ALLOC_included 1
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #if HAVE_LIBDMALLOC
 #include <dmalloc.h>    /* Gray Watson's library */
@@ -79,5 +83,9 @@ extern NCURSES_EXPORT(char *) _nc_strdup(const char *);
 #define typeMalloc(type,elts) (type *)malloc((elts)*sizeof(type))
 #define typeCalloc(type,elts) (type *)calloc((elts),sizeof(type))
 #define typeRealloc(type,elts,ptr) (type *)_nc_doalloc(ptr, (elts)*sizeof(type))
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* NC_ALLOC_included */

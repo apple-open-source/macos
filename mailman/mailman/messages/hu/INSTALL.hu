@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 Free Software Foundation, Inc.
+Copyright (C) 1998-2004 Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 Ebben az állományban a GNU Mailman telepítéséhez találunk útmutatót,
@@ -15,6 +15,11 @@ FRISSÍTÉS: A frissítés legtöbbször nem jelent mást, mint a régi
 verzióra egy új verzió másolását. Azonban frissítés elõtt ajánljuk el-
 olvasásra az UPGRADING állományban található fontos információkat.
 
+A GNU Mailman honlapjának címe: http://www.list.org
+
+A programot le lehet tölteni a következõ címrõl:
+http://sf.net/project/showfiles.php?group_id=103
+
 
 0. Telepítési igények
 
@@ -29,7 +34,7 @@ olvasásra az UPGRADING állományban található fontos információkat.
     frissebb megfelel a célnak. A gcc beszerzésérõl bõvebben a 
     következõ oldalon olvashatunk:
 
-        http://www.gnu.org
+        http://gcc.gnu.org
     
     A Python feldolgozó nyelvnek is telepítve kell lennie a rendszeren. 
     A megfelelõ mûködéshez jelenleg a Python 2.1.3-as vagy 2.2.1-es
@@ -156,8 +161,10 @@ olvasásra az UPGRADING állományban található fontos információkat.
 	    helyét lehet megadni.
 
       --with-var-prefix=<dir>
-            Változó állományok a <dir> könyvtárba kerüljenek és ne
-	    a prefix-ben vagy exec_prefix-ben megadottba.
+            Változó állományok, mint a list archívuma és a beállításait
+            tartalmazó konfigurációs állományok a <dir> könyvtárba
+            kerüljenek, ne pedig a prefix-ben vagy exec_prefix-ben
+	    megadottba.
 
       --with-python=</path/to/python>
             Egyéni Python parancsfeldolgozó elérési útjának megadása
@@ -227,6 +234,18 @@ olvasásra az UPGRADING állományban található fontos információkat.
 	    kiszolgálónál kötelezõ kiterjesztést is megadni).
 	    A <kiterjesztés>-ben a pontot is meg kell adni.
 
+      --with-mailhost
+	    A megadott teljes gépnevet fogja részben felhasználni
+	    a program a kimenõ e-mailekhez. Telepítés után a 
+	    beállított értéket a $PREFIX/Mailman/mm_cfg.py 
+	    állományon keresztül módosítani lehet.
+
+      --with-urlhost
+            A megadott teljes gépnevet fogja részben felhasználni
+	    a program az internetes címekhez. Telepítés után a
+            beállított értéket a $PREFIX/Mailman/mm_cfg.py
+	    állományon keresztül módosítani lehet.
+            
       --with-gcc=no
 	    A fordításhoz ne gcc-t használjon, még ha az meg is található
 	    a rendszeren. Ilyenkor a $PATH-ból elérhetõnek kell lennie

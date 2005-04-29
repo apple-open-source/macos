@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -27,10 +27,13 @@
 #include "cintltst.h"
 #include "capitst.h"
 #include "ccolltst.h"
+#include "putilimp.h"
 
 static void TestAttribute(void);
-        int TestBufferSize();	/* defined in "colutil.c" */
+        int TestBufferSize();    /* defined in "colutil.c" */
 
+
+    
 
 /* next two function is modified from "i18n/ucol.cpp" to avoid include "ucol_imp.h" */
 static void uprv_appendByteToHexString(char *dst, uint8_t val) {
@@ -118,7 +121,8 @@ void addCollAPITest(TestNode** root)
     addTest(root, &TestAttribute, "tscoll/capitst/TestAttribute");
     addTest(root, &TestGetTailoredSet, "tscoll/capitst/TestGetTailoredSet");
     addTest(root, &TestMergeSortKeys, "tscoll/capitst/TestMergeSortKeys");
-
+    addTest(root, &TestShortString, "tscoll/capitst/TestShortString");
+    addTest(root, &TestGetContractionsAndUnsafes, "tscoll/capitst/TestGetContractionsAndUnsafes");
 }
 
 void TestGetSetAttr(void) {
@@ -273,9 +277,12 @@ void TestProperty()
       ICU 2.1 currVersionArray = {0x19, 0x00, 0x03, 0x03};
       ICU 2.2 currVersionArray = {0x21, 0x40, 0x04, 0x04};
       ICU 2.4 currVersionArray = {0x21, 0x40, 0x04, 0x04};
+      ICU 2.6 currVersionArray = {0x21, 0x40, 0x03, 0x03};
     */
-    UVersionInfo currVersionArray = {0x21, 0x40, 0x03, 0x03};
-    UVersionInfo versionArray;
+    UVersionInfo currVersionArray = {0x29, 0x80, 0x00, 0x04};
+    UVersionInfo currUCAVersionArray = {4, 0, 0, 0};
+    UVersionInfo versionArray = {0, 0, 0, 0};
+    UVersionInfo versionUCAArray = {0, 0, 0, 0};
     
     log_verbose("The property tests begin : \n");
     log_verbose("Test ucol_strcoll : \n");
@@ -290,6 +297,15 @@ void TestProperty()
       if (versionArray[i] != currVersionArray[i]) {
         log_err("Testing ucol_getVersion() - unexpected result: %hu.%hu.%hu.%hu\n", 
             versionArray[0], versionArray[1], versionArray[2], versionArray[3]);
+        break;
+      }
+    }
+
+    ucol_getUCAVersion(col, versionUCAArray);
+    for (i=0; i<4; ++i) {
+      if (versionUCAArray[i] != currUCAVersionArray[i]) {
+        log_err("Testing ucol_getUCAVersion() - unexpected result: %hu.%hu.%hu.%hu\n", 
+            versionUCAArray[0], versionUCAArray[1], versionUCAArray[2], versionUCAArray[3]);
         break;
       }
     }
@@ -365,7 +381,7 @@ void TestProperty()
         buffer[0] = '\0';
         log_verbose("ucol_getRulesEx() testing ...\n");
         tempLength = ucol_getRulesEx(col,UCOL_TAILORING_ONLY,buffer,bufLen );
-        doAssert( tempLength == 0, "getRulesEx() result incorrect" );
+        doAssert( tempLength == 0x0a, "getRulesEx() result incorrect" );
         log_verbose("getRules tests end.\n");
         
         log_verbose("ucol_getRulesEx() testing ...\n");
@@ -427,6 +443,7 @@ void TestRuleBasedColl()
     u_uastrcpy(ruleset1, "&9 < a, A < b, B < c, C; ch, cH, Ch, CH < d, D, e, E");
     u_uastrcpy(ruleset2, "&9 < a, A < b, B < c, C < d, D, e, E");
     
+
     col1 = ucol_openRules(ruleset1, u_strlen(ruleset1), UCOL_DEFAULT, UCOL_DEFAULT_STRENGTH, NULL,&status);
     if (U_FAILURE(status)) {
         log_err("RuleBased Collator creation failed.: %s\n", myErrorName(status));
@@ -500,10 +517,10 @@ void TestRuleBasedColl()
         /* testing with en since thai has its own tailoring */
         uint32_t ce = ucol_next(iter1, &status);
         uint32_t ce2 = ucol_next(iter2, &status);
-    	if(U_FAILURE(status)) {
+        if(U_FAILURE(status)) {
             log_err("ERROR: CollationElement iterator creation failed.: %s\n", myErrorName(status));
             return;
-    	}
+        }
         if (ce2 != ce) {
              log_err("! modifier test failed");
         }
@@ -746,10 +763,12 @@ void TestSortKey()
 {   
     uint8_t *sortk1 = NULL, *sortk2 = NULL, *sortk3 = NULL, *sortkEmpty = NULL;
     uint8_t sortk2_compat[] = { 
+      /* 2.6.1 key */
+        0x26, 0x28, 0x2A, 0x2C, 0x26, 0x01, 
+        0x09, 0x01, 0x09, 0x01, 0x25, 0x01, 
+        0x92, 0x93, 0x94, 0x95, 0x92, 0x00 
         /* 2.2 key */
-        0x1D, 0x1F, 0x21, 0x23, 0x1D, 0x01, 
-        0x09, 0x01, 0x09, 0x01, 0x1C, 0x01, 
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x00
+        /*0x1D, 0x1F, 0x21, 0x23, 0x1D, 0x01, 0x09, 0x01, 0x09, 0x01, 0x1C, 0x01, 0x92, 0x93, 0x94, 0x95, 0x92, 0x00*/
         /* 2.0 key */
         /*0x19, 0x1B, 0x1D, 0x1F, 0x19, 0x01, 0x09, 0x01, 0x09, 0x01, 0x18, 0x01, 0x92, 0x93, 0x94, 0x95, 0x92, 0x00*/
         /* 1.8.1 key.*/
@@ -1100,14 +1119,15 @@ void TestGetLocale() {
 
   int32_t i = 0;
 
+  /* Now that the collation tree is separate, actual==valid at all times. [alan] */
   static const struct {
     const char* requestedLocale;
     const char* validLocale;
     const char* actualLocale;
   } testStruct[] = {
     { "sr_YU", "sr_YU", "ru" },
-    { "sh_YU", "sh_YU", "sh" },
-    { "en_US_CALIFORNIA", "en_US", "root" },
+    { "sh_YU", "sh_YU", "hr" }, /* this used to be sh, but now sh collation aliases hr */
+    { "en_BE_FOO", "en_BE", "en_BE" },
     { "fr_FR_NONEXISTANT", "fr_FR", "fr" }
   };
 
@@ -1566,8 +1586,8 @@ void TestGetTailoredSet() {
 }
 
 static int tMemCmp(const uint8_t *first, const uint8_t *second) {
-   int32_t firstLen = strlen((const char *)first);
-   int32_t secondLen = strlen((const char *)second);
+   int32_t firstLen = (int32_t)strlen((const char *)first);
+   int32_t secondLen = (int32_t)strlen((const char *)second);
    return memcmp(first, second, uprv_min(firstLen, secondLen));
 }
 static const char * strengthsC[] = {
@@ -1701,5 +1721,215 @@ void TestMergeSortKeys(void) {
      log_data_err("Couldn't open collator");
    }
 }
- 
+static void TestShortString(void) 
+{
+    struct {
+        const char *input;
+        const char *expectedOutput;
+        const char *locale;
+        UErrorCode expectedStatus;
+        int32_t    expectedOffset;
+        uint32_t   expectedIdentifier;
+    } testCases[] = {
+        {"LDE_RDE_KPHONEBOOK_T0041_ZLATN","B2600_KPHONEBOOK_LDE", "de@collation=phonebook", U_USING_FALLBACK_WARNING, 0, 0 },
+        {"LEN_RUS_NO_AS_S4","AS_LEN_NO_S4", NULL, U_USING_FALLBACK_WARNING, 0, 0 },
+        {"LDE_VPHONEBOOK_EO_SI","EO_KPHONEBOOK_LDE_SI", "de@collation=phonebook", U_ZERO_ERROR, 0, 0 },
+        {"LDE_Kphonebook","KPHONEBOOK_LDE", "de@collation=phonebook", U_ZERO_ERROR, 0, 0 },
+        {"Xqde_DE@collation=phonebookq_S3_EX","KPHONEBOOK_LDE", "de@collation=phonebook", U_USING_FALLBACK_WARNING, 0, 0 },
+        {"LFR_FO", "LFR", NULL, U_ZERO_ERROR, 0, 0 },
+        {"SO_LX_AS", "", NULL, U_ILLEGAL_ARGUMENT_ERROR, 8, 0 },
+        {"S3_ASS_MMM", "", NULL, U_ILLEGAL_ARGUMENT_ERROR, 5, 0 }
+    };
+
+    int32_t i = 0, j = 0;
+    UCollator *coll = NULL, *fromID = NULL, *fromNormalized = NULL;
+    UParseError parseError;
+    UErrorCode status = U_ZERO_ERROR;
+    char fromShortBuffer[256], fromIDBuffer[256], fromIDRoundtrip[256], normalizedBuffer[256], fromNormalizedBuffer[256];
+    uint32_t identifier = 0, idFromSS = 0;
+    const char* locale = NULL;
+
+
+    for(i = 0; i < sizeof(testCases)/sizeof(testCases[0]); i++) {
+        status = U_ZERO_ERROR;
+        if(testCases[i].locale) {
+            locale = testCases[i].locale;
+        } else {
+            locale = NULL;
+        }
+
+        coll = ucol_openFromShortString(testCases[i].input, FALSE, &parseError, &status);
+        if(status != testCases[i].expectedStatus) {
+            log_err("Got status '%s' that is different from expected '%s' for '%s'\n", 
+                u_errorName(status), u_errorName(testCases[i].expectedStatus), testCases[i].input);
+        }
+       
+        if(U_SUCCESS(status)) {
+            ucol_getShortDefinitionString(coll, locale, fromShortBuffer, 256, &status);
+
+            if(strcmp(fromShortBuffer, testCases[i].expectedOutput)) {
+                log_err("Got short string '%s' from the collator. Expected '%s' for input '%s'\n",
+                    fromShortBuffer, testCases[i].expectedOutput, testCases[i].input);
+            }
+
+            ucol_normalizeShortDefinitionString(testCases[i].input, normalizedBuffer, 256, &parseError, &status);
+            fromNormalized = ucol_openFromShortString(normalizedBuffer, FALSE, &parseError, &status);
+            ucol_getShortDefinitionString(fromNormalized, locale, fromNormalizedBuffer, 256, &status);
+
+            if(strcmp(fromShortBuffer, fromNormalizedBuffer)) {
+                log_err("Strings obtained from collators instantiated by short string ('%s') and from normalized string ('%s') differ\n", 
+                    fromShortBuffer, fromNormalizedBuffer);
+            }
+
+
+            if(!ucol_equals(coll, fromNormalized)) {
+                log_err("Collator from short string ('%s') differs from one obtained through a normalized version ('%s')\n", 
+                    testCases[i].input, normalizedBuffer);
+            }
+
+            /* test identifiers */
+            identifier = ucol_collatorToIdentifier(coll, locale, &status);
+            if(identifier < UCOL_SIT_COLLATOR_NOT_ENCODABLE) {
+                ucol_identifierToShortString(identifier, fromIDBuffer, 256, FALSE, &status);
+                fromID = ucol_openFromIdentifier(identifier, FALSE, &status);
+                if(!ucol_equals(coll, fromID)) {
+                    log_err("Collator from short string ('%s') differs from one obtained through an identifier ('%s')\n", 
+                        testCases[i].input, fromIDBuffer);
+                }
+                ucol_close(fromID);
+            }
+
+            /* round-trip short string - identifier */
+            for(j = 1; j < 2; j++) {
+                idFromSS = ucol_shortStringToIdentifier(testCases[i].input, (UBool)j, &status);
+                ucol_identifierToShortString(idFromSS, fromIDBuffer, 256, (UBool)j, &status);
+                identifier = ucol_shortStringToIdentifier(fromIDBuffer, (UBool)j, &status);
+                ucol_identifierToShortString(identifier, fromIDRoundtrip, 256, (UBool)j, &status);
+
+                if(idFromSS != identifier) {
+                    log_err("FD = %i, id didn't round trip. %08X vs %08X (%s)\n", 
+                        j, idFromSS, identifier, testCases[i]);
+                }
+                if(strcmp(fromIDBuffer, fromIDRoundtrip)) {
+                    log_err("FD = %i, SS didn't round trip. %s vs %s (%s)\n", 
+                        j, fromIDBuffer, fromIDRoundtrip, testCases[i]);
+                }
+            }
+
+            ucol_close(fromNormalized);
+            ucol_close(coll);
+
+        } else {
+            if(parseError.offset != testCases[i].expectedOffset) {
+                log_err("Got parse error offset %i, but expected %i instead for '%s'\n",
+                    parseError.offset, testCases[i].expectedOffset, testCases[i].input);
+            }
+        }
+    }
+
+}
+
+static void
+doSetsTest(const USet *ref, USet *set, const char* inSet, const char* outSet, UErrorCode *status) {
+    UChar buffer[512];
+    int32_t bufLen;
+
+    uset_clear(set);
+    bufLen = u_unescape(inSet, buffer, 512); 
+    uset_applyPattern(set, buffer, bufLen, 0, status);
+    if(U_FAILURE(*status)) {
+        log_err("Failure setting pattern %s\n", u_errorName(*status));
+    }
+
+    if(!uset_containsAll(ref, set)) {
+        log_err("Some stuff from %s is not present in the set\n", inSet);
+    }
+
+    uset_clear(set);
+    bufLen = u_unescape(outSet, buffer, 512); 
+    uset_applyPattern(set, buffer, bufLen, 0, status);
+    if(U_FAILURE(*status)) {
+        log_err("Failure setting pattern %s\n", u_errorName(*status));
+    }
+
+    if(!uset_containsNone(ref, set)) {
+        log_err("Some stuff from %s is present in the set\n", outSet);
+    }
+}
+
+
+
+
+static void 
+TestGetContractionsAndUnsafes(void) 
+{
+    static struct {
+        const char* locale;
+        const char* inConts;
+        const char* outConts;
+        const char* unsafeCodeUnits;
+        const char* safeCodeUnits;
+    } tests[] = {
+        { "ru", 
+            "[{\\u0474\\u030F}{\\u0475\\u030F}{\\u04D8\\u0308}{\\u04D9\\u0308}{\\u04E8\\u0308}{\\u04E9\\u0308}]", 
+            "[{\\u0430\\u0306}{\\u0410\\u0306}{\\u0430\\u0308}{\\u0410\\u0306}{\\u0433\\u0301}{\\u0413\\u0301}]",
+            "[\\u0474\\u0475\\u04d8\\u04d9\\u04e8\\u04e9]",
+            "[aAbB\\u0430\\u0410\\u0433\\u0413]"
+        },
+        { "uk",
+            "[{\\u0474\\u030F}{\\u0475\\u030F}{\\u04D8\\u0308}{\\u04D9\\u0308}{\\u04E8\\u0308}{\\u04E9\\u0308}" 
+            "{\\u0430\\u0306}{\\u0410\\u0306}{\\u0430\\u0308}{\\u0410\\u0306}{\\u0433\\u0301}{\\u0413\\u0301}]",
+            "[]",
+            "[\\u0474\\u0475\\u04D8\\u04D9\\u04E8\\u04E9\\u0430\\u0410\\u0433\\u0413]",
+            "[aAbBxv]",
+        },
+        { "ja",
+            "[{\\u309d\\u3099}{\\u30fd\\u3099}]",
+            "[{lj}{nj}]",
+            "[\\u3099\\u309d\\u30fd]",
+            "[\\u30a6\\u3044\\uff73]"
+        },
+        { "sh",
+            "[{C\\u0301}{C\\u030C}{C\\u0341}{DZ\\u030C}{Dz\\u030C}{D\\u017D}{D\\u017E}{lj}{nj}]",
+            "[{\\u309d\\u3099}{\\u30fd\\u3099}]",
+            "[nlcdzNLCDZ]",
+            "[jabv]"
+        }
+    };
+
+
+
+
+    UErrorCode status = U_ZERO_ERROR;
+    UCollator *coll = NULL;
+    int32_t i = 0;
+    int32_t noConts = 0;
+    USet *conts = uset_open(0,0);
+    USet *set  = uset_open(0,0);
+    UChar buffer[32768];
+    int32_t setLen = 0;
+
+    for(i = 0; i < sizeof(tests)/sizeof(tests[0]); i++) {
+        log_verbose("Testing locale: %s\n", tests[i].locale);
+        coll = ucol_open(tests[i].locale, &status);
+        noConts = ucol_getContractions(coll, conts, &status);
+        doSetsTest(conts, set, tests[i].inConts, tests[i].outConts, &status);
+        setLen = uset_toPattern(conts, buffer, 32768, TRUE, &status);
+        if(U_SUCCESS(status)) {
+            log_verbose("%i: %s\n", noConts, aescstrdup(buffer, setLen));
+        } else {
+            log_err("error %s. %i\n", u_errorName(status), setLen);
+        }
+
+        noConts = ucol_getUnsafeSet(coll, conts, &status);
+        doSetsTest(conts, set, tests[i].unsafeCodeUnits, tests[i].safeCodeUnits, &status);
+
+        ucol_close(coll);
+    }
+
+
+    uset_close(conts);
+    uset_close(set);
+}
+
 #endif /* #if !UCONFIG_NO_COLLATION */

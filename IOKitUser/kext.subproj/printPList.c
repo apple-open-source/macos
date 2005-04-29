@@ -5,7 +5,7 @@ static void _indent(CFMutableStringRef string, unsigned indentLevel)
     unsigned int i;
 
     for (i = 0; i < indentLevel; i++) {
-        CFStringAppendCString(string, " ", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, " ", kCFStringEncodingUTF8);
     }
     return;
 }
@@ -34,7 +34,7 @@ static void _appendCFURL(CFMutableStringRef string, CFURLRef anURL)
         goto finish;
     }
 
-    CFStringAppendCString(string, "[URL]", kCFStringEncodingMacRoman);
+    CFStringAppendCString(string, "[URL]", kCFStringEncodingUTF8);
     _appendCFString(string, absPath, false);
 
 finish:
@@ -66,24 +66,24 @@ void _appendPlist(CFMutableStringRef string, CFTypeRef plist, unsigned indentLev
             (const void **)values);
 
         // no indent before first brace
-        CFStringAppendCString(string, "{\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "{\n", kCFStringEncodingUTF8);
         for (i = 0; i < count; i++) {
 
             _indent(string, indentLevel + 4);
             _appendCFString(string, keys[i], true);
-            CFStringAppendCString(string, " = ", kCFStringEncodingMacRoman);
+            CFStringAppendCString(string, " = ", kCFStringEncodingUTF8);
             if (CFGetTypeID(values[i]) == CFStringGetTypeID()) {
                 CFIndex keyLength = CFStringGetLength(keys[i]);
                 CFIndex valueLength = CFStringGetLength(values[i]);
                 if (indentLevel + 4 + keyLength + valueLength > 72) {
-                    CFStringAppendCString(string, "\n", kCFStringEncodingMacRoman);
+                    CFStringAppendCString(string, "\n", kCFStringEncodingUTF8);
                     _indent(string, indentLevel + 8);
                 }
             }
             _appendPlist(string, values[i], indentLevel + 4);
         }
         _indent(string, indentLevel);
-        CFStringAppendCString(string, "}\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "}\n", kCFStringEncodingUTF8);
         free(keys);
         free(values);
     } else if (typeID == CFArrayGetTypeID()) {
@@ -92,32 +92,32 @@ void _appendPlist(CFMutableStringRef string, CFTypeRef plist, unsigned indentLev
         count = CFArrayGetCount(array);
 
         // no indent before first parenthesis
-        CFStringAppendCString(string, "(\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "(\n", kCFStringEncodingUTF8);
         for (i = 0; i < count; i++) {
             _indent(string, indentLevel + 4);
             _appendPlist(string, CFArrayGetValueAtIndex(array, i), indentLevel + 4);
         }
         _indent(string, indentLevel);
-        CFStringAppendCString(string, ")\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, ")\n", kCFStringEncodingUTF8);
     } else if (typeID == CFStringGetTypeID()) {
         _appendCFString(string, (CFStringRef)plist, indentLevel > 0);
-        CFStringAppendCString(string, "\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "\n", kCFStringEncodingUTF8);
     } else if (typeID == CFURLGetTypeID()) {
         _appendCFURL(string, (CFURLRef)plist);
-        CFStringAppendCString(string, "\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "\n", kCFStringEncodingUTF8);
     } else if (typeID == CFDataGetTypeID()) {
-        CFStringAppendCString(string, "(data object)\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "(data object)\n", kCFStringEncodingUTF8);
     } else if (typeID == CFNumberGetTypeID()) {
         CFStringAppendFormat(string, NULL, CFSTR("%@"), (CFNumberRef)plist);
-        CFStringAppendCString(string, "\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "\n", kCFStringEncodingUTF8);
     } else if (typeID == CFBooleanGetTypeID()) {
         CFBooleanRef booleanValue = (CFBooleanRef)plist;
         CFStringAppendFormat(string, NULL, CFSTR("%s\n"),
             CFBooleanGetValue(booleanValue) ? "true" : "false");
     } else if (typeID == CFDateGetTypeID()) {
-        CFStringAppendCString(string, "(date object)\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "(date object)\n", kCFStringEncodingUTF8);
     } else {
-        CFStringAppendCString(string, "(unknown object)\n", kCFStringEncodingMacRoman);
+        CFStringAppendCString(string, "(unknown object)\n", kCFStringEncodingUTF8);
     }
     return;
 }
@@ -140,7 +140,7 @@ void printPList(FILE * stream, CFTypeRef plist)
     }
 
     if (CFStringGetCString(string, c_string, stringLength + 1,
-        kCFStringEncodingMacRoman)) {
+        kCFStringEncodingUTF8)) {
 
         fprintf(stream, c_string);
     }

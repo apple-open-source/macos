@@ -153,7 +153,7 @@ struct svc_req *req;
 
 	sprintf(s, bp->bp_bootparams[i] + len);
 	p = strchr(s, ':');
-	if (p == NULL)
+	if ((p == NULL) || (p == s))
 	{
 		hostname[0] = '\0';
 		res.server_name = hostname;
@@ -162,7 +162,9 @@ struct svc_req *req;
 		res.server_address.bp_address_u.ip_addr.lh = 0;
 		res.server_address.bp_address_u.ip_addr.impno = 0;
 		res.server_address.address_type = 1;
-		res.server_path = s;
+
+		if (p == NULL) res.server_path = s;
+		else res.server_path = s + 1;
 
 		if (debug)
 		{

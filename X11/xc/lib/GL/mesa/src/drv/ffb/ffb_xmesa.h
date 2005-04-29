@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_xmesa.h,v 1.2 2002/02/22 21:32:59 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_xmesa.h,v 1.3 2003/09/28 20:15:09 alanh Exp $ */
 
 #ifndef _FFB_XMESA_H_
 #define _FFB_XMESA_H_
@@ -24,8 +24,6 @@ typedef struct {
 	int				fifo_cache;
 	int				rp_active;
 } ffbScreenPrivate;
-
-extern void __driRegisterExtensions(void);
 
 #endif /* GLX_DIRECT_RENDERING */
 

@@ -1,6 +1,6 @@
 // natFileDescriptor.cc - Native part of FileDescriptor class.
 
-/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -92,6 +92,11 @@ java::io::FileDescriptor::write (jbyteArray b, jint offset, jint len)
 
 void
 java::io::FileDescriptor::close (void)
+{
+}
+
+void
+java::io::FileDescriptor::setLength (long)
 {
 }
 

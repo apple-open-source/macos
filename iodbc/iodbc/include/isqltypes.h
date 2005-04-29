@@ -1,7 +1,7 @@
 /*
  *  isqltypes.h
  *
- *  $Id: isqltypes.h,v 1.1.1.2 2002/04/30 00:40:22 miner Exp $
+ *  $Id: isqltypes.h,v 1.2 2004/08/10 22:20:23 luesang Exp $
  *
  *  iODBC typedefs
  *

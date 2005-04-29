@@ -1,0 +1,413 @@
+/* css Zen Garden submission 010 - 'A Garden Apart' by Dan Cederholm, http://www.simplebits.com/ */
+/* css released under Creative Commons ShareAlike License v1.0 - http://creativecommons.org/licenses/sa/1.0/ */
+
+
+body
+   {
+      font-family: trebuchet ms, verdana, sans-serif;
+      font-size: 12px;
+      line-height: 1.5em;
+      color: #333;
+      background: #cccc99;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+   }
+
+p
+   {
+      margin-top: 0px;
+   }
+
+h3
+   {
+      font: bold 140% trebuchet ms;
+      letter-spacing: -1px;
+      margin-bottom: 0;
+      color: #c96;
+   }
+
+a:link
+   {
+      text-decoration: none;
+      border-bottom: 1px dotted #369;
+      color: #369;
+   }
+
+a:visited
+   {
+      text-decoration: none;
+      border-bottom: 1px dotted #369;
+      color: #369;
+   }
+
+a:hover, a:active
+   {
+      text-decoration: none;
+      border-bottom: 1px solid #036;
+      color: #036;
+   }
+
+a img
+   {
+      border: none
+   }
+
+/* ---( specific divs )----------------------------- */
+
+#container
+   {
+      position: relative;
+      background: #FFFBDF url(images/fade.gif) no-repeat 0 68px;
+      margin: 0 auto 10px auto;
+      border-left: 1px solid #000;
+      border-right: 1px solid #000;
+      border-bottom: 1px solid #000;
+      text-align: left;
+      width: 800px;
+   }
+
+#pageHeader
+   {
+      height: 68px;
+      background: url(images/header2.png) no-repeat top left;
+      border-bottom: 1px solid #CDC4AC;
+
+      font: bold 200% trebuchet ms;
+   }
+
+#blogName
+   {
+      position: absolute;
+      top: 0px;
+      left: 10px;
+      padding: 45px 0px 0px 0px;
+      color: #635F57;
+   }
+#blogDescription
+   {
+      position: absolute;
+      top: 0px;
+      left: 130px;
+      padding: 50px 0px 0px 0px;
+      font-style: italic;
+      font-size: 80%;
+      color: #c96;
+   }
+
+#mainContent
+   {
+      padding-left: 40px;
+      padding-right: 310px;
+      width: 550px;
+   }
+
+#mainContent h3 a
+   {
+      font: bold 100% trebuchet ms;
+      letter-spacing: 0px;
+      line-height: 0.5em;
+      margin-bottom: 0;
+      border-bottom: none;
+      color: #c96;
+   }
+
+#mainContent h4
+   {
+      font: bold 80% trebuchet ms;
+      letter-spacing: 0px;
+      line-height: 0.5em;
+      margin-top: 0px;
+      margin-bottom: 10px;
+      color: #c96;
+   }
+
+#entryCommentAndTrackbackCount
+   {
+      font: italic 90% trebuchet ms;
+      margin: 0px 0px 40px 0px;
+   }
+
+#entryCommentAndTrackbackCount a
+   {
+      color: #c96;
+      border-color: #c96;
+   }
+
+#comments
+   {
+      padding-top: 10px;
+   }
+
+#comment
+   {
+      background: url(images/comment.png) no-repeat top left;
+      padding: 0px 0px 20px 25px;
+   }
+
+#comment a
+   {
+      border-bottom: none;
+      color: #c96
+   }
+
+#commentDate
+   {
+      display: block;
+      font-size: 90%;
+      font-style: italic;
+      padding-bottom: 10px;
+   }
+
+#trackbackTitle
+   {
+      font-weight: bold;
+   }
+
+#commentInput textarea
+   {
+      width: 350px;
+   }
+
+#commentInput td
+   {
+      vertical-align: top;
+      white-space: nowrap;
+   }
+
+#footer
+   {
+      border-top: 1px dotted #CDC4AC;
+      padding: 6px 0px 20px 0px;
+      text-align: center;
+   }
+
+#footer a:link, #footer a:visited
+   {
+      margin-right: 6px;
+   }
+
+/* ---( right side nav)----------------------------- */
+
+#navigation
+   {
+      position: absolute;
+      top: 68px;
+      right: 0;
+      left: auto;
+      width: 250px;
+      padding: 0;
+      border-left: 1px solid #CDC4AC;
+      border-bottom: 1px solid #CDC4AC;
+      border-top: 1px solid #CDC4AC;
+      background: #E5E0D4 no-repeat;
+      z-index: 1;
+      padding: 0px 15px 15px 15px;
+   }
+
+#calendar
+   {
+      position: absolute;
+      top: 75px;
+      right: 0;
+      z-index: 2;
+      width: 250px;
+
+      color: #635F57;
+      font-style: italic;
+      font-size: 110%;
+      font-family: "trebuchet ms";
+      float: center;
+   }
+
+#calendar a
+   {
+      border-bottom: none;
+   }
+
+#calendar table
+   {
+   }
+
+#calendar td
+   {
+      margin: 0;
+      padding: 2px 2px 2px 2px;
+      text-align: right;
+   }
+
+#calendar table caption
+   {
+      font-weight: bold;
+      text-align: right;
+      padding-bottom: 10px;
+   }
+
+#calendar td.calendarColumn
+   {
+      font-style: normal;
+   }
+
+#calendar a:link
+   {
+      color: #c96;
+      border-bottom: none;
+   }
+
+#calendar a:visited
+   {
+      color: #c96;
+      border-bottom: none;
+   }
+
+#calendar a:hover
+   {
+      color: #963;
+   }
+
+#navigation h3
+   {
+      color: #635F57;
+      font-family: trebuchet ms;
+      font-size: 120%;
+      margin: 0;
+      padding: 0;
+   }
+
+#navigation ul
+   {
+      margin: 0px;
+      padding: 0px;
+   }
+
+#navigation li
+   {
+      display: block;
+      margin-bottom: 2px;
+      padding-left: 14px;
+      background: url(images/arrow.gif) no-repeat 0 5px;
+      list-style-type: none;
+   }
+
+#navigation p a
+   {
+      border-bottom: none;
+   }
+
+#navigation p img
+   {
+      border: 1px solid #000000;
+   }
+
+#navigation li a:link
+   {
+      color: #c96;
+      border-bottom: none;
+   }
+
+#navigation li a:visited
+   {
+      color: #c96;
+      border-bottom: none;
+   }
+
+#navigation li a:hover
+   {
+      color: #963;
+   }
+
+
+
+#search
+   {
+      margin-top: 190px;
+      padding: 5px 0 5px 0;
+      border-top: 1px dashed #CDC4AC;
+   }
+
+#search input
+   {
+      padding: 0;
+      margin: 0;
+      border: 1px solid #CDC4AC;
+   }
+
+#categories
+   {
+      padding: 5px 0 5px 0;
+      border-top: 1px dashed #CDC4AC;
+      border-bottom: 1px dashed #CDC4AC;
+   }
+
+#blogroll
+   {
+      padding: 5px 0 5px 0;
+      border-bottom: 1px dashed #CDC4AC;
+   }
+
+#resources
+   {
+      padding: 5px 0 5px 0;
+      border-bottom: 1px dashed #CDC4AC;
+   }
+
+#poweredby
+   {
+      margin-top: 5px;
+   }
+
+#aboutMe
+   {
+      position: absolute;
+      top: 310px;
+      right: 270px;
+      width: 400px;
+      z-index: 3;
+      border: 1px solid #000000;
+      background: #cccc99;
+      visibility: hidden;
+   }
+
+#aboutMeText
+   {
+      text-align: left;
+      margin: 10px 10px 10px 10px;
+   }
+
+#closeButton
+   {
+      margin: 0;
+      padding: 0px 5px 0px 0px;
+      width: auto;
+      text-align: right;
+      text-transform: uppercase;
+      font-weight: bold;
+   }
+
+#closeButton a
+   {
+      border-bottom: none;
+      color: #c96;
+   }
+
+#refererHistory
+   {
+      padding: 0px 0px 20px 40px;
+   }
+
+.code {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding: 5px 5px 5px 5px;
+  color: inherit;
+  background-color: #eeeeee;
+  border: 1px dotted #003366;
+  font-family: courier, courier new, monospace;
+  font-size: 12px;
+  line-height: 100%;
+  white-space: pre;
+  overflow: -moz-scrollbars-horizontal;
+  overflow-x: auto;
+  width: 98%;
+}
+

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_texstate.c,v 1.5 2002/11/05 17:46:07 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_texstate.c,v 1.6 2003/09/28 20:15:10 alanh Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -151,7 +151,7 @@ static void gammaUpdateTexUnit( GLcontext *ctx, GLuint unit )
 
    /* fprintf(stderr, "%s\n", __FUNCTION__);  */
 
-   if (texUnit->_ReallyEnabled == TEXTURE0_2D) 
+   if (texUnit->_ReallyEnabled == TEXTURE_2D_BIT) 
    {
       struct gl_texture_object *tObj = texUnit->_Current;
       gammaTextureObjectPtr t = (gammaTextureObjectPtr)tObj->DriverData;

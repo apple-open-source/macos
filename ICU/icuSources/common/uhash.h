@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2001, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   Date        Name        Description
@@ -342,6 +342,24 @@ uhash_puti(UHashtable *hash,
            UErrorCode *status);
 
 /**
+ * Put a (key=integer, value=integer) item in a UHashtable.  If the
+ * keyDeleter is non-NULL, then the hashtable owns 'key' after this
+ * call.  valueDeleter must be NULL.  Storing a 0 value is the same as
+ * calling uhash_remove().
+ * @param hash The target UHashtable.
+ * @param key The key to store.
+ * @param value The integer value to store.
+ * @param status A pointer to an UErrorCode to receive any errors.
+ * @return The previous value, or 0 if none.
+ * @see uhash_get
+ */
+U_CAPI int32_t U_EXPORT2 
+uhash_iputi(UHashtable *hash,
+           int32_t key,
+           int32_t value,
+           UErrorCode *status);
+
+/**
  * Retrieve a pointer value from a UHashtable using a pointer key,
  * as previously stored by uhash_put().
  * @param hash The target UHashtable.
@@ -373,6 +391,16 @@ uhash_iget(const UHashtable *hash,
 U_CAPI int32_t U_EXPORT2 
 uhash_geti(const UHashtable *hash,
            const void* key);
+/**
+ * Retrieve an integer value from a UHashtable using an integer key,
+ * as previously stored by uhash_iputi().
+ * @param hash The target UHashtable.
+ * @param key An integer key stored in a hashtable
+ * @return The requested item, or 0 if not found.
+ */
+U_CAPI int32_t U_EXPORT2 
+uhash_igeti(const UHashtable *hash,
+           int32_t key);
 
 /**
  * Remove an item from a UHashtable stored by uhash_put().
@@ -403,6 +431,16 @@ uhash_iremove(UHashtable *hash,
 U_CAPI int32_t U_EXPORT2 
 uhash_removei(UHashtable *hash,
               const void* key);
+
+/**
+ * Remove an item from a UHashtable stored by uhash_iputi().
+ * @param hash The target UHashtable.
+ * @param key An integer key stored in a hashtable
+ * @return The item removed, or 0 if not found.
+ */
+U_CAPI int32_t U_EXPORT2 
+uhash_iremovei(UHashtable *hash,
+               int32_t key);
 
 /**
  * Remove all items from a UHashtable.

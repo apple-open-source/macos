@@ -1,0 +1,108 @@
+# -*- tcl -*-
+# prepare module MEMCHAN for distribution
+# CVS:	$Id: PREPARE,v 1.33 2002/08/21 06:35:18 andreas_kupries Exp $
+
+## Make this script completely independent of external packages.
+## Assume [pwd] == Toplevel directory of memchan distribution in
+## preparation.
+##
+## This will be run via 'make dist'.
+
+###
+##
+# ### Helper procedures.
+##
+###
+
+proc LastChanges {} {
+    if {
+	[file  exists      ChangeLog.short] &&
+	![file isdirectory ChangeLog.short] &&
+        [file  readable    ChangeLog.short]
+    } {
+        set f [open ChangeLog.short r]
+        set t [read $f]
+        close $f
+
+        set start [string first "Changes from" $t]
+        set end $start
+        incr end
+        set offset [string first "Changes from" [string range $t $end end]]
+
+        if {$offset < 0} {
+            set end end
+        } else {
+            incr end $offset
+            incr end -1
+        }
+
+        return [string trim [string range $t $start $end]]
+        unset t
+    }
+    return {}
+}
+
+proc UpdateAnnounce {} {
+    set            fh [open ANNOUNCE r]
+    set ano [read $fh]
+    close         $fh
+
+    set    fh [open ANNOUNCE w]
+    puts  $fh [string map [list @CHANGES@ [LastChanges]] $ano]
+    close $fh
+    return
+}
+
+proc UpdateAnnounceMail {} {
+    set            fh [open ANNOUNCE.MAIL r]
+    set mail [read $fh]
+    close         $fh
+
+    set            fh [open ANNOUNCE r]
+    set ano [read $fh]
+    close         $fh
+
+    set            fh [open ~/.signature r]
+    set sig [read $fh]
+    close         $fh
+
+    set    fh [open ANNOUNCE.MAIL w]
+    puts  $fh [string map [list @ANO@ [LastChanges] @SIG@ $sig] $mail]
+    close $fh
+    return
+}
+
+
+###
+##
+#
+# ### Eliminate data not required by a source distribution.
+# ### Generate the official documentation in various formats.
+# ### Also create the CHANGES file required by the Neosoft CS Archives.
+# ### Ensure uptodate configure scripts for TEA and UNIX.
+#
+##
+###
+
+file delete -force patches mails tea doc/nodes
+
+file copy ChangeLog.short CHANGES
+
+cd doc
+exec ../tools/manpage_regen > /dev/null 2>/dev/null
+cd ..
+
+file mkdir                                doc/art/
+file rename        htdocs/art/logo100.gif doc/art/
+file rename        htdocs/art/logo520.jpg doc/art/
+file rename        htdocs/art/logo64.gif  doc/art/
+file delete -force htdocs
+
+cd unix ; exec autoconf
+cd ..   ; exec autoconf
+
+UpdateAnnounce
+UpdateAnnounceMail
+file rename ANNOUNCE.MAIL [file join .. [file tail [pwd]].AMAIL]
+
+exit

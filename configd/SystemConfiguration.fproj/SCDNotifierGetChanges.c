@@ -49,9 +49,7 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 	int				sc_status;
 	CFArrayRef			allKeys;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyNotifiedKeys:"));
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return NULL;
@@ -69,8 +67,10 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifychanges(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyNotifiedKeys notifychanges(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
@@ -79,10 +79,12 @@ SCDynamicStoreCopyNotifiedKeys(SCDynamicStoreRef store)
 
 	if (sc_status != kSCStatusOK) {
 		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+#ifdef	DEBUG
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyNotifiedKeys vm_deallocate(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
+#endif	/* DEBUG */
 		_SCErrorSet(sc_status);
 		return NULL;
 	}

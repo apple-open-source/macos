@@ -1,0 +1,16 @@
+MANPL gives page length - undocumented; may disappear again
+
+[But brobison@ecst.csuchico.edu likes it and says:
+it allows one to do something like:
+
+export LINES
+export MANPAGER='less -i'
+export MANPL='$(perl -e "print ($LINES - 1) / 6, \"i\";")'
+]
+
+hman does not use LANG
+
+Integrate Olaf's `cache manager' patch ?
+Adding additional processes and communication makes the
+system much more fragile. (And might fail on CYGWIN32.)
+Are there known security problems in the present setup?

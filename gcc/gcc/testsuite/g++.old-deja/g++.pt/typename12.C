@@ -1,6 +1,6 @@
-// Special g++ Options:
-// execution test - XFAIL *-*-*
-// excess errors test - XFAIL *-*-*
+// { dg-do run  }
+// { dg-options "" }
+// execution test
 
 int i = 0;
 

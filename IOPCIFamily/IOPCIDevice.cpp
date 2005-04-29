@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -50,7 +47,6 @@
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOPCIDevice, IOService)
-OSMetaClassDefineReservedUnused(IOPCIDevice,  2);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  3);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  4);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  5);
@@ -112,7 +108,7 @@ IOPCIDevice::init(OSDictionary * propTable)
     // allocate our expansion data
     if (!reserved)
     {
-	reserved = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+	reserved = IONew(ExpansionData, 1);
 	if (!reserved)
 	    return false;
 	bzero(reserved, sizeof(ExpansionData));
@@ -129,7 +125,7 @@ bool IOPCIDevice::init( IORegistryEntry * from, const IORegistryPlane * inPlane 
     // allocate our expansion data
     if (!reserved)
     {
-	reserved = (ExpansionData *)IOMalloc(sizeof(ExpansionData));
+	reserved = IONew(ExpansionData, 1);
 	if (!reserved)
 	    return false;
 	bzero(reserved, sizeof(ExpansionData));
@@ -150,10 +146,7 @@ void IOPCIDevice::free()
     //  variables.
     //
     if (reserved)
-    {
-        bzero(reserved, sizeof(ExpansionData));
-	IOFree(reserved, sizeof(ExpansionData));
-    }
+	IODelete(reserved, ExpansionData, 1);
 
     super::free();
 }
@@ -314,6 +307,58 @@ void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
     parent->configWrite8( space, offset, data );
 }
 
+// --
+
+UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    return (configRead32(_space, offset));
+}
+
+void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    configWrite32(_space, offset, data);
+}
+
+UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    return (configRead16(_space, offset));
+}
+
+void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    configWrite16(_space, offset, data);
+}
+
+UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    return (configRead8(space, offset));
+}
+
+void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
+{
+    IOPCIAddressSpace _space = space;
+    _space.es.registerNumExtended = (offset >> 8);
+
+    configWrite8(_space, offset, data);
+}
+
+// --
+
 IOReturn IOPCIDevice::saveDeviceState( IOOptionBits options )
 {
     return (parent->saveDeviceState(this, options));
@@ -327,6 +372,11 @@ IOReturn IOPCIDevice::restoreDeviceState( IOOptionBits options )
 UInt32 IOPCIDevice::findPCICapability( UInt8 capabilityID, UInt8 * offset )
 {
     return (parent->findPCICapability(space, capabilityID, offset));
+}
+
+UInt32 IOPCIDevice::extendedFindPCICapability( UInt32 capabilityID, IOByteCount * offset )
+{
+    return (parent->extendedFindPCICapability(space, capabilityID, offset));
 }
 
 UInt32 IOPCIDevice::setConfigBits( UInt8 reg, UInt32 mask, UInt32 value )
@@ -629,5 +679,4 @@ IOReturn IOAGPDevice::releaseAGPMemory( IOMemoryDescriptor * memory,
 {
     return (parent->releaseAGPMemory(this, memory, agpOffset, options));
 }
-
 

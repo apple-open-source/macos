@@ -30,7 +30,7 @@
     PDO_UNIX_INSTALLDIR = /Library/Bundles; 
     PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
     PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
-    PROJECTNAME = FF; 
+    PROJECTNAME = SI; 
     PROJECTTYPE = "Loadable Bundle"; 
     PROJECTVERSION = 2.8; 
     WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 

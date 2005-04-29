@@ -3,9 +3,10 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: lzw.c,v 1.1.1.1 1999/04/23 01:05:57 wsanchez Exp $";
+static char rcsid[] = "$Id: lzw.c,v 0.9 1993/06/10 13:27:31 jloup Exp $";
 #endif
 
+#include <config.h>
 #include "tailor.h"
 #include "gzip.h"
 #include "lzw.h"

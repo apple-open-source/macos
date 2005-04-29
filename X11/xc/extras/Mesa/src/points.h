@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,9 +24,6 @@
  */
 
 
-
-
-
 #ifndef POINTS_H
 #define POINTS_H
 
@@ -37,14 +34,17 @@
 extern void
 _mesa_PointSize( GLfloat size );
 
+extern void
+_mesa_PointParameteriNV( GLenum pname, GLint param );
 
 extern void
-_mesa_PointParameterfEXT( GLenum pname, GLfloat param);
+_mesa_PointParameterivNV( GLenum pname, const GLint *params );
 
+extern void
+_mesa_PointParameterfEXT( GLenum pname, GLfloat param );
 
 extern void
 _mesa_PointParameterfvEXT( GLenum pname, const GLfloat *params );
-
 
 
 #endif

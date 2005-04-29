@@ -1,0 +1,130 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_MemoRef</b>
+ : public <A HREF="c4_Reference.html" >c4_Reference</A> <br><br>
+
+<dd><font face=Times size=3>
+Used to get or set memo values (growable large binary objects).<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_MemoRef</b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Constructor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  operator 
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Bytes</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Get the value as binary object</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_MemoRef.html" >c4_MemoRef</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator= </b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Set the value to the specified binary object</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Access</b> (t4_u32 off_, int len_ =0) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Fetch data from the memo field, up to end if length is zero</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Modify</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_, t4_u32 off_, int diff_ =0) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Store data, resize by diff_ bytes, return true if successful</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+    <tr>
+    <td>
+	  <font face=Helvetica size=-1><b>Derived from</b></font>
+    </td>
+    <td>
+	  
+		<a name="c4_Reference" href="c4_Reference.html">c4_Reference</a>
+	  
+    </td>
+	</tr>
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

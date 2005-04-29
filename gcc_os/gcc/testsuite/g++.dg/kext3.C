@@ -14,5 +14,5 @@ struct X2 : virtual D1 {  };                    /* ok */
 struct Y1 : X1 { virtual void f(); };           /* ok */
 struct Y2 : X2 { virtual void f(); };           /* ok */
 
-void Y1::f() { X1::f(); }               /* dg-error "Indirect virtual" */
-void Y2::f() { X2::f(); }               /* dg-error "Indirect virtual" */
+void Y1::f() { X1::f(); }               /* { dg-error "indirect virtual" } */
+void Y2::f() { X2::f(); }               /* { dg-error "indirect virtual" } */

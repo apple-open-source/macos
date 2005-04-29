@@ -1,6 +1,6 @@
 /* strhash.c string hashing
  *
- * $Id: strhash.c,v 1.2 2003/10/22 18:03:05 rjs3 Exp $
+ * $Id: strhash.c,v 1.4 2005/03/05 00:37:19 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

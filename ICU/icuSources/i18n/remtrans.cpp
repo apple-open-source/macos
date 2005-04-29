@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001, International Business Machines
+*   Copyright (c) 2001-2003, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -18,7 +18,7 @@ static const UChar ID[] = {65, 110, 121, 45, 0x52, 0x65, 0x6D, 0x6F, 0x76, 0x65,
 
 U_NAMESPACE_BEGIN
 
-const char RemoveTransliterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(RemoveTransliterator)
 
 /**
  * System registration hook.
@@ -34,8 +34,9 @@ void RemoveTransliterator::registerIDs() {
 /**
  * Factory method
  */
-Transliterator* RemoveTransliterator::_create(const UnicodeString& ID,
+Transliterator* RemoveTransliterator::_create(const UnicodeString& /*ID*/,
                                               Token /*context*/) {
+    /* We don't need the ID or context. We just remove data */
     return new RemoveTransliterator();
 }
 

@@ -62,7 +62,8 @@ static xlog_h start_filelog( const char *id, struct filelog *flp )
 static void log_in_error( xlog_h xh, int error_code, void *arg )
 {
    struct service     *sp       = SP( arg ) ;
-   const char         *log_id   = ( sp == NULL ) ? "common" : SVC_ID( sp ) ;
+   const char         *log_id   = ( (sp == NULL)|| ((sp)->svc_conf == NULL) ) \
+						? "common" : SVC_ID( sp );
    const char         *func     = "log_in_error" ;
 
 #ifdef lint

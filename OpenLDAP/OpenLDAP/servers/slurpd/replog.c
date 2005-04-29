@@ -1,10 +1,18 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/replog.c,v 1.10.2.5 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slurpd/replog.c,v 1.15.2.3 2004/08/30 00:59:59 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright (c) 1996 Regents of the University of Michigan.
+/* Portions Copyright (c) 1996 Regents of the University of Michigan.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted
@@ -13,6 +21,10 @@
  * may not be used to endorse or promote products derived from this
  * software without specific prior written permission. This software
  * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 
@@ -127,13 +139,13 @@ copy_replog(
     dfp = lock_fopen( dst, "a", &dlfp );
     if ( dfp == NULL ) {
 #ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "copy_replog: "
-		"Error: Can't lock replog \"%s\" for write: %s\n",
-		src, sys_errlist[ errno ], 0 );
+		LDAP_LOG ( SLURPD, ERR,
+			"copy_replog: Error: Can't lock replog \"%s\" for write: %s\n",
+			dst, sys_errlist[ errno ], 0 );
 #else
-	Debug( LDAP_DEBUG_ANY,
-		"Error: copy_replog: Can't lock replog \"%s\" for write: %s\n",
-		src, sys_errlist[ errno ], 0 );
+		Debug( LDAP_DEBUG_ANY,
+			"Error: copy_replog: Can't lock replog \"%s\" for write: %s\n",
+			dst, sys_errlist[ errno ], 0 );
 #endif
 	lock_fclose( rfp, lfp );
 	return( 1 );
@@ -153,12 +165,13 @@ copy_replog(
 
     if ( lock_fclose( dfp, dlfp ) == EOF ) {
 #ifdef NEW_LOGGING
-	LDAP_LOG ( SLURPD, ERR, "copy_replog: "
-		"Error: Error closing \"%s\"\n", src, 0, 0 );
+		LDAP_LOG ( SLURPD, ERR,
+			"copy_replog: Error: Error closing \"%s\"\n",
+			dst, 0, 0 );
 #else
-	Debug( LDAP_DEBUG_ANY,
-		"Error: copy_replog: Error closing \"%s\"\n",
-		src, 0, 0 );
+		Debug( LDAP_DEBUG_ANY,
+			"Error: copy_replog: Error closing \"%s\"\n",
+			dst, 0, 0 );
 #endif
     }
     if ( lock_fclose( rfp, lfp ) == EOF ) {

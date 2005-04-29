@@ -1,14 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2002
+ * Copyright (c) 1997-2003
  *	Sleepycat Software.  All rights reserved.
  */
 
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: os_fsync.c,v 1.1.1.1 2003/02/15 04:56:09 zarzycki Exp $";
+static const char revid[] = "$Id: os_fsync.c,v 1.2 2004/03/30 01:23:48 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -24,8 +24,6 @@ static const char revid[] = "$Id: os_fsync.c,v 1.1.1.1 2003/02/15 04:56:09 zarzy
 /*
  * __os_fsync --
  *	Flush a file descriptor.
- *
- * PUBLIC: int __os_fsync __P((DB_ENV *, DB_FH *));
  */
 int
 __os_fsync(dbenv, fhp)
@@ -33,7 +31,7 @@ __os_fsync(dbenv, fhp)
 	DB_FH *fhp;
 {
 	BOOL success;
-	int ret;
+	int ret, retries;
 
 	/*
 	 * Do nothing if the file descriptor has been marked as not requiring
@@ -42,7 +40,7 @@ __os_fsync(dbenv, fhp)
 	if (F_ISSET(fhp, DB_FH_NOSYNC))
 		return (0);
 
-	ret = 0;
+	ret = retries = 0;
 	do {
 		if (DB_GLOBAL(j_fsync) != NULL)
 			success = (DB_GLOBAL(j_fsync)(fhp->fd) == 0);
@@ -51,7 +49,9 @@ __os_fsync(dbenv, fhp)
 			if (!success)
 				__os_set_errno(__os_win32_errno());
 		}
-	} while (!success && (ret = __os_get_errno()) == EINTR);
+	} while (!success &&
+	    ((ret = __os_get_errno()) == EINTR || ret == EBUSY) &&
+	    ++retries < DB_RETRY);
 
 	if (ret != 0)
 		__db_err(dbenv, "fsync %s", strerror(ret));

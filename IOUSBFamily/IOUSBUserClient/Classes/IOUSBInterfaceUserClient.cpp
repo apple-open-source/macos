@@ -20,21 +20,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <libkern/OSByteOrder.h>
-
-#include <IOKit/assert.h>
-#include <IOKit/IOLib.h>
-#include <IOKit/IOMessage.h>
-#include <IOKit/IOMemoryDescriptor.h>
-
-#include <IOKit/usb/IOUSBDevice.h>
-#include <IOKit/usb/IOUSBInterface.h>
-#include <IOKit/usb/IOUSBPipe.h>
-#include <IOKit/usb/IOUSBLog.h>
-#include <IOKit/IOCommandPool.h>
-#include <IOKit/usb/IOUSBControllerV2.h>
-
-#include "IOUSBInterfaceUserClient.h"
+//================================================================================================
+//
+//   Headers
+//
+//================================================================================================
+//
+#include <IOKit/usb/IOUSBInterfaceUserClient.h>
+#include <sys/proc.h>
 
 //=============================================================================================
 //
@@ -470,7 +463,7 @@ IOUSBInterfaceUserClient::start( IOService * provider )
 
     DecrementOutstandingIO();
     
-    USBLog(7, "-%s[%p]::start(%p)", getName(), this, provider);
+    USBLog(7, "-%s[%p]::start", getName(), this);
     
     return true;
     
@@ -562,7 +555,6 @@ IOUSBInterfaceUserClient::close()
 IOReturn  
 IOUSBInterfaceUserClient::clientClose( void )
 {
-    bool    terminateSuccess = false;
     USBLog(5, "+%s[%p]::clientClose(%p), IO: %d", getName(), this, fUserClientBufferInfoListHead, fOutstandingIO);
 
     // Sleep for 1 ms to allow other threads that are pending to run
@@ -620,7 +612,7 @@ void
 IOUSBInterfaceUserClient::ReqComplete(void *obj, void *param, IOReturn res, UInt32 remaining)
 {
     void *	args[1];
-    AsyncPB * pb = (AsyncPB *)param;
+    IOUSBInterfaceUserClientAsyncParamBlock * pb = (IOUSBInterfaceUserClientAsyncParamBlock *)param;
     IOUSBInterfaceUserClient *me = OSDynamicCast(IOUSBInterfaceUserClient, (OSObject*)obj);
 
     if (!me)
@@ -655,7 +647,7 @@ void
 IOUSBInterfaceUserClient::IsoReqComplete(void *obj, void *param, IOReturn res, IOUSBIsocFrame *pFrames)
 {
     void *	args[1];
-    IsoAsyncPB * pb = (IsoAsyncPB *)param;
+    IOUSBInterfaceUserClientISOAsyncParamBlock * pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)param;
     IOUSBInterfaceUserClient *me = OSDynamicCast(IOUSBInterfaceUserClient, (OSObject*)obj);
 
     if (!me)
@@ -1585,7 +1577,7 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
 {
     IOReturn				ret 			= kIOReturnSuccess;
     IOMemoryDescriptor *		aDescriptor		= NULL;
-    LowLatencyUserClientBufferInfo *	kernelDataBuffer	= NULL;
+    IOUSBLowLatencyUserClientBufferInfo *	kernelDataBuffer	= NULL;
     IOMemoryMap *			frameListMap		= NULL;
     IODirection				direction;
     
@@ -1603,14 +1595,14 @@ IOUSBInterfaceUserClient::LowLatencyPrepareBuffer(LowLatencyUserBufferInfo *buff
             
         // Allocate a buffer and zero it
         //
-        kernelDataBuffer = ( LowLatencyUserClientBufferInfo *) IOMalloc( sizeof(LowLatencyUserClientBufferInfo) );
+        kernelDataBuffer = ( IOUSBLowLatencyUserClientBufferInfo *) IOMalloc( sizeof(IOUSBLowLatencyUserClientBufferInfo) );
         if (kernelDataBuffer == NULL )
         {
-            USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %d)!", getName(), this, sizeof(LowLatencyUserClientBufferInfo) );
+            USBLog(1,"%s[%p]::LowLatencyPrepareBuffer  Could not malloc buffer info (size = %d)!", getName(), this, sizeof(IOUSBLowLatencyUserClientBufferInfo) );
             return kIOReturnNoMemory;
         }
         
-        bzero(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
+        bzero(kernelDataBuffer, sizeof(IOUSBLowLatencyUserClientBufferInfo));
         
         // Set the known fields
         //
@@ -1720,7 +1712,7 @@ ErrorExit:
 IOReturn 
 IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *dataBuffer)
 {
-    LowLatencyUserClientBufferInfo *	kernelDataBuffer	= NULL;
+    IOUSBLowLatencyUserClientBufferInfo *	kernelDataBuffer	= NULL;
     IOReturn				ret 			= kIOReturnSuccess;
     bool				found 			= false;
     
@@ -1779,7 +1771,7 @@ IOUSBInterfaceUserClient::LowLatencyReleaseBuffer(LowLatencyUserBufferInfo *data
         
         // Finally, deallocate our kernelDataBuffer
         //
-        IOFree(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
+        IOFree(kernelDataBuffer, sizeof(IOUSBLowLatencyUserClientBufferInfo));
 
     }
     else
@@ -1795,9 +1787,9 @@ ErrorExit:
 }
 
 void
-IOUSBInterfaceUserClient::AddDataBufferToList( LowLatencyUserClientBufferInfo * insertBuffer )
+IOUSBInterfaceUserClient::AddDataBufferToList( IOUSBLowLatencyUserClientBufferInfo * insertBuffer )
 {
-    LowLatencyUserClientBufferInfo *	buffer;
+    IOUSBLowLatencyUserClientBufferInfo *	buffer;
     
     // Traverse the list looking for last buffer and insert ours into it
     //
@@ -1820,10 +1812,10 @@ IOUSBInterfaceUserClient::AddDataBufferToList( LowLatencyUserClientBufferInfo * 
     buffer->nextBuffer = insertBuffer;
 }
 
-LowLatencyUserClientBufferInfo *	
+IOUSBLowLatencyUserClientBufferInfo *	
 IOUSBInterfaceUserClient::FindBufferCookieInList( UInt32 cookie)
 {
-    LowLatencyUserClientBufferInfo *	buffer;
+    IOUSBLowLatencyUserClientBufferInfo *	buffer;
     bool				foundIt = true;
     
     // Traverse the list looking for this buffer
@@ -1854,10 +1846,10 @@ IOUSBInterfaceUserClient::FindBufferCookieInList( UInt32 cookie)
 }
 
  bool			
-IOUSBInterfaceUserClient::RemoveDataBufferFromList( LowLatencyUserClientBufferInfo *removeBuffer)
+IOUSBInterfaceUserClient::RemoveDataBufferFromList( IOUSBLowLatencyUserClientBufferInfo *removeBuffer)
 {
-    LowLatencyUserClientBufferInfo *	buffer;
-    LowLatencyUserClientBufferInfo *	previousBuffer;
+    IOUSBLowLatencyUserClientBufferInfo *	buffer;
+    IOUSBLowLatencyUserClientBufferInfo *	previousBuffer;
     
     // If our head is NULL, then this buffer does not exist in our list
     //
@@ -1919,7 +1911,7 @@ IOUSBInterfaceUserClient::ControlAsyncRequestOut(OSAsyncReference asyncRef, IOUS
     IOUSBPipe *			pipeObj;
 
     IOUSBCompletion		tap;
-    AsyncPB * 			pb = NULL;
+    IOUSBInterfaceUserClientAsyncParamBlock * 			pb = NULL;
     IOMemoryDescriptor *	mem = NULL;
 
     USBLog(7, "+%s[%p]::ControlAsyncRequestOut", getName(), this);
@@ -1948,7 +1940,7 @@ IOUSBInterfaceUserClient::ControlAsyncRequestOut(OSAsyncReference asyncRef, IOUS
 	    }
 	    if (ret == kIOReturnSuccess)
 	    {
-		pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+		pb = (IOUSBInterfaceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientAsyncParamBlock));
 		if(!pb) 
 		    ret = kIOReturnNoMemory;
 	    }
@@ -2009,7 +2001,7 @@ IOUSBInterfaceUserClient::ControlAsyncRequestIn(OSAsyncReference asyncRef, IOUSB
     IOUSBPipe *			pipeObj;
 
     IOUSBCompletion		tap;
-    AsyncPB * 			pb = NULL;
+    IOUSBInterfaceUserClientAsyncParamBlock * 			pb = NULL;
     IOMemoryDescriptor *	mem = NULL;
 
     USBLog(7, "+%s[%p]::ControlAsyncRequestIn", getName(), this);
@@ -2038,7 +2030,7 @@ IOUSBInterfaceUserClient::ControlAsyncRequestIn(OSAsyncReference asyncRef, IOUSB
 	    }
 	    if (ret == kIOReturnSuccess)
 	    {
-		pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+		pb = (IOUSBInterfaceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientAsyncParamBlock));
 		if(!pb) 
 		    ret = kIOReturnNoMemory;
 	    }
@@ -2101,7 +2093,7 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
     IOMemoryDescriptor *	dataMem = NULL;
     IOMemoryDescriptor *	countMem = NULL;
     int				frameLen = 0;	// In bytes
-    IsoAsyncPB * 		pb = NULL;
+    IOUSBInterfaceUserClientISOAsyncParamBlock * 		pb = NULL;
     bool			countMemPrepared = false;
     bool			dataMemPrepared = false;
 
@@ -2149,7 +2141,7 @@ IOUSBInterfaceUserClient::DoIsochPipeAsync(OSAsyncReference asyncRef, IOUSBIsocS
                 countMemPrepared = true;
 
                 // Copy in requested transfers, we'll copy out result in completion routine
-		pb = (IsoAsyncPB *)IOMalloc(sizeof(IsoAsyncPB) + frameLen);
+		pb = (IOUSBInterfaceUserClientISOAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientISOAsyncParamBlock) + frameLen);
 		if(!pb) 
 		{
 		    ret = kIOReturnNoMemory;
@@ -2217,8 +2209,8 @@ IOUSBInterfaceUserClient::DoLowLatencyIsochPipeAsync(OSAsyncReference asyncRef, 
     IOMemoryDescriptor *		aDescriptor		= NULL;
     IOUSBLowLatencyIsocFrame *		pFrameList 		= NULL;
     IOUSBLowLatencyCommand *		command 		= NULL;
-    LowLatencyUserClientBufferInfo *	dataBuffer		= NULL;
-    LowLatencyUserClientBufferInfo *	frameListDataBuffer	= NULL;
+    IOUSBLowLatencyUserClientBufferInfo *	dataBuffer		= NULL;
+    IOUSBLowLatencyUserClientBufferInfo *	frameListDataBuffer	= NULL;
         
     USBLog(7, "+%s[%p]::DoLowLatencyIsochPipeAsync", getName(), this);
     retain();
@@ -2377,7 +2369,7 @@ IOUSBInterfaceUserClient::AsyncReadPipe(OSAsyncReference asyncRef, UInt32 pipe, 
     IOUSBPipe 			*pipeObj;
     IOUSBCompletion		tap;
     IOMemoryDescriptor *	mem = NULL;
-    AsyncPB * 			pb = NULL;
+    IOUSBInterfaceUserClientAsyncParamBlock * 			pb = NULL;
 
     USBLog(7, "+%s[%p]::AsyncReadPipe", getName(), this);
     retain();
@@ -2399,7 +2391,7 @@ IOUSBInterfaceUserClient::AsyncReadPipe(OSAsyncReference asyncRef, UInt32 pipe, 
 		if(ret != kIOReturnSuccess)
 		    break;
 	
-		pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+		pb = (IOUSBInterfaceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientAsyncParamBlock));
 		if(!pb) 
 		{
 		    ret = kIOReturnNoMemory;
@@ -2452,7 +2444,7 @@ IOUSBInterfaceUserClient::AsyncWritePipe(OSAsyncReference asyncRef, UInt32 pipe,
     IOUSBPipe 			*pipeObj;
     IOUSBCompletion		tap;
     IOMemoryDescriptor *	mem = NULL;
-    AsyncPB * 			pb = NULL;
+    IOUSBInterfaceUserClientAsyncParamBlock * 			pb = NULL;
 
     USBLog(7, "+%s[%p]::AsyncWritePipe", getName(), this);
     retain();
@@ -2474,7 +2466,7 @@ IOUSBInterfaceUserClient::AsyncWritePipe(OSAsyncReference asyncRef, UInt32 pipe,
 		if(ret != kIOReturnSuccess)
 		    break;
 	
-		pb = (AsyncPB *)IOMalloc(sizeof(AsyncPB));
+		pb = (IOUSBInterfaceUserClientAsyncParamBlock *)IOMalloc(sizeof(IOUSBInterfaceUserClientAsyncParamBlock));
 		if(!pb) 
 		{
 		    ret = kIOReturnNoMemory;
@@ -2620,8 +2612,7 @@ IOUSBInterfaceUserClient::willTerminate( IOService * provider, IOOptionBits opti
         {
             int		i;
 
-            USBLog(5, "%s[%p]::willTerminate - outstanding IO(%d), aborting pipes", getName(), this, ioPending);
-
+            USBLog(7, "%s[%p]::willTerminate - outstanding IO(%d), aborting pipes", getName(), this, ioPending);
             for (i=1; i <= kUSBMaxPipes; i++)
             {
                 pipe = fOwner->GetPipeObj(i-1);
@@ -2778,8 +2769,8 @@ IOUSBInterfaceUserClient::IncreaseCommandPool(void)
 void
 IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
 {
-    LowLatencyUserClientBufferInfo *	kernelDataBuffer;
-    LowLatencyUserClientBufferInfo *	nextBuffer;
+    IOUSBLowLatencyUserClientBufferInfo *	kernelDataBuffer;
+    IOUSBLowLatencyUserClientBufferInfo *	nextBuffer;
 
     if ( fOutstandingIO != 0 )
     {
@@ -2830,7 +2821,7 @@ IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
             
             // Finally, deallocate our kernelDataBuffer
             //
-            IOFree(kernelDataBuffer, sizeof(LowLatencyUserClientBufferInfo));
+            IOFree(kernelDataBuffer, sizeof(IOUSBLowLatencyUserClientBufferInfo));
             
             kernelDataBuffer = nextBuffer;
         }
@@ -2838,6 +2829,31 @@ IOUSBInterfaceUserClient::ReleasePreparedDescriptors(void)
         fUserClientBufferInfoListHead = NULL;
     }
 }
+
+// padding methods
+//
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  0);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  1);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  2);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  3);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  4);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  5);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  6);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  7);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  8);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient,  9);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 10);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 11);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 12);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 13);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 14);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 15);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 16);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 17);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 18);
+OSMetaClassDefineReservedUnused(IOUSBInterfaceUserClient, 19);
+
+
 
 IOUSBLowLatencyCommand *
 IOUSBLowLatencyCommand::NewCommand()
@@ -2853,3 +2869,26 @@ IOUSBLowLatencyCommand::SetAsyncReference(OSAsyncReference  ref)
 {
     bcopy(ref, fAsyncRef, sizeof(OSAsyncReference));
 }
+
+// padding methods
+//
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  0);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  1);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  2);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  3);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  4);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  5);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  6);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  7);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  8);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand,  9);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 10);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 11);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 12);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 13);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 14);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 15);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 16);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 17);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 18);
+OSMetaClassDefineReservedUnused(IOUSBLowLatencyCommand, 19);

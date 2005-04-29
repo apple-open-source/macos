@@ -1,7 +1,18 @@
 /*
  * snmp_vars.c - return a pointer to the named variable.
+ */
+/**
+ * @addtogroup library
  *
- *
+ * @{
+ */
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
  */
 /***********************************************************
 	Copyright 1988, 1989, 1990 by Carnegie Mellon University
@@ -26,10 +37,23 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 ******************************************************************/
 /*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
+/*
  * additions, fixes and enhancements for Linux by Erik Schoenfelder
  * (schoenfr@ibr.cs.tu-bs.de) 1994/1995.
  * Linux additions taken from CMU to UCD stack by Jennifer Bray of Origin
  * (jbray@origin-at.co.uk) 1997
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
  */
 
 /*
@@ -69,6 +93,9 @@ PERFORMANCE OF THIS SOFTWARE.
 # include <sys/socket.h>
 #endif
 #if HAVE_SYS_STREAM_H
+#   ifdef sysv5UnixWare7
+#      define _KMEMUSER 1 /* <sys/stream.h> needs this for queue_t */
+#   endif
 #include <sys/stream.h>
 #endif
 #if HAVE_SYS_SOCKETVAR_H
@@ -115,17 +142,21 @@ PERFORMANCE OF THIS SOFTWARE.
 
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
+#include <net-snmp/agent/mib_modules.h>
 #include "kernel.h"
 
 #include "mibgroup/struct.h"
 #include "snmpd.h"
 #include "net-snmp/agent/all_helpers.h"
+#include "agent_module_includes.h"
 #include "mib_module_includes.h"
 #include "net-snmp/library/container.h"
 
 #ifndef  MIN
 #define  MIN(a,b)                     (((a) < (b)) ? (a) : (b))
 #endif
+
+static char     done_init_agent = 0;
 
 /*
  * mib clients are passed a pointer to a oid buffer.  Some mib clients
@@ -200,16 +231,50 @@ u_char          return_buf[256];        /* nee 64 */
 #endif
 
 struct timeval  starttime;
-netsnmp_session *callback_master_sess;
-int             callback_master_num;
 
-/*
- * init_agent() returns non-zero on error 
+int             callback_master_num = -1;
+
+#ifdef SNMP_TRANSPORT_CALLBACK_DOMAIN
+netsnmp_session *callback_master_sess = NULL;
+
+static void
+_init_agent_callback_transport(void)
+{
+    /*
+     * always register a callback transport for internal use 
+     */
+    callback_master_sess = netsnmp_callback_open(0, handle_snmp_packet,
+                                                 netsnmp_agent_check_packet,
+                                                 netsnmp_agent_check_parse);
+    if (callback_master_sess)
+        callback_master_num = callback_master_sess->local_port;
+}
+#else
+#define _init_agent_callback_transport()
+#endif
+
+/**
+ * Initialize the agent.  Calls into init_agent_read_config to set tha app's
+ * configuration file in the appropriate default storage space,
+ *  NETSNMP_DS_LIB_APPTYPE.  Need to call init_agent before calling init_snmp.
+ *
+ * @param app the configuration file to be read in, gets stored in default
+ *        storage
+ *
+ * @return Returns non-zero on failure and zero on success.
+ *
+ * @see init_snmp
  */
 int
 init_agent(const char *app)
 {
     int             r = 0;
+
+    if(++done_init_agent > 1) {
+        snmp_log(LOG_WARNING, "ignoring extra call to init_agent (%d)\n", 
+                 done_init_agent);
+        return r;
+    }
 
     /*
      * get current time (ie, the time the agent started) 
@@ -236,23 +301,8 @@ init_agent(const char *app)
     auto_nlist_print_tree(-2, 0);
 #endif
 
-#ifndef WIN32
-	/*
-	 * the pipe call creates fds that select chokes on, so
-	 * disable callbacks on WIN32 until a fix can be found
-	 */
-    /*
-     * always register a callback transport for internal use 
-     */
-    callback_master_sess = netsnmp_callback_open(0, handle_snmp_packet,
-                                                 netsnmp_agent_check_packet,
-                                                 netsnmp_agent_check_parse);
-    if (callback_master_sess)
-        callback_master_num = callback_master_sess->local_port;
-    else
-#endif
-        callback_master_num = -1;
-
+    _init_agent_callback_transport();
+    
     netsnmp_init_helpers();
     init_traps();
     netsnmp_container_init_list();
@@ -277,13 +327,37 @@ init_agent(const char *app)
 #ifdef SNMP_TRANSPORT_UDPIPV6_DOMAIN
     netsnmp_udp6_agent_config_tokens_register();
 #endif
+#ifdef SNMP_TRANSPORT_UNIX_DOMAIN
+    netsnmp_unix_agent_config_tokens_register();
+#endif
 
 #ifdef NETSNMP_EMBEDDED_PERL
     init_perl();
 #endif
+
+#  include "agent_module_inits.h"
 
     return r;
 }                               /* end init_agent() */
 
 oid             nullOid[] = { 0, 0 };
 int             nullOidLen = sizeof(nullOid);
+
+void
+shutdown_agent(void) {
+
+    /* probably some of this can be called as shutdown callback */
+    shutdown_tree();
+    clear_context();
+    netsnmp_clear_callback_list();
+    netsnmp_clear_tdomain_list();
+    netsnmp_clear_handler_list();
+    netsnmp_container_free_list();
+    clear_sec_mod();
+    clear_snmp_enum();
+    clear_callback();
+    clear_user_list();
+
+    done_init_agent = 0;
+}
+

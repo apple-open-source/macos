@@ -57,7 +57,7 @@
 
 #include "mslp_sd.h"
 #include "slp.h"
-#include "mslp.h"         /* for LOG */
+#include "mslp.h"         /* for SLPLOG */
 #include "mslpd_mask.h"
 #include "mslpd_stack.h"
 
@@ -131,7 +131,7 @@ void stack_push(MSLPQStack *pstack, Mask *pmask, MSLPQState state) {
  */
 MSLPQframe * stack_pop(MSLPQStack *pstack) {
   if (pstack->iSize == 0) {
-    LOG(SLP_LOG_ERR,"pop: query handling stack empty");
+    SLPLOG(SLP_LOG_ERR,"pop: query handling stack empty");
     return NULL;
   }
 

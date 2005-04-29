@@ -166,21 +166,14 @@ MSC_RV PL_MSCGetCapabilities( MSCLPTokenConnection pConnection, MSCULong32 Tag,
     break;
 
   case MSC_TAG_SUPPORT_CRYPTOALG:
-    ulValue = MSC_SUPPORT_RSA | MSC_SUPPORT_DSA |
+    ulValue = MSC_SUPPORT_RSA | 
       MSC_SUPPORT_DES | MSC_SUPPORT_3DES;
     tagType = 4;
     break;
 
   case MSC_TAG_CAPABLE_RSA:
     ulValue = MSC_CAPABLE_RSA_1024 | MSC_CAPABLE_RSA_768 |
-      MSC_CAPABLE_RSA_NOPAD | MSC_CAPABLE_RSA_KEYGEN |
-      MSC_CAPABLE_RSA_PKCS1;
-    tagType = 4;
-    break;
-
-  case MSC_TAG_CAPABLE_DSA:
-    ulValue = MSC_CAPABLE_RSA_1024 | MSC_CAPABLE_RSA_768 |
-      MSC_CAPABLE_DSA_KEYGEN;
+      MSC_CAPABLE_RSA_NOPAD | MSC_CAPABLE_RSA_KEYGEN;
     tagType = 4;
     break;
 
@@ -261,7 +254,7 @@ MSC_RV PL_MSCGetCapabilities( MSCLPTokenConnection pConnection, MSCULong32 Tag,
     break;
 
   case MSC_TAG_CAPABLE_KEY_AUTH:
-    usValue = MSC_AUT_PIN_0;
+    usValue = MSC_AUT_PIN_1;
     tagType = 2;
     break;
 
@@ -1071,6 +1064,28 @@ MSC_RV PL_MSCListKeys( MSCLPTokenConnection pConnection, MSCUChar8 seqOption,
 		&apduResponse[currentPointer]);
 
     currentPointer += MSC_SIZEOF_ACLVALUE;
+    
+    switch(pKeyInfo->keyType)
+    {
+        case MSC_KEY_RSA_PUBLIC:
+        case MSC_KEY_RSA_PRIVATE:
+        case MSC_KEY_RSA_PRIVATE_CRT:
+            pKeyInfo->keyPolicy.cipherMode = MSC_KEYPOLICY_MODE_RSA_NOPAD;
+            pKeyInfo->keyPolicy.cipherDirection = MSC_KEYPOLICY_DIR_SIGN | MSC_KEYPOLICY_DIR_VERIFY |
+                MSC_KEYPOLICY_DIR_ENCRYPT | MSC_KEYPOLICY_DIR_DECRYPT;
+            break;
+        case MSC_KEY_DES:
+        case MSC_KEY_3DES:
+        case MSC_KEY_3DES3:
+            pKeyInfo->keyPolicy.cipherMode = MSC_KEYPOLICY_MODE_DES_ECB_NOPAD;
+            pKeyInfo->keyPolicy.cipherDirection = MSC_KEYPOLICY_DIR_ENCRYPT | MSC_KEYPOLICY_DIR_DECRYPT;
+            break;
+            
+        default:
+            pKeyInfo->keyPolicy.cipherMode = 0;
+            pKeyInfo->keyPolicy.cipherDirection = 0;
+            break;
+    }
 
     return convertSW(&apduResponse[currentPointer]);
   } else {

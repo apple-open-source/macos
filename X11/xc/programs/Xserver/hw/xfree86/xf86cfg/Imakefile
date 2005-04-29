@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/Imakefile,v 1.22 2003/02/26 20:08:03 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/Imakefile,v 1.26 2003/12/12 03:02:28 dawes Exp $
 
 XCOMM CDEBUGFLAGS=-g -Wall -ansi -pedantic
 
@@ -10,6 +10,16 @@ LDOBJS	= libc_wrapper.o loader.o loadmod.o
 #if HasNCurses
 TEXTSRC	= text-mode.c
 TEXTOBJ	= text-mode.o
+#endif
+
+#if !HasStrlcat
+STRLSRCS = strlcat.c strlcpy.c
+STRLOBJS = strlcat.o strlcpy.o
+#endif
+
+#if !HasSnprintf
+SNPRINTFSRCS = snprintf.c
+SNPRINTFOBJS = snprintf.o
 #endif
 
 SRCS	=\
@@ -27,7 +37,9 @@ SRCS	=\
 	options.c\
 	screen-cfg.c\
 	screen.c\
+	$(SNPRINTFSRCS)\
 	startx.c\
+	$(STRLSRCS)\
 	stubs.c\
 	$(TEXTSRC)\
 	vidmode.c\
@@ -48,7 +60,9 @@ OBJS	=\
 	options.o\
 	screen-cfg.o\
 	screen.o\
+	$(SNPRINTFOBJS)\
 	startx.o\
+	$(STRLOBJS)\
 	stubs.o\
 	$(TEXTOBJ)\
 	vidmode.o\
@@ -96,17 +110,14 @@ CURSESLIB = NCursesLibName
 CURSESDEFINES  = -DHAS_NCURSES
 #endif
 
-#if HasGlibc21Sigsetjmp
-SETJMPDEFINES = -DHAS_GLIBC_SIGSETJMP=1
-#endif
-
 XF86CONFIGFILE = XConfigFile
 XF86CONFIGDIR = XConfigDir
+XF86CONSOLEDEFS = XFree86ConsoleDefines
 
 DEFINES        = -DXF86CONFIG=\"$(XF86CONFIGFILE)\" $(MODULEDEFINES) \
-		 $(CURSESDEFINES) $(SETJMPDEFINES) \
+		 $(CURSESDEFINES) \
 		 -DPROJECT_ROOT=\"$(PROJECTROOT)\" \
-		 -DXF86CONFIGDIR=\"$(XF86CONFIGDIR)\" XFree86ConsoleDefines
+		 -DXF86CONFIGDIR=\"$(XF86CONFIGDIR)\" $(XF86CONSOLEDEFS)
 
 #if HasDlopen
 DLLIB = DlLibrary
@@ -130,6 +141,15 @@ NormalLibraryObjectRule()
 #if DoLoadableServer
 LinkSourceFile(libc_wrapper.c, $(XF86OSSRC)/shared)
 SpecialCObjectRule(libc_wrapper,NullParameter,$(WRAPPERDEFINES) $(EXT_DEFINES))
+#endif
+
+#if !HasStrlcat
+LinkSourceFile(strlcat.c,$(LIBSRC)/misc)
+LinkSourceFile(strlcpy.c,$(LIBSRC)/misc)
+#endif
+
+#if !HasSnprintf
+LinkSourceFile(snprintf.c,$(LIBSRC)/misc)
 #endif
 
 DependTarget()

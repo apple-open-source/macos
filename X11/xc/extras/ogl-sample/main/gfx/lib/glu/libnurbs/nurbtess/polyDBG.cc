@@ -33,6 +33,7 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/polyDBG.cc,v 1.2 2003/10/22 19:20:57 tsi Exp $ */
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/nurbtess/polyDBG.cc#3 $
 */
@@ -165,10 +166,8 @@ Int DBG_edgesIntersect(directedLine* l1, directedLine* l2)
 	 (l1->tail()[0] == l2->tail()[0] &&
 	 l1->tail()[1] == l2->tail()[1]))
 	return 1;
-	
     }
   
-
   if( 
      (
       area(l1->head(), l1->tail(), l2->head())
@@ -235,7 +234,6 @@ Int DBG_polygonSelfIntersect(directedLine* poly)
 	{
 	  return 1;
 	}
-	  
     }
 
   for(temp1=poly->getNext(); temp1 != poly; temp1 = temp1->getNext())
@@ -615,6 +613,7 @@ directedLine* DBG_cutIntersectionPoly(directedLine *polygon, int& cutOccur)
   return begin;
 }
 
+#ifdef UNUSED
 //given a polygon, cut the edges off and finally obtain a 
 //a polygon without intersections. The cut-off edges are
 //dealloated. The new polygon is returned.
@@ -668,8 +667,9 @@ static directedLine* DBG_cutIntersectionPoly_notwork(directedLine *polygon)
 	return crt;
       else
 	find = 0;    //go to next loop
+    }
 }
-}
+#endif
 
 directedLine* DBG_cutIntersectionAllPoly(directedLine* list)
 {
@@ -716,7 +716,6 @@ sampledLine*  DBG_collectSampledLinesAllPoly(directedLine *polygonList)
 void  DBG_collectSampledLinesPoly(directedLine *polygon, sampledLine*& retHead, sampledLine*& retTail)
 {
   directedLine *temp;
-  sampledLine *ret = NULL;
   retHead = NULL;
   retTail = NULL;
   if(polygon == NULL)

@@ -1,4 +1,4 @@
-# $Id: IMSP.pm,v 1.3 2002/05/25 19:57:49 leg Exp $
+# $Id: IMSP.pm,v 1.5 2005/03/05 00:37:32 dasenbro Exp $
 
 package Cyrus::IMAP::IMSP;
 use strict;

@@ -1,6 +1,6 @@
 // Function-Based Exception Support -*- C++ -*-
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,26 +31,29 @@
 // ISO C++ 14882: 19.1  Exception classes
 //
 
+#ifndef _FUNCTEXCEPT_H
+#define _FUNCTEXCEPT_H 1
+
 #include <exception_defines.h>
 
 namespace std
 {
-  // Helper for exception objects in <except> 
+  // Helper for exception objects in <except>
   void
   __throw_bad_exception(void);
 
-  // Helper for exception objects in <new> 
+  // Helper for exception objects in <new>
   void
   __throw_bad_alloc(void);
 
-  // Helper for exception objects in <typeinfo> 
+  // Helper for exception objects in <typeinfo>
   void
   __throw_bad_cast(void);
 
   void
   __throw_bad_typeid(void);
 
-  // Helpers for exception objects in <stdexcept> 
+  // Helpers for exception objects in <stdexcept>
   void
   __throw_logic_error(const char* __s);
 
@@ -83,3 +86,4 @@ namespace std
   __throw_ios_failure(const char* __s);
 } // namespace std
 
+#endif

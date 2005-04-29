@@ -1,12 +1,15 @@
-This is standards.info, produced by makeinfo version 4.3 from
+This is standards.info, produced by makeinfo version 4.6 from
 standards.texi.
 
+INFO-DIR-SECTION GNU organization
 START-INFO-DIR-ENTRY
 * Standards: (standards).        GNU coding standards.
 END-INFO-DIR-ENTRY
 
-   GNU Coding Standards Copyright (C) 1992, 1993, 1994, 1995, 1996,
-1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+The GNU coding standards, last updated April 29, 2003.
+
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+2001, 2002 Free Software Foundation, Inc.
 
    Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.1 or
@@ -14,15 +17,23 @@ any later version published by the Free Software Foundation; with no
 Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
 Texts.  A copy of the license is included in the section entitled "GNU
 Free Documentation License".
-
 
 File: standards.info,  Node: Top,  Next: Preface,  Prev: (dir),  Up: (dir)
 
 Version
 *******
 
-   Last updated October 19, 2001.
+The GNU coding standards, last updated April 29, 2003.
 
+   Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
+2001, 2002 Free Software Foundation, Inc.
+
+   Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with no Front-Cover Texts, and with no Back-Cover
+Texts.  A copy of the license is included in the section entitled "GNU
+Free Documentation License".
 * Menu:
 
 * Preface::                     About the GNU Coding Standards
@@ -42,25 +53,27 @@ File: standards.info,  Node: Preface,  Next: Legal Issues,  Prev: Top,  Up: Top
 About the GNU Coding Standards
 ******************************
 
-   The GNU Coding Standards were written by Richard Stallman and other
-GNU Project volunteers.  Their purpose is to make the GNU system clean,
+The GNU Coding Standards were written by Richard Stallman and other GNU
+Project volunteers.  Their purpose is to make the GNU system clean,
 consistent, and easy to install.  This document can also be read as a
 guide to writing portable, robust and reliable programs.  It focuses on
 programs written in C, but many of the rules and principles are useful
 even if you write in another programming language.  The rules often
 state reasons for writing in a certain way.
 
-   This release of the GNU Coding Standards was last updated October
-19, 2001.
+   This release of the GNU Coding Standards was last updated April 29,
+2003.
 
    If you did not obtain this file directly from the GNU project and
-recently, please check for a newer version.  You can ftp the GNU Coding
-Standards from any GNU FTP host in the directory `/pub/gnu/standards/'.
-The GNU Coding Standards are available there in several different
-formats: `standards.text', `standards.info', and `standards.dvi', as
-well as the Texinfo "source" which is divided in two files:
-`standards.texi' and `make-stds.texi'.  The GNU Coding Standards are
-also available on the GNU World Wide Web server:
+recently, please check for a newer version.  You can get the GNU Coding
+Standards from the GNU World Wide Web server host in several different
+formats: `http://www.gnu.org/prep/standards.text',
+`http://www.gnu.org/prep/standards.info', and
+`http://www.gnu.org/prep/standards.dvi', as well as the Texinfo
+"source" which is divided in two files:
+`http://www.gnu.org/prep/standards.texi' and
+`http://www.gnu.org/prep/make-stds.texi'.  The GNU Coding Standards are
+also available in HTML format starting at
 `http://www.gnu.org/prep/standards_toc.html'.
 
    Corrections or suggestions for this document should be sent to
@@ -81,13 +94,17 @@ be self-consistent--try to stick to the conventions you pick, and try
 to document them as much as possible.  That way, your program will be
 more maintainable by others.
 
+   The GNU Hello program serves as an example of how to follow the GNU
+coding standards for a trivial program which prints `Hello, world!'.
+`http://www.gnu.org/software/hello/hello.html'.
+
 
 File: standards.info,  Node: Legal Issues,  Next: Design Advice,  Prev: Preface,  Up: Top
 
 Keeping Free Software Free
 **************************
 
-   This node discusses how you can make sure that GNU software avoids
+This node discusses how you can make sure that GNU software avoids
 legal difficulties, and other related issues.
 
 * Menu:
@@ -102,8 +119,8 @@ File: standards.info,  Node: Reading Non-Free Code,  Next: Contributions,  Up: L
 Referring to Proprietary Programs
 =================================
 
-   Don't in any circumstances refer to Unix source code for or during
-your work on GNU!  (Or to any other proprietary programs.)
+Don't in any circumstances refer to Unix source code for or during your
+work on GNU!  (Or to any other proprietary programs.)
 
    If you have a vague recollection of the internals of a Unix program,
 this does not absolutely mean you can't write an imitation of it, but
@@ -139,7 +156,7 @@ File: standards.info,  Node: Contributions,  Next: Trademarks,  Prev: Reading No
 Accepting Contributions
 =======================
 
-   If the program you are working on is copyrighted by the Free Software
+If the program you are working on is copyrighted by the Free Software
 Foundation, then when someone else sends you a piece of code to add to
 the program, we need legal papers to use it--just as we asked you to
 sign papers initially.  _Each_ person who makes a nontrivial
@@ -186,23 +203,32 @@ File: standards.info,  Node: Trademarks,  Prev: Contributions,  Up: Legal Issues
 Trademarks
 ==========
 
-   Please do not include any trademark acknowledgements in GNU software
+Please do not include any trademark acknowledgements in GNU software
 packages or documentation.
 
    Trademark acknowledgements are the statements that such-and-such is a
 trademark of so-and-so.  The GNU Project has no objection to the basic
-idea of trademarks, but these acknowledgements feel like kowtowing, so
-we don't use them.  There is no legal requirement for them.
+idea of trademarks, but these acknowledgements feel like kowtowing, and
+there is no legal requirement for them, so we don't use them.
 
    What is legally required, as regards other people's trademarks, is to
-avoid using them in ways which a reader might read as naming or labeling
-our own programs or activities.  For example, since "Objective C" is
-(or at least was) a trademark, we made sure to say that we provide a
-"compiler for the Objective C language" rather than an "Objective C
-compiler".  The latter is meant to be short for the former, but it does
-not explicitly state the relationship, so it could be misinterpreted as
-using "Objective C" as a label for the compiler rather than for the
-language.
+avoid using them in ways which a reader might reasonably understand as
+naming or labeling our own programs or activities.  For example, since
+"Objective C" is (or at least was) a trademark, we made sure to say
+that we provide a "compiler for the Objective C language" rather than
+an "Objective C compiler".  The latter would have been meant as a
+shorter way of saying the former, but it does not explicitly state the
+relationship, so it could be misinterpreted as using "Objective C" as a
+label for the compiler rather than for the language.
+
+   Please don't use "win" as an abbreviation for Microsoft Windows in
+GNU software or documentation.  In hacker terminology, calling
+something a "win" is a form of praise.  If you wish to praise Microsoft
+Windows when speaking on your own, by all means do so, but not in GNU
+software.  Usually we write the word "windows" in full, but when
+brevity is very important (as in file names and sometimes symbol
+names), we abbreviate it to "w".  For instance, the files and functions
+in Emacs that deal with Windows start with `w32'.
 
 
 File: standards.info,  Node: Design Advice,  Next: Program Behavior,  Prev: Legal Issues,  Up: Top
@@ -210,7 +236,7 @@ File: standards.info,  Node: Design Advice,  Next: Program Behavior,  Prev: Lega
 General Program Design
 **********************
 
-   This node discusses some of the issues you should take into account
+This node discusses some of the issues you should take into account
 when designing your program.
 
 * Menu:
@@ -227,7 +253,7 @@ File: standards.info,  Node: Source Language,  Next: Compatibility,  Up: Design 
 Which Languages to Use
 ======================
 
-   When you want to use a language that gets compiled and runs at high
+When you want to use a language that gets compiled and runs at high
 speed, the best language to use is C.  Using another language is like
 using a non-standard feature: it will cause trouble for users.  Even if
 GCC supports the other language, users may find it inconvenient to have
@@ -272,7 +298,7 @@ File: standards.info,  Node: Compatibility,  Next: Using Extensions,  Prev: Sour
 Compatibility with Other Implementations
 ========================================
 
-   With occasional exceptions, utility programs and libraries for GNU
+With occasional exceptions, utility programs and libraries for GNU
 should be upward compatible with those in Berkeley Unix, and upward
 compatible with Standard C if Standard C specifies their behavior, and
 upward compatible with POSIX if POSIX specifies their behavior.
@@ -307,7 +333,7 @@ File: standards.info,  Node: Using Extensions,  Next: Standard C,  Prev: Compati
 Using Non-standard Features
 ===========================
 
-   Many GNU facilities that already exist support a number of convenient
+Many GNU facilities that already exist support a number of convenient
 extensions over the comparable Unix facilities.  Whether to use these
 extensions in implementing your program is a difficult question.
 
@@ -343,7 +369,7 @@ File: standards.info,  Node: Standard C,  Next: Conditional Compilation,  Prev: 
 Standard C and Pre-Standard C
 =============================
 
-   1989 Standard C is widespread enough now that it is ok to use its
+1989 Standard C is widespread enough now that it is ok to use its
 features in new programs.  There is one exception: do not ever use the
 "trigraph" feature of Standard C.
 
@@ -407,10 +433,10 @@ File: standards.info,  Node: Conditional Compilation,  Prev: Standard C,  Up: De
 Conditional Compilation
 =======================
 
-   When supporting configuration options already known when building
-your program we prefer using `if (... )' over conditional compilation,
-as in the former case the compiler is able to perform more extensive
-checking of all possible code paths.
+When supporting configuration options already known when building your
+program we prefer using `if (... )' over conditional compilation, as in
+the former case the compiler is able to perform more extensive checking
+of all possible code paths.
 
    For example, please write
 
@@ -419,7 +445,7 @@ checking of all possible code paths.
        else
          ...
 
-   instead of:
+instead of:
 
        #ifdef HAS_FOO
          ...
@@ -429,11 +455,12 @@ checking of all possible code paths.
 
    A modern compiler such as GCC will generate exactly the same code in
 both cases, and we have been using similar techniques with good success
-in several projects.
+in several projects.  Of course, the former method assumes that
+`HAS_FOO' is defined as either 0 or 1.
 
    While this is not a silver bullet solving all portability problems,
-following this policy would have saved the GCC project alone many person
-hours if not days per year.
+and is not always appropriate, following this policy would have saved
+GCC developers many hours, or even days, per year.
 
    In the case of function-like macros like `REVERSIBLE_CC_MODE' in GCC
 which cannot be simply used in `if( ...)' statements, there is an easy
@@ -452,8 +479,8 @@ File: standards.info,  Node: Program Behavior,  Next: Writing C,  Prev: Design A
 Program Behavior for All Programs
 *********************************
 
-   This node describes conventions for writing robust software.  It
-also describes general standards for error messages, the command line
+This node describes conventions for writing robust software.  It also
+describes general standards for error messages, the command line
 interface, and how libraries should behave.
 
 * Menu:
@@ -474,11 +501,10 @@ File: standards.info,  Node: Semantics,  Next: Libraries,  Up: Program Behavior
 Writing Robust Programs
 =======================
 
-   Avoid arbitrary limits on the length or number of _any_ data
-structure, including file names, lines, files, and symbols, by
-allocating all data structures dynamically.  In most Unix utilities,
-"long lines are silently truncated".  This is not acceptable in a GNU
-utility.
+Avoid arbitrary limits on the length or number of _any_ data structure,
+including file names, lines, files, and symbols, by allocating all data
+structures dynamically.  In most Unix utilities, "long lines are
+silently truncated".  This is not acceptable in a GNU utility.
 
    Utilities reading files should not drop NUL characters, or any other
 nonprinting characters _including those with codes above 0177_.  The
@@ -573,7 +599,7 @@ File: standards.info,  Node: Libraries,  Next: Errors,  Prev: Semantics,  Up: Pr
 Library Behavior
 ================
 
-   Try to make library functions reentrant.  If they need to do dynamic
+Try to make library functions reentrant.  If they need to do dynamic
 storage allocation, at least try to avoid any nonreentrancy aside from
 that of `malloc' itself.
 
@@ -604,19 +630,33 @@ File: standards.info,  Node: Errors,  Next: User Interfaces,  Prev: Libraries,  
 Formatting Error Messages
 =========================
 
-   Error messages from compilers should look like this:
+Error messages from compilers should look like this:
 
      SOURCE-FILE-NAME:LINENO: MESSAGE
 
-If you want to mention the column number, use this format:
+If you want to mention the column number, use one of these formats:
 
      SOURCE-FILE-NAME:LINENO:COLUMN: MESSAGE
+     SOURCE-FILE-NAME:LINENO.COLUMN: MESSAGE
 
 Line numbers should start from 1 at the beginning of the file, and
 column numbers should start from 1 at the beginning of the line.  (Both
 of these conventions are chosen for compatibility.)  Calculate column
 numbers assuming that space and all ASCII printing characters have
 equal width, and assuming tab stops every 8 columns.
+
+   The error message can also give both the starting and ending
+positions of the erroneous text.  There are several formats so that you
+can avoid redundant information such as a duplicate line number.  Here
+are the possible formats:
+
+     SOURCE-FILE-NAME:LINENO-1.COLUMN-1-LINENO-2.COLUMN-2: MESSAGE
+     SOURCE-FILE-NAME:LINENO-1.COLUMN-1-COLUMN-2: MESSAGE
+     SOURCE-FILE-NAME:LINENO-1-LINENO-2: MESSAGE
+
+When an error is spread over several files, you can use this format:
+
+     FILE-1:LINENO-1.COLUMN-1-FILE-2:LINENO-2.COLUMN-2: MESSAGE
 
    Error messages from other noninteractive programs should look like
 this:
@@ -641,8 +681,9 @@ input from a source other than a terminal, it is not interactive and
 would do best to print error messages using the noninteractive style.)
 
    The string MESSAGE should not begin with a capital letter when it
-follows a program name and/or file name.  Also, it should not end with
-a period.
+follows a program name and/or file name, because that isn't the
+beginning of a sentence.  (The sentence conceptually starts at the
+beginning of the line.)  Also, it should not end with a period.
 
    Error messages from interactive programs, and other messages such as
 usage messages, should start with a capital letter.  But they should not
@@ -654,9 +695,9 @@ File: standards.info,  Node: User Interfaces,  Next: Graphical Interfaces,  Prev
 Standards for Interfaces Generally
 ==================================
 
-   Please don't make the behavior of a utility depend on the name used
-to invoke it.  It is useful sometimes to make a link to a utility with
-a different name, and that should not change what it does.
+Please don't make the behavior of a utility depend on the name used to
+invoke it.  It is useful sometimes to make a link to a utility with a
+different name, and that should not change what it does.
 
    Instead, use a run time option or a compilation switch or both to
 select among the alternate behaviors.
@@ -688,7 +729,7 @@ File: standards.info,  Node: Graphical Interfaces,  Next: Command-Line Interface
 Standards for Graphical Interfaces
 ==================================
 
-   When you write a program that provides a graphical user interface,
+When you write a program that provides a graphical user interface,
 please make it work with X Windows and the GTK toolkit unless the
 functionality specifically requires some alternative (for example,
 "displaying jpeg images while in console mode").
@@ -710,12 +751,11 @@ File: standards.info,  Node: Command-Line Interfaces,  Next: Option Table,  Prev
 Standards for Command Line Interfaces
 =====================================
 
-   It is a good idea to follow the POSIX guidelines for the
-command-line options of a program.  The easiest way to do this is to use
-`getopt' to parse them.  Note that the GNU version of `getopt' will
-normally permit options anywhere among the arguments unless the special
-argument `--' is used.  This is not what POSIX specifies; it is a GNU
-extension.
+It is a good idea to follow the POSIX guidelines for the command-line
+options of a program.  The easiest way to do this is to use `getopt' to
+parse them.  Note that the GNU version of `getopt' will normally permit
+options anywhere among the arguments unless the special argument `--'
+is used.  This is not what POSIX specifies; it is a GNU extension.
 
    Please define long-named options that are equivalent to the
 single-letter Unix-style options.  We hope to make GNU more user
@@ -737,7 +777,10 @@ option as another way to specify it.  This will lead to more consistency
 among GNU utilities, and fewer idiosyncracies for users to remember.
 
    All programs should support two standard options: `--version' and
-`--help'.
+`--help'.  CGI programs should accept these as command-line options,
+and also if given as the `PATH_INFO'; for instance, visiting
+<http://example.org/p.cgi/-help> in a browser should output the same
+information as inokving `p.cgi --help' from the command line.
 
 `--version'
      This option should direct the program to print information about
@@ -841,7 +884,7 @@ File: standards.info,  Node: Option Table,  Next: Memory Usage,  Prev: Command-L
 Table of Long Options
 =====================
 
-   Here is a table of long options used by GNU programs.  It is surely
+Here is a table of long options used by GNU programs.  It is surely
 incomplete, but we aim to list all the options that a new program might
 want to be compatible with.  If you use names not already in the table,
 please send <bug-standards@gnu.org> a list of them, with their
@@ -1447,6 +1490,9 @@ meanings, so we can update the table.
 `no-sort'
      `-p' in `nm'.
 
+`no-splash'
+     Don't print a startup splash screen.
+
 `no-split'
      Used in `makeinfo'.
 
@@ -1931,7 +1977,7 @@ File: standards.info,  Node: Memory Usage,  Next: File Usage,  Prev: Option Tabl
 Memory Usage
 ============
 
-   If a program typically uses just a few meg of memory, don't bother
+If a program typically uses just a few meg of memory, don't bother
 making any effort to reduce memory usage.  For example, if it is
 impractical for other reasons to operate on files more than a few meg
 long, it is reasonable to read entire input files into core to operate
@@ -1954,7 +2000,7 @@ File: standards.info,  Node: File Usage,  Prev: Memory Usage,  Up: Program Behav
 File Usage
 ==========
 
-   Programs should be prepared to operate when `/usr' and `/etc' are
+Programs should be prepared to operate when `/usr' and `/etc' are
 read-only file systems.  Thus, if the program manages log files, lock
 files, backup files, score files, or any other files which are modified
 for internal purposes, these files should not be stored in `/usr' or
@@ -1973,7 +2019,7 @@ File: standards.info,  Node: Writing C,  Next: Documentation,  Prev: Program Beh
 Making The Best Use of C
 ************************
 
-   This node provides advice on how best to use the C language when
+This node provides advice on how best to use the C language when
 writing GNU software.
 
 * Menu:
@@ -1994,7 +2040,7 @@ File: standards.info,  Node: Formatting,  Next: Comments,  Up: Writing C
 Formatting Your Source Code
 ===========================
 
-   It is important to put the open-brace that starts the body of a C
+It is important to put the open-brace that starts the body of a C
 function in column zero, and avoid putting any other open-brace or
 open-parenthesis or open-bracket in column zero.  Several tools look
 for open-braces in column zero to find the beginnings of C functions.
@@ -2113,8 +2159,8 @@ File: standards.info,  Node: Comments,  Next: Syntactic Conventions,  Prev: Form
 Commenting Your Work
 ====================
 
-   Every program should start with a comment saying briefly what it is
-for.  Example: `fmt - filter for simple filling of text'.
+Every program should start with a comment saying briefly what it is for.
+Example: `fmt - filter for simple filling of text'.
 
    Please write the comments in a GNU program in English, because
 English is the one language that nearly all programmers in all
@@ -2193,7 +2239,7 @@ File: standards.info,  Node: Syntactic Conventions,  Next: Names,  Prev: Comment
 Clean Use of C Constructs
 =========================
 
-   Please explicitly declare the types of all objects.  For example, you
+Please explicitly declare the types of all objects.  For example, you
 should explicitly declare all arguments to functions, and you should
 declare functions to return `int' rather than omitting the `int'.
 
@@ -2306,7 +2352,7 @@ File: standards.info,  Node: Names,  Next: System Portability,  Prev: Syntactic 
 Naming Variables, Functions, and Files
 ======================================
 
-   The names of global variables and functions in a program serve as
+The names of global variables and functions in a program serve as
 comments of a sort.  So don't choose terse names--instead, look for
 names that give useful information about the meaning of the variable or
 function.  In a GNU program, names should be English, like other
@@ -2355,7 +2401,7 @@ File: standards.info,  Node: System Portability,  Next: CPU Portability,  Prev: 
 Portability between System Types
 ================================
 
-   In the Unix world, "portability" refers to porting to different Unix
+In the Unix world, "portability" refers to porting to different Unix
 versions.  For a GNU program, this kind of portability is desirable, but
 not paramount.
 
@@ -2387,6 +2433,15 @@ that is the case, it is better to spend your time adding features that
 will be useful on GNU and GNU/Linux, rather than on supporting other
 incompatible systems.
 
+   If you do support Windows, please do not abbreviate it as "win".  In
+hacker terminology, calling something a "win" is a form of praise.
+You're free to praise Microsoft Windows on your own if you want, but
+please don't do this in GNU packages.  Instead of abbreviating
+"Windows" to "un", you can write it in full or abbreviate it to "woe"
+or "w".  In GNU Emacs, for instance, we use `w32' in file names of
+Windows-specific files, but the macro for Windows conditionals is
+called `WINDOWSNT'.
+
    It is a good idea to define the "feature test macro" `_GNU_SOURCE'
 when compiling your C files.  When you compile on GNU or GNU/Linux,
 this will enable the declarations of GNU library extension functions,
@@ -2405,7 +2460,7 @@ File: standards.info,  Node: CPU Portability,  Next: System Functions,  Prev: Sy
 Portability between CPUs
 ========================
 
-   Even GNU systems will differ because of differences among CPU
+Even GNU systems will differ because of differences among CPU
 types--for example, difference in byte ordering and alignment
 requirements.  It is absolutely essential to handle these differences.
 However, don't make any effort to cater to the possibility that an
@@ -2481,7 +2536,7 @@ File: standards.info,  Node: System Functions,  Next: Internationalization,  Pre
 Calling System Functions
 ========================
 
-   C implementations differ substantially.  Standard C reduces but does
+C implementations differ substantially.  Standard C reduces but does
 not eliminate the incompatibilities; meanwhile, many GNU packages still
 support pre-standard compilers because this is not hard to do.  This
 chapter gives recommendations for how to use the more-or-less standard C
@@ -2596,8 +2651,8 @@ File: standards.info,  Node: Internationalization,  Next: Mmap,  Prev: System Fu
 Internationalization
 ====================
 
-   GNU has a library called GNU gettext that makes it easy to translate
-the messages in a program into various languages.  You should use this
+GNU has a library called GNU gettext that makes it easy to translate the
+messages in a program into various languages.  You should use this
 library in every program.  Use English for the messages as they appear
 in the program, and let gettext provide the way to translate them into
 other languages.
@@ -2676,7 +2731,7 @@ File: standards.info,  Node: Mmap,  Prev: Internationalization,  Up: Writing C
 Mmap
 ====
 
-   Don't assume that `mmap' either works on all files or fails for all
+Don't assume that `mmap' either works on all files or fails for all
 files.  It may work on some files and fail on others.
 
    The proper way to use `mmap' is to try it on the specific file for
@@ -2695,9 +2750,9 @@ File: standards.info,  Node: Documentation,  Next: Managing Releases,  Prev: Wri
 Documenting Programs
 ********************
 
-   A GNU program should ideally come with full free documentation,
-adequate for both reference and tutorial purposes.  If the package can
-be programmed or extended, the documentation should cover programming or
+A GNU program should ideally come with full free documentation, adequate
+for both reference and tutorial purposes.  If the package can be
+programmed or extended, the documentation should cover programming or
 extending it, as well as just using it.
 
 * Menu:
@@ -2720,7 +2775,7 @@ File: standards.info,  Node: GNU Manuals,  Next: Doc Strings and Manuals,  Up: D
 GNU Manuals
 ===========
 
-   The preferred document format for the GNU system is the Texinfo
+The preferred document format for the GNU system is the Texinfo
 formatting language.  Every GNU package should (ideally) have
 documentation in Texinfo both for reference and for learners.  Texinfo
 makes it possible to produce a good quality formatted book, using TeX,
@@ -2765,7 +2820,10 @@ the program's command-line options and all of its commands.  It should
 give examples of their use.  But don't organize the manual as a list of
 features.  Instead, organize it logically, by subtopics.  Address the
 questions that a user will ask when thinking about the job that the
-program does.
+program does.  Don't just tell the reader what each feature can do--say
+what jobs it is good for, and show how to use it for those jobs.
+Explain what is recommended usage, and what kinds of usage users should
+avoid.
 
    In general, a GNU manual should serve both as tutorial and reference.
 It should be set up for convenient access to each topic through Info,
@@ -2802,15 +2860,15 @@ course, some exceptions.)  Also, Unix man pages use a particular format
 which is different from what we use in GNU manuals.
 
    Please include an email address in the manual for where to report
-bugs _in the manual_.
+bugs _in the text of the manual_.
 
    Please do not use the term "pathname" that is used in Unix
 documentation; use "file name" (two words) instead.  We use the term
 "path" only for search paths, which are lists of directory names.
 
-   Please do not use the term "illegal" to refer to erroneous input to a
-computer program.  Please use "invalid" for this, and reserve the term
-"illegal" for activities punishable by law.
+   Please do not use the term "illegal" to refer to erroneous input to
+a computer program.  Please use "invalid" for this, and reserve the
+term "illegal" for activities prohibited by law.
 
 
 File: standards.info,  Node: Doc Strings and Manuals,  Next: Manual Structure Details,  Prev: GNU Manuals,  Up: Documentation
@@ -2818,11 +2876,11 @@ File: standards.info,  Node: Doc Strings and Manuals,  Next: Manual Structure De
 Doc Strings and Manuals
 =======================
 
-   Some programming systems, such as Emacs, provide a documentation
-string for each function, command or variable.  You may be tempted to
-write a reference manual by compiling the documentation strings and
-writing a little additional text to go around them--but you must not do
-it.  That approach is a fundamental mistake.  The text of well-written
+Some programming systems, such as Emacs, provide a documentation string
+for each function, command or variable.  You may be tempted to write a
+reference manual by compiling the documentation strings and writing a
+little additional text to go around them--but you must not do it.  That
+approach is a fundamental mistake.  The text of well-written
 documentation strings will be entirely wrong for a manual.
 
    A documentation string needs to stand alone--when it appears on the
@@ -2848,10 +2906,10 @@ File: standards.info,  Node: Manual Structure Details,  Next: License for Manual
 Manual Structure Details
 ========================
 
-   The title page of the manual should state the version of the
-programs or packages documented in the manual.  The Top node of the
-manual should also contain this information.  If the manual is changing
-more frequently than or independent of the program, also state a version
+The title page of the manual should state the version of the programs or
+packages documented in the manual.  The Top node of the manual should
+also contain this information.  If the manual is changing more
+frequently than or independent of the program, also state a version
 number for the manual in both of these places.
 
    Each program documented in the manual should have a node named
@@ -2878,8 +2936,8 @@ File: standards.info,  Node: License for Manuals,  Next: Manual Credits,  Prev: 
 License for Manuals
 ===================
 
-   Please use the GNU Free Documentation License for all GNU manuals
-that are more than a few pages long.  Likewise for a collection of short
+Please use the GNU Free Documentation License for all GNU manuals that
+are more than a few pages long.  Likewise for a collection of short
 documents--you only need one copy of the GNU FDL for the whole
 collection.  For a single short document, you can use a very permissive
 non-copyleft license, to avoid taking up space with a long license.
@@ -2900,10 +2958,10 @@ File: standards.info,  Node: Manual Credits,  Next: Printed Manuals,  Prev: Lice
 Manual Credits
 ==============
 
-   Please credit the principal human writers of the manual as the
-authors, on the title page of the manual.  If a company sponsored the
-work, thank the company in a suitable place in the manual, but do not
-cite the company as an author.
+Please credit the principal human writers of the manual as the authors,
+on the title page of the manual.  If a company sponsored the work, thank
+the company in a suitable place in the manual, but do not cite the
+company as an author.
 
 
 File: standards.info,  Node: Printed Manuals,  Next: NEWS File,  Prev: Manual Credits,  Up: Documentation
@@ -2911,12 +2969,12 @@ File: standards.info,  Node: Printed Manuals,  Next: NEWS File,  Prev: Manual Cr
 Printed Manuals
 ===============
 
-   The FSF publishes some GNU manuals in printed form.  To encourage
-sales of these manuals, the on-line versions of the manual should
-mention at the very start that the printed manual is available and
-should point at information for getting it--for instance, with a link
-to the page <http://www.gnu.org/order/order.html>.  This should not be
-included in the printed manual, though, because there it is redundant.
+The FSF publishes some GNU manuals in printed form.  To encourage sales
+of these manuals, the on-line versions of the manual should mention at
+the very start that the printed manual is available and should point at
+information for getting it--for instance, with a link to the page
+<http://www.gnu.org/order/order.html>.  This should not be included in
+the printed manual, though, because there it is redundant.
 
    It is also useful to explain in the on-line forms of the manual how
 the user can print out the manual from the sources.
@@ -2927,11 +2985,11 @@ File: standards.info,  Node: NEWS File,  Next: Change Logs,  Prev: Printed Manua
 The NEWS File
 =============
 
-   In addition to its manual, the package should have a file named
-`NEWS' which contains a list of user-visible changes worth mentioning.
-In each new release, add items to the front of the file and identify
-the version they pertain to.  Don't discard old items; leave them in
-the file after the newer items.  This way, a user upgrading from any
+In addition to its manual, the package should have a file named `NEWS'
+which contains a list of user-visible changes worth mentioning.  In
+each new release, add items to the front of the file and identify the
+version they pertain to.  Don't discard old items; leave them in the
+file after the newer items.  This way, a user upgrading from any
 previous version can see what is new.
 
    If the `NEWS' file gets very long, move some of the older items into
@@ -2944,7 +3002,7 @@ File: standards.info,  Node: Change Logs,  Next: Man Pages,  Prev: NEWS File,  U
 Change Logs
 ===========
 
-   Keep a change log to describe all the changes made to program source
+Keep a change log to describe all the changes made to program source
 files.  The purpose of this is so that people investigating bugs in the
 future will know about the changes that might have introduced the bug.
 Often a new bug can be found by looking at what was recently changed.
@@ -2966,7 +3024,7 @@ File: standards.info,  Node: Change Log Concepts,  Next: Style of Change Logs,  
 Change Log Concepts
 -------------------
 
-   You can think of the change log as a conceptual "undo list" which
+You can think of the change log as a conceptual "undo list" which
 explains how earlier versions were different from the current version.
 People can see the current version; they don't need the change log to
 tell them what is in it.  What they want from a change log is a clear
@@ -2989,6 +3047,11 @@ they see the code.  For example, "New function" is enough for the
 change log when you add a function, because there should be a comment
 before the function definition to explain what it does.
 
+   In the past, we recommended not mentioning changes in non-software
+files (manuals, help files, etc.) in change logs.  However, we've been
+advised that it is a good idea to include them, for the sake of
+copyright records.
+
    However, sometimes it is useful to write one line to describe the
 overall purpose of a batch of changes.
 
@@ -3004,10 +3067,10 @@ File: standards.info,  Node: Style of Change Logs,  Next: Simple Changes,  Prev:
 Style of Change Logs
 --------------------
 
-   Here are some simple examples of change log entries, starting with
-the header line that says who made the change and when, followed by
-descriptions of specific changes.  (These examples are drawn from Emacs
-and GCC.)
+Here are some simple examples of change log entries, starting with the
+header line that says who made the change and when it was installed,
+followed by descriptions of specific changes.  (These examples are
+drawn from Emacs and GCC.)
 
      1998-08-17  Richard Stallman  <rms@gnu.org>
      
@@ -3047,13 +3110,29 @@ example:
      * keyboard.c (menu_bar_items, tool_bar_items)
      (Fexecute_extended_command): Deal with `keymap' property.
 
+   When you install someone else's changes, put the contributor's name
+in the change log entry rather than in the text of the entry.  In other
+words, write this:
+
+     2002-07-14  John Doe  <jdoe@gnu.org>
+     
+             * sewing.c: Make it sew.
+
+rather than this:
+
+     2002-07-14  Usual Maintainer  <usual@gnu.org>
+     
+             * sewing.c: Make it sew.  Patch by jdoe@gnu.org.
+
+   As for the date, that should be the date you applied the change.
+
 
 File: standards.info,  Node: Simple Changes,  Next: Conditional Changes,  Prev: Style of Change Logs,  Up: Change Logs
 
 Simple Changes
 --------------
 
-   Certain simple kinds of changes don't need much detail in the change
+Certain simple kinds of changes don't need much detail in the change
 log.
 
    When you change the calling sequence of a function in a simple
@@ -3069,12 +3148,17 @@ being called, "All callers changed"--like this:
 an entry for the file, without mentioning the functions.  Just "Doc
 fixes" is enough for the change log.
 
-   There's no need to make change log entries for documentation files.
-This is because documentation is not susceptible to bugs that are hard
-to fix.  Documentation does not consist of parts that must interact in a
-precisely engineered fashion.  To correct an error, you need not know
-the history of the erroneous passage; it is enough to compare what the
-documentation says with the way the program actually works.
+   There's no technical need to make change log entries for
+documentation files.  This is because documentation is not susceptible
+to bugs that are hard to fix.  Documentation does not consist of parts
+that must interact in a precisely engineered fashion.  To correct an
+error, you need not know the history of the erroneous passage; it is
+enough to compare what the documentation says with the way the program
+actually works.
+
+   However, you should keep change logs for documentation files when the
+project gets copyright assignments from its contributors, so as to make
+the records of authorship more accurate.
 
 
 File: standards.info,  Node: Conditional Changes,  Next: Indicating the Part Changed,  Prev: Simple Changes,  Up: Change Logs
@@ -3082,10 +3166,10 @@ File: standards.info,  Node: Conditional Changes,  Next: Indicating the Part Cha
 Conditional Changes
 -------------------
 
-   C programs often contain compile-time `#if' conditionals.  Many
-changes are conditional; sometimes you add a new definition which is
-entirely contained in a conditional.  It is very useful to indicate in
-the change log the conditions for which the change applies.
+C programs often contain compile-time `#if' conditionals.  Many changes
+are conditional; sometimes you add a new definition which is entirely
+contained in a conditional.  It is very useful to indicate in the
+change log the conditions for which the change applies.
 
    Our convention for indicating conditional changes is to use square
 brackets around the name of the condition.
@@ -3118,7 +3202,7 @@ File: standards.info,  Node: Indicating the Part Changed,  Prev: Conditional Cha
 Indicating the Part Changed
 ---------------------------
 
-   Indicate the part of a function which changed by using angle brackets
+Indicate the part of a function which changed by using angle brackets
 enclosing an indication of what the changed part does.  Here is an entry
 for a change in the part of the function `sh-while-getopts' that deals
 with `sh' commands:
@@ -3132,7 +3216,7 @@ File: standards.info,  Node: Man Pages,  Next: Reading other Manuals,  Prev: Cha
 Man Pages
 =========
 
-   In the GNU project, man pages are secondary.  It is not necessary or
+In the GNU project, man pages are secondary.  It is not necessary or
 expected for every GNU program to have a man page, but some of them do.
 It's your choice whether to include a man page in your program.
 
@@ -3166,7 +3250,7 @@ File: standards.info,  Node: Reading other Manuals,  Prev: Man Pages,  Up: Docum
 Reading other Manuals
 =====================
 
-   There may be non-free books or documentation files that describe the
+There may be non-free books or documentation files that describe the
 program you are documenting.
 
    It is ok to use these documents for reference, just as the author of
@@ -3184,7 +3268,7 @@ File: standards.info,  Node: Managing Releases,  Next: References,  Prev: Docume
 The Release Process
 *******************
 
-   Making a release is more than just bundling up your source files in a
+Making a release is more than just bundling up your source files in a
 tar file and putting it up for FTP.  You should set up your software so
 that it can be configured to run on a variety of systems.  Your Makefile
 should conform to the GNU standards described below, and your directory
@@ -3204,7 +3288,7 @@ File: standards.info,  Node: Configuration,  Next: Makefile Conventions,  Up: Ma
 How Configuration Should Work
 =============================
 
-   Each GNU distribution should come with a shell script named
+Each GNU distribution should come with a shell script named
 `configure'.  This script is given arguments which describe the kind of
 machine and system you want to compile the program for.
 
@@ -3262,17 +3346,23 @@ like this:
 
      CPU-COMPANY-SYSTEM
 
-   For example, a Sun 3 might be `m68k-sun-sunos4.1'.
+   For example, an Athlon-based GNU/Linux system might be
+`i686-pc-linux-gnu'.
 
    The `configure' script needs to be able to decode all plausible
-alternatives for how to describe a machine.  Thus, `sun3-sunos4.1'
-would be a valid alias.  For many programs, `vax-dec-ultrix' would be
-an alias for `vax-dec-bsd', simply because the differences between
-Ultrix and BSD are rarely noticeable, but a few programs might need to
-distinguish them.
+alternatives for how to describe a machine.  Thus,
+`athlon-pc-gnu/linux' would be a valid alias.  There is a shell script
+called `config.sub' (ftp://ftp.gnu.org/gnu/config/config.sub) that you
+can use as a subroutine to validate system types and canonicalize
+aliases.
 
-   There is a shell script called `config.sub' that you can use as a
-subroutine to validate system types and canonicalize aliases.
+   The `configure' script should also take the option
+`--build=BUILDTYPE', which should be equivalent to a plain BUILDTYPE
+argument.  For example, `configure --build=i686-pc-linux-gnu' is
+equivalent to `configure i686-pc-linux-gnu'.  When the build type is
+not specified by an option or argument, the `configure' script should
+normally guess it using the shell script `config.guess'
+(ftp://ftp.gnu.org/gnu/config/config.guess).
 
    Other options are permitted to specify in more detail the software
 or hardware present on the machine, and include or exclude optional
@@ -3321,25 +3411,22 @@ program may be different.
 system as both the host and the target, thus producing a program which
 works for the same type of machine that it runs on.
 
+   To compile a program to run on a host type that differs from the
+build type, use the configure option `--host=HOSTTYPE', where HOSTTYPE
+uses the same syntax as BUILDTYPE.  The host type normally defaults to
+the build type.
+
    To configure a cross-compiler, cross-assembler, or what have you, you
 should specify a target different from the host, using the configure
 option `--target=TARGETTYPE'.  The syntax for TARGETTYPE is the same as
 for the host type.  So the command would look like this:
 
-     ./configure HOSTTYPE --target=TARGETTYPE
+     ./configure --host=HOSTTYPE --target=TARGETTYPE
 
-   Programs for which cross-operation is not meaningful need not accept
-the `--target' option, because configuring an entire operating system
-for cross-operation is not a meaningful operation.
-
-   Bootstrapping a cross-compiler requires compiling it on a machine
-other than the host it will run on.  Compilation packages accept a
-configuration option `--build=BUILDTYPE' for specifying the
-configuration on which you will compile them, but the configure script
-should normally guess the build machine type (using `config.guess'), so
-this option is probably not necessary.  The host and target types
-normally default from the build type, so in bootstrapping a
-cross-compiler you must specify them both explicitly.
+   The target type normally defaults to the host type.  Programs for
+which cross-operation is not meaningful need not accept the `--target'
+option, because configuring an entire operating system for
+cross-operation is not a meaningful operation.
 
    Some programs have ways of configuring themselves automatically.  If
 your program is set up to do this, your `configure' script can simply
@@ -3351,7 +3438,7 @@ File: standards.info,  Node: Makefile Conventions,  Next: Releases,  Prev: Confi
 Makefile Conventions
 ====================
 
-   This node describes conventions for writing the Makefiles for GNU
+This node describes conventions for writing the Makefiles for GNU
 programs.  Using Automake will help you write a Makefile that follows
 these conventions.
 
@@ -3371,7 +3458,7 @@ File: standards.info,  Node: Makefile Basics,  Next: Utilities in Makefiles,  Up
 General Conventions for Makefiles
 ---------------------------------
 
-   Every Makefile should contain this line:
+Every Makefile should contain this line:
 
      SHELL = /bin/sh
 
@@ -3451,7 +3538,7 @@ File: standards.info,  Node: Utilities in Makefiles,  Next: Command Variables,  
 Utilities in Makefiles
 ----------------------
 
-   Write the Makefile commands (and any shell scripts, such as
+Write the Makefile commands (and any shell scripts, such as
 `configure') to run in `sh', not in `csh'.  Don't use any special
 features of `ksh' or `bash'.
 
@@ -3506,7 +3593,7 @@ File: standards.info,  Node: Command Variables,  Next: Directory Variables,  Pre
 Variables for Specifying Commands
 ---------------------------------
 
-   Makefiles should provide variables for overriding certain commands,
+Makefiles should provide variables for overriding certain commands,
 options, and so on.
 
    In particular, you should run most utility programs via variables.
@@ -3586,8 +3673,8 @@ File: standards.info,  Node: Directory Variables,  Next: Standard Targets,  Prev
 Variables for Installation Directories
 --------------------------------------
 
-   Installation directories should always be named by variables, so it
-is easy to install in a nonstandard place.  The standard names for these
+Installation directories should always be named by variables, so it is
+easy to install in a nonstandard place.  The standard names for these
 variables are described below.  They are based on a standard filesystem
 layout; variants of it are used in SVR4, 4.4BSD, GNU/Linux, Ultrix v4,
 and other modern operating systems.
@@ -3659,15 +3746,25 @@ discourage the use of architecture-dependent files, aside from object
 files and libraries.  It is much cleaner to make other data files
 architecture-independent, and it is generally not hard.
 
-   Therefore, here are the variables Makefiles should use to specify
-directories:
+   Here are the variables Makefiles should use to specify directories
+to put these various kinds of files in:
+
+`datarootdir'
+     The root of the directory tree for read-only
+     architecture-independent data files.  This should normally be
+     `/usr/local/share', but write it as `$(prefix)/share'.
+     `datadir''s default value is based on this variable; so are
+     `infodir', `mandir', and others.
 
 `datadir'
-     The directory for installing read-only architecture independent
-     data files.  This should normally be `/usr/local/share', but write
-     it as `$(prefix)/share'.  (If you are using Autoconf, write it as
-     `@datadir@'.)  As a special exception, see `$(infodir)' and
-     `$(includedir)' below.
+     The directory for installing ideosyncratic read-only
+     architecture-independent data files for this program.  This is
+     usually the same place as `datarootdir', but we use the two
+     separate variables so that you can move these ideosyncratic files
+     without altering the location for Info files, man pages, etc.
+
+     The default definition of `datadir' should be `$(datarootdir)'.
+     (If you are using Autoconf, write it as `@datadir@'.)
 
 `sysconfdir'
      The directory for installing read-only data files that pertain to a
@@ -3700,30 +3797,10 @@ directories:
      it as `$(prefix)/var'.  (If you are using Autoconf, write it as
      `@localstatedir@'.)
 
-`libdir'
-     The directory for object files and libraries of object code.  Do
-     not install executables here, they probably ought to go in
-     `$(libexecdir)' instead.  The value of `libdir' should normally be
-     `/usr/local/lib', but write it as `$(exec_prefix)/lib'.  (If you
-     are using Autoconf, write it as `@libdir@'.)
-
-`infodir'
-     The directory for installing the Info files for this package.  By
-     default, it should be `/usr/local/info', but it should be written
-     as `$(prefix)/info'.  (If you are using Autoconf, write it as
-     `@infodir@'.)
-
-`lispdir'
-     The directory for installing any Emacs Lisp files in this package.
-     By default, it should be `/usr/local/share/emacs/site-lisp', but
-     it should be written as `$(prefix)/share/emacs/site-lisp'.
-
-     If you are using Autoconf, write the default as `@lispdir@'.  In
-     order to make `@lispdir@' work, you need the following lines in
-     your `configure.in' file:
-
-          lispdir='${datadir}/emacs/site-lisp'
-          AC_SUBST(lispdir)
+   These variables specify the directory for installing certain specific
+types of files, if your program has them.  Every GNU package should
+have Info files, so every program needs `infodir', but not all need
+`libdir' or `lispdir'.
 
 `includedir'
      The directory for installing header files to be included by user
@@ -3759,13 +3836,44 @@ directories:
      To tell whether `foo.h' came from the Foo package, put a magic
      string in the file--part of a comment--and `grep' for that string.
 
+`infodir'
+     The directory for installing the Info files for this package.  By
+     default, it should be `/usr/local/share/info', but it should be
+     written as `$(datarootdir)/info'.  (If you are using Autoconf,
+     write it as `@infodir@'.)
+
+`libdir'
+     The directory for object files and libraries of object code.  Do
+     not install executables here, they probably ought to go in
+     `$(libexecdir)' instead.  The value of `libdir' should normally be
+     `/usr/local/lib', but write it as `$(exec_prefix)/lib'.  (If you
+     are using Autoconf, write it as `@libdir@'.)
+
+`lispdir'
+     The directory for installing any Emacs Lisp files in this package.
+     By default, it should be `/usr/local/share/emacs/site-lisp', but
+     it should be written as `$(datarootdir)/emacs/site-lisp'.
+
+     If you are using Autoconf, write the default as `@lispdir@'.  In
+     order to make `@lispdir@' work, you need the following lines in
+     your `configure.in' file:
+
+          lispdir='${datarootdir}/emacs/site-lisp'
+          AC_SUBST(lispdir)
+
+`localedir'
+     The directory for installing locale-specific message catalogs for
+     this package.  By default, it should be `/usr/local/share/locale',
+     but it should be written as `$(datarootdir)/locale'.  (If you are
+     using Autoconf, write it as `@localedir@'.)
+
    Unix-style man pages are installed in one of the following:
 
 `mandir'
      The top-level directory for installing the man pages (if any) for
-     this package.  It will normally be `/usr/local/man', but you should
-     write it as `$(prefix)/man'.  (If you are using Autoconf, write it
-     as `@mandir@'.)
+     this package.  It will normally be `/usr/local/share/man', but you
+     should write it as `$(datarootdir)/man'.  (If you are using
+     Autoconf, write it as `@mandir@'.)
 
 `man1dir'
      The directory for installing section 1 man pages.  Write it as
@@ -3808,13 +3916,15 @@ directories:
      # Common prefix for installation directories.
      # NOTE: This directory must exist when you start the install.
      prefix = /usr/local
+     datarootdir = $(prefix)/share
+     datadir = $(datarootdir)
      exec_prefix = $(prefix)
      # Where to put the executable for the command `gcc'.
      bindir = $(exec_prefix)/bin
      # Where to put the directories used by the compiler.
      libexecdir = $(exec_prefix)/libexec
      # Where to put the Info files.
-     infodir = $(prefix)/info
+     infodir = $(datarootdir)/info
 
    If your program installs a large number of files into one of the
 standard user-specified directories, it might be useful to group them
@@ -3834,8 +3944,7 @@ File: standards.info,  Node: Standard Targets,  Next: Install Command Categories
 Standard Targets for Users
 --------------------------
 
-   All GNU programs should have the following targets in their
-Makefiles:
+All GNU programs should have the following targets in their Makefiles:
 
 `all'
      Compile the entire program.  This should be the default target.
@@ -4092,9 +4201,9 @@ File: standards.info,  Node: Install Command Categories,  Prev: Standard Targets
 Install Command Categories
 --------------------------
 
-   When writing the `install' target, you must classify all the
-commands into three categories: normal ones, "pre-installation"
-commands and "post-installation" commands.
+When writing the `install' target, you must classify all the commands
+into three categories: normal ones, "pre-installation" commands and
+"post-installation" commands.
 
    Normal commands move files into their proper places, and set their
 modes.  They may not alter any files except the ones that come entirely
@@ -4198,6 +4307,10 @@ File: standards.info,  Node: Releases,  Prev: Makefile Conventions,  Up: Managin
 Making Releases
 ===============
 
+You should identify each release with a pair of version numbers, a
+major version and a minor.  We have no objection to using more than two
+numbers, but it is very unlikely that you really need them.
+
    Package the distribution of `Foo version 69.96' up in a gzipped tar
 file with the name `foo-69.96.tar.gz'.  It should unpack into a
 subdirectory named `foo-69.96'.
@@ -4245,13 +4358,6 @@ all the files even if the user is unprivileged.
 
    Make sure that all the files in the distribution are world-readable.
 
-   Make sure that no file name in the distribution is more than 14
-characters long.  Likewise, no file created by building the program
-should have a name longer than 14 characters.  The reason for this is
-that some systems adhere to a foolish interpretation of the POSIX
-standard, and refuse to open a longer name, rather than truncating as
-they did in the past.
-
    Don't include any symbolic links in the distribution itself.  If the
 tar file contains symbolic links, then people cannot even unpack it on
 systems that don't support symbolic links.  Also, don't use multiple
@@ -4280,27 +4386,85 @@ File: standards.info,  Node: References,  Next: Copying This Manual,  Prev: Mana
 References to Non-Free Software and Documentation
 *************************************************
 
-   A GNU program should not recommend use of any non-free program.  We
+A GNU program should not recommend use of any non-free program.  We
 can't stop some people from writing proprietary programs, or stop other
-people from using them.  But we can and should avoid helping to
-advertise them to new customers.
+people from using them, but we can and should refuse to advertise them
+to new potential customers.  Proprietary software is a social and
+ethical problem, and the point of GNU is to solve that problem.
 
-   Sometimes it is important to mention how to build your package on
-top of some non-free operating system or other non-free base package.
-In such cases, please mention the name of the non-free package or
-system in the briefest possible way.  Don't include any references for
-where to find more information about the proprietary program.  The goal
+   The GNU definition of free software is found in
+<http://www.gnu.org/philosophy/free-sw.html>, with a list of important
+licenses and whether they qualify as free in
+<http://www.gnu.org/licenses/license-list.html>.  The terms "free" and
+"non-free", used in this document, refer to that definition.  If it is
+not clear whether a license qualifies as free under this definition,
+please ask the GNU Project by writing to <licensing@gnu.org>.  We will
+answer, and if the license is an important one, we will add it to the
+list.
+
+   When a non-free program or system is well known, you can mention it
+in passing--that is harmless, since users who might want to use it
+probably already know about it.  For instance, it is fine to explain
+how to build your package on top of some widely used non-free operating
+system, or how to use it together with some widely used non-free
+program.
+
+   However, you should give only the necessary information to help those
+who already use the non-free program to use your program with it--don't
+give, or refer to, any further information about the proprietary
+program, and don't imply that the proprietary program enhances your
+program, or that its existence is in any way a good thing.  The goal
 should be that people already using the proprietary program will get
-the advice they need about how to use your free program, while people
-who don't already use the proprietary program will not see anything to
-encourage them to take an interest in it.
+the advice they need about how to use your free program with it, while
+people who don't already use the proprietary program will not see
+anything to lead them to take an interest in it.
 
-   Likewise, a GNU package should not refer the user to any non-free
-documentation for free software.  The need for free documentation to go
-with free software is now a major focus of the GNU project; to show that
-we are serious about the need for free documentation, we must not
-undermine our position by recommending use of documentation that isn't
-free.
+   If a non-free program or system is obscure in your program's domain,
+your program should not mention or support it at all, since doing so
+would tend to popularize the non-free program more than it popularizes
+your program.  (You cannot hope to find many additional users among the
+users of Foobar if the users of Foobar are few.)
+
+   Sometimes a program is free software in itself but depends on a
+non-free platform in order to run.  For instance, many Java programs
+depend on Sun's Java implementation, and won't run on the GNU Java
+Compiler (which does not yet have all the features) or won't run with
+the GNU Java libraries.  To recommend that program is inherently to
+recommend the non-free platform as well; if you should not do the
+latter, then don't do the former.
+
+   A GNU package should not refer the user to any non-free documentation
+for free software.  Free documentation that can be included in free
+operating systems is essential for completing the GNU system, or any
+free operating system, so it is a major focus of the GNU Project; to
+recommend use of documentation that we are not allowed to use in GNU
+would weaken the impetus for the community to produce documentation
+that we can include.  So GNU packages should never recommend non-free
+documentation.
+
+   By contrast, it is ok to refer to journal articles and textbooks in
+the comments of a program for explanation of how it functions, even
+though they be non-free.  This is because we don't include such things
+in the GNU system even if we are allowed to-they are outside the scope
+of an operating system project.
+
+   Referring to a web site that describes or recommends a non-free
+program is in effect promoting that software, so please do not make
+links (or mention by name) web sites that contain such material.  This
+policy is relevant particulary for the web pages for a GNU package.
+
+   Following links from nearly any web site can lead to non-free
+software; this is an inescapable aspect of the nature of the web, and
+in itself is no objection to linking to a site.  As long as the site
+does not itself recommend a non-free program, there is no need be
+concerned about the sites it links to for other reasons.
+
+   Thus, for example, you should not make a link to AT&T's web site,
+because that recommends AT&T's non-free software packages; you should
+not make a link to a site that links to AT&T's site saying it is a
+place to get a non-free program; but if a site you want to link to
+refers to AT&T's web site in some other context (such as long-distance
+telephone service), that is not a problem.
 
 
 File: standards.info,  Node: Copying This Manual,  Next: Index,  Prev: References,  Up: Top
@@ -4318,8 +4482,8 @@ File: standards.info,  Node: GNU Free Documentation License,  Up: Copying This M
 GNU Free Documentation License
 ==============================
 
-                        Version 1.1, March 2000
-     Copyright (C) 2000 Free Software Foundation, Inc.
+                      Version 1.2, November 2002
+     Copyright (C) 2000,2001,2002 Free Software Foundation, Inc.
      59 Temple Place, Suite 330, Boston, MA  02111-1307, USA
      
      Everyone is permitted to copy and distribute verbatim copies
@@ -4328,12 +4492,12 @@ GNU Free Documentation License
   0. PREAMBLE
 
      The purpose of this License is to make a manual, textbook, or other
-     written document "free" in the sense of freedom: to assure everyone
-     the effective freedom to copy and redistribute it, with or without
-     modifying it, either commercially or noncommercially.  Secondarily,
-     this License preserves for the author and publisher a way to get
-     credit for their work, while not being considered responsible for
-     modifications made by others.
+     functional and useful document "free" in the sense of freedom: to
+     assure everyone the effective freedom to copy and redistribute it,
+     with or without modifying it, either commercially or
+     noncommercially.  Secondarily, this License preserves for the
+     author and publisher a way to get credit for their work, while not
+     being considered responsible for modifications made by others.
 
      This License is a kind of "copyleft", which means that derivative
      works of the document must themselves be free in the same sense.
@@ -4351,57 +4515,69 @@ GNU Free Documentation License
 
   1. APPLICABILITY AND DEFINITIONS
 
-     This License applies to any manual or other work that contains a
-     notice placed by the copyright holder saying it can be distributed
-     under the terms of this License.  The "Document", below, refers to
-     any such manual or work.  Any member of the public is a licensee,
-     and is addressed as "you".
+     This License applies to any manual or other work, in any medium,
+     that contains a notice placed by the copyright holder saying it
+     can be distributed under the terms of this License.  Such a notice
+     grants a world-wide, royalty-free license, unlimited in duration,
+     to use that work under the conditions stated herein.  The
+     "Document", below, refers to any such manual or work.  Any member
+     of the public is a licensee, and is addressed as "you".  You
+     accept the license if you copy, modify or distribute the work in a
+     way requiring permission under copyright law.
 
      A "Modified Version" of the Document means any work containing the
      Document or a portion of it, either copied verbatim, or with
      modifications and/or translated into another language.
 
-     A "Secondary Section" is a named appendix or a front-matter
-     section of the Document that deals exclusively with the
-     relationship of the publishers or authors of the Document to the
-     Document's overall subject (or to related matters) and contains
-     nothing that could fall directly within that overall subject.
-     (For example, if the Document is in part a textbook of
-     mathematics, a Secondary Section may not explain any mathematics.)
-     The relationship could be a matter of historical connection with
-     the subject or with related matters, or of legal, commercial,
-     philosophical, ethical or political position regarding them.
+     A "Secondary Section" is a named appendix or a front-matter section
+     of the Document that deals exclusively with the relationship of the
+     publishers or authors of the Document to the Document's overall
+     subject (or to related matters) and contains nothing that could
+     fall directly within that overall subject.  (Thus, if the Document
+     is in part a textbook of mathematics, a Secondary Section may not
+     explain any mathematics.)  The relationship could be a matter of
+     historical connection with the subject or with related matters, or
+     of legal, commercial, philosophical, ethical or political position
+     regarding them.
 
      The "Invariant Sections" are certain Secondary Sections whose
      titles are designated, as being those of Invariant Sections, in
      the notice that says that the Document is released under this
-     License.
+     License.  If a section does not fit the above definition of
+     Secondary then it is not allowed to be designated as Invariant.
+     The Document may contain zero Invariant Sections.  If the Document
+     does not identify any Invariant Sections then there are none.
 
      The "Cover Texts" are certain short passages of text that are
      listed, as Front-Cover Texts or Back-Cover Texts, in the notice
-     that says that the Document is released under this License.
+     that says that the Document is released under this License.  A
+     Front-Cover Text may be at most 5 words, and a Back-Cover Text may
+     be at most 25 words.
 
      A "Transparent" copy of the Document means a machine-readable copy,
      represented in a format whose specification is available to the
-     general public, whose contents can be viewed and edited directly
-     and straightforwardly with generic text editors or (for images
+     general public, that is suitable for revising the document
+     straightforwardly with generic text editors or (for images
      composed of pixels) generic paint programs or (for drawings) some
      widely available drawing editor, and that is suitable for input to
      text formatters or for automatic translation to a variety of
      formats suitable for input to text formatters.  A copy made in an
-     otherwise Transparent file format whose markup has been designed
-     to thwart or discourage subsequent modification by readers is not
-     Transparent.  A copy that is not "Transparent" is called "Opaque".
+     otherwise Transparent file format whose markup, or absence of
+     markup, has been arranged to thwart or discourage subsequent
+     modification by readers is not Transparent.  An image format is
+     not Transparent if used for any substantial amount of text.  A
+     copy that is not "Transparent" is called "Opaque".
 
      Examples of suitable formats for Transparent copies include plain
      ASCII without markup, Texinfo input format, LaTeX input format,
      SGML or XML using a publicly available DTD, and
-     standard-conforming simple HTML designed for human modification.
-     Opaque formats include PostScript, PDF, proprietary formats that
-     can be read and edited only by proprietary word processors, SGML
-     or XML for which the DTD and/or processing tools are not generally
-     available, and the machine-generated HTML produced by some word
-     processors for output purposes only.
+     standard-conforming simple HTML, PostScript or PDF designed for
+     human modification.  Examples of transparent image formats include
+     PNG, XCF and JPG.  Opaque formats include proprietary formats that
+     can be read and edited only by proprietary word processors, SGML or
+     XML for which the DTD and/or processing tools are not generally
+     available, and the machine-generated HTML, PostScript or PDF
+     produced by some word processors for output purposes only.
 
      The "Title Page" means, for a printed book, the title page itself,
      plus such following pages as are needed to hold, legibly, the
@@ -4409,6 +4585,22 @@ GNU Free Documentation License
      works in formats which do not have any title page as such, "Title
      Page" means the text near the most prominent appearance of the
      work's title, preceding the beginning of the body of the text.
+
+     A section "Entitled XYZ" means a named subunit of the Document
+     whose title either is precisely XYZ or contains XYZ in parentheses
+     following text that translates XYZ in another language.  (Here XYZ
+     stands for a specific section name mentioned below, such as
+     "Acknowledgements", "Dedications", "Endorsements", or "History".)
+     To "Preserve the Title" of such a section when you modify the
+     Document means that it remains a section "Entitled XYZ" according
+     to this definition.
+
+     The Document may include Warranty Disclaimers next to the notice
+     which states that this License applies to the Document.  These
+     Warranty Disclaimers are considered to be included by reference in
+     this License, but only as regards disclaiming warranties: any other
+     implication that these Warranty Disclaimers may have is void and
+     has no effect on the meaning of this License.
 
   2. VERBATIM COPYING
 
@@ -4428,10 +4620,11 @@ GNU Free Documentation License
 
   3. COPYING IN QUANTITY
 
-     If you publish printed copies of the Document numbering more than
-     100, and the Document's license notice requires Cover Texts, you
-     must enclose the copies in covers that carry, clearly and legibly,
-     all these Cover Texts: Front-Cover Texts on the front cover, and
+     If you publish printed copies (or copies in media that commonly
+     have printed covers) of the Document, numbering more than 100, and
+     the Document's license notice requires Cover Texts, you must
+     enclose the copies in covers that carry, clearly and legibly, all
+     these Cover Texts: Front-Cover Texts on the front cover, and
      Back-Cover Texts on the back cover.  Both covers must also clearly
      and legibly identify you as the publisher of these copies.  The
      front cover must present the full title with all words of the
@@ -4449,11 +4642,10 @@ GNU Free Documentation License
      If you publish or distribute Opaque copies of the Document
      numbering more than 100, you must either include a
      machine-readable Transparent copy along with each Opaque copy, or
-     state in or with each Opaque copy a publicly-accessible
-     computer-network location containing a complete Transparent copy
-     of the Document, free of added material, which the general
-     network-using public has access to download anonymously at no
-     charge using public-standard network protocols.  If you use the
+     state in or with each Opaque copy a computer-network location from
+     which the general network-using public has access to download
+     using public-standard network protocols a complete Transparent
+     copy of the Document, free of added material.  If you use the
      latter option, you must take reasonably prudent steps, when you
      begin distribution of Opaque copies in quantity, to ensure that
      this Transparent copy will remain thus accessible at the stated
@@ -4487,7 +4679,8 @@ GNU Free Documentation License
           entities responsible for authorship of the modifications in
           the Modified Version, together with at least five of the
           principal authors of the Document (all of its principal
-          authors, if it has less than five).
+          authors, if it has fewer than five), unless they release you
+          from this requirement.
 
        C. State on the Title page the name of the publisher of the
           Modified Version, as the publisher.
@@ -4508,10 +4701,10 @@ GNU Free Documentation License
 
        H. Include an unaltered copy of this License.
 
-       I. Preserve the section entitled "History", and its title, and
-          add to it an item stating at least the title, year, new
+       I. Preserve the section Entitled "History", Preserve its Title,
+          and add to it an item stating at least the title, year, new
           authors, and publisher of the Modified Version as given on
-          the Title Page.  If there is no section entitled "History" in
+          the Title Page.  If there is no section Entitled "History" in
           the Document, create one stating the title, year, authors,
           and publisher of the Document as given on its Title Page,
           then add an item describing the Modified Version as stated in
@@ -4526,21 +4719,24 @@ GNU Free Documentation License
           Document itself, or if the original publisher of the version
           it refers to gives permission.
 
-       K. In any section entitled "Acknowledgments" or "Dedications",
-          preserve the section's title, and preserve in the section all
-          the substance and tone of each of the contributor
-          acknowledgments and/or dedications given therein.
+       K. For any section Entitled "Acknowledgements" or "Dedications",
+          Preserve the Title of the section, and preserve in the
+          section all the substance and tone of each of the contributor
+          acknowledgements and/or dedications given therein.
 
        L. Preserve all the Invariant Sections of the Document,
           unaltered in their text and in their titles.  Section numbers
           or the equivalent are not considered part of the section
           titles.
 
-       M. Delete any section entitled "Endorsements".  Such a section
+       M. Delete any section Entitled "Endorsements".  Such a section
           may not be included in the Modified Version.
 
-       N. Do not retitle any existing section as "Endorsements" or to
-          conflict in title with any Invariant Section.
+       N. Do not retitle any existing section to be Entitled
+          "Endorsements" or to conflict in title with any Invariant
+          Section.
+
+       O. Preserve any Warranty Disclaimers.
 
      If the Modified Version includes new front-matter sections or
      appendices that qualify as Secondary Sections and contain no
@@ -4550,7 +4746,7 @@ GNU Free Documentation License
      Version's license notice.  These titles must be distinct from any
      other section titles.
 
-     You may add a section entitled "Endorsements", provided it contains
+     You may add a section Entitled "Endorsements", provided it contains
      nothing but endorsements of your Modified Version by various
      parties--for example, statements of peer review or that the text
      has been approved by an organization as the authoritative
@@ -4578,7 +4774,8 @@ GNU Free Documentation License
      modified versions, provided that you include in the combination
      all of the Invariant Sections of all of the original documents,
      unmodified, and list them all as Invariant Sections of your
-     combined work in its license notice.
+     combined work in its license notice, and that you preserve all
+     their Warranty Disclaimers.
 
      The combined work need only contain one copy of this License, and
      multiple identical Invariant Sections may be replaced with a single
@@ -4590,11 +4787,11 @@ GNU Free Documentation License
      the list of Invariant Sections in the license notice of the
      combined work.
 
-     In the combination, you must combine any sections entitled
+     In the combination, you must combine any sections Entitled
      "History" in the various original documents, forming one section
-     entitled "History"; likewise combine any sections entitled
-     "Acknowledgments", and any sections entitled "Dedications".  You
-     must delete all sections entitled "Endorsements."
+     Entitled "History"; likewise combine any sections Entitled
+     "Acknowledgements", and any sections Entitled "Dedications".  You
+     must delete all sections Entitled "Endorsements."
 
   6. COLLECTIONS OF DOCUMENTS
 
@@ -4615,20 +4812,20 @@ GNU Free Documentation License
 
      A compilation of the Document or its derivatives with other
      separate and independent documents or works, in or on a volume of
-     a storage or distribution medium, does not as a whole count as a
-     Modified Version of the Document, provided no compilation
-     copyright is claimed for the compilation.  Such a compilation is
-     called an "aggregate", and this License does not apply to the
-     other self-contained works thus compiled with the Document, on
-     account of their being thus compiled, if they are not themselves
-     derivative works of the Document.
+     a storage or distribution medium, is called an "aggregate" if the
+     copyright resulting from the compilation is not used to limit the
+     legal rights of the compilation's users beyond what the individual
+     works permit.  When the Document is included an aggregate, this
+     License does not apply to the other works in the aggregate which
+     are not themselves derivative works of the Document.
 
      If the Cover Text requirement of section 3 is applicable to these
-     copies of the Document, then if the Document is less than one
-     quarter of the entire aggregate, the Document's Cover Texts may be
-     placed on covers that surround only the Document within the
-     aggregate.  Otherwise they must appear on covers around the whole
-     aggregate.
+     copies of the Document, then if the Document is less than one half
+     of the entire aggregate, the Document's Cover Texts may be placed
+     on covers that bracket the Document within the aggregate, or the
+     electronic equivalent of covers if the Document is in electronic
+     form.  Otherwise they must appear on printed covers that bracket
+     the whole aggregate.
 
   8. TRANSLATION
 
@@ -4638,10 +4835,18 @@ GNU Free Documentation License
      permission from their copyright holders, but you may include
      translations of some or all Invariant Sections in addition to the
      original versions of these Invariant Sections.  You may include a
-     translation of this License provided that you also include the
-     original English version of this License.  In case of a
-     disagreement between the translation and the original English
-     version of this License, the original English version will prevail.
+     translation of this License, and all the license notices in the
+     Document, and any Warrany Disclaimers, provided that you also
+     include the original English version of this License and the
+     original versions of those notices and disclaimers.  In case of a
+     disagreement between the translation and the original version of
+     this License or a notice or disclaimer, the original version will
+     prevail.
+
+     If a section in the Document is Entitled "Acknowledgements",
+     "Dedications", or "History", the requirement (section 4) to
+     Preserve its Title (section 1) will typically require changing the
+     actual title.
 
   9. TERMINATION
 
@@ -4674,23 +4879,28 @@ GNU Free Documentation License
 ADDENDUM: How to use this License for your documents
 ----------------------------------------------------
 
-   To use this License in a document you have written, include a copy of
+To use this License in a document you have written, include a copy of
 the License in the document and put the following copyright and license
 notices just after the title page:
 
        Copyright (C)  YEAR  YOUR NAME.
        Permission is granted to copy, distribute and/or modify this document
-       under the terms of the GNU Free Documentation License, Version 1.1
+       under the terms of the GNU Free Documentation License, Version 1.2
        or any later version published by the Free Software Foundation;
-       with the Invariant Sections being LIST THEIR TITLES, with the
-       Front-Cover Texts being LIST, and with the Back-Cover Texts being LIST.
+       with no Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
        A copy of the license is included in the section entitled ``GNU
        Free Documentation License''.
 
-   If you have no Invariant Sections, write "with no Invariant Sections"
-instead of saying which ones are invariant.  If you have no Front-Cover
-Texts, write "no Front-Cover Texts" instead of "Front-Cover Texts being
-LIST"; likewise for Back-Cover Texts.
+   If you have Invariant Sections, Front-Cover Texts and Back-Cover
+Texts, replace the "with...Texts." line with this:
+
+         with the Invariant Sections being LIST THEIR TITLES, with
+         the Front-Cover Texts being LIST, and with the Back-Cover Texts
+         being LIST.
+
+   If you have Invariant Sections without Cover Texts, or some other
+combination of the three, merge those two alternatives to suit the
+situation.
 
    If your document contains nontrivial examples of program code, we
 recommend releasing these examples in parallel under your choice of
@@ -4722,6 +4932,7 @@ Index
 * bug reports:                           Command-Line Interfaces.
 * canonical name of a program:           Command-Line Interfaces.
 * casting pointers to integers:          CPU Portability.
+* CGI programs, standard options for:    Command-Line Interfaces.
 * change logs:                           Change Logs.
 * change logs, conditional changes:      Conditional Changes.
 * change logs, style:                    Style of Change Logs.
@@ -4789,8 +5000,10 @@ Index
 * open brace:                            Formatting.
 * optional features, configure-time:     Configuration.
 * options for compatibility:             Compatibility.
+* options, standard command-line:        Command-Line Interfaces.
 * output device and program's behavior:  User Interfaces.
 * packaging:                             Releases.
+* PATH_INFO, specifying standard options as: Command-Line Interfaces.
 * portability, and data types:           CPU Portability.
 * portability, and library functions:    System Functions.
 * portability, between system types:     System Portability.
@@ -4826,68 +5039,68 @@ Index
 
 
 Tag Table:
-Node: Top687
-Node: Preface1389
-Node: Legal Issues3607
-Node: Reading Non-Free Code4070
-Node: Contributions5793
-Node: Trademarks7942
-Node: Design Advice9000
-Node: Source Language9583
-Node: Compatibility11590
-Node: Using Extensions13213
-Node: Standard C14784
-Node: Conditional Compilation17182
-Node: Program Behavior18476
-Node: Semantics19394
-Node: Libraries24082
-Node: Errors25322
-Node: User Interfaces27098
-Node: Graphical Interfaces28698
-Node: Command-Line Interfaces29728
-Node: Option Table35794
-Node: Memory Usage50798
-Node: File Usage51818
-Node: Writing C52561
-Node: Formatting53410
-Node: Comments57468
-Node: Syntactic Conventions60766
-Node: Names64173
-Node: System Portability66377
-Node: CPU Portability68757
-Node: System Functions72008
-Node: Internationalization77210
-Node: Mmap80358
-Node: Documentation81063
-Node: GNU Manuals82167
-Node: Doc Strings and Manuals87219
-Node: Manual Structure Details88767
-Node: License for Manuals90180
-Node: Manual Credits91149
-Node: Printed Manuals91537
-Node: NEWS File92218
-Node: Change Logs92890
-Node: Change Log Concepts93639
-Node: Style of Change Logs95494
-Node: Simple Changes97540
-Node: Conditional Changes98775
-Node: Indicating the Part Changed100188
-Node: Man Pages100706
-Node: Reading other Manuals102325
-Node: Managing Releases103109
-Node: Configuration103871
-Node: Makefile Conventions110771
-Node: Makefile Basics111572
-Node: Utilities in Makefiles114737
-Node: Command Variables116873
-Node: Directory Variables120441
-Node: Standard Targets131326
-Ref: Standard Targets-Footnote-1142577
-Node: Install Command Categories142677
-Node: Releases147250
-Node: References151333
-Node: Copying This Manual152741
-Node: GNU Free Documentation License152955
-Node: Index172824
+Node: Top761
+Node: Preface1980
+Node: Legal Issues4428
+Node: Reading Non-Free Code4888
+Node: Contributions6608
+Node: Trademarks8754
+Node: Design Advice10381
+Node: Source Language10961
+Node: Compatibility12965
+Node: Using Extensions14585
+Node: Standard C16153
+Node: Conditional Compilation18548
+Node: Program Behavior19938
+Node: Semantics20853
+Node: Libraries25538
+Node: Errors26775
+Node: User Interfaces29260
+Node: Graphical Interfaces30857
+Node: Command-Line Interfaces31884
+Node: Option Table38198
+Node: Memory Usage53254
+Node: File Usage54271
+Node: Writing C55011
+Node: Formatting55857
+Node: Comments59912
+Node: Syntactic Conventions63206
+Node: Names66610
+Node: System Portability68811
+Node: CPU Portability71683
+Node: System Functions74931
+Node: Internationalization80130
+Node: Mmap83275
+Node: Documentation83977
+Node: GNU Manuals85078
+Node: Doc Strings and Manuals90341
+Node: Manual Structure Details91886
+Node: License for Manuals93296
+Node: Manual Credits94262
+Node: Printed Manuals94647
+Node: NEWS File95325
+Node: Change Logs95995
+Node: Change Log Concepts96741
+Node: Style of Change Logs98818
+Node: Simple Changes101336
+Node: Conditional Changes102766
+Node: Indicating the Part Changed104176
+Node: Man Pages104691
+Node: Reading other Manuals106307
+Node: Managing Releases107088
+Node: Configuration107847
+Node: Makefile Conventions114808
+Node: Makefile Basics115606
+Node: Utilities in Makefiles118768
+Node: Command Variables120901
+Node: Directory Variables124466
+Node: Standard Targets136428
+Ref: Standard Targets-Footnote-1147676
+Node: Install Command Categories147776
+Node: Releases152346
+Node: References156265
+Node: Copying This Manual160881
+Node: GNU Free Documentation License161095
+Node: Index183486
 
 End Tag Table

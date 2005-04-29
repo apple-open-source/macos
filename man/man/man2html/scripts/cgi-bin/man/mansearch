@@ -1,0 +1,192 @@
+#!/bin/sh
+#
+#  Interface to a glimpse search of the man pages.
+#  Michael Hamilton <michael@actrix.gen.nz>
+#  Small changes - aeb, 980109
+#
+
+# Do we need lynxcgi URLs? For the moment our criterion is
+# 1) HTTP_USER_AGENT=Lynx*  and 2) HTTP_HOST is unset.
+AGENT="${HTTP_USER_AGENT-unknown}"
+
+case "$AGENT" in
+    Lynx*|lynx*)
+	HH="${HTTP_HOST-nohh}"
+	SED="s/%lynx //"
+	;;
+    *)
+	HH=nolynx
+	SED="/%lynx/d"
+	;;
+esac
+
+SERVER="${SERVER_NAME-localhost}"
+case "$HH" in
+    nohh)
+	CG="lynxcgi:/home/httpd/cgi-bin/man"
+	;;
+    *)
+	CG="http://$SERVER/cgi-bin/man"
+	;;
+esac
+QUOTE="'"
+export CG QUOTE SED
+
+exec awk '
+function removeopts(string) {
+  gsub(/^[ \t]/, "", string);	# Remove leading spaces
+  gsub(/[ \t]$/, "", string);	# Remove trailing spaces
+  gsub(/[ \t\\];/, ";", string);	# Remove spaces before ;
+  gsub(/[ \t];/, ",", string);  # Remove spaces before ,
+  while (match(string, /^-[FLBwk1-8]/)) {
+    if (match(string, /^-[FL]( |.)[^ \t]+[ \t]+/)) { # Option with arg
+      options = options " " substr(string, RSTART, RLENGTH);
+      string = substr(string, RSTART + RLENGTH);
+    } 
+    else if (match(string, /^-[Bwk1-8][ \t]+/)) { # Option without arg
+      options = options " " substr(string, RSTART, RLENGTH);
+      string = substr(string, RSTART + RLENGTH);
+    }
+    else if (match(string, /^-[^ \t]/)) { # Remove it
+      string = substr(string, RSTART + RLENGTH);   
+    }
+  }
+  return string;
+}
+
+BEGIN {
+
+  searchdocument = "/home/httpd/cgi-aux/man/mansearch.aux";
+  quote = ENVIRON["QUOTE"];
+  cgipath = ENVIRON["CG"];
+  sedcmd = ENVIRON["SED"];
+  truncate_at = 11;		# Single page display match limit.
+
+  glimpse_cmd = "glimpse -z -H /var/man2html -y -W -i "
+
+  for (i = 1; i < ARGC; i++) {
+    string = string " " ARGV[i];
+  }
+				# Have to be careful to single quote this
+				# string later.
+  gsub(/[^a-zA-Z0-9-_+ \t\/@%:;,$*|]/, " ", string);
+
+  string = removeopts(string);
+
+  gsub(/[^a-zA-Z0-9-_+ \t\/@%:,]/, " ", options);
+
+  if (!string) {
+    if (system("test -r " searchdocument ) != 0) {
+	print "Content-type: text/html\n\n";  
+	print "<head>";
+	print "<title>mansearch - file not found</title>";
+	print "</head>\n<body>";
+	print "Sorry - cannot read " searchdocument ".";
+	print "</body>";
+	exit;
+    }
+    system("sed " quote "s#%cg#" cgipath "#g;" sedcmd quote " " searchdocument );
+    exit;
+  }
+
+  print "Content-type: text/html";
+  print "";
+  print "<HTML>";
+  print "<HEAD>";
+  print "<TITLE>Manual Pages - Search Results: " string "</TITLE>";
+  print "</HEAD>";
+  print "<BODY>";
+  
+  print "<H1>Manual Pages - Search Results</H1>";
+  print "<H2>Target text: " options " " string "</H2>";
+
+  print "<A HREF=\"" cgipath "/mansearch\">";
+  print "Perform another search";
+  print "</A><BR>";
+  print "<A HREF=\"" cgipath "/man2html\">";
+  print "Return to Main Contents";
+  print "</A>";
+
+  print "<HR>";  
+
+  print "<DL>";
+				# Unless you like being hacked, the single
+				# forward quotes are most important.
+  cmd = glimpse_cmd " " options " " quote string quote " 2>/dev/null" ;
+
+  while ((cmd | getline matchline) > 0) {
+    if (split(matchline, part, ": ") == 1) {
+      continue;
+    }
+    else {
+      fullname = part[1];
+    }
+
+    if (fullname == "glimpse") {
+      print "<DT><B>"fullname"</B>:";
+    }
+    else if (fullname != last_fullname) {
+      mcount++;
+      tcount = 0;
+      last_fullname = fullname ;
+      last_text = "";
+
+      if (match(fullname, ".*/")) {
+	dirname = substr(fullname, 1, RLENGTH);
+	filename = substr(fullname, RLENGTH + 1);
+	if (dirname != last_dirname) {
+	  last_dirname = dirname;
+          print "</DL>";
+	  print "<H3>Location: " dirname "</H3>";
+	  print "<DL>";
+	}
+      }
+      else {
+	filename = fullname;
+      }
+
+      if (match(filename, /\.[^.]+$/)) {
+	ref = substr(filename, 1, RSTART - 1) "+" substr(filename, RSTART + 1);
+      }
+      else {
+	ref = filename;
+      }
+      print "<DT> <a href=\"" cgipath "/man2html?" fullname "\">";
+      textname = filename;
+      sub(/\.(gz)|Z|z$/, "", textname);
+      sub(/\./, "(", textname);
+      textname = textname ")";
+      print textname;
+      print "</A>";	
+    }
+
+    text = substr(matchline, length(fullname) + 2);
+    tcount++;
+    if (tcount < truncate_at) {
+      sub(/^ *.[^ ]+ /, "", text);
+      sub(/ +$/, "", text);
+      gsub(/\\f./,    "", text);
+      gsub(/\\&/,     "", text);
+      gsub(/\\/,      "", text);
+      print "<DD>" text;
+    }
+    else if (tcount == truncate_at) {
+      print "<DD> <I>...additional matches not shown.</I>";
+    }
+  }
+
+  print "</DL>";
+  if (mcount == 0) {
+    print "No matches found.";
+  }
+  else if (mcount == 1) {
+    print "<HR>\n<P>1 match found."
+  }
+  else {
+    print "<HR>\n<P>" mcount " matches found."
+  }
+  print "</BODY>";
+  print "</HTML>";
+  exit;    
+}' "$@"
+

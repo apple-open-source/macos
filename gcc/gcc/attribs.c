@@ -1,6 +1,6 @@
 /* Functions dealing with attribute handling, used by most front ends.
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,19 +21,20 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "flags.h"
 #include "toplev.h"
 #include "output.h"
 #include "rtl.h"
 #include "ggc.h"
-#include "expr.h"
 #include "tm_p.h"
 #include "cpplib.h"
 #include "target.h"
 #include "langhooks.h"
 
-static void init_attributes		PARAMS ((void));
+static void init_attributes (void);
 
 /* Table of the tables of attributes (common, language, format, machine)
    searched.  */
@@ -51,7 +52,7 @@ static const struct attribute_spec empty_attribute_table[] =
    if --enable-checking.  */
 
 static void
-init_attributes ()
+init_attributes (void)
 {
   size_t i;
 
@@ -76,25 +77,25 @@ init_attributes ()
 	  /* The name must not begin and end with __.  */
 	  const char *name = attribute_tables[i][j].name;
 	  int len = strlen (name);
-	  if (name[0] == '_' && name[1] == '_'
-	      && name[len - 1] == '_' && name[len - 2] == '_')
-	    abort ();
+	  
+	  gcc_assert (!(name[0] == '_' && name[1] == '_'
+			&& name[len - 1] == '_' && name[len - 2] == '_'));
+	  
 	  /* The minimum and maximum lengths must be consistent.  */
-	  if (attribute_tables[i][j].min_length < 0)
-	    abort ();
-	  if (attribute_tables[i][j].max_length != -1
-	      && (attribute_tables[i][j].max_length
-		  < attribute_tables[i][j].min_length))
-	    abort ();
+	  gcc_assert (attribute_tables[i][j].min_length >= 0);
+	  
+	  gcc_assert (attribute_tables[i][j].max_length == -1
+		      || (attribute_tables[i][j].max_length
+			  >= attribute_tables[i][j].min_length));
+	  
 	  /* An attribute cannot require both a DECL and a TYPE.  */
-	  if (attribute_tables[i][j].decl_required
-	      && attribute_tables[i][j].type_required)
-	    abort ();
+	  gcc_assert (!attribute_tables[i][j].decl_required
+		      || !attribute_tables[i][j].type_required);
+	  
 	  /* If an attribute requires a function type, in particular
 	     it requires a type.  */
-	  if (attribute_tables[i][j].function_type_required
-	      && !attribute_tables[i][j].type_required)
-	    abort ();
+	  gcc_assert (!attribute_tables[i][j].function_type_required
+		      || attribute_tables[i][j].type_required);
 	}
     }
 
@@ -104,9 +105,8 @@ init_attributes ()
       int j, k;
       for (j = 0; attribute_tables[i][j].name != NULL; j++)
 	for (k = j + 1; attribute_tables[i][k].name != NULL; k++)
-	  if (!strcmp (attribute_tables[i][j].name,
-		       attribute_tables[i][k].name))
-	    abort ();
+	  gcc_assert (strcmp (attribute_tables[i][j].name,
+			      attribute_tables[i][k].name));
     }
   /* Check that no name occurs in more than one table.  */
   for (i = 0; i < ARRAY_SIZE (attribute_tables); i++)
@@ -116,9 +116,8 @@ init_attributes ()
       for (j = i + 1; j < ARRAY_SIZE (attribute_tables); j++)
 	for (k = 0; attribute_tables[i][k].name != NULL; k++)
 	  for (l = 0; attribute_tables[j][l].name != NULL; l++)
-	    if (!strcmp (attribute_tables[i][k].name,
-			 attribute_tables[j][l].name))
-	      abort ();
+	    gcc_assert (strcmp (attribute_tables[i][k].name,
+				attribute_tables[j][l].name));
     }
 #endif
 
@@ -132,16 +131,10 @@ init_attributes ()
    information, in the form of a bitwise OR of flags in enum attribute_flags
    from tree.h.  Depending on these flags, some attributes may be
    returned to be applied at a later stage (for example, to apply
-   a decl attribute to the declaration rather than to its type).  If
-   ATTR_FLAG_BUILT_IN is not set and *NODE is a DECL, then also consider
-   whether there might be some default attributes to apply to this DECL;
-   if so, decl_attributes will be called recursively with those attributes
-   and ATTR_FLAG_BUILT_IN set.  */
+   a decl attribute to the declaration rather than to its type).  */
 
 tree
-decl_attributes (node, attributes, flags)
-     tree *node, attributes;
-     int flags;
+decl_attributes (tree *node, tree attributes, int flags)
 {
   tree a;
   tree returned_attrs = NULL_TREE;
@@ -149,11 +142,7 @@ decl_attributes (node, attributes, flags)
   if (!attributes_initialized)
     init_attributes ();
 
-  (*targetm.insert_attributes) (*node, &attributes);
-
-  if (DECL_P (*node) && TREE_CODE (*node) == FUNCTION_DECL
-      && !(flags & (int) ATTR_FLAG_BUILT_IN))
-    (*lang_hooks.insert_default_attributes) (*node);
+  targetm.insert_attributes (*node, &attributes);
 
   for (a = attributes; a; a = TREE_CHAIN (a))
     {
@@ -162,6 +151,7 @@ decl_attributes (node, attributes, flags)
       tree *anode = node;
       const struct attribute_spec *spec = NULL;
       bool no_add_attrs = 0;
+      tree fn_ptr_tmp = NULL_TREE;
       size_t i;
 
       for (i = 0; i < ARRAY_SIZE (attribute_tables); i++)
@@ -182,7 +172,7 @@ decl_attributes (node, attributes, flags)
 
       if (spec == NULL)
 	{
-	  warning ("`%s' attribute directive ignored",
+	  warning ("%qs attribute directive ignored",
 		   IDENTIFIER_POINTER (name));
 	  continue;
 	}
@@ -190,7 +180,7 @@ decl_attributes (node, attributes, flags)
 	       || (spec->max_length >= 0
 		   && list_length (args) > spec->max_length))
 	{
-	  error ("wrong number of arguments specified for `%s' attribute",
+	  error ("wrong number of arguments specified for %qs attribute",
 		 IDENTIFIER_POINTER (name));
 	  continue;
 	}
@@ -207,7 +197,7 @@ decl_attributes (node, attributes, flags)
 	    }
 	  else
 	    {
-	      warning ("`%s' attribute does not apply to types",
+	      warning ("%qs attribute does not apply to types",
 		       IDENTIFIER_POINTER (name));
 	      continue;
 	    }
@@ -230,9 +220,18 @@ decl_attributes (node, attributes, flags)
 	      && (TREE_CODE (TREE_TYPE (*anode)) == FUNCTION_TYPE
 		  || TREE_CODE (TREE_TYPE (*anode)) == METHOD_TYPE))
 	    {
-	      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-		*anode = build_type_copy (*anode);
-	      anode = &TREE_TYPE (*anode);
+	      /* OK, this is a bit convoluted.  We can't just make a copy
+		 of the pointer type and modify its TREE_TYPE, because if
+		 we change the attributes of the target type the pointer
+		 type needs to have a different TYPE_MAIN_VARIANT.  So we
+		 pull out the target type now, frob it as appropriate, and
+		 rebuild the pointer type later.
+
+	         This would all be simpler if attributes were part of the
+	         declarator, grumble grumble.  */
+	      fn_ptr_tmp = TREE_TYPE (*anode);
+	      anode = &fn_ptr_tmp;
+	      flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
 	    }
 	  else if (flags & (int) ATTR_FLAG_FUNCTION_NEXT)
 	    {
@@ -244,7 +243,7 @@ decl_attributes (node, attributes, flags)
 	  if (TREE_CODE (*anode) != FUNCTION_TYPE
 	      && TREE_CODE (*anode) != METHOD_TYPE)
 	    {
-	      warning ("`%s' attribute only applies to function types",
+	      warning ("%qs attribute only applies to function types",
 		       IDENTIFIER_POINTER (name));
 	      continue;
 	    }
@@ -292,120 +291,47 @@ decl_attributes (node, attributes, flags)
 	      if (DECL_P (*anode))
 		DECL_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
 	      else if (flags & (int) ATTR_FLAG_TYPE_IN_PLACE)
-		TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+		{
+		  TYPE_ATTRIBUTES (*anode) = tree_cons (name, args, old_attrs);
+		  /* If this is the main variant, also push the attributes
+		     out to the other variants.  */
+		  if (*anode == TYPE_MAIN_VARIANT (*anode))
+		    {
+		      tree variant;
+		      for (variant = *anode; variant;
+			   variant = TYPE_NEXT_VARIANT (variant))
+			{
+			  if (TYPE_ATTRIBUTES (variant) == old_attrs)
+			    TYPE_ATTRIBUTES (variant)
+			      = TYPE_ATTRIBUTES (*anode);
+			  else if (!lookup_attribute
+				   (spec->name, TYPE_ATTRIBUTES (variant)))
+			    TYPE_ATTRIBUTES (variant) = tree_cons
+			      (name, args, TYPE_ATTRIBUTES (variant));
+			}
+		    }
+		}
 	      else
 		*anode = build_type_attribute_variant (*anode,
 						       tree_cons (name, args,
 								  old_attrs));
 	    }
 	}
+
+      if (fn_ptr_tmp)
+	{
+	  /* Rebuild the function pointer type and put it in the
+	     appropriate place.  */
+	  fn_ptr_tmp = build_pointer_type (fn_ptr_tmp);
+	  if (DECL_P (*node))
+	    TREE_TYPE (*node) = fn_ptr_tmp;
+	  else
+	    {
+	      gcc_assert (TREE_CODE (*node) == POINTER_TYPE);
+	      *node = fn_ptr_tmp;
+	    }
+	}
     }
 
   return returned_attrs;
 }
-
-/* Split SPECS_ATTRS, a list of declspecs and prefix attributes, into two
-   lists.  SPECS_ATTRS may also be just a typespec (eg: RECORD_TYPE).
-
-   The head of the declspec list is stored in DECLSPECS.
-   The head of the attribute list is stored in PREFIX_ATTRIBUTES.
-
-   Note that attributes in SPECS_ATTRS are stored in the TREE_PURPOSE of
-   the list elements.  We drop the containing TREE_LIST nodes and link the
-   resulting attributes together the way decl_attributes expects them.  */
-
-void
-split_specs_attrs (specs_attrs, declspecs, prefix_attributes)
-     tree specs_attrs;
-     tree *declspecs, *prefix_attributes;
-{
-  tree t, s, a, next, specs, attrs;
-
-  /* This can happen after an __extension__ in pedantic mode.  */
-  if (specs_attrs != NULL_TREE
-      && TREE_CODE (specs_attrs) == INTEGER_CST)
-    {
-      *declspecs = NULL_TREE;
-      *prefix_attributes = NULL_TREE;
-      return;
-    }
-
-  /* This can happen in c++ (eg: decl: typespec initdecls ';').  */
-  if (specs_attrs != NULL_TREE
-      && TREE_CODE (specs_attrs) != TREE_LIST)
-    {
-      *declspecs = specs_attrs;
-      *prefix_attributes = NULL_TREE;
-      return;
-    }
-
-  /* Remember to keep the lists in the same order, element-wise.  */
-
-  specs = s = NULL_TREE;
-  attrs = a = NULL_TREE;
-  for (t = specs_attrs; t; t = next)
-    {
-      next = TREE_CHAIN (t);
-      /* Declspecs have a non-NULL TREE_VALUE.  */
-      if (TREE_VALUE (t) != NULL_TREE)
-	{
-	  if (specs == NULL_TREE)
-	    specs = s = t;
-	  else
-	    {
-	      TREE_CHAIN (s) = t;
-	      s = t;
-	    }
-	}
-      /* The TREE_PURPOSE may also be empty in the case of
-	 __attribute__(()).  */
-      else if (TREE_PURPOSE (t) != NULL_TREE)
-	{
-	  if (attrs == NULL_TREE)
-	    attrs = a = TREE_PURPOSE (t);
-	  else
-	    {
-	      TREE_CHAIN (a) = TREE_PURPOSE (t);
-	      a = TREE_PURPOSE (t);
-	    }
-	  /* More attrs can be linked here, move A to the end.  */
-	  while (TREE_CHAIN (a) != NULL_TREE)
-	    a = TREE_CHAIN (a);
-	}
-    }
-
-  /* Terminate the lists.  */
-  if (s != NULL_TREE)
-    TREE_CHAIN (s) = NULL_TREE;
-  if (a != NULL_TREE)
-    TREE_CHAIN (a) = NULL_TREE;
-
-  /* All done.  */
-  *declspecs = specs;
-  *prefix_attributes = attrs;
-}
-
-/* Strip attributes from SPECS_ATTRS, a list of declspecs and attributes.
-   This function is used by the parser when a rule will accept attributes
-   in a particular position, but we don't want to support that just yet.
-
-   A warning is issued for every ignored attribute.  */
-
-tree
-strip_attrs (specs_attrs)
-     tree specs_attrs;
-{
-  tree specs, attrs;
-
-  split_specs_attrs (specs_attrs, &specs, &attrs);
-
-  while (attrs)
-    {
-      warning ("`%s' attribute ignored",
-	       IDENTIFIER_POINTER (TREE_PURPOSE (attrs)));
-      attrs = TREE_CHAIN (attrs);
-    }
-
-  return specs;
-}
-

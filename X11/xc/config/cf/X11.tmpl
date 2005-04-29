@@ -5,7 +5,7 @@ XCOMM
 XCOMM
 XCOMM
 XCOMM
-XCOMM $XFree86: xc/config/cf/X11.tmpl,v 1.196 2003/02/25 21:57:52 dawes Exp $
+XCOMM $XFree86: xc/config/cf/X11.tmpl,v 1.249 2004/02/16 18:14:33 dawes Exp $
 
 /***************************************************************************
  *                                                                         *
@@ -72,9 +72,11 @@ VENDORMANVERSION = XVendorManVersionString
 /*
  * X-specific things
  */
-#if CrossCompiling
-# if defined UseInstalled && !defined UseInstalledOnCrossCompile
+#if CrossCompiling && !defined(UseInstalledOnCrossCompile)
+# if defined(UseInstalled)
 #  define UseInstalledOnCrossCompile YES
+# else
+#  define UseInstalledOnCrossCompile NO
 # endif
 #endif
 
@@ -156,9 +158,6 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef BuildCyrillicFonts
 #define BuildCyrillicFonts	YES
 #endif
-#ifndef UseKoi8RForCyrillic
-#define UseKoi8RForCyrillic	YES
-#endif
 /* Some bdf font generation details.  The scripts for this require perl. */
 #ifndef TruncateUCSFonts
 #define TruncateUCSFonts	HasPerl5
@@ -167,7 +166,7 @@ VENDORMANVERSION = XVendorManVersionString
 #define MaxUCSChar		0x3200
 #endif
 #ifndef DerivedUCSFonts
-#define DerivedUCSFonts		HasPerl5
+#define DerivedUCSFonts		YES
 #endif
 /* These primarily control generation of derived 8-bit fonts. */
 #ifndef BuildUCSFonts
@@ -312,15 +311,6 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef BuildBigReqsExt
 #define BuildBigReqsExt		YES
 #endif
-#ifndef BuildPhigs
-#define BuildPhigs		NO
-#endif
-#ifndef BuildPexExt
-#define BuildPexExt		NO
-#endif
-#ifndef BuildPexLib
-#define BuildPexLib		(BuildPexExt && !BuildServersOnly)
-#endif
 #ifndef BuildXInputExt
 #define BuildXInputExt		NO
 #endif
@@ -380,20 +370,6 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef BuildLBX
 #define BuildLBX		YES
 #endif
-#ifndef BuildXIE
-	/*
-	 * Turn off building XIE if you are building for low memory
-	 * footprint
-	 */
-#if BuildLowMem
-#define BuildXIE		NO
-#else
-#define BuildXIE		YES
-#endif
-#endif
-#ifndef BuildXIElib
-#define BuildXIElib		(BuildXIE && !BuildServersOnly)
-#endif
 #ifndef BuildXKB
 #define BuildXKB		YES
 #endif
@@ -445,13 +421,6 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef BuildCup
 #define BuildCup		YES
 #endif
-	/*
-	 * Turn off building PEX if you are building for low memory
-	 * footprint
-	 */
-#if BuildLowMem
-#define BuildPexExt		NO
-#endif
 #ifndef HasPlugin
 #define HasPlugin		NO
 #endif
@@ -499,7 +468,7 @@ VENDORMANVERSION = XVendorManVersionString
 #define BuildXF86DGALibrary	(BuildXF86DGA && !BuildServersOnly)
 #endif
 #ifndef BuildXResExt
-#define BuildXResExt            NO 
+#define BuildXResExt            NO
 #endif
 #ifndef BuildXResLibrary
 #define BuildXResLibrary        (BuildXResExt && !BuildServersOnly)
@@ -532,7 +501,7 @@ VENDORMANVERSION = XVendorManVersionString
 #define BuildGLXLibrary		(BuildGlxExt && !BuildServersOnly)
 #endif
 #ifndef BuildOSMesaLib
-#define BuildOSMesaLib		(BuildGlxExt && defined(XFree86Version))
+#define BuildOSMesaLib		BuildGlxExt
 #endif
 #ifndef BuildGLULibrary
 #define BuildGLULibrary		(BuildGLXLibrary && BuildLibraries && \
@@ -581,7 +550,8 @@ VENDORMANVERSION = XVendorManVersionString
 #define BuildFontconfigLibrary	(UseFontconfig && !HasFontconfig)
 #endif
 #ifndef UseFreetype2
-#define UseFreetype2		(BuildXftLibrary || BuildXft1Library || UseFontconfig)
+#define UseFreetype2		(BuildXftLibrary || BuildXft1Library || \
+				 UseFontconfig || BuildFreeType)
 #endif
 #ifndef HasExpat
 #define HasExpat		NO
@@ -595,9 +565,16 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef BuildFreetype2Library
 #define BuildFreetype2Library	(UseFreetype2 && !HasFreetype2)
 #endif
+#ifndef Freetype2BuildDefines
+#define Freetype2BuildDefines	/**/
+#endif
+/* For FreeType 1.x */
+#ifndef Freetype1BuildDefines
+#define Freetype1BuildDefines	Freetype2BuildDefines
+#endif
 
 #ifndef BuildRandR
-#define BuildRandR		BuildRender
+#define BuildRandR		YES
 #endif
 #ifndef BuildRandRLibrary
 #define BuildRandRLibrary	!BuildServersOnly
@@ -613,6 +590,14 @@ VENDORMANVERSION = XVendorManVersionString
 
 #ifndef DefaultCursorTheme
 #define DefaultCursorTheme	core
+#endif
+
+#ifndef BuildAppleWMLibrary
+#define BuildAppleWMLibrary	NO
+#endif
+
+#ifndef BuildWindowsWMLibrary
+#define BuildWindowsWMLibrary	NO
 #endif
 
 #ifndef BuildMiscDocs
@@ -708,17 +693,9 @@ VENDORMANVERSION = XVendorManVersionString
 #define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/75dpi/,$(FONTDIR)/100dpi/
 #else
 #if PrimaryScreenResolution < 88		/* (75 + 100) / 2 */
-#if BuildCIDFonts
-#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/CID/,$(FONTDIR)/75dpi/,$(FONTDIR)/100dpi/
+#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/TTF/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/CID/,$(FONTDIR)/75dpi/,$(FONTDIR)/100dpi/
 #else
-#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/75dpi/,$(FONTDIR)/100dpi/
-#endif
-#else
-#if BuildCIDFonts
-#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/CID/,$(FONTDIR)/100dpi/,$(FONTDIR)/75dpi/
-#else
-#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/100dpi/,$(FONTDIR)/75dpi/
-#endif
+#define DefaultFontPath $(FONTDIR)/misc/,$(FONTDIR)/TTF/,$(FONTDIR)/Speedo/,$(FONTDIR)/Type1/,$(FONTDIR)/CID/,$(FONTDIR)/100dpi/,$(FONTDIR)/75dpi/
 #endif
 #endif
 #endif
@@ -761,15 +738,43 @@ VENDORMANVERSION = XVendorManVersionString
 #ifndef FontCompilerFlags
 #define FontCompilerFlags -t
 #endif
+/*
+ * NOTE:  IPv6Flags could be tacked on to either ConnectionFlags or
+ *        ExtraConnectionDefs.  Here, we choose the later in order to
+ *        maximise exposure of the IPv6 code (a number of <OS>.def files
+ *        contain ConnectionFlags overrides).  Mind you, this might not
+ *        the right thing to do when HasStreams is asserted.
+ */
+#ifndef BuildIPv6		/* If the OS also #define's AF_INET6 */
+#define BuildIPv6		YES
+#endif
+#ifndef IPv6Flags
+#if BuildIPv6
+#define IPv6Flags -DIPv6
+#else
+#define IPv6Flags /**/
+#endif
+#endif
+/*
+ * Assume by default that IPv6 sockets also listen for IPv4 connections.
+ * XDMCP support currently only works for both IPv4 and IPv6 when this is
+ * true.
+ */
+#ifndef IPv6SocketsAlsoIPv4
+#define IPv6SocketsAlsoIPv4	YES
+#endif
+#ifndef DECnetFlags
+#if HasDECnet
+#define DECnetFlags -DDNETCONN
+#else
+#define DECnetFlags
+#endif
+#endif
 #ifndef ConnectionFlags
 #if HasStreams
 #define ConnectionFlags -DSTREAMSCONN
 #else
-#if HasDECnet
-#define ConnectionFlags -DTCPCONN -DUNIXCONN -DDNETCONN
-#else
-#define ConnectionFlags -DTCPCONN -DUNIXCONN
-#endif
+#define ConnectionFlags -DTCPCONN -DUNIXCONN DECnetFlags
 #endif
 #endif
 #if HasStickyDirBit
@@ -779,7 +784,7 @@ STICKY_DEFINES = -DHAS_STICKY_DIR_BIT
 FCHOWN_DEFINES = -DHAS_FCHOWN
 #endif
 #ifndef ExtraConnectionDefs
-#define ExtraConnectionDefs $(STICKY_DEFINES) $(FCHOWN_DEFINES)
+#define ExtraConnectionDefs $(STICKY_DEFINES) $(FCHOWN_DEFINES) IPv6Flags
 #endif
 #ifndef ProjectThreadsDefines
 #define ProjectThreadsDefines -DXTHREADS
@@ -852,13 +857,6 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #define ShapeDefines /**/
 #endif
 #endif
-#ifndef PexDefines
-#if BuildPexExt
-#define PexDefines -DPEXEXT
-#else
-#define PexDefines /**/
-#endif
-#endif
 #ifndef GlxDefines
 #if BuildGlxExt
 #ifdef GlxExtraDefines
@@ -895,13 +893,6 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #define XineramaDefines -DPANORAMIX
 #else
 #define XineramaDefines /**/
-#endif
-#endif
-#ifndef XieDefines
-#if BuildXIE
-#define XieDefines -DXIE
-#else
-#define XieDefines /**/
 #endif
 #endif
 #ifndef PrintOnlyServer
@@ -1122,7 +1113,7 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #define BaseExtensionDefines \
 	MultibufferDefines MITMiscDefines XTestDefines XTrapDefines \
 	XSyncDefines XCMiscDefines RECORDDefines \
-	PexDefines ShmDefines XieDefines BigReqDefines VidModeExtensionDefines \
+	ShmDefines BigReqDefines VidModeExtensionDefines \
 	XF86MiscExtensionDefines DBEDefines DPMSDefines EVIDefines \
 	ScreenSaverExtensionDefines XvExtensionDefines XvMCExtensionDefines \
 	GlxDefines FontCacheExtensionDefines SiteExtensionDefines \
@@ -1143,8 +1134,47 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 # endif
 #endif
 
+#ifndef HasDevRandom
+#define HasDevRandom NO
+#endif
+
+#ifndef HasArc4Random
+#define HasArc4Random NO
+#endif
+
+#ifndef RandomDefines
+# if HasDevRandom
+#  ifndef RandomDeviceFile
+#   define RandomDeviceFile /dev/random
+#  endif
+#  ifndef ExtraRandomDefines
+#   ifdef PollDevRandom /* Set if can poll() /dev/random to avoid blocking */
+#    define ExtraRandomDefines -DPOLL_DEV_RANDOM
+#   else
+#    define ExtraRandomDefines /**/
+#   endif
+#  endif
+#  define RandomDefines -DDEV_RANDOM=\"RandomDeviceFile\" ExtraRandomDefines
+# elif HasArc4Random
+#  define RandomDefines -DARC4_RANDOM
+# else
+#  define RandomDefines /**/
+# endif
+#endif
+
+#ifndef PreferXdmcpIPv6
+#define PreferXdmcpIPv6 NO
+#endif
+#ifndef ServerXdmcpIPv6Defines
+#if BuildIPv6 && !IPv6SocketsAlsoIPv4 && !PreferXdmcpIPv6
+#define ServerXdmcpIPv6Defines -DXDMCP_NO_IPV6
+#else
+#define ServerXdmcpIPv6Defines /**/
+#endif
+#endif
+
 #ifndef ServerXdmcpDefines
-#define ServerXdmcpDefines -DXDMCP
+#define ServerXdmcpDefines -DXDMCP ServerXdmcpIPv6Defines
 #endif
 #ifndef ServerOSDefines
 #define ServerOSDefines /**/
@@ -1169,48 +1199,20 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #ifndef ServerAssertDefines
 #define ServerAssertDefines -DNDEBUG
 #endif
+#ifndef ServerSnprintfDefines
+#if !HasSnprintf
+#define ServerSnprintfDefines -DNEED_SNPRINTF
+#else
+#define ServerSnprintfDefines /**/
+#endif
+#endif
 #ifndef ServerDefines
-#define ServerDefines StandardDefines PervasiveExtensionDefines ServerExtraDefines ServerAssertDefines
-#endif
-#ifndef PexDipexDefines
-#define PexDipexDefines /**/
-#endif
-#ifndef PexDdpexDefines
-#define PexDdpexDefines /**/
-#endif
-#ifndef PexPhigsDefines
-#ifndef PexShmIPC
-#define PexShmIPC HasShm
-#endif
-#if PexShmIPC
-#define PexPhigsDefines /**/
-#else
-#define PexPhigsDefines -DPEX_API_SOCKET_IPC
-#endif
-#endif
-#ifndef PexClientDefines
-#define PexClientDefines -DPEX_SI_PHIGS
-#endif
-#ifndef PhigsInclude
-#ifdef UseInstalled
-#define PhigsInclude -I$(INCDIR)/X11
-#else
-#define PhigsInclude -I$(BUILDINCDIR)
-#endif
-#endif
-#ifndef PexCDebugFlags
-#define PexCDebugFlags DebuggableCDebugFlags
-#endif
-#ifndef PexCCOptions
-#ifdef LibraryCCOptions
-#define PexCCOptions LibraryCCOptions
-#else
-#define PexCCOptions DefaultCCOptions
-#endif
+#define ServerDefines StandardDefines PervasiveExtensionDefines ServerExtraDefines ServerAssertDefines ServerSnprintfDefines
 #endif
 
 #ifndef MesaUseX86Asm
-# if HasX86Support
+/* The current Mesa X86 ASM code doesn't work well with SVR4 shared libs. */
+# if HasX86Support && !SystemV4
 #  define MesaUseX86Asm YES
 # else
 #  define MesaUseX86Asm NO
@@ -1261,14 +1263,14 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #ifndef HasBlindFaithInUnicode
 #define HasBlindFaithInUnicode YES
 #endif
-#ifndef XTrueTypeCConvModule  
+#ifndef XTrueTypeCConvModule
 #if DoLoadableServer
 #define XTrueTypeCConvModule YES
 #else
 #define XTrueTypeCConvModule NO
 #endif
 #endif
-#ifndef XTrueTypeUseOptEncodings  
+#ifndef XTrueTypeUseOptEncodings
 #define XTrueTypeUseOptEncodings YES
 #endif
 #ifndef XTrueTypeCConvIncDir
@@ -1288,9 +1290,6 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #endif
 #ifndef XTrueTypeStandAloneCConv
 #define XTrueTypeStandAloneCConv NO
-#endif
-#ifndef XTTInLibXFont
-#define XTTInLibXFont NO
 #endif
 #ifndef XTrueTypeSrcDir
 #define XTrueTypeSrcDir $(TOP)/extras/X-TrueType
@@ -1366,6 +1365,9 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #ifndef ModuleDir
 #define ModuleDir $(USRLIBDIR)/modules
 #endif
+#ifndef InstSrcDir
+#define InstSrcDir Concat(ProjectRoot,/src)
+#endif
 #ifndef LibexecDir
 #ifdef ProjectRoot
 #define LibexecDir Concat(ProjectRoot,/libexec)
@@ -1384,6 +1386,9 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #endif
 #ifndef DocPsDir
 #define DocPsDir $(DOCDIR)/PostScript
+#endif
+#ifndef DocPdfDir
+#define DocPdfDir $(DOCDIR)/PDF
 #endif
 #ifndef FontDir
 #define FontDir $(LIBDIR)/fonts
@@ -1417,9 +1422,6 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #endif
 #ifndef XLocaleDir
 #define XLocaleDir $(LIBDIR)/locale
-#endif
-#ifndef PexApiDir
-#define PexApiDir $(LIBDIR)/PEX
 #endif
 #ifndef LbxproxyDir
 #define LbxproxyDir $(LIBDIR)/lbxproxy
@@ -1500,11 +1502,11 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #define PsWrap $(PSWRAPSRC)/pswrap
 #endif
 
-#ifndef ResourceConfigurationManagement 
+#ifndef ResourceConfigurationManagement
 #define ResourceConfigurationManagement YES
 #endif
 
-#ifndef XtPopdownConformance 
+#ifndef XtPopdownConformance
 #define XtPopdownConformance YES
 #endif
 
@@ -1537,6 +1539,8 @@ XCOMM X Window System make variables; these need to be coordinated with rules
         MODULEDIR = ModuleDir
    TOP_X_INCLUDES = TopXInclude
 
+       INSTSRCDIR = InstSrcDir		/* Installed source (kernel modules). */
+
 #ifdef EtcX11Directory
         ETCX11DIR = EtcX11Directory
 #endif
@@ -1548,6 +1552,7 @@ XCOMM X Window System make variables; these need to be coordinated with rules
            DOCDIR = DocDir
        DOCHTMLDIR = DocHtmlDir
          DOCPSDIR = DocPsDir
+        DOCPDFDIR = DocPdfDir
           FONTDIR = FontDir		/* font directories */
      ENCODINGSDIR = $(FONTDIR)/encodings /* font encodings directory */
          XINITDIR = XinitDir		/* xinit config files */
@@ -1557,8 +1562,7 @@ XCOMM X Window System make variables; these need to be coordinated with rules
            XSMDIR = XsmDir		/* xsm config files */
            NLSDIR = NlsDir		/* nls files */
        XLOCALEDIR = XLocaleDir		/* locale files */
-        PEXAPIDIR = PexApiDir		/* PEX support files */
-      LBXPROXYDIR = LbxproxyDir	        /* lbxproxy files */
+      LBXPROXYDIR = LbxproxyDir		/* lbxproxy files */
   PROXYMANAGERDIR = ProxyManagerDir	/* proxy manager config files */
         XPRINTDIR = XPrintDir		/* print config file root */
       XAPPLOADDIR = XAppLoadDir		/* application default resource dir */
@@ -1569,9 +1573,10 @@ XCOMM X Window System make variables; these need to be coordinated with rules
 #if UseInstalledX11
               RGB = $(BINDIR)/rgb
             FONTC = $(BINDIR)/bdftopcf
+      MKFONTSCALE = $(BINDIR)/mkfontscale
         MKFONTDIR = $(BINDIR)/mkfontdir
       MKHTMLINDEX = $(BINDIR)/mkhtmlindex
-          UCS2ANY = $(BINDIR)/ucs2any
+          UCS2ANY = $(BINDIR)/ProgramTargetName(ucs2any)
       BDFTRUNCATE = $(BINDIR)/bdftruncate
      UCSMAPPREFIX = $(FONTDIR)/util/map-
        XCURSORGEN = $(BINDIR)/xcursorgen
@@ -1579,10 +1584,12 @@ XCOMM X Window System make variables; these need to be coordinated with rules
               RGB = $(CLIENTENVSETUP) $(XBUILDBINDIR)/rgb
 # if !CrossCompiling
             FONTC = $(CLIENTENVSETUP) $(PRELOADFONTSETUP) $(XBUILDBINDIR)/bdftopcf
-        MKFONTDIR = $(CLIENTENVSETUP) $(PRELOADFONTSETUP) $(XBUILDBINDIR)/mkfontdir
+      MKFONTSCALE = $(CLIENTENVSETUP) $(PRELOADFREETYPESETUP) $(XBUILDBINDIR)/mkfontscale
+        MKFONTDIR = $(MKFONTSCALE) -b -s -l
        XCURSORGEN = $(CLIENTENVSETUP) $(PRELOADSETUP) $(XBUILDBINDIR)/xcursorgen
 # elif UseInstalledOnCrossCompile
         MKFONTDIR = $(BINDIR)/mkfontdir
+      MKFONTSCALE = $(BINDIR)/mkfontscale
             FONTC = $(BINDIR)/bdftopcf
        XCURSORGEN = $(BINDIR)/xcursorgen
 # endif
@@ -1591,7 +1598,7 @@ XCOMM X Window System make variables; these need to be coordinated with rules
 # else
       MKHTMLINDEX = $(SHELL) $(CONFIGSRC)/util/mkhtmlindex.sh
 # endif
-          UCS2ANY = $(FONTSRC)/util/ucs2any.pl
+          UCS2ANY = $(XBUILDBINDIR)/ProgramTargetName(ucs2any)
       BDFTRUNCATE = $(FONTSRC)/util/bdftruncate.pl
      UCSMAPPREFIX = $(FONTSRC)/util/map-
 #endif
@@ -1646,9 +1653,9 @@ XCOMM X Window System make variables; these need to be coordinated with rules
   SYSTEMENVLIBDIR = SystemBuildLibPath
 # endif
        XENVLIBDIR = X11BuildLibPath
-   CLIENTENVSETUP = BuildLibPathVar=BuildLibPath
+   CLIENTENVSETUP = Concat3(BuildLibPathVar,=,BuildLibPath)
 #else
-   CLIENTENVSETUP = 
+   CLIENTENVSETUP =
 #endif
 
 #ifdef PreloadSetup
@@ -1656,6 +1663,9 @@ XCOMM X Window System make variables; these need to be coordinated with rules
 #endif
 #ifdef PreloadFontSetup
  PRELOADFONTSETUP = PreloadFontSetup
+#endif
+#ifdef PreloadFreetypeSetup
+ PRELOADFREETYPESETUP = PreloadFreetypeSetup
 #endif
 #ifdef PreloadXFTSetup
      PRELOADXFTSETUP = PreloadXFTSetup
@@ -1697,6 +1707,8 @@ SharedLibReferences(XONLY,X11,$(XLIBSRC),SOXLIBREV,SharedX11Rev)
 #else
 ProjectUnsharedLibReferences(XONLY,X11,$(XLIBSRC),XBuildLibDir)
 #endif
+      /* Common alternate spellings */
+      DEPXLIBONLY = $(DEPXONLYLIB)
          XLIBONLY = $(XONLYLIB)
 
 #if BuildThreadStubLibrary
@@ -1734,10 +1746,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildScreenSaverLibrary
 #ifndef SharedLibXss
-#define SharedLibXss	NO
+#define SharedLibXss	HasSharedLibraries
 #endif
 #ifndef NormalLibXss
-#define NormalLibXss	YES
+#define NormalLibXss	(!SharedLibXss || ForceNormalLib)
 #endif
 #ifndef DebugLibXss
 #define DebugLibXss	NO
@@ -1758,10 +1770,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXF86MiscLibrary
 #ifndef SharedLibXxf86misc
-#define SharedLibXxf86misc	NO
+#define SharedLibXxf86misc	HasSharedLibraries
 #endif
 #ifndef NormalLibXxf86misc
-#define NormalLibXxf86misc	YES
+#define NormalLibXxf86misc	(!SharedLibXxf86misc || ForceNormalLib)
 #endif
 #ifndef DebugLibXxf86misc
 #define DebugLibXxf86misc	NO
@@ -1782,10 +1794,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXF86VidModeLibrary
 #ifndef SharedLibXxf86vm
-#define SharedLibXxf86vm	NO
+#define SharedLibXxf86vm	HasSharedLibraries
 #endif
 #ifndef NormalLibXxf86vm
-#define NormalLibXxf86vm	YES
+#define NormalLibXxf86vm	(!SharedLibXxf86vm || ForceNormalLib)
 #endif
 #ifndef DebugLibXxf86vm
 #define DebugLibXxf86vm		NO
@@ -1806,10 +1818,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXF86DGALibrary
 #ifndef SharedLibXxf86dga
-#define SharedLibXxf86dga	NO
+#define SharedLibXxf86dga	HasSharedLibraries
 #endif
 #ifndef NormalLibXxf86dga
-#define NormalLibXxf86dga	YES
+#define NormalLibXxf86dga	(!SharedLibXxf86dga || ForceNormalLib)
 #endif
 #ifndef DebugLibXxf86dga
 #define DebugLibXxf86dga	NO
@@ -1830,10 +1842,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXF86RushLibrary
 #ifndef SharedLibXxf86rush
-#define SharedLibXxf86rush	NO
+#define SharedLibXxf86rush	HasSharedLibraries
 #endif
 #ifndef NormalLibXxf86rush
-#define NormalLibXxf86rush	YES
+#define NormalLibXxf86rush	(!SharedLibXxf86rush || ForceNormalLib)
 #endif
 #ifndef DebugLibXxf86rush
 #define DebugLibXxf86rush	NO
@@ -1854,10 +1866,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXvLibrary
 #ifndef SharedLibXv
-#define SharedLibXv		YES
+#define SharedLibXv		HasSharedLibraries
 #endif
 #ifndef NormalLibXv
-#define NormalLibXv		YES
+#define NormalLibXv		(!SharedLibXv || ForceNormalLib)
 #endif
 #ifndef DebugLibXv
 #define DebugLibXv		NO
@@ -1878,10 +1890,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXvMCLibrary
 #ifndef SharedLibXvMC
-#define SharedLibXvMC		NO
+#define SharedLibXvMC		HasSharedLibraries
 #endif
 #ifndef NormalLibXvMC
-#define NormalLibXvMC		YES
+#define NormalLibXvMC		(!SharedLibXvMC || ForceNormalLib)
 #endif
 #ifndef DebugLibXvMC
 #define DebugLibXvMC		NO
@@ -1902,10 +1914,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXineramaLibrary
 #ifndef SharedLibXinerama
-#define SharedLibXinerama	NO
+#define SharedLibXinerama	HasSharedLibraries
 #endif
 #ifndef NormalLibXinerama
-#define NormalLibXinerama	YES
+#define NormalLibXinerama	(!SharedLibXinerama || ForceNormalLib)
 #endif
 #ifndef DebugLibXinerama
 #define DebugLibXinerama	NO
@@ -1926,10 +1938,10 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 
 #if BuildXResLibrary
 #ifndef SharedLibXRes
-#define SharedLibXRes           NO
+#define SharedLibXRes           HasSharedLibraries
 #endif
 #ifndef NormalLibXRes
-#define NormalLibXRes           YES
+#define NormalLibXRes           (!SharedLibXRes || ForceNormalLib)
 #endif
 #ifndef DebugLibXRes
 #define DebugLibXRes            NO
@@ -1953,7 +1965,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibDps		HasSharedLibraries
 #endif
 #ifndef NormalLibDps
-#define NormalLibDps		YES
+#define NormalLibDps		(!SharedLibDps || ForceNormalLib)
 #endif
 #ifndef DebugLibDps
 #define DebugLibDps		NO
@@ -1977,7 +1989,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibDpsTk		HasSharedLibraries
 #endif
 #ifndef NormalLibDpsTk
-#define NormalLibDpsTk		YES
+#define NormalLibDpsTk		(!SharedLibDpsTk || ForceNormalLib)
 #endif
 #ifndef DebugLibDpsTk
 #define DebugLibDpsTk		NO
@@ -2001,7 +2013,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibPSRes		HasSharedLibraries
 #endif
 #ifndef NormalLibPSRes
-#define NormalLibPSRes		YES
+#define NormalLibPSRes		(!SharedLibPSRes || ForceNormalLib)
 #endif
 #ifndef DebugLibPSRes
 #define DebugLibPSRes		NO
@@ -2025,7 +2037,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibXrender	HasSharedLibraries
 #endif
 #ifndef NormalLibXrender
-#define NormalLibXrender	YES
+#define NormalLibXrender	(!SharedLibXrender || ForceNormalLib)
 #endif
 #ifndef DebugLibXrender
 #define DebugLibXrender		NO
@@ -2049,7 +2061,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibXrandr		HasSharedLibraries
 #endif
 #ifndef NormalLibXrandr
-#define NormalLibXrandr		YES
+#define NormalLibXrandr		(!SharedLibXrandr || ForceNormalLib)
 #endif
 #ifndef DebugLibXrandr
 #define DebugLibXrandr		NO
@@ -2073,7 +2085,7 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define SharedLibXcursor	HasSharedLibraries
 #endif
 #ifndef NormalLibXcursor
-#define NormalLibXcursor	YES
+#define NormalLibXcursor	(!SharedLibXcursor || ForceNormalLib)
 #endif
 #ifndef DebugLibXcursor
 #define DebugLibXcursor		NO
@@ -2090,6 +2102,54 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define DebugLibXcursor		NO
 #undef  ProfileLibXcursor
 #define ProfileLibXcursor	NO
+#endif
+
+#if BuildAppleWMLibrary
+#ifndef SharedLibAppleWM
+#define SharedLibAppleWM	HasSharedLibraries
+#endif
+#ifndef NormalLibAppleWM
+#define NormalLibAppleWM	(!SharedLibAppleWM || ForceNormalLib)
+#endif
+#ifndef DebugLibAppleWM
+#define DebugLibAppleWM		NO
+#endif
+#ifndef ProfileLibAppleWM
+#define ProfileLibAppleWM	NO
+#endif
+#else
+#undef  SharedLibAppleWM
+#define SharedLibAppleWM	NO
+#undef  NormalLibAppleWM
+#define NormalLibAppleWM	NO
+#undef  DebugLibAppleWM
+#define DebugLibAppleWM		NO
+#undef  ProfileLibAppleWM
+#define ProfileLibAppleWM	NO
+#endif
+
+#if BuildWindowsWMLibrary
+#ifndef SharedLibWindowsWM
+#define SharedLibWindowsWM	HasSharedLibraries
+#endif
+#ifndef NormalLibWindowsWM
+#define NormalLibWindowsWM	(!SharedLibWindowsWM || ForceNormalLib)
+#endif
+#ifndef DebugLibWindowsWM
+#define DebugLibWindowsWM	NO
+#endif
+#ifndef ProfileLibWindowsWM
+#define ProfileLibWindowsWM	NO
+#endif
+#else
+#undef  SharedLibWindowsWM
+#define SharedLibWindowsWM	NO
+#undef  NormalLibWindowsWM
+#define NormalLibWindowsWM	NO
+#undef  DebugLibWindowsWM
+#define DebugLibWindowsWM	NO
+#undef  ProfileLibWindowsWM
+#define ProfileLibWindowsWM	NO
 #endif
 
 #if BuildGLULibrary
@@ -2162,14 +2222,15 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define ProfileLibGlx		NO
 #endif
 /*
- * Don't make a shared GLw library because is would depend on Motif.
+ * Only make a shared GLw library on systems with Weak symbols 
+ * because it depends on Motif. See xc/lib/GLw/README.txt for details
  */
 #if BuildGLwLibrary
 #ifndef SharedLibGLw
-#define SharedLibGLw		NO	/* HasSharedLibraries */
+#define SharedLibGLw		HasSharedLibraries && HasWeakSymbols
 #endif
 #ifndef NormalLibGLw
-#define NormalLibGLw		YES	/* (!SharedLibGLw | ForceNormalLib) */
+#define NormalLibGLw		(!SharedLibGLw || ForceNormalLib)
 #endif
 #ifndef DebugLibGLw
 #define DebugLibGLw		NO	/* debugged widget library */
@@ -2178,17 +2239,18 @@ ProjectUnsharedLibReferences(XTHRSTUB,XThrStub,$(XTHRSTUBSRC),XBuildLibDir)
 #define ProfileLibGLw		NO	/* profiled widget library */
 #endif
 #ifndef GLwUseXmStubs
-#define GLwUseXmStubs		NO	/* create stub (weak) Motif symbols */
+	/* create stub (weak) Motif symbols */
+#define GLwUseXmStubs		SharedLibGLw && HasWeakSymbols
 #endif
 #else
-#undef  SharedLibGlw
-#define SharedLibGlw		NO
-#undef  NormalLibGlw
-#define NormalLibGlw		NO
-#undef  DebugLibGlw
-#define DebugLibGlw		NO
-#undef  ProfileLibGlw
-#define ProfileLibGlw		NO
+#undef  SharedLibGLw
+#define SharedLibGLw		NO
+#undef  NormalLibGLw
+#define NormalLibGLw		NO
+#undef  DebugLibGLw
+#define DebugLibGLw		NO
+#undef  ProfileLibGLw
+#define ProfileLibGLw		NO
 #endif
 
 #ifndef SharedLibXext
@@ -2230,7 +2292,7 @@ ProjectUnsharedLibReferences(XSS,Xss,$(XSSLIBSRC),XBuildLibDir)
     XXF86MISCLIBSRC = $(LIBSRC)/Xxf86misc
 #if SharedLibXxf86misc
 #ifndef SharedXxf86miscRev
-#define SharedXxf86miscRev 1.0
+#define SharedXxf86miscRev 1.1
 #endif
 SharedLibReferences(XXF86MISC,Xxf86misc,$(XXF86MISCLIBSRC),SOXXF86MISCREV,SharedXxf86miscRev)
 #else
@@ -2400,11 +2462,31 @@ SharedLibReferences(XCURSOR,Xcursor,$(XCURSORLIBSRC),SOXCURSORREV,SharedXcursorR
 ProjectUnsharedLibReferences(XCURSOR,Xcursor,$(XCURSORLIBSRC),XBuildLibDir)
 #endif
 
+   APPLEWMLIBSRC = $(LIBSRC)/apple
+#if SharedLibAppleWM
+#ifndef SharedAppleWMRev
+#define SharedAppleWMRev 1.0
+#endif
+SharedLibReferences(APPLEWM,AppleWM,$(APPLEWMLIBSRC),SOAPPLEWMREV,SharedAppleWMRev)
+#else
+ProjectUnsharedLibReferences(APPLEWM,AppleWM,$(APPLEWMLIBSRC),XBuildLibDir)
+#endif
+
+   WINDOWSWMLIBSRC = $(LIBSRC)/windows
+#if SharedLibWindowsWM
+#ifndef SharedWindowsWMRev
+#define SharedWindowsWMRev 1.0
+#endif
+SharedLibReferences(WINDOWSWM,WindowsWM,$(WINDOWSWMLIBSRC),SOWINDOWSWMREV,SharedWindowsWMRev)
+#else
+ProjectUnsharedLibReferences(WINDOWSWM,WindowsWM,$(WINDOWSWMLIBSRC),XBuildLibDir)
+#endif
+
 # ifndef SharedLibXfontcache
-#  define SharedLibXfontcache	NO
+#  define SharedLibXfontcache	HasSharedLibraries
 # endif
 # ifndef NormalLibXfontcache
-#  define NormalLibXfontcache	YES
+#  define NormalLibXfontcache	(!SharedLibXfontcache || ForceNormalLib)
 # endif
 # ifndef DebugLibXfontcache
 #  define DebugLibXfontcache	NO
@@ -2424,7 +2506,7 @@ ProjectUnsharedLibReferences(XFONTCACHE,Xfontcache,$(XFONTCACHELIBSRC),XBuildLib
 #endif
 
 #ifndef SharedLibXau
-#define SharedLibXau NO		/* don't need shared form */
+#define SharedLibXau		NO
 #endif
 #ifndef NormalLibXau
 #define NormalLibXau (!SharedLibXau | ForceNormalLib)
@@ -2450,7 +2532,7 @@ ProjectUnsharedLibReferences(XAUTH,Xau,$(XAUTHSRC),$(USRLIBDIR))
 #endif
 
 #ifndef SharedLibXdmcp
-#define SharedLibXdmcp NO	/* don't need shared form */
+#define SharedLibXdmcp		NO
 #endif
 #ifndef NormalLibXdmcp
 #define NormalLibXdmcp (!SharedLibXdmcp | ForceNormalLib)
@@ -2501,7 +2583,7 @@ ProjectUnsharedLibReferences(XMU,Xmu,$(XMUSRC),XBuildLibDir)
 #define SharedLibXmuu HasSharedLibraries
 #endif
 #ifndef NormalLibXmuu
-#define NormalLibXmuu 		(!SharedLibXmuu | ForceNormalLib)
+#define NormalLibXmuu		(!SharedLibXmuu | ForceNormalLib)
 #endif
 #ifndef DebugLibXmuu
 #define DebugLibXmuu		NO	/* debugged Xmuu library */
@@ -2705,66 +2787,6 @@ SharedLibReferences(XTEST,Xtst,$(XTESTLIBSRC),SOXTESTREV,SharedXtstRev)
 ProjectUnsharedLibReferences(XTEST,Xtst,$(XTESTLIBSRC),XBuildLibDir)
 #endif
 
-#ifndef SharedLibPex
-#define SharedLibPex HasSharedLibraries
-#endif
-#ifndef NormalLibPex
-#define NormalLibPex (!SharedLibPex | ForceNormalLib)
-#endif
-#ifndef DebugLibPex
-#define DebugLibPex		NO	/* debugged PEX5 library */
-#endif
-#ifndef ProfileLibPex
-#define ProfileLibPex		NO	/* profiled PEX5 library */
-#endif
-        PEXLIBSRC = $(LIBSRC)/PEX5
-#if SharedLibPex
-#ifndef SharedPexRev
-#define SharedPexRev 6.0
-#endif
-SharedLibReferences(PEX,PEX5,$(PEXLIBSRC),SOPEXREV,SharedPexRev)
-#else
-ProjectUnsharedLibReferences(PEX,PEX5,$(PEXLIBSRC),XBuildLibDir)
-#endif
-
-#ifndef SharedLibXie
-#define SharedLibXie HasSharedLibraries
-#endif
-#ifndef NormalLibXie
-#define NormalLibXie (!SharedLibXie | ForceNormalLib)
-#endif
-#ifndef DebugLibXie
-#define DebugLibXie		NO	/* debugged XIE library */
-#endif
-#ifndef ProfileLibXie
-#define ProfileLibXie		NO	/* profiled XIE library */
-#endif
-        XIELIBSRC = $(LIBSRC)/XIE
-#if SharedLibXie
-#ifndef SharedXieRev
-#define SharedXieRev 6.0
-#endif
-SharedLibReferences(XIE,XIE,$(XIELIBSRC),SOXIEREV,SharedXieRev)
-#else
-ProjectUnsharedLibReferences(XIE,XIE,$(XIELIBSRC),XBuildLibDir)
-#endif
-
-#ifndef SharedLibPhigs
-#define SharedLibPhigs NO	/* XXX - haven't made it sharable yet */
-#endif
-#ifndef NormalLibPhigs
-#define NormalLibPhigs (!SharedLibPhigs | ForceNormalLib)
-#endif
-      PHIGSLIBSRC = $(LIBSRC)/PHIGS
-#if SharedLibPhigs
-#ifndef SharedPhigsRev
-#define SharedPhigsRev 6.0
-#endif
-SharedLibReferences(PHIGS,phigs,$(PHIGSLIBSRC),SOPHIGSREV,SharedPhigsRev)
-#else
-ProjectUnsharedLibReferences(PHIGS,phigs,$(PHIGSLIBSRC),XBuildLibDir)
-#endif
-
 ProjectUnsharedLibReferences(XBSD,Xbsd,$(LIBSRC)/Xbsd,XBuildLibDir)
 
 #ifndef SharedLibICE
@@ -2834,7 +2856,7 @@ ProjectUnsharedLibReferences(XKEY,Xkey,$(XKEYSRC),XBuildLibDir)
 #endif
 
 #ifndef SharedLibFS
-#define SharedLibFS		NO	/* for now */
+#define SharedLibFS		HasSharedLibraries
 #endif
 #ifndef NormalLibFS
 #define NormalLibFS (!SharedLibFS | ForceNormalLib)
@@ -2870,7 +2892,7 @@ ProjectUnsharedLibReferences(FS,FS,$(FSLIBSRC),XBuildLibDir)
          FONTLIBSRC = $(LIBSRC)/font
 #if SharedLibFont
 #ifndef SharedFontRev
-#define SharedFontRev 1.4
+#define SharedFontRev 1.5
 #endif
 SharedFontLibReferences()
 XCOMM SharedLibReferences(XFONT,Xfont,$(FONTLIBSRC),SOFONTREV,SharedFontRev)
@@ -2879,30 +2901,14 @@ ProjectUnsharedFontLibReferences()
 XCOMM ProjectUnsharedLibReferences(XFONT,Xfont,$(FONTLIBSRC),XBuildLibDir)
 #endif
 
-/*
- * There's no reason to use the statically built FreeType unless
- * you're using a loadable server.
- */
- 
-#ifndef FontLibSharedFreeType
-#if BuildFreeType && UseFreetype2 && !DoLoadableServer 
-#define FontLibSharedFreeType YES
-#else
-#define FontLibSharedFreeType NO
-#endif
-#endif
-
-#if FontLibSharedFreeType
-         FONTFT2LIB = $(FREETYPE2LIB)
-#endif
      FONTSTUBLIBSRC = $(FONTLIBSRC)/stubs
 ProjectUnsharedLibReferences(FONTSTUB,fntstubs,$(FONTSUBLIBSRC),XBuildLibDir)
          DEPFONTLIB = $(DEPXFONTLIB) $(DEPFONTSTUBLIB)
-            FONTLIB = $(XFONTLIB) $(FONTSTUBLIB) $(FONTFT2LIB)
+            FONTLIB = $(XFONTLIB) $(FONTSTUBLIB) $(FREETYPE2LIB)
 
 
 #ifndef SharedLibFontEnc
-#define SharedLibFontEnc	NO
+#define SharedLibFontEnc	HasSharedLibraries
 #endif
 #ifndef NormalLibFontEnc
 #define NormalLibFontEnc (!SharedLibFontEnc | ForceNormalLib)
@@ -2963,12 +2969,26 @@ ProjectUnsharedLibReferences(XPM,Xpm,$(XPMLIBSRC),XBuildLibDir)
 #endif
           FREETYPE2LIBSRC = $(LIBSRC)/freetype2
 
-/* FreeType 2.0.9, version_info 9:0:3 */
+/*
+ * FreeType 2.1.4
+ *
+ * Get the library version information from version_info in
+ * in xc/extras/freetype2/builds/unix/configure.ac.
+ *
+ * current:revision:age = 9:3:3
+ *
+ * The LibtoolMinorVersions revision is "(current - age).age".
+ * The !LibtoolMinorVersions revision is "current.0".
+ * Freetype2Version should be set to "current.revision.age"
+ */
 #ifndef Freetype2Version
-#define Freetype2Version 9.0.3
+#define Freetype2Version 9.3.3
 #endif
 
 #if SharedLibFreetype2
+#ifndef SharedLibtoolFreetype2Rev
+#define SharedLibtoolFreetype2Rev	9:3:3
+#endif
 #ifndef SharedFreetype2Rev
 #if LibtoolMinorVersions
 #define SharedFreetype2Rev 6.3
@@ -2982,9 +3002,9 @@ ProjectUnsharedLibReferences(FREETYPE2,freetype,$(FREETYPE2LIBSRC),XBuildLibDir)
 #endif
 
 #ifdef UseInstalled
-FREETYPE2INCDIR=$(INCDIR)/freetype2
+FREETYPE2INCDIR=$(INCDIR)
 #else
-FREETYPE2INCDIR=$(BUILDINCDIR)/freetype2
+FREETYPE2INCDIR=$(BUILDINCDIR)
 #endif
 
 #else /* BuildFreetype2Library */
@@ -3012,7 +3032,10 @@ FREETYPE2INCDIR=$(BUILDINCDIR)/freetype2
 #endif
 
 #ifndef Freetype2IncDir
-#define Freetype2IncDir Freetype2Dir/include/freetype2
+#define Freetype2IncDir Freetype2Dir/include
+# if Freetype2DirStandard
+#  define Freetype2IncDirStandard YES
+# endif
 #endif
 
 FREETYPE2DIR = Freetype2Dir
@@ -3028,8 +3051,16 @@ FREETYPE2LIB = -L$(FREETYPE2LIBDIR) -lfreetype
 
 #endif /* else BuildFreetype2Library */
 
+#ifndef Freetype2IncDirStandard
+# define Freetype2IncDirStandard NO
+#endif
+
 #if BuildFreetype2Library || HasFreetype2
-FREETYPE2INCLUDES = -I$(FREETYPE2INCDIR)
+#if Freetype2IncDirStandard
+FREETYPE2INCLUDES = -I$(FREETYPE2INCDIR)/freetype2
+#else
+FREETYPE2INCLUDES = -I$(FREETYPE2INCDIR) -I$(FREETYPE2INCDIR)/freetype2
+#endif
 FREETYPE2DEFINES = -DFREETYPE2
 #endif
 
@@ -3049,14 +3080,31 @@ FREETYPE2DEFINES = -DFREETYPE2
 #endif
           EXPATLIBSRC = $(LIBSRC)/expat
 
-/* Expat 1.95.2 */
+/*
+ * Expat 1.95.6.
+ *
+ * Get the library version information from LIBCURRENT, LIBREVISION and LIBAGE
+ * in xc/extras/expat/configure.
+ *
+ * LIBCURRENT:LIBREVISION:LIBAGE = 4:0:4
+ *
+ * The LibtoolMinorVersions revision is "(LIBCURRENT - LIBAGE).LIBAGE".
+ * The !LibtoolMinorVersions revision is "LIBCURRENT.0".
+ */
 #ifndef ExpatVersion
-#define ExpatVersion 1.95.2
+#define ExpatVersion 1.95.6
 #endif
 
 #if SharedLibExpat
+#ifndef SharedLibtoolExpatRev
+#define SharedLibtoolExpatRev	4:0:4
+#endif
 #ifndef SharedExpatRev
-#define SharedExpatRev 1.0
+#if LibtoolMinorVersions
+#define SharedExpatRev 0.4
+#else
+#define SharedExpatRev 4.0
+#endif
 #endif
 SharedLibReferences(EXPAT,expat,$(EXPATLIBSRC),SOEXPATREV,SharedExpatRev)
 #else
@@ -3127,7 +3175,7 @@ EXPATDEFINES = -DEXPAT
 #define SharedLibXft1 HasSharedLibraries
 #endif
 #ifndef NormalLibXft1
-#define NormalLibXft1 		NO
+#define NormalLibXft1		NO
 #endif
 #ifndef DebugLibXft1
 #define DebugLibXft1		NO
@@ -3189,8 +3237,6 @@ ProjectUnsharedLibReferences(XFT,Xft,$(XFTLIBSRC),XBuildLibDir)
 #define XftClientLibs $(XFTLIB) FontconfigClientLibs $(XRENDERLIB)
 #endif
 
-XFTINCLUDES=$(FONTCONFIGINCLUDES) $(FREETYPE2INCLUDES)
-
 #if UseFontconfig
 
 #if BuildFontconfigLibrary
@@ -3230,7 +3276,7 @@ FCCACHE = $(BINDIR)/fc-cache
 #else
 FCCACHE = set -x; $(CLIENTENVSETUP) $(PRELOADXFTSETUP) FONTCONFIG_PATH=$(FONTCONFIGLIBSRC) $(XBUILDBINDIR)/fc-cache
 #endif
-	  
+
 #else /* BuildFontconfigLibrary */
 
 #if HasFontconfig
@@ -3305,6 +3351,8 @@ FONTCONFIGDEFINES = -DFONTCONFIG
 #endif
 
 #endif /* UseFontconfig */
+
+XFTINCLUDES=$(FONTCONFIGINCLUDES) $(FREETYPE2INCLUDES)
 
 #ifdef HasLibpng
 
@@ -3384,48 +3432,119 @@ LIBPNGLIB = -L$(LIBPNGLIBDIR) -lpng
 #endif
 
 #if BuildXKBlib
+# ifndef SharedLibxkbfile
+#  define SharedLibxkbfile	HasSharedLibraries
+# endif
+# ifndef NormalLibxkbfile
+#  define NormalLibxkbfile	(!SharedLibxkbfile | ForceNormalLib)
+# endif
+# ifndef DebugLibxkbfile
+#  define DebugLibxkbfile	NO
+# endif
+# ifndef ProfileLibxkbfile
+#  define ProfileLibxkbfile	NO
+# endif
+#else
+# ifndef SharedLibxkbfile
+#  define SharedLibxkbfile	NO
+# endif
+# ifndef NormalLibxkbfile
+#  define NormalLibxkbfile	NO
+# endif
+# ifndef DebugLibxkbfile
+#  define DebugLibxkbfile	NO
+# endif
+# ifndef ProfileLibxkbfile
+#  define ProfileLibxkbfile	NO
+# endif
+#endif
     XKBFILELIBSRC = $(LIBSRC)/xkbfile
+#if SharedLibxkbfile
+# ifndef SharedxkbfileRev
+#  define SharedxkbfileRev	1.0
+# endif
+SharedLibReferences(XKBFILE,xkbfile,$(XKBFILESRC),SOXKBFILEREV, SharedxkbfileRev)
+#else
 ProjectUnsharedLibReferences(XKBFILE,xkbfile,$(XKBFILELIBSRC),XBuildLibDir)
-#ifndef XkbClientDepLibs
-#if UseXKBInClients
-#define XkbClientDepLibs $(DEPXKBFILELIB)
-#else
-#define XkbClientDepLibs /**/
 #endif
-#endif
-#ifndef XkbClientLibs
-#if UseXKBInClients
-#define XkbClientLibs $(XKBFILELIB)
-#else
-#define XkbClientLibs /**/
-#endif
-#endif
-#if defined(UseInstalled) || (CrossCompiling &&  UseInstalledOnCrossCompile)
+
+#if BuildXKBlib
+# ifndef XkbClientDepLibs
+#  if UseXKBInClients
+#   define XkbClientDepLibs	$(DEPXKBFILELIB)
+#  else
+#   define XkbClientDepLibs	/**/
+#  endif
+# endif
+# ifndef XkbClientLibs
+#  if UseXKBInClients
+#   define XkbClientLibs	$(XKBFILELIB)
+#  else
+#   define XkbClientLibs	/**/
+#  endif
+# endif
+
+# if defined(UseInstalled) || (CrossCompiling &&  UseInstalledOnCrossCompile)
      XKBCOMPCMD = $(BINDIR)/XkbComp
-#else
+# else
      XKBCOMPSRC = $(PROGRAMSRC)/XkbComp
-#if CrossCompiling
+#  if CrossCompiling
      XKBCOMPCMD = $(PROGRAMSRC)/XkbComp/cross/XkbComp
-#else
+#  else
      XKBCOMPCMD = $(CLIENTENVSETUP) $(PRELOADSETUP) $(XBUILDBINDIR)/XkbComp
-#endif
-#endif
+#  endif
+# endif
 #else /* !BuildXKBlib */
-#ifndef XkbClientDepLibs
-#define XkbClientDepLibs
-#endif
-#ifndef XkbClientLibs
-#define XkbClientLibs
-#endif
+# ifndef XkbClientDepLibs
+#  define XkbClientDepLibs
+# endif
+# ifndef XkbClientLibs
+#  define XkbClientLibs
+# endif
 #endif /* BuildXKBlib */
 
+#if BuildXKBlib
+# ifndef SharedLibxkbui
+#  define SharedLibxkbui	HasSharedLibraries
+# endif
+# ifndef NormalLibxkbui
+#  define NormalLibxkbui	(!SharedLibxkbui || ForceNormalLib)
+# endif
+# ifndef DebugLibxkbui
+#  define DebugLibxkbui		NO
+# endif
+# ifndef ProfileLibxkbui
+#  define ProfileLibxkbui	NO
+# endif
+#else
+# ifndef SharedLibxkbui
+#  define SharedLibxkbui	NO
+# endif
+# ifndef NormalLibxkbui
+#  define NormalLibxkbui	NO
+# endif
+# ifndef DebugLibxkbui
+#  define DebugLibxkbui		NO
+# endif
+# ifndef ProfileLibxkbui
+#  define ProfileLibxkbui	NO
+# endif
+#endif
     XKBUILIBSRC = $(LIBSRC)/xkbui
+#if SharedLibxkbui
+# ifndef SharedxkbuiRev
+#  define SharedxkbuiRev	1.0
+# endif
+SharedLibReferences(XKBUI,xkbui,$(XKBUISRC),SOXKBUIREV, SharedxkbuiRev)
+#else
 ProjectUnsharedLibReferences(XKBUI,xkbui,$(XKBUILIBSRC),XBuildLibDir)
+#endif
+
 #ifndef XkbuiLibs
-#define	XkbuiLibs $(XKBUILIB)
+# define	XkbuiLibs $(XKBUILIB)
 #endif
 #ifndef XkbuiDepLibs
-#define	XkbuiDepLibs $(DEPXKBFILELIB)
+# define	XkbuiDepLibs $(DEPXKBFILELIB)
 #endif
 
 #ifndef XawClientDepLibs
@@ -3552,6 +3671,27 @@ install::								@@\
 #endif
 
 /*
+ * MakeFontsScale - generate rules to build fonts.scale database.
+ */
+#ifndef MakeFontsScale
+# if !CrossCompiling ||  UseInstalledOnCrossCompile
+#  define MakeFontsScale(deplist)					@@\
+all:: fonts.scale							@@\
+									@@\
+fonts.scale:  deplist							@@\
+	RemoveFile(fonts.scale)						@@\
+	RunProgram(MKFONTSCALE, .)					@@\
+									@@\
+clean::									@@\
+	RemoveFile(fonts.scale)
+# else
+#  define MakeFontsScale(deplist)					@@\
+clean::									@@\
+	RemoveFile(fonts.scale)
+# endif
+#endif /* MakeFontsScale */
+
+/*
  * MakeFontsDir - generate rules to build fonts.dir database.
  */
 #ifndef MakeFontsDir
@@ -3560,6 +3700,7 @@ install::								@@\
 all:: fonts.dir								@@\
 									@@\
 fonts.dir:  deplist							@@\
+	RemoveFile(fonts.dir)						@@\
 	RunProgram(MKFONTDIR, $(MKFONTDIROPTS) .)			@@\
 									@@\
 clean::									@@\
@@ -3593,6 +3734,23 @@ clean::									@@\
 # endif
 #endif /* MakeFonts */
 
+#ifndef InstallFontsDir
+# if !CrossCompiling ||  UseInstalledOnCrossCompile
+#  define InstallFontsDir(dest)						@@\
+install::								@@\
+	MakeDir($(DESTDIR)dest)						@@\
+	@if [ X$(STATIC_FONTS_SCALE) = X ]; then (set -x; \		@@\
+	  RemoveFile($(DESTDIR)dest/fonts.scale); \			@@\
+	  RunProgram(MKFONTSCALE, $(DESTDIR)dest)); \			@@\
+	else (set -x; \							@@\
+	  InstallInline(fonts.scale,$(INSTDATFLAGS),dest)); \		@@\
+	fi								@@\
+	RemoveFile($(DESTDIR)dest/fonts.dir)				@@\
+	RunProgram(MKFONTDIR, $(MKFONTDIROPTS) $(DESTDIR)dest)
+# else
+#  define InstallFontsDir(dest)
+# endif
+#endif
 
 /*
  * InstallFontObjs - generate rules to install font files
@@ -3602,7 +3760,7 @@ clean::									@@\
 #  define InstallFontObjs(objs,dest)					@@\
 InstallMultipleFlags(objs,dest,$(INSTDATFLAGS))				@@\
 									@@\
-InstallTarget(install,fonts.dir,$(INSTDATFLAGS),dest)
+InstallFontsDir(dest)
 # else
 #  define InstallFontObjs(objs,dest)
 # endif
@@ -3619,7 +3777,7 @@ InstallFontObjs($(OBJS),dest)
 
 
 /*
- * InstallFontAliases - generate rules to install font aliases databases. 
+ * InstallFontAliases - generate rules to install font aliases databases.
  */
 #ifndef InstallFontAliases
 #define InstallFontAliases(dest)					@@\
@@ -3797,24 +3955,18 @@ InstallNamedTarget(install,edir/encodings.dir,$(INSTDATFLAGS),fdir,encodings.dir
 
 
 #ifndef MakeBdfFontFromUCSMaster
-#if HasPerl5
 #define MakeBdfFontFromUCSMaster(font,enc)				@@\
-includes:: font-enc.bdf							@@\
-									@@\
 font-enc.bdf: font.bdf $(UCS2ANY)					@@\
 	RemoveFile($@)							@@\
-	RunPerlScript($(UCS2ANY),font.bdf $(UCSMAPPREFIX)enc enc)	@@\
+	$(UCS2ANY) font.bdf $(UCSMAPPREFIX)enc enc			@@\
 									@@\
 clean::									@@\
 	RemoveFile(font-enc.bdf)
-#endif
 #endif
 
 #ifndef MakeTruncatedUCSBdfFont
 #if HasPerl5
 #define MakeTruncatedUCSBdfFont(font,trunc,name)			@@\
-includes:: name.bdf							@@\
-									@@\
 name.bdf: font.bdf $(BDFTRUNCATE)					@@\
 	RemoveFile($@)							@@\
 	RunPerlScript($(BDFTRUNCATE),trunc < font.bdf > name.bdf)	@@\
@@ -3856,21 +4008,120 @@ clean::									@@\
 #define PostProcessTroffPS(temp,real) $(MV) temp real
 #endif
 
+/*
+ * PostProcessTroffHTML - by default moves the working output into place,
+ * but can be a hook for more complicated post-processing.
+ */
+#ifndef PostProcessTroffHTML
+#define PostProcessTroffHTML(temp,real) $(MV) temp real
+#endif
+
+#ifdef HTMLroffCmd
+#define HtmlTarget(file) file.html
+#define HtmlClean(file) file.nhtml file.html file*.png
+#else
+#define HtmlTarget(file) /**/
+#define HtmlClean(file) /**/
+#endif
+
+#ifdef PsToPdfCmd
+#define PdfTarget(file) file.pdf
+#define PdfClean(file) file.pdf
+#else
+#define PdfTarget(file) /**/
+#define PdfClean(file) /**/
+#endif
+
+#ifndef ConvertPsToPdf
+#ifdef PsToPdfCmd
+#define ConvertPsToPdf(file)						@@\
+file.pdf: file.ps							@@\
+	RemoveFile(file.pdf)						@@\
+	$(PSTOPDFCMD) < file.ps > file.pdf
+#else
+#define ConvertPsToPdf(file) /**/
+#endif
+#endif
+
+#if HasPdfLatex
+#define PdfLatexTarget(file) file.pdf
+#define PdfLatexClean(file) file.pdf
+#else
+#define PdfLatexTarget(file) /**/
+#define PdfLatexClean(file) /**/
+#endif
+
+#ifndef LatexToPdf
+#if HasPdfLatex && defined(PdfLatexCmd)
+#define LatexToPdf(file)						@@\
+file.pdf: file.tex							@@\
+	RemoveFile(file.pdf)						@@\
+	$(PDFLATEXCMD) file.tex
+#else
+#define LatexToPdf(file) /**/
+#endif
+#endif
+
+
+#ifndef MakeDepSimpleHtmlDoc
+#ifdef HTMLroffCmd
+#define MakeDepSimpleHtmlDoc(file,deps,srcs)				@@\
+HtmlTarget(file): deps							@@\
+	$(HTMLROFF) $(MSMACROS) $(XDOCMACROS) Concat(-P-I,file) srcs \		@@\
+		2> index.raw > file.nhtml \				@@\
+	  && PostProcessTroffHTML(file.nhtml,$@)
+#else
+#define MakeDepSimpleHtmlDoc(file,deps,srcs) /**/
+#endif
+#endif
+
+#ifndef MakeTblHtmlDoc
+#ifdef HTMLroffCmd
+#define MakeTblHtmlDoc(file,srcs)					@@\
+file.html: srcs								@@\
+	$(TBL) $(XDOCMACROS) srcs | $(HTMLROFF) $(MSMACROS) Concat(-P-I,file) \	@@\
+		2> index.raw > file.nhtml \				@@\
+	  && PostProcessTroffHTML(file.nhtml,$@)
+#else
+#define MakeTblHtmlDoc(file,srcs) /**/
+#endif
+#endif
+
+#ifndef MakeEqnHtmlDoc
+#ifdef HTMLroffCmd
+#define MakeEqnHtmlDoc(file,srcs)					@@\
+file.html: srcs								@@\
+	$(TBL) $(XDOCMACROS) srcs | $(EQN) | $(HTMLROFF) $(MSMACROS) Concat(-P-I,file) \ @@\
+		2> index.raw > file.nhtml \				@@\
+	  && PostProcessTroffHTML(file.nhtml,$@)
+#else
+#define MakeEqnHtmlDoc(file,srcs) /**/
+#endif
+#endif
+
+
 #ifndef MakeDepSimpleDoc
 #define MakeDepSimpleDoc(file,deps,srcs)				@@\
-all:: file.PS file.txt							@@\
-.PRECIOUS: file.PS							@@\
+all:: file.ps file.txt HtmlTarget(file) PdfTarget(file)			@@\
+.PRECIOUS: file.ps							@@\
 									@@\
-file.PS: deps								@@\
-	-$(TROFF) $(MSMACROS) $(XDOCMACROS) srcs 2> index.raw > file.nPS \@@\
-	&& PostProcessTroffPS(file.nPS,$@)				@@\
-	@if grep '^[^1-9.]' index.raw; then exit 1; else test $$? -le 1; fi @@\
+file.ps: deps								@@\
+	-$(TROFF) $(MSMACROS) $(XDOCMACROS) srcs \			@@\
+		2> index.raw > file.nps \				@@\
+	&& PostProcessTroffPS(file.nps,$@)				@@\
+	@if grep '^[^1-9.]' index.raw | grep -v warning; then exit 1; \	@@\
+		else test $$? -le 1; fi					@@\
 									@@\
 file.txt: deps								@@\
-	$(NROFF) $(MSMACROS) $(XDOCMACROS) srcs 2> index.raw | $(COL) $(COLFLAGS) > $@ @@\
+	$(NROFF) $(MSMACROS) $(XDOCMACROS) srcs 2> index.raw | \	@@\
+		 $(COL) $(COLFLAGS) > $@				@@\
+									@@\
+MakeDepSimpleHtmlDoc(file,deps,srcs)					@@\
+									@@\
+ConvertPsToPdf(file)							@@\
 									@@\
 clean::									@@\
-	$(RM) index.raw file.nPS file.PS file.txt
+	$(RM) index.raw file.nps file.ps file.txt HtmlClean(file) PdfClean(file)
 #endif
 
 #ifndef MakeSimpleDoc
@@ -3879,72 +4130,94 @@ clean::									@@\
 
 #ifndef MakeTblDoc
 #define MakeTblDoc(file,srcs)						@@\
-all:: file.PS file.txt							@@\
-.PRECIOUS: file.PS							@@\
+all:: file.ps file.txt HtmlTarget(file) PdfTarget(file)			@@\
+.PRECIOUS: file.ps							@@\
 									@@\
-file.PS: srcs								@@\
-	-$(TBL) $(XDOCMACROS) srcs | $(TROFF) $(MSMACROS) 2> index.raw > file.nPS \@@\
-	&& PostProcessTroffPS(file.nPS,$@)				@@\
-	@if grep '^[^1-9.]' index.raw; then exit 1; else test $$? -le 1; fi @@\
+file.ps: srcs								@@\
+	-$(TBL) $(XDOCMACROS) srcs | $(TROFF) $(MSMACROS) \		@@\
+		2> index.raw > file.nps \				@@\
+	&& PostProcessTroffPS(file.nps,$@)				@@\
+	@if grep '^[^1-9.]' index.raw | grep -v warning; then exit 1; \	@@\
+		else test $$? -le 1; fi					@@\
 									@@\
 file.txt: srcs								@@\
-	$(TBL) $(XDOCMACROS) srcs | $(NROFF) $(MSMACROS) 2> index.raw | $(COL) $(COLFLAGS) > $@	@@\
+	$(TBL) $(XDOCMACROS) srcs | $(NROFF) $(MSMACROS) 2> index.raw \	@@\
+		| $(COL) $(COLFLAGS) > $@				@@\
+									@@\
+MakeTblHtmlDoc(file,srcs)						@@\
+									@@\
+ConvertPsToPdf(file)							@@\
 									@@\
 clean::									@@\
-	$(RM) index.raw file.nPS file.PS file.txt
+	$(RM) index.raw file.nps file.ps file.txt HtmlClean(file) PdfClean(file)
 #endif
 
 #ifndef MakeEqnDoc
 #define MakeEqnDoc(file,srcs)						@@\
-all:: file.PS file.txt							@@\
-.PRECIOUS: file.PS							@@\
+all:: file.ps file.txt HtmlTarget(file) PdfTarget(file)			@@\
+.PRECIOUS: file.ps							@@\
 									@@\
-file.PS: srcs								@@\
-	-$(TBL) $(XDOCMACROS) srcs | $(EQN) | $(TROFF) $(MSMACROS) 2> index.raw > file.nPS \@@\
-	&& PostProcessTroffPS(file.nPS,$@)				@@\
-	@if grep '^[^1-9.]' index.raw; then exit 1; else test $$? -le 1; fi @@\
+file.ps: srcs								@@\
+	-$(TBL) $(XDOCMACROS) srcs | $(EQN) | $(TROFF) $(MSMACROS) \	@@\
+		2> index.raw > file.nps \				@@\
+	&& PostProcessTroffPS(file.nps,$@)				@@\
+	@if grep '^[^1-9.]' index.raw | grep -v warning; then exit 1; \	@@\
+		else test $$? -le 1; fi					@@\
 									@@\
 file.txt: srcs								@@\
-	$(TBL) $(XDOCMACROS) srcs | $(NEQN) | $(NROFF) $(MSMACROS) 2> index.raw | $(COL) $(COLFLAGS) > $@ @@\
+	$(TBL) $(XDOCMACROS) srcs | $(NEQN) | $(NROFF) $(MSMACROS) \	@@\
+		2> index.raw | $(COL) $(COLFLAGS) > $@			@@\
+									@@\
+MakeEqnHtmlDoc(file,srcs)						@@\
+									@@\
+ConvertPsToPdf(file)							@@\
 									@@\
 clean::									@@\
-	$(RM) index.raw file.nPS file.PS file.txt
+	$(RM) index.raw file.nps file.ps file.txt HtmlClean(file) PdfClean(file)
 #endif
 
 #ifndef MakeDocIndex
 #define MakeDocIndex(file,srcs)						@@\
-all:: file.idx.PS							@@\
+all:: file.idx.ps							@@\
 									@@\
-file.idx.PS: srcs index.raw						@@\
+file.idx.ps: srcs index.raw						@@\
 	sed -n '$$p' index.raw > index.pageno				@@\
-	grep '^[1-9]' index.raw | (sort -f '-t:' -k1,1n 2>/dev/null || sort -f '-t:' +1 -3 +0n -1n) | awk -f $(DOCUTILSRC)/fixindex.awk | awk -f $(DOCUTILSRC)/block.awk > index.troff @@\
-	cat srcs $(XIDXMACROS) index.troff | $(TROFF) -me > file.idx.nPS \@@\
-	&& $(MV) file.idx.nPS $@					@@\
+	grep '^[1-9]' index.raw | \					@@\
+		(sort -f '-t:' -k2,2 -k1,1n 2>/dev/null || \		@@\
+		 sort -f '-t:' +1 -3 +0n -1n) | \			@@\
+		awk -f $(DOCUTILSRC)/fixindex.awk | \			@@\
+		awk -f $(DOCUTILSRC)/block.awk > index.troff		@@\
+	cat srcs $(XIDXMACROS) index.troff | \				@@\
+		$(TROFF) -me > file.idx.nps && \			@@\
+		$(MV) file.idx.nps $@					@@\
 	$(RM) index.troff index.pageno					@@\
 									@@\
 clean::									@@\
-	$(RM) index.troff index.pageno file.idx.nPS file.idx.PS
+	$(RM) index.troff index.pageno file.idx.nps file.idx.ps
 #endif
 
 #ifndef MakeLatexDoc
 #if HasLatex
-#define MakeLatexDoc(file,src)	 					@@\
-all:: file.PS								@@\
+#define MakeLatexDoc(file,src)						@@\
+all:: file.ps PdfLatexTarget(file)					@@\
 									@@\
-file.dvi: src	  							@@\
+file.dvi: src								@@\
 	$(LATEX) src							@@\
 									@@\
-file.PS: file.dvi							@@\
-	$(DVIPS) -o file.nPS file && $(MV) file.nPS $@			@@\
+file.ps: file.dvi							@@\
+	$(DVIPS) -o file.nps file && $(MV) file.nps $@			@@\
 									@@\
-clean:: 								@@\
-	RemoveFiles(file.nPS file.PS file.dvi file.log)			@@\
-	RemoveFiles(file.aux file.toc file.lof file.lot)
+LatexToPdf(file)							@@\
+									@@\
+clean::									@@\
+	RemoveFiles(file.nps file.ps file.dvi file.log)			@@\
+	RemoveFiles(file.aux file.toc file.lof file.lot)		@@\
+	$(RM) PdfLatexClean(file)
 #else /* HasLatex */
-#define MakeLatexDoc(file,src)	 					@@\
+#define MakeLatexDoc(file,src)						@@\
 all::									@@\
-file.PS: src								@@\
-	@echo "cannot make file.PS: no latex on this system"; exit 1
+file.ps: src								@@\
+	@echo "cannot make file.ps: no latex on this system"; exit 1
 #endif /* HasLatex (else) */
 #endif /* MakeLatexDoc */
 
@@ -3952,22 +4225,42 @@ file.PS: src								@@\
 #define InstallDoc(name,deps)						@@\
 install:: deps								@@\
 	MakeDir($(DESTDIR)$(DOCPSDIR))					@@\
-	@if [ -f name.PS ]; then set -x; \				@@\
-	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.PS $(DESTDIR)$(DOCPSDIR); \ @@\
+	@if [ -f name.ps -a X$(NOPS) = X ]; then set -x; \		@@\
+	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.ps \		@@\
+		$(DESTDIR)$(DOCPSDIR); \				@@\
 	fi								@@\
+	RemoveOldFile(name.ps,name.PS,$(DOCPSDIR))			@@\
 	MakeDir($(DESTDIR)$(DOCDIR))					@@\
-	@if [ -f name.txt ]; then set -x; \				@@\
-	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.txt $(DESTDIR)$(DOCDIR)/name.TXT; \ @@\
+	@if [ -f name.txt -a X$(NOTXT) = X ]; then set -x; \		@@\
+	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.txt \		@@\
+		$(DESTDIR)$(DOCDIR); \					@@\
+	fi								@@\
+	RemoveOldFile(name.txt,name.TXT,$(DOCDIR))			@@\
+	MakeDir($(DESTDIR)$(DOCHTMLDIR))				@@\
+	@if [ -f name.html -a X$(NOHTML) = X ]; then (set -x; \		@@\
+	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.html \	@@\
+		$(DESTDIR)$(DOCHTMLDIR)); \				@@\
+	  for i in name*.png; do \					@@\
+	    if [ -f $$i ]; then (set -x; \				@@\
+	      $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) $$i \		@@\
+		$(DESTDIR)$(DOCHTMLDIR)); \				@@\
+	    fi; \							@@\
+	  done; \							@@\
+	fi								@@\
+	MakeDir($(DESTDIR)$(DOCPDFDIR))					@@\
+	@if [ -f name.pdf -a X$(NOPDF) = X ]; then set -x; \		@@\
+	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) name.pdf \		@@\
+		$(DESTDIR)$(DOCPDFDIR); \				@@\
 	fi
 #endif
 
 #ifndef InstallRoffDoc
-#define InstallRoffDoc(name) InstallDoc(name,name.PS name.txt)
+#define InstallRoffDoc(name) InstallDoc(name,name.ps name.txt)
 #endif
 
 #ifndef InstallLatexDoc
 #if HasLatex
-#define InstallLatexDoc(name) InstallDoc(name,name.PS)
+#define InstallLatexDoc(name) InstallDoc(name,name.ps)
 #else
 #define InstallLatexDoc(name)
 #endif
@@ -3975,20 +4268,25 @@ install:: deps								@@\
 
 #ifndef InstallHardcopyDoc
 #define InstallHardcopyDoc(name,deps)					@@\
-all:: deps								@@\
+all:: name.ps PdfTarget(name)						@@\
+									@@\
+name.ps: deps								@@\
 	@if [ -f name.PS.gz ]; then set -x; \				@@\
-	  RemoveFile(name.PS); \					@@\
-	  gzip -d < name.PS.gz > name.PS; \				@@\
+	  RemoveFile(name.ps); \					@@\
+	  gzip -d < name.PS.gz > name.ps; \				@@\
+	fi								@@\
+	@if [ -f name.PS ]; then set -x; \				@@\
+	  RemoveFile(name.ps); \					@@\
+	  $(LN) name.PS name.ps; \					@@\
 	fi								@@\
 									@@\
+ConvertPsToPdf(name)							@@\
+									@@\
 clean::									@@\
-	@if [ -f name.PS.gz ]; then set -x; \				@@\
-	  RemoveFile(name.PS); \					@@\
-	fi								@@\
+	$(RM) name.ps PdfClean(name)					@@\
 									@@\
 InstallDoc(name,deps)
 #endif
-
 
 /*
  * Rule for maintainers to use to updated generated copies of fonts in the
@@ -4018,4 +4316,14 @@ update.fonts:: src							@@\
 	fi								@@\
 	@$(RM) __tmp1__ __tmp2__
 #endif
+
+#if !HasFreetype2
+      FT2PRELOADPATTERN = libfreetype.so.?
+#endif
+#if !HasFontconfig
+       FCPRELOADPATTERN = libfontconfig.so.?
+#endif
+      XFTPRELOADPATTERN = libXft.so.?
+  XRENDERPRELOADPATTERN = libXrender.so.?
+    XFONTPRELOADPATTERN = libXfont*.so.?
 

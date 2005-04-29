@@ -1,0 +1,365 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/store/Persistence.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/store/Persistence.xotcl" ALIGN="MIDDLE">
+  ./../library/store/Persistence.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::store::persistence 0.8
+    <BR>
+    <b> Package required: </b> xotcl::trace 
+    <BR>
+    <b> Package required: </b> xotcl::package 
+    <BR>
+    <b> Package required: </b> xotcl::mixinStrategy 
+    <BR>
+    <b> Package required: </b> xotcl::store 
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#PersistenceMgr">
+          <em>PersistenceMgr</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#Persistent">
+          <em>Persistent</em>:
+        </A>
+        <a href="#Persistent-makeVarScript">makeVarScript</a>, <a href="#Persistent-persistenceMgr">persistenceMgr</a>, <a href="#Persistent-persistent">persistent</a>, <a href="#Persistent-persistent+init">persistent+init</a>, <a href="#Persistent-persistentVars">persistentVars</a>, <a href="#Persistent-unPersistent">unPersistent</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#Persistent=Eager">
+          <em>Persistent=Eager</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#Persistent=Lazy">
+          <em>Persistent=Lazy</em>:
+        </A>
+        
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/store/Persistence.xotcl">
+      ./../library/store/Persistence.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+    Persistent store for XOTcl objects with Eager and Lazy persistence.
+    Take a look at "persistenceExample.xotcl" for exmaple of usage.
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="PersistenceMgr">
+        
+      </A>
+      <h2> Class: <em> PersistenceMgr </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    A persistent store requires a persistent manager. The persistent
+    manager implements the Storage interface via storage mixin. With 
+    the parameter "dbPackage" we can specify which storage will be used.
+    The persistent manager than tries to load the package 
+    "xotcl::${dbPackage}Storage". Default is Sdbm.
+
+    Example:
+    <pre>
+    PersistenceMgr pmgr -persistenceDir . -persistenceFile example-db
+    </pre>
+
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="Persistent">
+        
+      </A>
+      <h2> Class: <em> Persistent </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#Persistent-makeVarScript">makeVarScript</a>, <a href="#Persistent-persistenceMgr">persistenceMgr</a>, <a href="#Persistent-persistent">persistent</a>, <a href="#Persistent-persistent+init">persistent+init</a>, <a href="#Persistent-persistentVars">persistentVars</a>, <a href="#Persistent-unPersistent">unPersistent</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Superclass or mixin class for all persistent objects. Normally
+    subclasses are used as mixins or instmixins on object, like:
+    <pre>
+      o mixin Persistent=Eager
+      p mixin Persistent=Lazy
+    </pre>
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="Persistent-persistenceMgr">
+            
+          </A>
+          <b>persistenceMgr </b>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: persistent manager name
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Specify which persistence manager to use for [self] object, like:
+    <pre>
+      o persistenceMgr pmgr
+    </pre>
+    Each persistent object must have a persistence manager specified, 
+    before vars can be made persistent.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Persistent-persistentVars">
+            
+          </A>
+          <b>persistentVars </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Returns list of persistent vars.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Persistent-persistent">
+            
+          </A>
+          <b>persistent </b>
+          <em>list</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>list</b>: persistent variables
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Make a list of object variables persistent. If a persistent
+    DB exists, the values are read from this DB, overwriting the current value.
+    E.g.:
+    <pre>
+     o persistent {x y}
+    </pre>
+
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Persistent-persistent+init">
+            
+          </A>
+          <b>persistent+init </b>
+          <em>list</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>list</b>: persistent variables
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Initialize all data in the list as empty strings, 
+    if they do not exist yet, and then make them persistent
+    using the 'persistent' method
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Persistent-unPersistent">
+            
+          </A>
+          <b>unPersistent </b>
+          <em>list</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>list</b>: persistent variables
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Make a list of object variables not persistent. 
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Persistent-makeVarScript">
+            
+          </A>
+          <b>makeVarScript </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Build a Tcl script of "set ..." statements reflecting the current situation in the database.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="Persistent=Eager">
+        
+      </A>
+      <h2> Class: <em> Persistent=Eager </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Eager persistence strategy. Store everything at the same moment to the database
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="Persistent=Lazy">
+        
+      </A>
+      <h2> Class: <em> Persistent=Lazy </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Lazy persistence strategy. Store everything on object destroy (or program termination.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

@@ -1,9 +1,9 @@
 /*
- * "$Id: lpq.c,v 1.1.1.11 2003/05/28 06:02:05 jlovell Exp $"
+ * "$Id: lpq.c,v 1.6 2005/01/04 22:10:37 jlovell Exp $"
  *
  *   "lpq" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -43,6 +43,9 @@
 #include <cups/cups.h>
 #include <cups/language.h>
 #include <cups/debug.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
 
 /*
@@ -66,9 +69,11 @@ main(int  argc,		/* I - Number of command-line arguments */
   int		i;		/* Looping var */
   http_t	*http;		/* Connection to server */
   const char	*dest,		/* Desired printer */
-		*user;		/* Desired user */
+		*user,		/* Desired user */
+		*val;		/* Environment variable name */
   char		*instance;	/* Printer instance */
   int		id,		/* Desired job ID */
+		all,		/* All printers */
 		interval,	/* Reporting interval */
 		longstatus;	/* Show file details */
   int		num_dests;	/* Number of destinations */
@@ -98,12 +103,9 @@ main(int  argc,		/* I - Number of command-line arguments */
   id         = 0;
   interval   = 0;
   longstatus = 0;
+  all        = 0;
 
   num_dests = cupsGetDests(&dests);
-
-  for (i = 0; i < num_dests; i ++)
-    if (dests[i].is_default)
-      dest = dests[i].name;
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '+')
@@ -158,7 +160,7 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    break;
 
 	case 'a' : /* All printers */
-	    dest = NULL;
+	    all = 1;
 	    break;
 
 	case 'l' : /* Long status */
@@ -173,10 +175,44 @@ main(int  argc,		/* I - Number of command-line arguments */
 	    break;
       }
     }
-    else if (isdigit(argv[i][0]))
+    else if (isdigit(argv[i][0] & 255))
       id = atoi(argv[i]);
     else
       user = argv[i];
+
+  if (dest == NULL && !all)
+  {
+    for (i = 0; i < num_dests; i ++)
+      if (dests[i].is_default)
+	dest = dests[i].name;
+
+    if (dest == NULL)
+    {
+      val = NULL;
+
+      if ((dest = getenv("LPDEST")) == NULL)
+      {
+	if ((dest = getenv("PRINTER")) != NULL)
+	{
+          if (!strcmp(dest, "lp"))
+            dest = NULL;
+	  else
+	    val = "PRINTER";
+	}
+      }
+      else
+	val = "LPDEST";
+
+      if (dest && !cupsGetDest(dest, NULL, num_dests, dests))
+	fprintf(stderr, "lp: error - %s environment variable names non-existent destination \"%s\"!\n",
+        	val, dest);
+      else
+	fputs("lpq: error - no default destination available.\n", stderr);
+      httpClose(http);
+      cupsFreeDests(num_dests, dests);
+      return (1);
+    }
+  }
 
  /*
   * Show the status in a loop...
@@ -228,8 +264,8 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 		*jobuser,	/* Pointer to job-originating-user-name */
 		*jobname;	/* Pointer to job-name */
   ipp_jstate_t	jobstate;	/* job-state */
+  off_t		jobsize;	/* job-k-octets */
   int		jobid,		/* job-id */
-		jobsize,	/* job-k-octets */
 #ifdef __osf__
 		jobpriority,	/* job-priority */
 #endif /* __osf__ */
@@ -364,7 +400,7 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 
         if (strcmp(attr->name, "job-k-octets") == 0 &&
 	    attr->value_tag == IPP_TAG_INTEGER)
-	  jobsize = attr->values[0].integer * 1024;
+	  jobsize = (off_t)attr->values[0].integer * 1024;
 
 #ifdef __osf__
         if (strcmp(attr->name, "job-priority") == 0 &&
@@ -425,7 +461,16 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	strcpy(rankstr, "active");
       else
       {
-	snprintf(rankstr, sizeof(rankstr), "%d%s", rank, ranks[rank % 10]);
+       /*
+        * Make the rank show the "correct" suffix for each number
+	* (11-13 are the only special cases, for English anyways...)
+	*/
+
+	if ((rank % 100) >= 11 && (rank % 100) <= 13)
+	  snprintf(rankstr, sizeof(rankstr), "%dth", rank);
+	else
+	  snprintf(rankstr, sizeof(rankstr), "%d%s", rank, ranks[rank % 10]);
+
 	rank ++;
       }
 
@@ -440,15 +485,15 @@ show_jobs(http_t     *http,	/* I - HTTP connection to server */
 	  strlcpy(namestr, jobname, sizeof(namestr));
 
         printf("%s: %-33.33s [job %d localhost]\n", jobuser, rankstr, jobid);
-        printf("        %-39.39s %d bytes\n", namestr, jobsize);
+        printf("        %-39.39s %" PRIdMAX " bytes\n", namestr, (intmax_t)jobsize);
       }
       else
 #ifdef __osf__
-        printf("%-6s %-10.10s %-4d %-10d %-27.27s %d bytes\n", rankstr, jobuser,
-	       jobpriority, jobid, jobname, jobsize);
+        printf("%-6s %-10.10s %-4d %-10d %-27.27s %" PRIdMAX " bytes\n", rankstr, jobuser,
+	       jobpriority, jobid, jobname, (intmax_t)jobsize);
 #else
-        printf("%-7s %-7.7s %-7d %-31.31s %d bytes\n", rankstr, jobuser,
-	       jobid, jobname, jobsize);
+        printf("%-7s %-7.7s %-7d %-31.31s %" PRIdMAX " bytes\n", rankstr, jobuser,
+	       jobid, jobname, (intmax_t)jobsize);
 #endif /* __osf */
 
       if (attr == NULL)
@@ -569,5 +614,5 @@ usage(void)
 
 
 /*
- * End of "$Id: lpq.c,v 1.1.1.11 2003/05/28 06:02:05 jlovell Exp $".
+ * End of "$Id: lpq.c,v 1.6 2005/01/04 22:10:37 jlovell Exp $".
  */

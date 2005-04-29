@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/Xagsrv.h,v 1.4 2001/12/20 19:25:43 tsi Exp $ */
+/* $XFree86: xc/include/extensions/Xagsrv.h,v 1.6 2003/11/17 22:20:03 dawes Exp $ */
 /*
 Copyright 1996, 1998  The Open Group
 
@@ -33,63 +33,41 @@ from The Open Group.
 
 _XFUNCPROTOBEGIN
 
-extern void XagExtensionInit(
-#if NeedFunctionPrototypes
-    void
-#endif
-);
-
 extern void XagConnectionInfo(
-#if NeedFunctionPrototypes
     ClientPtr			/* client */,
     xConnSetupPrefix**		/* conn_prefix */,
     char**			/* conn_info */,
     int*			/* num_screens */
-#endif
 );
 
 extern VisualID XagRootVisual(
-#if NeedFunctionPrototypes
     ClientPtr			/* client */
-#endif
 );
 
 extern Colormap XagDefaultColormap(
-#if NeedFunctionPrototypes
     ClientPtr			/* client */
-#endif
 );
 
 extern ClientPtr XagLeader(
-#if NeedFunctionPrototypes
     ClientPtr			/* client */
-#endif
 );
 
 extern void XagCallClientStateChange(
-#if NeedFunctionPrototypes
     ClientPtr			/* client */
-#endif
 );
 
 extern Bool XagIsControlledRoot (
-#if NeedFunctionPrototypes
     ClientPtr			/* client */,
     WindowPtr			/* pParent */
-#endif
 );
 
 extern XID XagId (
-#if NeedFunctionPrototypes
     ClientPtr			/* client */
-#endif
 );
 
 extern void XagGetDeltaInfo (
-#if NeedFunctionPrototypes
     ClientPtr			/* client */,
     CARD32*			/* buf */
-#endif
 );
 
 _XFUNCPROTOEND

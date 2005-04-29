@@ -35,17 +35,27 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.tree;
 
-// Imports
-import java.io.*;
-import java.util.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.Random;
+import java.util.Stack;
+import java.util.Vector;
 
 /**
  * DefaultMutableTreeNode
  * @author Andrew Selkirk
  */
-public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Serializable {
+public class DefaultMutableTreeNode
+  implements Cloneable, MutableTreeNode, Serializable
+{
+  static final long serialVersionUID = -4298474751201349152L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------
@@ -501,7 +511,6 @@ public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Seria
 	public static void growTree(DefaultMutableTreeNode root) {
 
 		// Variables
-		int						size;
 		int						index;
 		DefaultMutableTreeNode	node;
 		DefaultMutableTreeNode	current;
@@ -616,7 +625,6 @@ public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Seria
 		// Variables
 		TreeNode[]	path;
 		Object[]	object;
-		int			size;
 		int			index;
 
 		// Get Path for Tree Nodes
@@ -729,7 +737,6 @@ public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Seria
 
 		// Variables
 		TreeNode	current;
-		int			index;
 
 		// Sanity Check
 		if (node == null) {
@@ -830,9 +837,6 @@ public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Seria
 	 * @returns boolean
 	 */
 	public boolean isNodeSibling(TreeNode node) {
-
-		// Variables
-		int			index;
 
 		// Check for null
 		if (node == null) {
@@ -993,17 +997,17 @@ public class DefaultMutableTreeNode implements Cloneable, MutableTreeNode, Seria
 	public int getLeafCount() {
 
 		// Variables
-		Enumeration	enum;
+		Enumeration	e;
 		int			count;
 		TreeNode	current;
 
 		// Get Enumeration of all descendants
-		enum = depthFirstEnumeration();
+		e = depthFirstEnumeration();
 
 		// Process Nodes
 		count = 0;
-		while (enum.hasMoreElements() == true) {
-			current = (TreeNode) enum.nextElement();
+		while (e.hasMoreElements() == true) {
+			current = (TreeNode) e.nextElement();
 			if (current.isLeaf() == true) {
 				count++;
 			} // if

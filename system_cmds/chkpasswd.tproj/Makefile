@@ -17,7 +17,7 @@ HFILES = stringops.h
 CFILES = ds_passwd.c nis_passwd.c file_passwd.c netinfo_passwd.c passwd.c\
          stringops.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble chkpasswd.8
 
 
 MAKEFILEDIR = /System/Developer/Makefiles/project

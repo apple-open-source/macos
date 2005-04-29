@@ -37,6 +37,8 @@ Boston, MA 02111-1307, USA.  */
 #ifdef ENABLE_IDEBUG
 
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "rtl.h"
 #include "flags.h"
@@ -94,7 +96,7 @@ fn_1( TREE_THIS_VOLATILE, int, tree )
 fn_1( TREE_READONLY, int, tree )
 fn_1( TREE_READONLY_DECL_P, int, tree )
 fn_1( TREE_CONSTANT, int, tree )
-fn_1( TREE_UNSIGNED, int, tree )
+fn_1( TYPE_UNSIGNED, int, tree )
 fn_1( TYPE_TRAP_SIGNED, int, tree )
 fn_1( TREE_ASM_WRITTEN, int, tree )
 fn_1( TREE_USED, int, tree )
@@ -103,7 +105,7 @@ fn_1( TREE_PRIVATE, int, tree )
 fn_1( TREE_PROTECTED, int, tree )
 fn_1( TREE_BOUNDED, int, tree )
 fn_1( TREE_DEPRECATED, int, tree )
-/* APPLE LOCAL unavailable (Radar 2809697) ilr */
+/* APPLE LOCAL "unavailable" attribute (Radar 2809697) */
 fn_1( TREE_UNAVAILABLE, int, tree )
 fn_1( TREE_LANG_FLAG_0, int, tree )
 fn_1( TREE_LANG_FLAG_1, int, tree )
@@ -291,7 +293,6 @@ fn_1( DECL_ABSTRACT, int, tree )
 fn_1( DECL_IN_SYSTEM_HEADER, int, tree )
 fn_1( DECL_COMMON, int, tree )
 fn_1( DECL_COALESCED, int, tree )
-fn_1 (DECL_PRIVATE_EXTERN, int, tree)
 fn_1( DECL_LANG_SPECIFIC, struct lang_decl *, tree )
 fn_1( DECL_EXTERNAL, int, tree )
 fn_1( TYPE_DECL_SUPPRESS_DEBUG, int, tree )
@@ -317,8 +318,6 @@ fn_1( DECL_STATIC_CONSTRUCTOR, int, tree )
 fn_1( DECL_STATIC_DESTRUCTOR, int, tree )
 fn_1( DECL_ARTIFICIAL, int, tree )
 fn_1( DECL_WEAK, int, tree )
-/* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
-fn_1( DECL_WEAK_IMPORT, int, tree )
 fn_1( DECL_ONE_ONLY, int, tree )
 fn_1( DECL_COMDAT, int, tree )
 fn_1( DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT, int, tree )

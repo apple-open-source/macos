@@ -2,7 +2,7 @@
  * 
  * distcc -- A simple distributed compiler system
  *
- * Copyright (C) 2003 by Apple Computer, Inc.
+ * Copyright (C) 2003, 2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

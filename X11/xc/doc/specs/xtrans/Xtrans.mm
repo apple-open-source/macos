@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/specs/xtrans/Xtrans.mm,v 1.3 2003/11/16 16:40:19 herrb Exp $
 '\".nr Ej 1
 .PH "'''"
 .ce
@@ -25,7 +26,7 @@ OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
 NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .sp
-Copyright 1993, 1994 X Consortium
+Copyright 1993, 1994, 2002 The Open Group
 .sp  
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the ``Software''), to deal
@@ -40,15 +41,15 @@ all copies or substantial portions of the Software.
 THE SOFTWARE IS PROVIDED ``AS IS'', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
 AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 .sp
-Except as contained in this notice, the name of the X Consortium shall not be
+Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from the X Consortium.
+in this Software without prior written authorization from The Open Group.
 .sp
-X Window System is a trademark of X Consortium, Inc.
+X Window System is a trademark of The Open Group, Inc.
 .sp
 Designed by Stuart Anderson (NCR) with help from Ralph Mor (X Consortium)
 .sp
@@ -158,7 +159,8 @@ typedef struct _Xtransport {
 
     int	(*CreateListener)(
 	XtransConnInfo,		/* connection */
-	char *			/* port */
+	char *,			/* port */
+	int			/* flags */
     );
 
     int	(*ResetListener)(
@@ -322,7 +324,7 @@ This function return 0 on success and -1 on failure.
 Note: Based on current usage, the complimentary function TRANS(GetOption)()
 is not necessary.
 .LI
-int TRANS(CreateListener)(XtransConnInfo connection, char *port)
+int TRANS(CreateListener)(XtransConnInfo connection, char *port, int flags)
 .P
 This function sets up the server endpoint for listening.
 The parameter \fIconnection\fR is an endpoint that was obtained from
@@ -332,6 +334,10 @@ should be bound for listening.
 If \fIport\fR is NULL, then the transport may attempt to allocate any
 available TSAP for this connection. If the transport cannot support this,
 then this function will return a failure.
+The \fIflags\fR parameter can be set to ADDR_IN_USE_ALLOWED to allow
+the call to the underlying binding function to fail with a EADDRINUSE
+error without causing the TRANS(CreateListener) function itself to
+fail.
 This function return 0 on success and -1 on failure.
 .LI
 int TRANS(ResetListener)(XtransConnInfo connection)
@@ -554,12 +560,18 @@ is not being used, because all of the option defined so far, are transport
 independent. This function will have to be used if a radically different
 transport type is added, or a transport dependent option is defined.
 .LI
-int CreateListener (struct _Xtransport *thistrans, char *port )
+int CreateListener (struct _Xtransport *thistrans, char *port, int flags )
 .P
 This function takes a transport endpoint opened for a server, and sets it
 up to listen for incoming connection requests. The parameter \fIport\fR
 should contain the port portion of the address that was passed to the Open
 function.
+.P
+The parameter \fIflags\fR should be set to ADDR_IN_USE_ALLOWED if the 
+underlying transport endpoint may be already bound and this should not
+be considered as an error. Otherwise \fIflags\fR sould be set to 0. 
+This is used by IPv6 code, where the same socket can be bound to both
+an IPv6 address and then to a IPv4 address.
 .P
 This function will bind the transport into the transport name space if
 applicable, and fill in the local address portion of the XtransConnInfo
@@ -627,7 +639,8 @@ or site.def config files.
 .TS
 center;
 l l .
-TCPCONN	Enables the INET Domain Socket based transport
+TCPCONN	Enables the INET (IPv4) Domain Socket based transport
+IPv6	Extends TCPCONN to enable IPv6 Socket based transport
 UNIXCONN	Enables the UNIX Domain Sokcet based transport
 STREAMSCONN	Enables the TLI based transports
 LOCALCONN	Enables the SYSV Local connection transports
@@ -646,6 +659,8 @@ Family	protocol	host	port
 =
 Internet	T{
 inet
+.br
+inet6
 .br
 tcp
 .br
@@ -770,5 +785,5 @@ T}
 .P
 The file \fIXtransint.h\fR contains much of the transport related code that
 previously in Xlibint.h and Xlibnet.h. This will make the definitions
-available for all transport users. This should also obsolete the equivilent
+available for all transport users. This should also obsolete the equivalent
 code in other libraries.

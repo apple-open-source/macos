@@ -30,6 +30,7 @@ Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "annotate.h"
 #include "ada-lang.h"
 #include "c-lang.h"
+#include "infcall.h"
 
 /* Encapsulates arguments to ada_val_print. */
 struct ada_val_print_args
@@ -44,9 +45,6 @@ struct ada_val_print_args
   int recurse;
   enum val_prettyprint pretty;
 };
-
-extern int inspect_it;
-extern unsigned int repeat_count_threshold;
 
 static void print_record (struct type *, char *, struct ui_file *, int,
 			  int, enum val_prettyprint);
@@ -744,9 +742,11 @@ ada_val_print_1 (struct type *type, char *valaddr0, int embedded_offset,
       if (addressprint)
 	{
 	  fprintf_filtered (stream, "@");
+	  /* Extract an address, assume that the address is unsigned.  */
 	  print_address_numeric
-	    (extract_address (valaddr,
-			      TARGET_PTR_BIT / HOST_CHAR_BIT), 1, stream);
+	    (extract_unsigned_integer (valaddr,
+				       TARGET_PTR_BIT / HOST_CHAR_BIT),
+	     1, stream);
 	  if (deref_ref)
 	    fputs_filtered (": ", stream);
 	}

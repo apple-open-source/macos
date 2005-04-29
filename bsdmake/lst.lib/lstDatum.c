@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstDatum.c,v 1.6 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -54,21 +53,21 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstDatum.c,v 1.6 2000/07/09 00:08:47
  *	Return the datum stored in the given node.
  *
  * Results:
- *	The datum or (ick!) NIL if the node is invalid.
+ *	The datum or (ick!) NULL if the node is invalid.
  *
  * Side Effects:
  *	None.
  *
  *-----------------------------------------------------------------------
  */
-ClientData
+void *
 Lst_Datum (ln)
     LstNode	ln;
 {
-    if (ln != NILLNODE) {
+    if (ln != NULL) {
 	return (((ListNode)ln)->datum);
     } else {
-	return ((ClientData) NIL);
+	return ((void *) NULL);
     }
 }
 

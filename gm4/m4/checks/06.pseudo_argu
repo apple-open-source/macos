@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1027: Origin of test
+dnl ../doc/m4.texinfo:1028: Origin of test
 define(`nargs', `$#')
 dnl @result{}
 nargs

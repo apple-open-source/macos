@@ -1,15 +1,47 @@
-/* APPLE LOCAL file pointer casts */
-/* Verify that offsetof warns if given a non-POD */
-/* Author: Matt Austern <austern@apple.com> */
-/* { dg-do compile } */
+// { dg-do run }
+// { dg-options -Wold-style-cast }
 
-struct X
+// Copyright (C) 2003 Free Software Foundation, Inc.
+// Contributed by Nathan Sidwell 22 Apr 2003 <nathan@codesourcery.com>
+
+// DR273 POD can have an operator&, offsetof is still required to work
+
+#include <stddef.h>
+
+struct POD1
 {
-  X() : x(3), y(4) { }
-  int x, y;
+  int m;
+  
+  void *operator& () const {return 0;} // yes, still a pod!
 };
 
-typedef X* pX;
+struct POD2 
+{
+  int m;
+};
 
-int yoff = int(&(pX(0)->y)); /* { dg-warning "invalid access" "" } */
-/* { dg-warning "macro was used incorrectly" "" { target *-*-* } 14 } */
+void *operator& (POD2 const &) {return 0;} // ouch!
+
+struct POD3 
+{
+  int prefix;
+  
+  POD1 m;
+};
+
+struct POD4
+{
+  int prefix;
+  
+  POD1 m;
+};
+
+int main ()
+{
+  if (offsetof (POD3, m) != sizeof (int))
+    return 1;
+  if (offsetof (POD4, m) != sizeof (int))
+    return 2;
+  return 0;
+}
+

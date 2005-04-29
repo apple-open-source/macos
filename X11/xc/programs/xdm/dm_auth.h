@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/xdm/dm_auth.h,v 1.2 2000/05/31 07:15:11 eich Exp $
+ * $XFree86: xc/programs/xdm/dm_auth.h,v 1.4 2003/10/27 21:39:06 herrb Exp $
  */
 
 /************************************************************
@@ -50,6 +50,9 @@ extern void	XdmGetXdmcpAuth (
     struct protoDisplay	*pdpy,
     unsigned short	authorizationNameLen,
     char		*authorizationName);
+extern int XdmCheckAuthentication (struct protoDisplay *pdpy, 
+    ARRAY8Ptr displayID, ARRAY8Ptr authenticationName, 
+    ARRAY8Ptr authenticationData);
 #else
 #define XdmGetXdmcpAuth NULL
 #endif
@@ -87,6 +90,14 @@ extern void SetLocalAuthorization (struct display *d);
 extern void SetUserAuthorization (struct display *d, struct verify_info *verify);
 
 /* genauth.c */
-extern void GenerateAuthData (char *auth, int len);
+extern int GenerateAuthData (char *auth, int len);
+#if !defined(ARC4_RANDOM)
+extern void AddPreGetEntropy (void);
+extern void AddOtherEntropy (void);
+extern void AddTimerEntropy (void);
+#endif
+
+/* prngc.c */
+extern int get_prngd_bytes(char *, int, unsigned short, char *);
 
 #endif /* _DM_AUTH_H_ */

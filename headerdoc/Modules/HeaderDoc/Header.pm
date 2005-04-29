@@ -4,22 +4,28 @@
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2003/07/29 19:17:32 $
+# Last Updated: $Date: 2004/10/04 23:11:19 $
 # 
-# Copyright (c) 1999-2001 Apple Computer, Inc.  All Rights Reserved.
-# The contents of this file constitute Original Code as defined in and are
-# subject to the Apple Public Source License Version 1.1 (the "License").
-# You may not use this file except in compliance with the License.  Please
-# obtain a copy of the License at http://www.apple.com/publicsource and
-# read it before using this file.
+# Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
-# This Original Code and all software distributed under the License are
-# distributed on an TAS ISU basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the License for
-# the specific language governing rights and limitations under the
-# License.
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
 package HeaderDoc::Header;
@@ -30,19 +36,19 @@ BEGIN {
     }
 }
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash sanitize);
 use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '1.20';
+$VERSION = '$Revision: 1.11.2.9.2.20 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
 ################ Portability ###################################
 my $isMacOS;
 my $pathSeparator;
-if ($^O =~ /MacOS/i) {
+if ($^O =~ /MacOS/io) {
 	$pathSeparator = ":";
 	$isMacOS = 1;
 } else {
@@ -72,15 +78,16 @@ sub _initialize {
     $self->SUPER::_initialize();
 
     $self->{CLASSES} = ();
-    $self->{CLASSESDIR} = undef;
-    $self->{UPDATED}= undef;
+    # $self->{CLASSESDIR} = undef;
+    # $self->{UPDATED}= undef;
     $self->{COPYRIGHT}= "";
     $self->{HTMLMETA}= "";
     $self->{CATEGORIES}= ();
-    $self->{CATEGORIESDIR} = undef;
+    # $self->{CATEGORIESDIR} = undef;
     $self->{PROTOCOLS}= ();
-    $self->{PROTOCOLSDIR} = undef;
-    $self->{CURRENTCLASS} = undef;
+    # $self->{PROTOCOLSDIR} = undef;
+    # $self->{CURRENTCLASS} = undef;
+    $self->{CLASS} = "HeaderDoc::Header";
     
     $self->tocTitlePrefix('Header:');
 }
@@ -125,27 +132,6 @@ sub classes {
         @{ $self->{CLASSES} } = @_;
     }
     ($self->{CLASSES}) ? return @{ $self->{CLASSES} } : return ();
-}
-
-sub currentClass {
-    my $self = shift;
-
-    if (@_) {
-        @{ $self->{CURRENTCLASS} } = @_;
-    }
-    return @{ $self->{CURRENTCLASS} };
-}
-
-sub addToClasses {
-    my $self = shift;
-
-    if (@_) {
-        foreach my $item (@_) {
-            $self->currentClass($item);
-            push (@{ $self->{CLASSES} }, $item);
-        }
-    }
-    return @{ $self->{CLASSES} };
 }
 
 sub protocolsDir {
@@ -207,17 +193,19 @@ sub updated {
 	$month = $day = $year = $updated;
 
 	print "updated is $updated\n" if ($localDebug);
-	if (!($updated =~ /\d\d\d\d-\d\d-\d\d/ )) {
-	    if (!($updated =~ /\d\d-\d\d-\d\d\d\d/ )) {
-		if (!($updated =~ /\d\d-\d\d-\d\d/ )) {
-		    my $filename = $HeaderDoc::headerObject->filename();
-		    print "$filename:0:Bogus date format: $updated.\n";
+	if (!($updated =~ /\d\d\d\d-\d\d-\d\d/o )) {
+	    if (!($updated =~ /\d\d-\d\d-\d\d\d\d/o )) {
+		if (!($updated =~ /\d\d-\d\d-\d\d/o )) {
+		    # my $filename = $HeaderDoc::headerObject->filename();
+		    my $filename = $self->filename();
+		    my $linenum = $self->linenum();
+		    print "$filename:$linenum:Bogus date format: $updated.\n";
 		    print "Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		    return $self->{UPDATED};
 		} else {
-		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smg;
-		    $day =~ s/\d\d-(\d\d)-\d\d/$1/smg;
-		    $year =~ s/\d\d-\d\d-(\d\d)/$1/smg;
+		    $month =~ s/(\d\d)-\d\d-\d\d/$1/smog;
+		    $day =~ s/\d\d-(\d\d)-\d\d/$1/smog;
+		    $year =~ s/\d\d-\d\d-(\d\d)/$1/smog;
 
 		    my $century;
 		    $century = `date +%C`;
@@ -228,21 +216,21 @@ sub updated {
 		}
 	    } else {
 		print "03-25-2003 case.\n" if ($localDebug);
-		    $month =~ s/(\d\d)-\d\d-\d\d\d\d/$1/smg;
-		    $day =~ s/\d\d-(\d\d)-\d\d\d\d/$1/smg;
-		    $year =~ s/\d\d-\d\d-(\d\d\d\d)/$1/smg;
+		    $month =~ s/(\d\d)-\d\d-\d\d\d\d/$1/smog;
+		    $day =~ s/\d\d-(\d\d)-\d\d\d\d/$1/smog;
+		    $year =~ s/\d\d-\d\d-(\d\d\d\d)/$1/smog;
 	    }
 	} else {
-		    $year =~ s/(\d\d\d\d)-\d\d-\d\d/$1/smg;
-		    $month =~ s/\d\d\d\d-(\d\d)-\d\d/$1/smg;
-		    $day =~ s/\d\d\d\d-\d\d-(\d\d)/$1/smg;
+		    $year =~ s/(\d\d\d\d)-\d\d-\d\d/$1/smog;
+		    $month =~ s/\d\d\d\d-(\d\d)-\d\d/$1/smog;
+		    $day =~ s/\d\d\d\d-\d\d-(\d\d)/$1/smog;
 	}
-	$month =~ s/\n*//smg;
-	$day =~ s/\n*//smg;
-	$year =~ s/\n*//smg;
-	$month =~ s/\s*//smg;
-	$day =~ s/\s*//smg;
-	$year =~ s/\s*//smg;
+	$month =~ s/\n*//smog;
+	$day =~ s/\n*//smog;
+	$year =~ s/\n*//smog;
+	$month =~ s/\s*//smog;
+	$day =~ s/\s*//smog;
+	$year =~ s/\s*//smog;
 
 	# Check the validity of the modification date
 
@@ -272,12 +260,14 @@ sub updated {
 	if ($year < 1970) { $invalid = 1; }
 
 	if ($invalid) {
-		my $filename = $HeaderDoc::headerObject->filename();
-		print "$filename:0:Invalid date (year = $year, month = $month, day = $day).\n";
-		print "$filename:0:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
+		# my $filename = $HeaderDoc::headerObject->filename();
+		my $filename = $self->filename();
+		my $linenum = $self->linenum();
+		print "$filename:$linenum:Invalid date (year = $year, month = $month, day = $day).\n";
+		print "$filename:$linenum:Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} = "$year-$month-$day";
+		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month, $day, $year);
 		print "date set to ".$self->{UPDATED}."\n" if ($localDebug);
 	}
     }
@@ -347,26 +337,31 @@ sub HTMLmeta {
     if (@_) {
 	my $text = shift;
 
-	if ($text =~ /=/) {
+	if ($text =~ /=/o) {
 		# @meta blah="blah" this="that"
 		#    becomes
 		# <meta blah="blah" this="that">
-		$text =~ s/\n.*//smg;
+		$text =~ s/\n.*//smog;
 		$self->{HTMLMETA} .= "<meta $text>\n";
 	} else {
 		# @meta nameparm contentparm
 		#    becomes
 		# <meta name="nameparm" content="contentparm">
-		$text =~ /^(.*?)\s/;
+		$text =~ /^(.*?)\s/o;
 		my $name = $1;
 		$text =~ s/^$name\s+//;
-		$text =~ s/\n.*//smg;
+		$text =~ s/\n.*//smog;
 
 		$self->{HTMLMETA} .= "<meta name=\"$name\" content=\"$text\">\n";
 	}
     }
-    
-    return $self->{HTMLMETA};
+
+    my $extendedmeta = $self->{HTMLMETA};
+    my $encoding = $self->encoding();
+
+    $extendedmeta .= "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=$encoding\">\n";
+
+    return $extendedmeta;
 }
 
 sub metaFileText {
@@ -384,16 +379,14 @@ sub metaFileText {
 	$text .= "<string>$title HeaderDoc Reference</string>\n";
     }
     $text .= "<key>WriterEmail</key>\n";
-    $text .= "<key>techpubs\@group.apple.com</key>\n";
-    $text .= "<key>ProductionEmail</key>\n";
-    $text .= "<key></key>\n";
+    $text .= "<string>techpubs\@group.apple.com</string>\n";
     $text .= "<key>EDD_Name</key>\n";
     $text .= "<string>ProceduralC.EDD</string>\n";
     $text .= "<key>EDD_Version</key>\n";
     $text .= "<string>3.31</string>\n";
     $text .= "<key>ReleaseDateFooter</key>\n";
     my $date = `date +"%B %Y"`;
-    $date =~ s/\n//smg;
+    $date =~ s/\n//smog;
     $text .= "<string>$date</string>\n";
     $text .= "</dict>\n";
     $text .= "</plist>\n";
@@ -452,35 +445,24 @@ sub writeHeaderElementsToCompositePage {
     }
 }
 
-sub writeClasses {
-    my $self = shift;
-    my @classObjs = $self->classes();
-    my $classRootDir = $self->classesDir();
-        
-    foreach my $obj (sort objName @classObjs) {
-        my $className = $obj->name();
-        # for now, always shorten long names since some files may be moved to a Mac for browsing
-        if (1 || $isMacOS) {$className = &safeName(filename => $className);};
-        $obj->outputDir("$classRootDir$pathSeparator$className");
-        $obj->createFramesetFile();
-        $obj->createContentFile();
-        $obj->createTOCFile();
-        $obj->writeHeaderElements(); 
-    }
-}
-
 sub writeProtocols {
     my $self = shift;
     my @protocolObjs = $self->protocols();
     my $protocolsRootDir = $self->protocolsDir();
         
-    foreach my $obj (sort objName @protocolObjs) {
+    my @tempobjs = ();
+    if ($HeaderDoc::sort_entries) {
+	@tempobjs = sort objName @protocolObjs;
+    } else {
+	@tempobjs = @protocolObjs;
+    }
+    foreach my $obj (@tempobjs) {
         my $protocolName = $obj->name();
         # for now, always shorten long names since some files may be moved to a Mac for browsing
         if (1 || $isMacOS) {$protocolName = &safeName(filename => $protocolName);};
         $obj->outputDir("$protocolsRootDir$pathSeparator$protocolName");
         $obj->createFramesetFile();
-        $obj->createContentFile();
+        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
         $obj->createTOCFile();
         $obj->writeHeaderElements(); 
     }
@@ -491,129 +473,49 @@ sub writeCategories {
     my @categoryObjs = $self->categories();
     my $categoriesRootDir = $self->categoriesDir();
         
-    foreach my $obj (sort objName @categoryObjs) {
+    my @tempobjs = ();
+    if ($HeaderDoc::sort_entries) {
+	@tempobjs = sort objName @categoryObjs;
+    } else {
+	@tempobjs = @categoryObjs;
+    }
+    foreach my $obj (@tempobjs) {
         my $categoryName = $obj->name();
         # for now, always shorten long names since some files may be moved to a Mac for browsing
         if (1 || $isMacOS) {$categoryName = &safeName(filename => $categoryName);};
         $obj->outputDir("$categoriesRootDir$pathSeparator$categoryName");
         $obj->createFramesetFile();
-        $obj->createContentFile();
+        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
         $obj->createTOCFile();
         $obj->writeHeaderElements(); 
     }
 }
 
-sub createTOCFile {
-    my $self = shift;
-    my $rootDir = $self->outputDir();
-    my $tocTitlePrefix = $self->tocTitlePrefix();
-    my $outputFileName = "toc.html";    
-    my $outputFile = "$rootDir$pathSeparator$outputFileName";    
-    my $fileString = $self->tocString();    
-    my $name = $self->name();    
-    my $filename = $self->filename();    
-
-	open(OUTFILE, ">$outputFile") || die "Can't write $outputFile.\n$!\n";
-    if ($isMacOS) {MacPerl::SetFileInfo('MSIE', 'TEXT', "$outputFile");};
-	print OUTFILE "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.0 Transitional//EN\"\n    \"http://www.w3.org/TR/1998/REC-html40-19980424/loose.dtd\">\n";
-	print OUTFILE "<html>";
-	print OUTFILE "<style type=\"text/css\">";
-	print OUTFILE "<!--";
-	print OUTFILE "a:link {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
-	print OUTFILE "a:visited {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
-	print OUTFILE "a:active {text-decoration: none; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
-	print OUTFILE "a:hover {text-decoration: underline; font-family: Verdana, Geneva, Helvetica, Arial, sans-serif; font-size: small}";
-	print OUTFILE "h4 {text-decoration: none; font-family: Verdana,Geneva,Arial,Helvetica,sans-serif; size: tiny; font-weight: bold}"; # bold
-	print OUTFILE "-->";
-	print OUTFILE "</style>";
-	print OUTFILE "<head>\n    <title>Documentation for $name</title>\n	<meta name=\"generator\" content=\"HeaderDoc\">\n</head>\n";
-	print OUTFILE "<body bgcolor=\"#cccccc\" link=\"#000099\" vlink=\"#660066\"\n";
-	print OUTFILE "leftmargin=\"0\" topmargin=\"0\" marginwidth=\"1\"\n";
-	print OUTFILE "marginheight=\"0\">\n";
-
-	print OUTFILE "<table width=\"100%\">";
-	print OUTFILE "<tr bgcolor=\"#999999\"><td>&nbsp;</td></tr>";
-	print OUTFILE "</table><br>";
-
-	print OUTFILE "<table border=\"0\" cellpadding=\"0\" cellspacing=\"2\" width=\"148\">\n";
-	print OUTFILE "<tr><td colspan=\"2\"><font size=\"5\" color=\"#330066\"><b>$tocTitlePrefix</b></font></td></tr>\n";
-	print OUTFILE "<tr><td width=\"15\"></td><td><b><font size=\"+1\">$filename</font></b></td></tr>\n";
-	print OUTFILE "</table><br>\n";
-	print OUTFILE $fileString;
-	print OUTFILE "</body></html>\n";
-	close OUTFILE;
-}
-
-sub tocString {
-    my $self = shift;
-    my @classes = $self->classes();
-    my @protocols = $self->protocols();
-    my @categories = $self->categories();
-	my $compositePageName = HeaderDoc::APIOwner->compositePageName();
-	my $defaultFrameName = HeaderDoc::APIOwner->defaultFrameName();
-    
-    my $tocString = $self->SUPER::tocString();
-
-    if (@classes) {
-	    $tocString .= "<h4>Classes</h4>\n";
-	    foreach my $obj (sort objName @classes) {
-	        my $name = $obj->name();
-	        my $safeName = $name;
-	        # for now, always shorten long names since some files may be moved to a Mac for browsing
-            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href=\"Classes/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
-	    }
-    }
-    if (@protocols) {
-	    $tocString .= "<h4>Protocols</h4>\n";
-	    foreach my $obj (sort objName @protocols) {
-	        my $name = $obj->name();
-	        my $safeName = $name;
-	        # for now, always shorten long names since some files may be moved to a Mac for browsing
-            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href=\"Protocols/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
-	    }
-    }
-    if (@categories) {
-	    $tocString .= "<h4>Categories</h4>\n";
-	    foreach my $obj (sort objName @categories) {
-	        my $name = $obj->name();
-	        my $safeName = $name;
-	        # for now, always shorten long names since some files may be moved to a Mac for browsing
-            if (1 || $isMacOS) {$safeName = &safeName(filename => $name);};
-	        $tocString .= "<nobr>&nbsp;<a href=\"Categories/$safeName/$defaultFrameName\" target=\"_top\">$name</a></nobr><br>\n";
-	    }
-    }
-    $tocString .= "<br><hr><a href=\"$compositePageName\" target=\"_blank\">[Printable HTML Page]</a>\n";
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    if (length($updated)) {
-	$tocString .= "<p><i>Availability: $availability</i><p>";
-    }
-    if (length($updated)) {
-	$tocString .= "<p><i>Updated: $updated</i><p>";
-    }
-    return $tocString;
-}
 
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
+    $name =~ s/;//sgo;
+    my $shortname = $self->filename();
+    $shortname =~ s/\.hdoc$//so;
+    $shortname = sanitize($shortname);
     
-    return "<!-- headerDoc=Header; name=$name-->";
+    if ($self->isFramework()) {
+	# Don't insert a UID.  It will go on the landing page.
+	return "<!-- headerDoc=Framework; shortname=$shortname; name=$name-->";
+    } else {
+	# return "<!-- headerDoc=Header; name=$name-->";
+	return $self->apiref(0, "Header");
+    }
 }
 
 ################## Misc Functions ###################################
 
 
 sub objName { # used for sorting
-   my $obj1 = $a;
-   my $obj2 = $b;
-   if ($HeaderDoc::sort_entries) {
-        return ($obj1->name() cmp $obj2->name());
-   } else {
-        return (1 cmp 2);
-   }
+    my $obj1 = $a;
+    my $obj2 = $b;
+    return (lc($obj1->name()) cmp lc($obj2->name()));
 }
 
 ##################### Debugging ####################################

@@ -28,7 +28,7 @@
  */
 
 #include "CFile.h"
-#include "DirServicesTypes.h"	// for eDSNoErr
+#include "PrivateTypes.h"		// for eDSNoErr
 #include <stdio.h>				// for statfs() and structs
 #include <stdlib.h>				// for malloc()
 #include <string.h>				// for strlen()
@@ -53,7 +53,8 @@ CFile::CFile ( void ) throw()
 		fReadPos( 0 ),
 		fWritePos( 0 ),
 		fReadPosOK( false ),
-		fWritePosOK( false )
+		fWritePosOK( false ),
+		fWroteData( false )
 {
 } // CFile
 
@@ -71,7 +72,8 @@ CFile::CFile (	const char *inFilePath, const Boolean inCreate, const Boolean inR
 		fReadPos( 0 ),
 		fWritePos( 0 ),
 		fReadPosOK( false ),
-		fWritePosOK( false )
+		fWritePosOK( false ),
+		fWroteData( false )
 {
 	this->open( inFilePath, inCreate );
 } // CFile
@@ -106,7 +108,7 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 	
 	if ( inCreate == true )
 	{
-		if ( ::stat( inFilePath, &fStatStruct) != -1 )
+		if ( ::stat( inFilePath, &fStatStruct ) != -1 )
 		{
 			// file already exists, open it for read/write
 			if ( kBadFileRef != (aFileRef = ::fopen( inFilePath, "r+" )) )
@@ -119,15 +121,17 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 			// file does not exist, create it and open for read/write
 			if ( kBadFileRef != (aFileRef = ::fopen( inFilePath, "w+" )) )
 			{
+				::stat( inFilePath, &fStatStruct );
 				::rewind( aFileRef );
 			}
 		}
 	}
 	else
 	{
-		aFileRef = ::fopen( inFilePath, "r+" );
+		if ( ::stat( inFilePath, &fStatStruct ) != -1 )
+			aFileRef = ::fopen( inFilePath, "r+" );
 	}
-
+	
 	if ( fFilePath != nil )
 	{
 		if ( ::strcmp( fFilePath, inFilePath ) == 0 )
@@ -160,13 +164,9 @@ void CFile::open ( const char *inFilePath, const Boolean inCreate )	throw ( OSEr
 
 	if ( kBadFileRef == aFileRef )
 	{
-		if ( errno == ENOENT )
-		{
-			throw( (OSErr)ds_fnfErr );
-		}
-		throw( (OSErr) ds_permErr );
+		return;
 	}
-
+	
 	fFileRef	= aFileRef;
 	fReadPos	= 0;
 	fWritePos	= 0;
@@ -221,8 +221,15 @@ void CFile::close ( void ) throw ( OSErr )
 	}
 
 	::fflush( fFileRef );
+	
+	// only sync if we've written data
+	if( fWroteData )
+	{
+		::fsync( fileno(fFileRef) );
+		fWroteData = false;
+	}
 	::fclose( fFileRef );
-
+	
 	fFileRef = kBadFileRef;
 	this->syncdisk();
 
@@ -373,6 +380,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 		{
 			throw( (OSErr) ds_writErr );
 		}
+		fWroteData = true;
 		::fflush( fFileRef );
 
 		if ( fRollLog == true )
@@ -444,6 +452,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 							free( pBuff_2 );
 							throw( (OSErr)ds_writErr );
 						}
+						fWroteData = true;
 						::fflush( fFileRef );
 
 						free( pBuff_1 );
@@ -468,6 +477,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 							free( pBuff_2 );
 							throw( (OSErr)ds_writErr );
 						}
+						fWroteData = true;
 						::fflush( fFileRef );
 					}
 				}
@@ -487,6 +497,7 @@ CFile& CFile::write ( const void *pData, streamsize nBytes ) throw ( OSErr )
 					free( pBuff_2 );
 					throw( (OSErr)ds_writErr );
 				}
+				fWroteData = true;
 				::fflush( fFileRef );
 
 				// Free up the memory
@@ -692,7 +703,7 @@ CFile& CFile::seekp ( sInt64 lOffset, ios::seekdir inMark ) throw ( OSErr )
 
 void CFile::syncdisk ( void ) const throw()
 {
-	::sync ();
+	// sync() blocks RAIDs, switch to fsyncs before closing the file
 } // syncdisk
 
 

@@ -35,8 +35,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)make.h	8.3 (Berkeley) 6/13/95
- * $FreeBSD: src/usr.bin/make/make.h,v 1.13 2000/05/14 22:24:28 will Exp $
+ *	@(#)make.h	8.3 (Berkeley) 6/13/95
+ * $FreeBSD: src/usr.bin/make/make.h,v 1.24 2004/07/20 07:42:06 harti Exp $
  */
 
 /*-
@@ -45,37 +45,15 @@
  */
 
 #ifndef _MAKE_H_
-#define _MAKE_H_
+#define	_MAKE_H_
 
 #include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
-#if !defined(MAKE_BOOTSTRAP) && defined(BSD4_4)
-# include <sys/cdefs.h>
-#else
-# ifndef __P
-#  if defined(__STDC__) || defined(__cplusplus)
-#   define	__P(protos)	protos		/* full-blown ANSI C */
-#  else
-#   define	__P(protos)	()		/* traditional C preprocessor */
-#  endif
-# endif
-# ifndef __STDC__
-#  ifndef const
-#   define const
-#  endif
-#  ifndef volatile
-#   define volatile
-#  endif
-# endif
-#endif
-
-#ifdef __STDC__
 #include <stdlib.h>
 #include <unistd.h>
-#endif
 #include "sprite.h"
 #include "lst.h"
 #include "config.h"
@@ -85,7 +63,7 @@
  * The structure for an individual graph node. Each node has several
  * pieces of data associated with it.
  *	1) the name of the target it describes
- *	2) the location of the target file in the file system.
+ *	2) the location of the target file in the filesystem.
  *	3) the type of operator used to define its sources (qv. parse.c)
  *	4) whether it is involved in this invocation of make
  *	5) whether the target has been remade
@@ -163,10 +141,20 @@ typedef struct GNode {
 				 * but the Suff module) */
 } GNode;
 
+
 /*
- * Manifest constants
+ * Definitions for handling #include specifications
  */
-#define NILGNODE	((GNode *) NIL)
+typedef struct {
+    char *str;
+    char *ptr;
+} PTR;
+typedef struct IFile {
+    char            *fname;	    /* name of previous file */
+    int             lineno;	    /* saved line number */
+    FILE	    *F;		    /* the open stream */
+    PTR		    *p;	    	    /* the char pointer */
+} IFile;
 
 /*
  * The OP_ constants are used when parsing a dependency line as a way of
@@ -177,52 +165,52 @@ typedef struct GNode {
  * the lefthand side of an operator, though it may have been on the
  * righthand side...
  */
-#define OP_DEPENDS	0x00000001  /* Execution of commands depends on
+#define	OP_DEPENDS	0x00000001  /* Execution of commands depends on
 				     * kids (:) */
-#define OP_FORCE	0x00000002  /* Always execute commands (!) */
-#define OP_DOUBLEDEP	0x00000004  /* Execution of commands depends on kids
+#define	OP_FORCE	0x00000002  /* Always execute commands (!) */
+#define	OP_DOUBLEDEP	0x00000004  /* Execution of commands depends on kids
 				     * per line (::) */
-#define OP_OPMASK	(OP_DEPENDS|OP_FORCE|OP_DOUBLEDEP)
+#define	OP_OPMASK	(OP_DEPENDS|OP_FORCE|OP_DOUBLEDEP)
 
-#define OP_OPTIONAL	0x00000008  /* Don't care if the target doesn't
+#define	OP_OPTIONAL	0x00000008  /* Don't care if the target doesn't
 				     * exist and can't be created */
-#define OP_USE		0x00000010  /* Use associated commands for parents */
-#define OP_EXEC	  	0x00000020  /* Target is never out of date, but always
+#define	OP_USE		0x00000010  /* Use associated commands for parents */
+#define	OP_EXEC	  	0x00000020  /* Target is never out of date, but always
 				     * execute commands anyway. Its time
 				     * doesn't matter, so it has none...sort
 				     * of */
-#define OP_IGNORE	0x00000040  /* Ignore errors when creating the node */
-#define OP_PRECIOUS	0x00000080  /* Don't remove the target when
+#define	OP_IGNORE	0x00000040  /* Ignore errors when creating the node */
+#define	OP_PRECIOUS	0x00000080  /* Don't remove the target when
 				     * interrupted */
-#define OP_SILENT	0x00000100  /* Don't echo commands when executed */
-#define OP_MAKE		0x00000200  /* Target is a recurrsive make so its
+#define	OP_SILENT	0x00000100  /* Don't echo commands when executed */
+#define	OP_MAKE		0x00000200  /* Target is a recurrsive make so its
 				     * commands should always be executed when
 				     * it is out of date, regardless of the
 				     * state of the -n or -t flags */
-#define OP_JOIN 	0x00000400  /* Target is out-of-date only if any of its
+#define	OP_JOIN 	0x00000400  /* Target is out-of-date only if any of its
 				     * children was out-of-date */
-#define OP_INVISIBLE	0x00004000  /* The node is invisible to its parents.
+#define	OP_INVISIBLE	0x00004000  /* The node is invisible to its parents.
 				     * I.e. it doesn't show up in the parents's
 				     * local variables. */
-#define OP_NOTMAIN	0x00008000  /* The node is exempt from normal 'main
+#define	OP_NOTMAIN	0x00008000  /* The node is exempt from normal 'main
 				     * target' processing in parse.c */
-#define OP_PHONY	0x00010000  /* Not a file target; run always */
+#define	OP_PHONY	0x00010000  /* Not a file target; run always */
 /* Attributes applied by PMake */
-#define OP_TRANSFORM	0x80000000  /* The node is a transformation rule */
-#define OP_MEMBER 	0x40000000  /* Target is a member of an archive */
-#define OP_LIB	  	0x20000000  /* Target is a library */
-#define OP_ARCHV  	0x10000000  /* Target is an archive construct */
-#define OP_HAS_COMMANDS	0x08000000  /* Target has all the commands it should.
+#define	OP_TRANSFORM	0x80000000  /* The node is a transformation rule */
+#define	OP_MEMBER 	0x40000000  /* Target is a member of an archive */
+#define	OP_LIB	  	0x20000000  /* Target is a library */
+#define	OP_ARCHV  	0x10000000  /* Target is an archive construct */
+#define	OP_HAS_COMMANDS	0x08000000  /* Target has all the commands it should.
 				     * Used when parsing to catch multiple
 				     * commands for a target */
-#define OP_SAVE_CMDS	0x04000000  /* Saving commands on .END (Compat) */
-#define OP_DEPS_FOUND	0x02000000  /* Already processed by Suff_FindDeps */
+#define	OP_SAVE_CMDS	0x04000000  /* Saving commands on .END (Compat) */
+#define	OP_DEPS_FOUND	0x02000000  /* Already processed by Suff_FindDeps */
 
 /*
  * OP_NOP will return TRUE if the node with the given type was not the
  * object of a dependency operator
  */
-#define OP_NOP(t)	(((t) & OP_OPMASK) == 0x00000000)
+#define	OP_NOP(t)	(((t) & OP_OPMASK) == 0x00000000)
 
 /*
  * The TARG_ constants are used when calling the Targ_FindNode and
@@ -230,10 +218,10 @@ typedef struct GNode {
  * do if the desired node(s) is (are) not found. If the TARG_CREATE constant
  * is given, a new, empty node will be created for the target, placed in the
  * table of all targets and its address returned. If TARG_NOCREATE is given,
- * a NIL pointer will be returned.
+ * a NULL pointer will be returned.
  */
-#define TARG_CREATE	0x01	  /* create node if not found */
-#define TARG_NOCREATE	0x00	  /* don't create it */
+#define	TARG_CREATE	0x01	  /* create node if not found */
+#define	TARG_NOCREATE	0x00	  /* don't create it */
 
 /*
  * There are several places where expandable buffers are used (parse.c and
@@ -244,7 +232,7 @@ typedef struct GNode {
  * case, it ought to be a power of two simply because most storage allocation
  * schemes allocate in powers of two.
  */
-#define MAKE_BSIZE		256	/* starting size for expandable buffers */
+#define	MAKE_BSIZE		256	/* starting size for expandable buffers */
 
 /*
  * These constants are all used by the Str_Concat function to decide how the
@@ -255,42 +243,42 @@ typedef struct GNode {
  * STR_DOFREE bit is set, the two input strings will be freed before
  * Str_Concat returns.
  */
-#define STR_ADDSPACE	0x01	/* add a space when Str_Concat'ing */
-#define STR_DOFREE	0x02	/* free source strings after concatenation */
-#define STR_ADDSLASH	0x04	/* add a slash when Str_Concat'ing */
+#define	STR_ADDSPACE	0x01	/* add a space when Str_Concat'ing */
+#define	STR_DOFREE	0x02	/* free source strings after concatenation */
+#define	STR_ADDSLASH	0x04	/* add a slash when Str_Concat'ing */
 
 /*
  * Error levels for parsing. PARSE_FATAL means the process cannot continue
  * once the makefile has been parsed. PARSE_WARNING means it can. Passed
  * as the first argument to Parse_Error.
  */
-#define PARSE_WARNING	2
-#define PARSE_FATAL	1
+#define	PARSE_WARNING	2
+#define	PARSE_FATAL	1
 
 /*
  * Values returned by Cond_Eval.
  */
-#define COND_PARSE	0   	/* Parse the next lines */
-#define COND_SKIP 	1   	/* Skip the next lines */
-#define COND_INVALID	2   	/* Not a conditional statement */
+#define	COND_PARSE	0   	/* Parse the next lines */
+#define	COND_SKIP 	1   	/* Skip the next lines */
+#define	COND_INVALID	2   	/* Not a conditional statement */
 
 /*
  * Definitions for the "local" variables. Used only for clarity.
  */
-#define TARGET	  	  "@" 	/* Target of dependency */
-#define OODATE	  	  "?" 	/* All out-of-date sources */
-#define ALLSRC	  	  ">" 	/* All sources */
-#define IMPSRC	  	  "<" 	/* Source implied by transformation */
-#define PREFIX	  	  "*" 	/* Common prefix */
-#define ARCHIVE	  	  "!" 	/* Archive in "archive(member)" syntax */
-#define MEMBER	  	  "%" 	/* Member in "archive(member)" syntax */
+#define	TARGET	  	  "@" 	/* Target of dependency */
+#define	OODATE	  	  "?" 	/* All out-of-date sources */
+#define	ALLSRC	  	  ">" 	/* All sources */
+#define	IMPSRC	  	  "<" 	/* Source implied by transformation */
+#define	PREFIX	  	  "*" 	/* Common prefix */
+#define	ARCHIVE	  	  "!" 	/* Archive in "archive(member)" syntax */
+#define	MEMBER	  	  "%" 	/* Member in "archive(member)" syntax */
 
-#define FTARGET           "@F"  /* file part of TARGET */
-#define DTARGET           "@D"  /* directory part of TARGET */
-#define FIMPSRC           "<F"  /* file part of IMPSRC */
-#define DIMPSRC           "<D"  /* directory part of IMPSRC */
-#define FPREFIX           "*F"  /* file part of PREFIX */
-#define DPREFIX           "*D"  /* directory part of PREFIX */
+#define	FTARGET           "@F"  /* file part of TARGET */
+#define	DTARGET           "@D"  /* directory part of TARGET */
+#define	FIMPSRC           "<F"  /* file part of IMPSRC */
+#define	DIMPSRC           "<D"  /* directory part of IMPSRC */
+#define	FPREFIX           "*F"  /* file part of PREFIX */
+#define	DPREFIX           "*D"  /* directory part of PREFIX */
 
 /*
  * Global Variables
@@ -300,7 +288,11 @@ extern Lst  	create;	    	/* The list of target names specified on the
 				 * make(...) statements */
 extern Lst     	dirSearchPath; 	/* The list of directories to search when
 				 * looking for targets */
+extern IFile	curFile;	/* current makefile */
+extern Lst	parseIncPath;	/* The list of directories to search when
+				 * looking for includes */
 
+extern Boolean	jobsRunning;	/* True if jobs are running */
 extern Boolean	compatMake;	/* True if we are make compatible */
 extern Boolean	ignoreErrors;  	/* True if should ignore all errors */
 extern Boolean  beSilent;    	/* True if should print no commands */
@@ -359,17 +351,20 @@ extern int debug;
 #define	DEBUG_SUFF	0x0080
 #define	DEBUG_TARG	0x0100
 #define	DEBUG_VAR	0x0200
-#define DEBUG_FOR	0x0400
-#define DEBUG_LOUD	0x0800
+#define	DEBUG_FOR	0x0400
+#define	DEBUG_LOUD	0x0800
 
-#ifdef __STDC__
-#define CONCAT(a,b)	a##b
-#else
-#define I(a)	  	a
-#define CONCAT(a,b)	I(a)b
-#endif /* __STDC__ */
+#define	CONCAT(a,b)	a##b
 
 #define	DEBUG(module)	(debug & CONCAT(DEBUG_,module))
+#define	DEBUGF(module,args)		\
+do {						\
+	if (DEBUG(module)) {			\
+		Debug args ;			\
+	}					\
+} while (0)
+#define	ISDOT(c) ((c)[0] == '.' && (((c)[1] == '\0') || ((c)[1] == '/')))
+#define	ISDOTDOT(c) ((c)[0] == '.' && ISDOT(&((c)[1])))
 
 /*
  * Since there are so many, all functions that return non-integer values are
@@ -377,11 +372,11 @@ extern int debug;
  */
 #include "nonints.h"
 
-int Make_TimeStamp __P((GNode *, GNode *));
-Boolean Make_OODate __P((GNode *));
-int Make_HandleUse __P((GNode *, GNode *));
-void Make_Update __P((GNode *));
-void Make_DoAllVar __P((GNode *));
-Boolean Make_Run __P((Lst));
+int Make_TimeStamp(GNode *, GNode *);
+Boolean Make_OODate(GNode *);
+int Make_HandleUse(GNode *, GNode *);
+void Make_Update(GNode *);
+void Make_DoAllVar(GNode *);
+Boolean Make_Run(Lst);
 
 #endif /* _MAKE_H_ */

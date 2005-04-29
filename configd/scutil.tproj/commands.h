@@ -42,18 +42,26 @@ typedef struct {
 	int	maxArgs;
 	void	(*func)();
 	int	group;
-	int	ctype;	/* 0==normal, 1==limited, 2==private */
+	int	ctype;	/* -1==normal/hidden, 0==normal, 1==limited, 2==private */
 	char	*usage;
 } cmdInfo;
 
-extern const cmdInfo	commands[];
-extern const int	nCommands;
+extern const cmdInfo	commands_store[];
+extern const int	nCommands_store;
+
+extern const cmdInfo	commands_prefs[];
+extern const int	nCommands_prefs;
+
+extern cmdInfo		*commands;
+extern int		nCommands;
 extern Boolean		enablePrivateAPI;
+extern Boolean		termRequested;
 
 __BEGIN_DECLS
 
 void	do_command		(int argc, char **argv);
 void	do_help			(int argc, char **argv);
+void	do_quit			(int argc, char **argv);
 void	do_readFile		(int argc, char **argv);
 
 __END_DECLS

@@ -1,0 +1,58 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.5 [en] (X11; I; HP-UX B.10.20 9000/770) [Netscape]">
+   <meta name="Author" content="Kåre Sjölander">
+   <title>SoundObj</title>
+</head>
+<body>
+
+<h3>
+NAME</h3>
+Snack_NewSound, Snack_DeleteSound, Snack_GetSound, Snack_ResizeSoundStorage,
+<br>Snack_UpdateExtremes - manipulate Snack sound objects
+<h3>
+SYNOPSIS</h3>
+#include &lt;snack.h>
+<p><b>Snack_NewSound</b>(frequency, format, nChannels)
+<br><b>Snack_DeleteSound</b>(sound)
+<br><b>Snack_GetSound</b>(interp, name)
+<br><b>Snack_ResizeSoundStorage</b>(sound, length)
+<br><b>Snack_UpdateExtremes</b>(sound, start, end, flag)
+<h3>
+ARGUMENTS</h3>
+int frequency (in)
+<br>&nbsp;&nbsp;&nbsp; Sampling frequency of the new sound object
+<br>int format (in)
+<br>&nbsp;&nbsp;&nbsp; Sample encoding format of the new sound object
+<br>int nChannels (in)
+<br>&nbsp;&nbsp;&nbsp; Number of channels of the new sound object
+<br>Sound *sound (in)
+<br>&nbsp;&nbsp;&nbsp; Pointer to a Snack sound object
+<br>Tcl_Interp *interp (in)
+<br>char *name (in)
+<br>int length (in)
+<br>int start (in)
+<br>int end (in)
+<br>int flag (in)
+<br>&nbsp;
+<h3>
+DESCRIPTION</h3>
+<b>Snack_NewSound</b> creates a new Snack sound object by allocating and
+initializing a sound struct. It takes the arguments <i>frequency</i>, sample
+encoding
+<i>format</i> and number of channels, <i>nChannels</i>. <b>Snack_DeleteSound</b>
+deallocates all storage associated with <i>sound</i>. <b>Snack_GetSound</b>
+returns a pointer to a Snack <i>sound</i> given its sound command <i>name</i>.
+<br><b>Snack_ResizeSoundStorage</b> is used to set the storage associated
+with a sound to accomodate <i>length</i> samples. Memory is allocated or
+deallocated as necessary. <b>Snack_UpdateExtremes</b> scans the samples
+of <i>sound</i> from <i>start</i> to <i>end</i> and records the extremes
+in the sound struct. The <i>flag</i> is used to specify whether to reset
+the current recorded extremes before calculating new ones (SNACK_NEW_SOUND)
+or if they should be kept and possibly updated (SNACK_MORE_DATA).
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>

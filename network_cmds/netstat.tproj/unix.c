@@ -59,7 +59,7 @@
 static char sccsid[] = "@(#)unix.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-	"$Id: unix.c,v 1.2 2001/07/31 05:54:11 wsanchez Exp $";
+	"$Id: unix.c,v 1.3 2004/08/26 23:55:22 lindak Exp $";
 #endif /* not lint */
 
 /*
@@ -67,7 +67,6 @@ static const char rcsid[] =
  */
 #include <sys/param.h>
 #include <sys/queue.h>
-#include <sys/protosw.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/mbuf.h>

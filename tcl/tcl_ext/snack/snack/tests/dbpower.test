@@ -1,0 +1,107 @@
+# Commands covered: sound dBPowerSpectrum
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test dbpower-1.1 {dBPowerSpectrum command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s dBPowerSpectrum -start 0 -fftlength 32 -windowlength 32 \
+	-channel 0 -preemphasisfactor 0.97]
+  $s destroy
+  set res
+} {-76.131 -82.843 -107.69 -102.82 -101.37 -102.09 -95.375 -95.568 -95.339 -98.854 -101.56 -98.987 -126.39 -106.92 -107.49 -105.77}
+
+test dbpower-1.2 {dBPowerSpectrum command, -end option} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s dBPowerSpectrum -start 1000 -end 2000 -fftlength 32 \
+	-windowlength 32]
+  $s destroy
+  set res
+} {-44.938 -51.981 -83.818 -91.582 -95.218 -97.588 -97.686 -99.849 -99.143 -100.16 -102.67 -102.81 -102.91 -104.24 -104.26 -107.86}
+
+test dbpower-1.3 {dBPowerSpectrum command, -end and -skip options} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s dBPowerSpectrum -start 1000 -end 2000 -skip 10 -fftlength 32 \
+	-windowlength 32]
+  $s destroy
+  set res
+} {-44.939 -51.993 -84.497 -91.109 -94.957 -97.564 -98.45 -99.985 -99.593 -99.321 -102.01 -103.28 -104.12 -105.15 -104.44 -106.91}
+
+test dbpower-1.4 {dBPowerSpectrum command, -channel -1} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s dBPowerSpectrum -start 0 -end 1 -fftlength 32 -windowlength 32 \
+	 -channel -1]
+  $s destroy
+  set res
+} {-46.206 -53.295 -86.135 -95.745 -95.521 -98.841 -98.824 -96.341 -98.931 -102.45 -104.78 -104.59 -116.6 -110.38 -115.77 -109.94}
+
+test dbpower-2.1 {dBPowerSpectrum command, bad -fftlength option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -fftlength 33} msg
+  $s destroy
+  set msg
+} {-fftlength must be one of { 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536 }}
+
+test dbpower-2.2 {dBPowerSpectrum command, bad -windowlength option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -windowlength 0} msg
+  $s destroy
+  set msg
+} {-winlength must be > 0}
+
+test dbpower-2.3 {dBPowerSpectrum command, bad -start option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -start -1} msg
+  $s destroy
+  set msg
+} {FFT window out of bounds}
+
+test dbpower-2.4 {dBPowerSpectrum command, bad -start option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -start 100000} msg
+  $s destroy
+  set msg
+} {FFT window out of bounds}
+
+test dbpower-2.5 {dBPowerSpectrum command, bad -end option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -end 100000} msg
+  $s destroy
+  set msg
+} {FFT window out of bounds}
+
+test dbpower-3.1 {dBPowerSpectrum command, -windowtype option} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s dBPowerSpectrum -start 1000 -end 2000 -skip 10 -fftlength 32 \
+	-windowlength 32 -windowtype hanning]
+  $s destroy
+  set res
+} {-45.649 -51.27 -83.822 -90.784 -94.893 -97.554 -98.568 -100.2 -99.748 -99.653 -102.17 -103.53 -104.44 -105.31 -104.91 -107.19}
+
+test dbpower-4.1 {dBPowerSpectrum command, bad -end option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -end 100000} msg
+  $s destroy
+  set msg
+} {FFT window out of bounds}
+
+test dbpower-5.1 {dBPowerSpectrum command, with missing value for -start option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s dBPowerSpectrum -start} msg
+  $s destroy
+  set msg
+} {No argument given for -start option}
+
+# cleanup
+::tcltest::cleanupTests
+return

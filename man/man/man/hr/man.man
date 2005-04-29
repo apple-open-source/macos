@@ -1,0 +1,280 @@
+.\" Man stranica za man (i biv¹i manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\"   You may distribute under the terms of the GNU General Public
+.\"   License as specified in the README file that comes with the man 1.0
+.\"   distribution.  
+.\"
+.\" Mo¾ete distribuirati pod uvjetima GNU Opæe javne licence kako je
+.\" odreðeno u datoteci README koja dolazi s distribucijom mana 1.0.
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Mnoge promjene -- aeb
+.\"
+.\" 9. studenog 1998. preveo Matej Vela <mvela@public.srce.hr>, META.
+.TH man 1 "2. rujna 1998."
+.SH IME
+man \- formatira i prikazuje raèunalne man stranice
+.br
+manpath \- saznaje korisnikovu stazu pretra¾ivanja za man stranice
+.SH SA®ETAK
+man [\-acdfhkKtwW] [\-m sustav] [\-p niz] [\-C konfiguracijska_datoteka]
+[\-M staza] [\-P preglednik] [\-S popis_dijelova] [dio] ime ...
+.SH OPIS
+.B man
+formatira i prikazuje raèunalne man stranice. Ova verzija poznaje varijable
+okru¾ja
+.B MANPATH
+i
+.BR (MAN)PAGER ,
+pa mo¾ete imati svoje vlastite skupove osobnih man stranica i odabrati
+¾eljeni program za prikaz formatiranih stranica. Ako je naveden
+.IR dio ,
+.B man
+pretra¾uje samo taj dio man stranica.
+Takoðer mo¾ete preko opcija na naredbenom redu ili varijabli okru¾ja
+odrediti red po kojem se pretra¾uju dijelovi te preprocesore kojima se
+obraðuju izvorne datoteke.
+Ako
+.I ime
+sadr¾i /, prvo ga se isku¹ava kao ime datoteke, pa tako mo¾ete pokrenuti
+``man ./foo.5'' ili èak ``man /cd/foo/bar.1.gz''.
+.SH OPCIJE
+.TP
+.B \-\^C " konfiguracijska_datoteka"
+Koristi drugi
+.IR man.conf ;
+predodreðeni je
+.BR @man_config_file@ .
+(Pogledajte
+.BR man.conf (5).)
+.TP
+.B \-\^M " staza"
+.I staza
+je popis direktorija u kojima se tra¾e man stranice.
+Ako takva opcija nije dana, koristi varijablu okru¾ja
+.BR MANPATH .
+Ako takve varijable okru¾ja nema, predodreðeni popis se nalazi u
+.BR @man_config_file@ .
+Neispunjen dio u
+.B MANPATH
+odgovara predodreðenom popisu.
+.TP
+.B \-\^P " preglednik"
+Odreðuje kori¹teni preglednik.
+Ova opcija ima prednost nad varijablom okru¾ja
+.BR MANPAGER ,
+koja pak ima prednost nad varijablom
+.BR PAGER .
+.B man
+predodreðeno koristi
+.BR @pager@ .
+.TP
+.B \-\^S " popis_dijelova"
+.I popis_dijelova
+je popis dvotoèkama razdvojenih dijelova man stranica koje se pretra¾uje.
+Ova opcija ima prednost nad varijablom okru¾ja
+.BR MANSECT .
+.TP
+.B \-\^a
+.B man
+predodreðeno izlazi nakon prikazivanja prve naðene man stranice. Ova opcija
+prisiljava
+.B man
+na prikaz svih man stranica èije je ime
+.IR ime ,
+a ne samo prve.
+.TP
+.B \-\^c
+Ponovno formatira izvornu man stranicu, èak i kada postoji svje¾a cat
+stranica. Ovo ima smisla ako je cat stranica formatirana za drukèiju ¹irinu
+zaslona ili ako je preformatirana stranica pokvarena.
+.TP
+.B \-\^d
+U stvari ne prikazuje man stranice, ali zato ispisuje gomilu informacija za
+otklanjanje gre¹aka.
+.TP
+.B \-\^D
+I prikazuje i ispisuje informacije za otklanjanje gre¹aka.
+.TP
+.B \-\^f
+Isto ¹to i
+.BR whatis .
+.TP
+.B \-\^h
+Ispisuje poruku o kori¹tenju od jednog reda i zavr¹ava.
+.TP
+.B \-\^k
+Isto ¹to i
+.BR apropos .
+.TP
+.B \-\^K
+Navedeni niz tra¾i u
+.I svim
+man stranicama. Upozorenje: ovo je vjerojatno vrlo sporo! Navoðenje dijela
+ubrzava stvari.
+(Samo okvirno, na mom stroju ovo traje oko minutu na 500 man stranica.)
+.TP
+.B \-\^m " sustav"
+Pretra¾uje se drugi skup man stranica na osnovu danog imena sustava.
+.TP
+.B \-\^p " niz"
+.I niz
+odreðuje niz preprocesora koje treba pokrenuti prije pokretanja
+.B nroff
+odnosno
+.BR troff .
+Sve instalacije nemaju potpun skup preprocesora. Neki od preprocesora i
+slova koja ih oznaèuju su:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Ova opcija ima prednost nad varijablom okru¾ja
+.BR MANROFFSEQ .
+.TP
+.B \-\^t
+Za formatiranje man stranica koristi
+.BR @troff@ ,
+¹aljuæi izlaz na standardni izlaz. Izlaz iz
+.B @troff@
+mo¾e prije samog tiskanja zahtijevati prolazak kroz neki filter.
+.TP
+.B \-\^w \fRili\fP \-\-path
+U stvari ne prikazuje man stranice, ali zato ispisuje lokacije datoteka koje
+bi se formatirale ili prikazale. Ako nije dan nijedan argument, prikazuje
+(na standardnom izlazu) popis direktorija u kojima
+.B man
+tra¾i man stranice. Ako je
+.B manpath
+veza na
+.BR man ,
+onda ``manpath'' ima isti uèinak kao ``man --path''.
+.TP
+.B \-\^W
+Kao \-\^w, ali svako ime datoteke ispisuje u zasebnom redu, bez dodatnih
+informacija. Ovo je korisno u naredbama ljuske kao ¹to je
+.ft CW
+.B "man -aW man | xargs ls -l"
+.ft
+.SH "CAT STRANICE"
+.B man
+æe poku¹ati snimiti formatirane man stranice kako bi u¹tedio vrijeme
+formatiranja slijedeæi put kada te man stranice budu potrebne.
+Tradicionalno se formatirane verzije stranica iz
+.I DIREKTORIJ/manX
+snimaju u
+.IR DIREKTORIJ/catX , 
+no druga mapiranja man direktorija u cat direktorije se mogu odrediti u
+.BR @man_config_file@ .
+Kada potrebni cat direktorij ne postoji, cat stranice se ne snimaju.
+.PP
+.B man
+se mo¾e suid-ati na korisnika man. Potom æe, ako je vlasnik cat direktorija
+man, uz dozvole 0755 (pisati mo¾e samo man), a vlasnik cat datoteka man uz
+dozvole 0644 ili 0444 (pisati mo¾e samo man, odnosno nitko ne mo¾e pisati),
+nijedan obièni korisnik ne mo¾e mijenjati cat stranice ili stavljati druge
+datoteke u cat direktorij. Ako
+.B man
+nije suid-an, cat direktorij bi trebao imati dozvole 0777
+ako bi svi korisnici trebali moæi tamo ostavljati cat stranice.
+.PP
+Opcija
+.B \-c
+prisiljava na ponovno formatiranje stranice, èak i ako postoji svje¾a cat
+stranica.
+.SH OKRU®JE
+.TP
+.B MANPATH
+Ako je
+.B MANPATH
+postavljenja, njena se vrijednost koristi kao staza za tra¾enje man
+stranica.
+.TP
+.B MANROFFSEQ
+Ako je
+.B MANROFFSEQ
+postavljena, njena vrijednost odreðuje skup preprocesora
+koje treba pokrenuti prije pokretanja
+.B nroff
+odnosno
+.BR troff .
+Stranice predodreðeno prolaze kroz preprocesor tablica prije nego proðu
+kroz
+.BR nroff .
+.TP
+.B MANSECT
+Ako je
+.B MANSECT
+postavljena, njena vrijednost odreðuje dijelove man stranica
+koje treba pretra¾iti.
+.TP
+.B MANWIDTH
+Ako je
+.B MANWIDTH
+postavljena, njena se vrijednost koristi kao ¹irina u kojoj bi se man
+stranice trebale prikazivati. Inaèe se stranice mogu prikazati preko cijele
+¹irine va¹eg zaslona.
+.TP
+.B MANPAGER
+Ako je
+.B MANPAGER
+postavljena, njena se vrijednost koristi kao ime programa za prikaz man
+stranice. Ako nije, koristi se
+.BR PAGER .
+Ako ni to nema vrijednosti, koristi se
+.BR @pager@ .
+.TP
+.B LANG
+Ako je
+.B LANG
+postavljena, njena vrijednost odreðuje ime poddirektorija u kojem
+.B man
+najprije tra¾i man stranice. Dakle, naredba `LANG=hr man 1 foo'
+.B man
+tjera na tra¾enje man stranice foo u .../hr/man1/foo.1, a ako takvu datoteku
+ne mo¾e naæi, u .../man1/foo.1, gdje ... oznaèava direktorij u stazi
+pretrage.
+.TP
+.B NLSPATH, LC_MESSAGES, LANG
+Varijable okru¾ja
+.B NLSPATH
+i
+.B LC_MESSAGES
+(odnosno
+.B LANG
+kada ova druga ne postoji) igraju ulogu u nala¾enju kataloga poruka.
+(No engleske su poruke ugraðene i engleski katalog nije potreban.)
+Primjetite da programi koje
+.B man
+pokreæe, kao ¹to je
+.BR col (1),
+takoðer mogu koristiti npr.
+.BR LC_CTYPE .
+.TP
+.B PATH
+.B PATH
+se koristi u graðenju predodreðene staze tra¾enja man stranica.
+.TP
+.B SYSTEM
+.B SYSTEM
+se koristi za odreðivanje predodreðenog imena drugog sustava (za kori¹tenje
+uz opciju
+.BR \-m ).
+.SH "TAKOÐER POGLEDAJTE"
+.BR apropos (1),
+.BR whatis (1),
+.BR less (1),
+.BR groff (1).
+.SH GRE©KE
+Opcija
+.B \-t
+radi samo ako je instaliran
+.BR troff-olik
+program.
+.PP
+Ako umjesto crtica vidite trepæuæi \e255 ili <AD>, u okru¾je dodajte
+`LESSCHARSET=latin1'.

@@ -3,21 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -55,25 +56,6 @@
  *
  *	@(#)mntopts.h	8.7 (Berkeley) 3/29/95
  */
-
-#ifdef linux
-#define MNT_RDONLY      0x00000001      /* read only filesystem */
-#define MNT_SYNCHRONOUS 0x00000002      /* file system written synchronously */
-#define MNT_NOEXEC      0x00000004      /* can't exec from filesystem */
-#define MNT_NOSUID      0x00000008      /* don't honor setuid bits on fs */
-#define MNT_NODEV       0x00000010      /* don't interpret special files */
-#define MNT_UNION       0x00000020      /* union with underlying filesystem */
-#define MNT_ASYNC       0x00000040      /* file system written asynchronously */
-
-#define FS_OPTTIME 0       /* minimize allocation time */
-#define MINFREE         5
-#define DEFAULTOPT      FS_OPTTIME
-#define BBSIZE          8192
-#define SBSIZE          8192
-
-#define MINBSIZE        4096
-#define FS_OPTSPACE        1       /* minimize disk fragmentation */
-#endif
 
 struct mntopt {
 	const char *m_option;	/* option name */

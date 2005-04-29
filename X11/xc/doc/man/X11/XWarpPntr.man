@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XWarpPntr.man,v 1.2 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XWarpPntr.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,19 +144,11 @@
 .SH NAME
 XWarpPointer \- move pointer
 .SH SYNTAX
-XWarpPointer\^(\^\fIdisplay\fP, \fIsrc_w\fP\^, \fIdest_w\fP\^, \fIsrc_x\fP\^, \fIsrc_y\fP\^, \fIsrc_width\fP\^, \fIsrc_height\fP\^, \fIdest_x\fP\^, 
-.br
-                \fIdest_y\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        Window \fIsrc_w\fP\^, \fIdest_w\fP\^;
-.br
-        int \fIsrc_x\fP\^, \fIsrc_y\fP\^;
-.br
-        unsigned int \fIsrc_width\fP\^, \fIsrc_height\fP\^;
-.br
-        int \fIdest_x\fP\^, \fIdest_y\fP\^;
+.HP
+int XWarpPointer\^(\^Display *\fIdisplay\fP\^, Window \fIsrc_w\fP\^, Window
+\fIdest_w\fP\^, int \fIsrc_x\fP\^, int \fIsrc_y\fP\^, unsigned int
+\fIsrc_width\fP\^, unsigned int \fIsrc_height\fP\^, int \fIdest_x\fP\^, int
+\fIdest_y\fP\^); 
 .SH ARGUMENTS
 .IP \fIdest_w\fP 1i
 Specifies the destination window or

@@ -6,12 +6,8 @@
 #undef TARGET_OS_CPP_BUILTINS /* config.gcc includes alpha/linux.h.  */
 #define TARGET_OS_CPP_BUILTINS()		\
     do {					\
-	builtin_define ("__GNU__");		\
-	builtin_define ("__ELF__");		\
-	builtin_define ("__gnu_hurd__");	\
+	HURD_TARGET_OS_CPP_BUILTINS();		\
 	builtin_define ("_LONGLONG");		\
-	builtin_define_std ("unix");		\
-	builtin_assert ("system=gnu");		\
     } while (0)
 
 #undef ELF_DYNAMIC_LINKER
@@ -27,4 +23,4 @@
    %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
 
 /* FIXME: Is a Hurd-specific fallback mechanism necessary?  */
-#undef MD_FALLBACK_FRAME_STATE_FOR
+#undef MD_UNWIND_SUPPORT

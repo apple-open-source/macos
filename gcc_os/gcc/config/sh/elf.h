@@ -1,5 +1,5 @@
 /* Definitions of target machine for gcc for Hitachi / SuperH SH using ELF.
-   Copyright (C) 1996, 1997, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Ian Lance Taylor <ian@cygnus.com>.
 
 This file is part of GNU CC.
@@ -19,28 +19,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-/* Undefine some macros defined in both sh.h and svr4.h.  */
-#undef IDENT_ASM_OP
-#undef ASM_FILE_END
-#undef ASM_OUTPUT_SOURCE_LINE
-#undef DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#undef TARGET_ASM_NAMED_SECTION
-#undef ASM_DECLARE_FUNCTION_NAME
-#undef MAX_OFILE_ALIGNMENT
-#undef SIZE_TYPE
-#undef PTRDIFF_TYPE
-
-/* Be ELF-like.  */
-/* TODO: convert includes to ${tm_file} list in config.gcc.  */
-#include "dbxelf.h"
-#include "elfos.h"
-#include "svr4.h"
-
-/* No SDB debugging info.  */
-#undef SDB_DEBUGGING_INFO
-
 /* Generate DWARF2 debugging information and make it the default */
-#undef DWARF2_DEBUGGING_INFO
 #define DWARF2_DEBUGGING_INFO 1
 
 #undef PREFERRED_DEBUGGING_TYPE
@@ -49,17 +28,17 @@ Boston, MA 02111-1307, USA.  */
 /* use a more compact format for line information */
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
 
-/* WCHAR_TYPE_SIZE is defined to BITS_PER_WORD in svr4.h, but
-   BITS_PER_WORD isn't constant any more.  Fortunately, on no SH
-   platform is it wider than 32-bits.  */
-#define MAX_WCHAR_TYPE_SIZE 32
+/* WCHAR_TYPE / WCHAR_TYPE_SIZE are defined to long int / BITS_PER_WORD in
+   svr4.h, but these work out as 64 bit for shmedia64.  */
+#undef WCHAR_TYPE
+/* #define WCHAR_TYPE (TARGET_SH5 ? "int" : "long int") */
+#define WCHAR_TYPE SH_ELF_WCHAR_TYPE
+   
+#undef WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE 32
 
-/* The prefix to add to user-visible assembler symbols.
-   Note that svr4.h redefined it from the original value (that we want)
-   in sh.h */
 
-#undef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX "_"
+/* The prefix to add to user-visible assembler symbols.  */
 
 #undef LOCAL_LABEL_PREFIX
 #define LOCAL_LABEL_PREFIX "."
@@ -82,7 +61,7 @@ Boston, MA 02111-1307, USA.  */
 
 
 /* Let code know that this is ELF.  */
-#define CPP_PREDEFINES "-D__sh__ -D__ELF__ -Acpu=sh -Amachine=sh"
+#define TARGET_OBJFMT_CPP_BUILTINS() builtin_define ("__ELF__")
 
 #undef SIZE_TYPE
 #define SIZE_TYPE (TARGET_SH5 ? "long unsigned int" : "unsigned int")
@@ -91,47 +70,23 @@ Boston, MA 02111-1307, USA.  */
 #define PTRDIFF_TYPE (TARGET_SH5 ? "long int" : "int")
 /* Pass -ml and -mrelax to the assembler and linker.  */
 #undef ASM_SPEC
-#define ASM_SPEC  "%{ml:-little} %{mrelax:-relax} \
+#define ASM_SPEC  "%(subtarget_asm_endian_spec) %{mrelax:-relax} \
 %{m5-compact:--isa=SHcompact} %{m5-compact-nofpu:--isa=SHcompact} \
 %{m5-32media:--isa=SHmedia --abi=32} %{m5-32media-nofpu:--isa=SHmedia --abi=32} \
 %{m5-64media:--isa=SHmedia --abi=64} %{m5-64media-nofpu:--isa=SHmedia --abi=64}"
 
 #undef LINK_SPEC
-#define LINK_SPEC " \
-%{m5-compact:%{!ml:-m shelf32} %{ml:-m shlelf32}} \
-%{m5-compact-nofpu:%{!ml:-m shelf32} %{ml:-m shlelf32}} \
-%{m5-32media:%{!ml:-m shelf32} %{ml:-m shlelf32}} \
-%{m5-32media-nofpu:%{!ml:-m shelf32} %{ml:-m shlelf32}} \
-%{m5-64media:%{!ml:-m shelf64} %{ml:-m shlelf64}} \
-%{m5-64media-nofpu:%{!ml:-m shelf64} %{ml:-m shlelf64}} \
-%{!m5-64media:%{!m5-64media-nofpu:%{!m5-32media:%{!m5-32media-nofpu:%{!m5-compact:%{!m5-compact-nofpu:%{ml:-m shlelf}}}}}}} \
-%{mrelax:-relax}"
+#define LINK_SPEC SH_LINK_SPEC
+#undef LINK_EMUL_PREFIX
+#if TARGET_ENDIAN_DEFAULT == LITTLE_ENDIAN_BIT
+#define LINK_EMUL_PREFIX "sh%{!mb:l}elf"
+#else
+#define LINK_EMUL_PREFIX "sh%{ml:l}elf"
+#endif
 
 /* svr4.h undefined DBX_REGISTER_NUMBER, so we need to define it
    again.  */
-#define DBX_REGISTER_NUMBER(REGNO)					\
-  (GENERAL_REGISTER_P (REGNO)						\
-   ? ((REGNO) - FIRST_GENERAL_REG)					\
-   : FP_REGISTER_P (REGNO)						\
-   ? ((REGNO) - FIRST_FP_REG + (TARGET_SH5 ? (TARGET_SHCOMPACT ? 245	\
-					      : 77) : 25))		\
-   : XD_REGISTER_P (REGNO)						\
-   ? ((REGNO) - FIRST_XD_REG + (TARGET_SH5 ? 289 : 87))			\
-   : TARGET_REGISTER_P (REGNO)						\
-   ? ((REGNO) - FIRST_TARGET_REG + 68)					\
-   : (REGNO) == PR_REG							\
-   ? (TARGET_SH5 ? 241 : 17)						\
-   : (REGNO) == T_REG							\
-   ? (TARGET_SH5 ? 242 : 18)						\
-   : (REGNO) == GBR_REG							\
-   ? (TARGET_SH5 ? 238 : 19)						\
-   : (REGNO) == MACH_REG						\
-   ? (TARGET_SH5 ? 239 : 20)						\
-   : (REGNO) == MACL_REG						\
-   ? (TARGET_SH5 ? 240 : 21)						\
-   : (REGNO) == FPUL_REG						\
-   ? (TARGET_SH5 ? 244 : 23)						\
-   : (abort(), -1))
+#define DBX_REGISTER_NUMBER(REGNO) SH_DBX_REGISTER_NUMBER (REGNO)
 
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(STRING, PREFIX, NUM) \
@@ -170,3 +125,7 @@ do {									\
 #undef ENDFILE_SPEC
 #define ENDFILE_SPEC \
   "%{!shared:crtend.o%s} %{shared:crtendS.o%s} crtn.o%s"
+
+/* ASM_OUTPUT_CASE_LABEL is defined in elfos.h.  With it,
+   a redundant .align was generated.  */
+#undef  ASM_OUTPUT_CASE_LABEL

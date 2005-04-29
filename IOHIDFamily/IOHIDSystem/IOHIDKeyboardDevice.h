@@ -34,12 +34,13 @@ class IOHIDKeyboardDevice : public IOHIDDeviceShim
 
 private:
     IOBufferMemoryDescriptor *	_report;
-    IOHIKeyboard *		_provider;
+    IOHIKeyboard *		_keyboard;
     
     UInt8			_cachedLEDState;
     UInt8 			_adb2usb[0x80];
+    UInt32          _lastFlags;
     
-    bool			_pmuControlledLED;
+    bool			_inputReportOnly;
 
 protected:
 
@@ -47,13 +48,15 @@ protected:
     virtual bool handleStart( IOService * provider );
     
 public:
-    static IOHIDKeyboardDevice	* newKeyboardDevice(IOService * owner);
+    static IOHIDKeyboardDevice	* newKeyboardDeviceAndStart(IOService * owner, UInt32 location = 0);
     
-    virtual bool init( OSDictionary * dictionary = 0 );
+    virtual bool initWithLocation( UInt32 location = 0 );
 
     virtual IOReturn newReportDescriptor(
                         IOMemoryDescriptor ** descriptor ) const;
                         
+    virtual OSString * newProductString() const;
+
     virtual IOReturn getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,
                                  IOOptionBits         options );
@@ -63,6 +66,7 @@ public:
                                 IOOptionBits         options );
                                                                 
     virtual void postKeyboardEvent(UInt8 key, bool keyDown);
+    virtual void postFlagKeyboardEvent(UInt32 flags);
     
     virtual void setCapsLockLEDElement(bool state);
     virtual void setNumLockLEDElement(bool state);

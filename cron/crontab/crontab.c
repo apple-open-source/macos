@@ -26,6 +26,11 @@ static const char rcsid[] =
  * vix 26jan87 [original]
  */
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#else  /* !__APPLE__ */
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 #define	MAIN_PROGRAM
 
 #include "cron.h"
@@ -62,6 +67,7 @@ static	FILE		*NewCrontab;
 static	int		CheckErrorCount;
 static	enum opt_t	Option;
 static	struct passwd	*pw;
+static  int             posixly_correct;
 static	void		list_cmd __P((void)),
 			delete_cmd __P((void)),
 			edit_cmd __P((void)),
@@ -90,6 +96,7 @@ main(argc, argv)
 {
 	int	exitstatus;
 
+	posixly_correct = COMPAT_MODE("bin/crontab", "Unix2003");
 	Pid = getpid();
 	ProgramName = argv[0];
 
@@ -188,7 +195,11 @@ parse_args(argc, argv)
 			Filename[(sizeof Filename)-1] = '\0';
 
 		} else {
-			usage("file name must be specified for replace");
+			if (posixly_correct) {
+				Option = opt_replace;
+				strcpy(Filename, "-");
+			} else
+				usage("file name must be specified for replace");
 		}
 	}
 
@@ -269,7 +280,7 @@ delete_cmd() {
 	char	n[MAX_FNAME];
 	int ch, first;
 
-	if (isatty(STDIN_FILENO)) {
+	if (!posixly_correct && isatty(STDIN_FILENO)) {
 		(void)fprintf(stderr, "remove crontab for %s? ", User);
 		first = ch = getchar();
 		while (ch != '\n' && ch != EOF)

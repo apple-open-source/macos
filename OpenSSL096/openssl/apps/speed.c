@@ -159,6 +159,9 @@
 #ifndef NO_RC2
 #include <openssl/rc2.h>
 #endif
+#ifndef NO_IDEA
+#include <openssl/idea.h>
+#endif
 #ifndef NO_BF
 #include <openssl/blowfish.h>
 #endif
@@ -363,6 +366,9 @@ int MAIN(int argc, char **argv)
 #ifndef NO_RC2
 	RC2_KEY rc2_ks;
 #endif
+#ifndef NO_IDEA
+	IDEA_KEY_SCHEDULE idea_ks;
+#endif
 #ifndef NO_BF
 	BF_KEY bf_ks;
 #endif
@@ -562,6 +568,11 @@ int MAIN(int argc, char **argv)
 		else if (strcmp(*argv,"rc5") == 0) doit[D_CBC_RC5]=1;
 		else
 #endif
+#ifndef NO_IDEA
+		     if (strcmp(*argv,"idea-cbc") == 0) doit[D_CBC_IDEA]=1;
+		else if (strcmp(*argv,"idea") == 0) doit[D_CBC_IDEA]=1;
+		else
+#endif
 #ifndef NO_BF
 		     if (strcmp(*argv,"bf-cbc") == 0) doit[D_CBC_BF]=1;
 		else if (strcmp(*argv,"blowfish") == 0) doit[D_CBC_BF]=1;
@@ -629,6 +640,9 @@ int MAIN(int argc, char **argv)
 			BIO_printf(bio_err,"\n");
 #endif
 
+#ifndef NO_IDEA
+			BIO_printf(bio_err,"idea-cbc ");
+#endif
 #ifndef NO_RC2
 			BIO_printf(bio_err,"rc2-cbc  ");
 #endif
@@ -656,6 +670,9 @@ int MAIN(int argc, char **argv)
 			BIO_printf(bio_err,"dsa512   dsa1024  dsa2048\n");
 #endif
 
+#ifndef NO_IDEA
+			BIO_printf(bio_err,"idea     ");
+#endif
 #ifndef NO_RC2
 			BIO_printf(bio_err,"rc2      ");
 #endif
@@ -737,6 +754,9 @@ int MAIN(int argc, char **argv)
 	des_set_key_unchecked(&key,sch);
 	des_set_key_unchecked(&key2,sch2);
 	des_set_key_unchecked(&key3,sch3);
+#endif
+#ifndef NO_IDEA
+	idea_set_encrypt_key(key16,&idea_ks);
 #endif
 #ifndef NO_RC4
 	RC4_set_key(&rc4_ks,16,key16);
@@ -1036,6 +1056,24 @@ int MAIN(int argc, char **argv)
 			}
 		}
 #endif
+#ifndef NO_IDEA
+	if (doit[D_CBC_IDEA])
+		{
+		for (j=0; j<SIZE_NUM; j++)
+			{
+			print_message(names[D_CBC_IDEA],c[D_CBC_IDEA][j],lengths[j]);
+			Time_F(START,usertime);
+			for (count=0,run=1; COND(c[D_CBC_IDEA][j]); count++)
+				idea_cbc_encrypt(buf,buf,
+					(unsigned long)lengths[j],&idea_ks,
+					iv,IDEA_ENCRYPT);
+			d=Time_F(STOP,usertime);
+			BIO_printf(bio_err,"%ld %s's in %.2fs\n",
+				count,names[D_CBC_IDEA],d);
+			results[D_CBC_IDEA][j]=((double)count)/d*lengths[j];
+			}
+		}
+#endif
 #ifndef NO_RC2
 	if (doit[D_CBC_RC2])
 		{
@@ -1298,6 +1336,9 @@ int MAIN(int argc, char **argv)
 #endif
 #ifndef NO_DES
 	printf("%s ",des_options());
+#endif
+#ifndef NO_IDEA
+	printf("%s ",idea_options());
 #endif
 #ifndef NO_BF
 	printf("%s ",BF_options());

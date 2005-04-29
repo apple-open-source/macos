@@ -30,7 +30,7 @@
  * Probably buggy as hell, no idea what the initialisation strings are,
  * no idea how to ack it. If the tablet stops responding power cycle it.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/digitaledge/DigitalEdge.c,v 1.6 2001/12/26 21:51:58 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/digitaledge/DigitalEdge.c,v 1.9 2003/11/17 22:20:38 dawes Exp $ */
 
 #include "xf86Version.h"
 
@@ -303,18 +303,14 @@ static const char *ss_initstr =
 #define ENQUEUE	xf86eqEnqueue
 
 extern void xf86eqEnqueue(
-#if NeedFunctionPrototypes
 			     xEventPtr	/*e */
-#endif
     );
 #endif
 
 extern void miPointerDeltaCursor(
-#if NeedFunctionPrototypes
 				    int /*dx */ ,
 				    int /*dy */ ,
 				    unsigned long	/*time */
-#endif
     );
 
 #if !defined(sun) || defined(i386)
@@ -692,8 +688,8 @@ static void xf86SumReadInput(LocalDevicePtr local)
 	    }
 	}
 		}
-		DBG(7, ErrorF("xf86Sum(priv->dedgeData[0] & BUTTON_BITS)iReadInput END   device=0x%x priv=0x%x\n",
-		  local->dev, priv));
+		DBG(7, ErrorF("xf86Sum(priv->dedgeData[0] & BUTTON_BITS)iReadInput END   device=%p priv=%p\n",
+		  (void *)local->dev, (void *)priv));
 }
 
 /*
@@ -989,12 +985,12 @@ static int xf86SumProc(DeviceIntPtr pSum, int what)
     DigitalEdgeDevicePtr priv = (DigitalEdgeDevicePtr) PRIVATE(pSum);
 
     DBG(2,
-	ErrorF("BEGIN xf86SumProc dev=0x%x priv=0x%x what=%d\n", pSum,
-	       priv, what));
+	ErrorF("BEGIN xf86SumProc dev=%p priv=%p what=%d\n", (void *)pSum,
+	       (void *)priv, what));
 
     switch (what) {
     case DEVICE_INIT:
-	DBG(1, ErrorF("xf86SumProc pSum=0x%x what=INIT\n", pSum));
+	DBG(1, ErrorF("xf86SumProc pSum=%p what=INIT\n", (void *)pSum));
 
 	nbaxes = 3;		/* X, Y, pressure */
 	nbbuttons = (priv->flags & STYLUS_FLAG) ? 2 : 4;
@@ -1043,7 +1039,7 @@ static int xf86SumProc(DeviceIntPtr pSum, int what)
 	break;
 
     case DEVICE_ON:
-	DBG(1, ErrorF("xf86SumProc pSum=0x%x what=ON\n", pSum));
+	DBG(1, ErrorF("xf86SumProc pSum=%p what=ON\n", (void *)pSum));
 
 	if ((local->fd < 0) && (!xf86SumOpenDevice(pSum))) {
 	    return !Success;
@@ -1058,7 +1054,7 @@ static int xf86SumProc(DeviceIntPtr pSum, int what)
 	break;
 
     case DEVICE_OFF:
-	DBG(1, ErrorF("xf86SumProc  pSum=0x%x what=%s\n", pSum,
+	DBG(1, ErrorF("xf86SumProc  pSum=%p what=%s\n", (void *)pSum,
 		      (what == DEVICE_CLOSE) ? "CLOSE" : "OFF"));
 	if (local->fd >= 0)
 #ifdef XFREE86_V4
@@ -1070,7 +1066,7 @@ static int xf86SumProc(DeviceIntPtr pSum, int what)
 	break;
 
     case DEVICE_CLOSE:
-	DBG(1, ErrorF("xf86SumProc  pSum=0x%x what=%s\n", pSum,
+	DBG(1, ErrorF("xf86SumProc  pSum=%p what=%s\n", (void *)pSum,
 		      (what == DEVICE_CLOSE) ? "CLOSE" : "OFF"));
 	SYSCALL(close(local->fd));
 	local->fd = -1;
@@ -1081,8 +1077,8 @@ static int xf86SumProc(DeviceIntPtr pSum, int what)
 	return !Success;
 	break;
     }
-    DBG(2, ErrorF("END   xf86SumProc Success what=%d dev=0x%x priv=0x%x\n",
-		  what, pSum, priv));
+    DBG(2, ErrorF("END   xf86SumProc Success what=%d dev=%p priv=%p\n",
+		  what, (void *)pSum, (void *)priv));
     return Success;
 }
 
@@ -1125,7 +1121,7 @@ static int xf86SumSwitchMode(ClientPtr client, DeviceIntPtr dev, int mode)
     DigitalEdgeDevicePtr priv = (DigitalEdgeDevicePtr) (local->private);
     char newmode;
 
-    DBG(3, ErrorF("xf86SumSwitchMode dev=0x%x mode=%d\n", dev, mode));
+    DBG(3, ErrorF("xf86SumSwitchMode dev=%p mode=%d\n", (void *)dev, mode));
 
     switch (mode) {
     case Absolute:
@@ -1139,8 +1135,8 @@ static int xf86SumSwitchMode(ClientPtr client, DeviceIntPtr dev, int mode)
 	break;
 
     default:
-	DBG(1, ErrorF("xf86SumSwitchMode dev=0x%x invalid mode=%d\n",
-		      dev, mode));
+	DBG(1, ErrorF("xf86SumSwitchMode dev=%p invalid mode=%d\n",
+		      (void *)dev, mode));
 	return BadMatch;
     }
     SYSCALL(write(local->fd, &newmode, 1));

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XListFont.man,v 1.2 2001/01/27 18:20:01 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XListFont.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,39 +144,18 @@
 .SH NAME
 XListFonts, XFreeFontNames, XListFontsWithInfo, XFreeFontInfo \- obtain or free font names and information
 .SH SYNTAX
-char **XListFonts\^(\^\fIdisplay\fP, \fIpattern\fP\^, \fImaxnames\fP, \fIactual_count_return\fP\^)
-.br
-      Display *\^\fIdisplay\fP\^;
-.br
-      char *\^\fIpattern\fP\^;
-.br
-      int \fImaxnames\fP\^;
-.br
-      int *\^\fIactual_count_return\fP\^;
-.LP
-XFreeFontNames\^(\^\fIlist\fP\^)
-.br
-      char *\fIlist\fP\^[\^]\^;
-.LP
-char **XListFontsWithInfo\^(\^\fIdisplay\fP, \fIpattern\fP, \fImaxnames\fP, \fIcount_return\fP, \fIinfo_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char *\fIpattern\fP\^;
-.br
-      int \fImaxnames\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.br
-      XFontStruct **\fIinfo_return\fP\^;
-.LP
-XFreeFontInfo(\^\fInames\fP, \fIfree_info\fP, \fIactual_count\fP\^)
-.br
-      char **\fInames\fP\^;
-.br
-      XFontStruct *\fIfree_info\fP;
-.br
-      int \fIactual_count\fP\^;
+.HP
+char **XListFonts\^(\^Display *\^\fIdisplay\fP\^, char *\^\fIpattern\fP\^, int
+\fImaxnames\fP\^, int *\^\fIactual_count_return\fP\^); 
+.HP
+int XFreeFontNames\^(\^char *\fIlist\fP\^[\^]\^); 
+.HP
+char **XListFontsWithInfo\^(\^Display *\fIdisplay\fP\^, char *\fIpattern\fP\^,
+int \fImaxnames\fP\^, int *\fIcount_return\fP\^, XFontStruct
+**\fIinfo_return\fP\^); 
+.HP
+int XFreeFontInfo(\^char **\fInames\fP\^, XFontStruct *\fIfree_info\fP, int
+\fIactual_count\fP\^); 
 .SH ARGUMENTS
 .IP \fIactual_count\fP 1i
 Specifies the actual number of font names.

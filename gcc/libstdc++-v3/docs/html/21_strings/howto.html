@@ -10,8 +10,16 @@
    <meta name="KEYWORDS" content="HOWTO, libstdc++, GCC, g++, libg++, STL" />
    <meta name="DESCRIPTION" content="HOWTO for the libstdc++ chapter 21." />
    <meta name="GENERATOR" content="vi and eight fingers" />
-   <title>libstdc++-v3 HOWTO:  Chapter 21</title>
-<link rel="StyleSheet" href="../lib3styles.css" />
+   <title>libstdc++-v3 HOWTO:  Chapter 21: Strings</title>
+<link rel="StyleSheet" href="../lib3styles.css" type="text/css" />
+<link rel="Start" href="../documentation.html" type="text/html"
+  title="GNU C++ Standard Library" />
+<link rel="Prev" href="../20_util/howto.html" type="text/html"
+  title="General Utilities" />
+<link rel="Next" href="../22_locale/howto.html" type="text/html"
+  title="Localization" />
+<link rel="Copyright" href="../17_intro/license.html" type="text/html" />
+<link rel="Help" href="../faq/index.html" type="text/html" title="F.A.Q." />
 </head>
 <body>
 
@@ -30,6 +38,7 @@
    <li><a href="#3">Breaking a C++ string into tokens</a></li>
    <li><a href="#4">Simple transformations</a></li>
    <li><a href="#5">Making strings of arbitrary character types</a></li>
+   <li><a href="#6">Shrink-to-fit strings</a></li>
 </ul>
 
 <hr />
@@ -150,7 +159,7 @@
 <hr />
 <h2><a name="2">A case-insensitive string class</a></h2>
    <p>The well-known-and-if-it-isn't-well-known-it-ought-to-be
-      <a href="http://www.peerdirect.com/resources/">Guru of the Week</a>
+      <a href="http://www.gotw.ca/gotw/index.htm">Guru of the Week</a>
       discussions held on Usenet covered this topic in January of 1998.
       Briefly, the challenge was, &quot;write a 'ci_string' class which
       is identical to the standard 'string' class, but is
@@ -414,13 +423,15 @@
       of work to do</a>, especially if you with to use i18n features
       (facets require traits information but don't have a traits argument).
    </p>
-   <p>One example of how to specialize char_traits is given
-      <a href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00260.html">in
-      this message</a>.  We agree that the way it's used with basic_string
-      (scroll down to main()) doesn't look nice, but that's because
-      <a href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00236.html">the
-      nice-looking first attempt</a> turned out to
-      <a href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00242.html">not
+   <p>One example of how to specialize char_traits is given <a
+      href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00260.html">in
+      this message</a>, which was then put into the file <code>
+      include/ext/pod_char_traits.h</code> at a later date.  We agree
+      that the way it's used with basic_string (scroll down to main())
+      doesn't look nice, but that's because <a
+      href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00236.html">the
+      nice-looking first attempt</a> turned out to <a
+      href="http://gcc.gnu.org/ml/libstdc++/2002-08/msg00242.html">not
       be conforming C++</a>, due to the rule that CharT must be a POD.
       (See how tricky this is?)
    </p>
@@ -433,6 +444,25 @@
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
 
+<hr />
+<h2><a name="6">Shrink-to-fit strings</a></h2>
+   <!-- referenced by faq/index.html#5_9, update link if numbering changes -->
+   <p>From GCC 3.4 calling <code>s.reserve(res)</code> on a
+      <code>string s</code> with <code>res &lt; s.capacity()</code> will
+      reduce the string's capacity to <code>std::max(s.size(), res)</code>.
+   </p>
+   <p>This behaviour is suggested, but not required by the standard. Prior
+      to GCC 3.4 the following alternative can be used instead
+   </p>
+   <pre>
+      std::string(str.data(), str.size()).swap(str);
+   </pre>
+   <p>This is similar to the idiom for reducing a <code>vector</code>'s
+      memory usage (see <a href='../faq/index.html#5_9'>FAQ 5.9</a>) but
+      the regular copy constructor cannot be used because libstdc++'s
+      <code>string</code> is Copy-On-Write.
+   </p>
+      
 
 <!-- ####################################################### -->
 

@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: http_chunks.c,v 1.1.1.2 2002/11/26 19:07:55 zarzycki Exp $
+ * $Id: http_chunks.c,v 1.26 2005/03/04 00:14:45 bagder Exp $
  ***************************************************************************/
 #include "setup.h"
 
@@ -33,17 +33,17 @@
 #include "urldata.h" /* it includes http_chunks.h */
 #include "sendf.h"   /* for the client write stuff */
 
-#include "content_encoding.h"   /* 08/29/02 jhrg */
+#include "content_encoding.h"
+#include "http.h"
+#include "memory.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
 
 /* The last #include file should be: */
-#ifdef MALLOCDEBUG
 #include "memdebug.h"
-#endif
 
-/* 
+/*
  * Chunk format (simplified):
  *
  * <HEX SIZE>[ chunk extension ] CRLF
@@ -99,13 +99,17 @@ void Curl_httpchunk_init(struct connectdata *conn)
  */
 CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
                               char *datap,
-                              size_t length,
-                              size_t *wrote)
+                              ssize_t datalen,
+                              ssize_t *wrotep)
 {
-  CURLcode result;
+  CURLcode result=CURLE_OK;
   struct Curl_chunker *ch = &conn->proto.http->chunk;
-  int piece;
-  *wrote = 0; /* nothing yet */
+  struct Curl_transfer_keeper *k = &conn->keep;
+  size_t piece;
+  size_t length = (size_t)datalen;
+  size_t *wrote = (size_t *)wrotep;
+
+  *wrote = 0; /* nothing's written yet */
 
   while(length) {
     switch(ch->state) {
@@ -174,27 +178,35 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
       piece = (ch->datasize >= length)?length:ch->datasize;
 
       /* Write the data portion available */
-      /* Added content-encoding here; untested but almost identical to the
-         tested code in transfer.c. 08/29/02 jhrg */
 #ifdef HAVE_LIBZ
       switch (conn->keep.content_encoding) {
         case IDENTITY:
 #endif
-          result = Curl_client_write(conn->data, CLIENTWRITE_BODY, datap,
-                                     piece);
+          if(!k->ignorebody)
+            result = Curl_client_write(conn->data, CLIENTWRITE_BODY, datap,
+                                       piece);
 #ifdef HAVE_LIBZ
           break;
 
-        case DEFLATE: 
-          result = Curl_unencode_deflate_write(conn->data, &conn->keep, piece);
+        case DEFLATE:
+          /* update conn->keep.str to point to the chunk data. */
+          conn->keep.str = datap;
+          result = Curl_unencode_deflate_write(conn->data, &conn->keep,
+                                               (ssize_t)piece);
           break;
 
         case GZIP:
+          /* update conn->keep.str to point to the chunk data. */
+          conn->keep.str = datap;
+          result = Curl_unencode_gzip_write(conn->data, &conn->keep,
+                                            (ssize_t)piece);
+          break;
+
         case COMPRESS:
         default:
           failf (conn->data,
                  "Unrecognized content encoding type. "
-                 "libcurl understands `identity' and `deflate' "
+                 "libcurl understands `identity', `deflate' and `gzip' "
                  "content encodings.");
           return CHUNKE_BAD_ENCODING;
       }
@@ -202,6 +214,7 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
 
       if(result)
         return CHUNKE_WRITE_ERROR;
+
       *wrote += piece;
 
       ch->datasize -= piece; /* decrease amount left to expect */
@@ -248,12 +261,4 @@ CHUNKcode Curl_httpchunk_read(struct connectdata *conn,
   }
   return CHUNKE_OK;
 }
-
-/*
- * local variables:
- * eval: (load-file "../curl-mode.el")
- * end:
- * vim600: fdm=marker
- * vim: et sw=2 ts=2 sts=2 tw=78
- */
 #endif /* CURL_DISABLE_HTTP */

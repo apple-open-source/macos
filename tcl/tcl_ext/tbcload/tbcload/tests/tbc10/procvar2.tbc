@@ -1,0 +1,88 @@
+# procvar2.tcl --
+#
+#  Test file for compilation.
+#  Simple procedure with local variables. Used to test that the local
+#  variables count is set correctly in the proc struct created for the
+#  procedure.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procvar2.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+2 0 20 7 0 0 12 0 4 2 2 -1 -1
+20
+*BE<!(H&s!/HW<!(E`<!/E<!!
+2
+,B!
+2
+49!
+7
+x
+4
+,CHr@
+x
+1
+-v
+x
+5
+S>%pGA!
+p
+6 0 39 5 0 0 24 0 5 6 6 -1 -1
+39
+w0E<!4`Ss!8BW<!.5C3w<4`H&+K&s!0i&v!8lA=!9&5Uv)'!!
+6
+,c/v!.'!
+6
+Gn^R#=E!
+5
+x
+6
+:<ylBLYw
+x
+7
+6?seDpX2-
+x
+7
+@)6-EiX2-
+x
+6
+82_`FWnw
+x
+4
+4/;EF
+0
+0
+2 4
+1
+Dv
+0 0 257
+1
+Ev
+1 0 257
+1
+8v
+2 0 1
+1
+9v
+3 0 1
+x
+4
+b4Z)<
+x
+4
+8#;EF
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

@@ -1,0 +1,19 @@
+*** zconf.h.orig	Fri Feb 28 23:07:55 1997
+--- zconf.h	Fri Feb 28 23:08:20 1997
+***************
+*** 176,182 ****
+  /* Compile with -DZLIB_DLL for Windows DLL support */
+  #if (defined(_WINDOWS) || defined(WINDOWS)) && defined(ZLIB_DLL)
+  #  include <windows.h>
+! #  define EXPORT  WINAPI
+  #else
+  #  define EXPORT
+  #endif
+--- 176,182 ----
+  /* Compile with -DZLIB_DLL for Windows DLL support */
+  #if (defined(_WINDOWS) || defined(WINDOWS)) && defined(ZLIB_DLL)
+  #  include <windows.h>
+! #  define EXPORT  __declspec(dllexport)
+  #else
+  #  define EXPORT
+  #endif

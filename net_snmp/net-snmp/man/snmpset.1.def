@@ -22,7 +22,7 @@
 .TH SNMPSET 1 "08 Feb 2002" VVERSIONINFO "Net-SNMP"
 .UC 4
 .SH NAME
-snmpset - communicates with a network entity using SNMP SET Requests.
+snmpset - communicates with a network entity using SNMP SET requests
 .SH SYNOPSIS
 .B snmpset
 [COMMON OPTIONS] OID TYPE VALUE [OID TYPE VALUE]...
@@ -72,6 +72,10 @@ IPADDRESS
 BITS
 .PD
 .RE
+Most of these will use the obvious corresponding ASN.1 type.
+'s', 'x', 'd' and 'b' are all different ways of specifying an OCTET STRING
+value, and the 'u' unsigned type is also used for handling Gauge32 values.
+.PP
 If you have the proper MIB file loaded, you can, in most cases, replace the
 type with an '=' sign. For an object of type OCTET STRING this will assume
 a string like the 's' type notation. For other types it will do "The

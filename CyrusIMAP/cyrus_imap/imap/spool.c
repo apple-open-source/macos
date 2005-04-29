@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: spool.c,v 1.7 2004/10/27 20:40:50 shadow Exp $
+ * $Id: spool.c,v 1.5 2005/03/05 00:37:06 dasenbro Exp $
  */
 
 #include <config.h>

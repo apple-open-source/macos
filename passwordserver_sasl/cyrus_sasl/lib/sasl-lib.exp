@@ -94,6 +94,7 @@ _sasl_randfree
 _sasl_randseed
 _sasl_server_add_plugin
 _sasl_server_init
+_sasl_server_init_alt
 _sasl_server_new
 _sasl_server_start
 _sasl_server_step

@@ -845,7 +845,7 @@ DRIDamageRegion (DrawablePtr pDraw, RegionPtr pRegion)
 
 	    /* clip overlaps pRegion, need to intersect */
 
-	    REGION_INIT (pWin->drawable.pScreen, &clipped, NullBox, 0);
+	    REGION_NULL (pWin->drawable.pScreen, &clipped);
 	    REGION_INTERSECT (pWin->drawable.pScreen, &clipped,
 			      &pWin->borderClip, pRegion);
 

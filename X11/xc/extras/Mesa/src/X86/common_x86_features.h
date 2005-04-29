@@ -28,7 +28,7 @@
  * _mesa_identify_x86_cpu_features() and interpreted with the cpu_has_*
  * helper macros.
  *
- * Gareth Hughes <gareth@valinux.com>
+ * Gareth Hughes
  */
 
 #ifndef __COMMON_X86_FEATURES_H__

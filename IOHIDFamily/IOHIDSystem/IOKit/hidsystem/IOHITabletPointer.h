@@ -25,8 +25,8 @@
 #define _IOHITABLETPOINTER_H
 
 #include <IOKit/hidsystem/IOHIDevice.h>
-#include <IOKit/hidsystem/IOHITablet.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
+#include "IOHITablet.h"
 
 #define kIOHITabletPointerID			"PointerID"
 #define kIOHITabletPointerDeviceID		"DeviceID"

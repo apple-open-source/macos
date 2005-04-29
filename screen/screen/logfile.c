@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: logfile.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>		/* dev_t, ino_t, off_t, ... */
 #include <sys/stat.h>		/* struct stat */
 #include <fcntl.h>		/* O_WRONLY for logfile_reopen */

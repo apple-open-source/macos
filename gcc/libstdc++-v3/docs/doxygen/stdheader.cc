@@ -25,23 +25,19 @@ void init_map()
     headers["algo.h"]                   = "algorithm";
     headers["algobase.h"]               = "algorithm";
     headers["algorithm.h"]              = "algorithm";
-    headers["alloc.h"]                  = "memory";
-    headers["basic_ios.h"]              = "ios";
-    headers["basic_ios.tcc"]            = "ios";
-    headers["basic_string.h"]           = "string";
-    headers["basic_string.tcc"]         = "string";
+    headers["heap.h"]                   = "algorithm";
     headers["bitset.h"]                 = "bitset";
-    headers["bvector.h"]                = "vector";
-    //headers["char_traits.h"]            uhhhhhh
     headers["complex.h"]                = "complex";
     //headers["construct.h"]              stl_construct.h entirely internal
     headers["deque.h"]                  = "deque";
+    headers["deque.tcc"]                = "deque";
     headers["fstream.h"]                = "fstream";
     headers["fstream.tcc"]              = "fstream";
     headers["function.h"]               = "functional";
     headers["functional.h"]             = "functional";
-    headers["heap.h"]                   = "algorithm";
     headers["iomanip.h"]                = "iomanip";
+    headers["basic_ios.h"]              = "ios";
+    headers["basic_ios.tcc"]            = "ios";
     headers["ios.h"]                    = "ios";
     headers["iosfwd.h"]                 = "iosfwd";
     headers["iostream.h"]               = "iostream";
@@ -50,41 +46,63 @@ void init_map()
     headers["iterator.h"]               = "iterator";
     headers["iterator_base_funcs.h"]    = "iterator";
     headers["iterator_base_types.h"]    = "iterator";
+    headers["stream_iterator.h"]        = "iterator";
+    headers["streambuf_iterator.h"]     = "iterator";
     headers["limits.h"]                 = "limits";
     headers["list.h"]                   = "list";
+    headers["list.tcc"]                 = "list";
+    headers["codecvt.h"]                = "locale";
     headers["locale.h"]                 = "locale";
+    headers["localefwd.h"]              = "locale";
+    headers["locale_classes.h"]         = "locale";
     headers["locale_facets.h"]          = "locale";
     headers["locale_facets.tcc"]        = "locale";
     headers["map.h"]                    = "map";
-    headers["memory.h"]                 = "memory";
     headers["multimap.h"]               = "map";
-    headers["multiset.h"]               = "set";
+    headers["memory.h"]                 = "memory";
+    headers["allocator.h"]              = "memory";
+    headers["raw_storage_iter.h"]       = "memory";
+    headers["tempbuf.h"]                = "memory";
+    headers["uninitialized.h"]          = "memory";
     headers["numeric.h"]                = "numeric";
     headers["ostream.h"]                = "ostream";
     headers["ostream.tcc"]              = "ostream";
-    headers["pair.h"]                   = "utility";
-    //headers["pthread_alloc.h"]          who knows
     headers["queue.h"]                  = "queue";
-    headers["raw_storage_iter.h"]       = "memory";
-    headers["relops.h"]                 = "utility";
     headers["set.h"]                    = "set";
+    headers["multiset.h"]               = "set";
     headers["sstream.h"]                = "sstream";
     headers["sstream.tcc"]              = "sstream";
     headers["stack.h"]                  = "stack";
+    headers["functexcept.h"]            = "stdexcept";
     headers["stdexcept.h"]              = "stdexcept";
     headers["streambuf.h"]              = "streambuf";
     headers["streambuf.tcc"]            = "streambuf";
     headers["string.h"]                 = "string";
-    headers["tempbuf.h"]                = "memory";
-    //headers["threads.h"]                who knows
+    headers["char_traits.h"]            = "string";
+    headers["postypes.h"]               = "string";
+    headers["basic_string.h"]           = "string";
+    headers["basic_string.tcc"]         = "string";
     headers["tree.h"]                   = "backward/tree.h";
-    headers["uninitialized.h"]          = "memory";
+    headers["pair.h"]                   = "utility";
     headers["utility.h"]                = "utility";
+    headers["relops.h"]                 = "utility";
+    headers["gslice.h"]                 = "valarray";
+    headers["gslice_array.h"]           = "valarray";
+    headers["indirect_array.h"]         = "valarray";
+    headers["mask_array.h"]             = "valarray";
+    headers["slice_array.h"]            = "valarray";
     headers["valarray.h"]               = "valarray";
+    headers["valarray_after.h"]         = "valarray";
+    headers["valarray_before.h"]        = "valarray";
     headers["valarray_array.h"]         = "valarray";
     headers["valarray_array.tcc"]       = "valarray";
     headers["valarray_meta.h"]          = "valarray";
+    headers["bvector.h"]                = "vector";
     headers["vector.h"]                 = "vector";
+    headers["vector.tcc"]               = "vector";
+
+    //headers["concurrence.h"]             who knows
+    //headers["atomicity.h"]               who knows
 
     // C wrappers -- probably was an easier way to do these, but oh well
     headers["cassert.h"]                = "cassert";
@@ -149,5 +167,4 @@ int main (int argc, char**)
         do_word (w);
 }
 
-// vim:ts=4:et:
 

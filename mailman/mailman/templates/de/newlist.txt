@@ -17,22 +17,19 @@ Die Webseite fuer Benutzer Ihrer Mailing-Liste ist:
 
     %(listinfo_url)s
 
-Sie koennen sogar diese Webseiten individuell gestalten. Allerding muessen
-sie HTML-Kenntnisse besitzen um dies zu bewerkstelligen.
+Sie koennen sogar diese Webseiten individuell gestalten. Allerdings muessen
+sie über entsprechende HTML-Kenntnisse verfügen.
 
-Es gibt eine Email-basierte Schnittstelle fuer die Abonennten (nicht aber
-fuer den Administrator!) Ihrer Liste; Informationen darueber erhalten Sie,
-indem Sie einem Email mit nur dem Wort `help' im Betreff/Subject oder im
-Text der Email an die Adresse:
+Es gibt eine e-Mail-basierte Schnittstelle zu Mailman; Informationen 
+darueber erhalten Sie, indem Sie einem Email mit dem Wort `help' im 
+Betreff/Subject oder im Text an die folgende Adresse senden:
 
     %(requestaddr)s
 
-schicken.
-
 Um einem Abonnenten zu kuendigen: Klicken Sie auf der 'listinfo' Webseite
-auf die Email-Adresse des Abonnenten (oder geben Sie die Adresse ein) als ob
+auf die e-Mail-Adresse des Abonnenten (oder geben Sie die Adresse ein) als ob
 Sie dieser Abonnent waeren.
-Anstelle des Passworts des Abonnenten geben Sie allerdings Ihr
-Adminsitrationspasswort ein.
+
+Anstelle des Passworts des Abonnenten geben Sie allerdings Ihr Admin-Passwort ein.
 
 Bitte richten Sie alle Fragen an %(siteowner)s.

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = ApplePS2Mouse ;
-export deferred SRCROOT = /Volumes/MacOS/Build/ApplePS2Mouse ;
+export deferred SRCROOT = /remote/ApplePS2Mouse ;
 
 # User-defined project-wide settings for project
 
@@ -19,20 +19,19 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Apple
 
 # Implicitly computed build settings for target "ApplePS2Mouse"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = ApplePS2Mouse ;
 
 # User-defined build settings for target "ApplePS2Mouse"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/ApplePS2Controller.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.ApplePS2Mouse ;
-export deferred MODULE_VERSION = 1.0.3 ;
-export deferred OTHER_CFLAGS = -fpermissive ;
+export deferred MODULE_VERSION = 1.2.0 ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
 export deferred PRODUCT_NAME = ApplePS2Mouse ;
@@ -84,6 +83,12 @@ ProcessRezFiles "<ApplePS2Mouse>ApplePS2Mouse.kext" : "$(REZ_FILES)" : BPTag004 
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/ApplePS2Mouse.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<ApplePS2Mouse>ApplePS2Mouse.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<ApplePS2Mouse>ApplePS2Mouse.kext" ;
 
 EndBundle "<ApplePS2Mouse>ApplePS2Mouse.kext" ;
 

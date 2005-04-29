@@ -61,6 +61,14 @@
 #ifndef __GLIBCPP_INTERNAL_BVECTOR_H
 #define __GLIBCPP_INTERNAL_BVECTOR_H
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define vector _Release_vector
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 { 
   typedef unsigned long _Bit_type;
@@ -340,9 +348,10 @@ public:
 #include <bits/stl_vector.h>
 namespace std
 {
-
+/* APPLE LOCAL libstdc++ debug mode */
 template <typename _Alloc> 
-  class vector<bool, _Alloc> : public _Bvector_base<_Alloc> 
+  class _GLIBCXX_RELEASE_CLASS(vector) vector<bool, _Alloc>
+  : public _Bvector_base<_Alloc> 
   {
   public:
     typedef bool value_type;
@@ -721,6 +730,12 @@ template <typename _Alloc>
 typedef vector<bool, __alloc> bit_vector;
 
 } // namespace std 
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef vector
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_BVECTOR_H */
 

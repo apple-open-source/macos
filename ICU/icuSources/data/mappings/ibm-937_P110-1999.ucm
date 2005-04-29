@@ -1,6 +1,6 @@
 # ***************************************************************************
 # *
-# *   Copyright (C) 1995-2002, International Business Machines
+# *   Copyright (C) 1995-2003, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -17,6 +17,10 @@
 <subchar1>                    \x3F
 <icu:charsetFamily>           "EBCDIC"
 <icu:alias>                   "ibm-937_VPUA"
+
+# build an extension-only (delta) .cnv file
+# requires the base .cnv file at runtime
+<icu:base>                    "ibm-1371_P100-1999"
 
 CHARMAP
 <U0000> \x00 |0

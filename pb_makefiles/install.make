@@ -309,7 +309,7 @@ endif
 ifeq "YES" "$(PROJTYPE_CONVERT_BUNDLE)"
 ifeq "MACOSX" "$(BUNDLE_STYLE)"
 convert-bundle:
-	$(SILENT) $(MAKEFILEDIR)/convertBundle $(INSTALLED_PRODUCTS)
+	$(MAKEFILEDIR)/convertBundle $(INSTALLED_PRODUCTS)
 else
 convert-bundle:
 endif

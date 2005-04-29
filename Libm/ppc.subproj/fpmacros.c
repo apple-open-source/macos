@@ -73,11 +73,8 @@
 *            -fschedule-insns -finline-functions -funroll-all-loops            *
 *                                                                              *
 *******************************************************************************/
-
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include      "math.h"
+#include	  "float.h"
 #include      "fp_private.h"
 #include      "fenv.h"
 
@@ -98,30 +95,33 @@ unsigned int __math_errhandling ( void )
    C99.
 **************************************************************************/
 
-long int __fpclassifyf ( float x )
+int __fpclassifyf ( float x )
 {
-   unsigned long int iexp;
+   uint32_t iexp;
    hexsingle      z;
    
    z.fval = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    iexp = z.lval & 0x7f800000;             // isolate float exponent
    
    if (iexp == 0x7f800000) {               // NaN or INF case
       if ((z.lval & 0x007fffff) == 0)
-         return (long int) FP_INFINITE;
+         return FP_INFINITE;
       else if ((z.lval & fQuietNan) != 0)
-         return (long int) FP_QNAN;
+         return FP_QNAN;
       else
-         return (long int) FP_SNAN;
+         return FP_SNAN;
    }
    
    if (iexp != 0)                             // normal float
-      return (long int) FP_NORMAL;
+      return FP_NORMAL;
       
    if ((z.lval & 0x007fffff) == 0)
-      return (long int) FP_ZERO;             // zero
+      return FP_ZERO;             // zero
    else
-      return (long int) FP_SUBNORMAL;        //must be subnormal
+      return FP_SUBNORMAL;        //must be subnormal
 }
    
 
@@ -131,30 +131,119 @@ long int __fpclassifyf ( float x )
       defined in C99.
 *************************************************************************/
 
-long int __fpclassifyd ( double arg )
+int __fpclassifyd ( double arg )
 {
-      register unsigned long int exponent;
+      uint32_t exponent;
       hexdouble      x;
             
       x.d = arg;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
       
       exponent = x.i.hi & 0x7ff00000;
       if ( exponent == 0x7ff00000 )
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_INFINITE;
+                  return FP_INFINITE;
             else
                   return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
       }
       else if ( exponent != 0)
-            return (long int) FP_NORMAL;
+            return FP_NORMAL;
       else
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_ZERO;
+                  return FP_ZERO;
             else
-                  return (long int) FP_SUBNORMAL;
+                  return FP_SUBNORMAL;
       }
+}
+
+static const double twoTo52      = 0x1.0p+52;                  // 2^52
+static const double mtwoTo52	 = -0x1.0p+52;
+
+static inline double fastfloor( double f ) __attribute__((always_inline));
+static inline double fastfloor( double f )
+{
+	double b, c, d, e, g, h, t;
+	
+	c = __fsel( f, mtwoTo52, twoTo52 );				b = fabs( f );
+	d = (f - c) + c;								e = b - twoTo52;
+	g = f - d;
+	h = __fsel( g, 0.0, 1.0 );
+	t = d - h;
+	return __fsel( e, f, t );
+}
+
+// Called from fpclassify macro iff sizeof(double) != sizeof(long double)
+int __fpclassify ( long double arg )
+{
+      uint32_t exponent;
+	  int e;
+      hexdouble      x, xx;
+	  hexdbldbl u;
+            
+	  u.dd.head = 0.0;
+	  u.dd.tail = 0.0;
+	  
+	  u.ld = arg;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+      
+      x.d = u.dd.head;
+      xx.d = fabs( u.dd.tail );
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
+      exponent = x.i.hi & 0x7ff00000;
+	  e = (exponent >> 20) - 1023; // unbiased exponent
+
+      if ( exponent == 0x7ff00000 )
+      {
+            if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
+                  return FP_INFINITE;
+            else
+                  return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
+      }
+	  else if ( exponent == 0 )
+	  {
+            if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
+                  return FP_ZERO;
+            else
+                  return FP_SUBNORMAL;
+	  } 
+	  else if ( e < (LDBL_MIN_EXP - 1) )
+	  {
+	  		return FP_SUBNORMAL;
+	  }
+	  else if ( xx.d == 0.0 )
+	  {
+	  		return FP_NORMAL;
+	  }
+	  else /* xx.d > 0 */
+	  {
+	  		double t, u;
+			int n = LDBL_MANT_DIG - e; // scaling arg by 2^n puts LDBL_MANT_DIG bits left of the binary point
+			
+			t = ldexp( xx.d, n ); // t holds the tails contribution to the last LDBL_MANT_DIG bits
+			if ( t == 0.0 )
+				return FP_SUPERNORMAL; // contribution of xx.d entirely beyond LDBL_MANT_DIG places to the right 
+
+			u = fastfloor( t ); // chop off any "SUPERNORMAL" bits
+
+			if ( t == u )
+				return FP_NORMAL; // no "SUPERNORMAL" bits detected
+			else
+				return FP_SUPERNORMAL;
+	  }
+}
+
+int __issupernormal ( long double x )
+{
+	return (FP_SUPERNORMAL == __fpclassify( x ));
 }
 
 /***********************************************************************
@@ -163,12 +252,15 @@ long int __fpclassifyd ( double arg )
    zero otherwise.
 ***********************************************************************/
 
-long int __isnormalf ( float x )
+int __isnormalf ( float x )
 {
-   unsigned long int iexp;
+   uint32_t iexp;
    hexsingle      z;
    
    z.fval = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    iexp = z.lval & 0x7f800000;                 /* isolate float exponent */
    return ((iexp != 0x7f800000) && (iexp != 0));
 }
@@ -180,16 +272,23 @@ long int __isnormalf ( float x )
    zero otherwise.
 ***********************************************************************/
 
-long int __isnormald ( double x )
+int __isnormald ( double x )
 {
-   unsigned long int iexp;
+   uint32_t iexp;
    hexdouble      z;
    
    z.d = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    iexp = z.i.hi & 0x7ff00000;                 /* isolate float exponent */
    return ((iexp != 0x7ff00000) && (iexp != 0));
 }
 
+int __isnormal ( long double x )
+{
+	return (FP_NORMAL == __fpclassify( x ));
+}
 
 /***********************************************************************
    Function __isfinitef
@@ -197,11 +296,14 @@ long int __isnormald ( double x )
    or zero) float number and zero otherwise.
 ***********************************************************************/
 
-long int __isfinitef ( float x )
+int __isfinitef ( float x )
 {   
    hexsingle      z;
    
    z.fval = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return ((z.lval & 0x7f800000) != 0x7f800000);
 }
    
@@ -211,14 +313,27 @@ long int __isfinitef ( float x )
    Returns nonzero if and only if x is a finite (normal, subnormal, 
    or zero) double number and zero otherwise.
 ***********************************************************************/
-long int __isfinited ( double x )
+int __isfinited ( double x )
 {
    hexdouble      z;
    
    z.d = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return ((z.i.hi & 0x7ff00000) != 0x7ff00000);
 }
 
+int __isfinite ( long double x )
+{
+   hexdbldbl u;
+	
+   u.ld = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
+   return ((u.hh.hexhead.i.hi & 0x7ff00000) != 0x7ff00000);
+}
 
 /***********************************************************************
    Function __isinff
@@ -226,11 +341,14 @@ long int __isfinited ( double x )
    otherwise.
 ***********************************************************************/
 
-long int __isinff ( float x )
+int __isinff ( float x )
 {   
    hexsingle      z;
    
    z.fval = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return (((z.lval&0x7f800000) == 0x7f800000) && ((z.lval&0x007fffff) == 0));
 }
    
@@ -240,25 +358,47 @@ long int __isinff ( float x )
    Returns nonzero if and only if x is an infinite double number and zero 
    otherwise.
 ***********************************************************************/
-long int __isinfd ( double x )
+int __isinfd ( double x )
 {
    hexdouble      z;
    
    z.d = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return (((z.i.hi&0x7ff00000) == 0x7ff00000) && (((z.i.hi&0x000fffff) | z.i.lo) == 0));
 }
 
+int __isinf ( long double x )
+{
+   hexdbldbl u;
+	
+   u.ld = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
+   return (((u.hh.hexhead.i.hi&0x7ff00000) == 0x7ff00000) && (((u.hh.hexhead.i.hi&0x000fffff) | u.hh.hexhead.i.lo) == 0));
+}
+
+// Retain the following for legacy ABI compatability as it shipped in 10.2 and 10.3.
+int __isinfl ( long double x )
+{
+   return __isinf( x );	
+}
 
 /***********************************************************************
    Function __isnanf
    Returns nonzero if and only if x is a float NaN and zero otherwise.
 ***********************************************************************/
 
-long int __isnanf ( float x )
+int __isnanf ( float x )
 {   
    hexsingle      z;
    
-   z.fval = x;
+   z.fval = (double)x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return (((z.lval&0x7f800000) == 0x7f800000) && ((z.lval&0x007fffff) != 0));
 }
 
@@ -267,14 +407,27 @@ long int __isnanf ( float x )
    Function __isnand
    Returns nonzero if and only if x is a double NaN and zero otherwise.
 ***********************************************************************/
-long int __isnand ( double x )
+int __isnand ( double x )
 {
    hexdouble      z;
    
    z.d = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
    return (((z.i.hi&0x7ff00000) == 0x7ff00000) && (((z.i.hi&0x000fffff) | z.i.lo) != 0));
 }
 
+int __isnan ( long double x )
+{
+   hexdbldbl u;
+	
+   u.ld = x;
+   __NOOP;
+   __NOOP;
+   __NOOP;
+   return (((u.hh.hexhead.i.hi&0x7ff00000) == 0x7ff00000) && (((u.hh.hexhead.i.hi&0x000fffff) | u.hh.hexhead.i.lo) != 0));
+}
 
 /***********************************************************************
    Function __signbitf
@@ -282,12 +435,15 @@ long int __isnand ( double x )
    set and zero otherwise.
 ***********************************************************************/
 
-long int __signbitf ( float x )
+int __signbitf ( float x )
 {   
    hexsingle      z;
    
    z.fval = x;
-   return (((signed long int)z.lval) < 0);
+   __NOOP;
+   __NOOP;
+   __NOOP;
+   return (((int32_t)z.lval) < 0);
 }
 
 
@@ -297,12 +453,32 @@ long int __signbitf ( float x )
    set and zero otherwise.
 ***********************************************************************/
 
-long int __signbitd ( double arg )
+int __signbitd ( double arg )
 {
       hexdouble z;
 
       z.d = arg;
-      return (((signed long int)z.i.hi) < 0);
+     __NOOP;
+     __NOOP;
+     __NOOP;
+      return (((int32_t)z.i.hi) < 0);
+}
+
+int __signbitl ( long double arg )
+{
+	   hexdbldbl u;
+		
+	   u.ld = arg;
+     __NOOP;
+     __NOOP;
+     __NOOP;
+      return (((int32_t)u.hh.hexhead.i.hi) < 0);
+}
+
+// Retain the following for legacy ABI compatability as it shipped in 10.2 and 10.3.
+int __signbit ( long double arg )
+{
+	  return __signbitl( arg );
 }
 
 float __nan ( void )
@@ -331,8 +507,3 @@ double __inf ( void )
 }
 
 #endif /* BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

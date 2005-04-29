@@ -2,25 +2,27 @@
    Copyright (C) 2000 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "cpplib.h"
 #include "tree.h"
 #include "c-pragma.h"
@@ -32,15 +34,14 @@ Boston, MA 02111-1307, USA.  */
 #define streq(a,b) (strcmp (a, b) == 0)
 #endif
 
-static int  pop_data_area          PARAMS ((v850_data_area));
-static int  push_data_area         PARAMS ((v850_data_area));
-static void mark_current_function_as_interrupt PARAMS ((void));
+static int  pop_data_area          (v850_data_area);
+static int  push_data_area         (v850_data_area);
+static void mark_current_function_as_interrupt (void);
 
 /* Push a data area onto the stack.  */
 
 static int
-push_data_area (data_area)
-     v850_data_area data_area;
+push_data_area (v850_data_area data_area)
 {
   data_area_stack_element * elem;
 
@@ -60,8 +61,7 @@ push_data_area (data_area)
 /* Remove a data area from the stack.  */
 
 static int
-pop_data_area (data_area)
-     v850_data_area data_area;
+pop_data_area (v850_data_area data_area)
 {
   if (data_area_stack == NULL)
     warning ("#pragma GHS endXXXX found without previous startXXX");
@@ -85,7 +85,7 @@ pop_data_area (data_area)
 /* Set the machine specific 'interrupt' attribute on the current function.  */
 
 static void
-mark_current_function_as_interrupt ()
+mark_current_function_as_interrupt (void)
 {
   tree name;
   
@@ -111,8 +111,7 @@ mark_current_function_as_interrupt ()
 /* Support for GHS pragmata.  */
 
 void
-ghs_pragma_section (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_section (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   int repeat;
 
@@ -191,8 +190,7 @@ ghs_pragma_section (pfile)
 }
 
 void
-ghs_pragma_interrupt (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_interrupt (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -203,8 +201,7 @@ ghs_pragma_interrupt (pfile)
 }
 
 void
-ghs_pragma_starttda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_starttda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -215,8 +212,7 @@ ghs_pragma_starttda (pfile)
 }
 
 void
-ghs_pragma_startsda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_startsda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -227,8 +223,7 @@ ghs_pragma_startsda (pfile)
 }
 
 void
-ghs_pragma_startzda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_startzda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -239,8 +234,7 @@ ghs_pragma_startzda (pfile)
 }
 
 void
-ghs_pragma_endtda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_endtda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -251,8 +245,7 @@ ghs_pragma_endtda (pfile)
 }
 
 void
-ghs_pragma_endsda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_endsda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   
@@ -263,8 +256,7 @@ ghs_pragma_endsda (pfile)
 }
 
 void
-ghs_pragma_endzda (pfile)
-     cpp_reader *pfile ATTRIBUTE_UNUSED;
+ghs_pragma_endzda (cpp_reader * pfile ATTRIBUTE_UNUSED)
 {
   tree x;
   

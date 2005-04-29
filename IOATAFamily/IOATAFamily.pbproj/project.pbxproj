@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		01640CD0FFDF22697F000001 = {
 			fileRef = 019C1A2AFFDDABCE7F000001;
@@ -22,14 +22,18 @@
 		0176C36F002B79CE11CE156E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = ATATimerEventSource.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0176C370002B79CE11CE156E = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = ATATimerEventSource.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0176C371002B79CE11CE156E = {
 			fileRef = 0176C36F002B79CE11CE156E;
@@ -60,120 +64,159 @@
 			name = Drivers;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		019C1A26FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOPCIATA.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A27FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = MacIOATA.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A28FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOPCIATA.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A29FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = MacIOATA.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2AFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = ATADeviceNub.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2BFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATABusCommand.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2CFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATABusInfo.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2DFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATACommand.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2EFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATAController.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A2FFFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATADevConfig.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A30FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATADevice.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A31FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATATypes.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A32FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = ATADeviceNub.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A33FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATABusCommand.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A34FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATABusInfo.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A35FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATACommand.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A36FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATAController.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A37FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATADevConfig.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A38FFDDABCE7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATADevice.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		019C1A3AFFDDABCE7F000001 = {
 			fileRef = 019C1A2BFFDDABCE7F000001;
@@ -408,11 +451,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -422,7 +461,12 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -432,6 +476,8 @@
 			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -440,11 +486,7 @@
 			buildActionMask = 12;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -460,6 +502,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -482,6 +526,7 @@
 			isa = PBXGroup;
 			name = IOATAFamily;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -495,7 +540,6 @@
 				06AA1264FFB2107B11CA28AA,
 			);
 			buildSettings = {
-				DEBUGGING_SYMBOLS = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -504,10 +548,9 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOATAFamily;
-				MODULE_VERSION = 1.5.5f1;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				MODULE_VERSION = 1.6.0f2;
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOATAFamily;
 				SECTORDER_FLAGS = "";
 				VALID_ARCHS = "ppc i386";
@@ -542,11 +585,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.5.5</string>
+	<string>1.6.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.5.5f1</string>
+	<string>1.6.0f2</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -630,6 +673,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -638,13 +682,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -663,9 +710,12 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
+			explicitFileType = wrapper.cfbundle;
+			fallbackIsa = PBXFileReference;
 			isa = PBXBundleReference;
 			path = IOATAFamily.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
@@ -684,6 +734,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -721,6 +772,7 @@
 			name = Family;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //240
 //241
@@ -735,8 +787,10 @@
 		B91829CD0197498808CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = IOATARegI386.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B91829CE0197498808CA29FD = {
 			fileRef = B91829CD0197498808CA29FD;
@@ -747,8 +801,10 @@
 		B9D54E10019702DB08CA29FD = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = IOATARegI386.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		B9D54E11019702DB08CA29FD = {
 			fileRef = B9D54E10019702DB08CA29FD;

@@ -33,8 +33,8 @@
    the Intel simulator.  So we must explicitly put variables in .bss
    instead.  This matters only if we care about the Intel assembler.  */
 
-/* This is asm_output_aligned_bss from varasm.c without the ASM_GLOBALIZE_LABEL
-   call at the beginning.  */
+/* This is asm_output_aligned_bss from varasm.c without the
+   (*targetm.asm_out.globalize_label) call at the beginning.  */
 
 /* This is for final.c, because it is used by ASM_DECLARE_OBJECT_NAME.  */
 extern int size_directive_output;
@@ -42,8 +42,7 @@ extern int size_directive_output;
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_DECL_LOCAL(FILE, DECL, NAME, SIZE, ALIGN) \
 do {									\
-  if ((DECL)								\
-      && XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0] == SDATA_NAME_FLAG_CHAR) \
+  if ((DECL) && sdata_symbolic_operand (XEXP (DECL_RTL (DECL), 0), Pmode)) \
     sbss_section ();							\
   else									\
     bss_section ();							\
@@ -62,8 +61,8 @@ do {									\
 #define ASM_OUTPUT_LABELREF(STREAM, NAME)	\
 do {						\
   const char *name_ = NAME;			\
-  if (*name_ == SDATA_NAME_FLAG_CHAR)		\
-    name_++;					\
+  if (*name_ == ENCODE_SECTION_INFO_CHAR)	\
+    name_ += 2;					\
   if (*name_ == '*')				\
     name_++;					\
   else						\
@@ -140,67 +139,15 @@ do {									\
   emit_safe_across_calls (STREAM);					\
 } while (0)
 
-/* We override svr4.h so that we can support the sdata section.  */
-
-#undef SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	mergeable_string_section ((DECL), (ALIGN), 0);			\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if (XSTR (XEXP (DECL_RTL (DECL), 0), 0)[0]			\
-	  == SDATA_NAME_FLAG_CHAR)					\
-        sdata_section ();						\
-      /* ??? We need the extra RELOC check, because the default is to	\
-	 only check RELOC if flag_pic is set, and we don't set flag_pic \
-	 (yet?).  */							\
-      else if (!DECL_READONLY_SECTION (DECL, RELOC) || (RELOC))		\
-	data_section ();						\
-      else if (flag_merge_constants < 2)				\
-	/* C and C++ don't allow different variables to share		\
-	   the same location.  -fmerge-all-constants allows		\
-	   even that (at the expense of not conforming).  */		\
-	const_section ();						\
-      else if (TREE_CODE (DECL_INITIAL (DECL)) == STRING_CST)		\
-	mergeable_string_section (DECL_INITIAL (DECL), (ALIGN), 0);	\
-      else								\
-	mergeable_constant_section (DECL_MODE (DECL), (ALIGN), 0);	\
-    }									\
-  /* This could be a CONSTRUCTOR containing ADDR_EXPR of a VAR_DECL,	\
-     in which case we can't put it in a shared library rodata.  */	\
-  else if (flag_pic && (RELOC))						\
-    data_section ();							\
-  else									\
-    const_section ();							\
-}
-
-/* Similarly for constant pool data.  */
-
-extern unsigned int ia64_section_threshold;
-#undef SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN)				\
-{									\
-  if (GET_MODE_SIZE (MODE) > 0						\
-      && GET_MODE_SIZE (MODE) <= ia64_section_threshold)		\
-    sdata_section ();							\
-  else if (flag_pic && symbolic_operand ((RTX), (MODE)))		\
-    data_section ();							\
-  else									\
-    mergeable_constant_section ((MODE), (ALIGN), 0);			\
-}
+/* Override default elf definition.  */
+#undef	TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  ia64_select_rtx_section
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_sdata, in_sbss
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
   SDATA_SECTION_FUNCTION						\
   SBSS_SECTION_FUNCTION
 

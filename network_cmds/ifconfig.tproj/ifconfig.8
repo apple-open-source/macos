@@ -32,7 +32,7 @@
 .\"     From: @(#)ifconfig.8	8.3 (Berkeley) 1/5/94
 .\" $FreeBSD: src/sbin/ifconfig/ifconfig.8,v 1.27.2.14 2001/08/23 06:35:38 yar Exp $
 .\"
-.Dd July 2, 2001
+.Dd July 15, 2004
 .Dt IFCONFIG 8
 .Os
 .Sh NAME
@@ -67,9 +67,28 @@
 .Op Ar address_family
 .Nm
 .Op Fl L
+.Op Fl b
 .Op Fl d
 .Op Fl m
 .Op Fl u
+.Nm
+.Ar interface
+.Cm vlan
+.Ar vlan-tag
+.Cm vlandev
+.Ar iface
+.Nm
+.Ar interface
+.Cm -vlandev
+.Ar iface
+.Nm
+.Ar interface
+.Cm bonddev
+.Ar iface
+.Nm
+.Ar interface
+.Cm -bonddev
+.Ar iface
 .Sh DESCRIPTION
 .Nm Ifconfig
 is used to assign an address
@@ -142,6 +161,10 @@ parameter is a string of the form
 .Dq name unit ,
 for example,
 .Dq Li en0 .
+.It Ar iface
+This parameter has the same encoding as the
+.Ar interface
+parameter.
 .El
 .Pp
 The following parameters may be set with
@@ -190,6 +213,63 @@ addresses and
 .It Fl arp
 Disable the use of the Address Resolution Protocol
 .Pq Xr arp 4 .
+.It Cm bonddev Ar iface
+If the interface is a bond pseudo device, associate physical interface
+.Ar iface
+with it.  The bond pseudo device conforms
+to the IEEE 802.3ad Link Aggregation specification.
+.Pp
+If this is the first physical interface to be associated with the bond
+interface, the bond interface inherits the ethernet address from the
+physical interface.  Physical interfaces that are added to the bond have
+their ethernet address re-programmed so that all members of the bond have
+the same ethernet address.  If the physical interface is subsequently
+removed from the bond using
+.Fl bonddev ,
+a new ethernet address is chosen from the remaining interfaces, and all
+interfaces are re-programmed again with the new ethernet address.  If no
+remaining interfaces exist, the bond interface's ethernet address is cleared.
+.Pp
+If the specified physical interface
+.Ar iface
+is not capable of having its ethernet address re-programmed, the
+.Cm bonddev
+command will fail.
+.Pp
+Once the physical interface
+.Ar iface
+is successfully associated with the bond interface, all received packets
+are diverted to the bond interface.  The physical interface is no longer
+useable on its own, and remains that way until it is removed from the bond using
+.Fl bonddev .
+.Pp
+It is possible that the specified interface
+.Ar iface
+is not capable of aggregating, and may remain unused until the operating
+conditions change.
+.Pp
+The link status of the bond interface depends on the state of link aggregation.
+If no active partner is detected, the link status will remain inactive.
+.Pp
+To monitor the 802.3ad Link Aggregation state, use the
+.Fl b
+option.
+.Pp
+A physical interface that is associated with a vlan pseudo device cannot
+at the same time be associated with a bond pseudo device.  A physical interface
+cannot be associated with more than one bond pseudo device at the same time.
+.Pp
+It is not possible to associate a bond with pseudo interfaces such as vlan.
+Only physical ethernet interfaces may be associated with a bond.
+.It Fl bonddev Ar iface
+If the interface is a bond pseudo device, disassociate the physical interface
+.Ar iface
+from it.  Before the interface is removed from the bond, the bond device
+announces to the link partner that the interface is now individual and
+no longer aggregatable.
+If the physical
+.Ar iface
+is the last interface in the bond, the bond interface clears its link address.
 .It Cm broadcast
 (Inet only.)
 Specify the address to use to represent broadcasts to the
@@ -306,54 +386,6 @@ parameter.
 Included for
 .Tn Solaris
 compatibility.
-.It Cm vlan Ar vlan_tag
-If the interface is a vlan pseudo interface, set the vlan tag value
-to
-.Ar vlan_tag .
-This value is a 16-bit number which is used to create an 802.1Q
-vlan header for packets sent from the vlan interface.
-Note that
-.Cm vlan
-and
-.Cm vlandev
-must both be set at the same time.
-.It Cm vlandev Ar iface
-If the interface is a vlan pseudo device, associate physical interface
-.Ar iface
-with it.
-Packets transmitted through the vlan interface will be
-diverted to the specified physical interface
-.Ar iface
-with 802.1Q vlan encapsulation.
-Packets with 802.1Q encapsulation received
-by the parent interface with the correct vlan tag will be diverted to
-the associated vlan pseudo-interface.
-The vlan interface is assigned a
-copy of the parent interface's flags and the parent's ethernet address.
-The
-.Cm vlandev
-and
-.Cm vlan
-must both be set at the same time.
-If the vlan interface already has
-a physical interface associated with it, this command will fail.
-To
-change the association to another physical interface, the existing
-association must be cleared first.
-.Pp
-Note: if the hardware tagging capability
-is set on the vlan interface, the vlan pseudo
-interface's behavior changes:
-the vlan interface recognizes that the
-parent interface supports insertion and extraction of vlan tags on its
-own (usually in firmware) and that it should pass packets to and from
-the parent unaltered.
-.It Fl vlandev Ar iface
-If the driver is a vlan pseudo device, disassociate the physical interface
-.Ar iface
-from it.
-This breaks the link between the vlan interface and its parent,
-clears its vlan tag, flags and its link address and shuts the interface down.
 .It Cm metric Ar n
 Set the routing metric of the interface to
 .Ar n ,
@@ -462,6 +494,55 @@ This may be used to enable an interface after an
 It happens automatically when setting the first address on an interface.
 If the interface was reset when previously marked down,
 the hardware will be re-initialized.
+.It Cm vlan Ar vlan_tag Cm vlandev Ar iface
+If the interface is a vlan pseudo interface, set its vlan tag value
+to
+.Ar vlan_tag
+and associate it with the physical interface
+.Ar iface .
+.Pp
+The
+.Ar vlan_tag
+value is a 16-bit number that is used to create an 802.1Q
+vlan header for packets sent from the vlan interface.
+.Pp
+A packet that is transmitted through the vlan interface is sent
+using the specified physical interface
+.Ar iface
+with 802.1Q vlan encapsulation with the specified
+.Ar vlan_tag .
+A packet with 802.1Q encapsulation received by the physical interface
+is directed to the associated vlan interface with the matching
+.Ar vlan_tag .
+If there is no matching vlan interface, the packet is dropped.
+.Pp
+The vlan interface is assigned a
+copy of the parent interface's flags and the parent's ethernet address.
+If the vlan interface already has
+a physical interface associated with it, this command will fail.
+To
+change the association to another physical interface, the existing
+association must be cleared first using
+.Fl vlandev .
+.Pp
+If the physical interface supports 802.1Q VLAN tagging in hardware,
+the vlan pseudo interface does not itself insert or remove the 802.1Q 
+encapsulation header.  Instead, the
+.Ar vlan_tag
+is passed out of band from the packet data.
+.Pp
+A physical interface that is associated with a bond pseudo device cannot
+at the same time be associated with a vlan interface.  However, a physical
+interface can be associated with multiple vlan interfaces at the same time,
+as long as each of the
+.Ar vlan_tag
+values are unique.
+.It Fl vlandev Ar iface
+If the driver is a vlan pseudo device, disassociate the physical interface
+.Ar iface
+from it.
+This breaks the link between the vlan interface and its parent,
+clears its vlan tag, flags and its link address.
 .El
 .Pp
 .Nm Ifconfig
@@ -471,15 +552,16 @@ If a protocol family is specified,
 .Nm
 will report only the details specific to that protocol family.
 .Pp
-If the driver does supports the media selection system, the supported
-media list will be included in the output.
-.Pp
-If the
+If the driver supports the media selection system, the supported
+media list will be included in the output, regardless of whether the
 .Fl m
-flag is passed before an interface name,
-.Nm
-will display all
-of the supported media for the specified interface.
+flag is passed or not.
+.Pp
+The
+.Fl b
+option passed before the interface name will print the link aggregation
+state for bond pseudo devices.
+.Pp
 If
 .Fl L
 flag is supplied, address lifetime is displayed for IPv6 addresses,

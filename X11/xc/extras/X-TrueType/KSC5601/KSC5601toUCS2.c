@@ -32,14 +32,17 @@ Notice===
    This table data derived from Unicode, Inc.
    (ftp://ftp.unicode.org/Public/MAPPING/EASTASIA/KSC/KSC5601.TXT)
 
-   convert UHC to genuine KSC5601 by Jungshik Shin.
-   (http://pantheon.yale.edu/~jshin/faq/KSC5601.TXT.gz)
+   convert UHC to genuine KSC5601 by Jungshik Shin <jshin@mailaps.org>
+   (http://jshin.net/faq/KSC5601.TXT.gz)
  */
+/* $XFree86: xc/extras/X-TrueType/KSC5601/KSC5601toUCS2.c,v 1.3 2003/10/22 16:25:45 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -71,7 +74,7 @@ static ucs2_t tblKsc5601ToUcs2[] = {
     0x25A5, 0x25A8, 0x25A7, 0x25A6, 0x25A9, 0x2668, 0x260F, 0x260E, 
     0x261C, 0x261E, 0x00B6, 0x2020, 0x2021, 0x2195, 0x2197, 0x2199, 
     0x2196, 0x2198, 0x266D, 0x2669, 0x266A, 0x266C, 0x327F, 0x321C, 
-    0x2116, 0x33C7, 0x2122, 0x33C2, 0x33D8, 0x2121, ALTCHR, ALTCHR, 
+    0x2116, 0x33C7, 0x2122, 0x33C2, 0x33D8, 0x2121, 0x20AC, 0x00AE, 
     ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, 
     ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, 
     ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, ALTCHR, 

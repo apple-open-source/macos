@@ -26,6 +26,7 @@
  * Implementation of the DSMutexSemaphore ( mutually exclusive lock ) class.
  */
 
+#include <errno.h>
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 
 #include "DSMutexSemaphore.h"

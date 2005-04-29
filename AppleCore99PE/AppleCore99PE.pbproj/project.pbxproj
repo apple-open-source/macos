@@ -65,6 +65,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -100,7 +101,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleCore99PE;
-				MODULE_VERSION = 1.2.1d2;
+				MODULE_VERSION = 1.2.2d1;
 				OTHER_CFLAGS = "-fpermissive -D_BIG_ENDIAN";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -126,7 +127,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleCore99PE</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleCore99PE version 1.2.1, Copyright 2001-2002 Apple Computer, Inc.</string>
+	<string>AppleCore99PE version 1.2.2, Copyright 2001-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -138,11 +139,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.1d2</string>
+	<string>1.2.2d1</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Core99CPU</key>
@@ -151,10 +152,13 @@
 			<string>com.apple.driver.AppleCore99PE</string>
 			<key>IOClass</key>
 			<string>Core99CPU</string>
-			<key>IONameMatch</key>
-			<string>cpu</string>
 			<key>IOProbeScore</key>
 			<integer>1000</integer>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>cpu-device-type</key>
+				<string>Core99CPU</string>
+			</dict>
 			<key>IOProviderClass</key>
 			<string>IOPlatformDevice</string>
 		</dict>
@@ -557,7 +561,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -658,41 +661,49 @@
 //0C3
 //0C4
 		0C08A5B4FFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Core99.cpp;
 			refType = 4;
 		};
 		0C08A5B5FFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Core99.h;
 			refType = 4;
 		};
 		0C08A5B6FFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Core99CPU.cpp;
 			refType = 4;
 		};
 		0C08A5B7FFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = Core99CPU.h;
 			refType = 4;
 		};
 		0C08A5B9FFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMSlots99.cpp;
 			refType = 4;
 		};
 		0C08A5BAFFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMSlots99.h;
 			refType = 4;
 		};
 		0C08A5BBFFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMUSB99.cpp;
 			refType = 4;
 		};
 		0C08A5BCFFF0C0B011CA2A1B = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = IOPMUSB99.h;
 			refType = 4;

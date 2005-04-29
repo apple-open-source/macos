@@ -1545,22 +1545,22 @@ void AppleKeyLargo::PowerModem(bool state)
 
 void AppleKeyLargo::ModemResetLow()
 {
-    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
-    eieio();
-    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) &= ~0x01;	// Set GPIO3_DataOut output to zero
-    eieio();
+	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+	eieio();
+	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) &= ~0x01;	// Set GPIO3_DataOut output to zero
+	eieio();
 
-    return;
+	return;
 }
 
 void AppleKeyLargo::ModemResetHigh()
 {
-    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
-    eieio();
-    *(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
-    eieio();
+	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x04;	// Set GPIO3_DDIR to output
+	eieio();
+	*(UInt8*)(keyLargoBaseAddress + kKeyLargoGPIOBase + 0x3) |= 0x01;	// Set GPIO3_DataOut output to 1
+	eieio();
     
-    return;
+	return;
 }
 
 void AppleKeyLargo::PowerI2S (bool powerOn, UInt32 cellNum)
@@ -1681,10 +1681,9 @@ IOReturn AppleKeyLargo::SetPowerSupply (bool powerHi)
 	
 	// Wait for power supply to ramp up.
 	delay = 200;
-	assert_wait(&delay, THREAD_UNINT);
-	thread_set_timer(delay, NSEC_PER_USEC);
+	assert_wait_timeout((event_t)assert_wait_timeout, THREAD_UNINT, delay, NSEC_PER_USEC);
 	thread_block(0);
-
+	
 	return (kIOReturnSuccess);
 }
 

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XPutImage.man,v 1.3 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XPutImage.man,v 1.4 2003/04/28 22:17:56 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,55 +144,20 @@
 .SH NAME
 XPutImage, XGetImage, XGetSubImage \- transfer images
 .SH SYNTAX
-XPutImage\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIimage\fP\^, \fIsrc_x\fP, \fIsrc_y\fP, \fIdest_x\fP\^, \fIdest_y\fP\^, \fIwidth\fP\^, \fIheight\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        Drawable \fId\fP\^;
-.br
-        GC \fIgc\fP\^;
-.br
-        XImage *\fIimage\fP\^;
-.br
-        int \fIsrc_x\fP\^, \fIsrc_y\fP\^;
-.br
-        int \fIdest_x\fP\^, \fIdest_y\fP\^;
-.br
-        unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.LP
-XImage *XGetImage\^(\^\fIdisplay\fP, \fId\fP\^, \fIx\fP\^, \fIy\fP\^, \fIwidth\fP\^, \fIheight\fP\^, \fIplane_mask\fP, \fIformat\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        Drawable \fId\fP\^;
-.br
-        int \fIx\fP\^, \fIy\fP\^;
-.br
-        unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.br
-        unsigned long \fIplane_mask\fP\^;
-.br
-        int \fIformat\fP\^;
-.LP
-XImage *XGetSubImage\^(\^\fIdisplay\fP, \fId\fP\^, \fIx\fP\^, \fIy\fP\^, \fIwidth\fP\^, \fIheight\fP\^, \fIplane_mask\fP, \fIformat\fP\^, \fIdest_image\fP\^, \fIdest_x\fP\^, 
-.br
-                     \fIdest_y\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.br
-      unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.br
-      unsigned long \fIplane_mask\fP\^;
-.br
-      int \fIformat\fP\^;
-.br
-      XImage *\fIdest_image\fP\^;
-.br
-      int \fIdest_x\fP\^, \fIdest_y\fP\^;
+.HP
+int XPutImage\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC \fIgc\fP\^,
+XImage *\fIimage\fP\^, int \fIsrc_x\fP\^, int \fIsrc_y\fP\^, int
+\fIdest_x\fP\^, int \fIdest_y\fP\^, unsigned int \fIwidth\fP\^, unsigned int
+\fIheight\fP\^); 
+.HP
+XImage *XGetImage\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, int
+\fIx\fP\^, int \fIy\fP\^, unsigned int \fIwidth\fP\^, unsigned int
+\fIheight\fP\^, unsigned long \fIplane_mask\fP\^, int \fIformat\fP\^); 
+.HP
+XImage *XGetSubImage\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, int
+\fIx\fP\^, int \fIy\fP\^, unsigned int \fIwidth\fP\^, unsigned int
+\fIheight\fP\^, unsigned long \fIplane_mask\fP\^, int \fIformat\fP\^, XImage
+*\fIdest_image\fP\^, int \fIdest_x\fP\^, \fIdest_y\fP\^); 
 .SH ARGUMENTS
 .IP \fId\fP 1i
 Specifies the drawable. 

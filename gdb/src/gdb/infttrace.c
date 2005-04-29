@@ -1,6 +1,6 @@
 /* Low level Unix child interface to ttrace, for GDB when running under HP-UX.
    Copyright 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998,
-   1999, 2000, 2001
+   1999, 2000, 2001, 2003
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -27,6 +27,7 @@
 #include "gdb_string.h"
 #include "gdb_wait.h"
 #include "command.h"
+#include "gdbthread.h"
 
 /* We need pstat functionality so that we can get the exec file
    for a process we attach to.
@@ -140,12 +141,6 @@ static startup_semaphore_t startup_semaphore;
 /* See can_touch_threads_of_process for details. */
 static int vforking_child_pid = 0;
 static int vfork_in_flight = 0;
-
-/* To support PREPARE_TO_PROCEED (hppa_prepare_to_proceed).
- */
-static pid_t old_gdb_pid = 0;
-static pid_t reported_pid = 0;
-static int reported_bpt = 0;
 
 /* 1 if ok as results of a ttrace or ttrace_wait call, 0 otherwise.
  */
@@ -2911,12 +2906,6 @@ ptrace_wait (ptid_t ptid, int *status)
    */
   return_pid = map_to_gdb_tid (real_tid);
 
-  /* Remember this for later use in "hppa_prepare_to_proceed".
-   */
-  old_gdb_pid = PIDGET (inferior_ptid);
-  reported_pid = return_pid;
-  reported_bpt = ((tsp.tts_event & TTEVT_SIGNAL) && (5 == tsp.tts_u.tts_signal.tts_signo));
-
   if (real_tid == 0 || return_pid == 0)
     {
       warning ("Internal error: process-wait failed.");
@@ -2947,7 +2936,7 @@ ptrace_wait (ptid_t ptid, int *status)
    child_acknowledge_created_inferior.)
  */
 int
-parent_attach_all (void)
+parent_attach_all (int p1, PTRACE_ARG3_TYPE p2, int p3)
 {
   int tt_status;
 
@@ -3674,7 +3663,7 @@ call_ptrace (int pt_request, int gdb_tid, PTRACE_ARG3_TYPE addr, int data)
          there's no need for any "break" statements.
        */
     case PT_SETTRC:
-      return parent_attach_all ();
+      return parent_attach_all (0, 0, 0);
 
     case PT_RUREGS:
       tt_status = read_from_register_save_state (gdb_tid,
@@ -3951,7 +3940,7 @@ threads_continue_all_but_one (lwpid_t gdb_tid, int signal)
        * state.tts_flags & TTS_STATEMASK == TTS_WASSUSPENDED
        */
       if (debug_on)
-	if (state.tts_flags & TTS_STATEMASK != TTS_WASSUSPENDED)
+ 	if ((state.tts_flags & TTS_STATEMASK) != TTS_WASSUSPENDED)
 	  printf ("About to continue non-stopped thread %d\n", scan_tid);
 #endif
 
@@ -4085,7 +4074,7 @@ threads_continue_all_with_signals (lwpid_t gdb_tid, int signal)
 
 #ifdef THREAD_DEBUG
       if (debug_on)
-	if (state.tts_flags & TTS_STATEMASK != TTS_WASSUSPENDED)
+	if ((state.tts_flags & TTS_STATEMASK) != TTS_WASSUSPENDED)
 	  warning ("About to continue non-stopped thread %d\n", scan_tid);
 #endif
 
@@ -4847,18 +4836,18 @@ child_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 		   struct mem_attrib *attrib,
 		   struct target_ops *target)
 {
-  register int i;
+  int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (TTRACE_XFER_TYPE);
+  CORE_ADDR addr = memaddr & -(CORE_ADDR) sizeof (TTRACE_XFER_TYPE);
   /* Round ending address up; get number of longwords that makes.  */
-  register int count
+  int count
   = (((memaddr + len) - addr) + sizeof (TTRACE_XFER_TYPE) - 1)
   / sizeof (TTRACE_XFER_TYPE);
   /* Allocate buffer of that many longwords.  */
   /* FIXME (alloca): This code, cloned from infptrace.c, is unsafe
      because it uses alloca to allocate a buffer of arbitrary size.
      For very large xfers, this could crash GDB's stack.  */
-  register TTRACE_XFER_TYPE *buffer
+  TTRACE_XFER_TYPE *buffer
     = (TTRACE_XFER_TYPE *) alloca (count * sizeof (TTRACE_XFER_TYPE));
 
   if (write)
@@ -5378,8 +5367,7 @@ hppa_insert_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
    watchpoints.
  */
 int
-hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
-			   enum bptype type)
+hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
 {
   CORE_ADDR page_start;
   int dictionary_is_empty;
@@ -5439,7 +5427,7 @@ hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
    hardware support.
  */
 int
-hppa_can_use_hw_watchpoint (enum bptype type, int cnt, enum bptype ot)
+hppa_can_use_hw_watchpoint (int type, int cnt, int ot)
 {
   return (type == bp_hardware_watchpoint);
 }
@@ -5535,64 +5523,6 @@ hppa_pid_or_tid_to_str (ptid_t ptid)
   return buf;
 }
 
-
-/* If the current pid is not the pid this module reported
- * from "ptrace_wait" with the most recent event, then the
- * user has switched threads.
- *
- * If the last reported event was a breakpoint, then return
- * the old thread id, else return 0.
- */
-pid_t
-hppa_switched_threads (pid_t gdb_pid)
-{
-  if (gdb_pid == old_gdb_pid)
-    {
-      /*
-       * Core gdb is working with the same pid that it
-       * was before we reported the last event.  This
-       * is ok: e.g. we reported hitting a thread-specific
-       * breakpoint, but we were reporting the wrong
-       * thread, so the core just ignored the event.
-       *
-       * No thread switch has happened.
-       */
-      return (pid_t) 0;
-    }
-  else if (gdb_pid == reported_pid)
-    {
-      /*
-       * Core gdb is working with the pid we reported, so
-       * any continue or step will be able to figure out
-       * that it needs to step over any hit breakpoints
-       * without our (i.e. PREPARE_TO_PROCEED's) help.
-       */
-      return (pid_t) 0;
-    }
-  else if (!reported_bpt)
-    {
-      /*
-       * The core switched, but we didn't just report a
-       * breakpoint, so there's no just-hit breakpoint
-       * instruction at "reported_pid"'s PC, and thus there
-       * is no need to step over it.
-       */
-      return (pid_t) 0;
-    }
-  else
-    {
-      /* There's been a real switch, and we reported
-       * a hit breakpoint.  Let "hppa_prepare_to_proceed"
-       * know, so it can see whether the breakpoint is
-       * still active.
-       */
-      return reported_pid;
-    }
-
-  /* Keep compiler happy with an obvious return at the end.
-   */
-  return (pid_t) 0;
-}
 
 void
 hppa_ensure_vforking_parent_remains_stopped (int pid)

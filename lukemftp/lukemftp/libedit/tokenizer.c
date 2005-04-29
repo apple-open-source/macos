@@ -1,4 +1,4 @@
-/*	$NetBSD: tokenizer.c,v 1.6 2000/09/04 22:06:33 lukem Exp $	*/
+/*	$NetBSD: tokenizer.c,v 1.10 2002/03/18 16:01:00 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,14 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * tokenize.c: Bourne shell like tokenizer
  */
-#include "sys.h"
+#include <string.h>
+#include <stdlib.h>
 #include "tokenizer.h"
 
 typedef enum {
@@ -103,8 +107,12 @@ tok_init(const char *ifs)
 	tok->argc = 0;
 	tok->amax = AINCR;
 	tok->argv = (char **) tok_malloc(sizeof(char *) * tok->amax);
+	if (tok->argv == NULL)
+		return (NULL);
 	tok->argv[0] = NULL;
 	tok->wspace = (char *) tok_malloc(WINCR);
+	if (tok->wspace == NULL)
+		return (NULL);
 	tok->wmax = tok->wspace + WINCR;
 	tok->wstart = tok->wspace;
 	tok->wptr = tok->wspace;
@@ -155,7 +163,7 @@ tok_end(Tokenizer *tok)
  *		 0: Ok
  */
 public int
-tok_line(Tokenizer *tok, const char *line, int *argc, char ***argv)
+tok_line(Tokenizer *tok, const char *line, int *argc, const char ***argv)
 {
 	const char *ptr;
 
@@ -260,7 +268,7 @@ tok_line(Tokenizer *tok, const char *line, int *argc, char ***argv)
 			switch (tok->quote) {
 			case Q_none:
 				tok_finish(tok);
-				*argv = tok->argv;
+				*argv = (const char **)tok->argv;
 				*argc = tok->argc;
 				return (0);
 
@@ -293,7 +301,7 @@ tok_line(Tokenizer *tok, const char *line, int *argc, char ***argv)
 					return (3);
 				}
 				tok_finish(tok);
-				*argv = tok->argv;
+				*argv = (const char **)tok->argv;
 				*argc = tok->argc;
 				return (0);
 
@@ -355,23 +363,29 @@ tok_line(Tokenizer *tok, const char *line, int *argc, char ***argv)
 		if (tok->wptr >= tok->wmax - 4) {
 			size_t size = tok->wmax - tok->wspace + WINCR;
 			char *s = (char *) tok_realloc(tok->wspace, size);
-			/* SUPPRESS 22 */
-			int offs = s - tok->wspace;
+			if (s == NULL)
+				return (-1);
 
-			if (offs != 0) {
+			if (s != tok->wspace) {
 				int i;
-				for (i = 0; i < tok->argc; i++)
-					tok->argv[i] = tok->argv[i] + offs;
-				tok->wptr = tok->wptr + offs;
-				tok->wstart = tok->wstart + offs;
-				tok->wmax = s + size;
+				for (i = 0; i < tok->argc; i++) {
+				    tok->argv[i] =
+					(tok->argv[i] - tok->wspace) + s;
+				}
+				tok->wptr = (tok->wptr - tok->wspace) + s;
+				tok->wstart = (tok->wstart - tok->wspace) + s;
 				tok->wspace = s;
 			}
+			tok->wmax = s + size;
 		}
 		if (tok->argc >= tok->amax - 4) {
+			char **p;
 			tok->amax += AINCR;
-			tok->argv = (char **) tok_realloc(tok->argv,
+			p = (char **) tok_realloc(tok->argv,
 			    tok->amax * sizeof(char *));
+			if (p == NULL)
+				return (-1);
+			tok->argv = p;
 		}
 	}
 }

@@ -380,7 +380,7 @@ build_command (char **argv)
     }
 
     {
-        char *command = (char *) malloc (len);
+        char *command = (char *) xmalloc (len);
 	int i;
 	char *p;
 

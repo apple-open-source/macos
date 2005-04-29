@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed ARM-compliance
 // arm file
 // From: belley@cae.ca (Benoit Belley 3218)
@@ -22,8 +22,8 @@ public:
   Y();
 };
 
-X::X()
-{// ERROR - .*
+X::X() // { dg-error "is private" }
+{
   std::cout << "X::X()" << std::endl;
 }
 
@@ -32,8 +32,8 @@ void X::f()
   std::cout << "X::f()" << std::endl;
 }
 
-Y::Y()
-{// ERROR -  within this
+Y::Y() // { dg-error "within this context" }
+{
   std::cout << "Y::Y()" << std::endl;
 }
 

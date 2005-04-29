@@ -511,8 +511,8 @@ dsrecord *
 ff_parse_host(char *data)
 {
 	dsrecord *item;
-	char **tokens;
-	int len, af;
+	char **tokens, *name, **lnames;
+	int i, len, af;
 	struct in_addr a4;
 	struct in6_addr a6;
 	char paddr[64];
@@ -558,8 +558,17 @@ ff_parse_host(char *data)
 	if (af == AF_INET) _set_value_for_key(item, paddr, "ip_address");
 	else _set_value_for_key(item, paddr, "ipv6_address");
 
-	_set_values_for_key(item, tokens+1, "name");
+	lnames = NULL;
+	for (i = 1; tokens[i] != NULL; i++)
+	{
+		name = lowerCase(tokens[i]);
+		lnames = appendString(name, lnames);
+		free(name);
+	}
 
+	_set_values_for_key(item, lnames, "name");
+
+	freeList(lnames);
 	freeList(tokens);
 	tokens = NULL;
 

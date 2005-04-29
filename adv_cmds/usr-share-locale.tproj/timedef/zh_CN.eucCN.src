@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/timedef/zh_CN.eucCN.src,v 1.11 2001/03/21 23:24:41 ache Exp $
+# $FreeBSD: src/share/timedef/zh_CN.eucCN.src,v 1.12 2003/08/23 20:46:23 ache Exp $
 #
 # WARNING: spaces may be essential at the end of lines
 # WARNING: empty lines are essential too
@@ -35,13 +35,13 @@
 #
 # Short weekday names
 #
-周日
-周一
-周二
-周三
-周四
-周五
-周六
+日
+一
+二
+三
+四
+五
+六
 #
 # Long weekday names
 #

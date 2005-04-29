@@ -1,5 +1,5 @@
 /* JPasswordField.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,70 +37,48 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.io.*;
-import javax.accessibility.*;
-import javax.swing.text.*;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import javax.swing.text.BadLocationException;
+import javax.swing.text.Document;
 
 /**
  * JPasswordField
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class JPasswordField extends JTextField {
+public class JPasswordField extends JTextField
+{
+  /**
+   * AccessibleJPasswordField
+   */
+  protected class AccessibleJPasswordField extends AccessibleJTextField
+  {
+    private static final long serialVersionUID = -8477039424200681086L;
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJPasswordField
+     */
+    protected AccessibleJPasswordField()
+    {
+    }
 
-	/**
-	 * AccessibleJPasswordField
-	 */
-	protected class AccessibleJPasswordField extends AccessibleJTextField {
-
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
-
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJPasswordField
-		 * @param component TODO
-		 */
-		protected AccessibleJPasswordField(JPasswordField component) {
-			super(component);
-			// TODO
-		} // AccessibleJPasswordField()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.PASSWORD_TEXT;
-		} // getAccessibleRole()
-
-
-	} // AccessibleJPasswordField
-
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * getAccessibleRole
+     * @return AccessibleRole
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.PASSWORD_TEXT;
+    }
+  }
 
 	/**
 	 * uiClassID
 	 */
-	private static final String uiClassID = "PasswordFIeldUI";
+	private static final String uiClassID = "PasswordFieldUI";
 
 	/**
 	 * echoChar.  Default is 0
@@ -218,6 +196,7 @@ public class JPasswordField extends JTextField {
 	/**
 	 * getText
 	 * @returns String
+         * @deprecated
 	 */
 	public String getText() {
 		return null; // TODO
@@ -229,6 +208,7 @@ public class JPasswordField extends JTextField {
 	 * @param length TODO
 	 * @exception BadLocationException TODO
 	 * @returns String
+         * @deprecated
 	 */
 	public String getText(int offset, int length) throws BadLocationException {
 		return null; // TODO
@@ -250,16 +230,15 @@ public class JPasswordField extends JTextField {
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJPasswordField(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  /**
+   * getAccessibleContext
+   * @return AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJPasswordField();
 
-
-} // JPasswordField
+    return accessibleContext;
+  }
+}

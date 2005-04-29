@@ -1,0 +1,78 @@
+# cont1.tcl --
+#
+#  Test file for compilation.
+#  Contains nested loops that use continue statements, used to check
+#  generation of the exception ranges arrays.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: cont1.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+11 0 83 14 2 0 56 1 4 11 11 -1 -1
+83
+w0E<!:B`W!;btt!(<E<!=|yTv9ytt!0#>6#>fvpv<Gwjw4_6>!/E`<!Lb#pv)9E<!1d1U!/,
+tl#1iA9v?G(qv5Gpiw0G60%.EW<!-E!!
+11
+38Ppv:Jk:vE&s!
+11
+98PpvV;>:v9N<!
+14
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+16
+x
+5
+5'WTA>v
+x
+5
+vCuSA>v
+x
+3
+gwi-
+i
+0
+x
+7
+%6|,EYt|+
+x
+7
+w^DTANk,,
+x
+12
+5'WTAfW0`F1?0bE
+x
+338
+6dV<+*Q*+EtsY8A2/jJD=,qT,5'WTAfW0`F1?0bEu!V<+O!r<+:V#D+unsdD13=JD:%,!F&@
+VTA,ZbDFE?)E+/*s+EwUT7A=_90Dwik)Fu!V<+1A`nA(LsQAGFDE+ILMEFVPSaD4gVTAN./=
++c#nW4-j)5I%#um#,#cDF)m_TA6dV<+>N<:+8x?3@+dmID(oATA@)QDFJN/`FxaQZ6>5cDFb
+f:4wLdV<+w^DTAn7>D+vCuSAfW0`F1?0bE=@:JD2%DE+(^+7,:uMTA&2#j@26nlB5y#D+49B
+CFrZmIDD+dfD4cqkB8eD%G.hNBD!M|RApi:4wo<,D++*(yGH,qT,vCuSAfW0`F1?0bEck@*1
+nosZ4dpPF+%C/:+:mui@26nlBt?v>we(um#sT2TA1neZE1fsiCCH*8wLdV<+S@!
+x
+6
+sT2TAIPw
+x
+4
+HW?87
+2
+L 1 39 10 55 50 -1
+L 1 50 2 55 -1 -1
+0
+}

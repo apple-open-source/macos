@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -60,31 +59,6 @@ package body Fname is
      Table_Initial        => Alloc.SFN_Table_Initial,
      Table_Increment      => Alloc.SFN_Table_Increment,
      Table_Name           => "Fname_Dummy_Table");
-   ----------------------------
-   -- Get_Expected_Unit_Type --
-   ----------------------------
-
-   --  We assume that a file name whose last character is a lower case b is
-   --  a body and a file name whose last character is a lower case s is a
-   --  spec. If any other character is found (e.g. when we are in syntax
-   --  checking only mode, where the file name conventions are not set),
-   --  then we return Unknown.
-
-   function Get_Expected_Unit_Type
-     (Fname : File_Name_Type)
-      return  Expected_Unit_Type
-   is
-   begin
-      Get_Name_String (Fname);
-
-      if Name_Buffer (Name_Len) = 'b' then
-         return Expect_Body;
-      elsif Name_Buffer (Name_Len) = 's' then
-         return Expect_Spec;
-      else
-         return Unknown;
-      end if;
-   end Get_Expected_Unit_Type;
 
    ---------------------------
    -- Is_Internal_File_Name --
@@ -92,8 +66,7 @@ package body Fname is
 
    function Is_Internal_File_Name
      (Fname              : File_Name_Type;
-      Renamings_Included : Boolean := True)
-      return               Boolean
+      Renamings_Included : Boolean := True) return Boolean
    is
    begin
       if Is_Predefined_File_Name (Fname, Renamings_Included) then
@@ -133,12 +106,19 @@ package body Fname is
 
    function Is_Predefined_File_Name
      (Fname              : File_Name_Type;
-      Renamings_Included : Boolean := True)
-      return               Boolean
+      Renamings_Included : Boolean := True) return Boolean
+   is
+   begin
+      Get_Name_String (Fname);
+      return Is_Predefined_File_Name (Renamings_Included);
+   end Is_Predefined_File_Name;
+
+   function Is_Predefined_File_Name
+     (Renamings_Included : Boolean := True) return Boolean
    is
       subtype Str8 is String (1 .. 8);
 
-      Predef_Names : array (1 .. 11) of Str8 :=
+      Predef_Names : constant array (1 .. 11) of Str8 :=
         ("ada     ",       -- Ada
          "calendar",       -- Calendar
          "interfac",       -- Interfaces
@@ -158,9 +138,7 @@ package body Fname is
                          7 + 4 * Boolean'Pos (Renamings_Included);
 
    begin
-      --  Get file name, removing the extension (if any)
-
-      Get_Name_String (Fname);
+      --  Remove extension (if present)
 
       if Name_Len > 4 and then Name_Buffer (Name_Len - 3) = '.' then
          Name_Len := Name_Len - 4;
@@ -171,13 +149,18 @@ package body Fname is
       if Name_Len > 8 then
          return False;
 
-      --  Definitely predefined if prefix is a- i- or s-
+      --  Definitely predefined if prefix is a- i- or s- followed by letter
 
-      elsif Name_Len > 2
+      elsif Name_Len >=  3
         and then Name_Buffer (2) = '-'
-        and then (Name_Buffer (1) = 'a' or else
-                  Name_Buffer (1) = 'i' or else
+        and then (Name_Buffer (1) = 'a'
+                    or else
+                  Name_Buffer (1) = 'i'
+                    or else
                   Name_Buffer (1) = 's')
+        and then (Name_Buffer (3) in 'a' .. 'z'
+                    or else
+                  Name_Buffer (3) in 'A' .. 'Z')
       then
          return True;
       end if;

@@ -63,9 +63,16 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define set _Release_set
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
-
 // Forward declarations of operators < and ==, needed for friend declaration.
 
 template <class _Key, class _Compare = less<_Key>,
@@ -80,9 +87,9 @@ template <class _Key, class _Compare, class _Alloc>
 inline bool operator<(const set<_Key,_Compare,_Alloc>& __x, 
                       const set<_Key,_Compare,_Alloc>& __y);
 
-
+/* APPLE LOCAL libstdc++ debug mode */
 template <class _Key, class _Compare, class _Alloc>
-class set
+class _GLIBCXX_RELEASE_CLASS(set) set
 {
   // concept requirements
   __glibcpp_class_requires(_Key, _SGIAssignableConcept)
@@ -266,6 +273,13 @@ inline void swap(set<_Key,_Compare,_Alloc>& __x,
 }
 
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef set
+#  include <debug/dbg_set.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_SET_H */
 

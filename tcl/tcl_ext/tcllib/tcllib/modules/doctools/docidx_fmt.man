@@ -1,0 +1,280 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin docidx_fmt n 1.0]
+[copyright {2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Documentation tools}]
+[titledesc {Specification of simple tcl markup for an index}]
+[description]
+[para]
+
+This manpage specifies a documentation format for indices. It is
+intended to complement both the [syscmd doctools] format for writing
+manpages and the [syscmd doctoc] format for writing tables of
+contents. See [syscmd doctools_fmt] and [syscmd doctoc_fmt] for the
+specification of these two formats.
+
+[para]
+
+This format is called [syscmd docidx].
+
+It provides all the necessary commands to write an index for a group
+of manpages.
+
+Like for the [syscmd doctools] and [syscmd doctoc] formats a package
+is provided implementing a generic framework for the conversion of
+[syscmd docidx] to a number of different output formats, like HTML,
+TMML, nroff, LaTeX, etc.
+
+The package is called [package doctools::idx], its documentation can
+be found in [syscmd docidx].
+
+People wishing to write a formatting engine for the conversion of
+[syscmd docidx] into a new output format have to read
+[syscmd docidx_api]. This manpage will explain the interface between
+the generic package and such engines.
+
+
+[section OVERVIEW]
+
+[syscmd docidx] is similar to LaTex in that it consists primarily of
+text, with markup commands embedded into it. The format used to mark
+something as command is different from LaTeX however. All text between
+matching pairs of [lb] and [rb] is a command, possibly with
+arguments. Note that both brackets have to be on the same line for a
+command to be recognized.
+
+[para]
+
+In this format plain text is not allowed, except for whitespace, which
+can be used to separate the formatting commands described in the next
+section ([sectref {FORMATTING COMMANDS}]).
+
+
+[section {FORMATTING COMMANDS}]
+
+First a number of generic commands useable anywhere in a
+[syscmd docidx] file.
+
+[list_begin definitions]
+
+[call [cmd vset] [arg varname] [arg value] ]
+
+Sets the formatter variable [arg varname] to the specified
+[arg value]. Returns the empty string.
+
+[call [cmd vset] [arg varname]]
+
+Returns the value associated with the formatter variable
+[arg varname].
+
+[call [cmd include] [arg filename]]
+
+Instructs the system to insert the expanded contents of the file named
+[arg filename] in its own place.
+
+[call [cmd comment] [arg text]]
+
+Declares that the marked [arg text] is a comment.
+
+[list_end]
+
+
+Commands to insert special plain text. These bracket commands are
+necessary as plain brackets are used to denote the beginnings and
+endings of the formatting commands and thus cannot be used as normal
+characters anymore.
+
+[list_begin definitions]
+
+[call [cmd lb]]
+
+Introduces a left bracket into the output.
+
+[call [cmd rb]]
+
+Introduces a right bracket into the output.
+
+[list_end]
+
+
+
+And now the relevant markup commands.
+
+[list_begin definitions]
+
+[call [cmd index_begin] [arg text] [arg title]]
+
+This command starts an index. It has to be the very first
+
+[term markup] command in a [syscmd docidx] file. Plain text is not
+allowed to come before this command. Only the generic commands (see
+above: [cmd vset], [cmd include], [cmd comment]) can be used before
+it.
+
+[nl]
+
+The [arg text] argument provides a label for the whole group of
+manpages the index refers to. Often this is the name of the package
+(or extension) the manpages belong to.
+
+[nl]
+
+The [arg title] argument provides the title for the index.
+
+[nl]
+
+Each index has to contain at least one [cmd key].
+
+
+[call [cmd index_end]]
+
+This command closes an index. Nothing is allowed to follow it.
+
+
+[call [cmd key] [arg text]]
+
+This commands starts the list of manpages and other entities which
+refer to the keyword named by the argument [arg text].
+
+[nl]
+
+Each key section has to contain at least one index element, either
+[cmd manpage] or [cmd url].
+
+
+[call [cmd manpage] [arg file] [arg label]]
+
+This command describes an individual index element. Each such element
+belongs to the last occurence of a [cmd key] command coming before the
+index.
+
+[nl]
+
+The [arg file] argument refers to the file containing the actual
+manpage refering to that key. The second argument is used to label the
+reference.
+
+[nl]
+
+To preserve convertibility of this format to various output formats
+the filename argument [arg file] is considered to contain a symbolic
+name. The actual name of the file will be inserted by the formatting
+engine used to convert the input, based on a mapping from symbolic to
+actual names given to it.
+
+
+[call [cmd url] [arg url] [arg label]]
+
+This is the second command to describe an index element. The
+association to the key it belongs to is done in the same way as for
+the [cmd manpage] command. The first however is not the symbolic name
+of the file refering to that key, but an url describing the exact
+location of the document indexed here.
+
+[list_end]
+
+[section NOTES]
+
+[list_begin enum]
+[enum]
+
+Using an appropriate formatting engine and some glue code it is
+possible to automatically generate a document in [syscmd docidx]
+format from a collection of manpages in [syscmd doctools] format.
+
+
+[list_end]
+
+[section EXAMPLE]
+
+As an example an index for all manpages belonging to this module
+(doctools) of package [package tcllib].
+
+[para]
+
+[example {
+[index_begin tcllib/doctools {Documentation tools}]
+ [key HTML]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key TMML]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key conversion]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key documentation]
+  [manpage doctools]
+  [manpage dtformatter]
+ [key index]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtocformat]
+ [key interface]
+  [manpage didxengine]
+  [manpage dtformatter]
+  [manpage dtocengine]
+ [key manpage]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key markup]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key nroff]
+  [manpage didxengine]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtformatter]
+  [manpage dtocengine]
+  [manpage dtocformat]
+  [manpage mpexpand]
+ [key {table of contents}]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtocengine]
+  [manpage dtocformat]
+ [key toc]
+  [manpage didxformat]
+  [manpage doctools]
+  [manpage dtformat]
+  [manpage dtocengine]
+  [manpage dtocformat]
+[index_end]
+}]
+
+[see_also doctools_fmt doctoc_fmt docidx_api docidx]
+[keywords markup {generic markup} index keywords TMML HTML nroff LaTeX]
+[manpage_end]

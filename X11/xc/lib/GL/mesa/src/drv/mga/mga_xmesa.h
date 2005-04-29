@@ -24,7 +24,7 @@
  * Authors:
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mga_xmesa.h,v 1.12 2002/12/16 16:18:52 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mga_xmesa.h,v 1.13 2003/09/28 20:15:16 alanh Exp $ */
 
 #ifndef _MGA_INIT_H_
 #define _MGA_INIT_H_
@@ -47,6 +47,9 @@ typedef struct mga_screen_private_s {
    int cpp;			/* for front and back buffers */
    GLint agpMode;
    unsigned int irq;		/* IRQ number (0 means none) */
+   GLboolean  linecomp_sane;    /* GL_TRUE if line comp. programmed correctly
+				 * by the DDX driver.
+				 */
 
    unsigned int mAccess;
 

@@ -48,7 +48,7 @@ int foo(void) {
   id<Booing, Fooing> stupidVar;
   [stupidVar boo];
   [stupidVar foo];
-  [stupidVar anotherMsg]; /* { dg-warning "not implemented by protocol" } */
-  /* { dg-warning "return type defaults to id" "" { target *-*-* } 51 } */
+  [stupidVar anotherMsg]; /* { dg-warning ".\-anotherMsg. not implemented by protocol" } */
+  /* { dg-warning "cannot find method .\-anotherMsg.. return type .id. assumed" "" { target *-*-* } 51 } */
   return 0;
 }

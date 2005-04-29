@@ -10,8 +10,8 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl a | b | c | u
-.Op dim Ar minutes
-.Op spindown Ar minutes
+.Op displaysleep Ar minutes
+.Op disksleep Ar minutes
 .Op sleep Ar minutes
 .Op womp Ar 1/0
 .Op ring Ar 1/0
@@ -21,7 +21,9 @@
 .Op powerbutton Ar 1/0
 .Op lidwake Ar 1/0
 .Op acwake Ar 1/0
-.Op ams Ar 1/0
+.Op lessbright Ar 1/0
+.Op halfdim Ar 1/0
+.Op sms Ar 1/0
 .Op boot
 .Nm
 .Fl u
@@ -30,7 +32,16 @@
 .Op haltremain Ar minutes
 .Nm
 .Fl g
-.Op disk | live | cap | sched | ups
+.Op disk | live | cap | sched | ups | ps | pslog
+.Nm
+schedule
+.Op cancel 
+type date+time
+.Op owner
+.Nm
+repeat cancel
+.Nm
+repeat type weekdays time
 .\.Nm
 .\.Op Fl a b c u
 .\.Op dim
@@ -66,22 +77,34 @@ flag outputs the settings currently in use (same as
 .Fl g
 live
 ).
+.br
 .Fl g
 disk
-will tell you the settings on disk.
+will display settings on disk.
+.br
 .Fl g
 cap
-will tell you which power management features the machine supports.
+will display which power management features the machine supports.
+.br
 .Fl g
 sched 
-will show scheduled startup/wake and shutdown/sleep events.
+will display scheduled startup/wake and shutdown/sleep events.
+.br
 .Fl g
 ups
-will show you all UPS-specific settings.
-.Sh ARGUMENTS
-dim - display dim timer (value in minutes)
+will display UPS emergency thresholds.
 .br
-spindown - disk spindown timer (value in minutes)
+.Fl g
+ps
+will display status of batteries and UPSs.
+.br
+.Fl g
+pslog
+will display an ongoing log of power source state.
+.Sh ARGUMENTS
+displaysleep - display sleep timer; replaces 'dim' argument in 10.4 (value in minutes)
+.br
+disksleep - disk spindown timer; replaces 'spindown' argument in 10.4 (value in minutes)
 .br
 sleep - system sleep timer (value in minutes)
 .br
@@ -101,7 +124,11 @@ lidwake - wake the machine when the laptop lid(or clamshell) is opened (value = 
 .br
 acwake - wake the machine when power source (AC/battery) is changed (value = 0/1)
 .br
-ams - use AppleMotionSensor to park disk heads on sudden changes in G force (value = 0/1)
+lessbright - slightly turn down display brightness when switching to this power source (value = 0/1)
+.br
+halfdim - display sleep will use an intermediate half-brightness state between full brightness and fully off  (value = 0/1)
+.br
+sms - use Sudden Motion Sensor to park disk heads on sudden changes in G force (value = 0/1)
 .Sh UPS SPECIFIC ARGUMENTS
 .br
 UPS-specific arguments are only valid following the 
@@ -115,18 +142,38 @@ haltlevel - when draining UPS battery, battery level at which to trigger an emer
 haltafter - when draining UPS battery, trigger emergency shutdown after this long running on UPS power (value in minutes)
 .br
 haltremain - when draining UPS battery, trigger emergency shutdown when this much time remaining on UPS power is estimated (value in minutes)
-.Sh OTHER ARGUMENTS
-These arguments don't directly affect power management settings:
+.Sh SCHEDULED EVENT ARGUMENTS
 .br
-boot - tell the kernel that system boot is complete
+pmset allows you to schedule system sleep, shutdown, wakeup and/or power on. "schedule"
+is for setting up one-time power events, and "repeat" is for setting up daily/weekly 
+power on and power off events. Note that you may only have one pair of repeating events
+scheduled - a "power on" event and a "power off" event.
+.Pp
+type - one of sleep, wake, poweron, shutdown, wakeorpoweron
+.br
+date/time - MM/dd/yy HH:mm:ss (in 24 hour format)
+.br
+time - HH:mm:ss
+.br
+weekdays - a subset of MTWRFSU ("M" and "MTWRF" are valid strings)
+.br
+owner - a string describing the person or program who is scheduling this one-time power event (optional)
+.Sh OTHER ARGUMENTS
+boot - tell the kernel that system boot is complete (normally LoginWindow does this). May be useful to Darwin users.
+.br
+force - tells PM to immediately activate these settings. Does not write them to disk, and the settings may easily be overwritten. Useful in circumstances where PM's configd plugin happens not to be running.
+.br
+dim - deprecated in 10.4 in favor of 'displaysleep'. 'dim' will continue to work.
+.br
+spindown - deprecated in 10.4 in favor of 'disksleep'. 'spindown' will continue to work.
 .Sh EXAMPLES
 .Nm
 .Fl b
-dim 5
+displaysleep 5
 .Pp
 .Nm
 .Fl a
-dim 10 spindown 10 sleep 30 womp 1
+displaysleep 10 disksleep 10 sleep 30 womp 1
 .Pp
 .Nm
 .Fl u
@@ -134,9 +181,12 @@ haltlevel 40
 .Pp
 .Nm
 .Fl g
-live
 .Pp
-.Sh FILES
+.Nm
+.Fl g
+batt
+.Pp
+.Sh Files
 All changes made through
 .Nm
 are saved in a persistent preferences file (per-system, not per-user) at

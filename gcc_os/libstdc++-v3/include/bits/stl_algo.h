@@ -64,6 +64,10 @@
 #include <bits/stl_heap.h>
 #include <bits/stl_tempbuf.h>     // for _Temporary_buffer
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 // See concept_check.h for the __glibcpp_*_requires macros.
 
 namespace std
@@ -153,6 +157,11 @@ namespace std
     {
       // concept requirements
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
+
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       for ( ; __first != __last; ++__first)
 	__f(*__first);
       return __f;
@@ -295,6 +304,9 @@ namespace std
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_EqualOpConcept<
 		typename iterator_traits<_InputIter>::value_type, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       return find(__first, __last, __val, __iterator_category(__first));
     }
 
@@ -315,6 +327,9 @@ namespace std
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	      typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       return find_if(__first, __last, __pred, __iterator_category(__first));
     }
 
@@ -334,6 +349,9 @@ namespace std
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       if (__first == __last)
 	return __last;
       _ForwardIter __next = __first;
@@ -365,6 +383,9 @@ namespace std
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       if (__first == __last)
 	return __last;
       _ForwardIter __next = __first;
@@ -393,6 +414,9 @@ namespace std
       __glibcpp_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_InputIter>::value_type >)
       __glibcpp_function_requires(_EqualityComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       typename iterator_traits<_InputIter>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (*__first == __value)
@@ -416,6 +440,9 @@ namespace std
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       typename iterator_traits<_InputIter>::difference_type __n = 0;
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
@@ -458,6 +485,10 @@ namespace std
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIter1>::value_type,
 	    typename iterator_traits<_ForwardIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
@@ -531,6 +562,10 @@ namespace std
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPred,
 	    typename iterator_traits<_ForwardIter1>::value_type,
 	    typename iterator_traits<_ForwardIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       // Test for empty ranges
       if (__first1 == __last1 || __first2 == __last2)
@@ -603,6 +638,9 @@ namespace std
       __glibcpp_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_EqualityComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__count <= 0)
 	return __first;
@@ -651,6 +689,9 @@ namespace std
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPred,
 	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__count <= 0)
 	return __first;
@@ -708,6 +749,9 @@ namespace std
       __glibcpp_function_requires(_ConvertibleConcept<
 	    typename iterator_traits<_ForwardIter2>::value_type,
 	    typename iterator_traits<_ForwardIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2)
 	iter_swap(__first1, __first2);
@@ -739,7 +783,9 @@ namespace std
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
             // "the type returned by a _UnaryOperation"
             __typeof__(__unary_op(*__first))>)
-
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __unary_op(*__first);
       return __result;
@@ -775,6 +821,9 @@ namespace std
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
             // "the type returned by a _BinaryOperation"
             __typeof__(__binary_op(*__first1,*__first2))>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1, ++__first2, ++__result)
 	*__result = __binary_op(*__first1, *__first2);
@@ -804,6 +853,9 @@ namespace std
 	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
       __glibcpp_function_requires(_ConvertibleConcept<_Tp,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	if (*__first == __old_value)
@@ -833,6 +885,9 @@ namespace std
 	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	if (__pred(*__first))
@@ -865,6 +920,9 @@ namespace std
 	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter>::value_type, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = *__first == __old_value ? __new_value : *__first;
@@ -898,6 +956,9 @@ namespace std
 	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first, ++__result)
 	*__result = __pred(*__first) ? __new_value : *__first;
@@ -923,6 +984,9 @@ namespace std
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_GeneratorConcept<_Generator,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	*__first = __gen();
@@ -977,6 +1041,9 @@ namespace std
 	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter>::value_type, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	if (!(*__first == __value)) {
@@ -1011,6 +1078,9 @@ namespace std
 	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first != __last; ++__first)
 	if (!__pred(*__first)) {
@@ -1047,6 +1117,9 @@ namespace std
 	    typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIter>::value_type, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       __first = find(__first, __last, __value);
       _ForwardIter __i = __first;
@@ -1079,6 +1152,9 @@ namespace std
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       __first = find_if(__first, __last, __pred);
       _ForwardIter __i = __first;
@@ -1153,6 +1229,9 @@ namespace std
 	    typename iterator_traits<_InputIter>::value_type>)
       __glibcpp_function_requires(_EqualityComparableConcept<
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       typedef typename iterator_traits<_OutputIter>::iterator_category _IterType;
 
@@ -1239,6 +1318,9 @@ namespace std
       __glibcpp_function_requires(_InputIteratorConcept<_InputIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
 	    typename iterator_traits<_InputIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       typedef typename iterator_traits<_OutputIter>::iterator_category _IterType;
 
@@ -1268,6 +1350,9 @@ __result, __binary_pred, _IterType());
 	  __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
 	  __glibcpp_function_requires(_EqualityComparableConcept<
 		    typename iterator_traits<_ForwardIter>::value_type>)
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  __glibcxx_requires_valid_range(__first, __last);
+	  /* APPLE LOCAL end libstdc++ debug mode */
 
 	  __first = adjacent_find(__first, __last);
 	  return unique_copy(__first, __last, __first);
@@ -1297,6 +1382,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 		typename iterator_traits<_ForwardIter>::value_type,
 		typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       __first = adjacent_find(__first, __last, __binary_pred);
       return unique_copy(__first, __last, __first, __binary_pred);
@@ -1353,6 +1441,9 @@ __result, __binary_pred, _IterType());
 	  // concept requirements
 	  __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
 		    _BidirectionalIter>)
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  __glibcxx_requires_valid_range(__first, __last);
+	  /* APPLE LOCAL end libstdc++ debug mode */
 	  __reverse(__first, __last, __iterator_category(__first));
     }
 
@@ -1380,6 +1471,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
 		typename iterator_traits<_BidirectionalIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first != __last) {
 	--__last;
@@ -1564,6 +1658,11 @@ __result, __binary_pred, _IterType());
     {
       // concept requirements
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       typedef typename iterator_traits<_ForwardIter>::iterator_category _IterType;
       __rotate(__first, __middle, __last, _IterType());
@@ -1595,7 +1694,11 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_OutputIteratorConcept<_OutputIter,
 		typename iterator_traits<_ForwardIter>::value_type>)
-
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
       return copy(__first, __middle, copy(__middle, __last, __result));
     }
 
@@ -1638,6 +1741,9 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIter>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return;
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
@@ -1665,6 +1771,9 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIter>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return;
       for (_RandomAccessIter __i = __first + 1; __i != __last; ++__i)
@@ -1754,6 +1863,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       return __partition(__first, __last, __pred, __iterator_category(__first));
     }
@@ -1854,6 +1966,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_UnaryPredicateConcept<_Predicate,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last)
 	return __first;
@@ -2173,6 +2288,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first != __last) {
 	__introsort_loop(__first, __last, __lg(__last - __first) * 2);
@@ -2204,6 +2322,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first != __last) {
 	__introsort_loop(__first, __last, __lg(__last - __first) * 2, __comp);
@@ -2475,6 +2596,9 @@ __result, __binary_pred, _IterType());
 	    _RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 							  _ValueType, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _Temporary_buffer<_RandomAccessIter, _ValueType> buf(__first, __last);
       if (buf.begin() == 0)
@@ -2511,6 +2635,11 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<
 	    _RandomAccessIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       make_heap(__first, __middle);
       for (_RandomAccessIter __i = __middle; __i < __last; ++__i)
@@ -2551,6 +2680,11 @@ __result, __binary_pred, _IterType());
 	    _RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 							  _ValueType, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __middle);
+      __glibcxx_requires_valid_range(__middle, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       make_heap(__first, __middle, __comp);
       for (_RandomAccessIter __i = __middle; __i < __last; ++__i)
@@ -2591,6 +2725,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
       __glibcpp_function_requires(_LessThanComparableConcept<_OutputValueType>)
       __glibcpp_function_requires(_LessThanComparableConcept<_InputValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__result_first, __result_last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIter __result_real_last = __result_first;
@@ -2647,6 +2785,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ConvertibleConcept<_InputValueType, _OutputValueType>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 				  _OutputValueType, _OutputValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__result_first, __result_last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__result_first == __result_last) return __result_last;
       _RandomAccessIter __result_real_last = __result_first;
@@ -2694,6 +2836,11 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __nth);
+      __glibcxx_requires_valid_range(__nth, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__last - __first > 3) {
 	_RandomAccessIter __cut =
@@ -2738,6 +2885,11 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_RandomAccessIteratorConcept<_RandomAccessIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 				  _ValueType, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      __glibcxx_requires_valid_range(__first, __nth);
+      __glibcxx_requires_valid_range(__nth, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__last - __first > 3) {
 	_RandomAccessIter __cut =
@@ -2754,7 +2906,6 @@ __result, __binary_pred, _IterType());
       }
       __insertion_sort(__first, __last, __comp);
     }
-
 
   /**
    *  @brief Finds the first position in which @a val could be inserted
@@ -2780,6 +2931,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -2824,6 +2978,9 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first, __last, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -2865,6 +3022,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -2909,6 +3069,9 @@ __result, __binary_pred, _IterType());
       // concept requirements
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first, __last, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -2957,6 +3120,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_SameTypeConcept<_Tp, _ValueType>)
       __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -3012,6 +3178,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _ValueType, _Tp>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first, __last, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _DistanceType __len = distance(__first, __last);
       _DistanceType __half;
@@ -3060,6 +3229,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_SameTypeConcept<_Tp,
 		typename iterator_traits<_ForwardIter>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<_Tp>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _ForwardIter __i = lower_bound(__first, __last, __val);
       return __i != __last && !(__val < *__i);
@@ -3091,6 +3263,9 @@ __result, __binary_pred, _IterType());
 		typename iterator_traits<_ForwardIter>::value_type, _Tp>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare, _Tp,
 		typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first, __last, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       _ForwardIter __i = lower_bound(__first, __last, __val, __comp);
       return __i != __last && !__comp(__val, *__i);
@@ -3128,6 +3303,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first2 < *__first1) {
@@ -3181,6 +3360,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first2, *__first1)) {
@@ -3520,6 +3703,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_Mutable_BidirectionalIteratorConcept<
 	    _BidirectionalIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<_ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first, __middle);
+      __glibcxx_requires_sorted(__middle, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __middle || __middle == __last)
 	return;
@@ -3573,6 +3760,10 @@ __result, __binary_pred, _IterType());
 	    _BidirectionalIter>)
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    _ValueType, _ValueType>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first, __middle, __comp);
+      __glibcxx_requires_sorted_pred(__middle, __last, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __middle || __middle == __last)
 	return;
@@ -3607,6 +3798,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first2 < *__first1)
@@ -3633,6 +3828,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first2, *__first1))
@@ -3661,6 +3860,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (*__first1 < *__first2) {
@@ -3699,6 +3902,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2) {
 	if (__comp(*__first1, *__first2)) {
@@ -3735,6 +3942,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2)
@@ -3768,6 +3979,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2))
@@ -3799,6 +4014,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -3833,6 +4052,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -3865,6 +4088,10 @@ __result, __binary_pred, _IterType());
 	    typename iterator_traits<_InputIter2>::value_type>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_InputIter1>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted(__first1, __last1);
+      __glibcxx_requires_sorted(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (*__first1 < *__first2) {
@@ -3903,6 +4130,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_InputIter1>::value_type,
 	    typename iterator_traits<_InputIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_sorted_pred(__first1, __last1, __comp);
+      __glibcxx_requires_sorted_pred(__first2, __last2, __comp);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       while (__first1 != __last1 && __first2 != __last2)
 	if (__comp(*__first1, *__first2)) {
@@ -3933,6 +4164,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
@@ -3952,6 +4186,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
@@ -3968,6 +4205,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_ForwardIteratorConcept<_ForwardIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
@@ -3987,6 +4227,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_ForwardIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last) return __first;
       _ForwardIter __result = __first;
@@ -4007,6 +4250,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_BidirectionalIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last)
 	return false;
@@ -4045,6 +4291,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIter>::value_type,
 	    typename iterator_traits<_BidirectionalIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last)
 	return false;
@@ -4081,6 +4330,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BidirectionalIteratorConcept<_BidirectionalIter>)
       __glibcpp_function_requires(_LessThanComparableConcept<
 	    typename iterator_traits<_BidirectionalIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last)
 	return false;
@@ -4119,6 +4371,9 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_Compare,
 	    typename iterator_traits<_BidirectionalIter>::value_type,
 	    typename iterator_traits<_BidirectionalIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first, __last);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       if (__first == __last)
 	return false;
@@ -4160,6 +4415,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_InputIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIter __iter = __first2; __iter != __last2; ++__iter)
@@ -4183,6 +4442,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_InputIter>::value_type,
 	    typename iterator_traits<_ForwardIter>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       for ( ; __first1 != __last1; ++__first1)
 	for (_ForwardIter __iter = __first2; __iter != __last2; ++__iter)
@@ -4319,6 +4582,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_EqualOpConcept<
 	    typename iterator_traits<_ForwardIter1>::value_type,
 	    typename iterator_traits<_ForwardIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       return __find_end(__first1, __last1, __first2, __last2,
 			__iterator_category(__first1),
@@ -4338,6 +4605,10 @@ __result, __binary_pred, _IterType());
       __glibcpp_function_requires(_BinaryPredicateConcept<_BinaryPredicate,
 	    typename iterator_traits<_ForwardIter1>::value_type,
 	    typename iterator_traits<_ForwardIter2>::value_type>)
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_valid_range(__first1, __last1);
+      __glibcxx_requires_valid_range(__first2, __last2);
+      /* APPLE LOCAL end libstdc++ debug mode */
 
       return __find_end(__first1, __last1, __first2, __last2,
 			__iterator_category(__first1),

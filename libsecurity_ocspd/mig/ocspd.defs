@@ -1,0 +1,95 @@
+//
+// Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+//
+// @APPLE_LICENSE_HEADER_START@
+// 
+// This file contains Original Code and/or Modifications of Original Code
+// as defined in and that are subject to the Apple Public Source License
+// Version 2.0 (the 'License'). You may not use this file except in
+// compliance with the License. Please obtain a copy of the License at
+// http://www.opensource.apple.com/apsl/ and read it before using this
+// file.
+// 
+// The Original Code and all software distributed under the License are
+// distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+// EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+// INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+// Please see the License for the specific language governing rights and
+// limitations under the License.
+// 
+// @APPLE_LICENSE_HEADER_END@
+//
+// ocspd.defs: MIG definition of OCSP daemon RPCs
+//
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem ocspd 33003;
+serverprefix ocsp_server_;
+userprefix ocsp_client_;
+
+import <security_ocspd/ocspdTypes.h>; 
+
+type Data = array [] of char;
+
+//
+// Normal OCSP request. Depending on contents of encoded SecAsn1OCSPDRequests,
+// this optionally performs cache lookup, local responder OCSP, and normal
+// OCSP, in that order. If OCSP response is fetched from the net the netFetch
+// outParam is true on return. 
+//
+routine ocspdFetch(
+	requestport serverport : mach_port_t;
+	in ocsp_req : Data;		
+	out ocsp_rep : Data);
+	
+//
+// Flush all responses associated with specified CertID from cache.
+//
+routine ocspdCacheFlush(
+	requestport serverport : mach_port_t;
+	in certID : Data);		
+
+//
+// Flush stale OCSP entries from cache.
+//
+routine ocspdCacheFlushStale(
+	requestport serverport : mach_port_t);
+
+//
+// Fetch a cert from net.
+//
+routine certFetch(
+	requestport serverport : mach_port_t;
+	in cert_url : Data;
+	out cert_data : Data);
+	
+//
+// Fetch a CRL from net with optional cache lookup and store.
+// verify_time only used for cache lookup. 
+//
+routine crlFetch(
+	requestport serverport : mach_port_t;
+	in crl_url : Data;
+	in cache_read : boolean_t;
+	in cache_write : boolean_t;
+	in verify_time : Data;
+	out crl_data : Data);
+	
+//
+// Refresh CRL cache.
+//
+routine crlRefresh(
+	requestport serverport : mach_port_t;
+	in stale_days : uint32_t;
+	in expire_overlap_seconds : uint32_t;
+	in purge_all : boolean_t;
+	in full_crypto_verify : boolean_t);
+	
+//
+// Flush CRLs associated with specified URL from cache.
+//
+routine crlFlush(
+	requestport serverport : mach_port_t;
+	in cert_url : Data);

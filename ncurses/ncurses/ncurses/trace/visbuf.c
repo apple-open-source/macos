@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2001 Free Software Foundation, Inc.                        *
+ * Copyright (c) 2001-2003,2004 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *  Author: Thomas E. Dickey 1996-2001                                      *
+ *  Author: Thomas E. Dickey 1996-2004                                      *
  *     and: Zeyd M. Ben-Halim <zmbenhal@netcom.com> 1992,1995               *
  *     and: Eric S. Raymond <esr@snark.thyrsus.com>                         *
  ****************************************************************************/
@@ -41,7 +41,7 @@
 #include <tic.h>
 #include <ctype.h>
 
-MODULE_ID("$Id: visbuf.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: visbuf.c,v 1.9 2004/02/03 01:16:37 tom Exp $")
 
 static char *
 _nc_vischar(char *tp, unsigned c)
@@ -71,11 +71,12 @@ _nc_vischar(char *tp, unsigned c)
 	sprintf(tp, "\\%03lo", ChCharOf(c));
 	tp += strlen(tp);
     }
+    *tp = 0;
     return tp;
 }
 
-NCURSES_EXPORT(const char *)
-_nc_visbuf2(int bufnum, const char *buf)
+static const char *
+_nc_visbuf2n(int bufnum, const char *buf, int len)
 {
     char *vbuf;
     char *tp;
@@ -86,17 +87,20 @@ _nc_visbuf2(int bufnum, const char *buf)
     if (buf == CANCELLED_STRING)
 	return ("(cancelled)");
 
+    if (len < 0)
+	len = strlen(buf);
+
 #ifdef TRACE
-    tp = vbuf = _nc_trace_buf(bufnum, (strlen(buf) * 4) + 5);
+    tp = vbuf = _nc_trace_buf(bufnum, (unsigned) (len * 4) + 5);
 #else
     {
 	static char *mybuf[2];
-	mybuf[bufnum] = _nc_doalloc(mybuf[bufnum], (strlen(buf) * 4) + 5);
+	mybuf[bufnum] = typeRealloc(char, (unsigned) (len * 4) + 5, mybuf[bufnum]);
 	tp = vbuf = mybuf[bufnum];
     }
 #endif
     *tp++ = D_QUOTE;
-    while ((c = *buf++) != '\0') {
+    while ((--len >= 0) && (c = *buf++) != '\0') {
 	tp = _nc_vischar(tp, UChar(c));
     }
     *tp++ = D_QUOTE;
@@ -105,39 +109,68 @@ _nc_visbuf2(int bufnum, const char *buf)
 }
 
 NCURSES_EXPORT(const char *)
+_nc_visbuf2(int bufnum, const char *buf)
+{
+    return _nc_visbuf2n(bufnum, buf, -1);
+}
+
+NCURSES_EXPORT(const char *)
 _nc_visbuf(const char *buf)
 {
     return _nc_visbuf2(0, buf);
 }
 
+NCURSES_EXPORT(const char *)
+_nc_visbufn(const char *buf, int len)
+{
+    return _nc_visbuf2n(0, buf, len);
+}
+
 #if USE_WIDEC_SUPPORT
 #ifdef TRACE
-NCURSES_EXPORT(const char *)
-_nc_viswbuf2(int bufnum, const wchar_t * buf)
+static const char *
+_nc_viswbuf2n(int bufnum, const wchar_t * buf, int len)
 {
     char *vbuf;
     char *tp;
-    int c;
+    wchar_t c;
 
     if (buf == 0)
 	return ("(null)");
 
+    if (len < 0)
+	len = wcslen(buf);
+
 #ifdef TRACE
-    tp = vbuf = _nc_trace_buf(bufnum, (wcslen(buf) * 4) + 5);
+    tp = vbuf = _nc_trace_buf(bufnum, (unsigned) (len * 4) + 5);
 #else
     {
 	static char *mybuf[2];
-	mybuf[bufnum] = _nc_doalloc(mybuf[bufnum], (wcslen(buf) * 4) + 5);
+	mybuf[bufnum] = typeRealloc(char, (unsigned) (len * 4) + 5, mybuf[bufnum]);
 	tp = vbuf = mybuf[bufnum];
     }
 #endif
     *tp++ = D_QUOTE;
-    while ((c = *buf++) != '\0') {
-	tp = _nc_vischar(tp, ChCharOf(c));
+    while ((--len >= 0) && (c = *buf++) != '\0') {
+	char temp[CCHARW_MAX + 80];
+	int j = wctomb(temp, c), k;
+	if (j <= 0) {
+	    sprintf(temp, "\\u%08X", (wint_t) c);
+	    j = strlen(temp);
+	}
+	for (k = 0; k < j; ++k) {
+	    tp = _nc_vischar(tp, temp[k]);
+	}
     }
     *tp++ = D_QUOTE;
     *tp++ = '\0';
     return (vbuf);
+}
+
+NCURSES_EXPORT(const char *)
+_nc_viswbuf2(int bufnum, const wchar_t * buf)
+{
+    return _nc_viswbuf2n(bufnum, buf, -1);
 }
 
 NCURSES_EXPORT(const char *)
@@ -147,11 +180,15 @@ _nc_viswbuf(const wchar_t * buf)
 }
 
 NCURSES_EXPORT(const char *)
+_nc_viswbufn(const wchar_t * buf, int len)
+{
+    return _nc_viswbuf2n(0, buf, len);
+}
+
+NCURSES_EXPORT(const char *)
 _nc_viscbuf2(int bufnum, const cchar_t * buf, int len)
 {
-    size_t have = BUFSIZ;
-    char *result = _nc_trace_buf(bufnum, have);
-    char *tp = result;
+    char *result = _nc_trace_buf(bufnum, BUFSIZ);
     int n;
     bool same = TRUE;
     attr_t attr = A_NORMAL;
@@ -173,17 +210,18 @@ _nc_viscbuf2(int bufnum, const cchar_t * buf, int len)
      * detailed trace function that displays each character separately.
      */
     if (same) {
-	*tp++ = D_QUOTE;
+	static const char d_quote[] =
+	{D_QUOTE, 0};
+
+	result = _nc_trace_bufcat(bufnum, d_quote);
 	while (len-- > 0) {
 	    if ((found = _nc_altcharset_name(attr, CharOfD(buf))) != 0) {
-		(void) strcpy(tp, found);
-		tp += strlen(tp);
+		result = _nc_trace_bufcat(bufnum, found);
 		attr &= ~A_ALTCHARSET;
 	    } else if (!isnac(CHDEREF(buf))) {
 		PUTC_DATA;
 
-		memset(&PUT_st, '\0', sizeof(PUT_st));
-		PUTC_i = 0;
+		PUTC_INIT;
 		do {
 		    PUTC_ch = PUTC_i < CCHARW_MAX ? buf->chars[PUTC_i] : L'\0';
 		    PUTC_n = wcrtomb(PUTC_buf, buf->chars[PUTC_i], &PUT_st);
@@ -192,33 +230,31 @@ _nc_viscbuf2(int bufnum, const cchar_t * buf, int len)
 		    if (PUTC_n <= 0)
 			break;
 		    for (n = 0; n < PUTC_n; n++) {
-			tp = _nc_vischar(tp, UChar(PUTC_buf[n]));
+			char temp[80];
+			_nc_vischar(temp, UChar(PUTC_buf[n]));
+			result = _nc_trace_bufcat(bufnum, temp);
 		    }
 		    ++PUTC_i;
 		} while (PUTC_ch != L'\0');
 	    }
 	    buf++;
 	}
-	*tp++ = D_QUOTE;
-	*tp++ = '\0';
-	if (attr != A_NORMAL)
-	    (void) sprintf(tp, " | %s",
-			   _traceattr2(bufnum + 20, attr));
-    } else {
-	*tp++ = L_BRACE;
-	while (len-- > 0) {
-	    char *temp = _tracecchar_t2(bufnum + 20, buf++);
-	    size_t used = (tp - result);
-	    size_t want = strlen(temp) + 5 + used;
-	    if (want > have) {
-		result = _nc_trace_buf(bufnum, have = want);
-		tp = result + used;
-	    }
-	    (void) strcpy(tp, temp);
-	    tp += strlen(tp);
+	result = _nc_trace_bufcat(bufnum, d_quote);
+	if (attr != A_NORMAL) {
+	    result = _nc_trace_bufcat(bufnum, " | ");
+	    result = _nc_trace_bufcat(bufnum, _traceattr2(bufnum + 20, attr));
 	}
-	*tp++ = R_BRACE;
-	*tp++ = '\0';
+    } else {
+	static const char l_brace[] =
+	{L_BRACE, 0};
+	static const char r_brace[] =
+	{R_BRACE, 0};
+	strcpy(result, l_brace);
+	while (len-- > 0) {
+	    result = _nc_trace_bufcat(bufnum,
+				      _tracecchar_t2(bufnum + 20, buf++));
+	}
+	result = _nc_trace_bufcat(bufnum, r_brace);
     }
     return result;
 }

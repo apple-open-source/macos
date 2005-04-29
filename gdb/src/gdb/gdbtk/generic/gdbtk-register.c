@@ -62,10 +62,10 @@ Gdbtk_Register_Init (Tcl_Interp *interp)
   /* Register/initialize any architecture specific data */
   setup_architecture_data ();
 
-  register_gdbarch_swap (&old_regs, sizeof (old_regs), NULL);
-  register_gdbarch_swap (&regformat, sizeof (regformat), NULL);
-  register_gdbarch_swap (&regtype, sizeof (regtype), NULL);
-  register_gdbarch_swap (NULL, 0, setup_architecture_data);
+  deprecated_register_gdbarch_swap (&old_regs, sizeof (old_regs), NULL);
+  deprecated_register_gdbarch_swap (&regformat, sizeof (regformat), NULL);
+  deprecated_register_gdbarch_swap (&regtype, sizeof (regtype), NULL);
+  deprecated_register_gdbarch_swap (NULL, 0, setup_architecture_data);
 
   return TCL_OK;
 }
@@ -121,7 +121,7 @@ gdb_register_info (ClientData clientData, Tcl_Interp *interp, int objc,
   int index;
   void *argp;
   void (*func)(int, void *);
-  static char *commands[] = {"changed", "name", "size", "value", "type", 
+  static const char *commands[] = {"changed", "name", "size", "value", "type", 
 			     "format", "group", "grouplist", NULL};
   enum commands_enum { REGINFO_CHANGED, REGINFO_NAME, REGINFO_SIZE, REGINFO_VALUE, 
 		       REGINFO_TYPE, REGINFO_FORMAT, REGINFO_GROUP, REGINFO_GROUPLIST };
@@ -202,7 +202,8 @@ static void
 get_register_size (int regnum, void *arg)
 {
   Tcl_ListObjAppendElement (gdbtk_interp, result_ptr->obj_ptr,
-			    Tcl_NewIntObj (REGISTER_RAW_SIZE (regnum)));
+			    Tcl_NewIntObj (DEPRECATED_REGISTER_RAW_SIZE
+					   (regnum)));
 }
 
 /* returns a list of valid types for a register */
@@ -215,7 +216,8 @@ get_register_types (int regnum, void *arg)
   struct type *reg_vtype;
   int i,n;
 
-  reg_vtype = REGISTER_VIRTUAL_TYPE (regnum);
+  reg_vtype = register_type (current_gdbarch, regnum);
+  
   if (TYPE_CODE (reg_vtype) == TYPE_CODE_UNION)
     {
       n = TYPE_NFIELDS (reg_vtype);
@@ -260,9 +262,12 @@ get_register_types (int regnum, void *arg)
 static void
 get_register (int regnum, void *arg)
 {
+  int realnum;
+  CORE_ADDR addr;
+  enum lval_type lval;
   struct type *reg_vtype;
-  char *raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
-  char *virtual_buffer = alloca (MAX_REGISTER_VIRTUAL_SIZE);
+  char raw_buffer[MAX_REGISTER_SIZE];
+  char virtual_buffer[MAX_REGISTER_SIZE];
   int optim, format;
   struct cleanup *old_chain = NULL;
   struct ui_file *stb;
@@ -275,8 +280,7 @@ get_register (int regnum, void *arg)
   
   reg_vtype = regtype[regnum];
   if (reg_vtype == NULL)
-    reg_vtype = REGISTER_VIRTUAL_TYPE (regnum);
-
+    reg_vtype = register_type (current_gdbarch, regnum);
 
   if (!target_has_registers)
     {
@@ -287,8 +291,9 @@ get_register (int regnum, void *arg)
       return;
     }
 
-  get_saved_register (raw_buffer, &optim, (CORE_ADDR *) NULL, deprecated_selected_frame,
-		      regnum, (enum lval_type *) NULL);
+  frame_register (get_selected_frame (), regnum, &optim, &lval, 
+		  &addr, &realnum, raw_buffer);
+
   if (optim)
     {
       Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
@@ -297,13 +302,14 @@ get_register (int regnum, void *arg)
     }
 
   /* Convert raw data to virtual format if necessary.  */
-  if (REGISTER_CONVERTIBLE (regnum))
+  if (DEPRECATED_REGISTER_CONVERTIBLE (regnum))
     {
-      REGISTER_CONVERT_TO_VIRTUAL (regnum, reg_vtype,
+      DEPRECATED_REGISTER_CONVERT_TO_VIRTUAL (regnum, reg_vtype,
       				   raw_buffer, virtual_buffer);
     }
   else
-    memcpy (virtual_buffer, raw_buffer, REGISTER_VIRTUAL_SIZE (regnum));
+    memcpy (virtual_buffer, raw_buffer,
+	    DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum));
 
   stb = mem_fileopen ();
   old_chain = make_cleanup_ui_file_delete (stb);
@@ -316,10 +322,10 @@ get_register (int regnum, void *arg)
 
       strcpy (buf, "0x");
       ptr = buf + 2;
-      for (j = 0; j < REGISTER_RAW_SIZE (regnum); j++)
+      for (j = 0; j < DEPRECATED_REGISTER_RAW_SIZE (regnum); j++)
 	{
 	  int idx = TARGET_BYTE_ORDER == BFD_ENDIAN_BIG ? j
-	    : REGISTER_RAW_SIZE (regnum) - 1 - j;
+	    : DEPRECATED_REGISTER_RAW_SIZE (regnum) - 1 - j;
 	  sprintf (ptr, "%02x", (unsigned char) raw_buffer[idx]);
 	  ptr += 2;
 	}
@@ -435,19 +441,20 @@ map_arg_registers (Tcl_Interp *interp, int objc, Tcl_Obj **objv,
 static void
 register_changed_p (int regnum, void *argp)
 {
-  char *raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
+  char raw_buffer[MAX_REGISTER_SIZE];
 
-  if (!frame_register_read (deprecated_selected_frame, regnum, raw_buffer))
+  if (deprecated_selected_frame == NULL
+      || !frame_register_read (deprecated_selected_frame, regnum, raw_buffer))
     return;
 
-  if (memcmp (&old_regs[regnum * MAX_REGISTER_RAW_SIZE], raw_buffer,
-	      REGISTER_RAW_SIZE (regnum)) == 0)
+  if (memcmp (&old_regs[regnum * MAX_REGISTER_SIZE], raw_buffer,
+	      DEPRECATED_REGISTER_RAW_SIZE (regnum)) == 0)
     return;
 
   /* Found a changed register.  Save new value and return its number. */
 
-  memcpy (&old_regs[regnum * MAX_REGISTER_RAW_SIZE], raw_buffer,
-	  REGISTER_RAW_SIZE (regnum));
+  memcpy (&old_regs[regnum * MAX_REGISTER_SIZE], raw_buffer,
+	  DEPRECATED_REGISTER_RAW_SIZE (regnum));
 
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewIntObj (regnum));
 }
@@ -459,7 +466,7 @@ setup_architecture_data ()
   xfree (regformat);
   xfree (regtype);
 
-  old_regs = xcalloc (1, (NUM_REGS + NUM_PSEUDO_REGS) * MAX_REGISTER_RAW_SIZE + 1);
+  old_regs = xcalloc (1, (NUM_REGS + NUM_PSEUDO_REGS) * MAX_REGISTER_SIZE + 1);
   regformat = (int *)xcalloc ((NUM_REGS + NUM_PSEUDO_REGS) , sizeof(int));
   regtype = (struct type **)xcalloc ((NUM_REGS + NUM_PSEUDO_REGS), sizeof(struct type **));
 }
@@ -509,7 +516,7 @@ static int
 gdb_reggrouplist (ClientData clientData, Tcl_Interp *interp,
 		  int objc, Tcl_Obj **objv)
 {
-  struct reggroup *const *groups;
+  struct reggroup *group;
   int i = 0;
 
   if (objc != 0)
@@ -518,13 +525,13 @@ gdb_reggrouplist (ClientData clientData, Tcl_Interp *interp,
       return TCL_ERROR;
     }
 
-  groups = reggroups (current_gdbarch);
-
-  while (groups[i] != NULL) {
-    if (reggroup_type (groups[i]) == USER_REGGROUP)
-      Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewStringObj (reggroup_name(groups[i]), -1));
-    i++;
-  }
+  for (group = reggroup_next (current_gdbarch, NULL);
+       group != NULL;
+       group = reggroup_next (current_gdbarch, group))
+    {
+      if (reggroup_type (group) == USER_REGGROUP)
+	Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewStringObj (reggroup_name (group), -1));
+    }
   return TCL_OK;
 }
 
@@ -536,7 +543,7 @@ static int
 gdb_reggroup (ClientData clientData, Tcl_Interp *interp,
 	      int objc, Tcl_Obj **objv)
 {
-  struct reggroup *const *group;
+  struct reggroup *group;
   char *groupname;
   int regnum;
 
@@ -553,18 +560,20 @@ gdb_reggroup (ClientData clientData, Tcl_Interp *interp,
       return TCL_ERROR;
     }
 
-  for (group = reggroups (current_gdbarch); *group != NULL; group++)
+  for (group = reggroup_next (current_gdbarch, NULL);
+       group != NULL;
+       group = reggroup_next (current_gdbarch, group))
     {
-      if (strcmp (groupname, reggroup_name (*group)) == 0)
+      if (strcmp (groupname, reggroup_name (group)) == 0)
 	break;
     }
 
-  if (*group == NULL)
+  if (group == NULL)
     return TCL_ERROR;
 
   for (regnum = 0; regnum < NUM_REGS + NUM_PSEUDO_REGS; regnum++)
     {
-      if (gdbarch_register_reggroup_p (current_gdbarch, regnum, *group))
+      if (gdbarch_register_reggroup_p (current_gdbarch, regnum, group))
 	Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewIntObj (regnum));
     }
   return TCL_OK;

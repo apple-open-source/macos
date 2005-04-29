@@ -1,4 +1,4 @@
-<!-- $Revision: 1.1.1.1 $ -->
+<!-- $Revision: 1.1.1.2 $ -->
 <HTML>
   <HEAD>
     <TITLE><MM-List-Name> 案内ページ</TITLE>
@@ -33,7 +33,7 @@
 	    <tr>
 	      <td colspan="2">
 		<P><MM-List-Info></P>
-	  <p> このメーリングリストに投稿された過去のメールを読むには,
+	  <p> このメーリングリストに投稿された過去のメールは,
 	      <MM-Archive><MM-List-Name>
 		  保存書庫</MM-Archive>をご覧下さい.
 	      <MM-Restricted-List-Message>
@@ -47,12 +47,12 @@
       </TR>
       <tr>
 	<td colspan="2">
-	  メーリングリストのメンバー全員にメッセージを送るには， メールを
+	  メーリングリストの全会員に送るメールは, 
 	  <A HREF="mailto:<MM-Posting-Addr>"><MM-Posting-Addr></A>
-          宛てに送信してください.
+          のアドレス宛に送信してください.
 
-	  <p>メーリングリストの購読や現在の購読オプションの変更には, 
-          以下の様式をご利用下さい.
+	  <p>メーリングリストの入会や現在の会員オプションの変更は, 
+          以下のフォームをご利用ください.
 	</td>
       </tr>
       <TR>
@@ -63,55 +63,50 @@
       <tr>
 	<td colspan="2">
 	  <P>
-	    <MM-List-Name> の購読には, 以下の様式に 記入してください. 
+	    <MM-List-Name> への入会は, 
+            以下のフォームに必要事項を記入してください. 
 	  <MM-List-Subscription-Msg>
 	  <ul>
 	      <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2"
 		WIDTH="70%" HEIGHT= "112">
 		<TR>
-		  <TD BGCOLOR="#dddddd" WIDTH="55%">あなたのメールアドレス:</TD>
+		  <TD BGCOLOR="#dddddd" WIDTH="55%">メールアドレス:</TD>
 		  <TD WIDTH="33%"><MM-Subscribe-Box>
 	</TD>
 	<TD WIDTH="12%">&nbsp;</TD></TR>
       <TR>
-        <td bgcolor="#dddddd" width="55%">あなたのお名前 (オプション):</td>
+        <td bgcolor="#dddddd" width="55%">名前 (省略可):</td>
         <td width="33%"><mm-fullname-box></td>
 	<TD WIDTH="12%">&nbsp;</TD></TR>
       <TR>
-	<TD COLSPAN="3"><FONT SIZE=-1>ここであなたのパスワード
-        を記入してください. このパスワードに関するセキュ
-        リティは あまり高くありませんが, 他人が購読情報荒しを
-        することを 防ぐ程度
-        のことはできます. このパスワードをメールであなたに送り
-        返すことがあります
-        ので,
-	<b>貴重なパスワードを使わないようにしてください
-	</b>
-        毎月1回, あなたの
-        パスワードを紛失防止のために平文のメールで送信します. 
-        もし，この欄を空白にしておくと, Mailmanが自動的に
-        あなたのパスワードを作成します. そして, あなたが入会を
-	確認したらメールで送られます. 自分のオプションを編集する
-	時には, いつでもパスワードをメールで送ってもらうことが
-	できます.
+	<TD COLSPAN="3"><FONT SIZE=-1>情報の保護に使うパスワードを
+	指定することもできます. 高度なセキュリティではありませんが,
+	他人に会員情報を変更されることを防ぐことはできるはずです. 
+	このパスワードは, 暗号化せずにメールで送信される場合があります
+	ので, システムパスワードなどの <b>重要なパスワードを指定しない
+	</b>ようにしてください.
+	<br>
+	パスワードが指定されなかった場合, パスワードを自動的に生成して
+	入会確認後にメールで送付します. 
+	いつでもこのパスワードをメールで取り寄せることができます.
 	    <MM-Reminder>
 	</TD>
       </TR>  
       <TR>
-	<TD BGCOLOR="#dddddd">パスワードを考えて記入してください:</TD>
+	<TD BGCOLOR="#dddddd">パスワードを入力してください:</TD>
 	<TD><MM-New-Password-Box></TD>
 	<TD>&nbsp;</TD></TR>
       <TR> 
-	<TD BGCOLOR="#dddddd">確認のため同じパスワードを記入:</TD>
+	<TD BGCOLOR="#dddddd">確認のため同じパスワードを再入力:</TD>
 	<TD><MM-Confirm-Password></TD>
 	<TD>&nbsp; </TD></TR>
       <tr>
-        <TD BGCOLOR="#dddddd">どの言語でメッセージを読みたいですか?</TD>
+        <TD BGCOLOR="#dddddd">表示に使う言語を選んでください</TD>
         <TD> <MM-list-langs></TD>
         <TD>&nbsp; </TD></TR>
       <mm-digest-question-start>
       <tr>
-	<td>一日分ごとにメールをまとめ読みしますか?
+	<td>リストのメールを毎日1本にまとめて送りますか?
 	  </td>
 	<td><MM-Undigest-Radio-Button> いいえ
 	    <MM-Digest-Radio-Button>  はい

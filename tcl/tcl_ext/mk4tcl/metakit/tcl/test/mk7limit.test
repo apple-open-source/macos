@@ -1,0 +1,54 @@
+# limit tests
+
+source defs_mk.tcl
+
+T 1 {lots of properties} {
+  mk::file open db [F].mk
+  for {set i 0} {$i < 250} {incr i} {
+    lappend format i$i:I
+  }
+  mk::view layout db.v $format
+  mk::file commit db
+  C [mk::view layout db.v] $format
+}
+
+T 2 {string/byte/memo property mix} {
+  set f [F].mk
+  mk::file open db $f
+  mk::view layout db.a {s:S b:B}
+
+  set a 123456789012345
+  set b $a$a$a$a$a$a$a$a$a$a
+  set c $b$b$b$b$b$b$b$b$b$b
+  set d $c$c$c$c$c$c$c$c$c$c
+  C [string length $d] 15000
+
+  mk::row append db.a s A$a b A$a
+  mk::row append db.a s A$d b A$d
+  mk::row append db.a
+
+  mk::row append db.a s B$a b B$a
+  mk::row append db.a s B$d b B$d
+  mk::row append db.a
+
+  mk::file close db
+  mk::file open db $f -readonly
+  
+  C [mk::get db.a!0 b] A$a
+  C [mk::get db.a!1 b] A$d
+  C [mk::get db.a!2 b] {}
+
+  C [mk::get db.a!0 s] A$a
+  C [mk::get db.a!1 s] A$d
+  C [mk::get db.a!2 s] {}
+
+  C [mk::get db.a!3 b] B$a
+  C [mk::get db.a!4 b] B$d
+  C [mk::get db.a!5 b] {}
+
+  C [mk::get db.a!3 s] B$a
+  C [mk::get db.a!4 s] B$d
+  C [mk::get db.a!5 s] {}
+}
+
+Q 3

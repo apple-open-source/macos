@@ -28,7 +28,7 @@
 #ifndef __CRecNameList_h__
 #define __CRecNameList_h__		1
 
-#include "CAttributeList.h"
+#include <DirectoryServiceCore/CAttributeList.h>
 
 class CRecNameList : public CAttributeList {
 public:

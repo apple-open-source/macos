@@ -1,0 +1,104 @@
+Defines used during the compilation of Trf to guide the process.
+================================================================
+
+ENABLE_BINIO	(init.c, binio.c)
+	If set enables the compilation of the 'binio' command.
+	This command is deprecated, use 'binary' instead, which
+	is the official way.
+
+	Default:	Not set.
+
+
+BZLIB_STATIC_BUILD	(bz2lib.c)
+	If set the code will assume that the 'bzip2'-library is
+	linked statically into the trf library. If not set the
+	code will try to locate and load the library dynamically,
+	on demand.
+
+	Default:	Not set.
+
+
+BZ2_LIB_NAME		(bz2lib.c)
+	Defines the name of the 'bzip2'-library. Relevant only
+	if BZLIB_STATIC_BUILD is *not* set.
+
+	Default (Win):	"libbz2.dll"
+		Impossible to overide from the Makefile!
+
+	Default:	"libbz2.so"
+		The Makefile can overide this definition.
+
+
+ZLIB_STATIC_BUILD	(zlib.c)
+	See BZLIB_STATIC_BUILD, this time for 'zlib'.
+
+	Default:	Not set.
+
+
+Z_LIB_NAME		(zlib.c)
+	See BZ2_LIB_NAME, this time for 'zlib'.
+
+	Default (Win):	"zlib.dll"
+		Impossible to overide from the Makefile!
+
+	Default:	"libz.so"
+		The Makefile can overide this definition.
+
+MD5_STATIC_BUILD
+	See foo_LIB_NAME, this time for 'MD5'.
+
+	Default:	Not set.
+
+
+SSL_LIB_NAME	(loadman.c)
+	Trf searches for the SSL-library to get at some the
+	hash functionality (md2, ...). This definition specifies
+	the name of the library we are looking for.
+
+	Default (Win):	"crypto32.dll"
+	Default:	"libcrypto.so"
+		The defaults can be overidden from the Makefile.
+
+
+CRYPT_LIB_NAME	(loadman.c)
+	The name of the library containing MD5. This value is
+	usually set by 'configure' depending on the existence
+	of -lcrypt and the functionality it contains.
+
+	Default (Win):	"crypt.dll"
+	Default:	"libcrypt.so"
+		The defaults can and usually will be overidden
+		from the Makefile, via 'configure'.
+
+WORDS_BIGENDIAN	(rmd*.c, sha.c)
+	Set by the 'configure' script. If set the code assumes
+	that it will run on a bigendian system.
+
+	Defult:	None, computed by 'configure'.
+
+
+USE_TCL_STUBS	(init.c, registry.c, unstack.c, trfStubLib.c)
+	If set the code will use the stub-mechanism to call
+	functions from the core.
+
+	Default:	Not set if compiled against Tcl < 8.1
+			Set	if compiled against Tcl >= 8.1
+
+
+TCL_THREADS	(init.c)
+	Lifted by 'configure' from 'tclConfig.sh'. If set Trf
+	is compiled for thread-safe operation, i.e. some places
+	are protected with mutexes.
+
+
+TRF_DEBUG
+TRF_STREAM_DEBUG
+	Developer definitions. If set code is compiled into the
+	extension providing extensive! logs of its operation.
+	Especially TRF_STREAM_DEBUG is able to generate logs in
+	the multi-megabyte range as it exactly logs the stream
+	of bytes flowing throw a transformation (r and w paths).
+
+	Default:	Not set.
+
+================================================================

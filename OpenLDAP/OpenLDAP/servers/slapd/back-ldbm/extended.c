@@ -1,8 +1,17 @@
 /* extended.c - ldbm backend extended routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/extended.c,v 1.11.2.2 2003/03/03 17:10:10 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/extended.c,v 1.15.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -15,42 +24,29 @@
 #include "slap.h"
 #include "back-ldbm.h"
 #include "proto-back-ldbm.h"
+#include "lber_pvt.h"
 
 struct exop {
-	char *oid;
+	struct berval *oid;
 	BI_op_extended	*extended;
 } exop_table[] = {
-	{ LDAP_EXOP_MODIFY_PASSWD, ldbm_back_exop_passwd },
 	{ NULL, NULL }
 };
 
 int
 ldbm_back_extended(
-    Backend		*be,
-    Connection		*conn,
-    Operation		*op,
-	const char		*reqoid,
-    struct berval	*reqdata,
-	char		**rspoid,
-    struct berval	**rspdata,
-	LDAPControl *** rspctrls,
-	const char**	text,
-    BerVarray *refs 
-)
+	Operation	*op,
+	SlapReply	*rs )
 {
 	int i;
 
-	for( i=0; exop_table[i].oid != NULL; i++ ) {
-		if( strcmp( exop_table[i].oid, reqoid ) == 0 ) {
-			return (exop_table[i].extended)(
-				be, conn, op,
-				reqoid, reqdata,
-				rspoid, rspdata, rspctrls,
-				text, refs );
+	for( i=0; exop_table[i].extended != NULL; i++ ) {
+		if( ber_bvcmp( exop_table[i].oid, &op->oq_extended.rs_reqoid ) == 0 ) {
+			return exop_table[i].extended( op, rs );
 		}
 	}
 
-	*text = "not supported within naming context";
+	rs->sr_text = "not supported within naming context";
 	return LDAP_UNWILLING_TO_PERFORM;
 }
 

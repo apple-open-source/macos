@@ -1,0 +1,84 @@
+{
+    Name = "Kerberos"; 
+    Description = "Terms and Events for controlling the Kerberos application";
+    
+    Commands = {
+        showTicketList = {
+            Name = "show ticket list"; 
+            Description = "Show the ticket list"; 
+        };
+        getTickets = {
+            Name = "get tickets"; 
+            Description = "Get new Kerberos tickets"; 
+            Arguments = {
+                forPrincipal = {
+                    Name = "for principal";
+                    Description = "the Kerberos principal to get tickets for";
+                };
+            };
+        };
+        renewTickets = {
+            Name = "renew tickets"; 
+            Description = "Renew Kerberos tickets"; 
+            Arguments = {
+                forPrincipal = {
+                    Name = "for principal";
+                    Description = "the Kerberos principal whose tickets should be renewed";
+                };
+            };
+        };
+        destroyTickets = {
+            Name = "destroy tickets";
+            Description = "Destroy Kerberos tickets";
+            Arguments = {
+                forPrincipal = {
+                    Name = "for principal";
+                    Description = "the Kerberos principal whose tickets should be destroyed";
+                };
+            };
+        };
+        changePassword = {
+            Name = "change password";
+            Description = "Change Kerberos password";
+            Arguments = {
+                forPrincipal = {
+                    Name = "for principal";
+                    Description = "the Kerberos principal whose password should be changed";
+                };
+            };
+        };  
+    };      
+    
+    Classes = {
+        NSApplication = {
+            Name = "application";
+            PluralName = "applications";
+            Description = "The Kerberos application";
+            Attributes = {
+                defaultCache = {
+                    Name = "default cache";
+                    Description = "The default ticket cache";
+                };
+            };
+        };
+        Cache = {
+            Name = "cache";
+            PluralName = "caches"; 
+            Description = "A Kerberos ticket cache"; 
+            Attributes = {
+                ccacheName = {
+                    Name = "cache name";
+                    Description = "The name of the ticket cache";
+                };
+                stringValueForTimeRemainingScriptCommand = {
+                    Name = "time remaining";
+                    Description = "Number of seconds of ticket lifetime remaining on the ticket cache";
+                };
+                principalString = {
+                    Name = "principal";
+                    Description = "The principal of the ticket cache";
+                };
+            };
+        };
+    };
+}

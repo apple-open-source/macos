@@ -1,17 +1,21 @@
-/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.19.2.3 2003/03/03 17:10:03 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/lber_pvt.h,v 1.22.2.5 2004/04/11 16:57:42 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
+
 /*
- * lber_pvt.h - Header for ber_pvt_ functions. These are meant to be used
- * 		by the OpenLDAP distribution only.
+ * lber_pvt.h - Header for ber_pvt_ functions. 
+ * These are meant to be internal to OpenLDAP Software.
  */
 
 #ifndef _LBER_PVT_H
@@ -20,6 +24,22 @@
 #include <lber.h>
 
 LDAP_BEGIN_DECL
+
+/* for allocating aligned buffers (on the stack) */
+#define LBER_ALIGNED_BUFFER(uname,size) \
+	union uname { \
+		char buffer[size]; \
+		/* force alignment */ \
+		int ialign; \
+		long lalign; \
+		float falign; \
+		double dalign; \
+		char* palign; \
+	}
+
+#define LBER_ELEMENT_SIZEOF (256) /* must be >= sizeof(BerElement) */
+typedef LBER_ALIGNED_BUFFER(lber_berelement_u,LBER_ELEMENT_SIZEOF)
+	BerElementBuffer;
 
 typedef struct sockbuf_buf {
 	ber_len_t		buf_size;
@@ -61,6 +81,65 @@ ber_pvt_sb_copy_out LDAP_P(( Sockbuf_Buf *sbb, char *buf, ber_len_t len ));
 LBER_F( int )
 ber_pvt_socket_set_nonblock LDAP_P(( ber_socket_t sd, int nb ));
 
+/*
+ * memory.c
+ */
+LBER_F( void * )
+ber_memalloc_x LDAP_P((
+	ber_len_t s, void *ctx));
+
+LBER_F( void * )
+ber_memrealloc_x LDAP_P((
+	void* p,
+	ber_len_t s, void *ctx ));
+
+LBER_F( void * )
+ber_memcalloc_x LDAP_P((
+	ber_len_t n,
+	ber_len_t s, void *ctx ));
+
+LBER_F( void )
+ber_memfree_x LDAP_P((
+	void* p, void *ctx ));
+
+LBER_F( void )
+ber_memvfree_x LDAP_P((
+	void** vector, void *ctx ));
+
+LBER_F( void )
+ber_bvfree_x LDAP_P((
+	struct berval *bv, void *ctx ));
+
+LBER_F( void )
+ber_bvecfree_x LDAP_P((
+	struct berval **bv, void *ctx ));
+
+LBER_F( int )
+ber_bvecadd_x LDAP_P((
+	struct berval ***bvec,
+	struct berval *bv, void *ctx ));
+
+LBER_F( struct berval * )
+ber_dupbv_x LDAP_P((
+	struct berval *dst, struct berval *src, void *ctx ));
+
+LBER_F( struct berval * )
+ber_str2bv_x LDAP_P((
+	LDAP_CONST char *, ber_len_t len, int dup, struct berval *bv, void *ctx));
+
+LBER_F( struct berval * )
+ber_mem2bv_x LDAP_P((
+	LDAP_CONST char *, ber_len_t len, int dup, struct berval *bv, void *ctx));
+
+LBER_F( char * )
+ber_strdup_x LDAP_P((
+	LDAP_CONST char *, void *ctx ));
+
+LBER_F( void )
+ber_bvarray_free_x LDAP_P(( BerVarray p, void *ctx ));
+
+LBER_F( int )
+ber_bvarray_add_x LDAP_P(( BerVarray *p, BerValue *bv, void *ctx ));
 
 #if 0
 #define ber_bvstrcmp(v1,v2) \
@@ -86,8 +165,20 @@ ber_pvt_socket_set_nonblock LDAP_P(( ber_socket_t sd, int nb ));
 #define ber_bvchr(bv,c) \
 	memchr( (bv)->bv_val, (c), (bv)->bv_len )
 
-#define BER_BVC(x)	{ sizeof( (x) ) - 1, (x) }
-#define BER_BVNULL	{ 0L, NULL }
+#define BER_BVC(s)		{ sizeof(s) - 1, (s) }
+#define BER_BVNULL		{ 0L, NULL }
+#define BER_BVZERO(bv) \
+	do { \
+		(bv)->bv_len = 0; \
+		(bv)->bv_val = NULL; \
+	} while (0)
+#define BER_BVSTR(bv,s)	\
+	do { \
+		(bv)->bv_len = sizeof(s)-1; \
+		(bv)->bv_val = (s); \
+	} while (0)
+#define BER_BVISNULL(bv)	((bv)->bv_val == NULL)
+#define BER_BVISEMPTY(bv)	((bv)->bv_len == 0)
 
 LDAP_END_DECL
 

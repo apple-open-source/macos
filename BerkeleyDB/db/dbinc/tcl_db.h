@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1999-2002
+ * Copyright (c) 1999-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: tcl_db.h,v 1.1.1.1 2003/02/15 04:55:42 zarzycki Exp $
+ * $Id: tcl_db.h,v 1.2 2004/03/30 01:21:29 jtownsen Exp $
  */
 
 #ifndef _DB_TCL_DB_H_

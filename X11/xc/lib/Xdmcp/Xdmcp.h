@@ -13,7 +13,7 @@
  * without express or implied warranty.
  *
  */
-/* $XFree86: xc/lib/Xdmcp/Xdmcp.h,v 3.6 2001/12/19 21:37:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xdmcp/Xdmcp.h,v 3.8 2003/11/22 04:50:59 dawes Exp $ */
 
 #ifndef _XDMCP_H_
 #define _XDMCP_H_
@@ -26,6 +26,17 @@ _XFUNCPROTOBEGIN
 
 #define XDM_PROTOCOL_VERSION	1
 #define XDM_UDP_PORT		177
+
+/* IANA has assigned FF0X:0:0:0:0:0:0:12B as the permanently assigned 
+ * multicast addresses for XDMCP, where X in the prefix may be replaced
+ * by any valid scope identifier, such as 1 for Node-Local, 2 for Link-Local,
+ * 5 for Site-Local, and so on.  We set the default here to the Link-Local
+ * version to most closely match the old IPv4 subnet broadcast behavior.
+ * Both xdm and X -query allow specifying a different address if a different
+ * scope is defined.
+ */
+#define XDM_DEFAULT_MCAST_ADDR6	"ff02:0:0:0:0:0:0:12b"
+
 #define XDM_MAX_MSGLEN		8192
 #define XDM_MIN_RTX		2
 #define XDM_MAX_RTX		32
@@ -45,7 +56,11 @@ typedef enum {
     XDM_COLLECT_BROADCAST_QUERY, XDM_COLLECT_INDIRECT_QUERY,
     XDM_START_CONNECTION, XDM_AWAIT_REQUEST_RESPONSE,
     XDM_AWAIT_MANAGE_RESPONSE, XDM_MANAGE, XDM_RUN_SESSION, XDM_OFF,
-    XDM_AWAIT_USER_INPUT, XDM_KEEPALIVE, XDM_AWAIT_ALIVE_RESPONSE
+    XDM_AWAIT_USER_INPUT, XDM_KEEPALIVE, XDM_AWAIT_ALIVE_RESPONSE,
+#if defined(IPv6) && defined(AF_INET6)
+    XDM_MULTICAST, XDM_COLLECT_MULTICAST_QUERY,
+#endif
+    XDM_KEEP_ME_LAST
 } xdmcp_states;
 
 #ifdef NOTDEF

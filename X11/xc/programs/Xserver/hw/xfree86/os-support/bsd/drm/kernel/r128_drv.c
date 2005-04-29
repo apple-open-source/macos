@@ -27,10 +27,8 @@
  * Authors:
  *    Rickard E. (Rik) Faith <faith@valinux.com>
  *    Gareth Hughes <gareth@valinux.com>
+ *
  */
-
-
-#include <sys/types.h>
 
 #include "r128.h"
 #include "drmP.h"
@@ -41,30 +39,6 @@
 #include "ati_pcigart.h"
 #endif
 
-/* List acquired from http://www.yourvote.com/pci/pcihdr.h and xc/xc/programs/Xserver/hw/xfree86/common/xf86PciInfo.h
- * Please report to eta@lclark.edu inaccuracies or if a chip you have works that is marked unsupported here.
- */
-drm_chipinfo_t DRM(devicelist)[] = {
-	{0x1002, 0x4c45, __REALLY_HAVE_SG, "ATI Rage 128 Mobility LE (PCI)"},
-	{0x1002, 0x4c46, 1, "ATI Rage 128 Mobility LF (AGP)"},
-	{0x1002, 0x4d46, 1, "ATI Rage 128 Mobility MF (AGP)"},
-	{0x1002, 0x4d4c, 1, "ATI Rage 128 Mobility ML (AGP)"},
-	{0x1002, 0x5044, __REALLY_HAVE_SG, "ATI Rage 128 Pro PD (PCI)"},
-	{0x1002, 0x5046, 1, "ATI Rage 128 Pro PF (AGP)"},
-	{0x1002, 0x5050, __REALLY_HAVE_SG, "ATI Rage 128 Pro PP (PCI)"},
-	{0x1002, 0x5052, __REALLY_HAVE_SG, "ATI Rage 128 Pro PR (PCI)"},
-	{0x1002, 0x5245, __REALLY_HAVE_SG, "ATI Rage 128 RE (PCI)"},
-	{0x1002, 0x5246, 1, "ATI Rage 128 RF (AGP)"},
-	{0x1002, 0x5247, 1, "ATI Rage 128 RG (AGP)"},
-	{0x1002, 0x524b, __REALLY_HAVE_SG, "ATI Rage 128 RK (PCI)"},
-	{0x1002, 0x524c, 1, "ATI Rage 128 RL (AGP)"},
-	{0x1002, 0x534d, 1, "ATI Rage 128 SM (AGP)"},
-	{0x1002, 0x5446, 1, "ATI Rage 128 Pro Ultra TF (AGP)"},
-	{0x1002, 0x544C, 1, "ATI Rage 128 Pro Ultra TL (AGP)"},
-	{0x1002, 0x5452, 1, "ATI Rage 128 Pro Ultra TR (AGP)"},
-	{0, 0, 0, NULL}
-};
-
 #include "drm_agpsupport.h"
 #include "drm_auth.h"
 #include "drm_bufs.h"
@@ -73,14 +47,17 @@ drm_chipinfo_t DRM(devicelist)[] = {
 #include "drm_drawable.h"
 #include "drm_drv.h"
 #include "drm_fops.h"
-#include "drm_init.h"
 #include "drm_ioctl.h"
+#include "drm_irq.h"
 #include "drm_lock.h"
 #include "drm_memory.h"
+#include "drm_pci.h"
 #include "drm_sysctl.h"
 #include "drm_vm.h"
-#if __HAVE_SG
 #include "drm_scatter.h"
-#endif
 
+#ifdef __FreeBSD__
 DRIVER_MODULE(r128, pci, r128_driver, r128_devclass, 0, 0);
+#elif defined(__NetBSD__)
+CFDRIVER_DECL(r128, DV_TTY, NULL);
+#endif /* __FreeBSD__ */

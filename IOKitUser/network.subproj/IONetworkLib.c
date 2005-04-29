@@ -208,11 +208,12 @@ CreateNestedDictionariesUsingKeys( CFArrayRef keysArray,
 {
     CFDictionaryRef dict = 0;
     CFDictionaryRef prevDict;
-    CFIndex         index;
+    CFIndex         index, count;
     CFStringRef     keys[1];
     CFTypeRef       values[1];
 
-    for ( index = CFArrayGetCount(keysArray) - 1;
+	count = CFArrayGetCount(keysArray);
+    for ( index = count - 1;
           index >= 0;
           index-- )
     {

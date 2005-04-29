@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xmu/EditresCom.c,v 1.17 2002/12/03 18:07:59 paulo Exp $ */
+/* $XFree86: xc/lib/Xmu/EditresCom.c,v 1.22 2004/01/23 02:36:34 dawes Exp $ */
 
 /*
  * Author:  Chris D. Peterson, Dave Sternlicht, MIT X Consortium
@@ -135,7 +135,7 @@ typedef struct _Globals {
  */
 static Widget _FindChild(Widget, int, int);
 static void _XEditresGetStringValues(Widget, Arg*, int);
-static XtPointer BuildReturnPacket(ResIdent, EditresCommand, ProtocolStream*);
+static XtPointer BuildReturnPacket(ResIdent, EditResError, ProtocolStream*);
 static void CommandDone(Widget, Atom*, Atom*);
 static Boolean ConvertReturnCommand(Widget, Atom*, Atom*, Atom*, XtPointer*,
 				    unsigned long*, int*);
@@ -166,7 +166,7 @@ static Bool isApplicationShell(Widget);
 static void LoadResources(Widget);
 static Bool PositionInChild(Widget, int, int);
 static int qcmp_widget_list(register _Xconst void*, register _Xconst void*);
-static void SendCommand(Widget, Atom, ResIdent, EditresCommand,
+static void SendCommand(Widget, Atom, ResIdent, EditResError,
 			ProtocolStream*);
 static void SendFailure(Widget, Atom, ResIdent, char*);
 static char *VerifyWidget(Widget, WidgetInfo*);
@@ -631,20 +631,19 @@ SendFailure(Widget w, Atom sel, ResIdent ident, char *str)
  *	packet to send
  */
 static XtPointer
-BuildReturnPacket(ResIdent ident, EditresCommand command, 
-		  ProtocolStream *stream)
+BuildReturnPacket(ResIdent ident, EditResError error, ProtocolStream *stream)
 {
     long old_alloc, old_size;
-  unsigned char *old_current;
+    unsigned char *old_current;
     
     /*
      * We have cleverly keep enough space at the top of the header
      * for the return protocol stream, so all we have to do is
-   * fill in the space
+     * fill in the space
      */
     /* 
      * Fool the insert routines into putting the header in the right
-   * place while being damn sure not to realloc (that would be very bad.)
+     * place while being damn sure not to realloc (that would be very bad.)
      */
     old_current = stream->current;
     old_alloc = stream->alloc;
@@ -654,7 +653,7 @@ BuildReturnPacket(ResIdent ident, EditresCommand command,
     stream->alloc = stream->size + (2 * HEADER_SIZE);	
     
     _XEditResPut8(stream, ident);
-  _XEditResPut8(stream, (unsigned char)command);
+    _XEditResPut8(stream, (unsigned char)error);
     _XEditResPut32(stream, old_size);
 
     stream->alloc = old_alloc;
@@ -678,10 +677,10 @@ BuildReturnPacket(ResIdent ident, EditresCommand command,
  *	Builds a return command line
  */
 static void
-SendCommand(Widget w, Atom sel, ResIdent ident, EditresCommand command,
+SendCommand(Widget w, Atom sel, ResIdent ident, EditResError error,
 	    ProtocolStream *stream)
 {
-    BuildReturnPacket(ident, command, stream);
+    BuildReturnPacket(ident, error, stream);
     globals.command_stream = stream;	
 
   /*
@@ -754,6 +753,7 @@ FindChildren(Widget parent, Widget **children, Bool normal, Bool popup,
       for (i = 0; i < num_norm; i++)
 	if (strcmp(norm_list[i].resource_type, XtRWidget) == 0)
 	  {
+	    widget = NULL;
 	    XtSetArg(args[0], norm_list[i].resource_name, &widget);
 	    XtGetValues(parent, args, 1);
 	    if (widget && XtParent(widget) == parent)
@@ -767,6 +767,7 @@ FindChildren(Widget parent, Widget **children, Bool normal, Bool popup,
       for (i = 0; i < num_cons; i++)
 	if (strcmp(cons_list[i].resource_type, XtRWidget) == 0)
 	  {
+	    widget = NULL;
 	    XtSetArg(args[0], cons_list[i].resource_name, &widget);
 	    XtGetValues(parent, args, 1);
 	    if (widget && XtParent(widget) == parent)
@@ -817,8 +818,9 @@ FindChildren(Widget parent, Widget **children, Bool normal, Bool popup,
 	for (j = 0; j < num_extra; j++)
 	  if ((*children)[i] == extra_widgets[j])
 	    {
-	      memmove(&extra_widgets[j], &extra_widgets[j + 1],
-		      (num_extra - j) * sizeof(Widget));
+	      if ((j + 1) < num_extra)
+		memmove(&extra_widgets[j], &extra_widgets[j + 1],
+			(num_extra - j) * sizeof(Widget));
 	      --num_extra;
 	    }
 
@@ -997,10 +999,11 @@ HandleToolkitErrors(String name, String type, String class, String msg,
 	XmuSnprintf(buf, sizeof(buf), msg, params[0]);
     else if (streq(name, "conversionFailed") || streq(name, "conversionError"))
     {
-	if (streq(info->event->value, XtRString))
+	if (streq((String)info->event->value, XtRString))
 	    XmuSnprintf(buf, sizeof(buf),
 			"Could not convert the string '%s' for the `%s' "
-			"resource.", info->event->value, info->event->name);
+			"resource.", (String)info->event->value,
+			info->event->name);
 	else
 	    XmuSnprintf(buf, sizeof(buf),
 			"Could not convert the `%s' resource.",
@@ -2190,11 +2193,11 @@ _XEditresGetStringValues(Widget w, Arg *warg, int numargs)
 	      XmuSnprintf(buffer, sizeof(buffer), "%d", (int)(value & 0xffff));
 	      break;
 	    case sizeof(int):
-	      XmuSnprintf(buffer, sizeof(buffer), "0x%08hx", (int)value);
+	      XmuSnprintf(buffer, sizeof(buffer), "0x%08x", (int)value);
 	      break;
 #ifdef LONG_64
 	    case sizeof(long):
-	      XmuSnprintf(buffer, sizeof(buffer), "0x%016hx", value);
+	      XmuSnprintf(buffer, sizeof(buffer), "0x%016lx", value);
 	      break;
 #endif
 	    }

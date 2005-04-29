@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>LDAP</string>
 	<key>CFBundleGetInfoString</key>
-	<string>OpenLDAP framework v2.1.22</string>
+	<string>OpenLDAP framework v2.2.19</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.LDAPFramework</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,10 +17,10 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.4</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>37.4.2</string>
+	<string>68</string>
 </dict>
 </plist>

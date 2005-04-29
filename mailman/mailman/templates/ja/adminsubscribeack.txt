@@ -1,3 +1,2 @@
-%(member)s さんの %(listname)s への入会手続きが完了しました.
-
+%(member)s さんが %(listname)s に入会しました.
 

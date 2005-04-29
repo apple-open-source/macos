@@ -25,7 +25,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_state.c,v 1.6 2003/01/28 22:47:06 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_state.c,v 1.8 2003/12/02 13:02:37 alanh Exp $ */
 
 /*
  * Author:
@@ -34,7 +34,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Heavily based on the I810 driver, which was written by:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
-#include <stdio.h>
 
 #include "glheader.h"
 #include "context.h"
@@ -42,7 +41,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "enums.h"
 #include "dd.h"
 
-#include "mm.h"
+#include "texmem.h"
 
 #include "i830_screen.h"
 #include "i830_dri.h"
@@ -124,11 +123,9 @@ static void i830StencilFunc(GLcontext *ctx, GLenum func, GLint ref,
    }
 
    I830_STATECHANGE(imesa, I830_UPLOAD_CTX);
-   imesa->Setup[I830_CTXREG_STATE4] &= ~MODE4_ENABLE_STENCIL_MASK;
+   imesa->Setup[I830_CTXREG_STATE4] &= ~MODE4_ENABLE_STENCIL_TEST_MASK;
    imesa->Setup[I830_CTXREG_STATE4] |= (ENABLE_STENCIL_TEST_MASK |
-					ENABLE_STENCIL_WRITE_MASK |
-					STENCIL_TEST_MASK(mask) |
-					STENCIL_WRITE_MASK(mask));
+					STENCIL_TEST_MASK(mask));
    imesa->Setup[I830_CTXREG_STENCILTST] &= ~(STENCIL_REF_VALUE_MASK |
 					     ENABLE_STENCIL_TEST_FUNC_MASK);
    imesa->Setup[I830_CTXREG_STENCILTST] |= (ENABLE_STENCIL_REF_VALUE |
@@ -147,10 +144,8 @@ static void i830StencilMask(GLcontext *ctx, GLuint mask)
    mask = mask & 0xff;
 
    I830_STATECHANGE(imesa, I830_UPLOAD_CTX);
-   imesa->Setup[I830_CTXREG_STATE4] &= ~MODE4_ENABLE_STENCIL_MASK;
-   imesa->Setup[I830_CTXREG_STATE4] |= (ENABLE_STENCIL_TEST_MASK |
-					ENABLE_STENCIL_WRITE_MASK |
-					STENCIL_TEST_MASK(mask) |
+   imesa->Setup[I830_CTXREG_STATE4] &= ~MODE4_ENABLE_STENCIL_WRITE_MASK;
+   imesa->Setup[I830_CTXREG_STATE4] |= (ENABLE_STENCIL_WRITE_MASK |
 					STENCIL_WRITE_MASK(mask));
 }
 
@@ -179,9 +174,15 @@ static void i830StencilOp(GLcontext *ctx, GLenum fail, GLenum zfail,
       fop = STENCILOP_REPLACE; 
       break;
    case GL_INCR: 
-      fop = STENCILOP_INCR; 
+      fop = STENCILOP_INCRSAT;
       break;
    case GL_DECR: 
+      fop = STENCILOP_DECRSAT;
+      break;
+   case GL_INCR_WRAP:
+      fop = STENCILOP_INCR; 
+      break;
+   case GL_DECR_WRAP:
       fop = STENCILOP_DECR; 
       break;
    case GL_INVERT: 
@@ -201,9 +202,15 @@ static void i830StencilOp(GLcontext *ctx, GLenum fail, GLenum zfail,
       dfop = STENCILOP_REPLACE; 
       break;
    case GL_INCR: 
-      dfop = STENCILOP_INCR; 
+      dfop = STENCILOP_INCRSAT;
       break;
    case GL_DECR: 
+      dfop = STENCILOP_DECRSAT;
+      break;
+   case GL_INCR_WRAP:
+      dfop = STENCILOP_INCR; 
+      break;
+   case GL_DECR_WRAP:
       dfop = STENCILOP_DECR; 
       break;
    case GL_INVERT: 
@@ -223,9 +230,15 @@ static void i830StencilOp(GLcontext *ctx, GLenum fail, GLenum zfail,
       dpop = STENCILOP_REPLACE; 
       break;
    case GL_INCR: 
-      dpop = STENCILOP_INCR; 
+      dpop = STENCILOP_INCRSAT;
       break;
    case GL_DECR: 
+      dpop = STENCILOP_DECRSAT;
+      break;
+   case GL_INCR_WRAP:
+      dpop = STENCILOP_INCR; 
+      break;
+   case GL_DECR_WRAP:
       dpop = STENCILOP_DECR; 
       break;
    case GL_INVERT: 
@@ -244,10 +257,11 @@ static void i830StencilOp(GLcontext *ctx, GLenum fail, GLenum zfail,
 					    STENCIL_PASS_DEPTH_PASS_OP(dpop));
 }
 
-static void i830AlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
+static void i830AlphaFunc(GLcontext *ctx, GLenum func, GLfloat ref)
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
    int test = 0;
+   GLuint refByte = (GLint) (ref * 255.0);
 
    switch(func) {
    case GL_NEVER: 
@@ -274,7 +288,8 @@ static void i830AlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
    case GL_ALWAYS: 
       test = COMPAREFUNC_ALWAYS; 
       break;
-   default: return;
+   default:
+      return;
    }
 
    I830_STATECHANGE(imesa, I830_UPLOAD_CTX);
@@ -282,7 +297,7 @@ static void i830AlphaFunc(GLcontext *ctx, GLenum func, GLchan ref)
    imesa->Setup[I830_CTXREG_STATE2] |= (ENABLE_ALPHA_TEST_FUNC |
 					ENABLE_ALPHA_REF_VALUE |
 					ALPHA_TEST_FUNC(test) |
-					ALPHA_REF_VALUE(ref));
+					ALPHA_REF_VALUE(refByte));
 }
 
 /* This function makes sure that the proper enables are
@@ -836,6 +851,7 @@ static void i830LogicOp(GLcontext *ctx, GLenum opcode)
    if (I830_DEBUG&DEBUG_DRI)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
+   /* FIXME: This should be a look-up table, like the r200 driver. */
    switch(opcode) {
    case GL_CLEAR: 
       tmp = LOGICOP_CLEAR; 
@@ -905,44 +921,33 @@ static void i830RenderMode( GLcontext *ctx, GLenum mode )
    FALLBACK( imesa, I830_FALLBACK_RENDERMODE, (mode != GL_RENDER) );
 }
 
-#if 0
-void i830DrawBuffer(GLcontext *ctx, GLenum mode )
+static void i830DrawBuffer(GLcontext *ctx, GLenum mode )
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
-   int front;
 
    /*
     * _DrawDestMask is easier to cope with than <mode>.
     */
    switch ( ctx->Color._DrawDestMask ) {
    case FRONT_LEFT_BIT:
-      front = 1;
+      I830_FIREVERTICES(imesa);
+      I830_STATECHANGE(imesa, I830_UPLOAD_BUFFERS);
+      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->fbOffset;
+      i830XMesaSetFrontClipRects( imesa );
+      FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_FALSE );
       break;
    case BACK_LEFT_BIT:
-      front = 0;
+      I830_FIREVERTICES(imesa);
+      I830_STATECHANGE(imesa, I830_UPLOAD_BUFFERS);
+      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = 
+					imesa->i830Screen->backOffset;
+      i830XMesaSetBackClipRects( imesa );
+      FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_FALSE );
       break;
    default:
       /* GL_NONE or GL_FRONT_AND_BACK or stereo left&right, etc */
       FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_TRUE );
       return;
-   }
-
-   if ( imesa->sarea->pf_current_page == 1 ) 
-      front ^= 1;
-   
-   FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_FALSE );
-   I830_FIREVERTICES(imesa);
-   I830_STATECHANGE(imesa, I830_UPLOAD_BUFFERS);
-   i830XMesaSetFrontClipRects( imesa );
-
-   if (front) {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->fbOffset;
-      imesa->drawMap = (char *)imesa->driScreen->pFB;
-      imesa->readMap = (char *)imesa->driScreen->pFB;
-   } else {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->backOffset;
-      imesa->drawMap = imesa->i830Screen->back.map;
-      imesa->readMap = imesa->i830Screen->back.map;
    }
 
    /* We want to update the s/w rast state too so that i830SetBuffer()
@@ -951,64 +956,25 @@ void i830DrawBuffer(GLcontext *ctx, GLenum mode )
    _swrast_DrawBuffer(ctx, mode);
 }
 
-
 static void i830ReadBuffer(GLcontext *ctx, GLenum mode )
 {
-   /* nothing, until h/w glRead/CopyPixels */
-}
-#endif
-
-
-void i830SetDrawBuffer(GLcontext *ctx, GLenum mode )
-{
-   i830ContextPtr imesa = I830_CONTEXT(ctx);
-   int front = 0;
- 
-   switch (mode) {
-   case GL_FRONT_LEFT:
-      front = 1;
-      break;
-   case GL_BACK_LEFT:
-      front = 0;
-      break;
-   default:
-      FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_TRUE );
-      return;
-   }
-
-   if ( imesa->sarea->pf_current_page == 1 ) 
-      front ^= 1;
-   
-   FALLBACK( imesa, I830_FALLBACK_DRAW_BUFFER, GL_FALSE );
-   I830_FIREVERTICES(imesa);
-   I830_STATECHANGE(imesa, I830_UPLOAD_BUFFERS);
-   i830XMesaSetFrontClipRects( imesa );
-
-   if (front) {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->fbOffset;
-      imesa->drawMap = (char *)imesa->driScreen->pFB;
-      imesa->readMap = (char *)imesa->driScreen->pFB;
-   } else {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->backOffset;
-      imesa->drawMap = imesa->i830Screen->back.map;
-      imesa->readMap = imesa->i830Screen->back.map;
-   }
+   /* nothing, until we implement h/w glRead/CopyPixels or CopyTexImage */
 }
 
-static void i830ClearColor(GLcontext *ctx, const GLchan color[4])
+static void i830ClearColor(GLcontext *ctx, const GLfloat color[4])
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
 
-   imesa->clear_red = color[RCOMP];
-   imesa->clear_green = color[GCOMP];
-   imesa->clear_blue = color[BCOMP];
-   imesa->clear_alpha = color[ACOMP];
+   CLAMPED_FLOAT_TO_UBYTE(imesa->clear_red, color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(imesa->clear_green, color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(imesa->clear_blue, color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(imesa->clear_alpha, color[3]);
 
    imesa->ClearColor = i830PackColor(imesa->i830Screen->fbFormat,
-				     color[RCOMP], 
-				     color[GCOMP], 
-				     color[BCOMP], 
-				     color[ACOMP] );
+				     imesa->clear_red,
+                                     imesa->clear_green,
+                                     imesa->clear_blue,
+                                     imesa->clear_alpha);
 }
 
 static void i830CullFaceFrontFace(GLcontext *ctx, GLenum unused)
@@ -1282,11 +1248,14 @@ static void i830Enable(GLcontext *ctx, GLenum cap, GLboolean state)
       if (imesa->hw_stencil) {
 	 I830_STATECHANGE(imesa, I830_UPLOAD_CTX);
 	 imesa->Setup[I830_CTXREG_ENABLES_1] &= ~ENABLE_STENCIL_TEST;
+	 imesa->Setup[I830_CTXREG_ENABLES_2] &= ~ENABLE_STENCIL_WRITE;
 
 	 if (state) {
 	    imesa->Setup[I830_CTXREG_ENABLES_1] |= ENABLE_STENCIL_TEST;
+	    imesa->Setup[I830_CTXREG_ENABLES_2] |= ENABLE_STENCIL_WRITE;
 	 } else {
 	    imesa->Setup[I830_CTXREG_ENABLES_1] |= DISABLE_STENCIL_TEST;
+	    imesa->Setup[I830_CTXREG_ENABLES_2] |= DISABLE_STENCIL_WRITE;
 	 }
       } else {
 	 FALLBACK( imesa, I830_FALLBACK_STENCIL, state );
@@ -1418,9 +1387,9 @@ void i830EmitHwStateLocked( i830ContextPtr imesa )
       i830PrintDirty( __FUNCTION__, imesa->dirty );
 
    if ((imesa->dirty & I830_UPLOAD_TEX0_IMAGE) && imesa->CurrentTexObj[0])
-      i830UploadTexImages(imesa, imesa->CurrentTexObj[0]);
+      i830UploadTexImagesLocked(imesa, imesa->CurrentTexObj[0]);
    if ((imesa->dirty & I830_UPLOAD_TEX1_IMAGE) && imesa->CurrentTexObj[1])
-      i830UploadTexImages(imesa, imesa->CurrentTexObj[1]);
+      i830UploadTexImagesLocked(imesa, imesa->CurrentTexObj[1]);
    if (imesa->dirty & I830_UPLOAD_CTX) {
       memcpy( imesa->sarea->ContextState,
 	     imesa->Setup, sizeof(imesa->Setup) );
@@ -1432,9 +1401,14 @@ void i830EmitHwStateLocked( i830ContextPtr imesa )
 	 memcpy(imesa->sarea->TexState[i],
 		imesa->CurrentTexObj[i]->Setup,
 		sizeof(imesa->sarea->TexState[i]));
+	  
+	 imesa->sarea->TexState[i][I830_TEXREG_TM0S3] &= ~TM0S3_LOD_BIAS_MASK;
+	 imesa->sarea->TexState[i][I830_TEXREG_TM0S3] |= imesa->LodBias[i];
+
 	 /* Update the LRU usage */
-	 if (imesa->CurrentTexObj[i]->MemBlock)
-	    i830UpdateTexLRU(imesa, imesa->CurrentTexObj[i]);
+	 if (imesa->CurrentTexObj[i]->base.memBlock)
+	    driUpdateTextureLRU( (driTextureObject *) 
+				 imesa->CurrentTexObj[i] );
       }
    }
    /* Need to figure out if texturing state, or enable changed. */
@@ -1713,6 +1687,7 @@ void i830DDInitState( GLcontext *ctx )
       imesa->BufferSetup[I830_DESTREG_CBUFADDR] = i830Screen->backOffset;
       imesa->BufferSetup[I830_DESTREG_DBUFADDR] = 0;
    } else {
+      /* use front buffer by default */
       imesa->drawMap = (char *)imesa->driScreen->pFB;
       imesa->readMap = (char *)imesa->driScreen->pFB;
       imesa->BufferSetup[I830_DESTREG_CBUFADDR] = i830Screen->fbOffset;
@@ -1766,7 +1741,7 @@ static void i830InvalidateState( GLcontext *ctx, GLuint new_state )
    _swsetup_InvalidateState( ctx, new_state );
    _ac_InvalidateState( ctx, new_state );
    _tnl_InvalidateState( ctx, new_state );
-   I830_CONTEXT(ctx)->new_state |= new_state;
+   I830_CONTEXT(ctx)->NewGLState |= new_state;
 }
 
 void i830DDInitStateFuncs(GLcontext *ctx)
@@ -1796,7 +1771,8 @@ void i830DDInitStateFuncs(GLcontext *ctx)
    ctx->Driver.PolygonStipple = i830PolygonStippleFallback;
    ctx->Driver.RenderMode = i830RenderMode;
    ctx->Driver.Scissor = i830Scissor;
-   ctx->Driver.SetDrawBuffer = i830SetDrawBuffer;
+   ctx->Driver.DrawBuffer = i830DrawBuffer;
+   ctx->Driver.ReadBuffer = i830ReadBuffer;
    ctx->Driver.ShadeModel = i830ShadeModel;
    ctx->Driver.DepthRange = i830DepthRange;
    ctx->Driver.Viewport = i830Viewport;

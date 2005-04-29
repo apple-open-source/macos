@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeInFoc.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeInFoc.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,23 +144,12 @@
 .SH NAME
 XSetInputFocus, XGetInputFocus \- control input focus
 .SH SYNTAX
-XSetInputFocus\^(\^\fIdisplay\fP, \fIfocus\fP\^, \fIrevert_to\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIfocus\fP\^;
-.br
-      int \fIrevert_to\fP\^; 
-.br
-      Time \fItime\fP\^; 
-.LP
-XGetInputFocus\^(\^\fIdisplay\fP, \fIfocus_return\fP\^, \fIrevert_to_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window *\fIfocus_return\fP\^;
-.br
-      int *\fIrevert_to_return\fP\^;
+.HP
+int XSetInputFocus\^(\^Display *\fIdisplay\fP\^, Window \fIfocus\fP\^, int
+\fIrevert_to\fP\^, Time \fItime\fP\^); 
+.HP
+int XGetInputFocus\^(\^Display *\fIdisplay\fP\^, Window *\fIfocus_return\fP\^,
+int *\fIrevert_to_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

@@ -1,0 +1,183 @@
+[manpage_begin dns n 1.1]
+[copyright {2002, Pat Thoyts}]
+[moddesc   {dns}]
+[titledesc {Tcl Domain Name Service Client}]
+[require Tcl 8.2]
+[require dns [opt 1.1]]
+[description]
+[para]
+
+The dns package provides a Tcl only Domain Name Service client. You
+should refer to
+RFC 1034 ([uri http://www.rfc-editor.org/rfc/rfc1034.txt]) and
+RFC 1035 ([uri http://www.rfc-editor.org/rfc/rfc1035.txt]) for
+information about the DNS protocol or read resolver(3) to find out how
+the C library resolves domain names.
+
+The intention of this package is to insulate Tcl scripts
+from problems with using the system library resolver for slow name servers.
+It may or may not be of practical use. Internet name resolution is a
+complex business and DNS is only one part of the resolver. You may
+find you are supposed to be using hosts files, NIS or WINS to name a
+few other systems. This package is not a substitute for the C library
+resolver - it does however implement name resolution over DNS.
+
+The package also extends the package [package uri] to support DNS URIs
+or the form [uri dns:what.host.com] or
+
+[uri dns://my.nameserver/what.host.com]. The [cmd dns::resolve]
+command can handle DNS URIs or simple domain names as a query.
+
+[para]
+
+[emph Note:] The package defaults to using DNS over TCP
+connections. If you wish to use UDP you will need to get the tcludp
+package and get a version that correctly handles binary data (>
+1.0.4).  This is available at [uri http://tcludp.sourceforge.net/]. If
+the udp package is detected, it will be used automatically.
+
+[section COMMANDS]
+
+[list_begin definitions]
+
+[call [cmd ::dns::resolve] [arg query] [opt [arg "options"]]]
+
+Resolve a domain name using the [term DNS] protocol. [arg query] is
+the domain name to be lookup up. This should be either a fully
+qualified domain name or a DNS URI.
+
+[list_begin definitions]
+[lst_item "[cmd -nameserver] [arg hostname] or [cmd -server] [arg hostname]"]
+  Specify an alternative name server for this request.
+[lst_item "[cmd -protocol] [arg tcp|udp]"]
+  Specify the network protocol to use for this request. Can be one of
+  [arg tcp] or [arg udp]. 
+[lst_item "[cmd -port] [arg portnum]"]
+  Specify an alternative port.
+[lst_item "[cmd -search] [arg domainlist]"]
+[lst_item "[cmd -timeout] [arg milliseconds]"]
+  Override the default timeout.
+[lst_item "[cmd -type] [arg TYPE]"]
+  Specify the type of DNS record you are interested in. Valid values
+  are A, NS, MD, MF, CNAME, SOA, MB, MG, MR, NULL, WKS, PTR, HINFO, 
+  MINFO, MX, TXT, SPF, AXFR, MAILB, MAILA and *. 
+  See RFC1035 for details about the return values.
+  See [uri http://spf.pobox.com/] about SPF.
+[lst_item "[cmd -class] [arg CLASS]"]
+  Specify the class of domain name. This is usually IN but may be one of IN for 
+  internet domain names, CS, CH, HS or * for any class.
+[lst_item "[cmd -recurse] [arg boolean]"]
+  Set to [arg false] if you do not want the name server to recursively act upon
+  your request. Normally set to [arg true].
+[lst_item "[cmd -command] [arg procname]"]
+  Set a procedure to be called upon request completion. The procedure will be
+  passed the token as its only argument.
+[list_end]
+
+[nl]
+[call [cmd ::dns::configure] [opt [arg "options"]]]
+
+The ::dns::configure command is used to setup the dns package. The server to
+query, the protocol and domain search path are all set via this command. If
+no arguments are provided then a list of all the current settings is returned.
+If only one argument then it must the the name of an option and the value for
+that option is returned.
+
+[list_begin definitions]
+[lst_item "[cmd -nameserver] [arg hostname]"]
+  Set the default name server to be used by all queries. The default is
+  localhost.
+[lst_item "[cmd -protocol] [arg tcp|udp]"]
+  Set the default network protocol to be used. Defaults to tcp.
+[lst_item "[cmd -port] [arg portnum]"]
+  Set the default port to use on the name server. The default is 53.
+[lst_item "[cmd -search] [arg domainlist]"]
+  Set the domain search list. This is currently not used.
+[lst_item "[cmd -timeout] [arg milliseconds]"]
+  Set the default timeout value for DNS lookups. Defaults to 30 seconds.
+[list_end]
+
+
+[nl]
+[call [cmd ::dns::name] [arg token]]
+  Returns a list of all domain names returned as an answer to your query.
+
+[nl]
+[call [cmd ::dns::address] [arg token]]
+  Returns a list of the address records that match your query.
+
+[nl]
+[call [cmd ::dns::cname] [arg token]]
+  Returns a list of canonical names (usually just one) matching your query.
+
+[nl]
+[call [cmd ::dns::result] [arg token]]
+  Returns a list of all the decoded answer records provided for your
+  query. This permits you to extract the result for more unusual query types.
+
+[nl]
+[call [cmd ::dns::status] [arg token]]
+  Returns the status flag. For a successfully completed query this will be
+  [emph ok]. May be [emph error] or [emph timeout] or [emph eof].
+  See also [cmd ::dns::error]
+
+[nl]
+[call [cmd ::dns::error] [arg token]]
+  Returns the error message provided for requests whose status is [emph error].
+  If there is no error message then an empty string is returned.
+
+[nl]
+[call [cmd ::dns::reset] [arg token]]
+  Reset or cancel a DNS query.
+
+[nl]
+[call [cmd ::dns::wait] [arg token]]
+  Wait for a DNS query to complete and return the status upon completion.
+
+[nl]
+[call [cmd ::dns::cleanup] [arg token]]
+  Remove all state variables associated with the request.
+
+[list_end]
+
+
+
+
+[section EXAMPLES]
+
+[para]
+[example {
+% set tok [dns::resolve www.tcl.tk]
+::dns::1
+% dns::status $tok
+ok
+% dns::address $tok
+199.175.6.239
+% dns::name $tok
+www.tcl.tk
+% dns::cleanup $tok
+}]
+
+[para]
+Using DNS URIs as queries:
+[example {
+% set tok [dns::resolve "dns:tcl.tk;type=MX"]
+% set tok [dns::resolve "dns://l.root-servers.net/www.tcl.tk"]
+}]
+
+[para]
+Reverse address lookup:
+[example {
+% set tok [dns::resolve 127.0.0.1]
+::dns::1
+% dns::name $tok
+localhost
+% dns::cleanup $tok
+}]
+
+[see_also resolver(5)]
+[section AUTHORS]
+Pat Thoyts
+
+[keywords DNS resolver {domain name service} {rfc 1034} {rfc 1035}]
+[manpage_end]

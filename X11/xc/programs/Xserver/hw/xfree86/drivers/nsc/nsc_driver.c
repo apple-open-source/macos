@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_driver.c,v 1.4 2003/02/12 13:08:54 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_driver.c,v 1.5 2003/04/23 21:51:41 tsi Exp $ */
 /*
  * $Workfile: nsc_driver.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * File Contents: This is the main module configures the interfacing 
@@ -199,12 +199,10 @@
 #include "extensions/xf86dgastr.h"
 #endif /* XFreeXDGA */
 
-#ifdef DPMSExtension
 #include "globals.h"
 #include "opaque.h"
 #define DPMS_SERVER
 #include "extensions/dpms.h"
-#endif /* DPMSExtension */
 
 #define EXTERN
 /* Our private include file (this also includes the durango headers) */
@@ -374,7 +372,6 @@ const char *nscXaaSymbols[] = {
    "XAADestroyInfoRec",
    "XAACreateInfoRec",
    "XAAInit",
-   "XAAScreenIndex",
    NULL
 };
 

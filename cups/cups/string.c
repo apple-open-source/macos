@@ -1,9 +1,9 @@
 /*
- * "$Id: string.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $"
+ * "$Id: string.c,v 1.1.1.14 2005/01/04 19:15:11 jlovell Exp $"
  *
  *   String functions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -88,9 +88,9 @@ cups_strcasecmp(const char *s,	/* I - First string */
 {
   while (*s != '\0' && *t != '\0')
   {
-    if (tolower(*s) < tolower(*t))
+    if (tolower(*s & 255) < tolower(*t & 255))
       return (-1);
-    else if (tolower(*s) > tolower(*t))
+    else if (tolower(*s & 255) > tolower(*t & 255))
       return (1);
 
     s ++;
@@ -118,9 +118,9 @@ cups_strncasecmp(const char *s,	/* I - First string */
 {
   while (*s != '\0' && *t != '\0' && n > 0)
   {
-    if (tolower(*s) < tolower(*t))
+    if (tolower(*s & 255) < tolower(*t & 255))
       return (-1);
-    else if (tolower(*s) > tolower(*t))
+    else if (tolower(*s & 255) > tolower(*t & 255))
       return (1);
 
     s ++;
@@ -222,5 +222,5 @@ cups_strlcpy(char       *dst,	/* O - Destination string */
 
 
 /*
- * End of "$Id: string.c,v 1.1.1.9 2003/07/23 02:33:33 jlovell Exp $".
+ * End of "$Id: string.c,v 1.1.1.14 2005/01/04 19:15:11 jlovell Exp $".
  */

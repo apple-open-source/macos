@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __DHGROUP_H__
+#define __DHGROUP_H__
+
+
 #define OAKLEY_PRIME_MODP768 \
 	"FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1" \
 	"29024E08 8A67CC74 020BBEA6 3B139B22 514A0879 8E3404DD" \
@@ -196,3 +200,7 @@ extern struct dhgroup dh_modp3072;
 extern struct dhgroup dh_modp4096;
 extern struct dhgroup dh_modp6144;
 extern struct dhgroup dh_modp8192;
+
+
+#endif /* __DHGROUP_H__ */
+

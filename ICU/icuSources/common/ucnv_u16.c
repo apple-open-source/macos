@@ -1,6 +1,6 @@
 /*  
 **********************************************************************
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  ucnv_u16.c
@@ -15,411 +15,520 @@
 */
 
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_CONVERSION
+
 #include "unicode/ucnv.h"
-#include "unicode/ucnv_err.h"
 #include "ucnv_bld.h"
 #include "ucnv_cnv.h"
 #include "cmemory.h"
 
-/* UTF-16 Platform Endian --------------------------------------------------- */
+/* UTF-16BE ----------------------------------------------------------------- */
+
+#if U_IS_BIG_ENDIAN
+#   define _UTF16PEFromUnicodeWithOffsets   _UTF16BEFromUnicodeWithOffsets
+#else
+#   define _UTF16PEFromUnicodeWithOffsets   _UTF16LEFromUnicodeWithOffsets
+#endif
 
 static void
-_UTF16PEToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
-                             UErrorCode *pErrorCode) {
-    UConverter *cnv         = pArgs->converter;
-    const uint8_t *source   = (const uint8_t *)pArgs->source;
-    UChar *target           = pArgs->target;
-    int32_t *offsets        = pArgs->offsets;
-    int32_t targetCapacity  = pArgs->targetLimit - pArgs->target;
-    int32_t length          = (const uint8_t *)pArgs->sourceLimit - source;
-    int32_t count;
-    int32_t sourceIndex     = 0;
+_UTF16BEFromUnicodeWithOffsets(UConverterFromUnicodeArgs *pArgs,
+                               UErrorCode *pErrorCode) {
+    UConverter *cnv;
+    const UChar *source;
+    uint8_t *target;
+    int32_t *offsets;
 
-    if(length <= 0 && cnv->toUnicodeStatus == 0) {
+    int32_t targetCapacity, length, count, sourceIndex;
+    UChar c, trail;
+    char overflow[4];
+
+    source=pArgs->source;
+    length=pArgs->sourceLimit-source;
+    if(length<=0) {
         /* no input, nothing to do */
         return;
     }
 
-    if(targetCapacity <= 0) {
+    targetCapacity=pArgs->targetLimit-pArgs->target;
+    if(targetCapacity<=0) {
         *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
         return;
     }
 
-    /* complete a partial UChar from the last call */
-    if(length != 0 && cnv->toUnicodeStatus != 0) {
-        /*
-         * copy the byte from the last call and the first one here into the target,
-         * byte-wise to keep the platform endianness
-         */
-        uint8_t *p = (uint8_t *)target++;
-        *p++ = (uint8_t)cnv->toUnicodeStatus;
-        cnv->toUnicodeStatus = 0;
-        *p = *source++;
+    cnv=pArgs->converter;
+    target=(uint8_t *)pArgs->target;
+    offsets=pArgs->offsets;
+    sourceIndex=0;
+
+    /* c!=0 indicates in several places outside the main loops that a surrogate was found */
+
+    if((c=(UChar)cnv->fromUChar32)!=0 && U16_IS_TRAIL(trail=*source) && targetCapacity>=4) {
+        /* the last buffer ended with a lead surrogate, output the surrogate pair */
+        ++source;
         --length;
-        --targetCapacity;
-        if(offsets != NULL) {
-            *offsets++ = -1;
+        target[0]=(uint8_t)(c>>8);
+        target[1]=(uint8_t)c;
+        target[2]=(uint8_t)(trail>>8);
+        target[3]=(uint8_t)trail;
+        target+=4;
+        targetCapacity-=4;
+        if(offsets!=NULL) {
+            *offsets++=-1;
+            *offsets++=-1;
+            *offsets++=-1;
+            *offsets++=-1;
         }
+        sourceIndex=1;
+        cnv->fromUChar32=c=0;
     }
 
     /* copy an even number of bytes for complete UChars */
-    count = 2 * targetCapacity;
-    if(count > length) {
-        count = length & ~1;
+    count=2*length;
+    if(count>targetCapacity) {
+        count=targetCapacity&~1;
     }
-    if(count > 0) {
-        uprv_memcpy(target, source, count);
-        source += count;
-        length -= count;
-        count >>= 1;
-        target += count;
-        targetCapacity -= count;
-        if(offsets != NULL) {
-            while(count > 0) {
-                *offsets++ = sourceIndex;
-                sourceIndex += 2;
+    /* count is even */
+    if(c==0) {
+        targetCapacity-=count;
+        count>>=1;
+        length-=count;
+
+        if(offsets==NULL) {
+            while(count>0) {
+                c=*source++;
+                if(U16_IS_SINGLE(c)) {
+                    target[0]=(uint8_t)(c>>8);
+                    target[1]=(uint8_t)c;
+                    target+=2;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 && U16_IS_TRAIL(trail=*source)) {
+                    ++source;
+                    --count;
+                    target[0]=(uint8_t)(c>>8);
+                    target[1]=(uint8_t)c;
+                    target[2]=(uint8_t)(trail>>8);
+                    target[3]=(uint8_t)trail;
+                    target+=4;
+                } else {
+                    break;
+                }
                 --count;
             }
-        }
-    }
-
-    /* check for a remaining source byte and store the status */
-    if(length >= 2) {
-        /* it must be targetCapacity==0 because otherwise the above would have copied more */
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-    } else if(length == 1) {
-        if(pArgs->flush) {
-            /* a UChar remains incomplete */
-            *pErrorCode = U_TRUNCATED_CHAR_FOUND;
         } else {
-            /* consume the last byte and store it, making sure that it will never set the status to 0 */
-            cnv->toUnicodeStatus = *source++ | 0x100;
-        }
-    } else /* length==0 */ if(cnv->toUnicodeStatus!=0 && pArgs->flush) {
-        /* a UChar remains incomplete */
-        *pErrorCode = U_TRUNCATED_CHAR_FOUND;
-    }
-
-    /* write back the updated pointers */
-    pArgs->source = (const char *)source;
-    pArgs->target = target;
-    pArgs->offsets = offsets;
-}
-
-static void
-_UTF16PEFromUnicodeWithOffsets(UConverterFromUnicodeArgs *pArgs,
-                               UErrorCode *pErrorCode) {
-    UConverter *cnv         = pArgs->converter;
-    const UChar *source     = pArgs->source;
-    uint8_t *target         = (uint8_t *)pArgs->target;
-    int32_t *offsets        = pArgs->offsets;
-    int32_t targetCapacity  = pArgs->targetLimit - pArgs->target;
-    int32_t length          = pArgs->sourceLimit - source;
-    int32_t count;
-    int32_t sourceIndex     = 0;
-
-    if(length <= 0 && cnv->fromUnicodeStatus == 0) {
-        /* no input, nothing to do */
-        return;
-    }
-
-    if(targetCapacity <= 0) {
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-        return;
-    }
-
-    /* complete a partial UChar from the last call */
-    if(cnv->fromUnicodeStatus != 0) {
-        *target++ = (uint8_t)cnv->fromUnicodeStatus;
-        cnv->fromUnicodeStatus = 0;
-        --targetCapacity;
-        if(offsets != NULL) {
-            *offsets++ = -1;
-        }
-    }
-
-    /* copy an even number of bytes for complete UChars */
-    count = 2 * length;
-    if(count > targetCapacity) {
-        count = targetCapacity & ~1;
-    }
-    if(count>0) {
-        uprv_memcpy(target, source, count);
-        target += count;
-        targetCapacity -= count;
-        count >>= 1;
-        source += count;
-        length -= count;
-        if(offsets != NULL) {
-            while(count > 0) {
-                *offsets++ = sourceIndex;
-                *offsets++ = sourceIndex++;
+            while(count>0) {
+                c=*source++;
+                if(U16_IS_SINGLE(c)) {
+                    target[0]=(uint8_t)(c>>8);
+                    target[1]=(uint8_t)c;
+                    target+=2;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex++;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 && U16_IS_TRAIL(trail=*source)) {
+                    ++source;
+                    --count;
+                    target[0]=(uint8_t)(c>>8);
+                    target[1]=(uint8_t)c;
+                    target[2]=(uint8_t)(trail>>8);
+                    target[3]=(uint8_t)trail;
+                    target+=4;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=2;
+                } else {
+                    break;
+                }
                 --count;
             }
         }
+
+        if(count==0) {
+            /* done with the loop for complete UChars */
+            if(length>0 && targetCapacity>0) {
+                /*
+                 * there is more input and some target capacity -
+                 * it must be targetCapacity==1 because otherwise
+                 * the above would have copied more;
+                 * prepare for overflow output
+                 */
+                if(U16_IS_SINGLE(c=*source++)) {
+                    overflow[0]=(char)(c>>8);
+                    overflow[1]=(char)c;
+                    length=2; /* 2 bytes to output */
+                    c=0;
+                /* } else { keep c for surrogate handling, length will be set there */
+                }
+            } else {
+                length=0;
+                c=0;
+            }
+        } else {
+            /* keep c for surrogate handling, length will be set there */
+            targetCapacity+=2*count;
+        }
+    } else {
+        length=0; /* from here on, length counts the bytes in overflow[] */
+    }
+    
+    if(c!=0) {
+        /*
+         * c is a surrogate, and
+         * - source or target too short
+         * - or the surrogate is unmatched
+         */
+        length=0;
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(source<pArgs->sourceLimit) {
+                if(U16_IS_TRAIL(trail=*source)) {
+                    /* output the surrogate pair, will overflow (see conditions comment above) */
+                    ++source;
+                    overflow[0]=(char)(c>>8);
+                    overflow[1]=(char)c;
+                    overflow[2]=(char)(trail>>8);
+                    overflow[3]=(char)trail;
+                    length=4; /* 4 bytes to output */
+                    c=0;
+                } else {
+                    /* unmatched lead surrogate */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                }
+            } else {
+                /* see if the trail surrogate is in the next buffer */
+            }
+        } else {
+            /* unmatched trail surrogate */
+            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+        }
+        cnv->fromUChar32=c;
     }
 
-    if(length > 0) {
-        /* it must be targetCapacity<=1 because otherwise the above would have copied more */
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-        if(targetCapacity > 0) /* targetCapacity==1 */ {
-            /* copy one byte and keep the other in the status */
-            const uint8_t *p = (const uint8_t *)source++;
-            *target++ = *p++;
-            cnv->fromUnicodeStatus = *p | 0x100;
-            if(offsets != NULL) {
-                *offsets++ = sourceIndex;
-            }
-        }
+    if(length>0) {
+        /* output length bytes with overflow (length>targetCapacity>0) */
+        ucnv_fromUWriteBytes(cnv,
+                             overflow, length,
+                             (char **)&target, pArgs->targetLimit,
+                             &offsets, sourceIndex,
+                             pErrorCode);
+        targetCapacity=pArgs->targetLimit-(char *)target;
+    }
+
+    if(U_SUCCESS(*pErrorCode) && source<pArgs->sourceLimit && targetCapacity==0) {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
     }
 
     /* write back the updated pointers */
-    pArgs->source = source;
-    pArgs->target = (char *)target;
-    pArgs->offsets = offsets;
+    pArgs->source=source;
+    pArgs->target=(char *)target;
+    pArgs->offsets=offsets;
 }
 
-/* UTF-16 Opposite Endian --------------------------------------------------- */
-
-/*
- * For opposite-endian UTF-16, we keep a byte pointer to the UChars
- * and copy two bytes at a time and reverse them.
- */
-
 static void
-_UTF16OEToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
+_UTF16BEToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
                              UErrorCode *pErrorCode) {
-    UConverter *cnv         = pArgs->converter;
-    const uint8_t *source   = (const uint8_t *)pArgs->source;
-    UChar *target           = pArgs->target;
-    uint8_t *target8        = (uint8_t *)target; /* byte pointer to the target */
-    int32_t *offsets        = pArgs->offsets;
-    int32_t targetCapacity  = pArgs->targetLimit - pArgs->target;
-    int32_t length          = (const uint8_t *)pArgs->sourceLimit - source;
-    int32_t count;
-    int32_t sourceIndex     = 0;
+    UConverter *cnv;
+    const uint8_t *source;
+    UChar *target;
+    int32_t *offsets;
 
-    if(length <= 0 && cnv->toUnicodeStatus == 0) {
+    int32_t targetCapacity, length, count, sourceIndex;
+    UChar c, trail;
+
+    cnv=pArgs->converter;
+    source=(const uint8_t *)pArgs->source;
+    length=(const uint8_t *)pArgs->sourceLimit-source;
+    if(length<=0 && cnv->toUnicodeStatus==0) {
         /* no input, nothing to do */
         return;
     }
 
-    if(targetCapacity <= 0) {
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
+    targetCapacity=pArgs->targetLimit-pArgs->target;
+    if(targetCapacity<=0) {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
         return;
     }
 
-    /* complete a partial UChar from the last call */
-    if(length != 0 && cnv->toUnicodeStatus != 0) {
+    target=pArgs->target;
+    offsets=pArgs->offsets;
+    sourceIndex=0;
+    c=0;
+
+    /* complete a partial UChar or pair from the last call */
+    if(cnv->toUnicodeStatus!=0) {
         /*
-         * copy the byte from the last call and the first one here into the target,
-         * byte-wise, reversing the platform endianness
+         * special case: single byte from a previous buffer,
+         * where the byte turned out not to belong to a trail surrogate
+         * and the preceding, unmatched lead surrogate was put into toUBytes[]
+         * for error handling
          */
-        *target8++ = *source++;
-        *target8++ = (uint8_t)cnv->toUnicodeStatus;
-        cnv->toUnicodeStatus = 0;
-        ++target;
-        --length;
-        --targetCapacity;
-        if(offsets != NULL) {
-            *offsets++ = -1;
-        }
+        cnv->toUBytes[0]=(uint8_t)cnv->toUnicodeStatus;
+        cnv->toULength=1;
+        cnv->toUnicodeStatus=0;
+    }
+    if((count=cnv->toULength)!=0) {
+        uint8_t *p=cnv->toUBytes;
+        do {
+            p[count++]=*source++;
+            ++sourceIndex;
+            --length;
+            if(count==2) {
+                c=((UChar)p[0]<<8)|p[1];
+                if(U16_IS_SINGLE(c)) {
+                    /* output the BMP code point */
+                    *target++=c;
+                    if(offsets!=NULL) {
+                        *offsets++=-1;
+                    }
+                    --targetCapacity;
+                    count=0;
+                    c=0;
+                    break;
+                } else if(U16_IS_SURROGATE_LEAD(c)) {
+                    /* continue collecting bytes for the trail surrogate */
+                    c=0; /* avoid unnecessary surrogate handling below */
+                } else {
+                    /* fall through to error handling for an unmatched trail surrogate */
+                    break;
+                }
+            } else if(count==4) {
+                c=((UChar)p[0]<<8)|p[1];
+                trail=((UChar)p[2]<<8)|p[3];
+                if(U16_IS_TRAIL(trail)) {
+                    /* output the surrogate pair */
+                    *target++=c;
+                    if(targetCapacity>=2) {
+                        *target++=trail;
+                        if(offsets!=NULL) {
+                            *offsets++=-1;
+                            *offsets++=-1;
+                        }
+                        targetCapacity-=2;
+                    } else /* targetCapacity==1 */ {
+                        targetCapacity=0;
+                        cnv->UCharErrorBuffer[0]=trail;
+                        cnv->UCharErrorBufferLength=1;
+                        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+                    }
+                    count=0;
+                    c=0;
+                    break;
+                } else {
+                    /* unmatched lead surrogate, handle here for consistent toUBytes[] */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+
+                    /* back out reading the code unit after it */
+                    if(((const uint8_t *)pArgs->source-source)>=2) {
+                        source-=2;
+                    } else {
+                        /*
+                         * if the trail unit's first byte was in a previous buffer, then
+                         * we need to put it into a special place because toUBytes[] will be
+                         * used for the lead unit's bytes
+                         */
+                        cnv->toUnicodeStatus=0x100|p[2];
+                        --source;
+                    }
+                    cnv->toULength=2;
+
+                    /* write back the updated pointers */
+                    pArgs->source=(const char *)source;
+                    pArgs->target=target;
+                    pArgs->offsets=offsets;
+                    return;
+                }
+            }
+        } while(length>0);
+        cnv->toULength=(int8_t)count;
     }
 
     /* copy an even number of bytes for complete UChars */
-    count = 2 * targetCapacity;
-    if(count > length) {
-        count = length & ~1;
+    count=2*targetCapacity;
+    if(count>length) {
+        count=length&~1;
     }
-    if(count>0) {
-        length -= count;
-        count >>= 1;
-        targetCapacity -= count;
-        if(offsets == NULL) {
-            while(count > 0) {
-                target8[1] = *source++;
-                target8[0] = *source++;
-                target8 += 2;
-                --count;
+    if(c==0 && count>0) {
+        length-=count;
+        count>>=1;
+        targetCapacity-=count;
+        if(offsets==NULL) {
+            do {
+                c=((UChar)source[0]<<8)|source[1];
+                source+=2;
+                if(U16_IS_SINGLE(c)) {
+                    *target++=c;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 &&
+                          U16_IS_TRAIL(trail=((UChar)source[0]<<8)|source[1])
+                ) {
+                    source+=2;
+                    --count;
+                    *target++=c;
+                    *target++=trail;
+                } else {
+                    break;
+                }
+            } while(--count>0);
+        } else {
+            do {
+                c=((UChar)source[0]<<8)|source[1];
+                source+=2;
+                if(U16_IS_SINGLE(c)) {
+                    *target++=c;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=2;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 &&
+                          U16_IS_TRAIL(trail=((UChar)source[0]<<8)|source[1])
+                ) {
+                    source+=2;
+                    --count;
+                    *target++=c;
+                    *target++=trail;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=4;
+                } else {
+                    break;
+                }
+            } while(--count>0);
+        }
+
+        if(count==0) {
+            /* done with the loop for complete UChars */
+            c=0;
+        } else {
+            /* keep c for surrogate handling, trail will be set there */
+            length+=2*(count-1); /* one more byte pair was consumed than count decremented */
+            targetCapacity+=count;
+        }
+    }
+
+    if(c!=0) {
+        /*
+         * c is a surrogate, and
+         * - source or target too short
+         * - or the surrogate is unmatched
+         */
+        cnv->toUBytes[0]=(uint8_t)(c>>8);
+        cnv->toUBytes[1]=(uint8_t)c;
+        cnv->toULength=2;
+
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(length>=2) {
+                if(U16_IS_TRAIL(trail=((UChar)source[0]<<8)|source[1])) {
+                    /* output the surrogate pair, will overflow (see conditions comment above) */
+                    source+=2;
+                    length-=2;
+                    *target++=c;
+                    if(offsets!=NULL) {
+                        *offsets++=sourceIndex;
+                    }
+                    cnv->UCharErrorBuffer[0]=trail;
+                    cnv->UCharErrorBufferLength=1;
+                    cnv->toULength=0;
+                    *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+                } else {
+                    /* unmatched lead surrogate */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                }
+            } else {
+                /* see if the trail surrogate is in the next buffer */
             }
         } else {
-            while(count>0) {
-                target8[1] = *source++;
-                target8[0] = *source++;
-                target8 += 2;
-                *offsets++ = sourceIndex;
-                sourceIndex += 2;
-                --count;
-            }
-        }
-        target=(UChar *)target8;
-    }
-
-    /* check for a remaining source byte and store the status */
-    if(length >= 2) {
-        /* it must be targetCapacity==0 because otherwise the above would have copied more */
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-    } else if(length == 1) {
-        if(pArgs->flush) {
-            /* a UChar remains incomplete */
-            *pErrorCode = U_TRUNCATED_CHAR_FOUND;
-        } else {
-            /* consume the last byte and store it, making sure that it will never set the status to 0 */
-            cnv->toUnicodeStatus = *source++ | 0x100;
-        }
-    } else /* length==0 */ if(cnv->toUnicodeStatus!=0 && pArgs->flush) {
-        /* a UChar remains incomplete */
-        *pErrorCode = U_TRUNCATED_CHAR_FOUND;
-    }
-
-    /* write back the updated pointers */
-    pArgs->source = (const char *)source;
-    pArgs->target = target;
-    pArgs->offsets = offsets;
-}
-
-static void
-_UTF16OEFromUnicodeWithOffsets(UConverterFromUnicodeArgs *pArgs,
-                               UErrorCode *pErrorCode) {
-    UConverter *cnv         = pArgs->converter;
-    const UChar *source     = pArgs->source;
-    const uint8_t *source8  = (const uint8_t *)source; /* byte pointer to the source */
-    uint8_t *target         = (uint8_t *)pArgs->target;
-    int32_t *offsets        = pArgs->offsets;
-    int32_t targetCapacity  = pArgs->targetLimit - pArgs->target;
-    int32_t length          = pArgs->sourceLimit - source;
-    int32_t count;
-    int32_t sourceIndex = 0;
-
-    if(length <= 0 && cnv->fromUnicodeStatus == 0) {
-        /* no input, nothing to do */
-        return;
-    }
-
-    if(targetCapacity <= 0) {
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-        return;
-    }
-
-    /* complete a partial UChar from the last call */
-    if(cnv->fromUnicodeStatus != 0) {
-        *target++ = (uint8_t)cnv->fromUnicodeStatus;
-        cnv->fromUnicodeStatus = 0;
-        --targetCapacity;
-        if(offsets != NULL) {
-            *offsets++ = -1;
+            /* unmatched trail surrogate */
+            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
         }
     }
 
-    /* copy an even number of bytes for complete UChars */
-    count = 2 * length;
-    if(count > targetCapacity) {
-        count = targetCapacity & ~1;
-    }
-    if(count > 0) {
-        targetCapacity -= count;
-        count >>= 1;
-        length -= count;
-        if(offsets == NULL) {
-            while(count > 0) {
-                target[1] = *source8++;
-                target[0] = *source8++;
-                target += 2;
-                --count;
-            }
-        } else {
-            while(count>0) {
-                target[1] = *source8++;
-                target[0] = *source8++;
-                target += 2;
-                *offsets++ = sourceIndex;
-                *offsets++ = sourceIndex++;
-                --count;
-            }
-        }
-        source=(const UChar *)source8;
-    }
-
-    if(length > 0) {
-        /* it must be targetCapacity<=1 because otherwise the above would have copied more */
-        *pErrorCode = U_BUFFER_OVERFLOW_ERROR;
-        if(targetCapacity > 0) /* targetCapacity==1 */ {
-            /* copy one byte and keep the other in the status */
-            cnv->fromUnicodeStatus = *source8++ | 0x100;
-            *target++ = *source8;
-            ++source;
-            if(offsets != NULL) {
-                *offsets++ = sourceIndex;
+    if(U_SUCCESS(*pErrorCode)) {
+        /* check for a remaining source byte */
+        if(length>0) {
+            if(targetCapacity==0) {
+                *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+            } else {
+                /* it must be length==1 because otherwise the above would have copied more */
+                cnv->toUBytes[cnv->toULength++]=*source++;
             }
         }
     }
 
     /* write back the updated pointers */
-    pArgs->source = source;
-    pArgs->target = (char *)target;
-    pArgs->offsets = offsets;
+    pArgs->source=(const char *)source;
+    pArgs->target=target;
+    pArgs->offsets=offsets;
 }
 
-/* UTF-16BE ----------------------------------------------------------------- */
+static UChar32
+_UTF16BEGetNextUChar(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
+    const uint8_t *s, *sourceLimit;
+    UChar32 c;
 
-#if U_IS_BIG_ENDIAN
-#   define _UTF16BEToUnicodeWithOffsets     _UTF16PEToUnicodeWithOffsets
-#   define _UTF16LEToUnicodeWithOffsets     _UTF16OEToUnicodeWithOffsets
-#   define _UTF16BEFromUnicodeWithOffsets   _UTF16PEFromUnicodeWithOffsets
-#   define _UTF16LEFromUnicodeWithOffsets   _UTF16OEFromUnicodeWithOffsets
-#else
-#   define _UTF16BEToUnicodeWithOffsets     _UTF16OEToUnicodeWithOffsets
-#   define _UTF16LEToUnicodeWithOffsets     _UTF16PEToUnicodeWithOffsets
-#   define _UTF16BEFromUnicodeWithOffsets   _UTF16OEFromUnicodeWithOffsets
-#   define _UTF16LEFromUnicodeWithOffsets   _UTF16PEFromUnicodeWithOffsets
-#endif
+    s=(const uint8_t *)pArgs->source;
+    sourceLimit=(const uint8_t *)pArgs->sourceLimit;
 
-static UChar32 T_UConverter_getNextUChar_UTF16_BE(UConverterToUnicodeArgs* args,
-                                                   UErrorCode* err)
-{
-    UChar32 myUChar;
-    uint16_t first;
-    /*Checks boundaries and set appropriate error codes*/
-    if (args->source+2 > args->sourceLimit) 
-    {
-        if (args->source >= args->sourceLimit)
-        {
-            /*Either caller has reached the end of the byte stream*/
-            *err = U_INDEX_OUTOFBOUNDS_ERROR;
-        }
-        else
-        {
-            /* a character was cut in half*/
-            *err = U_TRUNCATED_CHAR_FOUND;
-        }
+    if(s>=sourceLimit) {
+        /* no input */
+        *err=U_INDEX_OUTOFBOUNDS_ERROR;
         return 0xffff;
     }
 
-    /*Gets the corresponding codepoint*/
-    first = (uint16_t)(((uint16_t)(*(args->source)) << 8) |((uint8_t)*((args->source)+1)));
-    myUChar = first;
-    args->source += 2;
+    if(s+2>sourceLimit) {
+        /* only one byte: truncated UChar */
+        pArgs->converter->toUBytes[0]=*s++;
+        pArgs->converter->toULength=1;
+        pArgs->source=(const char *)s;
+        *err = U_TRUNCATED_CHAR_FOUND;
+        return 0xffff;
+    }
 
-    if(UTF_IS_FIRST_SURROGATE(first)) {
-        uint16_t second;
+    /* get one UChar */
+    c=((UChar32)*s<<8)|s[1];
+    s+=2;
 
-        if (args->source+2 > args->sourceLimit) {
-            *err = U_TRUNCATED_CHAR_FOUND;
-            return 0xffff;
+    /* check for a surrogate pair */
+    if(U_IS_SURROGATE(c)) {
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(s+2<=sourceLimit) {
+                UChar trail;
+
+                /* get a second UChar and see if it is a trail surrogate */
+                trail=((UChar)*s<<8)|s[1];
+                if(U16_IS_TRAIL(trail)) {
+                    c=U16_GET_SUPPLEMENTARY(c, trail);
+                    s+=2;
+                } else {
+                    /* unmatched lead surrogate */
+                    c=-2;
+                }
+            } else {
+                /* too few (2 or 3) bytes for a surrogate pair: truncated code point */
+                uint8_t *bytes=pArgs->converter->toUBytes;
+                s-=2;
+                pArgs->converter->toULength=(int8_t)(sourceLimit-s);
+                do {
+                    *bytes++=*s++;
+                } while(s<sourceLimit);
+
+                c=0xffff;
+                *err=U_TRUNCATED_CHAR_FOUND;
+            }
+        } else {
+            /* unmatched trail surrogate */
+            c=-2;
         }
 
-        /* get the second surrogate and assemble the code point */
-        second = (uint16_t)(((uint16_t)(*(args->source)) << 8) |((uint8_t)*(args->source+1)));
+        if(c<0) {
+            /* write the unmatched surrogate */
+            uint8_t *bytes=pArgs->converter->toUBytes;
+            pArgs->converter->toULength=2;
+            *bytes=*(s-2);
+            bytes[1]=*(s-1);
 
-        /* ignore unmatched surrogates and just deliver the first one in such a case */
-        if(UTF_IS_SECOND_SURROGATE(second)) {
-            /* matched pair, get pair value */
-            myUChar = UTF16_GET_PAIR_VALUE(first, second);
-            args->source += 2;
+            c=0xffff;
+            *err=U_ILLEGAL_CHAR_FOUND;
         }
     }
 
-    return myUChar;
+    pArgs->source=(const char *)s;
+    return c;
 } 
 
 static const UConverterImpl _UTF16BEImpl={
@@ -436,7 +545,7 @@ static const UConverterImpl _UTF16BEImpl={
     _UTF16BEToUnicodeWithOffsets,
     _UTF16BEFromUnicodeWithOffsets,
     _UTF16BEFromUnicodeWithOffsets,
-    T_UConverter_getNextUChar_UTF16_BE,
+    _UTF16BEGetNextUChar,
 
     NULL,
     NULL,
@@ -445,7 +554,6 @@ static const UConverterImpl _UTF16BEImpl={
     ucnv_getCompleteUnicodeSet
 };
 
-/* The 1200 CCSID refers to any version of Unicode with any endianess of UTF-16 */
 static const UConverterStaticData _UTF16BEStaticData={
     sizeof(UConverterStaticData),
     "UTF-16BE",
@@ -465,57 +573,504 @@ const UConverterSharedData _UTF16BEData={
 
 /* UTF-16LE ----------------------------------------------------------------- */
 
-static UChar32 T_UConverter_getNextUChar_UTF16_LE(UConverterToUnicodeArgs* args,
-                                                   UErrorCode* err)
-{
-    UChar32 myUChar;
-    uint16_t first;
-    /*Checks boundaries and set appropriate error codes*/
-    if (args->source+2 > args->sourceLimit) 
-    {
-        if (args->source >= args->sourceLimit)
-        {
-            /*Either caller has reached the end of the byte stream*/
-            *err = U_INDEX_OUTOFBOUNDS_ERROR;
+static void
+_UTF16LEFromUnicodeWithOffsets(UConverterFromUnicodeArgs *pArgs,
+                               UErrorCode *pErrorCode) {
+    UConverter *cnv;
+    const UChar *source;
+    uint8_t *target;
+    int32_t *offsets;
+
+    int32_t targetCapacity, length, count, sourceIndex;
+    UChar c, trail;
+    char overflow[4];
+
+    source=pArgs->source;
+    length=pArgs->sourceLimit-source;
+    if(length<=0) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    targetCapacity=pArgs->targetLimit-pArgs->target;
+    if(targetCapacity<=0) {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+        return;
+    }
+
+    cnv=pArgs->converter;
+    target=(uint8_t *)pArgs->target;
+    offsets=pArgs->offsets;
+    sourceIndex=0;
+
+    /* c!=0 indicates in several places outside the main loops that a surrogate was found */
+
+    if((c=(UChar)cnv->fromUChar32)!=0 && U16_IS_TRAIL(trail=*source) && targetCapacity>=4) {
+        /* the last buffer ended with a lead surrogate, output the surrogate pair */
+        ++source;
+        --length;
+        target[0]=(uint8_t)c;
+        target[1]=(uint8_t)(c>>8);
+        target[2]=(uint8_t)trail;
+        target[3]=(uint8_t)(trail>>8);
+        target+=4;
+        targetCapacity-=4;
+        if(offsets!=NULL) {
+            *offsets++=-1;
+            *offsets++=-1;
+            *offsets++=-1;
+            *offsets++=-1;
         }
-        else
-        {
-            /* a character was cut in half*/
-            *err = U_TRUNCATED_CHAR_FOUND;
+        sourceIndex=1;
+        cnv->fromUChar32=c=0;
+    }
+
+    /* copy an even number of bytes for complete UChars */
+    count=2*length;
+    if(count>targetCapacity) {
+        count=targetCapacity&~1;
+    }
+    /* count is even */
+    if(c==0) {
+        targetCapacity-=count;
+        count>>=1;
+        length-=count;
+
+        if(offsets==NULL) {
+            while(count>0) {
+                c=*source++;
+                if(U16_IS_SINGLE(c)) {
+                    target[0]=(uint8_t)c;
+                    target[1]=(uint8_t)(c>>8);
+                    target+=2;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 && U16_IS_TRAIL(trail=*source)) {
+                    ++source;
+                    --count;
+                    target[0]=(uint8_t)c;
+                    target[1]=(uint8_t)(c>>8);
+                    target[2]=(uint8_t)trail;
+                    target[3]=(uint8_t)(trail>>8);
+                    target+=4;
+                } else {
+                    break;
+                }
+                --count;
+            }
+        } else {
+            while(count>0) {
+                c=*source++;
+                if(U16_IS_SINGLE(c)) {
+                    target[0]=(uint8_t)c;
+                    target[1]=(uint8_t)(c>>8);
+                    target+=2;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex++;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 && U16_IS_TRAIL(trail=*source)) {
+                    ++source;
+                    --count;
+                    target[0]=(uint8_t)c;
+                    target[1]=(uint8_t)(c>>8);
+                    target[2]=(uint8_t)trail;
+                    target[3]=(uint8_t)(trail>>8);
+                    target+=4;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=2;
+                } else {
+                    break;
+                }
+                --count;
+            }
         }
 
+        if(count==0) {
+            /* done with the loop for complete UChars */
+            if(length>0 && targetCapacity>0) {
+                /*
+                 * there is more input and some target capacity -
+                 * it must be targetCapacity==1 because otherwise
+                 * the above would have copied more;
+                 * prepare for overflow output
+                 */
+                if(U16_IS_SINGLE(c=*source++)) {
+                    overflow[0]=(char)c;
+                    overflow[1]=(char)(c>>8);
+                    length=2; /* 2 bytes to output */
+                    c=0;
+                /* } else { keep c for surrogate handling, length will be set there */
+                }
+            } else {
+                length=0;
+                c=0;
+            }
+        } else {
+            /* keep c for surrogate handling, length will be set there */
+            targetCapacity+=2*count;
+        }
+    } else {
+        length=0; /* from here on, length counts the bytes in overflow[] */
+    }
+    
+    if(c!=0) {
+        /*
+         * c is a surrogate, and
+         * - source or target too short
+         * - or the surrogate is unmatched
+         */
+        length=0;
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(source<pArgs->sourceLimit) {
+                if(U16_IS_TRAIL(trail=*source)) {
+                    /* output the surrogate pair, will overflow (see conditions comment above) */
+                    ++source;
+                    overflow[0]=(char)c;
+                    overflow[1]=(char)(c>>8);
+                    overflow[2]=(char)trail;
+                    overflow[3]=(char)(trail>>8);
+                    length=4; /* 4 bytes to output */
+                    c=0;
+                } else {
+                    /* unmatched lead surrogate */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                }
+            } else {
+                /* see if the trail surrogate is in the next buffer */
+            }
+        } else {
+            /* unmatched trail surrogate */
+            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+        }
+        cnv->fromUChar32=c;
+    }
+
+    if(length>0) {
+        /* output length bytes with overflow (length>targetCapacity>0) */
+        ucnv_fromUWriteBytes(cnv,
+                             overflow, length,
+                             (char **)&target, pArgs->targetLimit,
+                             &offsets, sourceIndex,
+                             pErrorCode);
+        targetCapacity=pArgs->targetLimit-(char *)target;
+    }
+
+    if(U_SUCCESS(*pErrorCode) && source<pArgs->sourceLimit && targetCapacity==0) {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+    }
+
+    /* write back the updated pointers */
+    pArgs->source=source;
+    pArgs->target=(char *)target;
+    pArgs->offsets=offsets;
+}
+
+static void
+_UTF16LEToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
+                             UErrorCode *pErrorCode) {
+    UConverter *cnv;
+    const uint8_t *source;
+    UChar *target;
+    int32_t *offsets;
+
+    int32_t targetCapacity, length, count, sourceIndex;
+    UChar c, trail;
+
+    cnv=pArgs->converter;
+    source=(const uint8_t *)pArgs->source;
+    length=(const uint8_t *)pArgs->sourceLimit-source;
+    if(length<=0 && cnv->toUnicodeStatus==0) {
+        /* no input, nothing to do */
+        return;
+    }
+
+    targetCapacity=pArgs->targetLimit-pArgs->target;
+    if(targetCapacity<=0) {
+        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+        return;
+    }
+
+    target=pArgs->target;
+    offsets=pArgs->offsets;
+    sourceIndex=0;
+    c=0;
+
+    /* complete a partial UChar or pair from the last call */
+    if(cnv->toUnicodeStatus!=0) {
+        /*
+         * special case: single byte from a previous buffer,
+         * where the byte turned out not to belong to a trail surrogate
+         * and the preceding, unmatched lead surrogate was put into toUBytes[]
+         * for error handling
+         */
+        cnv->toUBytes[0]=(uint8_t)cnv->toUnicodeStatus;
+        cnv->toULength=1;
+        cnv->toUnicodeStatus=0;
+    }
+    if((count=cnv->toULength)!=0) {
+        uint8_t *p=cnv->toUBytes;
+        do {
+            p[count++]=*source++;
+            ++sourceIndex;
+            --length;
+            if(count==2) {
+                c=((UChar)p[1]<<8)|p[0];
+                if(U16_IS_SINGLE(c)) {
+                    /* output the BMP code point */
+                    *target++=c;
+                    if(offsets!=NULL) {
+                        *offsets++=-1;
+                    }
+                    --targetCapacity;
+                    count=0;
+                    c=0;
+                    break;
+                } else if(U16_IS_SURROGATE_LEAD(c)) {
+                    /* continue collecting bytes for the trail surrogate */
+                    c=0; /* avoid unnecessary surrogate handling below */
+                } else {
+                    /* fall through to error handling for an unmatched trail surrogate */
+                    break;
+                }
+            } else if(count==4) {
+                c=((UChar)p[1]<<8)|p[0];
+                trail=((UChar)p[3]<<8)|p[2];
+                if(U16_IS_TRAIL(trail)) {
+                    /* output the surrogate pair */
+                    *target++=c;
+                    if(targetCapacity>=2) {
+                        *target++=trail;
+                        if(offsets!=NULL) {
+                            *offsets++=-1;
+                            *offsets++=-1;
+                        }
+                        targetCapacity-=2;
+                    } else /* targetCapacity==1 */ {
+                        targetCapacity=0;
+                        cnv->UCharErrorBuffer[0]=trail;
+                        cnv->UCharErrorBufferLength=1;
+                        *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+                    }
+                    count=0;
+                    c=0;
+                    break;
+                } else {
+                    /* unmatched lead surrogate, handle here for consistent toUBytes[] */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+
+                    /* back out reading the code unit after it */
+                    if(((const uint8_t *)pArgs->source-source)>=2) {
+                        source-=2;
+                    } else {
+                        /*
+                         * if the trail unit's first byte was in a previous buffer, then
+                         * we need to put it into a special place because toUBytes[] will be
+                         * used for the lead unit's bytes
+                         */
+                        cnv->toUnicodeStatus=0x100|p[2];
+                        --source;
+                    }
+                    cnv->toULength=2;
+
+                    /* write back the updated pointers */
+                    pArgs->source=(const char *)source;
+                    pArgs->target=target;
+                    pArgs->offsets=offsets;
+                    return;
+                }
+            }
+        } while(length>0);
+        cnv->toULength=(int8_t)count;
+    }
+
+    /* copy an even number of bytes for complete UChars */
+    count=2*targetCapacity;
+    if(count>length) {
+        count=length&~1;
+    }
+    if(c==0 && count>0) {
+        length-=count;
+        count>>=1;
+        targetCapacity-=count;
+        if(offsets==NULL) {
+            do {
+                c=((UChar)source[1]<<8)|source[0];
+                source+=2;
+                if(U16_IS_SINGLE(c)) {
+                    *target++=c;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 &&
+                          U16_IS_TRAIL(trail=((UChar)source[1]<<8)|source[0])
+                ) {
+                    source+=2;
+                    --count;
+                    *target++=c;
+                    *target++=trail;
+                } else {
+                    break;
+                }
+            } while(--count>0);
+        } else {
+            do {
+                c=((UChar)source[1]<<8)|source[0];
+                source+=2;
+                if(U16_IS_SINGLE(c)) {
+                    *target++=c;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=2;
+                } else if(U16_IS_SURROGATE_LEAD(c) && count>=2 &&
+                          U16_IS_TRAIL(trail=((UChar)source[1]<<8)|source[0])
+                ) {
+                    source+=2;
+                    --count;
+                    *target++=c;
+                    *target++=trail;
+                    *offsets++=sourceIndex;
+                    *offsets++=sourceIndex;
+                    sourceIndex+=4;
+                } else {
+                    break;
+                }
+            } while(--count>0);
+        }
+
+        if(count==0) {
+            /* done with the loop for complete UChars */
+            c=0;
+        } else {
+            /* keep c for surrogate handling, trail will be set there */
+            length+=2*(count-1); /* one more byte pair was consumed than count decremented */
+            targetCapacity+=count;
+        }
+    }
+
+    if(c!=0) {
+        /*
+         * c is a surrogate, and
+         * - source or target too short
+         * - or the surrogate is unmatched
+         */
+        cnv->toUBytes[0]=(uint8_t)c;
+        cnv->toUBytes[1]=(uint8_t)(c>>8);
+        cnv->toULength=2;
+
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(length>=2) {
+                if(U16_IS_TRAIL(trail=((UChar)source[1]<<8)|source[0])) {
+                    /* output the surrogate pair, will overflow (see conditions comment above) */
+                    source+=2;
+                    length-=2;
+                    *target++=c;
+                    if(offsets!=NULL) {
+                        *offsets++=sourceIndex;
+                    }
+                    cnv->UCharErrorBuffer[0]=trail;
+                    cnv->UCharErrorBufferLength=1;
+                    cnv->toULength=0;
+                    *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+                } else {
+                    /* unmatched lead surrogate */
+                    *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+                }
+            } else {
+                /* see if the trail surrogate is in the next buffer */
+            }
+        } else {
+            /* unmatched trail surrogate */
+            *pErrorCode=U_ILLEGAL_CHAR_FOUND;
+        }
+    }
+
+    if(U_SUCCESS(*pErrorCode)) {
+        /* check for a remaining source byte */
+        if(length>0) {
+            if(targetCapacity==0) {
+                *pErrorCode=U_BUFFER_OVERFLOW_ERROR;
+            } else {
+                /* it must be length==1 because otherwise the above would have copied more */
+                cnv->toUBytes[cnv->toULength++]=*source++;
+            }
+        }
+    }
+
+    /* write back the updated pointers */
+    pArgs->source=(const char *)source;
+    pArgs->target=target;
+    pArgs->offsets=offsets;
+}
+
+static UChar32
+_UTF16LEGetNextUChar(UConverterToUnicodeArgs *pArgs, UErrorCode *err) {
+    const uint8_t *s, *sourceLimit;
+    UChar32 c;
+
+    s=(const uint8_t *)pArgs->source;
+    sourceLimit=(const uint8_t *)pArgs->sourceLimit;
+
+    if(s>=sourceLimit) {
+        /* no input */
+        *err=U_INDEX_OUTOFBOUNDS_ERROR;
         return 0xffff;
     }
 
-    /*Gets the corresponding codepoint*/
-    first = (uint16_t)(((uint16_t)*((args->source)+1) << 8) | ((uint8_t)(*(args->source))));
-    myUChar=first;
-    /*updates the source*/
-    args->source += 2;  
+    if(s+2>sourceLimit) {
+        /* only one byte: truncated UChar */
+        pArgs->converter->toUBytes[0]=*s++;
+        pArgs->converter->toULength=1;
+        pArgs->source=(const char *)s;
+        *err = U_TRUNCATED_CHAR_FOUND;
+        return 0xffff;
+    }
 
-    if (UTF_IS_FIRST_SURROGATE(first))
-    {
-        uint16_t second;
+    /* get one UChar */
+    c=((UChar32)s[1]<<8)|*s;
+    s+=2;
 
-        if (args->source+2 > args->sourceLimit)
-        {
-           *err = U_TRUNCATED_CHAR_FOUND;
-            return 0xffff;
+    /* check for a surrogate pair */
+    if(U_IS_SURROGATE(c)) {
+        if(U16_IS_SURROGATE_LEAD(c)) {
+            if(s+2<=sourceLimit) {
+                UChar trail;
+
+                /* get a second UChar and see if it is a trail surrogate */
+                trail=((UChar)s[1]<<8)|*s;
+                if(U16_IS_TRAIL(trail)) {
+                    c=U16_GET_SUPPLEMENTARY(c, trail);
+                    s+=2;
+                } else {
+                    /* unmatched lead surrogate */
+                    c=-2;
+                }
+            } else {
+                /* too few (2 or 3) bytes for a surrogate pair: truncated code point */
+                uint8_t *bytes=pArgs->converter->toUBytes;
+                s-=2;
+                pArgs->converter->toULength=(int8_t)(sourceLimit-s);
+                do {
+                    *bytes++=*s++;
+                } while(s<sourceLimit);
+
+                c=0xffff;
+                *err=U_TRUNCATED_CHAR_FOUND;
+            }
+        } else {
+            /* unmatched trail surrogate */
+            c=-2;
         }
 
-        /* get the second surrogate and assemble the code point */
-        second = (uint16_t)(((uint16_t)*(args->source+1) << 8) |((uint8_t)(*(args->source))));
+        if(c<0) {
+            /* write the unmatched surrogate */
+            uint8_t *bytes=pArgs->converter->toUBytes;
+            pArgs->converter->toULength=2;
+            *bytes=*(s-2);
+            bytes[1]=*(s-1);
 
-        /* ignore unmatched surrogates and just deliver the first one in such a case */
-        if(UTF_IS_SECOND_SURROGATE(second))
-        {
-            /* matched pair, get pair value */
-            myUChar = UTF16_GET_PAIR_VALUE(first, second);
-            args->source += 2;
+            c=0xffff;
+            *err=U_ILLEGAL_CHAR_FOUND;
         }
     }
 
-    return myUChar;
+    pArgs->source=(const char *)s;
+    return c;
 } 
 
 static const UConverterImpl _UTF16LEImpl={
@@ -532,7 +1087,7 @@ static const UConverterImpl _UTF16LEImpl={
     _UTF16LEToUnicodeWithOffsets,
     _UTF16LEFromUnicodeWithOffsets,
     _UTF16LEFromUnicodeWithOffsets,
-    T_UConverter_getNextUChar_UTF16_LE,
+    _UTF16LEGetNextUChar,
 
     NULL,
     NULL,
@@ -542,7 +1097,6 @@ static const UConverterImpl _UTF16LEImpl={
 };
 
 
-/* The 1200 CCSID refers to any version of Unicode with any endianess of UTF-16 */
 static const UConverterStaticData _UTF16LEStaticData={
     sizeof(UConverterStaticData),
     "UTF-16LE",
@@ -727,12 +1281,12 @@ _UTF16ToUnicodeWithOffsets(UConverterToUnicodeArgs *pArgs,
             _UTF16BEToUnicodeWithOffsets(pArgs, pErrorCode);
             pArgs->source=source;
             pArgs->sourceLimit=sourceLimit;
+            state=8;
             break;
         }
-        cnv->mode=0; /* reset */
-    } else {
-        cnv->mode=state;
     }
+
+    cnv->mode=state;
 }
 
 static UChar32
@@ -740,11 +1294,11 @@ _UTF16GetNextUChar(UConverterToUnicodeArgs *pArgs,
                    UErrorCode *pErrorCode) {
     switch(pArgs->converter->mode) {
     case 8:
-        return T_UConverter_getNextUChar_UTF16_BE(pArgs, pErrorCode);
+        return _UTF16BEGetNextUChar(pArgs, pErrorCode);
     case 9:
-        return T_UConverter_getNextUChar_UTF16_LE(pArgs, pErrorCode);
+        return _UTF16LEGetNextUChar(pArgs, pErrorCode);
     default:
-        return ucnv_getNextUCharFromToUImpl(pArgs, _UTF16ToUnicodeWithOffsets, TRUE, pErrorCode);
+        return UCNV_GET_NEXT_UCHAR_USE_TO_U;
     }
 }
 
@@ -792,3 +1346,5 @@ const UConverterSharedData _UTF16Data = {
     NULL, NULL, &_UTF16StaticData, FALSE, &_UTF16Impl, 
     0
 };
+
+#endif

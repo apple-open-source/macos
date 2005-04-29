@@ -27,9 +27,9 @@
 
 #include <IOKit/IODataQueue.h>
 #include <IOKit/IOLocks.h>
-#include "IOHIDElement.h"
+#include "IOHIDElementPrivate.h"
 
-#define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue) + sizeof(void *)
+#define DEFAULT_HID_ENTRY_SIZE  sizeof(IOHIDElementValue)+ sizeof(void *)
 
 //---------------------------------------------------------------------------
 // IOHIDEventQueue class.
@@ -75,8 +75,8 @@ public:
     virtual void stop();
     virtual Boolean isStarted();
     
-    virtual void addElement( IOHIDElement * element );
-    virtual void removeElement( IOHIDElement * element );
+    virtual void addElement( IOHIDElementPrivate * element );
+    virtual void removeElement( IOHIDElementPrivate * element );
     
     virtual UInt32 getEntrySize ();
 

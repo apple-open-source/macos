@@ -211,7 +211,7 @@ extern const char *cris_elinux_stacksize_str;
 #define CRIS_LINK_SUBTARGET_SPEC \
  "-mcriself\
   %{sim2:%{!T*:-Tdata 0x4000000 -Tbss 0x8000000}}\
-  %{O2|O3: --gc-sections}"
+  %{!r:%{O2|O3: --gc-sections}}"
 
 /* Which library to get.  The only difference from the default is to get
    libsc.a if -sim is given to the driver.  Repeat -lc -lsysX
@@ -476,13 +476,7 @@ extern int target_flags;
    post-increment on DImode indirect.  */
 #define WORDS_BIG_ENDIAN 0
 
-#define BITS_PER_UNIT 8
-
-#define BITS_PER_WORD 32
-
 #define UNITS_PER_WORD 4
-
-#define POINTER_SIZE 32
 
 /* A combination of defining PROMOTE_MODE, PROMOTE_FUNCTION_ARGS,
    PROMOTE_FOR_CALL_ONLY and *not* defining PROMOTE_PROTOTYPES gives the
@@ -1019,10 +1013,6 @@ struct cum_args {int regs;};
 #define ELIGIBLE_FOR_EPILOGUE_DELAY(INSN, N) \
   cris_eligible_for_epilogue_delay (INSN)
 
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
- cris_asm_output_mi_thunk(FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
-
 /* Node: Profiling */
 
 #define FUNCTION_PROFILER(FILE, LABELNO)  \
@@ -1036,7 +1026,7 @@ struct cum_args {int regs;};
 
 /* We save the register number of the first anonymous argument in
    first_vararg_reg, and take care of this in the function prologue.
-   This behaviour is used by at least one more port (the ARM?), but
+   This behavior is used by at least one more port (the ARM?), but
    may be unsafe when compiling nested functions.  (With varargs? Hairy.)
    Note that nested-functions is a GNU C extension.
 
@@ -1050,8 +1040,7 @@ struct cum_args {int regs;};
       if (TARGET_PDEBUG)						\
 	{								\
 	  fprintf (asm_out_file,					\
-		   "\n; VA:: %s: %d args before, anon @ #%d, %dtime\n",	\
-		   current_function_varargs ? "OLD" : "ANSI",		\
+		   "\n; VA:: ANSI: %d args before, anon @ #%d, %dtime\n", \
 		   (ARGSSF).regs, PRETEND, SECOND);			\
 	}								\
     }									\
@@ -1249,7 +1238,7 @@ struct cum_args {int regs;};
 
 /* For now, don't do anything.  GCC does a good job most often.
 
-    Maybe we could do something about gcc:s misbehaviour when it
+    Maybe we could do something about gcc:s misbehavior when it
    recalculates frame offsets for local variables, from fp+offs to
    sp+offs.  The resulting address expression gets screwed up
    sometimes, but I'm not sure that it may be fixed here, since it is
@@ -1297,13 +1286,13 @@ struct cum_args {int regs;};
 	      something_reloaded = 1;					\
 	    }								\
 									\
-	  if (REG_P (XEXP (XEXP (X, 0), 0))				\
-	      && (REGNO (XEXP (XEXP (X, 0), 0))				\
+	  if (REG_P (XEXP (XEXP (XEXP (X, 0), 0), 0))			\
+	      && (REGNO (XEXP (XEXP (XEXP (X, 0), 0), 0))		\
 		  >= FIRST_PSEUDO_REGISTER))				\
 	    {								\
 	      /* First one is a pseudo - reload that.  */		\
-	      push_reload (XEXP (XEXP (X, 0), 0), NULL_RTX,		\
-			   &XEXP (XEXP (X, 0), 0), NULL, 		\
+	      push_reload (XEXP (XEXP (XEXP (X, 0), 0), 0), NULL_RTX,	\
+			   &XEXP (XEXP (XEXP (X, 0), 0), 0), NULL, 	\
 			   GENERAL_REGS,				\
 			   GET_MODE (X), VOIDmode, 0, 0, OPNUM, TYPE);	\
 	      something_reloaded = 1;					\
@@ -1448,10 +1437,6 @@ struct cum_args {int regs;};
 /* The jump table is immediately connected to the preceding insn.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
 
-/* We need to code in PIC-specific flags into SYMBOL_REF_FLAG.  */
-
-#define ENCODE_SECTION_INFO(EXP) cris_encode_section_info (EXP)
-
 /* We pull a little trick to register the _fini function with atexit,
    after (presumably) registering the eh frame info, since we don't handle
    _fini (a.k.a. ___fini_start) in crt0 or have a crti for "pure" ELF.  If
@@ -1585,22 +1570,8 @@ call_ ## FUNC (void)						\
 
 /* Node: Label Output */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      assemble_name (FILE, NAME);		\
-      fputs (":\n", FILE);			\
-    }						\
-  while (0)
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)		\
-  do						\
-    {						\
-      fputs ("\t.global ", FILE);		\
-      assemble_name (FILE, NAME);		\
-      fputs ("\n", FILE);			\
-    }						\
-  while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 #define SUPPORTS_WEAK 1
 
@@ -1751,10 +1722,6 @@ call_ ## FUNC (void)						\
 
 /* Node: SDB and DWARF */
 /* (no definitions) */
-
-/* Node: Cross-compilation */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 

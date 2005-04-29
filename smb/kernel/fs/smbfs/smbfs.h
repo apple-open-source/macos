@@ -29,16 +29,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smbfs.h,v 1.9 2003/08/27 02:27:51 lindak Exp $
+ * $Id: smbfs.h,v 1.30 2005/02/11 01:44:16 lindak Exp $
  */
 #ifndef _SMBFS_SMBFS_H_
 #define _SMBFS_SMBFS_H_
 
-#ifndef APPLE
-#define VT_SMBFS	24
-#else
 #define VT_SMBFS	VT_OTHER
-#endif
 
 #define SMBFS_VERMAJ	1
 #define SMBFS_VERMIN	1012
@@ -75,15 +71,10 @@ struct smbfs_args {
 MALLOC_DECLARE(M_SMBFSMNT);
 #endif
 
-#ifndef VI_LOCK
-#define	VI_LOCK(vp)	smb_sl_lock(&(vp)->v_interlock)
-#define	VI_UNLOCK(vp)	smb_sl_unlock(&(vp)->v_interlock)
-#endif
-
 struct smbnode;
 struct smb_share;
 struct u_cred;
-struct vop_ioctl_args;
+struct vnop_ioctl_args;
 struct buf;
 
 /*
@@ -98,7 +89,6 @@ struct buf;
 #define SM_STATUS_STATFS 0x00000001 /* statfs is in progress */
 #define SM_STATUS_STATFS_WANTED 0x00000002 /* statfs wakeup is wanted */
 #define SM_STATUS_TIMEO 0x00000004 /* this mount is not responding */
-#define SM_STATUS_FORCE 0x00000008 /* force unmount in progress */
 #define SM_STATUS_DEAD	0x00000010 /* connection gone - unmount this */
 
 void smbfs_down(struct smbmount *smp);
@@ -110,17 +100,11 @@ struct smbmount {
 	struct mount * 		sm_mp;
 	struct smbnode *	sm_root;
 	struct ucred *		sm_owner;
-	int			sm_flags;
+	u_int32_t		sm_flags;
 	long			sm_nextino;
 	struct smb_share * 	sm_share;
-/*	struct simplelock	sm_npslock;*/
-	struct smbnode *	sm_npstack[SMBFS_MAXPATHCOMP];
 	int			sm_caseopt;
-#if APPLE
-	struct lock__bsd__	sm_hashlock;
-#else
-	struct lock		sm_hashlock;
-#endif
+	lck_mtx_t		*sm_hashlock;
 	LIST_HEAD(smbnode_hashhead, smbnode) *sm_hash;
 	u_long			sm_hashlen;
 	u_int32_t		sm_status; /* status bits for this mount */
@@ -128,15 +112,35 @@ struct smbmount {
 	struct statfs		sm_statfsbuf; /* cached statfs data */
 };
 
-#define VFSTOSMBFS(mp)		((struct smbmount *)((mp)->mnt_data))
-#define SMBFSTOVFS(smp)		((struct mount *)((smp)->sm_mp))
-#define VTOVFS(vp)		((vp)->v_mount)
+#define VFSTOSMBFS(mp)		((struct smbmount *)(vfs_fsprivate(mp)))
+#define SMBFSTOVFS(smp)		((mount_t)((smp)->sm_mp))
+#define VTOVFS(vp)		(vnode_mount(vp))
 #define	VTOSMBFS(vp)		(VFSTOSMBFS(VTOVFS(vp)))
 
-int smbfs_ioctl(struct vop_ioctl_args *ap);
-int smbfs_doio(struct buf *bp, struct ucred *cr, struct proc *p);
-int smbfs_vinvalbuf(struct vnode *vp, int flags, struct ucred *cred, 
-	struct proc *p, int intrflg);
+int smbfs_ioctl(struct vnop_ioctl_args *ap);
+int smbfs_vinvalbuf(vnode_t vp, int flags, vfs_context_t context, int intrflg);
+
+#define SMB_SYMMAGICLEN (4+1) /* includes a '\n' seperator */
+extern char smb_symmagic[];
+#define SMB_SYMLENLEN (4+1) /* includes a '\n' seperator */
+#define SMB_SYMMD5LEN (32+1) /* includes a '\n' seperator */
+#define SMB_SYMHDRLEN (SMB_SYMMAGICLEN + SMB_SYMLENLEN + SMB_SYMMD5LEN)
+#define SMB_SYMLEN (SMB_SYMHDRLEN + MAXPATHLEN)
+
+int smbfs_getids(struct smbnode *np, struct smb_cred *scred);
+char *smb_sid2str(struct ntsid *sidp);
+void smb_sid2sid16(struct ntsid *sidp, ntsid_t *sid16p);
+void smb_sid_endianize(struct ntsid *sidp);
+
+/*
+ * internal versions of VOPs
+ */
+int smbi_getattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t vfsctx);
+int smbi_setattr(vnode_t vp, struct vnode_attr *vap, vfs_context_t vfsctx);
+int smbi_open(vnode_t vp, int mode, vfs_context_t vfsctx);
+int smbi_close(vnode_t vp, int fflag, vfs_context_t vfsctx);
+int smbi_fsync(vnode_t vp, int waitfor, vfs_context_t vfsctx);
+
 #endif	/* KERNEL */
 
 #endif /* _SMBFS_SMBFS_H_ */

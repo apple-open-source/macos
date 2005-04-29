@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -155,6 +155,18 @@ void DACallbackSetDisk( DACallbackRef callback, DADiskRef disk )
     else
     {
         CFDictionaryRemoveValue( ( void * ) callback, _kDACallbackDiskKey );
+    }
+}
+
+void DACallbackSetMatch( DACallbackRef callback, CFDictionaryRef match )
+{
+    if ( match )
+    {
+        CFDictionarySetValue( ( void * ) callback, _kDACallbackMatchKey, match );
+    }
+    else
+    {
+        CFDictionaryRemoveValue( ( void * ) callback, _kDACallbackMatchKey );
     }
 }
 

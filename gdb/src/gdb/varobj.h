@@ -39,8 +39,10 @@ enum varobj_type
     USE_SPECIFIED_FRAME,        /* Use the frame passed to varobj_create */
     USE_CURRENT_FRAME,          /* Use the current frame */
     USE_SELECTED_FRAME,         /* Always reevaluate in selected frame */
-    USE_BLOCK_IN_FRAME          /* Use the address as a block in the current
+    USE_BLOCK_IN_FRAME,          /* Use the address as a block in the current
 				   frame. */
+    NO_FRAME_NEEDED             /* No frame is needed, this is a file static
+				   or a global variable.  */
   };
     
 /* String representations of gdb's format codes (defined in varobj.c) */

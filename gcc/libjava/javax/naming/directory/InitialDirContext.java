@@ -1,5 +1,5 @@
 /* InitialDirContext.java --
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,11 +38,18 @@ exception statement from your version. */
 
 package javax.naming.directory;
 
-import javax.naming.*;
 import java.util.Hashtable;
 
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.Name;
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.NoInitialContextException;
+import javax.naming.NotContextException;
+
 /**
- * @author Tom Tromey <tromey@redhat.com>
+ * @author Tom Tromey (tromey@redhat.com)
  * @date June 25, 2001
  */
 public class InitialDirContext extends InitialContext implements DirContext

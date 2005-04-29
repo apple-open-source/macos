@@ -143,7 +143,8 @@ forw(n, pos, force, only_last, nblank)
 			pos_clear();
 			add_forw_pos(pos);
 			force = 1;
-			if (more_mode == 0) {
+			if (more_mode == 0)
+			{
 				if (top_scroll == OPT_ONPLUS || first_time)
 					clear();
 				home();
@@ -231,7 +232,8 @@ forw(n, pos, force, only_last, nblank)
 		 * start the display after the beginning of the file,
 		 * and it is not appropriate to squish in that case.
 		 */
-		if ((first_time || more_mode) && pos == NULL_POSITION && !top_scroll && 
+		if ((first_time || more_mode) &&
+			pos == NULL_POSITION && !top_scroll && 
 #if TAGS
 		    tagoption == NULL &&
 #endif

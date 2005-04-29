@@ -1,7 +1,7 @@
 /* timsieved.c -- main file for timsieved (sieve script accepting program)
  * Tim Martin
  * 9/21/99
- * $Id: timsieved.c,v 1.55 2004/09/09 16:22:06 shadow Exp $
+ * $Id: timsieved.c,v 1.4 2005/03/05 00:37:39 dasenbro Exp $
  */
 /*
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.

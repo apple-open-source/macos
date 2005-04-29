@@ -54,6 +54,8 @@ extern int osType;
 
 extern int gWakeupFDs[2];
 
+extern BOOL gUIAllowed;
+
 extern BOOL gTerminating;
 
 #define REQ_SHUTDOWN 'S'
@@ -66,11 +68,13 @@ extern BOOL gTerminating;
 #define REQ_MOUNTCOMPLETE 'M'
 #define REQ_USR2 '2'
 #define REQ_AMINFOREQ 'I'
+#define REQ_VFSEVENT 'V'
 
 struct MountProgressRecord {
 	LIST_ENTRY(MountProgressRecord) mpr_link;
 	pid_t mpr_mountpid;
 	Vnode *mpr_vp;
+	uid_t mpr_uid;
 	u_long mpr_xid;
 };
 typedef LIST_HEAD(MountProgressRecord_List, MountProgressRecord) MountProgressRecord_List;

@@ -1,0 +1,131 @@
+*** Makefile.in.orig	Fri Jan 31 10:07:52 1997
+--- Makefile.in	Fri Jan 31 10:42:41 1997
+***************
+*** 121,127 ****
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! ALL_LIBS = @TCL_LIB_SPEC@ @TCL_LIBS@ @LIBS@ @TRF_CC_SEARCH_FLAGS@
+  
+  LIBS = @TRF_LD_SEARCH_FLAGS@ @SHARED_LIBS@
+  
+--- 121,127 ----
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! ALL_LIBS =  $(TCL_LIB) @TCL_LIBS@ @LIBS@ @TRF_CC_SEARCH_FLAGS@
+  
+  LIBS = @TRF_LD_SEARCH_FLAGS@ @SHARED_LIBS@
+  
+***************
+*** 217,223 ****
+  APP		=	$(srcdir)/tclsh
+  
+  LDFLAGS		=	@LD_FLAGS@
+! LOADLIBES	=	@TRF_BUILD_LIB_SPEC@ $(ALL_LIBS) $(TCL_LIB)
+  
+  
+  #-------------------------------------------------------#
+--- 217,223 ----
+  APP		=	$(srcdir)/tclsh
+  
+  LDFLAGS		=	@LD_FLAGS@
+! LOADLIBES	=	@TRF_BUILD_LIB_SPEC@ $(ALL_LIBS)
+  
+  
+  #-------------------------------------------------------#
+*** tools/ldAout.tcl.orig	Fri Jan 31 09:49:30 1997
+--- tools/ldAout.tcl	Fri Jan 31 11:29:17 1997
+***************
+*** 165,172 ****
+  
+    set f [open $nmCommand r]
+    while {[gets $f l] >= 0} {
+!     if [regexp {[0-9A-Fa-f]* T[ 	]*(_?[a-z0-9_]*)} $l trash symbol] {
+!       if {![regexp {(_?[a-z0-9_]*)} $symbol s]} {
+  	set s $symbol
+        }
+        append entryProtos {extern int } $symbol { (); } \n
+--- 165,172 ----
+  
+    set f [open $nmCommand r]
+    while {[gets $f l] >= 0} {
+!     if [regexp {[0-9A-Fa-f]* T[ 	]*(_?[a-zA-Z0-9_]*)} $l trash symbol] {
+!       if {![regexp {(_?[a-zA-Z0-9_]*)} $symbol s]} {
+  	set s $symbol
+        }
+        append entryProtos {extern int } $symbol { (); } \n
+***************
+*** 192,198 ****
+    append C {  int (*value)();} \n
+    append C \} {dictionary [] = } \{ \n
+    append C $entryPoints
+!   append C {  0, 0 } \n \} \; \n
+    append C {typedef struct Tcl_Interp Tcl_Interp;} \n
+    append C {typedef int Tcl_PackageInitProc (Tcl_Interp *);} \n
+    append C {Tcl_PackageInitProc *} \n
+--- 192,198 ----
+    append C {  int (*value)();} \n
+    append C \} {dictionary [] = } \{ \n
+    append C $entryPoints
+!   append C \{  0, 0 \} \n \} \; \n
+    append C {typedef struct Tcl_Interp Tcl_Interp;} \n
+    append C {typedef int Tcl_PackageInitProc (Tcl_Interp *);} \n
+    append C {Tcl_PackageInitProc *} \n
+*** digest.c.orig	Fri Jan 31 09:44:57 1997
+--- digest.c	Fri Jan 31 09:48:28 1997
+***************
+*** 136,142 ****
+  
+    unsigned char* digest_buffer;
+    short          buffer_pos;
+!   short          charCount;
+  
+  } DecoderControl;
+  
+--- 136,142 ----
+  
+    unsigned char* digest_buffer;
+    short          buffer_pos;
+!   unsigned int   charCount;
+  
+  } DecoderControl;
+  
+*** libdes.c.orig	Fri Jan 31 10:34:55 1997
+--- libdes.c	Fri Jan 31 10:34:55 1997
+***************
+*** 17,23 ****
+  #endif
+  
+  #ifndef LIBDES_LIB_NAME
+! #define LIBDES_LIB_NAME "/usr/local/lib/libdes.so"
+  #endif
+  
+  /*
+--- 17,23 ----
+  #endif
+  
+  #ifndef LIBDES_LIB_NAME
+! #define LIBDES_LIB_NAME "libdes.so"
+  #endif
+  
+  /*
+*** zlib.c.orig	Fri Jan 31 10:35:31 1997
+--- zlib.c	Fri Jan 31 10:35:31 1997
+***************
+*** 16,22 ****
+  #endif
+  
+  #ifndef Z_LIB_NAME
+! #define Z_LIB_NAME "/usr/local/lib/libz.so"
+  #endif
+  
+  /*
+--- 16,22 ----
+  #endif
+  
+  #ifndef Z_LIB_NAME
+! #define Z_LIB_NAME "libz.so"
+  #endif
+  
+  /*

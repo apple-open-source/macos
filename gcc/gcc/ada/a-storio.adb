@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---        Copyright (C) 1992,1993,1994 Free Software Foundation, Inc.       --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,32 +31,31 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with System.Address_To_Access_Conversions;
+with Unchecked_Conversion;
 
 package body Ada.Storage_IO is
 
-   package Element_Ops is new
-     System.Address_To_Access_Conversions (Element_Type);
+   type Buffer_Ptr is access all Buffer_Type;
+   type Elmt_Ptr   is access all Element_Type;
+
+   function To_Buffer_Ptr is new Unchecked_Conversion (Elmt_Ptr, Buffer_Ptr);
 
    ----------
    -- Read --
    ----------
 
-   procedure Read (Buffer : in  Buffer_Type; Item : out Element_Type) is
+   procedure Read (Buffer : Buffer_Type; Item : out Element_Type) is
    begin
-      Element_Ops.To_Pointer (Item'Address).all :=
-        Element_Ops.To_Pointer (Buffer'Address).all;
+      To_Buffer_Ptr (Item'Unrestricted_Access).all := Buffer;
    end Read;
-
 
    -----------
    -- Write --
    -----------
 
-   procedure Write (Buffer : out Buffer_Type; Item : in  Element_Type) is
+   procedure Write (Buffer : out Buffer_Type; Item : Element_Type) is
    begin
-      Element_Ops.To_Pointer (Buffer'Address).all :=
-        Element_Ops.To_Pointer (Item'Address).all;
+      Buffer := To_Buffer_Ptr (Item'Unrestricted_Access).all;
    end Write;
 
 end Ada.Storage_IO;

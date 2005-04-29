@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.2 $                             --
 --                                                                          --
 --           Copyright (C) 1992-2001 Free Software Foundation, Inc.         --
 --                                                                          --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -356,7 +355,7 @@ begin
       --  This is especially useful when parsing garbled input.
 
       elsif Operating_Mode /= Check_Syntax
-        and then (Errors_Detected = 0 or else Try_Semantics)
+        and then (Serious_Errors_Detected = 0 or else Try_Semantics)
       then
          Set_Intval (Token_Node, UI_Num_Value * UI_Base ** UI_Scale);
 

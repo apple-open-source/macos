@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 use Apache::src ();
 
 skip_test unless have_module "Apache::Module"; 

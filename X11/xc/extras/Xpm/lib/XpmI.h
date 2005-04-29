@@ -22,7 +22,7 @@
  * used in advertising or otherwise to promote the sale, use or other dealings
  * in this Software without prior written authorization from GROUPE BULL.
  */
-/* $XFree86: xc/extras/Xpm/lib/XpmI.h,v 1.8 2002/01/07 19:40:23 dawes Exp $ */
+/* $XFree86: xc/extras/Xpm/lib/XpmI.h,v 1.9 2003/08/06 14:03:58 eich Exp $ */
 
 /*****************************************************************************\
 * XpmI.h:                                                                     *
@@ -49,8 +49,10 @@
  * lets try to solve include files
  */
 
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 /* stdio.h doesn't declare popen on a Sequent DYNIX OS */
 #ifdef sequent
 extern FILE *popen();
@@ -58,6 +60,7 @@ extern FILE *popen();
 
 #include <X11/Xos.h>
 #include <X11/Xfuncs.h>
+#include <X11/Xmd.h>
 
 #ifdef VMS
 #include <unixio.h>
@@ -83,6 +86,18 @@ extern FILE *popen();
 #define XpmRealloc(ptr, size) boundCheckingRealloc((ptr),(long)(size))
 #define XpmCalloc(nelem, elsize) \
 		boundCheckingCalloc((long)(nelem),(long) (elsize))
+#endif
+
+#if defined(SCO) || defined(__USLC__)
+#include <stdint.h>	/* For SIZE_MAX */
+#endif
+#include <limits.h>
+#ifndef SIZE_MAX
+# ifdef ULONG_MAX
+#  define SIZE_MAX ULONG_MAX
+# else 
+#  define SIZE_MAX UINT_MAX
+# endif
 #endif
 
 #define XPMMAXCMTLEN BUFSIZ
@@ -186,9 +201,9 @@ typedef struct _xpmHashAtom {
 }      *xpmHashAtom;
 
 typedef struct {
-    int size;
-    int limit;
-    int used;
+    unsigned int size;
+    unsigned int limit;
+    unsigned int used;
     xpmHashAtom *atomTable;
 }      xpmHashTable;
 

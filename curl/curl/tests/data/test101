@@ -17,13 +17,16 @@ dr-xr-xr-x   5 0        1            512 Oct  1  1997 usr
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP dir list, PORT with specified IP
  </name>
  <command>
 ftp://%HOSTIP:%FTPPORT/ -P %HOSTIP
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -40,5 +43,6 @@ PWD
 PORT 127,0,0,1,243,212
 TYPE A
 LIST
+QUIT
 </protocol>
 </verify>

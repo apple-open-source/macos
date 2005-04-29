@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,9 +28,6 @@
 
 __BEGIN_DECLS
 
-/* Map memory map IO space */
-#include <mach/mach_types.h>
-extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
 __END_DECLS
 
 #define super IOService
@@ -42,8 +39,7 @@ OSDefineMetaClassAndStructors(AppleUniN,ApplePlatformExpert)
 // **********************************************************************************
 bool AppleUniN::start ( IOService * nub )
 {
-    OSData          		*tmpData;
-    UInt32			   		uniNArbCtrl, uniNBaseAddressTemp, uniNMPCIMemTimeout;
+    UInt32			uniNArbCtrl, uniNMPCIMemTimeout;
 	IOInterruptState 		intState;
 	IOPlatformFunction		*func;
 	const OSSymbol			*functionSymbol = OSSymbol::withCString(kInstantiatePlatformFunctions);
@@ -52,13 +48,21 @@ bool AppleUniN::start ( IOService * nub )
 	provider = nub;
 	
 	// If our PE isn't MacRISC2PE, we shouldn't be here
-	if (!OSDynamicCast (MacRISC2PE, getPlatform())) return false;
+	if (!OSDynamicCast (MacRISC2PE, getPlatform()))
+		return false;
 
-	tmpData = OSDynamicCast(OSData, provider->getProperty("reg"));
-    if (tmpData == 0) return false;
-    uniNBaseAddressTemp = ((UInt32 *)tmpData->getBytesNoCopy())[0];
-    uniNBaseAddress = (UInt32 *)ml_io_map(uniNBaseAddressTemp, 0x3200);
-    if (uniNBaseAddress == 0) return false;
+        uniNMemory      = provider->mapDeviceMemoryWithIndex( 0 );
+        if ( ! uniNMemory )
+        {
+                kprintf( "AppleUniN::start - unable to map in device memory\n" );
+                return false;
+        }
+        uniNBaseAddress = (UInt32 *)uniNMemory->getVirtualAddress();
+        if (uniNBaseAddress == 0)
+        {
+                kprintf( "AppleUniN::start - unable to get UniN base address\n" );
+                return false;
+        }
 	
 	// sets up the mutex lock:
 	mutex = IOSimpleLockAlloc();

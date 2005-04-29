@@ -42,9 +42,6 @@
 static int partial_memory_read (CORE_ADDR memaddr, char *myaddr,
 				int len, int *errnoptr);
 
-static void print_hex_chars (struct ui_file *, unsigned char *,
-			     unsigned int);
-
 static void show_print (char *, int);
 
 static void set_print (char *, int);
@@ -205,12 +202,8 @@ val_print_type_code_int (struct type *type, char *valaddr,
     }
   else
     {
-#ifdef PRINT_TYPELESS_INTEGER
-      PRINT_TYPELESS_INTEGER (stream, type, unpack_long (type, valaddr));
-#else
       print_longest (stream, TYPE_UNSIGNED (type) ? 'u' : 'd', 0,
 		     unpack_long (type, valaddr));
-#endif
     }
 }
 
@@ -456,9 +449,9 @@ print_floating (char *valaddr, struct type *type, struct ui_file *stream)
       if (floatformat_is_negative (fmt, valaddr))
 	fprintf_filtered (stream, "-");
       fprintf_filtered (stream, "nan(");
-      fprintf_filtered (stream, local_hex_format_prefix ());
-      fprintf_filtered (stream, floatformat_mantissa (fmt, valaddr));
-      fprintf_filtered (stream, local_hex_format_suffix ());
+      fputs_filtered (local_hex_format_prefix (), stream);
+      fputs_filtered (floatformat_mantissa (fmt, valaddr), stream);
+      fputs_filtered (local_hex_format_suffix (), stream);
       fprintf_filtered (stream, ")");
       return;
     }
@@ -519,7 +512,7 @@ print_binary_chars (struct ui_file *stream, unsigned char *valaddr,
 
   /* FIXME: We should be not printing leading zeroes in most cases.  */
 
-  fprintf_filtered (stream, local_binary_format_prefix ());
+  fputs_filtered (local_binary_format_prefix (), stream);
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       for (p = valaddr;
@@ -557,7 +550,7 @@ print_binary_chars (struct ui_file *stream, unsigned char *valaddr,
 	    }
 	}
     }
-  fprintf_filtered (stream, local_binary_format_suffix ());
+  fputs_filtered (local_binary_format_suffix (), stream);
 }
 
 /* VALADDR points to an integer of LEN bytes.
@@ -606,7 +599,7 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
   cycle = (len * BITS_IN_BYTES) % BITS_IN_OCTAL;
   carry = 0;
 
-  fprintf_filtered (stream, local_octal_format_prefix ());
+  fputs_filtered (local_octal_format_prefix (), stream);
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       for (p = valaddr;
@@ -705,7 +698,7 @@ print_octal_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 	}
     }
 
-  fprintf_filtered (stream, local_octal_format_suffix ());
+  fputs_filtered (local_octal_format_suffix (), stream);
 }
 
 /* VALADDR points to an integer of LEN bytes.
@@ -748,7 +741,7 @@ print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
       digits[i] = 0;
     }
 
-  fprintf_filtered (stream, local_decimal_format_prefix ());
+  fputs_filtered (local_decimal_format_prefix (), stream);
 
   /* Ok, we have an unknown number of bytes of data to be printed in
    * decimal.
@@ -845,19 +838,19 @@ print_decimal_chars (struct ui_file *stream, unsigned char *valaddr,
     }
   xfree (digits);
 
-  fprintf_filtered (stream, local_decimal_format_suffix ());
+  fputs_filtered (local_decimal_format_suffix (), stream);
 }
 
 /* VALADDR points to an integer of LEN bytes.  Print it in hex on stream.  */
 
-static void
+void
 print_hex_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 {
   unsigned char *p;
 
   /* FIXME: We should be not printing leading zeroes in most cases.  */
 
-  fprintf_filtered (stream, local_hex_format_prefix ());
+  fputs_filtered (local_hex_format_prefix (), stream);
   if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
     {
       for (p = valaddr;
@@ -876,7 +869,41 @@ print_hex_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
 	  fprintf_filtered (stream, "%02x", *p);
 	}
     }
-  fprintf_filtered (stream, local_hex_format_suffix ());
+  fputs_filtered (local_hex_format_suffix (), stream);
+}
+
+/* VALADDR points to a char integer of LEN bytes.  Print it out in appropriate language form on stream.  
+   Omit any leading zero chars.  */
+
+void
+print_char_chars (struct ui_file *stream, unsigned char *valaddr, unsigned len)
+{
+  unsigned char *p;
+
+  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
+    {
+      p = valaddr;
+      while (p < valaddr + len - 1 && *p == 0)
+	++p;
+
+      while (p < valaddr + len)
+	{
+	  LA_EMIT_CHAR (*p, stream, '\'');
+	  ++p;
+	}
+    }
+  else
+    {
+      p = valaddr + len - 1;
+      while (p > valaddr && *p == 0)
+	--p;
+
+      while (p >= valaddr)
+	{
+	  LA_EMIT_CHAR (*p, stream, '\'');
+	  --p;
+	}
+    }
 }
 
 /*  Called by various <lang>_val_print routines to print elements of an
@@ -1187,14 +1214,12 @@ val_print_string (CORE_ADDR addr, int len, int width, struct ui_file *stream)
    knows what they really did here.  Radix setting is confusing, e.g.
    setting the input radix to "10" never changes it!  */
 
-/* ARGSUSED */
 static void
 set_input_radix (char *args, int from_tty, struct cmd_list_element *c)
 {
   set_input_radix_1 (from_tty, input_radix);
 }
 
-/* ARGSUSED */
 static void
 set_input_radix_1 (int from_tty, unsigned radix)
 {
@@ -1222,7 +1247,6 @@ set_input_radix_1 (int from_tty, unsigned radix)
     }
 }
 
-/* ARGSUSED */
 static void
 set_output_radix (char *args, int from_tty, struct cmd_list_element *c)
 {
@@ -1286,7 +1310,6 @@ set_radix (char *arg, int from_tty)
 
 /* Show both the input and output radices. */
 
-/*ARGSUSED */
 static void
 show_radix (char *arg, int from_tty)
 {
@@ -1308,7 +1331,6 @@ show_radix (char *arg, int from_tty)
 }
 
 
-/*ARGSUSED */
 static void
 set_print (char *arg, int from_tty)
 {
@@ -1317,7 +1339,6 @@ set_print (char *arg, int from_tty)
   help_list (setprintlist, "set print ", -1, gdb_stdout);
 }
 
-/*ARGSUSED */
 static void
 show_print (char *args, int from_tty)
 {

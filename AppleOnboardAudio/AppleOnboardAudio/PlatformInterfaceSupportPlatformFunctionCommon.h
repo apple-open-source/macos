@@ -48,7 +48,7 @@
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_RegisterCodecIRQ						"register-codec-irq"				
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_UnregisterCodecIRQ					"unregister-codec-irq"				
 
-#define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_SetCodecInputDataMux					"platform-codec-input-data-mu"		
+#define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_SetCodecInputDataMux					"platform-codec-input-data-mu"
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetCodecInputDataMux					"get-codec-input-data-mux"			
 
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetComboInJackType					"platform-combo-in-sense";		
@@ -87,7 +87,7 @@
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_SetHeadphoneMute						"platform-headphone-mute"			
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetHeadphoneMute						"platform-rd-headphone-mute"		
 
-#define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalSpeakerID					"internal-speaker-id"				
+#define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_GetInternalSpeakerID					"platform-internal-speaker-id"				
 
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_DisableLineInDetect					"disable-linein-detect"				
 #define	kPlatformInterfaceSupportPlatformFunctionCommon_AppleGPIO_EnableLineInDetect					"enable-linein-detect"				

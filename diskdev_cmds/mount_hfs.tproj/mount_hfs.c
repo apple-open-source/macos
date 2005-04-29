@@ -64,9 +64,6 @@ struct mntopt mopts[] = {
 
 #define HFS_MOUNT_TYPE				"hfs"
 
-#define DEFAULT_ROOTUID	-2
-#define DEFAULT_ANON_UID -2
-
 gid_t	a_gid __P((char *));
 uid_t	a_uid __P((char *));
 mode_t	a_mask __P((char *));
@@ -415,12 +412,6 @@ main(argc, argv)
 		err(1, "realpath %s", dir);
 
 	args.fspec = dev;
-	args.export.ex_root = DEFAULT_ROOTUID;
-	args.export.ex_anon.cr_uid = DEFAULT_ANON_UID;		/* mapping for anonymous users */
-	if (mntflags & MNT_RDONLY)
-		args.export.ex_flags = MNT_EXRDONLY;
-	else
-		args.export.ex_flags = 0;
 
 	/* HFS volumes need timezone info to convert local to GMT */
 	(void) gettimeofday( &dummy_timeval, &args.hfs_timezone );

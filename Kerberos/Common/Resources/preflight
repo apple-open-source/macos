@@ -1,0 +1,55 @@
+#!/bin/sh
+
+#
+# Remove components of the previous KfM (if present):
+#
+
+# The framework, which can have a different layout
+FRAMEWORK=${3}/System/Library/Frameworks/Kerberos.framework
+if [ -d "${FRAMEWORK}" ]
+    then "${3}/bin/rm" -rf "${FRAMEWORK}"
+fi
+
+# Bogus des dylib name
+DES524=${3}/usr/lib/libdes524.dylib
+if [ -f "${DES524}" ]
+    then "${3}/bin/rm" -rf "${DES524}"
+fi
+
+# SymLink to umbrella framework support headers
+INCLUDELINK=${3}/usr/include/KerberosSupport
+if [ -L "${INCLUDELINK}" ]
+    then "${3}/bin/rm" -rf "${INCLUDELINK}"
+fi
+
+# The KerberosAgent, which can have a different layout
+KERBEROSAGENT=${3}/System/Library/CoreServices/KerberosAgent.app
+if [ -d "${KERBEROSAGENT}" ]
+    then "${3}/bin/rm" -rf "${KERBEROSAGENT}"
+fi
+
+# The CCacheServer, which can have a different layout
+CCACHESERVER=${3}/System/Library/CoreServices/CCacheServer.app
+if [ -d "${CCACHESERVER}" ]
+    then "${3}/bin/rm" -rf "${CCACHESERVER}"
+fi
+
+# Current application location
+APP=${3}/System/Library/CoreServices/Kerberos.app
+if [ -d "${APP}" ]
+    then "${3}/bin/rm" -rf "${APP}"
+fi
+
+OLDAPP1=${3}/Applications/Kerberos.app
+# Old application location from KfM 4.0 install
+if [ -d "${OLDAPP1}" ]
+    then "${3}/bin/rm" -rf "${OLDAPP1}"
+fi
+
+# Old application location from Apple private builds
+OLDAPP2=${3}/Applications/Utilities/Kerberos.app
+if [ -d "${OLDAPP2}" ]
+    then "${3}/bin/rm" -rf "${OLDAPP2}"
+fi
+
+exit 0

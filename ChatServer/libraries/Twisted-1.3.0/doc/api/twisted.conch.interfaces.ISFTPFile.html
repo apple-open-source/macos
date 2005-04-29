@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.conch.interfaces.ISFTPFile</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.conch.html">Package&nbsp;conch</a> ::
+        <a href="twisted.conch.interfaces.html">Module&nbsp;interfaces</a> ::
+        Class&nbsp;ISFTPFile
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.conch.interfaces.ISFTPFile.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class ISFTPFile</h2>
+
+<hr/>
+
+This represents an open file on the server. An object adhering to this 
+interface should be returned from openFile().
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.interfaces.ISFTPFile.html#close" class="summary-sig-name"><code>close</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Close the file.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.interfaces.ISFTPFile.html#getAttrs" class="summary-sig-name"><code>getAttrs</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return the attributes for the file.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.interfaces.ISFTPFile.html#readChunk" class="summary-sig-name"><code>readChunk</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>offset</span>,
+          <span class=summary-sig-arg>length</span>)</span></code>
+<br />
+Read from the file.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.interfaces.ISFTPFile.html#setAttrs" class="summary-sig-name"><code>setAttrs</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>attrs</span>)</span></code>
+<br />
+Set the attributes for the file.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.interfaces.ISFTPFile.html#writeChunk" class="summary-sig-name"><code>writeChunk</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>offset</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Write to the file.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="close"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">close</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Close the file.</p>
+  This method returns nothing if the close succeeds immediatly, or a 
+  Deferred that is called back when the close succeeds.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getAttrs"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getAttrs</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Return the attributes for the file.</p>
+  This method returns a dictionary in the same format as the attrs 
+  argument to openFile or a Deferred that is called back with same.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="readChunk"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">readChunk</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>offset</span>,
+          <span class=sig-arg>length</span>)</span>
+  </h3>
+  <p>Read from the file.</p>
+  <p>offset is an integer that is the index to start from in the file. 
+  length is the maximum length of data to return. The actual amount 
+  returned may less than this. For normal disk files, however, this 
+  should read the requested number (up to the end of the file).</p>
+  <p>If EOF is reached before any data is read, raise EOFError.</p>
+  This method returns the data as a string, or a Deferred that is 
+  called back with same.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setAttrs"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setAttrs</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>attrs</span>)</span>
+  </h3>
+  <p>Set the attributes for the file.</p>
+  <p>attrs is a dictionary in the same format as the attrs argument to 
+  openFile.</p>
+  This method returns when the attributes are set or a Deferred that 
+  is called back when they are.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="writeChunk"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">writeChunk</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>offset</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  <p>Write to the file.</p>
+  <p>offset is an integer that is the index to start from in the file. 
+  data is a string that is the data to write.</p>
+  This method returns when the write completes, or a Deferred that is 
+  called when it completes.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:05 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

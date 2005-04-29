@@ -1,0 +1,61 @@
+#! /usr/bin/perl -w
+
+my $opts = {};
+my $arg;
+while($arg = shift @ARGV)
+{
+    for($arg)
+    {
+	/^-?-(root)$/     and do { $$opts{$1} = shift @ARGV; last; };
+	/^-?-(force)$/    and do { $$opts{$1} = 1;           last; };
+	/^-?-(debug)$/    and do { $$opts{$1} = 1;           last; };
+	/^-?-(progress)$/ and do { $$opts{$1} = 1;           last; };
+	/^-?-(dry-run)$/  and do { $$opts{$1} = 1;           last; };
+	warn "update_prebinding: warning: unknown option $arg\n";
+    }
+}
+
+if($$opts{root})
+{
+    # must begin with "/"
+    # must exist
+    $ENV{DYLD_ROOT_PATH} = $$opts{root};
+}
+if($$opts{force})
+{
+    $ENV{DYLD_IGNORE_PREBINDING} = 'all';
+}
+if($$opts{debug})
+{
+    $ENV{DYLD_PREBIND_DEBUG} = '';
+}
+my $flags = 0b00000000;
+
+if($$opts{'dry-run'})
+{
+    $flags |= 0b00000001;
+}
+if($$opts{'progress'})
+{
+    $flags |= 0b00000010;
+}
+
+undef $/; # read the entire file all at once
+my $file = '/var/db/dyld/update-prebinding-paths.txt';
+open(PATHS, "<$file") or die("$file: $!\n");
+my $filestr = <PATHS>;
+close(PATHS) or die("$file: $!\n");
+$filestr =~ s/\s*\#.*?\n/\n/g; # remove all comments
+$filestr =~ s/\n\s*\n/\n/g; # remove all blank lines
+$filestr =~ s/^\s*\n//g; # remove all blank lines
+$filestr =~ s/\n\s*$//g; # remove all blank lines
+
+my @paths = split /\n/, $filestr;
+push @paths, sprintf("%016b", $flags);
+my $result = system('/usr/bin/update_prebinding_core', @paths);
+if(0 == $result)
+{
+    # note: Radar 3963439
+    system('/bin/sh', '-c', '/bin/rm -f /var/vm/app_profile/*{_names,_data}');
+}
+exit($result);

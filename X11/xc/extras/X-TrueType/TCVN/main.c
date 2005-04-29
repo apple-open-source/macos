@@ -34,11 +34,14 @@ Notice===
 	on X11. Let's accept *-tcvn*
 
  */
+/* $XFree86: xc/extras/X-TrueType/TCVN/main.c,v 1.2 2003/10/22 16:25:48 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

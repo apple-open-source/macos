@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,9 +31,13 @@
 
 /*!
 	@header SCPreferencesSetSpecific
-	The following APIs allow an application to set specific
-	configuration information about the current system (e.g. the
-	computer/sharing name).
+	@discussion The functions in the SCPreferencesSetSpecific API allow
+		an application to set specific configuration information
+		about the current system (for example, the computer or
+		sharing name).
+
+		To access configuration preferences, you must first establish
+		a preferences session using the SCPreferencesCreate function.
  */
 
 
@@ -41,16 +45,16 @@ __BEGIN_DECLS
 
 /*!
 	@function SCPreferencesSetComputerName
-	@discussion Updates the computer/host name in the system preferences.
+	@discussion Updates the computer name preference.
 
-	Note: In order to commit these changes to permanent storage a call
-	must be made to SCPreferencesCommitChanges().
-	A call to SCPreferencesApplyChanges() is also required for the new
-	name to become active.
-	@param prefs An SCPreferencesRef that should be used for all API calls.
-	@param name The computer/host name to be set.
-	@param nameEncoding The encoding associated with the computer/host name.
-	@result A boolean indicating the success (or failure) of the call.
+		Note: To commit these changes to permanent storage you must
+		call the SCPreferencesCommitChanges function.
+		In addition, you must call the SCPreferencesApplyChanges
+		function for the new name to become active.
+	@param prefs The preferences session.
+	@param name The computer name to be set.
+	@param nameEncoding The encoding associated with the computer name.
+	@result Returns TRUE if successful; FALSE otherwise.
  */
 Boolean
 SCPreferencesSetComputerName		(
@@ -61,18 +65,18 @@ SCPreferencesSetComputerName		(
 
 /*!
 	@function SCPreferencesSetLocalHostName
-	@discussion Updates the local host name in the system preferences.
+	@discussion Updates the local host name.
 
-	Note: In order to commit these changes to permanent storage a call
-	must be made to SCPreferencesCommitChanges().
-	A call to SCPreferencesApplyChanges() is also required for the new
-	name to become active.
-	@param prefs An SCPreferencesRef that should be used for all API calls.
+		Note: To commit these changes to permanent storage you must
+		call the SCPreferencesCommitChanges function.
+		In addition, you must call theSCPreferencesApplyChanges
+		function for the new name to become active.
+	@param prefs The preferences session.
 	@param name The local host name to be set.
 
-	Note: the string must conform to the naming conventions of a DNS host
+	Note: this string must conform to the naming conventions of a DNS host
 		name as specified in RFC 1034 (section 3.5).
-	@result A boolean indicating the success (or failure) of the call.
+	@result Returns TRUE if successful; FALSE otherwise.
  */
 Boolean
 SCPreferencesSetLocalHostName		(

@@ -56,7 +56,6 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <net/pfkeyv2.h>
-#include <netkey/key_var.h>
 #include <netinet/in.h>
 #include <netinet6/ipsec.h>
 

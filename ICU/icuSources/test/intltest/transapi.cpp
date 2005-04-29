@@ -1,8 +1,8 @@
-/********************************************************************
+/************************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2000-2003, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 2000-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ************************************************************************/
 /************************************************************************
 *   Date        Name        Description
 *   1/03/2000   Madhu        Creation.
@@ -25,6 +25,9 @@
 #include <stdlib.h>
 #include "unicode/rep.h"
 #include "unicode/locid.h"
+#include "unicode/uniset.h"
+
+static const UVersionInfo ICU_31 = {3,1,0,0};
 
 int32_t getInt(UnicodeString str)
 {
@@ -84,6 +87,9 @@ void TransliteratorAPITest::TestgetID() {
     for (i=0; i<Transliterator::countAvailableIDs(); i++){
         status = U_ZERO_ERROR;
         ID = (UnicodeString) Transliterator::getAvailableID(i);
+        if(ID.indexOf("Thai")>-1 && isICUVersionAtLeast(ICU_31)){
+            continue;
+        }   
         t = Transliterator::createInstance(ID, UTRANS_FORWARD, parseError, status);
         if(t == 0){
             errln("FAIL: " + ID);
@@ -308,6 +314,7 @@ void TransliteratorAPITest::TestTransliterate1(){
         message.append(Data[i][1]);
         doTest(message, temp, Data[i+2]);
 
+        callEverything(t, __LINE__);
         delete t;
     }
 }
@@ -349,6 +356,7 @@ void TransliteratorAPITest::TestTransliterate2(){
         t->transliterate(temp, start, limit);
         doTest(t->getID() + ".transliterate(Replaceable, int32_t, int32_t, ):(" + start + "," + limit + ")  for \n\t source: " + prettify(Data2[i+1]), temp, Data2[i+5]);
         status = U_ZERO_ERROR;
+        callEverything(t, __LINE__);
         delete t;
         t = NULL;
     }
@@ -363,11 +371,13 @@ void TransliteratorAPITest::TestTransliterate2(){
     }
     gotResBuf = temp = "try start greater than limit";
     t->transliterate(gotResBuf, 10, 5);
-    if(gotResBuf == temp)
+    if(gotResBuf == temp) {
         logln("OK: start greater than limit value handled correctly");
-    else
+    } else {
         errln("FAIL: start greater than limit value returned" + gotResBuf);
+    }
 
+    callEverything(t, __LINE__);
     delete t;
 
 }
@@ -408,12 +418,16 @@ void TransliteratorAPITest::TestSimpleKeyboardTransliterator(){
     UParseError parseError;
     Transliterator* t=Transliterator::createInstance("Any-Hex", UTRANS_FORWARD, parseError, status);
     if(t == 0) {
+        UnicodeString context;
+
+        if (parseError.preContext[0]) {
+            context += (UnicodeString)" at " + parseError.preContext;
+        }
+        if (parseError.postContext[0]) {
+            context += (UnicodeString)" | " + parseError.postContext;
+        }
         errln((UnicodeString)"FAIL: can't create Any-Hex, " +
-              (UnicodeString)u_errorName(status) +
-              (parseError.preContext[0] ?
-               ((UnicodeString)" at " + parseError.preContext +
-                (parseError.postContext[0] ?
-                 ((UnicodeString)" | " + parseError.postContext) : (UnicodeString)"")) : (UnicodeString)""));
+              (UnicodeString)u_errorName(status) + context);
         return;
     }
     UTransPosition index={19,20,20,20};
@@ -627,6 +641,7 @@ void TransliteratorAPITest::TestNullTransliterator(){
         errln("ERROR: NullTransliterator->handleTransliterate() failed");
     }
     doTest((UnicodeString)"NullTransliterator->handleTransliterate", replaceable, s);
+    callEverything(nullTrans, __LINE__);
     delete nullTrans;
 
     
@@ -662,6 +677,8 @@ void TransliteratorAPITest::TestRegisterUnregister(){
       errln("FAIL: TestA-TestB not registered\n");
       return;
    }
+   callEverything(s, __LINE__);
+   callEverything(t, __LINE__);
    delete s;
    
    /* Check inverse too
@@ -801,6 +818,7 @@ void TransliteratorAPITest::TestGetAdoptFilter(){
     doTest("adoptFilter round trip", got, temp);
 
     t->adoptFilter(new TestFilter2);
+    callEverything(t, __LINE__);
     data="heelloe";
     exp=UnicodeString("\\u0068eell\\u006Fe", "");
     got = data;
@@ -889,5 +907,64 @@ void TransliteratorAPITest::doTest(const UnicodeString& message, const UnicodeSt
     else 
         errln((UnicodeString)"FAIL:" + message + " failed  Got-->" + prettify(result)+ ", Expected--> " + prettify(expected) );
 }
+
+
+//
+//  callEverything    call all of the const (non-destructive) methods on a
+//                    transliterator, just to verify that they don't fail in some
+//                    destructive way.
+//
+#define CEASSERT(a) {if (!(a)) { \
+errln("FAIL at line %d from line %d: %s", __LINE__, line, #a);  return; }}
+
+void TransliteratorAPITest::callEverything(const Transliterator *tr, int line) {
+    Transliterator *clonedTR = tr->clone();
+    CEASSERT(clonedTR != NULL);
+
+    int32_t  maxcl = tr->getMaximumContextLength();
+    CEASSERT(clonedTR->getMaximumContextLength() == maxcl);
+
+    UnicodeString id;
+    UnicodeString clonedId;
+    id = tr->getID();
+    clonedId = clonedTR->getID();
+    CEASSERT(id == clonedId);
+
+    const UnicodeFilter *filter = tr->getFilter();
+    const UnicodeFilter *clonedFilter = clonedTR->getFilter();
+    if (filter == NULL || clonedFilter == NULL) {
+        // If one filter is NULL they better both be NULL.
+        CEASSERT(filter == clonedFilter);
+    } else {
+        CEASSERT(filter != clonedFilter);
+    }
+
+    UnicodeString rules;
+    UnicodeString clonedRules;
+    rules = tr->toRules(rules, FALSE);
+    clonedRules = clonedTR->toRules(clonedRules, FALSE);
+    CEASSERT(rules == clonedRules);
+
+    UnicodeSet sourceSet;
+    UnicodeSet clonedSourceSet;
+    tr->getSourceSet(sourceSet);
+    clonedTR->getSourceSet(clonedSourceSet);
+    CEASSERT(clonedSourceSet == sourceSet);
+
+    UnicodeSet targetSet;
+    UnicodeSet clonedTargetSet;
+    tr->getTargetSet(targetSet);
+    clonedTR->getTargetSet(clonedTargetSet);
+    CEASSERT(targetSet == clonedTargetSet);
+
+    UClassID classID = tr->getDynamicClassID();
+    CEASSERT(classID == clonedTR->getDynamicClassID());
+    CEASSERT(classID != 0);
+
+    delete clonedTR;
+}
+
+
+
 
 #endif /* #if !UCONFIG_NO_TRANSLITERATION */

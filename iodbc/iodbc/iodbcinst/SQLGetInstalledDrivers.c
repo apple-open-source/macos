@@ -1,7 +1,7 @@
 /*
  *  SQLGetInstalledDrivers.c
  *
- *  $Id: SQLGetInstalledDrivers.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: SQLGetInstalledDrivers.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  Get a list of installed drivers
  *
@@ -77,10 +77,10 @@
 #include "iodbc_error.h"
 
 extern BOOL GetAvailableDrivers ( LPCSTR lpszInfFile, LPSTR lpszBuf,
-    WORD cbBufMax,WORD FAR *pcbBufOut,BOOL infFile);
+    WORD cbBufMax,WORD *pcbBufOut,BOOL infFile);
 
 BOOL INSTAPI
-SQLGetInstalledDrivers (LPSTR lpszBuf, WORD cbBufMax, WORD FAR *pcbBufOut)
+SQLGetInstalledDrivers (LPSTR lpszBuf, WORD cbBufMax, WORD *pcbBufOut)
 {
   char path[1024] = { 0 };
 

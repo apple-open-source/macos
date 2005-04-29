@@ -137,6 +137,8 @@ USRSBINDIR            = $(USRDIR)/sbin
 VARDIR                = /private/var
 VARTMPDIR             = $(VARDIR)/tmp
 
+SYSTEM_DEVELOPER_TOOLS_DOC_DIR = $(NSDEVELOPERDIR)/ADC Reference Library/documentation/DeveloperTools
+
 ##
 # Targets
 ##

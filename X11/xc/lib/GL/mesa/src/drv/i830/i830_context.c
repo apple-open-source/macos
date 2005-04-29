@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_context.c,v 1.9 2003/02/06 04:18:00 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_context.c,v 1.11 2003/12/08 22:45:30 alanh Exp $ */
 
 /*
  * Authors:
@@ -41,7 +41,7 @@
 #include "matrix.h"
 #include "simple_list.h"
 #include "extensions.h"
-#include "mem.h"
+#include "imports.h"
 
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"
@@ -60,10 +60,8 @@
 #include "i830_vb.h"
 #include "i830_ioctl.h"
 
-#include <X11/Xlibint.h>
-#include <stdio.h>
 
-
+#include "utils.h"
 #ifndef I830_DEBUG
 int I830_DEBUG = (0);
 #endif
@@ -76,57 +74,44 @@ int I830_DEBUG = (0);
 
 static const GLubyte *i830DDGetString( GLcontext *ctx, GLenum name )
 {
-   switch (I830_CONTEXT(ctx)->i830Screen->deviceID) {
-   case PCI_CHIP_845_G:
-      switch (name) {
-      case GL_VENDOR:
+   const char * chipset;
+   static char buffer[128];
+
+   switch (name) {
+   case GL_VENDOR:
+      switch (I830_CONTEXT(ctx)->i830Screen->deviceID) {
+      case PCI_CHIP_845_G:
 	 return (GLubyte *)"2d3D, Inc";
-      case GL_RENDERER:
-	 return (GLubyte *)"Mesa DRI Intel(R) 845G " DRIVER_DATE;
-      default:
-	 return 0;
-      }
-      break;
-   case PCI_CHIP_I830_M:
-      switch (name) {
-      case GL_VENDOR:
+      
+      case PCI_CHIP_I830_M:
 	 return (GLubyte *)"VA Linux, Inc";
-      case GL_RENDERER:
-	 return (GLubyte *)"Mesa DRI Intel(R) 830M " DRIVER_DATE;
+
+      case PCI_CHIP_I855_GM:
+      case PCI_CHIP_I865_G:
       default:
-	 return 0;
-      }
-      break;
-   case PCI_CHIP_I855_GM:
-      switch (name) {
-      case GL_VENDOR:
 	 return (GLubyte *)"Tungsten Graphics, Inc";
-      case GL_RENDERER:
-	 return (GLubyte *)"Mesa DRI Intel(R) 852GM/855GM " DRIVER_DATE;
-      default:
-	 return 0;
       }
       break;
-   case PCI_CHIP_I865_G:
-      switch (name) {
-      case GL_VENDOR:
-	 return (GLubyte *)"Tungsten Graphics, Inc";
-      case GL_RENDERER:
-	 return (GLubyte *)"Mesa DRI Intel(R) 865G " DRIVER_DATE;
+      
+   case GL_RENDERER:
+      switch (I830_CONTEXT(ctx)->i830Screen->deviceID) {
+      case PCI_CHIP_845_G:
+	 chipset = "Intel(R) 845G"; break;
+      case PCI_CHIP_I830_M:
+	 chipset = "Intel(R) 830M"; break;
+      case PCI_CHIP_I855_GM:
+	 chipset = "Intel(R) 852GM/855GM"; break;
+      case PCI_CHIP_I865_G:
+	 chipset = "Intel(R) 865G"; break;
       default:
-	 return 0;
+	 chipset = "Unknown Intel Chipset"; break;
       }
-      break;
+
+      (void) driGetRendererString( buffer, chipset, DRIVER_DATE, 0 );
+      return (GLubyte *) buffer;
+
    default:
-      switch (name) {
-      case GL_VENDOR:
-	 return (GLubyte *)"Tungsten Graphics, Inc";
-      case GL_RENDERER:
-	 return (GLubyte *)"Mesa DRI Unknown Intel Chipset " DRIVER_DATE;
-      default:
-	 return 0;
-      }
-      break;
+      return NULL;
    }
 }
 
@@ -145,28 +130,42 @@ static void i830BufferSize(GLframebuffer *buffer,
    UNLOCK_HARDWARE(imesa);
 }
 
-/* Enable all the extensions we need */
-static void i830InitExtensions( GLcontext *ctx )
-{
-   _mesa_enable_imaging_extensions( ctx );
-   _mesa_enable_extension( ctx, "GL_ARB_multitexture" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_add" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_add" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_combine" ); 
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_combine" ); 
-   _mesa_enable_extension( ctx, "GL_EXT_blend_color" );
-   _mesa_enable_extension( ctx, "GL_EXT_blend_minmax" );
-   _mesa_enable_extension( ctx, "GL_EXT_blend_subtract" );
-   _mesa_enable_extension( ctx, "GL_EXT_blend_func_separate" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_lod_bias" );
-   _mesa_enable_extension( ctx, "GL_EXT_secondary_color" );
-   _mesa_enable_extension( ctx, "GL_EXT_fog_coord" );
 
-   /* Leave this for later */
-#if 0
-   _mesa_enable_extension( ctx, "GL_EXT_stencil_wrap" );
-#endif
-}
+/* Extension strings exported by the i830 driver.
+ */
+static const char * const card_extensions[] =
+{
+   "GL_ARB_multisample",
+   "GL_ARB_multitexture",
+   "GL_ARB_texture_border_clamp",
+   "GL_ARB_texture_compression",
+   "GL_ARB_texture_env_add",
+   "GL_ARB_texture_env_combine",
+   "GL_ARB_texture_env_dot3",
+   "GL_ARB_texture_mirrored_repeat",
+   "GL_EXT_blend_color",
+   "GL_EXT_blend_func_separate",
+   "GL_EXT_blend_minmax",
+   "GL_EXT_blend_subtract",
+   "GL_EXT_fog_coord",
+   "GL_EXT_secondary_color",
+   "GL_EXT_stencil_wrap",
+   "GL_EXT_texture_edge_clamp",
+   "GL_EXT_texture_env_add",
+   "GL_EXT_texture_env_combine",
+   "GL_EXT_texture_env_dot3",
+   "GL_EXT_texture_filter_anisotropic",
+   "GL_EXT_texture_lod_bias",
+   "GL_IBM_texture_mirrored_repeat",
+   "GL_INGR_blend_func_separate",
+   "GL_MESA_ycbcr_texture",
+   "GL_NV_texture_rectangle",
+   "GL_SGIS_generate_mipmap",
+   "GL_SGIS_texture_border_clamp",
+   "GL_SGIS_texture_edge_clamp",
+   NULL
+};
+
 
 extern const struct gl_pipeline_stage _i830_render_stage;
 
@@ -186,57 +185,34 @@ static const struct gl_pipeline_stage *i830_pipeline[] = {
 };
 
 
-#if DO_DEBUG
-static void add_debug_flags( const char *debug )
+static const struct dri_debug_control debug_control[] =
 {
-   if (strstr(debug, "fall")) 
-      I830_DEBUG |= DEBUG_FALLBACKS;
+    { "fall",  DEBUG_FALLBACKS },
+    { "tex",   DEBUG_TEXTURE },
+    { "ioctl", DEBUG_IOCTL },
+    { "prim",  DEBUG_PRIMS },
+    { "vert",  DEBUG_VERTS },
+    { "state", DEBUG_STATE },
+    { "verb",  DEBUG_VERBOSE },
+    { "dri",   DEBUG_DRI },
+    { "dma",   DEBUG_DMA },
+    { "san",   DEBUG_SANITY },
+    { "sync",  DEBUG_SYNC },
+    { "sleep", DEBUG_SLEEP },
+    { NULL,    0 }
+};
 
-   if (strstr(debug, "tex")) 
-      I830_DEBUG |= DEBUG_TEXTURE;
 
-   if (strstr(debug, "ioctl")) 
-      I830_DEBUG |= DEBUG_IOCTL;
-
-   if (strstr(debug, "prim")) 
-      I830_DEBUG |= DEBUG_PRIMS;
-
-   if (strstr(debug, "vert")) 
-      I830_DEBUG |= DEBUG_VERTS;
-
-   if (strstr(debug, "state")) 
-      I830_DEBUG |= DEBUG_STATE;
-
-   if (strstr(debug, "verb")) 
-      I830_DEBUG |= DEBUG_VERBOSE;
-
-   if (strstr(debug, "dri")) 
-      I830_DEBUG |= DEBUG_DRI;
-
-   if (strstr(debug, "dma")) 
-      I830_DEBUG |= DEBUG_DMA;
-
-   if (strstr(debug, "san")) 
-      I830_DEBUG |= DEBUG_SANITY;
-
-   if (strstr(debug, "sync")) 
-      I830_DEBUG |= DEBUG_SYNC;
-
-   if (strstr(debug, "sleep")) 
-      I830_DEBUG |= DEBUG_SLEEP;
-}
-#endif
-
-GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
-			    __DRIcontextPrivate *driContextPriv,
-			    void *sharedContextPrivate)
+GLboolean i830CreateContext( const __GLcontextModes *mesaVis,
+                             __DRIcontextPrivate *driContextPriv,
+                             void *sharedContextPrivate)
 {
    GLcontext *ctx , *shareCtx;
    i830ContextPtr imesa;
    __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
-   i830ScreenPrivate *i830Screen = (i830ScreenPrivate *)sPriv->private;
+   i830ScreenPrivate *screen = (i830ScreenPrivate *)sPriv->private;
    I830SAREAPtr saPriv=(I830SAREAPtr)
-       (((GLubyte *)sPriv->pSAREA)+i830Screen->sarea_priv_offset);
+       (((GLubyte *)sPriv->pSAREA)+screen->sarea_priv_offset);
 
    /* Allocate i830 context */
    imesa = (i830ContextPtr) CALLOC_STRUCT(i830_context_t);
@@ -247,27 +223,58 @@ GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
      shareCtx = ((i830ContextPtr) sharedContextPrivate)->glCtx;
    else
      shareCtx = NULL;
-   
-   imesa->glCtx = _mesa_create_context(mesaVis, shareCtx, imesa, GL_TRUE);
+   imesa->glCtx = _mesa_create_context(mesaVis, shareCtx, (void*) imesa, GL_TRUE);
    if (!imesa->glCtx) {
       FREE(imesa);
       return GL_FALSE;
    }
    driContextPriv->driverPrivate = imesa;
 
-   /* Set the maximum texture size small enough that we can guarentee
+
+   imesa->i830Screen = screen;
+   imesa->driScreen = sPriv;
+   imesa->sarea = saPriv;
+   imesa->glBuffer = NULL;
+
+
+   (void) memset( imesa->texture_heaps, 0, sizeof( imesa->texture_heaps ) );
+   make_empty_list( & imesa->swapped );
+
+   imesa->nr_heaps = 1;
+   imesa->texture_heaps[0] = driCreateTextureHeap( 0, imesa,
+	    screen->textureSize,
+	    12,
+	    I830_NR_TEX_REGIONS,
+	    imesa->sarea->texList,
+	    & imesa->sarea->texAge,
+	    & imesa->swapped,
+	    sizeof( struct i830_texture_object_t ),
+	    (destroy_texture_object_t *) i830DestroyTexObj );
+
+
+   /* Set the maximum texture size small enough that we can guarantee
     * that both texture units can bind a maximal texture and have them
     * in memory at once.
     */
+
    ctx = imesa->glCtx;
-   if (i830Screen->textureSize < 2*1024*1024) {
-      ctx->Const.MaxTextureLevels = 9;
-   } else if (i830Screen->textureSize < 8*1024*1024) {
-      ctx->Const.MaxTextureLevels = 10;
-   } else {
-      ctx->Const.MaxTextureLevels = 11;
-   }
    ctx->Const.MaxTextureUnits = 2;
+
+   /* FIXME: driCalcualteMaxTextureLevels assumes that mipmaps are tightly
+    * FIXME: packed, but they're not in Intel graphics hardware.
+    */
+   driCalculateMaxTextureLevels( imesa->texture_heaps,
+				 imesa->nr_heaps,
+				 & ctx->Const,
+				 4,
+				 11, /* max 2D texture size is 2048x2048 */
+				 0,  /* 3D textures unsupported */
+				 0,  /* cube textures unsupported. */
+				 0,  /* texture rectangles unsupported. */
+				 12,
+				 GL_FALSE );
+
+   ctx->Const.MaxTextureMaxAnisotropy = 2.0;
 
    ctx->Const.MinLineWidth = 1.0;
    ctx->Const.MinLineWidthAA = 1.0;
@@ -304,7 +311,6 @@ GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
    _swrast_allow_vertex_fog( ctx, GL_TRUE );
 
    /* Dri stuff */
-   imesa->display = dpy;
    imesa->hHWContext = driContextPriv->hHWContext;
    imesa->driFd = sPriv->fd;
    imesa->driHwLock = &sPriv->pSAREA->lock;
@@ -331,22 +337,13 @@ GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
    /* Completely disable stenciling for now, there are some serious issues
     * with stencil.
     */
-#if 1
+#if 0
    imesa->hw_stencil = 0;
 #endif
 
-   imesa->i830Screen = i830Screen;
-   imesa->driScreen = sPriv;
-   imesa->sarea = saPriv;
-   imesa->glBuffer = NULL;
-
-   imesa->texHeap = mmInit( 0, i830Screen->textureSize );
    imesa->RenderIndex = ~0;
    imesa->dirty = ~0;
    imesa->upload_cliprects = GL_TRUE;
-
-   make_empty_list(&imesa->TexObjList);
-   make_empty_list(&imesa->SwappedOut);
 
    imesa->CurrentTexObj[0] = 0;
    imesa->CurrentTexObj[1] = 0;
@@ -356,7 +353,7 @@ GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
 
    _math_matrix_ctr (&imesa->ViewportMatrix);
 
-   i830InitExtensions (ctx);
+   driInitExtensions( ctx, card_extensions, GL_TRUE );
    i830DDInitStateFuncs( ctx );
    i830DDInitTextureFuncs( ctx );
    i830InitTriFuncs (ctx);
@@ -366,10 +363,10 @@ GLboolean i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
    i830DDInitState (ctx);
 
 #if DO_DEBUG
-   if (getenv("INTEL_DEBUG"))
-      add_debug_flags( getenv("INTEL_DEBUG") );
-   if (getenv("I830_DEBUG"))
-      add_debug_flags( getenv("I830_DEBUG") );
+   I830_DEBUG  = driParseDebugString( getenv( "I830_DEBUG" ),
+				      debug_control );
+   I830_DEBUG |= driParseDebugString( getenv( "INTEL_DEBUG" ),
+				      debug_control );
 #endif
 
    if (getenv("I830_NO_RAST") || 
@@ -388,6 +385,10 @@ void i830DestroyContext(__DRIcontextPrivate *driContextPriv)
 
    assert(imesa); /* should never be null */
    if (imesa) {
+      GLboolean   release_texture_heaps;
+
+
+      release_texture_heaps = (imesa->glCtx->Shared->RefCount == 1);
       _swsetup_DestroyContext (imesa->glCtx);
       _tnl_DestroyContext (imesa->glCtx);
       _ac_DestroyContext (imesa->glCtx);
@@ -398,6 +399,20 @@ void i830DestroyContext(__DRIcontextPrivate *driContextPriv)
       /* free the Mesa context */
       imesa->glCtx->DriverCtx = NULL;
       _mesa_destroy_context(imesa->glCtx);
+
+      if ( release_texture_heaps ) {
+         /* This share group is about to go away, free our private
+          * texture object data.
+          */
+         int i;
+
+         for ( i = 0 ; i < imesa->nr_heaps ; i++ ) {
+	    driDestroyTextureHeap( imesa->texture_heaps[ i ] );
+	    imesa->texture_heaps[ i ] = NULL;
+         }
+
+	 assert( is_empty_list( & imesa->swapped ) );
+      }
 
       Xfree (imesa);
    }
@@ -438,15 +453,16 @@ void i830XMesaSetBackClipRects( i830ContextPtr imesa )
 
 static void i830XMesaWindowMoved( i830ContextPtr imesa )
 {
-   switch (imesa->glCtx->Color.DriverDrawBuffer) {
-   case GL_FRONT_LEFT:
+   switch (imesa->glCtx->Color._DrawDestMask) {
+   case FRONT_LEFT_BIT:
       i830XMesaSetFrontClipRects( imesa );
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       i830XMesaSetBackClipRects( imesa );
       break;
    default:
-      break;
+      /* glDrawBuffer(GL_NONE or GL_FRONT_AND_BACK): software fallback */
+      i830XMesaSetFrontClipRects( imesa );
    }
 }
 
@@ -495,47 +511,13 @@ GLboolean i830MakeCurrent(__DRIcontextPrivate *driContextPriv,
    return GL_TRUE;
 }
 
-/* Turn on/off page flipping according to the flags in the sarea:
- */
-static void
-i830UpdatePageFlipping( i830ContextPtr imesa )
-{
-   GLcontext *ctx = imesa->glCtx;
-   int front = 0;
-
-   switch (ctx->Color.DriverDrawBuffer) {
-   case GL_FRONT_LEFT:
-      front = 1;
-      break;
-   case GL_BACK_LEFT:
-      front = 0;
-      break;
-   default:
-      return;
-   }
-
-   if ( imesa->sarea->pf_current_page == 1 ) 
-      front ^= 1;
-   
-   if (front) {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->fbOffset;
-      imesa->drawMap = (char *)imesa->driScreen->pFB;
-      imesa->readMap = (char *)imesa->driScreen->pFB;
-   } else {
-      imesa->BufferSetup[I830_DESTREG_CBUFADDR] = imesa->i830Screen->backOffset;
-      imesa->drawMap = imesa->i830Screen->back.map;
-      imesa->readMap = imesa->i830Screen->back.map;
-   }
-
-   imesa->dirty |= I830_UPLOAD_BUFFERS;
-}
-
 void i830GetLock( i830ContextPtr imesa, GLuint flags )
 {
    __DRIdrawablePrivate *dPriv = imesa->driDrawable;
    __DRIscreenPrivate *sPriv = imesa->driScreen;
    I830SAREAPtr sarea = imesa->sarea;
    int me = imesa->hHWContext;
+   unsigned   i;
 
    drmGetLock(imesa->driFd, imesa->hHWContext, flags);
 
@@ -544,7 +526,7 @@ void i830GetLock( i830ContextPtr imesa, GLuint flags )
     * NOTE: This releases and regains the hw lock, so all state
     * checking must be done *after* this call:
     */
-   DRI_VALIDATE_DRAWABLE_INFO(imesa->display, sPriv, dPriv);
+   DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv);
 
    /* If we lost context, need to dump all registers to hardware.
     * Note that we don't care about 2d contexts, even if they perform
@@ -571,30 +553,12 @@ void i830GetLock( i830ContextPtr imesa, GLuint flags )
     * texture space, figure out which if any of our textures have been
     * ejected, and update our global LRU.
     */
-   if (sarea->texAge != imesa->texAge) {
-      int sz = 1 << (imesa->i830Screen->logTextureGranularity);
-      int idx, nr = 0;
 
-      /* Have to go right round from the back to ensure stuff ends up
-       * LRU in our local list...
-       */
-      for (idx = sarea->texList[I830_NR_TEX_REGIONS].prev ;
-	   idx != I830_NR_TEX_REGIONS && nr < I830_NR_TEX_REGIONS ;
-	   idx = sarea->texList[idx].prev, nr++) {
-	 if (sarea->texList[idx].age > imesa->texAge)
-	   i830TexturesGone(imesa, idx * sz, sz, sarea->texList[idx].in_use);
-      }
-
-      if (nr == I830_NR_TEX_REGIONS) {
-	 i830TexturesGone(imesa, 0, imesa->i830Screen->textureSize, 0);
-	 i830ResetGlobalLRU( imesa );
-      }
-
-      imesa->texAge = sarea->texAge;
+   for ( i = 0 ; i < imesa->nr_heaps ; i++ ) {
+      DRI_AGE_TEXTURES( imesa->texture_heaps[ i ] );
    }
 
    if (imesa->lastStamp != dPriv->lastStamp) {
-      i830UpdatePageFlipping( imesa );
       i830XMesaWindowMoved( imesa );
       imesa->lastStamp = dPriv->lastStamp;
    }
@@ -602,20 +566,16 @@ void i830GetLock( i830ContextPtr imesa, GLuint flags )
    sarea->last_quiescent = -1;  /* just kill it for now */
 }
 
-void i830SwapBuffers(Display *dpy, void *drawablePrivate)
+void i830SwapBuffers( __DRIdrawablePrivate *dPriv )
 {
-   __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
-
    if (dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
       i830ContextPtr imesa;
       GLcontext *ctx;
       imesa = (i830ContextPtr) dPriv->driContextPriv->driverPrivate;
       ctx = imesa->glCtx;
       if (ctx->Visual.doubleBufferMode) {
-	 /* flush pending rendering comands */
-	 _mesa_swapbuffers( ctx );
-	 if ( imesa->sarea->pf_active && 
-	      (dPriv->w * dPriv->h * imesa->i830Screen->cpp) > (300*300*4) ) {
+	 _mesa_notifySwapBuffers( ctx );  /* flush pending rendering comands */
+	 if ( 0 /*imesa->doPageFlip*/ ) { /* doPageFlip is never set !!! */
 	    i830PageFlip( dPriv );
 	 } else {
 	    i830CopyBuffer( dPriv );
@@ -623,6 +583,6 @@ void i830SwapBuffers(Display *dpy, void *drawablePrivate)
       }
    } else {
       /* XXX this shouldn't be an error but we can't handle it for now */
-      _mesa_problem(NULL, "i830SwapBuffers: drawable has no context!\n");
+      _mesa_problem(NULL, "%s: drawable has no context!\n", __FUNCTION__);
    }
 }

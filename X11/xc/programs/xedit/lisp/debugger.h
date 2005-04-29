@@ -27,7 +27,7 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/debugger.h,v 1.7 2002/11/08 08:00:56 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/debugger.h,v 1.8 2003/04/27 18:17:32 tsi Exp $ */
 
 #ifndef Lisp_debugger_h
 #define Lisp_debugger_h
@@ -61,7 +61,7 @@ typedef enum _LispDebugBreak {
     LispDebugBreakVariable
 } LispDebugBreak;
 
-#include "private.h"
+#include "lisp/private.h"
 
 /*
  * Prototypes

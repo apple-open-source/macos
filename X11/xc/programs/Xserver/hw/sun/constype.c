@@ -17,7 +17,7 @@
  *
  * Author:  Doug Moran, SRI
  */
-/* $XFree86: xc/programs/Xserver/hw/sun/constype.c,v 3.7 2001/10/28 03:33:10 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/constype.c,v 3.9 2003/11/21 05:17:01 dawes Exp $ */
 
 /*
 SUN-SPOTS DIGEST         Thursday, 17 March 1988       Volume 6 : Issue 31
@@ -39,10 +39,10 @@ library, accounting for what otherwise might appear to be a strange coding
 style.
 */
 #include <stdio.h>
-#if defined(SVR4) || defined(__bsdi__)
+#if defined(SVR4) || defined(CSRG_BASED)
 #include <string.h>
 #else
-/* NetBSD seemingly still uses <strings.h> and naturally SunOS does */
+/*  SunOS  */
 #include <strings.h>
 #endif
 #include <unistd.h>
@@ -80,6 +80,10 @@ main (argc, argv)
 #if defined(SVR4) || defined(__bsdi__)
 #include <fcntl.h>
 #include <sys/fbio.h>
+#if defined(SVR4) && defined(sun)
+/* VIS_GETIDENTIFIER ioctl added in Solaris 2.3 */
+#include <sys/visual_io.h>
+#endif
 #else
 #ifndef CSRG_BASED
 #include <sun/fbio.h>
@@ -146,15 +150,35 @@ int wu_fbid(devname, fbname, fbtype)
 {
 	struct fbgattr fbattr;
 	int fd, ioctl_ret;
+#ifdef VIS_GETIDENTIFIER
+	int vistype;
+	char *visname = NULL;
+	struct vis_identifier fbid;
+#endif
+
 	if ( (fd = open(devname, O_RDWR, 0)) == -1 ) {
 	    *fbname = "unable to open fb";
 	    return 2;
 	}
+
+#ifdef VIS_GETIDENTIFIER
+	if ((vistype = ioctl(fd, VIS_GETIDENTIFIER, &fbid)) >= 0) {
+	    visname = fbid.name;
+	}
+#endif
+
 	/* FBIOGATTR fails for early frame buffer types */
-	if ((ioctl_ret = ioctl(fd,FBIOGATTR,&fbattr))) 	/*success=>0(false)*/
+	if ((ioctl_ret = ioctl(fd,FBIOGATTR,&fbattr))<0) /*success=>0(false)*/
 	    ioctl_ret = ioctl(fd, FBIOGTYPE, &fbattr.fbtype);
 	close(fd);
 	if ( ioctl_ret == -1 ) {
+#ifdef VIS_GETIDENTIFIER
+	    if (visname != NULL) {
+		*fbname = visname;
+		*fbtype = vistype;
+		return 0;
+	    } 
+#endif
 	    *fbname = "ioctl on fb failed";
 	    return 2;
 	}
@@ -167,6 +191,13 @@ int wu_fbid(devname, fbname, fbtype)
 		*fbname = "tcx";
 		return 0;
 	    } else {
+#ifdef VIS_GETIDENTIFIER
+		if (visname != NULL) {
+		    *fbname = visname;
+		    *fbtype = vistype;
+		    return 0;
+		} 
+#endif
 		*fbname = "unk";
 		return 1;
 	    }
@@ -175,6 +206,13 @@ int wu_fbid(devname, fbname, fbtype)
 	 * have entries for some of the values returned by the ioctl.
 	 * Compare <sun/fbio.h> to the entries in "decode_fb" */
 	if ( decode_fb[fbattr.fbtype.fb_type] == NULL ) {
+#ifdef VIS_GETIDENTIFIER
+	    if (visname != NULL) {
+		*fbname = visname;
+		*fbtype = vistype;
+		return 0;
+	    } 
+#endif
             *fbname = "unk";
 	    return 1;
 	}

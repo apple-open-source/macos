@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Tensilica's Xtensa architecture.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright 2001,2002 Free Software Foundation, Inc.
    Contributed by Bob Wilson (bwilson@tensilica.com) at Tensilica.
 
 This file is part of GCC.
@@ -42,9 +42,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "function.h"
 #include "toplev.h"
 #include "optabs.h"
+#include "output.h"
 #include "libfuncs.h"
+#include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 /* Enumeration for all of the relational tests, so that we can build
    arrays indexed by the test type, and not worry about the order
@@ -84,9 +87,10 @@ const char *xtensa_st_opcodes[(int) MAX_MACHINE_MODE];
 #define LARGEST_MOVE_RATIO 15
 
 /* Define the structure for the machine field in struct function.  */
-struct machine_function
+struct machine_function GTY(())
 {
   int accesses_prev_frame;
+  bool incoming_a7_copied;
 };
 
 /* Vector, indexed by hard register number, which contains 1 for a
@@ -104,10 +108,10 @@ const char xtensa_leaf_regs[FIRST_PSEUDO_REGISTER] =
 /* Map hard register number to register class */
 const enum reg_class xtensa_regno_to_class[FIRST_PSEUDO_REGISTER] =
 {
-  GR_REGS,	SP_REG,		GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
-  GR_REGS,	GR_REGS,	GR_REGS,	GR_REGS,
+  RL_REGS,	SP_REG,		RL_REGS,	RL_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	GR_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	RL_REGS,
+  RL_REGS,	RL_REGS,	RL_REGS,	RL_REGS,
   AR_REGS,	AR_REGS,	BR_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
   FP_REGS,	FP_REGS,	FP_REGS,	FP_REGS,
@@ -185,6 +189,26 @@ enum reg_class xtensa_char_to_class[256] =
   NO_REGS,	NO_REGS,	NO_REGS,	NO_REGS,
 };
 
+static int b4const_or_zero PARAMS ((int));
+static enum internal_test map_test_to_internal_test PARAMS ((enum rtx_code));
+static rtx gen_int_relational PARAMS ((enum rtx_code, rtx, rtx, int *));
+static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
+static rtx gen_conditional_move PARAMS ((rtx));
+static rtx fixup_subreg_mem PARAMS ((rtx x));
+static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
+static struct machine_function * xtensa_init_machine_status PARAMS ((void));
+static void printx PARAMS ((FILE *, signed int));
+static unsigned int xtensa_multibss_section_type_flags
+  PARAMS ((tree, const char *, int));
+static void xtensa_select_rtx_section
+  PARAMS ((enum machine_mode, rtx, unsigned HOST_WIDE_INT));
+static void xtensa_encode_section_info PARAMS ((tree, int));
+
+static rtx frame_size_const;
+static int current_function_arg_words;
+static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
+  REG_ALLOC_ORDER;
+
 /* This macro generates the assembly code for function entry.
    FILE is a stdio stream to output the code to.
    SIZE is an int: how many units of temporary storage to allocate.
@@ -210,23 +234,13 @@ enum reg_class xtensa_char_to_class[256] =
 #undef TARGET_ASM_ALIGNED_SI_OP
 #define TARGET_ASM_ALIGNED_SI_OP "\t.word\t"
 
+#undef TARGET_ASM_SELECT_RTX_SECTION
+#define TARGET_ASM_SELECT_RTX_SECTION  xtensa_select_rtx_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO  xtensa_encode_section_info
+
 struct gcc_target targetm = TARGET_INITIALIZER;
-
-static int b4const_or_zero PARAMS ((int));
-static enum internal_test map_test_to_internal_test PARAMS ((enum rtx_code));
-static rtx gen_int_relational PARAMS ((enum rtx_code, rtx, rtx, int *));
-static rtx gen_float_relational PARAMS ((enum rtx_code, rtx, rtx));
-static rtx gen_conditional_move PARAMS ((rtx));
-static rtx fixup_subreg_mem PARAMS ((rtx x));
-static enum machine_mode xtensa_find_mode_for_size PARAMS ((unsigned));
-static void xtensa_init_machine_status PARAMS ((struct function *p));
-static void xtensa_free_machine_status PARAMS ((struct function *p));
-static void printx PARAMS ((FILE *, signed int));
-static rtx frame_size_const;
-static int current_function_arg_words;
-static const int reg_nonleaf_alloc_order[FIRST_PSEUDO_REGISTER] =
-  REG_ALLOC_ORDER;
-
+
 
 /*
  * Functions to test Xtensa immediate operand validity.
@@ -1262,45 +1276,8 @@ xtensa_emit_move_sequence (operands, mode)
       if (!xtensa_valid_move (mode, operands))
 	operands[1] = force_reg (mode, operands[1]);
 
-      /* Check if this move is copying an incoming argument in a7.  If
-	 so, emit the move, followed by the special "set_frame_ptr"
-	 unspec_volatile insn, at the very beginning of the function.
-	 This is necessary because the register allocator will ignore
-	 conflicts with a7 and may assign some other pseudo to a7.  If
-	 that pseudo was assigned prior to this move, it would clobber
-	 the incoming argument in a7.  By copying the argument out of
-	 a7 as the very first thing, and then immediately following
-	 that with an unspec_volatile to keep the scheduler away, we
-	 should avoid any problems.  */
-
-      if (a7_overlap_mentioned_p (operands[1]))
-	{
-	  rtx mov;
-	  switch (mode)
-	    {
-	    case SImode:
-	      mov = gen_movsi_internal (operands[0], operands[1]);
-	      break;
-	    case HImode:
-	      mov = gen_movhi_internal (operands[0], operands[1]);
-	      break;
-	    case QImode:
-	      mov = gen_movqi_internal (operands[0], operands[1]);
-	      break;
-	    default:
-	      abort ();
-	    }
-
-	  /* Insert the instructions before any other argument copies.
-	     (The set_frame_ptr insn comes _after_ the move, so push it
-	     out first.)  */
-	  push_topmost_sequence ();
-	  emit_insn_after (gen_set_frame_ptr (), get_insns ());
-	  emit_insn_after (mov, get_insns ());
-	  pop_topmost_sequence ();
-
-	  return 1;
-	}
+      if (xtensa_copy_incoming_a7 (operands, mode))
+	return 1;
     }
 
   /* During reload we don't want to emit (subreg:X (mem:Y)) since that
@@ -1329,6 +1306,74 @@ fixup_subreg_mem (x)
       x = alter_subreg (&temp);
     }
   return x;
+}
+
+
+/* Check if this move is copying an incoming argument in a7.  If so,
+   emit the move, followed by the special "set_frame_ptr"
+   unspec_volatile insn, at the very beginning of the function.  This
+   is necessary because the register allocator will ignore conflicts
+   with a7 and may assign some other pseudo to a7.  If that pseudo was
+   assigned prior to this move, it would clobber the incoming argument
+   in a7.  By copying the argument out of a7 as the very first thing,
+   and then immediately following that with an unspec_volatile to keep
+   the scheduler away, we should avoid any problems.  */
+
+bool
+xtensa_copy_incoming_a7 (operands, mode)
+     rtx *operands;
+     enum machine_mode mode;
+{
+  if (a7_overlap_mentioned_p (operands[1])
+      && !cfun->machine->incoming_a7_copied)
+    {
+      rtx mov;
+      switch (mode)
+	{
+	case DFmode:
+	  mov = gen_movdf_internal (operands[0], operands[1]);
+	  break;
+	case SFmode:
+	  mov = gen_movsf_internal (operands[0], operands[1]);
+	  break;
+	case DImode:
+	  mov = gen_movdi_internal (operands[0], operands[1]);
+	  break;
+	case SImode:
+	  mov = gen_movsi_internal (operands[0], operands[1]);
+	  break;
+	case HImode:
+	  mov = gen_movhi_internal (operands[0], operands[1]);
+	  break;
+	case QImode:
+	  mov = gen_movqi_internal (operands[0], operands[1]);
+	  break;
+	default:
+	  abort ();
+	}
+
+      /* Insert the instructions before any other argument copies.
+	 (The set_frame_ptr insn comes _after_ the move, so push it
+	 out first.)  */
+      push_topmost_sequence ();
+      emit_insn_after (gen_set_frame_ptr (), get_insns ());
+      emit_insn_after (mov, get_insns ());
+      pop_topmost_sequence ();
+
+      /* Ideally the incoming argument in a7 would only be copied
+	 once, since propagating a7 into the body of a function
+	 will almost certainly lead to errors.  However, there is
+	 at least one harmless case (in GCSE) where the original
+	 copy from a7 is changed to copy into a new pseudo.  Thus,
+	 we use a flag to only do this special treatment for the
+	 first copy of a7.  */
+
+      cfun->machine->incoming_a7_copied = true;
+
+      return 1;
+    }
+
+  return 0;
 }
 
 
@@ -1371,7 +1416,7 @@ xtensa_expand_block_move (operands)
   if (num_pieces >= move_ratio)
     return 0;
 
-   /* make sure the memory addresses are valid */
+  /* make sure the memory addresses are valid */
   operands[0] = validize_mem (dest);
   operands[1] = validize_mem (src);
 
@@ -1539,21 +1584,10 @@ xtensa_expand_nonlocal_goto (operands)
 }
 
 
-static void
-xtensa_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+xtensa_init_machine_status ()
 {
-  p->machine = (struct machine_function *)
-    xcalloc (1, sizeof (struct machine_function));
-}
-
-
-static void
-xtensa_free_machine_status (p)
-     struct function *p;
-{
-  free (p->machine);
-  p->machine = NULL;
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 
@@ -1628,7 +1662,7 @@ xtensa_emit_call (callop, operands)
      int callop;
      rtx *operands;
 {
-  char *result = (char *) malloc (64);
+  static char result[64];
   rtx tgt = operands[callop];
 
   if (GET_CODE (tgt) == CONST_INT)
@@ -1836,18 +1870,10 @@ override_options ()
     }
 
   init_machine_status = xtensa_init_machine_status;
-  free_machine_status = xtensa_free_machine_status;
 
   /* Check PIC settings.  There's no need for -fPIC on Xtensa and
      some targets need to always use PIC.  */
-  if (XTENSA_ALWAYS_PIC)
-    {
-      if (flag_pic)
-	warning ("-f%s ignored (all code is position independent)",
-		 (flag_pic > 1 ? "PIC" : "pic"));
-      flag_pic = 1;
-    }
-  if (flag_pic > 1)
+  if (flag_pic > 1 || (XTENSA_ALWAYS_PIC))
     flag_pic = 1;
 }
 
@@ -1996,12 +2022,7 @@ print_operand (file, op, letter)
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro 'ENCODE_SECTION_INFO' to store the information
-   into the 'symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 
 void
 print_operand_address (file, addr)
@@ -2085,7 +2106,7 @@ xtensa_output_literal (file, x, mode, labelno)
      int labelno;
 {
   long value_long[2];
-  union real_extract u;
+  REAL_VALUE_TYPE r;
   int size;
 
   fprintf (file, "\t.literal .LC%u, ", (unsigned) labelno);
@@ -2096,18 +2117,18 @@ xtensa_output_literal (file, x, mode, labelno)
       if (GET_CODE (x) != CONST_DOUBLE)
 	abort ();
 
-      memcpy ((char *) &u, (char *) &CONST_DOUBLE_LOW (x), sizeof u);
+      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
       switch (mode)
 	{
 	case SFmode:
-	  REAL_VALUE_TO_TARGET_SINGLE (u.d, value_long[0]);
-	  fprintf (file, "0x%08lx\t\t# %.12g (float)\n", value_long[0], u.d);
+	  REAL_VALUE_TO_TARGET_SINGLE (r, value_long[0]);
+	  fprintf (file, "0x%08lx\n", value_long[0]);
 	  break;
 
 	case DFmode:
-	  REAL_VALUE_TO_TARGET_DOUBLE (u.d, value_long);
-	  fprintf (file, "0x%08lx, 0x%08lx # %.20g (double)\n",
-		   value_long[0], value_long[1], u.d);
+	  REAL_VALUE_TO_TARGET_DOUBLE (r, value_long);
+	  fprintf (file, "0x%08lx, 0x%08lx\n",
+		   value_long[0], value_long[1]);
 	  break;
 
 	default:
@@ -2213,8 +2234,9 @@ xtensa_reorg (first)
 	continue;
 
       pat = PATTERN (insn);
-      if (GET_CODE (pat) == UNSPEC_VOLATILE
-	  && (XINT (pat, 1) == UNSPECV_SET_FP))
+      if (GET_CODE (pat) == SET
+	  && GET_CODE (SET_SRC (pat)) == UNSPEC_VOLATILE
+	  && (XINT (SET_SRC (pat), 1) == UNSPECV_SET_FP))
 	{
 	  set_frame_ptr_insn = insn;
 	  break;
@@ -2294,6 +2316,33 @@ xtensa_function_epilogue (file, size)
 }
 
 
+rtx
+xtensa_return_addr (count, frame)
+     int count;
+     rtx frame;
+{
+  rtx result, retaddr;
+
+  if (count == -1)
+    retaddr = gen_rtx_REG (Pmode, 0);
+  else
+    {
+      rtx addr = plus_constant (frame, -4 * UNITS_PER_WORD);
+      addr = memory_address (Pmode, addr);
+      retaddr = gen_reg_rtx (Pmode);
+      emit_move_insn (retaddr, gen_rtx_MEM (Pmode, addr));
+    }
+
+  /* The 2 most-significant bits of the return address on Xtensa hold
+     the register window size.  To get the real return address, these
+     bits must be replaced with the high bits from the current PC.  */
+
+  result = gen_reg_rtx (Pmode);
+  emit_insn (gen_fix_return_addr (result, retaddr));
+  return result;
+}
+
+
 /* Create the va_list data type.
    This structure is set up by __builtin_saveregs.  The __va_reg
    field points to a stack-allocated region holding the contents of the
@@ -2308,11 +2357,12 @@ xtensa_function_epilogue (file, size)
    argument word N for N >= 6. */
 
 tree
-xtensa_build_va_list (void)
+xtensa_build_va_list ()
 {
-  tree f_stk, f_reg, f_ndx, record;
+  tree f_stk, f_reg, f_ndx, record, type_decl;
 
-  record = make_node (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
+  type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
 
   f_stk = build_decl (FIELD_DECL, get_identifier ("__va_stk"),
 		      ptr_type_node);
@@ -2325,6 +2375,8 @@ xtensa_build_va_list (void)
   DECL_FIELD_CONTEXT (f_reg) = record;
   DECL_FIELD_CONTEXT (f_ndx) = record;
 
+  TREE_CHAIN (record) = type_decl;
+  TYPE_NAME (record) = type_decl;
   TYPE_FIELDS (record) = f_stk;
   TREE_CHAIN (f_stk) = f_reg;
   TREE_CHAIN (f_reg) = f_ndx;
@@ -2351,9 +2403,7 @@ xtensa_builtin_saveregs ()
   /* allocate the general-purpose register space */
   gp_regs = assign_stack_local
     (BLKmode, MAX_ARGS_IN_REGISTERS * UNITS_PER_WORD, -1);
-  MEM_IN_STRUCT_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (gp_regs) = 1;
-  RTX_UNCHANGING_P (XEXP (gp_regs, 0)) = 1;
+  set_mem_alias_set (gp_regs, get_varargs_alias_set ());
 
   /* Now store the incoming registers.  */
   dest = change_address (gp_regs, SImode,
@@ -2378,8 +2428,7 @@ xtensa_builtin_saveregs ()
    current function to fill in an initial va_list. */
 
 void
-xtensa_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+xtensa_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -2598,16 +2647,22 @@ xtensa_va_arg (valist, type)
 
 
 enum reg_class
-xtensa_preferred_reload_class (x, class)
+xtensa_preferred_reload_class (x, class, isoutput)
      rtx x;
      enum reg_class class;
+     int isoutput;
 {
-  if (CONSTANT_P (x) && GET_CODE (x) == CONST_DOUBLE)
+  if (!isoutput && CONSTANT_P (x) && GET_CODE (x) == CONST_DOUBLE)
     return NO_REGS;
 
-  /* Don't use sp for reloads! */
-  if (class == AR_REGS)
-    return GR_REGS;
+  /* Don't use the stack pointer or hard frame pointer for reloads!
+     The hard frame pointer would normally be OK except that it may
+     briefly hold an incoming argument in the prologue, and reload
+     won't know that it is live because the hard frame pointer is
+     treated specially.  */
+
+  if (class == AR_REGS || class == GR_REGS)
+    return RL_REGS;
 
   return class;
 }
@@ -2629,13 +2684,13 @@ xtensa_secondary_reload_class (class, mode, x, isoutput)
   if (!isoutput)
     {
       if (class == FP_REGS && constantpool_mem_p (x))
-	return GR_REGS;
+	return RL_REGS;
     }
 
   if (ACC_REG_P (regno))
-    return (class == GR_REGS ? NO_REGS : GR_REGS);
+    return ((class == GR_REGS || class == RL_REGS) ? NO_REGS : RL_REGS);
   if (class == ACC_REG)
-    return (GP_REG_P (regno) ? NO_REGS : GR_REGS);
+    return (GP_REG_P (regno) ? NO_REGS : RL_REGS);
 
   return NO_REGS;
 }
@@ -2664,6 +2719,10 @@ order_regs_for_local_alloc ()
       for (i = 0; i < num_arg_regs; i++)
 	reg_alloc_order[nxt++] = GP_ARG_FIRST + i;
 
+      /* list the coprocessor registers in order */
+      for (i = 0; i < BR_REG_NUM; i++)
+	reg_alloc_order[nxt++] = BR_REG_FIRST + i;
+
       /* list the FP registers in order for now */
       for (i = 0; i < 16; i++)
 	reg_alloc_order[nxt++] = FP_REG_FIRST + i;
@@ -2673,10 +2732,6 @@ order_regs_for_local_alloc ()
       reg_alloc_order[nxt++] = 1;	/* a1 = stack pointer */
       reg_alloc_order[nxt++] = 16;	/* pseudo frame pointer */
       reg_alloc_order[nxt++] = 17;	/* pseudo arg pointer */
-
-      /* list the coprocessor registers in order */
-      for (i = 0; i < BR_REG_NUM; i++)
-	reg_alloc_order[nxt++] = BR_REG_FIRST + i;
 
       reg_alloc_order[nxt++] = ACC_REG_FIRST;	/* MAC16 accumulator */
     }
@@ -2731,3 +2786,56 @@ a7_overlap_mentioned_p (x)
 
   return 0;
 }
+
+
+/* Some Xtensa targets support multiple bss sections.  If the section
+   name ends with ".bss", add SECTION_BSS to the flags.  */
+
+static unsigned int
+xtensa_multibss_section_type_flags (decl, name, reloc)
+     tree decl;
+     const char *name;
+     int reloc;
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+  const char *suffix;
+
+  suffix = strrchr (name, '.');
+  if (suffix && strcmp (suffix, ".bss") == 0)
+    {
+      if (!decl || (TREE_CODE (decl) == VAR_DECL
+		    && DECL_INITIAL (decl) == NULL_TREE))
+	flags |= SECTION_BSS;  /* @nobits */
+      else
+	warning ("only uninitialized variables can be placed in a "
+		 ".bss section");
+    }
+
+  return flags;
+}
+
+
+/* The literal pool stays with the function.  */
+
+static void
+xtensa_select_rtx_section (mode, x, align)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  function_section (current_function_decl);
+}
+
+/* If we are referencing a function that is static, make the SYMBOL_REF
+   special so that we can generate direct calls to it even with -fpic.  */
+
+static void
+xtensa_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && ! TREE_PUBLIC (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+#include "gt-xtensa.h"

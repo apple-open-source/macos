@@ -2,7 +2,7 @@
 # $FreeBSD: src/lib/libc/rpc/Makefile.inc,v 1.21 2001/10/04 21:03:17 wpaul Exp $
 
 .PATH: ${.CURDIR}/../libc/rpc ${.CURDIR}/.
-SRCS+=	auth_none.c auth_unix.c authunix_prot.c bindresvport.c clnt_bcast.c \
+MISRCS+= auth_none.c auth_unix.c authunix_prot.c bindresvport.c clnt_bcast.c \
 	clnt_dg.c clnt_generic.c clnt_perror.c clnt_raw.c clnt_simple.c \
 	clnt_vc.c rpc_dtablesize.c getnetconfig.c getnetpath.c getrpcent.c \
 	getrpcport.c mt_misc.c pmap_clnt.c pmap_getmaps.c pmap_getport.c \
@@ -12,24 +12,22 @@ SRCS+=	auth_none.c auth_unix.c authunix_prot.c bindresvport.c clnt_bcast.c \
 	svc_raw.c svc_run.c svc_simple.c svc_vc.c
 
 # XDR
-SRCS+=	xdr.c xdr_array.c xdr_float.c xdr_mem.c xdr_rec.c xdr_reference.c \
+MISRCS+= xdr.c xdr_array.c xdr_float.c xdr_mem.c xdr_rec.c xdr_reference.c \
 	xdr_stdio.c
 
 # Secure-RPC
-SRCS+=  auth_time.c auth_des.c authdes_prot.c des_crypt.c des_soft.c \
+MISRCS+= auth_time.c auth_des.c authdes_prot.c des_crypt.c des_soft.c \
 	crypt_client.c key_call.c key_prot_xdr.c getpublickey.c \
 	svc_auth_des.c
 
 # Resolver stuff
-SRCS+=	netname.c netnamer.c rpcdname.c
+MISRCS+= netname.c netnamer.c rpcdname.c
 
 # Misc Source
-SRCS+=	rtime.c
+MISRCS+= rtime.c
 
 # generated sources
-SRCS+=  crypt_clnt.c crypt_xdr.c crypt.h
-
-CFLAGS+= -DBROKEN_DES -DPORTMAP -DDES_BUILTIN
+MISRCS+= crypt_clnt.c crypt_xdr.c crypt.h
 
 CLEANFILES+= crypt_clnt.c crypt_xdr.c crypt.h
 

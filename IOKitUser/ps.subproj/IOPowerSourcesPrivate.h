@@ -24,6 +24,9 @@
 #define _IOPowerSourcesPrivate_h_
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <sys/cdefs.h>
+
+__BEGIN_DECLS
 
 /* 
     @header IOPowerSources.h
@@ -91,5 +94,7 @@ extern CFStringRef          IOPSGetProvidingPowerSourceType(CFTypeRef snapshot);
     @result kCFBooleanTrue if the power source is supported, kCFBooleanFalse otherwise.
 */
 extern CFBooleanRef         IOPSPowerSourceSupported(CFTypeRef snapshot, CFStringRef type);
+
+__END_DECLS
 
 #endif

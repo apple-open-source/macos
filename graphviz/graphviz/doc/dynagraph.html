@@ -1,0 +1,911 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<TITLE>Dynagraph</TITLE>
+<META name="Generator" CONTENT="TextPad 4.4">
+<META name="Author" CONTENT="Gordon Woodhull">
+<META name="Keywords" CONTENT="">
+<META name="Description" CONTENT="dynagraph graph layout server">
+<style>
+	dt {
+		font-weight: bold;
+	}
+	pre {
+		text-indent:0;
+	}
+	table {
+		border-width:0;
+	}
+	table th {
+		text-align: left;
+		vertical-align: top;
+		padding-right: 1em;
+	}
+	table.lined {
+		border-collapse: collapse;
+	}
+	table.lined th {
+		border-style: solid;
+		border-width: 1pix;
+		border-color: black;
+		padding: 1pt,6pt;
+	}
+	table.lined td {
+		border-style: solid;
+		border-width: 1pix;
+		border-color: black;
+		padding: 2pt,6pt;
+		text-align: left;
+		vertical-align: top;
+	}
+	.dent {
+		margin-left: 3em;
+	}
+</style>
+</HEAD>
+
+<BODY>
+<h1>Dynagraph</h1>
+<ol type=I>
+	<li><a href="#introduction">Introduction</a></li>
+	<li><a href="#front_ends">The front ends</a>
+	<ol type=A>
+		<li><a href="#dggrappa">Dynagraph for Grappa</a>
+		<li><a href="#dgwin">Dynagraph for Windows</a>
+	</ol></li>
+	<li><a href="#executable">The executable</a>
+	<ol type=A>
+		<li><a href="#command_line_options">Command line options</a></li>
+		<li><a href="#incrface_language">The incrface language</a></li>
+		<li><a href="#incrface_example">Incrface example</a></li>
+	</ol>
+	<li><a href="#cplusplus">The C++ library</a></li>
+	<ol type=A>
+		<li><a href="#cplusplus_programming_model">C++ programming model</a></li>
+		<li><a href="#cplusplus_with_incrface">How to use Dynagraph with the incrface library</a></li>
+		<li><a href="#cplusplus_without_incrface">How to use Dynagraph without the incrface library</a></li>
+		<li><a href="#cplusplus_api">C++ API reference</a></li>
+	</ol>
+	<li><a href="#com">The COM library</a></li>
+	<ol type=A>
+		<li><a href="#com_programming_model">COM programming model</a></li>
+		<li><a href="#use_com">How to use the COM library</a></li>
+	</ol>
+	<li><a href="#api">API reference</a></li>
+	<ol type=A>
+		<li><a href="#common_attributes">Attributes common to graphs, nodes and edges</a></li>
+		<li><a href="#graph_attributes">Graph attributes</a></li>
+		<li><a href="#node_attributes">Node attributes</a></li>
+		<li><a href="#edge_attributes">Edge attributes</a></li>
+	</ol>
+	<li><a href="#links">Links</a></li>
+</ol>
+
+
+<h2><a name="introduction"/>Introduction</h2>
+<p>Dynagraph is a platform-independent graph layout engine.  Dynagraph calculates geometric coordinates for nodes and edges of a graph diagram.  In its response to changes in the graph - insertion, deletion, or modification of nodes and edges - Dynagraph balances stability (unchanged parts of the graph should not change much) with readability (edges should be short and direct, and should cross each other as little as possible).</p>
+
+<p>Dynagraph itself does not do actual rendering to a screen, graphic file, or printer, nor does it provide a GUI for editing graphs.  Dynagraph only computes the coordinates, and front ends like <a href="#dgwin">Dynagraph for Windows (dgwin)</a> and <a href="#dggrappa">Grappa</a> handle all the platform-specific rendering and GUI functions.  (This document briefly describes how to use these front ends.)  Since dynagraph shares its file format and most of the attributes with the other graphviz tools (dot,neato,lefty), those tools can also be used to render Dynagraph output. </p>
+
+<p>This document is mostly concerned with how to connect programs to the Dynagraph layout engines.  Dynagraph supports three ways to do this:</p>
+<ul>
+	<li>The Dynagraph <a href="#executable">executable</a> can be run as a batch command or continuously over pipes.</li>
+	<li>Applications written in <a href="#cplusplus">C++</a> can link directly to the library</li>
+	<li>Windows applications can instantiate objects from the COM library and manipulate them via their COM interfaces.</li>
+</ul>
+<p>Although the programming models differ, the <a href="#api">API</a> for all of these is essentially the same.  Even if you do not intend to write your own front end, you will need to know something of the API in order to specify the input.</p>
+
+<h2><a name="front_ends"/>The front ends</h2>
+<p>Most likely you will not be writing your own front end to draw to the screen, graphics files, etc.  We provide two front ends that you may want to use: dggrappa, a version of <a href="grappa">Grappa</a> adapted for Dynagraph; and <a href="http:www.research.att.com/sw/tools/dgwin">Dynagraph for Windows</a>, which integrates Dynagraph with other OLE (ActiveX) applications such as the Microsoft Office suite.</p>
+
+<h3><a name="dggrappa"/>Dynagraph for Grappa</h3>
+<p>Dynagraph for Grappa (dggrappa) (source available <a href="http://www.graphviz.org/pub/dggrappa">here</a>) is a slightly modified version of <a href="grappa">Grappa</a> with an extra module to interpret the <a href="#incrface_language">incrface language</a>.  The dggrappa application spawns the Dynagraph executable in a separate process and communicates with it using pipes.  Drawing commands in Grappa send incrface commands to Dynagraph; Dynagraph returns incrface events to which Grappa responds by updating the canvas.  For example, pressing the shift key while clicking on the background or dragging between nodes sends "insert" commands to Dynagraph; they return as "insert" events and Grappa draws the new nodes and edges.  Also dggrappa can be told to copy its standard input to the Dynagraph input (with "-i -").  Then you or your application can enter or change the graph by inputting <a href="#incrface_language">incrface language</a> commands to dggrappa.</p>
+
+<p>The dggrappa application is a class called att.dggrappa.DGDemo.  It requires one command-line parameter: the path to the Dynagraph executable.  It will spawn dynagraph with the command line parameter <a href="#cmdline_dot_coords">-d</a>, because Grappa uses dot-like coordinates (with the difference that the lower-left corner is not necessarily 0,0).  By default it specifies the graph attributes [<a href="#graph_resolution">resolution</a>="1,1",<a href="#graph_separation">separation</a>="24,24",<a href="#graph_engines">engines</a>="shapegen,fdp,voronoi,visspline"]</p>
+<dl>
+	<dt>-i <i>filename</i> specify input file
+	<dd>Specifies a file to read incrface commands from.  If <i>filename</i> is a single dash ("-"), dggrappa will copy its standard input to the standard input of the Dynagraph process.
+	<dt>-a <i>attr</i>=<i>value</i></dt>
+	<dd>(Exactly one space.) Sets a graph attribute that will be sent in the initial <a href="#incr_open_graph">open graph</a> command.  Particularly useful for specifying the layout <a href="#graph_engines">engines</a> to use.</dd>
+	<dt>-l <i>filename</i> specify log file</dt>
+	<dd>Tells dggrappa to log what it's sending to the Dynagraph process.</dd>
+	<dt>-b big graph exploring mode</dt>
+	<dd>This is for looking at graphs that are too large to visualize.  Shows the portion of the graph that is within N edges of what is selected.</dd>
+	<dt>-d graph drawing mode</dt>
+	<dd>This is the default.  Holding shift while clicking on the background creates nodes; holding shift while dragging between nodes creates edges.</dd>
+	<dt>-p show the pipes</dt>
+	<dd>Tells dggrappa to write to standard output a transcript of what it's sending and receiving on the pipes to Dynagraph.</dd>
+</dl>
+
+<h3><a name="dgwin"/>Dynagraph for Windows</h3>
+<p>Dynagraph for Windows (dgwin) (binaries <a href="http://www.research.att.com/sw/tools/dgwin">here</a>, source <a href="http://www.graphviz.org/pub/dgwin">here</a>) is a full-featured, OLE-capable graph drawing application and control.  It can be embedded in OLE applications such as the Microsoft Office suite, Web pages, and Visual Basic programs.  It wraps the Dynagraph library in COM interfaces, so that the layout and content can be controlled from any ActiveX compatible language.  Dynagraph for Windows is based on a general control container library called Montage, which can be used for creating other new OLE document types and applications.</p>
+
+<h4>Driving dgwin with text</h4>
+<p>At this time there is no built-in way to connect dgwin to a pipe to receive incrface commands.  If this is the desired way to control the layout, the best way is to create an instance of the singleton Dynagraph.IncrClient class (CLSID_DGIncrClient).  This class is intended to spawn an external graph server, and the method IDGIncrClient::Write sends text to that server.  However, if the method IDGIncrClient::StartServer was not called, then Write sends the text directly to the incrface parser.  Call IDGStringAttributes::get_Name on the layout engine to find out the name of the graph to use in the incrface commands.</p>
+
+<h4>Driving dgwin via COM</h4>
+<p>Dynagraph for Windows consists of a large number of small objects.  It is designed for super-modularity: not only can the visual elements be changed (e.g. Word documents for nodes), but the user interface itself can be changed, replacing, say, what happens when the user right-clicks an edge.  The Montage object is a blank canvas with no interaction at all; on top of this are built configurations which add the visual and interactive behaviors we have come to expect from Windows programs.  Instantiate the class DGM.Diagram (CLSID_DynagraphControl) to get a full-featured graph drawing control.</p>
+
+<p>Every node and edge in a dgwin diagram has quite a few objects backing it up:
+<ul>
+	<li>The Montage site, which holds the position and OLE state of the object
+	<li>The control (usually DGM.ShapeNode or DGM.SimpleEdge) which draws the lines and shapes
+	<li>Optionally, one or more label controls
+	<li>The label mode (DGM.LabelMode), which provides the mouse interaction with the labels and creates new labels
+	<li>The DGM connector object (DGM.EdgeConnector or DGM.NodeShadow), which translates between Montage site events and Dynagraph commands
+	<li>The Dynagraph object itself, through which all of these objects communicate with the layout engine (except the site: Montage does not "know about" Dynagraph).
+</ul>
+There are helpful functions to navigate between these objects in the Shared directory of the dgwin source, especially in nodeAndSite.{h,cpp}.</p>
+
+<p>While it is possible to construct all of these objects and connect them directly, it requires quite a lot of code, especially considering that most of these also require a persistor object in order to be saved and loaded!  The DGM.Drawer object handles all of this work.  It holds pointers to OLE data objects which provide the controls to use for nodes, edges, and labels.  (OLE data objects implement IDataObject; these are the basis of clipboard and drag-and-drop operations.)  It also (of course) holds pointers to the Montage canvas and to the Dynagraph layout engine, as well as to a Montage data unpacker, which knows how to read the data objects.</p>
+
+<p>If your application is going to use the default nodes and edges, it can use the Drawer as it is.  First you'll need pointers to the layout engine and to the DGM Drawer object.  Their internal names are "Graph Layout Engine" and "Graph Drawer"; get pointers to them by binding item monikers with these names or by calling IOleItemContainer::GetObject.  Next, create the layout objects using IDGGraph::new_Node and ::new_Edge on the layout engine.  Set any layout parameters using the interfaces IDGDrawnNode and IDGDrawnEdge on the layout objects. Then use the IDGMDrawer::NewNode and ::NewEdge methods to create the rest of the objects listed above.</p>
+
+<p>To move objects around and to delete them, you have a choice of methods.  The easiest way is probably to call methods on the Dynagraph objects.  For example, calling IDGDrawnNode::Delete or IDGEdge::Delete will delete the object.  To change a node's position, call IDGDrawnNode::put_Pos.  But wait a second: that's a POINTD!  Yes, Dynagraph uses floating point coordinates, and though the library is resolution-independent, Dynagraph for Windows uses units of one centimeter.  Also, you'll find no "size" input; instead nodes have polygonal shapes, over which the DGM.NodeShadow expects to have control.</p>
+
+<p>So the <i>proper</i> way to change the size of a node is to fire an event on the site.  ("I thought objects fired their own events," you object.  Well, COM actually leaves it open for other objects to fire those events.  See or use Shared/fire*.h.)  The relevant events are on IMCCSiteOwner; these make it possible for the Edit mode to move and delete objects without knowing about Dynagraph.  And IMCCSiteOwner::Move accepts pixel or HIMETRIC (0.01cm) point, size, <i>or</i> rectangle coordinates.</p>
+
+<h2><a name="executable"/>The executable</h2>
+The Dynagraph executable can be run in three modes:
+<ul>
+<li>If no source is specified, the program expects <A href="#incrface_language">incrface commands</A> on stdin, and issues incrface events on stdout.
+<li>When a source is specified with -i (read from dot file), Dynagraph calculates a new layout based on the input.  It will generate output dot files if -oL is specified.
+<li>For testing purposes (or for fun) Dynagraph can generate random graphs.
+</ul>
+<h3><a name="command_line_options"/>Command line options</h3>
+<dl>
+	<dt><a name="cmdline_dot_coords"/>-d use dot-compatible coordinates
+	<dd>Dynagraph internally uses dimensionless coordinates, but <b>dot</b> used points for coordinates and inches for node sizes.  With this option, the node width, height, and labelsize attributes will be multiplied by 72.  This option also affects default attributes, setting the default <a href="#graph_resolution">resolution</a> to 1x5 instead of 0.1x0.1; the default <a href="#graph_separation">separation</a> to 24x24 instead of 0.5x0.5; and the default <a href="#graph_defaultsize">minimum width and height</a> to 54x36 instead of 1.5x1.
+	<dt><a name="cmdline_input_dotfile"/>-i<I> filename</I> specify input dot file
+	<dd>This can be used to specify a file for batch layout, or in combination with the -t option.
+	<dt><a name="cmdline_output_layouts"/>-oL<i> filename</i>
+	<dd>output the layout at each step to <i>filename</i>1.dot, <i>filename</i>2.dot, etc.  If the input is randomly generated or a traversal of an existing file, this means a dot file will be generated after each node and edge pair is added to the layout.  If the input is from an incrface stream, a dot file will be generated every time a re-layout happens; that is, whenever a change happens and the lock count is zero, or after changes when the lock count drops to zero.
+	<dt><a name="cmdline_traversal_method"/>-t<i>m</i> choose traversal method
+	<dd>(Mainly useful for debugging & making pretty pictures.)  Instead of doing just one layout, inserts the source graph (specified with -i) bit by bit using one the following methods:
+	<TABLE WIDTH="100%">
+		<tr>
+			<td>a
+			<td>All at once (batch).  Equivalent to not specifying -t.
+		</tr>
+		<TR>
+			<TD>n</TD>
+			<TD>Insert all nodes, then all edges.</TD>
+		</tr>
+		<tr>
+			<td>b
+			<td>Breadth first search.
+		</tr>
+		<tr>
+			<td>d
+			<td>Depth first search.
+		</tr>
+		<tr>
+			<td>r
+			<td>Randomly insert edges.
+		</tr>
+		<tr>
+			<td>w
+			<td>"Wandering" (not recommended).
+		</tr>
+	</TABLE>
+	<dt><a name="cmdline_create_random"/>-c<i>N</i> create edges randomly
+	<dd>Alternative to -i and -t for testing/fun.  Draws a random connected graph.  One edge per step, N steps; 95% of edges leaves.
+	<dt><a name="cmdline_report"/>-r<i>aN</i> report on <i>a</i> to stream <i>N</i>
+	<dd>Dynagraph can write logs to up to 10 files (output filenames specified with -o).  <i>a</i> specifies one or more report types from the following:
+	<table width="100%">
+		<tr>
+			<td>c
+			<td>Crossing optimization
+		<tr>
+			<td>t
+			<td>Time usage breakdown
+		<tr>
+			<td>d
+			<td>Dynadag tallies
+		<tr>
+			<td>g
+			<td>Dump graph in dotfile format after every step
+		<tr>
+			<td>q
+			<td>Dump input queue before each step
+		<tr>
+			<td>r
+			<td>Output readability statistics
+		<tr>
+			<td>s
+			<td>Output stability statistics
+		<tr>
+			<td>p
+			<td>Report on progress
+		<tr>
+			<td>b
+			<td>Bug of the day: used for random debugging
+	</table>
+	<dt><a name="cmdline_output_stream"/>-o<i>N filename</i> write stream <i>N</i> to <i>filename</i>
+	<dd>Dynagraph will write all reports assigned to <i>N</i> to the file specified.  See -r.
+	<dt><a name="cmdline_force_relayout"/>-f force relayout
+	<dd>Dynagraph will use the traversal method specified with -t but will redo the layout from scratch on each step.
+</dl>
+
+<h3><a name="incrface_language"/>Command interface - incrface</h3>
+<p>In this interface, the client and server communicate requests and modifications over pipes using a command language.  The language is the same for client requests and server events, with the exception that the server does not emit the "segue" command.  Many commands can accept attributes in the <b>dot</b> syntax, i.e. [attr=value,attr2="value with spaces or other parser-confusing stuff"]</p>
+
+<p>This language can also be used for other incremental graph purposes.  For example, a slightly augmented version is used by the Dinograph large graph server.</p>
+<dl>
+	<dt><a name="incr_open_graph"/>open graph <i>L</i> [<I>attrs</I>]
+	<dd>Opens a layout graph named <i>L</i>.
+	<dt><a name="incr_modify_graph"/>modify graph <i>L</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>L</i>
+	<dt><a name="incr_close_graph"/>close graph <i>L</i>
+	<dd>Closes the layout graph <i>L</i>.
+	<dt><a name="incr_insert_node"/>insert node <i>L</i> <i>N</i> [<I>attrs</I>]
+	<dd>Creates a node named <i>N</i> in graph <i>L</i>.
+	<dt><a name="incr_insert_edge"/>insert edge <i>L</i> <i>E</i> [<I>attrs</I>]
+	<dd>Creates an edge named <i>E</i> in graph <i>L</i>.
+	<dt><a name="incr_modify_node"/>modify node <i>L</i> <i>N</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>N</i>.
+	<dt><a name="incr_modify_edge"/>modify edge <i>L</i> <i>E</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>E</i>.
+	<dt><a name="incr_delete_node"/>delete node <i>L</i> <i>N</i>
+	<dd>Removes <i>N</i> from the layout.
+	<dt><a name="incr_delete_edge"/>delete edge <i>L</i> <i>E</i>
+	<dd>Removes <i>E</i> from the layout.
+	<dt><a name="incr_lock_graph"/>lock graph <i>L</i>
+	<dd>Increments the lock count on <i>L</i>.  While the count is greater than zero, Dynagraph will not do any layouts and will not output.  On output, Dynagraph uses lock and unlock to mark a group of changes so that the client can respond more efficiently.
+	<dt><a name="incr_unlock_graph"/>unlock graph <i>L</i>
+	<dd>Decrements the lock count on <i>L</i>.  If the count returns to zero, does a new layout based on all queued changes.
+	<dt><a name="incr_segue_graph"/>segue graph <i>L</i><br><i>dot-language graph</i>
+	<dd>(The line break between the command and the graph is required.)  <i>Graph</i> specifies a full graph in the dot graph language; Dynagraph will make all necessary changes to transform the current graph to that specified.
+	<dt><a name="incr_request_graph"/>request graph <i>L</i>
+	<dd>Asks Dynagraph (or another graph server) to send the current state of the layout <i>L</i>.
+	<dt><a name="incr_request_node"/>request node <i>L</i> <i>N</i>
+	<dd>Asks Dynagraph to send the current state of <i>L</i>'s node <i>N</i>
+	<dt><a name="incr_request_edge"/>request edge <i>L</i> <i>E</i>
+	<dd>Asks Dynagraph to send the current state of <i>L</i>'s edge <i>E</i>
+	<dt><a name="incr_fulfil_graph"/>fulfil graph <i>L</i><br><i>dot-language graph</i>
+	<dd>Dynagraph's response to the "request graph" command.  Dynagraph ignores this as input, and clients probably won't emit it (unless they are servers themselves).
+	<dd><a name="incr_fulfil_node"/>fulfil node <i>L</i> <i>N</i> [<i>attrs</i>]
+	<dt>Response to the "request node" command.
+	<dd><a name="incr_fulfil_edge"/>fulfil edge <i>L</i> <i>E</i> [<i>attrs</i>]
+	<dt>Response to the "request edge" command.
+</dl>
+<h3><a name="incrface_example"/>Incrface example</h3>
+<p>What follows is a transcript of a simple interaction with Dynagraph.  In this example, the input text is in <b>bold</b>, the output text is normal, and comments are in <i>italics</i>.</p>
+<b>open graph V</b><br>
+open graph V [<a href="#graph_resolution">resolution</a>="0.1,0.1",<a href="#graph_defaultsize">defaultsize</a>="1.5,1",<a href="#graph_separation">separation</a>="0.5,0.5",<a href="#graph_engines">engines</a>="shapegen,dynadag,labels"]<br>
+<i>Dynagraph can serve multiple layouts at once; this example uses the name "V" because that's what dggrappa expects.  Dynagraph is unit-independent but defaults to settings appropriate for measurement in centimeters.  It also defaults to DynaDAG and a few helpers as the layout engines.</i><br>
+<b>insert node V a [<a href="#node_position">pos</a>="5,5"]</b><br>
+lock graph V<br>
+insert node V a [<a href="#node_shape">shape</a>=ellipse,pos="5.0,5.0",<a href="#node_extersize">width</a>=1.500000,<a href="#node_extersize">height</a>=1.000000,<a href="#common_lines">lines</a>="b3 -0.750000,0.000000 -0.750000,-0.276142 -0.414214,-0.500000 0.000000,-0.500000 0.414214,-0.500000 0.750000,-0.276142 0.750000,0.000000 0.750000,0.276142 0.414214,0.500000 0.000000,0.500000 -0.414214,0.500000 -0.750000,0.276142 -0.750000,0.000000;"]<br>
+<i>That really long attribute is a bezier approximation of an ellipse, the default shape.</i><br>
+unlock graph V<br>
+<b>insert node V b</b><br>
+lock graph V<br>
+modify graph V [<a href="#graph_bounds">bb</a>="4.3,4.5,7.8,6.5",<a href="#graph_changerect">changerect</a>="6.3,4.5,7.8,5.5"]<br>
+insert node V b [shape=ellipse,pos="7.0,5.0",width=1.500000,height=1.000000,lines="b3 -0.750000,0.000000 -0.750000,-0.276142 -0.414214,-0.500000 0.000000,-0.500000 0.414214,-0.500000 0.750000,-0.276142 0.750000,0.000000 0.750000,0.276142 0.414214,0.500000 0.000000,0.500000 -0.414214,0.500000 -0.750000,0.276142 -0.750000,0.000000;"]<br>
+unlock graph V<br>
+<i>New nodes get put next to one another in a row.</i><br>
+<b>insert edge V e a b</b><br>
+lock graph V<br>
+modify graph V [bb="6.3,3.0,7.8,6.5",changerect="7.0,4.0,7.0,4.5"]<br>
+insert edge V e a b [<a href="#common_lines">pos</a>="7.0,4.5 7.0,4.3 7.0,4.2 7.0,4.0"]<br>
+modify node V a [pos="7.0,5.0"]<br>
+modify node V b [pos="7.0,3.5"]<br>
+unlock graph V<br>
+<i>Dynagraph moved node b to 0.5cm below node a, and drew the new edge as a straight line .  (Why it moved node a to node b's old position is not so clear...)</i><br>
+<b>delete node V a</b><br>
+lock graph V<br>
+modify graph V [bb="6.3,3.0,7.8,5.0",changerect="6.3,4.0,7.8,5.5"]<br>
+delete edge V e<br>
+delete node V a<br>
+unlock graph V<br>
+<i>Deleting the node implicitly deleted the edge connected to it.  The other node was unaffected.</i>
+
+<h2><a name="cplusplus"/>The C++ library</h2>
+<p>The Dynagraph library can be linked to a C++ program.  The API for connecting with a Dynagraph layout server is defined in common/Dynagraph.h and auxiliary headers.  There are two main libraries: the core library (in the subdirectory common) and the incrface library.  Then there are four layout engines in separate libraries: dynadag, fdp, shortspline (visspline), and voronoi.  (The graphsearch large graph server is undocumented.)  This document does not address platform-specific issues such as how to build Dynagraph or link it.  Automake files for Unix-like environments are included in the GraphViz <a href="http://www.graphviz.org/pub/graphviz">source</a>, and Microsoft Visual C++ projects are in the Dynagraph for Windows <a href="http://www.graphviz.org/pub/dgwin">source</a>.</p>
+
+<h3><a name="cplusplus_programming_model"/>C++ programming model</h3>
+<p>The Dynagraph library provides a C++ API that blurs the difference between batch and incremental layout.  (This is also the most powerful of the APIs, as this is the API that's used internally and it's not mediated by translation code.)  You can choose whether or not to use the incrface library, which provides both naming services and the ability to receive commands using the <a href="#incrface_language">incrface language</a>.
+
+<h3><a name="cplusplus_with_incrface"/>How to use Dynagraph with the incrface library</h3>
+Accessing Dynagraph through the incrface library requires implementing a couple of callback classes
+<h3><a name="cplusplus_without_incrface">How to use the library without the incrface library</h3>
+Here are the steps required to use the Dynagraph library from a C++ program directly, bypassing the incrface library (from example_no_incrface.cpp).  This still uses the function <code>createLayoutServer</code> from the incrface library to create the layout server.  The composition of multiple servers into one using the class <code>CompoundServer</code> is a detail which most applications won't need to change, but that function too can be re-written.
+<ol>
+	<li><p>Include the main Dynagraph header and the header for <code>createLayoutServer</code>:</p>
+	<p><code>#include "common/Dynagraph.h"<br>
+	#include "incrface/createLayoutServer.h"</code></p>
+
+	<li>For each layout, you will need two graphs to hold the data, a ChangeQueue to track changes, and an instance of the layout server.
+	Create two instances of the Layout class defined in Dynagraph.h.  This class is a graph which holds information about the layout preferences and geometry.  We will call these graphs <code>layout</code> and <code>current</code>; <code>layout</code> is where we create new elements, and <code>current</code> is the subgraph which represents what is showing in the layout.  Make <code>current</code> a subgraph of <code>layout</code> by specifying <code>layout</code> in the constructor call, i.e.</p>
+	<p><code>Layout layout,current(&amp;layout);</code></p>
+
+	<li>Since Dynagraph is resolution-independent, you must set the resolution, separation and label separation as appropriate.  Use the gd&lt;&gt; function to access data in a graph by its type.  Since these parameters are in the GraphGeom portion of the graph data, preparation for centimeter coordinates might look like:</p>
+	<p><code>gd&lt;GraphGeom&gt;(&amp;layout).resolution = Coord(0.1,0.1);<br>
+	gd&lt;GraphGeom&gt;(&amp;layout).separation = Coord(0.5,0.5);</code></p>
+
+	<li>Create an instance of the ChangeQueue class, which will hold changes we are making as well as ones made by the layout server.  This needs to know both the layout and current graphs:</p>
+	<p><code>ChangeQueue queue(&amp;layout,&amp;current);</code></p>
+
+	<li>Specify the layout engines you want by setting the string attribute:</p>
+	<p><code>gd&lt;StrAttrs&gt;(&amp;layout)["engines"] = "shapegen,fdp,voronoi,visspline";</code></p>
+
+	<li>Create the layout engines by calling <code>createLayoutServer</code>:
+	<p><code>Server *server = createLayoutServer(&amp;layout,&amp;current)</code></p>
+
+	<li>Issue commands to Dynagraph by first making the change (except in the case of deletion), then marking the change in the ChangeQueue, then running the server's Process method.  Let's create nodes at (10,10) and (15,10):
+	<p><code>Layout::Node *m = layout.create_node(),*n = layout.create_node();<br>
+	gd&lt;NodeGeom&gt;(m).pos = Coord(10,10);<br>
+	gd&lt;NodeGeom&gt;(n).pos = Coord(15,10);<br>
+	queue.InsNode(m);<br>
+	queue.InsNode(n);<br>
+	server->Process(queue);</code></p>
+
+	<li><p>Between runs it's important to clear the ChangeQueue with the Okay command.  Its sole parameter tells it whether to erase the nodes and edges marked for deletion.  This choice depends upon whether there's a need for nodes and edges to live outside the current layout.  For this example, there is no reason for them to:</p>
+	<p><code>queue.Okay(true);</code></p>
+
+	<li>To draw an edge between two nodes is similar:
+	<p><code>Layout::Edge *e = layout.create_edge(m,n).first;<br>
+	queue.InsEdge(e);<br>
+	server->Process(queue);<br>
+	// ... read changes from the queue ...<br>
+	queue.Okay(true);</code></p>
+
+	<li>To move a node:
+	<p><code>gd&lt;NodeGeom&gt;(n).pos = Coord(5,5);<br>
+	queue.ModNode(n,DG_UPD_MOVE);<br>
+	server->Process(queue);</code></p>
+
+	<li><p>Deletion is a little different, because the node or edge still has to exist while the engine is processing it.  So mark it with <CODE>DelNode</CODE> or <CODE>DelEdge</CODE> and then use <code>ChangeQueue.Okay(true)</code> or <CODE>Layout::erase</CODE> <i>after</i> the engine has run.  Also note that deleting a node causes any edges attached to it to be deleted.</p>
+
+	<p><CODE>queue.DelNode(n);<br>
+	server->Process(queue);<br>
+	// ... read changes from the queue ...<br>
+	queue.Okay(true);</CODE></p>
+
+	<li>Most requests will cause many more changes.  So it is important to read the ChangeQueue after every run of the layout server.  For example, to read the moved nodes:
+	<p><code>Layout::node_iter ni;<br>
+	for(ni = queue.modN.nodes().begin(); ni!=queue.modN.nodes().end(); ++ni)<br>
+	<span class=dent>;// move graphical object associated with *ni to gd&lt;NodeGeom&gt;(*ni).pos;</span>
+	</code></p>
+
+</ol>
+<h3><a name="cplusplus_api"/>C++ API reference</h3>
+<h2><a name="com">The COM library</h2>
+<p>To come: how to attach to the Dynagraph COM library (comdg) to do layouts without using Montage and the whole of Dynagraph for Windows.</p>
+<h3><a name="com_programming_model">COM programming model</a></h3>
+<h3><a name="use_com">How to use the COM library</a></h3>
+<h2><a name="api"/>API reference</h2>
+<p>There are three APIs to Dynagraph: the incrface language, whose string attributes (only accessed in graphviz/dynagraph/common/stringsIn.cpp, stringsOut.cpp, and ColorByAge.cpp) are mostly a subset of the <a href="http://www.research.att.com/~erg/...attrs.html">dot language's attributes</a>; the C++ API; and the COM API.  This reference defines the parameters which are common to all three; specifics about how to use each API were laid out in the last three sections.</p>
+
+<p><a name="use_string_attribute"/>If the C++ entry says "use string attribute", that means you should manipulate the string name, e.g. with incrface:<br>
+<BLOCKQUOTE>
+	<code>StrAttrs attrs;<br>
+	attrs["shape"] = "ellipse";<br>
+	view->incr_ev_mod_node(nodename,attrs);</code><br>
+</BLOCKQUOTE>
+
+Or without:<br>
+<BLOCKQUOTE>
+	<code>StrAttrs attrs;<br>
+	attrs["shape"] = "ellipse";<br>
+	Q.ModNode(stringsIn(transform,n,attrs,false));</code><br>
+</BLOCKQUOTE>
+If the COM entry says this, use IDGStringAttributes, e.g. in ATL:<br>
+<BLOCKQUOTE>
+<code>CComQIPtr&lt;IDGStringAttributes&gt; nstrings = n;<br>
+nstrings->SetAttr(CComBSTR("shape"),CComBSTR("ellipse"));</code><br>
+</BLOCKQUOTE>
+
+<h3><a name="common_attributes"/>Attributes common to graphs, nodes, and edges</h3>
+<SMALL>[
+<a href="#graph_attributes">graph attrs</a>&nbsp;&nbsp;&nbsp;&macr;---&nbsp;&nbsp;&nbsp;
+<a href="#node_attributes">node attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#edge_attributes">edge attrs</a>
+]</SMALL>
+<a name="common_lines"/>
+<table class="lined">
+	<tr>
+		<th>incrface attribute</th>
+		<th>C++ class and field</th>
+		<th>COM interface and method</th>
+	<tr>
+		<td>(out) lines = "b<i>B</i> x1,y1 x2,y2 ...; b<i>B</i> x,y..."<br>
+		(in for nodes) boundary = "<i>x<sub>0</sub></i>,<i>y<sub>0</sub></i> <i>x<sub>1</sub></i>,<i>y<sub>1</sub></i> <i>x<sub>2</sub></i>,<i>y<sub>2</sub></i> ..."<br>
+		(in,out for edges) pos = "<i>x<sub>0</sub></i>,<i>y<sub>0</sub></i> <i>x<sub>1</sub></i>,<i>y<sub>1</sub></i> <i>x<sub>2</sub></i>,<i>y<sub>2</sub></i> ..."
+		<td>(out) struct Drawn : Lines<br>
+		(in) Region NodeGeom::region<br>
+		Line EdgeGeom::pos<br>
+		</td>
+		<td>interface IDGLayout<br>
+		[propget] HRESULT Lines([out,retval] DGSHAPESDESC **ret);<br>
+		interface IDGDrawnNode<br>
+		[propput] HRESULT Shape([in] DGSHAPESDESC *shapes);<br>
+		[propget] HRESULT Shape([out,retval] DGSHAPESDESC **ret);<br>
+		interface IDGDrawnEdge<br>
+		HRESULT SetPoints([in] DGSHAPEDESC *val);<br>
+		HRESULT GetPoints([out,retval] DGSHAPEDESC **ret);<br>
+		</td></tr>
+</table>
+<p>(in,out) On output, the lines or Bezier curves to draw.  On input, the node shape to use for edge clipping, or a hint for where to draw the edge.  In the string attribute, <i>B</i> specifies the Bezier degree, either 1 for lines or 3 for cubic Bezier curves.  On the graph, this attribute is used only for debugging.  On a node, this is a valid input only if <a href="#node_shapegen">shape generation is turned off</a>; only the first poly(sp)line is used for edge clipping; and the points are relative to the <a href="#node_position">node position</a>.  On an edge, only one poly(sp)line must be specified (note the different type of the C++ and COM versions).  This parameter is ignored (?!) as an edge input in the string and COM versions, and in C++ unless EdgeGeom::manualRoute is true.</p>
+</p>
+<h3><a name="graph_attributes"/>Graph attributes</h3>
+<SMALL>[
+<a href="#common_attributes">common attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#node_attributes">node attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#edge_attributes">edge attrs</a>
+]</SMALL>
+<p>In Dynagraph, there is a one-to-one correspondence between graphs, layouts, and layout engines.  Incrface calls the bunch a "view."  These attributes belong to the layout graph and some are engine parameters.
+</p>
+
+<a name="graph_engines"/>
+<table class="lined">
+	<tr>
+		<th>incrface attribute</th>
+		<th>C++ class and field</th>
+		<th>COM interface and method</th>
+	<tr>
+		<td>engines = "<i>eng1</i>,<i>eng2</i>,..."</td>
+		<td>use string attribute</td>
+		<td>use string attribute</td>
+	</tr>
+</table>
+<p>(in) Specifies which layout engines to use.  Every time a change happens to the graph and the lock count is zero, these engines get called in the order listed here.  This parameter should be specified when the graph is opened, e.g. in the open graph incrface command, or before IDGLayout::Initialize is called.  (C++ programs: before DynaView::createServer or createLayoutServer.)  This parameter may be changed after the graph is opened, with the effect that all nodes and edges get inserted as new objects using the new engines.  To do this in COM, first set the string attribute and then call IDGLayout::Initialize again.  To do this in C++ with incrface, use DynaView::incr_ev_mod_graph; without incrface, please consult the incrface or comdg code.</p>
+
+<p>The most common settings are "shapegen,fdp,voronoi,visspline" for neato-like layouts, and "shapegen,dynadag" for dot-like layouts.  The available engines are:
+<table>
+	<tr>
+		<th>dynadag</th>
+		<td>DynaDAG tries to get edges to point downward and usually aligns them in rows.</td>
+	</tr>
+	<tr>
+		<th>fdp</th>
+		<td>Force-Directed Placement: uses a spring model to place nodes.  They can still overlap, and this algorithm does not handle edges, so this is intended to be used with voronoi and visspline</td>
+	</tr>
+	<tr>
+		<th>voronoi</th>
+		<td>Using a previously generated layout, tries to adjust the nodes so that they don't overlap, while keeping the same relative placement.</td>
+	</tr>
+	<tr>
+		<th>visspline</th>
+		<td>Routes spline edges so as to avoid crossing nodes.  Does not affect node positions.</td>
+	</tr>
+	<tr>
+		<th>labels</th>
+		<td>Places node and edge labels; does not affect node or edge placement.</td>
+	</tr>
+	<tr>
+		<th>shapegen</th>
+		<td>Generates shapes for nodes based on an interior (text) size, a minimum external size, and various shape parameters.</td>
+	</tr>
+	<tr>
+		<th>colorbyage</th>
+		<td>Each time a layout happens, updates the colors of all nodes based on the graph <a href="#graph_agecolors">agecolors</a> attribute.</td>
+	</tr>
+</table>
+Default: "shapegen,dynadag,labels"
+</p>
+
+<a name="graph_defaultsize"/>
+<table class="lined">
+	<tr>
+		<td>defaultsize = "<i>x</i>,<i>y</i>"</td>
+		<td>Coord GraphGeom::defaultSize</td>
+		<td>N/A</td></tr>
+</table>
+<p>(in) The <a href="#node_extersize">minimum size</a> to use for nodes for which that parameter was not set.  Because this gets checked when looking at the string attributres, this is only relevant for programs using incrface.  Default: (1.5,1) without <a href="#cmdline_dot_coords">-d</a>, (54,36) with.
+</p>
+
+<a name="graph_resolution"/>
+<table class="lined">
+	<tr>
+		<td>resolution = "<i>x</i>,<i>y</i>"</td>
+		<td>Coord GraphGeom::resolution</td>
+		<td>interface IDGEngine<br>
+		[propget] HRESULT Resolution([out,retval] POINTD *ret);<br>
+        [propput] HRESULT Resolution([in] POINTD val);</td></tr>
+</table>
+<p>(in) The smallest increment to recognize in the internal model.  For example, specify 1,1 for integer precision.  Default: (0.1,0.1) without <a href="#cmdline_dot_coords">-d</a>, (1,1) with.
+</p>
+
+<a name="graph_separation"/>
+<table class="lined">
+	<tr>
+		<td>separation = "<i>x</i>,<i>y</i>"</td>
+		<td>Coord GraphGeom::separation</td>
+		<td>interface IDGEngine<br>
+		[propget] HRESULT Separation([out,retval] POINTD *ret);<br>
+        [propput] HRESULT Separation([in] POINTD val);</td></tr>
+</table>
+<p>(in) The amount of separation to leave between elements of the layout.  In dynadag, x specifies the horizontal gap left between nodes and/or edges, and y specifies the amount by which to multiply the <a href="#edge_length">edge length</a> to get the minimum vertical displacement.  Default: (0.5,0.5) without <a href="#cmdline_dot_coords">-d</a>, (24,24) with.
+</p>
+
+<a name="graph_labelgap"/>
+<table class="lined">
+	<tr>
+		<td>N/A</td>
+		<td>Coord GraphGeom::labelGap</td>
+		<td>not available (!)</tr>
+</table>
+<p>(in) The amount of space to leave between labels and nodes, e.g. if a label is on the right of a node, <code>label.left = node.right+labelGap.x.</code>  Default: (0,0)
+</p>
+
+<a name="graph_bounds"/>
+<table class="lined">
+	<tr>
+		<td>bb = "<i>left</i>,<i>bottom</i>,<i>right</i>,<i>top</i>"
+		<td>Bounds GraphGeom::bounds</td>
+		<td>interface IDGLayout<br>
+		[propget] HRESULT Bounds([out,retval] RECTD *ret);
+		</td></tr>
+</table>
+<p>(out) Reports the bounding box of the current layout.
+</p>
+
+<a name="graph_changerect"/>
+<table class="lined">
+	<tr>
+		<td>changerect = "<i>left</i>,<i>bottom</i>,<i>right</i>,<i>top</i>"
+		<td>Bounds GraphGeom::changerect</td>
+		<td>interface IDGLayout<br>
+		[propget] HRESULT ChangeRect([out,retval] RECTD *ret);
+		</td></tr>
+</table>
+<p>(out) Supplies a rectangle which contains all of the changes just made to the layout
+</p>
+
+<a name="graph_splinelevel"/>
+<table class="lined">
+	<tr>
+		<td>not available<br>
+		<td>float GraphGeom::splineLevel</td>
+		<td>interface IDGEngine<br>
+		[propget] HRESULT SplineLevel([out,retval] enum DG_SPLINELEVEL *ret);<br>
+		[propput] HRESULT SplineLevel([in] enum DG_SPLINELEVEL val);
+		</td>
+	</tr>
+</table>
+<p>(in) How to draw edges, specifically, how much of the spline-drawing process to complete.  Although this parameter produces "interesting" results it is probably more useful for debugging than for stylistic purposes.  This parameter is only implemented in dynadag.
+</p>
+
+<table class="lined">
+	<tr>
+		<td>(N/A)
+		<td>DG_SPLINELEVEL_VNODE
+		<td>DGSL_VNODE
+		<td>Draw straight lines between the nodes in the internal model.
+	</tr>
+	<tr>
+		<td/>
+		<td>DG_SPLINELEVEL_BOUNDS
+		<td>DGSL_BOUNDS
+		<td>Draw the bounding polygon of the spline.
+	</tr>
+	<tr>
+		<td/>
+		<td>DG_SPLINELEVEL_SHORTEST
+		<td>DGSL_SHORTEST
+		<td>Draw the shortest straight-line paths within the bounds.
+	</tr>
+	<tr>
+		<td/>
+		<td>DG_SPLINELEVEL_SPLINE
+		<td>DGSL_SPLINE
+		<td>Draw edges with Bezier curves (default).
+	</tr>
+</table>
+</p>
+
+<a name="graph_orientation"/>
+<table class="lined">
+	<tr>
+		<td>not available<br>
+		<td>Orientation Translation::orientation</td>
+		<td>interface IDGEngine<br>
+        [propget] HRESULT Orientation([out,retval] enum DG_ORIENTATION *ret);<br>
+		[propput] HRESULT Orientation([in] enum DG_ORIENTATION val);
+		</td>
+	</tr>
+</table>
+<p>(in) This feature is only complete in the COM library.  Specifies the orientation of the graph, that is, which way edges should point in Dynadag.  At the C++ API level, the layouts always are oriented downward: the heads of edges have lesser Y values than the tails, unless there are loops in the graph.  It is a trivial matter to translate the coordinates to obtain different orientations, by inverting and swapping the x and y coordinates.  (See graphviz/dynagraph/common/reorient.h.)  Then offset the coordinates to bring them into the right quadrant.
+</p>
+<p>The C++ <code>Translation::orientation</code> attribute does not cause the coordinates to actually be translated, but the ShapeGenerator reads this and rotates the nodes' <code>NodeGeom::region</code> <i>the opposite way</i> to cancel for the translation the client (or the COM library) will do.
+</p>
+
+<a name="graph_agecolors"/>
+<table class="lined">
+	<tr>
+		<td>agecolors = "<i>color1</i>,<i>color2</i>,..."</td>
+		<td>use string attribute</td>
+		<td>use string attribute</td>
+	</tr>
+</table>
+<p>Parameter to the colorbyage "layout" <a href="#graph_engines">engine</a>.  If this parameter exists, then any node which does not have a color will receive color=color1, any node which has color=color1 will receive color=color2, etc.</p>
+
+<a name="graph_ticks"/>
+<table class="lined">
+	<tr>
+		<td>ticks = <i>float</i><br>
+		<td>float GraphGeom::ticks</td>
+		<td>use string attribute (!)</td></tr>
+</table>
+<p>(in) Specifies the elapsed time, in seconds, after which Dynagraph should hurry up and try to get a result.  Not yet implemented.
+</p>
+
+<h3><a name="node_attributes"/>Node attributes</h3>
+<SMALL>[
+<a href="#common_attributes">common attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#graph_attributes">graph attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#edge_attributes">edge attrs</a>
+]</SMALL>
+
+<a name="node_position"/>
+<table class="lined">
+	<tr>
+		<th>incrface attribute</th>
+		<th>C++ class and field</th>
+		<th>COM interface and method</th>
+	<tr><td>pos = "x,y"
+		<td>Position NodeGeom::pos
+		<td>interface IDGDrawnNode<br>
+		[propget] HRESULT Pos([out, retval] POINTD *ppos);<br>
+		[propput] HRESULT Pos([in] POINTD pos);<br>
+		</td>
+	</tr>
+</table>
+<p>(in,out) Specifies the position coordinate of the node.  This is the offset for the lines and boundary parameters.  If the string parameter is blank or pos.valid==false or IDGDrawnNode::Optimize(VARIANT_TRUE) has been called, the engine will choose a new position for the node without regarding the old one.</p>
+
+<a name="node_shape"/>
+<table class="lined">
+	<tr>
+		<td>shape = <i>shape-name</i></td>
+		<td>use string attribute</td>
+		<td>use string attribute</td>
+</table>
+<p>(in) Specifies the name of the base shape, which will select the other shape generation values (which can be overridden).  These are a subset of those offered by <b>dot</b>.  Default: ellipse.
+</p>
+<table>
+	<tr><th>ellipse
+		<td>The base shape is a Bezier spline approximation of an ellipse.
+	<tr><th>polygon
+		<td>The base shape is a polygon, by default four-sided.
+	<tr><th>hexagon
+		<td>sides = 6
+	<tr><th>box
+		<td>sides = 4
+	<tr><th>circle
+		<td>regular = true<br>
+			isEllipse = true
+	<tr><th>diamond
+		<td>sides = 4<br>
+			orientation = 90
+	<tr><th>doublecircle
+		<td>isEllipse = true<br>
+			regular = true<br>
+			peripheries = 1
+	<tr><th>doubleoctagon
+		<td>sides = 8<br>
+			peripheries = 1
+	<tr><th>egg
+		<td>isEllipse = true<br>
+			distortion = 1.3<br>
+			orientation = 90
+	<tr><th>hexagon
+		<td>sides = 6
+	<tr><th>house
+		<td>
+	<tr><th>invhouse
+		<td>
+	<tr><th>invtrapezium
+		<td>
+	<tr><th>invtriangle
+		<td>sides = 3<br>
+			orientation = 180
+	<tr><th>octagon
+		<td>sides = 8
+	<tr><th>parallelogram
+		<td>sides = 4<br>
+			skew = 0.5
+	<tr><th>trapezium
+		<td>
+	<tr><th>triangle
+		<td>sides = 3
+	<tr><th>tripleoctagon
+		<td>sides = 8<br>
+		peripheries = 2
+</table>
+</p>
+
+<a name="node_intersize"/>
+<table class="lined">
+	<tr><td>labelsize = "<i>x</i>,<i>y</i>"
+		<td>Coord PolyDef::interior_box
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT InsideWidth([out, retval] double *ret);<br>
+		[propget] HRESULT InsideHeight([out, retval] double *ret);<br>
+		HRESULT SetInside([in] double width,[in] double height);
+	</tr>
+</table>
+<p>(in) The size of the text to fit within this shape.  For consistent heights with different line lengths, the shape will be stretched to fit a square whose size is the smaller of x and y, and then stretched again to fit the larger.  Default: (0,0).
+</p>
+
+<a name="node_extersize"/>
+<table class="lined">
+	<tr><td>width = <i>float</i><br>
+		height = <i>float</i>
+		<td>Coord PolyDef::exterior_box
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT OutsideWidth([out, retval] double *ret);<br>
+		[propget] HRESULT OutsideHeight([out, retval] double *ret);<br>
+		HRESULT SetOutside([in] double width,[in] double height);
+	</tr>
+</table>
+<p>(in) Minimum external width and height.  Defaults to the graph's <a href="#graph_defaultsize">defaultsize</a> attribute.
+</p>
+
+<a name="node_sides"/>
+<table class="lined">
+	<tr><td>sides = <i>integer</i>
+		<td>int PolyDef::sides
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Sides([out, retval] int *ret);<br>
+		[propput] HRESULT Sides([in] int val);
+	</tr>
+</table>
+<p>(in) The number of sides of the polygon, when the shape is not "ellipse".  Default: 4.
+</p>
+
+<a name="node_regular"/>
+<table class="lined">
+	<tr><td>regular = true|false
+		<td>bool PolyDef::regular
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Regular([out,retval] VARIANT_BOOL *ret);<br>
+		[propput] HRESULT Regular([in] VARIANT_BOOL val);
+	</tr>
+</table>
+<p>(in) If true, specifies that the aspect ratio of the shape will be 1:1.  (i.e. if the shape is an ellipse, it will be a circle, rectangle a square.)  Default: false.
+</p>
+
+<a name="node_peripheries"/>
+<table class="lined">
+	<tr><td>peripheries = <i>integer</i>
+		<td>int PolyDef::peripheries
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Peripheries([out, retval] int *ret);<br>
+		[propput] HRESULT Peripheries([in] int val);
+	</tr>
+</table>
+<p>(in) The number of extra borders to draw around the shape.  Default: 0.
+</p>
+
+<a name="node_perispacing"/>
+<table class="lined">
+	<tr><td>perispacing = <i>float</i>
+		<td>double PolyDef::perispacing
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Spacing([out, retval] double *ret);<br>
+		[propput] HRESULT Spacing([in] double val);
+	</tr>
+</table>
+<p>(in) The distance between the parallel lines of the peripheries.  Because Dynagraph is coordinate-independent, the default value for this parameter is 0, so if you don't set this, you won't see the peripheries!
+</p>
+
+<a name="node_rotation"/>
+<table class="lined">
+	<tr><td>orientation = <i>float</i>
+		<td>double PolyDef::rotation
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Rotation([out, retval] double *ret);<br>
+		[propput] HRESULT Rotation([in] double val);
+	</tr>
+</table>
+<p>(in) The angle, in degrees, that the shape should be turned.  By default, the rotation is 0, which means that the bottom line of a polygon is horizontal.
+</p>
+
+<a name="node_skew"/>
+<table class="lined">
+	<tr><td>skew = <i>float</i>
+		<td>double PolyDef::skew
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Skew([out, retval] double *ret);<br>
+		[propput] HRESULT Skew([in] double val);
+	</tr>
+</table>
+<p>(in) The amount to tilt the shape.  Default: 0.
+</p>
+
+<a name="node_distortion"/>
+<table class="lined">
+	<tr><td>distortion = <i>float</i>
+		<td>double PolyDef::distortion
+		<td>interface DIDGShapeDefinition<br>
+		[propget] HRESULT Distortion([out, retval] double *ret);<br>
+		[propput] HRESULT Distortion([in] double val);
+	</tr>
+</table>
+<p>(in) Make the top bigger than the bottom.  Default: 0.
+</p>
+
+<a name="node_nail"/>
+<table class="lined">
+	<tr><td>not available
+		<td>NailType nail
+		<td>not available
+</table>
+<p>(in) Specifies the mobility of the node.  Only Y-axis nailing is available, and only in Dynadag.  Default: none.</p>
+<table>
+	<tr><th>DG_NONAIL
+	<td>The node can be positioned at the server's discretion.
+	<tr><th>DG_NAIL_X
+	<td>The server attempts to keep the node at the same X position.
+	<tr><th>DG_NAIL_Y
+	<td>The Y position (rank) is fixed.
+	<tr><th>DG_NAIL_BOTH
+	<td>The node is immobile.
+</table>
+
+
+<h3><a name="edge_attributes"/>Edge attributes</h3>
+<SMALL>[
+<a href="#common_attributes">common attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#graph_attributes">graph attrs</a>&nbsp;&nbsp;&nbsp;---&nbsp;&nbsp;&nbsp;
+<a href="#node_attributes">node attrs</a>
+]</SMALL>
+
+<a name="edge_minlength"/>
+<table class="lined">
+	<tr>
+		<th>incrface attribute</th>
+		<th>C++ class and field</th>
+		<th>COM interface and method</th>
+	<tr>
+		<td>N/A</td>
+		<td>double EdgeGeom::minLength</td>
+		<td>interface IDGDrawnEdge<br>
+		[propget] HRESULT Length([out,retval] double *pWidth);<br>
+		[propput] HRESULT Length([in] double Width);<br></td>
+</table>
+<p>(in) The minimum length of the edge.  In dynadag, this is multiplied by <a href="GraphGeom::separation">GraphGeom::separation</a>.y to determine the verticle displacement between the nodes at either end of this edge.  Default: 1.0.
+</p>
+
+<table class="lined">
+	<tr><td>not available
+	<td>bool EdgeGeom::constraint
+	<td>interface IDGDrawnEdge<br>
+	[propget] HRESULT Constraint([out, retval] VARIANT_BOOL *pConstraint);<br>
+	[propput] HRESULT Constraint([in] VARIANT_BOOL Constraint);
+</table>
+<p>(in,out) In dynadag, if this flag is set to true, the edge will always point downward.  If this flag is set to false, the edge can point upward when there is a cycle in the graph.  Dynadag will set constraint==false if it finds a cycle while inserting the edge.
+</p>
+
+
+<table class="lined">
+	<tr><td>not available
+		<td>Port EdgeGeom::tailPort,headPort;
+		<td>interface IDGDrawnEdge<br>
+		[propget] HRESULT TailPos([out,retval] POINTD *ppos);<br>
+		[propput] HRESULT TailPos([in] POINTD tpos);<br>
+		[propget] HRESULT HeadPos([out,retval] POINTD *ppos);<br>
+		[propput] HRESULT HeadPos([in] POINTD pos);<br>
+</table>
+<p>Offsets of the ends of the edge from the tail and head node positions.
+</p>
+
+<table class="lined">
+	<tr><td>not available
+	<td>bool tailClipped,headClipped
+	<td>not available
+</table>
+<p>Whether to clip this edge to the tail and head node regions.
+</p>
+
+<h2><a name="links"/>Links</h2>
+<dl class=dent>
+	<dt>Graphviz</dt>
+	<dd><a href="http://www.research.att.com/sw/tools/graphviz">http://www.research.att.com/sw/tools/graphviz</a>
+	<dt>Dynagraph for Windows</dt>
+	<dd><a href="http://www.research.att.com/sw/tools/dgwin">http://www.research.att.com/sw/tools/dgwin</a>
+</dl>
+</BODY>
+</HTML>

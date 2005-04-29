@@ -29,9 +29,13 @@
 
 <!ELEMENT option (configItem)>
 
-<!ELEMENT configItem (name,description*)>
+<!ELEMENT configItem (name,shortDescription*,description*)>
 
 <!ELEMENT name (#PCDATA)>
+
+<!ELEMENT shortDescription (#PCDATA)>
+<!ATTLIST shortDescription
+          lang CDATA #IMPLIED>
 
 <!ELEMENT description (#PCDATA)>
 <!ATTLIST description

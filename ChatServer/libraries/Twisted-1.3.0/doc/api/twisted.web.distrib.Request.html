@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.web.distrib.Request</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.web.html">Package&nbsp;web</a> ::
+        <a href="twisted.web.distrib.html">Module&nbsp;distrib</a> ::
+        Class&nbsp;Request
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.web.distrib.Request.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Request</h2>
+
+<pre class="base-tree">
+      <a href="twisted.spread.jelly.Unjellyable.html"><code>Unjellyable</code></a> --+    
+                    |    
+           <a href="twisted.spread.flavors.RemoteCopy.html"><code>RemoteCopy</code></a> --+
+                        |
+    <a href="twisted.persisted.styles.Versioned.html"><code>Versioned</code></a> --+       |
+                |       |
+    <a href="twisted.python.components.Componentized.html"><code>Componentized</code></a> --+   |
+                    |   |
+<a href="twisted.spread.jelly.Jellyable.html"><code>Jellyable</code></a> --+       |   |
+            |       |   |
+ <a href="twisted.spread.flavors.Serializable.html"><code>Serializable</code></a> --+   |   |
+                |   |   |
+         <a href="twisted.spread.flavors.Copyable.html"><code>Copyable</code></a> --+   |
+                    |   |
+          <a href="twisted.protocols.http.Request.html"><code>Request</code></a> --+   |
+                    |   |
+              <a href="twisted.web.server.Request.html"><code>Request</code></a> --+
+                        |
+                       <b>Request</b>
+</pre><br />
+
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="fail"></a><span class="summary-sig"><span class="summary-sig-name">fail</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>failure</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.distrib.Request.html#registerProducer" class="summary-sig-name"><code>registerProducer</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>producer</span>,
+          <span class=summary-sig-arg>streaming</span>)</span></code>
+<br />
+Register a producer.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.distrib.Request.html#setCopyableState" class="summary-sig-name"><code>setCopyableState</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+<br />
+I will be invoked with the state to copy locally.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.distrib.Request.html#unregisterProducer" class="summary-sig-name"><code>unregisterProducer</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Unregister the producer.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from RemoteCopy</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.RemoteCopy.html#unjellyFor" class="summary-sig-name"><code>unjellyFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>unjellier</span>,
+          <span class=summary-sig-arg>jellyList</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Unjellyable</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.jelly.Unjellyable.html#setStateFor" class="summary-sig-name"><code>setStateFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>unjellier</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Request</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#childLink" class="summary-sig-name"><code>childLink</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Return the text that links to a child of the requested resource.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#connectionLost" class="summary-sig-name"><code>connectionLost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+<br />
+connection was lost</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#finish" class="summary-sig-name"><code>finish</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+We are finished writing data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#getRootURL" class="summary-sig-name"><code>getRootURL</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get a previously-remembered URL.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#getSession" class="summary-sig-name"><code>getSession</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>sessionInterface</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#getStateToCopyFor" class="summary-sig-name"><code>getStateToCopyFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#notifyFinish" class="summary-sig-name"><code>notifyFinish</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Notify when finishing the request</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#prePathURL" class="summary-sig-name"><code>prePathURL</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#process" class="summary-sig-name"><code>process</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Process a request.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#processingFailed" class="summary-sig-name"><code>processingFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#rememberRootURL" class="summary-sig-name"><code>rememberRootURL</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Remember the currently-processed part of the URL for later 
+recalling.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#render" class="summary-sig-name"><code>render</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>resrc</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#sibLink" class="summary-sig-name"><code>sibLink</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Return the text that links to a sibling of the requested resource.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#URLPath" class="summary-sig-name"><code>URLPath</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_addCookie" class="summary-sig-name"><code>view_addCookie</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>k</span>,
+          <span class=summary-sig-arg>v</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+<br />
+Remote version of addCookie; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_finish" class="summary-sig-name"><code>view_finish</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>)</span></code>
+<br />
+Remote version of finish; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_registerProducer" class="summary-sig-name"><code>view_registerProducer</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>producer</span>,
+          <span class=summary-sig-arg>streaming</span>)</span></code>
+<br />
+Remote version of registerProducer; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_setETag" class="summary-sig-name"><code>view_setETag</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>tag</span>)</span></code>
+<br />
+Remote version of setETag; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_setHeader" class="summary-sig-name"><code>view_setHeader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>k</span>,
+          <span class=summary-sig-arg>v</span>)</span></code>
+<br />
+Remote version of setHeader; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_setLastModified" class="summary-sig-name"><code>view_setLastModified</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>when</span>)</span></code>
+<br />
+Remote version of setLastModified; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_setResponseCode" class="summary-sig-name"><code>view_setResponseCode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>code</span>)</span></code>
+<br />
+Remote version of setResponseCode; same interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_unregisterProducer" class="summary-sig-name"><code>view_unregisterProducer</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.server.Request.html#view_write" class="summary-sig-name"><code>view_write</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>issuer</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Remote version of write; same interface.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Copyable</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.Copyable.html#getStateToCopy" class="summary-sig-name"><code>getStateToCopy</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Gather state to send when I am serialized for a peer.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.Copyable.html#getTypeToCopy" class="summary-sig-name"><code>getTypeToCopy</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Determine what type tag to send for me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.Copyable.html#getTypeToCopyFor" class="summary-sig-name"><code>getTypeToCopyFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>perspective</span>)</span></code>
+<br />
+Determine what type tag to send for me.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.Copyable.html#jellyFor" class="summary-sig-name"><code>jellyFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>jellier</span>)</span></code>
+<br />
+Assemble type tag and state to copy for this broker.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Serializable</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.flavors.Serializable.html#processUniqueID" class="summary-sig-name"><code>processUniqueID</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return an ID which uniquely represents this object for this 
+process.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Jellyable</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.jelly.Jellyable.html#getStateFor" class="summary-sig-name"><code>getStateFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>jellier</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Request</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#__repr__" class="summary-sig-name"><code>__repr__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#_authorize" class="summary-sig-name"><code>_authorize</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#_cleanup" class="summary-sig-name"><code>_cleanup</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when have finished responding and are no longer queued.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#_sendError" class="summary-sig-name"><code>_sendError</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>code</span>,
+          <span class=summary-sig-arg>resp</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#addCookie" class="summary-sig-name"><code>addCookie</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>k</span>,
+          <span class=summary-sig-arg>v</span>,
+          <span class=summary-sig-arg>expires</span>,
+          <span class=summary-sig-arg>domain</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>max_age</span>,
+          <span class=summary-sig-arg>comment</span>,
+          <span class=summary-sig-arg>secure</span>)</span></code>
+<br />
+Set an outgoing HTTP cookie.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getAllHeaders" class="summary-sig-name"><code>getAllHeaders</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Return dictionary of all headers the request received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getClient" class="summary-sig-name"><code>getClient</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getClientIP" class="summary-sig-name"><code>getClientIP</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getCookie" class="summary-sig-name"><code>getCookie</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>)</span></code>
+<br />
+Get a cookie that was sent from the network.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getHeader" class="summary-sig-name"><code>getHeader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>key</span>)</span></code>
+<br />
+Get a header that was sent from the network.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getHost" class="summary-sig-name"><code>getHost</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get my originally requesting transport's host.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getPassword" class="summary-sig-name"><code>getPassword</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getRequestHostname" class="summary-sig-name"><code>getRequestHostname</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get the hostname that the user passed in to the request.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#getUser" class="summary-sig-name"><code>getUser</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#gotLength" class="summary-sig-name"><code>gotLength</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>length</span>)</span></code>
+<br />
+Called when HTTP channel got length of content in this request.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#handleContentChunk" class="summary-sig-name"><code>handleContentChunk</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Write a chunk of data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#isSecure" class="summary-sig-name"><code>isSecure</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#noLongerQueued" class="summary-sig-name"><code>noLongerQueued</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Notify the object that it is no longer queued.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#parseCookies" class="summary-sig-name"><code>parseCookies</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Parse cookie headers.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#redirect" class="summary-sig-name"><code>redirect</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>url</span>)</span></code>
+<br />
+Utility function that does a redirect.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#requestReceived" class="summary-sig-name"><code>requestReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>version</span>)</span></code>
+<br />
+Called by channel when all data has been received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#setETag" class="summary-sig-name"><code>setETag</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>etag</span>)</span></code>
+<br />
+Set an <a name="index-entity_tag"></a><i class="indexterm">entity 
+tag</i> for the outgoing response.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#setHeader" class="summary-sig-name"><code>setHeader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>k</span>,
+          <span class=summary-sig-arg>v</span>)</span></code>
+<br />
+Set an outgoing HTTP header.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#setHost" class="summary-sig-name"><code>setHost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>ssl</span>)</span></code>
+<br />
+Change the host and port the request thinks it's using.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#setLastModified" class="summary-sig-name"><code>setLastModified</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>when</span>)</span></code>
+<br />
+Set the <a name="index-Last_Modified"></a><i 
+class="indexterm">Last-Modified</i> time for the response to this 
+request.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#setResponseCode" class="summary-sig-name"><code>setResponseCode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>code</span>,
+          <span class=summary-sig-arg>message</span>)</span></code>
+<br />
+Set the HTTP response code.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.http.Request.html#write" class="summary-sig-name"><code>write</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Write some data as a result of an HTTP request.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Componentized</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#addAdapter" class="summary-sig-name"><code>addAdapter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>adapterClass</span>,
+          <span class=summary-sig-arg>ignoreClass</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+<br />
+Utility method that calls addComponent.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#addComponent" class="summary-sig-name"><code>addComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>component</span>,
+          <span class=summary-sig-arg>ignoreClass</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+<br />
+Add a component to me, for all appropriate interfaces.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#getComponent" class="summary-sig-name"><code>getComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>registry</span>,
+          <span class=summary-sig-arg>default</span>)</span></code>
+<br />
+Create or retrieve an adapter for the given interface.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#locateAdapterClass" class="summary-sig-name"><code>locateAdapterClass</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>klass</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>default</span>,
+          <span class=summary-sig-arg>registry</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#removeComponent" class="summary-sig-name"><code>removeComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>component</span>)</span></code>
+<br />
+Remove the given component from me entirely, for all interfaces for 
+which it has been registered.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#setAdapter" class="summary-sig-name"><code>setAdapter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>adapterClass</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#setComponent" class="summary-sig-name"><code>setComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>,
+          <span class=summary-sig-arg>component</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#unsetComponent" class="summary-sig-name"><code>unsetComponent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interfaceClass</span>)</span></code>
+<br />
+Remove my component specified by the given interface class.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.components.Componentized.html#upgradeToVersion1" class="summary-sig-name"><code>upgradeToVersion1</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dict</span>)</span></code>
+<br />
+Get state, adding a version number to it on its way out.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Versioned.html#versionUpgrade" class="summary-sig-name"><code>versionUpgrade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(internal) Do a version upgrade.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Instance Variable Summary</th></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Request</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">A mapping of strings (the argument names) to lists of 
+          values. i.e., ?foo=bar&amp;foo=baz&amp;quux=spam results in 
+          {'foo': ['bar', 'baz'], 'quux': ['spam']}.</font></td>
+<td><b><a href="twisted.protocols.http.Request.html#args"><code>args</code></a></b>: All of the arguments, including URL and POST arguments.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#method"><code>method</code></a></b>: The HTTP method that was used.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.protocols.http.Request.html#path"><code>path</code></a></b>: The path only (arguments not included).</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.protocols.http.Request.html#received_headers"><code>received_headers</code></a></b>: All received headers</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#uri"><code>uri</code></a></b>: The full URI that was requested (includes arguments).</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Unjellyable</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.spread.jelly.Unjellyable.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.spread.interfaces.IUnjellyable at 0x84a65dc&gt;,)"><code>(&lt;class&nbsp;twisted.spread.interfaces.IUnje<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Request</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.server.Request.html#__pychecker__"><code>__pychecker__</code></a></b> = <span title="'unusednames=issuer'"><code><span class="variable-quote">'</span>unusednames=issuer<span class="variable-quote">'</span>                     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.server.Request.html#appRootURL"><code>appRootURL</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.server.Request.html#session"><code>session</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.server.Request.html#site"><code>site</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Request</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#_forceSSL"><code>_forceSSL</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#chunked"><code>chunked</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#clientproto"><code>clientproto</code></a></b> = <span title="'(no clientproto yet)'"><code><span class="variable-quote">'</span>(no&nbsp;clientproto&nbsp;yet)<span class="variable-quote">'</span>                     </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#code"><code>code</code></a></b> = <span title="200">200&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#code_message"><code>code_message</code></a></b> = <span title="'OK'"><code><span class="variable-quote">'</span>OK<span class="variable-quote">'</span>                                      </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#etag"><code>etag</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#finished"><code>finished</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#lastModified"><code>lastModified</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#producer"><code>producer</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#sentLength"><code>sentLength</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.http.Request.html#startedWriting"><code>startedWriting</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Componentized</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.components.Componentized.html#persistenceVersion"><code>persistenceVersion</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Versioned</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.persisted.styles.Versioned.html#persistenceForgets"><code>persistenceForgets</code></a></b> = <span title="()"><code>()                                  </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="registerProducer"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">registerProducer</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>producer</span>,
+          <span class=sig-arg>streaming</span>)</span>
+  </h3>
+  Register a producer.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.http.Request.html#registerProducer"><code>twisted.protocols.http.Request.registerProducer</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setCopyableState"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setCopyableState</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>state</span>)</span>
+  </h3>
+  <p>I will be invoked with the state to copy locally.</p>
+  'state' is the data returned from the remote object's 
+  'getStateToCopyFor' method, which will often be the remote object's 
+  dictionary (or a filtered approximation of it depending on my peer's 
+  perspective).
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.spread.flavors.RemoteCopy.html#setCopyableState"><code>twisted.spread.flavors.RemoteCopy.setCopyableState</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unregisterProducer"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unregisterProducer</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Unregister the producer.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.http.Request.html#unregisterProducer"><code>twisted.protocols.http.Request.unregisterProducer</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:05 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

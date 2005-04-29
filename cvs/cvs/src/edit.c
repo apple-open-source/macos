@@ -36,14 +36,17 @@ onoff_fileproc (callerdat, finfo)
     return 0;
 }
 
-static int onoff_filesdoneproc PROTO ((void *, int, char *, char *, List *));
+
+
+static int onoff_filesdoneproc PROTO ((void *, int, const char *, const char *,
+                                       List *));
 
 static int
 onoff_filesdoneproc (callerdat, err, repository, update_dir, entries)
     void *callerdat;
     int err;
-    char *repository;
-    char *update_dir;
+    const char *repository;
+    const char *update_dir;
     List *entries;
 {
     if (setting_default)
@@ -81,7 +84,7 @@ watch_onoff (argc, argv)
     argv += optind;
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 
@@ -89,8 +92,9 @@ watch_onoff (argc, argv)
 
 	if (local)
 	    send_arg ("-l");
-	send_file_names (argc, argv, SEND_EXPAND_WILD);
+	send_arg ("--");
 	send_files (argc, argv, local, 0, SEND_NO_CONTENTS);
+	send_file_names (argc, argv, SEND_EXPAND_WILD);
 	send_to_server (turning_on ? "watch-on\012" : "watch-off\012", 0);
 	return get_responses_and_close ();
     }
@@ -98,12 +102,12 @@ watch_onoff (argc, argv)
 
     setting_default = (argc <= 0);
 
-    lock_tree_for_write (argc, argv, local, 0);
+    lock_tree_for_write (argc, argv, local, W_LOCAL, 0);
 
     err = start_recursion (onoff_fileproc, onoff_filesdoneproc,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-			   0);
+			   argc, argv, local, W_LOCAL, 0, CVS_LOCK_NONE,
+			   (char *) NULL, 0, (char *) NULL);
 
     Lock_Cleanup ();
     return err;
@@ -235,9 +239,9 @@ send_notifications (argc, argv, local)
     /* OK, we've done everything which needs to happen on the client side.
        Now we can try to contact the server; if we fail, then the
        notifications stay in CVSADM_NOTIFY to be sent next time.  */
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
-	if (strcmp (command_name, "release") != 0)
+	if (strcmp (cvs_cmd_name, "release") != 0)
 	{
 	    start_server ();
 	    ign_setup ();
@@ -246,10 +250,10 @@ send_notifications (argc, argv, local)
 	err += start_recursion (dummy_fileproc, (FILESDONEPROC) NULL,
 				(DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
 				argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-				0);
+				0, (char *) NULL);
 
 	send_to_server ("noop\012", 0);
-	if (strcmp (command_name, "release") == 0)
+	if (strcmp (cvs_cmd_name, "release") == 0)
 	    err += get_server_responses ();
 	else
 	    err += get_responses_and_close ();
@@ -259,11 +263,11 @@ send_notifications (argc, argv, local)
     {
 	/* Local.  */
 
-	lock_tree_for_write (argc, argv, local, 0);
+	lock_tree_for_write (argc, argv, local, W_LOCAL, 0);
 	err += start_recursion (ncheck_fileproc, (FILESDONEPROC) NULL,
 				(DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
 				argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-				0);
+				0, (char *) NULL);
 	Lock_Cleanup ();
     }
     return err;
@@ -301,6 +305,8 @@ edit_fileproc (callerdat, finfo)
     (void) time (&now);
     ascnow = asctime (gmtime (&now));
     ascnow[24] = '\0';
+    /* Fix non-standard format.  */
+    if (ascnow[8] == '0') ascnow[8] = ' ';
     fprintf (fp, "E%s\t%s GMT\t%s\t%s\t", finfo->file,
 	     ascnow, hostname, CurDir);
     if (setting_tedit)
@@ -427,12 +433,21 @@ edit (argc, argv)
 	setting_tcommit = 1;
     }
 
+    if (strpbrk (hostname, "+,>;=\t\n") != NULL)
+	error (1, 0,
+	       "host name (%s) contains an invalid character (+,>;=\\t\\n)",
+	       hostname);
+    if (strpbrk (CurDir, "+,>;=\t\n") != NULL)
+	error (1, 0,
+"current directory (%s) contains an invalid character (+,>;=\\t\\n)",
+	       CurDir);
+
     /* No need to readlock since we aren't doing anything to the
        repository.  */
     err = start_recursion (edit_fileproc, (FILESDONEPROC) NULL,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			   argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-			   0);
+			   argc, argv, local, W_LOCAL, 0, 0, (char *) NULL,
+			   0, (char *) NULL);
 
     err += send_notifications (argc, argv, local);
 
@@ -484,6 +499,8 @@ unedit_fileproc (callerdat, finfo)
     (void) time (&now);
     ascnow = asctime (gmtime (&now));
     ascnow[24] = '\0';
+    /* Fix non-standard format.  */
+    if (ascnow[8] == '0') ascnow[8] = ' ';
     fprintf (fp, "U%s\t%s GMT\t%s\t%s\t\n", finfo->file,
 	     ascnow, hostname, CurDir);
 
@@ -520,7 +537,7 @@ unedit_fileproc (callerdat, finfo)
 	   now.  */
 	if (node != NULL)
 	{
-	    entdata = (Entnode *) node->data;
+	    entdata = node->data;
 	    if (baserev == NULL)
 	    {
 		/* This can only happen if the CVS/Baserev file got
@@ -553,6 +570,15 @@ unedit_fileproc (callerdat, finfo)
     return 0;
 }
 
+static const char *const unedit_usage[] =
+{
+    "Usage: %s %s [-lR] [files...]\n",
+    "-l: Local directory only, not recursive\n",
+    "-R: Process directories recursively\n",
+    "(Specify the --help global option for a list of other help options)\n",
+    NULL
+};
+
 int
 unedit (argc, argv)
     int argc;
@@ -563,7 +589,7 @@ unedit (argc, argv)
     int err;
 
     if (argc == -1)
-	usage (edit_usage);
+	usage (unedit_usage);
 
     optind = 0;
     while ((c = getopt (argc, argv, "+lR")) != -1)
@@ -578,7 +604,7 @@ unedit (argc, argv)
 		break;
 	    case '?':
 	    default:
-		usage (edit_usage);
+		usage (unedit_usage);
 		break;
 	}
     }
@@ -590,7 +616,7 @@ unedit (argc, argv)
     err = start_recursion (unedit_fileproc, (FILESDONEPROC) NULL,
 			   (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
 			   argc, argv, local, W_LOCAL, 0, 0, (char *)NULL,
-			   0);
+			   0,  (char *) NULL);
 
     err += send_notifications (argc, argv, local);
 
@@ -599,7 +625,7 @@ unedit (argc, argv)
 
 void
 mark_up_to_date (file)
-    char *file;
+    const char *file;
 {
     char *base;
 
@@ -614,12 +640,13 @@ mark_up_to_date (file)
     free (base);
 }
 
-
+
+
 void
 editor_set (filename, editor, val)
-    char *filename;
-    char *editor;
-    char *val;
+    const char *filename;
+    const char *editor;
+    const char *val;
 {
     char *edlist;
     char *newlist;
@@ -640,32 +667,36 @@ editor_set (filename, editor, val)
 
 struct notify_proc_args {
     /* What kind of notification, "edit", "tedit", etc.  */
-    char *type;
+    const char *type;
     /* User who is running the command which causes notification.  */
-    char *who;
+    const char *who;
     /* User to be notified.  */
-    char *notifyee;
+    const char *notifyee;
     /* File.  */
-    char *file;
+    const char *file;
 };
+
+
 
 /* Pass as a static until we get around to fixing Parse_Info to pass along
    a void * where we can stash it.  */
 static struct notify_proc_args *notify_args;
 
-static int notify_proc PROTO ((char *repository, char *filter));
+
+
+static int notify_proc PROTO ((const char *repository, const char *filter));
 
 static int
 notify_proc (repository, filter)
-    char *repository;
-    char *filter;
+    const char *repository;
+    const char *filter;
 {
     FILE *pipefp;
     char *prog;
     char *expanded_prog;
-    char *p;
+    const char *p;
     char *q;
-    char *srepos;
+    const char *srepos;
     struct notify_proc_args *args = notify_args;
 
     srepos = Short_Repository (repository);
@@ -722,14 +753,17 @@ notify_proc (repository, filter)
     return (pclose (pipefp));
 }
 
+/* FIXME: this function should have a way to report whether there was
+   an error so that server.c can know whether to report Notified back
+   to the client.  */
 void
 notify_do (type, filename, who, val, watches, repository)
     int type;
-    char *filename;
-    char *who;
-    char *val;
-    char *watches;
-    char *repository;
+    const char *filename;
+    const char *who;
+    const char *val;
+    const char *watches;
+    const char *repository;
 {
     static struct addremove_args blank;
     struct addremove_args args;
@@ -743,6 +777,11 @@ notify_do (type, filename, who, val, watches, repository)
     switch (type)
     {
 	case 'E':
+	    if (strpbrk (val, ",>;=\n") != NULL)
+	    {
+		error (0, 0, "invalid character in editor value");
+		return;
+	    }
 	    editor_set (filename, who, val);
 	    break;
 	case 'U':
@@ -843,11 +882,11 @@ notify_do (type, filename, who, val, watches, repository)
 	    size_t line_len = 0;
 
 	    args.notifyee = NULL;
-	    usersname = xmalloc (strlen (CVSroot_directory)
+	    usersname = xmalloc (strlen (current_parsed_root->directory)
 				 + sizeof CVSROOTADM
 				 + sizeof CVSROOTADM_USERS
 				 + 20);
-	    strcpy (usersname, CVSroot_directory);
+	    strcpy (usersname, current_parsed_root->directory);
 	    strcat (usersname, "/");
 	    strcat (usersname, CVSROOTADM);
 	    strcat (usersname, "/");
@@ -864,7 +903,14 @@ notify_do (type, filename, who, val, watches, repository)
 		    {
 			char *cp;
 			args.notifyee = xstrdup (line + len + 1);
-			cp = strchr (args.notifyee, ':');
+
+                        /* There may or may not be more
+                           colon-separated fields added to this in the
+                           future; in any case, we ignore them right
+                           now, and if there are none we make sure to
+                           chop off the final newline, if any. */
+			cp = strpbrk (args.notifyee, ":\n");
+
 			if (cp != NULL)
 			    *cp = '\0';
 			break;
@@ -876,13 +922,16 @@ notify_do (type, filename, who, val, watches, repository)
 		    error (0, errno, "cannot close %s", usersname);
 	    }
 	    free (usersname);
-	    free (line);
+	    if (line != NULL)
+		free (line);
 
 	    if (args.notifyee == NULL)
 	    {
-		args.notifyee = xmalloc (endp - p + 1);
-		strncpy (args.notifyee, p, endp - p);
-		args.notifyee[endp - p] = '\0';
+		char *tmp;
+		tmp = xmalloc (endp - p + 1);
+		strncpy (tmp, p, endp - p);
+		tmp[endp - p] = '\0';
+		args.notifyee = tmp;
 	    }
 
 	    notify_args = &args;
@@ -891,7 +940,12 @@ notify_do (type, filename, who, val, watches, repository)
 	    args.file = filename;
 
 	    (void) Parse_Info (CVSROOTADM_NOTIFY, repository, notify_proc, 1);
-	    free (args.notifyee);
+
+            /* It's okay to cast out the const for the free() below since we
+             * just allocated this a few lines above.  The const was for
+             * everybody else.
+             */
+            free ((char *)args.notifyee);
 	}
 
 	p = nextp;
@@ -930,8 +984,8 @@ notify_do (type, filename, who, val, watches, repository)
 /* Check and send notifications.  This is only for the client.  */
 void
 notify_check (repository, update_dir)
-    char *repository;
-    char *update_dir;
+    const char *repository;
+    const char *update_dir;
 {
     FILE *fp;
     char *line = NULL;
@@ -1008,29 +1062,29 @@ editors_fileproc (callerdat, finfo)
     if (them == NULL)
 	return 0;
 
-    fputs (finfo->fullname, stdout);
+    cvs_output (finfo->fullname, 0);
 
     p = them;
     while (1)
     {
-	putc ('\t', stdout);
+	cvs_output ("\t", 1);
 	while (*p != '>' && *p != '\0')
-	    putc (*p++, stdout);
+	    cvs_output (p++, 1);
 	if (*p == '\0')
 	{
 	    /* Only happens if attribute is misformed.  */
-	    putc ('\n', stdout);
+	    cvs_output ("\n", 1);
 	    break;
 	}
 	++p;
-	putc ('\t', stdout);
+	cvs_output ("\t", 1);
 	while (1)
 	{
 	    while (*p != '+' && *p != ',' && *p != '\0')
-		putc (*p++, stdout);
+		cvs_output (p++, 1);
 	    if (*p == '\0')
 	    {
-		putc ('\n', stdout);
+		cvs_output ("\n", 1);
 		goto out;
 	    }
 	    if (*p == ',')
@@ -1039,11 +1093,12 @@ editors_fileproc (callerdat, finfo)
 		break;
 	    }
 	    ++p;
-	    putc ('\t', stdout);
+	    cvs_output ("\t", 1);
 	}
-	putc ('\n', stdout);
+	cvs_output ("\n", 1);
     }
   out:;
+    free (them);
     return 0;
 }
 
@@ -1079,15 +1134,16 @@ editors (argc, argv)
     argv += optind;
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 	ign_setup ();
 
 	if (local)
 	    send_arg ("-l");
-	send_file_names (argc, argv, SEND_EXPAND_WILD);
+	send_arg ("--");
 	send_files (argc, argv, local, 0, SEND_NO_CONTENTS);
+	send_file_names (argc, argv, SEND_EXPAND_WILD);
 	send_to_server ("editors\012", 0);
 	return get_responses_and_close ();
     }
@@ -1095,6 +1151,6 @@ editors (argc, argv)
 
     return start_recursion (editors_fileproc, (FILESDONEPROC) NULL,
 			    (DIRENTPROC) NULL, (DIRLEAVEPROC) NULL, NULL,
-			    argc, argv, local, W_LOCAL, 0, 1, (char *)NULL,
-			    0);
+			    argc, argv, local, W_LOCAL, 0, 1, (char *) NULL,
+			    0,  (char *) NULL);
 }

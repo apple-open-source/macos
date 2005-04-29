@@ -132,7 +132,7 @@ emacsforwardword(char **args)
 
 /**/
 int
-viforwardblankwordend(char **args)
+viforwardblankwordend(UNUSED(char **args))
 {
     int n = zmult;
 
@@ -295,7 +295,7 @@ backwarddeleteword(char **args)
 
 /**/
 int
-vibackwardkillword(char **args)
+vibackwardkillword(UNUSED(char **args))
 {
     int x = cs, lim = (viinsbegin > findbol()) ? viinsbegin : findbol();
     int n = zmult;
@@ -343,7 +343,7 @@ backwardkillword(char **args)
 
 /**/
 int
-upcaseword(char **args)
+upcaseword(UNUSED(char **args))
 {
     int n = zmult;
     int neg = n < 0, ocs = cs;
@@ -365,7 +365,7 @@ upcaseword(char **args)
 
 /**/
 int
-downcaseword(char **args)
+downcaseword(UNUSED(char **args))
 {
     int n = zmult;
     int neg = n < 0, ocs = cs;
@@ -387,7 +387,7 @@ downcaseword(char **args)
 
 /**/
 int
-capitalizeword(char **args)
+capitalizeword(UNUSED(char **args))
 {
     int first, n = zmult;
     int neg = n < 0, ocs = cs;
@@ -461,7 +461,7 @@ killword(char **args)
 
 /**/
 int
-transposewords(char **args)
+transposewords(UNUSED(char **args))
 {
     int p1, p2, p3, p4, x = cs;
     char *temp, *pp;

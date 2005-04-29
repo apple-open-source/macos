@@ -1,7 +1,6 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810ioctl.c,v 1.7 2002/10/30 12:51:33 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810ioctl.c,v 1.8 2003/09/28 20:15:11 alanh Exp $ */
 
-#include <stdio.h>
-#include <unistd.h>
+#include <unistd.h> /* for usleep() */
 
 #include "glheader.h"
 #include "mtypes.h"
@@ -192,9 +191,43 @@ void i810CopyBuffer( const __DRIdrawablePrivate *dPriv )
  */
 void i810PageFlip( const __DRIdrawablePrivate *dPriv ) 
 {
-   (void) dPriv;
-/*     _mesa_problem(NULL, "i810PageFlip should not be called!\n"); */
-   return;
+  i810ContextPtr imesa;
+  int tmp, ret;
+
+  assert(dPriv);
+  assert(dPriv->driContextPriv);
+  assert(dPriv->driContextPriv->driverPrivate);
+    
+  imesa = (i810ContextPtr) dPriv->driContextPriv->driverPrivate;
+
+  I810_FIREVERTICES( imesa );
+  LOCK_HARDWARE( imesa );
+  
+  if (dPriv->pClipRects) {
+    *(XF86DRIClipRectRec *)imesa->sarea->boxes = dPriv->pClipRects[0];
+    imesa->sarea->nbox = 1;
+  }
+  ret = drmCommandNone(imesa->driFd, DRM_I810_FLIP);
+  if (ret) {
+    fprintf(stderr, "%s: %d\n", __FUNCTION__, ret);
+    UNLOCK_HARDWARE( imesa );
+    exit(1);
+  }
+
+  tmp = GET_ENQUEUE_AGE(imesa);
+  UNLOCK_HARDWARE( imesa );
+  
+   /* multiarb will suck the life out of the server without this throttle:
+    */
+  if (GET_DISPATCH_AGE(imesa) < imesa->lastSwap) {
+    i810WaitAge(imesa, imesa->lastSwap);
+   }
+
+  /*  i810SetDrawBuffer( imesa->glCtx, imesa->glCtx->Color.DriverDrawBuffer );*/
+  i810DrawBuffer( imesa->glCtx, imesa->glCtx->Color.DrawBuffer );
+  imesa->upload_cliprects = GL_TRUE;
+  imesa->lastSwap = tmp;
+  return;
 }
 
 
@@ -321,8 +354,8 @@ static void emit_state( i810ContextPtr imesa )
 
 static void age_imesa( i810ContextPtr imesa, int age )
 {
-   if (imesa->CurrentTexObj[0]) imesa->CurrentTexObj[0]->age = age;
-   if (imesa->CurrentTexObj[1]) imesa->CurrentTexObj[1]->age = age;
+   if (imesa->CurrentTexObj[0]) imesa->CurrentTexObj[0]->base.timestamp = age;
+   if (imesa->CurrentTexObj[1]) imesa->CurrentTexObj[1]->base.timestamp = age;
 }
 
 
@@ -335,6 +368,9 @@ void i810FlushPrimsLocked( i810ContextPtr imesa )
    drmI810Vertex vertex;
    int i;
 	  
+   if (I810_DEBUG & DEBUG_STATE)
+      i810PrintDirty( __FUNCTION__, imesa->dirty );
+   
    if (imesa->dirty)
       emit_state( imesa );
 

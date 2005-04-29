@@ -1,8 +1,27 @@
-.\" You can view this file with:
-.\" nroff -man curl-config.1
-.\" Written by Daniel Stenberg
+.\" **************************************************************************
+.\" *                                  _   _ ____  _
+.\" *  Project                     ___| | | |  _ \| |
+.\" *                             / __| | | | |_) | |
+.\" *                            | (__| |_| |  _ <| |___
+.\" *                             \___|\___/|_| \_\_____|
+.\" *
+.\" * Copyright (C) 1998 - 2005, Daniel Stenberg, <daniel@haxx.se>, et al.
+.\" *
+.\" * This software is licensed as described in the file COPYING, which
+.\" * you should have received as part of this distribution. The terms
+.\" * are also available at http://curl.haxx.se/docs/copyright.html.
+.\" *
+.\" * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+.\" * copies of the Software, and permit persons to whom the Software is
+.\" * furnished to do so, under the terms of the COPYING file.
+.\" *
+.\" * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+.\" * KIND, either express or implied.
+.\" *
+.\" * $Id: curl-config.1,v 1.11 2005/01/25 12:06:12 bagder Exp $
+.\" **************************************************************************
 .\"
-.TH curl-config 1 "8 Oct 2002" "Curl 7.10" "curl-config manual"
+.TH curl-config 1 "25 Jan 2004" "Curl 7.13.0" "curl-config manual"
 .SH NAME
 curl-config \- Get information about a libcurl installation
 .SH SYNOPSIS
@@ -32,13 +51,20 @@ to link your application with libcurl.
 This is the prefix used when libcurl was installed. Libcurl is then installed
 in $prefix/lib and its header files are installed in $prefix/include and so
 on. The prefix is set with "configure --prefix".
+.IP "--protocols"
+Lists what particular protocols the installed libcurl was built to support. At
+the time of writing, this list may include HTTP, HTTPS, FTP, FTPS, GOPHER,
+FILE, TELNET, LDAP, DICT. Do not assume any particular order. The protocols
+will be listed using uppercase and are separated by newlines. There may be
+none, one or several protocols in the list. (Added in 7.13.0)
 .IP "--version"
 Outputs version information about the installed libcurl.
 .IP "--vernum"
 Outputs version information about the installed libcurl, in numerical mode.
 This outputs the version number, in hexadecimal, with 8 bits for each part;
 major, minor, patch. So that libcurl 7.7.4 would appear as 070704 and libcurl
-12.13.14 would appear as 0c0d0e...
+12.13.14 would appear as 0c0d0e... Note that the initial zero might be
+omitted.
 .SH "EXAMPLES"
 What linker options do I need when I link with libcurl?
 

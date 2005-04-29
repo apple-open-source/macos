@@ -1,0 +1,15 @@
+Bu, bir Mailman mesaj listesi geri dönüþ eylem bildirimidir:
+
+    Liste:      %(listname)s
+    Üye:        %(addr)s
+    Eylem:      Üyelik %(negative)s%(did)s.
+    Neden:      Önemli veya çok sayýda geri dönüþ.
+    %(but)s
+
+%(reenable)s
+Tetikleyici geri dönüþ bildirimi aþaðýya eklidir.
+
+Sorularýnýz varsa...  
+Mailman site yöneticisi ile %(owneraddr)s adresinden
+baðlantýya geçin.
+

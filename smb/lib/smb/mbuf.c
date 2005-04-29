@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: mbuf.c,v 1.1.1.2 2001/06/09 00:28:44 zarzycki Exp $
+ * $Id: mbuf.c,v 1.3 2004/12/13 00:25:22 lindak Exp $
  */
 
 #include <sys/types.h>
@@ -261,17 +261,17 @@ mb_put_uint32le(struct mbdata *mbp, u_int32_t x)
 }
 
 int
-mb_put_int64be(struct mbdata *mbp, int64_t x)
+mb_put_uint64be(struct mbdata *mbp, u_int64_t x)
 {
-	MB_PUT(int64_t);
+	MB_PUT(u_int64_t);
 	*p = htobeq(x);
 	return 0;
 }
 
 int
-mb_put_int64le(struct mbdata *mbp, int64_t x)
+mb_put_uint64le(struct mbdata *mbp, u_int64_t x)
 {
-	MB_PUT(int64_t);
+	MB_PUT(u_int64_t);
 	*p = htoleq(x);
 	return 0;
 }
@@ -363,7 +363,8 @@ mb_get_uint16le(struct mbdata *mbp, u_int16_t *x)
 	u_int16_t v;
 	int error = mb_get_uint16(mbp, &v);
 
-	*x = letohs(v);
+	if (x != NULL)
+		*x = letohs(v);
 	return error;
 }
 
@@ -372,7 +373,8 @@ mb_get_uint16be(struct mbdata *mbp, u_int16_t *x) {
 	u_int16_t v;
 	int error = mb_get_uint16(mbp, &v);
 
-	*x = betohs(v);
+	if (x != NULL)
+		*x = betohs(v);
 	return error;
 }
 
@@ -389,7 +391,8 @@ mb_get_uint32be(struct mbdata *mbp, u_int32_t *x)
 	int error;
 
 	error = mb_get_uint32(mbp, &v);
-	*x = betohl(v);
+	if (x != NULL)
+		*x = betohl(v);
 	return error;
 }
 
@@ -400,35 +403,38 @@ mb_get_uint32le(struct mbdata *mbp, u_int32_t *x)
 	int error;
 
 	error = mb_get_uint32(mbp, &v);
-	*x = letohl(v);
+	if (x != NULL)
+		*x = letohl(v);
 	return error;
 }
 
 int
-mb_get_int64(struct mbdata *mbp, int64_t *x)
+mb_get_uint64(struct mbdata *mbp, u_int64_t *x)
 {
 	return mb_get_mem(mbp, (char *)x, 8);
 }
 
 int
-mb_get_int64be(struct mbdata *mbp, int64_t *x)
+mb_get_uint64be(struct mbdata *mbp, u_int64_t *x)
 {
-	int64_t v;
+	u_int64_t v;
 	int error;
 
-	error = mb_get_int64(mbp, &v);
-	*x = betohq(v);
+	error = mb_get_uint64(mbp, &v);
+	if (x != NULL)
+		*x = betohq(v);
 	return error;
 }
 
 int
-mb_get_int64le(struct mbdata *mbp, int64_t *x)
+mb_get_uint64le(struct mbdata *mbp, u_int64_t *x)
 {
-	int64_t v;
+	u_int64_t v;
 	int error;
 
-	error = mb_get_int64(mbp, &v);
-	*x = letohq(v);
+	error = mb_get_uint64(mbp, &v);
+	if (x != NULL)
+		*x = letohq(v);
 	return error;
 }
 

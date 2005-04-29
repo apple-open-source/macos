@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2019: Origin of test
+dnl ../doc/m4.texinfo:2020: Origin of test
 define(`cleanup', `This is the `cleanup' actions.
 ')
 dnl @result{}

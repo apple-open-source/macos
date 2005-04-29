@@ -47,7 +47,7 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
 
   argp = stack;
 
-  if (ecif->cif->rtype->type == FFI_TYPE_STRUCT)
+  if (ecif->cif->flags == FFI_TYPE_STRUCT)
     {
       *(void **) argp = ecif->rvalue;
       argp += 4;
@@ -62,8 +62,8 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
       size_t z;
 
       /* Align if necessary */
-      if (((*p_arg)->alignment - 1) & (unsigned) argp)
-	argp = (char *) ALIGN(argp, (*p_arg)->alignment);
+      if ((sizeof(int) - 1) & (unsigned) argp)
+	argp = (char *) ALIGN(argp, sizeof(int));
 
       z = (*p_arg)->size;
       if (z < sizeof(int))
@@ -121,7 +121,9 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
   switch (cif->rtype->type)
     {
     case FFI_TYPE_VOID:
+#ifndef X86_WIN32
     case FFI_TYPE_STRUCT:
+#endif
     case FFI_TYPE_SINT64:
     case FFI_TYPE_FLOAT:
     case FFI_TYPE_DOUBLE:
@@ -132,6 +134,31 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
     case FFI_TYPE_UINT64:
       cif->flags = FFI_TYPE_SINT64;
       break;
+
+#ifdef X86_WIN32
+    case FFI_TYPE_STRUCT:
+      if (cif->rtype->size == 1)
+        {
+          cif->flags = FFI_TYPE_SINT8; /* same as char size */
+        }
+      else if (cif->rtype->size == 2)
+        {
+          cif->flags = FFI_TYPE_SINT16; /* same as short size */
+        }
+      else if (cif->rtype->size == 4)
+        {
+          cif->flags = FFI_TYPE_INT; /* same as int type */
+        }
+      else if (cif->rtype->size == 8)
+        {
+          cif->flags = FFI_TYPE_SINT64; /* same as int64 type */
+        }
+      else
+        {
+          cif->flags = FFI_TYPE_STRUCT;
+        }
+      break;
+#endif
 
     default:
       cif->flags = FFI_TYPE_INT;
@@ -177,7 +204,7 @@ void ffi_call(/*@dependent@*/ ffi_cif *cif,
   /* value address then we need to make one		        */
 
   if ((rvalue == NULL) && 
-      (cif->rtype->type == FFI_TYPE_STRUCT))
+      (cif->flags == FFI_TYPE_STRUCT))
     {
       /*@-sysunrecog@*/
       ecif.rvalue = alloca(cif->rtype->size);
@@ -214,35 +241,29 @@ void ffi_call(/*@dependent@*/ ffi_cif *cif,
 
 static void ffi_prep_incoming_args_SYSV (char *stack, void **ret,
 					 void** args, ffi_cif* cif);
-static void ffi_closure_SYSV ();
-static void ffi_closure_raw_SYSV ();
+static void ffi_closure_SYSV (ffi_closure *)
+     __attribute__ ((regparm(1)));
+static void ffi_closure_raw_SYSV (ffi_raw_closure *)
+     __attribute__ ((regparm(1)));
 
-/* This function is jumped to by the trampoline, on entry, %ecx (a
- * caller-save register) holds the address of the closure.  
- * Clearly, this requires __GNUC__, so perhaps we should translate this
- * into an assembly file if this is to be distributed with ffi.
- */
+/* This function is jumped to by the trampoline */
 
 static void
-ffi_closure_SYSV ()
+ffi_closure_SYSV (closure)
+     ffi_closure *closure;
 {
   // this is our return value storage
   long double    res;
 
   // our various things...
-  void          *args;
   ffi_cif       *cif;
   void         **arg_area;
-  ffi_closure   *closure;
   unsigned short rtype;
   void          *resp = (void*)&res;
+  void *args = __builtin_dwarf_cfa ();
 
-  /* grab the trampoline context pointer */
-  asm ("movl %%ecx,%0" : "=r" (closure));
-  
   cif         = closure->cif;
   arg_area    = (void**) alloca (cif->nargs * sizeof (void*));  
-  asm ("leal 8(%%ebp),%0" : "=q" (args));  
 
   /* this call will initialize ARG_AREA, such that each
    * element in that array points to the corresponding 
@@ -280,6 +301,16 @@ ffi_closure_SYSV ()
 	   : : "r"(resp)
 	   : "eax", "edx");
     }
+#ifdef X86_WIN32
+  else if (rtype == FFI_TYPE_SINT8) /* 1-byte struct  */
+    {
+      asm ("movsbl (%0),%%eax" : : "r" (resp) : "eax");
+    }
+  else if (rtype == FFI_TYPE_SINT16) /* 2-bytes struct */
+    {
+      asm ("movswl (%0),%%eax" : : "r" (resp) : "eax");
+    }
+#endif
 }
 
 /*@-exportheader@*/
@@ -295,7 +326,7 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 
   argp = stack;
 
-  if ( cif->rtype->type == FFI_TYPE_STRUCT ) {
+  if ( cif->flags == FFI_TYPE_STRUCT ) {
     *rvalue = *(void **) argp;
     argp += 4;
   }
@@ -307,8 +338,8 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
       size_t z;
 
       /* Align if necessary */
-      if (((*p_arg)->alignment - 1) & (unsigned) argp) {
-	argp = (char *) ALIGN(argp, (*p_arg)->alignment);
+      if ((sizeof(int) - 1) & (unsigned) argp) {
+	argp = (char *) ALIGN(argp, sizeof(int));
       }
 
       z = (*p_arg)->size;
@@ -330,11 +361,11 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 ({ unsigned char *__tramp = (unsigned char*)(TRAMP); \
    unsigned int  __fun = (unsigned int)(FUN); \
    unsigned int  __ctx = (unsigned int)(CTX); \
-   unsigned int  __dis = __fun - ((unsigned int) __tramp + 10); \
-   *(unsigned char*) &__tramp[0] = 0xb9; \
-   *(unsigned int*)  &__tramp[1] = __ctx; \
-   *(unsigned char*) &__tramp[5] = 0xe9; \
-   *(unsigned int*)  &__tramp[6] = __dis; \
+   unsigned int  __dis = __fun - ((unsigned int) __tramp + FFI_TRAMPOLINE_SIZE); \
+   *(unsigned char*) &__tramp[0] = 0xb8; \
+   *(unsigned int*)  &__tramp[1] = __ctx; /* movl __ctx, %eax */ \
+   *(unsigned char *)  &__tramp[5] = 0xe9; \
+   *(unsigned int*)  &__tramp[6] = __dis; /* jmp __fun  */ \
  })
 
 
@@ -364,30 +395,23 @@ ffi_prep_closure (ffi_closure* closure,
 #if !FFI_NO_RAW_API
 
 static void
-ffi_closure_raw_SYSV ()
+ffi_closure_raw_SYSV (closure)
+     ffi_raw_closure *closure;
 {
   // this is our return value storage
   long double    res;
 
   // our various things...
-  void            *args;
   ffi_raw         *raw_args;
   ffi_cif         *cif;
-  ffi_raw_closure *closure;
   unsigned short   rtype;
   void            *resp = (void*)&res;
-
-  /* grab the trampoline context pointer */
-  asm ("movl %%ecx,%0" : "=r" (closure));
-
-  /* take the argument pointer */
-  asm ("leal 8(%%ebp),%0" : "=q" (args));  
 
   /* get the cif */
   cif = closure->cif;
 
   /* the SYSV/X86 abi matches the RAW API exactly, well.. almost */
-  raw_args = (ffi_raw*) args;
+  raw_args = (ffi_raw*) __builtin_dwarf_cfa ();
 
   (closure->fun) (cif, resp, raw_args, closure->user_data);
 

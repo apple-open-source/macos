@@ -1,0 +1,17 @@
+Instructions from havaltest.c:
+
+/*
+ *  havaltest.c:  specifies a test program for the HAVAL hashing library.
+ *
+ *  Arguments for the test program:
+ *
+ *      (none)    - hash input from stdin
+ *      ? or -?   - show help menu
+ *      -c        - hash certification data
+ *      -e        - test whether your machine is little-endian
+ *      -mstring  - hash message (string of chars)
+ *      -s        - test speed
+ *      file_name - hash file
+ *
+
+vince@ghost

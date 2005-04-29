@@ -1,0 +1,2 @@
+[vset    digest md5]
+[include digest/main.inc]

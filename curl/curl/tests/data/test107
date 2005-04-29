@@ -1,6 +1,9 @@
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP PASV upload file
  </name>
@@ -15,7 +18,7 @@ works
  <command>
 ftp://%HOSTIP:%FTPPORT/107 -T log/test107.txt
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -34,5 +37,6 @@ PWD
 EPSV
 TYPE I
 STOR 107
+QUIT
 </protocol>
 </verify>

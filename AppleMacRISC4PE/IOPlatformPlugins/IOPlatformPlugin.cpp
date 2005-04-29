@@ -153,8 +153,9 @@ bool IOPlatformPlugin::start(IOService *nub)
 	const OSArray * tempArray;
 	IONotifier * restartNotifier;
 	mach_timespec_t waitTimeout;
-
-	DLOG("IOPlatformPlugin::start - entered\n");
+	OSDictionary *envCopy;			// [4024330] this is what's in the registry
+		
+	//DLOG("IOPlatformPlugin::start - entered\n");
 
 	if (!super::start (nub)) goto failOnly;
 
@@ -182,9 +183,6 @@ bool IOPlatformPlugin::start(IOService *nub)
 
 	// allocate the environmental info dict
 	envInfo = OSDictionary::withCapacity(3);
-
-	// expose the environment dict to the registry
-	setProperty(kIOPPluginEnvInfoKey, envInfo);
 
 	// populate the environment info dict
 	setEnv(gIOPPluginEnvInternalOvertemp, (tempArray = OSArray::withCapacity(0)));
@@ -243,6 +241,12 @@ bool IOPlatformPlugin::start(IOService *nub)
 	// fetch the initial switch state.
 	registerChassisSwitchNotifier();
 	setEnv( gIOPPluginEnvChassisSwitch, pollChassisSwitch() );
+	
+	// [4024330] Changing collections in the registry causes panics so expose a copy
+	// of envInfo
+	envCopy = (OSDictionary *)envInfo->copyCollection();	
+	setProperty(kIOPPluginEnvInfoKey, envCopy);
+	envCopy->release();
 
 	// HELLO!!
 	registerService();
@@ -1162,7 +1166,7 @@ void IOPlatformPlugin::setTimeout( const AbsoluteTime now )
 						// something went wrong and this control loop didn't get it's timer callback.
 						// If we get here, just schedule a thread callout for the soonest possible
 						// dispatch.
-						DLOG("IOPlatformPlugin::setTimeout ctrlloop %d's deadline already passed\n", i);
+						//DLOG("IOPlatformPlugin::setTimeout ctrlloop %d's deadline already passed\n", i);
 						thread_call_enter( timerCallout );
 						return;
 					}
@@ -1276,6 +1280,11 @@ IOReturn IOPlatformPlugin::handleEvent(IOPPluginEventData *event)
 	if (envChanged)
 	{
 		environmentChanged();
+
+		// [4024330] just a copy in registry
+		OSDictionary *envCopy = (OSDictionary *)envInfo->copyCollection();
+		setProperty(kIOPPluginEnvInfoKey, envCopy);
+		envCopy->release();
 
 		// clear the environment changed flag
 		envChanged = false;

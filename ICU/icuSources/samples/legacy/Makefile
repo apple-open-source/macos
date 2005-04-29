@@ -1,5 +1,5 @@
-# Copyright (c) 2001 IBM, Inc. and others
-# conversion sample code $Revision: 1.1.1.1 $
+# Copyright (c) 2001-2004 IBM, Inc. and others
+# conversion sample code
 
 
 # Usage:

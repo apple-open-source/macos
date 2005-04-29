@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,9 +20,13 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: urlglob.h,v 1.1.1.2 2002/11/26 19:08:07 zarzycki Exp $
+ * $Id: urlglob.h,v 1.16 2004/03/23 09:12:52 bagder Exp $
  ***************************************************************************/
-typedef enum {UPTSet=1,UPTCharRange,UPTNumRange} URLPatternType;
+typedef enum {
+  UPTSet=1,
+  UPTCharRange,
+  UPTNumRange
+} URLPatternType;
 
 typedef struct {
   URLPatternType type;
@@ -47,15 +51,16 @@ typedef struct {
 typedef struct {
   char* literal[10];
   URLPattern pattern[9];
-  int size;
-  int urllen;
+  size_t size;
+  size_t urllen;
   char *glob_buffer;
   char beenhere;
+  char errormsg[80]; /* error message buffer */
 } URLGlob;
 
-int glob_url(URLGlob**, char*, int *);
-char* next_url(URLGlob*);
-char* match_url(char*, URLGlob *); 
+int glob_url(URLGlob**, char*, int *, FILE *);
+char* glob_next_url(URLGlob*);
+char* glob_match_url(char*, URLGlob *); 
 void glob_cleanup(URLGlob* glob);
 
 #endif

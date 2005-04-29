@@ -233,7 +233,9 @@ screenshot shows the selections made by the author for his printer.
 The individual selections will not be explained in detail here, as
 they are the same selections which are available when using the
 Gimp-Print plugin to the GIMP.  These selections are explained in
-detail in various sections of <xref linkend="ch-gimp-and-gimp-print">.
+detail in various sections of the <emphasis>GIMP and
+Gimp-Print</emphasis> chapter of <emphasis>The User's Guide to the
+Gimp-Print Top Quality Printer Drivers</emphasis>.
    </para>
 
    <figure id="fig-cups-printer-config-window"><title>The CUPS Printer Cofiguration Window</title>
@@ -308,7 +310,9 @@ followed by some of the supported choices, are shown below:
    ]]>
    </programlisting>
 
-For more detailed information, consult the appropriate sections of <xref linkend="ch-gimp-and-gimp-print">.
+For more detailed information, consult the appropriate sections of the <emphasis>GIMP and
+Gimp-Print</emphasis> chapter of <emphasis>The User's Guide to the
+Gimp-Print Top Quality Printer Drivers</emphasis>.
    </para>
 
    </sect1>

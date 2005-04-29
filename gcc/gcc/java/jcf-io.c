@@ -1,18 +1,21 @@
 /* Utility routines for finding and reading Java(TM) .class files.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002  Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -24,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 
 #include "jcf.h"
 #include "tree.h"
@@ -43,8 +48,7 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #endif
 
 int
-DEFUN(jcf_unexpected_eof, (jcf, count),
-      JCF *jcf AND int count ATTRIBUTE_UNUSED)
+jcf_unexpected_eof (JCF *jcf, int count ATTRIBUTE_UNUSED)
 {
   if (jcf->filename)
     fprintf (stderr, "Premature end of .class file %s.\n", jcf->filename);
@@ -54,8 +58,7 @@ DEFUN(jcf_unexpected_eof, (jcf, count),
 }
 
 void
-DEFUN(jcf_trim_old_input, (jcf),
-      JCF *jcf)
+jcf_trim_old_input (JCF *jcf)
 {
   int count = jcf->read_ptr - jcf->buffer;
   if (count > 0)
@@ -67,8 +70,7 @@ DEFUN(jcf_trim_old_input, (jcf),
 }
 
 int
-DEFUN(jcf_filbuf_from_stdio, (jcf, count),
-      JCF *jcf AND int count)
+jcf_filbuf_from_stdio (JCF *jcf, int count)
 {
   FILE *file = (FILE*) (jcf->read_state);
   if (count > jcf->buffer_end - jcf->read_ptr)
@@ -103,8 +105,7 @@ struct ZipFile *SeenZipFiles = NULL;
 */
 
 ZipFile *
-DEFUN(opendir_in_zip, (zipfile, is_system),
-      const char *zipfile AND int is_system)
+opendir_in_zip (const char *zipfile, int is_system)
 {
   struct ZipFile* zipf;
   char magic [4];
@@ -119,7 +120,6 @@ DEFUN(opendir_in_zip, (zipfile, is_system),
   zipf->next = SeenZipFiles;
   zipf->name = (char*)(zipf+1);
   strcpy (zipf->name, zipfile);
-  SeenZipFiles = zipf;
   fd = open (zipfile, O_RDONLY | O_BINARY);
   zipf->fd = fd;
   if (fd < 0)
@@ -139,6 +139,8 @@ DEFUN(opendir_in_zip, (zipfile, is_system),
       if (read_zip_archive (zipf) != 0)
 	return NULL;
     }
+
+  SeenZipFiles = zipf;  
   return zipf;
 }
 
@@ -149,9 +151,8 @@ DEFUN(opendir_in_zip, (zipfile, is_system),
 */
 
 int
-DEFUN(open_in_zip, (jcf, zipfile, zipmember, is_system),
-      JCF *jcf AND const char *zipfile AND const char *zipmember
-      AND int is_system)
+open_in_zip (JCF *jcf, const char *zipfile, const char *zipmember,
+	     int is_system)
 {
   ZipDirectory *zipd;
   int i, len;
@@ -184,56 +185,54 @@ DEFUN(open_in_zip, (jcf, zipfile, zipmember, is_system),
 /* Read data from zip archive member. */
 
 int
-DEFUN(read_zip_member, (jcf, zipd, zipf),
-      JCF *jcf AND  ZipDirectory *zipd AND ZipFile *zipf)
+read_zip_member (JCF *jcf,  ZipDirectory *zipd, ZipFile *zipf)
 {
-	  jcf->filbuf = jcf_unexpected_eof;
-	  jcf->zipd = (void *)zipd;
+  jcf->filbuf = jcf_unexpected_eof;
+  jcf->zipd = (void *)zipd;
 
-	  if (zipd->compression_method == Z_NO_COMPRESSION)
-	    {
-	      jcf->buffer = ALLOC (zipd->size);
-	      jcf->buffer_end = jcf->buffer + zipd->size;
-	      jcf->read_ptr = jcf->buffer;
-	      jcf->read_end = jcf->buffer_end;
-	      if (lseek (zipf->fd, zipd->filestart, 0) < 0
-		  || read (zipf->fd, jcf->buffer, zipd->size) != (long) zipd->size)
-	        return -2;
-	    }
-	  else
-	    {
-	      char *buffer;
-	      z_stream d_stream; /* decompression stream */
-	      d_stream.zalloc = (alloc_func) 0;
-	      d_stream.zfree = (free_func) 0;
-	      d_stream.opaque = (voidpf) 0;
+  if (zipd->compression_method == Z_NO_COMPRESSION)
+    {
+      jcf->buffer = ALLOC (zipd->size);
+      jcf->buffer_end = jcf->buffer + zipd->size;
+      jcf->read_ptr = jcf->buffer;
+      jcf->read_end = jcf->buffer_end;
+      if (lseek (zipf->fd, zipd->filestart, 0) < 0
+	  || read (zipf->fd, jcf->buffer, zipd->size) != (long) zipd->size)
+	return -2;
+    }
+  else
+    {
+      char *buffer;
+      z_stream d_stream; /* decompression stream */
+      d_stream.zalloc = (alloc_func) 0;
+      d_stream.zfree = (free_func) 0;
+      d_stream.opaque = (voidpf) 0;
 
-	      jcf->buffer = ALLOC (zipd->uncompressed_size);
-	      d_stream.next_out = jcf->buffer;
-	      d_stream.avail_out = zipd->uncompressed_size;
-	      jcf->buffer_end = jcf->buffer + zipd->uncompressed_size;
-	      jcf->read_ptr = jcf->buffer;
-	      jcf->read_end = jcf->buffer_end;
-	      buffer = ALLOC (zipd->size);
-	      d_stream.next_in = buffer;
-	      d_stream.avail_in = zipd->size;
-	      if (lseek (zipf->fd, zipd->filestart, 0) < 0
-		  || read (zipf->fd, buffer, zipd->size) != (long) zipd->size)
-		return -2;
-	      /* Handle NO_HEADER using undocumented zlib feature.
-                 This is a very common hack.  */
-	      inflateInit2 (&d_stream, -MAX_WBITS);
-	      inflate (&d_stream, Z_NO_FLUSH);
-	      inflateEnd (&d_stream);
-	      FREE (buffer);
-	    }
+      jcf->buffer = ALLOC (zipd->uncompressed_size);
+      d_stream.next_out = jcf->buffer;
+      d_stream.avail_out = zipd->uncompressed_size;
+      jcf->buffer_end = jcf->buffer + zipd->uncompressed_size;
+      jcf->read_ptr = jcf->buffer;
+      jcf->read_end = jcf->buffer_end;
+      buffer = ALLOC (zipd->size);
+      d_stream.next_in = (unsigned char *) buffer;
+      d_stream.avail_in = zipd->size;
+      if (lseek (zipf->fd, zipd->filestart, 0) < 0
+	  || read (zipf->fd, buffer, zipd->size) != (long) zipd->size)
+	return -2;
+      /* Handle NO_HEADER using undocumented zlib feature.
+	 This is a very common hack.  */
+      inflateInit2 (&d_stream, -MAX_WBITS);
+      inflate (&d_stream, Z_NO_FLUSH);
+      inflateEnd (&d_stream);
+      FREE (buffer);
+    }
 
-	  return 0;
+  return 0;
 }
 
 const char *
-DEFUN(open_class, (filename, jcf, fd, dep_name),
-      const char *filename AND JCF *jcf AND int fd AND const char *dep_name)
+open_class (const char *filename, JCF *jcf, int fd, const char *dep_name)
 {
   if (jcf)
     {
@@ -268,8 +267,7 @@ DEFUN(open_class, (filename, jcf, fd, dep_name),
 
 
 const char *
-DEFUN(find_classfile, (filename, jcf, dep_name),
-      char *filename AND JCF *jcf AND const char *dep_name)
+find_classfile (char *filename, JCF *jcf, const char *dep_name)
 {
   int fd = open (filename, O_RDONLY | O_BINARY);
   if (fd < 0)
@@ -284,8 +282,7 @@ DEFUN(find_classfile, (filename, jcf, dep_name),
    dirent **).  */
 
 static int
-DEFUN(compare_path, (key, entry),
-      const void *key AND const void *entry)
+compare_path (const void *key, const void *entry)
 {
   return strcmp ((const char *) key, 
 		 (*((const struct dirent **) entry))->d_name);
@@ -294,10 +291,9 @@ DEFUN(compare_path, (key, entry),
 /* Returns nonzero if ENTRY names a .java or .class file.  */
 
 static int
-DEFUN(java_or_class_file, (entry),
-      const struct dirent *entry)
+java_or_class_file (const struct dirent *entry)
 {
-  const char *base = basename (entry->d_name);
+  const char *base = lbasename (entry->d_name);
   return (fnmatch ("*.java", base, 0) == 0 || 
 	  fnmatch ("*.class", base, 0) == 0);
 }
@@ -315,13 +311,12 @@ typedef struct memoized_dirlist_entry
   struct dirent **files;
 } memoized_dirlist_entry;
 
-/* Returns true if ENTRY (a memoized_dirlist_entry *) correponds to
+/* Returns true if ENTRY (a memoized_dirlist_entry *) corresponds to
    the directory given by KEY (a char *) giving the directory 
    name.  */
 
 static int
-DEFUN(memoized_dirlist_lookup_eq, (entry, key),
-      const void *entry AND const void *key)
+memoized_dirlist_lookup_eq (const void *entry, const void *key)
 {
   return strcmp ((const char *) key,
 		 ((const memoized_dirlist_entry *) entry)->dir) == 0;
@@ -338,11 +333,11 @@ static htab_t memoized_dirlists;
    know that it cannot succeed.  FILENAME and BUF are as for stat.  */
 
 static int
-DEFUN(caching_stat, (filename, buf),
-      char *filename AND struct stat *buf)
+caching_stat (char *filename, struct stat *buf)
 {
 #if JCF_USE_SCANDIR
   char *sep;
+  char origsep = 0;
   char *base;
   memoized_dirlist_entry *dent;
   void **slot;
@@ -356,15 +351,20 @@ DEFUN(caching_stat, (filename, buf),
 
   /* Get the name of the directory.  */
   sep = strrchr (filename, DIR_SEPARATOR);
+#ifdef DIR_SEPARATOR_2
+  if (! sep)
+    sep = strrchr (filename, DIR_SEPARATOR_2);
+#endif
   if (sep)
     {
+      origsep = *sep;
       *sep = '\0';
       base = sep + 1;
     }
   else
     base = filename;
 
-  /* Obtain the entry for this directory form the hash table.  */
+  /* Obtain the entry for this directory from the hash table.  */
   slot = htab_find_slot (memoized_dirlists, filename, INSERT);
   if (!*slot)
     {
@@ -376,7 +376,8 @@ DEFUN(caching_stat, (filename, buf),
 	 particular, the type of the function pointer passed as the
 	 third argument sometimes takes a "const struct dirent *"
 	 parameter, and sometimes just a "struct dirent *".  We cast
-	 to (void *) so that either way it is quietly accepted.  */
+	 to (void *) so that either way it is quietly accepted.
+	 FIXME: scandir is not in POSIX.  */
       dent->num_files = scandir (filename, &dent->files, 
 				 (void *) java_or_class_file, 
 				 alphasort);
@@ -385,9 +386,9 @@ DEFUN(caching_stat, (filename, buf),
   else
     dent = *((memoized_dirlist_entry **) slot);
 
-  /* Put the spearator back.  */
+  /* Put the separator back.  */
   if (sep)
-    *sep = DIR_SEPARATOR;
+    *sep = origsep;
 
   /* If the file is not in the list, there is no need to stat it; it
      does not exist.  */
@@ -404,8 +405,7 @@ DEFUN(caching_stat, (filename, buf),
    stored in TABLE_ENTRY (also a char *).  */
 
 static int
-DEFUN(memoized_class_lookup_eq, (table_entry, classname),
-      const void *table_entry AND const void *classname)
+memoized_class_lookup_eq (const void *table_entry, const void *classname)
 {
   return strcmp ((const char *)classname, (const char *)table_entry) == 0;
 }
@@ -424,9 +424,8 @@ static htab_t memoized_class_lookups;
    file. */
 
 const char *
-DEFUN(find_class, (classname, classname_length, jcf, source_ok),
-      const char *classname AND int classname_length AND JCF *jcf AND int source_ok)
-
+find_class (const char *classname, int classname_length, JCF *jcf,
+	    int source_ok)
 {
   int fd;
   int i, k, java = -1, class = -1;
@@ -517,7 +516,8 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
 	  strcpy (java_buffer, path_name);
 	  l = strlen (java_buffer);
 	  for (m = 0; m < classname_length; ++m)
-	    java_buffer[m + l] = (classname[m] == '.' ? '/' : classname[m]);
+	    java_buffer[m + l] = (classname[m] == '.'
+				  ? DIR_SEPARATOR : classname[m]);
 	  strcpy (java_buffer + m + l, ".java");
 	  java = caching_stat (java_buffer, &java_buf);
 	  if (java == 0)
@@ -533,7 +533,7 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
   if (! java && ! class && java_buf.st_mtime > class_buf.st_mtime)
     {
       if (flag_newer)
-	warning ("source file for class `%s' is newer than its matching class file.  Source file `%s' used instead", classname, java_buffer);
+	warning ("source file for class %qs is newer than its matching class file.  Source file %qs used instead", classname, java_buffer);
       class = -1;
     }
 
@@ -547,7 +547,7 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
 			      classname+classname_length-
 			      (classname_length <= 30 ? 
 			       classname_length : 30)));
-      fd = open (buffer, O_RDONLY | O_BINARY);
+      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY | O_BINARY);
       if (fd >= 0)
 	goto found;
     }
@@ -559,7 +559,7 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
 			      classname+classname_length-
 			      (classname_length <= 30 ? 
 			       classname_length : 30)));
-      fd = open (buffer, O_RDONLY);
+      fd = JCF_OPEN_EXACT_CASE (buffer, O_RDONLY);
       if (fd >= 0)
 	{
 	  jcf->java_source = 1;
@@ -590,8 +590,7 @@ DEFUN(find_class, (classname, classname_length, jcf, source_ok),
 }
 
 void
-DEFUN(jcf_print_char, (stream, ch),
-      FILE *stream AND int ch)
+jcf_print_char (FILE *stream, int ch)
 {
   switch (ch)
     {
@@ -622,8 +621,7 @@ DEFUN(jcf_print_char, (stream, ch),
 /* Print UTF8 string at STR of length LENGTH bytes to STREAM. */
 
 void
-DEFUN(jcf_print_utf8, (stream, str, length),
-      FILE *stream AND register const unsigned char *str AND int length)
+jcf_print_utf8 (FILE *stream, const unsigned char *str, int length)
 {
   const unsigned char * limit = str + length;
   while (str < limit)
@@ -641,9 +639,8 @@ DEFUN(jcf_print_utf8, (stream, str, length),
 /* Same as jcf_print_utf8, but print IN_CHAR as OUT_CHAR. */
 
 void
-DEFUN(jcf_print_utf8_replace, (stream, str, length, in_char, out_char),
-      FILE *stream AND const unsigned char *str AND int length
-      AND int in_char AND int out_char)
+jcf_print_utf8_replace (FILE *stream, const unsigned char *str, int length,
+			int in_char, int out_char)
 {
   const unsigned char *limit = str + length;
   while (str < limit)
@@ -665,8 +662,7 @@ DEFUN(jcf_print_utf8_replace, (stream, str, length, in_char, out_char),
    any classes, fields, or methods are valid.*/
 
 int
-DEFUN(verify_constant_pool, (jcf),
-      JCF *jcf)
+verify_constant_pool (JCF *jcf)
 {
   int i, n;
   for (i = 1; i < JPOOL_SIZE (jcf); i++)
@@ -715,12 +711,11 @@ DEFUN(verify_constant_pool, (jcf),
 }
 
 void
-DEFUN(format_uint, (buffer, value, base),
-      char *buffer AND uint64 value AND int base)
+format_uint (char *buffer, uint64 value, int base)
 {
 #define WRITE_BUF_SIZE (4 + sizeof(uint64) * 8)
   char buf[WRITE_BUF_SIZE];
-  register char *buf_ptr = buf+WRITE_BUF_SIZE; /* End of buf. */
+  char *buf_ptr = buf+WRITE_BUF_SIZE; /* End of buf. */
   int chars_written;
   int i;
 
@@ -740,8 +735,7 @@ DEFUN(format_uint, (buffer, value, base),
 }
 
 void
-DEFUN(format_int, (buffer, value, base),
-      char *buffer AND jlong value AND int base)
+format_int (char *buffer, jlong value, int base)
 {
   uint64 abs_value;
   if (value < 0)

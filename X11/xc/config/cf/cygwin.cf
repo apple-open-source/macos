@@ -1,4 +1,4 @@
-XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 alanh Exp $
+XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.57 2003/12/24 18:58:41 dickey Exp $
 
 #ifndef OSName
 # define OSName                 Cygwin
@@ -18,15 +18,17 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 
 #define ProjectRoot 		/usr/X11R6
 
+/* We always want to enable server building */
 #define BuildServer		YES
 
 #ifndef UnixCpp
-#define UnixCpp
+# define UnixCpp
 #endif
 
 #if !CrossCompiling
-#define HasGcc2			YES
+# define HasGcc2		YES
 #endif /* !CrossCompiling */
+
 #define HasGcc2ForCplusplus     YES
 #define GccUsesGas              YES
 #define UseGas                  YES
@@ -38,8 +40,13 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 #define HasLibCrypt             YES
 #define HasPutenv               YES
 #define HasPoll			NO
+
+#if (OSMajorVersion > 1) || (OSMajorVersion == 1 && OSMinorVersion >= 5)
+#define HasStrlcat		YES
+#endif
+
 #ifndef UseCygIPC
-#define UseCygIPC		NO
+# define UseCygIPC		YES
 #endif
 #if UseCygIPC
 # define HasShm			YES
@@ -48,8 +55,12 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 # define HasShm                 NO
 # define ServerExtraSysLibs	/**/
 #endif
+
 #define HasSnprintf		YES
 
+#ifndef HasMakefileSafeInclude
+# define HasMakefileSafeInclude YES
+#endif
 /*
  * Cygwin has Tcl/Tk, but you need to keep the version numbers
  * of the libs in sync.  These version numbers may change
@@ -91,32 +102,40 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 #define ThreadedX               YES
 #define HasThreadSafeAPI        YES
 #define CaseSensitiveFileSystem NO
+#define HasBasename		NO /* basename() in libc */
 
 #define LnCmd                   ln -s
+
 #ifndef CcCmd
-#define CcCmd                   gcc
+# define CcCmd                   gcc
 #endif /* CcCmd */
 #ifndef CplusplusCmd
-#define CplusplusCmd		g++
+# define CplusplusCmd		g++
 #endif /* CplusplusCmd */
 #ifndef AsCmd
-#define AsCmd                   as
+# define AsCmd                   as
 #endif /* AsCmd */
+
 #define GccGasOption	        -DGCCUSESGAS
 #define AsmDefines	        -DUSE_GAS -DGCCUSESGAS
+
 #ifndef LdCmd
-#define LdCmd                   gcc -lautomode
+# define LdCmd                   gcc -lautomode
 #endif /* LdCmd */
+
 #define MkdirHierCmd            mkdir -p
+
 #ifndef CppCmd
-#define CppCmd                  cpp
+# define CppCmd                  cpp
 #endif /* CppCmd */
 #ifndef YaccCmd
-#define YaccCmd                 byacc
+# define YaccCmd                 byacc
 #endif /* YaccCmd */
+
 #define LexCmd                  flex -l
 #define LexLib                  -lfl
 #define HasFlex			YES
+#define HasExpat		YES
 
 /*
  * Cygwin-specific Windows resource compiler command
@@ -135,10 +154,18 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 #define PreProcessCmd           CcCmd -E
 
 #ifndef PostIncDir
-#define PostIncDir              `CcCmd --print-libgcc-file-name | sed 's,\\\\,/,g' | sed 's,libgcc.a,include,'`
+# ifdef CrossCompileDir
+#  define PostIncDir		`CrossCompileDir/CcCmd --print-libgcc-file-name | sed 's,\\\\,/,g' | sed 's,libgcc.a,include,'`
+# else
+#  define PostIncDir		`CcCmd --print-libgcc-file-name | sed 's,\\\\,/,g' | sed 's,libgcc.a,include,'`
+# endif
 #endif
 #ifndef ExtraIncDir
-#define ExtraIncDir		/usr/include/w32api
+# ifdef CrossCompileDir
+#  define ExtraIncDir		CrossCompileDir/../include/w32api
+# else
+#  define ExtraIncDir		/usr/include/w32api
+# endif
 #endif
 
 #define LdCombineFlags          -r
@@ -152,16 +179,26 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 # define DefaultCCOptions	/* -ansi -pedantic */ GccWarningOptions
 #endif
 
-# ifndef OptimizedCDebugFlags
-#  define OptimizedCDebugFlags	DefaultGcc2i386Opt
-# endif
+/*
+ * Cygwin 1.5.x now includes alloca
+ */
+#if OSMinorVersion >= 5
+# define AllocateLocalDefines	-DINCLUDE_ALLOCA_H
+#else
+# define AllocateLocalDefines	-DNO_ALLOCA
+#endif
+
+#ifndef OptimizedCDebugFlags
+# define OptimizedCDebugFlags	DefaultGcc2i386Opt
+#endif
 
 #define StandardDefines         -D__i386__ -DWIN32_LEAN_AND_MEAN -DX_LOCALE \
 				-D_X86_ -D__CYGWIN__ -D_XOPEN_SOURCE \
 				-D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE \
-				-D_SVID_SOURCE -D_GNU_SOURCE -DNO_ALLOCA
+				-D_SVID_SOURCE -D_GNU_SOURCE
 
-#define XawI18nDefines          -DUSE_XWCHAR_STRING -DUSE_XMBTOWC
+#define XawI18nDefines		-DHAS_WCHAR_H -DHAS_WCTYPE_H \
+				-DHAS_ISW_FUNCS -DNO_WIDEC_H
 #define HasWChar32              YES
 #define StandardCppOptions	-traditional
 
@@ -196,20 +233,25 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 				XFree86LoaderDefines -DXFree86Server \
 				VidModeExtensionDefines \
 				XFree86XvMCDefines \
-				ServerSnprintfDefines \
 				SmartScheduleDefines \
 				DebugDefines XFree86XResDefines \
-				-DX_BYTE_ORDER=ByteOrder
+				-DX_BYTE_ORDER=$(X_BYTE_ORDER)
 #define ServerOSDefines         XWinServerDefines \
 				-DDDXTIME -DFD_SETSIZE=256 -DDDXOSINIT \
 				-DDDXOSVERRORF -DDDXOSFATALERROR
 #define XkbServerDefines        -DXKB_ALWAYS_USES_SOFT_REPEAT
-#define ServerExtraDefines      -DGCCUSESGAS XWinServerDefines
+#define ServerExtraDefines      -DGCCUSESGAS XWinServerDefines \
+				AllocateLocalDefines
 #define ConnectionFlags         -DTCPCONN -DUNIXCONN
 #define ExtraLibraries          
 #define InstUidFlags            -m 4711
 #define UseRgbTxt               YES
 #define ExtraFilesToClean	*.obj *.orig *.rej junk.c *.exe *.dll *.lib *~
+
+/* IPv6 not yet supported */
+#ifndef BuildIPv6
+# define BuildIPv6		NO
+#endif
 
 /*
  * You'll probably want BuildDebug to be YES if you are debugging :)
@@ -280,19 +322,13 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 
 #define BuildScreenSaverExt	NO
 
+#define BuildWindowsWMLibrary  YES
+
+
 /*
  * What is Plugin?
  */
 #define BuildPlugin		NO
-
-/*
- * DPS is the Adobe Display Postscript (r) library.
- * It seems that we do not yet have a postscript client library
- * to work in conjunction with DPS; the remedy to this may be
- * as simple as flipping a build switch or instaling Ghostscript.
- * In any case, some work needs to be done before DPS will work. 
- */
-#define BuildDPS		NO
 
 /*
  * Doing a loadable server would probably take some extra work.
@@ -328,19 +364,27 @@ XCOMM platform:  $XFree86: xc/config/cf/cygwin.cf,v 3.49 2002/12/31 19:48:42 ala
 
 /* Server build rules */
 #ifndef XnestServer
-#define XnestServer			YES
+# define XnestServer			YES
 #endif
 #ifndef BuildXprint
-#define BuildXprint			YES
+# define BuildXprint			YES
 #endif
 #ifndef XprtServer
-#define XprtServer			YES
+# define XprtServer			YES
 #endif
 #ifndef XVirtualFramebufferServer
-#define XVirtualFramebufferServer	YES
+# define XVirtualFramebufferServer	YES
 #endif
 
 #define XWinServer			YES
+
+/*
+ * We need libX11 and libXext for the X11 Server
+ */ 
+#if XWinServer
+# define BuildX11Lib         YES
+# define BuildXextLib        YES
+#endif
 
 /*
  * 2001-06-19 - SmartScheduler is terribly slow on Cygwin.  It causes

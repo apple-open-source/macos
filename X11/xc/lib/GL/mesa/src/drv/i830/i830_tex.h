@@ -28,63 +28,44 @@
 #define I830TEX_INC
 
 #include "mtypes.h"
-#include "mmath.h"
-#include "mm.h"
 #include "i830_context.h"
 #include "i830_3d_reg.h"
+#include "texmem.h"
 
 #define I830_TEX_MAXLEVELS 10
 
 struct i830_texture_object_t 
 {
-      struct i830_texture_object_t *next, *prev;
-      GLuint age;
-      struct gl_texture_object *globj;
-      int Pitch;
-      int Height;
-      int texelBytes;
-      int totalSize;
-      int bound;
-      PMemBlock MemBlock;
-      char *BufAddr;   
-      GLuint min_level;
-      GLuint max_level;
-      GLuint dirty_images;
-      GLenum palette_format;
-      GLuint palette[256];
-      struct 
-	 {
-	    const struct gl_texture_image *image;
-	    int offset;       /* into BufAddr */
-	    int height;
-	    int internalFormat;
-	 }image[I830_TEX_MAXLEVELS];
-   
-      /* Support for multitexture.
-	   *     */
-      GLuint current_unit;
-      GLuint Setup[I830_TEX_SETUP_SIZE];
-      GLuint dirty;
-      GLuint firstLevel,lastLevel;
+   driTextureObject    base;
+
+   int texelBytes;
+   int Pitch;
+   int Height;
+   char *BufAddr;   
+   GLenum palette_format;
+   GLuint palette[256];
+   struct {
+      const struct gl_texture_image *image;
+      int offset;       /* into BufAddr */
+      int height;
+      int internalFormat;
+   } image[6][I830_TEX_MAXLEVELS];
+
+   /* Support for multitexture.
+    */
+
+   GLuint current_unit;
+   GLuint Setup[I830_TEX_SETUP_SIZE];
+   GLuint dirty;
+
+   GLfloat  max_anisotropy;
 };
 
 void i830UpdateTextureState( GLcontext *ctx );
 void i830DDInitTextureFuncs( GLcontext *ctx );
 void i830UpdateTexUnitProj( GLcontext *ctx, GLuint unit, GLboolean state );
 
-
 void i830DestroyTexObj( i830ContextPtr imesa, i830TextureObjectPtr t );
-void i830SwapOutTexObj( i830ContextPtr imesa, i830TextureObjectPtr t );
-int i830UploadTexImages( i830ContextPtr imesa, i830TextureObjectPtr t );
-
-void i830ResetGlobalLRU( i830ContextPtr imesa );
-void i830TexturesGone( i830ContextPtr imesa,
-					                 GLuint start, GLuint end,
-					                 GLuint in_use );
-
-void i830PrintLocalLRU( i830ContextPtr imesa );
-void i830PrintGlobalLRU( i830ContextPtr imesa );
-void i830UpdateTexLRU( i830ContextPtr imesa, i830TextureObjectPtr t );
-
+int i830UploadTexImagesLocked( i830ContextPtr imesa, i830TextureObjectPtr t );
 
 #endif

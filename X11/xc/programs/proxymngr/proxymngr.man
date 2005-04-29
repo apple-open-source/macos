@@ -24,7 +24,7 @@
 .\" from The Open Group.
 .\" 
 .\"
-.\" $XFree86: xc/programs/proxymngr/proxymngr.man,v 1.8 2003/02/20 03:27:32 dawes Exp $
+.\" $XFree86: xc/programs/proxymngr/proxymngr.man,v 1.9 2003/05/29 21:48:10 herrb Exp $
 .\"
 .TH PROXYMNGR 1 __xorgversion__
 .SH NAME
@@ -92,7 +92,7 @@ For unmanaged proxies, the format is:
 .PP
 service-name is the name of the unmanaged proxy service, and must not
 contain any spaces, for example ``XFWP''.  service-name is case
-insenstive.
+insensitive.
 .PP
 proxy-address is the network address of the unmanaged proxy.  The format
 of the address is specific to the service-name.  For example, for the
@@ -153,7 +153,7 @@ For an unmanaged proxy service, the proxy manager will look in the config
 file to find all unmanaged proxies for this service.  If there is more than
 one entry in the config file with the same unmanaged service-name, the
 proxy manager will try to use the proxies in the order presented in the
-config file.  If none of the unmanged proxies can satisfy the request, the
+config file.  If none of the unmanaged proxies can satisfy the request, the
 proxy manager will timeout for a configurable amount of time (specified by
 .B \-timeout
 or default of 10) and reattempt to find an unmanaged proxy willing

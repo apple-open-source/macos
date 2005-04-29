@@ -5,7 +5,7 @@ AC_CONFIG_SRCDIR([byteorder.h])
 AC_CONFIG_HEADER(config.h)
 AC_PREREQ(2.52)
 
-RSYNC_VERSION=2.6.2
+RSYNC_VERSION=2.6.3
 AC_SUBST(RSYNC_VERSION)
 AC_MSG_NOTICE([Configuring rsync $RSYNC_VERSION])
 
@@ -442,9 +442,10 @@ dnl AC_FUNC_MEMCMP
 AC_FUNC_UTIME_NULL
 AC_FUNC_ALLOCA
 AC_CHECK_FUNCS(waitpid wait4 getcwd strdup strerror chown chmod mknod mkfifo \
-    fchmod fstat strchr readlink link utime utimes strftime mtrace \
+    fchmod fstat strchr readlink link utime utimes strftime mtrace ftruncate \
     memmove lchown vsnprintf snprintf asprintf setsid glob strpbrk \
-    strlcat strlcpy strtol mallinfo getgroups setgroups geteuid getegid)
+    strlcat strlcpy strtol mallinfo getgroups setgroups geteuid getegid \
+    open64 mkstemp64)
 
 AC_CACHE_CHECK([for working socketpair],rsync_cv_HAVE_SOCKETPAIR,[
 AC_TRY_RUN([
@@ -542,7 +543,7 @@ AC_TRY_RUN([
 #include <unistd.h>
 main() { struct timeval tv; exit(gettimeofday(&tv, NULL));}],
            rsync_cv_HAVE_GETTIMEOFDAY_TZ=yes,rsync_cv_HAVE_GETTIMEOFDAY_TZ=no,rsync_cv_HAVE_GETTIMEOFDAY_TZ=cross)])
-if test x"$rsync_cv_HAVE_GETTIMEOFDAY_TZ" = x"yes"; then
+if test x"$rsync_cv_HAVE_GETTIMEOFDAY_TZ" != x"no"; then
     AC_DEFINE(HAVE_GETTIMEOFDAY_TZ, 1, [ ])
 fi
 
@@ -654,6 +655,21 @@ AC_SUBST(OBJ_SAVE)
 AC_SUBST(OBJ_RESTORE)
 AC_SUBST(CC_SHOBJ_FLAG)
 AC_SUBST(BUILD_POPT)
+
+
+#################################################
+# check for extended attribute support
+AC_MSG_CHECKING(whether to support extended attributes)
+AC_ARG_ENABLE(ea-support,
+	AC_HELP_STRING([--enable-ea-support],
+		[allow support for copying extended attributes (default no)]),
+		[], [])
+AC_MSG_RESULT($enable_ea_support)
+if test x"$enable_ea_support" == x"yes"; then
+  AC_DEFINE(EA_SUPPORT, 1, [true if ea support enabled])
+  AC_CHECK_FUNCS(copyfile)
+  AC_CHECK_HEADERS(copyfile.h)
+fi
 
 AC_CONFIG_FILES([Makefile lib/dummy zlib/dummy popt/dummy shconfig])
 AC_OUTPUT

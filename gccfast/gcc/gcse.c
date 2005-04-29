@@ -325,6 +325,13 @@ struct expr
      The value is the newly created pseudo-reg to record a copy of the
      expression in all the places that reach the redundant copy.  */
   rtx reaching_reg;
+  /* APPLE LOCAL copy prop into libcall */
+  /* Non-null for SETs that are the result of a LIBCALL.  Such SETs
+     cannot be used for copy propagation; this results in references
+     from outside the LIBCALL to regs set inside it, which results in
+     bad code if the LIBCALL is deleted.  These SETs are OK for const
+     propagation, though. */
+  int is_libcall_result;
 };
 
 /* Occurrence of an expression.
@@ -591,7 +598,8 @@ static void record_one_set	PARAMS ((int, rtx));
 static void record_set_info	PARAMS ((rtx, rtx, void *));
 static void compute_sets	PARAMS ((rtx));
 static void hash_scan_insn	PARAMS ((rtx, struct hash_table *, int));
-static void hash_scan_set	PARAMS ((rtx, rtx, struct hash_table *));
+/* APPLE LOCAL copy prop into libcall */
+static void hash_scan_set	PARAMS ((rtx, rtx, struct hash_table *, int));
 static void hash_scan_clobber	PARAMS ((rtx, rtx, struct hash_table *));
 static void hash_scan_call	PARAMS ((rtx, rtx, struct hash_table *));
 static int want_to_gcse_p	PARAMS ((rtx));
@@ -601,7 +609,8 @@ static int oprs_anticipatable_p PARAMS ((rtx, rtx));
 static int oprs_available_p	PARAMS ((rtx, rtx));
 static void insert_expr_in_table PARAMS ((rtx, enum machine_mode, rtx,
 					  int, int, struct hash_table *));
-static void insert_set_in_table PARAMS ((rtx, rtx, struct hash_table *));
+/* APPLE LOCAL copy prop into libcall */
+static void insert_set_in_table PARAMS ((rtx, rtx, struct hash_table *, int));
 static unsigned int hash_expr	PARAMS ((rtx, enum machine_mode, int *, int));
 static unsigned int hash_expr_1 PARAMS ((rtx, enum machine_mode, int *));
 static unsigned int hash_string_1 PARAMS ((const char *));
@@ -1569,6 +1578,7 @@ mems_conflict_for_gcse_p (dest, setter, data)
   /* If we are setting a MEM in our list of specially recognized MEMs,
      don't mark as killed this time.  */
 
+  /* APPLE LOCAL backported from FSF 3.4 */
   if (expr_equiv_p (dest, gcse_mem_operand) && pre_ldst_mems != NULL)
     {
       if (!find_rtx_in_ldst (dest))
@@ -2191,10 +2201,13 @@ insert_expr_in_table (x, mode, insn, antic_p, avail_p, table)
    basic block.  */
 
 static void
-insert_set_in_table (x, insn, table)
+/* APPLE LOCAL copy prop into libcall */
+insert_set_in_table (x, insn, table, is_libcall_result)
      rtx x;
      rtx insn;
      struct hash_table *table;
+     /* APPLE LOCAL copy prop into libcall */
+     int is_libcall_result;
 {
   int found;
   unsigned int hash;
@@ -2237,6 +2250,8 @@ insert_set_in_table (x, insn, table)
       cur_expr->next_same_hash = NULL;
       cur_expr->antic_occr = NULL;
       cur_expr->avail_occr = NULL;
+      /* APPLE LOCAL copy prop into libcall */
+      cur_expr->is_libcall_result = is_libcall_result;
     }
 
   /* Now record the occurrence.  */
@@ -2296,9 +2311,12 @@ gcse_constant_p (x)
    expression one).  */
 
 static void
-hash_scan_set (pat, insn, table)
+/* APPLE LOCAL copy prop into libcall */
+hash_scan_set (pat, insn, table, is_libcall_result)
      rtx pat, insn;
      struct hash_table *table;
+     /* APPLE LOCAL copy prop into libcall */
+     int is_libcall_result;
 {
   rtx src = SET_SRC (pat);
   rtx dest = SET_DEST (pat);
@@ -2331,6 +2349,8 @@ hash_scan_set (pat, insn, table)
 	  && want_to_gcse_p (src)
 	  /* Don't CSE a nop.  */
 	  && ! set_noop_p (pat)
+	  /* APPLE LOCAL backported from FSF 3.4 */
+	  && !(flag_float_store && FLOAT_MODE_P (GET_MODE (dest)))
 	  /* Don't GCSE if it has attached REG_EQUIV note.
 	     At this point this only function parameters should have
 	     REG_EQUIV notes and if the argument slot is used somewhere
@@ -2367,7 +2387,8 @@ hash_scan_set (pat, insn, table)
 	       && (insn == BLOCK_END (BLOCK_NUM (insn))
 		   || ((tmp = next_nonnote_insn (insn)) != NULL_RTX
 		       && oprs_available_p (pat, tmp))))
-	insert_set_in_table (pat, insn, table);
+	/* APPLE LOCAL copy prop into libcall */
+	insert_set_in_table (pat, insn, table, is_libcall_result);
     }
 
  /*Haifa  (GET_CODE (dest) != REG)*/
@@ -2435,8 +2456,13 @@ hash_scan_call (x, insn, table)
 
    If SET_P is nonzero, this is for the assignment hash table,
    otherwise it is for the expression hash table.
-   If IN_LIBCALL_BLOCK nonzero, we are in a libcall block, and should
-   not record any expressions.  */
+
+   APPLE LOCAL copy prop into libcall
+   If IN_LIBCALL_BLOCK is 1, we are inside a libcall block, and should
+   not record any expressions.
+   If IN_LIBCALL_BLOCK is 2, this is the SET that ends a libcall block,
+   and should be recorded but marked as the result of a libcall.
+   If IN_LIBCALL_BLOCK is 0, we are outside a libcall block.  */
 
 static void
 hash_scan_insn (insn, table, in_libcall_block)
@@ -2447,21 +2473,24 @@ hash_scan_insn (insn, table, in_libcall_block)
   rtx pat = PATTERN (insn);
   int i;
 
-  if (in_libcall_block)
+  /* APPLE LOCAL copy prop into libcall */
+  if (in_libcall_block == 1)
     return;
 
   /* Pick out the sets of INSN and for other forms of instructions record
      what's been modified.  */
 
   if (GET_CODE (pat) == SET)
-    hash_scan_set (pat, insn, table);
+    /* APPLE LOCAL copy prop into libcall */
+    hash_scan_set (pat, insn, table, in_libcall_block == 2);
   else if (GET_CODE (pat) == PARALLEL)
     for (i = 0; i < XVECLEN (pat, 0); i++)
       {
 	rtx x = XVECEXP (pat, 0, i);
 
 	if (GET_CODE (x) == SET)
-	  hash_scan_set (x, insn, table);
+	  /* APPLE LOCAL copy prop into libcall */
+    	  hash_scan_set (x, insn, table, in_libcall_block == 2);
 	else if (GET_CODE (x) == CLOBBER)
 	  hash_scan_clobber (x, insn, table);
 	else if (GET_CODE (x) == CALL)
@@ -2721,7 +2750,8 @@ compute_hash_table_work (table)
       if (table->set_p
 	  && implicit_sets[current_bb->index] != NULL_RTX)
 	hash_scan_set (implicit_sets[current_bb->index],
-		       current_bb->head, table);
+		       /* APPLE LOCAL copy prop into libcall */
+		       current_bb->head, table, 0);
 
       /* The next pass builds the hash table.  */
 
@@ -2733,8 +2763,12 @@ compute_hash_table_work (table)
 	    if (find_reg_note (insn, REG_LIBCALL, NULL_RTX))
 	      in_libcall_block = 1;
 	    else if (table->set_p && find_reg_note (insn, REG_RETVAL, NULL_RTX))
-	      in_libcall_block = 0;
+	      /* APPLE LOCAL copy prop into libcall */
+	      in_libcall_block = 2;
 	    hash_scan_insn (insn, table, in_libcall_block);
+	    /* APPLE LOCAL copy prop into libcall */
+	    if (in_libcall_block == 2)
+	      in_libcall_block = 0;
 	    if (!table->set_p && find_reg_note (insn, REG_RETVAL, NULL_RTX))
 	      in_libcall_block = 0;
 	  }
@@ -4476,7 +4510,9 @@ cprop_insn (insn, alter_jumps)
 	}
       else if (GET_CODE (src) == REG
 	       && REGNO (src) >= FIRST_PSEUDO_REGISTER
-	       && REGNO (src) != regno)
+	       && REGNO (src) != regno
+	       /* APPLE LOCAL copy prop into libcall */
+	       && !set->is_libcall_result)
 	{
 	  if (try_replace_reg (reg_used->reg_rtx, src, insn))
 	    {
@@ -7092,6 +7128,7 @@ simple_mem (x)
   if (reg_mentioned_p (stack_pointer_rtx, x))
     return 0;
 
+  /* APPLE LOCAL backported from FSF 3.4 */
   if (flag_float_store && FLOAT_MODE_P (GET_MODE (x)))
     return 0;
 

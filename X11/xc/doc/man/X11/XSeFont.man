@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeFont.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeFont.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,13 +144,8 @@
 .SH NAME
 XSetFont \- GC convenience routines
 .SH SYNTAX
-XSetFont\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIfont\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      Font \fIfont\fP\^;
+.HP
+int XSetFont\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, Font \fIfont\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

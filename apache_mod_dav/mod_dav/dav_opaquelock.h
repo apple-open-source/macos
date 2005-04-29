@@ -53,9 +53,9 @@ typedef struct {
     char nodeID[6];
 } uuid_node_t;
 
-#undef uuid_t
+//#undef uuid_t
 
-typedef struct _uuid_t
+/*typedef struct _uuid_t
 {
     unsigned32	time_low;
     unsigned16	time_mid;
@@ -63,7 +63,20 @@ typedef struct _uuid_t
     unsigned8	clock_seq_hi_and_reserved;
     unsigned8	clock_seq_low;
     unsigned8	node[6];
-} uuid_t;
+} uuid_t;*/
+
+
+typedef union {
+	uuid_t u;
+	struct {
+		unsigned32 time_low;
+		unsigned16 time_mid;
+		unsigned16 time_hi_and_version;
+		unsigned8 clock_seq_hi_and_reserved;
+		unsigned8 clock_seq_low;
+		unsigned8 node[6];
+	};
+} dav_uuid_t;
 
 /* data type for UUID generator persistent state */
 	
@@ -73,11 +86,11 @@ typedef struct {
 } uuid_state;
 
 /* in dav_opaquelock.c */
-void dav_create_opaquelocktoken(uuid_state *st, uuid_t *u);
+void dav_create_opaquelocktoken(uuid_state *st, dav_uuid_t *u);
 void dav_create_uuid_state(uuid_state *st);
-const char *dav_format_opaquelocktoken(pool *p, const uuid_t *u);
-int dav_compare_opaquelocktoken(const uuid_t a, const uuid_t b);
-int dav_parse_opaquelocktoken(const char *char_token, uuid_t *bin_token);
+const char *dav_format_opaquelocktoken(pool *p, const dav_uuid_t *u);
+int dav_compare_opaquelocktoken(const dav_uuid_t a, const dav_uuid_t b);
+int dav_parse_opaquelocktoken(const char *char_token, dav_uuid_t *bin_token);
 
 /* in mod_dav.c */
 uuid_state *dav_get_uuid_state(const request_rec *r);

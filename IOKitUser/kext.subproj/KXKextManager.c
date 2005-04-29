@@ -1,6 +1,5 @@
 #include <libc.h>
 #include <CoreFoundation/CFRuntime.h>
-#include <Bom/Bom.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitServer.h>
 #include <IOKit/IOCFSerialize.h>
@@ -19,7 +18,6 @@
 #include "paths.h"
 #include "printPList.h"
 #include "vers_rsrc.h"
-
 
 /*******************************************************************************
 * The basic data structure for a kext.
@@ -74,6 +72,9 @@ typedef struct __KXKextManager {
     Boolean          performLoadsInTask;
     Boolean          safeBoot;
 
+    // kextd will send all repositories to catalog
+    Boolean	     willUpdateCatalog;
+
     // Repositories hold kexts with validation/authentication failures
     // (in badKexts), but the manager holds the ones with missing dependencies.
     CFMutableArrayRef kextsWithMissingDependencies;
@@ -125,9 +126,7 @@ static int __KXKextManagerCheckPersonalityForSafeBoot(
     KXKextManagerRef aKextManager,
     CFDictionaryRef aPersonality,
     const char * personality_name);
-    
-// If one wants to check a kext's validity, one is going to need to make a bomArray for passing in
-static CFMutableArrayRef __KXKextManagerGetBomArray(KXKextManagerRef aKextManager);
+
 
 /*******************************************************************************
 *
@@ -208,7 +207,7 @@ const char * KXKextManagerErrorStaticCStringForError(KXKextManagerError error)
 
     errorString = KXKextManagerErrorStringForError(error);
     if (!CFStringGetCString(errorString, static_error_buffer,
-        sizeof(static_error_buffer) - 1, kCFStringEncodingMacRoman)) {
+        sizeof(static_error_buffer) - 1, kCFStringEncodingUTF8)) {
 
         return "(string conversion failure)";
     }
@@ -505,6 +504,10 @@ KXKextManagerError KXKextManagerAddRepositoryDirectory(
 
     if (theRepository) {
         *theRepository = NULL;
+    }
+
+    if (KXKextManagerPerformsFullTests(aKextManager)) {
+	useCache = FALSE;
     }
 
     url_path = PATH_CanonicalizedCStringForURL(directoryURL);
@@ -1655,6 +1658,89 @@ finish:
     return (CFArrayRef)thePersonalities;
 }
 
+/*******************************************************************************
+*
+*******************************************************************************/
+KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
+    KXKextManagerRef aKextManager)
+{
+    KXKextManagerError result = kKXKextManagerErrorNone;
+    CFMutableArrayRef thePersonalities = NULL;  // returned
+    CFIndex count, kextCount, i;
+    KXKextRef * values = NULL;  // must free
+
+    IOCatalogueReset(kIOMasterPortDefault, kIOCatalogResetDefault);
+
+   /*****
+    * Make sure we have the candidate kexts arranged with their version
+    * relationships. Force a clear of the relationship trees if necessary
+    * and then (re)build it as needed.
+    */
+
+    if (aKextManager->needsClearRelationships) {
+        __KXKextManagerClearRelationships(aKextManager);
+    }
+    if (aKextManager->needsCalculateRelationships) {
+        KXKextManagerCalculateVersionRelationships(aKextManager);
+    }
+
+    kextCount = CFDictionaryGetCount(aKextManager->candidateKexts);
+    count = CFArrayGetCount(aKextManager->repositoryList);
+    for (i = 0; i < count; i++) {
+        KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
+            CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
+
+        result = KXKextRepositorySendCatalogFromCache(thisRepository, aKextManager->candidateKexts);
+        if (kKXKextManagerErrorNone == result) {
+            // aKextManager->candidateKexts has been altered
+            aKextManager->needsCalculateRelationships = true;
+        }
+    }
+
+    result = kKXKextManagerErrorNone;
+    count = CFDictionaryGetCount(aKextManager->candidateKexts);
+    _KXKextManagerLogMessageAtLevel(aKextManager, kKXKextManagerLogLevelDefault, NULL, 0,
+        "%d cached, %d uncached personalities to catalog",
+        kextCount - count, count);
+
+    if (!count)
+        goto finish;
+
+    values = (KXKextRef *)malloc(kextCount * sizeof(KXKextRef));
+    if (!values) {
+        _KXKextManagerLogError(aKextManager, "no memory?");
+        result = kKXKextManagerErrorNoMemory;
+        goto finish;
+    }
+
+    CFDictionaryGetKeysAndValues(aKextManager->candidateKexts, NULL,
+        (const void **)values);
+
+    thePersonalities = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
+    if (!thePersonalities) {
+        _KXKextManagerLogError(aKextManager, "no memory?");
+        goto finish;
+    }
+
+    for (i = 0; i < count; i++) {
+        KXKextRef thisKext = values[i];
+        CFArrayRef personalities = KXKextCopyPersonalitiesArray(thisKext);
+        if (personalities) {
+            CFArrayAppendArray(thePersonalities, personalities,
+                CFRangeMake(0, CFArrayGetCount(personalities)));
+            CFRelease(personalities);
+        }
+    }
+
+    result = KXKextManagerSendPersonalitiesToCatalog(aKextManager, thePersonalities);
+
+finish:
+    if (values) free(values);
+    if (thePersonalities) CFRelease(thePersonalities);
+
+    return result;
+}
 
 /*******************************************************************************
 *
@@ -1716,6 +1802,30 @@ void KXKextManagerSetPerformsStrictAuthentication(
     return;
 }
 
+/*******************************************************************************
+*
+*******************************************************************************/
+Boolean KXKextManagerWillUpdateCatalog(
+    KXKextManagerRef aKextManager)
+{
+    return aKextManager->willUpdateCatalog;
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+
+void KXKextManagerSetWillUpdateCatalog(
+    KXKextManagerRef aKextManager,
+    Boolean flag)
+{
+    aKextManager->willUpdateCatalog = flag;
+    return;
+}
+/*******************************************************************************
+*
+*******************************************************************************/
+
 void KXKextManagerVerifyIntegrityOfAllKexts(KXKextManagerRef aKextManager) {
     CFIndex count, i;
 
@@ -1726,7 +1836,6 @@ void KXKextManagerVerifyIntegrityOfAllKexts(KXKextManagerRef aKextManager) {
     for (i = 0; i < count; i++) {
         KXKextRepositoryRef thisRepository = (KXKextRepositoryRef)
             CFArrayGetValueAtIndex(aKextManager->repositoryList, i);
-        KXKextRepositoryCheckIntegrityOfKexts(thisRepository, __KXKextManagerGetBomArray(aKextManager));
     }
 
     return;
@@ -1788,7 +1897,7 @@ KXKextManagerError KXKextManagerCheckForLoadedKexts(
                 this_kmod->version);
 
         kmodName = CFStringCreateWithCString(kCFAllocatorDefault,
-            this_kmod->name, kCFStringEncodingMacRoman);
+            this_kmod->name, kCFStringEncodingUTF8);
         if (!kmodName) {
             result = kKXKextManagerErrorNoMemory;
             goto finish;
@@ -2560,7 +2669,7 @@ KXKextManagerError KXKextManagerSendKextPersonalitiesToCatalog(
         ok = 1;
 
         if (!CFStringGetCString(thisKey, personality_name,
-            sizeof(personality_name) - 1, kCFStringEncodingMacRoman)) {
+            sizeof(personality_name) - 1, kCFStringEncodingUTF8)) {
             _KXKextManagerLogError(aKextManager, "can't convert CFString");
             result = kKXKextManagerErrorUnspecified;
             goto finish;
@@ -2593,7 +2702,7 @@ KXKextManagerError KXKextManagerSendKextPersonalitiesToCatalog(
                 CFStringRef thisName = (CFStringRef)CFArrayGetValueAtIndex(
                     personalityNamesToSend, i);
                 if (!CFStringGetCString(thisName, personality_name,
-                    sizeof(personality_name) - 1, kCFStringEncodingMacRoman)) {
+                    sizeof(personality_name) - 1, kCFStringEncodingUTF8)) {
                     _KXKextManagerLogError(aKextManager, "can't convert CFString");
                     result = kKXKextManagerErrorUnspecified;
                     goto finish;
@@ -2626,7 +2735,6 @@ KXKextManagerError KXKextManagerSendPersonalitiesToCatalog(
     CFArrayRef personalities)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
-    mach_port_t catalogPort;
     kern_return_t kern_result = KERN_SUCCESS;
     CFDataRef data = NULL;
     CFIndex len = 0;
@@ -2641,14 +2749,6 @@ KXKextManagerError KXKextManagerSendPersonalitiesToCatalog(
         "sending %U personalit%s to the kernel", CFArrayGetCount(personalities),
         (CFArrayGetCount(personalities) != 1) ? "ies" : "y");
 
-    kern_result = IOMasterPort(NULL, &catalogPort);
-    // FIXME: check specific kernel error result for permission or whatever
-    if (kern_result != KERN_SUCCESS) {
-       _KXKextManagerLogError(aKextManager, "couldn't get catalog port");
-       result = kKXKextManagerErrorKernelError;
-       goto finish;
-    }
-
     data = IOCFSerialize(personalities, kNilOptions);
     if ( !data ) {
         _KXKextManagerLogError(aKextManager, "error serializing personalities");
@@ -2656,9 +2756,9 @@ KXKextManagerError KXKextManagerSendPersonalitiesToCatalog(
         goto finish;
     }
 
-    len = CFDataGetLength(data) + 1;
+    len = CFDataGetLength(data);
     ptr = (void *)CFDataGetBytePtr(data);
-    kern_result = IOCatalogueSendData(catalogPort, kIOCatalogAddDrivers,
+    kern_result = IOCatalogueSendData(kIOMasterPortDefault, kIOCatalogAddDrivers,
         ptr, len);
 
     // FIXME: check specific kernel error result for permission or whatever
@@ -2725,19 +2825,10 @@ KXKextManagerError KXKextManagerRemovePersonalitiesFromCatalog(
     CFDictionaryRef matchingPersonality)
 {
     KXKextManagerError result = kKXKextManagerErrorNone;
-    mach_port_t catalogPort;
     kern_return_t kern_result = KERN_SUCCESS;
     CFDataRef data = NULL;
     CFIndex dataLength = 0;
     void * dataPointer;
-
-    kern_result = IOMasterPort(NULL, &catalogPort);
-    // FIXME: check specific kernel error result for permission or whatever
-    if (kern_result != KERN_SUCCESS) {
-       _KXKextManagerLogError(aKextManager, "couldn't get catalog port");
-       result = kKXKextManagerErrorKernelError;
-       goto finish;
-    }
 
     data = IOCFSerialize(matchingPersonality, kNilOptions);
     if (!data) {
@@ -2749,7 +2840,7 @@ KXKextManagerError KXKextManagerRemovePersonalitiesFromCatalog(
     // FIXME: Why is the 1 added to the length?
     dataLength = CFDataGetLength(data) + 1;
     dataPointer = (void *)CFDataGetBytePtr(data);
-    kern_result = IOCatalogueSendData(catalogPort, kIOCatalogRemoveDrivers,
+    kern_result = IOCatalogueSendData(kIOMasterPortDefault, kIOCatalogRemoveDrivers,
         dataPointer, dataLength);
 
     // FIXME: check specific kernel error result for permission or whatever
@@ -3016,6 +3107,7 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
             input_data_available += CHUNK_SIZE * sizeof(UInt8);
         }
     }
+
     fileData = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, input_data,
         input_data_read, kCFAllocatorNull);
     if (!fileData) {
@@ -3034,7 +3126,7 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheFile(
                 goto finish;
             }
             if (CFStringGetCString(errorString, error_string,
-                 length, kCFStringEncodingMacRoman)) {
+                 length, kCFStringEncodingUTF8)) {
                 _KXKextManagerLogError(aKextManager, "error reading cache data %s: %s",
                     cache_path, error_string);
             }
@@ -3111,9 +3203,7 @@ KXKextManagerError _KXKextManagerAddRepositoryFromCacheDictionary(
         goto finish;
     }
 
-    if (!CFStringGetCString(repositoryPath, repository_path,
-         sizeof(repository_path) - 1, kCFStringEncodingMacRoman)) {
-
+    if (!CFStringGetFileSystemRepresentation(repositoryPath, repository_path, CFStringGetMaximumSizeOfFileSystemRepresentation(repositoryPath))) {
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
@@ -3414,7 +3504,7 @@ static Boolean __versionNumberForString(
     char vers_buffer[32];  // more than long enough for legal vers
 
     if (!CFStringGetCString(aVersionString,
-        vers_buffer, sizeof(vers_buffer) - 1, kCFStringEncodingMacRoman)) {
+        vers_buffer, sizeof(vers_buffer) - 1, kCFStringEncodingUTF8)) {
 
         return false;
     } else {
@@ -3672,10 +3762,10 @@ static Boolean __KXKextManagerCheckForRepositoryCache(
     if (cache_stat.st_mode & S_IFREG) {
         result = true;
         if (isCurrent) {
-            if (cache_stat.st_mtime > dir_stat.st_ctime) {
+            if (cache_stat.st_mtime == (dir_stat.st_mtime + 1)) {
                 *isCurrent = true;
-            }
-        }
+            } 
+	}
     } else {
         _KXKextManagerLogError(aKextManager, "cache file %s is not a regular file",
             cache_path);
@@ -3756,99 +3846,5 @@ static int __KXKextManagerCheckPersonalityForSafeBoot(
 
 finish:
     return result;
-}
-
-static CFMutableArrayRef __KXKextManagerGetBomArray(KXKextManagerRef aKextManager) {
-    char* receiptpath = "/Library/Receipts/";
-    char currentbomname[50];
-    char* patharray[2];
-    const char* tempCStr = NULL;
-    bool isApple = false;
-    
-    CFMutableStringRef tempStr;
-    CFStringRef errorStr;
-    CFURLRef fileURL;
-    CFDictionaryRef dict;
-    CFStringRef bundleID;
-    CFDataRef   resourceData;
-    Boolean     status;
-    SInt32      errorCode;
-    Boolean	needToFree = false;
-    
-    FTS *my_fts;
-    FTSENT *ftsent;
-    BOMBom my_bom;
-    
-    if (aKextManager->bomArray == NULL) {
-        aKextManager->bomArray = CFArrayCreateMutable (NULL, 0, NULL); 
-    
-        // Let's find all of the Apple receipts and set up the bomArray
-        patharray[0] = receiptpath;
-        patharray[1] = 0;
-        my_fts = fts_open(patharray, FTS_PHYSICAL, NULL);
-        fts_read(my_fts);
-        ftsent = fts_children(my_fts, 0);
-    
-        while (ftsent != NULL) {
-            strcpy(currentbomname, ftsent->fts_name);
-            isApple = false;
-            tempCStr = NULL;
-            
-            // special cases
-            if (!strcmp(currentbomname, "BaseSystem.pkg") || !strcmp(currentbomname, "BSD.pkg") || !strcmp(currentbomname, "Essentials.pkg")) {
-                isApple = true;
-            }
-            tempStr = CFStringCreateMutable(NULL, 0);
-            CFStringAppendCString(tempStr, receiptpath, kCFStringEncodingMacRoman);
-            CFStringAppendCString(tempStr, currentbomname, kCFStringEncodingMacRoman);
-            CFStringAppendCString(tempStr, "/Contents/Info.plist", kCFStringEncodingMacRoman);
-            
-            fileURL = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, tempStr, kCFURLPOSIXPathStyle, false );
-            CFRelease(tempStr);
-
-            status = CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, fileURL, &resourceData, NULL, NULL, &errorCode);
-            dict = (CFDictionaryRef) CFPropertyListCreateFromXMLData( kCFAllocatorDefault, resourceData, kCFPropertyListImmutable, &errorStr);
-            if (resourceData) CFRelease( resourceData );
-            
-            if (dict) {
-                bundleID = (CFStringRef) CFDictionaryGetValue (dict, CFSTR("CFBundleIdentifier"));
-                if (bundleID) {
-                    tempCStr = CFStringGetCStringPtr (bundleID, kCFStringEncodingMacRoman);
-                   if (tempCStr == NULL) {
-                        tempCStr = (char *) malloc ((CFStringGetLength (bundleID) + 1) * sizeof(char));
-                        needToFree = true;
-                        CFStringGetCString (bundleID, tempCStr, ((CFStringGetLength (bundleID) + 1) * sizeof(char)), kCFStringEncodingMacRoman);
-                    }
-                    if (strstr(tempCStr, "com.apple")) {
-                        isApple = true;
-                    }
-                    if (needToFree == true) free(tempCStr);
-                }
-                CFRelease(dict);
-            }        
-                    
-            if (isApple) { // add to bom array
-                tempStr = CFStringCreateMutable(NULL, 0);
-                CFStringAppendCString(tempStr, receiptpath, kCFStringEncodingMacRoman);
-                CFStringAppendCString(tempStr, currentbomname, kCFStringEncodingMacRoman);
-                CFStringAppendCString(tempStr, "/Contents/Archive.bom", kCFStringEncodingMacRoman);
-                needToFree = false;
-                tempCStr = CFStringGetCStringPtr (tempStr, kCFStringEncodingMacRoman);
-                if (tempCStr == NULL) {
-                    tempCStr = (char *) malloc ((CFStringGetLength (tempStr) + 1) * sizeof(char));
-                    needToFree = true;
-                    CFStringGetCString (tempStr, tempCStr, ((CFStringGetLength (tempStr) + 1) * sizeof(char)), kCFStringEncodingMacRoman);
-                }
-                my_bom = BOMBomOpen(tempCStr, false);
-                if (needToFree == true) free(tempCStr);
-                CFArrayAppendValue (aKextManager->bomArray, my_bom); 
-                CFRelease(tempStr);
-            }
-            CFRelease(fileURL);
-            ftsent = ftsent->fts_link;
-        }
-        fts_close(my_fts);
-    }
-    return aKextManager->bomArray;
 }
 

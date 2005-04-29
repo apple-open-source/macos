@@ -1,67 +1,23 @@
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/bind.c,v 1.29.2.8 2004/04/12 16:08:15 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * All rights reserved.
  *
- * This work has been developed to fulfill the requirements
- * of SysNet s.n.c. <http:www.sys-net.it> and it has been donated
- * to the OpenLDAP Foundation in the hope that it may be useful
- * to the Open Source community, but WITHOUT ANY WARRANTY.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from 
- *    flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- *
- * 4. This notice may not be removed or altered.
- *
- *
- * This software is based on the backend back-ldap, implemented
- * by Howard Chu <hyc@highlandsun.com>, and modified by Mark Valence
- * <kurash@sassafras.com>, Pierangelo Masarati <ando@sys-net.it> and other
- * contributors. The contribution of the original software to the present
- * implementation is acknowledged in this copyright statement.
- *
- * A special acknowledgement goes to Howard for the overall architecture
- * (and for borrowing large pieces of code), and to Mark, who implemented
- * from scratch the attribute/objectclass mapping.
- *
- * The original copyright statement follows.
- *
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the
- *    documentation.
- *
- * 4. This notice may not be removed or altered.
- *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
@@ -81,65 +37,50 @@ static LDAP_REBIND_PROC	meta_back_rebind;
 
 static int
 meta_back_do_single_bind(
-		struct metainfo		*li,
 		struct metaconn		*lc,
 		Operation		*op,
-		struct berval		*dn,
-		struct berval		*ndn,
-		struct berval		*cred,
-		int			method,
+		SlapReply		*rs,
 		int			candidate
 );
 
 int
-meta_back_bind(
-		Backend		*be,
-		Connection	*conn,
-		Operation	*op,
-		struct berval	*dn,
-		struct berval	*ndn,
-		int		method,
-		struct berval	*cred,
-		struct berval	*edn
-)
+meta_back_bind( Operation *op, SlapReply *rs )
 {
-	struct metainfo	*li = ( struct metainfo * )be->be_private;
+	struct metainfo	*li = ( struct metainfo * )op->o_bd->be_private;
 	struct metaconn *lc;
 
 	int rc = -1, i, gotit = 0, ndnlen, isroot = 0;
 	int op_type = META_OP_ALLOW_MULTIPLE;
-	int err = LDAP_SUCCESS;
 
-	struct berval *realdn = dn;
-	struct berval *realndn = ndn;
-	struct berval *realcred = cred;
-	int realmethod = method;
+	rs->sr_err = LDAP_SUCCESS;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG( BACK_META, ENTRY,
-			"meta_back_bind: dn: %s.\n", dn->bv_val, 0, 0 );
+	LDAP_LOG( BACK_META, ENTRY, "meta_back_bind: dn: %s.\n",
+			op->o_req_dn.bv_val, 0, 0 );
 #else /* !NEW_LOGGING */
-	Debug( LDAP_DEBUG_ARGS, "meta_back_bind: dn: %s.\n%s%s", dn->bv_val, "", "" );
+	Debug( LDAP_DEBUG_ARGS, "meta_back_bind: dn: %s.\n%s%s",
+			op->o_req_dn.bv_val, "", "" );
 #endif /* !NEW_LOGGING */
 
-	if ( method == LDAP_AUTH_SIMPLE 
-			&& be_isroot_pw( be, conn, ndn, cred ) ) {
+	if ( op->oq_bind.rb_method == LDAP_AUTH_SIMPLE && be_isroot_pw( op ) ) {
 		isroot = 1;
-		ber_dupbv( edn, be_root_dn( be ) );
+		ber_dupbv( &op->oq_bind.rb_edn, be_root_dn( op->o_bd ) );
 		op_type = META_OP_REQUIRE_ALL;
 	}
-	lc = meta_back_getconn( li, conn, op, op_type, ndn, NULL );
+	lc = meta_back_getconn( op, rs, op_type,
+			&op->o_req_ndn, NULL );
 	if ( !lc ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( BACK_META, NOTICE,
-				"meta_back_bind: no target for dn %s.\n", dn->bv_val, 0, 0 );
+				"meta_back_bind: no target for dn %s.\n",
+				op->o_req_dn.bv_val, 0, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_ANY,
 				"meta_back_bind: no target for dn %s.\n%s%s",
-				dn->bv_val, "", "");
+				op->o_req_dn.bv_val, "", "");
 #endif /* !NEW_LOGGING */
-		send_ldap_result( conn, op, LDAP_OTHER, 
-				NULL, NULL, NULL, NULL );
+
+		send_ldap_result( op, rs );
 		return -1;
 	}
 
@@ -147,9 +88,14 @@ meta_back_bind(
 	 * Each target is scanned ...
 	 */
 	lc->bound_target = META_BOUND_NONE;
-	ndnlen = ndn->bv_len;
+	ndnlen = op->o_req_ndn.bv_len;
 	for ( i = 0; i < li->ntargets; i++ ) {
-		int lerr;
+		int		lerr;
+		struct berval	orig_dn = op->o_req_dn;
+		struct berval	orig_ndn = op->o_req_ndn;
+		struct berval	orig_cred = op->oq_bind.rb_cred;
+		int		orig_method = op->oq_bind.rb_method;
+		
 
 		/*
 		 * Skip non-candidates
@@ -180,25 +126,24 @@ meta_back_bind(
 		}
 
 		if ( isroot && li->targets[ i ]->pseudorootdn.bv_val != NULL ) {
-			realdn = &li->targets[ i ]->pseudorootdn;
-			realndn = &li->targets[ i ]->pseudorootdn;
-			realcred = &li->targets[ i ]->pseudorootpw;
-			realmethod = LDAP_AUTH_SIMPLE;
-		} else {
-			realdn = dn;
-			realndn = ndn;
-			realcred = cred;
-			realmethod = method;
+			op->o_req_dn = li->targets[ i ]->pseudorootdn;
+			op->o_req_ndn = li->targets[ i ]->pseudorootdn;
+			op->oq_bind.rb_cred = li->targets[ i ]->pseudorootpw;
+			op->oq_bind.rb_method = LDAP_AUTH_SIMPLE;
 		}
 		
-		lerr = meta_back_do_single_bind( li, lc, op,
-				realdn, realndn, realcred, realmethod, i );
+		lerr = meta_back_do_single_bind( lc, op, rs, i );
 		if ( lerr != LDAP_SUCCESS ) {
-			err = lerr;
+			rs->sr_err = lerr;
 			( void )meta_clear_one_candidate( &lc->conns[ i ], 1 );
 		} else {
 			rc = LDAP_SUCCESS;
 		}
+
+		op->o_req_dn = orig_dn;
+		op->o_req_ndn = orig_ndn;
+		op->oq_bind.rb_cred = orig_cred;
+		op->oq_bind.rb_method = orig_method;
 	}
 
 	if ( isroot ) {
@@ -210,7 +155,7 @@ meta_back_bind(
 	 * err is the last error that occurred during a bind;
 	 * if at least (and at most?) one bind succeedes, fine.
 	 */
-	if ( rc != LDAP_SUCCESS /* && err != LDAP_SUCCESS */ ) {
+	if ( rc != LDAP_SUCCESS /* && rs->sr_err != LDAP_SUCCESS */ ) {
 		
 		/*
 		 * deal with bind failure ...
@@ -220,12 +165,12 @@ meta_back_bind(
 		 * no target was found within the naming context, 
 		 * so bind must fail with invalid credentials
 		 */
-		if ( err == LDAP_SUCCESS && gotit == 0 ) {
-			err = LDAP_INVALID_CREDENTIALS;
+		if ( rs->sr_err == LDAP_SUCCESS && gotit == 0 ) {
+			rs->sr_err = LDAP_INVALID_CREDENTIALS;
 		}
 
-		err = ldap_back_map_result( err );
-		send_ldap_result( conn, op, err, NULL, NULL, NULL, NULL );
+		rs->sr_err = slap_map_api2result( rs );
+		send_ldap_result( op, rs );
 		return -1;
 	}
 
@@ -239,85 +184,84 @@ meta_back_bind(
  */
 static int
 meta_back_do_single_bind(
-		struct metainfo		*li,
 		struct metaconn		*lc,
 		Operation		*op,
-		struct berval		*dn,
-		struct berval		*ndn,
-		struct berval		*cred,
-		int			method,
+		SlapReply		*rs,
 		int			candidate
 )
 {
-	struct berval mdn = { 0, NULL };
-	int rc;
+	struct metainfo	*li = ( struct metainfo * )op->o_bd->be_private;
+	struct berval	mdn = BER_BVNULL;
+	ber_int_t	msgid;
+	dncookie	dc;
+	struct metasingleconn	*lsc = &lc->conns[ candidate ];
+	LDAPMessage	*res;
 	
 	/*
 	 * Rewrite the bind dn if needed
 	 */
-	switch ( rewrite_session( li->targets[ candidate ]->rwinfo,
-				"bindDn", dn->bv_val, lc->conn, &mdn.bv_val ) ) {
-	case REWRITE_REGEXEC_OK:
-		if ( mdn.bv_val == NULL ) {
-			mdn = *dn;
-		}
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_META, DETAIL1,
-				"[rw] bindDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val, 0 );
-#else /* !NEW_LOGGING */
-		Debug( LDAP_DEBUG_ARGS,
-				"rw> bindDn: \"%s\" -> \"%s\"\n%s",
-				dn->bv_val, mdn.bv_val, "" );
-#endif /* !NEW_LOGGING */
-		break;
-		
-	case REWRITE_REGEXEC_UNWILLING:
-		return LDAP_UNWILLING_TO_PERFORM;
+	dc.rwmap = &li->targets[ candidate ]->rwmap;
+	dc.conn = op->o_conn;
+	dc.rs = rs;
+	dc.ctx = "bindDN";
 
-	case REWRITE_REGEXEC_ERR:
-		return LDAP_OTHER;
+	if ( ldap_back_dn_massage( &dc, &op->o_req_dn, &mdn ) ) {
+		send_ldap_result( op, rs );
+		return -1;
 	}
 
 	if ( op->o_ctrls ) {
-		rc = ldap_set_option( lc->conns[ candidate ].ld, 
+		rs->sr_err = ldap_set_option( lsc->ld, 
 				LDAP_OPT_SERVER_CONTROLS, op->o_ctrls );
-		if ( rc != LDAP_SUCCESS ) {
-			rc = ldap_back_map_result( rc );
+		if ( rs->sr_err != LDAP_SUCCESS ) {
+			rs->sr_err = slap_map_api2result( rs );
 			goto return_results;
 		}
 	}
-	
-	rc = ldap_bind_s( lc->conns[ candidate ].ld, mdn.bv_val, cred->bv_val, method );
-	if ( rc != LDAP_SUCCESS ) {
-		rc = ldap_back_map_result( rc );
-	} else {
-		ber_dupbv( &lc->conns[ candidate ].bound_dn, dn );
-		lc->conns[ candidate ].bound = META_BOUND;
-		lc->bound_target = candidate;
 
-		if ( li->savecred ) {
-			if ( lc->conns[ candidate ].cred.bv_val )
-				ch_free( lc->conns[ candidate ].cred.bv_val );
-			ber_dupbv( &lc->conns[ candidate ].cred, cred );
-			ldap_set_rebind_proc( lc->conns[ candidate ].ld, 
-					meta_back_rebind, 
-					&lc->conns[ candidate ] );
-		}
+	/* FIXME: this fixes the bind problem right now; we need
+	 * to use the asynchronous version to get the "matched"
+	 * and more in case of failure ... */
+	rs->sr_err = ldap_sasl_bind_s(lsc->ld, mdn.bv_val,
+			LDAP_SASL_SIMPLE, &op->oq_bind.rb_cred,
+			op->o_ctrls, NULL, NULL);
+	if ( rs->sr_err != LDAP_SUCCESS ) {
+		rs->sr_err = slap_map_api2result( rs );
+		goto return_results;
+	}
 
-		if ( li->cache.ttl != META_DNCACHE_DISABLED
-				&& ndn->bv_len != 0 ) {
-			( void )meta_dncache_update_entry( &li->cache,
-					ndn, candidate );
+	/*
+	 * FIXME: handle response!!!
+	 */
+	if ( lsc->bound_dn.bv_val != NULL ) {
+		ber_memfree( lsc->bound_dn.bv_val );
+	}
+	ber_dupbv( &lsc->bound_dn, &op->o_req_dn );
+	lsc->bound = META_BOUND;
+	lc->bound_target = candidate;
+
+	if ( li->savecred ) {
+		if ( lsc->cred.bv_val ) {
+			memset( lsc->cred.bv_val, 0, lsc->cred.bv_len );
+			ber_memfree( lsc->cred.bv_val );
 		}
+		ber_dupbv( &lsc->cred, &op->oq_bind.rb_cred );
+		ldap_set_rebind_proc( lsc->ld, meta_back_rebind, lsc );
+	}
+
+	if ( li->cache.ttl != META_DNCACHE_DISABLED
+			&& op->o_req_ndn.bv_len != 0 ) {
+		( void )meta_dncache_update_entry( &li->cache,
+				&op->o_req_ndn, candidate );
 	}
 
 return_results:;
 	
-	if ( mdn.bv_val != dn->bv_val ) {
+	if ( mdn.bv_val != op->o_req_dn.bv_val ) {
 		free( mdn.bv_val );
 	}
 
-	return rc;
+	return rs->sr_err;
 }
 
 /*
@@ -337,7 +281,8 @@ meta_back_dobind( struct metaconn *lc, Operation *op )
 	}
 
 	for ( i = 0, lsc = lc->conns; !META_LAST(lsc); ++i, ++lsc ) {
-		int rc;
+		int		rc;
+		struct berval	cred = BER_BVC("");
 
 		/*
 		 * Not a candidate or something wrong with this target ...
@@ -371,13 +316,21 @@ meta_back_dobind( struct metaconn *lc, Operation *op )
 		 * bind clears the previous bind).
 		 */
 		if ( lsc->bound_dn.bv_val ) {
-			ch_free( lsc->bound_dn.bv_val );
+			ber_memfree( lsc->bound_dn.bv_val );
 			lsc->bound_dn.bv_val = NULL;
 			lsc->bound_dn.bv_len = 0;
 		}
 		
+		if ( /* FIXME: need li ... li->savecred && */ 
+				lsc->cred.bv_val ) {
+			memset( lsc->cred.bv_val, 0, lsc->cred.bv_len );
+			ber_memfree( lsc->cred.bv_val );
+			lsc->cred.bv_val = NULL;
+			lsc->cred.bv_len = 0;
+		}
 
-		rc = ldap_bind_s( lsc->ld, 0, NULL, LDAP_AUTH_SIMPLE );
+		rc = ldap_sasl_bind_s(lsc->ld, "", LDAP_SASL_SIMPLE, &cred,
+				op->o_ctrls, NULL, NULL);
 		if ( rc != LDAP_SUCCESS ) {
 			
 #ifdef NEW_LOGGING
@@ -449,27 +402,30 @@ meta_back_rebind( LDAP *ld, LDAP_CONST char *url, ber_tag_t request,
 {
 	struct metasingleconn *lc = params;
 
-	return ldap_bind_s( ld, lc->bound_dn.bv_val, lc->cred.bv_val, LDAP_AUTH_SIMPLE );
+	return ldap_bind_s( ld, lc->bound_dn.bv_val, lc->cred.bv_val,
+			LDAP_AUTH_SIMPLE );
 }
 
 /*
  * FIXME: error return must be handled in a cleaner way ...
  */
 int
-meta_back_op_result( struct metaconn *lc, Operation *op )
+meta_back_op_result( struct metaconn *lc, Operation *op, SlapReply *rs )
 {
 	int i, rerr = LDAP_SUCCESS;
 	struct metasingleconn *lsc;
 	char *rmsg = NULL;
 	char *rmatch = NULL;
+	int	free_rmsg = 0, free_rmatch = 0;
 
 	for ( i = 0, lsc = lc->conns; !META_LAST(lsc); ++i, ++lsc ) {
-		int err = LDAP_SUCCESS;
 		char *msg = NULL;
 		char *match = NULL;
 
-		ldap_get_option( lsc->ld, LDAP_OPT_ERROR_NUMBER, &err );
-		if ( err != LDAP_SUCCESS ) {
+		rs->sr_err = LDAP_SUCCESS;
+
+		ldap_get_option( lsc->ld, LDAP_OPT_ERROR_NUMBER, &rs->sr_err );
+		if ( rs->sr_err != LDAP_SUCCESS ) {
 			/*
 			 * better check the type of error. In some cases
 			 * (search ?) it might be better to return a
@@ -480,7 +436,7 @@ meta_back_op_result( struct metaconn *lc, Operation *op )
 					LDAP_OPT_ERROR_STRING, &msg );
 			ldap_get_option( lsc->ld,
 					LDAP_OPT_MATCHED_DN, &match );
-			err = ldap_back_map_result( err );
+			rs->sr_err = slap_map_api2result( rs );
 
 #ifdef NEW_LOGGING
 			LDAP_LOG( BACK_META, RESULTS,
@@ -501,12 +457,20 @@ meta_back_op_result( struct metaconn *lc, Operation *op )
 			/*
 			 * FIXME: need to rewrite "match" (need rwinfo)
 			 */
-			switch ( err ) {
+			switch ( rs->sr_err ) {
 			default:
-				rerr = err;
+				rerr = rs->sr_err;
+				if ( rmsg ) {
+					ber_memfree( rmsg );
+				}
 				rmsg = msg;
+				free_rmsg = 1;
 				msg = NULL;
+				if ( rmatch ) {
+					ber_memfree( rmatch );
+				}
 				rmatch = match;
+				free_rmatch = 1;
 				match = NULL;
 				break;
 			}
@@ -521,7 +485,18 @@ meta_back_op_result( struct metaconn *lc, Operation *op )
 		}
 	}
 
-	send_ldap_result( lc->conn, op, rerr, rmatch, rmsg, NULL, NULL );
+	rs->sr_err = rerr;
+	rs->sr_text = rmsg;
+	rs->sr_matched = rmatch;
+	send_ldap_result( op, rs );
+	if ( free_rmsg ) {
+		ber_memfree( rmsg );
+	}
+	if ( free_rmatch ) {
+		ber_memfree( rmatch );
+	}
+	rs->sr_text = NULL;
+	rs->sr_matched = NULL;
 
 	return ( ( rerr == LDAP_SUCCESS ) ? 0 : -1 );
 }

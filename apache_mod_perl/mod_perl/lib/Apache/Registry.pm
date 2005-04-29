@@ -24,6 +24,13 @@ unless (defined $Apache::Registry::MarkLine) {
     $Apache::Registry::MarkLine = 1;
 }
 
+sub xlog_error {
+    my($r, $msg) = @_;
+    $r->log_error($msg);
+    $r->notes('error-notes', $msg);
+    $@{$r->uri} = $msg;
+}
+
 sub handler {
     my $r = shift;
     if(ref $r) {
@@ -127,8 +134,7 @@ sub handler {
 	    compile($eval);
 	    $r->stash_rgy_endav($script_name);
 	    if ($@) {
-		$r->log_error($@);
-		$@{$uri} = $@;
+		xlog_error($r, $@);
 		return SERVER_ERROR unless $Debug && $Debug & 2;
 		return Apache::Debug::dump($r, SERVER_ERROR);
 	    }
@@ -152,7 +158,7 @@ sub handler {
 	}
 
 	if($errsv) {
-	    $r->log_error($errsv);
+	    xlog_error($r, $errsv);
 	    return SERVER_ERROR unless $Debug && $Debug & 2;
 	    return Apache::Debug::dump($r, SERVER_ERROR);
 	}
@@ -165,7 +171,7 @@ sub handler {
 #	}
 	return $r->status($old_status);
     } else {
-        $r->log_error("$filename not found or unable to stat");
+        xlog_error($r, "$filename not found or unable to stat");
 	return NOT_FOUND unless $Debug && $Debug & 2;
 	return Apache::Debug::dump($r, NOT_FOUND);
     }

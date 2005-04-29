@@ -14,13 +14,12 @@ PROJECT_TYPE = Aggregate
 
 SUBPROJECTS = locate
 
-TOOLS = killall apply basename chroot date dirname echo env expr false\
-        find getopt hostname id jot kill lastcomm logname mktemp nice\
-        nohup printenv printf pwd renice script shlock sleep su\
-        tee test time true uname users w whereis which who\
-        xargs yes
+TOOLS = alias apply basename chroot date dirname echo env expr false\
+        find getopt hostname id jot kill killall lastcomm logname mktemp\
+        nice nohup printenv printf pwd renice script shlock sleep su\
+        tee test time true uname users w whereis which who xargs yes
 
-OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble Manpages/*.1
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

@@ -3,7 +3,7 @@
 // Written by David Megginson
 // NO WARRANTY!  This class is in the Public Domain.
 
-// $Id: SAXNotSupportedException.java,v 1.4 2003/01/22 06:04:34 gkeating Exp $
+// $Id: SAXNotSupportedException.java,v 1.1.1.2 2003/01/21 21:21:19 gkeating Exp $
 
 
 package org.xml.sax;

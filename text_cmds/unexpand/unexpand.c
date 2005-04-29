@@ -1,5 +1,3 @@
-/*	$NetBSD: unexpand.c,v 1.6 1997/10/20 02:20:41 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -34,110 +32,200 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
+
+__FBSDID("$FreeBSD: src/usr.bin/unexpand/unexpand.c,v 1.14 2004/06/24 13:48:28 tjr Exp $");
 
 #ifndef lint
-#if 0
-static char sccsid[] = "@(#)unexpand.c	8.1 (Berkeley) 6/6/93";
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-__RCSID("$NetBSD: unexpand.c,v 1.6 1997/10/20 02:20:41 lukem Exp $");
-#endif /* not lint */
+
+#ifndef lint
+static const char sccsid[] = "@(#)unexpand.c	8.1 (Berkeley) 6/6/93";
+#endif
 
 /*
  * unexpand - put tabs into a file replacing blanks
  */
+#include <ctype.h>
+#include <err.h>
+#include <limits.h>
+#include <locale.h>
 #include <stdio.h>
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <wchar.h>
+#include <wctype.h>
 
-char	genbuf[BUFSIZ];
-char	linebuf[BUFSIZ];
 int	all;
+int	nstops;
+int	tabstops[100];
 
-int	main __P((int, char **));
-void tabify __P((char));
+static void getstops(const char *);
+static void usage(void);
+static int tabify(const char *);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	char *cp;
+	int ch, failed;
+	char *filename;
 
-	argc--, argv++;
-	if (argc > 0 && argv[0][0] == '-') {
-		if (strcmp(argv[0], "-a") != 0) {
-			fprintf(stderr, "usage: unexpand [ -a ] file ...\n");
-			exit(1);
+	setlocale(LC_CTYPE, "");
+
+	nstops = 1;
+	tabstops[0] = 8;
+	while ((ch = getopt(argc, argv, "at:")) != -1) {
+		switch (ch) {
+		case 'a':	/* Un-expand all spaces, not just leading. */
+			all = 1;
+			break;
+		case 't':	/* Specify tab list, implies -a. */
+			getstops(optarg);
+			all = 1;
+			break;
+		default:
+			usage();
+			/*NOTREACHED*/
 		}
-		all++;
-		argc--, argv++;
 	}
-	do {
-		if (argc > 0) {
-			if (freopen(argv[0], "r", stdin) == NULL) {
-				perror(argv[0]);
-				exit(1);
-			}
-			argc--, argv++;
+	argc -= optind;
+	argv += optind;
+
+	failed = 0;
+	if (argc == 0)
+		failed |= tabify("stdin");
+	else {
+		while ((filename = *argv++) != NULL) {
+			if (freopen(filename, "r", stdin) == NULL) {
+				warn("%s", filename);
+				failed = 1;
+			} else
+				failed |= tabify(filename);
 		}
-		while (fgets(genbuf, BUFSIZ, stdin) != NULL) {
-			for (cp = linebuf; *cp; cp++)
-				continue;
-			if (cp > linebuf)
-				cp[-1] = 0;
-			tabify(all);
-			printf("%s", linebuf);
-		}
-	} while (argc > 0);
-	exit(0);
+	}
+	exit(failed != 0);
 }
 
-void
-tabify(c)
-	char c;
+static void
+usage(void)
 {
-	char *cp, *dp;
-	int dcol;
-	int ocol;
+	fprintf(stderr, "usage: unexpand [-a] [-t tablist] [file ...]\n");
+	exit(1);
+}
 
-	ocol = 0;
-	dcol = 0;
-	cp = genbuf, dp = linebuf;
-	for (;;) {
-		switch (*cp) {
+static int
+tabify(const char *curfile)
+{
+	int dcol, doneline, limit, n, ocol, width;
+	wint_t ch;
 
-		case ' ':
-			dcol++;
-			break;
+	limit = nstops == 1 ? INT_MAX : tabstops[nstops - 1] - 1;
 
-		case '\t':
-			dcol += 8;
-			dcol &= ~07;
-			break;
-
-		default:
-			while (((ocol + 8) &~ 07) <= dcol) {
-				if (ocol + 1 == dcol)
-					break;
-				*dp++ = '\t';
-				ocol += 8;
-				ocol &= ~07;
+	doneline = ocol = dcol = 0;
+	while ((ch = getwchar()) != WEOF) {
+		if (ch == ' ' && !doneline) {
+			if (++dcol >= limit)
+				doneline = 1;
+			continue;
+		} else if (ch == '\t') {
+			if (nstops == 1) {
+				dcol = (1 + dcol / tabstops[0]) *
+				    tabstops[0];
+				continue;
+			} else {
+				for (n = 0; tabstops[n] - 1 < dcol &&
+				    n < nstops; n++)
+					;
+				if (n < nstops - 1 && tabstops[n] - 1 < limit) {
+					dcol = tabstops[n];
+					continue;
+				}
+				doneline = 1;
 			}
-			while (ocol < dcol) {
-				*dp++ = ' ';
-				ocol++;
-			}
-			if (*cp == 0 || c == 0) {
-				strcpy(dp, cp);
-				return;
-			}
-			*dp++ = *cp;
-			ocol++, dcol++;
 		}
+
+		/* Output maximal number of tabs. */
+		if (nstops == 1) {
+			while (((ocol + tabstops[0]) / tabstops[0])
+			    <= (dcol / tabstops[0])) {
+				if (dcol - ocol < 2)
+					break;
+				putwchar('\t');
+				ocol = (1 + ocol / tabstops[0]) *
+				    tabstops[0];
+			}
+		} else {
+			for (n = 0; tabstops[n] - 1 < ocol && n < nstops; n++)
+				;
+			while (ocol < dcol && n < nstops && ocol < limit) {
+				putwchar('\t');
+				ocol = tabstops[n++];
+			}
+		}
+
+		/* Then spaces. */
+		while (ocol < dcol && ocol < limit) {
+			putwchar(' ');
+			ocol++;
+		}
+
+		if (ch == '\b') {
+			putwchar('\b');
+			if (ocol > 0)
+				ocol--, dcol--;
+		} else if (ch == '\n') {
+			putwchar('\n');
+			doneline = ocol = dcol = 0;
+			continue;
+		} else if (ch != ' ' || dcol > limit) {
+			putwchar(ch);
+			if ((width = wcwidth(ch)) > 0)
+				ocol += width, dcol += width;
+		}
+
+		/*
+		 * Only processing leading blanks or we've gone past the
+		 * last tab stop. Emit remainder of this line unchanged.
+		 */
+		if (!all || dcol >= limit) {
+			while ((ch = getwchar()) != '\n' && ch != WEOF)
+				putwchar(ch);
+			if (ch == '\n')
+				putwchar('\n');
+			doneline = ocol = dcol = 0;
+		}
+	}
+	if (ferror(stdin)) {
+		warn("%s", curfile);
+		return (1);
+	}
+	return (0);
+}
+
+static void
+getstops(const char *cp)
+{
+	int i;
+
+	nstops = 0;
+	for (;;) {
+		i = 0;
+		while (*cp >= '0' && *cp <= '9')
+			i = i * 10 + *cp++ - '0';
+		if (i <= 0)
+			errx(1, "bad tab stop spec");
+		if (nstops > 0 && i <= tabstops[nstops-1])
+			errx(1, "bad tab stop spec");
+		if (nstops == sizeof(tabstops) / sizeof(*tabstops))
+			errx(1, "too many tab stops");
+		tabstops[nstops++] = i;
+		if (*cp == 0)
+			break;
+		if (*cp != ',' && !isblank((unsigned char)*cp))
+			errx(1, "bad tab stop spec");
 		cp++;
 	}
 }

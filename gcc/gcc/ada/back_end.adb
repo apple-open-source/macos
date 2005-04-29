@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -241,9 +240,9 @@ package body Back_End is
       while Next_Arg < save_argc loop
 
          Look_At_Arg : declare
-            Argv_Ptr  : constant BSP := save_argv (Next_Arg);
-            Argv_Len  : constant Nat := Len_Arg (Next_Arg);
-            Argv      : String := Argv_Ptr (1 .. Natural (Argv_Len));
+            Argv_Ptr  : constant BSP    := save_argv (Next_Arg);
+            Argv_Len  : constant Nat    := Len_Arg (Next_Arg);
+            Argv      : constant String := Argv_Ptr (1 .. Natural (Argv_Len));
 
          begin
             --  If the previous switch has set the Output_File_Name_Present
@@ -270,6 +269,12 @@ package body Back_End is
             elsif Argv (Argv'First + 1 .. Argv'Last) = "nostdinc" then
                Opt.No_Stdinc := True;
                Scan_Back_End_Switches (Argv);
+
+            --  We must recognize -nostdlib to suppress visibility on the
+            --  standard GNAT RTL objects.
+
+            elsif Argv (Argv'First + 1 .. Argv'Last) = "nostdlib" then
+               Opt.No_Stdlib := True;
 
             elsif Is_Front_End_Switch (Argv) then
                Scan_Front_End_Switches (Argv);

@@ -1,0 +1,49 @@
+<?xml version="1.0"?>
+
+<!--
+Forrest site.xml
+
+This file contains an outline of the site's information content.  It is used to:
+- Generate the website menus (though these can be overridden - see docs)
+- Provide semantic, location-independent aliases for internal 'site:' URIs, eg
+<link href="site:changes"> links to changes.html (or ../changes.html if in
+  subdir).
+- Provide aliases for external URLs in the external-refs section.  Eg, <link
+  href="ext:cocoon"> links to http://xml.apache.org/cocoon/
+
+See http://xml.apache.org/forrest/linking.html for more info
+-->
+
+<site label="blojsom" href="" xmlns="http://apache.org/forrest/linkmap/1.0">
+
+    <about label="About">
+        <index label="Index" href="index.html"/>
+        <download label="Download" href="http://sourceforge.net/project/showfiles.php?group_id=72754"/>
+        <screenshots label="Screenshots" href="screenshots.html"/>
+        <installation label="Installation" href="install.html"/>
+        <customization label="Customization" href="custom.html"/>
+        <FAQ label="FAQ" href="faq.html"/>
+        <upgrading label="Upgrading" href="upgrading.html"/>
+        <changelog label="Changelog" href="changes.html"/>
+    </about>
+
+    <features label="Features">
+        <comments label="Comments" href="comments.html"/>
+        <trackbacks label="Trackbacks" href="trackbacks.html"/>
+        <themes label="Themes" href="themes.html"/>
+        <xml-rpc label="XML-RPC" href="xml-rpc.html"/>
+    </features>
+
+    <plugins label="Plugins" href="plugins/">
+        <index label="Index" href="index.html"/>
+    </plugins>
+
+    <administration label="Web-Based Administration" href="administration/">
+        <index label="Index" href="index.html"/>
+    </administration>
+
+    <developer label="Developer" href="javadoc/">
+        <javadocs label="JavaDocs" href="index.html"/>
+    </developer>
+
+</site>

@@ -26,12 +26,16 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#include "magic.h"
 #include "file.h"
+#include "magic.h"
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
+#ifndef	lint
+FILE_RCSID("@(#)$Id: funcs.c,v 1.12 2004/06/04 14:40:20 christos Exp $")
+#endif	/* lint */
 /*
  * Like printf, only we print to a buffer and advance it.
  */
@@ -69,41 +73,44 @@ file_printf(struct magic_set *ms, const char *fmt, ...)
  */
 /*VARARGS*/
 protected void
-file_error(struct magic_set *ms, const char *f, ...)
+file_error(struct magic_set *ms, int error, const char *f, ...)
 {
 	va_list va;
 	/* Only the first error is ok */
 	if (ms->haderr)
-	    return;
+		return;
 	va_start(va, f);
-
-	/* cuz we use stdout for most, stderr here */
-	(void) fflush(stdout); 
-
-	(void) vsnprintf(ms->o.buf, ms->o.size, f, va);
-	ms->haderr++;
+	(void)vsnprintf(ms->o.buf, ms->o.size, f, va);
 	va_end(va);
+	if (error > 0) {
+		size_t len = strlen(ms->o.buf);
+		(void)snprintf(ms->o.buf + len, ms->o.size - len, " (%s)",
+		    strerror(error));
+	}
+	ms->haderr++;
+	ms->error = error;
 }
 
 
 protected void
 file_oomem(struct magic_set *ms)
 {
-	file_error(ms, "%s", strerror(errno));
+	file_error(ms, errno, "cannot allocate memory");
 }
 
 protected void
 file_badseek(struct magic_set *ms)
 {
-	file_error(ms, "Error seeking (%s)", strerror(errno));
+	file_error(ms, errno, "error seeking");
 }
 
 protected void
 file_badread(struct magic_set *ms)
 {
-	file_error(ms, "Error reading (%s)", strerror(errno));
+	file_error(ms, errno, "error reading");
 }
 
+#ifndef COMPILE_ONLY
 protected int
 file_buffer(struct magic_set *ms, const void *buf, size_t nb)
 {
@@ -127,15 +134,53 @@ file_buffer(struct magic_set *ms, const void *buf, size_t nb)
     }
     return m;
 }
+#endif
 
 protected int
 file_reset(struct magic_set *ms)
 {
 	if (ms->mlist == NULL) {
-		file_error(ms, "No magic files loaded");
+		file_error(ms, 0, "no magic files loaded");
 		return -1;
 	}
 	ms->o.ptr = ms->o.buf;
 	ms->haderr = 0;
+	ms->error = -1;
 	return 0;
+}
+
+protected const char *
+file_getbuffer(struct magic_set *ms)
+{
+	char *nbuf, *op, *np;
+	size_t nsize;
+
+	if (ms->haderr)
+		return NULL;
+
+	if (ms->flags & MAGIC_RAW)
+		return ms->o.buf;
+
+	nsize = ms->o.len * 4 + 1;
+	if (ms->o.psize < nsize) {
+		if ((nbuf = realloc(ms->o.pbuf, nsize)) == NULL) {
+			file_oomem(ms);
+			return NULL;
+		}
+		ms->o.psize = nsize;
+		ms->o.pbuf = nbuf;
+	}
+
+	for (np = ms->o.pbuf, op = ms->o.buf; *op; op++) {
+		if (isprint((unsigned char)*op) || ((unsigned char)*op) == '\t' || ((unsigned char)*op) == '\n') {
+			*np++ = *op;	
+		} else {
+			*np++ = '\\';
+			*np++ = ((*op >> 6) & 3) + '0';
+			*np++ = ((*op >> 3) & 7) + '0';
+			*np++ = ((*op >> 0) & 7) + '0';
+		}
+	}
+	*np = '\0';
+	return ms->o.pbuf;
 }

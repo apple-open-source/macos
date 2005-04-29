@@ -21,7 +21,7 @@
 
 #include <tack.h>
 
-MODULE_ID("$Id: tack.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: tack.c,v 1.2 2001/10/28 01:05:35 tom Exp $")
 
 /*
    This program is designed to test terminfo, not curses.  Therefore

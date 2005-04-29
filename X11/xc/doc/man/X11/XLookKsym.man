@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XLookKsym.man,v 1.4 2003/02/15 17:48:39 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XLookKsym.man,v 1.5 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,42 +144,18 @@
 .SH NAME
 XLookupKeysym, XRefreshKeyboardMapping, XLookupString, XRebindKeysym \- handle keyboard input events in Latin-1
 .SH SYNTAX
-KeySym XLookupKeysym(\^\fIkey_event\fP, \fIindex\fP\^)
-.br
-      XKeyEvent *\fIkey_event\fP\^;
-.br
-      int \fIindex\fP\^;
-.LP
-XRefreshKeyboardMapping(\^\fIevent_map\fP\^)
-.br
-      XMappingEvent *\fIevent_map\fP\^;
-.LP
-int XLookupString(\^\fIevent_struct\fP, \fIbuffer_return\fP,
- \fIbytes_buffer\fP, \fIkeysym_return\fP, \fIstatus_in_out\fP\^)
-.br
-      XKeyEvent *\fIevent_struct\fP\^;
-.br
-      char *\fIbuffer_return\fP\^;
-.br
-      int \fIbytes_buffer\fP\^;
-.br
-      KeySym *\fIkeysym_return\fP\^;
-.br
-      XComposeStatus *\fIstatus_in_out\fP\^;
-.LP
-XRebindKeysym(\^\fIdisplay\fP, \fIkeysym\fP, \fIlist\fP, \fImod_count\fP, \fIstring\fP, \fInum_bytes\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      KeySym \fIkeysym\fP\^;
-.br
-      KeySym \fIlist\fP\^[\^]\^;
-.br
-      int \fImod_count\fP\^;
-.br
-      unsigned char *\fIstring\fP\^;
-.br
-      int \fInum_bytes\fP\^;
+.HP
+KeySym XLookupKeysym(\^XKeyEvent *\fIkey_event\fP\^, int \fIindex\fP\^); 
+.HP
+int XRefreshKeyboardMapping(\^XMappingEvent *\fIevent_map\fP\^); 
+.HP
+int XLookupString(\^XKeyEvent *\fIevent_struct\fP\^, char
+*\fIbuffer_return\fP\^, int \fIbytes_buffer\fP\^, KeySym
+*\fIkeysym_return\fP\^, XComposeStatus *\fIstatus_in_out\fP\^); 
+.HP
+int XRebindKeysym(\^Display *\fIdisplay\fP\^, KeySym \fIkeysym\fP\^, KeySym
+\fIlist\fP\^[\^]\^, int \fImod_count\fP\^, unsigned char *\fIstring\fP\^, int
+\fInum_bytes\fP\^); 
 .SH ARGUMENTS
 .IP \fIbuffer_return\fP 1i
 Returns the translated characters.

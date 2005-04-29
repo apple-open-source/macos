@@ -1,0 +1,43 @@
+.\" @(#)man.conf
+.\" Autorem èeského pøekladu je Pavel JANÍK ml.
+.\"                             Pavel.JANIK@inet.cz
+.\"
+.TH MAN.CONF 5 "7. ledna, 1997"
+.SH JMÉNO
+man.conf \- konfiguraèní soubor pro man
+.SH POPIS
+.LP
+Tento soubor je èten programem
+.BR man (1)
+a obsahuje (a) informace o tom, kde hledat manuálové stránky, 
+(b) plná jména dal¹ích preprocesorù jako nroff, eqn, tbl atd. pou¾ívaných
+programem man a (c) seznam komprimovacích programù a jimi specifikovaných
+pøípon. U¾ivatelská verze tohoto souboru mù¾e být specifikována takto:
+.LP
+.RS
+man -C soukromý_man.conf ...
+.RE
+.LP
+Jména pøíkazù mohou být uvedena na pøíkazové øádce.
+U¾iteèné volby pro nroff mohou být nalezeny v grotty(1).
+Napø. místo standardní øádky
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+mù¾ete napsat
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+co¾ zpùsobí, ¾e znaky nebudou podtr¾ené a pøe¹krtnuté.
+.SH "VIZ TÉ®"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) and compress(1), gzip(1).
+

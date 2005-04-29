@@ -209,9 +209,6 @@ void IOAudioDevice::setDeviceCanBeDefault(UInt32 defaultsFlags)
 	setProperty(kIOAudioDeviceCanBeDefaults, defaultsFlags, sizeof(UInt32) * 8);
 }
 
-// Original code here...
-const IORegistryPlane *IOAudioDevice::gIOAudioPlane = 0;
-
 bool IOAudioDevice::init(OSDictionary *properties)
 {
     audioDebugIOLog(3, "IOAudioDevice[%p]::init(%p)", this, properties);
@@ -227,10 +224,6 @@ bool IOAudioDevice::init(OSDictionary *properties)
 		reserved->idleSleepDelayTime = 0;
 		reserved->idleTimer = NULL;
 	}
-
-    if (!gIOAudioPlane) {
-        gIOAudioPlane = IORegistryEntry::makePlane(kIOAudioPlane);
-    }
 
     audioEngines = OSArray::withCapacity(2);
     if (!audioEngines) {
@@ -402,7 +395,9 @@ void IOAudioDevice::stop(IOService *provider)
     detachAllAudioPorts();
 
     if (familyManagePower) {
-        PMstop();
+		if (pm_vars != NULL) {
+			PMstop();
+		}
     }
     
     if (commandGate) {
@@ -656,7 +651,7 @@ IOReturn IOAudioDevice::protectedCompletePowerStateChange()
         }
     
         if (asyncPowerStateChangeInProgress) {
-            acknowledgePowerChange(this);
+            acknowledgeSetPowerState();
             asyncPowerStateChangeInProgress = false;
         
             if (cg) {
@@ -849,59 +844,11 @@ void IOAudioDevice::deactivateAllAudioEngines()
 
 IOReturn IOAudioDevice::attachAudioPort(IOAudioPort *port, IORegistryEntry *parent, IORegistryEntry *child)
 {
-    if (!port || !audioPorts) {
-        return kIOReturnBadArgument;
-    }
-
-    if (!port->attach(this)) {
-        return kIOReturnError;
-    }
-
-    if (!port->start(this)) {
-        port->detach(this);
-        return kIOReturnError;
-    }
-
-    audioPorts->setObject(port);
-
-    port->registerService();
-
-    if (!parent) {
-        parent = getRegistryRoot();
-    }
-    port->attachToParent(parent, gIOAudioPlane);
-
-    if (child) {
-        child->attachToParent(port, gIOAudioPlane);
-    }
-
     return kIOReturnSuccess;
 }
 
 void IOAudioDevice::detachAllAudioPorts()
 {
-    OSCollectionIterator *iterator;
-    
-    if (!audioPorts) {
-        return;
-    }
-
-    iterator = OSCollectionIterator::withCollection(audioPorts);
-
-    if (iterator) {
-        IOAudioPort *port;
-        
-        while (port = (IOAudioPort *)iterator->getNextObject()) {
-            if (!isInactive()) {
-                port->terminate();
-            }
-            port->detachAll(gIOAudioPlane);
-        }
-        
-        iterator->release();
-    }
-    
-    audioPorts->flushCollection();
 }
 
 void IOAudioDevice::flushAudioControls()

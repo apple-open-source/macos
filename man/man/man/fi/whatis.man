@@ -1,0 +1,28 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Translated into Finnish by Raimo Koski <rkoski@pp.weppi.fi>
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH whatis 1 "Tammikuun 5, 1991"
+.LO 1
+.SH NIMI
+whatis \- etsii whatis-tietokannasta kokonaisia sanoja.
+.SH YLEISKATSAUS
+.BI whatis
+avainsana ...
+.SH KUVAUS
+whatis etsii avainsanoja tietokannoista, joissa on lyhyet kuvaukset järjestelmän komennoista ja näyttää tulokset vakiotulosteessa. Vain löytyneet kokonaiset sanat näytetään.
+
+Whatis-tietokanta luodaan komennolla @makewhatis@.
+.SH "KATSO MYÖS"
+apropos(1), man(1).

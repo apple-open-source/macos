@@ -1,9 +1,6 @@
-/* $Id: compress.h,v 1.3 2001/09/17 20:35:54 zlaski Exp $
+/* $Id: compress.h,v 1.2 2000/12/14 18:45:35 ghazi Exp $
 
    $Log: compress.h,v $
-   Revision 1.3  2001/09/17 20:35:54  zlaski
-   Resolve conflicts due to 2001-09-12 FSF import.
-
    Revision 1.2  2000/12/14 18:45:35  ghazi
    Warning fixes:
 

@@ -1,0 +1,7 @@
+## Powered By Blojsom. Images replaced with CSS for cleanness.
+<p>
+	<a href="http://blojsom.sf.net"><img src="$BLOJSOM_SITE_URL/pbb.gif" alt="Powered By blojsom" /></a><br />
+	<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss" title="RSS Feed" class="xb og">XML</a>&nbsp;
+	<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss2" title="RSS2 Feed" class="xb bu">RSS</a>&nbsp;
+	<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rdf" title="RDF Feed" class="xb og">RDF</a>
+</p>	

@@ -18,6 +18,7 @@ AC_SUBST(A_CFLAGS)
 S_CFLAGS="-fPIC -DPIC"
 AC_SUBST(S_CFLAGS)
 AC_PROG_CPP
+dnl Must do this now, otherwise it is only done for NetBSD (see 'case' below)
 
 dnl Platform-specific settings.  The ABI can probably be determined
 dnl programmatically, but doing so is error-prone, which makes it generally
@@ -49,6 +50,9 @@ case "${host}" in
 	ABI="elf"
 	AC_DEFINE(SUNOS)
 	;;
+ *-*-hpux*)
+	ABI="elf"
+	;;
   *)
 	AC_MSG_RESULT(Unsupported operating system: ${host})
 	ABI="elf"
@@ -74,7 +78,7 @@ AC_CHECK_HEADERS(termcap.h, , \
     AC_CHECK_HEADERS(ncurses.h, , \
       AC_MSG_RESULT(Need curses.h or ncurses.h))))
 
-AC_CHECK_HEADERS(sys/cdefs.h vis.h)
+AC_CHECK_HEADERS(sys/cdefs.h vis.h alloca.h)
 
 AC_CHECK_FUNCS(issetugid)
 AC_CHECK_FUNCS(strlcat, , CCSRCS="$CCSRCS np/strlcat.c")
@@ -134,7 +138,6 @@ if test "x$enable_debug" = "xyes" ; then
 else
   CFLAGS="$CFLAGS -O"
 fi
-
 
 dnl 
 dnl File lists.  This is done here instead of in the Makefile in order to avoid
@@ -228,6 +231,12 @@ if test "x$enable_readline" = "xyes" ; then
     LIB_S_LINKS="$LIB_S_LINKS $LIB_S_LINK libreadline.dylib"
   fi
 fi
+
+case "${host}" in
+ *-*-hpux*)
+	S_LDFLAGS="-shared -fPIC"
+	;;
+esac
 
 AC_SUBST(ACSRCS)
 AC_SUBST(BCSRCS)

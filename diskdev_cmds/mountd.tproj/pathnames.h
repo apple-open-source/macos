@@ -61,5 +61,6 @@
 
 #define	_PATH_EXPORTS		"/etc/exports"
 #define	_PATH_RMOUNTLIST	"/var/db/mountdtab"
+#define	_PATH_MOUNTEXPLIST	"/var/db/mountdexptab"
 #define _PATH_MOUNTDPID		"/var/run/mountd.pid"
 #define _PATH_SLP_REG		"/usr/sbin/slp_reg"

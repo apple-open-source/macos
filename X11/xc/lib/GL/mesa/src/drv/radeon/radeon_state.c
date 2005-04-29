@@ -1,32 +1,50 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_state.c,v 1.8 2002/12/16 16:18:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_state.c,v 1.10 2003/12/02 13:02:39 alanh Exp $ */
+/**************************************************************************
+
+Copyright 2000, 2001 VA Linux Systems Inc., Fremont, California.
+
+All Rights Reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+**************************************************************************/
+
 /*
- * Copyright 2000, 2001 VA Linux Systems Inc., Fremont, California.
- *
- * All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * on the rights to use, copy, modify, merge, publish, distribute, sub
- * license, and/or sell copies of the Software, and to permit persons to whom
- * the Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice (including the next
- * paragraph) shall be included in all copies or substantial portions of the
- * Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
- * VA LINUX SYSTEMS AND/OR ITS SUPPLIERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
- * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
- * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
- * OTHER DEALINGS IN THE SOFTWARE.
- *
  * Authors:
- *    Gareth Hughes <gareth@valinux.com>
- *    Keith Whitwell <keith@tungstengraphics.com>
+ *   Gareth Hughes <gareth@valinux.com>
+ *   Keith Whitwell <keith@tungstengraphics.com>
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "api_arrayelt.h"
+#include "enums.h"
+#include "colormac.h"
+#include "state.h"
+
+#include "swrast/swrast.h"
+#include "array_cache/acache.h"
+#include "tnl/tnl.h"
+#include "tnl/t_pipeline.h"
+#include "swrast_setup/swrast_setup.h"
 
 #include "radeon_context.h"
 #include "radeon_ioctl.h"
@@ -36,41 +54,22 @@
 #include "radeon_swtcl.h"
 #include "radeon_vtxfmt.h"
 
-#include "mem.h"
-#include "mmath.h"
-#include "enums.h"
-#include "colormac.h"
-#include "light.h"
-#include "api_arrayelt.h"
-
-#include "swrast/swrast.h"
-#include "array_cache/acache.h"
-#include "tnl/tnl.h"
-#include "tnl/t_pipeline.h"
-#include "swrast_setup/swrast_setup.h"
-
-
-#define MODEL_PROJ 0
-#define MODEL      1
-#define MODEL_IT   2
-#define TEXMAT_0   3
-#define TEXMAT_1   4
-#define TEXMAT_2   5
-
-
 /* =============================================================
  * Alpha blending
  */
 
-static void radeonAlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
+static void radeonAlphaFunc( GLcontext *ctx, GLenum func, GLfloat ref )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    int pp_misc = rmesa->hw.ctx.cmd[CTX_PP_MISC];
+   GLubyte refByte;
+
+   CLAMPED_FLOAT_TO_UBYTE(refByte, ref);
 
    RADEON_STATECHANGE( rmesa, ctx );
 
    pp_misc &= ~(RADEON_ALPHA_TEST_OP_MASK | RADEON_REF_ALPHA_MASK);
-   pp_misc |= (ref & RADEON_REF_ALPHA_MASK);
+   pp_misc |= (refByte & RADEON_REF_ALPHA_MASK);
 
    switch ( func ) {
    case GL_NEVER:
@@ -119,7 +118,10 @@ static void radeonBlendEquation( GLcontext *ctx, GLenum mode )
       break;
 
    default:
-      fallback = GL_TRUE;
+      if (ctx->Color.BlendEnabled)
+	 fallback = GL_TRUE;
+      else
+	 b |= RADEON_COMB_FCN_ADD_CLAMP;
       break;
    }
 
@@ -180,7 +182,12 @@ static void radeonBlendFunc( GLcontext *ctx, GLenum sfactor, GLenum dfactor )
    case GL_ONE_MINUS_CONSTANT_COLOR:
    case GL_CONSTANT_ALPHA:
    case GL_ONE_MINUS_CONSTANT_ALPHA:
-      fallback = GL_TRUE;
+      if (ctx->Color.BlendEnabled)
+	 fallback = GL_TRUE;
+      else
+	 b |= RADEON_SRC_BLEND_GL_ONE;
+      break;
+   default:
       break;
    }
 
@@ -219,7 +226,12 @@ static void radeonBlendFunc( GLcontext *ctx, GLenum sfactor, GLenum dfactor )
    case GL_ONE_MINUS_CONSTANT_COLOR:
    case GL_CONSTANT_ALPHA:
    case GL_ONE_MINUS_CONSTANT_ALPHA:
-      fallback = GL_TRUE;
+      if (ctx->Color.BlendEnabled)
+	 fallback = GL_TRUE;
+      else
+	 b |= RADEON_DST_BLEND_GL_ZERO;
+      break;
+   default:
       break;
    }
 
@@ -441,8 +453,7 @@ void radeonRecalcScissorRects( radeonContextPtr rmesa )
 	 MALLOC( rmesa->state.scissor.numAllocedClipRects * 
 		 sizeof(XF86DRIClipRectRec) );
 
-      if (!rmesa->state.scissor.numAllocedClipRects) {
-/*  	 FALLBACK( rmesa, RADEON_FALLBACK_MEMORY, GL_TRUE ); */
+      if ( rmesa->state.scissor.pClipRects == NULL ) {
 	 rmesa->state.scissor.numAllocedClipRects = 0;
 	 return;
       }
@@ -683,61 +694,60 @@ static void radeonUpdateSpecular( GLcontext *ctx )
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    CARD32 p = rmesa->hw.ctx.cmd[CTX_PP_CNTL];
 
-   if ( ctx->_TriangleCaps & DD_SEPARATE_SPECULAR ) {
-      p |=  RADEON_SPECULAR_ENABLE;
-   } else {
-      p &= ~RADEON_SPECULAR_ENABLE;
-   }
-
-   if ( rmesa->hw.ctx.cmd[CTX_PP_CNTL] != p ) {
-      RADEON_STATECHANGE( rmesa, ctx );
-      rmesa->hw.ctx.cmd[CTX_PP_CNTL] = p;
-   }
-
-   /* Bizzare: have to leave lighting enabled to get fog.
-    */
    RADEON_STATECHANGE( rmesa, tcl );
-   if ((ctx->Light.Enabled &&
-	ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)) {
+
+   rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_SPECULAR;
+   rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_DIFFUSE;
+   rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] &= ~RADEON_TCL_VTX_PK_SPEC;
+   rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] &= ~RADEON_TCL_VTX_PK_DIFFUSE;
+   rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= ~RADEON_LIGHTING_ENABLE;
+
+   p &= ~RADEON_SPECULAR_ENABLE;
+
+   rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_DIFFUSE_SPECULAR_COMBINE;
+
+
+   if (ctx->Light.Enabled &&
+       ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR) {
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_SPECULAR;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_DIFFUSE;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_SPEC;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
       rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE;
-   }
-   else if (ctx->Fog.Enabled) {
-      if (ctx->Light.Enabled) {
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_SPECULAR;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_DIFFUSE;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_SPEC;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
-	 rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE;
-      } else {
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_SPECULAR;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_DIFFUSE;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_SPEC;
-	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
-	 rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE;
-      }
+      p |=  RADEON_SPECULAR_ENABLE;
+      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= 
+	 ~RADEON_DIFFUSE_SPECULAR_COMBINE;
    }
    else if (ctx->Light.Enabled) {
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_SPECULAR;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_DIFFUSE;
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] &= ~RADEON_TCL_VTX_PK_SPEC;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
       rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE;
    } else if (ctx->Fog.ColorSumEnabled ) {
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_SPECULAR;
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_DIFFUSE;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_SPEC;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
-      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= ~RADEON_LIGHTING_ENABLE;
+      p |= RADEON_SPECULAR_ENABLE;
    } else {
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_SPECULAR;
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_DIFFUSE;
-      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] &= ~RADEON_TCL_VTX_PK_SPEC;
       rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_DIFFUSE;
-      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= ~RADEON_LIGHTING_ENABLE;
+   }
+
+   if (ctx->Fog.Enabled) {
+      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_SPECULAR;
+      rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] |= RADEON_TCL_VTX_PK_SPEC;
+
+      /* Bizzare: have to leave lighting enabled to get fog.
+       */
+      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE;
+   }
+
+   if ( ctx->_TriangleCaps & DD_SEPARATE_SPECULAR ) {
+      assert( (p & RADEON_SPECULAR_ENABLE) != 0 );
+   } else {
+      assert( (p & RADEON_SPECULAR_ENABLE) == 0 );
+   }
+
+   if ( rmesa->hw.ctx.cmd[CTX_PP_CNTL] != p ) {
+      RADEON_STATECHANGE( rmesa, ctx );
+      rmesa->hw.ctx.cmd[CTX_PP_CNTL] = p;
    }
 
    /* Update vertex/render formats
@@ -997,7 +1007,6 @@ static void update_light( GLcontext *ctx )
    }
 
 
-/*     RADEON_STATECHANGE( rmesa, glt ); */
 
    if (ctx->Light.Enabled) {
       GLint p;
@@ -1047,8 +1056,14 @@ static void radeonLightfv( GLcontext *ctx, GLenum light,
 
    case GL_POSITION: {
       /* positions picked up in update_light, but can do flag here */	
-      GLuint flag = (p&1)? RADEON_LIGHT_1_IS_LOCAL : RADEON_LIGHT_0_IS_LOCAL;
+      GLuint flag;
       GLuint idx = TCL_PER_LIGHT_CTL_0 + p/2;
+
+      /* FIXME: Set RANGE_ATTEN only when needed */
+      if (p&1) 
+	 flag = RADEON_LIGHT_1_IS_LOCAL;
+      else
+	 flag = RADEON_LIGHT_0_IS_LOCAL;
 
       RADEON_STATECHANGE(rmesa, tcl);
       if (l->EyePosition[3] != 0.0F)
@@ -1075,6 +1090,7 @@ static void radeonLightfv( GLcontext *ctx, GLenum light,
 	 rmesa->hw.tcl.cmd[idx] |= flag;
       else
 	 rmesa->hw.tcl.cmd[idx] &= ~flag;
+
       break;
    }
 
@@ -1094,6 +1110,31 @@ static void radeonLightfv( GLcontext *ctx, GLenum light,
       return;
    }
 
+   /* Set RANGE_ATTEN only when needed */
+   switch (pname) {
+   case GL_POSITION:
+   case GL_LINEAR_ATTENUATION:
+   case GL_QUADRATIC_ATTENUATION:
+   {
+      GLuint flag;
+      GLuint idx = TCL_PER_LIGHT_CTL_0 + p/2;
+
+      if (p&1) 
+        flag = RADEON_LIGHT_1_ENABLE_RANGE_ATTEN;
+      else
+        flag = RADEON_LIGHT_0_ENABLE_RANGE_ATTEN;
+
+      RADEON_STATECHANGE(rmesa, tcl);
+      if (l->EyePosition[3] != 0.0F &&
+         (l->LinearAttenuation != 0.0F || l->QuadraticAttenuation != 0.0F))
+        rmesa->hw.tcl.cmd[idx] |= flag;
+      else
+        rmesa->hw.tcl.cmd[idx] &= ~flag;
+      break;
+   }
+   default:
+      break;
+   }
 }
 
 		  
@@ -1134,14 +1175,6 @@ static void radeonLightModelfv( GLcontext *ctx, GLenum pname,
 
       case GL_LIGHT_MODEL_COLOR_CONTROL:
 	 radeonUpdateSpecular(ctx);
-
-	 RADEON_STATECHANGE( rmesa, tcl );
-	 if (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR) 
-	    rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= 
-	       ~RADEON_DIFFUSE_SPECULAR_COMBINE;
-	 else
-	    rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= 
-	       RADEON_DIFFUSE_SPECULAR_COMBINE;
          break;
 
       default:
@@ -1206,7 +1239,7 @@ static void radeonUpdateClipPlanes( GLcontext *ctx )
    GLuint p;
 
    for (p = 0; p < ctx->Const.MaxClipPlanes; p++) {
-      if (ctx->Transform.ClipEnabled[p]) {
+      if (ctx->Transform.ClipPlanesEnabled & (1 << p)) {
 	 GLint *ip = (GLint *)ctx->Transform._ClipUserPlane[p];
 
 	 RADEON_STATECHANGE( rmesa, ucp[p] );
@@ -1227,8 +1260,8 @@ static void radeonStencilFunc( GLcontext *ctx, GLenum func,
 			       GLint ref, GLuint mask )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
-   GLuint refmask = ((ctx->Stencil.Ref << RADEON_STENCIL_REF_SHIFT) |
-		     (ctx->Stencil.ValueMask << RADEON_STENCIL_MASK_SHIFT));
+   GLuint refmask = ((ctx->Stencil.Ref[0] << RADEON_STENCIL_REF_SHIFT) |
+		     (ctx->Stencil.ValueMask[0] << RADEON_STENCIL_MASK_SHIFT));
 
    RADEON_STATECHANGE( rmesa, ctx );
    RADEON_STATECHANGE( rmesa, msk );
@@ -1237,7 +1270,7 @@ static void radeonStencilFunc( GLcontext *ctx, GLenum func,
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] &= ~(RADEON_STENCIL_REF_MASK|
 						   RADEON_STENCIL_VALUE_MASK);
 
-   switch ( ctx->Stencil.Function ) {
+   switch ( ctx->Stencil.Function[0] ) {
    case GL_NEVER:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= RADEON_STENCIL_TEST_NEVER;
       break;
@@ -1274,7 +1307,7 @@ static void radeonStencilMask( GLcontext *ctx, GLuint mask )
    RADEON_STATECHANGE( rmesa, msk );
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] &= ~RADEON_STENCIL_WRITE_MASK;
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] |=
-      (ctx->Stencil.WriteMask << RADEON_STENCIL_WRITEMASK_SHIFT);
+      (ctx->Stencil.WriteMask[0] << RADEON_STENCIL_WRITEMASK_SHIFT);
 }
 
 static void radeonStencilOp( GLcontext *ctx, GLenum fail,
@@ -1287,7 +1320,7 @@ static void radeonStencilOp( GLcontext *ctx, GLenum fail,
 					       RADEON_STENCIL_ZFAIL_MASK |
 					       RADEON_STENCIL_ZPASS_MASK);
 
-   switch ( ctx->Stencil.FailFunc ) {
+   switch ( ctx->Stencil.FailFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= RADEON_STENCIL_FAIL_KEEP;
       break;
@@ -1308,7 +1341,7 @@ static void radeonStencilOp( GLcontext *ctx, GLenum fail,
       break;
    }
 
-   switch ( ctx->Stencil.ZFailFunc ) {
+   switch ( ctx->Stencil.ZFailFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= RADEON_STENCIL_ZFAIL_KEEP;
       break;
@@ -1329,7 +1362,7 @@ static void radeonStencilOp( GLcontext *ctx, GLenum fail,
       break;
    }
 
-   switch ( ctx->Stencil.ZPassFunc ) {
+   switch ( ctx->Stencil.ZPassFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= RADEON_STENCIL_ZPASS_KEEP;
       break;
@@ -1358,7 +1391,7 @@ static void radeonClearStencil( GLcontext *ctx, GLint s )
    rmesa->state.stencil.clear = 
       ((GLuint) ctx->Stencil.Clear |
        (0xff << RADEON_STENCIL_MASK_SHIFT) |
-       (ctx->Stencil.WriteMask << RADEON_STENCIL_WRITEMASK_SHIFT));
+       (ctx->Stencil.WriteMask[0] << RADEON_STENCIL_WRITEMASK_SHIFT));
 }
 
 
@@ -1468,9 +1501,14 @@ void radeonUpdateViewportOffset( GLcontext *ctx )
  * Miscellaneous
  */
 
-static void radeonClearColor( GLcontext *ctx, const GLchan c[4] )
+static void radeonClearColor( GLcontext *ctx, const GLfloat color[4] )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
+   GLubyte c[4];
+   CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
    rmesa->state.color.clear = radeonPackColor( rmesa->radeonScreen->cpp,
 					       c[0], c[1], c[2], c[3] );
 }
@@ -1545,7 +1583,7 @@ void radeonSetCliprects( radeonContextPtr rmesa, GLenum mode )
 }
 
 
-static void radeonSetDrawBuffer( GLcontext *ctx, GLenum mode )
+static void radeonDrawBuffer( GLcontext *ctx, GLenum mode )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
@@ -1555,42 +1593,39 @@ static void radeonSetDrawBuffer( GLcontext *ctx, GLenum mode )
 
    RADEON_FIREVERTICES(rmesa);	/* don't pipeline cliprect changes */
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
+   /*
+    * _DrawDestMask is easier to cope with than <mode>.
+    */
+   switch ( ctx->Color._DrawDestMask ) {
+   case FRONT_LEFT_BIT:
       FALLBACK( rmesa, RADEON_FALLBACK_DRAW_BUFFER, GL_FALSE );
-      if ( rmesa->sarea->pfCurrentPage == 1 ) {
-        rmesa->state.color.drawOffset = rmesa->radeonScreen->backOffset;
-        rmesa->state.color.drawPitch  = rmesa->radeonScreen->backPitch;
-      } else {
-      	rmesa->state.color.drawOffset = rmesa->radeonScreen->frontOffset;
-      	rmesa->state.color.drawPitch  = rmesa->radeonScreen->frontPitch;
-      }
-      rmesa->state.pixel.readOffset = rmesa->state.color.drawOffset;
-      rmesa->state.pixel.readPitch = rmesa->state.color.drawPitch;
       radeonSetCliprects( rmesa, GL_FRONT_LEFT );
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       FALLBACK( rmesa, RADEON_FALLBACK_DRAW_BUFFER, GL_FALSE );
-      if ( rmesa->sarea->pfCurrentPage == 1 ) {
-      	rmesa->state.color.drawOffset = rmesa->radeonScreen->frontOffset;
-      	rmesa->state.color.drawPitch  = rmesa->radeonScreen->frontPitch;
-      } else {
-        rmesa->state.color.drawOffset = rmesa->radeonScreen->backOffset;
-        rmesa->state.color.drawPitch  = rmesa->radeonScreen->backPitch;
-      }
-      rmesa->state.pixel.readOffset = rmesa->state.color.drawOffset;
-      rmesa->state.pixel.readPitch = rmesa->state.color.drawPitch;
       radeonSetCliprects( rmesa, GL_BACK_LEFT );
       break;
    default:
+      /* GL_NONE or GL_FRONT_AND_BACK or stereo left&right, etc */
       FALLBACK( rmesa, RADEON_FALLBACK_DRAW_BUFFER, GL_TRUE );
       return;
    }
 
+   /* We want to update the s/w rast state too so that r200SetBuffer()
+    * gets called.
+    */
+   _swrast_DrawBuffer(ctx, mode);
+
    RADEON_STATECHANGE( rmesa, ctx );
-   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = (rmesa->state.color.drawOffset &
-					    RADEON_COLOROFFSET_MASK);
+   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = ((rmesa->state.color.drawOffset +
+					       rmesa->radeonScreen->fbLocation)
+					      & RADEON_COLOROFFSET_MASK);
    rmesa->hw.ctx.cmd[CTX_RB3D_COLORPITCH] = rmesa->state.color.drawPitch;
+}
+
+static void radeonReadBuffer( GLcontext *ctx, GLenum mode )
+{
+   /* nothing, until we implement h/w glRead/CopyPixels or CopyTexImage */
 }
 
 
@@ -1636,6 +1671,18 @@ static void radeonEnable( GLcontext *ctx, GLenum cap, GLboolean state )
 	 rmesa->hw.ctx.cmd[CTX_RB3D_CNTL] |=  RADEON_ROP_ENABLE;
       } else {
 	 rmesa->hw.ctx.cmd[CTX_RB3D_CNTL] &= ~RADEON_ROP_ENABLE;
+      }
+
+      /* Catch a possible fallback:
+       */
+      if (state) {
+	 ctx->Driver.BlendEquation( ctx, ctx->Color.BlendEquation );
+	 ctx->Driver.BlendFunc( ctx, ctx->Color.BlendSrcRGB,
+				ctx->Color.BlendDstRGB );
+      }
+      else {
+	 FALLBACK( rmesa, RADEON_FALLBACK_BLEND_FUNC, GL_FALSE );
+	 FALLBACK( rmesa, RADEON_FALLBACK_BLEND_EQ, GL_FALSE );
       }
       break;
 
@@ -1697,6 +1744,7 @@ static void radeonEnable( GLcontext *ctx, GLenum cap, GLboolean state )
       radeonUpdateSpecular( ctx ); /* for PK_SPEC */
       if (rmesa->TclFallback) 
 	 radeonChooseVertexState( ctx );
+      _mesa_allow_light_in_model( ctx, !state );
       break;
 
    case GL_LIGHT0:
@@ -1730,14 +1778,6 @@ static void radeonEnable( GLcontext *ctx, GLenum cap, GLboolean state )
 
    case GL_LIGHTING:
       RADEON_STATECHANGE(rmesa, tcl);
-      if (state) {
-/*  	 rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] |= RADEON_LIGHTING_ENABLE; */
-/*  	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] |= RADEON_TCL_COMPUTE_DIFFUSE; */
-      }
-      else {
-/*  	 rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= ~RADEON_LIGHTING_ENABLE; */
-/*  	 rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXSEL] &= ~RADEON_TCL_COMPUTE_DIFFUSE; */
-      }
       radeonUpdateSpecular(ctx);
       check_twoside_fallback( ctx );
       break;
@@ -1779,44 +1819,29 @@ static void radeonEnable( GLcontext *ctx, GLenum cap, GLboolean state )
       break;
 
    case GL_POLYGON_OFFSET_POINT:
-      if (rmesa->dri.drmMinor == 1) {
-	 radeonChooseRenderState( ctx );
-      } 
-      else {
-	 RADEON_STATECHANGE( rmesa, set );
-	 if ( state ) {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_POINT;
-	 } else {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_POINT;
-	 }
+      RADEON_STATECHANGE( rmesa, set );
+      if ( state ) {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_POINT;
+      } else {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_POINT;
       }
       break;
 
    case GL_POLYGON_OFFSET_LINE:
-      if (rmesa->dri.drmMinor == 1) {
-	 radeonChooseRenderState( ctx );
-      } 
-      else {
-	 RADEON_STATECHANGE( rmesa, set );
-	 if ( state ) {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_LINE;
-	 } else {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_LINE;
-	 }
+      RADEON_STATECHANGE( rmesa, set );
+      if ( state ) {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_LINE;
+      } else {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_LINE;
       }
       break;
 
    case GL_POLYGON_OFFSET_FILL:
-      if (rmesa->dri.drmMinor == 1) {
-	 radeonChooseRenderState( ctx );
-      } 
-      else {
-	 RADEON_STATECHANGE( rmesa, set );
-	 if ( state ) {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_TRI;
-	 } else {
-	    rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_TRI;
-	 }
+      RADEON_STATECHANGE( rmesa, set );
+      if ( state ) {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] |=  RADEON_ZBIAS_ENABLE_TRI;
+      } else {
+	 rmesa->hw.set.cmd[SET_SE_CNTL] &= ~RADEON_ZBIAS_ENABLE_TRI;
       }
       break;
 
@@ -1894,7 +1919,8 @@ static void radeonLightingSpaceChange( GLcontext *ctx )
    RADEON_STATECHANGE( rmesa, tcl );
 
    if (RADEON_DEBUG & DEBUG_STATE)
-      fprintf(stderr, "%s %d\n", __FUNCTION__, ctx->_NeedEyeCoords);
+      fprintf(stderr, "%s %d BEFORE %x\n", __FUNCTION__, ctx->_NeedEyeCoords,
+	      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL]);
 
    if (ctx->_NeedEyeCoords)
       tmp = ctx->Transform.RescaleNormals;
@@ -1906,6 +1932,10 @@ static void radeonLightingSpaceChange( GLcontext *ctx )
    } else {
       rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL] &= ~RADEON_RESCALE_NORMALS;
    }
+
+   if (RADEON_DEBUG & DEBUG_STATE) 
+      fprintf(stderr, "%s %d AFTER %x\n", __FUNCTION__, ctx->_NeedEyeCoords,
+	      rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL]);
 }
 
 /* =============================================================
@@ -1951,7 +1981,7 @@ static void update_texturematrix( GLcontext *ctx )
    for (unit = 0 ; unit < 2; unit++) {
       if (!ctx->Texture.Unit[unit]._ReallyEnabled) {
       }
-      else if (ctx->TextureMatrix[unit].type != MATRIX_IDENTITY) {
+      else if (ctx->TextureMatrixStack[unit].Top->type != MATRIX_IDENTITY) {
 	 GLuint inputshift = RADEON_TEXGEN_0_INPUT_SHIFT + unit*4;
 	 
 	 rmesa->TexMatEnabled |= (RADEON_TEXGEN_TEXMAT_0_ENABLE|
@@ -1963,13 +1993,13 @@ static void update_texturematrix( GLcontext *ctx )
 	     */
 	    _math_matrix_mul_matrix( &rmesa->tmpmat, 
 				     &rmesa->TexGenMatrix[unit],
-				     &ctx->TextureMatrix[unit] );
+				     ctx->TextureMatrixStack[unit].Top );
 	    upload_matrix( rmesa, rmesa->tmpmat.m, TEXMAT_0+unit );
 	 } 
 	 else {
 	    rmesa->TexMatEnabled |= 
 	       (RADEON_TEXGEN_INPUT_TEXCOORD_0+unit) << inputshift;
-	    upload_matrix( rmesa, ctx->TextureMatrix[unit].m, 
+	    upload_matrix( rmesa, ctx->TextureMatrixStack[unit].Top->m, 
 			   TEXMAT_0+unit );
 	 }
       }
@@ -2024,8 +2054,8 @@ void radeonValidateState( GLcontext *ctx )
    /* Need these for lighting (shouldn't upload otherwise)
     */
    if (new_state & (_NEW_MODELVIEW)) {
-      upload_matrix( rmesa, ctx->ModelView.m, MODEL );
-      upload_matrix_t( rmesa, ctx->ModelView.inv, MODEL_IT );
+      upload_matrix( rmesa, ctx->ModelviewMatrixStack.Top->m, MODEL );
+      upload_matrix_t( rmesa, ctx->ModelviewMatrixStack.Top->inv, MODEL_IT );
    }
 
    /* Does this need to be triggered on eg. modelview for
@@ -2042,7 +2072,7 @@ void radeonValidateState( GLcontext *ctx )
    /* emit all active clip planes if projection matrix changes.
     */
    if (new_state & (_NEW_PROJECTION)) {
-      if (ctx->Transform._AnyClip) 
+      if (ctx->Transform.ClipPlanesEnabled) 
 	 radeonUpdateClipPlanes( ctx );
    }
 
@@ -2090,8 +2120,6 @@ static void radeonWrapRunPipeline( GLcontext *ctx )
 }
 
 
-
-
 /* Initialize the driver's state functions.
  */
 void radeonInitStateFuncs( GLcontext *ctx )
@@ -2099,7 +2127,8 @@ void radeonInitStateFuncs( GLcontext *ctx )
    ctx->Driver.UpdateState		= radeonInvalidateState;
    ctx->Driver.LightingSpaceChange      = radeonLightingSpaceChange;
 
-   ctx->Driver.SetDrawBuffer		= radeonSetDrawBuffer;
+   ctx->Driver.DrawBuffer		= radeonDrawBuffer;
+   ctx->Driver.ReadBuffer		= radeonReadBuffer;
 
    ctx->Driver.AlphaFunc		= radeonAlphaFunc;
    ctx->Driver.BlendEquation		= radeonBlendEquation;
@@ -2126,10 +2155,7 @@ void radeonInitStateFuncs( GLcontext *ctx )
    ctx->Driver.LineWidth                = radeonLineWidth;
    ctx->Driver.LogicOpcode		= radeonLogicOpCode;
    ctx->Driver.PolygonMode		= radeonPolygonMode;
-
-   if (RADEON_CONTEXT(ctx)->dri.drmMinor > 1)
-      ctx->Driver.PolygonOffset		= radeonPolygonOffset;
-
+   ctx->Driver.PolygonOffset		= radeonPolygonOffset;
    ctx->Driver.PolygonStipple		= radeonPolygonStipple;
    ctx->Driver.RenderMode		= radeonRenderMode;
    ctx->Driver.Scissor			= radeonScissor;

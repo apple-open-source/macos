@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -44,6 +44,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ObjectOutput;
 import java.io.ObjectInput;
 import java.io.IOException;
@@ -59,15 +61,20 @@ DataOutputStream dout;
 ObjectInputStream oin;
 ObjectOutputStream oout;
 
+// reviveTime and expireTime make UnicastConnection pool-able
+long reviveTime = 0;
+long expireTime = Long.MAX_VALUE;
+
 UnicastConnection(UnicastConnectionManager man, Socket sock) {
 	this.manager = man;
 	this.sock = sock;
 }
 
 void acceptConnection() throws IOException {
-//System.out.println("Accepting connection on " + lport);
-	din = new DataInputStream(sock.getInputStream());
-	dout = new DataOutputStream(sock.getOutputStream());
+//System.out.println("Accepting connection on " + sock);
+    //Use BufferedXXXStream would be more efficient
+	din = new DataInputStream(new BufferedInputStream(sock.getInputStream()));
+	dout = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
 
 	int sig = din.readInt();
 	if (sig != PROTOCOL_HEADER) {
@@ -85,6 +92,7 @@ void acceptConnection() throws IOException {
 		// Send my hostname and port
 		dout.writeUTF(manager.serverName);
 		dout.writeInt(manager.serverPort);
+		dout.flush();
 
 		// Read their hostname and port
 		String rhost = din.readUTF();
@@ -94,15 +102,16 @@ void acceptConnection() throws IOException {
 }
 
 void makeConnection(int protocol) throws IOException {
-	dout = new DataOutputStream(sock.getOutputStream());
-	din = new DataInputStream(sock.getInputStream());
+    //Use BufferedXXXStream would be more efficient
+	din = new DataInputStream(new BufferedInputStream(sock.getInputStream()));
+	dout = new DataOutputStream(new BufferedOutputStream(sock.getOutputStream()));
 
 	// Send header
 	dout.writeInt(PROTOCOL_HEADER);
 	dout.writeShort(PROTOCOL_VERSION);
 	dout.writeByte(protocol);
-	dout.flush();
-
+    dout.flush();
+    
 	if (protocol != SINGLE_OP_PROTOCOL) {
 		// Get back ack.
 		int ack = din.readUnsignedByte();
@@ -117,6 +126,7 @@ void makeConnection(int protocol) throws IOException {
 		// Send them my endpoint
 		dout.writeUTF(manager.serverName);
 		dout.writeInt(manager.serverPort);
+		dout.flush();
 	}
 	// Okay, ready to roll ...
 }
@@ -131,7 +141,7 @@ DataOutputStream getDataOutputStream() throws IOException {
 
 ObjectInputStream getObjectInputStream() throws IOException {
 	if (oin == null) {
-		oin = new RMIObjectInputStream(din, manager);
+        oin = new RMIObjectInputStream(din);
 	}
 	return (oin);
 }
@@ -144,29 +154,50 @@ ObjectOutputStream getObjectOutputStream() throws IOException {
 }
 
 void disconnect() {
-	oin = null;
-	oout = null;
 	try {
-		sock.close();
+	    if(oout != null)
+	        oout.close();
+        sock.close();
 	}
 	catch (IOException _) {
-	}
+    }
+
+	oin = null;
+    oout = null;
 	din = null;
 	dout = null;
 	sock = null;
+}
+
+public static final long CONNECTION_TIMEOUT = 10000L;
+
+static boolean isExpired(UnicastConnection conn, long l){
+    if (l <= conn.expireTime )
+        return false;
+    return true;
+}
+
+static void resetTime(UnicastConnection conn){
+    long l = System.currentTimeMillis();
+    conn.reviveTime = l;
+    conn.expireTime = l + CONNECTION_TIMEOUT;
 }
 
 /**
  * We run connects on the server. Dispatch it then discard it.
  */
 public void run() {
+    do{
 	try {
 		UnicastServer.dispatch(this);
+            //don't discardConnection explicitly, only when
+            //  exception happens or the connection's expireTime 
+            //  comes
+        } catch (Exception e ){
 		manager.discardConnection(this);
+            break;
 	}
-	catch (Exception e) {
-		e.printStackTrace();
-	}
+    }while(true);
 }
 
 }

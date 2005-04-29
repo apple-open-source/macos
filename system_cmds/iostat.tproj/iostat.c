@@ -281,6 +281,11 @@ main(int argc, char **argv)
 	}
 
 	/*
+	 * TTY statistics are broken, disabling them.
+	 */
+	Tflag = 0;
+
+	/*
 	 * Figure out how many devices we should display if not given
 	 * an explicit value.
 	 */

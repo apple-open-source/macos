@@ -1,0 +1,97 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+Row references are created when dereferencing a <A HREF="c4_Cursor.html" >c4_Cursor</A> or when
+indexing an element of a <A HREF="c4_View.html" >c4_View</A>.  Assignment will change the
+corresponding item.  Rows (objects of type <A HREF="c4_Row.html" >c4_Row</A>) are a special
+case of row references, consisting of a view with exactly one item.
+<P>
+
+Internally, row references are very similar to cursors, in fact they are
+little more than a wrapper around them.  The essential difference is one
+of semantics: comparing row references compares contents, copying row
+references copies the contents, whereas cursor comparison and copying
+deals with the pointer to the row, not its contents.
+
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_RowRef_Container___const"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Container</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the underlying container view</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef__cursor"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>_cursor</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_c4_RowRef_c4_Cursor_"><dt>
+	  <nobr>
+	  
+	  <b>c4_RowRef</b> (<A HREF="c4_Cursor.html" >c4_Cursor</A>);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Constructor, not for general use</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_operator_____const"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b>operator& </b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the cursor associated to this row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_RowRef_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>operator= </b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assign the value of another row to this one</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_RowRef</b>
+</font>
+
+</body></html>

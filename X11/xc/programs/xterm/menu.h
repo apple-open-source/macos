@@ -48,17 +48,14 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xterm/menu.h,v 3.29 2002/08/12 00:36:33 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/menu.h,v 3.31 2003/10/27 01:07:57 dickey Exp $ */
 
 #ifndef included_menu_h
 #define included_menu_h
 
-#ifdef HAVE_CONFIG_H
-#include <xtermcfg.h>
-#endif
+#include <xterm.h>
 
 #include <X11/Intrinsic.h>
-#include <proto.h>
 
 typedef struct _MenuEntry {
     char *name;
@@ -278,256 +275,103 @@ extern void UpdateMenuItem(Widget mi, XtArgVal val);
 #define set_sensitivity(w,mi,val) SetItemSensitivity(mi,val)
 extern void SetItemSensitivity(Widget mi, XtArgVal val);
 
-
 /*
  * there should be one of each of the following for each checkable item
  */
-
-
-#define update_securekbd() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_securekbd].widget, \
-		    term->screen.grabbedKbd)
-
-#define update_allowsends() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_allowsends].widget, \
-		    term->screen.allowSendEvents)
+extern void update_securekbd(void);
+extern void update_allowsends(void);
 
 #ifdef ALLOWLOGGING
-#define update_logging() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_logging].widget, \
-		    term->screen.logging)
+extern void update_logging(void);
 #else
 #define update_logging() /*nothing*/
 #endif
 
-#define update_print_redir() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_print_redir].widget, \
-		    term->screen.printer_controlmode)
-
-#define update_8bit_control() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_8bit_ctrl].widget, \
-		    term->screen.control_eight_bits)
-
-#define update_decbkm() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_backarrow].widget, \
-		    term->keyboard.flags & MODE_DECBKM)
+extern void update_print_redir(void);
+extern void update_8bit_control(void);
+extern void update_decbkm(void);
 
 #if OPT_NUM_LOCK
-#define update_num_lock() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_num_lock].widget, \
-		    term->misc.real_NumLock)
-#define update_meta_esc() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_meta_esc].widget, \
-		    term->screen.meta_sends_esc)
+extern void update_num_lock(void);
+extern void update_meta_esc(void);
 #else
 #define update_num_lock() /*nothing*/
 #define update_meta_esc() /*nothing*/
 #endif
 
-#define update_sun_fkeys() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_sun_fkeys].widget, \
-		    term->keyboard.type == keyboardIsSun)
-
-#define update_old_fkeys() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_old_fkeys].widget, \
-		    term->keyboard.type == keyboardIsLegacy)
-
-#define update_delete_del() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_delete_del].widget, \
-		    xtermDeleteIsDEL())
+extern void update_sun_fkeys(void);
+extern void update_old_fkeys(void);
+extern void update_delete_del(void);
 
 #if OPT_SUNPC_KBD
-#define update_sun_kbd() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_sun_kbd].widget, \
-		    term->keyboard.type == keyboardIsVT220)
+extern void update_sun_kbd(void);
 #endif
 
 #if OPT_HP_FUNC_KEYS
-#define update_hp_fkeys() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_hp_fkeys].widget, \
-		    term->keyboard.type == keyboardIsHP)
+extern void update_hp_fkeys(void);
 #else
 #define update_hp_fkeys() /*nothing*/
 #endif
 
 #if OPT_SCO_FUNC_KEYS
-#define update_sco_fkeys() \
-  update_menu_item (term->screen.mainMenu, \
-		    mainMenuEntries[mainMenu_sco_fkeys].widget, \
-		    term->keyboard.type == keyboardIsSCO)
+extern void update_sco_fkeys(void);
 #else
 #define update_sco_fkeys() /*nothing*/
 #endif
 
-#define update_scrollbar() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_scrollbar].widget, \
-		    ScrollbarWidth(&term->screen))
-
-#define update_jumpscroll() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_jumpscroll].widget, \
-		    term->screen.jumpscroll)
-
-#define update_reversevideo() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_reversevideo].widget, \
-		    (term->misc.re_verse))
-
-#define update_autowrap() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_autowrap].widget, \
-		    (term->flags & WRAPAROUND))
-
-#define update_reversewrap() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_reversewrap].widget, \
-		    (term->flags & REVERSEWRAP))
-
-#define update_autolinefeed() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_autolinefeed].widget, \
-		    (term->flags & LINEFEED))
-
-#define update_appcursor() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_appcursor].widget, \
-		    (term->keyboard.flags & MODE_DECCKM))
-
-#define update_appkeypad() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_appkeypad].widget, \
-		    (term->keyboard.flags & MODE_DECKPAM))
-
-#define update_scrollkey() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_scrollkey].widget,  \
-		    term->screen.scrollkey)
-
-#define update_scrollttyoutput() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_scrollttyoutput].widget, \
-		    term->screen.scrollttyoutput)
-
-#define update_allow132() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_allow132].widget, \
-		    term->screen.c132)
-
-#define update_cursesemul() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_cursesemul].widget, \
-		    term->screen.curses)
-
-#define update_visualbell() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_visualbell].widget, \
-		    term->screen.visualbell)
-
-#define update_poponbell() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_poponbell].widget, \
-		    term->screen.poponbell)
-
-#define update_marginbell() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_marginbell].widget, \
-		    term->screen.marginbell)
+extern void update_scrollbar(void);
+extern void update_jumpscroll(void);
+extern void update_reversevideo(void);
+extern void update_autowrap(void);
+extern void update_reversewrap(void);
+extern void update_autolinefeed(void);
+extern void update_appcursor(void);
+extern void update_appkeypad(void);
+extern void update_scrollkey(void);
+extern void update_scrollttyoutput(void);
+extern void update_allow132(void);
+extern void update_cursesemul(void);
+extern void update_visualbell(void);
+extern void update_poponbell(void);
+extern void update_marginbell(void);
 
 #if OPT_BLINK_CURS
-#define update_cursorblink() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_cursorblink].widget, \
-		    term->screen.cursor_blink)
+extern void update_cursorblink(void);
 #else
 #define update_cursorblink() /* nothing */
 #endif
 
-#define update_altscreen() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_altscreen].widget, \
-		    term->screen.alternate)
-
-#define update_titeInhibit() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_titeInhibit].widget, \
-		    !(term->misc.titeInhibit))
+extern void update_altscreen(void);
+extern void update_titeInhibit(void);
 
 #ifndef NO_ACTIVE_ICON
-#define update_activeicon() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_activeicon].widget, \
-		    term->misc.active_icon)
+extern void update_activeicon(void);
 #endif /* NO_ACTIVE_ICON */
 
 #if OPT_DEC_CHRSET
-#define update_font_doublesize() \
-  update_menu_item (term->screen.fontMenu, \
-		    fontMenuEntries[fontMenu_font_doublesize].widget, \
-		    term->screen.font_doublesize)
+extern void update_font_doublesize(void);
 #else
 #define update_font_doublesize() /* nothing */
 #endif
 
 #if OPT_BOX_CHARS
-#define update_font_boxchars() \
-  update_menu_item (term->screen.fontMenu, \
-		    fontMenuEntries[fontMenu_font_boxchars].widget, \
-		    term->screen.force_box_chars)
+extern void update_font_boxchars(void);
 #else
 #define update_font_boxchars() /* nothing */
 #endif
 
 #if OPT_DEC_SOFTFONT
-#define update_font_loadable() \
-  update_menu_item (term->screen.fontMenu, \
-		    fontMenuEntries[fontMenu_font_loadable].widget, \
-		    term->misc.font_loadable)
+extern void update_font_loadable(void);
 #else
 #define update_font_loadable() /* nothing */
 #endif
 
 #if OPT_TEK4014
-#define update_tekshow() \
-  update_menu_item (term->screen.vtMenu, \
-		    vtMenuEntries[vtMenu_tekshow].widget, \
-		    term->screen.Tshow)
-
-#define update_vttekmode() { \
-    update_menu_item (term->screen.vtMenu, \
-		      vtMenuEntries[vtMenu_tekmode].widget, \
-		      term->screen.TekEmu); \
-    update_menu_item (term->screen.tekMenu, \
-		      tekMenuEntries[tekMenu_vtmode].widget, \
-		      !term->screen.TekEmu); }
-
-#define update_vtshow() \
-  update_menu_item (term->screen.tekMenu, \
-		    tekMenuEntries[tekMenu_vtshow].widget, \
-		    term->screen.Vshow)
-
-#define set_vthide_sensitivity() \
-  set_sensitivity (term->screen.vtMenu, \
-		   vtMenuEntries[vtMenu_vthide].widget, \
-		   term->screen.Tshow)
-
-#define set_tekhide_sensitivity() \
-  set_sensitivity (term->screen.tekMenu, \
-		   tekMenuEntries[tekMenu_tekhide].widget, \
-		   term->screen.Vshow)
+extern void update_tekshow(void);
+extern void update_vttekmode(void);
+extern void update_vtshow(void);
+extern void set_vthide_sensitivity(void);
+extern void set_tekhide_sensitivity(void);
 #else
 #define update_tekshow() /*nothing*/
 #define update_vttekmode() /*nothing*/
@@ -536,7 +380,6 @@ extern void SetItemSensitivity(Widget mi, XtArgVal val);
 #define set_tekhide_sensitivity() /*nothing*/
 #endif
 
-
 /*
  * macros for mapping font size to tekMenu placement
  */
@@ -544,16 +387,11 @@ extern void SetItemSensitivity(Widget mi, XtArgVal val);
 #define MI2FS(n) (n)			/* menu_item_to_font_size */
 
 #if OPT_TEK4014
-#define set_tekfont_menu_item(n,val) \
-  update_menu_item (term->screen.tekMenu, \
-		    tekMenuEntries[FS2MI(n)].widget, \
-		    (val))
+extern void set_tekfont_menu_item(int n,int val);
 #else
 #define set_tekfont_menu_item(n,val) /*nothing*/
 #endif
 
-#define set_menu_font(val) \
-  update_menu_item (term->screen.fontMenu, \
-		    fontMenuEntries[term->screen.menu_font_number].widget, \
-		    (val))
-#endif/*included_menu_h*/
+extern void set_menu_font(int val);
+
+#endif	/*included_menu_h*/

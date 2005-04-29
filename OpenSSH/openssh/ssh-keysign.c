@@ -22,7 +22,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "includes.h"
-RCSID("$OpenBSD: ssh-keysign.c,v 1.10 2003/03/13 11:42:19 markus Exp $");
+RCSID("$OpenBSD: ssh-keysign.c,v 1.15 2004/01/19 21:25:15 markus Exp $");
 
 #include <openssl/evp.h>
 #include <openssl/rand.h>
@@ -42,7 +42,8 @@ RCSID("$OpenBSD: ssh-keysign.c,v 1.10 2003/03/13 11:42:19 markus Exp $");
 #include "pathnames.h"
 #include "readconf.h"
 
-uid_t original_real_uid;	/* XXX readconf.c needs this */
+/* XXX readconf.c needs these */
+uid_t original_real_uid;
 
 #ifdef HAVE___PROGNAME
 extern char *__progname;
@@ -55,7 +56,7 @@ valid_request(struct passwd *pw, char *host, Key **ret, u_char *data,
     u_int datalen)
 {
 	Buffer b;
-	Key *key;
+	Key *key = NULL;
 	u_char *pkblob;
 	u_int blen, len;
 	char *pkalg, *p;
@@ -125,6 +126,7 @@ valid_request(struct passwd *pw, char *host, Key **ret, u_char *data,
 	/* end of message */
 	if (buffer_len(&b) != 0)
 		fail++;
+	buffer_free(&b);
 
 	debug3("valid_request: fail %d", fail);
 
@@ -232,7 +234,8 @@ main(int argc, char **argv)
 	/* send reply */
 	buffer_clear(&b);
 	buffer_put_string(&b, signature, slen);
-	ssh_msg_send(STDOUT_FILENO, version, &b);
+	if (ssh_msg_send(STDOUT_FILENO, version, &b) == -1)
+		fatal("ssh_msg_send failed");
 
 	return (0);
 }

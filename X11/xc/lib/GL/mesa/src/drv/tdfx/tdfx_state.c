@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_state.c,v 1.7 2002/10/30 12:52:00 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_state.c,v 1.8 2003/09/28 20:15:37 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -37,6 +37,7 @@
  */
 
 #include "mtypes.h"
+#include "colormac.h"
 #include "texformat.h"
 #include "texstore.h"
 
@@ -66,7 +67,7 @@ static void tdfxUpdateAlphaMode( GLcontext *ctx )
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GrCmpFnc_t func;
    GrAlphaBlendFnc_t srcRGB, dstRGB, srcA, dstA;
-   GrAlpha_t ref = ctx->Color.AlphaRef;
+   GrAlpha_t ref = (GLint) (ctx->Color.AlphaRef * 255.0);
 
    if ( TDFX_DEBUG & DEBUG_VERBOSE_API ) {
       fprintf( stderr, "%s()\n", __FUNCTION__ );
@@ -257,7 +258,7 @@ static void tdfxUpdateAlphaMode( GLcontext *ctx )
    }
 }
 
-static void tdfxDDAlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
+static void tdfxDDAlphaFunc( GLcontext *ctx, GLenum func, GLfloat ref )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT( ctx );
 
@@ -468,13 +469,13 @@ static void tdfxUpdateStencil( GLcontext *ctx )
 
    if (fxMesa->haveHwStencil) {
       if (ctx->Stencil.Enabled) {
-         fxMesa->Stencil.Function = ctx->Stencil.Function - GL_NEVER;
-         fxMesa->Stencil.RefValue = ctx->Stencil.Ref;
-         fxMesa->Stencil.ValueMask = ctx->Stencil.ValueMask;
-         fxMesa->Stencil.WriteMask = ctx->Stencil.WriteMask;
-         fxMesa->Stencil.FailFunc = convertGLStencilOp(ctx->Stencil.FailFunc);
-         fxMesa->Stencil.ZFailFunc =convertGLStencilOp(ctx->Stencil.ZFailFunc);
-         fxMesa->Stencil.ZPassFunc =convertGLStencilOp(ctx->Stencil.ZPassFunc);
+         fxMesa->Stencil.Function = ctx->Stencil.Function[0] - GL_NEVER;
+         fxMesa->Stencil.RefValue = ctx->Stencil.Ref[0];
+         fxMesa->Stencil.ValueMask = ctx->Stencil.ValueMask[0];
+         fxMesa->Stencil.WriteMask = ctx->Stencil.WriteMask[0];
+         fxMesa->Stencil.FailFunc = convertGLStencilOp(ctx->Stencil.FailFunc[0]);
+         fxMesa->Stencil.ZFailFunc = convertGLStencilOp(ctx->Stencil.ZFailFunc[0]);
+         fxMesa->Stencil.ZPassFunc = convertGLStencilOp(ctx->Stencil.ZPassFunc[0]);
          fxMesa->Stencil.Clear = ctx->Stencil.Clear & 0xff;
       }
       fxMesa->dirty |= TDFX_UPLOAD_STENCIL;
@@ -796,12 +797,17 @@ static void tdfxDDColorMask( GLcontext *ctx,
 
 
 static void tdfxDDClearColor( GLcontext *ctx,
-			      const GLchan color[4] )
+			      const GLfloat color[4] )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
+   GLubyte c[4];
    FLUSH_BATCH( fxMesa );
-   fxMesa->Color.ClearColor = TDFXPACKCOLOR888( color[0], color[1], color[2] );
-   fxMesa->Color.ClearAlpha = color[3];
+   CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
+   fxMesa->Color.ClearColor = TDFXPACKCOLOR888( c[0], c[1], c[2] );
+   fxMesa->Color.ClearAlpha = c[3];
 }
 
 
@@ -871,7 +877,7 @@ void tdfxUpdateViewport( GLcontext *ctx )
    m[MAT_SZ] = v[MAT_SZ];
    m[MAT_TZ] = v[MAT_TZ];
 
-   fxMesa->SetupNewInputs |= VERT_CLIP;
+   fxMesa->SetupNewInputs |= VERT_BIT_CLIP;
 }
 
 
@@ -996,7 +1002,7 @@ static void tdfxDDEnable( GLcontext *ctx, GLenum cap, GLboolean state )
 
 /* Set the buffer used for drawing */
 /* XXX support for separate read/draw buffers hasn't been tested */
-static void tdfxDDSetDrawBuffer( GLcontext *ctx, GLenum mode )
+static void tdfxDDDrawBuffer( GLcontext *ctx, GLenum mode )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
 
@@ -1006,30 +1012,40 @@ static void tdfxDDSetDrawBuffer( GLcontext *ctx, GLenum mode )
 
    FLUSH_BATCH( fxMesa );
 
-   switch( mode) {
-   case GL_FRONT_LEFT:
+   /*
+    * _DrawDestMask is easier to cope with than <mode>.
+    */
+   switch ( ctx->Color._DrawDestMask ) {
+   case FRONT_LEFT_BIT:
       fxMesa->DrawBuffer = fxMesa->ReadBuffer = GR_BUFFER_FRONTBUFFER;
       fxMesa->new_state |= TDFX_NEW_RENDER;
       FALLBACK( fxMesa, TDFX_FALLBACK_DRAW_BUFFER, GL_FALSE );
       break;
-
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       fxMesa->DrawBuffer = fxMesa->ReadBuffer = GR_BUFFER_BACKBUFFER;
       fxMesa->new_state |= TDFX_NEW_RENDER;
       FALLBACK( fxMesa, TDFX_FALLBACK_DRAW_BUFFER, GL_FALSE );
       break;
-
-   case GL_NONE:
+   case 0:
       FX_grColorMaskv( ctx, false4 );
       FALLBACK( fxMesa, TDFX_FALLBACK_DRAW_BUFFER, GL_FALSE );
       break;
-
    default:
       FALLBACK( fxMesa, TDFX_FALLBACK_DRAW_BUFFER, GL_TRUE );
       break;
    }
+
+   /* We want to update the s/w rast state too so that tdfxDDSetBuffer()
+    * gets called.
+    */
+   _swrast_DrawBuffer(ctx, mode);
 }
 
+
+static void tdfxDDReadBuffer( GLcontext *ctx, GLenum mode )
+{
+   /* XXX ??? */
+}
 
 
 /* =============================================================
@@ -1282,7 +1298,7 @@ void tdfxInitState( tdfxContextPtr fxMesa )
 
       fxMesa->TexState.EnvMode[i]	= ~0;
       fxMesa->TexState.TexFormat[i]	= ~0;
-      fxMesa->TexState.Enabled		= 0;
+      fxMesa->TexState.Enabled[i]	= 0;
    }
 
    if ( ctx->Visual.doubleBufferMode) {
@@ -1373,7 +1389,8 @@ void tdfxDDInitStateFuncs( GLcontext *ctx )
     */
    ctx->Driver.ClearIndex		= NULL;
    ctx->Driver.ClearColor		= tdfxDDClearColor;
-   ctx->Driver.SetDrawBuffer		= tdfxDDSetDrawBuffer;
+   ctx->Driver.DrawBuffer		= tdfxDDDrawBuffer;
+   ctx->Driver.ReadBuffer		= tdfxDDReadBuffer;
 
    ctx->Driver.IndexMask		= NULL;
    ctx->Driver.ColorMask		= tdfxDDColorMask;

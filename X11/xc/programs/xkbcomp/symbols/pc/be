@@ -1,7 +1,7 @@
 
 // based on a keyboard map from an 'xkb/symbols/be' file
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/be,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/be,v 1.4 2003/04/19 12:22:11 pascal Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -40,10 +40,9 @@ xkb_symbols "basic" {
     key <AB08>	{ [ semicolon,     period, horizconnector,   multiply ]	};
     key <AB09>	{ [     colon,      slash, periodcentered,   division ]	};
     key <AB10>	{ [     equal,       plus,   dead_tilde, dead_abovedot]	};
+    key <LSGT>  { [      less,    greater,    backslash,    backslash ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };
 
 partial alphanumeric_keys

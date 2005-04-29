@@ -58,10 +58,43 @@ OSMetaClassDefineReservedUnused(IOFWCommand, 1);
 
 bool IOFWCommand::initWithController(IOFireWireController *control)
 {
-    if(!IOCommand::init())
-        return false;
-    fControl = control;
-    return true;
+	bool success = true;
+	
+	success = IOCommand::init();
+	
+	if( success )
+	{
+		fControl = control;
+		fMembers = (IOFWCommand::MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+		if( fMembers == NULL )
+			success = false;
+	}
+	
+	// zero member variables
+	
+	if( success )
+	{
+		bzero( fMembers, sizeof(MemberVariables) );
+	}
+	
+	return success;
+}
+
+// free
+//
+//
+
+void IOFWCommand::free()
+{	
+	if( fMembers != NULL )
+	{		
+		// free member variables
+		
+		IOFree( fMembers, sizeof(MemberVariables) );
+		fMembers = NULL;
+	}
+	
+	IOCommand::free();
 }
 
 // submit
@@ -373,15 +406,15 @@ void IOFWCommand::updateTimer()
                 {
                     AbsoluteTime now, dead;
                     clock_get_uptime(&now);
-                    IOLog("%s: insertAfter %s, time is %lx:%lx\n",
-                        getMetaClass()->getClassName(), prev->getMetaClass()->getClassName(), now.hi, now.lo);
+                    IOLog("%s: insertAfter %s, time is %llx\n",
+                        getMetaClass()->getClassName(), prev->getMetaClass()->getClassName(), AbsoluteTime_to_scalar(&now) );
                     {
                         IOFWCommand *t = timeoutQ.fHead;
                         while(t) 
 						{
                             AbsoluteTime d = t->getDeadline();
-                            IOLog("%s:%p deadline %lx:%lx\n",
-                                t->getMetaClass()->getClassName(), t, d.hi, d.lo);
+                            IOLog("%s:%p deadline %llx\n",
+                                t->getMetaClass()->getClassName(), t, AbsoluteTime_to_scalar(&d) );
                             t = t->getNext();
                         }
                     }

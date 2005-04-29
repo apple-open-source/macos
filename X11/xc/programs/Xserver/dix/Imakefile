@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:48:16 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/dix/Imakefile,v 3.15 2002/11/14 21:01:20 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/dix/Imakefile,v 3.18 2003/11/14 23:52:50 torrey Exp $
 
 #include <Server.tmpl>
 
@@ -73,7 +73,7 @@ VENDORRELEASE = XVendorRelease
 
 #ifdef DarwinArchitecture
 #if DarwinQuartzSupport
-    QUARTZ_DEFINES = -DDARWIN_WITH_QUARTZ
+    QUARTZ_DEFINES = -DDARWIN_WITH_QUARTZ -DROOTLESS
 #endif
 #endif
 

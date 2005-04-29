@@ -1,5 +1,16 @@
 /** allows overriding of a given oid with a new type and value */
 
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
@@ -10,6 +21,8 @@ typedef struct override_data_s {
     int             type;
     void           *value;
     size_t          value_len;
+    void           *set_space;
+    size_t          set_len;
 } override_data;
 
 /** @todo: (optionally) save values persistently when configured for
@@ -22,6 +35,8 @@ override_handler(netsnmp_mib_handler *handler,
 {
 
     override_data  *data = handler->myvoid;
+    void *tmpptr;
+
     if (!data) {
         netsnmp_set_request_error(reqinfo, requests, SNMP_ERR_GENERR);
         return SNMP_ERR_NOERROR;
@@ -33,13 +48,52 @@ override_handler(netsnmp_mib_handler *handler,
         DEBUGMSGOID(("override", requests->requestvb->name,
                      requests->requestvb->name_length));
         DEBUGMSG(("override", "\n"));
-        snmp_set_var_typed_value(requests->requestvb, data->type,
+        snmp_set_var_typed_value(requests->requestvb, (u_char)data->type,
                                  (u_char *) data->value, data->value_len);
         break;
 
-    default:
-        snmp_log(LOG_ERR, "unsupported mode in override handler");
+    case MODE_SET_RESERVE1:
+        if (requests->requestvb->type != data->type)
+            netsnmp_set_request_error(reqinfo, requests, SNMP_ERR_WRONGTYPE);
         break;
+
+    case MODE_SET_RESERVE2:
+        if (memdup((u_char **) &data->set_space,
+                   requests->requestvb->val.string,
+                   requests->requestvb->val_len) == SNMPERR_GENERR)
+            netsnmp_set_request_error(reqinfo, requests,
+                                      SNMP_ERR_RESOURCEUNAVAILABLE);
+        break;
+
+    case MODE_SET_FREE:
+        SNMP_FREE(data->set_space);
+        break;
+
+    case MODE_SET_ACTION:
+        /* swap the values in */
+        tmpptr = data->value;
+        data->value = data->set_space;
+        data->set_space = tmpptr;
+
+        /* set the lengths */
+        data->set_len = data->value_len;
+        data->value_len = requests->requestvb->val_len;
+        break;
+
+    case MODE_SET_UNDO:
+        SNMP_FREE(data->value);
+        data->value = data->set_space;
+        data->value_len = data->set_len;
+        break;
+
+    case MODE_SET_COMMIT:
+        SNMP_FREE(data->set_space);
+        break;
+
+    default:
+        snmp_log(LOG_ERR, "unsupported mode in override handler\n");
+        netsnmp_set_request_error(reqinfo, requests, SNMP_ERR_GENERR);
+        return SNMP_ERR_GENERR;
     }
     return SNMP_ERR_NOERROR;
 }
@@ -57,7 +111,7 @@ void
 netsnmp_parse_override(const char *token, char *line)
 {
     char           *cp;
-    char            buf[SNMP_MAXBUF];
+    char            buf[SNMP_MAXBUF], namebuf[SNMP_MAXBUF];
     int             readwrite = 0;
     oid             oidbuf[MAX_OID_LEN];
     size_t          oidbuf_len = sizeof(oidbuf);
@@ -65,10 +119,10 @@ netsnmp_parse_override(const char *token, char *line)
     override_data  *thedata;
     netsnmp_handler_registration *the_reg;
 
-    cp = copy_nword(line, buf, sizeof(buf) - 1);
-    if (strcmp(buf, "-rw") == 0) {
+    cp = copy_nword(line, namebuf, sizeof(namebuf) - 1);
+    if (strcmp(namebuf, "-rw") == 0) {
         readwrite = 1;
-        cp = copy_nword(cp, buf, sizeof(buf) - 1);
+        cp = copy_nword(cp, namebuf, sizeof(namebuf) - 1);
     }
 
     if (!cp) {
@@ -76,7 +130,7 @@ netsnmp_parse_override(const char *token, char *line)
         return;
     }
 
-    if (!snmp_parse_oid(buf, oidbuf, &oidbuf_len)) {
+    if (!snmp_parse_oid(namebuf, oidbuf, &oidbuf_len)) {
         config_perror("illegal oid");
         return;
     }
@@ -112,6 +166,7 @@ netsnmp_parse_override(const char *token, char *line)
         break;
 
     case ASN_COUNTER:
+    case ASN_TIMETICKS:
     case ASN_UNSIGNED:
         MALLOC_OR_DIE(sizeof(u_long));
         *((u_long *) thedata->value) = strtoul(buf, NULL, 0);
@@ -159,6 +214,7 @@ netsnmp_parse_override(const char *token, char *line)
         return;
     }
 
+    the_reg->handlerName = strdup(namebuf);
     the_reg->priority = 255;
     the_reg->modes = (readwrite) ? HANDLER_CAN_RWRITE : HANDLER_CAN_RONLY;
     the_reg->handler =

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_state_init.c,v 1.4 2003/02/22 06:21:11 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_state_init.c,v 1.6 2003/12/02 13:02:39 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -32,19 +32,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "r200_context.h"
-#include "r200_ioctl.h"
-#include "r200_state.h"
-#include "r200_tcl.h"
-#include "r200_tex.h"
-#include "r200_swtcl.h"
-#include "r200_vtxfmt.h"
-
-#include "mem.h"
-#include "mmath.h"
+#include "glheader.h"
+#include "imports.h"
 #include "enums.h"
 #include "colormac.h"
-#include "light.h"
 #include "api_arrayelt.h"
 
 #include "swrast/swrast.h"
@@ -52,6 +43,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
 #include "swrast_setup/swrast_setup.h"
+
+#include "r200_context.h"
+#include "r200_ioctl.h"
+#include "r200_state.h"
+#include "r200_tcl.h"
+#include "r200_tex.h"
+#include "r200_swtcl.h"
+#include "r200_vtxfmt.h"
 
 /* =============================================================
  * State initialization
@@ -131,28 +130,15 @@ static GLboolean check_##NM( GLcontext *ctx, int idx )	\
 
 
 CHECK( always, GL_TRUE )
-CHECK( tex_any, ctx->Texture._ReallyEnabled )
+CHECK( never, GL_FALSE )
+CHECK( tex_any, ctx->Texture._EnabledUnits )
 CHECK( tex, ctx->Texture.Unit[idx]._ReallyEnabled )
 CHECK( fog, ctx->Fog.Enabled )
 TCL_CHECK( tcl, GL_TRUE )
-TCL_CHECK( tcl_tex_any, ctx->Texture._ReallyEnabled )
 TCL_CHECK( tcl_tex, ctx->Texture.Unit[idx]._ReallyEnabled )
 TCL_CHECK( tcl_lighting, ctx->Light.Enabled )
-TCL_CHECK( tcl_eyespace_or_lighting, ctx->_NeedEyeCoords || ctx->Light.Enabled )
 TCL_CHECK( tcl_light, ctx->Light.Enabled && ctx->Light.Light[idx].Enabled )
-TCL_CHECK( tcl_ucp, ctx->Transform.ClipEnabled[idx] )
-/* TCL_CHECK( tcl_eyespace_or_fog, ctx->_NeedEyeCoords || ctx->Fog.Enabled )  */
-
-
-static GLboolean check_tcl_eyespace_or_fog( GLcontext *ctx, int idx )
-{
-   r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   int res;
-   (void) idx;
-   res = !rmesa->TclFallback && (ctx->_NeedEyeCoords || ctx->Fog.Enabled);
-   fprintf(stderr, "%s: %d\n", __FUNCTION__, res);
-   return res;
-}
+TCL_CHECK( tcl_ucp, (ctx->Transform.ClipPlanesEnabled & (1 << idx)) )
 
 
 /* Initialize the context's hardware state.
@@ -246,6 +232,15 @@ void r200InitState( r200ContextPtr rmesa )
    ALLOC_STATE( tex[0], tex_any, TEX_STATE_SIZE, "TEX/tex-0", 0 );
    ALLOC_STATE( tex[1], tex_any, TEX_STATE_SIZE, "TEX/tex-1", 1 );
 
+   if (rmesa->r200Screen->drmSupportsCubeMaps) {
+      ALLOC_STATE( cube[0], tex_any, CUBE_STATE_SIZE, "CUBE/tex-0", 0 );
+      ALLOC_STATE( cube[1], tex_any, CUBE_STATE_SIZE, "CUBE/tex-1", 1 );
+   }
+   else {
+      ALLOC_STATE( cube[0], never, CUBE_STATE_SIZE, "CUBE/tex-0", 0 );
+      ALLOC_STATE( cube[1], never, CUBE_STATE_SIZE, "CUBE/tex-1", 1 );
+   }
+
    ALLOC_STATE( tcl, tcl, TCL_STATE_SIZE, "TCL/tcl", 0 );
    ALLOC_STATE( msl, tcl, MSL_STATE_SIZE, "MSL/matrix-select", 0 );
    ALLOC_STATE( tcg, tcl, TCG_STATE_SIZE, "TCG/texcoordgen", 0 );
@@ -301,6 +296,10 @@ void r200InitState( r200ContextPtr rmesa )
    rmesa->hw.tex[0].cmd[TEX_CMD_1] = cmdpkt(R200_EMIT_PP_TXOFFSET_0);
    rmesa->hw.tex[1].cmd[TEX_CMD_0] = cmdpkt(R200_EMIT_PP_TXFILTER_1);
    rmesa->hw.tex[1].cmd[TEX_CMD_1] = cmdpkt(R200_EMIT_PP_TXOFFSET_1);
+   rmesa->hw.cube[0].cmd[CUBE_CMD_0] = cmdpkt(R200_EMIT_PP_CUBIC_FACES_0);
+   rmesa->hw.cube[0].cmd[CUBE_CMD_1] = cmdpkt(R200_EMIT_PP_CUBIC_OFFSETS_0);
+   rmesa->hw.cube[1].cmd[CUBE_CMD_0] = cmdpkt(R200_EMIT_PP_CUBIC_FACES_1);
+   rmesa->hw.cube[1].cmd[CUBE_CMD_1] = cmdpkt(R200_EMIT_PP_CUBIC_OFFSETS_1);
    rmesa->hw.pix[0].cmd[PIX_CMD_0] = cmdpkt(R200_EMIT_PP_TXCBLEND_0);
    rmesa->hw.pix[1].cmd[PIX_CMD_0] = cmdpkt(R200_EMIT_PP_TXCBLEND_1);
    rmesa->hw.zbs.cmd[ZBS_CMD_0] = cmdpkt(RADEON_EMIT_SE_ZBIAS_FACTOR);
@@ -351,8 +350,8 @@ void r200InitState( r200ContextPtr rmesa )
 
    /* Initial Harware state:
     */
-   rmesa->hw.ctx.cmd[CTX_PP_MISC] = (R200_ALPHA_TEST_PASS |
-				     R200_RIGHT_HAND_CUBE_OGL);
+   rmesa->hw.ctx.cmd[CTX_PP_MISC] = (R200_ALPHA_TEST_PASS
+				     /* | R200_RIGHT_HAND_CUBE_OGL*/);
 
    rmesa->hw.ctx.cmd[CTX_PP_FOG_COLOR] = (R200_FOG_VERTEX |
 					  R200_FOG_USE_SPEC_ALPHA);
@@ -364,7 +363,7 @@ void r200InitState( r200ContextPtr rmesa )
 					    R200_DST_BLEND_GL_ZERO );
 
    rmesa->hw.ctx.cmd[CTX_RB3D_DEPTHOFFSET] =
-      rmesa->r200Screen->depthOffset;
+      rmesa->r200Screen->depthOffset + rmesa->r200Screen->fbLocation;
 
    rmesa->hw.ctx.cmd[CTX_RB3D_DEPTHPITCH] = 
       ((rmesa->r200Screen->depthPitch &
@@ -465,16 +464,26 @@ void r200InitState( r200ContextPtr rmesa )
    rmesa->hw.vpt.cmd[VPT_SE_VPORT_ZSCALE]  = 0x00000000;
    rmesa->hw.vpt.cmd[VPT_SE_VPORT_ZOFFSET] = 0x00000000;
 
-   rmesa->hw.tex[0].cmd[TEX_PP_TXFILTER] = R200_BORDER_MODE_OGL;
-   rmesa->hw.tex[0].cmd[TEX_PP_TXFORMAT] = 
-      (R200_TXFORMAT_ST_ROUTE_STQ0 |
-       (2 << R200_TXFORMAT_WIDTH_SHIFT) |
-       (2 << R200_TXFORMAT_HEIGHT_SHIFT));
-   rmesa->hw.tex[0].cmd[TEX_PP_TXOFFSET] = 0;
-   rmesa->hw.tex[0].cmd[TEX_PP_BORDER_COLOR] = 0;
-   rmesa->hw.tex[0].cmd[TEX_PP_TXFORMAT_X] =
-      (/* R200_TEXCOORD_PROJ | */
-       0x100000);	/* Small default bias */
+   for ( i = 0 ; i < ctx->Const.MaxTextureUnits ; i++ ) {
+      rmesa->hw.tex[i].cmd[TEX_PP_TXFILTER] = R200_BORDER_MODE_OGL;
+      rmesa->hw.tex[i].cmd[TEX_PP_TXFORMAT] = 
+         ((i << R200_TXFORMAT_ST_ROUTE_SHIFT) |  /* <-- note i */
+          (2 << R200_TXFORMAT_WIDTH_SHIFT) |
+          (2 << R200_TXFORMAT_HEIGHT_SHIFT));
+      rmesa->hw.tex[i].cmd[TEX_PP_TXOFFSET] =
+	  rmesa->r200Screen->texOffset[RADEON_CARD_HEAP];
+      rmesa->hw.tex[i].cmd[TEX_PP_BORDER_COLOR] = 0;
+      rmesa->hw.tex[i].cmd[TEX_PP_TXFORMAT_X] =
+         (/* R200_TEXCOORD_PROJ | */
+          0x100000);	/* Small default bias */
+
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_FACES] = 0;
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_OFFSET_F1] = 0;
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_OFFSET_F2] = 0;
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_OFFSET_F3] = 0;
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_OFFSET_F4] = 0;
+      rmesa->hw.cube[i].cmd[CUBE_PP_CUBIC_OFFSET_F5] = 0;
+   }
 
    rmesa->hw.pix[0].cmd[PIX_PP_TXCBLEND] =  
       (R200_TXC_ARG_A_ZERO |
@@ -499,17 +508,6 @@ void r200InitState( r200ContextPtr rmesa )
        R200_TXA_SCALE_1X |
        R200_TXA_CLAMP_0_1 |
        R200_TXA_OUTPUT_REG_R0);
-
-   rmesa->hw.tex[1].cmd[TEX_PP_TXFILTER] = R200_BORDER_MODE_OGL;
-   rmesa->hw.tex[1].cmd[TEX_PP_TXFORMAT] = 
-      (R200_TXFORMAT_ST_ROUTE_STQ1 |
-       (2 << R200_TXFORMAT_WIDTH_SHIFT) |
-       (2 << R200_TXFORMAT_HEIGHT_SHIFT));
-   rmesa->hw.tex[1].cmd[TEX_PP_TXOFFSET] = 0;
-   rmesa->hw.tex[1].cmd[TEX_PP_BORDER_COLOR] = 0;
-   rmesa->hw.tex[1].cmd[TEX_PP_TXFORMAT_X] = 
-      (/* R200_TEXCOORD_PROJ | */
-       0x100000);	/* Small default bias */
 
    rmesa->hw.pix[1].cmd[PIX_PP_TXCBLEND] =  
       (R200_TXC_ARG_A_ZERO |
@@ -653,7 +651,7 @@ void r200InitState( r200ContextPtr rmesa )
       ctx->Driver.Lightfv( ctx, p, GL_LINEAR_ATTENUATION, 
 			   &l->LinearAttenuation );
       ctx->Driver.Lightfv( ctx, p, GL_QUADRATIC_ATTENUATION, 
-		     &l->QuadraticAttenuation );
+			   &l->QuadraticAttenuation );
    }
 
    ctx->Driver.LightModelfv( ctx, GL_LIGHT_MODEL_AMBIENT, 

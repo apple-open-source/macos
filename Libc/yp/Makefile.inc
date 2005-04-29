@@ -4,7 +4,7 @@
 # yp sources
 .PATH: ${.CURDIR}/../libc/yp
 
-SRCS+=	xdryp.c yp.h yp_xdr.c yplib.c
+MISRCS+=	xdryp.c yp.h yp_xdr.c yplib.c
 CLEANFILES+=	yp.h yp_xdr.c
 
 RPCSRC=	${DESTDIR}/usr/include/rpcsvc/yp.x

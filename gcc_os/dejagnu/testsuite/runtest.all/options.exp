@@ -1,4 +1,4 @@
-#   Copyright (C) 1988, 90-92, 1994, 1995, 1996, 1997 Free Software Foundation, Inc.
+#   Copyright (C) 1992 - 2002,2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
 load_lib util-defs.exp
 
@@ -42,7 +42,6 @@ close $fd
 
 
 set tests {
-    { "" "WARNING: No tool specified" "No arguments" }
     { "-v --tool xXx" "Found.*site\..*Loading.*utils\.exp" "Loading library files" }
     { "-v --tool xXx" "Expect binary is.*Using.*main test driver" "Loading basic packages" }
     { "--F --tool x" "Illegal Argument \"--F\"" "Bad argument" }
@@ -78,7 +77,6 @@ foreach i $tests {
 
 set fd [open site.exp w]
 puts ${fd} "set host_triplet $host_triplet"
-puts ${fd} "set tool runtest"
 puts ${fd} "set srcdir $srcdir"
 puts ${fd} "set objdir $objdir"
 puts ${fd} "set tmpdir $objdir/tmpdir"

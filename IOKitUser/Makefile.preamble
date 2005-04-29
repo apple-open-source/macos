@@ -15,10 +15,21 @@ else
 NEXTSTEP_PB_CFLAGS += -DHAVE_CFPLUGIN
 endif
 
+CFURLACCESS_H = /System/Library/Frameworks/CoreFoundation.framework/Headers/CFURLAccess.h
+ifeq ($(wildcard $(CFURLACCESS_H)),)
+NEXTSTEP_PB_CFLAGS += -DNO_CFURLACCESS
+else
+NEXTSTEP_PB_CFLAGS += -DHAVE_CFURLACCESS
+endif
+
 OTHER_CCFLAGS += -x c++ -fno-rtti -fno-exceptions -fcheck-new -fvtable-thunks -fpascal-strings
 
 ORDERFILE = $(NEXT_ROOT)/usr/local/lib/OrderFiles/$(NAME).order
-SECTORDER_FLAGS = -sectorder __TEXT __text $(ORDERFILE)
+ifeq "$(shell test -f $(ORDERFILE) && echo YES )" "YES"
+	SECTORDER_FLAGS = -sectorder __TEXT __text $(ORDERFILE)
+else
+	SECTORDER_FLAGS =
+endif
 
 # lose the OBJC segment
 override DUMMY_SYMBOL_FILE =

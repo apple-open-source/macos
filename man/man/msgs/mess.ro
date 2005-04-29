@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"imposibil de înþeles fiºierul %s\n"
+CONFIG_OPEN_ERROR
+	"Atenþie: nu pot deschide fiºierul de configurare %s\n"
+PARSE_ERROR_IN_CONFIG
+	"Eroare parcurgând fiºierul de configurare\n"
+INCOMPAT
+	"opþiuni incompatibile %s ºi %s\n"
+NO_ALTERNATE
+	"Îmi pare rãu - nu existã suport inclus pentru sisteme alternative\n"
+NO_COMPRESS
+	"Man a fost compilat cu comprimare automatã a paginilor cat,\n\
+dar fiºierul de configurare nu defineºte COMPRESS.\n"
+NO_NAME_FROM_SECTION
+	"Ce paginã de manual vreþi din secþiunea %s?\n"
+NO_NAME_NO_SECTION
+	"Ce paginã de manual doriþi?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"Nici o intrare pentru %s în secþiunea %s a manualului\n"
+NO_SUCH_ENTRY
+	"Nici o intrare în manual pentru %s\n"
+PAGER_IS
+	"\nfolosesc %s ca paginator\n"
+SYSTEM_FAILED
+	"Eroare la execuþia comenzii de formatare sau afiºare.\n\
+Comanda sistem %s s-a terminat cu codul de ieºire %d.\n"
+VERSION
+	"%s, versiunea %s\n\n"
+OUT_OF_MEMORY
+	"Lipsã de memorie - nu pot aloca %d bytes\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Eroare la parcurgerea comenzii *roff din fiºierul %s\n"
+MANROFFSEQ_ERROR
+	"Eroare la parcurgerea MANROFFSEQ.  Folosesc valorile implicite ale sistemului.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Eroare la parcurgerea comenzii *roff din linia de comandã.\n"
+UNRECOGNIZED_LINE
+	"Linie nerecunoscutã în fiºierul de configurare (ignoratã)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: eroare internã: ºirul %s nu a fost gãsit\n"
+FOUND_MANDIR
+	"am gãsit directorul man %s\n"
+FOUND_MAP
+	"am gãsit harta manpath %s --> %s\n"
+FOUND_CATDIR
+	"directorul cat corespunzãtor este %s\n"
+LINE_TOO_LONG
+	"Linie prea lungã în fiºierul de configurare\n"
+SECTION
+	"\nsecþiune: %s\n"
+UNLINKED
+	"nelegat %s\n"
+GLOBBING
+	"se expandeazã %s\n"
+EXPANSION_FAILED
+	"Încercarea [%s] de a decomprima pagina man a eºuat\n"
+OPEN_ERROR
+	"Nu pot deschide pagina man %s\n"
+READ_ERROR
+	"Eroare la citirea paginii man %s\n"
+FOUND_EQN
+	"am gãsit o directivã eqn(1)\n"
+FOUND_GRAP
+	"am gãsit o directivã grap(1)\n"
+FOUND_PIC
+	"am gãsit o directivã pic(1)\n"
+FOUND_TBL
+	"am gãsit o directivã tbl(1)\n"
+FOUND_VGRIND
+	"am gãsit o directivã vgrind(1)\n"
+FOUND_REFER
+	"am gãsit o directivã refer(1)\n"
+ROFF_FROM_COMMAND_LINE
+	"parcurg directiva din linia de comandã\n"
+ROFF_FROM_FILE
+	"parcurg directiva din fiºierul %s\n"
+ROFF_FROM_ENV
+	"parcurg directiva din variabilele de mediu\n"
+USING_DEFAULT
+	"folosesc secvenþa de preprocesare implicitã\n"
+PLEASE_WAIT
+	"Formatez pagina, vã rog aºteptaþi...\n"
+CHANGED_MODE
+	"am schimbat modul lui %s în %o\n"
+CAT_OPEN_ERROR
+	"Nu am putut deschide %s pentru scriere.\n"
+PROPOSED_CATFILE
+	"voi încerca sã scriu %s dacã este necesar\n"
+IS_NEWER_RESULT
+	"rezultatul de la is_newer() = %d\n"
+TRYING_SECTION
+	"încerc secþiunea %s\n"
+SEARCHING
+	"\ncaut în %s\n"
+ALREADY_IN_MANPATH
+	"dar %s este deja în manpath\n"
+CANNOT_STAT
+	"Atenþie: nu pot verifica fiºierul %s!\n"
+IS_NO_DIR
+	"Atenþie: %s nu este un director!\n"
+ADDING_TO_MANPATH
+	"adaug %s la manpath\n"
+PATH_DIR
+	"\ncalea la directorul %s "
+IS_IN_CONFIG
+	"este în fiºierul de configurare\n"
+IS_NOT_IN_CONFIG
+	"nu este în fiºierul de configurare\n"
+MAN_NEARBY
+	"dar este un director man aproape\n"
+NO_MAN_NEARBY
+	"dar nu am gãsit nici un director man aproape\n"
+ADDING_MANDIRS
+	"\nadaug directoarele man obligatorii\n\n"
+CATNAME_IS
+	"cat_name în convert_to_cat () este: %s\n"
+NO_EXEC
+	"\nnu execut comanda:\n  %s\n"
+USAGE1
+	"folosire: %s [-adfhktwW] [secþiune] [-M cale] [-P paginator] [-S listã]\n\t"
+USAGE2
+	"[-m sistem] "
+USAGE3
+	"[-p ºir] nume ...\n\n"
+USAGE4
+	"  a : cautã toate intrãrile care se potrivesc\n\
+  c : nu foloseºte fiºierele cat\n\
+  d : afiºeazã multe informaþii de depanare\n\
+  D : ca ºi -d, dar afiºeazã ºi paginile\n\
+  f : ca ºi whatis(1)\n\
+  h : afiºeazã acest mesaj de ajutor\n\
+  k : ca ºi apropos(1)\n\
+  K : cautã un ºir în toate paginile\n"
+USAGE5
+	"  t : foloseºte troff pentru a formata paginile pentru tipãrire\n"
+USAGE6
+	"\
+  w : afiºeazã locaþia(ile) paginii(lor) man care ar fi afiºate\n\
+      (dacã nu este dat nici un nume: afiºeazã directoarele care ar fi cãutate)\n\
+  W : ca ºi -w, dar afiºeazã doar numele de fiºiere\n\n\
+  C fiºier    : foloseºte `fiºier' ca fiºier de configurare\n\
+  M cale      : seteazã calea de cãutare pentru paginile de manual ca `cale'\n\
+  P paginator : foloseºte programul `paginator' pentru a afiºa paginile\n\
+  S listã     : listã de secþiuni separate prin douã puncte (:)\n"
+USAGE7
+	"  m sistem : cautã paginile de man pentru un sistem alternativ\n"
+USAGE8
+	"  p ºir    : ºirul specificã ce preprocesoare se ruleazã\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"ºi nici utilizatorul real nu poate deschide fiºierul cat\n"
+USER_CAN_OPEN_CAT
+	"dar utilizatorul real poate deschide fiºierul cat\n"
+CANNOT_FORK
+	"crearea procesului fiu pentru comanda _%s_ a eºuat\n"
+WAIT_FAILED
+	"eroare aºteptând procesul fiu _%s_\n"
+GOT_WRONG_PID
+	"foarte straniu ..., am primit pid eronat aºteptând procesul fiu\n"
+CHILD_TERMINATED_ABNORMALLY
+	"eroare fatalã: comanda _%s_ s-a terminat anormal\n"
+IDENTICAL
+	"Pagina man %s este identicã cu %s\n"
+MAN_FOUND
+	"Am gãsit pagina(ile) man:\n"
+NO_TROFF
+	"eroare: nici o comandã TROFF specificatã în %s\n"
+NO_CAT_FOR_NONSTD_LL
+	"nici o paginã cat salvatã din cauza lungimii nestandard a liniilor\n"

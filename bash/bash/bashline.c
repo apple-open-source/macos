@@ -191,6 +191,7 @@ static int bash_glob_list_expansions __P((int, int));
 static int edit_and_execute_command __P((int, int, int, char *));
 #if defined (VI_MODE)
 static int vi_edit_and_execute_command __P((int, int));
+static int bash_vi_complete __P((int, int));
 #endif
 static int emacs_edit_and_execute_command __P((int, int));
 
@@ -226,8 +227,10 @@ void
 posix_readline_initialize (on_or_off)
      int on_or_off;
 {
-  if (on_or_off)
+  if (on_or_off) {
     rl_variable_bind ("comment-begin", "#");
+    rl_variable_bind ("visible-stats", "on");
+  }
 #if defined (VI_MODE)
   rl_bind_key_in_map (CTRL ('I'), on_or_off ? rl_insert : rl_complete, vi_insertion_keymap);
 #endif
@@ -381,6 +384,9 @@ initialize_readline ()
   rl_bind_key_in_map (CTRL ('E'), emacs_edit_and_execute_command, emacs_ctlx_keymap);
 #if defined (VI_MODE)
   rl_bind_key_in_map ('v', vi_edit_and_execute_command, vi_movement_keymap);
+  rl_bind_key_in_map ('\\', bash_vi_complete, vi_movement_keymap);
+  rl_bind_key_in_map ('*', bash_vi_complete, vi_movement_keymap);
+  rl_bind_key_in_map ('=', bash_vi_complete, vi_movement_keymap);
 #  if defined (ALIAS)
   rl_bind_key_in_map ('@', posix_edit_macros, vi_movement_keymap);
 #  endif
@@ -1052,29 +1058,6 @@ attempt_shell_completion (text, start, end)
 	     filenames and leave directories in the match list. */
 	  if (matches == (char **)NULL)
 	    rl_ignore_some_completions_function = bash_ignore_filenames;
-#if 0	  /* XXX as per Chet Ramey.  http://mail.gnu.org/archive/html/bug-bash/2002-07/msg00271.html */
-	  else if (matches[1] == 0 && *matches[0] != '/')
-#else
-	  else if (matches[1] == 0 && absolute_pathname (matches[0]) == 0)
-#endif
-	    /* Turn off rl_filename_completion_desired so readline doesn't
-	       append a slash if there is a directory with the same name
-	       in the current directory, or other filename-specific things.
-	       If the name begins with a slash, we're either completing a
-	       full pathname or a directory pathname, and readline won't be
-	       looking in the current directory anyway, so there's no
-	       conflict. */
-	    rl_filename_completion_desired = 0;
-	  else if (matches[0] && matches[1] && STREQ (matches[0], matches[1]) && *matches[0] != '/')
-	    /* There are multiple instances of the same match (duplicate
-	       completions haven't yet been removed).  In this case, all of
-	       the matches will be the same, and the duplicate removal code
-	       will distill them all down to one.  We turn off
-	       rl_filename_completion_desired for the same reason as above.
-	       Remember: we only care if there's eventually a single unique
-	       completion.  If there are multiple completions this won't
-	       make a difference and the problem won't occur. */
-	    rl_filename_completion_desired = 0;
 	}
     }
 
@@ -2392,7 +2375,7 @@ glob_complete_word (text, state)
   static char **matches = (char **)NULL;
   static int ind;
   int glen;
-  char *ret;
+  char *ret, *ttext;
 
   if (state == 0)
     {
@@ -2402,17 +2385,22 @@ glob_complete_word (text, state)
 	FREE (globorig);
       FREE (globtext);
 
+      ttext = bash_tilde_expand (text, 0);
+
       if (rl_explicit_arg)
 	{
-	  globorig = savestring (text);
-	  glen = strlen (text);
+	  globorig = savestring (ttext);
+	  glen = strlen (ttext);
 	  globtext = (char *)xmalloc (glen + 2);
-	  strcpy (globtext, text);
+	  strcpy (globtext, ttext);
 	  globtext[glen] = '*';
 	  globtext[glen+1] = '\0';
 	}
       else
-        globtext = globorig = savestring (text);
+        globtext = globorig = savestring (ttext);
+
+      if (ttext != text)
+	free (ttext);
 
       matches = shell_glob_filename (globtext);
       if (GLOB_FAILED (matches))
@@ -2454,6 +2442,8 @@ bash_glob_complete_word (count, key)
   rl_quote_func_t *orig_quoting_function;
 
   rl_explicit_arg = 1;	/* force `*' append */
+  if ((rl_editing_mode == VI_EDITING_MODE) && (rl_point == rl_end - 1))
+    rl_point++;			/* Behave like emacs mode */
   orig_quoting_function = rl_filename_quoting_function;
   rl_filename_quoting_function = bash_glob_quote_filename;
   
@@ -2500,6 +2490,64 @@ bash_specific_completion (what_to_do, generator)
 }
 
 #endif	/* SPECIFIC_COMPLETION_FUNCTIONS */
+
+/* From bash-3.0 */
+#if defined (VI_MODE)
+/* Completion, from vi mode's point of view.  This is a modified version of
+   rl_vi_complete which uses the bash globbing code to implement what POSIX
+   specifies, which is to append a `*' and attempt filename generation (which
+   has the side effect of expanding any globbing characters in the word). */
+static int
+bash_vi_complete (count, key)
+     int count, key;
+{
+#if defined (SPECIFIC_COMPLETION_FUNCTIONS)
+  int p, r;
+  char *t;
+
+  if ((rl_point < rl_end) && (!whitespace (rl_line_buffer[rl_point])))
+    {
+      if (!whitespace (rl_line_buffer[rl_point + 1]))
+	rl_vi_end_word (1, 'E');
+      rl_point++;
+    }
+
+  /* Find boundaries of current word, according to vi definition of a
+     `bigword'. */
+  t = 0;
+  if (rl_point > 0)
+    {
+      p = rl_point;
+      rl_vi_bWord (1, 'B');
+      r = rl_point;
+      rl_point = p;
+      p = r;
+
+      t = substring (rl_line_buffer, p, rl_point);
+    }      
+
+  if (t && glob_pattern_p (t) == 0)
+    rl_explicit_arg = 1;	/* XXX - force glob_complete_word to append `*' */
+  FREE (t);
+
+  if (key == '*')	/* Expansion and replacement. */
+    r = bash_glob_expand_word (count, key);
+  else if (key == '=')	/* List possible completions. */
+    r = bash_glob_list_expansions (count, key);
+  else if (key == '\\')	/* Standard completion */
+    r = bash_glob_complete_word (count, key);
+  else
+    r = rl_complete (0, key);
+
+  if (key == '*' || key == '\\')
+    rl_vi_start_inserting (key, 1, 1);
+
+  return (r);
+#else
+  return rl_vi_complete (count, key);
+#endif /* !SPECIFIC_COMPLETION_FUNCTIONS */
+}
+#endif /* VI_MODE */
 
 /* Filename quoting for completion. */
 /* A function to strip unquoted quote characters (single quotes, double

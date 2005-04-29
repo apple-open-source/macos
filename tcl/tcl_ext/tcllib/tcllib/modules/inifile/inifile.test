@@ -1,0 +1,134 @@
+# -*- tcl -*-
+# Tests for module 'inifile'
+
+#---------------------------------------------------------------------
+# Load the tcltest package
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import -force ::tcltest::*
+}
+
+if { [lsearch $auto_path [file dirname [info script]]] == -1 } {
+    set auto_path [linsert $auto_path 0 [file dirname [info script]]]
+}
+
+#---------------------------------------------------------------------
+# Load the inifile package.
+
+set inifile [file join [file dirname [info script]] ini.tcl]
+set     sub_ap $auto_path
+lappend sub_ap [file dirname [file dirname [info script]]]
+
+if {[catch {source $inifile} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+puts "- inifile [package present inifile]"
+
+#---------------------------------------------------------------------
+
+set testini [file join [file dirname [info script]] test.ini]
+
+test inifile-1.1 {ini::open} {
+    set res [ini::open $testini r]
+    ini::close $res
+    set res
+} {ini0}
+
+test inifile-1.2 {ini::sections} {
+    set hdl [ini::open $testini r]
+    set res [ini::sections $hdl]
+    ini::close $hdl
+    set res
+} {emptysection section1 \{test section2}
+
+test inifile-1.3 {ini::keys} {
+    set hdl [ini::open $testini r]
+    set res [ini::keys $hdl section1]
+    ini::close $hdl
+    set res
+} {testkey key}
+
+test inifile-1.4 {ini::keys} {
+    set hdl [ini::open $testini r]
+    set res [ini::keys $hdl \{test]
+    ini::close $hdl
+    set res
+} {\}key}
+
+test inifile-1.5 {ini::get} {
+    set hdl [ini::open $testini r]
+    set res [ini::get $hdl section1]
+    ini::close $hdl
+    set res
+} {testkey hi key value}
+
+test inifile-1.6 {ini::get} {
+    set hdl [ini::open $testini r]
+    set res [ini::get $hdl \{test]
+    ini::close $hdl
+    set res
+} {\}key {$blah}}
+
+test inifile-1.7 {ini::value} {
+    set hdl [ini::open $testini r]
+    set res [ini::value $hdl section1 key]
+    ini::close $hdl
+    set res
+} {value}
+
+test inifile-1.8 {ini::value} {
+    set hdl [ini::open $testini r]
+    set res [ini::value $hdl \{test \}key]
+    ini::close $hdl
+    set res
+} {$blah}
+
+test inifile-1.9 {ini::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl section1]
+    ini::close $hdl
+    set res
+} {1}
+
+test inifile-1.10 {ini::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl section]
+    ini::close $hdl
+    set res
+} {0}
+
+test inifile-1.11 {ini::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl section1 testkey]
+    ini::close $hdl
+    set res
+} {1}
+
+test inifile-1.12 {ini:::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl section1 blah]
+    ini::close $hdl
+    set res
+} {0}
+
+test inifile-1.13 {ini:::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl \{test]
+    ini::close $hdl
+    set res
+} {1}
+
+test inifile-1.14 {ini:::exists} {
+    set hdl [ini::open $testini r]
+    set res [ini::exists $hdl \{test \}key]
+    ini::close $hdl
+    set res
+} {1}
+
+
+#---------------------------------------------------------------------
+# Clean up
+
+::tcltest::cleanupTests

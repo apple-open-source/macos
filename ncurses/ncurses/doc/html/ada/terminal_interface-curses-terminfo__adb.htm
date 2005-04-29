@@ -37,9 +37,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: Eugene V. Melaragno &lt;aldomel@ix.netcom.com&gt; 2000</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.1 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.3 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 
@@ -48,27 +48,27 @@
 <b>with</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.Strings; <b>use</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.Strings;
 <b>with</b> Ada.Unchecked_Conversion;
 
-<b>package</b> <b>body</b> Terminal_Interface.Curses.<A HREF="terminal_interface-curses-terminfo__ads.htm#44_35">Terminfo</A><FONT COLOR=red><A NAME="47_40"></A></FONT> <b>is</b>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-terminfo__ads.htm#44_35">Terminfo</A> <b>is</b>
 
 
-   <b>function</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#52_13">Is_MinusOne_Pointer</A><FONT COLOR=red><A NAME="50_13"></A></FONT> (<FONT COLOR=red><A NAME="50_34">P</A></FONT> : <b>in</b> chars_ptr) <b>return</b> Boolean;
+   <b>function</b> <FONT COLOR=red><A NAME="50_13">Is_MinusOne_Pointer</A></FONT> (<FONT COLOR=red><A NAME="50_34">P</A></FONT> : <b>in</b> chars_ptr) <b>return</b> Boolean;
 
-   <b>function</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#50_13">Is_MinusOne_Pointer</A><FONT COLOR=red><A NAME="52_13"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__adb.htm#50_34">P</A> : <b>in</b> chars_ptr) <b>return</b> Boolean <b>is</b>
-      <b>type</b> <FONT COLOR=red><A NAME="53_12">Weird_Address</A></FONT> <b>is</b> <b>new</b> System.Storage_Elements.Integer_Address;
-      <FONT COLOR=red><A NAME="54_7">Invalid_Pointer</A></FONT> : <b>constant</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#53_12">Weird_Address</A> := -1;
+   <b>function</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#50_13">Is_MinusOne_Pointer</A> (<A HREF="terminal_interface-curses-terminfo__adb.htm#50_34">P</A> : <b>in</b> chars_ptr) <b>return</b> Boolean <b>is</b>
+      <b>type</b> Weird_Address <b>is</b> <b>new</b> System.Storage_Elements.Integer_Address;
+      <FONT COLOR=red><A NAME="54_7">Invalid_Pointer</A></FONT> : <b>constant</b> Weird_Address := -1;
       <b>function</b> <FONT COLOR=red><A NAME="55_16">To_Weird</A></FONT> <b>is</b> <b>new</b> Ada.Unchecked_Conversion
-        (Source =&gt; chars_ptr, Target =&gt; <A HREF="terminal_interface-curses-terminfo__adb.htm#53_12">Weird_Address</A>);
+        (Source =&gt; chars_ptr, Target =&gt; Weird_Address);
    <b>begin</b>
       <b>if</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#55_16">To_Weird</A> (<A HREF="terminal_interface-curses-terminfo__adb.htm#50_34">P</A>) = <A HREF="terminal_interface-curses-terminfo__adb.htm#54_7">Invalid_Pointer</A> <b>then</b>
          <b>return</b> True;
       <b>else</b>
          <b>return</b> False;
       <b>end</b> <b>if</b>;
-   <b>end</b> Is_MinusOne_Pointer;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#50_13">Is_MinusOne_Pointer</A><A HREF="terminal_interface-curses-terminfo__adb.htm#50_13">;</A>
    <b>pragma</b> Inline (<A HREF="terminal_interface-curses-terminfo__adb.htm#50_13">Is_MinusOne_Pointer</A>);
 
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#64_13">Get_Flag</A><FONT COLOR=red><A NAME="67_13"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__ads.htm#64_23">Name</A> : String) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#64_13">Get_Flag</A> (<A HREF="terminal_interface-curses-terminfo__ads.htm#64_23">Name</A> : String) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="69_16">tigetflag</A></FONT> (<FONT COLOR=red><A NAME="69_27">id</A></FONT> : char_array) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#1930_9">Curses_Bool</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-terminfo__adb.htm#69_16">tigetflag</A>);
@@ -81,7 +81,7 @@
       <b>else</b>
          <b>return</b> False;
       <b>end</b> <b>if</b>;
-   <b>end</b> Get_Flag;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#64_13">Get_Flag</A><A HREF="terminal_interface-curses-terminfo__ads.htm#64_13">;</A>
 
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
    <b>procedure</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#57_14">Get_String</A><FONT COLOR=red><A NAME="83_14"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__ads.htm#57_26">Name</A>   : String;
@@ -104,10 +104,10 @@
          <A HREF="terminal_interface-curses-terminfo__ads.htm#58_26">Value</A>  := <A HREF="terminal_interface-curses-terminfo__ads.htm#54_9">Terminfo_String</A> (<A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-terminfo__adb.htm#91_7">Txt2</A>));
          <A HREF="terminal_interface-curses-terminfo__ads.htm#59_26">Result</A> := True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Get_String;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#57_14">Get_String</A><A HREF="terminal_interface-curses-terminfo__ads.htm#57_14">;</A>
 
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#60_13">Has_String</A><FONT COLOR=red><A NAME="106_13"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__ads.htm#60_25">Name</A> : String) <b>return</b> Boolean
+   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#60_13">Has_String</A> (<A HREF="terminal_interface-curses-terminfo__ads.htm#60_25">Name</A> : String) <b>return</b> Boolean
    <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="108_16">tigetstr</A></FONT> (<FONT COLOR=red><A NAME="108_26">id</A></FONT> : char_array) <b>return</b> chars_ptr;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-terminfo__adb.htm#108_16">tigetstr</A>, "tigetstr");
@@ -124,10 +124,10 @@
       <b>else</b>
          <b>return</b> True;
       <b>end</b> <b>if</b>;
-   <b>end</b> Has_String;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#60_13">Has_String</A><A HREF="terminal_interface-curses-terminfo__ads.htm#60_13">;</A>
 
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#68_13">Get_Number</A><FONT COLOR=red><A NAME="126_13"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__ads.htm#68_25">Name</A> : String) <b>return</b> Integer <b>is</b>
+   <b>function</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#68_13">Get_Number</A> (<A HREF="terminal_interface-curses-terminfo__ads.htm#68_25">Name</A> : String) <b>return</b> Integer <b>is</b>
       <b>function</b> <FONT COLOR=red><A NAME="127_16">tigetstr</A></FONT> (<FONT COLOR=red><A NAME="127_26">s</A></FONT> : char_array) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#55_12">C_Int</A>;
       <b>pragma</b> Import (C, <A HREF="terminal_interface-curses-terminfo__adb.htm#127_16">tigetstr</A>);
       <FONT COLOR=red><A NAME="129_7">Txt</A></FONT>    : char_array (0 .. <A HREF="terminal_interface-curses-terminfo__ads.htm#68_25">Name</A>'Length);
@@ -135,7 +135,7 @@
    <b>begin</b>
       To_C (<A HREF="terminal_interface-curses-terminfo__ads.htm#68_25">Name</A>, <A HREF="terminal_interface-curses-terminfo__adb.htm#129_7">Txt</A>, <A HREF="terminal_interface-curses-terminfo__adb.htm#130_7">Length</A>);
       <b>return</b> Integer (<A HREF="terminal_interface-curses-terminfo__adb.htm#127_16">tigetstr</A> (<A HREF="terminal_interface-curses-terminfo__adb.htm#129_7">Txt</A>));
-   <b>end</b> Get_Number;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#68_13">Get_Number</A><A HREF="terminal_interface-curses-terminfo__ads.htm#68_13">;</A>
 
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
    <b>procedure</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#76_14">Put_String</A><FONT COLOR=red><A NAME="137_14"></A></FONT> (<A HREF="terminal_interface-curses-terminfo__ads.htm#76_26">Str</A>    : <A HREF="terminal_interface-curses-terminfo__ads.htm#54_9">Terminfo_String</A>;
@@ -160,7 +160,7 @@
       <b>if</b> <A HREF="terminal_interface-curses-terminfo__adb.htm#148_7">Err</A> = <A HREF="terminal_interface-curses-aux__ads.htm#72_4">Curses_Err</A> <b>then</b>
          <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#382_4">Curses_Exception</A>;
       <b>end</b> <b>if</b>;
-   <b>end</b> Put_String;
+   <b>end</b> <A HREF="terminal_interface-curses-terminfo__ads.htm#76_14">Put_String</A><A HREF="terminal_interface-curses-terminfo__ads.htm#76_14">;</A>
 
-<b>end</b> Terminal_Interface.Curses.Terminfo;
+<b>end</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-terminfo__ads.htm#44_35">Terminfo</A><A HREF="terminal_interface-curses-terminfo__ads.htm#44_35">;</A>
 </PRE></BODY></HTML>

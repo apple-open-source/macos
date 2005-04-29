@@ -1,0 +1,13 @@
+<?xml version="1.0" ?>
+
+<rsd version="1.0" xmlns="http://archipelago.phrasewise.com/rsd">
+    <service>
+        <engineName><!-- name="generator" content="$BLOJSOM_VERSION" --></engineName>
+        <engineLink>http://blojsom.sf.net</engineLink>
+        <homePageLink>$BLOJSOM_BLOG.getBlogURL()</homePageLink>
+        <apis>
+            <api name="blogger" preferred="true" apiLink="$BLOJSOM_SITE_URL/xmlrpc/$BLOJSOM_USER" blogID=""/>
+            <api name="metaWeblog" preferred="false" apiLink="$BLOJSOM_SITE_URL/xmlrpc/$BLOJSOM_USER" blogID=""/>
+        </apis>
+    </service>
+</rsd>

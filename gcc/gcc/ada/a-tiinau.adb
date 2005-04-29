@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -125,7 +124,6 @@ package body Ada.Text_IO.Integer_Aux is
 
    exception
       when Constraint_Error =>
-         Last := Pos - 1;
          raise Data_Error;
    end Gets_Int;
 
@@ -147,7 +145,6 @@ package body Ada.Text_IO.Integer_Aux is
 
    exception
       when Constraint_Error =>
-         Last := Pos - 1;
          raise Data_Error;
    end Gets_LLI;
 
@@ -170,6 +167,9 @@ package body Ada.Text_IO.Integer_Aux is
       Load_Digits (File, Buf, Ptr, Loaded);
 
       if Loaded then
+
+         --  Deal with based literal (note : is ok replacement for #)
+
          Load (File, Buf, Ptr, '#', ':', Loaded);
 
          if Loaded then
@@ -177,6 +177,8 @@ package body Ada.Text_IO.Integer_Aux is
             Load_Extended_Digits (File, Buf, Ptr);
             Load (File, Buf, Ptr, Buf (Hash_Loc));
          end if;
+
+         --  Deal with exponent
 
          Load (File, Buf, Ptr, 'E', 'e', Loaded);
 

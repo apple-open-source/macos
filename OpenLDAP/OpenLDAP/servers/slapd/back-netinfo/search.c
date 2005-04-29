@@ -34,38 +34,27 @@
 
 int
 netinfo_back_search(
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	struct berval *base,
-	struct berval *nbase,
-	int scope,
-	int deref,
-	int slimit,
-	int tlimit,
-	Filter *filter,
-	struct berval *filterstr,
-	AttributeName *attrs,
-	int attrsonly
+	struct slap_op *op, 
+	struct slap_rep *rs
 )
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
+	struct berval *base = &op->o_req_dn;
+	struct berval *nbase = &op->o_req_ndn;
 	dsfilter *dsf;
 	dsstatus status;
 	u_int32_t dsid, *match, count, scopemin, scopemax;
 	int i, rc;
 	time_t stoptime;
-	struct slap_limits_set *limit = NULL;
-	int isroot = 0;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_search base %s scope %d\n", base->bv_val, scope));
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_search base %s scope %d\n", base->bv_val, op->ors_scope));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_search base=%s nbase=%s scope=%d\n", base->bv_val, nbase->bv_val, scope);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_search base=%s nbase=%s scope=%d\n", base->bv_val, nbase->bv_val, op->ors_scope);
 #endif
 
 	/* check if we should send referral first */
-	if (netinfo_back_send_referrals(be, conn, op, nbase) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, nbase) == DSStatusOK)
 	{
 #ifdef NEW_LOGGING
 		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: sent referrals\n"));
@@ -85,33 +74,33 @@ netinfo_back_search(
 	 */
 	if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
 	{
-		status = is_trusted_network(be, conn);
+		status = is_trusted_network(op->o_bd, op->o_conn);
 		if (status != DSStatusOK)
 		{
 			ENGINE_UNLOCK(di);
 #ifdef NEW_LOGGING
 			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: untrusted network\n"));
 #else
-			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: untrusted network\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 	}
 
-	status = netinfo_back_dn_pathmatch(be, nbase, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, nbase, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
 #ifdef NEW_LOGGING
 		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: pathmatch failed\n"));
 #else
-		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: pathmatch failed\n", 0, 0, 0);
 #endif
 
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	switch (scope)
+	switch (op->ors_scope)
 	{
 		case LDAP_SCOPE_BASE:
 			scopemin = scopemax = 0;
@@ -126,27 +115,27 @@ netinfo_back_search(
 			break;
 	}
 
-	dsf = filter_to_dsfilter(be, filter);
+	dsf = filter_to_dsfilter(op->o_bd, op->ors_filter);
 	if (dsf == NULL)
 	{
 		ENGINE_UNLOCK(di);
-		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
-			"Could not translate filter", NULL, NULL);
+		send_ldap_error( op, rs, LDAP_OPERATIONS_ERROR, "Could not translate filter" );
 #ifdef NEW_LOGGING
 		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: could not translate filter\n"));
 #else
-		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: could not translate filter\n", 0, 0, 0);
 #endif
 		return -1;
 	}
 
-	if (be_isroot(be, &op->o_ndn))
+#if 0
+	if (be_isroot(op->o_bd, &op->o_ndn))
 	{
 		isroot = 1;
 	}
 	else
 	{
-		get_limits(be, &op->o_ndn, &limit);
+		get_limits(op, &op->o_ndn, &limit);
 	}
 
 	/* If root and no specific limit is required, allow untimed search. */
@@ -173,12 +162,11 @@ netinfo_back_search(
 			/* Positive hard limit means abort */
 			else if (limit->lms_t_hard > 0)
 			{
-				send_search_result(conn, op, LDAP_UNWILLING_TO_PERFORM,
-					NULL, NULL, NULL, NULL, 0);
+				send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM, NULL );
 #ifdef NEW_LOGGING
 				LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: reached hard time limit\n"));
 #else
-				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: reached hard time limit\n", 0, 0, 0);
 #endif
 				return 0;
 			}
@@ -199,21 +187,21 @@ netinfo_back_search(
 			/* Positive hard limit means abort */
 			else if (limit->lms_s_hard > 0)
 			{
-				send_search_result(conn, op, LDAP_UNWILLING_TO_PERFORM,
-					NULL, NULL, NULL, NULL, 0);
+				send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM, NULL );
 #ifdef NEW_LOGGING
 				LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: reached hard size limit\n"));
 #else
-				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+				Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: reached hard size limit\n", 0, 0, 0);
 #endif
 				return 0;
 			}
 			/* Negative hard limit means no limit. */
 		}
 	}
+#endif
 
-	/* Computer stoptime although root odes not use it. */
-	stoptime = op->o_time + tlimit;
+	/* compute it anyway; root does not use it */
+	stoptime = op->o_time + op->ors_tlimit;
 
 	status = dsengine_search_filter(di->engine, dsid, dsf, scopemin, scopemax, &match, &count);
 	if (status != DSStatusOK)
@@ -223,16 +211,17 @@ netinfo_back_search(
 #ifdef NEW_LOGGING
 		LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: search failed\n"));
 #else
-		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search\n", 0, 0, 0);
+		Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search: search failed\n", 0, 0, 0);
 #endif
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	dsfilter_release(dsf);
 
-	if (slimit != LDAP_NO_LIMIT && count > slimit)
+	/* check size limit */
+	if (op->ors_slimit != LDAP_NO_LIMIT && count > op->ors_slimit)
 	{
-		count = slimit;
+		count = op->ors_slimit;
 		rc = LDAP_SIZELIMIT_EXCEEDED;
 	}
 	else
@@ -254,7 +243,7 @@ netinfo_back_search(
 		}
 
 		/* check timelimit */
-		if (tlimit != -1 && slap_get_time() > stoptime)
+		if (op->ors_tlimit != -1 && slap_get_time() > stoptime)
 		{
 			rc = LDAP_TIMELIMIT_EXCEEDED;
 			break;
@@ -272,12 +261,12 @@ netinfo_back_search(
 		{
 			ENGINE_UNLOCK(di);
 			free(match);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
 		{
-			status = netinfo_back_authorize(be, conn, op, rec, slap_schema.si_ad_entry, ACL_READ);
+			status = netinfo_back_authorize(op, rec, slap_schema.si_ad_entry, ACL_READ);
 			if (status != DSStatusOK)
 			{
 				dsrecord_release(rec);
@@ -285,7 +274,7 @@ netinfo_back_search(
 			}
 		}
 
-		status = dsrecord_to_entry(be, rec, &ent);
+		status = dsrecord_to_entry(op->o_bd, rec, &ent);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(rec);
@@ -294,7 +283,11 @@ netinfo_back_search(
 
 		dsrecord_release(rec);
 
-		send_search_entry(be, conn, op, ent, attrs, attrsonly, NULL);
+		rs->sr_attrs = op->ors_attrs;
+		rs->sr_entry = ent;
+		send_search_entry( op, rs );
+		rs->sr_entry = NULL;
+		rs->sr_attrs = NULL;
 
 		netinfo_back_entry_free(ent);
 	}
@@ -304,10 +297,10 @@ netinfo_back_search(
 		struct berval canonicalRelativeDN;
 
 		/* Don't use the normalized relative DN for search references. */
-		status = netinfo_back_local_dn(be, dsid, &canonicalRelativeDN);
+		status = netinfo_back_local_dn(op->o_bd, dsid, &canonicalRelativeDN);
 		if (status == DSStatusOK)
 		{
-			status = netinfo_back_send_references(be, conn, op, &canonicalRelativeDN, scope);
+			status = netinfo_back_send_references(op, rs, &canonicalRelativeDN);
 			ch_free(canonicalRelativeDN.bv_val);
 		}
 		rc = dsstatus_to_ldap_err(status);
@@ -318,7 +311,8 @@ netinfo_back_search(
 	if (count > 0)
 		free(match);	
 
-	send_search_result(conn, op, rc, NULL, NULL, NULL, NULL, count);
+	rs->sr_err = rc;
+	send_ldap_result(op, rs);
 
 #ifdef NEW_LOGGING
 	LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_search: %d entries\n", count));
@@ -326,5 +320,5 @@ netinfo_back_search(
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_search count=%d\n", count, 0, 0);
 #endif
 
-	return 0;
+	return rs->sr_err;
 }

@@ -41,8 +41,8 @@
  * international characters, now subsumed into this file.
  */
 
-#include "magic.h"
 #include "file.h"
+#include "magic.h"
 #include <stdio.h>
 #include <string.h>
 #include <memory.h>
@@ -54,7 +54,7 @@
 #include "names.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$Id: ascmagic.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
+FILE_RCSID("@(#)$Id: ascmagic.c,v 1.40 2003/11/20 00:25:39 christos Exp $")
 #endif	/* lint */
 
 typedef unsigned long unichar;
@@ -105,6 +105,10 @@ file_ascmagic(struct magic_set *ms, const unsigned char *buf, size_t nbytes)
 
 	while (nbytes > 1 && buf[nbytes - 1] == '\0')
 		nbytes--;
+
+	/* nbuf and ubuf relies on this */
+	if (nbytes > HOWMANY)
+		nbytes = HOWMANY;
 
 	/*
 	 * Then try to determine whether it's any character code we can
@@ -166,8 +170,10 @@ file_ascmagic(struct magic_set *ms, const unsigned char *buf, size_t nbytes)
 		while (ISSPC(*tp))
 			++tp;	/* skip leading whitespace */
 		if ((tp[0] == '\\' && tp[1] == '\"') ||
-		    (isascii(tp[0]) && isalnum(tp[0]) &&
-		     isascii(tp[1]) && isalnum(tp[1]) &&
+		    (isascii((unsigned char)tp[0]) &&
+		     isalnum((unsigned char)tp[0]) &&
+		     isascii((unsigned char)tp[1]) &&
+		     isalnum((unsigned char)tp[1]) &&
 		     ISSPC(tp[2]))) {
 			subtype_mime = "text/troff";
 			subtype = "troff or preprocessor input";

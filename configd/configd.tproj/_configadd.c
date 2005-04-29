@@ -36,28 +36,23 @@
 
 __private_extern__
 int
-__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value)
+__SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef value, Boolean internal)
 {
 	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	int				sc_status	= kSCStatusOK;
 	CFDataRef			tempValue;
-
-	if (_configd_verbose) {
-		CFPropertyListRef	val;
-
-		(void) _SCUnserialize(&val, value, NULL, NULL);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreAddValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  key          = %@"), key);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  value        = %@"), val);
-		CFRelease(val);
-	}
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
 
 	if (_configd_trace) {
-		SCTrace(TRUE, _configd_trace, CFSTR("add     : %5d : %@\n"), storePrivate->server, key);
+		SCTrace(TRUE, _configd_trace,
+			CFSTR("%s%s : %5d : %@\n"),
+			internal ? "*add " : "add  ",
+			storePrivate->useSessionKeys ? "t " : "  ",
+			storePrivate->server,
+			key);
 	}
 
 	/*
@@ -84,7 +79,9 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 			goto done;
 
 		default :
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
+#ifdef	DEBUG
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreAddValue __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
+#endif	/* DEBUG */
 			goto done;
 	}
 
@@ -96,7 +93,9 @@ __SCDynamicStoreAddValue(SCDynamicStoreRef store, CFStringRef key, CFDataRef val
 	/*
 	 * 4. Release our lock.
 	 */
+
     done:
+
 	__SCDynamicStoreUnlock(store, TRUE);
 
 	return sc_status;
@@ -114,44 +113,102 @@ _configadd(mach_port_t 			server,
 	   int				*sc_status
 )
 {
-	serverSessionRef	mySession = getSession(server);
-	CFStringRef		key;		/* key  (un-serialized) */
-	CFDataRef		data;		/* data (un-serialized) */
-
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Add key to configuration database."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
-
-	*sc_status = kSCStatusOK;
+	CFStringRef		key		= NULL;		/* key  (un-serialized) */
+	CFDataRef		data		= NULL;		/* data (un-serialized) */
+	serverSessionRef	mySession	= getSession(server);
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-	} else if (!isA_CFString(key)) {
+		goto done;
+	}
+
+	if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
+		goto done;
 	}
 
 	/* un-serialize the data */
 	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
 		*sc_status = kSCStatusFailed;
+		goto done;
 	}
 
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		goto done;
 	}
 
-	if (*sc_status != kSCStatusOK) {
-		if (key)	CFRelease(key);
-		if (data)	CFRelease(data);
-		return KERN_SUCCESS;
+	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data, FALSE);
+	if (*sc_status == kSCStatusOK) {
+		*newInstance = 0;
 	}
 
-	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data);
-	*newInstance = 0;
+    done :
 
-	CFRelease(key);
-	CFRelease(data);
+	if (key)	CFRelease(key);
+	if (data)	CFRelease(data);
+
+	return KERN_SUCCESS;
+}
+
+
+__private_extern__
+kern_return_t
+_configadd_s(mach_port_t 		server,
+	     xmlData_t			keyRef,		/* raw XML bytes */
+	     mach_msg_type_number_t	keyLen,
+	     xmlData_t			dataRef,	/* raw XML bytes */
+	     mach_msg_type_number_t	dataLen,
+	     int			*newInstance,
+	     int			*sc_status
+)
+{
+	CFDataRef			data		= NULL;		/* data (un-serialized) */
+	CFStringRef			key		= NULL;		/* key  (un-serialized) */
+	serverSessionRef		mySession	= getSession(server);
+	SCDynamicStorePrivateRef	storePrivate;
+	Boolean				useSessionKeys;
+
+	/* un-serialize the key */
+	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
+		*sc_status = kSCStatusFailed;
+		goto done;
+	}
+
+	if (!isA_CFString(key)) {
+		*sc_status = kSCStatusInvalidArgument;
+		goto done;
+	}
+
+	/* un-serialize the data */
+	if (!_SCUnserializeData(&data, (void *)dataRef, dataLen)) {
+		*sc_status = kSCStatusFailed;
+		goto done;
+	}
+
+	if (!mySession) {
+		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
+		goto done;
+	}
+
+	// force "useSessionKeys"
+	storePrivate = (SCDynamicStorePrivateRef)mySession->store;
+	useSessionKeys = storePrivate->useSessionKeys;
+	storePrivate->useSessionKeys = TRUE;
+
+	*sc_status = __SCDynamicStoreAddValue(mySession->store, key, data, FALSE);
+	if (*sc_status == kSCStatusOK) {
+		*newInstance = 0;
+	}
+
+	// restore "useSessionKeys"
+	storePrivate->useSessionKeys = useSessionKeys;
+
+    done :
+
+	if (key)	CFRelease(key);
+	if (data)	CFRelease(data);
 
 	return KERN_SUCCESS;
 }

@@ -38,9 +38,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.20 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.22 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <FONT COLOR=green><EM>--  mouse binding.</EM></FONT>
@@ -82,7 +82,7 @@
 
    <b>type</b> Button_State <b>is</b> (<FONT COLOR=red><A NAME="79_26">Released</A></FONT>,
                          <FONT COLOR=red><A NAME="80_26">Pressed</A></FONT>,
-                         Clicked,
+                         <FONT COLOR=red><A NAME="81_26">Clicked</A></FONT>,
                          <FONT COLOR=red><A NAME="82_26">Double_Clicked</A></FONT>,
                          Triple_Clicked);
 
@@ -175,7 +175,7 @@
          <FONT COLOR=red><A NAME="171_10"> </A></FONT>  <FONT COLOR=red><A NAME="171_13"> </A></FONT>  <FONT COLOR=red><A NAME="171_16"> </A></FONT>                 Integer (<A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.short'Last);
          X, Y, Z : Integer <b>range</b> Integer (<A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.int'First) ..
          <FONT COLOR=red><A NAME="173_10"> </A></FONT>         <A HREF="terminal_interface-curses-mouse__ads.htm#63_9"> </A>             Integer (Interfaces.C.int'Last);
-         Bstate  : Event_Mask;
+         Bstate <A HREF="terminal_interface-curses-mouse__ads.htm#91_9"> </A>: Event_Mask;
       <b>end</b> <b>record</b>;
    <b>pragma</b> Convention (C, Mouse_Event);
    <b>pragma</b> Pack (Mouse_Event);

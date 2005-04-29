@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding = "Windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.00"
+	Version="7.10"
 	Name="toolutil"
 	SccProjectName=""
 	SccLocalPath="">
@@ -39,19 +39,20 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				OutputFile="..\..\..\bin\icutu26.dll"
+				OutputFile="..\..\..\bin\icutu32.dll"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\..\..\lib"
-				ProgramDatabaseFile=".\..\..\..\lib/icutu26.pdb"
-				ImportLibrary="..\..\..\lib/icutu.lib"/>
+				ProgramDatabaseFile=".\..\..\..\lib\icutu32.pdb"
+				BaseAddress="0x4ac00000"
+				ImportLibrary="..\..\..\lib\icutu.lib"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="NDEBUG"
 				MkTypLibCompatible="TRUE"
 				SuppressStartupBanner="TRUE"
 				TargetEnvironment="1"
-				TypeLibraryName=".\..\..\..\lib/toolutil.tlb"/>
+				TypeLibraryName=".\..\..\..\lib\icutu.tlb"/>
 			<Tool
 				Name="VCPostBuildEventTool"/>
 			<Tool
@@ -65,7 +66,13 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
@@ -96,20 +103,21 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				OutputFile="..\..\..\bin\icutu26d.dll"
+				OutputFile="..\..\..\bin\icutu32d.dll"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\..\..\lib"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile=".\..\..\..\lib/icutu26d.pdb"
-				ImportLibrary="..\..\..\lib/icutud.lib"/>
+				ProgramDatabaseFile=".\..\..\..\lib\icutu32d.pdb"
+				BaseAddress="0x4ac00000"
+				ImportLibrary="..\..\..\lib\icutud.lib"/>
 			<Tool
 				Name="VCMIDLTool"
 				PreprocessorDefinitions="_DEBUG"
 				MkTypLibCompatible="TRUE"
 				SuppressStartupBanner="TRUE"
 				TargetEnvironment="1"
-				TypeLibraryName=".\..\..\..\lib/toolutil.tlb"/>
+				TypeLibraryName=".\..\..\..\lib\icutud.tlb"/>
 			<Tool
 				Name="VCPostBuildEventTool"/>
 			<Tool
@@ -123,13 +131,24 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
+	<References>
+	</References>
 	<Files>
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat">
+			<File
+				RelativePath=".\propsvec.c">
+			</File>
 			<File
 				RelativePath=".\toolutil.c">
 			</File>
@@ -137,7 +156,13 @@
 				RelativePath=".\ucbuf.c">
 			</File>
 			<File
+				RelativePath=".\ucm.c">
+			</File>
+			<File
 				RelativePath=".\ucmpwrit.c">
+			</File>
+			<File
+				RelativePath=".\ucmstate.c">
 			</File>
 			<File
 				RelativePath=".\unewdata.c">
@@ -156,10 +181,16 @@
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl">
 			<File
+				RelativePath=".\propsvec.h">
+			</File>
+			<File
 				RelativePath=".\toolutil.h">
 			</File>
 			<File
 				RelativePath=".\ucbuf.h">
+			</File>
+			<File
+				RelativePath=".\ucm.h">
 			</File>
 			<File
 				RelativePath=".\ucmpwrit.h">

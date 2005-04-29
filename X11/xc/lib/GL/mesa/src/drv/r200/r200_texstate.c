@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_texstate.c,v 1.3 2003/02/15 22:18:47 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_texstate.c,v 1.6 2004/01/23 03:57:05 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,12 +25,20 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "context.h"
+#include "macros.h"
+#include "texformat.h"
+#include "enums.h"
 
 #include "r200_context.h"
 #include "r200_state.h"
@@ -39,230 +47,179 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r200_tex.h"
 #include "r200_tcl.h"
 
-#include "colormac.h"
-#include "context.h"
-#include "enums.h"
-#include "macros.h"
-#include "mem.h"
-#include "mmath.h"
-#include "simple_list.h"
-#include "texformat.h"
 
+#define R200_TXFORMAT_AL88      R200_TXFORMAT_AI88
+#define R200_TXFORMAT_YCBCR     R200_TXFORMAT_YVYU422
+#define R200_TXFORMAT_YCBCR_REV R200_TXFORMAT_VYUY422
 
+#define _COLOR(f) \
+    [ MESA_FORMAT_ ## f ] = { R200_TXFORMAT_ ## f, 0 }
+#define _ALPHA(f) \
+    [ MESA_FORMAT_ ## f ] = { R200_TXFORMAT_ ## f | R200_TXFORMAT_ALPHA_IN_MAP, 0 }
+#define _YUV(f) \
+    [ MESA_FORMAT_ ## f ] = { R200_TXFORMAT_ ## f, R200_YUV_TO_RGB }
+#define _INVALID(f) \
+    [ MESA_FORMAT_ ## f ] = { 0xffffffff, 0 }
+#define VALID_FORMAT(f) ( ((f) <= MESA_FORMAT_YCBCR_REV) \
+			     && (tx_table[f].format != 0xffffffff) )
+
+static const struct {
+   GLuint format, filter;
+}
+tx_table[] =
+{
+   _ALPHA(RGBA8888),
+   _ALPHA(ARGB8888),
+   _INVALID(RGB888),
+   _COLOR(RGB565),
+   _ALPHA(ARGB4444),
+   _ALPHA(ARGB1555),
+   _ALPHA(AL88),
+   _INVALID(A8),
+   _INVALID(L8),
+   _COLOR(I8),
+   _INVALID(CI8),
+   _YUV(YCBCR),
+   _YUV(YCBCR_REV),
+};
+
+#undef _COLOR
+#undef _ALPHA
+#undef _INVALID
+
+/**
+ * This function computes the number of bytes of storage needed for
+ * the given texture object (all mipmap levels, all cube faces).
+ * The \c image[face][level].x/y/width/height parameters for upload/blitting
+ * are computed here.  \c pp_txfilter, \c pp_txformat, etc. will be set here
+ * too.
+ * 
+ * \param rmesa Context pointer
+ * \param tObj GL texture object whose images are to be posted to
+ *                 hardware state.
+ */
 static void r200SetTexImages( r200ContextPtr rmesa,
-			      struct gl_texture_object *tObj,
-			      GLenum target )
+			      struct gl_texture_object *tObj )
 {
    r200TexObjPtr t = (r200TexObjPtr)tObj->DriverData;
    const struct gl_texture_image *baseImage = tObj->Image[tObj->BaseLevel];
-   GLint totalSize;
-   GLint texelsPerDword = 0, blitWidth = 0, blitPitch = 0;
-   GLint x, y, width, height;
+   GLint curOffset;
    GLint i;
-   GLint firstLevel=0, lastLevel=0, numLevels;
-   GLint log2Width, log2Height;
-   GLuint txformat = 0;
-
-   t->pp_txfilter &= ~R200_YUV_TO_RGB;
+   GLint numLevels;
+   GLint log2Width, log2Height, log2Depth;
 
    /* Set the hardware texture format
     */
-   switch (baseImage->TexFormat->MesaFormat) {
-   case MESA_FORMAT_I8:
-      txformat = R200_TXFORMAT_I8;
-      break;
-   case MESA_FORMAT_AL88:
-      txformat = R200_TXFORMAT_AI88;
-      break;
-   case MESA_FORMAT_RGBA8888:
-      txformat = R200_TXFORMAT_RGBA8888;
-      break;
-   case MESA_FORMAT_ARGB8888:
-      txformat = R200_TXFORMAT_ARGB8888;
-      break;
-   case MESA_FORMAT_RGB565:
-      txformat = R200_TXFORMAT_RGB565;
-      break;
-   case MESA_FORMAT_ARGB1555:
-      txformat = R200_TXFORMAT_ARGB1555;
-      break;
-   case MESA_FORMAT_ARGB4444:
-      txformat = R200_TXFORMAT_ARGB4444;
-      break;
-   case MESA_FORMAT_YCBCR:
-      txformat = R200_TXFORMAT_YVYU422;
-      t->pp_txfilter |= R200_YUV_TO_RGB;
-      break;
-   case MESA_FORMAT_YCBCR_REV:
-      txformat = R200_TXFORMAT_VYUY422;
-      t->pp_txfilter |= R200_YUV_TO_RGB;
-      break;
-   default:
-      _mesa_problem(NULL, "unexpected texture format in r200TexImage2D");
-      return;
-   }
 
    t->pp_txformat &= ~(R200_TXFORMAT_FORMAT_MASK |
 		       R200_TXFORMAT_ALPHA_IN_MAP);
-   t->pp_txformat |= txformat;
+   t->pp_txfilter &= ~R200_YUV_TO_RGB;
 
-   if ( txformat == R200_TXFORMAT_RGBA8888 ||
-	txformat == R200_TXFORMAT_ARGB8888 ||
-	txformat == R200_TXFORMAT_ARGB4444 ||
-	txformat == R200_TXFORMAT_ARGB1555 ||
-	txformat == R200_TXFORMAT_AI88 ) {
-      t->pp_txformat |= R200_TXFORMAT_ALPHA_IN_MAP;
+   if ( VALID_FORMAT( baseImage->TexFormat->MesaFormat ) ) {
+      t->pp_txformat |= tx_table[ baseImage->TexFormat->MesaFormat ].format;
+      t->pp_txfilter |= tx_table[ baseImage->TexFormat->MesaFormat ].filter;
    }
-
-   /* The R200 has a 64-byte minimum pitch for all blits.  We
-    * calculate the equivalent number of texels to simplify the
-    * calculation of the texture image area.
-    */
-   switch ( baseImage->TexFormat->TexelBytes ) {
-   case 1:
-      texelsPerDword = 4;
-      blitPitch = 64;
-      break;
-   case 2:
-      texelsPerDword = 2;
-      blitPitch = 32;
-      break;
-   case 4:
-      texelsPerDword = 1;
-      blitPitch = 16;
-      break;
-   default:
-      assert(0);
-   }
-
-   /* Select the larger of the two widths for our global texture image
-    * coordinate space.  As the R200 has very strict offset rules, we
-    * can't upload mipmaps directly and have to reference their location
-    * from the aligned start of the whole image.
-    */
-   blitWidth = MAX2( baseImage->Width, blitPitch );
-
-   /* Calculate mipmap offsets and dimensions.
-    */
-   totalSize = 0;
-   x = 0;
-   y = 0;
-
-   /* Compute which mipmap levels we really want to send to the hardware.
-    * This depends on the base image size, GL_TEXTURE_MIN_LOD,
-    * GL_TEXTURE_MAX_LOD, GL_TEXTURE_BASE_LEVEL, and GL_TEXTURE_MAX_LEVEL.
-    * Yes, this looks overly complicated, but it's all needed.
-    */
-   if (R200_DEBUG & DEBUG_TEXTURE)
-      fprintf(stderr,  
-	      "%s: BaseLevel %d MinLod %f MaxLod %f MaxLevel %d\n",  
-	      __FUNCTION__,
-	      tObj->BaseLevel, tObj->MinLod, tObj->MaxLod, 
-	      tObj->MaxLevel); 
-
-
-   switch (target) {
-   case GL_TEXTURE_1D:
-   case GL_TEXTURE_2D:
-      firstLevel = tObj->BaseLevel + (GLint)(tObj->MinLod + 0.5);
-      firstLevel = MAX2(firstLevel, tObj->BaseLevel);
-      lastLevel = tObj->BaseLevel + (GLint)(tObj->MaxLod + 0.5);
-      lastLevel = MAX2(lastLevel, tObj->BaseLevel);
-      lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
-      lastLevel = MIN2(lastLevel, tObj->MaxLevel);
-      lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
-      log2Width = tObj->Image[firstLevel]->WidthLog2;
-      log2Height = tObj->Image[firstLevel]->HeightLog2;
-      break;
-   case GL_TEXTURE_RECTANGLE_NV:
-      firstLevel = lastLevel = 0;
-      log2Width = log2Height = 1; /* ? */
-      break;
-   default:
+   else {
+      _mesa_problem(NULL, "unexpected texture format in %s", __FUNCTION__);
       return;
    }
 
-   /* save these values */
-   t->firstLevel = firstLevel;
-   t->lastLevel = lastLevel;
 
-   numLevels = lastLevel - firstLevel + 1;
+   /* Compute which mipmap levels we really want to send to the hardware.
+    */
 
-   if (R200_DEBUG & DEBUG_TEXTURE)
-      fprintf(stderr, 
-	      "%s: firstLevel %d last Level %d w,h: %d,%d log(w,h) %d,%d\n",  
-	      __FUNCTION__, firstLevel, lastLevel,
-	      tObj->Image[firstLevel]->Width,
-	      tObj->Image[firstLevel]->Height,
-	      tObj->Image[firstLevel]->WidthLog2,
-	      tObj->Image[firstLevel]->HeightLog2);
+   driCalculateTextureFirstLastLevel( (driTextureObject *) t );
+   log2Width  = tObj->Image[t->base.firstLevel]->WidthLog2;
+   log2Height = tObj->Image[t->base.firstLevel]->HeightLog2;
+   log2Depth  = tObj->Image[t->base.firstLevel]->DepthLog2;
 
-   
+   numLevels = t->base.lastLevel - t->base.firstLevel + 1;
+
    assert(numLevels <= RADEON_MAX_TEXTURE_LEVELS);
 
-   for ( i = 0 ; i < numLevels ; i++ ) {
+   /* Calculate mipmap offsets and dimensions for blitting (uploading)
+    * The idea is that we lay out the mipmap levels within a block of
+    * memory organized as a rectangle of width BLIT_WIDTH_BYTES.
+    */
+   curOffset = 0;
+
+   for (i = 0; i < numLevels; i++) {
       const struct gl_texture_image *texImage;
       GLuint size;
 
-      texImage = tObj->Image[i + firstLevel];
+      texImage = tObj->Image[i + t->base.firstLevel];
       if ( !texImage )
 	 break;
 
-      width = texImage->Width;
-      height = texImage->Height;
+      /* find image size in bytes */
+      if (texImage->IsCompressed) {
+         size = texImage->CompressedSize;
+      }
+      else if (tObj->Target == GL_TEXTURE_RECTANGLE_NV) {
+         size = ((texImage->Width * texImage->TexFormat->TexelBytes + 63)
+                 & ~63) * texImage->Height;
+      }
+      else {
+         int w = texImage->Width * texImage->TexFormat->TexelBytes;
+         if (w < 32)
+            w = 32;
+         size = w * texImage->Height * texImage->Depth;
+      }
+      assert(size > 0);
 
-      /* Texture images have a minimum pitch of 32 bytes (half of the
-       * 64-byte minimum pitch for blits).  For images that have a
-       * width smaller than this, we must pad each texture image
-       * scanline out to this amount.
+
+      /* Align to 32-byte offset.  It is faster to do this unconditionally
+       * (no branch penalty).
        */
-      if ( width < blitPitch / 2 ) {
-	 width = blitPitch / 2;
-      }
-      
-      if (target == GL_TEXTURE_RECTANGLE_NV) 
-	 size = ((width*baseImage->TexFormat->TexelBytes+63)&~63) * height;
-      else
-	 size = width * height * baseImage->TexFormat->TexelBytes;
 
-      totalSize += size;
+      curOffset = (curOffset + 0x1f) & ~0x1f;
 
-      if (target != GL_TEXTURE_RECTANGLE_NV) {
-	 while ( width < blitWidth && height > 1 ) {
-	    width *= 2;
-	    height /= 2;
-	 }
-      }
+      t->image[0][i].x = curOffset % BLIT_WIDTH_BYTES;
+      t->image[0][i].y = curOffset / BLIT_WIDTH_BYTES;
+      t->image[0][i].width  = MIN2(size, BLIT_WIDTH_BYTES);
+      t->image[0][i].height = size / t->image[0][i].width;
 
-      t->image[i].x = x;
-      t->image[i].y = y;
-      t->image[i].width  = width;
-      t->image[i].height = height;
+#if 0
+      /* for debugging only and only  applicable to non-rectangle targets */
+      assert(size % t->image[0][i].width == 0);
+      assert(t->image[0][i].x == 0
+             || (size < BLIT_WIDTH_BYTES && t->image[0][i].height == 1));
+#endif
 
-      /* While blits must have a pitch of at least 64 bytes, mipmaps
-       * must be aligned on a 32-byte boundary (just like each texture
-       * image scanline).
-       */
-      if ( width >= blitWidth ) {
-	 y += height;
-      } else {
-	 x += width;
-	 if ( x >= blitWidth ) {
-	    x = 0;
-	    y++;
-	 }
-      }
+      if (0)
+         fprintf(stderr,
+                 "level %d: %dx%d x=%d y=%d w=%d h=%d size=%d at %d\n",
+                 i, texImage->Width, texImage->Height,
+                 t->image[0][i].x, t->image[0][i].y,
+                 t->image[0][i].width, t->image[0][i].height, size, curOffset);
 
-      if ( 0 )
-	 fprintf( stderr, "level=%d p=%d   %dx%d -> %dx%d at (%d,%d)\n",
-		  i, blitWidth, baseImage->Width, baseImage->Height,
-		  t->image[i].width, t->image[i].height,
-		  t->image[i].x, t->image[i].y );
+      curOffset += size;
+
    }
 
    /* Align the total size of texture memory block.
     */
-   t->totalSize = (totalSize + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
+   t->base.totalSize = (curOffset + RADEON_OFFSET_MASK) & ~RADEON_OFFSET_MASK;
+
+   /* Setup remaining cube face blits, if needed */
+   if (tObj->Target == GL_TEXTURE_CUBE_MAP) {
+      /* Round totalSize up to multiple of BLIT_WIDTH_BYTES */
+      const GLuint faceSize = (t->base.totalSize + BLIT_WIDTH_BYTES - 1)
+                              & ~(BLIT_WIDTH_BYTES-1);
+      const GLuint lines = faceSize / BLIT_WIDTH_BYTES;
+      GLuint face;
+      /* reuse face 0 x/y/width/height - just adjust y */
+      for (face = 1; face < 6; face++) {
+         for (i = 0; i < numLevels; i++) {
+            t->image[face][i].x =  t->image[0][i].x;
+            t->image[face][i].y =  t->image[0][i].y + face * lines;
+            t->image[face][i].width  = t->image[0][i].width;
+            t->image[face][i].height = t->image[0][i].height;
+         }
+      }
+      t->base.totalSize = 6 * faceSize; /* total texmem needed */
+   }
+
 
    /* Hardware state:
     */
@@ -270,23 +227,50 @@ static void r200SetTexImages( r200ContextPtr rmesa,
    t->pp_txfilter |= (numLevels - 1) << R200_MAX_MIP_LEVEL_SHIFT;
 
    t->pp_txformat &= ~(R200_TXFORMAT_WIDTH_MASK |
-		       R200_TXFORMAT_HEIGHT_MASK);
+		       R200_TXFORMAT_HEIGHT_MASK |
+                       R200_TXFORMAT_CUBIC_MAP_ENABLE |
+                       R200_TXFORMAT_F5_WIDTH_MASK |
+                       R200_TXFORMAT_F5_HEIGHT_MASK);
    t->pp_txformat |= ((log2Width << R200_TXFORMAT_WIDTH_SHIFT) |
 		      (log2Height << R200_TXFORMAT_HEIGHT_SHIFT));
 
-   t->pp_txsize = (((tObj->Image[firstLevel]->Width - 1) << 0) |
-		   ((tObj->Image[firstLevel]->Height - 1) << 16));
+   t->pp_txformat_x &= ~(R200_DEPTH_LOG2_MASK | R200_TEXCOORD_MASK);
+   if (tObj->Target == GL_TEXTURE_3D) {
+      t->pp_txformat_x |= (log2Depth << R200_DEPTH_LOG2_SHIFT);
+      t->pp_txformat_x |= R200_TEXCOORD_VOLUME;
+   }
+   else if (tObj->Target == GL_TEXTURE_CUBE_MAP) {
+      ASSERT(log2Width == log2height);
+      t->pp_txformat |= ((log2Width << R200_TXFORMAT_F5_WIDTH_SHIFT) |
+                         (log2Height << R200_TXFORMAT_F5_HEIGHT_SHIFT) |
+                         (R200_TXFORMAT_CUBIC_MAP_ENABLE));
+      t->pp_txformat_x |= R200_TEXCOORD_CUBIC_ENV;
+      t->pp_cubic_faces = ((log2Width << R200_FACE_WIDTH_1_SHIFT) |
+                           (log2Height << R200_FACE_HEIGHT_1_SHIFT) |
+                           (log2Width << R200_FACE_WIDTH_2_SHIFT) |
+                           (log2Height << R200_FACE_HEIGHT_2_SHIFT) |
+                           (log2Width << R200_FACE_WIDTH_3_SHIFT) |
+                           (log2Height << R200_FACE_HEIGHT_3_SHIFT) |
+                           (log2Width << R200_FACE_WIDTH_4_SHIFT) |
+                           (log2Height << R200_FACE_HEIGHT_4_SHIFT));
+   }
+
+   t->pp_txsize = (((tObj->Image[t->base.firstLevel]->Width - 1) << 0) |
+                   ((tObj->Image[t->base.firstLevel]->Height - 1) << 16));
 
    /* Only need to round to nearest 32 for textures, but the blitter
     * requires 64-byte aligned pitches, and we may/may not need the
-    * blitter.
+    * blitter.   NPOT only!
     */
-   t->pp_txpitch = ((tObj->Image[firstLevel]->Width * baseImage->TexFormat->TexelBytes) + 63) & ~(63);
+   if (baseImage->IsCompressed)
+      t->pp_txpitch = (tObj->Image[t->base.firstLevel]->Width + 63) & ~(63);
+   else
+      t->pp_txpitch = ((tObj->Image[t->base.firstLevel]->Width * baseImage->TexFormat->TexelBytes) + 63) & ~(63);
    t->pp_txpitch -= 32;
 
    t->dirty_state = TEX_ALL;
 
-   r200UploadTexImages( rmesa, t );
+   /* FYI: r200UploadTexImages( rmesa, t ) used to be called here */
 }
 
 
@@ -493,7 +477,7 @@ static GLuint r200_alpha_combine[][R200_MAX_COMBFUNC] =
       (R200_TXA_ARG_A_DIFFUSE_ALPHA |
        R200_TXA_ARG_B_ZERO |
        R200_TXA_ARG_C_R0_ALPHA |
-       R200_TXC_COMP_ARG_B |
+       R200_TXA_COMP_ARG_B |
        R200_TXA_OP_MADD),
    },
 
@@ -540,7 +524,7 @@ static GLuint r200_alpha_combine[][R200_MAX_COMBFUNC] =
       (R200_TXA_ARG_A_R0_ALPHA |
        R200_TXA_ARG_B_ZERO |
        R200_TXA_ARG_C_R1_ALPHA |
-       R200_TXC_COMP_ARG_B |
+       R200_TXA_COMP_ARG_B |
        R200_TXA_OP_MADD),
    },
 
@@ -587,7 +571,7 @@ static GLuint r200_alpha_combine[][R200_MAX_COMBFUNC] =
       (R200_TXA_ARG_A_R0_ALPHA |
        R200_TXA_ARG_B_ZERO |
        R200_TXA_ARG_C_R2_ALPHA |
-       R200_TXC_COMP_ARG_B |
+       R200_TXA_COMP_ARG_B |
        R200_TXA_OP_MADD),
    }
 };
@@ -639,6 +623,17 @@ static GLuint r200_primary_color[] =
    R200_TXC_ARG_A_DIFFUSE_ALPHA | R200_TXC_COMP_ARG_A
 };
 
+/* GL_ZERO table - indices 0-3
+ * GL_ONE  table - indices 1-4
+ */
+static GLuint r200_zero_color[] =
+{
+   R200_TXC_ARG_A_ZERO,
+   R200_TXC_ARG_A_ZERO | R200_TXC_COMP_ARG_A,
+   R200_TXC_ARG_A_ZERO,
+   R200_TXC_ARG_A_ZERO | R200_TXC_COMP_ARG_A,
+   R200_TXC_ARG_A_ZERO
+};
 
 /* The alpha tables only have GL_SRC_ALPHA and GL_ONE_MINUS_SRC_ALPHA.
  */
@@ -650,24 +645,33 @@ static GLuint r200_register_alpha[][R200_MAX_TEXTURE_UNITS] =
       R200_TXA_ARG_A_R2_ALPHA
    },
    {
-      R200_TXA_ARG_A_R0_ALPHA | R200_TXC_COMP_ARG_A,
-      R200_TXA_ARG_A_R1_ALPHA | R200_TXC_COMP_ARG_A,
-      R200_TXA_ARG_A_R2_ALPHA | R200_TXC_COMP_ARG_A
+      R200_TXA_ARG_A_R0_ALPHA | R200_TXA_COMP_ARG_A,
+      R200_TXA_ARG_A_R1_ALPHA | R200_TXA_COMP_ARG_A,
+      R200_TXA_ARG_A_R2_ALPHA | R200_TXA_COMP_ARG_A
    },
 };
 
 static GLuint r200_tfactor_alpha[] =
 {
    R200_TXA_ARG_A_TFACTOR_ALPHA,
-   R200_TXA_ARG_A_TFACTOR_ALPHA | R200_TXC_COMP_ARG_A
+   R200_TXA_ARG_A_TFACTOR_ALPHA | R200_TXA_COMP_ARG_A
 };
 
 static GLuint r200_primary_alpha[] =
 {
    R200_TXA_ARG_A_DIFFUSE_ALPHA,
-   R200_TXA_ARG_A_DIFFUSE_ALPHA | R200_TXC_COMP_ARG_A
+   R200_TXA_ARG_A_DIFFUSE_ALPHA | R200_TXA_COMP_ARG_A
 };
 
+/* GL_ZERO table - indices 0-1
+ * GL_ONE  table - indices 1-2
+ */
+static GLuint r200_zero_alpha[] =
+{
+   R200_TXA_ARG_A_ZERO,
+   R200_TXA_ARG_A_ZERO | R200_TXA_COMP_ARG_A,
+   R200_TXA_ARG_A_ZERO,
+};
 
 
 /* Extract the arg from slot A, shift it into the correct argument slot
@@ -698,7 +702,7 @@ do {							\
  * Texture unit state management
  */
 
-static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
+static GLboolean r200UpdateTextureEnv( GLcontext *ctx, int unit )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
    const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
@@ -706,12 +710,18 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
    GLuint color_scale = rmesa->hw.pix[unit].cmd[PIX_PP_TXCBLEND2];
    GLuint alpha_scale = rmesa->hw.pix[unit].cmd[PIX_PP_TXABLEND2];
 
+   /* texUnit->_Current can be NULL if and only if the texture unit is
+    * not actually enabled.
+    */
+   assert( (texUnit->_ReallyEnabled == 0)
+	   || (texUnit->_Current != NULL) );
+
    if ( R200_DEBUG & DEBUG_TEXTURE ) {
-      fprintf( stderr, "%s( %p, %d )\n", __FUNCTION__, ctx, unit );
+      fprintf( stderr, "%s( %p, %d )\n", __FUNCTION__, (void *)ctx, unit );
    }
 
    /* Set the texture environment state.  Isn't this nice and clean?
-    * The R200 will automagically set the texture alpha to 0xff when
+    * The chip will automagically set the texture alpha to 0xff when
     * the texture format does not include an alpha component.  This
     * reduces the amount of special-casing we have to do, alpha-only
     * textures being a notable exception.
@@ -753,7 +763,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
 
@@ -777,7 +787,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
 
@@ -798,7 +808,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
 
@@ -822,7 +832,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
 
@@ -846,7 +856,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
 
@@ -874,27 +884,33 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    numColorArgs = 2;
 	    break;
 	 case GL_INTERPOLATE:
+	 case GL_MODULATE_ADD_ATI:
+	 case GL_MODULATE_SIGNED_ADD_ATI:
+	 case GL_MODULATE_SUBTRACT_ATI:
 	    numColorArgs = 3;
 	    break;
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 
 	 switch ( texUnit->CombineModeA ) {
 	 case GL_REPLACE:
 	    numAlphaArgs = 1;
 	    break;
-	 case GL_SUBTRACT:
 	 case GL_MODULATE:
 	 case GL_ADD:
 	 case GL_ADD_SIGNED:
+	 case GL_SUBTRACT:
 	    numAlphaArgs = 2;
 	    break;
 	 case GL_INTERPOLATE:
+	 case GL_MODULATE_ADD_ATI:
+	 case GL_MODULATE_SIGNED_ADD_ATI:
+	 case GL_MODULATE_SUBTRACT_ATI:
 	    numAlphaArgs = 3;
 	    break;
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 
 	 /* Step 1:
@@ -920,8 +936,14 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	       else
 		  color_arg[i] = r200_register_color[op][0];
 	       break;
+	    case GL_ZERO:
+	       color_arg[i] = r200_zero_color[op];
+	       break;
+	    case GL_ONE:
+	       color_arg[i] = r200_zero_color[op+1];
+	       break;
 	    default:
-	       return;
+	       return GL_FALSE;
 	    }
 	 }
 
@@ -945,8 +967,14 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	       else
 		  alpha_arg[i] = r200_register_alpha[op][0];
 	       break;
+	    case GL_ZERO:
+	       alpha_arg[i] = r200_zero_alpha[op];
+	       break;
+	    case GL_ONE:
+	       alpha_arg[i] = r200_zero_alpha[op+1];
+	       break;
 	    default:
-	       return;
+	       return GL_FALSE;
 	    }
 	 }
 
@@ -973,19 +1001,19 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    R200_COLOR_ARG( 0, A );
 	    R200_COLOR_ARG( 1, C );
 	    break;
-	 case GL_SUBTRACT:
-	    color_combine = (R200_TXC_ARG_B_ZERO |
-			     R200_TXC_COMP_ARG_B | 
-			     R200_TXC_NEG_ARG_C |
-			     R200_TXC_OP_MADD);
-	    R200_COLOR_ARG( 0, A );
-	    R200_COLOR_ARG( 1, C );
-	    break;
 	 case GL_ADD_SIGNED:
 	    color_combine = (R200_TXC_ARG_B_ZERO |
 			     R200_TXC_COMP_ARG_B |
 			     R200_TXC_BIAS_ARG_C |	/* new */
 			     R200_TXC_OP_MADD); /* was ADDSIGNED */
+	    R200_COLOR_ARG( 0, A );
+	    R200_COLOR_ARG( 1, C );
+	    break;
+	 case GL_SUBTRACT:
+	    color_combine = (R200_TXC_ARG_B_ZERO |
+			     R200_TXC_COMP_ARG_B | 
+			     R200_TXC_NEG_ARG_C |
+			     R200_TXC_OP_MADD);
 	    R200_COLOR_ARG( 0, A );
 	    R200_COLOR_ARG( 1, C );
 	    break;
@@ -998,6 +1026,10 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 
 	 case GL_DOT3_RGB_EXT:
 	 case GL_DOT3_RGBA_EXT:
+	    /* The EXT version of the DOT3 extension does not support the
+	     * scale factor, but the ARB version (and the version in OpenGL
+	     * 1.3) does.
+	     */
 	    RGBshift = 0;
 	    Ashift = 0;
 	    /* FALLTHROUGH */
@@ -1025,8 +1057,28 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    R200_COLOR_ARG( 1, B );
 	    break;
 
+	 case GL_MODULATE_ADD_ATI:
+	    color_combine = (R200_TXC_OP_MADD);
+	    R200_COLOR_ARG( 0, A );
+	    R200_COLOR_ARG( 1, C );
+	    R200_COLOR_ARG( 2, B );
+	    break;
+	 case GL_MODULATE_SIGNED_ADD_ATI:
+	    color_combine = (R200_TXC_BIAS_ARG_C |	/* new */
+			     R200_TXC_OP_MADD); /* was ADDSIGNED */
+	    R200_COLOR_ARG( 0, A );
+	    R200_COLOR_ARG( 1, C );
+	    R200_COLOR_ARG( 2, B );
+	    break;
+	 case GL_MODULATE_SUBTRACT_ATI:
+	    color_combine = (R200_TXC_NEG_ARG_C |
+			     R200_TXC_OP_MADD);
+	    R200_COLOR_ARG( 0, A );
+	    R200_COLOR_ARG( 1, C );
+	    R200_COLOR_ARG( 2, B );
+	    break;
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 
 	 switch ( texUnit->CombineModeA ) {
@@ -1044,24 +1096,24 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    break;
 	 case GL_ADD:
 	    alpha_combine = (R200_TXA_ARG_B_ZERO |
-			     R200_TXC_COMP_ARG_B |
-			     R200_TXA_OP_MADD);
-	    R200_ALPHA_ARG( 0, A );
-	    R200_ALPHA_ARG( 1, C );
-	    break;
-	 case GL_SUBTRACT:
-	    alpha_combine = (R200_TXA_ARG_B_ZERO |
-			     R200_TXC_COMP_ARG_B |
-			     R200_TXC_NEG_ARG_C |
+			     R200_TXA_COMP_ARG_B |
 			     R200_TXA_OP_MADD);
 	    R200_ALPHA_ARG( 0, A );
 	    R200_ALPHA_ARG( 1, C );
 	    break;
 	 case GL_ADD_SIGNED:
 	    alpha_combine = (R200_TXA_ARG_B_ZERO |
-			     R200_TXC_COMP_ARG_B |
-			     R200_TXC_BIAS_ARG_C |	/* new */
+			     R200_TXA_COMP_ARG_B |
+			     R200_TXA_BIAS_ARG_C |	/* new */
 			     R200_TXA_OP_MADD); /* was ADDSIGNED */
+	    R200_ALPHA_ARG( 0, A );
+	    R200_ALPHA_ARG( 1, C );
+	    break;
+	 case GL_SUBTRACT:
+	    alpha_combine = (R200_TXA_ARG_B_ZERO |
+			     R200_TXA_COMP_ARG_B |
+			     R200_TXA_NEG_ARG_C |
+			     R200_TXA_OP_MADD);
 	    R200_ALPHA_ARG( 0, A );
 	    R200_ALPHA_ARG( 1, C );
 	    break;
@@ -1071,18 +1123,38 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	    R200_ALPHA_ARG( 1, A );
 	    R200_ALPHA_ARG( 2, C );
 	    break;
+
+	 case GL_MODULATE_ADD_ATI:
+	    alpha_combine = (R200_TXA_OP_MADD);
+	    R200_ALPHA_ARG( 0, A );
+	    R200_ALPHA_ARG( 1, C );
+	    R200_ALPHA_ARG( 2, B );
+	    break;
+	 case GL_MODULATE_SIGNED_ADD_ATI:
+	    alpha_combine = (R200_TXA_BIAS_ARG_C |	/* new */
+			     R200_TXA_OP_MADD); /* was ADDSIGNED */
+	    R200_ALPHA_ARG( 0, A );
+	    R200_ALPHA_ARG( 1, C );
+	    R200_ALPHA_ARG( 2, B );
+	    break;
+	 case GL_MODULATE_SUBTRACT_ATI:
+	    alpha_combine = (R200_TXA_NEG_ARG_C |
+			     R200_TXA_OP_MADD);
+	    R200_ALPHA_ARG( 0, A );
+	    R200_ALPHA_ARG( 1, C );
+	    R200_ALPHA_ARG( 2, B );
+	    break;
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 
-	 if ( texUnit->CombineModeRGB == GL_DOT3_RGB ) {
+	 if ( (texUnit->CombineModeRGB == GL_DOT3_RGB_EXT)
+	      || (texUnit->CombineModeRGB == GL_DOT3_RGB) ) {
 	    alpha_scale |= R200_TXA_DOT_ALPHA;
 	 }
 
 	 /* Step 3:
-	  * Apply the scale factor.  The EXT version of the DOT3 extension does
-	  * not support the scale factor, but the ARB version (and the version in
-	  * OpenGL 1.3) does.
+	  * Apply the scale factor.
 	  */
 	 color_scale &= ~R200_TXC_SCALE_MASK;
 	 alpha_scale &= ~R200_TXA_SCALE_MASK;
@@ -1094,7 +1166,7 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
 	 break;
 
       default:
-	 return;
+	 return GL_FALSE;
       }
    }
 
@@ -1108,23 +1180,32 @@ static void r200UpdateTextureEnv( GLcontext *ctx, int unit )
       rmesa->hw.pix[unit].cmd[PIX_PP_TXCBLEND2] = color_scale;
       rmesa->hw.pix[unit].cmd[PIX_PP_TXABLEND2] = alpha_scale;
    }
+
+   return GL_TRUE;
 }
 
-#define TEXOBJ_TXFILTER_MASK (R200_MAX_MIP_LEVEL_MASK |	\
+#define TEXOBJ_TXFILTER_MASK (R200_MAX_MIP_LEVEL_MASK |		\
 			      R200_MIN_FILTER_MASK | 		\
 			      R200_MAG_FILTER_MASK |		\
 			      R200_MAX_ANISO_MASK |		\
-			      R200_YUV_TO_RGB |		\
+			      R200_YUV_TO_RGB |			\
 			      R200_YUV_TEMPERATURE_MASK |	\
 			      R200_CLAMP_S_MASK | 		\
-			      R200_CLAMP_T_MASK)
+			      R200_CLAMP_T_MASK | 		\
+			      R200_BORDER_MODE_D3D )
 
 #define TEXOBJ_TXFORMAT_MASK (R200_TXFORMAT_WIDTH_MASK |	\
 			      R200_TXFORMAT_HEIGHT_MASK |	\
 			      R200_TXFORMAT_FORMAT_MASK |	\
-			      R200_TXFORMAT_ALPHA_IN_MAP |      \
+                              R200_TXFORMAT_F5_WIDTH_MASK |	\
+                              R200_TXFORMAT_F5_HEIGHT_MASK |	\
+			      R200_TXFORMAT_ALPHA_IN_MAP |	\
+			      R200_TXFORMAT_CUBIC_MAP_ENABLE |	\
                               R200_TXFORMAT_NON_POWER2)
 
+#define TEXOBJ_TXFORMAT_X_MASK (R200_DEPTH_LOG2_MASK |		\
+                                R200_TEXCOORD_MASK |		\
+                                R200_VOLUME_FILTER_MASK)
 
 
 static void import_tex_obj_state( r200ContextPtr rmesa,
@@ -1137,13 +1218,28 @@ static void import_tex_obj_state( r200ContextPtr rmesa,
    cmd[TEX_PP_TXFILTER] |= texobj->pp_txfilter & TEXOBJ_TXFILTER_MASK;
    cmd[TEX_PP_TXFORMAT] &= ~TEXOBJ_TXFORMAT_MASK;
    cmd[TEX_PP_TXFORMAT] |= texobj->pp_txformat & TEXOBJ_TXFORMAT_MASK;
+   cmd[TEX_PP_TXFORMAT_X] &= ~TEXOBJ_TXFORMAT_X_MASK;
+   cmd[TEX_PP_TXFORMAT_X] |= texobj->pp_txformat_x & TEXOBJ_TXFORMAT_X_MASK;
    cmd[TEX_PP_TXSIZE] = texobj->pp_txsize; /* NPOT only! */
    cmd[TEX_PP_TXPITCH] = texobj->pp_txpitch; /* NPOT only! */
    cmd[TEX_PP_TXOFFSET] = texobj->pp_txoffset;
    cmd[TEX_PP_BORDER_COLOR] = texobj->pp_border_color;
-   texobj->dirty_state &= ~(1<<unit);
-
    R200_DB_STATECHANGE( rmesa, &rmesa->hw.tex[unit] );
+
+   if (texobj->base.tObj->Target == GL_TEXTURE_CUBE_MAP) {
+      GLuint *cube_cmd = R200_DB_STATE( cube[unit] );
+      GLuint bytesPerFace = texobj->base.totalSize / 6;
+      ASSERT(texobj->totalSize % 6 == 0);
+      cube_cmd[CUBE_PP_CUBIC_FACES] = texobj->pp_cubic_faces;
+      cube_cmd[CUBE_PP_CUBIC_OFFSET_F1] = texobj->pp_txoffset + 1 * bytesPerFace;
+      cube_cmd[CUBE_PP_CUBIC_OFFSET_F2] = texobj->pp_txoffset + 2 * bytesPerFace;
+      cube_cmd[CUBE_PP_CUBIC_OFFSET_F3] = texobj->pp_txoffset + 3 * bytesPerFace;
+      cube_cmd[CUBE_PP_CUBIC_OFFSET_F4] = texobj->pp_txoffset + 4 * bytesPerFace;
+      cube_cmd[CUBE_PP_CUBIC_OFFSET_F5] = texobj->pp_txoffset + 5 * bytesPerFace;
+      R200_DB_STATECHANGE( rmesa, &rmesa->hw.cube[unit] );
+   }
+
+   texobj->dirty_state &= ~(1<<unit);
 }
 
 
@@ -1151,13 +1247,15 @@ static void import_tex_obj_state( r200ContextPtr rmesa,
 
 static void set_texgen_matrix( r200ContextPtr rmesa, 
 			       GLuint unit,
-			       GLfloat *s_plane,
-			       GLfloat *t_plane )
+			       const GLfloat *s_plane,
+			       const GLfloat *t_plane,
+			       const GLfloat *r_plane )
 {
    static const GLfloat scale_identity[4] = { 1,1,1,1 };
 
    if (!TEST_EQ_4V( s_plane, scale_identity) ||
-      !(TEST_EQ_4V( t_plane, scale_identity))) {
+       !TEST_EQ_4V( t_plane, scale_identity) ||
+       !TEST_EQ_4V( r_plane, scale_identity)) {
       rmesa->TexGenEnabled |= R200_TEXMAT_0_ENABLE<<unit;
       rmesa->TexGenMatrix[unit].m[0]  = s_plane[0];
       rmesa->TexGenMatrix[unit].m[4]  = s_plane[1];
@@ -1168,9 +1266,45 @@ static void set_texgen_matrix( r200ContextPtr rmesa,
       rmesa->TexGenMatrix[unit].m[5]  = t_plane[1];
       rmesa->TexGenMatrix[unit].m[9]  = t_plane[2];
       rmesa->TexGenMatrix[unit].m[13] = t_plane[3];
+
+      /* NOTE: r_plane goes in the 4th row, not 3rd! */
+      rmesa->TexGenMatrix[unit].m[3]  = r_plane[0];
+      rmesa->TexGenMatrix[unit].m[7]  = r_plane[1];
+      rmesa->TexGenMatrix[unit].m[11] = r_plane[2];
+      rmesa->TexGenMatrix[unit].m[15] = r_plane[3];
+
       rmesa->NewGLState |= _NEW_TEXTURE_MATRIX;
    }
 }
+
+/* Need this special matrix to get correct reflection map coords */
+static void
+set_texgen_reflection_matrix( r200ContextPtr rmesa, GLuint unit )
+{
+   static const GLfloat m[16] = {
+      -1,  0,  0,  0,
+       0, -1,  0,  0,
+       0,  0,  0, -1,
+       0,  0, -1,  0 };
+   _math_matrix_loadf( &(rmesa->TexGenMatrix[unit]), m);
+   _math_matrix_analyse( &(rmesa->TexGenMatrix[unit]) );
+   rmesa->TexGenEnabled |= R200_TEXMAT_0_ENABLE<<unit;
+}
+
+/* Need this special matrix to get correct normal map coords */
+static void
+set_texgen_normal_map_matrix( r200ContextPtr rmesa, GLuint unit )
+{
+   static const GLfloat m[16] = {
+      1, 0, 0, 0,
+      0, 1, 0, 0,
+      0, 0, 0, 1,
+      0, 0, 1, 0 };
+   _math_matrix_loadf( &(rmesa->TexGenMatrix[unit]), m);
+   _math_matrix_analyse( &(rmesa->TexGenMatrix[unit]) );
+   rmesa->TexGenEnabled |= R200_TEXMAT_0_ENABLE<<unit;
+}
+
 
 /* Ignoring the Q texcoord for now.
  *
@@ -1179,7 +1313,7 @@ static void set_texgen_matrix( r200ContextPtr rmesa,
 static GLboolean r200_validate_texgen( GLcontext *ctx, GLuint unit )
 {  
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
    GLuint inputshift = R200_TEXGEN_0_INPUT_SHIFT + unit*4;
    GLuint tmp = rmesa->TexGenEnabled;
 
@@ -1192,7 +1326,7 @@ static GLboolean r200_validate_texgen( GLcontext *ctx, GLuint unit )
    if (0) 
       fprintf(stderr, "%s unit %d\n", __FUNCTION__, unit);
 
-   if ((texUnit->TexGenEnabled & (S_BIT|T_BIT)) == 0) {
+   if ((texUnit->TexGenEnabled & (S_BIT|T_BIT|R_BIT)) == 0) {
       /* Disabled, no fallback:
        */
       rmesa->TexGenInputs |= 
@@ -1203,42 +1337,58 @@ static GLboolean r200_validate_texgen( GLcontext *ctx, GLuint unit )
       /* Very easy to do this, in fact would remove a fallback case
        * elsewhere, but I haven't done it yet...  Fallback: 
        */
-      fprintf(stderr, "fallback Q_BIT\n");
+      /*fprintf(stderr, "fallback Q_BIT\n");*/
       return GL_FALSE;
    }
-   else if ((texUnit->TexGenEnabled & (S_BIT|T_BIT)) != (S_BIT|T_BIT) ||
-	    texUnit->GenModeS != texUnit->GenModeT) {
+   else if (texUnit->TexGenEnabled == (S_BIT|T_BIT) &&
+	    texUnit->GenModeS == texUnit->GenModeT) {
+      /* OK */
+      rmesa->TexGenEnabled |= R200_TEXGEN_TEXMAT_0_ENABLE << unit;
+      /* continue */
+   }
+   else if (texUnit->TexGenEnabled == (S_BIT|T_BIT|R_BIT) &&
+	    texUnit->GenModeS == texUnit->GenModeT &&
+            texUnit->GenModeT == texUnit->GenModeR) {
+      /* OK */
+      rmesa->TexGenEnabled |= R200_TEXGEN_TEXMAT_0_ENABLE << unit;
+      /* continue */
+   }
+   else {
       /* Mixed modes, fallback:
        */
-/*        fprintf(stderr, "fallback mixed texgen\n"); */
+      /* fprintf(stderr, "fallback mixed texgen\n"); */
       return GL_FALSE;
    }
-   else
-      rmesa->TexGenEnabled |= R200_TEXGEN_TEXMAT_0_ENABLE << unit;
+
+   rmesa->TexGenEnabled |= R200_TEXGEN_TEXMAT_0_ENABLE << unit;
 
    switch (texUnit->GenModeS) {
    case GL_OBJECT_LINEAR:
       rmesa->TexGenInputs |= R200_TEXGEN_INPUT_OBJ << inputshift;
       set_texgen_matrix( rmesa, unit, 
 			 texUnit->ObjectPlaneS,
-			 texUnit->ObjectPlaneT);
+			 texUnit->ObjectPlaneT,
+                         texUnit->ObjectPlaneR);
       break;
 
    case GL_EYE_LINEAR:
       rmesa->TexGenInputs |= R200_TEXGEN_INPUT_EYE << inputshift;
       set_texgen_matrix( rmesa, unit, 
 			 texUnit->EyePlaneS,
-			 texUnit->EyePlaneT);
+			 texUnit->EyePlaneT,
+			 texUnit->EyePlaneR);
       break;
 
    case GL_REFLECTION_MAP_NV:
       rmesa->TexGenNeedNormals[unit] = GL_TRUE;
       rmesa->TexGenInputs |= R200_TEXGEN_INPUT_EYE_REFLECT<<inputshift;
+      set_texgen_reflection_matrix(rmesa, unit);
       break;
 
    case GL_NORMAL_MAP_NV:
       rmesa->TexGenNeedNormals[unit] = GL_TRUE;
       rmesa->TexGenInputs |= R200_TEXGEN_INPUT_EYE_NORMAL<<inputshift;
+      set_texgen_normal_map_matrix(rmesa, unit);
       break;
 
    case GL_SPHERE_MAP:
@@ -1259,10 +1409,6 @@ static GLboolean r200_validate_texgen( GLcontext *ctx, GLuint unit )
       rmesa->NewGLState |= _NEW_TEXTURE_MATRIX;
    }
 
-   if (0) 
-   fprintf(stderr, "%s unit %d neednormals %d\n", __FUNCTION__, unit,
-	   rmesa->TexGenNeedNormals[unit]);
-
    return GL_TRUE;
 }
 
@@ -1273,7 +1419,15 @@ static void disable_tex( GLcontext *ctx, int unit )
 
    if (rmesa->hw.ctx.cmd[CTX_PP_CNTL] & (R200_TEX_0_ENABLE<<unit)) {
       /* Texture unit disabled */
-      rmesa->state.texture.unit[unit].texobj = 0;
+      if ( rmesa->state.texture.unit[unit].texobj != NULL ) {
+	 /* The old texture is no longer bound to this texture unit.
+	  * Mark it as such.
+	  */
+
+	 rmesa->state.texture.unit[unit].texobj->base.bound &= ~(1UL << unit);
+	 rmesa->state.texture.unit[unit].texobj = NULL;
+      }
+
       R200_STATECHANGE( rmesa, ctx );
       rmesa->hw.ctx.cmd[CTX_PP_CNTL] &= ~((R200_TEX_0_ENABLE |
 					   R200_TEX_BLEND_0_ENABLE) << unit);
@@ -1289,14 +1443,15 @@ static void disable_tex( GLcontext *ctx, int unit )
       /* Actually want to keep all units less than max active texture
        * enabled, right?  Fix this for >2 texunits.
        */
+      /* FIXME: What should happen here if r200UpdateTextureEnv fails? */
       if (unit == 0) 
 	 r200UpdateTextureEnv( ctx, unit ); 
 
-	 
+
       {
 	 GLuint inputshift = R200_TEXGEN_0_INPUT_SHIFT + unit*4;
 	 GLuint tmp = rmesa->TexGenEnabled;
-	    
+
 	 rmesa->TexGenEnabled &= ~(R200_TEXGEN_TEXMAT_0_ENABLE<<unit);
 	 rmesa->TexGenEnabled &= ~(R200_TEXMAT_0_ENABLE<<unit);
 	 rmesa->TexGenEnabled &= ~(R200_TEXGEN_INPUT_MASK<<inputshift);
@@ -1323,16 +1478,96 @@ static GLboolean enable_tex_2d( GLcontext *ctx, int unit )
     */
    if (t->pp_txformat & R200_TXFORMAT_NON_POWER2) {
       t->pp_txformat &= ~R200_TXFORMAT_NON_POWER2;
-      t->dirty_images = ~0;
+      t->base.dirty_images[0] = ~0;
    }
 
-   if ( t->dirty_images ) {
+   ASSERT(tObj->Target == GL_TEXTURE_2D || tObj->Target == GL_TEXTURE_1D);
+
+   if ( t->base.dirty_images[0] ) {
       R200_FIREVERTICES( rmesa );
-      r200SetTexImages( rmesa, tObj, GL_TEXTURE_2D );
-      if ( !t->memBlock ) 
+      r200SetTexImages( rmesa, tObj );
+      r200UploadTexImages( rmesa, (r200TexObjPtr) tObj->DriverData, 0 );
+      if ( !t->base.memBlock ) 
 	 return GL_FALSE;
    }
+
+   return GL_TRUE;
+}
+
+#if ENABLE_HW_3D_TEXTURE
+static GLboolean enable_tex_3d( GLcontext *ctx, int unit )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   r200TexObjPtr t = (r200TexObjPtr) tObj->DriverData;
+
+   /* Need to load the 3d images associated with this unit.
+    */
+   if (t->pp_txformat & R200_TXFORMAT_NON_POWER2) {
+      t->pp_txformat &= ~R200_TXFORMAT_NON_POWER2;
+      t->base.dirty_images[0] = ~0;
+   }
+
+   ASSERT(tObj->Target == GL_TEXTURE_3D);
+
+   /* R100 & R200 do not support mipmaps for 3D textures.
+    */
+   if ( (tObj->MinFilter != GL_NEAREST) && (tObj->MinFilter != GL_LINEAR) ) {
+      return GL_FALSE;
+   }
+
+   if ( t->base.dirty_images[0] ) {
+      R200_FIREVERTICES( rmesa );
+      r200SetTexImages( rmesa, tObj );
+      r200UploadTexImages( rmesa, (r200TexObjPtr) tObj->DriverData, 0 );
+      if ( !t->base.memBlock ) 
+	 return GL_FALSE;
+   }
+
+   return GL_TRUE;
+}
+#endif
+
+static GLboolean enable_tex_cube( GLcontext *ctx, int unit )
+{
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   r200TexObjPtr t = (r200TexObjPtr) tObj->DriverData;
+   GLuint face;
+
+   /* Need to load the 2d images associated with this unit.
+    */
+   if (t->pp_txformat & R200_TXFORMAT_NON_POWER2) {
+      t->pp_txformat &= ~R200_TXFORMAT_NON_POWER2;
+      for (face = 0; face < 6; face++)
+         t->base.dirty_images[face] = ~0;
+   }
+
+   ASSERT(tObj->Target == GL_TEXTURE_CUBE_MAP);
+
+   if ( t->base.dirty_images[0] || t->base.dirty_images[1] ||
+        t->base.dirty_images[2] || t->base.dirty_images[3] ||
+        t->base.dirty_images[4] || t->base.dirty_images[5] ) {
+      /* flush */
+      R200_FIREVERTICES( rmesa );
+      /* layout memory space, once for all faces */
+      r200SetTexImages( rmesa, tObj );
+   }
+
+   /* upload (per face) */
+   for (face = 0; face < 6; face++) {
+      if (t->base.dirty_images[face]) {
+         r200UploadTexImages( rmesa, (r200TexObjPtr) tObj->DriverData, face );
+      }
+   }
       
+   if ( !t->base.memBlock ) {
+      /* texmem alloc failed, use s/w fallback */
+      return GL_FALSE;
+   }
+
    return GL_TRUE;
 }
 
@@ -1345,13 +1580,16 @@ static GLboolean enable_tex_rect( GLcontext *ctx, int unit )
 
    if (!(t->pp_txformat & R200_TXFORMAT_NON_POWER2)) {
       t->pp_txformat |= R200_TXFORMAT_NON_POWER2;
-      t->dirty_images = ~0;
+      t->base.dirty_images[0] = ~0;
    }
 
-   if ( t->dirty_images ) {
+   ASSERT(tObj->Target == GL_TEXTURE_RECTANGLE_NV);
+
+   if ( t->base.dirty_images[0] ) {
       R200_FIREVERTICES( rmesa );
-      r200SetTexImages( rmesa, tObj, GL_TEXTURE_RECTANGLE_NV );
-      if ( !t->memBlock && !rmesa->prefer_agp_client_texturing ) 
+      r200SetTexImages( rmesa, tObj );
+      r200UploadTexImages( rmesa, (r200TexObjPtr) tObj->DriverData, 0 );
+      if ( !t->base.memBlock && !rmesa->prefer_gart_client_texturing ) 
 	 return GL_FALSE;
    }
 
@@ -1369,15 +1607,25 @@ static GLboolean update_tex_common( GLcontext *ctx, int unit )
 
    /* Fallback if there's a texture border */
    if ( tObj->Image[tObj->BaseLevel]->Border > 0 )
-      return GL_FALSE;
+       return GL_FALSE;
 
    /* Update state if this is a different texture object to last
     * time.
     */
    if ( rmesa->state.texture.unit[unit].texobj != t ) {
+      if ( rmesa->state.texture.unit[unit].texobj != NULL ) {
+	 /* The old texture is no longer bound to this texture unit.
+	  * Mark it as such.
+	  */
+
+	 rmesa->state.texture.unit[unit].texobj->base.bound &= 
+	     ~(1UL << unit);
+      }
+
       rmesa->state.texture.unit[unit].texobj = t;
+      t->base.bound |= (1UL << unit);
       t->dirty_state |= 1<<unit;
-      r200UpdateTexLRU( rmesa, t ); /* XXX: should be locked! */
+      driUpdateTextureLRU( (driTextureObject *) t ); /* XXX: should be locked! */
    }
 
 
@@ -1397,7 +1645,7 @@ static GLboolean update_tex_common( GLcontext *ctx, int unit )
    if (t->dirty_state & (1<<unit)) {
       import_tex_obj_state( rmesa, unit, t );
    }
-      
+
    if (rmesa->recheck_texgen[unit]) {
       GLboolean fallback = !r200_validate_texgen( ctx, unit );
       TCL_FALLBACK( ctx, (R200_TCL_FALLBACK_TEXGEN_0<<unit), fallback);
@@ -1410,10 +1658,13 @@ static GLboolean update_tex_common( GLcontext *ctx, int unit )
 	rmesa->state.texture.unit[unit].envMode != texUnit->EnvMode ) {
       rmesa->state.texture.unit[unit].format = format;
       rmesa->state.texture.unit[unit].envMode = texUnit->EnvMode;
-      r200UpdateTextureEnv( ctx, unit );
+      if ( ! r200UpdateTextureEnv( ctx, unit ) ) {
+	 return GL_FALSE;
+      }
    }
-   
-   return GL_TRUE;
+
+   FALLBACK( rmesa, R200_FALLBACK_BORDER_MODE, t->border_fallback );
+   return !t->border_fallback;
 }
 
 
@@ -1422,12 +1673,22 @@ static GLboolean r200UpdateTextureUnit( GLcontext *ctx, int unit )
 {
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 
-   if ( texUnit->_ReallyEnabled & (TEXTURE0_RECT) ) {
+   if ( texUnit->_ReallyEnabled & (TEXTURE_RECT_BIT) ) {
       return (enable_tex_rect( ctx, unit ) &&
 	      update_tex_common( ctx, unit ));
    }
-   else if ( texUnit->_ReallyEnabled & (TEXTURE0_1D|TEXTURE0_2D) ) {
+   else if ( texUnit->_ReallyEnabled & (TEXTURE_1D_BIT | TEXTURE_2D_BIT) ) {
       return (enable_tex_2d( ctx, unit ) &&
+	      update_tex_common( ctx, unit ));
+   }
+#if ENABLE_HW_3D_TEXTURE
+   else if ( texUnit->_ReallyEnabled & (TEXTURE_3D_BIT) ) {
+      return (enable_tex_3d( ctx, unit ) &&
+	      update_tex_common( ctx, unit ));
+   }
+#endif
+   else if ( texUnit->_ReallyEnabled & (TEXTURE_CUBE_BIT) ) {
+      return (enable_tex_cube( ctx, unit ) &&
 	      update_tex_common( ctx, unit ));
    }
    else if ( texUnit->_ReallyEnabled ) {

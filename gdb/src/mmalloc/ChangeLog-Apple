@@ -1,3 +1,10 @@
+2003-09-02  Klee Dienes  <kdienes@apple.com>
+
+	* attach.c (mmalloc_attach): Remove code (previously #ifdef 0'd)
+	to re-locate keys to a new base address --- they're not
+	necessarily pointers into the malloc pool, so that's never the
+	right thing to do automatically.
+	
 2003-04-21  Klee Dienes  <kdienes@apple.com>
 
 	* mmalloc.h (mmalloc_findbase): Add "suggested baseaddr" as an

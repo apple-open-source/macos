@@ -31,15 +31,36 @@
 #include "gdbcore.h"
 #include "gdb_wait.h"
 #include "regcache.h"
+#include "gdb_string.h"
 #include <signal.h>
-
-extern CORE_ADDR text_end;
 
 extern int hpux_has_forked (int pid, int *childpid);
 extern int hpux_has_vforked (int pid, int *childpid);
 extern int hpux_has_execd (int pid, char **execd_pathname);
 extern int hpux_has_syscall_event (int pid, enum target_waitkind *kind,
 				   int *syscall_id);
+
+static CORE_ADDR text_end;
+
+void
+deprecated_hpux_text_end (struct target_ops *exec_ops)
+{
+  struct section_table *p;
+
+  /* Set text_end to the highest address of the end of any readonly
+     code section.  */
+  /* FIXME: The comment above does not match the code.  The code
+     checks for sections with are either code *or* readonly.  */
+  text_end = (CORE_ADDR) 0;
+  for (p = exec_ops->to_sections; p < exec_ops->to_sections_end; p++)
+    if (bfd_get_section_flags (p->bfd, p->the_bfd_section)
+	& (SEC_CODE | SEC_READONLY))
+      {
+	if (text_end < p->endaddr)
+	  text_end = p->endaddr;
+      }
+}
+
 
 static void fetch_register (int);
 
@@ -63,9 +84,9 @@ fetch_inferior_registers (int regno)
 void
 store_inferior_registers (int regno)
 {
-  register unsigned int regaddr;
+  unsigned int regaddr;
   char buf[80];
-  register int i;
+  int i;
   unsigned int offset = U_REGS_OFFSET;
   int scratch;
 
@@ -77,7 +98,7 @@ store_inferior_registers (int regno)
 	return;
 
       offset = 0;
-      len = REGISTER_RAW_SIZE (regno);
+      len = DEPRECATED_REGISTER_RAW_SIZE (regno);
 
       /* Requests for register zero actually want the save_state's
 	 ss_flags member.  As RM says: "Oh, what a hack!"  */
@@ -88,16 +109,17 @@ store_inferior_registers (int regno)
 	  len = sizeof (ss.ss_flags);
 
 	  /* Note that ss_flags is always an int, no matter what
-	     REGISTER_RAW_SIZE(0) says.  Assuming all HP-UX PA machines
-	     are big-endian, put it at the least significant end of the
-	     value, and zap the rest of the buffer.  */
-	  offset = REGISTER_RAW_SIZE (0) - len;
+	     DEPRECATED_REGISTER_RAW_SIZE(0) says.  Assuming all HP-UX
+	     PA machines are big-endian, put it at the least
+	     significant end of the value, and zap the rest of the
+	     buffer.  */
+	  offset = DEPRECATED_REGISTER_RAW_SIZE (0) - len;
 	}
 
       /* Floating-point registers come from the ss_fpblock area.  */
       else if (regno >= FP0_REGNUM)
 	addr = (HPPAH_OFFSETOF (save_state_t, ss_fpblock) 
-		+ (REGISTER_BYTE (regno) - REGISTER_BYTE (FP0_REGNUM)));
+		+ (DEPRECATED_REGISTER_BYTE (regno) - DEPRECATED_REGISTER_BYTE (FP0_REGNUM)));
 
       /* Wide registers come from the ss_wide area.
 	 I think it's more PC to test (ss_flags & SS_WIDEREGS) to select
@@ -106,13 +128,13 @@ store_inferior_registers (int regno)
 	 every register reference.  Bleah.  */
       else if (len == 8)
 	addr = (HPPAH_OFFSETOF (save_state_t, ss_wide) 
-		+ REGISTER_BYTE (regno));
+		+ DEPRECATED_REGISTER_BYTE (regno));
 
       /* Narrow registers come from the ss_narrow area.  Note that
 	 ss_narrow starts with gr1, not gr0.  */
       else if (len == 4)
 	addr = (HPPAH_OFFSETOF (save_state_t, ss_narrow)
-		+ (REGISTER_BYTE (regno) - REGISTER_BYTE (1)));
+		+ (DEPRECATED_REGISTER_BYTE (regno) - DEPRECATED_REGISTER_BYTE (1)));
       else
 	internal_error (__FILE__, __LINE__,
 			"hppah-nat.c (write_register): unexpected register size");
@@ -127,7 +149,7 @@ store_inferior_registers (int regno)
 	{
 	  CORE_ADDR temp;
 
-	  temp = *(CORE_ADDR *)&deprecated_registers[REGISTER_BYTE (regno)];
+	  temp = *(CORE_ADDR *)&deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)];
 
 	  /* Set the priv level (stored in the low two bits of the PC.  */
 	  temp |= 0x3;
@@ -152,7 +174,7 @@ store_inferior_registers (int regno)
 	 the high part of IPSW.  What will it take for HP to catch a
 	 clue about building sensible interfaces?  */
      if (regno == IPSW_REGNUM && len == 8)
-	*(int *)&deprecated_registers[REGISTER_BYTE (regno)] = 0;
+	*(int *)&deprecated_registers[DEPRECATED_REGISTER_BYTE (regno)] = 0;
 #endif
 
       for (i = 0; i < len; i += sizeof (int))
@@ -160,7 +182,7 @@ store_inferior_registers (int regno)
 	  errno = 0;
 	  call_ptrace (PT_WUREGS, PIDGET (inferior_ptid),
 	               (PTRACE_ARG3_TYPE) addr + i,
-		       *(int *) &deprecated_registers[REGISTER_BYTE (regno) + i]);
+		       *(int *) &deprecated_registers[DEPRECATED_REGISTER_BYTE (regno) + i]);
 	  if (errno != 0)
 	    {
 	      /* Warning, not error, in case we are attached; sometimes
@@ -189,12 +211,12 @@ store_inferior_registers (int regno)
 static void
 fetch_register (int regno)
 {
-  char buf[MAX_REGISTER_RAW_SIZE];
+  char buf[MAX_REGISTER_SIZE];
   unsigned int addr, len, offset;
   int i;
 
   offset = 0;
-  len = REGISTER_RAW_SIZE (regno);
+  len = DEPRECATED_REGISTER_RAW_SIZE (regno);
 
   /* Requests for register zero actually want the save_state's
      ss_flags member.  As RM says: "Oh, what a hack!"  */
@@ -205,17 +227,17 @@ fetch_register (int regno)
       len = sizeof (ss.ss_flags);
 
       /* Note that ss_flags is always an int, no matter what
-	 REGISTER_RAW_SIZE(0) says.  Assuming all HP-UX PA machines
-	 are big-endian, put it at the least significant end of the
-	 value, and zap the rest of the buffer.  */
-      offset = REGISTER_RAW_SIZE (0) - len;
+	 DEPRECATED_REGISTER_RAW_SIZE(0) says.  Assuming all HP-UX PA
+	 machines are big-endian, put it at the least significant end
+	 of the value, and zap the rest of the buffer.  */
+      offset = DEPRECATED_REGISTER_RAW_SIZE (0) - len;
       memset (buf, 0, sizeof (buf));
     }
 
   /* Floating-point registers come from the ss_fpblock area.  */
   else if (regno >= FP0_REGNUM)
     addr = (HPPAH_OFFSETOF (save_state_t, ss_fpblock) 
-	    + (REGISTER_BYTE (regno) - REGISTER_BYTE (FP0_REGNUM)));
+	    + (DEPRECATED_REGISTER_BYTE (regno) - DEPRECATED_REGISTER_BYTE (FP0_REGNUM)));
 
   /* Wide registers come from the ss_wide area.
      I think it's more PC to test (ss_flags & SS_WIDEREGS) to select
@@ -224,13 +246,13 @@ fetch_register (int regno)
      every register reference.  Bleah.  */
   else if (len == 8)
     addr = (HPPAH_OFFSETOF (save_state_t, ss_wide) 
-	    + REGISTER_BYTE (regno));
+	    + DEPRECATED_REGISTER_BYTE (regno));
 
   /* Narrow registers come from the ss_narrow area.  Note that
      ss_narrow starts with gr1, not gr0.  */
   else if (len == 4)
     addr = (HPPAH_OFFSETOF (save_state_t, ss_narrow)
-	    + (REGISTER_BYTE (regno) - REGISTER_BYTE (1)));
+	    + (DEPRECATED_REGISTER_BYTE (regno) - DEPRECATED_REGISTER_BYTE (1)));
 
   else
     internal_error (__FILE__, __LINE__,
@@ -281,11 +303,11 @@ child_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
 		   struct mem_attrib *mem,
 		   struct target_ops *target)
 {
-  register int i;
+  int i;
   /* Round starting address down to longword boundary.  */
-  register CORE_ADDR addr = memaddr & - (CORE_ADDR)(sizeof (int));
+  CORE_ADDR addr = memaddr & - (CORE_ADDR)(sizeof (int));
   /* Round ending address up; get number of longwords that makes.  */
-  register int count
+  int count
   = (((memaddr + len) - addr) + sizeof (int) - 1) / sizeof (int);
 
   /* Allocate buffer of that many longwords.
@@ -296,7 +318,7 @@ child_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int write,
      this (in effect) would pile up all those alloca requests until a call
      to alloca was made from a point higher than this routine in the
      call chain.  */
-  register int *buffer = (int *) xmalloc (count * sizeof (int));
+  int *buffer = (int *) xmalloc (count * sizeof (int));
 
   if (write)
     {
@@ -785,8 +807,6 @@ startup_semaphore_t;
 
 static startup_semaphore_t startup_semaphore;
 
-extern int parent_attach_all (int, PTRACE_ARG3_TYPE, int);
-
 #ifdef PT_SETTRC
 /* This function causes the caller's process to be traced by its
    parent.  This is intended to be called after GDB forks itself,
@@ -907,14 +927,13 @@ hppa_insert_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
 }
 
 int
-hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len,
-			   enum bptype type)
+hppa_remove_hw_watchpoint (int pid, CORE_ADDR start, LONGEST len, int type)
 {
   error ("Hardware watchpoints not implemented on this platform.");
 }
 
 int
-hppa_can_use_hw_watchpoint (enum bptype type, int cnt, enum bptype ot)
+hppa_can_use_hw_watchpoint (int type, int cnt, int ot)
 {
   return 0;
 }
@@ -930,16 +949,6 @@ hppa_pid_or_tid_to_str (ptid_t id)
 {
   /* In the ptrace world, there are only processes. */
   return child_pid_to_str (id);
-}
-
-/* This function has no meaning in a non-threaded world.  Thus, we
-   return 0 (FALSE).  See the use of "hppa_prepare_to_proceed" in
-   hppa-tdep.c. */
-
-pid_t
-hppa_switched_threads (pid_t pid)
-{
-  return (pid_t) 0;
 }
 
 void
@@ -1334,7 +1343,7 @@ child_pid_to_exec_file (int pid)
   int name_index;
   int i;
   ptid_t saved_inferior_ptid;
-  boolean done;
+  int done;
 
 #ifdef PT_GET_PROCESS_PATHNAME
   /* As of 10.x HP-UX, there's an explicit request to get the pathname. */

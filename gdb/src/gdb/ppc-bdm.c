@@ -295,7 +295,7 @@ bdm_ppc_store_registers (int regno)
           && ((i < FP0_REGNUM) || (i > FPLAST_REGNUM)))
 	{
 /*          printf("write valid reg %d\n", bdm_regno); */
-	  ocd_write_bdm_registers (bdm_regno, deprecated_registers + REGISTER_BYTE (i), 4);
+	  ocd_write_bdm_registers (bdm_regno, deprecated_registers + DEPRECATED_REGISTER_BYTE (i), 4);
 	}
 /*
    else if (i == gdbarch_tdep (current_gdbarch)->ppc_mq_regnum)
@@ -345,6 +345,8 @@ a wiggler, specify wiggler and then the port it is connected to\n\
   bdm_ppc_ops.to_has_execution = 1;
   bdm_ppc_ops.to_magic = OPS_MAGIC;
 }				/* init_bdm_ppc_ops */
+
+extern initialize_file_ftype _initialize_bdm_ppc; /* -Wmissing-prototypes */
 
 void
 _initialize_bdm_ppc (void)

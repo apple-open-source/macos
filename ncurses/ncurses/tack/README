@@ -1,4 +1,4 @@
--- $Id: README,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+-- $Id: README,v 1.2 2000/03/12 02:39:12 Daniel.Weaver Exp $
 
 The 'tack' program is a diagnostic that is designed to create and
 verify the correctness of terminfo's.  This program can be used to

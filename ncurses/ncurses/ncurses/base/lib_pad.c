@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.                   *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_pad.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_pad.c,v 1.38 2002/08/03 23:29:26 Philippe.Blain Exp $")
 
 NCURSES_EXPORT(WINDOW *)
 newpad(int l, int c)
@@ -153,8 +153,8 @@ pnoutrefresh
 	pmaxcol = pmincol + smaxcol - smincol;
     }
 
-    if (smaxrow > screen_lines
-	|| smaxcol > screen_columns
+    if (smaxrow >= screen_lines
+	|| smaxcol >= screen_columns
 	|| sminrow > smaxrow
 	|| smincol > smaxcol)
 	returnCode(ERR);
@@ -193,10 +193,21 @@ pnoutrefresh
 	 i++, m++) {
 	register struct ldat *nline = &newscr->_line[m];
 	register struct ldat *oline = &win->_line[i];
-
 	for (j = pmincol, n = smincol; j <= pmaxcol; j++, n++) {
-	    if (!CharEq(oline->text[j], nline->text[n])) {
-		nline->text[n] = oline->text[j];
+	    NCURSES_CH_T ch = oline->text[j];
+#if USE_WIDEC_SUPPORT
+	    /*
+	     * Special case for leftmost character of the displayed area.
+	     * Only half of a double-width character may be visible.
+	     */
+	    if (j == pmincol
+		&& j > 0
+		&& isnac(ch)) {
+		SetChar(ch, L(' '), AttrOf(oline->text[j - 1]));
+	    }
+#endif
+	    if (!CharEq(ch, nline->text[n])) {
+		nline->text[n] = ch;
 		CHANGED_CELL(nline, n);
 	    }
 	}

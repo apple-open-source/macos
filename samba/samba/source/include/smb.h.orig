@@ -169,7 +169,7 @@ typedef uint16 smb_ucs2_t;
 typedef smb_ucs2_t wpstring[PSTRING_LEN];
 typedef smb_ucs2_t wfstring[FSTRING_LEN];
 
-#ifdef WORDS_BIGENDIAN
+#if __BIG_ENDIAN__ /* apple: configure test is bad for our platform ->  WORDS_BIGENDIAN */
 #define UCS2_SHIFT 8
 #else
 #define UCS2_SHIFT 0

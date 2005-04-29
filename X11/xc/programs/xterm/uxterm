@@ -1,9 +1,21 @@
 #!/bin/sh
-# $XFree86: xc/programs/xterm/uxterm,v 1.5 2002/01/05 22:05:03 dickey Exp $
+# $XFree86: xc/programs/xterm/uxterm,v 1.7 2003/12/18 21:12:16 dickey Exp $
 # wrapper script to setup xterm with UTF-8 locale
 
 program=xterm
 found=no
+
+# Check for -version and -help options, to provide a simple return without
+# requiring the program to create a window:
+if test $# = 1
+then
+	case $1 in
+	-v|-ver*|-h|-he*)
+		$program "$@"
+		exit $?
+		;;
+	esac
+fi
 
 # Check environment variables that xterm does, in the same order:
 for name in LC_ALL LC_CTYPE LANG
@@ -30,7 +42,7 @@ done
 # user's shell does not reset unknown locale specifiers, but not all shells do.
 if test $found != yes ; then
 	if test -n "$value" ; then
-		eval ${name}=`echo ${value} |sed -e 's/\..*//'`.UTF-8
+		eval ${name}=`echo ${value} |sed -e 's/[.@].*//'`.UTF-8
 		eval export ${name}
 	else
 		LC_CTYPE=en_US.UTF-8

@@ -128,8 +128,3 @@ OTHER_OFILES=ipconfigServer.o ipconfigUser.o
 BEFORE_INSTALLHDRS=ipconfig_before_installhdrs
 AFTER_INSTALL=after_install
 LIBRARY_STYLE=STATIC
-
-ifeq "$(PLATFORM_OS)" "macos" 
-        OTHER_CFLAGS += -DMOSX
-	ALL_MIGFLAGS += -DMOSX
-endif

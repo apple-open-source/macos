@@ -1,6 +1,7 @@
+/* $XFree86: xc/extras/Mesa/src/texutil_tmp.h,v 1.4 2003/10/22 15:27:41 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  4.0.2
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -22,8 +23,9 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Author:
- *    Gareth Hughes <gareth@valinux.com>
+ *    Gareth Hughes
  */
+
 
 /*
  * For 2D and 3D texture images, we generate functions for
@@ -65,7 +67,7 @@ TAG(texsubimage2d)( const struct convert_info *convert )
 			     convert->xoffset) * DST_TEXEL_BYTES);
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ "\n" );
+   _mesa_debug( NULL, __FUNCTION__ "\n" );
 #endif
 
 #ifdef CONVERT_DIRECT
@@ -101,7 +103,7 @@ TAG(texsubimage3d)( const struct convert_info *convert )
 			      convert->yoffset) * convert->width +
 			     convert->xoffset) * DST_TEXEL_BYTES);
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ "\n" );
+   _mesa_debug( NULL, __FUNCTION__ "\n" );
 #endif
 
 #ifdef CONVERT_DIRECT
@@ -144,11 +146,11 @@ TAG(texsubimage2d_stride)( const struct convert_info *convert )
    adjust = convert->dstImageWidth - convert->width;
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ ":\n" );
-   fprintf( stderr, "   x=%d y=%d w=%d h=%d s=%d\n",
+   _mesa_debug( NULL, __FUNCTION__ ":\n" );
+   _mesa_debug( NULL, "   x=%d y=%d w=%d h=%d s=%d\n",
             convert->xoffset, convert->yoffset, convert->width,
             convert->height, convert->dstImageWidth );
-   fprintf( stderr, "   adjust=%d\n", adjust );
+   _mesa_debug( NULL, "   adjust=%d\n", adjust );
 #endif
 
    for ( row = 0 ; row < convert->height ; row++ ) {
@@ -178,11 +180,11 @@ TAG(texsubimage3d_stride)( const struct convert_info *convert )
    adjust = convert->dstImageWidth - convert->width;
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ ":\n" );
-   fprintf( stderr, "   x=%d y=%d w=%d h=%d s=%d\n",
+   _mesa_debug( NULL, __FUNCTION__ ":\n" );
+   _mesa_debug( NULL, "   x=%d y=%d w=%d h=%d s=%d\n",
             convert->xoffset, convert->yoffset, convert->width,
             convert->height, convert->dstImageWidth );
-   fprintf( stderr, "   adjust=%d\n", adjust );
+   _mesa_debug( NULL, "   adjust=%d\n", adjust );
 #endif
 
    for ( img = 0 ; img < convert->depth ; img++ ) {
@@ -217,7 +219,7 @@ TAG(texsubimage2d_unpack)( const struct convert_info *convert )
    GLint row, col;
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ "\n" );
+   _mesa_debug( NULL, __FUNCTION__ "\n" );
 #endif
 
    if (convert->width & (DST_TEXELS_PER_DWORD - 1)) {
@@ -279,7 +281,7 @@ TAG(texsubimage3d_unpack)( const struct convert_info *convert )
    GLint row, col, img;
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ "\n" );
+   _mesa_debug( NULL, __FUNCTION__ "\n" );
 #endif
 
    if (convert->width & (DST_TEXELS_PER_DWORD - 1)) {
@@ -350,18 +352,17 @@ TAG(texsubimage2d_stride_unpack)( const struct convert_info *convert )
    DST_TYPE *dst = (DST_TYPE *)((GLubyte *)convert->dstImage +
 				(convert->yoffset * convert->dstImageWidth +
 				 convert->xoffset) * DST_TEXEL_BYTES);
-   GLint adjust;
-   GLint row, col;
-   (void) col;
+   GLint row;
 
-   adjust = convert->dstImageWidth - convert->width;
+#ifndef CONVERT_DIRECT
+   GLint adjust = convert->dstImageWidth - convert->width;
+#endif
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ ":\n" );
-   fprintf( stderr, "   x=%d y=%d w=%d h=%d s=%d\n",
+   _mesa_debug( NULL, __FUNCTION__ ":\n" );
+   _mesa_debug( NULL, "   x=%d y=%d w=%d h=%d s=%d\n",
             convert->xoffset, convert->yoffset, convert->width,
             convert->height, convert->dstImageWidth );
-   fprintf( stderr, "   adjust=%d\n", adjust );
 #endif
 
    for ( row = 0 ; row < convert->height ; row++ ) {
@@ -371,6 +372,7 @@ TAG(texsubimage2d_stride_unpack)( const struct convert_info *convert )
       dst += convert->dstImageWidth;
 #else
       const GLubyte *srcRow = src;
+      GLint col;
       for ( col = 0 ; col < convert->width ; col++ ) {
 	 CONVERT_TEXEL( *dst++, src );
 	 src += SRC_TEXEL_BYTES;
@@ -403,18 +405,17 @@ TAG(texsubimage3d_stride_unpack)( const struct convert_info *convert )
 				((convert->zoffset * convert->dstImageHeight +
 				  convert->yoffset) * convert->dstImageWidth +
 				 convert->xoffset) * DST_TEXEL_BYTES);
-   GLint adjust;
-   GLint row, col, img;
-   (void) col;
+   GLint row, img;
 
-   adjust = convert->dstImageWidth - convert->width;
+#ifndef CONVERT_DIRECT
+   GLint adjust = convert->dstImageWidth - convert->width;
+#endif
 
 #if DEBUG_TEXUTIL
-   fprintf( stderr, __FUNCTION__ ":\n" );
-   fprintf( stderr, "   x=%d y=%d w=%d h=%d s=%d\n",
+   _mesa_debug( NULL, __FUNCTION__ ":\n" );
+   _mesa_debug( NULL, "   x=%d y=%d w=%d h=%d s=%d\n",
             convert->xoffset, convert->yoffset, convert->width,
             convert->height, convert->dstImageWidth );
-   fprintf( stderr, "   adjust=%d\n", adjust );
 #endif
 
    for ( img = 0 ; img < convert->depth ; img++ ) {
@@ -426,6 +427,7 @@ TAG(texsubimage3d_stride_unpack)( const struct convert_info *convert )
 	 dst += convert->dstImageWidth;
 #else
 	 const GLubyte *srcRow = src;
+	 GLint col;
 	 for ( col = 0 ; col < convert->width ; col++ ) {
 	    CONVERT_TEXEL( *dst++, src );
 	    src += SRC_TEXEL_BYTES;

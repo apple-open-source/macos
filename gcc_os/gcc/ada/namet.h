@@ -6,9 +6,8 @@
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *                            $Revision: 1.1.1.1 $
  *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -22,7 +21,7 @@
  * MA 02111-1307, USA.                                                      *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
@@ -67,7 +66,7 @@ INLINE char *
 Get_Name_String (Id)
      Name_Id Id;
 {
-  return Name_Chars_Ptr + Names_Ptr [Id - First_Name_Id].Name_Chars_Index + 1;
+  return Name_Chars_Ptr + Names_Ptr[Id - First_Name_Id].Name_Chars_Index + 1;
 }
 
 /* Get_Decoded_Name_String returns a null terminated C string in the same
@@ -84,7 +83,7 @@ Get_Decoded_Name_String (Id)
      Name_Id Id;
 {
   namet__get_decoded_name_string (Id);
-  Name_Buffer [Name_Len] = 0;
+  Name_Buffer[Name_Len] = 0;
   return Name_Buffer;
 }
 
@@ -93,20 +92,6 @@ Get_Decoded_Name_String (Id)
    cased.  This is used fo rbuilding the enumeration literal table. */
 
 extern void casing__set_all_upper_case PARAMS ((void));
-extern void namet__get_unqualified_decoded_name_string PARAMS ((Name_Id));
-
-static char *Get_Upper_Decoded_Name_String PARAMS ((Name_Id));
-
-INLINE char *
-Get_Upper_Decoded_Name_String (Id)
-     Name_Id Id;
-{
-  namet__get_unqualified_decoded_name_string (Id);
-  if (Name_Buffer [0] != '\'')
-    casing__set_all_upper_case ();
-  Name_Buffer [Name_Len] = 0;
-  return Name_Buffer;
-}
 
 /* The following routines and variables are not part of Namet, but we
    include the header here since it seems the best place for it.  */

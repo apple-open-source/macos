@@ -1,11 +1,11 @@
 /*****************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: httpput.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: httpput.c,v 1.7 2005/01/19 10:09:15 bagder Exp $
  */
 
 #include <stdio.h>
@@ -19,6 +19,9 @@
  * line argument to the URL also given on the command line.
  *
  * This example also uses its own read callback.
+ *
+ * Here's an article on how to setup a PUT handler for Apache:
+ * http://www.apacheweek.com/features/put
  */
 
 size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
@@ -39,7 +42,6 @@ int main(int argc, char **argv)
 {
   CURL *curl;
   CURLcode res;
-  FILE *ftpfile;
   FILE * hd_src ;
   int hd ;
   struct stat file_info;
@@ -49,17 +51,17 @@ int main(int argc, char **argv)
 
   if(argc < 3)
     return 1;
- 
+
   file= argv[1];
   url = argv[2];
-  
+
   /* get the file size of the local file */
   hd = open(file, O_RDONLY) ;
   fstat(hd, &file_info);
   close(hd) ;
 
   /* get a FILE * of the same file, could also be made with
-     fdopen() from the previous descriptor, but hey this is just 
+     fdopen() from the previous descriptor, but hey this is just
      an example! */
   hd_src = fopen(file, "rb");
 
@@ -78,14 +80,15 @@ int main(int argc, char **argv)
     /* HTTP PUT please */
     curl_easy_setopt(curl, CURLOPT_PUT, TRUE);
 
-    /* specify target */
+    /* specify target URL, and note that this URL should include a file
+       name, not only a directory */
     curl_easy_setopt(curl,CURLOPT_URL, url);
 
     /* now specify which file to upload */
-    curl_easy_setopt(curl, CURLOPT_INFILE, hd_src);
+    curl_easy_setopt(curl, CURLOPT_READDATA, hd_src);
 
-    /* and give the size of the upload (optional) */
-    curl_easy_setopt(curl, CURLOPT_INFILESIZE, file_info.st_size);
+    /* and give the size of the upload */
+    curl_easy_setopt(curl, CURLOPT_INFILESIZE_LARGE, file_info.st_size);
 
     /* Now run off and do what you've been told! */
     res = curl_easy_perform(curl);

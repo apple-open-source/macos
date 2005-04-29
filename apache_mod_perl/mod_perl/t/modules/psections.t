@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 
 skip_test unless have_module "Data::Dumper";
 skip_test unless have_module "Devel::Symdump";

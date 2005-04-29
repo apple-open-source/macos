@@ -1,7 +1,7 @@
 /*
  *  gui.h
  *
- *  $Id: gui.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: gui.h,v 1.2 2004/08/10 22:20:22 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -67,8 +67,6 @@
  *  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include <config.h>
 #include <iodbc.h>
 #include <iodbcinst.h>
 #include <gtk/gtk.h>
@@ -79,23 +77,8 @@
 typedef struct TLOGIN {
   GtkWidget *username,*password,*mainwnd;
   char *user, *pwd;
+  BOOL ok;
 } TLOGIN;
-
-typedef struct TOPLSETUP
-{
-	GtkWidget *dsn_entry, *comment_entry, *host_entry, *db_entry;
-	GtkWidget *server_entry, *user_entry, *bufsize_entry;
-	GtkWidget *readonly_chk, *nologbox_chk, *type_cb, *protocol_cb;
-	GtkWidget *mainwnd;
-	LPSTR connstr;
-} TOPLSETUP;
-
-typedef struct TVIRTSETUP
-{
-	GtkWidget *dsn_entry, *comment_entry, *host_entry, *user_entry;
-	GtkWidget *database_cb,*mainwnd;
-	LPSTR connstr;
-} TVIRTSETUP;
 
 typedef struct TGENSETUP
 {

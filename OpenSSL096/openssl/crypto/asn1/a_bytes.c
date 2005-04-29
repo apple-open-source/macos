@@ -60,7 +60,7 @@
 #include "cryptlib.h"
 #include <openssl/asn1_mac.h>
 
-static const unsigned long tag2bit[32]={
+static unsigned long tag2bit[32]={
 0,	0,	0,	B_ASN1_BIT_STRING,	/* tags  0 -  3 */
 B_ASN1_OCTET_STRING,	0,	0,		B_ASN1_UNKNOWN,/* tags  4- 7 */
 B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,	B_ASN1_UNKNOWN,/* tags  8-11 */

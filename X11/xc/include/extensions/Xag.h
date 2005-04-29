@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/Xag.h,v 1.5 2001/12/17 20:52:24 dawes Exp $ */
+/* $XFree86: xc/include/extensions/Xag.h,v 1.6 2003/11/17 22:20:03 dawes Exp $ */
 /*
 Copyright 1996, 1998  The Open Group
 
@@ -59,67 +59,51 @@ _XFUNCPROTOBEGIN
 typedef XID XAppGroup;
 
 Bool XagQueryVersion(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int*			/* major_version */,
     int*			/* minor_version */
-#endif
 );
 
 Status XagCreateEmbeddedApplicationGroup(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     VisualID			/* root_visual */,
     Colormap			/* default_colormap */,
     unsigned long		/* black_pixel */,
     unsigned long		/* white_pixel */,
     XAppGroup*			/* app_group_return */
-#endif
 );
 
 Status XagCreateNonembeddedApplicationGroup(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     XAppGroup*			/* app_group_return */
-#endif
 );
 
 Status XagDestroyApplicationGroup(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     XAppGroup			/* app_group */
-#endif
 );
 
 Status XagGetApplicationGroupAttributes(
-#if NeedVarargsPrototypes
     Display*			/* dpy */,
     XAppGroup			/* app_group */,
     ...
-#endif
 );
 
 Status XagQueryApplicationGroup(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     XID				/* resource_base */,
     XAppGroup*			/* app_group_ret */
-#endif
 );
 
 Status XagCreateAssociation(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Window*			/* window_ret */,
     void*			/* system_window */
-#endif
 );
 
 Status XagDestroyAssociation(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Window			/* window */
-#endif
 );
 
 _XFUNCPROTOEND

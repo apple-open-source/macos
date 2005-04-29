@@ -25,7 +25,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/programs/xedit/xedit.man,v 1.18 2002/10/12 16:06:48 herrb Exp $
+.\" $XFree86: xc/programs/xedit/xedit.man,v 1.19 2003/05/29 21:48:11 herrb Exp $
 .\"
 .TH XEDIT 1 __vendorversion__
 .SH NAME
@@ -270,7 +270,7 @@ prints the column number,
 .B %p
 prints the insert position offset, and
 .B %s
-prints the current file size.  It is also allowed to specifie field sizes,
+prints the current file size.  It is also allowed to specify field sizes,
 with the notation
 .B %\-?[0\-9]+
 \&.  The default format string is ``L%l'', which shows the character ``L''
@@ -289,7 +289,7 @@ Specifies the name of the Bitmap that will be displayed in the fileMenu, when
 the file being edited is changed.
 .TP 8
 .B autoReplace (\fPClass \fBReplace)
-This resource is useful to automatically correct common mispelling errors, but
+This resource is useful to automatically correct common misspelling errors, but
 can also be used to create simple macros. The format is
 \fI{non-blanks}{blanks}[{string}]\fP. Fields are separeted by newlines.
 Example of use:
@@ -338,7 +338,7 @@ generated through compound formation (when using the ispell ``-C'' option), or
 words generated through affix removal. The default value is False.
 .TP 8
 .B ispell.lookCommand (\fPClass \fBispell.CommandLine)
-The path to the program to search for alternate words, and possibily,
+The path to the program to search for alternate words, and possibly,
 additional arguments. The default program used is \fI/usr/bin/egrep\fP.
 .TP 8
 .B ispell.wordsFile (\fPClass \fBispell.Words)
@@ -351,7 +351,7 @@ of one or more words. The default value is \fIGuess\fP.
 .TP 8
 .B ispell.missLabel (\fPClass \fBispell.Status)
 String displayed in the ispell status bar when ispell returns a list of one
-or more words to match a mispelled one. The default value is \fIMiss\fP.
+or more words to match a misspelled one. The default value is \fIMiss\fP.
 .TP 8
 .B ispell.rootLabel (\fPClass \fBispell.Status)
 String displayed in the ispell status bar when the word is not in the dictionary,
@@ -376,7 +376,7 @@ The string displayed in the ispell status bar when the end of the file is reache
 The default value is \fIEnd Of File\fP.
 .TP 8
 .B ispell.repeatLabel (\fPClass \fBispell.Status)
-The string displayed in the ispell status bar when two indentical words are found
+The string displayed in the ispell status bar when two identical words are found
 together in the file. The default value is \fIRepeat\fP.
 .TP 8
 .B ispell.lookLabel (\fPClass \fBispell.Status)

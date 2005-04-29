@@ -1,41 +1,78 @@
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
 #
-# $Id: Makefile.am,v 1.1.1.2 2002/11/26 19:08:05 zarzycki Exp $
+# Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
-
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+# $Id: Makefile.am,v 1.52 2005/01/08 16:04:02 giva Exp $
+###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
+# we use srcdir/src for "private" includes
 # we use srcdir/include for the static global include files
-# we use builddir/src for the generated src/config.h file to get found
-# we use srcdir/lib for the client-private header files
-INCLUDES = -I$(top_srcdir)/include -I$(top_builddir)/src -I$(top_srcdir)/src
+# we use builddir/src for the generated include files to get found
+# we use srcdir/lib for the header files we "borrow" from the lib
+INCLUDES = -I$(top_srcdir)/src -I$(top_srcdir)/include -I$(top_builddir)/src \
+	-I$(top_srcdir)/lib
 
-bin_PROGRAMS = curl #memtest
+bin_PROGRAMS = curl
 
-#memtest_SOURCES = memtest.c
-#memtest_LDADD = $(top_srcdir)/lib/libcurl.la
-
-curl_SOURCES = main.c hugehelp.c urlglob.c writeout.c setup.h \
-	config-win32.h config-mac.h config-vms.h config-riscos.h \
-	urlglob.h version.h writeout.h writeenv.c writeenv.h
+include Makefile.inc
 
 curl_LDADD = ../lib/libcurl.la
 curl_DEPENDENCIES = ../lib/libcurl.la
 BUILT_SOURCES = hugehelp.c
 CLEANFILES = hugehelp.c
-NROFF=@NROFF@
+NROFF=@NROFF@ @MANOPT@ # figured out by the configure script
 
-EXTRA_DIST = mkhelp.pl curlmsg.msg \
-	Makefile.vc6 Makefile.b32 Makefile.m32 Makefile.riscos config.h.in \
-	macos/curl.mcp.xml.sit.hqx \
-	macos/MACINSTALL.TXT \
-	macos/src/curl_GUSIConfig.cpp \
-	macos/src/macos_main.cpp
+EXTRA_DIST = mkhelp.pl makefile.dj Makefile.vc6 Makefile.b32 Makefile.m32 \
+	Makefile.riscos config.h.in macos/curl.mcp.xml.sit.hqx		  \
+	macos/MACINSTALL.TXT macos/src/curl_GUSIConfig.cpp		  \
+	macos/src/macos_main.cpp config-amigaos.h makefile.amiga curl.rc  \
+	Makefile.netware Makefile.inc Makefile.Watcom
 
 MANPAGE=$(top_srcdir)/docs/curl.1
 README=$(top_srcdir)/docs/MANUAL
 MKHELP=$(top_srcdir)/src/mkhelp.pl
+HUGE=hugehelp.c
 
-# This generates the hugehelp.c file
-hugehelp.c: $(README) $(MANPAGE)  mkhelp.pl
-	rm -f hugehelp.c
-	$(NROFF) -man $(MANPAGE) | $(PERL) $(MKHELP)  $(README) > hugehelp.c
+if USE_MANUAL
+# Here are the stuff to create a built-in manual
+
+if HAVE_LIBZ
+# This generates the hugehelp.c file in both uncompressed and compressed formats
+$(HUGE): $(README) $(MANPAGE)  mkhelp.pl
+	echo '#include "setup.h"' > $(HUGE)
+	echo '#ifndef HAVE_LIBZ' >> $(HUGE)
+	$(NROFF) $(MANPAGE) | $(PERL) $(MKHELP) $(README) >> $(HUGE)
+	echo '#else' >> $(HUGE)
+	$(NROFF) $(MANPAGE) | $(PERL) $(MKHELP) -c $(README) >> $(HUGE)
+	echo '#endif /* HAVE_LIBZ */' >> $(HUGE)
+else # HAVE_LIBZ
+# This generates the hugehelp.c file uncompressed only
+$(HUGE): $(README) $(MANPAGE)  mkhelp.pl
+	echo '#include "setup.h"' > $(HUGE)
+	$(NROFF) $(MANPAGE) | $(PERL) $(MKHELP) $(README) >> $(HUGE)
+endif
+
+else # USE_MANUAL
+# built-in manual has been disabled, make a blank file
+$(HUGE):
+	echo "/* built-in manual is disabled, blank function */" > $(HUGE)
+	echo '#include "hugehelp.h"' >> $(HUGE)
+	echo "void hugehelp(void) {}" >>$(HUGE)
+endif

@@ -1,13 +1,13 @@
-.\" $Id: mount_smbfs.8,v 1.3 2002/03/20 22:20:38 lindak Exp $
-.Dd Mar 10, 2000
+.\" $Id: mount_smbfs.8,v 1.4 2004/09/02 20:24:29 lindak Exp $
+.Dd March 10, 2000
 .Dt MOUNT_SMBFS 8
 .Os FreeBSD
 .Sh NAME
 .Nm mount_smbfs
-.Nd mounts a shared resource from an SMB file server
+.Nd "mount a shared resource from an SMB file server"
 .Sh SYNOPSIS
-.Nm mount_smbfs
-.\" ndef APPLE .Op Fl E Ar cs1:cs2
+.Nm
+.\" ndef APPLE .Op Fl E Ar cs1 : Ns Ar cs2
 .Op Fl I Ar host
 .\" ndef APPLE .Op Fl L Ar locale
 .Op Fl M Ar cmode[/smode]
@@ -37,13 +37,13 @@ The
 .Nm
 command mounts a share from a remote server using SMB/CIFS protocol.
 .Pp
-The options are:
+The options are as follows:
 .Bl -tag -width indent
-.\" ndef APPLE .It Fl E Ar cs1:cs2
+.\" ndef APPLE .It Fl E Ar cs1 : Ns Ar cs2
 .\" ndef APPLE Specifies local
-.\" ndef APPLE .Ar (cs1)
+.\" ndef APPLE .Pq Ar cs1
 .\" ndef APPLE and server's
-.\" ndef APPLE .Ar (cs2)
+.\" ndef APPLE .Pq Ar cs2
 .\" ndef APPLE character sets.
 .It Fl I Ar host
 Do not use NetBIOS name resolver and connect directly to
@@ -54,7 +54,7 @@ which can be either a valid DNS name or an IP address.
 .\" ndef APPLE .Ar locale
 .\" ndef APPLE for lower/upper case conversion routines.
 .\" ndef APPLE Set the locale for case conversion.
-.\" ndef APPLE By default
+.\" ndef APPLE By default,
 .\" ndef APPLE .Nm
 .\" ndef APPLE tries to use an environment variable
 .\" ndef APPLE .Ev LC_* 
@@ -68,7 +68,7 @@ At run time,
 reads the
 .Pa ~/.nsmbrc
 file for additional configuration parameters and a password.
-If no password is found the
+If no password is found,
 .Nm
 prompts for it.
 .It Fl O Ar cowner[:cgroup]/sowner[:sgroup]
@@ -91,23 +91,23 @@ Specifies the workgroup to be used in the authentication request.
 .\" ndef APPLE option which affects name representation.
 .\" ndef APPLE .Ar case 
 .\" ndef APPLE can be one of the following:
-.\" ndef APPLE .Bl -tag -width "ValueXX"
+.\" ndef APPLE .Bl -tag -width ".Em Value"
 .\" ndef APPLE .It Em Value
 .\" ndef APPLE .Em Meaning
-.\" ndef APPLE .It l
-.\" ndef APPLE All existing file names converted to lower case. 
+.\" ndef APPLE .It Cm l
+.\" ndef APPLE All existing file names are converted to lower case.
 .\" ndef APPLE Newly created file names are lower case.
-.\" ndef APPLE .It u
-.\" ndef APPLE All existing file names converted to upper case.
+.\" ndef APPLE .It Cm u
+.\" ndef APPLE All existing file names are converted to upper case.
 .\" ndef APPLE Newly created file names are upper case.
 .\" ndef APPLE .El
 .It Fl f Ar mode , Fl d Ar mode
 Specify permissions that should be assigned to files and directories.
 The values must be specified as octal numbers.
 Default value for the file mode
-is taken from mount point, default value for the dir mode adds execute
+is taken from mount point, default value for the directory mode adds execute
 permission where the file mode gives read permission.
-
+.Pp
 Note that these permissions can differ from the rights granted by SMB
 server. 
 .It Fl h
@@ -125,9 +125,9 @@ can be one of the following:
 No long names.  Server supports only "8.3" format.
 .El
 .It Fl u Ar uid , Fl g Ar gid
-User id and group id assigned to files.
-The default is owner and group id from
-directory where the volume is mounted.
+User ID and group ID assigned to files.
+The defaults are the owner and group IDs from
+the directory where the volume is mounted.
 .\" //[workgroup;][user[:password]@]server[/share]
 .It Xo
 .Pf // Oo Ar workgroup ;
@@ -160,16 +160,15 @@ is run from the command line, otherwise a browsing dialogue is presented.
 Path to mount point.
 .El
 .Sh FILES
-.Bl -tag -width /var/log/wtmp -compact
+.Bl -tag -width ".Pa ~/.nsmbrc" -compact
 .It Pa ~/.nsmbrc
 Keeps static parameters for connections and other information.
 See
 .Pa ./examples/dot.nsmbrc
 for details.
 .El
-
 .Sh EXAMPLES
-The following illustrate how to connect to an SMB server
+The following example illustrates how to connect to SMB server
 .Em SAMBA
 as user
 .Em GUEST
@@ -188,10 +187,8 @@ mount_smbfs -I samba.mydomain.com //guest@samba/public /smb/public
 .\" ndef APPLE .Bd -literal -offset indent
 .\" ndef APPLE //guest@samba/public    /smb/public     smbfs  rw,noauto 0   0
 .\" ndef APPLE .Ed
-
 .Sh BUGS
 Please report bugs to Apple.
-
 .Sh AUTHORS
 .An Boris Popov Aq bp@butya.kz ,
-.Aq bp@freebsd.org
+.Aq bp@FreeBSD.org

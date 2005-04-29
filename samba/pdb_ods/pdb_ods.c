@@ -41,6 +41,7 @@ struct odssam_privates {
 	/* saved state from last search */
 	CFMutableArrayRef usersArray;
 	CFMutableArrayRef groupsArray;
+	CFMutableDictionaryRef domainInfo;
 	int usersIndex;
 	int groupsIndex;
 	tContextData contextData;
@@ -111,7 +112,7 @@ typedef struct opendirectory_secret_header {
 #include <SystemConfiguration/SystemConfiguration.h>
 //#include <CoreServices/CoreServices.h>
 
-#define SERVICE	"com.apple.samba"
+#define KEYCHAINSERVICE	"com.apple.samba"
 #define SAMBA_APP_ID CFSTR("com.apple.samba")
 
 char *odssam_get_account()
@@ -126,14 +127,12 @@ char *odssam_get_account()
 			if (!CFStringGetCString( (CFStringRef)pref, account, accountLength, kCFStringEncodingUTF8 )) {
 				free(account);
 				account = NULL;
-			} else {
-				printf("oddsam_get_account (%s)\n",account);			
 			}
         }
         CFRelease(pref);
 	}
     
-    printf("[%p]odssam_get_account\n",account);
+    DEBUG(10,("oddsam_get_account (%s)\n",account));		
 	return account;
 }
 
@@ -153,7 +152,7 @@ int add_to_sambaplist (char *acctName)
 		err = -1;
 	}
 	
-    printf("[%d]add_to_smbserverplist\n",err);
+    DEBUG(10,("[%d]add_to_smbserverplist\n",err));		
 	return err;
 }
 
@@ -201,10 +200,10 @@ SecAccessRef make_uid_access(uid_t uid)
 		}
 	};
 
-	SecAccessRef access;
+	SecAccessRef secaccess;
 	status = SecAccessCreateFromOwnerAndACL(&owner,
-		sizeof(acls) / sizeof(acls[0]), acls, &access);
-	printf("[%d]SecAccessCreateFromOwnerAndACL\n",status);
+		sizeof(acls) / sizeof(acls[0]), acls, &secaccess);
+    DEBUG(10,("[%d]SecAccessCreateFromOwnerAndACL\n",status));		
 	return access;
 }
 
@@ -218,21 +217,21 @@ void *get_password_from_keychain(char *account, int accountLength)
 
 	// Set the domain to System (daemon)
 	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
- 	printf("[%d]SecKeychainSetPreferenceDomain \n",status);
+     DEBUG(10,("[%d]SecKeychainSetPreferenceDomain \n",status));		
 	status = SecKeychainGetUserInteractionAllowed (False);
- 	printf("[%d]SecKeychainGetUserInteractionAllowed \n",status);
+     DEBUG(10,("[%d]SecKeychainGetUserInteractionAllowed \n",status));		
 
 	 status = SecKeychainFindGenericPassword (
 					 NULL,           // default keychain
-					 strlen(SERVICE),             // length of service name
-					 SERVICE,   // service name
+					 strlen(KEYCHAINSERVICE),             // length of service name
+					 KEYCHAINSERVICE,   // service name
 					 accountLength,             // length of account name
 					 account,   // account name
 					 &passwordLength,  // length of password
 					 &passwordData,   // pointer to password data
 					 &item         // the item reference
 					);
- 	printf("[%d]SecKeychainFindGenericPassword \n",status);
+     DEBUG(10,("[%d]SecKeychainFindGenericPassword \n",status));		
 
 	if ((status == noErr) && (item != NULL) && passwordLength)
 	{
@@ -294,29 +293,26 @@ void  *get_odssam_authenticator()
 	
 	fd = open(credentialfile, O_RDONLY,0);
 	if (fd != -1) {
-		printf("get_odssam_authenticator: opened file\n");
 		
-//		if(pread(fd, &hdr, sizeof(opendirectory_secret_header), 0) != sizeof(opendirectory_secret_header)) {
 		if(read(fd, &hdr, sizeof(opendirectory_secret_header)) != sizeof(opendirectory_secret_header)) {
-			printf("get_odssam_authenticator: bad hdr(%ld)\n", sizeof(opendirectory_secret_header));
+			DEBUG(10,("get_odssam_authenticator: bad hdr(%ld)\n", sizeof(opendirectory_secret_header)));
 			goto cleanup;
 		}
 		if (hdr.signature != sig) {
-			printf("get_odssam_authenticator: bad signature(%X)\n", hdr.signature);
+			DEBUG(10,("get_odssam_authenticator: bad signature(%X)\n", hdr.signature));
 			goto cleanup;
 		}
 		authentriessize = hdr.authenticator_len + hdr.secret_len;
 		authenticator = malloc(sizeof(opendirectory_secret_header) + authentriessize);
 		memset(authenticator, 0, sizeof(opendirectory_secret_header) + authentriessize);
 		memcpy(authenticator, &hdr, sizeof(opendirectory_secret_header));
-//		if(pread(fd, authenticator + sizeof(hdr), authentriessize, sizeof(hdr)) != authentriessize) {
 		if(read(fd, authenticator + sizeof(opendirectory_secret_header), authentriessize) != authentriessize) {
-			printf("get_odssam_authenticator: bad authentriessize(%d)\n", authentriessize);
+			DEBUG(10,("get_odssam_authenticator: bad authentriessize(%d)\n", authentriessize));
 			goto cleanup;
 		}
 		initialized = 1;
 	} else {
-		printf("unable to open file (%s)\n",strerror(errno));
+		DEBUG(10,("unable to open file (%s)\n",strerror(errno)));
 	}
 cleanup:
 	if (fd)
@@ -972,9 +968,10 @@ tDirStatus add_attribute_with_value(struct odssam_privates *ods_state, tRecordRe
 	return status;
 }
 
-tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef recordsArray, tDataListPtr recordName, tDataListPtr recordType, tDataListPtr attributes, BOOL continueSearch)
+tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef recordsArray, tDirNodeReference nodeRef, tDataListPtr recordName, tDataListPtr recordType, tDataListPtr attributes, BOOL continueSearch)
 {
 	tDirStatus		status				=	eDSNoErr;
+    tDirNodeReference	theNodeReference = 0;
 	unsigned long		bufferSize			=	10 * 1024;
 	tDataBufferPtr		dataBuffer			=	NULL;
 
@@ -994,9 +991,13 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 	CFStringRef key = NULL;
 	CFStringRef value = NULL;
 	
-	if (0 == ods_state->dirRef || 0 == ods_state->searchNodeRef)
+	if (0 == ods_state->dirRef )
 	    return status;    
 
+	if (nodeRef == 0)
+		theNodeReference = ods_state->searchNodeRef;
+	else 
+		theNodeReference = nodeRef;
 	if (continueSearch)
 		currentContextData = &ods_state->localContextData;
 	else
@@ -1004,20 +1005,23 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 	
 	dataBuffer = dsDataBufferAllocate(ods_state->dirRef, bufferSize);
 	do {
-        status = dsGetRecordList(ods_state->searchNodeRef, dataBuffer, recordName, eDSiExact, recordType, attributes, false, &recordCount, currentContextData);
+        status = dsGetRecordList(theNodeReference, dataBuffer, recordName, eDSiExact, recordType, attributes, false, &recordCount, currentContextData);
 		if (status != eDSNoErr) {
              DEBUG(0,("dsGetRecordList error (%d)",status));
 		    break; 
 		}
+		
+        DEBUG(5,("get_records recordCount (%d)\n",recordCount));
+	
 		for (recordIndex = 1; recordIndex <= recordCount; recordIndex++) {
-			status = dsGetRecordEntry(ods_state->searchNodeRef, dataBuffer, recordIndex, &attributeList, &recordEntry);
+			status = dsGetRecordEntry(theNodeReference, dataBuffer, recordIndex, &attributeList, &recordEntry);
 			if (status != eDSNoErr) {
              	DEBUG(0,("dsGetRecordEntry error (%d)",status));
 			    break; 
 			}
 			CFMutableDictionaryRef dsrecord = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			for (attributeIndex = 1; attributeIndex <= recordEntry->fRecordAttributeCount; attributeIndex++) {
-				status = dsGetAttributeEntry(ods_state->searchNodeRef, dataBuffer, attributeList, attributeIndex, &valueList, &attributeEntry);
+				status = dsGetAttributeEntry(theNodeReference, dataBuffer, attributeList, attributeIndex, &valueList, &attributeEntry);
 				if (status != eDSNoErr) {
              		DEBUG(0,("dsGetAttributeEntry error (%d)",status));
 				    break; 
@@ -1033,7 +1037,7 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 					key = NULL;
              	DEBUG(4,("get_records key(%s)\n",attributeEntry->fAttributeSignature.fBufferData));
 				for (valueIndex = 1; valueIndex <= attributeEntry->fAttributeValueCount; valueIndex++) {
-					status = dsGetAttributeValue(ods_state->searchNodeRef, dataBuffer, valueIndex, valueList, &valueEntry);
+					status = dsGetAttributeValue(theNodeReference, dataBuffer, valueIndex, valueList, &valueEntry);
 					if (status != eDSNoErr) {
              			DEBUG(0,("dsGetAttributeValue error (%d)",status));
 					    break; 
@@ -1048,12 +1052,12 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 						value = NULL;
 					
 					if (value != NULL) {
-             			DEBUG(4,("\tget_records value(%s)\n",valueEntry->fAttributeValueData.fBufferData));
+             			DEBUG(4,("\tget_records value(%s) len(%d)\n",valueEntry->fAttributeValueData.fBufferData, valueEntry->fAttributeValueData.fBufferLength));
 						CFArrayAppendValue(valueArray, value);
 						CFRelease(value);
 					}
 
-					dsDeallocAttributeValueEntry(ods_state->searchNodeRef, valueEntry);
+					dsDeallocAttributeValueEntry(theNodeReference, valueEntry);
 					valueEntry = NULL;
 				}
 				if (key && CFArrayGetCount(valueArray))
@@ -1067,12 +1071,12 @@ tDirStatus get_records(struct odssam_privates *ods_state, CFMutableArrayRef reco
 				key = NULL;
 				value = NULL;
 				valueList = 0;
-				dsDeallocAttributeEntry(ods_state->searchNodeRef, attributeEntry);
+				dsDeallocAttributeEntry(theNodeReference, attributeEntry);
 				attributeEntry = NULL;
 			}
 			dsCloseAttributeList(attributeList);
 			attributeList = 0;
-			dsDeallocRecordEntry(ods_state->searchNodeRef, recordEntry);
+			dsDeallocRecordEntry(theNodeReference, recordEntry);
             CFArrayAppendValue(recordsArray, dsrecord);
             CFRelease(dsrecord);
 		}
@@ -1248,7 +1252,7 @@ tDirStatus get_sam_record_attributes(struct odssam_privates *ods_state, CFMutabl
             recordName = dsBuildListFromStrings(ods_state->dirRef, name, NULL);     
         recordType = dsBuildListFromStrings(ods_state->dirRef, type, NULL); 
         if (recordName && recordType && ods_state->samAttributes) {
-                status = get_records(ods_state, recordsArray, recordName, recordType, ods_state->samAttributes, continueSearch);
+                status = get_records(ods_state, recordsArray, NULL, recordName, recordType, ods_state->samAttributes, continueSearch);
 				if (status != eDSNoErr)
 					DEBUG (5, ("[%d]get_records: [<does not exist>]\n",status));
         }
@@ -1258,6 +1262,7 @@ tDirStatus get_sam_record_attributes(struct odssam_privates *ods_state, CFMutabl
     }
     return status;
 }
+
 /*******************************************************************
 search an attribute and return the first value found.
 ******************************************************************/
@@ -1267,25 +1272,52 @@ static BOOL get_single_attribute (CFDictionaryRef entry,
 	CFStringRef cfstrRef = NULL;
 	CFStringRef attrRef = NULL;
 	CFArrayRef	valueList = NULL;
-	char	buffer[512];
+	CFTypeID	object_type;
+	void		*opaque_value = NULL;
+	char	buffer[PSTRING_LEN];
 	BOOL	result = False;
 	
 	attrRef = CFStringCreateWithCString(NULL, attribute, kCFStringEncodingUTF8);
-	valueList = (CFArrayRef)CFDictionaryGetValue(entry, attrRef);
+	opaque_value = CFDictionaryGetValue(entry, attrRef);
 	
+	if (opaque_value) {
+		object_type = CFGetTypeID(opaque_value);
+		if (object_type == CFArrayGetTypeID()) {
+			valueList = (CFArrayRef)opaque_value;
+		} else if (object_type == CFStringGetTypeID()) {
+			cfstrRef = (CFStringRef)opaque_value;		
+		} else {
+			result =  False;
+			goto cleanup;
+		}
+	} else {
+		result =  False;
+		goto cleanup;
+	}
+		
 	if (valueList != NULL && CFArrayGetCount(valueList) != 0) {
 		cfstrRef = (CFStringRef)CFArrayGetValueAtIndex(valueList, 0);
-		if (!GetCString(cfstrRef, buffer, 512)) {
+		if (!GetCString(cfstrRef, buffer, PSTRING_LEN)) {
 			value = NULL;
-			DEBUG (3, ("get_single_attribute: [%s] = [<does not exist>]\n", attribute));
+			DEBUG (3, ("get_single_attribute: [%s] = [CFArrayRef <does not exist>]\n", attribute));
 		} else {
 			pstrcpy(value, buffer);
 			result = True;
 		}
+	} else if (cfstrRef) {
+		if (!GetCString(cfstrRef, buffer, PSTRING_LEN)) {
+			value = NULL;
+			DEBUG (3, ("get_single_attribute: [%s] = [CFStringRef <does not exist>]\n", attribute));
+		} else {
+			pstrcpy(value, buffer);
+			result = True;
+		}	
 	}
+	
 #ifdef DEBUG_PASSWORDS
 	DEBUG (0, ("get_single_attribute: [%s] = [%s]\n", attribute, value));
 #endif
+cleanup:
 	if (attrRef)
 		CFRelease(attrRef);
 		
@@ -1445,7 +1477,126 @@ cleanup:
 	return status;
 }
 
-tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRef samAttributes, CFDictionaryRef userCurrent)
+static BOOL oddsam_get_record_sid_string(struct odssam_privates *ods_state,
+											SAM_ACCOUNT * sampass,
+											CFMutableDictionaryRef entry, uint32 rid, fstring record_sid_string)
+{
+	tDirStatus status = eDSNoErr;
+	DOM_SID u_sid;
+	pstring nodelocation;
+	fstring record_name;
+	fstring xml_string;
+	fstring domain_sid_string;
+	BOOL	is_server_sid = True;
+	tDirNodeReference nodeReference = 0;
+    tDataListPtr recordName = NULL;
+    tDataListPtr recordType = NULL;
+	tDataListPtr attributes = NULL;
+    CFMutableArrayRef recordsArray = NULL;
+	CFMutableDictionaryRef configRecord = NULL;
+	CFDataRef xmlData = NULL;
+	CFMutableDictionaryRef xmlDict = NULL;
+	CFStringRef nodelocationRef = NULL;
+	CFDictionaryRef domainInfo = NULL;
+	DOM_SID server_sid;
+	BOOL result = False;
+	
+	if (!get_single_attribute(entry, kDSNAttrMetaNodeLocation, nodelocation))
+		return False;
+
+	DEBUG (5, ("oddsam_get_record_sid_string: kDSNAttrMetaNodeLocation [%s]\n", nodelocation));
+
+ 	if (strcmp(nodelocation, "/NetInfo/DefaultLocalNode") == 0) { // Local Node - All Users are relative to the server sid
+ 		is_server_sid = True;
+ 	} else {
+ 		nodelocationRef = CFStringCreateWithCString(NULL, nodelocation, kCFStringEncodingUTF8);
+		if (ods_state->domainInfo && nodelocationRef && (domainInfo = CFDictionaryGetValue(ods_state->domainInfo, nodelocationRef))) {
+			if (get_single_attribute(domainInfo, "SID", domain_sid_string)) {
+				if (string_to_sid(&server_sid, domain_sid_string)) {
+					if(sid_append_rid(&server_sid, rid)) {
+						if (sid_to_string(record_sid_string, &server_sid)) {
+							is_server_sid = False;
+							DEBUG (5, ("oddsam_get_record_sid_string: server_sid_string<CACHED> [%s]\n", record_sid_string));
+						} /* sid_to_string */
+					} /* sid_append_rid */
+				} /* string_to_sid */
+			}
+		} else {
+			status = odssam_open_node(ods_state, nodelocation, &nodeReference);
+			if (eDSNoErr != status) goto cleanup;
+			
+			recordType = dsBuildListFromStrings(ods_state->dirRef, kDSStdRecordTypeConfig, NULL); 
+			recordName = dsBuildListFromStrings(ods_state->dirRef, "CIFSServer", NULL);     
+			attributes = dsBuildListFromStrings(ods_state->dirRef, kDS1AttrXMLPlist , NULL);
+			
+			recordsArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			
+			if (recordName && recordType && attributes && recordsArray) {
+				status = get_records(ods_state, recordsArray, nodeReference, recordName, recordType, attributes, true);
+				if (eDSNoErr == status) {
+					if (CFArrayGetCount(recordsArray) != 0) {
+						configRecord = (CFDictionaryRef) CFArrayGetValueAtIndex(recordsArray, 0);
+						if (get_single_attribute(configRecord, kDS1AttrXMLPlist, xml_string)) {
+							// XML -> CFDict
+							xmlData = CFDataCreate(NULL, (UInt8*)xml_string, strlen(xml_string));
+							if (xmlData) {
+								xmlDict = (CFMutableDictionaryRef)CFPropertyListCreateFromXMLData(NULL, xmlData, kCFPropertyListMutableContainersAndLeaves, NULL);
+								if (xmlDict) {
+									if (get_single_attribute(xmlDict, "SID", domain_sid_string)) {
+										if (nodelocationRef)
+											CFDictionaryAddValue(ods_state->domainInfo, nodelocationRef, xmlDict); /* store current setting */
+										else 
+											DEBUG (5, ("oddsam_get_record_sid_string: NULL parameter (nodelocationRef) - could not store SID  \n"));
+										if (string_to_sid(&server_sid, domain_sid_string)) {
+											if(sid_append_rid(&server_sid, rid)) {
+												if (sid_to_string(record_sid_string, &server_sid)) {
+													is_server_sid = False;
+													DEBUG (5, ("oddsam_get_record_sid_string: server_sid_string [%s]\n", record_sid_string));
+												} /* sid_to_string */
+											} /* sid_append_rid */
+										} /* string_to_sid */
+									} /* get_single_attribute - SID */
+								} /* xmlDict */
+							} /* xmlData */
+						} /* get_single_attribute - kDS1AttrXMLPlist */	
+					} else {
+						DEBUG (5, ("oddsam_get_record_sid_string: [CFArrayGetCount = 0 <does not exist>]\n"));
+					}
+				} else {
+					DEBUG (5, ("[%d]oddsam_get_record_sid_string: [<does not exist>]\n",status));
+				}
+			}
+		}
+	}
+
+cleanup:
+	if (recordName)
+		delete_data_list(ods_state, recordName);
+	if (recordType)
+		delete_data_list(ods_state, recordType);
+	if (attributes)
+		delete_data_list(ods_state, attributes);
+	if (nodeReference)
+		odssam_close_node(ods_state, &nodeReference);
+	if (xmlData)
+		CFRelease(xmlData);
+	if (xmlDict)
+		CFRelease(xmlDict);
+	if (recordsArray)
+		CFRelease(recordsArray);
+	if (nodelocationRef)
+		CFRelease(nodelocationRef);
+		
+	if (is_server_sid == True) {
+		sid_copy(&u_sid, get_global_sam_sid());
+		sid_append_rid(&u_sid, rid);
+		sid_to_string(record_sid_string, &u_sid);
+	}
+	
+	return True;
+}
+
+tDirStatus add_record_attributes(struct odssam_privates *ods_state, CFDictionaryRef samAttributes, CFDictionaryRef userCurrent, char *the_record_type)
 {
 	tDirStatus status = eDSNoErr;
 
@@ -1477,11 +1628,14 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 		if (eDSNoErr == status) {
 			status = odssam_authenticate_node(ods_state, nodeReference);
 			if (eDSNoErr == status) {
-				recordType = get_record_type((const char *)userName);
+				if (the_record_type)
+					recordType = the_record_type;
+				else	
+					recordType = get_record_type((const char *)userName);
 				status = get_record_ref(ods_state, nodeReference, &recordReference, recordType, userName);
 			}
 		} else {
-			DEBUG (0, ("[%d]add_user_attributes: odssam_open_node error\n",status));
+			DEBUG (0, ("[%d]add_record_attributes: odssam_open_node error\n",status));
 			goto cleanup;
 		}
 	}
@@ -1504,21 +1658,21 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 				) {
 					status = set_password(ods_state, nodeReference, userName, value, key, recordType);
 				#ifdef DEBUG_PASSWORDS
-					DEBUG (100, ("add_user_attributes: [%d]SetPassword(%s, %s, %s, %s)\n",status, userName, key, value, recordType));
+					DEBUG (100, ("add_record_attributes: [%d]SetPassword(%s, %s, %s, %s)\n",status, userName, key, value, recordType));
 				else
-					DEBUG (100, ("add_user_attributes: [%d]SetPassword(%s, %s, %s)\n",status, userName, key, recordType));
+					DEBUG (100, ("add_record_attributes: [%d]SetPassword(%s, %s, %s)\n",status, userName, key, recordType));
 				#endif
 				} else if (strcmp(key, kDSNAttrRecordName) == 0) {
 					
 					if (strcmp(userName, value) != 0) {
 						status = set_recordname(ods_state, recordReference, value);
-						DEBUG (3, ("add_user_attributes: [%d]set_recordname(%s, %s, %s)\n",status, userName, key, value));
+						DEBUG (3, ("add_record_attributes: [%d]set_recordname(%s, %s, %s)\n",status, userName, key, value));
 					}
 				} else if (isPWSAttribute(key)) {
 					add_password_policy_attribute(policy, key, value);
 				} else {
 					status = add_attribute_with_value(ods_state, recordReference, key, value, addValue);
-					DEBUG (4, ("[%d]add_user_attributes: add_attribute_with_value(%s,%s,%s) error\n",status, userName, key, value));
+					DEBUG (4, ("[%d]add_record_attributes: add_attribute_with_value(%s,%s,%s) error\n",status, userName, key, value));
 				}
 				if (status != eDSNoErr)
 					break;
@@ -1527,7 +1681,7 @@ tDirStatus add_user_attributes(struct odssam_privates *ods_state, CFDictionaryRe
 		if (strlen(policy) > 0)
 			status =  set_password_policy(ods_state, nodeReference, userName, policy, recordType);
 	} else {
-		DEBUG (0, ("[%d]add_user_attributes: authenticate_node error\n",status));
+		DEBUG (0, ("[%d]add_record_attributes: authenticate_node error\n",status));
 	}
 cleanup:
 	if (0 != recordReference)
@@ -1629,18 +1783,21 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 	if (get_single_attribute(entry, kDS1AttrSMBRID, temp)) {
 		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBRID (%s)\n", temp));
 		user_rid = (uint32)atol(temp);
-		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, user_rid, temp))
+			pdb_set_user_sid_from_string(sampass, temp, PDB_SET);
 	} else if (get_single_attribute(entry, kDS1AttrUniqueID, temp)) {
 		if (uid == 99)
 			user_rid = DOMAIN_USER_RID_GUEST;
 		else
 			user_rid = algorithmic_pdb_uid_to_user_rid((uint32)uid);
 		DEBUG(3, ("init_sam_from_ods: use kDS1AttrUniqueID (%s) -> RID(%d)\n", temp, user_rid));
-		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, user_rid, temp))
+			pdb_set_user_sid_from_string(sampass, temp, PDB_SET);
 	} else {
 		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBRID mapped to DOMAIN_USER_RID_GUEST\n"));
 		user_rid = DOMAIN_USER_RID_GUEST;
-		pdb_set_user_sid_from_rid(sampass, user_rid, PDB_SET);
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, user_rid, temp))
+			pdb_set_user_sid_from_string(sampass, temp, PDB_SET);
 	}
 		
 
@@ -1653,10 +1810,12 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 	if (get_single_attribute(entry, kDS1AttrSMBGroupRID, temp)) {
 		DEBUG(3, ("init_sam_from_ods: kDS1AttrSMBGroupRID (%s)\n", temp));
 		group_rid = (uint32)atol(temp);
-		pdb_set_group_sid_from_rid(sampass, group_rid, PDB_SET);
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, group_rid, temp))
+			pdb_set_group_sid_from_string(sampass, temp, PDB_SET);
 	} else {
 		DEBUG(3, ("init_sam_from_ods: DOMAIN_GROUP_RID_USERS \n"));
-		pdb_set_group_sid_from_rid(sampass, DOMAIN_GROUP_RID_USERS, PDB_DEFAULT);	
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, DOMAIN_GROUP_RID_USERS, temp))
+			pdb_set_group_sid_from_string(sampass, temp, PDB_SET);
 	}
 	
 	if (!get_single_attribute(entry, kDS1AttrPrimaryGroupID, temp)) {
@@ -1681,7 +1840,9 @@ static BOOL init_sam_from_ods (struct odssam_privates *ods_state,
 			pdb_set_group_sid(sampass, &map.sid, PDB_SET);
 		} 
 		else {
-			pdb_set_group_sid_from_rid(sampass, pdb_gid_to_group_rid(gid), PDB_SET);
+			group_rid = pdb_gid_to_group_rid(gid);
+		if(oddsam_get_record_sid_string(ods_state, sampass, entry, group_rid, temp))
+			pdb_set_group_sid_from_string(sampass, temp, PDB_SET);
 		}
 	}
 #endif
@@ -2246,10 +2407,89 @@ cleanup:
 
 static NTSTATUS odssam_getsampwsid(struct pdb_methods *my_methods, SAM_ACCOUNT * account, const DOM_SID *sid)
 {
+
+	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
+	struct odssam_privates *ods_state = (struct odssam_privates *)my_methods->private_data;
+    CFMutableArrayRef usersArray = NULL;
+#if USE_ALGORITHMIC_RID
+	uint32 uid = 99;
+	pstring uid_string;
+#endif
 	uint32 rid;
-	if (!sid_peek_check_rid(get_global_sam_sid(), sid, &rid))
-		return NT_STATUS_NO_SUCH_USER;
-	return odssam_getsampwrid(my_methods, account, rid);
+	CFMutableDictionaryRef entry = NULL;
+	pstring rid_string;
+	fstring sid_string;
+	
+	if (!sid_peek_check_rid(get_global_sam_sid(), sid, &rid)) {
+		DEBUG(4,("odssam_getsampwsid: Not a member of this domain\n"));	
+	}	
+	
+	if (rid == DOMAIN_USER_RID_GUEST) {
+		const char *guest_account = lp_guestaccount();
+		if (!(guest_account && *guest_account)) {
+			DEBUG(0, ("Guest account not specified!\n"));
+			return ret;
+		}
+		return odssam_getsampwnam(my_methods, account, guest_account);
+	}
+
+    usersArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+ 
+ 	sid_to_string(sid_string, sid);
+	
+	DEBUG(4,("odssam_getsampwsid: SID<%s>\n", sid_string));
+
+	snprintf(rid_string, sizeof(rid_string) - 1, "%i", rid);
+	DEBUG(4,("odssam_getsampwsid: rid<%s>\n", rid_string));
+
+#if USE_ALGORITHMIC_RID
+	uid = algorithmic_pdb_user_rid_to_uid(rid);
+	snprintf(uid_string, sizeof(uid_string) - 1, "%i", uid);
+#endif
+
+#if defined(kDS1AttrSMBSID)
+	if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeUsers, kDS1AttrSMBSID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers SID<%s>\n", sid_string));
+	} else 
+#endif
+	if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeComputers, kDS1AttrSMBSID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeComputers SID<%s>\n", sid_string));
+	} else if (get_sam_record_by_attr(ods_state, usersArray,  kDSStdRecordTypeUsers, kDS1AttrSMBRID, rid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers RID<%s>\n", rid_string));
+	} else if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeComputers, kDS1AttrSMBRID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers RID<%s>\n", rid_string));
+	} else
+#if USE_ALGORITHMIC_RID
+	if (algorithmic_pdb_rid_is_user(rid) &&
+			((get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeUsers, kDS1AttrUniqueID, uid_string, True) == eDSNoErr) && (CFArrayGetCount(usersArray) != 0))){
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeUsers RID<%s> -> UID<%s>\n", rid_string, uid_string));
+	} else  if (algorithmic_pdb_rid_is_user(rid) &&
+			((get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeComputers, kDS1AttrUniqueID, uid_string, True) == eDSNoErr) && (CFArrayGetCount(usersArray) != 0))) {
+		DEBUG(4,("odssam_getsampwsid: kDSStdRecordTypeComputers RID<%s> -> UID<%s>\n", rid_string, uid_string));
+#endif
+	} else {
+		DEBUG(4,("odssam_getsampwsid: NT_STATUS_NO_SUCH_USER\n"));	
+		ret = NT_STATUS_NO_SUCH_USER;
+		goto cleanup;
+	}
+
+	entry = (CFDictionaryRef) CFArrayGetValueAtIndex(usersArray, 0);
+	if (entry) {
+		if (!init_sam_from_ods(ods_state, account, entry)) {
+			DEBUG(1,("odssam_getsampwrid: init_sam_from_ods failed!\n"));
+			ret = NT_STATUS_NO_SUCH_USER;
+			goto cleanup;
+		}
+		ret = NT_STATUS_OK;
+		//CFRelease(entry);
+	} else {
+		ret = NT_STATUS_NO_SUCH_USER;
+		goto cleanup;
+	}
+
+cleanup:
+	CFRelease(usersArray);
+	return ret;
 }	
 
 static NTSTATUS odssam_add_sam_account(struct pdb_methods *my_methods, SAM_ACCOUNT * newpwd)
@@ -2299,10 +2539,10 @@ static NTSTATUS odssam_add_sam_account(struct pdb_methods *my_methods, SAM_ACCOU
 	}
 	
 	CFDictionaryRef userCurrent = (CFDictionaryRef) CFArrayGetValueAtIndex(usersArray, 0);
-	dirStatus = add_user_attributes(ods_state, userMods, userCurrent);
+	dirStatus = add_record_attributes(ods_state, userMods, userCurrent, NULL);
 	if (eDSNoErr != dirStatus) {
 		ret = NT_STATUS_UNSUCCESSFUL;
-		DEBUG(0, ("odssam_add_sam_account: [%d]add_user_attributes\n", dirStatus));
+		DEBUG(0, ("odssam_add_sam_account: [%d]add_record_attributes\n", dirStatus));
 	} else {
 		ret = NT_STATUS_OK;
 	}
@@ -2380,10 +2620,10 @@ static NTSTATUS odssam_update_sam_account(struct pdb_methods *my_methods, SAM_AC
 	}
 	
 	CFDictionaryRef userCurrent = (CFDictionaryRef) CFArrayGetValueAtIndex(usersArray, 0);
-	dirStatus = add_user_attributes(ods_state, userMods, userCurrent);
+	dirStatus = add_record_attributes(ods_state, userMods, userCurrent, NULL);
 	if (eDSNoErr != dirStatus) {
 		ret = NT_STATUS_UNSUCCESSFUL;
-		DEBUG(0, ("odssam_update_sam_account: [%d]add_user_attributes\n", dirStatus));
+		DEBUG(0, ("odssam_update_sam_account: [%d]add_record_attributes\n", dirStatus));
 	} else {
 		ret = NT_STATUS_OK;
 	}
@@ -2574,15 +2814,15 @@ static NTSTATUS odssam_getgrsid(struct pdb_methods *my_methods, GROUP_MAP *map, 
 	snprintf(gid_string, sizeof(gid_string) - 1, "%i", gid);
 #endif
 
-#if defined(kDS1AttrSMBPrimaryGroupSID)
-if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrSMBPrimaryGroupSID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
-		DEBUG(4,("odssam_getgrsid: kDS1AttrSMBPrimaryGroupSID found\n"));		
+#if defined(kDS1AttrSMBSID)
+if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrSMBSID, sid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
+		DEBUG(4,("odssam_getgrsid: kDS1AttrSMBSID found\n"));		
 	} else
 #endif	
-		if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrSMBRID, rid_string, True) == eDSNoErr || (CFArrayGetCount(usersArray) != 0)) {
+		if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrSMBRID, rid_string, True) == eDSNoErr && (CFArrayGetCount(usersArray) != 0)) {
 		DEBUG(4,("odssam_getgrsid: kDS1AttrSMBRID found\n"));		
 #if USE_ALGORITHMIC_RID
-	} else  if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr || (CFArrayGetCount(usersArray) == 0)){
+	} else  if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr && (CFArrayGetCount(usersArray) != 0)){
 		DEBUG(4,("odssam_getgrsid: rid(%d) -> gid(%d)\n", rid, gid));	
 #endif
 	} else {
@@ -2619,13 +2859,13 @@ static NTSTATUS odssam_getgrgid(struct pdb_methods *methods, GROUP_MAP *map, gid
 	struct odssam_privates *ods_state = (struct odssam_privates *)methods->private_data;
     CFMutableArrayRef usersArray = NULL;
 	CFMutableDictionaryRef entry = NULL;
-	pstring filter;
+	pstring gid_string;
 
     usersArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);    
 
-	snprintf(filter, sizeof(filter) - 1, "%i", gid);
-	DEBUG(1,("odssam_getgrgid: gid [%s]\n", filter));
-	if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, filter, True) != eDSNoErr || (CFArrayGetCount(usersArray) == 0)){
+	snprintf(gid_string, sizeof(gid_string) - 1, "%i", gid);
+	DEBUG(1,("odssam_getgrgid: gid [%s]\n", gid_string));
+	if (get_sam_record_by_attr(ods_state, usersArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr || (CFArrayGetCount(usersArray) == 0)){
 			ret = NT_STATUS_NO_SUCH_USER;
 			goto cleanup;
 		}
@@ -2684,6 +2924,142 @@ static NTSTATUS odssam_getgrnam(struct pdb_methods *methods, GROUP_MAP *map, cha
 
 	return ret;
 
+}
+
+
+static BOOL init_ods_from_group (struct odssam_privates *ods_state, GROUP_MAP *map, CFMutableDictionaryRef groupEntry, CFMutableDictionaryRef mods)
+
+{
+	pstring tmp;
+
+	if (groupEntry == NULL || map == NULL || mods == NULL) {
+		DEBUG(0, ("init_ods_from_group: NULL parameters found!\n"));
+		return False;
+	}
+
+	if (sid_to_string(tmp, &map->sid))
+		make_a_mod(mods, kDS1AttrSMBSID, tmp);
+
+	if (map->nt_name)
+		make_a_mod(mods, kDS1AttrDistinguishedName, map->nt_name);
+	
+	if (map->comment)
+		make_a_mod(mods, kDS1AttrComment, map->comment);
+
+
+	return True;
+}
+
+static NTSTATUS odssam_add_group_mapping_entry(struct pdb_methods *methods, GROUP_MAP *map)
+{
+	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
+	struct odssam_privates *ods_state = (struct odssam_privates *)methods->private_data;
+	tDirStatus dirStatus = eDSNoErr;
+    CFMutableArrayRef recordsArray = NULL;
+	CFMutableDictionaryRef entry = NULL, groupMods = NULL;
+	pstring gid_string;
+    
+    recordsArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);    
+
+	snprintf(gid_string, sizeof(gid_string) - 1, "%i", map->gid);
+	DEBUG(1,("odssam_add_group_mapping_entry: gid [%s]\n", gid_string));
+	if (get_sam_record_by_attr(ods_state, recordsArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr || (CFArrayGetCount(recordsArray) == 0)){
+			ret = NT_STATUS_UNSUCCESSFUL;
+			goto cleanup;
+		}
+
+	groupMods = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	entry = (CFDictionaryRef) CFArrayGetValueAtIndex(recordsArray, 0);
+	if (entry) {
+		if (!init_ods_from_group(ods_state, map, entry, groupMods)) {
+			DEBUG(1,("odssam_add_group_mapping_entry: init_ods_from_group failed!\n"));
+			if (groupMods)
+				CFRelease(groupMods);
+			ret = NT_STATUS_UNSUCCESSFUL;
+			goto cleanup;
+		}
+		ret = NT_STATUS_OK;
+	} else {
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	}
+
+	if (CFDictionaryGetCount(groupMods) == 0) {
+		DEBUG(0, ("odssam_add_group_mapping_entry: mods is empty\n"));
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	}
+
+	dirStatus = add_record_attributes(ods_state, groupMods, entry, kDSStdRecordTypeGroups);
+	if (eDSNoErr != dirStatus) {
+		DEBUG(0, ("odssam_add_sam_account: [%d]add_record_attributes\n", dirStatus));
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	} else {
+		ret = NT_STATUS_OK;
+	}
+
+	DEBUG(2, ("odssam_add_group_mapping_entry: successfully modified group %lu in Open Directory\n", (unsigned long)map->gid));
+cleanup:
+	if (groupMods)
+		CFRelease(groupMods);	
+	return ret;
+}
+
+static NTSTATUS odssam_update_group_mapping_entry(struct pdb_methods *methods, GROUP_MAP *map)
+{
+	NTSTATUS ret = NT_STATUS_UNSUCCESSFUL;
+	struct odssam_privates *ods_state = (struct odssam_privates *)methods->private_data;
+	tDirStatus dirStatus = eDSNoErr;
+    CFMutableArrayRef recordsArray = NULL;
+	CFMutableDictionaryRef entry = NULL;
+	pstring gid_string;
+
+    recordsArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);    
+
+	snprintf(gid_string, sizeof(gid_string) - 1, "%i", map->gid);
+	DEBUG(1,("odssam_update_group_mapping_entry: gid [%s]\n", gid_string));
+	if (get_sam_record_by_attr(ods_state, recordsArray, kDSStdRecordTypeGroups, kDS1AttrPrimaryGroupID, gid_string, True) != eDSNoErr || (CFArrayGetCount(recordsArray) == 0)){
+			ret = NT_STATUS_UNSUCCESSFUL;
+			goto cleanup;
+		}
+
+	CFMutableDictionaryRef groupMods = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	entry = (CFDictionaryRef) CFArrayGetValueAtIndex(recordsArray, 0);
+	if (entry) {
+		if (!init_ods_from_group(ods_state, map, entry, groupMods)) {
+			DEBUG(1,("odssam_update_group_mapping_entry: init_ods_from_group failed!\n"));
+			if (groupMods)
+				CFRelease(groupMods);
+			ret = NT_STATUS_UNSUCCESSFUL;
+			goto cleanup;
+		}
+		ret = NT_STATUS_OK;
+	} else {
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	}
+
+	if (CFDictionaryGetCount(groupMods) == 0) {
+		DEBUG(0, ("odssam_update_group_mapping_entry: mods is empty\n"));
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	}
+
+	dirStatus = add_record_attributes(ods_state, groupMods, entry, kDSStdRecordTypeGroups);
+	if (eDSNoErr != dirStatus) {
+		DEBUG(0, ("odssam_add_sam_account: [%d]add_record_attributes\n", dirStatus));
+		ret = NT_STATUS_UNSUCCESSFUL;
+		goto cleanup;
+	} else {
+		ret = NT_STATUS_OK;
+	}
+
+	DEBUG(2, ("odssam_update_group_mapping_entry: successfully modified group %lu in Open Directory\n", (unsigned long)map->gid));
+cleanup:
+	if (groupMods)
+		CFRelease(groupMods);	
+	return ret;
 }
 
 static NTSTATUS odssam_enum_group_mapping(struct pdb_methods *methods,
@@ -2774,6 +3150,9 @@ static NTSTATUS odssam_init(PDB_CONTEXT *pdb_context, PDB_METHODS **pdb_method, 
 	(*pdb_method)->getgrsid = odssam_getgrsid;
 	(*pdb_method)->getgrgid = odssam_getgrgid;
 	(*pdb_method)->getgrnam = odssam_getgrnam;
+	(*pdb_method)->add_group_mapping_entry = odssam_add_group_mapping_entry;
+	(*pdb_method)->update_group_mapping_entry = odssam_update_group_mapping_entry;
+//	(*pdb_method)->delete_group_mapping_entry = odssam_delete_group_mapping_entry;
 	(*pdb_method)->enum_group_mapping = odssam_enum_group_mapping;
 #endif
 	ods_state = talloc_zero(pdb_context->mem_ctx, sizeof(struct odssam_privates));
@@ -2792,6 +3171,7 @@ static NTSTATUS odssam_init(PDB_CONTEXT *pdb_context, PDB_METHODS **pdb_method, 
 
     ods_state->usersArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks); 
     ods_state->groupsArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks); 
+	ods_state->domainInfo = CFDictionaryCreateMutable(NULL, 0, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
 	(*pdb_method)->private_data = ods_state;
 	(*pdb_method)->free_private_data = odssam_free_private_data;

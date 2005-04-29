@@ -36,7 +36,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: authfile.c,v 1.52 2003/03/13 11:42:18 markus Exp $");
+RCSID("$OpenBSD: authfile.c,v 1.55 2003/09/18 07:56:05 markus Exp $");
 
 #include <openssl/err.h>
 #include <openssl/evp.h>
@@ -143,6 +143,7 @@ key_save_private_rsa1(Key *key, const char *filename, const char *passphrase,
 	fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0600);
 	if (fd < 0) {
 		error("open %s failed: %s.", filename, strerror(errno));
+		buffer_free(&encrypted);
 		return 0;
 	}
 	if (write(fd, buffer_ptr(&encrypted), buffer_len(&encrypted)) !=
@@ -514,7 +515,7 @@ key_perm_ok(int fd, const char *filename)
 		error("@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @");
 		error("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
 		error("Permissions 0%3.3o for '%s' are too open.",
-		    st.st_mode & 0777, filename);
+		    (u_int)st.st_mode & 0777, filename);
 		error("It is recommended that your private key files are NOT accessible by others.");
 		error("This private key will be ignored.");
 		return 0;
@@ -629,9 +630,18 @@ key_load_public(const char *filename, char **commentp)
 	Key *pub;
 	char file[MAXPATHLEN];
 
+	/* try rsa1 private key */
 	pub = key_load_public_type(KEY_RSA1, filename, commentp);
 	if (pub != NULL)
 		return pub;
+
+	/* try rsa1 public key */
+	pub = key_new(KEY_RSA1);
+	if (key_try_load_public(pub, filename, commentp) == 1)
+		return pub;
+	key_free(pub);
+
+	/* try ssh2 public key */
 	pub = key_new(KEY_UNSPEC);
 	if (key_try_load_public(pub, filename, commentp) == 1)
 		return pub;

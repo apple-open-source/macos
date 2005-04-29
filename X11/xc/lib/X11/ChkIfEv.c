@@ -24,6 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/ChkIfEv.c,v 1.3 2003/11/17 22:20:06 dawes Exp $ */
 
 #define NEED_EVENTS
 #include "Xlibint.h"
@@ -37,11 +38,9 @@ in this Software without prior written authorization from The Open Group.
 Bool XCheckIfEvent (dpy, event, predicate, arg)
         register Display *dpy;
 	Bool (*predicate)(
-#if NeedNestedPrototypes
 			  Display*			/* display */,
 			  XEvent*			/* event */,
 			  char*				/* arg */
-#endif
 			  );		/* function to call */
 	register XEvent *event;		/* XEvent to be filled in. */
 	char *arg;

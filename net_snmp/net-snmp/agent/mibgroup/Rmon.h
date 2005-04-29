@@ -20,9 +20,6 @@
 
 /*
  * $Log: Rmon.h,v $
- * Revision 1.1.1.1  2003/05/29 00:03:05  rbraun
- * Import of net-snmp 5.0.8
- *
  * Revision 5.0  2002/04/20 07:30:00  hardaker
  * cvs file version number change
  *

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -149,7 +148,7 @@ package Atree is
    --   package in Atree allows for direct untyped accesses in such cases.
 
    --   Flag4            Fifteen Boolean flags (use depends on Nkind and
-   --   Flag5            Ekind, as described for Fieldn). Again the access
+   --   Flag5            Ekind, as described for FieldN). Again the access
    --   Flag6            is usually via subprograms in Sinfo and Einfo which
    --   Flag7            provide high-level synonyms for these flags, and
    --   Flag8            contain debugging code that checks that the values
@@ -243,9 +242,9 @@ package Atree is
    --  avoid posting related cascaded error messages, and to propagate
    --  the error node if necessary.
 
-   -----------------------
+   ------------------------
    -- Current_Error_Node --
-   -----------------------
+   ------------------------
 
    --  The current error node is a global location indicating the current
    --  node that is being processed for the purposes of placing a compiler
@@ -253,7 +252,15 @@ package Atree is
    --  just a reasonably accurate best guess. It is used to output the
    --  source location in the abort message by Comperr, and also to
    --  implement the d3 debugging flag. This is also used by Rtsfind
-   --  to generate error messages for No_Run_Time mode.
+   --  to generate error messages for high integrity mode.
+
+   --  There are two ways this gets set. During parsing, when new source
+   --  nodes are being constructed by calls to New_Node and New_Entity,
+   --  either one of these calls sets Current_Error_Node to the newly
+   --  created node. During semantic analysis, this mechanism is not
+   --  used, and instead Current_Error_Node is set by the subprograms in
+   --  Debug_A that mark the start and end of analysis/expansion of a
+   --  node in the tree.
 
    Current_Error_Node : Node_Id;
    --  Node to place error messages
@@ -286,7 +293,7 @@ package Atree is
 
    --  A subpackage Atree.Unchecked_Access provides routines for reading and
    --  writing the fields defined above (Field1-17, Node1-17, Flag1-88 etc).
-   --  These unchecked access routines can be used for untyped traversals. In
+   --  These unchecked access routines can be used for untyped traversals.
    --  In addition they are used in the implementations of the Sinfo and
    --  Einfo packages. These packages both provide logical synonyms for
    --  the generic fields, together with an appropriate set of access routines.
@@ -325,30 +332,34 @@ package Atree is
 
    function New_Node
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Node_Id;
+      New_Sloc      : Source_Ptr) return Node_Id;
    --  Allocates a completely new node with the given node type and source
    --  location values. All other fields are set to their standard defaults:
    --
-   --    Empty for all Fieldn fields
-   --    False for all Flagn fields
+   --    Empty for all FieldN fields
+   --    False for all FlagN fields
    --
    --  The usual approach is to build a new node using this function and
    --  then, using the value returned, use the Set_xxx functions to set
    --  fields of the node as required. New_Node can only be used for
    --  non-entity nodes, i.e. it never generates an extended node.
+   --
+   --  If we are currently parsing, as indicated by a previous call to
+   --  Set_Comes_From_Source_Default (True), then this call also resets
+   --  the value of Current_Error_Node.
 
    function New_Entity
      (New_Node_Kind : Node_Kind;
-      New_Sloc      : Source_Ptr)
-      return          Entity_Id;
+      New_Sloc      : Source_Ptr) return Entity_Id;
    --  Similar to New_Node, except that it is used only for entity nodes
    --  and returns an extended node.
 
    procedure Set_Comes_From_Source_Default (Default : Boolean);
    --  Sets value of Comes_From_Source flag to be used in all subsequent
    --  New_Node and New_Entity calls until another call to this procedure
-   --  changes the default.
+   --  changes the default. This value is set True during parsing and
+   --  False during semantic analysis. This is also used to determine
+   --  if New_Node and New_Entity should set Current_Error_Node.
 
    function Get_Comes_From_Source_Default return Boolean;
    pragma Inline (Get_Comes_From_Source_Default);
@@ -414,8 +425,7 @@ package Atree is
      (Source    : Node_Id;
       Map       : Elist_Id := No_Elist;
       New_Sloc  : Source_Ptr := No_Location;
-      New_Scope : Entity_Id := Empty)
-      return      Node_Id;
+      New_Scope : Entity_Id := Empty) return Node_Id;
    --  Given a node that is the root of a subtree, Copy_Tree copies the entire
    --  syntactic subtree, including recursively any descendents whose parent
    --  field references a copied node (descendents not linked to a copied node
@@ -485,7 +495,7 @@ package Atree is
    function Extend_Node (Node : Node_Id) return Entity_Id;
    --  This function returns a copy of its input node with an extension
    --  added. The fields of the extension are set to Empty. Due to the way
-   --  extensions are handled (as two consecutive array elements), it may
+   --  extensions are handled (as four consecutive array elements), it may
    --  be necessary to reallocate the node, so that the returned value is
    --  not the same as the input value, but where possible the returned
    --  value will be the same as the input value (i.e. the extension will
@@ -1460,25 +1470,25 @@ package Atree is
       pragma Inline (Flag151);
 
       function Flag152 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag152);
 
       function Flag153 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag153);
 
       function Flag154 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag154);
 
       function Flag155 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag155);
 
       function Flag156 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag156);
 
       function Flag157 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag157);
 
       function Flag158 (N : Node_Id) return Boolean;
-      pragma Inline (Flag151);
+      pragma Inline (Flag158);
 
       function Flag159 (N : Node_Id) return Boolean;
       pragma Inline (Flag159);

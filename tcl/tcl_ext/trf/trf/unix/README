@@ -1,0 +1,13 @@
+
+		Tcl Data transformations (Tcl-Trf)
+		(Version 2.1p2 / AUG-26-2002)
+
+		Andreas Kupries	(a.kupries@westend.com)
+
+This is the README file for the Unix version of the Tcl-Trf package.
+
+Please follow the instructions in the HTML documentation (file:
+../doc/html/trf_compile.html) for compilation and installation of
+this package.
+
+After that, enjoy it.

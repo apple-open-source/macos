@@ -28,8 +28,7 @@
 #ifndef __CRCCalc_h__
 #define __CRCCalc_h__	1
 
-//#include <CarbonCore/MacTypes.h>
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 // Consts ----------------------------------------------------------------------------
 

@@ -162,19 +162,22 @@ int opt_type_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
   
   if ((err=srvtyperqst_in(pslphdr,pcInBuf,iInSz,&pcPRList,&pcNA,&pcSList))<0){
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_type_request: drop request due to parse in error");
-
+#endif
     /* return the error in a srvtype reply message */
     if ((err = optrply_out(pslphdr,SRVTYPERPLY,SLP_PARSE_ERROR,
 			   ppcOutBuf,piOutSz,"", 0)) != SLP_OK) {
-      LOG(SLP_LOG_ERR,"opt_type_request: could not serialize parse error");
+      SLPLOG(SLP_LOG_ERR,"opt_type_request: could not serialize parse error");
     }
     
     err = SLP_PARSE_ERROR;
 
   } else if (on_PRList(psa,pcPRList)) {
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_type_request: drop request which is on my PRList");
+#endif
     SLPFree(pcList);
     SLPFree(pcPRList);
     SLPFree(pcSList);
@@ -183,24 +186,26 @@ int opt_type_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
 
   } else if (!pcPRList || !pcNA || !pcSList ) {
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_type_request: request is malformed - missing values");
-
+#endif
     /* return the error in a srvtype reply message */
     if ((err = optrply_out(pslphdr,SRVTYPERPLY,SLP_PARSE_ERROR,
 			   ppcOutBuf,piOutSz,"", 0)) != SLP_OK) {
-      LOG(SLP_LOG_ERR,"opt_type_request: could not serialize missing val error");
+      SLPLOG(SLP_LOG_ERR,"opt_type_request: could not serialize missing val error");
     }
 
     err = SLP_PARSE_ERROR;    
     
   } else if (!list_intersection(pcSList,SLPGetProperty("net.slp.useScopes"))){
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_type_request: drop request not on my scope list");
-
+#endif
     /* return the error in a srvtype reply message */
     if ((err = optrply_out(pslphdr,SRVTYPERPLY,SLP_SCOPE_NOT_SUPPORTED,
 			   ppcOutBuf,piOutSz,"", 0)) != SLP_OK) {
-      LOG(SLP_LOG_ERR,"opt_type_request: could not serialize scope supp. error");
+      SLPLOG(SLP_LOG_ERR,"opt_type_request: could not serialize scope supp. error");
     }
 
     err = SLP_SCOPE_NOT_SUPPORTED;
@@ -321,17 +326,23 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
   if ((err = srvrqst_in(pslphdr,pcInBuf,iInSz,&pcPRList,
     &pcSrv,&pcSList,&pcTagList))<0){
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_attr_request: drop request due to parse in error");
+#endif
     return SLP_OK;
 
   } else if (on_PRList(psa,pcPRList)) {
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_attr_request: drop request which is on my PRList");
+#endif
     return SLP_OK;
     
   }  if (!list_intersection(pcSList,SLPGetProperty("net.slp.useScopes"))){
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DROP,"opt_attr_request: drop request not on my scope list");
+#endif
     return SLP_OK;
     
   } else {
@@ -351,8 +362,10 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
       if ((iRetval=match_langtag(psa->store.lang[i],pslphdr->h_pcLangTag))==0) {
         continue;  /* does not match */
       } else if (iRetval != 1) {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_DROP,"opt_attr_request: bad language in request", 
                 pslphdr->h_pcLangTag);
+#endif
         continue;
       } 
       
@@ -365,7 +378,9 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
       if ((iRetval=match_srvtype(pcSrv,psa->store.url[i]))==0) {
         continue;  /* does not match */
       } else if (iRetval != 1) {
+#ifdef ENABLE_SLP_LOGGING
         mslplog(SLP_LOG_DROP,"opt_attr_request: bad servtype in request",pcSrv);
+#endif
         continue;
       }
       
@@ -379,7 +394,9 @@ int opt_attr_request(SAState *psa, Slphdr *pslphdr, const char *pcInBuf,
 	  continue; /* the attribute was not requested */
 	} else if (returnval != SLP_OK && returnval != 1) {
 	  /* an error condition */
+#ifdef ENABLE_SLP_LOGGING
 	  SLP_LOG( SLP_LOG_DEBUG,"opt_attr_request: could not compare tag lists");
+#endif
 	  err = (SLPInternalError) returnval;
 	  break;
 	} 
@@ -486,7 +503,9 @@ static SLPInternalError optrply_out(Slphdr *pslphdr, int replytype, SLPInternalE
   SETSHT(*ppcOutBuf,api2slp(err),offset);  offset += 2;
 
   if ((err=add_string(*ppcOutBuf,*piOutSz,pcResult,&offset))!=SLP_OK) {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG,"optrply_out: could not add_string, should never happen!");
+#endif
     offset = hdrsz;
     SETSHT(*ppcOutBuf,api2slp(SLP_PARSE_ERROR),offset);
     *piOutSz = hdrsz+2;

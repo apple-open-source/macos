@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/programs/Xserver/fb/fbcompose.c,v 1.16 2002/11/06 22:45:35 keithp Exp $
+ * $XFree86: xc/programs/Xserver/fb/fbcompose.c,v 1.18 2003/12/04 17:15:12 tsi Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -2424,6 +2424,8 @@ fbStore_external (FbCompositeOperand *op, CARD32 value)
     (*op[2].store) (&op[2], value & 0xff000000);
 }
 
+#define dummyScreen screenInfo.screens[0]
+
 CARD32
 fbFetch_transform (FbCompositeOperand *op)
 {
@@ -2445,7 +2447,7 @@ fbFetch_transform (FbCompositeOperand *op)
     case PictFilterNearest:
 	y = xFixedToInt (v.vector[1]) + op->u.transform.top_y;
 	x = xFixedToInt (v.vector[0]) + op->u.transform.left_x;
-	if (POINT_IN_REGION (0, op->clip, x, y, &box))
+	if (POINT_IN_REGION (dummyScreen, op->clip, x, y, &box))
 	{
 	    (*op[1].set) (&op[1], x, y);
 	    bits = (*op[1].fetch) (&op[1]);
@@ -2469,7 +2471,7 @@ fbFetch_transform (FbCompositeOperand *op)
 	    xerr = xFixed1 - xFixedFrac (v.vector[0]);
 	    for (x = minx; x <= maxx; x++)
 	    {
-		if (POINT_IN_REGION (0, op->clip, x, y, &box))
+		if (POINT_IN_REGION (dummyScreen, op->clip, x, y, &box))
 		{
 		    (*op[1].set) (&op[1], x, y);
 		    bits = (*op[1].fetch) (&op[1]);
@@ -2527,7 +2529,7 @@ fbFetcha_transform (FbCompositeOperand *op)
     case PictFilterNearest:
 	y = xFixedToInt (v.vector[1]) + op->u.transform.left_x;
 	x = xFixedToInt (v.vector[0]) + op->u.transform.top_y;
-	if (POINT_IN_REGION (0, op->clip, x, y, &box))
+	if (POINT_IN_REGION (dummyScreen, op->clip, x, y, &box))
 	{
 	    (*op[1].set) (&op[1], x, y);
 	    bits = (*op[1].fetcha) (&op[1]);
@@ -2551,7 +2553,7 @@ fbFetcha_transform (FbCompositeOperand *op)
 	    xerr = xFixed1 - xFixedFrac (v.vector[0]);
 	    for (x = minx; x <= maxx; x++)
 	    {
-		if (POINT_IN_REGION (0, op->clip, x, y, &box))
+		if (POINT_IN_REGION (dummyScreen, op->clip, x, y, &box))
 		{
 		    (*op[1].set) (&op[1], x, y);
 		    bits = (*op[1].fetcha) (&op[1]);
@@ -2826,9 +2828,6 @@ fbCompositeGeneral (CARD8	op,
 		    CARD16	height)
 {
     FbCompositeOperand	src[4],msk[4],dst[4],*pmsk;
-    FbCompositeOperand	*srcPict, *srcAlpha;
-    FbCompositeOperand	*dstPict, *dstAlpha;
-    FbCompositeOperand	*mskPict = 0, *mskAlpha = 0;
     FbCombineFunc	f;
     int			w;
 
@@ -2836,26 +2835,6 @@ fbCompositeGeneral (CARD8	op,
 	return;
     if (!fbBuildCompositeOperand (pDst, dst, xDst, yDst, FALSE, TRUE))
 	return;
-    if (pSrc->alphaMap)
-    {
-	srcPict = &src[1];
-	srcAlpha = &src[2];
-    }
-    else
-    {
-	srcPict = &src[0];
-	srcAlpha = 0;
-    }
-    if (pDst->alphaMap)
-    {
-	dstPict = &dst[1];
-	dstAlpha = &dst[2];
-    }
-    else
-    {
-	dstPict = &dst[0];
-	dstAlpha = 0;
-    }
     f = fbCombineFuncU[op];
     if (pMask)
     {
@@ -2864,16 +2843,6 @@ fbCompositeGeneral (CARD8	op,
 	pmsk = msk;
 	if (pMask->componentAlpha)
 	    f = fbCombineFuncC[op];
-	if (pMask->alphaMap)
-	{
-	    mskPict = &msk[1];
-	    mskAlpha = &msk[2];
-	}
-	else
-	{
-	    mskPict = &msk[0];
-	    mskAlpha = 0;
-	}
     }
     else
 	pmsk = 0;

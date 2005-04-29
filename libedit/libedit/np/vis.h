@@ -38,6 +38,11 @@
 #ifndef _VIS_H_
 #define	_VIS_H_
 
+#include "config.h"
+#ifdef HAVE_SYS_CDEFS_H
+#include <sys/cdefs.h>
+#endif
+
 /*
  * to select alternate encoding format
  */
@@ -74,7 +79,15 @@
  */
 #define	UNVIS_END	1	/* no more characters */
 
-#include <sys/cdefs.h>
+#ifdef __STDC__
+#ifndef __P
+#define __P(x)  x
+#endif
+#else
+#ifndef __P
+#define __P(x)  ()
+#endif
+#endif /* __STDC__ */
 
 __BEGIN_DECLS
 char	*vis __P((char *, int, int, int));

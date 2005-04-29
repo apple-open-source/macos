@@ -6,6 +6,9 @@
  *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
  *
  * $Log: prefix.h,v $
+ * Revision 1.3  2004/03/03 19:53:37  niels
+ * fix prefix header for native target building
+ *
  * Revision 1.2  2003/07/21 06:52:59  niels
  * merge isoch to TOT
  *
@@ -13,6 +16,8 @@
  * isoch merge
  *
  */
+
+#ifdef __cplusplus
 
 // system
 #import <IOKit/system.h>
@@ -48,3 +53,5 @@
 #import <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 #import <sys/proc.h>
+
+#endif

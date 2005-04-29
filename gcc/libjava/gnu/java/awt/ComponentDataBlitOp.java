@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2004  Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -36,9 +36,14 @@ exception statement from your version. */
 
 package gnu.java.awt;
 
-import java.awt.geom.*;
-import java.awt.image.*;
 import java.awt.RenderingHints;
+import java.awt.geom.Point2D;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.ComponentSampleModel;
+import java.awt.image.DataBuffer;
+import java.awt.image.Raster;
+import java.awt.image.RasterOp;
+import java.awt.image.WritableRaster;
 
 /**
  * This raster copy operation assumes that both source and destination
@@ -52,7 +57,7 @@ import java.awt.RenderingHints;
  */
 public class ComponentDataBlitOp implements RasterOp
 {
-  public static ComponentDataBlitOp INSTANCE = new ComponentDataBlitOp();
+  public static final ComponentDataBlitOp INSTANCE = new ComponentDataBlitOp();
 
   public WritableRaster filter(Raster src, WritableRaster dest)
   {

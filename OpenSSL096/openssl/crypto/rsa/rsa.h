@@ -164,6 +164,12 @@ struct rsa_st
  */
 #define RSA_FLAG_SIGN_VER		0x40
 
+#define RSA_FLAG_NO_BLINDING		0x80 /* new with 0.9.6j and 0.9.7b; the built-in
+                                              * RSA implementation now uses blinding by
+                                              * default (ignoring RSA_FLAG_BLINDING),
+                                              * but other engines might not need it
+                                              */
+
 #define RSA_PKCS1_PADDING	1
 #define RSA_SSLV23_PADDING	2
 #define RSA_NO_PADDING		3
@@ -329,6 +335,7 @@ void ERR_load_RSA_strings(void);
 #define RSA_R_DMP1_NOT_CONGRUENT_TO_D			 124
 #define RSA_R_DMQ1_NOT_CONGRUENT_TO_D			 125
 #define RSA_R_D_E_NOT_CONGRUENT_TO_1			 123
+#define RSA_R_INTERNAL_ERROR				 133
 #define RSA_R_INVALID_MESSAGE_LENGTH			 131
 #define RSA_R_IQMP_NOT_INVERSE_OF_Q			 126
 #define RSA_R_KEY_SIZE_TOO_SMALL			 120

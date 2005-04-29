@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2001, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfrule.cpp
@@ -25,7 +25,7 @@
 #include "nfrlist.h"
 #include "nfsubs.h"
 
-#include "uprops.h"
+#include "util.h"
 
 U_NAMESPACE_BEGIN
 
@@ -228,7 +228,7 @@ NFRule::parseRuleDescriptor(UnicodeString& description, UErrorCode& status)
     // it's omitted, just set the base value to 0.
     int32_t p = description.indexOf(gColon);
     if (p == -1) {
-        setBaseValue((int32_t)0);
+        setBaseValue((int32_t)0, status);
     } else {
         // copy the descriptor out into its own string and strip it,
         // along with any trailing whitespace, out of the original
@@ -291,7 +291,7 @@ NFRule::parseRuleDescriptor(UnicodeString& description, UErrorCode& status)
             }
 
             // we have the base value, so set it
-            setBaseValue(val);
+            setBaseValue(val, status);
 
             // if we stopped the previous loop on a slash, we're
             // now parsing the rule's radix.  Again, accumulate digits
@@ -321,7 +321,7 @@ NFRule::parseRuleDescriptor(UnicodeString& description, UErrorCode& status)
 
                 // tempValue now contain's the rule's radix.  Set it
                 // accordingly, and recalculate the rule's exponent
-                radix = (int16_t)val;
+                radix = (int32_t)val;
                 if (radix == 0) {
                     // throw new IllegalArgumentException("Rule can't have radix of 0");
                     status = U_PARSE_ERROR;
@@ -456,7 +456,7 @@ NFRule::extractSubstitution(const NFRuleSet* ruleSet,
  * @param The new base value for the rule.
  */
 void
-NFRule::setBaseValue(int64_t newBaseValue)
+NFRule::setBaseValue(int64_t newBaseValue, UErrorCode& status)
 {
     // set the base value
     baseValue = newBaseValue;
@@ -475,10 +475,10 @@ NFRule::setBaseValue(int64_t newBaseValue)
         // has substitutions, and some substitutions hold on to copies
         // of the rule's divisor.  Fix their copies of the divisor.
         if (sub1 != NULL) {
-            sub1->setDivisor(radix, exponent);
+            sub1->setDivisor(radix, exponent, status);
         }
         if (sub2 != NULL) {
-            sub2->setDivisor(radix, exponent);
+            sub2->setDivisor(radix, exponent, status);
         }
 
         // if this is a special rule, its radix and exponent are basically

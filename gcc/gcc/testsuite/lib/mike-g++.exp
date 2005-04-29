@@ -141,9 +141,6 @@ proc postbase  { src_code run groups args } {
 	lappend options "libs=-lstdcxx -lgxx"
     }
 
-    # APPLE LOCAL testsuite OS flush bug workaround
-    lappend options "additional_flags=-fslow-exit"
-
     set comp_output [g++_target_compile $src_file $output_file $compile_type $options]
 
     set pass no

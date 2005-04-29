@@ -259,6 +259,7 @@ int put_tty_line __P((char *, int, long, int));
 void quit __P((int));
 long read_file __P((char *, long));
 long read_stream __P((FILE *, long));
+void replace_marks __P((line_t *, line_t *));
 int search_and_replace __P((pattern_t *, int, int));
 int set_active_node __P((line_t *));
 void set_des_key __P((char *));
@@ -292,6 +293,7 @@ extern char errmsg[];
 extern long first_addr;
 extern int lineno;
 extern long second_addr;
+extern int posixly_correct;
 #ifdef sun
 extern char *sys_errlist[];
 #endif

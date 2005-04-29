@@ -1,32 +1,36 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis_accel.c,v 1.25 2003/01/29 15:42:16 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sis/sis_accel.c,v 1.38 2004/02/25 17:45:12 twini Exp $ */
 /*
- * Copyright 1998,1999 by Alan Hourihane, Wigan, England.
- * Parts Copyright 2002 Thomas Winischhofer, Vienna, Austria.
+ * 2D acceleration for SiS5597/5598 and 6326
+ *
+ * Copyright (C) 1998, 1999 by Alan Hourihane, Wigan, England.
+ * Parts Copyright (C) 2001-2004 Thomas Winischhofer, Vienna, Austria.
+ *
+ * Licensed under the following terms:
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
- * the above copyright notice appear in all copies and that both that
- * copyright notice and this permission notice appear in supporting
- * documentation, and that the name of Alan Hourihane not be used in
- * advertising or publicity pertaining to distribution of the software without
- * specific, written prior permission.  Alan Hourihane makes no representations
+ * the above copyright notice appears in all copies and that both that copyright
+ * notice and this permission notice appear in supporting documentation, and
+ * and that the name of the copyright holder not be used in advertising
+ * or publicity pertaining to distribution of the software without specific,
+ * written prior permission. The copyright holder makes no representations
  * about the suitability of this software for any purpose.  It is provided
- * "as is" without express or implied warranty.
+ * "as is" without expressed or implied warranty.
  *
- * ALAN HOURIHANE DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
- * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
- * EVENT SHALL ALAN HOURIHANE BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * THE COPYRIGHT HOLDER DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO
+ * EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY SPECIAL, INDIRECT OR
  * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
  * DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  *
- * Authors:  Alan Hourihane, alanh@fairlite.demon.co.uk
+ * Authors:  Alan Hourihane <alanh@fairlite.demon.co.uk>,
  *           Mike Chapman <mike@paranoia.com>,
  *           Juanjo Santamarta <santamarta@ctv.es>,
- *           Mitani Hiroshi <hmitani@drl.mei.co.jp>
- *           David Thomas <davtom@dream.org.uk>
- *	     Thomas Winischhofer <thomas@winischhofer.net>
+ *           Mitani Hiroshi <hmitani@drl.mei.co.jp>,
+ *           David Thomas <davtom@dream.org.uk>,
+ *	     Thomas Winischhofer <thomas@winischhofer.net>.
  */
 
 #if 0
@@ -212,7 +216,7 @@ SiSAccelInit(ScreenPtr pScreen)
     if(AvailFBArea.y2 < pScrn->currentMode->VDisplay) {
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR,
 	 	"Not enough video RAM for accelerator. At least "
-		"%dKB needed, %dKB available\n",
+		"%dKB needed, %ldKB available\n",
 		((((pScrn->displayWidth * pScrn->bitsPerPixel/8)   /* TW: +8 for make it sure */
 		     * pScrn->currentMode->VDisplay) + reservedFbSize) / 1024) + 8,
 		pSiS->maxxfbmem/1024);
@@ -240,7 +244,7 @@ SiSSync(ScrnInfoPtr pScrn) {
 }
 
 /* Clipping */
-static void SiSSetClippingRectangle ( ScrnInfoPtr pScrn,
+static void SiSSetClippingRectangle( ScrnInfoPtr pScrn,
                 int left, int top, int right, int bottom)
 {
     SISPtr pSiS = SISPTR(pScrn);
@@ -251,52 +255,11 @@ static void SiSSetClippingRectangle ( ScrnInfoPtr pScrn,
     pSiS->ClipEnabled = TRUE;
 }
 
-static void SiSDisableClipping (ScrnInfoPtr pScrn)
+static void SiSDisableClipping(ScrnInfoPtr pScrn)
 {
     SISPtr pSiS = SISPTR(pScrn);
     pSiS->ClipEnabled = FALSE;
 }
-
-static const int sisALUConv[] =
-{
-    0x00,       /* dest = 0;            0,      GXclear,        0 */
-    0x88,       /* dest &= src;         DSa,    GXand,          0x1 */
-    0x44,       /* dest = src & ~dest;  SDna,   GXandReverse,   0x2 */
-    0xCC,       /* dest = src;          S,      GXcopy,         0x3 */
-    0x22,       /* dest &= ~src;        DSna,   GXandInverted,  0x4 */
-    0xAA,       /* dest = dest;         D,      GXnoop,         0x5 */
-    0x66,       /* dest = ^src;         DSx,    GXxor,          0x6 */
-    0xEE,       /* dest |= src;         DSo,    GXor,           0x7 */
-    0x11,       /* dest = ~src & ~dest; DSon,   GXnor,          0x8 */
-    0x99,       /* dest ^= ~src ;       DSxn,   GXequiv,        0x9 */
-    0x55,       /* dest = ~dest;        Dn,     GXInvert,       0xA */
-    0xDD,       /* dest = src|~dest ;   SDno,   GXorReverse,    0xB */
-    0x33,       /* dest = ~src;         Sn,     GXcopyInverted, 0xC */
-    0xBB,       /* dest |= ~src;        DSno,   GXorInverted,   0xD */
-    0x77,       /* dest = ~src|~dest;   DSan,   GXnand,         0xE */
-    0xFF,       /* dest = 0xFF;         1,      GXset,          0xF */
-};
-/* same ROP but with Pattern as Source */
-static const int sisPatALUConv[] =
-{
-    0x00,       /* dest = 0;            0,      GXclear,        0 */
-    0xA0,       /* dest &= src;         DPa,    GXand,          0x1 */
-    0x50,       /* dest = src & ~dest;  PDna,   GXandReverse,   0x2 */
-    0xF0,       /* dest = src;          P,      GXcopy,         0x3 */
-    0x0A,       /* dest &= ~src;        DPna,   GXandInverted,  0x4 */
-    0xAA,       /* dest = dest;         D,      GXnoop,         0x5 */
-    0x5A,       /* dest = ^src;         DPx,    GXxor,          0x6 */
-    0xFA,       /* dest |= src;         DPo,    GXor,           0x7 */
-    0x05,       /* dest = ~src & ~dest; DPon,   GXnor,          0x8 */
-    0xA5,       /* dest ^= ~src ;       DPxn,   GXequiv,        0x9 */
-    0x55,       /* dest = ~dest;        Dn,     GXInvert,       0xA */
-    0xF5,       /* dest = src|~dest ;   PDno,   GXorReverse,    0xB */
-    0x0F,       /* dest = ~src;         Pn,     GXcopyInverted, 0xC */
-    0xAF,       /* dest |= ~src;        DPno,   GXorInverted,   0xD */
-    0x5F,       /* dest = ~src|~dest;   DPan,   GXnand,         0xE */
-    0xFF,       /* dest = 0xFF;         1,      GXset,          0xF */
-};
-
 
 /* Screen to screen copy */
 static void
@@ -414,7 +377,7 @@ SiSSetupForMono8x8PatternFill(ScrnInfoPtr pScrn, int patternx, int patterny,
     patternRegPtr =  (unsigned int *)sisSETPATREG();
     pSiS->sisPatternReg[0] = pSiS->sisPatternReg[2] = patternx ;
     pSiS->sisPatternReg[1] = pSiS->sisPatternReg[3] = patterny ;
-    for ( i = 0 ; i < 16 /* sisPatternHeight */ ; ) {
+    for( i = 0 ; i < 16 /* sisPatternHeight */ ; ) {
         patternRegPtr[i++] = patternx ;
         patternRegPtr[i++] = patterny ;
     }
@@ -575,11 +538,11 @@ SiSSetupForScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn,
         sisSETROPBG(0xAA);             /* dst = dst (=noop) */
 	pSiS->CommandReg |= sisSRCFG;
     } else {
-        sisSETBGROPCOL(sisPatALUConv[rop], bg);
+        sisSETBGROPCOL(XAAPatternROP[rop], bg);
 	pSiS->CommandReg |= sisSRCFG | sisPATBG;
     }
 
-    sisSETFGROPCOL(sisALUConv[rop], fg);
+    sisSETFGROPCOL(XAACopyROP[rop], fg);
 
     sisSETDSTPITCH(pSiS->scrnOffset);
 }

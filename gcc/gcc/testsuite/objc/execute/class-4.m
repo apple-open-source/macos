@@ -2,7 +2,6 @@
 #include <objc/objc.h>
 #include <objc/objc-api.h>
 
-/* APPLE LOCAL objc test suite */      
 #include "next_mapping.h"
 
 /* Tests creating a root class and a subclass with an ivar and
@@ -15,11 +14,9 @@
 @end
 
 @implementation RootClass
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__                                   
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 @interface SubClass : RootClass

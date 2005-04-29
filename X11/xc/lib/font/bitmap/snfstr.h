@@ -49,7 +49,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/snfstr.h,v 1.5 2001/12/14 19:56:47 dawes Exp $ */
+/* $XFree86: xc/lib/font/bitmap/snfstr.h,v 1.6 2003/11/18 01:17:04 dawes Exp $ */
 
 #ifndef SNFSTR_H
 #define SNFSTR_H 1
@@ -180,5 +180,6 @@ extern void SnfSetFormat ( int bit, int byte, int glyph, int scan );
 extern int snfReadFont ( FontPtr pFont, FontFilePtr file, 
 			 int bit, int byte, int glyph, int scan );
 extern int snfReadFontInfo ( FontInfoPtr pFontInfo, FontFilePtr file );
+extern void snfError( const char* message, ... );
 
 #endif				/* SNFSTR_H */

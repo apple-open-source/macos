@@ -1,7 +1,7 @@
 /* Handle HP SOM shared libraries for GDB, the GNU Debugger.
 
    Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002,
-   2003 Free Software Foundation, Inc.
+   2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -41,6 +41,8 @@
 #include "gdbcmd.h"
 #include "language.h"
 #include "regcache.h"
+#include "gdb_assert.h"
+#include "exec.h"
 
 #include <fcntl.h>
 
@@ -53,10 +55,6 @@
 
 /* #define SOLIB_DEBUG
  */
-
-/* Defined in exec.c; used to prevent dangling pointer bug.
- */
-extern struct target_ops exec_ops;
 
 /* This lives in hppa-tdep.c. */
 extern struct unwind_table_entry *find_unwind_entry (CORE_ADDR pc);
@@ -72,9 +70,6 @@ extern struct unwind_table_entry *find_unwind_entry (CORE_ADDR pc);
 #define DLD_FLAGS_BOR_ENABLE    0x8
 
 /* TODO:
-
-   * Most of this code should work for hp300 shared libraries.  Does
-   anyone care enough to weed out any SOM-isms.
 
    * Support for hpux8 dynamic linker.  */
 
@@ -315,7 +310,7 @@ som_solib_add_solib_objfile (struct so_list *so, char *name, int from_tty,
   if (so->objfile->obj_private == NULL)
     {
       obj_private = (obj_private_data_t *)
-	obstack_alloc (&so->objfile->psymbol_obstack,
+	obstack_alloc (&so->objfile->objfile_obstack,
 		       sizeof (obj_private_data_t));
       obj_private->unwind_info = NULL;
       obj_private->so_info = NULL;
@@ -400,6 +395,21 @@ som_solib_load_symbols (struct so_list *so, char *name, int from_tty,
     }
 }
 
+
+/* FIXME: cagney/2003-02-01: This just isn't right.  Given an address
+   within the target's address space, this converts the value into an
+   address within the host's (i.e., GDB's) address space.  Given that
+   the host/target address spaces are separate, this can't be right.  */
+
+static void *
+hpux_address_to_host_pointer_hack (CORE_ADDR addr)
+{
+  void *ptr;
+
+  gdb_assert (sizeof (ptr) == TYPE_LENGTH (builtin_type_void_data_ptr));
+  ADDRESS_TO_POINTER (builtin_type_void_data_ptr, &ptr, addr);
+  return ptr;
+}
 
 /* Add symbols from shared libraries into the symtab list, unless the
    size threshold specified by auto_solib_limit (in megabytes) would
@@ -633,7 +643,7 @@ som_solib_add (char *arg_string, int from_tty, struct target_ops *target, int re
 	}
 
       name = obsavestring (name, name_len - 1,
-			   &symfile_objfile->symbol_obstack);
+			   &symfile_objfile->objfile_obstack);
 
       status = target_read_memory (addr + 8, buf, 4);
       if (status != 0)
@@ -715,8 +725,10 @@ som_solib_add (char *arg_string, int from_tty, struct target_ops *target, int re
       if (status != 0)
 	goto err;
 
+      /* FIXME: cagney/2003-02-01: I think som_solib.next should be a
+         CORE_ADDR.  */
       new_so->som_solib.next =
-	address_to_host_pointer (extract_unsigned_integer (buf, 4));
+	hpux_address_to_host_pointer_hack (extract_unsigned_integer (buf, 4));
 
       /* Note that we don't re-set "addr" to the next pointer
        * until after we've read the trailing data.
@@ -921,8 +933,8 @@ som_solib_create_inferior_hook (void)
     struct minimal_symbol *msymbol2;
 
     /* What a crock.  */
-    msymbol2 = lookup_minimal_symbol_solib_trampoline (SYMBOL_NAME (msymbol),
-						       NULL, objfile);
+    msymbol2 = lookup_minimal_symbol_solib_trampoline (DEPRECATED_SYMBOL_NAME (msymbol),
+						       objfile);
     /* Found a symbol with the right name.  */
     if (msymbol2)
       {
@@ -1210,7 +1222,6 @@ som_solib_desire_dynamic_linker_symbols (void)
       }
 
     dld_msymbol = lookup_minimal_symbol_solib_trampoline ("shl_load",
-							  NULL,
 							  objfile);
     if (dld_msymbol != NULL)
       {
@@ -1250,7 +1261,6 @@ som_solib_desire_dynamic_linker_symbols (void)
       }
 
     dld_msymbol = lookup_minimal_symbol_solib_trampoline ("shl_unload",
-							  NULL,
 							  objfile);
     if (dld_msymbol != NULL)
       {

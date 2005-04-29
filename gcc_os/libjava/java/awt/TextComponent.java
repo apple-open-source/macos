@@ -1,5 +1,5 @@
 /* TextComponent.java -- Widgets for entering text
-   Copyright (C) 1999 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -97,6 +97,7 @@ protected transient TextListener textListener;
 TextComponent(String text)
 {
   this.text = text;
+  this.editable = true;
 }
 
 /*************************************************************************/
@@ -290,10 +291,18 @@ getCaretPosition()
   * Sets the caret position to the specified value.
   *
   * @param caretPosition The new caret position.
+  *
+  * @exception IllegalArgumentException If the value supplied for position
+  * is less than zero.
+  *
+  * @since 1.1
   */
 public synchronized void
 setCaretPosition(int caretPosition)
 {
+  if (caretPosition < 0)
+    throw new IllegalArgumentException ();
+  
   TextComponentPeer tcp = (TextComponentPeer)getPeer();
   if (tcp != null)
     tcp.setCaretPosition(caretPosition);
@@ -406,6 +415,18 @@ processTextEvent(TextEvent event)
 {
   if (textListener != null)
     textListener.textValueChanged(event);
+}
+
+void
+dispatchEventImpl(AWTEvent e)
+{
+  if (e.id <= TextEvent.TEXT_LAST 
+      && e.id >= TextEvent.TEXT_FIRST
+      && (textListener != null 
+	  || (eventMask & AWTEvent.TEXT_EVENT_MASK) != 0))
+    processEvent(e);
+  else
+    super.dispatchEventImpl(e);
 }
 
 /*************************************************************************/

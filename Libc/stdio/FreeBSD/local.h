@@ -34,7 +34,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)local.h	8.3 (Berkeley) 7/3/94
- * $FreeBSD: src/lib/libc/stdio/local.h,v 1.21 2002/10/25 07:01:56 tjr Exp $
+ * $FreeBSD: src/lib/libc/stdio/local.h,v 1.26 2004/07/16 05:52:51 tjr Exp $
  */
 
 #include <sys/types.h>	/* for off_t */
@@ -57,6 +57,7 @@ extern wint_t	__fgetwc(FILE *);
 extern wint_t	__fputwc(wchar_t, FILE *);
 extern int	__sflush(FILE *);
 extern FILE	*__sfp(void);
+extern int	__slbexpand(FILE *, size_t);
 extern int	__srefill(FILE *);
 extern int	__sread(void *, char *, int);
 extern int	__swrite(void *, char const *, int);
@@ -89,21 +90,14 @@ struct __sFILEX {
 	pthread_t	fl_owner;	/* current owner */
 	int		fl_count;	/* recursive lock count */
 	int		orientation;	/* orientation for fwide() */
-#ifdef notdef
-	/*
-	 * XXX These are not used yet -- they will be used to store the
-	 * multibyte conversion state for writing and reading when
-	 * stateful encodings are supported by the locale framework.
-	 */
-	mbstate_t	wstate;		/* write conversion state */
-	mbstate_t	rstate;		/* read conversion state */
-#endif
+	mbstate_t	mbstate;	/* multibyte conversion state */
 };
 
 /*
- * Return true iff the given FILE cannot be written now.
+ * Prepare the given FILE for writing, and return 0 iff it
+ * can be written now.  Otherwise, return EOF and set errno.
  */
-#define	cantwrite(fp) \
+#define	prepwrite(fp) \
  	((((fp)->_flags & __SWR) == 0 || \
  	    ((fp)->_bf._base == NULL && ((fp)->_flags & __SSTR) == 0)) && \
 	 __swsetup(fp))
@@ -134,8 +128,7 @@ struct __sFILEX {
 	(fp)->_extra->fl_owner = NULL; \
 	(fp)->_extra->fl_count = 0; \
 	(fp)->_extra->orientation = 0; \
-	/* memset(&(fp)->_extra->wstate, 0, sizeof(mbstate_t)); */ \
-	/* memset(&(fp)->_extra->rstate, 0, sizeof(mbstate_t)); */ \
+	memset(&(fp)->_extra->mbstate, 0, sizeof(mbstate_t)); \
 }
 
 /*

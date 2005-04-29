@@ -1,0 +1,75 @@
+.Dd October 7, 2004
+.Os Darwin
+.Dt COMPAT 5
+.Sh NAME
+.Nm compat
+.Nd manipulate compatibility settings
+.Sh SYNOPSIS
+.Ev COMMAND_MODE=legacy|unix2003
+.Lp
+.Fd #define _POSIX_C_SOURCE
+.Fd #define _APPLE_C_SOURE
+.Fd #define _NONSTD_SOURCE
+.Fd #define __LP64__
+.Sh DESCRIPTION
+Setting the environment variable
+.Ev COMMAND_MODE
+to the value legacy causes utility programs to behave as closely to Mac OS X 10.3's utility programs as possible.  When in this mode all of 10.3's flags are accepted, and in some cases extra flags are accepted, but no flags that were used in 10.3 will have been removed or changed in meaning.  Any behavioral changes in this mode are documented in the LEGACY sections of the individual utilities.
+.Pp
+Setting the environment variable
+.Ev COMMAND_MODE 
+to the value unix03 causes utility programs to obey the
+.St -susv3
+standards even if doing so would alter the behavior of flags used in 10.3.
+.Pp
+.Ev COMMAND_MODE's
+value is case insensitive and if it is unset or set to something other than legacy or unix03 it behaves as if it were set to unix03.
+.Pp
+Defining
+.Dv _NONSTD_SOURCE
+causes library and kernel calls to behave as closely to Mac OS X 10.3's library and kernel calls as possible.  Any behavioral changes in this mode are documented in the LEGACY sections of the individual function calls.
+.Pp
+Defining any of
+.Dv _POSIX_C_SOURCE,
+.Dv _APPLE_C_SOURE,
+or
+.Dv __LP64__
+causes library and kernel calls to conform to
+.St -susv3
+standards even if doing so would alter the behavior of functions used in 10.3.  Defining
+.Dv _POSIX_C_SOURCE
+also removes functions, types, and other interfaces that are not part of
+.St -susv3
+from the normal C namespace, while
+.Dv _APPLE_C_SOURE
+does not.
+.Pp
+Failing to define any of those symbols currently acts as if you have defined 
+.Dv _NONSTD_SOURCE
+but it is expected that in a future OS X release the default behavior will change to be as if
+.Dv _APPLE_C_SOURE
+were defined.
+.Sh STANDARDS
+With COMMAND_MODE set to unix2003 utility functions conform to 
+.St -susv3
+.Pp
+With
+.Dv _POSIX_C_SOURCE,
+.Dv _APPLE_C_SOURE,
+or
+.Dv __LP64__
+system and library calls conform to
+.St -susv3
+.Sh BUGS
+Different parts of a program can be compiled with different compatibility settings.  The resultant program will normally work as expected, for example a regex created by the
+.St -susv3
+.Fn regcomp 3
+can be passed to the legacy
+.Fn regfree 3
+with no unexpected results.  Some cases are less clear cut, for example
+what does the programmer intend when they use the
+.Fn -susv3
+.Fn regcomp 3
+to compile a regex, but the legacy
+.Fn regexec 3
+to execute it?  Any interpretation will surprise someone.

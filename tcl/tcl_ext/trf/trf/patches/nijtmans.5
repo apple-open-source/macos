@@ -1,0 +1,111 @@
+*** configure.in.orig	Thu Jan 30 09:50:28 1997
+--- configure.in	Thu Jan 30 09:52:19 1997
+***************
+*** 13,18 ****
+--- 13,25 ----
+  TCL_REQ_MAJOR_VERSION=7
+  TCL_REQ_MINOR_VERSION=6
+  
++ if test "${prefix}" = "NONE"; then
++     prefix=/usr/local
++ fi
++ if test "${exec_prefix}" = "NONE"; then
++     exec_prefix=$prefix
++ fi
++ 
+  AC_PROG_CC
+  AC_PATH_PROG(MAKEDEPEND,makedepend,:)
+  AC_HAVE_HEADERS(dlfcn.h zlib.h stdlib.h des.h)
+*** Makefile.in.orig	Thu Jan 30 09:24:15 1997
+--- Makefile.in	Thu Jan 30 09:25:18 1997
+***************
+*** 310,321 ****
+  _eprintf.o:	compat/_eprintf.c
+  	$(CC) -c $(CC_SWITCHES) compat/_eprintf.c -o $@
+  
+- zsymbols.o:	$(srcdir)/compat/zsymbols.c
+- 	$(CC) -c $(CC_SWITCHES) $(srcdir)/compat/zsymbols.c -o $@
+- 
+- ld_symbols.o:	$(srcdir)/compat/ld_symbols.c
+- 	$(CC) -c $(CC_SWITCHES) $(srcdir)/compat/ld_symbols.c -o $@
+- 
+  #-------------------------------------------------------#
+  
+  $(TRF_LIB_FILE):	$(OBJECTS)
+--- 310,315 ----
+*** binio.c.orig	Thu Jan 30 09:42:32 1997
+--- binio.c	Thu Jan 30 09:42:53 1997
+***************
+*** 1002,1008 ****
+  TrfInit_Binio (interp)
+  Tcl_Interp* interp;
+  {
+!   Tcl_CreateCommand (interp, "binio", &BinioCmd,
+  		     (ClientData) NULL, NULL);
+    return TCL_OK;
+  }
+--- 1002,1008 ----
+  TrfInit_Binio (interp)
+  Tcl_Interp* interp;
+  {
+!   Tcl_CreateCommand (interp, "binio", BinioCmd,
+  		     (ClientData) NULL, NULL);
+    return TCL_OK;
+  }
+*** compat/tclLoadShl.c.orig	Thu Jan 30 09:07:09 1997
+--- compat/tclLoadShl.c	Thu Jan 30 09:21:13 1997
+***************
+*** 33,44 ****
+      CONST char *path;
+      int mode;
+  {
+      if (path == (char *) NULL) {
+  	return (VOID *) PROG_HANDLE;
+      }
+!     return (VOID *) shl_load(path, ((mode & RTLD_NOW) ?
+! 		BIND_IMMEDIATE : BIND_DEFERRED) |
+! 	    DYNAMIC_PATH, 0L);
+  }
+  
+  VOID *dlsym(handle, symbol)
+--- 33,52 ----
+      CONST char *path;
+      int mode;
+  {
++     int flags, length;
++ 
+      if (path == (char *) NULL) {
+  	return (VOID *) PROG_HANDLE;
+      }
+!     flags = ((mode & RTLD_NOW) ? BIND_IMMEDIATE : BIND_DEFERRED) |
+! 	    DYNAMIC_PATH;
+! #ifdef BIND_VERBOSE
+!     length = strlen(path);
+!     if ((length > 2) && !(strcmp(path+length-3,".sl"))) {
+! 	flags |= BIND_VERBOSE;
+!     }
+! #endif
+!     return (VOID *) shl_load(path, flags, 0L);
+  }
+  
+  VOID *dlsym(handle, symbol)
+*** idea/idea.h.orig	Wed Jan 29 17:41:16 1997
+--- idea/idea.h	Wed Jan 29 17:41:33 1997
+***************
+*** 23,29 ****
+  typedef unsigned short         u_int16; /* unsigned 16-bit integer (or larger)*/
+  typedef unsigned char           u_int8; /* unsigned 8-bit integer             */
+  
+! /* #define ANSI_C                /* If 'ANSI_C' is defined the preprocessed   */
+                                   /* source code is ANSI-C or C++ code, other- */
+                                   /* wise it is Kerninghan & Ritchie C code.   */
+  
+--- 23,29 ----
+  typedef unsigned short         u_int16; /* unsigned 16-bit integer (or larger)*/
+  typedef unsigned char           u_int8; /* unsigned 8-bit integer             */
+  
+! /* #define ANSI_C */             /* If 'ANSI_C' is defined the preprocessed   */
+                                   /* source code is ANSI-C or C++ code, other- */
+                                   /* wise it is Kerninghan & Ritchie C code.   */
+  
+

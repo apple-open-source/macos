@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001 Free Software Foundation, Inc.         *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -52,7 +52,7 @@
 #include <tic.h>
 #include <term_entry.h>
 
-MODULE_ID("$Id: comp_parse.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: comp_parse.c,v 1.57 2003/10/25 22:25:36 tom Exp $")
 
 static void sanity_check(TERMTYPE *);
 NCURSES_IMPEXP void NCURSES_API(*_nc_check_termtype) (TERMTYPE *) = sanity_check;
@@ -81,14 +81,14 @@ NCURSES_IMPEXP void NCURSES_API(*_nc_check_termtype) (TERMTYPE *) = sanity_check
 NCURSES_EXPORT_VAR(ENTRY *) _nc_head = 0;
 NCURSES_EXPORT_VAR(ENTRY *) _nc_tail = 0;
 
-     static void
-       enqueue(ENTRY * ep)
+static void
+enqueue(ENTRY * ep)
 /* add an entry to the in-core list */
 {
     ENTRY *newp = _nc_copy_entry(ep);
 
     if (newp == 0)
-	_nc_err_abort("Out of memory");
+	_nc_err_abort(MSG_NO_MEMORY);
 
     newp->last = _nc_tail;
     _nc_tail = newp;
@@ -163,7 +163,7 @@ _nc_entry_match(char *n1, char *n2)
  ****************************************************************************/
 
 NCURSES_EXPORT(void)
-_nc_read_entry_source(FILE * fp, char *buf,
+_nc_read_entry_source(FILE *fp, char *buf,
 		      int literal, bool silent,
 		      bool(*hook) (ENTRY *))
 /* slurp all entries in the given file into core */
@@ -216,7 +216,7 @@ _nc_resolve_uses(bool fullresolve)
 {
     ENTRY *qp, *rp, *lastread = 0;
     bool keepgoing;
-    int i, j, unresolved, total_unresolved, multiples;
+    int i, unresolved, total_unresolved, multiples;
 
     DEBUG(2, ("RESOLUTION BEGINNING"));
 
@@ -289,7 +289,7 @@ _nc_resolve_uses(bool fullresolve)
 
 		    rp = typeMalloc(ENTRY, 1);
 		    if (rp == 0)
-			_nc_err_abort("Out of memory");
+			_nc_err_abort(MSG_NO_MEMORY);
 		    rp->tterm = thisterm;
 		    rp->nuses = 0;
 		    rp->next = lastread;
@@ -320,8 +320,8 @@ _nc_resolve_uses(bool fullresolve)
     DEBUG(2, ("NAME RESOLUTION COMPLETED OK"));
 
     /*
-     * OK, at this point all (char *) references in `name' mwmbers
-     * have been successfully converred to (ENTRY *) pointers in
+     * OK, at this point all (char *) references in `name' members
+     * have been successfully converted to (ENTRY *) pointers in
      * `link' members.  Time to do the actual merges.
      */
     if (fullresolve) {
@@ -389,26 +389,6 @@ _nc_resolve_uses(bool fullresolve)
 	    (keepgoing);
 
 	DEBUG(2, ("MERGES COMPLETED OK"));
-
-	/*
-	 * The exit condition of the loop above is such that all entries
-	 * must now be resolved.  Now handle cancellations.  In a resolved
-	 * entry there should be no cancellation markers.
-	 */
-	for_entry_list(qp) {
-	    for_each_boolean(j, &(qp->tterm)) {
-		if ((int) qp->tterm.Booleans[j] == CANCELLED_BOOLEAN)
-		    qp->tterm.Booleans[j] = ABSENT_BOOLEAN;
-	    }
-	    for_each_number(j, &(qp->tterm)) {
-		if (qp->tterm.Numbers[j] == CANCELLED_NUMERIC)
-		    qp->tterm.Numbers[j] = ABSENT_NUMERIC;
-	    }
-	    for_each_string(j, &(qp->tterm)) {
-		if (qp->tterm.Strings[j] == CANCELLED_STRING)
-		    qp->tterm.Strings[j] = ABSENT_STRING;
-	    }
-	}
     }
 
     /*
@@ -461,9 +441,17 @@ sanity_check(TERMTYPE * tp)
 	     || PRESENT(enter_reverse_mode)))
 	    _nc_warning("no exit_attribute_mode");
 #endif /* __UNUSED__ */
-	PAIRED(enter_standout_mode, exit_standout_mode)
-	    PAIRED(enter_underline_mode, exit_underline_mode)
+	PAIRED(enter_standout_mode, exit_standout_mode);
+	PAIRED(enter_underline_mode, exit_underline_mode);
     }
+
+    /* we do this check/fix in postprocess_termcap(), but some packagers
+     * prefer to bypass it...
+     */
+    if (acs_chars == 0
+	&& enter_alt_charset_mode != 0
+	&& exit_alt_charset_mode != 0)
+	acs_chars = strdup(VT_ACSC);
 
     /* listed in structure-member order of first argument */
     PAIRED(enter_alt_charset_mode, exit_alt_charset_mode);

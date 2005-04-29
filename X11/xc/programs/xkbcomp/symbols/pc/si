@@ -4,7 +4,7 @@
 // by Marko Samastur (markos@elite.org) and
 // Primoz Peterlin (primoz.peterlin@biofiz.mf.uni-lj.si)
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/si,v 1.3 2003/02/05 01:38:36 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/si,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 default partial alphanumeric_keys
 xkb_symbols "basic" {
@@ -41,8 +41,6 @@ xkb_symbols "basic" {
 
     key <KPDL>	{ [ KP_Delete, KP_Separator ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
 };
 

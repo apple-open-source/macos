@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001, International Business Machines
+*   Copyright (c) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -27,7 +27,7 @@ static const UChar SEMI[] = {59,0}; // ";"
 static const UChar RBRACE[] = {125,0}; // "}"
 static const UChar EMPTY[] = {0}; // ""
 
-const char EscapeTransliterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(EscapeTransliterator)
 
 /**
  * Factory methods
@@ -65,19 +65,19 @@ Transliterator* EscapeTransliterator::_createPerl(const UnicodeString& ID, Token
 void EscapeTransliterator::registerIDs() {
     Token t = integerToken(0);
 
-    Transliterator::_registerFactory("Any-Hex/Unicode", _createUnicode, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/Unicode"), _createUnicode, t);
 
-    Transliterator::_registerFactory("Any-Hex/Java", _createJava, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/Java"), _createJava, t);
 
-    Transliterator::_registerFactory("Any-Hex/C", _createC, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/C"), _createC, t);
 
-    Transliterator::_registerFactory("Any-Hex/XML", _createXML, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/XML"), _createXML, t);
 
-    Transliterator::_registerFactory("Any-Hex/XML10", _createXML10, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/XML10"), _createXML10, t);
 
-    Transliterator::_registerFactory("Any-Hex/Perl", _createPerl, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex/Perl"), _createPerl, t);
 
-    Transliterator::_registerFactory("Any-Hex", _createJava, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Any-Hex"), _createJava, t);
 }
 
 /**
@@ -127,8 +127,11 @@ Transliterator* EscapeTransliterator::clone() const {
 /**
  * Implements {@link Transliterator#handleTransliterate}.
  */
-void EscapeTransliterator::handleTransliterate(Replaceable& text, UTransPosition& pos,
-                                               UBool isIncremental) const {
+void EscapeTransliterator::handleTransliterate(Replaceable& text,
+                                               UTransPosition& pos,
+                                               UBool /*isIncremental*/) const
+{
+    /* TODO: Verify that isIncremental can be ignored */
     int32_t start = pos.start;
     int32_t limit = pos.limit;
 

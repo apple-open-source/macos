@@ -30,7 +30,7 @@ PERFORMANCE OF THIS SOFTWARE.
 			       makoto@sm.sony.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/Ximint.h,v 3.10 2001/07/25 15:04:44 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Ximint.h,v 3.14 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XIMINT_H
 #define _XIMINT_H
@@ -185,274 +185,201 @@ typedef struct _XimDefICValues {
  */
 
 XPointer _XimGetLocaleCode (
-#if NeedFunctionPrototypes
     const char	*encoding_name
-#endif
 );
 
 int _XimGetCharCode (
-#if NeedFunctionPrototypes
     XPointer		conv,
     KeySym		keysym,
     unsigned char	*buf,
     int			nbytes
-#endif
 );
 
 unsigned int KeySymToUcs4 (
-#if NeedFunctionPrototypes
     KeySym		keysym
-#endif
 );
 
 extern Bool _XimSetIMResourceList(
-#if NeedFunctionPrototypes
     XIMResourceList	*res_list,
     unsigned int	*list_num
-#endif
 );
 
 extern Bool _XimSetICResourceList(
-#if NeedFunctionPrototypes
     XIMResourceList	*res_list,
     unsigned int	*list_num
-#endif
 );
 
 extern Bool _XimSetInnerIMResourceList(
-#if NeedFunctionPrototypes
     XIMResourceList	*res_list,
     unsigned int	*list_num
-#endif
 );
 
 extern Bool _XimSetInnerICResourceList(
-#if NeedFunctionPrototypes
     XIMResourceList	*res_list,
     unsigned int	*list_num
-#endif
 );
 
-extern Bool cw_XimCheckCreateICValues(
-#if NeedFunctionPrototypes
+extern Bool _XimCheckCreateICValues(
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern XIMResourceList _XimGetResourceListRec(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned int	 list_num,
     char		*name
-#endif
 );
 
 extern void _XimSetIMMode(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern void _XimSetICMode(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned int	 list_num,
     XIMStyle		 style
-#endif
 );
 
 extern int _XimCheckIMMode(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned long	 mode
-#endif
 );
 
 extern int _XimCheckICMode(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned long	 mode
-#endif
 );
 
 extern Bool _XimSetLocalIMDefaults(
-#if NeedFunctionPrototypes
     Xim			 im,
     XPointer		 top,
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern Bool _XimSetICDefaults(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XPointer		 top,
     unsigned long	 mode,
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern Bool _XimEncodeLocalIMAttr(
-#if NeedFunctionPrototypes
     XIMResourceList	 res,
     XPointer		 top,
     XPointer		 val
-#endif
 );
 
 extern Bool _XimEncodeLocalICAttr(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XIMResourceList	 res,
     XPointer		 top,
     XIMArg		*arg,
     unsigned long	 mode
-#endif
 );
 
 extern Bool _XimCheckLocalInputStyle(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XPointer		 top,
     XIMArg		*values,
     XIMStyles           *styles,
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern Bool _XimDecodeLocalIMAttr(
-#if NeedFunctionPrototypes
     XIMResourceList	 res,
     XPointer		 top,
     XPointer		 val
-#endif
 );
 
 extern Bool _XimDecodeLocalICAttr(
-#if NeedFunctionPrototypes
     XIMResourceList	 res,
     XPointer		 top,
     XPointer		 val,
     unsigned long	mode
-#endif
 );
 
 extern void _XimGetCurrentIMValues(
-#if NeedFunctionPrototypes
     Xim			 im,
     XimDefIMValues	*im_values
-#endif
 );
 
 extern void _XimSetCurrentIMValues(
-#if NeedFunctionPrototypes
     Xim			 im,
     XimDefIMValues	*im_values
-#endif
 );
 
 extern void _XimGetCurrentICValues(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XimDefICValues	*ic_values
-#endif
 );
 
 extern void _XimSetCurrentICValues(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XimDefICValues	*ic_values
-#endif
 );
 
 extern void _XimInitialResourceInfo(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void	 _XimParseStringFile(
-#if NeedFunctionPrototypes
     FILE        *fp,
-    DefTree     **ptop
-#endif
+    Xim          im
 );
 
 extern Bool	 _XimCheckIfLocalProcessing(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	 _XimCheckIfThaiProcessing(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	 _XimLocalOpenIM(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	 _XimThaiOpenIM(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	 _XimProtoOpenIM(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern void	 _XimLocalIMFree(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern void	 _XimThaiIMFree(
-#if NeedFunctionPrototypes
     Xim	         im
-#endif
 );
 
 extern void	 _XimProtoIMFree(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern char *	 _XimSetIMValueData(
-#if NeedFunctionPrototypes
     Xim			 im,
     XPointer		 top,
     XIMArg		*arg,
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern char *	 _XimGetIMValueData(
-#if NeedFunctionPrototypes
     Xim			 im,
     XPointer		 top,
     XIMArg		*arg,
     XIMResourceList	 res_list,
     unsigned int	 list_num
-#endif
 );
 
 extern char *	 _XimSetICValueData(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XPointer		 top,
     XIMResourceList	 res_list,
@@ -460,68 +387,50 @@ extern char *	 _XimSetICValueData(
     XIMArg		*arg,
     unsigned long	 mode,
     Bool		 flag
-#endif
 );
 
 extern char *	 _XimGetICValueData(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XPointer		 top,
     XIMResourceList	 res_list,
     unsigned int	 list_num,
     XIMArg		*arg,
     unsigned long	 mode
-#endif
 );
 
 extern char *	 _XimLocalSetIMValues(
-#if NeedFunctionPrototypes
     XIM		 im,
     XIMArg	*arg
-#endif
 );
 
 extern char *	 _XimLocalGetIMValues(
-#if NeedFunctionPrototypes
     XIM		 im,
     XIMArg	*arg
-#endif
 );
 
 extern XIC	 _XimLocalCreateIC(
-#if NeedFunctionPrototypes
     XIM		 im,
     XIMArg	*arg
-#endif
 );
 
 extern Bool	_XimDispatchInit(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	 _XimGetAttributeID(
-#if NeedFunctionPrototypes
     Xim		 im,
     CARD16	*buf
-#endif
 );
 
 extern Bool	 _XimExtension(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern void	_XimDestroyIMStructureList(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern char *	_XimMakeIMAttrIDList(
-#if NeedFunctionPrototypes
     Xim			 im,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -529,11 +438,9 @@ extern char *	_XimMakeIMAttrIDList(
     CARD16		*buf,
     INT16		*len,
     unsigned long        mode
-#endif
 );
 
 extern char *	_XimMakeICAttrIDList(
-#if NeedFunctionPrototypes
     Xic                  ic,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -541,11 +448,9 @@ extern char *	_XimMakeICAttrIDList(
     CARD16		*idList,
     INT16		*num,
     unsigned long	 mode
-#endif
 );
 
 extern char *	_XimDecodeIMATTRIBUTE(
-#if NeedFunctionPrototypes
     Xim			 im,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -553,11 +458,9 @@ extern char *	_XimDecodeIMATTRIBUTE(
     INT16		 buf_len,
     XIMArg		*arg,
     BITMASK32		 mode
-#endif
 );
 
 extern char *	_XimDecodeICATTRIBUTE(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -565,158 +468,118 @@ extern char *	_XimDecodeICATTRIBUTE(
     INT16		 buf_len,
     XIMArg		*arg,
     BITMASK32		 mode
-#endif
 );
 
 extern Bool	_XimRegProtoIntrCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     CARD16	 major_code,
     CARD16	 minor_code,
     Bool	 (*proc)(
-#if NeedNestedPrototypes
 			Xim, INT16, XPointer, XPointer
-#endif
 			),
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimErrorCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimError(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic,
     CARD16	 error_code,
     INT16	 detail_length,
     CARD16	 type,
     char	*detail
-#endif
 );
 
 extern Bool	_XimRegisterTriggerKeysCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimSetEventMaskCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimForwardEventCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimCommitCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern Bool	_XimSyncCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data
-#endif
 );
 
 extern void	_XimFreeProtoIntrCallback(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern XIC	 _XimProtoCreateIC(
-#if NeedFunctionPrototypes
     XIM		 im,
     XIMArg	*arg
-#endif
 );
 
 extern void	_XimRegisterServerFilter(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern void	_XimUnregisterServerFilter(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	_XimTriggerNotify(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic,
     int		 mode,
     CARD32	 idx
-#endif
 );
 
 extern Bool	_XimProcSyncReply(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic
-#endif
 );
 
 extern void	_XimSendSetFocus(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic
-#endif
 );
 
 extern Bool	_XimForwardEvent(
-#if NeedFunctionPrototypes
     Xic		 ic,
     XEvent	*ev,
     Bool	 sync
-#endif
 );
 
 extern void	_XimFreeRemakeArg(
-#if NeedFunctionPrototypes
     XIMArg	*arg
-#endif
 );
 
 extern void	_XimServerDestroy(
-#if NeedFunctionPrototypes
     Xim			im
-#endif
 );
 
 extern char *	_XimEncodeIMATTRIBUTE(
-#if NeedFunctionPrototypes
     Xim			  im,
     XIMResourceList	  res_list,
     unsigned int	  res_num,
@@ -727,11 +590,9 @@ extern char *	_XimEncodeIMATTRIBUTE(
     int			 *ret_len,
     XPointer		  top,
     unsigned long	  mode
-#endif
 );
 
 extern char *	_XimEncodeICATTRIBUTE(
-#if NeedFunctionPrototypes
     Xic			  ic,
     XIMResourceList	  res_list,
     unsigned int	  res_num,
@@ -743,234 +604,189 @@ extern char *	_XimEncodeICATTRIBUTE(
     XPointer		  top,
     BITMASK32		 *flag,
     unsigned long	  mode
-#endif
 );
 
 #ifdef EXT_MOVE
 extern Bool	_XimExtenMove(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic,
     CARD32	 flag,
     CARD16	*buf,
     INT16	 length
-#endif
 );
 #endif
 
 extern int	_Ximctstombs(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     char	*to,
     int		 to_len,
     Status	*state
-#endif
 );
 
 extern int	_Ximctstowcs(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     wchar_t	*to,
     int		 to_len,
     Status	*state
-#endif
 );
 
 extern int	_Ximctstoutf8(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     char	*to,
     int		 to_len,
     Status	*state
-#endif
 );
 
 extern int	_XimLcctstombs(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     char	*to,
     int		 to_len,
     Status	*state
-#endif
 );
 
 extern int	_XimLcctstowcs(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     wchar_t	*to,
     int		 to_len,
     Status	*state
-#endif
 );
 
 extern int	_XimLcctstoutf8(
-#if NeedFunctionPrototypes
     XIM		 im,
     char	*from,
     int		 from_len,
     char	*to,
     int		 to_len,
     Status	*state
-#endif
+);
+
+extern int	_XimCheckDataSize(
+    XPointer	 buf,
+    int		 len
 );
 
 extern void	_XimSetHeader(
-#if NeedFunctionPrototypes
     XPointer	 buf,
     CARD8	 major_opcode,
     CARD8	 minor_opcode,
     INT16	*len
-#endif
 );
 
 extern Bool	_XimSync(
-#if NeedFunctionPrototypes
     Xim		 im,
     Xic		 ic
-#endif
 );
 
 extern int	_XimProtoMbLookupString(
-#if NeedFunctionPrototypes
     XIC		 xic,
     XKeyEvent	*ev,
     char	*buffer,
     int		 bytes,
     KeySym	*keysym,
     Status	*state
-#endif
 );
 
 extern int	_XimProtoWcLookupString(
-#if NeedFunctionPrototypes
     XIC		 xic,
     XKeyEvent	*ev,
     wchar_t	*buffer,
     int		 bytes,
     KeySym	*keysym,
     Status	*state
-#endif
 );
 
 extern int	_XimProtoUtf8LookupString(
-#if NeedFunctionPrototypes
     XIC		 xic,
     XKeyEvent	*ev,
     char	*buffer,
     int		 bytes,
     KeySym	*keysym,
     Status	*state
-#endif
 );
 
 extern void	_XimRegisterFilter(
-#if NeedFunctionPrototypes
     Xic		 ic
-#endif
 );
 
 extern void	_XimUnregisterFilter(
-#if NeedFunctionPrototypes
     Xic		 ic
-#endif
 );
 
 extern void	_XimReregisterFilter(
-#if NeedFunctionPrototypes
     Xic		 ic
-#endif
 );
 
 extern Status	_XimProtoEventToWire(
-#if NeedFunctionPrototypes
     XEvent	*re,
     xEvent	*event,
     Bool	sw
-#endif
 );
 
 extern Bool	_XimProtoWireToEvent(
-#if NeedFunctionPrototypes
     XEvent	*re,
     xEvent	*event,
     Bool	 sw
-#endif
 );
 
 #ifdef EXT_FORWARD
 extern Bool	_XimExtForwardKeyEvent(
-#if NeedFunctionPrototypes
     Xic		 ic,
     XKeyEvent	*ev,
     Bool	 sync
-#endif
 );
 #endif
 
 extern int	_XimLookupMBText(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XKeyEvent		*event,
     char		*buffer,
     int			 nbytes,
     KeySym		*keysym,
     XComposeStatus	*status
-#endif
 );
 
 extern int	_XimLookupWCText(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XKeyEvent		*event,
     wchar_t		*buffer,
     int			 nbytes,
     KeySym		*keysym,
     XComposeStatus	*status
-#endif
 );
 
 extern int	_XimLookupUTF8Text(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XKeyEvent		*event,
     char		*buffer,
     int			 nbytes,
     KeySym		*keysym,
     XComposeStatus	*status
-#endif
 );
 
 extern EVENTMASK	_XimGetWindowEventmask(
-#if NeedFunctionPrototypes
     Xic		 ic
-#endif
 );
 
 extern Xic	_XimICOfXICID(
-#if NeedFunctionPrototypes
     Xim		im,
     XICID	icid
-#endif
 );
 
 extern void	_XimResetIMInstantiateCallback(
-#if NeedFunctionPrototypes
     Xim         xim
-#endif
 );
 
 extern Bool	_XimRegisterIMInstantiateCallback(
-#if NeedFunctionPrototypes
     XLCd	 lcd,
     Display	*display,
     XrmDatabase	 rdb,
@@ -978,11 +794,9 @@ extern Bool	_XimRegisterIMInstantiateCallback(
     char	*res_class,
     XIDProc	 callback,
     XPointer	 client_data
-#endif
 );
 
 extern Bool	_XimUnRegisterIMInstantiateCallback(
-#if NeedFunctionPrototypes
     XLCd	 lcd,
     Display	*display,
     XrmDatabase	 rdb,
@@ -990,224 +804,164 @@ extern Bool	_XimUnRegisterIMInstantiateCallback(
     char	*res_class,
     XIDProc	 callback,
     XPointer	 client_data
-#endif
 );
 
 extern void	_XimFreeCommitInfo(
-#if NeedFunctionPrototypes
     Xic		 ic
-#endif
 );
 
 extern Bool	_XimConnect(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	_XimShutdown(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	_XimWrite(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data
-#endif
 );
 
 extern Bool	_XimRead(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	*len,
     XPointer	 data,
     int		 data_len,
     Bool	 (*predicate)(
-#if NeedNestedPrototypes
 			      Xim, INT16, XPointer, XPointer
-#endif
 			      ),
     XPointer	 arg
-#endif
 );
 
 extern Bool	_XimIntrCallback(
-#if NeedFunctionPrototypes
     Xim		 im,
     Bool	 (*callback)(
-#if NeedNestedPrototypes
 			     Xim, INT16, XPointer, XPointer
-#endif
 			     ),
     XPointer	 call_data
-#endif
 );
 
 extern void	_XimFlush(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern Bool	_XimFilterWaitEvent(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 extern void   _XimProcError(
-#if NeedFunctionPrototypes
     Xim		im,
     Xic		ic,
     XPointer	data
-#endif
 );
 
 #ifdef EXT_MOVE
 extern CARD32	_XimExtenArgCheck(
-#if NeedFunctionProtoTypes
     XIMArg	*arg
-#endif
 );
 #endif
 
 extern Bool _XimCbDispatch(
-#if NeedFunctionPrototypes
     Xim im, 
     INT16 len, 
     XPointer data, 
     XPointer call_data
-#endif
 );
 
 extern Bool _XimLocalFilter(
-#if NeedFunctionPrototypes
     Display		*d,
     Window		 w,
     XEvent		*ev,
     XPointer		 client_data
-#endif
 );
 
 extern XIMResourceList _XimGetResourceListRecByQuark(
-#if NeedFunctionPrototypes
     XIMResourceList	 res_list,
     unsigned int	 list_num,
     XrmQuark		 quark
-#endif
 );
 
 extern Bool _XimReconnectModeCreateIC(
-#if NeedFunctionPrototypes
     Xic			 ic
-#endif
 );
 
 extern char *_XimLocalSetICValues(
-#if NeedFunctionPrototypes
     XIC			 ic,
     XIMArg		*values
-#endif
 );
 
 extern char * _XimLocalGetICValues(
-#if NeedFunctionPrototypes
     XIC			 ic,
     XIMArg		*values
-#endif
 );
 
 extern int _XimLocalMbLookupString(
-#if NeedFunctionPrototypes
     XIC			 ic,
     XKeyEvent		*ev,
     char		*buffer,
     int			 bytes,
     KeySym		*keysym,
     Status		*status
-#endif
 );
 
 extern int _XimLocalWcLookupString(
-#if NeedFunctionPrototypes
     XIC			 ic,
     XKeyEvent		*ev,
     wchar_t		*buffer,
     int			 bytes,
     KeySym		*keysym,
     Status		*status
-#endif
 );
 
 extern int _XimLocalUtf8LookupString(
-#if NeedFunctionPrototypes
     XIC			 ic,
     XKeyEvent		*ev,
     char		*buffer,
     int			 bytes,
     KeySym		*keysym,
     Status		*status
-#endif
 );
 
 extern Bool _XimThaiFilter(
-#if NeedFunctionPrototypes
     Display		*d,
     Window		 w,
     XEvent		*ev,
     XPointer		 client_data
-#endif
 );
 
 extern XIC _XimThaiCreateIC(
-#if NeedFunctionPrototypes
     XIM			 im,
     XIMArg		*values
-#endif
 );
 
 extern Status _XimThaiCloseIM(
-#if NeedFunctionPrototypes
     XIM			 xim
-#endif
 );
 
 #ifdef XIM_CONNECTABLE
 extern void _XimSetProtoResource(
-#if NeedFunctionPrototypes
     Xim im
-#endif
 );
 
 extern Bool _XimConnectServer(
-#if NeedFunctionPrototypes
     Xim im
-#endif
 );
 
 extern Bool _XimDelayModeSetAttr(
-#if NeedFunctionPrototypes
     Xim			 im
-#endif
 );
 
 extern void	_XimServerReconectableDestroy(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern Bool _XimReCreateIC(
-#if NeedFunctionPrototypes
     Xic			ic
-#endif
 );
 
 extern Bool _XimEncodeSavedIMATTRIBUTE(
-#if NeedFunctionPrototypes
     Xim			 im,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -1217,11 +971,9 @@ extern Bool _XimEncodeSavedIMATTRIBUTE(
     int			*ret_len,
     XPointer		 top,
     unsigned long	 mode
-#endif
 );
 
 extern Bool _XimEncodeSavedICATTRIBUTE(
-#if NeedFunctionPrototypes
     Xic			 ic,
     XIMResourceList	 res_list,
     unsigned int	 res_num,
@@ -1231,8 +983,20 @@ extern Bool _XimEncodeSavedICATTRIBUTE(
     int			*ret_len,
     XPointer		 top,
     unsigned long	 mode
-#endif
 );
 #endif
+
+extern Public Bool
+_XimRegisterDispatcher(
+    Xim          im,
+    Bool         (*callback)(
+                             Xim, INT16, XPointer, XPointer
+                             ),
+    XPointer     call_data);
+
+extern Public Bool
+_XimRespSyncReply(
+    Xic          ic,
+    BITMASK16    mode);
 
 #endif /* _XIMINT_H */

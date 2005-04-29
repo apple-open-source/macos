@@ -28,7 +28,7 @@ in this Software without prior written authorization from The Open Group.
  * *
  * Author:  Jim Fulton, MIT X Consortium
  */
-/* $XFree86: xc/programs/xauth/xauth.c,v 1.5 2001/12/14 20:01:15 dawes Exp $ */
+/* $XFree86: xc/programs/xauth/xauth.c,v 1.6 2003/07/09 15:27:37 tsi Exp $ */
 
 #include "xauth.h"
 
@@ -40,6 +40,7 @@ char *ProgramName;			/* argv[0], set at top of main() */
 int verbose = -1;			/* print certain messages */
 Bool ignore_locks = False;		/* for error recovery */
 Bool break_locks = False;		/* for error recovery */
+Bool no_name_lookups = False;		/* show addresses instead of names */
 
 /*
  * local data
@@ -126,6 +127,9 @@ main(int argc, char *argv[])
 		    continue;
 		  case 'i':		/* -i */
 		    ignore_locks = True;
+		    continue;
+		  case 'n':		/* -n */
+		    no_name_lookups = True;
 		    continue;
 		  default:
 		    usage ();

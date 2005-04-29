@@ -1,26 +1,21 @@
-/******************************************************************************
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/rewrite-int.h,v 1.7.2.5 2004/03/17 20:14:49 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright (C) 2000 Pierangelo Masarati, <ando@sys-net.it>
+ * Copyright 2000-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * 1. The author is not responsible for the consequences of use of this
- * software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- * explicit claim or by omission.  Since few users ever read sources,
- * credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- * misrepresented as being the original software.  Since few users
- * ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- ******************************************************************************/
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENT:
+ * This work was initially developed by Pierangelo Masarati for
+ * inclusion in OpenLDAP Software.
+ */
 
 #ifndef REWRITE_INT_H
 #define REWRITE_INT_H
@@ -60,7 +55,10 @@
  */
 /* the '\' conflicts with slapd.conf parsing */
 /* #define REWRITE_SUBMATCH_ESCAPE			'\\' */
-#define REWRITE_SUBMATCH_ESCAPE                 '%'
+#define REWRITE_SUBMATCH_ESCAPE_ORIG		'%'
+#define REWRITE_SUBMATCH_ESCAPE			'$'
+#define IS_REWRITE_SUBMATCH_ESCAPE(c) \
+	((c) == REWRITE_SUBMATCH_ESCAPE || (c) == REWRITE_SUBMATCH_ESCAPE_ORIG)
 
 /*
  * REGEX flags
@@ -76,6 +74,8 @@
 #define REWRITE_FLAG_STOP			'@'
 #define REWRITE_FLAG_UNWILLING			'#'
 #define REWRITE_FLAG_GOTO			'G'	/* requires an arg */
+#define REWRITE_FLAG_USER			'U'	/* requires an arg */
+#define REWRITE_FLAG_MAX_PASSES			'M'	/* requires an arg */
 #define REWRITE_FLAG_IGNORE_ERR			'I'
 
 /*
@@ -102,6 +102,7 @@ struct rewrite_action {
 #define REWRITE_ACTION_UNWILLING	0x0002
 #define REWRITE_ACTION_GOTO		0x0003
 #define REWRITE_ACTION_IGNORE_ERR	0x0004
+#define REWRITE_ACTION_USER		0x0005
 	int                             la_type;
 	void                           *la_args;
 };
@@ -189,10 +190,10 @@ struct rewrite_submatch {
  */
 struct rewrite_subst {
 	size_t                          lt_subs_len;
-	struct berval                 **lt_subs;
+	struct berval                  *lt_subs;
 	
 	int                             lt_num_submatch;
-	struct rewrite_submatch       **lt_submatch;
+	struct rewrite_submatch        *lt_submatch;
 };
 
 /*
@@ -222,6 +223,7 @@ struct rewrite_rule {
 #define REWRITE_RECURSE			0x0001
 #define REWRITE_EXEC_ONCE          	0x0002
 	int				lr_mode;
+	int				lr_max_passes;
 
 	struct rewrite_action          *lr_action;
 };
@@ -253,6 +255,7 @@ struct rewrite_session {
  */
 struct rewrite_var {
 	char                           *lv_name;
+	int				lv_flags;
 	struct berval                   lv_value;
 };
 
@@ -262,7 +265,9 @@ struct rewrite_var {
 struct rewrite_op {
 	int                             lo_num_passes;
 	int                             lo_depth;
+#if 0 /* FIXME: not used anywhere! (debug? then, why strdup?) */
 	char                           *lo_string;
+#endif
 	char                           *lo_result;
 	Avlnode                        *lo_vars;
 	const void                     *lo_cookie;
@@ -304,6 +309,7 @@ struct rewrite_info {
 	 */
 #define REWRITE_MAXPASSES		100
 	int                             li_max_passes;
+	int                             li_max_passes_per_rule;
 
 	/*
 	 * Behavior in case a NULL or non-existent context is required
@@ -315,7 +321,7 @@ struct rewrite_info {
  * PRIVATE *
  ***********/
 
-LDAP_REWRITE_V (struct rewrite_context*) __curr_context;
+LDAP_REWRITE_V (struct rewrite_context*) rewrite_int_curr_context;
 
 /*
  * Maps
@@ -359,7 +365,20 @@ rewrite_xmap_apply(
 		struct berval *val
 );
 
+LDAP_REWRITE_F (int)
+rewrite_map_destroy(
+		struct rewrite_map **map
+);
 
+LDAP_REWRITE_F (int)
+rewrite_xmap_destroy(
+		struct rewrite_map **map
+);
+
+LDAP_REWRITE_F (void)
+rewrite_builtin_map_free(
+		void *map
+);
 /*
  * Submatch substitution
  */
@@ -385,6 +404,11 @@ rewrite_subst_apply(
 		const char *string,
 		const regmatch_t *match,
 		struct berval *val
+);
+
+LDAP_REWRITE_F (int)
+rewrite_subst_destroy(
+		struct rewrite_subst **subst
 );
 
 
@@ -422,6 +446,11 @@ rewrite_rule_apply(
 		char **result
 );
 
+LDAP_REWRITE_F (int)
+rewrite_rule_destroy(
+		struct rewrite_rule **rule
+);
+
 /*
  * Sessions
  */
@@ -439,11 +468,12 @@ rewrite_session_find(
  * Defines and inits a variable with session scope
  */
 LDAP_REWRITE_F (int)
-rewrite_session_var_set(
+rewrite_session_var_set_f(
                 struct rewrite_info *info,
                 const void *cookie,
                 const char *name,
-                const char *value
+                const char *value,
+		int flags
 );
 
 /*
@@ -489,25 +519,44 @@ rewrite_var_find(
 );
 
 /*
+ * Replaces the value of a variable
+ */
+LDAP_REWRITE_F (int)
+rewrite_var_replace(
+		struct rewrite_var *var,
+		const char *value,
+		int flags
+);
+
+/*
  * Inserts a newly created var
  */
 LDAP_REWRITE_F (struct rewrite_var *)
-rewrite_var_insert(
+rewrite_var_insert_f(
                 Avlnode **tree,
                 const char *name,
-                const char *value
+                const char *value,
+		int flags
 );
+
+#define rewrite_var_insert(tree, name, value) \
+	rewrite_var_insert_f((tree), (name), (value), \
+			REWRITE_VAR_UPDATE|REWRITE_VAR_COPY_NAME|REWRITE_VAR_COPY_VALUE)
 
 /*
  * Sets/inserts a var
  */
 LDAP_REWRITE_F (struct rewrite_var *)
-rewrite_var_set(
+rewrite_var_set_f(
                 Avlnode **tree,
                 const char *name,
                 const char *value,
-                int insert
+                int flags
 );
+
+#define rewrite_var_set(tree, name, value, insert) \
+	rewrite_var_set_f((tree), (name), (value), \
+			REWRITE_VAR_UPDATE|REWRITE_VAR_COPY_NAME|REWRITE_VAR_COPY_VALUE|((insert)? REWRITE_VAR_INSERT : 0))
 
 /*
  * Deletes a var tree
@@ -553,6 +602,16 @@ rewrite_context_apply(
 		struct rewrite_context *context,
 		const char *string,
 		char **result
+);
+
+LDAP_REWRITE_F (int)
+rewrite_context_destroy(
+		struct rewrite_context **context
+);
+
+LDAP_REWRITE_F (void)
+rewrite_context_free(
+		void *tmp
 );
 
 #endif /* REWRITE_INT_H */

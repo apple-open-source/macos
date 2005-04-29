@@ -29,7 +29,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
-/* $XFree86: xc/programs/xclock/xclock.c,v 1.16 2002/10/21 13:33:08 alanh Exp $ */
+/* $XFree86: xc/programs/xclock/xclock.c,v 1.17 2003/12/29 09:10:37 herrb Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -89,13 +89,14 @@ static Atom wm_delete_window;
 static void
 Syntax(char *call)
 {
-	(void) printf ("Usage: %s [-analog] [-bw <pixels>] [-digital] [-brief] [-utime] [-strftime <fmt-str>]\n", call);
+	(void) printf ("Usage: %s [-analog] [-bw <pixels>] [-digital] [-brief]\n", call);
+	(void) printf ("       [-utime] [-strftime <fmt-str>]\n");
 	(void) printf ("       [-fg <color>] [-bg <color>] [-hd <color>]\n");
 	(void) printf ("       [-hl <color>] [-bd <color>]\n");
 	(void) printf ("       [-fn <font_name>] [-help] [-padding <pixels>]\n");
 	(void) printf ("       [-rv] [-update <seconds>] [-display displayname]\n");
 #ifdef XRENDER
-	(void) printf ("       [-render] [-face <face name>] [-sharp]\n");
+	(void) printf ("       [-[no]render] [-face <face name>] [-sharp]\n");
 #endif
 	(void) printf ("       [-geometry geom] [-twelve] [-twentyfour]\n\n");
 	exit(1);

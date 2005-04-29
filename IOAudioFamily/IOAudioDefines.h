@@ -109,6 +109,8 @@
 
 #define kIOAudioEngineSampleOffsetKey				"IOAudioEngineSampleOffset"
 
+#define kIOAudioEngineInputSampleOffsetKey			"IOAudioEngineInputSampleOffset"
+
 #define kIOAudioEngineNumSampleFramesPerBufferKey	"IOAudioEngineNumSampleFramesPerBuffer"
 
 #define kIOAudioEngineCoreAudioPlugInKey			"IOAudioEngineCoreAudioPlugIn"

@@ -1,46 +1,25 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-#if defined(LIBC_SCCS) && !defined(lint)
-#if 0
-static char	elsieid[] = "@(#)zic.c	7.80";
-#else
-static char rcsid[] = "$OpenBSD: zic.c,v 1.6 1997/01/15 23:40:55 millert Exp $";
-#endif
-#endif /* LIBC_SCCS and not lint */
+static const char	elsieid[] = "@(#)zic.c	7.116";
+
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/zic/zic.c,v 1.17 2004/10/19 20:30:09 ru Exp $";
+#endif /* not lint */
 
 #include "private.h"
-#include "locale.h"
 #include "tzfile.h"
-#ifdef unix
-#include "sys/stat.h"			/* for umask manifest constants */
-#endif /* defined unix */
+#include <err.h>
+#include <locale.h>
+#include <sys/stat.h>			/* for umask manifest constants */
+#include <sys/types.h>
+#include <unistd.h>
+
+#define MKDIR_UMASK (S_IRUSR|S_IWUSR|S_IXUSR|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)
 
 /*
 ** On some ancient hosts, predicates like `isspace(C)' are defined
 ** only if isascii(C) || C == EOF.  Modern hosts obey the C Standard,
 ** which says they are defined only if C == ((unsigned char) C) || C == EOF.
-** Neither the C Standard nor Posix require that `isascii' exist.
+** Neither the C Standard nor POSIX require that `isascii' exist.
 ** For portability, we check both ancient and modern requirements.
 ** If isascii is not defined, the isascii check succeeds trivially.
 */
@@ -102,18 +81,6 @@ struct zone {
 	time_t		z_untiltime;
 };
 
-extern int	getopt P((int argc, char * const argv[],
-			const char * options));
-extern char *	icatalloc P((char * old, const char * new));
-extern char *	icpyalloc P((const char * string));
-extern void	ifree P((char * p));
-extern char *	imalloc P((int n));
-extern void *	irealloc P((void * old, int n));
-extern int	link P((const char * fromname, const char * toname));
-extern char *	optarg;
-extern int	optind;
-extern char *	scheck P((const char * string, const char * format));
-
 static void	addtt P((time_t starttime, int type));
 static int	addtype P((long gmtoff, const char * abbr, int isdst,
 				int ttisstd, int ttisgmt));
@@ -156,6 +123,8 @@ static void	rulesub P((struct rule * rp,
 			const char * typep, const char * monthp,
 			const char * dayp, const char * timep));
 static void	setboundaries P((void));
+static void	setgroup P((gid_t *flag, const char *name));
+static void	setuser P((uid_t *flag, const char *name));
 static time_t	tadd P((time_t t1, long t2));
 static void	usage P((void));
 static void	writezone P((const char * name));
@@ -172,12 +141,13 @@ static int		leapcnt;
 static int		linenum;
 static time_t		max_time;
 static int		max_year;
+static int		max_year_representable;
 static time_t		min_time;
 static int		min_year;
+static int		min_year_representable;
 static int		noise;
 static const char *	rfilename;
 static int		rlinenum;
-static const char *	progname;
 static int		timecnt;
 static int		typecnt;
 
@@ -382,13 +352,8 @@ static char *
 memcheck(ptr)
 char * const	ptr;
 {
-	if (ptr == NULL) {
-		const char *e = strerror(errno);
-
-		(void) fprintf(stderr, _("%s: Memory exhausted: %s\n"),
-			progname, e);
-		(void) exit(EXIT_FAILURE);
-	}
+	if (ptr == NULL)
+		errx(EXIT_FAILURE, _("memory exhausted"));
 	return ptr;
 }
 
@@ -410,7 +375,7 @@ int	errnum;
 	extern int	sys_nerr;
 
 	return (errnum > 0 && errnum <= sys_nerr) ?
-		sys_errlist[errnum] : "Unknown system error";
+		sys_errlist[errnum] : _("Unknown system error");
 }
 #endif /* !(HAVE_STRERROR - 0) */
 
@@ -459,9 +424,9 @@ const char * const	string;
 {
 	char *	cp;
 
-	cp = ecpyalloc("warning: ");
+	cp = ecpyalloc(_("warning: "));
 	cp = ecatalloc(cp, string);
-	error(string);
+	error(cp);
 	ifree(cp);
 	--errors;
 }
@@ -469,8 +434,9 @@ const char * const	string;
 static void
 usage P((void))
 {
-	(void) fprintf(stderr, _("%s: usage is %s [ -s ] [ -v ] [ -l localtime ] [ -p posixrules ] [ -d directory ]\n\t[ -L leapseconds ] [ -y yearistype ] [ filename ... ]\n"),
-		progname, progname);
+	(void) fprintf(stderr, "%s\n%s\n",
+_("usage: zic [--version] [-s] [-v] [-l localtime] [-p posixrules] [-d directory]"),
+_("           [-L leapseconds] [-y yearistype] [filename ... ]"));
 	(void) exit(EXIT_FAILURE);
 }
 
@@ -480,6 +446,11 @@ static const char *	directory;
 static const char *	leapsec;
 static const char *	yitcommand;
 static int		sflag = FALSE;
+static int		Dflag;
+static uid_t		uflag = (uid_t)-1;
+static gid_t		gflag = (gid_t)-1;
+static mode_t		mflag = (S_IRUSR | S_IRGRP | S_IROTH
+				 | S_IWUSR);
 
 int
 main(argc, argv)
@@ -500,60 +471,67 @@ char *	argv[];
 #endif /* defined TEXTDOMAINDIR */
 	(void) textdomain(TZ_DOMAIN);
 #endif /* HAVE_GETTEXT - 0 */
-	progname = argv[0];
-	while ((c = getopt(argc, argv, "d:l:p:L:vsy:")) != -1)
+	for (i = 1; i < argc; ++i)
+		if (strcmp(argv[i], "--version") == 0) {
+			errx(EXIT_SUCCESS, "%s", elsieid);
+		}
+	while ((c = getopt(argc, argv, "Dd:g:l:m:p:L:u:vsy:")) != -1)
 		switch (c) {
 			default:
 				usage();
+			case 'D':
+				Dflag = 1;
+				break;
 			case 'd':
 				if (directory == NULL)
 					directory = optarg;
-				else {
-					(void) fprintf(stderr,
-_("%s: More than one -d option specified\n"),
-						progname);
-					(void) exit(EXIT_FAILURE);
-				}
+				else
+					errx(EXIT_FAILURE,
+_("more than one -d option specified"));
+				break;
+			case 'g':
+				setgroup(&gflag, optarg);
 				break;
 			case 'l':
 				if (lcltime == NULL)
 					lcltime = optarg;
-				else {
-					(void) fprintf(stderr,
-_("%s: More than one -l option specified\n"),
-						progname);
-					(void) exit(EXIT_FAILURE);
-				}
+				else
+					errx(EXIT_FAILURE,
+_("more than one -l option specified"));
 				break;
+			case 'm':
+			{
+				void *set = setmode(optarg);
+				if (set == NULL)
+					errx(EXIT_FAILURE,
+_("invalid file mode"));
+				mflag = getmode(set, mflag);
+				free(set);
+				break;
+			}
 			case 'p':
 				if (psxrules == NULL)
 					psxrules = optarg;
-				else {
-					(void) fprintf(stderr,
-_("%s: More than one -p option specified\n"),
-						progname);
-					(void) exit(EXIT_FAILURE);
-				}
+				else
+					errx(EXIT_FAILURE,
+_("more than one -p option specified"));
+				break;
+			case 'u':
+				setuser(&uflag, optarg);
 				break;
 			case 'y':
 				if (yitcommand == NULL)
 					yitcommand = optarg;
-				else {
-					(void) fprintf(stderr,
-_("%s: More than one -y option specified\n"),
-						progname);
-					(void) exit(EXIT_FAILURE);
-				}
+				else
+					errx(EXIT_FAILURE,
+_("more than one -y option specified"));
 				break;
 			case 'L':
 				if (leapsec == NULL)
 					leapsec = optarg;
-				else {
-					(void) fprintf(stderr,
-_("%s: More than one -L option specified\n"),
-						progname);
-					(void) exit(EXIT_FAILURE);
-				}
+				else
+					errx(EXIT_FAILURE,
+_("more than one -L option specified"));
 				break;
 			case 'v':
 				noise = TRUE;
@@ -592,12 +570,18 @@ _("%s: More than one -L option specified\n"),
 	/*
 	** Make links.
 	*/
-	for (i = 0; i < nlinks; ++i)
+	for (i = 0; i < nlinks; ++i) {
+		eat(links[i].l_filename, links[i].l_linenum);
 		dolink(links[i].l_from, links[i].l_to);
-	if (lcltime != NULL)
+	}
+	if (lcltime != NULL) {
+		eat("command line", 1);
 		dolink(lcltime, TZDEFAULT);
-	if (psxrules != NULL)
+	}
+	if (psxrules != NULL) {
+		eat("command line", 1);
 		dolink(psxrules, TZDEFRULES);
+	}
 	return (errors == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
@@ -630,15 +614,31 @@ const char * const	tofile;
 	if (!itsdir(toname))
 		(void) remove(toname);
 	if (link(fromname, toname) != 0) {
+		int	result;
+
 		if (mkdirs(toname) != 0)
 			(void) exit(EXIT_FAILURE);
-		if (link(fromname, toname) != 0) {
-			const char *e = strerror(errno);
 
-			(void) fprintf(stderr,
-				_("%s: Can't link from %s to %s: %s\n"),
-				progname, fromname, toname, e);
-			(void) exit(EXIT_FAILURE);
+		result = link(fromname, toname);
+#if (HAVE_SYMLINK - 0)
+		if (result != 0 &&
+		    access(fromname, F_OK) == 0 &&
+		    !itsdir(fromname)) {
+		        const char *s = tofile;
+		        register char * symlinkcontents = NULL;
+		        while ((s = strchr(s+1, '/')) != NULL)
+			        symlinkcontents = ecatalloc(symlinkcontents, "../");
+			symlinkcontents = ecatalloc(symlinkcontents, fromfile);
+
+			result = symlink(symlinkcontents, toname);
+			if (result == 0)
+warning(_("hard link failed, symbolic link used"));
+			ifree(symlinkcontents);
+		}
+#endif
+		if (result != 0) {
+			err(EXIT_FAILURE, _("can't link from %s to %s"),
+			    fromname, toname);
 		}
 	}
 	ifree(fromname);
@@ -680,6 +680,8 @@ setboundaries P((void))
 	}
 	min_year = TM_YEAR_BASE + gmtime(&min_time)->tm_year;
 	max_year = TM_YEAR_BASE + gmtime(&max_time)->tm_year;
+	min_year_representable = min_year;
+	max_year_representable = max_year;
 }
 
 static int
@@ -805,13 +807,8 @@ const char *	name;
 	if (strcmp(name, "-") == 0) {
 		name = _("standard input");
 		fp = stdin;
-	} else if ((fp = fopen(name, "r")) == NULL) {
-		const char *e = strerror(errno);
-
-		(void) fprintf(stderr, _("%s: Can't open %s: %s\n"),
-			progname, name, e);
-		(void) exit(EXIT_FAILURE);
-	}
+	} else if ((fp = fopen(name, "r")) == NULL)
+		err(EXIT_FAILURE, _("can't open %s"), name);
 	wantcont = FALSE;
 	for (num = 1; ; ++num) {
 		eat(name, num);
@@ -854,33 +851,22 @@ const char *	name;
 					break;
 				case LC_LEAP:
 					if (name != leapsec)
-						(void) fprintf(stderr,
-_("%s: Leap line in non leap seconds file %s\n"),
-							progname, name);
+						warnx(
+_("leap line in non leap seconds file %s"), name);
 					else	inleap(fields, nfields);
 					wantcont = FALSE;
 					break;
 				default:	/* "cannot happen" */
-					(void) fprintf(stderr,
-_("%s: panic: Invalid l_value %d\n"),
-						progname, lp->l_value);
-					(void) exit(EXIT_FAILURE);
+					errx(EXIT_FAILURE,
+_("panic: invalid l_value %d"), lp->l_value);
 			}
 		}
 		ifree((char *) fields);
 	}
-	if (ferror(fp)) {
-		(void) fprintf(stderr, _("%s: Error reading %s\n"),
-			progname, filename);
-		(void) exit(EXIT_FAILURE);
-	}
-	if (fp != stdin && fclose(fp)) {
-		const char *e = strerror(errno);
-
-		(void) fprintf(stderr, _("%s: Error closing %s: %s\n"),
-			progname, filename, e);
-		(void) exit(EXIT_FAILURE);
-	}
+	if (ferror(fp))
+		errx(EXIT_FAILURE, _("error reading %s"), filename);
+	if (fp != stdin && fclose(fp))
+		err(EXIT_FAILURE, _("error closing %s"), filename);
 	if (wantcont)
 		error(_("expected continuation line not found"));
 }
@@ -918,12 +904,15 @@ const int		signable;
 			error(errstring);
 			return 0;
 	}
-	if (hh < 0 || hh >= HOURSPERDAY ||
+	if ((hh < 0 || hh >= HOURSPERDAY ||
 		mm < 0 || mm >= MINSPERHOUR ||
-		ss < 0 || ss > SECSPERMIN) {
+		ss < 0 || ss > SECSPERMIN) &&
+		!(hh == HOURSPERDAY && mm == 0 && ss == 0)) {
 			error(errstring);
 			return 0;
 	}
+	if (noise && hh == HOURSPERDAY)
+		warning(_("24:00 not handled by pre-1998 versions of zic"));
 	return eitol(sign) *
 		(eitol(hh * MINSPERHOUR + mm) *
 		eitol(SECSPERMIN) + eitol(ss));
@@ -1047,7 +1036,7 @@ const int		iscont;
 	}
 	z.z_filename = filename;
 	z.z_linenum = linenum;
-	z.z_gmtoff = gethms(fields[i_gmtoff], _("invalid GMT offset"), TRUE);
+	z.z_gmtoff = gethms(fields[i_gmtoff], _("invalid UTC offset"), TRUE);
 	if ((cp = strchr(fields[i_format], '%')) != 0) {
 		if (*++cp != 's' || strchr(cp, '%') != 0) {
 			error(_("invalid abbreviation format"));
@@ -1148,14 +1137,15 @@ const int		nfields;
 		error(_("time before zero"));
 		return;
 	}
-	t = (time_t) dayoff * SECSPERDAY;
-	/*
-	** Cheap overflow check.
-	*/
-	if (t / SECSPERDAY != dayoff) {
-		error(_("time overflow"));
+	if (dayoff < min_time / SECSPERDAY) {
+		error(_("time too small"));
 		return;
 	}
+	if (dayoff > max_time / SECSPERDAY) {
+		error(_("time too large"));
+		return;
+	}
+	t = (time_t) dayoff * SECSPERDAY;
 	tod = gethms(fields[LP_TIME], _("invalid time of day"), FALSE);
 	cp = fields[LP_CORR];
 	{
@@ -1249,6 +1239,7 @@ const char * const		timep;
 				rp->r_todisstd = FALSE;
 				rp->r_todisgmt = FALSE;
 				*ep = '\0';
+				break;
 			case 'g':	/* Greenwich */
 			case 'u':	/* Universal */
 			case 'z':	/* Zulu */
@@ -1273,13 +1264,16 @@ const char * const		timep;
 			rp->r_loyear = INT_MAX;
 			break;
 		default:	/* "cannot happen" */
-			(void) fprintf(stderr,
-				_("%s: panic: Invalid l_value %d\n"),
-				progname, lp->l_value);
-			(void) exit(EXIT_FAILURE);
+			errx(EXIT_FAILURE,
+				_("panic: invalid l_value %d"), lp->l_value);
 	} else if (sscanf(cp, scheck(cp, "%d"), &rp->r_loyear) != 1) {
 		error(_("invalid starting year"));
 		return;
+	} else if (noise) {
+		if (rp->r_loyear < min_year_representable)
+			warning(_("starting year too low to be represented"));
+		else if (rp->r_loyear > max_year_representable)
+			warning(_("starting year too high to be represented"));
 	}
 	cp = hiyearp;
 	if ((lp = byword(cp, end_years)) != NULL) switch ((int) lp->l_value) {
@@ -1293,13 +1287,16 @@ const char * const		timep;
 			rp->r_hiyear = rp->r_loyear;
 			break;
 		default:	/* "cannot happen" */
-			(void) fprintf(stderr,
-				_("%s: panic: Invalid l_value %d\n"),
-				progname, lp->l_value);
-			(void) exit(EXIT_FAILURE);
+			errx(EXIT_FAILURE,
+				_("panic: invalid l_value %d"), lp->l_value);
 	} else if (sscanf(cp, scheck(cp, "%d"), &rp->r_hiyear) != 1) {
 		error(_("invalid ending year"));
 		return;
+	} else if (noise) {
+		if (rp->r_loyear < min_year_representable)
+			warning(_("ending year too low to be represented"));
+		else if (rp->r_loyear > max_year_representable)
+			warning(_("ending year too high to be represented"));
 	}
 	if (rp->r_loyear > rp->r_hiyear) {
 		error(_("starting year greater than ending year"));
@@ -1314,6 +1311,8 @@ const char * const		timep;
 		}
 		rp->r_yrtype = ecpyalloc(typep);
 	}
+	if (rp->r_loyear < min_year && rp->r_loyear > 0)
+		min_year = rp->r_loyear;
 	/*
 	** Day work.
 	** Accept things such as:
@@ -1422,8 +1421,10 @@ const char * const	name;
 
 		toi = 0;
 		fromi = 0;
+		while (fromi < timecnt && attypes[fromi].at < min_time)
+			++fromi;
 		if (isdsts[0] == 0)
-			while (attypes[fromi].type == 0)
+			while (fromi < timecnt && attypes[fromi].type == 0)
 				++fromi;	/* handled by default rule */
 		for ( ; fromi < timecnt; ++fromi) {
 			if (toi != 0
@@ -1451,26 +1452,18 @@ const char * const	name;
 	fullname = erealloc(fullname,
 		(int) (strlen(directory) + 1 + strlen(name) + 1));
 	(void) sprintf(fullname, "%s/%s", directory, name);
-	/*
-	** Remove old file, if any, to snap links.
-	*/
-	if (!itsdir(fullname) && remove(fullname) != 0 && errno != ENOENT) {
-		const char *e = strerror(errno);
 
-		(void) fprintf(stderr, _("%s: Can't remove %s: %s\n"),
-			progname, fullname, e);
-		(void) exit(EXIT_FAILURE);
-	}
+	/*
+	 * Remove old file, if any, to snap links.
+	 */
+	if (!itsdir(fullname) && remove(fullname) != 0 && errno != ENOENT)
+		err(EXIT_FAILURE, _("can't remove %s"), fullname);
+
 	if ((fp = fopen(fullname, "wb")) == NULL) {
 		if (mkdirs(fullname) != 0)
 			(void) exit(EXIT_FAILURE);
-		if ((fp = fopen(fullname, "wb")) == NULL) {
-			const char *e = strerror(errno);
-
-			(void) fprintf(stderr, _("%s: Can't create %s: %s\n"),
-				progname, fullname, e);
-			(void) exit(EXIT_FAILURE);
-		}
+		if ((fp = fopen(fullname, "wb")) == NULL)
+			err(EXIT_FAILURE, _("can't create %s"), fullname);
 	}
 	convert(eitol(typecnt), tzh.tzh_ttisgmtcnt);
 	convert(eitol(typecnt), tzh.tzh_ttisstdcnt);
@@ -1478,7 +1471,9 @@ const char * const	name;
 	convert(eitol(timecnt), tzh.tzh_timecnt);
 	convert(eitol(typecnt), tzh.tzh_typecnt);
 	convert(eitol(charcnt), tzh.tzh_charcnt);
+	(void) strncpy(tzh.tzh_magic, TZ_MAGIC, sizeof tzh.tzh_magic);
 #define DO(field)	(void) fwrite((void *) tzh.field, (size_t) sizeof tzh.field, (size_t) 1, fp)
+	DO(tzh_magic);
 	DO(tzh_reserved);
 	DO(tzh_ttisgmtcnt);
 	DO(tzh_ttisstdcnt);
@@ -1530,11 +1525,15 @@ const char * const	name;
 		(void) putc(ttisstds[i], fp);
 	for (i = 0; i < typecnt; ++i)
 		(void) putc(ttisgmts[i], fp);
-	if (ferror(fp) || fclose(fp)) {
-		(void) fprintf(stderr, _("%s: Error writing %s\n"),
-			progname, fullname);
-		(void) exit(EXIT_FAILURE);
-	}
+	if (ferror(fp) || fclose(fp))
+		errx(EXIT_FAILURE, _("error writing %s"), fullname);
+	if (chmod(fullname, mflag) < 0)
+		err(EXIT_FAILURE, _("cannot change mode of %s to %03o"),
+		    fullname, (unsigned)mflag);
+	if ((uflag != (uid_t)-1 || gflag != (gid_t)-1)
+	    && chown(fullname, uflag, gflag) < 0)
+		err(EXIT_FAILURE, _("cannot change ownership of %s"), 
+		    fullname);
 }
 
 static void
@@ -1584,16 +1583,16 @@ const int			zonecount;
 	typecnt = 0;
 	charcnt = 0;
 	/*
-	** A guess that may well be corrected later.
-	*/
-	stdoff = 0;
-	/*
 	** Thanks to Earl Chew (earl@dnd.icp.nec.com.au)
 	** for noting the need to unconditionally initialize startttisstd.
 	*/
 	startttisstd = FALSE;
 	startttisgmt = FALSE;
 	for (i = 0; i < zonecount; ++i) {
+		/*
+		** A guess that may well be corrected later.
+		*/
+		stdoff = 0;
 		zp = &zpfirst[i];
 		usestart = i > 0 && (zp - 1)->z_untiltime > min_time;
 		useuntil = i < (zonecount - 1);
@@ -1613,8 +1612,7 @@ const int			zonecount;
 			if (usestart) {
 				addtt(starttime, type);
 				usestart = FALSE;
-			}
-			else if (stdoff != 0)
+			} else if (stdoff != 0)
 				addtt(min_time, type);
 		} else for (year = min_year; year <= max_year; ++year) {
 			if (useuntil && year > zp->z_untilrule.r_hiyear)
@@ -1642,7 +1640,7 @@ const int			zonecount;
 				INITIALIZE(ktime);
 				if (useuntil) {
 					/*
-					** Turn untiltime into GMT
+					** Turn untiltime into UTC
 					** assuming the current gmtoff and
 					** stdoff values.
 					*/
@@ -1748,8 +1746,22 @@ error(_("can't determine time zone abbreviation to use just after until time"));
 static void
 addtt(starttime, type)
 const time_t	starttime;
-const int	type;
+int		type;
 {
+	if (starttime <= min_time ||
+		(timecnt == 1 && attypes[0].at < min_time)) {
+		gmtoffs[0] = gmtoffs[type];
+		isdsts[0] = isdsts[type];
+		ttisstds[0] = ttisstds[type];
+		ttisgmts[0] = ttisgmts[type];
+		if (abbrinds[type] != 0)
+			(void) strcpy(chars, &chars[abbrinds[type]]);
+		abbrinds[0] = 0;
+		charcnt = strlen(chars) + 1;
+		typecnt = 1;
+		timecnt = 0;
+		type = 0;
+	}
 	if (timecnt >= TZ_MAX_TIMES) {
 		error(_("too many transitions?!"));
 		(void) exit(EXIT_FAILURE);
@@ -1877,13 +1889,14 @@ const char * const	type;
 	buf = erealloc(buf, (int) (132 + strlen(yitcommand) + strlen(type)));
 	(void) sprintf(buf, "%s %d %s", yitcommand, year, type);
 	result = system(buf);
-	if (result == 0)
-		return TRUE;
-	if (result == (1 << 8))
-		return FALSE;
-	error(_("Wild result from command execution"));
-	(void) fprintf(stderr, _("%s: command was '%s', result was %d\n"),
-		progname, buf, result);
+	if (WIFEXITED(result)) switch (WEXITSTATUS(result)) {
+		case 0:
+			return TRUE;
+		case 1:
+			return FALSE;
+	}
+	error(_("wild result from command execution"));
+	warnx(_("command was '%s', result was %d"), buf, result);
 	for ( ; ; )
 		(void) exit(EXIT_FAILURE);
 }
@@ -1944,10 +1957,11 @@ register const struct lookup * const	table;
 	*/
 	foundlp = NULL;
 	for (lp = table; lp->l_word != NULL; ++lp)
-		if (itsabbr(word, lp->l_word))
+		if (itsabbr(word, lp->l_word)) {
 			if (foundlp == NULL)
 				foundlp = lp;
 			else	return NULL;	/* multiple inexact matches */
+		}
 	return foundlp;
 }
 
@@ -1976,7 +1990,7 @@ register char *	cp;
 			else while ((*dp = *cp++) != '"')
 				if (*dp != '\0')
 					++dp;
-				else	error(_("Odd number of quotation marks"));
+				else	error(_("odd number of quotation marks"));
 		} while (*cp != '\0' && *cp != '#' &&
 			(!isascii(*cp) || !isspace((unsigned char) *cp)));
 		if (isascii(*cp) && isspace((unsigned char) *cp))
@@ -2096,18 +2110,17 @@ register const int			wantedy;
 				--i;
 			}
 		if (i < 0 || i >= len_months[isleap(y)][m]) {
-			error(_("no day in month matches rule"));
-			(void) exit(EXIT_FAILURE);
+			if (noise)
+				warning(_("rule goes past start/end of month--will not work with pre-2004 versions of zic"));
 		}
 	}
 	if (dayoff < 0 && !TYPE_SIGNED(time_t))
 		return min_time;
+	if (dayoff < min_time / SECSPERDAY)
+		return min_time;
+	if (dayoff > max_time / SECSPERDAY)
+		return max_time;
 	t = (time_t) dayoff * SECSPERDAY;
-	/*
-	** Cheap overflow check.
-	*/
-	if (t / SECSPERDAY != dayoff)
-		return (dayoff > 0) ? max_time : min_time;
 	return tadd(t, rp->r_tod);
 }
 
@@ -2133,7 +2146,7 @@ char * const	argname;
 	register char *	name;
 	register char *	cp;
 
-	if (argname == NULL || *argname == '\0')
+	if (argname == NULL || *argname == '\0' || Dflag)
 		return 0;
 	cp = name = ecpyalloc(argname);
 	while ((cp = strchr(cp + 1, '/')) != 0) {
@@ -2151,13 +2164,13 @@ char * const	argname;
 		if (!itsdir(name)) {
 			/*
 			** It doesn't seem to exist, so we try to create it.
+			** Creation may fail because of the directory being
+			** created by some other multiprocessor, so we get
+			** to do extra checking.
 			*/
-			if (mkdir(name, 0755) != 0) {
-				const char *e = strerror(errno);
-
-				(void) fprintf(stderr,
-				    _("%s: Can't create directory %s: %s\n"),
-				    progname, name, e);
+			if (mkdir(name, MKDIR_UMASK) != 0
+				&& (errno != EEXIST || !itsdir(name))) {
+				warn(_("can't create directory %s"), name);
 				ifree(name);
 				return -1;
 			}
@@ -2175,15 +2188,64 @@ const int	i;
 	long	l;
 
 	l = i;
-	if ((i < 0 && l >= 0) || (i == 0 && l != 0) || (i > 0 && l <= 0)) {
-		(void) fprintf(stderr,
-			_("%s: %d did not sign extend correctly\n"),
-			progname, i);
-		(void) exit(EXIT_FAILURE);
-	}
+	if ((i < 0 && l >= 0) || (i == 0 && l != 0) || (i > 0 && l <= 0))
+		errx(EXIT_FAILURE, _("%d did not sign extend correctly"), i);
 	return l;
 }
 
+#include <grp.h>
+#include <pwd.h>
+
+static void
+setgroup(flag, name)
+	gid_t *flag;
+	const char *name;
+{
+	struct group *gr;
+
+	if (*flag != (gid_t)-1)
+		errx(EXIT_FAILURE, _("multiple -g flags specified"));
+
+	gr = getgrnam(name);
+	if (gr == 0) {
+		char *ep;
+		unsigned long ul;
+
+		ul = strtoul(name, &ep, 10);
+		if (ul == (unsigned long)(gid_t)ul && *ep == '\0') {
+			*flag = ul;
+			return;
+		}
+		errx(EXIT_FAILURE, _("group `%s' not found"), name);
+	}
+	*flag = gr->gr_gid;
+}
+
+static void
+setuser(flag, name)
+	uid_t *flag;
+	const char *name;
+{
+	struct passwd *pw;
+
+	if (*flag != (gid_t)-1)
+		errx(EXIT_FAILURE, _("multiple -u flags specified"));
+
+	pw = getpwnam(name);
+	if (pw == 0) {
+		char *ep;
+		unsigned long ul;
+
+		ul = strtoul(name, &ep, 10);
+		if (ul == (unsigned long)(gid_t)ul && *ep == '\0') {
+			*flag = ul;
+			return;
+		}
+		errx(EXIT_FAILURE, _("user `%s' not found"), name);
+	}
+	*flag = pw->pw_uid;
+}
+
 /*
-** UNIX was a registered trademark of UNIX System Laboratories in 1993.
+** UNIX was a registered trademark of The Open Group in 2003.
 */

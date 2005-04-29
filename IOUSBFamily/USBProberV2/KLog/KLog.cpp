@@ -1,62 +1,27 @@
 /*
-	KLog.cpp
-	
-	$Source: /cvs/root/IOUSBFamily/USBProberV2/KLog/KLog.cpp,v $
-	$Log: KLog.cpp,v $
-	Revision 1.1.34.1  2004/10/25 15:36:04  nano
-	Bring in TOT fixes to PantherUpdate.
-	
-	Revision 1.1.98.1  2004/10/20 15:27:41  nano
-	Potential submissions to Sandbox -- create their own branch
-	
-	Bug #:
-	<rdar://problem/3826068> USB devices on a P30 attached to Q88 do not function after restart
-	<rdar://problem/3779852> Q16B EVT Build run in fail Checkconfig Bluetooth *2
-	<rdar://problem/3816739>IOUSBFamily needs to support polling interval for High Speed devices
-	<rdar://problem/3816743> Low latency for hi-speed API do not fill frTimeStamp.hi and low in completion.
-	<rdar://problem/3816749> Low latency for hi-speed API incorrectly treats buffer striding across mem-page
-	
-	Submitted by:
-	Reviewed by:
-	
-	Revision 1.1  2003/08/22 05:15:54  nano
-	Added KLog.kext sources
-	
-	Revision 1.7  2002/04/28 03:50:02  nano
-	Remove offensive IOLogs! Who the heck put those there
-	
-	Revision 1.6  2001/12/05 16:23:36  nano
-	In Log method, call vLog method instead of self!
-	
-	Revision 1.5  2001/10/13 02:27:29  bubba
-	Got rid of need for config.h file.
-	
-	Revision 1.4  2001/10/09 23:12:28  bubba
-	Updated version to 1.0.2, removed non-building targets from the BUILD_ALL
-	target, upped the buffers to allow faster logging.
-	
-	Revision 1.3  2001/08/20 23:42:12  bubba
-	More cleanup.
-	
-	Revision 1.2  2001/08/20 21:33:51  bubba
-	Cleaned up code a bit.
-	
-	Revision 1.1  2001/08/13 22:37:19  davidson
-	initial commit of iLogger into io/Tools directory.  Also added the
-	BT-iLoggerPlugin in the ToolSources of Odin.
-	
-	Revision 1.5  2001/07/27 20:02:10  bubba
-	According to convention, 'v' denotes functions that take a va_list parameter. I had these backwards
-	when I made the logger changes. And since I'm a conventional guy (or not), I changed the function
-	names to reflect this naming convention.
-	
-	Revision 1.4  2001/07/26 20:38:38  davidson
-	Updates! Just some basic code cleanup, renamed some vars, etc.
-	
-	Revision 1.3  2001/07/26 18:23:49  bubba
-	Fix misprinted values in the logging mechanism.
-	
-*/
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * Copyright (c) 1998-2003 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
 
 extern "C" {
 #include <sys/time.h>

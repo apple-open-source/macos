@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstMember.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -51,14 +50,14 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstMember.c,v 1.7 2000/07/09 00:08:4
 LstNode
 Lst_Member (l, d)
     Lst	    	  	l;
-    ClientData	  	d;
+    void *	  	d;
 {
     List    	  	list = (List) l;
     register ListNode	lNode;
 
     lNode = list->firstPtr;
-    if (lNode == NilListNode) {
-	return NILLNODE;
+    if (lNode == NULL) {
+	return NULL;
     }
 
     do {
@@ -66,7 +65,7 @@ Lst_Member (l, d)
 	    return (LstNode)lNode;
 	}
 	lNode = lNode->nextPtr;
-    } while (lNode != NilListNode && lNode != list->firstPtr);
+    } while (lNode != NULL && lNode != list->firstPtr);
 
-    return NILLNODE;
+    return NULL;
 }

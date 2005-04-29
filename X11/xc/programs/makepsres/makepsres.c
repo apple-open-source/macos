@@ -35,7 +35,7 @@
  * 
  * Author:  Adobe Systems Incorporated
  */
-/* $XFree86: xc/programs/makepsres/makepsres.c,v 1.7 2002/09/18 17:11:51 tsi Exp $ */
+/* $XFree86: xc/programs/makepsres/makepsres.c,v 1.9 2003/10/24 20:38:13 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -130,9 +130,7 @@ static char lineBuffer[BUFFER_SIZE];
 
 Category *categories;
 
-static char *ckmalloc(size, whynot)
-    int size;
-    char *whynot;
+static char *ckmalloc(int size, char *whynot)
 {
     char *result;
 
@@ -145,10 +143,7 @@ static char *ckmalloc(size, whynot)
     return result;
 }
 
-static char *ckrealloc(ptr, size, whynot)
-    char *ptr;
-    int size;
-    char *whynot;
+static char *ckrealloc(char *ptr, int size, char *whynot)
 {
     char *result;
 
@@ -161,10 +156,7 @@ static char *ckrealloc(ptr, size, whynot)
     return result;
 }
 
-static char *ckcalloc(count, size, whynot)
-    int count;
-    int size;
-    char *whynot;
+static char *ckcalloc(int count, int size, char *whynot)
 {
     char *result;
 
@@ -686,7 +678,7 @@ static char *FindKeyValue (file, key)
     if (fgets (lineBuffer, BUFFER_SIZE, file) == NULL)
       break;
 
-    sscanf (lineBuffer, "%64[%a-zA-Z]", lineKey);
+    sscanf (lineBuffer, "%63[%a-zA-Z]", lineKey);
     if (strcmp (key, lineKey) == 0) {
       result = strchr (lineBuffer, ' ');
       if (result != NULL) {
@@ -1131,12 +1123,12 @@ static void ProcessFont (file, fileName)
     while (found != 0x7F && SkipToEitherCharacter (file, '/', 'e', &out)) {
 	/* If we encounter an eexec, skip the rest of the file */
 	if (out == 'e') {
-	    if (fscanf (file, "%256s", key) != 1) continue;
+	    if (fscanf (file, "%255s", key) != 1) continue;
 	    if (strcmp(key, "exec") == 0) break;
 	    continue;
 	}
 
-	if (fscanf (file, "%256s", key) != 1) continue;
+	if (fscanf (file, "%255s", key) != 1) continue;
 	if (!SkipWhiteSpace(file)) break;
 	if (!ReadItem(file, buf, 256)) break;
 
@@ -1228,7 +1220,7 @@ static void ProcessResource (file, fileName)
 
     if (pointer == NULL) return;
 
-    sscanf (pointer, "%*256s%256s", resourceName);
+    sscanf (pointer, "%*256s%255s", resourceName);
     StripName (resourceName);
 
     AddResource (resourceType, resourceName, fileName, false);
@@ -1252,7 +1244,7 @@ static void ProcessBDF (file, fileName)
 
     while (SkipToCharacter(file, '\n')) {
 	if (!SkipWhiteSpace(file)) break;
-	if (fscanf (file, "%256s", key) != 1) continue;
+	if (fscanf (file, "%255s", key) != 1) continue;
 	if (!SkipWhiteSpace(file)) break;
 
 	if ((found & 1) == 0 && strcmp(key, "FONT") == 0) {
@@ -1314,7 +1306,7 @@ static void ProcessAFM (file, fileName)
     if (pointer == NULL)
 	    return;
 
-    sscanf (pointer, "%256s", fontName);
+    sscanf (pointer, "%255s", fontName);
 
     extraCr = strchr (fontName, '\r'); /* Handle DOS newlines */
 
@@ -2056,7 +2048,7 @@ void ReadStdinDirectories()
 
     stdinDirectories = true;
 
-    while (scanf("%256s", buf) == 1) {
+    while (scanf("%255s", buf) == 1) {
 	directoryCount++;
 	directories = (char **) ckrealloc((char *) directories,
 				  directoryCount * sizeof(char *),

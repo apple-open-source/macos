@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2003, International Business Machines Corporation and    *
+* Copyright (C) 1997-2004, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -28,14 +28,34 @@
 
 #include "unicode/numfmt.h"
 #include "unicode/locid.h"
-#include "unicode/resbund.h"
+#include "unicode/ures.h"
 #include "unicode/dcfmtsym.h"
 #include "unicode/decimfmt.h"
 #include "unicode/ustring.h"
+#include "unicode/ucurr.h"
+#include "unicode/curramt.h"
 #include "uhash.h"
+#include "cmemory.h"
 #include "iculserv.h"
 #include "ucln_in.h"
+#include "cstring.h"
+#include "putilimp.h"
 #include <float.h>
+
+//#define FMT_DEBUG
+
+#ifdef FMT_DEBUG
+#include <stdio.h>
+static void debugout(UnicodeString s) {
+    char buf[2000];
+    s.extract((int32_t) 0, s.length(), buf);
+    printf("%s", buf);
+}
+#define debug(x) printf("%s", x);
+#else
+#define debugout(x)
+#define debug(x)
+#endif
 
 // If no number pattern can be located for a locale, this is the last
 // resort.
@@ -57,8 +77,7 @@ static const UChar gLastResortScientificPat[] = {
 
 U_NAMESPACE_BEGIN
 
-const char NumberFormat::fgClassID = 0; // Value is irrelevant
-
+UOBJECT_DEFINE_ABSTRACT_RTTI_IMPLEMENTATION(NumberFormat)
 // If the maximum base 10 exponent were 4, then the largest number would
 // be 99,999 which has 5 digits.
 const int32_t NumberFormat::fgMaxIntegerDigits = DBL_MAX_10_EXP + 1; // Should be ~40 ? --srl
@@ -74,9 +93,36 @@ const UChar * const NumberFormat::fgLastResortNumberPatterns[] =
     gLastResortScientificPat
 };
 
+#if !UCONFIG_NO_SERVICE
+// -------------------------------------
+// SimpleNumberFormatFactory implementation
+NumberFormatFactory::~NumberFormatFactory() {}
+SimpleNumberFormatFactory::SimpleNumberFormatFactory(const Locale& locale, UBool visible)
+    : _visible(visible)
+    , _id(locale.getName())
+{
+}
+
+SimpleNumberFormatFactory::~SimpleNumberFormatFactory() {}
+
+UBool SimpleNumberFormatFactory::visible(void) const {
+    return _visible;
+}
+
+const UnicodeString *
+SimpleNumberFormatFactory::getSupportedIDs(int32_t &count, UErrorCode& status) const 
+{
+    if (U_SUCCESS(status)) {
+        count = 1;
+        return &_id;
+    }
+    count = 0;
+    return NULL;
+}
+#endif /* #if !UCONFIG_NO_SERVICE */
+
 // -------------------------------------
 // default constructor
-
 NumberFormat::NumberFormat()
 :   fGroupingUsed(TRUE),
     fMaxIntegerDigits(fgMaxIntegerDigits),
@@ -85,6 +131,7 @@ NumberFormat::NumberFormat()
     fMinFractionDigits(0),
     fParseIntegerOnly(FALSE)
 {
+    fCurrency[0] = 0;
 }
 
 // -------------------------------------
@@ -116,6 +163,7 @@ NumberFormat::operator=(const NumberFormat& rhs)
         fMaxFractionDigits = rhs.fMaxFractionDigits;
         fMinFractionDigits = rhs.fMinFractionDigits;
         fParseIntegerOnly = rhs.fParseIntegerOnly;
+        u_strncpy(fCurrency, rhs.fCurrency, 4);
     }
     return *this;
 }
@@ -125,20 +173,54 @@ NumberFormat::operator=(const NumberFormat& rhs)
 UBool
 NumberFormat::operator==(const Format& that) const
 {
+    // Format::operator== guarantees this cast is safe
     NumberFormat* other = (NumberFormat*)&that;
+
+#ifdef FMT_DEBUG
+    // This code makes it easy to determine why two format objects that should
+    // be equal aren't.
+    UBool first = TRUE;
+    if (!Format::operator==(that)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("Format::!=");
+    }
+    if (!(fMaxIntegerDigits == other->fMaxIntegerDigits &&
+          fMinIntegerDigits == other->fMinIntegerDigits)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("Integer digits !=");
+    }
+    if (!(fMaxFractionDigits == other->fMaxFractionDigits &&
+          fMinFractionDigits == other->fMinFractionDigits)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("Fraction digits !=");
+    }
+    if (!(fGroupingUsed == other->fGroupingUsed)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("fGroupingUsed != ");
+    }
+    if (!(fParseIntegerOnly == other->fParseIntegerOnly)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("fParseIntegerOnly != ");
+    }
+    if (!(u_strcmp(fCurrency, other->fCurrency) == 0)) {
+        if (first) { printf("[ "); first = FALSE; } else { printf(", "); }
+        debug("fCurrency !=");
+    }
+    if (!first) { printf(" ]"); }    
+#endif
 
     return ((this == &that) ||
             ((Format::operator==(that) &&
-              getDynamicClassID()== that.getDynamicClassID() &&
               fMaxIntegerDigits == other->fMaxIntegerDigits &&
               fMinIntegerDigits == other->fMinIntegerDigits &&
               fMaxFractionDigits == other->fMaxFractionDigits &&
               fMinFractionDigits == other->fMinFractionDigits &&
               fGroupingUsed == other->fGroupingUsed &&
-              fParseIntegerOnly == other->fParseIntegerOnly)));
+              fParseIntegerOnly == other->fParseIntegerOnly &&
+              u_strcmp(fCurrency, other->fCurrency) == 0)));
 }
 
-// -------------------------------------
+// -------------------------------------x
 // Formats the number object and save the format
 // result in the toAppendTo string buffer.
 
@@ -150,17 +232,57 @@ NumberFormat::format(const Formattable& obj,
 {
     if (U_FAILURE(status)) return appendTo;
 
-    if (obj.getType() == Formattable::kDouble) {
-        return format(obj.getDouble(), appendTo, pos);
+    NumberFormat* nonconst = (NumberFormat*) this;
+    const Formattable* n = &obj;
+
+    UChar save[4];
+    UBool setCurr = FALSE;
+    const UObject* o = obj.getObject(); // most commonly o==NULL
+    if (o != NULL &&
+        o->getDynamicClassID() == CurrencyAmount::getStaticClassID()) {
+        // getISOCurrency() returns a pointer to internal storage, so we
+        // copy it to retain it across the call to setCurrency().
+        const CurrencyAmount* amt = (const CurrencyAmount*) o;
+        const UChar* curr = amt->getISOCurrency();
+        u_strcpy(save, getCurrency());
+        setCurr = (u_strcmp(curr, save) != 0);
+        if (setCurr) {
+            nonconst->setCurrency(curr, status);
+        }
+        n = &amt->getNumber();
     }
-    else if (obj.getType() == Formattable::kLong) {
-        return format(obj.getLong(), appendTo, pos);
-    }
-    // can't try to format a non-numeric object
-    else {
+
+    switch (n->getType()) {
+    case Formattable::kDouble:
+        format(n->getDouble(), appendTo, pos);
+        break;
+    case Formattable::kLong:
+        format(n->getLong(), appendTo, pos);
+        break;
+    case Formattable::kInt64:
+        format(n->getInt64(), appendTo, pos);
+        break;
+    default:
         status = U_INVALID_FORMAT_ERROR;
-        return appendTo;
+        break;
     }
+
+    if (setCurr) {
+        UErrorCode ok = U_ZERO_ERROR;
+        nonconst->setCurrency(save, ok); // always restore currency
+    }
+    return appendTo;
+}
+
+// -------------------------------------
+
+UnicodeString& 
+NumberFormat::format(int64_t number,
+                     UnicodeString& appendTo,
+                     FieldPosition& pos) const
+{
+    // default so we don't introduce a new abstract method
+    return format((int32_t)number, appendTo, pos);
 }
 
 // -------------------------------------
@@ -196,6 +318,16 @@ NumberFormat::format(int32_t number, UnicodeString& appendTo) const
 }
 
 // -------------------------------------
+// Formats a long number and save the result in a string.
+
+UnicodeString&
+NumberFormat::format(int64_t number, UnicodeString& appendTo) const
+{
+    FieldPosition pos(0);
+    return format(number, appendTo, pos);
+}
+
+// -------------------------------------
 // Parses the text and save the result object.  If the returned
 // parse position is 0, that means the parsing failed, the status
 // code needs to be set to failure.  Ignores the returned parse
@@ -215,6 +347,27 @@ NumberFormat::parse(const UnicodeString& text,
     }
 }
 
+Formattable& NumberFormat::parseCurrency(const UnicodeString& text,
+                                         Formattable& result,
+                                         ParsePosition& pos) const {
+    // Default implementation only -- subclasses should override
+    int32_t start = pos.getIndex();
+    parse(text, result, pos);
+    if (pos.getIndex() != start) {
+        UChar curr[4];
+        UErrorCode ec = U_ZERO_ERROR;
+        getEffectiveCurrency(curr, ec);
+        if (U_SUCCESS(ec)) {
+            Formattable n(result);
+            result.adoptObject(new CurrencyAmount(n, curr, ec));
+            if (U_FAILURE(ec)) {
+                pos.setIndex(start); // indicate failure
+            }
+        }
+    }
+    return result;
+}
+
 // -------------------------------------
 // Sets to only parse integers.
 
@@ -227,7 +380,7 @@ NumberFormat::setParseIntegerOnly(UBool value)
 // -------------------------------------
 // Create a number style NumberFormat instance with the default locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createInstance(UErrorCode& status)
 {
     return createInstance(Locale::getDefault(), kNumberStyle, status);
@@ -236,7 +389,7 @@ NumberFormat::createInstance(UErrorCode& status)
 // -------------------------------------
 // Create a number style NumberFormat instance with the inLocale locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createInstance(const Locale& inLocale, UErrorCode& status)
 {
     return createInstance(inLocale, kNumberStyle, status);
@@ -245,25 +398,25 @@ NumberFormat::createInstance(const Locale& inLocale, UErrorCode& status)
 // -------------------------------------
 // Create a currency style NumberFormat instance with the default locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createCurrencyInstance(UErrorCode& status)
 {
-    return createInstance(Locale::getDefault(), kCurrencyStyle, status);
+    return createCurrencyInstance(Locale::getDefault(),  status);
 }
 
 // -------------------------------------
 // Create a currency style NumberFormat instance with the inLocale locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createCurrencyInstance(const Locale& inLocale, UErrorCode& status)
-{
+{  
     return createInstance(inLocale, kCurrencyStyle, status);
 }
 
 // -------------------------------------
 // Create a percent style NumberFormat instance with the default locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createPercentInstance(UErrorCode& status)
 {
     return createInstance(Locale::getDefault(), kPercentStyle, status);
@@ -272,7 +425,7 @@ NumberFormat::createPercentInstance(UErrorCode& status)
 // -------------------------------------
 // Create a percent style NumberFormat instance with the inLocale locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createPercentInstance(const Locale& inLocale, UErrorCode& status)
 {
     return createInstance(inLocale, kPercentStyle, status);
@@ -281,7 +434,7 @@ NumberFormat::createPercentInstance(const Locale& inLocale, UErrorCode& status)
 // -------------------------------------
 // Create a scientific style NumberFormat instance with the default locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createScientificInstance(UErrorCode& status)
 {
     return createInstance(Locale::getDefault(), kScientificStyle, status);
@@ -290,7 +443,7 @@ NumberFormat::createScientificInstance(UErrorCode& status)
 // -------------------------------------
 // Create a scientific style NumberFormat instance with the inLocale locale.
 
-NumberFormat*
+NumberFormat* U_EXPORT2
 NumberFormat::createScientificInstance(const Locale& inLocale, UErrorCode& status)
 {
     return createInstance(inLocale, kScientificStyle, status);
@@ -298,7 +451,7 @@ NumberFormat::createScientificInstance(const Locale& inLocale, UErrorCode& statu
 
 // -------------------------------------
 
-const Locale*
+const Locale* U_EXPORT2
 NumberFormat::getAvailableLocales(int32_t& count)
 {
     return Locale::getAvailableLocales(count);
@@ -310,111 +463,125 @@ NumberFormat::getAvailableLocales(int32_t& count)
 //
 //-------------------------------------------
 
+#if !UCONFIG_NO_SERVICE
 static ICULocaleService* gService = NULL;
+
+/**
+ * Release all static memory held by numberformat.  
+ */
+U_CDECL_BEGIN
+static UBool U_CALLCONV numfmt_cleanup(void) {
+    if (gService) {
+        delete gService;
+        gService = NULL;
+    }
+    return TRUE;
+}
+U_CDECL_END
 
 // -------------------------------------
 
 class ICUNumberFormatFactory : public ICUResourceBundleFactory {
 protected:
-  virtual UObject* handleCreate(const Locale& loc, int32_t kind, const ICUService* service, UErrorCode& status) const {
-// !!! kind is not an EStyles, need to determine how to handle this
-	  return NumberFormat::makeInstance(loc, (NumberFormat::EStyles)kind, status);
-  }
+    virtual UObject* handleCreate(const Locale& loc, int32_t kind, const ICUService* /* service */, UErrorCode& status) const {
+        // !!! kind is not an EStyles, need to determine how to handle this
+        return NumberFormat::makeInstance(loc, (NumberFormat::EStyles)kind, status);
+    }
 };
 
 // -------------------------------------
 
 class NFFactory : public LocaleKeyFactory {
 private:
-  NumberFormatFactory* _delegate;
-  Hashtable* _ids;
+    NumberFormatFactory* _delegate;
+    Hashtable* _ids;
 
 public:
-  NFFactory(NumberFormatFactory* delegate) 
-    : LocaleKeyFactory(delegate->visible() ? VISIBLE : INVISIBLE)
-    , _delegate(delegate)
-	, _ids(NULL)
-  {
-  }
-
-  virtual ~NFFactory()
-  {
-    delete _delegate;
-    delete _ids;
-  }
-
-  virtual UObject* create(const ICUServiceKey& key, const ICUService* service, UErrorCode& status) const
-  {
-    if (handlesKey(key, status)) {
-      const LocaleKey& lkey = (const LocaleKey&)key;
-      Locale loc;
-      lkey.canonicalLocale(loc);
-      int32_t kind = lkey.kind();
-
-      UObject* result = _delegate->createFormat(loc, (UNumberFormatStyle)(kind+1));
-      if (result == NULL) {
-        result = service->getKey((ICUServiceKey&)key /* cast away const */, NULL, this, status);
-      }
-      return result;
+    NFFactory(NumberFormatFactory* delegate) 
+        : LocaleKeyFactory(delegate->visible() ? VISIBLE : INVISIBLE)
+        , _delegate(delegate)
+        , _ids(NULL)
+    {
     }
-    return NULL;
-  }
+
+    virtual ~NFFactory()
+    {
+        delete _delegate;
+        delete _ids;
+    }
+
+    virtual UObject* create(const ICUServiceKey& key, const ICUService* service, UErrorCode& status) const
+    {
+        if (handlesKey(key, status)) {
+            const LocaleKey& lkey = (const LocaleKey&)key;
+            Locale loc;
+            lkey.canonicalLocale(loc);
+            int32_t kind = lkey.kind();
+
+            UObject* result = _delegate->createFormat(loc, (UNumberFormatStyle)(kind+1));
+            if (result == NULL) {
+                result = service->getKey((ICUServiceKey&)key /* cast away const */, NULL, this, status);
+            }
+            return result;
+        }
+        return NULL;
+    }
 
 protected:
-  /**
-   * Return the set of ids that this factory supports (visible or 
-   * otherwise).  This can be called often and might need to be
-   * cached if it is expensive to create.
-   */
-  virtual const Hashtable* getSupportedIDs(UErrorCode& status) const
-  {
-    if (U_SUCCESS(status)) {
-      if (!_ids) {
-        int32_t count = 0;
-        const UnicodeString * const idlist = _delegate->getSupportedIDs(count, status);
-        ((NFFactory*)this)->_ids = new Hashtable(status); /* cast away const */
-        if (_ids) {
-          for (int i = 0; i < count; ++i) {
-            _ids->put(idlist[i], (void*)this, status);
-          }
+    /**
+     * Return the set of ids that this factory supports (visible or 
+     * otherwise).  This can be called often and might need to be
+     * cached if it is expensive to create.
+     */
+    virtual const Hashtable* getSupportedIDs(UErrorCode& status) const
+    {
+        if (U_SUCCESS(status)) {
+            if (!_ids) {
+                int32_t count = 0;
+                const UnicodeString * const idlist = _delegate->getSupportedIDs(count, status);
+                ((NFFactory*)this)->_ids = new Hashtable(status); /* cast away const */
+                if (_ids) {
+                    for (int i = 0; i < count; ++i) {
+                        _ids->put(idlist[i], (void*)this, status);
+                    }
+                }
+            }
+            return _ids;
         }
-      }
-      return _ids;
+        return NULL;
     }
-    return NULL;
-  }
 };
 
 class ICUNumberFormatService : public ICULocaleService {
 public:
-  ICUNumberFormatService()
-    : ICULocaleService("Number Format")
-  {
-    UErrorCode status = U_ZERO_ERROR;
-    registerFactory(new ICUNumberFormatFactory(), status);
-  }
+    ICUNumberFormatService()
+        : ICULocaleService("Number Format")
+    {
+        UErrorCode status = U_ZERO_ERROR;
+        registerFactory(new ICUNumberFormatFactory(), status);
+    }
 
-  virtual UObject* cloneInstance(UObject* instance) const {
-	  return ((NumberFormat*)instance)->clone();
-  }
+    virtual UObject* cloneInstance(UObject* instance) const {
+        return ((NumberFormat*)instance)->clone();
+    }
 
-  virtual UObject* handleDefault(const ICUServiceKey& key, UnicodeString* actualID, UErrorCode& status) const {
-	LocaleKey& lkey = (LocaleKey&)key;
-	int32_t kind = lkey.kind();
-	Locale loc;
-	lkey.currentLocale(loc);
-	return NumberFormat::makeInstance(loc, (NumberFormat::EStyles)kind, status);
-  }
+    virtual UObject* handleDefault(const ICUServiceKey& key, UnicodeString* /* actualID */, UErrorCode& status) const {
+        LocaleKey& lkey = (LocaleKey&)key;
+        int32_t kind = lkey.kind();
+        Locale loc;
+        lkey.currentLocale(loc);
+        return NumberFormat::makeInstance(loc, (NumberFormat::EStyles)kind, status);
+    }
 
-  virtual UBool isDefault() const {
-	return countFactories() == 1;
-  }
+    virtual UBool isDefault() const {
+        return countFactories() == 1;
+    }
 };
 
 // -------------------------------------
 
 static ICULocaleService* 
-getService(void)
+getNumberFormatService(void)
 {
     UBool needInit;
     {
@@ -434,7 +601,9 @@ getService(void)
             delete newservice;
         } else {
             // we won the contention, this thread can register cleanup.
-            ucln_i18n_registerCleanup();
+#if !UCONFIG_NO_SERVICE
+            ucln_i18n_registerCleanup(UCLN_I18N_NUMFMT, numfmt_cleanup);
+#endif
         }
     }
     return gService;
@@ -442,26 +611,10 @@ getService(void)
 
 // -------------------------------------
 
-NumberFormat*
-NumberFormat::createInstance(const Locale& loc, EStyles kind, UErrorCode& status)
-{
-    umtx_lock(NULL);
-    UBool haveService = gService != NULL;
-    umtx_unlock(NULL);
-    if (haveService) {
-        return (NumberFormat*)gService->get(loc, kind, status);
-    } else {
-        return makeInstance(loc, kind, status);
-  }
-}
-
-
-// -------------------------------------
-
-URegistryKey 
+URegistryKey U_EXPORT2
 NumberFormat::registerFactory(NumberFormatFactory* toAdopt, UErrorCode& status)
 {
-  ICULocaleService *service = getService();
+  ICULocaleService *service = getNumberFormatService();
   if (service) {
     return service->registerFactory(new NFFactory(toAdopt), status);
   }
@@ -471,7 +624,7 @@ NumberFormat::registerFactory(NumberFormatFactory* toAdopt, UErrorCode& status)
 
 // -------------------------------------
 
-UBool 
+UBool U_EXPORT2
 NumberFormat::unregister(URegistryKey key, UErrorCode& status)
 {
     if (U_SUCCESS(status)) {
@@ -487,15 +640,35 @@ NumberFormat::unregister(URegistryKey key, UErrorCode& status)
 }
 
 // -------------------------------------
-StringEnumeration* 
+StringEnumeration* U_EXPORT2
 NumberFormat::getAvailableLocales(void)
 {
-  ICULocaleService *service = getService();
+  ICULocaleService *service = getNumberFormatService();
   if (service) {
     return service->getAvailableLocales();
   }
   return NULL; // no way to return error condition
 }
+#endif /* UCONFIG_NO_SERVICE */
+// -------------------------------------
+
+NumberFormat* U_EXPORT2
+NumberFormat::createInstance(const Locale& loc, EStyles kind, UErrorCode& status)
+{
+#if !UCONFIG_NO_SERVICE
+    umtx_lock(NULL);
+    UBool haveService = gService != NULL;
+    umtx_unlock(NULL);
+    if (haveService) {
+        return (NumberFormat*)gService->get(loc, kind, status);
+    }
+    else
+#endif
+    {
+        return makeInstance(loc, kind, status);
+    }
+}
+
 
 // -------------------------------------
 // Checks if the thousand/10 thousand grouping is used in the
@@ -606,17 +779,34 @@ NumberFormat::setMinimumFractionDigits(int32_t newValue)
 
 // -------------------------------------
 
-void NumberFormat::setCurrency(const UChar* theCurrency) {
+void NumberFormat::setCurrency(const UChar* theCurrency, UErrorCode& ec) {
+    if (U_FAILURE(ec)) {
+        return;
+    }
     if (theCurrency) {
-        u_strncpy(currency, theCurrency, 3);
-        currency[3] = 0;
+        u_strncpy(fCurrency, theCurrency, 3);
+        fCurrency[3] = 0;
     } else {
-        currency[0] = 0;
+        fCurrency[0] = 0;
     }
 }
 
 const UChar* NumberFormat::getCurrency() const {
-    return currency;
+    return fCurrency;
+}
+
+void NumberFormat::getEffectiveCurrency(UChar* result, UErrorCode& ec) const {
+    const UChar* c = getCurrency();
+    if (*c != 0) {
+        u_strncpy(result, c, 3);
+        result[3] = 0;
+    } else {
+        const char* loc = getLocaleID(ULOC_VALID_LOCALE, ec);
+        if (loc == NULL) {
+            loc = uloc_getDefault();
+        }
+        ucurr_forLocale(loc, result, 4, &ec);
+    }
 }
 
 // -------------------------------------
@@ -635,100 +825,100 @@ NumberFormat::makeInstance(const Locale& desiredLocale,
         return NULL;
     }
 
-    ResourceBundle resource((char *)0, desiredLocale, status);
-    NumberFormat* f;
+    NumberFormat* f = NULL;
+    DecimalFormatSymbols* symbolsToAdopt = NULL;
+    UnicodeString pattern;
+    UResourceBundle *resource = ures_open((char *)0, desiredLocale.getName(), &status);
+    UResourceBundle *numberPatterns = ures_getByKey(resource, DecimalFormat::fgNumberPatterns, NULL, &status);
 
-    if (U_FAILURE(status))
-    {
+    if (U_FAILURE(status)) {
         // We don't appear to have resource data available -- use the last-resort data
         status = U_USING_FALLBACK_WARNING;
-
-        // Use the DecimalFormatSymbols constructor which uses last-resort data
-        DecimalFormatSymbols* symbolsToAdopt = new DecimalFormatSymbols(status);
-        if (symbolsToAdopt == NULL) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return NULL;
-        }
-        if (U_FAILURE(status)) {
-            delete symbolsToAdopt; // This should never happen
-            return NULL;
-        }
+        // When the data is unavailable, and locale isn't passed in, last resort data is used.
+        symbolsToAdopt = new DecimalFormatSymbols(status);
 
         // Creates a DecimalFormat instance with the last resort number patterns.
-        f = new DecimalFormat(fgLastResortNumberPatterns[style], symbolsToAdopt, status);
-        if (f == NULL) {
-            status = U_MEMORY_ALLOCATION_ERROR;
-            return NULL;
-        }
-        if (U_FAILURE(status)) {
-            delete f;
-            f = NULL;
-        }
-        return f;
-    }
-
-    ResourceBundle numberPatterns(resource.get(DecimalFormat::fgNumberPatterns, status));
-    // If not all the styled patterns exists for the NumberFormat in this locale,
-    // sets the status code to failure and returns nil.
-    //if (patternCount < fgNumberPatternsCount) status = U_INVALID_FORMAT_ERROR;
-    if (numberPatterns.getSize() < fgNumberPatternsCount)
-        status = U_INVALID_FORMAT_ERROR;
-    if (U_FAILURE(status))
-        return NULL;
-
-    // Loads the decimal symbols of the desired locale.
-    DecimalFormatSymbols* symbolsToAdopt = new DecimalFormatSymbols(desiredLocale, status);
-    if (symbolsToAdopt == NULL) {
-        status = U_MEMORY_ALLOCATION_ERROR;
-        return NULL;
-    }
-    if (U_FAILURE(status)) {
-        delete symbolsToAdopt;
-        return NULL;
-    }
-
-    // Creates the specified decimal format style of the desired locale.
-    if (style < numberPatterns.getSize()) {
-        const UnicodeString pattern(numberPatterns.getStringEx(style, status));
-        if (U_SUCCESS(status)) {
-            f = new DecimalFormat(pattern, symbolsToAdopt, status);
-        }
-        else {
-            return NULL;
-        }
+        pattern.setTo(TRUE, fgLastResortNumberPatterns[style], -1);
     }
     else {
-        // If the requested style doesn't exist, use a last-resort style.
-        // This is to support scientific styles before we have all the
-        // resource data in place.
-        f = new DecimalFormat(fgLastResortNumberPatterns[style], symbolsToAdopt, status);
+        // If not all the styled patterns exists for the NumberFormat in this locale,
+        // sets the status code to failure and returns nil.
+        if (ures_getSize(numberPatterns) < fgNumberPatternsCount) {
+            status = U_INVALID_FORMAT_ERROR;
+            goto cleanup;
+        }
+
+        // Loads the decimal symbols of the desired locale.
+        symbolsToAdopt = new DecimalFormatSymbols(desiredLocale, status);
+
+        int32_t patLen = 0;
+        const UChar *patResStr = ures_getStringByIndex(numberPatterns, (int32_t)style, &patLen, &status);
+        // Creates the specified decimal format style of the desired locale.
+        pattern.setTo(TRUE, patResStr, patLen);
+    }
+    if (U_FAILURE(status) || symbolsToAdopt == NULL) {
+        goto cleanup;
     }
 
-    if (f == NULL) {
-        status = U_MEMORY_ALLOCATION_ERROR;
+    // Here we assume that the locale passed in is in the canonical
+    // form, e.g: pt_PT_@currency=PTE not pt_PT_PREEURO
+    if(style==kCurrencyStyle){
+        char currencyCode[8]={0};
+        int32_t currencyCodeCap = sizeof(currencyCode);
+        const char* locName = desiredLocale.getName();
+        currencyCodeCap = uloc_getKeywordValue(locName, "currency", currencyCode, currencyCodeCap, &status);
+        if(U_SUCCESS(status) && currencyCodeCap > 0) {
+            /* An explicit currency was requested */
+            UErrorCode localStatus = U_ZERO_ERROR;
+            UResourceBundle *currency = ures_getByKeyWithFallback(resource, "Currencies", NULL, &localStatus);
+            currency = ures_getByKeyWithFallback(currency, currencyCode, currency, &localStatus);
+            if(U_SUCCESS(localStatus) && ures_getSize(currency)>2) {
+                currency = ures_getByIndex(currency, 2, currency, &localStatus);
+                int32_t currPatternLen = 0;
+                const UChar *currPattern = ures_getStringByIndex(currency, (int32_t)0, &currPatternLen, &localStatus);
+                UnicodeString decimalSep = ures_getStringByIndex(currency, (int32_t)1, NULL, &localStatus);
+                UnicodeString groupingSep = ures_getStringByIndex(currency, (int32_t)2, NULL, &localStatus);
+                if(U_SUCCESS(localStatus)){
+                    symbolsToAdopt->setSymbol(DecimalFormatSymbols::kGroupingSeparatorSymbol, groupingSep);
+                    symbolsToAdopt->setSymbol(DecimalFormatSymbols::kMonetarySeparatorSymbol, decimalSep);
+                    pattern.setTo(TRUE, currPattern, currPatternLen);
+                    status = localStatus;
+                }
+            }
+            ures_close(currency);
+            /* else An explicit currency was requested and is unknown or locale data is malformed. */
+            /* ucurr_* API will get the correct value later on. */
+        }
+        /* else no currency keyword used. */
+    }
+    f = new DecimalFormat(pattern, symbolsToAdopt, status);
+    if (U_FAILURE(status) || f == NULL) {
+        goto cleanup;
+    }
+
+    f->setLocaleIDs(ures_getLocaleByType(numberPatterns, ULOC_VALID_LOCALE, &status),
+                    ures_getLocaleByType(numberPatterns, ULOC_ACTUAL_LOCALE, &status));
+cleanup:
+    ures_close(numberPatterns);
+    ures_close(resource);
+    if (U_FAILURE(status)) {
+        /* If f exists, then it will delete the symbols */
+        if (f==NULL) {
+            delete symbolsToAdopt;
+        }
+        else {
+            delete f;
+        }
         return NULL;
     }
-    if (U_FAILURE(status)) {
-        delete f;
+    if (f == NULL || symbolsToAdopt == NULL) {
+        status = U_MEMORY_ALLOCATION_ERROR;
         f = NULL;
     }
     return f;
 }
 
 U_NAMESPACE_END
-
-// defined in ucln_cmn.h
-
-/**
- * Release all static memory held by numberformat.  
- */
-U_CFUNC UBool numfmt_cleanup(void) {
-  if (gService) {
-    delete gService;
-    gService = NULL;
-  }
-  return TRUE;
-}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

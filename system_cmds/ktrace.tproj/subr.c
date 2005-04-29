@@ -73,8 +73,8 @@ static const char rcsid[] =
 
 #include "ktrace.h"
 
-getpoints(s)
-	char *s;
+int
+getpoints(char *s)
 {
 	int facs = 0;
 
@@ -109,24 +109,24 @@ getpoints(s)
 	return (facs);
 }
 
-timevaladd(t1, t2)
-	struct timeval *t1, *t2;
+void 
+timevaladd(struct timeval *t1, struct timeval *t2)
 {
 	t1->tv_sec += t2->tv_sec;
 	t1->tv_usec += t2->tv_usec;
 	timevalfix(t1);
 }
 
-timevalsub(t1, t2)
-	struct timeval *t1, *t2;
+void
+timevalsub(struct timeval *t1, struct timeval *t2)
 {
 	t1->tv_sec -= t2->tv_sec;
 	t1->tv_usec -= t2->tv_usec;
 	timevalfix(t1);
 }
 
-timevalfix(t1)
-	struct timeval *t1;
+void
+timevalfix(struct timeval *t1)
 {
 	if (t1->tv_usec < 0) {
 		t1->tv_sec--;

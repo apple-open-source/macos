@@ -6,8 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -30,6 +29,8 @@
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "ada.h"
 #include "types.h"
@@ -49,52 +50,61 @@
    For efficiency, this method is used only for integer values larger than the
    constant Uint_Bias.  If a Uint is less than this constant, then it contains
    the integer value itself.  The origin of the Uints_Ptr table is adjusted so
-   that a Uint value of Uint_Bias indexes the first element.  */
+   that a Uint value of Uint_Bias indexes the first element.
 
-/* Similarly to UI_To_Int, but return a GCC INTEGER_CST.  Overflow is tested
-   by the constant-folding used to build the node.  TYPE is the GCC type of the
-   resulting node.  */
+   First define a utility function that operates like build_int_cst for
+   integral types and does a conversion to floating-point for real types.  */
+
+static tree
+build_cst_from_int (tree type, HOST_WIDE_INT low)
+{
+  if (TREE_CODE (type) == REAL_TYPE)
+    return convert (type, build_int_cst (NULL_TREE, low));
+  else
+    return force_fit_type (build_int_cst (type, low), false, false, false);
+}
+
+/* Similar to UI_To_Int, but return a GCC INTEGER_CST or REAL_CST node,
+   depending on whether TYPE is an integral or real type.  Overflow is tested
+   by the constant-folding used to build the node.  TYPE is the GCC type of
+   the resulting node.  */
 
 tree
-UI_To_gnu (Input, type)
-     Uint Input;
-     tree type;
+UI_To_gnu (Uint Input, tree type)
 {
   tree gnu_ret;
 
   if (Input <= Uint_Direct_Last)
-    gnu_ret = convert (type, build_int_2 (Input - Uint_Direct_Bias, 
-					  Input < Uint_Direct_Bias ? -1 : 0));
+    gnu_ret = build_cst_from_int (type, Input - Uint_Direct_Bias);
   else
     {
-      Int Idx =    Uints_Ptr[Input].Loc;
+      Int Idx = Uints_Ptr[Input].Loc;
       Pos Length = Uints_Ptr[Input].Length;
       Int First = Udigits_Ptr[Idx];
       /* Do computations in integer type or TYPE whichever is wider, then
 	 convert later.  This avoid overflow if type is short integer.  */
       tree comp_type
-	= (TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node)
+	= ((TREE_CODE (type) == REAL_TYPE
+	    || TYPE_PRECISION (type) >= TYPE_PRECISION (integer_type_node))
 	   ? type : integer_type_node);
-      tree gnu_base = convert (comp_type, build_int_2 (Base, 0));
+      tree gnu_base = build_cst_from_int (comp_type, Base);
 
-      if (Length <= 0)
-	gigi_abort (601);
-
-      gnu_ret = convert (comp_type, build_int_2 (First, First < 0 ? -1 : 0));
+      gcc_assert (Length > 0);
+      gnu_ret = build_cst_from_int (comp_type, First);
       if (First < 0)
 	for (Idx++, Length--; Length; Idx++, Length--)
-	  gnu_ret = fold (build (MINUS_EXPR, comp_type,
-				 fold (build (MULT_EXPR, comp_type,
-					      gnu_ret, gnu_base)),
-				 convert (comp_type,
-					  build_int_2 (Udigits_Ptr[Idx], 0))));
+	  gnu_ret = fold (build2 (MINUS_EXPR, comp_type,
+				  fold (build2 (MULT_EXPR, comp_type,
+						gnu_ret, gnu_base)),
+				  build_cst_from_int (comp_type,
+						      Udigits_Ptr[Idx])));
       else
 	for (Idx++, Length--; Length; Idx++, Length--)
-	  gnu_ret = fold (build (PLUS_EXPR, comp_type,
-				 fold (build (MULT_EXPR, comp_type,
-					      gnu_ret, gnu_base)),
-				 convert (comp_type,
-					  build_int_2 (Udigits_Ptr[Idx], 0))));
+	  gnu_ret = fold (build2 (PLUS_EXPR, comp_type,
+				  fold (build2 (MULT_EXPR, comp_type,
+						gnu_ret, gnu_base)),
+				  build_cst_from_int (comp_type,
+						      Udigits_Ptr[Idx])));
     }
 
   gnu_ret = convert (type, gnu_ret);

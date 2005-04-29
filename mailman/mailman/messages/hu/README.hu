@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 BEVEZETÉS
@@ -21,23 +21,27 @@ BEVEZETÉS
     található Pipermail kódjának fejlesztésében nagy része volt Jeremy 
     Hylton-nak.
     
-    A Mailman honlapja
+    A Mailman honlapjai
 
         http://www.gnu.org/software/mailman
+	http://www.list.org
 
     Tüköroldalak:
 
         http://www.list.org
+	http://www.gnu.org/software/mailman
         http://mailman.sf.net
 
-    A Mailman 2.1 mûködéséhez Python 2.1.3 vagy újabb szükséges, amelyet a 
-    következõ címrõl lehet letölteni:
+    A Mailman 2.1 mûködéséhez Python 2.1.3 vagy újabb szükséges, amelyet
+    a következõ címrõl lehet letölteni:
 
         http://www.python.org
 
-    A megfelelõ mûködéshez ajnálott, hogy Python 2.1.3-et vagy Python 2.2.1-et
-    vagy annál frissebbet használjunk. A Mailman nem mûködik Python 2.0
-    vagy régebbi verziókkal.
+    A megfelelõ mûködéshez ajánlott a Python 2.3.3 verziója, amely a 
+    dokumentáció készítésekor (2003. december 31.) a legújabb verzió
+    volt. A program a 2.2-es Python sorozat legfrissebb verziójával,
+    a 2.2.3-as verzióval is mûködik. Azonban nem mûködik Python 2.0 
+    vagy régebbi verziókkal együtt.
 
     Szükség van továbbá egy ANSI C fordítóra; a gcc (a GNU C fordítója)
     megfelel a célnak. A Mailman jelenleg GNU/Linux és más Unix-típusú

@@ -2,23 +2,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
 ; File:         xcscope.el
-; RCS:          $RCSfile: xcscope.el,v $ $Revision: 1.1.1.1 $ $Date: 2002/01/09 18:50:30 $ $Author: umeshv $
+; RCS:          $RCSfile: xcscope.el,v $ $Revision: 1.2 $ $Date: 2004/07/09 21:34:44 $ $Author: nicolai $
 ; Description:  cscope interface for (X)Emacs
 ; Author:       Darryl Okahata
 ; Created:      Wed Apr 19 17:03:38 2000
-; Modified:     Thu Jun 28 15:10:40 2001 (Darryl Okahata) darrylo@soco.agilent.com
+; Modified:     Thu Apr  4 17:22:22 2002 (Darryl Okahata) darrylo@soco.agilent.com
 ; Language:     Emacs-Lisp
 ; Package:      N/A
 ; Status:       Experimental
 ;
-; (C) Copyright 2000, 2001, Darryl Okahata, all rights reserved.
+; (C) Copyright 2000, 2001, 2002, Darryl Okahata <darrylo@sonic.net>,
+;     all rights reserved.
 ; GNU Emacs enhancements (C) Copyright 2001,
 ;         Triet H. Lai <thlai@mail.usyd.edu.au>
-; Fuzzy matching code (C) Copyright 2001,
+; Fuzzy matching and navigation code (C) Copyright 2001,
 ;         Steven Elliott <selliott4@austin.rr.com>
 ;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ALPHA VERSION 0.95
+;; ALPHA VERSION 0.96
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; This program is free software; you can redistribute it and/or modify
@@ -94,7 +95,28 @@
 ;;
 ;;      (require 'xcscope)
 ;;
-;; 5. Restart (X)Emacs.  That's it.
+;; 5. If you intend to use xcscope.el often you can optionally edit your
+;;    ~/.emacs file to add keybindings that reduce the number of keystrokes
+;;    required.  For example, the following will add "C-f#" keybindings, which
+;;    are easier to type than the usual "C-c s" prefixed keybindings.  Note
+;;    that specifying "global-map" instead of "cscope:map" makes the
+;;    keybindings available in all buffers:
+;;
+;;	(define-key global-map [(control f3)]  'cscope-set-initial-directory)
+;;	(define-key global-map [(control f4)]  'cscope-unset-initial-directory)
+;;	(define-key global-map [(control f5)]  'cscope-find-this-symbol)
+;;	(define-key global-map [(control f6)]  'cscope-find-global-definition)
+;;	(define-key global-map [(control f7)]
+;;	  'cscope-find-global-definition-no-prompting)
+;;	(define-key global-map [(control f8)]  'cscope-pop-mark)
+;;	(define-key global-map [(control f9)]  'cscope-next-symbol)
+;;	(define-key global-map [(control f10)] 'cscope-next-file)
+;;	(define-key global-map [(control f11)] 'cscope-prev-symbol)
+;;	(define-key global-map [(control f12)] 'cscope-prev-file)
+;;      (define-key global-map [(meta f9)]  'cscope-display-buffer)
+;;      (defin-ekey global-map [(meta f10)] 'cscope-display-buffer-toggle)
+;;
+;; 6. Restart (X)Emacs.  That's it.
 ;;
 ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -132,12 +154,14 @@
 ;; * Locating the cscope databases:
 ;;
 ;; This module will first use the variable, `cscope-database-regexps',
-;; to search for a suitable database directory.  If a database
-;; location cannot be found using this variable, then the current
-;; directory is searched, then the parent, then the parent's parent,
-;; etc. until a cscope database directory is found, or the root
-;; directory is reached.  If the root directory is reached, the
-;; current directory will be used.
+;; to search for a suitable database directory.  If a database location
+;; cannot be found using this variable then a search is begun at the
+;; variable, `cscope-initial-directory', if set, or the current
+;; directory otherwise.  If the directory is not a cscope database
+;; directory then the directory's parent, parent's parent, etc. is
+;; searched until a cscope database directory is found, or the root
+;; directory is reached.  If the root directory is reached, the current
+;; directory will be used.
 ;;
 ;; A cscope database directory is one in which EITHER a cscope database
 ;; file (e.g., "cscope.out") OR a cscope file list (e.g.,
@@ -157,7 +181,25 @@
 ;; variable is used to determine the mapping.  One use for this
 ;; variable is when you want to share the database file with other
 ;; users; in this case, the database may be located in a directory
-;; separate from the source files.
+;; separate from the source files.  
+;;
+;; Setting the variable, `cscope-initial-directory', is useful when a
+;; search is to be expanded by specifying a cscope database directory
+;; that is a parent of the directory that this module would otherwise
+;; use.  For example, consider a project that contains the following
+;; cscope database directories:
+;;
+;;     /users/jdoe/sources
+;;     /users/jdoe/sources/proj1
+;;     /users/jdoe/sources/proj2
+;;
+;; If a search is initiated from a .c file in /users/jdoe/sources/proj1
+;; then (assuming the variable, `cscope-database-regexps', is not set)
+;; /users/jdoe/sources/proj1 will be used as the cscope data base directory.
+;; Only matches in files in /users/jdoe/sources/proj1 will be found.  This
+;; can be remedied by typing "C-c s a" and then "M-del" to remove single
+;; path element in order to use a cscope database directory of
+;; /users/jdoe/sources.  Normal searching can be restored by typing "C-c s A".
 ;;
 ;;
 ;; * Keybindings:
@@ -168,6 +210,7 @@
 ;;      C-c s s         Find symbol.
 ;;      C-c s d         Find global definition.
 ;;      C-c s g         Find global definition (alternate binding).
+;;      C-c s G         Find global definition without prompting.
 ;;      C-c s c         Find functions calling a function.
 ;;      C-c s C         Find called functions (list functions called
 ;;                      from a function).
@@ -176,7 +219,24 @@
 ;;      C-c s f         Find a file.
 ;;      C-c s i         Find files #including a file.
 ;;
-;; These pertain to cscope database maintanance:
+;; These pertain to navigation through the search results:
+;;
+;;      C-c s b         Display *cscope* buffer.
+;;      C-c s B         Auto display *cscope* buffer toggle.
+;;      C-c s n         Next symbol.
+;;      C-c s N         Next file.
+;;      C-c s p         Previous symbol.
+;;      C-c s P         Previous file.
+;;      C-c s u         Pop mark.
+;;
+;; These pertain to setting and unsetting the variable,
+;; `cscope-initial-directory', (location searched for the cscope database
+;;  directory):
+;;
+;;      C-c s a         Set initial directory.
+;;      C-c s A         Unset initial directory.
+;;
+;; These pertain to cscope database maintenance:
 ;;
 ;;      C-c s L         Create list of files to index.
 ;;      C-c s I         Create list and index.
@@ -247,7 +307,7 @@
 ;;    If you have a lot of source files, you may want to manually run
 ;;    cscope to build the database:
 ;;
-;;            cd top-level-directory    # or whereever
+;;            cd top-level-directory    # or wherever
 ;;            rm -f cscope.out          # not always necessary
 ;;            cscope -b
 ;;
@@ -256,7 +316,7 @@
 ;;    places, you'll have to manually create cscope.files and put a
 ;;    list of all pathnames into it.  Then build the database using:
 ;;
-;;            cd some-directory         # whereever cscope.files exists
+;;            cd some-directory         # wherever cscope.files exists
 ;;            rm -f cscope.out          # not always necessary
 ;;            cscope -b
 ;;
@@ -306,6 +366,11 @@
 ;;      searching.  Beware of setting this to non-nil, as this will
 ;;      disable automatic database creation, updating, and
 ;;      maintenance.
+;;
+;; "cscope-display-cscope-buffer" 
+;;      If non-nil, display the *cscope* buffer after each search
+;;      (default).  This variable can be set in order to reduce the
+;;      number of keystrokes required to navigate through the matches.
 ;;
 ;; "cscope-database-regexps"
 ;; 	List to force directory-to-cscope-database mappings.
@@ -674,6 +739,12 @@ for this to work."
   :group 'cscope)
 
 
+(defcustom cscope-display-cscope-buffer t
+  "*If non-nil automatically display the *cscope* buffer after each search."
+  :type 'boolean
+  :group 'cscope)
+
+
 (defcustom cscope-stop-at-first-match-dir nil
   "*If non-nil, stop searching through multiple databases if a match is found.
 This option is useful only if multiple cscope database directories are being
@@ -839,25 +910,39 @@ Must end with a newline.")
     nil
   (setq cscope-list-entry-keymap (make-keymap))
   (suppress-keymap cscope-list-entry-keymap)
+  ;; The following section does not appear in the "Cscope" menu.
   (if cscope-running-in-xemacs
       (define-key cscope-list-entry-keymap [button2] 'cscope-mouse-select-entry-other-window)
     (define-key cscope-list-entry-keymap [mouse-2] 'cscope-mouse-select-entry-other-window))
   (define-key cscope-list-entry-keymap [return] 'cscope-select-entry-other-window)
   (define-key cscope-list-entry-keymap " " 'cscope-show-entry-other-window)
   (define-key cscope-list-entry-keymap "o" 'cscope-select-entry-one-window)
-  (define-key cscope-list-entry-keymap "n" 'cscope-show-next-entry-other-window)
-  (define-key cscope-list-entry-keymap "p" 'cscope-show-prev-entry-other-window)
   (define-key cscope-list-entry-keymap "q" 'cscope-bury-buffer)
   (define-key cscope-list-entry-keymap "Q" 'cscope-quit)
   (define-key cscope-list-entry-keymap "h" 'cscope-help)
   (define-key cscope-list-entry-keymap "?" 'cscope-help)
+  ;; The following line corresponds to be beginning of the "Cscope" menu.
   (define-key cscope-list-entry-keymap "s" 'cscope-find-this-symbol)
+  (define-key cscope-list-entry-keymap "d" 'cscope-find-this-symbol)
   (define-key cscope-list-entry-keymap "g" 'cscope-find-global-definition)
+  (define-key cscope-list-entry-keymap "G"
+    'cscope-find-global-definition-no-prompting)
   (define-key cscope-list-entry-keymap "c" 'cscope-find-functions-calling-this-function)
   (define-key cscope-list-entry-keymap "C" 'cscope-find-called-functions)
   (define-key cscope-list-entry-keymap "t" 'cscope-find-this-text-string)
   (define-key cscope-list-entry-keymap "e" 'cscope-find-egrep-pattern)
   (define-key cscope-list-entry-keymap "f" 'cscope-find-this-file)
+  (define-key cscope-list-entry-keymap "i" 'cscope-find-files-including-file)
+  ;; --- (The '---' indicates that this line corresponds to a menu separator.)
+  (define-key cscope-list-entry-keymap "n" 'cscope-next-symbol)
+  (define-key cscope-list-entry-keymap "N" 'cscope-next-file)
+  (define-key cscope-list-entry-keymap "p" 'cscope-prev-symbol)
+  (define-key cscope-list-entry-keymap "P" 'cscope-prev-file)
+  (define-key cscope-list-entry-keymap "u" 'cscope-pop-mark)
+  ;; ---
+  (define-key cscope-list-entry-keymap "a" 'cscope-set-initial-directory)
+  (define-key cscope-list-entry-keymap "A" 'cscope-unset-initial-directory)
+  ;; ---
   (define-key cscope-list-entry-keymap "L" 'cscope-create-list-of-files-to-index)
   (define-key cscope-list-entry-keymap "I" 'cscope-index-files)
   (define-key cscope-list-entry-keymap "E" 'cscope-edit-list-of-files-to-index)
@@ -865,6 +950,7 @@ Must end with a newline.")
   (define-key cscope-list-entry-keymap "S" 'cscope-tell-user-about-directory)
   (define-key cscope-list-entry-keymap "T" 'cscope-tell-user-about-directory)
   (define-key cscope-list-entry-keymap "D" 'cscope-dired-directory)
+  ;; The previous line corresponds to be end of the "Cscope" menu.
   )
 
 
@@ -982,12 +1068,44 @@ searching.")
   "")
 (make-variable-buffer-local 'cscope-stop-at-first-match-dir-meta)
 
+
 (defvar cscope-symbol nil
   "The last symbol searched for.")
+
+
+(defvar cscope-adjust t
+  "True if the symbol searched for (cscope-symbol) should be on
+the line specified by the cscope database.  In such cases the point will be
+adjusted if need be (fuzzy matching).")
+
 
 (defvar cscope-adjust-range 1000
   "How far the point should be adjusted if the symbol is not on the line
 specified by the cscope database.")
+
+
+(defvar cscope-marker nil
+  "The location from which cscope was invoked.")
+
+
+(defvar cscope-marker-window nil
+  "The window which should contain cscope-marker.  This is the window from
+which cscope-marker is set when searches are launched from the *cscope*
+buffer.")
+
+
+(defvar cscope-marker-ring-length 16
+  "Length of the cscope marker ring.")
+
+
+(defvar cscope-marker-ring (make-ring cscope-marker-ring-length)
+  "Ring of markers which are locations from which cscope was invoked.")
+
+
+(defvar cscope-initial-directory nil
+  "When set the directory in which searches for the cscope database
+directory should begin.")
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -996,16 +1114,29 @@ specified by the cscope database.")
 (if cscope:map
     nil
   (setq cscope:map (make-sparse-keymap))
+  ;; The following line corresponds to be beginning of the "Cscope" menu.
   (define-key cscope:map "\C-css" 'cscope-find-this-symbol)
   (define-key cscope:map "\C-csd" 'cscope-find-global-definition)
   (define-key cscope:map "\C-csg" 'cscope-find-global-definition)
+  (define-key cscope:map "\C-csG" 'cscope-find-global-definition-no-prompting)
   (define-key cscope:map "\C-csc" 'cscope-find-functions-calling-this-function)
   (define-key cscope:map "\C-csC" 'cscope-find-called-functions)
   (define-key cscope:map "\C-cst" 'cscope-find-this-text-string)
   (define-key cscope:map "\C-cse" 'cscope-find-egrep-pattern)
   (define-key cscope:map "\C-csf" 'cscope-find-this-file)
   (define-key cscope:map "\C-csi" 'cscope-find-files-including-file)
-  ;;
+  ;; --- (The '---' indicates that this line corresponds to a menu separator.)
+  (define-key cscope:map "\C-csb" 'cscope-display-buffer)
+  (define-key cscope:map "\C-csB" 'cscope-display-buffer-toggle)
+  (define-key cscope:map "\C-csn" 'cscope-next-symbol)
+  (define-key cscope:map "\C-csN" 'cscope-next-file)
+  (define-key cscope:map "\C-csp" 'cscope-prev-symbol)
+  (define-key cscope:map "\C-csP" 'cscope-prev-file)
+  (define-key cscope:map "\C-csu" 'cscope-pop-mark)
+  ;; ---
+  (define-key cscope:map "\C-csa" 'cscope-set-initial-directory)
+  (define-key cscope:map "\C-csA" 'cscope-unset-initial-directory)
+  ;; ---
   (define-key cscope:map "\C-csL" 'cscope-create-list-of-files-to-index)
   (define-key cscope:map "\C-csI" 'cscope-index-files)
   (define-key cscope:map "\C-csE" 'cscope-edit-list-of-files-to-index)
@@ -1013,6 +1144,7 @@ specified by the cscope database.")
   (define-key cscope:map "\C-csS" 'cscope-tell-user-about-directory)
   (define-key cscope:map "\C-csT" 'cscope-tell-user-about-directory)
   (define-key cscope:map "\C-csD" 'cscope-dired-directory))
+  ;; The previous line corresponds to be end of the "Cscope" menu.
 
 (easy-menu-define cscope:menu
 		  (list cscope:map cscope-list-entry-keymap)
@@ -1020,45 +1152,78 @@ specified by the cscope database.")
 		  '("Cscope"
 		    [ "Find symbol" cscope-find-this-symbol t ]
 		    [ "Find global definition" cscope-find-global-definition t ]
-		    [ "Find called functions" cscope-find-called-functions t ]
+		    [ "Find global definition no prompting"
+		      cscope-find-global-definition-no-prompting t ]
 		    [ "Find functions calling a function"
 		      cscope-find-functions-calling-this-function t ]
+		    [ "Find called functions" cscope-find-called-functions t ]
 		    [ "Find text string" cscope-find-this-text-string t ]
 		    [ "Find egrep pattern" cscope-find-egrep-pattern t ]
 		    [ "Find a file" cscope-find-this-file t ]
 		    [ "Find files #including a file"
 		      cscope-find-files-including-file t ]
 		    "-----------"
-		    [ "Create list of files to index"
-		      cscope-create-list-of-files-to-index t ]
-		    [ "Create list and index"
-		      cscope-index-files t ]
-		    [ "Edit list of files to index"
-		      cscope-edit-list-of-files-to-index t ]
-		    [ "Locate this buffer's cscope directory"
-		      cscope-tell-user-about-directory t ]
-		    [ "Dired this buffer's cscope directory"
-		      cscope-dired-directory t ]
+		    [ "Display *cscope* buffer" cscope-display-buffer t ]
+		    [ "Auto display *cscope* buffer toggle"
+		      cscope-display-buffer-toggle t ]
+		    [ "Next symbol"     	cscope-next-symbol t ]
+		    [ "Next file"       	cscope-next-file t ]
+		    [ "Previous symbol" 	cscope-prev-symbol t ]
+		    [ "Previous file"   	cscope-prev-file t ]
+		    [ "Pop mark"        	cscope-pop-mark t ]
 		    "-----------"
-		    [ "Auto edit single match" (setq cscope-edit-single-match
-						     (not cscope-edit-single-match))
-		      :style toggle :selected cscope-edit-single-match ]
-		    [ "Stop at first matching database"
-		      (setq cscope-stop-at-first-match-dir
-			    (not cscope-stop-at-first-match-dir))
-		      :style toggle :selected cscope-stop-at-first-match-dir ]
-		    [ "Index recursively" (setq cscope-index-recursively
-						(not cscope-index-recursively))
-		      :style toggle :selected cscope-index-recursively ]
-		    [ "Suppress empty matches" (setq cscope-suppress-empty-matches
-						     (not cscope-suppress-empty-matches))
-		      :style toggle :selected cscope-suppress-empty-matches ]
-		    [ "Use relative paths" (setq cscope-use-relative-paths
-						 (not cscope-use-relative-paths))
-		      :style toggle :selected cscope-use-relative-paths ]
-		    [ "No mouse prompts" (setq cscope-no-mouse-prompts
-					       (not cscope-no-mouse-prompts))
-		      :style toggle :selected cscope-no-mouse-prompts ]
+		    ( "Cscope Database"
+		      [ "Set initial directory"
+			cscope-set-initial-directory t ]
+		      [ "Unset initial directory"
+			cscope-unset-initial-directory t ]
+		      "-----------"
+		      [ "Create list of files to index"
+			cscope-create-list-of-files-to-index t ]
+		      [ "Create list and index"
+			cscope-index-files t ]
+		      [ "Edit list of files to index"
+			cscope-edit-list-of-files-to-index t ]
+		      [ "Locate this buffer's cscope directory"
+			cscope-tell-user-about-directory t ]
+		      [ "Dired this buffer's cscope directory"
+			cscope-dired-directory t ]
+		      )
+		    "-----------"
+		    ( "Options"
+		      [ "Auto edit single match"
+			(setq cscope-edit-single-match
+			      (not cscope-edit-single-match))
+			:style toggle :selected cscope-edit-single-match ]
+		      [ "Auto display *cscope* buffer"
+			(setq cscope-display-cscope-buffer
+			      (not cscope-display-cscope-buffer))
+			:style toggle :selected cscope-display-cscope-buffer ]
+		      [ "Stop at first matching database"
+			(setq cscope-stop-at-first-match-dir
+			      (not cscope-stop-at-first-match-dir))
+			:style toggle
+			:selected cscope-stop-at-first-match-dir ]
+		      [ "Never update cscope database"
+			(setq cscope-do-not-update-database
+			      (not cscope-do-not-update-database))
+			:style toggle :selected cscope-do-not-update-database ]
+		      [ "Index recursively"
+			(setq cscope-index-recursively
+			      (not cscope-index-recursively))
+			:style toggle :selected cscope-index-recursively ]
+		      [ "Suppress empty matches"
+			(setq cscope-suppress-empty-matches
+			      (not cscope-suppress-empty-matches))
+			:style toggle :selected cscope-suppress-empty-matches ]
+		      [ "Use relative paths"
+			(setq cscope-use-relative-paths
+			      (not cscope-use-relative-paths))
+			:style toggle :selected cscope-use-relative-paths ]
+		      [ "No mouse prompts" (setq cscope-no-mouse-prompts
+						 (not cscope-no-mouse-prompts))
+			:style toggle :selected cscope-no-mouse-prompts ] 
+		      )
 		    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1130,7 +1295,7 @@ Returns the window displaying BUFFER."
 	     (integerp line-number))
 	(progn
 	  (unless (file-readable-p file)
-	    (error "%s is not readable or exists." file))
+	    (error "%s is not readable or exists" file))
 	  (setq buffer (find-file-noselect file))
 	  (if (windowp window)
 	      (set-window-buffer window buffer)
@@ -1141,7 +1306,7 @@ Returns the window displaying BUFFER."
 		(setq old-pos (point))
 		(goto-line line-number)
 		(setq old-point (point))
-		(if cscope-adjust-range
+		(if (and cscope-adjust cscope-adjust-range)
 		    (progn
 		      ;; Calculate the length of the line specified by cscope.
 		      (end-of-line)
@@ -1166,7 +1331,7 @@ Returns the window displaying BUFFER."
 				      ;; Use whichever of forward-point or
 				      ;; backward-point is closest to old-point.
 				      ;; Give forward-point a line-length advantage
-				      ;; so that if the symbol is on the currrent
+				      ;; so that if the symbol is on the current
 				      ;; line the current line is chosen.
 				      (if (<= (- (- forward-point line-length)
 						 old-point)
@@ -1189,6 +1354,16 @@ Returns the window displaying BUFFER."
 		    (= old-pos (point))
 		    (push-mark old-pos))
 		))
+
+	  (if cscope-marker
+	      (progn ;; The search was successful.  Save the marker so it
+                     ;; can be returned to by cscope-pop-mark.
+		(ring-insert cscope-marker-ring cscope-marker)
+		;; Unset cscope-marker so that moving between matches
+		;; (cscope-next-symbol, etc.) does not fill
+		;; cscope-marker-ring.
+		(setq cscope-marker nil)))
+          (setq cscope-marker-window window)
 	  )
       (message "No entry found at point."))
     )
@@ -1228,17 +1403,35 @@ Push current point on mark ring and select the entry window."
     ))
 
 
+(defun cscope-select-entry-specified-window (window)
+  "Display the entry at point in a specified window, select the window."
+  (interactive)
+  (let ((file (get-text-property (point) 'cscope-file))
+	(line-number (get-text-property (point) 'cscope-line-number)))
+    (setq window (cscope-show-entry-internal file line-number t window))
+    (if (windowp window)
+	  (select-window window))
+    ))
+
+
 (defun cscope-mouse-select-entry-other-window (event)
   "Display the entry over which the mouse event occurred, select the window."
   (interactive "e")
   (let ((ep (cscope-event-point event))
 	(win (cscope-event-window event))
-	buffer file line-number)
-    (setq buffer (window-buffer win)
-	  file (get-text-property ep 'cscope-file buffer)
-	  line-number (get-text-property ep 'cscope-line-number buffer))
-    (select-window win)
-    (select-window (cscope-show-entry-internal file line-number t))
+	buffer file line-number window)
+    (if ep
+        (progn
+          (setq buffer (window-buffer win)
+                file (get-text-property ep 'cscope-file buffer)
+                line-number (get-text-property ep 'cscope-line-number buffer))
+          (select-window win)
+          (setq window (cscope-show-entry-internal file line-number t))
+          (if (windowp window)
+              (select-window window))
+          )
+      (message "No entry found at point.")
+      )
     ))
 
 
@@ -1252,28 +1445,135 @@ Point is not saved on mark ring."
     ))
 
 
-(defun cscope-show-next-entry-other-window ()
-  "Display the next entry line in other window.
-Point is not saved on mark ring."
-  (interactive)
-  (let (file line-number)
-    (forward-line)
-    (setq file (get-text-property (point) 'cscope-file)
-	  line-number (get-text-property (point) 'cscope-line-number))
-    (cscope-show-entry-internal file line-number nil nil t)
+(defun cscope-buffer-search (do-symbol do-next)
+  "The body of the following four functions."
+  (let* (line-number old-point point
+		     (search-file (not do-symbol))
+		     (search-prev (not do-next))
+		     (direction (if do-next 1 -1))
+		     (old-buffer (current-buffer))
+		     (old-buffer-window (get-buffer-window old-buffer))
+		     (buffer (get-buffer cscope-output-buffer-name))
+		     (buffer-window (get-buffer-window (or buffer (error "The *cscope* buffer does not exist yet"))))
+		     )
+    (set-buffer buffer)
+    (setq old-point (point))
+    (forward-line direction)
+    (setq point (point))
+    (setq line-number (get-text-property point 'cscope-line-number))
+    (while (or (not line-number)
+	       (or (and do-symbol (= line-number -1))
+		   (and search-file  (/= line-number -1))))
+      (forward-line direction)
+      (setq point (point))
+      (if (or (and do-next (>= point (point-max)))
+	      (and search-prev (<= point (point-min))))
+	  (progn
+	    (goto-char old-point)
+	    (error "The %s of the *cscope* buffer has been reached"
+		   (if do-next "end" "beginning"))))
+      (setq line-number (get-text-property point 'cscope-line-number)))
+    (if (eq old-buffer buffer) ;; In the *cscope* buffer.
+	(cscope-show-entry-other-window)
+      (cscope-select-entry-specified-window old-buffer-window) ;; else
+      (if (windowp buffer-window)
+	  (set-window-point buffer-window point)))
+    (set-buffer old-buffer)
     ))
 
 
-(defun cscope-show-prev-entry-other-window ()
-  "Display the previous entry line in other window.
-Point is not saved on mark ring."
+(defun cscope-display-buffer ()
+  "Display the *cscope* buffer."
   (interactive)
-  (let (file line-number)
-    (forward-line -1)
-    (setq file (get-text-property (point) 'cscope-file)
-	  line-number (get-text-property (point) 'cscope-line-number))
-    (cscope-show-entry-internal file line-number nil nil t)
-    ))
+  (let ((buffer (get-buffer cscope-output-buffer-name)))
+    (if buffer
+        (pop-to-buffer buffer)
+      (error "The *cscope* buffer does not exist yet"))))
+
+
+(defun cscope-display-buffer-toggle ()
+  "Toggle cscope-display-cscope-buffer, which corresponds to
+\"Auto display *cscope* buffer\"."
+  (interactive)
+  (setq cscope-display-cscope-buffer (not cscope-display-cscope-buffer))
+  (message "The cscope-display-cscope-buffer variable is now %s."
+           (if cscope-display-cscope-buffer "set" "unset")))
+
+
+(defun cscope-next-symbol ()
+  "Move to the next symbol in the *cscope* buffer."
+  (interactive)
+  (cscope-buffer-search t t))
+
+
+(defun cscope-next-file ()
+  "Move to the next file in the *cscope* buffer."
+  (interactive)
+  (cscope-buffer-search nil t))
+
+
+(defun cscope-prev-symbol ()
+  "Move to the previous symbol in the *cscope* buffer."
+  (interactive)
+  (cscope-buffer-search t nil))
+
+
+(defun cscope-prev-file ()
+  "Move to the previous file in the *cscope* buffer."
+  (interactive)
+  (cscope-buffer-search nil nil))
+
+
+(defun cscope-pop-mark ()
+  "Pop back to where cscope was last invoked."
+  (interactive)
+
+  ;; This function is based on pop-tag-mark, which can be found in
+  ;; lisp/progmodes/etags.el.
+
+  (if (ring-empty-p cscope-marker-ring)
+      (error "There are no marked buffers in the cscope-marker-ring yet"))
+  (let* ( (marker (ring-remove cscope-marker-ring 0))
+	  (old-buffer (current-buffer))
+	  (marker-buffer (marker-buffer marker))
+	  marker-window
+	  (marker-point (marker-position marker))
+	  (cscope-buffer (get-buffer cscope-output-buffer-name)) )
+
+    ;; After the following both cscope-marker-ring and cscope-marker will be
+    ;; in the state they were immediately after the last search.  This way if
+    ;; the user now makes a selection in the previously generated *cscope*
+    ;; buffer things will behave the same way as if that selection had been
+    ;; made immediately after the last search.
+    (setq cscope-marker marker)
+
+    (if marker-buffer
+	(if (eq old-buffer cscope-buffer)
+	    (progn ;; In the *cscope* buffer.
+	      (set-buffer marker-buffer)
+	      (setq marker-window (display-buffer marker-buffer))
+	      (set-window-point marker-window marker-point)
+	      (select-window marker-window))
+	  (switch-to-buffer marker-buffer))
+      (error "The marked buffer has been deleted"))
+    (goto-char marker-point)
+    (set-buffer old-buffer)))
+
+
+(defun cscope-set-initial-directory (cs-id)
+  "Set the cscope-initial-directory variable.  The
+cscope-initial-directory variable, when set, specifies the directory
+where searches for the cscope database directory should begin.  This
+overrides the current directory, which would otherwise be used."
+  (interactive "DCscope Initial Directory: ")
+  (setq cscope-initial-directory cs-id))
+
+
+(defun cscope-unset-initial-directory ()
+  "Unset the cscope-initial-directory variable."
+  (interactive)
+  (setq cscope-initial-directory nil)
+  (message "The cscope-initial-directory variable is now unset."))
 
 
 (defun cscope-help ()
@@ -1352,7 +1652,8 @@ then the parent's parent, until a cscope database directory is found,
 or the root directory is reached.  If the root directory is reached,
 the current directory will be used."
   (let (info regexps dir-regexp this-directory)
-    (setq top-directory (cscope-canonicalize-directory top-directory))
+    (setq top-directory (cscope-canonicalize-directory
+			 (or top-directory cscope-initial-directory)))
     (catch 'done
       ;; Try searching using `cscope-database-regexps' ...
       (setq regexps cscope-database-regexps)
@@ -1517,13 +1818,15 @@ using the mouse."
 
 (defun cscope-process-sentinel (process event)
   "Sentinel for when the cscope process dies."
-  (let ( buffer window update-window (done t) )
+  (let* ( (buffer (process-buffer process)) window update-window
+         (done t) (old-buffer (current-buffer))
+	 (old-buffer-window (get-buffer-window old-buffer)) )
+    (set-buffer buffer)
     (save-window-excursion
       (save-excursion
-	(setq buffer (process-buffer process))
-	(set-buffer buffer)
-	(if (and (setq window (get-buffer-window buffer))
-		 (= (window-point window) (point-max)))
+	(if (or (and (setq window (get-buffer-window buffer))
+		     (= (window-point window) (point-max)))
+		(= (point) (point-max)))
 	    (progn
 	      (setq update-window t)
 	      ))
@@ -1565,24 +1868,35 @@ using the mouse."
 		  (setq modeline-process ": Search complete"))
 	      (if cscope-start-directory
 		  (setq default-directory cscope-start-directory))
+	      (if (not cscope-first-match)
+		  (message "No matches were found."))
 	      )
 	    ))
 	(set-buffer-modified-p nil)
 	))
+    (if (and done cscope-first-match-point update-window)
+	(if window
+	    (set-window-point window cscope-first-match-point)
+	  (goto-char cscope-first-match-point))
+      )
     (cond
      ( (not done)		;; we're not done -- do nothing for now
        (if update-window
-	   (set-window-point window (point-max)))
+	   (if window
+	       (set-window-point window (point-max))
+	     (goto-char (point-max))))
        )
-     ( (and cscope-edit-single-match cscope-first-match
-	    (not cscope-matched-multiple))
-       (progn
-	 (cscope-show-entry-internal (car cscope-first-match)
-				     (cdr cscope-first-match) t)
-	 ))
-     ( (and update-window cscope-first-match-point)
-       (set-window-point window cscope-first-match-point))
+     ( cscope-first-match
+       (if cscope-display-cscope-buffer
+           (if (and cscope-edit-single-match (not cscope-matched-multiple))
+               (cscope-show-entry-internal(car cscope-first-match)
+                                           (cdr cscope-first-match) t))
+         (cscope-select-entry-specified-window old-buffer-window))
+       )
      )
+    (if (and done (eq old-buffer buffer) cscope-first-match)
+	(cscope-help))
+    (set-buffer old-buffer)
     ))
 
 
@@ -1698,10 +2012,26 @@ process.  DIRECTORY is the current working directory to use (generally,
 the directory in which the cscope database is located, but not
 necessarily), if different that the current one.  FILTER-FUNC and
 SENTINEL-FUNC are optional process filter and sentinel, respectively."
-  (let ( (outbuf (get-buffer-create cscope-output-buffer-name)) )
+  (let ( (outbuf (get-buffer-create cscope-output-buffer-name))
+         (old-buffer (current-buffer)) )
     (if cscope-process
 	(error "A cscope search is still in progress -- only one at a time is allowed"))
-    (setq directory (cscope-canonicalize-directory directory))
+    (setq directory (cscope-canonicalize-directory
+                     (or cscope-initial-directory directory)))
+    (if (eq outbuf old-buffer) ;; In the *cscope* buffer.
+	(if cscope-marker-window
+	    (progn
+	      ;; Assume that cscope-marker-window is the window, from the
+	      ;; users perspective, from which the search was launched and the
+	      ;; window that should be returned to upon cscope-pop-mark.
+	      (set-buffer (window-buffer cscope-marker-window))
+	      (setq cscope-marker (point-marker))
+	      (set-buffer old-buffer)))
+	(progn ;; Not in the *cscope buffer.
+	  ;; Set the cscope-marker-window to whichever window this search
+	  ;; was launched from.
+	  (setq cscope-marker-window (get-buffer-window old-buffer))
+	(setq cscope-marker (point-marker))))
     (save-excursion
       (set-buffer outbuf)
       (if cscope-display-times
@@ -1727,10 +2057,13 @@ SENTINEL-FUNC are optional process filter and sentinel, respectively."
 	  (insert msg "\n"))
       (cscope-search-one-database)
       )
-    (pop-to-buffer outbuf)
+    (if cscope-display-cscope-buffer
+	(progn
+	  (pop-to-buffer outbuf)
+	  (cscope-help))
+      (set-buffer outbuf))
     (goto-char (point-max))
     (cscope-list-entry-mode)
-    (cscope-help)
     ))
 
 
@@ -1974,7 +2307,7 @@ file."
   (interactive (list
 		(cscope-prompt-for-symbol "Find this symbol: " nil)
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	 ;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding symbol: %s" symbol)
 		 (list "-0" symbol) nil 'cscope-process-filter
@@ -1987,7 +2320,19 @@ file."
   (interactive (list
 		(cscope-prompt-for-symbol "Find this global definition: " nil)
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	 ;; Use fuzzy matching.
+    (setq cscope-symbol symbol)
+    (cscope-call (format "Finding global definition: %s" symbol)
+		 (list "-1" symbol) nil 'cscope-process-filter
+		 'cscope-process-sentinel)
+    ))
+
+
+(defun cscope-find-global-definition-no-prompting ()
+  "Find a symbol's global definition without prompting."
+  (interactive)
+  (let ( (symbol (cscope-extract-symbol-at-cursor nil))
+	 (cscope-adjust t) )	 ;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding global definition: %s" symbol)
 		 (list "-1" symbol) nil 'cscope-process-filter
@@ -2001,7 +2346,7 @@ file."
 		(cscope-prompt-for-symbol
 		 "Find functions called by this function: " nil)
 		))
-  (let ()
+  (let ( (cscope-adjust nil) )	 ;; Disable fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding functions called by: %s" symbol)
 		 (list "-2" symbol) nil 'cscope-process-filter
@@ -2015,7 +2360,7 @@ file."
 		(cscope-prompt-for-symbol
 		 "Find functions calling this function: " nil)
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	 ;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding functions calling: %s" symbol)
 		 (list "-3" symbol) nil 'cscope-process-filter
@@ -2028,7 +2373,7 @@ file."
   (interactive (list
 		(cscope-prompt-for-symbol "Find this text string: " nil)
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	 ;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding text string: %s" symbol)
 		 (list "-4" symbol) nil 'cscope-process-filter
@@ -2042,7 +2387,7 @@ file."
 		(let (cscope-no-mouse-prompts)
 		  (cscope-prompt-for-symbol "Find this egrep pattern: " nil))
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	 ;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding egrep pattern: %s" symbol)
 		 (list "-6" symbol) nil 'cscope-process-filter
@@ -2056,7 +2401,7 @@ file."
 		(let (cscope-no-mouse-prompts)
 		  (cscope-prompt-for-symbol "Find this file: " t))
 		))
-  (let ()
+  (let ( (cscope-adjust nil) )	 ;; Disable fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding file: %s" symbol)
 		 (list "-7" symbol) nil 'cscope-process-filter
@@ -2071,7 +2416,7 @@ file."
 		  (cscope-prompt-for-symbol
 		   "Find files #including this file: " t))
 		))
-  (let ()
+  (let ( (cscope-adjust t) )	;; Use fuzzy matching.
     (setq cscope-symbol symbol)
     (cscope-call (format "Finding files #including file: %s" symbol)
 		 (list "-8" symbol) nil 'cscope-process-filter

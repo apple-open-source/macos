@@ -45,8 +45,6 @@ static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/ioctl.h>
-#include <sys/mbuf.h>
-#include <sys/protosw.h>
 #include <sys/sysctl.h>
 
 #include <net/route.h>
@@ -73,7 +71,6 @@ static char sccsid[] = "@(#)inet6.c	8.4 (Berkeley) 4/20/94";
 #ifdef __APPLE__
 #define __unused
 #endif
-struct	socket sockb;
 
 char	*inet6name (struct in6_addr *);
 void	inet6print (struct in6_addr *, int, char *, int);
@@ -965,14 +962,15 @@ icmp6_ifstats(char *ifname)
 /*
  * Dump PIM statistics structure.
  */
+#ifdef notyet 
 void
-pim6_stats(u_long off __unused, char *name, int af __unused)
+pim6_stats(void)
 {
 	struct pim6stat pim6stat;
+	size_t len = sizeof(struct pim6stat);
 
-	if (off == 0)
+	if (sysctlbyname("net.inet6.ip6.pim6stat", &pim6stat, &len, 0, 0) == -1)
 		return;
-	kread(off, (char *)&pim6stat, sizeof(pim6stat));
 	printf("%s:\n", name);
 
 #define	p(f, m) if (pim6stat.f || sflag <= 1) \
@@ -986,6 +984,7 @@ pim6_stats(u_long off __unused, char *name, int af __unused)
 	p(pim6s_snd_registers, "\t%llu register%s sent\n");
 #undef p
 }
+#endif
 
 /*
  * Dump raw ip6 statistics structure.

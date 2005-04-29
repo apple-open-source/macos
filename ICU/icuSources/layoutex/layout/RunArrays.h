@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2003, International Business Machines
+ *   Copyright (C) 2003-2004, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -47,7 +47,8 @@ public:
      * Construct a <code>RunArray</code> object from a pre-existing
      * array of limit indices.
      *
-     * @param limits is an array of limit indices.
+     * @param limits is an array of limit indices. This array must remain
+     *               valid until the <code>RunArray</code> object is destroyed.
      *
      * @param count is the number of entries in the limit array.
      *
@@ -66,7 +67,7 @@ public:
      *
      * @draft ICU 2.6
      */
-    RunArray(le_int32 initalCapacity);
+    RunArray(le_int32 initialCapacity);
 
     /**
      * The destructor; virtual so that subclass destructors are invoked as well.
@@ -194,9 +195,9 @@ private:
 
     le_int32 ensureCapacity();
 
-	RunArray();
-	RunArray(const RunArray & /*other*/);
-	RunArray &operator=(const RunArray & /*other*/) { return *this; };
+    RunArray();
+    RunArray(const RunArray & /*other*/);
+    RunArray &operator=(const RunArray & /*other*/) { return *this; };
 
     const le_int32 *fLimits;
           le_int32  fCount;
@@ -204,37 +205,21 @@ private:
 };
 
 inline RunArray::RunArray()
-	: UObject(), fClientArrays(false), fLimits(NULL), fCount(0), fCapacity(0)
-{
-	// nothing else to do...
-}
-
-inline RunArray::RunArray(const RunArray & /*other*/)
-	: UObject(), fClientArrays(false), fLimits(NULL), fCount(0), fCapacity(0)
-{
-	// nothing else to do...
-}
-
-inline RunArray::RunArray(const le_int32 *limits, le_int32 count)
-    : UObject(), fClientArrays(true), fLimits(limits), fCount(count), fCapacity(count)
+    : UObject(), fClientArrays(FALSE), fLimits(NULL), fCount(0), fCapacity(0)
 {
     // nothing else to do...
 }
 
-inline RunArray::RunArray(le_int32 initialCapacity)
-    : fClientArrays(false), fLimits(NULL), fCount(0), fCapacity(initialCapacity)
+inline RunArray::RunArray(const RunArray & /*other*/)
+    : UObject(), fClientArrays(FALSE), fLimits(NULL), fCount(0), fCapacity(0)
 {
-    if (initialCapacity > 0) {
-        fLimits = LE_NEW_ARRAY(le_int32, fCapacity);
-    }
+    // nothing else to do...
 }
 
-inline RunArray::~RunArray()
+inline RunArray::RunArray(const le_int32 *limits, le_int32 count)
+    : UObject(), fClientArrays(TRUE), fLimits(limits), fCount(count), fCapacity(count)
 {
-    if (! fClientArrays) {
-        LE_DELETE_ARRAY(fLimits);
-        fLimits = NULL;
-    }
+    // nothing else to do...
 }
 
 inline le_int32 RunArray::getCount() const
@@ -269,9 +254,12 @@ public:
      * Construct a <code>FontRuns</code> object from pre-existing arrays of fonts
      * and limit indices.
      *
-     * @param fonts is the address of an array of pointers to <code>LEFontInstance</code> objects.
+     * @param fonts is the address of an array of pointers to <code>LEFontInstance</code> objects. This
+     *              array, and the <code>LEFontInstance</code> objects to which it points must remain
+     *              valid until the <code>FontRuns</code> object is destroyed.
      *
-     * @param limits is the address of an array of limit indices.
+     * @param limits is the address of an array of limit indices. This array must remain valid until
+     *               the <code>FontRuns</code> object is destroyed.
      *
      * @param count is the number of entries in the two arrays.
      *
@@ -328,7 +316,8 @@ public:
      * The new <code>add</code> method should first call this method to grow the font and limit indices
      * arrays, and use the returned run index to store data their own arrays.
      *
-     * @param font is the address of the <code>LEFontInstance</code> to add
+     * @param font is the address of the <code>LEFontInstance</code> to add. This object must
+     *             remain valid until the <code>FontRuns</code> object is destroyed.
      *
      * @param limit is the limit index to add
      *
@@ -358,9 +347,9 @@ protected:
 
 private:
 
-	FontRuns();
-	FontRuns(const FontRuns &other);
-	FontRuns &operator=(const FontRuns & /*other*/) { return *this; };
+    FontRuns();
+    FontRuns(const FontRuns &other);
+    FontRuns &operator=(const FontRuns & /*other*/) { return *this; };
 
     /**
      * The address of this static class variable serves as this class's ID
@@ -372,37 +361,21 @@ private:
 };
 
 inline FontRuns::FontRuns()
-	: RunArray(0), fFonts(NULL)
+    : RunArray(0), fFonts(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline FontRuns::FontRuns(const FontRuns & /*other*/)
-	: RunArray(0), fFonts(NULL)
+    : RunArray(0), fFonts(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline FontRuns::FontRuns(const LEFontInstance **fonts, const le_int32 *limits, le_int32 count)
     : RunArray(limits, count), fFonts(fonts)
 {
     // nothing else to do...
-}
-
-inline FontRuns::FontRuns(le_int32 initialCapacity)
-    : RunArray(initialCapacity), fFonts(NULL)
-{
-    if (initialCapacity > 0) {
-        fFonts = LE_NEW_ARRAY(const LEFontInstance *, initialCapacity);
-    }
-}
-
-inline FontRuns::~FontRuns()
-{
-    if (! fClientArrays) {
-        LE_DELETE_ARRAY(fFonts);
-        fFonts = NULL;
-    }
 }
 
 /**
@@ -418,9 +391,12 @@ public:
      * Construct a <code>LocaleRuns</code> object from pre-existing arrays of locales
      * and limit indices.
      *
-     * @param locales is the address of an array of pointers to <code>Locale</code> objects.
+     * @param locales is the address of an array of pointers to <code>Locale</code> objects. This array,
+     *                and the <code>Locale</code> objects to which it points, must remain valid until
+     *                the <code>LocaleRuns</code> object is destroyed.
      *
-     * @param limits is the address of an array of limit indices.
+     * @param limits is the address of an array of limit indices. This array must remain valid until the
+     *               <code>LocaleRuns</code> object is destroyed.
      *
      * @param count is the number of entries in the two arrays.
      *
@@ -477,7 +453,8 @@ public:
      * The new <code>add</code> method should first call this method to grow the font and limit indices
      * arrays, and use the returned run index to store data their own arrays.
      *
-     * @param locale is the address of the <code>Locale</code> to add
+     * @param locale is the address of the <code>Locale</code> to add. This object must remain valid
+     *               until the <code>LocaleRuns</code> object is destroyed.
      *
      * @param limit is the limit index to add
      *
@@ -507,9 +484,9 @@ protected:
 
 private:
 
-	LocaleRuns();
-	LocaleRuns(const LocaleRuns &other);
-	LocaleRuns &operator=(const LocaleRuns & /*other*/) { return *this; };
+    LocaleRuns();
+    LocaleRuns(const LocaleRuns &other);
+    LocaleRuns &operator=(const LocaleRuns & /*other*/) { return *this; };
 
     /**
      * The address of this static class variable serves as this class's ID
@@ -521,37 +498,21 @@ private:
 };
 
 inline LocaleRuns::LocaleRuns()
-	: RunArray(0), fLocales(NULL)
+    : RunArray(0), fLocales(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline LocaleRuns::LocaleRuns(const LocaleRuns & /*other*/)
-	: RunArray(0), fLocales(NULL)
+    : RunArray(0), fLocales(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline LocaleRuns::LocaleRuns(const Locale **locales, const le_int32 *limits, le_int32 count)
     : RunArray(limits, count), fLocales(locales)
 {
     // nothing else to do...
-}
-
-inline LocaleRuns::LocaleRuns(le_int32 initialCapacity)
-    : RunArray(initialCapacity), fLocales(NULL)
-{
-    if (initialCapacity > 0) {
-        fLocales = LE_NEW_ARRAY(const Locale *, initialCapacity);
-    }
-}
-
-inline LocaleRuns::~LocaleRuns()
-{
-    if (! fClientArrays) {
-        LE_DELETE_ARRAY(fLocales);
-        fLocales = NULL;
-    }
 }
 
 /**
@@ -566,9 +527,11 @@ public:
      * Construct a <code>ValueRuns</code> object from pre-existing arrays of values
      * and limit indices.
      *
-     * @param values is the address of an array of integer.
+     * @param values is the address of an array of integer. This array must remain valid until
+     *               the <code>ValueRuns</code> object is destroyed.
      *
-     * @param limits is the address of an array of limit indices.
+     * @param limits is the address of an array of limit indices. This array must remain valid until
+     *               the <code>ValueRuns</code> object is destroyed.
      *
      * @param count is the number of entries in the two arrays.
      *
@@ -655,9 +618,9 @@ protected:
 
 private:
 
-	ValueRuns();
-	ValueRuns(const ValueRuns &other);
-	ValueRuns &operator=(const ValueRuns & /*other*/) { return *this; };
+    ValueRuns();
+    ValueRuns(const ValueRuns &other);
+    ValueRuns &operator=(const ValueRuns & /*other*/) { return *this; };
 
     /**
      * The address of this static class variable serves as this class's ID
@@ -669,37 +632,21 @@ private:
 };
 
 inline ValueRuns::ValueRuns()
-	: RunArray(0), fValues(NULL)
+    : RunArray(0), fValues(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline ValueRuns::ValueRuns(const ValueRuns & /*other*/)
-	: RunArray(0), fValues(NULL)
+    : RunArray(0), fValues(NULL)
 {
-	// nothing else to do...
+    // nothing else to do...
 }
 
 inline ValueRuns::ValueRuns(const le_int32 *values, const le_int32 *limits, le_int32 count)
     : RunArray(limits, count), fValues(values)
 {
     // nothing else to do...
-}
-
-inline ValueRuns::ValueRuns(le_int32 initialCapacity)
-    : RunArray(initialCapacity), fValues(NULL)
-{
-    if (initialCapacity > 0) {
-        fValues = LE_NEW_ARRAY(le_int32, initialCapacity);
-    }
-}
-
-inline ValueRuns::~ValueRuns()
-{
-    if (! fClientArrays) {
-        LE_DELETE_ARRAY(fValues);
-        fValues = NULL;
-    }
 }
 
 U_NAMESPACE_END

@@ -34,6 +34,7 @@
 #include <sys/errno.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
+#include <sys/vmmeter.h>
 
 #include <err.h>
 #include <errno.h>
@@ -43,6 +44,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+#include <openssl/sha.h>
+
+#include <architecture/byte_order.h>
 
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFStringEncodingExt.h>
@@ -135,6 +140,15 @@ static int ConvertUTF8toUnicode __P((const UInt8* source, UInt32 bufsize,
 
 static int getencodinghint(char *name);
 
+#define VOLUMEUUIDVALUESIZE 2
+typedef union VolumeUUID {
+	UInt32 value[VOLUMEUUIDVALUESIZE];
+	struct {
+		UInt32 high;
+		UInt32 low;
+	} v;
+} VolumeUUID;
+void GenerateVolumeUUID(VolumeUUID *newVolumeID);
 
 void SETOFFSET (void *buffer, UInt16 btNodeSize, SInt16 recOffset, SInt16 vecOffset);
 #define SETOFFSET(buf,ndsiz,offset,rec)		\
@@ -312,7 +326,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	HFSPlusVolumeHeader	*header = NULL;
 	UInt32			temp;
 	UInt32			bits;
-	UInt32 bytesUsed;
+	UInt32 			bytesUsed;
 
 	/* --- Create an HFS Plus header:  */
 
@@ -421,8 +435,7 @@ make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults)
 	    sector = header->journalInfoBlock * sectorsPerBlock;
 	    WriteJournalInfo(driveInfo, sector, defaults, header, nodeBuffer);
 	}
-
-
+	
 	/*--- WRITE VOLUME HEADER TO DISK:  */
 
 	/* write header last in case we fail along the way */
@@ -475,6 +488,8 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 	UInt32	timeStamp;
 	UInt16	bitmapBlocks;
 	UInt32	alignment;
+	VolumeUUID	newVolumeUUID;	
+	VolumeUUID*	finderInfoUUIDPtr;
 
 	alignment = defaults->hfsAlignment;
 	bzero(mdbp, kBytesPerSector);
@@ -569,6 +584,11 @@ InitMDB(hfsparams_t *defaults, UInt32 driveBlocks, HFS_MDB *mdbp)
 		mdbp->drAtrb |= kHFSVolumeSparedBlocksMask;
 		mdbp->drAtrb |= kHFSVolumeSoftwareLockMask;
 	}
+	/* Generate and write UUID for the HFS disk */
+	GenerateVolumeUUID(&newVolumeUUID);
+	finderInfoUUIDPtr = (VolumeUUID *)(&mdbp->drFndrInfo[6]);
+	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(newVolumeUUID.v.high); 
+	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(newVolumeUUID.v.low); 
 }
 
 
@@ -605,6 +625,8 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	UInt16	burnedBlocksBeforeVH = 0;
 	UInt16	burnedBlocksAfterAltVH = 0;
 	UInt32  nextBlock;
+	VolumeUUID	newVolumeUUID;	
+	VolumeUUID*	finderInfoUUIDPtr;
 	
 	bzero(hp, kBytesPerSector);
 
@@ -708,6 +730,12 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	 */
 	hp->nextAllocation = blocksUsed - 1 - burnedBlocksAfterAltVH +
 		10 * (hp->catalogFile.clumpSize / hp->blockSize);
+	
+	/* Generate and write UUID for the HFS+ disk */
+	GenerateVolumeUUID(&newVolumeUUID);
+	finderInfoUUIDPtr = (VolumeUUID *)(&hp->finderInfo[24]);
+	finderInfoUUIDPtr->v.high = NXSwapHostLongToBig(newVolumeUUID.v.high); 
+	finderInfoUUIDPtr->v.low = NXSwapHostLongToBig(newVolumeUUID.v.low); 
 }
 
 
@@ -1999,4 +2027,89 @@ error:
 	hint = GetDefaultEncoding();
 	return (hint);
 }
+
+
+/* Generate Volume UUID - similar to code existing in hfs_util */
+void GenerateVolumeUUID(VolumeUUID *newVolumeID) {
+	SHA_CTX context;
+	char randomInputBuffer[26];
+	unsigned char digest[20];
+	time_t now;
+	clock_t uptime;
+	int mib[2];
+	int sysdata;
+	char sysctlstring[128];
+	size_t datalen;
+	double sysloadavg[3];
+	struct vmtotal sysvmtotal;
+	
+	do {
+		/* Initialize the SHA-1 context for processing: */
+		SHA1_Init(&context);
+		
+		/* Now process successive bits of "random" input to seed the process: */
+		
+		/* The current system's uptime: */
+		uptime = clock();
+		SHA1_Update(&context, &uptime, sizeof(uptime));
+		
+		/* The kernel's boot time: */
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_BOOTTIME;
+		datalen = sizeof(sysdata);
+		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
+		SHA1_Update(&context, &sysdata, datalen);
+		
+		/* The system's host id: */
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_HOSTID;
+		datalen = sizeof(sysdata);
+		sysctl(mib, 2, &sysdata, &datalen, NULL, 0);
+		SHA1_Update(&context, &sysdata, datalen);
+
+		/* The system's host name: */
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_HOSTNAME;
+		datalen = sizeof(sysctlstring);
+		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
+		SHA1_Update(&context, sysctlstring, datalen);
+
+		/* The running kernel's OS release string: */
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_OSRELEASE;
+		datalen = sizeof(sysctlstring);
+		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
+		SHA1_Update(&context, sysctlstring, datalen);
+
+		/* The running kernel's version string: */
+		mib[0] = CTL_KERN;
+		mib[1] = KERN_VERSION;
+		datalen = sizeof(sysctlstring);
+		sysctl(mib, 2, sysctlstring, &datalen, NULL, 0);
+		SHA1_Update(&context, sysctlstring, datalen);
+
+		/* The system's load average: */
+		datalen = sizeof(sysloadavg);
+		getloadavg(sysloadavg, 3);
+		SHA1_Update(&context, &sysloadavg, datalen);
+
+		/* The system's VM statistics: */
+		mib[0] = CTL_VM;
+		mib[1] = VM_METER;
+		datalen = sizeof(sysvmtotal);
+		sysctl(mib, 2, &sysvmtotal, &datalen, NULL, 0);
+		SHA1_Update(&context, &sysvmtotal, datalen);
+
+		/* The current GMT (26 ASCII characters): */
+		time(&now);
+		strncpy(randomInputBuffer, asctime(gmtime(&now)), 26);	/* "Mon Mar 27 13:46:26 2000" */
+		SHA1_Update(&context, randomInputBuffer, 26);
+		
+		/* Pad the accumulated input and extract the final digest hash: */
+		SHA1_Final(digest, &context);
+	
+		memcpy(newVolumeID, digest, sizeof(*newVolumeID));
+	} while ((newVolumeID->v.high == 0) || (newVolumeID->v.low == 0));
+}
+
 

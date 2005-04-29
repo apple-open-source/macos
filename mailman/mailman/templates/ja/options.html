@@ -1,4 +1,4 @@
-<!-- $Revision: 1.1.1.1 $ -->
+<!-- $Revision: 1.1.1.2 $ -->
 <html>
 <head>
     <link rel="SHORTCUT ICON" href="<mm-favicon>">
@@ -34,20 +34,20 @@
 <table width="100%" border="0" cellspacing="0" cellpadding="5">
     <tr><td width="100%" bgcolor="#fff0d0" colspan="2">
         <font color="#000000">
-        <b>あなたの <MM-List-Name> 会員アドレス変更</b>
+        <b><MM-List-Name> 会員アドレスの変更</b>
         </font></td></tr>
-    <tr><td colspan="2">このメーリングリストに登録されている配送アドレス
+    <tr><td colspan="2">メーリングリストに登録した配送アドレス
         を変更するには、下の欄に新しいアドレスを入力してください。
-        その新アドレスに確認のメールが届けられますので、確認の返事が
-        来るまでは処理は保留されます。
+        なお新アドレスに送る確認のメールに対する確認があるまで
+	処理は保留されます。
 
         <p>約<mm-pending-days>後に確認の期限が切れます。
 
         <p>また、オプションであなたの実名(例:<em>寺田寅彦</em>)を
 	設定したり変更したりできます。
 
-        <p>もし、<mm-host>に登録された全てのメーリングリストに
-        ついて、会員アドレスを変更するのであれば、
+        <p><mm-host>に登録されているすべてのメーリングリストの
+        会員アドレスを変更する場合、
         <em>全部変更</em>ボックスをチェックしてください。
         </td></tr>
     <tr><td><center>
@@ -55,16 +55,16 @@
         <tr><td bgcolor="#dddddd"><div align="right">新アドレス:</div></td>
             <td><mm-new-address-box></td>
             </tr>
-        <tr><td bgcolor="#dddddd"><div align="right">確認のため
-            もう一度:</div></td>
+        <tr><td bgcolor="#dddddd"><div align="right">
+            確認用再入力:</div></td>
             <td><mm-confirm-address-box></td>
             </tr>
         </tr></table></center>
         </td>
         <td><center>
         <table border="0" cellspacing="2" cellpadding="2" width="80%" cols="2">
-            <tr><td bgcolor="#dddddd"><div align="right">あなたのお名前
-            (オプション):</div></td>
+            <tr><td bgcolor="#dddddd"><div align="right">名前
+            (省略可):</div></td>
             <td><mm-fullname-box></td>
             </tr>
         </table></center>
@@ -92,9 +92,9 @@
         <p>
         <center><MM-Unsubscribe-Button></center></td>
     <td>
-        あなたは、<mm-host>で入会している全てのメーリングリスト
-        のリストを見ることができます。もし、他の会員オプションも
-        変更したいのであればこれを利用してください。
+        <mm-host>で入会している全てのメーリングリスト
+        のリストを見ることができます。他の会員オプションも
+        変更するのであればこれを利用してください。
 
         <p>
         <center><MM-Other-Subscriptions-Submit></center>
@@ -103,15 +103,14 @@
 
 <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
     <TR><TD COLSPAN=2 WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
-        <B>あなたの <MM-List-Name> でのパスワード</B>
+        <B><MM-List-Name> のパスワード</B>
 	</FONT></TD></TR>
     <tr valign="TOP"><td WIDTH="50%">
         <a name=reminder>
         <center>
-        <h3>パスワードを忘れましたか?</h3>
+        <h3>パスワードを忘れたら?</h3>
         </center>
-        このボタンをクリックして，あなたの配送アドレスへメールして
-        貰ってください. 
+        このボタンをクリックすると、メールでパスワードを送信します。
         <p><MM-Umbrella-Notice>
         <center>
         <MM-Email-My-Pw>
@@ -123,13 +122,13 @@
         <center>
         <h3>パスワード変更</h3>
         <TABLE BORDER="0" CELLSPACING="2" CELLPADDING="2" WIDTH="70%" COLS=2>
-            <TR><TD BGCOLOR="#dddddd"><div align="right">新
-                パスワード:</div></TD>
+            <TR><TD BGCOLOR="#dddddd"><div align="right">
+                新パスワード:</div></TD>
 	        <TD><MM-New-Pass-Box></TD>
                 </TR>
             <TR> 
-	        <TD BGCOLOR="#dddddd"><div align="right">確認のため
-                もう一度:</div></TD>
+	        <TD BGCOLOR="#dddddd"><div align="right">
+                確認用再入力:</div></TD>
 	        <TD><MM-Confirm-Pass-Box></TD>
             </TR>
         </table>
@@ -141,27 +140,26 @@
 <p>
 <TABLE WIDTH="100%" BORDER="0" CELLSPACING="0" CELLPADDING="5">
     <TR><TD WIDTH="100%" BGCOLOR="#FFF0D0"><FONT COLOR="#000000">
-        <B>あなたの <MM-List-Name> 会員オプション</B>
+        <B><MM-List-Name> の会員オプション</B>
 	</FONT></TD></TR> 
 </table>
 
 <p>
 <i><strong>現在の設定がチェックされています.</strong></i>
-<p>オプションの中には<em>全部設定</em>のチェックボックスが
-付いているものがあります。ここをチェックしておくと、<mm-host>
-であなたが会員になっている全てのメーリングリストでこの
-設定が有効になります。上の<em>他のメーリングリストへの入会状況</em>
-で、あなたが入会しているメーリングリストを知ることができます。
+<p><em>全部設定</em>のチェックボックスをチェックすると,
+入会している<mm-host>の全メーリングリストでの設定を変更することができます。
+上の<em>他のメーリングリストへの入会状況</em>で, 
+自分が入会しているメーリングリストを調べることができます。
 <p>
-<TABLE BORDER="0" CELLSPACING="2" CELLPADDING="3" WIDTH="80%">
+<TABLE BORDER="0" CELLSPACING="2" CELLPADDING="3" WIDTH="100%">
     <tr><TD BGCOLOR="#cccccc">
         <a name="disable">
         <strong> メール配送 </strong> <br>
-        このオプションを<em>有効</em>にしておくと、このメーリングリスト
-        に投稿されるメールを受け取ることになります。これを<em>停止</em>
-        にしておくと短期間の間メール配送を止めておくことができます
-        (例えば短期間の休暇中など). もし配送を停止した場合には、
-        休暇から帰ってきたら再度有効にすることを忘れないでください。
+        メーリングリストに投稿されたメールの配送を開始させるときは、
+	このオプションを<em>有効</em>にします。<em>停止</em>を選ぶと、
+        一時的にメールの配送を止めることができます
+        (例えば短期間の休暇中など). 配送を停止したときは、
+        休暇が終わったら有効に設定し直すことをお忘れなく。
         </td><td bgcolor="#cccccc">
         <mm-delivery-enable-button> 有効<br>
         <mm-delivery-disable-button> 停止<p>
@@ -170,21 +168,20 @@
 
     <tr><TD BGCOLOR="#cccccc">
         <strong> まとめ読みモードに設定</strong> <br>
-        もしまとめ読みモードを 有効 にしておくと，１日毎に１通だけまとめて
-        メールが届き，投稿がある度には送られません．もしまとめ読みモード
-        を 有効 から 無効 にすると，最後のまとめメールが届けられます．
+        有効 を選ぶと, 投稿のたびにメールを送らず、すべてのメールを
+	毎日1通にまとめてメールが届きます。まとめ読みモードの設定を
+        有効 から 無効 に変更すると，最後に1通のまとめメールが送られます．
         </td><td bgcolor="#cccccc">
         <MM-Undigest-Radio-Button> 無効<br>
         <MM-Digest-Radio-Button> 有効
         </td></tr>
 
     <tr><TD BGCOLOR="#cccccc">
-        <strong> まとめ読みのメールを平文で受けますか？
-        MIMEの添付で受けますか?</strong><p>
-        メールリーダによっては MIME のまとめ読みをサポートしていない
-        かもしれません。一般的には MIME の方がよいですが、
-        もし，MIME のメールを読むのが困難であれば，
-        平文の方を選んでください．
+        <strong> まとめ読みメールを受け取る形式。
+	平文またはMIMEの添付ファイル形式。</strong><p>
+        メールソフトによっては MIME形式でまとめ読みメールを読めない
+        ものもあります。一般的にはMIME形式の方が便利ですが、
+        MIME形式のメールが読めない場合は平文を選んでください．
         </td><td bgcolor="#cccccc">
         <MM-Mime-Digests-Button> MIME <br>
         <MM-Plain-Digests-Button> 平文 <p>
@@ -192,30 +189,29 @@
         </td></tr>
 
     <tr><TD BGCOLOR="#cccccc">
-        <strong> あなたが投稿したメールを受取りますか? </strong><p>
-        通常は、あなたは自分がリストに投稿したメールのコピーを受取ります。
-        もし、このコピーを受取りたくなければ、このオプションを
-        <em>いいえ</em>に設定してください。
+        <strong> 自分が投稿したメールを受け取りますか? </strong><p>
+        通常は、自分がリストに投稿したメールのコピーを送信します。
+        自分が投稿したメールのコピーを受け取りたくなければ、
+        このオプションを<em>いいえ</em>に設定してください。
         </td><td bgcolor="#cccccc">
         <mm-dont-receive-own-mail-button> いいえ <br>
         <mm-receive-own-mail-button> はい
         </td></tr>
 
     <tr><TD BGCOLOR="#cccccc">
-        <strong> あなたがリストに投稿したとき，受領メールが
-        必要ですか? </strong><p>
+        <strong> リストへの投稿に対する確認通知が必要ですか?</strong><p>
         </td><td bgcolor="#cccccc"> 
         <mm-dont-ack-posts-button> いいえ<br>
         <mm-ack-posts-button> はい 
         </td></tr>
 
     <tr><td bgcolor="#cccccc">
-        <strong>このリストについてパスワード通知を受け取りますか?</strong><p>
-        毎月、あなたはこのホストのそれぞれのメーリングリストついて、
-        パスワード通知の入ったメールを受け取ることになります。
-        あなたは、リスト毎に<em>いいえ</em>を選ぶことで
-        メール送信を止めることができます。もし、全部設定で<em>いいえ</em>に
-        設定した場合には、パスワード通知のメールは発送されません。
+        <strong>このリストからのパスワード通知を受け取りますか?</strong><p>
+        はいを選ぶと、このホストで運用される各メーリングリストから、毎月
+        パスワード備忘通知メールを受け取ることになります。
+        <em>いいえ</em>を選ぶと、このメーリングリストからの備忘通知
+        の送信を止めることができます。全部設定をチェックして
+	<em>いいえ</em>を設定すると、備忘通知メールは完全に送られなくなります。
         </td><td bgcolor="#cccccc">
         <mm-dont-get-password-reminder-button>いいえ<br>
         <mm-get-password-reminder-button>はい<p>
@@ -223,13 +219,13 @@
         </td></tr>
 
     <tr><TD BGCOLOR="#cccccc">
-        <strong> 会員リストにあなたを出さないようにしますか? </strong><br>
-        誰かがリストの会員名簿を見るとき、あなたのメールアドレスが
-        (スパムメールアドレス収集防止のためぼやかしますが)表示されます。
-        もし会員名簿に自分のメールアドレスを出したくなければ、
-        下の<em>隠してください</em>を選んで下さい。
+        <strong> 会員リストでアドレスを非表示にしますか? </strong><br>
+        リストの会員名簿には、あなたのメールアドレスが表示されます
+        (ただしスパムのアドレス収集を防ぐために表示をあいまいにしています)。
+        会員名簿に自分のメールアドレスを表示させたくない場合は、
+        <em>隠してください</em>を選びます。
         </td><td bgcolor="#cccccc">
-        <MM-Public-Subscription-Button> 出します <br>
+        <MM-Public-Subscription-Button> 表示します <br>
         <MM-Hide-Subscription-Button> 隠してください
         </td></tr>
 
@@ -240,30 +236,28 @@
         </td></tr>
 
     <tr><td bgcolor="#cccccc">
-        <strong>どの話題分類を購読したいですか?</strong><p>
-		話題を選ぶことで、メーリングリストを流れるメールに
-		フィルターをかけることができます。つまり、メールの
-		一部分だけを受け取るようになります。もし、メールが
-		選んだ話題に合っていればメールを受け取り、合わなければ
-		受け取りません。
-		<p>もし、メールがどの話題にも合わなければ、配送の
-		規則は下のオプションの設定によって変わります。
-		もし、何も話題を選ばなければ、全部のメールを受け取ります。
+        <strong>受信したい話題の分類は?</strong><p>
+	メーリングリストに送り出されるメールに
+	フィルタをかけることができます。
+	受け取りたい話題を選んでください。
+	選択した話題に該当しないメールは送られなくなります。
+
+	<p>どの話題にも該当しないメールの配送規則は、下の項目で設定します。
+	何も話題を選択しなければ、すべてのメールを配送します。
         </td><td bgcolor="#cccccc">
         <mm-topics>
         </td></tr>
 
     <tr><td bgcolor="#cccccc">
-        <strong>どの話題フィルターにも適合しないメールを受け取りますか?</strong><p>
-		このオプションは、あなたが少なくともひとつ話題を選んでいる
-		場合に有効になります。話題フィルターのどれにも合わなかった
-		メールがあるとき、デフォルトの配送規則を定めます。
-		<em>いいえ</em>を選ぶと、どの話題フィルターにも
-		合わなかったメールは、あなたに配送されません。
-		もし、<em>はい</em>を選ぶと、このような適合しないメールは
-		配送されます。
-		<p>もし、話題がひとつも選択されなかった場合には、
-		メーリングリストに投稿される全部のメールを受け取ることになります。
+        <strong>どの話題フィルタにも合致しないメールを受け取りますか?</strong><p>
+	前の設定で話題を選択した場合に、
+	どの話題にも該当しないメールに対するデフォルトの配送規則を決めます。
+	<em>いいえ</em>を選ぶと、どの話題にも該当しないメールは配送しません。
+	<em>はい</em>を選ぶと、どの話題にも該当しないメールを配送します。
+
+	<p>前の設定で何も話題を選択しなかった場合は、
+	このオプションでの設定にかかわらず、
+	すべてのメールを配送します。
         </td><td bgcolor="#cccccc">
         <mm-suppress-nonmatching-topics>いいえ<br>
         <mm-receive-nonmatching-topics>はい
@@ -272,13 +266,13 @@
     <tr><td bgcolor="#cccccc">
         <strong>重複したメールを受け取らないようにしますか?</strong><p>
 
-            もし, あなたが<tt>To:</tt>または<tt>Cc:</tt>ヘッダに
-            入っていたら, メーリングリストからのメールを受け取らない
-            ようにすることができます. リストから重複したメールを
-            受け取らないようにするには<em>はい</em>を選んでください.
-            <em>いいえ</em>を選ぶとメールを受け取ります.
+            自分自身のアドレスが<tt>To:</tt>または<tt>Cc:</tt>ヘッダに
+            含まれているときは, メーリングリストからのメールを受け取らない
+            ようにすることができます. 
+            <em>はい</em>を選ぶと、重複するメールを受け取りません.
+            <em>いいえ</em>を選ぶと、重複するメールも受け取ります.
 
-            <p>もし, リストが個人別配送モードになっている場合,
+            <p>リストが個人別配送モードになっている場合,
             「いいえ」を選ぶと <tt>X-Mailman-Copy: yes</tt> という
             ヘッダが付くようになります.
 

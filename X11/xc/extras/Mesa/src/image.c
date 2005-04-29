@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,22 +23,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "colormac.h"
 #include "context.h"
 #include "image.h"
+#include "imports.h"
 #include "histogram.h"
 #include "macros.h"
-#include "mem.h"
 #include "mmath.h"
 #include "pixel.h"
 #include "mtypes.h"
-#endif
-
 
 
 /*
@@ -185,17 +179,17 @@ GLint _mesa_sizeof_packed_type( GLenum type )
       case GL_UNSIGNED_BYTE_2_3_3_REV:
          return sizeof(GLubyte);
       case GL_UNSIGNED_SHORT_5_6_5:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_SHORT_5_6_5_REV:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_SHORT_4_4_4_4:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_SHORT_4_4_4_4_REV:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_SHORT_5_5_5_1:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_SHORT_1_5_5_5_REV:
-         return sizeof(GLshort);
+         return sizeof(GLushort);
       case GL_UNSIGNED_INT_8_8_8_8:
          return sizeof(GLuint);
       case GL_UNSIGNED_INT_8_8_8_8_REV:
@@ -206,7 +200,7 @@ GLint _mesa_sizeof_packed_type( GLenum type )
          return sizeof(GLuint);
       case GL_UNSIGNED_SHORT_8_8_MESA:
       case GL_UNSIGNED_SHORT_8_8_REV_MESA:
-         return sizeof(GLushort);      
+          return sizeof(GLushort);      
       default:
          return -1;
    }
@@ -290,7 +284,7 @@ GLint _mesa_bytes_per_pixel( GLenum format, GLenum type )
       case GL_UNSIGNED_SHORT_5_6_5:
       case GL_UNSIGNED_SHORT_5_6_5_REV:
          if (format == GL_RGB || format == GL_BGR)
-            return sizeof(GLshort);
+            return sizeof(GLushort);
          else
             return -1;  /* error */
       case GL_UNSIGNED_SHORT_4_4_4_4:
@@ -576,6 +570,46 @@ _mesa_image_row_stride( const struct gl_pixelstore_attrib *packing,
       return bytesPerRow;
    }
 }
+
+
+
+/*
+ * Compute the stride between images in a 3D texture (in bytes) for the given
+ * pixel packing parameters and image width, format and type.
+ */
+GLint
+_mesa_image_image_stride( const struct gl_pixelstore_attrib *packing,
+                          GLint width, GLint height,
+                          GLenum format, GLenum type )
+{
+   ASSERT(packing);
+   ASSERT(type != GL_BITMAP);
+
+   {
+      const GLint bytesPerPixel = _mesa_bytes_per_pixel(format, type);
+      GLint bytesPerRow, bytesPerImage, remainder;
+
+      if (bytesPerPixel <= 0)
+         return -1;  /* error */
+      if (packing->RowLength == 0) {
+         bytesPerRow = bytesPerPixel * width;
+      }
+      else {
+         bytesPerRow = bytesPerPixel * packing->RowLength;
+      }
+      remainder = bytesPerRow % packing->Alignment;
+      if (remainder > 0)
+         bytesPerRow += (packing->Alignment - remainder);
+
+      if (packing->ImageHeight == 0)
+         bytesPerImage = bytesPerRow * height;
+      else
+         bytesPerImage = bytesPerRow * packing->ImageHeight;
+
+      return bytesPerImage;
+   }
+}
+
 
 
 

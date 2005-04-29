@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  MIPS R3000 version with
    GOFAST floating point library.
-   Copyright (C) 1994, 1997, 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1997, 1999, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -20,53 +20,38 @@ the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 /* Use ELF.  */
-#define OBJECT_FORMAT_ELF
+#undef  OBJECT_FORMAT_COFF
+#undef  EXTENDED_COFF
 
-/* Until we figure out what MIPS ELF targets normally use, just do
-   stabs in ELF.  */
-#ifndef PREFERRED_DEBUGGING_TYPE
-#define PREFERRED_DEBUGGING_TYPE DBX_DEBUG
-#endif
+/* ??? Move all SDB stuff into separate header file.  */
+#undef  SDB_DEBUGGING_INFO
 
-/* Mostly like ECOFF.  */
-#include "gofast.h"
-#include "mips/ecoff.h"
+#define DBX_DEBUGGING_INFO 1
+#define DWARF2_DEBUGGING_INFO 1
 
-/* We need to use .esize and .etype instead of .size and .type to
-   avoid conflicting with ELF directives.  */
-#undef PUT_SDB_SIZE
-#define PUT_SDB_SIZE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.esize\t");		\
-  fprintf (asm_out_text_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (a)); \
-  fprintf (asm_out_text_file, ";");		       	\
-} while (0)
+#undef  PREFERRED_DEBUGGING_TYPE
+#define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
-#undef PUT_SDB_TYPE
-#define PUT_SDB_TYPE(a)					\
-do {							\
-  extern FILE *asm_out_text_file;			\
-  fprintf (asm_out_text_file, "\t.etype\t0x%x;", (a));	\
-} while (0)
+#undef  SUBTARGET_ASM_DEBUGGING_SPEC
+#define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* Biggest alignment supported by the object file format of this
    machine.  Use this macro to limit the alignment which can be
    specified using the `__attribute__ ((aligned (N)))' construct.  If
    not defined, the default value is `BIGGEST_ALIGNMENT'.  */
 
-#undef MAX_OFILE_ALIGNMENT
+#undef  MAX_OFILE_ALIGNMENT
 #define MAX_OFILE_ALIGNMENT (32768*8)
 
 /* Switch into a generic section.  */
-#undef TARGET_ASM_NAMED_SECTION
+#undef  TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION  default_elf_asm_named_section
 
 /* Given that Irix has it's own headers, not having TARGET_GAS here
    seems a mistake.  If we actually need to be prepared for file
    switching, then we need a custom TARGET_ASM_NAMED_SECTION too.  */
 
-#undef TEXT_SECTION
+#undef  TEXT_SECTION
 #define TEXT_SECTION()				\
 do {						\
   if (TARGET_FILE_SWITCHING)			\
@@ -120,7 +105,7 @@ do {						\
 #ifndef ASM_OUTPUT_ALIGNED_BSS
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
 do {									\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);					\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);			\
   if (SIZE > 0 && SIZE <= mips_section_threshold)			\
     sbss_section ();							\
   else									\
@@ -139,24 +124,17 @@ do {									\
 
 /* Write the extra assembler code needed to declare an object properly.  */
 
-#undef ASM_DECLARE_OBJECT_NAME
+#undef  ASM_DECLARE_OBJECT_NAME
 #define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
   do {									\
-    fprintf (FILE, "%s", TYPE_ASM_OP);				\
-    assemble_name (FILE, NAME);						\
-    putc (',', FILE);							\
-    fprintf (FILE, TYPE_OPERAND_FMT, "object");				\
-    putc ('\n', FILE);							\
+    HOST_WIDE_INT size;							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
     size_directive_output = 0;						\
     if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
       {									\
 	size_directive_output = 1;					\
-	fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-	fprintf (FILE, ",");						\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,				\
-	  int_size_in_bytes (TREE_TYPE (DECL)));			\
-	fprintf (FILE, "\n");						\
+	size = int_size_in_bytes (TREE_TYPE (DECL));			\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
       }									\
     mips_declare_object (FILE, NAME, "", ":\n", 0);			\
   } while (0)
@@ -167,22 +145,20 @@ do {									\
    size_directive_output was set
    by ASM_DECLARE_OBJECT_NAME when it was run for the same decl.  */
 
-#undef ASM_FINISH_DECLARE_OBJECT
+#undef  ASM_FINISH_DECLARE_OBJECT
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
+									 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",");						 \
-	 fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			 \
-		  int_size_in_bytes (TREE_TYPE (DECL)));		 \
-	 fprintf (FILE, "\n");						 \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
 
@@ -201,7 +177,7 @@ do {									 \
    but until that support is generally available, the 'if' below
    should serve.  */
 
-#undef ASM_WEAKEN_LABEL
+#undef  ASM_WEAKEN_LABEL
 #define ASM_WEAKEN_LABEL(FILE,NAME) ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,0)
 #define ASM_OUTPUT_WEAK_ALIAS(FILE,NAME,VALUE)	\
  do {						\
@@ -219,20 +195,18 @@ do {									 \
  } while (0)
 
 #define MAKE_DECL_ONE_ONLY(DECL) (DECL_WEAK (DECL) = 1)
-#undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC) \
-  mips_unique_section ((DECL), (RELOC))
+
+#define TARGET_ASM_UNIQUE_SECTION  mips_unique_section
 
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
-#undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata
+#undef  EXTRA_SECTIONS
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
-#undef EXTRA_SECTION_FUNCTIONS
+#undef  EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)                               \
 void FN ()                                                            \
@@ -256,11 +230,19 @@ void FN ()                                                            \
 #define FINI_SECTION_ASM_OP     "\t.section\t.fini"
 
 /* Don't set the target flags, this is done by the linker script */
-#undef LIB_SPEC
+#undef  LIB_SPEC
 #define LIB_SPEC ""
 
 #undef  STARTFILE_SPEC
+#if defined(HAVE_MIPS_LIBGLOSS_STARTUP_DIRECTIVES) \
+    || (MIPS_ABI_DEFAULT == ABI_MEABI)
+#define STARTFILE_SPEC "crti%O%s crtbegin%O%s"
+#else
 #define STARTFILE_SPEC "crti%O%s crtbegin%O%s %{!mno-crt0:crt0%O%s}"
+#endif
 
 #undef  ENDFILE_SPEC
 #define ENDFILE_SPEC "crtend%O%s crtn%O%s"
+
+/* We support #pragma.  */
+#define HANDLE_SYSV_PRAGMA 1

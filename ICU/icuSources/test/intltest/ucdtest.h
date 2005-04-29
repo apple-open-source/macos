@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -8,11 +8,11 @@
 #include "intltest.h"
 
 /** Helper function for TestUnicodeData */
-U_CAPI void U_CALLCONV unicodeDataLineFn(void *context,
+U_CFUNC void U_CALLCONV unicodeDataLineFn(void *context,
                               char *fields[][2], int32_t fieldCount,
                               UErrorCode *pErrorCode);
 
-U_CAPI void U_CALLCONV
+U_CFUNC void U_CALLCONV
 derivedCorePropsLineFn(void *context,
                        char *fields[][2], int32_t fieldCount,
                        UErrorCode *pErrorCode);

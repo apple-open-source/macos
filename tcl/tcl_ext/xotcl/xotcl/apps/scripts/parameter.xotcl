@@ -1,0 +1,150 @@
+### Sample file for parameter testing....
+### For every class "-parameter" can be specified which accepts 
+### a list of parameter specifications.
+###
+### * If a parameter specification consists of a single word,
+###   the word is considered as the parameter name and
+###   a standard setter/getter method with this name is created.
+###
+### * If the parameter specification  consists of two words, the 
+###   second word is treated as the default value, which is stored 
+###   in the class object.
+###
+### * If a default value exists in the class object, a
+###   corresponding instance variable with the name of the
+###   parameter is created automatically during initialization 
+###   of the object.
+###
+### * If the parameter specification consists of more than two words, 
+###   various parameter methods  (starting with "-") with arguments 
+###   can be specified. In the following example
+###       Class C -parameter {{a 1} {b -default 1}}
+###       C c1
+###   both a and b receive 1 as default value.
+###
+### * In order to call the standard getter method use the method
+###   with the name of the parameter with one parameter. For example, 
+###   in order to call the standard getter for parameter a, use
+###       puts [c1 a]
+###   In order to use the standard setter for b, use the method with
+###   two parameters.
+###       c1 b 123
+###
+### * There are two ways to specify custom setter/getter methods for
+###   parameters: (a) the custom setter/getter can be defined within the
+###   class hierarchy of the object, or (b) the custom getter/setter can
+###   be specified on a different object. The custom setter/getter 
+###   method are called, from the standard setter/getter methods
+###   automatically if specified.
+### * In order to use approach (a) the parameter methods -getter 
+###   and -setter can be used to specify the custom getter and 
+###   and setter methods:
+###       Class D -parameter {{a -setter myset -getter myget}}
+###   The methods myset and myget are called like set with
+###   one or two arguments. They are responsible for setting and
+###   retrieving the appropiate values. It is possible to 
+###   specify any one of these parameter methods.
+### * In order to use approach (b) a parameter methods -access
+###   is use to specify an object responsible for setting/getting
+###   these values. This has the advantage that the custom getter and
+###   setter methods can be inherited from a separate class hierarchy,
+###   such they can used for any object without cluttering its
+###   interface. 
+### * In order to keep the parameter specification short the access 
+###   object my contain instance variables setter or getter, naming the
+###   setter/getter methods. If these instance variables are not 
+###   in the access object, "set" is used per default for getter and
+###   setter. These default values can be still overridden by the 
+###   parameter methods -setter or -getter.
+### * If the access object is specified, <object variable value>
+###   are passed to the setter method and <object varible> are passed
+###   to the custom getter method (in approach (a) the object is
+###   is not needed).
+
+Object different
+different set setter myset
+different set getter myget
+different proc myset {o var value} { $o set $var $value }
+different proc myget {o var} { $o set $var }
+
+
+Object print
+print proc set {o args} {
+  ::set var [lindex $args 0]
+  if {[llength $args]==1} {
+    puts "*** $o get $var"
+    $o set $var
+  } else {
+    ::set value [lindex $args 1]
+    puts "*** $o set $var $value"
+    $o set $var $value
+  }
+}
+print proc myset {o var value} { 
+  puts "*** $o myset $var $value"
+  $o set $var $value 
+}
+
+Class P
+P instproc set {o args} {
+  puts stderr "instance [self] of parameter class P called for $o $args"
+  if {[llength $args] == 1} {
+    $o set [lindex $args 0]
+  } else {
+    $o set [lindex $args 0] [lindex $args 1]
+  }
+}
+P p
+
+Class M
+M instproc mset args {
+  puts stderr "Mixin [self class] called for [self] $args"
+  if {[llength $args] == 1} {
+    my set [lindex $args 0]
+  } else {
+    my set [lindex $args 0] [lindex $args 1]
+  }
+}
+
+
+set x different
+
+Class C -parameter {
+  {c [self]} 
+  d
+  {e ""} 
+  {f -default 123 -setter setf -getter getf} 
+  {g -default 1000 -access print} 
+  {h -default 1001 -access print -setter myset} 
+  {i -default 1002 -access different} 
+  {j -default $x -access ::p} 
+  {k {[self class]}}
+  {l -default {[self class]} }
+  }
+C parameter [list [list z -access [P new -childof C] -default zzz]]
+
+C instmixin M
+C parameter {{x -default 333 -setter mset -getter mset}}
+
+puts stderr +++[C info parameter]
+
+C instproc setf {var val} {
+  puts stderr "... setting $var to $val"
+  my set $var $val
+}
+C instproc getf var {
+  puts stderr "... getting value of $var"
+  my set $var
+}
+
+#puts stderr "body of f: [C info instbody f]"
+puts stderr "body of x: [C info instbody x]"
+puts ======================create
+C c1 -f 133 -g 101 -h 102 -i 103
+puts ======================readvars
+foreach v [lsort [c1 info vars]] {
+  puts "$v = <[c1 $v]>"
+}
+
+puts "instances of P: [P info instances]"
+puts "instances of C: [C info instances]"

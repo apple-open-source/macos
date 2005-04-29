@@ -39,7 +39,17 @@ enum IOFWAVCUserClientCommandCodes {
     kIOFWAVCUserClientBreakP2PInputConnection,	// KIOUCScalarIScalarO 1, 0
     kIOFWAVCUserClientMakeP2POutputConnection,	// KIOUCScalarIScalarO 1, 0
     kIOFWAVCUserClientBreakP2POutputConnection,	// KIOUCScalarIScalarO 1, 0
+	kIOFWAVCUserClientCreateAsyncAVCCommand,	// kIOUCStructIStructO -1,-1
+	kIOFWAVCUserClientSubmitAsyncAVCCommand,	// kIOUCScalarIScalarO 1, 0
+	kIOFWAVCUserClientCancelAsyncAVCCommand,	// kIOUCScalarIScalarO 1, 0
+	kIOFWAVCUserClientReleaseAsyncAVCCommand,	// kIOUCScalarIScalarO 1, 0
+	kIOFWAVCUserClientReinitAsyncAVCCommand,	// // kIOUCScalarIStructI 1, -1
     kIOFWAVCUserClientNumCommands
+};
+
+enum IOFWAVCUserClientAsyncCommandCodes {
+    kIOFWAVCUserClientInstallAsyncAVCCommandCallback,	// kIOUCScalarIScalarO 1, 1
+    kIOFWAVCUserClientNumAsyncCommands
 };
 
 
@@ -107,5 +117,8 @@ typedef struct _AVCGetTargetPlugConnectionOutParams
 	bool lockConnection;
 	bool permConnection;
 }AVCGetTargetPlugConnectionOutParams;
+
+#define kAsyncCmdSharedBufInterimRespOffset 0
+#define kAsyncCmdSharedBufFinalRespOffset 512
 
 #endif // _IOKIT_IOFIREWIREAVCUSERCLIENTCOMMON_H_

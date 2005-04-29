@@ -1692,8 +1692,7 @@ operand_subword (op, offset, validate_address, mode)
   if (GET_CODE (op) == MEM)
     {
 /* APPLE LOCAL begin 64bit registers, ABI32bit */
-      rtx new = (mode == DImode) ? adjust_address_nv (op, word_mode, offset * UNITS_PER_WORD) :
-				   adjust_address_nv (op, ABI_WORD_MODE, offset * ABI_UNITS_PER_WORD);
+      rtx new = adjust_address_nv (op, ABI_WORD_MODE, offset * ABI_UNITS_PER_WORD);
 /* APPLE LOCAL end 64bit registers, ABI32bit */
 
       if (! validate_address)
@@ -1712,8 +1711,7 @@ operand_subword (op, offset, validate_address, mode)
 
   /* Rest can be handled by simplify_subreg.  */
 /* APPLE LOCAL begin 64bit registers, ABI32bit */
-  return (mode == DImode) ? simplify_gen_subreg (word_mode, op, mode, (offset * UNITS_PER_WORD)) :
-			    simplify_gen_subreg (ABI_WORD_MODE, op, mode, (offset * ABI_UNITS_PER_WORD));
+  return simplify_gen_subreg (ABI_WORD_MODE, op, mode, (offset * ABI_UNITS_PER_WORD));
 /* APPLE LOCAL end 64bit registers, ABI32bit */
 }
 

@@ -42,9 +42,12 @@ _initialize_macosx_nat ()
 
   reserve = (int) limit.rlim_max * 0.1;
   reserve = (reserve > 5) ? reserve : 5;
-  if (reserve >= limit.rlim_max) {
-    bfd_set_cache_max_open (1);
-  } else {
-    bfd_set_cache_max_open (limit.rlim_max - reserve);
-  }
+  if (reserve >= limit.rlim_max)
+    {
+      bfd_set_cache_max_open (1);
+    }
+  else
+    {
+      bfd_set_cache_max_open (limit.rlim_max - reserve);
+    }
 }

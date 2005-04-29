@@ -1,0 +1,61 @@
+# procshd6.tcl --
+#
+#  Test file for compilation.
+#  This file contains a proc definintion, where the body is shared with other
+#  statements. The body, however, is not a literal and will not be compiled.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procshd6.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+5 0 61 10 0 0 24 0 8 5 5 -1 -1
+61
+#'*!!99E<!%-*!!2?W<!2oA9vAhtt!.lvpv,N`W!/rS=!1;giw0#,Uv/HW<!1Qr<!3HN<!7/
+Ts!z
+5
+Po6D(#!
+5
+|WT2%'!
+10
+x
+1
+Dv
+x
+1
+.v
+x
+8
+82_`FDc:s+
+x
+3
+F<Fw
+x
+1
+C!
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+x
+4
+4/;EF
+x
+4
+b4Z)<
+0
+0
+}

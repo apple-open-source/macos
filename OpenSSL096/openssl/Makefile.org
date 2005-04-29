@@ -20,12 +20,9 @@ SHLIB_TARGET=
 # Normally it is left empty.
 INSTALL_PREFIX=
 INSTALLTOP=/usr/local/ssl
-BINDIR=$(INSTALLTOP)/bin
-LIBDIR=$(INSTALLTOP)/lib
-INCLUDEDIR=$(INSTALLTOP)/include/openssl
 
 # Do not edit this manually. Use Configure --openssldir=DIR do change this!
-OPENSSLDIR=/System/Library/OpenSSL
+OPENSSLDIR=/usr/local/ssl
 
 # RSAref  - Define if we are to link with RSAref.
 # NO_IDEA - Define to build without the IDEA algorithm
@@ -172,7 +169,7 @@ SDIRS=  \
 MAKEFILE= Makefile.ssl
 MAKE=     make -f Makefile.ssl
 
-MANDIR=$(INSTALLTOP)/man
+MANDIR=$(OPENSSLDIR)/man
 MAN1=1
 MAN3=3
 SHELL=/bin/sh
@@ -206,7 +203,7 @@ sub_all:
 	do \
 	if [ -d "$$i" ]; then \
 		(cd $$i && echo "making all in $$i..." && \
-		$(MAKE) CC='${CC}' PLATFORM='${PLATFORM}' CFLAG='${CFLAG}' SDIRS='$(SDIRS)' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' AR='${AR}' PROCESSOR='${PROCESSOR}' PERL='${PERL}' RANLIB='${RANLIB}' EXE_EXT='${EXE_EXT}' all ) || exit 1; \
+		$(MAKE) CC='${CC}' PLATFORM='${PLATFORM}' CFLAG='${CFLAG}' SDIRS='$(SDIRS)' INSTALLTOP='${INSTALLTOP}' PEX_LIBS='${PEX_LIBS}' EX_LIBS='${EX_LIBS}' BN_ASM='${BN_ASM}' DES_ENC='${DES_ENC}' BF_ENC='${BF_ENC}' CAST_ENC='${CAST_ENC}' RC4_ENC='${RC4_ENC}' RC5_ENC='${RC5_ENC}' SHA1_ASM_OBJ='${SHA1_ASM_OBJ}' MD5_ASM_OBJ='${MD5_ASM_OBJ}' RMD160_ASM_OBJ='${RMD160_ASM_OBJ}' AR='${AR}' PROCESSOR='${PROCESSOR}' PERL='${PERL}' RANLIB='${RANLIB}' EXE_EXT='${EXE_EXT}' all ) || exit 1; \
 	else \
 		$(MAKE) $$i; \
 	fi; \
@@ -371,9 +368,10 @@ do_svr3-shared:
 		  find . -name "*.o" -print > allobjs ; \
 		  OBJS= ; export OBJS ; \
 		  for obj in `ar t lib$$i.a` ; do \
-		    OBJS="$${OBJS} `grep $$obj allobjs`" ; \
+		    OBJS="$${OBJS} `grep /$$obj allobjs`" ; \
 		  done ; \
-		  set -x; ${CC}  -G -o lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
+		  set -x; ${CC} ${SHARED_LDFLAGS} \
+			-G -o lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
 			-h lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
 			$${OBJS} $$libs ${EX_LIBS} ) || exit 1; \
 		libs="$$libs -l$$i"; \
@@ -387,13 +385,15 @@ do_svr5-shared:
 	else \
 		libs='-L. ${SHLIBDEPS}'; for i in ${SHLIBDIRS}; do \
 		( PATH=/usr/ccs/bin:$$PATH ; export PATH; \
+		  SHARE_FLAG='-G'; \
+		  (${CC} -v 2>&1 | grep gcc) > /dev/null && SHARE_FLAG='-shared'; \
 		  find . -name "*.o" -print > allobjs ; \
 		  OBJS= ; export OBJS ; \
 		  for obj in `ar t lib$$i.a` ; do \
-		    OBJS="$${OBJS} `grep $$obj allobjs`" ; \
+		    OBJS="$${OBJS} `grep /$$obj allobjs`" ; \
 		  done ; \
 		  set -x; ${CC} ${SHARED_LDFLAGS} \
-			-G -o lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
+			$${SHARE_FLAG} -o lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
 			-h lib$$i.so.${SHLIB_MAJOR}.${SHLIB_MINOR} \
 			$${OBJS} $$libs ${EX_LIBS} ) || exit 1; \
 		libs="$$libs -l$$i"; \
@@ -637,23 +637,23 @@ dist_pem_h:
 	(cd crypto/pem; $(MAKE) CC='${CC}' SDIRS='${SDIRS}' CFLAG='${CFLAG}' pem.h; $(MAKE) clean)
 
 install: all install_docs
-	@$(PERL) $(TOP)/util/mkdir-p.pl $(INSTALL_PREFIX)$(BINDIR) \
-		$(INSTALL_PREFIX)$(LIBDIR) \
-		$(INSTALL_PREFIX)$(INCLUDEDIR) \
+	@$(PERL) $(TOP)/util/mkdir-p.pl $(INSTALL_PREFIX)$(INSTALLTOP)/bin \
+		$(INSTALL_PREFIX)$(INSTALLTOP)/lib \
+		$(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl \
 		$(INSTALL_PREFIX)$(OPENSSLDIR)/misc \
 		$(INSTALL_PREFIX)$(OPENSSLDIR)/certs \
 		$(INSTALL_PREFIX)$(OPENSSLDIR)/private \
 		$(INSTALL_PREFIX)$(OPENSSLDIR)/lib
 	@for i in $(EXHEADER) ;\
 	do \
-	(cp $$i $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i; \
-	chmod 644 $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i ); \
+	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
+	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
 	done;
 	@for i in $(DIRS) ;\
 	do \
 	if [ -d "$$i" ]; then \
 		(cd $$i; echo "installing $$i..."; \
-		$(MAKE) CC='${CC}' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}' INSTALLTOP='${INSTALLTOP}' BINDIR='${BINDIR}' OPENSSLDIR='${OPENSSLDIR}' EX_LIBS='${EX_LIBS}' SDIRS='${SDIRS}' RANLIB='${RANLIB}' EXE_EXT='${EXE_EXT}' install ); \
+		$(MAKE) CC='${CC}' CFLAG='${CFLAG}' INSTALL_PREFIX='${INSTALL_PREFIX}' INSTALLTOP='${INSTALLTOP}' OPENSSLDIR='${OPENSSLDIR}' EX_LIBS='${EX_LIBS}' SDIRS='${SDIRS}' RANLIB='${RANLIB}' EXE_EXT='${EXE_EXT}' install ); \
 	fi; \
 	done
 	@for i in $(LIBS) ;\
@@ -696,7 +696,7 @@ install: all install_docs
 install_docs:
 	@$(PERL) $(TOP)/util/mkdir-p.pl \
 		$(INSTALL_PREFIX)$(MANDIR)/man1 \
-		$(INSTALL_PREFIX)$(MANDIR)/man3o \
+		$(INSTALL_PREFIX)$(MANDIR)/man3 \
 		$(INSTALL_PREFIX)$(MANDIR)/man5 \
 		$(INSTALL_PREFIX)$(MANDIR)/man7
 	@pod2man="`cd util; ./pod2mantest $(PERL)`"; \
@@ -712,7 +712,7 @@ install_docs:
 	done; \
 	for i in doc/crypto/*.pod doc/ssl/*.pod; do \
 		fn=`basename $$i .pod`; \
-		if [ "$$fn" = "des_modes" ]; then sec=7; else sec=3o; fi; \
+		if [ "$$fn" = "des_modes" ]; then sec=7; else sec=3; fi; \
 		echo "installing man$$sec/`basename $$i .pod`.$$sec"; \
 		(cd `$(PERL) util/dirname.pl $$i`; \
 		sh -c "$$pod2man \

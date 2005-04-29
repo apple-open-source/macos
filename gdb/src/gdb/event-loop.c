@@ -22,7 +22,7 @@
 #include "defs.h"
 #include "event-loop.h"
 #include "event-top.h"
-#include "interpreter.h"
+#include "interps.h"
 
 #ifdef HAVE_POLL
 #if defined (HAVE_POLL_H)
@@ -462,13 +462,7 @@ start_event_loop (void)
       gdb_result = catch_errors (gdb_do_one_event, 0, "", RETURN_MASK_ALL);
       if (gdb_result < 0)
 	break;
-        
-      interp_result = catch_errors (interpreter_do_one_event, 0, "", RETURN_MASK_ALL);
-      if (interp_result < 0)
-        {
-          /* FIXME - kill the interpreter */
-        }
-        
+                
       /* If we long-jumped out of the do_one_event, we probably
          didn't get around to resetting the prompt, which leaves
          readline in a messed-up state.  Reset it here. */

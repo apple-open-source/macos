@@ -178,7 +178,7 @@ kill_builtin (list)
 	  builtin_error ("%s: no such pid", list->word->word);
 	  CONTINUE_OR_FAIL;
 	}
-      else if (*word && (interactive || job_control))
+      else if (*word)
 	/* Posix.2 says you can kill without job control active (4.32.4) */
 	{			/* Must be a job spec.  Check it out. */
 	  int job;

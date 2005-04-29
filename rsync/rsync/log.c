@@ -41,7 +41,7 @@ static char *logfname;
 static FILE *logfile;
 struct stats stats;
 
-int log_got_error=0;
+int log_got_error = 0;
 
 struct {
         int code;
@@ -61,7 +61,7 @@ struct {
 	{ RERR_WAITCHILD  , "some error returned by waitpid()" },
 	{ RERR_MALLOC     , "error allocating core memory buffers" },
 	{ RERR_PARTIAL    , "some files could not be transferred" },
-	{ RERR_VANISHED   , "some files vanished before they could be transfered" },
+	{ RERR_VANISHED   , "some files vanished before they could be transferred" },
 	{ RERR_TIMEOUT    , "timeout in data send/receive" },
 	{ RERR_CMD_FAILED , "remote shell failed" },
 	{ RERR_CMD_KILLED , "remote shell killed" },
@@ -104,7 +104,8 @@ void log_init(void)
 	int options = LOG_PID;
 	time_t t;
 
-	if (log_initialised) return;
+	if (log_initialised)
+		return;
 	log_initialised = 1;
 
 	/* this looks pointless, but it is needed in order for the
@@ -160,7 +161,7 @@ void log_close(void)
  * it with FINFO, FERROR or FLOG */
 void rwrite(enum logcode code, char *buf, int len)
 {
-	FILE *f=NULL;
+	FILE *f = NULL;
 	/* recursion can happen with certain fatal conditions */
 
 	if (quiet && code == FINFO)
@@ -171,45 +172,39 @@ void rwrite(enum logcode code, char *buf, int len)
 
 	buf[len] = 0;
 
-	if (code == FLOG) {
-		if (am_daemon) logit(LOG_INFO, buf);
+	if (am_server && msg_fd_out >= 0) {
+		/* Pass the message to our sibling. */
+		send_msg((enum msgcode)code, buf, len);
 		return;
 	}
+
+	if (am_daemon) {
+		static int in_block;
+		char msg[2048];
+		int priority = code == FERROR ? LOG_WARNING : LOG_INFO;
+
+		if (in_block)
+			return;
+		in_block = 1;
+		if (!log_initialised)
+			log_init();
+		strlcpy(msg, buf, MIN((int)sizeof msg, len + 1));
+		logit(priority, msg);
+		in_block = 0;
+
+		if (code == FLOG || !am_server)
+			return;
+	} else if (code == FLOG)
+		return;
 
 	if (am_server) {
-		/* Pass it to non-server side, perhaps through our sibling. */
-		if (msg_fd_out >= 0) {
-			send_msg((enum msgcode)code, buf, len);
+		/* Pass the message to the non-server side. */
+		if (io_multiplex_write((enum msgcode)code, buf, len))
+			return;
+		if (am_daemon) {
+			/* TODO: can we send the error to the user somehow? */
 			return;
 		}
-		if (!am_daemon
-		    && io_multiplex_write((enum msgcode)code, buf, len))
-			return;
-	}
-
-	/* otherwise, if in daemon mode and either we are not a server
-	 *  (that is, we are not running --daemon over a remote shell) or
-	 *  the log has already been initialised, log the message on this
-	 *  side because we don't want the client to see most errors for
-	 *  security reasons.  We do want early messages when running daemon
-	 *  mode over a remote shell to go to the remote side; those will
-	 *  fall through to the next case.
-	 * Note that this is only for the time before multiplexing is enabled.
-	 */
-	if (am_daemon && (!am_server || log_initialised)) {
-		static int depth;
-		int priority = LOG_INFO;
-		if (code == FERROR) priority = LOG_WARNING;
-
-		if (depth) return;
-
-		depth++;
-
-		log_init();
-		logit(priority, buf);
-
-		depth--;
-		return;
 	}
 
 	if (code == FERROR) {
@@ -217,18 +212,17 @@ void rwrite(enum logcode code, char *buf, int len)
 		f = stderr;
 	}
 
-	if (code == FINFO) {
-		if (am_server)
-			f = stderr;
-		else
-			f = stdout;
-	}
+	if (code == FINFO)
+		f = am_server ? stderr : stdout;
 
-	if (!f) exit_cleanup(RERR_MESSAGEIO);
+	if (!f)
+		exit_cleanup(RERR_MESSAGEIO);
 
-	if (fwrite(buf, len, 1, f) != 1) exit_cleanup(RERR_MESSAGEIO);
+	if (fwrite(buf, len, 1, f) != 1)
+		exit_cleanup(RERR_MESSAGEIO);
 
-	if (buf[len-1] == '\r' || buf[len-1] == '\n') fflush(f);
+	if (buf[len-1] == '\r' || buf[len-1] == '\n')
+		fflush(f);
 }
 		
 
@@ -237,18 +231,17 @@ void rwrite(enum logcode code, char *buf, int len)
 void rprintf(enum logcode code, const char *format, ...)
 {
 	va_list ap;
-	char buf[1024];
-	int len;
+	char buf[MAXPATHLEN+512];
+	size_t len;
 
 	va_start(ap, format);
-	/* Note: might return -1 */
 	len = vsnprintf(buf, sizeof(buf), format, ap);
 	va_end(ap);
 
 	/* Deal with buffer overruns.  Instead of panicking, just
-	 * truncate the resulting string.  Note that some vsnprintf()s
-	 * return -1 on truncation, e.g., glibc 2.0.6 and earlier. */
-	if ((size_t) len > sizeof(buf)-1  ||  len < 0) {
+	 * truncate the resulting string.  (Note that configure ensures
+	 * that we have a vsnprintf() that doesn't ever return -1.) */
+	if (len > sizeof buf - 1) {
 		const char ellipsis[] = "[...]";
 
 		/* Reset length, and zero-terminate the end of our buffer */
@@ -286,32 +279,22 @@ void rprintf(enum logcode code, const char *format, ...)
 void rsyserr(enum logcode code, int errcode, const char *format, ...)
 {
 	va_list ap;
-	char buf[1024];
-	int len;
-	size_t sys_len;
-	char *sysmsg;
+	char buf[MAXPATHLEN+512];
+	size_t len;
+
+	strcpy(buf, RSYNC_NAME ": ");
+	len = (sizeof RSYNC_NAME ": ") - 1;
 
 	va_start(ap, format);
-	/* Note: might return <0 */
-	len = vsnprintf(buf, sizeof(buf), format, ap);
+	len += vsnprintf(buf + len, sizeof buf - len, format, ap);
 	va_end(ap);
 
-	/* TODO: Put in RSYNC_NAME at the start. */
-
-	if ((size_t) len > sizeof(buf)-1)
+	if (len < sizeof buf) {
+		len += snprintf(buf + len, sizeof buf - len,
+				": %s (%d)\n", strerror(errcode), errcode);
+	}
+	if (len >= sizeof buf)
 		exit_cleanup(RERR_MESSAGEIO);
-
-	sysmsg = strerror(errcode);
-	sys_len = strlen(sysmsg);
-	if ((size_t) len + 3 + sys_len > sizeof(buf) - 1)
-		exit_cleanup(RERR_MESSAGEIO);
-
-	strcpy(buf + len, ": ");
-	len += 2;
-	strcpy(buf + len, sysmsg);
-	len += sys_len;
-	strcpy(buf + len, "\n");
-	len++;
 
 	rwrite(code, buf, len);
 }
@@ -364,8 +347,9 @@ static void log_formatted(enum logcode code,
 	 * rather keep going until we reach the nul of the format.
 	 * Just to make sure we don't clobber that nul and therefore
 	 * accidentally keep going, we zero the buffer now. */
-	memset(buf, 0, sizeof buf);
-	strlcpy(buf, format, sizeof(buf));
+	l = strlcpy(buf, format, sizeof buf);
+	if (l < sizeof buf)
+		memset(buf + l, 0, sizeof buf - l);
 	
 	for (s = &buf[0]; s && (p = strchr(s,'%')); ) {
 		n = NULL;
@@ -389,7 +373,7 @@ static void log_formatted(enum logcode code,
 			pathjoin(buf2, sizeof buf2,
 				 file->basedir ? file->basedir : "",
 				 f_name(file));
-			clean_fname(buf2);
+			clean_fname(buf2, 0);
 			n = buf2;
 			if (*n == '/') n++;
 			break;

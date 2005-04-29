@@ -33,3 +33,4 @@
 #include <mach/clock_types.h>
 
 void SmartSleep( unsigned int microSeconds );
+double dsTimestamp(void);

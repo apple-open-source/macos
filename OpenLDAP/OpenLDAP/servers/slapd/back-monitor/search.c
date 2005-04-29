@@ -1,34 +1,22 @@
 /* search.c - monitor backend search function */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/search.c,v 1.24.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -44,21 +32,16 @@
 
 static int
 monitor_send_children(
-	Backend		*be,
-    	Connection	*conn,
-    	Operation	*op,
-    	Filter		*filter,
-    	AttributeName	*attrs,
-    	int		attrsonly,
+	Operation	*op,
+	SlapReply	*rs,
 	Entry		*e_parent,
-	int		sub,
-	int		*nentriesp
+	int		sub
 )
 {
-	struct monitorinfo	*mi = (struct monitorinfo *) be->be_private;
+	struct monitorinfo	*mi =
+		(struct monitorinfo *) op->o_bd->be_private;
 	Entry 			*e, *e_tmp, *e_ch;
 	struct monitorentrypriv *mp;
-	int			nentries;
 	int			rc;
 
 	mp = ( struct monitorentrypriv * )e_parent->e_private;
@@ -66,7 +49,7 @@ monitor_send_children(
 
 	e_ch = NULL;
 	if ( MONITOR_HAS_VOLATILE_CH( mp ) ) {
-		monitor_entry_create( mi, NULL, e_parent, &e_ch );
+		monitor_entry_create( op, NULL, e_parent, &e_ch );
 	}
 	monitor_cache_release( mi, e_parent );
 
@@ -101,23 +84,22 @@ monitor_send_children(
 	}
 
 	/* return entries */
-	for ( nentries = *nentriesp; e != NULL; ) {
+	for ( ; e != NULL; ) {
 		mp = ( struct monitorentrypriv * )e->e_private;
 
-		monitor_entry_update( mi, e );
+		monitor_entry_update( op, e );
 		
-		rc = test_filter( be, conn, op, e, filter );
+		rc = test_filter( op, e, op->oq_search.rs_filter );
 		if ( rc == LDAP_COMPARE_TRUE ) {
-			send_search_entry( be, conn, op, e, 
-					attrs, attrsonly, NULL );
-			nentries++;
+			rs->sr_entry = e;
+			rs->sr_flags = 0;
+			send_search_entry( op, rs );
+			rs->sr_entry = NULL;
 		}
 
 		if ( ( mp->mp_children || MONITOR_HAS_VOLATILE_CH( mp ) )
 				&& sub ) {
-			rc = monitor_send_children( be, conn, op, filter, 
-					attrs, attrsonly, 
-					e, sub, &nentries );
+			rc = monitor_send_children( op, rs, e, sub );
 			if ( rc ) {
 				return( rc );
 			}
@@ -135,26 +117,12 @@ monitor_send_children(
 }
 
 int
-monitor_back_search(
-	Backend		*be,
-	Connection	*conn,
-	Operation	*op,
-	struct berval	*base,
-	struct berval	*nbase,
-	int		scope,
-	int		deref,
-	int		slimit,
-	int		tlimit,
-	Filter		*filter,
-	struct berval	*filterstr,
-	AttributeName	*attrs,
-	int		attrsonly 
-)
+monitor_back_search( Operation *op, SlapReply *rs )
 {
-	struct monitorinfo	*mi = (struct monitorinfo *) be->be_private;
+	struct monitorinfo	*mi
+		= (struct monitorinfo *) op->o_bd->be_private;
 	int		rc = LDAP_SUCCESS;
 	Entry		*e, *matched = NULL;
-	int		nentries = 0;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( BACK_MON, ENTRY,
@@ -165,54 +133,56 @@ monitor_back_search(
 
 
 	/* get entry with reader lock */
-	monitor_cache_dn2entry( mi, nbase, &e, &matched );
+	monitor_cache_dn2entry( op, &op->o_req_ndn, &e, &matched );
 	if ( e == NULL ) {
-		send_ldap_result( conn, op, LDAP_NO_SUCH_OBJECT,
-			matched ? matched->e_dn : NULL, 
-			NULL, NULL, NULL );
+		rs->sr_err = LDAP_NO_SUCH_OBJECT;
 		if ( matched ) {
-			monitor_cache_release( mi, matched );
+			rs->sr_matched = matched->e_dn;
 		}
 
-		return( rc );
+		send_ldap_result( op, rs );
+		if ( matched ) {
+			monitor_cache_release( mi, matched );
+			rs->sr_matched = NULL;
+		}
+
+		return( 0 );
 	}
 
-	nentries = 0;
-	switch ( scope ) {
+	rs->sr_attrs = op->oq_search.rs_attrs;
+	switch ( op->oq_search.rs_scope ) {
 	case LDAP_SCOPE_BASE:
-		monitor_entry_update( mi, e );
-		rc = test_filter( be, conn, op, e, filter );
- 		if ( rc == LDAP_COMPARE_TRUE ) {			
-			send_search_entry( be, conn, op, e, attrs, 
-					attrsonly, NULL );
-			nentries = 1;
+		monitor_entry_update( op, e );
+		rc = test_filter( op, e, op->oq_search.rs_filter );
+ 		if ( rc == LDAP_COMPARE_TRUE ) {
+			rs->sr_entry = e;
+			rs->sr_flags = 0;
+			send_search_entry( op, rs );
+			rs->sr_entry = NULL;
 		}
 		rc = LDAP_SUCCESS;
 		monitor_cache_release( mi, e );
 		break;
 
 	case LDAP_SCOPE_ONELEVEL:
-		rc = monitor_send_children( be, conn, op, filter,
-				attrs, attrsonly,
-				e, 0, &nentries );
+		rc = monitor_send_children( op, rs, e, 0 );
 		if ( rc ) {
 			rc = LDAP_OTHER;
-		}		
+		}
 		
 		break;
 
 	case LDAP_SCOPE_SUBTREE:
-		monitor_entry_update( mi, e );
-		rc = test_filter( be, conn, op, e, filter );
+		monitor_entry_update( op, e );
+		rc = test_filter( op, e, op->oq_search.rs_filter );
 		if ( rc == LDAP_COMPARE_TRUE ) {
-			send_search_entry( be, conn, op, e, attrs,
-					attrsonly, NULL );
-			nentries++;
+			rs->sr_entry = e;
+			rs->sr_flags = 0;
+			send_search_entry( op, rs );
+			rs->sr_entry = NULL;
 		}
 
-		rc = monitor_send_children( be, conn, op, filter,
-				attrs, attrsonly,
-				e, 1, &nentries );
+		rc = monitor_send_children( op, rs, e, 1 );
 		if ( rc ) {
 			rc = LDAP_OTHER;
 		}
@@ -220,8 +190,10 @@ monitor_back_search(
 		break;
 	}
 	
-	send_search_result( conn, op, rc,
-			NULL, NULL, NULL, NULL, nentries );
+	rs->sr_attrs = NULL;
+	rs->sr_err = rc;
+	send_ldap_result( op, rs );
 
 	return( rc == LDAP_SUCCESS ? 0 : 1 );
 }
+

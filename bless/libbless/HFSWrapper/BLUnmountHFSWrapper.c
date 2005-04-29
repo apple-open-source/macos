@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Jun 26 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLUnmountHFSWrapper.c,v 1.9 2003/07/22 15:58:33 ssen Exp $
+ *  $Id: BLUnmountHFSWrapper.c,v 1.13 2005/02/03 00:42:26 ssen Exp $
  *
  *  $Log: BLUnmountHFSWrapper.c,v $
+ *  Revision 1.13  2005/02/03 00:42:26  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.12  2004/11/12 11:15:13  ssen
+ *  ifndef guards for SECTORSIZE
+ *
+ *  Revision 1.11  2004/04/20 21:40:43  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.10  2004/03/21 18:10:04  ssen
+ *  Update includes
+ *
  *  Revision 1.9  2003/07/22 15:58:33  ssen
  *  APSL 2.0
  *
@@ -83,18 +93,15 @@
 #include "bless.h"
 #include "bless_private.h"
 
+#ifndef SECTORSIZE
 #define SECTORSIZE 512
+#endif
 
 int BLUnmountHFSWrapper(BLContextPtr context, unsigned char device[], unsigned char mountpt[]) {
 
   unsigned char commandline[1024];
   int ret;
 
-#if OSX_TARGET < 1030
-  int				mfd;
-  char                     sector[SECTORSIZE];
-  HFSMasterDirectoryBlock *mdb = (HFSMasterDirectoryBlock *)sector;
-#endif
   
     snprintf(commandline, 1024, "/sbin/umount %s", mountpt);
     contextprintf(context, kBLLogLevelVerbose,  "Executing command `%s'\n", commandline );
@@ -104,51 +111,6 @@ int BLUnmountHFSWrapper(BLContextPtr context, unsigned char device[], unsigned c
         contextprintf(context, kBLLogLevelError,  "Can't unmount %s from %s\n", device, mountpt );
         return 7;
     }
-
-#if OSX_TARGET < 1030
-    mfd = open(device, O_RDWR);
-  
-  if(mfd == -1) {
-    contextprintf(context, kBLLogLevelError,  "Cannot open device %s\n", device );
-    return 1;
-  }
-
-    if((2*SECTORSIZE) != lseek(mfd, (2*SECTORSIZE), SEEK_SET)) {
-        contextprintf(context, kBLLogLevelError,  "Could not seed to offset %d of device %s\n", (2*SECTORSIZE), device );
-        close(mfd);
-        return 1;
-    }
-
-    if(SECTORSIZE != read(mfd, sector, SECTORSIZE)) {
-        contextprintf(context, kBLLogLevelError,  "Could not read %d bytes from offset %d of device %s\n", SECTORSIZE, (2*SECTORSIZE), device );
-        close(mfd);
-        return 1;    
-    }
-
-  contextprintf(context, kBLLogLevelVerbose,  "Switching to HFS+ embedded signature\n" );
-
-  mdb->drEmbedSigWord = kHFSPlusSigWord;
-
-    if((2*SECTORSIZE) != lseek(mfd, (2*SECTORSIZE), SEEK_SET)) {
-        contextprintf(context, kBLLogLevelError,  "Could not seed to offset %d of device %s\n", (2*SECTORSIZE), device );
-        close(mfd);
-        return 5;
-    }
-
-    if(SECTORSIZE != write(mfd, sector, SECTORSIZE)) {
-        contextprintf(context, kBLLogLevelError,  "Could not write %d bytes from offset %d of device %s\n", SECTORSIZE, (2*SECTORSIZE), device );
-        close(mfd);
-        return 5;    
-    }
-
-
-  contextprintf(context, kBLLogLevelVerbose,  "Closing volume\n" );
-  ret = close(mfd);
-  if (ret == -1) {
-    contextprintf(context, kBLLogLevelError,  "Error %d from close()", ret );
-    return 6;
-  }
-#endif // OSX_TARGET
   
   return 0;
 }

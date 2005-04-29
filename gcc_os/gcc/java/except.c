@@ -44,8 +44,6 @@ static void link_handler PARAMS ((struct eh_range *, struct eh_range *));
 static void check_start_handlers PARAMS ((struct eh_range *, int));
 static void free_eh_ranges PARAMS ((struct eh_range *range));
 
-extern struct obstack permanent_obstack;
-
 struct eh_range *current_method_handlers;
 
 struct eh_range *current_try_block = NULL;
@@ -63,9 +61,9 @@ static struct eh_range *cache_next_child;
 struct eh_range whole_range;
 
 #if defined(DEBUG_JAVA_BINDING_LEVELS)
-int binding_depth;
-int is_class_level;
-int current_pc;
+extern int binding_depth;
+extern int is_class_level;
+extern int current_pc;
 extern void indent ();
 
 #endif
@@ -155,8 +153,7 @@ link_handler (range, outer)
   /* Handle overlapping ranges by splitting the new range.  */
   if (range->start_pc < outer->start_pc || range->end_pc > outer->end_pc)
     {
-      struct eh_range *h
-	= (struct eh_range *) xmalloc (sizeof (struct eh_range));
+      struct eh_range *h = xmalloc (sizeof (struct eh_range));
       if (range->start_pc < outer->start_pc)
 	{
 	  h->start_pc = range->start_pc;
@@ -174,6 +171,7 @@ link_handler (range, outer)
       h->handlers = build_tree_list (TREE_PURPOSE (range->handlers),
 				     TREE_VALUE (range->handlers));
       h->next_sibling = NULL;
+      h->expanded = 0;
       /* Restart both from the top to avoid having to make this
 	 function smart about reentrancy.  */
       link_handler (h, &whole_range);
@@ -287,7 +285,7 @@ add_handler (start_pc, end_pc, handler, type)
       prev = ptr;
     }
 
-  h = (struct eh_range *) xmalloc (sizeof (struct eh_range));
+  h = xmalloc (sizeof (struct eh_range));
   h->start_pc = start_pc;
   h->end_pc = end_pc;
   h->first_child = NULL;

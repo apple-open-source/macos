@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,7 +50,6 @@
  * Memory deallocation routine for MiG interfaces.
  */
 #include <mach/mach.h>
-#include "externs.h"
 
 void
 mig_deallocate(vm_address_t addr, vm_size_t size)

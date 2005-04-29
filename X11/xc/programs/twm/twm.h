@@ -60,7 +60,7 @@ from The Open Group.
  * 28-Oct-87 Thomas E. LaStrange	File created
  * 10-Oct-90 David M. Sternlicht        Storeing saved colors on root
  ***********************************************************************/
-/* $XFree86: xc/programs/twm/twm.h,v 3.12 2001/12/14 20:01:10 dawes Exp $ */
+/* $XFree86: xc/programs/twm/twm.h,v 3.13 2003/04/21 11:46:14 herrb Exp $ */
 
 #ifndef _TWM_
 #define _TWM_
@@ -352,7 +352,7 @@ extern void InitVariables ( void );
 extern void CreateFonts ( void );
 extern void RestoreWithdrawnLocation ( TwmWindow *tmp );
 extern void Reborder( Time time);
-extern SIGNAL_T Done( int sig );
+extern void Done( XtPointer, XtSignalId * );
 extern void ComputeCommonTitleOffsets ( void );
 extern void ComputeTitleLocation ( TwmWindow *tmp );
 extern void ComputeWindowTitleOffsets ( TwmWindow *tmp_win, int width, Bool squeeze );
@@ -399,7 +399,6 @@ extern void NewBitmapCursor ( Cursor *cp, char *source, char *mask );
 extern Pixmap CreateMenuIcon ( int height, unsigned int *widthp, unsigned int *heightp );
 
 extern Bool ErrorOccurred;
-extern volatile Bool TimeToYield;
 extern XErrorEvent LastErrorEvent;
 
 #define ResetError() (ErrorOccurred = False)

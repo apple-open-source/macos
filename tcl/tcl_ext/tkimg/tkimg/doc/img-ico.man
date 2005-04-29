@@ -1,0 +1,63 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME ico]
+[vset FORMATFULLNAME {Windows Icon Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {ICO OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {ICO OPTIONS}].
+
+[list_end]
+
+
+[section {SUPPORTED ICO TYPES}]
+
+[example_begin]
+  1-bit pixels: Black and White.
+  4-bit pixels: Grayscale or indexed.
+  8-bit pixels: True-color (RGB, each channel 8 bit).
+
+ List of currently supported features:
+
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+  1-bit | Yes   | Yes   | No    | No    |
+  4-bit | Yes   | Yes   | No    | No    |
+  8-bit | Yes   | Yes   | Yes   | Yes   |
+[example_end]
+
+
+[section {ICO OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], additional information about the loaded/stored image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -index] [arg n]"]
+
+This option is supported for reading only.
+[nl]
+Read the [arg n]'th image. The first image is at index [const 0].
+Default is [const 0].
+
+[list_end]
+
+
+[list_begin definitions]
+[include format-footer.inc]

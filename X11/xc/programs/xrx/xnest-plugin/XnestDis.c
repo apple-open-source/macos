@@ -26,6 +26,7 @@ other dealings in this Software without prior written authorization from
 The Open Group.
 
 */
+/* $XFree86: xc/programs/xrx/xnest-plugin/XnestDis.c,v 1.3 2003/07/20 16:12:21 tsi Exp $ */
 
 #include "RxPlugin.h"
 
@@ -86,6 +87,13 @@ RxpXnestDisplay(int display_number)
     else
 	dpy_name = display_name;
 
+    /* Check for RFC 2732 bracketed IPv6 numeric address */
+    if (*dpy_name == '[') {
+	while (*dpy_name && (*dpy_name != ']')) {
+	    dpy_name++;
+	}
+    }
+    
     /* display number is after next ":" character */
     display_num = strchr(dpy_name, ':');
     if (display_num == NULL)	/* invalid display specification */
@@ -104,3 +112,4 @@ RxpXnestDisplay(int display_number)
 
     return name;
 }
+    

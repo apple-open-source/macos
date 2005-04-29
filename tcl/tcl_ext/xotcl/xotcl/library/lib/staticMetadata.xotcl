@@ -1,0 +1,84 @@
+package require xotcl::metadataAnalyzer
+package provide xotcl::staticMetadataAnalyzer 0.84
+
+@ @File {
+  description {
+    XOTcl file static analyzer for @ metadata. E.g. used for 
+    doumentation with xoDoc. I.e. allows for reading in a 
+    file and evaluating the metadata-related info only.
+  }
+}
+
+@ Class StaticMetadataAnalyzer -superclass MetadataAnalyzer {
+  description {
+    Metadata analyzer class that allows for reading in files
+    and  evaluation of the metadata content in the file.
+  }
+}
+
+Class StaticMetadataAnalyzer -superclass MetadataAnalyzer
+
+StaticMetadataAnalyzer instproc getCommand {content} {
+  upvar [self callinglevel] $content c
+  my instvar cmd
+  if {[set line [string first "\n" $c]] != -1} {
+    append cmd [string range $c 0 $line]
+    set c [string range $c [expr $line + 1] end]
+    if {[info complete $cmd]} {
+      set r $cmd; set cmd ""
+      return $r
+    }
+  } elseif {[string length [string trim $c]] >0} {
+      # We have some data left which doesn't end with a "\n". This happens
+      # if an EOF marks the end of a line instead of a newline.
+      append cmd $c
+      set c ""
+      if {[info complete $cmd]} {
+	  set r $cmd
+	  set cmd ""
+	  return $r
+      }
+  } else {
+    return ""
+  }
+  my getCommand c
+}
+
+
+StaticMetadataAnalyzer instproc evaluateCommands {c} {
+  while 1 {
+    set command [my getCommand c]
+    if {$command == ""} {
+      break
+    }
+    #puts stderr "$command==========================="
+    if {[regexp "^ *:*@ " $command]} {
+      #puts stderr "$command==========================="
+      eval $command
+    } elseif {[regexp "^ *package " $command]} {
+      #puts stderr "$command==========================="
+      eval my handlePackage $command
+    } elseif {[regexp "^ *namespace *eval *(\[^\{\]*) *\{(.*)\}\[^\}\]*$" $command _ namespace nsc]} {
+      #puts stderr "$command==========================="
+      my evaluateCommands $nsc 
+   } 
+  }
+}
+
+@ StaticMetadataAnalyzer instproc analyzeFile {name "File name"} {
+  description "Analyze a file and build up a token structure for each metadata token in the file."
+}
+StaticMetadataAnalyzer instproc analyzeFile name {
+  my set cmd ""
+
+  set t [FileToken create [my autoname t]]  
+  $t set name $name
+  my set fileToken $t
+
+  set f [open $name r]
+  set c [read $f]
+  close $f
+  ::@ onOff 1
+  my evaluateCommands $c
+  ::@ onOff 0
+}

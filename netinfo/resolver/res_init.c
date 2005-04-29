@@ -70,7 +70,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static const char sccsid[] = "@(#)res_init.c	8.1 (Berkeley) 6/7/93";
-static const char rcsid[] = "$Id: res_init.c,v 1.7.96.1 2005/02/22 00:32:18 majka Exp $";
+static const char rcsid[] = "$Id: res_init.c,v 1.16 2005/03/11 01:48:52 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #ifndef __APPLE__
@@ -94,6 +94,7 @@ static const char rcsid[] = "$Id: res_init.c,v 1.7.96.1 2005/02/22 00:32:18 majk
 #include <netdb.h>
 #ifdef __APPLE__
 #include <fcntl.h>
+#include <dnsinfo.h>
 #endif
 
 #ifndef __APPLE__
@@ -110,6 +111,7 @@ static const char rcsid[] = "$Id: res_init.c,v 1.7.96.1 2005/02/22 00:32:18 majk
 #define DEBUG
 
 static void res_setoptions __P((res_state, const char *, const char *));
+extern res_state res_state_new();
 
 #ifdef RESOLVSORT
 static const char sort_mask[] = "/&";
@@ -121,9 +123,374 @@ static u_int32_t net_mask __P((struct in_addr));
 # define isascii(c) (!(c & 0200))
 #endif
 
+#define INET_NTOP_AF_INET_OFFSET 4
+#define INET_NTOP_AF_INET6_OFFSET 8
+
 /*
  * Resolver state default settings.
  */
+
+res_state 
+res_build_start(res_state x)
+{
+	res_state res;
+	int rf;
+
+	res = NULL;
+
+	if (x == NULL)
+	{
+		res = res_state_new();
+	}
+	else
+	{
+		if ((x->options & RES_INIT) != 0) res_ndestroy(x);
+		res = x;
+	}
+
+	if (res == NULL) return NULL;
+
+	/* make sure version is set */
+	res->_pad = 9;
+
+	res->retry = RES_DFLRETRY;
+	res->options = RES_DEFAULT;
+	
+	rf = open("/dev/random", O_RDONLY, 0);
+	read(rf, &(res->id), 2);
+	close(rf);
+	
+	res->ndots = 1;
+	res->_vcsock = -1;
+
+	if (res->_u._ext.ext != NULL)
+	{
+		strcpy(res->_u._ext.ext->nsuffix, "ip6.arpa");
+		strcpy(res->_u._ext.ext->nsuffix2, "ip6.int");
+		strcpy(res->_u._ext.ext->bsuffix, "ip6.arpa");
+	}
+
+	return res;
+}
+
+int
+res_build_finish(res_state res, uint32_t timeout, uint16_t port)
+{
+	if (res == NULL) return -1;
+	
+	if (res->nscount == 0)
+	{
+#ifdef USELOOPBACK
+		res->nsaddr_list[0].sin_addr = inet_makeaddr(IN_LOOPBACKNET, 1);
+#else
+		res->nsaddr_list[0].sin_addr.s_addr = INADDR_ANY;
+#endif
+		
+		res->nsaddr_list[0].sin_family = AF_INET;
+		res->nsaddr_list[0].sin_port = htons(port);
+#ifdef HAVE_SA_LEN
+		res->nsaddr_list[0].sin_len = sizeof(struct sockaddr_in);
+#endif
+		
+		res->nscount = 1;
+	}
+	
+	if (timeout == 0) res->retrans = RES_MAXRETRANS;
+	else res->retrans = timeout;
+
+	res->options |= RES_INIT;
+	return 0;
+}
+
+int
+res_build_sortlist(res_state res, struct in_addr addr, struct in_addr mask)
+{
+	uint32_t n;
+	
+	if (res == NULL) return -1;
+	
+	n = res->nsort;
+	if (n >= MAXRESOLVSORT) return -1;
+	
+	res->sort_list[n].addr = addr;
+	res->sort_list[n].mask = mask.s_addr;
+	n++;
+	res->nsort = n;
+	
+	return 0;
+}
+
+char *
+res_next_word(char **p)
+{
+	char *s, *x;
+
+	if (p == NULL) return NULL;
+	if (*p == NULL) return NULL;
+
+	s = *p;
+
+	/* Skip leading white space */
+	while ((*s == ' ') || (*s == '\t') || (*s == '\n')) s++;
+	*p = s;
+
+	if (*s == '\0') return NULL;
+
+	/* Find end of word */
+	x = s;
+	while ((*x != ' ') && (*x != '\t') && (*x != '\n') && (*x != '\0')) x++;
+	if (*x != '\0')
+	{
+		*x = '\0';
+		x++;
+	}
+
+	*p = x;
+
+	if (s == x) return NULL;
+	return s;
+}
+
+int
+res_build(res_state res, uint16_t port, uint32_t *nsrch, char *key, char *val)
+{
+	int32_t dotcount, semicount, status;
+	int32_t ival, len;
+	char *p, *lastdot;
+	uint16_t aport;
+	struct in_addr addr4, mask;
+	struct sockaddr_in sin4;
+	struct in6_addr addr6;
+	struct sockaddr_in6 sin6;
+				
+	if (res == NULL) return -1;	
+	
+	if (!strcmp(key, "domain"))
+	{
+		strncpy(res->defdname, val, sizeof(res->defdname) - 1);
+		res->defdname[sizeof(res->defdname) - 1] = '\0';
+		return 0;
+	}
+
+	else if (!strcmp(key, "search"))
+	{
+		len = strlen(val) + 1;
+		ival = sizeof(res->defdname);
+		p = res->defdname;
+
+		if ((*nsrch) == 0)
+		{
+			memset(res->defdname, 0, sizeof(res->defdname));
+		}
+		else
+		{
+			p = res->dnsrch[*nsrch - 1];
+			for (; (ival > 0) && (*p != '\0'); ival--) p++;
+			if (*p == '\0') p++;
+		}
+
+		if (len > ival) return -1;
+
+		memcpy(p, val, len);
+		res->dnsrch[*nsrch] = p;
+		*nsrch = *nsrch + 1;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "nameserver"))
+	{		
+		dotcount = 0;
+		semicount = 0;
+		lastdot = NULL;
+		aport = port;
+		
+		for (p = val; *p != '\0'; p++)
+		{
+			if (*p == ':') semicount++;
+			else if (*p == '.')
+			{
+				dotcount++;
+				lastdot = p;
+			}
+		}
+		
+		if ((dotcount == 4) || ((semicount > 0) && (lastdot != NULL)))
+		{
+			aport = atoi(lastdot + 1);
+			if (aport == 0) aport = port;
+			*lastdot = '\0';
+		}
+
+		memset(&addr4, 0, sizeof(struct in_addr));
+		memset(&sin4, 0, sizeof(struct sockaddr_in));
+		
+		memset(&addr6, 0, sizeof(struct in6_addr));
+		memset(&sin6, 0, sizeof(struct sockaddr_in6));
+		
+		status = inet_pton(AF_INET6, val, &addr6);
+		if (status == 1)
+		{
+			sin6.sin6_addr = addr6;
+			sin6.sin6_family = AF_INET6;
+			sin6.sin6_port = htons(aport);
+			sin6.sin6_len = sizeof(struct sockaddr_in6);
+			if (res->_u._ext.ext != NULL)
+			{
+				memcpy(&(res->_u._ext.ext->nsaddrs[res->nscount]), &sin6, sizeof(struct sockaddr_in6));
+			}
+			res->nsaddr_list[res->nscount].sin_family = 0;
+			res->nscount++;
+		}
+		else
+		{
+			status = inet_pton(AF_INET, val, &addr4);
+			if (status == 1)
+			{
+				sin4.sin_addr = addr4;
+				sin4.sin_family = AF_INET;
+				sin4.sin_port = htons(aport);
+				sin4.sin_len = sizeof(struct sockaddr_in);
+				if (res->_u._ext.ext != NULL)
+				{
+					memcpy(&(res->_u._ext.ext->nsaddrs[res->nscount]), &sin4, sizeof(struct sockaddr_in));
+				}
+				memcpy(&(res->nsaddr_list[res->nscount]), &sin4, sizeof(struct sockaddr_in));
+				res->nscount++;
+			}
+		}
+		
+		return 0;
+	}
+	
+	else if (!strcmp(key, "sortlist"))
+	{
+		p = strchr(val, '/');
+		
+		if (p != NULL)
+		{
+			*p = '\0';
+			p++;
+		}
+		
+		/* we use inet_aton rather than inet_pton to be compatible with res_init() */
+		status = inet_aton(val, &addr4);
+		if (status == 0) return -1;
+			
+		status = 0;
+		if (p != NULL) status = inet_aton(p, &mask);
+		if (status == 0)
+		{
+			ival = ntohl(addr4.s_addr);
+
+			if (IN_CLASSA(ival)) mask.s_addr = htonl(IN_CLASSA_NET);
+			else if (IN_CLASSB(ival)) mask.s_addr = htonl(IN_CLASSB_NET);
+			else mask.s_addr = htonl(IN_CLASSC_NET);
+		}
+
+		return res_build_sortlist(res, addr4, mask);
+	}
+	
+	else if (!strcmp(key, "ndots"))
+	{
+		ival = atoi(val);
+		if (ival < 0) ival = 0;
+		if (ival > RES_MAXNDOTS) ival = RES_MAXNDOTS;
+		res->ndots = ival;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "nibble"))
+	{
+		if ((strlen(val) + 1) > RES_EXT_SUFFIX_LEN) return -1;
+		if (res->_u._ext.ext == NULL) return -1;
+		strcpy(res->_u._ext.ext->nsuffix, val);
+		return 0;
+	}
+	
+	else if (!strcmp(key, "nibble2"))
+	{
+		if ((strlen(val) + 1) > RES_EXT_SUFFIX_LEN) return -1;
+		if (res->_u._ext.ext == NULL) return -1;
+		strcpy(res->_u._ext.ext->nsuffix2, val);
+		return 0;
+	}
+	
+	else if (!strcmp(key, "bitstring"))
+	{
+		if ((strlen(val) + 1) > RES_EXT_SUFFIX_LEN) return -1;
+		if (res->_u._ext.ext == NULL) return -1;
+		strcpy(res->_u._ext.ext->bsuffix, val);
+		return 0;
+	}
+	
+	else if (!strcmp(key, "attempts"))
+	{
+		ival = atoi(val);
+		if (ival < 0) ival = 0;
+		if (ival > RES_MAXRETRY) ival = RES_MAXRETRY;
+		res->retry = ival;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "v6revmode"))
+	{
+		if (!strcmp(val, "single")) res->options |= RES_NO_NIBBLE2;
+		else if (!strcmp(val, "both")) res->options &= ~RES_NO_NIBBLE2;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "debug"))
+	{
+		res->options |= RES_DEBUG;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "no_tld_query"))
+	{
+		res->options |= RES_NOTLDQUERY;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "inet6"))
+	{
+		res->options |= RES_USE_INET6;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "rotate"))
+	{
+		res->options |= RES_ROTATE;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "no-check-names"))
+	{
+		res->options |= RES_NOCHECKNAME;
+		return 0;
+	}
+	
+#ifdef RES_USE_EDNS0
+	else if (!strcmp(key, "edns0"))
+	{
+		res->options |= RES_USE_EDNS0;
+		return 0;
+	}
+#endif
+	
+	else if (!strcmp(key, "a6"))
+	{
+		res->options |= RES_USE_A6;
+		return 0;
+	}
+	
+	else if (!strcmp(key, "dname"))
+	{
+		res->options |= RES_USE_DNAME;
+		return 0;
+	}
+
+	return -1;
+}
 
 /*
  * Set up default settings.  If the configuration file exist, the values
@@ -146,12 +513,6 @@ static u_int32_t net_mask __P((struct in_addr));
  *
  * Return 0 if completes successfully, -1 on error
  */
-int
-res_ninit(res_state statp) {
-	extern int __res_vinit(res_state, int);
-
-	return (__res_vinit(statp, 0));
-}
 
 int
 res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
@@ -163,8 +524,9 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	int nserv = 0;    /* number of nameserver records read from file */
 	int haveenv = 0;
 	int havesearch = 0;
+	int isresdefault = 0;
 	unsigned short port; /* HOST BYTE ORDER */
-	unsigned int i, totaltimeout;
+	unsigned int i, total_timeout;
 #ifdef RESOLVSORT
 	int nsort = 0;
 	char *net;
@@ -172,7 +534,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	int dots;
 
 	port = NS_DEFAULTPORT;
-	totaltimeout = 0;
+	total_timeout = 0;
 
 	if (!preinit)
 	{
@@ -184,17 +546,28 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 
 	if ((statp->options & RES_INIT) != 0) res_ndestroy(statp);
 
+	/* make sure version is set */
+	statp->_pad = 9;
+	
+	statp->nscount = 0;
+	
+	if ((resconf_file == NULL) || (!strcmp(resconf_file, _PATH_RESCONF)))
+	{
+		isresdefault = 1;
+		
 #ifdef USELOOPBACK
-	statp->nsaddr.sin_addr = inet_makeaddr(IN_LOOPBACKNET, 1);
+		statp->nsaddr.sin_addr = inet_makeaddr(IN_LOOPBACKNET, 1);
 #else
-	statp->nsaddr.sin_addr.s_addr = INADDR_ANY;
+		statp->nsaddr.sin_addr.s_addr = INADDR_ANY;
 #endif
-	statp->nsaddr.sin_family = AF_INET;
-	statp->nsaddr.sin_port = htons(NS_DEFAULTPORT);
+		statp->nsaddr.sin_family = AF_INET;
+		statp->nsaddr.sin_port = htons(NS_DEFAULTPORT);
 #ifdef HAVE_SA_LEN
-	statp->nsaddr.sin_len = sizeof(struct sockaddr_in);
+		statp->nsaddr.sin_len = sizeof(struct sockaddr_in);
 #endif
-	statp->nscount = 1;
+		statp->nscount = 1;
+	}
+	
 	statp->ndots = 1;
 	statp->pfcode = 0;
 	statp->_vcsock = -1;
@@ -203,8 +576,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	statp->rhook = NULL;
 	statp->_u._ext.nscount = 0;
 	statp->_u._ext.ext = malloc(sizeof(*statp->_u._ext.ext));
-	statp->_u._ext.ext->search_order = 0;
-
+	
 	if (statp->_u._ext.ext != NULL)
 	{
 		memset(statp->_u._ext.ext, 0, sizeof(*statp->_u._ext.ext));
@@ -213,14 +585,14 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 		strcpy(statp->_u._ext.ext->nsuffix2, "ip6.int");
 		strcpy(statp->_u._ext.ext->bsuffix, "ip6.arpa");
 	}
-
+	
 #ifdef RESOLVSORT
 	statp->nsort = 0;
 #endif
-
+	
 	/* Allow user to override the local domain definition */
 	cp = getenv("LOCALDOMAIN");
-	if ((cp != NULL) && ((resconf_file == NULL) || (!strcmp(resconf_file, _PATH_RESCONF))))
+	if ((cp != NULL) && (isresdefault != 0))
 	{
 		(void)strncpy(statp->defdname, cp, sizeof(statp->defdname) - 1);
 		statp->defdname[sizeof(statp->defdname) - 1] = '\0';
@@ -536,21 +908,9 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 				if ((*cp == '\0') || (*cp == '\n')) continue;
 				i = atoi(cp);
 				if (i > RES_MAXRETRANS) i = RES_MAXRETRANS;
-				totaltimeout = i;
+				total_timeout = i;
 				continue;
 			}
-
-#ifdef __APPLE__
-			if (MATCH(buf, "search_order"))
-			{
-				cp = buf + sizeof("search_order") - 1;
-				while (*cp == ' ' || *cp == '\t') cp++;
-				if ((*cp == '\0') || (*cp == '\n')) continue;
-				if (statp->_u._ext.ext != NULL) statp->_u._ext.ext->search_order = atoi(cp);
-				continue;
-			}
-#endif
-
 		}
 
 		if (nserv > 1) statp->nscount = nserv;
@@ -568,7 +928,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	if(nserv == 0) nserv = get_nameservers(statp);
 #endif
 
-	if ((resconf_file == NULL) || (!strcmp(resconf_file, _PATH_RESCONF)))
+	if (isresdefault != 0)
 	{
 		if ((statp->defdname[0] == 0) && (gethostname(buf, sizeof(statp->defdname) - 1) == 0) && ((cp = strchr(buf, '.')) != NULL))
 		{
@@ -610,7 +970,7 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	}
 
 	cp = getenv("RES_OPTIONS");
-	if ((cp != NULL) && ((resconf_file == NULL) || (!strcmp(resconf_file, _PATH_RESCONF))))
+	if ((cp != NULL) && (isresdefault != 0))
 	{
 		res_setoptions(statp, cp, "env");
 	}
@@ -619,10 +979,10 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 	/*
 	 * Post processing to set the timeout value.
 	 */
-	if (totaltimeout != 0)
+	if (total_timeout != 0)
 	{
 		/* Timeout was set with a "timeout" line in the file */
-		statp->retrans = totaltimeout;
+		statp->retrans = total_timeout;
 	}
 	else
 	{
@@ -632,20 +992,13 @@ res_vinit_from_file(res_state statp, int preinit, char *resconf_file)
 		 * and set statp->restrans which we (Apple) use to indicate
 		 * total time allowed for a query to be resolved.
 		 */
-		totaltimeout = statp->retrans * statp->retry * statp->nscount;
-		statp->retrans = totaltimeout;
+		total_timeout = statp->retrans * (statp->retry + 1) * statp->nscount;
+		statp->retrans = total_timeout;
 	}
 #endif
 
 	statp->options |= RES_INIT;
 	return (0);
-}
-
-/* This function has to be reachable by res_data.c but not publically. */
-int
-__res_vinit(res_state statp, int preinit)
-{
-	return res_vinit_from_file(statp, preinit, _PATH_RESCONF);
 }
 
 static void
@@ -764,6 +1117,200 @@ res_setoptions(res_state statp, const char *options, const char *source)
 	}
 }
 
+/* This function has to be reachable by res_data.c but not publically. */
+int
+__res_vinit(res_state statp, int preinit)
+{
+	dns_config_t *sc_dns;
+	dns_resolver_t *sc_res;
+	char val[256], *p, *x;
+	int i, n;
+	uint32_t nsearch, total_timeout, send_timeout;
+	uint16_t port;
+
+	nsearch = 0;
+	send_timeout = 0;
+
+	sc_dns = dns_configuration_copy();
+	if (sc_dns == NULL) return res_vinit_from_file(statp, preinit, _PATH_RESCONF);
+
+	sc_res = sc_dns->resolver[0];
+	port = sc_res->port;
+	if (port == 0) port = NS_DEFAULTPORT;
+
+	if ((statp->options & RES_INIT) != 0) res_ndestroy(statp);
+
+	statp = res_build_start(statp);
+
+	p = getenv("RES_RETRY_TIMEOUT");
+	if (p != NULL) send_timeout = atoi(p);
+
+	p = getenv("RES_RETRY");
+	if (p != NULL) statp->retry= atoi(p);
+
+	if (sc_res->n_nameserver > MAXNS) sc_res->n_nameserver = MAXNS;
+	for (i = 0; i < sc_res->n_nameserver; i++)
+	{
+		if (sc_res->nameserver[i]->sa_family == AF_INET)
+		{
+			memset(val, 0, sizeof(val));
+			inet_ntop(AF_INET, (char *)(sc_res->nameserver[i]) + INET_NTOP_AF_INET_OFFSET, val, sizeof(val));
+			res_build(statp, port, &nsearch, "nameserver", val);
+		}
+		else if (sc_res->nameserver[i]->sa_family == AF_INET6)
+		{
+			memset(val, 0, sizeof(val));
+			inet_ntop(AF_INET6, (char *)(sc_res->nameserver[i]) + INET_NTOP_AF_INET6_OFFSET, val, sizeof(val));
+			res_build(statp, port, &nsearch, "nameserver", val);
+		}
+	}
+
+	if (sc_res->n_search > MAXDNSRCH) sc_res->n_search = MAXDNSRCH;
+	for (i = 0; i < sc_res->n_search; i++)
+	{
+		res_build(statp, port, &nsearch, "search", sc_res->search[i]);
+	}
+
+	/* If there was no search list, use "domain" */
+	if ((sc_res->n_search == 0) && (sc_res->domain != NULL))
+	{
+		n = 1;
+		for (p = sc_res->domain; *p != '\0'; p++) 
+		{
+			if (*p == '.') n++;
+		}
+
+		res_build(statp, port, &nsearch, "search", sc_res->domain);
+
+		/* Include parent domains with at least LOCALDOMAINPARTS components */
+		p = sc_res->domain;
+		while ((n > LOCALDOMAINPARTS) && (nsearch < MAXDFLSRCH))
+		{
+			/* Find next component */
+			while ((*p != '.') && (*p != '\0')) p++;
+			if (*p == '\0') break;
+			p++;
+
+			n--;
+			res_build(statp, port, &nsearch, "search", p);
+		}
+	}
+
+	total_timeout = sc_res->timeout;
+	
+	snprintf(val, sizeof(val), "%d", sc_res->search_order);
+	res_build(statp, port, &nsearch, "search_order", val);
+	
+	if (sc_res->n_sortaddr > MAXRESOLVSORT) sc_res->n_sortaddr = MAXRESOLVSORT;
+	for (i = 0; i < sc_res->n_sortaddr; i++)
+	{
+		res_build_sortlist(statp, sc_res->sortaddr[i]->address, sc_res->sortaddr[i]->mask);
+	}
+	
+	p = sc_res->options;
+	while (NULL != (x = res_next_word(&p)))
+	{
+		if (!strncmp(x, "ndots:", 6))
+		{
+			res_build(statp, port, &nsearch, "ndots", x+6);
+		}
+		
+		else if (!strncmp(x, "nibble:", 7))
+		{
+			res_build(statp, port, &nsearch, "nibble", x+7);
+		}
+		
+		else if (!strncmp(x, "nibble2:", 8))
+		{
+			res_build(statp, port, &nsearch, "nibble2", x+8);
+		}
+		
+		else if (!strncmp(x, "timeout:", 8))
+		{
+			send_timeout = atoi(x+8);
+		}
+		
+		else if (!strncmp(x, "attempts:", 9))
+		{
+			res_build(statp, port, &nsearch, "attempts", x+9);
+		}
+		
+		else if (!strncmp(x, "bitstring:", 10))
+		{
+			res_build(statp, port, &nsearch, "bitstring", x+10);
+		}
+		
+		else if (!strncmp(x, "v6revmode:", 10))
+		{
+			res_build(statp, port, &nsearch, "v6revmode", x+10);
+		}
+		
+		else if (!strcmp(x, "debug"))
+		{
+			res_build(statp, port, &nsearch, "debug", NULL);
+		}
+		
+		else if (!strcmp(x, "no_tld_query"))
+		{
+			res_build(statp, port, &nsearch, "no_tld_query", NULL);
+		}
+		
+		else if (!strcmp(x, "inet6"))
+		{
+			res_build(statp, port, &nsearch, "inet6", NULL);
+		}
+		
+		else if (!strcmp(x, "rotate"))
+		{
+			res_build(statp, port, &nsearch, "rotate", NULL);
+		}
+		
+		else if (!strcmp(x, "no-check-names"))
+		{
+			res_build(statp, port, &nsearch, "no-check-names", NULL);
+		}
+		
+#ifdef RES_USE_EDNS0
+		else if (!strcmp(x, "edns0"))
+		{
+			res_build(statp, port, &nsearch, "edns0", NULL);
+		}		
+#endif
+		else if (!strcmp(x, "a6"))
+		{
+			res_build(statp, port, &nsearch, "a6", NULL);
+		}
+		
+		else if (!strcmp(x, "dname"))
+		{
+			res_build(statp, port, &nsearch, "dname", NULL);
+		}
+	}
+	
+	n = statp->nscount;
+	if (n == 0) n = 1;
+
+	if (total_timeout == 0)
+	{
+		if (send_timeout == 0) total_timeout = RES_MAXRETRANS;
+		else total_timeout = send_timeout * statp->retry * n;
+	}
+
+	dns_configuration_free(sc_dns);
+
+	res_build_finish(statp, total_timeout, port);
+
+	return 0;
+}
+
+int
+res_ninit(res_state statp)
+{
+	if (statp == NULL) return -1;
+	memset(statp, 0, sizeof(struct __res_state));
+	return __res_vinit(statp, 0);
+}
+
 #ifdef RESOLVSORT
 /* XXX - should really support CIDR which means explicit masks always. */
 static u_int32_t
@@ -818,29 +1365,47 @@ res_randomid(void) {
  * This routine is not expected to be user visible.
  */
 void
-res_nclose(res_state statp) {
+res_nclose(res_state statp)
+{
 	int ns;
-
-	if (statp->_vcsock >= 0) { 
-		(void) close(statp->_vcsock);
+	
+	if (statp->_vcsock >= 0)
+	{ 
+		close(statp->_vcsock);
 		statp->_vcsock = -1;
 		statp->_flags &= ~(RES_F_VC | RES_F_CONN);
 	}
-	for (ns = 0; ns < statp->_u._ext.nscount; ns++) {
-		if (statp->_u._ext.nssocks[ns] != -1) {
-			(void) close(statp->_u._ext.nssocks[ns]);
-			statp->_u._ext.nssocks[ns] = -1;
+	
+	if (statp->_pad >= 9)
+	{
+		for (ns = 0; ns < statp->_u._ext.nscount; ns++)
+		{
+			if (statp->_u._ext.nssocks[ns] != -1)
+			{
+				close(statp->_u._ext.nssocks[ns]);
+				statp->_u._ext.nssocks[ns] = -1;
+			}
 		}
 	}
 }
 
 void
-res_ndestroy(res_state statp) {
+res_ndestroy(res_state statp)
+{
 	res_nclose(statp);
-	if (statp->_u._ext.ext != NULL)
-		free(statp->_u._ext.ext);
 	statp->options &= ~RES_INIT;
-	statp->_u._ext.ext = NULL;
+
+	/*
+	 * _pad (normally unused) is a version number.
+	 * We use it to prevent BIND_9 from trashing memory
+	 * if statp was created by BIND-8.
+	 */
+	if (statp->_pad >= 9)
+	{
+		if (statp->_u._ext.ext != NULL) free(statp->_u._ext.ext);
+		statp->_u._ext.ext = (struct __res_state_ext *)calloc(1, sizeof(struct __res_state_ext));
+		statp->_pad = 9;
+	}
 }
 
 const char *
@@ -909,8 +1474,8 @@ res_setservers(res_state statp, const union res_sockaddr_union *set, int cnt) {
 		}
 		set++;
 	}
+
 	statp->nscount = nserv;
-	
 }
 
 int

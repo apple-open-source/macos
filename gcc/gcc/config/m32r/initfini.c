@@ -3,9 +3,9 @@
 
 Copyright (C) 1996, 1997, 1998 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
@@ -19,13 +19,13 @@ do apply in other respects; for example, they cover modification of
 the file, and distribution when not linked into a combine
 executable.)
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -47,11 +47,11 @@ typedef void (*func_ptr) (void);
    symbol in crtinit.o, where they are defined.  */
 
 static func_ptr __CTOR_LIST__[1]
-  __attribute__ ((section (".ctors")))
+  __attribute__ ((used, section (".ctors")))
      = { (func_ptr) (-1) };
 
 static func_ptr __DTOR_LIST__[1]
-  __attribute__ ((section (".dtors")))
+  __attribute__ ((used, section (".dtors")))
      = { (func_ptr) (-1) };
 
 /* Run all the global destructors on exit from the program.  */
@@ -68,8 +68,8 @@ static func_ptr __DTOR_LIST__[1]
    refers to one particular associated `__DTOR_LIST__' which belongs to the
    same particular root executable or shared library file.  */
 
-static void __do_global_dtors ()
-asm ("__do_global_dtors") __attribute__ ((section (".text")));
+static void __do_global_dtors (void)
+asm ("__do_global_dtors") __attribute__ ((used, section (".text")));
 
 static void
 __do_global_dtors ()
@@ -123,18 +123,18 @@ __fini:\n\
    contained in these two sections.  */
 
 static func_ptr __CTOR_END__[1]
-  __attribute__ ((section (".ctors")))
+  __attribute__ ((used, section (".ctors")))
      = { (func_ptr) 0 };
 
 static func_ptr __DTOR_END__[1]
-  __attribute__ ((section (".dtors")))
+  __attribute__ ((used, section (".dtors")))
      = { (func_ptr) 0 };
 
 /* Run all global constructors for the program.
    Note that they are run in reverse order.  */
 
-static void __do_global_ctors ()
-asm ("__do_global_ctors") __attribute__ ((section (".text")));
+static void __do_global_ctors (void)
+asm ("__do_global_ctors") __attribute__ ((used, section (".text")));
 
 static void
 __do_global_ctors ()

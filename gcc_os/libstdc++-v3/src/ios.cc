@@ -36,28 +36,40 @@
 #include <ostream>
 #include <istream>
 #include <fstream>
-
 #include <bits/atomicity.h>
+#include <ext/stdio_filebuf.h>
+#ifdef _GLIBCPP_HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+namespace __gnu_cxx
+{
+  // Extern declarations for global objects in src/globals.cc.
+  extern stdio_filebuf<char> buf_cout;
+  extern stdio_filebuf<char> buf_cin;
+  extern stdio_filebuf<char> buf_cerr;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  extern stdio_filebuf<wchar_t> buf_wcout;
+  extern stdio_filebuf<wchar_t> buf_wcin;
+  extern stdio_filebuf<wchar_t> buf_wcerr;
+#endif
+} // namespace __gnu_cxx
 
 namespace std 
 {
-  // Extern declarations for global objects in src/globals.cc.
+  using namespace __gnu_cxx;
+  
   extern istream cin;
   extern ostream cout;
   extern ostream cerr;
   extern ostream clog;
-  extern filebuf buf_cout;
-  extern filebuf buf_cin;
-  extern filebuf buf_cerr;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   extern wistream wcin;
   extern wostream wcout;
   extern wostream wcerr;
   extern wostream wclog;
-  extern wfilebuf buf_wcout;
-  extern wfilebuf buf_wcin;
-  extern wfilebuf buf_wcerr;
 #endif
 
   // Definitions for static const data members of __ios_flags.
@@ -147,23 +159,20 @@ namespace std
   void
   ios_base::Init::_S_ios_create(bool __sync)
   {
-    int __out_bufsize = __sync ? 0 : static_cast<int>(BUFSIZ);
-    int __in_bufsize = __sync ? 1 : static_cast<int>(BUFSIZ);
-
-#if _GLIBCPP_AVOID_FSEEK
-    // Platforms that prefer to avoid fseek() calls on streams only
-    // get their desire when the C++-layer input buffer size is 1.
-    // This hack hurts performance but keeps correctness across
-    // all types of streams that might be attached to (e.g.) cin.
-    __in_bufsize = 1;
+    size_t __out_size = __sync ? 0 : static_cast<size_t>(BUFSIZ);
+#ifdef _GLIBCPP_HAVE_ISATTY
+    size_t __in_size =
+      (__sync || isatty (0)) ? 1 : static_cast<size_t>(BUFSIZ);
+#else
+    size_t __in_size = 1;
 #endif
 
     // NB: The file globals.cc creates the four standard files
     // with NULL buffers. At this point, we swap out the dummy NULL
     // [io]stream objects and buffers with the real deal.
-    new (&buf_cout) filebuf(stdout, ios_base::out, __out_bufsize);
-    new (&buf_cin) filebuf(stdin, ios_base::in, __in_bufsize);
-    new (&buf_cerr) filebuf(stderr, ios_base::out, __out_bufsize);
+    new (&buf_cout) stdio_filebuf<char>(stdout, ios_base::out, __out_size);
+    new (&buf_cin) stdio_filebuf<char>(stdin, ios_base::in, __in_size);
+    new (&buf_cerr) stdio_filebuf<char>(stderr, ios_base::out, __out_size);
     new (&cout) ostream(&buf_cout);
     new (&cin) istream(&buf_cin);
     new (&cerr) ostream(&buf_cerr);
@@ -172,9 +181,9 @@ namespace std
     cerr.flags(ios_base::unitbuf);
     
 #ifdef _GLIBCPP_USE_WCHAR_T
-    new (&buf_wcout) wfilebuf(stdout, ios_base::out, __out_bufsize);
-    new (&buf_wcin) wfilebuf(stdin, ios_base::in, __in_bufsize);
-    new (&buf_wcerr) wfilebuf(stderr, ios_base::out, __out_bufsize);
+    new (&buf_wcout) stdio_filebuf<wchar_t>(stdout, ios_base::out, __out_size);
+    new (&buf_wcin) stdio_filebuf<wchar_t>(stdin, ios_base::in, __in_size);
+    new (&buf_wcerr) stdio_filebuf<wchar_t>(stderr, ios_base::out, __out_size);
     new (&wcout) wostream(&buf_wcout);
     new (&wcin) wistream(&buf_wcin);
     new (&wcerr) wostream(&buf_wcerr);
@@ -190,13 +199,14 @@ namespace std
     // Explicitly call dtors to free any memory that is dynamically
     // allocated by filebuf ctor or member functions, but don't
     // deallocate all memory by calling operator delete.
-    buf_cout.~filebuf();
-    buf_cin.~filebuf();
-    buf_cerr.~filebuf();
+    buf_cout.~stdio_filebuf();
+    buf_cin.~stdio_filebuf();
+    buf_cerr.~stdio_filebuf();
+
 #ifdef _GLIBCPP_USE_WCHAR_T
-    buf_wcout.~wfilebuf();
-    buf_wcin.~wfilebuf();
-    buf_wcerr.~wfilebuf();
+    buf_wcout.~stdio_filebuf();
+    buf_wcin.~stdio_filebuf();
+    buf_wcerr.~stdio_filebuf();
 #endif
   }
 
@@ -234,32 +244,34 @@ namespace std
     // Precondition: _M_word_size <= ix
     int newsize = _S_local_word_size;
     _Words* words = _M_local_word;
-    int i = 0;
     if (ix > _S_local_word_size - 1)
       {
-	const int max = numeric_limits<int>::max();
-	if (ix < max)
-	  newsize = ix + 1;
-	else
-	  newsize = max;
-
-	try
-	  { words = new _Words[newsize]; }
-	catch (...)
+	if (ix < numeric_limits<int>::max())
 	  {
-	    delete [] _M_word;
-	    _M_word = 0;
-	    _M_streambuf_state |= badbit;
-	    if (_M_streambuf_state & _M_exception)
-	      __throw_ios_failure("ios_base::_M_grow_words caused exception");
-	    return _M_word_zero;
+	    newsize = ix + 1;
+	    try
+	      { words = new _Words[newsize]; }
+	    catch (...)
+	      {
+		delete [] _M_word;
+		_M_word = 0;
+		_M_streambuf_state |= badbit;
+		if (_M_streambuf_state & _M_exception)
+		  __throw_ios_failure("ios_base::_M_grow_words failure");
+		return _M_word_zero;
+	      }
+	    for (int i = 0; i < _M_word_size; i++) 
+	      words[i] = _M_word[i];
+	    if (_M_word && _M_word != _M_local_word) 
+	      {
+		delete [] _M_word;
+		_M_word = 0;
+	      }
 	  }
-	for (; i < _M_word_size; i++) 
-	  words[i] = _M_word[i];
-	if (_M_word && _M_word != _M_local_word) 
+	else
 	  {
-	    delete [] _M_word;
-	    _M_word = 0;
+	    _M_streambuf_state |= badbit;
+	    return _M_word_zero;
 	  }
       }
     _M_word = words;
@@ -373,4 +385,3 @@ namespace std
 #endif  /* APPLE_KEYMGR  */
 
 }  // namespace std
-

@@ -31,7 +31,6 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS = -I.
-FRAMEWORKS = -framework Foundation
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

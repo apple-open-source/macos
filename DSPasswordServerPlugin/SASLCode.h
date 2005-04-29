@@ -97,7 +97,7 @@ void DigestCalcSecret(
 	int PasswordLen,
 	HASH HA1);
 
-void hmac_md5_precalc(
+void pwsf_hmac_md5_precalc(
 	HMAC_MD5_STATE *state,
 	const unsigned char *key,
 	int key_len);

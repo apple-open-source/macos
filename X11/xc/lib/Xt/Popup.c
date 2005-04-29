@@ -46,22 +46,15 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
+/* $XFree86: xc/lib/Xt/Popup.c,v 1.4 2003/10/24 15:47:35 tsi Exp $ */
 
 #include "IntrinsicI.h"
 #include "ShellP.h"
 
-#if NeedFunctionPrototypes
 void _XtPopup(
     Widget      widget,
     XtGrabKind  grab_kind,
-    _XtBoolean  spring_loaded
-    )
-#else
-void _XtPopup(widget, grab_kind, spring_loaded)
-    Widget      widget;
-    XtGrabKind  grab_kind;
-    Boolean     spring_loaded;
-#endif
+    _XtBoolean  spring_loaded)
 {
     register ShellWidget shell_widget = (ShellWidget) widget;
 
@@ -93,13 +86,7 @@ void _XtPopup(widget, grab_kind, spring_loaded)
 
 } /* _XtPopup */
 
-#if NeedFunctionPrototypes
 void XtPopup (Widget widget, XtGrabKind grab_kind)
-#else
-void XtPopup (widget, grab_kind)
-    Widget  widget;
-    XtGrabKind grab_kind;
-#endif
 {
     Widget hookobj;
 

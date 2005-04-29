@@ -1,9 +1,9 @@
 #!/bin/sh -
-#	$Id: s_all,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+#	$Id: s_all,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
 
 sh s_perm		# permissions.
 sh s_symlink		# symbolic links.
-sh s_readme		# db/README file.
+sh s_readme		# distribution README file.
 
 #
 # The following order is important, s_include must run last.

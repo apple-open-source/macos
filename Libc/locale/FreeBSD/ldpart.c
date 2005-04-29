@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/ldpart.c,v 1.12 2002/10/27 17:44:33 wollman Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/ldpart.c,v 1.15 2004/04/25 19:56:50 ache Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -39,15 +39,15 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/ldpart.c,v 1.12 2002/10/27 17:44:33 woll
 #include <unistd.h>
 #include "un-namespace.h"
 
-#include "setlocale.h"
 #include "ldpart.h"
+#include "setlocale.h"
 
 static int split_lines(char *, const char *);
 
 int
 __part_load_locale(const char *name,
 		int *using_locale,
-		char *locale_buf,
+		char **locale_buf,
 		const char *category_filename,
 		int locale_buf_size_max,
 		int locale_buf_size_min,
@@ -69,7 +69,7 @@ __part_load_locale(const char *name,
 	/*
 	 * If the locale name is the same as our cache, use the cache.
 	 */
-	if (locale_buf != NULL && strcmp(name, locale_buf) == 0) {
+	if (*locale_buf != NULL && strcmp(name, *locale_buf) == 0) {
 		*using_locale = 1;
 		return (_LDP_CACHE);
 	}
@@ -80,6 +80,7 @@ __part_load_locale(const char *name,
 	namesize = strlen(name) + 1;
 
 	/* 'PathLocale' must be already set & checked. */
+
 	/* Range checking not needed, 'name' size is limited */
 	strcpy(filename, _PathLocale);
 	strcat(filename, "/");
@@ -124,10 +125,10 @@ __part_load_locale(const char *name,
 	/*
 	 * Record the successful parse in the cache.
 	 */
-	if (locale_buf != NULL)
-		free(locale_buf);
-	locale_buf = lbuf;
-	for (p = locale_buf, i = 0; i < num_lines; i++)
+	if (*locale_buf != NULL)
+		free(*locale_buf);
+	*locale_buf = lbuf;
+	for (p = *locale_buf, i = 0; i < num_lines; i++)
 		dst_localebuf[i] = (p += strlen(p) + 1);
 	for (i = num_lines; i < locale_buf_size_max; i++)
 		dst_localebuf[i] = NULL;
@@ -152,9 +153,13 @@ split_lines(char *p, const char *plim)
 {
 	int i;
 
-	for (i = 0; p < plim; i++) {
-		p = strchr(p, '\n');
-		*p++ = '\0';
+	i = 0;
+	while (p < plim) {
+		if (*p == '\n') {
+			*p = '\0';
+			i++;
+		}
+		p++;
 	}
 	return (i);
 }

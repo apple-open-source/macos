@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/dnssrv.c,v 1.15.2.9 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/libldap/dnssrv.c,v 1.26.2.7 2004/04/12 15:17:41 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 /*
@@ -28,39 +37,37 @@
 #include <resolv.h>
 #endif
 
-/* Sometimes this is not defined. */
-#ifndef T_SRV
-#define T_SRV            33
-#endif				/* T_SRV */
-
 int ldap_dn2domain(
 	LDAP_CONST char *dn_in,
 	char **domainp)
 {
 	int i, j;
 	char *ndomain;
-	LDAPDN *dn = NULL;
-	LDAPRDN *rdn = NULL;
+	LDAPDN dn = NULL;
+	LDAPRDN rdn = NULL;
 	LDAPAVA *ava = NULL;
-	struct berval domain = { 0, NULL };
+	struct berval domain = BER_BVNULL;
 	static const struct berval DC = BER_BVC("DC");
 	static const struct berval DCOID = BER_BVC("0.9.2342.19200300.100.1.25");
 
 	assert( dn_in != NULL );
 	assert( domainp != NULL );
 
+	*domainp = NULL;
+
 	if ( ldap_str2dn( dn_in, &dn, LDAP_DN_FORMAT_LDAP ) != LDAP_SUCCESS ) {
 		return -2;
 	}
 
-	if( dn ) for( i=0; (*dn)[i] != NULL; i++ ) {
-		rdn = (*dn)[i];
+	if( dn ) for( i=0; dn[i] != NULL; i++ ) {
+		rdn = dn[i];
 
-		for( j=0; (*rdn)[j] != NULL; j++ ) {
-			ava = (*rdn)[j];
+		for( j=0; rdn[j] != NULL; j++ ) {
+			ava = rdn[j];
 
-			if( (*dn)[i][j][1] == NULL &&
-				!ava->la_flags && ava->la_value.bv_len &&
+			if( rdn[j+1] == NULL &&
+				(ava->la_flags & LDAP_AVA_STRING) &&
+				ava->la_value.bv_len &&
 				( ber_bvstrcasecmp( &ava->la_attr, &DC ) == 0
 				|| ber_bvstrcasecmp( &ava->la_attr, &DCOID ) == 0 ) )
 			{
@@ -200,7 +207,20 @@ int ldap_domain2hostlist(
 #endif
 
     rc = LDAP_UNAVAILABLE;
+#ifdef NS_HFIXEDSZ
+	/* Bind 8/9 interface */
     len = res_query(request, ns_c_in, ns_t_srv, reply, sizeof(reply));
+#	ifndef T_SRV
+#		define T_SRV ns_t_srv
+#	endif
+#else
+	/* Bind 4 interface */
+#	ifndef T_SRV
+#		define T_SRV 33
+#	endif
+
+    len = res_query(request, C_IN, T_SRV, reply, sizeof(reply));
+#endif
     if (len >= 0) {
 	unsigned char *p;
 	char host[DNSBUFSIZ];
@@ -210,7 +230,18 @@ int ldap_domain2hostlist(
 
 	/* Parse out query */
 	p = reply;
+
+#ifdef NS_HFIXEDSZ
+	/* Bind 8/9 interface */
 	p += NS_HFIXEDSZ;
+#elif defined(HFIXEDSZ)
+	/* Bind 4 interface w/ HFIXEDSZ */
+	p += HFIXEDSZ;
+#else
+	/* Bind 4 interface w/o HFIXEDSZ */
+	p += sizeof(HEADER);
+#endif
+
 	status = dn_expand(reply, reply + len, p, host, sizeof(host));
 	if (status < 0) {
 	    goto out;

@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtParATab.man,v 1.2 2001/01/27 18:20:28 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtParATab.man,v 1.3 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,21 +131,12 @@
 .SH NAME
 XtParseAcceleratorTable, XtInstallAccelerators, XtInstallAllAccelerators \- managing accelerator tables
 .SH SYNTAX
-XtAccelerators XtParseAcceleratorTable(\fIsource\fP)
-.br
-      String \fIsource\fP;
-.LP
-void XtInstallAccelerators(\fIdestination\fP, \fIsource\fP)
-.br
-      Widget \fIdestination\fP;
-.br
-      Widget \fIsource\fP;
-.LP
-void XtInstallAllAccelerators(\fIdestination\fP, \fIsource\fP)
-.br
-      Widget \fIdestination\fP;
-.br
-      Widget \fIsource\fP;
+.HP
+XtAccelerators XtParseAcceleratorTable(String \fIsource\fP); 
+.HP
+void XtInstallAccelerators(Widget \fIdestination\fP, Widget \fIsource\fP); 
+.HP
+void XtInstallAllAccelerators(Widget \fIdestination\fP, Widget \fIsource\fP); 
 .SH ARGUMENTS
 .ds So to compile
 .IP \fIsource\fP 1i

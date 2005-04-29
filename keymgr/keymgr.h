@@ -28,8 +28,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef __KEYMGR_H
 #define __KEYMGR_H
 
-#ifdef MACOSX
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -42,65 +40,65 @@ extern "C" {
  *
  */
  
-typedef enum node_kinds {
-	NODE_THREAD_SPECIFIC_DATA=1,
-	NODE_PROCESSWIDE_PTR=2,
-	NODE_LAST_KIND
-	} TnodeKind ;
+enum {
+  NM_ALLOW_RECURSION = 1,
+  NM_RECURSION_ILLEGAL = 2
+};
 	
-/*
- * These enum members are bits or combination of bits.
- */
-	
-typedef enum node_mode {
-	NM_ALLOW_RECURSION=1,
-	NM_RECURSION_ILLEGAL=2,
-	NM_ENHANCED_LOCKING=3,
-	NM_LOCKED=4
-	} TnodeMode ;
-
-
-
-extern void * _keymgr_get_per_thread_data(unsigned int key) ;
-extern void _keymgr_set_per_thread_data(unsigned int key, void *keydata) ;
-extern void *_keymgr_get_and_lock_processwide_ptr(unsigned int key) ;
-extern void _keymgr_set_and_unlock_processwide_ptr(unsigned int key, void *ptr) ;
-extern void _keymgr_unlock_processwide_ptr(unsigned int key) ;
-extern void _keymgr_set_lockmode_processwide_ptr(unsigned int key, unsigned int mode) ;
-extern unsigned int  _keymgr_get_lockmode_processwide_ptr(unsigned int key) ;
-extern int _keymgr_get_lock_count_processwide_ptr(unsigned int key) ;
-
-#ifndef NULL
-#define NULL (0)
-#endif
+extern void * _keymgr_get_per_thread_data (unsigned int key);
+extern int _keymgr_set_per_thread_data (unsigned int key, void *keydata);
+extern void *_keymgr_get_and_lock_processwide_ptr (unsigned int key);
+extern int _keymgr_get_and_lock_processwide_ptr_2 (unsigned int key, void **);
+extern int _keymgr_set_and_unlock_processwide_ptr (unsigned int key, 
+						   void *ptr);
+extern int _keymgr_unlock_processwide_ptr (unsigned int key);
+extern int _keymgr_set_lockmode_processwide_ptr (unsigned int key, 
+						 unsigned int mode);
+extern unsigned int _keymgr_get_lockmode_processwide_ptr (unsigned int key);
+extern int _keymgr_get_lock_count_processwide_ptr (unsigned int key);
 
 /*
  * Keys currently in use:
  */
 
-#define KEYMGR_EH_CONTEXT_KEY		1	/*stores handle for root pointer of exception context node.*/
+/* Head pointer of exception context node.  */
+#define KEYMGR_EH_CONTEXT_KEY		1
 
-#define KEYMGR_NEW_HANDLER_KEY		2	/*store handle for new handler pointer.*/
+/* New handler.  */
+#define KEYMGR_NEW_HANDLER_KEY		2
 
-#define KEYMGR_UNEXPECTED_HANDLER_KEY	3	/*store handle for unexpected exception pointer.*/
+/* Unexpected exception handler.  */
+#define KEYMGR_UNEXPECTED_HANDLER_KEY	3
 
-#define KEYMGR_TERMINATE_HANDLER_KEY	4	/*store handle for terminate handler pointer. */
+/* Terminate handler.  */
+#define KEYMGR_TERMINATE_HANDLER_KEY	4
 
-#define KEYMGR_MODE_BITS		5	/*stores handle for runtime mode bits.*/
+/* Runtime mode bits.  */
+#define KEYMGR_MODE_BITS		5
 
-#define KEYMGR_IO_LIST			6	/*Root pointer to the list of open streams.*/
+/* Head pointer of the list of open streams.  */
+#define KEYMGR_IO_LIST			6
 
-#define KEYMGR_IO_STDIN			7	/*GNU stdin.*/
+/* libstdc++ for GCC 2.95 stdin.  */
+#define KEYMGR_IO_STDIN			7
 
-#define KEYMGR_IO_STDOUT		8	/*GNU stdout.*/
+/* libstdc++ for GCC 2.95 stdout.  */
+#define KEYMGR_IO_STDOUT		8
 
-#define KEYMGR_IO_STDERR		9	/*GNU stderr.*/
+/* libstdc++ for GCC 2.95 stdout.  */
+#define KEYMGR_IO_STDERR		9
 
-#define KEYMGR_IO_REFCNT		10	/*How many plugins/main program currently using streams.*/
+/* Number of plugins/main program currently using streams in GCC 2.95.  */
+#define KEYMGR_IO_REFCNT		10
 
-#define KEYMGR_IO_MODE_BITS		11	/*Flags controlling the behavior of C++ I/O.*/
+/* Flags controlling the behavior of C++ I/O.  */
+#define KEYMGR_IO_MODE_BITS		11
 
-#define KEYMGR_ZOE_IMAGE_LIST		12	/*Head pointer for list of per image dwarf2 unwind sections.*/
+/* Head pointer for list of per image dwarf2 unwind sections.  */
+#define KEYMGR_ZOE_IMAGE_LIST		12
+
+/* C++ runtime EH global data.  */
+#define KEYMGR_EH_GLOBALS_KEY		13
 
 /* KeyMgr 3.x is the first one supporting GCC3 stuff natively.  */
 #define KEYMGR_API_MAJOR_GCC3		3
@@ -112,15 +110,13 @@ extern int _keymgr_get_lock_count_processwide_ptr(unsigned int key) ;
  * Other important data.
  */
  
-#define KEYMGR_API_REV_MAJOR		3	/*Major revision number of the keymgr API.*/
-#define KEYMGR_API_REV_MINOR		0	/*Minor revision number of the keymgr API.*/
-
-
+/* Major revision number of the keymgr API.  */
+#define KEYMGR_API_REV_MAJOR		4
+/* Minor revision number of the keymgr API.  */
+#define KEYMGR_API_REV_MINOR		0
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* MACOSX */
 
 #endif /* __KEYMGR_H */

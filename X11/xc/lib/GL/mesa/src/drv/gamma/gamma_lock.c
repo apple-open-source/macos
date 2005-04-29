@@ -1,6 +1,7 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_lock.c,v 1.4 2002/11/05 17:46:07 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_lock.c,v 1.5 2003/09/28 20:15:09 alanh Exp $ */
 
 #include "gamma_context.h"
+#include "gamma_lock.h"
 
 #ifdef DEBUG_LOCKING
 char *prevLockFile = NULL;
@@ -31,7 +32,7 @@ void gammaGetLock( gammaContextPtr gmesa, GLuint flags )
     * Since the hardware state depends on having the latest drawable
     * clip rects, all state checking must be done _after_ this call.
     */
-   DRI_VALIDATE_DRAWABLE_INFO( gmesa->display, sPriv, dPriv );
+   DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv );
 
    if ( gmesa->lastStamp != dPriv->lastStamp ) {
       gmesa->lastStamp = dPriv->lastStamp;

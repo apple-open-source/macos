@@ -41,15 +41,15 @@ package java.awt;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.peer.TextFieldPeer;
-import java.awt.peer.TextComponentPeer;
 import java.awt.peer.ComponentPeer;
+import java.util.EventListener;
 
 /**
   * This class implements a single line text entry field widget
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class TextField extends TextComponent implements java.io.Serializable
+public class TextField extends TextComponent
 {
 
 /*
@@ -212,11 +212,7 @@ getEchoChar()
 public void
 setEchoChar(char echoChar)
 {
-  this.echoChar = echoChar;
-
-  TextFieldPeer tfp = (TextFieldPeer)getPeer();
-  if (tfp != null)
-    tfp.setEchoChar(echoChar);
+  setEchoCharacter (echoChar);
 }
 
 /*************************************************************************/
@@ -233,7 +229,11 @@ setEchoChar(char echoChar)
 public void
 setEchoCharacter(char echoChar)
 {
-  setEchoChar(echoChar);
+  this.echoChar = echoChar;
+
+  TextFieldPeer peer = (TextFieldPeer) getPeer ();
+  if (peer != null)
+    peer.setEchoChar (echoChar);
 }
 
 /*************************************************************************/
@@ -264,7 +264,7 @@ echoCharIsSet()
 public Dimension
 getMinimumSize()
 {
-  return(getMinimumSize(getColumns()));
+  return getMinimumSize (getColumns ());
 }
 
 /*************************************************************************/
@@ -278,11 +278,7 @@ getMinimumSize()
 public Dimension
 getMinimumSize(int columns)
 {
-  TextFieldPeer tfp = (TextFieldPeer)getPeer();
-  if (tfp == null)
-    return(null); // FIXME: What do we do if there is no peer?
-
-  return(tfp.getMinimumSize(columns));
+  return minimumSize (columns);
 }
 
 /*************************************************************************/
@@ -292,13 +288,13 @@ getMinimumSize(int columns)
   *
   * @return The minimum size for this text field.
   *
-  * @deprecated This method is depcreated in favor of
+  * @deprecated This method is deprecated in favor of
   * <code>getMinimumSize()</code>.
   */
 public Dimension
 minimumSize()
 {
-  return(getMinimumSize(getColumns()));
+  return minimumSize (getColumns ());
 }
 
 /*************************************************************************/
@@ -315,7 +311,11 @@ minimumSize()
 public Dimension
 minimumSize(int columns)
 {
-  return(getMinimumSize(columns));
+  TextFieldPeer peer = (TextFieldPeer) getPeer ();
+  if (peer == null)
+    return null; // FIXME: What do we do if there is no peer?
+
+  return peer.getMinimumSize (columns);
 }
 
 /*************************************************************************/
@@ -328,7 +328,7 @@ minimumSize(int columns)
 public Dimension
 getPreferredSize()
 {
-  return(getPreferredSize(getColumns()));
+  return getPreferredSize (getColumns ());
 }
 
 /*************************************************************************/
@@ -342,11 +342,7 @@ getPreferredSize()
 public Dimension
 getPreferredSize(int columns)
 {
-  TextFieldPeer tfp = (TextFieldPeer)getPeer();
-  if (tfp == null)
-    return(null); // FIXME: What do we do if there is no peer?
-
-  return(tfp.getPreferredSize(columns));
+  return preferredSize (columns);
 }
 
 /*************************************************************************/
@@ -362,7 +358,7 @@ getPreferredSize(int columns)
 public Dimension
 preferredSize()
 {
-  return(getPreferredSize(getColumns()));
+  return preferredSize (getColumns ());
 }
 
 /*************************************************************************/
@@ -379,7 +375,11 @@ preferredSize()
 public Dimension
 preferredSize(int columns)
 {
-  return(getPreferredSize(columns));
+  TextFieldPeer peer = (TextFieldPeer) getPeer ();
+  if (peer == null)
+    return new Dimension (0, 0);
+
+  return peer.getPreferredSize (columns);
 }
 
 /*************************************************************************/
@@ -489,4 +489,32 @@ paramString()
          getEchoChar());
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>TextField</code>. FooListeners are registered using the
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   *
+   * @since 1.3
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ActionListener.class)
+      return AWTEventMulticaster.getListeners (action_listeners, listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Return all ActionListeners register to this <code>TextField</code> object
+   * as an array.
+   *
+   * @since 1.4
+   */
+  public ActionListener[] getActionListeners ()
+  {
+    return (ActionListener[]) getListeners (ActionListener.class);
+  }
 } // class TextField

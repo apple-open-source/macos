@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,6 +58,7 @@ mach_port_t	bootstrap_port = MACH_PORT_NULL;
 mach_port_t	name_server_port = MACH_PORT_NULL;
 mach_port_t	environment_port = MACH_PORT_NULL;
 mach_port_t	service_port = MACH_PORT_NULL;
+semaphore_t	clock_sem = MACH_PORT_NULL;
 mach_port_t	clock_port = MACH_PORT_NULL;
 mach_port_t thread_recycle_port = MACH_PORT_NULL;
 
@@ -78,25 +79,13 @@ mach_init_ports(void)
 	if (kr != KERN_SUCCESS)
 	    return;
 
-	kr = mach_ports_lookup(mach_task_self(), &ports,
-			       &ports_count);
-	if ((kr != KERN_SUCCESS) ||
-	    (ports_count < MACH_PORTS_SLOTS_USED))
-	    return;
-
-	name_server_port = ports[NAME_SERVER_SLOT];
-	environment_port = ports[ENVIRONMENT_SLOT];
-	service_port     = ports[SERVICE_SLOT];
-
-	/* get rid of out-of-line data so brk has a chance of working */
-
-	(void) vm_deallocate(mach_task_self(),
-			     (vm_offset_t) ports,
-			     (vm_size_t) (ports_count * sizeof *ports));
-
         /* Get the clock service port for nanosleep */
 	host = mach_host_self();
         kr = host_get_clock_service(host, SYSTEM_CLOCK, &clock_port);
+        if (kr != KERN_SUCCESS) {
+            abort();
+	}
+        kr = semaphore_create(mach_task_self(), &clock_sem, SYNC_POLICY_FIFO, 0);
         if (kr != KERN_SUCCESS) {
             abort();
         }
@@ -105,6 +94,25 @@ mach_init_ports(void)
         if (kr != KERN_SUCCESS) {
             abort();
         }
+
+	/*
+	 *	Find the options service ports.
+	 *	XXX - Don't need these on Darwin, should go away.
+	 */
+	kr = mach_ports_lookup(mach_task_self(), &ports,
+			       &ports_count);
+	if (kr == KERN_SUCCESS) {
+		if (ports_count >= MACH_PORTS_SLOTS_USED) {
+			name_server_port = ports[NAME_SERVER_SLOT];
+			environment_port = ports[ENVIRONMENT_SLOT];
+			service_port     = ports[SERVICE_SLOT];
+		}
+
+		/* get rid of out-of-line data */
+		(void) vm_deallocate(mach_task_self(),
+			     (vm_offset_t) ports,
+			     (vm_size_t) (ports_count * sizeof *ports));
+	}
 }
 
 #ifdef notdef

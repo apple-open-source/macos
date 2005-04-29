@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: dh.c,v 1.23 2002/11/21 22:22:50 markus Exp $");
+RCSID("$OpenBSD: dh.c,v 1.29 2004/02/27 22:49:27 dtucker Exp $");
 
 #include "xmalloc.h"
 
@@ -91,6 +91,9 @@ parse_prime(int linenum, char *line, struct dhgroup *dhg)
 	if (BN_num_bits(dhg->p) != dhg->size)
 		goto failclean;
 
+	if (BN_is_zero(dhg->g) || BN_is_one(dhg->g))
+		goto failclean;
+
 	return (1);
 
  failclean:
@@ -105,14 +108,14 @@ DH *
 choose_dh(int min, int wantbits, int max)
 {
 	FILE *f;
-	char line[2048];
+	char line[4096];
 	int best, bestcount, which;
 	int linenum;
 	struct dhgroup dhg;
 
 	if ((f = fopen(_PATH_DH_MODULI, "r")) == NULL &&
 	    (f = fopen(_PATH_DH_PRIMES, "r")) == NULL) {
-		log("WARNING: %s does not exist, using old modulus", _PATH_DH_MODULI);
+		logit("WARNING: %s does not exist, using old modulus", _PATH_DH_MODULI);
 		return (dh_new_group1());
 	}
 
@@ -140,7 +143,7 @@ choose_dh(int min, int wantbits, int max)
 
 	if (bestcount == 0) {
 		fclose(f);
-		log("WARNING: no suitable primes in %s", _PATH_DH_PRIMES);
+		logit("WARNING: no suitable primes in %s", _PATH_DH_PRIMES);
 		return (NULL);
 	}
 
@@ -176,7 +179,7 @@ dh_pub_is_valid(DH *dh, BIGNUM *dh_pub)
 	int bits_set = 0;
 
 	if (dh_pub->neg) {
-		log("invalid public DH value: negativ");
+		logit("invalid public DH value: negativ");
 		return 0;
 	}
 	for (i = 0; i <= n; i++)
@@ -187,18 +190,18 @@ dh_pub_is_valid(DH *dh, BIGNUM *dh_pub)
 	/* if g==2 and bits_set==1 then computing log_g(dh_pub) is trivial */
 	if (bits_set > 1 && (BN_cmp(dh_pub, dh->p) == -1))
 		return 1;
-	log("invalid public DH value (%d/%d)", bits_set, BN_num_bits(dh->p));
+	logit("invalid public DH value (%d/%d)", bits_set, BN_num_bits(dh->p));
 	return 0;
 }
 
 void
 dh_gen_key(DH *dh, int need)
 {
-	int i, bits_set = 0, tries = 0;
+	int i, bits_set, tries = 0;
 
 	if (dh->p == NULL)
 		fatal("dh_gen_key: dh->p == NULL");
-	if (2*need >= BN_num_bits(dh->p))
+	if (need > INT_MAX / 2 || 2 * need >= BN_num_bits(dh->p))
 		fatal("dh_gen_key: group too small: %d (2*need %d)",
 		    BN_num_bits(dh->p), 2*need);
 	do {
@@ -211,7 +214,7 @@ dh_gen_key(DH *dh, int need)
 			fatal("dh_gen_key: BN_rand failed");
 		if (DH_generate_key(dh) == 0)
 			fatal("DH_generate_key");
-		for (i = 0; i <= BN_num_bits(dh->priv_key); i++)
+		for (i = 0, bits_set = 0; i <= BN_num_bits(dh->priv_key); i++)
 			if (BN_is_bit_set(dh->priv_key, i))
 				bits_set++;
 		debug2("dh_gen_key: priv key bits set: %d/%d",
@@ -279,11 +282,9 @@ int
 dh_estimate(int bits)
 {
 
-	if (bits < 64)
-		return (512);	/* O(2**63) */
-	if (bits < 128)
+	if (bits <= 128)
 		return (1024);	/* O(2**86) */
-	if (bits < 192)
+	if (bits <= 192)
 		return (2048);	/* O(2**116) */
 	return (4096);		/* O(2**156) */
 }

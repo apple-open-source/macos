@@ -68,12 +68,13 @@ __RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
 #include <termcap.h>
 #include <signal.h>
 #endif
-
+#ifdef __APPLE__
+#include <get_compat.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
 #include "ls.h"
 #include "extern.h"
-#ifndef __APPLE__
-#include "lomac.h"
-#endif /* __APPLE__ */
 
 /*
  * Upward approximation of the maximum number of characters needed to
@@ -121,7 +122,8 @@ static int f_timesort;		/* sort by time vice name */
 static int f_sizesort;		/* sort by size */
        int f_type;		/* add type character for non-regular files */
 static int f_whiteout;		/* show whiteout entries */
-       int f_lomac;		/* show LOMAC attributes */
+       int f_acl;		/* show ACLs in long listing */
+       int f_group;		/* show group */
 #ifdef COLORLS
        int f_color;		/* add type in color for non-regular files */
 
@@ -171,7 +173,7 @@ main(int argc, char *argv[])
 		f_listdot = 1;
 
 	fts_options = FTS_PHYSICAL;
- 	while ((ch = getopt(argc, argv, "1ABCFGHLPRSTWZabcdfghiklmnopqrstuvwx")) 
+ 	while ((ch = getopt(argc, argv, "1ABCFGHLPRSTWabcdefghiklmnopqrstuvwx")) 
 	    != -1) {
 		switch (ch) {
 		/*
@@ -246,7 +248,13 @@ main(int argc, char *argv[])
 		case 'f':
 			f_nosort = 1;
 			break;
-		case 'g':	/* Compatibility with 4.3BSD. */
+		case 'g':	/* Compatibility with Unix03 */
+			if (COMPAT_MODE("bin/ls", "Unix2003")) {
+				f_group = 1;
+				f_longform = 1;
+				f_singlecol = 0;
+				f_stream = 0;
+			}
 			break;
 		case 'h':
 			f_humanval = 1;
@@ -310,8 +318,8 @@ main(int argc, char *argv[])
 			f_octal = 0;
 			f_octal_escape = 0;
 			break;
-		case 'Z':
-			f_lomac = 1;
+		case 'e':
+			f_acl = 1;
 			break;
 		default:
 		case '?':
@@ -619,10 +627,6 @@ display(FTSENT *p, FTSENT *list)
 		maxnlink = makenines(maxnlink);
 		maxsize = makenines(maxsize);
 	}
-#ifndef __APPLE__
-	if (f_lomac)
-		lomac_start();
-#endif /* __APPLE__ */
 	bcfile = 0;
 	flags = NULL;
 	for (cur = list, entries = 0; cur; cur = cur->fts_link) {
@@ -630,13 +634,7 @@ display(FTSENT *p, FTSENT *list)
 			warnx("%s: %s",
 			    cur->fts_name, strerror(cur->fts_errno));
 			cur->fts_number = NO_PRINT;
-#ifndef __APPLE__
-			/* Don't count this as an error.  This is for
-			 * binary compatibility with Matlab installer script.
-			 * 3252074
-			 */
 			rval = 1;
-#endif
 			continue;
 		}
 		/*
@@ -706,16 +704,8 @@ display(FTSENT *p, FTSENT *list)
 				} else
 					flen = 0;
 				lattr = NULL;
-#ifndef __APPLE__
-				if (f_lomac) {
-					lattr = get_lattr(cur);
-					lattrlen = strlen(lattr);
-					if (lattrlen > maxlattr)
-						maxlattr = lattrlen;
-				} else
-#endif /* __APPLE__ */
-					lattrlen = 0;
-
+				lattrlen = 0;
+				
 				if ((np = malloc(sizeof(NAMES) + lattrlen +
 				    ulen + glen + flen + 4)) == NULL)
 					err(1, "malloc");
@@ -734,14 +724,6 @@ display(FTSENT *p, FTSENT *list)
 					(void)strcpy(np->flags, flags);
 					free(flags);
 				}
-#ifndef __APPLE__
-				if (f_lomac) {
-					np->lattr = &np->data[ulen + glen + 2
-					    + (f_flags ? flen + 1 : 0)];
-					(void)strcpy(np->lattr, lattr);
-					free(lattr);
-				}
-#endif /* __APPLE__ */
 				cur->fts_pointer = np;
 			}
 		}
@@ -776,10 +758,6 @@ display(FTSENT *p, FTSENT *list)
 	if (f_longform)
 		for (cur = list; cur; cur = cur->fts_link)
 			free(cur->fts_pointer);
-#ifndef __APPLE__
-	if (f_lomac)
-		lomac_stop();
-#endif /* __APPLE__ */
 }
 
 /*

@@ -110,23 +110,26 @@ SLPReturnError HandleRegDereg( SLPBoolean isReg, const char* pcInBuf, int iInSz,
                                             &attributesPtr,
                                             &attributesLen );
     
+#ifdef ENABLE_SLP_LOGGING
     if ( error )
     {
         SLP_LOG( SLP_LOG_DROP, "Error in Parsing RegDereg header" );
     }
-    
+#endif    
     if ( !error )
     {
         memcpy( scopeToRegIn, scopeListPtr, (scopeListLen<sizeof(scopeToRegIn))?scopeListLen:sizeof(scopeToRegIn)-1 );
         
         if ( !list_intersection( SLPGetProperty("com.apple.slp.daScopeList"), scopeToRegIn ) )
         {
-            char	errorMsg[512];
-            
             error = SCOPE_NOT_SUPPORTED;
+            
+#ifdef ENABLE_SLP_LOGGING
+            char	errorMsg[512];
             
             sprintf( errorMsg, "Service Agent: %s tried registering in an invalid scope (%s): %s", inet_ntoa(sinIn->sin_addr), scopeToRegIn, slperror(SLP_SCOPE_NOT_SUPPORTED) );
             SLP_LOG( SLP_LOG_DA, errorMsg );
+#endif
         }
     }
     
@@ -154,10 +157,11 @@ SLPReturnError HandleRegDereg( SLPBoolean isReg, const char* pcInBuf, int iInSz,
         
         if ( isReg )
         {
+#ifdef ENABLE_SLP_LOGGING
             static int counter = 1;
             
             SLP_LOG( SLP_LOG_MSG, "SLPRegistrar::TheSLPR()->RegisterService called for %dth time", counter++);
-            
+#endif            
             SLPRegistrar::TheSLPR()->RegisterService( newSI );
         }
         else
@@ -191,14 +195,18 @@ SLPReturnError DAHandleRequest( SAState *psa, struct sockaddr_in* sinIn, SLPBool
     // first we need to parse this request
 	if ((err = srvrqst_in(pslphdr, pcInBuf, iInSz, &previousResponderList, &serviceType, &scopeList, &attributeList))<0)
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DROP,"DAHandleRequest: drop request due to parse in error" );
+#endif
     }
     else
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "DAHandleRequest: calling SLPRegistrar::TheSLPR()->CreateReplyToServiceRequest" );
-        
+#endif        
         if ( !SDstrcasecmp(serviceType,"service:directory-agent") || !SDstrcasecmp(serviceType,"service:service-agent") )
         {
+#ifdef ENABLE_SLP_LOGGING
             if ( !SDstrcasecmp(serviceType,"service:directory-agent") )
             {
                 if ( viaTCP )
@@ -210,7 +218,7 @@ SLPReturnError DAHandleRequest( SAState *psa, struct sockaddr_in* sinIn, SLPBool
             {
                 SLP_LOG( SLP_LOG_SR, "service:service-agent from %s", inet_ntoa(sinIn->sin_addr) );
             }
-            
+#endif            
             iErr = (SLPInternalError)store_request( psa, viaTCP, pslphdr, pcInBuf, iInSz, ppcOutBuf, piOutSz, piGot);
             
             if ( iErr )
@@ -218,8 +226,9 @@ SLPReturnError DAHandleRequest( SAState *psa, struct sockaddr_in* sinIn, SLPBool
         }
         else
         {
+#ifdef ENABLE_SLP_LOGGING
 	        SLP_LOG( SLP_LOG_SR, "service: %s request from %s", serviceType, inet_ntoa(sinIn->sin_addr) );
-
+#endif
 	        if ( serviceType )
 	            serviceTypeLen = strlen( serviceType );
 	            
@@ -248,10 +257,12 @@ SLPReturnError DAHandleRequest( SAState *psa, struct sockaddr_in* sinIn, SLPBool
 	        
 	        SLPRegistrar::Unlock();
 	        
+#ifdef ENABLE_SLP_LOGGING
 	        if ( !*ppcOutBuf )
 	            SLP_LOG( SLP_LOG_ERR, "*ppcOutBuf is NULL after parsing request from %s", inet_ntoa(sinIn->sin_addr) );
             else
                 SLP_LOG( SLP_LOG_MSG, "Sending back a %ld size message to %s", *piOutSz, inet_ntoa(sinIn->sin_addr) );
+#endif
 	   }
    }
     
@@ -277,8 +288,9 @@ Boolean			gsLocksInitiailzed = false;
 
 void TurnOnDA( void )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.isDA\" to true" );
-
+#endif
     SLPSetProperty("com.apple.slp.isDA", "true");
     
     if ( gsSLPRegistrar )
@@ -287,8 +299,9 @@ void TurnOnDA( void )
 
 void TurnOffDA( void )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_RADMIN, "Setting property: \"com.apple.slp.isDA\" to false" );
-
+#endif
     SLPSetProperty("com.apple.slp.isDA", "false");
     
     if ( gsSLPRegistrar )
@@ -376,16 +389,19 @@ void SLPCliqueHandlerFunction(const void *inKey, const void *inValue, void *inCo
         
         case kUpdateCache:
 		{
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar Updating Cache" );
-
+#endif
             if ( curClique->CacheIsDirty() )
             {
                 SLPInternalError status = curClique->UpdateCachedReplyForClique();
             
+#ifdef ENABLE_SLP_LOGGING
                 if ( status == SLP_DA_BUSY_NOW )
                 {
                     SLP_LOG( SLP_LOG_MSG, "SLPRegistrar Updating Cache received a DA_BUSY_NOW error, will postpone update" );
                 }
+#endif
 			}
 		}
         break;
@@ -559,8 +575,10 @@ SLPInternalError SLPRegistrar::RegisterService( ServiceInfo* service )
 #endif
 			}
 		}
+#ifdef ENABLE_SLP_LOGGING
         else
             SLP_LOG( SLP_LOG_DA, "SLPRegistrar::RegisterService was passed a NULL service!");
+#endif
 	}
 	
 #ifdef USE_EXCEPTIONS
@@ -610,8 +628,9 @@ SLPInternalError SLPRegistrar::DeregisterService( ServiceInfo* service )
 		status = (SLPInternalError)inErr;
 	}
 #endif		
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::DeregisterService finished, returning status: %d", status );
-
+#endif
 	return status;
 }
 
@@ -678,7 +697,9 @@ void SLPRegistrar::SendRAdminDeleteAllScopes( void )
     
     while( (pcScope = get_next_string(",",pcList,&offset,&c)) )
     {
+#ifdef ENABLE_SLP_LOGGING
         mslplog( SLP_LOG_RADMIN, "SendRAdminDeleteAllScopes removing scope: ", pcScope );
+#endif
         RemoveScope( pcScope );
         
         free(pcScope);
@@ -792,25 +813,30 @@ SLPInternalError SLPRegistrar::CreateReplyToServiceRequest(
     int 				iOverflow = 0;
 	SLPClique*			matchingClique = NULL;
 
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest called" );
- 
+#endif 
 	matchingClique = FindClique( serviceType, serviceTypeLen, scopeList, scopeListLen, attributeList, attributeListLen );
 	if ( returnBuffer && matchingClique )
 	{
 		if ( matchingClique->CacheIsDirty() )
 			error = matchingClique->UpdateCachedReplyForClique();	// ok to call here as we are allowed to allocate memory
 			
+#ifdef ENABLE_SLP_LOGGING
 		if ( !error )
 			SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest(), Copying Cached Return Data" );
-
+#endif
         *piOutSz = matchingClique->GetCacheSize();
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest for %s in %s, *piOutSz: %ld", serviceType, scopeList, *piOutSz );
-        
+#endif        
         if ( !viaTCP && *piOutSz > iMTU )	// just send 0 results and set the overflow bit
         {
             *piOutSz = GETHEADERLEN(originalHeader) + 4;
             iOverflow = 1;
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest(), sending back overflow message" );
+#endif
         }
         
 		if ( !error )
@@ -847,8 +873,9 @@ SLPInternalError SLPRegistrar::CreateReplyToServiceRequest(
 	{
 		error = SLP_OK;		// we have nothing registered here yet, so just reply with no results
 		
+#ifdef ENABLE_SLP_LOGGING
 		SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest(), sending back empty result" );
-		
+#endif		
 		*piOutSz = GETHEADERLEN(originalHeader) + 4;
 		tempPtr = safe_malloc(*piOutSz, 0, 0);
 		
@@ -864,11 +891,12 @@ SLPInternalError SLPRegistrar::CreateReplyToServiceRequest(
 			
 		*returnBuffer = tempPtr;
 	}
+#ifdef ENABLE_SLP_LOGGING
 	else
 	{
         SLP_LOG( SLP_LOG_DEBUG, "SLPRegistrar::CreateReplyToServiceRequest, returnBuffer is NULL!" );
 	}
-
+#endif
 	return error;
 }
 
@@ -907,7 +935,9 @@ void SLPRegistrar::UpdateDirtyCaches( void )
 #ifdef USE_EXCEPTIONS
 	catch ( int inErr )
 	{
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DA, "SLPRegistrar::UpdateDirtyCaches Caught Err: %d", (SLPInternalError)inErr );
+#endif
 	}
 #endif
 }
@@ -967,11 +997,12 @@ SLPClique* SLPRegistrar::FindClique( 	char* serviceType,
 		{
 			if ( ::CFDictionaryGetCount( mListOfSLPCliques ) > 0 && ::CFDictionaryContainsKey( mListOfSLPCliques, keyRef ) )
 				curClique = (SLPClique*)::CFDictionaryGetValue( mListOfSLPCliques, keyRef );
+#ifdef ENABLE_SLP_LOGGING
 			else
 			{
 				SLP_LOG( SLP_LOG_DROP, "Unable to find SLPClique for request %s in %s.  Dictionary count: %d", serviceType, scopeList,  ::CFDictionaryGetCount( mListOfSLPCliques ) );
 			}
-		
+#endif		
 			::CFRelease( keyRef );
 		}
     }
@@ -1036,14 +1067,18 @@ void SLPServiceInfoHandlerFunction(const void *inValue, void *inContext)
             {
                 if ( curServiceInfo->IsTimeToExpire() )
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_EXP, "Service URL Expired: URL=%s, SCOPE= %s", curServiceInfo->GetURLPtr(), curServiceInfo->GetScope() );
+#endif
                     clique->RemoveServiceInfoFromClique(curServiceInfo);
                 }
             }
         break;
         
         default:
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "SLPServiceInfoHandlerFunction - received unhandled message type!" );
+#endif
         break;
     };
 }
@@ -1241,10 +1276,12 @@ void SLPClique::NotifyRAdminOfChange( ChangeType type, ServiceInfo* service )
 // let's just push this onto a queue for a central thread to process...
         SLPRegistrar::TheSLPR()->AddNotification( dataSendBuffer, dataSendBufferLen );		// mRAdminNotifier takes control of buffer free
 
+#ifdef ENABLE_SLP_LOGGING
         if ( status )
         {
             SLP_LOG( SLP_LOG_DROP, "Error notifing ServerAdmin of Service Change: %s", strerror(status) );
         }
+#endif
     }
 }
 
@@ -1264,10 +1301,11 @@ SLPInternalError SLPClique::AddServiceInfoToClique( ServiceInfo* service )
 
     if ( !status )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_REG, "New Service Registered, URL=%s. SCOPE=%s", service->GetURLPtr(), service->GetScope() );
 
         SLP_LOG( SLP_LOG_MSG, "Total Services: %d", ++gTotalServices );
-    
+#endif    
 	// increment the usage count for the serviceInfo
         service->AddInterest();
 
@@ -1277,8 +1315,9 @@ SLPInternalError SLPClique::AddServiceInfoToClique( ServiceInfo* service )
     }
     else
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_MSG, "Duplicate Service, update timestamp, URL=%s, SCOPE=%s", service->GetURLPtr(), service->GetScope() );    
-					
+#endif					
         // We need to update the reg time (in future, need to support partial registration!)
         siToNotifyWith->UpdateLastRegistrationTimeStamp();
     }
@@ -1302,9 +1341,11 @@ SLPInternalError SLPClique::RemoveServiceInfoFromClique( ServiceInfo* service )
         ::CFSetRemoveValue( mSetOfServiceInfos, serviceInClique );
         
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_REG, "Service Deregistered, URL=%s, SCOPE=%s", service->GetURLPtr(), service->GetScope() );
 
             SLP_LOG( SLP_LOG_MSG, "Total Services: %d", --gTotalServices );
+#endif
         }
         
         NotifyRAdminOfChange( kServiceRemoved, service );
@@ -1337,11 +1378,12 @@ SLPInternalError SLPClique::UpdateRegisteredServiceTimeStamp( ServiceInfo* servi
         serviceInClique->UpdateLastRegistrationTimeStamp();
         status = SLP_OK;
     }
+#ifdef ENABLE_SLP_LOGGING
     else
     {
         SLP_LOG( SLP_LOG_DA, "SLPClique::UpdateRegisteredServiceTimeStamp couldn't find service to update!, URL=%s, SCOPE=%s", service->GetURLPtr(), service->GetScope() );
     }
-    
+#endif    
     return status;
 }
 
@@ -1386,10 +1428,11 @@ SLPInternalError SLPClique::UpdateCachedReplyForClique( ServiceInfo* addNewServi
     
     if ( addNewServiceInfo )
     {
+#ifdef ENABLE_SLP_LOGGING
         {
             SLP_LOG( SLP_LOG_DEBUG, "SLPClique::UpdateCachedReplyForClique is calling AddToServiceReply for clique: SCOPE=%s, TYPE=%s", mCliqueScope, mCliqueServiceType );
         }
-
+#endif
         // ok, just append the new one.
         AddToServiceReply( mNeedToUseTCP, addNewServiceInfo, NULL, 0, error, &mCachedReplyForClique );
                         
@@ -1403,10 +1446,11 @@ SLPInternalError SLPClique::UpdateCachedReplyForClique( ServiceInfo* addNewServi
     else
     {
         // this isn't just adding a new one, recalc from scratch
+#ifdef ENABLE_SLP_LOGGING
         {
             SLP_LOG( SLP_LOG_DEBUG, "SLPClique::UpdateCachedReplyForClique is rebuilding its cached data for clique: SCOPE=%s, TYPE=%s", mCliqueScope, mCliqueServiceType );
         }
-
+#endif
         if ( mCachedReplyForClique )
             free( mCachedReplyForClique );
             
@@ -1441,8 +1485,10 @@ void SLPClique::AddToCachedReply( ServiceInfo* curSI )
         mNeedToUseTCP = true;
         AddToServiceReply( mNeedToUseTCP, curSI, NULL, 0, error, &mCachedReplyForClique );	// its ok, add it now and TCP is set
     }
+#ifdef ENABLE_SLP_LOGGING
     else if ( error )
         mslplog( SLP_LOG_DEBUG, "ServiceAgent::UpdateCachedReplyForClique(), AddToServiceReply() returned:", strerror(error) );
+#endif
 }
 
 UInt16 SLPClique::GetCacheSize()
@@ -1536,7 +1582,9 @@ SLPRAdminNotifier::SLPRAdminNotifier()
 {
 	CFArrayCallBacks	callBack;
     
-    LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier Created" );
+#ifdef ENABLE_SLP_LOGGING
+    SLPLOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier Created" );
+#endif
     callBack.version = 0;
     callBack.retain = NULL;
     callBack.release = NULL;
@@ -1575,7 +1623,9 @@ void* SLPRAdminNotifier::Run( void )
         if ( mClearQueue )
         {
             QueueLock();
-            LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier clearing queue" );
+#ifdef ENABLE_SLP_LOGGING
+            SLPLOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier clearing queue" );
+#endif
             mClearQueue = false;
             ::CFArrayRemoveAllValues( mNotificationsQueue );
             QueueUnlock();
@@ -1583,20 +1633,26 @@ void* SLPRAdminNotifier::Run( void )
         else if ( mRepostAllScopes )
         {
             mRepostAllScopes = false;
-            LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier reposting all scopes" );
+#ifdef ENABLE_SLP_LOGGING
+            SLPLOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier reposting all scopes" );
+#endif
             SLPRegistrar::TheSLPR()->SendRAdminAllScopes();
         }
         else if ( mRepostAllData )
         {
             mRepostAllData = false;
-            LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier reposting all currently registered services" );
+#ifdef ENABLE_SLP_LOGGING
+            SLPLOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier reposting all currently registered services" );
+#endif
             SLPRegistrar::TheSLPR()->SendRAdminAllScopes();
             SLPRegistrar::TheSLPR()->SendRAdminAllCurrentlyRegisteredServices();
         }
         else if ( mDeregisterAllData )
         {
             mDeregisterAllData = false;
-            LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier deregistering all services" );
+#ifdef ENABLE_SLP_LOGGING
+            SLPLOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier deregistering all services" );
+#endif
             SLPRegistrar::TheSLPR()->DeregisterAllServices();
         }
         else
@@ -1617,8 +1673,9 @@ void* SLPRAdminNotifier::Run( void )
             
             if ( notification )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_NOTIFICATIONS, "SLPRAdminNotifier Sending %s Notification to ServerAdmin", PrintableHeaderType(notification->data) );
-                
+#endif                
                 SendNotification( notification );
                 delete notification;
                 notification = NULL;
@@ -1639,7 +1696,9 @@ void SLPRAdminNotifier::AddNotificationToQueue( char* buffer, UInt32 bufSize )
     {
         ::CFArrayAppendValue( mNotificationsQueue, newNotification );
         
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Notification Added to Queue" );
+#endif
     }
     QueueUnlock();
 }
@@ -1672,10 +1731,12 @@ void SLPRAdminNotifier::SendNotification( NotificationObject*	notification )
     if ( ignoreReply )
         free( ignoreReply );
         
+#ifdef ENABLE_SLP_LOGGING
     if ( status )
     {
         SLP_LOG( SLP_LOG_DROP, "Error notifing ServerAdmin of Service Change: %s", strerror(status) );
     }
+#endif
 }
 
 #pragma mark -
@@ -1747,7 +1808,9 @@ void AddToServiceReply( Boolean usingTCP, ServiceInfo* serviceInfo, char* reques
         
     if ( newReplyLength > MAX_REPLY_LENGTH )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_MSG, "Size of reply exceeds maximum allowed by SLP, some services will be ignored." );
+#endif
         return;
     }
     

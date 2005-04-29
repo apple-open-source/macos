@@ -103,6 +103,9 @@
 # ifdef HAVE_STRUCT_UTMPX_UT_HOST
 #  define WATCH_UTMP_UT_HOST 1
 # endif
+# ifdef __APPLE__
+# define ut_name ut_user
+#endif
 #endif
 
 #if !defined(WATCH_STRUCT_UTMP) && defined(HAVE_STRUCT_UTMP) && defined(REAL_UTMP_FILE)
@@ -559,7 +562,7 @@ dowatch(void)
 
 /**/
 int
-bin_log(char *nam, char **argv, Options ops, int func)
+bin_log(UNUSED(char *nam), UNUSED(char **argv), UNUSED(Options ops), UNUSED(int func))
 {
     if (!watch)
 	return 1;

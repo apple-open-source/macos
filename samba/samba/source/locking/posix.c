@@ -30,6 +30,13 @@
 
 static TDB_CONTEXT *posix_lock_tdb;
 
+#ifdef WITH_BRLM
+struct pending_close {
+       int fd;
+       BRLMRef brlm_ref;
+};
+#endif
+
 /*
  * The pending close database handle.
  */
@@ -97,12 +104,29 @@ static BOOL add_fd_to_close_entry(files_struct *fsp)
 	TDB_DATA kbuf = locking_key_fsp(fsp);
 	TDB_DATA dbuf;
 	char *tp;
+	void *data = NULL;
+#ifdef WITH_BRLM
+	struct pending_close pc;
+	unsigned long datalen = sizeof(struct pending_close);
+#else
+	unsigned long datalen =  sizeof(int);
+#endif
 
 	dbuf.dptr = NULL;
 
 	dbuf = tdb_fetch(posix_pending_close_tdb, kbuf);
+#ifdef WITH_BRLM
+	/*
+	* Add new record.
+	*/
 
-	tp = SMB_REALLOC(dbuf.dptr, dbuf.dsize + sizeof(int));
+	pc.fd = fsp->fd;
+	pc.brlm_ref = fsp->brlm_ref;
+	data = &pc;
+#else
+	data = &fsp->fd;
+#endif
+	tp = SMB_REALLOC(dbuf.dptr, dbuf.dsize + datalen);
 	if (!tp) {
 		DEBUG(0,("add_fd_to_close_entry: Realloc fail !\n"));
 		SAFE_FREE(dbuf.dptr);
@@ -110,8 +134,8 @@ static BOOL add_fd_to_close_entry(files_struct *fsp)
 	} else
 		dbuf.dptr = tp;
 
-	memcpy(dbuf.dptr + dbuf.dsize, &fsp->fd, sizeof(int));
-	dbuf.dsize += sizeof(int);
+	memcpy(dbuf.dptr + dbuf.dsize, data, datalen);
+	dbuf.dsize += datalen;
 
 	if (tdb_store(posix_pending_close_tdb, kbuf, dbuf, TDB_REPLACE) == -1) {
 		DEBUG(0,("add_fd_to_close_entry: tdb_store fail !\n"));
@@ -138,7 +162,11 @@ static void delete_close_entries(files_struct *fsp)
  free. Returns number of entries.
 ****************************************************************************/
 
+#ifdef WITH_BRLM
+static size_t get_posix_pending_close_entries(files_struct *fsp, struct pending_close **entries)
+#else
 static size_t get_posix_pending_close_entries(files_struct *fsp, int **entries)
+#endif
 {
 	TDB_DATA kbuf = locking_key_fsp(fsp);
 	TDB_DATA dbuf;
@@ -153,9 +181,13 @@ static size_t get_posix_pending_close_entries(files_struct *fsp, int **entries)
 		return 0;
 	}
 
+#ifdef WITH_BRLM
+	*entries = (struct pending_close *)dbuf.dptr;
+	count = (size_t)(dbuf.dsize / sizeof(struct pending_close));
+#else
 	*entries = (int *)dbuf.dptr;
 	count = (size_t)(dbuf.dsize / sizeof(int));
-
+#endif
 	return count;
 }
 
@@ -198,7 +230,12 @@ int fd_close_posix(struct connection_struct *conn, files_struct *fsp)
 	int ret;
 	size_t count, i;
 	struct posix_lock *entries = NULL;
+#ifdef WITH_BRLM
+	BRLMStatus brlm_status = BRLMMiscErr;
+	struct pending_close *fd_array = NULL;
+#else
 	int *fd_array = NULL;
+#endif
 	BOOL locks_on_other_fds = False;
 
 	if (!lp_posix_locking(SNUM(conn))) {
@@ -259,9 +296,25 @@ int fd_close_posix(struct connection_struct *conn, files_struct *fsp)
 		DEBUG(10,("fd_close_posix: doing close on %u fd's.\n", (unsigned int)count ));
 
 		for(i = 0; i < count; i++) {
+#ifdef WITH_BRLM
+			if (lp_BRLM())
+			{
+				if (fd_array[i].brlm_ref) {
+					brlm_status = BRLMCloseRef(fd_array[i].brlm_ref);
+					if (BRLMNoErr != brlm_status)
+						saved_errno = brlm_status;
+				}
+				DEBUG(4,("fd_close_posix: [%d]BRLMCloseRef fd(%d) ref(%X)\n", brlm_status, fd_array[i].fd, fd_array[i].brlm_ref));
+			} else {
+				if (SMB_VFS_CLOSE(fsp,fd_array[i].fd) == -1) {
+				saved_errno = errno;
+				}
+			}
+#else
 			if (SMB_VFS_CLOSE(fsp,fd_array[i]) == -1) {
 				saved_errno = errno;
 			}
+#endif
 		}
 
 		/*
@@ -646,9 +699,61 @@ static BOOL posix_lock_in_range(SMB_OFF_T *offset_out, SMB_OFF_T *count_out,
 static BOOL posix_fcntl_lock(files_struct *fsp, int op, SMB_OFF_T offset, SMB_OFF_T count, int type)
 {
 	int ret;
+#ifdef WITH_BRLM
+	BRLMStatus brlm_status = BRLMParamErr;
+	BRLMLockType brlm_lock_type = 0;
+#endif
 
 	DEBUG(8,("posix_fcntl_lock %d %d %.0f %.0f %d\n",fsp->fd,op,(double)offset,(double)count,type));
 
+#ifdef WITH_BRLM
+if (lp_BRLM())
+{
+	switch (type) {
+		case F_RDLCK: 
+			brlm_lock_type = kBRLMRLock; 
+		break;
+		case F_WRLCK: 
+			brlm_lock_type = kBRLMWLock; 
+		break;
+		case F_UNLCK: 
+			brlm_lock_type = kBRLMFree; 
+		break;
+		default: 
+			brlm_lock_type = 0; 
+		break;
+	}
+	
+	if (op == SMB_F_GETLK)
+	{
+		if (type == F_RDLCK) 
+		{
+			brlm_status  = BRLMCanRead(fsp->brlm_ref, offset, count);
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanRead lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+		} else if (type == F_WRLCK) {
+			brlm_status =  BRLMCanWrite(fsp->brlm_ref, offset, count);
+			DEBUG(8,("posix_fcntl_lock:  [%d]BRLMCanWrite lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+		} else {
+			DEBUG(8,("posix_fcntl_lock:  !!!!! SMB_F_GETLK !!!!! lock_type[0x%X]\n", type));
+			ret = 0;
+		}
+		if (BRLMNoErr == brlm_status) 
+			ret = 0; /* can read | write */
+		else
+			ret = 1;
+	} else if (op == SMB_F_SETLK) {
+		brlm_status = BRLMByteRangeLock(fsp->brlm_ref, brlm_lock_type, offset, count);
+		DEBUG(8,("posix_fcntl_lock:  [%d]BRLMByteRangeLock lock_type[0x%X]\n",brlm_status, brlm_lock_type));
+		if (BRLMNoErr == brlm_status) 
+		ret = 1;
+		else
+		ret = 0;
+	} else {
+		DEBUG(8,("posix_fcntl_lock:  !!!!! OP !!!!! op[0x%X] lock_type[0x%X]\n", op, type));
+		ret = 0;
+	}
+} else {
+#endif
 	ret = SMB_VFS_LOCK(fsp,fsp->fd,op,offset,count,type);
 
 	if (!ret && ((errno == EFBIG) || (errno == ENOLCK) || (errno ==  EINVAL))) {
@@ -676,7 +781,9 @@ static BOOL posix_fcntl_lock(files_struct *fsp, int op, SMB_OFF_T offset, SMB_OF
 			ret = SMB_VFS_LOCK(fsp,fsp->fd,op,offset,count,type);
 		}
 	}
-
+#ifdef WITH_BRLM
+} /* lp_BRLM */
+#endif
 	DEBUG(8,("posix_fcntl_lock: Lock call %s\n", ret ? "successful" : "failed"));
 
 	return ret;

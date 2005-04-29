@@ -20,7 +20,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunffb/ffb_driver.c,v 1.11 2002/12/06 02:44:04 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/sunffb/ffb_driver.c,v 1.12 2003/10/30 17:37:12 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -58,8 +58,8 @@ static void	FFBAdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 static void	FFBFreeScreen(int scrnIndex, int flags);
-static int	FFBValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus FFBValidMode(int scrnIndex, DisplayModePtr mode,
+			       Bool verbose, int flags);
 static void     FFBDPMSMode(ScrnInfoPtr pScrn, int DPMSMode, int flags);
 /* ffb_dga.c */
 extern void FFB_InitDGA(ScreenPtr pScreen);
@@ -1078,7 +1078,7 @@ FFBFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 FFBValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

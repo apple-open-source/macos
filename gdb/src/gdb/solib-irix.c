@@ -1,5 +1,5 @@
 /* Shared library support for IRIX.
-   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001, 2002, 2004
    Free Software Foundation, Inc.
 
    This file was created using portions of irix5-nat.c originally
@@ -26,6 +26,8 @@
 
 #include "symtab.h"
 #include "bfd.h"
+/* FIXME: ezannoni/2004-02-13 Verify that the include below is
+   really needed.  */
 #include "symfile.h"
 #include "objfiles.h"
 #include "gdbcore.h"
@@ -123,16 +125,12 @@ union irix_obj_info
 
 /* MIPS sign extends its 32 bit addresses.  We could conceivably use
    extract_typed_address here, but to do so, we'd have to construct an
-   appropriate type.  Calling extract_signed_integer or
-   extract_address seems simpler.  */
+   appropriate type.  Calling extract_signed_integer seems simpler.  */
 
 static CORE_ADDR
 extract_mips_address (void *addr, int len)
 {
-  if (len <= 32)
-    return extract_signed_integer (addr, len);
-  else
-    return extract_address (addr, len);
+  return extract_signed_integer (addr, len);
 }
 
 /* Fetch and return the link map data associated with ADDR.  Note that
@@ -359,10 +357,10 @@ static int
 enable_break (void)
 {
   if (symfile_objfile != NULL
-      && target_insert_breakpoint (symfile_objfile->ei.entry_point,
+      && target_insert_breakpoint (entry_point_address (),
 				   shadow_contents) == 0)
     {
-      breakpoint_addr = symfile_objfile->ei.entry_point;
+      breakpoint_addr = entry_point_address ();
       return 1;
     }
 
@@ -436,7 +434,7 @@ irix_solib_create_inferior_hook (void)
      out what we need to know about them. */
 
   clear_proceed_status ();
-  stop_soon_quietly = 1;
+  stop_soon = STOP_QUIETLY;
   stop_signal = TARGET_SIGNAL_0;
   do
     {
@@ -459,10 +457,10 @@ irix_solib_create_inferior_hook (void)
      But we are stopped in the startup code and we might not have symbols
      for the startup code, so heuristic_proc_start could be called
      and will put out an annoying warning.
-     Delaying the resetting of stop_soon_quietly until after symbol loading
+     Delaying the resetting of stop_soon until after symbol loading
      suppresses the warning.  */
   solib_add ((char *) 0, 0, (struct target_ops *) 0, auto_solib_add);
-  stop_soon_quietly = 0;
+  stop_soon = NO_STOP_QUIETLY;
   re_enable_breakpoints_in_shlibs ();
 }
 

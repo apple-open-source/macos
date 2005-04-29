@@ -155,11 +155,10 @@ struct __DRIscreenPrivateRec {
     */
     Display *display;
 
-
     /*
     ** Mutex for this screen
     */
-    xmutex_t mutex;
+    pthread_mutex_t mutex;
 
     /*
     ** Current screen's number
@@ -179,9 +178,7 @@ struct __DRIscreenPrivateRec {
     void *drawHash;
 };
 
-
 extern void driMesaUpdateDrawableInfo(Display *dpy, int scrn,
 				      __DRIdrawablePrivate *pdp);
-
 
 #endif /* _DRI_DRIVER_H_ */

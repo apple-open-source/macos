@@ -13,7 +13,7 @@ INSTALL_DIR    = $(INSTALL) -d
 # Compile/load options. Add -DNO_STRERROR to CFLAGS if _strerror
 # is undefined
 
-CFLAGS = -g -O2
+CFLAGS = -g -O2 -Wall
 LDFLAGS = 
 
 # Change the following to the destination directories for
@@ -32,8 +32,8 @@ CONFDIR= /private/etc
 all:	efax efix
 
 efax:	efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
-	$(CC) -o efax $(LDFLAGS) efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o
-
+	$(CC) -o efax $(LDFLAGS) efax.o efaxlib.o efaxio.o efaxos.o efaxmsg.o \
+		-framework CoreFoundation -framework IOKit
 efix:	efix.o efaxlib.o efaxmsg.o
 	$(CC) -o efix $(LDFLAGS) efix.o efaxlib.o efaxmsg.o
 
@@ -42,11 +42,8 @@ install:	all
 	$(INSTALL_DIR) $(DSTROOT)$(FAXBIN)
 	$(INSTALL_DIR) $(DSTROOT)$(CONFDIR)
 	$(INSTALL_DIR) $(DSTROOT)$(MANDIR)/man1
-	$(INSTALL_DIR) $(DSTROOT)$(FAXDIR)
+	$(INSTALL) -d -m 750 $(DSTROOT)$(FAXDIR)
 	$(INSTALL_DIR) $(DSTROOT)$(LOGDIR)
-	$(INSTALL_DIR) -m 775 $(DSTROOT)/Users
-	$(INSTALL_DIR) -m 777 $(DSTROOT)/Users/Shared
-	$(INSTALL_DIR) -m 775 $(DSTROOT)/Users/Shared/Faxes
 	$(INSTALL_BIN) efax efix $(DSTROOT)$(BINDIR)
 	$(INSTALL_SCRIPT) $(srcdir)/faxnotify $(srcdir)/imagestopdf $(DSTROOT)$(FAXBIN)
 	$(INSTALL_SCRIPT) $(srcdir)/fax $(DSTROOT)$(BINDIR)

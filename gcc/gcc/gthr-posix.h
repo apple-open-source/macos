@@ -1,6 +1,7 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,15 +35,28 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #define __GTHREADS 1
 
+/* Some implementations of <pthread.h> require this to be defined.  */
+#ifndef _REENTRANT
+#define _REENTRANT 1
+#endif
+
 #include <pthread.h>
 #include <unistd.h>
 
 typedef pthread_key_t __gthread_key_t;
 typedef pthread_once_t __gthread_once_t;
 typedef pthread_mutex_t __gthread_mutex_t;
+typedef pthread_mutex_t __gthread_recursive_mutex_t;
 
 #define __GTHREAD_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
 #define __GTHREAD_ONCE_INIT PTHREAD_ONCE_INIT
+#if defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER)
+#define __GTHREAD_RECURSIVE_MUTEX_INIT PTHREAD_RECURSIVE_MUTEX_INITIALIZER
+#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
+#define __GTHREAD_RECURSIVE_MUTEX_INIT PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#else
+#define __GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION __gthread_recursive_mutex_init_function
+#endif
 
 #if SUPPORTS_WEAK && GTHREAD_USE_WEAK
 
@@ -56,8 +70,13 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_mutex_lock
 #pragma weak pthread_mutex_trylock
 #pragma weak pthread_mutex_unlock
+#pragma weak pthread_mutexattr_init
+#pragma weak pthread_mutexattr_settype
+#pragma weak pthread_mutexattr_destroy
 
-#ifdef _LIBOBJC
+#pragma weak pthread_mutex_init
+
+#if defined(_LIBOBJC) || defined(_LIBOBJC_WEAK)
 /* Objective-C.  */
 #pragma weak pthread_cond_broadcast
 #pragma weak pthread_cond_destroy
@@ -65,15 +84,14 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_cond_signal
 #pragma weak pthread_cond_wait
 #pragma weak pthread_exit
-#pragma weak pthread_mutex_init
 #pragma weak pthread_mutex_destroy
 #pragma weak pthread_self
-/* These really should be protected by _POSIX_PRIORITY_SCHEDULING, but
-   we use them inside a _POSIX_THREAD_PRIORITY_SCHEDULING block.  */
+#ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
 #pragma weak sched_get_priority_max
 #pragma weak sched_get_priority_min
 #endif /* _POSIX_THREAD_PRIORITY_SCHEDULING */
+#endif /* _POSIX_PRIORITY_SCHEDULING */
 #pragma weak sched_yield
 #pragma weak pthread_attr_destroy
 #pragma weak pthread_attr_init
@@ -82,12 +100,13 @@ typedef pthread_mutex_t __gthread_mutex_t;
 #pragma weak pthread_getschedparam
 #pragma weak pthread_setschedparam
 #endif /* _POSIX_THREAD_PRIORITY_SCHEDULING */
-#endif /* _LIBOBJC */
+#endif /* _LIBOBJC || _LIBOBJC_WEAK */
 
 static inline int
 __gthread_active_p (void)
 {
-  static void *const __gthread_active_ptr = (void *) &pthread_create;
+  static void *const __gthread_active_ptr 
+    = __extension__ (void *) &pthread_create;
   return __gthread_active_ptr != 0;
 }
 
@@ -125,7 +144,7 @@ __gthread_objc_init_thread_system (void)
 {
   if (__gthread_active_p ())
     {
-      /* Initialize the thread storage key */
+      /* Initialize the thread storage key.  */
       if (pthread_key_create (&_objc_thread_storage, NULL) == 0)
 	{
 	  /* The normal default detach state for threads is
@@ -181,6 +200,7 @@ __gthread_objc_thread_set_priority (int priority)
     return -1;
   else
     {
+#ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
       pthread_t thread_id = pthread_self ();
       int policy;
@@ -210,6 +230,7 @@ __gthread_objc_thread_set_priority (int priority)
 	    return 0;
 	}
 #endif /* _POSIX_THREAD_PRIORITY_SCHEDULING */
+#endif /* _POSIX_PRIORITY_SCHEDULING */
       return -1;
     }
 }
@@ -218,6 +239,7 @@ __gthread_objc_thread_set_priority (int priority)
 static inline int
 __gthread_objc_thread_get_priority (void)
 {
+#ifdef _POSIX_PRIORITY_SCHEDULING
 #ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
   if (__gthread_active_p ())
     {
@@ -231,6 +253,7 @@ __gthread_objc_thread_get_priority (void)
     }
   else
 #endif /* _POSIX_THREAD_PRIORITY_SCHEDULING */
+#endif /* _POSIX_PRIORITY_SCHEDULING */
     return OBJC_THREAD_INTERACTIVE_PRIORITY;
 }
 
@@ -462,16 +485,6 @@ __gthread_key_create (__gthread_key_t *key, void (*dtor) (void *))
 }
 
 static inline int
-__gthread_key_dtor (__gthread_key_t key, void *ptr)
-{
-  /* Just reset the key value to zero.  */
-  if (ptr)
-    return pthread_setspecific (key, 0);
-  else
-    return 0;
-}
-
-static inline int
 __gthread_key_delete (__gthread_key_t key)
 {
   return pthread_key_delete (key);
@@ -514,6 +527,45 @@ __gthread_mutex_unlock (__gthread_mutex_t *mutex)
     return pthread_mutex_unlock (mutex);
   else
     return 0;
+}
+
+#ifndef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+static inline int
+__gthread_recursive_mutex_init_function (__gthread_recursive_mutex_t *mutex)
+{
+  if (__gthread_active_p ())
+    {
+      pthread_mutexattr_t attr;
+      int r;
+
+      r = pthread_mutexattr_init (&attr);
+      if (!r)
+	r = pthread_mutexattr_settype (&attr, PTHREAD_MUTEX_RECURSIVE);
+      if (!r)
+	r = pthread_mutex_init (mutex, &attr);
+      if (!r)
+	r = pthread_mutexattr_destroy (&attr);
+      return r;
+    }
+}
+#endif
+
+static inline int
+__gthread_recursive_mutex_lock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_lock (mutex);
+}
+
+static inline int
+__gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_trylock (mutex);
+}
+
+static inline int
+__gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_mutex_unlock (mutex);
 }
 
 #endif /* _LIBOBJC */

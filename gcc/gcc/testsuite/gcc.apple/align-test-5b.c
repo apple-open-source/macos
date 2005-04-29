@@ -4,13 +4,13 @@
 /* { dg-do run } */
 /* { dg-options "-malign-power -DSIZE=12" } */
 
+/* We have a different test to pick up the warning from 64-bit case.  */
+/* { dg-xfail-if "" { powerpc*-*-darwin* } { "-m64" } { "" } } */
+
 /*
  * GCC alignment test for command line options for setting alignment modes.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-2-18.
- *
  */
  
  /* Check whether we are testing GCC 3 or later.  */

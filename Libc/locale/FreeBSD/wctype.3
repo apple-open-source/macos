@@ -22,9 +22,9 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc/locale/wctype.3,v 1.4 2002/11/29 17:35:09 ru Exp $
+.\" $FreeBSD: src/lib/libc/locale/wctype.3,v 1.5 2004/03/27 08:59:21 tjr Exp $
 .\"
-.Dd October 3, 2002
+.Dd March 27, 2004
 .Dt WCTYPE 3
 .Os
 .Sh NAME
@@ -48,10 +48,10 @@ may be used as the second argument for calls to
 .Fn iswctype .
 .Pp
 The following character class names are recognised:
-.Bl -column -offset indent ".Li alnum" ".Li cntrl" ".Li phonogram" ".Li print" ".Li special"
-.It Li "alnum	cntrl	ideogram	print	special"
-.It Li "alpha	digit	lower	punct	upper"
-.It Li "blank	graph	phonogram	space	xdigit"
+.Bl -column -offset indent ".Li alnum" ".Li cntrl" ".Li ideogram" ".Li print" ".Li space"
+.It Li "alnum	cntrl	ideogram	print	space	xdigit"
+.It Li "alpha	digit	lower	punct	special"
+.It Li "blank	graph	phonogram	rune	upper"
 .El
 .Pp
 The
@@ -105,8 +105,9 @@ functions conform to
 The
 .Dq Li ideogram ,
 .Dq Li phonogram
+.Dq Li special ,
 and
-.Dq Li special
+.Dq Li rune
 character classes are extensions.
 .Sh HISTORY
 The

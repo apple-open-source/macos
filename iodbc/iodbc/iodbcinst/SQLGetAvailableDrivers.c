@@ -1,7 +1,7 @@
 /*
  *  SQLGetAvailableDrivers.c
  *
- *  $Id: SQLGetAvailableDrivers.c,v 1.1.1.2 2002/04/30 00:40:24 miner Exp $
+ *  $Id: SQLGetAvailableDrivers.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  Get a list of all available drivers
  *
@@ -79,7 +79,7 @@
 
 BOOL
 GetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
-    WORD FAR *pcbBufOut, BOOL infFile)
+    WORD *pcbBufOut, BOOL infFile)
 {
   int sect_len = 0;
   WORD curr = 0;
@@ -163,7 +163,7 @@ quit:
 
 BOOL INSTAPI
 SQLGetAvailableDrivers (LPCSTR lpszInfFile, LPSTR lpszBuf, WORD cbBufMax,
-    WORD FAR *pcbBufOut)
+    WORD *pcbBufOut)
 {
   BOOL retcode = FALSE;
   WORD lenBufOut;

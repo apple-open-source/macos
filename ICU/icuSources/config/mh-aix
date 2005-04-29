@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## Aix-specific setup (for xlC)
-## Copyright (c) 1999-2002, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-aix,v 1.1.1.2 2003/07/03 18:13:33 avery Exp $
 ##
 ## Please note: AIX does NOT have library versioning per se (there is no 'SONAME' capability). 
 ## So, we are using 'windows' style library names, that is, libicuuc20.1.so instead of libicuuc.so.20.1
@@ -51,7 +49,9 @@ MIDDLE_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
 ICULIBSUFFIX_VERSION = $(LIB_VERSION_MAJOR)
 
 # this one is for icudefs.mk's use
+ifeq ($(ENABLE_SHARED),YES)
 SO_TARGET_VERSION_SUFFIX = $(SO_TARGET_VERSION_MAJOR)
+endif
 
 ## Compiler switch to embed a library name. Not present on AIX.
 LD_SONAME = 
@@ -84,8 +84,6 @@ STATIC_O = o
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d : %.u
@@ -104,9 +102,9 @@ STATIC_O = o
 
 ## Versioned libraries rules
 %$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
 %.$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
 
 
 ## BIR  - bind with internal references [so app data and icu data doesn't collide]

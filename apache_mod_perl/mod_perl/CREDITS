@@ -187,7 +187,7 @@ Salvador has helped bang out bugs and traps with sfio enabled
 mod_perls, along with various bug spotting and stopping since the
 early days.  He has also contributed to the Apache/Perl API.
 
-=item Stas Bekman (sbekman@iil.intel.com)
+=item Stas Bekman (stas@stason.org)
 
 Stas' "Mod Perl Developer's Mini Guide" has saved many lives.
 He has also contributed a great deal to the mod_perl documentation and
@@ -310,7 +310,7 @@ perl5-porters, along with the communities that support them both.
 
 There are B<many> other people who have contributed a great deal to
 mod_perl in one way or another, this list is derived from the Changes
-file, activity on the modperl@apache.org list including support,
+file, activity on the modperl@perl.apache.org list including support,
 suggestions and new ideas, along with help through private mails or
 other means.   
 
@@ -340,4 +340,4 @@ Bunce, Todd Eigenschink, Tom Hukins, Tom Mornini, Ulrich Pfeifer
 
 =head1 REVISION
 
-$Revision: 1.1.1.1 $ $Date: 2000/03/31 05:26:38 $
+$Revision: 1.1.1.2 $ $Date: 2003/10/08 21:31:39 $

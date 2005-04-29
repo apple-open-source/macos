@@ -91,6 +91,9 @@ enum eIOAccelSurfaceMethods {
 	kIOAccelSurfaceWriteLock,
 	kIOAccelSurfaceWriteUnlock,
 
+        kIOAccelSurfaceControl,
+	kIOAccelSurfaceSetShapeBackingAndLength,
+
 	kIOAccelNumSurfaceMethods
 };
 
@@ -126,6 +129,9 @@ typedef enum {
         kIOAccelSurfaceShapeIdentityScaleBit = 0x00000004,
         kIOAccelSurfaceShapeFrameSyncBit     = 0x00000008,
         kIOAccelSurfaceShapeBeamSyncBit      = 0x00000010,
+	kIOAccelSurfaceShapeStaleBackingBit  = 0x00000020,
+	kIOAccelSurfaceShapeAssemblyBit      = 0x00000040,
+	kIOAccelSurfaceShapeWaitEnabledBit   = 0x00000080,
 
         /* wrong name, use kIOAccelSurfaceShapeNonBlockingBit */
         kIOAccelSurfaceShapeBlockingBit      = kIOAccelSurfaceShapeNonBlockingBit

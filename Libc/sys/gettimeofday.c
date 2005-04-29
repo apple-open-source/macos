@@ -50,7 +50,7 @@ int gettimeofday (struct timeval *tp, struct timezone *tzp)
             tp = &localtv;
         }
 
-#ifdef __ppc__
+#if defined(__ppc__) || defined(__ppc64__)
         {
             extern int __ppc_gettimeofday(struct timeval *, struct timezone *);
             extern int __commpage_gettimeofday(struct timeval *);

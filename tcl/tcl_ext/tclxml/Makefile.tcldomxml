@@ -1,0 +1,33 @@
+##
+# Makefile for tcldom-tcldomxml
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = tcldomxml
+ProjectName           = TclDOMXML
+
+Extra_Configure_Flags = $(TEA_Configure_Flags) \
+                        $(Libxml2_Configure_Flags)
+Extra_CC_Flags        = -fno-common
+Extra_LD_Flags        = -L$(TclFramework)
+Extra_Environment     = $(TEA_Environment)
+Extra_Install_Flags   = GENERIC_HDRS=
+
+GnuAfterInstall       = strip fix-config fix-owner -f Makefile.$(Project)
+
+# include TEA Tcl extension build support
+include ../TEA.make
+# include libxml2 configuration support
+include Libxml2xslt.make
+
+Sources               = $(SRCROOT)/tcldom/src-libxml2
+
+# the tclxslt subproject is built by a separate Makefile
+build install clean almostclean::
+	$(_v) $(MAKE) -f Makefile.tclxslt $@ \
+	    Extra_TEA_Configure_Flags="--with-$(Project)=$(OBJROOT)" \
+	    AM_CPPFLAGS="$(AM_CPPFLAGS) -I$(Sources)" \
+	    TclExtHtmlDir="$(TclExtHtmlDir)" \
+	    OBJROOT="$(OBJROOT)/tclxslt" DSTROOT="$(DSTROOT)"

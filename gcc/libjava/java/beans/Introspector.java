@@ -1,5 +1,5 @@
 /* java.beans.Introspector
-   Copyright (C) 1998, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,10 +38,13 @@ exception statement from your version. */
 
 package java.beans;
 
-import gnu.java.beans.*;
-import java.util.*;
-import java.lang.reflect.*;
-import gnu.java.lang.*;
+import gnu.java.beans.BeanInfoEmbryo;
+import gnu.java.beans.ExplicitBeanInfo;
+import gnu.java.beans.IntrospectionIncubator;
+import gnu.java.lang.ClassHelper;
+
+import java.util.Hashtable;
+import java.util.Vector;
 
 /**
  * Introspector is the class that does the bulk of the
@@ -63,7 +66,7 @@ import gnu.java.lang.*;
  * When you call getBeanInfo(class c), the Introspector
  * first searches for BeanInfo class to see if you
  * provided any explicit information.  It searches for a
- * class named <bean class name>BeanInfo in different
+ * class named &lt;bean class name&gt;BeanInfo in different
  * packages, first searching the bean class's package
  * and then moving on to search the beanInfoSearchPath.<P>
  *
@@ -111,14 +114,14 @@ import gnu.java.lang.*;
  *     type &lt;type&gt;.  There may also be a
  *     <CODE>public &lt;type&gt;[] getXXX()</CODE> and a
  *     <CODE>public void setXXX(&lt;type&gt;)</CODE>
- *     method as well.</CODE></LI>
+ *     method as well.</LI>
  * <LI>If there is a
  *     <CODE>public void setXXX(int,&lt;type&gt;)</CODE>
  *     method, then it is a write-only indexed property of
  *     type &lt;type&gt;.  There may also be a
  *     <CODE>public &lt;type&gt;[] getXXX()</CODE> and a
  *     <CODE>public void setXXX(&lt;type&gt;)</CODE>
- *     method as well.</CODE></LI>
+ *     method as well.</LI>
  * <LI>If there is a
  *     <CODE>public &lt;type&gt; getXXX()</CODE> method,
  *     then XXX is a read-only property of type
@@ -518,40 +521,54 @@ class ExplicitInfo
   
   static BeanInfo reallyFindExplicitBeanInfo(Class beanClass) 
   {
-    try 
+    ClassLoader beanClassLoader = beanClass.getClassLoader();
+    BeanInfo beanInfo;
+
+    beanInfo = getBeanInfo(beanClassLoader, beanClass.getName() + "BeanInfo");
+    if (beanInfo == null)
       {
-      try 
-	{
-	  return (BeanInfo)Class.forName(beanClass.getName()+"BeanInfo").newInstance();
-	} 
-      catch(ClassNotFoundException E) 
-	{
-	}
-      String newName = ClassHelper.getTruncatedClassName(beanClass) + "BeanInfo";
-      for(int i=0;i<Introspector.beanInfoSearchPath.length;i++) 
-	{
-	  try 
-	    {
-	      if(Introspector.beanInfoSearchPath[i].equals("")) 
-		{
-		  return (BeanInfo)Class.forName(newName).newInstance();
-		} 
-	      else 
-		{
-		  return (BeanInfo)Class.forName(Introspector.beanInfoSearchPath[i] + "." + newName).newInstance();
-		}
-	    } 
-	  catch(ClassNotFoundException E) 
-	    {
-	    }
-	}
-      } 
-    catch(IllegalAccessException E) 
-      {
-      } 
-    catch(InstantiationException E) 
-      {
+	String newName;
+	newName = ClassHelper.getTruncatedClassName(beanClass) + "BeanInfo";
+
+	for(int i = 0; i < Introspector.beanInfoSearchPath.length; i++) 
+	  {
+	    if (Introspector.beanInfoSearchPath[i].equals("")) 
+	      beanInfo = getBeanInfo(beanClassLoader, newName);
+	    else 
+	      beanInfo = getBeanInfo(beanClassLoader,
+				     Introspector.beanInfoSearchPath[i] + "."
+				     + newName);
+
+	    if (beanInfo != null)
+	      return beanInfo;
+	  } 
       }
-    return null;
+
+    return beanInfo;
   }
+
+  /**
+   * Returns an instance of the given class name when it can be loaded
+   * through the given class loader, or null otherwise.
+   */
+  private static BeanInfo getBeanInfo(ClassLoader cl, String infoName)
+  {
+    try
+      {
+	return (BeanInfo) Class.forName(infoName, true, cl).newInstance();
+      }
+    catch (ClassNotFoundException cnfe)
+      {
+	return null;
+      }
+    catch (IllegalAccessException iae)
+      {
+	return null;
+      }
+    catch (InstantiationException ie)
+      {
+	return null;
+      }
+  }
+  
 }

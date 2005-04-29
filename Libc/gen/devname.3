@@ -32,7 +32,7 @@
 .\"     @(#)devname.3	8.2 (Berkeley) 4/29/95
 .\" $FreeBSD: src/lib/libc/gen/devname.3,v 1.11 2001/10/01 16:08:50 ru Exp $
 .\"
-.Dd April 29, 1995
+.Dd October 25, 2004
 .Dt DEVNAME 3
 .Os
 .Sh NAME
@@ -45,6 +45,8 @@
 .In stdlib.h
 .Ft char *
 .Fn devname "dev_t dev" "mode_t type"
+.Ft char *
+.Fn devname_r "dev_t dev" "mode_t type" "char *buf" "int len"
 .Sh DESCRIPTION
 The
 .Fn devname
@@ -55,9 +57,20 @@ with a device number of
 .Fa dev ,
 and a file type matching the one encoded in
 .Fa type
-which must be one of S_IFBLK or S_IFCHR.
+which must be one of
+.Dv S_IFBLK
+or
+.Dv S_IFCHR .
 If no device matches the specified values, or no information is
 available, NULL is returned.
+.Pp
+The
+.Fn devname
+function uses a static buffer, which will be overwritten
+on subsequent calls.
+The
+.Fn devname_r
+functions takes a buffer and length as arguments to avoid this problem.
 .Pp
 The traditional display for applications when no device is
 found is the string

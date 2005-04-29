@@ -38,15 +38,13 @@ extern CUMULATIVE_ARGS xstormy16_function_arg_advance
 extern void    xstormy16_setup_incoming_varargs 
   PARAMS ((CUMULATIVE_ARGS, int, tree, int *));
 extern tree    xstormy16_build_va_list PARAMS ((void));
-extern void    xstormy16_encode_section_info PARAMS ((tree));
 #endif
 
 #if defined (TREE_CODE) && defined (RTX_CODE)
-extern void    xstormy16_expand_builtin_va_start PARAMS ((int, tree, rtx));
+extern void    xstormy16_expand_builtin_va_start PARAMS ((tree, rtx));
 extern rtx     xstormy16_expand_builtin_va_arg PARAMS ((tree, tree));
 extern void    xstormy16_initialize_trampoline PARAMS ((rtx, rtx, rtx));
 extern rtx     xstormy16_function_value PARAMS ((tree, tree));
-extern void    xstormy16_asm_output_mi_thunk PARAMS ((FILE *, tree, int, tree));
 #endif
 
 #ifdef RTX_CODE

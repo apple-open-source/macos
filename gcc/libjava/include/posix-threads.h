@@ -1,7 +1,7 @@
 // -*- c++ -*-
 // posix-threads.h - Defines for using POSIX threads.
 
-/* Copyright (C) 1998, 1999, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2001, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -77,12 +77,9 @@ typedef struct
 // this out.  Returns 0 if the lock is held by the current thread, and
 // 1 otherwise.
 inline int
-_Jv_PthreadCheckMonitor (_Jv_Mutex_t *mu)
+_Jv_MutexCheckMonitor (_Jv_Mutex_t *mu)
 {
-  pthread_t self = pthread_self();
-  if (mu->owner == self)
-    return 0;
-  else return 1;
+  return (mu->owner != pthread_self());
 }
 
 //
@@ -155,7 +152,7 @@ _Jv_MutexLock (_Jv_Mutex_t *mu)
 inline int
 _Jv_MutexUnlock (_Jv_Mutex_t *mu)
 {
-  if (_Jv_PthreadCheckMonitor (mu))
+  if (_Jv_MutexCheckMonitor (mu))
     {
 #     ifdef LOCK_DEBUG
 	fprintf(stderr, "_Jv_MutexUnlock: Not owner\n");
@@ -244,21 +241,12 @@ _Jv_ThreadSelf (void)
 
 #ifdef __alpha__
 
-#ifdef __FreeBSD__
-#include <machine/pal.h>
-#define PAL_rduniq PAL_rdunique
-#else
-#include <asm/pal.h>
-#endif
-
-typedef unsigned long _Jv_ThreadId_t;
+typedef void *_Jv_ThreadId_t;
 
 inline _Jv_ThreadId_t
 _Jv_ThreadSelf (void)
 {
-  register unsigned long id __asm__("$0");
-  __asm__ ("call_pal %1" : "=r"(id) : "i"(PAL_rduniq));
-  return id;
+  return __builtin_thread_pointer ();
 }
 
 #define JV_SELF_DEFINED

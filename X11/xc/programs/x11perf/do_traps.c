@@ -21,7 +21,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************************/
-/* $XFree86: xc/programs/x11perf/do_traps.c,v 1.9 2002/12/04 10:28:08 eich Exp $ */
+/* $XFree86: xc/programs/x11perf/do_traps.c,v 1.10 2003/05/27 22:26:58 tsi Exp $ */
 
 #include "x11perf.h"
 #include "bitmaps.h"
@@ -219,7 +219,6 @@ void
 DoFixedTrapezoids(XParms xp, Parms p, int reps)
 {
     int		i;
-    XTrapezoid	*curTrap;
     Picture	white, black, src, dst;
 
     white = XftDrawSrcPicture (aadraw, &aawhite);
@@ -228,7 +227,6 @@ DoFixedTrapezoids(XParms xp, Parms p, int reps)
 
     src = black;
     for (i = 0; i != reps; i++) {
-        curTrap = traps;
 	XRenderCompositeTrapezoids (xp->d, PictOpOver, src, dst, maskFormat,
 				    0, 0, traps, p->objects);
         if (src == black)

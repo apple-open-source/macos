@@ -1,4 +1,4 @@
-
+#!perl
 sub SSI::one {
     print "Content-type: text/html\n\n";
 

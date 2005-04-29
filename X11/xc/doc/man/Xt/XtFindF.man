@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtFindF.man,v 1.4 2002/10/12 16:06:41 herrb Exp $
+.\" $XFree86: xc/doc/man/Xt/XtFindF.man,v 1.5 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,16 +130,9 @@
 .SH NAME
 XtFindFile \- search for a file using substitutions in the path list
 .SH SYNTAX
-String XtFindFile(\fIpath\fP, \fIsubstitutions\fP, \fInum_substitutions\fP,
-\fIpredicate\fP)
-.br
-      String \fIpath\fP;
-.br
-      Substitution \fIsubstitutions\fP;
-.br
-      Cardinal \fInum_substitutions\fP;
-.br
-      XtFilePredicate \fIpredicate\fP;
+.HP
+String XtFindFile(String \fIpath\fP, Substitution \fIsubstitutions\fP,
+Cardinal \fInum_substitutions\fP, XtFilePredicate \fIpredicate\fP); 
 .SH ARGUMENTS
 .IP \fIpath\fP 1i
 Specifies a path of file names, including substitution characters.

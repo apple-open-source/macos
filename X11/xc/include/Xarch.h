@@ -25,15 +25,27 @@
  * IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/include/Xarch.h,v 1.10 2000/06/15 20:49:58 dawes Exp $ */
+/* $XFree86: xc/include/Xarch.h,v 1.11 2003/05/27 22:26:24 tsi Exp $ */
 
 
 /*
  * Determine the machine's byte order.
  */
 
+#if defined (__BIG_ENDIAN__) || defined (__LITTLE_ENDIAN__)
+# undef X_BYTE_ORDER
+# undef X_LITTLE_ENDIAN
+# undef X_BIG_ENDIAN
+# define X_LITTLE_ENDIAN 1234
+# define X_BIG_ENDIAN 4321
+# if __BIG_ENDIAN__
+#  define X_BYTE_ORDER X_BIG_ENDIAN
+# else
+#  define X_BYTE_ORDER X_LITTLE_ENDIAN
+# endif
+
 /* See if it is set in the imake config first */
-#ifdef X_BYTE_ORDER
+#elif defined (X_BYTE_ORDER)
 
 #define X_BIG_ENDIAN 4321
 #define X_LITTLE_ENDIAN 1234
@@ -41,10 +53,10 @@
 #else
 
 #ifdef SVR4
-#if defined(NCR) || defined(Mips)
+#if defined(NCR) || defined(Mips) || defined(__sgi)
 #include <sys/endian.h>
 #else
-#if !defined(sun) && !defined(__sgi)
+#if !defined(sun)
 #include <sys/byteorder.h>
 #endif
 #endif
@@ -115,19 +127,6 @@
 #define BYTE_ORDER BIG_ENDIAN
 #endif
 #endif /* sun */
-
-#if defined (__APPLE__) && defined (__MACH__)
-# if defined (__ppc__) && !defined (__powerpc__)
-#  define __powerpc__ 1
-# endif
-# if defined (__powerpc__)
-#  define BYTE_ORDER BIG_ENDIAN
-# elif defined (__i386__)
-#  define BYTE_ORDER LITTLE_ENDIAN
-# else
-#  error "unknown apple architecture"
-# endif
-#endif
 #endif /* BYTE_ORDER */
 
 #define X_BYTE_ORDER BYTE_ORDER

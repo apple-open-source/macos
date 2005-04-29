@@ -1,6 +1,6 @@
 /*  
 ********************************************************************************
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -24,7 +24,7 @@
 
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
-#include "unicode/resbund.h"
+#include "unicode/ures.h"
 
 U_NAMESPACE_BEGIN
 
@@ -150,7 +150,7 @@ public:
      * subclassed.
      * @stable ICU 2.0
      */
-    ~DateFormatSymbols();
+    virtual ~DateFormatSymbols();
 
     /**
      * Return true if another object is semantically equal to this one.
@@ -292,7 +292,7 @@ public:
      * @return    the non-localized date-time pattern characters
      * @stable ICU 2.0
      */
-    static const UChar *getPatternUChars(void);
+    static const UChar * U_EXPORT2 getPatternUChars(void);
 
     /**
      * Gets localized date-time pattern characters. For example: 'u', 't', etc.
@@ -311,32 +311,27 @@ public:
     void setLocalPatternChars(const UnicodeString& newLocalPatternChars);
 
     /**
+     * Returns the locale for this object. Two flavors are available:
+     * valid and actual locale.
+     * @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+     */
+    Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const;
+
+    /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const;
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    static inline UClassID getStaticClassID();
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
-    /**
-     * Tag names used by this class.
-     */
-    static const char fgErasTag[];   // resource bundle tag for era names
-    static const char fgMonthNamesTag[]; // resource bundle tag for month names
-    static const char fgMonthAbbreviationsTag[]; // resource bundle tag for month abbreviations
-    static const char fgDayNamesTag[];   // resource bundle tag for day names
-    static const char fgDayAbbreviationsTag[];   // resource bundle tag for day abbreviations
-    static const char fgAmPmMarkersTag[];    // resource bundle tag for AM/PM strings
-
-    static const char fgZoneStringsTag[];    // resource bundle tag for time zone names
-    static const char fgLocalPatternCharsTag[];  // resource bundle tag for localized pattern characters
 
     friend class SimpleDateFormat;
     friend class DateFormatSymbolsSingleSetter; // see udat.cpp
@@ -389,13 +384,13 @@ private:
      */
     UnicodeString   fLocalPatternChars;
 
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
-
 private:
+    /** valid/actual locale information 
+     *  these are always ICU locales, so the length should not be a problem
+     */
+    char validLocale[ULOC_FULLNAME_CAPACITY];
+    char actualLocale[ULOC_FULLNAME_CAPACITY];
+
 
     /* Sizes for the last resort string arrays */
     typedef enum LastResortSize {
@@ -417,21 +412,8 @@ private:
 
     DateFormatSymbols(); // default constructor not implemented
 
-    void initField(UnicodeString **field, int32_t& length, const ResourceBundle data, UErrorCode &status);
+    void initField(UnicodeString **field, int32_t& length, const UResourceBundle *data, UErrorCode &status);
     void initField(UnicodeString **field, int32_t& length, const UChar *data, LastResortSize numStr, LastResortSize strLen, UErrorCode &status);
-
-    /**
-     * Load data for specified 'type', falling back to gregorian if needed
-     *
-     * @param rb ResourceBundle
-     * @param tag Resource key to data
-     * @param type Calendar type
-     * @param status Error Status
-     * @internal
-     */
-    static ResourceBundle
-      getData(ResourceBundle &rb, const char *tag, const char *type, UErrorCode& status);
-
 
     /**
      * Called by the constructors to actually load data from the resources
@@ -509,14 +491,6 @@ private:
      */
     void disposeZoneStrings(void);
 };
-
-inline UClassID
-DateFormatSymbols::getStaticClassID()
-{ return (UClassID)&fgClassID; }
-
-inline UClassID
-DateFormatSymbols::getDynamicClassID() const
-{ return DateFormatSymbols::getStaticClassID(); }
 
 U_NAMESPACE_END
 

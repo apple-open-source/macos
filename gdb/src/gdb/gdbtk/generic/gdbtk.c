@@ -29,7 +29,6 @@
 #include "tracepoint.h"
 #include "demangle.h"
 #include "version.h"
-#include "cli-out.h"
 #include "top.h"
 #include "annotate.h"
 
@@ -83,7 +82,9 @@ char *external_editor_command = NULL;
 
 extern int Tktable_Init (Tcl_Interp * interp);
 
-static void gdbtk_init (char *);
+void gdbtk_init (void);
+
+static void gdbtk_init_1 (char *argv0);
 
 void gdbtk_interactive (void);
 
@@ -118,6 +119,7 @@ static char *gdbtk_source_filename = NULL;
 
 int gdbtk_disable_fputs = 1;
 
+static const char *argv0; 
 
 #ifndef _WIN32
 
@@ -185,7 +187,10 @@ void
 TclDebug (char level, const char *fmt,...)
 {
   va_list args;
-  char *buf, *v[3], *merge, *priority;
+  char *buf;
+  const char *v[3];
+  char *merge;
+  char *priority;
 
   switch (level)
     {
@@ -316,10 +321,11 @@ target_is_native (struct target_ops *t)
 {
   char *name = t->to_shortname;
 
-  if (STREQ (name, "exec") || STREQ (name, "hpux-threads")
-      || STREQ (name, "child") || STREQ (name, "procfs")
-      || STREQ (name, "solaris-threads") || STREQ (name, "linuxthreads")
-      || STREQ (name, "multi-thread"))
+  if (strcmp (name, "exec") == 0 || strcmp (name, "hpux-threads") == 0
+      || strcmp (name, "child") == 0 || strcmp (name, "procfs") == 0
+      || strcmp (name, "solaris-threads") == 0
+      || strcmp (name, "linuxthreads") == 0
+      || strcmp (name, "multi-thread") == 0)
     return 1;
 
   return 0;
@@ -342,13 +348,13 @@ gdbtk_cleanup (PTR dummy)
  * the Tcl based library files.
  */
 
-static void
-gdbtk_init (char *argv0)
+void
+gdbtk_init (void)
 {
   struct cleanup *old_chain;
   char *s;
   int element_count;
-  char **exec_path;
+  const char **exec_path;
   CONST char *internal_exec_name;
 
   /* If there is no DISPLAY environment variable, Tk_Init below will fail,
@@ -358,7 +364,6 @@ gdbtk_init (char *argv0)
 #ifndef _WIN32
   if (getenv ("DISPLAY") == NULL)
     {
-      init_ui_hook = NULL;
       return;
     }
 #endif
@@ -439,8 +444,8 @@ gdbtk_init (char *argv0)
 	{
 	  int i, count;
 	  char *src_dir = SRC_DIR;
-	  char **src_path;
-	  char **lib_path;
+	  const char **src_path;
+	  const char **lib_path;
 	  Tcl_DString lib_dstring;
 
 	  Tcl_DStringInit (&lib_dstring);
@@ -454,7 +459,7 @@ gdbtk_init (char *argv0)
 	  Tcl_SplitPath (src_dir, &count, &src_path);
 
 	  /* Append tcl/library to src_dir (src_dir=/foo/bar/gdb) */
-	  lib_path = (char **) alloca ((count + 2) * sizeof (char *));
+	  lib_path = (const char **) alloca ((count + 2) * sizeof (char *));
 	  for (i = 0; i < count - 1; i++)
 	    lib_path[i] = src_path[i];
 	  lib_path[i++] = "tcl";
@@ -486,7 +491,7 @@ gdbtk_init (char *argv0)
   free(s);
    
   /* Note: Tcl_SetVar2() treats the value as read-only (making a
-     copy).  Unfortunatly it does not mark the parameter as
+     copy).  Unfortunately it does not mark the parameter as
      ``const''. */
   Tcl_SetVar2 (gdbtk_interp, "GDBStartup", "host_name", (char*) host_name, TCL_GLOBAL_ONLY);
   Tcl_SetVar2 (gdbtk_interp, "GDBStartup", "target_name", (char*) target_name, TCL_GLOBAL_ONLY);
@@ -554,13 +559,6 @@ gdbtk_init (char *argv0)
 
   Tcl_StaticPackage (gdbtk_interp, "Insight", Gdbtk_Init, NULL);
 
-  /* This adds all the hooks that call up from the bowels of gdb
-   *  back into Tcl-land...
-   */
-
-  gdbtk_add_hooks ();
-
-
   /* Add a back door to Tk from the gdb console... */
 
   add_com ("tk", class_obscure, tk_command,
@@ -581,24 +579,19 @@ gdbtk_init (char *argv0)
       external_editor_command = NULL;
     }
 
-  /* close old output and send new to GDBTK */
-  ui_file_delete (gdb_stdout);
-  ui_file_delete (gdb_stderr);
-  gdb_stdout = gdbtk_fileopen ();
-  gdb_stderr = gdbtk_fileopen ();
-  gdb_stdlog = gdbtk_fileopen ();
-  gdb_stdtarg = gdbtk_fileopen ();
-  uiout = cli_out_new (gdb_stdout);
-
 #ifdef __CYGWIN32__
   (void) FreeConsole ();
 #endif
 
-  /* find the gdb tcl library and source main.tcl */
+  discard_cleanups (old_chain);
+}
 
-  {
+void
+gdbtk_source_start_file (void)
+{
+  /* find the gdb tcl library and source main.tcl */
 #ifdef NO_TCLPRO_DEBUGGER
-    static char script[] = "\
+  static char script[] = "\
 proc gdbtk_find_main {} {\n\
     global Paths GDBTK_LIBRARY\n\
     rename gdbtk_find_main {}\n\
@@ -624,31 +617,29 @@ proc gdbtk_find_main {} {\n\
 gdbtk_find_main";
 #endif /* NO_TCLPRO_DEBUGGER */
 
-    /* now enable gdbtk to parse the output from gdb */
-    gdbtk_disable_fputs = 0;
+  /* now enable gdbtk to parse the output from gdb */
+  gdbtk_disable_fputs = 0;
     
-    if (Tcl_GlobalEval (gdbtk_interp, (char *) script) != TCL_OK)
-      {
-	char *msg;
+  if (Tcl_GlobalEval (gdbtk_interp, (char *) script) != TCL_OK)
+    {
+      const char *msg;
 
-	/* Force errorInfo to be set up propertly.  */
-	Tcl_AddErrorInfo (gdbtk_interp, "");
-	msg = Tcl_GetVar (gdbtk_interp, "errorInfo", TCL_GLOBAL_ONLY);
+      /* Force errorInfo to be set up propertly.  */
+      Tcl_AddErrorInfo (gdbtk_interp, "");
+      msg = Tcl_GetVar (gdbtk_interp, "errorInfo", TCL_GLOBAL_ONLY);
 
 #ifdef _WIN32
-	/* On windows, display the error using a pop-up message box.
-           If GDB wasn't started from the DOS prompt, the user won't
-           get to see the failure reason.  */
-	MessageBox (NULL, msg, NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
-	throw_exception (RETURN_ERROR);
+      /* On windows, display the error using a pop-up message box.
+	 If GDB wasn't started from the DOS prompt, the user won't
+	 get to see the failure reason.  */
+      MessageBox (NULL, msg, NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
+      throw_exception (RETURN_ERROR);
 #else
-	/* FIXME: cagney/2002-04-17: Wonder what the lifetime of
-           ``msg'' is - does it need a cleanup?  */
-	error (msg);
+      /* FIXME: cagney/2002-04-17: Wonder what the lifetime of
+	 ``msg'' is - does it need a cleanup?  */
+      error ("%s", msg);
 #endif
-      }
-  }
-
+    }
 
   /* Now source in the filename provided by the --tclcommand option.
      This is mostly used for the gdbtk testsuite... */
@@ -661,8 +652,13 @@ gdbtk_find_main";
       free (gdbtk_source_filename);
       free (script);
     }
+}
 
-  discard_cleanups (old_chain);
+static void
+gdbtk_init_1 (char *arg0)
+{
+  argv0 = arg0;
+  init_ui_hook = NULL;
 }
 
 /* gdbtk_test is used in main.c to validate the -tclcommand option to
@@ -684,12 +680,12 @@ gdbtk_test (char *filename)
 void
 _initialize_gdbtk ()
 {
-  if (use_windows)
-    {
-      /* Tell the rest of the world that Gdbtk is now set up. */
-      init_ui_hook = gdbtk_init;
-    }
-#ifdef __CYGWIN32__
+  /* Current_interpreter not set yet, so we must check
+     if "interpreter_p" is set to "insight" to know if
+     insight is GOING to run. */
+  if (strcmp (interpreter_p, "insight") == 0)
+    init_ui_hook = gdbtk_init_1;
+#ifdef __CYGWIN__
   else
     {
       DWORD ft = GetFileType (GetStdHandle (STD_INPUT_HANDLE));
@@ -736,7 +732,7 @@ tk_command (char *cmd, int from_tty)
   old_chain = make_cleanup (free, result);
 
   if (retval != TCL_OK)
-    error (result);
+    error ("%s", result);
 
   printf_unfiltered ("%s\n", result);
 
@@ -758,7 +754,7 @@ view_command (char *args, int from_tty)
       if (Tcl_Eval (gdbtk_interp, script) != TCL_OK)
 	{
 	  Tcl_Obj *obj = Tcl_GetObjResult (gdbtk_interp);
-	  error (Tcl_GetStringFromObj (obj, NULL));
+	  error ("%s", Tcl_GetStringFromObj (obj, NULL));
 	}
 
       do_cleanups (old_chain);

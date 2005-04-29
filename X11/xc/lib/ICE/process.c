@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
 
 Author: Ralph Mor, X Consortium
 ******************************************************************************/
-/* $XFree86: xc/lib/ICE/process.c,v 3.8 2001/12/14 19:53:36 dawes Exp $ */
+/* $XFree86: xc/lib/ICE/process.c,v 3.10 2003/10/23 21:31:49 tsi Exp $ */
 
 #include <X11/ICE/ICElib.h>
 #include "ICElibint.h"
@@ -37,11 +37,11 @@ Author: Ralph Mor, X Consortium
  * Check for bad length
  */
 
-#define CHECK_SIZE_MATCH(_iceConn, _opcode, _expected_len, _actual_len, _severity) \
+#define CHECK_SIZE_MATCH(_iceConn, _opcode, _expected_len, _actual_len, _severity, _return) \
     if ((((_actual_len) - SIZEOF (iceMsg)) >> 3) != _expected_len) \
     { \
        _IceErrorBadLength (_iceConn, 0, _opcode, _severity); \
-       return (0); \
+       return (_return); \
     }
 
 #define CHECK_AT_LEAST_SIZE(_iceConn, _opcode, _expected_len, _actual_len, _severity) \
@@ -187,7 +187,7 @@ Bool		 *replyReadyRet;
 
 	    CHECK_SIZE_MATCH (iceConn, ICE_ByteOrder,
 	        header->length, SIZEOF (iceByteOrderMsg),
-		IceFatalToConnection);
+		IceFatalToConnection, IceProcessMessagesIOError);
 
 	    if (byteOrder != IceMSBfirst && byteOrder != IceLSBfirst)
 	    {
@@ -1697,8 +1697,10 @@ IceReplyWaitInfo 	*replyWait;
     char 			*pData, *pStart, *pEnd;
     Bool			replyReady;
 
+#if 0 /* No-op */
     CHECK_AT_LEAST_SIZE (iceConn, ICE_ConnectionReply,
 	length, SIZEOF (iceConnectionReplyMsg), IceFatalToConnection);
+#endif
 
     IceReadCompleteMessage (iceConn, SIZEOF (iceConnectionReplyMsg),
 	iceConnectionReplyMsg, message, pStart);
@@ -2196,8 +2198,10 @@ IceReplyWaitInfo 	*replyWait;
     char		*pData, *pStart, *pEnd;
     Bool		replyReady;
 
+#if 0 /* No-op */
     CHECK_AT_LEAST_SIZE (iceConn, ICE_ProtocolReply,
 	length, SIZEOF (iceProtocolReplyMsg), IceFatalToProtocol);
+#endif
 
     IceReadCompleteMessage (iceConn, SIZEOF (iceProtocolReplyMsg),
 	iceProtocolReplyMsg, message, pStart);
@@ -2304,7 +2308,7 @@ unsigned long	length;
 
 {
     CHECK_SIZE_MATCH (iceConn, ICE_Ping,
-	length, SIZEOF (icePingMsg), IceFatalToConnection);
+	length, SIZEOF (icePingMsg), IceFatalToConnection, 0);
 
     PingReply (iceConn);
 
@@ -2321,7 +2325,7 @@ unsigned long	length;
 
 {
     CHECK_SIZE_MATCH (iceConn, ICE_PingReply,
-	length, SIZEOF (icePingReplyMsg), IceFatalToConnection);
+	length, SIZEOF (icePingReplyMsg), IceFatalToConnection, 0);
 
     if (iceConn->ping_waits)
     {
@@ -2354,7 +2358,7 @@ Bool		*connectionClosedRet;
     *connectionClosedRet = False;
 
     CHECK_SIZE_MATCH (iceConn, ICE_WantToClose,
-	length, SIZEOF (iceWantToCloseMsg), IceFatalToConnection);
+	length, SIZEOF (iceWantToCloseMsg), IceFatalToConnection, 0);
 
     if (iceConn->want_to_close || iceConn->open_ref_count == 0)
     {
@@ -2411,7 +2415,7 @@ unsigned long	length;
 
 {
     CHECK_SIZE_MATCH (iceConn, ICE_NoClose,
-	length, SIZEOF (iceNoCloseMsg), IceFatalToConnection);
+	length, SIZEOF (iceNoCloseMsg), IceFatalToConnection, 0);
 
     if (iceConn->want_to_close)
     {

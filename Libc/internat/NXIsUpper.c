@@ -32,6 +32,6 @@ int NXIsUpper(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_U)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_U)));
 	return 0;
 }

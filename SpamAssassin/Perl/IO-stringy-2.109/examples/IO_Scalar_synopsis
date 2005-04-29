@@ -1,0 +1,112 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+IO_Scalar_synopsis - test out IO::Scalar
+
+=head1 SYNOPSIS
+
+    ### From our distribution's top level directory:
+    perl -I./lib examples/IO_Scalar_synopsis 
+
+=cut
+
+use 5.005;
+use IO::Scalar;
+use strict;
+
+my $line = ('-' x 60)."\n";
+my $somestring = "My message:\n";
+
+###
+### Perform I/O on strings, using the basic OO interface...
+###
+
+### Open a handle on a string, and append to it:
+print $line;
+my $SH = new IO::Scalar \$somestring;
+$SH->print("Hello");  
+$SH->print(", world!\nBye now!\n");  
+print "The string is now: ", $somestring, "\n";
+
+### Open a handle on a string, read it line-by-line, then close it:
+print $line;
+$SH = new IO::Scalar \$somestring;
+while (defined($_ = $SH->getline)) { 
+    print "Got line: $_";
+}
+$SH->close;
+
+### Open a handle on a string, and slurp in all the lines:
+print $line;
+$SH = new IO::Scalar \$somestring;
+print "All lines:\n", $SH->getlines; 
+
+### Get the current position (either of two ways):
+my $pos = $SH->getpos;         
+my $offset = $SH->tell;  
+
+### Set the current position (either of two ways):
+$SH->setpos($pos);        
+$SH->seek($offset, 0);
+
+### Open an anonymous temporary scalar:
+print $line;
+$SH = new IO::Scalar;
+$SH->print("Hi there!");
+print "I printed: ", ${$SH->sref}, "\n";      ### get at value
+
+
+
+
+### Don't like OO for your I/O?  No problem.  
+### Thanks to the magic of an invisible tie(), the following now 
+### works out of the box, just as it does with IO::Handle:
+   
+### Open a handle on a string, and append to it:
+print $line;
+$SH = new IO::Scalar \$somestring;
+print $SH "Hello";    
+print $SH ", world!\nBye now!\n";
+print "The string is now: ", $somestring, "\n";
+
+### Open a handle on a string, read it line-by-line, then close it:
+print $line;
+$SH = new IO::Scalar \$somestring;
+while (<$SH>) {
+    print "Got line: $_";
+}
+close $SH;
+
+### Open a handle on a string, and slurp in all the lines:
+print $line;
+$SH = new IO::Scalar \$somestring;
+print "All lines:\n", <$SH>;
+
+### Get the current position (WARNING: requires 5.6):
+$offset = tell $SH;
+
+### Set the current position (WARNING: requires 5.6):
+seek $SH, $offset, 0;
+
+### Open an anonymous temporary scalar:
+print $line;
+$SH = new IO::Scalar;
+print $SH "Hi there!";
+print "I printed: ", ${$SH->sref}, "\n";      ### get at value
+
+
+
+
+
+### Stringification:
+print $line;
+my $str = "";
+$SH = new IO::Scalar \$str;
+print $SH "Hello, ";
+print $SH "world!";
+print "I printed: $SH\n";
+
+
+### Done!
+1;

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 2001-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 2001-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,15 +24,17 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Errout;   use Errout;
+with Err_Vars; use Err_Vars;
 with Namet;    use Namet;
 with Opt;
+with Osint;    use Osint;
 with Output;   use Output;
 with Prj.Attr; use Prj.Attr;
 with Prj.Com;  use Prj.Com;
+with Prj.Err;  use Prj.Err;
 with Prj.Ext;  use Prj.Ext;
 with Prj.Nmsc; use Prj.Nmsc;
-with Stringt;  use Stringt;
+with Snames;
 
 with GNAT.Case_Util; use GNAT.Case_Util;
 with GNAT.HTable;
@@ -51,36 +52,42 @@ package body Prj.Proc is
       Equal      => "=");
    --  This hash table contains all processed projects
 
-   procedure Add (To_Exp : in out String_Id; Str : String_Id);
+   procedure Add (To_Exp : in out Name_Id; Str : Name_Id);
    --  Concatenate two strings and returns another string if both
    --  arguments are not null string.
 
    procedure Add_Attributes
-     (Decl     : in out Declarations;
-      First    : Attribute_Node_Id);
+     (Project : Project_Id;
+      Decl    : in out Declarations;
+      First   : Attribute_Node_Id);
    --  Add all attributes, starting with First, with their default
    --  values to the package or project with declarations Decl.
+
+   procedure Check
+     (Project           : in out Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean);
+   --  Set all projects to not checked, then call Recursive_Check for the
+   --  main project Project. Project is set to No_Project if errors occurred.
+   --  See Prj.Nmsc.Ada_Check for information on Follow_Links.
 
    function Expression
      (Project           : Project_Id;
       From_Project_Node : Project_Node_Id;
       Pkg               : Package_Id;
       First_Term        : Project_Node_Id;
-      Kind              : Variable_Kind)
-      return              Variable_Value;
+      Kind              : Variable_Kind) return Variable_Value;
    --  From N_Expression project node From_Project_Node, compute the value
    --  of an expression and return it as a Variable_Value.
 
-   function Imported_Or_Modified_Project_From
+   function Imported_Or_Extended_Project_From
      (Project   : Project_Id;
-      With_Name : Name_Id)
-      return      Project_Id;
-   --  Find an imported or modified project of Project whose name is With_Name
+      With_Name : Name_Id) return Project_Id;
+   --  Find an imported or extended project of Project whose name is With_Name
 
    function Package_From
      (Project   : Project_Id;
-      With_Name : Name_Id)
-      return      Package_Id;
+      With_Name : Name_Id) return Package_Id;
    --  Find the package of Project whose name is With_Name
 
    procedure Process_Declarative_Items
@@ -95,30 +102,30 @@ package body Prj.Proc is
    procedure Recursive_Process
      (Project           : out Project_Id;
       From_Project_Node : Project_Node_Id;
-      Modified_By       : Project_Id);
+      Extended_By       : Project_Id);
    --  Process project with node From_Project_Node in the tree.
    --  Do nothing if From_Project_Node is Empty_Node.
    --  If project has already been processed, simply return its project id.
    --  Otherwise create a new project id, mark it as processed, call itself
-   --  recursively for all imported projects and a modified project, if any.
+   --  recursively for all imported projects and a extended project, if any.
    --  Then process the declarative items of the project.
 
-   procedure Check (Project : in out Project_Id);
-   --  Set all projects to not checked, then call Recursive_Check for the
-   --  main project Project. Project is set to No_Project if errors occurred.
-
-   procedure Recursive_Check (Project : Project_Id);
-   --  If Project is marked as not checked, mark it as checked, call
+   procedure Recursive_Check
+     (Project           : Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean);
+   --  If Project is not marked as checked, mark it as checked, call
    --  Check_Naming_Scheme for the project, then call itself for a
-   --  possible modified project and all the imported projects of Project.
+   --  possible extended project and all the imported projects of Project.
+   --  See Prj.Nmsc.Ada_Check for information on Follow_Links
 
    ---------
    -- Add --
    ---------
 
-   procedure Add (To_Exp : in out String_Id; Str : String_Id) is
+   procedure Add (To_Exp : in out Name_Id; Str : Name_Id) is
    begin
-      if To_Exp = Types.No_String or else String_Length (To_Exp) = 0 then
+      if To_Exp = Types.No_Name or else To_Exp = Empty_String then
 
          --  To_Exp is nil or empty. The result is Str.
 
@@ -126,10 +133,15 @@ package body Prj.Proc is
 
       --  If Str is nil, then do not change To_Ext
 
-      elsif Str /= No_String then
-         Start_String (To_Exp);
-         Store_String_Chars (Str);
-         To_Exp := End_String;
+      elsif Str /= No_Name and then Str /= Empty_String then
+         declare
+            S : constant String := Get_Name_String (Str);
+
+         begin
+            Get_Name_String (To_Exp);
+            Add_Str_To_Name_Buffer (S);
+            To_Exp := Name_Find;
+         end;
       end if;
    end Add;
 
@@ -138,21 +150,20 @@ package body Prj.Proc is
    --------------------
 
    procedure Add_Attributes
-     (Decl           : in out Declarations;
-      First          : Attribute_Node_Id) is
+     (Project : Project_Id;
+      Decl    : in out Declarations;
+      First   : Attribute_Node_Id)
+   is
       The_Attribute  : Attribute_Node_Id := First;
-      Attribute_Data : Attribute_Record;
 
    begin
       while The_Attribute /= Empty_Attribute loop
-         Attribute_Data := Attributes.Table (The_Attribute);
-
-         if Attribute_Data.Kind_2 /= Associative_Array then
+         if Attribute_Kind_Of (The_Attribute) = Single then
             declare
                New_Attribute : Variable_Value;
 
             begin
-               case Attribute_Data.Kind_1 is
+               case Variable_Kind_Of (The_Attribute) is
 
                   --  Undefined should not happen
 
@@ -165,16 +176,19 @@ package body Prj.Proc is
 
                   when Single =>
                      New_Attribute :=
-                       (Kind     => Single,
+                       (Project  => Project,
+                        Kind     => Single,
                         Location => No_Location,
                         Default  => True,
-                        Value    => Empty_String);
+                        Value    => Empty_String,
+                        Index    => 0);
 
                   --  List attributes have a default value of nil list
 
                   when List =>
                      New_Attribute :=
-                       (Kind     => List,
+                       (Project  => Project,
+                        Kind     => List,
                         Location => No_Location,
                         Default  => True,
                         Values   => Nil_String);
@@ -184,22 +198,24 @@ package body Prj.Proc is
                Variable_Elements.Increment_Last;
                Variable_Elements.Table (Variable_Elements.Last) :=
                  (Next  => Decl.Attributes,
-                  Name  => Attribute_Data.Name,
+                  Name  => Attribute_Name_Of (The_Attribute),
                   Value => New_Attribute);
                Decl.Attributes := Variable_Elements.Last;
             end;
          end if;
 
-         The_Attribute := Attributes.Table (The_Attribute).Next;
+         The_Attribute := Next_Attribute (After => The_Attribute);
       end loop;
-
    end Add_Attributes;
 
    -----------
    -- Check --
    -----------
 
-   procedure Check (Project : in out Project_Id) is
+   procedure Check
+     (Project           : in out Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean) is
    begin
       --  Make sure that all projects are marked as not checked
 
@@ -207,11 +223,7 @@ package body Prj.Proc is
          Projects.Table (Index).Checked := False;
       end loop;
 
-      Recursive_Check (Project);
-
-      if Errout.Total_Errors_Detected > 0 then
-         Project := No_Project;
-      end if;
+      Recursive_Check (Project, Process_Languages, Follow_Links);
 
    end Check;
 
@@ -224,17 +236,13 @@ package body Prj.Proc is
       From_Project_Node : Project_Node_Id;
       Pkg               : Package_Id;
       First_Term        : Project_Node_Id;
-      Kind              : Variable_Kind)
-      return              Variable_Value
+      Kind              : Variable_Kind) return Variable_Value
    is
       The_Term : Project_Node_Id := First_Term;
       --  The term in the expression list
 
       The_Current_Term : Project_Node_Id := Empty_Node;
       --  The current term node id
-
-      Term_Kind : Variable_Kind;
-      --  The kind of the current term
 
       Result : Variable_Value (Kind => Kind);
       --  The returned result
@@ -243,16 +251,12 @@ package body Prj.Proc is
       --  Reference to the last string elements in Result, when Kind is List.
 
    begin
+      Result.Project := Project;
       Result.Location := Location_Of (First_Term);
 
       --  Process each term of the expression, starting with First_Term
 
       while The_Term /= Empty_Node loop
-
-         --  We get the term data and kind ...
-
-         Term_Kind := Expression_Kind_Of (The_Term);
-
          The_Current_Term := Current_Term (The_Term);
 
          case Kind_Of (The_Current_Term) is
@@ -270,6 +274,7 @@ package body Prj.Proc is
 
                   when Single =>
                      Add (Result.Value, String_Value_Of (The_Current_Term));
+                     Result.Index := Source_Index_Of (The_Current_Term);
 
                   when List =>
 
@@ -290,7 +295,10 @@ package body Prj.Proc is
                      Last := String_Elements.Last;
                      String_Elements.Table (Last) :=
                        (Value    => String_Value_Of (The_Current_Term),
+                        Index    => Source_Index_Of (The_Current_Term),
+                        Display_Value => No_Name,
                         Location => Location_Of (The_Current_Term),
+                        Flag     => False,
                         Next     => Nil_String);
 
                end case;
@@ -332,8 +340,11 @@ package body Prj.Proc is
                      Last := String_Elements.Last;
                      String_Elements.Table (Last) :=
                        (Value    => Value.Value,
+                        Display_Value => No_Name,
                         Location => Value.Location,
-                        Next     => Nil_String);
+                        Flag     => False,
+                        Next     => Nil_String,
+                        Index    => Value.Index);
 
                      loop
                         --  Add the other element of the literal string list
@@ -358,8 +369,11 @@ package body Prj.Proc is
                         Last := String_Elements.Last;
                         String_Elements.Table (Last) :=
                           (Value    => Value.Value,
+                           Display_Value => No_Name,
                            Location => Value.Location,
-                           Next     => Nil_String);
+                           Flag     => False,
+                           Next     => Nil_String,
+                           Index    => Value.Index);
                      end loop;
 
                   end if;
@@ -378,7 +392,7 @@ package body Prj.Proc is
                                       Project_Node_Of (The_Current_Term);
                   Term_Package    : constant Project_Node_Id :=
                                       Package_Node_Of (The_Current_Term);
-                  Index           : String_Id   := No_String;
+                  Index           : Name_Id   := No_Name;
 
                begin
                   if Term_Project /= Empty_Node and then
@@ -387,8 +401,9 @@ package body Prj.Proc is
                      --  This variable or attribute comes from another project
 
                      The_Name := Name_Of (Term_Project);
-                     The_Project := Imported_Or_Modified_Project_From
-                       (Project => Project, With_Name => The_Name);
+                     The_Project := Imported_Or_Extended_Project_From
+                                      (Project   => Project,
+                                       With_Name => The_Name);
                   end if;
 
                   if Term_Package /= Empty_Node then
@@ -420,7 +435,7 @@ package body Prj.Proc is
 
                   --  If it is not an associative array attribute
 
-                  if Index = No_String then
+                  if Index = No_Name then
 
                      --  It is not an associative array attribute
 
@@ -509,7 +524,7 @@ package body Prj.Proc is
                         if The_Array /= No_Array then
                            The_Element := Arrays.Table (The_Array).Value;
 
-                           String_To_Name_Buffer (Index);
+                           Get_Name_String (Index);
 
                            if Case_Insensitive (The_Current_Term) then
                               To_Lower (Name_Buffer (1 .. Name_Len));
@@ -536,23 +551,23 @@ package body Prj.Proc is
                              Expression_Kind_Of (The_Current_Term) = List
                            then
                               The_Variable :=
-                                (Kind     => List,
+                                (Project  => Project,
+                                 Kind     => List,
                                  Location => No_Location,
                                  Default  => True,
                                  Values   => Nil_String);
 
                            else
                               The_Variable :=
-                                (Kind     => Single,
+                                (Project  => Project,
+                                 Kind     => Single,
                                  Location => No_Location,
                                  Default  => True,
-                                 Value    => Empty_String);
+                                 Value    => Empty_String,
+                                 Index    => 0);
                            end if;
-
                         end if;
-
                      end;
-
                   end if;
 
                   case Kind is
@@ -583,7 +598,6 @@ package body Prj.Proc is
                                  "list cannot appear in single " &
                                  "string expression");
                               null;
-
                         end case;
 
                      when List =>
@@ -610,8 +624,11 @@ package body Prj.Proc is
                               Last := String_Elements.Last;
                               String_Elements.Table (Last) :=
                                 (Value    => The_Variable.Value,
+                                 Display_Value => No_Name,
                                  Location => Location_Of (The_Current_Term),
-                                 Next     => Nil_String);
+                                 Flag     => False,
+                                 Next     => Nil_String,
+                                 Index    => 0);
 
                            when List =>
 
@@ -637,12 +654,14 @@ package body Prj.Proc is
                                       (Value    =>
                                          String_Elements.Table
                                                           (The_List).Value,
+                                       Display_Value => No_Name,
                                        Location => Location_Of
                                                           (The_Current_Term),
-                                       Next     => Nil_String);
+                                       Flag     => False,
+                                       Next     => Nil_String,
+                                       Index    => 0);
                                     The_List :=
                                       String_Elements.Table (The_List).Next;
-
                                  end loop;
                               end;
                         end case;
@@ -650,13 +669,13 @@ package body Prj.Proc is
                end;
 
             when N_External_Value =>
-               String_To_Name_Buffer
+               Get_Name_String
                  (String_Value_Of (External_Reference_Of (The_Current_Term)));
 
                declare
                   Name    : constant Name_Id  := Name_Find;
-                  Default : String_Id         := No_String;
-                  Value   : String_Id         := No_String;
+                  Default : Name_Id           := No_Name;
+                  Value   : Name_Id           := No_Name;
 
                   Default_Node : constant Project_Node_Id :=
                                    External_Default_Of (The_Current_Term);
@@ -668,17 +687,19 @@ package body Prj.Proc is
 
                   Value := Prj.Ext.Value_Of (Name, Default);
 
-                  if Value = No_String then
-                     if Error_Report = null then
-                        Error_Msg
-                          ("undefined external reference",
-                           Location_Of (The_Current_Term));
+                  if Value = No_Name then
+                     if not Opt.Quiet_Output then
+                        if Error_Report = null then
+                           Error_Msg
+                             ("?undefined external reference",
+                              Location_Of (The_Current_Term));
 
-                     else
-                        Error_Report
-                          ("""" & Get_Name_String (Name) &
-                           """ is an undefined external reference",
-                           Project);
+                        else
+                           Error_Report
+                             ("warning: """ & Get_Name_String (Name) &
+                              """ is an undefined external reference",
+                              Project);
+                        end if;
                      end if;
 
                      Value := Empty_String;
@@ -707,11 +728,13 @@ package body Prj.Proc is
                         Last := String_Elements.Last;
                         String_Elements.Table (Last) :=
                           (Value    => Value,
+                           Display_Value => No_Name,
                            Location => Location_Of (The_Current_Term),
-                           Next     => Nil_String);
+                           Flag     => False,
+                           Next     => Nil_String,
+                           Index    => 0);
 
                   end case;
-
                end;
 
             when others =>
@@ -732,24 +755,23 @@ package body Prj.Proc is
    end Expression;
 
    ---------------------------------------
-   -- Imported_Or_Modified_Project_From --
+   -- Imported_Or_Extended_Project_From --
    ---------------------------------------
 
-   function Imported_Or_Modified_Project_From
+   function Imported_Or_Extended_Project_From
      (Project   : Project_Id;
-      With_Name : Name_Id)
-      return      Project_Id
+      With_Name : Name_Id) return Project_Id
    is
       Data : constant Project_Data := Projects.Table (Project);
       List : Project_List          := Data.Imported_Projects;
 
    begin
-      --  First check if it is the name of a modified project
+      --  First check if it is the name of a extended project
 
-      if Data.Modifies /= No_Project
-        and then Projects.Table (Data.Modifies).Name = With_Name
+      if Data.Extends /= No_Project
+        and then Projects.Table (Data.Extends).Name = With_Name
       then
-         return Data.Modifies;
+         return Data.Extends;
 
       else
          --  Then check the name of each imported project
@@ -769,7 +791,7 @@ package body Prj.Proc is
 
          return Project_Lists.Table (List).Project;
       end if;
-   end Imported_Or_Modified_Project_From;
+   end Imported_Or_Extended_Project_From;
 
    ------------------
    -- Package_From --
@@ -777,8 +799,7 @@ package body Prj.Proc is
 
    function Package_From
      (Project   : Project_Id;
-      With_Name : Name_Id)
-      return      Package_Id
+      With_Name : Name_Id) return Package_Id
    is
       Data   : constant Project_Data := Projects.Table (Project);
       Result : Package_Id := Data.Decl.Packages;
@@ -810,11 +831,19 @@ package body Prj.Proc is
 
    procedure Process
      (Project           : out Project_Id;
+      Success           : out Boolean;
       From_Project_Node : Project_Node_Id;
-      Report_Error      : Put_Line_Access)
+      Report_Error      : Put_Line_Access;
+      Process_Languages : Languages_Processed := Ada_Language;
+      Follow_Links      : Boolean := True)
    is
+      Obj_Dir    : Name_Id;
+      Extending  : Project_Id;
+      Extending2 : Project_Id;
+
    begin
       Error_Report := Report_Error;
+      Success := True;
 
       --  Make sure there is no projects in the data structure
 
@@ -827,15 +856,114 @@ package body Prj.Proc is
       Recursive_Process
         (Project           => Project,
          From_Project_Node => From_Project_Node,
-         Modified_By       => No_Project);
-
-      if Errout.Total_Errors_Detected > 0 then
-         Project := No_Project;
-      end if;
+         Extended_By       => No_Project);
 
       if Project /= No_Project then
-         Check (Project);
+         Check (Project, Process_Languages, Follow_Links);
       end if;
+
+      --  If main project is an extending all project, set the object
+      --  directory of all virtual extending projects to the object directory
+      --  of the main project.
+
+      if Project /= No_Project
+        and then Is_Extending_All (From_Project_Node)
+      then
+         declare
+            Object_Dir : constant Name_Id :=
+              Projects.Table (Project).Object_Directory;
+         begin
+            for Index in Projects.First .. Projects.Last loop
+               if Projects.Table (Index).Virtual then
+                  Projects.Table (Index).Object_Directory := Object_Dir;
+               end if;
+            end loop;
+         end;
+      end if;
+
+      --  Check that no extending project shares its object directory with
+      --  the project(s) it extends.
+
+      if Project /= No_Project then
+         for Proj in 1 .. Projects.Last loop
+            Extending := Projects.Table (Proj).Extended_By;
+
+            if Extending /= No_Project then
+               Obj_Dir := Projects.Table (Proj).Object_Directory;
+
+               --  Check that a project being extended does not share its
+               --  object directory with any project that extends it, directly
+               --  or indirectly, including a virtual extending project.
+
+               --  Start with the project directly extending it
+
+               Extending2 := Extending;
+
+               while Extending2 /= No_Project loop
+                  if ((Process_Languages = Ada_Language
+                       and then
+                       Projects.Table (Extending2).Ada_Sources_Present)
+                      or else
+                       (Process_Languages = Other_Languages
+                        and then
+                        Projects.Table (Extending2).Other_Sources_Present))
+                    and then
+                      Projects.Table (Extending2).Object_Directory = Obj_Dir
+                  then
+                     if Projects.Table (Extending2).Virtual then
+                        Error_Msg_Name_1 := Projects.Table (Proj).Name;
+
+                        if Error_Report = null then
+                           Error_Msg
+                             ("project % cannot be extended by a virtual " &
+                              "project with the same object directory",
+                              Projects.Table (Proj).Location);
+
+                        else
+                           Error_Report
+                             ("project """ &
+                              Get_Name_String (Error_Msg_Name_1) &
+                              """ cannot be extended by a virtual " &
+                              "project with the same object directory",
+                              Project);
+                        end if;
+
+                     else
+                        Error_Msg_Name_1 :=
+                          Projects.Table (Extending2).Name;
+                        Error_Msg_Name_2 := Projects.Table (Proj).Name;
+
+                        if Error_Report = null then
+                           Error_Msg
+                             ("project % cannot extend project %",
+                              Projects.Table (Extending2).Location);
+                           Error_Msg
+                             ("\they share the same object directory",
+                              Projects.Table (Extending2).Location);
+
+                        else
+                           Error_Report
+                             ("project """ &
+                              Get_Name_String (Error_Msg_Name_1) &
+                              """ cannot extend project """ &
+                              Get_Name_String (Error_Msg_Name_2) & """",
+                              Project);
+                           Error_Report
+                             ("they share the same object directory",
+                              Project);
+                        end if;
+                     end if;
+                  end if;
+
+                  --  Continue with the next extending project, if any
+
+                  Extending2 := Projects.Table (Extending2).Extended_By;
+               end loop;
+            end if;
+         end loop;
+      end if;
+
+      Success := Total_Errors_Detected <= 0;
    end Process;
 
    -------------------------------
@@ -846,11 +974,10 @@ package body Prj.Proc is
      (Project           : Project_Id;
       From_Project_Node : Project_Node_Id;
       Pkg               : Package_Id;
-      Item              : Project_Node_Id) is
-
+      Item              : Project_Node_Id)
+   is
       Current_Declarative_Item : Project_Node_Id := Item;
-
-      Current_Item : Project_Node_Id := Empty_Node;
+      Current_Item             : Project_Node_Id := Empty_Node;
 
    begin
       --  For each declarative item
@@ -862,7 +989,7 @@ package body Prj.Proc is
          Current_Item := Current_Item_Node (Current_Declarative_Item);
 
          --  And set Current_Declarative_Item to the next declarative item
-         --  ready for the next iteration
+         --  ready for the next iteration.
 
          Current_Declarative_Item := Next_Declarative_Item
                                             (Current_Declarative_Item);
@@ -870,71 +997,88 @@ package body Prj.Proc is
          case Kind_Of (Current_Item) is
 
             when N_Package_Declaration =>
-               Packages.Increment_Last;
+               --  Do not process a package declaration that should be ignored
 
-               declare
-                  New_Pkg         : constant Package_Id := Packages.Last;
-                  The_New_Package : Package_Element;
+               if Expression_Kind_Of (Current_Item) /= Ignored then
+                  --  Create the new package
 
-                  Project_Of_Renamed_Package : constant Project_Node_Id :=
-                                                 Project_Of_Renamed_Package_Of
-                                                   (Current_Item);
+                  Packages.Increment_Last;
 
-               begin
-                  The_New_Package.Name := Name_Of (Current_Item);
+                  declare
+                     New_Pkg         : constant Package_Id := Packages.Last;
+                     The_New_Package : Package_Element;
 
-                  if Pkg /= No_Package then
-                     The_New_Package.Next :=
-                       Packages.Table (Pkg).Decl.Packages;
-                     Packages.Table (Pkg).Decl.Packages := New_Pkg;
-                  else
-                     The_New_Package.Next :=
-                       Projects.Table (Project).Decl.Packages;
-                     Projects.Table (Project).Decl.Packages := New_Pkg;
-                  end if;
+                     Project_Of_Renamed_Package : constant Project_Node_Id :=
+                       Project_Of_Renamed_Package_Of
+                       (Current_Item);
 
-                  Packages.Table (New_Pkg) := The_New_Package;
+                  begin
+                     --  Set the name of the new package
 
-                  if Project_Of_Renamed_Package /= Empty_Node then
+                     The_New_Package.Name := Name_Of (Current_Item);
 
-                     --  Renamed package
+                     --  Insert the new package in the appropriate list
 
-                     declare
-                        Project_Name : constant Name_Id :=
-                                         Name_Of
-                                           (Project_Of_Renamed_Package);
+                     if Pkg /= No_Package then
+                        The_New_Package.Next :=
+                          Packages.Table (Pkg).Decl.Packages;
+                        Packages.Table (Pkg).Decl.Packages := New_Pkg;
+                     else
+                        The_New_Package.Next :=
+                          Projects.Table (Project).Decl.Packages;
+                        Projects.Table (Project).Decl.Packages := New_Pkg;
+                     end if;
 
-                        Renamed_Project : constant Project_Id :=
-                                            Imported_Or_Modified_Project_From
-                                              (Project, Project_Name);
+                     Packages.Table (New_Pkg) := The_New_Package;
 
-                        Renamed_Package : constant Package_Id :=
-                                            Package_From
-                                              (Renamed_Project,
-                                               Name_Of (Current_Item));
+                     if Project_Of_Renamed_Package /= Empty_Node then
 
-                     begin
-                        Packages.Table (New_Pkg).Decl :=
-                          Packages.Table (Renamed_Package).Decl;
-                     end;
+                        --  Renamed package
 
-                  else
-                     --  Set the default values of the attributes
+                        declare
+                           Project_Name : constant Name_Id :=
+                             Name_Of
+                             (Project_Of_Renamed_Package);
 
-                     Add_Attributes
-                       (Packages.Table (New_Pkg).Decl,
-                        Package_Attributes.Table
-                           (Package_Id_Of (Current_Item)).First_Attribute);
+                           Renamed_Project : constant Project_Id :=
+                             Imported_Or_Extended_Project_From
+                             (Project, Project_Name);
 
-                     Process_Declarative_Items
-                       (Project           => Project,
-                        From_Project_Node => From_Project_Node,
-                        Pkg               => New_Pkg,
-                        Item              => First_Declarative_Item_Of
-                                                             (Current_Item));
-                  end if;
+                           Renamed_Package : constant Package_Id :=
+                             Package_From
+                             (Renamed_Project,
+                              Name_Of (Current_Item));
 
-               end;
+                        begin
+                           --  For a renamed package, set declarations to
+                           --  the declarations of the renamed package.
+
+                           Packages.Table (New_Pkg).Decl :=
+                             Packages.Table (Renamed_Package).Decl;
+                        end;
+
+                     --  Standard package declaration, not renaming
+
+                     else
+                        --  Set the default values of the attributes
+
+                        Add_Attributes
+                          (Project,
+                           Packages.Table (New_Pkg).Decl,
+                           First_Attribute_Of
+                             (Package_Id_Of (Current_Item)));
+
+                        --  And process declarative items of the new package
+
+                        Process_Declarative_Items
+                          (Project           => Project,
+                           From_Project_Node => From_Project_Node,
+                           Pkg               => New_Pkg,
+                           Item              => First_Declarative_Item_Of
+                             (Current_Item));
+                     end if;
+                  end;
+               end if;
 
             when N_String_Type_Declaration =>
 
@@ -946,249 +1090,545 @@ package body Prj.Proc is
                  N_Typed_Variable_Declaration |
                  N_Variable_Declaration       =>
 
-                  pragma Assert (Expression_Of (Current_Item) /= Empty_Node,
-                                 "no expression for an object declaration");
+               if Expression_Of (Current_Item) = Empty_Node then
 
-               declare
-                  New_Value : constant Variable_Value :=
-                                Expression
-                                  (Project           => Project,
-                                   From_Project_Node => From_Project_Node,
-                                   Pkg               => Pkg,
-                                   First_Term        =>
-                                     Tree.First_Term (Expression_Of
-                                                              (Current_Item)),
-                                   Kind              =>
-                                     Expression_Kind_Of (Current_Item));
+                  --  It must be a full associative array attribute declaration
 
-                  The_Variable : Variable_Id := No_Variable;
+                  declare
+                     Current_Item_Name : constant Name_Id :=
+                                           Name_Of (Current_Item);
+                     --  The name of the attribute
 
-                  Current_Item_Name : constant Name_Id :=
-                                        Name_Of (Current_Item);
+                     New_Array  : Array_Id;
+                     --  The new associative array created
 
-               begin
-                  if Kind_Of (Current_Item) = N_Typed_Variable_Declaration then
+                     Orig_Array : Array_Id;
+                     --  The associative array value
 
-                     if String_Equal (New_Value.Value, Empty_String) then
-                        Error_Msg_Name_1 := Name_Of (Current_Item);
+                     Orig_Project_Name : Name_Id := No_Name;
+                     --  The name of the project where the associative array
+                     --  value is.
 
+                     Orig_Project : Project_Id := No_Project;
+                     --  The id of the project where the associative array
+                     --  value is.
+
+                     Orig_Package_Name : Name_Id := No_Name;
+                     --  The name of the package, if any, where the associative
+                     --  array value is.
+
+                     Orig_Package : Package_Id := No_Package;
+                     --  The id of the package, if any, where the associative
+                     --  array value is.
+
+                     New_Element : Array_Element_Id := No_Array_Element;
+                     --  Id of a new array element created
+
+                     Prev_Element : Array_Element_Id := No_Array_Element;
+                     --  Last new element id created
+
+                     Orig_Element : Array_Element_Id := No_Array_Element;
+                     --  Current array element in the original associative
+                     --  array.
+
+                     Next_Element : Array_Element_Id := No_Array_Element;
+                     --  Id of the array element that follows the new element.
+                     --  This is not always nil, because values for the
+                     --  associative array attribute may already have been
+                     --  declared, and the array elements declared are reused.
+
+                  begin
+                     --  First, find if the associative array attribute already
+                     --  has elements declared.
+
+                     if Pkg /= No_Package then
+                        New_Array := Packages.Table (Pkg).Decl.Arrays;
+
+                     else
+                        New_Array := Projects.Table (Project).Decl.Arrays;
+                     end if;
+
+                     while New_Array /= No_Array and then
+                           Arrays.Table (New_Array).Name /= Current_Item_Name
+                     loop
+                        New_Array := Arrays.Table (New_Array).Next;
+                     end loop;
+
+                     --  If the attribute has never been declared add new entry
+                     --  in the arrays of the project/package and link it.
+
+                     if New_Array = No_Array then
+                        Arrays.Increment_Last;
+                        New_Array := Arrays.Last;
+
+                        if Pkg /= No_Package then
+                           Arrays.Table (New_Array) :=
+                             (Name  => Current_Item_Name,
+                              Value => No_Array_Element,
+                              Next  => Packages.Table (Pkg).Decl.Arrays);
+                           Packages.Table (Pkg).Decl.Arrays := New_Array;
+
+                        else
+                           Arrays.Table (New_Array) :=
+                             (Name  => Current_Item_Name,
+                              Value => No_Array_Element,
+                              Next  => Projects.Table (Project).Decl.Arrays);
+                           Projects.Table (Project).Decl.Arrays := New_Array;
+                        end if;
+                     end if;
+
+                     --  Find the project where the value is declared
+
+                     Orig_Project_Name :=
+                       Name_Of (Associative_Project_Of (Current_Item));
+
+                     for Index in Projects.First .. Projects.Last loop
+                        if Projects.Table (Index).Name = Orig_Project_Name then
+                           Orig_Project := Index;
+                           exit;
+                        end if;
+                     end loop;
+
+                     pragma Assert (Orig_Project /= No_Project,
+                                    "original project not found");
+
+                     if Associative_Package_Of (Current_Item) = Empty_Node then
+                        Orig_Array :=
+                          Projects.Table (Orig_Project).Decl.Arrays;
+
+                     else
+                        --  If in a package, find the package where the
+                        --  value is declared.
+
+                        Orig_Package_Name :=
+                          Name_Of (Associative_Package_Of (Current_Item));
+                        Orig_Package :=
+                          Projects.Table (Orig_Project).Decl.Packages;
+                        pragma Assert (Orig_Package /= No_Package,
+                                       "original package not found");
+
+                        while Packages.Table (Orig_Package).Name /=
+                          Orig_Package_Name
+                        loop
+                           Orig_Package := Packages.Table (Orig_Package).Next;
+                           pragma Assert (Orig_Package /= No_Package,
+                                          "original package not found");
+                        end loop;
+
+                        Orig_Array :=
+                          Packages.Table (Orig_Package).Decl.Arrays;
+                     end if;
+
+                     --  Now look for the array
+
+                     while Orig_Array /= No_Array and then
+                           Arrays.Table (Orig_Array).Name /= Current_Item_Name
+                     loop
+                        Orig_Array := Arrays.Table (Orig_Array).Next;
+                     end loop;
+
+                     if Orig_Array = No_Array then
                         if Error_Report = null then
                            Error_Msg
-                             ("no value defined for %",
+                             ("associative array value cannot be found",
                               Location_Of (Current_Item));
 
                         else
                            Error_Report
-                             ("no value defined for " &
-                              Get_Name_String (Error_Msg_Name_1),
+                             ("associative array value cannot be found",
                               Project);
                         end if;
 
                      else
-                        declare
-                           Current_String : Project_Node_Id :=
-                                              First_Literal_String
-                                                (String_Type_Of
-                                                  (Current_Item));
+                        Orig_Element := Arrays.Table (Orig_Array).Value;
 
-                        begin
-                           while Current_String /= Empty_Node
-                             and then not String_Equal
-                                            (String_Value_Of (Current_String),
-                                             New_Value.Value)
-                           loop
-                              Current_String :=
-                                Next_Literal_String (Current_String);
-                           end loop;
+                        --  Copy each array element
 
-                           if Current_String = Empty_Node then
-                              String_To_Name_Buffer (New_Value.Value);
-                              Error_Msg_Name_1 := Name_Find;
-                              Error_Msg_Name_2 := Name_Of (Current_Item);
+                        while Orig_Element /= No_Array_Element loop
+                           --  If it is the first element ...
 
-                              if Error_Report = null then
-                                 Error_Msg
-                                   ("value { is illegal for typed string %",
-                                    Location_Of (Current_Item));
+                           if Prev_Element = No_Array_Element then
+                              --  And there is no array element declared yet,
+                              --  create a new first array element.
+
+                              if Arrays.Table (New_Array).Value =
+                                                              No_Array_Element
+                              then
+                                 Array_Elements.Increment_Last;
+                                 New_Element := Array_Elements.Last;
+                                 Arrays.Table (New_Array).Value := New_Element;
+                                 Next_Element := No_Array_Element;
+
+                              --  Otherwise, the new element is the first
 
                               else
-                                 Error_Report
-                                   ("value """ &
-                                    Get_Name_String (Error_Msg_Name_1) &
-                                    """ is illegal for typed string """ &
-                                    Get_Name_String (Error_Msg_Name_2) &
-                                    """",
-                                    Project);
+                                 New_Element := Arrays.Table (New_Array).Value;
+                                 Next_Element :=
+                                   Array_Elements.Table (New_Element).Next;
                               end if;
+
+                           --  Otherwise, reuse an existing element, or create
+                           --  one if necessary.
+
+                           else
+                              Next_Element :=
+                                Array_Elements.Table (Prev_Element).Next;
+
+                              if Next_Element = No_Array_Element then
+                                 Array_Elements.Increment_Last;
+                                 New_Element := Array_Elements.Last;
+
+                              else
+                                 New_Element := Next_Element;
+                                 Next_Element :=
+                                   Array_Elements.Table (New_Element).Next;
+                              end if;
+                           end if;
+
+                           --  Copy the value of the element
+
+                           Array_Elements.Table (New_Element) :=
+                             Array_Elements.Table (Orig_Element);
+                           Array_Elements.Table (New_Element).Value.Project :=
+                             Project;
+
+                           --  Adjust the Next link
+
+                           Array_Elements.Table (New_Element).Next :=
+                             Next_Element;
+
+                           --  Adjust the previous id for the next element
+
+                           Prev_Element := New_Element;
+
+                           --  Go to the next element in the original array
+                           Orig_Element :=
+                             Array_Elements.Table (Orig_Element).Next;
+                        end loop;
+
+                        --  Make sure that the array ends here, in case there
+                        --  previously a greater number of elements.
+
+                        Array_Elements.Table (New_Element).Next :=
+                          No_Array_Element;
+                     end if;
+                  end;
+
+               --  Declarations other that full associative arrays
+
+               else
+                  declare
+                     New_Value : constant Variable_Value :=
+                       Expression
+                         (Project           => Project,
+                          From_Project_Node => From_Project_Node,
+                          Pkg               => Pkg,
+                          First_Term        =>
+                            Tree.First_Term (Expression_Of
+                                                        (Current_Item)),
+                          Kind              =>
+                            Expression_Kind_Of (Current_Item));
+                     --  The expression value
+
+                     The_Variable : Variable_Id := No_Variable;
+
+                     Current_Item_Name : constant Name_Id :=
+                       Name_Of (Current_Item);
+
+                  begin
+                     --  Process a typed variable declaration
+
+                     if
+                       Kind_Of (Current_Item) = N_Typed_Variable_Declaration
+                     then
+                        --  Report an error for an empty string
+
+                        if New_Value.Value = Empty_String then
+                           Error_Msg_Name_1 := Name_Of (Current_Item);
+
+                           if Error_Report = null then
+                              Error_Msg
+                                ("no value defined for %",
+                                 Location_Of (Current_Item));
+
+                           else
+                              Error_Report
+                                ("no value defined for " &
+                                 Get_Name_String (Error_Msg_Name_1),
+                                 Project);
+                           end if;
+
+                        else
+                           declare
+                              Current_String : Project_Node_Id :=
+                                First_Literal_String
+                                  (String_Type_Of
+                                       (Current_Item));
+
+                           begin
+                              --  Loop through all the valid strings for
+                              --  the string type and compare to the string
+                              --  value.
+
+                              while Current_String /= Empty_Node
+                                and then String_Value_Of (Current_String) /=
+                                New_Value.Value
+                              loop
+                                 Current_String :=
+                                   Next_Literal_String (Current_String);
+                              end loop;
+
+                              --  Report an error if the string value is not
+                              --  one for the string type.
+
+                              if Current_String = Empty_Node then
+                                 Error_Msg_Name_1 := New_Value.Value;
+                                 Error_Msg_Name_2 := Name_Of (Current_Item);
+
+                                 if Error_Report = null then
+                                    Error_Msg
+                                      ("value { is illegal for typed string %",
+                                       Location_Of (Current_Item));
+
+                                 else
+                                    Error_Report
+                                      ("value """ &
+                                       Get_Name_String (Error_Msg_Name_1) &
+                                       """ is illegal for typed string """ &
+                                       Get_Name_String (Error_Msg_Name_2) &
+                                       """",
+                                       Project);
+                                 end if;
+                              end if;
+                           end;
+                        end if;
+                     end if;
+
+                     if Kind_Of (Current_Item) /= N_Attribute_Declaration
+                       or else
+                         Associative_Array_Index_Of (Current_Item) = No_Name
+                     then
+                        --  Case of a variable declaration or of a not
+                        --  associative array attribute.
+
+                        --  First, find the list where to find the variable
+                        --  or attribute.
+
+                        if
+                          Kind_Of (Current_Item) = N_Attribute_Declaration
+                        then
+                           if Pkg /= No_Package then
+                              The_Variable :=
+                                Packages.Table (Pkg).Decl.Attributes;
+
+                           else
+                              The_Variable :=
+                                Projects.Table (Project).Decl.Attributes;
+                           end if;
+
+                        else
+                           if Pkg /= No_Package then
+                              The_Variable :=
+                                Packages.Table (Pkg).Decl.Variables;
+
+                           else
+                              The_Variable :=
+                                Projects.Table (Project).Decl.Variables;
+                           end if;
+
+                        end if;
+
+                        --  Loop through the list, to find if it has already
+                        --  been declared.
+
+                        while
+                          The_Variable /= No_Variable
+                          and then
+                        Variable_Elements.Table (The_Variable).Name /=
+                          Current_Item_Name
+                        loop
+                           The_Variable :=
+                             Variable_Elements.Table (The_Variable).Next;
+                        end loop;
+
+                        --  If it has not been declared, create a new entry
+                        --  in the list.
+
+                        if The_Variable = No_Variable then
+                           --  All single string attribute should already have
+                           --  been declared with a default empty string value.
+
+                           pragma Assert
+                             (Kind_Of (Current_Item) /=
+                                N_Attribute_Declaration,
+                              "illegal attribute declaration");
+
+                           Variable_Elements.Increment_Last;
+                           The_Variable := Variable_Elements.Last;
+
+                           --  Put the new variable in the appropriate list
+
+                           if Pkg /= No_Package then
+                              Variable_Elements.Table (The_Variable) :=
+                                (Next    =>
+                                   Packages.Table (Pkg).Decl.Variables,
+                                 Name    => Current_Item_Name,
+                                 Value   => New_Value);
+                              Packages.Table (Pkg).Decl.Variables :=
+                                The_Variable;
+
+                           else
+                              Variable_Elements.Table (The_Variable) :=
+                                (Next    =>
+                                   Projects.Table (Project).Decl.Variables,
+                                 Name    => Current_Item_Name,
+                                 Value   => New_Value);
+                              Projects.Table (Project).Decl.Variables :=
+                                The_Variable;
+                           end if;
+
+                        --  If the variable/attribute has already been
+                        --  declared, just change the value.
+
+                        else
+                           Variable_Elements.Table (The_Variable).Value :=
+                             New_Value;
+
+                        end if;
+
+                     else
+                        --  Associative array attribute
+
+                        --  Get the string index
+
+                        Get_Name_String
+                          (Associative_Array_Index_Of (Current_Item));
+
+                        --  Put in lower case, if necessary
+
+                        if Case_Insensitive (Current_Item) then
+                           GNAT.Case_Util.To_Lower
+                                            (Name_Buffer (1 .. Name_Len));
+                        end if;
+
+                        declare
+                           The_Array : Array_Id;
+
+                           The_Array_Element : Array_Element_Id :=
+                             No_Array_Element;
+
+                           Index_Name : constant Name_Id := Name_Find;
+                           --  The name id of the index
+
+                        begin
+                           --  Look for the array in the appropriate list
+
+                           if Pkg /= No_Package then
+                              The_Array := Packages.Table (Pkg).Decl.Arrays;
+
+                           else
+                              The_Array := Projects.Table
+                                             (Project).Decl.Arrays;
+                           end if;
+
+                           while
+                             The_Array /= No_Array
+                             and then Arrays.Table (The_Array).Name /=
+                             Current_Item_Name
+                           loop
+                              The_Array := Arrays.Table (The_Array).Next;
+                           end loop;
+
+                           --  If the array cannot be found, create a new
+                           --  entry in the list. As The_Array_Element is
+                           --  initialized to No_Array_Element, a new element
+                           --  will be created automatically later.
+
+                           if The_Array = No_Array then
+                              Arrays.Increment_Last;
+                              The_Array := Arrays.Last;
+
+                              if Pkg /= No_Package then
+                                 Arrays.Table (The_Array) :=
+                                   (Name  => Current_Item_Name,
+                                    Value => No_Array_Element,
+                                    Next  => Packages.Table (Pkg).Decl.Arrays);
+                                 Packages.Table (Pkg).Decl.Arrays := The_Array;
+
+                              else
+                                 Arrays.Table (The_Array) :=
+                                   (Name  => Current_Item_Name,
+                                    Value => No_Array_Element,
+                                    Next  =>
+                                      Projects.Table (Project).Decl.Arrays);
+                                 Projects.Table (Project).Decl.Arrays :=
+                                   The_Array;
+                              end if;
+
+                           --  Otherwise, initialize The_Array_Element as the
+                           --  head of the element list.
+
+                           else
+                              The_Array_Element :=
+                                Arrays.Table (The_Array).Value;
+                           end if;
+
+                           --  Look in the list, if any, to find an element
+                           --  with the same index.
+
+                           while The_Array_Element /= No_Array_Element
+                             and then
+                           Array_Elements.Table (The_Array_Element).Index /=
+                             Index_Name
+                           loop
+                              The_Array_Element :=
+                                Array_Elements.Table (The_Array_Element).Next;
+                           end loop;
+
+                           --  If no such element were found, create a new
+                           --  one and insert it in the element list, with
+                           --  the propoer value.
+
+                           if The_Array_Element = No_Array_Element then
+                              Array_Elements.Increment_Last;
+                              The_Array_Element := Array_Elements.Last;
+
+                              Array_Elements.Table (The_Array_Element) :=
+                                (Index  => Index_Name,
+                                 Src_Index => Source_Index_Of (Current_Item),
+                                 Index_Case_Sensitive =>
+                                 not Case_Insensitive (Current_Item),
+                                 Value  => New_Value,
+                                 Next   => Arrays.Table (The_Array).Value);
+                              Arrays.Table (The_Array).Value :=
+                                The_Array_Element;
+
+                           --  An element with the same index already exists,
+                           --  just replace its value with the new one.
+
+                           else
+                              Array_Elements.Table (The_Array_Element).Value :=
+                                New_Value;
                            end if;
                         end;
                      end if;
-                  end if;
-
-                  if Kind_Of (Current_Item) /= N_Attribute_Declaration
-                    or else
-                      Associative_Array_Index_Of (Current_Item) = No_String
-                  then
-                     --  Usual case
-
-                     --  Code below really needs more comments ???
-
-                     if Kind_Of (Current_Item) = N_Attribute_Declaration then
-                        if Pkg /= No_Package then
-                           The_Variable :=
-                             Packages.Table (Pkg).Decl.Attributes;
-
-                        else
-                           The_Variable :=
-                             Projects.Table (Project).Decl.Attributes;
-                        end if;
-
-                     else
-                        if Pkg /= No_Package then
-                           The_Variable :=
-                             Packages.Table (Pkg).Decl.Variables;
-
-                        else
-                           The_Variable :=
-                             Projects.Table (Project).Decl.Variables;
-                        end if;
-
-                     end if;
-
-                     while
-                       The_Variable /= No_Variable
-                         and then
-                           Variable_Elements.Table (The_Variable).Name /=
-                                                          Current_Item_Name
-                     loop
-                        The_Variable :=
-                          Variable_Elements.Table (The_Variable).Next;
-                     end loop;
-
-                     if The_Variable = No_Variable then
-                        pragma Assert
-                          (Kind_Of (Current_Item) /= N_Attribute_Declaration,
-                           "illegal attribute declaration");
-
-                        Variable_Elements.Increment_Last;
-                        The_Variable := Variable_Elements.Last;
-
-                        if Pkg /= No_Package then
-                           Variable_Elements.Table (The_Variable) :=
-                             (Next    =>
-                                Packages.Table (Pkg).Decl.Variables,
-                              Name    => Current_Item_Name,
-                              Value   => New_Value);
-                           Packages.Table (Pkg).Decl.Variables := The_Variable;
-
-                        else
-                           Variable_Elements.Table (The_Variable) :=
-                             (Next    =>
-                                Projects.Table (Project).Decl.Variables,
-                              Name    => Current_Item_Name,
-                              Value   => New_Value);
-                           Projects.Table (Project).Decl.Variables :=
-                             The_Variable;
-                        end if;
-
-                     else
-                        Variable_Elements.Table (The_Variable).Value :=
-                          New_Value;
-
-                     end if;
-
-                  else
-                     --  Associative array attribute
-
-                     String_To_Name_Buffer
-                       (Associative_Array_Index_Of (Current_Item));
-
-                     if Case_Insensitive (Current_Item) then
-                        GNAT.Case_Util.To_Lower (Name_Buffer (1 .. Name_Len));
-                     end if;
-
-                     declare
-                        The_Array : Array_Id;
-
-                        The_Array_Element : Array_Element_Id :=
-                                              No_Array_Element;
-
-                        Index_Name : constant Name_Id := Name_Find;
-
-                     begin
-
-                        if Pkg /= No_Package then
-                           The_Array := Packages.Table (Pkg).Decl.Arrays;
-
-                        else
-                           The_Array := Projects.Table (Project).Decl.Arrays;
-                        end if;
-
-                        while
-                          The_Array /= No_Array
-                            and then Arrays.Table (The_Array).Name /=
-                                                           Current_Item_Name
-                        loop
-                           The_Array := Arrays.Table (The_Array).Next;
-                        end loop;
-
-                        if The_Array = No_Array then
-                           Arrays.Increment_Last;
-                           The_Array := Arrays.Last;
-
-                           if Pkg /= No_Package then
-                              Arrays.Table (The_Array) :=
-                                (Name  => Current_Item_Name,
-                                 Value => No_Array_Element,
-                                 Next  => Packages.Table (Pkg).Decl.Arrays);
-                              Packages.Table (Pkg).Decl.Arrays := The_Array;
-
-                           else
-                              Arrays.Table (The_Array) :=
-                                (Name  => Current_Item_Name,
-                                 Value => No_Array_Element,
-                                 Next  =>
-                                   Projects.Table (Project).Decl.Arrays);
-                              Projects.Table (Project).Decl.Arrays :=
-                                The_Array;
-                           end if;
-
-                        else
-                           The_Array_Element := Arrays.Table (The_Array).Value;
-                        end if;
-
-                        while The_Array_Element /= No_Array_Element
-                          and then
-                            Array_Elements.Table (The_Array_Element).Index /=
-                                                                  Index_Name
-                        loop
-                           The_Array_Element :=
-                             Array_Elements.Table (The_Array_Element).Next;
-                        end loop;
-
-                        if The_Array_Element = No_Array_Element then
-                           Array_Elements.Increment_Last;
-                           The_Array_Element := Array_Elements.Last;
-                           Array_Elements.Table (The_Array_Element) :=
-                             (Index  => Index_Name,
-                              Value  => New_Value,
-                              Next   => Arrays.Table (The_Array).Value);
-                           Arrays.Table (The_Array).Value := The_Array_Element;
-
-                        else
-                           Array_Elements.Table (The_Array_Element).Value :=
-                             New_Value;
-                        end if;
-                     end;
-                  end if;
-               end;
+                  end;
+               end if;
 
             when N_Case_Construction =>
                declare
                   The_Project   : Project_Id      := Project;
+                  --  The id of the project of the case variable
+
                   The_Package   : Package_Id      := Pkg;
+                  --  The id of the package, if any, of the case variable
+
                   The_Variable  : Variable_Value  := Nil_Variable_Value;
-                  Case_Value    : String_Id       := No_String;
+                  --  The case variable
+
+                  Case_Value    : Name_Id         := No_Name;
+                  --  The case variable value
+
                   Case_Item     : Project_Node_Id := Empty_Node;
                   Choice_String : Project_Node_Id := Empty_Node;
                   Decl_Item     : Project_Node_Id := Empty_Node;
@@ -1203,11 +1643,17 @@ package body Prj.Proc is
                      Name   : Name_Id     := No_Name;
 
                   begin
+                     --  If a project were specified for the case variable,
+                     --  get its id.
+
                      if Project_Node_Of (Variable_Node) /= Empty_Node then
                         Name := Name_Of (Project_Node_Of (Variable_Node));
                         The_Project :=
-                          Imported_Or_Modified_Project_From (Project, Name);
+                          Imported_Or_Extended_Project_From (Project, Name);
                      end if;
+
+                     --  If a package were specified for the case variable,
+                     --  get its id.
 
                      if Package_Node_Of (Variable_Node) /= Empty_Node then
                         Name := Name_Of (Package_Node_Of (Variable_Node));
@@ -1215,6 +1661,9 @@ package body Prj.Proc is
                      end if;
 
                      Name := Name_Of (Variable_Node);
+
+                     --  First, look for the case variable into the package,
+                     --  if any.
 
                      if The_Package /= No_Package then
                         Var_Id := Packages.Table (The_Package).Decl.Variables;
@@ -1226,6 +1675,9 @@ package body Prj.Proc is
                            Var_Id := Variable_Elements.Table (Var_Id).Next;
                         end loop;
                      end if;
+
+                     --  If not found in the package, or if there is no
+                     --  package, look at the project level.
 
                      if Var_Id = No_Variable
                        and then Package_Node_Of (Variable_Node) = Empty_Node
@@ -1241,7 +1693,8 @@ package body Prj.Proc is
 
                      if Var_Id = No_Variable then
 
-                        --  Should never happen
+                        --  Should never happen, because this has already been
+                        --  checked during parsing.
 
                         Write_Line ("variable """ &
                                     Get_Name_String (Name) &
@@ -1249,11 +1702,14 @@ package body Prj.Proc is
                         raise Program_Error;
                      end if;
 
+                     --  Get the case variable
+
                      The_Variable := Variable_Elements.Table (Var_Id).Value;
 
                      if The_Variable.Kind /= Single then
 
-                        --  Should never happen
+                        --  Should never happen, because this has already been
+                        --  checked during parsing.
 
                         Write_Line ("variable""" &
                                     Get_Name_String (Name) &
@@ -1261,23 +1717,31 @@ package body Prj.Proc is
                         raise Program_Error;
                      end if;
 
+                     --  Get the case variable value
                      Case_Value := The_Variable.Value;
                   end;
+
+                  --  Now look into all the case items of the case construction
 
                   Case_Item := First_Case_Item_Of (Current_Item);
                   Case_Item_Loop :
                      while Case_Item /= Empty_Node loop
                         Choice_String := First_Choice_Of (Case_Item);
 
+                        --  When Choice_String is nil, it means that it is
+                        --  the "when others =>" alternative.
+
                         if Choice_String = Empty_Node then
                            Decl_Item := First_Declarative_Item_Of (Case_Item);
                            exit Case_Item_Loop;
                         end if;
 
+                        --  Look into all the alternative of this case item
+
                         Choice_Loop :
                            while Choice_String /= Empty_Node loop
-                              if String_Equal (Case_Value,
-                                               String_Value_Of (Choice_String))
+                              if
+                                Case_Value = String_Value_Of (Choice_String)
                               then
                                  Decl_Item :=
                                    First_Declarative_Item_Of (Case_Item);
@@ -1289,6 +1753,8 @@ package body Prj.Proc is
                            end loop Choice_Loop;
                         Case_Item := Next_Case_Item (Case_Item);
                      end loop Case_Item_Loop;
+
+                  --  If there is an alternative, then we process it
 
                   if Decl_Item /= Empty_Node then
                      Process_Declarative_Items
@@ -1314,7 +1780,11 @@ package body Prj.Proc is
    -- Recursive_Check --
    ---------------------
 
-   procedure Recursive_Check (Project : Project_Id) is
+   procedure Recursive_Check
+     (Project           : Project_Id;
+      Process_Languages : Languages_Processed;
+      Follow_Links      : Boolean)
+   is
       Data                  : Project_Data;
       Imported_Project_List : Project_List := Empty_Project_List;
 
@@ -1325,26 +1795,28 @@ package body Prj.Proc is
       if Project /= No_Project
         and then not Projects.Table (Project).Checked
       then
+         --  Mark project as checked, to avoid infinite recursion in
+         --  ill-formed trees, where a project imports itself.
+
+         Projects.Table (Project).Checked := True;
+
          Data := Projects.Table (Project);
 
-         --  Call itself for a possible modified project.
-         --  (if there is no modified project, then nothing happens).
+         --  Call itself for a possible extended project.
+         --  (if there is no extended project, then nothing happens).
 
-         Recursive_Check (Data.Modifies);
+         Recursive_Check (Data.Extends, Process_Languages, Follow_Links);
 
          --  Call itself for all imported projects
 
          Imported_Project_List := Data.Imported_Projects;
          while Imported_Project_List /= Empty_Project_List loop
             Recursive_Check
-              (Project_Lists.Table (Imported_Project_List).Project);
+              (Project_Lists.Table (Imported_Project_List).Project,
+               Process_Languages, Follow_Links);
             Imported_Project_List :=
               Project_Lists.Table (Imported_Project_List).Next;
          end loop;
-
-         --  Mark project as checked
-
-         Projects.Table (Project).Checked := True;
 
          if Opt.Verbose_Mode then
             Write_Str ("Checking project file """);
@@ -1352,7 +1824,18 @@ package body Prj.Proc is
             Write_Line ("""");
          end if;
 
-         Prj.Nmsc.Ada_Check (Project, Error_Report);
+         case Process_Languages is
+            when Ada_Language =>
+               Prj.Nmsc.Ada_Check (Project, Error_Report, Follow_Links);
+
+            when Other_Languages =>
+               Prj.Nmsc.Other_Languages_Check (Project, Error_Report);
+
+            when All_Languages =>
+               Prj.Nmsc.Ada_Check (Project, Error_Report, Follow_Links);
+               Prj.Nmsc.Other_Languages_Check (Project, Error_Report);
+
+         end case;
       end if;
    end Recursive_Check;
 
@@ -1363,7 +1846,7 @@ package body Prj.Proc is
    procedure Recursive_Process
      (Project           : out Project_Id;
       From_Project_Node : Project_Node_Id;
-      Modified_By       : Project_Id)
+      Extended_By       : Project_Id)
    is
       With_Clause : Project_Node_Id;
 
@@ -1373,11 +1856,10 @@ package body Prj.Proc is
 
       else
          declare
-            Processed_Data   : Project_Data := Empty_Project;
-            Imported         : Project_List := Empty_Project_List;
-            Declaration_Node : Project_Node_Id := Empty_Node;
-            Name             : constant Name_Id :=
-                                 Name_Of (From_Project_Node);
+            Processed_Data   : Project_Data     := Empty_Project;
+            Imported         : Project_List     := Empty_Project_List;
+            Declaration_Node : Project_Node_Id  := Empty_Node;
+            Name             : constant Name_Id := Name_Of (From_Project_Node);
 
          begin
             Project := Processed_Projects.Get (Name);
@@ -1390,14 +1872,38 @@ package body Prj.Proc is
             Project := Projects.Last;
             Processed_Projects.Set (Name, Project);
 
-            Processed_Data.Name        := Name;
-            Processed_Data.Path_Name   := Path_Name_Of (From_Project_Node);
-            Processed_Data.Location    := Location_Of (From_Project_Node);
-            Processed_Data.Directory   := Directory_Of (From_Project_Node);
-            Processed_Data.Modified_By := Modified_By;
+            Processed_Data.Name := Name;
+
+            Get_Name_String (Name);
+
+            --  If name starts with the virtual prefix, flag the project as
+            --  being a virtual extending project.
+
+            if Name_Len > Virtual_Prefix'Length
+              and then Name_Buffer (1 .. Virtual_Prefix'Length) =
+                         Virtual_Prefix
+            then
+               Processed_Data.Virtual := True;
+            end if;
+
+            Processed_Data.Display_Path_Name :=
+              Path_Name_Of (From_Project_Node);
+            Get_Name_String (Processed_Data.Display_Path_Name);
+            Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+            Processed_Data.Path_Name := Name_Find;
+
+            Processed_Data.Location := Location_Of (From_Project_Node);
+
+            Processed_Data.Display_Directory :=
+              Directory_Of (From_Project_Node);
+            Get_Name_String (Processed_Data.Display_Directory);
+            Canonical_Case_File_Name (Name_Buffer (1 .. Name_Len));
+            Processed_Data.Directory := Name_Find;
+
+            Processed_Data.Extended_By := Extended_By;
             Processed_Data.Naming      := Standard_Naming_Data;
 
-            Add_Attributes (Processed_Data.Decl, Attribute_First);
+            Add_Attributes (Project, Processed_Data.Decl, Attribute_First);
             With_Clause := First_With_Clause_Of (From_Project_Node);
 
             while With_Clause /= Empty_Node loop
@@ -1409,7 +1915,7 @@ package body Prj.Proc is
                   Recursive_Process
                     (Project           => New_Project,
                      From_Project_Node => Project_Node_Of (With_Clause),
-                     Modified_By       => No_Project);
+                     Extended_By       => No_Project);
                   New_Data := Projects.Table (New_Project);
 
                   --  If we were the first project to import it,
@@ -1445,9 +1951,9 @@ package body Prj.Proc is
             Declaration_Node := Project_Declaration_Of (From_Project_Node);
 
             Recursive_Process
-              (Project           => Processed_Data.Modifies,
-               From_Project_Node => Modified_Project_Of (Declaration_Node),
-               Modified_By       => Project);
+              (Project           => Processed_Data.Extends,
+               From_Project_Node => Extended_Project_Of (Declaration_Node),
+               Extended_By       => Project);
 
             Projects.Table (Project) := Processed_Data;
 
@@ -1458,6 +1964,103 @@ package body Prj.Proc is
                Item              => First_Declarative_Item_Of
                                       (Declaration_Node));
 
+            --  If it is an extending project, inherit all packages
+            --  from the extended project that are not explicitely defined
+            --  or renamed. Also inherit the languages, if attribute Languages
+            --  is not explicitely defined.
+
+            if Processed_Data.Extends /= No_Project then
+               Processed_Data := Projects.Table (Project);
+
+               declare
+                  Extended_Pkg : Package_Id :=
+                                   Projects.Table
+                                     (Processed_Data.Extends).Decl.Packages;
+                  Current_Pkg : Package_Id;
+                  Element     : Package_Element;
+                  First       : constant Package_Id :=
+                                  Processed_Data.Decl.Packages;
+                  Attribute1  : Variable_Id;
+                  Attribute2  : Variable_Id;
+                  Attr_Value1 : Variable;
+                  Attr_Value2  : Variable;
+
+               begin
+                  while Extended_Pkg /= No_Package loop
+                     Element := Packages.Table (Extended_Pkg);
+
+                     Current_Pkg := First;
+
+                     loop
+                        exit when Current_Pkg = No_Package
+                          or else Packages.Table (Current_Pkg).Name
+                                     = Element.Name;
+                        Current_Pkg := Packages.Table (Current_Pkg).Next;
+                     end loop;
+
+                     if Current_Pkg = No_Package then
+                        Packages.Increment_Last;
+                        Current_Pkg := Packages.Last;
+                        Packages.Table (Current_Pkg) :=
+                          (Name   => Element.Name,
+                           Decl   => Element.Decl,
+                           Parent => No_Package,
+                           Next   => Processed_Data.Decl.Packages);
+                        Processed_Data.Decl.Packages := Current_Pkg;
+                     end if;
+
+                     Extended_Pkg := Element.Next;
+                  end loop;
+
+                  --  Check if attribute Languages is declared in the
+                  --  extending project.
+
+                  Attribute1 := Processed_Data.Decl.Attributes;
+                  while Attribute1 /= No_Variable loop
+                     Attr_Value1 := Variable_Elements.Table (Attribute1);
+                     exit when Attr_Value1.Name = Snames.Name_Languages;
+                     Attribute1 := Attr_Value1.Next;
+                  end loop;
+
+                  if Attribute1 = No_Variable or else
+                     Attr_Value1.Value.Default
+                  then
+                     --  Attribute Languages is not declared in the extending
+                     --  project. Check if it is declared in the project being
+                     --  extended.
+
+                     Attribute2 :=
+                       Projects.Table (Processed_Data.Extends).Decl.Attributes;
+
+                     while Attribute2 /= No_Variable loop
+                        Attr_Value2 := Variable_Elements.Table (Attribute2);
+                        exit when Attr_Value2.Name = Snames.Name_Languages;
+                        Attribute2 := Attr_Value2.Next;
+                     end loop;
+
+                     if Attribute2 /= No_Variable and then
+                        not Attr_Value2.Value.Default
+                     then
+                        --  As attribute Languages is declared in the project
+                        --  being extended, copy its value for the extending
+                        --  project.
+
+                        if Attribute1 = No_Variable then
+                           Variable_Elements.Increment_Last;
+                           Attribute1 := Variable_Elements.Last;
+                           Attr_Value1.Next := Processed_Data.Decl.Attributes;
+                           Processed_Data.Decl.Attributes := Attribute1;
+                        end if;
+
+                        Attr_Value1.Name := Snames.Name_Languages;
+                        Attr_Value1.Value := Attr_Value2.Value;
+                        Variable_Elements.Table (Attribute1) := Attr_Value1;
+                     end if;
+                  end if;
+               end;
+
+               Projects.Table (Project) := Processed_Data;
+            end if;
          end;
       end if;
    end Recursive_Process;

@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XOpenDev.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XOpenDev.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,15 +17,10 @@
 .SH NAME
 XOpenDevice, XCloseDevice \- open or close an extension input device
 .SH SYNTAX
-\fB
-.nf
-XDevice *XOpenDevice\^(\^\fIdisplay\fP, \fIdevice_id\fP\^)
-      Display *\fIdisplay\fP\^;
-      XID \fIdevice_id\fP\^; 
-
-XCloseDevice\^(\^\fIdisplay\fP, \fIdevice\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^; 
+.HP
+XDevice *XOpenDevice\^(\^Display *\fIdisplay\fP\^, XID \fIdevice_id\fP\^); 
+.HP
+XCloseDevice\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^); 
 .fi
 \fP
 .SH ARGUMENTS

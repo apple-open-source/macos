@@ -14,7 +14,7 @@ PROJECT_TYPE = Aggregate
 
 TOOLS = bigram code locate
 
-OTHERSRCS = Makefile Makefile.preamble Makefile.postamble
+OTHERSRCS = Makefile Makefile.preamble Makefile.postamble locate.code.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

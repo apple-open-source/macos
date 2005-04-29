@@ -1,0 +1,24 @@
+# For the NetBSD auto patching mechanism and compatibility environment
+# setup, original NetBSD sources a put into a NetBSD subdirectory.
+# If a file with the same name, but suffix ".patch" is in that directory,
+# that patch will be applied before use.
+#
+# The NBSD* variables are set, and bracketed by .include of Makefile.nbsd_begin
+# and Makefile.nbsd_end
+#
+# Define (empty) variables so that make doesn't give substitution
+# errors if the included makefiles don't change these:
+
+NBSDMAN1=
+NBSDMAN2=
+NBSDMAN3=
+NBSDMAN4=
+NBSDMAN5=
+NBSDMAN6=
+NBSDMAN7=
+NBSDMAN8=
+NBSDMAN9=
+NBSDMDSRCS=
+NBSDMISRCS=
+NBSDHDRS=
+NBSDSRCS=

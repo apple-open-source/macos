@@ -2,11 +2,11 @@
 
   version.c -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: nobu $
+  $Date: 2004/04/23 14:26:20 $
   created at: Thu Sep 30 20:08:01 JST 1993
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
@@ -14,12 +14,16 @@
 #include "version.h"
 #include <stdio.h>
 
+const char ruby_version[] = RUBY_VERSION;
+const char ruby_release_date[] = RUBY_RELEASE_DATE;
+const char ruby_platform[] = RUBY_PLATFORM;
+
 void
 Init_version()
 {
-    VALUE v = rb_obj_freeze(rb_str_new2(RUBY_VERSION));
-    VALUE d = rb_obj_freeze(rb_str_new2(RUBY_RELEASE_DATE));
-    VALUE p = rb_obj_freeze(rb_str_new2(RUBY_PLATFORM));
+    VALUE v = rb_obj_freeze(rb_str_new2(ruby_version));
+    VALUE d = rb_obj_freeze(rb_str_new2(ruby_release_date));
+    VALUE p = rb_obj_freeze(rb_str_new2(ruby_platform));
 
     rb_define_global_const("RUBY_VERSION", v);
     rb_define_global_const("RUBY_RELEASE_DATE", d);
@@ -40,6 +44,6 @@ ruby_show_version()
 void
 ruby_show_copyright()
 {
-    printf("ruby - Copyright (C) 1993-2002 Yukihiro Matsumoto\n");
+    printf("ruby - Copyright (C) 1993-%d Yukihiro Matsumoto\n", RUBY_RELEASE_YEAR);
     exit(0);
 }

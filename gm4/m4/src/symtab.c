@@ -1,6 +1,8 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
-  
+
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2003 Free
+   Software Foundation, Inc.
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -147,6 +149,9 @@ lookup_symbol (const char *name, symbol_lookup mode)
       SYMBOL_TYPE (sym) = TOKEN_VOID;
       SYMBOL_TRACED (sym) = SYMBOL_SHADOWED (sym) = FALSE;
       SYMBOL_NAME (sym) = xstrdup (name);
+      SYMBOL_SHADOWED (sym) = FALSE;
+      SYMBOL_MACRO_ARGS (sym) = FALSE;
+      SYMBOL_BLIND_NO_ARGS (sym) = FALSE;
 
       SYMBOL_NEXT (sym) = *spp;
       (*spp) = sym;

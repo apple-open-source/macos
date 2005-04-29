@@ -78,6 +78,7 @@ bool IOFireWireNubAux::init( IOFireWireNub * primary )
 	if( success )
 	{
 		fPrimary = primary;
+		fTerminationState = kNotTerminated;
 	}
 	
 	return success;
@@ -108,6 +109,24 @@ UInt32 IOFireWireNubAux::hopCount( IOFireWireNub * nub )
 UInt32 IOFireWireNubAux::hopCount( void )
 {
 	return fPrimary->fControl->hopCount( fPrimary->fNodeID );
+}
+
+// getTerminationState
+//
+//
+
+TerminationState IOFireWireNubAux::getTerminationState( void )
+{
+	return fTerminationState;
+}
+
+// setTerminationState
+//
+//
+
+void IOFireWireNubAux::setTerminationState( TerminationState state )
+{
+	fTerminationState = state;
 }
 
 #pragma mark -

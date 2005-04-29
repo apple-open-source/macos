@@ -48,15 +48,15 @@ from The Open Group.
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
  * OR PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/X11/utf8WMProps.c,v 1.2 2001/12/14 19:54:11 dawes Exp $ */
+/* $XFree86: xc/lib/X11/utf8WMProps.c,v 1.3 2003/11/17 22:20:12 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/Xlocale.h>
 
-#if NeedFunctionPrototypes
-void Xutf8SetWMProperties (
+void
+Xutf8SetWMProperties (
     Display *dpy,
     Window w,
     _Xconst char *windowName,
@@ -66,19 +66,6 @@ void Xutf8SetWMProperties (
     XSizeHints *sizeHints,
     XWMHints *wmHints,
     XClassHint *classHints)
-#else
-void Xutf8SetWMProperties (dpy, w, windowName, iconName, argv, argc, sizeHints,
-			   wmHints, classHints)
-     Display *dpy;
-     Window w;			/* window to decorate */
-     _Xconst char *windowName;	/* name of application */
-     _Xconst char *iconName;	/* name string for icon */
-     char **argv;		/* command line */
-     int argc;			/* size of command line */
-     XSizeHints *sizeHints;	/* size hints for window in its normal state */
-     XWMHints *wmHints;		/* miscelaneous window manager hints */
-     XClassHint *classHints;	/* resource name and class */
-#endif
 {
     XTextProperty wname, iname;
     XTextProperty *wprop = NULL;

@@ -41,11 +41,11 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XASHints.man,v 1.4 2001/02/09 03:47:44 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XASHints.man,v 1.6 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
-.ds xL Xlib \- C Language X Interface
+.ds xL Xlib \- C Language X Interface, \fRO'Reilly and Associates, 
 .ds xC Inter-Client Communication Conventions Manual
 .na
 .de Ds
@@ -146,49 +146,19 @@
 .SH NAME
 XAllocSizeHints, XSetWMNormalHints, XGetWMNormalHints, XSetWMSizeHints, XGetWMSizeHints, XSizeHints \- allocate size hints structure and set or read a window's WM_NORMAL_HINTS property
 .SH SYNTAX
-XSizeHints *XAllocSizeHints\^(\|)
-.LP
-void XSetWMNormalHints\^(\^\fIdisplay\fP, \fIw\fP, \fIhints\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XSizeHints *\fIhints\fP\^;
-.LP
-Status XGetWMNormalHints\^(\^\fIdisplay\fP, \fIw\fP, \fIhints_return\fP,
-\fIsupplied_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XSizeHints *\fIhints_return\fP\^;
-.br
-      long *\fIsupplied_return\fP\^;
-.LP
-void XSetWMSizeHints\^(\^\fIdisplay\fP, \fIw\fP, \fIhints\fP, \fIproperty\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XSizeHints *\fIhints\fP\^;
-.br
-      Atom \fIproperty\fP\^;
-.LP
-Status XGetWMSizeHints\^(\^\fIdisplay\fP, \fIw\fP, \fIhints_return\fP,
-\fIsupplied_return\fP, \fIproperty\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XSizeHints *\fIhints_return\fP\^;
-.br
-      long *\fIsupplied_return\fP\^;
-.br
-      Atom \fIproperty\fP\^;
+.HP
+XSizeHints *XAllocSizeHints\^(void\^);
+.HP
+void XSetWMNormalHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XSizeHints *\fIhints\fP\^);
+.HP
+Status XGetWMNormalHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP,
+XSizeHints *\fIhints_return\fP, long *\fIsupplied_return\fP\^);
+.HP
+void XSetWMSizeHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XSizeHints
+*\fIhints\fP, Atom \fIproperty\fP\^);
+.HP
+Status XGetWMSizeHints\^(\^Display *\fIdisplay\fP, Window \fIw\fP, XSizeHints
+*\fIhints_return\fP, long *\fIsupplied_return\fP, Atom \fIproperty\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -325,7 +295,7 @@ the supplied_return argument will contain the following bits:
 .LP
 .Ds
 (USPosition|USSize|PPosition|PSize|PMinSize|
- PMaxSize|PResizeInc|PAspect)
+ PMaxSize|PResizeInc|PAspect);
 .De
 .LP
 If the property is large enough to contain the base size 
@@ -353,7 +323,7 @@ The
 .ZN XSizeHints
 structure contains:
 .LP
-/* Size hints mask bits */
+/\(** Size hints mask bits */
 .TS
 lw(.5i) lw(1.1i) lw(1.5i) lw(3.1i).
 T{
@@ -363,7 +333,7 @@ T}	T{
 T}	T{
 (1L << 0)
 T}	T{
-/* user specified x, y */
+/\(** user specified x, y */
 T}
 T{
 \&#define
@@ -372,7 +342,7 @@ T}	T{
 T}	T{
 (1L << 1)
 T}	T{
-/* user specified width, height */
+/\(** user specified width, height */
 T}
 T{
 \&#define
@@ -381,7 +351,7 @@ T}	T{
 T}	T{
 (1L << 2)
 T}	T{
-/* program specified position */
+/\(** program specified position */
 T}
 T{
 \&#define
@@ -390,7 +360,7 @@ T}	T{
 T}	T{
 (1L << 3)
 T}	T{
-/* program specified size */
+/\(** program specified size */
 T}
 T{
 \&#define
@@ -399,7 +369,7 @@ T}	T{
 T}	T{
 (1L << 4)
 T}	T{
-/* program specified minimum size */
+/\(** program specified minimum size */
 T}
 T{
 \&#define
@@ -408,7 +378,7 @@ T}	T{
 T}	T{
 (1L << 5)
 T}	T{
-/* program specified maximum size */
+/\(** program specified maximum size */
 T}
 T{
 \&#define
@@ -417,7 +387,7 @@ T}	T{
 T}	T{
 (1L << 6)
 T}	T{
-/* program specified resize increments */
+/\(** program specified resize increments */
 T}
 T{
 \&#define
@@ -426,7 +396,7 @@ T}	T{
 T}	T{
 (1L << 7)
 T}	T{
-/* program specified min and max aspect ratios */
+/\(** program specified min and max aspect ratios */
 T}
 T{
 \&#define
@@ -459,22 +429,22 @@ T}
 .Ds 0
 .TA .5i 2.5i
 .ta .5i 2.5i
-/* Values */
+/\(** Values */
 
 typedef struct {
-	long flags;	/* marks which fields in this structure are defined */
-	int x, y;	/* Obsolete */
-	int width, height;	/* Obsolete */
+	long flags;	/\(** marks which fields in this structure are defined */
+	int x, y;	/\(** Obsolete */
+	int width, height;	/\(** Obsolete */
 	int min_width, min_height;
 	int max_width, max_height;
 	int width_inc, height_inc;
 	struct {
-	       int x;	/* numerator */
-	       int y;	/* denominator */
+	       int x;	/\(** numerator */
+	       int y;	/\(** denominator */
 	} min_aspect, max_aspect;
 	int base_width, base_height;
 	int win_gravity;
-	/* this structure may be extended in the future */
+	/\(** this structure may be extended in the future */
 } XSizeHints;
 .De
 .LP

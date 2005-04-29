@@ -83,18 +83,18 @@ main(int argc, char *argv[])
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "dk:lnpq")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "k:lnq")) != -1)
+	while ((ch = getopt(argc, argv, "lnq")) != -1)
 #endif
 		switch(ch) {
 #ifndef __APPLE__
 		case 'd':
 			howto |= RB_DUMP;
 			break;
-#endif
 		case 'k':
 			kflag = 1;
 			kernel = optarg;
 			break;
+#endif
 		case 'l':
 			lflag = 1;
 			break;
@@ -133,6 +133,7 @@ main(int argc, char *argv[])
 		err(1, NULL);
 	}
 
+#ifndef __APPLE__
 	if (kflag) {
 		fd = open("/boot/nextboot.conf", O_WRONLY | O_CREAT, 0444);
 		if (fd > -1) {
@@ -143,6 +144,7 @@ main(int argc, char *argv[])
 			close(fd);
 		}
 	}
+#endif
 
 	/* Log the reboot. */
 	if (!lflag)  {
@@ -224,7 +226,11 @@ restart:
 void
 usage()
 {
+#ifndef __APPLE__
 	(void)fprintf(stderr, "usage: %s [-dnpq] [-k kernel]\n",
+#else
+	(void)fprintf(stderr, "usage: %s [-lnq]\n",
+#endif
 	    dohalt ? "halt" : "reboot");
 	exit(1);
 }

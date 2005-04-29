@@ -1,0 +1,116 @@
+2004-05-26  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Fix issue setting the log level properly.
+
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-01-22  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Added automatic recognition of reverse lookups (where
+	query is 1.2.3.4). These are converted to in-addr.arpa lookups.
+	Added a dns::result to return the whole decoded answer record.
+	Added SPF record type (an alias for TXT).
+	Incremented package version to 1.0.5
+
+2003-07-09  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Added decoding for SOA response records. 
+
+2003-05-09  Andreas Kupries  <andreask@activestate.com>
+
+	* resolv.tcl (::resolv::init): Added missing [expr] bracing.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-14  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Added error message to the timeout.
+	* resolv.tcl: incorporated some of Emmanuel's updated code.
+
+2003-04-12  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.man: *Renamed* to tcllib_dns.man to avoid a name clash with
+	the dns manpage from the scotty package.
+
+2003-04-11  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Try to read the whole reply when using tcp. Added a 
+	catch to avoid bgerrors within the handler.
+	* dns.tcl:
+	* dns.man:
+	* pkgIndex.tcl: hiked version to 1.0.4
+	
+2003-04-11  Andreas Kupries  <andreask@pliers.activestate.com>
+
+	* dns.tcl:
+	* dns.man:
+	* pkgIndex.tcl:  Fixed bug #614591. Set version of the package to
+	  to 1.0.3 throughout. Added package 'resolv' to index.
+
+2003-03-04  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: converted from the log package to logger. Enable UDP as
+	the default if available.
+
+2003-02-27  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* resolv.tcl: Imported Emmanuel Frecon's code from the Tclers
+	Wiki. Provides a name cache and simplifies usage of the dns
+	package.
+	
+2003-02-25  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Tested the UDP transmission using a fixed TclUDP.
+	* dns.tcl: Implemented inverse queries. (Pretty useless though).
+	* dns.tcl: Added errorcode procedure.
+	
+2003-01-30  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* dns.tcl: Implemented UDP transmission. Currently not tested
+	because tcludp doesn't handle binary data.
+
+2003-01-24  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* pkgIndex.tcl:
+	* dns.man:   Added Tcl 8.2 as minimum Tcl version to resolve bug
+	* dns.tcl:   #674330. Upped version to 1.0.2
+	* dns.test:  Added some tests for the dns uri handling and fixed a
+	bug in decoding the class and type section.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* dns.man: More semantic markup, less visual one.
+
+2002-08-30  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* dns.tcl: Updated 'info exist' to 'info exists'.
+
+2002-06-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* dns.man: 
+	* dns.tcl:
+	* pkgIndex.tcl: Version up to 1.0.1
+
+	* dns.tcl: moved var initialization code to the end, as it uses
+	  the 'dns::configure' command, and thus should be called after
+	  its definition. This is the reason for bug #564670, thus now
+	  fixed.
+
+2002-06-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* dns.man: Added note to manpage regarding DNS via TCP and
+	  possible pitfalls.

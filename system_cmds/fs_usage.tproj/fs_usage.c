@@ -23,7 +23,7 @@
  */
 
 /*
-cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
+cc -I. -DPRIVATE -D__APPLE_PRIVATE -O -o fs_usage fs_usage.c
 */
 
 #define	Default_DELAY	1	/* default delay interval */
@@ -56,6 +56,7 @@ cc -I. -DKERNEL_PRIVATE -O -o fs_usage fs_usage.c
 #include <sys/sysctl.h>
 #include <errno.h>
 #import <mach/clock_types.h>
+#import <mach/mach_time.h>
 #include <err.h>
 
 extern int errno;
@@ -125,10 +126,13 @@ int     argmax = 0;
  * Network only or filesystem only output filter
  * Default of zero means report all activity - no filtering
  */
-#define FILESYS_FILTER 0x01
-#define NETWORK_FILTER 0x02
-#define DEFAULT_DO_NOT_FILTER 0x0
-int filter_mode = DEFAULT_DO_NOT_FILTER;
+#define FILESYS_FILTER    0x01
+#define NETWORK_FILTER    0x02
+#define CACHEHIT_FILTER   0x04
+#define EXEC_FILTER	  0x08
+#define DEFAULT_DO_NOT_FILTER  0x00
+
+int filter_mode = CACHEHIT_FILTER;
 
 #define NFS_DEV -1
 
@@ -167,7 +171,7 @@ char           *find_disk_name();
 void		cache_disk_names();
 int 		ReadSegAddrTable();
 void		mark_thread_waited(int);
-int		check_filter_mode(struct th_info *, int, int, int);
+int		check_filter_mode(struct th_info *, int, int, int, char *);
 void		fs_usage_fd_set(unsigned int, unsigned int);
 int		fs_usage_fd_isset(unsigned int, unsigned int);
 void		fs_usage_fd_clear(unsigned int, unsigned int);
@@ -175,10 +179,10 @@ void		init_arguments_buffer();
 int	        get_real_command_name(int, char *, int);
 void            create_map_entry(int, int, char *);
 
-#define DBG_ZERO_FILL_FAULT   1
-#define DBG_PAGEIN_FAULT      2
-#define DBG_COW_FAULT         3
-#define DBG_CACHE_HIT_FAULT   4
+void		enter_syscall();
+void		exit_syscall();
+void		extend_syscall();
+void		kill_thread_map();
 
 #define TRACE_DATA_NEWTHREAD   0x07000004
 #define TRACE_DATA_EXEC        0x07000008
@@ -253,6 +257,7 @@ void            create_map_entry(int, int, char *);
 #define BSC_revoke   0x040C00E0
 #define BSC_symlink  0x040C00E4	
 #define BSC_readlink 0x040C00E8
+#define BSC_execve   0x040C00EC
 #define BSC_chroot   0x040C00F4
 #define BSC_dup2     0x040C0168
 #define BSC_fsync    0x040C017C	
@@ -295,8 +300,26 @@ void            create_map_entry(int, int, char *);
 #define BSC_searchfs    0x040C0384
 #define BSC_delete      0x040C0388
 #define BSC_copyfile    0x040C038C
+#define BSC_getxattr	0x040C03A8
+#define BSC_fgetxattr	0x040C03AC
+#define BSC_setxattr	0x040C03B0
+#define BSC_fsetxattr	0x040C03B4
+#define BSC_removexattr	0x040C03B8
+#define BSC_fremovexattr      0x040C03BC
+#define BSC_listxattr	0x040C03C0
+#define BSC_flistxattr	0x040C03C4
 #define BSC_fsctl       0x040C03C8
+#define BSC_open_extended     0x040C0454
+#define BSC_stat_extended     0x040C045C
+#define BSC_lstat_extended    0x040C0460
+#define BSC_fstat_extended    0x040C0464
+#define BSC_chmod_extended    0x040C0468
+#define BSC_fchmod_extended   0x040C046C
+#define BSC_access_extended   0x040C0470
+#define BSC_mkfifo_extended   0x040C048C
+#define BSC_mkdir_extended    0x040C0490
 #define BSC_load_shared_file  0x040C04A0
+#define BSC_lchown	0x040C05B0
 
 // Carbon File Manager support
 #define FILEMGR_PBGETCATALOGINFO		 0x1e000020
@@ -479,9 +502,11 @@ exit_usage(char *myname) {
 	fprintf(stderr, "  -e    exclude the specified list of pids from the sample\n");
 	fprintf(stderr, "        and exclude fs_usage by default\n");
 	fprintf(stderr, "  -w    force wider, detailed, output\n");
-	fprintf(stderr, "  -f    Output is filtered based on the mode provided\n");
+	fprintf(stderr, "  -f    Output is based on the mode provided\n");
 	fprintf(stderr, "          mode = \"network\"  Show only network related output\n");
-	fprintf(stderr, "          mode = \"filesys\"  Show only file system  related output\n");
+	fprintf(stderr, "          mode = \"filesys\"  Show only file system related output\n");
+	fprintf(stderr, "          mode = \"exec\"     Show only execs\n");
+	fprintf(stderr, "          mode = \"cachehit\" In addition, show cachehits\n");
 	fprintf(stderr, "  pid   selects process(s) to sample\n");
 	fprintf(stderr, "  cmd   selects process(s) matching command string to sample\n");
 	fprintf(stderr, "\n%s will handle a maximum list of %d pids.\n\n", myname, MAX_PIDS);
@@ -507,7 +532,7 @@ main(argc, argv)
 	int quit();
 
         if ( geteuid() != 0 ) {
-            printf("'fs_usage' must be run as root...\n");
+            fprintf(stderr, "'fs_usage' must be run as root...\n");
             exit(1);
         }
 	get_screenwidth();
@@ -539,6 +564,10 @@ main(argc, argv)
 		       filter_mode |= NETWORK_FILTER;
 		   else if (!strcmp(optarg, "filesys"))
 		       filter_mode |= FILESYS_FILTER;
+		   else if (!strcmp(optarg, "cachehit"))
+		       filter_mode &= ~CACHEHIT_FILTER;   /* turns on CACHE_HIT */
+		   else if (!strcmp(optarg, "exec"))
+		       filter_mode |= EXEC_FILTER;
 		   break;
 		       
 	       default:
@@ -586,9 +615,9 @@ main(argc, argv)
 	for (i = 0; i < num_of_pids; i++)
 	  {
 	    if (exclude_pids)
-	      printf("exclude pid %d\n", pids[i]);
+	      fprintf(stderr, "exclude pid %d\n", pids[i]);
 	    else
-	      printf("pid %d\n", pids[i]);
+	      fprintf(stderr, "pid %d\n", pids[i]);
 	  }
 #endif
 
@@ -635,7 +664,7 @@ main(argc, argv)
 	/* main loop */
 
 	while (1) {
-	        usleep(1000 * 25);
+	        usleep(1000 * 20);
 
 		sample_sc();
 	}
@@ -757,7 +786,7 @@ set_pidcheck(int pid, int on_off)
 
 	if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0) {
 	        if (on_off == 1)
-		        printf("pid %d does not exist\n", pid);
+		        fprintf(stderr, "pid %d does not exist\n", pid);
 	}
 	else {
 	  one_good_pid++;
@@ -788,7 +817,7 @@ set_pidexclude(int pid, int on_off)
 
 	if (sysctl(mib, 3, &kr, &needed, NULL, 0) < 0) {
 	        if (on_off == 1)
-		          printf("pid %d does not exist\n", pid);
+		          fprintf(stderr, "pid %d does not exist\n", pid);
 	}
 }
 
@@ -888,7 +917,7 @@ sample_sc()
 	count = needed;
 
 	if (bufinfo.flags & KDBG_WRAPPED) {
-	        printf("buffer wrapped  count = %d\n", count);
+	        fprintf(stderr, "fs_usage: buffer overrun, events generated too quickly\n");
 
 	        for (i = 0; i < cur_max; i++) {
 			th_state[i].thread = 0;
@@ -904,7 +933,7 @@ sample_sc()
 	}
 	kd = (kd_buf *)my_buffer;
 #if 0
-	printf("READTR returned %d items\n", count);
+	fprintf(stderr, "READTR returned %d items\n", count);
 #endif
 	for (i = 0; i < count; i++) {
 	        int debugid, thread;
@@ -916,16 +945,13 @@ sample_sc()
 		long curr_time;
 		struct th_info *ti;
                 struct diskio  *dio;
-		void enter_syscall();
-		void exit_syscall();
-		void extend_syscall();
-		void kill_thread_map();
 
-		thread  = kd[i].arg5 & KDBG_THREAD_MASK;
+
+		thread  = kd[i].arg5;
 		debugid = kd[i].debugid;
 		type    = kd[i].debugid & DBG_FUNC_MASK;
-                
-                now = kd[i].timestamp;
+
+                now = kd[i].timestamp & KDBG_TIMESTAMP_MASK;
 
 		if (i == 0)
 		{
@@ -1031,6 +1057,7 @@ sample_sc()
 		    else
 		    {
 			create_map_entry(thread, ti->pid, (char *)&kd[i].arg1);
+
 			if (ti == &th_state[cur_max - 1])
 			    cur_max--;
 			ti->thread = 0;
@@ -1067,9 +1094,9 @@ sample_sc()
 			       handle.
 			    */
 
-			    if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH])
-			      continue;
-
+			    if ((long *)sargptr >= (long *)&ti->pathname[PATHLENGTH]) {
+				continue;
+			    }
                             /*
 			      We need to detect consecutive vfslookup entries.
 			      So, if we get here and find a START entry,
@@ -1077,11 +1104,10 @@ sample_sc()
 			      vfslookup entries.
 			    */
 
-			    if (debugid & DBG_FUNC_START)
-			      {
+			    if (debugid & DBG_FUNC_START) {
 				(long *)ti->pathptr = (long *)&ti->pathname[PATHLENGTH];
 				continue;
-			      }
+			    }
 
 			    *sargptr++ = kd[i].arg1;
 			    *sargptr++ = kd[i].arg2;
@@ -1382,8 +1408,32 @@ sample_sc()
 		    exit_syscall("socketpair", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 		    
+		case BSC_getxattr:
+		    exit_syscall("getxattr", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_setxattr:
+		    exit_syscall("setxattr", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_removexattr:
+		    exit_syscall("removexattr", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_listxattr:
+		    exit_syscall("listxattr", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
 		case BSC_stat:
 		    exit_syscall("stat", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_stat_extended:
+		    exit_syscall("stat_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
+		case BSC_execve:
+		    exit_syscall("execve", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
                     
 		case BSC_load_shared_file:
@@ -1392,6 +1442,10 @@ sample_sc()
 
 		case BSC_open:
 		    exit_syscall("open", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
+		    break;
+
+		case BSC_open_extended:
+		    exit_syscall("open_extended", thread, type, kd[i].arg1, kd[i].arg2, 2, 0, (double)now);
 		    break;
 
 		case BSC_dup:
@@ -1414,12 +1468,36 @@ sample_sc()
 		    exit_syscall("write", thread, type, kd[i].arg1, kd[i].arg2, 1, 1, (double)now);
 		    break;
 
+		case BSC_fgetxattr:
+		    exit_syscall("fgetxattr", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
+		case BSC_fsetxattr:
+		    exit_syscall("fsetxattr", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
+		case BSC_fremovexattr:
+		    exit_syscall("fremovexattr", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
+		case BSC_flistxattr:
+		    exit_syscall("flistxattr", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
 		case BSC_fstat:
 		    exit_syscall("fstat", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
 		    break;
 
+		case BSC_fstat_extended:
+		    exit_syscall("fstat_extended", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
 		case BSC_lstat:
 		    exit_syscall("lstat", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
+		case BSC_lstat_extended:
+		    exit_syscall("lstat_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
 		case BSC_link:
@@ -1438,12 +1516,24 @@ sample_sc()
 		    exit_syscall("chmod", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
+		case BSC_chmod_extended:
+		    exit_syscall("chmod_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
 		case BSC_chown:
 		    exit_syscall("chown", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
+		case BSC_lchown:
+		    exit_syscall("lchown", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
 		case BSC_access:
 		    exit_syscall("access", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
+		case BSC_access_extended:
+		    exit_syscall("access_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
 		case BSC_chdir:
@@ -1530,12 +1620,24 @@ sample_sc()
 		    exit_syscall("fchmod", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
 		    break;
 
+		case BSC_fchmod_extended:
+		    exit_syscall("fchmod_extended", thread, type, kd[i].arg1, kd[i].arg2, 1, 0, (double)now);
+		    break;
+
 		case BSC_mkdir:
 		    exit_syscall("mkdir", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
                     
+		case BSC_mkdir_extended:
+		    exit_syscall("mkdir_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+                    
 		case BSC_mkfifo:
 		    exit_syscall("mkfifo", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
+		    break;
+
+		case BSC_mkfifo_extended:
+		    exit_syscall("mkfifo_extended", thread, type, kd[i].arg1, kd[i].arg2, 0, 0, (double)now);
 		    break;
 
 		case BSC_rmdir:
@@ -1863,6 +1965,24 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_listen:
        case BSC_sendto:
        case BSC_socketpair:
+       case BSC_execve:
+       case BSC_getxattr:
+       case BSC_fgetxattr:
+       case BSC_setxattr:
+       case BSC_fsetxattr:
+       case BSC_removexattr:
+       case BSC_fremovexattr:
+       case BSC_listxattr:
+       case BSC_flistxattr:
+       case BSC_open_extended:
+       case BSC_stat_extended:
+       case BSC_lstat_extended:
+       case BSC_fstat_extended:
+       case BSC_chmod_extended:
+       case BSC_fchmod_extended:
+       case BSC_access_extended:
+       case BSC_mkfifo_extended:
+       case BSC_mkdir_extended:
        case BSC_stat:
        case BSC_load_shared_file:
        case BSC_open:
@@ -1878,6 +1998,7 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
        case BSC_mknod:
        case BSC_chmod:
        case BSC_chown:
+       case BSC_lchown:
        case BSC_access:
        case BSC_chflags:
        case BSC_fchflags:
@@ -1991,7 +2112,11 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 	   case FILEMGR_PBLOCKRANGE:
 	   case FILEMGR_PBUNLOCKRANGE:
 
-
+	   if ((ti = find_thread(thread, BSC_execve))) {
+		    if (ti->pathptr) {
+		            exit_syscall("execve", thread, BSC_execve, 0, 0, 0, 0, (double)now);
+		    }
+	   }
 	   for (i = 0, ti = th_state; ti < &th_state[MAX_THREADS]; ti++, i++) {
 	           if (ti->thread == 0)
 		           break;
@@ -2001,7 +2126,6 @@ enter_syscall(int thread, int type, kd_buf *kd, char *name, double now)
 	   if (i >= cur_max)
 	           cur_max = i + 1;
                    
-
 	   if ((type >> 24) == FILEMGR_CLASS) {
 		   ti->in_filemgr = 1;
 
@@ -2126,7 +2250,7 @@ exit_syscall(char *sc_name, int thread, int type, int error, int retval,
     if ((ti = find_thread(thread, type)) == (struct th_info *)0)
         return;
 
-    if (check_filter_mode(ti, type, error, retval))
+    if (check_filter_mode(ti, type, error, retval, sc_name))
 	format_print(ti, sc_name, thread, type, error, retval, has_fd, has_ret, now, ti->stime, ti->waited, ti->pathname, NULL);
 
     if (ti == &th_state[cur_max - 1])
@@ -2327,9 +2451,9 @@ char *s;
 	if (set_remove_flag)
 	        set_remove();
 
-        printf("fs_usage: ");
+        fprintf(stderr, "fs_usage: ");
 	if (s)
-		printf("%s", s);
+		fprintf(stderr, "%s", s);
 
 	exit(1);
 }
@@ -2337,19 +2461,11 @@ char *s;
 
 void getdivisor()
 {
+    struct mach_timebase_info mti;
 
-    unsigned int delta;
-    unsigned int abs_to_ns_num;
-    unsigned int abs_to_ns_denom;
-    unsigned int proc_to_abs_num;
-    unsigned int proc_to_abs_denom;
+    mach_timebase_info(&mti);
 
-    extern void MKGetTimeBaseInfo(unsigned int *, unsigned int *, unsigned int *, unsigned int *, unsigned int *);
-
-    MKGetTimeBaseInfo (&delta, &abs_to_ns_num, &abs_to_ns_denom,
-		       &proc_to_abs_num,  &proc_to_abs_denom);
-
-    divisor = ((double)abs_to_ns_denom / (double)abs_to_ns_num) * 1000;
+    divisor = ((double)mti.denom / (double)mti.numer) * 1000;
 }
 
 
@@ -2391,7 +2507,7 @@ void read_command_map()
 	}
     }
 
-    if (mapptr && (filter_mode != DEFAULT_DO_NOT_FILTER))
+    if (mapptr && (filter_mode & (NETWORK_FILTER | FILESYS_FILTER)))
     {
 	if (fdmapptr)
 	{
@@ -2456,7 +2572,7 @@ void create_map_entry(int thread, int pid, char *command)
 	{
 	    map = &mapptr[i];   /* Reuse this entry, the thread has been
 				 * reassigned */
-	    if(filter_mode && fdmapptr)
+	    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
 	    {
 		fdmap = &fdmapptr[i];
 		if (fdmap->fd_thread != thread)    /* This shouldn't happen */
@@ -2471,7 +2587,7 @@ void create_map_entry(int thread, int pid, char *command)
 	{
 	    if (mapptr[i].valid == 0 )	
 	        map = &mapptr[i];   /* Reuse this invalid entry */
-	    if (filter_mode && fdmapptr)
+	    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
 	    {
 		fdmap = &fdmapptr[i];
 	    }
@@ -2490,7 +2606,7 @@ void create_map_entry(int thread, int pid, char *command)
 	bzero(&mapptr[total_threads], total_threads*sizeof(kd_threadmap));
 	map = &mapptr[total_threads];
 
-	if (filter_mode && fdmapptr)
+	if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)) && fdmapptr)
 	{
 	    fdmapptr = (fd_threadmap *)realloc(fdmapptr, n * sizeof(fd_threadmap));
 	    bzero(&fdmapptr[total_threads], total_threads*sizeof(fd_threadmap));
@@ -2580,7 +2696,7 @@ kill_thread_map(int thread)
 	map->command[0] = '\0';
     }
 
-    if (filter_mode)
+    if ((filter_mode & (NETWORK_FILTER | FILESYS_FILTER)))
     {
 	if ((fdmap = find_fd_thread_map(thread)))
 	{
@@ -2946,7 +3062,7 @@ void print_diskio(struct diskio *dio)
             p = "  ";
 	    break;
     }
-    if (check_filter_mode(NULL, dio->type,0, 0))
+    if (check_filter_mode(NULL, dio->type,0, 0, p))
 	format_print(NULL, p, dio->issuing_thread, dio->type, 0, 0, 0, 7, dio->completed_time, dio->issued_time, 1, "", dio);
 }
 
@@ -3031,7 +3147,7 @@ fs_usage_fd_set(thread, fd)
     /* If the map is not big enough, then reallocate it */
     while (fdmap->fd_setsize < fd)
     {
-	printf("reallocating bitmap for threadid %d, fd = %d, setsize = %d\n",
+	fprintf(stderr, "reallocating bitmap for threadid %d, fd = %d, setsize = %d\n",
 	  thread, fd, fdmap->fd_setsize);
 	n = fdmap->fd_setsize * 2;
 	fdmap->fd_setptr = (unsigned long *)realloc(fdmap->fd_setptr, (FS_USAGE_NFDBYTES(n)));
@@ -3097,7 +3213,7 @@ fs_usage_fd_clear(thread, fd)
  * ret = 0 means don't print the entry
  */
 int
-check_filter_mode(struct th_info * ti, int type, int error, int retval)
+check_filter_mode(struct th_info * ti, int type, int error, int retval, char *sc_name)
 {
     int ret = 0;
     int network_fd_isset = 0;
@@ -3106,6 +3222,23 @@ check_filter_mode(struct th_info * ti, int type, int error, int retval)
     if (filter_mode == DEFAULT_DO_NOT_FILTER)
 	return(1);
 
+    if (!strcmp (sc_name, "CACHE_HIT")) {
+            if (filter_mode & CACHEHIT_FILTER)
+	            /* Do not print if cachehit filter is set */
+	            return(0);
+	    return (1);
+    }
+	
+    if (filter_mode & EXEC_FILTER)
+    {
+	if (!strcmp (sc_name, "execve"))
+	    return(1);
+	return(0);
+    }
+    if ( !(filter_mode & (FILESYS_FILTER | NETWORK_FILTER)))
+	return(1);
+
+	
     if (ti == (struct th_info *)0)
     {
 	if(filter_mode & FILESYS_FILTER)
@@ -3114,7 +3247,6 @@ check_filter_mode(struct th_info * ti, int type, int error, int retval)
 	    ret = 0;
 	return(ret);
     }
-	
 
     switch (type) {
     case BSC_close:

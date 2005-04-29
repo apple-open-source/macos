@@ -6,8 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -73,12 +72,11 @@ char *gcc_B_arg = 0;
 
 static int linkonly = 0;
 
-static void addarg		PARAMS ((char *));
-static void process_args	PARAMS ((int *, char *[]));
+static void addarg (char *);
+static void process_args (int *, char *[]);
 
 static void
-addarg (str)
-     char *str;
+addarg (char *str)
 {
   int i;
 
@@ -101,9 +99,7 @@ addarg (str)
 }
 
 static void
-process_args (p_argc, argv)
-     int *p_argc;
-     char *argv[];
+process_args (int *p_argc, char *argv[])
 {
   int i, j;
 
@@ -200,12 +196,10 @@ process_args (p_argc, argv)
       }
     }
 }
-extern int main PARAMS ((int, char **));
+extern int main (int, char **);
 
 int
-main (argc, argv)
-     int argc;
-     char **argv;
+main (int argc, char **argv)
 {
   int i, j;
   int done_an_ali = 0;
@@ -295,7 +289,7 @@ main (argc, argv)
 	{
 	  if (done_an_ali)
 	    {
-	      fprintf (stderr, 
+	      fprintf (stderr,
 		       "Sorry - cannot handle more than one ALI file\n");
 	      exit (1);
 	    }
@@ -329,7 +323,7 @@ main (argc, argv)
 		    exit (retcode);
 		}
 	    }
-	  else 
+	  else
 	    addarg (argv[i]);
 	}
 #ifdef MSDOS

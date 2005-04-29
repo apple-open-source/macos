@@ -33,6 +33,8 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/monoTriangulation.cc,v 1.2 2003/10/22 19:20:57 tsi Exp $ */
+
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/nurbtess/monoTriangulation.cc#4 $
 */
@@ -215,7 +217,6 @@ void triangulateXYMonoTB(Int n_left, Real** leftVerts,
 		pStream->insert(rightVerts[j]);
 
 	      pStream->end(PRIMITIVE_STREAM_FAN);
-	      
 	    }
 
 	  break;	
@@ -296,6 +297,7 @@ void triangulateXYMonoTB(Int n_left, Real** leftVerts,
     }
 }
 
+#if 0
 static int chainConvex(vertexArray* inc_chain, Int inc_current, Int inc_end)
 {
   Int i;
@@ -321,13 +323,13 @@ static int chainConcave(vertexArray* dec_chain, Int dec_current, Int dec_end)
     }
   return 1;
 }
+#endif
  
 void monoTriangulationRecGenInU(Real* topVertex, Real* botVertex,
 				vertexArray* inc_chain, Int inc_current, Int inc_end,
 				vertexArray* dec_chain, Int dec_current, Int dec_end,
 				primStream* pStream)
 {
-  
 }
 
 void  monoTriangulationRecGenOpt(Real* topVertex, Real* botVertex,
@@ -439,7 +441,6 @@ void  monoTriangulationRecGenOpt(Real* topVertex, Real* botVertex,
 	  }
 	//clean up
 	list->deletePolygonListWithSline();
-        
       }
 
     free(cusps);
@@ -453,7 +454,8 @@ void  monoTriangulationRecGenOpt(Real* topVertex, Real* botVertex,
     poly->deleteSinglePolygonWithSline();
     return;
   }
-      
+
+#if 0
   //apparently the following code is not reachable, 
   //it is for test purpose
   if(inc_current > inc_end || dec_current>dec_end)
@@ -485,6 +487,7 @@ void  monoTriangulationRecGenOpt(Real* topVertex, Real* botVertex,
 			      dec_chain, dec_current, dec_end,
 			      pStream);
     }
+#endif
 }
 
 /*if inc_current>inc_end, then inc_chain has no points to be considered
@@ -739,8 +742,6 @@ void monoTriangulationRecFunGen(Real* topVertex, Real* botVertex,
   assert( inc_chain != NULL && dec_chain != NULL);
   assert( ! (inc_current> inc_end &&
 	     dec_current> dec_end));
-  Int inc_nVertices;
-  Int dec_nVertices;
   Real** inc_array ;
   Real** dec_array ;
   Int i;

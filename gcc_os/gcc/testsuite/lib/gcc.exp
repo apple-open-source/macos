@@ -109,7 +109,7 @@ proc gcc_init { args } {
     if {[target_info needs_status_wrapper] != "" && \
 	    [target_info needs_status_wrapper] != "0" && \
 	    ![info exists gluefile]} {
-	set gluefile ${tmpdir}/testglue.o;
+	set gluefile ${tmpdir}/gcc-testglue.o;
 	set result [build_wrapper $gluefile];
 	if { $result != "" } {
 	    set gluefile [lindex $result 0];
@@ -145,18 +145,18 @@ proc gcc_target_compile { source dest type options } {
     }
     if { 1 } {
 	lappend options "additional_flags=-DNO_LABEL_VALUES"
-	# APPLE LOCAL
-	lappend options "additional_flags=-no-cpp-precomp"
     }
     if [info exists TOOL_OPTIONS] {
 	lappend options "additional_flags=$TOOL_OPTIONS"
     }
-    if [target_info exists gcc,no_varargs] {
-	lappend options "additional_flags=-DNO_VARARGS"
-    }
     if [target_info exists gcc,timeout] {
 	lappend options "timeout=[target_info gcc,timeout]"
     }
+    # APPLE LOCAL begin testsuite multiply defined
+    if [ istarget *-*-darwin* ] {
+	lappend options "ldflags=-Wl,-multiply_defined,suppress"
+    }
+    # APPLE LOCAL end testsuite multiply defined
     lappend options "compiler=$GCC_UNDER_TEST"
     return [target_compile $source $dest $type $options]
 }

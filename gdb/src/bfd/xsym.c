@@ -1,5 +1,5 @@
 /* xSYM symbol-file support for BFD.
-   Copyright 1999, 2000, 2001, 2002
+   Copyright 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    This file is part of BFD, the Binary File Descriptor library.
@@ -50,6 +50,7 @@
 #define bfd_sym_bfd_final_link _bfd_generic_final_link
 #define bfd_sym_bfd_link_split_section _bfd_generic_link_split_section
 #define bfd_sym_get_section_contents_in_window  _bfd_generic_get_section_contents_in_window
+#define bfd_sym_get_section_contents_in_window_with_mode  _bfd_generic_get_section_contents_in_window_with_mode
 
 static int pstrcmp PARAMS ((unsigned char *, unsigned char *));
 static unsigned long compute_offset
@@ -145,6 +146,18 @@ bfd_sym_read_name_table (abfd, dshb)
 }
 
 void
+bfd_sym_parse_file_reference_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_file_reference *entry;
+{
+  BFD_ASSERT (len == 8);
+
+  entry->fref_frte_index = bfd_getb32 (buf);
+  entry->fref_offset = bfd_getb32 (buf + 4);
+}
+
+void
 bfd_sym_parse_file_reference_v32 (buf, len, entry)
      unsigned char *buf;
      size_t len;
@@ -237,6 +250,7 @@ bfd_sym_read_header (abfd, header, version)
     case BFD_SYM_VERSION_3_5:
     case BFD_SYM_VERSION_3_4:
       return bfd_sym_read_header_v34 (abfd, header);
+    case BFD_SYM_VERSION_3_3R0:
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       return bfd_sym_read_header_v32 (abfd, header);
@@ -264,6 +278,8 @@ bfd_sym_read_version (abfd, version)
     *version = BFD_SYM_VERSION_3_2;
   else if (pstrcmp (version_string, BFD_SYM_VERSION_STR_3_3) == 0)
     *version = BFD_SYM_VERSION_3_3;
+  else if (pstrcmp (version_string, BFD_SYM_VERSION_STR_3_3R0) == 0)
+    *version = BFD_SYM_VERSION_3_3R0;
   else if (pstrcmp (version_string, BFD_SYM_VERSION_STR_3_4) == 0)
     *version = BFD_SYM_VERSION_3_4;
   else if (pstrcmp (version_string, BFD_SYM_VERSION_STR_3_5) == 0)
@@ -324,6 +340,22 @@ bfd_sym_display_header (f, dshb)
 }
 
 void
+bfd_sym_parse_resources_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_resources_table_entry *entry;
+{
+  BFD_ASSERT (len == 22);
+
+  memcpy (&entry->rte_res_type, buf, 4);
+  entry->rte_res_number = bfd_getb16 (buf + 4);
+  entry->rte_nte_index = bfd_getb32 (buf + 6);
+  entry->rte_mte_first = bfd_getb32 (buf + 10);
+  entry->rte_mte_last = bfd_getb32 (buf + 14);
+  entry->rte_res_size = bfd_getb32 (buf + 18);
+}
+
+void
 bfd_sym_parse_resources_table_entry_v32 (buf, len, entry)
      unsigned char *buf;
      size_t len;
@@ -337,6 +369,31 @@ bfd_sym_parse_resources_table_entry_v32 (buf, len, entry)
   entry->rte_mte_first = bfd_getb16 (buf + 10);
   entry->rte_mte_last = bfd_getb16 (buf + 12);
   entry->rte_res_size = bfd_getb32 (buf + 14);
+}
+
+void
+bfd_sym_parse_modules_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_modules_table_entry *entry;
+{
+  BFD_ASSERT (len == 56);
+
+  entry->mte_rte_index = bfd_getb16 (buf);
+  entry->mte_res_offset = bfd_getb32 (buf + 2);
+  entry->mte_size = bfd_getb32 (buf + 6);
+  entry->mte_kind = buf[10];
+  entry->mte_scope = buf[11];
+  entry->mte_parent = bfd_getb32 (buf + 12);
+  bfd_sym_parse_file_reference_v33r0 (buf + 16, 8, &entry->mte_imp_fref);
+  entry->mte_imp_end = bfd_getb32 (buf + 24);
+  entry->mte_nte_index = bfd_getb32 (buf + 28);
+  entry->mte_cmte_index = bfd_getb32 (buf + 32);
+  entry->mte_cvte_index = bfd_getb32 (buf + 36);
+  entry->mte_clte_index = bfd_getb32 (buf + 40);
+  entry->mte_ctte_index = bfd_getb32 (buf + 44);
+  entry->mte_csnte_idx_1 = bfd_getb32 (buf + 48);
+  entry->mte_csnte_idx_2 = bfd_getb32 (buf + 52);
 }
 
 void
@@ -362,6 +419,37 @@ bfd_sym_parse_modules_table_entry_v33 (buf, len, entry)
   entry->mte_ctte_index = bfd_getb16 (buf + 36);
   entry->mte_csnte_idx_1 = bfd_getb32 (buf + 38);
   entry->mte_csnte_idx_2 = bfd_getb32 (buf + 42);
+}
+
+void
+bfd_sym_parse_file_references_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_file_references_table_entry *entry;
+{
+  unsigned int type;
+
+  BFD_ASSERT (len == 12);
+
+  memset (entry, 0, sizeof (bfd_sym_file_references_table_entry));
+  type = bfd_getb32 (buf);
+
+  switch (type)
+    {
+    case BFD_SYM_END_OF_LIST_3_3R0:
+      entry->generic.type = BFD_SYM_END_OF_LIST;
+      break;
+
+    case BFD_SYM_FILE_NAME_INDEX_3_3R0:
+      entry->filename.type = BFD_SYM_FILE_NAME_INDEX;
+      entry->filename.nte_index = bfd_getb32 (buf + 4);
+      entry->filename.mod_date = bfd_getb32 (buf + 8);
+      break;
+
+    default:
+      entry->entry.mte_index = type;
+      entry->entry.file_offset = bfd_getb32 (buf + 4);
+    }
 }
 
 void
@@ -396,6 +484,32 @@ bfd_sym_parse_file_references_table_entry_v32 (buf, len, entry)
 }
 
 void
+bfd_sym_parse_contained_modules_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_contained_modules_table_entry *entry;
+{
+  unsigned int type;
+
+  BFD_ASSERT (len == 8);
+
+  memset (entry, 0, sizeof (bfd_sym_contained_modules_table_entry));
+  type = bfd_getb32 (buf);
+
+  switch (type)
+    {
+    case BFD_SYM_END_OF_LIST_3_3R0:
+      entry->generic.type = BFD_SYM_END_OF_LIST;
+      break;
+
+    default:
+      entry->entry.mte_index = type;
+      entry->entry.nte_index = bfd_getb32 (buf + 4);
+      break;
+    }
+}
+
+void
 bfd_sym_parse_contained_modules_table_entry_v32 (buf, len, entry)
      unsigned char *buf;
      size_t len;
@@ -418,6 +532,56 @@ bfd_sym_parse_contained_modules_table_entry_v32 (buf, len, entry)
       entry->entry.mte_index = type;
       entry->entry.nte_index = bfd_getb32 (buf + 2);
       break;
+    }
+}
+
+void
+bfd_sym_parse_contained_variables_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_contained_variables_table_entry *entry;
+{
+  unsigned int type;
+
+  BFD_ASSERT (len == 30);
+
+  memset (entry, 0, sizeof (bfd_sym_contained_variables_table_entry));
+  type = bfd_getb32 (buf);
+
+  switch (type)
+    {
+    case BFD_SYM_END_OF_LIST_3_3R0:
+      entry->generic.type = BFD_SYM_END_OF_LIST;
+      break;
+
+    case BFD_SYM_SOURCE_FILE_CHANGE_3_3R0:
+      entry->file.type = BFD_SYM_SOURCE_FILE_CHANGE;
+      bfd_sym_parse_file_reference_v33r0 (buf + 4, 8, &entry->file.fref);
+      break;
+
+    default:
+      entry->entry.tte_index = type;
+      entry->entry.nte_index = bfd_getb32 (buf + 4);
+      entry->entry.file_delta = bfd_getb16 (buf + 8);
+      entry->entry.scope = buf[10];
+      entry->entry.la_size = buf[11];
+
+      if (entry->entry.la_size == BFD_SYM_CVTE_SCA)
+	{
+	  entry->entry.address.scstruct.sca_kind = buf[12];
+	  entry->entry.address.scstruct.sca_class = buf[13];
+	  entry->entry.address.scstruct.sca_offset = bfd_getb32 (buf + 14);
+	}
+      else if (entry->entry.la_size <= BFD_SYM_CVTE_SCA)
+	{
+	  memcpy (&entry->entry.address.lastruct.la, buf + 12, BFD_SYM_CVTE_SCA);
+	  entry->entry.address.lastruct.la_kind = buf[25];
+	}
+      else if (entry->entry.la_size == BFD_SYM_CVTE_BIG_LA)
+	{
+	  entry->entry.address.biglastruct.big_la = bfd_getb32 (buf + 12);
+	  entry->entry.address.biglastruct.big_la_kind = buf[16];
+	}
     }
 }
 
@@ -468,6 +632,38 @@ bfd_sym_parse_contained_variables_table_entry_v32 (buf, len, entry)
 	  entry->entry.address.biglastruct.big_la = bfd_getb32 (buf + 10);
 	  entry->entry.address.biglastruct.big_la_kind = buf[12];
 	}
+    }
+}
+
+void
+bfd_sym_parse_contained_statements_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_contained_statements_table_entry *entry;
+{
+  unsigned int type;
+
+  BFD_ASSERT (len == 12);
+
+  memset (entry, 0, sizeof (bfd_sym_contained_statements_table_entry));
+  type = bfd_getb32 (buf);
+
+  switch (type)
+    {
+    case BFD_SYM_END_OF_LIST_3_3R0:
+      entry->generic.type = BFD_SYM_END_OF_LIST;
+      break;
+
+    case BFD_SYM_SOURCE_FILE_CHANGE_3_3R0:
+      entry->file.type = BFD_SYM_SOURCE_FILE_CHANGE;
+      bfd_sym_parse_file_reference_v33r0 (buf + 4, 8, &entry->file.fref);
+      break;
+
+    default:
+      entry->entry.mte_index = type;
+      entry->entry.file_delta = bfd_getb32 (buf + 4);
+      entry->entry.mte_offset = bfd_getb32 (buf + 8);
+      break;
     }
 }
 
@@ -574,6 +770,11 @@ bfd_sym_fetch_resources_table_entry (abfd, entry, index)
     case BFD_SYM_VERSION_3_4:
       return -1;
 
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 18;
+      parser = bfd_sym_parse_resources_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 18;
@@ -627,6 +828,11 @@ bfd_sym_fetch_modules_table_entry (abfd, entry, index)
     case BFD_SYM_VERSION_3_4:
       return -1;
 
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 56;
+      parser = bfd_sym_parse_modules_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
       entry_size = 46;
       parser = bfd_sym_parse_modules_table_entry_v33;
@@ -676,6 +882,11 @@ bfd_sym_fetch_file_references_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 12;
+      parser = bfd_sym_parse_file_references_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 10;
@@ -728,6 +939,11 @@ bfd_sym_fetch_contained_modules_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 8;
+      parser = bfd_sym_parse_contained_modules_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 6;
@@ -780,6 +996,11 @@ bfd_sym_fetch_contained_variables_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 30;
+      parser = bfd_sym_parse_contained_variables_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 26;
@@ -832,6 +1053,11 @@ bfd_sym_fetch_contained_statements_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 12;
+      parser = bfd_sym_parse_contained_statements_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 8;
@@ -884,6 +1110,7 @@ bfd_sym_fetch_contained_labels_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 12;
@@ -936,6 +1163,7 @@ bfd_sym_fetch_contained_types_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 0;
@@ -966,6 +1194,32 @@ bfd_sym_fetch_contained_types_table_entry (abfd, entry, index)
   return 0;
 }
 
+void
+bfd_sym_parse_file_references_index_table_entry_v33r0 (buf, len, entry)
+     unsigned char *buf;
+     size_t len;
+     bfd_sym_file_references_index_table_entry *entry;
+{
+  unsigned int type;
+
+  BFD_ASSERT (len == 8);
+
+  memset (entry, 0, sizeof (bfd_sym_file_references_table_entry));
+  type = bfd_getb32 (buf);
+
+  switch (type)
+    {
+    case BFD_SYM_END_OF_LIST_3_3R0:
+      entry->generic.type = BFD_SYM_END_OF_LIST;
+      break;
+
+    default:
+      entry->entry.frte_index = type;
+      entry->entry.nte_index = bfd_getb32 (buf + 4);
+      break;
+    }
+}
+
 int
 bfd_sym_fetch_file_references_index_table_entry (abfd, entry, index)
      bfd *abfd;
@@ -988,6 +1242,11 @@ bfd_sym_fetch_file_references_index_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
+      entry_size = 8;
+      parser = bfd_sym_parse_file_references_index_table_entry_v33r0;
+      break;
+
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 0;
@@ -1040,6 +1299,7 @@ bfd_sym_fetch_constant_pool_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 0;
@@ -1089,6 +1349,7 @@ bfd_sym_fetch_type_table_entry (abfd, entry, index)
 
   switch (sdata->version)
     {
+    case BFD_SYM_VERSION_3_3R0:
     case BFD_SYM_VERSION_3_3:
     case BFD_SYM_VERSION_3_2:
       entry_size = 4;
@@ -1131,7 +1392,7 @@ bfd_sym_fetch_type_information_table_entry (abfd, entry, offset)
   BFD_ASSERT (bfd_sym_valid (abfd));
   sdata = abfd->tdata.sym_data;
 
-  if (index == 0)
+  if (offset == 0)
     return -1;
 
   if (bfd_seek (abfd, offset, SEEK_SET) < 0)
@@ -1923,7 +2184,19 @@ bfd_sym_print_file_references_index_table_entry (abfd, f, entry)
      FILE *f;
      bfd_sym_file_references_index_table_entry *entry ATTRIBUTE_UNUSED;
 {
-  fprintf (f, "[UNIMPLEMENTED]");
+  if (entry->generic.type == BFD_SYM_END_OF_LIST)
+    {
+      fprintf (f, "END");
+      return;
+    }
+  else 
+    {
+      fprintf (f, "\"%.*s\" (NTE %lu) (FRTE %lu)",
+	       bfd_sym_symbol_name (abfd, entry->entry.nte_index)[0],
+	       &bfd_sym_symbol_name (abfd, entry->entry.nte_index)[1],
+	       entry->entry.nte_index,
+	       entry->entry.frte_index);
+    }
 }
 
 void
@@ -2413,7 +2686,7 @@ bfd_sym_get_symtab_upper_bound (abfd)
 }
 
 long
-bfd_sym_get_symtab (abfd, sym)
+bfd_sym_canonicalize_symtab (abfd, sym)
      bfd *abfd ATTRIBUTE_UNUSED;
      asymbol **sym ATTRIBUTE_UNUSED;
 {

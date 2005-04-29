@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2004-08-25</string>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>blojsom</string>
+	<key>OpenSourceProject</key>
+	<string>blojsom</string>
+	<key>OpenSourceSHA1</key>
+	<string>1fc8f3ece7d9ac476a276e149e80964c7ef1cb94</string>
+	<key>OpenSourceURL</key>
+	<string>http://unc.dl.sourceforge.net/sourceforge/blojsom/blojsom-2.17-source.zip</string>
+	<key>OpenSourceVersion</key>
+	<string>2.17</string>
+</dict>
+</plist>

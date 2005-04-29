@@ -1,0 +1,39 @@
+[comment {-*- tk -*- pieBoxLabeler manpage}]
+[manpage_begin pieBoxLabeler n 6.6]
+[copyright {1995-2004 Jean-Luc Fontaine <jfontain@free.fr>}]
+[moddesc   {pieBoxLabeler class}]
+[titledesc {tkpiechart pie box style labeler class}]
+
+[description]
+The pie box style labeler object is used as a slice label placer for a [class pie] object and is passed to the pie constructor via its [option -labeler] option (see the [class pie] class manual).
+[para]The labels are arranged in 2 columns below the pie graphics. Each label text is placed to the right of a rectangle, the background color of which matches its corresponding slice. The slice share value is placed to the right of the label text, separated by a semicolon. Each label is actually a canvasLabel object (see the [class canvasLabel] class manual for further information).
+[para]There is no need to delete a [class pieBoxLabeler] object as it is automatically handled by the pie class.
+[list_begin definitions]
+[call [cmd stooop::new] [class pieBoxLabeler] [arg canvas] [opt options]]
+Creates a pieBoxLabeler object in the specified Tk canvas. The pieBoxLabeler object identifier is returned (referred to as [emph pieBoxLabelerObject] in this document).
+[call [cmd switched::configure] [arg pieBoxLabelerObject] [opt options]]
+Configures a pieBoxLabeler object or returns all the options with their current values if no options are passed as parameters.
+[call [cmd switched::cget] [arg pieBoxLabelerObject] [arg option]]
+Returns an option value for the specified pieBoxLabeler object.
+[list_end]
+
+[section OPTIONS]
+[list_begin opt]
+[opt_def -font value]
+Specifies a font for the slice labels. If not specified, the default font is system dependent.
+[opt_def -justify value]
+Specifies how to justify labels within their own column. Must be one of [emph left], [emph center] or [emph right]. Defaults to [emph left]. For example, if justification is [emph right], all column labels right edges are aligned.
+[opt_def -offset value]
+Specifies the distance between the pie graphics and the closest slice label. This value may be specified in any of the forms described in the [syscmd canvas] [emph COORDINATES] manual section.
+[list_end]
+
+[section TAGS]
+The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
+[list_begin bullet]
+  [bullet]pieBoxLabeler(pieBoxLabelerObject)
+[list_end]
+
+[see_also pie piePeripheralLabeler canvasLabel]
+[keywords pie slice labeler canvas]
+[manpage_end]
+

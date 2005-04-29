@@ -44,6 +44,8 @@
 #ifndef _h_el_sig
 #define	_h_el_sig
 
+#include <signal.h>
+
 #include "histedit.h"
 
 /*

@@ -1,6 +1,6 @@
 #
 #		thread.rb - thread support classes
-#			$Date: 2003/05/14 13:58:49 $
+#			$Date: 2004/05/27 07:50:04 $
 #			by Yukihiro Matsumoto <matz@netlab.co.jp>
 #
 # Copyright (C) 2001  Yukihiro Matsumoto
@@ -21,16 +21,42 @@ if $DEBUG
   Thread.abort_on_exception = true
 end
 
-def Thread.exclusive
-  _old = Thread.critical
-  begin
-    Thread.critical = true
-    return yield
-  ensure
-    Thread.critical = _old
+class Thread
+  #
+  # FIXME: not documented in Pickaxe or Nutshell.
+  #
+  def Thread.exclusive
+    _old = Thread.critical
+    begin
+      Thread.critical = true
+      return yield
+    ensure
+      Thread.critical = _old
+    end
   end
 end
 
+#
+# +Mutex+ implements a simple semaphore that can be used to coordinate access to
+# shared data from multiple concurrent threads.
+#
+# Example:
+#
+#   require 'thread'
+#   semaphore = Mutex.new
+#   
+#   a = Thread.new {
+#     semaphore.synchronize {
+#       # access shared resource
+#     }
+#   }
+#   
+#   b = Thread.new {
+#     semaphore.synchronize {
+#       # access shared resource
+#     }
+#   }
+#
 class Mutex
   def initialize
     @waiting = []
@@ -39,10 +65,17 @@ class Mutex
     self.taint
   end
 
+  #
+  # Returns +true+ if this lock is currently held by some thread.
+  #
   def locked?
     @locked
   end
 
+  #
+  # Attempts to obtain the lock and returns immediately. Returns +true+ if the
+  # lock was granted.
+  #
   def try_lock
     result = false
     Thread.critical = true
@@ -54,6 +87,9 @@ class Mutex
     result
   end
 
+  #
+  # Attempts to grab the lock and waits if it isn't available.
+  #
   def lock
     while (Thread.critical = true; @locked)
       @waiting.push Thread.current
@@ -64,6 +100,9 @@ class Mutex
     self
   end
 
+  #
+  # Releases the lock. Returns +nil+ if ref wasn't locked.
+  #
   def unlock
     return unless @locked
     Thread.critical = true
@@ -82,6 +121,10 @@ class Mutex
     self
   end
 
+  #
+  # Obtains a lock, runs the block, and releases the lock when the block
+  # completes.  See the example under +Mutex+.
+  #
   def synchronize
     lock
     begin
@@ -91,6 +134,9 @@ class Mutex
     end
   end
 
+  #
+  # FIXME: not documented in Pickaxe/Nutshell.
+  #
   def exclusive_unlock
     return unless @locked
     Thread.exclusive do
@@ -107,19 +153,55 @@ class Mutex
   end
 end
 
+# 
+# +ConditionVariable+ objects augment class +Mutex+. Using condition variables,
+# it is possible to suspend while in the middle of a critical section until a
+# resource becomes available (see the discussion on page 117).
+#
+# Example:
+#
+#   require 'thread'
+#
+#   mutex = Mutex.new
+#   resource = ConditionVariable.new
+#   
+#   a = Thread.new {
+#     mutex.synchronize {
+#       # Thread 'a' now needs the resource
+#       resource.wait(mutex)
+#       # 'a' can now have the resource
+#     }
+#   }
+#   
+#   b = Thread.new {
+#     mutex.synchronize {
+#       # Thread 'b' has finished using the resource
+#       resource.signal
+#     }
+#   }
+#
 class ConditionVariable
   def initialize
     @waiters = []
   end
   
+  #
+  # Releases the lock held in +mutex+ and waits; reacquires the lock on wakeup.
+  #
   def wait(mutex)
-    mutex.exclusive_unlock do
-      @waiters.push(Thread.current)
-      Thread.stop
+    begin
+      mutex.exclusive_unlock do
+        @waiters.push(Thread.current)
+        Thread.stop
+      end
+    ensure
+      mutex.lock
     end
-    mutex.lock
   end
   
+  #
+  # Wakes up the first thread in line waiting for this lock.
+  #
   def signal
     begin
       t = @waiters.shift
@@ -129,6 +211,9 @@ class ConditionVariable
     end
   end
     
+  #
+  # Wakes up all threads waiting for this lock.
+  #
   def broadcast
     waiters0 = nil
     Thread.exclusive do
@@ -144,7 +229,16 @@ class ConditionVariable
   end
 end
 
+#
+# This class provides a way to communicate data between threads.
+#
+# TODO: an example (code or English) would really help here.  How do you set up
+# a queue between two threads?
+#
 class Queue
+  #
+  # Creates a new queue.
+  #
   def initialize
     @que = []
     @waiting = []
@@ -153,6 +247,9 @@ class Queue
     self.taint
   end
 
+  #
+  # Pushes +obj+ to the queue.
+  #
   def push(obj)
     Thread.critical = true
     @que.push obj
@@ -172,6 +269,11 @@ class Queue
   alias << push
   alias enq push
 
+  #
+  # Retrieves data from the queue.  If the queue is empty, the calling thread is
+  # suspended until data is pushed onto the queue.  If +non_block+ is true, the
+  # thread isn't suspended, and an exception is raised.
+  #
   def pop(non_block=false)
     while (Thread.critical = true; @que.empty?)
       raise ThreadError, "queue empty" if non_block
@@ -185,27 +287,50 @@ class Queue
   alias shift pop
   alias deq pop
 
+  #
+  # Returns +true+ is the queue is empty.
+  #
   def empty?
     @que.empty?
   end
 
+  #
+  # Removes all objects from the queue.
+  #
   def clear
     @que.clear
   end
 
+  #
+  # Returns the length of the queue.
+  #
   def length
     @que.length
   end
+
+  #
+  # Alias of length.
+  #
   def size
     length
   end
 
+  #
+  # Returns the number of threads waiting on the queue.
+  #
   def num_waiting
     @waiting.size
   end
 end
 
+#
+# This class represents queues of specified size capacity.  The +push+ operation
+# may be blocked if the capacity is full.
+#
 class SizedQueue<Queue
+  #
+  # Creates a fixed-length queue with a maximum size of +max+.
+  #
   def initialize(max)
     raise ArgumentError, "queue size must be positive" unless max > 0
     @max = max
@@ -214,10 +339,16 @@ class SizedQueue<Queue
     super()
   end
 
+  #
+  # Returns the maximum size of the queue.
+  #
   def max
     @max
   end
 
+  #
+  # Sets the maximum size of the queue.
+  #
   def max=(max)
     Thread.critical = true
     if max <= @max
@@ -277,3 +408,13 @@ class SizedQueue<Queue
     @waiting.size + @queue_wait.size
   end
 end
+
+# Documentation comments:
+#  - SizedQueue #push and #pop deserve some documentation, as they are different
+#    from the Queue implementations.
+#  - Some methods are not documented in Pickaxe/Nutshell, and are therefore not
+#    documented here.  See FIXME notes.
+#  - Reference to Pickaxe page numbers should be replaced with either a section
+#    name or a summary.
+#  - How do you document aliases?
+#  - How do you make RDoc inherit documentation from superclass?

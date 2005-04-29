@@ -165,20 +165,12 @@ endif
 refresh-precomps:
 ifeq "$(OS)" "MACOS"
 ifneq "" "$(strip $(ALL_PRECOMPS))"
-	$(SILENT) $(ECHO) refreshing local precomps
-	$(SILENT) $(FIXPRECOMPS) -precomps $(ALL_PRECOMPS) -update $(ALL_PRECOMPFLAGS)
 endif
 ifneq "" "$(strip $(PRECOMPILED_PUBLIC_HEADERS))"
-	$(SILENT) $(ECHO) refreshing public precomps
-	$(SILENT) $(CD) $(PUBLIC_HDR_DIR) && $(FIXPRECOMPS) -precomps $(PRECOMPILED_PUBLIC_HEADERS:.h=.p) -update $(ALL_PRECOMPFLAGS)
 endif
 ifneq "" "$(strip $(PRECOMPILED_PRIVATE_HEADERS))"
-	$(SILENT) $(ECHO) refreshing private precomps
-	$(SILENT) $(CD) $(PRIVATE_HDR_DIR) && $(FIXPRECOMPS) -precomps $(PRECOMPILED_PRIVATE_HEADERS:.h=.p) -update $(ALL_PRECOMPFLAGS)
 endif
 ifneq "" "$(strip $(PRECOMPILED_PROJECT_HEADERS))"
-	$(SILENT) $(ECHO) refreshing project precomps
-	$(SILENT) $(CD) $(PROJECT_HDR_DIR) && $(FIXPRECOMPS) -precomps $(PRECOMPILED_PROJECT_HEADERS:.h=.p) -update $(ALL_PRECOMPFLAGS)
 endif
 endif
 ifeq "$(OS)" "NEXTSTEP"

@@ -126,6 +126,82 @@ IOObjectGetClass(
     return( io_object_get_class( object, className ));
 }
 
+
+CFStringRef 
+IOObjectCopyClass(io_object_t object)
+{
+	io_name_t my_name;
+	CFStringRef my_str = NULL;
+	
+	// if there's no argument, no point going on.  Return NULL.
+	if (object == NULL) {
+		return my_str;
+	}
+	
+	io_object_get_class( object, &my_name );	
+	my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+	
+	return my_str;
+}
+
+CFStringRef 
+IOObjectCopySuperclassForClass(CFStringRef classname)
+{
+	io_name_t my_name, orig_name;
+	CFStringRef my_str = NULL;
+	char * my_cstr;
+	kern_return_t kr; 
+	
+	mach_port_t masterPort = __IOGetDefaultMasterPort();
+	
+	// if there's no argument, no point going on.  Return NULL.
+	if (classname == NULL) {
+		return my_str;
+	}
+	
+	my_cstr = malloc(sizeof(char) * 128);
+	CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
+		
+	strncpy(orig_name, my_cstr, sizeof(io_name_t));
+	
+	kr = io_object_get_superclass(masterPort, &orig_name, &my_name);
+	if (kr == kIOReturnSuccess) {
+		my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+	}
+	free(my_cstr);
+	
+	return my_str;
+}
+
+CFStringRef 
+IOObjectCopyBundleIdentifierForClass(CFStringRef classname)
+{
+	io_name_t my_name, orig_name;
+	CFStringRef my_str = NULL;
+	char * my_cstr;
+	kern_return_t kr; 
+	
+	mach_port_t masterPort = __IOGetDefaultMasterPort();
+	
+	// if there's no argument, no point going on.  Return NULL.
+	if (classname == NULL) {
+		return my_str;
+	}
+	
+	my_cstr = malloc(sizeof(char) * 128);
+	CFStringGetCString (classname, my_cstr, 128, kCFStringEncodingUTF8);
+		
+	strncpy(orig_name, my_cstr, sizeof(io_name_t));
+	
+	kr = io_object_get_bundle_identifier(masterPort, &orig_name, &my_name);
+	if (kr == kIOReturnSuccess) {
+		my_str = CFStringCreateWithCString (kCFAllocatorDefault, my_name, kCFStringEncodingUTF8);
+	}
+	free(my_cstr);
+	
+	return my_str;
+}
+
 boolean_t
 IOObjectConformsTo(
 	io_object_t	object,
@@ -237,6 +313,7 @@ IOServiceGetMatchingServices(
 	return( kIOReturnBadArgument);
 
     data = IOCFSerialize( matching, kNilOptions );
+    CFRelease( matching );
     if( !data)
 	return( kIOReturnUnsupported );
 
@@ -255,7 +332,6 @@ IOServiceGetMatchingServices(
     }
 
     CFRelease( data );
-    CFRelease( matching );
 
     return( kr );
 }
@@ -314,6 +390,7 @@ IOServiceAddNotification(
 	return( kIOReturnBadArgument);
 
     data = IOCFSerialize( matching, kNilOptions );
+    CFRelease( matching );
     if( !data)
 	return( kIOReturnUnsupported );
 
@@ -334,7 +411,6 @@ IOServiceAddNotification(
     }
 
     CFRelease( data );
-    CFRelease( matching );
 
     return( kr );
 }
@@ -357,6 +433,7 @@ IOServiceAddMatchingNotification(
 	return( kIOReturnBadArgument);
 
     data = IOCFSerialize( matching, kNilOptions );
+    CFRelease( matching );
     if( !data)
 	return( kIOReturnUnsupported );
 
@@ -384,7 +461,6 @@ IOServiceAddMatchingNotification(
     }
 
     CFRelease( data );
-    CFRelease( matching );
 
     return( kr );
 }

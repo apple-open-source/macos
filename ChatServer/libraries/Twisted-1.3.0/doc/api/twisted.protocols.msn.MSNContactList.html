@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.msn.MSNContactList</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.msn.html">Module&nbsp;msn</a> ::
+        Class&nbsp;MSNContactList
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.msn.MSNContactList.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class MSNContactList</h2>
+
+<hr/>
+
+This class represents a basic MSN contact list.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#_getContactsFromList" class="summary-sig-name"><code>_getContactsFromList</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>listType</span>)</span></code>
+<br />
+Obtain all contacts which belong to the given list type.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#addContact" class="summary-sig-name"><code>addContact</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>contact</span>)</span></code>
+<br />
+Add a contact</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#getAuthorizedContacts" class="summary-sig-name"><code>getAuthorizedContacts</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Obtain all the contacts on my auth list.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#getBlockedContacts" class="summary-sig-name"><code>getBlockedContacts</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Obtain all the contacts on my block list</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#getContact" class="summary-sig-name"><code>getContact</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>userHandle</span>)</span></code>
+<br />
+Obtain the MSNContact object associated with the given userHandle.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#getContacts" class="summary-sig-name"><code>getContacts</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get all contacts on my forward list.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#getReverseContacts" class="summary-sig-name"><code>getReverseContacts</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get all contacts on my reverse list.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#remContact" class="summary-sig-name"><code>remContact</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>userHandle</span>)</span></code>
+<br />
+Remove a contact</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#remGroup" class="summary-sig-name"><code>remGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>)</span></code>
+<br />
+Removed the stored group mapping for the given id.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.msn.MSNContactList.html#setGroup" class="summary-sig-name"><code>setGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>id</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Keep a mapping from the given id to the given name.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Instance Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">dict (mapping user handles to MSNContact objects)</font></td>
+<td><b><a href="twisted.protocols.msn.MSNContactList.html#contacts"><code>contacts</code></a></b>: All contacts on my various lists</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><p>dict</p>
+          <b>Note</b>: This is used only for storage and doesn't 
+          effect the server's contact list.</font></td>
+<td><b><a href="twisted.protocols.msn.MSNContactList.html#groups"><code>groups</code></a></b>: a mapping of group ids to group names (groups can only exist on the 
+forward list)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+<td><b><a href="twisted.protocols.msn.MSNContactList.html#version"><code>version</code></a></b>: The current contact list version (used for list syncing)</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="_getContactsFromList"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_getContactsFromList</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>listType</span>)</span>
+  </h3>
+  Obtain all contacts which belong to the given list type.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addContact"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addContact</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>contact</span>)</span>
+  </h3>
+  Add a contact
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getAuthorizedContacts"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getAuthorizedContacts</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Obtain all the contacts on my auth list. (These are contacts which I 
+  have verified can view my state changes).
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getBlockedContacts"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getBlockedContacts</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Obtain all the contacts on my block list
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getContact"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getContact</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>userHandle</span>)</span>
+  </h3>
+  Obtain the MSNContact object associated with the given 
+  userHandle.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        the MSNContact object if the user exists, or None.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getContacts"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getContacts</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Get all contacts on my forward list. (These are the contacts which I 
+  have added to my list).
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getReverseContacts"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getReverseContacts</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Get all contacts on my reverse list. (These are contacts which have 
+  added me to their forward list).
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="remContact"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">remContact</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>userHandle</span>)</span>
+  </h3>
+  Remove a contact
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="remGroup"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">remGroup</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>id</span>)</span>
+  </h3>
+  Removed the stored group mapping for the given id.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="setGroup"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">setGroup</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>id</span>,
+          <span class=sig-arg>name</span>)</span>
+  </h3>
+  Keep a mapping from the given id to the given name.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF INSTANCE VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Instance Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="contacts"></a>
+<h3>contacts</h3>
+All contacts on my various lists
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          dict (mapping user handles to MSNContact objects)
+
+      </dd>
+    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="groups"></a>
+<h3>groups</h3>
+a mapping of group ids to group names (groups can only exist on the 
+forward list)
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <p>dict</p>
+          <b>Note</b>: This is used only for storage and doesn't 
+          effect the server's contact list.
+
+      </dd>
+    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="version"></a>
+<h3>version</h3>
+The current contact list version (used for list syncing)
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:37 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

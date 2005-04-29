@@ -10,7 +10,7 @@ class RHAbout {
       -underline 1
     $menubar add menubutton help "Help" 0
     $menubar add command Other "Help Topics" \
-      {HtmlViewer::open_help index.html} \
+      {open_help index.html} \
       -underline 0
     $menubar add separator
     $menubar add command Other "About GDB..." \
@@ -52,7 +52,7 @@ class RHAbout {
     # pack everything
     pack $f.image1 $f.m -fill both -expand yes
     pack $f.stat -expand 1 -fill both
-    pack  $itk_interior
+    pack $itk_interior
 
     # Give our sample window a name
     window_name "About Red Hat Insight Plug-In"

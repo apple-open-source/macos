@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2003, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2004, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -11,19 +11,40 @@
 #if !UCONFIG_NO_SERVICE
 
 #include "unicode/resbund.h"
+#include "uresimp.h"
 #include "cmemory.h"
 #include "iculserv.h"
 #include "ustrfmt.h"
+#include "uhash.h"
+#include "charstr.h"
+#include "ucln_cmn.h"
+#include "uassert.h"
 
-U_NAMESPACE_BEGIN
-
+// see LocaleUtility::getAvailableLocaleNames
 static Hashtable * LocaleUtility_cache = NULL;
 
 #define UNDERSCORE_CHAR ((UChar)0x005f)
+#define AT_SIGN_CHAR    ((UChar)64)
+#define PERIOD_CHAR     ((UChar)46)
 
 /*
  ******************************************************************
  */
+
+/**
+ * Release all static memory held by Locale Utility.  
+ */
+U_CDECL_BEGIN
+static UBool U_CALLCONV service_cleanup(void) {
+    if (LocaleUtility_cache) {
+        delete LocaleUtility_cache;
+        LocaleUtility_cache = NULL;
+    }
+    return TRUE;
+}
+U_CDECL_END
+
+U_NAMESPACE_BEGIN
 
 UnicodeString&
 LocaleUtility::canonicalLocaleString(const UnicodeString* id, UnicodeString& result)
@@ -31,11 +52,26 @@ LocaleUtility::canonicalLocaleString(const UnicodeString* id, UnicodeString& res
   if (id == NULL) {
     result.setToBogus();
   } else {
+    // Fix case only (no other changes) up to the first '@' or '.' or
+    // end of string, whichever comes first.  In 3.0 I changed this to
+    // stop at first '@' or '.'.  It used to run out to the end of
+    // string.  My fix makes the tests pass but is probably
+    // structurally incorrect.  See below.  [alan 3.0]
+
+    // TODO: Doug, you might want to revise this...
     result = *id;
     int32_t i = 0;
-    int32_t n = result.indexOf(UNDERSCORE_CHAR);
+    int32_t end = result.indexOf(AT_SIGN_CHAR);
+    int32_t n = result.indexOf(PERIOD_CHAR);
+    if (n >= 0 && n < end) {
+        end = n;
+    }
+    if (end < 0) {
+        end = result.length();
+    }
+    n = result.indexOf(UNDERSCORE_CHAR);
     if (n < 0) {
-      n = result.length();
+      n = end;
     }
     for (; i < n; ++i) {
       UChar c = result.charAt(i);
@@ -44,7 +80,7 @@ LocaleUtility::canonicalLocaleString(const UnicodeString* id, UnicodeString& res
         result.setCharAt(i, c);
       }
     }
-    for (n = result.length(); i < n; ++i) {
+    for (n = end; i < n; ++i) {
       UChar c = result.charAt(i);
       if (c >= 0x0061 && c <= 0x007a) {
         c -= 0x20;
@@ -53,23 +89,83 @@ LocaleUtility::canonicalLocaleString(const UnicodeString* id, UnicodeString& res
     }
   }
   return result;
+
+#if 0
+    // This code does a proper full level 2 canonicalization of id.
+    // It's nasty to go from UChar to char to char to UChar -- but
+    // that's what you have to do to use the uloc_canonicalize
+    // function on UnicodeStrings.
+
+    // I ended up doing the alternate fix (see above) not for
+    // performance reasons, although performance will certainly be
+    // better, but because doing a full level 2 canonicalization
+    // causes some tests to fail.  [alan 3.0]
+
+    // TODO: Doug, you might want to revisit this...
+    result.setToBogus();
+    if (id != 0) {
+        int32_t buflen = id->length() + 8; // space for NUL
+        char* buf = (char*) uprv_malloc(buflen);
+        char* canon = (buf == 0) ? 0 : (char*) uprv_malloc(buflen);
+        if (buf != 0 && canon != 0) {
+            U_ASSERT(id->extract(0, INT32_MAX, buf, buflen) < buflen);
+            UErrorCode ec = U_ZERO_ERROR;
+            uloc_canonicalize(buf, canon, buflen, &ec);
+            if (U_SUCCESS(ec)) {
+                result = UnicodeString(canon);
+            }
+        }
+        uprv_free(buf);
+        uprv_free(canon);
+    }
+    return result;
+#endif
 }
 
 Locale&
 LocaleUtility::initLocaleFromName(const UnicodeString& id, Locale& result)
 {
-    if (id.isBogus()) {
+    enum { BUFLEN = 128 }; // larger than ever needed
+
+    if (id.isBogus() || id.length() >= BUFLEN) {
         result.setToBogus();
     } else {
-        const int32_t BUFLEN = 128; // larger than ever needed
+        /*
+         * We need to convert from a UnicodeString to char * in order to
+         * create a Locale.
+         *
+         * Problem: Locale ID strings may contain '@' which is a variant
+         * character and cannot be handled by invariant-character conversion.
+         *
+         * Hack: Since ICU code can handle locale IDs with multiple encodings
+         * of '@' (at least for EBCDIC; it's not known to be a problem for
+         * ASCII-based systems),
+         * we use regular invariant-character conversion for everything else
+         * and manually convert U+0040 into a compiler-char-constant '@'.
+         * While this compilation-time constant may not match the runtime
+         * encoding of '@', it should be one of the encodings which ICU
+         * recognizes.
+         *
+         * There should be only at most one '@' in a locale ID.
+         */
         char buffer[BUFLEN];
-        int len = id.extract(0, BUFLEN, buffer);
-        if (len >= BUFLEN) {
-            result.setToBogus();
-        } else {
-            buffer[len] = '\0';
-            result = Locale::createFromName(buffer);
+        int32_t prev, i;
+        prev = 0;
+        for(;;) {
+            i = id.indexOf((UChar)0x40, prev);
+            if(i < 0) {
+                // no @ between prev and the rest of the string
+                id.extract(prev, INT32_MAX, buffer + prev, BUFLEN - prev, US_INV);
+                break; // done
+            } else {
+                // normal invariant-character conversion for text between @s
+                id.extract(prev, i - prev, buffer + prev, BUFLEN - prev, US_INV);
+                // manually "convert" U+0040 at id[i] into '@' at buffer[i]
+                buffer[i] = '@';
+                prev = i + 1;
+            }
         }
+        result = Locale::createFromName(buffer);
     }
     return result;
 }
@@ -80,7 +176,7 @@ LocaleUtility::initNameFromLocale(const Locale& locale, UnicodeString& result)
     if (locale.isBogus()) {
         result.setToBogus();
     } else {
-        result.append(locale.getName());
+        result.append(UnicodeString(locale.getName(), -1, US_INV));
     }
     return result;
 }
@@ -88,37 +184,70 @@ LocaleUtility::initNameFromLocale(const Locale& locale, UnicodeString& result)
 const Hashtable*
 LocaleUtility::getAvailableLocaleNames(const UnicodeString& bundleID)
 {
-    // have to ignore bundleID for the moment, since we don't have easy C++ api.
-    // assume it's the default bundle
+    // LocaleUtility_cache is a hash-of-hashes.  The top-level keys
+    // are path strings ('bundleID') passed to
+    // ures_openAvailableLocales.  The top-level values are
+    // second-level hashes.  The second-level keys are result strings
+    // from ures_openAvailableLocales.  The second-level values are
+    // garbage ((void*)1 or other random pointer).
+
+    UErrorCode status = U_ZERO_ERROR;
+    Hashtable* cache;
+    umtx_lock(NULL);
+    cache = LocaleUtility_cache;
+    umtx_unlock(NULL);
+
+    if (cache == NULL) {
+        cache = new Hashtable(status);
+        if (cache == NULL || U_FAILURE(status)) {
+            return NULL; // catastrophic failure; e.g. out of memory
+        }
+        cache->setValueDeleter(uhash_deleteHashtable);
+        Hashtable* h; // set this to final LocaleUtility_cache value
+        umtx_lock(NULL);
+        h = LocaleUtility_cache;
+        if (h == NULL) {
+            LocaleUtility_cache = h = cache;
+            cache = NULL;
+            ucln_common_registerCleanup(UCLN_COMMON_SERVICE, service_cleanup);
+        }
+        umtx_unlock(NULL);
+        delete cache;
+        cache = h;
+    }
+
+    U_ASSERT(cache != NULL);
 
     Hashtable* htp;
     umtx_lock(NULL);
-    htp = LocaleUtility_cache;
+    htp = (Hashtable*) cache->get(bundleID);
     umtx_unlock(NULL);
 
     if (htp == NULL) {
-        htp = new Hashtable();
-        if (htp) {
-            UErrorCode status = U_ZERO_ERROR;
-            int32_t count = uloc_countAvailable();
-            for (int32_t i = 0; i < count; ++i) {
-                UnicodeString temp(uloc_getAvailable(i), "");
-                htp->put(temp, (void*)htp, status);
-                if (U_FAILURE(status)) {
-                    delete htp;
-                    return NULL;
+        htp = new Hashtable(status);
+        if (htp && U_SUCCESS(status)) {
+            CharString cbundleID(bundleID);
+            const char* path = (const char*) cbundleID;
+            if (*path == 0) path = NULL; // empty string => NULL
+            UEnumeration *uenum = ures_openAvailableLocales(path, &status);
+            for (;;) {
+                const UChar* id = uenum_unext(uenum, NULL, &status);
+                if (id == NULL) {
+                    break;
                 }
+                htp->put(UnicodeString(id), (void*)htp, status);
+            }
+            uenum_close(uenum);
+            if (U_FAILURE(status)) {
+                delete htp;
+                return NULL;
             }
             umtx_lock(NULL);
-            if (LocaleUtility_cache == NULL) {
-                LocaleUtility_cache = htp;
-                htp = NULL;
-            }
+            cache->put(bundleID, (void*)htp, status);
             umtx_unlock(NULL);
-            delete htp;
         }
     }
-    return LocaleUtility_cache;
+    return htp;
 }
 
 UBool
@@ -127,15 +256,6 @@ LocaleUtility::isFallbackOf(const UnicodeString& root, const UnicodeString& chil
     return child.indexOf(root) == 0 &&
       (child.length() == root.length() ||
        child.charAt(root.length()) == UNDERSCORE_CHAR);
-}
-
-UBool
-LocaleUtility::cleanup(void) {
-    if (LocaleUtility_cache) {
-        delete LocaleUtility_cache;
-        LocaleUtility_cache = NULL;
-    }
-    return TRUE;
 }
 
 /*
@@ -185,6 +305,8 @@ LocaleKey::LocaleKey(const UnicodeString& primaryID,
 
     _currentID = _primaryID;
 }
+
+LocaleKey::~LocaleKey() {}
 
 UnicodeString&
 LocaleKey::prefix(UnicodeString& result) const {
@@ -293,7 +415,7 @@ LocaleKey::debugClass(UnicodeString& result) const
 }
 #endif
 
-const char LocaleKey::fgClassID = 0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(LocaleKey)
 
 /*
  ******************************************************************
@@ -346,7 +468,7 @@ LocaleKeyFactory::updateVisibleIDs(Hashtable& result, UErrorCode& status) const 
 
         const UHashElement* elem = NULL;
         int32_t pos = 0;
-        while (elem = supported->nextElement(pos)) {
+        while ((elem = supported->nextElement(pos)) != NULL) {
             const UnicodeString& id = *((const UnicodeString*)elem->key.pointer);
             if (!visible) {
                 result.remove(id);
@@ -363,19 +485,23 @@ LocaleKeyFactory::updateVisibleIDs(Hashtable& result, UErrorCode& status) const 
 UnicodeString&
 LocaleKeyFactory::getDisplayName(const UnicodeString& id, const Locale& locale, UnicodeString& result) const {
     if ((_coverage & 0x1) == 0) {
-        UErrorCode status = U_ZERO_ERROR;
-        if (isSupportedID(id, status)) {
+        //UErrorCode status = U_ZERO_ERROR;
+        // assume if this is called on us, we support some fallback of this id
+        // if (isSupportedID(id, status)) {
             Locale loc;
             LocaleUtility::initLocaleFromName(id, loc);
             return loc.getDisplayName(locale, result);
-        }
+        // }
     }
     result.setToBogus();
     return result;
 }
 
 UObject*
-LocaleKeyFactory::handleCreate(const Locale& loc, int32_t kind, const ICUService* service, UErrorCode& status) const {
+LocaleKeyFactory::handleCreate(const Locale& /* loc */, 
+                   int32_t /* kind */, 
+                   const ICUService* /* service */, 
+                   UErrorCode& /* status */) const {
     return NULL;
 }
 
@@ -386,7 +512,7 @@ LocaleKeyFactory::isSupportedID(const UnicodeString& id, UErrorCode& status) con
 }
 
 const Hashtable*
-LocaleKeyFactory::getSupportedIDs(UErrorCode& status) const {
+LocaleKeyFactory::getSupportedIDs(UErrorCode& /* status */) const {
     return NULL;
 }
 
@@ -409,7 +535,7 @@ LocaleKeyFactory::debugClass(UnicodeString& result) const
 }
 #endif
 
-const char LocaleKeyFactory::fgClassID = 0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(LocaleKeyFactory)
 
 /*
  ******************************************************************
@@ -435,7 +561,7 @@ SimpleLocaleKeyFactory::SimpleLocaleKeyFactory(UObject* objToAdopt,
   , _id()
   , _kind(kind)
 {
-	LocaleUtility::initNameFromLocale(locale, _id);
+    LocaleUtility::initNameFromLocale(locale, _id);
 }
 
 SimpleLocaleKeyFactory::~SimpleLocaleKeyFactory()
@@ -461,7 +587,7 @@ SimpleLocaleKeyFactory::create(const ICUServiceKey& key, const ICUService* servi
 }
 
 UBool
-SimpleLocaleKeyFactory::isSupportedID(const UnicodeString& id, UErrorCode& status) const
+SimpleLocaleKeyFactory::isSupportedID(const UnicodeString& id, UErrorCode& /* status */) const
 {
     return id == _id;
 }
@@ -497,7 +623,7 @@ SimpleLocaleKeyFactory::debugClass(UnicodeString& result) const
 }
 #endif
 
-const char SimpleLocaleKeyFactory::fgClassID = 0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleLocaleKeyFactory)
 
 /*
  ******************************************************************
@@ -515,6 +641,8 @@ ICUResourceBundleFactory::ICUResourceBundleFactory(const UnicodeString& bundleNa
 {
 }
 
+ICUResourceBundleFactory::~ICUResourceBundleFactory() {}
+
 const Hashtable*
 ICUResourceBundleFactory::getSupportedIDs(UErrorCode& status) const
 {
@@ -525,10 +653,18 @@ ICUResourceBundleFactory::getSupportedIDs(UErrorCode& status) const
 }
 
 UObject*
-ICUResourceBundleFactory::handleCreate(const Locale& loc, int32_t kind, const ICUService* service, UErrorCode& status) const
+ICUResourceBundleFactory::handleCreate(const Locale& loc, int32_t /* kind */, const ICUService* /* service */, UErrorCode& status) const
 {
     if (U_SUCCESS(status)) {
-        return new ResourceBundle(_bundleName, loc, status);
+        // _bundleName is a package name
+        // and should only contain invariant characters
+        char pkg[20];
+        int32_t length;
+        length=_bundleName.extract(0, INT32_MAX, pkg, (int32_t)sizeof(pkg), US_INV);
+        if(length>=(int32_t)sizeof(pkg)) {
+            return NULL;
+        }
+        return new ResourceBundle(pkg, loc, status);
     }
     return NULL;
 }
@@ -549,7 +685,7 @@ ICUResourceBundleFactory::debugClass(UnicodeString& result) const
 }
 #endif
 
-const char ICUResourceBundleFactory::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ICUResourceBundleFactory)
 
 /*
  ******************************************************************
@@ -601,7 +737,7 @@ ICULocaleService::get(const Locale& locale, int32_t kind, Locale* actualReturn, 
         return result;
     }
 
-    UnicodeString locName(locale.getName(), "");
+    UnicodeString locName(locale.getName(), -1, US_INV);
     if (locName.isBogus()) {
         status = U_MEMORY_ALLOCATION_ERROR;
     } else {
@@ -627,12 +763,12 @@ ICULocaleService::get(const Locale& locale, int32_t kind, Locale* actualReturn, 
 
 URegistryKey
 ICULocaleService::registerInstance(UObject* objToAdopt, const UnicodeString& locale, 
-	UBool visible, UErrorCode& status)
+    UBool visible, UErrorCode& status)
 {
-	Locale loc;
-	LocaleUtility::initLocaleFromName(locale, loc);
+    Locale loc;
+    LocaleUtility::initLocaleFromName(locale, loc);
     return registerInstance(objToAdopt, loc, LocaleKey::KIND_ANY, 
-		visible ? LocaleKeyFactory::VISIBLE : LocaleKeyFactory::INVISIBLE, status);
+        visible ? LocaleKeyFactory::VISIBLE : LocaleKeyFactory::INVISIBLE, status);
 }
 
 URegistryKey
@@ -691,19 +827,35 @@ private:
     int32_t _timestamp;
     UVector _ids;
     int32_t _pos;
-    void* _bufp;
-    int32_t _buflen;
 
 private:
-    ServiceEnumeration(const ICULocaleService* service, UErrorCode status)
+    ServiceEnumeration(const ICULocaleService* service, UErrorCode &status)
         : _service(service)
         , _timestamp(service->getTimestamp())
         , _ids(uhash_deleteUnicodeString, NULL, status)
         , _pos(0)
-        , _bufp(NULL)
-        , _buflen(0)
     {
         _service->getVisibleIDs(_ids, status);
+    }
+
+    ServiceEnumeration(const ServiceEnumeration &other, UErrorCode &status)
+        : _service(other._service)
+        , _timestamp(other._timestamp)
+        , _ids(uhash_deleteUnicodeString, NULL, status)
+        , _pos(0)
+    {
+        if(U_SUCCESS(status)) {
+            int32_t i, length;
+
+            length = other._ids.size();
+            for(i = 0; i < length; ++i) {
+                _ids.addElement(((UnicodeString *)other._ids.elementAt(i))->clone(), status);
+            }
+
+            if(U_SUCCESS(status)) {
+                _pos = other._pos;
+            }
+        }
     }
 
 public:
@@ -717,71 +869,16 @@ public:
         return NULL;
     }
 
-    virtual ~ServiceEnumeration() {
-        uprv_free(_bufp);
-    }
+    virtual ~ServiceEnumeration() {}
 
-    virtual int32_t count(UErrorCode& status) const {
-        return upToDate(status) ? _ids.size() : 0;
-    }
-
-    const char* next(int32_t* resultLength, UErrorCode& status) {
-        const UnicodeString* us = snext(status);
-        if (us) {
-            while (TRUE) {
-                int32_t newlen = us->extract((char*)_bufp, _buflen / sizeof(char), NULL, status);
-                if (status == U_STRING_NOT_TERMINATED_WARNING || status == U_BUFFER_OVERFLOW_ERROR) {
-                    resizeBuffer((newlen + 1) * sizeof(char));
-                    status = U_ZERO_ERROR;
-                } else if (U_SUCCESS(status)) {
-                    ((char*)_bufp)[newlen] = 0;
-                    if (resultLength) {
-                        resultLength[0] = newlen;
-                    }
-                    return (const char*)_bufp;
-                } else {
-                    break;
-                }
-            }
+    virtual StringEnumeration *clone() const {
+        UErrorCode status = U_ZERO_ERROR;
+        ServiceEnumeration *cl = new ServiceEnumeration(*this, status);
+        if(U_FAILURE(status)) {
+            delete cl;
+            cl = NULL;
         }
-        return NULL;
-    }
-
-    const UChar* unext(int32_t* resultLength, UErrorCode& status) {
-        const UnicodeString* us = snext(status);
-        if (us) {
-            while (TRUE) {
-                int32_t newlen = us->extract((UChar*)_bufp, _buflen / sizeof(UChar), status);
-                if (status == U_STRING_NOT_TERMINATED_WARNING || status == U_BUFFER_OVERFLOW_ERROR) {
-                    resizeBuffer((newlen + 1) * sizeof(UChar));
-                } else if (U_SUCCESS(status)) {
-                    ((UChar*)_bufp)[newlen] = 0;
-                    if (resultLength) {
-                        resultLength[0] = newlen;
-                    }
-                    return (const UChar*)_bufp;
-                } else {
-                    break;
-                }
-            }
-        }
-        return NULL;
-    }
-
-    const UnicodeString* snext(UErrorCode& status) {
-        if (upToDate(status) && (_pos < _ids.size())) {
-            return (const UnicodeString*)_ids[_pos++];
-        }
-        return NULL;
-    }
-
-    void resizeBuffer(int32_t newlen) {
-        if (_bufp) {
-            _bufp = uprv_realloc(_bufp, newlen);
-        } else {
-            _bufp = uprv_malloc(newlen);
-        }
-        _buflen = newlen;
+        return cl;
     }
 
     UBool upToDate(UErrorCode& status) const {
@@ -794,10 +891,21 @@ public:
         return FALSE;
     }
 
-    void reset(UErrorCode& status) {
-		if (status == U_ENUM_OUT_OF_SYNC_ERROR) {
-			status = U_ZERO_ERROR;
-		}
+    virtual int32_t count(UErrorCode& status) const {
+        return upToDate(status) ? _ids.size() : 0;
+    }
+
+    virtual const UnicodeString* snext(UErrorCode& status) {
+        if (upToDate(status) && (_pos < _ids.size())) {
+            return (const UnicodeString*)_ids[_pos++];
+        }
+        return NULL;
+    }
+
+    virtual void reset(UErrorCode& status) {
+        if (status == U_ENUM_OUT_OF_SYNC_ERROR) {
+            status = U_ZERO_ERROR;
+        }
         if (U_SUCCESS(status)) {
             _timestamp = _service->getTimestamp();
             _pos = 0;
@@ -806,13 +914,11 @@ public:
     }
 
 public:
-    virtual UClassID getDynamicClassID(void) const { return getStaticClassID(); }
-    static UClassID getStaticClassID(void) { return (UClassID)&fgClassID; }
-private:
-    static const char fgClassID;
+    static UClassID U_EXPORT2 getStaticClassID(void);
+    virtual UClassID getDynamicClassID(void) const;
 };
 
-const char ServiceEnumeration::fgClassID = '\0';
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ServiceEnumeration)
 
 StringEnumeration*
 ICULocaleService::getAvailableLocales(void) const
@@ -849,15 +955,6 @@ ICULocaleService::createKey(const UnicodeString* id, int32_t kind, UErrorCode& s
 }
 
 U_NAMESPACE_END
-
-// defined in ucln_cmn.h
-
-/**
- * Release all static memory held by Locale Utility.  
- */
-U_CFUNC UBool service_cleanup(void) {
-  return LocaleUtility::cleanup();
-}
 
 /* !UCONFIG_NO_SERVICE */
 #endif

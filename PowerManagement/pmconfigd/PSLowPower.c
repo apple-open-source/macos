@@ -28,6 +28,7 @@
  *
  */
 
+#include <syslog.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -40,6 +41,7 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <IOKit/ps/IOPowerSourcesPrivate.h>
 #include <IOKit/IOMessage.h>
+#include <sys/syslog.h>
 
 #include "PSLowPower.h"
 #include "PMSettings.h"
@@ -48,6 +50,11 @@
 // Data structure to track UPS shutdown thresholds
 #define     kHaltEnabled        0
 #define     kHaltValue          1
+
+#ifndef kIOPSCommandStartupDelayKey
+#define kIOPSCommandStartupDelayKey           "Startup Delay"
+#endif
+
 typedef struct  {
     int     haltafter[2];
     int     haltremain[2];
@@ -315,7 +322,7 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     
     syslog(LOG_INFO, "Performing emergency UPS low power shutdown now");
 
-    _ESSettings = PMSettings_CopyPMSettings();
+    _ESSettings = PMSettings_CopyActivePMSettings();
     if(!_ESSettings) goto shutdown;
     
     auto_restart = isA_CFNumber(CFDictionaryGetValue(_ESSettings, CFSTR(kIOPMRestartOnPowerLossKey)));
@@ -370,8 +377,8 @@ shutdown:
 static int
 _upsSupports(CFNumberRef whichUPS, CFStringRef  command)
 {
-    mach_port_t                 bootstrap_port = NULL;
-    mach_port_t                 connect= NULL;
+    mach_port_t                 bootstrap_port = MACH_PORT_NULL;
+    mach_port_t                 connect = MACH_PORT_NULL;
     int                         prop_supported;
     CFSetRef                    cap_set;
     int                         _id;
@@ -401,8 +408,8 @@ _upsCommand(CFNumberRef whichUPS, CFStringRef command, int arg)
 {
     CFMutableDictionaryRef      command_dict;
     IOReturn                    ret = kIOReturnSuccess;
-    mach_port_t                 bootstrap_port = NULL;
-    mach_port_t                 connect= NULL;
+    mach_port_t                 bootstrap_port = MACH_PORT_NULL;
+    mach_port_t                 connect = MACH_PORT_NULL;
     CFNumberRef                 minutes;
     int                         _id;
 #ifdef STANDALONE

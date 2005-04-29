@@ -1,6 +1,6 @@
 # Validation suite for Autoconf                           -*- Autotest -*-
 
-# Copyright 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,21 +16,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 # 02111-1307, USA.
-
-# We need a very up to date version of Autotest.
-m4_version_prereq([2.53])
-
-# Macros specialized for Autoconf testing.
-m4_include([atspecific.m4])
-
-AT_TESTED([autom4te autoconf autoheader autoupdate autoreconf ifnames])
-
-# Still many parts of `autoconf' are not exercised by the test suite.  A few
-# FIXME's, below, are used to list tests that we would need.  Do you feel
-# like contributing new tests?  If you do, you may tell your intent to
-# `autoconf@gnu.org', so no two people work at the same thing.
-
-AT_INIT
 
 # Run the tests from the lowest level to the highest level, and from
 # the most selective to the easiest.

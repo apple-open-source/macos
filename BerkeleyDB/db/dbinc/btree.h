@@ -1,7 +1,7 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  */
 /*
@@ -39,7 +39,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: btree.h,v 1.1.1.1 2003/02/15 04:55:42 zarzycki Exp $
+ * $Id: btree.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
  */
 #ifndef	_DB_BTREE_H_
 #define	_DB_BTREE_H_
@@ -146,12 +146,12 @@ struct __epg {
 #define	BT_STK_CLR(c) do {						\
 	(c)->csp = (c)->sp;						\
 	(c)->csp->page = NULL;						\
-	LOCK_INIT((c)->csp->lock);				\
+	LOCK_INIT((c)->csp->lock);					\
 } while (0)
 
 #define	BT_STK_ENTER(dbenv, c, pagep, page_indx, l, mode, ret) do {	\
-	if ((ret =							\
-	    (c)->csp == (c)->esp ? __bam_stkgrow(dbenv, c) : 0) == 0) {	\
+	if ((ret = ((c)->csp == (c)->esp ?				\
+	    __bam_stkgrow(dbenv, c) : 0)) == 0) {			\
 		(c)->csp->page = pagep;					\
 		(c)->csp->indx = page_indx;				\
 		(c)->csp->entries = NUM_ENT(pagep);			\
@@ -171,7 +171,7 @@ struct __epg {
 		(c)->csp->page = NULL;					\
 		(c)->csp->indx = page_indx;				\
 		(c)->csp->entries = NUM_ENT(pagep);			\
-		LOCK_INIT((c)->csp->lock);			\
+		LOCK_INIT((c)->csp->lock);				\
 		(c)->csp->lock_mode = DB_LOCK_NG;			\
 	}								\
 } while (0)

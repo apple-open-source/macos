@@ -165,7 +165,7 @@ enum
     kDNSServiceType_HINFO     = 13,     /* Host information. */
     kDNSServiceType_MINFO     = 14,     /* Mailbox information. */
     kDNSServiceType_MX        = 15,     /* Mail routing information. */
-    kDNSServiceType_TXT       = 16,     /* Text strings. */
+    kDNSServiceType_TXT       = 16,     /* One or more text strings. */
     kDNSServiceType_RP        = 17,     /* Responsible person. */
     kDNSServiceType_AFSDB     = 18,     /* AFS cell database. */
     kDNSServiceType_X25       = 19,     /* X_25 calling address. */
@@ -232,8 +232,13 @@ enum
     };
 
 
-/* Maximum length, in bytes, of a domain name represented as an escaped C-String */
-/* including the final trailing dot, and the C-String terminating NULL at the end */
+/* Maximum length, in bytes, of a service name represented as a */
+/* literal C-String, including the terminating NULL at the end. */
+
+#define kDNSServiceMaxServiceName 64
+
+/* Maximum length, in bytes, of a domain name represented as an *escaped* C-String */
+/* including the final trailing dot, and the C-String terminating NULL at the end. */
 
 #define kDNSServiceMaxDomainName 1005
 
@@ -257,11 +262,18 @@ enum
  * it is, by definition, just a single literal string. Any characters in that string
  * represent exactly what they are. The "regtype" portion is, technically speaking,
  * escaped, but since legal regtypes are only allowed to contain letters, digits,
- * and hyphens, the issue is moot. The "domain" portion is also escaped, though
- * most domains in use on the public Internet today, like regtypes, don't contain
- * any characters that need to be escaped. As DNS-SD becomes more popular, rich-text
- * domains for service discovery will become common, so software should be written
- * to cope with domains with escaping.
+ * and hyphens, there is nothing to escape, so the issue is moot. The "domain"
+ * portion is also escaped, though most domains in use on the public Internet
+ * today, like regtypes, don't contain any characters that need to be escaped.
+ * As DNS-SD becomes more popular, rich-text domains for service discovery will
+ * become common, so software should be written to cope with domains with escaping.
+ *
+ * The servicename may be up to 63 bytes of UTF-8 text (not counting the C-String
+ * terminating NULL at the end). The regtype is of the form _service._tcp or
+ * _service._udp, where the "service" part is 1-14 characters, which may be
+ * letters, digits, or hyphens. The domain part of the three-part name may be
+ * any legal domain, providing that the resulting servicename+regtype+domain
+ * name does not exceed 255 bytes.
  *
  * For most software, these issues are transparent. When browsing, the discovered
  * servicenames should simply be displayed as-is. When resolving, the discovered
@@ -510,9 +522,9 @@ DNSServiceErrorType DNSSD_API DNSServiceEnumerateDomains
  * flags:           Currently unused, reserved for future use.
  *
  * errorCode:       Will be kDNSServiceErr_NoError on success, otherwise will
- *                  indicate the failure that occurred (including name conflicts, if the
- *                  kDNSServiceFlagsNoAutoRename flag was passed to the
- *                  callout.)  Other parameters are undefined if errorCode is nonzero.
+ *                  indicate the failure that occurred (including name conflicts,
+ *                  if the kDNSServiceFlagsNoAutoRename flag was used when registering.)
+ *                  Other parameters are undefined if errorCode is nonzero.
  *
  * name:            The service name registered (if the application did not specify a name in
  *                  DNSServiceRegister(), this indicates what name was automatically chosen).
@@ -555,13 +567,18 @@ typedef void (DNSSD_API *DNSServiceRegisterReply)
  *                  will pass 0).  See flag definitions above for details.
  *
  * name:            If non-NULL, specifies the service name to be registered.
- *                  Most applications will not specify a name, in which case the
- *                  computer name is used (this name is communicated to the client via
- *                  the callback).
+ *                  Most applications will not specify a name, in which case the computer
+ *                  name is used (this name is communicated to the client via the callback).
+ *                  If a name is specified, it must be 1-63 bytes of UTF-8 text.
+ *                  If the name is longer than 63 bytes it will be automatically truncated
+ *                  to a legal length, unless the NoAutoRename flag is set,
+ *                  in which case kDNSServiceErr_BadParam will be returned.
  *
  * regtype:         The service type followed by the protocol, separated by a dot
- *                  (e.g. "_ftp._tcp").  The transport protocol must be "_tcp" or "_udp".
- *                  New service types should be registered at htp://www.dns-sd.org/ServiceTypes.html.
+ *                  (e.g. "_ftp._tcp"). The service type must be an underscore, followed
+ *                  by 1-14 characters, which may be letters, digits, or hyphens.
+ *                  The transport protocol must be "_tcp" or "_udp". New service types
+ *                  should be registered at <http://www.dns-sd.org/ServiceTypes.html>.
  *
  * domain:          If non-NULL, specifies the domain on which to advertise the service.
  *                  Most applications will not specify a domain, instead automatically
@@ -581,9 +598,12 @@ typedef void (DNSSD_API *DNSServiceRegisterReply)
  *
  * txtLen:          The length of the txtRecord, in bytes.  Must be zero if the txtRecord is NULL.
  *
- * txtRecord:       The txt record rdata.  May be NULL.  Note that a non-NULL txtRecord
- *                  MUST be a properly formatted DNS TXT record, i.e. <length byte> <data>
- *                  <length byte> <data> ...
+ * txtRecord:       The TXT record rdata. A non-NULL txtRecord MUST be a properly formatted DNS
+ *                  TXT record, i.e. <length byte> <data> <length byte> <data> ...
+ *                  Passing NULL for the txtRecord is allowed as a synonym for txtLen=1, txtRecord="",
+ *                  i.e. it creates a TXT record of length one containing a single empty string.
+ *                  RFC 1035 doesn't allow a TXT record to contain *zero* strings, so a single empty
+ *                  string is the smallest legal DNS TXT record.
  *
  * callBack:        The function to be called when the registration completes or asynchronously
  *                  fails.  The client MAY pass NULL for the callback -  The client will NOT be notified
@@ -844,9 +864,9 @@ DNSServiceErrorType DNSSD_API DNSServiceBrowse
  * Note: When the desired results have been returned, the client MUST terminate the resolve by calling
  * DNSServiceRefDeallocate().
  *
- * Note: DNSServiceResolve() behaves correctly for typical services that have a single SRV record and
- * a single TXT record (the TXT record may be empty.)  To resolve non-standard services with multiple
- * SRV or TXT records, DNSServiceQueryRecord() should be used.
+ * Note: DNSServiceResolve() behaves correctly for typical services that have a single SRV record
+ * and a single TXT record. To resolve non-standard services with multiple SRV or TXT records,
+ * DNSServiceQueryRecord() should be used.
  *
  * DNSServiceResolveReply Callback Parameters:
  *
@@ -1317,7 +1337,7 @@ typedef struct _TXTRecordRef_t { char privatedata[16]; } TXTRecordRef;
  *
  * bufferLen:       The size of the storage provided in the "buffer" parameter.
  *
- * buffer:          The storage used to hold the TXTRecord data.
+ * buffer:          Optional caller-supplied storage used to hold the TXTRecord data.
  *                  This storage must remain valid for as long as
  *                  the TXTRecordRef.
  */

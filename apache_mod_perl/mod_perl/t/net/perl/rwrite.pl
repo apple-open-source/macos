@@ -1,3 +1,4 @@
+#!perl
 my $r = shift;
 $r->send_http_header("text/plain");
 

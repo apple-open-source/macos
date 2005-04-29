@@ -26,7 +26,7 @@ PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imDefLkup.c,v 3.9 2001/08/13 21:46:46 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imDefLkup.c,v 3.12 2003/11/17 22:20:11 dawes Exp $ */
 
 #include <X11/Xatom.h>
 #define  NEED_EVENTS
@@ -35,15 +35,9 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "Ximint.h"
 
 Public Xic
-#if NeedFunctionPrototypes
 _XimICOfXICID(
     Xim		  im,
     XICID	  icid)
-#else
-_XimICOfXICID(im, icid)
-    Xim		  im;
-    XICID	  icid;
-#endif /* NeedFunctionPrototypes */
 {
     Xic		  pic;
 
@@ -55,9 +49,9 @@ _XimICOfXICID(im, icid)
 }
 
 Private void
-_XimProcIMSetEventMask(im, buf)
-    Xim		 im;
-    XPointer	 buf;
+_XimProcIMSetEventMask(
+    Xim		 im,
+    XPointer	 buf)
 {
     EVENTMASK	*buf_l = (EVENTMASK *)buf;
 
@@ -67,9 +61,9 @@ _XimProcIMSetEventMask(im, buf)
 }
 
 Private void
-_XimProcICSetEventMask(ic, buf)
-    Xic		 ic;
-    XPointer	 buf;
+_XimProcICSetEventMask(
+    Xic		 ic,
+    XPointer	 buf)
 {
     EVENTMASK	*buf_l = (EVENTMASK *)buf;
 
@@ -80,19 +74,11 @@ _XimProcICSetEventMask(ic, buf)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimSetEventMaskCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimSetEventMaskCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     XIMID        imid = buf_s[0];
@@ -113,19 +99,11 @@ _XimSetEventMaskCallback(xim, len, data, call_data)
 }
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimSyncCheck(
     Xim          im,
     INT16        len,
     XPointer	 data,
     XPointer     arg)
-#else
-_XimSyncCheck(im, len, data, arg)
-    Xim          im;
-    INT16        len;
-    XPointer	 data;
-    XPointer     arg;
-#endif
 {
     Xic		 ic  = (Xic)arg;
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
@@ -150,9 +128,9 @@ _XimSyncCheck(im, len, data, arg)
 }
 
 Public Bool
-_XimSync(im, ic)
-    Xim		 im;
-    Xic		 ic;
+_XimSync(
+    Xim		 im,
+    Xic		 ic)
 {
     CARD32	 buf32[BUFSIZE/4];
     CARD8	*buf = (CARD8 *)buf32;
@@ -208,9 +186,9 @@ _XimSync(im, ic)
 }
 
 Public Bool
-_XimProcSyncReply(im, ic)
-    Xim		 im;
-    Xic		 ic;
+_XimProcSyncReply(
+    Xim		 im,
+    Xic		 ic)
 {
     CARD32	 buf32[BUFSIZE/4];
     CARD8	*buf = (CARD8 *)buf32;
@@ -231,9 +209,9 @@ _XimProcSyncReply(im, ic)
 }
 
 Public Bool
-_XimRespSyncReply(ic, mode)
-    Xic		 ic;
-    BITMASK16	 mode;
+_XimRespSyncReply(
+    Xic		 ic,
+    BITMASK16	 mode)
 {
     if (mode & XimSYNCHRONUS) /* SYNC Request */
 	MARK_NEED_SYNC_REPLY(ic);
@@ -241,19 +219,11 @@ _XimRespSyncReply(ic, mode)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimSyncCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimSyncCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     XIMID        imid = buf_s[0];
@@ -270,9 +240,9 @@ _XimSyncCallback(xim, len, data, call_data)
 }
 
 Private INT16
-_XimSetEventToWire(ev, event)
-    XEvent	*ev;
-    xEvent	*event;
+_XimSetEventToWire(
+    XEvent	*ev,
+    xEvent	*event)
 {
     if (!(_XimProtoEventToWire(ev, event, False)))
 	return 0;
@@ -282,10 +252,10 @@ _XimSetEventToWire(ev, event)
 }
 
 Private Bool
-_XimForwardEventCore(ic, ev, sync)
-    Xic		 ic;
-    XEvent	*ev;
-    Bool	 sync;
+_XimForwardEventCore(
+    Xic		 ic,
+    XEvent	*ev,
+    Bool	 sync)
 {
     Xim		 im = (Xim)ic->core.im;
     CARD32	 buf32[BUFSIZE/4];
@@ -354,10 +324,10 @@ _XimForwardEventCore(ic, ev, sync)
 }
 
 Public Bool
-_XimForwardEvent(ic, ev, sync)
-    Xic		 ic;
-    XEvent	*ev;
-    Bool	 sync;
+_XimForwardEvent(
+    Xic		 ic,
+    XEvent	*ev,
+    Bool	 sync)
 {
 #ifdef EXT_FORWARD
     if (((ev->type == KeyPress) || (ev->type == KeyRelease)))
@@ -368,11 +338,11 @@ _XimForwardEvent(ic, ev, sync)
 }
 
 Private void
-_XimProcEvent(d, ic, ev, buf)
-    Display		*d;
-    Xic			 ic;
-    XEvent		*ev;
-    CARD16		*buf;
+_XimProcEvent(
+    Display		*d,
+    Xic			 ic,
+    XEvent		*ev,
+    CARD16		*buf)
 {
     INT16	 serial = buf[0];
     xEvent	*xev = (xEvent *)&buf[1];
@@ -386,10 +356,10 @@ _XimProcEvent(d, ic, ev, buf)
 }
 
 Private Bool
-_XimForwardEventRecv(im, ic, buf)
-    Xim		 im;
-    Xic		 ic;
-    XPointer	 buf;
+_XimForwardEventRecv(
+    Xim		 im,
+    Xic		 ic,
+    XPointer	 buf)
 {
     CARD16	*buf_s = (CARD16 *)buf;
     Display	*d = im->core.display;
@@ -405,19 +375,11 @@ _XimForwardEventRecv(im, ic, buf)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimForwardEventCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimForwardEventCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     XIMID        imid = buf_s[0];
@@ -434,9 +396,9 @@ _XimForwardEventCallback(xim, len, data, call_data)
 }
 
 Private Bool
-_XimRegisterTriggerkey(im, buf)
-    Xim			 im;
-    XPointer		 buf;
+_XimRegisterTriggerkey(
+    Xim			 im,
+    XPointer		 buf)
 {
     CARD32		*buf_l = (CARD32 *)buf;
     CARD32		 len;
@@ -481,19 +443,11 @@ _XimRegisterTriggerkey(im, buf)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimRegisterTriggerKeysCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimRegisterTriggerKeysCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     Xim		 im = (Xim)call_data;
@@ -503,8 +457,8 @@ _XimRegisterTriggerKeysCallback(xim, len, data, call_data)
 }
 
 Public EVENTMASK
-_XimGetWindowEventmask(ic)
-    Xic		 ic;
+_XimGetWindowEventmask(
+    Xic		 ic)
 {
     Xim			im = (Xim )ic->core.im;
     XWindowAttributes	atr;
@@ -516,19 +470,11 @@ _XimGetWindowEventmask(ic)
 
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimTriggerNotifyCheck(
     Xim          im,
     INT16        len,
     XPointer	 data,
     XPointer     arg)
-#else
-_XimTriggerNotifyCheck(im, len, data, arg)
-    Xim          im;
-    INT16        len;
-    XPointer	 data;
-    XPointer     arg;
-#endif
 {
     Xic		 ic  = (Xic)arg;
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
@@ -553,11 +499,11 @@ _XimTriggerNotifyCheck(im, len, data, arg)
 }
 
 Public Bool
-_XimTriggerNotify(im, ic, mode, idx)
-    Xim		 im;
-    Xic		 ic;
-    int		 mode;
-    CARD32	 idx;
+_XimTriggerNotify(
+    Xim		 im,
+    Xic		 ic,
+    int		 mode,
+    CARD32	 idx)
 {
     CARD32	 buf32[BUFSIZE/4];
     CARD8	*buf = (CARD8 *)buf32;
@@ -621,12 +567,12 @@ _XimTriggerNotify(im, ic, mode, idx)
 }
 
 Private Bool
-_XimRegCommitInfo(ic, string, string_len, keysym, keysym_len)
-    Xic			 ic;
-    char		*string;
-    int			 string_len;
-    KeySym		*keysym;
-    int			 keysym_len;
+_XimRegCommitInfo(
+    Xic			 ic,
+    char		*string,
+    int			 string_len,
+    KeySym		*keysym,
+    int			 keysym_len)
 {
     XimCommitInfo	info;
 
@@ -642,8 +588,8 @@ _XimRegCommitInfo(ic, string, string_len, keysym, keysym_len)
 }
 
 Private void
-_XimUnregCommitInfo(ic)
-    Xic			ic;
+_XimUnregCommitInfo(
+    Xic			ic)
 {
     XimCommitInfo	info;
 
@@ -660,8 +606,8 @@ _XimUnregCommitInfo(ic)
 }
 
 Public void
-_XimFreeCommitInfo(ic)
-    Xic			ic;
+_XimFreeCommitInfo(
+    Xic			ic)
 {
     while (ic->private.proto.commit_info)
 	_XimUnregCommitInfo(ic);
@@ -669,11 +615,11 @@ _XimFreeCommitInfo(ic)
 }
 
 Private Bool
-_XimProcKeySym(ic, sym, xim_keysym, xim_keysym_len)
-    Xic			  ic;
-    CARD32		  sym;
-    KeySym		**xim_keysym;
-    int			 *xim_keysym_len;
+_XimProcKeySym(
+    Xic			  ic,
+    CARD32		  sym,
+    KeySym		**xim_keysym,
+    int			 *xim_keysym_len)
 {
     Xim			 im = (Xim)ic->core.im;
 
@@ -689,12 +635,12 @@ _XimProcKeySym(ic, sym, xim_keysym, xim_keysym_len)
 }
 
 Private Bool
-_XimProcCommit(ic, buf, len, xim_string, xim_string_len)
-    Xic		  ic;
-    BYTE	 *buf;
-    int		  len;
-    char	**xim_string;
-    int		 *xim_string_len;
+_XimProcCommit(
+    Xic		  ic,
+    BYTE	 *buf,
+    int		  len,
+    char	**xim_string,
+    int		 *xim_string_len)
 {
     Xim		 im = (Xim)ic->core.im;
     char	*string;
@@ -713,10 +659,10 @@ _XimProcCommit(ic, buf, len, xim_string, xim_string_len)
 }
 
 Private Bool
-_XimCommitRecv(im, ic, buf)
-    Xim		 im;
-    Xic		 ic;
-    XPointer	 buf;
+_XimCommitRecv(
+    Xim		 im,
+    Xic		 ic,
+    XPointer	 buf)
 {
     CARD16	*buf_s = (CARD16 *)buf;
     BITMASK16	 flag = buf_s[0];
@@ -770,19 +716,11 @@ _XimCommitRecv(im, ic, buf)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimCommitCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimCommitCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     XIMID        imid = buf_s[0];
@@ -799,28 +737,20 @@ _XimCommitCallback(xim, len, data, call_data)
 }
 
 Public void
-_XimProcError(im, ic, data)
-    Xim		 im;
-    Xic		 ic;
-    XPointer	 data;
+_XimProcError(
+    Xim		 im,
+    Xic		 ic,
+    XPointer	 data)
 {
     return;
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimErrorCallback(
     Xim		 xim,
     INT16	 len,
     XPointer	 data,
     XPointer	 call_data)
-#else
-_XimErrorCallback(xim, len, data, call_data)
-    Xim		 xim;
-    INT16	 len;
-    XPointer	 data;
-    XPointer	 call_data;
-#endif /* NeedFunctionPrototypes */
 {
     CARD16	*buf_s = (CARD16 *)((CARD8 *)data + XIM_HEADER_SIZE);
     BITMASK16	 flag = buf_s[2];
@@ -845,7 +775,6 @@ _XimErrorCallback(xim, len, data, call_data)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimError(
     Xim		 im,
     Xic		 ic,
@@ -853,15 +782,6 @@ _XimError(
     INT16	 detail_length,
     CARD16	 type,
     char	*detail)
-#else
-_XimError(im, ic, error_code, detail_length, type, detail)
-    Xim		 im;
-    Xic		 ic;
-    CARD16	 error_code;
-    INT16	 detail_length;
-    CARD16	 type;
-    char	*detail;
-#endif /* NeedFunctionPrototypes */
 {
     CARD32	 buf32[BUFSIZE/4];
     CARD8	*buf = (CARD8 *)buf32;
@@ -899,13 +819,13 @@ _XimError(im, ic, error_code, detail_length, type, detail)
 }
 
 Private int
-_Ximctsconvert(conv, from, from_len, to, to_len, state)
-    XlcConv	 conv;
-    char	*from;
-    int		 from_len;
-    char	*to;
-    int		 to_len;
-    Status	*state;
+_Ximctsconvert(
+    XlcConv	 conv,
+    char	*from,
+    int		 from_len,
+    char	*to,
+    int		 to_len,
+    Status	*state)
 {
     int		 from_left;
     int		 to_left;
@@ -930,58 +850,36 @@ _Ximctsconvert(conv, from, from_len, to, to_len, state)
        initial state.  */
     _XlcResetConverter(conv);
 
-    if (to && to_len) {
-	from_left = from_len;
-	to_left = to_len;
-	from_cnvlen = 0;
-	to_cnvlen = 0;
-	for (;;) {
-	    from_savelen = from_left;
-	    to_savelen = to_left;
-	    from_buf = &from[from_cnvlen];
-	    to_buf = &to[to_cnvlen];
-	    if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
-				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
-		*state = XLookupNone;
-		return 0;
-	    }
-	    from_cnvlen += (from_savelen - from_left);
-	    to_cnvlen += (to_savelen - to_left);
-	    if (from_left == 0) {
-		if (to_cnvlen > 0) {
-		    *state = XLookupChars;
-		} else {
-		    *state = XLookupNone;
-		}
-		return to_cnvlen;
-	    }
-	    if (to_left == 0)
-		break;
-	}
-    }
-
     from_left = from_len;
+    to_left = BUFSIZ;
     from_cnvlen = 0;
     to_cnvlen = 0;
     for (;;) {
-	from_savelen = from_left;
-	to_buf = scratchbuf;
-	to_left = BUFSIZ;
 	from_buf = &from[from_cnvlen];
+	from_savelen = from_left;
+	to_buf = &scratchbuf[to_cnvlen];
+	to_savelen = to_left;
 	if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
 				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
 	    *state = XLookupNone;
 	    return 0;
 	}
 	from_cnvlen += (from_savelen - from_left);
-	to_cnvlen += (BUFSIZ - to_left);
+	to_cnvlen += (to_savelen - to_left);
 	if (from_left == 0) {
-	    if (to_cnvlen > 0)
-		*state = XBufferOverflow;
-	    else
+	    if (!to_cnvlen) {
 		*state = XLookupNone;
-	    break;
+		return 0;
+           }
+	   break;
 	}
+    }
+
+    if (!to || !to_len || (to_len < to_cnvlen)) {
+       *state = XBufferOverflow;
+    } else {
+       memcpy(to, scratchbuf, to_cnvlen);
+       *state = XLookupChars;
     }
     return to_cnvlen;
 }
@@ -1000,13 +898,13 @@ _Ximctstombs(xim, from, from_len, to, to_len, state)
 }
 
 Public int
-_Ximctstowcs(xim, from, from_len, to, to_len, state)
-    XIM		 xim;
-    char	*from;
-    int		 from_len;
-    wchar_t	*to;
-    int		 to_len;
-    Status	*state;
+_Ximctstowcs(
+    XIM		 xim,
+    char	*from,
+    int		 from_len,
+    wchar_t	*to,
+    int		 to_len,
+    Status	*state)
 {
     Xim		 im = (Xim)xim;
     XlcConv	 conv = im->private.proto.ctow_conv;
@@ -1032,84 +930,62 @@ _Ximctstowcs(xim, from, from_len, to, to_len, state)
     /* Reset the converter.  The CompoundText at 'from' starts in
        initial state.  */
     _XlcResetConverter(conv);
-
-    if (to && to_len) {
-	from_left = from_len;
-	to_left = to_len;
-	from_cnvlen = 0;
-	to_cnvlen = 0;
-	for (;;) {
-	    from_savelen = from_left;
-	    to_savelen = to_left;
-	    from_buf = &from[from_cnvlen];
-	    to_buf = &to[to_cnvlen];
-	    if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
-				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
-		*state = XLookupNone;
-		return 0;
-	    }
-	    from_cnvlen += (from_savelen - from_left);
-	    to_cnvlen += (to_savelen - to_left);
-	    if (from_left == 0) {
-		if (to_cnvlen > 0) {
-		    *state = XLookupChars;
-		} else {
-		    *state = XLookupNone;
-		}
-		return to_cnvlen;
-	    }
-	    if (to_left == 0)
-		break;
-	}
-    }
 		
     from_left = from_len;
+    to_left = BUFSIZ;
     from_cnvlen = 0;
     to_cnvlen = 0;
     for (;;) {
-	from_savelen = from_left;
-	to_buf = scratchbuf;
-	to_left = BUFSIZ * sizeof(wchar_t);
 	from_buf = &from[from_cnvlen];
+       from_savelen = from_left;
+       to_buf = &scratchbuf[to_cnvlen];
+       to_savelen = to_left;
 	if (_XlcConvert(conv, (XPointer *)&from_buf, &from_left,
 				 (XPointer *)&to_buf, &to_left, NULL, 0) < 0) {
 	    *state = XLookupNone;
 	    return 0;
 	}
 	from_cnvlen += (from_savelen - from_left);
-	to_cnvlen += (BUFSIZ * sizeof(wchar_t) - to_left);
+       to_cnvlen += (to_savelen - to_left);
 	if (from_left == 0) {
-	    if (to_cnvlen > 0)
-		*state = XBufferOverflow;
-	    else
+           if (!to_cnvlen){
 		*state = XLookupNone;
+               return 0;
+           }
 	    break;
 	}
+    }
+
+    if (!to || !to_len || (to_len < to_cnvlen)) {
+       *state = XBufferOverflow;
+    } else {
+       memcpy(to, scratchbuf, to_cnvlen * sizeof(wchar_t));
+       *state = XLookupChars;
     }
     return to_cnvlen;
 }
 
 Public int
-_Ximctstoutf8(xim, from, from_len, to, to_len, state)
-    XIM		 xim;
-    char	*from;
-    int		 from_len;
-    char	*to;
-    int		 to_len;
-    Status	*state;
+_Ximctstoutf8(
+    XIM		 xim,
+    char	*from,
+    int		 from_len,
+    char	*to,
+    int		 to_len,
+    Status	*state)
 {
     return _Ximctsconvert(((Xim)xim)->private.proto.ctoutf8_conv,
 			  from, from_len, to, to_len, state);
 }
 
 Public int
-_XimProtoMbLookupString(xic, ev, buffer, bytes, keysym, state)
-    XIC			 xic;
-    XKeyEvent		*ev;
-    char		*buffer;
-    int			 bytes;
-    KeySym		*keysym;
-    Status		*state;
+_XimProtoMbLookupString(
+    XIC			 xic,
+    XKeyEvent		*ev,
+    char		*buffer,
+    int			 bytes,
+    KeySym		*keysym,
+    Status		*state)
 {
     Xic			 ic = (Xic)xic;
     Xim			 im = (Xim)ic->core.im;
@@ -1125,15 +1001,14 @@ _XimProtoMbLookupString(xic, ev, buffer, bytes, keysym, state)
 
     if ((ev->type == KeyPress) && (ev->keycode == 0)) { /* Filter function */
 	if (!(info = ic->private.proto.commit_info)) {
-	    if (state)
-		*state = XLookupNone;
+	    *state = XLookupNone;
 	    return 0;
 	}
 
 	ret = im->methods->ctstombs((XIM)im, info->string,
 			 	info->string_len, buffer, bytes, state);
 	if (*state == XBufferOverflow)
-	    return 0;
+            return ret;
 	if (keysym && (info->keysym && *(info->keysym))) {
 	    *keysym = *(info->keysym);
 	    if (*state == XLookupChars)
@@ -1146,7 +1021,9 @@ _XimProtoMbLookupString(xic, ev, buffer, bytes, keysym, state)
     } else  if (ev->type == KeyPress) {
 	ret = _XimLookupMBText(ic, ev, buffer, bytes, keysym, NULL);
 	if (ret > 0) {
-	    if (keysym && *keysym != NoSymbol)
+           if (ret > bytes)
+               *state = XBufferOverflow;
+           else if (keysym && *keysym != NoSymbol)
 		*state = XLookupBoth;
 	    else
 		*state = XLookupChars;
@@ -1165,13 +1042,13 @@ _XimProtoMbLookupString(xic, ev, buffer, bytes, keysym, state)
 }
 
 Public int
-_XimProtoWcLookupString(xic, ev, buffer, bytes, keysym, state)
-    XIC			 xic;
-    XKeyEvent		*ev;
-    wchar_t		*buffer;
-    int			 bytes;
-    KeySym		*keysym;
-    Status		*state;
+_XimProtoWcLookupString(
+    XIC			 xic,
+    XKeyEvent		*ev,
+    wchar_t		*buffer,
+    int			 bytes,
+    KeySym		*keysym,
+    Status		*state)
 {
     Xic			 ic = (Xic)xic;
     Xim			 im = (Xim)ic->core.im;
@@ -1187,15 +1064,14 @@ _XimProtoWcLookupString(xic, ev, buffer, bytes, keysym, state)
 
     if (ev->type == KeyPress && ev->keycode == 0) { /* Filter function */
 	if (!(info = ic->private.proto.commit_info)) {
-	    if (state)
-		*state = XLookupNone;
+           *state = XLookupNone;
 	    return 0;
 	}
 
 	ret = im->methods->ctstowcs((XIM)im, info->string,
 			 	info->string_len, buffer, bytes, state);
 	if (*state == XBufferOverflow)
-	    return 0;
+           return ret;
 	if (keysym && (info->keysym && *(info->keysym))) {
 	    *keysym = *(info->keysym);
 	    if (*state == XLookupChars)
@@ -1208,7 +1084,9 @@ _XimProtoWcLookupString(xic, ev, buffer, bytes, keysym, state)
     } else if (ev->type == KeyPress) {
 	ret = _XimLookupWCText(ic, ev, buffer, bytes, keysym, NULL);
 	if (ret > 0) {
-	    if (keysym && *keysym != NoSymbol)
+           if (ret > bytes)
+               *state = XBufferOverflow;
+           else if (keysym && *keysym != NoSymbol)
 		*state = XLookupBoth;
 	    else
 		*state = XLookupChars;
@@ -1227,13 +1105,13 @@ _XimProtoWcLookupString(xic, ev, buffer, bytes, keysym, state)
 }
 
 Public int
-_XimProtoUtf8LookupString(xic, ev, buffer, bytes, keysym, state)
-    XIC			 xic;
-    XKeyEvent		*ev;
-    char		*buffer;
-    int			 bytes;
-    KeySym		*keysym;
-    Status		*state;
+_XimProtoUtf8LookupString(
+    XIC			 xic,
+    XKeyEvent		*ev,
+    char		*buffer,
+    int			 bytes,
+    KeySym		*keysym,
+    Status		*state)
 {
     Xic			 ic = (Xic)xic;
     Xim			 im = (Xim)ic->core.im;
@@ -1249,15 +1127,14 @@ _XimProtoUtf8LookupString(xic, ev, buffer, bytes, keysym, state)
 
     if (ev->type == KeyPress && ev->keycode == 0) { /* Filter function */
 	if (!(info = ic->private.proto.commit_info)) {
-	    if (state)
-		*state = XLookupNone;
+           *state = XLookupNone;
 	    return 0;
 	}
 
 	ret = im->methods->ctstoutf8((XIM)im, info->string,
 			 	info->string_len, buffer, bytes, state);
 	if (*state == XBufferOverflow)
-	    return 0;
+           return ret;
 	if (keysym && (info->keysym && *(info->keysym))) {
 	    *keysym = *(info->keysym);
 	    if (*state == XLookupChars)
@@ -1270,7 +1147,9 @@ _XimProtoUtf8LookupString(xic, ev, buffer, bytes, keysym, state)
     } else if (ev->type == KeyPress) {
 	ret = _XimLookupUTF8Text(ic, ev, buffer, bytes, keysym, NULL);
 	if (ret > 0) {
-	    if (keysym && *keysym != NoSymbol)
+           if (ret > bytes)
+               *state = XBufferOverflow;
+           else if (keysym && *keysym != NoSymbol)
 		*state = XLookupBoth;
 	    else
 		*state = XLookupChars;

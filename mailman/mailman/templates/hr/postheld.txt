@@ -1,10 +1,10 @@
-Vas mail na '%(listname)s' naslovljen
+Vasa poruka na '%(listname)s' listu naslovljena
 
     %(subject)s
 
-zadrzan je dok ga moderator liste ne pregleda i odobri.
+zadrzana je dok je moderator liste ne pregleda i odobri.
 
-Razlog zbog kojeg je zadrzan:
+Razlog zbog kojega je zadrzana:
 
     %(reason)s
 

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeFontP.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeFontP.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,25 +144,12 @@
 .SH NAME
 XSetFontPath, XGetFontPath, XFreeFontPath \- set, get, or free the font search path
 .SH SYNTAX
-XSetFontPath\^(\^\fIdisplay\fP, \fIdirectories\fP\^, \fIndirs\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char **\fIdirectories\fP\^;
-.br
-      int \fIndirs\fP\^;
-.LP
-char **XGetFontPath\^(\^\fIdisplay\fP, \fInpaths_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fInpaths_return\fP\^;
-
-.LP
-XFreeFontPath\^(\^\fIlist\fP\^)
-.br
-      char **\fIlist\fP\^;
-
+int XSetFontPath\^(\^Display *\fIdisplay\fP\^, char **\fIdirectories\fP\^, int
+\fIndirs\fP\^); 
+.HP
+char **XGetFontPath\^(\^Display *\fIdisplay\fP\^, int *\fInpaths_return\fP\^);
+.HP
+int XFreeFontPath\^(\^char **\fIlist\fP\^); 
 .SH ARGUMENTS
 .IP \fIdirectories\fP 1i
 Specifies the directory path used to look for a font.

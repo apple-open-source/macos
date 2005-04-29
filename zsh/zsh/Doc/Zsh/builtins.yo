@@ -60,23 +60,40 @@ which may have effects on shell parameters.  A zero exit code is returned.
 findex(alias)
 cindex(aliases, defining)
 cindex(aliases, listing)
-item(tt(alias) [ {tt(PLUS()|tt(-))}tt(gmrL) ] [ var(name)[tt(=)var(value)] ... ])(
+item(tt(alias) [ {tt(PLUS()|tt(-))}tt(gmrsL) ] [ var(name)[tt(=)var(value)] ... ])(
 For each var(name) with a corresponding var(value), define an alias
 with that value.  A trailing space in var(value) causes the next word
 to be checked for alias expansion.  If the tt(-g) flag is present,
 define a global alias; global aliases are expanded even if they do not
 occur in command position.
 
+If the tt(-s) flags is present, define a suffix alias: if the command
+word on a command line is in the form `var(text)tt(.)var(name)', where
+var(text) is any non-empty string, it is replaced by the text
+`var(value) var(text)tt(.)var(name)'.  Note that var(name) is treated as
+a literal string, not a pattern.  A trailing space in var(value) is not
+special in this case.  For example,
+
+example(alias -s ps=gv)
+
+will cause the command `tt(*.ps)' to be expanded to `tt(gv *.ps)'.  As
+alias expansion is carried out earlier than globbing, the `tt(*.ps)' will
+then be expanded.  Suffix aliases constitute a different name space from
+other aliases (so in the above example it is still possible
+to create an alias for the command tt(ps)) and the two sets are never
+listed together.
+
 For each var(name) with no var(value),
 print the value of var(name), if any.  With no arguments, print all
-currently defined aliases.  If the tt(-m) flag is given the arguments
-are taken as patterns (they should be quoted to preserve them from being
-interpreted as glob patterns), and the aliases matching these patterns
-are printed.  When printing aliases and the tt(-g) or tt(-r) flags
-are present, then restrict the printing to global or regular
-aliases, respectively.  Using `tt(PLUS())' instead of `tt(-)', or ending
-the option list with a single `tt(PLUS())', prevents the values of the
-aliases from being printed.
+currently defined aliases other than suffix aliases.  If the tt(-m) flag
+is given the arguments are taken as patterns (they should be quoted to
+preserve them from being interpreted as glob patterns), and the aliases
+matching these patterns are printed.  When printing aliases and one of
+the tt(-g), tt(-r) or tt(-s) flags is present, restrict the printing to
+global, regular or suffix aliases, respectively; a regular alias is one
+which is neither a global nor a suffix alias.   Using `tt(PLUS())'
+instead of `tt(-)', or ending the option list with a single
+`tt(PLUS())', prevents the values of the aliases from being printed.
 
 If the tt(-L) flag is present, then print each
 alias in a manner suitable for putting in a startup script.  The exit
@@ -86,9 +103,9 @@ which no alias has been defined.
 findex(autoload)
 cindex(functions, autoloading)
 cindex(autoloading functions)
-item(tt(autoload) [ {tt(PLUS())|tt(-)}tt(UXmt) ] [ tt(-wkz) ] [ var(name) ... ])(
-Equivalent to tt(functions -u), with the exception of tt(-X)/tt(+X),
-tt(-w), tt(-k) and tt(-z).
+item(tt(autoload) [ {tt(PLUS())|tt(-)}tt(UXktz) ] [ tt(-w) ] [ var(name) ... ])(
+Equivalent to tt(functions -u), with the exception of tt(-X)/tt(+X) and
+tt(-w).
 
 The flag tt(-X) may be used only inside a shell function, and may not be
 followed by a var(name).  It causes the calling function to be marked for
@@ -103,16 +120,10 @@ function was not previously defined em(and) a definition for it was found.
 This does em(not) replace any existing definition of the function.  The
 exit status is nonzero (failure) if the function was already defined or
 when no definition was found.  In the latter case the function remains
-undefined and marked for autoloading.
-
-The flag tt(+X) may be combined with either tt(-k) or tt(-z) to make
-the function be loaded using ksh-style or zsh-style autoloading,
-respectively. If neither is given, the current setting of the
-tt(KSH_AUTOLOAD) options determines how the function is loaded. With
-ksh-style autoloading, the contents of the file will not be executed
-immediately. Instead, the function created will contain the contents of 
-the file plus a call to the function itself appended to it, thus given 
-normal ksh autoloading behaviour on the first call to the function.
+undefined and marked for autoloading.  If ksh-style autoloading is
+enabled, the function created will contain the contents of the file
+plus a call to the function itself appended to it, thus giving normal
+ksh autoloading behaviour on the first call to the function.
 
 With the tt(-w) flag, the var(name)s are taken as names of files compiled
 with the tt(zcompile) builtin, and all functions defined in them are
@@ -177,7 +188,18 @@ followed regardless of the state of the tt(CHASE_LINKS) option.
 )
 alias(chdir)(cd)
 module(clone)(zsh/clone)
-prefix(command)
+findex(command)
+item(tt(command) [ tt(-pvV) ] var(simple command))(
+The simple command argument is taken as an external command instead of
+a function or builtin and is executed. If the tt(POSIX_BUILTINS) option
+is set, builtins will also be executed but certain special properties
+of them are suppressed. The tt(-p) flag causes a default path to be
+searched instead of that in tt($path). With the tt(-v) flag, tt(command)
+is similar to tt(whence) and with tt(-V), it is equivalent to tt(whence
+-v).
+
+See also noderef(Precommand Modifiers).
+)
 module(comparguments)(zsh/computil)
 module(compcall)(zsh/compctl)
 module(compctl)(zsh/compctl)
@@ -228,11 +250,12 @@ enditem()
 findex(disable)
 cindex(disabling commands)
 cindex(commands, disabling)
-item(tt(disable) [ tt(-afmr) ] var(name) ...)(
+item(tt(disable) [ tt(-afmrs) ] var(name) ...)(
 Temporarily disable the var(name)d hash table elements.  The default
 is to disable builtin commands.  This allows you to use an external
 command with the same name as a builtin command.  The tt(-a) option
-causes tt(disable) to act on aliases.  The tt(-f) option causes
+causes tt(disable) to act on regular or global aliases.  The tt(-s)
+option causes tt(disable) to act on suffix aliases.  The tt(-f) option causes
 tt(disable) to act on shell functions.  The tt(-r) options causes
 tt(disable) to act on reserved words.  Without arguments all disabled
 hash table elements from the corresponding hash table are printed.
@@ -323,11 +346,12 @@ modes except tt(ksh).
 findex(enable)
 cindex(enabling commands)
 cindex(commands, enabling)
-item(tt(enable) [ tt(-afmr) ] var(name) ...)(
+item(tt(enable) [ tt(-afmrs) ] var(name) ...)(
 Enable the var(name)d hash table elements, presumably disabled
 earlier with tt(disable).  The default is to enable builtin commands.
-The tt(-a) option causes tt(enable) to act on aliases.  The tt(-f)
-option causes tt(enable) to act on shell functions.  The tt(-r)
+The tt(-a) option causes tt(enable) to act on regular or global aliases.
+The tt(-s) option causes tt(enable) to act on suffix aliases.
+The tt(-f) option causes tt(enable) to act on shell functions.  The tt(-r)
 option causes tt(enable) to act on reserved words.  Without arguments
 all enabled hash table elements from the corresponding hash table are
 printed.  With the tt(-m) flag the arguments are taken as patterns
@@ -367,6 +391,8 @@ findex(fc)
 cindex(history, editing)
 cindex(editing history)
 xitem(tt(fc) [ tt(-e) var(ename) ] [ tt(-nlrdDfEim) ] [ var(old)tt(=)var(new) ... ] [ var(first) [ var(last) ] ])
+xitem(tt(fc) tt(-p) [ tt(-a) ] [ var(filename) [ var(histsize) [ var(savehistsize) ] ] ])
+xitem(tt(fc) tt(-P))
 item(tt(fc) tt(-ARWI) [ var(filename) ])(
 Select a range of commands from var(first) to var(last) from the
 history list.
@@ -403,6 +429,37 @@ Adding the tt(-i) flag causes the dates to be printed in ISO8601
 `var(yyyy)tt(-)var(mm)tt(-)var(dd)' format.
 With the tt(-D) flag, tt(fc) prints elapsed times.
 
+cindex(history, stack)
+cindex(stack, history)
+
+`tt(fc -p)' pushes the current history list onto a stack and switches to a
+new history list.  If the tt(-a) option is also specified, this history list
+will be automatically popped when the current function scope is exited, which
+is a much better solution than creating a trap function to call `tt(fc -P)'
+manually.  If no arguments are specified, the history list is left empty,
+tt($HISTFILE) is unset, and tt($HISTSIZE) & tt($SAVEHIST) are set to their
+default values.  If one argument is given, tt($HISTFILE) is set to that
+filename, tt($HISTSIZE) & tt($SAVEHIST) are left unchanged, and the history
+file is read in (if it exists) to initialize the new list.  If a second
+argument is specified, tt($HISTSIZE) & tt($SAVEHIST) are instead set to the
+single specified numeric value.  Finally, if a third argument is specified,
+tt($SAVEHIST) is set to a separate value from tt($HISTSIZE).  You are free to
+change these environment values for the new history list however you desire
+in order to manipulate the new history list.
+
+`tt(fc -P)' pops the history list back to an older list saved by `tt(fc -p)'.
+The current list is saved to its tt($HISTFILE) before it is destroyed
+(assuming that tt($HISTFILE) and tt($SAVEHIST) are set appropriately, of
+course).  The values of tt($HISTFILE), tt($HISTSIZE), and tt($SAVEHIST) are
+restored to the values they had when `tt(fc -p)' was called.  Note that this
+restoration can conflict with making these variables "local", so your best
+bet is to avoid local declarations for these variables in functions that use
+`tt(fc -p)'.  The one other guaranteed-safe combination is declaring these
+variables to be local at the top of your function and using the automatic
+option (tt(-a)) with `tt(fc -p)'.  Finally, note that it is legal to manually
+pop a push marked for automatic popping if you need to do so before the
+function exits.
+
 cindex(history, file)
 cindex(file, history)
 `tt(fc -R)' reads the history from the given file,
@@ -426,12 +483,13 @@ Bring each specified var(job) in turn to the foreground.
 If no var(job) is specified, resume the current job.
 )
 findex(float)
-item(tt(float) [ {tt(PLUS())|tt(-)}tt(EFHghlprtux) ] [ var(name)[tt(=)var(value)] ... ])(
+item(tt(float) [ {tt(PLUS())|tt(-)}tt(EFHghlprtux) ] [ tt(-LRZ) [ var(n) ]] \
+[ var(name)[tt(=)var(value)] ... ])(
 Equivalent to tt(typeset -E), except that options irrelevant to floating
 point numbers are not permitted.
 )
 findex(functions)
-item(tt(functions) [ {tt(PLUS())|tt(-)}tt(UXmtu) ] [ var(name) ... ])(
+item(tt(functions) [ {tt(PLUS())|tt(-)}tt(UXkmtuz) ] [ var(name) ... ])(
 Equivalent to tt(typeset -f).
 )
 module(getcap)(zsh/cap)
@@ -528,7 +586,8 @@ the form of a call to hash.
 )
 alias(history)(fc -l)
 findex(integer)
-item(tt(integer) [ {tt(PLUS())|tt(-)}tt(Hghilprtux) ] [ var(name)[tt(=)var(value)] ... ])(
+item(tt(integer) [ {tt(PLUS())|tt(-)}tt(Hghilprtux) ] \
+[ tt(-LRZ) [ var(n) ]] [ var(name)[tt(=)var(value)] ... ])(
 Equivalent to tt(typeset -i), except that options irrelevant to
 integers are not permitted.
 )
@@ -569,6 +628,14 @@ var(sig) that is a name, the corresponding signal number is
 listed.  For each var(sig) that is a signal number or a number
 representing the exit status of a process which was terminated or
 stopped by a signal the name of the signal is printed.
+
+On some systems, alternative signal names are allowed for a few signals.
+Typical examples are tt(SIGCHLD) and tt(SIGCLD) or tt(SIGPOLL) and
+tt(SIGIO), assuming they correspond to the same signal number.  tt(kill
+-l) will only list the preferred form, however tt(kill -l) var(alt) will
+show if the alternative form corresponds to a signal number.  For example,
+under Linux tt(kill -l IO) and tt(kill -l POLL) both output 29, hence
+tt(kill -IO) and tt(kill -POLL) have the same effect.
 )
 findex(let)
 item(tt(let) var(arg) ...)(
@@ -591,6 +658,10 @@ on var(resource), otherwise
 set the limit to the specified value.  If the tt(-h) flag
 is given, use hard limits instead of soft limits.
 If no var(resource) is given, print all limits.
+
+When looping over multiple resources, the shell will abort immediately if
+it detects a badly formed argument.  However, if it fails to set a limit
+for some other reason it will continue trying to set the remaining limits.
 
 var(resource) can be one of:
 
@@ -615,7 +686,15 @@ sitem(tt(vmemorysize))(Maximum amount of virtual memory.)
 endsitem()
 
 Which of these resource limits are available depends on the system.
-var(resource) can be abbreviated to any unambiguous prefix.
+var(resource) can be abbreviated to any unambiguous prefix.  It
+can also be an integer, which corresponds to the integer defined
+for the resource by the operating system.
+
+If argument corresponds to a number which is out of the range of the
+resources configured into the shell, the shell will try to read or write
+the limit anyway, and will report an error if this fails.  As the shell
+does not store such resources internally, an attempt to set the limit will
+fail unless the tt(-s) option is present.
 
 var(limit) is a number, with an optional scaling factor, as follows:
 
@@ -627,7 +706,8 @@ sitem([var(mm)tt(:)]var(ss))(minutes and seconds)
 endsitem()
 )
 findex(local)
-item(tt(local) [ {tt(PLUS())|tt(-)}tt(AEFHLRUZahilprtux) [var(n)]] [ var(name)[tt(=)var(value)] ] ...)(
+item(tt(local) [ {tt(PLUS())|tt(-)}tt(AEFHUahlprtux) ] \
+[ tt(-LRZi) [ var(n) ]] [ var(name)[tt(=)var(value)] ] ...)(
 Same as tt(typeset), except that the options tt(-g), and
 tt(-f) are not permitted.  In this case the tt(-x) option does not force
 the use of tt(-g), i.e. exported variables will be local to functions.
@@ -657,7 +737,7 @@ If the tt(PUSHD_MINUS) option is set, the meanings of `tt(PLUS())' and
 `tt(-)' in this context are swapped.
 )
 findex(print)
-xitem(tt(print) [ tt(-abcDilmnNoOpPrsz) ] [ tt(-u)var(n) ] [ tt(-f) var(format) ] [ tt(-C) var(cols) ])
+xitem(tt(print) [ tt(-abcDilmnNoOpPrsz) ] [ tt(-u) var(n) ] [ tt(-f) var(format) ] [ tt(-C) var(cols) ])
 item(  [ tt(-R) [ tt(-en) ]] [ var(arg) ... ])(
 With the `tt(-f)' option the arguments are printed as described by tt(printf).
 With no flags or with the flag `tt(-)', the arguments are printed on
@@ -738,7 +818,7 @@ tt(-R); all other arguments and options are printed.
 item(tt(-s))(
 Place the results in the history list instead of on the standard output.
 )
-item(tt(-u)var(n))(
+item(tt(-u) var(n))(
 Print the arguments to file descriptor var(n).
 )
 item(tt(-z))(
@@ -827,7 +907,7 @@ alias(r)(fc -e -)
 findex(read)
 vindex(IFS, use of)
 ifzman(xitem(tt(read) [ tt(-rszpqAclneE) ] [ tt(-t) [ var(num) ] ] [ tt(-k) [ var(num) ] ] [ tt(-d) var(delim) ]))
-item(ifnzman(tt(read) [ tt(-rszpqAclneE) ] [ tt(-t) [ var(num) ] ] [ tt(-k) [ var(num) ] ] [ tt(-d) var(delim) ]) [ tt(-u)var(n) ] [ var(name)[tt(?)var(prompt)] ] [ var(name) ...  ])(
+item(ifnzman(tt(read) [ tt(-rszpqAclneE) ] [ tt(-t) [ var(num) ] ] [ tt(-k) [ var(num) ] ] [ tt(-d) var(delim) ]) [ tt(-u) var(n) ] [ var(name)[tt(?)var(prompt)] ] [ var(name) ...  ])(
 vindex(REPLY, use of)
 vindex(reply, use of)
 Read one line and break it into fields using the characters
@@ -895,7 +975,7 @@ read.  Note that the command name is word number 1, not word 0,
 and that when the cursor is at the end of the line, its character
 index is the length of the line plus one.
 )
-item(tt(-u)var(n))(
+item(tt(-u) var(n))(
 Input is read from file descriptor var(n).
 )
 item(tt(-p))(
@@ -1055,6 +1135,12 @@ xitem(tt(test) [ var(arg) ... ])
 item(tt([) [ var(arg) ... ] tt(]))(
 Like the system version of tt(test).  Added for compatibility;
 use conditional expressions instead (see noderef(Conditional Expressions)).
+The main differences between the conditional expression syntax and the
+tt(test) and tt([) builtins are:  these commands are not handled
+syntactically, so for example an empty variable expansion may cause an
+argument to be omitted; syntax errors cause status 2 to be returned instead
+of a shell error; and arithmetic operators expect integer arguments rather
+than arithemetic expressions.
 )
 findex(times)
 cindex(shell, timing)
@@ -1086,6 +1172,8 @@ If var(sig) is tt(0) or tt(EXIT)
 and the tt(trap) statement is not executed inside the body of a function,
 then the command var(arg) is executed when the shell terminates.
 
+tt(ZERR), tt(DEBUG) and tt(EXIT) traps are not executed inside other traps.
+
 The tt(trap) command with no arguments prints a list of commands
 associated with each signal.
 
@@ -1102,6 +1190,11 @@ will print the line number of a command executed after it has run, while
 example(TRAPDEBUG() { print $LINENO; })
 
 will always print the number zero.
+
+Alternative signal names are allowed as described under tt(kill) above.
+Defining a trap under either name causes any trap under an alternative
+name to be removed.  However, it is recommended that for consistency
+users stick exclusively to one name or another.
 )
 findex(true)
 cindex(doing nothing, successfully)
@@ -1127,10 +1220,12 @@ Equivalent to tt(whence -v).
 findex(typeset)
 cindex(parameters, setting)
 cindex(parameters, declaring)
-xitem(tt(typeset) [ {tt(PLUS())|tt(-)}tt(AEFHLRUZafghilprtuxm) [var(n)]] [ \
+xitem(tt(typeset) [ {tt(PLUS())|tt(-)}tt(AEFHUafghklprtuxmz) ] [ tt(-LRZi) \
+[ var(n) ]] [ \
 var(name)[tt(=)var(value)] ... ])
-item(tt(typeset) -T [ {tt(PLUS()|tt(-))}tt(LRUZrux) ] \
-  var(SCALAR)[tt(=)var(value)] var(array))(
+item(tt(typeset) -T [ {tt(PLUS()|tt(-))}tt(Urux) ] \
+ [ tt(-LRZ) [ var(n) ]] \
+ var(SCALAR)[tt(=)var(value)] var(array) tt([) var(sep) tt(]))(
 Set or display attributes and values for shell parameters.
 
 A parameter is created for each var(name) that does not already refer
@@ -1159,20 +1254,24 @@ separately for arrays and associative arrays), regardless of other flags
 and options.  Note that the tt(-h) flag on parameters is respected; no
 value will be shown for these parameters.
 
-If the tt(-T) option is given, exactly two (or zero) var(name)
-arguments must be present.  They represent a scalar and an array (in
-that order) that will be tied together in the manner of tt($PATH) and
-tt($path).  In other words, an array present in the latter variable
-appears as a scalar with the elements of the array joined by colons in
-the former.  Only the scalar may have an initial value.  Both the
-scalar and the array may otherwise be manipulated as normal.  If one
-is unset, the other will automatically be unset too.  There is no way
-of untying the variables without unsetting them, or converting the
-type of one of them with another tt(typeset) command; tt(+T) does not
-work, assigning an array to var(SCALAR) is an error, and assigning a
-scalar to var(array) sets it to be a single-element array.  Note that
-both `tt(typeset -xT ...)' and `tt(export -T ...)' work, but only the
-scalar will be marked for export.
+If the tt(-T) option is given, two or three arguments must be present (an
+exception is that zero arguments are allowed to show the list of parameters
+created in this fashion).  The first two are the name of a scalar and an
+array parameter (in that order) that will be tied together in the manner of
+tt($PATH) and tt($path).  The optional third argument is a single-character
+separator which will be used to join the elements of the array to form the
+scalar; if absent, a colon is used, as with tt($PATH).  Only the first
+character of the separator is significant; any remaining characters are
+ignored.  Only the scalar parameter may be assigned an initial value.  Both
+the scalar and the array may otherwise be manipulated as normal.  If one is
+unset, the other will automatically be unset too.  There is no way of
+untying the variables without unsetting them, or converting the type of one
+of them with another tt(typeset) command; tt(+T) does not work, assigning
+an array to var(SCALAR) is an error, and assigning a scalar to var(array)
+sets it to be a single-element array.  Note that both `tt(typeset -xT ...)'
+and `tt(export -T ...)' work, but only the scalar will be marked for
+export.  Setting the value using the scalar version causes a split on all
+separators (which cannot be quoted).
 
 The tt(-g) (global) flag is treated specially: it means that any
 resulting parameter will not be restricted to local scope.  Note that this
@@ -1218,20 +1317,21 @@ ifnzman(noderef(Array Parameters))\
 )
 item(tt(-L))(
 Left justify and remove leading blanks from var(value).
-If var(n) is nonzero, it defines the width of the field;
-otherwise it is determined by the width of the value of the first
-assignment.
+If var(n) is nonzero, it defines the width of the field.
+If var(n) is zero, the width is determined by the width of the value of
+the first assignment.  In the case of numeric parameters, the length of the
+complete value assigned to the parameter is used to determine the width,
+not the value that would be output.
 When the parameter is expanded, it is filled on the right with
 blanks or truncated if necessary to fit the field.
+Note truncation can lead to unexpected results with numeric parameters.
 Leading zeros are removed if the tt(-Z) flag is also set.
 )
 item(tt(-R))(
-Right justify and fill with leading blanks.  If var(n) is nonzero
-if defines the width of the field;
-otherwise it is determined by the width of the value of the first
-assignment.
-When the parameter is expanded, the field is left filled with
-blanks or truncated from the end.
+Similar to tt(-L), except that right justification is used;
+when the parameter is expanded, the field is left filled with
+blanks or truncated from the end.  May not be combined with the tt(-Z)
+flag.
 )
 item(tt(-U))(
 For arrays (but not for associative arrays), keep only the first
@@ -1240,11 +1340,12 @@ colon-separated special parameters like tt(PATH) or tt(FIGNORE), etc.
 This flag has a different meaning when used with tt(-f); see below.
 )
 item(tt(-Z))(
-Right justify and fill with leading zeros if the first non-blank
-character is a digit and the tt(-L) flag has not been set.
-If var(n) is nonzero it defines the width of the field;
-otherwise it is determined by the width of the value of the
-first assignment.
+Specially handled if set along with the tt(-L) flag.
+Otherwise, similar to tt(-R), except that leading zeros are used for
+padding instead of blanks if the first non-blank character is a digit.
+Numeric parameters are specially handled: they are always eligible
+for padding with zeroes, and the zeroes are inserted at an appropriate
+place in the output.
 )
 item(tt(-a))(
 The names refer to array parameters.  An array parameter may be
@@ -1254,13 +1355,16 @@ shown.
 )
 item(tt(-f))(
 The names refer to functions rather than parameters.  No assignments
-can be made, and the only other valid flags are tt(-t), tt(-u) and
-tt(-U).  The flag tt(-t) turns on execution tracing for this
+can be made, and the only other valid flags are tt(-t), tt(-k), tt(-u),
+tt(-U) and tt(-z).  The flag tt(-t) turns on execution tracing for this
 function.  The tt(-u) and tt(-U) flags cause the function to be
 marked for autoloading; tt(-U) also causes alias expansion to be
 suppressed when the function is loaded.  The tt(fpath) parameter
 will be searched to find the function definition when the function
-is first referenced; see noderef(Functions).
+is first referenced; see noderef(Functions). The tt(-k) and tt(-z) flags
+make the function be loaded using ksh-style or zsh-style autoloading
+respectively. If neither is given, the setting of the KSH_AUTOLOAD option
+determines how the function is loaded.
 )
 item(tt(-h))(
 Hide: only useful for special parameters (those marked `<S>' in the table in
@@ -1337,7 +1441,7 @@ enditem()
 findex(ulimit)
 cindex(resource limits)
 cindex(limits, resource)
-item(tt(ulimit) [ tt(-SHacdflmnpstv) [ var(limit) ] ... ])(
+item(tt(ulimit) [ [ tt(-SHacdflmnpstv) | tt(-N) var(resource) [ var(limit) ] ... ])(
 Set or display resource limits of the shell and the processes started by
 the shell.  The value of var(limit) can be a number in the unit specified
 below or the value `tt(unlimited)'.  By default, only soft limits are
@@ -1348,6 +1452,10 @@ options are used, the file size limit (tt(-f)) is assumed.  If
 var(limit) is omitted the current value of the specified resources are
 printed.  When more than one resource values are printed the limit name and
 unit is printed before each value.
+
+When looping over multiple resources, the shell will abort immediately if
+it detects a badly formed argument.  However, if it fails to set a limit
+for some other reson it will continue trying to set the remaining limits.
 
 startsitem()
 sitem(tt(-a))(Lists all of the current resource limits.)
@@ -1363,6 +1471,16 @@ sitem(tt(-u))(processes available to the user.)
 sitem(tt(-v))(K-bytes on the size of virtual memory.  On some systems this
 refers to the limit called `address space'.)
 endsitem()
+
+A resource may also be specified by integer in the form `tt(-N)
+var(resource)', where var(resource) corresponds to the integer defined for
+the resource by the operating system.  This may be used to set the limits
+for resources known to the shell which do not correspond to option letters.
+Such limits will be shown by number in the output of `tt(ulimit -a)'.
+
+The number may alternatively be out of the range of limits compiled into
+the shell.  The shell will try to read or write the limit anyway, and
+will report an error if this fails.
 )
 findex(umask)
 cindex(umask)
@@ -1380,10 +1498,12 @@ alias(unalias)(unhash -a)
 cindex(functions, removing)
 alias(unfunction)(unhash -f)
 findex(unhash)
-item(tt(unhash) [ tt(-adfm) ] var(name) ...)(
+item(tt(unhash) [ tt(-adfms) ] var(name) ...)(
 Remove the element named var(name) from an internal hash table.  The
 default is remove elements from the command hash table.  The tt(-a)
-option causes tt(unhash) to remove aliases.  The tt(-f) option causes
+option causes tt(unhash) to remove regular or global aliases.
+The tt(-s) option causes tt(unhash) to remove suffix aliases.
+The tt(-f) option causes
 tt(unhash) to remove shell functions.  The tt(-d) options causes
 tt(unhash) to remove named directories.  If the tt(-m) flag is given
 the arguments are taken as patterns (should be quoted) and all elements
@@ -1596,9 +1716,11 @@ are to be autoloaded. If tt(-z) is given, the
 function will be autoloaded as if the tt(KSH_AUTOLOAD) option is
 em(not) set, even if it is set at the time the compiled file is
 read, while if the tt(-k) is given, the function will be loaded as if
-tt(KSH_AUTOLOAD) em(is) set.  If neither of these options is given, the
-function will be loaded as determined by the setting of the
-tt(KSH_AUTOLOAD) option at the time the compiled file is read.
+tt(KSH_AUTOLOAD) em(is) set.  These options also take precedence over
+any tt(-k) or tt(-z) options specified to the tt(autoload) builtin. If
+neither of these options is given, the function will be loaded as
+determined by the setting of the tt(KSH_AUTOLOAD) option at the time
+the compiled file is read.
 ifzman( )
 These options may also appear as many times as necessary between the listed
 var(name)s to specify the loading style of all following functions, up to

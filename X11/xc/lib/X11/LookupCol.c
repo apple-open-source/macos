@@ -24,32 +24,21 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/LookupCol.c,v 1.5 2002/12/04 23:18:32 paulo Exp $ */
+/* $XFree86: xc/lib/X11/LookupCol.c,v 1.7 2003/11/17 22:20:08 dawes Exp $ */
 
 #define NEED_REPLIES
 #include <stdio.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
 
-extern Status _XcmsResolveColorString();
 
-extern void _XcmsRGB_to_XColor();
-extern void _XUnresolveColor();
-
-#if NeedFunctionPrototypes
-Status XLookupColor (
+Status
+XLookupColor (
 	register Display *dpy,
         Colormap cmap,
 	_Xconst char *spec,
 	XColor *def,
 	XColor *scr)
-#else
-Status XLookupColor (dpy, cmap, spec, def, scr)
-	register Display *dpy;
-        Colormap cmap;
-	char *spec;
-	XColor *def, *scr;
-#endif
 {
 	register int n;
 	xLookupColorReply reply;

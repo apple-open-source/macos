@@ -9,18 +9,28 @@ Content-Length: 0
 
 this is data even though Content-Length is set to zero
 </data>
+<datacheck>
+HTTP/1.0 200 OK
+Server: test-server/fake
+Content-Type: text/html
+Content-Length: 0
+
+</datacheck>
 </reply>
 
 #
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
-HTTP POST with user and password
+HTTP POST with auth and contents but with content-length set to 0
  </name>
  <command>
- -d "fooo=mooo&pooo=clue&doo=%20%20%20++++" -u "fake:-user" http://%HOSTIP:%HOSTPORT/3
+ -d "fooo=mooo&pooo=clue&doo=%20%20%20++++" -u "fake:-user" http://%HOSTIP:%HTTPPORT/3
 </command>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -31,9 +41,9 @@ HTTP POST with user and password
 <protocol nonewline=yes>
 POST /3 HTTP/1.1
 Authorization: Basic ZmFrZTotdXNlcg==
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 Content-Length: 37
 Content-Type: application/x-www-form-urlencoded
 

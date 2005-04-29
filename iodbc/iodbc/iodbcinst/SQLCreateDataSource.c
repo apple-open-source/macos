@@ -1,7 +1,7 @@
 /*
  *  SQLCreateDataSource.c
  *
- *  $Id: SQLCreateDataSource.c,v 1.1.1.2 2002/04/30 00:40:24 miner Exp $
+ *  $Id: SQLCreateDataSource.c,v 1.3 2004/08/24 21:14:59 luesang Exp $
  *
  *  Add, modify or delete datasources
  *
@@ -74,21 +74,66 @@
 
 #include <iodbc.h>
 #include <iodbcinst.h>
+#include <iodbcadm.h>
 
 #include "iodbc_error.h"
+#include "dlf.h"
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif
 
 extern BOOL ValidDSN (LPCSTR lpszDSN);
-extern SQLRETURN iodbcdm_drvconn_dialbox(HWND, LPSTR, DWORD, int FAR*);
+
+#define CALL_DRVCONN_DIALBOX(path) \
+	if ((handle = DLL_OPEN(path)) != NULL) \
+	{ \
+		if ((pDrvConn = (pDrvConnFunc)DLL_PROC(handle, "iodbcdm_drvconn_dialbox")) != NULL) \
+		  pDrvConn(parent, dsn, sizeof(dsn), NULL, SQL_DRIVER_PROMPT, &config); \
+      retcode = TRUE; \
+		DLL_CLOSE(handle); \
+	}
 
 BOOL CreateDataSource (HWND parent, LPCSTR lpszDSN)
 {
   char dsn[1024] = { 0 };
-
-#ifdef GUI
-  iodbcdm_drvconn_dialbox (parent, dsn, sizeof (dsn), NULL);
+  UWORD config = ODBC_USER_DSN;
+  BOOL retcode = FALSE;
+  void *handle;
+  pDrvConnFunc pDrvConn;
+#ifdef __APPLE__
+  CFStringRef libname = NULL;
+  CFBundleRef bundle;
+  CFURLRef liburl;
+  char name[1024] = { 0 };
 #endif
 
-  return TRUE;
+  /* Load the Admin dialbox function */
+#ifdef __APPLE__
+  bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.adm"));
+  if (bundle)
+    {
+      /* Search for the drvproxy library */
+      liburl = CFBundleCopyExecutableURL (bundle);
+      if (liburl
+	  && (libname =
+	      CFURLCopyFileSystemPath (liburl, kCFURLPOSIXPathStyle)))
+	{
+	  CFStringGetCString (libname, name, sizeof (name),
+	      kCFStringEncodingASCII);
+	  CALL_DRVCONN_DIALBOX (name);
+	}
+      if (liburl)
+	CFRelease (liburl);
+      if (libname)
+	CFRelease (libname);
+      CFRelease (bundle);
+    }
+#else
+  CALL_DRVCONN_DIALBOX ("libiodbcadm.so");
+#endif
+
+  return retcode;
 }
 
 

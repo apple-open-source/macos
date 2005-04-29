@@ -5,7 +5,7 @@
         H_FILES = (ifconfig.h); 
         M_FILES = (); 
         OTHER_LIBS = (); 
-        OTHER_LINKED = (ifconfig.c, ifmedia.c, ifvlan.c); 
+        OTHER_LINKED = (ifconfig.c, ifmedia.c, ifvlan.c, ifbond.c); 
         OTHER_SOURCES = (Makefile.preamble, Makefile, Makefile.dist, ifconfig.8, Makefile.postamble); 
         PRECOMPILED_HEADERS = (); 
         PROJECT_HEADERS = (); 

@@ -22,11 +22,9 @@ static int test (void)
   return test ();
 }
 
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__                                   
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 int main (void)

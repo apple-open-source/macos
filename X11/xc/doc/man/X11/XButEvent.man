@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XButEvent.man,v 1.2 2001/01/27 18:19:56 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XButEvent.man,v 1.3 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -157,19 +157,19 @@ events contain:
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int type;	/* ButtonPress or ButtonRelease */
-	unsigned long serial;	/* # of last request processed by server */
-	Bool send_event;	/* true if this came from a SendEvent request */
-	Display *display;	/* Display the event was read from */
-	Window window;	/* ``event'' window it is reported relative to */
-	Window root;	/* root window that the event occurred on */
-	Window subwindow;	/* child window */
-	Time time;	/* milliseconds */
-	int x, y;	/* pointer x, y coordinates in event window */
-	int x_root, y_root;	/* coordinates relative to root */
-	unsigned int state;	/* key or button mask */
-	unsigned int button;	/* detail */
-	Bool same_screen;	/* same screen flag */
+	int type;	/\(** ButtonPress or ButtonRelease */
+	unsigned long serial;	/\(** # of last request processed by server */
+	Bool send_event;	/\(** true if this came from a SendEvent request */
+	Display *display;	/\(** Display the event was read from */
+	Window window;	/\(** ``event'' window it is reported relative to */
+	Window root;	/\(** root window that the event occurred on */
+	Window subwindow;	/\(** child window */
+	Time time;	/\(** milliseconds */
+	int x, y;	/\(** pointer x, y coordinates in event window */
+	int x_root, y_root;	/\(** coordinates relative to root */
+	unsigned int state;	/\(** key or button mask */
+	unsigned int button;	/\(** detail */
+	Bool same_screen;	/\(** same screen flag */
 } XButtonEvent;
 typedef XButtonEvent XButtonPressedEvent;
 typedef XButtonEvent XButtonReleasedEvent;
@@ -179,19 +179,19 @@ typedef XButtonEvent XButtonReleasedEvent;
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int type;	/* KeyPress or KeyRelease */
-	unsigned long serial;	/* # of last request processed by server */
-	Bool send_event;	/* true if this came from a SendEvent request */
-	Display *display;	/* Display the event was read from */
-	Window window;	/* ``event'' window it is reported relative to */
-	Window root;	/* root window that the event occurred on */
-	Window subwindow;	/* child window */
-	Time time;	/* milliseconds */
-	int x, y;	/* pointer x, y coordinates in event window */
-	int x_root, y_root;	/* coordinates relative to root */
-	unsigned int state;	/* key or button mask */
-	unsigned int keycode;	/* detail */
-	Bool same_screen;	/* same screen flag */
+	int type;	/\(** KeyPress or KeyRelease */
+	unsigned long serial;	/\(** # of last request processed by server */
+	Bool send_event;	/\(** true if this came from a SendEvent request */
+	Display *display;	/\(** Display the event was read from */
+	Window window;	/\(** ``event'' window it is reported relative to */
+	Window root;	/\(** root window that the event occurred on */
+	Window subwindow;	/\(** child window */
+	Time time;	/\(** milliseconds */
+	int x, y;	/\(** pointer x, y coordinates in event window */
+	int x_root, y_root;	/\(** coordinates relative to root */
+	unsigned int state;	/\(** key or button mask */
+	unsigned int keycode;	/\(** detail */
+	Bool same_screen;	/\(** same screen flag */
 } XKeyEvent;
 typedef XKeyEvent XKeyPressedEvent;
 typedef XKeyEvent XKeyReleasedEvent;
@@ -201,19 +201,19 @@ typedef XKeyEvent XKeyReleasedEvent;
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int type;	/* MotionNotify */
-	unsigned long serial;	/* # of last request processed by server */
-	Bool send_event;	/* true if this came from a SendEvent request */
-	Display *display;	/* Display the event was read from */
-	Window window;	/* ``event'' window reported relative to */
-	Window root;	/* root window that the event occurred on */
-	Window subwindow;	/* child window */
-	Time time;	/* milliseconds */
-	int x, y;	/* pointer x, y coordinates in event window */
-	int x_root, y_root;	/* coordinates relative to root */
-	unsigned int state;	/* key or button mask */
-	char is_hint;	/* detail */
-	Bool same_screen;	/* same screen flag */
+	int type;	/\(** MotionNotify */
+	unsigned long serial;	/\(** # of last request processed by server */
+	Bool send_event;	/\(** true if this came from a SendEvent request */
+	Display *display;	/\(** Display the event was read from */
+	Window window;	/\(** ``event'' window reported relative to */
+	Window root;	/\(** root window that the event occurred on */
+	Window subwindow;	/\(** child window */
+	Time time;	/\(** milliseconds */
+	int x, y;	/\(** pointer x, y coordinates in event window */
+	int x_root, y_root;	/\(** coordinates relative to root */
+	unsigned int state;	/\(** key or button mask */
+	char is_hint;	/\(** detail */
+	Bool same_screen;	/\(** same screen flag */
 } XMotionEvent;
 typedef XMotionEvent XPointerMovedEvent;
 .De

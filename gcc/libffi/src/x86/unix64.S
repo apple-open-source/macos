@@ -25,6 +25,7 @@
 
 #ifdef __x86_64__
 #define LIBFFI_ASM	
+#include <fficonfig.h>
 #include <ffi.h>
 
 	.section	.rodata
@@ -237,7 +238,7 @@ ffi_closure_UNIX64:
 	ret
 .LFE2:	
 		
-        .section        .eh_frame,"a",@progbits
+        .section        .eh_frame,EH_FRAME_FLAGS,@progbits
 .Lframe0:
         .long   .LECIE1-.LSCIE1
 .LSCIE1:

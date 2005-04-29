@@ -36,7 +36,7 @@
  */
 #include "panel.priv.h"
 
-MODULE_ID("$Id: p_update.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: p_update.c,v 1.7 2001/02/24 23:41:42 tom Exp $")
 
 NCURSES_EXPORT(void)
 update_panels (void)

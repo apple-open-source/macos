@@ -1,6 +1,8 @@
 ## Process this file with automake to generate Makefile.in
 
-AUTOMAKE_OPTIONS = dejagnu cygnus
+AUTOMAKE_OPTIONS = dejagnu
 
-all-local:
-	cd calc; $(MAKE) all
+SUBDIRS = calc hello
+
+check-recursive:
+	@echo "No check target in examples"

@@ -33,19 +33,19 @@
 #include <CoreFoundation/CFRuntime.h>
 
 #include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCNetworkConfigurationInternal.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 #include <ifaddrs.h>
 #include <pthread.h>
+#include <unistd.h>
 #include <sys/types.h>
-#define	KERNEL_PRIVATE
 #include <sys/ioctl.h>
-#undef	KERNEL_PRIVATE
 #include <sys/socket.h>
 #include <sys/sysctl.h>
 #include <net/ethernet.h>
-#define	KERNEL_PRIVATE	1
+#define	KERNEL_PRIVATE
 #include <net/if.h>
 #include <net/if_var.h>
 #undef	KERNEL_PRIVATE
@@ -74,59 +74,8 @@ inet_dgram_socket()
 
 
 static Boolean
-_VLAN_create(int s, CFStringRef interface)
-{
-#ifdef	SIOCIFCREATE
-	struct ifreq	ifr;
-
-	bzero(&ifr, sizeof(ifr));
-	(void) _SC_cfstring_to_cstring(interface,
-				       ifr.ifr_name,
-				       sizeof(ifr.ifr_name),
-				       kCFStringEncodingASCII);
-
-	if (ioctl(s, SIOCIFCREATE, &ifr) == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCIFCREATE) failed: %s"), strerror(errno));
-		_SCErrorSet(kSCStatusFailed);
-		return FALSE;
-	}
-
-	return TRUE;
-#else	/* SIOCIFCREATE */
-	return FALSE;
-#endif	/* SIOCIFCREATE */
-}
-
-
-static Boolean
-_VLAN_destroy(int s, CFStringRef interface)
-{
-#ifdef	SIOCIFDESTROY
-	struct ifreq	ifr;
-
-	bzero(&ifr, sizeof(ifr));
-	(void) _SC_cfstring_to_cstring(interface,
-				       ifr.ifr_name,
-				       sizeof(ifr.ifr_name),
-				       kCFStringEncodingASCII);
-
-	if (ioctl(s, SIOCIFDESTROY, &ifr) == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCIFDESTROY) failed: %s"), strerror(errno));
-		_SCErrorSet(kSCStatusFailed);
-		return FALSE;
-	}
-
-	return TRUE;
-#else	/* SIOCIFDESTROY */
-	return FALSE;
-#endif	/* SIOCIFDESTROY */
-}
-
-
-static Boolean
 _VLANDevice_set(int s, CFStringRef interface, CFStringRef device, CFNumberRef tag)
 {
-#ifdef	SIOCSETVLAN
 	struct ifreq	ifr;
 	int		tag_val;
 	struct vlanreq	vreq;
@@ -152,23 +101,25 @@ _VLANDevice_set(int s, CFStringRef interface, CFStringRef device, CFNumberRef ta
 	vreq.vlr_tag = tag_val;
 
 	// update parent device and tag
-	if (ioctl(s, SIOCSETVLAN, (caddr_t)&ifr) == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCSETVLAN) failed: %s"), strerror(errno));
+	if (ioctl(s, SIOCSIFVLAN, (caddr_t)&ifr) == -1) {
+		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCSIFVLAN) failed: %s"), strerror(errno));
+		_SCErrorSet(kSCStatusFailed);
+		return FALSE;
+	}
+
+	// mark the parent device "up"
+	if (!__markInterfaceUp(s, device)) {
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
 
 	return TRUE;
-#else	/* SIOCSETVLAN */
-	return FALSE;
-#endif	/* SIOCSETVLAN */
 }
 
 
 static Boolean
 _VLANDevice_unset(int s, CFStringRef interface)
 {
-#ifdef	SIOCSETVLAN
 	struct ifreq	ifr;
 	struct vlanreq	vreq;
 
@@ -189,16 +140,13 @@ _VLANDevice_unset(int s, CFStringRef interface)
 	vreq.vlr_tag = 0;
 
 	// update parent device and tag
-	if (ioctl(s, SIOCSETVLAN, (caddr_t)&ifr) == -1) {
-		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCSETVLAN) failed: %s"), strerror(errno));
+	if (ioctl(s, SIOCSIFVLAN, (caddr_t)&ifr) == -1) {
+		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCSIFVLAN) failed: %s"), strerror(errno));
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
 	}
 
 	return TRUE;
-#else	/* SIOCSETVLAN */
-	return FALSE;
-#endif	/* SIOCSETVLAN */
 }
 
 
@@ -217,7 +165,7 @@ IsVLANSupported(CFStringRef device)
 
 	/* get the interface index */
 
-	if_name = _SC_cfstring_to_cstring(device, NULL, NULL, kCFStringEncodingASCII);
+	if_name = _SC_cfstring_to_cstring(device, NULL, 0, kCFStringEncodingASCII);
 	if (if_name == NULL) {
 		return FALSE;	// if conversion error
 	}
@@ -335,8 +283,6 @@ __VLANInterfaceDeallocate(CFTypeRef cf)
 {
 	VLANInterfacePrivateRef	vlanPrivate	= (VLANInterfacePrivateRef)cf;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__VLANInterfaceDeallocate:"));
-
 	/* release resources */
 
 	CFRelease(vlanPrivate->ifname);
@@ -429,8 +375,6 @@ __VLANInterfaceCreatePrivate(CFAllocatorRef	allocator,
 {
 	VLANInterfacePrivateRef		vlanPrivate;
 	uint32_t			size;
-
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__VLANInterfaceCreatePrivate:"));
 
 	/* initialize runtime */
 	pthread_once(&vlanInterface_init, __VLANInterfaceInitialize);
@@ -655,8 +599,6 @@ __VLANPreferencesDeallocate(CFTypeRef cf)
 {
 	VLANPreferencesPrivateRef	prefsPrivate	= (VLANPreferencesPrivateRef)cf;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__VLANPreferencesDeallocate:"));
-
 	/* release resources */
 
 	pthread_mutex_destroy(&prefsPrivate->lock);
@@ -736,7 +678,7 @@ _VLANPreferencesCopyActiveInterfaces()
 				strncpy(ifr.ifr_name, ifp->ifa_name, sizeof(ifr.ifr_name));
 				ifr.ifr_data = (caddr_t)&vreq;
 
-				if (ioctl(s, SIOCGETVLAN, (caddr_t)&ifr) == -1) {
+				if (ioctl(s, SIOCGIFVLAN, (caddr_t)&ifr) == -1) {
 					SCLog(TRUE, LOG_ERR, CFSTR("ioctl() failed: %s"), strerror(errno));
 					_SCErrorSet(kSCStatusFailed);
 					CFRelease(vlans);
@@ -854,8 +796,6 @@ VLANPreferencesCreate(CFAllocatorRef allocator)
 	VLANPreferencesPrivateRef	prefsPrivate;
 	uint32_t			size;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("__VLANPreferencesCreate:"));
-
 	/* initialize runtime */
 	pthread_once(&vlanPreferences_init, __VLANPreferencesInitialize);
 
@@ -865,7 +805,7 @@ VLANPreferencesCreate(CFAllocatorRef allocator)
 									   __kVLANPreferencesTypeID,
 									   size,
 									   NULL);
-	if (!prefsPrivate) {
+	if (prefsPrivate == NULL) {
 		return NULL;
 	}
 
@@ -1099,6 +1039,9 @@ VLANPreferencesAddInterface(VLANPreferencesRef	prefs,
 
 		newVlan = __VLANInterfaceCreatePrivate(allocator, vlan_if, device, tag, options);
 
+		/* yes, we're going to be changing the configuration */
+		setConfigurationChanged(prefs);
+
 		/* save in the prefs */
 
 		if (nConfig == 0) {
@@ -1111,9 +1054,6 @@ VLANPreferencesAddInterface(VLANPreferencesRef	prefs,
 
 		(void) SCPreferencesSetValue(prefsPrivate->prefs, VLAN_PREFERENCES_VLANS, newVlans);
 		CFRelease(newVlans);
-
-		/* yes, we've change the configuration */
-		setConfigurationChanged(prefs);
 
 	    next_if :
 		CFRelease(vlan_if);
@@ -1253,18 +1193,17 @@ VLANPreferencesUpdateInterface(VLANPreferencesRef	prefs,
 		CFDictionaryAddValue(newDict, __kVLANInterface_options, newOptions);
 	}
 
+	/* yes, we're going to be changing the configuration */
+	setConfigurationChanged(prefs);
+
 	/* update the prefs */
 
 	newVlans = CFArrayCreateMutableCopy(allocator, 0, vlans);
-	CFArrayRemoveValueAtIndex(newVlans, cur_if);
-	CFArrayAppendValue(newVlans, newDict);
+	CFArraySetValueAtIndex(newVlans, cur_if, newDict);
 	CFRelease(newDict);
 
 	(void) SCPreferencesSetValue(prefsPrivate->prefs, VLAN_PREFERENCES_VLANS, newVlans);
 	CFRelease(newVlans);
-
-	/* yes, we've change the configuration */
-	setConfigurationChanged(prefs);
 
 	ok = TRUE;
 
@@ -1313,6 +1252,9 @@ VLANPreferencesRemoveInterface(VLANPreferencesRef	prefs,
 		goto done;
 	}
 
+	/* yes, we're going to be changing the configuration */
+	setConfigurationChanged(prefs);
+
 	/* remove the vlan */
 
 	allocator = CFGetAllocator(prefs);
@@ -1321,9 +1263,6 @@ VLANPreferencesRemoveInterface(VLANPreferencesRef	prefs,
 
 	(void) SCPreferencesSetValue(prefsPrivate->prefs, VLAN_PREFERENCES_VLANS, newVlans);
 	CFRelease(newVlans);
-
-	/* yes, we've change the configuration */
-	setConfigurationChanged(prefs);
 
 	ok = TRUE;
 
@@ -1433,8 +1372,9 @@ _VLANPreferencesUpdateConfiguration(VLANPreferencesRef prefs)
 				s = inet_dgram_socket();
 			}
 
-			ok = _VLAN_destroy(s, a_vlan_if);
+			ok = __destroyInterface(s, a_vlan_if);
 			if (!ok) {
+				_SCErrorSet(kSCStatusFailed);
 				goto done;
 			}
 		}
@@ -1491,8 +1431,9 @@ _VLANPreferencesUpdateConfiguration(VLANPreferencesRef prefs)
 						}
 					} else {
 						// if the new [parent] device does not support VLANs
-						ok = _VLAN_destroy(s, c_vlan_if);
+						ok = __destroyInterface(s, c_vlan_if);
 						if (!ok) {
+							_SCErrorSet(kSCStatusFailed);
 							goto done;
 						}
 					}
@@ -1509,8 +1450,9 @@ _VLANPreferencesUpdateConfiguration(VLANPreferencesRef prefs)
 				s = inet_dgram_socket();
 			}
 
-			ok = _VLAN_create(s, c_vlan_if);
+			ok = __createInterface(s, c_vlan_if);
 			if (!ok) {
+				_SCErrorSet(kSCStatusFailed);
 				goto done;
 			}
 
@@ -1562,8 +1504,6 @@ VLANPreferencesApplyChanges(VLANPreferencesRef prefs)
 	if (!ok) {
 		goto done;
 	}
-
-	ok = TRUE;
 
     done :
 

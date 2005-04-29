@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: trunc.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: trunc.3,v 1.4 2004/12/20 21:35:47 scp Exp $
 .\"
 .Dd January 29, 2003
 .Dt TRUNC 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn trunc "double x"
+.Ft long double
+.Fn truncl "long double x"
 .Ft float
 .Fn truncf "float x"
 .Sh DESCRIPTION
 The
 .Fn trunc
-and
-.Fn truncf
 functions return the integral value nearest to but no larger in magnitude than
 .Fa x .
 .Sh SPECIAL VALUES
@@ -59,12 +59,9 @@ returns ±0.
 returns ±infinity.
 .Sh SEE ALSO
 .Xr ceil 3 ,
-.Xr ieee 3 ,
 .Xr rint 3 ,
 .Xr math 3
 .Sh STANDARDS
 The
 .Fn trunc
-and
-.Fn truncf
 functions conform to ISO/IEC 9899:1999(E).

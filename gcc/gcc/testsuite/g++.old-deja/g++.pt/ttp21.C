@@ -1,3 +1,4 @@
+// { dg-do run  }
 template<class T> class D
 {
 	public:
@@ -17,13 +18,13 @@ template<template<class> class D,class E> class C : D<E>
 
 template<template<class> class D,class E> int C<D,E>::g()
 {
-	return f();
+	return this->f();
 }
 
 class E : C<D,int>
 {
 	public:
-		int h() { return g(); }
+		int h() { return this->g(); }
 };
 
 int main()

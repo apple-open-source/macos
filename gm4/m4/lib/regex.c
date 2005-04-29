@@ -5027,9 +5027,6 @@ re_exec (s)
    It returns 0 if it succeeds, nonzero if it doesn't.  (See regex.h for
    the return codes and their meanings.)  */
 
-#ifdef __APPLE__
-__private_extern__
-#endif
 int
 regcomp (preg, pattern, cflags)
     regex_t *preg;
@@ -5106,9 +5103,6 @@ regcomp (preg, pattern, cflags)
    
    We return 0 if we find a match and REG_NOMATCH if not.  */
 
-#ifdef __APPLE__
-__private_extern__
-#endif
 int
 regexec (preg, string, nmatch, pmatch, eflags)
     const regex_t *preg;
@@ -5218,9 +5212,6 @@ regerror (errcode, preg, errbuf, errbuf_size)
 
 /* Free dynamically allocated space used by PREG.  */
 
-#ifdef __APPLE__
-__private_extern__
-#endif
 void
 regfree (preg)
     regex_t *preg;

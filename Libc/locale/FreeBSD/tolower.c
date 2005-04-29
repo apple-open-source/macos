@@ -35,27 +35,32 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.8 2002/08/21 16:19:56 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/tolower.c,v 1.11 2004/07/29 06:16:19 tjr Exp $");
 
 #include <stdio.h>
-#include <rune.h>
+#include <runetype.h>
 
 __ct_rune_t
 ___tolower(c)
 	__ct_rune_t c;
 {
-	int x;
-	_RuneRange *rr = &_CurrentRuneLocale->maplower_ext;
-	_RuneEntry *re = rr->ranges;
+	size_t lim;
+	_RuneRange *rr = &_CurrentRuneLocale->__maplower_ext;
+	_RuneEntry *base, *re;
 
 	if (c < 0 || c == EOF)
 		return(c);
 
-	for (x = 0; x < rr->nranges; ++x, ++re) {
-		if (c < re->min)
-			return(c);
-		if (c <= re->max)
-			return(re->map + c - re->min);
+	/* Binary search -- see bsearch.c for explanation. */
+	base = rr->__ranges;
+	for (lim = rr->__nranges; lim != 0; lim >>= 1) {
+		re = base + (lim >> 1);
+		if (re->__min <= c && c <= re->__max)
+			return (re->__map + c - re->__min);
+		else if (c > re->__max) {
+			base = re + 1;
+			lim--;
+		}
 	}
 
 	return(c);

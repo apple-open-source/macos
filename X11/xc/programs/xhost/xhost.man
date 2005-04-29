@@ -23,7 +23,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xhost/xhost.man,v 1.8 2001/12/14 20:01:45 dawes Exp $
+.\" $XFree86: xc/programs/xhost/xhost.man,v 1.9 2003/07/09 15:27:41 tsi Exp $
 .\"
 .TH XHOST 1 __xorgversion__
 .SH NAME
@@ -85,7 +85,8 @@ as follows:
 .PP
 .nf
 .ta 1i
-inet	Internet host
+inet	Internet host (IPv4)
+inet6	Internet host (IPv6)
 dnet	DECnet host
 nis	Secure RPC network name
 krb	Kerberos V5 principal
@@ -102,7 +103,9 @@ and a trailing at-sign (e.g., "nis:pat@").
 .PP
 For backward compatibility with pre-R6 \fIxhost\fP,
 names that contain an at-sign (@) are assumed to be in the nis family.
-Otherwise the inet family is assumed.
+Otherwise they are assumed to be Internet addresses. If compiled to support
+IPv6, then all IPv4 and IPv6 addresses returned by getaddrinfo(3) are added to
+the access list in the appropriate inet or inet6 family.
 .SH DIAGNOSTICS
 For each name added to the access control list,
 a line of the form "\fIname\fP being added to access control list"
@@ -113,7 +116,7 @@ is printed.
 .SH FILES
 /etc/X*.hosts
 .SH "SEE ALSO"
-X(__miscmansuffix__), Xsecurity(__miscmansuffix__), Xserver(1), xdm(1)
+X(__miscmansuffix__), Xsecurity(__miscmansuffix__), Xserver(1), xdm(1), getaddrinfo(3)
 .SH ENVIRONMENT
 .TP 8
 .B DISPLAY

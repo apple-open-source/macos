@@ -23,14 +23,10 @@
  * scroll operation worked, and the refresh() code only had to do a
  * partial repaint.
  *
- * $Id: view.c,v 1.1.1.2 2002/02/15 21:56:06 jevans Exp $
+ * $Id: view.c,v 1.57 2003/05/17 21:58:43 tom Exp $
  */
 
-#include <string.h>
-#include <ctype.h>
-#include <signal.h>
 #include <time.h>
-#include <locale.h>
 
 #include <test.priv.h>
 
@@ -57,7 +53,7 @@
 static RETSIGTYPE finish(int sig) GCC_NORETURN;
 static void show_all(const char *tag);
 
-#if defined(SIGWINCH) && defined(TIOCGWINSZ) && HAVE_RESIZETERM
+#if defined(SIGWINCH) && defined(TIOCGWINSZ) && HAVE_RESIZE_TERM
 #define CAN_RESIZE 1
 #else
 #define CAN_RESIZE 0
@@ -73,7 +69,7 @@ static int shift = 0;
 static bool try_color = FALSE;
 
 static char *fname;
-static NCURSES_CH_T **lines;
+static NCURSES_CH_T **my_lines;
 static NCURSES_CH_T **lptr;
 
 static void
@@ -109,7 +105,7 @@ ch_len(NCURSES_CH_T * src)
 #endif
 
 #if USE_WIDEC_SUPPORT
-    while (getcchar(src++, NULL, NULL, NULL, NULL) > 1)
+    while (getcchar(src++, NULL, NULL, NULL, NULL) > 0)
 	result++;
 #else
     while (*src++)
@@ -237,7 +233,7 @@ main(int argc, char *argv[])
     if (optind + 1 != argc)
 	usage();
 
-    if ((lines = typeMalloc(NCURSES_CH_T *, MAXLINES + 2)) == 0)
+    if ((my_lines = typeMalloc(NCURSES_CH_T *, MAXLINES + 2)) == 0)
 	usage();
 
     fname = argv[optind];
@@ -251,7 +247,7 @@ main(int argc, char *argv[])
 #endif
 
     /* slurp the file */
-    for (lptr = &lines[0]; (lptr - lines) < MAXLINES; lptr++) {
+    for (lptr = &my_lines[0]; (lptr - my_lines) < MAXLINES; lptr++) {
 	char temp[BUFSIZ], *s, *d;
 	int col;
 
@@ -284,7 +280,7 @@ main(int argc, char *argv[])
 	*lptr = ch_dup(temp);
     }
     (void) fclose(fp);
-    length = lptr - lines;
+    length = lptr - my_lines;
 
     (void) initscr();		/* initialize the curses library */
     keypad(stdscr, TRUE);	/* enable keyboard mapping */
@@ -304,7 +300,7 @@ main(int argc, char *argv[])
 	}
     }
 
-    lptr = lines;
+    lptr = my_lines;
     while (!done) {
 	int n, c;
 
@@ -346,7 +342,7 @@ main(int argc, char *argv[])
 	case 'n':
 	    olptr = lptr;
 	    for (i = 0; i < n; i++)
-		if ((lptr - lines) < (length - LINES + 1))
+		if ((lptr - my_lines) < (length - LINES + 1))
 		    lptr++;
 		else
 		    break;
@@ -357,7 +353,7 @@ main(int argc, char *argv[])
 	case 'p':
 	    olptr = lptr;
 	    for (i = 0; i < n; i++)
-		if (lptr > lines)
+		if (lptr > my_lines)
 		    lptr--;
 		else
 		    break;
@@ -366,15 +362,15 @@ main(int argc, char *argv[])
 
 	case 'h':
 	case KEY_HOME:
-	    lptr = lines;
+	    lptr = my_lines;
 	    break;
 
 	case 'e':
 	case KEY_END:
 	    if (length > LINES)
-		lptr = lines + length - LINES + 1;
+		lptr = my_lines + length - LINES + 1;
 	    else
-		lptr = lines;
+		lptr = my_lines;
 	    break;
 
 	case 'r':
@@ -495,18 +491,21 @@ show_all(const char *tag)
     scrollok(stdscr, FALSE);	/* prevent screen from moving */
     for (i = 1; i < LINES; i++) {
 	move(i, 0);
-	printw("%3ld:", (long) (lptr + i - lines));
+	printw("%3ld:", (long) (lptr + i - my_lines));
 	clrtoeol();
 	if ((s = lptr[i - 1]) != 0) {
 	    int len = ch_len(s);
-	    if (len > shift)
+	    if (len > shift) {
 #if USE_WIDEC_SUPPORT
 		add_wchstr(s + shift);
 #else
 		addchstr(s + shift);
 #endif
+	    }
+#if defined(NCURSES_VERSION) || defined(HAVE_WCHGAT)
 	    if (try_color)
 		wchgat(stdscr, -1, A_NORMAL, my_pair, NULL);
+#endif
 	}
     }
     setscrreg(1, LINES - 1);

@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)cos.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: cos.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: cos.3,v 1.4 2004/12/20 21:35:45 scp Exp $
 .\"
 .Dd November 20, 2002
 .Dt COS 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn cos "double x"
-.\\.Ft float
-.\\.Fn cosf "float x"
+.Ft long double
+.Fn cosl "long double x"
+.Ft float
+.Fn cosf "float x"
 .Sh DESCRIPTION
 The
 .Fn cos
-.\\and
-.\\.Fn cosf
 function computes the cosine of
 .Fa x
 (measured in radians).
@@ -72,6 +72,4 @@ returns a NaN and raises the "invalid" floating-point exception.
 .Sh STANDARDS
 The
 .Fn cos
-.\\and
-.\\.Fn cosf
 function conforms to ISO/IEC 9899:1999(E).

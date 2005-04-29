@@ -1,6 +1,15 @@
---- setlocale.c.orig	Wed Aug  7 22:51:54 2002
-+++ setlocale.c	Sat May  3 14:15:25 2003
-@@ -56,7 +56,7 @@
+--- setlocale.c.orig	2004-11-25 11:38:19.000000000 -0800
++++ setlocale.c	2005-02-17 12:42:40.000000000 -0800
+@@ -41,6 +41,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.50 2004/01/31 19:15:32 ache Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ #include <errno.h>
+@@ -56,7 +58,7 @@
  #include "lmessages.h"	/* for __messages_load_locale() */
  #include "setlocale.h"
  #include "ldpart.h"
@@ -9,3 +18,48 @@
  
  /*
   * Category names for getenv()
+@@ -99,7 +101,7 @@
+ 
+ static char	*currentlocale(void);
+ static char	*loadlocale(int);
+-static const char *__get_locale_env(int);
++__private_extern__ const char *__get_locale_env(int);
+ 
+ char *
+ setlocale(category, locale)
+@@ -237,7 +239,7 @@
+ {
+ 	char *new = new_categories[category];
+ 	char *old = current_categories[category];
+-	int (*func)(const char *);
++	int (*func)(const char *, locale_t);
+ 	int saved_errno;
+ 
+ 	if ((new[0] == '.' &&
+@@ -280,7 +282,7 @@
+ 	if (strcmp(new, old) == 0)
+ 		return (old);
+ 
+-	if (func(new) != _LDP_ERROR) {
++	if (func(new, &__global_locale) != _LDP_ERROR) {
+ 		(void)strcpy(old, new);
+ 		return (old);
+ 	}
+@@ -288,7 +290,7 @@
+ 	return (NULL);
+ }
+ 
+-static const char *
++__private_extern__ const char *
+ __get_locale_env(category)
+         int category;
+ {
+@@ -315,7 +317,7 @@
+ /*
+  * Detect locale storage location and store its value to _PathLocale variable
+  */
+-int
++__private_extern__ int
+ __detect_path_locale(void)
+ {
+ 	if (_PathLocale == NULL) {

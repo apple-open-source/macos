@@ -24,4 +24,11 @@
 
 #include "SYS.h"
 
+#ifdef __LP64__
 SYSCALL(getattrlist, 0)
+#else /* !__LP64__ */
+PSEUDO(getattrlist$UNIX2003, getattrlist, 0)
+	blr
+
+SYSCALL_ERR(getattrlist, 0, cerror_cvt)
+#endif /* __LP64__ */

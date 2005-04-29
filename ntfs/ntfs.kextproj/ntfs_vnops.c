@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfs_vnops.c,v 1.23 1999/10/31 19:45:27 jdolecek Exp $	*/
 
 /*
@@ -49,105 +73,75 @@
 #include <sys/mount.h>
 #include <sys/namei.h>
 #include <sys/malloc.h>
-#ifndef APPLE
-#include <sys/bio.h>
-#endif
 #include <sys/buf.h>
 #include <sys/dirent.h>
-#ifdef APPLE
 #include <sys/attr.h>
 #include <sys/ubc.h>
+#include <sys/utfconv.h>
 #include <vfs/vfs_support.h>
 #include <miscfs/specfs/specdev.h>
-#else
-#include <vm/vm.h>
-#include <vm/vm_param.h>
-#include <vm/vm_page.h>
-#include <vm/vm_object.h>
-#include <vm/vm_pager.h>
-#include <vm/vnode_pager.h>
-#include <vm/vm_extern.h>
-#endif
 
 #include <sys/sysctl.h>
 
 /*#define NTFS_DEBUG 1*/
-#ifdef APPLE
 #include "ntfs.h"
 #include "ntfs_inode.h"
 #include "ntfs_subr.h"
-#else
-#include <fs/ntfs/ntfs.h>
-#include <fs/ntfs/ntfs_inode.h>
-#include <fs/ntfs/ntfs_subr.h>
-#endif
+#include "ntfs_vfsops.h"
 
 #include <sys/unistd.h> /* for pathconf(2) constants */
 
-static int	ntfs_read(struct vop_read_args *);
-static int	ntfs_write(struct vop_write_args *ap);
-static int	ntfs_getattr(struct vop_getattr_args *ap);
-static int	ntfs_inactive(struct vop_inactive_args *ap);
-static int	ntfs_print(struct vop_print_args *ap);
-static int	ntfs_reclaim(struct vop_reclaim_args *ap);
-static int	ntfs_strategy(struct vop_strategy_args *ap);
-static int	ntfs_access(struct vop_access_args *ap);
-static int	ntfs_open(struct vop_open_args *ap);
-static int	ntfs_close(struct vop_close_args *ap);
-static int	ntfs_readdir(struct vop_readdir_args *ap);
-#ifdef APPLE
-static int	ntfs_lookup(struct vnode *dvp,
-                            struct vnode **vpp,
-                            struct componentname *cnp);
-static int	ntfs_cache_lookup(struct vop_lookup_args *ap);
-#else
-static int	ntfs_lookup(struct vop_lookup_args *ap);
-#endif
-static int	ntfs_fsync(struct vop_fsync_args *ap);
-static int	ntfs_pathconf(void *);
-
-int	ntfs_prtactive = 0;	/* 1 => print out reclaim of active vnodes */
+static int	ntfs_read(struct vnop_read_args *);
+static int	ntfs_write(struct vnop_write_args *ap);
+static int	ntfs_getattr(struct vnop_getattr_args *ap);
+static int	ntfs_inactive(struct vnop_inactive_args *ap);
+static int	ntfs_reclaim(struct vnop_reclaim_args *ap);
+static int	ntfs_strategy(struct vnop_strategy_args *ap);
+static int	ntfs_open(struct vnop_open_args *ap);
+static int	ntfs_close(struct vnop_close_args *ap);
+static int	ntfs_readdir(struct vnop_readdir_args *ap);
+static int	ntfs_lookup(vnode_t dvp, vnode_t *vpp, struct componentname *cnp, proc_t p);
+static int	ntfs_cache_lookup(struct vnop_lookup_args *ap);
+static int	ntfs_fsync(struct vnop_fsync_args *ap);
+static int	ntfs_pathconf(struct vnop_pathconf_args *ap);
 
 static int
 ntfs_read(ap)
-	struct vop_read_args /* {
-		struct vnode *a_vp;
+	struct vnop_read_args /* {
+		vnode_t a_vp;
 		struct uio *a_uio;
 		int a_ioflag;
-		struct ucred *a_cred;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
+	vnode_t vp = ap->a_vp;
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
 	struct uio *uio = ap->a_uio;
 	struct ntfsmount *ntmp = ip->i_mp;
 	struct buf *bp;
-	daddr_t cn;
+	daddr64_t cn;
 	off_t off, toread;
 	size_t bsize;	/* Best size for each buffer cache block of this file */
 	int error;
 	int io_resid;
 
-	dprintf(("ntfs_read: ino: %d, off: %d resid: %d, segflg: %d\n",ip->i_number,(u_int32_t)uio->uio_offset,uio->uio_resid,uio->uio_segflg));
+	dprintf(("ntfs_read: ino: %d, off: %lld resid: %d\n",ip->i_number,uio_offset(uio),uio_resid(uio)));
 
 	dprintf(("ntfs_read: filesize: %d",(u_int32_t)fp->f_size));
 
 	/* exit quickly if there is nothing to read */
-	if (uio->uio_resid == 0)
+	if (uio_resid(uio) == 0)
 		return 0;
 
 	/* don't allow reading after end of file */
-	if (uio->uio_offset >= fp->f_size)
+	if (uio_offset(uio) >= fp->f_size)
 		return (0);
 
 	/* If this is a non-compressed non-resident file, use Cluster I/O */
-	if (UBCISVALID(vp) && (fp->f_flag & FN_NONRESIDENT) && (fp->f_compsize == 0))
+	if (vnode_isreg(vp) && (fp->f_flag & FN_NONRESIDENT) && (fp->f_compsize == 0))
 	{
-		int dev_block_size;
-        
-		VOP_DEVBLOCKSIZE(ntmp->ntm_devvp, &dev_block_size);
-		return cluster_read(vp, uio, fp->f_size, dev_block_size, 0);
+		return cluster_read(vp, uio, fp->f_size, 0);
 	}
 	
 	if (fp->f_compsize != 0)
@@ -156,21 +150,23 @@ ntfs_read(ap)
 		bsize = ntfs_cntob(1);		/* Otherwise, read one cluster at a time */
 
 	error = 0;
-	while (uio->uio_resid > 0 && uio->uio_offset < fp->f_size) {
+	while (uio_resid(uio) > 0 && uio_offset(uio) < fp->f_size) {
 		/*
 		 * See if there is any cached data available to copy
 		 */
-		io_resid = uio->uio_resid;
-		off = fp->f_size - uio->uio_offset;
+		io_resid = uio_resid(uio);				/* Amount caller wants */
+		off = fp->f_size - uio_offset(uio);		/* Amount until EOF */
 		if (off < io_resid)
-			io_resid = off;
+			io_resid = off;						/* Pin io_resid to EOF */
+#if 0	/* because cluster_copy_ubc_data is not public right now */
 		if (io_resid > 0) {
-			error = cluster_copy_ubc_data(vp, uio, &io_resid, 0);
+/*¥			error = cluster_copy_ubc_data(vp, uio, &io_resid, 0); */
 			if (error)
 				return error;
 		}
-		if (uio->uio_resid <= 0 || uio->uio_offset >= fp->f_size)
+		if (uio_resid(uio) <= 0 || uio_offset(uio) >= fp->f_size)
 			return 0;
+#endif
 
 		/*
 		 * Consider doing read-ahead here.  The thing is, we'd have to read
@@ -190,23 +186,27 @@ ntfs_read(ap)
 		/*
 		 * Data was not already in UBC, so read it in now.
 		 */
-		cn = uio->uio_offset / bsize;
-		off = uio->uio_offset % bsize;
+		cn = uio_offset(uio) / bsize;
+		off = uio_offset(uio) % bsize;
 
 		toread = MIN(bsize - off, io_resid);
 
-		error = bread(vp, cn, bsize, NOCRED, &bp);
+		error = (int)buf_bread(vp, cn, bsize, vfs_context_ucred(ap->a_context), &bp);
 		if (error) {
-			brelse(bp);
+			buf_brelse(bp);
 			break;
 		}
 
-		error = uiomove(bp->b_data + off, toread - off, uio);
+		/*
+		 *¥ It might perform faster to loop back to cluster_copy_ubc_data
+		 * instead of doing uiomove here.  But that would only work if
+		 * cluster_copy_ubc_data works with a bp in use.
+		 */
+		error = uiomove((char *)buf_dataptr(bp) + off, toread, uio);
+		buf_brelse(bp);
 		if(error) {
-			brelse(bp);
 			break;
 		}
-		brelse(bp);
 	}
 
 	return (error);
@@ -214,70 +214,61 @@ ntfs_read(ap)
 
 static int
 ntfs_getattr(ap)
-	struct vop_getattr_args /* {
-		struct vnode *a_vp;
-		struct vattr *a_vap;
-		struct ucred *a_cred;
-		struct thread *a_td;
+	struct vnop_getattr_args /* {
+		vnode_t a_vp;
+		struct vnode_attr *a_vap;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
-	register struct vattr *vap = ap->a_vap;
+	vnode_t vp = ap->a_vp;
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
+	struct vnode_attr *vap = ap->a_vap;
 
-	dprintf(("ntfs_getattr: %d, flags: %d\n",ip->i_number,ip->i_flag));
-
-#ifdef APPLE
-	vap->va_fsid = ip->i_dev;
-#else
-	vap->va_fsid = dev2udev(ip->i_dev);
-#endif
-	vap->va_fileid = ip->i_number;
-	vap->va_mode = ip->i_mp->ntm_mode;
-	vap->va_nlink = ip->i_nlink;
-	vap->va_uid = ip->i_mp->ntm_uid;
-	vap->va_gid = ip->i_mp->ntm_gid;
-	vap->va_rdev = 0;				/* XXX UNODEV ? */
-	vap->va_size = fp->f_size;
-	vap->va_bytes = fp->f_allocated;
-	vap->va_atime = ntfs_nttimetounix(fp->f_times.t_access);
-	vap->va_mtime = ntfs_nttimetounix(fp->f_times.t_write);
-	vap->va_ctime = ntfs_nttimetounix(fp->f_times.t_create);
-	vap->va_flags = ip->i_flag;
-	vap->va_gen = 0;
-	vap->va_blocksize = ip->i_mp->ntm_spc * ip->i_mp->ntm_bps;
-	vap->va_type = vp->v_type;
-	vap->va_filerev = 0;
-	return (0);
+	VATTR_RETURN(vap, va_rdev, 0);
+	VATTR_RETURN(vap, va_nlink, ip->i_nlink);
+	VATTR_RETURN(vap, va_total_size, fp->f_size);
+	VATTR_RETURN(vap, va_total_alloc, fp->f_allocated);
+	VATTR_RETURN(vap, va_data_size, fp->f_size);
+	VATTR_RETURN(vap, va_data_alloc, fp->f_allocated);
+	VATTR_RETURN(vap, va_iosize, ip->i_mp->ntm_spc * ip->i_mp->ntm_bps);
+	
+	/* No va_uid, va_gid */
+	VATTR_RETURN(vap, va_mode, ip->i_mp->ntm_mode);
+	VATTR_RETURN(vap, va_flags, 0);
+	/* No va_filesec */
+	
+	if (VATTR_WANTED(vap, va_create_time))
+		VATTR_RETURN(vap, va_create_time, ntfs_nttimetounix(fp->f_times.t_create));
+	if (VATTR_WANTED(vap, va_access_time))
+		VATTR_RETURN(vap, va_access_time, ntfs_nttimetounix(fp->f_times.t_access));
+	if (VATTR_WANTED(vap, va_modify_time))
+		VATTR_RETURN(vap, va_modify_time, ntfs_nttimetounix(fp->f_times.t_write));
+	if (VATTR_WANTED(vap, va_change_time))
+		VATTR_RETURN(vap, va_change_time, ntfs_nttimetounix(fp->f_times.t_mftwrite));
+	/* No va_backup_time */
+	
+	VATTR_RETURN(vap, va_fileid, ip->i_number);
+	/* No va_linkid */
+	/* No va_parentid */
+	VATTR_RETURN(vap, va_fsid, ip->i_dev);
+	/* No va_filerev */
+	/* No va_gen */
+	/* No va_encoding */
+	
+	return 0;
 }
-
 
 /*
  * Last reference to an ntnode.  If necessary, write or delete it.
  */
 int
 ntfs_inactive(ap)
-	struct vop_inactive_args /* {
-		struct vnode *a_vp;
+	struct vnop_inactive_args /* {
+		vnode_t a_vp;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-#ifdef NTFS_DEBUG
-	register struct ntnode *ip = VTONT(vp);
-#endif
-
-	dprintf(("ntfs_inactive: vnode: %p, ntnode: %d\n", vp, ip->i_number));
-
-	if (ntfs_prtactive && vp->v_usecount != 0)
-		vprint("ntfs_inactive: pushing active", vp);
-
-#ifdef APPLE
-	VOP_UNLOCK(vp, 0, ap->a_p);
-#else
-	VOP_UNLOCK(vp, 0, ap->a_td);
-#endif
-
 	/* XXX since we don't support any filesystem changes
 	 * right now, nothing more needs to be done
 	 */
@@ -289,19 +280,17 @@ ntfs_inactive(ap)
  */
 int
 ntfs_reclaim(ap)
-	struct vop_reclaim_args /* {
-		struct vnode *a_vp;
+	struct vnop_reclaim_args /* {
+		vnode_t a_vp;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
+	vnode_t vp = ap->a_vp;
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
 	int error;
 
 	dprintf(("ntfs_reclaim: vnode: %p, ntnode: %d\n", vp, ip->i_number));
-
-	if (ntfs_prtactive && vp->v_usecount != 0)
-		vprint("ntfs_reclaim: pushing active", vp);
 
 	if ((error = ntfs_ntget(ip)) != 0)
 		return (error);
@@ -311,31 +300,22 @@ ntfs_reclaim(ap)
 
 	ntfs_frele(fp);
 	ntfs_ntput(ip);
-	vp->v_data = NULL;
+	vnode_clearfsnode(vp);
+	vnode_removefsref(vp);
 
 	return (0);
 }
 
 static int
-ntfs_print(ap)
-	struct vop_print_args /* {
-		struct vnode *a_vp;
-	} */ *ap;
-{
-	return (0);
-}
-
-
-#ifdef APPLE
-
-static int
-ntfs_cmap(struct vop_cmap_args /* {
-	struct vnode *a_vp;
+ntfs_blockmap(struct vnop_blockmap_args /* {
+	vnode_t a_vp;
 	off_t a_foffset;    Starting (logical) offset in the file
 	size_t a_size;		Number of bytes to map (maximum)
-	daddr_t *a_bpn;		Physical (device) block number containing a_foffset, or -1 for sparse run
+	daddr64_t *a_bpn;	Physical (device) block number containing a_foffset, or -1 for sparse run
 	size_t *a_run;		Number of bytes contiguous starting at that block # (no larger than a_size)
 	void *a_poff;		Offset into physical (device) block
+	int a_flags;
+	vfs_context_t context;
 	} */ *ap)
 {
     register struct fnode *fp = VTOF(ap->a_vp);
@@ -351,21 +331,41 @@ ntfs_cmap(struct vop_cmap_args /* {
 	
 	off = ap->a_foffset;
 	
-	error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, ntfs_btocn(off), &vap);
+	error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, ntfs_btocn(off), vfs_context_proc(ap->a_context), &vap);
 	if (error)
 		return error;
 	
-	/* The attribute must be non-resident and non-compressed */
-	if ((vap->va_flag & NTFS_AF_INRUN) == 0)
-		panic("ntfs_cmap: attribute is MFT resident");
-	if (vap->va_compression && vap->va_compressalg)
-		panic("ntfs_cmap: attribute is compressed");
+	/*
+	 * The attribute must be non-resident and non-compressed in order to map it.
+	 * Unfortunately, we can get called from inside buf_bread if there was no
+	 * buffer header, but there was a valid page in VM.  This can happen if
+	 * the file was left open while sufficient I/O was done (enough to recycle
+	 * the buffer headers, but not enough to evict all resident pages).
+	 *
+	 * If we get called with a resident or compressed attribute, then just
+	 * set the physical block equal to the logical block (indicating no
+	 * valid mapping done yet) and return.
+	 */
+	if ((vap->va_flag & NTFS_AF_INRUN) == 0 ||		/* resident? */
+		(vap->va_compression && vap->va_compressalg) != 0)	/* compressed? */
+	{
+		size_t bsize;	/* Size of one logical block */
+		
+		if (fp->f_compsize != 0)
+			bsize = fp->f_compsize;		/* Compressed file: block == compression unit */
+		else
+			bsize = ntfs_cntob(1);		/* Others: block == cluster */
+
+		bn = off / bsize;				/* indicate no valid mapping */
+		size = MIN(ap->a_size, bsize);	/* "map" at most one cluster */
+		goto done;						/* Note: error = 0 from ntfs_ntvattrget() call above */
+	}
 
 	/* Need to check whether offset or offset+size is past end of file? */
 	
 	/*
 	 * Adjust offset and size to be relative to this attribute's start/end.
-	 * ¥¥Is that right?  What do va_cnstart and va_cnend really mean?
+	 * ¥Is that right?  What do va_cnstart and va_cnend really mean?
 	 */
 	size = MIN(ap->a_size, ntfs_cntob(vap->va_vcnend+1) - off);
 	off -= ntfs_cntob(vap->va_vcnstart);
@@ -377,6 +377,7 @@ ntfs_cmap(struct vop_cmap_args /* {
 	cnt = 0;
 	cn = 0;
 	cl = 0;
+	bn = 0;
 	while (cnt < vap->va_vruncnt)
 	{
 		cn = vap->va_vruncn[cnt];	/* Start of this run */
@@ -410,6 +411,7 @@ ntfs_cmap(struct vop_cmap_args /* {
 	if (cnt >= vap->va_vruncnt)
 		panic("ntfs_cmap: tried to map past end of attribute");
 
+done:
 	ntfs_ntvattrrele(vap);
 	
 	if (ap->a_bpn)
@@ -423,52 +425,16 @@ ntfs_cmap(struct vop_cmap_args /* {
 }
 
 
-static int
-ntfs_bmap(ap)
-    struct vop_bmap_args /* {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	daddr_t a_bn;
-	struct vnode **a_vpp;
-	daddr_t *a_bnp;
-	int *a_runp;
-    } */ *ap;
-{
-    register struct fnode *fp = VTOF(ap->a_vp);
-    register struct ntnode *ip = FTONT(fp);
-
-    if (ap->a_vpp != NULL)
-        *ap->a_vpp = ip->i_devvp;
-
-    /*¥¥ Should I check whether ap->a_bn is within EOF? */
-    
-    /*
-     * Since we never assume data is aligned to block boundaries,
-     * and the buffer cache/UBC will sometimes call VOP_BMAP,
-     * we need a dummy routine.  We just return a bogus block
-     * number, and zero for the run.
-     */
-
-    if (ap->a_bnp != NULL)
-        *ap->a_bnp = -99;
-
-    if (ap->a_runp != NULL)
-        *ap->a_runp = 0;
-    
-    return 0;
-}
-
-
 /* blktooff converts a logical block number to a file offset */
 static int
 ntfs_blktooff(ap)
-	struct vop_blktooff_args /* {
-		struct vnode *a_vp;
+	struct vnop_blktooff_args /* {
+		vnode_t a_vp;
 		daddr_t a_lblkno;
 		off_t *a_offset;    
 	} */ *ap;
 {
-	struct vnode *vp;
+	vnode_t vp;
 	struct fnode *fp;
 	struct ntnode *ip;
 	struct ntfsmount *ntmp;
@@ -494,13 +460,13 @@ ntfs_blktooff(ap)
 /* offtoblk converts a file offset to a logical block number */
 static int
 ntfs_offtoblk(ap)
-struct vop_offtoblk_args /* {
-	struct vnode *a_vp;
+struct vnop_offtoblk_args /* {
+	vnode_t a_vp;
 	off_t a_offset;    
 	daddr_t *a_lblkno;
 	} */ *ap;
 {
-	struct vnode *vp;
+	vnode_t vp;
 	struct fnode *fp;
 	struct ntnode *ip;
 	struct ntfsmount *ntmp;
@@ -522,7 +488,6 @@ struct vop_offtoblk_args /* {
 
 	return(0);
 }
-#endif
 
 
 /*
@@ -531,258 +496,143 @@ struct vop_offtoblk_args /* {
  */
 int
 ntfs_strategy(ap)
-	struct vop_strategy_args /* {
+	struct vnop_strategy_args /* {
 		struct buf *a_bp;
 	} */ *ap;
 {
-	register struct buf *bp = ap->a_bp;
-	register struct vnode *vp = bp->b_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
+	buf_t bp = ap->a_bp;
+	vnode_t vp = buf_vnode(bp);
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
 	struct ntfsmount *ntmp = ip->i_mp;
 	off_t offset;
 	size_t bsize;
-	int error;
+	int error=0;
+	int bflags;
 
-#ifdef APPLE
 	dprintf(("ntfs_strategy: blkno: %d, lblkno: %d\n",
-		(u_int32_t)bp->b_blkno,
-		(u_int32_t)bp->b_lblkno));
-#else
-	dprintf(("ntfs_strategy: offset: %d, blkno: %d, lblkno: %d\n",
-		(u_int32_t)bp->b_offset,(u_int32_t)bp->b_blkno,
-		(u_int32_t)bp->b_lblkno));
-#endif
+		(u_int32_t)buf_blkno(bp),
+		(u_int32_t)buf_lblkno(bp)));
 
 	dprintf(("strategy: bcount: %d flags: 0x%lx\n", 
-		(u_int32_t)bp->b_bcount,bp->b_flags));
+		(u_int32_t)buf_count(bp), buf_flags(bp)));
 
-#ifdef APPLE
+	bflags = buf_flags(bp);
 	/*
-	 * If we're being called with a vector list, then just
+	 * If we're being called with a cluster based bp, then just
 	 * pass the call through to the device.  This happens when
 	 * cluster_read calls us, with everything mapped.
 	 */
-	if (bp->b_flags & B_VECTORLIST)
+	if ((bflags & B_CLUSTER))
 	{
-		vp = ip->i_devvp;
-		bp->b_dev = vp->v_rdev;
-		return VOCALL(vp->v_op, VOFFSET(vop_strategy), ap);
+		return buf_strategy(ip->i_devvp, ap);
 	}
-#endif
-	
+
 	if (fp->f_compsize != 0)
 		bsize = fp->f_compsize;		/* Compressed files: one block = one compression unit */
 	else
 		bsize = ntfs_cntob(1);		/* Otherwise, one block = one cluster */
-	offset = (off_t) bp->b_blkno * (off_t) bsize;
+	offset = (off_t) buf_blkno(bp) * (off_t) bsize;
 
-#ifdef APPLE
-	if (bp->b_flags & B_READ) {
-#else
-	if (bp->b_iocmd == BIO_READ) {
-#endif
+	if ((bflags & B_READ)) {
 		u_int32_t toread;
 
 		if (offset >= fp->f_size) {
-			clrbuf(bp);
+			buf_clear(bp);
 			error = 0;
 		} else {
-			toread = MIN(bp->b_bcount,
-				 fp->f_size-offset);
+			toread = MIN(buf_count(bp),
+				 fp->f_size - offset);
 			dprintf(("ntfs_strategy: toread: %d, fsize: %d\n",
 				toread,(u_int32_t)fp->f_size));
 
 			error = ntfs_readattr(ntmp, ip, fp->f_attrtype,
 				fp->f_attrname, offset,
-				toread, bp->b_data, NULL);
+				toread, (char *)buf_dataptr(bp), NULL, current_proc());
 
 			if (error) {
 				printf("ntfs_strategy: ntfs_readattr failed\n");
-				bp->b_error = error;
-#ifdef APPLE
-				bp->b_flags |= B_ERROR;
-#else
-				bp->b_ioflags |= BIO_ERROR;
-#endif
+				buf_seterror(bp, error);
 			}
 
-			bzero(bp->b_data + toread, bp->b_bcount - toread);
+			bzero((char *)buf_dataptr(bp) + toread, buf_count(bp) - toread);
 		}
 	} else {
+#if NTFS_WRITE
 		size_t tmp;
 		u_int32_t towrite;
 
-		if (offset + bp->b_bcount >= fp->f_size) {
+		if (offset + buf_count(bp) >= fp->f_size) {
 			printf("ntfs_strategy: CAN'T EXTEND FILE\n");
-			bp->b_error = error = EFBIG;
-#ifdef APPLE
-			bp->b_flags |= B_ERROR;
-#else
-			bp->b_ioflags |= BIO_ERROR;
-#endif
+			buf_seterror(bp, EFBIG);
 		} else {
-			towrite = MIN(bp->b_bcount,
+			towrite = MIN(buf_count(bp),
 				fp->f_size - offset);
 			dprintf(("ntfs_strategy: towrite: %d, fsize: %d\n",
 				towrite,(u_int32_t)fp->f_size));
 
 			error = ntfs_writeattr_plain(ntmp, ip, fp->f_attrtype,	
 				fp->f_attrname, offset, towrite,
-				bp->b_data, &tmp, NULL);
+				(char *)buf_dataptr(bp), &tmp, NULL);
 
 			if (error) {
 				printf("ntfs_strategy: ntfs_writeattr fail\n");
-				bp->b_error = error;
-#ifdef APPLE
-				bp->b_flags |= B_ERROR;
-#else
-				bp->b_ioflags |= BIO_ERROR;
-#endif
+				buf_seterror(bp, error);
 			}
 		}
-	}
-#ifdef APPLE
-	biodone(bp);
 #else
-	bufdone(bp);
+		panic("ntfs_strategy: write not implemented");
 #endif
+	}
+	buf_biodone(bp);
+
 	return (error);
 }
 
 static int
 ntfs_write(ap)
-	struct vop_write_args /* {
-		struct vnode *a_vp;
+	struct vnop_write_args /* {
+		vnode_t a_vp;
 		struct uio *a_uio;
-		int  a_ioflag;
-		struct ucred *a_cred;
+		int a_ioflag;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
+#if NTFS_WRITE
+	vnode_t vp = ap->a_vp;
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
 	struct uio *uio = ap->a_uio;
 	struct ntfsmount *ntmp = ip->i_mp;
 	off_t towrite;
 	size_t written;
 	int error;
 
-	dprintf(("ntfs_write: ino: %d, off: %d resid: %d, segflg: %d\n",ip->i_number,(u_int32_t)uio->uio_offset,uio->uio_resid,uio->uio_segflg));
+	dprintf(("ntfs_write: ino: %d, off: %lld resid: %d\n",ip->i_number,uio_offset(uio),uio_resid(uio)));
 	dprintf(("ntfs_write: filesize: %d",(u_int32_t)fp->f_size));
 
-	if (uio->uio_resid + uio->uio_offset > fp->f_size) {
+	if (uio_resid(uio) + uio_offset(uio) > fp->f_size) {
 		printf("ntfs_write: CAN'T WRITE BEYOND END OF FILE\n");
 		return (EFBIG);
 	}
 
-	towrite = MIN(uio->uio_resid, fp->f_size - uio->uio_offset);
+	towrite = MIN(uio_resid(uio), fp->f_size - uio_offset(uio));
 
 	dprintf((", towrite: %d\n",(u_int32_t)towrite));
 
 	error = ntfs_writeattr_plain(ntmp, ip, fp->f_attrtype,
-		fp->f_attrname, uio->uio_offset, towrite, NULL, &written, uio);
+		fp->f_attrname, uio_offset(uio), towrite, NULL, &written, uio);
 #ifdef NTFS_DEBUG
 	if (error)
 		printf("ntfs_write: ntfs_writeattr failed: %d\n", error);
 #endif
 
 	return (error);
+#else /* NTFS_WRITE */
+	return EROFS;
+#endif /* NTFS_WRITE */
 }
 
-int
-ntfs_access(ap)
-	struct vop_access_args /* {
-		struct vnode *a_vp;
-		int  a_mode;
-		struct ucred *a_cred;
-		struct thread *a_td;
-	} */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-	struct ntnode *ip = VTONT(vp);
-	mode_t mode = ap->a_mode;
-#ifdef APPLE
-	mode_t mask;
-	mode_t file_mode;
-	struct ucred *cred = ap->a_cred;
-	register gid_t *gp;
-	int i;
-#endif
-#ifdef QUOTA
-	int error;
-#endif
-
-	dprintf(("ntfs_access: %d\n",ip->i_number));
-
-	/*
-	 * Disallow write attempts on read-only filesystems;
-	 * unless the file is a socket, fifo, or a block or
-	 * character device resident on the filesystem.
-	 */
-	if (mode & VWRITE) {
-		switch ((int)vp->v_type) {
-		case VDIR:
-		case VLNK:
-		case VREG:
-			if (vp->v_mount->mnt_flag & MNT_RDONLY)
-				return (EROFS);
-#ifdef QUOTA
-			if (error = getinoquota(ip))
-				return (error);
-#endif
-			break;
-		}
-	}
-
-#ifdef APPLE
-        /* We currently have vaccess in our headers, but no kernel implementation. */
-        /*¥¥ÊShould probably check the file's DOS-style read-only bit */
-
-	/* User id 0 always gets access. */
-	if (cred->cr_uid == 0)
-		return 0;
-
-	mask = 0;
-        file_mode = ip->i_mp->ntm_mode;
-        
-	/* Otherwise, check the owner. */
-	/* And allow for console */
-	if (cred->cr_uid == ip->i_mp->ntm_uid) {
-		if (mode & VEXEC)
-			mask |= S_IXUSR;
-		if (mode & VREAD)
-			mask |= S_IRUSR;
-		if (mode & VWRITE)
-			mask |= S_IWUSR;
-		return (file_mode & mask) == mask ? 0 : EACCES;
-	}
-
-	/* Otherwise, check the groups. */
-	for (i = 0, gp = cred->cr_groups; i < cred->cr_ngroups; i++, gp++)
-		if (ip->i_mp->ntm_gid == *gp) {
-			if (mode & VEXEC)
-				mask |= S_IXGRP;
-			if (mode & VREAD)
-				mask |= S_IRGRP;
-			if (mode & VWRITE)
-				mask |= S_IWGRP;
-			return (file_mode & mask) == mask ? 0 : EACCES;
-		}
-
-	/* Otherwise, check everyone else. */
-	if (mode & VEXEC)
-		mask |= S_IXOTH;
-	if (mode & VREAD)
-		mask |= S_IROTH;
-	if (mode & VWRITE)
-		mask |= S_IWOTH;
-	return (file_mode & mask) == mask ? 0 : EACCES;
-#else
-	return (vaccess(ip->i_mp->ntm_mode, ip->i_mp->ntm_uid,
-	    ip->i_mp->ntm_gid, ap->a_mode, ap->a_cred));
-#endif
-} 
 
 /*
  * Open called.
@@ -792,14 +642,13 @@ ntfs_access(ap)
 /* ARGSUSED */
 static int
 ntfs_open(ap)
-	struct vop_open_args /* {
-		struct vnode *a_vp;
+	struct vnop_open_args /* {
+		vnode_t a_vp;
 		int  a_mode;
-		struct ucred *a_cred;
-		struct thread *a_td;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	struct vnode *vp = ap->a_vp;
+	vnode_t vp = ap->a_vp;
 	
 	/*
 	 * When opening files, set up the non-resident flag amd the
@@ -808,7 +657,7 @@ ntfs_open(ap)
 	 * compressed files because exec() never calls VOP_OPEN
 	 * (though I think it should).
 	 */
-	if (vp->v_type == VREG) {
+	if (vnode_isreg(vp)) {
 		register struct fnode *fp = VTOF(vp);
 		register struct ntnode *ip = FTONT(fp);
 		struct ntfsmount *ntmp = ip->i_mp;
@@ -817,7 +666,7 @@ ntfs_open(ap)
 	
 		fp->f_compsize = 0;		/* Assume not compressed */
 		
-		error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, 0, &vap);
+		error = ntfs_ntvattrget(ntmp, ip, fp->f_attrtype, fp->f_attrname, 0, vfs_context_proc(ap->a_context), &vap);
 		if (error)
 			return error;
 		
@@ -847,16 +696,15 @@ ntfs_open(ap)
 /* ARGSUSED */
 static int
 ntfs_close(ap)
-	struct vop_close_args /* {
-		struct vnode *a_vp;
+	struct vnop_close_args /* {
+		vnode_t a_vp;
 		int  a_fflag;
-		struct ucred *a_cred;
-		struct thread *a_td;
+		vfs_context_t a_context;
 	} */ *ap;
 {
 #if NTFS_DEBUG
-	register struct vnode *vp = ap->a_vp;
-	register struct ntnode *ip = VTONT(vp);
+	vnode_t vp = ap->a_vp;
+	struct ntnode *ip = VTONT(vp);
 
 	printf("ntfs_close: %d\n",ip->i_number);
 #endif
@@ -866,64 +714,71 @@ ntfs_close(ap)
 
 int
 ntfs_readdir(ap)
-	struct vop_readdir_args /* {
-		struct vnode *a_vp;
+	struct vnop_readdir_args /* {
+		vnode_t a_vp;
 		struct uio *a_uio;
-		struct ucred *a_cred;
-		int *a_ncookies;
-		u_int **cookies;
+		int a_flags;
+		int *a_eofflag;
+		int *a_numdirent;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	register struct vnode *vp = ap->a_vp;
-	register struct fnode *fp = VTOF(vp);
-	register struct ntnode *ip = FTONT(fp);
+	vnode_t vp = ap->a_vp;
+	struct fnode *fp = VTOF(vp);
+	struct ntnode *ip = FTONT(fp);
 	struct uio *uio = ap->a_uio;
 	struct ntfsmount *ntmp = ip->i_mp;
-	int i, error = 0;
+	int error = 0;
 	u_int32_t faked = 0, num;
-	int ncookies = 0;
 	struct dirent cde;
 	off_t off;
+	size_t namelen;
 
-	dprintf(("ntfs_readdir %d off: %d resid: %d\n",ip->i_number,(u_int32_t)uio->uio_offset,uio->uio_resid));
+	if (ap->a_numdirent)
+		*ap->a_numdirent = 0;
+	
+	if (ap->a_flags & (VNODE_READDIR_EXTENDED | VNODE_READDIR_REQSEEKOFF))
+		return (EINVAL);
 
-	off = uio->uio_offset;
+	dprintf(("ntfs_readdir %d off: %lld resid: %d\n",ip->i_number,uio_offset(uio),uio_resid(uio)));
+
+	off = uio_offset(uio);
 
 	/* Simulate . in every dir except ROOT */
 	if( ip->i_number != NTFS_ROOTINO ) {
 		struct dirent dot = { NTFS_ROOTINO,
 				sizeof(struct dirent), DT_DIR, 1, "." };
 
-		if( uio->uio_offset < sizeof(struct dirent) ) {
+		if( uio_offset(uio) < sizeof(struct dirent) ) {
 			dot.d_fileno = ip->i_number;
 			error = uiomove((char *)&dot,sizeof(struct dirent),uio);
 			if(error)
 				return (error);
-
-			ncookies ++;
+			if (ap->a_numdirent)
+				++(*ap->a_numdirent);
 		}
 	}
 
 	/* Simulate .. in every dir including ROOT */
-	if( uio->uio_offset < 2 * sizeof(struct dirent) ) {
+	if( uio_offset(uio) < 2 * sizeof(struct dirent) ) {
 		struct dirent dotdot = { NTFS_ROOTINO,
 				sizeof(struct dirent), DT_DIR, 2, ".." };
 
-                /*¥¥ Don't we need to set dotdot.d_fileno? */
+		/*¥ Don't we need to set dotdot.d_fileno? */
 		error = uiomove((char *)&dotdot,sizeof(struct dirent),uio);
 		if(error)
 			return (error);
-
-		ncookies ++;
+		if (ap->a_numdirent)
+			++(*ap->a_numdirent);
 	}
 
 	faked = (ip->i_number == NTFS_ROOTINO) ? 1 : 2;
-	num = uio->uio_offset / sizeof(struct dirent) - faked;
+	num = uio_offset(uio) / sizeof(struct dirent) - faked;
 
-	while( uio->uio_resid >= sizeof(struct dirent) ) {
+	while( uio_resid(uio) >= sizeof(struct dirent) ) {
 		struct attr_indexentry *iep;
 
-		error = ntfs_ntreaddir(ntmp, fp, num, &iep);
+		error = ntfs_ntreaddir(ntmp, fp, num, &iep, vfs_context_proc(ap->a_context));
 
 		if(error)
 			return (error);
@@ -932,27 +787,27 @@ ntfs_readdir(ap)
 			break;
 
 		for(; !(le32toh(iep->ie_flag) & NTFS_IEFLAG_LAST) &&
-                            (uio->uio_resid >= sizeof(struct dirent));
+                            (uio_resid(uio) >= sizeof(struct dirent));
                         iep = NTFS_NEXTREC(iep, struct attr_indexentry *))
 		{
 			cde.d_fileno = le32toh(iep->ie_number);
 
-#ifdef APPLE
 			/* Hide system files. */
-                        if (cde.d_fileno != NTFS_ROOTINO && cde.d_fileno < 24)
-                                continue;
-#endif
+			if (cde.d_fileno != NTFS_ROOTINO && cde.d_fileno < 24)
+					continue;
 			if(!ntfs_isnamepermitted(ntmp,iep))
 				continue;
 
-			for(i=0; i<iep->ie_fnamelen; i++) {
-				cde.d_name[i] = NTFS_U28(le16toh(iep->ie_fname[i]));
+			error = utf8_encodestr(iep->ie_fname, iep->ie_fnamelen * sizeof(u_int16_t),
+				cde.d_name, &namelen, sizeof(cde.d_name), 0, BYTE_ORDER == BIG_ENDIAN ? UTF_REVERSE_ENDIAN : 0);
+			if (error) {
+				printf("ntfs_readdir: invalid name: directory %u, index %u", ip->i_number, num);	
+				continue;	/* Skip over names which can't be converted */
 			}
-			cde.d_name[i] = '\0';
 			dprintf(("ntfs_readdir: elem: %d, fname:[%s] type: %d, flag: %d, ",
 				num, cde.d_name, iep->ie_fnametype,
 				iep->ie_flag));
-			cde.d_namlen = iep->ie_fnamelen;
+			cde.d_namlen = namelen;
 			cde.d_type = (le32toh(iep->ie_fflag) & NTFS_FFLAG_DIR) ? DT_DIR : DT_REG;
 			cde.d_reclen = sizeof(struct dirent);
 			dprintf(("%s\n", (cde.d_type == DT_DIR) ? "dir":"reg"));
@@ -960,111 +815,45 @@ ntfs_readdir(ap)
 			error = uiomove((char *)&cde, sizeof(struct dirent), uio);
 			if(error)
 				return (error);
-
-			ncookies++;
+			if (ap->a_numdirent)
+				++(*ap->a_numdirent);
 			num++;
 		}
 	}
 
-	dprintf(("ntfs_readdir: %d entries (%d bytes) read\n",
-		ncookies,(u_int)(uio->uio_offset - off)));
-	dprintf(("ntfs_readdir: off: %d resid: %d\n",
-		(u_int32_t)uio->uio_offset,uio->uio_resid));
+	dprintf(("ntfs_readdir: off: %lld resid: %d\n",
+		uio_offset(uio),uio_resid(uio)));
 
-	if (!error && ap->a_ncookies != NULL) {
-		struct dirent* dpStart;
-		struct dirent* dp;
-		u_long *cookies;
-		u_long *cookiep;
-
-		ddprintf(("ntfs_readdir: %d cookies\n",ncookies));
-		if (uio->uio_segflg != UIO_SYSSPACE || uio->uio_iovcnt != 1)
-			panic("ntfs_readdir: unexpected uio from NFS server");
-		dpStart = (struct dirent *)
-		     ((caddr_t)uio->uio_iov->iov_base -
-			 (uio->uio_offset - off));
-		MALLOC(cookies, u_long *, ncookies * sizeof(u_long),
-		       M_TEMP, M_WAITOK);
-		for (dp = dpStart, cookiep = cookies, i=0;
-		     i < ncookies;
-		     dp = (struct dirent *)((caddr_t) dp + dp->d_reclen), i++) {
-			off += dp->d_reclen;
-			*cookiep++ = (u_int) off;
-		}
-		*ap->a_ncookies = ncookies;
-		*ap->a_cookies = cookies;
-	}
-/*
 	if (ap->a_eofflag)
-	    *ap->a_eofflag = VTONT(ap->a_vp)->i_size <= uio->uio_offset;
-*/
+	    *ap->a_eofflag = fp->f_size <= uio_offset(uio);
+
 	return (error);
 }
 
-/*
- * FreeBSD has a cn_flags flag named PDIRUNLOCK.  When set, vfs_lookup does a
- * vrele() instead of a vput() on the directory vnode inside its loop.
- * Darwin has no such flag and always does vput().  FreeBSD's smbfs uses the
- * same trick of defining it to zero if not previously defined.  I hope this
- * means the locking is OK.
- */
-#ifndef PDIRUNLOCK
-#define PDIRUNLOCK 0
-#endif
-
-#ifdef APPLE
 static int
-ntfs_lookup(struct vnode *dvp, struct vnode **vpp, struct componentname *cnp)
+ntfs_lookup(vnode_t dvp, vnode_t *vpp, struct componentname *cnp, proc_t p)
 {
-#else
-int
-ntfs_lookup(ap)
-	struct vop_lookup_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
-		struct componentname *a_cnp;
-	} */ *ap;
-{
-	register struct vnode *dvp = ap->a_dvp;
-#endif
-	register struct ntnode *dip = VTONT(dvp);
+	struct ntnode *dip = VTONT(dvp);
 	struct ntfsmount *ntmp = dip->i_mp;
-#ifndef APPLE
-	struct componentname *cnp = ap->a_cnp;
-#endif
-	struct ucred *cred = cnp->cn_cred;
 	int error;
-	int lockparent = cnp->cn_flags & LOCKPARENT;
-#if NTFS_DEBUG
-	int wantparent = cnp->cn_flags & (LOCKPARENT|WANTPARENT);
-#endif
+
 	dprintf(("ntfs_lookup: \"%.*s\" (%ld bytes) in %d, lp: %d, wp: %d \n",
 		(int)cnp->cn_namelen, cnp->cn_nameptr, cnp->cn_namelen,
 		dip->i_number, lockparent, wantparent));
 
-#ifdef APPLE
-	error = VOP_ACCESS(dvp, VEXEC, cred, cnp->cn_proc);
-#else
-	error = VOP_ACCESS(dvp, VEXEC, cred, cnp->cn_thread);
-#endif
-	if(error)
-		return (error);
-
 	if ((cnp->cn_flags & ISLASTCN) &&
-	    (dvp->v_mount->mnt_flag & MNT_RDONLY) &&
+	    vnode_vfsisrdonly(dvp) &&
 	    (cnp->cn_nameiop == DELETE || cnp->cn_nameiop == RENAME))
+	{
 		return (EROFS);
+	}
 
 	if(cnp->cn_namelen == 1 && cnp->cn_nameptr[0] == '.') {
 		dprintf(("ntfs_lookup: faking . directory in %d\n",
 			dip->i_number));
 
-		VREF(dvp);
-#ifdef APPLE
+		vnode_get(dvp);
 		*vpp = dvp;
-#else
-		*ap->a_vpp = dvp;
-#endif
 		error = 0;
 	} else if (cnp->cn_flags & ISDOTDOT) {
 		struct ntvattr *vap;
@@ -1073,90 +862,32 @@ ntfs_lookup(ap)
 		dprintf(("ntfs_lookup: faking .. directory in %d\n",
 			 dip->i_number));
 
-		error = ntfs_ntvattrget(ntmp, dip, NTFS_A_NAME, NULL, 0, &vap);
+		error = ntfs_ntvattrget(ntmp, dip, NTFS_A_NAME, NULL, 0, p, &vap);
 		if(error)
 			return (error);
 
-#ifdef APPLE
-		VOP_UNLOCK(dvp,0,cnp->cn_proc);
-#else
-		VOP_UNLOCK(dvp,0,cnp->cn_thread);
-#endif
-		cnp->cn_flags |= PDIRUNLOCK;
-
-                parent_ino = le32toh(vap->va_a_name->n_pnumber);
+		parent_ino = le32toh(vap->va_a_name->n_pnumber);
 		dprintf(("ntfs_lookup: parentdir: %d\n",
 			 parent_ino));
-#ifdef APPLE
-		error = VFS_VGET(ntmp->ntm_mountp, &parent_ino, vpp);
-#else
-		error = VFS_VGET(ntmp->ntm_mountp, vap->va_a_name->n_pnumber,
-				 LK_EXCLUSIVE, ap->a_vpp); 
-#endif
+		error = ntfs_vgetex(ntmp->ntm_mountp, parent_ino, NULLVP, NULL, VNON, NTFS_A_DATA, NULL, 0, p, vpp);
 		ntfs_ntvattrrele(vap);
-		if (error) {
-#ifdef APPLE
-			if (vn_lock(dvp,LK_EXCLUSIVE|LK_RETRY,cnp->cn_proc)==0)
-#else
-			if (vn_lock(dvp,LK_EXCLUSIVE|LK_RETRY,cnp->cn_thread)==0)
-#endif
-				cnp->cn_flags &= ~PDIRUNLOCK;
-			return (error);
-		}
-
-		if (lockparent && (cnp->cn_flags & ISLASTCN)) {
-#ifdef APPLE
-			error = vn_lock(dvp, LK_EXCLUSIVE, cnp->cn_proc);
-#else
-			error = vn_lock(dvp, LK_EXCLUSIVE, cnp->cn_thread);
-#endif
-			if (error) {
-#ifdef APPLE
-				vput( *vpp );
-#else
-				vput( *(ap->a_vpp) );
-#endif
-				return (error);
-			}
-			cnp->cn_flags &= ~PDIRUNLOCK;
-		}
 	} else {
-#ifdef APPLE
-		error = ntfs_ntlookupfile(ntmp, dvp, cnp, vpp);
-#else
-		error = ntfs_ntlookupfile(ntmp, dvp, cnp, ap->a_vpp);
-#endif
+		error = ntfs_ntlookupfile(ntmp, dvp, cnp, p, vpp);
 		if (error) {
 			dprintf(("ntfs_ntlookupfile: returned %d\n", error));
 			return (error);
 		}
 
-#ifdef APPLE
 		dprintf(("ntfs_lookup: found ino: %d\n", 
 			VTONT((*vpp))->i_number));
-#else
-		dprintf(("ntfs_lookup: found ino: %d\n", 
-			VTONT(*ap->a_vpp)->i_number));
-#endif
-		if(!lockparent || !(cnp->cn_flags & ISLASTCN))
-#ifdef APPLE
-			VOP_UNLOCK(dvp, 0, cnp->cn_proc);
-#else
-			VOP_UNLOCK(dvp, 0, cnp->cn_thread);
-#endif
 	}
 
 	if (cnp->cn_flags & MAKEENTRY)
-#ifdef APPLE
 		cache_enter(dvp, *vpp, cnp);
-#else
-		cache_enter(dvp, *ap->a_vpp, cnp);
-#endif
 	return (error);
 }
 
 
-#ifdef APPLE
 /*
  * This does a lookup through the name cache.  If nothing is found
  * in the cache, then it calls ntfs_lookup to scan the directory
@@ -1170,93 +901,45 @@ ntfs_lookup(ap)
 /* msd: big endian OK */
 static int
 ntfs_cache_lookup(ap)
-	struct vop_lookup_args /* {
-		struct vnode *a_dvp;
-		struct vnode **a_vpp;
+	struct vnop_lookup_args /* {
+		vnode_t a_dvp;
+		vnode_t *a_vpp;
 		struct componentname *a_cnp;
+		vfs_context_t a_context;
 	} */ *ap;
 {
-	struct vnode *dvp, *vp;
+	vnode_t dvp;
 	int lockparent;
 	int error;
-	struct vnode **vpp = ap->a_vpp;
+	vnode_t *vpp = ap->a_vpp;
 	struct componentname *cnp = ap->a_cnp;
-	struct ucred *cred = cnp->cn_cred;
 	int flags = cnp->cn_flags;
-	struct proc *proc = cnp->cn_proc;
-	u_long vpid;	/* capability number of vnode */
 
 	*vpp = NULL;
 	dvp = ap->a_dvp;
 	lockparent = flags & LOCKPARENT;
 
-	if (dvp->v_type != VDIR)
-                return (ENOTDIR);
+	if (!vnode_isdir(dvp))
+		return (ENOTDIR);
 
-	if ((flags & ISLASTCN) && (dvp->v_mount->mnt_flag & MNT_RDONLY) &&
+	if ((flags & ISLASTCN) && vnode_vfsisrdonly(dvp) &&
 	    (cnp->cn_nameiop == DELETE || cnp->cn_nameiop == RENAME))
+	{
 		return (EROFS);
-
-	error = VOP_ACCESS(dvp, VEXEC, cred, proc);
-
-	if (error)
-		return (error);
+	}
 
 	error = cache_lookup(dvp, vpp, cnp);
 
-	if (!error) 
-		return ntfs_lookup(dvp, vpp, cnp);
-
-	if (error == ENOENT)
-		return (error);
-
-	vp = *vpp;
-	vpid = vp->v_id;
-	if (dvp == vp) {   /* lookup on "." */
-		VREF(vp);
-		error = 0;
-	} else if (flags & ISDOTDOT) {
-		VOP_UNLOCK(dvp, 0, proc);
-		error = vget(vp, LK_EXCLUSIVE, proc);
-		if (!error && lockparent && (flags & ISLASTCN)) {
-			error = vn_lock(dvp, LK_EXCLUSIVE, proc);
-		}
-	} else {
-		error = vget(vp, LK_EXCLUSIVE, proc);
-		if (!lockparent || error || !(flags & ISLASTCN))
-			VOP_UNLOCK(dvp, 0, proc);
+	if (error)
+	{
+		/* We found a cache entry, positive or negative, so return it. */
+		if (error == -1)
+			error = 0;		/* No error on positive match */
+		return error;
 	}
-	/*
-	 * Check that the capability number did not change
-	 * while we were waiting for the lock.
-	 */
-	if (!error) {
-		if (vpid == vp->v_id)
-			return (0);
-		vput(vp);
-		if (lockparent && dvp != vp && (flags & ISLASTCN))
-			VOP_UNLOCK(dvp, 0, proc);
-	}
-        error = vn_lock(dvp, LK_EXCLUSIVE, proc);
-        if (error)
-                return (error);
-	return ntfs_lookup(dvp, vpp, cnp);
+	
+	return ntfs_lookup(dvp, vpp, cnp, vfs_context_proc(ap->a_context));
 }
-
-static int
-ntfs_abortop(ap)
-struct vop_abortop_args /* {
-    struct vnode *a_dvp;
-    struct componentname *a_cnp;
-} */ *ap;
-{
-
-    if ((ap->a_cnp->cn_flags & (HASBUF | SAVESTART)) == HASBUF)
-        FREE_ZONE(ap->a_cnp->cn_pnbuf, ap->a_cnp->cn_pnlen, M_NAMEI);
-
-    return (0);
-}
-#endif
 
 /*
  * Flush the blocks of a file to disk.
@@ -1266,8 +949,8 @@ struct vop_abortop_args /* {
  */
 static int
 ntfs_fsync(ap)
-	struct vop_fsync_args /* {
-		struct vnode *a_vp;
+	struct vnop_fsync_args /* {
+		vnode_t a_vp;
 		struct ucred *a_cred;
 		int a_waitfor;
 		struct thread *a_td;
@@ -1280,15 +963,14 @@ ntfs_fsync(ap)
  * Return POSIX pathconf information applicable to NTFS filesystem
  */
 int
-ntfs_pathconf(v)
-	void *v;
-{
-	struct vop_pathconf_args /* {
-		struct vnode *a_vp;
+ntfs_pathconf(ap)
+	struct vnop_pathconf_args /* {
+		vnode_t a_vp;
 		int a_name;
 		register_t *a_retval;
-	} */ *ap = v;
-
+		vfs_context_t a_context;
+	} */ *ap;
+{
 	switch (ap->a_name) {
 	case _PC_LINK_MAX:
 		*ap->a_retval = 1;
@@ -1311,64 +993,38 @@ ntfs_pathconf(v)
 	/* NOTREACHED */
 }
 
-#ifdef APPLE
-/*
- * Darwin's Unified Buffer Cache requires you to support pagein and pageout.
- * There is no way for a filesystem to prevent memory mapping of regular files.
- */
-static int ntfs_pageout(struct vop_pageout_args *args)
-{
-    panic("ntfs_pageout not supported");
-    return EOPNOTSUPP;
-}
-
-/*
-#
-#% pagein	vp	= = =
-#
-
-struct vop_pagein_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	upl_t a_pl;
-	vm_offset_t a_pl_offset;
-	off_t a_f_offset;
-	size_t a_size;
-	struct ucred *a_cred;
-	int a_flags;
-};
-*/
-static int ntfs_pagein(struct vop_pagein_args *args)
+static int ntfs_pagein(ap)
+	struct vnop_pagein_args /* {
+		vnode_t a_vp;
+		upl_t a_pl;
+		vm_offset_t a_pl_offset;
+		off_t a_f_offset;
+		size_t a_size;
+		int a_flags;
+		vfs_context_t a_context;
+	} */ *ap;
 {
     int error;
     kern_return_t kret;
     vm_offset_t ioaddr;
-    struct vnode *vp = args->a_vp;
-    upl_t pl = args->a_pl;
-    vm_offset_t pl_offset = args->a_pl_offset;
-    off_t f_offset = args->a_f_offset;
-    size_t size = args->a_size;
-    int flags = args->a_flags;
+    vnode_t vp = ap->a_vp;
+    upl_t pl = ap->a_pl;
+    vm_offset_t pl_offset = ap->a_pl_offset;
+    off_t f_offset = ap->a_f_offset;
+    size_t size = ap->a_size;
+    int flags = ap->a_flags;
     struct fnode *fp = VTOF(vp);
     struct ntnode *ip = FTONT(fp);
     struct ntfsmount *ntmp = ip->i_mp;
     
-    if (UBCINVALID(vp))
-        panic("ntfs_pagein: ubc invalid vp=0x%x", vp);
-    if (UBCINFOMISSING(vp))
-        panic("ntfs_pagein: ubc missing vp=%x", vp);
-
 	/*
 	 * Determine whether we can use Cluster I/O on this attribute.  We can
 	 * use it if the attribute is not MFT resident, and if it is not compressed.
 	 */
     if ((fp->f_flag & FN_NONRESIDENT) && (fp->f_compsize == 0))
     {
-        int dev_block_size;
-        
-        VOP_DEVBLOCKSIZE(ntmp->ntm_devvp, &dev_block_size);
         error = cluster_pagein(vp, pl, pl_offset, f_offset, size,
-                fp->f_size, dev_block_size, flags);
+                fp->f_size, flags);
     }
     else
     {
@@ -1389,7 +1045,7 @@ static int ntfs_pagein(struct vop_pagein_args *args)
         
         /* Read from vp, file offset=f_offset, length=size, buffer=ioaddr */
         error = ntfs_readattr(ntmp, ip, fp->f_attrtype, fp->f_attrname, f_offset,
-                size, (caddr_t)ioaddr, NULL);
+                size, (caddr_t)ioaddr, NULL, vfs_context_proc(ap->a_context));
         
         if (error)
         {
@@ -1398,10 +1054,10 @@ static int ntfs_pagein(struct vop_pagein_args *args)
         }
         
         /* Zero fill part of page past EOF */
-        if (args->a_size > size)
-            bzero((caddr_t)ioaddr+size, args->a_size-size);
+        if (ap->a_size > size)
+            bzero((caddr_t)ioaddr+size, ap->a_size-size);
         
-        /*¥¥ If mounted read/write, we'd update the access time here. */
+        /*¥ If mounted read/write, we'd update the access time here. */
         
         kret = ubc_upl_unmap(pl);
         if (kret != KERN_SUCCESS)
@@ -1411,9 +1067,9 @@ static int ntfs_pagein(struct vop_pagein_args *args)
         if ((flags & UPL_NOCOMMIT) == 0)
         {
             if (error)
-                ubc_upl_abort_range(pl, pl_offset, args->a_size, UPL_ABORT_FREE_ON_EMPTY);
+                ubc_upl_abort_range(pl, pl_offset, ap->a_size, UPL_ABORT_FREE_ON_EMPTY);
             else
-                ubc_upl_commit_range(pl, pl_offset, args->a_size, UPL_COMMIT_FREE_ON_EMPTY);
+                ubc_upl_commit_range(pl, pl_offset, ap->a_size, UPL_COMMIT_FREE_ON_EMPTY);
         }
     }
     
@@ -1425,382 +1081,100 @@ static int ntfs_pagein(struct vop_pagein_args *args)
 
 
 /*
- * Vnode (fnode) locking: I think FreeBSD has a default locking implementation that
- * assumes the first field of the structure pointed to by vp->v_data (in our case, the
- * struct fnode) is a BSD lock, and provides a default implementation of xx_lock, xx_unlock
- * and xx_islocked using that lock field.
- *
- * Darwin doesn't have that, so here are explicit routines to use that field for vnode locking.
- */
-
-/*
- * Check for a locked vnode.
- */
-static int
-ntfs_islocked(ap)
-	struct vop_islocked_args /* {
-		struct vnode *a_vp;
-	} */ *ap;
-{
-	return (lockstatus(&VTOF(ap->a_vp)->f_lock));
-}
-
-
-/*
- * Lock a vnode.
- */
-static int
-ntfs_lock(ap)
-	struct vop_lock_args /* {
-		struct vnode *a_vp;
-		int a_flags;
-		struct proc *a_p;
-	} */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-
-	if (VTOF(vp) == (struct fnode *) NULL)
-		panic ("ntfs_lock: null node");
-	return (lockmgr(&VTOF(vp)->f_lock, ap->a_flags, &vp->v_interlock, ap->a_p));
-}
-
-
-/*
- * Unlock a vnode.
- */
-static int
-ntfs_unlock(ap)
-	struct vop_unlock_args /* {
-		struct vnode *a_vp;
-		int a_flags;
-		struct proc *a_p;
-	} */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-
-	if (VTOF(vp) == (struct fnode *) NULL)
-		panic ("ntfs_unlock: null node");
-	return (lockmgr(&VTOF(vp)->f_lock, ap->a_flags | LK_RELEASE, &vp->v_interlock, ap->a_p));
-}
-
-/*
- * getattrlist -- Return attributes about files, directories, and volumes.
- * This is a minimal implementation that only returns volume capabilities
- * so clients (like Carbon) can tell which interfaces and features are
- * supported by the volume.
- *
- * #
- * #% getattrlist	vp	= = =
- * #
- * vop_getattrlist {
- *	IN struct vnode *vp;
- *	IN struct attrlist *alist;
- *	INOUT struct uio *uio;
- *	IN struct ucred *cred;
- *	IN struct proc *p;
- * };
- */
-static int
-ntfs_getattrlist(ap)
-        struct vop_getattrlist_args /* {
-                struct vnode *a_vp;
-                struct attrlist *a_alist
-                struct uio *a_uio;
-                struct ucred *a_cred;
-                struct proc *a_p;
-        } */ *ap;
-{
-	struct vnode *vp = ap->a_vp;
-	struct attrlist *alist = ap->a_alist;
-        size_t attrbufsize;	/* Actual buffer size */
-        int error;
-        struct {
-                u_long buffer_size;
-                vol_capabilities_attr_t capabilities;
-        } results;
-
-        /*
-         * Reject requests that ask for anything other than volume
-         * capabilities, or has an invalid bitmap count (indicating
-         * a change in the headers that this code isn't prepared
-         * to handle).
-         *
-         * NOTE: we don't use ATTR_BIT_MAP_COUNT, because that could
-         * change in the header without this code changing.
-         */
-        if ((alist->bitmapcount != 5) ||
-            (alist->commonattr != 0) ||
-            (alist->volattr != (ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES)) ||
-            (alist->dirattr != 0) ||
-            (alist->fileattr != 0) ||
-            (alist->forkattr != 0)) {
-                return EINVAL;
-        }
-        
-        /*
-         * Volume requests, including volume capabilities, requires using
-         * the volume's root vnode.  Since we only handle volume requests,
-         * this is always required.
-         */
-        if ((vp->v_flag & VROOT) == 0)
-                return EINVAL;
-
-        /*
-         * A general implementation would calculate the maximum size of
-         * all requested attributes, allocate a buffer to hold them,
-         * and then pack them all in bitmap order.  Since we support
-         * just one attribute, this trivially uses a local structure.
-         */
-        attrbufsize = MIN(ap->a_uio->uio_resid, sizeof results);
-        results.buffer_size = attrbufsize;
-        
-        /* The capabilities[] array defines what this volume supports. */
-        results.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] =
-            VOL_CAP_FMT_HARDLINKS |
-	    VOL_CAP_FMT_SPARSE_FILES |
-	    VOL_CAP_FMT_CASE_PRESERVING |
-	    VOL_CAP_FMT_FAST_STATFS ;
-        results.capabilities.capabilities[VOL_CAPABILITIES_INTERFACES] =
-            0;	/* None of the optional interfaces are implemented. */
-        results.capabilities.capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
-        results.capabilities.capabilities[VOL_CAPABILITIES_RESERVED2] = 0;
-
-        /*
-         * The valid[] array defines which bits this code understands
-         * the meaning of (whether the volume has that capability or not).
-         * Any zero bits here means "I don't know what you're asking about"
-         * and the caller cannot tell whether that capability is
-         * present or not.
-         */
-        results.capabilities.valid[VOL_CAPABILITIES_FORMAT] =
-            VOL_CAP_FMT_PERSISTENTOBJECTIDS |
-            VOL_CAP_FMT_SYMBOLICLINKS |
-            VOL_CAP_FMT_HARDLINKS |
-	    VOL_CAP_FMT_JOURNAL |
-	    VOL_CAP_FMT_JOURNAL_ACTIVE |
-	    VOL_CAP_FMT_NO_ROOT_TIMES |
-	    VOL_CAP_FMT_SPARSE_FILES |
-	    VOL_CAP_FMT_ZERO_RUNS |
-	    VOL_CAP_FMT_CASE_SENSITIVE |
-	    VOL_CAP_FMT_CASE_PRESERVING |
-	    VOL_CAP_FMT_FAST_STATFS ;
-        results.capabilities.valid[VOL_CAPABILITIES_INTERFACES] =
-            VOL_CAP_INT_SEARCHFS |
-            VOL_CAP_INT_ATTRLIST |
-            VOL_CAP_INT_NFSEXPORT |
-            VOL_CAP_INT_READDIRATTR |
-            VOL_CAP_INT_EXCHANGEDATA |
-            VOL_CAP_INT_COPYFILE |
-            VOL_CAP_INT_ALLOCATE |
-            VOL_CAP_INT_VOL_RENAME |
-            VOL_CAP_INT_ADVLOCK |
-            VOL_CAP_INT_FLOCK ;
-        results.capabilities.valid[VOL_CAPABILITIES_RESERVED1] = 0;
-        results.capabilities.valid[VOL_CAPABILITIES_RESERVED2] = 0;
-
-        /* Copy the results to the caller. */
-        error = uiomove((caddr_t) &results, attrbufsize, ap->a_uio);
-        
-        return error;
-}
-
-/*
- * The following vnode operations aren't supported.  Many require stubs
- * to return EROFS instead of EOPNOTSUPP.  When EOPNOTSUPP is sufficient,
- * but we need to do additional cleanup, just use the default error routine.
+ * The following vnode operations aren't supported because we are a
+ * read-only file system.
  */
 
 static int
-ntfs_create(struct vop_create_args *ap)
+ntfs_create(struct vnop_create_args *ap)
 {
-	(void) nop_create(ap);
 	return EROFS;
 }
 
 static int
-ntfs_mknod(struct vop_mknod_args *ap)
+ntfs_mknod(struct vnop_mknod_args *ap)
 {
-	(void) nop_mknod(ap);
 	return EROFS;
 }
 
 static int
-ntfs_mkcomplex(struct vop_mkcomplex_args *ap)
+ntfs_setattr(struct vnop_setattr_args *ap)
 {
-	(void) nop_mkcomplex(ap);
 	return EROFS;
 }
 
 static int
-ntfs_setattr(struct vop_setattr_args *ap)
+ntfs_remove(struct vnop_remove_args *ap)
 {
-	(void) nop_setattr(ap);
 	return EROFS;
 }
 
 static int
-ntfs_remove(struct vop_remove_args *ap)
+ntfs_link(struct vnop_link_args *ap)
 {
-	(void) nop_remove(ap);
 	return EROFS;
 }
 
 static int
-ntfs_link(struct vop_link_args *ap)
+ntfs_rename(struct vnop_rename_args *ap)
 {
-	(void) nop_link(ap);
 	return EROFS;
 }
 
 static int
-ntfs_rename(struct vop_rename_args *ap)
+ntfs_mkdir(struct vnop_mkdir_args *ap)
 {
-	(void) nop_rename(ap);
 	return EROFS;
 }
 
 static int
-ntfs_mkdir(struct vop_mkdir_args *ap)
+ntfs_rmdir(struct vnop_rmdir_args *ap)
 {
-	(void) nop_mkdir(ap);
 	return EROFS;
 }
 
 static int
-ntfs_rmdir(struct vop_rmdir_args *ap)
+ntfs_allocate(struct vnop_allocate_args *ap)
 {
-	(void) nop_rmdir(ap);
 	return EROFS;
 }
-
-/* Symbolic links aren't supported at all, so return EOPNOTSUPP */
-#define ntfs_symlink err_symlink
-
-/* The xxxdirattr calls aren't supported, so return EOPNOTSUPP */
-#define ntfs_readdirattr err_readdirattr
-
-static int
-ntfs_allocate(struct vop_allocate_args *ap)
-{
-	(void) nop_allocate(ap);
-	return EROFS;
-}
-
-#define ntfs_blkatoff err_blkatoff
-#define ntfs_valloc err_valloc
-#define ntfs_devblocksize err_devblocksize
-#define ntfs_searchfs err_searchfs
-
-static int
-ntfs_copyfile(struct vop_copyfile_args *ap)
-{
-	(void) nop_copyfile(ap);
-	return EROFS;
-}
-#endif /* APPLE */
 
 /*
  * Global vfs data structures
  */
-vop_t **ntfs_vnodeop_p;
-static
-struct vnodeopv_entry_desc ntfs_vnodeop_entries[] = {
-#ifdef APPLE
-	{ &vop_default_desc, (vop_t *)vn_default_error },
-#else
-	{ &vop_default_desc, (vop_t *)vop_defaultop },
-#endif
+typedef int     vnop_t __P((void *));
 
-	{ &vop_getattr_desc, (vop_t *)ntfs_getattr },
-	{ &vop_inactive_desc, (vop_t *)ntfs_inactive },
-	{ &vop_reclaim_desc, (vop_t *)ntfs_reclaim },
-	{ &vop_print_desc, (vop_t *)ntfs_print },
-	{ &vop_pathconf_desc, ntfs_pathconf },
-
-#ifdef APPLE
-	{ &vop_islocked_desc, (vop_t *) ntfs_islocked },
-	{ &vop_unlock_desc, (vop_t *) ntfs_unlock },
-	{ &vop_lock_desc, (vop_t *) ntfs_lock },
-	{ &vop_lookup_desc, (vop_t *)ntfs_cache_lookup },
-#else
-	{ &vop_islocked_desc, (vop_t *)vop_stdislocked },
-	{ &vop_unlock_desc, (vop_t *)vop_stdunlock },
-	{ &vop_lock_desc, (vop_t *)vop_stdlock },
-	{ &vop_cachedlookup_desc, (vop_t *)ntfs_lookup },
-	{ &vop_lookup_desc, (vop_t *)vfs_cache_lookup },
-#endif
-
-	{ &vop_access_desc, (vop_t *)ntfs_access },
-	{ &vop_close_desc, (vop_t *)ntfs_close },
-	{ &vop_open_desc, (vop_t *)ntfs_open },
-	{ &vop_readdir_desc, (vop_t *)ntfs_readdir },
-	{ &vop_fsync_desc, (vop_t *)ntfs_fsync },
-
-#ifdef APPLE
-	{ &vop_bmap_desc, (vop_t *)ntfs_bmap },
-	{ &vop_cmap_desc, (vop_t *) ntfs_cmap },
-	{ &vop_blktooff_desc, (vop_t *)ntfs_blktooff },
-	{ &vop_offtoblk_desc, (vop_t *)ntfs_offtoblk },
-#endif
-	{ &vop_strategy_desc, (vop_t *)ntfs_strategy },
-	{ &vop_read_desc, (vop_t *)ntfs_read },
-	{ &vop_write_desc, (vop_t *)ntfs_write },
-
-#ifdef APPLE
-	{ &vop_pagein_desc, (vop_t *) ntfs_pagein },
-	{ &vop_pageout_desc, (vop_t *) ntfs_pageout },
-	{ &vop_abortop_desc, (vop_t *) ntfs_abortop },
-/*	{ &vop_advlock_desc, (vop_t *) ntfs_advlock },		Needed for Carbon to open files for writing */
-
-	/*
-	 * The following operations are not implemented, but require
-	 * extra work to be consistent with the locking and pathname
-	 * allocation policies.
-	 */
-	{ &vop_create_desc, (vop_t *) ntfs_create },
-	/* whiteout -- vn_default_error */
-	{ &vop_mknod_desc, (vop_t *) ntfs_mknod },
-	{ &vop_mkcomplex_desc, (vop_t *) ntfs_mkcomplex },
-	{ &vop_setattr_desc, (vop_t *) ntfs_setattr },
-        { &vop_getattrlist_desc, (vop_t *) ntfs_getattrlist },
-	/* setattrlist -- vn_default_error */
-	/* lease -- vn_default_error */
-	/* ioctl -- vn_default_error */
-	/* select -- vn_default_error */
-	/* exchange -- vn_default_error */
-	/* revoke -- vn_default_error */
-	/* mmap -- vn_default_error */
-	/* seek -- vn_default_error */
-	{ &vop_remove_desc, (vop_t *) ntfs_remove },
-	{ &vop_link_desc, (vop_t *) ntfs_link },
-	{ &vop_rename_desc, (vop_t *) ntfs_rename },
-	{ &vop_mkdir_desc, (vop_t *) ntfs_mkdir },
-	{ &vop_rmdir_desc, (vop_t *) ntfs_rmdir },
-	{ &vop_symlink_desc, (vop_t *) ntfs_symlink },
-	{ &vop_readdirattr_desc, (vop_t *) ntfs_readdirattr },
-	/* readlink -- vn_default_error */
-	{ &vop_blkatoff_desc, (vop_t *) ntfs_blkatoff },
-	{ &vop_valloc_desc, (vop_t *) ntfs_valloc },
-	/* reallocblks -- vn_default_error */
-	/* vfree -- vn_default_error */
-	/* truncate -- vn_default_error */
-	{ &vop_allocate_desc, (vop_t *) ntfs_allocate },
-	/* update -- vn_default_error */
-	/* pgrd -- vn_default_error */
-	/* pgwr -- vn_default_error */
-	{ &vop_devblocksize_desc, (vop_t *) ntfs_devblocksize },
-	{ &vop_searchfs_desc, (vop_t *) ntfs_searchfs },
-	{ &vop_copyfile_desc, (vop_t *) ntfs_copyfile },
-#endif
+vnop_t **ntfs_vnodeop_p;
+static struct vnodeopv_entry_desc ntfs_vnodeop_entries[] = {
+	{ &vnop_default_desc, (vnop_t *)vn_default_error },
+	{ &vnop_getattr_desc, (vnop_t *)ntfs_getattr },
+	{ &vnop_inactive_desc, (vnop_t *)ntfs_inactive },
+	{ &vnop_reclaim_desc, (vnop_t *)ntfs_reclaim },
+	{ &vnop_pathconf_desc, (vnop_t *)ntfs_pathconf },
+	{ &vnop_lookup_desc, (vnop_t *)ntfs_cache_lookup },
+	{ &vnop_close_desc, (vnop_t *)ntfs_close },
+	{ &vnop_open_desc, (vnop_t *)ntfs_open },
+	{ &vnop_readdir_desc, (vnop_t *)ntfs_readdir },
+	{ &vnop_fsync_desc, (vnop_t *)ntfs_fsync },
+	{ &vnop_blockmap_desc, (vnop_t *) ntfs_blockmap },
+	{ &vnop_blktooff_desc, (vnop_t *)ntfs_blktooff },
+	{ &vnop_offtoblk_desc, (vnop_t *)ntfs_offtoblk },
+	{ &vnop_strategy_desc, (vnop_t *)ntfs_strategy },
+	{ &vnop_read_desc, (vnop_t *)ntfs_read },
+	{ &vnop_write_desc, (vnop_t *)ntfs_write },
+	{ &vnop_pagein_desc, (vnop_t *) ntfs_pagein },
+/*	{ &vnop_advlock_desc, (vnop_t *) ntfs_advlock },		Needed for Carbon to open files for writing */
+	{ &vnop_create_desc, (vnop_t *) ntfs_create },
+	{ &vnop_mknod_desc, (vnop_t *) ntfs_mknod },
+	{ &vnop_setattr_desc, (vnop_t *) ntfs_setattr },
+	{ &vnop_remove_desc, (vnop_t *) ntfs_remove },
+	{ &vnop_link_desc, (vnop_t *) ntfs_link },
+	{ &vnop_rename_desc, (vnop_t *) ntfs_rename },
+	{ &vnop_mkdir_desc, (vnop_t *) ntfs_mkdir },
+	{ &vnop_rmdir_desc, (vnop_t *) ntfs_rmdir },
+	{ &vnop_allocate_desc, (vnop_t *) ntfs_allocate },
 	{ NULL, NULL }
 };
 
-#ifndef APPLE
-static
-#endif
 struct vnodeopv_desc ntfs_vnodeop_opv_desc =
 	{ &ntfs_vnodeop_p, ntfs_vnodeop_entries };
-
-#ifndef APPLE
-VNODEOP_SET(ntfs_vnodeop_opv_desc);
-#endif

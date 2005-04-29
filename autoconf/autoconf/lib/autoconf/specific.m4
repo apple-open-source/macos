@@ -2,7 +2,7 @@
 # Macros that test for specific, unclassified, features.
 #
 # Copyright (C) 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2001,
-# 2002 Free Software Foundation, Inc.
+# 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -60,7 +60,13 @@
 # -------------------
 AN_IDENTIFIER([sys_siglist],     [AC_CHECK_DECLS([sys_siglist])])
 AU_DEFUN([AC_DECL_SYS_SIGLIST],
-[AC_CHECK_DECLS([sys_siglist])
+[AC_CHECK_DECLS([sys_siglist],,,
+[#include <signal.h>
+/* NetBSD declares sys_siglist in unistd.h.  */
+#if HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+])
 ])# AC_DECL_SYS_SIGLIST
 
 
@@ -146,10 +152,10 @@ rm -f conftest*[]dnl
 # By default, many hosts won't let programs access large files;
 # one must use special compiler options to get large-file access to work.
 # For more details about this brain damage please see:
-# http://www.sas.com/standards/large.file/x_open.20Mar96.html
+# http://www.unix-systems.org/version2/whatsnew/lfs20mar.html
 AC_DEFUN([AC_SYS_LARGEFILE],
 [AC_ARG_ENABLE(largefile,
-               [  --disable-largefile     omit support for large files])
+	       [  --disable-largefile     omit support for large files])
 if test "$enable_largefile" != no; then
 
   AC_CACHE_CHECK([for special C compiler options needed for large files],
@@ -160,11 +166,11 @@ if test "$enable_largefile" != no; then
        while :; do
      	 # IRIX 6.2 and later do not support large files by default,
      	 # so use the C compiler's -n32 option if that helps.
-         AC_LANG_CONFTEST([AC_LANG_PROGRAM([_AC_SYS_LARGEFILE_TEST_INCLUDES])])
+	 AC_LANG_CONFTEST([AC_LANG_PROGRAM([_AC_SYS_LARGEFILE_TEST_INCLUDES])])
      	 AC_COMPILE_IFELSE([], [break])
      	 CC="$CC -n32"
      	 AC_COMPILE_IFELSE([], [ac_cv_sys_largefile_CC=' -n32'; break])
-         break
+	 break
        done
        CC=$ac_save_CC
        rm -f conftest.$ac_ext
@@ -235,7 +241,7 @@ for ac_dir in  . $ac_tmpdirs `eval echo $prefix/lib $exec_prefix/lib` ; do
 done])
 if test $ac_cv_sys_long_file_names = yes; then
   AC_DEFINE(HAVE_LONG_FILE_NAMES, 1,
-            [Define to 1 if you support file names longer than 14 characters.])
+	    [Define to 1 if you support file names longer than 14 characters.])
 fi
 ])
 
@@ -246,9 +252,10 @@ fi
 # interrupted by a signal, define `HAVE_RESTARTABLE_SYSCALLS'.
 AC_DEFUN([AC_SYS_RESTARTABLE_SYSCALLS],
 [AC_DIAGNOSE([obsolete],
-[$0: System call restartability is now typically set at runtime.
-Remove this `AC_SYS_RESTARTABLE_SYSCALLS'
-and adjust your code to use `sigaction' with `SA_RESTART' instead.])dnl
+[$0: AC_SYS_RESTARTABLE_SYSCALLS is useful only when supporting very
+old systems that lack `sigaction' and `SA_RESTART'.  Don't bother with
+this macro unless you need to support very old systems like 4.2BSD and
+SVR3.])dnl
 AC_REQUIRE([AC_HEADER_SYS_WAIT])dnl
 AC_CHECK_HEADERS(unistd.h)
 AC_CACHE_CHECK(for restartable system calls, ac_cv_sys_restartable_syscalls,
@@ -295,12 +302,12 @@ main ()
 
   exit (status == -1);
 }])],
-               [ac_cv_sys_restartable_syscalls=yes],
-               [ac_cv_sys_restartable_syscalls=no])])
+	       [ac_cv_sys_restartable_syscalls=yes],
+	       [ac_cv_sys_restartable_syscalls=no])])
 if test $ac_cv_sys_restartable_syscalls = yes; then
   AC_DEFINE(HAVE_RESTARTABLE_SYSCALLS, 1,
-            [Define to 1 if system calls automatically restart after
-             interruption by a signal.])
+	    [Define to 1 if system calls automatically restart after
+	     interruption by a signal.])
 fi
 ])# AC_SYS_RESTARTABLE_SYSCALLS
 
@@ -313,10 +320,10 @@ AC_DEFUN([AC_SYS_POSIX_TERMIOS],
 #include <unistd.h>
 #include <termios.h>
 ]],
-             [/* SunOS 4.0.3 has termios.h but not the library calls.  */
+	     [/* SunOS 4.0.3 has termios.h but not the library calls.  */
    tcgetattr(0, 0);])],
-             ac_cv_sys_posix_termios=yes,
-             ac_cv_sys_posix_termios=no)])
+	     ac_cv_sys_posix_termios=yes,
+	     ac_cv_sys_posix_termios=no)])
 ])# AC_SYS_POSIX_TERMIOS
 
 
@@ -348,10 +355,10 @@ AC_DEFINE([_GNU_SOURCE])
 AU_DEFUN([AC_CYGWIN],
 [AC_CANONICAL_HOST
 AC_DIAGNOSE([obsolete],
-            [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
+	    [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
 case $host_os in
   *cygwin* ) CYGWIN=yes;;
-         * ) CYGWIN=no;;
+	 * ) CYGWIN=no;;
 esac
 ])# AC_CYGWIN
 
@@ -363,7 +370,7 @@ esac
 AU_DEFUN([AC_EMXOS2],
 [AC_CANONICAL_HOST
 AC_DIAGNOSE([obsolete],
-            [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
+	    [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
 case $host_os in
   *emx* ) EMXOS2=yes;;
       * ) EMXOS2=no;;
@@ -378,10 +385,10 @@ esac
 AU_DEFUN([AC_MINGW32],
 [AC_CANONICAL_HOST
 AC_DIAGNOSE([obsolete],
-            [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
+	    [$0 is obsolete: use AC_CANONICAL_HOST and $host_os])dnl
 case $host_os in
   *mingw32* ) MINGW32=yes;;
-          * ) MINGW32=no;;
+	  * ) MINGW32=no;;
 esac
 ])# AC_MINGW32
 
@@ -428,13 +435,13 @@ AC_BEFORE([$0], [AC_RUN_IFELSE])dnl
 AC_CHECK_HEADER(minix/config.h, MINIX=yes, MINIX=)
 if test "$MINIX" = yes; then
   AC_DEFINE(_POSIX_SOURCE, 1,
-            [Define to 1 if you need to in order for `stat' and other things to
-             work.])
+	    [Define to 1 if you need to in order for `stat' and other things to
+	     work.])
   AC_DEFINE(_POSIX_1_SOURCE, 2,
-            [Define to 2 if the system does not provide POSIX.1 features except
-             with this defined.])
+	    [Define to 2 if the system does not provide POSIX.1 features except
+	     with this defined.])
   AC_DEFINE(_MINIX, 1,
-            [Define to 1 if on MINIX.])
+	    [Define to 1 if on MINIX.])
 fi
 ])# AC_MINIX
 
@@ -453,8 +460,8 @@ AC_EGREP_CPP(yes,
 [#if defined(M_XENIX) && !defined(M_UNIX)
   yes
 @%:@endif],
-             [AC_MSG_RESULT([yes]); XENIX=yes],
-             [AC_MSG_RESULT([no]); XENIX=])
+	     [AC_MSG_RESULT([yes]); XENIX=yes],
+	     [AC_MSG_RESULT([no]); XENIX=])
 
 AC_HEADER_DIRENT[]dnl
 ])

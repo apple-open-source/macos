@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XcmsQBlk.man,v 1.2 2001/01/27 18:20:07 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XcmsQBlk.man,v 1.3 2003/04/28 22:17:58 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,45 +144,21 @@
 .SH NAME
 XcmsQueryBlack, XcmsQueryBlue, XcmsQueryGreen, XcmsQueryRed, XcmsQueryWhite \- obtain black, blue, green, red, and white CCC color specifications
 .SH SYNTAX
-Status XcmsQueryBlack\^(\^\fIccc\fP\^, \fItarget_format\fP\^, \fIcolor_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      XcmsColor *\fIcolor_return\fP\^;
-.LP
-Status XcmsQueryBlue\^(\^\fIccc\fP\^, \fItarget_format\fP\^, \fIcolor_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      XcmsColor *\fIcolor_return\fP\^;
-.LP
-Status XcmsQueryGreen\^(\^\fIccc\fP\^, \fItarget_format\fP\^, \fIcolor_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      XcmsColor *\fIcolor_return\fP\^;
-.LP
-Status XcmsQueryRed\^(\^\fIccc\fP\^, \fItarget_format\fP\^, \fIcolor_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      XcmsColor *\fIcolor_return\fP\^;
-.LP
-Status XcmsQueryWhite\^(\^\fIccc\fP\^, \fItarget_format\fP\^, \fIcolor_return\fP\^)
-.br
-      XcmsCCC \fIccc\fP\^;
-.br
-      XcmsColorFormat \fItarget_format\fP\^;
-.br
-      XcmsColor *\fIcolor_return\fP\^;
+.HP
+Status XcmsQueryBlack\^(\^XcmsCCC \fIccc\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, XcmsColor *\fIcolor_return\fP\^); 
+.HP
+Status XcmsQueryBlue\^(\^XcmsCCC \fIccc\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, XcmsColor *\fIcolor_return\fP\^); 
+.HP
+Status XcmsQueryGreen\^(\^XcmsCCC \fIccc\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, XcmsColor *\fIcolor_return\fP\^); 
+.HP
+Status XcmsQueryRed\^(\^XcmsCCC \fIccc\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, XcmsColor *\fIcolor_return\fP\^); 
+.HP
+Status XcmsQueryWhite\^(\^XcmsCCC \fIccc\fP\^, XcmsColorFormat
+\fItarget_format\fP\^, XcmsColor *\fIcolor_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIccc\fP 1i
 Specifies the CCC.

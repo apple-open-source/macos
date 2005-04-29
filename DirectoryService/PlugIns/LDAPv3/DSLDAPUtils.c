@@ -31,6 +31,7 @@
 #include <syslog.h>
 
 #include "PrivateTypes.h"
+#include "DSLDAPUtils.h"
 
 void DSSearchCleanUp (	LDAP		   *inHost,
 						int				inMsgId )
@@ -39,6 +40,7 @@ void DSSearchCleanUp (	LDAP		   *inHost,
 	LDAPMessage		   *aTestResult			= nil;
 	int					aTestLDAPReturnCode = LDAP_RES_SEARCH_ENTRY;
 
+	SetNetworkTimeoutsForHost( inHost, kLDAPDefaultNetworkTimeoutInSeconds );
 	//here we attempt to read any remaining results from this LDAP msg chain so that the ld_responses list gets cleaned up in the LDAP FW
 	if (inMsgId != 0)
 	{
@@ -55,3 +57,9 @@ void DSSearchCleanUp (	LDAP		   *inHost,
 	}
 } // DSSearchLDAP
 
+void SetNetworkTimeoutsForHost( LDAP* host, int numSeconds )
+{
+	struct timeval networkTimeout = { numSeconds, 0 };
+	ldap_set_option( host, LDAP_OPT_TIMEOUT, &networkTimeout );
+	ldap_set_option( host, LDAP_OPT_NETWORK_TIMEOUT, &networkTimeout );
+}				

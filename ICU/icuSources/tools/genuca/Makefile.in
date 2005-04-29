@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/genuca
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Source directory information
@@ -12,18 +12,20 @@ include $(top_builddir)/icudefs.mk
 
 ##
 
+TARGET_STUB_NAME = genuca
+
 SECTION = 8
 
-MAN_FILES = $(TARGET:$(EXEEXT)=).$(SECTION)
+MAN_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
 ## Build directory information
 subdir = tools/genuca
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(MAN_FILES) $(DEPS) 
+CLEANFILES = *~ $(MAN_FILES) $(DEPS)
 
 ## Target information
-TARGET = genuca$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
 LIBS = $(LIBICUI18N) $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
@@ -53,9 +55,9 @@ all-local: $(TARGET) $(MAN_FILES)
 
 install-local: all-local install-man
 	$(MKINSTALLDIRS) $(DESTDIR)$(sbindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(sbindir)
 
-<dist-local:
+dist-local:
 
 clean-local: 
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)

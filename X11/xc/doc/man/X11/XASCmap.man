@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XASCmap.man,v 1.4 2001/02/09 03:47:44 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XASCmap.man,v 1.6 2003/11/23 05:40:32 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -146,33 +146,16 @@
 .SH NAME
 XAllocStandardColormap, XSetRGBColormaps, XGetRGBColormaps, XStandardColormap \- allocate, set, or read a standard colormap structure
 .SH SYNTAX
-XStandardColormap *XAllocStandardColormap\^(\|)
-.LP
-void XSetRGBColormaps\^(\^\fIdisplay\fP, \fIw\fP, \fIstd_colormap\fP,
-\fIcount\fP, \fIproperty\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XStandardColormap *\fIstd_colormap\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      Atom \fIproperty\fP\^;
-.LP
-Status XGetRGBColormaps\^(\^\fIdisplay\fP, \fIw\fP, \fIstd_colormap_return\fP,
-\fIcount_return\fP, \fIproperty\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      XStandardColormap **\fIstd_colormap_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.br
-      Atom \fIproperty\fP\^;
+.HP
+XStandardColormap *XAllocStandardColormap\^(void\^);
+.HP
+void XSetRGBColormaps\^(\^Display *\fIdisplay\fP, Window \fIw\fP,
+XStandardColormap *\fIstd_colormap\fP,
+int \fIcount\fP, Atom \fIproperty\fP\^);
+.HP
+Status XGetRGBColormaps\^(\^Display *\fIdisplay\fP, Window \fIw\fP,
+XStandardColormap **\fIstd_colormap_return\fP, int *\fIcount_return\fP,
+Atom \fIproperty\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -300,7 +283,7 @@ The
 .ZN XStandardColormap
 structure contains:
 .LP
-/* Hints */
+/\(** Hints */
 .TS
 lw(.5i) lw(2i) lw(1i).
 T{
@@ -308,10 +291,10 @@ T{
 T}	T{
 .ZN ReleaseByFreeingColormap
 T}	T{
-( (XID) 1L)
+( (XID) 1L);
 T}
 .TE
-/* Values */
+/\(** Values */
 .IN "XStandardColormap" "" "@DEF@"
 .Ds 0
 .TA .5i 2.5i
@@ -346,7 +329,7 @@ green_max = 5, and blue_max = 5.
 .LP
 The red_mult, green_mult, and blue_mult members give the
 scale factors used to compose a full pixel value. 
-(See the discussion of the base_pixel members for further information.)
+(See the discussion of the base_pixel members for further information.);
 For a 3/3/2 allocation, red_mult might be 32,
 green_mult might be 4, and blue_mult might be 1.  
 For a 6-colors-each allocation, red_mult might be 36, 
@@ -398,7 +381,7 @@ the cells held by this standard colormap are to be released
 by freeing the colormap ID or by calling the
 .ZN XKillClient
 function on the indicated resource.
-(Note that this method is necessary for allocating out of an existing colormap.)
+(Note that this method is necessary for allocating out of an existing colormap.);
 .LP
 The properties containing the 
 .ZN XStandardColormap 

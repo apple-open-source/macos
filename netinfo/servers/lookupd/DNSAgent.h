@@ -43,6 +43,7 @@
 	BOOL allHostsEnabled;
 	BOOL localMulticast;
 	BOOL qualifyLocal;
+	BOOL dnsDebug;
 	unsigned int buffersize;
 }
 

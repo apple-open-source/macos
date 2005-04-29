@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2000,2001 Free Software Foundation, Inc.                   *
+ * Copyright (c) 2000-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -35,7 +35,7 @@
 #include <ctype.h>
 #include <termcap.h>
 
-MODULE_ID("$Id: lib_tgoto.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: lib_tgoto.c,v 1.11 2003/11/30 00:22:18 Juha.Jarvi Exp $")
 
 #if !PURE_TERMINFO
 static bool
@@ -88,7 +88,7 @@ tgoto_internal(const char *string, int x, int y)
     while (*string != 0) {
 	if ((used + need) > length) {
 	    length += (used + need);
-	    if ((result = _nc_doalloc(result, length)) == 0) {
+	    if ((result = typeRealloc(char, length, result)) == 0) {
 		length = 0;
 		break;
 	    }
@@ -155,7 +155,7 @@ tgoto_internal(const char *string, int x, int y)
 		*value = 16 * (*value / 10) + (*value % 10);
 		break;
 	    case 'D':		/* Reverse coding (Delta Data) */
-		*value -= 2 * (*value / 16);
+		*value -= 2 * (*value % 16);
 		break;
 	    }
 	    if (fmt != 0) {
@@ -172,11 +172,13 @@ tgoto_internal(const char *string, int x, int y)
 	}
 	string++;
     }
-    if (need_BC) {
-	strcpy(result + used, BC);
-	used += strlen(BC);
+    if (result != 0) {
+	if (need_BC) {
+	    strcpy(result + used, BC);
+	    used += strlen(BC);
+	}
+	result[used] = '\0';
     }
-    result[used] = '\0';
     return result;
 }
 #endif
@@ -186,8 +188,7 @@ tgoto_internal(const char *string, int x, int y)
  * the last two arguments when invoking tparm().
  */
 NCURSES_EXPORT(char *)
-tgoto
-(const char *string, int x, int y)
+tgoto(const char *string, int x, int y)
 {
     char *result;
 

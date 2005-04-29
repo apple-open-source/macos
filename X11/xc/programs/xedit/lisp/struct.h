@@ -27,12 +27,12 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/struct.h,v 1.6 2002/11/10 16:29:07 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/struct.h,v 1.7 2003/04/27 18:17:35 tsi Exp $ */
 
 #ifndef Lisp_struct_h
 #define Lisp_struct_h
 
-#include "private.h"
+#include "lisp/private.h"
 
 /*
  * Defines

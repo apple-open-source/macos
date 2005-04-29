@@ -62,11 +62,11 @@ enum {
 };
 
 typedef void (*pppoe_rfc_event_callback)(void *data, u_int32_t event, u_int32_t msg);
-typedef int (*pppoe_rfc_input_callback)(void *data, struct mbuf *m);
+typedef int (*pppoe_rfc_input_callback)(void *data, mbuf_t m);
 
 u_int16_t pppoe_rfc_init();
 u_int16_t pppoe_rfc_dispose();
-int pppoe_rfc_attach(u_short unit, u_long *dl_tag);
+int pppoe_rfc_attach(u_short unit, ifnet_t *ifpp);
 int pppoe_rfc_detach(u_short unit);
 u_int16_t pppoe_rfc_new_client(void *host, void **data,
                          pppoe_rfc_input_callback input,
@@ -77,7 +77,7 @@ void pppoe_rfc_free_client(void *data);
 u_int16_t pppoe_rfc_bind(void *data, u_int8_t *ac_name, u_int8_t *service);
 u_int16_t pppoe_rfc_connect(void *data, u_int8_t *ac_name, u_int8_t *service);
 u_int16_t pppoe_rfc_disconnect(void *data);
-u_int16_t pppoe_rfc_abort(void *data);
+u_int16_t pppoe_rfc_abort(void *data, int evt_enable);
 u_int16_t pppoe_rfc_listen(void *data);
 u_int16_t pppoe_rfc_accept(void *data);
 void pppoe_rfc_clone(void *data1, void *data2);
@@ -85,11 +85,11 @@ u_int16_t pppoe_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
 
 void pppoe_rfc_timer();
 
-u_int16_t pppoe_rfc_output(void *data, struct mbuf *m);
+u_int16_t pppoe_rfc_output(void *data, mbuf_t m);
 
 // callback from dlil layer
-void pppoe_rfc_lower_input(u_long dl_tag, struct mbuf *m, u_int8_t *from, u_int16_t typ);
-void pppoe_rfc_lower_detaching(u_long dl_tag);
+void pppoe_rfc_lower_input(ifnet_t ifp, mbuf_t m, u_int8_t *from, u_int16_t typ);
+void pppoe_rfc_lower_detaching(ifnet_t ifp);
 
 
 #endif

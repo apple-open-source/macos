@@ -1,5 +1,5 @@
 .\"***************************************************************************
-.\" Copyright (c) 1999,2000 Free Software Foundation, Inc.                   *
+.\" Copyright (c) 1999-2002,2003 Free Software Foundation, Inc.              *
 .\"                                                                          *
 .\" Permission is hereby granted, free of charge, to any person obtaining a  *
 .\" copy of this software and associated documentation files (the            *
@@ -26,21 +26,20 @@
 .\" authorization.                                                           *
 .\"***************************************************************************
 .\"
-.\" Author: Thomas E. Dickey <dickey@clark.net> 1999
+.\" Author: Thomas E. Dickey 1999
 .\"
-.\" $Id: curs_extend.3x,v 1.1.1.1 2001/11/29 20:40:53 jevans Exp $
+.\" $Id: curs_extend.3x,v 1.12 2003/10/25 20:33:16 tom Exp $
 .TH curs_extend 3X ""
 .SH NAME
 \fBcurses_version\fP,
 \fBuse_extended_names\fP \- miscellaneous curses extensions
-..
+
 .SH SYNOPSIS
 \fB#include <curses.h>\fP
 
 \fBconst char * curses_version(void);\fP
 .br
 \fBint use_extended_names(bool enable);\fP
-..
 .SH DESCRIPTION
 These functions are extensions to the curses library
 which do not fit easily into other categories.
@@ -56,17 +55,15 @@ function controls whether the calling application
 is able to use user-defined or nonstandard names
 which may be compiled into the terminfo
 description, i.e., via the terminfo or termcap interfaces.
-Normally these names are available for use, since the essential descision
-is made by using the \fB-x\fP option of \fItic\fP to compile
+Normally these names are available for use, since the essential decision
+is made by using the \fB\-x\fP option of \fItic\fP to compile
 extended terminal definitions.
 However you can disable this feature
-to ensure compatiblity with other implementations of curses
-..
+to ensure compatibility with other implementations of curses.
 .SH PORTABILITY
 These routines are specific to ncurses.  They were not supported on
 Version 7, BSD or System V implementations.  It is recommended that
 any code depending on them be conditioned using NCURSES_VERSION.
-..
 .SH SEE ALSO
 \fBcurs_getch\fR(3X),
 \fBcurs_mouse\fR(3X),
@@ -77,7 +74,6 @@ any code depending on them be conditioned using NCURSES_VERSION.
 \fBkeyok\fR(3X),
 \fBresizeterm\fR(3X),
 \fBwresize\fR(3X).
-..
 .SH AUTHOR
 Thomas Dickey.
 .\"#

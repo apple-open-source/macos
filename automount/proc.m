@@ -35,6 +35,11 @@
 #import "log.h"
 #import "AMVnode.h"
 #import "AMString.h"
+#import "Server.h"
+
+extern char *gNoLookupTarget;
+extern char *gLookupTarget;
+static char gNFSReaddir[] = "[ NFS READDIR ]";
 
 /* Some essential cheats: */
 struct svcudp_data {
@@ -115,24 +120,21 @@ nfsproc_getattr_2_svc(nfs_fh *fh, struct svc_req *req)
 	static attrstat astat;
 	struct file_handle *ifh;
 	Vnode *n;
+	char mtimestring[26];
 
 	ifh = (struct file_handle *)fh;
 
 	sys_msg(debug_proc, LOG_DEBUG, "-> getattr");
 	sys_msg(debug_proc, LOG_DEBUG, "    fh = %s", fhtoc(fh));
 
+	astat.status = NFS_OK;
+	
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "getattr for non-existent file handle %s",
+		sys_msg(debug, LOG_WARNING, "getattr for non-existent file handle %s",
 			fhtoc(fh));
 		astat.status = NFSERR_NOENT;
-	}
-	else
-	{
-		/* Allow a getattr to succeed even if a previous mount attempt was canceled: */
-		astat.status = [n nfsStatus];
-		if (astat.status == ECANCELED) astat.status = NFS_OK;
 	}
 
 	if (astat.status != NFS_OK)
@@ -143,6 +145,7 @@ nfsproc_getattr_2_svc(nfs_fh *fh, struct svc_req *req)
 
 	sys_msg(debug_proc, LOG_DEBUG, "    name = %s", [[n name] value]);
 	astat.attrstat_u.attributes = [n attributes];
+	sys_msg(debug_proc, LOG_DEBUG, "    mtime = %s", formattimevalue(&astat.attrstat_u.attributes.mtime, mtimestring, sizeof(mtimestring)));
 	if ((astat.attrstat_u.attributes.mode & S_IFMT) == S_IFLNK) {
 		sys_msg(debug_proc, LOG_DEBUG, "    (Link flags: %s; %s,%s)",
 			(astat.attrstat_u.attributes.mode & S_ISVTX) ? "trigger" : "not trigger",
@@ -162,41 +165,56 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 	struct file_handle *ifh;
 	Vnode *n;
 	String *s;
+	char mtimestring[26];
 
 	ifh = (struct file_handle *)&(args->dir);
 
 	sys_msg(debug_proc, LOG_DEBUG, "-> lookup");
+
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
+		struct authunix_parms	*aup;
+		uid_t			uid;
+
+		aup = (struct authunix_parms *)req->rq_clntcred;
+		uid = aup->aup_uid;
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	}
+	else
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = unknown");
+	}
+
 	sys_msg(debug_proc, LOG_DEBUG, "    dir fh = %s", fhtoc(&(args->dir)));
 	sys_msg(debug_proc, LOG_DEBUG, "    file = %s", args->name);
+
+	res.status = NFS_OK;
+	
+	gLookupTarget = args->name;
 
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "lookup for non-existent file handle %s",
+		sys_msg(debug, LOG_WARNING, "lookup for non-existent file handle %s",
 			fhtoc(&(args->dir)));
 		res.status = NFSERR_NOENT;
 	}
-	else res.status = [n nfsStatus];
+
 	if (res.status != NFS_OK)
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "<- lookup (error %d)", res.status);
+		gLookupTarget = gNoLookupTarget;
 		return(&res);
 	}
 
 	s = [String uniqueString:args->name];
 	n = [n lookup:s];
 	[s release];
-
-	if (n == nil) res.status = NFSERR_NOENT;
-	else
+	if (n == nil)
 	{
-		/* Allow a lookup to succeed even if a previous mount attempt was canceled: */
-		res.status = [n nfsStatus];
-		if (res.status == ECANCELED) res.status = NFS_OK;
-	}
-	if (res.status != NFS_OK)
-	{
+		res.status = NFSERR_NOENT;
 		sys_msg(debug_proc, LOG_DEBUG, "<- lookup (res=%d)", res.status);
+		gLookupTarget = gNoLookupTarget;
 		return(&res);
 	}
 
@@ -206,6 +224,7 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 		fhtoc(&res.diropres_u.diropres.file));
 
 	res.diropres_u.diropres.attributes = [n attributes];
+	sys_msg(debug_proc, LOG_DEBUG, "    mtime = %s", formattimevalue(&res.diropres_u.diropres.attributes.mtime, mtimestring, sizeof(mtimestring)));
 	if ((res.diropres_u.diropres.attributes.mode & S_IFMT) == S_IFLNK) {
 		sys_msg(debug_proc, LOG_DEBUG, "    (Link flags: %s; %s,%s)",
 			(res.diropres_u.diropres.attributes.mode & S_ISVTX) ? "trigger" : "not trigger",
@@ -214,6 +233,7 @@ nfsproc_lookup_2_svc(diropargs *args, struct svc_req *req)
 	}
 
 	sys_msg(debug_proc, LOG_DEBUG, "<- lookup");
+	gLookupTarget = gNoLookupTarget;
 	return(&res);
 }
 
@@ -224,34 +244,39 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 	struct file_handle *ifh;
 	Vnode *n;
 	unsigned int status;
-	struct authunix_parms *aup;
-	int uid;
-
-	uid = -2;
-	if (req->rq_cred.oa_flavor == AUTH_UNIX)
-	{
-		aup = (struct authunix_parms *)req->rq_clntcred;
-		uid = aup->aup_uid;
-		sys_msg(debug_proc, LOG_DEBUG, "\t uid %d requested a new link check", uid);
-	}
-	else
-	{
-		sys_msg(debug_proc, LOG_DEBUG, "\t uid unknown requested a new link check");
-	}
+	uid_t uid = -2;	/* default = nobody */
 
 	ifh = (struct file_handle *)fh;
 
 	sys_msg(debug_proc, LOG_DEBUG, "-> readlink");
+
+	if (req->rq_cred.oa_flavor == AUTH_UNIX)
+	{
+		struct authunix_parms *aup;
+
+		aup = (struct authunix_parms *)req->rq_clntcred;
+		uid = aup->aup_uid;
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	}
+	else
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = unknown");
+	}
+
 	sys_msg(debug_proc, LOG_DEBUG, "    fh = %s", fhtoc(fh));
 	rpc_xid = su_data(req->rq_xprt)->su_xid;
-	sys_msg(debug_proc, LOG_DEBUG, "	xid = 0x%08lx", rpc_xid);
+	sys_msg(debug_proc, LOG_DEBUG, "    xid = 0x%08lx", rpc_xid);
 
-	if (doing_timeout) return NULL;
+	if (doing_timeout)
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "<- readlink (doing_timeout)");
+		return NULL;
+	}
 
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "readlink for non-existent file handle %s",
+		sys_msg(debug, LOG_WARNING, "readlink for non-existent file handle %s",
 			fhtoc(fh));
 		res.status = NFSERR_NOENT;
 	}
@@ -260,19 +285,19 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 
 	if (res.status != NFS_OK)
 	{
-		return(&res);
 		sys_msg(debug_proc, LOG_DEBUG, "<- readlink (1)");
+		return(&res);
 	}
 
 	status = 0;
 #warning test here for a bad afp mount ... (i.e. disconnected)
 	if ([n type] == NFLNK)
 	{
-		sys_msg(debug_proc, LOG_DEBUG, "	NFLNK");
+		sys_msg(debug_proc, LOG_DEBUG, "    NFLNK");
 	}
 
 	if ([controller checkMountInProgressForTransaction:rpc_xid]) {
-			sys_msg(debug_proc, LOG_DEBUG, "	mount is in progress");
+			sys_msg(debug_proc, LOG_DEBUG, "    mount is in progress");
 			sys_msg(debug_proc, LOG_DEBUG, "<- [readlink abandoned]");
 			(void)usleep(100000UL);		/* Sleep for 0.1 Sec. (100,000 uSec.) */
 			return NULL;				/* Try again later... */
@@ -280,12 +305,13 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 	
 	if (([n type] == NFLNK) && (![n mounted]))
 	{
-		sys_msg(debug_proc, LOG_DEBUG, "	not mounted");
+		sys_msg(debug_proc, LOG_DEBUG, "    not mounted");
 #warning deriving internal copy of private and transport-specific xid...
 		status = [[n map] mount:n withUid:uid];
+		[[n server] reset];
 		
 		if (gBlockedMountDependency) {
-			sys_msg(debug_proc, LOG_DEBUG, "	mount is in progress; transaction id = 0x%08lx", gBlockingMountTransactionID);
+			sys_msg(debug_proc, LOG_DEBUG, "    mount is in progress; transaction id = 0x%08lx", gBlockingMountTransactionID);
 			if (gBlockingMountTransactionID == rpc_xid) {
 				/* This is a retransmission of the original readlink request
 				   that triggered the mount in the first place; best to wait
@@ -315,6 +341,7 @@ nfsproc_readlink_2_svc(nfs_fh *fh, struct svc_req *req)
 
 	sys_msg(debug_proc, LOG_DEBUG, "    name = %s", [[n name] value]);
 	res.readlinkres_u.data = [[n link] value];
+	[n markAccessTime];
 	sys_msg(debug_proc, LOG_DEBUG, "    link = %s", res.readlinkres_u.data);
 	sys_msg(debug_proc, LOG_DEBUG, "<- readlink");
 	return(&res);
@@ -341,6 +368,8 @@ nfsproc_readdir_2_svc(readdirargs *args, struct svc_req *req)
 	sys_msg(debug_proc, LOG_DEBUG, "    cookie = %u", cookie);
 	sys_msg(debug_proc, LOG_DEBUG, "    count = %u", args->count);
 
+	res.status = NFS_OK;
+	
 	/*
 	 * Free up old stuff
 	 */
@@ -356,12 +385,12 @@ nfsproc_readdir_2_svc(readdirargs *args, struct svc_req *req)
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "readdir for non-existent file handle %s",
+		sys_msg(debug, LOG_WARNING, "readdir for non-existent file handle %s",
 			fhtoc(&(args->dir)));
 		res.status = NFSERR_NOENT;
 	}
 	else if ([n type] != NFDIR) res.status = NFSERR_NOTDIR;
-	else res.status = [n nfsStatus];
+
 	if (res.status != NFS_OK)
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "<- readdir (1)");
@@ -370,6 +399,8 @@ nfsproc_readdir_2_svc(readdirargs *args, struct svc_req *req)
 
 	sys_msg(debug_proc, LOG_DEBUG, "    name = %s", [[n name] value]);
 
+	gLookupTarget = gNFSReaddir;
+	
 	list = [n dirlist];
 	nlist = [list count];
 
@@ -510,37 +541,48 @@ nfsproc_remove_2_svc(diropargs *args, struct svc_req *req)
 	String *s;
 	uid_t uid = -2;	/* default = nobody */
 	
+	sys_msg(debug_proc, LOG_DEBUG, "-> remove");
+
 	if (req->rq_cred.oa_flavor == AUTH_UNIX)
 	{
 		struct authunix_parms *aup;
+
 		aup = (struct authunix_parms *)req->rq_clntcred;
 		uid = aup->aup_uid;
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	}
+	else
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = unknown");
 	}
 
-	ifh = (struct file_handle *) &(args->dir);
-	
-	sys_msg(debug_proc, LOG_DEBUG, "-> remove");
 	sys_msg(debug_proc, LOG_DEBUG, "    dir fh = %s", fhtoc(&(args->dir)));
 	sys_msg(debug_proc, LOG_DEBUG, "    file = %s", args->name);
-	sys_msg(debug_proc, LOG_DEBUG, "	requesting uid = %ld", uid);
+
+	status = NFS_OK;
+
+	gLookupTarget = args->name;
 
 	if (uid != 0) {
-		sys_msg(debug, LOG_ERR, "remove request from unauthorized uid %ld", uid);
+		sys_msg(debug, LOG_WARNING, "remove request from unauthorized uid %ld", uid);
 		status = NFSERR_ACCES;
+		gLookupTarget = gNoLookupTarget;
 		return(&status);
 	}
 	
+	ifh = (struct file_handle *) &(args->dir);
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "remove for non-existent dir handle %s",
+		sys_msg(debug, LOG_WARNING, "remove for non-existent dir handle %s",
 			fhtoc(&(args->dir)));
 		status = NFSERR_NOENT;
 	}
-	else status = [n nfsStatus];
+
 	if (status != NFS_OK)
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "<- remove (error %d)", status);
+		gLookupTarget = gNoLookupTarget;
 		return(&status);
 	}
 
@@ -552,6 +594,7 @@ nfsproc_remove_2_svc(diropargs *args, struct svc_req *req)
 		sys_msg(debug_proc, LOG_DEBUG, "<- remove (res=%d)", status);
 	else
 		sys_msg(debug_proc, LOG_DEBUG, "<- remove");
+	gLookupTarget = gNoLookupTarget;
 	return(&status);
 }
 
@@ -581,16 +624,24 @@ nfsproc_symlink_2_svc(symlinkargs *args, struct svc_req *req)
 	static nfsstat status;
 	struct file_handle *ifh;
 	Vnode *n;
-	struct authunix_parms *aup;
 	uid_t uid = -2;	/* default = nobody */
+	char timestring[26];
+
+	sys_msg(debug_proc, LOG_DEBUG, "-> symlink");
 
 	if (req->rq_cred.oa_flavor == AUTH_UNIX)
 	{
+		struct authunix_parms *aup;
+
 		aup = (struct authunix_parms *)req->rq_clntcred;
 		uid = aup->aup_uid;
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	}
+	else
+	{
+		sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = unknown");
 	}
 
-	sys_msg(debug_proc, LOG_DEBUG, "-> symlink");
 	sys_msg(debug_proc, LOG_DEBUG, "    from.dir fh = %s", fhtoc(&(args->from.dir)));
 	sys_msg(debug_proc, LOG_DEBUG, "    from.name = %s", args->from.name);
 	sys_msg(debug_proc, LOG_DEBUG, "    to = %s", args->to);
@@ -599,13 +650,17 @@ nfsproc_symlink_2_svc(symlinkargs *args, struct svc_req *req)
 	sys_msg(debug_proc, LOG_DEBUG, "        uid = 0%ld", args->attributes.uid);
 	sys_msg(debug_proc, LOG_DEBUG, "        gid = 0%ld", args->attributes.gid);
 	sys_msg(debug_proc, LOG_DEBUG, "        size = 0x%x", args->attributes.size);
-	sys_msg(debug_proc, LOG_DEBUG, "        atime = [0x%x, 0x%x]", args->attributes.atime.seconds);
-	sys_msg(debug_proc, LOG_DEBUG, "        mtime = [0x%x, 0x%x]", args->attributes.mtime.useconds);
-	sys_msg(debug_proc, LOG_DEBUG, "    requesting uid = %ld", uid);
+	sys_msg(debug_proc, LOG_DEBUG, "        atime = %s", formattimevalue(&args->attributes.atime, timestring, sizeof(timestring)));
+	sys_msg(debug_proc, LOG_DEBUG, "        mtime = %s", formattimevalue(&args->attributes.mtime, timestring, sizeof(timestring)));
+	
+	status = NFS_OK;
+	
+	gLookupTarget = args->to;
 	
 	if (uid != 0) {
-		sys_msg(debug, LOG_ERR, "symlink request from unauthorized uid");
+		sys_msg(debug, LOG_WARNING, "symlink request from unauthorized uid");
 		status = NFSERR_ACCES;
+		gLookupTarget = gNoLookupTarget;
 		return(&status);
 	};
 	
@@ -613,24 +668,26 @@ nfsproc_symlink_2_svc(symlinkargs *args, struct svc_req *req)
 	n = [controller vnodeWithID:ifh->node_id];
 	if (n == nil)
 	{
-		sys_msg(debug, LOG_ERR, "lookup for non-existent file handle %s",
+		sys_msg(debug, LOG_WARNING, "lookup for non-existent file handle %s",
 			fhtoc(&(args->from.dir)));
 		status = NFSERR_NOENT;
 	}
-	else status = [n nfsStatus];
+
 	if (status != NFS_OK)
 	{
 		sys_msg(debug_proc, LOG_DEBUG, "<- symlink (error %d)", status);
+		gLookupTarget = gNoLookupTarget;
 		return(&status);
 	}
 
 	status = [n symlinkWithName:args->from.name to:args->to attributes:(struct nfsv2_sattr *)&args->attributes];
 
-	if (status) {
-		sys_msg(debug_proc, LOG_DEBUG, "<- symlink");
-	} else {
+	if (status != NFS_OK) {
 		sys_msg(debug_proc, LOG_DEBUG, "<- symlink (status = %d)", status);
+	} else {
+		sys_msg(debug_proc, LOG_DEBUG, "<- symlink");
 	};
+	gLookupTarget = gNoLookupTarget;
 	return(&status);
 }
 

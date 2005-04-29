@@ -59,10 +59,12 @@ static char sccsid[] = "@(#)initgroups.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
+#include <sys/syscall.h>
 
 #include <stdio.h>
 #include <unistd.h>
 #include <err.h>
+#include <pwd.h>
 
 int
 initgroups(uname, agroup)
@@ -70,14 +72,19 @@ initgroups(uname, agroup)
 	int agroup;
 {
 	int groups[NGROUPS], ngroups;
+	struct passwd *pw;
 
+	/* get the UID for this user */
+	if ((pw = getpwnam(uname)) == NULL)
+		return(-1);
+
+	/* fetch the initial (advisory) group list */
 	ngroups = NGROUPS;
-	if (getgrouplist(uname, agroup, groups, &ngroups) < 0)
-		warnx("%s is in too many groups, using first %d",
-		    uname, ngroups);
-	if (setgroups(ngroups, groups) < 0) {
-		warn("setgroups");
+	getgrouplist(uname, agroup, groups, &ngroups);
+	if (ngroups == 0)
+		return(-1);
+
+	if (syscall(SYS_initgroups, ngroups, groups, pw->pw_uid) < 0)
 		return (-1);
-	}
 	return (0);
 }

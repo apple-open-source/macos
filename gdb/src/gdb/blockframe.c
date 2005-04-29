@@ -2,8 +2,8 @@
    functions and pc values.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
-   Foundation, Inc.
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -25,7 +25,6 @@
 #include "defs.h"
 #include "symtab.h"
 #include "bfd.h"
-#include "symfile.h"
 #include "objfiles.h"
 #include "frame.h"
 #include "gdbcore.h"
@@ -38,33 +37,35 @@
 #include "dummy-frame.h"
 #include "command.h"
 #include "gdbcmd.h"
+#include "block.h"
 
 /* Prototypes for exported functions. */
 
 void _initialize_blockframe (void);
 
-/* Is ADDR inside the startup file?  Note that if your machine
-   has a way to detect the bottom of the stack, there is no need
-   to call this function from FRAME_CHAIN_VALID; the reason for
-   doing so is that some machines have no way of detecting bottom
-   of stack. 
+/* Is ADDR inside the startup file?  Note that if your machine has a
+   way to detect the bottom of the stack, there is no need to call
+   this function from DEPRECATED_FRAME_CHAIN_VALID; the reason for
+   doing so is that some machines have no way of detecting bottom of
+   stack.
 
-   A PC of zero is always considered to be the bottom of the stack. 
-   
-  APPLE LOCAL: Don't treat a PC of zero as the bottom of the stack.  If
-  you do, then you won't give a backtrace if somebody calls a NULL 
-  function pointer.  */
+   A PC of zero is always considered to be the bottom of the stack. */
 
 int
-inside_entry_file (CORE_ADDR addr)
+deprecated_inside_entry_file (CORE_ADDR addr)
 {
 #if 0
+  /* APPLE LOCAL: Don't treat a PC of zero as the bottom of the stack.  If
+     you do, then you won't give a backtrace if somebody calls a NULL 
+     function pointer.  */
   if (addr == 0)
     return 1;
 #endif
+
   if (symfile_objfile == 0)
     return 0;
-  if (CALL_DUMMY_LOCATION == AT_ENTRY_POINT)
+  if (CALL_DUMMY_LOCATION == AT_ENTRY_POINT
+      || CALL_DUMMY_LOCATION == AT_SYMBOL)
     {
       /* Do not stop backtracing if the pc is in the call dummy
          at the entry point.  */
@@ -72,43 +73,54 @@ inside_entry_file (CORE_ADDR addr)
       if (DEPRECATED_PC_IN_CALL_DUMMY (addr, 0, 0))
 	return 0;
     }
-  return (addr >= symfile_objfile->ei.entry_file_lowpc &&
-	  addr < symfile_objfile->ei.entry_file_highpc);
+  return (addr >= symfile_objfile->ei.deprecated_entry_file_lowpc &&
+	  addr < symfile_objfile->ei.deprecated_entry_file_highpc);
 }
 
-/* Test a specified PC value to see if it is in the range of addresses
-   that correspond to the main() function.  See comments above for why
-   we might want to do this.
-
-   Typically called from FRAME_CHAIN_VALID.
-
-   A PC of zero is always considered to be the bottom of the stack.
-
-  APPLE LOCAL: Don't treat a PC of zero as the bottom of the stack.  If
-  you do, then you won't give a backtrace if somebody calls a NULL 
-  function pointer.  */
+/* Test whether PC is in the range of addresses that corresponds to
+   the "main" function.  */
 
 int
 inside_main_func (CORE_ADDR pc)
 {
+  struct minimal_symbol *msymbol;
 
-#if 0
-  if (pc == 0)
-    return 1;
-#endif
   if (symfile_objfile == 0)
     return 0;
 
-  /* If the addr range is not set up at symbol reading time, set it up now.
-     This is for FRAME_CHAIN_VALID_ALTERNATE. I do this for coff, because
-     it is unable to set it up and symbol reading time. */
+  /* APPLE LOCAL:  If we've already found the start/end addrs of main,
+     don't recompute them.  This will probably be fixed in the FSF sources
+     soon too, in which case this change can be dropped.  jmolenda/2004-04-28 */
+  if (symfile_objfile->ei.main_func_lowpc != INVALID_ENTRY_LOWPC
+      && symfile_objfile->ei.main_func_highpc != INVALID_ENTRY_LOWPC)
+    return (symfile_objfile->ei.main_func_lowpc <= pc
+            && symfile_objfile->ei.main_func_highpc > pc);
 
-  if (symfile_objfile->ei.main_func_lowpc == INVALID_ENTRY_LOWPC &&
-      symfile_objfile->ei.main_func_highpc == INVALID_ENTRY_HIGHPC)
+  /* APPLE LOCAL: Don't restrict lookup_minimal_symbol's object file to
+     symfile_objfile -- this will fail for ZeroLink apps where symfile_objfile
+     is just the ZL launcher stub.  */
+
+  msymbol = lookup_minimal_symbol (main_name (), NULL, NULL);
+
+  /* If the address range hasn't been set up at symbol reading time,
+     set it up now.  */
+
+  if (msymbol != NULL
+      && symfile_objfile->ei.main_func_lowpc == INVALID_ENTRY_LOWPC
+      && symfile_objfile->ei.main_func_highpc == INVALID_ENTRY_HIGHPC)
     {
-      struct symbol *mainsym;
+      /* brobecker/2003-10-10: We used to rely on lookup_symbol() to
+	 search the symbol associated to the "main" function.
+	 Unfortunately, lookup_symbol() uses the current-language
+	 la_lookup_symbol_nonlocal function to do the global symbol
+	 search.  Depending on the language, this can introduce
+	 certain side-effects, because certain languages, for instance
+	 Ada, may find more than one match.  Therefore we prefer to
+	 search the "main" function symbol using its address rather
+	 than its name.  */
+      struct symbol *mainsym =
+	find_pc_function (SYMBOL_VALUE_ADDRESS (msymbol));
 
-      mainsym = lookup_symbol (main_name (), NULL, VAR_NAMESPACE, NULL, NULL);
       if (mainsym && SYMBOL_CLASS (mainsym) == LOC_BLOCK)
 	{
 	  symfile_objfile->ei.main_func_lowpc =
@@ -117,59 +129,103 @@ inside_main_func (CORE_ADDR pc)
 	    BLOCK_END (SYMBOL_BLOCK_VALUE (mainsym));
 	}
     }
-  return (symfile_objfile->ei.main_func_lowpc <= pc &&
-	  symfile_objfile->ei.main_func_highpc > pc);
+
+  /* Not in the normal symbol tables, see if "main" is in the partial
+     symbol table.  If it's not, then give up.  */
+  if (msymbol != NULL && MSYMBOL_TYPE (msymbol) == mst_text)
+    {
+      CORE_ADDR maddr = SYMBOL_VALUE_ADDRESS (msymbol);
+      asection *msect = SYMBOL_BFD_SECTION (msymbol);
+      struct obj_section *osect = find_pc_sect_section (maddr, msect);
+
+      if (osect != NULL)
+	{
+	  int i;
+
+	  /* Step over other symbols at this same address, and symbols
+	     in other sections, to find the next symbol in this
+	     section with a different address.  */
+	  for (i = 1; SYMBOL_LINKAGE_NAME (msymbol + i) != NULL; i++)
+	    {
+	      if (SYMBOL_VALUE_ADDRESS (msymbol + i) != maddr
+		  && SYMBOL_BFD_SECTION (msymbol + i) == msect)
+		break;
+	    }
+
+	  symfile_objfile->ei.main_func_lowpc = maddr;
+
+	  /* Use the lesser of the next minimal symbol in the same
+	     section, or the end of the section, as the end of the
+	     function.  */
+	  if (SYMBOL_LINKAGE_NAME (msymbol + i) != NULL
+	      && SYMBOL_VALUE_ADDRESS (msymbol + i) < osect->endaddr)
+	    symfile_objfile->ei.main_func_highpc =
+	      SYMBOL_VALUE_ADDRESS (msymbol + i);
+	  else
+	    /* We got the start address from the last msymbol in the
+	       objfile.  So the end address is the end of the
+	       section.  */
+	    symfile_objfile->ei.main_func_highpc = osect->endaddr;
+	}
+    }
+
+  return (symfile_objfile->ei.main_func_lowpc <= pc
+	  && symfile_objfile->ei.main_func_highpc > pc);
 }
 
-/* Test a specified PC value to see if it is in the range of addresses
-   that correspond to the process entry point function.  See comments
-   in objfiles.h for why we might want to do this.
-
-   Typically called from FRAME_CHAIN_VALID.
-
-   A PC of zero is always considered to be the bottom of the stack.
-
-  APPLE LOCAL: Don't treat a PC of zero as the bottom of the stack.  If
-  you do, then you won't give a backtrace if somebody calls a NULL 
-  function pointer.  */
+/* Test whether THIS_FRAME is inside the process entry point function.  */
 
 int
-inside_entry_func (CORE_ADDR pc)
+inside_entry_func (struct frame_info *this_frame)
 {
-#if 0
-  if (pc == 0)
-    return 1;
-#endif
+  return (get_frame_func (this_frame) == entry_point_address ());
+}
+
+/* Similar to inside_entry_func, but accomodating legacy frame code.  */
+
+static int
+legacy_inside_entry_func (CORE_ADDR pc)
+{
   if (symfile_objfile == 0)
     return 0;
+
   if (CALL_DUMMY_LOCATION == AT_ENTRY_POINT)
     {
-      /* Do not stop backtracing if the pc is in the call dummy
-         at the entry point.  */
-      /* FIXME: Won't always work with zeros for the last two arguments */
+      /* Do not stop backtracing if the program counter is in the call
+         dummy at the entry point.  */
+      /* FIXME: This won't always work with zeros for the last two
+         arguments.  */
       if (DEPRECATED_PC_IN_CALL_DUMMY (pc, 0, 0))
 	return 0;
     }
-  return (symfile_objfile->ei.entry_func_lowpc <= pc &&
-	  symfile_objfile->ei.entry_func_highpc > pc);
+
+  return (symfile_objfile->ei.entry_func_lowpc <= pc
+	  && symfile_objfile->ei.entry_func_highpc > pc);
 }
 
-/* Return nonzero if the function for this frame lacks a prologue.  Many
-   machines can define FRAMELESS_FUNCTION_INVOCATION to just call this
-   function.  */
+/* Return nonzero if the function for this frame lacks a prologue.
+   Many machines can define DEPRECATED_FRAMELESS_FUNCTION_INVOCATION
+   to just call this function.  */
 
 int
-frameless_look_for_prologue (struct frame_info *frame)
+legacy_frameless_look_for_prologue (struct frame_info *frame)
 {
-  CORE_ADDR func_start, after_prologue;
+  CORE_ADDR func_start;
 
-  func_start = get_pc_function_start (get_frame_pc (frame));
+  func_start = get_frame_func (frame);
   if (func_start)
     {
       func_start += FUNCTION_START_OFFSET;
-      /* This is faster, since only care whether there *is* a
-         prologue, not how long it is.  */
-      return PROLOGUE_FRAMELESS_P (func_start);
+      /* NOTE: cagney/2004-02-09: Eliminated per-architecture
+         PROLOGUE_FRAMELESS_P call as architectures with custom
+         implementations had all been deleted.  Eventually even this
+         function can go - GDB no longer tries to differentiate
+         between framed, frameless and stackless functions.  They are
+         all now considered equally evil :-^.  */
+      /* If skipping the prologue ends up skips nothing, there must be
+         no prologue and hence no code creating a frame.  There for
+         the function is "frameless" :-/.  */
+      return func_start == SKIP_PROLOGUE (func_start);
     }
   else if (get_frame_pc (frame) == 0)
     /* A frame with a zero PC is usually created by dereferencing a
@@ -183,31 +239,6 @@ frameless_look_for_prologue (struct frame_info *frame)
        to get a reasonable (i.e. best we can do under the
        circumstances) backtrace by saying that it isn't.  */
     return 0;
-}
-
-/* return the address of the PC for the given FRAME, ie the current PC value
-   if FRAME is the innermost frame, or the address adjusted to point to the
-   call instruction if not.  */
-
-CORE_ADDR
-frame_address_in_block (struct frame_info *frame)
-{
-  CORE_ADDR pc = get_frame_pc (frame);
-
-  /* If we are not in the innermost frame, and we are not interrupted
-     by a signal, frame->pc points to the instruction following the
-     call. As a consequence, we need to get the address of the previous
-     instruction. Unfortunately, this is not straightforward to do, so
-     we just use the address minus one, which is a good enough
-     approximation.  */
-  /* FIXME: cagney/2002-11-10: Should this instead test for
-     NORMAL_FRAME?  A dummy frame (in fact all the abnormal frames)
-     save the PC value in the block.  */
-  if (get_next_frame (frame) != 0
-      && get_frame_type (get_next_frame (frame)) != SIGTRAMP_FRAME)
-    --pc;
-
-  return pc;
 }
 
 /* Return the innermost lexical block in execution
@@ -229,7 +260,7 @@ frame_address_in_block (struct frame_info *frame)
 struct block *
 get_frame_block (struct frame_info *frame, CORE_ADDR *addr_in_block)
 {
-  const CORE_ADDR pc = frame_address_in_block (frame);
+  const CORE_ADDR pc = get_frame_address_in_block (frame);
 
   if (addr_in_block)
     *addr_in_block = pc;
@@ -240,28 +271,31 @@ get_frame_block (struct frame_info *frame, CORE_ADDR *addr_in_block)
 CORE_ADDR
 get_pc_function_start (CORE_ADDR pc)
 {
-  register struct block *bl;
-  register struct symbol *symbol;
-  register struct minimal_symbol *msymbol;
-  CORE_ADDR fstart;
+  struct block *bl;
+  struct minimal_symbol *msymbol;
 
-  if ((bl = block_for_pc (pc)) != NULL &&
-      (symbol = block_function (bl)) != NULL)
+  bl = block_for_pc (pc);
+  if (bl)
     {
-      bl = SYMBOL_BLOCK_VALUE (symbol);
-      fstart = BLOCK_START (bl);
+      struct symbol *symbol = block_function (bl);
+
+      if (symbol)
+	{
+	  bl = SYMBOL_BLOCK_VALUE (symbol);
+	  return BLOCK_START (bl);
+	}
     }
-  else if ((msymbol = lookup_minimal_symbol_by_pc (pc)) != NULL)
+
+  msymbol = lookup_minimal_symbol_by_pc (pc);
+  if (msymbol)
     {
-      fstart = SYMBOL_VALUE_ADDRESS (msymbol);
-      if (!find_pc_section (fstart))
-	return 0;
+      CORE_ADDR fstart = SYMBOL_VALUE_ADDRESS (msymbol);
+
+      if (find_pc_section (fstart))
+	return fstart;
     }
-  else
-    {
-      fstart = 0;
-    }
-  return (fstart);
+
+  return 0;
 }
 
 /* Return the symbol for the function executing in frame FRAME.  */
@@ -269,110 +303,20 @@ get_pc_function_start (CORE_ADDR pc)
 struct symbol *
 get_frame_function (struct frame_info *frame)
 {
-  register struct block *bl = get_frame_block (frame, 0);
+  struct block *bl = get_frame_block (frame, 0);
   if (bl == 0)
     return 0;
   return block_function (bl);
 }
 
 
-/* Return the blockvector immediately containing the innermost lexical block
-   containing the specified pc value and section, or 0 if there is none.
-   PINDEX is a pointer to the index value of the block.  If PINDEX
-   is NULL, we don't pass this information back to the caller.  */
-
-struct blockvector *
-blockvector_for_pc_sect (register CORE_ADDR pc, struct sec *section,
-			 int *pindex, struct symtab *symtab)
-{
-  register struct block *b;
-  register int bot, top, half;
-  struct blockvector *bl;
-
-  if (symtab == 0)		/* if no symtab specified by caller */
-    {
-      /* First search all symtabs for one whose file contains our pc */
-      if ((symtab = find_pc_sect_symtab (pc, section)) == 0)
-	return 0;
-    }
-
-  bl = BLOCKVECTOR (symtab);
-  b = BLOCKVECTOR_BLOCK (bl, 0);
-
-  /* Then search that symtab for the smallest block that wins.  */
-  /* Use binary search to find the last block that starts before PC.  */
-
-  bot = 0;
-  top = BLOCKVECTOR_NBLOCKS (bl);
-
-  while (top - bot > 1)
-    {
-      half = (top - bot + 1) >> 1;
-      b = BLOCKVECTOR_BLOCK (bl, bot + half);
-      if (BLOCK_START (b) <= pc)
-	bot += half;
-      else
-	top = bot + half;
-    }
-
-  /* Now search backward for a block that ends after PC.  */
-
-  while (bot >= 0)
-    {
-      b = BLOCKVECTOR_BLOCK (bl, bot);
-      if (BLOCK_END (b) >= pc)
-	{
-	  if (pindex)
-	    *pindex = bot;
-	  return bl;
-	}
-      bot--;
-    }
-  return 0;
-}
-
-/* Return the blockvector immediately containing the innermost lexical block
-   containing the specified pc value, or 0 if there is none.
-   Backward compatibility, no section.  */
-
-struct blockvector *
-blockvector_for_pc (register CORE_ADDR pc, int *pindex)
-{
-  return blockvector_for_pc_sect (pc, find_pc_mapped_section (pc),
-				  pindex, NULL);
-}
-
-/* Return the innermost lexical block containing the specified pc value
-   in the specified section, or 0 if there is none.  */
-
-struct block *
-block_for_pc_sect (register CORE_ADDR pc, struct sec *section)
-{
-  register struct blockvector *bl;
-  int index;
-
-  bl = blockvector_for_pc_sect (pc, section, &index, NULL);
-  if (bl)
-    return BLOCKVECTOR_BLOCK (bl, index);
-  return 0;
-}
-
-/* Return the innermost lexical block containing the specified pc value,
-   or 0 if there is none.  Backward compatibility, no section.  */
-
-struct block *
-block_for_pc (register CORE_ADDR pc)
-{
-  return block_for_pc_sect (pc, find_pc_mapped_section (pc));
-}
-
 /* Return the function containing pc value PC in section SECTION.
    Returns 0 if function is not known.  */
 
 struct symbol *
-find_pc_sect_function (CORE_ADDR pc, struct sec *section)
+find_pc_sect_function (CORE_ADDR pc, struct bfd_section *section)
 {
-  register struct block *b = block_for_pc_sect (pc, section);
+  struct block *b = block_for_pc_sect (pc, section);
   if (b == 0)
     return 0;
   return block_function (b);
@@ -393,7 +337,7 @@ find_pc_function (CORE_ADDR pc)
 static CORE_ADDR cache_pc_function_low = 0;
 static CORE_ADDR cache_pc_function_high = 0;
 static char *cache_pc_function_name = 0;
-static struct sec *cache_pc_function_section = NULL;
+static struct bfd_section *cache_pc_function_section = NULL;
 
 /* Clear cache, e.g. when symbol table is discarded. */
 
@@ -472,7 +416,7 @@ find_pc_sect_partial_function (CORE_ADDR pc, asection *section, char **name,
 	    {
 	      cache_pc_function_low = BLOCK_START (SYMBOL_BLOCK_VALUE (f));
 	      cache_pc_function_high = BLOCK_END (SYMBOL_BLOCK_VALUE (f));
-	      cache_pc_function_name = SYMBOL_NAME (f);
+	      cache_pc_function_name = DEPRECATED_SYMBOL_NAME (f);
 	      cache_pc_function_section = section;
 	      goto return_cached_value;
 	    }
@@ -493,7 +437,7 @@ find_pc_sect_partial_function (CORE_ADDR pc, asection *section, char **name,
 	      if (address)
 		*address = SYMBOL_VALUE_ADDRESS (psb);
 	      if (name)
-		*name = SYMBOL_NAME (psb);
+		*name = DEPRECATED_SYMBOL_NAME (psb);
 	      /* endaddr non-NULL can't happen here.  */
 	      return 1;
 	    }
@@ -524,7 +468,7 @@ find_pc_sect_partial_function (CORE_ADDR pc, asection *section, char **name,
     }
 
   cache_pc_function_low = SYMBOL_VALUE_ADDRESS (msymbol);
-  cache_pc_function_name = SYMBOL_NAME (msymbol);
+  cache_pc_function_name = DEPRECATED_SYMBOL_NAME (msymbol);
   cache_pc_function_section = section;
 
   /* Use the lesser of the next minimal symbol in the same section, or
@@ -534,14 +478,14 @@ find_pc_sect_partial_function (CORE_ADDR pc, asection *section, char **name,
      other sections, to find the next symbol in this section with
      a different address.  */
 
-  for (i = 1; SYMBOL_NAME (msymbol + i) != NULL; i++)
+  for (i = 1; DEPRECATED_SYMBOL_NAME (msymbol + i) != NULL; i++)
     {
       if (SYMBOL_VALUE_ADDRESS (msymbol + i) != SYMBOL_VALUE_ADDRESS (msymbol)
 	  && SYMBOL_BFD_SECTION (msymbol + i) == SYMBOL_BFD_SECTION (msymbol))
 	break;
     }
 
-  if (SYMBOL_NAME (msymbol + i) != NULL
+  if (DEPRECATED_SYMBOL_NAME (msymbol + i) != NULL
       && SYMBOL_VALUE_ADDRESS (msymbol + i) < osect->endaddr)
     cache_pc_function_high = SYMBOL_VALUE_ADDRESS (msymbol + i);
   else
@@ -587,10 +531,24 @@ int
 find_pc_partial_function (CORE_ADDR pc, char **name, CORE_ADDR *address,
 			  CORE_ADDR *endaddr)
 {
-  asection *section;
+  struct bfd_section *bfd_section;
 
-  section = find_pc_overlay (pc);
-  return find_pc_sect_partial_function (pc, section, name, address, endaddr);
+  /* To ensure that the symbol returned belongs to the correct setion
+     (and that the last [random] symbol from the previous section
+     isn't returned) try to find the section containing PC.  First try
+     the overlay code (which by default returns NULL); and second try
+     the normal section code (which almost always succeeds).  */
+  bfd_section = find_pc_overlay (pc);
+  if (bfd_section == NULL)
+    {
+      struct obj_section *obj_section = find_pc_section (pc);
+      if (obj_section == NULL)
+	bfd_section = NULL;
+      else
+	bfd_section = obj_section->the_bfd_section;
+    }
+  return find_pc_sect_partial_function (pc, bfd_section, name, address,
+					endaddr);
 }
 
 /* Return the innermost stack frame executing inside of BLOCK,
@@ -600,8 +558,8 @@ struct frame_info *
 block_innermost_frame (struct block *block)
 {
   struct frame_info *frame;
-  register CORE_ADDR start;
-  register CORE_ADDR end;
+  CORE_ADDR start;
+  CORE_ADDR end;
   CORE_ADDR calling_pc;
 
   if (block == NULL)
@@ -616,7 +574,7 @@ block_innermost_frame (struct block *block)
       frame = get_prev_frame (frame);
       if (frame == NULL)
 	return NULL;
-      calling_pc = frame_address_in_block (frame);
+      calling_pc = get_frame_address_in_block (frame);
       if (calling_pc >= start && calling_pc < end)
 	return frame;
     }
@@ -630,14 +588,14 @@ block_innermost_frame (struct block *block)
    top of the stack frame which we are checking, where "bottom" and
    "top" refer to some section of memory which contains the code for
    the call dummy.  Calls to this macro assume that the contents of
-   SP_REGNUM and FP_REGNUM (or the saved values thereof), respectively,
-   are the things to pass.
+   SP_REGNUM and DEPRECATED_FP_REGNUM (or the saved values thereof),
+   respectively, are the things to pass.
 
-   This won't work on the 29k, where SP_REGNUM and FP_REGNUM don't
-   have that meaning, but the 29k doesn't use ON_STACK.  This could be
-   fixed by generalizing this scheme, perhaps by passing in a frame
-   and adding a few fields, at least on machines which need them for
-   DEPRECATED_PC_IN_CALL_DUMMY.
+   This won't work on the 29k, where SP_REGNUM and
+   DEPRECATED_FP_REGNUM don't have that meaning, but the 29k doesn't
+   use ON_STACK.  This could be fixed by generalizing this scheme,
+   perhaps by passing in a frame and adding a few fields, at least on
+   machines which need them for DEPRECATED_PC_IN_CALL_DUMMY.
 
    Something simpler, like checking for the stack segment, doesn't work,
    since various programs (threads implementations, gcc nested function
@@ -657,16 +615,16 @@ int
 deprecated_pc_in_call_dummy_at_entry_point (CORE_ADDR pc, CORE_ADDR sp,
 					    CORE_ADDR frame_address)
 {
-  return ((pc) >= CALL_DUMMY_ADDRESS ()
-	  && (pc) <= (CALL_DUMMY_ADDRESS () + DECR_PC_AFTER_BREAK));
+  CORE_ADDR addr = entry_point_address ();
+  return ((pc) >= addr && (pc) <= (addr + DECR_PC_AFTER_BREAK));
 }
 
-/* Function: frame_chain_valid 
-   Returns true for a user frame or a call_function_by_hand dummy frame,
-   and false for the CRT0 start-up frame.  Purpose is to terminate backtrace.  */
+/* Returns true for a user frame or a call_function_by_hand dummy
+   frame, and false for the CRT0 start-up frame.  Purpose is to
+   terminate backtrace.  */
 
 int
-frame_chain_valid (CORE_ADDR fp, struct frame_info *fi)
+legacy_frame_chain_valid (CORE_ADDR fp, struct frame_info *fi)
 {
   /* Don't prune CALL_DUMMY frames.  */
   if (DEPRECATED_USE_GENERIC_DUMMY_FRAMES
@@ -682,21 +640,22 @@ frame_chain_valid (CORE_ADDR fp, struct frame_info *fi)
   if (INNER_THAN (fp, get_frame_base (fi)))
     return 0;
   
+  /* If the architecture has a custom DEPRECATED_FRAME_CHAIN_VALID,
+     call it now.  */
+  if (DEPRECATED_FRAME_CHAIN_VALID_P ())
+    return DEPRECATED_FRAME_CHAIN_VALID (fp, fi);
+
   /* If we're already inside the entry function for the main objfile, then it
      isn't valid.  */
-  if (inside_entry_func (get_frame_pc (fi)))
+  if (legacy_inside_entry_func (get_frame_pc (fi)))
     return 0;
 
   /* If we're inside the entry file, it isn't valid.  */
   /* NOTE/drow 2002-12-25: should there be a way to disable this check?  It
      assumes a single small entry file, and the way some debug readers (e.g.
      dbxread) figure out which object is the entry file is somewhat hokey.  */
-  if (inside_entry_file (frame_pc_unwind (fi)))
+  if (deprecated_inside_entry_file (frame_pc_unwind (fi)))
       return 0;
-
-  /* If the architecture has a custom FRAME_CHAIN_VALID, call it now.  */
-  if (FRAME_CHAIN_VALID_P ())
-    return FRAME_CHAIN_VALID (fp, fi);
 
   return 1;
 }

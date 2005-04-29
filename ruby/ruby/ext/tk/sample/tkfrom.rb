@@ -1,4 +1,4 @@
-#! /usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 require "parsedate"
 require "base64"
@@ -20,22 +20,22 @@ class Mail
   def initialize(f)
     @header = {}
     @body = []
-    while f.gets()
+    while line = f.gets()
       $_.chop!
-      next if /^From /		# skip From-line  
-      break if /^$/		# end of header
-      if /^(\S+):\s*(.*)/
-	@header[attr = $1.capitalize] = $2
+      next if /^From / =~ line  # skip From-line  
+      break if /^$/ =~ line     # end of header
+      if /^(\S+):\s*(.*)/ =~ line
+        @header[attr = $1.capitalize] = $2
       elsif attr
-	sub(/^\s*/, '')
-	@header[attr] += "\n" + $_
+        sub(/^\s*/, '')
+        @header[attr] += "\n" + $_
       end
     end
 
-    return if ! $_
+    return unless $_
 
-    while f.gets()
-      break if /^From /
+    while line = f.gets()
+      break if /^From / =~ line
       @body.push($_)
     end
   end
@@ -54,9 +54,9 @@ if ARGV.length == 0
   if ENV['MAIL']
     ARGV[0] = ENV['MAIL']
   elsif ENV['USER']
-    ARGV[0] = '/usr/spool/mail/' + ENV['USER']
+    ARGV[0] = '/var/spool/mail/' + ENV['USER']
   elsif ENV['LOGNAME']
-    ARGV[0] = '/usr/spool/mail/' + ENV['LOGNAME']
+    ARGV[0] = '/var/spool/mail/' + ENV['LOGNAME']
   end
 end
 
@@ -64,8 +64,8 @@ require "tk"
 list = scroll = nil
 TkFrame.new{|f|
   list = TkListbox.new(f) {
-    yscroll proc{|idx|
-	scroll.set *idx
+    yscroll proc{|*idx|
+        scroll.set *idx
     }
     relief 'raised'
 #    geometry "80x5"
@@ -94,7 +94,7 @@ root.bind "space", proc{exit}
 
 $outcount = 0;
 for file in ARGV
-  next if File.exist?(file)
+  next unless File.exist?(file)
   atime = File.atime(file)
   mtime = File.mtime(file)
   f = open(file, "r")

@@ -1,11 +1,10 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vb.h,v 1.2 2002/02/22 21:32:59 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vb.h,v 1.3 2003/09/28 20:15:08 alanh Exp $ */
 
 #ifndef _FFB_VB_H
 #define _FFB_VB_H
 
 #include "mtypes.h"
 #include "macros.h"
-#include "mmath.h"
 #include "tnl/t_context.h"
 #include "swrast/swrast.h"
 

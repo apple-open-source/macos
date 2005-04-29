@@ -47,6 +47,7 @@
 #define PPP_LINK_DEL_AC		0x00000001	/* link doesn't want address and control bytes */
 #define PPP_LINK_ASYNC		0x00000002	/* link does asynchronous framing */
 #define PPP_LINK_ERRORDETECT	0x00000004	/* link does error detection */
+#define PPP_LINK_OOB_QUEUE	0x00000008	/* link support out-of-band priority queue */
 
 
 /* miscellaneous debug flags */
@@ -60,7 +61,7 @@ struct ppp_link {
     TAILQ_ENTRY(ppp_link) lk_next; 		/* all struct ppp_link are chained */
     TAILQ_ENTRY(ppp_link) lk_bdl_next; 		/* all struct ppp_link for an ifnet bundle are chained */
     u_int16_t		lk_index;		/* unit number, given by ppp at register time */
-    struct ifnet	*lk_ifnet;		/* associated ppp ifnet structure */
+    ifnet_t			lk_ifnet;		/* associated ppp ifnet structure */
     void 		*lk_ppp_private;	/* ppp private data */
 
     /* link information, provided by the link driver when attaching */
@@ -76,7 +77,7 @@ struct ppp_link {
    
     /* link specific functions, called by the ppp driver */
     int			(*lk_output)		/* output function */
-                            (struct ppp_link *link, struct mbuf *m);
+                            (struct ppp_link *link, mbuf_t m);
     int			(*lk_ioctl)		/* control function */
                             (struct ppp_link *link, u_int32_t cmd, void *data);    
 
@@ -105,10 +106,10 @@ struct ppp_link {
 int ppp_link_attach(struct ppp_link *link);
 int ppp_link_detach(struct ppp_link *link);
 
-int ppp_link_input(struct ppp_link *link, struct mbuf *m);
+int ppp_link_input(struct ppp_link *link, mbuf_t m);
 int ppp_link_event(struct ppp_link *link, u_int32_t event, void *data);
 
-void ppp_link_logmbuf(struct ppp_link *link, char *msg, struct mbuf *m);
+void ppp_link_logmbuf(struct ppp_link *link, char *msg, mbuf_t m);
 
 #endif /* KERNEL */
 

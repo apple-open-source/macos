@@ -108,22 +108,22 @@ struct old_i386_kernel_sigaction {
 	void (*sa_restorer) (void);
 };
 
-#define INIT_SEGV						\
-do								\
-  {								\
-    nullp = new java::lang::NullPointerException ();    	\
+#define INIT_SEGV					\
+do							\
+  {							\
+    nullp = new java::lang::NullPointerException ();	\
     struct old_i386_kernel_sigaction kact;		\
     kact.k_sa_handler = catch_segv;			\
     kact.k_sa_mask = 0;					\
     kact.k_sa_flags = 0;				\
     syscall (SYS_sigaction, SIGSEGV, &kact, NULL);	\
-  }								\
+  }							\
 while (0)  
 
 #define INIT_FPE						\
 do								\
-  { 								\
-    arithexception = new java::lang::ArithmeticException 	\
+  {								\
+    arithexception = new java::lang::ArithmeticException	\
       (JvNewStringLatin1 ("/ by zero"));			\
     struct old_i386_kernel_sigaction kact;			\
     kact.k_sa_handler = catch_fpe;				\

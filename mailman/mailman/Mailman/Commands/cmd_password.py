@@ -1,4 +1,4 @@
-# Copyright (C) 2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2002-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -49,6 +49,8 @@ def process(res, args):
         if mlist.isMember(address):
             password = mlist.getMemberPassword(address)
             res.results.append(_('Your password is: %(password)s'))
+            # Prohibit multiple password retrievals.
+            return STOP
         else:
             listname = mlist.real_name
             res.results.append(
@@ -62,6 +64,8 @@ def process(res, args):
         if mlist.isMember(address):
             password = mlist.getMemberPassword(address)
             res.results.append(_('Your password is: %(password)s'))
+            # Prohibit multiple password retrievals.
+            return STOP
         else:
             listname = mlist.real_name
             res.results.append(

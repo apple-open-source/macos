@@ -1,9 +1,9 @@
 /*
- * "$Id: filter.c,v 1.1.1.7 2002/12/24 00:07:29 jlovell Exp $"
+ * "$Id: filter.c,v 1.11 2005/01/27 01:06:40 jlovell Exp $"
  *
  *   File type conversion routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,18 +15,18 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
  * Contents:
  *
- *   mimeAddFilter() - Add a filter to the current MIME database.
- *   mimeFilter()    - Find the fastest way to convert from one type to another.
- *   compare()       - Compare two filter types...
- *   lookup()        - Lookup a filter...
+ *   mimeAddFilter()  - Add a filter to the current MIME database.
+ *   mimeFilter()     - Find the fastest way to convert from one type to another.
+ *   filter_compare() - Compare two filter types...
+ *   lookup()         - Lookup a filter...
  */
 
 /*
@@ -46,7 +46,7 @@
  * Local functions...
  */
 
-static int		compare(mime_filter_t *, mime_filter_t *);
+static int		filter_compare(mime_filter_t *, mime_filter_t *);
 static mime_filter_t	*lookup(mime_t *, mime_type_t *, mime_type_t *);
 
 
@@ -120,8 +120,8 @@ mimeAddFilter(mime_t      *mime,	/* I - MIME database */
     strlcpy(temp->filter, filter, sizeof(temp->filter));
 
     if (mime->num_filters > 1)
-      qsort(mime->filters, mime->num_filters, sizeof(mime_filter_t),
-            (int (*)(const void *, const void *))compare);
+      mergesort(mime->filters, mime->num_filters, sizeof(mime_filter_t),
+            (int (*)(const void *, const void *))filter_compare);
   }
 
  /*
@@ -136,22 +136,23 @@ mimeAddFilter(mime_t      *mime,	/* I - MIME database */
  * 'mimeFilter()' - Find the fastest way to convert from one type to another.
  */
 
-mime_filter_t *				/* O - Array of filters to run */
-mimeFilter(mime_t      *mime,		/* I - MIME database */
-           mime_type_t *src,		/* I - Source file type */
-	   mime_type_t *dst,		/* I - Destination file type */
-           int         *num_filters,	/* O - Number of filters to run */
-	   int         max_depth)       /* I - Maximum depth of search */
+mime_filter_t *				  /* O - Array of filters to run */
+mimeFilter(mime_t	    *mime,	  /* I - MIME database */
+           mime_type_t	    *src,	  /* I - Source file type */
+	   mime_type_t	    *dst,	  /* I - Destination file type */
+           int		    *num_filters, /* O - Number of filters to run */
+	   mime_type_list_t *list)	  /* I - List of current solution path */
 {
-  int		i, j,			/* Looping vars */
-		num_temp,		/* Number of temporary filters */
-		num_mintemp,		/* Number of filters in the minimum */
-		cost,			/* Current cost */
-		mincost;		/* Current minimum */
-  mime_filter_t	*temp,			/* Temporary filter */
-		*mintemp,		/* Current minimum */
-		*current;		/* Current filter */
-
+  int		    i, j,		/* Looping vars */
+		    num_temp,		/* Number of temporary filters */
+		    num_mintemp,	/* Number of filters in the minimum */
+		    cost,		/* Current cost */
+		    mincost;		/* Current minimum */
+  mime_filter_t	    *temp,		/* Temporary filter */
+		    *mintemp,		/* Current minimum */
+		    *current;		/* Current filter */
+  mime_type_list_t  leaf,		/* Current leaf node in solution path */
+		    *p;			/* List walking var */
 
  /*
   * Range-check the input...
@@ -162,8 +163,7 @@ mimeFilter(mime_t      *mime,		/* I - MIME database */
 		dst, dst ? dst->super : "?", dst ? dst->type : "?",
 		num_filters, num_filters ? *num_filters : 0));
 
-  if (mime == NULL || src == NULL || dst == NULL || num_filters == NULL ||
-      max_depth <= 0)
+  if (mime == NULL || src == NULL || dst == NULL || num_filters == NULL)
     return (NULL);
 
   *num_filters = 0;
@@ -200,59 +200,84 @@ mimeFilter(mime_t      *mime,		/* I - MIME database */
   }
 
  /*
+  * The leaf is the head of the stack based soultion list...
+  */
+
+  leaf.next = list;
+
+ /*
   * OK, now look for filters from the source type to any other type...
   */
 
   for (i = mime->num_filters, current = mime->filters;
        i > 0;
        i --, current ++)
-    if (current->src == src)
+  {
+    if (current->src != src)
+      continue;
+
+   /*
+    * Walk the current solution list to see if this destination type is already
+    * used as a source type; if it is then avoid the resulting mutual recursion.
+    */
+
+    for (p = list; p != NULL; p = p->next)
+      if (current->dst == p->src)
+        break;
+
+    if (p)
     {
-     /*
-      * See if we have any filters that can convert from the destination type
-      * of this filter to the final type...
-      */
-
-      if ((temp = mimeFilter(mime, current->dst, dst, &num_temp,
-                             max_depth - 1)) == NULL)
-        continue;
-
-     /*
-      * Found a match; see if this one is less costly than the last (if
-      * any...)
-      */
-
-      for (j = 0, cost = 0; j < num_temp; j ++)
-        cost += temp[j].cost;
-
-      if (cost < mincost)
-      {
-        if (mintemp != NULL)
-	  free(mintemp);
-
-       /*
-	* Hey, we got a match!  Add the current filter to the beginning of the
-	* filter list...
-	*/
-
-	mintemp = (mime_filter_t *)realloc(temp, sizeof(mime_filter_t) *
-                                                 (num_temp + 1));
-
-	if (mintemp == NULL)
-	{
-	  *num_filters = 0;
-	  return (NULL);
-	}
-
-	memmove(mintemp + 1, mintemp, num_temp * sizeof(mime_filter_t));
-	memcpy(mintemp, current, sizeof(mime_filter_t));
-
-	num_mintemp = num_temp + 1;
-	mincost     = cost;
-      }
-      else
-        free(temp);
+      DEBUG_printf(("short circuiting the %s/%s mutual recursion loop\n", p->src->super, p->src->type));
+      continue;
     }
+
+   /*
+    * See if we have any filters that can convert from the destination type
+    * of this filter to the final type...
+    */
+
+    leaf.src = current->src;
+
+    if ((temp = mimeFilter(mime, current->dst, dst, &num_temp,
+                           &leaf)) == NULL)
+      continue;
+
+   /*
+    * Found a match; see if this one is less costly than the last (if
+    * any...)
+    */
+
+    for (j = 0, cost = 0; j < num_temp; j ++)
+      cost += temp[j].cost;
+
+    if (cost < mincost)
+    {
+      if (mintemp != NULL)
+	free(mintemp);
+
+     /*
+      * Hey, we got a match!  Add the current filter to the beginning of the
+      * filter list...
+      */
+
+      mintemp = (mime_filter_t *)realloc(temp, sizeof(mime_filter_t) *
+                                               (num_temp + 1));
+
+      if (mintemp == NULL)
+      {
+	*num_filters = 0;
+	return (NULL);
+      }
+
+      memmove(mintemp + 1, mintemp, num_temp * sizeof(mime_filter_t));
+      memcpy(mintemp, current, sizeof(mime_filter_t));
+
+      num_mintemp = num_temp + 1;
+      mincost     = cost;
+    }
+    else
+      free(temp);
+  }
 
   if (mintemp != NULL)
   {
@@ -278,14 +303,14 @@ mimeFilter(mime_t      *mime,		/* I - MIME database */
 
 
 /*
- * 'compare()' - Compare two filter types...
+ * 'filter_compare()' - Compare two filter types...
  */
 
-static int			/* O - Comparison result */
-compare(mime_filter_t *f0,	/* I - First filter */
-        mime_filter_t *f1)	/* I - Second filter */
+static int				/* O - Comparison result */
+filter_compare(mime_filter_t *f0,	/* I - First filter */
+	       mime_filter_t *f1)	/* I - Second filter */
 {
-  int	i;			/* Result of comparison */
+  int	i;				/* Result of comparison */
 
 
   if ((i = strcmp(f0->src->super, f1->src->super)) == 0)
@@ -317,10 +342,10 @@ lookup(mime_t      *mime,	/* I - MIME database */
 
   return ((mime_filter_t *)bsearch(&key, mime->filters, mime->num_filters,
                                    sizeof(mime_filter_t),
-				   (int (*)(const void *, const void *))compare));
+				   (int (*)(const void *, const void *))filter_compare));
 }
 
 
 /*
- * End of "$Id: filter.c,v 1.1.1.7 2002/12/24 00:07:29 jlovell Exp $".
+ * End of "$Id: filter.c,v 1.11 2005/01/27 01:06:40 jlovell Exp $".
  */

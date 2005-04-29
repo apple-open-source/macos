@@ -1,0 +1,401 @@
+//Microsoft App Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+#ifdef APSTUDIO_INVOKED
+//////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""res\\catfish.rc2""  // non-App Studio edited resources\r\n"
+    "\r\n"
+    "#include ""afxres.rc""  // Standard components\r\n"
+    "\0"
+END
+
+/////////////////////////////////////////////////////////////////////////////////////
+#endif    // APSTUDIO_INVOKED
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+AFX_IDI_STD_FRAME       ICON    DISCARDABLE     "RES\\CATFISH.ICO"
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_MAIN_DIALOG DIALOG DISCARDABLE  27, 36, 327, 241
+STYLE WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_CAPTION | WS_SYSMENU | 
+    WS_THICKFRAME
+CAPTION "Welcome to CatFish - press F1 for help"
+MENU IDD_MAIN_DIALOG
+CLASS "CATFISHCLASS"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Catalog",IDC_CAT_LABEL,7,5,30,8
+    LISTBOX         IDC_CAT_LIST,7,17,175,80,LBS_OWNERDRAWFIXED | 
+                    LBS_NOINTEGRALHEIGHT | LBS_WANTKEYBOARDINPUT | 
+                    LBS_DISABLENOSCROLL | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Saved on",IDC_CAT_SAVED_LABEL,138,5,32,8
+    LTEXT           "&Directory",IDC_DIR_LABEL,7,125,36,8
+    LISTBOX         IDC_TREE_LIST,7,137,175,88,LBS_OWNERDRAWFIXED | 
+                    LBS_NOINTEGRALHEIGHT | LBS_WANTKEYBOARDINPUT | 
+                    LBS_DISABLENOSCROLL | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Totals",IDC_DIR_TOT_LABEL,62,125,27,8
+    LTEXT           "Dirs",IDC_DIR_COUNT_LABEL,98,125,18,8
+    LTEXT           "Files",IDC_DIR_FILES_LABEL,121,125,19,8
+    LTEXT           "Newest",IDC_DIR_NEWEST_LABEL,146,125,32,8
+    LTEXT           "File &name (+)",IDC_NAME_LABEL,192,5,51,8
+    LISTBOX         IDC_FILE_LIST,191,17,130,208,LBS_OWNERDRAWFIXED | 
+                    LBS_NOINTEGRALHEIGHT | LBS_WANTKEYBOARDINPUT | 
+                    LBS_DISABLENOSCROLL | WS_VSCROLL | WS_TABSTOP
+    RTEXT           "Size (+)",IDC_SIZE_LABEL,243,5,33,8
+    LTEXT           "Date (+)",IDC_DATE_LABEL,292,5,31,8
+    CONTROL         "Freeware by Jean-Claude Wippler, Equi4 Software.",
+                    IDC_MSG_TEXT,"Static",SS_LEFTNOWORDWRAP | SS_NOPREFIX | 
+                    WS_GROUP,6,230,179,8
+    CONTROL         "",IDC_INFO_TEXT,"Static",SS_LEFTNOWORDWRAP | 
+                    SS_NOPREFIX | WS_GROUP,191,230,125,8
+    LTEXT           "Free",IDC_CAT_FREE_LABEL,103,5,27,8
+    LTEXT           "Disk size",IDC_CAT_SIZE_LABEL,56,5,40,8
+    DEFPUSHBUTTON   "Find...",IDC_FIND_BTN,137,107,45,12,NOT WS_TABSTOP
+    PUSHBUTTON      "Scan...",IDC_SETUP_BTN,6,107,45,12,NOT WS_TABSTOP
+    CONTROL         "",IDC_LOGO_BTN,"Button",BS_OWNERDRAW,68,107,54,14
+END
+
+FILEOPENORD DIALOG DISCARDABLE  109, 35, 165, 134
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Select root directory"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "File &Name:",stc3,168,0,76,10
+    EDITTEXT        edt1,168,10,90,12,ES_AUTOHSCROLL | ES_OEMCONVERT
+    LISTBOX         lst1,168,26,90,68,LBS_SORT | LBS_OWNERDRAWFIXED | 
+                    LBS_HASSTRINGS | LBS_DISABLENOSCROLL | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "&Directories:",-1,7,6,92,9
+    LTEXT           "",stc1,7,18,92,9,SS_NOPREFIX
+    LISTBOX         lst2,7,32,92,68,LBS_SORT | LBS_OWNERDRAWFIXED | 
+                    LBS_HASSTRINGS | LBS_DISABLENOSCROLL | WS_VSCROLL | 
+                    WS_TABSTOP
+    LTEXT           "List Files of &Type:",stc2,168,98,90,9
+    COMBOBOX        cmb1,168,108,90,36,CBS_DROPDOWNLIST | CBS_AUTOHSCROLL | 
+                    WS_BORDER | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Dri&ves:",stc4,7,104,92,9
+    COMBOBOX        cmb2,7,114,92,68,CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | 
+                    CBS_AUTOHSCROLL | CBS_SORT | CBS_HASSTRINGS | WS_BORDER | 
+                    WS_VSCROLL | WS_TABSTOP
+    DEFPUSHBUTTON   "Select",IDOK,105,6,50,14,WS_GROUP
+    PUSHBUTTON      "Cancel",IDCANCEL,105,24,50,14,WS_GROUP
+    PUSHBUTTON      "&Help",psh15,105,46,50,14,WS_GROUP
+    CONTROL         "&Read Only",chx1,"Button",BS_AUTOCHECKBOX | WS_GROUP | 
+                    WS_TABSTOP,105,68,50,12
+END
+
+IDD_ABOUTBOX DIALOG DISCARDABLE  50, 40, 219, 135
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "About CatFish - version 1.9"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,157,11,50,14
+    ICON            AFX_IDI_STD_FRAME,IDC_STATIC,10,9,18,20
+    GROUPBOX        "",IDC_STATIC,9,59,198,24
+    CTEXT           "Copyright \251 1996-2000 Equi4 Software. All rights reserved.",
+                    IDC_STATIC,6,119,205,8
+    LTEXT           "A fast Disk Catalog browser.",IDC_STATIC,40,13,102,8
+    CTEXT           "Built with ""Metakit"", a small and fast C++ storage library.",
+                    IDC_STATIC,15,68,186,8
+    CTEXT           "Track all your files: locally, on CD-ROMs, and on removables.",
+                    IDC_STATIC,7,34,205,8
+    RTEXT           "Check here for updates:",IDC_STATIC,22,92,98,8
+    CTEXT           "Then take these tiny catalogs with you, along with CatFish !",
+                    IDC_STATIC,6,45,205,8
+    CONTROL         "",IDC_STATIC,"Static",SS_BLACKFRAME,40,24,91,1
+    CONTROL         "Static",IDC_URL,"Static",SS_SIMPLE | WS_GROUP,125,92,78,
+                    8
+    CONTROL         "Static",IDC_EMAIL,"Static",SS_SIMPLE | WS_GROUP,125,102,
+                    78,8
+    RTEXT           "For support, send email to:",IDC_STATIC,15,102,105,8
+END
+
+IDD_SETUP_DIALOG DIALOG DISCARDABLE  0, 0, 219, 127
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Scan and save as catalog..."
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Drive:",IDC_STATIC,19,24,21,8
+    COMBOBOX        IDC_DRIVES,45,22,25,100,CBS_DROPDOWNLIST | WS_VSCROLL | 
+                    WS_TABSTOP
+    RTEXT           "Volume name:  XXXXXXXXXXX",IDC_VOL_NAME,95,19,105,8,
+                    SS_NOPREFIX
+    RTEXT           "Serial # 3A68-0A02",IDC_VOL_SERIAL,124,30,76,8
+    DEFPUSHBUTTON   "Directory:",IDC_BROWSE_BTN,19,43,52,14
+    LTEXT           "C:\\",IDC_ROOT,80,46,125,8
+    LTEXT           "Catalog &Name:",IDC_STATIC,9,81,49,8
+    EDITTEXT        IDC_NAME,61,80,69,12,ES_AUTOHSCROLL
+    LTEXT           "",IDC_STATUS,9,105,147,8
+    PUSHBUTTON      "&Add",IDC_ADD_BTN,162,79,45,14
+    PUSHBUTTON      "Cancel",IDCANCEL,162,102,45,14
+    GROUPBOX        "Select disk: ",IDC_STATIC,9,8,199,59
+END
+
+IDD_WELCOME_DLG DIALOG DISCARDABLE  40, 40, 243, 175
+STYLE WS_POPUP | WS_BORDER
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,178,150,50,14
+    ICON            AFX_IDI_STD_FRAME,IDC_STATIC,15,13,18,20
+    LTEXT           "Welcome to CatFish - a fast Disk Catalog browser.",
+                    IDC_STATIC,63,16,165,8
+    LTEXT           "This screen is shown when no catalogs are present, or if you",
+                    IDC_STATIC,16,43,199,8
+    LTEXT           "pressed F1 to get help. Here are a few tips on using CatFish:",
+                    IDC_STATIC,16,53,199,8
+    LTEXT           ">> To (re-)create a disk catalog, click on ""Scan"" or press F4",
+                    IDC_STATIC,21,75,199,8
+    LTEXT           ">> To examine files in a sub-directory, just click on its name",
+                    IDC_STATIC,21,85,196,8
+    LTEXT           ">> To switch directories, double-click on them or press Space",
+                    IDC_STATIC,21,95,202,8
+    LTEXT           ">> If a filename is truncated, click on it or resize the window",
+                    IDC_STATIC,21,105,198,8
+    CONTROL         "",IDC_STATIC,"Static",SS_BLACKFRAME,15,70,213,70
+    CONTROL         "",IDC_STATIC,"Static",SS_BLACKFRAME,63,28,163,1
+    LTEXT           "It's tiny... it's fast... it's CatFish!",IDC_STATIC,15,
+                    152,104,8
+    LTEXT           ">> Double-click on a file to launch (execute) it, if possible",
+                    IDC_STATIC,21,115,190,8
+    LTEXT           ">> To adjust the sort order, click on the top file list headers",
+                    IDC_STATIC,21,125,195,8
+END
+
+IDD_FIND_DIALOG DIALOG DISCARDABLE  0, 0, 199, 122
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Find File Criteria"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "&Name:",IDC_STATIC,10,14,22,8
+    EDITTEXT        IDC_NAME_EDIT,35,13,60,12,ES_AUTOHSCROLL
+    CONTROL         "&Only search 'WWWWWWWW'",IDC_SINGLE_CAT,"Button",
+                    BS_AUTOCHECKBOX | WS_TABSTOP,10,38,110,10
+    DEFPUSHBUTTON   "Find Next",IDOK,138,12,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,138,36,50,14
+    GROUPBOX        "Modify date (yymmdd)",IDC_STATIC,10,60,85,50
+    LTEXT           "&Between:",IDC_STATIC,21,75,32,8
+    EDITTEXT        IDC_MIN_DATE,55,74,30,12,ES_AUTOHSCROLL
+    LTEXT           "&And:",IDC_STATIC,21,92,16,8
+    EDITTEXT        IDC_MAX_DATE,55,91,30,12,ES_AUTOHSCROLL
+    GROUPBOX        "Size (x 1000)",IDC_STATIC,108,60,80,50
+    LTEXT           "At &least:",IDC_STATIC,119,75,28,8
+    EDITTEXT        IDC_MIN_SIZE,149,74,29,12,ES_AUTOHSCROLL
+    LTEXT           "At &most:",IDC_STATIC,119,92,28,8
+    EDITTEXT        IDC_MAX_SIZE,149,91,29,12,ES_AUTOHSCROLL
+END
+
+IDD_CONV_DLG DIALOG DISCARDABLE  0, 0, 202, 63
+STYLE DS_MODALFRAME | WS_CAPTION
+CAPTION "CatFish"
+FONT 8, "MS Sans Serif"
+BEGIN
+    CTEXT           "CatFish is optimizing access to existing catalogs...",
+                    IDC_STATIC,9,16,183,8
+    CTEXT           "",IDC_CURR_CAT,26,33,143,12
+END
+
+IDD_RENAME_DLG DIALOG DISCARDABLE  0, 0, 187, 74
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION | WS_SYSMENU
+CAPTION "Rename Catalog"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "Rename",IDOK,62,50,50,14,WS_DISABLED
+    PUSHBUTTON      "Cancel",IDCANCEL,126,50,50,14
+    LTEXT           "Rename catalog 'xxx' to:",IDC_OLD_NAME,10,12,173,8
+    EDITTEXT        IDC_NEW_NAME_EDIT,10,29,74,11,ES_AUTOHSCROLL
+END
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Accelerator
+//
+
+IDD_MAIN_DIALOG ACCELERATORS DISCARDABLE 
+BEGIN
+    "F",            ID_FIND_CMD,            VIRTKEY,CONTROL, NOINVERT
+    VK_F1,          ID_HELP,                VIRTKEY,NOINVERT
+    VK_F2,          ID_FIND_PREV,           VIRTKEY,NOINVERT
+    VK_F3,          ID_FIND_NEXT,           VIRTKEY,NOINVERT
+    VK_F3,          ID_FIND_PREV,           VIRTKEY,SHIFT, NOINVERT
+    VK_F4,          ID_FILE_SETUP,          VIRTKEY,NOINVERT
+    VK_F5,          ID_FILE_REFRESH,        VIRTKEY,NOINVERT
+END
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDD_MAIN_DIALOG MENU DISCARDABLE 
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Scan Disk...\tF4",           ID_FILE_SETUP
+        MENUITEM "&Rescan Disk\tF5",            ID_FILE_REFRESH
+        MENUITEM SEPARATOR
+        POPUP "Sort &Files"
+        BEGIN
+            MENUITEM "by &Name",                    ID_SORT_BY_NAME
+            MENUITEM "by &Size",                    ID_SORT_BY_SIZE
+            MENUITEM "by &Date",                    ID_SORT_BY_DATE
+            MENUITEM SEPARATOR
+            MENUITEM "&Reverse",                    ID_SORT_REVERSE
+        END
+        MENUITEM "&Export Directory...",        ID_FILE_EXPORT
+        MENUITEM SEPARATOR
+        MENUITEM "Re&name Catalog...",          ID_FILE_RENAME
+        MENUITEM "&Delete Catalog",             ID_FILE_DELETE
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit\tALT+F4",               ID_FILE_EXIT
+    END
+    POPUP "&Search"
+    BEGIN
+        MENUITEM "&Find...\tCTRL+F",            ID_EDIT_FIND
+        MENUITEM "Find &Next\tF3",              ID_FIND_NEXT
+        MENUITEM "Find &Prev\tSHIFT+F3",        ID_FIND_PREV
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&Introduction",               ID_HELP
+        MENUITEM "&About Catfish...",           ID_APP_ABOUT
+    END
+END
+
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+LOGO                    BITMAP  DISCARDABLE     "RES\\EQUI4.BMP"
+IDB_TREE_ICONS          BITMAP  DISCARDABLE     "RES\\HIER.BMP"
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// Cursor
+//
+
+IDC_URL_CURSOR          CURSOR  DISCARDABLE     "URL_CURS.CUR"
+
+//////////////////////////////////////////////////////////////////////////////
+//
+// String Table
+//
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDS_PS_OK           "OK\n50"
+    AFX_IDS_PS_CANCEL       "Cancel\n50"
+    AFX_IDS_PS_APPLY_NOW    "&Apply\n50"
+    AFX_IDS_PS_HELP         "&Help\n50"
+    AFX_IDS_PS_CLOSE        "Close"
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDP_GET_NOT_SUPPORTED "Unable to read write-only property."
+    AFX_IDP_SET_NOT_SUPPORTED "Unable to write read-only property."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDP_FAILED_INVALID_FORMAT "Unexpected file format."
+    AFX_IDP_FAILED_INVALID_PATH 
+                            "%1\nCannot find this file.\nPlease verify that the correct path and file name are given."
+    AFX_IDP_FAILED_DISK_FULL "Destination disk drive is full."
+    AFX_IDP_FAILED_ACCESS_READ 
+                            "Unable to read from %1, it is opened by someone else."
+    AFX_IDP_FAILED_ACCESS_WRITE 
+                            "Unable to write to %1, it is read-only or opened by someone else."
+    AFX_IDP_FAILED_IO_ERROR_READ 
+                            "An unexpected error occurred while reading %1."
+    AFX_IDP_FAILED_IO_ERROR_WRITE 
+                            "An unexpected error occurred while writing %1."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDP_PARSE_INT       "Please enter an integer."
+    AFX_IDP_PARSE_REAL      "Please enter a number."
+    AFX_IDP_PARSE_INT_RANGE "Please enter an integer between %1 and %2."
+    AFX_IDP_PARSE_REAL_RANGE "Please enter a number between %1 and %2."
+    AFX_IDP_PARSE_STRING_SIZE "Please enter no more than %1 characters."
+    AFX_IDP_PARSE_RADIO_BUTTON "Please select a button."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDP_INVALID_FILENAME "Invalid filename."
+    AFX_IDP_FAILED_TO_OPEN_DOC "Failed to open document."
+    AFX_IDP_FAILED_TO_SAVE_DOC "Failed to save document."
+    AFX_IDP_ASK_TO_SAVE     "Save Changes to %1?"
+    AFX_IDP_FAILED_TO_CREATE_DOC "Failed to create empty document."
+    AFX_IDP_FILE_TOO_LARGE  "The file is too large to open."
+    AFX_IDP_FAILED_TO_START_PRINT "Could not start print job."
+    AFX_IDP_FAILED_TO_LAUNCH_HELP "Failed to launch help."
+    AFX_IDP_INTERNAL_FAILURE "Internal application error."
+    AFX_IDP_COMMAND_FAILURE "Command failed."
+    AFX_IDP_FAILED_MEMORY_ALLOC "Insufficient memory to perform operation."
+    AFX_IDP_VB2APICALLED    "VBX control called a VB 2.0 API\nUnpredictable actions may occur."
+END
+
+STRINGTABLE DISCARDABLE 
+BEGIN
+    AFX_IDS_OPENFILE        "File Open"
+    AFX_IDS_SAVEFILE        "File Save As"
+    AFX_IDS_ALLFILTER       "All Files (*.*)"
+    AFX_IDS_UNTITLED        "Untitled"
+END
+
+
+#ifndef APSTUDIO_INVOKED
+////////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+#include "res\catfish.rc2"  // non-App Studio edited resources
+
+#include "afxres.rc"  // Standard components
+
+/////////////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

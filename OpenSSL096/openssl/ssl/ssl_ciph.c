@@ -872,7 +872,7 @@ char *SSL_CIPHER_description(SSL_CIPHER *cipher, char *buf, int len)
 	char *ver,*exp;
 	char *kx,*au,*enc,*mac;
 	unsigned long alg,alg2,alg_s;
-	static const char format[]="%-23s %s Kx=%-8s Au=%-4s Enc=%-9s Mac=%-4s%s\n";
+	static char *format="%-23s %s Kx=%-8s Au=%-4s Enc=%-9s Mac=%-4s%s\n";
 	
 	alg=cipher->algorithms;
 	alg_s=cipher->algo_strength;
@@ -1063,9 +1063,9 @@ int SSL_COMP_add_compression_method(int id, COMP_METHOD *cm)
 	if ((sk == NULL) || !sk_SSL_COMP_push(sk,comp))
 		{
 		SSLerr(SSL_F_SSL_COMP_ADD_COMPRESSION_METHOD,ERR_R_MALLOC_FAILURE);
-		return(0);
+		return(1);
 		}
 	else
-		return(1);
+		return(0);
 	}
 

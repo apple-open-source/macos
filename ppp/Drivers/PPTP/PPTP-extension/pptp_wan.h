@@ -29,7 +29,7 @@ int pptp_wan_init();
 int pptp_wan_dispose();
 int pptp_wan_attach(void *rfc, struct ppp_link **link);
 void pptp_wan_detach(struct ppp_link *link);
-int pptp_wan_input(struct ppp_link *link, struct mbuf *m);
+int pptp_wan_input(struct ppp_link *link, mbuf_t m);
 void pptp_wan_xmit_full(struct ppp_link *link);
 void pptp_wan_xmit_ok(struct ppp_link *link);
 void pptp_wan_input_error(struct ppp_link *);

@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: saslclient.c,v 1.13 2004/07/07 19:49:05 rjs3 Exp $ */
+/* $Id: saslclient.c,v 1.5 2005/03/05 00:37:03 dasenbro Exp $ */
 
 #include <config.h>
 

@@ -33,9 +33,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)utf2.4	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/locale/utf8.5,v 1.3 2002/11/29 17:35:09 ru Exp $
+.\" $FreeBSD: src/lib/libc/locale/utf8.5,v 1.6 2004/10/17 02:29:15 tjr Exp $
 .\"
-.Dd October 30, 2002
+.Dd April 7, 2004
 .Dt UTF8 5
 .Os
 .Sh NAME
@@ -78,28 +78,8 @@ If more than a single representation of a value exists (for example,
 used.
 Longer ones are detected as an error as they pose a potential
 security risk, and destroy the 1:1 character:octet sequence mapping.
-.Sh COMPATIBILITY
-The
-.Nm
-encoding supersedes the
-.Xr utf2 4
-encoding.
-The only differences between the two are that
-.Nm
-handles the full 31-bit character set of
-.Tn ISO
-10646
-whereas
-.Xr utf2 4
-is limited to a 16-bit character set,
-and that
-.Xr utf2 4
-accepts redundant,
-.No non- Ns Dq "shortest form"
-representations of characters.
 .Sh SEE ALSO
-.Xr euc 4 ,
-.Xr utf2 4
+.Xr euc 5
 .Rs
 .%A "Rob Pike"
 .%A "Ken Thompson"
@@ -124,8 +104,3 @@ representations of characters.
 The
 .Nm
 encoding is compatible with RFC 2279 and Unicode 3.2.
-.Sh BUGS
-Byte order marker (BOM) characters are neither added nor removed
-from UTF-8-encoded wide character
-.Xr stdio 3
-streams.

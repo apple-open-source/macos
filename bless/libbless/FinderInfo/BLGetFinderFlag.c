@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,21 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Jul 05 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetFinderFlag.c,v 1.10 2003/07/22 15:58:30 ssen Exp $
+ *  $Id: BLGetFinderFlag.c,v 1.13 2005/02/03 00:42:24 ssen Exp $
  *
  *  $Log: BLGetFinderFlag.c,v $
+ *  Revision 1.13  2005/02/03 00:42:24  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.12  2004/04/20 21:40:41  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.11  2003/10/16 23:50:05  ssen
+ *  Partially finish cleanup of headers to add "const" to char[] arguments
+ *  that won't be modified.
+ *
  *  Revision 1.10  2003/07/22 15:58:30  ssen
  *  APSL 2.0
  *
@@ -94,7 +102,8 @@ struct fileinfobuf {
   uint32_t finderinfo[4];
 }; 
 
-int BLGetFinderFlag(BLContextPtr context, unsigned char path[], uint16_t flag, int *retval) {
+int BLGetFinderFlag(BLContextPtr context, const unsigned char path[],
+                    uint16_t flag, int *retval) {
     struct attrlist		alist;
     struct fileinfobuf finfo;
     struct TwoUInt16 *twoUint = (struct TwoUInt16 *)&finfo.finderinfo[2];

@@ -88,9 +88,9 @@ static dsstatus enqueue_modification(
 		return DSStatusFailed;
 	}
 
-	if (mod->sm_bvalues != NULL)
+	if (mod->sm_values != NULL)
 	{
-		for (bvp = mod->sm_bvalues; bvp->bv_val != NULL; bvp++)
+		for (bvp = mod->sm_values; bvp->bv_val != NULL; bvp++)
 		{
 			dsdata *d;
 	
@@ -185,14 +185,16 @@ static dsstatus enqueue_modification(
 }
 
 int netinfo_back_modify(
-    BackendDB	*be,
+    struct slap_op *op, 
+	struct slap_rep *rs)
+/*	BackendDB	*be,
     Connection	*conn,
     Operation	*op,
     struct berval *dn,
     struct berval *ndn,
-    Modifications *modlist)
+    Modifications *modlist*/
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	dsstatus status;
 	u_int32_t dsid;
 	dsrecord *rec;
@@ -203,23 +205,23 @@ int netinfo_back_modify(
 	char textbuf[SLAP_TEXT_BUFLEN];
 
 #ifdef NEW_LOGGING
-	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_modify: DN %s\n", dn->bv_val));
+	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_modify: DN %s\n", op->o_req_dn.bv_val));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_modify dn=%s\n", dn->bv_val, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_modify dn=%s\n", op->o_req_dn.bv_val, 0, 0);
 #endif
 
-	if (netinfo_back_send_referrals(be, conn, op, ndn) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &op->o_req_ndn) == DSStatusOK)
 	{
 		return -1;
 	}
 
 	ENGINE_LOCK(di);
 
-	status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, &op->o_req_ndn, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
  	}
 
 	status = dsengine_fetch(di->engine, dsid, &rec);
@@ -227,40 +229,40 @@ int netinfo_back_modify(
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	for (p = modlist; p != NULL; p = p->sml_next)
+	for (p = op->orm_modlist; p != NULL; p = p->sml_next)
 	{
 		/* do some ACL checking; should check per value XXX */
 		/* slightly inefficient as this calls dsengine_fetch() */
 		/* but that should be cached by the dsengine layer */
-		status = netinfo_back_access_allowed(be, conn, op, dsid, p->sml_desc, NULL, ACL_WRITE);
+		status = netinfo_back_access_allowed(op, dsid, p->sml_desc, NULL, ACL_WRITE);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(rec);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
-		status = enqueue_modification(be, rec, &p->sml_mod);
+		status = enqueue_modification(op->o_bd, rec, &p->sml_mod);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(rec);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 	}
 
-	status = dsrecord_to_entry(be, rec, &ent);
+	status = dsrecord_to_entry(op->o_bd, rec, &ent);
 	if (status != DSStatusOK)
 	{
 		dsrecord_release(rec);
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	rc = entry_schema_check(be, ent, NULL, &text, textbuf, sizeof(textbuf));
+	rc = entry_schema_check(op->o_bd, ent, NULL, &text, textbuf, sizeof(textbuf));
 	if (rc != LDAP_SUCCESS)
 	{
 		/* make up for not passing in oldattrs */
@@ -270,7 +272,7 @@ int netinfo_back_modify(
 		dsrecord_release(rec);
 		netinfo_back_entry_free(ent);
 		ENGINE_UNLOCK(di);
-		send_ldap_result(conn, op, rc, NULL, text, NULL, NULL);
+		send_ldap_error(op, rs, rc, text);
 		return rc;
 	}
 
@@ -296,6 +298,6 @@ int netinfo_back_modify(
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_modify\n", 0, 0, 0);
 #endif
 
-	return netinfo_back_op_result(be, conn, op, status);
+	return netinfo_back_op_result(op, rs, status);
 }
 

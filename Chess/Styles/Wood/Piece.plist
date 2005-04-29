@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>BlackAlpha</key>
+	<real>1</real>
+	<key>BlackDiffuse</key>
+	<real>0.66228067874908447</real>
+	<key>BlackShininess</key>
+	<real>10.666666984558105</real>
+	<key>BlackSpecular</key>
+	<real>0.43421053886413574</real>
+	<key>WhiteAlpha</key>
+	<real>1</real>
+	<key>WhiteDiffuse</key>
+	<real>0.75</real>
+	<key>WhiteShininess</key>
+	<real>75.789474487304688</real>
+	<key>WhiteSpecular</key>
+	<real>0.46052631735801697</real>
+</dict>
+</plist>

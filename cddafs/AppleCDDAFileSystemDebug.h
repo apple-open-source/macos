@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -61,14 +59,23 @@ extern "C" {
 #if DEBUG
 
 	#if DEBUGLEVEL > 5
-	#define DebugAssert(x)			( void ) assert	x	// Turn DebugAssert() on
+		#define DebugAssert(x)			( void ) assert	x	// Turn DebugAssert() on
+		#ifndef __cplusplus
+			#define	unused
+		#endif
 	#else
-	#define DebugAssert(x)								// Turn DebugAssert() off
+		#define DebugAssert(x)								// Turn DebugAssert() off
+		#ifndef __cplusplus
+			#define	unused				__unused
+		#endif
 	#endif
 
 #else
 
 	#define DebugAssert(x)						// Turn DebugAssert() off
+	#ifndef __cplusplus
+		#define	unused					__unused
+	#endif
 	
 #endif
 

@@ -6,8 +6,9 @@
  * specified in the README file that comes with the CVS kit.  */
 
 #include "cvs.h"
-#include "savecwd.h"
 #include "getline.h"
+#include "history.h"
+#include "savecwd.h"
 
 #ifndef DBLKSIZ
 #define	DBLKSIZ	4096			/* since GNU ndbm doesn't define it */
@@ -197,7 +198,7 @@ static const char *const checkoutlist_contents[] = {
     "#\n",
     "# File format:\n",
     "#\n",
-    "#	[<whitespace>]<filename><whitespace><error message><end-of-line>\n",
+    "#	[<whitespace>]<filename>[<whitespace><error message>]<end-of-line>\n",
     "#\n",
     "# comment lines begin with '#'\n",
     NULL
@@ -206,10 +207,12 @@ static const char *const checkoutlist_contents[] = {
 static const char *const cvswrappers_contents[] = {
     "# This file affects handling of files based on their names.\n",
     "#\n",
+#if 0    /* see comments in wrap_add in wrapper.c */
     "# The -t/-f options allow one to treat directories of files\n",
     "# as a single file, or to transform a file in other ways on\n",
     "# its way in and out of CVS.\n",
     "#\n",
+#endif
     "# The -m option specifies whether CVS attempts to merge files.\n",
     "#\n",
     "# The -k option specifies keyword expansion (e.g. -kb for binary).\n",
@@ -242,7 +245,7 @@ static const char *const notify_contents[] = {
     "# \"ALL\" or \"DEFAULT\" can be used in place of the regular expression.\n",
     "#\n",
     "# For example:\n",
-    "#ALL mail %s -s \"CVS notification\"\n",
+    "#ALL mail -s \"CVS notification\" %s\n",
     NULL
 };
 
@@ -280,14 +283,31 @@ static const char *const config_contents[] = {
     "# Set this to \"no\" if pserver shouldn't check system users/passwords\n",
     "#SystemAuth=no\n",
     "\n",
+    "# Put CVS lock files in this directory rather than directly in the repository.\n",
+    "#LockDir=/var/lock/cvs\n",
+    "\n",
+#ifdef PRESERVE_PERMISSIONS_SUPPORT
     "# Set `PreservePermissions' to `yes' to save file status information\n",
     "# in the repository.\n",
     "#PreservePermissions=no\n",
     "\n",
+#endif
     "# Set `TopLevelAdmin' to `yes' to create a CVS directory at the top\n",
     "# level of the new working directory when using the `cvs checkout'\n",
     "# command.\n",
     "#TopLevelAdmin=no\n",
+    "\n",
+    "# Set `LogHistory' to `all' or `" ALL_HISTORY_REC_TYPES "' to log all transactions to the\n",
+    "# history file, or a subset as needed (ie `TMAR' logs all write operations)\n",
+    "#LogHistory=" ALL_HISTORY_REC_TYPES "\n",
+    "\n",
+    "# Set `RereadLogAfterVerify' to `always' (the default) to allow the verifymsg\n",
+    "# script to change the log message.  Set it to `stat' to force CVS to verify",
+    "# that the file has changed before reading it (this can take up to an extra\n",
+    "# second per directory being committed, so it is not recommended for large\n",
+    "# repositories.  Set it to `never' (the previous CVS behavior) to prevent\n",
+    "# verifymsg scripts from changing the log message.\n",
+    "#RereadLogAfterVerify=always\n",
     NULL
 };
 
@@ -353,7 +373,7 @@ static const struct admin_file filelist[] = {
     {CVSROOTADM_CONFIG,
 	 "a %s file configures various behaviors",
 	 config_contents},
-    {NULL, NULL}
+    {NULL, NULL, NULL}
 };
 
 /* Rebuild the checked out administrative files in directory DIR.  */
@@ -371,6 +391,9 @@ mkmodules (dir)
     char *line = NULL;
     size_t line_allocated = 0;
     const struct admin_file *fileptr;
+
+    if (noexec)
+	return 0;
 
     if (save_cwd (&cwd))
 	error_exit ();
@@ -397,11 +420,6 @@ mkmodules (dir)
 	    rename_rcsfile (temp, CVSROOTADM_MODULES);
 	    break;
 
-	case -1:			/* fork failed */
-	    (void) unlink_file (temp);
-	    error (1, errno, "cannot check out %s", CVSROOTADM_MODULES);
-	    /* NOTREACHED */
-
 	default:
 	    error (0, 0,
 		"'cvs checkout' is less functional without a %s file",
@@ -409,7 +427,9 @@ mkmodules (dir)
 	    break;
     }					/* switch on checkout_file() */
 
-    (void) unlink_file (temp);
+    if (unlink_file (temp) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot remove %s", temp);
     free (temp);
 
     /* Checkout the files that need it in CVSROOT dir */
@@ -430,7 +450,9 @@ mkmodules (dir)
 	else if (fileptr->errormsg)
 	    error (0, 0, fileptr->errormsg, fileptr->filename);
 #endif
-	(void) unlink_file (temp);
+	if (unlink_file (temp) < 0
+	    && !existence_error (errno))
+	    error (0, errno, "cannot remove %s", temp);
 	free (temp);
     }
 
@@ -439,7 +461,7 @@ mkmodules (dir)
     {
 	/*
 	 * File format:
-	 *  [<whitespace>]<filename><whitespace><error message><end-of-line>
+	 *  [<whitespace>]<filename>[<whitespace><error message>]<end-of-line>
 	 *
 	 * comment lines begin with '#'
 	 */
@@ -453,11 +475,13 @@ mkmodules (dir)
 		*last = '\0';			/* strip the newline */
 
 	    /* Skip leading white space. */
-	    for (fname = line; *fname && isspace(*fname); fname++)
+	    for (fname = line;
+		 *fname && isspace ((unsigned char) *fname);
+		 fname++)
 		;
 
 	    /* Find end of filename. */
-	    for (cp = fname; *cp && !isspace(*cp); cp++)
+	    for (cp = fname; *cp && !isspace ((unsigned char) *cp); cp++)
 		;
 	    *cp = '\0';
 
@@ -468,11 +492,17 @@ mkmodules (dir)
 	    }
 	    else
 	    {
-		for (cp++; cp < last && *last && isspace(*last); cp++)
+		/* Skip leading white space before the error message.  */
+		for (cp++;
+		     cp < last && *cp && isspace ((unsigned char) *cp);
+		     cp++)
 		    ;
 		if (cp < last && *cp)
-		    error (0, 0, cp, fname);
+		    error (0, 0, "%s", cp);
 	    }
+	    if (unlink_file (temp) < 0
+		&& !existence_error (errno))
+		error (0, errno, "cannot remove %s", temp);
 	    free (temp);
 	}
 	if (line)
@@ -522,6 +552,10 @@ make_tempfile ()
     return temp;
 }
 
+/* Get a file.  If the file does not exist, return 1 silently.  If
+   there is an error, print a message and return 1 (FIXME: probably
+   not a very clean convention).  On success, return 0.  */
+
 static int
 checkout_file (file, temp)
     char *file;
@@ -547,6 +581,8 @@ checkout_file (file, temp)
 			    (RCSCHECKOUTPROC) NULL, (void *) NULL);
     if (retcode != 0)
     {
+	/* Probably not necessary (?); RCS_checkout already printed a
+	   message.  */
 	error (0, 0, "failed to check out %s file",
 	       file);
     }
@@ -607,7 +643,7 @@ write_dbmfile (temp)
 	if (value[0] == '#')
 	    continue;			/* comment line */
 	vp = value;
-	while (*vp && isspace (*vp))
+	while (*vp && isspace ((unsigned char) *vp))
 	    vp++;
 	if (*vp == '\0')
 	    continue;			/* empty line */
@@ -618,11 +654,11 @@ write_dbmfile (temp)
 	if (!cont)
 	{
 	    key.dptr = vp;
-	    while (*vp && !isspace (*vp))
+	    while (*vp && !isspace ((unsigned char) *vp))
 		vp++;
 	    key.dsize = vp - key.dptr;
 	    *vp++ = '\0';		/* NULL terminate the key */
-	    while (*vp && isspace (*vp))
+	    while (*vp && isspace ((unsigned char) *vp))
 		vp++;			/* skip whitespace to value */
 	    if (*vp == '\0')
 	    {
@@ -639,17 +675,28 @@ write_dbmfile (temp)
 	}
     }
     dbm_close (db);
-    (void) fclose (fp);
+    if (fclose (fp) < 0)
+	error (0, errno, "cannot close %s", temp);
     if (err)
     {
+	/* I think that the size of the buffer needed here is
+	   just determined by sizeof (CVSROOTADM_MODULES), the
+	   filenames created by make_tempfile, and other things that won't
+	   overflow.  */
 	char dotdir[50], dotpag[50], dotdb[50];
 
 	(void) sprintf (dotdir, "%s.dir", temp);
 	(void) sprintf (dotpag, "%s.pag", temp);
 	(void) sprintf (dotdb, "%s.db", temp);
-	(void) unlink_file (dotdir);
-	(void) unlink_file (dotpag);
-	(void) unlink_file (dotdb);
+	if (unlink_file (dotdir) < 0
+	    && !existence_error (errno))
+	    error (0, errno, "cannot remove %s", dotdir);
+	if (unlink_file (dotpag) < 0
+	    && !existence_error (errno))
+	    error (0, errno, "cannot remove %s", dotpag);
+	if (unlink_file (dotdb) < 0
+	    && !existence_error (errno))
+	    error (0, errno, "cannot remove %s", dotdb);
 	error (1, 0, "DBM creation failed; correct above errors");
     }
 }
@@ -658,9 +705,17 @@ static void
 rename_dbmfile (temp)
     char *temp;
 {
+    /* I think that the size of the buffer needed here is
+       just determined by sizeof (CVSROOTADM_MODULES), the
+       filenames created by make_tempfile, and other things that won't
+       overflow.  */
     char newdir[50], newpag[50], newdb[50];
     char dotdir[50], dotpag[50], dotdb[50];
     char bakdir[50], bakpag[50], bakdb[50];
+
+    int dir1_errno = 0, pag1_errno = 0, db1_errno = 0;
+    int dir2_errno = 0, pag2_errno = 0, db2_errno = 0;
+    int dir3_errno = 0, pag3_errno = 0, db3_errno = 0;
 
     (void) sprintf (dotdir, "%s.dir", CVSROOTADM_MODULES);
     (void) sprintf (dotpag, "%s.pag", CVSROOTADM_MODULES);
@@ -679,18 +734,59 @@ rename_dbmfile (temp)
     /* don't mess with me */
     SIG_beginCrSect ();
 
-    (void) unlink_file (bakdir);	/* rm .#modules.dir .#modules.pag */
-    (void) unlink_file (bakpag);
-    (void) unlink_file (bakdb);
-    (void) CVS_RENAME (dotdir, bakdir);	/* mv modules.dir .#modules.dir */
-    (void) CVS_RENAME (dotpag, bakpag);	/* mv modules.pag .#modules.pag */
-    (void) CVS_RENAME (dotdb, bakdb);	/* mv modules.db .#modules.db */
-    (void) CVS_RENAME (newdir, dotdir);	/* mv "temp".dir modules.dir */
-    (void) CVS_RENAME (newpag, dotpag);	/* mv "temp".pag modules.pag */
-    (void) CVS_RENAME (newdb, dotdb);	/* mv "temp".db modules.db */
+    /* rm .#modules.dir .#modules.pag */
+    if (unlink_file (bakdir) < 0)
+	dir1_errno = errno;
+    if (unlink_file (bakpag) < 0)
+	pag1_errno = errno;
+    if (unlink_file (bakdb) < 0)
+	db1_errno = errno;
+
+    /* mv modules.dir .#modules.dir */
+    if (CVS_RENAME (dotdir, bakdir) < 0)
+	dir2_errno = errno;
+    /* mv modules.pag .#modules.pag */
+    if (CVS_RENAME (dotpag, bakpag) < 0)
+	pag2_errno = errno;
+    /* mv modules.db .#modules.db */
+    if (CVS_RENAME (dotdb, bakdb) < 0)
+	db2_errno = errno;
+
+    /* mv "temp".dir modules.dir */
+    if (CVS_RENAME (newdir, dotdir) < 0)
+	dir3_errno = errno;
+    /* mv "temp".pag modules.pag */
+    if (CVS_RENAME (newpag, dotpag) < 0)
+	pag3_errno = errno;
+    /* mv "temp".db modules.db */
+    if (CVS_RENAME (newdb, dotdb) < 0)
+	db3_errno = errno;
 
     /* OK -- make my day */
     SIG_endCrSect ();
+
+    /* I didn't want to call error() when we had signals blocked
+       (unnecessary?), but do it now.  */
+    if (dir1_errno && !existence_error (dir1_errno))
+	error (0, dir1_errno, "cannot remove %s", bakdir);
+    if (pag1_errno && !existence_error (pag1_errno))
+	error (0, pag1_errno, "cannot remove %s", bakpag);
+    if (db1_errno && !existence_error (db1_errno))
+	error (0, db1_errno, "cannot remove %s", bakdb);
+
+    if (dir2_errno && !existence_error (dir2_errno))
+	error (0, dir2_errno, "cannot remove %s", bakdir);
+    if (pag2_errno && !existence_error (pag2_errno))
+	error (0, pag2_errno, "cannot remove %s", bakpag);
+    if (db2_errno && !existence_error (db2_errno))
+	error (0, db2_errno, "cannot remove %s", bakdb);
+
+    if (dir3_errno && !existence_error (dir3_errno))
+	error (0, dir3_errno, "cannot remove %s", bakdir);
+    if (pag3_errno && !existence_error (pag3_errno))
+	error (0, pag3_errno, "cannot remove %s", bakpag);
+    if (db3_errno && !existence_error (db3_errno))
+	error (0, db3_errno, "cannot remove %s", bakdb);
 }
 
 #endif				/* !MY_NDBM */
@@ -708,16 +804,31 @@ rename_rcsfile (temp, real)
     rcs = xmalloc (strlen (real) + sizeof (RCSEXT) + 10);
     (void) sprintf (rcs, "%s%s", real, RCSEXT);
     statbuf.st_mode = 0; /* in case rcs file doesn't exist, but it should... */
-    (void) CVS_STAT (rcs, &statbuf);
+    if (CVS_STAT (rcs, &statbuf) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot stat %s", rcs);
     free (rcs);
 
     if (chmod (temp, 0444 | (statbuf.st_mode & 0111)) < 0)
 	error (0, errno, "warning: cannot chmod %s", temp);
     bak = xmalloc (strlen (real) + sizeof (BAKPREFIX) + 10);
     (void) sprintf (bak, "%s%s", BAKPREFIX, real);
-    (void) unlink_file (bak);		/* rm .#loginfo */
-    (void) CVS_RENAME (real, bak);		/* mv loginfo .#loginfo */
-    (void) CVS_RENAME (temp, real);		/* mv "temp" loginfo */
+
+    /* rm .#loginfo */
+    if (unlink_file (bak) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot remove %s", bak);
+
+    /* mv loginfo .#loginfo */
+    if (CVS_RENAME (real, bak) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot rename %s to %s", real, bak);
+
+    /* mv "temp" loginfo */
+    if (CVS_RENAME (temp, real) < 0
+	&& !existence_error (errno))
+	error (0, errno, "cannot rename %s to %s", temp, real);
+
     free (bak);
 }
 
@@ -739,7 +850,7 @@ init (argc, argv)
     /* Name of ,v file for this administrative file.  */
     char *info_v;
     /* Exit status.  */
-    int err;
+    int err = 0;
 
     const struct admin_file *fileptr;
 
@@ -749,7 +860,7 @@ init (argc, argv)
 	usage (init_usage);
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	start_server ();
 
@@ -763,12 +874,10 @@ init (argc, argv)
        old cvsinit.sh script did.  Few utilities do that, and a
        non-existent parent directory is as likely to be a typo as something
        which needs to be created.  */
-    mkdir_if_needed (CVSroot_directory);
+    mkdir_if_needed (current_parsed_root->directory);
 
-    adm = xmalloc (strlen (CVSroot_directory) + sizeof (CVSROOTADM) + 10);
-    strcpy (adm, CVSroot_directory);
-    strcat (adm, "/");
-    strcat (adm, CVSROOTADM);
+    adm = xmalloc (strlen (current_parsed_root->directory) + sizeof (CVSROOTADM) + 2);
+    sprintf (adm, "%s/%s", current_parsed_root->directory, CVSROOTADM);
     mkdir_if_needed (adm);
 
     /* This is needed because we pass "fileptr->filename" not "info"
@@ -777,6 +886,9 @@ init (argc, argv)
        closely (e.g. see wrappers calls within add_rcs_file).  */
     if ( CVS_CHDIR (adm) < 0)
 	error (1, errno, "cannot change to directory %s", adm);
+
+    /* Make Emptydir so it's there if we need it */
+    mkdir_if_needed (CVSNULLREPOS);
 
     /* 80 is long enough for all the administrative file names, plus
        "/" and so on.  */
@@ -839,6 +951,29 @@ init (argc, argv)
 	fp = open_file (info, "w");
 	if (fclose (fp) < 0)
 	    error (1, errno, "cannot close %s", info);
+ 
+        /* Make the new history file world-writeable, since every CVS
+           user will need to be able to write to it.  We use chmod()
+           because xchmod() is too shy. */
+        chmod (info, 0666);
+    }
+
+    /* Make an empty val-tags file to prevent problems creating it later.  */
+    strcpy (info, adm);
+    strcat (info, "/");
+    strcat (info, CVSROOTADM_VALTAGS);
+    if (!isfile (info))
+    {
+	FILE *fp;
+
+	fp = open_file (info, "w");
+	if (fclose (fp) < 0)
+	    error (1, errno, "cannot close %s", info);
+ 
+        /* Make the new val-tags file world-writeable, since every CVS
+           user will need to be able to write to it.  We use chmod()
+           because xchmod() is too shy. */
+        chmod (info, 0666);
     }
 
     free (info);
@@ -847,5 +982,5 @@ init (argc, argv)
     mkmodules (adm);
 
     free (adm);
-    return 0;
+    return err;
 }

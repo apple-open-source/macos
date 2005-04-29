@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <malloc.h>
+#import <malloc/malloc.h>
 
 #define stack_logging_type_free	0
 #define stack_logging_type_generic	1	/* anything that is not allocation/deallocation */

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -489,6 +488,7 @@ package Sinput is
    --  is why the somewhat cryptic use of brackets is acceptable).
 
    procedure wl (P : Source_Ptr);
+   pragma Export (Ada, wl);
    --  Equivalent to Write_Location (P); Write_Eol; for calls from GDB
 
    procedure Write_Time_Stamp (S : Source_File_Index);
@@ -630,5 +630,10 @@ private
    --  the Source_Line_Count field. If source reference pragmas are
    --  present, also increments logical lines table size by one, and
    --  sets new entry.
+
+   procedure Trim_Lines_Table (S : Source_File_Index);
+   --  Set lines table size for entry S in the source file table to
+   --  correspond to the current value of Num_Source_Lines, releasing
+   --  any unused storage. This is used by Sinput.L and Sinput.D.
 
 end Sinput;

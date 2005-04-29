@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/misc/Imakefile,v 3.11 2001/11/19 15:44:18 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/misc/Imakefile,v 3.14 2004/02/02 03:55:32 dawes Exp $
 
 
 
@@ -8,17 +8,25 @@ XCOMM $XConsortium: Imakefile /main/4 1996/09/28 17:24:12 rws $
 #include <Server.tmpl>
 
 
-#if defined(i386Architecture) && !defined(cygwinArchitecture)
+#if defined(i386Architecture) && !defined(cygwinArchitecture) \
+	&& !defined(OS2Architecture)
 XSRCS = BUSmemcpy.S IODelay.S SlowBcopy.S
 XOBJS = BUSmemcpy.o IODelay.o SlowBcopy.o
 #else
 XSRCS = BUSmemcpy.c IODelay.c SlowBcopy.c
 XOBJS = BUSmemcpy.o IODelay.o SlowBcopy.o
+#if defined(NetBSDArchitecture)
+BUSmemcpy.o: BUSmemcpy.c
+IODelay.o: IODelay.c
+SlowBcopy.o: SlowBcopy.c
+#endif
 #endif
 
 #if HasGcc || HasGcc2
 ILHACKSRCS = xf86_IlHack.c
 ILHACKOBJS = xf86_IlHack.o
+#elif defined(SunArchitecture) && defined(i386Architecture)
+ILHACKOBJS = PortIO.o
 #endif
 
 SRCS = xf86_Util.c Delay.c $(ILHACKSRCS) $(XSRCS)
@@ -31,10 +39,15 @@ INCLUDES = -I$(XF86COMSRC) -I$(XF86OSSRC) -I. -I$(SERVERSRC)/include \
 SubdirLibraryRule($(OBJS))
 NormalLibraryObjectRule()
 
-#if defined(i386Architecture) && !defined(cygwinArchitecture)
+#if defined(i386Architecture) && !defined(cygwinArchitecture) \
+	&& !defined(OS2Architecture)
 ObjectFromAsmSource(BUSmemcpy,NullParameter)
 ObjectFromAsmSource(IODelay,NullParameter)
 ObjectFromAsmSource(SlowBcopy,NullParameter)
+#endif
+
+#if defined(SunArchitecture) && defined(i386Architecture)
+ObjectFromAsmSource(PortIO,NullParameter)
 #endif
 
 DependTarget()

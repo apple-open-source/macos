@@ -1,0 +1,83 @@
+<manpage>
+<docdate>August 28, 2002</docdate>
+<doctitle>Document title</doctitle>
+<os>Darwin</os>
+<section>1</section>
+<names>
+	<name>foo<desc>this is a description</desc></name>
+	<name>bar<desc>this is also a description</desc></name>
+</names>
+
+<usage>
+	<flag optional="1">a<arg>attributes</arg><desc>This is the atts flag</desc></flag>
+	<flag>d<arg>date</arg><desc>This is the date flag</desc></flag>
+	<flag>x<desc>This is the -x flag</desc></flag>
+	<arg>filename<desc>This is the filename</desc></arg>
+</usage>
+
+<returnvalues>
+	<p>Returns kIONotANumber if you can't count.</p>
+	<p>Returns kIOMoron if you REALLY can't count.</p>
+</returnvalues>
+
+<environment>
+	TEXT
+</environment>
+
+<files>
+	<file>/path/to/filename<desc>This is a waste of time</desc></file>
+	<file>/path/to/another/filename<desc>This is also a waste of time</desc></file>
+</files>
+
+<examples>
+	TEXT
+</examples>
+
+<diagnostics>
+	TEXT
+</diagnostics>
+
+<errors>
+	TEXT
+</errors>
+
+<seealso>
+	<p>This is a text container, really, but generally contains
+	lines like this:</p>
+	<manpage>foo<section>1</section>, </manpage>
+	<manpage>bar<section>3</section></manpage>
+</seealso>
+
+<conformingto>
+	<p>Here's a list of conformance:</p>
+	<ul>
+	    <li>Single UNIX Specification</li>
+	    <li>POSIX</li>
+	</ul>
+
+	<p>Here's a definition list:</p>
+	<dl>
+	    <dd>foo_aaa</dd>
+		<dt>This is foo</dt>
+	    <dd>bar</dd>
+		<dt>This is bar</dt>
+	</dl>
+
+</conformingto>
+
+<history>
+	This program should be history....
+</history>
+
+<bugs>
+	<p>Here are some bugs:</p>
+	<p>
+	<ol>
+		<li>Bug one....</li>
+		<li>Bug two....</li>
+		<li>Bug three....</li>
+	</ol>
+	</p>
+	<p>I think that pretty much covers it.</p>
+</bugs>
+</manpage>

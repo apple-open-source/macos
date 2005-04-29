@@ -1,0 +1,239 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" Autorem èeského pøekladu je Pavel JANÍK ml.
+.\"                             Pavel.JANIK@inet.cz
+.\"
+.TH man 1 "7. ledna, 1997"
+.LO 1
+.SH JMÉNO
+man \- zformátuje a zobrazí on-line manuálové stránky
+.br
+manpath \- zobrazí manuálové cesty u¾ivatele
+.SH SYNTAXE
+man [\-acdfhkKtwW] [\-m systém] [\-p øetìzec] [\-C konfiguraèní soubor] [\-M cesta]
+[\-P stránkovaè] [\-S seznam_sekcí] [sekce] jméno ...
+.SH POPIS
+.B man
+zformátuje a zobrazí on-line manuálové stránky. Tato verze umí pracovat s
+promìnnými prostøedí
+.B MANPATH
+a
+.BR (MAN)PAGER ,
+proto mù¾ete mít i vlastní
+manuálové stránky a vlastní program urèený ke stránkování zformátovaných
+manuálových stránek.
+Je-li specifikována 
+.I sekce
+.B man
+hledá danou stránku pouze v této sekci.
+Samozøejmì mù¾ete také specifikovat poøadí sekcí, které budou prohledávány a
+také mù¾ete pøímo na pøíkazové øádce nebo promìnnými prostøedí urèit, které
+preprocesory budou pøi formátování stránek pou¾ity.
+Obsahuje-li
+.I jméno
+znak /, je prvnì vyzkou¹eno jako jméno souboru, proto mù¾ete udìlat nìco
+jako
+.B "man ./nìco.5"
+nebo
+.B "man /cédéèko/nìco/nìco_jiného.1.gz\fR.\fP"
+.SH VOLBY
+.TP
+.B \-\^C " konfiguraèní_soubor"
+Specifikujete jiný konfiguraèní soubor. Standardní je 
+@man_config_file@. (Viz té¾ man.conf(5).)
+.TP
+.B \-\^M " cesta"
+Specifikuje seznam manuálový cest (zde jsou hledány manuálové stránky).
+Není-li tato volba specifikována, je pou¾ita promìnná prostøedí
+.B MANPATH
+. Jestli¾e ani ona neexistuje, jsou manuálové cesty pøevzaty ze souboru
+@man_config_file@.
+.TP
+.B \-\^P " stránkovaè"
+Specifikuje stránkovaè, kterým budou stránky prohlí¾eny.
+Tato volba má pøednost pøed 
+.B MANPAGER
+, která má pøednost pøed
+.B PAGER .
+Standardní stránkovaè je 
+.BR @pager@ .
+.TP
+.B \-\^S " seznam_sekcí"
+Seznam_sekcí je èárkami oddìlený seznam sekcí manuálových stránek.
+Tato volba má pøednost pøed promìnnou prostøedí
+.B MANSECT .
+.TP
+.B \-\^a
+Standardní nastavení ukonèí man poté, co zobrazí první nalezenou manuálovou
+stránku. Tato volba umo¾ní zobrazit v¹echny nalezené stránky, které vyhovují
+zadaným kritériùm.
+.TP
+.B \-\^c
+Zformátuj zdroj manuálové stránky i kdy¾ existuje ji¾ zformátovaná verze.
+Tato volba je významná. je-li zformátovaná stránka prohlí¾ena na obrazovce s
+jiným poètem sloupcù.
+.TP
+.B \-\^d
+Nezobrazuj zformátovanou stránku, pouze vytiskni ladící informace.
+.TP
+.B \-\^D
+Zobraz ladící informace i zformátovanou stránku.
+.TP
+.B \-\^f
+Toté¾ co 
+.B whatis.
+.TP
+.B \-\^h
+Vytiskni krátkou pomoc a skonèi.
+.TP
+.B \-\^k
+Toté¾ co
+.B apropos.
+.TP
+.B \-\^K
+Hledej specifikovaný øetìze ve *v¹ech* manuálových stránkách. Varování: tato
+funkce je pravdìpodobnì velmi pomalá! Specifikujete-li sekci, bude to
+rychlej¹í. (Jen pro zajímavost, na mém poèítaèi to trvá pøibli¾nì minutu na
+500 stránek).
+.TP
+.B \-\^m " systém"
+Specifikuje jinou sadu manuálových stránek závislou na zadaném systému.
+.TP
+.B \-\^p " øetìzec"
+Specifikuje poøadí preprocesorù pøed nroff nebo troff. Ne v¹echny instalace
+mají plnou sadu preprocesorù. Nìkteré preprocesory a písmena pou¾ívaná pro
+jejich spou¹tìní:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Tato volba má pøednost pøed promìnnou prostøedí
+.B MANROFFSEQ .
+.TP
+.B \-\^t
+Pou¾ij
+.B @troff@
+k formátování stránky a výstup zobraz na 
+.B stdout.
+Výstup z 
+.B @troff@
+je tøeba pøed tiskem poslat pøes nìjaké filtry.
+.TP
+.B \-\^w \fRnebo\fP \-\-path
+Nezobrazuj manuálové stránky, pouze vytiskni cestu(y) souborù, které bys
+zobrazil. Není-li zadán ¾ádný argument: zobraz (na standardní výstup) seznam
+adresáøù, které jsou programem 
+.B man
+hledány. Je-li
+.B manpath
+link na man, potom je manpath toto¾né s "man --path".
+.TP
+.B \-\^W
+Podobné jako \-\^w, ale tiskne jména souborù po jednom na øádek bez dal¹ích
+informací. To je u¾iteèné pro pøíkazy shellu jako napø.
+.ft CW
+man -aW man | xargs ls -l
+.ft
+
+.SH "ZFORMÁTOVANÉ STRÁNKY"
+Man se sna¾í ukládat ji¾ zformátované manuálové stránky, aby u¹etøil pøi
+jejich pøí¹tím zobrazení èas. Tradiènì se zformátované stránky z 
+DIR/manX ukládají do DIR/catX, ale jiná mapování z manuálového adresáøe na
+adresáø zformátovaných stránek je mo¾né specifikovat v souboru
+@man_config_file@. Neexistuje-li adresáø zformátovaných stránek, nejsou
+ukládány ¾ádné zformátované stránky.
+Je mo¾né nechat man suid pro u¾ivatele man. Potom, je-li majitel adresáøe
+zformátovaných stránek man a mód je 0755 (zapisovat mù¾e pouze vlastník), a
+zformátované stránky mají mód 0644 nebo 0444 (zapisovat mù¾e buï jenom
+majitel nebo vùbec nikdo), nemù¾e normální u¾ivatel zmìnit zformátované
+stránky nebo umístit do adresáøe zformátovaných stránek jiné soubory.
+Není-li man suid, potom by mìl mít adresáø zformátovaných stránek mód 0777
+aby zde mohli v¹ichni u¾ivatelé zanechat jiø zformátované stránky.
+
+Volba -c zpùsobí reformátování stránky i kdy¾ ji¾ existuje zformátovaná
+stránka.
+
+.SH PROSTØEDÍ
+.TP
+.B MANPATH
+Je-li nastavena promìnná
+.B MANPATH
+, její hodnota je vyu¾ívána ke hledání zformátovaných stránek.
+.TP
+.B MANROFFSEQ
+Je-li nastavena promìnná prostøedí 
+.B MANROFFSEQ
+je její hdnota vyu¾ita pro urèení poøadí spou¹tìní preprocesorù pøed 
+nroff nebo troff. Standardnì jsou stránky formátovány prvnì tabulkovým
+procesorem a teprve poté nroffem.
+.TP
+.B MANSECT
+Je-li nastvane promìnná prostøedí
+.B MANSECT
+je její hodnota vyu¾ita k urèení sekcí, které budou prohledávány.
+.TP
+.B MANWIDTH
+Je-li nastavena promìnná prostøedí
+.B MANWIDTH
+, tak její hodnota urèuje poèet sloupcù, na které bude stránka zformátována.
+Jinak bude stránka zformátována na ¹íøku obrazovky.
+.TP
+.B MANPAGER
+Je-li nastavena promìnná prostøedí
+.B MANPAGER
+její obsah urèuje stránkovaè, který bude pou¾it pøi zobrazení zformátované
+stránky. Není-li nastavena, je pou¾ita promìnná
+.B PAGER .
+není-li ani tato promìnná nastavena, pou¾ije se 
+.B @pager@ .
+.TP
+.B LANG
+Je-li nastavena promìnná prostøedí
+.B LANG
+její hodnota definuje podadresáø, ve kterém budou hledány stránky.
+Potom pøíkaz `LANG=cz man 1 manuálová_stránka'
+zobrazí stránku .../cz/man1/manuálová_stránka.1, nebo 
+.../man1/manuálová_stránka.1, kde ... je adresáø v manuálové cestì.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Promìnné prostøedí
+.B NLSPATH
+a
+.B LC_MESSAGES
+(nebo 
+.B LANG
+jestli¾e pøedchozí neexistují)
+hrají roli pøi hledání katalogu zpráv.
+(Anglické zprávy jsou zkompilovány a není pro nì tøeba katalogu.)
+Dejte pozor na to, ¾e programy jako col (1) volané programem man pou¾ívají
+napø. LC_CTYPE.
+.TP
+.B PATH
+.B PATH
+je pou¾ívána pøi sestavení starndardní manuálové cesty.
+.TP
+.B SYSTEM
+.B SYSTEM
+je pou¾ívána ke zji¹tìní standardního jména systému (pro pou¾ití s volbou
+.B \-m
+). 
+.SH "VIZ TÉ®"
+apropos(1), whatis(1), less(1), groff(1).
+.SH CHYBY
+Volba
+.B \-t
+je funkèní pouze, je-li instalován program podobný programu troff.
+.br
+Uvidíte-li blikající \e255 nebo <AD> místo oddìlovátek,
+umístìte `LESSCHARSET=latin1' do Va¹eho prostøedí.

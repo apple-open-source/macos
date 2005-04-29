@@ -1,15 +1,21 @@
 
-These are just some simple examples to get you going.
-See modules in the lib/ directory for examples of implementing
-handlers for other stages of a request to the Apache httpd.
+To get started please check out:
 
-Also see:
+The mod_perl guide,
+   http://perl.apache.org/
 
-The Apache/Perl module list:
-http://perl.apache.org/dist/apache-modlist.html
+Writing Apache Modules with Perl and C
+   http://www.modperl.com/
 
-The Apache/Perl contributed modules and examples:
-http://perl.apache.org/src/contrib/
+the mod_perl developer's cookbook:
+   http://www.modperlcookbook.org/
 
-CGI.pm's examples/ directory
+The Apache:: modules on CPAN:
+   http://search.cpan.org/search?mode=module&query=Apache
+
+... and of course the mod_perl mailinglist:
+   mail modperl-subscribe@perl.apache.org < /dev/null
+
+
+
 

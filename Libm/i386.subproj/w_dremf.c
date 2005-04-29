@@ -14,8 +14,7 @@ __RCSID("$NetBSD: w_dremf.c,v 1.3 1999/07/02 15:37:44 simonb Exp $");
 #include "math_private.h"
 
 float
-dremf(x, y)
-	float x, y;
+dremf(float x, float y)
 {
 	return remainderf(x, y);
 }

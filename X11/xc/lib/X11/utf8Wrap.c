@@ -72,12 +72,11 @@ from The Open Group.
  * OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE
  * OR PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/X11/utf8Wrap.c,v 1.3 2001/12/14 19:54:11 dawes Exp $ */
+/* $XFree86: xc/lib/X11/utf8Wrap.c,v 1.4 2003/11/17 22:20:12 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
 
-#if NeedFunctionPrototypes
 void
 Xutf8DrawText(
     Display            *dpy,
@@ -87,16 +86,6 @@ Xutf8DrawText(
     int                 y,
     XmbTextItem        *text_items,
     int                 nitems)
-#else
-void
-Xutf8DrawText(dpy, d, gc, x, y, text_items, nitems)
-    Display            *dpy;
-    Drawable            d;
-    GC                  gc;
-    int                 x, y;
-    XmbTextItem        *text_items;
-    int                 nitems;
-#endif
 {
     register XFontSet fs = NULL;
     register XmbTextItem *p = text_items;
@@ -121,7 +110,6 @@ Xutf8DrawText(dpy, d, gc, x, y, text_items, nitems)
     }
 }
 
-#if NeedFunctionPrototypes
 void
 Xutf8DrawString(
     Display            *dpy,
@@ -132,24 +120,12 @@ Xutf8DrawString(
     int                 y,
     _Xconst char       *text,
     int                 text_len)
-#else
-void
-Xutf8DrawString(dpy, d, font_set, gc, x, y, text, text_len)
-    Display            *dpy;
-    Drawable            d;
-    XFontSet            font_set;
-    GC                  gc;
-    int                 x, y;
-    _Xconst char        *text;
-    int                 text_len;
-#endif
 {
     (void)(*font_set->methods->utf8_draw_string) (dpy, d, font_set, gc, x, y,
 						  (char *)text, text_len);
 }
 
 
-#if NeedFunctionPrototypes
 void
 Xutf8DrawImageString(
     Display            *dpy,
@@ -160,41 +136,21 @@ Xutf8DrawImageString(
     int                 y,
     _Xconst char       *text,
     int                 text_len)
-#else
-void
-Xutf8DrawImageString(dpy, d, font_set, gc, x, y, text, text_len)
-    Display            *dpy;
-    Drawable            d;
-    XFontSet            font_set;
-    GC                  gc;
-    int                 x, y;
-    _Xconst char       *text;
-    int                 text_len;
-#endif
 {
     (*font_set->methods->utf8_draw_image_string) (dpy, d, font_set, gc, x, y,
 						  (char *)text, text_len);
 }
 
-#if NeedFunctionPrototypes
 int 
 Xutf8TextEscapement(
     XFontSet        font_set,
     _Xconst char   *text,
     int             text_len)
-#else
-int 
-Xutf8TextEscapement(font_set, text, text_len)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-#endif
 {
     return (*font_set->methods->utf8_escapement) (font_set,
 						  (char *)text, text_len);
 }
 
-#if NeedFunctionPrototypes
 int
 Xutf8TextExtents(
     XFontSet        font_set,
@@ -202,16 +158,6 @@ Xutf8TextExtents(
     int             text_len,
     XRectangle     *overall_ink_extents,
     XRectangle     *overall_logical_extents)
-#else
-int
-Xutf8TextExtents(font_set, text, text_len,
-	       overall_ink_extents, overall_logical_extents)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-    XRectangle     *overall_ink_extents;
-    XRectangle     *overall_logical_extents;
-#endif
 {
     return (*font_set->methods->utf8_extents) (font_set,
 					       (char *)text, text_len,
@@ -219,7 +165,6 @@ Xutf8TextExtents(font_set, text, text_len,
 					       overall_logical_extents);
 }
 
-#if NeedFunctionPrototypes
 Status
 Xutf8TextPerCharExtents(
     XFontSet        font_set,
@@ -231,22 +176,6 @@ Xutf8TextPerCharExtents(
     int            *num_chars,
     XRectangle     *max_ink_extents,
     XRectangle     *max_logical_extents)
-#else
-Status
-Xutf8TextPerCharExtents(font_set, text, text_len,
-		      ink_extents_buffer, logical_extents_buffer,
-		      buffer_size, num_chars,
-		      max_ink_extents, max_logical_extents)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-    XRectangle     *ink_extents_buffer;
-    XRectangle     *logical_extents_buffer;
-    int             buffer_size;
-    int            *num_chars;
-    XRectangle     *max_ink_extents;
-    XRectangle     *max_logical_extents;
-#endif
 {
     return (*font_set->methods->utf8_extents_per_char)
 	     (font_set, (char *)text, text_len, 

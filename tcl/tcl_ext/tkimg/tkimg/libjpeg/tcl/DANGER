@@ -1,0 +1,17 @@
+
+Note:
+
+The EXTERN macro defined by "tcl.h" and the EXTERN() macro defined by
+"jmorecfg.h" are in conflict with each other. Even more, "jmorecfg.h"
+will not create its own definition if it encounters a previous
+definition.
+
+Special steps are taken in "jpegtcl*.[ch]" to allow interoperation.
+
+*	The tcl.h header comes first everywhere.
+
+*	In jpegtclDecls.h it is not possible to separate uses of the
+	two EXTERN macros. "tcl.h" is loaded first, then its EXTERN
+	definition disabled. Then we can load the jpeg
+	definition. After that we have to restore the EXTERN as
+	defined by "tcl.h" to satisfy the stub declarations.

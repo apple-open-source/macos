@@ -242,7 +242,7 @@ print_file_error:
 		    "not be on an NFS file system, or this test might be",
 		    Pn);
 		(void) PrtMsg(
-		    "be unable to create a file on the NFS file system.\n",
+		    "unable to create a file on the NFS file system.\n",
 		    Pn);
 		(void) PrtMsg(
 		    "As a work-around use the -p option to specify a path to",

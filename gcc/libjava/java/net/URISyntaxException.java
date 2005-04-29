@@ -37,10 +37,11 @@ exception statement from your version. */
 
 package java.net;
 
+
 /**
  * This exception is thrown when a String cannot be parsed as a URI.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @see URI
  * @since 1.4
  * @status updated to 1.4
@@ -137,7 +138,7 @@ public class URISyntaxException extends Exception
    */
   public String getMessage()
   {
-    return super.getMessage() + (index >= 0 ? " at index " + index : "")
-      + ": " + input;
+    return (super.getMessage() + (index >= 0 ? " at index " + index : "")
+           + ": " + input);
   }
 }

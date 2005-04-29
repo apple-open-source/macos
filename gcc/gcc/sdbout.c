@@ -1,6 +1,6 @@
 /* Output sdb-format symbol table information from GNU compiler.
    Copyright (C) 1988, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,11 +43,29 @@ AT&T C compiler.  From the example below I would conclude the following:
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "debug.h"
 #include "tree.h"
 #include "ggc.h"
+#include "varray.h"
 
 static GTY(()) tree anonymous_types;
+
+/* Counter to generate unique "names" for nameless struct members.  */
+
+static GTY(()) int unnamed_struct_number;
+
+/* Declarations whose debug info was deferred till end of compilation.  */
+
+static GTY(()) varray_type deferred_global_decls;
+
+/* The C front end may call sdbout_symbol before sdbout_init runs.
+   We save all such decls in this list and output them when we get
+   to sdbout_init.  */
+
+static GTY(()) tree preinit_symbols;
+static GTY(()) bool sdbout_initialized;
 
 #ifdef SDB_DEBUGGING_INFO
 
@@ -61,11 +79,12 @@ static GTY(()) tree anonymous_types;
 #include "tm_p.h"
 #include "gsyms.h"
 #include "langhooks.h"
+#include "target.h"
 
 /* 1 if PARM is passed to this function in memory.  */
 
 #define PARM_PASSED_IN_MEMORY(PARM) \
- (GET_CODE (DECL_INCOMING_RTL (PARM)) == MEM)
+ (MEM_P (DECL_INCOMING_RTL (PARM)))
 
 /* A C expression for the integer offset value of an automatic variable
    (C_AUTO) having address X (an RTX).  */
@@ -85,9 +104,6 @@ static GTY(()) tree anonymous_types;
 
 int sdb_begin_function_line = -1;
 
-/* Counter to generate unique "names" for nameless struct members.  */
-
-static int unnamed_struct_number = 0;
 
 extern FILE *asm_out_file;
 
@@ -95,45 +111,42 @@ extern tree current_function_decl;
 
 #include "sdbout.h"
 
-static void sdbout_init			PARAMS ((const char *));
-static void sdbout_finish		PARAMS ((const char *));
-static void sdbout_start_source_file	PARAMS ((unsigned int, const char *));
-static void sdbout_end_source_file	PARAMS ((unsigned int));
-static void sdbout_begin_block		PARAMS ((unsigned int, unsigned int));
-static void sdbout_end_block		PARAMS ((unsigned int, unsigned int));
-static void sdbout_source_line		PARAMS ((unsigned int, const char *));
-static void sdbout_end_epilogue		PARAMS ((unsigned int, const char *));
-static void sdbout_global_decl		PARAMS ((tree));
+static void sdbout_init			(const char *);
+static void sdbout_finish		(const char *);
+static void sdbout_start_source_file	(unsigned int, const char *);
+static void sdbout_end_source_file	(unsigned int);
+static void sdbout_begin_block		(unsigned int, unsigned int);
+static void sdbout_end_block		(unsigned int, unsigned int);
+static void sdbout_source_line		(unsigned int, const char *);
+static void sdbout_end_epilogue		(unsigned int, const char *);
+static void sdbout_global_decl		(tree);
 #ifndef MIPS_DEBUGGING_INFO
-static void sdbout_begin_prologue	PARAMS ((unsigned int, const char *));
+static void sdbout_begin_prologue	(unsigned int, const char *);
 #endif
-static void sdbout_end_prologue		PARAMS ((unsigned int, const char *));
-static void sdbout_begin_function	PARAMS ((tree));
-static void sdbout_end_function		PARAMS ((unsigned int));
-static void sdbout_toplevel_data	PARAMS ((tree));
-static void sdbout_label		PARAMS ((rtx));
-static char *gen_fake_label		PARAMS ((void));
-static int plain_type			PARAMS ((tree));
-static int template_name_p		PARAMS ((tree));
-static void sdbout_record_type_name	PARAMS ((tree));
-static int plain_type_1			PARAMS ((tree, int));
-static void sdbout_block		PARAMS ((tree));
-static void sdbout_syms			PARAMS ((tree));
+static void sdbout_end_prologue		(unsigned int, const char *);
+static void sdbout_begin_function	(tree);
+static void sdbout_end_function		(unsigned int);
+static void sdbout_toplevel_data	(tree);
+static void sdbout_label		(rtx);
+static char *gen_fake_label		(void);
+static int plain_type			(tree);
+static int template_name_p		(tree);
+static void sdbout_record_type_name	(tree);
+static int plain_type_1			(tree, int);
+static void sdbout_block		(tree);
+static void sdbout_syms			(tree);
 #ifdef SDB_ALLOW_FORWARD_REFERENCES
-static void sdbout_queue_anonymous_type	PARAMS ((tree));
-static void sdbout_dequeue_anonymous_types PARAMS ((void));
+static void sdbout_queue_anonymous_type	(tree);
+static void sdbout_dequeue_anonymous_types (void);
 #endif
-static void sdbout_type			PARAMS ((tree));
-static void sdbout_field_types		PARAMS ((tree));
-static void sdbout_one_type		PARAMS ((tree));
-static void sdbout_parms		PARAMS ((tree));
-static void sdbout_reg_parms		PARAMS ((tree));
-static void sdbout_global_decl		PARAMS ((tree));
-
-/* Random macros describing parts of SDB data.  */
+static void sdbout_type			(tree);
+static void sdbout_field_types		(tree);
+static void sdbout_one_type		(tree);
+static void sdbout_parms		(tree);
+static void sdbout_reg_parms		(tree);
+static void sdbout_global_decl		(tree);
 
-/* Put something here if lines get too long */
-#define CONTIN
+/* Random macros describing parts of SDB data.  */
 
 /* Default value of delimiter is ";".  */
 #ifndef SDB_DELIM
@@ -152,9 +165,8 @@ static void sdbout_global_decl		PARAMS ((tree));
 #ifndef PUT_SDB_INT_VAL
 #define PUT_SDB_INT_VAL(a) \
  do {									\
-   fputs ("\t.val\t", asm_out_file);		       			\
-   fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (a)); \
-   fprintf (asm_out_file, "%s", SDB_DELIM);				\
+   fprintf (asm_out_file, "\t.val\t" HOST_WIDE_INT_PRINT_DEC "%s",	\
+	    (HOST_WIDE_INT) (a), SDB_DELIM);				\
  } while (0)
 
 #endif
@@ -169,7 +181,7 @@ static void sdbout_global_decl		PARAMS ((tree));
 #ifndef PUT_SDB_DEF
 #define PUT_SDB_DEF(a)				\
 do { fprintf (asm_out_file, "\t.def\t");	\
-     assemble_name (asm_out_file, a); 	\
+     assemble_name (asm_out_file, a);	\
      fprintf (asm_out_file, SDB_DELIM); } while (0)
 #endif
 
@@ -188,9 +200,8 @@ do { fprintf (asm_out_file, "\t.def\t");	\
 #ifndef PUT_SDB_SIZE
 #define PUT_SDB_SIZE(a) \
  do {									\
-   fputs ("\t.size\t", asm_out_file);					\
-   fprintf (asm_out_file, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT) (a)); \
-   fprintf (asm_out_file, "%s", SDB_DELIM);				\
+   fprintf (asm_out_file, "\t.size\t" HOST_WIDE_INT_PRINT_DEC "%s",	\
+	    (HOST_WIDE_INT) (a), SDB_DELIM);				\
  } while(0)
 #endif
 
@@ -254,7 +265,7 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 /* Set the sdb tag identifier string for TYPE to NAME.  */
 
 #define SET_KNOWN_TYPE_TAG(TYPE, NAME) \
-  TYPE_SYMTAB_POINTER (TYPE) = (NAME)
+  TYPE_SYMTAB_POINTER (TYPE) = (char *)(NAME)
 
 /* Return the name (a string) of the struct, union or enum tag
    described by the TREE_LIST node LINK.  This is 0 for an anonymous one.  */
@@ -277,11 +288,6 @@ do { fprintf (asm_out_file, "\t.tag\t");	\
 
 #ifdef MIPS_DEBUGGING_INFO
 
-#ifndef PUT_SDB_SRC_FILE
-#define PUT_SDB_SRC_FILE(FILENAME) \
-output_file_directive (asm_out_file, (FILENAME))
-#endif
-
 /* ECOFF linkers have an optimization that does the same kind of thing as
    N_BINCL/E_INCL in stabs: eliminate duplicate debug information in the
    executable.  To achieve this, GCC must output a .file for each file
@@ -300,63 +306,47 @@ struct sdb_file
 static struct sdb_file *current_file;
 
 #endif /* MIPS_DEBUGGING_INFO */
-
+
 /* The debug hooks structure.  */
 const struct gcc_debug_hooks sdb_debug_hooks =
 {
-  sdbout_init,			/* init */
-  sdbout_finish,		/* finish */
-  debug_nothing_int_charstar,	/* define */
-  debug_nothing_int_charstar,	/* undef */
-  sdbout_start_source_file,	/* start_source_file */
-  sdbout_end_source_file,	/* end_source_file */
-  sdbout_begin_block,		/* begin_block */
-  sdbout_end_block,		/* end_block */
-  debug_true_tree,		/* ignore_block */
-  sdbout_source_line,		/* source_line */
+  sdbout_init,			         /* init */
+  sdbout_finish,		         /* finish */
+  debug_nothing_int_charstar,	         /* define */
+  debug_nothing_int_charstar,	         /* undef */
+  sdbout_start_source_file,	         /* start_source_file */
+  sdbout_end_source_file,	         /* end_source_file */
+  sdbout_begin_block,		         /* begin_block */
+  sdbout_end_block,		         /* end_block */
+  debug_true_tree,		         /* ignore_block */
+  sdbout_source_line,		         /* source_line */
 #ifdef MIPS_DEBUGGING_INFO
   /* Defer on MIPS systems so that parameter descriptions follow
      function entry.  */
-  debug_nothing_int_charstar,	/* begin_prologue */
-  sdbout_end_prologue,		/* end_prologue */
+  debug_nothing_int_charstar,	         /* begin_prologue */
+  sdbout_end_prologue,		         /* end_prologue */
 #else
-  sdbout_begin_prologue,	/* begin_prologue */
-  debug_nothing_int_charstar,	/* end_prologue */
+  sdbout_begin_prologue,	         /* begin_prologue */
+  debug_nothing_int_charstar,	         /* end_prologue */
 #endif
-  sdbout_end_epilogue,		/* end_epilogue */
-  sdbout_begin_function,	/* begin_function */
-  sdbout_end_function,		/* end_function */
-  debug_nothing_tree,		/* function_decl */
-  sdbout_global_decl,		/* global_decl */
-  debug_nothing_tree,		/* deferred_inline_function */
-  debug_nothing_tree,		/* outlining_inline_function */
-  sdbout_label,			/* label */
-  debug_nothing_int		/* handle_pch */
+  sdbout_end_epilogue,		         /* end_epilogue */
+  sdbout_begin_function,	         /* begin_function */
+  sdbout_end_function,		         /* end_function */
+  debug_nothing_tree,		         /* function_decl */
+  sdbout_global_decl,		         /* global_decl */
+  sdbout_symbol,			 /* type_decl */
+  debug_nothing_tree_tree,               /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  sdbout_label,			         /* label */
+  debug_nothing_int,		         /* handle_pch */
+  debug_nothing_rtx		         /* var_location */
 };
-
-#if 0
-
-/* return the tag identifier for type
- */
-
-char *
-tag_of_ru_type (type,link)
-     tree type,link;
-{
-  if (TYPE_SYMTAB_ADDRESS (type))
-    return TYPE_SYMTAB_ADDRESS (type);
-  if (link && TREE_PURPOSE (link)
-      && IDENTIFIER_POINTER (TREE_PURPOSE (link)))
-    TYPE_SYMTAB_ADDRESS (type) = IDENTIFIER_POINTER (TREE_PURPOSE (link));
-  else
-    return (char *) TYPE_SYMTAB_ADDRESS (type);
-}
-#endif
 
 /* Return a unique string to name an anonymous type.  */
 
 static char *
-gen_fake_label ()
+gen_fake_label (void)
 {
   char label[10];
   char *labelstr;
@@ -365,7 +355,7 @@ gen_fake_label ()
   labelstr = xstrdup (label);
   return labelstr;
 }
-
+
 /* Return the number which describes TYPE for SDB.
    For pointers, etc., this function is recursive.
    Each record, union or enumeral type must already have had a
@@ -398,8 +388,7 @@ static int sdb_dims[SDB_MAX_DIM];
 static int sdb_type_size = -1;
 
 static int
-plain_type (type)
-     tree type;
+plain_type (tree type)
 {
   int val = plain_type_1 (type, 0);
 
@@ -429,8 +418,7 @@ plain_type (type)
 }
 
 static int
-template_name_p (name)
-     tree name;
+template_name_p (tree name)
 {
   const char *ptr = IDENTIFIER_POINTER (name);
   while (*ptr && *ptr != '<')
@@ -440,8 +428,7 @@ template_name_p (name)
 }
 
 static void
-sdbout_record_type_name (type)
-     tree type;
+sdbout_record_type_name (tree type)
 {
   const char *name = 0;
   int no_name;
@@ -491,9 +478,7 @@ sdbout_record_type_name (type)
    infinite loop.  */
 
 static int
-plain_type_1 (type, level)
-     tree type;
-     int level;
+plain_type_1 (tree type, int level)
 {
   if (type == 0)
     type = void_type_node;
@@ -544,15 +529,15 @@ plain_type_1 (type, level)
 	  }
 
 	if (size == INT_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_UINT : T_INT);
+	  return (TYPE_UNSIGNED (type) ? T_UINT : T_INT);
 	if (size == CHAR_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_UCHAR : T_CHAR);
+	  return (TYPE_UNSIGNED (type) ? T_UCHAR : T_CHAR);
 	if (size == SHORT_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_USHORT : T_SHORT);
+	  return (TYPE_UNSIGNED (type) ? T_USHORT : T_SHORT);
 	if (size == LONG_TYPE_SIZE)
-	  return (TREE_UNSIGNED (type) ? T_ULONG : T_LONG);
+	  return (TYPE_UNSIGNED (type) ? T_ULONG : T_LONG);
 	if (size == LONG_LONG_TYPE_SIZE)	/* better than nothing */
-	  return (TREE_UNSIGNED (type) ? T_ULONG : T_LONG);
+	  return (TYPE_UNSIGNED (type) ? T_ULONG : T_LONG);
 	return 0;
       }
 
@@ -655,7 +640,7 @@ plain_type_1 (type, level)
       return 0;
     }
 }
-
+
 /* Output the symbols defined in block number DO_BLOCK.
 
    This function works by walking the tree structure of blocks,
@@ -664,8 +649,7 @@ plain_type_1 (type, level)
 static int do_block = 0;
 
 static void
-sdbout_block (block)
-     tree block;
+sdbout_block (tree block)
 {
   while (block)
     {
@@ -687,12 +671,11 @@ sdbout_block (block)
       block = BLOCK_CHAIN (block);
     }
 }
-
+
 /* Call sdbout_symbol on each decl in the chain SYMS.  */
 
 static void
-sdbout_syms (syms)
-     tree syms;
+sdbout_syms (tree syms)
 {
   while (syms)
     {
@@ -706,9 +689,7 @@ sdbout_syms (syms)
    LOCAL is nonzero if the symbol is not file-scope.  */
 
 void
-sdbout_symbol (decl, local)
-     tree decl;
-     int local;
+sdbout_symbol (tree decl, int local)
 {
   tree type = TREE_TYPE (decl);
   tree context = NULL_TREE;
@@ -716,13 +697,15 @@ sdbout_symbol (decl, local)
   int regno = -1;
   const char *name;
 
-  sdbout_one_type (type);
+  /* If we are called before sdbout_init is run, just save the symbol
+     for later.  */
+  if (!sdbout_initialized)
+    {
+      preinit_symbols = tree_cons (0, decl, preinit_symbols);
+      return;
+    }
 
-#if 0 /* This loses when functions are marked to be ignored,
-	 which happens in the C++ front end.  */
-  if (DECL_IGNORED_P (decl))
-    return;
-#endif
+  sdbout_one_type (type);
 
   switch (TREE_CODE (decl))
     {
@@ -740,7 +723,7 @@ sdbout_symbol (decl, local)
 	 a DECL_INITIAL value of 0.  */
       if (! DECL_INITIAL (decl))
 	return;
-      if (GET_CODE (DECL_RTL (decl)) != MEM
+      if (!MEM_P (DECL_RTL (decl))
 	  || GET_CODE (XEXP (DECL_RTL (decl), 0)) != SYMBOL_REF)
 	return;
       PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
@@ -766,7 +749,7 @@ sdbout_symbol (decl, local)
     case PARM_DECL:
       /* Parm decls go in their own separate chains
 	 and are output by sdbout_reg_parms and sdbout_parms.  */
-      abort ();
+      gcc_unreachable ();
 
     case VAR_DECL:
       /* Don't mention a variable that is external.
@@ -798,7 +781,7 @@ sdbout_symbol (decl, local)
 	 If DECL was from an inline function, then its rtl
 	 is not identically the rtl that was used in this
 	 particular compilation.  */
-      if (GET_CODE (value) == REG)
+      if (REG_P (value))
 	{
 	  regno = REGNO (value);
 	  if (regno >= FIRST_PSEUDO_REGISTER)
@@ -808,7 +791,7 @@ sdbout_symbol (decl, local)
 	{
 	  while (GET_CODE (value) == SUBREG)
 	    value = SUBREG_REG (value);
-	  if (GET_CODE (value) == REG)
+	  if (REG_P (value))
 	    {
 	      if (REGNO (value) >= FIRST_PSEUDO_REGISTER)
 		return;
@@ -819,7 +802,7 @@ sdbout_symbol (decl, local)
       /* Don't output anything if an auto variable
 	 gets RTL that is static.
 	 GAS version 2.2 can't handle such output.  */
-      else if (GET_CODE (value) == MEM && CONSTANT_P (XEXP (value, 0))
+      else if (MEM_P (value) && CONSTANT_P (XEXP (value, 0))
 	       && ! TREE_STATIC (decl))
 	return;
 
@@ -838,7 +821,7 @@ sdbout_symbol (decl, local)
 
       /* Defer SDB information for top-level initialized variables! */
       if (! local
-	  && GET_CODE (value) == MEM
+	  && MEM_P (value)
 	  && DECL_INITIAL (decl))
 	return;
 
@@ -853,7 +836,7 @@ sdbout_symbol (decl, local)
       else
 	name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 
-      if (GET_CODE (value) == MEM
+      if (MEM_P (value)
 	  && GET_CODE (XEXP (value, 0)) == SYMBOL_REF)
 	{
 	  PUT_SDB_DEF (name);
@@ -874,9 +857,9 @@ sdbout_symbol (decl, local)
 	  PUT_SDB_INT_VAL (DBX_REGISTER_NUMBER (regno));
 	  PUT_SDB_SCL (C_REG);
 	}
-      else if (GET_CODE (value) == MEM
-	       && (GET_CODE (XEXP (value, 0)) == MEM
-		   || (GET_CODE (XEXP (value, 0)) == REG
+      else if (MEM_P (value)
+	       && (MEM_P (XEXP (value, 0))
+		   || (REG_P (XEXP (value, 0))
 		       && REGNO (XEXP (value, 0)) != HARD_FRAME_POINTER_REGNUM
 		       && REGNO (XEXP (value, 0)) != STACK_POINTER_REGNUM)))
 	/* If the value is indirect by memory or by a register
@@ -886,7 +869,7 @@ sdbout_symbol (decl, local)
 	   so all we can do is output the variable as a pointer.  */
 	{
 	  PUT_SDB_DEF (name);
-	  if (GET_CODE (XEXP (value, 0)) == REG)
+	  if (REG_P (XEXP (value, 0)))
 	    {
 	      PUT_SDB_INT_VAL (DBX_REGISTER_NUMBER (REGNO (XEXP (value, 0))));
 	      PUT_SDB_SCL (C_REG);
@@ -909,14 +892,14 @@ sdbout_symbol (decl, local)
 	  type = make_node (POINTER_TYPE);
 	  TREE_TYPE (type) = TREE_TYPE (decl);
 	}
-      else if (GET_CODE (value) == MEM
+      else if (MEM_P (value)
 	       && ((GET_CODE (XEXP (value, 0)) == PLUS
-		    && GET_CODE (XEXP (XEXP (value, 0), 0)) == REG
+		    && REG_P (XEXP (XEXP (value, 0), 0))
 		    && GET_CODE (XEXP (XEXP (value, 0), 1)) == CONST_INT)
 		   /* This is for variables which are at offset zero from
 		      the frame pointer.  This happens on the Alpha.
 		      Non-frame pointer registers are excluded above.  */
-		   || (GET_CODE (XEXP (value, 0)) == REG)))
+		   || (REG_P (XEXP (value, 0)))))
 	{
 	  /* DECL_RTL looks like (MEM (PLUS (REG...) (CONST_INT...)))
 	     or (MEM (REG...)).  We want the value of that CONST_INT
@@ -938,23 +921,21 @@ sdbout_symbol (decl, local)
   PUT_SDB_TYPE (plain_type (type));
   PUT_SDB_ENDEF;
 }
-
+
 /* Output SDB information for a top-level initialized variable
    that has been delayed.  */
 
 static void
-sdbout_toplevel_data (decl)
-     tree decl;
+sdbout_toplevel_data (tree decl)
 {
   tree type = TREE_TYPE (decl);
 
   if (DECL_IGNORED_P (decl))
     return;
 
-  if (! (TREE_CODE (decl) == VAR_DECL
-	 && GET_CODE (DECL_RTL (decl)) == MEM
-	 && DECL_INITIAL (decl)))
-    abort ();
+  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+  gcc_assert (MEM_P (DECL_RTL (decl)));
+  gcc_assert (DECL_INITIAL (decl));
 
   PUT_SDB_DEF (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
   PUT_SDB_VAL (XEXP (DECL_RTL (decl), 0));
@@ -969,20 +950,19 @@ sdbout_toplevel_data (decl)
   PUT_SDB_TYPE (plain_type (type));
   PUT_SDB_ENDEF;
 }
-
+
 #ifdef SDB_ALLOW_FORWARD_REFERENCES
 
 /* Machinery to record and output anonymous types.  */
 
 static void
-sdbout_queue_anonymous_type (type)
-     tree type;
+sdbout_queue_anonymous_type (tree type)
 {
   anonymous_types = tree_cons (NULL_TREE, type, anonymous_types);
 }
 
 static void
-sdbout_dequeue_anonymous_types ()
+sdbout_dequeue_anonymous_types (void)
 {
   tree types, link;
 
@@ -1002,13 +982,12 @@ sdbout_dequeue_anonymous_types ()
 }
 
 #endif
-
+
 /* Given a chain of ..._TYPE nodes, all of which have names,
    output definitions of those names, as typedefs.  */
 
 void
-sdbout_types (types)
-     tree types;
+sdbout_types (tree types)
 {
   tree link;
 
@@ -1021,8 +1000,7 @@ sdbout_types (types)
 }
 
 static void
-sdbout_type (type)
-     tree type;
+sdbout_type (tree type)
 {
   if (type == error_mark_node)
     type = integer_type_node;
@@ -1036,8 +1014,7 @@ sdbout_type (type)
    Now james@bigtex.cactus.org says to try them.  */
 
 static void
-sdbout_field_types (type)
-     tree type;
+sdbout_field_types (tree type)
 {
   tree tail;
 
@@ -1065,8 +1042,7 @@ sdbout_field_types (type)
    It may NOT be called recursively.  */
 
 static void
-sdbout_one_type (type)
-     tree type;
+sdbout_one_type (tree type)
 {
   if (current_function_decl != NULL_TREE
       && DECL_SECTION_NAME (current_function_decl) != NULL_TREE)
@@ -1091,11 +1067,11 @@ sdbout_one_type (type)
 	return;
 
       TREE_ASM_WRITTEN (type) = 1;
-#if 1
+
       /* This is reputed to cause trouble with the following case,
 	 but perhaps checking TYPE_SIZE above will fix it.  */
 
-      /* Here is a test case:
+      /* Here is a testcase:
 
 	struct foo {
 	  struct badstr *bbb;
@@ -1109,9 +1085,6 @@ sdbout_one_type (type)
 	  int ccccc;
 	} badtype;   */
 
-#if 0
-      TREE_ASM_BEING_WRITTEN (type) = 1;
-#endif
       /* This change, which ought to make better output,
 	 used to make the COFF assembler unhappy.
 	 Changes involving KNOWN_TYPE_TAG may fix the problem.  */
@@ -1120,17 +1093,12 @@ sdbout_one_type (type)
 	 are not used if forward references are in use.  */
       if (TREE_CODE (type) != ENUMERAL_TYPE)
 	sdbout_field_types (type);
-#if 0
-      TREE_ASM_WRITTEN (type) = 1;
-#endif
-#endif
 
       /* Output a structure type.  */
       {
 	int size = int_size_in_bytes (type);
 	int member_scl = 0;
 	tree tem;
-	int i, n_baseclasses = 0;
 
 	/* Record the type tag, but not in its permanent place just yet.  */
 	sdbout_record_type_name (type);
@@ -1170,17 +1138,17 @@ sdbout_one_type (type)
 	/* This is only relevant to aggregate types.  TYPE_BINFO is used
 	   for other purposes in an ENUMERAL_TYPE, so we must exclude that
 	   case.  */
-	if (TREE_CODE (type) != ENUMERAL_TYPE)
+	if (TREE_CODE (type) != ENUMERAL_TYPE && TYPE_BINFO (type))
 	  {
-	    if (TYPE_BINFO (type)
-		&& TYPE_BINFO_BASETYPES (type))
-	      n_baseclasses = TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type));
-	    for (i = 0; i < n_baseclasses; i++)
+	    int i;
+	    tree binfo, child;
+
+	    for (binfo = TYPE_BINFO (type), i = 0;
+		 BINFO_BASE_ITERATE (binfo, i, child); i++)
 	      {
-		tree child = TREE_VEC_ELT (BINFO_BASETYPES (TYPE_BINFO (type)),
-					   i);
 		tree child_type = BINFO_TYPE (child);
 		tree child_type_name;
+		
 		if (TYPE_NAME (child_type) == 0)
 		  continue;
 		if (TREE_CODE (TYPE_NAME (child_type)) == IDENTIFIER_NODE)
@@ -1195,7 +1163,6 @@ sdbout_one_type (type)
 		else
 		  continue;
 
-		CONTIN;
 		PUT_SDB_DEF (IDENTIFIER_POINTER (child_type_name));
 		PUT_SDB_INT_VAL (tree_low_cst (BINFO_OFFSET (child), 0));
 		PUT_SDB_SCL (member_scl);
@@ -1204,11 +1171,11 @@ sdbout_one_type (type)
 	      }
 	  }
 
-	/* output the individual fields */
+	/* Output the individual fields.  */
 
 	if (TREE_CODE (type) == ENUMERAL_TYPE)
 	  {
-	    for (tem = TYPE_FIELDS (type); tem; tem = TREE_CHAIN (tem))
+	    for (tem = TYPE_VALUES (type); tem; tem = TREE_CHAIN (tem))
 	      if (host_integerp (TREE_VALUE (tem), 0))
 		{
 		  PUT_SDB_DEF (IDENTIFIER_POINTER (TREE_PURPOSE (tem)));
@@ -1234,7 +1201,6 @@ sdbout_one_type (type)
 	      {
 		const char *name;
 
-		CONTIN;
 		name = IDENTIFIER_POINTER (DECL_NAME (tem));
 		PUT_SDB_DEF (name);
 		if (DECL_BIT_FIELD_TYPE (tem))
@@ -1252,7 +1218,7 @@ sdbout_one_type (type)
 		  }
 		PUT_SDB_ENDEF;
 	      }
-	/* output end of a structure,union, or enumeral definition */
+	/* Output end of a structure,union, or enumeral definition.  */
 
 	PUT_SDB_PLAIN_DEF ("eos");
 	PUT_SDB_INT_VAL (size);
@@ -1267,7 +1233,7 @@ sdbout_one_type (type)
       }
     }
 }
-
+
 /* The following two functions output definitions of function parameters.
    Each parameter gets a definition locating it in the parameter list.
    Each parameter that is a register variable gets a second definition
@@ -1281,8 +1247,7 @@ sdbout_one_type (type)
    of all the parms in PARMS, which is a chain of PARM_DECL nodes.  */
 
 static void
-sdbout_parms (parms)
-     tree parms;
+sdbout_parms (tree parms)
 {
   for (; parms; parms = TREE_CHAIN (parms))
     if (DECL_NAME (parms))
@@ -1315,7 +1280,7 @@ sdbout_parms (parms)
 	    else
 	      current_sym_value = 0;
 
-	    if (GET_CODE (DECL_RTL (parms)) == REG
+	    if (REG_P (DECL_RTL (parms))
 		&& REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER)
 	      type = DECL_ARG_TYPE (parms);
 	    else
@@ -1334,7 +1299,7 @@ sdbout_parms (parms)
 		    (GET_MODE_SIZE (TYPE_MODE (DECL_ARG_TYPE (parms)))
 		     - GET_MODE_SIZE (GET_MODE (DECL_RTL (parms))));
 
-		if (GET_CODE (DECL_RTL (parms)) == MEM
+		if (MEM_P (DECL_RTL (parms))
 		    && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		    && (GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1))
 			== CONST_INT)
@@ -1354,7 +1319,7 @@ sdbout_parms (parms)
 	    PUT_SDB_TYPE (plain_type (type));
 	    PUT_SDB_ENDEF;
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == REG)
+	else if (REG_P (DECL_RTL (parms)))
 	  {
 	    rtx best_rtl;
 	    /* Parm passed in registers and lives in registers or nowhere.  */
@@ -1376,7 +1341,7 @@ sdbout_parms (parms)
 	    PUT_SDB_TYPE (plain_type (TREE_TYPE (parms)));
 	    PUT_SDB_ENDEF;
 	  }
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && XEXP (DECL_RTL (parms), 0) != const0_rtx)
 	  {
 	    /* Parm was passed in registers but lives on the stack.  */
@@ -1385,8 +1350,8 @@ sdbout_parms (parms)
 	       in which case we want the value of that CONST_INT,
 	       or (MEM (REG ...)) or (MEM (MEM ...)),
 	       in which case we use a value of zero.  */
-	    if (GET_CODE (XEXP (DECL_RTL (parms), 0)) == REG
-		|| GET_CODE (XEXP (DECL_RTL (parms), 0)) == MEM)
+	    if (REG_P (XEXP (DECL_RTL (parms), 0))
+		|| MEM_P (XEXP (DECL_RTL (parms), 0)))
 	      current_sym_value = 0;
 	    else
 	      current_sym_value = INTVAL (XEXP (XEXP (DECL_RTL (parms), 0), 1));
@@ -1414,8 +1379,7 @@ sdbout_parms (parms)
    PARMS is a chain of PARM_DECL nodes.  */
 
 static void
-sdbout_reg_parms (parms)
-     tree parms;
+sdbout_reg_parms (tree parms)
 {
   for (; parms; parms = TREE_CHAIN (parms))
     if (DECL_NAME (parms))
@@ -1424,7 +1388,7 @@ sdbout_reg_parms (parms)
 
 	/* Report parms that live in registers during the function
 	   but were passed in memory.  */
-	if (GET_CODE (DECL_RTL (parms)) == REG
+	if (REG_P (DECL_RTL (parms))
 	    && REGNO (DECL_RTL (parms)) < FIRST_PSEUDO_REGISTER
 	    && PARM_PASSED_IN_MEMORY (parms))
 	  {
@@ -1437,7 +1401,7 @@ sdbout_reg_parms (parms)
 	    PUT_SDB_ENDEF;
 	  }
 	/* Report parms that live in memory but not where they were passed.  */
-	else if (GET_CODE (DECL_RTL (parms)) == MEM
+	else if (MEM_P (DECL_RTL (parms))
 		 && GET_CODE (XEXP (DECL_RTL (parms), 0)) == PLUS
 		 && GET_CODE (XEXP (XEXP (DECL_RTL (parms), 0), 1)) == CONST_INT
 		 && PARM_PASSED_IN_MEMORY (parms)
@@ -1468,13 +1432,12 @@ sdbout_reg_parms (parms)
 	  }
       }
 }
-
+
 /* Output debug information for a global DECL.  Called from toplev.c
    after compilation proper has finished.  */
 
 static void
-sdbout_global_decl (decl)
-     tree decl;
+sdbout_global_decl (tree decl)
 {
   if (TREE_CODE (decl) == VAR_DECL
       && !DECL_EXTERNAL (decl)
@@ -1485,10 +1448,12 @@ sdbout_global_decl (decl)
 	 sdbout_finish ().  */
       if (!DECL_INITIAL (decl) || !TREE_PUBLIC (decl))
 	sdbout_symbol (decl, 0);
+      else
+	VARRAY_PUSH_TREE (deferred_global_decls, decl);
 
       /* Output COFF information for non-global file-scope initialized
 	 variables.  */
-      if (DECL_INITIAL (decl) && GET_CODE (DECL_RTL (decl)) == MEM)
+      if (DECL_INITIAL (decl) && MEM_P (DECL_RTL (decl)))
 	sdbout_toplevel_data (decl);
     }
 }
@@ -1497,34 +1462,14 @@ sdbout_global_decl (decl)
    definition.  See comment in sdbout_global_decl.  */
 
 static void
-sdbout_finish (main_filename)
-     const char *main_filename ATTRIBUTE_UNUSED;
+sdbout_finish (const char *main_filename ATTRIBUTE_UNUSED)
 {
-  tree decl = (*lang_hooks.decls.getdecls) ();
-  unsigned int len = list_length (decl);
-  tree *vec = (tree *) xmalloc (sizeof (tree) * len);
-  unsigned int i;
+  size_t i;
 
-  /* Process the decls in reverse order--earliest first.  Put them
-     into VEC from back to front, then take out from front.  */
-
-  for (i = 0; i < len; i++, decl = TREE_CHAIN (decl))
-    vec[len - i - 1] = decl;
-
-  for (i = 0; i < len; i++)
-    {
-      decl = vec[i];
-      if (TREE_CODE (decl) == VAR_DECL
-	  && ! DECL_EXTERNAL (decl)
-	  && DECL_INITIAL (decl)
-	  && TREE_PUBLIC (decl)
-	  && DECL_RTL_SET_P (decl))
-	sdbout_symbol (decl, 0);
-    }
-
-  free (vec);
+  for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_global_decls); i++)
+    sdbout_symbol (VARRAY_TREE (deferred_global_decls, i), 0);
 }
-
+
 /* Describe the beginning of an internal block within a function.
    Also output descriptions of variables defined in this block.
 
@@ -1534,9 +1479,7 @@ sdbout_finish (main_filename)
    if the count starts at 0 for the outermost one.  */
 
 static void
-sdbout_begin_block (line, n)
-     unsigned int line;
-     unsigned int n;
+sdbout_begin_block (unsigned int line, unsigned int n)
 {
   tree decl = current_function_decl;
   MAKE_LINE_SAFE (line);
@@ -1571,9 +1514,7 @@ sdbout_begin_block (line, n)
 /* Describe the end line-number of an internal block within a function.  */
 
 static void
-sdbout_end_block (line, n)
-     unsigned int line;
-     unsigned int n ATTRIBUTE_UNUSED;
+sdbout_end_block (unsigned int line, unsigned int n ATTRIBUTE_UNUSED)
 {
   MAKE_LINE_SAFE (line);
 
@@ -1586,16 +1527,17 @@ sdbout_end_block (line, n)
   PUT_SDB_BLOCK_END (line - sdb_begin_function_line);
 }
 
+/* Output a line number symbol entry for source file FILENAME and line
+   number LINE.  */
+
 static void
-sdbout_source_line (line, filename)
-     unsigned int line;
-     const char *filename ATTRIBUTE_UNUSED;
+sdbout_source_line (unsigned int line, const char *filename ATTRIBUTE_UNUSED)
 {
   /* COFF relative line numbers must be positive.  */
   if ((int) line > sdb_begin_function_line)
     {
-#ifdef ASM_OUTPUT_SOURCE_LINE
-      ASM_OUTPUT_SOURCE_LINE (asm_out_file, line);
+#ifdef SDB_OUTPUT_SOURCE_LINE
+      SDB_OUTPUT_SOURCE_LINE (asm_out_file, line);
 #else
       fprintf (asm_out_file, "\t.ln\t%d\n",
 	       ((sdb_begin_function_line > -1)
@@ -1608,8 +1550,7 @@ sdbout_source_line (line, filename)
    Called from assemble_start_function.  */
 
 static void
-sdbout_begin_function (decl)
-     tree decl ATTRIBUTE_UNUSED;
+sdbout_begin_function (tree decl ATTRIBUTE_UNUSED)
 {
   sdbout_symbol (current_function_decl, 0);
 }
@@ -1622,18 +1563,14 @@ sdbout_begin_function (decl)
 
 #ifndef MIPS_DEBUGGING_INFO
 static void
-sdbout_begin_prologue (line, file)
-     unsigned int line;
-     const char *file ATTRIBUTE_UNUSED;
+sdbout_begin_prologue (unsigned int line, const char *file ATTRIBUTE_UNUSED)
 {
   sdbout_end_prologue (line, file);
 }
 #endif
 
 static void
-sdbout_end_prologue (line, file)
-     unsigned int line;
-     const char *file ATTRIBUTE_UNUSED;
+sdbout_end_prologue (unsigned int line, const char *file ATTRIBUTE_UNUSED)
 {
   sdb_begin_function_line = line - 1;
   PUT_SDB_FUNCTION_START (line);
@@ -1645,8 +1582,7 @@ sdbout_end_prologue (line, file)
    Describe end of outermost block.  */
 
 static void
-sdbout_end_function (line)
-     unsigned int line;
+sdbout_end_function (unsigned int line)
 {
 #ifdef SDB_ALLOW_FORWARD_REFERENCES
   sdbout_dequeue_anonymous_types ();
@@ -1663,9 +1599,8 @@ sdbout_end_function (line)
    Called after the epilogue is output.  */
 
 static void
-sdbout_end_epilogue (line, file)
-     unsigned int line ATTRIBUTE_UNUSED;
-     const char *file ATTRIBUTE_UNUSED;
+sdbout_end_epilogue (unsigned int line ATTRIBUTE_UNUSED,
+		     const char *file ATTRIBUTE_UNUSED)
 {
   const char *const name ATTRIBUTE_UNUSED
     = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
@@ -1684,8 +1619,7 @@ sdbout_end_epilogue (line, file)
    is present.  */
 
 static void
-sdbout_label (insn)
-     rtx insn;
+sdbout_label (rtx insn)
 {
   PUT_SDB_DEF (LABEL_NAME (insn));
   PUT_SDB_VAL (insn);
@@ -1697,25 +1631,23 @@ sdbout_label (insn)
 /* Change to reading from a new source file.  */
 
 static void
-sdbout_start_source_file (line, filename)
-     unsigned int line ATTRIBUTE_UNUSED;
-     const char *filename ATTRIBUTE_UNUSED;
+sdbout_start_source_file (unsigned int line ATTRIBUTE_UNUSED,
+			  const char *filename ATTRIBUTE_UNUSED)
 {
 #ifdef MIPS_DEBUGGING_INFO
-  struct sdb_file *n = (struct sdb_file *) xmalloc (sizeof *n);
+  struct sdb_file *n = xmalloc (sizeof *n);
 
   n->next = current_file;
   n->name = filename;
   current_file = n;
-  PUT_SDB_SRC_FILE (filename);
+  output_file_directive (asm_out_file, filename);
 #endif
 }
 
 /* Revert to reading a previous source file.  */
 
 static void
-sdbout_end_source_file (line)
-     unsigned int line ATTRIBUTE_UNUSED;
+sdbout_end_source_file (unsigned int line ATTRIBUTE_UNUSED)
 {
 #ifdef MIPS_DEBUGGING_INFO
   struct sdb_file *next;
@@ -1723,29 +1655,32 @@ sdbout_end_source_file (line)
   next = current_file->next;
   free (current_file);
   current_file = next;
-  PUT_SDB_SRC_FILE (current_file->name);
+  output_file_directive (asm_out_file, current_file->name);
 #endif
 }
 
 /* Set up for SDB output at the start of compilation.  */
 
 static void
-sdbout_init (input_file_name)
-     const char *input_file_name ATTRIBUTE_UNUSED;
+sdbout_init (const char *input_file_name ATTRIBUTE_UNUSED)
 {
+  tree t;
+
 #ifdef MIPS_DEBUGGING_INFO
-  current_file = (struct sdb_file *) xmalloc (sizeof *current_file);
+  current_file = xmalloc (sizeof *current_file);
   current_file->next = NULL;
   current_file->name = input_file_name;
 #endif
 
-#ifdef RMS_QUICK_HACK_1
-  tree t;
-  for (t = (*lang_hooks.decls.getdecls) (); t; t = TREE_CHAIN (t))
-    if (DECL_NAME (t) && IDENTIFIER_POINTER (DECL_NAME (t)) != 0
-	&& !strcmp (IDENTIFIER_POINTER (DECL_NAME (t)), "__vtbl_ptr_type"))
-      sdbout_symbol (t, 0);
-#endif  
+  VARRAY_TREE_INIT (deferred_global_decls, 12, "deferred_global_decls");
+
+  /* Emit debug information which was queued by sdbout_symbol before
+     we got here.  */
+  sdbout_initialized = true;
+
+  for (t = nreverse (preinit_symbols); t; t = TREE_CHAIN (t))
+    sdbout_symbol (TREE_VALUE (t), 0);
+  preinit_symbols = 0;
 }
 
 #else  /* SDB_DEBUGGING_INFO */

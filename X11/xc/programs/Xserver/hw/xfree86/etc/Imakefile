@@ -4,7 +4,7 @@ XCOMM $XConsortium: Imakefile /main/24 1996/10/28 04:24:12 kaleb $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/etc/Imakefile,v 3.49 2002/11/14 21:01:20 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/etc/Imakefile,v 3.51 2003/06/12 14:12:33 eich Exp $
 #include <Server.tmpl>
 
 #if SystemV
@@ -80,8 +80,10 @@ InstallManPage(kbd_mode,$(MANDIR))
        SRCS2 = scanpci.c
 
 #if defined(i386Architecture) && \
-    defined(OpenBSDArchitecture) || defined(NetBSDArchitecture) \
-    && ((OSMajorVersion == 1 && OSMinorVersion >= 1) || OSMajorVersion >= 2)
+    (defined(OpenBSDArchitecture) || \
+	(defined(NetBSDArchitecture) && \
+	 ((OSMajorVersion == 1 && OSMinorVersion >= 1) || \
+	  OSMajorVersion >= 2)))
 DEFINES = -DUSE_I386_IOPL
 #endif
 
@@ -138,7 +140,7 @@ InstallProgram(mmapw,$(BINDIR))
 #if defined(i386Architecture) || \
     defined(AlphaArchitecture) || \
     defined(ia64Architecture) || \
-    defined(x86_64Architecture)
+    defined(AMD64Architecture)
 
        SRCS8 = ioport.c
 

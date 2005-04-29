@@ -1,6 +1,5 @@
 /*
  * $Xorg: gethost.c,v 1.5 2001/02/09 02:05:38 xorgcvs Exp $
- *
  * 
 Copyright 1989, 1998  The Open Group
 
@@ -27,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
  * Author:  Jim Fulton, MIT X Consortium
  */
 
-/* $XFree86: xc/programs/xauth/gethost.c,v 3.16 2001/12/14 20:01:14 dawes Exp $ */
+/* $XFree86: xc/programs/xauth/gethost.c,v 3.21 2003/08/02 15:30:10 herrb Exp $ */
 
 /* sorry, streams support does not really work yet */
 #if defined(STREAMSCONN) && defined(SVR4)
@@ -59,9 +58,9 @@ in this Software without prior written authorization from The Open Group.
 #include <arpa/inet.h>
 #ifdef SYSV
 #ifdef i386
-#ifndef sco
+#if !defined(sco) && !defined(sun)
 #include <net/errno.h>
-#endif /* !sco */
+#endif /* !sco && !sun */
 #endif /* i386 */
 #endif /* SYSV */
 #endif /* !STREAMSCONN */
@@ -74,8 +73,12 @@ in this Software without prior written authorization from The Open Group.
 #include <netdnet/dnetdb.h>
 #endif
 
+#ifndef WIN32
+#include <arpa/inet.h>
+#endif
+
 #ifdef SIGALRM
-Bool nameserver_timedout = False;
+static volatile Bool nameserver_timedout = False;
 
 
 /*
@@ -106,16 +109,30 @@ char *
 get_hostname (auth)
     Xauth *auth;
 {
-    static struct hostent *hp = NULL;
+    static struct hostent *hp;
+    int af;
 #ifdef DNETCONN
     struct nodeent *np;
     static char nodeaddr[4 + 2 * DN_MAXADDL];
 #endif /* DNETCONN */
 
+    hp = NULL;
     if (auth->address_length == 0)
 	return "Illegal Address";
 #ifdef TCPCONN
-    if (auth->family == FamilyInternet) {
+    if (auth->family == FamilyInternet
+#if defined(IPv6) && defined(AF_INET6)
+      || auth->family == FamilyInternet6
+#endif 
+	)
+    {
+#if defined(IPv6) && defined(AF_INET6)
+	if (auth->family == FamilyInternet6)
+	    af = AF_INET6;
+	else
+#endif
+	    af = AF_INET;
+	if (no_name_lookups == False) {
 #ifdef SIGALRM
 	/* gethostbyaddr can take a LONG time if the host does not exist.
 	   Assume that if it does not respond in NAMESERVER_TIMEOUT seconds
@@ -128,22 +145,39 @@ get_hostname (auth)
 	alarm (4);
 	if (setjmp(env) == 0) {
 #endif
-	    hp = gethostbyaddr (auth->address, auth->address_length, AF_INET);
+	    hp = gethostbyaddr (auth->address, auth->address_length, af);
 #ifdef SIGALRM
 	}
 	alarm (0);
 #endif
+	}
 	if (hp)
 	  return (hp->h_name);
-	else
+#if defined(IPv6) && defined(AF_INET6)
+	else if (af == AF_INET6) {
+	  static char addr[INET6_ADDRSTRLEN+2];
+	  /* Add [] for clarity to distinguish between address & display,
+	     like RFC 2732 for URL's.  Not required, since X display syntax
+	     always ends in :<display>, but makes it easier for people to read
+	     and less confusing to those who expect the RFC 2732 style. */
+	  addr[0] = '[';
+	  if (inet_ntop(af, auth->address, addr + 1, INET6_ADDRSTRLEN) == NULL)
+	    return NULL;
+	  strcat(addr, "]");
+          return addr;
+	}
+#endif
+	else {
 	  return (inet_ntoa(*((struct in_addr *)(auth->address))));
+	}
     }
 #endif
 #ifdef DNETCONN
     if (auth->family == FamilyDECnet) {
 	struct dn_naddr *addr_ptr = (struct dn_naddr *) auth->address;
 
-	if (np = getnodebyaddr(addr_ptr->a_addr, addr_ptr->a_len, AF_DECnet)) {
+	if ((no_name_lookups == False) &&
+	    (np = getnodebyaddr(addr_ptr->a_addr, addr_ptr->a_len, AF_DECnet))) {
 	    sprintf(nodeaddr, "%s:", np->n_name);
 	} else {
 	    sprintf(nodeaddr, "%s:", dnet_htoa(auth->address));
@@ -155,7 +189,7 @@ get_hostname (auth)
     return (NULL);
 }
 
-#ifdef TCPCONN
+#if defined(TCPCONN) && (!defined(IPv6) || !defined(AF_INET6))
 /*
  * cribbed from lib/X/XConnDis.c
  */
@@ -211,18 +245,24 @@ static Bool get_dnet_address (name, resultp)
 }
 #endif
 
-char *get_address_info (family, fulldpyname, prefix, host, lenp)
-    int family;
-    char *fulldpyname;
-    int prefix;
-    char *host;
-    int *lenp;
+struct addrlist *get_address_info (
+    int family,
+    char *fulldpyname,
+    int prefix,
+    char *host)
 {
-    char *retval = NULL;
+    struct addrlist *retval = NULL;
     int len = 0;
-    char *src = NULL;
+    void *src = NULL;
 #ifdef TCPCONN
+#if defined(IPv6) && defined(AF_INET6)
+    struct addrlist *lastrv = NULL;
+    struct addrinfo *firstai = NULL;
+    struct addrinfo *ai = NULL;
+    struct addrinfo hints;
+#else
     unsigned int hostinetaddr;
+#endif
 #endif
 #ifdef DNETCONN
     struct dn_naddr dnaddr;
@@ -252,10 +292,58 @@ char *get_address_info (family, fulldpyname, prefix, host, lenp)
 	break;
       case FamilyInternet:		/* host:0 */
 #ifdef TCPCONN
+#if defined(IPv6) && defined(AF_INET6)
+      case FamilyInternet6:
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC; /* IPv4 or IPv6 */
+	hints.ai_socktype = SOCK_STREAM; /* only interested in TCP */
+	hints.ai_protocol = 0;	
+        if (getaddrinfo(host,NULL,&hints,&firstai) !=0) return NULL;
+	for (ai = firstai; ai != NULL; ai = ai->ai_next) {
+	    if (ai->ai_family == AF_INET) {
+		struct sockaddr_in *sin = (struct sockaddr_in *)ai->ai_addr;
+		src = &(sin->sin_addr);
+		len = sizeof(sin->sin_addr);
+		family = FamilyInternet;
+	    } else if (ai->ai_family == AF_INET6) {
+		struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)ai->ai_addr;
+		src = &(sin6->sin6_addr);
+		len = sizeof(sin6->sin6_addr);
+		family = FamilyInternet6;
+	    }
+
+	    if (len > 0 && src != NULL) {
+		struct addrlist *newrv = malloc (sizeof(struct addrlist));
+		if (newrv) {
+		    newrv->address = malloc (len);
+		    if (newrv->address) {
+			memcpy(newrv->address, src, len);
+			newrv->next = NULL;
+			newrv->family = family;
+			newrv->len = len;
+			if (retval == NULL) {
+			    lastrv = retval = newrv;
+			} else {
+			    lastrv->next = newrv;
+			    lastrv = newrv;
+			}
+		    } else {
+			free(newrv);
+		    }
+		}
+	    }
+	    /* reset to avoid copying into list twice */
+	    len = 0;
+	    src = NULL;
+	}
+	freeaddrinfo(firstai);
+	break;
+#else
 	if (!get_inet_address (host, &hostinetaddr)) return NULL;
 	src = (char *) &hostinetaddr;
 	len = 4; /* sizeof inaddr.sin_addr, would fail on Cray */
 	break;
+#endif /* IPv6 */
 #else
 	return NULL;
 #endif
@@ -276,12 +364,20 @@ char *get_address_info (family, fulldpyname, prefix, host, lenp)
     /*
      * if source was provided, allocate space and copy it
      */
-    if (len == 0 || !src) return NULL;
-
-    retval = malloc (len);
-    if (retval) {
-	memmove( retval, src, len);
-	*lenp = len;
+    if (len > 0 && src != NULL) {
+	retval = malloc (sizeof(struct addrlist));
+	if (retval) {
+	    retval->address = malloc (len);
+	    if (retval->address) {
+		memcpy(retval->address, src, len);
+		retval->next = NULL;
+		retval->family = family;
+		retval->len = len;
+	    } else {
+		free(retval);
+		retval = NULL;
+	    }
+	}
     }
     return retval;
 }

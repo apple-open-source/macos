@@ -13,9 +13,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU DIFF; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+*/
 
 /* We must define `volatile' and `const' first (the latter inside config.h),
    so that they're used consistently in all system includes.  */
@@ -29,6 +27,9 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <sys/types.h>
 #include <sys/stat.h>
 
+/* Note that PARAMS is just internal to the diff library; diffrun.h
+   has its own mechanism, which will hopefully be less likely to
+   conflict with the library's caller's namespace.  */
 #if __STDC__
 #define PARAMS(args) args
 #define VOID void
@@ -60,12 +61,32 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #if !defined(S_ISFIFO) && defined(S_IFFIFO)
 #define S_ISFIFO(mode) (((mode) & S_IFMT) == S_IFFIFO)
 #endif
-#if !defined(S_ISSOCK) && defined(S_IFSOCK)
-#define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)
-#endif
+
+#ifndef S_ISSOCK
+# if defined( S_IFSOCK )
+#   ifdef S_IFMT
+#     define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)
+#   else
+#     define S_ISSOCK(mode) ((mode) & S_IFSOCK)
+#   endif /* S_IFMT */
+# elif defined( S_ISNAM )
+    /* SCO OpenServer 5.0.6a */
+#   define S_ISSOCK S_ISNAM
+# endif /* !S_IFSOCK && S_ISNAM */
+#endif /* !S_ISSOCK */
 
 #if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
+#ifdef HAVE_IO_H
+# include <io.h>
+#endif
+
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#else
+# include <sys/file.h>
 #endif
 
 #ifndef SEEK_SET
@@ -121,7 +142,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #endif
 
 #ifndef STAT_BLOCKSIZE
-#if HAVE_ST_BLKSIZE
+#if HAVE_STRUCT_STAT_ST_BLKSIZE
 #define STAT_BLOCKSIZE(s) (s).st_blksize
 #else
 #define STAT_BLOCKSIZE(s) (8 * 1024)
@@ -267,4 +288,17 @@ extern int errno;
 	} \
     *(q)++ = '\''; \
   }
+#endif
+
+/* these come from CVS's lib/system.h, but I wasn't sure how to include that
+ * properly or even if I really should
+ */
+#ifndef CVS_OPENDIR
+#define CVS_OPENDIR opendir
+#endif
+#ifndef CVS_READDIR
+#define CVS_READDIR readdir
+#endif
+#ifndef CVS_CLOSEDIR
+#define CVS_CLOSEDIR closedir
 #endif

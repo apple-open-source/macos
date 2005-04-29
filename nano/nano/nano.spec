@@ -1,0 +1,44 @@
+%define name	nano
+%define ver	1.2.4
+%define rel	1
+
+Summary	: Pico editor clone with enhancements
+Name		: %{name}
+Version		: %{ver}
+Release		: %{rel}
+Copyright	: GPL
+Group		: Console/Editors
+URL		: http://www.nano-editor.org
+Source		: http://www.nano-editor.org/dist/v1.2/%{name}-%{ver}.tar.gz
+BuildRoot	: /var/tmp/%{name}-buildroot
+Requires	: ncurses
+
+%description
+GNU nano is a small and friendly text editor.  It aims to emulate the Pico
+text editor while also offering a few enhancements.
+
+%prep
+%setup -q
+
+%build
+%configure --enable-all
+make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
+
+%install
+rm -rf "$RPM_BUILD_ROOT"
+make DESTDIR="$RPM_BUILD_ROOT" install
+
+%files
+%defattr(-,root,root)
+%doc AUTHORS BUGS COPYING ChangeLog INSTALL NEWS README THANKS TODO nanorc.sample
+%{_bindir}/nano
+%{_mandir}/*/*
+%{_datadir}/locale/*/LC_MESSAGES/nano.mo
+%{_infodir}/nano.info*
+
+%changelog
+* Sat Mar 30 2002 Chris Allegretta <chrisa@asty.org>
+- Accepted into main distribution
+- Added Packager and URL tage from original spec file.
+* Tue Mar 06 2002 Brett Pemberton <generica@email.com>
+- Initial spec-file

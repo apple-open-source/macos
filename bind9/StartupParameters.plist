@@ -1,7 +1,0 @@
-{
-  Description     = "DNS server";
-  Provides        = ("BIND");
-  Requires        = ("Network");
-  Uses            = ("Network");
-  OrderPreference = "None";
-}

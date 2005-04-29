@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/Imakefile.inc,v 1.8 2002/11/14 21:01:16 tsi Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/Imakefile.inc,v 1.9 2003/09/28 20:15:06 alanh Exp $
 
 #ifndef MesaBuildDir
 #define MesaBuildDir $(GLXLIBSRC)/mesa/src/
@@ -31,7 +31,6 @@ COREMESABASESRCS = \
 		$(MESABUILDDIR)buffers.c \
 		$(MESABUILDDIR)clip.c \
 		$(MESABUILDDIR)colortab.c \
-		$(MESABUILDDIR)config.c \
 		$(MESABUILDDIR)context.c \
 		$(MESABUILDDIR)convolve.c \
 		$(MESABUILDDIR)debug.c \
@@ -56,7 +55,6 @@ COREMESABASESRCS = \
 		$(MESABUILDDIR)light.c \
 		$(MESABUILDDIR)lines.c \
 		$(MESABUILDDIR)matrix.c \
-		$(MESABUILDDIR)mem.c \
 		$(MESABUILDDIR)mmath.c \
 		$(MESABUILDDIR)pixel.c \
 		$(MESABUILDDIR)points.c \
@@ -64,6 +62,7 @@ COREMESABASESRCS = \
 		$(MESABUILDDIR)rastpos.c \
 		$(MESABUILDDIR)state.c \
 		$(MESABUILDDIR)stencil.c \
+		$(MESABUILDDIR)texcompress.c \
 		$(MESABUILDDIR)texformat.c \
 		$(MESABUILDDIR)teximage.c \
 		$(MESABUILDDIR)texobj.c \
@@ -71,7 +70,14 @@ COREMESABASESRCS = \
 		$(MESABUILDDIR)texstore.c \
 		$(MESABUILDDIR)texutil.c \
 		$(MESABUILDDIR)varray.c \
-		$(MESABUILDDIR)vtxfmt.c
+		$(MESABUILDDIR)vtxfmt.c \
+		$(MESABUILDDIR)vpexec.c  \
+		$(MESABUILDDIR)vpexec.h  \
+		$(MESABUILDDIR)vpparse.c  \
+		$(MESABUILDDIR)vpparse.h  \
+		$(MESABUILDDIR)vpstate.c  \
+		$(MESABUILDDIR)vpstate.h  
+
 
 COREMESASRCS = $(COREMESABASESRCS) \
 		$(MESABUILDDIR)array_cache/ac_context.c \
@@ -105,11 +111,9 @@ COREMESASRCS = $(COREMESABASESRCS) \
 		$(MESABUILDDIR)swrast/s_lines.c \
 		$(MESABUILDDIR)swrast/s_logic.c \
 		$(MESABUILDDIR)swrast/s_masking.c \
-		$(MESABUILDDIR)swrast/s_pb.c \
 		$(MESABUILDDIR)swrast/s_pixeltex.c \
 		$(MESABUILDDIR)swrast/s_points.c \
 		$(MESABUILDDIR)swrast/s_readpix.c \
-		$(MESABUILDDIR)swrast/s_scissor.c \
 		$(MESABUILDDIR)swrast/s_span.c \
 		$(MESABUILDDIR)swrast/s_stencil.c \
 		$(MESABUILDDIR)swrast/s_texture.c \
@@ -136,6 +140,7 @@ COREMESASRCS = $(COREMESABASESRCS) \
 		$(MESABUILDDIR)tnl/t_vb_light.c \
 		$(MESABUILDDIR)tnl/t_vb_normals.c \
 		$(MESABUILDDIR)tnl/t_vb_points.c \
+		$(MESABUILDDIR)tnl/t_vb_program.c \
 		$(MESABUILDDIR)tnl/t_vb_render.c \
 		$(MESABUILDDIR)tnl/t_vb_texgen.c \
 		$(MESABUILDDIR)tnl/t_vb_texmat.c \
@@ -153,7 +158,6 @@ LinkSourceFile(blend.c, $(MESASRCDIR)/src)
 LinkSourceFile(buffers.c, $(MESASRCDIR)/src)
 LinkSourceFile(clip.c, $(MESASRCDIR)/src)
 LinkSourceFile(colortab.c, $(MESASRCDIR)/src)
-LinkSourceFile(config.c, $(MESASRCDIR)/src)
 LinkSourceFile(context.c, $(MESASRCDIR)/src)
 LinkSourceFile(convolve.c, $(MESASRCDIR)/src)
 LinkSourceFile(debug.c, $(MESASRCDIR)/src)
@@ -182,7 +186,6 @@ LinkSourceFile(imports.c, $(MESASRCDIR)/src)
 LinkSourceFile(light.c, $(MESASRCDIR)/src)
 LinkSourceFile(lines.c, $(MESASRCDIR)/src)
 LinkSourceFile(matrix.c, $(MESASRCDIR)/src)
-LinkSourceFile(mem.c, $(MESASRCDIR)/src)
 LinkSourceFile(mmath.c, $(MESASRCDIR)/src)
 LinkSourceFile(pixel.c, $(MESASRCDIR)/src)
 LinkSourceFile(points.c, $(MESASRCDIR)/src)
@@ -190,6 +193,7 @@ LinkSourceFile(polygon.c, $(MESASRCDIR)/src)
 LinkSourceFile(rastpos.c, $(MESASRCDIR)/src)
 LinkSourceFile(state.c, $(MESASRCDIR)/src)
 LinkSourceFile(stencil.c, $(MESASRCDIR)/src)
+LinkSourceFile(texcompress.c, $(MESASRCDIR)/src)
 LinkSourceFile(texformat.c, $(MESASRCDIR)/src)
 LinkSourceFile(teximage.c, $(MESASRCDIR)/src)
 LinkSourceFile(texobj.c, $(MESASRCDIR)/src)
@@ -198,6 +202,13 @@ LinkSourceFile(texstore.c, $(MESASRCDIR)/src)
 LinkSourceFile(texutil.c, $(MESASRCDIR)/src)
 LinkSourceFile(varray.c, $(MESASRCDIR)/src)
 LinkSourceFile(vtxfmt.c, $(MESASRCDIR)/src)
+LinkSourceFile(vpexec.c, $(MESASRCDIR)/src)
+LinkSourceFile(vpexec.h, $(MESASRCDIR)/src)
+LinkSourceFile(vpparse.c, $(MESASRCDIR)/src)
+LinkSourceFile(vpparse.h, $(MESASRCDIR)/src)
+LinkSourceFile(vpstate.c, $(MESASRCDIR)/src)
+LinkSourceFile(vpstate.h, $(MESASRCDIR)/src)
+
 #endif
 
 #ifdef NeedAllMesaSrc
@@ -219,7 +230,6 @@ COREMESABASEOBJS = \
 		$(MESABUILDDIR)buffers.o \
 		$(MESABUILDDIR)clip.o \
 		$(MESABUILDDIR)colortab.o \
-		$(MESABUILDDIR)config.o \
 		$(MESABUILDDIR)context.o \
 		$(MESABUILDDIR)convolve.o \
 		$(MESABUILDDIR)debug.o \
@@ -244,7 +254,6 @@ COREMESABASEOBJS = \
 		$(MESABUILDDIR)light.o \
 		$(MESABUILDDIR)lines.o \
 		$(MESABUILDDIR)matrix.o \
-		$(MESABUILDDIR)mem.o \
 		$(MESABUILDDIR)mmath.o \
 		$(MESABUILDDIR)pixel.o \
 		$(MESABUILDDIR)points.o \
@@ -252,6 +261,7 @@ COREMESABASEOBJS = \
 		$(MESABUILDDIR)rastpos.o \
 		$(MESABUILDDIR)state.o \
 		$(MESABUILDDIR)stencil.o \
+		$(MESABUILDDIR)texcompress.o \
 		$(MESABUILDDIR)texformat.o \
 		$(MESABUILDDIR)teximage.o \
 		$(MESABUILDDIR)texobj.o \
@@ -259,7 +269,11 @@ COREMESABASEOBJS = \
 		$(MESABUILDDIR)texstore.o \
 		$(MESABUILDDIR)texutil.o \
 		$(MESABUILDDIR)varray.o \
-		$(MESABUILDDIR)vtxfmt.o
+		$(MESABUILDDIR)vtxfmt.o \
+		$(MESABUILDDIR)vpexec.o  \
+		$(MESABUILDDIR)vpparse.o  \
+		$(MESABUILDDIR)vpstate.o  
+
 
 COREMESAOBJS = $(COREMESABASEOBJS) \
 		$(MESA_AC_OBJS) \
@@ -287,7 +301,6 @@ COREMESABASEUOBJS = $(MESABUILDDIR)unshared/accum.o \
 		$(MESABUILDDIR)unshared/buffers.o \
 		$(MESABUILDDIR)unshared/clip.o \
 		$(MESABUILDDIR)unshared/colortab.o \
-		$(MESABUILDDIR)unshared/config.o \
 		$(MESABUILDDIR)unshared/context.o \
 		$(MESABUILDDIR)unshared/convolve.o \
 		$(MESABUILDDIR)unshared/debug.o \
@@ -312,7 +325,6 @@ COREMESABASEUOBJS = $(MESABUILDDIR)unshared/accum.o \
 		$(MESABUILDDIR)unshared/light.o \
 		$(MESABUILDDIR)unshared/lines.o \
 		$(MESABUILDDIR)unshared/matrix.o \
-		$(MESABUILDDIR)unshared/mem.o \
 		$(MESABUILDDIR)unshared/mmath.o \
 		$(MESABUILDDIR)unshared/pixel.o \
 		$(MESABUILDDIR)unshared/points.o \
@@ -320,6 +332,7 @@ COREMESABASEUOBJS = $(MESABUILDDIR)unshared/accum.o \
 		$(MESABUILDDIR)unshared/rastpos.o \
 		$(MESABUILDDIR)unshared/state.o \
 		$(MESABUILDDIR)unshared/stencil.o \
+		$(MESABUILDDIR)unshared/texcompress.o \
 		$(MESABUILDDIR)unshared/texformat.o \
 		$(MESABUILDDIR)unshared/teximage.o \
 		$(MESABUILDDIR)unshared/texobj.o \
@@ -328,6 +341,9 @@ COREMESABASEUOBJS = $(MESABUILDDIR)unshared/accum.o \
 		$(MESABUILDDIR)unshared/texutil.o \
 		$(MESABUILDDIR)unshared/varray.o \
 		$(MESABUILDDIR)unshared/vtxfmt.o \
+		$(MESABUILDDIR)unshared/vpexec.o  \
+		$(MESABUILDDIR)unshared/vpparse.o  \
+		$(MESABUILDDIR)unshared/vpstate.o  
 #else
 COREMESABASEUOBJS = $(COREMESABASEOBJS)
 #endif
@@ -357,7 +373,6 @@ COREMESABASEDOBJS = $(MESABUILDDIR)debugger/accum.o \
 		$(MESABUILDDIR)debugger/buffers.o \
 		$(MESABUILDDIR)debugger/clip.o \
 		$(MESABUILDDIR)debugger/colortab.o \
-		$(MESABUILDDIR)debugger/config.o \
 		$(MESABUILDDIR)debugger/context.o \
 		$(MESABUILDDIR)debugger/convolve.o \
 		$(MESABUILDDIR)debugger/debug.o \
@@ -382,7 +397,6 @@ COREMESABASEDOBJS = $(MESABUILDDIR)debugger/accum.o \
 		$(MESABUILDDIR)debugger/light.o \
 		$(MESABUILDDIR)debugger/lines.o \
 		$(MESABUILDDIR)debugger/matrix.o \
-		$(MESABUILDDIR)debugger/mem.o \
 		$(MESABUILDDIR)debugger/mmath.o \
 		$(MESABUILDDIR)debugger/pixel.o \
 		$(MESABUILDDIR)debugger/points.o \
@@ -390,6 +404,7 @@ COREMESABASEDOBJS = $(MESABUILDDIR)debugger/accum.o \
 		$(MESABUILDDIR)debugger/rastpos.o \
 		$(MESABUILDDIR)debugger/state.o \
 		$(MESABUILDDIR)debugger/stencil.o \
+		$(MESABUILDDIR)debugger/texcompress.o \
 		$(MESABUILDDIR)debugger/texformat.o \
 		$(MESABUILDDIR)debugger/teximage.o \
 		$(MESABUILDDIR)debugger/texobj.o \
@@ -398,6 +413,9 @@ COREMESABASEDOBJS = $(MESABUILDDIR)debugger/accum.o \
 		$(MESABUILDDIR)debugger/texutil.o \
 		$(MESABUILDDIR)debugger/varray.o \
 		$(MESABUILDDIR)debugger/vtxfmt.o \
+		$(MESABUILDDIR)debugger/vpexec.o  \
+		$(MESABUILDDIR)debugger/vpparse.o  \
+		$(MESABUILDDIR)debugger/vpstate.o  
 
 COREMESADOBJS = $(COREMESABASEDOBJS) \
 		$(MESA_AC_DOBJS) \
@@ -424,7 +442,6 @@ COREMESABASEPOBJS = $(MESABUILDDIR)profiled/accum.o \
 		$(MESABUILDDIR)profiled/buffers.o \
 		$(MESABUILDDIR)profiled/clip.o \
 		$(MESABUILDDIR)profiled/colortab.o \
-		$(MESABUILDDIR)profiled/config.o \
 		$(MESABUILDDIR)profiled/context.o \
 		$(MESABUILDDIR)profiled/convolve.o \
 		$(MESABUILDDIR)profiled/debug.o \
@@ -449,7 +466,6 @@ COREMESABASEPOBJS = $(MESABUILDDIR)profiled/accum.o \
 		$(MESABUILDDIR)profiled/light.o \
 		$(MESABUILDDIR)profiled/lines.o \
 		$(MESABUILDDIR)profiled/matrix.o \
-		$(MESABUILDDIR)profiled/mem.o \
 		$(MESABUILDDIR)profiled/mmath.o \
 		$(MESABUILDDIR)profiled/pixel.o \
 		$(MESABUILDDIR)profiled/points.o \
@@ -457,6 +473,7 @@ COREMESABASEPOBJS = $(MESABUILDDIR)profiled/accum.o \
 		$(MESABUILDDIR)profiled/rastpos.o \
 		$(MESABUILDDIR)profiled/state.o \
 		$(MESABUILDDIR)profiled/stencil.o \
+		$(MESABUILDDIR)profiled/texcompress.o \
 		$(MESABUILDDIR)profiled/texformat.o \
 		$(MESABUILDDIR)profiled/teximage.o \
 		$(MESABUILDDIR)profiled/texobj.o \
@@ -465,6 +482,9 @@ COREMESABASEPOBJS = $(MESABUILDDIR)profiled/accum.o \
 		$(MESABUILDDIR)profiled/texutil.o \
 		$(MESABUILDDIR)profiled/varray.o \
 		$(MESABUILDDIR)profiled/vtxfmt.o \
+		$(MESABUILDDIR)profiled/vpexec.o  \
+		$(MESABUILDDIR)profiled/vpparse.o  \
+		$(MESABUILDDIR)profiled/vpstate.o  
 
 COREMESAPOBJS = $(COREMESABASEPOBJS) \
 		$(MESA_AC_POBJS) \

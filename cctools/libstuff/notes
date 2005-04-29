@@ -5,6 +5,14 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.17 release (the cctools-574 release):
+- Changed the routine cpusubtype_combine() in best_arch.c to combine any i386
+  subtype to the ALL subtype.  Radar 4002756.
+- Added the routine force_cpusubtype_ALL_for_cputype() to arch.c that is passed
+  a cputype and returns TRUE if the that architecture is to force its
+  cpusubtypes to be the ALL type.  And the implementation returns TRUE for
+  CPU_TYPE_I386 and FALSE for all others.  Radar bug #4002758.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Fixed a bug in swap_object_headers() in swap_headers.c which was missing some
   code to handle the ppc64 thread state.  Radar bug #4010859.

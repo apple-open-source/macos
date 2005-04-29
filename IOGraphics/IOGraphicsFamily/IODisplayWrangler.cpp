@@ -23,11 +23,24 @@
 
 #include <IOKit/assert.h>
 #include <IOKit/IOLib.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOPlatformExpert.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
+#include <IOKit/IOTimerEventSource.h>
+#include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include "IODisplayWrangler.h"
 
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+#define kIODisplayWrangler_AnnoyancePenalties "AnnoyancePenalties"
+#define kIODisplayWrangler_AnnoyanceCaps "AnnoyanceCaps"
+#define kIODisplayWrangler_IdleTimeoutMin "IdleTimeoutMin"
+#define kIODisplayWrangler_IdleTimeoutMax "IdleTimeoutMax"
+
+static int gDEBUG = 0;
+static int gCOMPRESS_TIME = 0;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -98,8 +111,116 @@ IODisplayWrangler *	gIODisplayWrangler;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+
+enum { kStaticAnnoyanceEventArrayLength = 4 };
+/* static */ UInt32 IODisplayWrangler::staticAnnoyanceEventArrayLength =  kStaticAnnoyanceEventArrayLength;
+/* static */ IODisplayWrangler::annoyance_event_t IODisplayWrangler::staticAnnoyanceEventArray[ kStaticAnnoyanceEventArrayLength ];
+
+/* static */ IODisplayWrangler::annoyance_cap_t IODisplayWrangler::staticAnnoyanceCapsArray[]
+=
+{
+    { 120,  4 },
+    { 300,  8 },
+    { 600, 12 },
+    { 900, 16 }
+};
+/* static */ UInt32 IODisplayWrangler::staticAnnoyanceCapsArrayLength = sizeof(IODisplayWrangler::staticAnnoyanceCapsArray) / sizeof(*IODisplayWrangler::staticAnnoyanceCapsArray);
+
+/* static */ IODisplayWrangler::annoyance_penalty_t IODisplayWrangler::staticAnnoyancePenaltiesArray[]
+=
+{
+    {  3, 8 },
+    { 10, 4 },
+    { 30, 2 },
+    { 90, 1 }
+};
+/* static */ UInt32 IODisplayWrangler::staticAnnoyancePenaltiesArrayLength = sizeof(staticAnnoyancePenaltiesArray) / sizeof(*staticAnnoyancePenaltiesArray);
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+void IODisplayWrangler::log_annoyance_penalties_array(  )
+{
+    if ( gDEBUG) IOLog( "IODW: fAnnoyancePenaltiesArrayLength = %d\n", 
+                        (int)fAnnoyancePenaltiesArrayLength );
+    for (int i = 0; i < fAnnoyancePenaltiesArrayLength; i++)
+    {
+        annoyance_penalty_t * p = & fAnnoyancePenaltiesArray[ i ];
+        if ( gDEBUG) IOLog( "IODW: %2d = { %3lu secs, %2d pts }\n", i, 
+                        p->time_secs, p->penalty_points );
+    }
+}
+
+void IODisplayWrangler::log_annoyance_caps_array(  )
+{
+    if ( gDEBUG) IOLog( "IODW: fAnnoyanceCapsArrayLength = %d\n", 
+                        (int)fAnnoyanceCapsArrayLength );
+    for (int i = 0; i < fAnnoyanceCapsArrayLength; i++)
+    {
+        annoyance_cap_t * p = & fAnnoyanceCapsArray[ i ];
+        if ( gDEBUG) IOLog( "IODW: %2d = { %4lu secs, %2d pts }\n", i,
+                        p->cutoff_time_secs, p->cutoff_points );
+    }
+}
+
+void IODisplayWrangler::log_annoyance_event_array(  )
+{
+    if ( gDEBUG) IOLog( "IODW: fAnnoyanceEventArrayLength = %d\n", 
+                        (int)fAnnoyanceEventArrayLength );
+    if ( gDEBUG) IOLog( "IODW: fAnnoyanceEventArrayQHead = %d\n", 
+                        (int)fAnnoyanceEventArrayQHead );
+    if ( gDEBUG) IOLog( "IODW: Raw:\n");
+    for (int i = 0; i < fAnnoyanceEventArrayLength; i++)
+    {
+        annoyance_event_t * p = & fAnnoyanceEventArray[ i ];
+        if ( gDEBUG) IOLog( "IODW: %2d = { %8llu secs, %8llu secs, %2d pts }\n", 
+                i, p->dim_time_secs, p->wake_time_secs, (int)p->penalty );
+    }
+    if ( gDEBUG) IOLog( "IODW: Cooked:\n");
+    for (int i = 0; i < fAnnoyanceEventArrayLength; i++)
+    {
+        annoyance_event_t * p = getNthAnnoyance( i );
+        if ( gDEBUG) IOLog( "IODW: #%2d = { %8llu secs, %8llu secs, penalty = %2d pts }\n", i, p->dim_time_secs, p->wake_time_secs, (int)p->penalty );
+    }
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+// Invariant 1: fAnnoyanceEventArrayQHead points to the first free element in the array.
+// Invariant 2: adding an element to the queue increments fAnnoyanceEventArrayQHead
+// Invariant 3: 0 <= fAnnoyanceEventArrayQHead < fAnnoyanceEventArrayLength
+void IODisplayWrangler::enqueueAnnoyance( UInt64 dim_time_secs, UInt64 wake_time_secs, UInt32 penalty )
+{
+    // Record this annoyance.
+    
+    annoyance_event_t * annoyance = & fAnnoyanceEventArray[ fAnnoyanceEventArrayQHead ];
+    
+    annoyance->dim_time_secs = fLastDimTime_secs;
+    annoyance->wake_time_secs = fLastWakeTime_secs;
+    annoyance->penalty = penalty;
+
+    // Increment fAnnoyanceEventArrayQHead.
+
+    fAnnoyanceEventArrayQHead ++;
+    fAnnoyanceEventArrayQHead %= fAnnoyanceEventArrayLength;
+    
+}
+
+// Array-style zero-based indexing.
+// The 0'th element is the head of the queue.
+// The (fAnnoyanceEventArrayLength - 1)'th element is the tail.
+IODisplayWrangler::annoyance_event_t * IODisplayWrangler::getNthAnnoyance( int i )
+{
+    // I don't trust % of negative numbers, so I bias by fAnnoyanceEventArrayLength to begin with.
+    int j = ( fAnnoyanceEventArrayLength + fAnnoyanceEventArrayQHead - i - 1 ) % fAnnoyanceEventArrayLength;
+    return & fAnnoyanceEventArray[ j ];
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 bool IODisplayWrangler::start( IOService * provider )
 {
+    AbsoluteTime        current_time;
+    UInt64              current_time_ns;
     OSObject *	notify;
 
     if (!super::start(provider))
@@ -108,9 +229,34 @@ bool IODisplayWrangler::start( IOService * provider )
     assert( gIODisplayWrangler == 0 );
     gIODisplayWrangler = this;
 
+
+    setProperty(kIOUserClientClassKey, "IOAccelerationUserClient");
+
     fMatchingLock = IOLockAlloc();
     fFramebuffers = OSSet::withCapacity( 1 );
     fDisplays = OSSet::withCapacity( 1 );
+
+    clock_get_uptime(&current_time);    
+    absolutetime_to_nanoseconds(current_time, &current_time_ns);
+    fLastWakeTime_secs = current_time_ns / NSEC_PER_SEC;
+    fLastDimTime_secs = 0;
+    
+    fAnnoyanceEventArrayLength = staticAnnoyanceEventArrayLength;
+    fAnnoyanceEventArray = staticAnnoyanceEventArray;
+    fAnnoyanceEventArrayQHead = 0;
+
+    fAnnoyanceCapsArrayLength = staticAnnoyanceCapsArrayLength;
+    fAnnoyanceCapsArray = staticAnnoyanceCapsArray;
+
+    fAnnoyancePenaltiesArrayLength = staticAnnoyancePenaltiesArrayLength;
+    fAnnoyancePenaltiesArray = staticAnnoyancePenaltiesArray;
+
+	fIdleTimeoutMin = 30; // 30 seconds
+	fIdleTimeoutMax = 600; // 10 minutes
+
+    log_annoyance_penalties_array();
+    log_annoyance_caps_array();
+    log_annoyance_event_array();
 
     assert( fMatchingLock && fFramebuffers && fDisplays );
 
@@ -128,6 +274,8 @@ bool IODisplayWrangler::start( IOService * provider )
     gIODisplayWrangler->initForPM();
     // set default screen-dim timeout
     gIODisplayWrangler->setAggressiveness( kPMMinutesToDim, 30 );
+
+    getPMRootDomain()->publishFeature("AdaptiveDimming");
 
     return (true);
 }
@@ -229,6 +377,8 @@ void IODisplayWrangler::destroyDisplayConnects( IOFramebuffer * fb )
     OSObject *		next;
     IODisplayConnect *	connect;
     IODisplay *		display;
+
+    fb->removeProperty(kIOFBBuiltInKey);
 
     iter = fb->getClientIterator();
     if (iter)
@@ -409,80 +559,68 @@ unsigned long IODisplayWrangler::initialPowerStateForDomainState( IOPMPowerFlags
 
 IOReturn IODisplayWrangler::setAggressiveness( unsigned long type, unsigned long newLevel )
 {
-    if (type == kPMMinutesToDim)
+    switch (type)
     {
+
+      case kIOFBCaptureAggressiveness:
+
+	if (fDimCaptured && !newLevel)
+	    activityTickle(0,0);
+
+	fDimCaptured = (0 != newLevel);
+
+	/* fall thru */
+
+      case kPMMinutesToDim:
         // minutes to dim received
+	if (kPMMinutesToDim == type)
+	{
+	    // Display will always dim at least 5 seconds before
+	    // display sleep kicks in.
+	    fIdleTimeoutMax = fMinutesToDim * 60 - 5;        
+	    fMinutesToDim = newLevel;
+	}
+
+	newLevel = fDimCaptured ? 0 : fMinutesToDim;
         if (newLevel == 0)
         {
             // pm turned off while idle?
             if (pm_vars->myCurrentState < kIODisplayWranglerMaxPowerState)
             {
                 // yes, bring displays up again
+                activityTickle(0,0);
                 changePowerStateToPriv( kIODisplayWranglerMaxPowerState );
             }
         }
-        fMinutesToDim = newLevel;
-        fUseGeneralAggressiveness = false;
         // no, currently in emergency level?
         if (pm_vars->aggressiveness < kIOPowerEmergencyLevel)
         {
             // no, set new timeout
             setIdleTimerPeriod( newLevel*60 / 2);
         }
+	break;
 
+      case kPMGeneralAggressiveness:
         // general factor received
-    }
-    else if (type == kPMGeneralAggressiveness)
-    {
         // emergency level?
         if (newLevel >= kIOPowerEmergencyLevel)
         {
             // yes
             setIdleTimerPeriod( 5 );
         }
-        else
+        else if ((pm_vars->aggressiveness >= kIOPowerEmergencyLevel) && !fDimCaptured)
         {
-            // no, coming out of emergency level?
-            if (pm_vars->aggressiveness >= kIOPowerEmergencyLevel)
-            {
-                if (fUseGeneralAggressiveness)
-                {
-                    // yes, set new timer period
-                    setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
-                }
-                else
-                {
-                    setIdleTimerPeriod( fMinutesToDim * 60 / 2);
-                }
-            }
-            else
-            {
-                if (fUseGeneralAggressiveness)
-                {
-                    // no, maybe set period
-                    setIdleTimerPeriod( (333 - (newLevel/3)) / 2 );
-                }
-            }
+           setIdleTimerPeriod( fMinutesToDim * 60 / 2 );
         }
+	break;
+
+      default:
+	break;
     }
     super::setAggressiveness(type, newLevel);
     return (IOPMNoErr);
 }
 
-
-/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-// activityTickle
-//
-// This is called by the HID system and calls the superclass in turn.
-
-bool IODisplayWrangler::activityTickle( unsigned long, unsigned long )
-{
-    if (super::activityTickle(kIOPMSuperclassPolicy1, kIODisplayWranglerMaxPowerState))
-        return (true);
-
-    getPMRootDomain()->wakeFromDoze();
-    return (false);
-}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 // setPowerState
@@ -550,6 +688,18 @@ void IODisplayWrangler::idleDisplays ( void )
 {
     OSIterator *	iter;
     IODisplay *	display;
+    UInt64              current_time_ns;
+    UInt64              current_time_secs;
+
+    if ( kIODisplayWranglerMaxPowerState == pm_vars->myCurrentState )
+    {
+        // Log time of initial dimming
+        AbsoluteTime current_time_absolute;
+        clock_get_uptime(&current_time_absolute);
+        absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
+        current_time_secs = current_time_ns / NSEC_PER_SEC;
+        fLastDimTime_secs = current_time_secs;
+    }
 
     IOTakeLock( fMatchingLock );
 
@@ -565,3 +715,528 @@ void IODisplayWrangler::idleDisplays ( void )
     IOUnlock( fMatchingLock );
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// nextIdleTimeout
+//
+// Virtual member function of IOService
+// overridden here to provide custom power-down behavior for dimming displays.
+// - Transition from 4->3 (to dim on built-in LCDs)
+//   is adaptive and adjusts, starting out fairly aggressively and backing 
+//   off depending on how frequently the user cancels dimming.
+// - Transition from 3->2 (to full display sleep on all machines)
+//   will occur at exactly N minutes from last user activity, where N
+//   is the value chosen by the user and set via setAggressiveness().
+
+SInt32 IODisplayWrangler::nextIdleTimeout(
+    AbsoluteTime currentTime,
+    AbsoluteTime lastActivity, 
+    unsigned int powerState)
+{
+    UInt64 lastActivity_ns;
+    UInt64 lastActivity_secs;
+    UInt64 current_time_ns;
+    UInt64 current_time_secs;
+    SInt32 delay_till_time_secs;    
+    SInt32 timeout_used_for_dim;
+    SInt32 delay_secs;
+
+    absolutetime_to_nanoseconds(currentTime, &current_time_ns);
+    current_time_secs = current_time_ns / NSEC_PER_SEC;
+
+    absolutetime_to_nanoseconds(lastActivity, &lastActivity_ns);
+    lastActivity_secs = lastActivity_ns / NSEC_PER_SEC;
+
+    switch(pm_vars->myCurrentState) {
+        case 4:
+            // System displays are ON, not dimmed or asleep.
+            // Calculate adaptive time-to-dim
+            delay_till_time_secs = 
+                calculate_earliest_time_idle_timeout_allowed(
+                    current_time_secs, lastActivity_secs, powerState);
+            if ( delay_till_time_secs > (SInt32)current_time_secs )
+            {
+                if(  (int)(delay_till_time_secs - (SInt32)lastActivity_secs) > 
+                     (int)(fMinutesToDim*60 - 5) )
+                {
+                    // backoff pushed dim time too high, beyond user's selected
+                    // display sleep timeout. So we cap it, with a 5 second
+                    // threshold for good measure. i.e. there will always
+                    // be at least 5 seconds of dim between full on and display
+                    // sleep.
+                    delay_till_time_secs = (SInt32)lastActivity_secs
+                                         + (SInt32)(fMinutesToDim*60 - 5);
+                }
+                
+                // Will time out in the future.
+                delay_secs = (SInt32)(delay_till_time_secs - current_time_secs);
+            } else {
+                // There are no vetos in effect. Use standard
+                // idle timeout period.
+                SInt32 period = calculate_idle_timer_period(powerState);            
+                delay_secs = (SInt32)(
+                    (UInt64)lastActivity_secs 
+                    + (UInt64)period
+                    - (UInt64)current_time_secs);
+            }
+     
+            break;
+        case 3:
+            // The system is currently in its 'dim' state
+            // The transition into the next 'display sleep' state must occur
+            // fMinutesToDim after last UI activity
+            timeout_used_for_dim = (SInt32)((SInt64)fLastDimTime_secs -
+                                        (SInt64)lastActivity_secs);
+            //IOLog("Display Wrangler state(3) last dim took %d\n", 
+            //                    timeout_used_for_dim);
+            delay_secs = (SInt32)fMinutesToDim*60 
+                        - timeout_used_for_dim;
+            break;
+        case 2:
+        case 1:
+            delay_secs = fMinutesToDim*30;
+            break;
+        case 0:
+            delay_secs = 60;
+            break;
+        default:
+            // error
+            delay_secs = 60;
+            break;
+    }
+
+//    IOLog("Display Wrangler state(%d) recommending idle sleep in %ld\n",
+//           powerState,  delay_secs);
+    return delay_secs;
+}
+
+
+//*****************************************************************************
+// calculate_idle_timer_period
+//
+// Called from inside nextIdleTimeout().
+// Return value is in seconds.
+//*****************************************************************************
+UInt32 IODisplayWrangler::calculate_idle_timer_period(int powerState)
+{
+    UInt32 idle_timer_period;
+
+    // Bright to dim quickly, dim to dark less quickly.
+    // We only return a value for state 4. The idle timeout
+    // period of state 3 is automatically determined by the caller
+    // as a consequence of how long state 4 took. Other state
+    // timeouts do not affect user experience once the display is off
+    // after transitioning state 3->2.
+    if ( 4 == powerState )
+    {
+		if ( gCOMPRESS_TIME )
+        {
+            idle_timer_period = fMinutesToDim * 60 / 12;
+        }
+        else
+        {
+            idle_timer_period = fMinutesToDim * 60 / 5;
+        }
+        
+        // Clip it into the range fIdleTimeoutMin seconds thru fIdleTimeoutMax
+        if ( idle_timer_period < fIdleTimeoutMin )
+        {
+        	idle_timer_period = fIdleTimeoutMin;
+        }
+        else
+        if ( idle_timer_period > fIdleTimeoutMax )
+        {
+        	idle_timer_period = fIdleTimeoutMax;
+        }
+    }
+    else
+    {
+        // Should never be called with a powerState other than 4,
+        // return a sane value anyway.
+        idle_timer_period = fMinutesToDim * 30;
+    }
+
+    return idle_timer_period;
+} // IODisplayWrangler::calculate_idle_timer_period()
+
+
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+// activityTickle
+//
+// This is called by the HID system and calls the superclass in turn.
+
+bool IODisplayWrangler::activityTickle( unsigned long x, unsigned long y )
+{
+    if (super::activityTickle(kIOPMSuperclassPolicy1,
+                kIODisplayWranglerMaxPowerState) )
+    {
+        return (true);
+    }
+
+    // Get uptime in nanoseconds
+    AbsoluteTime current_time_absolute;
+    clock_get_uptime(&current_time_absolute);
+    UInt64 current_time_ns;
+    absolutetime_to_nanoseconds(current_time_absolute, &current_time_ns);
+    UInt64 current_time_secs = current_time_ns / NSEC_PER_SEC;
+
+    fLastWakeTime_secs = current_time_secs;
+
+    // Record this if it was an annoyance.
+    record_if_annoyance();
+
+    getPMRootDomain()->wakeFromDoze();
+    
+    return (false);
+} // IODisplayWrangler::activityTickle()
+
+
+void IODisplayWrangler::record_if_annoyance() // implicit parameters: fLastDimTime_secs, fLastWakeTime_secs
+{
+    // Determine if it is an annoyance, i.e., if it has a penalty.
+
+    UInt64 delta_secs = fLastWakeTime_secs - fLastDimTime_secs;
+
+    UInt32 penalty = calculate_penalty( delta_secs );
+
+    if ( penalty > 0 )
+    {
+        enqueueAnnoyance( fLastDimTime_secs, fLastWakeTime_secs, penalty );
+    }
+} // IODisplayWrangler::record_if_annoyance()
+
+
+UInt32 IODisplayWrangler::calculate_penalty( UInt32 time_between_dim_and_wake_secs )
+{
+    UInt32 penalty = 0;
+
+    for (int i = 0; i < fAnnoyancePenaltiesArrayLength; i++)
+    {
+        if ( time_between_dim_and_wake_secs <= fAnnoyancePenaltiesArray[ i ].time_secs )
+        {
+            penalty = fAnnoyancePenaltiesArray[ i ].penalty_points;
+            break;
+        }
+    }
+    return penalty;
+} // IODisplayWrangler::calculate_penalty()
+
+
+// In: seconds.
+// Returns: seconds.
+UInt64 IODisplayWrangler::calculate_latest_veto_till_time( UInt64 current_time_secs )
+{
+    int total = 0;
+    UInt64 latest_veto_till_time_secs = 0;
+    UInt64 rolling_wake_time_secs = 0;
+    int i = 0, j = 0;
+
+    while ( j < fAnnoyanceCapsArrayLength )
+    {
+        while (		( i < fAnnoyanceEventArrayLength )
+                &&	( 0 != getNthAnnoyance( i )->wake_time_secs ) 
+                &&	( (current_time_secs - getNthAnnoyance(i)->wake_time_secs) 
+                    < (UInt64)fAnnoyanceCapsArray[ j ].cutoff_time_secs )
+              )
+        {
+            rolling_wake_time_secs = getNthAnnoyance( i )->wake_time_secs;
+            total += getNthAnnoyance( i )->penalty;
+            i ++;
+        }
+
+        if ( total >= fAnnoyanceCapsArray[ j ].cutoff_points )
+        {
+            // Assert: if we get here, total>0 so we're guaranteed that 
+            // rolling_wake_time_secs has been assigned a value,
+            // otherwise total would still be zero.
+            // (This also requires that we don't have an 
+            // absurd cutoff_points==0)
+        
+            // Since the time at which the annoyance occurred is variable, 
+            // we need to calculate the time in the future at which
+            // this veto will expire before testing whether it's further
+            // in the future than he previously
+
+            UInt64 veto_till_time_secs = 
+                (UInt64)fAnnoyanceCapsArray[ j ].cutoff_time_secs 
+                + rolling_wake_time_secs;
+                
+            if ( veto_till_time_secs > latest_veto_till_time_secs )
+            {
+                latest_veto_till_time_secs = veto_till_time_secs;
+            }
+        }
+
+        j ++;
+
+    } // while()
+
+    return latest_veto_till_time_secs;
+
+} // IODisplayWrangler::calculate_latest_veto_till_time()
+
+// In: seconds.
+// Returns: seconds.
+UInt64 IODisplayWrangler::calculate_earliest_time_idle_timeout_allowed( 
+    UInt64 current_time_secs,
+    UInt64 last_activity_secs,
+    int    powerState)
+{
+    // Should only be called while DisplayWrangler is in state 4
+
+    // Potentially overridden in a subclass to determine the correct 
+    // idle timer period.
+    UInt32 idle_timer_period_secs = calculate_idle_timer_period(powerState);
+
+    // The moment at which we would want the idle timer to go off 
+    // (might be in the past).
+    UInt64 idle_timer_delay_till_time_secs = 
+          last_activity_secs
+        + (UInt64) idle_timer_period_secs;
+
+    // The moment at which the longest veto expires (might be in the past)
+    UInt64 latest_veto_till_time_secs = 
+        calculate_latest_veto_till_time( current_time_secs );
+
+
+    // Take the larger of the two (might be in the past).    
+    UInt64 delay_till_time_secs;
+
+    if ( idle_timer_delay_till_time_secs > latest_veto_till_time_secs )
+    {
+        delay_till_time_secs = idle_timer_delay_till_time_secs;
+    }
+    else
+    {
+        delay_till_time_secs = latest_veto_till_time_secs;
+    }
+
+    return delay_till_time_secs;
+
+}
+
+OSObject * IODisplayWrangler::copyProperty( const char * aKey ) const
+{
+    if (!strcmp(aKey, kIOGraphicsPrefsKey))
+        return (IOFramebuffer::copyPreferences());
+    return (super::copyProperty(aKey));
+}
+
+IOReturn IODisplayWrangler::setProperties( OSObject * properties )
+{
+    OSDictionary *	dict;
+
+    if (!(dict = OSDynamicCast(OSDictionary, properties)))
+        return (kIOReturnBadArgument);
+
+    if ((dict = OSDynamicCast(OSDictionary,
+                              dict->getObject(kIOGraphicsPrefsKey))))
+    {
+        return (IOFramebuffer::setPreferences(this, dict));
+    }
+
+    OSObject * value;
+
+    value = dict->getObject( "DEBUG" );
+    if ( value )
+    { // DEBUG
+        OSNumber * number;
+        number = OSDynamicCast( OSNumber, value );
+        if ( number )
+        {
+            gDEBUG = number->unsigned32BitValue();
+    
+            this->setProperty( "DEBUG", number );
+        }
+    } // DEBUG
+
+    value = dict->getObject( "COMPRESS_TIME" );
+    if ( value )
+    { // COMPRESS_TIME
+        OSNumber * number;
+        number = OSDynamicCast( OSNumber, value );
+        if ( number )
+        {
+            gCOMPRESS_TIME = number->unsigned32BitValue();
+
+            this->setProperty( "COMPRESS_TIME", number );
+        }
+    } // COMPRESS_TIME
+
+    value = dict->getObject( kIODisplayWrangler_AnnoyancePenalties );
+    if ( value )
+    { // PENALTIES
+    
+        int penaltiesArrayLength;
+        OSArray * penaltiesArray;
+    
+        penaltiesArray = OSDynamicCast( OSArray, value );
+        if ( ! penaltiesArray )
+        {
+            goto Return;
+        }
+    
+        penaltiesArrayLength = penaltiesArray->getCount();
+        
+        if ( ! ( penaltiesArrayLength <= fAnnoyancePenaltiesArrayLength ) )
+        {
+            goto Return;
+        }
+        
+        for (int i = 0; i < penaltiesArrayLength; i++)
+        {
+            value = penaltiesArray->getObject( i );
+    
+            OSArray * penalty_time_and_points_pair;
+    
+            penalty_time_and_points_pair = OSDynamicCast( OSArray, value );
+            if ( ! penalty_time_and_points_pair )
+            {
+                goto Return;
+            }
+    
+            if ( 2 != penalty_time_and_points_pair->getCount() )
+            {
+                goto Return;
+            }
+            
+            OSObject * p0, * p1;
+            
+            p0 = penalty_time_and_points_pair->getObject( 0 );
+            p1 = penalty_time_and_points_pair->getObject( 1 );
+    
+            OSNumber * n0, * n1;
+            
+            n0 = OSDynamicCast( OSNumber, p0 );
+            if ( ! n0 )
+            {
+                goto Return;
+            }
+    
+            n1 = OSDynamicCast( OSNumber, p1 );
+            if ( ! n1 )
+            {
+                goto Return;
+            }
+            
+            int time_secs = n0->unsigned32BitValue();
+            
+            int penalty_points = n1->unsigned32BitValue();
+    
+            fAnnoyancePenaltiesArray[ i ].time_secs = time_secs;
+            fAnnoyancePenaltiesArray[ i ].penalty_points = penalty_points;
+                    
+        }
+        
+        
+        this->setProperty( kIODisplayWrangler_AnnoyancePenalties, penaltiesArray );
+        
+        log_annoyance_penalties_array();
+    } // PENALTIES
+    
+    value = dict->getObject( kIODisplayWrangler_AnnoyanceCaps );
+    if ( value )
+    { // CAPS
+    
+        int capsArrayLength;
+        OSArray * capsArray;
+    
+        capsArray = OSDynamicCast( OSArray, value );
+        if ( ! capsArray )
+        {
+            goto Return;
+        }
+    
+        capsArrayLength = capsArray->getCount();
+        
+        if ( ! ( capsArrayLength <= fAnnoyanceCapsArrayLength ) )
+        {
+            goto Return;
+        }
+        
+        for (int i = 0; i < capsArrayLength; i++)
+        {
+            value = capsArray->getObject( i );
+    
+            OSArray * cap_time_and_points_pair;
+    
+            cap_time_and_points_pair = OSDynamicCast( OSArray, value );
+            if ( ! cap_time_and_points_pair )
+            {
+                goto Return;
+            }
+    
+            if ( 2 != cap_time_and_points_pair->getCount() )
+            {
+                goto Return;
+            }
+            
+            OSObject * p0, * p1;
+            
+            p0 = cap_time_and_points_pair->getObject( 0 );
+            p1 = cap_time_and_points_pair->getObject( 1 );
+    
+            OSNumber * n0, * n1;
+            
+            n0 = OSDynamicCast( OSNumber, p0 );
+            if ( ! n0 )
+            {
+                goto Return;
+            }
+    
+            n1 = OSDynamicCast( OSNumber, p1 );
+            if ( ! n1 )
+            {
+                goto Return;
+            }
+            
+            int cutoff_time_secs = n0->unsigned32BitValue();
+            
+            int cutoff_points = n1->unsigned32BitValue();
+            
+            fAnnoyanceCapsArray[ i ].cutoff_time_secs = cutoff_time_secs;
+            fAnnoyanceCapsArray[ i ].cutoff_points = cutoff_points;
+            
+        }
+        
+        
+        this->setProperty( kIODisplayWrangler_AnnoyanceCaps, capsArray );
+        
+        log_annoyance_caps_array();
+    } // CAPS
+
+    value = dict->getObject( kIODisplayWrangler_IdleTimeoutMin );
+    if ( value )
+    { // IdleTimeoutMin
+        OSNumber * number;
+        number = OSDynamicCast( OSNumber, value );
+        if ( number )
+        {
+            fIdleTimeoutMin = number->unsigned32BitValue();
+    
+            this->setProperty( kIODisplayWrangler_IdleTimeoutMin, number );
+        }
+    } // IdleTimeoutMin
+
+    value = dict->getObject( kIODisplayWrangler_IdleTimeoutMax );
+    if ( value )
+    { // IdleTimeoutMax
+        OSNumber * number;
+        number = OSDynamicCast( OSNumber, value );
+        if ( number )
+        {
+            fIdleTimeoutMax = number->unsigned32BitValue();
+    
+            this->setProperty( kIODisplayWrangler_IdleTimeoutMax, number );
+        }
+    } // IdleTimeoutMax
+
+    // The new values may change the timeout we calculate.
+    
+    start_PM_idle_timer();
+
+    goto Return;
+
+Return:
+    return kIOReturnSuccess;
+}

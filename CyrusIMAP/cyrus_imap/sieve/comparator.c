@@ -1,6 +1,6 @@
 /* comparator.c -- comparator functions
  * Larry Greenfield
- * $Id: comparator.c,v 1.15 2003/10/22 18:50:30 rjs3 Exp $
+ * $Id: comparator.c,v 1.4 2005/03/05 00:37:37 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

@@ -3,7 +3,7 @@
 .\"
 .\"
 .\"
-.\" $XFree86: xc/programs/xkbcomp/xkbcomp.man,v 1.10 2002/11/15 03:14:12 dawes Exp $
+.\" $XFree86: xc/programs/xkbcomp/xkbcomp.man,v 1.12 2004/01/12 21:43:20 herrb Exp $
 .\"
 .TH XKBCOMP 1 __xorgversion__
 .SH NAME
@@ -26,8 +26,8 @@ used to verify that the files which typically make up an XKB keymap
 are merged correctly or to create a single file which contains a complete
 description of the keymap.
 .PP
-The \fIsource\fP may specify an X display, or an \fI.xkb\fP or
-\fI.xkm\fP file;  unless explicitly specified, the format of \fIdestination\fP
+The \fIsource\fP may specify an X display, or an \fI.xkb\fP or \fI.xkm\fP
+file;  unless explicitly specified, the format of \fIdestination\fP
 depends on the format of the source.   Compiling a \fI.xkb\fP (keymap source) 
 file generates a \fI.xkm\fP (compiled keymap file) by default.   If the 
 source is a \fI.xkm\fP file or an X display, \fIxkbcomp\fP generates a 
@@ -38,7 +38,7 @@ is updated with the compiled keymap.
 .PP
 The name of the \fIdestination\fP is usually computed from the name
 of the source, with the extension replaced as appropriate.  When compiling
-a single map from a file which contains several maps, \fIxkbcom\fP constructs
+a single map from a file which contains several maps, \fIxkbcomp\fP constructs
 the destination file name by appending an appropriate extension to the
 name of the map to be used.
 .SH OPTIONS

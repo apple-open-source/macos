@@ -142,7 +142,11 @@ typedef struct config_info_t {
 
 /* For GetFirst/NextClient */
 typedef struct client_req_t {
+#ifdef __MACOSX__
+    cs_socket_t	Socket;
+#else
     socket_t	Socket;
+#endif
     u_int	Attributes;
 } client_req_t;
 
@@ -338,7 +342,11 @@ typedef struct error_info_t {
 
 /* Special stuff for binding drivers to sockets */
 typedef struct bind_req_t {
+#ifdef __MACOSX__
+    cs_socket_t	Socket;
+#else
     socket_t	Socket;
+#endif
     u_char	Function;
     dev_info_t	*dev_info;
 } bind_req_t;
@@ -347,7 +355,11 @@ typedef struct bind_req_t {
 #define BIND_FN_ALL	0xff
 
 typedef struct mtd_bind_t {
+#ifdef __MACOSX__
+    cs_socket_t	Socket;
+#else
     socket_t	Socket;
+#endif
     u_int	Attributes;
     u_int	CardOffset;
     dev_info_t	*dev_info;

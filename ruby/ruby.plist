@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>ruby</string>
+        <key>OpenSourceVersion</key>
+        <string>1.8.2</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.ruby-lang.org/</string>
+        <key>OpenSourceURL</key>
+        <string>ftp://ftp.ruby-lang.org/pub/ruby/ruby-1.8.2.tar.gz</string>
+        <key>OpenSourceMD5</key>
+        <string>8ffc79d96f336b80f2690a17601dea9b</string>
+        <key>OpenSourceImportDate</key>
+        <string>2004-12-25</string>
+        <key>OpenSourceLicense</key>
+        <string>Other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ruby.txt</string>
+</dict>
+</array>
+</plist>

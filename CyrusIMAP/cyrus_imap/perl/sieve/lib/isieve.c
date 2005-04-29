@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: isieve.c,v 1.28 2004/06/17 18:06:54 rjs3 Exp $ */
+/* $Id: isieve.c,v 1.5 2005/03/05 00:37:34 dasenbro Exp $ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

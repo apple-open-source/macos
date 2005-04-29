@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2000 by Alan Hourihane, Wigan, England.
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -21,7 +21,7 @@
  *
  * Author:  Alan Hourihane, alanh@fairlite.demon.co.uk
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_regs.h,v 1.26 2002/09/16 18:06:03 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_regs.h,v 1.28 2004/01/21 22:51:19 alanh Exp $ */
 
 #define DEBUG 1
 
@@ -119,6 +119,7 @@
 #define BiosNewMode1 0x5a
 #define BiosNewMode2 0x5c
 #define BiosReg      0x5d
+#define DisplayEngCont 0xD1
 
 /* Graphics Engine for 9420/9430 */
 
@@ -198,6 +199,13 @@
 #define GER_DSTCLIP_XY	0x214C
 #define GER_DSTCLIP_X	0x214C		/* Word */
 #define GER_DSTCLIP_Y	0x214E		/* Word */
+
+/* Wait for VSync */
+#define WAITFORVSYNC \
+ { \
+    while (hwp->readST01(hwp)&0x8) {}; \
+    while (!(hwp->readST01(hwp)&0x8)) {}; \
+ }
 
 /* Defines for IMAGE Graphics Engine */
 #define IMAGE_GE_STATUS 	0x2164

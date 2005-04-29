@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XStColors.man,v 1.2 2001/01/27 18:20:05 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XStColors.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,35 +144,15 @@
 .SH NAME
 XStoreColors, XStoreColor, XStoreNamedColor \- set colors
 .SH SYNTAX
-XStoreColors\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIcolor\fP\^, \fIncolors\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XColor \fIcolor\fP\^[\^]\^;
-.br
-      int \fIncolors\fP\^;
-.LP
-XStoreColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIcolor\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XColor *\fIcolor\fP\^;
-.LP
-XStoreNamedColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIcolor\fP\^, \fIpixel\fP\^, \fIflags\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      char *\^\fIcolor\fP\^;
-.br
-      unsigned long \fIpixel\fP\^;
-.br
-      int \fIflags\fP\^;
+.HP
+int XStoreColors\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+XColor \fIcolor\fP\^[\^]\^, int \fIncolors\fP\^); 
+.HP
+int XStoreColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+XColor *\fIcolor\fP\^); 
+.HP
+int XStoreNamedColor\^(\^Display *\fIdisplay\fP\^, Colormap \fIcolormap\fP\^,
+char *\^\fIcolor\fP\^, unsigned long \fIpixel\fP\^, int \fIflags\fP\^);
 .SH ARGUMENTS
 .ds Co pixel and RGB values or the color name string (for example, red)
 .IP \fIcolor\fP 1i

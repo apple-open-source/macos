@@ -1,9 +1,18 @@
-# $OpenLDAP: pkg/ldap/libraries/libldap_r/Makefile.in,v 1.55.2.7 2003/03/30 14:47:09 kurt Exp $
-## Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
-## COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+# Makefile.in for LDAP -lldap
+# $OpenLDAP: pkg/ldap/libraries/libldap_r/Makefile.in,v 1.64.2.2 2004/01/01 18:16:30 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Makefile.in for LDAP -lldap
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
 ##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
+
 LIBRARY = libldap_r.la
 
 PROGRAMS = apitest ltest
@@ -13,23 +22,23 @@ XXSRCS    = apitest.c test.c \
 	bind.c open.c result.c error.c compare.c search.c \
 	controls.c messages.c references.c extended.c cyrus.c \
 	modify.c add.c modrdn.c delete.c abandon.c \
-	sasl.c sbind.c kbind.c unbind.c cancel.c cache.c \
+	sasl.c sbind.c kbind.c unbind.c cancel.c \
 	filter.c free.c sort.c passwd.c whoami.c \
 	getdn.c getentry.c getattr.c getvalues.c addentry.c \
 	request.c os-ip.c url.c sortctrl.c vlvctrl.c \
 	init.c options.c print.c string.c util-int.c schema.c \
 	charray.c tls.c os-local.c dnssrv.c utf-8.c utf-8-conv.c \
 	apple_compat.c messages.c references.c
-SRCS	= threads.c rdwr.c tpool.c \
+SRCS	= threads.c rdwr.c tpool.c rq.c \
 	thr_posix.c thr_cthreads.c thr_thr.c thr_lwp.c thr_nt.c \
 	thr_pth.c thr_stub.c
-OBJS	= threads.lo rdwr.lo tpool.lo  \
+OBJS	= threads.lo rdwr.lo tpool.lo  rq.lo \
 	thr_posix.lo thr_cthreads.lo thr_thr.lo thr_lwp.lo thr_nt.lo \
 	thr_pth.lo thr_stub.lo \
 	bind.lo open.lo result.lo error.lo compare.lo search.lo \
 	controls.lo messages.lo references.lo extended.lo cyrus.lo \
 	modify.lo add.lo modrdn.lo delete.lo abandon.lo \
-	sasl.lo sbind.lo kbind.lo unbind.lo cancel.lo cache.lo \
+	sasl.lo sbind.lo kbind.lo unbind.lo cancel.lo \
 	filter.lo free.lo sort.lo passwd.lo whoami.lo \
 	getdn.lo getentry.lo getattr.lo getvalues.lo addentry.lo \
 	request.lo os-ip.lo url.lo sortctrl.lo vlvctrl.lo \

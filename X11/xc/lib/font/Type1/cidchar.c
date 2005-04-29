@@ -15,7 +15,7 @@
  * The Original Software is CID font code that was developed by Silicon
  * Graphics, Inc.
  */
-/* $XFree86: xc/lib/font/Type1/cidchar.c,v 1.9 2001/10/28 03:32:44 tsi Exp $ */
+/* $XFree86: xc/lib/font/Type1/cidchar.c,v 1.10 2003/05/27 22:26:45 tsi Exp $ */
 
 #ifdef BUILDCID
 #ifndef FONTMODULE
@@ -487,7 +487,6 @@ CIDGetCharMetrics(FontPtr pFont, FontInfo *fi, unsigned int charcode, double sxm
 int 
 CIDGetAFM(FontPtr pFont, unsigned long count, unsigned char *chars, FontEncoding charEncoding, unsigned long *glyphCount, CharInfoPtr *glyphs, char *cidafmfile)
 {
-    int rc;
     FILE *fp;
     FontInfo *fi = NULL;
     cidglyphs *cid;
@@ -496,7 +495,7 @@ CIDGetAFM(FontPtr pFont, unsigned long count, unsigned char *chars, FontEncoding
 
     register CharInfoPtr pci;
     CharInfoPtr pDefault;
-    unsigned int firstRow, firstCol, numRows, code, char_row, char_col;
+    unsigned int firstCol, code, char_row, char_col;
     double sxmult;
 
     cid = (cidglyphs *)pFont->fontPrivate;
@@ -505,7 +504,7 @@ CIDGetAFM(FontPtr pFont, unsigned long count, unsigned char *chars, FontEncoding
         if (!(fp = fopen(cidafmfile, "rb")))
             return(BadFontName);
 
-        if ((rc = CIDAFM(fp, &fi)) != 0) {
+        if (CIDAFM(fp, &fi) != 0) {
             fprintf(stderr,
                 "There is something wrong with Adobe Font Metric file %s.\n",
                 cidafmfile);
@@ -579,8 +578,6 @@ CIDGetAFM(FontPtr pFont, unsigned long count, unsigned char *chars, FontEncoding
         break;
 
     case TwoD16Bit:
-        firstRow = pFont->info.firstRow;
-        numRows = pFont->info.lastRow - firstRow + 1;
         while (count--) {
             char_row = (*chars++);
             char_col = (*chars++);

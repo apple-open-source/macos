@@ -48,12 +48,12 @@ DIR *opendir(char *filename)
     if (NULL == filename || '\0' == filename[0])
         filename = ".";
 
-    dirp = malloc(sizeof(*dirp));
+    dirp = xmalloc(sizeof(*dirp));
     if (NULL == dirp)
         return(NULL);
 
     len = strlen(filename);
-    dirp->dirname = malloc(len + 5);
+    dirp->dirname = xmalloc(len + 5);
     if (NULL == dirp->dirname)
     {
         free(dirp);
@@ -92,7 +92,7 @@ DIR *opendir(char *filename)
             auto     struct dirent    **p;
 
             dirp->max_ent += DIRENT_INCR;
-            p = realloc(dirp->entp, dirp->max_ent * sizeof(entp));
+            p = xrealloc(dirp->entp, dirp->max_ent * sizeof(entp));
             if (NULL == p)
             {
                 rc = ERROR_NOT_ENOUGH_MEMORY;
@@ -102,7 +102,7 @@ DIR *opendir(char *filename)
             dirp->entp = p;
         }
 
-        entp = malloc(sizeof(*entp) + (size_t) ff.cchName);
+        entp = xmalloc(sizeof(*entp) + (size_t) ff.cchName);
         if (NULL == entp)
         {
             rc = ERROR_NOT_ENOUGH_MEMORY;

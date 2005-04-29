@@ -2,7 +2,7 @@
 
 AT_BANNER([Executables (autoheader, autoupdate...).])
 
-# Copyright 2000, 2001 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -97,7 +97,7 @@ AT_SETUP([Syntax of the Perl scripts])
 # Ignore it, it might change between releases.
 m4_define([AT_CHECK_PERL_SYNTAX],
 [AT_CHECK([autom4te_perllibdir=$abs_top_srcdir/lib $PERL -c $abs_top_builddir/bin/$1],
-          0, [], [ignore])])
+	  0, [], [ignore])])
 
 AT_CHECK_PERL_SYNTAX([autoheader])
 AT_CHECK_PERL_SYNTAX([autom4te])
@@ -154,8 +154,6 @@ AT_CLEANUP
 # -----------------------------
 AT_SETUP([autoconf --trace: user macros])
 
-
-m4_pattern_allow([^m4_(define|shift)$])
 AT_DATA([configure.ac],
 [[m4_define([active], [ACTIVE])
 m4_define([TRACE1], [TRACE2(m4_shift($@))])
@@ -248,7 +246,7 @@ AT_DATA([configure.ac],
 ]])
 
 AT_CHECK_AUTOCONF([[-t define | sed -n '$p']],
-         0,
+	 0,
 [[configure.ac:1:define:active:ACTIVE
 ]])
 
@@ -257,7 +255,7 @@ AT_CHECK_AUTOCONF([[-t define | sed -n '$p']],
 # Note that using `-i' means we need the *.m4 files, not the *.m4f files,
 # hence we need srcdir, not builddir.
 AT_CHECK_AUTOCONF([[-t define:'$1' -i| sed -n '$p']],
-         0,
+	 0,
 [[active
 ]])
 
@@ -593,12 +591,12 @@ autoupdate_version=`cat stdout`
 echo "AC_PREREQ($autoupdate_version)" >expout
 
 AT_CHECK([echo "AC_PREREQ(1.0)" | autoupdate -],
-         0, [expout], [])
+	 0, [expout], [])
 
 AT_CHECK([echo "AC_PREREQ($autoupdate_version)" | autoupdate -],
-         0, [expout], [])
+	 0, [expout], [])
 
 AT_CHECK([echo "AC_PREREQ(999.99)" | autoupdate -],
-         1, [], [ignore])
+	 63, [], [ignore])
 
 AT_CLEANUP

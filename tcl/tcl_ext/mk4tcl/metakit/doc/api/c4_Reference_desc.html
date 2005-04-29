@@ -1,0 +1,204 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_Reference</b>
+<br><br>
+
+<dd><font face=Times size=3>
+A reference is used to get or set typed data, using derived classes.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Reference</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38;, const <A HREF="c4_Property.html" >c4_Property</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Constructor</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Reference.html" >c4_Reference</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator= </b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Assignment of one data item</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetSize</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Return width of the referenced data item</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>GetData</b> (<A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Retrieve the value of the referenced data item</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>SetData</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Store a value into the referenced data item</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Protected members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_cursor</b>;
+	  
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const <A HREF="c4_Property.html" >c4_Property</A>&#38; 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_property</b>;
+	  
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Friends</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator==</b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;, const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both references is equal</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  friend bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator!=</b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;, const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  <font face=Helvetica size=-1><br>Return true if the contents of both references is not equal</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+    <tr>
+    <td valign=top>
+	  <font face=Helvetica size=-1><b>See also</b></font>
+    </td>
+    <td>
+	  
+		<a name="c4_BytesRef" href="c4_BytesRef.html">c4_BytesRef</a>,
+	  
+		<a name="c4_DoubleRef" href="c4_DoubleRef.html">c4_DoubleRef</a>,
+	  
+		<a name="c4_FloatRef" href="c4_FloatRef.html">c4_FloatRef</a>,
+	  
+		<a name="c4_IntRef" href="c4_IntRef.html">c4_IntRef</a>,
+	  
+		<a name="c4_MemoRef" href="c4_MemoRef.html">c4_MemoRef</a>,
+	  
+		<a name="c4_StringRef" href="c4_StringRef.html">c4_StringRef</a>,
+	  
+		<a name="c4_ViewRef" href="c4_ViewRef.html">c4_ViewRef</a>
+	  
+    </td>
+	</tr>
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

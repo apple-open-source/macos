@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga.h,v 1.85 2002/12/16 16:19:17 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/mga.h,v 1.88 2004/02/20 16:59:48 tsi Exp $ */
 /*
  * MGA Millennium (MGA2064W) functions
  *
@@ -99,18 +99,23 @@ typedef enum {
 #define OUTREG16(addr, val) MMIO_OUT16(pMga->IOBase, addr, val)
 #define OUTREG(addr, val) MMIO_OUT32(pMga->IOBase, addr, val)
 #else /* !EXTRADEBUG */
-CARD8 dbg_inreg8(ScrnInfoPtr,int,int);
-CARD16 dbg_inreg16(ScrnInfoPtr,int,int);
-CARD32 dbg_inreg32(ScrnInfoPtr,int,int);
-void dbg_outreg8(ScrnInfoPtr,int,int);
-void dbg_outreg16(ScrnInfoPtr,int,int);
-void dbg_outreg32(ScrnInfoPtr,int,int);
-#define INREG8(addr) dbg_inreg8(pScrn,addr,1)
-#define INREG16(addr) dbg_inreg16(pScrn,addr,1)
-#define INREG(addr) dbg_inreg32(pScrn,addr,1)
-#define OUTREG8(addr,val) dbg_outreg8(pScrn,addr,val)
-#define OUTREG16(addr,val) dbg_outreg16(pScrn,addr,val)
-#define OUTREG(addr,val) dbg_outreg32(pScrn,addr,val)
+CARD8 MGAdbg_inreg8(ScrnInfoPtr, int, int, char*);
+CARD16 MGAdbg_inreg16(ScrnInfoPtr, int, int, char*);
+CARD32 MGAdbg_inreg32(ScrnInfoPtr, int, int, char*);
+void MGAdbg_outreg8(ScrnInfoPtr, int, int, char*);
+void MGAdbg_outreg16(ScrnInfoPtr, int,int, char*);
+void MGAdbg_outreg32(ScrnInfoPtr, int,int, char*);
+#ifndef __GNUC__
+# define MGA_STRINGIZE(x) #x
+# define MGA_STRINGIFY(x) MGA_STRINGIZE(x)
+# define __FUNCTION__ MGA_STRINGIFY(__FILE__) ", line " MGA_STRINGIFY(__LINE__)
+#endif
+#define INREG8(addr) MGAdbg_inreg8(pScrn, addr, 1, __FUNCTION__)
+#define INREG16(addr) MGAdbg_inreg16(pScrn, addr, 1, __FUNCTION__)
+#define INREG(addr) MGAdbg_inreg32(pScrn, addr, 1, __FUNCTION__)
+#define OUTREG8(addr,val) MGAdbg_outreg8(pScrn, addr, val, __FUNCTION__)
+#define OUTREG16(addr,val) MGAdbg_outreg16(pScrn, addr, val, __FUNCTION__)
+#define OUTREG(addr,val) MGAdbg_outreg32(pScrn, addr, val, __FUNCTION__)
 #endif /* EXTRADEBUG */
 
 /*
@@ -148,7 +153,7 @@ void dbg_outreg32(ScrnInfoPtr,int,int);
 #define MGA_DRIVER_NAME "mga"
 #define MGA_MAJOR_VERSION 1
 #define MGA_MINOR_VERSION 1
-#define MGA_PATCHLEVEL 0
+#define MGA_PATCHLEVEL 1
 
 typedef struct {
     unsigned char	ExtVga[6];
@@ -212,6 +217,7 @@ typedef struct {
     MessageType MemClkFrom;
     Bool	SetMemClk;
     void	(*LoadPalette)(ScrnInfoPtr, int, int*, LOCO*, VisualPtr);
+    void	(*RestorePalette)(ScrnInfoPtr, unsigned char *);
     void	(*PreInit)(ScrnInfoPtr);
     void	(*Save)(ScrnInfoPtr, vgaRegPtr, MGARegPtr, Bool);
     void	(*Restore)(ScrnInfoPtr, vgaRegPtr, MGARegPtr, Bool);

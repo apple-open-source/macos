@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCPCntrl.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCPCntrl.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,27 +144,14 @@
 .SH NAME
 XChangePointerControl, XGetPointerControl \- control pointer 
 .SH SYNTAX
-XChangePointerControl\^(\^\fIdisplay\fP, \fIdo_accel\fP\^, \fIdo_threshold\fP\^, \fIaccel_numerator\fP\^, 
-.br
-                        \fIaccel_denominator\fP\^, \fIthreshold\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Bool \fIdo_accel\fP\^, \fIdo_threshold\fP\^;
-.br
-      int \fIaccel_numerator\fP\^, \fIaccel_denominator\fP\^;
-.br
-      int \fIthreshold\fP\^;
-.LP
-XGetPointerControl\^(\^\fIdisplay\fP, \fIaccel_numerator_return\fP\^, \fIaccel_denominator_return\fP\^, 
-.br
-                       \fIthreshold_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fIaccel_numerator_return\fP\^, *\fIaccel_denominator_return\fP\^;
-.br
-      int *\fIthreshold_return\fP\^;
+.HP
+int XChangePointerControl\^(\^Display *\fIdisplay\fP\^, Bool \fIdo_accel\fP\^,
+Bool \fIdo_threshold\fP\^, int \fIaccel_numerator\fP\^, int
+\fIaccel_denominator\fP\^, int \fIthreshold\fP\^);
+.HP
+int XGetPointerControl\^(\^Display *\fIdisplay\fP\^, int
+*\fIaccel_numerator_return\fP\^, int *\fIaccel_denominator_return\fP\^, int
+*\fIthreshold_return\fP\^);
 .SH ARGUMENTS
 .IP \fIaccel_denominator\fP 1i
 Specifies the denominator for the acceleration multiplier.

@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,13 +25,17 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mbrlen.c,v 1.2 2002/09/06 11:23:45 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mbrlen.c,v 1.4 2004/05/12 14:26:54 tjr Exp $");
 
 #include <wchar.h>
+#include "mblocal.h"
 
 size_t
-mbrlen(const char * __restrict s, size_t n, mbstate_t * __restrict ps __unused)
+mbrlen(const char * __restrict s, size_t n, mbstate_t * __restrict ps)
 {
+	static mbstate_t mbs;
 
-	return (mbrtowc(NULL, s, n, NULL));
+	if (ps == NULL)
+		ps = &mbs;
+	return (__mbrtowc(NULL, s, n, ps));
 }

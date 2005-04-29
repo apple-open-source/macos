@@ -1,0 +1,48 @@
+: sgi.mips4 cc wrapper that generates mips4 binaries : 2001-02-14 :
+
+HOSTTYPE=sgi.mips4
+
+case $* in
+-dumpmachine) echo $HOSTTYPE; exit ;;
+esac
+
+# ld:
+#	  15
+#	  84
+#	  85
+#	 134
+# cc:
+#	1685 (first!!) Invalid error number: X.
+#	1048
+#	1155
+#	1171 The indicated expression has no effect.
+#	1184 "=" is used where where "==" may have been intended.
+#	1209 The controlling expression is constant.
+#	1343
+#	3169 X not marked as intrinsic because it is not yet declared
+#	3170 X not marked as intrinsic because it is not yet declared
+#	3433 X not marked as intrinsic because it is not yet declared
+#	3434 X not marked as intrinsic because it is not yet declared
+
+case $1 in
+-mips2)	if	test -d /usr/lib32
+	then	LD_LIBRARYN32_PATH=/lib32 /usr/bin/cc -32 -mips2 -G0 -Olimit 5000 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,733,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
+	else	/usr/bin/cc -mips2 -Olimit 5000 -woff 1685,733,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
+	fi
+	;;
+-mips3)	/usr/bin/cc -n32 -mips3 -G0 -OPT:Olimit=0 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,1048,1155,1171,1184,1209,1343,3169,3170,3433,3434 "$@"
+	;;
+*)	case " $* " in
+	*" -ldl "*)
+		integer n
+		for i
+		do	case $i in
+			-ldl)	;;
+			*)	a[n++]=$i ;;
+			esac
+		done
+		set -- ${a[@]}
+	esac
+	/usr/bin/cc -64 -mips4 -G0 -OPT:Olimit=0 -Wl,-woff,15 -Wl,-woff,84 -Wl,-woff,85 -Wl,-woff,134 -woff 1685,1048,1155,1171,1184,1209,1343,3169,3170,3433 "$@"
+	;;
+esac

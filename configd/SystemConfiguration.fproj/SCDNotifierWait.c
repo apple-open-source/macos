@@ -49,7 +49,7 @@ waitForMachMessage(mach_port_t port)
 
 	status = vm_allocate(mach_task_self(), (vm_address_t *)&buf, size, TRUE);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_allocate(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("waitForMachMessage vm_allocate(): %s"), mach_error_string(status));
 		return -1;
 	}
 
@@ -61,7 +61,7 @@ waitForMachMessage(mach_port_t port)
 			  MACH_MSG_TIMEOUT_NONE,	/* timeout */
 			  MACH_PORT_NULL);		/* notify */
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_msg(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("waitForMachMessage mach_msg(): %s"), mach_error_string(status));
 		return -1;
 	}
 
@@ -79,9 +79,7 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	int				sc_status;
 	mach_msg_id_t			msgid;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait:"));
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -102,18 +100,17 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	/* Allocating port (for server response) */
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_allocate(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait mach_port_allocate(): %s"), mach_error_string(status));
 		_SCErrorSet(status);
 		return FALSE;
 	}
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  port = %d"), port);
 
 	status = mach_port_insert_right(mach_task_self(),
 					port,
 					port,
 					MACH_MSG_TYPE_MAKE_SEND);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_insert_right(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait mach_port_insert_right(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), port);
 		_SCErrorSet(status);
 		return FALSE;
@@ -128,25 +125,28 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait mach_port_request_notification(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), port);
 		_SCErrorSet(status);
 		return FALSE;
 	}
 
+#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCDynamicStoreNotifyWait(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyWait(): why is oldNotify != MACH_PORT_NULL?"));
 	}
+#endif	/* DEBUG */
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("Requesting notification via mach port %d"), port);
 	status = notifyviaport(storePrivate->server,
 			       port,
 			       0,
 			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
+			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait notifyviaport(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
@@ -161,8 +161,6 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 	/* set notifier active */
 	storePrivate->notifyStatus = Using_NotifierWait;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("Waiting..."));
-
 	msgid = waitForMachMessage(port);
 
 	/* set notifier inactive */
@@ -170,26 +168,32 @@ SCDynamicStoreNotifyWait(SCDynamicStoreRef store)
 
 	if (msgid == MACH_NOTIFY_NO_SENDERS) {
 		/* the server closed the notifier port */
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  notifier port closed, destroying port %d"), port);
+#ifdef	DEBUG
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait notifier port closed, destroying port %d"), port);
+#endif	/* DEBUG */
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;
 	}
 
 	if (msgid == -1) {
 		/* one of the mach routines returned an error */
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  communication with server failed, destroying port %d"), port);
+#ifdef	DEBUG
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait communication with server failed, destroying port %d"), port);
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), port);
 		_SCErrorSet(kSCStatusNoStoreServer);
 		return FALSE;
 	}
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("Something changed, cancelling notification request"));
+	// something changed, cancelling notification request
 	status = notifycancel(storePrivate->server,
 			      (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifycancel(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyWait notifycancel(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);

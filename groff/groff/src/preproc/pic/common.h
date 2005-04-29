@@ -1,5 +1,6 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 1993, 2003
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -33,8 +34,13 @@ private:
 	       double gap_width, double *offsetp);
 protected:
   virtual void dot(const position &, const line_type &) = 0;
+  void ellipse_arc(const position &, const position &,
+		   const position &, const distance &,
+		   const line_type &);
   void dashed_circle(const position &, double rad, const line_type &);
   void dotted_circle(const position &, double rad, const line_type &);
+  void dashed_ellipse(const position &, const distance &, const line_type &);
+  void dotted_ellipse(const position &, const distance &, const line_type &);
   void dashed_arc(const position &, const position &, const position &,
 		  const line_type &);
   void dotted_arc(const position &, const position &, const position &,

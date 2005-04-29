@@ -1,6 +1,6 @@
 /* bfd back-end for HP PA-RISC SOM objects.
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002
+   2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    Contributed by the Center for Software Science at the
@@ -38,7 +38,7 @@
 #include <machine/reg.h>
 #include <sys/file.h>
 
-/* Magic not defined in standard HP-UX header files until 8.0 */
+/* Magic not defined in standard HP-UX header files until 8.0.  */
 
 #ifndef CPU_PA_RISC1_0
 #define CPU_PA_RISC1_0 0x20B
@@ -148,7 +148,7 @@ struct som_misc_symbol_info {
   unsigned int secondary_def;
 };
 
-/* Forward declarations */
+/* Forward declarations.  */
 
 static bfd_boolean som_mkobject
   PARAMS ((bfd *));
@@ -175,7 +175,7 @@ static unsigned int som_set_reloc_info
 	   asymbol **, bfd_boolean));
 static bfd_boolean som_slurp_reloc_table
   PARAMS ((bfd *, asection *, asymbol **, bfd_boolean));
-static long som_get_symtab
+static long som_canonicalize_symtab
   PARAMS ((bfd *, asymbol **));
 static asymbol * som_make_empty_symbol
   PARAMS ((bfd *));
@@ -220,7 +220,6 @@ static int som_reloc_queue_find
   PARAMS ((unsigned char *, unsigned int, struct reloc_queue *));
 static unsigned char * try_prev_fixup
   PARAMS ((bfd *, int *, unsigned char *, unsigned int, struct reloc_queue *));
-
 static unsigned char * som_reloc_skip
   PARAMS ((bfd *, unsigned int, unsigned char *, unsigned int *,
 	   struct reloc_queue *));
@@ -267,9 +266,8 @@ static int som_decode_symclass
   PARAMS ((asymbol *));
 static bfd_boolean som_bfd_count_ar_symbols
   PARAMS ((bfd *, struct lst_header *, symindex *));
-
 static bfd_boolean som_bfd_fill_in_ar_symbols
-  PARAMS ((bfd *, struct lst_header *, carsym **syms));
+  PARAMS ((bfd *, struct lst_header *, carsym **));
 static bfd_boolean som_slurp_armap
   PARAMS ((bfd *));
 static bfd_boolean som_write_armap
@@ -659,7 +657,7 @@ static const struct fixup_format som_fixup_formats[256] = {
   /* R_TRANSLATED */
   {  0, "" },			/* 0xce */
   /* R_AUX_UNWIND */
-  {  0,"Sd=Vf=Ef=" },	       /* 0xcf */
+  {  0,"Sd=Ve=Ee=" },	       /* 0xcf */
   /* R_COMP1 */
   {  0, "Ob=" },		/* 0xd0 */
   /* R_COMP2 */
@@ -684,7 +682,7 @@ static const struct fixup_format som_fixup_formats[256] = {
   /* R_LTP_OVERRIDE */
   {  0, "" },			/* 0xdc */
   /* R_COMMENT */
-  {  0, "Ob=Ve=" },		/* 0xdd */
+  {  0, "Ob=Vf=" },		/* 0xdd */
   /* R_RESERVED */
   {  0, "" },			/* 0xde */
   {  0, "" },			/* 0xdf */
@@ -1717,7 +1715,7 @@ hppa_som_gen_reloc_type (abfd, base_type, format, field, sym_diff, sym)
 #ifndef NO_PCREL_MODES
 	/* If we have short and long pcrel modes, then generate the proper
 	   mode selector, then the pcrel relocation.  Redundant selectors
-	   will be eliminted as the relocs are sized and emitted.  */
+	   will be eliminated as the relocs are sized and emitted.  */
 	bfd_size_type amt = sizeof (int);
 	final_types[0] = (int *) bfd_alloc (abfd, amt);
 	if (!final_types[0])
@@ -2328,7 +2326,6 @@ som_prep_headers (abfd)
 
   if (abfd->flags & (EXEC_P | DYNAMIC))
     {
-
       /* Make and attach an exec header to the BFD.  */
       amt = sizeof (struct som_exec_auxhdr);
       obj_som_exec_hdr (abfd) =
@@ -2483,7 +2480,7 @@ som_is_subspace (section)
   return TRUE;
 }
 
-/* Return TRUE if the given space containins the given subspace.  It
+/* Return TRUE if the given space contains the given subspace.  It
    is safe to assume space really is a space, and subspace really
    is a subspace.  */
 
@@ -2737,7 +2734,7 @@ som_write_fixups (abfd, current_offset, total_reloc_sizep)
 	    continue;
 
 	  /* If this subspace does not have real data, then we are
-	     finised with it.  */
+	     finished with it.  */
 	  if ((subsection->flags & SEC_HAS_CONTENTS) == 0)
 	    {
 	      som_section_data (subsection)->subspace_dict->fixup_request_index
@@ -3203,7 +3200,7 @@ som_write_symbol_strings (abfd, current_offset, syms, num_syms, string_sizep,
   /* This gets a bit gruesome because of the compilation unit.  The
      strings within the compilation unit are part of the symbol
      strings, but don't have symbol_dictionary entries.  So, manually
-     write them and update the compliation unit header.  On input, the
+     write them and update the compilation unit header.  On input, the
      compilation unit header contains local copies of the strings.
      Move them aside.  */
   if (compilation_unit)
@@ -3909,7 +3906,7 @@ som_finish_writing (abfd)
       section = section->next;
     }
 
-  /* All the subspace dictiondary records are written, and all the
+  /* All the subspace dictionary records are written, and all the
      fields are set up in the space dictionary records.
 
      Seek to the right location and start writing the space
@@ -3981,7 +3978,7 @@ som_finish_writing (abfd)
       exec_header->exec_flags = obj_som_exec_data (abfd)->exec_flags;
 
       /* Oh joys.  Ram some of the BSS data into the DATA section
-	 to be compatable with how the hp linker makes objects
+	 to be compatible with how the hp linker makes objects
 	 (saves memory space).  */
       tmp = exec_header->exec_dsize;
       tmp = SOM_ALIGN (tmp, PA_PAGESIZE);
@@ -4523,7 +4520,7 @@ som_slurp_symbol_table (abfd)
    in the symbol table.  */
 
 static long
-som_get_symtab (abfd, location)
+som_canonicalize_symtab (abfd, location)
      bfd *abfd;
      asymbol **location;
 {
@@ -5353,7 +5350,7 @@ som_get_section_contents (abfd, section, location, offset, count)
   if ((bfd_size_type) (offset+count) > section->_raw_size
       || bfd_seek (abfd, (file_ptr) (section->filepos + offset), SEEK_SET) != 0
       || bfd_bread (location, count, abfd) != count)
-    return FALSE; /* on error */
+    return FALSE; /* On error.  */
   return TRUE;
 }
 
@@ -5783,7 +5780,7 @@ som_slurp_armap (abfd)
 		       + sizeof (struct lst_header)), SEEK_SET) != 0)
     return FALSE;
 
-  /* Initializae the cache and allocate space for the library symbols.  */
+  /* Initialize the cache and allocate space for the library symbols.  */
   ardata->cache = 0;
   amt = ardata->symdef_count;
   amt *= sizeof (carsym);
@@ -6343,6 +6340,8 @@ som_bfd_link_split_section (abfd, sec)
 #define som_minisymbol_to_symbol	_bfd_generic_minisymbol_to_symbol
 #define som_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
+#define som_get_section_contents_in_window_with_mode \
+  _bfd_generic_get_section_contents_in_window_with_mode
 
 #define som_bfd_get_relocated_section_contents \
  bfd_generic_get_relocated_section_contents
@@ -6369,7 +6368,7 @@ const bfd_target som_vec = {
    | SEC_ALLOC | SEC_LOAD | SEC_RELOC),		/* section flags */
 
 /* leading_symbol_char: is the first char of a user symbol
-   predictable, and if so what is it */
+   predictable, and if so what is it.  */
   0,
   '/',				/* ar_pad_char */
   14,				/* ar_max_namelen */

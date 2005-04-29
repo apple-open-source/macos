@@ -5,7 +5,7 @@
  * in public domain. You can freely use, copy, modify, and redistribute
  * the whole contents, without this notice.
  * --------------------------------------------------------------------
- * $Id: select.c,v 1.1.1.1 2002/05/27 17:59:51 jkh Exp $
+ * $Id: select.c,v 1.1.1.2 1999/01/20 04:59:39 matz Exp $
  */
 
 #ifndef __IOCS_INLINE__

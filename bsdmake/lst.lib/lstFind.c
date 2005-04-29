@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFind.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -55,7 +54,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFind.c,v 1.7 2000/07/09 00:08:47 
  *	and the given datum.
  *
  * Results:
- *	The found node or NILLNODE if none matches.
+ *	The found node or NULL if none matches.
  *
  * Side Effects:
  *	None.
@@ -65,8 +64,8 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFind.c,v 1.7 2000/07/09 00:08:47 
 LstNode
 Lst_Find (l, d, cProc)
     Lst		l;
-    ClientData	d;
-    int		(*cProc) __P((ClientData, ClientData));
+    void *	d;
+    int		(*cProc)(void *, void *);
 {
     return (Lst_FindFrom (l, Lst_First(l), d, cProc));
 }

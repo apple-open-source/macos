@@ -1,4 +1,4 @@
-XCOMM platform:  $XFree86: xc/config/cf/gnu.cf,v 1.11 2001/02/28 18:58:49 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/gnu.cf,v 1.13 2004/01/09 00:35:00 dawes Exp $
 
 #ifndef OSName
 #define OSName			DefaultOSName
@@ -26,12 +26,11 @@ XCOMM XXXMB: What about _GNU_SOURCE, see Linux/UseInstalled?
 
 #define XawI18nDefines        -DHAS_WCHAR_H -DHAS_WCTYPE_H -DNO_WIDEC_H
 
-XCOMM Enable this when we have pthreads.
-XCOMM #define HasPosixThreads         YES
-XCOMM #define ThreadedX               YES
-XCOMM #define HasThreadSafeAPI        YES
-XCOMM #define ThreadsLibraries        -lpthread
-XCOMM #define SystemMTDefines         -D_REENTRANT
+#define HasPosixThreads         YES
+#define ThreadedX               YES
+#define HasThreadSafeAPI        YES
+#define ThreadsLibraries        -lpthread
+#define SystemMTDefines         -D_REENTRANT
 
 #ifndef HasLibCrypt
 #define HasLibCrypt             YES
@@ -128,13 +127,13 @@ XCOMM Not implemented and will always fail.
 XCOMM i386Architecture
 #define OptimizedCDebugFlags	DefaultGcc2i386Opt
 #define GNUMachineDefines	-D__i386__
-#define ServerOSDefines		XFree86ServerOSDefines -DDDXTIME -DPART_NET
+#define ServerOSDefines		XFree86ServerOSDefines -DDDXTIME
 #define ServerExtraDefines	-DGCCUSESGAS XFree86ServerDefines
 #define HasPlugin		YES
 #define VendorHasX11R6_3libXext	YES
 
 #ifndef StandardDefines
-#define StandardDefines		-D__GNU__ GNUMachineDefines GNUSourceDefines
+#define StandardDefines		GNUMachineDefines GNUSourceDefines
 #endif
 
 #define DlLibrary		-rdynamic -ldl

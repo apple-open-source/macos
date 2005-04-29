@@ -1,7 +1,0 @@
-Package: gm4
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Vendor: GNU Project
-Version: 1.4
-URL: ftp://prep.ai.mit.edu/pub/gnu/m4/
-Description: GNU macro processor
-Build-Depends: build-base, perl, texi2html

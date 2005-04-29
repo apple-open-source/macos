@@ -5,28 +5,64 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is zsh version 4.1.1.  This is a development release.  However, it has
-been in use over a long period by many people and it is believed to be
-fairly stable.
+This is zsh version 4.2.3.  This is a stable version.
 
 Installing Zsh
 --------------
 
 The instructions for compiling zsh are in the file INSTALL.  You should
-also check the file MACHINES in the subdirectory Etc to see if there
+also check the file MACHINES in the top directory to see if there
 are any special instructions for your particular architecture.
 
 Features
 --------
 
 Zsh is a shell with lots of features.  For a list of some of these, see the
-file Etc/FEATURES, and for the latest changes see Etc/NEWS.  For more
+file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
 Possible incompatibilities
 ---------------------------
 
-Some particular differences you may notice since version 4.0:
+Currently the only known incompatibilities between 4.2.0 and later
+versions are minor:
+
+
+Since 4.2.1:
+
+The "test" and "[" builtins now behave more like relevant Unix standards
+suggest they should.  Previously they were a simple front-end to the same
+tests used by zsh's "[[" syntax.  (The documentation was previously cagey
+about what "test" and "[" actually did.)  "[[" has always been the
+recommended way of implementing tests within zsh.
+
+In recent versions of zsh, typing the end-of-file (EOF) character
+(typically ^D, although this can be altered with the "stty" command)
+repeatedly in the line editor printed a warning message, but never exited the
+shell.  This was a departure from the traditional behaviour of zsh and
+other shells where the shell would exit after 10 EOFs.  The traditional
+behaviour has been restored.  Also, binding a user-defined editor command
+to the EOF character now suppresses the EOF behaviour inside the line
+editor; it is possible to emulate it if desired.
+
+
+From 4.2.0 to 4.2.1:
+
+IPv6 addresses must be specified in square brackets in the zftp module and
+the function system built on top of the zftp module.
+
+Special traps for pseudosignals ZERR, DEBUG and EXIT are no longer executed
+inside other traps.  Users may well have assumed this was the case anyway
+since the behaviour was not explicity documented.  See the NEWS file for
+more detail.
+
+By default, a maximum function depth of 4096 is now compiled into the
+shell.  This may be altered during configuration; see `Function depth' in
+INSTALL.
+
+
+Some particular differences you may notice between the 4.0 and 4.2 series
+of releases:
 
 The bash-compatibility zle functions described in the zshcontrib manual
 page have been removed as a more configurable set of editing widgets for

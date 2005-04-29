@@ -3,79 +3,130 @@
 load "./rbconfig.rb"
 include Config
 
-File.umask(0)
-destdir = ARGV[0] || ''
+$:.unshift File.join(CONFIG["srcdir"], "lib")
+require 'fileutils'
+require 'shellwords'
+require 'getopts'
+require 'tempfile'
 
-$:.unshift CONFIG["srcdir"]+"/lib"
-require "ftools"
-require "find"
+File.umask(0)
+
+def parse_args()
+  getopts('n', 'dest-dir:',
+	  'make:', 'make-flags:', 'mflags:',
+	  'mantype:doc')
+
+  $dryrun = $OPT['n']
+  $destdir = $OPT['dest-dir'] || ''
+  $make = $OPT['make'] || $make || 'make'
+  $mantype = $OPT['mantype']
+  mflags = ($OPT['make-flags'] || '').strip
+  mflags = ($OPT['mflags'] || '').strip if mflags.empty?
+
+  $mflags = Shellwords.shellwords(mflags)
+  if arg = $mflags.first
+    arg.insert(0, '-') if /\A[^-][^=]*\Z/ =~ arg
+  end
+
+  $make, *rest = Shellwords.shellwords($make)
+  $mflags.unshift(*rest) unless rest.empty?
+
+  def $mflags.set?(flag)
+    grep(/\A-(?!-).*#{'%c' % flag}/i) { return true }
+    false
+  end
+
+  if $mflags.set?(?n)
+    $dryrun = true
+  else
+    $mflags << '-n' if $dryrun
+  end
+
+  $mflags << "DESTDIR=#{$destdir}"
+
+  $continue = $mflags.set?(?k)
+end
+
+parse_args()
+
+include FileUtils::Verbose
+include FileUtils::NoWrite if $dryrun
+@fileutils_output = STDOUT
+@fileutils_label = ''
+
+def install(src, dest, options = {})
+  options[:preserve] = true
+  super
+end
+
+$made_dirs = {}
+def makedirs(dirs)
+  dirs = fu_list(dirs)
+  dirs.reject! do |dir|
+    $made_dirs.fetch(dir) do
+      $made_dirs[dir] = true
+      File.directory?(dir)
+    end
+  end
+  super(dirs, :mode => 0755, :verbose => true) unless dirs.empty?
+end
+
+def with_destdir(dir)
+  return dir if $destdir.empty?
+  dir = dir.sub(/\A\w:/, '') if File::PATH_SEPARATOR == ';'
+  $destdir + dir
+end
 
 exeext = CONFIG["EXEEXT"]
-if ENV["prefix"]
-  prefix = ENV["prefix"]
-else
-  prefix = CONFIG["prefix"]
-end
 
 ruby_install_name = CONFIG["ruby_install_name"]
-version = "/"+CONFIG["MAJOR"]+"."+CONFIG["MINOR"]
-arch = "/"+CONFIG["arch"]
+rubyw_install_name = CONFIG["rubyw_install_name"]
 
-bindir = destdir+CONFIG["bindir"]
-libdir = destdir+CONFIG["libdir"]
-rubylibdir = destdir+CONFIG["prefix"]+"/lib/ruby"+version
-archlibdir = rubylibdir+arch
-sitelibdir = destdir+CONFIG["sitedir"]+version
-sitearchlibdir = sitelibdir+arch
-mandir = destdir+CONFIG["mandir"] + "/man1"
-wdir = Dir.getwd
+version = CONFIG["ruby_version"]
+bindir = with_destdir(CONFIG["bindir"])
+libdir = with_destdir(CONFIG["libdir"])
+rubylibdir = with_destdir(CONFIG["rubylibdir"])
+archlibdir = with_destdir(CONFIG["archdir"])
+sitelibdir = with_destdir(CONFIG["sitelibdir"])
+sitearchlibdir = with_destdir(CONFIG["sitearchdir"])
+mandir = with_destdir(File.join(CONFIG["mandir"], "man"))
+configure_args = Shellwords.shellwords(CONFIG["configure_args"])
+enable_shared = CONFIG["ENABLE_SHARED"] == 'yes'
+dll = CONFIG["LIBRUBY_SO"]
+lib = CONFIG["LIBRUBY"]
+arc = CONFIG["LIBRUBY_A"]
 
-File.makedirs bindir, true
-File.install ruby_install_name+exeext,
-  "#{bindir}/#{ruby_install_name}#{exeext}", 0755, true
-rubyw = ruby_install_name.sub(/ruby/, '\&w')+exeext
-if File.exist? rubyw
-  File.install rubyw, "#{bindir}/#{rubyw}", 0755, true
+makedirs [bindir, libdir, rubylibdir, archlibdir, sitelibdir, sitearchlibdir]
+
+ruby_bin = File.join(bindir, ruby_install_name)
+
+install ruby_install_name+exeext, ruby_bin+exeext, :mode => 0755
+if rubyw_install_name and !rubyw_install_name.empty?
+  install rubyw_install_name+exeext, bindir, :mode => 0755
 end
-for dll in Dir['*.dll']
-  File.install dll, "#{bindir}/#{dll}", 0755, true
-end
-File.makedirs libdir, true
-if CONFIG["LIBRUBY"] != CONFIG["LIBRUBY_A"]
-  for lib in [CONFIG["LIBRUBY"]]
-    if File.exist? lib
-      File.install lib, libdir, 0555, true
-    end
+install dll, bindir, :mode => 0755 if enable_shared and dll != lib
+install lib, libdir, :mode => 0755 unless lib == arc
+install arc, libdir, :mode => 0644
+install "config.h", archlibdir, :mode => 0644
+install "rbconfig.rb", archlibdir, :mode => 0644
+if CONFIG["ARCHFILE"]
+  for file in CONFIG["ARCHFILE"].split
+    install file, archlibdir, :mode => 0644
   end
 end
-Dir.chdir libdir
-if File.exist? CONFIG["LIBRUBY_SO"]
+
+if dll == lib and dll != arc
   for link in CONFIG["LIBRUBY_ALIASES"].split
-    if File.exist? link
-       File.delete link
-    end
-    File.symlink CONFIG["LIBRUBY_SO"], link
-    print "link #{CONFIG['LIBRUBY_SO']} -> #{link}\n"
+    ln_sf(dll, File.join(libdir, link))
   end
 end
-Dir.chdir wdir
-File.makedirs rubylibdir, true
-File.makedirs archlibdir, true
-File.makedirs sitelibdir, true
-File.makedirs sitearchlibdir, true
 
-if RUBY_PLATFORM =~ /-aix/
-  File.install "ruby.imp", archlibdir, 0644, true
-end
-
-Dir.chdir "ext"
-if defined? CROSS_COMPILING
-  system "#{CONFIG['MINIRUBY']} extmk.rb install #{destdir}"
-else
-  system "../miniruby#{exeext} extmk.rb install #{destdir}"
-end
 Dir.chdir CONFIG["srcdir"]
 
+ruby_shebang = File.join(CONFIG["bindir"], ruby_install_name)
+if File::ALT_SEPARATOR
+  ruby_bin_dosish = ruby_shebang.tr(File::SEPARATOR, File::ALT_SEPARATOR)
+end
 for src in Dir["bin/*"]
   next unless File.file?(src)
   next if /\/[.#]|(\.(old|bak|orig|rej|diff|patch|core)|~|\/core)$/i =~ src
@@ -83,55 +134,82 @@ for src in Dir["bin/*"]
   name = ruby_install_name.sub(/ruby/, File.basename(src))
   dest = File.join(bindir, name)
 
-  File.install src, dest, 0755, true
+  install src, dest, :mode => 0755
 
+  next if $dryrun
+
+  shebang = ''
+  body = ''
   open(dest, "r+") { |f|
-    shebang = f.gets.sub(/ruby/, ruby_install_name)
+    shebang = f.gets
     body = f.read
 
-    f.rewind
-    f.print shebang, body
-    f.truncate(f.pos)
-    f.close
+    if shebang.sub!(/^\#!.*?ruby\b/) {"#!" + ruby_shebang}
+      f.rewind
+      f.print shebang, body
+      f.truncate(f.pos)
+    end
+  }
 
-    if RUBY_PLATFORM =~ /mswin32|mingw|bccwin32/
-      open(dest + ".bat", "w") { |b|
-	b.print <<EOH, shebang, body, <<EOF
+  if ruby_bin_dosish
+    batfile = File.join(CONFIG["bindir"], name + ".bat")
+    open(with_destdir(batfile), "w") { |b|
+      b.print <<EOH, shebang, body, <<EOF
 @echo off
-if "%OS%" == "Windows_NT" goto WinNT
-ruby -Sx "%0" %1 %2 %3 %4 %5 %6 %7 %8 %9
+if not "%~d0" == "~d0" goto WinNT
+#{ruby_bin_dosish} -x "#{batfile}" %1 %2 %3 %4 %5 %6 %7 %8 %9
 goto endofruby
 :WinNT
-ruby -Sx "%~nx0" %*
+"%~dp0#{ruby_install_name}" -x "%~f0" %*
 goto endofruby
 EOH
 __END__
 :endofruby
 EOF
-      }
-    end
-  }
+    }
+  end
 end
 
-Find.find("lib") do |f|
-  next unless /\.rb$/ =~ f || /help-message$/ =~ f
-  dir = rubylibdir+"/"+File.dirname(f[4..-1])
-  File.makedirs dir, true unless File.directory? dir
-  File.install f, dir, 0644, true
+for f in Dir["lib/**/*{.rb,help-message}"]
+  dir = File.dirname(f).sub!(/\Alib/, rubylibdir) || rubylibdir
+  makedirs dir
+  install f, dir, :mode => 0644
 end
 
 for f in Dir["*.h"]
-  File.install f, archlibdir, 0644, true
+  install f, archlibdir, :mode => 0644
 end
-if RUBY_PLATFORM =~ /mswin32|mingw/
-  File.makedirs archlibdir + "/win32", true
-  File.install "win32/win32.h", archlibdir + "/win32", 0644, true
-end
-File.install wdir+'/'+CONFIG['LIBRUBY_A'], archlibdir, 0644, true
 
-File.makedirs mandir, true
-File.install "ruby.1", mandir+"/"+ruby_install_name+".1", 0644, true
-Dir.chdir wdir
-File.install "config.h", archlibdir, 0644, true
-File.install "rbconfig.rb", archlibdir, 0644, true
+if RUBY_PLATFORM =~ /mswin32|mingw|bccwin32/
+  makedirs File.join(archlibdir, "win32")
+  install "win32/win32.h", File.join(archlibdir, "win32"), :mode => 0644
+end
+
+for mdoc in Dir["*.[1-9]"]
+  next unless File.file?(mdoc) and open(mdoc){|fh| fh.read(1) == '.'}
+
+  section = mdoc[-1,1]
+
+  destdir = mandir + section
+  destfile = File.join(destdir, mdoc.sub(/ruby/, ruby_install_name))
+
+  makedirs destdir
+
+  if $mantype == "doc"
+    install mdoc, destfile, :mode => 0644
+  else
+    require 'mdoc2man.rb'
+
+    w = Tempfile.open(mdoc)
+
+    open(mdoc) { |r|
+      Mdoc2Man.mdoc2man(r, w)
+    }
+
+    w.close
+
+    install w.path, destfile, :mode => 0644
+  end
+end
+
 # vi:set sw=2:

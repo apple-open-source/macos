@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: machine.h,v 1.7 2002/12/03 18:23:08 abe Exp $
+ * $Id: machine.h,v 1.11 2004/10/17 21:54:38 abe Exp $
  */
 
 
@@ -42,6 +42,10 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
+#if	DARWINV>=800
+#include "/usr/include/string.h"
+#endif	/* DARWINV>=800 */
+
 
 /*
  * CAN_USE_CLNT_CREATE is defined for those dialects where RPC clnt_create()
@@ -49,6 +53,14 @@
  */
 
 #define	CAN_USE_CLNT_CREATE	1
+
+
+/*
+ * DEVDEV_PATH defines the path to the directory that contains device
+ * nodes.
+ */
+
+#define	DEVDEV_PATH	"/dev"
 
 
 /*
@@ -161,7 +173,9 @@
  * use readinode() from node.c.
  */
 
+#if	DARWINV<800
 #define	HASINODE	1
+#endif	/* DARWINV<800 */
 
 
 /*
@@ -199,6 +213,18 @@
 
 /* #define HASLFILEADD int ... */
 /* #define SETLFILEADD Lf->... */
+#if	DARWINV>=800
+#define HASLFILEADD int hasPath; char path[MAXPATHLEN+1];
+#define SETLFILEADD Lf->hasPath=0; Lf->path[0]='\0';
+#endif	/* DARWINV>=800 */
+
+
+/*
+ * HASMNTSUP is defined for those dialects that support the mount supplement
+ * option.
+ */
+
+/* #define	HASMNTSUP	1	*/
 
 
 /*
@@ -214,16 +240,14 @@
  * that lsof can search.  A value of 1 directs printname() to prefix the
  * cache value with the file system directory name; 2, avoid the prefix.
  *
- * HASNCAPID is defined for those dialects with a searchable kernel name
- * cache whose cache and vnodes are linked by a capability ID.
- *
  * NCACHELDPFX is a set of C commands to execute before calling ncache_load().
  *
  * NCACHELDSFX is a set of C commands to execute after calling ncache_load().
  */
 
+#if	DARWINV<800
 #define	HASNCACHE	1
-#define	HASNCAPID	1
+#endif	/* DARWINV<800 */
 /* #define	NCACHELDPFX	??? */
 /* #define	NCACHELDSFX	??? */
 
@@ -244,7 +268,9 @@
  * NOTE: don't forget to define a prototype for this function in dproto.h.
  */
 
-/* #define	HASPIPEFN	process_pipe? */
+#if	DARWINV>=800
+#define	HASPIPEFN	process_pipe
+#endif	/* DARWINV >= 800 */
 
 
 /*
@@ -307,6 +333,9 @@
  */
 
 /* #define	HASPRIVNMCACHE	<function name>	*/
+#if	DARWINV>=800
+#define	HASPRIVNMCACHE	print_vnode_path
+#endif	/* DARWINV>=800 */
 
 
 /*
@@ -382,9 +411,20 @@
 /*
  * HASSETLOCALE is defined for those dialects that have <locale.h> and
  * setlocale().
+ *
+ * If the dialect also has wide character support for language locales,
+ * HASWIDECHAR activates lsof's wide character support and WIDECHARINCL
+ * defines the header file (if any) that must be #include'd to use the
+ * mblen() and mbtowc() functions.
  */
 
 #define	HASSETLOCALE	1
+
+# if	DARWINV>=700
+#define	HASWIDECHAR	1
+# endif	/* DARWINV>=700 */
+
+/* #define	WIDECHARINCL	<wchar.h>	*/
 
 
 /*
@@ -392,6 +432,17 @@
  */
 
 /* #define	HASSNODE	1 */
+
+
+/*
+ * HASSOOPT, HASSOSTATE and HASTCPOPT define the availability of information
+ * on socket options (SO_* symbols), socket states (SS_* symbols) and TCP
+ * options.
+ */
+
+#define	HASSOOPT	1	/* has socket option information */
+#define	HASSOSTATE	1	/* has socket state information */
+#define	HASTCPOPT	1	/* has TCP options or flags */
 
 
 /*
@@ -485,13 +536,17 @@
 #define	USE_LIB_IS_FILE_NAMED			1	/* isfn.c */
 #define	USE_LIB_LKUPDEV				1	/* lkud.c */
 #define	USE_LIB_PRINTDEVNAME			1	/* pdvn.c */
-#define	USE_LIB_PROCESS_FILE			1	/* prfp.c */
+/* #define	USE_LIB_PROCESS_FILE		1	   prfp.c */
 #define	USE_LIB_PRINT_TCPTPI			1	/* ptti.c */
 /* #define	USE_LIB_READDEV			1	   rdev.c */
 /* #define	USE_LIB_READMNT			1	   rmnt.c */
 /* #define	USE_LIB_REGEX			1	   regex.c */
-/* #define	USE_LIB_RNAM			1	/* rnam.c */
+/* #define	USE_LIB_RNAM			1	   rnam.c */
+#if	DARWINV<800
 #define	USE_LIB_RNMH				1	/* rnmh.c */
+#else	/* DARWINV>=800 */
+/* #define	USE_LIB_RNMH			1	   rnmh.c */
+#endif	/* DARWINV>=800 */
 /* #define	USE_LIB_RNCH			1	   rnch.c */
 /* #define	USE_LIB_SNPF			1	   snpf.c */
 #define	snpf	snprintf	/* use the system's snprintf() */

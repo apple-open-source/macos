@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -99,11 +99,11 @@ IODVDMedia * IODVDMediaBSDClient::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int IODVDMediaBSDClient::ioctl( dev_t         dev,
-                                u_long        cmd,
-                                caddr_t       data,
-                                int           flags,
-                                struct proc * proc )
+int IODVDMediaBSDClient::ioctl( dev_t   dev,
+                                u_long  cmd,
+                                caddr_t data,
+                                int     flags,
+                                proc_t  proc )
 {
     //
     // Process a DVD-specific ioctl.

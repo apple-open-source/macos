@@ -1,17 +1,15 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2003. All Rights Reserved.
+ * (C) Copyright IBM Corp. 1998-2004. All Rights Reserved.
  *
  * WARNING: THIS FILE IS MACHINE GENERATED. DO NOT HAND EDIT IT UNLESS
  * YOU REALLY KNOW WHAT YOU'RE DOING.
- *
- * $Source: /cvs/root/ICU/icuSources/layout/LELanguages.h,v $
- * $Date: 2003/07/03 18:13:45 $
- * $Revision: 1.1.1.1 $
  */
 
 #ifndef __LELANGUAGES_H
 #define __LELANGUAGES_H
+
+#include "LETypes.h"
 
 U_NAMESPACE_BEGIN
 

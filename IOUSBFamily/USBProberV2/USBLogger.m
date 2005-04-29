@@ -42,7 +42,7 @@
             // no problem
             IOReturn        kr;
             
-            kr = IOMasterPort(NULL, &_gMasterPort);
+            kr = IOMasterPort(nil, &_gMasterPort);
             if (kr != KERN_SUCCESS) {
                 NSLog(@"USBLogger: IOMasterPort() returned %d\n", kr);
                 [self dealloc];
@@ -102,7 +102,7 @@
         [_listener usbLoggerTextAvailable:[NSString stringWithFormat:@"USBLogger: [ERR] IOServiceGetMatchingServices for USB Controller returned %x\n", kr] forLevel:0];
         return kr;
     }
-    while ((service = IOIteratorNext(iter)) != NULL)
+    while ((service = IOIteratorNext(iter)) != nil)
     {
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gControllerUserClientPort);
         if(kr != KERN_SUCCESS)
@@ -210,7 +210,7 @@
         [pool release];
         return;
     }
-    while ((service = IOIteratorNext(iter)) != NULL)
+    while ((service = IOIteratorNext(iter)) != nil)
     {
         kr = IOServiceOpen(service, mach_task_self(), 0, &_gKLogUserClientPort);
         if(kr != KERN_SUCCESS)

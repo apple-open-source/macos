@@ -1,0 +1,5 @@
+# Tcl package index file, version 1.0
+
+if {[package vcompare [info tclversion] 8.0] < 0} return
+
+package ifneeded Img 1.2.4 "package require Tk\nload [list [file join $dir Img1.2.shlb]] Img"

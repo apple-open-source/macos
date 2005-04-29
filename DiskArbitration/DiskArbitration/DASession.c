@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -120,7 +120,7 @@ static DASessionRef __DASessionCreate( CFAllocatorRef allocator )
         session->_name   = NULL;
         session->_pid    = 0;
         session->_rights = NULL;
-        session->_server = NULL;
+        session->_server = MACH_PORT_NULL;
         session->_source = NULL;
     }
 
@@ -401,6 +401,8 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
 
                         CFRelease( source );
                     }
+
+                    CFMachPortInvalidate( client );
 
                     CFRelease( client );
                 }

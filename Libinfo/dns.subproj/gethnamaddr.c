@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)gethostnamadr.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: gethnamaddr.c,v 1.8 2003/07/03 21:56:17 majka Exp $";
+static char rcsid[] = "$Id: gethnamaddr.c,v 1.9 2004/10/07 17:33:33 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -526,13 +526,15 @@ gethostbyname_ipv4(name)
 }
 
 struct hostent *
-gethostbyaddr(addr, len, type)
-	const char *addr;
-	int len, type;
+gethostbyaddr(vaddr, len, type)
+	const void *vaddr;
+	socklen_t len;
+	int type;
 {
 	int n;
 	querybuf buf;
 	register struct hostent *hp;
+	const char* addr = (const char *)vaddr;
 	char qbuf[MAXDNAME+1];
 #ifdef SUNSECURITY
 	register struct hostent *rhp;

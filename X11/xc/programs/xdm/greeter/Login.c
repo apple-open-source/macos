@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/greeter/Login.c,v 3.16 2002/10/06 20:42:16 herrb Exp $ */
+/* $XFree86: xc/programs/xdm/greeter/Login.c,v 3.18 2003/07/09 15:27:40 tsi Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -137,7 +137,12 @@ static XtResource resources[] = {
     {XtNpasswdPrompt, XtCPasswdPrompt, XtRString, sizeof (char *),
 	offset(passwdPrompt), XtRString, "Password:  "},
     {XtNfail, XtCFail, XtRString, sizeof (char *),
-	offset(fail), XtRString, "Login incorrect"},
+	offset(fail), XtRString, 
+#if defined(sun) && defined(SVR4)
+     "Login incorrect or not on system console if root"},
+#else
+     "Login incorrect"},
+#endif
     {XtNfailTimeout, XtCFailTimeout, XtRInt, sizeof (int),
 	offset(failTimeout), XtRImmediate, (XtPointer) 10},
     {XtNnotifyDone, XtCCallback, XtRFunction, sizeof (XtPointer),
@@ -1108,7 +1113,6 @@ static void Initialize (
             w->login.logoValid = False;
             goto SkipXpmLoad;
         }
-        else
 
         myAttributes.valuemask |= XpmReturnPixels;
         myAttributes.valuemask |= XpmReturnExtensions;

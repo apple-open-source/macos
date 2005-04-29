@@ -60,7 +60,6 @@ public class DirectColorModel extends PackedColorModel
    * @param rmask the bits describing the red component of a pixel
    * @param gmask the bits describing the green component of a pixel
    * @param bmask the bits describing the blue component of a pixel 
-   * @param amask the bits describing the alpha component of a pixel 
    */
   public DirectColorModel(int pixelBits, int rmask, int gmask, int bmask)
   {
@@ -82,6 +81,7 @@ public class DirectColorModel extends PackedColorModel
    * @param rmask the bits describing the red component of a pixel
    * @param gmask the bits describing the green component of a pixel
    * @param bmask the bits describing the blue component of a pixel 
+   * @param amask the bits describing the alpha component of a pixel 
    */
   public DirectColorModel(int pixelBits,
 			  int rmask, int gmask, int bmask, int amask)
@@ -376,8 +376,8 @@ public class DirectColorModel extends PackedColorModel
     return Buffers.getData(buffer);
   }
     
-  public ColorModel coerceData(WritableRaster raster,
-			       boolean isAlphaPremultiplied)
+  public final ColorModel coerceData (WritableRaster raster,
+				      boolean isAlphaPremultiplied)
   {
     if (this.isAlphaPremultiplied == isAlphaPremultiplied)
       return this;

@@ -27,7 +27,8 @@
  
 #include <stdio.h>
 #include <string.h>
-#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
+#include <DirectoryService/DirServicesTypes.h>
 #include "GenericNBPURL.h"
 #include "NSLDebugLog.h"
 
@@ -201,7 +202,7 @@ OSStatus HexEncodeText( const char* rawText, UInt16 rawTextLen, char* newTextBuf
 	UInt16			writeBufferMaxLen;
 
 	if ( !rawText || !newTextBuffer || !newTextBufferLen || !textChanged )
-		status = kNSLErrNullPtrError;
+		status = eDSNullParameter;
 	
 	writeBufferMaxLen = *newTextBufferLen;
 	*textChanged = false;
@@ -212,7 +213,7 @@ OSStatus HexEncodeText( const char* rawText, UInt16 rawTextLen, char* newTextBuf
 		{
 			if ( curWritePtr > newTextBuffer + writeBufferMaxLen + 2 )	// big enough to add two new chars?
 			{
-				status = kNSLBufferTooSmallForData;
+				status = eDSBufferTooSmall;
 				break;
 			}
 		
@@ -225,7 +226,7 @@ OSStatus HexEncodeText( const char* rawText, UInt16 rawTextLen, char* newTextBuf
 		{
 			if ( curWritePtr > newTextBuffer + writeBufferMaxLen )
 			{
-				status = kNSLBufferTooSmallForData;
+				status = eDSBufferTooSmall;
 				break;
 			}
 			

@@ -63,14 +63,28 @@ extern BOOL doServerMounts;
 		return;
 	}
 
-	len = [mountPoint length] + [[v relativepath] length] + 1;
+	len = [[self mountPoint] length] + [[v relativepath] length] + 1;
 	s = malloc(len);
-	sprintf(s, "%s%s", [mountPoint value], [[v relativepath] value]);
+	sprintf(s, "%s%s", [[self mountPoint] value], [[v relativepath] value]);
 
 	x = [String uniqueString:s];
 	free(s);
 	[v setLink:x];
 	[x release];
+}
+
+- (BOOL)acceptOptions:(Array *)opts
+{
+	String *noAutomountOpt;
+	BOOL status;
+
+	if (![super acceptOptions:opts]) return NO;
+
+	noAutomountOpt = [String uniqueString:"noautomounted"];
+	status = ([opts containsObject:noAutomountOpt]) ? NO : YES;
+	[noAutomountOpt release];
+	
+	return status;
 }
 
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
@@ -117,7 +131,7 @@ extern BOOL doServerMounts;
 	
 	if ((!isAuto) || (![self acceptOptions:opts]))
 	{
-		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FstabMap)", [src value], [dst value]);
+		if (isAuto) sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (FstabMap)", [src value], [dst value]);
 		[x release];
 		[servername release];
 		[serversrc release];
@@ -127,8 +141,9 @@ extern BOOL doServerMounts;
 
 	pathOK = [self checkVnodePath:servername from:root];
 	s = [self createVnodePath:servername from:root withType:type];
+	[s setServerDepth:0];
 
-	if ((!pathOK) && doServerMounts) [s setServer:server];
+	if ((!pathOK) && (([self mountStyle] == kMountStyleParallel) && doServerMounts)) [s setServer:server];
 
 	v = [self createVnodePath:serversrc from:s withType:type];
 	if ([v type] == NFLNK)
@@ -286,9 +301,20 @@ extern BOOL doServerMounts;
 	[super initWithParent:p directory:dir from:ds mountdirectory:mnt];
 
 	[self setName:ds];
-	[self loadMounts];
-	[self postProcess:root];
 	return self;
+}
+
+- (unsigned int)didAutoMount
+{
+	unsigned int result;
+	
+	result = [super didAutoMount];
+	if (result == 0) {
+		[self loadMounts];
+		[self postProcess:root];
+	};
+	
+	return result;
 }
 
 - (void)reInit
@@ -302,6 +328,41 @@ extern BOOL doServerMounts;
 {
 	if (dataStore != nil) [dataStore release];
 	[super dealloc];
+}
+
+/* findTriggerPath takes root Vnode from map table and a possible 
+   path created in Controller.m and checks if the path exists 
+   in automount.  It returns triggerPath based on map type
+ */
+- (String *)findTriggerPath:(Vnode *)curRoot findPath:(String *)findPath
+{
+	int pathlen;
+	char pathbuf[PATH_MAX];
+	BOOL doesExist = 0;
+
+	pathlen = [[curRoot path] length];
+	if (pathlen > [findPath length]) {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: Invalid pathlength");
+		goto out;
+	}
+	
+	/* findPath is already NULL-terminated from parent function */
+	strcpy(pathbuf, &([findPath value][pathlen]));
+	/* if string is NULL or just "/" */
+	if (!strlen(pathbuf) || !strcmp(pathbuf,"/")) {
+		goto out;
+	}
+	sys_msg (debug, LOG_DEBUG, "findTriggerPath: Finding %s for %s.", pathbuf, [findPath value]);
+	doesExist = [self checkVnodePath:[String uniqueString:pathbuf] from:curRoot];
+	
+out:
+	if (doesExist) {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: Returning %s.", [findPath value]);
+		return findPath;
+	} else {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: String not found.  Returning nil."); 
+		return nil;
+	}
 }
 
 @end

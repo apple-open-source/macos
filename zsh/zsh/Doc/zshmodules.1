@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHMODULES" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -33,6 +33,9 @@ Completion listing extensions\&.
 A module with utility builtins needed for the shell function based
 completion system\&.
 .TP
+\fBzsh/datetime\fP
+Some date/time commands and parameters\&.
+.TP
 \fBzsh/deltochar\fP
 A ZLE function duplicating EMACS' \fBzap\-to\-char\fP\&.
 .TP
@@ -63,6 +66,12 @@ Manipulation of Unix domain sockets
 \fBzsh/stat\fP
 A builtin command interface to the \fBstat\fP system call\&.
 .TP
+\fBzsh/system\fP
+A builtin interface to various low\-level system features\&.
+.TP
+\fBzsh/net/tcp\fP
+Manipulation of TCP sockets
+.TP
 \fBzsh/termcap\fP
 Interface to the termcap database\&.
 .TP
@@ -90,9 +99,6 @@ Block and return when file descriptors are ready\&.
 \fBzsh/zutil\fP
 Some utility builtins, e\&.g\&. the one for supporting configuration via 
 styles\&.
-.TP
-\fBzsh/net/tcp\fP
-Manipulation of TCP sockets
 .\" Yodl file: Zsh/modmenu.yo
 .SH "THE ZSH/CAP MODULE"
 .\" Yodl file: Zsh/mod_cap.yo
@@ -134,6 +140,33 @@ shell, and to the new shell's PID in the original shell\&.
 .PP
 The return value of the builtin is zero in both shells if successful,
 and non\-zero on error\&.
+.PP
+The target of \fBclone\fP should be an unused terminal, such as an unused virtual
+console or a virtual terminal created by
+.PP
+xterm \-e sh \-c 'trap : INT QUIT TSTP; tty; while :; do sleep 100000000; done'
+.PP
+Some words of explanation are warranted about this long xterm command
+line: when doing clone on a pseudo\-terminal, some other session
+("session" meant as a unix session group, or SID) is already owning
+the terminal\&. Hence the cloned zsh cannot acquire the pseudo\-terminal
+as a controlling tty\&. That means two things:
+.PP
+the job control signals will go to the sh\-started\-by\-xterm process
+      group (that's why we disable INT QUIT and TSTP with trap; otherwise
+      the while loop could get suspended or killed)
+.PP
+the cloned shell will have job control disabled, and the job
+      control keys (control\-C, control\-\e and control\-Z) will not work\&.
+.PP
+This does not apply when cloning to an \fBunused\fP vc\&.
+.PP
+Cloning to an used (and unprepared) terminal will result in two
+processes reading simultaneously from the same terminal, with
+input bytes going randomly to either process\&.
+.PP
+\fBclone\fP is mostly useful as a shell built\-in replacement for
+openvt\&.
 .RE
 .RE
 .SH "THE ZSH/COMPCTL MODULE"
@@ -620,6 +653,32 @@ These implement the internals of the tags mechanism\&.
 .TP
 \fBcompvalues\fP
 Like \fBcomparguments\fP, but for the \fB_values\fP function\&.
+.SH "THE ZSH/DATETIME MODULE"
+.\" Yodl file: Zsh/mod_datetime.yo
+
+The \fBzsh/datetime\fP module makes available one builtin command:
+.PP
+.PD 0
+.TP
+.PD
+\fBstrftime\fP [ \fB\-s\fP \fIscalar\fP ] \fIformat\fP \fIepochtime\fP 
+Output the date denoted by \fIepochtime\fP in the \fIformat\fP
+specified\&.
+.RS
+.PP
+If \fB\-s\fP \fIscalar\fP is given, assign the date to \fIscalar\fP instead
+of printing it\&.
+.RE
+.RE
+.PP
+The \fBzsh/datetime\fP module makes available one parameter:
+.PP
+.PD 0
+.TP
+.PD
+\fBEPOCHSECONDS\fP
+An integer value representing the number of seconds since the
+epoch\&.
 .SH "THE ZSH/DELTOCHAR MODULE"
 .\" Yodl file: Zsh/mod_deltochar.yo
 
@@ -1008,13 +1067,19 @@ This maps the names of the regular aliases currently enabled to their
 expansions\&.
 .TP
 \fBdis_aliases\fP
-Like \fBraliases\fP but for disabled regular aliases\&.
+Like \fBaliases\fP but for disabled regular aliases\&.
 .TP
 \fBgaliases\fP
-Like \fBraliases\fP, but for global aliases\&.
+Like \fBaliases\fP, but for global aliases\&.
 .TP
 \fBdis_galiases\fP
 Like \fBgaliases\fP but for disabled global aliases\&.
+.TP
+\fBsaliases\fP
+Like \fBraliases\fP, but for suffix aliases\&.
+.TP
+\fBdis_saliases\fP
+Like \fBsaliases\fP but for disabled suffix aliases\&.
 .TP
 \fBparameters\fP
 The keys in this associative array are the names of the parameters
@@ -1088,6 +1153,15 @@ The \fBzsh/pcre\fP module makes some commands available as builtins:
 .PD
 \fBpcre_compile\fP [ \fB\-aimx\fP ] \fIPCRE\fP
 Compiles a perl\-compatible regular expression\&.
+.RS
+.PP
+Option \fB\-a\fP will force the pattern to be anchored\&.
+Option \fB\-i\fP will compile a case\-insensitive pattern\&.
+Option \fB\-m\fP will compile a multi\-line pattern; that is,
+\fB^\fP and \fB$\fP will match newlines within the pattern\&.
+Option \fB\-x\fP will compile an extended pattern, wherein
+whitespace and \fB#\fP comments are ignored\&.
+.RE
 .TP
 \fBpcre_study\fP
 Studies the previously\-compiled PCRE which may result in faster
@@ -1102,6 +1176,20 @@ If the expression captures substrings within parentheses,
 \fBpcre_match\fP will set the array \fI$match\fP to those
 substrings, unless the \fB\-a\fP option is given, in which
 case it will set the array \fIarr\fP\&.
+.RE
+.RE
+.PP
+The \fBzsh/pcre\fP module makes available the following test condition:
+.PD 0
+.TP
+.PD
+expr \fB\-pcre\-match\fP pcre
+Matches a string against a perl\-compatible regular expression\&.
+.RS
+.PP
+For example,
+.PP
+[[ "$text" \-pcre\-match ^d+$ ]] && print text variable contains only "d's"\&.
 .RE
 .RE
 .SH "THE ZSH/SCHED MODULE"
@@ -1355,6 +1443,351 @@ standard output and no individual element has been selected\&.
 Never show the type names of the \fBstruct stat\fP elements\&.
 .RE
 .RE
+.SH "THE ZSH/SYSTEM MODULE"
+.\" Yodl file: Zsh/mod_system.yo
+
+The \fBzsh/system\fP module makes available three builtin commands and
+a parameter\&.
+.PP
+.SH "BUILTINS"
+.PP
+.PD 0
+.TP
+.PD
+\fBsyserror\fP \fB[ \-e\fP \fIerrvar\fP \fB] [ \-p\fP \fIprefix\fP \fB] [\fP \fIerrno\fP \fB|\fP \fIerrname\fP \fB]\fP
+This command prints out the error message associated with \fIerrno\fP, a
+system error number, followed by a newline to standard error\&.
+.RS
+.PP
+Instead of the error number, a name \fIerrname\fP, for example
+\fBENOENT\fP, may be used\&.  The set of names is the same as the contents
+of the array \fBerrnos\fP, see below\&.
+.PP
+If the string \fIprefix\fP is given, it is printed in front of the error
+message, with no intervening space\&.
+.PP
+If \fIerrvar\fP is supplied, the entire message, without a newline, is
+assigned to the parameter names \fIerrvar\fP and nothing is output\&.
+.PP
+A return value of 0 indicates the message was successfully printed
+(although it may not be useful if the error number was out of the
+system's range), a return value of 1 indicates an error in the
+parameters, and a return value of 2 indicates the error name was
+not recognised (no message is printed for this)\&.
+.RE
+.TP
+.PD 0
+\fBsysread [ \-c\fP \fIcountvar\fP \fB] [ \-i\fP \fIinfd\fP \fB] [ \-o\fP \fIoutfd\fP \fB]\fP
+.TP
+.PD
+  \fB[ \-s\fP \fIbufsize\fP \fB] [ \-t\fP \fItimeout\fP \fB] [\fP \fIparam\fP \fB]\fP
+Perform a single system read from file descriptor \fIinfd\fP, or zero if
+that is not given\&.  The result of the read is stored in \fIparam\fP or
+\fIREPLY\fP if that is not given\&.  If \fIcountvar\fP is given, the number
+of bytes read is assigned to the parameter named by \fIcountvar\fP\&.
+.RS
+.PP
+The maximum number of bytes read is \fIbufsize\fP or 8192 if that is not
+given, however the command returns as soon as any number of bytes was
+successfully read\&.
+.PP
+If \fItimeout\fP is given, it specifies a timeout in seconds, which may
+be zero to poll the file descriptor\&.  This is handled by the \fBpoll\fP
+system call if available, otherwise the \fBselect\fP system call if
+available\&.
+.PP
+If \fIoutfd\fP is given, an attempt is made to write all the bytes just
+read to the file descriptor \fIoutfd\fP\&.  If this fails, because of a
+system error other than \fBEINTR\fP or because of an internal zsh error
+during an interrupt, the bytes read but not written are stored in the
+parameter named by \fIparam\fP if supplied (no default is used in this
+case), and the number of bytes read but not written is stored in the
+parameter named by \fIcountvar\fP if that is supplied\&.  If it was
+successful, \fIcountvar\fP contains the full number of bytes transferred,
+as usual, and \fIparam\fP is not set\&.
+.PP
+The error \fBEINTR\fP (interrupted system call) is handled internally so
+that shell interrupts are transparent to the caller\&.  Any other error
+causes a return\&.
+.PP
+The possible return values are
+.PD 0
+.TP
+.PD
+0
+At least one byte of data was successfully read and, if appropriate,
+written\&.
+.TP
+1
+There was an error in the parameters to the command\&.  This is the only
+error for which a message is printed to standard error\&.
+.TP
+2
+There was an error on the read, or on polling the input file descriptor
+for a timeout\&.  The parameter \fBERRNO\fP gives the error\&.
+.TP
+3
+Data were successfully read, but there was an error writing them
+to \fIoutfd\fP\&.  The parameter \fBERRNO\fP gives the error\&.
+.TP
+4
+The attempt to read timed out\&.  Note this does not set \fBERRNO\fP as this
+is not a system error\&.
+.TP
+5
+No system error occurred, but zero bytes were read\&.  This usually
+indicates end of file\&.  The parameters are set according to the
+usual rules; no write to \fIoutfd\fP is attempted\&.
+.RE
+.TP
+\fBsyswrite [ \-c\fP \fIcountvar\fP \fB] [ \-o\fP \fIoutfd\fP \fB]\fP \fIdata\fP
+The data (a single string of bytes) are written to the file descriptor
+\fIoutfd\fP, or 1 if that is not given, using the \fBwrite\fP system call\&.
+Multiple write operations may be used if the first does not write all
+the data\&.
+.RS
+.PP
+If \fIcountvar\fP is given, the number of byte written is stored in the
+parameter named by \fIcountvar\fP; this may not be the full length of
+\fIdata\fP if an error occurred\&.
+.PP
+The error \fBEINTR\fP (interrupted system call) is handled internally by
+retrying; otherwise an error causes the command to return\&.  For example,
+if the file descriptor is set to non\-blocking output, an error
+\fBEAGAIN\fP (on some systems, \fBEWOULDBLOCK\fP) may result in the command
+returning early\&.
+.PP
+The return status may be 0 for success, 1 for an error in the parameters
+to the command, or 2 for an error on the write; no error message is
+printed in the last case, but the parameter \fBERRNO\fP will reflect
+the error that occurred\&.
+.RE
+.RE
+.PP
+.SH "PARAMETERS"
+.PP
+.PD 0
+.TP
+.PD
+\fBerrnos\fP
+A readonly array of the names of errors defined on the system\&.  These
+are typically macros defined in C by including the system header file
+\fBerrno\&.h\fP\&.  The index of each name (assuming the option \fBKSH_ARRAYS\fP
+is unset) corresponds to the error number\&.  Error numbers \fInum\fP
+before the last known error which have no name are given the name
+\fBE\fP\fInum\fP in the array\&.
+.RS
+.PP
+Note that aliases for errors are not handled; only the canonical name is
+used\&.
+.RE
+.RE
+.SH "THE ZSH/NET/TCP MODULE"
+.\" Yodl file: Zsh/mod_tcp.yo
+
+The \fBzsh/net/tcp\fP module makes available one builtin command:
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP [ \fB\-acflLtv\fP ] [ \fB\-d\fP \fIfd\fP ] [ \fIargs\fP ]
+\fBztcp\fP is implemented as a builtin to allow full use of shell
+command line editing, file I/O, and job control mechanisms\&.
+.RS
+.PP
+If \fBztcp\fP is run with no options, it will output
+the contents of its session table\&.
+.PP
+If it is run with only the option \fB\-L\fP, it will output the contents of
+the session table in a format suitable for automatic parsing\&.  The option
+is ignored if given with a command to open or close a session\&.  The output
+consists of a set of lines, one per session, each containing the following
+elements separated by spaces:
+.PP
+.PD 0
+.TP
+.PD
+File descriptor
+The file descriptor in use for the connection\&.  For normal inbound (\fBI\fP)
+and outbound (\fBO\fP) connections this may be read and written by the usual
+shell mechanisms\&.  However, it should only be close with `\fBztcp \-c\fP'\&.
+.TP
+Connection type
+A letter indicating how the session was created:
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fBZ\fP
+A session created with the \fBzftp\fP command\&.
+.TP
+\fBL\fP
+A connection opened for listening with `\fBztcp \-l\fP'\&.
+.TP
+\fBI\fP
+An inbound connection accepted with `\fBztcp \-a\fP'\&.
+.TP
+\fBO\fP
+An outbound connection created with `\fBztcp\fP \fIhost\fP \fI\&.\&.\&.\fP'\&.
+.PP
+.RE
+.TP
+The local host
+This is usually set to an all\-zero IP address as the address of the
+localhost is irrelevant\&.
+.TP
+The local port
+This is likely to be zero unless the connection is for listening\&.
+.TP
+The remote host
+This is the fully qualified domain name of the peer, if available, else an
+IP address\&.  It is an all\-zero IP address for a session opened for
+listening\&.
+.TP
+The remote port
+This is zero for a connection opened for listening\&.
+.RE
+.RE
+.PP
+.SS "Outbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIhost\fP [ \fIport\fP ]
+Open a new TCP connection to \fIhost\fP\&.  If the \fIport\fP is
+omitted, it will default to port 23\&.  The connection will
+be added to the session table and the shell parameter
+\fBREPLY\fP will be set to the file descriptor associated
+with that connection\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument will be taken as the target file
+descriptor for the connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Inbound Connections"
+.PP
+.PD 0
+.TP
+.PD
+\fBztcp\fP \fB\-l\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIport\fP
+\fBztcp \-l\fP will open a socket listening on TCP
+\fIport\fP\&.  The socket will be added to the
+session table and the shell parameter \fBREPLY\fP
+will be set to the file descriptor associated
+with that listener\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument will be taken as the target file
+descriptor for the connection\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.TP
+\fBztcp\fP \fB\-a\fP [ \fB\-tv\fP ] [ \fB\-d\fP \fItargetfd\fP ] \fIlistenfd\fP
+\fBztcp \-a\fP will accept an incoming connection
+to the port associated with \fIlistenfd\fP\&.
+The connection will be added to the session
+table and the shell parameter \fBREPLY\fP will
+be set to the file descriptor associated with
+the inbound connection\&.
+.RS
+.PP
+If \fB\-d\fP is specified, its argument
+will be taken as the target file descriptor for the
+connection\&.
+.PP
+If \fB\-t\fP is specified, \fBztcp\fP will return
+if no incoming connection is pending\&.  Otherwise
+it will wait for one\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Closing Connections"
+.PP
+.PD 0
+.TP
+.PD 0
+\fBztcp\fP \fB\-cf\fP [ \fB\-v\fP ] [ \fIfd\fP ]
+.TP
+.PD
+\fBztcp\fP \fB\-c\fP [ \fB\-v\fP ] [ \fIfd\fP ]
+\fBztcp \-c\fP will close the socket associated
+with \fIfd\fP\&.  The socket will be removed from the
+session table\&.  If \fIfd\fP is not specified,
+\fBztcp\fP will close everything in the session table\&.
+.RS
+.PP
+Normally, sockets registered by zftp (see
+\fIzshmodules\fP(1)
+) cannot be closed this way\&.  In order
+to force such a socket closed, use \fB\-f\fP\&.
+.PP
+In order to elicit more verbose output, use \fB\-v\fP\&.
+.RE
+.RE
+.PP
+.SS "Example"
+Here is how to create a TCP connection between two instances of zsh\&.  We
+need to pick an unassigned port; here we use the randomly chosen 5123\&.
+.PP
+On \fBhost1\fP,
+.RS
+.nf
+\fBzmodload zsh/net/tcp
+ztcp \-l 5123
+listenfd=$REPLY
+ztcp \-a $listenfd
+fd=$REPLY\fP
+.fi
+.RE
+The second from last command blocks until there is an incoming connection\&.
+.PP
+Now create a connection from \fBhost2\fP (which may, of course, be the same
+machine):
+.RS
+.nf
+\fBzmodload zsh/net/tcp
+ztcp host1 5123
+fd=$REPLY\fP
+.fi
+.RE
+.PP
+Now on each host, \fB$fd\fP contains a file descriptor for talking to the
+other\&.  For example, on \fBhost1\fP:
+.RS
+.nf
+\fBprint This is a message >&$fd\fP
+.fi
+.RE
+and on \fBhost2\fP:
+.RS
+.nf
+\fBread \-r line <&$fd; print \-r \- $line\fP
+.fi
+.RE
+prints `\fBThis is a message\fP'\&.
+.PP
+To tidy up, on \fBhost1\fP:
+.RS
+.nf
+\fBztcp \-c $listenfd
+ztcp \-c $fd\fP
+.fi
+.RE
+and on \fBhost2\fP
+.RS
+.nf
+\fBztcp \-c $fd\fP
+.fi
+.RE
 .SH "THE ZSH/TERMCAP MODULE"
 .\" Yodl file: Zsh/mod_termcap.yo
 
@@ -1426,16 +1859,26 @@ more information on how responses from the server may be printed\&.
 .PD 0
 .TP
 .PD
-\fBopen\fP \fIhost\fP [ \fIuser\fP [ \fIpassword\fP [ \fIaccount\fP ] ] ]
+\fBopen\fP \fIhost\fP[\fB:\fP\fIport\fP] [ \fIuser\fP [ \fIpassword\fP [ \fIaccount\fP ] ] ]
 Open a new FTP session to \fIhost\fP, which may be the name of a TCP/IP
-connected host or an IP number in the standard dot notation\&.
+connected host or an IP number in the standard dot notation\&.  If the
+argument is in the form \fIhost\fP\fB:\fP\fIport\fP, open a connection to
+TCP port \fIport\fP instead of the standard FTP port 21\&.  This may be
+the name of a TCP service or a number:  see the description of
+\fBZFTP_PORT\fP below for more information\&.
+.RS
+.PP
+If IPv6 addresses in colon format are used, the \fIhost\fP should be
+surrounded by quoted square brackets to distinguish it from the \fIport\fP,
+for example \fB'[fe80::203:baff:fe02:8b56]'\fP\&.  For consistency this is
+allowed with all forms of \fIhost\fP\&.
+.PP
 Remaining arguments are passed to the \fBlogin\fP subcommand\&.  Note that
 if no arguments beyond \fIhost\fP are supplied, \fBopen\fP will \fInot\fP
 automatically call \fBlogin\fP\&.  If no arguments at all are supplied,
 \fBopen\fP will use the parameters set by the \fBparams\fP subcommand\&.
-.RS
 .PP
-After a successful open, the shell variables \fBZFTP_HOST\fP,
+After a successful open, the shell variables \fBZFTP_HOST\fP, \fBZFTP_PORT\fP,
 \fBZFTP_IP\fP and \fBZFTP_SYSTEM\fP are available; see `Variables'
 below\&.
 .RE
@@ -1649,7 +2092,7 @@ control connection are sent to standard error\&.
 .PD
 \fBquit\fP
 Close the current data connection\&.  This unsets the shell parameters
-\fBZFTP_HOST\fP, \fBZFTP_IP\fP, \fBZFTP_SYSTEM\fP, \fBZFTP_USER\fP,
+\fBZFTP_HOST\fP, \fBZFTP_PORT\fP, \fBZFTP_IP\fP, \fBZFTP_SYSTEM\fP, \fBZFTP_USER\fP,
 \fBZFTP_ACCOUNT\fP, \fBZFTP_PWD\fP, \fBZFTP_TYPE\fP and \fBZFTP_MODE\fP\&.
 .TP
 \fBsession\fP [ \fIsessname\fP ]
@@ -1702,6 +2145,19 @@ Readonly\&.  The hostname of the current remote server\&.  If the host was
 opened as an IP number, \fBZFTP_HOST\fP contains that instead; this
 saves the overhead for a name lookup, as IP numbers are most commonly
 used when a nameserver is unavailable\&.
+.TP
+\fBZFTP_PORT\fP
+Readonly\&.  The number of the remote TCP port to which the connection is
+open (even if the port was originally specified as a named service)\&.
+Usually this is the standard FTP port, 21\&.
+.RS
+.PP
+In the unlikely event that your system does not have the appropriate
+conversion functions, this appears in network byte order\&.  If your
+system is little\-endian, the port then consists of two swapped bytes and the
+standard port will be reported as 5376\&.  In that case, numeric ports passed
+to \fBzftp open\fP will also need to be in this format\&.
+.RE
 .TP
 \fBZFTP_SYSTEM\fP
 Readonly\&.  The system type string returned by the server in response
@@ -2281,6 +2737,35 @@ have been processed, the resulting string is stored in the parameter
 \fIparam\fP\&.
 .RS
 .PP
+The \fB%\fP\-escapes also understand ternary expressions in the form used by
+prompts\&.  The \fB%\fP is followed by a `\fB(\fP' and then an ordinary
+format specifier character as described above\&.  There may be a set of
+digits either before or after the `\fB(\fP'; these specify a test
+number, which defaults to zero\&.  Negative numbers are also allowed\&.  An
+arbitrary delimiter character follows the format specifier, which is
+followed by a piece of `true' text, the delimiter character again, a piece
+of `false' text, and a closing parenthesis\&.  The complete expression
+(without the digits) thus looks like
+`\fB%(\fP\fIX\fP\fB\&.\fP\fItext1\fP\fB\&.\fP\fItext2\fP\fB)\fP', except that
+the `\fB\&.\fP' character is arbitrary\&.  The value given for the format
+specifier in the \fIchar\fP\fB:\fP\fIstring\fP expressions is evaluated as a
+mathematical expression, and compared with the test number\&.  If they are
+the same, \fItext1\fP is output, else \fItext2\fP is output\&.  A parenthesis
+may be escaped in \fItext2\fP as \fB%)\fP\&.  Either of \fItext1\fP or
+\fItext2\fP may contain nested \fB%\fP\-escapes\&.
+.PP
+For example:
+.PP
+.RS
+.nf
+\fBzformat \-f REPLY "The answer is '%3(c\&.yes\&.no)'\&." c:3\fP
+.fi
+.RE
+.PP
+outputs "The answer is 'yes'\&." to \fBREPLY\fP since the value for the format
+specifier \fBc\fP is 3, agreeing with the digit argument to the ternary
+expression\&.
+.PP
 The second form, using the \fB\-a\fP option, can be used for aligning
 strings\&.  Here, the \fIspecs\fP are of the form
 `\fIleft\fP\fB:\fP\fIright\fP' where `\fIleft\fP' and `\fIright\fP' are
@@ -2438,210 +2923,4 @@ set \-\- \-a x \-c z arg1 arg2\fP
 I\&.e\&., the option \fB\-b\fP and its arguments are taken from the
 positional parameters and put into the array \fBbar\fP\&.
 .RE
-.RE
-.SH "THE ZSH/NET/TCP MODULE"
-.\" Yodl file: Zsh/mod_tcp.yo
-
-The \fBzsh/net/tcp\fP module makes available one builtin command:
-.PP
-.PD 0
-.TP
-.PD
-\fBztcp\fP [ \fB\-acflLtv\fP ] [ \fB\-d\fP \fIfd\fP ] [ \fIargs\fP ]
-\fBztcp\fP is implemented as a builtin to allow full use of shell
-command line editing, file I/O, and job control mechanisms\&.
-.RS
-.PP
-If \fBztcp\fP is run with no options, it will output
-the contents of its session table\&.
-.PP
-If it is run with only the option \fB\-L\fP, it will output the contents of
-the session table in a format suitable for automatic parsing\&.  The option
-is ignored if given with a command to open or close a session\&.  The output
-consists of a set of lines, one per session, each containing the following
-elements separated by spaces:
-.PP
-.PD 0
-.TP
-.PD
-File descriptor
-The file descriptor in use for the connection\&.  For normal inbound (\fBI\fP)
-and outbound (\fBO\fP) connections this may be read and written by the usual
-shell mechanisms\&.  However, it should only be close with `\fBztcp \-c\fP'\&.
-.TP
-Connection type
-A letter indicating how the session was created:
-.RS
-.PP
-.PD 0
-.TP
-.PD
-\fBZ\fP
-A session created with the \fBzftp\fP command\&.
-.TP
-\fBL\fP
-A connection opened for listening with `\fBztcp \-l\fP'\&.
-.TP
-\fBI\fP
-An inbound connection accepted with `\fBztcp \-a\fP'\&.
-.TP
-\fBO\fP
-An outbound connection created with `\fBztcp\fP \fIhost\fP \fI\&.\&.\&.\fP'\&.
-.PP
-.RE
-.TP
-The local host
-This is usually set to an all\-zero IP address as the address of the
-localhost is irrelevant\&.
-.TP
-The local port
-This is likely to be zero unless the connection is for listening\&.
-.TP
-The remote host
-This is the fully qualified domain name of the peer, if available, else an
-IP address\&.  It is an all\-zero IP address for a session opened for
-listening\&.
-.TP
-The remote port
-This is zero for a connection opened for listening\&.
-.RE
-.RE
-.PP
-.SS "Outbound Connections"
-.PP
-.PD 0
-.TP
-.PD
-\fBztcp\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIhost\fP [ \fIport\fP ]
-Open a new TCP connection to \fIhost\fP\&.  If the \fIport\fP is
-omitted, it will default to port 23\&.  The connection will
-be added to the session table and the shell parameter
-\fBREPLY\fP will be set to the file descriptor associated
-with that connection\&.
-.RS
-.PP
-If \fB\-d\fP is specified, its argument will be taken as the target file
-descriptor for the connection\&.
-.PP
-In order to elicit more verbose output, use \fB\-v\fP\&.
-.RE
-.RE
-.PP
-.SS "Inbound Connections"
-.PP
-.PD 0
-.TP
-.PD
-\fBztcp\fP \fB\-l\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIport\fP
-\fBztcp \-l\fP will open a socket listening on TCP
-\fIport\fP\&.  The socket will be added to the
-session table and the shell parameter \fBREPLY\fP
-will be set to the file descriptor associated
-with that listener\&.
-.RS
-.PP
-If \fB\-d\fP is specified, its argument will be taken as the target file
-descriptor for the connection\&.
-.PP
-In order to elicit more verbose output, use \fB\-v\fP\&.
-.RE
-.TP
-\fBztcp\fP \fB\-a\fP [ \fB\-tv\fP ] [ \fB\-d\fP \fItargetfd\fP ] \fIlistenfd\fP
-\fBztcp \-a\fP will accept an incoming connection
-to the port associated with \fIlistenfd\fP\&.
-The connection will be added to the session
-table and the shell parameter \fBREPLY\fP will
-be set to the file descriptor associated with
-the inbound connection\&.
-.RS
-.PP
-If \fB\-d\fP is specified, its argument
-will be taken as the target file descriptor for the
-connection\&.
-.PP
-If \fB\-t\fP is specified, \fBztcp\fP will return
-if no incoming connection is pending\&.  Otherwise
-it will wait for one\&.
-.PP
-In order to elicit more verbose output, use \fB\-v\fP\&.
-.RE
-.RE
-.PP
-.SS "Closing Connections"
-.PP
-.PD 0
-.TP
-.PD 0
-\fBztcp\fP \fB\-cf\fP [ \fB\-v\fP ] [ \fIfd\fP ]
-.TP
-.PD
-\fBztcp\fP \fB\-c\fP [ \fB\-v\fP ] [ \fIfd\fP ]
-\fBztcp \-c\fP will close the socket associated
-with \fIfd\fP\&.  The socket will be removed from the
-session table\&.  If \fIfd\fP is not specified,
-\fBztcp\fP will close everything in the session table\&.
-.RS
-.PP
-Normally, sockets registered by zftp (see
-\fIzshmodules\fP(1)
-) cannot be closed this way\&.  In order
-to force such a socket closed, use \fB\-f\fP\&.
-.PP
-In order to elicit more verbose output, use \fB\-v\fP\&.
-.RE
-.RE
-.PP
-.SS "Example"
-Here is how to create a TCP connection between two instances of zsh\&.  We
-need to pick an unassigned port; here we use the randomly chosen 5123\&.
-.PP
-On \fBhost1\fP,
-.RS
-.nf
-\fBzmodload zsh/net/tcp
-ztcp \-l 5123
-listenfd=$REPLY
-ztcp \-a $listenfd
-fd=$REPLY\fP
-.fi
-.RE
-The second from last command blocks until there is an incoming connection\&.
-.PP
-Now create a connection from \fBhost2\fP (which may, of course, be the same
-machine):
-.RS
-.nf
-\fBzmodload zsh/net/tcp
-ztcp host1 5123
-fd=$REPLY\fP
-.fi
-.RE
-.PP
-Now on each host, \fB$fd\fP contains a file descriptor for talking to the
-other\&.  For example, on \fBhost1\fP:
-.RS
-.nf
-\fBprint This is a message >&$fd\fP
-.fi
-.RE
-and on \fBhost2\fP:
-.RS
-.nf
-\fBread \-r line <&$fd; print \-r \- $line\fP
-.fi
-.RE
-prints `\fBThis is a message\fP'\&.
-.PP
-To tidy up, on \fBhost1\fP:
-.RS
-.nf
-\fBztcp \-c $listenfd
-ztcp \-c $fd\fP
-.fi
-.RE
-and on \fBhost2\fP
-.RS
-.nf
-\fBztcp \-c $fd\fP
-.fi
 .RE

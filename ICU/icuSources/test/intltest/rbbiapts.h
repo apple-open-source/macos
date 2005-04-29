@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2003, International Business Machines Corporation and
+ * Copyright (c) 1999-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /************************************************************************
@@ -71,7 +71,8 @@ public:
     /**
      *  Tests word break status returns.
      */
-    void TestWordStatus();
+    void TestRuleStatus();
+    void TestRuleStatusVec();
 
     void TestBug2190();
 

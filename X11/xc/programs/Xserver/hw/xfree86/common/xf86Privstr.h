@@ -1,7 +1,50 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Privstr.h,v 1.37 2003/02/20 04:05:14 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Privstr.h,v 1.42 2004/02/13 23:58:38 dawes Exp $ */
 
 /*
- * Copyright (c) 1997,1998 by The XFree86 Project, Inc.
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -159,7 +202,6 @@ typedef struct {
 #ifdef DPMSExtension
 /* Private info for DPMS */
 typedef struct {
-    DPMSSetProcPtr	Set;
     CloseScreenProcPtr	CloseScreen;
     Bool		Enabled;
     int			Flags;
@@ -175,6 +217,16 @@ typedef struct {
     CloseScreenProcPtr	CloseScreen;
 } VidModeRec, *VidModePtr;
 #endif
+
+/* Information for root window properties. */
+typedef struct _RootWinProp {
+    struct _RootWinProp *	next;
+    char *			name;
+    Atom			type;
+    short			format;
+    long			size;
+    pointer			data;
+} RootWinProp, *RootWinPropPtr;
 
 /* private resource types */
 #define ResNoAvoid  ResBios
@@ -197,38 +249,6 @@ typedef struct {
 #define SYSCONS		   8
 #define PCVT		  16
 #define WSCONS		  32
-#endif
-
-/* Prefix strings for driver messages */
-#ifndef X_UNKNOWN_STRING
-#define X_UNKNOWN_STRING	"(\?\?)"
-#endif
-#ifndef X_PROBE_STRING
-#define X_PROBE_STRING		"(--)"
-#endif
-#ifndef X_CONFIG_STRING
-#define X_CONFIG_STRING		"(**)"
-#endif
-#ifndef X_DEFAULT_STRING
-#define X_DEFAULT_STRING	"(==)"
-#endif
-#ifndef X_CMDLINE_STRING
-#define X_CMDLINE_STRING	"(++)"
-#endif
-#ifndef X_NOTICE_STRING
-#define X_NOTICE_STRING		"(!!)"
-#endif
-#ifndef X_ERROR_STRING
-#define X_ERROR_STRING		"(EE)"
-#endif
-#ifndef X_WARNING_STRING
-#define X_WARNING_STRING	"(WW)"
-#endif
-#ifndef X_INFO_STRING
-#define X_INFO_STRING		"(II)"
-#endif
-#ifndef X_NOT_IMPLEMENTED_STRING
-#define X_NOT_IMPLEMENTED_STRING	"(NI)"
 #endif
 
 #endif /* _XF86PRIVSTR_H */

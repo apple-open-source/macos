@@ -42,7 +42,7 @@ namespace IOFireWireLib {
 	void
 	CoalesceTree::CoalesceRange(const IOVirtualRange& inRange)
 	{
-		if ( inRange.address == NULL or inRange.length == 0)
+		if ( inRange.address == 0 or inRange.length == 0)
 			return ;
 	
 		// ranges must be page aligned and have lengths in multiples of the vm page size only:

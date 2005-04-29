@@ -36,54 +36,49 @@
 #include "SCPreferencesInternal.h"
 
 Boolean
-SCPreferencesApplyChanges(SCPreferencesRef session)
+SCPreferencesApplyChanges(SCPreferencesRef prefs)
 {
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	Boolean			wasLocked;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesApplyChanges:"));
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
+	}
 
 	/*
 	 * Determine if the we have exclusive access to the preferences
 	 * and acquire the lock if necessary.
 	 */
-	wasLocked = sessionPrivate->locked;
+	wasLocked = prefsPrivate->locked;
 	if (!wasLocked) {
-		if (!SCPreferencesLock(session, TRUE)) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  SCPreferencesLock() failed"));
+		if (!SCPreferencesLock(prefs, TRUE)) {
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesApplyChanges SCPreferencesLock() failed"));
 			return FALSE;
 		}
 	}
 
-	if (!sessionPrivate->isRoot) {
+	if (!prefsPrivate->isRoot) {
 		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
 		goto perUser;
 	}
 
-	/* if necessary, create the session "apply" key */
-	if (sessionPrivate->sessionKeyApply == NULL) {
-		sessionPrivate->sessionKeyApply = _SCPNotificationKey(NULL,
-								      sessionPrivate->prefsID,
-								      sessionPrivate->perUser,
-								      sessionPrivate->user,
-								      kSCPreferencesKeyApply);
-	}
-
 	/* post notification */
-	if (!SCDynamicStoreNotifyValue(sessionPrivate->session,
-				       sessionPrivate->sessionKeyApply)) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  SCDynamicStoreNotifyValue() failed"));
+	if (!SCDynamicStoreNotifyValue(prefsPrivate->session,
+				       prefsPrivate->sessionKeyApply)) {
+		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesApplyChanges SCDynamicStoreNotifyValue() failed"));
 		_SCErrorSet(kSCStatusFailed);
 		goto error;
 	}
 
     perUser :
 
-	if (!wasLocked)	(void) SCPreferencesUnlock(session);
+	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
 	return TRUE;
 
     error :
 
-	if (!wasLocked)	(void) SCPreferencesUnlock(session);
+	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
 	return FALSE;
 }

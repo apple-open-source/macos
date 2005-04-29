@@ -1,0 +1,9 @@
+#!/bin/sh
+
+#
+# Set permissions/owner of  /
+#
+"${3}/usr/bin/chgrp" admin "${3}"
+"${3}/bin/chmod" 1775  "${3}"
+
+exit 0

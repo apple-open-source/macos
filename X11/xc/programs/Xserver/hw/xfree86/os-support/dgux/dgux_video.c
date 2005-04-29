@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_video.c,v 1.6 2000/07/11 01:46:37 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/dgux/dgux_video.c,v 1.7 2003/03/14 13:46:05 tsi Exp $ */
 /*
  * INTEL DG/UX RELEASE 4.20 MU03
  * Copyright 1997 Takis Psarogiannakopoulos Cambridge,UK
@@ -83,18 +83,21 @@ Bool xf86LinearVidMem()
 }
 
 pointer
-xf86MapVidMem(int ScreenNum, int Region, unsigned long Base, unsigned long Size)
+xf86MapVidMem(int ScreenNum, int Flags, unsigned long Base, unsigned long Size)
 {
         pointer base;
         int fd;
 
-        if ((fd = open(DEV_MEM, O_RDWR)) < 0)
+        fd = open(DEV_MEM, (Flags & VIDMEM_READONLY) ? O_RDONLY : O_RDWR);
+        if (fd < 0)
         {
                 FatalError("xf86MapVidMem: failed to open %s (%s)\n",
                            DEV_MEM, strerror(errno));
         }
-        base = mmap((caddr_t)0, Size, PROT_READ|PROT_WRITE,
-                            MAP_SHARED, fd, (off_t)Base);
+        base = mmap((caddr_t)0, Size,
+		    (Flags & VIDMEM_READONLY) ?
+		    PROT_READ : (PROT_READ | PROT_WRITE),
+                    MAP_SHARED, fd, (off_t)Base);
         close(fd);
         if (base == MAP_FAILED)
         {

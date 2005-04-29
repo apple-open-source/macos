@@ -1,6 +1,7 @@
 /* Low level interface to ptrace, for GDB when running under Unix.
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   1996, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -36,26 +37,14 @@
 #include <sys/select.h>
 #endif
 
-#ifdef HAVE_TERMIOS
-#define PROCESS_GROUP_TYPE pid_t
-#endif
-
-#ifdef HAVE_TERMIO
-#define PROCESS_GROUP_TYPE int
-#endif
-
-#ifdef HAVE_SGTTY
-#ifdef SHORT_PGRP
-/* This is only used for the ultra.  Does it have pid_t?  */
-#define PROCESS_GROUP_TYPE short
-#else
-#define PROCESS_GROUP_TYPE int
-#endif
-#endif /* sgtty */
+#include "inflow.h"
 
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
+
+/* APPLE LOCAL: -exec-abort support */
+#include "ui-out.h"
 
 #if defined (SIGIO) && defined (FASYNC) && defined (FD_SET) && defined (F_SETOWN)
 static void handle_sigio (int);
@@ -239,6 +228,7 @@ void
 terminal_inferior (void)
 {
   if (gdb_has_a_terminal () && terminal_is_ours
+      && inferior_ttystate != NULL
       && inferior_thisrun_terminal == 0)
     {
       int result;
@@ -255,7 +245,8 @@ terminal_inferior (void)
       /* Because we were careful to not change in or out of raw mode in
          terminal_ours, we will not change in our out of raw mode with
          this call, so we don't flush any input.  */
-      result = serial_set_tty_state (stdin_serial, inferior_ttystate);
+      if (inferior_ttystate != NULL)
+	result = serial_set_tty_state (stdin_serial, inferior_ttystate);
       OOPSY ("setting tty state");
 
       if (!job_control)
@@ -392,7 +383,8 @@ terminal_ours_1 (int output_only)
          though, since readline will deal with raw mode when/if it needs to.
        */
 
-      serial_noflush_set_tty_state (stdin_serial, our_ttystate,
+      if (inferior_ttystate != NULL)
+	serial_noflush_set_tty_state (stdin_serial, our_ttystate,
 				    inferior_ttystate);
 
       if (job_control)
@@ -442,7 +434,6 @@ terminal_ours_1 (int output_only)
     }
 }
 
-/* ARGSUSED */
 void
 term_info (char *arg, int from_tty)
 {
@@ -500,7 +491,6 @@ print_terminal_flags (int flags)
   printf_filtered ("\n");
 }
 
-/* ARGSUSED */
 void
 child_terminal_info (char *args, int from_tty)
 {
@@ -520,8 +510,10 @@ child_terminal_info (char *args, int from_tty)
 #endif
 
   printf_filtered ("tty state:\n");
-  serial_print_tty_state (stdin_serial, inferior_ttystate, gdb_stdout);
-  
+  if (inferior_ttystate)
+    serial_print_tty_state (stdin_serial, inferior_ttystate, gdb_stdout);
+  else
+    printf_filtered ("Unable to determine inferior tty state.\n");
   printf_filtered ("GDB's terminal status (currently in use):\n");
   
 #ifdef PROCESS_GROUP_TYPE
@@ -552,7 +544,7 @@ new_tty_prefork (char *ttyname)
 void
 new_tty (void)
 {
-  register int tty;
+  int tty;
 
   if (inferior_thisrun_terminal == 0)
     return;
@@ -609,7 +601,6 @@ new_tty (void)
 
 /* Kill the inferior process.  Make us have no inferior.  */
 
-/* ARGSUSED */
 static void
 kill_command (char *arg, int from_tty)
 {
@@ -619,7 +610,9 @@ kill_command (char *arg, int from_tty)
 
   if (ptid_equal (inferior_ptid, null_ptid))
     error ("The program is not being run.");
-  if (!query ("Kill the program being debugged? "))
+  /* APPLE LOCAL: Don't query if we're an MI command.  */
+  if (!ui_out_is_mi_like_p (uiout) 
+      && !query ("Kill the program being debugged? "))
     error ("Not confirmed.");
   target_kill ();
 
@@ -643,7 +636,6 @@ kill_command (char *arg, int from_tty)
 /* Call set_sigint_trap when you need to pass a signal on to an attached
    process when handling SIGINT */
 
-/* ARGSUSED */
 static void
 pass_signal (int signo)
 {

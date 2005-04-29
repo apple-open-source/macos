@@ -1,0 +1,89 @@
+--- gb18030.c.orig	Thu Nov 25 11:38:16 2004
++++ gb18030.c	Fri Feb 18 15:43:22 2005
+@@ -32,6 +32,8 @@
+ #include <sys/param.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/gb18030.c,v 1.6 2004/05/12 14:09:04 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <runetype.h>
+ #include <stdlib.h>
+@@ -39,40 +41,41 @@
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+-int	_GB18030_init(_RuneLocale *);
+-size_t	_GB18030_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_GB18030_mbsinit(const mbstate_t *);
+-size_t	_GB18030_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
++#define GB18030_MB_CUR_MAX	4
++
++__private_extern__ int	_GB18030_init(struct __xlocale_st_runelocale *);
++static size_t	_GB18030_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++static int	_GB18030_mbsinit(const mbstate_t *, locale_t);
++static size_t	_GB18030_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+ 
+ typedef struct {
+ 	int	count;
+ 	u_char	bytes[4];
+ } _GB18030State;
+ 
+-int
+-_GB18030_init(_RuneLocale *rl)
++__private_extern__ int
++_GB18030_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 
+-	__mbrtowc = _GB18030_mbrtowc;
+-	__wcrtomb = _GB18030_wcrtomb;
+-	__mbsinit = _GB18030_mbsinit;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 4;
++	xrl->__mbrtowc = _GB18030_mbrtowc;
++	xrl->__wcrtomb = _GB18030_wcrtomb;
++	xrl->__mbsinit = _GB18030_mbsinit;
++	xrl->__mb_cur_max = GB18030_MB_CUR_MAX;
+ 
+ 	return (0);
+ }
+ 
+-int
+-_GB18030_mbsinit(const mbstate_t *ps)
++static int
++_GB18030_mbsinit(const mbstate_t *ps, locale_t loc)
+ {
+ 
+ 	return (ps == NULL || ((const _GB18030State *)ps)->count == 0);
+ }
+ 
+-size_t
++static size_t
+ _GB18030_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s,
+-    size_t n, mbstate_t * __restrict ps)
++    size_t n, mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_GB18030State *gs;
+ 	wchar_t wch;
+@@ -92,7 +95,7 @@
+ 		pwc = NULL;
+ 	}
+ 
+-	ncopy = MIN(MIN(n, MB_CUR_MAX), sizeof(gs->bytes) - gs->count);
++	ncopy = MIN(MIN(n, GB18030_MB_CUR_MAX), sizeof(gs->bytes) - gs->count);
+ 	memcpy(gs->bytes + gs->count, s, ncopy);
+ 	ocount = gs->count;
+ 	gs->count += ncopy;
+@@ -154,8 +157,8 @@
+ 	return ((size_t)-1);
+ }
+ 
+-size_t
+-_GB18030_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++static size_t
++_GB18030_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_GB18030State *gs;
+ 	size_t len;

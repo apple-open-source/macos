@@ -1,0 +1,567 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.nntp.UsenetClientProtocol</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.nntp.html">Module&nbsp;nntp</a> ::
+        Class&nbsp;UsenetClientProtocol
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.nntp.UsenetClientProtocol.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class UsenetClientProtocol</h2>
+
+<pre class="base-tree">
+<a href="twisted.internet.protocol.BaseProtocol.html"><code>BaseProtocol</code></a> --+            
+               |            
+        <a href="twisted.internet.protocol.Protocol.html"><code>Protocol</code></a> --+        
+                   |        
+        <a href="twisted.protocols.basic.LineReceiver.html"><code>LineReceiver</code></a> --+    
+                       |    
+              <a href="twisted.protocols.nntp.NNTPClient.html"><code>NNTPClient</code></a> --+
+                           |
+                          <b>UsenetClientProtocol</b>
+</pre><br />
+
+<hr/>
+
+A client that connects to an NNTP server and asks for articles new 
+since a certain time.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.UsenetClientProtocol.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groups</span>,
+          <span class=summary-sig-arg>date</span>,
+          <span class=summary-sig-arg>storage</span>)</span></code>
+<br />
+Fetch all new articles from the given groups since the given date and 
+dump them into the given storage.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="articleExists"></a><span class="summary-sig"><span class="summary-sig-name">articleExists</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>exists</span>,
+          <span class=summary-sig-arg>article</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.UsenetClientProtocol.html#connectionMade" class="summary-sig-name"><code>connectionMade</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Called when a connection is made.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getNewNewsFailed"></a><span class="summary-sig"><span class="summary-sig-name">getNewNewsFailed</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.UsenetClientProtocol.html#gotArticle" class="summary-sig-name"><code>gotArticle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>article</span>)</span></code>
+<br />
+Override for notification when fetchArticle() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.UsenetClientProtocol.html#gotNewNews" class="summary-sig-name"><code>gotNewNews</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>news</span>)</span></code>
+<br />
+Override for notification when getNewNews() action is successful</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from NNTPClient</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_endState" class="summary-sig-name"><code>_endState</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_getResponseCode" class="summary-sig-name"><code>_getResponseCode</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_headerGroup" class="summary-sig-name"><code>_headerGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>code</span>,
+           <span class=summary-sig-arg>line</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_headerInitial" class="summary-sig-name"><code>_headerInitial</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>code</span>,
+           <span class=summary-sig-arg>message</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_headerMode" class="summary-sig-name"><code>_headerMode</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>code</span>,
+           <span class=summary-sig-arg>message</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_headerPost" class="summary-sig-name"><code>_headerPost</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>code</span>,
+           <span class=summary-sig-arg>message</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_headerPosted" class="summary-sig-name"><code>_headerPosted</code></a>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>code</span>,
+           <span class=summary-sig-arg>message</span>))</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_newLine" class="summary-sig-name"><code>_newLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>,
+          <span class=summary-sig-arg>check</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_newState" class="summary-sig-name"><code>_newState</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>method</span>,
+          <span class=summary-sig-arg>error</span>,
+          <span class=summary-sig-arg>responseHandler</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_passiveError" class="summary-sig-name"><code>_passiveError</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_setResponseCode" class="summary-sig-name"><code>_setResponseCode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>code</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateArticle" class="summary-sig-name"><code>_stateArticle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateBody" class="summary-sig-name"><code>_stateBody</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateHead" class="summary-sig-name"><code>_stateHead</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateList" class="summary-sig-name"><code>_stateList</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateNewGroups" class="summary-sig-name"><code>_stateNewGroups</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateNewNews" class="summary-sig-name"><code>_stateNewNews</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateOverview" class="summary-sig-name"><code>_stateOverview</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_statePassive" class="summary-sig-name"><code>_statePassive</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateSubscriptions" class="summary-sig-name"><code>_stateSubscriptions</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#_stateXHDR" class="summary-sig-name"><code>_stateXHDR</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchArticle" class="summary-sig-name"><code>fetchArticle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>index</span>)</span></code>
+<br />
+Get the complete article with the specified index (or the currently 
+selected article if index is '') or Message-ID from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchBody" class="summary-sig-name"><code>fetchBody</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>index</span>)</span></code>
+<br />
+Get the body for the specified article (or the currently selected 
+article if index is '') from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchGroup" class="summary-sig-name"><code>fetchGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+<br />
+Get group information for the specified group from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchGroups" class="summary-sig-name"><code>fetchGroups</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Request a list of all news groups from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchHead" class="summary-sig-name"><code>fetchHead</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>index</span>)</span></code>
+<br />
+Get the header for the specified article (or the currently selected 
+article if index is '') from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchNewGroups" class="summary-sig-name"><code>fetchNewGroups</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>date</span>,
+          <span class=summary-sig-arg>distributions</span>)</span></code>
+<br />
+Get the names of all new groups created/added to the server since the 
+specified date - in seconds since the ecpoh, GMT - optionally restricted 
+to the given distributions.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchNewNews" class="summary-sig-name"><code>fetchNewNews</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groups</span>,
+          <span class=summary-sig-arg>date</span>,
+          <span class=summary-sig-arg>distributions</span>)</span></code>
+<br />
+Get the Message-IDs for all new news posted to any of the given groups 
+since the specified date - in seconds since the epoch, GMT - optionally 
+restricted to the given distributions.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchOverview" class="summary-sig-name"><code>fetchOverview</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Request the overview format from the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchSubscriptions" class="summary-sig-name"><code>fetchSubscriptions</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Request a list of the groups it is recommended a new user subscribe 
+to.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#fetchXHeader" class="summary-sig-name"><code>fetchXHeader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>header</span>,
+          <span class=summary-sig-arg>low</span>,
+          <span class=summary-sig-arg>high</span>,
+          <span class=summary-sig-arg>id</span>)</span></code>
+<br />
+Request a specific header from the server for an article or range of 
+articles.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getAllGroupsFailed" class="summary-sig-name"><code>getAllGroupsFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchGroups() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getArticleFailed" class="summary-sig-name"><code>getArticleFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchArticle() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getBodyFailed" class="summary-sig-name"><code>getBodyFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>body</span>)</span></code>
+<br />
+Override for notification when fetchBody() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getGroupFailed" class="summary-sig-name"><code>getGroupFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchGroup() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getHeadFailed" class="summary-sig-name"><code>getHeadFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchHead() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getNewGroupsFailed" class="summary-sig-name"><code>getNewGroupsFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when getNewGroups() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getOverviewFailed" class="summary-sig-name"><code>getOverviewFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchOverview() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getSubscriptionsFailed" class="summary-sig-name"><code>getSubscriptionsFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when fetchSubscriptions() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#getXHeaderFailed" class="summary-sig-name"><code>getXHeaderFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when getXHeader() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotAllGroups" class="summary-sig-name"><code>gotAllGroups</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groups</span>)</span></code>
+<br />
+Override for notification when fetchGroups() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotBody" class="summary-sig-name"><code>gotBody</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>info</span>)</span></code>
+<br />
+Override for notification when fetchBody() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotGroup" class="summary-sig-name"><code>gotGroup</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>group</span>)</span></code>
+<br />
+Override for notification when fetchGroup() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotHead" class="summary-sig-name"><code>gotHead</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>head</span>)</span></code>
+<br />
+Override for notification when fetchHead() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotNewGroups" class="summary-sig-name"><code>gotNewGroups</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>groups</span>)</span></code>
+<br />
+Override for notification when getNewGroups() action is successful</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotOverview" class="summary-sig-name"><code>gotOverview</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>overview</span>)</span></code>
+<br />
+Override for notification when fetchOverview() action is completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotSubscriptions" class="summary-sig-name"><code>gotSubscriptions</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>subscriptions</span>)</span></code>
+<br />
+Override for notification when fetchSubscriptions() action is 
+completed</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#gotXHeader" class="summary-sig-name"><code>gotXHeader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>headers</span>)</span></code>
+<br />
+Override for notification when getXHeader() action is successful</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#lineReceived" class="summary-sig-name"><code>lineReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Override this for when each line is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#postArticle" class="summary-sig-name"><code>postArticle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>text</span>)</span></code>
+<br />
+Attempt to post an article with the specified text to the server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#postedOk" class="summary-sig-name"><code>postedOk</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Override for notification when postArticle() action is successful</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#postFailed" class="summary-sig-name"><code>postFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when postArticle() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#quit" class="summary-sig-name"><code>quit</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#setStream" class="summary-sig-name"><code>setStream</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Set the mode to STREAM, suspending the normal &quot;lock-step&quot; 
+mode of communications.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#setStreamFailed" class="summary-sig-name"><code>setStreamFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Override for notification when setStream() action fails</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.nntp.NNTPClient.html#setStreamSuccess" class="summary-sig-name"><code>setStreamSuccess</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Override for notification when setStream() action is successful</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#clearLineBuffer" class="summary-sig-name"><code>clearLineBuffer</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Clear buffered data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#dataReceived" class="summary-sig-name"><code>dataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Protocol.dataReceived.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#lineLengthExceeded" class="summary-sig-name"><code>lineLengthExceeded</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Called when the maximum line length has been reached.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#rawDataReceived" class="summary-sig-name"><code>rawDataReceived</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Override this for when raw data is received.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#sendLine" class="summary-sig-name"><code>sendLine</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>line</span>)</span></code>
+<br />
+Sends a line to the other end of the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setLineMode" class="summary-sig-name"><code>setLineMode</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>extra</span>)</span></code>
+<br />
+Sets the line-mode of this receiver.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.basic.LineReceiver.html#setRawMode" class="summary-sig-name"><code>setRawMode</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Sets the raw mode of this receiver.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionFailed" class="summary-sig-name"><code>connectionFailed</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+(Deprecated)</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Protocol.html#connectionLost" class="summary-sig-name"><code>connectionLost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+<br />
+Called when the connection is shut down.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.BaseProtocol.html#makeConnection" class="summary-sig-name"><code>makeConnection</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transport</span>)</span></code>
+<br />
+Make a connection to a transport and a server.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from NNTPClient</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.nntp.NNTPClient.html#MAX_COMMAND_LENGTH"><code>MAX_COMMAND_LENGTH</code></a></b> = <span title="510">510&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from LineReceiver</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#__buffer"><code>_LineReceiver__buffer</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                               </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#delimiter"><code>delimiter</code></a></b>: The line-ending delimiter to use.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#line_mode"><code>line_mode</code></a></b> = <span title="1">1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.basic.LineReceiver.html#MAX_LENGTH"><code>MAX_LENGTH</code></a></b>: The maximum length of a line to allow (If a sent line is longer than 
+this, the connection is dropped).</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Protocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.protocol.Protocol.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.internet.interfaces.IProtocol at 0x8278f0c&gt;,)"><code>(&lt;class&nbsp;twisted.internet.interfaces.IPr<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from BaseProtocol</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#connected"><code>connected</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.protocol.BaseProtocol.html#transport"><code>transport</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>groups</span>,
+          <span class=sig-arg>date</span>,
+          <span class=sig-arg>storage</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  Fetch all new articles from the given groups since the given date 
+  and dump them into the given storage. groups is a list of group names. 
+  date is an integer or floating point representing seconds since the 
+  epoch (GMT). storage is any object that implements the NewsStorage 
+  interface.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.nntp.NNTPClient.html#__init__"><code>twisted.protocols.nntp.NNTPClient.__init__</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="connectionMade"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">connectionMade</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Called when a connection is made.</p>
+  This may be considered the initializer of the protocol, because it 
+  is called when the connection is completed. For clients, this is called 
+  once the connection to the server has been established; for servers, 
+  this is called after an accept() call stops blocking and a socket has 
+  been received. If you need to send any greeting or initial message, do 
+  it here.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.nntp.NNTPClient.html#connectionMade"><code>twisted.protocols.nntp.NNTPClient.connectionMade</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="gotArticle"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">gotArticle</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>article</span>)</span>
+  </h3>
+  Override for notification when fetchArticle() action is 
+  completed
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.nntp.NNTPClient.html#gotArticle"><code>twisted.protocols.nntp.NNTPClient.gotArticle</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="gotNewNews"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">gotNewNews</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>news</span>)</span>
+  </h3>
+  Override for notification when getNewNews() action is successful
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.protocols.nntp.NNTPClient.html#gotNewNews"><code>twisted.protocols.nntp.NNTPClient.gotNewNews</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:29 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

@@ -72,6 +72,7 @@
 .\"   used here if you can. In particular, please don't use nroff commands
 .\"   which aren't already used herein.
 .\" 
+.mso www.tmac
 .TH TCSH 1 "23 July 2002" "Astron 6.12.00"
 .SH NAME
 tcsh \- C shell with file name completion and command line editing
@@ -205,7 +206,7 @@ Non-login shells read only \fI/etc/csh.cshrc\fR and \fI~/.tcshrc\fR
 or \fI~/.cshrc\fR on startup.
 .PP
 For examples of startup files, please consult
-\fIhttp://tcshrc.sourceforge.net\fR.
+.URL http://tcshrc.sourceforge.net "The tcshrc Project Home Page" .
 .PP
 Commands like \fIstty\fR(1) and \fItset\fR(1),
 which need be run only once per login, usually go in one's \fI~/.login\fR file.

@@ -28,8 +28,6 @@ final class ConcreteProcess extends Process
 {
   public native void destroy ();
 
-  public native boolean hasExited ();
-
   public int exitValue ()
   {
     if (! hasExited ())
@@ -55,18 +53,19 @@ final class ConcreteProcess extends Process
 
   public native int waitFor () throws InterruptedException;
 
-  public native void startProcess (String[] progarray,
-				   String[] envp,
-				   File dir)
-    throws IOException;
-
-  public native void cleanup ();
-
   public ConcreteProcess (String[] progarray,
                           String[] envp,
                           File dir)
     throws IOException
   {
+    for (int i = 0; i < progarray.length; i++)
+      {
+        String s = progarray[i];
+
+        if ( (s.indexOf (' ') >= 0) || (s.indexOf ('\t') >= 0))
+          progarray[i] = "\"" + s + "\"";
+      }
+
     startProcess (progarray, envp, dir);
   }
 
@@ -81,4 +80,11 @@ final class ConcreteProcess extends Process
 
   // Exit code of the child if it has exited.
   private int exitCode;
+
+  private native boolean hasExited ();
+  private native void startProcess (String[] progarray,
+           String[] envp,
+           File dir)
+    throws IOException;
+  private native void cleanup ();
 }

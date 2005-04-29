@@ -1,3 +1,0 @@
-AFTER_BUILD += remove_info_file
-
-include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

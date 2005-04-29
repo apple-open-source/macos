@@ -48,7 +48,10 @@ namespace std
 {
   // 27.4.1  Types
 
-  // 27.4.3  Template class fpos
+  // [27.4.3] template class fpos
+  /**
+   *  @doctodo
+  */
   template<typename _StateT>
     class fpos
     {
@@ -105,7 +108,7 @@ namespace std
       bool  
       operator!=(const fpos& __pos) const
       { return _M_off != __pos._M_off; }
-      
+
       streamoff 
       _M_position() const { return _M_off; }
 
@@ -113,9 +116,10 @@ namespace std
       _M_position(streamoff __off)  { _M_off = __off; }
     };
 
-  // 27.2, paragraph 10 about fpos/char_traits circularity
+  /// 27.2, paragraph 10 about fpos/char_traits circularity
   typedef fpos<mbstate_t> 		streampos;
 #  ifdef _GLIBCPP_USE_WCHAR_T
+  /// 27.2, paragraph 10 about fpos/char_traits circularity
   typedef fpos<mbstate_t> 		wstreampos;
 #  endif
 }  // namespace std

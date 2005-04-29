@@ -1,7 +1,7 @@
 ## Process this file with automake to create Makefile.in. -*-Makefile-*-
 
 ## Makefile for Autoconf.
-## Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+## Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -25,8 +25,8 @@ SUBDIRS = bin tests . lib config man doc
 ACLOCAL_AMFLAGS = -I config
 
 EXTRA_DIST = ChangeLog.0 ChangeLog.1 ChangeLog.2 \
-             BUGS \
-             GNUmakefile Makefile.maint
+	     BUGS \
+	     GNUmakefile Makefile.maint Makefile.cfg
 
 MAINTAINERCLEANFILES = INSTALL
 
@@ -56,25 +56,34 @@ maintainer-check-tests:
 	cd tests && make maintainer-check
 
 
+## ----------------------------------- ##
+## Updating Perl files from Automake.  ##
+## ----------------------------------- ##
 
-## ---------------------------- ##
-## Customizing Makefile.maint.  ##
-## ---------------------------- ##
+## Fetch the latest versions of files we care about.
+automake_cvsweb = \
+   http://sources.redhat.com/cgi-bin/cvsweb.cgi/~checkout~/automake
+automake_cvsargs = \
+   'content-type=text/plain&cvsroot=automake'
+autom4te_files = \
+  Autom4te/Configure_ac.pm \
+  Autom4te/Channels.pm \
+  Autom4te/FileUtils.pm \
+  Autom4te/Struct.pm \
+  Autom4te/XFile.pm
 
-prev_version_file = $(srcdir)/config/prev-version.txt
-move_if_change = $(srcdir)/config/move-if-change
-release_archive_dir = releases
-
-url_dir_list = \
-  ftp://alpha.gnu.org/gnu/autoconf
-
-# Files to update automatically.
-wget_files = $(srcdir)/config/config.guess $(srcdir)/config/config.sub \
-	     $(srcdir)/config/texinfo.tex \
-	     $(srcdir)/doc/standards.texi $(srcdir)/doc/make-stds.texi
-cvs_files = $(srcdir)/config/elisp-comp \
-            $(srcdir)/config/mdate-sh \
-            $(srcdir)/config/missing \
-            $(srcdir)/config/install-sh \
-            $(srcdir)/config/mkinstalldirs
-local_updates = wget-update cvs-update
+autom4te-update:
+	rm -rf Fetchdir > /dev/null 2>&1
+	mkdir Fetchdir; mkdir Fetchdir/Autom4te
+## If a get fails then that is a problem.
+	(cd Fetchdir && \
+	$(WGET) $(automake_cvsweb)/lib/Automake/Configure_ac.pm?$(automake_cvsargs) -O Autom4te/Configure_ac.pm; \
+	$(WGET) $(automake_cvsweb)/lib/Automake/Channels.pm?$(automake_cvsargs) -O Autom4te/Channels.pm; \
+	$(WGET) $(automake_cvsweb)/lib/Automake/FileUtils.pm?$(automake_cvsargs) -O Autom4te/FileUtils.pm; \
+	$(WGET) $(automake_cvsweb)/lib/Automake/Struct.pm?$(automake_cvsargs) -O Autom4te/Struct.pm; \
+	$(WGET) $(automake_cvsweb)/lib/Automake/XFile.pm?$(automake_cvsargs) -O Autom4te/XFile.pm; \
+	:)
+	perl -pi -e 's/Automake::/Autom4te::/g' Fetchdir/Autom4te/*.pm
+	for file in $(autom4te_files); do \
+	  $(move_if_change) Fetchdir/$$file $(srcdir)/lib/$$file; \
+	done

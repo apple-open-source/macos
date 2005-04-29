@@ -151,6 +151,8 @@ public class EventQueue
    * Posts a new event to the queue.
    *
    * @param event The event to post to the queue.
+   *
+   * @exception NullPointerException If event is null.
    */
   public synchronized void postEvent(AWTEvent evt)
   {
@@ -209,7 +211,19 @@ public class EventQueue
     notify();
   }
 
-  /** @since JDK1.2 */
+  /**
+   * Causes runnable to have its run method called in the dispatch thread of the
+   * EventQueue. This will happen after all pending events are processed. The
+   * call blocks until this has happened. This method will throw an Error if
+   * called from the event dispatcher thread.
+   *
+   * @exception InterruptedException If another thread has interrupted
+   * this thread.
+   * @exception InvocationTargetException If an exception is thrown when running
+   * runnable.
+   *
+   * @since 1.2
+   */
   public static void invokeAndWait(Runnable runnable)
     throws InterruptedException, InvocationTargetException
   {
@@ -254,6 +268,8 @@ public class EventQueue
     * All pending events are transferred to the new queue. Calls to postEvent,
     * getNextEvent, and peekEvent are forwarded to the pushed queue until it
     * is removed with a pop().
+    *
+    * @exception NullPointerException if newEventQueue is null.
     */
   public synchronized void push(EventQueue newEventQueue)
   {
@@ -271,7 +287,11 @@ public class EventQueue
   }
 
   /** Transfer any pending events from this queue back to the parent queue that
-    * was previously push()ed. Event dispatch from this queue is suspended. */
+    * was previously push()ed. Event dispatch from this queue is suspended.
+    *
+    * @exception EmptyStackException If no previous push was made on this
+    * EventQueue.
+    */
   protected void pop() throws EmptyStackException
   {
     if (prev == null)
@@ -297,6 +317,12 @@ public class EventQueue
       }
   }
 
+  /**
+   * Dispatches an event. The manner in which the event is dispatched depends
+   * upon the type of the event and the type of the event's source object.
+   *
+   * @exception NullPointerException If event is null.
+   */
   protected void dispatchEvent(AWTEvent evt)
   {
     if (evt instanceof ActiveEvent)
@@ -320,4 +346,27 @@ public class EventQueue
 	  }
       }
   }
-}
+
+  /**
+   * Returns the timestamp of the most recent event that had a timestamp, or
+   * the initialization time of the event queue if no events have been fired.
+   * At present, only <code>InputEvent</code>s, <code>ActionEvent</code>s,
+   * <code>InputMethodEvent</code>s, and <code>InvocationEvent</code>s have
+   * timestamps, but this may be added to other events in future versions.
+   * If this is called by the event dispatching thread, it can be any
+   * (sequential) value, but to other threads, the safest bet is to return
+   * System.currentTimeMillis().
+   *
+   * @return the most recent timestamp
+   * @see InputEvent#getWhen()
+   * @see ActionEvent#getWhen()
+   * @see InvocationEvent#getWhen()
+   * @see InputMethodEvent#getWhen()
+   * @since 1.4
+   */
+  public static long getMostRecentEventTime()
+  {
+    // XXX For now, this ONLY does the current time.
+    return System.currentTimeMillis();
+  }
+} // class EventQueue

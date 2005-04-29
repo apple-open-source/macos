@@ -27,7 +27,6 @@
 /* We assume we're being built with and will be used for cygwin.  */
 
 #include "defs.h"
-#include "tm.h"			/* required for SSE registers */
 #include "frame.h"		/* required by inferior.h */
 #include "inferior.h"
 #include "target.h"
@@ -36,7 +35,6 @@
 #include "completer.h"
 #include "regcache.h"
 #include "top.h"
-#include "i386-tdep.h"
 #include <signal.h>
 #include <sys/types.h>
 #include <fcntl.h>
@@ -53,6 +51,10 @@
 #include "gdbcmd.h"
 #include <sys/param.h>
 #include <unistd.h>
+#include "exec.h"
+
+#include "i386-tdep.h"
+#include "i387-tdep.h"
 
 /* The ui's event loop. */
 extern int (*ui_loop_hook) (int signo);
@@ -70,16 +72,12 @@ enum
 #include <sys/procfs.h>
 #include <psapi.h>
 
-#ifdef HAVE_SSE_REGS
 #define CONTEXT_DEBUGGER_DR CONTEXT_DEBUGGER | CONTEXT_DEBUG_REGISTERS \
 	| CONTEXT_EXTENDED_REGISTERS
-#else
-#define CONTEXT_DEBUGGER_DR CONTEXT_DEBUGGER | CONTEXT_DEBUG_REGISTERS
-#endif
 
 static unsigned dr[8];
-static int debug_registers_changed = 0;
-static int debug_registers_used = 0;
+static int debug_registers_changed;
+static int debug_registers_used;
 
 /* The string sent by cygwin when it processes a signal.
    FIXME: This should be in a cygwin include file. */
@@ -110,6 +108,7 @@ typedef struct thread_info_struct
     HANDLE h;
     char *name;
     int suspend_count;
+    int reload_context;
     CONTEXT context;
     STACKFRAME sf;
   }
@@ -124,7 +123,6 @@ static DEBUG_EVENT current_event;	/* The current debug event from
 static HANDLE current_process_handle;	/* Currently executing process */
 static thread_info *current_thread;	/* Info on currently selected thread */
 static DWORD main_thread_id;		/* Thread ID of the main thread */
-static pid_t cygwin_pid;		/* pid of cygwin process */
 
 /* Counts of things. */
 static int exception_count = 0;
@@ -188,7 +186,6 @@ static const int mappings[] =
   context_offset (FloatSave.DataSelector),
   context_offset (FloatSave.DataOffset),
   context_offset (FloatSave.ErrorSelector)
-#ifdef HAVE_SSE_REGS
   /* XMM0-7 */ ,
   context_offset (ExtendedRegisters[10*16]),
   context_offset (ExtendedRegisters[11*16]),
@@ -200,7 +197,6 @@ static const int mappings[] =
   context_offset (ExtendedRegisters[17*16]),
   /* MXCSR */
   context_offset (ExtendedRegisters[24])
-#endif
 };
 
 #undef context_offset
@@ -233,7 +229,6 @@ check (BOOL ok, const char *file, int line)
 		     GetLastError ());
 }
 
-
 /* Find a thread record given a thread id.
    If get_context then also retrieve the context for this
    thread. */
@@ -251,19 +246,7 @@ thread_rec (DWORD id, int get_context)
 	      th->suspend_count = SuspendThread (th->h) + 1;
 	    else if (get_context < 0)
 	      th->suspend_count = -1;
-
-	    th->context.ContextFlags = CONTEXT_DEBUGGER_DR;
-	    GetThreadContext (th->h, &th->context);
-	    if (id == current_event.dwThreadId)
-	      {
-		/* Copy dr values from that thread.  */
-		dr[0] = th->context.Dr0;
-		dr[1] = th->context.Dr1;
-		dr[2] = th->context.Dr2;
-		dr[3] = th->context.Dr3;
-		dr[6] = th->context.Dr6;
-		dr[7] = th->context.Dr7;
-	      }
+	    th->reload_context = 1;
 	  }
 	return th;
       }
@@ -353,12 +336,34 @@ do_child_fetch_inferior_registers (int r)
 {
   char *context_offset = ((char *) &current_thread->context) + mappings[r];
   long l;
-  if (r == FCS_REGNUM)
+
+  if (!current_thread)
+    return;	/* Windows sometimes uses a non-existent thread id in its
+		   events */
+
+  if (current_thread->reload_context)
+    {
+      thread_info *th = current_thread;
+      th->context.ContextFlags = CONTEXT_DEBUGGER_DR;
+      GetThreadContext (th->h, &th->context);
+      /* Copy dr values from that thread.  */
+      dr[0] = th->context.Dr0;
+      dr[1] = th->context.Dr1;
+      dr[2] = th->context.Dr2;
+      dr[3] = th->context.Dr3;
+      dr[6] = th->context.Dr6;
+      dr[7] = th->context.Dr7;
+      current_thread->reload_context = 0;
+    }
+
+#define I387_ST0_REGNUM I386_ST0_REGNUM
+
+  if (r == I387_FISEG_REGNUM)
     {
       l = *((long *) context_offset) & 0xffff;
       supply_register (r, (char *) &l);
     }
-  else if (r == FOP_REGNUM)
+  else if (r == I387_FOP_REGNUM)
     {
       l = (*((long *) context_offset) >> 16) & ((1 << 11) - 1);
       supply_register (r, (char *) &l);
@@ -370,20 +375,27 @@ do_child_fetch_inferior_registers (int r)
       for (r = 0; r < NUM_REGS; r++)
 	do_child_fetch_inferior_registers (r);
     }
+
+#undef I387_ST0_REGNUM
 }
 
 static void
 child_fetch_inferior_registers (int r)
 {
   current_thread = thread_rec (PIDGET (inferior_ptid), TRUE);
-  do_child_fetch_inferior_registers (r);
+  /* Check if current_thread exists.  Windows sometimes uses a non-existent
+     thread id in its events */
+  if (current_thread)
+    do_child_fetch_inferior_registers (r);
 }
 
 static void
 do_child_store_inferior_registers (int r)
 {
-  if (r >= 0)
-    deprecated_read_register_gen (r, ((char *) &current_thread->context) + mappings[r]);
+  if (!current_thread)
+    /* Windows sometimes uses a non-existent thread id in its events */;
+  else if (r >= 0)
+    regcache_collect (r, ((char *) &current_thread->context) + mappings[r]);
   else
     {
       for (r = 0; r < NUM_REGS; r++)
@@ -396,7 +408,10 @@ static void
 child_store_inferior_registers (int r)
 {
   current_thread = thread_rec (PIDGET (inferior_ptid), TRUE);
-  do_child_store_inferior_registers (r);
+  /* Check if current_thread exists.  Windows sometimes uses a non-existent
+     thread id in its events */
+  if (current_thread)
+    do_child_store_inferior_registers (r);
 }
 
 static int psapi_loaded = 0;
@@ -603,8 +618,8 @@ register_loaded_dll (const char *name, DWORD load_addr)
   so = (struct so_stuff *) xmalloc (sizeof (struct so_stuff) + strlen (ppath) + 8 + 1);
   so->loaded = 0;
   so->load_addr = load_addr;
-  if (!VirtualQueryEx (current_process_handle, (void *) load_addr, &m,
-		       sizeof (m)))
+  if (VirtualQueryEx (current_process_handle, (void *) load_addr, &m,
+		      sizeof (m)))
     so->end_addr = (DWORD) m.AllocationBase + m.RegionSize;
   else
     so->end_addr = load_addr + 0x2000;	/* completely arbitrary */
@@ -636,21 +651,16 @@ get_image_name (HANDLE h, void *address, int unicode)
   if (address == NULL)
     return NULL;
 
-  ReadProcessMemory (h, address,  &address_ptr, sizeof (address_ptr), &done);
-
   /* See if we could read the address of a string, and that the
      address isn't null. */
-
-  if (done != sizeof (address_ptr) || !address_ptr)
+  if (!ReadProcessMemory (h, address,  &address_ptr, sizeof (address_ptr), &done)
+      || done != sizeof (address_ptr) || !address_ptr)
     return NULL;
 
   /* Find the length of the string */
-  do
-    {
-      ReadProcessMemory (h, address_ptr + len * size, &b, size, &done);
-      len++;
-    }
-  while ((b[0] != 0 || b[size - 1] != 0) && done == size);
+  while (ReadProcessMemory (h, address_ptr + len++ * size, &b, size, &done)
+	 && (b[0] != 0 || b[size - 1] != 0) && done == size)
+    continue;
 
   if (!unicode)
     ReadProcessMemory (h, address_ptr, buf, len, &done);
@@ -751,11 +761,66 @@ child_clear_solibs (void)
   max_dll_name_len = sizeof ("DLL Name") - 1;
 }
 
+/* Get the loaded address of all sections, given that .text was loaded
+   at text_load. Assumes that all sections are subject to the same
+   relocation offset. Returns NULL if problems occur or if the
+   sections were not relocated. */
+
+static struct section_addr_info *
+get_relocated_section_addrs (bfd *abfd, CORE_ADDR text_load)
+{
+  struct section_addr_info *result = NULL;
+  int section_count = bfd_count_sections (abfd);
+  asection *text_section = bfd_get_section_by_name (abfd, ".text");
+  CORE_ADDR text_vma;
+
+  if (!text_section)
+    {
+      /* Couldn't get the .text section. Weird. */
+    }
+
+  else if (text_load == (text_vma = bfd_get_section_vma (abfd, text_section)))
+    {
+      /* DLL wasn't relocated. */
+    }
+
+  else
+    {
+      /* Figure out all sections' loaded addresses. The offset here is
+	 such that taking a bfd_get_section_vma() result and adding
+	 offset will give the real load address of the section. */
+
+      CORE_ADDR offset = text_load - text_vma;
+
+      struct section_table *table_start = NULL;
+      struct section_table *table_end = NULL;
+      struct section_table *iter = NULL;
+
+      build_section_table (abfd, &table_start, &table_end);
+
+      for (iter = table_start; iter < table_end; ++iter)
+	{
+	  /* Relocated addresses. */
+	  iter->addr += offset;
+	  iter->endaddr += offset;
+	}
+
+      result = build_section_addr_info_from_section_table (table_start,
+							   table_end);
+
+      xfree (table_start);
+    }
+
+  return result;
+}
+
 /* Add DLL symbol information. */
 static struct objfile *
 solib_symbols_add (char *name, int from_tty, CORE_ADDR load_addr)
 {
-  struct section_addr_info section_addrs;
+  struct section_addr_info *addrs = NULL;
+  static struct objfile *result = NULL;
+  bfd *abfd = NULL;
 
   /* The symbols in a dll are offset by 0x1000, which is the
      the offset from 0 of the first byte in an image - because
@@ -764,10 +829,44 @@ solib_symbols_add (char *name, int from_tty, CORE_ADDR load_addr)
   if (!name || !name[0])
     return NULL;
 
-  memset (&section_addrs, 0, sizeof (section_addrs));
-  section_addrs.other[0].name = ".text";
-  section_addrs.other[0].addr = load_addr;
-  return safe_symbol_file_add (name, from_tty, &section_addrs, 0, OBJF_SHARED);
+  abfd = bfd_openr (name, "pei-i386");
+
+  if (!abfd)
+    {
+      /* pei failed - try pe */
+      abfd = bfd_openr (name, "pe-i386");
+    }
+
+  if (abfd)
+    {
+      if (bfd_check_format (abfd, bfd_object))
+	{
+	  addrs = get_relocated_section_addrs (abfd, load_addr);
+	}
+
+      bfd_close (abfd);
+    }
+
+  if (addrs)
+    {
+      result = safe_symbol_file_add (name, from_tty, addrs, 0, OBJF_SHARED);
+      free_section_addr_info (addrs);
+    }
+  else
+    {
+      /* Fallback on handling just the .text section. */
+      struct cleanup *my_cleanups;
+
+      addrs = alloc_section_addr_info (1);
+      my_cleanups = make_cleanup (xfree, addrs);
+      addrs->other[0].name = ".text";
+      addrs->other[0].addr = load_addr;
+
+      result = safe_symbol_file_add (name, from_tty, addrs, 0, OBJF_SHARED);
+      do_cleanups (my_cleanups);
+    }
+
+  return result;
 }
 
 /* Load DLL symbol info. */
@@ -850,58 +949,58 @@ display_selector (HANDLE thread, DWORD sel)
       int base, limit;
       printf_filtered ("0x%03lx: ", sel);
       if (!info.HighWord.Bits.Pres)
-        {
-          puts_filtered ("Segment not present\n");
-          return 0;
-        }
+	{
+	  puts_filtered ("Segment not present\n");
+	  return 0;
+	}
       base = (info.HighWord.Bits.BaseHi << 24) +
 	     (info.HighWord.Bits.BaseMid << 16)
 	     + info.BaseLow;
       limit = (info.HighWord.Bits.LimitHi << 16) + info.LimitLow;
       if (info.HighWord.Bits.Granularity)
-       limit = (limit << 12) | 0xfff;
+	limit = (limit << 12) | 0xfff;
       printf_filtered ("base=0x%08x limit=0x%08x", base, limit);
       if (info.HighWord.Bits.Default_Big)
-        puts_filtered(" 32-bit ");
+	puts_filtered(" 32-bit ");
       else
-        puts_filtered(" 16-bit ");
+	puts_filtered(" 16-bit ");
       switch ((info.HighWord.Bits.Type & 0xf) >> 1)
 	{
 	case 0:
-          puts_filtered ("Data (Read-Only, Exp-up");
-          break;
+	  puts_filtered ("Data (Read-Only, Exp-up");
+	  break;
 	case 1:
-          puts_filtered ("Data (Read/Write, Exp-up");
-          break;
+	  puts_filtered ("Data (Read/Write, Exp-up");
+	  break;
 	case 2:
-          puts_filtered ("Unused segment (");
-          break;
+	  puts_filtered ("Unused segment (");
+	  break;
 	case 3:
-          puts_filtered ("Data (Read/Write, Exp-down");
-          break;
+	  puts_filtered ("Data (Read/Write, Exp-down");
+	  break;
 	case 4:
-          puts_filtered ("Code (Exec-Only, N.Conf");
-          break;
+	  puts_filtered ("Code (Exec-Only, N.Conf");
+	  break;
 	case 5:
-          puts_filtered ("Code (Exec/Read, N.Conf");
+	  puts_filtered ("Code (Exec/Read, N.Conf");
 	  break;
 	case 6:
-          puts_filtered ("Code (Exec-Only, Conf");
+	  puts_filtered ("Code (Exec-Only, Conf");
 	  break;
 	case 7:
-          puts_filtered ("Code (Exec/Read, Conf");
+	  puts_filtered ("Code (Exec/Read, Conf");
 	  break;
 	default:
 	  printf_filtered ("Unknown type 0x%x",info.HighWord.Bits.Type);
 	}
       if ((info.HighWord.Bits.Type & 0x1) == 0)
-        puts_filtered(", N.Acc");
+	puts_filtered(", N.Acc");
       puts_filtered (")\n");
       if ((info.HighWord.Bits.Type & 0x10) == 0)
 	puts_filtered("System selector ");
       printf_filtered ("Priviledge level = %d. ", info.HighWord.Bits.Dpl);
       if (info.HighWord.Bits.Granularity)
-        puts_filtered ("Page granular.\n");
+	puts_filtered ("Page granular.\n");
       else
 	puts_filtered ("Byte granular.\n");
       return 1;
@@ -926,22 +1025,22 @@ display_selectors (char * args, int from_tty)
 
       puts_filtered ("Selector $cs\n");
       display_selector (current_thread->h,
-        current_thread->context.SegCs);
+	current_thread->context.SegCs);
       puts_filtered ("Selector $ds\n");
       display_selector (current_thread->h,
-        current_thread->context.SegDs);
+	current_thread->context.SegDs);
       puts_filtered ("Selector $es\n");
       display_selector (current_thread->h,
-        current_thread->context.SegEs);
+	current_thread->context.SegEs);
       puts_filtered ("Selector $ss\n");
       display_selector (current_thread->h,
-        current_thread->context.SegSs);
+	current_thread->context.SegSs);
       puts_filtered ("Selector $fs\n");
       display_selector (current_thread->h,
 	current_thread->context.SegFs);
       puts_filtered ("Selector $gs\n");
       display_selector (current_thread->h,
-        current_thread->context.SegGs);
+	current_thread->context.SegGs);
     }
   else
     {
@@ -1095,7 +1194,7 @@ child_continue (DWORD continue_status, int id)
 	  th->suspend_count = 0;
 	  if (debug_registers_changed)
 	    {
-	      /* Only change the value of the debug reisters */
+	      /* Only change the value of the debug registers */
 	      th->context.ContextFlags = CONTEXT_DEBUG_REGISTERS;
 	      th->context.Dr0 = dr[0];
 	      th->context.Dr1 = dr[1];
@@ -1113,6 +1212,19 @@ child_continue (DWORD continue_status, int id)
   return res;
 }
 
+/* Called in pathological case where Windows fails to send a
+   CREATE_PROCESS_DEBUG_EVENT after an attach.  */
+DWORD
+fake_create_process (void)
+{
+  current_process_handle = OpenProcess (PROCESS_ALL_ACCESS, FALSE,
+					current_event.dwProcessId);
+  main_thread_id = current_event.dwThreadId;
+  current_thread = child_add_thread (main_thread_id,
+				     current_event.u.CreateThread.hThread);
+  return main_thread_id;
+}
+
 /* Get the next event from the child.  Return 1 if the event requires
    handling by WFI (or whatever).
  */
@@ -1121,7 +1233,7 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
 {
   BOOL debug_event;
   DWORD continue_status, event_code;
-  thread_info *th = NULL;
+  thread_info *th;
   static thread_info dummy_thread_info;
   int retval = 0;
 
@@ -1135,6 +1247,7 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
 
   event_code = current_event.dwDebugEventCode;
   ourstatus->kind = TARGET_WAITKIND_SPURIOUS;
+  th = NULL;
 
   switch (event_code)
     {
@@ -1144,7 +1257,17 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
 		     (unsigned) current_event.dwThreadId,
 		     "CREATE_THREAD_DEBUG_EVENT"));
       if (saw_create != 1)
-	break;
+	{
+	  if (!saw_create && attach_flag)
+	    {
+	      /* Kludge around a Windows bug where first event is a create
+		 thread event.  Caused when attached process does not have
+		 a main thread. */
+	      retval = ourstatus->value.related_pid = fake_create_process ();
+	      saw_create++;
+	    }
+	  break;
+	}
       /* Record the existence of this thread */
       th = child_add_thread (current_event.dwThreadId,
 			     current_event.u.CreateThread.hThread);
@@ -1160,10 +1283,11 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
 		     (unsigned) current_event.dwProcessId,
 		     (unsigned) current_event.dwThreadId,
 		     "EXIT_THREAD_DEBUG_EVENT"));
-      if (saw_create != 1)
-	break;
-      child_delete_thread (current_event.dwThreadId);
-      th = &dummy_thread_info;
+      if (current_event.dwThreadId != main_thread_id)
+	{
+	  child_delete_thread (current_event.dwThreadId);
+	  th = &dummy_thread_info;
+	}
       break;
 
     case CREATE_PROCESS_DEBUG_EVENT:
@@ -1179,12 +1303,10 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
 	}
 
       current_process_handle = current_event.u.CreateProcessInfo.hProcess;
+      if (main_thread_id)
+	child_delete_thread (main_thread_id);
       main_thread_id = current_event.dwThreadId;
       /* Add the main thread */
-#if 0
-      th = child_add_thread (current_event.dwProcessId,
-			     current_event.u.CreateProcessInfo.hProcess);
-#endif
       th = child_add_thread (main_thread_id,
 			     current_event.u.CreateProcessInfo.hThread);
       retval = ourstatus->value.related_pid = current_event.dwThreadId;
@@ -1269,8 +1391,8 @@ get_child_debug_event (int pid, struct target_waitstatus *ourstatus)
     CHECK (child_continue (continue_status, -1));
   else
     {
-      current_thread = th ? : thread_rec (current_event.dwThreadId, TRUE);
       inferior_ptid = pid_to_ptid (retval);
+      current_thread = th ?: thread_rec (current_event.dwThreadId, TRUE);
     }
 
 out:
@@ -1411,12 +1533,12 @@ set_process_privilege (const char *privilege, BOOL enable)
 	AdjustTokenPrivileges = GetProcAddress (advapi32,
 						"AdjustTokenPrivileges");
       if (!OpenProcessToken || !LookupPrivilegeValue || !AdjustTokenPrivileges)
-        {
+	{
 	  advapi32 = NULL;
 	  goto out;
 	}
     }
-  
+
   if (!OpenProcessToken (GetCurrentProcess (),
 			 TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
 			 &token_hdl))
@@ -1430,7 +1552,7 @@ set_process_privilege (const char *privilege, BOOL enable)
   new_priv.Privileges[0].Attributes = enable ? SE_PRIVILEGE_ENABLED : 0;
 
   if (!AdjustTokenPrivileges (token_hdl, FALSE, &new_priv,
-                              sizeof orig_priv, &orig_priv, &size))
+			      sizeof orig_priv, &orig_priv, &size))
     goto out;
 #if 0
   /* Disabled, otherwise every `attach' in an unprivileged user session
@@ -1467,18 +1589,27 @@ child_attach (char *args, int from_tty)
       printf_unfiltered ("This can cause attach to fail on Windows NT/2K/XP\n");
     }
 
-  pid = strtoul (args, 0, 0);
+  pid = strtoul (args, 0, 0);		/* Windows pid */
+
   ok = DebugActiveProcess (pid);
   saw_create = 0;
 
   if (!ok)
-    error ("Can't attach to process.");
+    {
+      /* Try fall back to Cygwin pid */
+      pid = cygwin_internal (CW_CYGWIN_PID_TO_WINPID, pid);
+
+      if (pid > 0)
+	ok = DebugActiveProcess (pid);
+
+      if (!ok)
+	error ("Can't attach to process.");
+    }
 
   if (has_detach_ability ())
-    {
-      attach_flag = 1;
-      DebugSetProcessKillOnExit (FALSE);
-    }
+    DebugSetProcessKillOnExit (FALSE);
+
+  attach_flag = 1;
 
   if (from_tty)
     {
@@ -1537,7 +1668,6 @@ child_files_info (struct target_ops *ignore)
       attach_flag ? "attached" : "child", target_pid_to_str (inferior_ptid));
 }
 
-/* ARGSUSED */
 static void
 child_open (char *arg, int from_tty)
 {
@@ -1600,6 +1730,8 @@ child_create_inferior (char *exec_file, char *allargs, char **env)
 
   if (new_console)
     flags |= CREATE_NEW_CONSOLE;
+
+  attach_flag = 0;
 
   args = alloca (strlen (toexec) + strlen (allargs) + 2);
   strcpy (args, toexec);
@@ -1763,21 +1895,23 @@ child_xfer_memory (CORE_ADDR memaddr, char *our, int len,
 		   int write, struct mem_attrib *mem,
 		   struct target_ops *target)
 {
-  DWORD done;
+  DWORD done = 0;
   if (write)
     {
       DEBUG_MEM (("gdb: write target memory, %d bytes at 0x%08lx\n",
 		  len, (DWORD) memaddr));
-      WriteProcessMemory (current_process_handle, (LPVOID) memaddr, our,
-			  len, &done);
+      if (!WriteProcessMemory (current_process_handle, (LPVOID) memaddr, our,
+			       len, &done))
+	done = 0;
       FlushInstructionCache (current_process_handle, (LPCVOID) memaddr, len);
     }
   else
     {
       DEBUG_MEM (("gdb: read target memory, %d bytes at 0x%08lx\n",
 		  len, (DWORD) memaddr));
-      ReadProcessMemory (current_process_handle, (LPCVOID) memaddr, our, len,
-			 &done);
+      if (!ReadProcessMemory (current_process_handle, (LPCVOID) memaddr, our,
+			      len, &done))
+	done = 0;
     }
   return done;
 }
@@ -1800,7 +1934,8 @@ child_kill_inferior (void)
   CHECK (CloseHandle (current_process_handle));
 
   /* this may fail in an attached process so don't check. */
-  (void) CloseHandle (current_thread->h);
+  if (current_thread && current_thread->h)
+    (void) CloseHandle (current_thread->h);
   target_mourn_inferior ();	/* or just child_mourn_inferior? */
 }
 
@@ -1864,16 +1999,16 @@ child_resume (ptid_t ptid, int step, enum target_signal sig)
 
       if (th->context.ContextFlags)
 	{
-     if (debug_registers_changed)
-       {
-	  th->context.Dr0 = dr[0];
-	  th->context.Dr1 = dr[1];
-	  th->context.Dr2 = dr[2];
-	  th->context.Dr3 = dr[3];
-	  /* th->context.Dr6 = dr[6];
-	   FIXME: should we set dr6 also ?? */
-	  th->context.Dr7 = dr[7];
-       }
+	  if (debug_registers_changed)
+	    {
+	      th->context.Dr0 = dr[0];
+	      th->context.Dr1 = dr[1];
+	      th->context.Dr2 = dr[2];
+	      th->context.Dr3 = dr[3];
+	      /* th->context.Dr6 = dr[6];
+	       FIXME: should we set dr6 also ?? */
+	      th->context.Dr7 = dr[7];
+	    }
 	  CHECK (SetThreadContext (th->h, &th->context));
 	  th->context.ContextFlags = 0;
 	}
@@ -2006,11 +2141,11 @@ _initialize_win32_nat (void)
   add_info_alias ("sharedlibrary", "dll", 1);
 
   add_prefix_cmd ("w32", class_info, info_w32_command,
-                  "Print information specific to Win32 debugging.",
-                  &info_w32_cmdlist, "info w32 ", 0, &infolist);
+		  "Print information specific to Win32 debugging.",
+		  &info_w32_cmdlist, "info w32 ", 0, &infolist);
 
   add_cmd ("selector", class_info, display_selectors,
-           "Display selectors infos.",
+	   "Display selectors infos.",
 	   &info_w32_cmdlist);
 
   add_target (&child_ops);
@@ -2051,7 +2186,6 @@ cygwin_get_dr6 (void)
 {
   return dr[6];
 }
-
 
 /* Determine if the thread referenced by "pid" is alive
    by "polling" it.  If WaitForSingleObject returns WAIT_OBJECT_0
@@ -2104,66 +2238,65 @@ core_dll_symbols_add (char *dll_name, DWORD base_addr)
       }
   }
 
-  register_loaded_dll (dll_name, base_addr + 0x1000);
-  solib_symbols_add (dll_name, 0, (CORE_ADDR) base_addr + 0x1000);
+    register_loaded_dll (dll_name, base_addr + 0x1000);
+    solib_symbols_add (dll_name, 0, (CORE_ADDR) base_addr + 0x1000);
 
-out:
-  return 1;
-}
+  out:
+    return 1;
+  }
 
-typedef struct
-{
-  struct target_ops *target;
-  bfd_vma addr;
-}
-map_code_section_args;
+  typedef struct
+  {
+    struct target_ops *target;
+    bfd_vma addr;
+  } map_code_section_args;
 
-static void
-map_single_dll_code_section (bfd * abfd, asection * sect, void *obj)
-{
-  int old;
-  int update_coreops;
-  struct section_table *new_target_sect_ptr;
+  static void
+  map_single_dll_code_section (bfd * abfd, asection * sect, void *obj)
+  {
+    int old;
+    int update_coreops;
+    struct section_table *new_target_sect_ptr;
 
-  map_code_section_args *args = (map_code_section_args *) obj;
-  struct target_ops *target = args->target;
-  if (sect->flags & SEC_CODE)
-    {
-      update_coreops = core_ops.to_sections == target->to_sections;
+    map_code_section_args *args = (map_code_section_args *) obj;
+    struct target_ops *target = args->target;
+    if (sect->flags & SEC_CODE)
+      {
+	update_coreops = core_ops.to_sections == target->to_sections;
 
-      if (target->to_sections)
-	{
-	  old = target->to_sections_end - target->to_sections;
-	  target->to_sections = (struct section_table *)
-	    xrealloc ((char *) target->to_sections,
-		      (sizeof (struct section_table)) * (1 + old));
-	}
-      else
-	{
-	  old = 0;
-	  target->to_sections = (struct section_table *)
-	    xmalloc ((sizeof (struct section_table)));
-	}
-      target->to_sections_end = target->to_sections + (1 + old);
+	if (target->to_sections)
+	  {
+	    old = target->to_sections_end - target->to_sections;
+	    target->to_sections = (struct section_table *)
+	      xrealloc ((char *) target->to_sections,
+			(sizeof (struct section_table)) * (1 + old));
+	  }
+	else
+	  {
+	    old = 0;
+	    target->to_sections = (struct section_table *)
+	      xmalloc ((sizeof (struct section_table)));
+	  }
+	target->to_sections_end = target->to_sections + (1 + old);
 
-      /* Update the to_sections field in the core_ops structure
-	 if needed.  */
-      if (update_coreops)
-	{
-	  core_ops.to_sections = target->to_sections;
-	  core_ops.to_sections_end = target->to_sections_end;
-	}
-      new_target_sect_ptr = target->to_sections + old;
-      new_target_sect_ptr->addr = args->addr + bfd_section_vma (abfd, sect);
-      new_target_sect_ptr->endaddr = args->addr + bfd_section_vma (abfd, sect) +
-	bfd_section_size (abfd, sect);;
-      new_target_sect_ptr->the_bfd_section = sect;
-      new_target_sect_ptr->bfd = abfd;
-    }
-}
+	/* Update the to_sections field in the core_ops structure
+	   if needed.  */
+	if (update_coreops)
+	  {
+	    core_ops.to_sections = target->to_sections;
+	    core_ops.to_sections_end = target->to_sections_end;
+	  }
+	new_target_sect_ptr = target->to_sections + old;
+	new_target_sect_ptr->addr = args->addr + bfd_section_vma (abfd, sect);
+	new_target_sect_ptr->endaddr = args->addr + bfd_section_vma (abfd, sect) +
+	  bfd_section_size (abfd, sect);;
+	new_target_sect_ptr->the_bfd_section = sect;
+	new_target_sect_ptr->bfd = abfd;
+      }
+  }
 
-static int
-dll_code_sections_add (const char *dll_name, int base_addr, struct target_ops *target)
+  static int
+  dll_code_sections_add (const char *dll_name, int base_addr, struct target_ops *target)
 {
   bfd *dll_bfd;
   map_code_section_args map_args;

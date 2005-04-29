@@ -1,70 +1,54 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       curl_free  - reclaim memory that has been obtained through
-       a libcurl call
+<html><head>
+<title>curl_free man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>SYNOPSIS</H2><PRE>
-       <B>#include</B> <B>&lt;curl/curl.h&gt;</B>
+P.level2 {
+ padding-left: 6em;
+}
 
-       <B>void</B> <B>*curl_free(</B> <B>char</B> <B>*</B><I>ptr</I> <B>);</B>
+span.emphasis {
+ font-style: italic;
+}
 
+span.bold {
+ font-weight: bold;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       curl_free reclaims memory that has been obtained through a
-       libcurl  call.  Use curl_free() instead of free() to avoid
-       anomalies that can result from differences in memory  man-
-       agement between your application and libcurl.
+span.manpage {
+ font-weight: bold;
+}
 
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-</PRE>
-<H2>SEE ALSO</H2><PRE>
-       <I>curl</I><B>_</B><I>unescape(),</I> <I>curl</I><B>_</B><I>free()</I>
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">curl_free - reclaim memory that has been obtained through a libcurl call <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0"><span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<p class="level0"><span Class="bold">void curl_free( char * ptr  );</span> 
+<p class="level0"><a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">curl_free reclaims memory that has been obtained through a libcurl call.  Use curl_free() instead of free() to avoid anomalies that can result from differences in memory management between your application and libcurl. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a class="emphasis" href="./curl_unescape.html">curl_unescape(3)</a> <p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

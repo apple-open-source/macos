@@ -1,0 +1,50 @@
+--- mbstowcs.3.orig	Fri Mar 11 19:44:47 2005
++++ mbstowcs.3	Fri Mar 11 20:01:09 2005
+@@ -41,7 +41,8 @@
+ .Dt MBSTOWCS 3
+ .Os
+ .Sh NAME
+-.Nm mbstowcs
++.Nm mbstowcs ,
++.Nm mbstowcs_l
+ .Nd convert a character string to a wide-character string
+ .Sh LIBRARY
+ .Lb libc
+@@ -52,6 +53,12 @@
+ .Fa "wchar_t * restrict wcstring" "const char * restrict mbstring"
+ .Fa "size_t nwchars"
+ .Fc
++.In xlocale.h
++.Ft size_t
++.Fo mbstowcs_l
++.Fa "wchar_t * restrict wcstring" "const char * restrict mbstring"
++.Fa "size_t nwchars" "locale_t loc"
++.Fc
+ .Sh DESCRIPTION
+ The
+ .Fn mbstowcs
+@@ -64,6 +71,14 @@
+ .Fa nwchars
+ wide characters are stored.
+ A terminating null wide character is appended if there is room.
++.Pp
++While the
++.Fn mbstowcs
++function uses the current locale, the
++.Fn mbstowcs_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn mbstowcs
+@@ -83,7 +98,8 @@
+ .Sh SEE ALSO
+ .Xr mbsrtowcs 3 ,
+ .Xr mbtowc 3 ,
+-.Xr multibyte 3
++.Xr multibyte 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn mbstowcs

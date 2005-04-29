@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2001, International Business Machines
+*   Copyright (C) 1999-2003, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************/
@@ -43,6 +43,33 @@ typedef struct  {
     UDataInfo   info;
 } DataHeader;
 
+typedef struct {
+    uint32_t nameOffset;
+    uint32_t dataOffset;
+} UDataOffsetTOCEntry;
+
+typedef struct {
+    uint32_t count;
+    UDataOffsetTOCEntry entry[2];    /* Actual size of array is from count. */
+} UDataOffsetTOC;
+
+/**
+ * Get the header size from a const DataHeader *udh.
+ * Handles opposite-endian data.
+ *
+ * @internal
+ */
+U_CFUNC uint16_t
+udata_getHeaderSize(const DataHeader *udh);
+
+/**
+ * Get the UDataInfo.size from a const UDataInfo *info.
+ * Handles opposite-endian data.
+ *
+ * @internal
+ */
+U_CFUNC uint16_t
+udata_getInfoSize(const UDataInfo *info);
 
 /*
  *  "Virtual" functions for data lookup.
@@ -54,6 +81,7 @@ typedef struct  {
 typedef const DataHeader *
 (* LookupFn)(const UDataMemory *pData,
              const char *tocEntryName,
+             int32_t *pLength,
              UErrorCode *pErrorCode);
 
 typedef uint32_t

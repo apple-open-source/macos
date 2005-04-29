@@ -179,6 +179,16 @@ static void objc_build_extract_fragment		PARAMS ((void));
 static tree objc_build_extract_expr		PARAMS ((void));
 /* APPLE LOCAL end Panther ObjC enhancements */
 
+/* APPLE LOCAL begin XJR */
+static tree objc_substitute_decl		PARAMS ((tree, tree, tree));
+static tree objc_build_ivar_assignment		PARAMS ((tree, tree, tree));
+static tree objc_build_global_assignment	PARAMS ((tree, tree));
+static tree objc_build_strong_cast_assignment	PARAMS ((tree, tree));
+static int objc_is_gcable_p			PARAMS ((tree));
+static int objc_is_ivar_reference_p		PARAMS ((tree));
+static int objc_is_global_reference_p		PARAMS ((tree));
+/* APPLE LOCAL end XJR */
+
 static tree build_ivar_template			PARAMS ((void));
 static tree build_method_template		PARAMS ((void));
 static tree build_private_template		PARAMS ((tree));
@@ -407,6 +417,29 @@ static const char *TAG_MSGSENDSUPER_STRET;
 /* APPLE LOCAL end objc stret methods */
 static const char *TAG_EXECCLASS;
 static const char *default_constant_string_class_name;
+
+/* APPLE LOCAL begin XJR */
+#define CLS_ISAUTO			0x1000L
+#define CLS_EXTENDED			0x2000L
+#define TAG_ASSIGNIVAR			"objc_assign_ivar"
+#define TAG_ASSIGNGLOBAL		"objc_assign_global"
+#define TAG_ASSIGNSTRONGCAST		"objc_assign_strongCast"
+
+/* Branch entry points.  All that matters here are the addresses;
+   functions with these names do not really exist in libobjc.  */
+
+#define TAG_MSGSEND_FAST		"objc_msgSend_Fast"
+#define TAG_ASSIGNIVAR_FAST		"objc_assign_ivar_Fast"
+
+/* The following are set in stone.  */
+/* Stone melted per mail from Blaine Apr 6 2004.  */
+/* And again Apr 7, well lava is stone after all.  */
+/* And again Apr 8, getting into Loma Prieta territory here.  */
+
+#define OFFS_MSGSEND_FAST		0xFFFEFF00
+#define OFFS_ASSIGNIVAR_FAST		0xFFFEFEC0
+
+/* APPLE LOCAL end XJR */
 
 /* APPLE LOCAL begin Panther ObjC enhancements */
 #define CLS_FACTORY			0x0001L
@@ -1399,6 +1432,21 @@ synth_module_prologue ()
       umsg_decl = builtin_function (TAG_MSGSEND, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
       /* id objc_msgSendNonNil (id, SEL, ...); */
       umsg_nonnil_decl = builtin_function (TAG_MSGSEND_NONNIL, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+      /* APPLE LOCAL begin XJR */
+      /* id objc_msgSend_Fast (id, SEL, ...)
+	   __attribute__((hard_coded_address(OFFS_MSGSEND_FAST))); */
+#ifdef TARGET_POWERPC
+      umsg_fast_decl = builtin_function (TAG_MSGSEND_FAST, temp_type,
+      					 0, NOT_BUILT_IN, NULL, NULL_TREE);
+      DECL_ATTRIBUTES (umsg_fast_decl) 
+	= tree_cons (get_identifier ("hard_coded_address"), 
+				build_int_2 (OFFS_MSGSEND_FAST, -1),
+		     NULL_TREE);
+#else
+      /* Not needed on x86 (at least for now).  */
+      umsg_fast_decl = umsg_decl;
+#endif
+      /* APPLE LOCAL end XJR */
     }
     /* APPLE LOCAL end Panther ObjC enhancements */
 
@@ -1582,7 +1630,7 @@ check_string_class_template ()
   field_decl = TREE_CHAIN (field_decl);
   if (!AT_LEAST_AS_LARGE_AS (field_decl, ptr_type_node))
     return 0;
-  
+    
   field_decl = TREE_CHAIN (field_decl);
   return AT_LEAST_AS_LARGE_AS (field_decl, unsigned_type_node);
   
@@ -2919,9 +2967,7 @@ objc_is_id (ident)
 {
   /* NB: This function may be called before the ObjC front-end
      has been initialized, in which case ID_TYPE will be NULL. */
-  return (id_type && ident && TYPE_P (ident)
-	  && (IS_ID (ident)
-	      || TREE_TYPE (ident) == TREE_TYPE (objc_class_type)) 
+  return (id_type && ident && (IS_ID (ident) || IS_CLASS (ident))
 	  ? ident 
 	  : NULL_TREE);
 }
@@ -3111,6 +3157,271 @@ objc_declare_variable (scspec, name, type, init)
   flag_suppress_builtin_indexing = 0;
   return decl;
 }
+
+/* APPLE LOCAL begin XJR */
+int
+objc_is_object_ptr_type (type, or_strong_p)
+     tree type;
+     int or_strong_p;
+{
+  tree name; 
+
+  if (!TYPE_P (type))
+    return 0;
+  if (objc_is_id (TYPE_MAIN_VARIANT (type)))
+    return 1;
+  if (or_strong_p && lookup_attribute ("objc_gc", TYPE_ATTRIBUTES (type)))
+    return 1;
+  if (TREE_CODE (type) != POINTER_TYPE && TREE_CODE (type) != INDIRECT_REF)
+    return 0;
+  type = TREE_TYPE (type);
+  if (TREE_CODE (type) != RECORD_TYPE)
+    return 0;
+  name = TYPE_NAME (type);
+  return (is_class_name (name) != NULL_TREE);
+}
+
+static tree
+objc_substitute_decl (expr, oldexpr, newexpr)
+     tree expr, oldexpr, newexpr;
+{
+  if (expr == oldexpr)
+    return newexpr;
+
+  switch (TREE_CODE (expr))
+    {
+    case COMPONENT_REF:
+      return build_component_ref (objc_substitute_decl (TREE_OPERAND (expr, 0),
+							oldexpr,
+							newexpr),
+				  DECL_NAME
+				  (objc_substitute_decl (TREE_OPERAND (expr, 1),
+							 oldexpr,
+							 newexpr)));
+    case ARRAY_REF:
+      return build_array_ref (objc_substitute_decl (TREE_OPERAND (expr, 0),
+						    oldexpr,
+						    newexpr),
+			      objc_substitute_decl (TREE_OPERAND (expr, 1),
+						    oldexpr,
+						    newexpr));
+    case INDIRECT_REF:
+      return build_indirect_ref (objc_substitute_decl (TREE_OPERAND (expr, 0),
+						       oldexpr,
+						       newexpr), "->");
+    default:
+      return expr;
+    }
+}
+
+static tree
+objc_build_ivar_assignment (outervar, lhs, rhs)
+     tree outervar, lhs, rhs;
+{
+  tree func_params;
+  /* The LHS parameter contains the expression 'outervar->memberspec';
+     we need to transform it into '&((typeof(outervar) *) 0)->memberspec',
+     where memberspec may be arbitrarily complex (e.g., 'g->f.d[2].g[3]').
+  */
+  tree offs
+    = objc_substitute_decl
+      (lhs, outervar, build_c_cast (TREE_TYPE (outervar), integer_zero_node));
+  tree func
+    = (flag_objc_fast ? objc_assign_ivar_fast_decl : objc_assign_ivar_decl);
+
+  offs = build_c_cast (integer_type_node, build_unary_op (ADDR_EXPR, offs, 0));
+  offs = fold (offs);
+  func_params = tree_cons (NULL_TREE, 
+	build_c_cast (id_type, rhs),
+	    tree_cons (NULL_TREE, build_c_cast (id_type, outervar),
+		tree_cons (NULL_TREE, offs,
+		    NULL_TREE)));
+
+  assemble_external (func);
+  return build_function_call (func, func_params);
+}
+
+static tree
+objc_build_global_assignment (lhs, rhs)
+     tree lhs, rhs;
+{
+  tree func_params = tree_cons (NULL_TREE,
+	build_c_cast (id_type, rhs),
+	    tree_cons (NULL_TREE, build_c_cast (build_pointer_type (id_type),
+		      build_unary_op (ADDR_EXPR, lhs, 0)),
+		    NULL_TREE));
+
+  assemble_external (objc_assign_global_decl);
+  return build_function_call (objc_assign_global_decl, func_params);
+}
+
+static tree
+objc_build_strong_cast_assignment (lhs, rhs)
+     tree lhs, rhs;
+{
+  tree func_params = tree_cons (NULL_TREE,
+	build_c_cast (id_type, rhs),
+	    tree_cons (NULL_TREE, build_c_cast (build_pointer_type (id_type),
+		      build_unary_op (ADDR_EXPR, lhs, 0)), 
+		    NULL_TREE));
+
+  assemble_external (objc_assign_strong_cast_decl);
+  return build_function_call (objc_assign_strong_cast_decl, func_params);
+}
+
+static int
+objc_is_gcable_p (expr)
+     tree expr;
+{
+  return (TREE_CODE (expr) == COMPONENT_REF
+	  ? objc_is_gcable_p (TREE_OPERAND (expr, 1))
+	  : TREE_CODE (expr) == ARRAY_REF
+	  ? (objc_is_gcable_p (TREE_TYPE (expr))
+	     || objc_is_gcable_p (TREE_OPERAND (expr, 0)))
+	  : TREE_CODE (expr) == ARRAY_TYPE
+	  ? objc_is_gcable_p (TREE_TYPE (expr))
+	  : TYPE_P (expr)
+	  ? objc_is_object_ptr_type (expr, 1)
+	  : (objc_is_gcable_p (TREE_TYPE (expr))
+	     || (DECL_P (expr)
+		 && lookup_attribute ("objc_gc", DECL_ATTRIBUTES (expr)))));
+}
+
+static int
+objc_is_ivar_reference_p (expr)
+     tree expr;
+{
+  return (TREE_CODE (expr) == ARRAY_REF
+	  ? objc_is_ivar_reference_p (TREE_OPERAND (expr, 0))
+	  : TREE_CODE (expr) == COMPONENT_REF
+	  ? TREE_CODE (TREE_OPERAND (expr, 1)) == FIELD_DECL
+	  : 0);
+}
+
+static int
+objc_is_global_reference_p (expr)
+     tree expr;
+{
+  return (TREE_CODE (expr) == INDIRECT_REF || TREE_CODE (expr) == PLUS_EXPR
+	  ? objc_is_global_reference_p (TREE_OPERAND (expr, 0))
+	  : DECL_P (expr)
+	  ? (!DECL_CONTEXT (expr) || TREE_STATIC (expr))
+	  : 0);
+}
+
+tree
+objc_generate_write_barrier (lhs, modifycode, rhs)
+     tree lhs, rhs;
+     enum tree_code modifycode;
+{
+  tree result = NULL_TREE, outer, lhstype = TREE_TYPE (lhs);
+  int strong_cast_p = 0, outer_gc_p, indirect_p = 0;
+
+  /* See if we have any lhs casts, and strip them out.  */
+  while (TREE_CODE (lhs) == CONVERT_EXPR || TREE_CODE (lhs) == NOP_EXPR
+	 || TREE_CODE (lhs) == NON_LVALUE_EXPR)
+    {
+      strong_cast_p
+	|= (lookup_attribute ("objc_gc", TYPE_ATTRIBUTES (lhstype))
+	    != NULL_TREE);
+      lhs = TREE_OPERAND (lhs, 0);
+      lhstype = TREE_TYPE (lhs);
+    }
+
+  /* If we have a __strong cast, it trumps all else.  */
+  if (strong_cast_p)
+    {
+      if (modifycode != NOP_EXPR)
+        goto invalid_pointer_arithmetic;
+
+      if (warn_assign_intercept)
+	warning ("strong-cast assignment has been intercepted");
+
+      result = objc_build_strong_cast_assignment (lhs, rhs);
+
+      goto exit_point;
+    }
+
+  /* the lhs must be of a suitable type, regardless of its underlying
+     structure.  */
+  if (!objc_is_gcable_p (lhs))
+    goto exit_point;
+
+  outer = lhs;
+
+  while (outer
+	 && (TREE_CODE (outer) == COMPONENT_REF
+	     || TREE_CODE (outer) == ARRAY_REF))
+    outer = TREE_OPERAND (outer, 0);
+
+  if (TREE_CODE (outer) == INDIRECT_REF)
+    {
+      outer = TREE_OPERAND (outer, 0);
+      indirect_p = 1;
+    }
+
+  outer_gc_p = objc_is_gcable_p (outer);
+  
+  /* Handle ivar assignments. */
+  if (objc_is_ivar_reference_p (lhs))
+    {
+      /* if the struct to the left of the ivar is not an Objective-C object (__strong
+	 doesn't cut it here), the best we can do here is suggest a cast.  */
+      if (!objc_is_object_ptr_type (TREE_TYPE (outer), 0))
+	{
+	  /* We may still be able to use the global write barrier... */
+	  if (!indirect_p && objc_is_global_reference_p (outer))
+	    goto global_reference;
+
+	 suggest_cast:
+	  if (modifycode == NOP_EXPR)
+	    {
+	      if (warn_assign_intercept)
+		warning ("strong-cast may possibly be needed");
+	    }
+
+	  goto exit_point;
+	}
+
+      if (modifycode != NOP_EXPR)
+        goto invalid_pointer_arithmetic;
+
+      if (warn_assign_intercept)
+	warning ("instance variable assignment has been intercepted");
+
+      result = objc_build_ivar_assignment (outer, lhs, rhs);
+
+      goto exit_point;
+    }
+
+  /* Likewise, intercept assignment to global/static variables if their type is
+     GC-marked.  */    
+  if (objc_is_global_reference_p (outer))
+    {
+      if (indirect_p)
+	goto suggest_cast;
+
+     global_reference:
+      if (modifycode != NOP_EXPR)
+	{
+	 invalid_pointer_arithmetic:
+	  if (outer_gc_p)
+	    warning ("pointer arithmetic for garbage-collected objects not allowed");
+
+	  goto exit_point;
+	}
+
+      if (warn_assign_intercept)
+	warning ("global/static variable assignment has been intercepted");
+
+      result = objc_build_global_assignment (lhs, rhs);
+    }
+
+  /* In all other cases, fall back to the normal mechanism.  */
+ exit_point:
+  return result;
+}
+/* APPLE LOCAL end XJR */
 
 tree 
 objc_build_throw_stmt (throw_expr)
@@ -3673,6 +3984,41 @@ build_objc_exception_stuff ()
   chainon (field_decl_chain, field_decl);
 
   finish_struct (objc_exception_data_template, field_decl_chain, NULL_TREE);
+
+  /* APPLE LOCAL begin XJR */
+  /* id objc_assign_ivar (id, id, unsigned int); */
+  /* id objc_assign_ivar_Fast (id, id, unsigned int)
+       __attribute__((hard_coded_address(OFFS_ASSIGNIVAR_FAST))); */
+  temp_type = build_function_type (id_type,
+		tree_cons (NULL_TREE, id_type,
+		    tree_cons (NULL_TREE, id_type,
+			tree_cons (NULL_TREE, unsigned_type_node,
+                            OBJC_VOID_AT_END))));
+  objc_assign_ivar_decl
+	= builtin_function (TAG_ASSIGNIVAR, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+#ifdef TARGET_POWERPC
+  objc_assign_ivar_fast_decl
+	= builtin_function (TAG_ASSIGNIVAR_FAST, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+  DECL_ATTRIBUTES (objc_assign_ivar_fast_decl) 
+	= tree_cons (get_identifier ("hard_coded_address"), 
+				build_int_2 (OFFS_ASSIGNIVAR_FAST, -1),
+		     NULL_TREE);
+#else
+  /* Not needed on x86 (at least for now).  */
+  objc_assign_ivar_fast_decl = objc_assign_ivar_decl;
+#endif
+
+  /* id objc_assign_global (id, id *); */
+  /* id objc_assign_strongCast (id, id *); */
+  temp_type = build_function_type (id_type,
+		tree_cons (NULL_TREE, id_type,
+		    tree_cons (NULL_TREE, build_pointer_type (id_type),
+			OBJC_VOID_AT_END)));
+  objc_assign_global_decl
+	= builtin_function (TAG_ASSIGNGLOBAL, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+  objc_assign_strong_cast_decl
+	= builtin_function (TAG_ASSIGNSTRONGCAST, temp_type, 0, NOT_BUILT_IN, NULL, NULL_TREE);
+  /* APPLE LOCAL end XJR */
 
   /* int _setjmp(...); */
   /* If the user includes <setjmp.h>, this shall be superceded by
@@ -5699,7 +6045,8 @@ generate_shared_structures ()
        convert (integer_type_node,
 		TYPE_SIZE_UNIT (CLASS_STATIC_TEMPLATE
 				(implementation_template))),
-       1 /*CLS_FACTORY*/,
+       /* APPLE LOCAL XJR */
+       CLS_FACTORY | (CLASS_USES_GC (implementation_template) ? CLS_ISAUTO : 0),
        UOBJC_INSTANCE_METHODS_decl,
        UOBJC_INSTANCE_VARIABLES_decl,
        protocol_decl);
@@ -6299,8 +6646,17 @@ finish_message_expr (receiver, sel_name, method_params)
 	}
       else
 	{
+#ifdef OBJCPLUS
+	  /* In Objective-C++, the receiver could be a C++ class that
+	     defines an 'operator id(void)' or some such.  So, as a last-
+	     ditch effort, we attempt to convert the receiver to 'id'.
+	     If this is not possible, the convert machinery will issue
+	     the appropriate diagnostic.  */
+	  receiver = convert (id_type, receiver);
+#else
 	  warning ("invalid receiver type `%s'",
-		   gen_declaration (orig_rtype, errbuf));   
+		   gen_declaration (orig_rtype, errbuf));
+#endif
 	  rtype = NULL_TREE;
 	  method_prototype = lookup_method_in_hash_lists (sel_name);
 	}
@@ -6360,7 +6716,11 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
      tree method_prototype, lookup_object, selector, method_params;
 {
   tree sender = (super_flag ? umsg_super_decl :
-		 flag_nil_receivers ? umsg_decl : umsg_nonnil_decl);
+		 /* APPLE LOCAL begin XJR */
+		 flag_nil_receivers
+		 ? (flag_objc_fast ? umsg_fast_decl : umsg_decl)
+		 : umsg_nonnil_decl);
+		 /* APPLE LOCAL end XJR */
   tree rcv_p = (super_flag ? super_type	: id_type);
   tree object = (super_flag ? self_decl : lookup_object);
   /* APPLE LOCAL end Panther ObjC enhancements */
@@ -6416,9 +6776,10 @@ build_objc_method_call (super_flag, method_prototype, lookup_object,
       /* APPLE LOCAL begin Panther ObjC enhancements */
       method_params = tree_cons (NULL_TREE, 
 				 build_c_cast (rcv_p, lookup_object),
-				 /* APPLE LOCAL end Panther ObjC enhancements */
 				 tree_cons (NULL_TREE, selector,
 					    method_params));
+      TREE_USED (sender) = 1;
+      /* APPLE LOCAL end Panther ObjC enhancements */
       assemble_external (sender);
       /* We want to cast the sender, not convert it.  */
       return build_function_call 
@@ -7030,9 +7391,12 @@ add_category (class, category)
    PUBLIC is 1 for public, 0 for protected, and 2 for private.  */
 
 tree
-add_instance_variable (class, public, declarator, declspecs, width)
+/* APPLE LOCAL XJR */
+add_instance_variable (class, public, attributes, declarator, declspecs, width)
      tree class;
      int public;
+     /* APPLE LOCAL XJR */
+     tree attributes;
      tree declarator;
      tree declspecs;
      tree width;
@@ -7042,8 +7406,17 @@ add_instance_variable (class, public, declarator, declspecs, width)
   const char *ivar_name;
   /* APPLE LOCAL end type size */
 
+  /* APPLE LOCAL begin XJR */
+#ifdef OBJCPLUS
+  split_specs_attrs (declspecs, &declspecs, &attributes);
+#endif
+  /* APPLE LOCAL end XJR */
+
   field_decl = grokfield (input_filename, lineno,
 			  declarator, declspecs, width);
+
+  /* APPLE LOCAL XJR */
+  DECL_ATTRIBUTES (field_decl) = attributes;
 
   /* APPLE LOCAL begin type size */
   field_type = TREE_TYPE (field_decl);
@@ -7490,6 +7863,19 @@ start_class (code, class_name, super_name, protocol_list)
 
   class = make_node (code);
   TYPE_BINFO (class) = make_tree_vec (6);
+
+  /* APPLE LOCAL begin XJR */
+  CLASS_USES_GC (class) = flag_objc_gc;
+  if (objc_storage_class)
+    {
+      if (objc_storage_class == ridpointers[(int) RID_AUTO])
+	CLASS_USES_GC (class) = 1;
+      else if (objc_storage_class == ridpointers[(int) RID_STATIC])
+	CLASS_USES_GC (class) = 0;
+      else
+	error ("Only `auto' or `static' allowed as @interface storage class");
+    }
+  /* APPLE LOCAL end XJR */
 
   CLASS_NAME (class) = class_name;
   CLASS_SUPER_NAME (class) = super_name;
@@ -9373,11 +9759,14 @@ gen_declspecs (declspecs, buf, raw)
 	  if (OBJC_TYPE_NAME (declspecs)
 	      && TREE_CODE (OBJC_TYPE_NAME (declspecs)) == IDENTIFIER_NODE)
 	    {
-	      /* APPLE LOCAL SPEC */
-	      tree protocol_list = type_protocol_list (declspecs);
+	      tree protocol_list = NULL_TREE;
 
-	      if (! TREE_STATIC_TEMPLATE (declspecs))
-		strcat (buf, "struct ");
+	      if (TREE_STATIC_TEMPLATE (declspecs))
+		/* APPLE LOCAL SPEC */
+		protocol_list = type_protocol_list (declspecs);
+	      else
+	        strcat (buf, "struct ");
+
 	      strcat (buf, IDENTIFIER_POINTER (OBJC_TYPE_NAME (declspecs)));
 	      /* APPLE LOCAL end type aliasing */
 
@@ -9882,10 +10271,10 @@ finish_objc ()
   if (protocol_chain)
     generate_protocols ();
 
-  /* APPLE LOCAL begin fix and continue */
-  if (flag_replace_objc_classes && imp_list)
+  /* APPLE LOCAL begin XJR */
+  if ((flag_replace_objc_classes && imp_list) || flag_objc_gc)
     generate_objc_image_info ();
-  /* APPLE LOCAL end fix and continue */
+  /* APPLE LOCAL end XJR */
   
   if (objc_implementation_context || class_names_chain || objc_static_instances
       || meth_var_names_chain || meth_var_types_chain || sel_ref_chain)
@@ -10095,14 +10484,17 @@ handle_impent (impent)
     }
 }
 
-/* APPLE LOCAL begin fix and continue */
+/* APPLE LOCAL begin XJR */
 
-/* static int _OBJC_IMAGE_INFO[2] = { 0, 1 }; */
+/* static int _OBJC_IMAGE_INFO[2] = { 0, flags }; */
 
 static void
 generate_objc_image_info ()
 {
   tree sc_spec, decl, initlist;
+  int flags
+    = ((flag_replace_objc_classes && imp_list ? 1 : 0)
+       | (flag_objc_gc ? 2 : 0));
 
   /* APPLE LOCAL indexing */
   flag_suppress_builtin_indexing = 1;
@@ -10113,13 +10505,13 @@ generate_objc_image_info ()
 		 tree_cons (NULL_TREE, 
 			    build_array_type 
 			    (integer_type_node, 
-			     build_index_type (build_int_2 (1, 0))), 
+			     build_index_type (build_int_2 (2 - 1, 0))),
 			    sc_spec),
 		 1,
 		 NULL_TREE);
 
   initlist = build_tree_list (NULL_TREE, build_int_2 (0, 0));
-  initlist = tree_cons (NULL_TREE, build_int_2 (1, 0), initlist);
+  initlist = tree_cons (NULL_TREE, build_int_2 (flags, 0), initlist);
   initlist = build_constructor (TREE_TYPE (decl), nreverse (initlist));
 
   TREE_USED (decl) = DECL_IGNORED_P (decl) = DECL_ARTIFICIAL (decl) = 1;
@@ -10128,7 +10520,7 @@ generate_objc_image_info ()
   /* APPLE LOCAL indexing */
   flag_suppress_builtin_indexing = 0;
 }
-/* APPLE LOCAL end fix and continue */
+/* APPLE LOCAL end XJR */
 
 
 /* Look up ID as an instance variable.  */

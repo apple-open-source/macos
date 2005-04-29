@@ -1,9 +1,16 @@
+/* $XFree86: xc/extras/Mesa/src/SPARC/norm.S,v 1.3 2003/12/02 20:27:34 dawes Exp $ */
 
 #include "sparc_matrix.h"
 
+#if defined(__sparc_v9__) && !defined(__linux__)
+#undef SPARC_64BIT_ADDR
+#define SPARC_64BIT_ADDR
+#endif
+
+
 	.text
 
-#ifdef __sparc_v9__
+#ifdef SPARC_64BIT_ADDR
 #define STACK_VAR_OFF	(2047 + (8 * 16))
 #else
 #define STACK_VAR_OFF	(4 * 16)

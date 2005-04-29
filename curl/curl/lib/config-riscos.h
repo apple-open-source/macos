@@ -36,7 +36,7 @@
 #undef NEED_REENTRANT
 
 /* Define if you have the Kerberos4 libraries (including -ldes) */
-#undef KRB4
+#undef HAVE_KRB4
 
 /* Define if you want to enable IPv6 support */
 #undef ENABLE_IPV6
@@ -52,9 +52,6 @@
 
 /* Define this to your Entropy Gathering Daemon socket pathname */
 #undef EGD_SOCKET
-
-/* Define if you have a working OpenSSL installation */
-#undef OPENSSL_ENABLED
 
 /* Set to explicitly specify we don't want to use thread-safe functions */
 #define DISABLED_THREADSAFE
@@ -286,6 +283,9 @@
 
 /* Define if you have the `strtok_r' function. */
 #undef HAVE_STRTOK_R
+
+/* Define if you have the `strtoll' function. */
+#undef HAVE_STRTOLL
 
 /* Define if you have the <sys/param.h> header file. */
 #undef HAVE_SYS_PARAM_H

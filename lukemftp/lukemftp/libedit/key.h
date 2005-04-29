@@ -1,4 +1,4 @@
-/*	$NetBSD: key.h,v 1.4 2000/09/04 22:06:30 lukem Exp $	*/
+/*	$NetBSD: key.h,v 1.6 2002/03/18 16:00:55 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -68,11 +68,12 @@ protected key_value_t	*key_map_cmd(EditLine *, int);
 protected key_value_t	*key_map_str(EditLine *, char *);
 protected void		 key_reset(EditLine *);
 protected int		 key_get(EditLine *, char *, key_value_t *);
-protected void		 key_add(EditLine *, char *, key_value_t *, int);
-protected void		 key_clear(EditLine *, el_action_t *, char *);
-protected int		 key_delete(EditLine *, char *);
-protected void		 key_print(EditLine *, char *);
-protected void	         key_kprint(EditLine *, char *, key_value_t *, int);
-protected char		*key__decode_str(char *, char *, char *);
+protected void		 key_add(EditLine *, const char *, key_value_t *, int);
+protected void		 key_clear(EditLine *, el_action_t *, const char *);
+protected int		 key_delete(EditLine *, const char *);
+protected void		 key_print(EditLine *, const char *);
+protected void	         key_kprint(EditLine *, const char *, key_value_t *,
+    int);
+protected char		*key__decode_str(const char *, char *, const char *);
 
 #endif /* _h_el_key */

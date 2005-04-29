@@ -1,13 +1,16 @@
-! $XFree86: xc/programs/xterm/UXTerm.ad,v 1.2 2001/11/15 00:29:12 dawes Exp $
+! $XFree86: xc/programs/xterm/UXTerm.ad,v 1.3 2003/10/27 01:07:55 dickey Exp $
 
 ! Use
 !	xterm -class UXTerm
 ! to set resources for UTF-8 mode with corresponding fonts.
 
-#include "XTerm"
+#include "XTerm-color"
 
 *fontMenu.Label:  Unicode Fonts
 *VT100*utf8:	1
+
+! The fonts here are duplicated in "XTerm" by "*VT100.utf8fonts", but are
+! left here for compatibility:
 *VT100*font2:	-misc-fixed-medium-r-normal--8-80-75-75-c-50-iso10646-1
 *VT100*font:	-misc-fixed-medium-r-semicondensed--13-120-75-75-c-60-iso10646-1
 *VT100*font3:	-misc-fixed-medium-r-normal--14-130-75-75-c-70-iso10646-1

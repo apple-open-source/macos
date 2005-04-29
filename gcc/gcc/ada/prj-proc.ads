@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---             Copyright (C) 2001 Free Software Foundation, Inc.            --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -24,7 +23,7 @@
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
---
+
 --  This package is used to convert a project file tree (see prj-tree.ads) to
 --  project file data structures (see prj.ads), taking into account
 --  the environment (external references).
@@ -35,10 +34,20 @@ package Prj.Proc is
 
    procedure Process
      (Project           : out Project_Id;
+      Success           : out Boolean;
       From_Project_Node : Project_Node_Id;
-      Report_Error      : Put_Line_Access);
+      Report_Error      : Put_Line_Access;
+      Process_Languages : Languages_Processed := Ada_Language;
+      Follow_Links      : Boolean := True);
    --  Process a project file tree into project file data structures.
-   --  If Report_Error is null, use the standard error reporting mechanism
-   --  (Errout). Otherwise, report errors using Report_Error.
+   --  If Report_Error is null, use the error reporting mechanism.
+   --  Otherwise, report errors using Report_Error.
+   --
+   --  If Follow_Links is False, it is assumed that the project doesn't contain
+   --  any file duplicated through symbolic links (although the latter are
+   --  still valid if they point to a file which is outside of the project),
+   --  and that no directory has a name which is a valid source name.
+   --
+   --  Process is a bit of a junk name, how about Process_Project_Tree???
 
 end Prj.Proc;

@@ -1,9 +1,9 @@
 /*
- * "$Id: http-private.h,v 1.1.1.1 2003/02/10 21:57:17 jlovell Exp $"
+ * "$Id: http-private.h,v 1.8 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   Private HTTP definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -31,8 +31,19 @@
  * Include necessary headers...
  */
 
-#  include "http.h"
 #  include "config.h"
+
+#  ifdef __sun
+/*
+ * Define FD_SETSIZE to CUPS_MAX_FDS on Solaris to get the correct version of
+ * select() for large numbers of file descriptors.
+ */
+
+#    define FD_SETSIZE	CUPS_MAX_FDS
+#    include <sys/select.h>
+#  endif /* __sun */
+
+#  include "http.h"
 
 #  if defined HAVE_LIBSSL
 /*
@@ -69,9 +80,25 @@ typedef struct
 typedef SSLConnectionRef http_tls_t;
 
 #  endif /* HAVE_LIBSSL */
-  
+
+/*
+ * Some OS's don't have hstrerror(), most notably Solaris...
+ */
+
+#  ifndef HAVE_HSTRERROR
+extern const char *cups_hstrerror(int error);
+#    define hstrerror cups_hstrerror
+#  elif defined(_AIX) || defined(__osf__)
+/*
+ * AIX and Tru64 UNIX don't provide a prototype but do provide the function...
+ */
+extern const char *hstrerror(int error);
+#  endif /* !HAVE_HSTRERROR */
+
+const char *cups_get_password(const char *prompt);
+
 #endif /* !_CUPS_HTTP_PRIVATE_H_ */
 
 /*
- * End of "$Id: http-private.h,v 1.1.1.1 2003/02/10 21:57:17 jlovell Exp $".
+ * End of "$Id: http-private.h,v 1.8 2005/01/04 22:10:39 jlovell Exp $".
  */

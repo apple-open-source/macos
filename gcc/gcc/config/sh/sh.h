@@ -1,23 +1,23 @@
-/* Definitions of target machine for GNU compiler for Hitachi / SuperH SH.
-   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+/* Definitions of target machine for GNU compiler for Renesas / SuperH SH.
+   Copyright (C) 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com).
    Improved by Jim Wilson (wilson@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -28,7 +28,7 @@ Boston, MA 02111-1307, USA.  */
   fputs (" (Hitachi SH)", stderr);
 
 /* Unfortunately, insn-attrtab.c doesn't include insn-codes.h.  We can't
-   include it here, because hconfig.h is also included by gencodes.c .  */
+   include it here, because bconfig.h is also included by gencodes.c .  */
 /* ??? No longer true.  */
 extern int code_for_indirect_jump_scratch;
 
@@ -45,6 +45,16 @@ do { \
     case PROCESSOR_SH2: \
       builtin_define ("__sh2__"); \
       break; \
+    case PROCESSOR_SH2E: \
+      builtin_define ("__SH2E__"); \
+      break; \
+    case PROCESSOR_SH2A: \
+      builtin_define ("__SH2A__"); \
+      builtin_define (TARGET_SH2A_DOUBLE \
+		      ? (TARGET_FPU_SINGLE ? "__SH2A_SINGLE__" : "__SH2A_DOUBLE__") \
+		      : TARGET_FPU_ANY ? "__SH2A_SINGLE_ONLY__" \
+		      : "__SH2A_NOFPU__"); \
+      break; \
     case PROCESSOR_SH3: \
       builtin_define ("__sh3__"); \
       builtin_define ("__SH3__"); \
@@ -56,6 +66,13 @@ do { \
       break; \
     case PROCESSOR_SH4: \
       builtin_define (TARGET_FPU_SINGLE ? "__SH4_SINGLE__" : "__SH4__"); \
+      break; \
+    case PROCESSOR_SH4A: \
+      builtin_define ("__SH4A__"); \
+      builtin_define (TARGET_SH4 \
+		      ? (TARGET_FPU_SINGLE ? "__SH4_SINGLE__" : "__SH4__") \
+		      : TARGET_FPU_ANY ? "__SH4_SINGLE_ONLY__" \
+		      : "__SH4_NOFPU__"); \
       break; \
     case PROCESSOR_SH5: \
       { \
@@ -76,7 +93,6 @@ do { \
       builtin_define ("__pic__"); \
       builtin_define ("__PIC__"); \
     } \
-  TARGET_OBJFMT_CPP_BUILTINS (); \
 } while (0)
 
 /* We can not debug without a frame pointer.  */
@@ -90,8 +106,12 @@ do { \
       fixed_regs[regno] = call_used_regs[regno] = 1;			\
   /* R8 and R9 are call-clobbered on SH5, but not on earlier SH ABIs.  */ \
   if (TARGET_SH5)							\
-    call_used_regs[FIRST_GENERAL_REG + 8]				\
-      = call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+    {									\
+      call_used_regs[FIRST_GENERAL_REG + 8]				\
+	= call_used_regs[FIRST_GENERAL_REG + 9] = 1;			\
+      call_really_used_regs[FIRST_GENERAL_REG + 8]			\
+	= call_really_used_regs[FIRST_GENERAL_REG + 9] = 1;		\
+    }									\
   if (TARGET_SHMEDIA)							\
     {									\
       regno_reg_class[FIRST_GENERAL_REG] = GENERAL_REGS;		\
@@ -99,12 +119,15 @@ do { \
       regno_reg_class[FIRST_FP_REG] = FP_REGS;				\
     }									\
   if (flag_pic)								\
-    fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
-  /* Hitachi saves and restores mac registers on call.  */		\
+    {									\
+      fixed_regs[PIC_OFFSET_TABLE_REGNUM] = 1;				\
+      call_used_regs[PIC_OFFSET_TABLE_REGNUM] = 1;			\
+    }									\
+  /* Renesas saves and restores mac registers on call.  */		\
   if (TARGET_HITACHI && ! TARGET_NOMACSAVE)				\
     {									\
-      call_used_regs[MACH_REG] = 0;					\
-      call_used_regs[MACL_REG] = 0;					\
+      call_really_used_regs[MACH_REG] = 0;				\
+      call_really_used_regs[MACL_REG] = 0;				\
     }									\
   for (regno = FIRST_FP_REG + (TARGET_LITTLE_ENDIAN != 0);		\
        regno <= LAST_FP_REG; regno += 2)				\
@@ -112,12 +135,12 @@ do { \
   if (TARGET_SHMEDIA)							\
     {									\
       for (regno = FIRST_TARGET_REG; regno <= LAST_TARGET_REG; regno ++)\
-	if (! fixed_regs[regno] && call_used_regs[regno])		\
+	if (! fixed_regs[regno] && call_really_used_regs[regno])	\
 	  SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
     }									\
   else									\
     for (regno = FIRST_GENERAL_REG; regno <= LAST_GENERAL_REG; regno++)	\
-      if (! fixed_regs[regno] && call_used_regs[regno])			\
+      if (! fixed_regs[regno] && call_really_used_regs[regno])		\
 	SET_HARD_REG_BIT (reg_class_contents[SIBCALL_REGS], regno);	\
 } while (0)
 
@@ -132,10 +155,11 @@ extern int target_flags;
 #define SH1_BIT	       	(1<<8)
 #define SH2_BIT	       	(1<<9)
 #define SH3_BIT	       	(1<<10)
-#define SH3E_BIT	(1<<11)
+#define SH_E_BIT	(1<<11)
 #define HARD_SH4_BIT	(1<<5)
 #define FPU_SINGLE_BIT	(1<<7)
 #define SH4_BIT	       	(1<<12)
+#define SH4A_BIT	(1<<3)
 #define FMOVD_BIT	(1<<4)
 #define SH5_BIT		(1<<0)
 #define SPACE_BIT 	(1<<13)
@@ -148,6 +172,12 @@ extern int target_flags;
 #define PADSTRUCT_BIT  (1<<28)
 #define LITTLE_ENDIAN_BIT (1<<29)
 #define IEEE_BIT (1<<30)
+#define SAVE_ALL_TR_BIT (1<<2)
+#define HARD_SH2A_BIT	(1<<17)
+#define HARD_SH2A_DOUBLE_BIT	(1<<18)
+
+/* Nonzero if this is an ELF target - compile time only */
+#define TARGET_ELF 0
 
 /* Nonzero if we should dump out instruction size info.  */
 #define TARGET_DUMPISIZE  (target_flags & ISIZE_BIT)
@@ -161,11 +191,21 @@ extern int target_flags;
 /* Nonzero if we should generate code using type 2 insns.  */
 #define TARGET_SH2 (target_flags & SH2_BIT)
 
+/* Nonzero if we should generate code using type 2E insns.  */
+#define TARGET_SH2E ((target_flags & SH_E_BIT) && TARGET_SH2)
+
+/* Nonzero if we should generate code using type 2A insns.  */
+#define TARGET_SH2A (target_flags & HARD_SH2A_BIT)
+/* Nonzero if we should generate code using type 2A SF insns.  */
+#define TARGET_SH2A_SINGLE ((target_flags & HARD_SH2A_BIT) && TARGET_SH2E)
+/* Nonzero if we should generate code using type 2A DF insns.  */
+#define TARGET_SH2A_DOUBLE ((target_flags & HARD_SH2A_DOUBLE_BIT) && TARGET_SH2A)
+
 /* Nonzero if we should generate code using type 3 insns.  */
 #define TARGET_SH3 (target_flags & SH3_BIT)
 
 /* Nonzero if we should generate code using type 3E insns.  */
-#define TARGET_SH3E ((target_flags & SH3E_BIT) && (target_flags & SH1_BIT))
+#define TARGET_SH3E ((target_flags & SH_E_BIT) && TARGET_SH3)
 
 /* Nonzero if the cache line size is 32.  */
 #define TARGET_CACHE32 (target_flags & HARD_SH4_BIT || TARGET_SH5)
@@ -183,13 +223,21 @@ extern int target_flags;
 #define TARGET_FPU_SINGLE (target_flags & FPU_SINGLE_BIT)
 
 /* Nonzero if a double-precision FPU is available.  */
-#define TARGET_FPU_DOUBLE (target_flags & SH4_BIT)
+#define TARGET_FPU_DOUBLE ((target_flags & SH4_BIT) || TARGET_SH2A_DOUBLE)
 
 /* Nonzero if an FPU is available.  */
-#define TARGET_FPU_ANY (TARGET_SH3E || TARGET_FPU_DOUBLE)
+#define TARGET_FPU_ANY (TARGET_SH2E || TARGET_FPU_DOUBLE)
 
 /* Nonzero if we should generate code using type 4 insns.  */
 #define TARGET_SH4 ((target_flags & SH4_BIT) && (target_flags & SH1_BIT))
+
+/* Nonzero if we're generating code for the common subset of
+   instructions present on both SH4a and SH4al-dsp.  */
+#define TARGET_SH4A_ARCH (target_flags & SH4A_BIT)
+
+/* Nonzero if we're generating code for SH4a, unless the use of the
+   FPU is disabled (which makes it compatible with SH4al-dsp).  */
+#define TARGET_SH4A_FP (TARGET_SH4A_ARCH && TARGET_FPU_ANY)
 
 /* Nonzero if we should generate code for a SH5 CPU (either ISA).  */
 #define TARGET_SH5 (target_flags & SH5_BIT)
@@ -205,12 +253,12 @@ extern int target_flags;
 /* Nonzero if we should generate code using the SHmedia ISA and 32-bit
    ABI.  */
 #define TARGET_SHMEDIA32 (TARGET_SH5 && ! TARGET_SH1 \
-			  && (target_flags & SH3E_BIT))
+			  && (target_flags & SH_E_BIT))
 
 /* Nonzero if we should generate code using the SHmedia ISA and 64-bit
    ABI.  */
 #define TARGET_SHMEDIA64 (TARGET_SH5 && ! TARGET_SH1 \
- 			  && ! (target_flags & SH3E_BIT))
+ 			  && ! (target_flags & SH_E_BIT))
 
 /* Nonzero if we should generate code using SHmedia FPU instructions.  */
 #define TARGET_SHMEDIA_FPU (TARGET_SHMEDIA && TARGET_FPU_DOUBLE)
@@ -230,14 +278,14 @@ extern int target_flags;
    to do function call relaxing.  */
 #define TARGET_RELAX (target_flags & RELAX_BIT)
 
-/* Nonzero if using Hitachi's calling convention.  */
+/* Nonzero if using Renesas's calling convention.  */
 #define TARGET_HITACHI 		(target_flags & HITACHI_BIT)
 
 /* Nonzero if not saving macl/mach when using -mhitachi */
 #define TARGET_NOMACSAVE	(target_flags & NOMACSAVE_BIT)
 
 /* Nonzero if padding structures to a multiple of 4 bytes.  This is
-   incompatible with Hitachi's compiler, and gives unusual structure layouts
+   incompatible with Renesas's compiler, and gives unusual structure layouts
    which confuse programmers.
    ??? This option is not useful, but is retained in case there are people
    who are still relying on it.  It may be deleted in the future.  */
@@ -252,69 +300,285 @@ extern int target_flags;
 /* Nonzero if we should prefer @GOT calls when generating PIC.  */
 #define TARGET_PREFERGOT	(target_flags & PREFERGOT_BIT)
 
-#define SELECT_SH1 (SH1_BIT)
-#define SELECT_SH2 (SH2_BIT | SELECT_SH1)
-#define SELECT_SH3 (SH3_BIT | SELECT_SH2)
-#define SELECT_SH3E (SH3E_BIT | FPU_SINGLE_BIT | SELECT_SH3)
-#define SELECT_SH4_NOFPU (HARD_SH4_BIT | SELECT_SH3)
-#define SELECT_SH4_SINGLE_ONLY (HARD_SH4_BIT | SELECT_SH3E)
-#define SELECT_SH4 (SH4_BIT|SH3E_BIT|HARD_SH4_BIT | SELECT_SH3)
-#define SELECT_SH4_SINGLE (FPU_SINGLE_BIT | SELECT_SH4)
-#define SELECT_SH5_64 (SH5_BIT | SH4_BIT)
-#define SELECT_SH5_64_NOFPU (SH5_BIT)
-#define SELECT_SH5_32 (SH5_BIT | SH4_BIT | SH3E_BIT)
-#define SELECT_SH5_32_NOFPU (SH5_BIT | SH3E_BIT)
-#define SELECT_SH5_COMPACT (SH5_BIT | SH4_BIT | SELECT_SH3E)
+#define TARGET_SAVE_ALL_TARGET_REGS (target_flags & SAVE_ALL_TR_BIT)
+
+/* This is not used by the SH2E calling convention  */
+#define TARGET_VARARGS_PRETEND_ARGS(FUN_DECL) \
+  (TARGET_SH1 && ! TARGET_SH2E && ! TARGET_SH5 \
+   && ! (TARGET_HITACHI || sh_attr_renesas_p (FUN_DECL)))
+
+#ifndef TARGET_CPU_DEFAULT
+#define TARGET_CPU_DEFAULT SELECT_SH1
+#define SUPPORT_SH1
+#define SUPPORT_SH2E
+#define SUPPORT_SH4
+#define SUPPORT_SH4_SINGLE
+#define SUPPORT_SH2A
+#define SUPPORT_SH2A_SINGLE
+#endif
+
+#define SELECT_SH1               (SH1_BIT)
+#define SELECT_SH2               (SH2_BIT | SELECT_SH1)
+#define SELECT_SH2E              (SH_E_BIT | SH2_BIT | SH1_BIT | FPU_SINGLE_BIT)
+#define SELECT_SH2A              (SH_E_BIT | HARD_SH2A_BIT | HARD_SH2A_DOUBLE_BIT | SH2_BIT | SH1_BIT)
+#define SELECT_SH2A_NOFPU        (HARD_SH2A_BIT | SH2_BIT | SH1_BIT)
+#define SELECT_SH2A_SINGLE_ONLY  (SH_E_BIT | HARD_SH2A_BIT | SH2_BIT | SH1_BIT | FPU_SINGLE_BIT)
+#define SELECT_SH2A_SINGLE       (SH_E_BIT | HARD_SH2A_BIT | FPU_SINGLE_BIT \
+				  | HARD_SH2A_DOUBLE_BIT | SH2_BIT | SH1_BIT)
+#define SELECT_SH3               (SH3_BIT | SELECT_SH2)
+#define SELECT_SH3E              (SH_E_BIT | FPU_SINGLE_BIT | SELECT_SH3)
+#define SELECT_SH4_NOFPU         (HARD_SH4_BIT | SELECT_SH3)
+#define SELECT_SH4_SINGLE_ONLY   (HARD_SH4_BIT | SELECT_SH3E)
+#define SELECT_SH4               (SH4_BIT | SH_E_BIT | HARD_SH4_BIT | SELECT_SH3)
+#define SELECT_SH4_SINGLE        (FPU_SINGLE_BIT | SELECT_SH4)
+#define SELECT_SH4A_NOFPU        (SH4A_BIT | SELECT_SH4_NOFPU)
+#define SELECT_SH4A_SINGLE_ONLY  (SH4A_BIT | SELECT_SH4_SINGLE_ONLY)
+#define SELECT_SH4A              (SH4A_BIT | SELECT_SH4)
+#define SELECT_SH4A_SINGLE       (SH4A_BIT | SELECT_SH4_SINGLE)
+#define SELECT_SH5_64MEDIA       (SH5_BIT | SH4_BIT)
+#define SELECT_SH5_64MEDIA_NOFPU (SH5_BIT)
+#define SELECT_SH5_32MEDIA       (SH5_BIT | SH4_BIT | SH_E_BIT)
+#define SELECT_SH5_32MEDIA_NOFPU (SH5_BIT | SH_E_BIT)
+#define SELECT_SH5_COMPACT       (SH5_BIT | SH4_BIT | SELECT_SH3E)
 #define SELECT_SH5_COMPACT_NOFPU (SH5_BIT | SELECT_SH3)
 
-/* Reset all target-selection flags.  */
-#define TARGET_NONE -(SH1_BIT | SH2_BIT | SH3_BIT | SH3E_BIT | SH4_BIT \
-		      | HARD_SH4_BIT | FPU_SINGLE_BIT | SH5_BIT)
+/* Disable processor switches for which we have no suitable multilibs.  */
+#ifndef SUPPORT_SH1
+#define TARGET_SWITCH_SH1
+#ifndef SUPPORT_SH2
+#define TARGET_SWITCH_SH2
+#ifndef SUPPORT_SH3
+#define TARGET_SWITCH_SH3
+#ifndef SUPPORT_SH4_NOFPU
+#define TARGET_SWITCH_SH4_NOFPU
+#endif
+#ifndef SUPPORT_SH4A_NOFPU
+#define TARGET_SWITCH_SH4A_NOFPU
+#endif
+#ifndef SUPPORT_SH4AL
+#define TARGET_SWITCH_SH4AL
+#endif
+#ifndef SUPPORT_SH2A_NOFPU
+#define TARGET_SWITCH_SH2A_NOFPU
+#endif
+#endif
+#endif
+#endif
 
-#define TARGET_SWITCHES  			\
-{ {"1",	        TARGET_NONE, "" },		\
-  {"1",	        SELECT_SH1, "" },			\
-  {"2",	        TARGET_NONE, "" },		\
-  {"2",	        SELECT_SH2, "" },		\
-  {"3",	        TARGET_NONE, "" },		\
-  {"3",	        SELECT_SH3, "" },	\
-  {"3e",	TARGET_NONE, "" },		\
-  {"3e",	SELECT_SH3E, "" },	\
-  {"4-single-only",	TARGET_NONE, "" },	\
-  {"4-single-only",	SELECT_SH4_SINGLE_ONLY, "" },	\
-  {"4-single",	TARGET_NONE, "" },		\
-  {"4-single",	SELECT_SH4_SINGLE, "" },\
-  {"4-nofpu",	TARGET_NONE, "" },		\
-  {"4-nofpu",	SELECT_SH4_NOFPU, "" },\
-  {"4",	        TARGET_NONE, "" },		\
-  {"4",	        SELECT_SH4, "" }, \
+#ifndef SUPPORT_SH2E
+#define TARGET_SWITCH_SH2E
+#ifndef SUPPORT_SH3E
+#define TARGET_SWITCH_SH3E
+#ifndef SUPPORT_SH4_SINGLE_ONLY
+#define TARGET_SWITCH_SH4_SINGLE_ONLY
+#endif
+#ifndef SUPPORT_SH4A_SINGLE_ONLY
+#define TARGET_SWITCH_SH4A_SINGLE_ONLY
+#endif
+#ifndef SUPPORT_SH2A_SINGLE_ONLY
+#define TARGET_SWITCH_SH2A_SINGLE_ONLY
+#endif
+#endif
+#endif
+
+#ifndef SUPPORT_SH4
+#define TARGET_SWITCH_SH4
+#ifndef SUPPORT_SH4A
+#define TARGET_SWITCH_SH4A
+#endif
+#endif
+
+#ifndef SUPPORT_SH4_SINGLE
+#define TARGET_SWITCH_SH4_SINGLE
+#ifndef SUPPORT_SH4A_SINGLE
+#define TARGET_SWITCH_SH4A_SINGLE
+#endif
+#endif
+
+#ifndef SUPPORT_SH2A
+#define TARGET_SWITCH_SH2A
+#endif
+
+#ifndef SUPPORT_SH2A_SINGLE
+#define TARGET_SWITCH_SH2A_SINGLE
+#endif
+
+#ifndef SUPPORT_SH5_64MEDIA
+#define TARGET_SWITCH_SH5_64MEDIA
+#endif
+
+#ifndef SUPPORT_SH5_64MEDIA_NOFPU
+#define TARGET_SWITCH_SH5_64MEDIA_NOFPU
+#endif
+
+#if !defined(SUPPORT_SH5_32MEDIA) && !defined (SUPPORT_SH5_COMPACT)
+#define TARGET_SWITCHES_SH5_32MEDIA
+#endif
+
+#if !defined(SUPPORT_SH5_32MEDIA_NOFPU) && !defined (SUPPORT_SH5_COMPACT_NOFPU)
+#define TARGET_SWITCHES_SH5_32MEDIA_NOFPU
+#endif
+
+/* Reset all target-selection flags.  */
+#define TARGET_NONE -(SH1_BIT | SH2_BIT | SH3_BIT | SH_E_BIT | SH4_BIT \
+		      | HARD_SH2A_BIT | HARD_SH2A_DOUBLE_BIT \
+		      | SH4A_BIT | HARD_SH4_BIT | FPU_SINGLE_BIT | SH5_BIT)
+
+#ifndef TARGET_SWITCH_SH1
+#define TARGET_SWITCH_SH1 \
+  {"1",		TARGET_NONE, "" }, \
+  {"1",		SELECT_SH1, "Generate SH1 code" },
+#endif
+#ifndef TARGET_SWITCH_SH2
+#define TARGET_SWITCH_SH2 \
+  {"2",		TARGET_NONE, "" }, \
+  {"2",		SELECT_SH2, "Generate SH2 code" },
+#endif
+#ifndef TARGET_SWITCH_SH2E
+#define TARGET_SWITCH_SH2E \
+  {"2e",	TARGET_NONE, "" }, \
+  {"2e",	SELECT_SH2E, "Generate SH2e code" },
+#endif
+#ifndef TARGET_SWITCH_SH2A
+#define TARGET_SWITCH_SH2A \
+  {"2a",	TARGET_NONE, "" }, \
+  {"2a",	SELECT_SH2A, "Generate SH2a code" },
+#endif
+#ifndef TARGET_SWITCH_SH2A_SINGLE_ONLY
+#define TARGET_SWITCH_SH2A_SINGLE_ONLY \
+  {"2a-single-only", TARGET_NONE, "" },	\
+  {"2a-single-only", SELECT_SH2A_SINGLE_ONLY, "Generate only single-precision SH2a code" },
+#endif
+#ifndef TARGET_SWITCH_SH2A_SINGLE
+#define TARGET_SWITCH_SH2A_SINGLE \
+  {"2a-single", TARGET_NONE, "" },	\
+  {"2a-single", SELECT_SH2A_SINGLE, "Generate default single-precision SH2a code" },
+#endif
+#ifndef TARGET_SWITCH_SH2A_NOFPU
+#define TARGET_SWITCH_SH2A_NOFPU \
+  {"2a-nofpu",  TARGET_NONE, "" },	\
+  {"2a-nofpu",  SELECT_SH2A_NOFPU, "Generate SH2a FPU-less code" },
+#endif
+#ifndef TARGET_SWITCH_SH3
+#define TARGET_SWITCH_SH3 \
+  {"3",		TARGET_NONE, "" }, \
+  {"3",		SELECT_SH3, "Generate SH3 code" },
+#endif
+#ifndef TARGET_SWITCH_SH3E
+#define TARGET_SWITCH_SH3E \
+  {"3e",	TARGET_NONE, "" }, \
+  {"3e",	SELECT_SH3E, "Generate SH3e code" },
+#endif
+#ifndef TARGET_SWITCH_SH4_SINGLE_ONLY
+#define TARGET_SWITCH_SH4_SINGLE_ONLY \
+  {"4-single-only",	TARGET_NONE, "" }, \
+  {"4-single-only",	SELECT_SH4_SINGLE_ONLY, "Generate only single-precision SH4 code" },
+#endif
+#ifndef TARGET_SWITCH_SH4_SINGLE
+#define TARGET_SWITCH_SH4_SINGLE \
+  {"4-single",	TARGET_NONE, "" }, \
+  {"4-single",	SELECT_SH4_SINGLE, "Generate default single-precision SH4 code" },
+#endif
+#ifndef TARGET_SWITCH_SH4_NOFPU
+#define TARGET_SWITCH_SH4_NOFPU \
+  {"4-nofpu",	TARGET_NONE, "" }, \
+  {"4-nofpu",	SELECT_SH4_NOFPU, "Generate SH4 FPU-less code" },
+#endif
+#ifndef TARGET_SWITCH_SH4
+#define TARGET_SWITCH_SH4 \
+  {"4",		TARGET_NONE, "" }, \
+  {"4",		SELECT_SH4, "Generate SH4 code" },
+#endif
+#ifndef TARGET_SWITCH_SH4A
+#define TARGET_SWITCH_SH4A \
+  {"4a",	TARGET_NONE, "" }, \
+  {"4a",	SELECT_SH4A, "Generate SH4a code" },
+#endif
+#ifndef TARGET_SWITCH_SH4A_SINGLE_ONLY
+#define TARGET_SWITCH_SH4A_SINGLE_ONLY \
+  {"4a-single-only",	TARGET_NONE, "" },	\
+  {"4a-single-only",	SELECT_SH4A_SINGLE_ONLY, "Generate only single-precision SH4a code" },
+#endif
+#ifndef TARGET_SWITCH_SH4A_SINGLE
+#define TARGET_SWITCH_SH4A_SINGLE \
+  {"4a-single",	TARGET_NONE, "" },\
+  {"4a-single",	SELECT_SH4A_SINGLE, "Generate default single-precision SH4a code" },
+#endif
+#ifndef TARGET_SWITCH_SH4A_NOFPU
+#define TARGET_SWITCH_SH4A_NOFPU \
+  {"4a-nofpu",	TARGET_NONE, "" },\
+  {"4a-nofpu",	SELECT_SH4A_NOFPU, "Generate SH4a FPU-less code" },
+#endif
+#ifndef TARGET_SWITCH_SH4AL
+#define TARGET_SWITCH_SH4AL \
+  {"4al",	TARGET_NONE, "" },\
+  {"4al",	SELECT_SH4A_NOFPU, "Generate SH4al-dsp code" },
+#endif
+#ifndef TARGET_SWITCH_SH5_64MEDIA
+#define TARGET_SWITCH_SH5_64MEDIA \
   {"5-64media",	TARGET_NONE, "" },		\
-  {"5-64media", SELECT_SH5_64, "Generate 64-bit SHmedia code" }, \
+  {"5-64media", SELECT_SH5_64MEDIA, "Generate 64-bit SHmedia code" },
+#endif
+#ifndef TARGET_SWITCH_SH5_64MEDIA_NOFPU
+#define TARGET_SWITCH_SH5_64MEDIA_NOFPU \
   {"5-64media-nofpu", TARGET_NONE, "" },	\
-  {"5-64media-nofpu", SELECT_SH5_64_NOFPU, "Generate 64-bit FPU-less SHmedia code" }, \
+  {"5-64media-nofpu", SELECT_SH5_64MEDIA_NOFPU, "Generate 64-bit FPU-less SHmedia code" },
+#endif
+#ifndef TARGET_SWITCHES_SH5_32MEDIA
+#define TARGET_SWITCHES_SH5_32MEDIA \
   {"5-32media",	TARGET_NONE, "" },		\
-  {"5-32media", SELECT_SH5_32, "Generate 32-bit SHmedia code" }, \
-  {"5-32media-nofpu", TARGET_NONE, "" },	\
-  {"5-32media-nofpu", SELECT_SH5_32_NOFPU, "Generate 32-bit FPU-less SHmedia code" }, \
+  {"5-32media", SELECT_SH5_32MEDIA, "Generate 32-bit SHmedia code" }, \
   {"5-compact",	TARGET_NONE, "" },		\
-  {"5-compact",	SELECT_SH5_COMPACT, "Generate SHcompact code" }, \
+  {"5-compact",	SELECT_SH5_COMPACT, "Generate SHcompact code" },
+#endif
+#ifndef TARGET_SWITCHES_SH5_32MEDIA_NOFPU
+#define TARGET_SWITCHES_SH5_32MEDIA_NOFPU \
+  {"5-32media-nofpu", TARGET_NONE, "" },	\
+  {"5-32media-nofpu", SELECT_SH5_32MEDIA_NOFPU, "Generate 32-bit FPU-less SHmedia code" }, \
   {"5-compact-nofpu", TARGET_NONE, "" },	\
-  {"5-compact-nofpu", SELECT_SH5_COMPACT_NOFPU, "Generate FPU-less SHcompact code" }, \
-  {"b",		-LITTLE_ENDIAN_BIT, "" },  	\
-  {"bigtable", 	BIGTABLE_BIT, "" },		\
-  {"dalign",  	DALIGN_BIT, "" },		\
+  {"5-compact-nofpu", SELECT_SH5_COMPACT_NOFPU, "Generate FPU-less SHcompact code" },
+#endif
+
+#define TARGET_SWITCHES \
+{ TARGET_SWITCH_SH1 \
+  TARGET_SWITCH_SH2 \
+  TARGET_SWITCH_SH2A_SINGLE_ONLY \
+  TARGET_SWITCH_SH2A_SINGLE \
+  TARGET_SWITCH_SH2A_NOFPU \
+  TARGET_SWITCH_SH2A \
+  TARGET_SWITCH_SH2E \
+  TARGET_SWITCH_SH3 \
+  TARGET_SWITCH_SH3E \
+  TARGET_SWITCH_SH4_SINGLE_ONLY \
+  TARGET_SWITCH_SH4_SINGLE \
+  TARGET_SWITCH_SH4_NOFPU \
+  TARGET_SWITCH_SH4 \
+  TARGET_SWITCH_SH4A_SINGLE_ONLY \
+  TARGET_SWITCH_SH4A_SINGLE \
+  TARGET_SWITCH_SH4A_NOFPU \
+  TARGET_SWITCH_SH4A \
+  TARGET_SWITCH_SH4AL \
+  TARGET_SWITCH_SH5_64MEDIA \
+  TARGET_SWITCH_SH5_64MEDIA_NOFPU \
+  TARGET_SWITCHES_SH5_32MEDIA \
+  TARGET_SWITCHES_SH5_32MEDIA_NOFPU \
+  {"b",		-LITTLE_ENDIAN_BIT, "Generate code in big endian mode" },  	\
+  {"bigtable", 	BIGTABLE_BIT, "Generate 32-bit offsets in switch tables" },		\
+  {"dalign",  	DALIGN_BIT, "Aligns doubles at 64-bit boundaries" },		\
   {"fmovd",  	FMOVD_BIT, "" },		\
-  {"hitachi",	HITACHI_BIT, "" },		\
-  {"nomacsave", NOMACSAVE_BIT, "" },		\
-  {"ieee",  	IEEE_BIT, "" },			\
+  {"hitachi",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
+  {"renesas",	HITACHI_BIT, "Follow Renesas (formerly Hitachi) / SuperH calling conventions" },		\
+  {"no-renesas",-HITACHI_BIT,"Follow the GCC calling conventions" },	\
+  {"nomacsave", NOMACSAVE_BIT, "Mark MAC register as call-clobbered" },		\
+  {"ieee",  	IEEE_BIT, "Increase the IEEE compliance for floating-point code" },			\
   {"isize", 	ISIZE_BIT, "" },		\
-  {"l",		LITTLE_ENDIAN_BIT, "" },  	\
+  {"l",		LITTLE_ENDIAN_BIT, "Generate code in little endian mode" },  	\
   {"no-ieee",  	-IEEE_BIT, "" },		\
   {"padstruct", PADSTRUCT_BIT, "" },    	\
-  {"prefergot",	PREFERGOT_BIT, "" },		\
-  {"relax",	RELAX_BIT, "" },		\
-  {"space", 	SPACE_BIT, "" },		\
-  {"usermode",	USERMODE_BIT, "" },		\
+  {"prefergot",	PREFERGOT_BIT, "Emit function-calls using global offset table when generating PIC" },		\
+  {"relax",	RELAX_BIT, "Shorten address references during linking" },		\
+  {"space", 	SPACE_BIT, "Deprecated. Use -Os instead" },		\
+  {"usermode",	USERMODE_BIT, "Generate library function call to invalidate instruction cache entries after fixing trampoline" },		\
   SUBTARGET_SWITCHES                            \
   {"",   	TARGET_DEFAULT, "" } 		\
 }
@@ -327,11 +591,17 @@ extern int target_flags;
 #define TARGET_ENDIAN_DEFAULT 0
 #endif
 
-#ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT SELECT_SH1
+#define TARGET_DEFAULT  (TARGET_CPU_DEFAULT|TARGET_ENDIAN_DEFAULT)
+
+#ifndef SH_MULTILIB_CPU_DEFAULT
+#define SH_MULTILIB_CPU_DEFAULT "m1"
 #endif
 
-#define TARGET_DEFAULT  (TARGET_CPU_DEFAULT|TARGET_ENDIAN_DEFAULT)
+#if TARGET_ENDIAN_DEFAULT
+#define MULTILIB_DEFAULTS { "ml", SH_MULTILIB_CPU_DEFAULT }
+#else
+#define MULTILIB_DEFAULTS { "mb", SH_MULTILIB_CPU_DEFAULT }
+#endif
 
 #define CPP_SPEC " %(subtarget_cpp_spec) "
 
@@ -350,9 +620,21 @@ extern int target_flags;
   { "subtarget_link_emul_suffix", SUBTARGET_LINK_EMUL_SUFFIX },	\
   { "subtarget_link_spec", SUBTARGET_LINK_SPEC },		\
   { "subtarget_asm_endian_spec", SUBTARGET_ASM_ENDIAN_SPEC },	\
+  { "subtarget_asm_relax_spec", SUBTARGET_ASM_RELAX_SPEC },	\
+  { "subtarget_asm_isa_spec", SUBTARGET_ASM_ISA_SPEC },	\
   SUBTARGET_EXTRA_SPECS
 
-#define ASM_SPEC  "%(subtarget_asm_endian_spec) %{mrelax:-relax}"
+#if TARGET_CPU_DEFAULT & HARD_SH4_BIT
+#define SUBTARGET_ASM_RELAX_SPEC "%{!m1:%{!m2:%{!m3*:%{!m5*:-isa=sh4}}}}"
+#else
+#define SUBTARGET_ASM_RELAX_SPEC "%{m4*:-isa=sh4}"
+#endif
+
+#define SH_ASM_SPEC \
+ "%(subtarget_asm_endian_spec) %{mrelax:-relax %(subtarget_asm_relax_spec)}\
+%(subtarget_asm_isa_spec) %{m4al:-dsp}"
+
+#define ASM_SPEC SH_ASM_SPEC
 
 #ifndef SUBTARGET_ASM_ENDIAN_SPEC
 #if TARGET_ENDIAN_DEFAULT == LITTLE_ENDIAN_BIT
@@ -362,16 +644,27 @@ extern int target_flags;
 #endif
 #endif
 
+#define SUBTARGET_ASM_ISA_SPEC ""
+
 #define LINK_EMUL_PREFIX "sh%{ml:l}"
 
 #if TARGET_CPU_DEFAULT & SH5_BIT
-#if TARGET_CPU_DEFAULT & SH3E_BIT
+#if TARGET_CPU_DEFAULT & SH_E_BIT
 #define LINK_DEFAULT_CPU_EMUL "32"
+#if TARGET_CPU_DEFAULT & SH1_BIT
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHcompact"
 #else
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHmedia --abi=32"
+#endif /* SH1_BIT */
+#else /* !SH_E_BIT */
 #define LINK_DEFAULT_CPU_EMUL "64"
-#endif /* SH3E_BIT */
-#else
+#define ASM_ISA_SPEC_DEFAULT "--isa=SHmedia --abi=64"
+#endif /* SH_E_BIT */
+#define ASM_ISA_DEFAULT_SPEC \
+" %{!m1:%{!m2*:%{!m3*:%{!m4*:%{!m5*:" ASM_ISA_SPEC_DEFAULT "}}}}}"
+#else /* !SH5_BIT */
 #define LINK_DEFAULT_CPU_EMUL ""
+#define ASM_ISA_DEFAULT_SPEC ""
 #endif /* SH5_BIT */
 
 #define SUBTARGET_LINK_EMUL_SUFFIX ""
@@ -389,12 +682,19 @@ extern int target_flags;
 %(subtarget_link_emul_suffix) \
 %{mrelax:-relax} %(subtarget_link_spec)"
 
+#define DRIVER_SELF_SPECS "%{m2a:%{ml:%eSH2a does not support little-endian}}"
 #define OPTIMIZATION_OPTIONS(LEVEL,SIZE)				\
 do {									\
   if (LEVEL)								\
     flag_omit_frame_pointer = -1;					\
   if (SIZE)								\
     target_flags |= SPACE_BIT;						\
+  if (TARGET_SHMEDIA && LEVEL > 1)					\
+    {									\
+      flag_branch_target_load_optimize = 1;				\
+      if (! (SIZE))							\
+	target_flags |= SAVE_ALL_TR_BIT;				\
+    }									\
 } while (0)
 
 #define ASSEMBLER_DIALECT assembler_dialect
@@ -409,6 +709,14 @@ do {									\
   assembler_dialect = 0;						\
   if (TARGET_SH2)							\
     sh_cpu = CPU_SH2;							\
+  if (TARGET_SH2E)							\
+    sh_cpu = CPU_SH2E;							\
+  if (TARGET_SH2A)							\
+    {									\
+      sh_cpu = CPU_SH2A;						\
+      if (TARGET_SH2A_DOUBLE)						\
+        target_flags |= FMOVD_BIT;					\
+    }									\
   if (TARGET_SH3)							\
     sh_cpu = CPU_SH3;							\
   if (TARGET_SH3E)							\
@@ -417,6 +725,11 @@ do {									\
     {									\
       assembler_dialect = 1;						\
       sh_cpu = CPU_SH4;							\
+    }									\
+  if (TARGET_SH4A_ARCH)							\
+    {									\
+      assembler_dialect = 1;						\
+      sh_cpu = CPU_SH4A;						\
     }									\
   if (TARGET_SH5)							\
     {									\
@@ -432,7 +745,11 @@ do {									\
 	  /* Relaxation isn't yet supported for SHmedia */		\
 	  target_flags &= ~RELAX_BIT;					\
 	}								\
-      if (profile_flag || profile_arc_flag)				\
+      /* -fprofile-arcs needs a working libgcov .  In unified tree	\
+	 configurations with newlib, this requires to configure with	\
+	 --with-newlib --with-headers.  But there is no way to check	\
+	 here we have a working libgcov, so just assume that we have.  */\
+      if (profile_flag)							\
 	{								\
 	  warning ("Profiling is not supported on this target.");	\
 	  profile_flag = profile_arc_flag = 0;				\
@@ -445,7 +762,7 @@ do {									\
        targetm.asm_out.unaligned_op.di = NULL;				\
     }									\
   if (TARGET_FMOVD)							\
-    reg_class_from_letter['e'] = NO_REGS;				\
+    reg_class_from_letter['e' - 'a'] = NO_REGS;				\
 									\
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)		\
     if (! VALID_REGISTER_P (regno))					\
@@ -461,8 +778,7 @@ do {									\
         but gdb doesn't implement this yet */				\
      if (0)								\
       flag_omit_frame_pointer						\
-        = (PREFERRED_DEBUGGING_TYPE == DWARF_DEBUG			\
-	   || PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);		\
+        = (PREFERRED_DEBUGGING_TYPE == DWARF2_DEBUG);			\
      else								\
       flag_omit_frame_pointer = 0;					\
    }									\
@@ -470,10 +786,24 @@ do {									\
   if (flag_pic && ! TARGET_PREFERGOT)					\
     flag_no_function_cse = 1;						\
 									\
-  /* Never run scheduling before reload, since that can			\
-     break global alloc, and generates slower code anyway due		\
-     to the pressure on R0.  */						\
-  flag_schedule_insns = 0;						\
+  if (SMALL_REGISTER_CLASSES)						\
+    {									\
+      /* Never run scheduling before reload, since that can		\
+	 break global alloc, and generates slower code anyway due	\
+	 to the pressure on R0.  */					\
+      /* Enable sched1 for SH4; ready queue will be reordered by	\
+	 the target hooks when pressure is high. We can not do this for \
+	 SH3 and lower as they give spill failures for R0.  */		\
+      if (!TARGET_HARD_SH4) 						\
+        flag_schedule_insns = 0;		 			\
+    }									\
+									\
+  if (align_loops == 0)							\
+    align_loops =  1 << (TARGET_SH5 ? 3 : 2);				\
+  if (align_jumps == 0)							\
+    align_jumps = 1 << CACHE_LOG;					\
+  else if (align_jumps < (TARGET_SHMEDIA ? 4 : 2))			\
+    align_jumps = TARGET_SHMEDIA ? 4 : 2;				\
 									\
   /* Allocation boundary (in *bytes*) for the code of a function.	\
      SH1: 32 bit alignment is faster, because instructions are always	\
@@ -482,6 +812,20 @@ do {									\
   if (align_functions == 0)						\
     align_functions							\
       = TARGET_SMALLCODE ? FUNCTION_BOUNDARY/8 : (1 << CACHE_LOG);	\
+  /* The linker relaxation code breaks when a function contains		\
+     alignments that are larger than that at the start of a		\
+     compilation unit.  */						\
+  if (TARGET_RELAX)							\
+    {									\
+      int min_align							\
+	= align_loops > align_jumps ? align_loops : align_jumps;	\
+									\
+      /* Also take possible .long constants / mova tables int account.	*/\
+      if (min_align < 4)						\
+	min_align = 4;							\
+      if (align_functions < min_align)					\
+	align_functions = min_align;					\
+    }									\
 } while (0)
 
 /* Target machine storage layout.  */
@@ -508,10 +852,8 @@ do {									\
 
 #define MAX_BITS_PER_WORD 64
 
-#define MAX_LONG_TYPE_SIZE MAX_BITS_PER_WORD
-
 /* Width in bits of an `int'.  We want just 32-bits, even if words are
-   longer. */
+   longer.  */
 #define INT_TYPE_SIZE 32
 
 /* Width in bits of a `long'.  */
@@ -526,6 +868,13 @@ do {									\
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD	(TARGET_SHMEDIA ? 8 : 4)
 #define MIN_UNITS_PER_WORD 4
+
+/* Scaling factor for Dwarf data offsets for CFI information.
+   The dwarf2out.c default would use -UNITS_PER_WORD, which is -8 for
+   SHmedia; however, since we do partial register saves for the registers
+   visible to SHcompact, and for target registers for SHMEDIA32, we have
+   to allow saves that are only 4-byte aligned.  */
+#define DWARF_CIE_DATA_ALIGNMENT -4
 
 /* Width in bits of a pointer.
    See also the macro `Pmode' defined below.  */
@@ -566,6 +915,17 @@ do {									\
   ((TREE_CODE (EXP) == STRING_CST	\
     && (ALIGN) < FASTEST_ALIGNMENT)	\
     ? FASTEST_ALIGNMENT : (ALIGN))
+
+/* get_mode_alignment assumes complex values are always held in multiple
+   registers, but that is not the case on the SH; CQImode and CHImode are
+   held in a single integer register.  SH5 also holds CSImode and SCmode
+   values in integer registers.  This is relevant for argument passing on
+   SHcompact as we use a stack temp in order to pass CSImode by reference.  */
+#define LOCAL_ALIGNMENT(TYPE, ALIGN) \
+  ((GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_INT \
+    || GET_MODE_CLASS (TYPE_MODE (TYPE)) == MODE_COMPLEX_FLOAT) \
+   ? (unsigned) MIN (BIGGEST_ALIGNMENT, GET_MODE_BITSIZE (TYPE_MODE (TYPE))) \
+   : (unsigned) ALIGN)
 
 /* Make arrays of chars word-aligned for the same reasons.  */
 #define DATA_ALIGNMENT(TYPE, ALIGN)		\
@@ -613,7 +973,7 @@ do {									\
 
 /* Standard register usage.  */
 
-/* Register allocation for the Hitachi calling convention:
+/* Register allocation for the Renesas calling convention:
 
         r0		arg return
 	r1..r3          scratch
@@ -659,8 +1019,6 @@ extern char sh_register_names[][MAX_REGISTER_NAME_LENGTH + 1];
   "gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr",	\
   "rap"									\
 }
-
-#define DEBUG_REGISTER_NAMES SH_REGISTER_NAMES_INITIALIZER
 
 #define REGNAMES_ARR_INDEX_1(index) \
   (sh_register_names[index])
@@ -734,23 +1092,25 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 #define LAST_GENERAL_REG (FIRST_GENERAL_REG + (TARGET_SHMEDIA ? 63 : 15))
 #define FIRST_FP_REG DR0_REG
 #define LAST_FP_REG  (FIRST_FP_REG + \
-		      (TARGET_SHMEDIA_FPU ? 63 : TARGET_SH3E ? 15 : -1))
+		      (TARGET_SHMEDIA_FPU ? 63 : TARGET_SH2E ? 15 : -1))
 #define FIRST_XD_REG XD0_REG
 #define LAST_XD_REG  (FIRST_XD_REG + ((TARGET_SH4 && TARGET_FMOVD) ? 7 : -1))
 #define FIRST_TARGET_REG TR0_REG
 #define LAST_TARGET_REG  (FIRST_TARGET_REG + (TARGET_SHMEDIA ? 7 : -1))
 
 #define GENERAL_REGISTER_P(REGNO) \
-  IN_RANGE ((REGNO), FIRST_GENERAL_REG, LAST_GENERAL_REG)
+  IN_RANGE ((REGNO), \
+	    (unsigned HOST_WIDE_INT) FIRST_GENERAL_REG, \
+	    (unsigned HOST_WIDE_INT) LAST_GENERAL_REG)
 
 #define GENERAL_OR_AP_REGISTER_P(REGNO) \
   (GENERAL_REGISTER_P (REGNO) || ((REGNO) == AP_REG))
 
 #define FP_REGISTER_P(REGNO) \
-  ((REGNO) >= FIRST_FP_REG && (REGNO) <= LAST_FP_REG)
+  ((int) (REGNO) >= FIRST_FP_REG && (int) (REGNO) <= LAST_FP_REG)
 
 #define XD_REGISTER_P(REGNO) \
-  ((REGNO) >= FIRST_XD_REG && (REGNO) <= LAST_XD_REG)
+  ((int) (REGNO) >= FIRST_XD_REG && (int) (REGNO) <= LAST_XD_REG)
 
 #define FP_OR_XD_REGISTER_P(REGNO) \
   (FP_REGISTER_P (REGNO) || XD_REGISTER_P (REGNO))
@@ -763,7 +1123,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    || (REGNO) == MACH_REG || (REGNO) == MACL_REG)
 
 #define TARGET_REGISTER_P(REGNO) \
-  ((REGNO) >= FIRST_TARGET_REG && (REGNO) <= LAST_TARGET_REG)
+  ((int) (REGNO) >= FIRST_TARGET_REG && (int) (REGNO) <= LAST_TARGET_REG)
 
 #define SHMEDIA_REGISTER_P(REGNO) \
   (GENERAL_REGISTER_P (REGNO) || FP_REGISTER_P (REGNO) \
@@ -775,7 +1135,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
   (SHMEDIA_REGISTER_P (REGNO) || XD_REGISTER_P (REGNO) \
    || (REGNO) == AP_REG || (REGNO) == RAP_REG \
    || (TARGET_SH1 && (SPECIAL_REGISTER_P (REGNO) || (REGNO) == PR_REG)) \
-   || (TARGET_SH3E && (REGNO) == FPUL_REG))
+   || (TARGET_SH2E && (REGNO) == FPUL_REG))
 
 /* The mode that should be generally used to store a register by
    itself in the stack, or to load it back.  */
@@ -842,7 +1202,7 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
      Only the lower 32bits of R10-R14 are guaranteed to be preserved	\
      across SH5 function calls.  */					\
   0,      0,      0,      0,      0,      0,      0,      1,		\
-  1,      1,      0,      1,      1,      1,      1,      1,		\
+  1,      1,      1,      1,      1,      1,      1,      1,		\
   1,      1,      1,      1,      0,      0,      0,      0,		\
   0,      0,      0,      0,      1,      1,      1,      1,		\
   1,      1,      1,      1,      0,      0,      0,      0,		\
@@ -862,10 +1222,14 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 /* XD registers.  */							\
   1,      1,      1,      1,      1,      1,      0,      0,		\
 /*"gbr",  "ap",	  "pr",   "t",    "mach", "macl", "fpul", "fpscr", */	\
-  1,      1,      0,      1,      1,      1,      1,      1,		\
+  1,      1,      1,      1,      1,      1,      1,      1,		\
 /*"rap" */								\
   1,									\
 }
+
+/* CONDITIONAL_REGISTER_USAGE might want to make a register call-used, yet
+   fixed, like PIC_OFFSET_TABLE_REGNUM.  */
+#define CALL_REALLY_USED_REGISTERS CALL_USED_REGISTERS
 
 /* Only the lower 32-bits of R10-R14 are guaranteed to be preserved
    across SHcompact function calls.  We can't tell whether a called
@@ -876,7 +1240,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
   (TARGET_SHMEDIA32 \
    && GET_MODE_SIZE (MODE) > 4 \
    && (((REGNO) >= FIRST_GENERAL_REG + 10 \
-        && (REGNO) <= FIRST_GENERAL_REG + 14) \
+        && (REGNO) <= FIRST_GENERAL_REG + 15) \
+       || TARGET_REGISTER_P (REGNO) \
        || (REGNO) == PR_MEDIA_REG))
 
 /* Return number of consecutive hard regs needed starting at reg REGNO
@@ -888,10 +1253,10 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 
 #define HARD_REGNO_NREGS(REGNO, MODE) \
    (XD_REGISTER_P (REGNO) \
-    ? (GET_MODE_SIZE (MODE) / (2 * UNITS_PER_WORD)) \
+    ? ((GET_MODE_SIZE (MODE) + (2*UNITS_PER_WORD - 1)) / (2*UNITS_PER_WORD)) \
     : (TARGET_SHMEDIA && FP_REGISTER_P (REGNO)) \
     ? ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD/2 - 1) / (UNITS_PER_WORD/2)) \
-    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)) \
+    : ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD))
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    We can allow any mode in any general register.  The special registers
@@ -924,8 +1289,8 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
       : (REGNO) == FIRST_XD_REG) \
    : FP_REGISTER_P (REGNO) \
    ? ((MODE) == SFmode || (MODE) == SImode \
-      || ((TARGET_SH3E || TARGET_SHMEDIA) && (MODE) == SCmode) \
-      || (((TARGET_SH4 && (MODE) == DFmode) || (MODE) == DCmode \
+      || ((TARGET_SH2E || TARGET_SHMEDIA) && (MODE) == SCmode) \
+      || ((((TARGET_SH4 || TARGET_SH2A_DOUBLE) && (MODE) == DFmode) || (MODE) == DCmode \
 	   || (TARGET_SHMEDIA && ((MODE) == DFmode || (MODE) == DImode \
 				  || (MODE) == V2SFmode || (MODE) == TImode))) \
 	  && (((REGNO) - FIRST_FP_REG) & 1) == 0)) \
@@ -933,17 +1298,9 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
    ? (MODE) == DFmode \
    : TARGET_REGISTER_P (REGNO) \
    ? ((MODE) == DImode || (MODE) == SImode) \
-   : (REGNO) == PR_REG ? 0			\
+   : (REGNO) == PR_REG ? (MODE) == SImode \
    : (REGNO) == FPSCR_REG ? (MODE) == PSImode \
    : 1)
-
-/* Value is 1 if MODE is a supported vector mode.  */
-#define VECTOR_MODE_SUPPORTED_P(MODE) \
-  ((TARGET_FPU_ANY \
-    && ((MODE) == V2SFmode || (MODE) == V4SFmode || (MODE) == V16SFmode)) \
-   || (TARGET_SHMEDIA \
-       && ((MODE) == V8QImode || (MODE) == V2HImode || (MODE) == V4HImode \
-	   || (MODE) == V2SImode)))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -1041,31 +1398,9 @@ extern char sh_additional_register_names[ADDREGNAMES_SIZE] \
 /* Register in which the static-chain is passed to a function.  */
 #define STATIC_CHAIN_REGNUM	(TARGET_SH5 ? 1 : 3)
 
-/* The register in which a struct value address is passed.  */
-
-#define STRUCT_VALUE_REGNUM 2
-
-/* If the structure value address is not passed in a register, define
-   `STRUCT_VALUE' as an expression returning an RTX for the place
-   where the address is passed.  If it returns 0, the address is
-   passed as an "invisible" first argument.  */
-
-/* The Hitachi calling convention doesn't quite fit into this scheme since
-   the address is passed like an invisible argument, but one that is always
-   passed in memory.  */
-#define STRUCT_VALUE \
-  (TARGET_HITACHI ? 0 : gen_rtx_REG (Pmode, STRUCT_VALUE_REGNUM))
-
-#define RETURN_IN_MEMORY(TYPE) \
-  (TARGET_SH5 \
-   ? ((TYPE_MODE (TYPE) == BLKmode \
-       ? (unsigned HOST_WIDE_INT) int_size_in_bytes (TYPE) \
-       : GET_MODE_SIZE (TYPE_MODE (TYPE))) > 8) \
-   : (TYPE_MODE (TYPE) == BLKmode \
-      || TARGET_HITACHI && TREE_CODE (TYPE) == RECORD_TYPE))
-
 /* Don't default to pcc-struct-return, because we have already specified
-   exactly how to return structures in the RETURN_IN_MEMORY macro.  */
+   exactly how to return structures in the TARGET_RETURN_IN_MEMORY
+   target hook.  */
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
@@ -1191,14 +1526,14 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x000000ff },	\
 /* ALL_REGS:  */							\
   { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0x01ffffff },	\
-}									 
+}
 
 /* The same information, inverted:
    Return the class number of the smallest class containing
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
+extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
 #define REGNO_REG_CLASS(REGNO) regno_reg_class[(REGNO)]
 
 /* When defined, the compiler allows registers explicitly used in the
@@ -1212,26 +1547,35 @@ extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
    and GENERAL_FP_REGS the alternate class.  Since FP0 is likely to be
    spilled or used otherwise, we better have the FP_REGS allocated first.  */
 #define REG_ALLOC_ORDER \
-  { 65, 66, 67, 68, 69, 70, 71, 64, \
-    72, 73, 74, 75, 76, 77, 78, 79, \
-   136,137,138,139,140,141,142,143, \
-    80, 81, 82, 83, 84, 85, 86, 87, \
-    88, 89, 90, 91, 92, 93, 94, 95, \
-    96, 97, 98, 99,100,101,102,103, \
+  {/* Caller-saved FPRs */ \
+    65, 66, 67, 68, 69, 70, 71, 64, \
+    72, 73, 74, 75, 80, 81, 82, 83, \
+    84, 85, 86, 87, 88, 89, 90, 91, \
+    92, 93, 94, 95, 96, 97, 98, 99, \
+   /* Callee-saved FPRs */ \
+    76, 77, 78, 79,100,101,102,103, \
    104,105,106,107,108,109,110,111, \
    112,113,114,115,116,117,118,119, \
    120,121,122,123,124,125,126,127, \
-   151,  1,  2,  3,  7,  6,  5,  4, \
-     0,  8,  9, 10, 11, 12, 13, 14, \
-    16, 17, 18, 19, 20, 21, 22, 23, \
-    24, 25, 26, 27, 28, 29, 30, 31, \
-    32, 33, 34, 35, 36, 37, 38, 39, \
-    40, 41, 42, 43, 44, 45, 46, 47, \
-    48, 49, 50, 51, 52, 53, 54, 55, \
-    56, 57, 58, 59, 60, 61, 62, 63, \
-   150, 15,145,146,147,144,148,149, \
+   136,137,138,139,140,141,142,143, \
+   /* FPSCR */ 151, \
+   /* Caller-saved GPRs (except 8/9 on SH1-4) */ \
+     1,  2,  3,  7,  6,  5,  4,  0, \
+     8,  9, 17, 19, 20, 21, 22, 23, \
+    36, 37, 38, 39, 40, 41, 42, 43, \
+    60, 61, 62, \
+   /* SH1-4 callee-saved saved GPRs / SH5 partially-saved GPRs */ \
+    10, 11, 12, 13, 14, 18, \
+    /* SH5 callee-saved GPRs */ \
+    28, 29, 30, 31, 32, 33, 34, 35, \
+    44, 45, 46, 47, 48, 49, 50, 51, \
+    52, 53, 54, 55, 56, 57, 58, 59, \
+   /* FPUL */ 150, \
+   /* SH5 branch target registers */ \
    128,129,130,131,132,133,134,135, \
-   152 }
+   /* Fixed registers */ \
+    15, 16, 24, 25, 26, 27, 63,144, \
+   145,146,147,148,149,152 }
 
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS  (TARGET_SHMEDIA ? GENERAL_REGS : R0_REGS)
@@ -1241,46 +1585,125 @@ extern int regno_reg_class[FIRST_PSEUDO_REGISTER];
    description.  */
 extern enum reg_class reg_class_from_letter[];
 
-#define REG_CLASS_FROM_LETTER(C) \
-   ( ISLOWER (C) ? reg_class_from_letter[(C)-'a'] : NO_REGS )
+/* We might use 'Rxx' constraints in the future for exotic reg classes.*/
+#define REG_CLASS_FROM_CONSTRAINT(C, STR) \
+  (ISLOWER (C) ? reg_class_from_letter[(C)-'a'] : NO_REGS )
 
+/* Overview of uppercase letter constraints:
+   A: Addresses (constraint len == 3)
+    Ac4: sh4 cache operations
+    Ac5: sh5 cache operations
+   Bxx: miscellaneous constraints
+    Bsc: SCRATCH - for the scratch register in movsi_ie in the
+	 fldi0 / fldi0 cases
+   C: Constants other than only CONST_INT (constraint len == 3)
+    C16: 16 bit constant, literal or symbolic
+    Csy: label or symbol
+    Cpg: non-explicit constants that can be directly loaded into a general
+	 purpose register in PIC code.  like 's' except we don't allow
+	 PIC_DIRECT_ADDR_P
+   IJKLMNOP: CONT_INT constants
+    Ixx: signed xx bit
+    J16: 0xffffffff00000000 | 0x00000000ffffffff
+    Kxx: unsigned xx bit
+    M: 1
+    N: 0
+    P27: 1 | 2 | 8 | 16
+   Q: pc relative load operand
+   Rxx: reserved for exotic register classes.
+   S: extra memory (storage) constraints (constraint len == 3)
+    Sua: unaligned memory operations
+   W: vector
+   Z: zero in any mode
+
+   unused CONST_INT constraint letters: LO
+   unused EXTRA_CONSTRAINT letters: D T U Y */
+
+#if 1 /* check that the transition went well.  */
+#define CONSTRAINT_LEN(C,STR) \
+  (((C) == 'L' || (C) == 'O' || (C) == 'D' || (C) == 'T' || (C) == 'U' \
+    || (C) == 'Y' \
+    || ((C) == 'I' \
+        && (((STR)[1] != '0' && (STR)[1] != '1' && (STR)[1] != '2') \
+	    || (STR)[2] < '0' || (STR)[2] > '9')) \
+    || ((C) == 'B' && ((STR)[1] != 's' || (STR)[2] != 'c')) \
+    || ((C) == 'J' && ((STR)[1] != '1' || (STR)[2] != '6')) \
+    || ((C) == 'K' && ((STR)[1] != '0' || (STR)[2] != '8')) \
+    || ((C) == 'P' && ((STR)[1] != '2' || (STR)[2] != '7'))) \
+   ? -1 \
+   : ((C) == 'A' || (C) == 'B' || (C) == 'C' \
+      || (C) == 'I' || (C) == 'J' || (C) == 'K' || (C) == 'P' \
+      || (C) == 'R' || (C) == 'S') \
+   ? 3 \
+   : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+#else
+#define CONSTRAINT_LEN(C,STR) \
+  (((C) == 'A' || (C) == 'B' || (C) == 'C' \
+    || (C) == 'I' || (C) == 'J' || (C) == 'K' || (C) == 'P' \
+    || (C) == 'R' || (C) == 'S') \
+   ? 3 : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+#endif
+
 /* The letters I, J, K, L and M in a register constraint string
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
-	I: arithmetic operand -127..128, as used in add, sub, etc
-	J: arithmetic operand -32768..32767, as used in SHmedia movi and shori
-	K: shift operand 1,2,8 or 16
-	L: logical operand 0..255, as used in and, or, etc.
+	I08: arithmetic operand -127..128, as used in add, sub, etc
+	I16: arithmetic operand -32768..32767, as used in SHmedia movi and shori
+	P27: shift operand 1,2,8 or 16
+	K08: logical operand 0..255, as used in and, or, etc.
 	M: constant 1
 	N: constant 0
-	O: arithmetic operand -32..31, as used in SHmedia beqi, bnei and xori
-	P: arithmetic operand -512..511, as used in SHmedia andi, ori
+	I06: arithmetic operand -32..31, as used in SHmedia beqi, bnei and xori
+	I10: arithmetic operand -512..511, as used in SHmedia andi, ori
 */
 
-#define CONST_OK_FOR_I(VALUE) (((HOST_WIDE_INT)(VALUE))>= -128 \
-			       && ((HOST_WIDE_INT)(VALUE)) <= 127)
-#define CONST_OK_FOR_J(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -32768 \
-			       && ((HOST_WIDE_INT)(VALUE)) <= 32767)
-#define CONST_OK_FOR_K(VALUE) ((VALUE)==1||(VALUE)==2||(VALUE)==8||(VALUE)==16)
-#define CONST_OK_FOR_L(VALUE) (((HOST_WIDE_INT)(VALUE))>= 0 \
-			       && ((HOST_WIDE_INT)(VALUE)) <= 255)
+#define CONST_OK_FOR_I06(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -32 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 31)
+#define CONST_OK_FOR_I08(VALUE) (((HOST_WIDE_INT)(VALUE))>= -128 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 127)
+#define CONST_OK_FOR_I10(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -512 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 511)
+#define CONST_OK_FOR_I16(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -32768 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 32767)
+#define CONST_OK_FOR_I20(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -524288 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 524287 \
+				 && TARGET_SH2A)
+#define CONST_OK_FOR_I(VALUE, STR) \
+  ((STR)[1] == '0' && (STR)[2] == 6 ? CONST_OK_FOR_I06 (VALUE) \
+   : (STR)[1] == '0' && (STR)[2] == '8' ? CONST_OK_FOR_I08 (VALUE) \
+   : (STR)[1] == '1' && (STR)[2] == '0' ? CONST_OK_FOR_I10 (VALUE) \
+   : (STR)[1] == '1' && (STR)[2] == '6' ? CONST_OK_FOR_I16 (VALUE) \
+   : (STR)[1] == '2' && (STR)[2] == '0' ? CONST_OK_FOR_I20 (VALUE) \
+   : 0)
+
+#define CONST_OK_FOR_J16(VALUE) \
+  ((HOST_BITS_PER_WIDE_INT >= 64 && (VALUE) == (HOST_WIDE_INT) 0xffffffff) \
+   || (HOST_BITS_PER_WIDE_INT >= 64 && (VALUE) == (HOST_WIDE_INT) -1 << 32))
+#define CONST_OK_FOR_J(VALUE, STR) \
+  ((STR)[1] == '1' && (STR)[2] == '6' ? CONST_OK_FOR_J16 (VALUE) \
+   : 0)
+
+#define CONST_OK_FOR_K08(VALUE) (((HOST_WIDE_INT)(VALUE))>= 0 \
+				 && ((HOST_WIDE_INT)(VALUE)) <= 255)
+#define CONST_OK_FOR_K(VALUE, STR) \
+  ((STR)[1] == '0' && (STR)[2] == '8' ? CONST_OK_FOR_K08 (VALUE) \
+   : 0)
+#define CONST_OK_FOR_P27(VALUE) \
+  ((VALUE)==1||(VALUE)==2||(VALUE)==8||(VALUE)==16)
+#define CONST_OK_FOR_P(VALUE, STR) \
+  ((STR)[1] == '2' && (STR)[2] == '7' ? CONST_OK_FOR_P27 (VALUE) \
+   : 0)
 #define CONST_OK_FOR_M(VALUE) ((VALUE)==1)
 #define CONST_OK_FOR_N(VALUE) ((VALUE)==0)
-#define CONST_OK_FOR_O(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -32 \
-			       && ((HOST_WIDE_INT)(VALUE)) <= 31)
-#define CONST_OK_FOR_P(VALUE) (((HOST_WIDE_INT)(VALUE)) >= -512 \
-			       && ((HOST_WIDE_INT)(VALUE)) <= 511)
-#define CONST_OK_FOR_LETTER_P(VALUE, C)		\
-     ((C) == 'I' ? CONST_OK_FOR_I (VALUE)	\
-    : (C) == 'J' ? CONST_OK_FOR_J (VALUE)	\
-    : (C) == 'K' ? CONST_OK_FOR_K (VALUE)	\
-    : (C) == 'L' ? CONST_OK_FOR_L (VALUE)	\
-    : (C) == 'M' ? CONST_OK_FOR_M (VALUE)	\
-    : (C) == 'N' ? CONST_OK_FOR_N (VALUE)	\
-    : (C) == 'O' ? CONST_OK_FOR_O (VALUE)	\
-    : (C) == 'P' ? CONST_OK_FOR_P (VALUE)	\
+#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)	\
+     ((C) == 'I' ? CONST_OK_FOR_I ((VALUE), (STR))	\
+    : (C) == 'J' ? CONST_OK_FOR_J ((VALUE), (STR))	\
+    : (C) == 'K' ? CONST_OK_FOR_K ((VALUE), (STR))	\
+    : (C) == 'M' ? CONST_OK_FOR_M (VALUE)		\
+    : (C) == 'N' ? CONST_OK_FOR_N (VALUE)		\
+    : (C) == 'P' ? CONST_OK_FOR_P ((VALUE), (STR))	\
     : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -1346,11 +1769,12 @@ extern enum reg_class reg_class_from_letter[];
    ? R0_REGS								\
    : (CLASS == FPUL_REGS						\
       && ((GET_CODE (X) == REG						\
-          && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
-	      || REGNO (X) == T_REG))))					\
+	   && (REGNO (X) == MACL_REG || REGNO (X) == MACH_REG		\
+	       || REGNO (X) == T_REG))					\
+	  || GET_CODE (X) == PLUS))					\
    ? GENERAL_REGS							\
    : CLASS == FPUL_REGS && immediate_operand ((X), (MODE))		\
-   ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I (INTVAL (X))		\
+   ? (GET_CODE (X) == CONST_INT && CONST_OK_FOR_I08 (INTVAL (X))	\
       ? GENERAL_REGS							\
       : R0_REGS)							\
    : (CLASS == FPSCR_REGS						\
@@ -1368,9 +1792,13 @@ extern enum reg_class reg_class_from_letter[];
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.
 
-   On SH this is the size of MODE in words.  */
+   If TARGET_SHMEDIA, we need two FP registers per word.
+   Otherwise we will need at most one register per word.  */
 #define CLASS_MAX_NREGS(CLASS, MODE) \
-     ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
+    (TARGET_SHMEDIA \
+     && TEST_HARD_REG_BIT (reg_class_contents[CLASS], FIRST_FP_REG) \
+     ? (GET_MODE_SIZE (MODE) + UNITS_PER_WORD/2 - 1) / (UNITS_PER_WORD/2) \
+     : (GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
 
 /* If defined, gives a class of registers that cannot be used as the
    operand of a SUBREG that changes the mode of the object illegally.  */
@@ -1388,7 +1816,7 @@ extern enum reg_class reg_class_from_letter[];
 #define NPARM_REGS(MODE) \
   (TARGET_FPU_ANY && (MODE) == SFmode \
    ? (TARGET_SH5 ? 12 : 8) \
-   : TARGET_SH4 && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
+   : (TARGET_SH4 || TARGET_SH2A_DOUBLE) && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
 		    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT) \
    ? (TARGET_SH5 ? 12 : 8) \
    : (TARGET_SH5 ? 8 : 4))
@@ -1443,14 +1871,6 @@ extern enum reg_class reg_class_from_letter[];
    On SHcompact, the call trampoline pops arguments off the stack.  */
 #define CALL_POPS_ARGS(CUM) (TARGET_SHCOMPACT ? (CUM).stack_regs * 8 : 0)
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.
-   Values that come in registers with inconvenient padding are stored
-   to memory at the function start.  */
-
-#define MUST_PASS_IN_STACK(MODE,TYPE)			\
-  ((TYPE) != 0						\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST	\
-       || TREE_ADDRESSABLE (TYPE)))
 /* Some subroutine macros specific to this machine.  */
 
 #define BASE_RETURN_VALUE_REG(MODE) \
@@ -1465,9 +1885,9 @@ extern enum reg_class reg_class_from_letter[];
    : FIRST_RET_REG)
 
 #define BASE_ARG_REG(MODE) \
-  ((TARGET_SH3E && ((MODE) == SFmode))			\
+  ((TARGET_SH2E && ((MODE) == SFmode))			\
    ? FIRST_FP_PARM_REG					\
-   : TARGET_SH4 && (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
+   : (TARGET_SH4 || TARGET_SH2A_DOUBLE) && (GET_MODE_CLASS (MODE) == MODE_FLOAT	\
 		    || GET_MODE_CLASS (MODE) == MODE_COMPLEX_FLOAT)\
    ? FIRST_FP_PARM_REG					\
    : FIRST_PARM_REG)
@@ -1482,7 +1902,7 @@ extern enum reg_class reg_class_from_letter[];
    tested here has to be kept in sync with the one in explow.c:promote_mode.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC)					\
-  gen_rtx (REG,								\
+  gen_rtx_REG (								\
 	   ((GET_MODE_CLASS (TYPE_MODE (VALTYPE)) == MODE_INT		\
 	     && GET_MODE_SIZE (TYPE_MODE (VALTYPE)) < UNITS_PER_WORD	\
 	     && (TREE_CODE (VALTYPE) == INTEGER_TYPE			\
@@ -1491,9 +1911,10 @@ extern enum reg_class reg_class_from_letter[];
 		 || TREE_CODE (VALTYPE) == CHAR_TYPE			\
 		 || TREE_CODE (VALTYPE) == REAL_TYPE			\
 		 || TREE_CODE (VALTYPE) == OFFSET_TYPE))		\
+             && sh_promote_prototypes (VALTYPE)				\
 	    ? (TARGET_SHMEDIA ? DImode : SImode) : TYPE_MODE (VALTYPE)), \
 	   BASE_RETURN_VALUE_REG (TYPE_MODE (VALTYPE)))
-     
+
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
 #define LIBCALL_VALUE(MODE) \
@@ -1501,16 +1922,19 @@ extern enum reg_class reg_class_from_letter[];
 
 /* 1 if N is a possible register number for a function value.  */
 #define FUNCTION_VALUE_REGNO_P(REGNO) \
-  ((REGNO) == FIRST_RET_REG || (TARGET_SH3E && (REGNO) == FIRST_FP_RET_REG) \
+  ((REGNO) == FIRST_RET_REG || (TARGET_SH2E && (REGNO) == FIRST_FP_RET_REG) \
    || (TARGET_SHMEDIA_FPU && (REGNO) == FIRST_FP_RET_REG))
 
 /* 1 if N is a possible register number for function argument passing.  */
+/* ??? There are some callers that pass REGNO as int, and others that pass
+   it as unsigned.  We get warnings unless we do casts everywhere.  */
 #define FUNCTION_ARG_REGNO_P(REGNO) \
-  (((REGNO) >= FIRST_PARM_REG && (REGNO) < (FIRST_PARM_REG		\
-					    + NPARM_REGS (SImode)))	\
+  (((unsigned) (REGNO) >= (unsigned) FIRST_PARM_REG			\
+    && (unsigned) (REGNO) < (unsigned) (FIRST_PARM_REG + NPARM_REGS (SImode)))\
    || (TARGET_FPU_ANY                                                   \
-       && (REGNO) >= FIRST_FP_PARM_REG && (REGNO) < (FIRST_FP_PARM_REG	\
-						     + NPARM_REGS (SFmode))))
+       && (unsigned) (REGNO) >= (unsigned) FIRST_FP_PARM_REG		\
+       && (unsigned) (REGNO) < (unsigned) (FIRST_FP_PARM_REG		\
+					   + NPARM_REGS (SFmode))))
 
 /* Define a data type for recording info about an argument list
    during the scan of that argument list.  This data type should
@@ -1548,8 +1972,8 @@ struct sh_args {
      used to pass arguments, if the arguments didn't have to be passed
      by reference.  */
     int byref_regs;
-  /* Set by SHCOMPACT_BYREF if the current argument is to be passed by
-     reference.  */
+  /* Set as by shcompact_byref if the current argument is to be passed
+     by reference.  */
     int byref;
 
   /* call_cookie is a bitmask used by call expanders, as well as
@@ -1620,6 +2044,10 @@ struct sh_args {
 #define CALL_COOKIE_INT_REG_GET(COOKIE, REG) \
   (((COOKIE) >> CALL_COOKIE_INT_REG_SHIFT (REG)) & ((REG) < 4 ? 7 : 15))
     long call_cookie;
+
+  /* This is set to nonzero when the call in question must use the Renesas ABI,
+     even without the -mrenesas option.  */
+    int renesas_abi;
 };
 
 #define CUMULATIVE_ARGS  struct sh_args
@@ -1646,7 +2074,7 @@ struct sh_args {
 
 #define ROUND_REG(CUM, MODE) \
    (((TARGET_ALIGN_DOUBLE					\
-      || (TARGET_SH4 && ((MODE) == DFmode || (MODE) == DCmode)	\
+      || ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && ((MODE) == DFmode || (MODE) == DCmode)	\
 	  && (CUM).arg_count[(int) SH_ARG_FLOAT] < NPARM_REGS (MODE)))\
      && GET_MODE_UNIT_SIZE ((MODE)) > UNITS_PER_WORD)		\
     ? ((CUM).arg_count[(int) GET_SH_ARG_CLASS (MODE)]		\
@@ -1662,177 +2090,16 @@ struct sh_args {
 
    For TARGET_HITACHI, the structure value pointer is passed in memory.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT) \
-  do {								\
-    (CUM).arg_count[(int) SH_ARG_INT] = 0;			\
-    (CUM).arg_count[(int) SH_ARG_FLOAT] = 0;			\
-    (CUM).force_mem						\
-      = (TARGET_HITACHI && FNTYPE				\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE)));		\
-    (CUM).prototype_p = (FNTYPE) && TYPE_ARG_TYPES (FNTYPE);	\
-    (CUM).arg_count[(int) SH_ARG_INT]				\
-      = (TARGET_SH5 && (FNTYPE)					\
-	 && aggregate_value_p (TREE_TYPE (FNTYPE)));		\
-    (CUM).free_single_fp_reg = 0;				\
-    (CUM).outgoing = 1;						\
-    (CUM).stack_regs = 0;					\
-    (CUM).byref_regs = 0;					\
-    (CUM).byref = 0;						\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && (FNTYPE)				\
-	  && (CUM).arg_count[(int) SH_ARG_INT] == 0		\
-	  && (TYPE_MODE (TREE_TYPE (FNTYPE)) == BLKmode		\
-	      ? int_size_in_bytes (TREE_TYPE (FNTYPE))		\
-	      : GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (FNTYPE)))) > 4 \
-	  && (BASE_RETURN_VALUE_REG (TYPE_MODE (TREE_TYPE	\
- 						(FNTYPE)))	\
-	      == FIRST_RET_REG)));				\
-  } while (0)
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, FNDECL, N_NAMED_ARGS) \
+  sh_init_cumulative_args (& (CUM), (FNTYPE), (LIBNAME), (FNDECL), (N_NAMED_ARGS), VOIDmode)
 
 #define INIT_CUMULATIVE_LIBCALL_ARGS(CUM, MODE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), NULL_TREE, (LIBNAME), 0);	\
-    (CUM).call_cookie						\
-      = (CALL_COOKIE_RET_TRAMP					\
-	 (TARGET_SHCOMPACT && GET_MODE_SIZE (MODE) > 4		\
-	  && BASE_RETURN_VALUE_REG (MODE) == FIRST_RET_REG));	\
-  } while (0)
-
-#define INIT_CUMULATIVE_INCOMING_ARGS(CUM, FNTYPE, LIBNAME) \
-  do {								\
-    INIT_CUMULATIVE_ARGS ((CUM), (FNTYPE), (LIBNAME), 0);	\
-    (CUM).outgoing = 0;						\
-  } while (0)
- 
-/* FIXME: This is overly conservative.  A SHcompact function that
-   receives arguments ``by reference'' will have them stored in its
-   own stack frame, so it must not pass pointers or references to
-   these arguments to other functions by means of sibling calls.  */
-#define FUNCTION_OK_FOR_SIBCALL(DECL) \
-  (! TARGET_SHCOMPACT || current_function_args_info.stack_regs == 0)
-
-/* Update the data in CUM to advance over an argument
-   of mode MODE and data type TYPE.
-   (TYPE is null for libcalls where that information may not be
-   available.)  */
+  sh_init_cumulative_args (& (CUM), NULL_TREE, (LIBNAME), NULL_TREE, 0, (MODE))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)	\
- if ((CUM).force_mem)					\
-   (CUM).force_mem = 0;					\
- else if (TARGET_SH5)					\
-   {							\
-     tree TYPE_ = ((CUM).byref && (TYPE)		\
-		   ? TREE_TYPE (TYPE)			\
- 		   : (TYPE));				\
-     enum machine_mode MODE_ = ((CUM).byref && (TYPE)	\
-				? TYPE_MODE (TYPE_)	\
-				: (MODE));		\
-     int dwords = (((CUM).byref				\
-		    ? (CUM).byref			\
-		    : (MODE_) == BLKmode		\
-		    ? int_size_in_bytes (TYPE_)		\
-		    : GET_MODE_SIZE (MODE_)) + 7) / 8;	\
-     int numregs = MIN (dwords, NPARM_REGS (SImode)	\
-			- (CUM).arg_count[(int) SH_ARG_INT]); \
-							\
-     if (numregs)					\
-       {						\
-	 (CUM).arg_count[(int) SH_ARG_INT] += numregs;	\
-	 if (TARGET_SHCOMPACT				\
-	     && SHCOMPACT_FORCE_ON_STACK (MODE_, TYPE_)) \
-	   {						\
-	     (CUM).call_cookie 				\
-	       |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-					- numregs), 1);	\
-	     /* N.B. We want this also for outgoing.   */\
-	     (CUM).stack_regs += numregs;		\
-	   }						\
-	 else if ((CUM).byref)				\
-	   {						\
-	     if (! (CUM).outgoing)			\
-	       (CUM).stack_regs += numregs;		\
-	     (CUM).byref_regs += numregs;		\
-	     (CUM).byref = 0;				\
-	     do						\
-	       (CUM).call_cookie			\
-		 |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-					  - numregs), 2); \
-	     while (--numregs);				\
-	     (CUM).call_cookie				\
-	       |= CALL_COOKIE_INT_REG (((CUM).arg_count[(int) SH_ARG_INT] \
-				        - 1), 1); \
-	   }						\
-	 else if (dwords > numregs)			\
-	   {						\
-	     int pushregs = numregs;			\
-							\
-	     if (TARGET_SHCOMPACT)			\
-	       (CUM).stack_regs += numregs;		\
-	     while (pushregs < NPARM_REGS (SImode) - 1	\
-		    && (CALL_COOKIE_INT_REG_GET		\
-			((CUM).call_cookie,		\
-			NPARM_REGS (SImode) - pushregs) \
-			== 1))				\
-	       {					\
-		 (CUM).call_cookie			\
-		   &= ~ CALL_COOKIE_INT_REG (NPARM_REGS (SImode) \
-					     - pushregs, 1); \
-		 pushregs++;				\
-	       }					\
-	     if (numregs == NPARM_REGS (SImode))	\
-	       (CUM).call_cookie 			\
-		 |= CALL_COOKIE_INT_REG (0, 1)		\
-		    | CALL_COOKIE_STACKSEQ (numregs - 1); \
-	     else					\
-	       (CUM).call_cookie			\
-		 |= CALL_COOKIE_STACKSEQ (numregs);	\
-	   }						\
-       }						\
-     if (GET_SH_ARG_CLASS (MODE_) == SH_ARG_FLOAT	\
-	 && ((NAMED) || ! (CUM).prototype_p))		\
-       {						\
-	 if ((MODE_) == SFmode && (CUM).free_single_fp_reg) \
-	   (CUM).free_single_fp_reg = 0;		\
-	 else if ((CUM).arg_count[(int) SH_ARG_FLOAT]	\
- 		  < NPARM_REGS (SFmode))		\
-	   {					        \
-	     int numfpregs		 		\
-	       = MIN ((GET_MODE_SIZE (MODE_) + 7) / 8 * 2, \
-		      NPARM_REGS (SFmode)		\
-		      - (CUM).arg_count[(int) SH_ARG_FLOAT]); \
-		 					\
-	     (CUM).arg_count[(int) SH_ARG_FLOAT] += numfpregs; \
-							\
-	     if (TARGET_SHCOMPACT && ! (CUM).prototype_p) \
-	       {					\
-		 if ((CUM).outgoing && numregs > 0)	\
-		   do					\
-		     {					\
-		       (CUM).call_cookie		\
-			 |= (CALL_COOKIE_INT_REG	\
-			     ((CUM).arg_count[(int) SH_ARG_INT] \
-			      - numregs + ((numfpregs - 2) / 2), \
-			      4 + ((CUM).arg_count[(int) SH_ARG_FLOAT] \
-				   - numfpregs) / 2));	\
-		     }					\
-		   while (numfpregs -= 2);		\
-	       }					\
-	     else if ((MODE_) == SFmode && (NAMED)	\
-		      && ((CUM).arg_count[(int) SH_ARG_FLOAT] \
-			  < NPARM_REGS (SFmode)))	\
-	       (CUM).free_single_fp_reg			\
-		 = FIRST_FP_PARM_REG - numfpregs	\
-		 + (CUM).arg_count[(int) SH_ARG_FLOAT] + 1; \
-	   }						\
-       }						\
-   }							\
- else if (! TARGET_SH4 || PASS_IN_REG_P ((CUM), (MODE), (TYPE))) \
-   ((CUM).arg_count[(int) GET_SH_ARG_CLASS (MODE)]	\
-    = (ROUND_REG ((CUM), (MODE))			\
-       + ((MODE) == BLKmode				\
-	  ? ROUND_ADVANCE (int_size_in_bytes (TYPE))	\
-	  : ROUND_ADVANCE (GET_MODE_SIZE (MODE)))))
+	sh_function_arg_advance (&(CUM), (MODE), (TYPE), (NAMED))
+#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED)	\
+	sh_function_arg (&(CUM), (MODE), (TYPE), (NAMED))
 
 /* Return boolean indicating arg of mode MODE will be passed in a reg.
    This macro is only used in this file.  */
@@ -1840,9 +2107,13 @@ struct sh_args {
 #define PASS_IN_REG_P(CUM, MODE, TYPE) \
   (((TYPE) == 0 \
     || (! TREE_ADDRESSABLE ((tree)(TYPE)) \
-	&& (! TARGET_HITACHI || ! AGGREGATE_TYPE_P (TYPE)))) \
+	&& (! (TARGET_HITACHI || (CUM).renesas_abi) \
+	    || ! (AGGREGATE_TYPE_P (TYPE) \
+		  || (!TARGET_FPU_ANY \
+		      && (GET_MODE_CLASS (MODE) == MODE_FLOAT \
+			  && GET_MODE_SIZE (MODE) > GET_MODE_SIZE (SFmode))))))) \
    && ! (CUM).force_mem \
-   && (TARGET_SH3E \
+   && (TARGET_SH2E \
        ? ((MODE) == BLKmode \
 	  ? (((CUM).arg_count[(int) SH_ARG_INT] * UNITS_PER_WORD \
 	      + int_size_in_bytes (TYPE)) \
@@ -1852,81 +2123,23 @@ struct sh_args {
 	     <= NPARM_REGS (MODE))) \
        : ROUND_REG ((CUM), (MODE)) < NPARM_REGS (MODE)))
 
-/* Define where to put the arguments to a function.
-   Value is zero to push the argument on the stack,
-   or a hard register in which to store the argument.
-
-   MODE is the argument's machine mode.
-   TYPE is the data type of the argument (as a tree).
-    This is null for libcalls where that information may
-    not be available.
-   CUM is a variable of type CUMULATIVE_ARGS which gives info about
-    the preceding args and about the function being called.
-   NAMED is nonzero if this argument is a named parameter
-    (otherwise it is an extra parameter matching an ellipsis).
-
-   On SH the first args are normally in registers
-   and the rest are pushed.  Any arg that starts within the first
-   NPARM_REGS words is at least partially passed in a register unless
-   its data type forbids.  */
-
-#define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-  ((! TARGET_SH5 \
-    && PASS_IN_REG_P ((CUM), (MODE), (TYPE))				\
-    && ((NAMED) || !TARGET_HITACHI))					\
-   ? gen_rtx_REG ((MODE),						\
-		  ((BASE_ARG_REG (MODE) + ROUND_REG ((CUM), (MODE))) 	\
-		   ^ ((MODE) == SFmode && TARGET_SH4			\
-		      && TARGET_LITTLE_ENDIAN != 0)))			\
-   : TARGET_SH5								\
-   ? ((MODE) == VOIDmode && TARGET_SHCOMPACT				\
-      ? GEN_INT ((CUM).call_cookie)					\
-      /* The following test assumes unnamed arguments are promoted to	\
-	 DFmode.  */							\
-      : (MODE) == SFmode && (CUM).free_single_fp_reg			\
-      ? SH5_PROTOTYPED_FLOAT_ARG ((CUM), (MODE), (CUM).free_single_fp_reg) \
-      : (GET_SH_ARG_CLASS (MODE) == SH_ARG_FLOAT			\
-         && ((NAMED) || ! (CUM).prototype_p)				\
-         && (CUM).arg_count[(int) SH_ARG_FLOAT] < NPARM_REGS (SFmode))	\
-      ? ((! (CUM).prototype_p && TARGET_SHMEDIA)			\
-	 ? SH5_PROTOTYPELESS_FLOAT_ARG ((CUM), (MODE))			\
-	 : SH5_PROTOTYPED_FLOAT_ARG ((CUM), (MODE),			\
-				     FIRST_FP_PARM_REG			\
-				     + (CUM).arg_count[(int) SH_ARG_FLOAT])) \
-      : ((CUM).arg_count[(int) SH_ARG_INT] < NPARM_REGS (SImode)	\
-	 && (! TARGET_SHCOMPACT						\
-	     || (! SHCOMPACT_FORCE_ON_STACK ((MODE), (TYPE))		\
-	         && ! SH5_WOULD_BE_PARTIAL_NREGS ((CUM), (MODE),	\
-						  (TYPE), (NAMED)))))	\
-      ? gen_rtx_REG ((MODE), (FIRST_PARM_REG				\
- 			      + (CUM).arg_count[(int) SH_ARG_INT]))	\
-      : 0)								\
-   : 0)
-
-/* Whether an argument must be passed by reference.  On SHcompact, we
-   pretend arguments wider than 32-bits that would have been passed in
-   registers are passed by reference, so that an SHmedia trampoline
-   loads them into the full 64-bits registers.  */
-#define FUNCTION_ARG_PASS_BY_REFERENCE(CUM,MODE,TYPE,NAMED) \
-  (MUST_PASS_IN_STACK ((MODE), (TYPE)) \
-   || SHCOMPACT_BYREF ((CUM), (MODE), (TYPE), (NAMED)))
-
-#define SHCOMPACT_BYREF(CUM, MODE, TYPE, NAMED) \
-  ((CUM).byref								\
-   = (TARGET_SHCOMPACT							\
-      && (CUM).arg_count[(int) SH_ARG_INT] < NPARM_REGS (SImode)	\
-      && (! (NAMED) || GET_SH_ARG_CLASS (MODE) == SH_ARG_INT		\
-	  || (GET_SH_ARG_CLASS (MODE) == SH_ARG_FLOAT			\
-	      && ((CUM).arg_count[(int) SH_ARG_FLOAT]			\
- 		  >= NPARM_REGS (SFmode))))				\
-      && ((MODE) == BLKmode ? int_size_in_bytes (TYPE)			\
-	  : GET_MODE_SIZE (MODE)) > 4				       	\
-      && ! SHCOMPACT_FORCE_ON_STACK ((MODE), (TYPE))			\
-      && ! SH5_WOULD_BE_PARTIAL_NREGS ((CUM), (MODE),			\
-				       (TYPE), (NAMED)))		\
-      ? ((MODE) == BLKmode ? int_size_in_bytes (TYPE)			\
-	 : GET_MODE_SIZE (MODE))					\
-      : 0)
+/* By accident we got stuck with passing SCmode on SH4 little endian
+   in two registers that are nominally successive - which is different from
+   two single SFmode values, where we take endianness translation into
+   account.  That does not work at all if an odd number of registers is
+   already in use, so that got fixed, but library functions are still more
+   likely to use complex numbers without mixing them with SFmode arguments
+   (which in C would have to be structures), so for the sake of ABI
+   compatibility the way SCmode values are passed when an even number of
+   FP registers is in use remains different from a pair of SFmode values for
+   now.
+   I.e.:
+   foo (double); a: fr5,fr4
+   foo (float a, float b); a: fr5 b: fr4
+   foo (__complex float a); a.real fr4 a.imag: fr5 - for consistency,
+                            this should be the other way round...
+   foo (float a, __complex float b); a: fr5 b.real: fr4 b.imag: fr7  */
+#define FUNCTION_ARG_SCmode_WART 1
 
 /* If an argument of size 5, 6 or 7 bytes is to be passed in a 64-bit
    register in SHcompact mode, it must be padded in the most
@@ -1945,12 +2158,6 @@ struct sh_args {
    reference.  We need such arguments to be aligned to 8 byte
    boundaries, because they'll be loaded using quad loads.  */
 #define SH_MIN_ALIGN_FOR_CALLEE_COPY (8 * BITS_PER_UNIT)
-
-#define FUNCTION_ARG_CALLEE_COPIES(CUM,MODE,TYPE,NAMED) \
-  ((CUM).outgoing							\
-   && (((MODE) == BLKmode ? TYPE_ALIGN (TYPE)				\
-	: GET_MODE_ALIGNMENT (MODE))					\
-       % SH_MIN_ALIGN_FOR_CALLEE_COPY == 0))
 
 /* The SH5 ABI requires floating-point arguments to be passed to
    functions without a prototype in both an FP register and a regular
@@ -1997,10 +2204,6 @@ struct sh_args {
 							  (REG)),	\
 				   const0_rtx))))
 
-#define STRICT_ARGUMENT_NAMING TARGET_SH5
-
-#define PRETEND_OUTGOING_VARARGS_NAMED (! TARGET_HITACHI && ! TARGET_SH5)
-
 /* For an arg passed partly in registers and partly in memory,
    this is the number of registers used.
    For args passed entirely in registers or entirely in memory, zero.
@@ -2010,7 +2213,7 @@ struct sh_args {
 #define FUNCTION_ARG_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
   ((! TARGET_SH5 \
     && PASS_IN_REG_P ((CUM), (MODE), (TYPE))			\
-    && ! TARGET_SH4						\
+    && ! (TARGET_SH4 || TARGET_SH2A_DOUBLE)						\
     && (ROUND_REG ((CUM), (MODE))				\
 	+ ((MODE) != BLKmode					\
 	   ? ROUND_ADVANCE (GET_MODE_SIZE (MODE))		\
@@ -2023,34 +2226,18 @@ struct sh_args {
    : 0)
 
 #define SH5_WOULD_BE_PARTIAL_NREGS(CUM, MODE, TYPE, NAMED) \
-  (TARGET_SH5 && ((MODE) == BLKmode || (MODE) == TImode)	\
+  (TARGET_SH5							\
+   && ((MODE) == BLKmode || (MODE) == TImode || (MODE) == CDImode \
+       || (MODE) == DCmode) \
    && ((CUM).arg_count[(int) SH_ARG_INT]			\
        + (int_size_in_bytes (TYPE) + 7) / 8) > NPARM_REGS (SImode))
 
 /* Perform any needed actions needed for a function that is receiving a
    variable number of arguments.  */
 
-/* We actually emit the code in sh_expand_prologue.  We used to use
-   a static variable to flag that we need to emit this code, but that
-   doesn't when inlining, when functions are deferred and then emitted
-   later.  Fortunately, we already have two flags that are part of struct
-   function that tell if a function uses varargs or stdarg.  */
-#define SETUP_INCOMING_VARARGS(ASF, MODE, TYPE, PAS, ST)  do \
-  if (! current_function_stdarg) \
-    abort (); \
-while (0)
-
-/* Define the `__builtin_va_list' type for the ABI.  */
-#define BUILD_VA_LIST_TYPE(VALIST) \
-  (VALIST) = sh_build_va_list ()
-
 /* Implement `va_start' for varargs and stdarg.  */
 #define EXPAND_BUILTIN_VA_START(valist, nextarg) \
   sh_va_start (valist, nextarg)
-
-/* Implement `va_arg'.  */
-#define EXPAND_BUILTIN_VA_ARG(valist, type) \
-  sh_va_arg (valist, type)
 
 /* Call the function profiler with a given profile label.
    We use two .aligns, so as to make sure that both the .long is aligned
@@ -2078,7 +2265,7 @@ while (0)
 
 #define EXIT_IGNORE_STACK 1
 
-/* 
+/*
    On the SH, the trampoline looks like
    2 0002 D202     	   	mov.l	l2,r2
    1 0000 D301     		mov.l	l1,r3
@@ -2107,7 +2294,7 @@ while (0)
 #define TRAMPOLINE_ADJUST_ADDRESS(TRAMP) do				\
 {									\
   if (TARGET_SHMEDIA)							\
-    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), GEN_INT (1),	\
+    (TRAMP) = expand_simple_binop (Pmode, PLUS, (TRAMP), const1_rtx,	\
 				   gen_reg_rtx (Pmode), 0,		\
 				   OPTAB_LIB_WIDEN);			\
 } while (0)
@@ -2118,9 +2305,7 @@ while (0)
    can ignore COUNT.  */
 
 #define RETURN_ADDR_RTX(COUNT, FRAME)	\
-  (((COUNT) == 0)				\
-   ? get_hard_reg_initial_val (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
-   : (rtx) 0)
+  (((COUNT) == 0) ? sh_get_pr_initial_val () : (rtx) 0)
 
 /* A C expression whose value is RTL representing the location of the
    incoming return address at the beginning of any function, before the
@@ -2130,13 +2315,8 @@ while (0)
 #define INCOMING_RETURN_ADDR_RTX \
   gen_rtx_REG (Pmode, TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG)
 
-/* Generate necessary RTL for __builtin_saveregs().  */
-#define EXPAND_BUILTIN_SAVEREGS() sh_builtin_saveregs ()
-
 /* Addressing modes, and classification of registers for them.  */
 #define HAVE_POST_INCREMENT  TARGET_SH1
-/*#define HAVE_PRE_INCREMENT   1*/
-/*#define HAVE_POST_DECREMENT  1*/
 #define HAVE_PRE_DECREMENT   TARGET_SH1
 
 #define USE_LOAD_POST_INCREMENT(mode)    ((mode == SImode || mode == DImode) \
@@ -2146,9 +2326,13 @@ while (0)
 #define USE_STORE_PRE_DECREMENT(mode)    ((mode == SImode || mode == DImode) \
                                            ? 0 : TARGET_SH1)
 
-#define MOVE_BY_PIECES_P(SIZE, ALIGN)  (move_by_pieces_ninsns (SIZE, ALIGN) \
-                                        < (TARGET_SMALLCODE ? 2 :           \
-                                           ((ALIGN >= 32) ? 16 : 2)))
+#define MOVE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN, MOVE_MAX_PIECES + 1) \
+   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
+
+#define STORE_BY_PIECES_P(SIZE, ALIGN) \
+  (move_by_pieces_ninsns (SIZE, ALIGN, STORE_MAX_PIECES + 1) \
+   < (TARGET_SMALLCODE ? 2 : ((ALIGN >= 32) ? 16 : 2)))
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -2187,7 +2371,7 @@ while (0)
       || TARGET_SHMEDIA64)						\
    : (GET_CODE (X) != CONST_DOUBLE					\
       || GET_MODE (X) == DFmode || GET_MODE (X) == SFmode		\
-      || (TARGET_SH3E && (fp_zero_operand (X) || fp_one_operand (X)))))
+      || (TARGET_SH2E && (fp_zero_operand (X) || fp_one_operand (X)))))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -2240,8 +2424,19 @@ while (0)
 	   && GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 0)) == LABEL_REF \
 	   && GET_CODE (XEXP (XEXP (XEXP ((OP), 0), 0), 1)) == CONST_INT)))
 
-/* The `S' constraint is a 16-bit constant, literal or symbolic.  */
-#define EXTRA_CONSTRAINT_S(OP) \
+/* Extra address constraints.  */
+#define EXTRA_CONSTRAINT_A(OP, STR) 0
+
+/* Constraint for selecting FLDI0 or FLDI1 instruction. If the clobber
+   operand is not SCRATCH (i.e. REG) then R0 is probably being
+   used, hence mova is being used, hence do not select this pattern */
+#define EXTRA_CONSTRAINT_Bsc(OP)    (GET_CODE(OP) == SCRATCH)
+#define EXTRA_CONSTRAINT_B(OP, STR) \
+  ((STR)[1] == 's' && (STR)[2] == 'c' ? EXTRA_CONSTRAINT_Bsc (OP) \
+   : 0)
+
+/* The `C16' constraint is a 16-bit constant, literal or symbolic.  */
+#define EXTRA_CONSTRAINT_C16(OP) \
   (GET_CODE (OP) == CONST \
    && GET_CODE (XEXP ((OP), 0)) == SIGN_EXTEND \
    && GET_MODE (XEXP ((OP), 0)) == DImode \
@@ -2290,6 +2485,14 @@ while (0)
   (GET_CODE (OP) == CONST && GET_CODE (XEXP ((OP), 0)) == UNSPEC \
    && XINT (XEXP ((OP), 0), 1) == UNSPEC_PIC)
 
+#define PIC_OFFSET_P(OP) \
+  (PIC_ADDR_P (OP) \
+   && GET_CODE (XVECEXP (XEXP ((OP), 0), 0, 0)) == MINUS \
+   && reg_mentioned_p (pc_rtx, XEXP (XVECEXP (XEXP ((OP), 0), 0, 0), 1)))
+
+#define PIC_DIRECT_ADDR_P(OP) \
+  (PIC_ADDR_P (OP) && GET_CODE (XVECEXP (XEXP ((OP), 0), 0, 0)) != MINUS)
+
 #define NON_PIC_REFERENCE_P(OP) \
   (GET_CODE (OP) == LABEL_REF || GET_CODE (OP) == SYMBOL_REF \
    || DATALABEL_REF_P (OP) \
@@ -2303,14 +2506,17 @@ while (0)
    || GOTOFF_P (OP) || PIC_ADDR_P (OP))
 
 #define MOVI_SHORI_BASE_OPERAND_P(OP) \
-  (flag_pic ? PIC_REFERENCE_P (OP) : NON_PIC_REFERENCE_P (OP))
+  (flag_pic \
+   ? (GOT_ENTRY_P (OP) || GOTPLT_ENTRY_P (OP)  || GOTOFF_P (OP) \
+      || PIC_OFFSET_P (OP)) \
+   : NON_PIC_REFERENCE_P (OP))
 
-/* The `T' constraint is a label or a symbol.  */
-#define EXTRA_CONSTRAINT_T(OP) \
-  (NON_PIC_REFERENCE_P (OP))
+/* The `Csy' constraint is a label or a symbol.  */
+#define EXTRA_CONSTRAINT_Csy(OP) \
+  (NON_PIC_REFERENCE_P (OP) || PIC_DIRECT_ADDR_P (OP))
 
 /* A zero in any shape or form.  */
-#define EXTRA_CONSTRAINT_U(OP) \
+#define EXTRA_CONSTRAINT_Z(OP) \
   ((OP) == CONST0_RTX (GET_MODE (OP)))
 
 /* Any vector constant we can handle.  */
@@ -2321,12 +2527,42 @@ while (0)
 	   ? sh_const_vec ((OP), VOIDmode) \
 	   : sh_1el_vec ((OP), VOIDmode))))
 
-#define EXTRA_CONSTRAINT(OP, C)		\
+/* A non-explicit constant that can be loaded directly into a general purpose
+   register.  This is like 's' except we don't allow PIC_DIRECT_ADDR_P.  */
+#define EXTRA_CONSTRAINT_Cpg(OP) \
+  (CONSTANT_P (OP) \
+   && GET_CODE (OP) != CONST_INT \
+   && GET_CODE (OP) != CONST_DOUBLE \
+   && (!flag_pic \
+       || (LEGITIMATE_PIC_OPERAND_P (OP) \
+        && (! PIC_ADDR_P (OP) || PIC_OFFSET_P (OP)) \
+        && GET_CODE (OP) != LABEL_REF)))
+#define EXTRA_CONSTRAINT_C(OP, STR) \
+  ((STR)[1] == '1' && (STR)[2] == '6' ? EXTRA_CONSTRAINT_C16 (OP) \
+   : (STR)[1] == 's' && (STR)[2] == 'y' ? EXTRA_CONSTRAINT_Csy (OP) \
+   : (STR)[1] == 'p' && (STR)[2] == 'g' ? EXTRA_CONSTRAINT_Cpg (OP) \
+   : 0)
+
+#define EXTRA_MEMORY_CONSTRAINT(C,STR) ((C) == 'S')
+#define EXTRA_CONSTRAINT_Sr0(OP) \
+  (memory_operand((OP), GET_MODE (OP)) \
+   && ! refers_to_regno_p (R0_REG, R0_REG + 1, OP, (rtx *)0))
+#define EXTRA_CONSTRAINT_Sua(OP) \
+  (memory_operand((OP), GET_MODE (OP)) \
+   && GET_CODE (XEXP (OP, 0)) != PLUS)
+#define EXTRA_CONSTRAINT_S(OP, STR) \
+  ((STR)[1] == 'r' && (STR)[2] == '0' ? EXTRA_CONSTRAINT_Sr0 (OP) \
+   : (STR)[1] == 'u' && (STR)[2] == 'a' ? EXTRA_CONSTRAINT_Sua (OP) \
+   : 0)
+
+#define EXTRA_CONSTRAINT_STR(OP, C, STR)		\
   ((C) == 'Q' ? EXTRA_CONSTRAINT_Q (OP)	\
-   : (C) == 'S' ? EXTRA_CONSTRAINT_S (OP) \
-   : (C) == 'T' ? EXTRA_CONSTRAINT_T (OP) \
-   : (C) == 'U' ? EXTRA_CONSTRAINT_U (OP) \
+   : (C) == 'A' ? EXTRA_CONSTRAINT_A ((OP), (STR)) \
+   : (C) == 'B' ? EXTRA_CONSTRAINT_B ((OP), (STR)) \
+   : (C) == 'C' ? EXTRA_CONSTRAINT_C ((OP), (STR)) \
+   : (C) == 'S' ? EXTRA_CONSTRAINT_S ((OP), (STR)) \
    : (C) == 'W' ? EXTRA_CONSTRAINT_W (OP) \
+   : (C) == 'Z' ? EXTRA_CONSTRAINT_Z (OP) \
    : 0)
 
 /* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
@@ -2336,11 +2572,25 @@ while (0)
 
 #define MODE_DISP_OK_4(X,MODE) \
 (GET_MODE_SIZE (MODE) == 4 && (unsigned) INTVAL (X) < 64	\
- && ! (INTVAL (X) & 3) && ! (TARGET_SH3E && (MODE) == SFmode))
+ && ! (INTVAL (X) & 3) && ! (TARGET_SH2E && (MODE) == SFmode))
 
 #define MODE_DISP_OK_8(X,MODE) \
 ((GET_MODE_SIZE(MODE)==8) && ((unsigned)INTVAL(X)<60)	\
  && ! (INTVAL(X) & 3) && ! (TARGET_SH4 && (MODE) == DFmode))
+
+#undef MODE_DISP_OK_4
+#define MODE_DISP_OK_4(X,MODE) \
+((GET_MODE_SIZE (MODE) == 4 && (unsigned) INTVAL (X) < 64	\
+  && ! (INTVAL (X) & 3) && ! (TARGET_SH2E && (MODE) == SFmode)) \
+  || ((GET_MODE_SIZE(MODE)==4) && ((unsigned)INTVAL(X)<16383)	\
+  && ! (INTVAL(X) & 3) && TARGET_SH2A))
+
+#undef MODE_DISP_OK_8
+#define MODE_DISP_OK_8(X,MODE) \
+(((GET_MODE_SIZE(MODE)==8) && ((unsigned)INTVAL(X)<60)	\
+  && ! (INTVAL(X) & 3) && ! ((TARGET_SH4 || TARGET_SH2A) && (MODE) == DFmode)) \
+ || ((GET_MODE_SIZE(MODE)==8) && ((unsigned)INTVAL(X)<8192)	\
+  && ! (INTVAL(X) & (TARGET_SH2A_DOUBLE ? 7 : 3)) && (TARGET_SH2A && (MODE) == DFmode)))
 
 #define BASE_REGISTER_RTX_P(X)				\
   ((GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))	\
@@ -2367,7 +2617,7 @@ while (0)
 	  REG++
 	  --REG  */
 
-/* ??? The SH3e does not have the REG+disp addressing mode when loading values
+/* ??? The SH2e does not have the REG+disp addressing mode when loading values
    into the FRx registers.  We implement this by setting the maximum offset
    to zero when the value is SFmode.  This also restricts loading of SFmode
    values into the integer registers, but that can't be helped.  */
@@ -2415,7 +2665,7 @@ while (0)
 	GO_IF_LEGITIMATE_INDEX ((MODE), xop1, LABEL);			\
       if (GET_MODE_SIZE (MODE) <= 4					\
 	  || (TARGET_SHMEDIA && GET_MODE_SIZE (MODE) <= 8)		\
-	  || (TARGET_SH4 && TARGET_FMOVD && MODE == DFmode))		\
+	  || ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && TARGET_FMOVD && MODE == DFmode))		\
 	{								\
 	  if (BASE_REGISTER_RTX_P (xop1) && INDEX_REGISTER_RTX_P (xop0))\
 	    goto LABEL;							\
@@ -2452,8 +2702,8 @@ while (0)
       && GET_CODE (XEXP ((X), 1)) == CONST_INT			\
       && BASE_REGISTER_RTX_P (XEXP ((X), 0))			\
       && ! TARGET_SHMEDIA					\
-      && ! (TARGET_SH4 && (MODE) == DFmode)			\
-      && ! (TARGET_SH3E && (MODE) == SFmode))			\
+      && ! ((TARGET_SH4 || TARGET_SH2A_DOUBLE) && (MODE) == DFmode)			\
+      && ! (TARGET_SH2E && (MODE) == SFmode))			\
     {								\
       rtx index_rtx = XEXP ((X), 1);				\
       HOST_WIDE_INT offset = INTVAL (index_rtx), offset_base;	\
@@ -2508,7 +2758,14 @@ while (0)
       HOST_WIDE_INT offset = INTVAL (index_rtx), offset_base;		\
       rtx sum;								\
 									\
-      if (TARGET_SH3E && MODE == SFmode)				\
+      if (TARGET_SH2A && (MODE) == DFmode && (offset & 0x7))		\
+	{								\
+	  push_reload (X, NULL_RTX, &X, NULL,				\
+		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
+		       (TYPE));						\
+	  goto WIN;							\
+	}								\
+      if (TARGET_SH2E && MODE == SFmode)				\
 	{								\
 	  X = copy_rtx (X);						\
 	  push_reload (index_rtx, NULL_RTX, &XEXP (X, 1), NULL,		\
@@ -2530,9 +2787,9 @@ while (0)
 	 prevalent.  */							\
       if (GET_MODE_SIZE (MODE) + offset - offset_base <= 64)		\
 	{								\
-	  sum = gen_rtx (PLUS, Pmode, XEXP (X, 0),			\
+	  sum = gen_rtx_PLUS (Pmode, XEXP (X, 0),			\
 			 GEN_INT (offset_base));			\
-	  X = gen_rtx (PLUS, Pmode, sum, GEN_INT (offset - offset_base));\
+	  X = gen_rtx_PLUS (Pmode, sum, GEN_INT (offset - offset_base));\
 	  push_reload (sum, NULL_RTX, &XEXP (X, 0), NULL,		\
 		       BASE_REG_CLASS, Pmode, VOIDmode, 0, 0, (OPNUM),	\
 		       (TYPE));						\
@@ -2547,7 +2804,7 @@ while (0)
 	   && BASE_REGISTER_RTX_P (XEXP (XEXP (X, 0), 0))		\
 	   && GET_CODE (XEXP (X, 1)) == CONST_INT			\
 	   && ! TARGET_SHMEDIA						\
-	   && ! (TARGET_SH3E && MODE == SFmode))			\
+	   && ! (TARGET_SH2E && MODE == SFmode))			\
     {									\
       /* Because this address is so complex, we know it must have	\
 	 been created by LEGITIMIZE_RELOAD_ADDRESS before; thus,	\
@@ -2593,9 +2850,9 @@ while (0)
 /* Define it here, so that it doesn't get bumped to 64-bits on SHmedia.  */
 #define FLOAT_TYPE_SIZE 32
 
-/* Since the SH3e has only `float' support, it is desirable to make all
+/* Since the SH2e has only `float' support, it is desirable to make all
    floating point types equivalent to `float'.  */
-#define DOUBLE_TYPE_SIZE ((TARGET_SH3E && ! TARGET_SH4) ? 32 : 64)
+#define DOUBLE_TYPE_SIZE ((TARGET_SH2E && ! TARGET_SH4 && ! TARGET_SH2A_DOUBLE) ? 32 : 64)
 
 /* 'char' is signed by default.  */
 #define DEFAULT_SIGNED_CHAR  1
@@ -2610,9 +2867,6 @@ while (0)
 #define WCHAR_TYPE_SIZE 16
 
 #define SH_ELF_WCHAR_TYPE "long int"
-
-/* Don't cse the address of the function being compiled.  */
-/*#define NO_RECURSIVE_FUNCTION_CSE 1*/
 
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
@@ -2633,24 +2887,19 @@ while (0)
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should
    be the code that says which one of the two operations is implicitly
-   done, NIL if none.  */
+   done, UNKNOWN if none.  */
 /* For SHmedia, we can truncate to QImode easier using zero extension.  */
 /* FP registers can load SImode values, but don't implicitly sign-extend
    them to DImode.  */
 #define LOAD_EXTEND_OP(MODE) \
  (((MODE) == QImode  && TARGET_SHMEDIA) ? ZERO_EXTEND \
-  : (MODE) != SImode ? SIGN_EXTEND : NIL)
+  : (MODE) != SImode ? SIGN_EXTEND : UNKNOWN)
 
 /* Define if loading short immediate values into registers sign extends.  */
 #define SHORT_IMMEDIATES_SIGN_EXTEND
 
 /* Nonzero if access to memory by bytes is no faster than for words.  */
 #define SLOW_BYTE_ACCESS 1
-
-/* We assume that the store-condition-codes instructions store 0 for false
-   and some other value for true.  This is the value stored for true.  */
-
-#define STORE_FLAG_VALUE 1
 
 /* Immediate shift counts are truncated by the output routines (or was it
    the assembler?).  Shift counts in a register are truncated by SH.  Note
@@ -2661,7 +2910,7 @@ while (0)
    However, the SH3 has hardware shifts that do not truncate exactly as gcc
    expects - the sign bit is significant - so it appears that we need to
    leave this zero for correct SH3 code.  */
-#define SHIFT_COUNT_TRUNCATED (! TARGET_SH3)
+#define SHIFT_COUNT_TRUNCATED (! TARGET_SH3 && ! TARGET_SH2A)
 
 /* All integers have the same format so truncation is easy.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC,INPREC)  1
@@ -2672,76 +2921,9 @@ while (0)
    but a CALL with constant address is cheap.  */
 /*#define NO_FUNCTION_CSE 1*/
 
-/* Chars and shorts should be passed as ints.  */
-#define PROMOTE_PROTOTYPES 1
-
 /* The machine modes of pointers and functions.  */
 #define Pmode  (TARGET_SHMEDIA64 ? DImode : SImode)
 #define FUNCTION_MODE  Pmode
-
-/* The relative costs of various types of constants.  */
-
-#define CONST_COSTS(RTX, CODE, OUTER_CODE)	\
-  case CONST_INT:				\
-    if (TARGET_SHMEDIA)				\
-      {						\
-	if (INTVAL (RTX) == 0)			\
-	  return 0;				\
-	if ((OUTER_CODE) == AND && and_operand ((RTX), DImode)) \
-	  return 0;				\
-	if (((OUTER_CODE) == IOR || (OUTER_CODE) == XOR \
-	     || (OUTER_CODE) == PLUS) \
-	    && CONST_OK_FOR_P (INTVAL (RTX)))	\
-	  return 0;				\
-	if (CONST_OK_FOR_J (INTVAL (RTX)))	\
-          return COSTS_N_INSNS ((OUTER_CODE) != SET);		\
-	else if (CONST_OK_FOR_J (INTVAL (RTX) >> 16)) \
-	  return COSTS_N_INSNS (2);		\
-	else if (CONST_OK_FOR_J ((INTVAL (RTX) >> 16) >> 16)) \
-	  return COSTS_N_INSNS (3);		\
-        else					\
-	  return COSTS_N_INSNS (4);		\
-      }						\
-    if (CONST_OK_FOR_I (INTVAL (RTX)))		\
-      return 0;					\
-    else if (((OUTER_CODE) == AND || (OUTER_CODE) == IOR || (OUTER_CODE) == XOR) \
-	     && CONST_OK_FOR_L (INTVAL (RTX)))	\
-      return 1;					\
-    else					\
-      return 8;					\
-  case CONST: 					\
-  case LABEL_REF:				\
-  case SYMBOL_REF:				\
-    if (TARGET_SHMEDIA64)			\
-      return COSTS_N_INSNS (4);			\
-    if (TARGET_SHMEDIA32)			\
-      return COSTS_N_INSNS (2);			\
-    return 5;					\
-  case CONST_DOUBLE:				\
-    if (TARGET_SHMEDIA)				\
-      return COSTS_N_INSNS (4);			\
-    else					\
-      return 10;
-
-#define RTX_COSTS(X, CODE, OUTER_CODE)			\
-  case PLUS:						\
-    return COSTS_N_INSNS (addsubcosts (X));		\
-  case AND:						\
-    return COSTS_N_INSNS (andcosts (X));		\
-  case MULT:						\
-    return COSTS_N_INSNS (multcosts (X));		\
-  case ASHIFT:						\
-  case ASHIFTRT:					\
-  case LSHIFTRT:					\
-    return COSTS_N_INSNS (shiftcosts (X));		\
-  case DIV:						\
-  case UDIV:						\
-  case MOD:						\
-  case UMOD:						\
-    return COSTS_N_INSNS (20);				\
-  case FLOAT:						\
-  case FIX:						\
-    return 100;
 
 /* The multiply insn on the SH1 and the divide insns on the SH1 and SH2
    are actually function calls with some special constraints on arguments
@@ -2774,41 +2956,19 @@ while (0)
 
 /* Position Independent Code.  */
 
-/* The prefix used to mark SYMBOL_REFs that refer to data symbols.  */
-#define SH_DATALABEL_ENCODING "#"
-
-/* Return true if SYM_NAME starts with SH_DATALABEL_ENCODING.  */
-#define DATALABEL_SYMNAME_P(SYM_NAME) \
-  (SH_DATALABEL_ENCODING[1] ? (abort (), 0) : \
-   (SYM_NAME)[0] == SH_DATALABEL_ENCODING[0])
-
-/* Skip an optional SH_DATALABEL_ENCODING in the beginning of
-   SYM_NAME.  Then, remove a leading *, like the default definition in
-   output.h.  */
-#define STRIP_DATALABEL_ENCODING(VAR, SYM_NAME) \
-  (VAR) = (SYM_NAME) + (DATALABEL_SYMNAME_P (SYM_NAME) \
-			? strlen (SH_DATALABEL_ENCODING) : 0)
-
 /* We can't directly access anything that contains a symbol,
    nor can we indirect via the constant pool.  */
 #define LEGITIMATE_PIC_OPERAND_P(X)				\
-	(! nonpic_symbol_mentioned_p (X)			\
-	 && (GET_CODE (X) != SYMBOL_REF				\
-	     || ! CONSTANT_POOL_ADDRESS_P (X)			\
-	     || ! nonpic_symbol_mentioned_p (get_pool_constant (X))))
+	((! nonpic_symbol_mentioned_p (X)			\
+	  && (GET_CODE (X) != SYMBOL_REF			\
+	      || ! CONSTANT_POOL_ADDRESS_P (X)			\
+	      || ! nonpic_symbol_mentioned_p (get_pool_constant (X)))) \
+	 || (TARGET_SHMEDIA && GET_CODE (X) == LABEL_REF))
 
 #define SYMBOLIC_CONST_P(X)	\
 ((GET_CODE (X) == SYMBOL_REF || GET_CODE (X) == LABEL_REF)	\
   && nonpic_symbol_mentioned_p (X))
 
-/* Compute the cost of an address.  For the SH, all valid addresses are
-   the same cost.  Use a slightly higher cost for reg + reg addressing,
-   since it increases pressure on r0.  */
-
-#define ADDRESS_COST(X) (GET_CODE (X) == PLUS && ! CONSTANT_P (XEXP (X, 1)) \
-			 && ! TARGET_SHMEDIA \
-			 ? 1 : 0)
-
 /* Compute extra cost of moving data between one register class
    and another.  */
 
@@ -2844,10 +3004,6 @@ while (0)
    assembler language.  The compiler assumes that the comment will end at
    the end of the line.  */
 #define ASM_COMMENT_START "!"
-
-/* The text to go at the start of the assembler file.  */
-#define ASM_FILE_START(STREAM) \
-  output_file_start (STREAM)
 
 #define ASM_APP_ON  		""
 #define ASM_APP_OFF  		""
@@ -2935,22 +3091,36 @@ while (0)
    to match gdb.  */
 /* svr4.h undefines this macro, yet we really want to use the same numbers
    for coff as for elf, so we go via another macro: SH_DBX_REGISTER_NUMBER.  */
+/* expand_builtin_init_dwarf_reg_sizes uses this to test if a
+   register exists, so we should return -1 for invalid register numbers.  */
 #define DBX_REGISTER_NUMBER(REGNO) SH_DBX_REGISTER_NUMBER (REGNO)
 
+/* SHcompact PR_REG used to use the encoding 241, and SHcompact FP registers
+   used to use the encodings 245..260, but that doesn't make sense:
+   PR_REG and PR_MEDIA_REG are actually the same register, and likewise
+   the FP registers stay the same when switching between compact and media
+   mode.  Hence, we also need to use the same dwarf frame columns.
+   Likewise, we need to support unwind information for SHmedia registers
+   even in compact code.  */
 #define SH_DBX_REGISTER_NUMBER(REGNO) \
-  (GENERAL_REGISTER_P (REGNO) \
-   ? ((REGNO) - FIRST_GENERAL_REG) \
-   : FP_REGISTER_P (REGNO) \
-   ? ((REGNO) - FIRST_FP_REG + (TARGET_SH5 ? (TARGET_SHCOMPACT ? 245 \
-					      : 77) : 25)) \
+  (IN_RANGE ((REGNO), \
+	     (unsigned HOST_WIDE_INT) FIRST_GENERAL_REG, \
+	     FIRST_GENERAL_REG + (TARGET_SH5 ? 63U :15U)) \
+   ? ((unsigned) (REGNO) - FIRST_GENERAL_REG) \
+  : ((int) (REGNO) >= FIRST_FP_REG \
+     && ((int) (REGNO) \
+	 <= (FIRST_FP_REG + \
+	     ((TARGET_SH5 && TARGET_FPU_ANY) ? 63 : TARGET_SH2E ? 15 : -1)))) \
+   ? ((unsigned) (REGNO) - FIRST_FP_REG \
+      + (TARGET_SH5 ? 77 : 25)) \
    : XD_REGISTER_P (REGNO) \
-   ? ((REGNO) - FIRST_XD_REG + (TARGET_SH5 ? 289 : 87)) \
+   ? ((unsigned) (REGNO) - FIRST_XD_REG + (TARGET_SH5 ? 289 : 87)) \
    : TARGET_REGISTER_P (REGNO) \
-   ? ((REGNO) - FIRST_TARGET_REG + 68) \
+   ? ((unsigned) (REGNO) - FIRST_TARGET_REG + 68) \
    : (REGNO) == PR_REG \
-   ? (TARGET_SH5 ? 241 : 17) \
+   ? (TARGET_SH5 ? 18 : 17) \
    : (REGNO) == PR_MEDIA_REG \
-   ? (TARGET_SH5 ? 18 : -1) \
+   ? (TARGET_SH5 ? 18 : (unsigned) -1) \
    : (REGNO) == T_REG \
    ? (TARGET_SH5 ? 242 : 18) \
    : (REGNO) == GBR_REG \
@@ -2961,30 +3131,14 @@ while (0)
    ? (TARGET_SH5 ? 240 : 21) \
    : (REGNO) == FPUL_REG \
    ? (TARGET_SH5 ? 244 : 23) \
-   : (abort(), -1))
-
-/* This is how to output a reference to a user-level label named NAME.  */
-#define ASM_OUTPUT_LABELREF(FILE, NAME)			\
-  do							\
-    {							\
-      char * lname;					\
-							\
-      STRIP_DATALABEL_ENCODING (lname, (NAME));		\
-      if (lname[0] == '*')				\
-	fputs (lname + 1, (FILE));			\
-      else						\
-	asm_fprintf ((FILE), "%U%s", lname);		\
-    }							\
-  while (0)
+   : (unsigned) -1)
 
 /* This is how to output a reference to a symbol_ref.  On SH5,
    references to non-code symbols must be preceded by `datalabel'.  */
 #define ASM_OUTPUT_SYMBOL_REF(FILE,SYM)			\
   do 							\
     {							\
-      if (TARGET_SH5					\
-	  && (DATALABEL_SYMNAME_P (XSTR ((SYM), 0))	\
-	      || CONSTANT_POOL_ADDRESS_P (SYM)))	\
+      if (TARGET_SH5 && !SYMBOL_REF_FUNCTION_P (SYM))	\
 	fputs ("datalabel ", (FILE));			\
       assemble_name ((FILE), XSTR ((SYM), 0));		\
     }							\
@@ -3002,11 +3156,6 @@ while (0)
 #define GLOBAL_ASM_OP "\t.global\t"
 
 /* #define ASM_OUTPUT_CASE_END(STREAM,NUM,TABLE)	    */
-
-/* Construct a private name.  */
-#define ASM_FORMAT_PRIVATE_NAME(OUTVAR,NAME,NUMBER)	\
-  ((OUTVAR) = (char *) alloca (strlen (NAME) + 10),	\
-   sprintf ((OUTVAR), "%s.%d", (NAME), (NUMBER)))
 
 /* Output a relative address table.  */
 
@@ -3113,6 +3262,18 @@ while (0)
 	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
 	    fputs ("@GOTPLT", (STREAM));				\
 	    break;							\
+	  case UNSPEC_DTPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@DTPOFF", (STREAM));				\
+	    break;							\
+	  case UNSPEC_GOTTPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@GOTTPOFF", (STREAM));				\
+	    break;							\
+	  case UNSPEC_TPOFF:						\
+	    output_addr_const ((STREAM), XVECEXP ((X), 0, 0));		\
+	    fputs ("@TPOFF", (STREAM));					\
+	    break;							\
 	  case UNSPEC_CALLER:						\
 	    {								\
 	      char name[32];						\
@@ -3141,9 +3302,12 @@ extern struct rtx_def *sh_compare_op1;
 enum processor_type {
   PROCESSOR_SH1,
   PROCESSOR_SH2,
+  PROCESSOR_SH2E,
+  PROCESSOR_SH2A,
   PROCESSOR_SH3,
   PROCESSOR_SH3E,
   PROCESSOR_SH4,
+  PROCESSOR_SH4A,
   PROCESSOR_SH5
 };
 
@@ -3164,17 +3328,11 @@ enum mdep_reorg_phase_e
 
 extern enum mdep_reorg_phase_e mdep_reorg_phase;
 
-#define MACHINE_DEPENDENT_REORG(X) machine_dependent_reorg(X)
-
-/* Generate calls to memcpy, memcmp and memset.  */
-
-#define TARGET_MEM_FUNCTIONS
-
-/* Handle Hitachi compiler's pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE) do {				    \
-  cpp_register_pragma (PFILE, 0, "interrupt", sh_pr_interrupt);		    \
-  cpp_register_pragma (PFILE, 0, "trapa", sh_pr_trapa);			    \
-  cpp_register_pragma (PFILE, 0, "nosave_low_regs", sh_pr_nosave_low_regs); \
+/* Handle Renesas compiler's pragmas.  */
+#define REGISTER_TARGET_PRAGMAS() do {					\
+  c_register_pragma (0, "interrupt", sh_pr_interrupt);			\
+  c_register_pragma (0, "trapa", sh_pr_trapa);				\
+  c_register_pragma (0, "nosave_low_regs", sh_pr_nosave_low_regs);	\
 } while (0)
 
 /* Set when processing a function with pragma interrupt turned on.  */
@@ -3209,6 +3367,7 @@ extern int rtx_equal_function_value_matters;
   {"arith_reg_or_0_operand", {SUBREG, REG, CONST_INT, CONST_VECTOR}},	\
   {"binary_float_operator", {PLUS, MINUS, MULT, DIV}},			\
   {"binary_logical_operator", {AND, IOR, XOR}},				\
+  {"cmpsi_operand", {SUBREG, REG, CONST_INT}},				\
   {"commutative_float_operator", {PLUS, MULT}},				\
   {"equality_comparison_operator", {EQ,NE}},				\
   {"extend_reg_operand", {SUBREG, REG, TRUNCATE}},			\
@@ -3219,6 +3378,7 @@ extern int rtx_equal_function_value_matters;
   {"general_extend_operand", {SUBREG, REG, MEM, TRUNCATE}},		\
   {"general_movsrc_operand", {SUBREG, REG, CONST_INT, CONST_DOUBLE, MEM}}, \
   {"general_movdst_operand", {SUBREG, REG, MEM}},			\
+  {"unaligned_load_operand", {MEM}},					\
   {"greater_comparison_operator", {GT,GE,GTU,GEU}},			\
   {"int_gpr_dest", {SUBREG, REG}},					\
   {"inqhi_operand", {TRUNCATE}},					\
@@ -3231,7 +3391,6 @@ extern int rtx_equal_function_value_matters;
   {"target_reg_operand", {SUBREG, REG}},				\
   {"target_operand", {SUBREG, REG, LABEL_REF, SYMBOL_REF, CONST, UNSPEC}},\
   {"trunc_hi_operand", {SUBREG, REG, TRUNCATE}},			\
-  {"register_operand", {SUBREG, REG}},					\
   {"sh_const_vec", {CONST_VECTOR}},					\
   {"sh_1el_vec", {CONST_VECTOR, PARALLEL}},				\
   {"sh_rep_vec", {CONST_VECTOR, PARALLEL}},				\
@@ -3247,7 +3406,7 @@ extern int rtx_equal_function_value_matters;
 #define any_register_operand register_operand
 
 /* Define this macro if it is advisable to hold scalars in registers
-   in a wider mode than that declared by the program.  In such cases, 
+   in a wider mode than that declared by the program.  In such cases,
    the value is constrained to be within the bounds of the declared
    type, but kept valid in the wider mode.  The signedness of the
    extension may differ from that of the type.
@@ -3261,17 +3420,10 @@ extern int rtx_equal_function_value_matters;
     (UNSIGNEDP) = ((MODE) == SImode ? 0 : (UNSIGNEDP)),	\
     (MODE) = (TARGET_SH1 ? SImode : DImode);
 
-/* Defining PROMOTE_FUNCTION_ARGS eliminates some unnecessary zero/sign
-   extensions applied to char/short functions arguments.  Defining
-   PROMOTE_FUNCTION_RETURN does the same for function returns.  */
-
-#define PROMOTE_FUNCTION_ARGS
-#define PROMOTE_FUNCTION_RETURN
-
 #define MAX_FIXED_MODE_SIZE (TARGET_SH5 ? 128 : 64)
 
 /* ??? Define ACCUMULATE_OUTGOING_ARGS?  This is more efficient than pushing
-   and poping arguments.  However, we do have push/pop instructions, and
+   and popping arguments.  However, we do have push/pop instructions, and
    rather limited offsets (4 bits) in load/store instructions, so it isn't
    clear if this would give better code.  If implemented, should check for
    compatibility problems.  */
@@ -3282,20 +3434,35 @@ extern int rtx_equal_function_value_matters;
 
 #define NUM_MODES_FOR_MODE_SWITCHING { FP_MODE_NONE }
 
-#define OPTIMIZE_MODE_SWITCHING(ENTITY) TARGET_SH4
+#define OPTIMIZE_MODE_SWITCHING(ENTITY) (TARGET_SH4 || TARGET_SH2A_DOUBLE)
+
+#define ACTUAL_NORMAL_MODE(ENTITY) \
+  (TARGET_FPU_SINGLE ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
 
 #define NORMAL_MODE(ENTITY) \
-  (sh_cfun_interrupt_handler_p () ? FP_MODE_NONE \
-   : TARGET_FPU_SINGLE ? FP_MODE_SINGLE \
-   : FP_MODE_DOUBLE)
+  (sh_cfun_interrupt_handler_p () \
+   ? (TARGET_FMOVD ? FP_MODE_DOUBLE : FP_MODE_NONE) \
+   : ACTUAL_NORMAL_MODE (ENTITY))
 
-#define EPILOGUE_USES(REGNO)       ((TARGET_SH3E || TARGET_SH4)		\
+#define MODE_ENTRY(ENTITY) NORMAL_MODE (ENTITY)
+
+#define MODE_EXIT(ENTITY) \
+  (sh_cfun_attr_renesas_p () ? FP_MODE_NONE : NORMAL_MODE (ENTITY))
+
+#define EPILOGUE_USES(REGNO)       ((TARGET_SH2E || TARGET_SH4)		\
 				    && (REGNO) == FPSCR_REG)
 
 #define MODE_NEEDED(ENTITY, INSN)					\
   (recog_memoized (INSN) >= 0						\
    ? get_attr_fp_mode (INSN)						\
    : FP_MODE_NONE)
+
+#define MODE_AFTER(MODE, INSN)                  \
+     (TARGET_HITACHI				\
+      && recog_memoized (INSN) >= 0		\
+      && get_attr_fp_set (INSN) != FP_SET_NONE  \
+      ? (int) get_attr_fp_set (INSN)            \
+      : (MODE))
 
 #define MODE_PRIORITY_TO_MODE(ENTITY, N) \
   ((TARGET_FPU_SINGLE != 0) ^ (N) ? FP_MODE_SINGLE : FP_MODE_DOUBLE)
@@ -3308,6 +3475,33 @@ extern int rtx_equal_function_value_matters;
 
 #define DWARF_FRAME_RETURN_COLUMN \
   (TARGET_SH5 ? DWARF_FRAME_REGNUM (PR_MEDIA_REG) : DWARF_FRAME_REGNUM (PR_REG))
+
+#define EH_RETURN_DATA_REGNO(N)	\
+  ((N) < 4 ? (N) + (TARGET_SH5 ? 2U : 4U) : INVALID_REGNUM)
+
+#define EH_RETURN_STACKADJ_REGNO STATIC_CHAIN_REGNUM
+#define EH_RETURN_STACKADJ_RTX	gen_rtx_REG (Pmode, EH_RETURN_STACKADJ_REGNO)
+
+/* We have to distinguish between code and data, so that we apply
+   datalabel where and only where appropriate.  Use sdataN for data.  */
+#define ASM_PREFERRED_EH_DATA_FORMAT(CODE, GLOBAL) \
+ ((flag_pic && (GLOBAL) ? DW_EH_PE_indirect : 0) \
+  | (flag_pic ? DW_EH_PE_pcrel : DW_EH_PE_absptr) \
+  | ((CODE) ? 0 : (TARGET_SHMEDIA64 ? DW_EH_PE_sdata8 : DW_EH_PE_sdata4)))
+
+/* Handle special EH pointer encodings.  Absolute, pc-relative, and
+   indirect are handled automatically.  */
+#define ASM_MAYBE_OUTPUT_ENCODED_ADDR_RTX(FILE, ENCODING, SIZE, ADDR, DONE) \
+  do { \
+    if (((ENCODING) & 0xf) != DW_EH_PE_sdata4 \
+	&& ((ENCODING) & 0xf) != DW_EH_PE_sdata8) \
+      { \
+	if (GET_CODE (ADDR) != SYMBOL_REF) \
+	  abort (); \
+	SYMBOL_REF_FLAGS (ADDR) |= SYMBOL_FLAG_FUNCTION; \
+	if (0) goto DONE; \
+      } \
+  } while (0)
 
 #if (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__
 /* SH constant pool breaks the devices in crtstuff.c to control section
@@ -3324,13 +3518,15 @@ extern int rtx_equal_function_value_matters;
 #endif /* (defined CRT_BEGIN || defined CRT_END) && ! __SHMEDIA__ */
 
 #define ALLOCATE_INITIAL_VALUE(hard_reg) \
-  (REGNO (hard_reg) == (TARGET_SH5 ? PR_MEDIA_REG : PR_REG) \
-   ? (current_function_is_leaf && ! sh_pr_n_sets () \
+  (REGNO (hard_reg) == (TARGET_SHMEDIA ? PR_MEDIA_REG : PR_REG) \
+   ? (current_function_is_leaf \
+      && ! sh_pr_n_sets () \
+      && ! (TARGET_SHCOMPACT \
+	    && ((current_function_args_info.call_cookie \
+		 & ~ CALL_COOKIE_RET_TRAMP (1)) \
+		|| current_function_has_nonlocal_label)) \
       ? (hard_reg) \
-      : gen_rtx_MEM (Pmode, TARGET_SH5 \
-			    ? (plus_constant (arg_pointer_rtx, \
-					      TARGET_SHMEDIA64 ? -8 : -4)) \
-			    : frame_pointer_rtx)) \
+      : gen_rtx_MEM (Pmode, return_address_pointer_rtx)) \
    : NULL_RTX)
 
 #endif /* ! GCC_SH_H */

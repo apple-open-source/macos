@@ -26,6 +26,7 @@
 #import <sys/param.h>
 #import <sys/ucred.h>
 #import <sys/stat.h>
+#import <sys/mount.h>
 #import <errno.h>
 #import "AMVnode.h"
 #import "AMMap.h"
@@ -34,12 +35,12 @@
 #import <string.h>
 #import <stdlib.h>
 #import <stdio.h>
+#import <unistd.h>
 #import "automount.h"
 #import "log.h"
 #import <syslog.h>
 #include "Controller.h"
-
-#define NFSSCHEMEPREFIX "nfs:/"
+#include "vfs_sysctl.h"
 
 @implementation Vnode
 
@@ -55,7 +56,7 @@
 	server = nil;
 	map = nil;
 
-	mountInProgress = NO;
+	mountInProgressCount = 0;
 	mounted = NO;
 	fake = NO;
 	mountPathCreated = NO;
@@ -63,6 +64,7 @@
 
 	supernode = nil;
 	subnodes = [[Array alloc] init];
+	serverDepth = -1;	/* Depth is unknown */
 
 	attributes.type = NFDIR;
 	attributes.mode = 0555 | NFSMODE_DIR;
@@ -76,9 +78,7 @@
 	attributes.fsid = 0;
 	attributes.fileid = 0;
 
-	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
-	attributes.mtime = attributes.atime;
-	attributes.ctime = attributes.atime;
+	[self resetTime];
 
 	mntArgs = 0;
 	mntTimeout = GlobalMountTimeout;
@@ -127,7 +127,8 @@
 	if ([controller vnodeIsRegistered:self]) {
 		sys_msg(debug, LOG_ERR, "Hey?! vnode being deallocated is still registered?!");
 	};
-	if (mountInProgress) {
+	if ([self isHashed]) [controller unhashVnode:self];
+	if ([self mountInProgress]) {
 		sys_msg(debug, LOG_DEBUG, "Hey?! vnode being deallocated has mount in progress?!");
 	};
 	if (relpath != nil) [relpath release];
@@ -170,10 +171,9 @@
 
 - (void)setSource:(String *)s
 {
-	if (s == src) return;
-
+	[s retain];
 	[src release];
-	src = [s retain];
+	src = s;
 }
 
 - (String *)vfsType
@@ -183,10 +183,9 @@
 
 - (void)setVfsType:(String *)s
 {
-	if (s == vfsType) return;
-
+	[s retain];
 	[vfsType release];
-	vfsType = [s retain];
+	vfsType = s;
 }
 
 - (Server *)server
@@ -196,11 +195,11 @@
 
 - (void)setServer:(Server *)s
 {
-	if (server == s) return;
-
-	if (server != nil) [server release];
-	if (s != nil) server = [s retain];
-	else server = nil;
+	[s retain];
+	[server release];
+	server = s;
+	
+	if (server && ([[self map] mountStyle] == kMountStyleAutoFS)) [self armNodeTrigger];
 }
 
 - (Map *)map
@@ -215,29 +214,32 @@
 
 - (String *)link
 {
-	return link;
+	if ([[self map] mountStyle] == kMountStyleAutoFS) {
+		return [self path];
+	} else {
+		return link;
+	};
 }
 
 - (void)setLink:(String *)l
 {
-	if (l == link) return;
-
+	[l retain];
 	[link release];
-	link = [l retain];
+	link = l;
 }
 
 - (void)setUrlString:(String *)n
 {
-	if (urlString != nil) [urlString release];
+	[n retain];
+	[urlString release];
 	urlString = n;
-	[urlString retain];
 }
 
 - (void)setAuthenticatedUrlString:(String *)n
 {
-	if (authenticated_urlString != nil) [authenticated_urlString release];
+	[n retain];
+	[authenticated_urlString release];
 	authenticated_urlString = n;
-	[authenticated_urlString retain];
 }
 
 - (String *)urlString
@@ -261,12 +263,15 @@
 	struct fattr attrs;
 	
 	attrs = attributes;
-	if (attrs.mode & S_ISVTX) {
-		if ([self serverMounted])
-			attrs.mode |= S_ISUID;
-		if ([self needsAuthentication])
-			attrs.mode |= S_ISGID;
-	}
+	if ([[self map] mountStyle] == kMountStyleParallel) {
+		if (attrs.mode & S_ISVTX) {
+			invalidate_fsstat_array();	/* Make sure this is absolutely up-to-date */
+			if ([self serverMounted])
+				attrs.mode |= S_ISUID;
+			if ([self needsAuthentication])
+				attrs.mode |= S_ISGID;
+		}
+	};
 	
 	return attrs;
 }
@@ -274,22 +279,19 @@
 - (void)setAttributes:(struct fattr)a
 {
 	attributes = a;
-	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
-	attributes.mtime = attributes.atime;
+	[self resetTime];
 }
 
 - (ftype)type
 {
+	[self markAccessTime];
 	return attributes.type;
-	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
 }
 
 - (void)setType:(ftype)t
 {
 	attributes.type = t;
-	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
-	attributes.mtime = attributes.atime;
-	attributes.ctime = attributes.atime;
+	[self resetTime];
 }
 
 - (struct nfs_args)nfsArgs
@@ -307,15 +309,27 @@
 	return forcedProtocol;
 }
 
-- (void)resetTime
+- (void)markAccessTime
 {
 	gettimeofday((struct timeval *)&attributes.atime, (struct timezone *)0);
+}
+
+- (void)resetTime
+{
+	char timestring[26];
+	
+	[self markAccessTime];
 	attributes.mtime = attributes.atime;
+	attributes.ctime = attributes.atime;
+	
+	sys_msg(debug, LOG_DEBUG, "resetTime: new mtime for '%s' is %s...",
+									[[self path] value], formattimevalue(&attributes.mtime, timestring, sizeof(timestring)));
 }
 
 - (void)markDirectoryChanged
 {
 	struct timeval now;
+	char timestring[26];
 
 	do {
 		gettimeofday(&now, NULL);
@@ -326,8 +340,8 @@
 	attributes.ctime = attributes.mtime;
 	attributes.atime = attributes.mtime;
 	
-	sys_msg(debug, LOG_DEBUG, "markDirectoryChanged: new mtime for '%s' is %d.%06d...",
-									[[self path] value], attributes.mtime.seconds, attributes.mtime.useconds);
+	sys_msg(debug, LOG_DEBUG, "markDirectoryChanged: new mtime for '%s' is %s...",
+									[[self path] value], formattimevalue(&attributes.mtime, timestring, sizeof(timestring)));
 }
 
 - (void)resetAllTimes
@@ -335,7 +349,7 @@
 	struct timeval now;
 	
 	do {
-		gettimeofday(&now, (struct timezone *)0);
+		gettimeofday(&now, NULL);
 	} while ((now.tv_sec == attributes.atime.seconds) && (now.tv_usec == attributes.atime.useconds));
 	attributes.atime.seconds = now.tv_sec;
 	attributes.atime.useconds = now.tv_usec;
@@ -410,8 +424,6 @@
 		else if (!strcmp(s, "-L")) nfsArgs.flags |= NFSMNT_NOLOCKS;
 		else if (!strcmp(s, "nolocks")) nfsArgs.flags |= NFSMNT_NOLOCKS;
 		else if (!strcmp(s, "nolockd")) nfsArgs.flags |= NFSMNT_NOLOCKS;
-		else if (!strcmp(s, "-q")) nfsArgs.flags |= NFSMNT_NQNFS;
-		else if (!strcmp(s, "nqnfs")) nfsArgs.flags |= NFSMNT_NQNFS;
 		else if (!strcmp(s, "-2"))
 		{
 			nfsArgs.flags &= (~NFSMNT_NFSV3);
@@ -537,17 +549,78 @@
 		}
 		else if (!strncmp(s, "-x=", 3))
 		{
-			nfsArgs.flags |= NFSMNT_TIMEO;
+			nfsArgs.flags |= NFSMNT_RETRANS;
 			x = atoi(s+3);
 			if (x <= 0) x = 3;
 			nfsArgs.retrans = x;
 		}
 		else if (!strncmp(s, "retrans=", 8))
 		{
-			nfsArgs.flags |= NFSMNT_TIMEO;
+			nfsArgs.flags |= NFSMNT_RETRANS;
 			x = atoi(s+8);
 			if (x <= 0) x = 3;
 			nfsArgs.retrans = x;
+		}
+		else if (!strncmp(s, "acdirmin=", 9))
+		{
+			nfsArgs.flags |= NFSMNT_ACDIRMIN;
+			x = atoi(s+9);
+			if (x < 0) x = NFS_MINDIRATTRTIMO;
+			nfsArgs.acdirmin = x;
+		}
+		else if (!strncmp(s, "acdirmax=", 9))
+		{
+			nfsArgs.flags |= NFSMNT_ACDIRMAX;
+			x = atoi(s+9);
+			if (x < 0) x = NFS_MAXDIRATTRTIMO;
+			nfsArgs.acdirmax = x;
+		}
+		else if (!strncmp(s, "acregmin=", 9))
+		{
+			nfsArgs.flags |= NFSMNT_ACREGMIN;
+			x = atoi(s+9);
+			if (x < 0) x = NFS_MINATTRTIMO;
+			nfsArgs.acregmin = x;
+		}
+		else if (!strncmp(s, "acregmax=", 9))
+		{
+			nfsArgs.flags |= NFSMNT_ACREGMAX;
+			x = atoi(s+9);
+			if (x < 0) x = NFS_MAXATTRTIMO;
+			nfsArgs.acregmax = x;
+		}
+		else if (!strncmp(s, "actimeo=", 8))
+		{
+			nfsArgs.flags |= NFSMNT_ACDIRMIN;
+			nfsArgs.flags |= NFSMNT_ACDIRMAX;
+			nfsArgs.flags |= NFSMNT_ACREGMIN;
+			nfsArgs.flags |= NFSMNT_ACREGMAX;
+			x = atoi(s+8);
+			if (x < 0)
+			{
+				nfsArgs.acdirmin = NFS_MINDIRATTRTIMO;
+				nfsArgs.acdirmax = NFS_MAXDIRATTRTIMO;
+				nfsArgs.acregmin = NFS_MINATTRTIMO;
+				nfsArgs.acregmax = NFS_MAXATTRTIMO;
+			}
+			else
+			{
+				nfsArgs.acdirmin = x;
+				nfsArgs.acdirmax = x;
+				nfsArgs.acregmin = x;
+				nfsArgs.acregmax = x;
+			}
+		}
+		else if (!strncmp(s, "noac", 4))
+		{
+			nfsArgs.flags |= NFSMNT_ACDIRMIN;
+			nfsArgs.flags |= NFSMNT_ACDIRMAX;
+			nfsArgs.flags |= NFSMNT_ACREGMIN;
+			nfsArgs.flags |= NFSMNT_ACREGMAX;
+			nfsArgs.acdirmin = 0;
+			nfsArgs.acdirmax = 0;
+			nfsArgs.acregmin = 0;
+			nfsArgs.acregmax = 0;
 		}
 		else if (!strncmp(s, "mnttimeo=", 9))
 		{
@@ -626,58 +699,59 @@
 	attributes.fileid = n;
 }
 
-#define STATFSARRAY_SIZE_MARGIN 25
-#define MAX_STATFSARRAY_SIZE 10000
-static int statfs_array_size = 0;
-static struct statfs *statfs_array = NULL;
-
-int resize_statfs_array(int newentrycount)
+- (VNodeHashKey *)hashKey
 {
-	if (statfs_array) {
-		statfs_array = realloc(statfs_array, sizeof(struct statfs) * newentrycount);
-	} else {
-		statfs_array = malloc(sizeof(struct statfs) * newentrycount);
-	};
-	if (statfs_array == NULL) return ENOMEM;
-	statfs_array_size = newentrycount;
-	
-	return 0;
+	return &hashKey;
 }
 
-- (BOOL)checkPathIsMount:(char *)apath
+- (void)setHashKey:(fsid_t)fs nodeID:(unsigned long)node
 {
-	int fs_count, i;
+	if ([self isHashed]) {
+		[controller unhashVnode:self];
+		[self setHashed:NO];
+	};
 	
-	if (apath == NULL) return NO;
+	hashKey.fsid = fs;
+	hashKey.nodeid = node;
 	
-	sys_msg(debug_mount, LOG_DEBUG, "Checking path %s", apath);
+	[controller hashVnode:self];
+	[self setHashed:YES];
+}
 
-fsstat_loop:
-	if (statfs_array_size == 0) {
-		fs_count = -1;				/* Fall into error handling loop, below */
-	} else {
-		fs_count = getfsstat(statfs_array, statfs_array_size * sizeof(struct statfs), MNT_NOWAIT);
-	};
-	if ((fs_count == -1) || (fs_count >= statfs_array_size)) {
-		/* The only way to be sure ALL mounted filesystems have been included is
-		 * to see the system return a value less than the available buffer space:
-		 */
-		fs_count = getfsstat(NULL, 0, MNT_NOWAIT);
-		if (fs_count > MAX_STATFSARRAY_SIZE)  return NO;
-		if (resize_statfs_array(fs_count + STATFSARRAY_SIZE_MARGIN) != 0) return NO;
-		
-		/* statfs_array_size SHOULD always be >0 now, but would be infinite loop otherwise... */
-		if (statfs_array_size == 0) return NO;
-		
-		goto fsstat_loop;
-	};
+- (BOOL)isHashed
+{
+	return isHashed;
+}
+
+- (void)setHashed:(BOOL)hashed
+{
+	isHashed = hashed;
+}
+
+- (BOOL)checkNodeIsMounted
+{
+	if ([self link] == nil) return NO;
+
+	sys_msg(debug_mount, LOG_DEBUG, "Checking path %s", [[self link] value]);
+
+	revalidate_fsstat_array(NULL);
+	return find_fsstat_by_path([[self link] value], ([self source] && (strcmp([[self source] value], "*") == 0)) ? false : true, NULL) ? NO : YES;
+}
+
+- (BOOL)anyChildMounted:(const char *)apath
+{
+	revalidate_fsstat_array(NULL);
 	
-	for (i = 0; i < fs_count; ++i) {
-		/* Test to see whether f_mntonname starts with 'apath': */
-		if (strncmp(statfs_array[i].f_mntonname, apath, strlen(apath)) == 0) return YES;
-	};
+#if 0
+	char path[PATH_MAX];
 	
-	return NO;
+	if (realpath(apath, path) == NULL)
+	{
+		sys_msg(debug, LOG_ERR, "Couldn't get real path of %s (%s: %s)", apath, path, strerror(errno));
+		return NO;
+	}
+#endif
+	return find_fsstat_by_path(apath, false, NULL) ? NO : YES;
 }
 
 - (BOOL)mounted
@@ -705,13 +779,22 @@ fsstat_loop:
 	 * You can use -descendantMounted to recursively check for the mounted flag being set.
 	 */
 
-	if (mounted) return YES;
-	if (([self link] == NULL) || ([[self link] value] == NULL)) return NO;
+	if ([[self map] mountStyle] == kMountStyleAutoFS) {
+#if 0
+		sys_msg(debug_mount, LOG_DEBUG, "[Vnode mounted]: Hey?! Request for 'mounted' setting for autofs vnode?");
+#endif
+	} else {
+		if (mounted) return YES;
+		if (([self link] == NULL) || ([[self link] value] == NULL)) return NO;
+		
+		sys_msg(debug_mount, LOG_DEBUG, "[Vnode mounted]: Checking for mounts on %s...", [[self link] value]);
+		[self setMounted:[self checkNodeIsMounted]];
+		if (mounted) {
+			sys_msg(debug_mount, LOG_DEBUG, "[Vnode mounted]: '%s' was found mounted...", [[self link] value]);
+		};
+		if (!mounted) [self setMountPathCreated:NO]; 
+	};
 	
-	sys_msg(debug_mount, LOG_DEBUG, "Checking for mounts on %s...", [[self link] value]);
-	mounted = [self checkPathIsMount:[[self link] value]];
-	if (!mounted) [self setMountPathCreated:NO]; 
-
 	return mounted;
 }
 
@@ -743,13 +826,10 @@ fsstat_loop:
 
 - (BOOL)serverMounted
 {
-	BOOL answer;
-	String *urlMountType = [String uniqueString:"url"];
-	String *nslEntrySource = [String uniqueString:"*"];
-
-	answer = [self mounted];
+	BOOL answer = [self mounted];
 	
-	if ([[self vfsType] equal:urlMountType] && !([[self source] equal:nslEntrySource]))	/* Don't try this for mount-all vnodes */
+	if (([self vfsType] && (strcmp([[self vfsType] value], "url") == 0)) &&
+		([self source] && (strcmp([[self source] value], "*") != 0)))	/* Don't try this for mount-all vnodes */
 	{
 		/*
 		 *	For non-NSL mounts using a URL (such as an AFP server in fstab/NetInfo),
@@ -762,9 +842,6 @@ fsstat_loop:
 		 */
 		if ([self descendantMounted]) answer = YES;
 	}
-
-	[nslEntrySource release];
-	[urlMountType release];
 
 	return answer;
 }
@@ -781,26 +858,56 @@ fsstat_loop:
 	else mountTime = 0;
 }
 
-- (struct MountProgressRecord *)mountInfo
-{
-	return &mountInfo;
-}
-
 - (void)setMounted:(BOOL)m
 {
-	mounted = m;
-	[self resetMountTime];
-	[self resetTime];	/* Reset time so NFS client will refetch symlink */
+	if (mounted != m) {
+		sys_msg(debug_mount, LOG_DEBUG, "[Vnode setMounted]: Changing state of '%s' to %s...", [[self link] value], m ? "'mounted'" : "'unmounted'");
+		mounted = m;
+		[self resetMountTime];
+		[self markDirectoryChanged];
+		if ([self parent])
+			[[self parent] markDirectoryChanged];
+
+	}
+}
+
+- (BOOL)updateMountStatus
+{
+	Array *kids;
+	unsigned int len, i;
+	BOOL allSubnodesMounted = YES;
+
+	/* Update the 'mounted' status of a node tree;
+	   important in case some nodes may have been mounted externally
+	   (or by sub-processes).  The important action of this routine
+	   is calling [Vnode mounted], which does a real-time check,
+	   on the offspring nodes as well as on the node itself */
+	kids = [self children];
+	len = (kids ? [kids count] : 0);
+	for (i = 0; i < len; i++)
+	{
+		Vnode *subnode = [kids objectAtIndex:i];
+		if (![subnode updateMountStatus]) allSubnodesMounted = NO;
+	}
+	if (![self mounted]) allSubnodesMounted = NO;
+	[self setMounted:allSubnodesMounted];
+	
+	return allSubnodesMounted;
 }
 
 - (BOOL)mountInProgress
 {
-	return mountInProgress;
+	return mountInProgressCount > 0;
 }
 
-- (void)setMountInProgress:(BOOL)newMountInProgressState
+- (void)incrementMountInProgressCount
 {
-	mountInProgress = newMountInProgressState;
+	++mountInProgressCount;
+}
+
+- (void)decrementMountInProgressCount
+{
+	--mountInProgressCount;
 }
 
 - (unsigned long)transactionID
@@ -907,9 +1014,49 @@ fsstat_loop:
 
 - (void)addChild:(Vnode *)child
 {
+	int result;
+	struct stat sb;
+	fsid_t child_fsid;
+	struct autofs_mounterreq mounter_req;
+	size_t mounter_reqlen = sizeof(mounter_req);
+	
+	/* Add the node in the vnode tree: */
 	if ([subnodes containsObject:child]) return;
 	[subnodes addObject:child];
+	[self markDirectoryChanged];
 	[child setParent:self];
+	if ([self serverDepth] != -1) [child setServerDepth:[self serverDepth] + 1];
+	
+	/* Create the vnode in autofs if necessary: */
+	if ([[child map] mountStyle] == kMountStyleAutoFS) {
+		[controller createPath: [child path] withUid: 0 allowAnyExisting:NO];
+		
+		/* Pick up the node id assigned by autofs: */
+		result = stat([[child path] value], &sb);
+		if (result) {
+			sys_msg(debug, LOG_ERR, "Couldn't determine node id for autofs node '%s' (%s)?!", [[child path] value], strerror(errno));
+			sb.st_ino = 0;
+		};
+		
+		/* Track the fsid in use for the system: new root nodes will be pre-assigned their fsid */
+		child_fsid = [child hashKey]->fsid;
+		if ((child_fsid.val[0] == 0) && (child_fsid.val[1] == 0)) child_fsid = [self hashKey]->fsid;
+		[child setNodeID:sb.st_ino];
+		[child setHashKey:child_fsid nodeID:sb.st_ino];
+
+		if ([child server]) {
+			/* Mark directory as trigger and set this process as its mounter: */
+			bzero(&mounter_req, sizeof(mounter_req));
+			mounter_req.amu_ino = sb.st_ino;
+			mounter_req.amu_pid = getpid();
+			mounter_req.amu_uid = 0;
+			mounter_req.amu_flags = ([child vfsType] && strcmp([[child vfsType] value], "nfs")) ? AUTOFS_MOUNTERREQ_UID : 0;
+			result = sysctl_fsid(AUTOFS_CTL_MOUNTER, &child_fsid, NULL, 0, &mounter_req, mounter_reqlen);
+			if (result != 0) {
+				sys_msg(debug, LOG_ERR, "Couldn't arm autofs node '%s' (%s)?!", [[child path] value], strerror(errno));
+			};
+		}
+	}
 }
 
 - (void)removeChild:(Vnode *)child
@@ -926,6 +1073,7 @@ fsstat_loop:
 	}
 
 	[subnodes removeObject:child];
+	[self markDirectoryChanged];
 }
 
 /* A convenience function to detect whether a node has any children */
@@ -935,6 +1083,67 @@ fsstat_loop:
 		return NO;
 	
 	return ([subnodes count] != 0);
+}
+
+- (int)serverDepth
+{
+	return serverDepth;
+}
+
+- (void)setServerDepth:(int)depth
+{
+	serverDepth = depth;
+}
+
+- (void)armNodeTrigger
+{
+	struct autofs_mounterreq mounter_req;
+	size_t mounter_reqlen = sizeof(mounter_req);
+	unsigned int result;
+	
+	if ([[self map] mountStyle] == kMountStyleAutoFS) {
+		sys_msg(debug, LOG_DEBUG, "Arming trigger logic for '%s'", [[self path] value]);
+		
+		/* Mark directory as mount trigger and set this process as its mounter: */
+		bzero(&mounter_req, sizeof(mounter_req));
+		
+		mounter_req.amu_ino = [self nodeID];
+		mounter_req.amu_pid = getpid();
+		mounter_req.amu_uid = 0;
+		mounter_req.amu_flags = strcmp([[self vfsType] value], "nfs") ? AUTOFS_MOUNTERREQ_UID : 0;
+		result = sysctl_fsid(AUTOFS_CTL_MOUNTER, [[self map] mountedFSID], NULL, 0, &mounter_req, mounter_reqlen);
+		if (result != 0) {
+			sys_msg(debug, LOG_ERR, "Couldn't arm trigger logic for '%s' (%s)?!", [[self path] value], strerror(errno));
+		}
+	}
+}
+
+- (void)deferContentGeneration
+{
+	struct autofs_mounterreq mounter_req;
+	size_t mounter_reqlen = sizeof(mounter_req);
+	unsigned int result;
+	
+	if ([[self map] mountStyle] == kMountStyleAutoFS) {
+		sys_msg(debug, LOG_DEBUG, "Arming deferred fill logic for '%s'", [[self path] value]);
+		
+		/* Mark directory content to be generated lazily (setting this process as its mounter): */
+		bzero(&mounter_req, sizeof(mounter_req));
+		
+		mounter_req.amu_ino = [self nodeID];
+		mounter_req.amu_pid = getpid();
+		mounter_req.amu_uid = 0;
+		mounter_req.amu_flags = AUTOFS_MOUNTERREQ_DEFER;
+		result = sysctl_fsid(AUTOFS_CTL_MOUNTER, [[self map] mountedFSID], NULL, 0, &mounter_req, mounter_reqlen);
+		if (result != 0) {
+			sys_msg(debug, LOG_ERR, "Couldn't arm deferred fill logic for '%s' (%s)?!", [[self path] value], strerror(errno));
+		}
+	};
+}
+
+- (void)generateDirectoryContents:(BOOL)waitForSearchCompletion
+{
+	/* Nothing to do for most node types */
 }
 
 - (Array *)dirlist
@@ -953,7 +1162,9 @@ fsstat_loop:
 	{
 		[list addObject:[subnodes objectAtIndex:i]];
 	}
-
+	
+	[self markAccessTime];
+	
 	return list;
 }
 
@@ -1020,6 +1231,50 @@ fsstat_loop:
     return;
 }
 
+#define NFSSCHEMEPREFIX "nfs://"
+#define AFPSCHEMEPREFIX "afp:/"
+#define AFPGUESTUAM "AUTH=No%20User%20Authent"
+
+BOOL URLFieldSeparator(char c)
+{
+	switch (c) {
+		case '@':
+		case '/':
+			return YES;
+		
+		default:
+			return NO;
+	};
+}
+
+BOOL URLIsComplete(const char *url)
+{
+	const char *urlcontent;
+	const char *auth_field = NULL;
+	const char *p;
+	size_t urlstringlength;
+	
+	urlstringlength = strlen(url);
+	
+	/* All NFS URLs are complete: */
+	if ((urlstringlength >= sizeof(NFSSCHEMEPREFIX)) && (strncasecmp(url, NFSSCHEMEPREFIX, sizeof(NFSSCHEMEPREFIX) - 1) == 0)) return YES;
+	
+	/* Look further at the URL only if it's an AFP URL: */
+	if ((urlstringlength < sizeof(AFPSCHEMEPREFIX)) || (strncasecmp(url, AFPSCHEMEPREFIX, sizeof(AFPSCHEMEPREFIX) - 1) != 0)) return NO;
+	
+	urlcontent = strchr(url + sizeof(AFPSCHEMEPREFIX) - 1, '/');
+	if (urlcontent == NULL) return NO;
+	
+	for (p = urlcontent + 1; *p; ++p) {
+		if (*p == ';') auth_field = p + 1;
+		if (URLFieldSeparator(*p)) break;
+	};
+	
+	if (auth_field == NULL) return NO;
+	
+	return strncasecmp(auth_field, AFPGUESTUAM, sizeof(AFPGUESTUAM) - 1) ? NO : YES;	
+}
+
 /*
  * Return YES if the node's server may require authentication.
  *
@@ -1035,7 +1290,8 @@ fsstat_loop:
 {
 	return (([self source] == nil) ||
 			(strcmp([[self source] value], "*") != 0) ||
-			(strncasecmp([[self urlString] value], NFSSCHEMEPREFIX, sizeof(NFSSCHEMEPREFIX)-1) == 0)) ? NO : YES;
+			([self urlString] == nil) ||
+			URLIsComplete([[self urlString] value])) ? NO : YES;
 }
 
 - (BOOL)marked
@@ -1059,7 +1315,13 @@ fsstat_loop:
 {
 	int i, len;
 	Array *kids;
-	BOOL result = NO;
+	BOOL result = NO;       /* No unmounts found in this hierarchy yet. */
+	Vnode *ancestorNode;
+	Vnode *serverNode;
+	
+	if ([[self map] mountStyle] != kMountStyleParallel) return NO;
+	
+	revalidate_fsstat_array(NULL);
 	
 	kids = [self children];
 	len = 0;
@@ -1071,13 +1333,34 @@ fsstat_loop:
 		/*
 		 * This is a potential mount point.  Has it been unmounted?
 		 */
-		if (mounted && ![self fakeMount] && [self link] != nil && [self server] != nil && ![self checkPathIsMount: [[self link] value]])
+		if (mounted &&
+			![self fakeMount] &&
+			([self link] != nil) &&
+			([self server] != nil) &&
+			(![self checkNodeIsMounted]))
 		{
 			sys_msg(debug, LOG_DEBUG, "%s has been unmounted.", [[self link] value]);
 			[self setMounted: NO];
-			[self resetTime];
-			if ([self parent] != nil)
-				[[self parent] resetTime];
+				
+			/* Find the most distant ancestor node: */
+			serverNode = nil;
+			ancestorNode = [self parent];
+			while (ancestorNode) {
+				if ([ancestorNode server] == [self server]) {
+					serverNode = ancestorNode;
+				}
+				ancestorNode = [ancestorNode parent];
+			}
+			
+			if (serverNode) {
+				/* Mark all intervening nodes as unmounted to ensure a re-mount attempt: */
+				ancestorNode = [self parent];
+				while (ancestorNode) {
+					[ancestorNode setMounted:NO];
+					ancestorNode = (ancestorNode == serverNode) ? nil : [ancestorNode parent];
+				}
+			}
+			
 			result = YES;
 		}
 	}
@@ -1109,9 +1392,6 @@ fsstat_loop:
 			 */
 			sys_msg(debug, LOG_DEBUG, "Last unmount for server %s", [[self path] value]);
 			[self setMounted: NO];
-			[self resetTime];
-			if ([self parent] != nil)
-				[[self parent] resetTime];
 			result = YES;
 		}
 	}

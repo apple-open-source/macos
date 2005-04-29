@@ -1,8 +1,7 @@
 .\"
-.\" $XFree86: xc/lib/Xft/Xft.man,v 1.3 2002/10/04 15:06:18 keithp Exp $
+.\" $XFree86: xc/lib/Xft/Xft.man,v 1.6 2003/06/12 14:12:27 eich Exp $
 .\"
-.\" Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
-.\"
+.\" Copyright 2000 Keith Packard, member of The XFree86 Project, Inc..\"
 .\" Permission to use, copy, modify, distribute, and sell this software and its
 .\" documentation for any purpose is hereby granted without fee, provided that
 .\" the above copyright notice appear in all copies and that both that
@@ -26,10 +25,10 @@
 .ns
 .TP \\$1
 ..
-.TH XFT 3 "Version 1.0" "XFree86"
+.TH XFT 3 "Version 2.0" "XFree86"
 
 .SH NAME
- XFT \- X FreeType interface library
+ Xft \- X FreeType interface library
 
 .SH DESCRIPTION
 .B Xft
@@ -39,30 +38,16 @@ library.
 
 .SH DATATYPES
 
-.B XftPattern
-holds a set of names with associated value lists; each name refers to a
-property of a font.  XftPatterns are used as inputs to the matching code as
-well as holding information about specific fonts.
-
 .B XftFont
 contains general font metrics and a pointer to either the core XFontStruct
 data or a structure holding FreeType and X Render Extension data.
 
-.B XftFontStruct
-contains information about FreeType fonts used with the X Render Extension.
-
-.B XftFontSet
-contains a list of XftPatterns.  Internally Xft uses this data structure to
-hold sets of fonts.  Externally, Xft returns the results of listing fonts in
-this format.
-
-.B XftObjectSet
-holds a set of names and is used to specify which fields from fonts are
-placed in the the list of returned patterns when listing fonts.
-
 .B XftDraw
 is an opaque object which holds information used to render to an X drawable
 using either core protocol or the X Rendering extension.
+
+.B XftColor
+contains a pixel value and the ARGB values associated with it. 
 
 .SH FUNCTIONS
 .nf
@@ -87,7 +72,7 @@ converted to the correct pixel size based on the resolution of the monitor.
 void
 XftTextExtents8 (Display	*dpy,
 		 XftFont	*font,
-		 unsigned char  *string, 
+		 FcChar8  	*string, 
 		 int		len,
 		 XGlyphInfo	*extents);
 .fi
@@ -108,11 +93,11 @@ to the screen.
 .nf
 void
 XftDrawString8 (XftDraw		*d,
-		XRenderColor	*color,
+		XftColor	*color,
 		XftFont		*font,
 		int		x, 
 		int		y,
-		unsigned char	*string,
+		FcChar8		*string,
 		int		len);
 .fi
 .B XftDrawString8
@@ -121,7 +106,7 @@ draws "string" using "font" in "color" at "x, y".
 .nf
 void
 XftDrawRect (XftDraw	    *d,
-	     XRenderColor   *color,
+	     XftColor	    *color,
 	     int	    x, 
 	     int	    y,
 	     unsigned int   width,
@@ -129,54 +114,66 @@ XftDrawRect (XftDraw	    *d,
 .fi
 .B XftDrawRect
 fills a solid rectangle in the specified color.
-.SH XftConfig
-The 
-.B XftConfig
-file contains configuration information for the Xft library consisting of
-directories to look at for font information as well as instructions on
-editing program specified font patterns before attempting to match the
-available fonts.
 .PP
 .nf
-config	:   "dir" STRING
-	|   "include" STRING
-	|   "includeif" STRING
-	|   "match" tests "edit" edits
-	;
-test	:   qual FIELD-NAME COMPARE CONSTANT
-	;
-qual	:   "any"
-	|   "all"
-	;
-edit	:   FIELD-NAME ASSIGN expr SEMI
-	;
+Bool
+XftColorAllocName (Display  *dpy,
+		   Visual   *visual,
+		   Colormap cmap,
+		   char	    *name,
+		   XftColor *result);
 .fi
+.B XftColorAllocName 
+allocates a 
+.I XftColor
+structure. It asks the X server to allocate a pixel and return the associated
+RGB values wich are used to construct an 
+.I XRenderColor .
+This requires a round trip (bad).
 .PP
-STRINGs are double-quote delimited.  FIELD-NAMEs are identifiers,
-ASSIGN is one of "=", "+=" or "=+".  expr can contain the usual
-arithmetic operators and can include FIELD-NAMEs.
+.nf
+Bool
+XftColorAllocValue (Display	    *dpy,
+		    Visual	    *visual,
+		    Colormap	    cmap,
+		    XRenderColor    *color,
+		    XftColor	    *result);
+.fi
+For TrueColor visuals, 
+.I XftColorAllocValue 
+computes the nearest supported ARGB value and the associated pixel
+value and stores them in the result.  No round trip is required.  For
+non-TrueColor visuals,
+.I XftColorAllocValue 
+asks the X server to allocate the specified color and stores the
+resulting pixel and ARGB values into result.
 .PP
-"dir" adds a directory to the list of places Xft will look for fonts.
-There is no particular order implied by the list; Xft treats all fonts about
-the same.
-.PP
-"include" and "includeif" cause Xft to load more configuration parameters
-from the indicated file.  "includeif" doesn't elicit a complaint if the file
-doesn't exist.  If the file name begins with a '~' character, it refers to a
-path relative to the home directory of the user.
-.PP
-If the tests in a "match" statement all match a user-specified pattern, the
-pattern will be edited with the specified instructions.
-.PP
-Where ASSIGN is "=", the matching value in the pattern will be replaced by
-the given expression.  "+="/"=+" will prepend/append a new value to the list
-of values for the indicated field.
+.nf
+void
+XftColorFree (Display	*dpy,
+	      Visual	*visual,
+	      Colormap	cmap,
+	      XftColor	*color);
 
+.fi
+.B XftColorFree 
+frees a color when it is no longer in use. 
+.SH CONFIGURATION
+The 
+.B Xft 
+version 2 library uses 
+.IR fontconfig (3) 
+for its configuration. The 
+.B XftConfig
+files are not used anymore. 
 .SH COMPATIBILITY
 As of version 2, 
 .B Xft
 has become relatively stable and is expected to retain source and binary
 compatibility in future releases.
-
+.SH "SEE ALSO"
+fonttconfig(3)
+.br
+__projectroot__/lib/X11/doc/README.fonts
 .SH AUTHOR
 Keith Packard, member of the XFree86 Project, Inc.

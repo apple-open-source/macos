@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (c) 1996-2003, International Business Machines Corporation
+* Copyright (c) 1996-2004, International Business Machines Corporation
 *               and others. All Rights Reserved.
 *******************************************************************************
 * File unorm.h
@@ -31,7 +31,7 @@
  * decomposed form, allowing for easier sorting and searching of text.
  * <code>unorm_normalize</code> supports the standard normalization forms described in
  * <a href="http://www.unicode.org/unicode/reports/tr15/" target="unicode">
- * Unicode Standard Annex #15 &mdash; Unicode Normalization Forms</a>.
+ * Unicode Standard Annex #15 &#8212; Unicode Normalization Forms</a>.
  *
  * Characters with accents or other adornments can be encoded in
  * several different ways in Unicode.  For example, take the character A-acute.
@@ -149,17 +149,34 @@ typedef enum {
  * Use 0 for default options,
  * including normalization according to the Unicode version
  * that is currently supported by ICU (see u_getUnicodeVersion).
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
 enum {
     /**
      * Options bit set value to select Unicode 3.2 normalization
      * (except NormalizationCorrections).
      * At most one Unicode version can be selected at a time.
-     * @draft ICU 2.6
+     * @stable ICU 2.6
      */
     UNORM_UNICODE_3_2=0x20
 };
+
+/**
+ * Lowest-order bit number of unorm_compare() options bits corresponding to
+ * normalization options bits.
+ *
+ * The options parameter for unorm_compare() uses most bits for
+ * itself and for various comparison and folding flags.
+ * The most significant bits, however, are shifted down and passed on
+ * to the normalization implementation.
+ * (That is, from unorm_compare(..., options, ...),
+ * options>>UNORM_COMPARE_NORM_OPTIONS_SHIFT will be passed on to the
+ * internal normalization functions.)
+ *
+ * @see unorm_compare
+ * @stable ICU 2.6
+ */
+#define UNORM_COMPARE_NORM_OPTIONS_SHIFT 20
 
 /**
  * Normalize a string.
@@ -179,12 +196,12 @@ enum {
  *         the output was truncated, and the error code is set to U_BUFFER_OVERFLOW_ERROR.
  * @stable ICU 2.0
  */
-U_CAPI int32_t U_EXPORT2 
+U_STABLE int32_t U_EXPORT2 
 unorm_normalize(const UChar *source, int32_t sourceLength,
                 UNormalizationMode mode, int32_t options,
                 UChar *result, int32_t resultLength,
                 UErrorCode *status);
-
+#endif
 /**
  * Result values for unorm_quickCheck().
  * For details see Unicode Technical Report 15.
@@ -205,7 +222,7 @@ typedef enum UNormalizationCheckResult {
    */
   UNORM_MAYBE
 } UNormalizationCheckResult;
-
+#if !UCONFIG_NO_NORMALIZATION
 /**
  * Performing quick check on a string, to quickly determine if the string is 
  * in a particular normalization format.
@@ -226,7 +243,7 @@ typedef enum UNormalizationCheckResult {
  * @see unorm_isNormalized
  * @stable ICU 2.0
  */
-U_CAPI UNormalizationCheckResult U_EXPORT2
+U_STABLE UNormalizationCheckResult U_EXPORT2
 unorm_quickCheck(const UChar *source, int32_t sourcelength,
                  UNormalizationMode mode,
                  UErrorCode *status);
@@ -245,9 +262,9 @@ unorm_quickCheck(const UChar *source, int32_t sourcelength,
  *
  * @see unorm_quickCheck
  * @see unorm_isNormalized
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI UNormalizationCheckResult U_EXPORT2
+U_STABLE UNormalizationCheckResult U_EXPORT2
 unorm_quickCheckWithOptions(const UChar *src, int32_t srcLength, 
                             UNormalizationMode mode, int32_t options,
                             UErrorCode *pErrorCode);
@@ -271,9 +288,9 @@ unorm_quickCheckWithOptions(const UChar *src, int32_t srcLength,
  *         "mode" normalization form.
  *
  * @see unorm_quickCheck
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
-U_CAPI UBool U_EXPORT2
+U_STABLE UBool U_EXPORT2
 unorm_isNormalized(const UChar *src, int32_t srcLength,
                    UNormalizationMode mode,
                    UErrorCode *pErrorCode);
@@ -293,9 +310,9 @@ unorm_isNormalized(const UChar *src, int32_t srcLength,
  *
  * @see unorm_quickCheck
  * @see unorm_isNormalized
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI UBool U_EXPORT2
+U_STABLE UBool U_EXPORT2
 unorm_isNormalizedWithOptions(const UChar *src, int32_t srcLength,
                               UNormalizationMode mode, int32_t options,
                               UErrorCode *pErrorCode);
@@ -373,7 +390,7 @@ unorm_isNormalizedWithOptions(const UChar *src, int32_t srcLength,
  *
  * @stable ICU 2.1
  */
-U_CAPI int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 unorm_next(UCharIterator *src,
            UChar *dest, int32_t destCapacity,
            UNormalizationMode mode, int32_t options,
@@ -406,7 +423,7 @@ unorm_next(UCharIterator *src,
  *
  * @stable ICU 2.1
  */
-U_CAPI int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 unorm_previous(UCharIterator *src,
                UChar *dest, int32_t destCapacity,
                UNormalizationMode mode, int32_t options,
@@ -450,7 +467,7 @@ unorm_previous(UCharIterator *src,
  *
  * @stable ICU 2.1
  */
-U_CAPI int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 unorm_concatenate(const UChar *left, int32_t leftLength,
                   const UChar *right, int32_t rightLength,
                   UChar *dest, int32_t destCapacity,
@@ -460,14 +477,14 @@ unorm_concatenate(const UChar *left, int32_t leftLength,
 /**
  * Option bit for unorm_compare:
  * Both input strings are assumed to fulfill FCD conditions.
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
 #define UNORM_INPUT_IS_FCD          0x20000
 
 /**
  * Option bit for unorm_compare:
  * Perform case-insensitive comparison.
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
 #define U_COMPARE_IGNORE_CASE       0x10000
 
@@ -476,27 +493,10 @@ unorm_concatenate(const UChar *left, int32_t leftLength,
 /**
  * Option bit for u_strCaseCompare, u_strcasecmp, unorm_compare, etc:
  * Compare strings in code point order instead of code unit order.
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
 #define U_COMPARE_CODE_POINT_ORDER  0x8000
 #endif
-
-/**
- * Lowest-order bit number of unorm_compare() options bits corresponding to
- * normalization options bits.
- *
- * The options parameter for unorm_compare() uses most bits for
- * itself and for various comparison and folding flags.
- * The most significant bits, however, are shifted down and passed on
- * to the normalization implementation.
- * (That is, from unorm_compare(..., options, ...),
- * options>>UNORM_COMPARE_NORM_OPTIONS_SHIFT will be passed on to the
- * internal normalization functions.)
- *
- * @see unorm_compare
- * @draft ICU 2.6
- */
-#define UNORM_COMPARE_NORM_OPTIONS_SHIFT 20
 
 /**
  * Compare two strings for canonical equivalence.
@@ -562,9 +562,9 @@ unorm_concatenate(const UChar *left, int32_t leftLength,
  * @see u_strCompare
  * @see u_strCaseCompare
  *
- * @draft ICU 2.2
+ * @stable ICU 2.2
  */
-U_CAPI int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 unorm_compare(const UChar *s1, int32_t length1,
               const UChar *s2, int32_t length2,
               uint32_t options,

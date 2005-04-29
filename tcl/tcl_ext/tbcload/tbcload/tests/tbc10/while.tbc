@@ -1,0 +1,61 @@
+# while.tcl --
+#
+#  Test file for compilation.
+#  Contains nested while loops, used to check generation of the exception
+#  ranges arrays.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: while.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+12 0 94 10 2 0 56 2 3 12 12 -1 -1
+94
+w0E<!:B`W!;btt!,`yTv<TA9v<GwjwY2uA!)-<<!:/Ts!-W&=!=uW<!9oA9vA=fg&)9*!!3#
+Ts!J|;X*13pok'?W<!GG's!a1L<!,Qr<!1;kpv(0*!!-!!
+12
+38PpvC_Lm#Gvqm#
+12
+r;_65V-jo#5)os!
+10
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+8
+x
+12
+5'WTAfW0`F1?0bE
+i
+1
+x
+6
+sT2TAIPw
+x
+12
+vCuSAfW0`F1?0bE
+x
+1
+O!
+x
+4
+HW?87
+2
+L 1 27 48 78 18 -1
+L 2 52 13 68 43 -1
+0
+}

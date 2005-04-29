@@ -1,72 +1,70 @@
 \input texinfo @c -*-texinfo-*-
 @c %**start of header
 @setfilename gzip.info
+@include version.texi
 @settitle Gzip User's Manual
 @finalout
 @setchapternewpage odd
 @c %**end of header
+@copying
+This manual is for Gzip
+(version @value{VERSION}, @value{UPDATED}),
+and documents commands for compressing and decompressing data.
 
-@ifinfo
-This file documents the the GNU @code{gzip} command for compressing files.
+Copyright @copyright{} 1998, 1999, 2001, 2002 Free Software
+Foundation, Inc.
 
-Copyright (C) 1992-1993 Jean-loup Gailly
+Copyright @copyright{} 1992, 1993 Jean-loup Gailly
 
-Permission is granted to make and distribute verbatim copies of
-this manual provided the copyright notice and this permission notice
-are preserved on all copies.
+@quotation
+Permission is granted to copy, distribute and/or modify this document
+under the terms of the GNU Free Documentation License, Version 1.1 or
+any later version published by the Free Software Foundation; with no
+Invariant Sections, with the Front-Cover texts being ``A GNU Manual,''
+and with the Back-Cover Texts as in (a) below.  A copy of the
+license is included in the section entitled ``GNU Free Documentation
+License.''
 
-@ignore
-Permission is granted to process this file through TeX and print the
-results, provided the printed document carries copying permission
-notice identical to this one except for the removal of this paragraph
-(this paragraph not being relevant to the printed manual).
+(a) The FSF's Back-Cover Text is: ``You have freedom to copy and modify
+this GNU Manual, like GNU software.  Copies published by the Free
+Software Foundation raise funds for GNU development.''
+@end quotation
+@end copying
 
-@end ignore
-Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
+@c Debian install-info (up through at least version 1.9.20) uses only the
+@c first dircategory.  Put this one first, as it is more useful in practice.
+@dircategory Individual utilities
+@direntry
+* gzip: (gzip)Invoking gzip.                    Compress files.
+@end direntry
 
-Permission is granted to copy and distribute translations of this manual
-into another language, under the above conditions for modified versions,
-except that this permission notice may be stated in a translation approved
-by the Foundation.
-@end ifinfo
+@dircategory Utilities
+@direntry
+* Gzip: (gzip).                 The gzip command for compressing files.
+@end direntry
 
 @titlepage
 @title gzip
 @subtitle The data compression program
-@subtitle Edition 1.2.4, for Gzip Version 1.2.4
-@subtitle July 1993
+@subtitle for Gzip Version @value{VERSION}
+@subtitle @value{UPDATED}
 @author by Jean-loup Gailly
 
 @page
 @vskip 0pt plus 1filll
-Copyright @copyright{} 1992-1993 Jean-loup Gailly
-
-Permission is granted to make and distribute verbatim copies of
-this manual provided the copyright notice and this permission notice
-are preserved on all copies.
-
-Permission is granted to copy and distribute modified versions of this
-manual under the conditions for verbatim copying, provided that the entire
-resulting derived work is distributed under the terms of a permission
-notice identical to this one.
-
-Permission is granted to copy and distribute translations of this manual
-into another language, under the above conditions for modified versions,
-except that this permission notice may be stated in a translation approved
-by the Foundation.
+@insertcopying
 @end titlepage
 
-@node Top, , , (dir)
+@contents
 
-@ifinfo
-This file documents the @code{gzip} command to compress files.
-@end ifinfo
+@ifnottex
+@node Top, , , (dir)
+@top Compressing Files
+
+@insertcopying
+@end ifnottex
 
 @menu
-* Copying::		How you can copy and share @code{gzip}.
 * Overview::		Preliminary information.
 * Sample::		Sample output from @code{gzip}.
 * Invoking gzip::	How to run @code{gzip}.
@@ -74,13 +72,11 @@ This file documents the @code{gzip} command to compress files.
 * Environment::		The @code{GZIP} environment variable
 * Tapes::               Using @code{gzip} on tapes.
 * Problems::		Reporting bugs.
+* Copying This Manual:: How to make copies of this manual.
 * Concept Index::	Index of concepts.
 @end menu
 
-@node Copying, Overview, , Top
-@include gpl.texinfo
-
-@node Overview, Sample, Copying, Top
+@node Overview, Sample, , Top
 @chapter Overview
 @cindex overview
 
@@ -139,7 +135,9 @@ also allows some consistency checks.
 Files created by @code{zip} can be uncompressed by @code{gzip} only if
 they have a single member compressed with the 'deflation' method. This
 feature is only intended to help conversion of @code{tar.zip} files to
-the @code{tar.gz} format. To extract @code{zip} files with several
+the @code{tar.gz} format.  To extract a @code{zip} file with a single
+member, use a command like @samp{gunzip <foo.zip} or @samp{gunzip -S
+.zip foo.zip}.  To extract @code{zip} files with several
 members, use @code{unzip} instead of @code{gunzip}.
 
 @code{zcat} is identical to @samp{gunzip -c}.  @code{zcat}
@@ -163,6 +161,14 @@ ratio of 0.015% for large files. Note that the actual number of used
 disk blocks almost never increases. @code{gzip} preserves the mode,
 ownership and timestamps of files when compressing or decompressing.
 
+The @code{gzip} file format is specified in P. Deutsch, @sc{gzip} file
+format specification version 4.3,
+@uref{ftp://ftp.isi.edu/in-notes/rfc1952.txt, Internet RFC 1952} (May
+1996).  The @code{zip} deflation format is specified in P. Deutsch,
+@sc{deflate} Compressed Data Format Specification version 1.3,
+@uref{ftp://ftp.isi.edu/in-notes/rfc1951.txt, Internet RFC 1951} (May
+1996).
+
 @node Sample, Invoking gzip, Overview, Top
 @chapter Sample Output
 @cindex sample
@@ -172,7 +178,8 @@ Here are some realistic examples of running @code{gzip}.
 This is the output of the command @samp{gzip -h}:
 
 @example
-gzip 1.2.4 (18 Aug 93)
+gzip 1.3
+(1999-12-21)
 usage: gzip [-cdfhlLnNrtvV19] [-S suffix] [file ...]
  -c --stdout      write on standard output, keep original files unchanged
  -d --decompress  decompress
@@ -191,12 +198,13 @@ usage: gzip [-cdfhlLnNrtvV19] [-S suffix] [file ...]
  -1 --fast        compress faster
  -9 --best        compress better
  file...          files to (de)compress. If none given, use standard input.
+Report bugs to <bug-gzip@@gnu.org>.
 @end example
 
 This is the output of the command @samp{gzip -v texinfo.tex}:
 
 @example
-texinfo.tex:             71.6% -- replaced with texinfo.tex.gz
+texinfo.tex:             69.7% -- replaced with texinfo.tex.gz
 @end example
 
 The following command will find all @code{gzip} files in the current
@@ -239,8 +247,8 @@ Decompress.
 Force compression or decompression even if the file has multiple links
 or the corresponding file already exists, or if the compressed data
 is read from or written to a terminal. If the input data is not in
-a format recognized by @code{gzip}, and if the option --stdout is also
-given, copy the input data without change to the standard ouput: let
+a format recognized by @code{gzip}, and if the option @samp{--stdout} is also
+given, copy the input data without change to the standard output: let
 @code{zcat} behave as @code{cat}. If @samp{-f} is not given, and
 when not running in the background, @code{gzip} prompts to verify
 whether an existing file should be overwritten.
@@ -268,7 +276,7 @@ such a file, you can use:
 zcat file.Z | wc -c
 @end example
 
-In combination with the --verbose option, the following fields are also
+In combination with the @samp{--verbose} option, the following fields are also
 displayed:
 
 @example
@@ -279,9 +287,19 @@ date & time: time stamp for the uncompressed file
 
 The crc is given as ffffffff for a file not in gzip format.
 
-With --verbose, the size totals and compression ratio for all files
-is also displayed, unless some sizes are unknown. With --quiet,
+With @samp{--verbose}, the size totals and compression ratio for all files
+is also displayed, unless some sizes are unknown. With @samp{--quiet},
 the title and totals lines are not displayed.
+
+The @code{gzip} format represents the the input size modulo
+@math{2^32}, so the uncompressed size and compression ratio are listed
+incorrectly for uncompressed files 4 GB and larger. To work around
+this problem, you can use the following command to discover a large
+uncompressed file's true size:
+
+@example
+zcat file.gz | wc -c
+@end example
 
 @item --license
 @itemx -L
@@ -442,7 +460,8 @@ When writing compressed data to a tape, it is generally necessary to pad
 the output with zeroes up to a block boundary. When the data is read and
 the whole block is passed to @code{gunzip} for decompression,
 @code{gunzip} detects that there is extra trailing garbage after the
-compressed data and emits a warning by default. You have to use the
+compressed data and emits a warning by default if the garbage contains
+nonzero bytes. You have to use the
 @samp{--quiet} option to suppress the warning. This option can be set in the
 @code{GZIP} environment variable, as in:
 
@@ -457,23 +476,30 @@ option of @code{tar}) is used for reading and writing compressed data on
 tapes.  (This example assumes you are using the GNU version of
 @code{tar}.)
 
-@node Problems, Concept Index, Tapes, Top
+@node Problems, Copying This Manual, Tapes, Top
 @chapter Reporting Bugs
 @cindex bugs
 
 If you find a bug in @code{gzip}, please send electronic mail to
-@w{@samp{jloup@@chorus.fr}} or, if this fails, to
-@w{@samp{bug-gnu-utils@@prep.ai.mit.edu}}.  Include the version number,
+@email{bug-gzip@@gnu.org}.  Include the version number,
 which you can find by running @w{@samp{gzip -V}}.  Also include in your
 message the hardware and operating system, the compiler used to compile
 @code{gzip},
 a description of the bug behavior, and the input to @code{gzip} that triggered
 the bug.@refill
 
-@node Concept Index, , Problems, Top
-@unnumbered Concept Index
+@node Copying This Manual, Concept Index, Problems, Top
+@appendix Copying This Manual
+
+@menu
+* GNU Free Documentation License::  License for copying this manual.
+@end menu
+
+@include fdl.texi
+
+@node Concept Index, , Copying This Manual, Top
+@appendix Concept Index
 
 @printindex cp
 
-@contents
 @bye

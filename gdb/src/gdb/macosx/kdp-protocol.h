@@ -1,100 +1,122 @@
 #ifndef __GDB_KDP_PROTOCOL_H__
 #define __GDB_KDP_PROTOCOL_H__
 
-#define KDP_MAX_PACKET_SIZE 1200 /* max packet size */
-#define KDP_MAX_DATA_SIZE 1024	/* max r/w data per packet */
+#define KDP_MAX_PACKET_SIZE 1200        /* max packet size */
+#define KDP_MAX_DATA_SIZE 1024  /* max r/w data per packet */
 
 /* Requests */
 
-typedef enum kdp_req_t {
+typedef enum kdp_req_t
+{
 
- /* connection oriented requests */
- KDP_CONNECT, KDP_DISCONNECT,
+  /* connection oriented requests */
+  KDP_CONNECT, KDP_DISCONNECT,
 
- /* obtaining client info */
- KDP_HOSTINFO, KDP_VERSION, KDP_MAXBYTES,
- 
- /* memory access */
- KDP_READMEM, KDP_WRITEMEM,
- 
- /* register access */
- KDP_READREGS, KDP_WRITEREGS,
- 
- /* executable image info */
- KDP_LOAD, KDP_IMAGEPATH,
+  /* obtaining client info */
+  KDP_HOSTINFO, KDP_VERSION, KDP_MAXBYTES,
 
- /* execution control */
- KDP_SUSPEND, KDP_RESUMECPUS,
+  /* memory access */
+  KDP_READMEM, KDP_WRITEMEM,
 
- /* exception and termination notification, NOT true requests */
- KDP_EXCEPTION, KDP_TERMINATION,
+  /* register access */
+  KDP_READREGS, KDP_WRITEREGS,
 
- /* breakpoint control */
- KDP_BREAKPOINT_SET, KDP_BREAKPOINT_REMOVE,
+  /* executable image info */
+  KDP_LOAD, KDP_IMAGEPATH,
 
- /* vm regions */
- KDP_REGIONS,
+  /* execution control */
+  KDP_SUSPEND, KDP_RESUMECPUS,
 
- /* reattach to a connected host */
- KDP_REATTACH
+  /* exception and termination notification, NOT true requests */
+  KDP_EXCEPTION, KDP_TERMINATION,
+
+  /* breakpoint control */
+  KDP_BREAKPOINT_SET, KDP_BREAKPOINT_REMOVE,
+
+  /* vm regions */
+  KDP_REGIONS,
+
+  /* reattach to a connected host */
+  KDP_REATTACH,
+
+  /* remote reboot request */
+  KDP_HOSTREBOOT
 } kdp_req_t;
 
 /* Common KDP packet header */
 
-typedef struct {
-  kdp_req_t request;		/* request type */
-  unsigned char is_reply;	/* 0 => request, 1 => reply */
-  unsigned char seq;		/* sequence number within session */
-  unsigned int key;		/* session key */
+typedef struct
+{
+  kdp_req_t request;            /* request type */
+  unsigned char is_reply;       /* 0 => request, 1 => reply */
+  unsigned char seq;            /* sequence number within session */
+  unsigned int key;             /* session key */
 } kdp_hdr_t;
 
 /* KDP errors */
 
-typedef enum {
+typedef enum
+{
   KDP_PROTERR_SUCCESS = 0,
   KDP_PROTERR_ALREADY_CONNECTED,
   KDP_PROTERR_BAD_NBYTES,
-  KDP_PROTERR_BADFLAVOR,		/* bad flavor in w/r regs */
+  KDP_PROTERR_BADFLAVOR,        /* bad flavor in w/r regs */
 } kdp_error_t;
 
 /* KDP requests and reply packet formats */
 
 /* KDP_CONNECT */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
-  unsigned short req_reply_port; /* udp port which to send replies */
-  unsigned short exc_note_port;  /* udp port which to send exc notes */
-  char greeting[0];		 /* "greetings", null-terminated */
+  unsigned short req_reply_port;        /* udp port which to send replies */
+  unsigned short exc_note_port; /* udp port which to send exc notes */
+  char greeting[0];             /* "greetings", null-terminated */
 } kdp_connect_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_connect_reply_t;
 
 /* KDP_DISCONNECT */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_disconnect_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_disconnect_reply_t;
 
-typedef struct {
+/* KDP_REATTACH */
+
+typedef struct
+{
   kdp_hdr_t hdr;
-  unsigned short req_reply_port; /* udp port which to send replies */
+  unsigned short req_reply_port;        /* udp port which to send replies */
 } kdp_reattach_req_t;
+
+/* KDP_HOSTREBOOT */
+
+typedef struct
+{
+  kdp_hdr_t hdr;
+} kdp_hostreboot_req_t;
 
 /* KDP_HOSTINFO */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_hostinfo_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned int cpu_mask;
   unsigned int cpu_type;
@@ -104,30 +126,35 @@ typedef struct {
 /*
  * KDP_VERSION
  */
-typedef struct {
-  kdp_hdr_t  hdr;
+typedef struct
+{
+  kdp_hdr_t hdr;
 } kdp_version_req_t;
 
-#define	KDP_FEATURE_BP	0x1     /* local breakpoint support */
+#define KDP_FEATURE_BP  0x1     /* local breakpoint support */
 
-typedef struct {
-  kdp_hdr_t  hdr;
-  unsigned   version;
-  unsigned   feature;
-  unsigned   pad0;
-  unsigned   pad1;
+typedef struct
+{
+  kdp_hdr_t hdr;
+  unsigned version;
+  unsigned feature;
+  unsigned pad0;
+  unsigned pad1;
 } kdp_version_reply_t;
 
 /* KDP_REGIONS */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_regions_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned nregions;
-  struct {
+  struct
+  {
     unsigned long address;
     size_t nbytes;
     unsigned int protection;
@@ -136,24 +163,28 @@ typedef struct {
 
 /* KDP_MAXBYTES */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_maxbytes_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   size_t max_bytes;
 } kdp_maxbytes_reply_t;
 
 /* KDP_READMEM */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned long address;
   size_t nbytes;
 } kdp_readmem_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
   size_t nbytes;
@@ -162,27 +193,31 @@ typedef struct {
 
 /* KDP_WRITEMEM */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned long address;
   size_t nbytes;
   unsigned char data[0];
 } kdp_writemem_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_writemem_reply_t;
 
 /* KDP_READREGS */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned int cpu;
   unsigned int flavor;
 } kdp_readregs_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
   size_t nbytes;
@@ -191,7 +226,8 @@ typedef struct {
 
 /* KDP_WRITEREGS */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned int cpu;
   unsigned int flavor;
@@ -199,57 +235,67 @@ typedef struct {
   unsigned char data[0];
 } kdp_writeregs_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_writeregs_reply_t;
 
 /* KDP_LOAD */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   char file_args[0];
 } kdp_load_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_load_reply_t;
 
 /* KDP_IMAGEPATH */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_imagepath_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   char path[0];
 } kdp_imagepath_reply_t;
 
 /* KDP_SUSPEND */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_suspend_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_suspend_reply_t;
 
 /* KDP_RESUMECPUS */
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned int cpu_mask;
 } kdp_resumecpus_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
 } kdp_resumecpus_reply_t;
 
 /* KDP_BREAKPOINT_SET, KDP_BREAKPOINT_REMOVE */
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   unsigned long address;
 #if 0
@@ -257,7 +303,8 @@ typedef struct {
 #endif
 } kdp_breakpoint_req_t;
 
-typedef struct {
+typedef struct
+{
   kdp_hdr_t hdr;
   kdp_error_t error;
 } kdp_breakpoint_reply_t;
@@ -269,44 +316,51 @@ typedef struct {
 
 /* exc. info for one cpu */
 
-typedef struct kdp_exc_info_t {
+typedef struct kdp_exc_info_t
+{
   unsigned int cpu;
   unsigned int exception;
   unsigned int code;
   unsigned int subcode;
 } kdp_exc_info_t;
 
-typedef struct kdp_exception_t {
+typedef struct kdp_exception_t
+{
   kdp_hdr_t hdr;
   size_t n_exc_info;
   kdp_exc_info_t exc_info[0];
 } kdp_exception_t;
 
-typedef struct kdp_exception_ack_t {
+typedef struct kdp_exception_ack_t
+{
   kdp_hdr_t hdr;
 } kdp_exception_ack_t;
 
 /* Child termination messages */
 
-typedef enum kdp_termination_code_t {
-  KDP_FAULT = 0,		/* child took fault (internal use) */
-  KDP_EXIT,			/* child exited */
-  KDP_POWEROFF,			/* child power-off */
-  KDP_REBOOT,			/* child reboot */
-  KDP_COMMAND_MODE,		/* child exit to mon command_mode */
+typedef enum kdp_termination_code_t
+{
+  KDP_FAULT = 0,                /* child took fault (internal use) */
+  KDP_EXIT,                     /* child exited */
+  KDP_POWEROFF,                 /* child power-off */
+  KDP_REBOOT,                   /* child reboot */
+  KDP_COMMAND_MODE,             /* child exit to mon command_mode */
 } kdp_termination_code_t;
 
-typedef struct kdp_termination_t {
+typedef struct kdp_termination_t
+{
   kdp_hdr_t hdr;
   kdp_termination_code_t term_code;
   unsigned int exit_code;
 } kdp_termination_t;
 
-typedef struct kdp_termination_ack_t {
+typedef struct kdp_termination_ack_t
+{
   kdp_hdr_t hdr;
 } kdp_termination_ack_t;
 
-typedef union kdp_pkt_t {
+typedef union kdp_pkt_t
+{
   kdp_hdr_t hdr;
   kdp_connect_req_t connect_req;
   kdp_connect_reply_t connect_reply;
@@ -326,7 +380,7 @@ typedef union kdp_pkt_t {
   kdp_readregs_reply_t readregs_reply;
   kdp_writeregs_req_t writeregs_req;
   kdp_writeregs_reply_t writeregs_reply;
-  kdp_load_req_t  load_req;
+  kdp_load_req_t load_req;
   kdp_load_reply_t load_reply;
   kdp_imagepath_req_t imagepath_req;
   kdp_imagepath_reply_t imagepath_reply;
@@ -334,7 +388,7 @@ typedef union kdp_pkt_t {
   kdp_suspend_reply_t suspend_reply;
   kdp_resumecpus_req_t resumecpus_req;
   kdp_resumecpus_reply_t resumecpus_reply;
-  kdp_exception_t  exception;
+  kdp_exception_t exception;
   kdp_exception_ack_t exception_ack;
   kdp_termination_t termination;
   kdp_termination_ack_t termination_ack;
@@ -343,32 +397,35 @@ typedef union kdp_pkt_t {
   kdp_regions_req_t regions_req;
   kdp_regions_reply_t regions_reply;
   kdp_reattach_req_t reattach_req;
+  kdp_hostreboot_req_t hostreboot_req;
 } kdp_pkt_t;
 
-typedef enum {
+typedef enum
+{
   KDP_LOG_ERROR = 1,
   KDP_LOG_WARNING = 2,
   KDP_LOG_INFO = 3,
   KDP_LOG_DEBUG = 4
 } kdp_log_level;
 
-typedef enum {
+typedef enum
+{
   RR_SUCCESS = 0,
   RR_ALREADY_CONNECTED = KDP_PROTERR_ALREADY_CONNECTED,
   RR_BAD_NBYTES = KDP_PROTERR_BAD_NBYTES,
   RR_BADFLAVOR = KDP_PROTERR_BADFLAVOR,
   RR_SEND_TIMEOUT,
   RR_RECV_TIMEOUT,
-  RR_IP_ERROR,			/* misc. network error */
-  RR_BAD_ACK,			/* bad packet_type on ack */
-  RR_BYTE_COUNT,		/* unexpected byte count */
-  RR_BAD_SEQ,			/* unexpected sequence number */
-  RR_RESOURCE,			/* resource shortage */
-  RR_LOOKUP,			/* can't find target */ 
-  RR_INTERNAL,			/* internal error */
-  RR_CONNECT,			/* connection failure */
-  RR_INVALID_ADDRESS,		/* bad memory address */
-  RR_EXCEPTION,			/* exception is new */
+  RR_IP_ERROR,                  /* misc. network error */
+  RR_BAD_ACK,                   /* bad packet_type on ack */
+  RR_BYTE_COUNT,                /* unexpected byte count */
+  RR_BAD_SEQ,                   /* unexpected sequence number */
+  RR_RESOURCE,                  /* resource shortage */
+  RR_LOOKUP,                    /* can't find target */
+  RR_INTERNAL,                  /* internal error */
+  RR_CONNECT,                   /* connection failure */
+  RR_INVALID_ADDRESS,           /* bad memory address */
+  RR_EXCEPTION,                 /* exception is new */
   RR_RECV_INTR,
 } kdp_return_t;
 
@@ -381,15 +438,18 @@ const char *kdp_return_string (kdp_return_t error);
 struct kdp_connection;
 
 void kdp_log_data
-  (kdp_log_function *f, kdp_log_level l, const unsigned char *data, unsigned int nbytes);
+  (kdp_log_function * f, kdp_log_level l, const unsigned char *data,
+   unsigned int nbytes);
 
 void kdp_log_packet
-  (kdp_log_function *f, kdp_log_level l, const kdp_pkt_t *p);
+  (kdp_log_function * f, kdp_log_level l, const kdp_pkt_t * p);
 
 kdp_return_t kdp_marshal
-  (struct kdp_connection *c, kdp_pkt_t *p, unsigned char *s, size_t maxlen, size_t *plen);
+  (struct kdp_connection *c, kdp_pkt_t * p, unsigned char *s, size_t maxlen,
+   size_t * plen);
 
 kdp_return_t kdp_unmarshal
-  (struct kdp_connection *c, kdp_pkt_t *p, const unsigned char *s, size_t rlen);
+  (struct kdp_connection *c, kdp_pkt_t * p, const unsigned char *s,
+   size_t rlen);
 
 #endif /* __GDB_KDP_PROTOCOL_H__ */

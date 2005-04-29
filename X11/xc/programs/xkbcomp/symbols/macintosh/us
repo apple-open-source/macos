@@ -1,5 +1,5 @@
 // $XConsortium: macintosh /main/10 1996/01/29 19:54:54 kaleb $
-// $XFree86: xc/programs/xkbcomp/symbols/macintosh/us,v 1.7 2002/10/16 01:29:41 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/macintosh/us,v 1.10 2003/09/08 14:25:32 eich Exp $
 
 // symbols definition for a Macintosh "Extended" keyboard
 
@@ -129,21 +129,24 @@ xkb_symbols "extended" {
     key <RTSH> {	[  Shift_R	]	};
     key <LCTL> {	[  Control_L	]	};
     key <RCTL> {	[  Control_R	]	};
-    key <LALT> {	[  Alt_L	]	};
-    key <RALT> {	[  Alt_R	]	};
-    key <LWIN> {	[  Meta_L	]	};
-    key <WWIN> {	[  Meta_R	]	};
+    key <LALT> {	[  Alt_L, Meta_L ]	};
+    key <RALT> {	[  Alt_R, Meta_R ]	};
+    key <LWIN> {	[  Super_L	]	};
+    key <RWIN> {	[  Super_R	]	};
     // End "Modifier" section
 
     // begin modifier mappings
     modifier_map Shift  { Shift_L , Shift_R };
     modifier_map Lock   { Caps_Lock };
     modifier_map Control{ Control_L, Control_R };
-    modifier_map Mod1   { Alt_L, Alt_R };
+    modifier_map Mod1   { Alt_L, Alt_R, Meta_L, Meta_R };
     modifier_map Mod2   { Num_Lock };
-    modifier_map Mod4   { Meta_L, Meta_R };
+    modifier_map Mod4   { Super_L, Super_R };
     modifier_map Mod5   { Scroll_Lock };
     // end modifier mappings
+
+    include "compose(rwin)"
+    include "apple(extended)"
 
 // *** FIXME
 //    key <LSGT> {	[ quoteleft,	asciitilde	]	};

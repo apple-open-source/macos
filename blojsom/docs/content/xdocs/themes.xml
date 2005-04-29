@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Themes</title>
+    </header>
+    <body>
+        <section>
+            <title>blojsom theme architecture</title>
+            <p>
+                A big phrase for such a small thing
+                <icon src="happy.gif" alt="happy"/>. Themes are simply alternate templates and style
+                sheets that tell blojsom how to render a different presentation. Creating new themes is quick, easy and fun.
+            </p>
+        </section>
+        <section>
+            <title>Installing blojsom themes</title>
+            <p>
+                Starting with blojsom 1.7, blojsom ships with an alternate theme called
+                <strong>SecondWave</strong>. For those who care, the name is
+                a pun on the fact that it's the 2nd template for blojsom. SecondWave is a
+                Velocity-only template.
+            </p>
+            <p>
+                Here is a
+                <link href="takingout_secondwave.png">screenshot</link> of SecondWave in action
+            </p>
+            <p>
+                To install the template simply follow these steps:
+            </p>
+            <ol>
+                <li>Copy the all SecondWave files (secondwave*.vm) from
+                    <code>$BLOJSOM_INSTALL_DIR</code>/themes/secondwave to your individual
+                    <code>/WEB-INF/(user-id)/templates</code> directory on your server.
+                </li>
+                <li>Copy the
+                    <code>blojsom-secondwave.css</code> stylesheet from
+                    <code>$BLOJSOM_INSTALL_DIR</code>/themes/secondwave to your to webapp root
+                    context directory on your sever.
+                </li>
+            </ol>
+            <note> This is not
+                <em>/WEB-INF</em> but the same directory in which
+                <em>/WEB-INF</em> lives
+            </note>
+            <p>
+                All that is left to do is tell blojsom to use the new template.
+            </p>
+        </section>
+        <section>
+            <title>Configuring the active theme</title>
+            <p>
+                All you need to do to enable your template is to edit your individual
+                <code>/WEB-INF/(user-id)flavor.properties</code>
+                and edit the value for the html flavor
+            </p>
+            <p>
+                As an example, for SecondWave the line should read:
+                <code>html=secondwave.vm, text/html;chartset=UTF-8</code>
+            </p>
+            <p>
+                That's it, your blog has a brand new look!
+            </p>
+        </section>
+    </body>
+</document>

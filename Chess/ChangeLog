@@ -1,0 +1,643 @@
+2003-07-18 15:14  neerache
+
+	* MBCBoardViewMouse.mm, MBCEngine.mm: Disable pondering
+	during drag to improve interactive performance (RADAR 2736549)
+
+2003-07-17 16:50  neerache
+
+	* MBChess.pbproj/project.pbxproj: Link SpeechHelp into app
+
+2003-07-17 16:30  neerache
+
+	* MBCInteractivePlayer.h, MBCInteractivePlayer.mm,
+	Resources/SpeechHelp.xml: Add Speech recognition help
+
+2003-07-17 16:30  neerache
+
+	* MBCBoardView.h, MBCBoardViewModels.mm: 
+	Don't need CenterOfGravity info any longer
+
+2003-07-14 18:54  neerache
+
+	* Styles/Fur/Piece.plist, Styles/Marble/Piece.plist, 
+	Styles/Metal/Board.plist, Styles/Metal/Piece.plist, 
+	Styles/Wood/Board.plist, Styles/Wood/Piece.plist: 
+	Tweak styles some more
+
+2003-07-14 18:43  neerache
+
+	* MBChess.pbproj/project.pbxproj, Styles/Wood/Piece.plist,
+	Styles/Wood/WhitePiece.rgb: Tweak wood pieces
+
+2003-07-14 16:22  neerache
+
+	* MBChess.pbproj/project.pbxproj, MBCEngineCommands.h,
+	MBCInteractivePlayer.h, MBCInteractivePlayer.mm,
+	MBCLanguageModel.h, MBCLanguageModel.mm: 
+	Move to much smarter speech recognition model
+
+2003-07-14 16:21  neerache
+
+	* MBCBoard.h, MBCBoard.mm, MBCBoardView.h, MBCBoardView.mm, 
+	MBCBoardViewDraw.mm, MBCBoardViewMouse.mm: 
+	Move promotion defaults into MBCBoard
+
+2003-07-14 16:21  neerache
+
+	* MBCAnimation.mm: Better termination check for animation
+
+2003-07-14 16:19  neerache
+
+	* MBCMoveGenerator.h, MBCMoveGenerator.mm: 
+	Record color of generated moves
+
+2003-07-07 16:52  neerache
+
+	* English.lproj/MainMenu.nib, Styles/Metal/Piece.plist: 
+	Some graphical tweaks
+
+2003-07-07 16:50  neerache
+
+	* MBCController.mm: Make tuner work again
+
+2003-07-07 16:50  neerache
+
+	* MBCBoardView.h, MBCBoardViewDraw.mm: Work around a graphics bug
+
+2003-07-07 02:16  neerache
+
+	* English.lproj/MainMenu.nib, MBCBoardView.mm, MBCBoardViewDraw.mm, 
+	MBCController.mm: 
+	Textured windows are too slow for low end machines, disable
+
+2003-07-07 01:49  neerache
+
+	* MBCEngine.mm, MBCFloatingBoardWindow.mm, MBCInteractivePlayer.mm, 
+	main.m: Improve startup time
+
+2003-07-07 01:47  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm, 
+	MBCBoardViewMouse.mm, English.lproj/MainMenu.nib: 
+	Switch to textured main window
+
+2003-07-07 01:46  neerache
+
+	* English.lproj/Localizable.strings, MBCController.h,
+	MBCController.mm: Localize Style Names
+
+2003-07-07 01:39  neerache
+
+	* MBCAnimation.h, MBCAnimation.mm: Tweak for slow hardware
+
+2003-07-03 12:15  neerache
+
+	* MBChess.pbproj/project.pbxproj: Fix sjeng build (RADAR 3264472)
+
+2003-07-03 01:12  neerache
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj,
+	MBCController.h, MBCController.mm, MBCDocument.mm: 
+	Use sheets for saving (RADAR 3093283)
+
+2003-07-02 22:35  neerache
+
+	* English.lproj/About.nib, English.lproj/MainMenu.nib,
+	MBCGameInfo.mm: Add tooltips, tweak game info window
+
+2003-07-02 20:19  neerache
+
+	* English.lproj/MainMenu.nib, Resources/Defaults.plist,
+	MBCController.h, MBCController.mm: 
+	Logarithmic time control, more UI tweaks
+
+2003-07-02 14:18  neerache
+
+	* MBChess.pbproj/project.pbxproj, MBCAbout.h, MBCAbout.mm, 
+	MBCController.h, MBCController.mm, English.lproj/About.nib: 
+	Move about box into separate class/nib
+
+2003-07-02 14:00  neerache
+
+	* MBCMoveGenerator.h, MBCMoveGenerator.mm: Added MBCMoveCollection
+
+2003-06-29 22:16  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCController.h, MBCController.mm: 
+	Transfer move execution to Controller
+
+2003-06-29 22:15  neerache
+
+	* MBCEngine.h, MBCEngine.mm, MBCInteractivePlayer.h, 
+	MBCInteractivePlayer.mm: 
+	Use proper move generator instead of engine
+
+2003-06-29 22:00  neerache
+
+	* MBCBoard.h, MBCBoard.mm: Add UnknownCastle, new... methods
+
+2003-06-29 21:58  neerache
+
+	* MBCMoveGenerator.h, MBCMoveGenerator.mm: 
+	Make MBCMoveBuilder a protocol, rename methods to be clearer
+
+2003-06-18 14:55  neerache
+
+	* English.lproj/MainMenu.nib, MBCBoardViewDraw.mm, MBCBoardViewMouse.mm: 	More (mostly unsuccessful) tweaking of floating windows
+
+2003-06-15 22:37  neerache
+
+	* MBCFloatingBoardWindow.h, MBCFloatingBoardWindow.mm:
+	Add floating board window type
+
+2003-06-15 22:28  neerache
+
+	* MBChess.pbproj/project.pbxproj, MBCBoard.h, MBCBoard.mm, 
+	MBCController.mm, MBCMoveGenerator.h, MBCMoveGenerator.mm: 
+	Added move generation facility
+
+2003-06-15 19:17  neerache
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj,
+	Resources/Defaults.plist, MBCBoardView.mm, MBCBoardViewDraw.mm, 
+	MBCController.h, MBCController.mm: Implement floating board
+
+2003-06-15 14:13  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm:
+	Adjust lights, fix animation, work on other drawing issues
+
+2003-06-15 14:11  neerache
+
+	* MBCBoardViewModels.mm: Fix holes in piece models, still
+	some left in Knights
+
+2003-06-15 12:05  neerache
+
+	* MBCTuner.h, MBCTuner.mm, English.lproj/Tuner.nib:
+	Add light experiment window
+
+2003-06-15 12:03  neerache
+
+	* MBCAnimation.h, MBCAnimation.mm, MBCBoardAnimation.h,
+	MBCBoardAnimation.mm, MBCMoveAnimation.h, MBCMoveAnimation.mm:
+	Smoother animations
+
+2003-06-12 00:27  neerache
+
+	* English.lproj/MainMenu.nib, Resources/Defaults.plist,
+	MBCGameInfo.h, MBCGameInfo.mm: 
+	Reorganize preferences window, Add simpler title style
+
+2003-06-05 01:31  neerache
+
+	* English.lproj/Tuner.nib, MBChess.pbproj/project.pbxproj,
+	MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm, 
+	MBCBoardViewMouse.mm, MBCBoardViewTextures.h, MBCBoardViewTextures.mm,
+	MBCController.mm, MBCTuner.h, MBCTuner.mm, Styles/Fur/Piece.plist, 
+	Styles/Grass/Board.plist, Styles/Marble/Board.plist, 
+	Styles/Marble/Piece.plist, Styles/Metal/Board.plist, 
+	Styles/Metal/Piece.plist, Styles/Wood/Board.plist, 
+	Styles/Wood/Piece.plist: Added Tuner
+
+2003-06-04 17:14  neerache
+
+	* MBCBoardViewDraw.mm, MBCBoardViewMouse.mm: Reduce excessive threshold
+
+2003-06-04 16:14  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm,
+	MBCBoardViewMouse.mm, MBCBoardViewTextures.mm, MBCController.h,
+	MBCController.mm: 
+	Neater manipulation widget; remove obsolete graphics options
+
+2003-06-04 02:25  neerache
+
+	* MBCBoard.h, MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm,
+	MBCBoardViewMouse.mm, sjeng/config.log: 
+	New and improved board manipulation metaphor
+
+2003-06-01 22:44  neerache
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj,
+	Resources/Defaults.plist, Resources/handCursor.tiff,
+	MBCBoard.h, MBCBoard.mm, MBCBoardAnimation.mm, MBCBoardView.h,
+	MBCBoardView.mm, MBCBoardViewDraw.mm, MBCBoardViewMouse.h, 
+	MBCBoardViewMouse.mm, MBCController.mm: 
+	Implement direct board manipulation
+
+2003-06-01 21:21  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.h,
+	MBCBoardViewDraw.mm, MBCBoardViewTextures.h, MBCBoardViewTextures.mm: 
+	Start implementing drawing styles for board elements
+
+2003-06-01 21:21  neerache
+
+	* MBCController.h, MBCController.mm: Remove gameEnd:, fUseLight
+
+2003-05-27 00:25  neerache
+
+	* MBCBoardViewDraw.mm: Apply scaling and translation in proper order
+
+2003-05-27 00:25  neerache
+
+	* MBCEngine.h, MBCEngine.mm: Restart engine when loading
+
+2003-05-26 20:15  neerache
+
+	* English.lproj/Localizable.strings, English.lproj/MainMenu.nib,
+	MBChess.pbproj/project.pbxproj, Styles/Metal/Border.rgb: Tweak UI
+
+2003-05-26 20:15  neerache
+
+	* sjeng/sjeng.c: Fix undo of finished position
+
+2003-05-26 20:13  neerache
+
+	* MBCBoard.h, MBCBoard.mm, MBCBoardViewModels.mm,
+	MBCBoardViewTextures.mm, MBCController.h, MBCController.mm,
+	MBCEngine.h, MBCEngine.mm, MBCEngineCommands.h,
+	MBCEngineCommands.l, MBCGameInfo.h, MBCGameInfo.mm: 
+	Rework game loading/saving code
+
+2003-05-24 13:31  neerache
+
+	* MBCBoardViewDraw.mm: 
+	Lots of graphics improvements, especially with specular light
+
+2003-05-24 13:29  neerache
+
+	* Sources/MBCController.mm: Add game info, improve diagnostics
+
+2003-05-24 13:29  neerache
+
+	* MBCController.h, MBCGameInfo.h, MBCGameInfo.mm: Add Game Info Window
+
+2003-05-24 13:28  neerache
+
+	* MBCBoardView.mm, MBCBoardViewMouse.mm, MBCEngine.h, MBCEngine.mm, 
+	MBCMoveAnimation.mm: Address race conditions between player and engine
+
+2003-05-24 13:25  neerache
+
+	* MBCPlayer.mm: Fix flaw in declaration
+
+2003-05-24 13:25  neerache
+
+	* MBCBoard.h, MBCBoard.mm, MBCEngineCommands.h, MBCEngineCommands.l, 
+	MBCInteractivePlayer.h, MBCInteractivePlayer.mm: 
+	Eliminate compact moves for most purposes
+
+2003-05-22 20:22  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm:
+	Add FPS computation
+
+2003-05-22 20:21  neerache
+
+	* MBCBoardViewModels.mm: Add polygon statistics
+
+2003-05-07 10:39  neerache
+
+	* sjeng/sjeng.c: Quit on EOF
+
+2003-05-05 16:52  neerache
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj,
+	Styles/Fur/WhitePiece.rgb, Styles/Grass/Border.rgb,
+	Styles/Marble/Border.rgb, Styles/Metal/Border.rgb,
+	Styles/Wood/Border.rgb, Textures/e.rgb: Add border textures
+
+2003-05-05 16:52  neerache
+
+	* MBCBoardViewTextures.mm: Experimental switch to mipmaps
+
+2003-05-05 16:51  neerache
+
+	* MBCBoardViewModels.mm: 
+	Use glu for rotated parts, fix knight texture mapping
+
+2003-05-05 16:50  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm:
+	Tweak appearance, add border, add animations
+
+2003-05-05 14:23  neerache
+
+	* MBCBoardAnimation.h, MBCBoardAnimation.mm, MBCMoveAnimation.h, 
+	MBCMoveAnimation.mm: Add board animation, revise move animation
+
+2003-05-01 18:16  neerache
+
+	* MBCBoardViewDraw.mm, MBCBoardViewModels.mm: 
+	Antialias squares, experiment with translucent board
+
+2003-05-01 18:16  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.h,
+	MBCBoardViewMouse.mm: Simplify drawing methods
+
+2003-05-01 18:14  neerache
+
+	* MBCController.mm: Debug hook
+
+2003-04-30 11:35  neerache
+
+	* English.lproj/InfoPlist.strings: Make bundle version strings match
+
+2003-04-30 11:30  neerache
+
+	* sjeng/Makefile, sjeng/Makefile.am, sjeng/Makefile.in, 
+	sjeng/config.log: Strip sjeng before installing
+
+2003-04-29 17:05  neerache
+
+	* sjeng/Makefile, sjeng/Makefile.am, sjeng/Makefile.in, 
+	sjeng/config.log: Handle unknown targets
+
+2003-04-28 17:15  neerache
+
+	* ChangeLog: Update ChangeLog
+
+2003-04-28 17:04  neerache
+
+	* English.lproj/MainMenu.nib, Styles/Wood/WhitePiece.rgb: Some last
+	UI tweaks before initial submission
+
+2003-04-28 17:04  neerache
+
+	* English.lproj/Localizable.strings: Add Localized.strings
+
+2003-04-28 17:04  neerache
+
+	* English.lproj/Localizable.strings: Add Localized.strings
+
+2003-04-28 17:03  neerache
+
+	* MBChess.pbproj/project.pbxproj: Fix installation location
+
+2003-04-28 17:02  neerache
+
+	* MBCController.mm: Stash our stuff in Application Support
+
+2003-04-28 15:19  neerache
+
+	* MBCBoardViewDraw.mm: Eliminate drawBoardPlane; simplify
+	background; move labels closer to board; vary square textures;
+	properly rotate selected knights; reorder elements to be drawn
+
+2003-04-28 15:14  neerache
+
+	* MBCBoard.h, MBCBoard.mm, MBCController.mm: Let board, not
+	engine, handle last move
+
+2003-04-28 15:13  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.h: Eliminate
+	drawBoardPlane
+
+2003-04-28 15:11  neerache
+
+	* MBCBoardViewMouse.mm: Handle black promotion square
+
+2003-04-25 15:26  neerache
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewMouse.mm: Simplify
+	mouse model, fix startup bug
+
+2003-04-25 14:29  neerache
+
+	* Styles/Wood/BlackPiece.rgb: Made dark pieces darker
+
+2003-04-25 14:14  neerache
+
+	* sjeng/Makefile, sjeng/Makefile.in, sjeng/configure,
+	sjeng/books/Makefile, sjeng/books/Makefile.in, sjeng/tests/Makefile,
+	sjeng/tests/Makefile.in: Eliminate dependency tracking
+
+2003-04-25 10:20  neerache
+
+	* sjeng/books/build-book: Added build-book
+
+2003-04-25 10:15  neerache
+
+	* sjeng/depcomp: Need depcomp
+
+2003-04-25 09:41  neerache
+
+	* Resources/chess.icns: Added icons
+
+2003-04-25 09:36  neerache
+
+	* MBChess.pbproj/project.pbxproj, MBCBoardViewMouse.mm,
+	MBCController.mm, sjeng/Makefile, sjeng/Makefile.am,
+	sjeng/Makefile.in, sjeng/aclocal.m4, sjeng/config.h,
+	sjeng/config.h.in, sjeng/config.log, sjeng/config.status,
+	sjeng/configure, sjeng/books/Makefile, sjeng/books/Makefile.am,
+	sjeng/books/Makefile.in, sjeng/tests/Makefile,
+	sjeng/tests/Makefile.in: Clean automake build
+
+2003-04-24 19:07  neerache
+
+	* sjeng/books/Makefile: Build binary books on the fly
+
+2003-04-24 18:22  neerache
+
+	* sjeng/books/: nbook.db, zbook.db: Remove binary opening books
+
+2003-04-24 16:23  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* sjeng/utils.c: Safer interrupt characters
+
+2003-04-24 16:22  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* English.lproj/InfoPlist.strings, English.lproj/MainMenu.nib,
+	MBChess.pbproj/project.pbxproj, Resources/Defaults.plist: Tweak UI
+
+2003-04-24 16:22  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCController.h, MBCController.mm, MBCDocument.mm:
+	Implement persistent preferences, tweak UI
+
+2003-04-24 16:21  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCEngine.h, MBCEngine.mm: Fix takebacks
+
+2003-04-24 16:20  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.h, MBCBoard.mm, MBCBoardView.h, MBCBoardView.mm,
+	MBCBoardViewDraw.mm, MBCBoardViewMouse.mm, MBCInteractivePlayer.h,
+	MBCInteractivePlayer.mm: Support pawn promotions
+
+2003-04-10 16:03  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* Documentation/PGN-Standard.txt, English.lproj/MainMenu.nib,
+	MBChess.pbproj/project.pbxproj, MBCBoard.h, MBCBoard.mm,
+	MBCBoardView.h, MBCBoardViewDraw.mm, MBCController.h,
+	MBCController.mm, MBCEngine.h, MBCEngine.mm: Load positions
+
+2003-04-04 21:45  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.h, MBCBoard.mm, MBCController.h, MBCController.mm,
+	MBCEngine.mm, MBCPlayer.h, MBCPlayer.mm: Add PGN export
+
+2003-04-02 11:01  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj: Add
+	open/save menu items
+
+2003-04-02 11:01  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardViewMouse.h, MBCBoardViewMouse.mm: Explore
+	strategies to speed up dragging
+
+2003-04-02 10:45  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardView.mm: Experiment with different snap
+	techniques
+
+2003-04-02 10:44  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardViewDraw.mm: Tweak perspective
+
+2003-04-02 10:41  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCDocument.h, MBCDocument.mm: Support saving games
+
+2003-04-02 10:21  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCController.h, MBCController.mm, MBCPlayer.h, MBCPlayer.mm:
+	Support saving games
+
+2003-04-02 10:19  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.h, MBCBoard.mm: Support saving board state
+
+2003-03-27 17:29  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCEngine.h, MBCEngine.mm, MBCEngineCommands.h,
+	MBCEngineCommands.l, sjeng/utils.c, MBCBoardView.h,
+	MBCBoardView.mm, MBCBoardViewDraw.mm, MBCController.h,
+	MBCController.mm, MBCBoard.h, MBCBoard.mm: Support hints, last
+	move
+
+2003-03-27 17:27  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* English.lproj/MainMenu.nib: Reorganize Menus, Add "Show ..."
+
+2002-12-03 18:52  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* Resources/Defaults.plist, Textures/board_frame_texture.rgb: Add
+	missing resources
+
+2002-12-03 18:34  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* ChangeLog: Updated ChangeLog
+
+2002-12-03 18:30  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.h,
+	MBCBoardViewDraw.mm, MBCBoardViewMouse.mm: Experiment
+	(unsuccessfully so far) with ways to speed up piece movement
+
+2002-12-03 18:26  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCController.h, MBCController.mm: Fix updating when
+	style changes
+
+2002-10-15 15:49  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* English.lproj/MainMenu.nib, MBChess.pbproj/project.pbxproj,
+	MBCBoardView.h, MBCBoardView.mm, MBCBoardViewDraw.mm, 
+	MBCBoardViewModels.mm, MBCBoardViewTextures.h, MBCBoardViewTextures.mm,
+	MBCController.h, MBCController.mm,
+	Styles/Fur/BlackPiece.rgb, Styles/Fur/Piece.plist,
+	Styles/Fur/WhitePiece.rgb, Styles/Grass/BlackBoard.rgb,
+	Styles/Grass/Board.plist, Styles/Grass/WhiteBoard.rgb,
+	Styles/Marble/BlackBoard.rgb, Styles/Marble/BlackPiece.rgb,
+	Styles/Marble/Board.plist, Styles/Marble/Piece.plist,
+	Styles/Marble/WhiteBoard.rgb, Styles/Marble/WhitePiece.rgb,
+	Styles/Metal/BlackBoard.rgb, Styles/Metal/BlackPiece.rgb,
+	Styles/Metal/Board.plist, Styles/Metal/Piece.plist,
+	Styles/Metal/WhiteBoard.rgb, Styles/Metal/WhitePiece.rgb,
+	Styles/Wood/BlackBoard.rgb, Styles/Wood/BlackPiece.rgb,
+	Styles/Wood/Board.plist, Styles/Wood/Piece.plist,
+	Styles/Wood/WhiteBoard.rgb, Styles/Wood/WhitePiece.rgb: Add support
+	for texture styles
+
+2002-10-08 16:02  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardView.h, MBCBoardView.mm: Rotated board,
+	changeable colors
+
+2002-10-08 15:59  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardViewDraw.mm: Refine drawing, support flipped
+	board
+
+2002-10-08 15:56  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCController.h, MBCController.mm: Engine logging,
+	color preferences
+
+2002-10-08 15:54  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCEngine.mm: Engine logging, better autorelease
+
+2002-10-08 15:12  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCInteractivePlayer.mm: Beep on rejected move
+
+2002-10-08 11:12  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* 1.rgb, 2.rgb, 3.rgb, 4.rgb, 5.rgb, 6.rgb, 7.rgb,
+	8.rgb, a.rgb, b.rgb, black_board_texture.rgb,
+	black_piece_texture.rgb, c.rgb, d.rgb, e.rgb, f.rgb, g.rgb, h.rgb,
+	white_board_texture.rgb, white_piece_texture.rgb: Revised Textures
+
+2002-09-13 17:00  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* ChangeLog, English.lproj/MainMenu.nib: Updated changelog
+
+2002-09-13 16:57  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.h, MBCBoard.mm, MBCBoardView.h,
+	MBCBoardView.mm, MBCBoardViewDraw.mm, MBCController.mm,
+	MBCEngine.mm, MBCInteractivePlayer.h, MBCInteractivePlayer.mm:
+	Support for Crazyhouse display and mouse
+
+2002-09-12 11:01  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* ChangeLog, contributors, Tools/UpdateChangeLog: 
+	Added ChangeLog infrastructure
+
+2002-09-12 10:54  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MainMenu.nib, MBCController.h, MBCController.mm, MBCEngine.h,
+	MBCEngine.mm: Introduce level controls
+
+2002-09-12 10:46  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.h, MBCBoard.mm, MBCBoardView.mm,
+	MBCBoardViewDraw.mm, MBCInteractivePlayer.mm: Introduce dual board
+	representation, in-hand pieces
+
+2002-08-26 16:14  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCInteractivePlayer.mm: Weed out non-moves
+
+2002-08-26 16:14  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardViewDraw.mm: Switched to Azimuth/Elevation model;
+	fixed lighting issue manifesting with white knights
+
+2002-08-26 16:11  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoardView.h, MBCBoardView.mm, MBCController.mm:
+	Switched to Azimuth/Elevation based Camera positioning model
+
+2002-08-26 16:09  Matthias Neeracher x43683 <neeracher@apple.com> 
+
+	* MBCBoard.mm: [MBCBoard makeMove:] needs to ignore
+	everything except moves and drops

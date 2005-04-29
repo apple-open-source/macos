@@ -1,0 +1,31 @@
+/KeyMap keymap/a
+.
+.,.+2c
+    union {
+	KeyMap keymap;
+	KeyMapByteArray bytes;
+    } keymap;
+    GetKeys(keymap.keymap);
+    bool optionDown = keymap.bytes[7] & 4;
+.
+/KeyMap keymap/a
+.
+.,.+2c
+    union {
+	KeyMap keymap;
+	KeyMapByteArray bytes;
+    } keymap;
+    GetKeys(keymap.keymap);
+    bool optionDown = keymap.bytes[7] & 4;
+.
+/KeyMap keymap/a
+.
+.,.+2c
+	    union {
+		KeyMap keymap;
+		KeyMapByteArray bytes;
+	    } keymap;
+	    GetKeys(keymap.keymap);
+	    bool optionDown = keymap.bytes[7] & 4;
+.
+w

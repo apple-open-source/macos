@@ -1,8 +1,8 @@
 #
 #   tracer.rb - 
 #   	$Release Version: 0.2$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.8 $
+#   	$Date: 1998/05/19 03:42:49 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -14,15 +14,15 @@
 # tracer main class
 #
 class Tracer
-  @RCS_ID='-$Id: tracer.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  @RCS_ID='-$Id: tracer.rb,v 1.8 1998/05/19 03:42:49 keiju Exp keiju $-'
 
   @stdout = STDOUT
+  @verbose = false
   class << self
     attr :verbose, true
     alias verbose? verbose
     attr :stdout, true
   end
-  verbose = true
   
   MY_FILE_NAME = caller(0)[0].scan(/^(.*):[0-9]+$/)[0][0]
   
@@ -39,9 +39,9 @@ class Tracer
   def initialize
     @threads = Hash.new
     if defined? Thread.main
-      @threads[Thread.main.id] = 0
+      @threads[Thread.main.object_id] = 0
     else
-      @threads[Thread.current.id] = 0
+      @threads[Thread.current.object_id] = 0
     end
 
     @get_line_procs = {}
@@ -62,9 +62,7 @@ class Tracer
 	off
       end
     else
-      set_trace_func proc{|event, file, line, id, binding, klass, *rest|
-	trace_func event, file, line, id, binding, klass
-      }
+      set_trace_func method(:trace_func).to_proc
       stdout.print "Trace on\n" if Tracer.verbose?
     end
   end
@@ -84,19 +82,19 @@ class Tracer
   
   def get_line(file, line)
     if p = @get_line_procs[file]
-      return p.call line
+      return p.call(line)
     end
 
-    unless list = LINES__[file]
+    unless list = SCRIPT_LINES__[file]
       begin
 	f = open(file)
 	begin 
-	  LINES__[file] = list = f.readlines
+	  SCRIPT_LINES__[file] = list = f.readlines
 	ensure
 	  f.close
 	end
       rescue
-	LINES__[file] = list = []
+	SCRIPT_LINES__[file] = list = []
       end
     end
     if l = list[line - 1]
@@ -107,20 +105,21 @@ class Tracer
   end
   
   def get_thread_no
-    if no = @threads[Thread.current.id]
+    if no = @threads[Thread.current.object_id]
       no
     else
-      @threads[Thread.current.id] = @threads.size
+      @threads[Thread.current.object_id] = @threads.size
     end
   end
   
-  def trace_func(event, file, line, id, binding, klass)
+  def trace_func(event, file, line, id, binding, klass, *)
     return if file == MY_FILE_NAME
     
     for p in @filters
       return unless p.call event, file, line, id, binding, klass
     end
     
+    saved_crit = Thread.critical
     Thread.critical = true
     stdout.printf("#%d:%s:%d:%s:%s: %s",
       get_thread_no,
@@ -129,7 +128,7 @@ class Tracer
       klass || '',
       EVENT_SYMBOL[event],
       get_line(file, line))
-    Thread.critical = false
+    Thread.critical = saved_crit
   end
 
   Single = new
@@ -155,7 +154,7 @@ class Tracer
   
 end
 
-LINES__ = {} unless defined? LINES__
+SCRIPT_LINES__ = {} unless defined? SCRIPT_LINES__
 
 if caller(0).size == 1
   if $0 == Tracer::MY_FILE_NAME

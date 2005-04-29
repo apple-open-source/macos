@@ -24,6 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
+/* $XFree86: xc/lib/X11/XKBCompat.c,v 3.2 2003/11/17 22:20:09 dawes Exp $ */
 
 #include <stdio.h>
 #define NEED_REPLIES
@@ -34,18 +35,10 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "XKBlibint.h"
 
 Status
-#if NeedFunctionPrototypes
 _XkbReadGetCompatMapReply(	Display *		dpy,
 				xkbGetCompatMapReply *	rep,
 				XkbDescPtr		xkb,
 				int	*		nread_rtrn)
-#else
-_XkbReadGetCompatMapReply(dpy,rep,xkb,nread_rtrn)
-    Display *			dpy;
-    xkbGetCompatMapReply *	rep;
-    XkbDescPtr			xkb;
-    int	*			nread_rtrn;
-#endif
 {
 register int 		i;
 XkbReadBufferRec	buf;
@@ -114,14 +107,7 @@ BAILOUT:
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetCompatMap(Display *dpy,unsigned which,XkbDescPtr xkb)
-#else
-XkbGetCompatMap(dpy,which,xkb)
-    Display *	dpy;
-    unsigned 	which;
-    XkbDescPtr	xkb;
-#endif
 {
     register xkbGetCompatMapReq *req;
     xkbGetCompatMapReply	 rep;
@@ -164,14 +150,7 @@ XkbGetCompatMap(dpy,which,xkb)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 _XkbWriteSetCompatMap(Display *dpy,xkbSetCompatMapReq *req,XkbDescPtr xkb)
-#else
-_XkbWriteSetCompatMap(dpy,req,xkb)
-    Display *		dpy;
-    xkbSetCompatMapReq	*req;
-    XkbDescPtr		xkb;
-#endif
 {
 CARD16			firstSI;
 CARD16			nSI;
@@ -229,15 +208,7 @@ char *			buf;
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbSetCompatMap(Display *dpy,unsigned which,XkbDescPtr xkb,Bool updateActions)
-#else
-XkbSetCompatMap(dpy,which,xkb,updateActions)
-    Display *		dpy;
-    unsigned 		which;
-    XkbDescPtr		xkb;
-    Bool		updateActions;
-#endif
 {
     register xkbSetCompatMapReq *req;
     Status		     ok;

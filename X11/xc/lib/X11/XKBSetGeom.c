@@ -24,6 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
+/* $XFree86: xc/lib/X11/XKBSetGeom.c,v 3.6 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifdef DEBUG
 #include <stdio.h>
@@ -48,13 +49,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	_SizeCountedString(s)  ((s)?XkbPaddedSize(2+strlen(s)):4)
 
 static char *
-#if NeedFunctionPrototypes
 _WriteCountedString(char *wire,char *str)
-#else
-_WriteCountedString(wire,str)
-    char *	wire;
-    char *	str;
-#endif
 {
 CARD16	len,*pLen;
 
@@ -68,12 +63,7 @@ CARD16	len,*pLen;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomProperties(XkbGeometryPtr geom)
-#else
-_SizeGeomProperties(geom)
-    XkbGeometryPtr	geom;
-#endif
 {
 register int 	i,size;
 XkbPropertyPtr	prop;
@@ -86,12 +76,7 @@ XkbPropertyPtr	prop;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomColors(XkbGeometryPtr geom)
-#else
-_SizeGeomColors(geom)
-    XkbGeometryPtr	geom;
-#endif
 {
 register int 		i,size;
 register XkbColorPtr	color;
@@ -103,12 +88,7 @@ register XkbColorPtr	color;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomShapes(XkbGeometryPtr geom)
-#else
-_SizeGeomShapes(geom)
-    XkbGeometryPtr	geom;
-#endif
 {
 register int		i,size;
 register XkbShapePtr	shape;
@@ -126,13 +106,7 @@ register XkbShapePtr	shape;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomDoodads(int num_doodads,XkbDoodadPtr doodad)
-#else
-_SizeGeomDoodads(num_doodads,doodad)
-    int			num_doodads;
-    XkbDoodadPtr	doodad;
-#endif
 {
 register int	i,size;
 
@@ -150,12 +124,7 @@ register int	i,size;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomSections(XkbGeometryPtr geom)
-#else
-_SizeGeomSections(geom)
-    XkbGeometryPtr	geom;
-#endif
 {
 register int 	i,size;
 XkbSectionPtr	section;
@@ -190,12 +159,7 @@ XkbSectionPtr	section;
 }
 
 static int
-#if NeedFunctionPrototypes
 _SizeGeomKeyAliases(XkbGeometryPtr geom)
-#else
-_SizeGeomKeyAliases(geom)
-    XkbGeometryPtr	geom;
-#endif
 {
     return geom->num_key_aliases*(2*XkbKeyNameLength);
 }
@@ -203,13 +167,7 @@ _SizeGeomKeyAliases(geom)
 /***====================================================================***/
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomProperties(char *wire,XkbGeometryPtr geom)
-#else
-_WriteGeomProperties(wire,geom)
-    char *		wire;
-    XkbGeometryPtr 	geom;
-#endif
 {
 register int 	i;
 register XkbPropertyPtr	prop;
@@ -222,13 +180,7 @@ register XkbPropertyPtr	prop;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomColors(char *wire,XkbGeometryPtr geom)
-#else
-_WriteGeomColors(wire,geom)
-    char *		wire;
-    XkbGeometryPtr 	geom;
-#endif
 {
 register int		i;
 register XkbColorPtr	color;
@@ -240,13 +192,7 @@ register XkbColorPtr	color;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomShapes(char *wire,XkbGeometryPtr geom)
-#else
-_WriteGeomShapes(wire,geom)
-    char *		wire;
-    XkbGeometryPtr 	geom;
-#endif
 {
 int			i;
 XkbShapePtr		shape;
@@ -286,14 +232,7 @@ xkbShapeWireDesc *	shapeWire;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomDoodads(char *wire,int num_doodads,XkbDoodadPtr doodad)
-#else
-_WriteGeomDoodads(wire,num_doodads,doodad)
-    char *		wire;
-    int			num_doodads;
-    XkbDoodadPtr	doodad;
-#endif
 {
 register int		i;
 xkbDoodadWireDesc *	doodadWire;
@@ -340,13 +279,7 @@ xkbDoodadWireDesc *	doodadWire;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomOverlay(char *wire,XkbOverlayPtr ol)
-#else
-_WriteGeomOverlay(wire,ol)
-    char *		wire;
-    XkbOverlayPtr	ol;
-#endif
 {
 register int		r;
 XkbOverlayRowPtr	row;
@@ -376,13 +309,7 @@ xkbOverlayWireDesc *	olWire;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomSections(char *wire,XkbGeometryPtr geom)
-#else
-_WriteGeomSections(wire,geom)
-    char *		wire;
-    XkbGeometryPtr 	geom;
-#endif
 {
 register int		i;
 XkbSectionPtr		section;
@@ -444,13 +371,7 @@ xkbSectionWireDesc *	sectionWire;
 }
 
 static char *
-#if NeedFunctionPrototypes
 _WriteGeomKeyAliases(char *wire,XkbGeometryPtr geom)
-#else
-_WriteGeomKeyAliases(wire,geom)
-    char *		wire;
-    XkbGeometryPtr 	geom;
-#endif
 {
 register int sz;
     
@@ -465,16 +386,8 @@ register int sz;
 /***====================================================================***/
 
 static Status
-#if NeedFunctionPrototypes
 _SendSetGeometry(Display *dpy,XkbGeometryPtr geom,xkbSetGeometryReq *req)
-#else
-_SendSetGeometry(dpy,geom,req)
-    Display *		dpy;
-    XkbGeometryPtr	geom;
-    xkbSetGeometryReq *	req;
-#endif
 {
-xkbSetGeometryReq	tmp;
 int			sz;
 char *			wire,*tbuf;
 
@@ -487,7 +400,6 @@ char *			wire,*tbuf;
     sz+= _SizeGeomDoodads(geom->num_doodads,geom->doodads);
     sz+= _SizeGeomKeyAliases(geom);
     req->length+= (sz/4);
-    tmp= *req;
     if (sz<BUFSIZE) {
 	BufAlloc(char *,wire,sz);
 	tbuf= NULL;
@@ -521,14 +433,7 @@ char *			wire,*tbuf;
 /***====================================================================***/
 
 Status
-#if NeedFunctionPrototypes
 XkbSetGeometry(Display *dpy,unsigned deviceSpec,XkbGeometryPtr geom)
-#else
-XkbSetGeometry(dpy,deviceSpec,geom)
-    Display *		dpy;
-    unsigned		deviceSpec;
-    XkbGeometryPtr	geom;
-#endif
 {
 xkbSetGeometryReq	*req;
 Status ret;

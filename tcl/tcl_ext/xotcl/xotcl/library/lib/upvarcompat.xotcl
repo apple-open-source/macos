@@ -1,0 +1,35 @@
+#$Id: s.package.xotcl 1.12 01/03/23 22:07:19+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::upvar-compat 1.0
+
+@ @File {description {
+  Provide a version of upvar and uplevel that provide 
+  backward compatibility such that these commands 
+  ignore inactive filter and mixin frames (upvar behaves
+  the same whether or not a filter is installed). Newer
+  scripts should use <@TT>upvar/uplevel [self callinglevel] var/command</@TT>
+  instead.
+} }
+
+# Define upvar and uplevel; use the level, if given explizitely:
+# otherwise point to the callinglevel from XOTcl
+rename uplevel ::xotcl::tcl_uplevel
+proc uplevel {lvl args} {
+  # the outer uplevel is needed to leave the scope of this proc
+  if {[regexp {^\#?[0-9]+$} $lvl]} {
+    ::xotcl::tcl_uplevel 1 [list eval ::xotcl::tcl_uplevel $lvl $args]
+  } else {
+    set cl [::xotcl::tcl_uplevel 1 ::xotcl::self callinglevel]
+    ::xotcl::tcl_uplevel 1 [list eval ::xotcl::tcl_uplevel $cl [list $lvl] $args]
+  }
+}
+
+rename upvar ::xotcl::tcl_upvar
+proc upvar {lvl args} {
+  # the outer uplevel is needed to leave the scope of this proc
+  if {[regexp {^\#?[0-9]+$} $lvl]} {
+    ::xotcl::tcl_uplevel 1 [list eval ::xotcl::tcl_upvar $lvl $args]
+  } else {
+    set cl [::xotcl::tcl_uplevel 1 ::xotcl::self callinglevel]
+    ::xotcl::tcl_uplevel 1 [list eval ::xotcl::tcl_upvar $cl [list $lvl] $args]
+  }
+}

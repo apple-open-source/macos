@@ -1,0 +1,69 @@
+.\" Copyright (c) 1998 Andries Brouwer
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.TH hman 1 "19 January 1998"
+.LO 1
+.SH NAME
+hman \- browse the on-line manual pages
+.SH SYNOPSIS
+.B hman
+[ -P \fIbrowser\fP ] [ -H \fIhost\fP ] [ \fIsection\fP ] \fIname\fP
+.br
+.B hman
+[ -P \fIbrowser\fP ] [ -H \fIhost\fP ] [ \fIsection\fP ] [ index ]
+.SH DESCRIPTION
+The 
+.B hman
+script is an interface to man2html(1) that allows you to enter man page
+requests at the command line and view the output in your favourite
+browser.
+The behaviour reminds of that of
+.BR man (1)
+so that many people will be able to alias
+.B hman
+to
+.BR man .
+If the browser used is netscape, and an incarnation of netscape
+is running already,
+.B hman
+will pass the request to the existing browser.
+
+.SH OPTIONS
+.TP
+.B \-\^P " browser"
+Specify which browser (like lynx, xmosaic, arena, chimera,
+netscape, amaya, ...) to use. 
+This option overrides the
+.B MANHTMLPAGER
+environment variable.
+The default is the non-httpd version of
+.BR lynx .
+.TP
+.B \-\^H " host"
+Specify from what host to get the man pages.
+This option overrides the
+.B MANHTMLHOST
+environment variable.
+The default is
+.BR localhost .
+
+.SH ENVIRONMENT
+.TP
+MANHTMLPAGER
+The default browser to use is selected using this environment variable.
+.TP
+MANHTMLHOST
+The default host to use is selected using this environment variable.
+
+.SH "SEE ALSO"
+.BR man (1),
+.BR man2html (1),
+.BR arena (1),
+.BR lynx (1),
+.BR netscape (1),
+.BR xmosaic (1),
+.BR glimpse (1)
+
+http://www.mcom.com/newsref/std/x-remote.html

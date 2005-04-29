@@ -8,8 +8,8 @@
  * #define INTERMEDIATE_VALUE_KAT to generate the Intermediate Value Known Answer Test.
  */
 
-#ifndef __RIJNDAEL_ALG_FST_H
-#define __RIJNDAEL_ALG_FST_H
+#ifndef __RIJNDAEL_ALG_FST_H__
+#define __RIJNDAEL_ALG_FST_H__
 
 #define RIJNDAEL_MAXKC			(256/32)
 #define RIJNDAEL_MAXROUNDS		14
@@ -30,4 +30,5 @@ int rijndaelDecrypt(u_int8_t a[16], u_int8_t b[16], u_int8_t rk[RIJNDAEL_MAXROUN
 int rijndaelDecryptRound(u_int8_t a[4][4], u_int8_t rk[RIJNDAEL_MAXROUNDS+1][4][4], int ROUNDS, int rounds);
 #endif /* INTERMEDIATE_VALUE_KAT */
 
-#endif /* __RIJNDAEL_ALG_FST_H */
+#endif /* __RIJNDAEL_ALG_FST_H__ */
+

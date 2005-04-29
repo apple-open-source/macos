@@ -1,5 +1,5 @@
 /* Format.java -- Abstract superclass for formatting/parsing strings.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package java.text;
 
+import gnu.java.text.FormatCharacterIterator;
+
 import java.io.Serializable;
 
 /**
@@ -59,8 +61,21 @@ import java.io.Serializable;
  */
 public abstract class Format implements Serializable, Cloneable
 {
+  /**
+   * For compatability with Sun's JDK 1.4.2 rev. 5
+   */
   static final long serialVersionUID = -299282585814624189L;
 
+  public static class Field extends AttributedCharacterIterator.Attribute
+  {
+    static final long serialVersionUID = 276966692217360283L;
+   
+    public Field(String name)
+    {
+      super(name);
+    }
+  }
+  
   /**
    * This method initializes a new instance of <code>Format</code>.
    * It performs no actions, but acts as a default constructor for
@@ -109,7 +124,7 @@ public abstract class Format implements Serializable, Cloneable
    * This method parses a <code>String</code> and converts the parsed 
    * contents into an <code>Object</code>.
    *
-   * @param str The <code>String to parse.
+   * @param str The <code>String</code> to parse.
    *
    * @return The resulting <code>Object</code>.
    *
@@ -141,6 +156,11 @@ public abstract class Format implements Serializable, Cloneable
    *         case of error.
    */
   public abstract Object parseObject (String str, ParsePosition pos);
+
+  public AttributedCharacterIterator formatToCharacterIterator(Object obj)
+  {
+    return new FormatCharacterIterator(format(obj), null, null);
+  }
 
   /**
    * Creates a copy of this object.

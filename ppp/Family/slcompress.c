@@ -171,7 +171,7 @@ sl_compress_init(comp, max_state)
 
 u_int
 sl_compress_tcp(m, ip, comp, compress_cid)
-	struct mbuf *m;
+	mbuf_t m;
 	register struct ip *ip;
 	struct slcompress *comp;
 	int compress_cid;
@@ -191,7 +191,7 @@ sl_compress_tcp(m, ip, comp, compress_cid)
 	 * set).  (We assume that the caller has already made sure the
 	 * packet is IP proto TCP).
 	 */
-	if ((ip->ip_off & htons(0x3fff)) || m->m_len < 40)
+	if ((ip->ip_off & htons(0x3fff)) || mbuf_len(m) < 40)
 		return (TYPE_IP);
 
 	th = (struct tcphdr *)&((int32_t *)ip)[hlen];
@@ -245,7 +245,7 @@ sl_compress_tcp(m, ip, comp, compress_cid)
 		comp->last_cs = lcs;
 		hlen += th->th_off;
 		hlen <<= 2;
-		if (hlen > m->m_len)
+		if (hlen > mbuf_len(m))
 		    return TYPE_IP;
 		goto uncompressed;
 
@@ -277,7 +277,7 @@ sl_compress_tcp(m, ip, comp, compress_cid)
 	deltaS = hlen;
 	hlen += th->th_off;
 	hlen <<= 2;
-	if (hlen > m->m_len)
+	if (hlen > mbuf_len(m))
 	    return TYPE_IP;
 
 	if (((u_int16_t *)ip)[0] != ((u_int16_t *)&cs->cs_ip)[0] ||
@@ -408,8 +408,7 @@ sl_compress_tcp(m, ip, comp, compress_cid)
 		cp += hlen;
 		*cp++ = changes;
 	}
-	m->m_len -= hlen;
-	m->m_data += hlen;
+	mbuf_setdata(m, mbuf_data(m) + hlen, mbuf_len(m) - hlen);
 	*cp++ = deltaA >> 8;
 	*cp++ = deltaA;
 	BCOPY(new_seq, cp, deltaS);

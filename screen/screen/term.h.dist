@@ -233,19 +233,20 @@ union tcu
 #define d_CXC  d_tcs[105].str
 #define D_CXC (D_tcs[105].str)
 #define T_CAPS 106
-#define T_NAVIGATE 145
-#define T_NAVIGATE_DELETE 152
-#define T_CURSOR 153
-#define T_KEYPAD 157
-#define T_OCAPS 175
-#define T_ECAPS 188
-#define T_N 188
+#define T_BACKTAB 135
+#define T_NAVIGATE 153
+#define T_NAVIGATE_DELETE 160
+#define T_CURSOR 161
+#define T_KEYPAD 165
+#define T_OCAPS 183
+#define T_ECAPS 196
+#define T_N 196
 
 #ifdef MAPKEYS
 #  define KMAPDEFSTART 106
-#  define NKMAPDEF 69
-#  define KMAPADEFSTART 153
+#  define NKMAPDEF 77
+#  define KMAPADEFSTART 161
 #  define NKMAPADEF 22
 #  define KMAPMDEFSTART 138
-#  define NKMAPMDEF 19
+#  define NKMAPMDEF 27
 #endif

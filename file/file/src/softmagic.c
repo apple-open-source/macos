@@ -44,7 +44,7 @@
 
 
 #ifndef	lint
-FILE_RCSID("@(#)$Id: softmagic.c,v 1.1 2003/07/02 18:01:22 eseidel Exp $")
+FILE_RCSID("@(#)$Id: softmagic.c,v 1.66 2004/07/24 20:38:56 christos Exp $")
 #endif	/* lint */
 
 private int match(struct magic_set *, struct magic *, uint32_t,
@@ -53,9 +53,9 @@ private int mget(struct magic_set *, union VALUETYPE *, const unsigned char *,
     struct magic *, size_t);
 private int mcheck(struct magic_set *, union VALUETYPE *, struct magic *);
 private int32_t mprint(struct magic_set *, union VALUETYPE *, struct magic *);
-private void mdebug(int32_t, const char *, size_t);
+private void mdebug(uint32_t, const char *, size_t);
 private int mconvert(struct magic_set *, union VALUETYPE *, struct magic *);
-private int check_mem(struct magic_set *, int);
+private int check_mem(struct magic_set *, unsigned int);
 
 /*
  * softmagic - lookup one file in database 
@@ -105,8 +105,8 @@ private int
 match(struct magic_set *ms, struct magic *magic, uint32_t nmagic,
     const unsigned char *s, size_t nbytes)
 {
-	int magindex = 0;
-	int cont_level = 0;
+	uint32_t magindex = 0;
+	unsigned int cont_level = 0;
 	int need_separator = 0;
 	union VALUETYPE p;
 	int32_t oldoff = 0;
@@ -133,7 +133,7 @@ match(struct magic_set *ms, struct magic *magic, uint32_t nmagic,
 			 * main entry didn't match,
 			 * flush its continuations
 			 */
-			while (magindex < nmagic &&
+			while (magindex < nmagic - 1 &&
 			       magic[magindex + 1].cont_level != 0)
 			       magindex++;
 			continue;
@@ -226,7 +226,7 @@ done:
 }
 
 private int
-check_mem(struct magic_set *ms, int level)
+check_mem(struct magic_set *ms, unsigned int level)
 {
 	size_t len;
 
@@ -315,7 +315,7 @@ mprint(struct magic_set *ms, union VALUETYPE *p, struct magic *m)
 		break;
 
 	default:
-		file_error(ms, "invalid m->type (%d) in mprint()", m->type);
+		file_error(ms, 0, "invalid m->type (%d) in mprint()", m->type);
 		return -1;
 	}
 	return(t);
@@ -439,7 +439,7 @@ mconvert(struct magic_set *ms, union VALUETYPE *p, struct magic *m)
 	case FILE_PSTRING:
 		{
 			char *ptr1 = p->s, *ptr2 = ptr1 + 1;
-			int n = *p->s;
+			unsigned int n = *p->s;
 			if (n >= sizeof(p->s))
 				n = sizeof(p->s) - 1;
 			while (n--)
@@ -587,14 +587,14 @@ mconvert(struct magic_set *ms, union VALUETYPE *p, struct magic *m)
 	case FILE_REGEX:
 		return 1;
 	default:
-		file_error(ms, "invalid type %d in mconvert()", m->type);
+		file_error(ms, 0, "invalid type %d in mconvert()", m->type);
 		return 0;
 	}
 }
 
 
 private void
-mdebug(int32_t offset, const char *str, size_t len)
+mdebug(uint32_t offset, const char *str, size_t len)
 {
 	(void) fprintf(stderr, "mget @%d: ", offset);
 	file_showstr(stderr, str, len);
@@ -606,7 +606,7 @@ private int
 mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
     struct magic *m, size_t nbytes)
 {
-	int32_t offset = m->offset;
+	uint32_t offset = m->offset;
 
 	if (m->type == FILE_REGEX) {
 		/*
@@ -631,10 +631,43 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 		 * the usefulness of padding with zeroes eludes me, it
 		 * might even cause problems
 		 */
-		int32_t have = nbytes - offset;
 		memset(p, 0, sizeof(union VALUETYPE));
-		if (have > 0)
-			memcpy(p, s + offset, (size_t)have);
+		if (offset < nbytes)
+			memcpy(p, s + offset, nbytes - offset);
+	}
+
+	/* Verify we have enough data to match magic type */
+	switch (m->type) {
+		case FILE_BYTE:
+			if (nbytes < (offset + 1)) /* should alway be true */
+				return 0;
+			break;
+
+		case FILE_SHORT:
+		case FILE_BESHORT:
+		case FILE_LESHORT:
+			if (nbytes < (offset + 2))
+				return 0;
+			break;
+
+		case FILE_LONG:
+		case FILE_BELONG:
+		case FILE_LELONG:
+		case FILE_DATE:
+		case FILE_BEDATE:
+		case FILE_LEDATE:
+		case FILE_LDATE:
+		case FILE_BELDATE:
+		case FILE_LELDATE:
+			if (nbytes < (offset + 4))
+				return 0;
+			break;
+
+		case FILE_STRING:
+		case FILE_PSTRING:
+			if (nbytes < (offset + m->vallen))
+				return 0;
+			break;
 	}
 
 	if ((ms->flags & MAGIC_DEBUG) != 0) {
@@ -645,7 +678,7 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 	if (m->flag & INDIR) {
 		switch (m->in_type) {
 		case FILE_BYTE:
-			if (m->in_offset)
+			if (m->in_offset) {
 				switch (m->in_op&0x7F) {
 				case FILE_OPAND:
 					offset = p->b & m->in_offset;
@@ -672,12 +705,14 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 					offset = p->b % m->in_offset;
 					break;
 				}
+			} else
+				offset = p->b;
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_BESHORT:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = (short)((p->hs[0]<<8)|
 							 (p->hs[1])) &
@@ -719,12 +754,15 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 						 m->in_offset;
 					break;
 				}
+			} else
+				offset = (short)((p->hs[0]<<8)|
+						 (p->hs[1]));
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_LESHORT:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = (short)((p->hs[1]<<8)|
 							 (p->hs[0])) &
@@ -766,12 +804,15 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 						 m->in_offset;
 					break;
 				}
+			} else
+				offset = (short)((p->hs[1]<<8)|
+						 (p->hs[0]));
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_SHORT:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = p->h & m->in_offset;
 					break;
@@ -797,12 +838,15 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 					offset = p->h % m->in_offset;
 					break;
 				}
+			}
+			else
+				offset = p->h;
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_BELONG:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = (int32_t)((p->hl[0]<<24)|
 							 (p->hl[1]<<16)|
@@ -860,12 +904,17 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 						 m->in_offset;
 					break;
 				}
+			} else
+				offset = (int32_t)((p->hl[0]<<24)|
+						 (p->hl[1]<<16)|
+						 (p->hl[2]<<8)|
+						 (p->hl[3]));
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_LELONG:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = (int32_t)((p->hl[3]<<24)|
 							 (p->hl[2]<<16)|
@@ -923,12 +972,17 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 						 m->in_offset;
 					break;
 				}
+			} else
+				offset = (int32_t)((p->hl[3]<<24)|
+						 (p->hl[2]<<16)|
+						 (p->hl[1]<<8)|
+						 (p->hl[0]));
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		case FILE_LONG:
-			if (m->in_offset)
-				switch (m->in_op&0x7F) {
+			if (m->in_offset) {
+				switch (m->in_op & 0x7F) {
 				case FILE_OPAND:
 					offset = p->l & m->in_offset;
 					break;
@@ -961,12 +1015,15 @@ mget(struct magic_set *ms, union VALUETYPE *p, const unsigned char *s,
 			 *		sleep;
 			 */
 				}
+			} else
+				offset = p->l;
 			if (m->in_op & FILE_OPINVERSE)
 				offset = ~offset;
 			break;
 		}
 
-		if (offset + sizeof(union VALUETYPE) > nbytes)
+		if (nbytes < sizeof(union VALUETYPE) ||
+		    nbytes - sizeof(union VALUETYPE) < offset)
 			return 0;
 
 		memcpy(p, s + offset, sizeof(union VALUETYPE));
@@ -1074,16 +1131,17 @@ mcheck(struct magic_set *ms, union VALUETYPE *p, struct magic *m)
 		if (rc) {
 			free(p->buf);
 			regerror(rc, &rx, errmsg, sizeof(errmsg));
-			file_error(ms, "regex error %d, (%s)", rc, errmsg);
+			file_error(ms, 0, "regex error %d, (%s)", rc, errmsg);
 			return -1;
 		} else {
 			rc = regexec(&rx, p->buf, 0, 0, 0);
+			regfree(&rx);
 			free(p->buf);
 			return !rc;
 		}
 	}
 	default:
-		file_error(ms, "invalid type %d in mcheck()", m->type);
+		file_error(ms, 0, "invalid type %d in mcheck()", m->type);
 		return -1;
 	}
 
@@ -1157,7 +1215,8 @@ mcheck(struct magic_set *ms, union VALUETYPE *p, struct magic *m)
 
 	default:
 		matched = 0;
-		file_error(ms, "can't happen: invalid relation `%c'", m->reln);
+		file_error(ms, 0, "cannot happen: invalid relation `%c'",
+		    m->reln);
 		return -1;
 	}
 

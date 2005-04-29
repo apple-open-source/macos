@@ -1,5 +1,3 @@
-/*	$NetBSD: paste.c,v 1.5 1998/02/03 03:56:44 perry Exp $	*/
-
 /*
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -36,48 +34,69 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1989, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
+#if 0
 #ifndef lint
-/*static char sccsid[] = "from: @(#)paste.c	8.1 (Berkeley) 6/6/93";*/
-__RCSID("$NetBSD: paste.c,v 1.5 1998/02/03 03:56:44 perry Exp $");
+static char sccsid[] = "@(#)paste.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/paste/paste.c,v 1.14 2004/06/25 01:48:43 tjr Exp $");
 
 #include <sys/types.h>
+
 #include <err.h>
 #include <errno.h>
 #include <limits.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
-int	main __P((int, char **));
-void	parallel __P((char **));
-void	sequential __P((char **));
-int	tr __P((char *));
-void	usage __P((void));
-
-char *delim;
+wchar_t *delim;
 int delimcnt;
 
+int parallel(char **);
+int sequential(char **);
+int tr(wchar_t *);
+static void usage(void);
+
+wchar_t tab[] = L"\t";
+
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char *argv[])
 {
-	int ch, seq;
+	int ch, rval, seq;
+	wchar_t *warg;
+	const char *arg;
+	size_t len;
+
+	setlocale(LC_CTYPE, "");
 
 	seq = 0;
 	while ((ch = getopt(argc, argv, "d:s")) != -1)
 		switch(ch) {
 		case 'd':
-			delimcnt = tr(delim = optarg);
+			arg = optarg;
+			len = mbsrtowcs(NULL, &arg, 0, NULL);
+			if (len == (size_t)-1)
+				err(1, "delimiters");
+			warg = malloc((len + 1) * sizeof(*warg));
+			if (warg == NULL)
+				err(1, NULL);
+			arg = optarg;
+			len = mbsrtowcs(warg, &arg, len + 1, NULL);
+			if (len == (size_t)-1)
+				err(1, "delimiters");
+			delimcnt = tr(delim = warg);
 			break;
 		case 's':
 			seq = 1;
@@ -89,16 +108,18 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
+	if (*argv == NULL)
+		usage();
 	if (!delim) {
 		delimcnt = 1;
-		delim = "\t";
+		delim = tab;
 	}
 
 	if (seq)
-		sequential(argv);
+		rval = sequential(argv);
 	else
-		parallel(argv);
-	exit(0);
+		rval = parallel(argv);
+	exit(rval);
 }
 
 typedef struct _list {
@@ -108,21 +129,20 @@ typedef struct _list {
 	char *name;
 } LIST;
 
-void
-parallel(argv)
-	char **argv;
+int
+parallel(char **argv)
 {
 	LIST *lp;
 	int cnt;
-	char ch, *p;
+	wint_t ich;
+	wchar_t ch;
+	char *p;
 	LIST *head, *tmp;
 	int opencnt, output;
-	char buf[_POSIX2_LINE_MAX + 1];
 
-	tmp = NULL;
-	for (cnt = 0, head = NULL; (p = *argv) != NULL; ++argv, ++cnt) {
-		if (!(lp = (LIST *)malloc((u_int)sizeof(LIST))))
-			err(1, "malloc");
+	for (cnt = 0, head = NULL; (p = *argv); ++argv, ++cnt) {
+		if ((lp = malloc(sizeof(LIST))) == NULL)
+			err(1, NULL);
 		if (p[0] == '-' && !p[1])
 			lp->fp = stdin;
 		else if (!(lp->fp = fopen(p, "r")))
@@ -143,21 +163,18 @@ parallel(argv)
 			if (!lp->fp) {
 				if (output && lp->cnt &&
 				    (ch = delim[(lp->cnt - 1) % delimcnt]))
-					putchar(ch);
+					putwchar(ch);
 				continue;
 			}
-			if (!fgets(buf, sizeof(buf), lp->fp)) {
+			if ((ich = getwc(lp->fp)) == WEOF) {
 				if (!--opencnt)
 					break;
 				lp->fp = NULL;
 				if (output && lp->cnt &&
 				    (ch = delim[(lp->cnt - 1) % delimcnt]))
-					putchar(ch);
+					putwchar(ch);
 				continue;
 			}
-			if (!(p = strchr(buf, '\n')))
-				err(1, "%s: input line too long.", lp->name);
-			*p = '\0';
 			/*
 			 * make sure that we don't print any delimiters
 			 * unless there's a non-empty file.
@@ -165,62 +182,68 @@ parallel(argv)
 			if (!output) {
 				output = 1;
 				for (cnt = 0; cnt < lp->cnt; ++cnt)
-					if ((ch = delim[cnt % delimcnt]) != 0)
-						putchar(ch);
-			} else if ((ch = delim[(lp->cnt - 1) % delimcnt]) != 0)
-				putchar(ch);
-			(void)printf("%s", buf);
+					if ((ch = delim[cnt % delimcnt]))
+						putwchar(ch);
+			} else if ((ch = delim[(lp->cnt - 1) % delimcnt]))
+				putwchar(ch);
+			if (ich == '\n')
+				continue;
+			do {
+				putwchar(ich);
+			} while ((ich = getwc(lp->fp)) != WEOF && ich != '\n');
 		}
 		if (output)
-			putchar('\n');
+			putwchar('\n');
 	}
+
+	return (0);
 }
 
-void
-sequential(argv)
-	char **argv;
+int
+sequential(char **argv)
 {
 	FILE *fp;
-	int cnt;
-	char ch, *p, *dp;
-	char buf[_POSIX2_LINE_MAX + 1];
+	int cnt, failed, needdelim;
+	wint_t ch;
+	char *p;
 
-	for (; (p = *argv) != NULL; ++argv) {
+	failed = 0;
+	for (; (p = *argv); ++argv) {
 		if (p[0] == '-' && !p[1])
 			fp = stdin;
 		else if (!(fp = fopen(p, "r"))) {
 			warn("%s", p);
+			failed = 1;
 			continue;
 		}
-		if (fgets(buf, sizeof(buf), fp)) {
-			for (cnt = 0, dp = delim;;) {
-				if (!(p = strchr(buf, '\n')))
-					err(1, "%s: input line too long.",
-					    *argv);
-				*p = '\0';
-				(void)printf("%s", buf);
-				if (!fgets(buf, sizeof(buf), fp))
-					break;
-				if ((ch = *dp++) != 0)
-					putchar(ch);
-				if (++cnt == delimcnt) {
-					dp = delim;
+		cnt = needdelim = 0;
+		while ((ch = getwc(fp)) != WEOF) {
+			if (needdelim) {
+				needdelim = 0;
+				if (delim[cnt] != '\0')
+					putwchar(delim[cnt]);
+				if (++cnt == delimcnt)
 					cnt = 0;
-				}
 			}
-			putchar('\n');
+			if (ch != '\n')
+				putwchar(ch);
+			else
+				needdelim = 1;
 		}
+		if (needdelim)
+			putwchar('\n');
 		if (fp != stdin)
 			(void)fclose(fp);
 	}
+
+	return (failed != 0);
 }
 
 int
-tr(arg)
-	char *arg;
+tr(wchar_t *arg)
 {
 	int cnt;
-	char ch, *p;
+	wchar_t ch, *p;
 
 	for (p = arg, cnt = 0; (ch = *p++); ++arg, ++cnt)
 		if (ch == '\\')
@@ -241,13 +264,13 @@ tr(arg)
 			*arg = ch;
 
 	if (!cnt)
-		errx(1, "no delimiters specified.");
+		errx(1, "no delimiters specified");
 	return(cnt);
 }
 
-void
-usage()
+static void
+usage(void)
 {
-	(void)fprintf(stderr, "paste: [-s] [-d delimiters] file ...\n");
+	(void)fprintf(stderr, "usage: paste [-s] [-d delimiters] file ...\n");
 	exit(1);
 }

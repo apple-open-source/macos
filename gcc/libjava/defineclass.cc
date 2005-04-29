@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -23,6 +23,7 @@ details.  */
 #include <java-interp.h>
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <java-cpool.h>
 #include <gcj/cni.h>
 
@@ -75,7 +76,7 @@ struct _Jv_ClassReader {
   // allways on.  You always want this as far as I can see, but it also
   // controls weither identifiers and type descriptors/signatures are
   // verified as legal.  This could be somewhat more expensive since it
-  // will call Characher.isJavaIdentifier{Start,Part} for each character
+  // will call Character.isJavaIdentifier{Start,Part} for each character
   // in any identifier (field name or method name) it comes by.  Thus,
   // it might be useful to turn off this verification for classes that
   // come from a trusted source.  However, for GCJ, trusted classes are
@@ -96,7 +97,10 @@ struct _Jv_ClassReader {
   unsigned int      *offsets;
 
   // the class to define (see java-interp.h)
-  _Jv_InterpClass   *def;
+  jclass	   def;
+  
+  // the classes associated interpreter data.
+  _Jv_InterpClass  *def_interp;
 
   /* check that the given number of input bytes are available */
   inline void check (int num)
@@ -221,7 +225,8 @@ struct _Jv_ClassReader {
     bytes  = (unsigned char*) (elements (data)+offset);
     len    = length;
     pos    = 0;
-    def    = (_Jv_InterpClass*) klass;
+    def    = klass;
+    def_interp = (_Jv_InterpClass *) def->aux_info;
   }
 
   /** and here goes the parser members defined out-of-line */
@@ -332,6 +337,8 @@ _Jv_ClassReader::parse ()
 
   // tell everyone we're done.
   def->state = JV_STATE_LOADED;
+  if (gcj::verbose_class_flag)
+    fprintf (stderr, "[Loaded (bytecode) %s]\n", def->name->chars());
   def->notifyAll ();
 
 }
@@ -403,15 +410,15 @@ void _Jv_ClassReader::read_fields ()
       int name_index       = read2u ();
       int descriptor_index = read2u ();
       int attributes_count = read2u ();
-      
+
       check_tag (name_index, JV_CONSTANT_Utf8);
       prepare_pool_entry (name_index, JV_CONSTANT_Utf8);
 
       check_tag (descriptor_index, JV_CONSTANT_Utf8);
       prepare_pool_entry (descriptor_index, JV_CONSTANT_Utf8);
-      
+
       handleField (i, access_flags, name_index, descriptor_index);
-      
+
       for (int j = 0; j < attributes_count; j++)
 	{
 	  read_one_field_attribute (i);
@@ -772,9 +779,9 @@ _Jv_ClassReader::prepare_pool_entry (int index, unsigned char this_tag)
 			   name_index, type_index);
 
 	  if (this_tag == JV_CONSTANT_Fieldref)
-	    _Jv_VerifyFieldSignature (pool_data[type_index].utf8);
+	    verify_field_signature (pool_data[type_index].utf8);
 	  else
-	    _Jv_VerifyMethodSignature (pool_data[type_index].utf8);
+	    verify_method_signature (pool_data[type_index].utf8);
 
 	  _Jv_Utf8Const* name = pool_data[name_index].utf8;
 
@@ -884,7 +891,7 @@ _Jv_ClassReader::handleClassBegin
       jstring msg = JvNewStringUTF ("loaded class ");
       msg = msg->concat (def->getName ());
       msg = msg->concat (_Jv_NewStringUTF (" was in fact named "));
-      jstring klass_name = _Jv_NewStringUTF (loadedName->data);
+      jstring klass_name = loadedName->toString();
       msg = msg->concat (klass_name);
 
       throw_no_class_def_found_error (msg);
@@ -1047,10 +1054,10 @@ void _Jv_ClassReader::handleFieldsBegin (int count)
   def->fields = (_Jv_Field*) 
     _Jv_AllocBytes (count * sizeof (_Jv_Field));
   def->field_count = count;
-  def->field_initializers = (_Jv_ushort*)
+  def_interp->field_initializers = (_Jv_ushort*)
     _Jv_AllocBytes (count * sizeof (_Jv_ushort));
   for (int i = 0; i < count; i++)
-    def->field_initializers[i] = (_Jv_ushort) 0;
+    def_interp->field_initializers[i] = (_Jv_ushort) 0;
 }
 
 void _Jv_ClassReader::handleField (int field_no,
@@ -1071,30 +1078,38 @@ void _Jv_ClassReader::handleField (int field_no,
   field->nameIndex = name;
 #endif
 
-  if (verify)
-    verify_identifier (field_name);
-
-  // ignore flags we don't know about.  
+  // Ignore flags we don't know about.  
   field->flags = flags & Modifier::ALL_FLAGS;
-
-  if (verify)
-    {
-      if (field->flags & (Modifier::SYNCHRONIZED
-			  | Modifier::NATIVE
-			  | Modifier::INTERFACE
-			  | Modifier::ABSTRACT))
-	throw_class_format_error ("erroneous field access flags");
-      
-      if (1 < ( ((field->flags & Modifier::PUBLIC) ? 1 : 0)
-		+((field->flags & Modifier::PRIVATE) ? 1 : 0)
-		+((field->flags & Modifier::PROTECTED) ? 1 : 0)))
-	throw_class_format_error ("erroneous field access flags");
-    }
 
   _Jv_Utf8Const* sig = pool_data[desc].utf8;
 
   if (verify)
-    _Jv_VerifyFieldSignature (sig);
+    {
+      verify_identifier (field_name);
+
+      for (int i = 0; i < field_no; ++i)
+	{
+	  if (_Jv_equalUtf8Consts (field_name, def->fields[i].name)
+	      && _Jv_equalUtf8Consts (sig,
+				      // We know the other fields are
+				      // unresolved.
+				      (_Jv_Utf8Const *) def->fields[i].type))
+	    throw_class_format_error ("duplicate field name");
+	}
+
+      // At most one of PUBLIC, PRIVATE, or PROTECTED is allowed.
+      if (1 < ( ((field->flags & Modifier::PUBLIC) ? 1 : 0)
+		+((field->flags & Modifier::PRIVATE) ? 1 : 0)
+		+((field->flags & Modifier::PROTECTED) ? 1 : 0)))
+	throw_class_format_error ("erroneous field access flags");
+
+      // FIXME: JVM spec S4.5: Verify ACC_FINAL and ACC_VOLATILE are not 
+      // both set. Verify modifiers for interface fields.
+      
+    }
+
+  if (verify)
+    verify_field_signature (sig);
 
   // field->type is really a jclass, but while it is still
   // unresolved we keep an _Jv_Utf8Const* instead.
@@ -1124,7 +1139,7 @@ void _Jv_ClassReader::handleConstantValueAttribute (int field_index,
     throw_class_format_error ("field has multiple ConstantValue attributes");
 
   field->flags |= _Jv_FIELD_CONSTANT_VALUE;
-  def->field_initializers[field_index] = value;
+  def_interp->field_initializers[field_index] = value;
 
   /* type check the initializer */
   
@@ -1144,7 +1159,7 @@ void _Jv_ClassReader::handleFieldsEnd ()
   int low            = 0;
   int high           = def->field_count-1;
   _Jv_Field  *fields = def->fields;
-  _Jv_ushort *inits  = def->field_initializers;
+  _Jv_ushort *inits  = def_interp->field_initializers;
 
   // this is kind of a raw version of quicksort.
   while (low < high)
@@ -1186,13 +1201,13 @@ _Jv_ClassReader::handleMethodsBegin (int count)
 {
   def->methods = (_Jv_Method *) _Jv_AllocBytes (sizeof (_Jv_Method) * count);
 
-  def->interpreted_methods
+  def_interp->interpreted_methods
     = (_Jv_MethodBase **) _Jv_AllocBytes (sizeof (_Jv_MethodBase *)
 					  * count);
 
   for (int i = 0; i < count; i++)
     {
-      def->interpreted_methods[i] = 0;
+      def_interp->interpreted_methods[i] = 0;
       def->methods[i].index = (_Jv_ushort) -1;
     }
 
@@ -1231,17 +1246,25 @@ void _Jv_ClassReader::handleMethod
       else
 	verify_identifier (method->name);
 
-      _Jv_VerifyMethodSignature (method->signature);
+      verify_method_signature (method->signature);
 
-      if (method->accflags & (Modifier::VOLATILE
-			      | Modifier::TRANSIENT
-			      | Modifier::INTERFACE))
-	throw_class_format_error ("erroneous method access flags");
-      
+      for (int i = 0; i < mth_index; ++i)
+	{
+	  if (_Jv_equalUtf8Consts (method->name, def->methods[i].name)
+	      && _Jv_equalUtf8Consts (method->signature,
+				      def->methods[i].signature))
+	    throw_class_format_error ("duplicate method");
+	}
+
+      // At most one of PUBLIC, PRIVATE, or PROTECTED is allowed.
       if (1 < ( ((method->accflags & Modifier::PUBLIC) ? 1 : 0)
 		+((method->accflags & Modifier::PRIVATE) ? 1 : 0)
 		+((method->accflags & Modifier::PROTECTED) ? 1 : 0)))
 	throw_class_format_error ("erroneous method access flags");
+
+      // FIXME: JVM spec S4.6: if ABSTRACT modifier is set, verify other 
+      // flags are not set. Verify flags for interface methods. Verifiy
+      // modifiers for initializers. 
     }
 }
 
@@ -1253,6 +1276,7 @@ void _Jv_ClassReader::handleCodeAttribute
   _Jv_InterpMethod *method = 
     (_Jv_InterpMethod*) (_Jv_AllocBytes (size));
 
+  method->deferred	 = NULL;
   method->max_stack      = max_stack;
   method->max_locals     = max_locals;
   method->code_length    = code_length;
@@ -1266,7 +1290,16 @@ void _Jv_ClassReader::handleCodeAttribute
 	  (void*) (bytes+code_start),
 	  code_length);
 
-  def->interpreted_methods[method_index] = method;
+  def_interp->interpreted_methods[method_index] = method;
+
+  if ((method->self->accflags & java::lang::reflect::Modifier::STATIC))
+    {
+      // Precompute the ncode field for a static method.  This lets us
+      // call a static method of an interpreted class from precompiled
+      // code without first resolving the class (that will happen
+      // during class initialization instead).
+      method->self->ncode = method->ncode ();
+    }
 }
 
 void _Jv_ClassReader::handleExceptionTableEntry
@@ -1274,7 +1307,7 @@ void _Jv_ClassReader::handleExceptionTableEntry
    int start_pc, int end_pc, int handler_pc, int catch_type)
 {
   _Jv_InterpMethod *method = reinterpret_cast<_Jv_InterpMethod *>
-    (def->interpreted_methods[method_index]);
+    (def_interp->interpreted_methods[method_index]);
   _Jv_InterpException *exc = method->exceptions ();
 
   exc[exc_index].start_pc.i     = start_pc;
@@ -1292,7 +1325,7 @@ void _Jv_ClassReader::handleMethodsEnd ()
       _Jv_Method *method = &def->methods[i];
       if ((method->accflags & Modifier::NATIVE) != 0)
 	{
-	  if (def->interpreted_methods[i] != 0)
+	  if (def_interp->interpreted_methods[i] != 0)
 	    throw_class_format_error ("code provided for native method");
 	  else
 	    {
@@ -1301,17 +1334,28 @@ void _Jv_ClassReader::handleMethodsEnd ()
 	      m->defining_class = def;
 	      m->self = method;
 	      m->function = NULL;
-	      def->interpreted_methods[i] = m;
+	      def_interp->interpreted_methods[i] = m;
+	      m->deferred = NULL;
+
+	      if ((method->accflags & Modifier::STATIC))
+		{
+		  // Precompute the ncode field for a static method.
+		  // This lets us call a static method of an
+		  // interpreted class from precompiled code without
+		  // first resolving the class (that will happen
+		  // during class initialization instead).
+		  method->ncode = m->ncode ();
+		}
 	    }
 	}
       else if ((method->accflags & Modifier::ABSTRACT) != 0)
 	{
-	  if (def->interpreted_methods[i] != 0)
+	  if (def_interp->interpreted_methods[i] != 0)
 	    throw_class_format_error ("code provided for abstract method");
 	}
       else
 	{
-	  if (def->interpreted_methods[i] == 0)
+	  if (def_interp->interpreted_methods[i] == 0)
 	    throw_class_format_error ("method with no code");
 	}
     }
@@ -1323,8 +1367,8 @@ void _Jv_ClassReader::throw_class_format_error (char *msg)
   if (def->name != NULL)
     {
       jsize mlen = strlen (msg);
-      unsigned char* data = (unsigned char*) def->name->data;
-      int ulen = def->name->length;
+      unsigned char* data = (unsigned char*) def->name->chars();
+      int ulen = def->name->len();
       unsigned char* limit = data + ulen;
       jsize nlen = _Jv_strLengthUtf8 ((char *) data, ulen);
       jsize len = nlen + mlen + 3;
@@ -1456,8 +1500,8 @@ _Jv_VerifyOne (unsigned char* ptr, unsigned char* limit, bool void_ok)
 bool
 _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig)
 {
-  unsigned char* ptr = (unsigned char*) sig->data;
-  unsigned char* limit = ptr + sig->length;
+  unsigned char* ptr = (unsigned char*) sig->chars();
+  unsigned char* limit = ptr + sig->len();
 
   ptr = _Jv_VerifyOne (ptr, limit, false);
 
@@ -1467,8 +1511,8 @@ _Jv_VerifyFieldSignature (_Jv_Utf8Const*sig)
 bool
 _Jv_VerifyMethodSignature (_Jv_Utf8Const*sig)
 {
-  unsigned char* ptr = (unsigned char*) sig->data;
-  unsigned char* limit = ptr + sig->length;
+  unsigned char* ptr = (unsigned char*) sig->chars();
+  unsigned char* limit = ptr + sig->len();
 
   if (ptr == limit || UTF8_GET(ptr,limit) != '(')
     return false;
@@ -1522,8 +1566,8 @@ is_identifier_part (int c)
 bool
 _Jv_VerifyIdentifier (_Jv_Utf8Const* name)
 {
-  unsigned char *ptr   = (unsigned char*) name->data;
-  unsigned char *limit = ptr + name->length;
+  unsigned char *ptr   = (unsigned char*) name->chars();
+  unsigned char *limit = (unsigned char*) name->limit();
   int ch;
 
   if ((ch = UTF8_GET (ptr, limit))==-1
@@ -1578,8 +1622,7 @@ _Jv_VerifyClassName (unsigned char* ptr, _Jv_ushort length)
 bool
 _Jv_VerifyClassName (_Jv_Utf8Const *name)
 {
-  return _Jv_VerifyClassName ((unsigned char*)&name->data[0],
-			      (_Jv_ushort) name->length);
+  return _Jv_VerifyClassName ((unsigned char*)name->chars(), name->len());
 }
 
 /* Returns true, if NAME1 and NAME2 represent classes in the same
@@ -1587,8 +1630,8 @@ _Jv_VerifyClassName (_Jv_Utf8Const *name)
 bool
 _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
 {
-  unsigned char* ptr1 = (unsigned char*) name1->data;
-  unsigned char* limit1 = ptr1 + name1->length;
+  unsigned char* ptr1 = (unsigned char*) name1->chars();
+  unsigned char* limit1 = (unsigned char*) name1->limit();
 
   unsigned char* last1 = ptr1;
 
@@ -1604,20 +1647,19 @@ _Jv_ClassNameSamePackage (_Jv_Utf8Const *name1, _Jv_Utf8Const *name2)
   }
 
   // Now the length of NAME1's package name is LEN.
-  int len = last1 - (unsigned char*) name1->data;
+  int len = last1 - (unsigned char*) name1->chars();
 
   // If this is longer than NAME2, then we're off.
-  if (len > name2->length)
+  if (len > name2->len())
     return false;
 
   // Then compare the first len bytes for equality.
-  if (memcmp ((void*) name1->data, (void*) name2->data, len) == 0)
+  if (memcmp ((void*) name1->chars(), (void*) name2->chars(), len) == 0)
     {
       // Check that there are no .'s after position LEN in NAME2.
 
-      unsigned char* ptr2 = (unsigned char*) name2->data + len;
-      unsigned char* limit2 =
-	(unsigned char*) name2->data + name2->length;
+      unsigned char* ptr2 = (unsigned char*) name2->chars() + len;
+      unsigned char* limit2 = (unsigned char*) name2->limit();
 
       while (ptr2 < limit2)
 	{

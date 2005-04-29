@@ -76,8 +76,6 @@
 *            -fschedule-insns -finline-functions -funroll-all-loops            *
 *                                                                              *
 *******************************************************************************/
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
 
 #include    "fp_private.h"
 #include    "fenv_private.h"
@@ -92,10 +90,10 @@ static void _fegetexceptflag ( fexcept_t *flagp, int excepts )
 {
    hexdouble temp;
    fenv_t excstate;
-   int mask;
+   uint32_t mask;
    
    mask = excepts & FE_ALL_EXCEPT;
-   FEGETENVD( temp.d );
+   FEGETENVD_GRP( temp.d );
    excstate = temp.i.lo & FE_ALL_FLAGS;
    mask &= excstate;
    if (mask == 0)
@@ -110,11 +108,11 @@ static void _fegetexceptflag ( fexcept_t *flagp, int excepts )
 static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
 {
    hexdouble ifpscr;
-   long int mask;
+   uint32_t mask;
    
    mask = excepts & FE_ALL_EXCEPT;
    if (mask != 0) {                     // take action if mask != 0
-      FEGETENVD( ifpscr.d );            // read current environment
+      FEGETENVD_GRP( ifpscr.d );            // read current environment
       if (excepts & FE_INVALID)         // special case:  INVALID
          ifpscr.i.lo = (ifpscr.i.lo & FE_NO_INVALID) | (*flagp & FE_ALL_INVALID);
       ifpscr.i.lo = (ifpscr.i.lo & (~mask)) | (*flagp & mask);
@@ -122,7 +120,7 @@ static void _fesetexceptflag ( const fexcept_t *flagp, int excepts )
          ifpscr.i.lo |= FE_SET_FX;
       else
          ifpscr.i.lo &= FE_CLR_FX;
-      FESETENVD( ifpscr.d );
+      FESETENVD_GRP( ifpscr.d );
    }
 }
 
@@ -136,20 +134,21 @@ const fenv_t _FE_DFL_ENV = (const fenv_t) 0L;
    argument. 
 ****************************************************************************/
 
-void feclearexcept ( int excepts )
+int feclearexcept ( int excepts )
 {
    hexdouble ifpscr;
-   long int mask;
+   uint32_t mask;
    
    mask = excepts & FE_ALL_EXCEPT; 
    if (( excepts & FE_INVALID) != 0 ) mask |= FE_ALL_INVALID;     
-   FEGETENVD( ifpscr.d );
+   FEGETENVD_GRP( ifpscr.d );
    mask = ~mask;
    //if (( excepts & FE_INVALID) != 0 ) mask &= FE_NO_INVALID;
    ifpscr.i.lo &= mask;
    if (( ifpscr.i.lo & FE_ALL_EXCEPT ) == 0)
       ifpscr.i.lo &= FE_CLR_FX;
-   FESETENVD( ifpscr.d );
+   FESETENVD_GRP( ifpscr.d );
+   return 0;
 }
 
 /****************************************************************************
@@ -157,14 +156,14 @@ void feclearexcept ( int excepts )
    argument.
 ****************************************************************************/
 
-void feraiseexcept ( int excepts )
+int feraiseexcept ( int excepts )
 {
-   long int mask;
+   uint32_t mask;
    hexdouble ifpscr;
    
    mask = excepts & FE_ALL_EXCEPT;
    
-   FEGETENVD( ifpscr.d );
+   FEGETENVD_GRP( ifpscr.d );
    
    if ((mask & FE_INVALID) != 0)
    {
@@ -175,7 +174,8 @@ void feraiseexcept ( int excepts )
    if (( mask & ( FE_OVERFLOW | FE_UNDERFLOW | FE_DIVBYZERO | FE_INEXACT )) != 0)
        ifpscr.i.lo |= mask;
    
-   FESETENVD( ifpscr.d );
+   FESETENVD_GRP( ifpscr.d );
+   return 0;
 }
 
 /****************************************************************************
@@ -188,7 +188,7 @@ int fetestexcept ( int excepts )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   FEGETENVD_GRP( temp.d );
    return (int) ((excepts & FE_ALL_EXCEPT) & temp.i.lo);
 }
 
@@ -204,7 +204,7 @@ int fegetround ( void )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   FEGETENVD_GRP( temp.d );
    return (int) (temp.i.lo & FE_ALL_RND);
 }
 
@@ -224,9 +224,9 @@ int fesetround ( int round )
    {
        hexdouble temp;
         
-       FEGETENVD( temp.d );
+       FEGETENVD_GRP( temp.d );
        temp.i.lo = (temp.i.lo & FE_NO_RND) | round;
-       FESETENVD( temp.d );
+       FESETENVD_GRP( temp.d );
        return 0;
    }
 }
@@ -240,12 +240,13 @@ int fesetround ( int round )
    object pointed to by its pointer argument "envp".
 ****************************************************************************/
    
-void fegetenv ( fenv_t *envp )
+int fegetenv ( fenv_t *envp )
 {
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   FEGETENVD_GRP( temp.d );
    *envp = temp.i.lo;
+   return 0;
 }
 
 
@@ -260,10 +261,10 @@ int feholdexcept ( fenv_t *envp )
 {
    hexdouble ifpscr;
    
-   FEGETENVD( ifpscr.d );
+   FEGETENVD_GRP( ifpscr.d );
    *envp = ifpscr.i.lo;
    ifpscr.i.lo &= (FE_NO_FLAGS & FE_NO_ENABLES);
-   FESETENVD( ifpscr.d );
+   FESETENVD_GRP( ifpscr.d );
    return 0;
 }
 
@@ -276,12 +277,13 @@ int feholdexcept ( fenv_t *envp )
    defined macro of type "fenv_t".
 ****************************************************************************/
    
-void fesetenv ( const fenv_t *envp )
+int fesetenv ( const fenv_t *envp )
 {
    hexdouble temp;
    
    temp.i.lo = *envp;
-   FESETENVD( temp.d );
+   FESETENVD_GRP( temp.d );
+   return 0;
 }
 
 
@@ -294,16 +296,17 @@ void fesetenv ( const fenv_t *envp )
    hide spurious exceptions from their callers.
 ****************************************************************************/
    
-void feupdateenv ( const fenv_t *envp )
+int feupdateenv ( const fenv_t *envp )
 {
    int newexc;
    hexdouble temp;
    
-   FEGETENVD( temp.d );
+   FEGETENVD_GRP( temp.d );
    newexc = temp.i.lo & FE_ALL_EXCEPT;
    temp.i.lo = *envp;
-   FESETENVD( temp.d );
+   FESETENVD_GRP( temp.d );
    feraiseexcept(newexc);
+   return 0;
 }
 
 /* Legacy entry point */
@@ -325,9 +328,10 @@ void fesetexcept ( fexcept_t *flagp, int excepts )
    the argument "excepts" through the pointer argument "flagp".
 ****************************************************************************/
 
-void fegetexceptflag ( fexcept_t *flagp, int excepts )
+int fegetexceptflag ( fexcept_t *flagp, int excepts )
 {
     _fegetexceptflag (flagp, excepts );
+    return 0;
 }
       
 
@@ -338,9 +342,10 @@ void fegetexceptflag ( fexcept_t *flagp, int excepts )
    flags.
 ****************************************************************************/
 
-void fesetexceptflag ( const fexcept_t *flagp, int excepts )
+int fesetexceptflag ( const fexcept_t *flagp, int excepts )
 {
     _fesetexceptflag ( flagp, excepts );
+    return 0;
 }
 
 /****************************************************************************
@@ -366,8 +371,3 @@ int __fegetfltrounds( void )
 }
 
 #endif /* !BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

@@ -65,11 +65,8 @@ Boston, MA 02111-1307, USA.  */
 #define FLOAT_TYPE_SIZE 32
 #undef DOUBLE_TYPE_SIZE
 #define DOUBLE_TYPE_SIZE 64
-/* This should be 128, but until we work out the ABI for the 128bit
-   FP codes supplied by HP we'll keep it at 64 bits.  */
 #undef LONG_DOUBLE_TYPE_SIZE
-#define LONG_DOUBLE_TYPE_SIZE 64
-#define MAX_WCHAR_TYPE_SIZE 32
+#define LONG_DOUBLE_TYPE_SIZE 128
 
 /* Temporary until we figure out what to do with those *(&@$ 32bit
    relocs which appear in stabs.  */
@@ -91,8 +88,11 @@ Boston, MA 02111-1307, USA.  */
 #undef STATIC_CHAIN_REGNUM
 #define STATIC_CHAIN_REGNUM 31
 
-/* Nonzero if we do not know how to pass TYPE solely in registers.  */
-#define MUST_PASS_IN_STACK(MODE,TYPE) \
-  ((TYPE) != 0							\
-   && (TREE_CODE (TYPE_SIZE (TYPE)) != INTEGER_CST		\
-       || TREE_ADDRESSABLE (TYPE)))
+/* If defined, a C expression which determines whether the default
+   implementation of va_arg will attempt to pad down before reading the
+   next argument, if that argument is smaller than its aligned space as
+   controlled by PARM_BOUNDARY.  If this macro is not defined, all such
+   arguments are padded down when BYTES_BIG_ENDIAN is true.  We don't
+   want aggregrates padded down.  */
+
+#define PAD_VARARGS_DOWN (!AGGREGATE_TYPE_P (type))

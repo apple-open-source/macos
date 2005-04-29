@@ -14,7 +14,6 @@ else
 endif
 AS = as
 LD = ld
-# LIBS= -lc_static
 
 #
 # these paths are only valid in subdirectories of this directory
@@ -27,7 +26,7 @@ SRCROOT=/tmp
 VPATH = $(OBJROOT):$(SYMROOT)
 
 # The order of building is important.
-SUBDIRS = rcz util libsa libsaio nasm boot2 boot1 boot1u boot0 cdboot strings
+SUBDIRS = util libsa libsaio nasm boot2 boot1 boot1u boot0 cdboot strings
 
 all tags clean debug install installhdrs:
 	@for i in ${SUBDIRS}; \
@@ -42,7 +41,7 @@ all tags clean debug install installhdrs:
 			"RC_KANJI=$(RC_KANJI)"				  \
 			"JAPANESE=$(JAPANESE)"				  \
 			"RC_CFLAGS=$(RC_CFLAGS)" $@ 			  \
-		) || exit $?; 						  \
+		) || exit $$?; 						  \
 	done
 
 installsrc:

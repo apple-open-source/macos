@@ -1,0 +1,25 @@
+--- strtod.3.orig	Fri Mar 11 17:24:01 2005
++++ strtod.3	Fri Mar 11 17:25:45 2005
+@@ -100,6 +100,12 @@
+ The decimal point
+ character is defined in the program's locale (category
+ .Dv LC_NUMERIC ) .
++.Pp
++Extended locale versions of these functions are documented in
++.Xr strtod_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn strtod ,
+@@ -146,7 +152,8 @@
+ .Xr atol 3 ,
+ .Xr strtol 3 ,
+ .Xr strtoul 3 ,
+-.Xr wcstod 3
++.Xr wcstod 3 ,
++.Xr strtod_l 3
+ .Sh STANDARDS
+ The
+ .Fn strtod

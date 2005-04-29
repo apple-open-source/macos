@@ -1,4 +1,4 @@
-/*	$NetBSD: chared.c,v 1.9 2000/09/04 22:06:28 lukem Exp $	*/
+/*	$NetBSD: chared.c,v 1.15 2002/03/18 16:00:50 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,11 +36,17 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * chared.c: Character editor utilities
  */
-#include "sys.h"
+#include <stdlib.h>
 #include "el.h"
+
+/* value to leave unused in line buffer */
+#define	EL_LEAVE	2
 
 /* cv_undo():
  *	Handle state for the vi undo command
@@ -330,7 +336,7 @@ cv_delfini(EditLine *el)
 	case NOP:
 	case INSERT:
 	default:
-		abort();
+		EL_ABORT((el->el_errfile, "Bad oaction %d\n", oaction));
 		break;
 	}
 
@@ -392,13 +398,18 @@ cv__endword(char *p, char *high, int n)
 protected int
 ch_init(EditLine *el)
 {
-	el->el_line.buffer		= (char *)  el_malloc(EL_BUFSIZ);
+	el->el_line.buffer		= (char *) el_malloc(EL_BUFSIZ);
+	if (el->el_line.buffer == NULL)
+		return (-1);
+
 	(void) memset(el->el_line.buffer, 0, EL_BUFSIZ);
 	el->el_line.cursor		= el->el_line.buffer;
 	el->el_line.lastchar		= el->el_line.buffer;
 	el->el_line.limit		= &el->el_line.buffer[EL_BUFSIZ - 2];
 
-	el->el_chared.c_undo.buf	= (char *)  el_malloc(EL_BUFSIZ);
+	el->el_chared.c_undo.buf	= (char *) el_malloc(EL_BUFSIZ);
+	if (el->el_chared.c_undo.buf == NULL)
+		return (-1);
 	(void) memset(el->el_chared.c_undo.buf, 0, EL_BUFSIZ);
 	el->el_chared.c_undo.action	= NOP;
 	el->el_chared.c_undo.isize	= 0;
@@ -410,6 +421,8 @@ ch_init(EditLine *el)
 	el->el_chared.c_vcmd.ins	= el->el_line.buffer;
 
 	el->el_chared.c_kill.buf	= (char *) el_malloc(EL_BUFSIZ);
+	if (el->el_chared.c_kill.buf == NULL)
+		return (-1);
 	(void) memset(el->el_chared.c_kill.buf, 0, EL_BUFSIZ);
 	el->el_chared.c_kill.mark	= el->el_line.buffer;
 	el->el_chared.c_kill.last	= el->el_chared.c_kill.buf;
@@ -425,7 +438,9 @@ ch_init(EditLine *el)
 	el->el_chared.c_macro.nline	= NULL;
 	el->el_chared.c_macro.level	= -1;
 	el->el_chared.c_macro.macro	= (char **) el_malloc(EL_MAXMACRO *
-								sizeof(char *));
+	    sizeof(char *));
+	if (el->el_chared.c_macro.macro == NULL)
+		return (-1);
 	return (0);
 }
 
@@ -462,6 +477,83 @@ ch_reset(EditLine *el)
 	el->el_history.eventno		= 0;
 }
 
+/* ch_enlargebufs():
+ *	Enlarge line buffer to be able to hold twice as much characters.
+ *	Returns 1 if successful, 0 if not.
+ */
+protected int
+ch_enlargebufs(el, addlen)
+	EditLine *el;
+	size_t addlen;
+{
+	size_t sz, newsz;
+	char *newbuffer, *oldbuf, *oldkbuf;
+
+	sz = el->el_line.limit - el->el_line.buffer + EL_LEAVE;
+	newsz = sz * 2;
+	/*
+	 * If newly required length is longer than current buffer, we need
+	 * to make the buffer big enough to hold both old and new stuff.
+	 */
+	if (addlen > sz) {
+		while(newsz - sz < addlen)
+			newsz *= 2;
+	}
+
+	/*
+	 * Reallocate line buffer.
+	 */
+	newbuffer = el_realloc(el->el_line.buffer, newsz);
+	if (!newbuffer)
+		return 0;
+
+	/* zero the newly added memory, leave old data in */
+	(void) memset(&newbuffer[sz], 0, newsz - sz);
+	    
+	oldbuf = el->el_line.buffer;
+
+	el->el_line.buffer = newbuffer;
+	el->el_line.cursor = newbuffer + (el->el_line.cursor - oldbuf);
+	el->el_line.lastchar = newbuffer + (el->el_line.lastchar - oldbuf);
+	el->el_line.limit  = &newbuffer[newsz - EL_LEAVE];
+
+	/*
+	 * Reallocate kill buffer.
+	 */
+	newbuffer = el_realloc(el->el_chared.c_kill.buf, newsz);
+	if (!newbuffer)
+		return 0;
+
+	/* zero the newly added memory, leave old data in */
+	(void) memset(&newbuffer[sz], 0, newsz - sz);
+
+	oldkbuf = el->el_chared.c_kill.buf;
+
+	el->el_chared.c_kill.buf = newbuffer;
+	el->el_chared.c_kill.last = newbuffer +
+					(el->el_chared.c_kill.last - oldkbuf);
+	el->el_chared.c_kill.mark = el->el_line.buffer +
+					(el->el_chared.c_kill.mark - oldbuf);
+
+	/*
+	 * Reallocate undo buffer.
+	 */
+	newbuffer = el_realloc(el->el_chared.c_undo.buf, newsz);
+	if (!newbuffer)
+		return 0;
+
+	/* zero the newly added memory, leave old data in */
+	(void) memset(&newbuffer[sz], 0, newsz - sz);
+
+	el->el_chared.c_undo.ptr = el->el_line.buffer +
+				    (el->el_chared.c_undo.ptr - oldbuf);
+	el->el_chared.c_undo.buf = newbuffer;
+	
+	if (!hist_enlargebuf(el, sz, newsz))
+		return 0;
+
+	return 1;
+}
 
 /* ch_end():
  *	Free the data structures used by the editor
@@ -488,14 +580,16 @@ ch_end(EditLine *el)
 public int
 el_insertstr(EditLine *el, const char *s)
 {
-	int len;
+	size_t len;
 
 	if ((len = strlen(s)) == 0)
 		return (-1);
-	if (el->el_line.lastchar + len >= el->el_line.limit)
-		return (-1);
+	if (el->el_line.lastchar + len >= el->el_line.limit) {
+		if (!ch_enlargebufs(el, len))
+			return (-1);
+	}
 
-	c_insert(el, len);
+	c_insert(el, (int)len);
 	while (*s)
 		*el->el_line.cursor++ = *s++;
 	return (0);

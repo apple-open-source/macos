@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -26,6 +25,7 @@
 ------------------------------------------------------------------------------
 
 with Atree;    use Atree;
+with Checks;   use Checks;
 with Einfo;    use Einfo;
 with Errout;   use Errout;
 with Lib;      use Lib;
@@ -34,6 +34,7 @@ with Nlists;   use Nlists;
 with Nmake;    use Nmake;
 with Opt;      use Opt;
 with Restrict; use Restrict;
+with Rident;   use Rident;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Ch5;  use Sem_Ch5;
@@ -63,7 +64,6 @@ package body Sem_Ch11 is
 
       Set_Is_Statically_Allocated (Id);
       Set_Is_Pure (Id, PF);
-
    end Analyze_Exception_Declaration;
 
    --------------------------------
@@ -79,19 +79,26 @@ package body Sem_Ch11 is
       procedure Check_Duplication (Id : Node_Id);
       --  Iterate through the identifiers in each handler to find duplicates
 
+      function Others_Present return Boolean;
+      --  Returns True if others handler is present
+
       -----------------------
       -- Check_Duplication --
       -----------------------
 
       procedure Check_Duplication (Id : Node_Id) is
-         Handler : Node_Id;
-         Id1     : Node_Id;
+         Handler   : Node_Id;
+         Id1       : Node_Id;
+         Id_Entity : Entity_Id := Entity (Id);
 
       begin
+         if Present (Renamed_Entity (Id_Entity)) then
+            Id_Entity := Renamed_Entity (Id_Entity);
+         end if;
+
          Handler := First_Non_Pragma (L);
          while Present (Handler) loop
             Id1 := First (Exception_Choices (Handler));
-
             while Present (Id1) loop
 
                --  Only check against the exception choices which precede
@@ -102,7 +109,9 @@ package body Sem_Ch11 is
                   return;
 
                elsif Nkind (Id1) /= N_Others_Choice
-                 and then Entity (Id) = Entity (Id1)
+                 and then
+                   (Id_Entity = Entity (Id1)
+                      or else (Id_Entity = Renamed_Entity (Entity (Id1))))
                then
                   if Handler /= Parent (Id) then
                      Error_Msg_Sloc := Sloc (Id1);
@@ -110,7 +119,9 @@ package body Sem_Ch11 is
                        ("exception choice duplicates &#", Id, Id1);
 
                   else
-                     if Ada_83 and then Comes_From_Source (Id) then
+                     if Ada_Version = Ada_83
+                       and then Comes_From_Source (Id)
+                     then
                         Error_Msg_N
                           ("(Ada 83): duplicate exception choice&", Id);
                      end if;
@@ -124,12 +135,39 @@ package body Sem_Ch11 is
          end loop;
       end Check_Duplication;
 
+      --------------------
+      -- Others_Present --
+      --------------------
+
+      function Others_Present return Boolean is
+         H : Node_Id;
+
+      begin
+         H := First (L);
+         while Present (H) loop
+            if Nkind (H) /= N_Pragma
+              and then Nkind (First (Exception_Choices (H))) = N_Others_Choice
+            then
+               return True;
+            end if;
+
+            Next (H);
+         end loop;
+
+         return False;
+      end Others_Present;
+
    --  Start processing for Analyze_Exception_Handlers
 
    begin
       Handler := First (L);
       Check_Restriction (No_Exceptions, Handler);
       Check_Restriction (No_Exception_Handlers, Handler);
+
+      --  Kill current remembered values, since we don't know where we were
+      --  when the exception was raised.
+
+      Kill_Current_Values;
 
       --  Loop through handlers (which can include pragmas)
 
@@ -154,7 +192,6 @@ package body Sem_Ch11 is
             Choice := Choice_Parameter (Handler);
 
             if Present (Choice) then
-
                if No (H_Scope) then
                   H_Scope := New_Internal_Entity
                     (E_Block, Current_Scope, Sloc (Choice), 'E');
@@ -176,6 +213,11 @@ package body Sem_Ch11 is
                Set_Ekind (Choice, E_Variable);
                Set_Etype (Choice, RTE (RE_Exception_Occurrence));
                Generate_Definition (Choice);
+
+               --  Set source assigned flag, since in effect this field
+               --  is always assigned an initial value by the exception.
+
+               Set_Never_Set_In_Source (Choice, False);
             end if;
 
             Id := First (Exception_Choices (Handler));
@@ -198,7 +240,15 @@ package body Sem_Ch11 is
 
                   else
                      if Present (Renamed_Entity (Entity (Id))) then
-                        Set_Entity (Id, Renamed_Entity (Entity (Id)));
+                        if Entity (Id) = Standard_Numeric_Error
+                          and then Warn_On_Obsolescent_Feature
+                        then
+                           Error_Msg_N
+                             ("Numeric_Error is an " &
+                              "obsolescent feature ('R'M 'J.6(1))?", Id);
+                           Error_Msg_N
+                             ("\use Constraint_Error instead?", Id);
+                        end if;
                      end if;
 
                      Check_Duplication (Id);
@@ -208,9 +258,14 @@ package body Sem_Ch11 is
 
                      declare
                         Ent  : Entity_Id := Entity (Id);
-                        Scop : Entity_Id := Scope (Ent);
+                        Scop : Entity_Id;
 
                      begin
+                        if Present (Renamed_Entity (Ent)) then
+                           Ent := Renamed_Entity (Ent);
+                        end if;
+
+                        Scop := Scope (Ent);
                         while Scop /= Standard_Standard
                           and then Ekind (Scop) = E_Package
                         loop
@@ -245,12 +300,33 @@ package body Sem_Ch11 is
                Next (Id);
             end loop;
 
+            --  Check for redundant handler (has only raise statement) and
+            --  is either an others handler, or is a specific handler when
+            --  no others handler is present.
+
+            if Warn_On_Redundant_Constructs
+              and then List_Length (Statements (Handler)) = 1
+              and then Nkind (First (Statements (Handler))) = N_Raise_Statement
+              and then No (Name (First (Statements (Handler))))
+              and then (not Others_Present
+                          or else Nkind (First (Exception_Choices (Handler))) =
+                                              N_Others_Choice)
+            then
+               Error_Msg_N
+                 ("useless handler contains only a reraise statement?",
+                  Handler);
+            end if;
+
+            --  Now analyze the statements of this handler
+
             Analyze_Statements (Statements (Handler));
+
+            --  If a choice was present, we created a special scope for it,
+            --  so this is where we pop that special scope to get rid of it.
 
             if Present (Choice) then
                End_Scope;
             end if;
-
          end if;
 
          Next (Handler);
@@ -265,6 +341,10 @@ package body Sem_Ch11 is
       Handlers : constant List_Id := Exception_Handlers (N);
 
    begin
+      if Present (Handlers) then
+         Kill_All_Checks;
+      end if;
+
       Analyze_Statements (Statements (N));
 
       if Present (Handlers) then
@@ -292,6 +372,38 @@ package body Sem_Ch11 is
 
       if Comes_From_Source (N) then
          Check_Restriction (No_Exceptions, N);
+      end if;
+
+      --  Check for useless assignment to OUT or IN OUT scalar
+      --  immediately preceding the raise. Right now we only look
+      --  at assignment statements, we could do more.
+
+      if Is_List_Member (N) then
+         declare
+            P : Node_Id;
+            L : Node_Id;
+
+         begin
+            P := Prev (N);
+
+            if Present (P)
+              and then Nkind (P) = N_Assignment_Statement
+            then
+               L := Name (P);
+
+               if Is_Scalar_Type (Etype (L))
+                 and then Is_Entity_Name (L)
+                 and then Is_Formal (Entity (L))
+               then
+                  Error_Msg_N
+                    ("?assignment to pass-by-copy formal may have no effect",
+                      P);
+                  Error_Msg_N
+                    ("\?RAISE statement is abnormal return" &
+                     " ('R'M 6.4.1(17))", P);
+               end if;
+            end if;
+         end;
       end if;
 
       --  Reraise statement
@@ -367,7 +479,6 @@ package body Sem_Ch11 is
             Rewrite (N, Make_Null_Statement (Sloc (N)));
          end if;
       end if;
-
    end Analyze_Raise_xxx_Error;
 
    -----------------------------

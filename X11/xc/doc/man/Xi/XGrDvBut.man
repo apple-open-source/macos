@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XGrDvBut.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XGrDvBut.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -19,26 +19,17 @@ XGrabDeviceButton, XUngrabDeviceButton \- grab/ungrab extension input device but
 .SH SYNTAX
 \fB
 .nf
-XGrabDeviceButton\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIbutton\fP\^, \fImodifiers\fP\^, \fImodifier_device\fP\^, \fIgrab_window\fP\^,
-\fIowner_events\fP\^, \fIevent_count\fP\^, \fIevent_list\fP\^, \fIthis_device_mode\fP\^, \fIother_devices_mode\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      unsigned int \fIbutton\fP\^;
-      unsigned int \fImodifiers\fP\^;
-      XDevice *\fImodifier_device\fP\^;
-      Window \fIgrab_window\fP\^;
-      Bool \fIowner_events\fP\^;
-      unsigned int \fIevent_count\fP\^;	
-      XEventClass *\fIevent_list\fP\^;	
-      int \fIthis_device_mode\fP\^, \fIother_devices_mode\fP\^;
-
-XUngrabDeviceButton\^(\^\fIdisplay\fP\^, \fIdevice\fP\^, \fIbutton\fP\^, \fImodifiers\fP\^, \fImodifier_device\fP\^, \fIgrab_window\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      unsigned int \fIbutton\fP\^;
-      unsigned int \fImodifiers\fP\^;
-      XDevice *\fImodifier_device\fP\^;
-      Window \fIgrab_window\fP\^;
+.HP
+int XGrabDeviceButton\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^,
+unsigned int \fIbutton\fP\^, unsigned int \fImodifiers\fP\^, XDevice
+*\fImodifier_device\fP\^, Window \fIgrab_window\fP\^, Bool
+\fIowner_events\fP\^, unsigned int \fIevent_count\fP\^, XEventClass
+*\fIevent_list\fP\^, int \fIthis_device_mode\fP\^, int
+\fIother_devices_mode\fP\^); 
+.HP
+int XUngrabDeviceButton\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^,
+unsigned int \fIbutton\fP\^, unsigned int \fImodifiers\fP\^, XDevice
+*\fImodifier_device\fP\^, Window \fIgrab_window\fP\^); 
 .fi
 \fP
 .SH ARGUMENTS

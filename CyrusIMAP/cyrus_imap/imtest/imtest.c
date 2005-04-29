@@ -1,7 +1,7 @@
 /* imtest.c -- IMAP/POP3/NNTP/LMTP/SMTP/MUPDATE/MANAGESIEVE test client
  * Ken Murchison (multi-protocol implementation)
  * Tim Martin (SASL implementation)
- * $Id: imtest.c,v 1.104 2004/12/07 19:26:22 ken3 Exp $
+ * $Id: imtest.c,v 1.5 2005/03/05 00:37:08 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
@@ -47,6 +47,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
+#include <sys/msg.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 

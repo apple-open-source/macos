@@ -1,0 +1,25 @@
+--- ctype.3.orig	Fri Mar 11 18:02:47 2005
++++ ctype.3	Fri Mar 11 18:03:52 2005
+@@ -115,6 +115,12 @@
+ .In ctype.h ,
+ or as true functions in the C library.
+ See the specific manual pages for more information.
++.Pp
++Extended locale versions of these functions are documented in
++.Xr ctype_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh SEE ALSO
+ .Xr digittoint 3 ,
+ .Xr isalnum 3 ,
+@@ -138,7 +144,8 @@
+ .Xr tolower 3 ,
+ .Xr toupper 3 ,
+ .Xr wctype 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr ctype_l 3
+ .Sh STANDARDS
+ These functions, except for
+ .Fn digittoint ,

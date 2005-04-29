@@ -32,11 +32,15 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: misc.c,v 1.22 2002/04/29 17:11:04 abe Exp $";
+static char *rcsid = "$Id: misc.c,v 1.23 2004/10/17 21:39:23 abe Exp $";
 #endif
 
 
 #include "lsof.h"
+
+#if	defined(HASWIDECHAR) && defined(WIDECHARINCL)
+#include WIDECHARINCL
+#endif	/* defined(HASWIDECHAR) && defined(WIDECHARINCL) */
 
 
 /*
@@ -901,7 +905,7 @@ path_too_long:
 	/*
 	 * Add to the path assembly.
 	 */
-	    if ((alen + llen + slen) >= (int)sizeof(abuf))
+	    if ((alen + llen + slen) > (int)sizeof(abuf))
 		goto path_too_long;
 	    if (slen == 2)
 		*ap++ = '/';
@@ -1187,12 +1191,44 @@ safestrprt(sp, fs, flags)
 					 */
 {
 	char c;
+	int lnc, lnt, sl;
+
+#if	defined(HASWIDECHAR)
+	wchar_t w;
+	int wcmx = MB_CUR_MAX;
+#else	/* !defined(HASWIDECHAR) */
+	static int wcmx = 1;
+#endif	/* defined(HASWIDECHAR) */
 
 	c = (flags & 2) ? ' ' : '\0';
 	if (flags & 4)
 	    putc('"', fs);
 	if (sp) {
-	    for (; *sp; sp++) {
+	    for (sl = strlen(sp); *sp; sl -= lnc, sp += lnc) {
+
+#if	defined(HASWIDECHAR)
+		if (wcmx > 1) {
+		    lnc = mblen(sp, sl);
+		    if (lnc > 1) {
+			if ((mbtowc(&w, sp, sl) == lnc) && iswprint(w)) {
+			    for (lnt = 0; lnt < lnc; lnt++) {
+				putc((int)*(sp + lnt), fs);
+			    }
+			} else {
+			    for (lnt = 0; lnt < lnc; lnt++) {
+			        fputs(safepup((unsigned int)*(sp + lnt),
+					      (int *)NULL), fs);
+			    }
+			}
+			continue;
+		    } else
+			lnc = 1;
+		} else
+		    lnc = 1;
+#else	/* !defined(HASWIDECHAR) */
+		lnc = 1;
+#endif	/* defined(HASWIDECHAR) */
+
 		if (isprint((unsigned char)*sp) && *sp != c)
 		    putc((int)(*sp & 0xff), fs);
 		else {
@@ -1334,7 +1370,7 @@ x2dev(s, d)
 	char *s;			/* ASCII string */
 	dev_t *d;			/* device receptacle */
 {
-	char c, *cp, *cp1;
+	char *cp, *cp1;
 	int n;
 	dev_t r;
 

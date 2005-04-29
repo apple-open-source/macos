@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/xf86config/xf86config.c,v 3.69 2003/02/20 04:05:15 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/xf86config/xf86config.c,v 3.70 2003/11/14 02:40:24 dawes Exp $ */
 
 /*
  * This is a configuration program that will create a base XF86Config
@@ -1906,7 +1906,7 @@ static char *XF86Config_firstchunk_text =
 "# This loads the Type1 and FreeType font modules\n"
 "    Load        \"type1\"\n"
 "    Load        \"speedo\"\n"
-"#    Load        \"freetype\"\n"
+"    Load        \"freetype\"\n"
 "#    Load        \"xtt\"\n"
 "\n"
 "# This loads the GLX module\n"

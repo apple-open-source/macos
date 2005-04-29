@@ -25,6 +25,10 @@ Bugs to be fixed:
 - The PowerPC extended branch mnemonic like beqlrl need to take a CRFONLY or
   a number shifted over by 2 (like the fcmpu instruction).
 
+Changes for the 5.17 release (the cctools-574 release):
+- Changed as.c and to set force_cpusubtype_ALL for the i386 assembler by calling
+  the new function force_cpusubtype_ALL_for_cputype().  Radar bug #4002758.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Fixed some bugs with the assembler not quite being 8-bit clean.  The problem
   is that the assembler was accessing random memory, because 'char' is signed on

@@ -1,0 +1,341 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2 Final//EN">
+<HTML>
+<HEAD>
+<TITLE>Dynagraph</TITLE>
+<META NAME="Generator" CONTENT="TextPad 4.4">
+<META NAME="Author" CONTENT="Gordon Woodhull">
+<META NAME="Keywords" CONTENT="">
+<META NAME="Description" CONTENT="dynagraph graph layout server">
+<style>
+	dt {
+		font-weight: bold;
+	}
+	pre {
+		text-indent:0;
+	}
+	table {
+		border-width:0;
+	}
+	table th {
+		text-align:left;
+		vertical-align:top;
+		padding-right:1em;
+	}
+	.dent {
+		margin-left: 3em;
+	}
+</style>
+</HEAD>
+
+<BODY>
+<h1>Dynagraph</h1>
+<p>Dynagraph is a platform-independent graph layout engine.  There are three ways to connect with the dynagraph layout engines:
+<UL>
+	<LI>To generate consecutive drawings, dynagraph can be used as a <A HREF="#command line">batch command</A>.
+	<LI>Dynagraph can be connected to a client over a pipe interface where both use a language called <A HREF="#incrface">incrface</A> to communicate changes.
+	<li>Clients can <a href="#static-linking">static-link</a> to the Dynagraph libraries and access the <A HREF="#api-ref">C++ API</A> directly.
+</UL>
+
+<h1><a name="command line"/><b>dg</b> command line options</h1>
+The executable <b>dg</b> can be run in two modes:
+<ul>
+<li>If no source is specified with either the -i or -c commands, the program goes into <A HREF="#incrface">incrface</A> mode.
+<li>When a source is specified, dg reads from a dot file or creates a random graph, traverses
+the graph according to -t, and generates output dot files (if -ol specified).
+</ul>
+<dl>
+	<dt>-d use dot-compatible coordinates
+	<dd>Dynagraph internally uses dimensionless coordinates, but traditionally dot used points for coordinates and inches for node sizes.  The node width, height, and textsize attributes will be multiplied by 72.  This also affects default attributes.  The default resolution is 1 x 1 instead of 0.1 x 0.1; the default separation is 0.375 x 0.5" instead of 0.5 x 1; the default minimum width is 0.75" and height 0.5" instead of 1 and 1.
+	<dt>-i<I>filename</I> specify input dot file
+	<dd>This can be used to specify a file for batch layout, or in combination with the -t option.
+	<dt>-t<i>m</i> choose traversal method
+	<dd>Inserts the graph specified with -i bit by bit using one the following methods:
+	<TABLE WIDTH="100%">
+		<tr>
+			<td>a
+			<td>All at once (batch).  Equivalent to not specifying -t.
+		</tr>
+		<TR>
+			<TD>n</TD>
+			<TD>Insert all nodes, then all edges.</TD>
+		</tr>
+		<tr>
+			<td>b
+			<td>Breadth first search.
+		</tr>
+		<tr>
+			<td>d
+			<td>Depth first search.
+		</tr>
+		<tr>
+			<td>r
+			<td>Randomly insert edges.
+		</tr>
+		<tr>
+			<td>w
+			<td>"Wandering" (not recommended).
+		</tr>
+	</TABLE>
+	<dt>-c<i>N</i> create edges randomly
+	<dd>Alternative to -i and -t for testing/fun.  Draws a random connected graph.  One edge per step, N steps; 95% of edges leaves.
+	<dt>-r<i>aN</i> report on <i>a</i> to stream <i>N</i>
+	<dd>Dynagraph can write logs to up to 10 files (output filenames specified with -o).  <i>a</i> specifies one or more report types from the following:
+	<table width="100%">
+		<tr>
+			<td>c
+			<td>Crossing optimization
+		<tr>
+			<td>t
+			<td>Time usage breakdown
+		<tr>
+			<td>d
+			<td>Dynadag tallies
+		<tr>
+			<td>g
+			<td>Dump graph in dotfile format after every step
+		<tr>
+			<td>q
+			<td>Dump input queue before each step
+		<tr>
+			<td>r
+			<td>Output readability statistics
+		<tr>
+			<td>s
+			<td>Output stability statistics
+		<tr>
+			<td>p
+			<td>Report on progress
+		<tr>
+			<td>b
+			<td>Bug of the day: used for random debugging
+	</table>
+	<dt>-o<i>Nfilename</i> write stream <i>N</i> to <i>filename</i>
+	<dd>Dynagraph will write all reports assigned to <i>N</i> to the file <i>filename</i>.  See -r.
+	<dt>-ol<i>filename</i>
+	<dd>output the layout at each step to <i>filename</i>1.dot, <i>filename</i>2.dot, etc.
+	<dt>-f force relayout
+	<dd>Dynagraph will use the traversal method specified with -t but will redo the layout from scratch on each step.
+</dl>
+
+<h1><a name="incrface"/>Command interface - incrface</h1>
+In this interface, the client and server communicate requests and modifications over two pipes using a command language.  The language is the same for client requests and server events, with the exception that the server does not use the "segue" command.  Many commands can accept attributes in the same syntax favored by dot, e.g. [attr=value,attr2="value with spaces or other parser-confusing stuff"]
+<dl>
+	<dt>open view <i>V</i> [<I>attrs</I>]
+	<dd>Opens a view named <i>V</i>.  The optional attributes apply to the layout or the graph.
+	<dt>modify view <i>V</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>V</i>
+	<dt>close view <i>V</i>
+	<dd>Closes view <i>V</i>.
+	<dt>insert <i>V</i> node <i>N</i> [<I>attrs</I>]
+	<dd>Creates a node named <i>N</i> in view <i>V</i>.
+	<dt>insert <i>V</i> edge <i>E</i> [<I>attrs</I>]
+	<dd>Creates an edge named <i>E</i> in view <i>V</i>.
+	<dt>modify <i>V</i> node <i>N</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>N</i>.
+	<dt>modify <i>V</i> edge <i>E</i> [<I>attrs</I>]
+	<dd>Applies the attributes to <i>E</i>.
+	<dt>delete <i>V</i> node <i>N</i>
+	<dd>Removes <i>N</i> from the layout.
+	<dt>delete <i>V</i> edge <i>E</i>
+	<dd>Removes <i>E</i> from the layout.
+	<dt>lock view <i>V</i>
+	<dd>Increments the lock count on <i>V</i>.  While the count is greater than zero, dynagraph will not do any layouts and will not output.  In addition, dynagraph uses lock and unlock to mark a group of changes so that the client can respond more efficiently.
+	<dt>unlock view <i>V</i>
+	<dd>Decrements the lock count on <i>V</i>.  If the count returns to zero, does a new layout based on all queued changes.
+	<dt>segue view <i>V</i> <i>graph</i>
+	<dd><i>Graph</i> specifies a full graph in dotfile format; dynagraph will make all necessary changes to transform the current graph to that specified.
+</dl>
+<h1>String attributes understood/emitted by dynagraph</h1>
+<p>Attributes are input attributes unless otherwise specified.</p>
+<h2>Graph attributes  </h2>
+<dl>
+	<dt><a name="attr-resolution"/>resolution = "x,y"
+	<dd>(in) See <A HREF="#GraphGeom::resolution">GraphGeom::resolution</A> in the API reference.
+	<dt><a name="attr-separation"/>separation = "x,y"
+	<dd>(in) See <A HREF="#GraphGeom::separation">GraphGeom::separation</A> in the API reference.
+	<dt><a name="attr-bb"/>bb = "<i>l</i>,<i>b</i>,<i>r</i>,<i>t</i>"
+	<dd>(out) Specifies the bounding box of the current layout.  Corresponds to <A HREF="#GraphGeom::bounds">GraphGeom::bounds</A>
+</dl>
+<h2>Node attributes	 </h2>
+<dl>
+	<dt>shape
+	<dd>Specifies the name of the base shape, which will select values for the other parameters which can be overridden.  Default: ellipse.
+	<table>
+	<tr><th>ellipse
+		<td>The base shape is a Bezier spline approximation of an ellipse.
+	<tr><th>polygon
+		<td>The base shape is a polygon.
+	</table>
+	<dt>regular = true|false
+	<dd>If true, specifies that the aspect ratio of the shape will be 1:1.  Default: false.
+	<dt>sides
+	<dd>The number of sides of the polygon.  Not applicable for Bezier spline-based shapes.  Default: 4.
+	<dt>peripheries
+	<dd>The number of extra borders to draw around the shape.  Default: 0.
+	<dt>perispacing
+	<dd>The distance between the parallel lines of the peripheries.  Default: 0.
+	<dt>rotation
+	<dd>The angle, in radians, that the shape should be turned from one in which the bottom is flat.  Default: 0.
+	<dt>skew
+	<dd>The amount to tilt the shape.  Default: 0.
+	<dt>distortion
+	<dd>Make the top bigger than the bottom.  Default: 0.
+	<dt>textsize = "x,y"
+	<dd>The size of the text to fit within this shape.  For consistency heights with different line lengths, the shape will be stretched to fit a square whose size is the smaller of x and y, and then stretched again to fit the larger.
+	<dt>width
+	<dd>minimum external width
+	<dt>height
+	<dd>minimum external height
+	<dt>boundary
+	<dd>specifies a polyline boundary as a list of coordinates
+	<dt>pos = "x,y"
+	<dd>(in,out) Specifies the position coordinate of the node.  This is the offset for the polys and boundary parameters.  See <A HREF="#NodeGeom::pos">NodeGeom::pos</A>.
+	<dt>polys = "b<i>B</i> x1,y1 x2,y2 ...; b<i>B</i> x,y..."
+	<dd>(out) Specifies the shapes generated for this node.  Shapes are separated with semicolons.  <i>B</i> specifies the Bezier spline level for the current shape.
+</dl>
+<h2>Edge attributes	 </h2>
+<dl>
+	<dt>pos = "x1,y1 x2,y2 ..."
+	<dd>(in,out) Specifies the curve that this edge follows.
+</dl>
+<h1><a name="static-linking"/>Static linking to Dynagraph</h1>
+The Dynagraph library can be statically linked to a C++ program.  The API for connecting with a Dynagraph layout server is defined in common/Dynagraph.h and auxiliary headers.  At present there is only one implemented layout server, DynaDAG, but the same <a href="#api-ref">API</a> (with some adaptation) will be used for other engines in the future.
+<h2>Getting started</h2>
+To use dynagraph from a C++ program, follow these steps:
+<ol>
+	<li>#include the header for the particular layout server you with to use
+	(e.g. DynaDAG.h)
+
+	<li>For each layout, you will need two graphs to hold the data, a ChangeQueue to track changes, and an instance of the layout server.</p>
+	Create two instances of the Layout class defined in Dynagraph.h.  This class is a graph which holds information about the layout preferences and geometry.  We will call these graphs working and current; working is where we create new elements, and current is the subgraph which represents what is showing in the layout.  Make current a subgraph of layout by specifying layout in the constructor call.  e.g.:</p>
+	<p><code>Layout layout,current(&amp;layout);</code></p>
+
+	<li>Since dynagraph is resolution-independent, you must set the resolution, separation and label separation as appropriate.  Use the gd&lt;&gt; function to access data in a graph by its type.  Since these parameters are in the GraphGeom portion of the graph data, prepation for centimeter coordinates might look like:</p>
+	<p><code>gd&lt;GraphGeom&gt;(&amp;layout).resolution = Coord(0.1,0.1);<br>
+	gd&lt;GraphGeom&gt;(&amp;layout).separation = Coord(0.5,1.0);<br>
+	gd&lt;GraphGeom&gt;(&amp;layout).labelSep = Coord(0.5,0.5);</code></p>
+
+	<li>Create an instance of the ChangeQueue class, which will hold changes we are making as well as ones made by the layout server.  This needs to know both the working and current graphs:</p>
+	<p><code>ChangeQueue queue(&amp;working,&amp;current);</code></p>
+
+	<li>Create an instance of the layout engine, passing it the current layout, e.g.:</p>
+	<p><code>DynaDAGServer server(&amp;current);</code></p>
+
+	<li>If you are using DynaDAG you will need to specify the crossing optimization method (this is obscure and should go away):
+	<p><code>Optimizer *optim = new HybridOptimizer2(server.config);
+	server.optChooser.choices.push_back(make_pair(0,optim));</code></p>
+
+	<li>Now you are ready to start drawing a graph.  Here's how to insert a new node at (50,50):
+	<p><code>Layout::Node *n = working.create_node();<br>
+	gd&lt;NodeGeom&gt;(n).pos = Coord(50,50);<br>
+	queue.InsNode(n);</code></p>
+	Or to move a node, similarly:
+	<p><code>gd&lt;NodeGeom&gt;(n).pos = Coord(200,200);<br>
+	queue.ModNode(n,DG_UPD_MOVE);</code></p>
+	To get the server to respond to your changes:
+	<p><code>server.Process(queue)</code></p>
+	Now you will need to read the queue to see what changes have been made.  The queue holds six subgraphs of the working graph, to keep track of inserted nodes, inserted edges, modified nodes, modified edges, deleted nodes, and deleted edges.  Ever time you call server.Process you should read all of these subgraphs and reflect the changes in your display, e.g.:
+	<p><code>Layout::node_iter ni;<br>
+	for(ni = Q.modN.nodes().begin(); ni!=Q.modN.nodes().end(); ++ni)<br>
+	<span class=dent>;// move graphical object associated with *ni to gd&lt;NodeGeom&gt;(*ni).pos;</span>
+	</code></p>
+
+</ol>
+<h2><a name="api-ref"/>API Reference</h2>
+<h3>Layout graph attributes</h3>
+The heart of the API is the Layout graph type.  Dynagraph uses a templated graph library called LGraph, which allows the graph, nodes, and edges to be annotated with arbitrary classes.  Layout is an instantiation of the LGraph class with annotations for describing the geometry and how the layout should be done.
+
+<h4>GraphGeom - layout graph parameters</h4>
+<dl class=dent>
+	<dt>Bounds bounds
+	<dd>(out) The bounds of the current layout.  Corresponds to the <a href="#attr-bb">bb</a> string attribute.
+	<dt><a name="GraphGeom::labelGap"/>Coord labelGap
+	<dd>(in) The amount of space to leave between labels and nodes, e.g. if a label is on the right of a node, label.left = node.right+labelGap.x
+	<dt><a name="GraphGeom::resolution"/>Coord resolution
+	<dd>(in) The smallest increment to recognize in the internal model.  For example, use (1,1) to use integer coordinates coordinates.  Corresponds to the <a href="#attr-resolution">resolution</a> string attribute.
+	<dt><a name="GraphGeom::separation"/>Coord separation
+	<dd>(in) The amount of separation to leave between elements of the layout.  In dynadag, x specifies the horizontal gap left between nodes and/or edges, and y specifies the displacement between nodes made for an edge of <a href="#EdgeGeom::lengthHint">length</a> 1.  Corresponds to the <a href="#attr-separation">separation</a> string attribute.
+	<dt><a name="GraphGeom::splineLevel"/>SpliningLevel splineLevel
+	<dd>(in) (dynadag specific) The amount of processing to do on edge splines:
+	<table>
+		<tr><th>DG_SPLINELEVEL_VNODE
+		<td>Draw the straight lines between nodes in the internal model.
+		<tr><th>DG_SPLINELEVEL_BOUNDS
+		<td>Draw the bounds along the edge routes that will be used for the spline.
+		<tr><th>DG_SPLINELEVEL_SHORTEST
+		<td>Draw the shortest straight-line paths within the bounds.
+		<tr><th>DG_SPLINELEVEL_SPLINE
+		<td>Draw edges with Bezier curves (default).
+	</table>
+	<dt><a name="GraphGeom::timeLimit"/>float timeLimit
+	<dd>The number of seconds to spend on one layout step.  Not yet implemented in dynadag
+</dl>
+<h4>NodeGeom - node layout parameters</h4>
+<dl class=dent>
+	<dt>Position pos
+	<dd>(in,out) The position of the node.  If the client leaves pos.valid==false, then the node has no starting position.
+	<dt>Region *region
+	<dd>(in) The boundary of the node, specified in terms of a rectangle and a hit-testing functions.  The basic version of Region hit-tests for the rectangle; the descendant PolylineRegion hit-tests for a polyspline-bounded shape.
+	<dt>NailType nail
+	<dd>(in) Specifies the mobility of the node:
+	<table>
+		<tr><th>DG_NONAIL
+		<td>The node can be positioned at the server's discretion.
+		<tr><th>DG_NAIL_X
+		<td>The server attempts to keep the node at the same X position.
+		<tr><th>DG_NAIL_Y
+		<td>The Y position (rank) is fixed.
+		<tr><th>DG_NAIL_BOTH
+		<td>The node is immobile.
+	</table>
+</dl>
+<h4>EdgeGeom - edge layout parameters</h4>
+<dl class=dent>
+	<dt>double width
+	<dd>(in) The width of the edge.
+	<dt>double lengthHint
+	<dd>(in) The minimum length of the edge.  In dynadag, this is multiplied by <a href="GraphGeom::separation">GraphGeom::separation</a>.y to determine the verticle displacement between the nodes at either end of this edge.
+	<dt>double cost
+	<dd>(in) The cost of the edge.  Not used in dynadag.
+	<dt>Line pos
+	<dd>(in,out) The client can set the initial position of the edge by filling this in and setting manualRoute==true.  The server returns the edge route in this field.
+	<dt>bool constraint
+	<dd>(in,out) In dynadag, if this flag is set to true, the edge will always point downward.  If this flag is set to false, the edge can point upward when there is a cycle in the graph.  Dynadag will set constraint==false if it finds a cycle while inserting the edge.
+	<dt>bool manualRoute
+	<dd>If set to true, the server will use the value of pos as the initial position of the edge.
+	<dt>Port tailPort,headPort;
+	<dd>Offsets of the ends of the edge from the tail and head nodes respectively.
+	<dt>bool tailClipped,headClipped
+	<dd>Whether to clip this edge to the tail and head node regions.
+</dl>
+<h3>The Change Queue</h3>
+The ChangeQueue holds the changes requested by the client and fulfilled by the server.  The ChangeQueue is a way for client and server to list the changes they have made.
+<dl class=dent>
+	<dt>Layout *const client
+	<dd>The client's working graph, which is a supergraph of what is actually in the layout.
+	<dt>Layout *const current
+	<dd>The current layout graph, a subgraph of the client graph.
+	<dt>Layout insN,modN,delN,insE,modE,delE
+	<dd>Subgraphs of the client graph which list the nodes and edges changed.  When client and current are synchronized, these are empty.
+	<dt>void InsNode(Layout::Node *n)<br>
+	void InsEdge(Layout::Edge *e)
+	<dd>Marks an object created with client->create_node or client->create_edge by inserting it into the insN or insE subgraph.
+	<dt>void ModNode(Layout::Node *n,Update u)<br>
+	void ModEdge(Layout::Edge *e,Update u)
+	<dd>Marks an object whose properties have changed by inserting it into the modN or modE subgraph, and ORing the Update flags into the igd&lt;Update&gt; portion of the object's data.
+	<dt>void DelNode(Layout::Node *n)<br>
+	void DelEdge(Layout::Edge *e)
+	<dd>Marks an object to be deleted by inserting it into the delN or delE subgraph.  The object will not actually be deleted until <a href="#ChangeQueue::Okay">ChangeQueue::Okay</a> is called.
+	<dt>void UpdateCurrent()
+	<dd>Called by server to the current layout graph current based on the changes marked.
+	<dt><a name="ChangeQueue::Okay"/>void Okay(bool doDelete = false)
+	<dd>Called by the client after server processing to execute deletions and clear the change subgraphs.
+	<dt>bool Empty()
+	<dd>Returns true if the change subgraphs are empty.
+	<dt>ChangeQueue &operator=(ChangeQueue &Q)
+	<dd>Assigns the contents of another ChangeQueue to this one.
+	<dt>ChangeQueue &operator+=(ChangeQueue &Q)
+	<dd>Adds the contents of another ChangeQueue to this one.
+</dl>
+</BODY>
+</HTML>

@@ -1,4 +1,4 @@
-# $Id: programs.ac,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+# $Id: programs.ac,v 1.2 2004/03/30 01:21:39 jtownsen Exp $
 
 # Check for programs used in building/installation.
 AC_DEFUN(AM_PROGRAMS_SET, [

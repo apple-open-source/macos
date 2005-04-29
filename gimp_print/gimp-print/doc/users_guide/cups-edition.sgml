@@ -1,0 +1,58 @@
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook V4.1//EN" [
+<!ENTITY title   SYSTEM "title.sgml">
+<!ENTITY history SYSTEM "history.sgml">
+<!ENTITY gimp    SYSTEM "gimp.sgml">
+<!ENTITY cups    SYSTEM "cups.sgml">
+<!ENTITY utils   SYSTEM "utils.sgml">
+<!ENTITY gfdl    SYSTEM "gfdl.sgml">
+]>
+<book>
+
+ <bookinfo>
+  <title>The User's Guide to the Gimp-Print - CUPS Edition</title>
+  <date>April 7, 2002</date>
+  <pubdate>April 7, 2002</pubdate>
+  <author>
+    <firstname>Andy</firstname>
+    <surname>Stewart</surname>
+  </author>
+  <copyright>
+    <year>2002</year>
+    <holder>Andy Stewart</holder>
+  </copyright>
+  <legalnotice>
+    <para>The User's Guide to the Gimp-Print - CUPS Edition, Copyright
+2002, Andy Stewart.
+    </para>
+
+&title;
+
+<chapter><title>CUPS Edition</title>
+
+  <caution><title>PLEASE NOTE</title>
+
+    <para>
+    This manual includes a subset of chapters from a more complete
+manual entitled <emphasis>The User's Guide to the Gimp-Print Top
+Quality Printer Drivers</emphasis>.  To obtain the complete manual, go
+to the <ulink url="http://gimp-print.sourceforge.net">Gimp-Print
+Project</ulink> home page.
+    </para>
+    <para>
+    This version of the manual has been specifically packaged in this
+way in an attempt to better suit the needs of people interested only
+in using the Gimp-Print software with 
+<ulink url="http://www.cups.org">CUPS</ulink> (Common Unix Printing System).
+    </para>
+
+  </caution>
+
+</chapter>
+
+&history;
+&cups;
+&gfdl;
+</book>
+
+
+

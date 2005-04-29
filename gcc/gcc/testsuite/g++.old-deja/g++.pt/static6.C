@@ -1,6 +1,4 @@
-// Build don't run:
-// APPLE LOCAL darwin native
-// excess errors test - XFAIL *-*-aout *-*-coff *-*-hpux* *-*-hms *-*-darwin*
+// { dg-do link { xfail *-*-aout *-*-coff *-*-hpux* *-*-hms } }
 
 // Simplified from testcase by Erez Louidor Lior <s3824888@techst02.technion.ac.il>
 

@@ -1,0 +1,17 @@
+XCOMM $XFree86: xc/extras/fontconfig/fc-list/Imakefile,v 1.1.1.1 2003/06/04 02:57:38 dawes Exp $
+
+#ifdef UseInstalled
+/* building outside the tree, use private defines */
+#include "../local.def"
+#endif
+
+INCLUDES=$(FREETYPE2INCLUDES) -I..
+
+LOCAL_LIBRARIES=FontconfigClientLibs
+        DEPLIBS=FontconfigClientDepLibs
+
+SRCS=fc-list.c
+OBJS=fc-list.o
+
+ComplexProgramTarget(fc-list)
+LinkBuildBinary(ProgramTargetName(fc-list))

@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0.1
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,7 +22,7 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/X86/common_x86_asm.S,v 1.16 2002/12/16 16:18:33 dawes Exp $ */
+/* $XFree86: xc/extras/Mesa/src/X86/common_x86_asm.S,v 1.17 2003/09/28 19:17:08 alanh Exp $ */
 
 /*
  * Check extended CPU capabilities.  Now justs returns the raw CPUID
@@ -63,11 +63,6 @@
  */
 GLNAME( found_intel ):	STRING( "Genuine Intel processor found\n\0" )
 GLNAME( found_amd ):	STRING( "Authentic AMD processor found\n\0" )
-
-#ifdef USE_SSE_ASM
-GLNAME( sse_test_dummy ):
-	D_LONG 0x3f800000, 0x3f800000, 0x3f800000, 0x3f800000
-#endif
 
 
 	SEG_TEXT
@@ -222,7 +217,13 @@ GLNAME( _mesa_test_os_sse_exception_support ):
 	LDMXCSR	( REGOFF( -8, EBP ) )
 
 	XORPS	( XMM0, XMM0 )
-	MOVUPS	( CONTENT( GLNAME( sse_test_dummy ) ), XMM1 )
+
+	PUSH_L	( CONST( 0x3f800000 ) )
+	PUSH_L	( CONST( 0x3f800000 ) )
+	PUSH_L	( CONST( 0x3f800000 ) )
+	PUSH_L	( CONST( 0x3f800000 ) )
+
+	MOVUPS	( REGIND( ESP ), XMM1 )
 
 	DIVPS	( XMM0, XMM1 )
 

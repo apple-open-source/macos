@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -40,6 +39,7 @@
 
 with Alloc;
 with Table;
+pragma Elaborate_All (Table);
 with Types; use Types;
 
 package Uintp is
@@ -265,10 +265,12 @@ package Uintp is
    --  will be more convenient to read.
 
    procedure pid (Input : Uint);
+   pragma Export (Ada, pid);
    --  Writes representation of Uint in decimal with a terminating line
    --  return. This is intended for use from the debugger.
 
    procedure pih (Input : Uint);
+   pragma Export (Ada, pih);
    --  Writes representation of Uint in hex with a terminating line return.
    --  This is intended for use from the debugger.
 

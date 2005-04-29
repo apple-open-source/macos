@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_tcl.c,v 1.2 2002/12/16 16:18:55 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_tcl.c,v 1.3 2003/09/28 20:15:25 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,22 +25,16 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
-#include "r200_context.h"
-#include "r200_state.h"
-#include "r200_ioctl.h"
-#include "r200_tex.h"
-#include "r200_tcl.h"
-#include "r200_swtcl.h"
-#include "r200_maos.h"
-
-#include "mmath.h"
+#include "glheader.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "enums.h"
 #include "colormac.h"
@@ -49,6 +43,14 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "array_cache/acache.h"
 #include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
+
+#include "r200_context.h"
+#include "r200_state.h"
+#include "r200_ioctl.h"
+#include "r200_tex.h"
+#include "r200_tcl.h"
+#include "r200_swtcl.h"
+#include "r200_maos.h"
 
 
 
@@ -100,32 +102,22 @@ static GLboolean discrete_prim[0x10] = {
    
 
 #define LOCAL_VARS r200ContextPtr rmesa = R200_CONTEXT(ctx)
-#define ELTS_VARS  GLushort *dest
+#define ELT_TYPE  GLushort
 
 #define ELT_INIT(prim, hw_prim) \
    r200TclPrimitive( ctx, prim, hw_prim | R200_VF_PRIM_WALK_IND )
 
-#define GET_ELTS() rmesa->tcl.Elts
+#define GET_MESA_ELTS() rmesa->tcl.Elts
 
-
-#define NEW_PRIMITIVE()  R200_NEWPRIM( rmesa )
-#define NEW_BUFFER()  r200RefillCurrentDmaRegion( rmesa )
 
 /* Don't really know how many elts will fit in what's left of cmdbuf,
  * as there is state to emit, etc:
  */
 
-#if 0
-#define GET_CURRENT_VB_MAX_ELTS() \
-   ((R200_CMD_BUF_SZ - (rmesa->store.cmd_used + 16)) / 2) 
-#define GET_SUBSEQUENT_VB_MAX_ELTS() ((R200_CMD_BUF_SZ - 16) / 2) 
-#else
 /* Testing on isosurf shows a maximum around here.  Don't know if it's
  * the card or driver or kernel module that is causing the behaviour.
  */
-#define GET_CURRENT_VB_MAX_ELTS() 300
-#define GET_SUBSEQUENT_VB_MAX_ELTS() 300
-#endif
+#define GET_MAX_HW_ELTS() 300
 
 #define RESET_STIPPLE() do {			\
    R200_STATECHANGE( rmesa, lin );		\
@@ -144,32 +136,22 @@ static GLboolean discrete_prim[0x10] = {
 } while (0)
 
 
-/* How do you extend an existing primitive?
- */
-#define ALLOC_ELTS(nr)							\
-do {									\
-   if (rmesa->dma.flush == r200FlushElts &&				\
-       rmesa->store.cmd_used + nr*2 < R200_CMD_BUF_SZ) {		\
-									\
-      dest = (GLushort *)(rmesa->store.cmd_buf + 			\
-			  rmesa->store.cmd_used);			\
-      rmesa->store.cmd_used += nr*2;					\
-   }									\
-   else {								\
-      if (rmesa->dma.flush)						\
-	 rmesa->dma.flush( rmesa );					\
-									\
-      r200EmitAOS( rmesa,						\
-	  	     rmesa->tcl.aos_components,				\
-		     rmesa->tcl.nr_aos_components,			\
-		     0 );						\
-									\
-      dest = r200AllocEltsOpenEnded( rmesa,				\
-				       rmesa->tcl.hw_primitive,		\
-				       nr );				\
-   }									\
-} while (0) 
+#define ALLOC_ELTS(nr)	r200AllocElts( rmesa, nr )
 
+static GLushort *r200AllocElts( r200ContextPtr rmesa, GLuint nr ) 
+{
+   if (rmesa->dma.flush)
+      rmesa->dma.flush( rmesa );
+
+   r200EmitAOS( rmesa,
+		rmesa->tcl.aos_components,
+		rmesa->tcl.nr_aos_components, 0 );
+
+   return r200AllocEltsOpenEnded( rmesa, rmesa->tcl.hw_primitive, nr );
+}
+
+
+#define CLOSE_ELTS()  R200_NEWPRIM( rmesa )
 
 
 /* TODO: Try to extend existing primitive if both are identical,
@@ -214,17 +196,15 @@ static void EMIT_PRIM( GLcontext *ctx,
 
 #ifdef MESA_BIG_ENDIAN
 /* We could do without (most of) this ugliness if dest was always 32 bit word aligned... */
-#define EMIT_ELT(offset, x) do {                                \
+#define EMIT_ELT(dest, offset, x) do {                                \
         int off = offset + ( ( (GLuint)dest & 0x2 ) >> 1 );     \
         GLushort *des = (GLushort *)( (GLuint)dest & ~0x2 );    \
         (des)[ off + 1 - 2 * ( off & 1 ) ] = (GLushort)(x); } while (0)
 #else
-#define EMIT_ELT(offset, x) (dest)[offset] = (GLushort) (x)
+#define EMIT_ELT(dest, offset, x) (dest)[offset] = (GLushort) (x)
 #endif
-#define EMIT_TWO_ELTS(offset, x, y)  *(GLuint *)(dest+offset) = ((y)<<16)|(x);
-#define INCR_ELTS( nr ) dest += nr
-#define RELEASE_ELT_VERTS() \
-   r200ReleaseArrays( ctx, ~0 )
+
+#define EMIT_TWO_ELTS(dest, offset, x, y)  *(GLuint *)((dest)+offset) = ((y)<<16)|(x);
 
 
 
@@ -292,7 +272,7 @@ static GLboolean r200_run_tcl_render( GLcontext *ctx,
    if (VB->Count == 0)
       return GL_FALSE;
 
-   r200ReleaseArrays( ctx, stage->changed_inputs );
+   r200ReleaseArrays( ctx, ~0 /* stage->changed_inputs */ );
    r200EmitArrays( ctx, stage->inputs );
 
    rmesa->tcl.Elts = VB->Elts;
@@ -326,55 +306,48 @@ static void r200_check_tcl_render( GLcontext *ctx,
 				     struct gl_pipeline_stage *stage )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   GLuint inputs = VERT_OBJ;
+   GLuint inputs = VERT_BIT_POS;
 
    /* Validate state:
     */
    if (rmesa->NewGLState)
       r200ValidateState( ctx );
 
-   if (0)
-      fprintf(stderr, "%s: RE %d TGE %d NN %d\n",
-	   __FUNCTION__,
-	   ctx->Texture.Unit[0]._ReallyEnabled,
-	   ctx->Texture.Unit[0].TexGenEnabled,
-	   rmesa->TexGenNeedNormals[0]);
-
    if (ctx->RenderMode == GL_RENDER) {
       /* Make all this event-driven:
        */
       if (ctx->Light.Enabled) {
-	 inputs |= VERT_NORM;
+	 inputs |= VERT_BIT_NORMAL;
 
-	 if (ctx->Light.ColorMaterialEnabled) {
-	    inputs |= VERT_RGBA;
+	 if (1 || ctx->Light.ColorMaterialEnabled) {
+	    inputs |= VERT_BIT_COLOR0;
 	 }
       }
       else {
-	 inputs |= VERT_RGBA;
+	 inputs |= VERT_BIT_COLOR0;
 	 
 	 if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR) {
-	    inputs |= VERT_SPEC_RGB;
+	    inputs |= VERT_BIT_COLOR1;
 	 }
       }
 
       if (ctx->Texture.Unit[0]._ReallyEnabled) {
 	 if (ctx->Texture.Unit[0].TexGenEnabled) {
 	    if (rmesa->TexGenNeedNormals[0]) {
-	       inputs |= VERT_NORM;
+	       inputs |= VERT_BIT_NORMAL;
 	    }
 	 } else {
-	    inputs |= VERT_TEX(0);
+	    inputs |= VERT_BIT_TEX0;
 	 }
       }
 
       if (ctx->Texture.Unit[1]._ReallyEnabled) {
 	 if (ctx->Texture.Unit[1].TexGenEnabled) {
 	    if (rmesa->TexGenNeedNormals[1]) {
-	       inputs |= VERT_NORM;
+	       inputs |= VERT_BIT_NORMAL;
 	    }
 	 } else {
-	    inputs |= VERT_TEX(1);
+	    inputs |= VERT_BIT_TEX1;
 	 }
       }
 

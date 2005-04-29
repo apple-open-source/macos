@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-additional-sources "conpr-3a.cc conpr-3b.cc" } */
 
 #include <stdlib.h>
 

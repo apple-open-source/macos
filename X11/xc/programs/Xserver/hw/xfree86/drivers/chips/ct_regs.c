@@ -19,7 +19,7 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_regs.c,v 1.8 2002/01/25 21:56:00 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_regs.c,v 1.9 2003/11/03 05:11:09 tsi Exp $ */
 
 /*
  * The functions in this file are used to read/write the C&T extension register
@@ -361,17 +361,15 @@ chipsMmioReadSeq(vgaHWPtr hwp, CARD8 index)
 static void
 chipsMmioWriteAttr(vgaHWPtr hwp, CARD8 index, CARD8 value)
 {
-    CARD8 tmp;
-
     if (hwp->paletteEnabled)
 	index &= ~0x20;
     else
 	index |= 0x20;
 
     if (hwp->IOBase == VGA_IOBASE_MONO)
-	tmp = minb(CHIPS_MMIO_MONO_STAT_1);
+	(void) minb(CHIPS_MMIO_MONO_STAT_1);
     else
-	tmp = minb(CHIPS_MMIO_COLOR_STAT_1);
+	(void) minb(CHIPS_MMIO_COLOR_STAT_1);
     moutb(CHIPS_MMIO_ATTR_INDEX, index);
     moutb(CHIPS_MMIO_ATTR_DATA_W, value);
 }
@@ -379,17 +377,15 @@ chipsMmioWriteAttr(vgaHWPtr hwp, CARD8 index, CARD8 value)
 static CARD8
 chipsMmioReadAttr(vgaHWPtr hwp, CARD8 index)
 {
-    CARD8 tmp;
-
     if (hwp->paletteEnabled)
 	index &= ~0x20;
     else
 	index |= 0x20;
 
     if (hwp->IOBase == VGA_IOBASE_MONO)
-	tmp = minb(CHIPS_MMIO_MONO_STAT_1);
+	(void) minb(CHIPS_MMIO_MONO_STAT_1);
     else
-	tmp = minb(CHIPS_MMIO_COLOR_STAT_1);
+	(void) minb(CHIPS_MMIO_COLOR_STAT_1);
     moutb(CHIPS_MMIO_ATTR_INDEX, index);
     return minb(CHIPS_MMIO_ATTR_DATA_R);
 }
@@ -409,12 +405,10 @@ chipsMmioReadMiscOut(vgaHWPtr hwp)
 static void
 chipsMmioEnablePalette(vgaHWPtr hwp)
 {
-    CARD8 tmp;
-
     if (hwp->IOBase == VGA_IOBASE_MONO)
-	tmp = minb(CHIPS_MMIO_MONO_STAT_1);
+	(void) minb(CHIPS_MMIO_MONO_STAT_1);
     else
-	tmp = minb(CHIPS_MMIO_COLOR_STAT_1);
+	(void) minb(CHIPS_MMIO_COLOR_STAT_1);
     moutb(CHIPS_MMIO_ATTR_INDEX, 0x00);
     hwp->paletteEnabled = TRUE;
 }
@@ -422,12 +416,10 @@ chipsMmioEnablePalette(vgaHWPtr hwp)
 static void
 chipsMmioDisablePalette(vgaHWPtr hwp)
 {
-    CARD8 tmp;
-
     if (hwp->IOBase == VGA_IOBASE_MONO)
-	tmp = minb(CHIPS_MMIO_MONO_STAT_1);
+	(void) minb(CHIPS_MMIO_MONO_STAT_1);
     else
-	tmp = minb(CHIPS_MMIO_COLOR_STAT_1);
+	(void) minb(CHIPS_MMIO_COLOR_STAT_1);
     moutb(CHIPS_MMIO_ATTR_INDEX, 0x20);
     hwp->paletteEnabled = FALSE;
 }

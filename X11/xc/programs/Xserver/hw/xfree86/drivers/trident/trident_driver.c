@@ -1,5 +1,5 @@
 /*
- * Copyright 1992-2000 by Alan Hourihane, Wigan, England.
+ * Copyright 1992-2003 by Alan Hourihane, North Wales, UK.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -28,7 +28,7 @@
  *	    Massimiliano Ghilardi, max@Linuz.sns.it, some fixes to the
  *				   clockchip programming code.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_driver.c,v 1.176 2003/02/11 03:41:38 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/trident/trident_driver.c,v 1.191 2004/01/21 22:51:19 alanh Exp $ */
 
 #include "xf1bpp.h"
 #include "xf4bpp.h"
@@ -64,9 +64,7 @@
 #define DPMS_SERVER
 #include "extensions/dpms.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
-#endif
 
 static const OptionInfoRec * TRIDENTAvailableOptions(int chipid, int busid);
 static void	TRIDENTIdentify(int flags);
@@ -81,8 +79,8 @@ static Bool	TRIDENTSaveScreen(ScreenPtr pScreen, int mode);
 
 /* Optional functions */
 static void	TRIDENTFreeScreen(int scrnIndex, int flags);
-static int	TRIDENTValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus TRIDENTValidMode(int scrnIndex, DisplayModePtr mode,
+				   Bool verbose, int flags);
 
 /* Internally used functions */
 static Bool	TRIDENTMapMem(ScrnInfoPtr pScrn);
@@ -168,6 +166,7 @@ static SymTabRec TRIDENTChipsets[] = {
     { CYBERBLADEAI1D,		"cyberbladeAi1d" },
     { BLADEXP,			"bladeXP" },
     { CYBERBLADEXPAI1,		"cyberbladeXPAi1" },
+    { CYBERBLADEXP4,		"cyberbladeXP4" },
     { -1,				NULL }
 };
 
@@ -210,6 +209,7 @@ static PciChipsets TRIDENTPciChipsets[] = {
     { CYBERBLADEAI1D,	PCI_CHIP_8620,	RES_SHARED_VGA },
     { BLADEXP,		PCI_CHIP_9910,	RES_SHARED_VGA },
     { CYBERBLADEXPAI1,	PCI_CHIP_8820,	RES_SHARED_VGA },
+    { CYBERBLADEXP4,	PCI_CHIP_2100,	RES_SHARED_VGA },
     { -1,		-1,		RES_UNDEFINED }
 };
     
@@ -235,7 +235,9 @@ typedef enum {
     OPTION_FP_DELAY,
     OPTION_1400_DISPLAY,
     OPTION_DISPLAY,
-    OPTION_GB
+    OPTION_GB,
+    OPTION_TV_CHIPSET,
+    OPTION_TV_SIGNALMODE
 } TRIDENTOpts;
 
 static const OptionInfoRec TRIDENTOptions[] = {
@@ -260,6 +262,8 @@ static const OptionInfoRec TRIDENTOptions[] = {
     { OPTION_1400_DISPLAY,	"Display1400",	OPTV_BOOLEAN,	{0}, FALSE },
     { OPTION_DISPLAY,		"Display",	OPTV_ANYSTR,	{0}, FALSE },
     { OPTION_GB,		"GammaBrightness",	OPTV_ANYSTR,	{0}, FALSE },
+    { OPTION_TV_CHIPSET,        "TVChipset",    OPTV_ANYSTR,    {0}, FALSE },
+    { OPTION_TV_SIGNALMODE,     "TVSignal",     OPTV_INTEGER,   {0}, FALSE },
     { -1,			NULL,		OPTV_NONE,	{0}, FALSE }
 };
 
@@ -458,7 +462,7 @@ tridentLCD LCD[] = {
     { 3,800,600,40000,0x7f,0x82,0x6b,0x1b,0x72,0xf8,0x58,0x8c,0x72,0x08},
     { 2,1024,768,65000,0xa3,/*0x6*/0x98,0x8f,0xa0,0x24,0xf5,0x0f,0x24,0x0a,0x08},
     { 0,1280,1024,108000,0xce,0x81,0xa6,0x9a,0x27,0x50,0x00,0x03,0x26,0xa8},
-    { 0xff,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+    { 0xff,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 #else
 tridentLCD LCD[] = { 
@@ -467,7 +471,7 @@ tridentLCD LCD[] = {
     { 2,1024,768,65000,0xa3,0x00,0x84,0x94,0x24,0xf5,0x03,0x09,0x24,0x08},
     { 0,1280,1024,108000,0xce,0x91,0xa6,0x14,0x28,0x5a,0x01,0x04,0x28,0xa8},
     { 4,1400,1050,122000,0xe6,0xcd,0xba,0x1d,0x38,0x00,0x1c,0x28,0x28,0xf8},
-    { 0xff,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+    { 0xff,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 };
 #endif
 #endif
@@ -476,10 +480,8 @@ static const char *xaaSymbols[] = {
     "XAACopyROP",
     "XAACreateInfoRec",
     "XAADestroyInfoRec",
-    "XAAFillSolidRects",
     "XAAInit",
     "XAAPatternROP",
-    "XAAScreenIndex",
     NULL
 };
 
@@ -501,11 +503,13 @@ static const char *vgahwSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *miscfbSymbols[] = {
     "xf1bppScreenInit",
     "xf4bppScreenInit",
     NULL
 };
+#endif
 
 static const char *fbSymbols[] = {
     "fbPictureInit",
@@ -1109,10 +1113,9 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
 
     /*
      * The first thing we should figure out is the depth, bpp, etc.
-     * Our default depth is 8, so pass it to the helper function.
      * Our preference for depth 24 is 24bpp, so tell it that too.
      */
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb |
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb |
 			    SupportConvert32to24 /*| PreferConvert32to24*/)) {
 	return FALSE;
     } else {
@@ -1446,10 +1449,29 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
 	    } else {
 	        xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "\"%s\" is not a valid"
 			   "value for Option \"Rotate\"\n", s);
-		xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
+		xf86DrvMsg(pScrn->scrnIndex, X_INFO,
 			   "Valid options are \"CW\" or \"CCW\"\n");
 	    }
 	}
+    }
+
+    pTrident->TVChipset = 0;
+    if ((s = xf86GetOptValString(pTrident->Options, OPTION_TV_CHIPSET))) {
+	if(!xf86NameCmp(s, "VT1621")) {
+	    pTrident->TVChipset = 1;
+	    xf86DrvMsg(pScrn->scrnIndex,X_CONFIG,"Using VIA VT1621 TV chip\n");
+	} else if (!xf86NameCmp(s, "CH7005")) {
+	    pTrident->TVChipset = 2;
+	    xf86DrvMsg(pScrn->scrnIndex,X_CONFIG,"Using Chrontel CH7005 TV chip\n");
+	} else 
+	    xf86DrvMsg(pScrn->scrnIndex,X_ERROR,
+		       "%s is an unknown TV chipset option\n",s);
+    }
+    /* Default : NTSC */
+    pTrident->TVSignalMode=0;
+    if (xf86GetOptValInteger(pTrident->Options, OPTION_TV_SIGNALMODE,
+						&pTrident->TVSignalMode)) {
+	ErrorF("TV SignalMode set to %d\n",pTrident->TVSignalMode);
     }
 
     /* FIXME ACCELERATION */
@@ -1491,7 +1513,7 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
     	}
 
     	xf86DrvMsg(pScrn->scrnIndex,X_PROBED,"IO registers at 0x%lX\n",
-							pTrident->IOAddress);
+		   (unsigned long)pTrident->IOAddress);
     }
 
     /* Register the PCI-assigned resources. */
@@ -1901,6 +1923,7 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
 	    chipset = "Blade3D";
 	    pTrident->NewClockCode = TRUE;
 	    pTrident->frequency = NTSC;
+	    pTrident->UsePCIRetry = TRUE; /* To avoid lockups */
 	    break;
 	case CYBERBLADEI7:
     	    pTrident->ddc1Read = Tridentddc1Read;
@@ -1994,6 +2017,18 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
 	    pTrident->NewClockCode = TRUE;
 	    pTrident->frequency = NTSC;
 	    break;
+	case CYBERBLADEXP4:
+    	    pTrident->ddc1Read = Tridentddc1Read;
+	    ramtype = "SGRAM";
+            pTrident->HasSGRAM = TRUE;
+	    pTrident->IsCyber = TRUE;
+	    pTrident->shadowNew = TRUE;
+	    pTrident->NoAccel = TRUE; /* for now */
+	    Support24bpp = TRUE;
+	    chipset = "CyberBladeXP4";
+	    pTrident->NewClockCode = TRUE;
+	    pTrident->frequency = NTSC;
+	    break;
     }
 
     if (!pScrn->progClock) {
@@ -2038,12 +2073,6 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
     if (pTrident->pEnt->device->videoRam != 0) {
 	pScrn->videoRam = pTrident->pEnt->device->videoRam;
 	from = X_CONFIG;
-
-	/* Due to only 12bits of cursor location, if user has overriden
-	 * disable the cursor automatically */
-	if (pTrident->Chipset >= CYBER9397 && pTrident->Chipset < CYBERBLADEE4)
-		if (pTrident->pEnt->device->videoRam > 4096)
-			pTrident->HWCursor = FALSE;
     } else {
       if (pTrident->Chipset == CYBER9525DVD) {
 	pScrn->videoRam = 2560;
@@ -2066,19 +2095,7 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
   	    pScrn->videoRam = 1024;
   	    break;
 	case 0x04: 
-	    /* 
-	     * 8MB, but - hw cursor can't store above 4MB
-	     * This only affects Image series chipsets, but for
-	     * some reason, reports suggest that the 9397DVD isn't
-	     * affected. XXX needs furthur investigation !
-	     */
-	    if (pTrident->HWCursor && (pTrident->Chipset != CYBER9397DVD) &&
-	      			    (pTrident->Chipset < CYBERBLADEE4)) {
-	    	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, 
-		       "Found 8MB board, using 4MB\n");
-	    	pScrn->videoRam = 4096;
-	    } else
-	    	pScrn->videoRam = 8192;
+	    pScrn->videoRam = 8192;
 	    break;
  	case 0x06: /* XP */
  	    pScrn->videoRam = 10240;
@@ -2118,8 +2135,7 @@ TRIDENTPreInit(ScrnInfoPtr pScrn, int flags)
 	default:
 	    pScrn->videoRam = 1024;
 	    xf86DrvMsg(pScrn->scrnIndex, from, 
-			"Unable to determine VideoRam, defaulting to 1MB\n",
-				pScrn->videoRam);
+			"Unable to determine VideoRam, defaulting to 1MB\n");
 	    break;
 	}
       }
@@ -2569,6 +2585,9 @@ TRIDENTSave(ScrnInfoPtr pScrn)
     	TridentSave(pScrn, tridentReg);
     else
     	TVGASave(pScrn, tridentReg);
+
+    if (pTrident->TVChipset != 0)
+       VIA_SaveTVDepentVGAReg(pScrn);
 }
 
 
@@ -2585,11 +2604,10 @@ TRIDENTModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
     vgaRegPtr vgaReg;
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
     TRIDENTRegPtr tridentReg;
-    int clock;
+
+    WAITFORVSYNC;
 
     TridentFindClock(pScrn,mode->Clock);
-
-    clock = pTrident->currentClock;
 
     switch (pTrident->Chipset) {
 	case TGUI9660:
@@ -2612,6 +2630,7 @@ TRIDENTModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	case CYBER9397DVD:
 	case BLADEXP:
 	case CYBERBLADEXPAI1:
+	case CYBERBLADEXP4:
 	    /* Get ready for MUX mode */
 	    if (pTrident->MUX && 
 		pScrn->bitsPerPixel == 8 && 
@@ -2678,6 +2697,9 @@ TRIDENTModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
     if (xf86IsPc98())
 	PC98TRIDENTEnable(pScrn);
 
+    if (pTrident->TVChipset != 0)
+       VIA_TVInit(pScrn);
+	
     return TRUE;
 }
 
@@ -2707,6 +2729,9 @@ TRIDENTRestore(ScrnInfoPtr pScrn)
     vgaHWRestore(pScrn, vgaReg, VGA_SR_MODE | VGA_SR_CMAP |
 				(IsPrimaryCard ? VGA_SR_FONTS : 0));
 
+    if (pTrident->TVChipset != 0)
+       VIA_RestoreTVDependVGAReg(pScrn);
+
     vgaHWProtect(pScrn, FALSE);
 }
 
@@ -2721,7 +2746,6 @@ TRIDENTScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     /* The vgaHW references will disappear one day */
     ScrnInfoPtr pScrn;
     vgaHWPtr hwp;
-    int vgaIOBase;
     TRIDENTPtr pTrident;
     int ret;
     VisualPtr visual;
@@ -2767,8 +2791,6 @@ TRIDENTScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     	/* Initialize the MMIO vgahw functions */
     	vgaHWSetMmioFuncs(hwp, pTrident->IOBase, 0);
     }
-
-    vgaIOBase = VGAHWPTR(pScrn)->IOBase;
 
     /* Save the current state */
     TRIDENTSave(pScrn);
@@ -2946,6 +2968,33 @@ TRIDENTScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	}
     }
 
+    {
+    	BoxRec AvailFBArea;
+
+	AvailFBArea.x1 = 0;
+    	AvailFBArea.y1 = 0;
+    	AvailFBArea.x2 = pScrn->displayWidth;
+    	AvailFBArea.y2 = pTrident->FbMapSize / (pScrn->displayWidth *
+					    pScrn->bitsPerPixel / 8);
+
+    	if (AvailFBArea.y2 > 2047) AvailFBArea.y2 = 2047; 
+
+    	if (xf86InitFBManager(pScreen, &AvailFBArea)) {
+	    int cpp = pScrn->bitsPerPixel / 8;
+	    int area = AvailFBArea.y2 * pScrn->displayWidth;
+	    int areaoffset = area * cpp;
+
+    	    xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
+	       "Using %i scanlines of offscreen memory for area's \n",
+ 	       AvailFBArea.y2 - pScrn->virtualY);
+
+	    if (xf86InitFBManagerLinear(pScreen, area, ((pTrident->FbMapSize/cpp) - area))) {
+		xf86DrvMsg(scrnIndex, X_INFO, 
+			"Using %ld bytes of offscreen memory for linear (offset=0x%x)\n", (pTrident->FbMapSize - areaoffset), areaoffset);
+	    }
+    	}
+    }
+
     if (Is3Dchip) {
 	if ((pTrident->Chipset == CYBERBLADEI7) ||
 	    (pTrident->Chipset == CYBERBLADEI7D) ||
@@ -3018,10 +3067,8 @@ TRIDENTScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     pScrn->memPhysBase = pTrident->FbAddress;
     pScrn->fbOffset = 0;
 
-#ifdef XvExtension
     if (pTrident->Chipset >= TGUI9660)
 	TRIDENTInitVideo(pScreen);
-#endif
 
     pTrident->CloseScreen = pScreen->CloseScreen;
     pScreen->CloseScreen = TRIDENTCloseScreen;
@@ -3059,12 +3106,10 @@ TRIDENTAdjustFrame(int scrnIndex, int x, int y, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
     TRIDENTPtr pTrident;
-    vgaHWPtr hwp;
     int base = y * pScrn->displayWidth + x;
     int vgaIOBase;
     CARD8 temp;
 
-    hwp = VGAHWPTR(pScrn);
     pTrident = TRIDENTPTR(pScrn);
     vgaIOBase = VGAHWPTR(pScrn)->IOBase;
 
@@ -3140,6 +3185,9 @@ TRIDENTLeaveVT(int scrnIndex, int flags)
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
     vgaHWPtr hwp = VGAHWPTR(pScrn);
 
+    if (!pTrident->NoAccel)
+	pTrident->AccelInfoRec->Sync(pScrn);
+
     TRIDENTRestore(pScrn);
     vgaHWLock(hwp);
 
@@ -3163,6 +3211,9 @@ TRIDENTCloseScreen(int scrnIndex, ScreenPtr pScreen)
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     TRIDENTPtr pTrident = TRIDENTPTR(pScrn);
 
+    if (!pTrident->NoAccel)
+	pTrident->AccelInfoRec->Sync(pScrn);
+	
     if (xf86IsPc98())
 	PC98TRIDENTDisable(pScrn);
 
@@ -3209,7 +3260,7 @@ TRIDENTFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 TRIDENTValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];

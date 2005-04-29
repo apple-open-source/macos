@@ -1,24 +1,24 @@
 /* Definitions for Intel 386 running FreeBSD with ELF format
-   Copyright (C) 1996, 2000, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 2000, 2002, 2004 Free Software Foundation, Inc.
    Contributed by Eric Youngdale.
    Modified for stabs-in-ELF by H.J. Lu.
    Adapted from GNU/Linux version by John Polstra.
    Continued development by David O'Brien <obrien@freebsd.org>
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -26,40 +26,41 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (i386 FreeBSD/ELF)");
 
 /* Override the default comment-starter of "/".  */
-#undef ASM_COMMENT_START
+#undef  ASM_COMMENT_START
 #define ASM_COMMENT_START "#"
 
-#undef ASM_APP_ON
+#undef  ASM_APP_ON
 #define ASM_APP_ON "#APP\n"
 
-#undef ASM_APP_OFF
+#undef  ASM_APP_OFF
 #define ASM_APP_OFF "#NO_APP\n"
 
-#undef SET_ASM_OP
-#define SET_ASM_OP	"\t.set\t"
-
-#undef DBX_REGISTER_NUMBER
+#undef  DBX_REGISTER_NUMBER
 #define DBX_REGISTER_NUMBER(n) \
   (TARGET_64BIT ? dbx64_register_map[n] : svr4_dbx_register_map[n])
 
 #undef  NO_PROFILE_COUNTERS
-#define NO_PROFILE_COUNTERS
+#define NO_PROFILE_COUNTERS	1
 
 /* Tell final.c that we don't need a label passed to mcount.  */
 
-#undef MCOUNT_NAME
+#undef  MCOUNT_NAME
 #define MCOUNT_NAME ".mcount"
 
 /* Make gcc agree with <machine/ansi.h>.  */
 
-#undef SIZE_TYPE
-#define SIZE_TYPE "unsigned int"
+#undef  SIZE_TYPE
+#define SIZE_TYPE	(TARGET_64BIT ? "long unsigned int" : "unsigned int")
  
-#undef PTRDIFF_TYPE
-#define PTRDIFF_TYPE "int"
+#undef  PTRDIFF_TYPE
+#define PTRDIFF_TYPE	(TARGET_64BIT ? "long int" : "int")
   
-#undef WCHAR_TYPE_SIZE
-#define WCHAR_TYPE_SIZE BITS_PER_WORD
+#undef  WCHAR_TYPE_SIZE
+#define WCHAR_TYPE_SIZE	(TARGET_64BIT ? 32 : BITS_PER_WORD)
+
+#undef  SUBTARGET_EXTRA_SPECS	/* i386.h bogusly defines it.  */
+#define SUBTARGET_EXTRA_SPECS \
+  { "fbsd_dynamic_linker", FBSD_DYNAMIC_LINKER }
     
 /* Provide a STARTFILE_SPEC appropriate for FreeBSD.  Here we add
    the magical crtbegin.o file (see crtstuff.c) which provides part 
@@ -100,6 +101,7 @@ Boston, MA 02111-1307, USA.  */
 
 #undef	LINK_SPEC
 #define LINK_SPEC "\
+  %{p:%nconsider using `-pg' instead of `-p' with gprof(1)} \
   %{Wl,*:%*} \
   %{v:-V} \
   %{assert*} %{R*} %{rpath*} %{defsym*} \
@@ -107,7 +109,7 @@ Boston, MA 02111-1307, USA.  */
     %{!shared: \
       %{!static: \
         %{rdynamic:-export-dynamic} \
-	%{!dynamic-linker:-dynamic-linker /usr/libexec/ld-elf.so.1}} \
+        %{!dynamic-linker:-dynamic-linker %(fbsd_dynamic_linker) }} \
     %{static:-Bstatic}} \
   %{symbolic:-Bsymbolic}"
 
@@ -118,6 +120,7 @@ Boston, MA 02111-1307, USA.  */
    This is used to align code labels according to Intel recommendations.  */
 
 #ifdef HAVE_GAS_MAX_SKIP_P2ALIGN
+#undef  ASM_OUTPUT_MAX_SKIP_ALIGN
 #define ASM_OUTPUT_MAX_SKIP_ALIGN(FILE, LOG, MAX_SKIP)					\
   if ((LOG) != 0) {														\
     if ((MAX_SKIP) == 0) fprintf ((FILE), "\t.p2align %d\n", (LOG));	\
@@ -132,3 +135,13 @@ Boston, MA 02111-1307, USA.  */
 
 #undef  DEFAULT_PCC_STRUCT_RETURN
 #define DEFAULT_PCC_STRUCT_RETURN 0
+
+/* FreeBSD sets the rounding precision of the FPU to 53 bits.  Let the
+   compiler get the contents of <float.h> and std::numeric_limits correct.  */
+#define SUBTARGET_OVERRIDE_OPTIONS			\
+  do {							\
+    if (!TARGET_64BIT) {				\
+      REAL_MODE_FORMAT (XFmode)				\
+	= &ieee_extended_intel_96_round_53_format;	\
+    }							\
+  } while (0)

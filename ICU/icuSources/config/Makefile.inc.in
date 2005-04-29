@@ -1,8 +1,7 @@
 ## -*-makefile-*-
 #******************************************************************************
-#   Copyright (C) 1999-2003, International Business Machines
+#   Copyright (C) 1999-2004, International Business Machines
 #   Corporation and others.  All Rights Reserved.
-# $Revision: 1.1.1.2 $
 #******************************************************************************
 # This Makefile.inc is designed to be included into projects which make use
 # of the ICU.
@@ -43,6 +42,11 @@ ICUPREFIX = icu
 PACKAGE = @PACKAGE@
 LIBICU = lib$(ICUPREFIX)
 
+# Static library prefix and file extension
+STATIC_PREFIX = s
+LIBSICU = lib$(STATIC_PREFIX)$(ICUPREFIX)
+A = a
+
 # Suffix at the end of libraries. Usually empty.
 ICULIBSUFFIX = @ICULIBSUFFIX@
 # ICULIBSUFFIX_VERSION  is non-empty if it is to contain a library
@@ -82,14 +86,14 @@ endif
 # 3. optionally, add one or more of:
 #    - $(ICULIBS_I18N)    - i18n library, formatting, etc.
 #    - $(ICULIBS_LAYOUT)  - ICU layout library. 
-#    - $(ICULIBS_USTDIO)  - ICU stdio equivalent library
+#    - $(ICULIBS_ICUIO)   - ICU stdio equivalent library
 
 ICULIBS_COMMON = -l$(ICUPREFIX)uc$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_DATA   = -l$(ICUPREFIX)data$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_I18N   = -l$(ICUPREFIX)i18n$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
-ICULIBS_TOOLUTIL = -l$(ICUPREFIX)toolutil$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
+ICULIBS_TOOLUTIL = -l$(ICUPREFIX)tu$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_CTESTFW = -l$(ICUPREFIX)ctestfw$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
-ICULIBS_USTDIO = -licuio$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
+ICULIBS_ICUIO = -l$(ICUPREFIX)io$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_OBSOLETE = -l$(ICUPREFIX)obsolete$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_LAYOUT = -l$(ICUPREFIX)le$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
 ICULIBS_LAYOUTEX = -l$(ICUPREFIX)lx$(ICULIBSUFFIX)$(ICULIBSUFFIX_VERSION)
@@ -111,6 +115,10 @@ ICULIBS = $(ICULIBS_BASE) $(ICULIBS_I18N) $(ICULIBS_COMMON) $(ICULIBS_DATA)
 # Environment variable to set a runtime search path
 #   (Overridden when necessary in -mh files)
 LDLIBRARYPATH_ENVVAR = LD_LIBRARY_PATH
+
+# Versioned target for a shared library
+FINAL_SO_TARGET = $(SO_TARGET).$(SO_TARGET_VERSION)
+MIDDLE_SO_TARGET = $(SO_TARGET).$(SO_TARGET_VERSION_MAJOR)
 
 # Access to important ICU tools.
 # Use as follows:  $(INVOKE) $(GENRB) arguments .. 
@@ -201,21 +209,35 @@ ICUDATA_NAME = icudt@LIB_VERSION_MAJOR@@ICUDATA_CHAR@
 # The default data dir changes depending on what packaging mode 
 # is being used
 ifeq ($(strip $(PKGDATA_MODE)),)
+#SH# if [ "x$PKGDATA_MODE" = "x" ];
+#SH# then
 PKGDATA_MODE=@DATA_PACKAGING_MODE@
+#SH# fi
 endif
+
+#SH# case "$PKGDATA_MODE" in
 ifeq ($(PKGDATA_MODE),common)
+#SH# common)
 ICUDATA_DIR = $(pkgdatadir)
 ICUPKGDATA_DIR = $(ICUDATA_DIR)
+#SH# ;;
 else
 ifeq ($(PKGDATA_MODE),dll)
+#SH# dll)
 ICUDATA_DIR = $(pkgdatadir)
 ICUPKGDATA_DIR = $(libdir)
+#SH# ;;
 else
-ICUDATA_DIR = $(pkglibdir)
+#SH# *)
+ICUDATA_DIR = $(pkgdatadir)
 ICUPKGDATA_DIR = $(ICUDATA_DIR)
+#SH# ;;
 endif
 endif
 
+#SH# esac
+
+GENCCODE_ASSEMBLY = @GENCCODE_ASSEMBLY@
 
 ##################################################################
 ##################################################################

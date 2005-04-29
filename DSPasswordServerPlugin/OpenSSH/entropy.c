@@ -76,7 +76,7 @@ void pwsf_verbose(const char *fmt,...)
 }
 
 
-//RCSID("$Id: entropy.c,v 1.2.14.1 2004/02/27 21:51:51 snsimon Exp $");
+//RCSID("$Id: entropy.c,v 1.5 2004/03/03 00:34:39 snsimon Exp $");
 
 #ifndef offsetof
 # define offsetof(type, member) ((size_t) &((type *)0)->member)

@@ -1,7 +1,7 @@
 ## Process this file with automake to create Makefile.in.
 
 ## Makefile for Autoconf.
-## Copyright (C) 2000, 2001, 2002  Free Software Foundation, Inc.
+## Copyright (C) 2000, 2001, 2002, 2003  Free Software Foundation, Inc.
 
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@
 ## 02111-1307, USA.
 
 AM_MAKEINFOFLAGS = --no-split
+TEXI2DVI = texi2dvi --batch
 TEXI2HTML = texi2html
 TEXI2HTML_FLAGS = -split_chapter
 
@@ -28,9 +29,9 @@ standards_TEXINFOS = make-stds.texi
 
 # Files from texi2dvi that should be removed, but which Automake does
 # not know.
-CLEANFILES = autoconf.acs  autoconf.cvs  autoconf.mss  autoconf.prs \
-	     autoconf.ats  autoconf.evs  autoconf.fns  autoconf.ovs \
-             autoconf.tmp \
+CLEANFILES = autoconf.ACs  autoconf.cvs  autoconf.MSs  autoconf.prs \
+	     autoconf.ATs  autoconf.evs  autoconf.fns  autoconf.ovs \
+	     autoconf.tmp \
 	     autoconf*.html standards*.html
 
 

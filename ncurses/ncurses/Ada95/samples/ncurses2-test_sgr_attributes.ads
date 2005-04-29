@@ -35,7 +35,7 @@
 ------------------------------------------------------------------------------
 --  Author: Eugene V. Melaragno <aldomel@ix.netcom.com> 2000
 --  Version Control
---  $Revision: 1.1.1.1 $
+--  $Revision: 1.1 $
 --  Binding Version 01.00
 ------------------------------------------------------------------------------
 procedure ncurses2.test_sgr_attributes;

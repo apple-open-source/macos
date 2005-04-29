@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: cyrusdb_berkeley.c,v 1.9 2004/11/17 15:41:31 shadow Exp $ */
+/* $Id: cyrusdb_berkeley.c,v 1.5 2005/03/18 02:36:56 dasenbro Exp $ */
 
 #include <config.h>
 

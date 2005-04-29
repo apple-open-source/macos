@@ -71,7 +71,7 @@ long	lineftell;		/* ftell after getc( inf ) == '\n' */
 
 int	lineno;			/* line number of current line */
 int	dflag;			/* -d: non-macro defines */
-int	tflag;			/* -t: create tags for typedefs */
+int	tflag=1;		/* -t: create tags for typedefs */
 int	vflag;			/* -v: vgrind style index output */
 int	wflag;			/* -w: suppress warnings */
 int	xflag;			/* -x: cxref style output */
@@ -117,6 +117,9 @@ main(argc, argv)
 			break;
 		case 't':
 			tflag++;
+			break;
+		case 'T':
+			tflag--;
 			break;
 		case 'u':
 			uflag++;
@@ -169,7 +172,7 @@ usage:		(void)fprintf(stderr,
 				++aflag;
 			}
 			if (!(outf = fopen(outfile, aflag ? "a" : "w")))
-				err(exit_val, "%s", outfile);
+				err(exit_val ? exit_val : 1, "%s", outfile);
 			put_entries(head);
 			(void)fclose(outf);
 			if (uflag) {

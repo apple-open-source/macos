@@ -1,0 +1,30 @@
+--- src/cmd/ksh93/sh.1.orig	2004-08-17 13:00:46.000000000 -0700
++++ src/cmd/ksh93/sh.1	2004-08-17 13:21:25.000000000 -0700
+@@ -4,7 +4,7 @@
+ .\"
+ .\" @(#)sh.1 (research!dgk) 12/28/93
+ .\"
+-.nr Z 0 \" set to 1 when command name is ksh rather than sh
++.nr Z 1 \" set to 1 when command name is ksh rather than sh
+ .nr Y 0 \" set to 1 for R&D UNIX
+ .if \nY=1 .nr Z 1
+ .ds OK [\|
+@@ -12,11 +12,17 @@
+ .ds ' \s+4\v@.3m@\'\v@-.3m@\s-4
+ .ds ` \s+4\v@.3m@\`\v@-.3m@\s-4
+ .if \nZ=0 .TH SH 1
+-.if \nZ=1 .TH KSH 1 "User Environment Utilities" "RDS Standard"
++.if \nZ=1 .TH KSH 1
+ .SH NAME
+ .if \nZ=0 sh, rsh, pfsh \- shell, the
+ .if \nZ=1 ksh, rksh, pfksh \- KornShell, a
+ standard/restricted command and programming language
++.SH NOTE
++Currently,
++.I rksh
++and
++.I pfksh
++are not available on Mac OS X / Darwin.
+ .SH SYNOPSIS
+ .if \nZ=0 .B sh
+ .if \nZ=1 .B ksh

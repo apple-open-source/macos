@@ -52,7 +52,9 @@ int InitializeTCPListener( SAState* psa )
 	
 	if ( !gTCPL )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "creating a new TCP listener" );
+#endif
         gTCPL = new SLPTCPListener( psa, &status );
         
         if ( !gTCPL )
@@ -97,7 +99,9 @@ SLPTCPListener::SLPTCPListener( SAState* psa, OSStatus *status )
 SLPTCPListener::~SLPTCPListener()
 {
 	mSelfPtr = NULL;
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "TCP listener has been killed" );
+#endif
 }
 
 void SLPTCPListener::Cancel( void )
@@ -107,13 +111,15 @@ void SLPTCPListener::Cancel( void )
 
 void* SLPTCPListener::Run()
 {
-	int					iSinInSz = sizeof(struct sockaddr_in);
+	socklen_t			iSinInSz = sizeof(struct sockaddr_in);
     struct sockaddr_in	sinIn;
     OSStatus			status;
     
     gTCPLRunning = 1;
     /* block on receive */
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "TCP listener is running" );
+#endif
 
     while (!mCanceled)
     {
@@ -125,13 +131,16 @@ void* SLPTCPListener::Run()
         }
         else if ( sdRqst == SOCKET_ERROR || sdRqst < 0 ) 
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG(SLP_LOG_MSG, "SLPTCPListener accept: %s", strerror(errno));
+#endif
             SmartSleep(1*USEC_PER_SEC);
         } 
         else
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_MSG, "SLPTCPListener recvfrom, accepted a connction from: %s", inet_ntoa(sinIn.sin_addr));
-            
+#endif            
             TCPHandlerThread*	newTCPConnection = new TCPHandlerThread(&status);
             
             if ( newTCPConnection )

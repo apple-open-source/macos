@@ -2,8 +2,7 @@
    Note, gcc should omit these warnings in system header files.
    By Kaveh R. Ghazi <ghazi@caip.rutgers.edu> 4/09/2001.  */
 /* { dg-do compile } */
-/* APPLE LOCAL -Wlong-double */
-/* { dg-options "-Wtraditional -Wno-long-double" } */
+/* { dg-options "-Wtraditional" } */
 
 extern void foo_i (int);
 extern void foo_f (float);
@@ -24,8 +23,8 @@ testfunc1 ()
   foo_i (cd); /* { dg-warning "as integer rather than complex" "prototype conversion warning" } */
 
   foo_f (i); /* { dg-warning "as floating rather than integer" "prototype conversion warning" } */
-  foo_f (f); /* { dg-warning "as `float' rather than `double'" "prototype conversion warning" } */
-  foo_f (ld); /* { dg-warning "as `float' rather than `double'" "prototype conversion warning" } */
+  foo_f (f); /* { dg-warning "as 'float' rather than 'double'" "prototype conversion warning" } */
+  foo_f (ld); /* { dg-warning "as 'float' rather than 'double'" "prototype conversion warning" } */
   foo_f (cd); /* { dg-warning "as floating rather than complex" "prototype conversion warning" } */
 
   foo_ld (i); /* { dg-warning "as floating rather than integer" "prototype conversion warning" } */

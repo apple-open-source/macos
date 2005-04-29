@@ -4,7 +4,14 @@
 
                                 3 March 2000
 
-1.  Supported Hardware
+1.  Introduction
+
+This document provides a brief summary of the i810/i815 support provided by
+the i810 driver.  Support for later chipsets is not covered here.  More up to
+date information about the i810 driver can be found in the i810(4) manual
+page.
+
+2.  Supported Hardware
 
    o Intel 810 motherboards:
 
@@ -16,7 +23,7 @@
 
         o i815
 
-2.  Features
+3.  Features
 
    o Full support for 8, 15, 16, and 24 bit pixel depths.
 
@@ -31,7 +38,7 @@
 
    o Robust text mode restore for VT switching.
 
-3.  Technical Notes
+4.  Technical Notes
 
    o Hardware acceleration is not possible when using the framebuffer in 32
      bit per pixel format, and this mode is not supported by this driver.
@@ -42,7 +49,7 @@
      FreeBSD.  It requires the agpgart kernel support, which is included in
      Linux kernels 2.3.42 and higher, and FreeBSD 4.1 and higher.
 
-4.  Reported Working Video Cards
+5.  Reported Working Video Cards
 
    o Intel evaluation hardware - i810, i810-dc100, i810e and i815.
 
@@ -50,7 +57,7 @@
 
    o HappyPC set-top box.
 
-5.  Configuration
+6.  Configuration
 
 The driver auto-detects all device information necessary to initialize the
 card.  The only lines you need in the "Device" section of your XF86Config
@@ -80,7 +87,7 @@ video memory.  This memory is has reduced bandwidth compared to normal system
 memory, and isn't used by the server.  The main function of this memory is
 for ancillary buffers (eg. z buffer) in a forthcoming 3d capable server.
 
-6.  Driver Options
+7.  Driver Options
 
    o "NoAccel"  - Turn off hardware acceleration
 
@@ -88,13 +95,13 @@ for ancillary buffers (eg. z buffer) in a forthcoming 3d capable server.
 
    o "Dac6Bit"  - Force the use of a 6 Bit Dac (8 Bit is the default)
 
-7.  Known Limitations
+8.  Known Limitations
 
    o No 3D support in this release.
 
    o Running two X servers on different VTs is not supported at this time.
 
-8.  Author
+9.  Author
 
    o Keith Whitwell
 
@@ -106,7 +113,7 @@ This driver was donated to The XFree86 Project by:
 
 http://www.precisioninsight.com
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/i810.sgml,v 1.3 2001/04/04 01:34:18 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/i810.sgml,v 1.4 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.i810,v 1.9 2001/11/15 17:37:23 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.i810,v 1.11 2003/07/29 20:59:05 dawes Exp $

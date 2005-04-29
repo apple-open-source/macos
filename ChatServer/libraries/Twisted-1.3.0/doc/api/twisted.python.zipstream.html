@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.python.zipstream</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.python.html">Package&nbsp;python</a> ::
+        Module&nbsp;zipstream
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.python.zipstream.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.python.zipstream</h2>
+
+An extremely asynch approach to unzipping files. This allows you to 
+unzip a little bit of a file at a time, which means it can integrate 
+nicely with a reactor.
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.zipstream.ChunkingZipFile.html"><code>ChunkingZipFile</code></a></b></td>
+  <td>A ZipFile object which, with readfile(), also gives you access to a 
+filelike object for each entry.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.zipstream.DeflatedZipFileEntry.html"><code>DeflatedZipFileEntry</code></a></b></td>
+  <td>File-like object used to read a deflated entry in a ZipFile</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.zipstream.ZipFileEntry.html"><code>ZipFileEntry</code></a></b></td>
+  <td>File-like object used to read an uncompressed entry in a ZipFile</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="countFileChunks"></a><span class="summary-sig"><span class="summary-sig-name">countFileChunks</span>(<span class=summary-sig-arg>zipinfo</span>,
+          <span class=summary-sig-arg>chunksize</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.zipstream.html#countZipFileChunks" class="summary-sig-name"><code>countZipFileChunks</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>chunksize</span>)</span></code>
+<br />
+Predict the number of chunks that will be extracted from the entire 
+zipfile, given chunksize blocks.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="countZipFileEntries"></a><span class="summary-sig"><span class="summary-sig-name">countZipFileEntries</span>(<span class=summary-sig-arg>filename</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.zipstream.html#unzip" class="summary-sig-name"><code>unzip</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>directory</span>,
+          <span class=summary-sig-arg>overwrite</span>)</span></code>
+<br />
+Unzip the file</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.zipstream.html#unzipIter" class="summary-sig-name"><code>unzipIter</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>directory</span>,
+          <span class=summary-sig-arg>overwrite</span>)</span></code>
+<br />
+Return a generator for the zipfile.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.zipstream.html#unzipIterChunky" class="summary-sig-name"><code>unzipIterChunky</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>directory</span>,
+          <span class=summary-sig-arg>overwrite</span>,
+          <span class=summary-sig-arg>chunksize</span>)</span></code>
+<br />
+Return a generator for the zipfile.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.python.zipstream.html#DIR_BIT"><code>DIR_BIT</code></a></b> = <span title="16">16&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="countZipFileChunks"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">countZipFileChunks</span>(<span class=sig-arg>filename</span>,
+          <span class=sig-arg>chunksize</span>)</span>
+  </h3>
+  Predict the number of chunks that will be extracted from the entire 
+  zipfile, given chunksize blocks.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unzip"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unzip</span>(<span class=sig-arg>filename</span>,
+          <span class=sig-arg>directory</span>=<span class=sig-default>'.'</span>,
+          <span class=sig-arg>overwrite</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Unzip the file
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>filename</b></code> -
+         the name of the zip file
+      <dd><code><b>directory</b></code> -
+         the directory into which the files will be extracted
+      <dd><code><b>overwrite</b></code> -
+         if on, overwrite files when they exist. You can still get an 
+        error if you try to create a directory over a file with the same 
+        name or vice-versa.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unzipIter"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unzipIter</span>(<span class=sig-arg>filename</span>,
+          <span class=sig-arg>directory</span>=<span class=sig-default>'.'</span>,
+          <span class=sig-arg>overwrite</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Return a generator for the zipfile. This implementation will yield 
+  after every file.</p>
+  The value it yields is the number of files left to unzip.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unzipIterChunky"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unzipIterChunky</span>(<span class=sig-arg>filename</span>,
+          <span class=sig-arg>directory</span>=<span class=sig-default>'.'</span>,
+          <span class=sig-arg>overwrite</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>chunksize</span>=<span class=sig-default>4096</span>)</span>
+  </h3>
+  <p>Return a generator for the zipfile. This implementation will yield 
+  after every chunksize uncompressed bytes, or at the end of a file, 
+  whichever comes first.</p>
+  The value it yields is the number of chunks left to unzip.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="DIR_BIT"></a>
+<h3>DIR_BIT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="16">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+16&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:05 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

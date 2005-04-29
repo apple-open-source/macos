@@ -4,7 +4,7 @@
 .\"
 .\"
 .\" Copyright (c) 1996  Joe Moss, The XFree86 Project
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/XF86VM.man,v 3.12 2002/12/22 00:46:54 dawes Exp $
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/XF86VM.man,v 3.15 2003/11/23 05:40:36 dawes Exp $
 .\" 
 .de ZN
 .ie t \fB\^\\$1\^\fR\\$2
@@ -184,66 +184,66 @@ Returns the current Y location of the viewport.
 .ta 2.25i 3.5i
 \fIVideo Mode Settings:\fP
 typedef struct {
-    unsigned short	hdisplay;	/* Number of display pixels horizontally */
-    unsigned short	hsyncstart;	/* Horizontal sync start */
-    unsigned short	hsyncend;	/* Horizontal sync end */
-    unsigned short	htotal;	/* Total horizontal pixels */
-    unsigned short	vdisplay;	/* Number of display pixels vertically */
-    unsigned short	vsyncstart;	/* Vertical sync start */
-    unsigned short	vsyncend;	/* Vertical sync start */
-    unsigned short	vtotal;	/* Total vertical pixels */
-    unsigned int	flags;	/* Mode flags */
-    int	privsize;	/* Size of private */
-    INT32	*private;	/* Server privates */
+    unsigned short	hdisplay;	/\(** Number of display pixels horizontally */
+    unsigned short	hsyncstart;	/\(** Horizontal sync start */
+    unsigned short	hsyncend;	/\(** Horizontal sync end */
+    unsigned short	htotal;	/\(** Total horizontal pixels */
+    unsigned short	vdisplay;	/\(** Number of display pixels vertically */
+    unsigned short	vsyncstart;	/\(** Vertical sync start */
+    unsigned short	vsyncend;	/\(** Vertical sync start */
+    unsigned short	vtotal;	/\(** Total vertical pixels */
+    unsigned int	flags;	/\(** Mode flags */
+    int	privsize;	/\(** Size of private */
+    INT32	*private;	/\(** Server privates */
 } XF86VidModeModeLine;
 .sp
 typedef struct {
-    unsigned int	dotclock;	/* Pixel clock */
-    unsigned short	hdisplay;	/* Number of display pixels horizontally */
-    unsigned short	hsyncstart;	/* Horizontal sync start */
-    unsigned short	hsyncend;	/* Horizontal sync end */
-    unsigned short	htotal;	/* Total horizontal pixels */
-    unsigned short	vdisplay;	/* Number of display pixels vertically */
-    unsigned short	vsyncstart;	/* Vertical sync start */
-    unsigned short	vsyncend;	/* Vertical sync start */
-    unsigned short	vtotal;	/* Total vertical pixels */
-    unsigned int	flags;	/* Mode flags */
-    int	privsize;	/* Size of private */
-    INT32	*private;	/* Server privates */
+    unsigned int	dotclock;	/\(** Pixel clock */
+    unsigned short	hdisplay;	/\(** Number of display pixels horizontally */
+    unsigned short	hsyncstart;	/\(** Horizontal sync start */
+    unsigned short	hsyncend;	/\(** Horizontal sync end */
+    unsigned short	htotal;	/\(** Total horizontal pixels */
+    unsigned short	vdisplay;	/\(** Number of display pixels vertically */
+    unsigned short	vsyncstart;	/\(** Vertical sync start */
+    unsigned short	vsyncend;	/\(** Vertical sync start */
+    unsigned short	vtotal;	/\(** Total vertical pixels */
+    unsigned int	flags;	/\(** Mode flags */
+    int	privsize;	/\(** Size of private */
+    INT32	*private;	/\(** Server privates */
 } XF86VidModeModeInfo;
 .LP
 \fIMonitor information:\fP
 typedef struct {
-    char*	vendor;	/* Name of manufacturer */
-    char*	model;	/* Model name */
-    float	bandwidth;	/* Monitor bandwidth */
-    unsigned char	nhsync;	/* Number of horiz sync ranges */
-    XF86VidModeSyncRange*	hsync;	/* Horizontal sync ranges */
-    unsigned char	nvsync;	/* Number of vert sync ranges */
-    XF86VidModeSyncRange*	vsync;	/* Vertical sync ranges */
+    char*	vendor;	/\(** Name of manufacturer */
+    char*	model;	/\(** Model name */
+    float	EMPTY;	/\(** unused, for backward compatibility */
+    unsigned char	nhsync;	/\(** Number of horiz sync ranges */
+    XF86VidModeSyncRange*	hsync;	/\(** Horizontal sync ranges */
+    unsigned char	nvsync;	/\(** Number of vert sync ranges */
+    XF86VidModeSyncRange*	vsync;	/\(** Vertical sync ranges */
 } XF86VidModeMonitor;
 .sp
 typedef struct {
-    float	hi;	/* Top of range */
-    float	lo;	/* Bottom of range */
+    float	hi;	/\(** Top of range */
+    float	lo;	/\(** Bottom of range */
 } XF86VidModeSyncRange;
 .LP
 typedef struct {
-    int type;			/* of event */
-    unsigned long serial;	/* # of last request processed by server */
-    Bool send_event;		/* true if this came from a SendEvent req */
-    Display *display;		/* Display the event was read from */
-    Window root;		/* root window of event screen */
-    int state;			/* What happened */
-    int kind;			/* What happened */
-    Bool forced;		/* extents of new region */
-    Time time;			/* event timestamp */
+    int type;			/\(** of event */
+    unsigned long serial;	/\(** # of last request processed by server */
+    Bool send_event;		/\(** true if this came from a SendEvent req */
+    Display *display;		/\(** Display the event was read from */
+    Window root;		/\(** root window of event screen */
+    int state;			/\(** What happened */
+    int kind;			/\(** What happened */
+    Bool forced;		/\(** extents of new region */
+    Time time;			/\(** event timestamp */
 } XF86VidModeNotifyEvent;
 .LP
 typedef struct {
-    float red;			/* Red Gamma value */
-    float green;		/* Green Gamma value */
-    float blue;			/* Blue Gamma value */
+    float red;			/\(** Red Gamma value */
+    float green;		/\(** Green Gamma value */
+    float blue;			/\(** Blue Gamma value */
 } XF86VidModeGamma;
 .fi
 .SH DESCRIPTION
@@ -349,6 +349,15 @@ the request to switch modes comes from a call to the
 or
 .ZN XF86VidModeSwitchToMode
 functions or from one of the mode switch key sequences.
+.PP
+.RB Note:
+Because of the asynchronous nature of the X protocol, a call to 
+.ZN XFlush
+is needed if the application wants to see the mode change immediately.
+To be informed of the execution status of the request, a
+custom error handler should be installed using
+.ZN XSetErrorHandler
+before calling the mode switching function. 
 .SS "MONITOR FUNCTIONS"
 Information known to the server about the monitor is returned by the
 .ZN XF86VidModeGetMonitor
@@ -410,6 +419,7 @@ XF86VidModeGetPermissions
 functions need to be documented.  In the meantime, check the source
 code for information about how to use them.
 .SH SEE ALSO
-XFree86(1), XF86Config(__filemansuffix__), xvidtune(1)
+XFree86(1), XF86Config(__filemansuffix__), XFlush(3),
+XSetErrorHandler(3), xvidtune(1)
 .SH AUTHORS
 Kaleb Keithley, Jon Tombs, David Dawes, and Joe Moss

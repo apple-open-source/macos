@@ -28,6 +28,11 @@
 #include <fcntl.h>
 #endif
 
+#if HAVE_WINSOCK_H
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+
 #if HAVE_DMALLOC_H
 #include <dmalloc.h>
 #endif
@@ -39,10 +44,8 @@
 #include <net-snmp/library/snmpUDPDomain.h>
 #include <net-snmp/library/snmpTCPDomain.h>
 
-
-oid netsnmp_snmpTCPDomain[8] = { 1, 3, 6, 1, 3, 91, 1, 1 };
+oid netsnmp_snmpTCPDomain[] = { TRANSPORT_DOMAIN_TCP_IP };
 static netsnmp_tdomain tcpDomain;
-
 
 /*
  * Return a string representing the address in data, or else the "far end"
@@ -65,13 +68,8 @@ netsnmp_tcp_fmtaddr(netsnmp_transport *t, void *data, int len)
     } else {
         char tmp[64];
 
-        /*
-         * Here we just print the IP address of the peer for compatibility
-         * purposes.  It would be nice if we could include the port number and
-         * some indication of the domain (c.f. AAL5PVC).  
-         */
-
-        sprintf(tmp, "%s", inet_ntoa(to->sin_addr));
+        sprintf(tmp, "TCP: [%s]:%hd",
+                inet_ntoa(to->sin_addr), ntohs(to->sin_port));
         return strdup(tmp);
     }
 }
@@ -212,6 +210,15 @@ netsnmp_tcp_accept(netsnmp_transport *t)
             DEBUGMSGTL(("netsnmp_tcp", "couldn't f_getfl of fd %d\n",newsock));
         }
 #endif
+
+        /*
+         * Allow user to override the send and receive buffers. Default is
+         * to use os default.  Don't worry too much about errors --
+         * just plough on regardless.  
+         */
+        netsnmp_sock_buffer_set(newsock, SO_SNDBUF, 1, 0);
+        netsnmp_sock_buffer_set(newsock, SO_RCVBUF, 1, 0);
+
         return newsock;
     } else {
         free(farend);
@@ -325,6 +332,11 @@ netsnmp_tcp_transport(struct sockaddr_in *addr, int local)
             netsnmp_transport_free(t);
             return NULL;
         }
+        
+        /*
+         * no buffer size on listen socket - doesn't make sense
+         */
+
     } else {
         t->remote = malloc(6);
         if (t->remote == NULL) {
@@ -352,6 +364,14 @@ netsnmp_tcp_transport(struct sockaddr_in *addr, int local)
             netsnmp_transport_free(t);
             return NULL;
         }
+
+        /*
+         * Allow user to override the send and receive buffers. Default is
+         * to use os default.  Don't worry too much about errors --
+         * just plough on regardless.  
+         */
+        netsnmp_sock_buffer_set(t->sock, SO_SNDBUF, local, 0);
+        netsnmp_sock_buffer_set(t->sock, SO_RCVBUF, local, 0);
     }
 
     /*
@@ -391,9 +411,10 @@ netsnmp_tcp_create_ostring(const u_char * o, size_t o_len, int local)
     struct sockaddr_in addr;
 
     if (o_len == 6) {
+        unsigned short porttmp = (o[4] << 8) + o[5];
         addr.sin_family = AF_INET;
         memcpy((u_char *) & (addr.sin_addr.s_addr), o, 4);
-        addr.sin_port = ntohs((o[4] << 8) + o[5]);
+        addr.sin_port = htons(porttmp);
         return netsnmp_tcp_transport(&addr, local);
     }
     return NULL;

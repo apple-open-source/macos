@@ -21,7 +21,7 @@ PATH=.:..:$PATH; export PATH;
 M4=m4
 type $M4
 
-tmpfile=/tmp/t.$$
+tmpfile=`tempfile 2> /dev/null` || tmpfile=/tmp/t.$$
 trap 'rm -f $tmpfile; exit 1' 1 2 3 15
 
 rm -f core

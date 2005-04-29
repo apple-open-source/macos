@@ -1,7 +1,12 @@
+// { dg-do assemble  }
 // Bug: member operator shadows global template in tsubst.
-// Build don't link:
 
 class ostream;
+
+template <class TP> class smanip;
+
+template<class TP>
+ostream& operator<<(ostream& o, const smanip<TP>& m);
 
 template <class TP> class smanip {
 public:
@@ -22,5 +27,5 @@ public:
 void X::print(ostream& os)
 {
   smanip<double> smd;
-  os << smd;			// gets bogus error
+  os << smd;			// { dg-bogus "" } 
 }

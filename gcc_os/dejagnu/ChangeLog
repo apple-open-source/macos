@@ -1,3 +1,568 @@
+2003-03-16  Rob Savoye  <rob@direwolf.welcomehome.org>
+
+	* lib/unix.exp: Preservce the value of LD_LIBRARY_PATH, rather
+	than stomp on it. This is based on a patch from Brendan Conoboy
+	<blc@redhat.com>.
+	* Most files: Update copyright dates.
+
+2003-03-13  Mike Stump  <mrs@apple.com>
+
+        * lib/dg.exp(dg-test): Add compiler flags to testcase name, to
+	help ensure uniqueness.
+
+2003-03-05  Alexandre Oliva  <aoliva@redhat.com>
+
+        * lib/remote.exp (standard_download, standard_upload): Support
+        nfsdir and nfsroot_server.
+
+2001-11-12  Andrew Cagney  <ac131313@redhat.com>
+
+         * lib/remote.exp (local_exec, standard_close): Use SHELL
+         background instead of tcl background to background the kill
+         processes.  Work around problem found by Nick Duffek in older
+         CYGWINs. (migrated from Redhat's sources kind late, sorry)
+
+2003-02-19  DJ Delorie  <dj@redhat.com>
+
+        * config/sim.exp: Support both sid and rawsid protocols.
+
+2003-01-31  Kazu Hirata  <kazu@cs.umass.edu>
+
+        * dejagnu/baseboards/h8300-sim.exp: Don't set
+	needs_status_wrapper.
+
+2002-11-12  Hans-Peter Nilsson  <hp@bitrange.com>
+        * lib/libgloss.exp (newlib_include_flags): Use -isystem, not -I.
+        (libio_include_flags, g++_include_flags, libstdc++_include_flags,
+        winsup_include_flags): Ditto.
+        * doc/user.sgml (Local Config File): Use -isystem, not -I, in
+        example.
+
+2002-11-21 Matt Bemis <bemis@iol.unh.edu>
+	* modified xml_output to handle null input and output
+		
+2002-10-21  Adam Nemet  <anemet@lnxw.com>
+        * libgloss.exp (get_multilibs): Don't use the first argument
+        passed to this function as the multilib option unless it is in
+        fact a multilib option.
+
+2002-11-13 Matt Bemis <bemis@iol.unh.edu>
+	* Fixed input/output to check for empty.
+
+2002-11-12  Hans-Peter Nilsson  <hp@bitrange.com>
+        * lib/libgloss.exp (newlib_include_flags): Use -isystem, not -I.
+        (libio_include_flags, g++_include_flags, libstdc++_include_flags,
+        winsup_include_flags): Ditto.
+        * doc/user.sgml (Local Config File): Use -isystem, not -I, in
+        example.
+
+2002-10-29  Maciej W. Rozycki  <macro@ds2.pg.gda.pl>
+	* Makefile.am: Add support for DESTDIR.
+	* Makefile.in: Regenerated.
+
+2002-10-21  Matt Bemis  <bemis@iol.unh.edu>
+       * added input/output to xml_output in lib/framework.exp
+       * removed the log feature replaced by input/output_xml
+
+2002-09-24  Richard Earnshaw  <rearnsha@arm.com>
+
+        * lib/libgloss.exp (build_wrapper): Use a tool-specific filename on
+        the host for the testglue.
+
+2002-09-04  Rob Savoye  <rob@welcomehome.org>
+
+	* Clean.tcl (cleanfiles): Add more patterns to remove.
+	* Makefile.am: Fix tarball target to clean up the source tree
+	better.
+
+2002-09-03  Rob Savoye  <rob@welcomehome.org>
+
+	* Makefile.am: Add support to build Solaris and HPUX packages.
+	* Makefile.in: Regenerated with automake 1.6.
+	* aclocal.m4: Regenerated with aclocal 1.6.
+	* example/hello/Makefile.in:  Regenerated with automake 1.6.
+	* example/calc/Makefile.in:  Regenerated with automake 1.6.
+	* missing: Update with the one from automake 1.6.
+	
+2002-08-30  Rob Savoye  <rob@welcomehome.org>
+
+	* configure.in: Add AC_NO_EXECUTABLES, so things configure without
+	building C++ executables. 
+	* example/hello/hello.c: New C version of the example.
+	* example/hello/Makefile.am: Build C based example.
+	* example/hello/configure.in: Add AC_NO_EXECUTABLES, so things
+	configure without building C++ executables.
+	* configure: Regenerated.
+
+2002-08-30  Nick Clifton  <nickc@redhat.com>
+
+        * acinclude.m4: Provide alternative definition of AC_PROG_CXX
+        which does not call AC_PROG_CXX_WORKS.  This allows dejagnu to
+        be configured and built without a working C++ compiler.
+
+2002-08-29  Rob Savoye  <rob@welcomehome.org>
+
+	* debian/changelog: Update version number to 1.4.3.
+	* redhat/dejagnu.spec: Update version number to 1.4.3.
+	* dejagnu.h: Use __STDC_HOSTED__, rather than our own autoconf
+	test to determine libstdc++ 2.x or 3.x.
+	* testsuite/libdejagnu/unit.cc: Use __STDC_HOSTED__, rather than
+	our own autoconf test to determine libstdc++ 2.x or 3.x.
+
+2002-06-18  Dave Brolley  <brolley@redhat.com>
+
+        From Catherine Moore, Michael Meissner, Mark Salter, Jim Blandy:
+        * baseboards/frv-elf.exp: New board description.
+        * baseboards/frv-sim.exp: New board description.
+        * baseboards/frv-tiger.exp: New board description.
+        * baseboards/frv-tomcat.exp: New board description.
+
+Wed Jun  5 14:52:15 PDT 2002   Joey Ekstrom <joey@ekstrom.org>
+	* dejagnu.h: modfied C functions to behave like printf.
+	
+2001-01-15  Ben Elliston  <bje@redhat.com>
+
+        * lib/framework.exp (record_test): Invoke a user-defined procedure
+        if one is named in local_record_procs($type).
+
+2002-08-28  Catherine Moore  <clm@redhat.com>
+
+        * baseboards/v850-sim.exp (target_install): Add v850e-elf.
+
+2002-07-16  Rob Savoye  <rob@direwolf.welcomehome.org>
+
+	* doc/user.sgml: Add new tutorial by Niklaus Giger as a new
+	chapter.
+	* doc/Makefile.am: Tweak rules for building output files.
+	* doc/Makefile.in: Regenerated.
+
+2002-07-14 Daniel Jacobowitz <drow@false.org>
+
+	* lib/remote.exp: Fix standard_spawn{} to support SSH.
+
+Wed Jun  5 14:52:15 PDT 2002   Joey Ekstrom <joey@ekstrom.org>
+
+	* dejagnu.h: modfied C functions to behave like printf.
+        * dejagnu.h: added wait() to fix problem with host_execute() in
+        dejagnu.exp where if skips failed, untested, etc. messages from the
+        executable.
+
+2002-05-01  Matt Bemis <bemis@iol.unh.edu>
+
+        * added documentation on xml capabilities
+
+2002-05-02  Fernando Nasser  <fnasser@localhost.localdomain>
+
+        * runtest.exp: Add kfail_flag and kfail_prms variable
+        initializations.
+        * lib/framework.exp (setup_kfail): New proc. Like setup_xfail, but  
+        for known tool bugs already registered in a bug database.
+        (kfail): New proc. Record that a test has failed due to a known bug.
+        (kpass): New proc. Record that a test for a known bug has passed
+        unexpectedly.
+        (clear_kfail): Like clear_xfail, but for known bugs.
+        (record_test): Handle KFAIL and KPASS.
+        (pass, fail): Test for known failures.
+        (clone_output): Add KFAIL to list of message types to be cloned.
+        (log_summary): Add summary for KFAIL and KPASS.
+        (unknown): Update comment.
+        * doc/dejagnu.texi: Document the above.
+        * lib/libsup.exp: Add counters for KFAIL and KPASS.
+        * testsuite/runtest.all/stats-sub.exp: Test kfail and kpass.
+        * testsuite/runtest.all/stats.exp: Ditto.
+
+2002-04-30  Ben Elliston  <bje@redhat.com>
+
+        * doc/runtest.1: Fix formatting error for --ignore option.
+
+2002-04-25    <Matthew Bemis <bemis@iol.unh.edu>
+
+	* lib/framework/exp: new procs check_xml{}, insertdtd{}, xml_output{},
+	plus a few hooks to xml_output in the other logging procs to produce
+	XML output.
+	* runtest.exp: Add support for the --x option for XML output.
+
+2002-04-25  Nick Clifton  <nickc@cambridge.redhat.com>
+
+        * example/calc/configure.in (AM_MAINTAINER_MODE): Add invocation.
+        * example/calc/aclocal.m4: Regenerate.
+        * example/calc/configure: Regenerate.
+        * example/calc/Makefile.in: Regenerate.
+
+2002-03-22  Elena Zannoni  <ezannoni@redhat.com>
+ 
+	* baseboards/powerpc-sim.exp: Don't disable inferior
+        function calls.
+
+2002-04-19  Nick Clifton  <nickc@cambridge.redhat.com>
+
+        * Import files from sourceware dejagnu repository:
+
+        2002-03-15  Chris Demetriou  <cgd@broadcom.com>
+        * baseboards/mips-sim-idt32.exp: New file.
+        2002-01-21  Ben Elliston  <bje@redhat.com>
+        * baseboards/sh-sid.exp: New file.
+        2001-11-26  Thomas Fitzsimmons  <fitzsim@redhat.com>
+        * baseboards/i386-sid.exp: New file.
+        2001-10-10  Frank Ch. Eigler  <fche@redhat.com>
+        * config/sid.exp (set_host_info): New proc.  Call it to set
+        gdb,nointerrupt flag to work around framework problems.
+        2001-08-24  Frank Ch. Eigler  <fche@redhat.com>
+        * baseboards/basic-sid.exp (find_sid_conf): Tolerate not
+        finding path to pregen configuration file.
+        2001-02-22  Ben Elliston  <bje@redhat.com>
+        * config/sid.exp: New file.
+        * baseboards/basic-sid.exp: Likewise.
+        * baseboards/arm-sid.exp: Likewise.
+        * baseboards/m32r-sid.exp: Likewise.
+        * baseboards/m68k-sid.exp: Likewise.
+
+2002-03-31  Hans-Peter Nilsson  <hp@bitrange.com>
+
+        * lib/remote.exp (check_for_board_status): Also strip a \r before
+        a \n before the exit message.
+
+2002-03-26  Hans-Peter Nilsson  <hp@bitrange.com>
+
+        * lib/libgloss.exp (build_wrapper): Wrap _exit too, unless
+        wrap_m68k_aout, uses_underscores or is_vxworks are defined in
+        target_info.
+
+        * testglue.c [!VXWORKS && !UNDERSCORES && !WRAP_M68K_AOUT]
+        (REAL__EXIT): Define.
+        [!UNDERSCORES && !WRAP_M68K_AOUT] (ORIG__EXIT): Define.
+        [REAL__EXIT] (REAL__EXIT): Prototype.
+        [ORIG__EXIT] (ORIG__EXIT): New function wrapper.
+        (done_exit_message): New static variable.
+        (ORIG_EXIT): Set done_exit_message.
+
+2002-03-11  Chris Demetriou  <cgd@broadcom.com>
+
+        * baseboards/mips-sim-idt32.exp: New file.
+
+Wed Nov 21 18:02:49 PST 2001  Brendan Conoboy <blc@redhat.com>
+
+	* lib/rsh.exp: Obey rsh_prog/rcp_prog, support username
+	* lib/remote.exp: same.
+
+2002-02-22  Bob Wilson  <bob.wilson@acm.org>
+
+        * baseboards/xtensa-sim.exp: New file.
+
+2001-11-02  Alexandre Oliva  <aoliva@redhat.com>
+
+        * lib/libgloss.exp [get_multilibs]: Compute multitop earlier, and
+        use --print-multi-directory if available.
+
+2002-02-05  Nick Clifton  <nickc@cambridge.redhat.com>
+
+        * lib/libgloss.exp (g++_include_flags): Add top level
+        libstdc++-v3 build include path, remove duplicate src path.
+        (libstdc++_include_flags): Add top level libstdc++-v3 build
+        include path.
+
+2001-11-10  Hans-Peter Nilsson  <hp@bitrange.com>  
+
+        * baseboards/mmixware-sim.exp: New file.   
+	* lib/remote.exp (check_for_board_status): Return 2 if the board
+	uses a status wrapper and there was no match for the expected
+        pattern.
+
+
+2001-11-02  Philip A. Wilsey  <philip.wilsey@cliftonlabs.com>
+	* lib/utils.exp: Need to pass -all to getdirs, so it descends
+	through all the subdirectories.
+	
+2001-10-08  Gwenole Beauchesne  <gbeauchesne@mandrakesoft.com>
+
+        * runtest.exp: Don't fail at processing Makefile style args in the
+        second command line parsing pass. Actually, skip them in this pass
+        since they are already processed in the first one for possible use
+        by init scripts.
+
+2001-10-02  Nick Clifton  <nickc@cambridge.redhat.com>
+
+        * lib/remote.exp (proc file_on_host): Fix typo in construction
+        of file argument.
+
+2001-09-12  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* Makefile.am: Add a clean-local target, and nuke example and
+	testsuite from SUBDIRS, so they don't get built via "make all".
+	* Makefile: All Makefiles regenerated.
+	* debian/changelog: Update version for 1.4.2 release.
+	* redhat/dejagnu.spec: Update version for 1.4.2 release.
+
+2001-09-07  Will Cohen  <wcohen@redhat.com>
+
+        * lib/target.exp: Ignore ld's warning about alternative functions
+        to use.
+
+Thu Aug 30 19:31:44 2001  J"orn Rennecke <amylaar@redhat.com>
+
+        * baseboards/h8300-sim.exp: set_board_info uses_underscores 1
+        set_board_info gcc,text_size 60000
+
+2001-07-30  Paul A. Houghton <houghton@wcomnet.com>
+
+	* dejagnu.h, testsuite/libdejagnu/unit.cc: Make the outstate array
+	be a const to work with Sun's compiler.
+	* runtest.exp: Move the command line variable instantiation to the
+	first block of command line option tests, so command line
+	variables can be used in tool init scripts.
+
+2001-07-25  Will Cohen  <wcohen@redhat.com>
+
+        * runtest.exp: Removed puts statement.
+
+2001-07-17  Jason Merrill  <jason_merrill@redhat.com>
+
+        * lib/utils.exp (runtest_file_p): An argument can match trailing
+        directories as well as the basename.
+
+2001-06-08 John Cotton <john.cotton@nrc.ca>
+  
+        * testglue.c: 
+        * lib/remote.exp: 
+        * lib/standard.exp: 
+        * lib/target.exp: 
+        * lib/utils.exp:    
+        * baseboards/mbx821_001.exp:
+        * baseboards/mbx860_002.exp:
+        * baseboards/mbx8xx.exp:
+        * baseboards/mvme167.exp:  
+         Added support for automated testing of RTEMS targets,
+         specifically the mbx821, mbx860 and mvme167.
+  
+2001-06-08 John Cotton <john.cotton@nrc.ca> 
+  
+         */lib/libgloss.exp: fixed regexp bug.
+
+2001-05-30  Jeffrey Oldham  <oldham@codesourcery.com>
+        
+        * doc/dejagnu.texi: Fix typographical errors.
+        * doc/ref.sgml: Likewise.
+        * doc/user.sgml: Likewise.
+
+2001-05-30  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* dejagnu.h: Remove the iostream headers, so now we have no
+	conditional compilation problems with libstdc++-v3 or v2.
+
+2001-05-28  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* acinclude.m4(DJ_AC_STL): Also use
+	AC_LANG_CPLUSPLUS so we build this test case with G++.
+	* aclocal.m4, configure: Regenerated.
+	* dejagnu.h: Don't use testout(), have each method print the array
+	value directly, which is much simpler.
+
+2001-05-27  Jeffrey Oldham  <oldham@codesourcery.com>
+
+        * acinclude.m4(DJ_AC_STL): s/for for/for/.
+        * dejagnu.h: Add conditional support for sstream.
+        (testout): Likewise. Make return type `const'.
+
+2001-05-25  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* acinclude.m4: Add DJ_AC_STL, which figures out if we're running
+	libstdc++ version 2 or 3.
+	* aclocal.m4: Regenerated.
+	* configure.in: Add DJ_AC_STL.
+	* configure: Regenerated.
+	* dejagnu.h: Add the use of the std namespace, so we work with
+	libstdc++ version 2 or 3.
+	* testsuite/libdejagnu/unit.cc: Use setbuf() or pubsetbuff(),
+	depending on the version.
+
+2001-05-20  Stephane Carrez  <Stephane.Carrez@worldnet.fr>
+  
+        * baseboards/m68hc11-sim.exp: New file for 68HC11/68HC12 validation.
+        * config/m68hc11.exp: New file.
+
+2001-05-16  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* lib/target.exp: Reverse when add_flags gets set, so it actually
+	links with the libraries being tested. From J. David Anglin
+	<dave@hiauly1.hia.nrc.ca>.
+
+2001-05-14  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* runtest.exp: Conditionally set the exit_status so we don't stomp
+	on FAIL. Rearrange --status so it works correctly with --strace.
+
+2001-05-13  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* lib/target.exp: Fix the regsub line where it prunes -fPIC
+	warnings so the text variable is on the same line.
+
+2001-05-09  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* runtest.exp: Add new command line option, --status (or -sta) to
+	toggle whether Tcl script bugs in test drivers should be
+	propogated as an error to the shell.
+
+2001-05-08  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* lib/dejagnu.exp: Trim off test state part of the message, so we
+	don't duplicate it.
+	* runtest.exp: Set the exit status when their are Tcl script bugs,
+	so make notices the errors. (contributed by Martin Muenstermann
+	<muenstermann@trustcenter.de>)
+
+2001-05-06  Rob Savoye  <rob@blackpeter.welcomehome.org>
+
+	* debian/rules: Install all the doc formats.
+	* redhat/dejagnu.spec: Install all the doc formats.
+	* Clean.tcl: Also nuke all Emacs backup files.
+	* Makefile.am: Fix dependencies on tarball target. Add new target
+	to build Debian packages. Add $(includedir) to install-data-local
+	target so dejagnu.h gets installed in the right place.
+
+2001-05-03  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* doc/Makefile.am: Make all paths absolute, cause some versions of
+	the db2* tools are braindead.
+	* doc/overview.sgml: Update version numbers and log.
+	* doc/user.sgml: Add mention of dejagnu.h header file.
+	* doc/ref.sgml: Add chapter on dejagnu.h header file for unit
+	testing.
+	* config/default.exp: New file for default config settings for
+	simple native testsuites that don't need anything else.
+	* lib/dejagnu.exp: Add $text\r\n to all strings, to make sure we
+	only get one line at a time.
+	* testsuite/libdejagnu: New directory for dejagnu library test
+	cases.
+	* testsuite/libdejagnu/unit.cc: Test case for dejagnu.h.
+	* testsuite/libdejagnu/tunit.exp: Test driver for dejagnu.h.
+	* testsuite/libdejagnu/Makefile.am: New makefile to build the test
+	case.
+	* testsuite/libdejagnu/Makefile.in: Generated.
+	* testsuite/Makefile.am: Add libdejagnu to SUBDIRS. Replace the
+	site.exp rule, cause we don't want the $tool setting, so we run
+	all the test suites. Don't pass the tool name for "make check".
+	* configure.in: Add testsuite/libdejagnu/Makefile to AC_OUTPUT.
+	
+2001-05-02  Rob Savoye  <rob@peggyo.welcomehome.org>
+
+	* Makefile.am: Rename dist2 to tarball target. Fix the version
+	number to have the minor release too.
+	* doc/Makefile.am: Convert all paths from relative to absolute,
+	cause not all verions of the db2* tools can work with a relative
+	path.
+	* redhat/dejagnu.spec: Update version number, and install
+	dejagnu.h.
+	* debian/changelog: Update version number.
+	* debian/rules: and install dejagnu.h
+
+2001-05-01  Matt Hiller  <hiller@redhat.com>
+  
+        * lib/libgloss.exp (get_multilibs): Correction to Catherine
+        Moore's patch of 2000-06-09.
+
+2001-04-11  Rob Savoye  <rob@slipknot.welcomehome.org>
+
+	* Clean.tcl: Add -r to rm, so it gets rid of CVS directories.
+	* .clean: Don't install the debian or redhat packaging directories.
+	* Makefle.am: Install dejagnu.h. Fix dist2 target, so we build our
+	own tarballs, instead of letting automake do it for us.
+	* examples/calc/Makefile.am: Use noist_PROGRAMS, so calc doesn't
+	get installed.
+	* doc/Makefile.am: Install the man page for runtest.
+	* configure.in: Make VERSION 1.4.0, not just 1.4, so distributions
+	get built right.
+
+2001-04-07  Rob Savoye  <rob@blackpeter.welcomehome.org>
+
+	* lib/dejagnu.exp: Test driver for embedded DejaGnu API.
+	* dejagnu.h: Embedded DejaGnu API main header file.
+	* config/default.exp: Default tool init file for simple test
+	suites.
+
+2001-04-06  Rob Savoye  <rob@slipknot.welcomehome.org>
+
+	* Makefile.am: Add an empty check-DEJAGNU target, cause we only
+	want to run the testsuite once.
+	* example/Makefile.am: Don't run "calc" as part of check target,
+	cause calc is just an example.
+	* testsuite/Makefile.am: Use the runtest in the source tree, or
+	refuse to run.
+
+2001-04-03  David Billinghurst <David.Billinghurst@riotinto.com>
+
+	* baseboards/unix.exp: Don't link with -lm on cygwin.
+	* lib/target.exp: Remove compiler warnings about -fpic or -fPIC on
+	cygwin.
+
+2001-02-21  Rob Savoye  <rob@slipknot.welcomehome.org>
+
+	* debian/changelog: Add entry for new release.
+	* debian/control: Fix problem with "no binary package" error.
+	* debian/rules: Fix so things actually build a package. This was
+	mostly installing the new html version of the doc, not an info
+	page.
+	* doc/Makefile.am: Build and install the rtf and ps versions
+	of the manual. Remove all the created files and subdirectories.
+	* doc/overview.sgml: Update the copyright message.
+	* doc/ref.sgml: Update the copyright messages. Add section on
+	obtaining DejaGnu releases.
+	* doc/user.sgml: Update the copyright messages. Add blurb about
+	the --mail option.
+	* doc/overview: Regenerated.
+
+2001-02-17  Rob Savoye  <rob@slipknot.welcomehome.org>
+
+	* Most all files: Update copyright notices.
+	* Makefile.am: Add support for making RPMs. Force different
+	values for RUNTEST and RUNTESTFLAGS, so we can test ourselves.
+	* testsuite/Makefile.am: Force a different value for
+	RUNTESTFLAGS.
+	* acinclude.m4, configure.in: Find Tclsh, and Docbook.
+	* configure: Regenerated.
+	* doc/Makefile.am: Use $DOCBOOK to find the filters.
+	* doc/overview: Add the html version of the doc so one doesn't
+	need docbook to read the manual.
+
+2001-01-31  Rob Savoye  <rob@slipknot.welcomehome.org>
+
+	* Merge in latest snapshot from RedHat.
+	* example/calc/Makefile.am: New automake support.
+	* example/calc/Makefile.in: Generated.
+	* example/Makefile.am: Recursion support for make.
+	* example/calc/Makefile.in: Generated by automake.
+	* example/calc/calc.h.in: Move constants to calc.c, so we can use
+	autoheader.
+	* example/calc/calc.c: Add constants from calc.h.in.
+	* redhat/dejagnu.spec: New RPM packaging file.
+	* debian/{changelog,conffiles,control,copyright,postinst,preinst,
+	rules,site.exp}: New Debian packaging support.
+	
+
+2001-01-20  Ben Elliston  <bje@redhat.com>
+
+	* runtest.exp (usage): Replace --mail in usage output.
+	* doc/runtest.1: Re-document --mail option, which was erroneously
+	removed from this man page in 1994.
+
+2001-01-19  Andrew Cagney  <cagney@b1.cygnus.com>
+
+	* lib/target.exp (prune_warnings): Avoid ``.*'' in NetBSD warnings
+ 	pattern.
+
+2001-01-18  Gabriel Dos Reis  <gdr@codesourcery.com>
+
+       * lib/dg.exp (dg-trim-dirname): New function.
+       (dg-test): Use it to rip directory-name out of file name.
+
+2001-01-15  Ben Elliston  <bje@redhat.com>
+
+	* lib/framework.exp (record_test): Invoke a user-defined procedure
+	if one is named in local_record_procs($type).
+
+2001-01-12  Richard Earnshaw  <rearnsha@arm.com>
+
+	* target.exp (prune_warnings): Prune warnings from NetBSD linker.
+
 2000-11-29  Drew Moseley  <dmoseley@redhat.com>
 
 	* baseboards/xscale-cygmon.exp: New file for xscale board testing.
@@ -58,7 +623,7 @@
 	(all-local): Add at least `calc' building back.
 	* example/Makefile.in: Regenerated.
 
-Fri Jul 21 16:01:43 2000  Andrew Cagney  <cagney@b1.cygnus.com>
+ri Jul 21 16:01:43 2000  Andrew Cagney  <cagney@b1.cygnus.com>
 
 	From 2000-04-25 Felix Lee <flee@cygnus.com>:
 	* baseboards/tx39-sim.exp: Use idt, not dve linker script.  Delete
@@ -5134,11 +5699,11 @@ Mon Oct 19 10:59:19 1992  Rob Savoye  (rob at darkstar.cygnus.com)
 	* gcc.execute/execute.exp: Runs all the test from the c-torture test's
 	execute directory.
 	* gcc.execute: New directory
-	* gcc.code_quality/code_quality.exp: Runs all the test from the c-torture test's
-	code_quality directory.
+	* gcc.code_quality/code_quality.exp: Runs all the test from the
+	c-torture test's code_quality directory.
 	* gcc.code_quality: New directory
-	* gcc.noncompile/noncompile.exp: Runs all the test from the c-torture test's
-	noncompile directory.
+	* gcc.noncompile/noncompile.exp: Runs all the test from the
+	c-torture test's noncompile directory.
 	* gcc.noncompile: New directory
 	* gdb.*/*.exp: Removed all references to $det_file.
 	* nm.all/nm.exp: Removed all references to $det_file.
@@ -5465,3 +6030,4 @@ Tue Jun 30 22:22:00 1992  Rob Savoye  (rob at darkstar.cygnus.com)
 Thu May 21 17:20:23 1992  Rob Savoye  (rob@darkstar.cygnus.com)
 
 	* Hacking in better detailed reports.
+

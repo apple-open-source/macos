@@ -1,4 +1,4 @@
-
+#!perl
 use CGI;
 use strict;
 my $q = new CGI;

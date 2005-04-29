@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2004-12-08</string>
+		<key>OpenSourceLicense</key>
+		<string>Other</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>OpenLDAP.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>added NetInfo backend</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>OpenLDAP</string>
+		<key>OpenSourceSHA1</key>
+		<string>cc74d3a62ca79eb169aa112d8ee19a26f7079194</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.OpenLDAP.org/pub/OpenLDAP/openldap-release/openldap-2.2.19.tgz</string>
+		<key>OpenSourceVersion</key>
+		<string>2.2.19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.openldap.org</string>
+	</dict>
+</array>
+</plist>

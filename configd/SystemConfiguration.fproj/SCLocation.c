@@ -47,12 +47,12 @@ SCDynamicStoreCopyLocation(SCDynamicStoreRef store)
 	CFStringRef		location	= NULL;
 	Boolean			tempSession	= FALSE;
 
-	if (!store) {
+	if (store == NULL) {
 		store = SCDynamicStoreCreate(NULL,
 					     CFSTR("SCDynamicStoreCopyLocation"),
 					     NULL,
 					     NULL);
-		if (!store) {
+		if (store == NULL) {
 			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
 			return NULL;
 		}

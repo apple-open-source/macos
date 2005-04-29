@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.flow.base.Stage</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.flow.html">Package&nbsp;flow</a> ::
+        <a href="twisted.flow.base.html">Module&nbsp;base</a> ::
+        Class&nbsp;Stage
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.flow.base.Stage.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Stage</h2>
+
+<pre class="base-tree">
+<a href="twisted.flow.base.Instruction.html"><code>Instruction</code></a> --+
+              |
+             <b>Stage</b>
+</pre><br />
+
+<dl><dt><b>Known Subclasses:</b></dt>
+<dd>
+    <a href="twisted.flow.wrap._Deferred.html"><code>_Deferred</code></a>,
+    <a href="twisted.flow.wrap._Iterable.html"><code>_Iterable</code></a>,
+    <a href="twisted.flow.wrap._List.html"><code>_List</code></a>,
+    <a href="twisted.flow.wrap._String.html"><code>_String</code></a>,
+    <a href="twisted.flow.controller.Block.html"><code>Block</code></a>,
+    <a href="twisted.flow.stage.Callback.html"><code>Callback</code></a>,
+    <a href="twisted.flow.stage.Concurrent.html"><code>Concurrent</code></a>,
+    <a href="twisted.flow.stage.Map.html"><code>Map</code></a>,
+    <a href="twisted.flow.stage.Merge.html"><code>Merge</code></a>,
+    <a href="twisted.flow.pipe.Pipe.html"><code>Pipe</code></a>,
+    <a href="twisted.flow.threads.Threaded.html"><code>Threaded</code></a></dd></dl>
+
+<hr/>
+
+<pre class="literalblock">
+Abstract base defining protocol for iterator/generators in a flow
+
+This is the primary component in the flow system, it is an
+iterable object which must be passed to a yield statement 
+before each call to next().   Usage...
+
+   iterable = DerivedStage( ... , SpamError, EggsError))
+   yield iterable
+   for result in iterable:
+       // handle good result, or SpamError or EggsError
+       yield iterable 
+
+Alternatively, when inside a generator, the next() method can be
+used directly.   In this case, if no results are available,
+StopIteration is raised, and if left uncaught, will nicely end
+the generator.   Of course, unexpected failures are raised.  This 
+technique is especially useful when pulling from more than 
+one stage at a time.
+
+     def someGenerator():
+         iterable = SomeStage( ... , SpamError, EggsError)
+         while True:
+             yield iterable
+             result = iterable.next() 
+             // handle good result or SpamError or EggsError
+
+For many generators, the results become available in chunks
+of rows.  While the default value is to get one row at a time,
+there is a 'chunked' property which allows them to be 
+returned via the next() method as many rows rather than
+row by row.
+
+     iterable = DerivedStage(...)
+     iterable.chunked = True
+     for results in iterable:
+         for result in results:
+              // handle good result
+         yield iterable
+
+For those wishing more control at the cost of a painful experience,
+the following member variables can be used to great effect:
+
+    results  This is a list of results produced by the generator,
+             they can be fetched one by one using next() or in a
+             group together.  If no results were produced, then
+             this is an empty list.   These results should be 
+             removed from the list after they are read; or, after
+             reading all of the results set to an empty list
+
+    stop     This is true if the underlying generator has finished 
+             execution (raised a StopIteration or returned).  Note
+             that several results may exist, and stop may be true.
+
+    failure  If the generator produced an exception, then it is 
+             wrapped as a Failure object and put here.  Note that
+             several results may have been produced before the 
+             failure.  To ensure that the failure isn't accidently
+             reported twice, it is adviseable to set stop to True.
+
+The order in which these member variables is used is *critical* for
+proper adherance to the flow protocol.   First, all successful
+results should be handled.  Second, the iterable should be checked
+to see if it is finished.  Third, a failure should be checked; 
+while handling a failure, either the loop should be exited, or
+the iterable's stop member should be set. 
+
+     iterable = SomeStage(...)
+     while True:
+         yield iterable
+         if iterable.results:
+             for result in iterable.results:
+                 // handle good result
+             iterable.results = []
+         if iterable.stop:
+             break
+         if iterable.failure:
+             iterable.stop = True
+             // handle iterable.failure
+             break
+</pre>
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*trap</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__iter__"></a><span class="summary-sig"><span class="summary-sig-name">__iter__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.flow.base.Stage.html#_yield" class="summary-sig-name"><code>_yield</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+executed during a yield statement by previous stage</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.flow.base.Stage.html#next" class="summary-sig-name"><code>next</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+return current result</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="_yield"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_yield</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>executed during a yield statement by previous stage</p>
+  This method is private within the scope of the flow module, it is 
+  used by one stage in the flow to ask a subsequent stage to produce its 
+  value. The result of the yield is then stored in self.result and is an 
+  instance of Failure if a problem occurred.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="next"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">next</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>return current result</p>
+  This is the primary function to be called to retrieve the current 
+  result. It complies with the iterator protocol by raising StopIteration 
+  when the stage is complete. It also raises an exception if it is called 
+  before the stage is yielded.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:36 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

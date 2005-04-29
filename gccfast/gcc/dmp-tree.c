@@ -1116,7 +1116,10 @@ print_tree_flags (file, node)
   if (TREE_UNAVAILABLE (node))
     fputs (" unavailable", file);
   /* APPLE LOCAL end unavailable ilr */
- 
+  /* APPLE LOCAL begin dead code strip.  */
+  if (TREE_LIVE (node))
+    fputs (" live", file);
+  /* APPLE LOCAL end dead code strip.  */
   if (TREE_LANG_FLAG_0 (node)
       || TREE_LANG_FLAG_1 (node)
       || TREE_LANG_FLAG_2 (node)

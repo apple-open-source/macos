@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2002, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2003, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  */
@@ -10,11 +10,30 @@
 #if !UCONFIG_NO_SERVICE
 
 #include "icunotif.h"
+#if DEBUG
 #include <stdio.h>
+#endif
 
 U_NAMESPACE_BEGIN
 
-const char EventListener::fgClassID = '\0';
+EventListener::~EventListener() {}
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(EventListener)
+
+ICUNotifier::ICUNotifier(void) 
+    : notifyLock(0), listeners(NULL) 
+{
+    umtx_init(&notifyLock);
+}
+
+ICUNotifier::~ICUNotifier(void) {
+    {
+        Mutex lmx(&notifyLock);
+        delete listeners;
+        listeners = NULL;
+    }
+    umtx_destroy(&notifyLock);
+}
+
 
 void 
 ICUNotifier::addListener(const EventListener* l, UErrorCode& status) 
@@ -90,7 +109,7 @@ ICUNotifier::notifyChanged(void)
   }
 }
 
-U_NAMESPACE_END;
+U_NAMESPACE_END
 
 /* UCONFIG_NO_SERVICE */
 #endif

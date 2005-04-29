@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:42 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xkbcomp/symbols/Imakefile,v 3.56 2003/02/15 22:22:44 dawes Exp $
+XCOMM $XFree86: xc/programs/xkbcomp/symbols/Imakefile,v 3.62 2003/09/08 14:25:32 eich Exp $
 
 #define IHaveSubdirs
 
@@ -17,7 +17,7 @@ XCOMM $XFree86: xc/programs/xkbcomp/symbols/Imakefile,v 3.56 2003/02/15 22:22:44
 		 ee el en_US es \
 		 fi fr fr_CH \
 		 gb ge_la ge_ru group guj gur \
-		 hu hu_US hu_qwerty hr \
+		 hr hr_US hu hu_US hu_qwerty \
 		 ie il il_phonetic iso9995-3 inet ir is it iu \
 		 jp \
 		 kan keypad \
@@ -26,13 +26,14 @@ XCOMM $XFree86: xc/programs/xkbcomp/symbols/Imakefile,v 3.56 2003/02/15 22:22:44
 		 nl no \
 		 ogham ori \
 		 pc104 pl pl2 pt \
-		 ralt ro ru ru_yawerty \
+		 ralt ro ro2 ru \
 		 sapmi se se_FI se_NO se_SE si sk sk_qwerty sr srvr_ctrl \
 		 syr syr_phonetic \
-		 tel th tj tml tr tr_f \
-		 ua us us_intl us_group2 us_group3 \
+		 tel th th_tis th_pat tj tml tr tr_f \
+		 ua us us_intl us_group2 us_group3 uz \
 		 vn \
-		 yu
+		 yu \
+		 apple
 
        SUBDIRS = digital fujitsu hp macintosh nec sgi sony sun xfree68 pc
 

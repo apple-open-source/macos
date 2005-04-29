@@ -108,8 +108,10 @@ Alpha:
 	DEC Alpha running OSF/1 version 2.1 (about 1.4A2)
 	DEC Alpha running OSF/1 version 3.0 (1.5.95) (footnote 7)
 	DEC Alpha running OSF/1 version 3.2 (1.9)
+	Alpha running alpha-dec-osf4.0 (1.10)
 	DEC Alpha running Digital UNIX v4.0C using gcc 2.7.2.2 (1.9.14)
 	DEC Alpha running VMS 6.2 (1.8.85 client-only)
+	Alpha running NetBSD 1.2E (1.10)
 Cray:
 	J90 (CVS 970215 snapshot)
 	T3E (CVS 970215 snapshot)
@@ -120,29 +122,35 @@ HPPA:
         HPPA 1.1 running HP-UX A.09.04 (1.7.1)
 	HPPA running HP-UX 9.05 (1.9)
 	HPPA running HP-UX 10.01 (1.7)
-	HPPA running HP-UX 10.20 (1.9, 1.9.14)
+	HPPA running HP-UX 10.20 (1.10.7)
+	HPPA running HP-UX 11.11 (1.11.13) (footnote 12)
+	HPPA 2.0 running HP-UX 10.20 (1.10.9) (footnote 13)
 	NextSTEP 3.3 (1.7)
 i386 family:
 	Solaris 2.4 using gcc (about 1.4A2)
+	Solaris 2.6 (1.9)
 	UnixWare v1.1.1 using gcc (about 1.4A2)
 	Unixware 2.1 (1.8.86)
 	Unixware 7 (1.9.29)
 	ISC 4.0.1 (1.8.87)
 	Linux (kernel 1.2.x) (1.8.86)
-	Linux (kernel 2.0.x, RedHat 4.2) (1.9)
-	BSDI 2.0 (1.4.93) (footnote 5)
+	Linux (kernel 2.0.x, RedHat 4.2) (1.10)
+	Linux (kernel 2.0.x, RedHat 5.x) (1.10)
+	Linux (kernel 2.2.x, RedHat 6.x) (1.10.8)
+	Linux (kernel 2.2.x, RedHat 7.x) (1.11)
+	BSDI 4.0 (1.10.7)
 	FreeBSD 2.1.5-stable (1.8.87)
 	NextSTEP 3.3 (1.7)
-	OpenStep 4.2 (1.8.1)
-	Apple Rhapsody 5.1 (1.9.26)
 	SCO Unix 3.2.4.2, gcc 2.7.2 (1.8.87) (footnote 4)
-	SCO OpenServer 5 (1.9.29)
+	SCO OpenServer 5.0.5 (1.10.2)
+	Sequent DYNIX/ptx4.0 (1.10 or so) (remove -linet)
 	Sequent Dynix/PTX 4.1.4 (1.9.20 or so + patches)
 	Lynx 2.3.0 080695 (1.6.86) (footnote 9)
 	Windows NT 3.51 (1.8.86 client; 1.8.3 local)
 	Windows NT 3.51 service pack 4 (1.9)
 	Windows NT 3.51 service pack 5 (1.9) -- DOES NOT WORK (footnote 11)
 	Windows NT 4.0 (1.9 client and local)
+	Windows NT 4.0 (1.11 client and local - build & test, but no test suite)
 	Windows 95 (1.9 client and local)
 	QNX (1.9.1 + patches for strippath() and va_list)
 	OS/2 Version 3 using IBM C/C++ Tools 2.01 (1.8.86 + patches, client)
@@ -152,33 +160,43 @@ m68k:
 	Sun 3 running SunOS 4.1.1_U1 w/ bundled K&R /usr/5bin/cc (1.8.86+)
 	NextSTEP 3.3p1 (1.8.87)
 	Lynx 2.3.0 062695 (1.6.86) (footnote 9)
+	NetBSD/mac68k (1.9.28)
 m88k:
 	Data General AViiON running dgux 5.4R2.10 (1.5)
 	Data General AViiON running dgux 5.4R3.10 (1.7.1)
 	Harris Nighthawk 5800 running CX/UX 7.1 (1.5) (footnote 6)
 MIPS:
 	DECstation running Ultrix 4.2a (1.4.90)
-	DECstation running Ultrix 4.3 (1.8.85)
+	DECstation running Ultrix 4.3 (1.10)
 	SGI running Irix 4.0.5H using gcc and cc (about 1.4A2) (footnote 2)
-	SGI running Irix 5.3 using gcc 2.7.2 (1.8.87)
+	SGI running Irix 5.3 (1.10)
 	SGI running Irix 6.2 using SGI MIPSpro 6.2 and beta 7.2 compilers (1.9)
 	SGI running Irix-6.2 (1.9.8)
+	SGI running IRIX 6.4 (1.10)
+	SGI running IRIX 6.5 (1.10.7)
 	Siemens-Nixdorf RM600 running SINIX-Y (1.6)
 PowerPC or RS/6000:
-	Apple Rhapsody 5.1 (1.9.26)
 	IBM RS/6000 running AIX 3.1 using gcc and cc (1.6.86)
 	IBM RS/6000 running AIX 3.2.5 (1.8)
 	IBM RS/6000 running AIX 4.1 (1.9)
+	IBM RS/6000 running AIX 4.3 (1.10.7)
 	Lynx 2.3.1 120495 (1.6.86) (footnote 9)
 	Lynx 2.5 (1.9) (footnote 10)
+	MkLinux DR3 GENERIC #6 (1.10.5.1) (presumably LinuxPPC too)
+	Mac OS X Darwin 6.6 Darwin Kernel Version 6.6 (1.11.1p1)
+	Mac OS X Darwin 5.5 Darwin Kernel Version 5.5 (1.11.6) (footnote 12)
+	Mac OS X Darwin 5.5 Darwin Kernel Version 5.5 (1.12.1) (footnote 12)
 SPARC:
-	Sun SPARC running SunOS 4.1.x using gcc 2.7.2.1 (1.9.14)
+	Sun SPARC running SunOS 4.1.x (1.10)
 	Sun SPARCstation 10 running Solaris 2.3 using gcc and cc (about 1.4A2)
 	Sun SPARCstation running Solaris 2.4 using gcc and cc (about 1.5.91)
 	Sun SPARC running Solaris 2.5 (1.8.87)
 	Sun SPARC running Solaris 2.5.1 using gcc 2.7.2.2 (1.9.14)
+	Sun SPARC running Solaris 2.6 (1.10.7)
+	Sun UltraSPARC running Solaris 2.6 using gcc 2.8.1 (1.10)
 	NextSTEP 3.3 (1.7)
 	Sun SPARC running Linux 2.0.17, gcc 2.7.2 (1.8.87)
+	Sun UltraSPARC running Solaris 2.8 using gcc 2.95.3
 VAX:
 	VAX running VMS 6.2 (1.9+patches, client-only)
 	  (see README.VMS for information on necessary hacks).
@@ -191,11 +209,6 @@ VAX:
 
 (footnote 4) Comment out the include of sys/time.h in src/server.c. (1.4.93)
 	You also may have to make sure TIME_WITH_SYS_TIME is undef'ed.
-
-(footnote 5) Change /usr/tmp to /var/tmp in src/server.c (2 places) (1.4.93).
-	(This should no longer be needed; CVS doesn't have /usr/tmp in
-	src/server.c any more.  Has anyone tried a more recent version
-	on BSDI?  If so, please report it so we can update this file).
 
 (footnote 6) Build in ucb universe with COFF compiler tools.  Put
 	/usr/local/bin first in PATH while doing a configure, make
@@ -230,6 +243,16 @@ VAX:
       ci:  RCS/loginfo,v: Invalid argument
       cvs [init aborted]: failed to checkin n:/safe/CVSROOT/loginfo
 
+(footnote 12)
+    Need to `configure --without-gssapi' unless you have installed Kerberos 5
+    libraries on the system yourself.  For some reason Apple ships OS X with
+    the Kerberos 5 headers installed and not the libraries, which confuses the
+    current configure script.  Some HP, BSD, & Sun boxes have similar problems.
+
+(footnote 13)
+    A build under HP PA-RISC 2.0 will probably not run under PA-RISC 1.1
+    unless "+DAportable" is added to the HP ANSI cc compiler flags.
+
 -------------------------------------------------------------------------------
 
 Building from source code under Unix:
@@ -259,13 +282,36 @@ Building from source code under Unix:
 
     Typically this can reduce the size of the executable by around 30%.
 
+    If you are building CVS with the server enabled, you can disable
+    server flow control using the --disable-server-flow-control
+    If you are working with a large remote repository and a 'cvs
+    checkout' is swamping your network and memory, enable flow control.
+    You will end up with even less probability of a consistent checkout
+    (see Concurrency in cvs.texinfo), but CVS doesn't try to guarantee
+    that anyway.  The master server process will monitor how far it is
+    getting behind, if it reaches the high water mark, it will signal
+    the child process to stop generating data when convenient (ie: no
+    locks are held, currently at the beginning of a new directory).
+    Once the buffer has drained sufficiently to reach the low water
+    mark, it will be signalled to start again.  You may override the
+    default hi/low watermarks here too by passing
+    '<lowwater>,<highwater>', in bytes, as an argument to
+    --enable-server-flow-control.  The low water mark defaults to one
+    megabyte and the high water mark defaults to two megabytes.
+
+	$ ./configure --enable-server-flow-control=1M,2M
+
+    The --with-tmpdir argument to configure may be used to set a
+    specific directory for use as a default temporary directory.  If not
+    set, configure will pick the first directory it finds which it has
+    read, write, and execute permissions to from $TMPDIR, $TMP, $TEMP,
+    /tmp, and /var/tmp, in that order.  Failing that, it will use /tmp.
+
+    The --with-umask argument to configure can be used to change
+    the default umask used by the CVS server executable.
+
     Unlike previous versions of CVS, you do not need to install RCS
     or GNU diff.  
-
-    NOTE: The configure program will cache the results of the previous
-    configure execution.  If you need to re-run configure from scratch, you
-    may need to run "make distclean" first to remove the cached
-    configuration information.
 
     If you are using gcc and are planning to modify CVS, you may want to
     configure with -Wall; see the file HACKING for details.
@@ -280,6 +326,14 @@ Building from source code under Unix:
     the --enable-encryption option.  This option is disabled by
     default.
 
+    If you want to disable automatic dependency tracking in the makefiles,
+    use the '--disable-dependency-tracking' option:
+
+	$ ./configure --disable-dependency-tracking
+
+    This avoids problems on some platforms.  See the note at the end of this
+    file on BSD.
+
     Try './configure --help' for further information on its usage.
 
     NOTE ON CVS's USE OF NDBM:
@@ -287,9 +341,9 @@ Building from source code under Unix:
 	By default, CVS uses some built-in ndbm emulation code to allow
 	CVS to work in a heterogeneous environment.  However, if you have
 	a very large modules database, this may not work well.  You will
-	need to edit src/options.h to turn off the MY_NDBM #define and
-	re-run configure.  If you do this, the following comments apply.
-	If not, you may safely skip these comments.
+	need to supply the --disable-cvs-ndbm option to configure to
+	accomplish this.  If you do this, the following comments apply.  If
+	not, you may safely skip these comments.
 
 	If you configure CVS to use the real ndbm(3) libraries and
 	you do not have them installed in a "normal" place, you will
@@ -317,10 +371,7 @@ Building from source code under Unix:
 
     END OF NOTE FOR NDBM GUNK.
 
-2)  Edit src/options.h.  The defaults should be reasonable, and in fact
-    if you are lazy you can safely skip this step.
-
-3)  Try to build it:
+2)  Try to build it:
 
 	$ make
 
@@ -331,7 +382,7 @@ Building from source code under Unix:
     compiler information, make output, and anything else you think
     will be helpful.
 
-3a)  Run the regression tests (optional).
+3)  Run the regression tests (optional).
 
     You may also wish to validate the correctness of the new binary by
     running the regression tests.  If they succeed, that is nice to
@@ -356,7 +407,8 @@ Detailed information about your interaction with "configure":
 
 The "configure" script and its interaction with its options and the
 environment is described here.  For more detailed documentation about
-"configure", please refer to the GNU Autoconf documentation.
+"configure", please run `./configure --help' or refer to the GNU Autoconf
+documentation.
 
 Supported options are:
 
@@ -386,16 +438,33 @@ behaviour:
 
 -------------------------------------------------------------------------------
 
-Building from source code under Windows NT/95:
+Building from source code under Windows NT/95/98/2000:
 
 You may find interesting information in windows-NT/README.
 
-1) Using Microsoft Visual C++ 5.x, open the project `cvsnt.dsp',
+* Using Microsoft Visual C++ 5.x (this is currently broken - someone with
+  MVC++ 5.x needs to regenerate the project files, but the builds using `nmake'
+  below will work).
+
+1) Using Microsoft Visual C++ 5.x, open the project `cvsnt.dsw',
    in the top directory of the CVS distribution.  If you have an older
    version of Visual C++, take a look at windows-NT/README.
 2) Choose "Build cvs.exe" from the "Project" menu.
 3) MSVC will place the executable file cvs.exe in WinRel, or whatever
    your target directory is.
+
+* From the top level directory, with MSVC++ 6.0 installed, something like the
+following also works:
+
+	C:\> vcvars32
+	C:\> nmake /f cvsnt.mak CFG="cvsnt - Win32 Debug"
+
+* Using the Cygwin development environment <http://cygwin.com>, Windows clients
+  and servers can be built using the instructions for building on UNIX.  For
+  deploying the CVS server on Windows NT, see the `cygrunsrv' executable that
+  comes with Cygwin.
+
+* You might also try <http://wincvs.org> & <http://www.cvsnt.org>.
 
 -------------------------------------------------------------------------------
 
@@ -405,7 +474,9 @@ For OS/2, see os2/README and emx/README.
 
 For VMS, see README.VMS
 
-For Macintosh, see macintosh/README.MacCVS
+Mac OS X: Builds fine, just like UNIX.
+
+For older versions of Mac OS, you might try <http://wincvs.org>.
 
 For a Java client, see jCVS (which is a separate package from CVS
 itself, but which might be preferable to the Macintosh port mentioned

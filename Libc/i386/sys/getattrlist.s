@@ -25,5 +25,8 @@
  */
 #include "SYS.h"
 
-UNIX_SYSCALL(getattrlist, 0)
+PSEUDO(getattrlist$UNIX2003, getattrlist, 0)
+	ret
+
+UNIX_SYSCALL_ERR(getattrlist, 0, cerror_cvt)
 	ret

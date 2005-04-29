@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001-2002
+# Copyright (c) 2001-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: bigfile002.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: bigfile002.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 # TEST	bigfile002
 # TEST	This one should be faster and not require so much disk space,

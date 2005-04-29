@@ -4,6 +4,9 @@
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP upload resume with whole file already downloaded
  </name>
@@ -13,7 +16,7 @@ ftp://%HOSTIP:%FTPPORT/123 -T log/upload123 -C 51
 <file name="log/upload123">
 --------------------------------------------------
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -23,5 +26,6 @@ PASS curl_by_daniel@haxx.se
 PWD
 EPSV
 TYPE I
+QUIT
 </protocol>
 </verify>

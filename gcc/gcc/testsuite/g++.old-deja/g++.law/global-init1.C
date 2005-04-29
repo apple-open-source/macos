@@ -1,3 +1,4 @@
+// { dg-do run  }
 // GROUPS passed initialization
 // global-init file
 // Message-Id: <9212021756.AA12639@grumpy.pocs.com>
@@ -9,7 +10,7 @@
 struct S { int  a; int  c; };
 int i = 3;
 S s = {6, i};
-S * the_s  () { return &s; };
+S * the_s  () { return &s; }
 int main ()
 {
   S * cls = the_s ();

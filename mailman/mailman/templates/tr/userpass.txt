@@ -1,0 +1,25 @@
+Siz veya sizmiþ gibi davranan birisi, %(fqdn_lname)s listesinde
+üyelik þifreniz için bir þifre hatýrlatýcý istedi. Bu þifreyi
+üyelik seçeneklerinizi deðiþtirmek için (örneðin ayrý ayrý mý yoksa
+toplu mu mesaj almak istediðiniz) kullanacaksýnýz ve bu þifreyi
+bilmek, bu mesaj listesinden daha kolay þekilde çýkmanýzý saðlar.
+
+Üye olduðunuz adres: %(user)s
+
+%(listname)s þifreniz: %(password)s
+
+Üyelik seçeneklerinizi deðiþtirmek için buradan seçenekler web
+sayfanýza girebilirsiniz:
+
+    %(options_url)s
+
+Bu tür deðiþiklikleri e-postayla þu adrese mesaj göndererek de yapabilirsiniz:
+
+    %(requestaddr)s
+
+Konu baþlýðýna veya mesaj gövdesine "help" sözcüðünü yazýn. Otomatik yanýt
+daha ayrýntýlý açýklamalar içerecektir.
+
+Soru veya yorumunuz mu var? Lütfen bunlarý %(listname)s mesaj listesi
+yöneticisine þu adrese %(owneraddr)s mesaj atarak iletin.
+

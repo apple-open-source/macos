@@ -1,5 +1,5 @@
 /* BFD back-end for PPCbug boot records.
-   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
    Written by Michael Meissner, Cygnus Support, <meissner@cygnus.com>
 
@@ -95,10 +95,10 @@ static bfd_boolean ppcboot_get_section_contents
   PARAMS ((bfd *, asection *, PTR, file_ptr, bfd_size_type));
 static long ppcboot_get_symtab_upper_bound PARAMS ((bfd *));
 static char *mangle_name PARAMS ((bfd *, char *));
-static long ppcboot_get_symtab PARAMS ((bfd *, asymbol **));
+static long ppcboot_canonicalize_symtab PARAMS ((bfd *, asymbol **));
 static void ppcboot_get_symbol_info PARAMS ((bfd *, asymbol *, symbol_info *));
 static bfd_boolean ppcboot_set_section_contents
-  PARAMS ((bfd *, asection *, PTR, file_ptr, bfd_size_type));
+  PARAMS ((bfd *, asection *, const PTR, file_ptr, bfd_size_type));
 static int ppcboot_sizeof_headers PARAMS ((bfd *, bfd_boolean));
 static bfd_boolean ppcboot_bfd_print_private_bfd_data PARAMS ((bfd *, PTR));
 
@@ -287,7 +287,7 @@ mangle_name (abfd, suffix)
 /* Return the symbol table.  */
 
 static long
-ppcboot_get_symtab (abfd, alocation)
+ppcboot_canonicalize_symtab (abfd, alocation)
      bfd *abfd;
      asymbol **alocation;
 {
@@ -364,7 +364,7 @@ static bfd_boolean
 ppcboot_set_section_contents (abfd, sec, data, offset, size)
      bfd *abfd;
      asection *sec;
-     PTR data;
+     const PTR data;
      file_ptr offset;
      bfd_size_type size;
 {
@@ -478,6 +478,8 @@ ppcboot_bfd_print_private_bfd_data (abfd, farg)
 #define ppcboot_bfd_link_split_section _bfd_generic_link_split_section
 #define ppcboot_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
+#define ppcboot_get_section_contents_in_window_with_mode \
+  _bfd_generic_get_section_contents_in_window_with_mode
 
 #define ppcboot_bfd_copy_private_bfd_data _bfd_generic_bfd_copy_private_bfd_data
 #define ppcboot_bfd_merge_private_bfd_data _bfd_generic_bfd_merge_private_bfd_data

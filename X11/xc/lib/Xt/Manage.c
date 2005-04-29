@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Manage.c,v 3.8 2001/12/14 19:56:26 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Manage.c,v 3.11 2003/08/27 21:39:38 tsi Exp $ */
 
 /*
 
@@ -150,7 +150,9 @@ void XtUnmanageChildren (children, num_children)
 {
     Widget parent, hookobj;
     Cardinal ii;
+#ifdef XTHREADS
     XtAppContext app;
+#endif
 
     if (num_children == 0) return;
     if (children[0] == NULL) {
@@ -159,7 +161,9 @@ void XtUnmanageChildren (children, num_children)
 		     (String *)NULL, (Cardinal *)NULL);
 	return;
     }
+#ifdef XTHREADS
     app = XtWidgetToApplicationContext(children[0]);
+#endif
     LOCK_APP(app);
     parent = children[0]->core.parent;
     if (parent->core.being_destroyed) {
@@ -302,7 +306,9 @@ void XtManageChildren(children, num_children)
     Cardinal num_children;
 {
     Widget parent, hookobj;
+#ifdef XTHREADS
     XtAppContext app;
+#endif
 
     if (num_children == 0) return;
     if (children[0] == NULL) {
@@ -311,7 +317,9 @@ void XtManageChildren(children, num_children)
 		     (String*)NULL, (Cardinal*)NULL);
 	return;
     }
+#ifdef XTHREADS
     app = XtWidgetToApplicationContext(children[0]);
+#endif
     LOCK_APP(app);
     parent = children[0]->core.parent;
     if (parent->core.being_destroyed) {
@@ -342,16 +350,9 @@ void XtManageChild(child)
 } /* XtManageChild */
 
 
-#if NeedFunctionPrototypes
 void XtSetMappedWhenManaged(
     Widget widget,
-    _XtBoolean mapped_when_managed
-    )
-#else
-void XtSetMappedWhenManaged(widget, mapped_when_managed)
-    Widget widget;
-    Boolean mapped_when_managed;
-#endif
+    _XtBoolean mapped_when_managed)
 {
     Widget hookobj;
     WIDGET_TO_APPCON(widget);
@@ -391,25 +392,13 @@ void XtSetMappedWhenManaged(widget, mapped_when_managed)
 } /* XtSetMappedWhenManaged */
 
 
-#if NeedFunctionPrototypes
 void XtChangeManagedSet(
     WidgetList unmanage_children,
     Cardinal num_unmanage,
     XtDoChangeProc do_change_proc,
     XtPointer client_data,
     WidgetList manage_children,
-    Cardinal num_manage
-)
-#else
-void XtChangeManagedSet(unmanage_children, num_unmanage, do_change_proc,
-			client_data, manage_children, num_manage)
-    WidgetList unmanage_children;
-    Cardinal num_unmanage;
-    XtDoChangeProc do_change_proc;
-    XtPointer client_data;
-    WidgetList manage_children;
-    Cardinal num_manage;
-#endif
+    Cardinal num_manage)
 {
     WidgetList childp;
     Widget parent;

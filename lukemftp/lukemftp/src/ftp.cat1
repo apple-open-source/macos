@@ -4,9 +4,9 @@ NNAAMMEE
      ffttpp - Internet file transfer program
 
 SSYYNNOOPPSSIISS
-     ffttpp [--AAaaddeeffggiinnppRRttvvVV] [--oo _o_u_t_p_u_t] [--PP _p_o_r_t] [--rr _r_e_t_r_y] [--TT _d_i_r,_m_a_x[,_i_n_c]]
-         [[_u_s_e_r@]_h_o_s_t [_p_o_r_t]] [_u_s_e_r@]_h_o_s_t:[_p_a_t_h][/] [file:///_p_a_t_h]
-         [ftp://[_u_s_e_r[:_p_a_s_s_w_o_r_d]@]_h_o_s_t[:_p_o_r_t]/_p_a_t_h[/]]
+     ffttpp [--4466AAaaddeeffggiinnppRRttvvVV] [--NN _n_e_t_r_c] [--oo _o_u_t_p_u_t] [--PP _p_o_r_t] [--rr _r_e_t_r_y] [--TT
+         _d_i_r,_m_a_x[,_i_n_c]] [[_u_s_e_r@]_h_o_s_t [_p_o_r_t]] [_u_s_e_r@]_h_o_s_t:[_p_a_t_h][/]
+         [file:///_p_a_t_h] [ftp://[_u_s_e_r[:_p_a_s_s_w_o_r_d]@]_h_o_s_t[:_p_o_r_t]/_p_a_t_h[/]]
          [http://[_u_s_e_r[:_p_a_s_s_w_o_r_d]@]_h_o_s_t[:_p_o_r_t]/_p_a_t_h] [_._._.]
      ffttpp --uu _u_r_l file [_._._.]
 
@@ -21,6 +21,10 @@ DDEESSCCRRIIPPTTIIOONN
 
      Options may be specified at the command line, or to the command inter-
      preter.
+
+     --44       Forces ffttpp to only use IPv4 addresses.
+
+     --66       Forces ffttpp to only use IPv6 addresses.
 
      --AA       Force active mode ftp.  By default, ffttpp will try to use passive
               mode ftp and fall back to active mode if passive is not support-
@@ -50,6 +54,10 @@ DDEESSCCRRIIPPTTIIOONN
               ffttpp will prompt for the remote machine login name (default is
               the user identity on the local machine), and, if necessary,
               prompt for a password and an account with which to login.
+
+     --NN _n_e_t_r_c
+              Use _n_e_t_r_c instead of _~_/_._n_e_t_r_c.  Refer to _T_H_E _._n_e_t_r_c _F_I_L_E for
+              more information.
 
      --oo _o_u_t_p_u_t
               When auto-fetching files, save the contents in _o_u_t_p_u_t.  _o_u_t_p_u_t
@@ -132,10 +140,11 @@ DDEESSCCRRIIPPTTIIOONN
                  ffttpp.  An end of file will also terminate the session and ex-
                  it.
 
-     ccaassee        Toggle remote computer file name case mapping during mmggeett
-                 commands.  When ccaassee is on (default is off), remote computer
-                 file names with all letters in upper case are written in the
-                 local directory with the letters mapped to lower case.
+     ccaassee        Toggle remote computer file name case mapping during ggeett,
+                 mmggeett and mmppuutt commands.  When ccaassee is on (default is off),
+                 remote computer file names with all letters in upper case are
+                 written in the local directory with the letters mapped to
+                 lower case.
 
      ccdd _r_e_m_o_t_e_-_d_i_r_e_c_t_o_r_y
                  Change the working directory on the remote machine to _r_e_m_o_t_e_-
@@ -205,8 +214,8 @@ DDEESSCCRRIIPPTTIIOONN
                  per filename.
 
      ffoorrmm _f_o_r_m_a_t
-                 Set the file transfer ffoorrmm to _f_o_r_m_a_t.  The default format is
-                 ``file''.
+                 Set the file transfer ffoorrmm to _f_o_r_m_a_t.  The default (and only
+                 supported) format is ``non-print''.
 
      ffttpp _h_o_s_t [_p_o_r_t]
                  A synonym for ooppeenn.
@@ -229,18 +238,19 @@ DDEESSCCRRIIPPTTIIOONN
                  settings for ttyyppee, ffoorrmm, mmooddee, and ssttrruuccttuurree are used while
                  transferring the file.
 
-     gglloobb        Toggle filename expansion for mmddeelleettee, mmggeett and mmppuutt.  If
-                 globbing is turned off with gglloobb, the file name arguments are
-                 taken literally and not expanded.  Globbing for mmppuutt is done
-                 as in csh(1).  For mmddeelleettee and mmggeett, each remote file name is
-                 expanded separately on the remote machine and the lists are
-                 not merged.  Expansion of a directory name is likely to be
-                 different from expansion of the name of an ordinary file: the
-                 exact result depends on the foreign operating system and ftp
-                 server, and can be previewed by doing `mls remote-files -'
-                 Note: mmggeett and mmppuutt are not meant to transfer entire directo-
-                 ry subtrees of files.  That can be done by transferring a
-                 tar(1) archive of the subtree (in binary mode).
+     gglloobb        Toggle filename expansion for mmddeelleettee, mmggeett, mmppuutt, and
+                 mmrreeggeett.  If globbing is turned off with gglloobb, the file name
+                 arguments are taken literally and not expanded.  Globbing for
+                 mmppuutt is done as in csh(1).  For mmddeelleettee, mmggeett, and mmrreeggeett,
+                 each remote file name is expanded separately on the remote
+                 machine and the lists are not merged.  Expansion of a direc-
+                 tory name is likely to be different from expansion of the
+                 name of an ordinary file: the exact result depends on the
+                 foreign operating system and ftp server, and can be previewed
+                 by doing `mls remote-files -' Note: mmggeett, mmppuutt and mmrreeggeett are
+                 not meant to transfer entire directory subtrees of files.
+                 That can be done by transferring a tar(1) archive of the sub-
+                 tree (in binary mode).
 
      hhaasshh [_s_i_z_e]
                  Toggle hash-sign (``#'') printing for each data block trans-
@@ -333,8 +343,8 @@ DDEESSCCRRIIPPTTIIOONN
                  `remopts mlst ...'.
 
      mmooddee _m_o_d_e_-_n_a_m_e
-                 Set the file transfer mmooddee to _m_o_d_e_-_n_a_m_e.  The default mode is
-                 ``stream'' mode.
+                 Set the file transfer mmooddee to _m_o_d_e_-_n_a_m_e.  The default (and
+                 only supported) mode is ``stream''.
 
      mmooddttiimmee _r_e_m_o_t_e_-_f_i_l_e
                  Show the last modification time of the file on the remote ma-
@@ -347,6 +357,9 @@ DDEESSCCRRIIPPTTIIOONN
                  ments and do a ppuutt for each file in the resulting list.  See
                  gglloobb for details of filename expansion.  Resulting file names
                  will then be processed according to nnttrraannss and nnmmaapp settings.
+
+     mmrreeggeett _r_e_m_o_t_e_-_f_i_l_e_s
+                 As per mmggeett, but performs a rreeggeett instead of ggeett.
 
      mmsseenndd _l_o_c_a_l_-_f_i_l_e_s
                  A synonym for mmppuutt.
@@ -630,21 +643,21 @@ DDEESSCCRRIIPPTTIIOONN
 
                        rprompt     Defaults to $FTPRPROMPT.
 
+     ssiittee _a_r_g_1 _a_r_g_2 _._._.
+                 The arguments specified are sent, verbatim, to the remote FTP
+                 server as a SITE command.
+
      ssiizzee _r_e_m_o_t_e_-_f_i_l_e
                  Return size of _r_e_m_o_t_e_-_f_i_l_e on remote machine.
 
      ssnnddbbuuff _s_i_z_e
                  Set the size of the socket send buffer to _s_i_z_e.
 
-     ssiittee _a_r_g_1 _a_r_g_2 _._._.
-                 The arguments specified are sent, verbatim, to the remote FTP
-                 server as a SITE command.
-
      ssttaattuuss      Show the current status of ffttpp.
 
      ssttrruucctt _s_t_r_u_c_t_-_n_a_m_e
-                 Set the file transfer _s_t_r_u_c_t_u_r_e to _s_t_r_u_c_t_-_n_a_m_e.  By default
-                 ``stream'' structure is used.
+                 Set the file transfer _s_t_r_u_c_t_u_r_e to _s_t_r_u_c_t_-_n_a_m_e.  The default
+                 (and only supported) structure is ``file''.
 
      ssuunniiqquuee     Toggle storing of files on remote machine under unique file
                  names.  The remote FTP server must support FTP protocol STOU
@@ -849,9 +862,10 @@ FFIILLEE TTRRAANNSSFFEERR PPAARRAAMMEETTEERRSS
 
 TTHHEE ..nneettrrcc FFIILLEE
      The _._n_e_t_r_c file contains login and initialization information used by the
-     auto-login process.  It resides in the user's home directory.  The fol-
-     lowing tokens are recognized; they may be separated by spaces, tabs, or
-     new-lines:
+     auto-login process.  It resides in the user's home directory, unless
+     overridden with the --NN _n_e_t_r_c option, or specified in the NETRC environ-
+     ment variable.  The following tokens are recognized; they may be separat-
+     ed by spaces, tabs, or new-lines:
 
      mmaacchhiinnee _n_a_m_e
                Identify a remote machine _n_a_m_e.  The auto-login process search-
@@ -970,6 +984,8 @@ EENNVVIIRROONNMMEENNTT
 
      HOME           For default location of a _._n_e_t_r_c file, if one exists.
 
+     NETRC          An alternate location of the _._n_e_t_r_c file.
+
      PAGER          Used by various commands to display files.  Defaults to
                     more(1) if empty or not set.
 
@@ -977,6 +993,9 @@ EENNVVIIRROONNMMEENNTT
 
      ftp_proxy      URL of FTP proxy to use when making FTP URL requests (if
                     not defined, use the standard FTP protocol).
+
+                    _N_O_T_E: this is not used for interactive sessions, only for
+                    command-line fetches.
 
      http_proxy     URL of HTTP proxy to use when making HTTP URL requests.
                     If proxy authentication is required and there is a user-
@@ -986,6 +1005,9 @@ EENNVVIIRROONNMMEENNTT
                     Note that the use of a username and password in ftp_proxy
                     and http_proxy may be incompatible with other programs
                     that use it (such as lynx(1)).
+
+                    _N_O_T_E: this is not used for interactive sessions, only for
+                    command-line fetches.
 
      no_proxy       A space or comma separated list of hosts (or domains) for
                     which proxying is not to be used.  Each entry may have an
@@ -1030,4 +1052,4 @@ BBUUGGSS
      uses a SIIT translator for IPv6-to-IPv4 translation, ffttpp is unable to
      support your configuration.
 
-NetBSD 1.5                    September 28, 2000                            16
+NetBSD 1.6_BETA1                 May 18, 2002                               16

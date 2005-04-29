@@ -1,0 +1,54 @@
+[manpage_begin des n 0.8.1]
+[copyright {2003, Jochen C Loewer}]
+[moddesc {Data Encryption Standard (DES)}]
+[titledesc {Perform DES encryption of Tcl data}]
+[require Tcl 8.3]
+[require des 0.8.1]
+[description]
+[para]
+
+This is a Tcl implementation of the Data Encryption Standard (DES)
+written by Jochen Loewer and based upon an implementation by Eric
+Young.
+
+[para]
+
+NOTE: this version only implements the Electronic Code Book (ECB) mode
+of DES. This is NOT suitable for general use encryption of large
+blocks or streams of data. Until Cipher Block Chaining (CBC) or
+Cipher/Output Feed Back (CFB / OFB) modes are implemented this should
+not be considered for real encryption. The Trfcrypt package has
+C-based implementations of these modes.
+
+[section COMMANDS]
+
+[list_begin definitions]
+[call [cmd ::DES::des] -mode [arg encode|decode] -key [arg string] "(-file [arg filename] | [opt --] [arg string])"]
+
+Encode or decode a string or file.
+
+[list_end]
+
+[section EXAMPLES]
+[para]
+
+[example {
+% set ciphertext [DES::des -mode encode -key $secret $plaintext]
+% set plaintext [DES::des -mode decode -key $secret $ciphertext]
+}]
+
+[para]
+
+[example {
+% set ciphertext [DES::des -mode encode -key $secret -file $filename]
+% set f [open $filename.des w] ; puts -nonewline $ciphertext ; close $f
+% set plaintext [DES::des -mode decode -key $secret -file $filename.des]
+}]
+
+
+[see_also md5(n) sha1(n) ]
+[section AUTHORS]
+Jochen C Loewer
+
+[keywords DES encryption {data integrity} security]
+[manpage_end]

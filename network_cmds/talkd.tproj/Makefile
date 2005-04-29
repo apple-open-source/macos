@@ -17,7 +17,7 @@ HFILES = talkd.h
 CFILES = announce.c print.c process.c table.c talkd.c
 
 OTHERSRCS = Makefile Makefile.dist Makefile.postamble Makefile.preamble\
-            talkd.8
+            talkd.8 ntalk.plist
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

@@ -1,522 +1,837 @@
-This file is not actively maintained.  See ChangeLog for recent changes.
+= command line options
 
-Summary of the changes since 1.6.7:
+: -W option
 
-: getopts.rb
+  new option to specify warning level. -W0 to shut up warnings, -W1 for normal level,
+  -W2 for verbose level.  -w equals to -W2.
 
-  Rewrote to fix some bugs and complete features.
-    - Accept options with the colon in the first argument;
-      getopts("a:bcd:") is equivalent to getopts("bc", "a:", "d:").
-    - Do not discard the argument that caused an error.
-    - Do not discard '-', which commonly stands for stdin or stdout.
-    - Allow specifying a long option with a value using '='.
-      (command --long-option=value)
-    - Stop reading options when it meets a non-option argument.
+= language syntax
 
-: Marshal.dump
+: arbitrary delimited string array
 
-  Fixed where Marshal::dump(foo, proc{...}) fails. (which was
-  accidentally broken between 1.6.6 and 1.6.7)
+  %W(...) notation, word list literal like %w(...) with the
+  exception that #{} interpolation is allowed.
 
-Summary of the changes since 1.6.6:
+: arbitrary delimited symbol literl
 
-: Digest::SHA2
+  :"foo", :"foo#{bar}", etc.
 
-  Fixed where it had a couple of off-by-one errors in the algorithm
-  implementation.
+: expression interpolation in strings
 
-: Digest
+  Now arbitrary statements are allowed inside #{} interpolation
+  without escapes.  In other hand, they can no longer access to
+  variables defined in eval.
 
-  Fixed where it polluted namespace by defining some global symbols
-  that conflict with OpenSSL.
+: negative number literals
 
-: Syslog
+  Digits preceded minus sign is a literal integer.
 
-  Changed from a singleton class to a module for ease of use, keeping
-  backward compatibility intact.
+: array expansion
 
-: URI::join
+  Fixed with the following behavior:
 
-  Added.
+    a = *[1]
+    p a #=> [1]
 
-: URI
+  Now 1-element array in rhs is expanded properly.
 
-  Fixed where some methods did not conform to the RFC's in some
-  (rather trivial) points.
+    a = *[1]
+    p a #=> 1
 
-: Float()
+: break and next
 
-  Enhanced so that it allows underscores between digits.
+  Extended to take an optional expression, which is used as a value
+  for termination.
 
-: net/protocol: Protocol#start
+: direct assignment to Foo::Bar is allowed
 
-  Now returns the return value of the given block.
+  also, you can define "class Foo::Bar; end".
 
-: net/protocol
+= language core
 
-  Fixed to set timeout limit by default, and set read_timeout
-  dynamically.
+: $stdin, $stdout, $stderr
 
-: net/smtp
+  can be assignable again.  the original stdio are preserved as STDIN,
+  STDOUT, STDERR.
 
-  Fixed not to resolve HELO domain automatically.
+: $VERBOSE now has 3 levels
 
-: net/http: HTTP#{request_get,request_post}
+  nil - silence, false - medium (default), true - verbose
 
-  Renamed from get2 and post2, respectively.
+: allocation framework
 
-: net/pop: POP#auth_only
+  any instance of class can be allocated by class.allocate,
+  (except for a few classes).
 
-  Fixed.
+: comparison of exception classes in a rescue clause
 
-: $SAFE / block
+  changed to use Module#=== for comparing $! with the exception
+  class specified in each rescue clause.
 
-  Fixed not to pass a tainted block if $SAFE > 0.
+  as the previous behavior was to use kind_of?, the effect is limited
+  to the SystemCallError case.  SystemCallError.=== has been newly
+  defined to return true when the two have the same errno.  With this
+  change, SystemCallError's with the same errno, such as Errno::EAGAIN
+  and Errno::EWOULDBLOCK, can both be rescued by listing just one of
+  them.
 
-: ruby-mode.el
+: constants lookup
 
-  Now handles nested parentheses in a string and terminators in #{},
-  and fontifies instance/class/global variables that start with '_'.
+  improved at the performance of searching by using an internal hash
+  table.
 
-: Time#{gmtoff,gmt_offset,utc_offset}
+  calls const_missing method of the class/module, if constant is not
+  found in the look up path.
 
-  Added.
+: expression parenthesis in the first argument
 
-: time.rb
+  altered to get the following code (note the space after p):
 
-  Imported. (which is formerly known as "timex.rb")
+    p ("xx"*2).to_i
 
-: bugfixes
+  Interpreted as:
 
-  Numeral bugs have been fixed.  There are too many to mention here.
-  Please refer to ChangeLog.
+    p (("xx"*2).to_i)
 
-Summary of the changes since 1.6.5:
+  Instead of:
 
-: Syslog module
+    (p("xx"*2)).to_i
 
-  Imported.
+: implicit comparison in conditional expressions
 
-: Digest module
+  Obsoleted except when it is used in -e.
 
-  Added as a replacement for md5 and sha1 modules.
+  : between Range and $.
+      Use explicit comparison instead.
 
-    require 'digest/md5'
-    include Digest
+  : between Regexp and $_
+      Use the unary method ~/re/ instead.
 
-    md = MD5.new
-    md << "abc"
-    puts md
+: to_str
 
-    puts MD5.hexdigest("123")
+  added to get objects which define to_str() treated as String's.
 
-: Struct
+  now almost all the built-in methods try each argument with to_str()
+  when they expect it to be a String.
 
-  Fixed to check frozen and taint status before modifying.
-
-: String#rindex
-
-  Fixed with a bug when a regex is given. [ruby-dev:13843]
-
-    "foobar".index("b")  #=> 3
-    "foobar".index(/b/)  #=> 3
-    "foobar".rindex("b") #=> 3
-    "foobar".rindex(/b/) #=> nil  <- ???
-
-: require
-
-  Fixed with handling of a `~' to allow an extention to be omitted.
-  [ruby-dev:13756)
-
-    $ echo p __FILE__ > ~/a.rb
-    $ ruby17 -v -r~/a -e0
-    ruby 1.7.1 (2001-07-03) [i686-linux]
-    0: No such file to load -- ~/a (LoadError)
-    $ ruby16 -v -r~/a -e0
-    ruby 1.6.4 (2001-07-02) [i686-linux]
-    0: No such file to load -- ~/a (LoadError)
-    $ ruby14 -v -r~/a -e0
-    ruby 1.4.6 (2000-08-16) [i686-linux]
-    "/home/nobu/a.rb"
-
-: String#each_line
-
-  Fixed to properly propagate taintness. [ruby-dev:13755]
-
-: NKF::nkf
-
-  Fixed to properly propagate taintness. [ruby-dev:13754]
-
-: ruby -x
-
-  Fixed with a bug that when a `-x' is specified the interpreter might exit
-  without running a script. [ruby-dev:13752]
-
-: attr_*
-
-  Fixed to raise an error when unwanted parameters are given.
-  [ruby-dev:13748]
-
-    class C
-      def initialize
-	@message = 'ok'
+    foo = Object.new
+    class <<foo
+      def to_str
+        "foo"
       end
-      attr_reader :message
     end
-    puts C.new.message(1,2,3) # raises ArgumentError
+    p File.open(foo)
+    => -:7:in `open': wrong argument type Object (expected String) (TypeError)
+       ruby 1.6.4 (2001-04-19) [i586-linux]
+    => -:7:in `open': No such file or directory - "foo" (Errno::ENOENT)
+       ruby 1.7.0 (2001-05-02) [i586-linux]
 
-: Readline::completion_append_characte
-: Readline::completion_append_character=
+: multiple assignment behavior
+
+  Fixed so that "*a = nil" results in "a == []".
+
+= changes in core class library
+
+: open
+
+  Extended so that when the third argument is permission flags it
+  calls open(2) instead of fopen(3).
+
+: sprintf
+
+  new format specifier "%p" is available.
+
+: lambda and proc
+
+  Proc object returns from these methods has the following attributes:
+
+  * strict argument number check
+  * break and return terminates the proc execution.
+
+: warn(message)
+
+  a method to give warnings.
+
+: abort()
+
+  takes optional terminate message argument.
+
+: Object#initialize_copy
+
+  copy constructor for clone and dup.
+
+: Object#instance_variable_set, Object#instance_variable_get
+
+  added.
+
+: Object#singleton_method_removed
+: Object#singleton_method_undefined
 
   Added.
 
-: Socket::SO_*
+: Array#transpose
+
+  added.
+
+: Array#fetch(index [, default])
+
+  Added.  If a default value isn't given, raises index error if index
+  is out of range.
+
+: Array#insert(n, other, ...)
+
+  Added. [ruby-talk:14289]
+
+  This is much the same as (({ary[n,0] = [other,...]})) except
+  returing self.
+
+    ary = [0,1,2,3]
+    ary[2, 0] = [4, 5, 6]
+    p ary
+
+    ary = [0,1,2,3]
+    ary.insert(2, 4, 5, 6)
+    p ary
+
+: Array#sort!
+
+  Changed to always return self without checking whether the sequence
+  of the elements was modified or not.
+
+  Beware that this behavior is not guaranteed to continue in the
+  future.  Do not rely on its return value. [ruby-dev:12506]
+
+: Array#filter
+
+  Previously deprecated, now removed.  Use Array#collect!.
+
+: Array#pack, String#unpack
+
+  Allows comment in template strings.
+
+: Array#pack, String#unpack
+
+  New templates 'q' and 'Q' for 64bit integer (signed and unsigned respectively).
+
+: Array#new
+
+  Now takes block to fill initial values.  E.g.
+
+	Array.new(10) { |i| i + 1 }
+	=> [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+: Array#fill
+
+  Takes block to get the values to fill.
+
+: Array#fetch
+
+  Takes block to get the default value.
+
+: Array#zip
+
+  added.
+
+: Hash#update
+
+  Takes block to resolve key conflict.
+
+: Hash#merge and Hash#merge!
+
+  update hash.  Hash#merge! is a synonym of Hash#update.
+
+: String#split
+
+  if "sep" argument is a string, regular expression meta characters
+  are escaped internally.
+
+: String#rstrip
+
+  chop off NULs at the end of strings.
+
+: String#to_i
+
+  Now accepts optional base argument.
+
+	"101".to_i(10) => 101
+	"101".to_i(2)  => 5
+	"101".to_i(8)  => 65
+	"101".to_i(16) => 257
+
+  A base argument of 0 guesses at the base.
+
+	"101".to_i(0)   => 101
+	"0b101".to_i(0) => 5
+	"0101".to_i(0)  => 65
+	"0x101".to_i(0) => 257
+
+: String#[regexp, nth]
+
+  Extended to accepts optional second argument.
+
+  It tries match between self and REGEXP, then returns the
+  content of the NTH regexp register.
+
+: String#casecmp
+
+  Added.  This is a case insensitive version of String#<=>.
+
+: String#chomp
+
+  If $/ == "\n", chops off last newlines (any of \n, \r, \r\n).
+
+: String#eql?
+
+  Changed to be always case sensitive.
+
+: String#insert(n, other)
 
   Added.
 
-: require / $LOAD_PATH
+  This is much the same as (({str[n, 0] = other})) except returing
+  self.
 
-  Changed to use a new algorithm to locate a library.
+: String#lstrip, rstrip, lstrip!, rstrip!
 
-  Now when requiring "foo", the following directories are searched for
-  the library in the order listed.
+  Added.  These strip only left or right part of a string.
 
-    $prefix/lib/ruby/site_ruby/$ver/foo.rb
-    $prefix/lib/ruby/site_ruby/$ver/foo.so
-    $prefix/lib/ruby/site_ruby/$ver/$arch/foo.rb
-    $prefix/lib/ruby/site_ruby/$ver/$arch/foo.so
-    $prefix/lib/ruby/site_ruby/foo.rb
-    $prefix/lib/ruby/site_ruby/foo.so
-    $prefix/lib/ruby/$ver/foo.rb
-    $prefix/lib/ruby/$ver/foo.so
-    $prefix/lib/ruby/$ver/$arch/foo.rb
-    $prefix/lib/ruby/$ver/$arch/foo.so
-    ./foo.rb
-    ./foo.so
+: String#match
 
-  The previous behavior had a potential security risk because a
-  foo.rb (if exists) in the current directory is located prior to a
-  foo.so in $prefix/lib/ruby/site_ruby/$ver/$arch.
-  [ruby-bugs (PR#140)]
+  Added.
 
-: lib/sync.rb
-: lib/mutex_m.rb
+: String/Array methods
 
-  Fixed for obj.extend(Sync_m) and obj.extend(Mutex_m).
+  Returns an instance of receivers class.
 
-: $SAFE / load
+: String.new
 
-  Fixed with a bug that a file with a tainted filename can be loaded when
-  1 <= $SAFE <= 3 and the second argument is true.  [ruby-dev:13481]
+  The first argument becomes optional.
 
-    $SAFE = 1
-    filename = "foo"
-    filename.taint
-    load(filename, true)
-    #=> true
+: Symbol#intern
 
-: Regexp
+  Added.
 
-  Fixed for the following case.  [ruby-talk:16233]
+: Symbol.all_symbols
 
-    ruby -e 'puts "OK" if /(.|a)bd/ =~ "cxbd"'
-    ruby -e 'puts "OK" if /(a|.)bd/ =~ "cxbd"'
-    #=> OK
+  Added. [ruby-dev:12921]
 
-: $SAFE / def
+: IO
 
-  Fixed so defining a new method is allowed under $SAFE == 4, which
-  previously wasn't.
+  64bit off_t support by Janathan Baker.
 
-    ruby -e '$SAFE = 4; def a; end'
-    => -e:1: Insecure operation `(null)' at level 4 (SecurityError)
+: IO#read
+: IO#sysread
 
-: IO#ioctl
+  takes optinal second argument for read buffer.
 
-  Fixed to accept a Bignum as the second argument.
+: IO::sysopen
 
-Summary of the changes since 1.6.3:
+  New method to get a raw file descriptor.
 
-: Hash#replace
+: IO#sysseek
 
-  Fixed so the following code does not fail in core dump.
+  Added.
 
-    h  = { 10 => 100, 20 => 200 }
-    h2 = { }
+: IO#fsync
 
-    h.each { |k, v|
-      if (k == 10)
-        h.delete(10)
-        h2.replace(h)  # => Abort core dumped
-      end
+  new method that copies all in-memory parts of a file to disk and
+  waits until the device reports that all parts are on stable storage.
+  Implemented with fsync(2) or equivalent.
+
+: IO.open
+
+  Made public.  Can only associate an IO object with a file number
+  like IO.new and IO.for_fd, but can take a block.
+
+: IO.for_fd
+
+  Added as a synonym for IO.new.
+
+: IO.read
+
+  Added.  Like IO.readlines, except it returns the entire file as a
+  string.  [ruby-talk:9460]
+
+: File#fnmatch, File::Constants::FNM_*
+
+  Added.  Refer to the fnmatch(3) manpage for details.
+
+  Localism is FNM_DOTMATCH which has the opposite meaning of the
+  commonly known FNM_PERIOD, which does not exist in Ruby.
+
+  e.g.
+
+    # exclude files matching "*.bak" case-insensitively.
+    files.reject! {|fn| File.fnmatch?("*.bak", fn, File::FNM_CASEFOLD) }
+
+: File.lchmod
+: File.lchown
+
+  Added.
+
+: File.open, IO.open
+
+  File mode can be specified by flags like open(2),
+  e.g. File::open(path, File::CREAT|File::WRONLY).
+
+: Regexp#options
+
+  Added.
+
+: Regexp.last_match(n)
+
+  Extended to take an optional argument.
+
+: MatchData#captures
+
+  added.
+
+: Dir#path
+
+  Added.
+
+: Dir.chdir
+
+  Extended to take a block.
+
+: Dir.glob
+
+  Made to support meta-character escaping by a backslash.  Wildcards
+  and spaces may now be escaped using a backslash.
+
+: Dir.open
+
+  Changed to return what the block returns when a block is given, just
+  as File.open does. (It always returned (({nil})) in 1.6 and
+  prior)
+
+: Dir.chdir
+
+  Changed to warn only when invoked from multiple threads or no block
+  is given. [ruby-dev:13823]
+
+    Dir.chdir('foo') {
+      Dir.chdir('bar') {   # previously warned
+        puts Dir.pwd
+      }
     }
 
-: $SAFE / File::unlink
+: Dir#pos=
 
-  Changed to be forbidden under $SAFE >= 2.
+  Returns the new position instead of self.
 
-: ruby -T4
+: Dir::glob
 
-  Fixed.  ARGV is now properly marked as tainted so ruby -T4 no longer
-  fails in SecurityError.
+  Now accepts optional FNM_* flags via the second argument, whereas
+  Dir::[] doesn't.
 
-: Regexp
+    Dir.glob("makefile", File::FNM_CASEFOLD) #=> ['Makefile', 'makefile']
 
-  Fixed.  Now \1 .. \9 always mean backreferences, and referring to
-  unclosed/unmatched parentheses always fails.
+: Class#inherited
 
-: String taint infection
+  Method is called when Class is inherited by another class.
 
-  Fixed for the following cases.  [ruby-dev:13340]
-
-  # []=
-  s1 = "abc"
-  s2 = "cde".taint
-  s1[0]= s2
-  p s1.tainted?             # => false
-
-  # crypt
-  s = "abc".taint
-  p s.crypt("cd").tainted?  # => false
-
-  # ljust
-  s = "abc".taint
-  p s.ljust(10).tainted?    # => false
-
-  # rjust
-  s = "abc".taint
-  p s.rjust(10).tainted?    # => false
-
-  # center
-  s = "abc".taint
-  p s.center(10).tainted?   # => false
-
-  Now they will all be marked as tainted.
-
-: rb_yield_0()
-
-  Fixed so it adjusts a 1-element array when yielded from C API, as
-  well.  Previously, the following code produced a wrong result:
-
-    class X
-      include Enumerable
-
-      def each(&block)
-        block.call(1)
-        block.call(2)
-        block.call(3)
-      end
-    end
-
-    x = X.new
-    p x.to_a #=> [[1], [2], [3]]
-
-  Now it properly produces [1, 2, 3].
-
-: $SAFE / alias
-
-  Fixed so aliasing global variables is disallowed under $SAFE == 4.
-  ((<ruby-dev:13287>))
-
-: Open3::popen3
-
-  Fixed to do exit! instead of exit so the dying process does not
-  invoke at_exit. ((<ruby-dev:13170>))
-
-: SizedQueue#pop
-
-  Fixed so the following code does not cause a dead lock.
-  ((<ruby-dev:13169>))
-
-    ruby -r thread -e 'q = SizedQueue.new(1); q.push(1);'
-                   -e 'Thread.new{sleep 1; q.pop}; q.push(1);'
-
-: SizedQueue#max=
-
-  Fixed so it really works. ((<ruby-dev:13170>))
-
-: Queue
-: SizedQueue
-
-  Fixed to rescue ThreadError in case the thread is dead just before
-  calling Thread#run. ((<ruby-dev:13194>))
-
-: Array#&
-: Array#|
-: Array#uniq
-
-  Fixed so they do not freeze the elements. ((<ruby-list:29665>))
-
-    (%w(foo bar) & %w(foo baz))[0].upcase!
-    => -:1:in `upcase!': can't modify frozen string (TypeError)
-
-    %w(foo bar bar baz).uniq[0].upcase!
-    => -:1:in `upcase!': can't modify frozen string (TypeError)
-
-: shell.rb
-
-    shell.rb 0.6 is newly imported as a standard library, along with
-    documents.
-
-: forwardable.rb
-
-    forwardable.rb 1.1 is newly imported as a standard library, along with
-    documents.
-
-: irb & irb-tools
-
-    irb and irb-tools are updated to 0.7.4 and 0.7.1, respectively.
-
-: Daylight saving time
-
-  Fixed so it is handled correctly. [ruby-bugs-ja (PR#46)]
-
-    env TZ=America/Managua ruby -e 'p Time.local(1998,12,1,0,59,59)'
-    => Mon Nov 30 01:59:59 EST 1998
-    env TZ=America/Managua ruby -e 'p Time.local(1998,12,1,0,59,59).tv_sec'   
-    => 912409199
-
-: SIGINFO
-
-  Support SIGINFO of 4.4BSD.  [ruby-bugs-ja (PR#45)]
-
-: Modifier rescue
-
-  Fixed so the following code does not emit a parse error any more.
-  ((<ruby-dev:13073>)), ((<ruby-dev:13292>))
-
-    raise "" rescue []
-    raise "" rescue (p "foo"; true)
-    raise "" rescue -1
-    raise "" rescue (-1)
-
-: Thread
-
-  Fixed so the following code does not cause a dead lock any more.
-
-    Thread.start { Thread.stop }
-    sleep
-
-    => deadlock 0x40199b58: 2:0  - -:1
-       deadlock 0x401a2528: 2:4 (main) - -:2
-       -:2:in `sleep': Thread: deadlock (fatal)
-               from -:2
-       ruby 1.6.3 (2001-03-19) [i586-linux]
-
-: Module#const_defined?
-: Module#const_get
-: Module#const_set
-
-  Fixed so they do not access to anything other than constants.
-  ((<ruby-dev:13019>))
-
-: Marshal.dump
-
-  Improved so it dumps Float with better precision: "%.12g" -> "%.16g"
-  ((<ruby-list:29349>))
-
-: Fixnum#[]
-
-  Fixed with a bug on the platforms which sizeof(long) > sizeof(int).
-
-: Regular Expression
-
-  Fixed with a couple of minor bugs. ((<ruby-talk:13658>)), ((<ruby-talk:13744>))
-
-: retry
-
-  Fixed so the following code works correctly again. ((<ruby-talk:13957>))
-
-        def WHILE(cond)
-          return if not cond
-          yield
-          retry
+	class A; end
+	def A.inherited(by)
+          puts "A inherited by #{by.inspect}"
         end
+        class B < A; end
 
-        i=0
-        WHILE(i<3) {
-          print i
-          i+=1
-        }
+        Prints out "A inherited by B"
 
-        ruby 1.6.2 (2000-12-25) [i586-linux]
-        => 012
+: Module#include?
 
-        ruby 1.6.3 (2001-03-19) [i586-linux]
-        => 0
+  Added. [ruby-dev:13941] 
 
-        ruby 1.6.4 (2001-05-02) [i586-linux]
-        => 012
+: Module#included
 
-: ((<File::Stat>))#size
+  Added.  This is a hook called after Module#append_feature.
 
-  Fixed to return a correct value for files larger than 1G bytes.
+: Module#method_removed
+: Module#method_undefined
 
-        File.open("/tmp/1GB", "w") {|f|
-          f.seek(2**30-1, 0)
-          f.puts
-          f.flush
-          p f.stat.size
-        }
+  Added.
 
-        # => ruby 1.6.3 (2001-04-03) [i586-linux]
-             -1073741824
-        # => ruby 1.6.4 (2001-04-19) [i586-linux]
-             1073741824
+: Module.new, Class.new
 
-: ((<Float>))#modulo, ((<Float>))#divmod
+  Extended to take block.
 
-  Fixed. ((<ruby-dev:12718>))
+: Time
 
-: ((<ObjectSpace>))#_id2ref
+  Extended to accept a negative time_t. (Only when the platform
+  supports it)
 
-  Fixed so it does not raise a  exception.
+    p Time.at(-1)
+    => Thu Jan 01 08:59:59 JST 1970
 
-: recursive malloc problem
+: Time#to_a
+: Time#zone
 
-  Fixed by preallocating a buffer for stdio using setvbuf().
-  ((<ruby-dev:12795>))
+  Made to return "UTC" under gmtime.  It used to return a platform
+  dependent value, typically "GMT", in 1.6 and prior.
 
-: ((<File>))#flock
+: Marshal to use marshal_dump and marshal_load
 
-  Fixed so it does not raise Errno::EACCES when the file to flock is
-  already locked. (only applicable to the platforms which lack
-  flock())
+  if a dumping object responds to 'marshal_dump', Marshal.dump calls
+  it, and dumps object returned.  Marshal.load allocates a new instance
+  using "allocate", then calls its "marshal_load" with dumped data.
+  Marshal format version is now 4.8 (was 4.6 in 1.6.8).
 
-: ((<File::Stat>)).new(filename)
+: Marshal
 
-  Added. ((<ruby-dev:12803>))
+  Fixed not to dump anonymous classes/modules.
 
-: ((<Bignum>))#% miscalculation
+  Fixed with loading modules.
 
-  (Re-)Fixed.
+: Thread#group
 
-        a = 677330545177305025495135714080
-        b = 14269972710765292560
-        p a % b  #=> 0
-        p -a % b #=> 
+  new method to get belonging  ThreadGroup.
 
-        => ruby 1.6.3 (2001-04-02) [i386-cygwin]
-           0
-           14269972710765292560
+: Thread#terminate
 
-        => ruby 1.6.4 (2001-04-19) [i586-linux]
-           0
-           0
+  synonym of Thread#exit
 
-: ((<Marshal>))
+: Thread#join
 
-  Fixed so a Bignum is properly restored through dump & load.
+  Optional argument limits maximum time to wait the thread in second.
+  And returns nil if timed out.
 
-: Universal Naming Convention(UNC) support (win32)
+: ThreagGroup#enclose
 
-  Added.  Now the UNC form (//host/share) is supported.  Use slash
-  (`(({/}))') instead of backslash (`(({\}))') for separating
-  components.
+  prohibits thread movement from/to enclosed groups.
 
-: ((<Dir>)).glob (win32)
+: Range#step([step=1])
 
-  Fixed so it works for the current directory as well.
+  Added.
 
-        p Dir["./*.c"]
-        => []
+: SystemCallError
+
+  SystemCallError's "===" match (used in rescue also) is now based on its errno.
+
+: Interrupt
+
+  Made a subclass of SignalException. (It was a subclass of
+  Exception in 1.6 and prior)
+
+: NameError and NoMethodError
+
+  Moved and now NoMethodError < NameError < StandardError.
+
+: NoMethodError
+
+  Added. [ruby-dev:12763]
+
+: NotImplementError
+
+  Finally obsoleted.  Use NotImplementedError.
+
+: SystemCallError.===
+
+  Added. (See the "Comparison of exception classes in a rescue clause"
+  paragraph above) [ruby-dev:12670]
+
+: SystemExit#status
+
+  Added.
+
+: Proc#==
+
+  Added.
+
+: Method#==
+
+  Added.
+
+: UnboundMethod is no longer subclass of Method
+
+  class hierarchy changed. 
+
+: Enumerable#all?
+: Enumerable#any?
+: Enumerable#inject
+: Enumerable#sort_by
+
+  Added.
+
+: Math.acos(x)
+: Math.asin(x)
+: Math.atan(x)
+: Math.cosh(x)
+: Math.hypot(x,y)
+: Math.sinh(x)
+: Math.tanh(x)
+
+  Added.
+
+: Process.abort
+: Process.exit
+
+  synonym of Kernel#abort, and Kernel#exit respectively.
+
+: Process::detach(pid)
+
+  new method to detach child process.  child process will be "wait"ed
+  automagically.
+
+: Process.times
+
+  Moved from Time.times. (Time.times still remains but emits a
+  warning)
+
+: Process.waitall
+
+  Added.
+
+: Process::Status
+
+  Added.  (({$?})) is now an instance of this class.
+
+: Process::UID, Process::GID, Process::Sys,
+
+  Added.
+
+: Signal
+
+  Added. This module has module functions Signal.trap and Signal.list.
+
+= changes in bundled libraries
+
+: lib/cgi.rb
+
+  cgi[name] returns CGI::QueryExtension::Value that wraps string
+  value, no longer array.
+
+: lib/timeout
+
+  timeout "function" wrapped in Timeout module.
+
+: TCPServer#accept, UNIXServer#accept, Socket#accept
+
+  New methods to return an accepted socket fd.
+
+: Date and DateTime
+
+  lib/date.rb now provides both Date and DateTime.
+
+  Some methods have been renamed.  But the old names are still alive.
+
+  Some new methods have been added (Date::parse, Date#strftime, etc.).
+
+  Date#mjd now returns the chronological modified Julian day number.
+
+  All facilities about tjd have been removed.
+
+: Curses
+
+  Updated.  New methods and constants for using the mouse, character
+  attributes, colors and key codes have been added.
+
+: Net::HTTP
+
+  New version of Net::HTTP has introduced seriously incompatible
+  changes. For details, see document embedded in net/http.rb itself.
+
+: Socket.pack_sockaddr_in, Socket.unpack_sockaddr_in
+
+  Added.  Utility for direct Socket access.
+
+: Socket.pack_sockaddr_un, Socket.unpack_sockaddr_un
+
+  Added.  Utility for direct Socket access.
+
+: TCPServer#listen, UNIXServer#listen
+
+  Added.
+
+: TCPSocket.new
+: TCPSocket.open
+
+  Extended to take an address and a port number for the local side in
+  optional 3rd and 4th arguments.
+
+= newly bundled library
+
+: ext/bigdecimal
+
+  variable precision decimal number 
+
+: ext/dl
+
+  an interface to the dynamic linker.
+
+: ext/enumerator
+
+  a helper module for the Enumerable interface.
+
+: ext/io/wait
+
+  IO wait methods.
+
+: ext/iconv
+
+  wrapper library of (({iconv})).
+
+: ext/openssl
+
+  OpenSSL for Ruby
+
+: ext/racc/cparse
+
+  Racc runtime library in C. (Racc is a parser generator for ruby)
+
+: ext/stringio
+
+  Pseudo (({IO})) class from/to (({String})).
+
+: ext/strscan
+
+  Fast string scanner library.
+
+: ext/syck
+
+  fast YAML parser.
+
+: lib/abbrev
+
+  creates an abbreviation table from a list
+
+: lib/benchmark
+
+  Ruby scripts benchmarker
+
+: lib/cgi/session/pstore
+
+  cgi/session back-end using pstore 
+
+: lib/csv
+
+  reads/writes CSV files.
+
+: lib/date/format
+
+  strftime for Date class
+
+: lib/drb
+
+  dRuby or distributed Ruby
+
+: lib/fileutils
+
+  file utility library.
+
+: lib/generator
+
+  converts an internal iterator to an external iterator
+
+: lib/gserver
+
+  generic server used by xmlrpc
+
+: lib/ipaddr
+
+  manipulates IP address.
+
+: lib/multi-tk
+
+  to allow safe Tk, etc.
+
+: lib/open-uri
+
+  easy-to-use wrapper for net/http and net/ftp
+
+: lib/optparse
+
+  command line options utility library
+
+: lib/pathname
+
+  handles pathname in OO manner.
+
+: lib/pp
+
+  prettyprinter for Ruby objects
+
+: lib/prettyprint
+
+  implements prettyprint algorithm.
+
+: lib/profiler
+
+  library to implement -r "profile"
+
+: lib/racc/parser
+
+  RACC parser generator runtime in Ruby.
+
+: lib/scanf
+
+  scan string and retrieve object with format
+
+: lib/set
+
+  Set class
+
+: lib/runit
+
+  RubyUnit compatible layer for test/unit
+
+: lib/test/unit
+
+  unit testing framework for Ruby
+
+: lib/tmpdir
+
+  get temporary directory path.
+
+: lib/tsort
+
+  topological sorting library.
+
+: lib/rexml
+
+  REXML XML library
+
+: lib/webrick
+
+  generic internet server kit
+
+: lib/xmlrpc
+
+  simple RPC via XML
+
+: lib/un
+
+  used like 'ruby -run -e cp -- -p foo bar'.  neat, isn't it?
+
+: lib/win32/registry
+
+  win32/registry is registry accessor
+
+: lib/yaml
+
+  YAML Ain't Mark-up Language
+
+= removed libraries
+
+: lib/ftplib
+
+  use net/ftp instead.
+
+: lib/telnet
+
+  use net/telnet instead.
+
+= new port
+
+: WindowsCE port
+: Win32 BCC
+
+= interpreter implementation
+
+: garbage collector
+
+  faster, but uses more memory for the worst case.
+
+: string concatenation
+
+  faster by avoiding too frequent realloc(3).

@@ -1,4 +1,4 @@
-/*	$NetBSD: hist.c,v 1.6 2000/09/04 22:06:29 lukem Exp $	*/
+/*	$NetBSD: hist.c,v 1.10 2002/03/18 16:00:53 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,13 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * hist.c: History access functions
  */
-#include "sys.h"
+#include <stdlib.h>
 #include "el.h"
 
 /* hist_init():
@@ -52,6 +55,9 @@ hist_init(EditLine *el)
 	el->el_history.fun = NULL;
 	el->el_history.ref = NULL;
 	el->el_history.buf = (char *) el_malloc(EL_BUFSIZ);
+	el->el_history.sz  = EL_BUFSIZ;
+	if (el->el_history.buf == NULL)
+		return (-1);
 	el->el_history.last = el->el_history.buf;
 	return (0);
 }
@@ -94,7 +100,7 @@ hist_get(EditLine *el)
 
 	if (el->el_history.eventno == 0) {	/* if really the current line */
 		(void) strncpy(el->el_line.buffer, el->el_history.buf,
-		    EL_BUFSIZ);
+		    el->el_history.sz);
 		el->el_line.lastchar = el->el_line.buffer +
 		    (el->el_history.last - el->el_history.buf);
 
@@ -120,7 +126,8 @@ hist_get(EditLine *el)
 			el->el_history.eventno = h;
 			return (CC_ERROR);
 		}
-	(void) strncpy(el->el_line.buffer, hp, EL_BUFSIZ);
+	(void) strncpy(el->el_line.buffer, hp,
+			(size_t)(el->el_line.limit - el->el_line.buffer));
 	el->el_line.lastchar = el->el_line.buffer + strlen(el->el_line.buffer);
 
 	if (el->el_line.lastchar > el->el_line.buffer) {
@@ -147,7 +154,7 @@ hist_get(EditLine *el)
  */
 protected int
 /*ARGSUSED*/
-hist_list(EditLine *el, int argc, char **argv)
+hist_list(EditLine *el, int argc, const char **argv)
 {
 	const char *str;
 
@@ -157,4 +164,28 @@ hist_list(EditLine *el, int argc, char **argv)
 		(void) fprintf(el->el_outfile, "%d %s",
 		    el->el_history.ev.num, str);
 	return (0);
+}
+
+/* hist_enlargebuf()
+ *	Enlarge history buffer to specified value. Called from el_enlargebufs().
+ *	Return 0 for failure, 1 for success.
+ */
+protected int
+/*ARGSUSED*/
+hist_enlargebuf(EditLine *el, size_t oldsz, size_t newsz)
+{
+	char *newbuf;
+
+	newbuf = realloc(el->el_history.buf, newsz);
+	if (!newbuf)
+		return 0;
+
+	(void) memset(&newbuf[oldsz], '\0', newsz - oldsz);
+
+	el->el_history.last = newbuf +
+				(el->el_history.last - el->el_history.buf);
+	el->el_history.buf = newbuf;
+	el->el_history.sz  = newsz;
+
+	return 1;
 }

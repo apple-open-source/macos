@@ -218,7 +218,7 @@ _cleanupRemovedSessionKeys(const void *value, void *context)
 	i = CFArrayGetFirstIndexOfValue(sessionKeys,
 					CFRangeMake(0, CFArrayGetCount(sessionKeys)),
 					key);
-	if (i == -1) {
+	if (i == kCFNotFound) {
 		/* if this session key has already been removed */
 		goto done;
 	}
@@ -252,10 +252,8 @@ __private_extern__
 int
 __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	serverSessionRef		mySession;
-
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreUnlock:"));
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;		/* you must have an open session to play */
@@ -284,13 +282,6 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 	CFSetRemoveAllValues       (deferredRemovals_s);
 	CFSetRemoveAllValues       (removedSessionKeys_s);
 
-#ifdef	DEBUG
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I changed           = %@"), changedKeys);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys flagged for removal = %@"), deferredRemovals);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("keys I'm watching        = %@"), storePrivate->keys);
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("patterns I'm watching    = %@"), storePrivate->patterns);
-#endif	/* DEBUG */
-
 	/*
 	 * push notifications to any session watching those keys which
 	 * were recently changed.
@@ -307,10 +298,6 @@ __SCDynamicStoreUnlock(SCDynamicStoreRef store, Boolean recursive)
 	 */
 	CFSetApplyFunction(removedSessionKeys, _cleanupRemovedSessionKeys, NULL);
 	CFSetRemoveAllValues(removedSessionKeys);
-
-#ifdef	DEBUG
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("sessions to notify = %@"), needsNotification);
-#endif	/* DEBUG */
 
 	/* Remove the "locked" run loop source for this port */
 	mySession = getSession(storePrivate->server);
@@ -329,11 +316,6 @@ _configunlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Unlock configuration database."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
-
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
@@ -341,7 +323,6 @@ _configunlock(mach_port_t server, int *sc_status)
 
 	*sc_status = __SCDynamicStoreUnlock(mySession->store, FALSE);
 	if (*sc_status != kSCStatusOK) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreUnlock(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

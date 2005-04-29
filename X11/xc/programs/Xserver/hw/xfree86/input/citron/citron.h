@@ -1,4 +1,4 @@
-/* Id: citron.h,v 1.3 2001/03/28 08:24:38 pk Exp $
+/* $Id: citron.h,v 1.5 2003/04/14 08:42:27 pk Exp $
  * Copyright (c) 1998  Metro Link Incorporated
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,13 +25,13 @@
  *
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/citron/citron.h,v 1.3 2001/10/28 03:33:56 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/citron/citron.h,v 1.5 2003/11/03 05:11:47 tsi Exp $ */
 
 /*
  * Based, in part, on code with the following copyright notice:
  *
  * Copyright 1999-2001 by Thomas Thanner, Citron GmbH, Germany. <support@citron.de>
- *
+ * Copyright 1999-2003 by Peter Kunzmann, Citron GmbH, Germany. <kunzmann@citron.de> *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is  hereby granted without fee, provided that
  * the above copyright notice appear in all copies and that both that copyright
@@ -81,6 +81,8 @@
 #define	CTS_OEMSTRING_LEN	256		/* Length of the OEM string */
 #define CTS_FPGA_LEN		28		/* Length of the FPGA version string */
 #define CTS_SENSORCOUNT_LEN	1		/* Length of sensorcount report */
+#define	CTS_USERNAME_LEN	14		/* User name length without trailing zero (GetUserString) */
+#define	CTS_USERSTRING_LEN	127		/* Length of the Userstring without trailing zero */
 
 #define	CTS_MAX_HWASSY		32		/* Maximum number of hardware codeable assy numbers */
 
@@ -113,9 +115,13 @@
 
 /* SetTransmission command parameter values */
 #define	TM_TRANSMIT		0x01		/* Enable the transmission of messages (report will be transmitted always) */
-#define	TM_NONE			0x00		/* Disable transmission of messages and disable the XON/XOFF protocol */
+/*	TM_NONE			0x00 */		/* Disable transmission of messages and disable the XON/XOFF protocol */
 #define	TM_RXDFLOW		0x10		/* Enable the XON/XOFF protocol for the transmitter (IRT will send XON/XOFF to the host) */
 #define	TM_TXDFLOW		0x20		/* Enable the XON/XOFF protocol for the receiver (host will sned XON/XOFF to the IRT) */
+
+/* SetScanning command parameter values */
+#define	SC_DISABLE		0x00		/* Disable scanning */
+#define	SC_ENABLE		0x01		/* Enable scanning */
 
 /* Sleep- and Doze-Mode command parameters */
 #define	TS_QUIET		0x00		/* Disable the generation of TouchSaver messages */
@@ -250,6 +256,8 @@
 #define D_DEBUG				0x03
 #define D_ENTERCOUNT		0x04
 #define D_ZENTERCOUNT		0x05
+#define D_PWMADJ			0x06
+
 
 /* Message identifiers */
 #define	R_DUALTOUCHERROR	0x18		/* Invalid multiple touches are detected */
@@ -266,6 +274,8 @@
 #define	R_POLYAREADEF		0x2a
 #define R_IDLE				0x34
 #define	R_SCANTIMING		0x56
+#define R_LOCKZ				0x52		/* LockZ timings report */
+#define R_USERSTRING		0x66		/* Userstring report */
 
 /* Command identifiers */
 #define	C_SOFTRESET			0x80
@@ -322,12 +332,16 @@
 
 #define	C_GETTOUCHTIME		0xd0
 #define	C_SETTOUCHTIME		0xd1
+#define C_GETLOCKZ			0xd2
+#define C_SETLOCKZ			0xd3
 
 #define	C_CLEARMACRO		0xe0
 #define	C_ENDMACRORECORD	0xe1
 #define	C_EXECMACRO			0xe2
 #define	C_GETFREEMACROSPACE	0xe3
 #define	C_STARTMACRORECORD	0xe5
+#define	C_GETUSERSTRING		0xe6
+#define C_SETUSERSTRING		0xe7
 
 #define	C_GETPORT			0xf0
 #define	C_GETPWM			0xf1
@@ -375,6 +389,7 @@ typedef struct {
 		short packet;			/* packet number */
 		unsigned char data[MAX_BYTES_TO_TRANSFER];	/* pointer to data area */
 } CitronDDS;
+
 
 
 
@@ -439,6 +454,8 @@ typedef struct _cit_privateRec
 	int	pwm_sleep;					/* PWM duty cycle during touch saver mode */
 	int	pwm_active;					/* PWM duty cycle during regular operation */
 	int pwm_freq;					/* PWM base frequency */
+	int	pwm_src;					/* Source for PWM adjust BL_TDK or BL_AC */
+	int pwm_dst;					/* Destination for PWM adjust BL_TDK or BL_AC */
 	int	state;
 /* additional parameters */
 	int last_x;						/* last cooked data */
@@ -471,6 +488,10 @@ typedef struct _cit_privateRec
 	int raw_min_y;
 	int raw_max_y;
 	int	pressure_sensors;			/* number of pressure sensors */
+	int lockz_enter_time;			/* Minimum duration of AreaPressEnter state before a PressEnter event is issued. Steps: 10ms */
+	int lockz_exit_time;			/* Minimum duration of AreaPressExit state before a PressEnter event is issued. Steps: 10ms */
+	int lockz_lock_time;			/* Minimum gap between PressExit and PressEnter event. Steps: 10ms */ 
+	
 
 #define MAX_TIMER	2							/* Max. concurrent timers */
 #define FAKE_TIMER	0							/* Timer for faked exit message */
@@ -487,10 +508,46 @@ typedef struct _cit_privateRec
 	Bool proximity;
 	cit_State lex_mode;
 	XISBuffer *buffer;
-	unsigned char packet[CTS_PACKET_SIZE];	/* packet being/just read 		*/
+	unsigned char packet[CTS_PACKET_SIZE];	/* packet being/just read 		*/	
     CitronDDS dds;					/* Structure for Byte transfer to the driver via LedFeedbackControl */
 }
 cit_PrivateRec, *cit_PrivatePtr;
+
+
+
+
+#define	BL_TDK	0			/* TDK Inverter */
+#define BL_AC	1			/* Applied Concepts inverter */
+#define BL_MAX	1			/* Max. Tables */
+
+const unsigned short cit_bright_adjust[2] [256] =
+{
+	{1,1,2,2,2,3,3,3,4,4,5,5,6,7,8,10,11,13,14,16,18,20,23,25,27,30,33,36,39,42,45,49,52,56,60,64,68,72,76,
+	80,85,89,94,99,104,109,114,119,124,130,135,141,147,153,159,165,171,177,183,190,196,203,209,216,223,230,
+	237,244,251,258,265,273,280,288,295,303,311,319,326,334,342,350,359,367,375,383,392,400,408,417,426,434,
+	443,452,460,469,478,487,496,505,514,523,532,541,550,560,569,578,587,597,606,615,625,634,644,653,663,672,
+	682,691,701,710,720,730,739,749,758,768,778,787,797,807,816,826,836,845,855,865,874,884,893,903,913,922,
+	932,941,951,960,970,979,989,998,1008,1017,1027,1036,1045,1054,1064,1073,1082,1091,1100,1109,1119,1128,
+	1136,1145,1154,1163,1172,1181,1189,1198,1207,1215,1224,1232,1240,1249,1257,1265,1273,1281,1289,1297,1305,
+	1313,1321,1329,1336,1344,1351,1359,1366,1373,1380,1387,1395,1401,1408,1415,1422,1428,1435,1441,1448,1454,
+	1460,1466,1472,1478,1484,1489,1495,1500,1506,1511,1516,1521,1526,1531,1536,1541,1545,1549,1554,1558,1562,
+	1566,1570,1574,1577,1581,1584,1587,1590,1593,1596,1599,1601,1604,1606,1608,1610,1612,1614,1616,1617,1618,
+	1620,1621,1622,1622,1623,1623},		/* TDK */
+
+	{113,117,122,126,131,135,140,144,149,154,159,164,168,173,178,183,189,194,199,204,210,215,220,226,231,237,
+	243,248,254,260,265,271,277,283,289,295,301,307,313,320,326,332,338,345,351,357,364,370,377,383,390,397,
+	403,410,417,423,430,437,444,451,458,465,472,479,486,493,500,507,514,521,529,536,543,550,558,565,572,580,
+	587,594,602,609,617,624,632,639,647,655,662,670,677,685,693,700,708,716,723,731,739,747,755,762,770,778,
+	786,794,801,809,817,825,833,841,849,856,864,872,880,888,896,904,912,920,928,935,943,951,959,967,975,983,
+	991,999,1007,1015,1023,1030,1038,1046,1054,1062,1070,1078,1086,1093,1101,1109,1117,1125,1133,1140,1148,
+	1156,1164,1171,1179,1187,1194,1202,1210,1217,1225,1233,1240,1248,1256,1263,1271,1278,1286,1293,1301,1308,
+	1315,1323,1330,1337,1345,1352,1359,1367,1374,1381,1388,1395,1402,1409,1417,1424,1431,1438,1444,1451,1458,
+	1465,1472,1479,1485,1492,1499,1506,1512,1519,1525,1532,1538,1545,1551,1557,1564,1570,1576,1582,1589,1595,
+	1601,1607,1613,1619,1625,1631,1636,1642,1648,1654,1659,1665,1670,1676,1681,1687,1692,1697,1703,1708,1713,
+	1718,1723,1728,1733,1738,1743,1748,1752,1757,1762,1766,1771,1775,1779,1784,1788,1792,1796,1801,1805,1809}, /* AC */
+};
+
+
 
 /******************************************************************************
  *		Declarations
@@ -526,7 +583,9 @@ static void cit_SetBlockDuration (cit_PrivatePtr priv, int block_duration);
 static void cit_ReinitSerial(cit_PrivatePtr priv);
 static int cit_ZPress(cit_PrivatePtr priv);
 static void cit_SetEnterCount(cit_PrivatePtr priv);
+static void cit_SendPWM(cit_PrivatePtr priv);
 static void cit_SendPWMFreq(cit_PrivatePtr priv);
+static int cit_AdjustBright(cit_PrivatePtr priv, int val);
 
 #ifdef CIT_TIM
 static void cit_StartTimer(cit_PrivatePtr priv, int nr);

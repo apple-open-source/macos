@@ -4,7 +4,7 @@ XCOMM $XConsortium: Imakefile /main/33 1996/10/28 05:12:24 kaleb $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/Imakefile,v 3.81 2002/12/10 03:54:15 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/Imakefile,v 3.85 2004/01/28 02:09:20 dawes Exp $
 
 #include <Server.tmpl>
 #include <lnxdoc.rules>
@@ -27,63 +27,36 @@ REPORTFORM = BugReport
 
 #if !BuildLinuxDocText
 OSREADMES = \
-	/*ReadmeFile(Bsdi)*/	\
 	ReadmeFile(Darwin)	\
-	/*ReadmeFile(DGUX)*/	\
-	/*ReadmeFile(FreeBSD)*/	\
 	ReadmeFile(isc)		\
-	/*ReadmeFile(Linux)*/	\
 	ReadmeFile(LynxOS)	\
 	ReadmeFile(NetBSD)	\
 	ReadmeFile(OpenBSD)	\
-	/*ReadmeFile(OS2)*/	\
-	/*OS2.Notes*/		\
+	OS2.Notes		\
 	ReadmeFile(SCO)		\
-	/*ReadmeFile(Solaris)*/	\
-	/*ReadmeFile(SOLX86)*/	\
-	/*ReadmeFile(SVR4)*/	\
-	$(_NULLENTRY_)
+	ReadmeFile(Solaris)
 
 HWREADME = \
-	/*ReadmeFile(3Dlabs)*/	\
 	ReadmeFile(apm)		\
-	/*ReadmeFile(agx)*/	\
-	/*ReadmeFile(ark)*/	\
 	ReadmeFile(ati)		\
 	ReadmeFile(chips)	\
-	/*ReadmeFile(cirrus)*/	\
 	ReadmeFile(cyrix)	\
 	ReadmeFile(DECtga)	\
-	/*ReadmeFile(epson)*/	\
-	/*ReadmeFile(fbdev)*/	\
 	ReadmeFile(I128)	\
 	ReadmeFile(i740)	\
 	ReadmeFile(i810)	\
-	/*ReadmeFile(Mach32)*/	\
-	/*ReadmeFile(Mach64)*/	\
-	/*ReadmeFile(MGA)*/	\
 	ReadmeFile(newport)	\
-	/*ReadmeFile(NVIDIA)*/	\
-	/*ReadmeFile(Oak)*/	\
-	/*ReadmeFile(P9000)*/	\
 	ReadmeFile(r128)	\
 	ReadmeFile(rendition)	\
-	/*ReadmeFile(S3)*/	\
 	ReadmeFile(s3virge)	\
-	ReadmeFile(SiS)		\
-	/*ReadmeFile(trident)*/	\
-	/*ReadmeFile(tseng)*/	\
-	/*ReadmeFile(Video7)*/	\
-	/*ReadmeFile(WstDig)*/	\
-	$(_NULLENTRY_)
+	ReadmeFile(SiS)
 
-MAINDOCS = LICENSE README /*ReadmeFile(Config)*/ BUILD RELNOTES \
-	   Install Status DESIGN Versions
+MAINDOCS = LICENSE README BUILD RELNOTES \
+	   Install DESIGN Versions
 
-OTHERDOCS = /*VideoModes.doc*/ /*QuickStart.doc*/ /*xinput*/ \
+OTHERDOCS = \
 	ReadmeFile(fonts) \
 	ReadmeFile(mouse) \
-	ReadmeFile(DGA) \
 	ReadmeFile(DRI) \
 	ReadmeFile(DRIcomp) \
 	ReadmeFile(dps) \
@@ -91,10 +64,10 @@ OTHERDOCS = /*VideoModes.doc*/ /*QuickStart.doc*/ /*xinput*/ \
 	ReadmeFile(XKB-Enhancing)
 #endif
 
-MISCDOCS = ServersOnly /*LbxproxyOnly*/ $(REPORTFORM) \
+MISCDOCS = $(REPORTFORM) \
 	   VideoBoard98 ReadmeFile(rapidaccess)
 
-DATABASE = /* modeDB.txt */ /* AccelCards Monitors Devices */
+DATABASE =
 
 FILES = $(MAINDOCS) $(OSREADME) $(HWREADME) $(OTHERDOCS) $(MISCDOCS) $(DATABASE)
 

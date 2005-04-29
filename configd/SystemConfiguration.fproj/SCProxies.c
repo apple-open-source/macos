@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,9 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
+#include <netdb.h>
+
+
 CFStringRef
 SCDynamicStoreKeyCreateProxies(CFAllocatorRef allocator)
 {
@@ -41,39 +44,222 @@ SCDynamicStoreKeyCreateProxies(CFAllocatorRef allocator)
 }
 
 
+static void
+validate_proxy_content(CFMutableDictionaryRef	proxies,
+		       CFStringRef		proxy_enable,
+		       CFStringRef		proxy_host,
+		       CFStringRef		proxy_port,
+		       const char *		proxy_service,
+		       int			proxy_defaultport)
+{
+	int		enabled	= 0;
+	CFNumberRef	num;
+	CFStringRef	host;
+	CFNumberRef	port	= NULL;
+
+	num = CFDictionaryGetValue(proxies, proxy_enable);
+	if (num != NULL) {
+		if (!isA_CFNumber(num) ||
+		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
+			// if we don't like the enabled key/value
+			goto disable;
+		}
+	}
+
+	host = CFDictionaryGetValue(proxies, proxy_host);
+	if (((enabled == 0) && (host != NULL)) ||
+	    ((enabled != 0) && !isA_CFString(host))) {
+		// pass only valid proxy hosts and only when enabled
+		goto disable;
+	}
+
+	if (proxy_port != NULL) {
+		port = CFDictionaryGetValue(proxies, proxy_port);
+		if (((enabled == 0) && (port != NULL)) ||
+		    ((enabled != 0) && (port != NULL) && !isA_CFNumber(port))) {
+			// pass only provided/valid proxy ports and only when enabled
+			goto disable;
+		}
+
+		if ((enabled != 0) && (port == NULL)) {
+			struct servent	*service;
+
+			service = getservbyname(proxy_service, "tcp");
+			num = CFNumberCreate(NULL,
+					     kCFNumberIntType,
+					     (service != NULL) ? &service->s_port : &proxy_defaultport);
+			CFDictionarySetValue(proxies, proxy_port, num);
+			CFRelease(num);
+		}
+	}
+
+	return;
+
+    disable :
+
+	enabled = 0;
+	num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
+	CFDictionarySetValue(proxies, proxy_enable, num);
+	CFRelease(num);
+	CFDictionaryRemoveValue(proxies, proxy_host);
+	if (proxy_port != NULL) {
+		CFDictionaryRemoveValue(proxies, proxy_port);
+	}
+
+	return;
+}
+
+
 CFDictionaryRef
 SCDynamicStoreCopyProxies(SCDynamicStoreRef store)
 {
-	CFDictionaryRef		dict		= NULL;
+	CFArrayRef		array;
 	CFStringRef		key;
-	CFDictionaryRef		proxies		= NULL;
+	CFMutableDictionaryRef	newProxies	= NULL;
+	CFNumberRef		num;
+	CFDictionaryRef		proxies;
 	Boolean			tempSession	= FALSE;
 
-	if (!store) {
+
+
+	/* copy proxy information from dynamic store */
+
+	if (store == NULL) {
 		store = SCDynamicStoreCreate(NULL,
 					     CFSTR("SCDynamicStoreCopyProxies"),
 					     NULL,
 					     NULL);
-		if (!store) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
+		if (store == NULL) {
 			return NULL;
 		}
 		tempSession = TRUE;
 	}
 
-	key  = SCDynamicStoreKeyCreateProxies(NULL);
-	dict = SCDynamicStoreCopyValue(store, key);
+	key = SCDynamicStoreKeyCreateProxies(NULL);
+	proxies = SCDynamicStoreCopyValue(store, key);
 	CFRelease(key);
-	if (!isA_CFDictionary(dict)) {
-		_SCErrorSet(kSCStatusNoKey);
-		goto done;
+
+    validate :
+
+	if (proxies != NULL) {
+		if (isA_CFDictionary(proxies)) {
+			newProxies = CFDictionaryCreateMutableCopy(NULL, 0, proxies);
+		}
+		CFRelease(proxies);
 	}
 
-	proxies = CFRetain(dict);
+	if (newProxies == NULL) {
+		newProxies = CFDictionaryCreateMutable(NULL,
+						       0,
+						       &kCFTypeDictionaryKeyCallBacks,
+						       &kCFTypeDictionaryValueCallBacks);
+	}
 
-    done :
+	/* validate [and augment] proxy content */
+
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesFTPEnable,
+			       kSCPropNetProxiesFTPProxy,
+			       kSCPropNetProxiesFTPPort,
+			       "ftp",
+			       21);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesGopherEnable,
+			       kSCPropNetProxiesGopherProxy,
+			       kSCPropNetProxiesGopherPort,
+			       "gopher",
+			       70);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesHTTPEnable,
+			       kSCPropNetProxiesHTTPProxy,
+			       kSCPropNetProxiesHTTPPort,
+			       "http",
+			       80);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesHTTPSEnable,
+			       kSCPropNetProxiesHTTPSProxy,
+			       kSCPropNetProxiesHTTPSPort,
+			       "https",
+			       443);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesRTSPEnable,
+			       kSCPropNetProxiesRTSPProxy,
+			       kSCPropNetProxiesRTSPPort,
+			       "rtsp",
+			       554);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesSOCKSEnable,
+			       kSCPropNetProxiesSOCKSProxy,
+			       kSCPropNetProxiesSOCKSPort,
+			       "socks",
+			       1080);
+	validate_proxy_content(newProxies,
+			       kSCPropNetProxiesProxyAutoConfigEnable,
+			       kSCPropNetProxiesProxyAutoConfigURLString,
+			       NULL,
+			       NULL,
+			       0);
+
+	// validate WPAD setting
+	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesProxyAutoDiscoveryEnable);
+	if (num != NULL) {
+		int	enabled;
+
+		if (!isA_CFNumber(num) ||
+		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
+			// if we don't like the enabled key/value
+			enabled = 0;
+			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
+			CFDictionarySetValue(newProxies,
+					     kSCPropNetProxiesProxyAutoDiscoveryEnable,
+					     num);
+			CFRelease(num);
+		}
+	}
+
+	// validate proxy exception list
+	array = CFDictionaryGetValue(newProxies, kSCPropNetProxiesExceptionsList);
+	if (array != NULL) {
+		CFIndex		i;
+		CFIndex		n;
+
+		n = isA_CFArray(array) ? CFArrayGetCount(array) : 0;
+		for (i = 0; i < n; i++) {
+			CFStringRef	str;
+
+			str = CFArrayGetValueAtIndex(array, i);
+			if (!isA_CFString(str)) {
+				// if we don't like the array contents
+				n = 0;
+				break;
+			}
+		}
+
+		if (n == 0) {
+			CFDictionaryRemoveValue(newProxies, kSCPropNetProxiesExceptionsList);
+		}
+	}
+
+	// validate exclude simple hostnames setting
+	num = CFDictionaryGetValue(newProxies, kSCPropNetProxiesExcludeSimpleHostnames);
+	if (num != NULL) {
+		int	enabled;
+
+		if (!isA_CFNumber(num) ||
+		    !CFNumberGetValue(num, kCFNumberIntType, &enabled)) {
+			// if we don't like the enabled key/value
+			enabled = 0;
+			num = CFNumberCreate(NULL, kCFNumberIntType, &enabled);
+			CFDictionarySetValue(newProxies,
+					     kSCPropNetProxiesExcludeSimpleHostnames,
+					     num);
+			CFRelease(num);
+		}
+	}
+
+	proxies = CFDictionaryCreateCopy(NULL, newProxies);
+	CFRelease(newProxies);
 
 	if (tempSession)	CFRelease(store);
-	if (dict)		CFRelease(dict);
 	return proxies;
 }

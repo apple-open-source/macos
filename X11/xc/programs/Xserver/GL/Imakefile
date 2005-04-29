@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/GL/Imakefile,v 1.10 2002/11/14 21:01:20 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/GL/Imakefile,v 1.12 2003/08/06 14:04:01 eich Exp $
 
 #define IHaveModules
 #include <Server.tmpl>
@@ -7,10 +7,8 @@ XCOMM $XFree86: xc/programs/Xserver/GL/Imakefile,v 1.10 2002/11/14 21:01:20 tsi 
 
 #if GlxUseSGISI
  CORE_SUBDIR = /* opengl */
-#elif defined(XAppleServer) && XAppleServer
+#elif defined(DarwinArchitecture) && DarwinQuartzSupport
  CORE_SUBDIR = apple mesa
-#elif defined(DarwinArchitecture) && GlxUseAqua
- CORE_SUBDIR = aqua mesa
 #else
  CORE_SUBDIR = mesa
 #endif
@@ -26,8 +24,13 @@ MSRCS = glxmodule.c
 MOBJS = glxmodule.o
 #endif
 
+#if BuildModuleInSubdir
+SRCS = glx/module/?*.c $(MSRCS)
+OBJS = glx/module/?*.o $(MOBJS)
+#else
 SRCS = glx/?*.c $(MSRCS)
 OBJS = glx/?*.o $(MOBJS)
+#endif
 
 DONES = glx/DONE
 

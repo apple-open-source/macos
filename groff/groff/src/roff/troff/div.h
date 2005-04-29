@@ -1,5 +1,6 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 2001, 2002, 2004
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -86,7 +87,7 @@ struct trap {
   trap(symbol, vunits, trap *);
 };
 
-struct output_file;
+class output_file;
 
 class top_level_diversion : public diversion {
   int page_number;
@@ -123,7 +124,7 @@ public:
   int get_page_number() { return page_number; }
   int get_next_page_number();
   void set_page_number(int n) { page_number = n; }
-  int begin_page();
+  int begin_page(vunits = V0);
   void set_next_page_number(int);
   void set_page_length(vunits);
   void copy_file(const char *filename);
@@ -153,6 +154,5 @@ void continue_page_eject();
 void handle_first_page_transition();
 void blank_line();
 void begin_page();
-void end_diversions();
 
 extern void cleanup_and_exit(int);

@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/XKBCvt.c,v 3.34 2002/10/08 23:31:35 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XKBCvt.c,v 3.35 2003/11/17 22:20:09 dawes Exp $ */
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -55,15 +55,7 @@ from The Open Group.
 #endif
 
 static int 
-#if NeedFunctionPrototypes
 _XkbHandleSpecialSym(KeySym keysym, char *buffer, int nbytes, int *extra_rtrn)
-#else
-_XkbHandleSpecialSym(keysym, buffer, nbytes, extra_rtrn)
-    KeySym	 keysym;
-    char	*buffer;
-    int		 nbytes;
-    int *	 extra_rtrn;
-#endif
 {
 
     /* try to convert to Latin-1, handling ctrl */
@@ -92,20 +84,11 @@ _XkbHandleSpecialSym(keysym, buffer, nbytes, extra_rtrn)
 
 /*ARGSUSED*/
 static int 
-#if NeedFunctionPrototypes
 _XkbKSToKnownSet (	XPointer 	priv,
 			KeySym 		keysym,
 			char *		buffer,
 			int 		nbytes,
 			int *		extra_rtrn)
-#else
-_XkbKSToKnownSet (priv, keysym, buffer, nbytes, extra_rtrn)
-    XPointer priv;
-    KeySym keysym;
-    char *buffer;
-    int nbytes;
-    int *extra_rtrn;
-#endif
 {
     char tbuf[8],*buf;
 
@@ -152,15 +135,7 @@ typedef struct _XkbToKS {
 
 /*ARGSUSED*/
 static KeySym
-#if NeedFunctionPrototypes
 _XkbKnownSetToKS(XPointer priv,char *buffer,int nbytes,Status *status)
-#else
-_XkbKnownSetToKS(priv,buffer,nbytes,status)
-    XPointer priv;
-    char *buffer;
-    int nbytes;
-    Status *status;
-#endif
 {
     if (nbytes!=1)
 	return NoSymbol;
@@ -178,12 +153,7 @@ _XkbKnownSetToKS(priv,buffer,nbytes,status)
 }
 
 static KeySym
-#if NeedFunctionPrototypes
 __XkbDefaultToUpper(KeySym sym)
-#else
-__XkbDefaultToUpper(sym)
-    KeySym	sym;
-#endif
 {
     KeySym	lower,upper;
 
@@ -193,12 +163,7 @@ __XkbDefaultToUpper(sym)
 
 #ifdef XKB_EXTEND_LOOKUP_STRING
 static int
-#if NeedFunctionPrototypes
 Strcmp(char *str1, char *str2)
-#else
-Strcmp(str1, str2)
-    char *str1, *str2;
-#endif
 {
     char str[256];
     char c, *s;
@@ -221,13 +186,7 @@ Strcmp(str1, str2)
 #endif
 
 int 
-#if NeedFunctionPrototypes
 _XkbGetConverters(char *encoding_name, XkbConverters *cvt_rtrn)
-#else
-_XkbGetConverters(encoding_name, cvt_rtrn)
-    char *encoding_name;
-    XkbConverters *cvt_rtrn;
-#endif
 {
     if ( !cvt_rtrn ) return 0;
 

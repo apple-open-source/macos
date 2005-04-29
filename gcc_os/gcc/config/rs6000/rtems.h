@@ -1,5 +1,5 @@
 /* Definitions for rtems targeting a PowerPC using elf.
-   Copyright (C) 1996, 1997, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
    Contributed by Joel Sherrill (joel@OARcorp.com).
 
 This file is part of GNU CC.
@@ -21,6 +21,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* Specify predefined symbols in preprocessor.  */
 
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-DPPC -D__rtems__ \
-   -Asystem=rtems -Acpu=powerpc -Amachine=powerpc"
+#undef TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()          \
+  do                                      \
+    {                                     \
+      builtin_define_std ("PPC");         \
+      builtin_define ("__rtems__");       \
+      builtin_assert ("system=rtems");    \
+      builtin_assert ("cpu=powerpc");     \
+      builtin_assert ("machine=powerpc"); \
+    }                                     \
+  while (0)
+
+#undef CPP_OS_DEFAULT_SPEC
+#define CPP_OS_DEFAULT_SPEC "%(cpp_os_rtems)"

@@ -187,27 +187,27 @@ dictToDSRecord(LUDictionary *dict)
 {
 	int i, j, alen, blen;
 	char **avals, **bvals;
-
+	
 	if (![dict isMemberOf:[LUDictionary class]]) return NO;
-
+	
 	if (self == dict) return YES;
-
+	
 	if (count != [dict count]) return NO;
-
+	
 	for (i = 0; i < count; i++)
 	{
 		if (strcmp(prop[i].key, [dict keyAtIndex:i])) return NO;
 		alen = prop[i].len;
 		blen = [dict countAtIndex:i];
-
+		
 		if (alen != blen) return NO;
-
+		
 		avals = prop[i].val;
 		bvals = [dict valuesAtIndex:i];
-
+		
 		for (j = 0; j < alen; j++) if (strcmp(avals[j], bvals[j])) return NO;
 	}
-
+	
 	return YES;
 }
 
@@ -215,14 +215,14 @@ dictToDSRecord(LUDictionary *dict)
 {
 	int i;
 	LUDictionary *c;
-	
+
 	c = [[LUDictionary alloc] init];
-	
+
 	for (i = 0; i < count; i++)
 	{
 		[c addValues:prop[i].val forKey:prop[i].key count:prop[i].len];
 	}
-	
+
 	return c;
 }
 

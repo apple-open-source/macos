@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/disp_gu2.c,v 1.4 2003/02/06 17:46:02 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/disp_gu2.c,v 1.5 2003/11/03 05:11:22 tsi Exp $ */
 /*
  * $Workfile: disp_gu2.c $
  *
@@ -1558,13 +1558,13 @@ void
 gfx_set_display_video_enable(int enable)
 #endif
 {
-   unsigned long lock, gcfg, dcfg;
+   unsigned long lock, gcfg;
 
    /* READ CURRENT VALUES */
 
    lock = READ_REG32(MDC_UNLOCK);
    gcfg = READ_REG32(MDC_GENERAL_CFG);
-   dcfg = READ_REG32(MDC_DISPLAY_CFG);
+   (void) READ_REG32(MDC_DISPLAY_CFG);
 
    /* SET OR CLEAR VIDEO ENABLE IN GENERAL_CFG */
 

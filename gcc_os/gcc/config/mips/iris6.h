@@ -1,5 +1,6 @@
 /* Definitions of target machine for GNU compiler.  Iris version 6.
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
 
 This file is part of GNU CC.
 
@@ -31,7 +32,6 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #include "mips/iris5.h"
-#include "mips/abi64.h"
 
 /* Irix6 assembler does handle DWARF2 directives.  Override setting in
    irix5.h file.  */
@@ -44,8 +44,6 @@ Boston, MA 02111-1307, USA.  */
 
 /* wchar_t is defined differently with and without -mabi=64.  */
 
-#define NO_BUILTIN_WCHAR_TYPE
-
 #undef WCHAR_TYPE
 #define WCHAR_TYPE (Pmode == DImode ? "int" : "long int")
 
@@ -53,8 +51,6 @@ Boston, MA 02111-1307, USA.  */
 #define WCHAR_TYPE_SIZE 32
 
 /* Same for wint_t.  */
-
-#define NO_BUILTIN_WINT_TYPE
 
 #undef WINT_TYPE
 #define WINT_TYPE (Pmode == DImode ? "int" : "long int")
@@ -72,61 +68,86 @@ Boston, MA 02111-1307, USA.  */
    system header files require it.  This is OK, because gcc never warns
    when long long is used in system header files.  Alternatively, we can
    add support for the SGI builtin type __long_long.  */
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES \
- "-Dunix -Dmips -Dsgi -Dhost_mips -DMIPSEB -D_MIPSEB -DSYSTYPE_SVR4 \
-  -D_LONGLONG -D_SVR4_SOURCE -D_MODERN_C -D__DSO__ \
-  -Asystem=unix -Asystem=svr4 -Acpu=mips -Amachine=sgi"
 
-#undef SUBTARGET_CPP_SIZE_SPEC
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=32|mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
--D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int} \
-%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int \
--D__WCHAR_TYPE__=int -D__WINT_TYPE__=int} \
-%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int \
--D__WCHAR_TYPE__=long\\ int -D__WINT_TYPE__=long\\ int}"
+/* The GNU C++ standard library requires that __EXTENSIONS__ and
+   _SGI_SOURCE be defined on at least irix6.2 and probably all IRIX 6
+   prior to 6.5.  They normally get defined if !ansi, for g++ we want
+   them regardless.  We don't need this on IRIX 6.5 itself, but it
+   shouldn't hurt other than the namespace pollution.  */
 
-/* We must make -mips3 do what -mlong64 used to do.  */
-/* ??? If no mipsX option given, but a mabi=X option is, then should set
-   _MIPS_ISA based on the mabi=X option.  */
-/* ??? If no mabi=X option give, but a mipsX option is, then should set
-   _MIPS_SIM based on the mipsX option.  */
-/* ??? Same for _MIPS_SZINT.  */
-/* ??? Same for _MIPS_SZPTR.  */
-/* ??? Same for __SIZE_TYPE and __PTRDIFF_TYPE.  */
-#undef SUBTARGET_CPP_SPEC
-#define SUBTARGET_CPP_SPEC "\
-%{!ansi:-D__EXTENSIONS__ -D_SGI_SOURCE} \
-%{mfp32: -D_MIPS_FPSET=16}%{!mfp32: -D_MIPS_FPSET=32} \
-%{mips1: -D_MIPS_ISA=_MIPS_ISA_MIPS1} \
-%{mips2: -D_MIPS_ISA=_MIPS_ISA_MIPS2} \
-%{mips3: -D_MIPS_ISA=_MIPS_ISA_MIPS3} \
-%{mips4: -D_MIPS_ISA=_MIPS_ISA_MIPS4} \
-%{!mips*: -D_MIPS_ISA=_MIPS_ISA_MIPS3} \
-%{mabi=32: -D_MIPS_SIM=_MIPS_SIM_ABI32}	\
-%{mabi=n32: -D_ABIN32=2 -D_MIPS_SIM=_ABIN32} \
-%{mabi=64: -D_ABI64=3 -D_MIPS_SIM=_ABI64} \
-%{!mabi*: -D_ABIN32=2 -D_MIPS_SIM=_ABIN32} \
-%{!mint64: -D_MIPS_SZINT=32}%{mint64: -D_MIPS_SZINT=64} \
-%{mabi=32: -D_MIPS_SZLONG=32} \
-%{mabi=n32: -D_MIPS_SZLONG=32} \
-%{mabi=64: -D_MIPS_SZLONG=64} \
-%{!mabi*: -D_MIPS_SZLONG=32} \
-%{mabi=32: -D_MIPS_SZPTR=32} \
-%{mabi=n32: -D_MIPS_SZPTR=32} \
-%{mabi=64: -D_MIPS_SZPTR=64} \
-%{!mabi*: -D_MIPS_SZPTR=32} \
-%{!mips1:%{!mips2: -D_COMPILER_VERSION=601}}		\
-%{!mips*: -U__mips -D__mips=3} \
-%{mabi=32: -U__mips64} \
-%{mabi=n32: -D__mips64} \
-%{mabi=64: -D__mips64} \
-%{!mabi*: -D__mips64}"
+/* Undefine because this includes iris5.h.  */
+#undef  TARGET_OS_CPP_BUILTINS
+#define TARGET_OS_CPP_BUILTINS()			\
+    do {						\
+	builtin_define_std ("host_mips");		\
+	builtin_define ("_LONGLONG");			\
+	builtin_define ("_MODERN_C");			\
+	builtin_define ("_SVR4_SOURCE");		\
+	builtin_define_std ("SYSTYPE_SVR4");		\
+	builtin_define ("__DSO__");			\
+	builtin_define_std ("unix");			\
+	builtin_define_std ("sgi");			\
+	builtin_assert ("system=svr4");			\
+	builtin_assert ("system=unix");			\
+	builtin_assert ("machine=sgi");			\
+							\
+     if (mips_abi == ABI_32)				\
+      {							\
+	builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");	\
+	builtin_define ("_MIPS_SZLONG=32");		\
+	builtin_define ("_MIPS_SZPTR=32");		\
+      }							\
+     else if (mips_abi == ABI_64)			\
+      {							\
+	builtin_define ("_ABI64=3");			\
+	builtin_define ("_MIPS_SIM=_ABI64");		\
+	builtin_define ("_MIPS_SZLONG=64");		\
+	builtin_define ("_MIPS_SZPTR=64");		\
+      }							\
+     else						\
+      {							\
+	builtin_define ("_ABIN32=2");			\
+	builtin_define ("_MIPS_SIM=_ABIN32");		\
+	builtin_define ("_MIPS_SZLONG=32");		\
+	builtin_define ("_MIPS_SZPTR=32");		\
+      }							\
+							\
+     if (!TARGET_FLOAT64)				\
+	builtin_define ("_MIPS_FPSET=16");		\
+     else						\
+	builtin_define ("_MIPS_FPSET=32");		\
+							\
+     if (!TARGET_INT64)					\
+	builtin_define ("_MIPS_SZINT=32");		\
+     else						\
+	builtin_define ("_MIPS_SZINT=64");		\
+							\
+     if (!ISA_MIPS1 && !ISA_MIPS2)			\
+	builtin_define ("_COMPILER_VERSION=601");	\
+							\
+     /* IRIX 6.5.18 and above provide many ISO C99	\
+	features protected by the __c99 macro.		\
+	libstdc++ v3 needs them as well.  */		\
+     if ((c_language == clk_c && flag_isoc99)		\
+	 || c_language == clk_cplusplus)		\
+	builtin_define ("__c99");			\
+							\
+     if (c_language == clk_cplusplus)			\
+      {							\
+	builtin_define ("__EXTENSIONS__");		\
+	builtin_define ("_SGI_SOURCE");			\
+      }							\
+							\
+     if (!flag_iso)					\
+       {						\
+	 builtin_define ("__EXTENSIONS__");		\
+	 builtin_define ("_SGI_SOURCE");		\
+       }						\
+} while (0)
 
 /* Irix 6 uses DWARF-2.  */
-#define DWARF2_DEBUGGING_INFO
-#define MIPS_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
+#define MIPS_DEBUGGING_INFO 1
 #undef PREFERRED_DEBUGGING_TYPE
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
@@ -223,7 +244,7 @@ Boston, MA 02111-1307, USA.  */
    on the mipsX option.  */
 /* If no mips[3,4] option given, give the appropriate default for mabi=X */
 #undef SUBTARGET_ASM_SPEC
-#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32} %{!mips*: %{!mabi*:-mips3} %{mabi=n32:-mips3} %{mabi=64:-mips4}}"
+#define SUBTARGET_ASM_SPEC "%{!mabi*:-n32} %{!mips*: %{!mabi*:-mips3} %{mabi=n32|mabi=64:-mips3}}"
 
 /* Must pass -g0 to the assembler, otherwise it may overwrite our
    debug info with its own debug info.  */
@@ -251,8 +272,14 @@ Boston, MA 02111-1307, USA.  */
    do_global_* functions instead of running collect2.  */
 
 #define BSS_SECTION_ASM_OP	"\t.section\t.bss"
-#define CONST_SECTION_ASM_OP_32	"\t.rdata"
-#define CONST_SECTION_ASM_OP_64	"\t.section\t.rodata"
+
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP_32	"\t.rdata"
+#define READONLY_DATA_SECTION_ASM_OP_64	"\t.section\t.rodata"
+#define READONLY_DATA_SECTION_ASM_OP		\
+  (mips_abi != ABI_32 && mips_abi != ABI_O64	\
+   ? READONLY_DATA_SECTION_ASM_OP_64		\
+   : READONLY_DATA_SECTION_ASM_OP_32)
 
 /* A default list of other sections which we might be "in" at any given
    time.  For targets that use additional sections (e.g. .tdesc) you
@@ -260,13 +287,11 @@ Boston, MA 02111-1307, USA.  */
    includes this file.  */
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_rdata, in_const
+#define EXTRA_SECTIONS in_sdata
 
 /* A default list of extra section function definitions.  For targets
    that use additional sections (e.g. .tdesc) you should override this
    definition in the target-specific file which includes this file.  */
-
-/* ??? rdata_section is now same as svr4 const_section.  */
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
@@ -280,19 +305,6 @@ sdata_section ()							\
     }									\
 }									\
 									\
-void									\
-rdata_section ()							\
-{									\
-  if (in_section != in_rdata)						\
-    {									\
-      if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
-	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_64);	\
-      else								\
-	fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP_32);	\
-      in_section = in_rdata;						\
-    }									\
-}									\
-									\
 const char *								\
 current_section_name ()							\
 {									\
@@ -303,8 +315,7 @@ current_section_name ()							\
     case in_data:	return ".data";					\
     case in_sdata:	return ".sdata";				\
     case in_bss:	return ".bss";					\
-    case in_rdata:							\
-    case in_const:							\
+    case in_readonly_data:						\
       if (mips_abi != ABI_32 && mips_abi != ABI_O64)			\
 	return ".rodata";						\
       else								\
@@ -325,8 +336,7 @@ current_section_flags ()						\
     case in_data:	return SECTION_WRITE;				\
     case in_sdata:	return SECTION_WRITE | SECTION_SMALL;		\
     case in_bss:	return SECTION_WRITE | SECTION_BSS;		\
-    case in_rdata:							\
-    case in_const:	return 0;					\
+    case in_readonly_data: return 0;					\
     case in_named:	return get_named_section_flags (in_named_name);	\
     }									\
   abort ();								\
@@ -391,15 +401,13 @@ while (0)
 #define ASM_DECLARE_OBJECT_NAME(STREAM, NAME, DECL)			\
 do									\
  {									\
+   HOST_WIDE_INT size;							\
    size_directive_output = 0;						\
-   if (!flag_inhibit_size_directive && DECL_SIZE (DECL))	\
+   if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
      {									\
        size_directive_output = 1;					\
-       fprintf (STREAM, "%s", SIZE_ASM_OP);				\
-       assemble_name (STREAM, NAME);					\
-       fprintf (STREAM, ",");						\
-       fprintf (STREAM, HOST_WIDE_INT_PRINT_DEC, int_size_in_bytes (TREE_TYPE (DECL)));	\
-       fprintf (STREAM, "\n");						\
+       size = int_size_in_bytes (TREE_TYPE (DECL));			\
+       ASM_OUTPUT_SIZE_DIRECTIVE (STREAM, NAME, size);			\
      }									\
    mips_declare_object (STREAM, NAME, "", ":\n", 0);			\
  }									\
@@ -420,17 +428,15 @@ while (0)
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
          && ! AT_END && TOP_LEVEL					 \
 	 && DECL_INITIAL (DECL) == error_mark_node			 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",");						 \
-	 fprintf (FILE, HOST_WIDE_INT_PRINT_DEC, int_size_in_bytes (TREE_TYPE (DECL))); \
-	 fprintf (FILE, "\n");						 \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
 
@@ -510,3 +516,5 @@ do {									 \
 %{shared:-hidden_symbol __do_global_ctors,__do_global_ctors_1,__do_global_dtors} \
 -_SYSTYPE_SVR4 -woff 131 \
 %{mabi=32: -32}%{mabi=n32: -n32}%{mabi=64: -64}%{!mabi*: -n32}"
+
+#define MIPS_TFMODE_FORMAT ibm_extended_format

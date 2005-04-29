@@ -1,8 +1,17 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.5.2.4 2003/03/03 17:10:07 kurt Exp $ */
 /* cancel.c - LDAP cancel extended operation */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/cancel.c,v 1.10.2.7 2004/07/16 19:28:38 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -16,107 +25,93 @@
 
 #include "slap.h"
 
-#ifdef LDAP_EXOP_X_CANCEL
-
 #include <lber_pvt.h>
 #include <lutil.h>
 
-int cancel_extop(
-	Connection *conn,
-	Operation *op,
-	const char *reqoid,
-	struct berval *reqdata,
-	char **rspoid,
-	struct berval **rspdata,
-	LDAPControl ***rspctrls,
-	const char **text,
-	BerVarray *refs )
+int cancel_extop( Operation *op, SlapReply *rs )
 {
-	Backend *be;
+	Operation *o;
 	int rc;
 	int found = 0;
 	int opid;
 	BerElement *ber;
 	int i;
 
-	assert( reqoid != NULL );
-	assert( strcmp( LDAP_EXOP_X_CANCEL, reqoid ) == 0 );
+	assert( ber_bvcmp( &slap_EXOP_CANCEL, &op->ore_reqoid ) == 0 );
 
-	if ( reqdata == NULL ) {
-		*text = "no message ID supplied";
+	if ( op->ore_reqdata == NULL ) {
+		rs->sr_text = "no message ID supplied";
 		return LDAP_PROTOCOL_ERROR;
 	}
 
-	ber = ber_init( reqdata );
+	ber = ber_init( op->ore_reqdata );
 	if ( ber == NULL ) {
-		*text = "internal error";
+		rs->sr_text = "internal error";
 		return LDAP_OTHER;
 	}
 
 	if ( ber_scanf( ber, "{i}", &opid ) == LBER_ERROR ) {
-		*text = "message ID parse failed";
+		rs->sr_text = "message ID parse failed";
 		return LDAP_PROTOCOL_ERROR;
 	}
 
 	(void) ber_free( ber, 1 );
 
 	if ( opid < 0 ) {
-		*text = "message ID invalid";
+		rs->sr_text = "message ID invalid";
 		return LDAP_PROTOCOL_ERROR;
 	}
 
-	ldap_pvt_thread_mutex_lock( &conn->c_mutex );
-	LDAP_STAILQ_FOREACH( op, &conn->c_pending_ops, o_next ) {
-		if ( op->o_msgid == opid ) {
-			LDAP_STAILQ_REMOVE( &conn->c_pending_ops, op, slap_op, o_next );
-			slap_op_free( op );
+	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
+	LDAP_STAILQ_FOREACH( o, &op->o_conn->c_pending_ops, o_next ) {
+		if ( o->o_msgid == opid ) {
+			LDAP_STAILQ_REMOVE( &op->o_conn->c_pending_ops, o, slap_op, o_next );
+			LDAP_STAILQ_NEXT(o, o_next) = NULL;
+			op->o_conn->c_n_ops_pending--;
+			slap_op_free( o );
 			found = 1;
 			break;
 		}
 	}
-	ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
+	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
 	if ( found ) return LDAP_SUCCESS;
 
 	found = 0;
-	ldap_pvt_thread_mutex_lock( &conn->c_mutex );
-	LDAP_STAILQ_FOREACH( op, &conn->c_ops, o_next ) {
-		if ( op->o_msgid == opid ) {
+	ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
+	LDAP_STAILQ_FOREACH( o, &op->o_conn->c_ops, o_next ) {
+		if ( o->o_msgid == opid ) {
 			found = 1;
 			break;
 		}
 	}
 
 	if ( !found ) {
-#ifdef LDAP_SYNC
 		for ( i = 0; i < nbackends; i++ ) {
-			Backend *be = &backends[i];
-			if( !be->be_cancel ) continue;
+			op->o_bd = &backends[i];
+			if( !op->o_bd->be_cancel ) continue;
 
-			ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
+			ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
-			if ( be->be_cancel( be, conn, op, opid ) == LDAP_SUCCESS ) {
+			op->oq_cancel.rs_msgid = opid;
+			if ( op->o_bd->be_cancel( op, rs ) == LDAP_SUCCESS ) {
 				return LDAP_SUCCESS;
-			} else {
-				*text = "message ID not found";
-			 	return LDAP_NO_SUCH_OPERATION;
 			}
+			ldap_pvt_thread_mutex_lock( &op->o_conn->c_mutex );
 		}
-#else
-		ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
-		*text = "message ID not found";
+		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+		rs->sr_text = "message ID not found";
 	 	return LDAP_NO_SUCH_OPERATION;
-#endif
 	}
 
 	if ( op->o_cancel != SLAP_CANCEL_NONE ) {
-		ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
-		*text = "message ID already being cancelled";
+		ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
+		rs->sr_text = "message ID already being cancelled";
 		return LDAP_PROTOCOL_ERROR;
 	}
 
 	op->o_cancel = SLAP_CANCEL_REQ;
-	ldap_pvt_thread_mutex_unlock( &conn->c_mutex );
+	ldap_pvt_thread_mutex_unlock( &op->o_conn->c_mutex );
 
 	while ( op->o_cancel == SLAP_CANCEL_REQ ) {
 		ldap_pvt_thread_yield();
@@ -132,5 +127,3 @@ int cancel_extop(
 
 	return rc;
 }
-
-#endif /* LDAP_EXOP_X_CANCEL */

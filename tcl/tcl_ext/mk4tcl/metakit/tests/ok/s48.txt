@@ -1,0 +1,2 @@
+>>> Resize subview to zero and back
+<<< done.

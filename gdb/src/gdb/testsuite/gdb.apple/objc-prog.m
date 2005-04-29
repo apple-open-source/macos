@@ -15,9 +15,13 @@
 @implementation MyClass
 + newWithArg: arg
 {
-  id obj = [self new];
-  [obj takeArg: arg];
-  return obj;
+  [super init];
+  if (self) {
+    id obj = [self new];
+    [obj takeArg: arg];
+    return obj;
+  }
+  return self;
 }
 
 - takeArg: arg
@@ -47,6 +51,14 @@
 @end
 
 @implementation MyChild
+- (id) init {
+  self = [super init];
+  if (self) {
+    printf ("Doing my initialization\n");
+  }
+  return self;
+}
+
 + newWithArg: arg andInt: (int) val
 {
   MyChild *me = [self new];
@@ -69,7 +81,7 @@ NSNumber *return_nsnumber_from_int (int);
 NSNumber *return_nsnumber_from_char (char);
 
 int main (int argc, const char * argv[]) {
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];  // First line in main ()
     id object = [MyClass newWithArg:@"hi there"];    
 
     [object randomFunc];

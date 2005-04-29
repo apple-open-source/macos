@@ -11,7 +11,16 @@
    <meta name="DESCRIPTION" content="Notes for the libstdc++ extensions." />
    <meta name="GENERATOR" content="vi and eight fingers" />
    <title>libstdc++-v3 HOWTO:  Extensions</title>
-<link rel="StyleSheet" href="../lib3styles.css" />
+<link rel="StyleSheet" href="../lib3styles.css" type="text/css" />
+<link rel="Start" href="../documentation.html" type="text/html"
+  title="GNU C++ Standard Library" />
+<link rel="Prev" href="../27_io/howto.html" type="text/html"
+  title="Input/Output" />
+<link rel="Bookmark" href="sgiexts.html" type="text/html"
+  title="SGI extensions" />
+<link rel="Bookmark" href="mt_allocator.html" type="text/html"
+  title="__mt_alloc" />
+<link rel="Copyright" href="../17_intro/license.html" type="text/html" />
 </head>
 <body>
 
@@ -41,10 +50,10 @@
 <ul>
    <li><a href="#1">Ropes and trees and hashes, oh my!</a></li>
    <li><a href="#2">Added members and types</a></li>
-   <li><a href="#3">Allocators (versions 3.0, 3.1, 3.2)</a></li>
-   <li><a href="#6">Allocators (version 3.3)</a></li>
+   <li><a href="mt_allocator.html"><code>__mt_alloc</code> </a></li>
    <li><a href="#4">Compile-time checks</a></li>
    <li><a href="#5">LWG Issues</a></li>
+   <li><a href="../18_support/howto.html#5">Demangling</a></li>
 </ul>
 
 <hr />
@@ -78,12 +87,12 @@
    </p>
    <p>Each of the associative containers map, multimap, set, and multiset
       have a counterpart which uses a
-      <a href="http://www.sgi.com/Technology/STL/HashFunction.html">hashing
+      <a href="http://www.sgi.com/tech/stl/HashFunction.html">hashing
       function</a> to do the arranging, instead of a strict weak ordering
       function.  The classes take as one of their template parameters a
       function object that will return the hash value; by default, an
       instantiation of
-      <a href="http://www.sgi.com/Technology/STL/hash.html">hash</a>.
+      <a href="http://www.sgi.com/tech/stl/hash.html">hash</a>.
       You should specialize this functor for your class, or define your own,
       before trying to use one of the hashing classes.
    </p>
@@ -124,276 +133,10 @@
          <a href="sgiexts.html">their own page</a>.  Since the SGI STL is no
          longer actively maintained, we will try and keep this code working
          ourselves.</li>
-     <li>3.0.x <code>filebuf</code>s have another ctor with this signature:
-         <br />
-        <code>basic_filebuf(__c_file_type*, ios_base::openmode, int_type);</code>
-         <br />This comes in very handy in a number of places, such as
-         attaching Unix sockets, pipes, and anything else which uses file
-         descriptors, into the IOStream buffering classes.  The three
-         arguments are as follows:
-         <ul>
-          <li><code>__c_file_type*      F   </code>
-              // the __c_file_type typedef usually boils down to stdio's FILE
-          </li>
-          <li><code>ios_base::openmode  M   </code>
-              // same as all the other uses of openmode
-          </li>
-          <li><code>int_type            B   </code>
-              // buffer size, defaults to BUFSIZ if not specified
-          </li>
-         </ul>
-         For those wanting to use file descriptors instead of FILE*'s, I
-         invite you to contemplate the mysteries of C's <code>fdopen()</code>.
-     </li>
-     <li>In library snapshot 3.0.95 and later, <code>filebuf</code>s bring
-         back an old extension:  the <code>fd()</code> member function.  The
-         integer returned from this function can be used for whatever file
-         descriptors can be used for on your platform.  Naturally, the
-         library cannot track what you do on your own with a file descriptor,
-         so if you perform any I/O directly, don't expect the library to be
-         aware of it.
-     </li>
-     <li>Beginning with 3.1, the extra <code>filebuf</code> constructor and
-         the <code>fd()</code> function were removed from the standard
-         filebuf.  Instead, <code>&lt;ext/stdio_filebuf.h&gt;</code> contains
-         a derived class called <code>__gnu_cxx::stdio_filebuf</code>.
-     </li>
+     <li>Extensions allowing <code>filebuf</code>s to be constructed from
+         stdio types are described in the
+         <a href="../27_io/howto.html#11">chapter 27 notes</a>.</li>
    </ul>
-   <p>Return <a href="#top">to top of page</a> or
-      <a href="../faq/index.html">to the FAQ</a>.
-   </p>
-
-<hr />
-<h2><a name="3">Allocators (versions 3.0, 3.1, 3.2)</a></h2>
-   <p>Thread-safety, space efficiency, high speed, portability... this is a
-      mess.  Where to begin?
-   </p>
-   <h3>The Rules</h3>
-   <p>The C++ standard only gives a few directives in this area:
-   </p>
-   <ul>
-     <li>When you add elements to a container, and the container must allocate
-         more memory to hold them, the container makes the request via its
-         <code>Allocator</code> template parameter.  This includes adding
-         char's to the string class, which acts as a regular STL container
-         in this respect.
-     </li>
-     <li>The default <code>Allocator</code> of every container-of-T is
-         <code>std::allocator&lt;T&gt;</code>.
-     </li>
-     <li>The interface of the <code>allocator&lt;T&gt;</code> class is
-         extremely simple.  It has about 20 public declarations (nested
-         typedefs, member functions, etc), but the two which concern us most
-         are:
-         <pre>
-      T*    allocate   (size_type n, const void* hint = 0);
-      void  deallocate (T* p, size_type n);</pre>
-         (This is a simplicifcation; the real signatures use nested typedefs.)
-         The <code>&quot;n&quot;</code> arguments in both those functions is a
-         <em>count</em> of the number of T's to allocate space for,
-         <em>not their total size</em>.
-     </li>
-     <li>&quot;The storage is obtained by calling
-         <code>::operator new(size_t)</code>, but it is unspecified when or
-         how often this function is called.  The use of <code>hint</code>
-         is unspecified, but intended as an aid to locality if an
-         implementation so desires.&quot; [20.4.1.1]/6
-      </li>
-   </ul>
-   <h3>Problems and Possibilities</h3>
-   <p>The easiest way of fulfilling the requirements is to call operator new
-      each time a container needs memory, and to call operator delete each
-      time the container releases memory.  <strong>BUT</strong>
-      <a href="http://gcc.gnu.org/ml/libstdc++/2001-05/msg00105.html">this
-      method is horribly slow</a>.
-   </p>
-   <p>Or we can keep old memory around, and reuse it in a pool to save time.
-      The old libstdc++-v2 used a memory pool, and so do we.  As of 3.0,
-      <a href="http://gcc.gnu.org/ml/libstdc++/2001-05/msg00136.html">it's
-      on by default</a>.  The pool is shared among all the containers in the
-      program:  when your program's std::vector&lt;int&gt; gets cut in half
-      and frees a bunch of its storage, that memory can be reused by the
-      private std::list&lt;WonkyWidget&gt; brought in from a KDE library
-      that you linked against.  And we don't have to call operators new and
-      delete to pass the memory on, either, which is a speed bonus.
-      <strong>BUT</strong>...
-   </p>
-   <p>What about threads?  No problem:  in a threadsafe environment, the
-      memory pool is manipulated atomically, so you can grow a container in
-      one thread and shrink it in another, etc.  <strong>BUT</strong> what
-      if threads in libstdc++-v3 aren't set up properly?
-      <a href="../faq/index.html#5_6">That's been answered already</a>.
-   </p>
-   <p><strong>BUT</strong> what if you want to use your own allocator?  What
-      if you plan on using a runtime-loadable version of malloc() which uses
-      shared telepathic anonymous mmap'd sections serializable over a
-      network, so that memory requests <em>should</em> go through malloc?
-      And what if you need to debug it?
-   </p>
-   <p>Well then:
-   </p>
-   <h3>Available allocators in namespace std</h3>
-   <p>First I'll describe the situation as it exists for the code which
-      was released in GCC 3.1 and 3.2.  Then I'll describe the differences
-      for 3.0.  The allocator classes also have source documentation,
-      which is described <a href="../documentation.html#4">here</a> (you
-      will need to retrieve the maintainer-level docs, as almost none of
-      these entities are in the ISO standard).
-   </p>
-   <p>As a general rule of thumb, users are not allowed to use names which
-      begin with an underscore.  This means that to be portable between
-      compilers, none of the following may be used in your program directly.
-      (If you decide to be unportable, then you're free do do what you want,
-      but it's not our fault if stuff breaks.)  They are presented here for
-      information for maintainers and contributors in addition to users.
-   </p>
-   <p>These classes are always available:
-   </p>
-   <ul>
-     <li><code>__new_alloc</code> simply wraps <code>::operator new</code>
-         and <code>::operator delete</code>.
-     </li>
-     <li><code>__malloc_alloc_template&lt;int inst&gt;</code> simply wraps
-         <code>malloc</code> and <code>free</code>.  There is also a hook
-         for an out-of-memory handler (for new/delete this is taken care of
-         elsewhere).  The <code>inst</code> parameter is described below.
-         This class was called <code>malloc_alloc</code> in earlier versions.
-     </li>
-     <li><code>allocator&lt;T&gt;</code> has already been described; it is
-         The Standard Allocator for instances of T.  It uses the internal
-         <code>__alloc</code> typedef (see below) to satisy its requests.
-     </li>
-     <li><code>__simple_alloc&lt;T,A&gt;</code> is a wrapper around another
-         allocator, A, which itself is an allocator for instances of T.
-         This is primarily used in an internal &quot;allocator traits&quot;
-         class which helps encapsulate the different styles of allocators.
-     </li>
-     <li><code>__debug_alloc&lt;A&gt;</code> is also a wrapper around an
-         arbitrary allocator A.  It passes on slightly increased size
-         requests to A, and uses the extra memory to store size information.
-         When a pointer is passed to <code>deallocate()</code>, the stored
-         size is checked, and assert() is used to guarantee they match.
-     </li>
-     <li><code>__allocator&lt;T,A&gt;</code> is an adaptor.  Many of these
-         allocator classes have a consistent yet non-standard interface.
-         Such classes can be changed to a conforming interface with this
-         wrapper:  <code>__allocator&lt;T, __alloc&gt;</code> is thus the
-         same as <code>allocator&lt;T&gt;</code>.
-     </li>
-   </ul>
-   <p>Normally,
-      <code> __default_alloc_template&lt;bool thr, int inst&gt; </code>
-      is also available.  This is the high-speed pool, called the default
-      node allocator.  The reusable memory is shared among identical
-      instantiations of
-      this type.  It calls through <code>__new_alloc</code> to obtain
-      new memory when its lists run out.  If a client container requests a
-      block larger than a certain threshold size, then the pool is bypassed,
-      and the allocate/deallocate request is passed to
-      <code>__new_alloc</code> directly.
-   </p>
-   <p>Its <code>inst</code> parameter is described below.  The
-      <code>thr</code> boolean determines whether the pool should be
-      manipulated atomically or not.  Two typedefs are provided:
-      <code>__alloc</code> is defined as this node allocator with thr=true,
-      and therefore is threadsafe, while <code>__single_client_alloc</code>
-      defines thr=false, and is slightly faster but unsafe for multiple
-      threads.
-   </p>
-   <p>(Note that the GCC thread abstraction layer allows us to provide safe
-      zero-overhead stubs for the threading routines, if threads were
-      disabled at configuration time.  In this situation,
-      <code>__alloc</code> should not be noticably slower than
-      <code>__single_client_alloc</code>.)
-   </p>
-   <p>[Another threadsafe allocator where each thread keeps its own free
-      list, so that no locking is needed, might be described here.]
-   </p>
-   <h3>A cannon to swat a fly:<code>  __USE_MALLOC</code></h3>
-   <p>If you've already read <a href="../23_containers/howto.html#3">this
-      advice</a> but still think you remember how to use this macro from
-      SGI STL days.  We have removed it in gcc 3.3.  See next section
-      for the new way to get the same effect.
-   </p>
-   <h3>Globally disabling memory caching:<code>  GLIBCPP_FORCE_NEW</code></h3>
-   <p>Starting with gcc 3.3, if you want to globally disable memory
-      caching within the library for the default allocator (i.e.
-      the one you get for all library objects when you do not specify
-      which one to use), merely set GLIBCPP_FORCE_NEW (at this time,
-      with any value) into your environment before running the
-      program.  You will obtain a similar effect without having to
-      recompile your entire program and the entire library (the new
-      operator in gcc is a light wrapper around malloc).  If your
-      program crashes with GLIBCPP_FORCE_NEW in the environment,
-      it likely means that you linked against objects built against
-      the older library.  Code to support this extension is fully
-      compatible with 3.2 code if GLIBCPP_FORCE_NEW is not in the
-      environment.
-   </p>
-   <h3>Writing your own allocators</h3>
-   <p>Depending on your application (a specific program, a generic library,
-      etc), allocator classes tend to be one of two styles:  &quot;SGI&quot;
-      or &quot;standard&quot;.  See the comments in stl_alloc.h for more
-      information on this crucial difference.
-   </p>
-   <p>At the bottom of that header is a helper type,
-      <code>_Alloc_traits</code>, and various specializations of it.  This
-      allows the container classes to make possible compile-time
-      optimizations based on features of the allocator.  You should provide
-      a specialization of this type for your allocator (doing so takes only
-      two or three statements).
-   </p>
-   <h3>Using non-default allocators</h3>
-   <p>You can specify different memory management schemes on a per-container
-      basis, by overriding the default <code>Allocator</code> template
-      parameter.  For example, an easy
-      (but nonportable)
-      method of specifying that only malloc/free should be used instead of
-      the default node allocator is:
-   </p>
-   <pre>
-    std::list &lt;my_type, std::__malloc_alloc_template&lt;0&gt; &gt;  my_malloc_based_list;</pre>
-      Likewise, a debugging form of whichever allocator is currently in use:
-      <pre>
-    std::deque &lt;my_type, std::__debug_alloc&lt;std::__alloc&gt; &gt;  debug_deque;</pre>
-   <h3><code>inst</code></h3>
-   <p>The <code>__malloc_alloc_template</code> and
-      <code>__default_alloc_template</code> classes take an integer parameter,
-      called inst here.  This number is completely unused.
-   </p>
-   <p>The point of the number is to allow multiple instantiations of the
-      classes without changing the semantics at all.  All three of
-   </p>
-   <pre>
-    typedef  __default_alloc_template&lt;true,0&gt;    normal;
-    typedef  __default_alloc_template&lt;true,1&gt;    private;
-    typedef  __default_alloc_template&lt;true,42&gt;   also_private;</pre>
-   <p>behave exactly the same way.  However, the memory pool for each type
-      (and remember that different instantiations result in different types)
-      remains separate.
-   </p>
-   <p>The library uses <strong>0</strong> in all its instantiations.  If you
-      wish to keep separate free lists for a particular purpose, use a
-      different number.
-   </p>
-   <h3>3.0.x</h3>
-   <p>For 3.0.x, many of the names were incorrectly <em>not</em> prefixed
-      with underscores.  So symbols such as &quot;std::single_client_alloc&quot;
-      are present.  Be very careful to not depend on these names any more
-      than you would depend on implementation-only names.
-   </p>
-   <p>Certain macros like <code>_NOTHREADS</code> and <code>__STL_THREADS</code>
-      can affect the 3.0.x allocators.  Do not use them.  Those macros have
-      been completely removed for 3.1.
-   </p>
-   <p>Return <a href="#top">to top of page</a> or
-      <a href="../faq/index.html">to the FAQ</a>.
-   </p>
-
-<hr />
-<h2><a name="6">Allocators (version 3.3)</a></h2>
-   <p>Changes are coming...
-   </p>
    <p>Return <a href="#top">to top of page</a> or
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
@@ -422,7 +165,7 @@
    <p>Here are the issues which have resulted in code changes to the library.
       The links are to the specific defect reports from a <strong>partial
       copy</strong> of the Issues List.  You can read the full version online
-      at the <a href="http://www.dkuug.dk/jtc1/sc22/wg21/">ISO C++
+      at the <a href="http://www.open-std.org/jtc1/sc22/wg21/">ISO C++
       Committee homepage</a>, linked to on the
       <a href="http://gcc.gnu.org/readings.html">GCC &quot;Readings&quot;
       page</a>.  If
@@ -439,7 +182,7 @@
    <p>
       If a DR is not listed here, we may simply not have gotten to it yet;
       feel free to submit a patch.  Search the include/bits and src
-      directories for appearances of _GLIBCPP_RESOLVE_LIB_DEFECTS for
+      directories for appearances of _GLIBCXX_RESOLVE_LIB_DEFECTS for
       examples of style.  Note that we usually do not make changes to the code
       until an issue has reached <a href="lwg-active.html#DR">DR</a> status.
    </p>
@@ -454,6 +197,13 @@
         <em>Bad bool parsing</em>
     </dt>
     <dd>Apparently extracting Boolean values was messed up...
+    </dd>
+
+    <dt><a href="lwg-defects.html#19">19</a>:
+        <em>&quot;Noconv&quot; definition too vague</em>
+    </dt>
+    <dd>If <code>codecvt::do_in</code> returns <code>noconv</code> there are
+        no changes to the values in <code>[to, to_limit)</code>.
     </dd>
 
     <dt><a href="lwg-defects.html#22">22</a>:
@@ -488,6 +238,20 @@
         &quot;copying stream state&quot; was deemed too complicated.
     </dd>
 
+    <dt><a href="lwg-defects.html#60">60</a>:
+        <em>What is a formatted input function?</em>
+    </dt>
+    <dd>This DR made many widespread changes to <code>basic_istream</code>
+        and <code>basic_ostream</code> all of which have been implemented.
+    </dd>
+
+    <dt><a href="lwg-defects.html#63">63</a>:
+        <em>Exception-handling policy for unformatted output</em>
+    </dt>
+    <dd>Make the policy consistent with that of formatted input, unformatted
+        input, and formatted output.
+    </dd>
+
     <dt><a href="lwg-defects.html#68">68</a>:
         <em>Extractors for char* should store null at end</em>
     </dt>
@@ -501,11 +265,43 @@
     <dd>The text of the standard was gibberish.  Typos gone rampant.
     </dd>
 
+    <dt><a href="lwg-defects.html#75">75</a>:
+        <em>Contradiction in codecvt::length's argument types</em>
+    </dt>
+    <dd>Change the first parameter to <code>stateT&amp;</code> and implement
+        the new effects paragraph.
+    </dd>
+
     <dt><a href="lwg-defects.html#83">83</a>:
         <em>string::npos vs. string::max_size()</em>
     </dt>
     <dd>Safety checks on the size of the string should test against
         <code>max_size()</code> rather than <code>npos</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#90">90</a>:
+        <em>Incorrect description of operator&gt;&gt; for strings</em>
+    </dt>
+    <dd>The effect contain <code>isspace(c,getloc())</code> which must be
+        replaced by <code>isspace(c,is.getloc())</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#91">91</a>:
+        <em>Description of operator&gt;&gt; and getline() for string&lt;&gt;
+	    might cause endless loop</em>
+    </dt>
+    <dd>They behave as a formatted input function and as an unformatted
+        input function, respectively (except that <code>getline</code> is
+	not required to set <code>gcount</code>).
+    </dd>
+
+    <dt><a href="lwg-defects.html#103">103</a>:
+        <em>set::iterator is required to be modifiable, but this allows
+	    modification of keys.</em>
+    </dt>
+    <dd>For associative containers where the value type is the same as
+        the key type, both <code>iterator</code> and <code>const_iterator
+	</code> are constant iterators.
     </dd>
 
     <dt><a href="lwg-defects.html#109">109</a>:
@@ -555,11 +351,17 @@
         should probably not be calling <code>underflow()</code>.
     </dd> -->
 
-    <dt><a href="lwg-active.html#167">167</a>:
+    <dt><a href="lwg-defects.html#167">167</a>:
         <em>Improper use of traits_type::length()</em>
     </dt>
     <dd><code>op&lt;&lt;</code> with a <code>const char*</code> was
         calculating an incorrect number of characters to write.
+    </dd>
+
+    <dt><a href="lwg-defects.html#171">171</a>:
+        <em>Strange seekpos() semantics due to joint position</em>
+    </dt>
+    <dd>Quite complex to summarize...
     </dd>
 
     <dt><a href="lwg-defects.html#181">181</a>:
@@ -590,10 +392,32 @@
         for const instances.
     </dd>
 
+    <dt><a href="lwg-defects.html#231">231</a>:
+        <em>Precision in iostream?</em>
+    </dt>
+    <dd>For conversion from a floating-point type, <code>str.precision()</code>
+        is specified in the conversion specification.
+    </dd>
+
+    <dt><a href="lwg-defects.html#235">235</a>:
+        <em>No specification of default ctor for reverse_iterator</em>
+    </dt>
+    <dd>The declaration of <code>reverse_iterator</code> lists a default constructor.
+        However, no specification is given what this constructor should do.
+    </dd>
+
     <dt><a href="lwg-defects.html#251">251</a>:
         <em>basic_stringbuf missing allocator_type</em>
     </dt>
     <dd>This nested typdef was originally not specified.
+    </dd>
+
+    <dt><a href="lwg-defects.html#253">253</a>:
+        <em>valarray helper functions are almost entirely useless</em>
+    </dt>
+    <dd>Make the copy constructor and copy-assignment operator declarations
+        public in gslice_array, indirect_array, mask_array, slice_array; provide
+	definitions.
     </dd>
 
     <dt><a href="lwg-defects.html#265">265</a>:
@@ -610,12 +434,74 @@
         are trivial), since no description of them was ever given.
     </dd>
 
+    <dt><a href="lwg-defects.html#271">271</a>:
+        <em>basic_iostream missing typedefs</em>
+    </dt>
+    <dd>The typedefs it inherits from its base classes can't be used, since
+        (for example) <code>basic_iostream&lt;T&gt;::traits_type</code> is ambiguous.
+    </dd>
+
     <dt><a href="lwg-defects.html#275">275</a>:
         <em>Wrong type in num_get::get() overloads</em>
     </dt>
     <dd>Similar to 118.
     </dd>
 
+    <dt><a href="lwg-defects.html#292">292</a>:
+        <em>Effects of a.copyfmt (a)</em>
+    </dt>
+    <dd>If <code>(this == &amp;rhs)</code> do nothing.
+    </dd>
+
+    <dt><a href="lwg-defects.html#300">300</a>:
+        <em>List::merge() specification incomplete</em>
+    </dt>
+    <dd>If <code>(this == &amp;x)</code> do nothing.
+    </dd>
+
+    <dt><a href="lwg-defects.html#303">303</a>:
+        <em>Bitset input operator underspecified</em>
+    </dt>
+    <dd>Basically, compare the input character to <code>is.widen(0)</code>
+        and <code>is.widen(1)</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#305">305</a>:
+        <em>Default behavior of codecvt&lt;wchar_t, char, mbstate_t&gt;::length()</em>
+    </dt>
+    <dd>Do not specify what <code>codecvt&lt;wchar_t, char, mbstate_t&gt;::do_length</code>
+        must return.
+    </dd>
+
+    <dt><a href="lwg-defects.html#328">328</a>:
+        <em>Bad sprintf format modifier in money_put&lt;&gt;::do_put()</em>
+    </dt>
+    <dd>Change the format string to &quot;%.0Lf&quot;.
+    </dd>
+
+    <dt><a href="lwg-defects.html#365">365</a>:
+        <em>Lack of const-qualification in clause 27</em>
+    </dt>
+    <dd>Add const overloads of <code>is_open</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#389">389</a>:
+        <em>Const overload of valarray::operator[] returns by value</em>
+    </dt>
+    <dd>Change it to return a <code>const T&amp;</code>.
+    </dd>
+
+    <dt><a href="lwg-defects.html#402">402</a>:
+        <em>Wrong new expression in [some_]allocator::construct</em>
+    </dt>
+    <dd>Replace &quot;new&quot; with &quot;::new&quot;.
+    </dd>
+
+    <dt><a href="lwg-active.html#453">453</a>:
+        <em>basic_stringbuf::seekoff need not always fail for an empty stream</em>
+    </dt>
+    <dd>Don't fail if the next pointer is null and newoff is zero.
+    </dd>
 <!--
     <dt><a href="lwg-defects.html#"></a>:
         <em></em>
@@ -629,27 +515,14 @@
       <a href="../faq/index.html">to the FAQ</a>.
    </p>
 
-<!-- APPLE LOCAL begin libstdc++ documentation -->
-<hr />
-<h2><a name="7">Debugging containers</a></h2>
-   <p>Apple's libstdc++ includes a set of containers that are
-   functionally equivalent to the C++ Standard Library containers
-   (e.g., <code>std::basic_string</code> or <code>std::vector</code>)
-   or libstdc++ extension containers
-   (e.g., <code>std::hash_map</code>) but perform additional run-time
-   checking to uncover problems with the use of the containers or
-   their iterators. To access these containers, include the
-   appropriate header (e.g., <code>&lt;debug/vector&gt;</code>) and
-   use the container in the namespace <code>__gnu_debug</code>. See <a
-   href="../debug.html">Apple's libstdc++ debug mode</a> for more
-   information.</p>
-<!-- APPLE LOCAL end libstdc++ documentation -->
 
 <!-- ####################################################### -->
 
 <hr />
 <p class="fineprint"><em>
 See <a href="../17_intro/license.html">license.html</a> for copying conditions.
+Comments and suggestions are welcome, and may be sent to
+<a href="mailto:libstdc++@gcc.gnu.org">the libstdc++ mailing list</a>.
 </em></p>
 
 

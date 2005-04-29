@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -48,8 +47,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
    -----------------------
 
    procedure Store_Char
-     (File : File_Type;
-      WC   : Wide_Character;
+     (WC   : Wide_Character;
       Buf  : out Wide_String;
       Ptr  : in out Integer);
    --  Store a single character in buffer, checking for overflow.
@@ -59,7 +57,6 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
    --  least in the OS/2 version.
 
    function To_Lower (C : Character) return Character;
-   function To_Upper (C : Character) return Character;
 
    ------------------
    -- Get_Enum_Lit --
@@ -83,7 +80,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
 
       if ch = Character'Pos (''') then
          Get (File, WC);
-         Store_Char (File, WC, Buf, Buflen);
+         Store_Char (WC, Buf, Buflen);
 
          ch := Nextc (TFT (File));
 
@@ -92,7 +89,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
          end if;
 
          Get (File, WC);
-         Store_Char (File, WC, Buf, Buflen);
+         Store_Char (WC, Buf, Buflen);
 
          ch := Nextc (TFT (File));
 
@@ -101,7 +98,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
          end if;
 
          Get (File, WC);
-         Store_Char (File, WC, Buf, Buflen);
+         Store_Char (WC, Buf, Buflen);
 
       --  Similarly for identifiers, read as far as we can, in particular,
       --  do read a trailing underscore (again see ACVC test CE3905L to
@@ -121,7 +118,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
 
          loop
             Get (File, WC);
-            Store_Char (File, WC, Buf, Buflen);
+            Store_Char (WC, Buf, Buflen);
 
             ch := Nextc (TFT (File));
 
@@ -328,8 +325,7 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
    ----------------
 
    procedure Store_Char
-     (File : File_Type;
-      WC   : Wide_Character;
+     (WC   : Wide_Character;
       Buf  : out Wide_String;
       Ptr  : in out Integer)
    is
@@ -354,18 +350,5 @@ package body Ada.Wide_Text_IO.Enumeration_Aux is
          return C;
       end if;
    end To_Lower;
-
-   --------------
-   -- To_Upper --
-   --------------
-
-   function To_Upper (C : Character) return Character is
-   begin
-      if C in 'a' .. 'z' then
-         return Character'Val (Character'Pos (C) - 32);
-      else
-         return C;
-      end if;
-   end To_Upper;
 
 end Ada.Wide_Text_IO.Enumeration_Aux;

@@ -1,6 +1,6 @@
 /* Top level of GNU C compiler
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,7 +29,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #undef FFS  /* Some systems define this in param.h.  */
 #include "system.h"
 #include <signal.h>
-#include <setjmp.h>
 
 #ifdef HAVE_SYS_RESOURCE_H
 # include <sys/resource.h>
@@ -67,9 +66,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "reload.h"
 #include "dwarf2asm.h"
 #include "integrate.h"
+#include "real.h"
 #include "debug.h"
 #include "target.h"
 #include "langhooks.h"
+#include "cfglayout.h"
+#include "hosthooks.h"
 
 /* APPLE LOCAL indexing dpatel */
 #include "genindex.h"
@@ -90,17 +92,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-/* PFE = Persistent Front End */
-#include "pfe/pfe.h"
-#include "pfe/pfe-header.h"
-#endif
-
-#ifdef HALF_PIC_DEBUG
-#include "halfpic.h"
-#endif
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
@@ -108,23 +99,25 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 extern int size_directive_output;
 extern tree last_assemble_variable_decl;
 
+extern void reg_alloc PARAMS ((void));
+
 static void general_init PARAMS ((char *));
 static void parse_options_and_default_flags PARAMS ((int, char **));
 static void do_compile PARAMS ((void));
 static void process_options PARAMS ((void));
-static void lang_independent_init PARAMS ((void));
+static void backend_init PARAMS ((void));
 static int lang_dependent_init PARAMS ((const char *));
 static void init_asm_output PARAMS ((const char *));
 static void finalize PARAMS ((void));
 
-static void set_target_switch PARAMS ((const char *));
-static const char *decl_name PARAMS ((tree, int));
+/* APPLE LOCAL -O5 */
+/* Used by various targets to initialize target specific switches when -O5 is used.  */
+void set_target_switch PARAMS ((const char *));
 
-static void float_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
 static void crash_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
+static void setup_core_dumping PARAMS ((void));
 /* APPLE LOCAL interrupt signal handler (radar 2941633)  ilr */
 static void interrupt_signal PARAMS ((int)) ATTRIBUTE_NORETURN;
-static void set_float_handler PARAMS ((jmp_buf));
 static void compile_file PARAMS ((void));
 static void display_help PARAMS ((void));
 static void display_target_options PARAMS ((void));
@@ -141,6 +134,9 @@ static int print_single_switch PARAMS ((FILE *, int, int, const char *,
 				      const char *, const char *));
 static void print_switch_values PARAMS ((FILE *, int, int, const char *,
 				       const char *, const char *));
+
+/* Nonzero to dump debug info whilst parsing (-dy option).  */
+static int set_yydebug;
 
 /* Length of line when printing switch values.  */
 #define MAX_LINE 75
@@ -164,7 +160,8 @@ const char *input_filename;
 
 const char *main_input_filename;
 
-/* APPLE LOCAL begin fat builds (radar 2865464)  ilr */
+/* APPLE LOCAL fat builds */
+/* for radar 2865464  ilr */
 static int arch_specified = 0;
 /* APPLE LOCAL end fat builds */
 
@@ -182,9 +179,18 @@ struct file_stack *input_file_stack;
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
 
+/* APPLE LOCAL begin read-from-stdin */
+  int predictive_compilation = -1;
+/* APPLE LOCAL end read-from-stdin */
+
+
 /* Name to use as base of names for dump output files.  */
 
 const char *dump_base_name;
+
+/* Name to use as a base for auxiliary output files.  */
+
+const char *aux_base_name;
 
 /* Format to use to print dumpfile index value */
 #ifndef DUMPFILE_FORMAT
@@ -197,9 +203,14 @@ const char *dump_base_name;
 
 extern int target_flags;
 
+/* A mask of target_flags that includes bit X if X was set or cleared
+   on the command line.  */
+
+int target_flags_explicit;
+
 /* Debug hooks - dependent upon command line options.  */
 
-struct gcc_debug_hooks *debug_hooks = &do_nothing_debug_hooks;
+const struct gcc_debug_hooks *debug_hooks = &do_nothing_debug_hooks;
 
 /* Describes a dump file.  */
 
@@ -233,16 +244,19 @@ enum dump_file_index
   DFI_ssa_ccp,
   DFI_ssa_dce,
   DFI_ussa,
+  DFI_null,
   DFI_cse,
   DFI_addressof,
   DFI_gcse,
   DFI_loop,
-  DFI_cse2,
   DFI_cfg,
   DFI_bp,
+  DFI_ce1,
+  DFI_tracer,
+  DFI_cse2,
   DFI_life,
   DFI_combine,
-  DFI_ce,
+  DFI_ce2,
   DFI_regmove,
   DFI_sched,
   DFI_lreg,
@@ -251,7 +265,7 @@ enum dump_file_index
   DFI_flow2,
   DFI_peephole2,
   DFI_rnreg,
-  DFI_ce2,
+  DFI_ce3,
   DFI_sched2,
   DFI_stack,
   DFI_bbro,
@@ -265,7 +279,7 @@ enum dump_file_index
 
    Remaining -d letters:
 
-	"              o q   u     "
+	"              o q         "
 	"       H JK   OPQ  TUV  YZ"
 */
 
@@ -279,16 +293,19 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "ssaccp",	'W', 1, 0, 0 },
   { "ssadce",	'X', 1, 0, 0 },
   { "ussa",	'e', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
+  { "null",	'u', 0, 0, 0 },
   { "cse",	's', 0, 0, 0 },
   { "addressof", 'F', 0, 0, 0 },
   { "gcse",	'G', 1, 0, 0 },
   { "loop",	'L', 1, 0, 0 },
-  { "cse2",	't', 1, 0, 0 },
   { "cfg",	'f', 1, 0, 0 },
   { "bp",	'b', 1, 0, 0 },
+  { "ce1",	'C', 1, 0, 0 },
+  { "tracer",	'T', 1, 0, 0 },
+  { "cse2",	't', 1, 0, 0 },
   { "life",	'f', 1, 0, 0 },	/* Yes, duplicate enable switch.  */
   { "combine",	'c', 1, 0, 0 },
-  { "ce",	'C', 1, 0, 0 },
+  { "ce2",	'C', 1, 0, 0 },
   { "regmove",	'N', 1, 0, 0 },
   { "sched",	'S', 1, 0, 0 },
   { "lreg",	'l', 1, 0, 0 },
@@ -297,7 +314,7 @@ static struct dump_file_info dump_file[DFI_MAX] =
   { "flow2",	'w', 1, 0, 0 },
   { "peephole2", 'z', 1, 0, 0 },
   { "rnreg",	'n', 1, 0, 0 },
-  { "ce2",	'E', 1, 0, 0 },
+  { "ce3",	'E', 1, 0, 0 },
   { "sched2",	'R', 1, 0, 0 },
   { "stack",	'k', 1, 0, 0 },
   { "bbro",	'B', 1, 0, 0 },
@@ -330,6 +347,14 @@ int g_switch_set;
    types of debugging information.  */
 enum debug_info_type write_symbols = NO_DEBUG;
 
+/* APPLE LOCAL begin Symbol Separation */
+/* Original value of write_symbols.  */
+enum debug_info_type orig_write_symbols = NO_DEBUG;
+
+/* Nonzero means, try to look for separate symbol repositories.  */
+int flag_grepository = 0;
+/* APPLE LOCAL end Symbol Separation */
+
 /* Level of debugging information we are producing.  See flags.h
    for the definitions of the different possible levels.  */
 enum debug_info_level debug_info_level = DINFO_LEVEL_NONE;
@@ -356,8 +381,8 @@ int flag_debug_only_used_symbols = -1;
 int optimize = 0;
 
 /* Nonzero means optimize for size.  -Os.
-   The only valid values are zero and non-zero. When optimize_size is
-   non-zero, optimize defaults to 2, but certain individual code
+   The only valid values are zero and nonzero. When optimize_size is
+   nonzero, optimize defaults to 2, but certain individual code
    bloating optimizations are disabled.  */
 
 int optimize_size = 0;
@@ -373,29 +398,6 @@ tree current_function_decl;
    if none.  */
 tree current_function_func_begin_label;
 
-/* Pointer to function to compute the name to use to print a declaration.
-   DECL is the declaration in question.
-   VERBOSITY determines what information will be printed:
-     0: DECL_NAME, demangled as necessary.
-     1: and scope information.
-     2: and any other information that might be interesting, such as function
-        parameter types in C++.  */
-
-const char *(*decl_printable_name)	PARAMS ((tree, int));
-
-/* Pointer to function to compute rtl for a language-specific tree code.  */
-
-typedef rtx (*lang_expand_expr_t)
-  PARAMS ((union tree_node *, rtx, enum machine_mode,
-	  enum expand_modifier modifier));
-
-lang_expand_expr_t lang_expand_expr = 0;
-
-/* Pointer to function to finish handling an incomplete decl at the
-   end of compilation.  */
-
-void (*incomplete_decl_finalize_hook) PARAMS ((tree)) = 0;
-
 /* Nonzero if doing dwarf2 duplicate elimination.  */
 
 int flag_eliminate_dwarf2_dups = 0;
@@ -408,6 +410,16 @@ int profile_flag = 0;
 
 int profile_arc_flag = 0;
 
+/* APPLE LOCAL begin new feedback */
+/* Nonzero if new feedback info is to be generated. */
+
+int flag_create_feedback = 0;
+
+/* Nonzero if new feedback info is to be read back and used. */
+
+int flag_use_feedback = 0;
+/* APPLE LOCAL end new feedback */
+
 /* Nonzero if generating info for gcov to calculate line test coverage.  */
 
 int flag_test_coverage = 0;
@@ -419,6 +431,24 @@ int flag_branch_probabilities = 0;
 /* Nonzero if basic blocks should be reordered.  */
 
 int flag_reorder_blocks = 0;
+
+/* APPLE LOCAL begin - rarely executed bb optimization */
+
+/* Nonzero if blocks should be partitions into hot and cold sections in .o */
+
+int flag_reorder_blocks_and_partition = 0;
+
+/* APPLE LOCAL end - rarely executed bb optimization */
+
+/* APPLE LOCAL begin - single-set constant propagation */
+
+int flag_ss_const_prop = 0;
+
+/* APPLE LOCAL end - single-set constant propagation */
+
+/* Nonzero if functions should be reordered.  */
+
+int flag_reorder_functions = 0;
 
 /* Nonzero if registers should be renamed.  */
 
@@ -448,6 +478,19 @@ int time_report = 0;
 
 int mem_report = 0;
 
+/* APPLE LOCAL begin testsuite OS flush bug workaround */
+/* Non-zero means to sleep briefly before exiting.  */
+
+int flag_slow_exit = 0;
+/* APPLE LOCAL end testsuite OS flush bug workaround */
+
+/* APPLE LOCAL begin enable branch predictions */
+/* Zero to disable predicting branches */
+
+int flag_branch_predictions = 1;
+
+/* APPLE LOCAL end enable branch predictions */
+
 /* Non-zero means to collect statistics which might be expensive
    and to print them when we are done.  */
 int flag_detailed_statistics = 0;
@@ -474,6 +517,9 @@ int flag_altivec;
    available, regardless of the setting of this flag), and (2) use
    the CFString layout to create @"..." strings in ObjC/ObjC++.  */
 int flag_constant_cfstrings;
+/* Nonzero means that we should warn whenever non-ASCII characters appear
+   inside of @"..." literals (as they may be non-portable).  */
+int warn_nonportable_cfstrings;
 /* APPLE LOCAL end constant cfstrings */
    
 /* Nonzero for -fcaller-saves: allocate values in regs that need to
@@ -491,12 +537,6 @@ int flag_caller_saves = 0;
    be performed. (x86 only really, but we pretend it's generic)  */
 int flag_fppc = 0;
 /* APPLE LOCAL end -ffppc 2001-08-01 sts */
-
-/* APPLE LOCAL begin compiling_objc */
-/* ObjC and ObjC++ no longer have their own rows; instead, compiling_objc is
-   set on top of another C/C++ dialect.  */
-int compiling_objc = 0;
-/* APPLE LOCAL end compiling_objc */
 
 /* Nonzero if structures and unions should be returned in memory.
 
@@ -629,11 +669,23 @@ int flag_errno_math = 1;
 
 int flag_unsafe_math_optimizations = 0;
 
+/* Nonzero means that no NaNs or +-Infs are expected.  */
+
+int flag_finite_math_only = 0;
+
 /* Zero means that floating-point math operations cannot generate a
    (user-visible) trap.  This is the case, for example, in nonstop
-   IEEE 754 arithmetic.  */
+   IEEE 754 arithmetic.  Trapping conditions include division by zero,
+   overflow, underflow, invalid and inexact, but does not include 
+   operations on signaling NaNs (see below).  */
 
 int flag_trapping_math = 1;
+
+/* Nonzero means disable transformations observable by signaling NaNs.
+   This option implies that any operation on a IEEE signaling NaN can
+   generate a (user-visible) trap.  */
+
+int flag_signaling_nans = 0;
 
 /* 0 means straightforward implementation of complex divide acceptable.
    1 means wide ranges of inputs must work for complex divide.
@@ -660,6 +712,22 @@ int flag_syntax_only = 0;
 /* Nonzero means perform global cse.  */
 
 static int flag_gcse;
+
+/* Nonzero means perform loop optimizer.  */
+
+static int flag_loop_optimize;
+
+/* Nonzero means perform crossjumping.  */
+
+static int flag_crossjumping;
+
+/* Nonzero means perform if conversion.  */
+
+static int flag_if_conversion;
+
+/* Nonzero means perform if conversion after reload.  */
+
+static int flag_if_conversion2;
 
 /* Nonzero means to use global dataflow analysis to eliminate
    useless null pointer tests.  */
@@ -692,10 +760,12 @@ int flag_rerun_loop_opt;
 
 int flag_inline_functions;
 
+/* APPLE LOCAL begin -fobey-inline */
 /* Nonzero for -fobey-inline: 'inline' keyword must be obeyed, regardless
    of codesize.  */
 
 int flag_obey_inline;
+/* APPLE LOCAL end -fobey-inline */
 
 /* Nonzero for -fkeep-inline-functions: even if we make a function
    go inline everywhere, keep its definition around for debugging
@@ -715,8 +785,10 @@ int flag_really_no_inline = 2;
 /* Nonzero means that we should emit static const variables
    regardless of whether or not optimization is turned on.  */
 
-/* APPLE LOCAL cpp-precomp dpatel */
-int flag_cpp_precomp = 0;
+/* APPLE LOCAL indexing dpatel */
+/* Indexing engine needs to know, if compiler is processing
+   preprocessed source or not.  */
+int flag_preprocessing = 0;
 
 int flag_keep_static_consts = 1;
 
@@ -737,11 +809,14 @@ int flag_shared_data;
 int flag_delayed_branch;
 
 /* Nonzero if we are compiling pure (sharable) code.
-   Value is 1 if we are doing reasonable (i.e. simple
-   offset into offset table) pic.  Value is 2 if we can
-   only perform register offsets.  */
+   Value is 1 if we are doing "small" pic; value is 2 if we're doing
+   "large" pic.  */
 
 int flag_pic;
+
+/* Set to the default thread-local storage (tls) model to use.  */
+
+enum tls_model flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
 
 /* Nonzero means generate extra code for exception handling and enable
    exception handling.  */
@@ -760,12 +835,6 @@ int flag_asynchronous_unwind_tables = 0;
    by default.  */
 
 int flag_no_common;
-
-/* Nonzero means pretend it is OK to examine bits of target floats,
-   even if that isn't true.  The resulting code will have incorrect constants,
-   but the same series of instructions that the native compiler would make.  */
-
-int flag_pretend_float;
 
 /* Nonzero means change certain warnings into errors.
    Usually these are warnings about failure to conform to some standard.  */
@@ -838,6 +907,9 @@ int flag_gnu_linker = 0;
 int flag_gnu_linker = 1;
 #endif
 
+/* Nonzero means put zero initialized data in the bss section.  */
+int flag_zero_initialized_in_bss = 1;
+
 /* Enable SSA.  */
 int flag_ssa = 0;
 
@@ -892,19 +964,10 @@ int flag_peephole2 = 0;
 /* This will try to guess branch probabilities.  */
 int flag_guess_branch_prob = 0;
 
-/* -fbounded-pointers causes gcc to compile pointers as composite
-   objects occupying three words: the pointer value, the base address
-   of the referent object, and the address immediately beyond the end
-   of the referent object.  The base and extent allow us to perform
-   runtime bounds checking.  -fbounded-pointers implies -fcheck-bounds.  */
-int flag_bounded_pointers = 0;
-
 /* -fcheck-bounds causes gcc to generate array bounds checks.
-   For C, C++: defaults to value of flag_bounded_pointers.
-   For ObjC: defaults to off.
+   For C, C++, ObjC: defaults to off.
    For Java: defaults to on.
-   For Fortran: defaults to off.
-   For CHILL: defaults to off.  */
+   For Fortran: defaults to off.  */
 int flag_bounds_check = 0;
 
 /* This will attempt to merge constant section constants, if 1 only
@@ -916,6 +979,36 @@ int flag_merge_constants = 1;
    unused UIDs if there are a lot of instructions.  If greater than
    one, unconditionally renumber instruction UIDs.  */
 int flag_renumber_insns = 1;
+
+/* If nonzero, use the graph coloring register allocator.  */
+int flag_new_regalloc = 0;
+
+/* Nonzero if we perform superblock formation.  */
+
+int flag_tracer = 0;
+
+/* APPLE LOCAL BEGIN fix-and-continue mrs  */
+/* If nonzero, generate code suitable for fast turn around debugging.
+   This flag must be applied to any translation unit that we would
+   like to overlay with a new replacement.  */
+int flag_fix_and_continue;
+
+/* If nonzero, generate code suitable for fast turn around debugging.
+   This flag must be applied to any translation unit that we would
+   like to use as a replacement.  */
+int flag_indirect_data;
+/* APPLE LOCAL END fix-and-continue mrs  */
+
+/* APPLE LOCAL BEGIN pch distcc mrs */
+/* True if PCH should omit from the -E output all lines from PCH files
+   found in PCH files.  */
+int flag_pch_preprocess = 0;
+/* APPLE LOCAL END pch distcc mrs */
+
+/* APPLE LOCAL begin loop transposition */
+/* Nonzero if we should perform automatic loop transposition. */
+int flag_loop_transpose = 0;
+/* APPLE LOCAL end loop transposition */
 
 /* Values of the -falign-* flags: how much to align labels in code.
    0 means `use default', 1 means `don't align'.
@@ -933,6 +1026,15 @@ int align_labels_log;
 int align_labels_max_skip;
 int align_functions;
 int align_functions_log;
+
+/* Like align_functions_log above, but used by front-ends to force the
+   minimum function alignment.  Zero means no alignment is forced.  */
+int force_align_functions_log;
+
+/* APPLE LOCAL begin -fast */
+/* Nonzero if we should perform SPEC oriented optimizations.  */
+int flag_fast = 0;
+/* APPLE LOCAL end -fast */
 
 /* Table of supported debugging formats.  */
 static const struct
@@ -988,15 +1090,14 @@ int flag_trapv = 0;
 /* Add or remove a leading underscore from user symbols.  */
 int flag_leading_underscore = -1;
 
-/* APPLE LOCAL begin Pascal Strings 2001-07-12 sts */
+/* APPLE LOCAL begin Pascal strings 2001-07-12 sts */
 /* Nonzero means initial "\p" in string becomes a length byte and
    string type becomes _unsigned_ char* .  Although currently this is
    a C/C++-only flag, it may be of future use with other frontends,
    thus we define it here.  */
 
 int flag_pascal_strings;
-
-/* APPLE LOCAL end Pascal Strings 2001-07-12 sts */
+/* APPLE LOCAL end Pascal strings 2001-07-12 sts */
 
 /* APPLE LOCAL begin coalescing turly 20020319 */
 /* Don't enable coalescing by default unless we have one of these
@@ -1034,11 +1135,6 @@ static const param_info lang_independent_params[] = {
   { NULL, 0, NULL }
 };
 
-/* A default for same.  */
-#ifndef USER_LABEL_PREFIX
-#define USER_LABEL_PREFIX ""
-#endif
-
 /* Table of language-independent -f options.
    STRING is the option name.  VARIABLE is the address of the variable.
    ON_VALUE is the value to store in VARIABLE
@@ -1063,6 +1159,8 @@ static const lang_independent_options f_options[] =
    N_("When possible do not generate stack frames") },
   {"optimize-sibling-calls", &flag_optimize_sibling_calls, 1,
    N_("Optimize sibling and tail recursive calls") },
+  {"tracer", &flag_tracer, 1,
+   N_("Perform superblock formation via tail duplication") },
   {"cse-follow-jumps", &flag_cse_follow_jumps, 1,
    N_("When running CSE, follow jumps to their targets") },
   {"cse-skip-blocks", &flag_cse_skip_blocks, 1,
@@ -1073,6 +1171,10 @@ static const lang_independent_options f_options[] =
    N_("Perform jump threading optimizations") },
   {"strength-reduce", &flag_strength_reduce, 1,
    N_("Perform strength reduction optimizations") },
+  /* APPLE LOCAL begin loop transposition */
+  {"loop-transpose", &flag_loop_transpose, 1,
+   N_("Perform loop transposition (currently unsafe)") },
+  /* APPLE LOCAL end loop transposition */
   {"unroll-loops", &flag_unroll_loops, 1,
    N_("Perform loop unrolling when iteration count is known") },
   {"unroll-all-loops", &flag_unroll_all_loops, 1,
@@ -1099,8 +1201,10 @@ static const lang_independent_options f_options[] =
    N_("Generate code for funcs even if they are fully inlined") },
   {"inline", &flag_no_inline, 0,
    N_("Pay attention to the 'inline' keyword") },
+  /* APPLE LOCAL begin -fobey-inline */
   {"obey-inline", &flag_obey_inline, 1,
    N_("Obey 'inline' keyword and always inline, regardless of size") },
+  /* APPLE LOCAL end -fobey-inline */
   {"keep-static-consts", &flag_keep_static_consts, 1,
    N_("Emit static const variables even if they are not used") },
   {"syntax-only", &flag_syntax_only, 1,
@@ -1121,14 +1225,20 @@ static const lang_independent_options f_options[] =
    N_("Perform enhanced load motion during global subexpression elimination") },
   {"gcse-sm", &flag_gcse_sm, 1,
    N_("Perform store motion after global subexpression elimination") },
+  {"loop-optimize", &flag_loop_optimize, 1,
+   N_("Perform the loop optimizations") },
+  {"crossjumping", &flag_crossjumping, 1,
+   N_("Perform cross-jumping optimization") },
+  {"if-conversion", &flag_if_conversion, 1,
+   N_("Perform conversion of conditional jumps to branchless equivalents") },
+  {"if-conversion2", &flag_if_conversion2, 1,
+   N_("Perform conversion of conditional jumps to conditional execution") },
   {"rerun-cse-after-loop", &flag_rerun_cse_after_loop, 1,
    N_("Run CSE pass after loop optimizations") },
   {"rerun-loop-opt", &flag_rerun_loop_opt, 1,
    N_("Run the loop optimizer twice") },
   {"delete-null-pointer-checks", &flag_delete_null_pointer_checks, 1,
    N_("Delete useless null pointer checks") },
-  {"pretend-float", &flag_pretend_float, 1,
-   N_("Pretend that host and target use the same FP format") },
   {"schedule-insns", &flag_schedule_insns, 1,
    N_("Reschedule instructions before register allocation") },
   {"schedule-insns2", &flag_schedule_insns_after_reload, 1,
@@ -1155,13 +1265,23 @@ static const lang_independent_options f_options[] =
   {"non-call-exceptions", &flag_non_call_exceptions, 1,
    N_("Support synchronous non-call exceptions") },
   {"profile-arcs", &profile_arc_flag, 1,
-   N_("Insert arc based program profiling code") },
+   N_("Insert arc based program profiling code") }, 
   {"test-coverage", &flag_test_coverage, 1,
    N_("Create data files needed by gcov") },
   {"branch-probabilities", &flag_branch_probabilities, 1,
    N_("Use profiling information for branch probabilities") },
+/* APPLE LOCAL begin new feedback */
+  {"create-profile", &flag_create_feedback, 1,
+   N_("Insert arc counters for profile optimizations") },
+  {"use-profile", &flag_use_feedback, 1,
+   N_("Use profile information for various optimizations") },
+/* APPLE LOCAL begin new feedback */
+  {"profile", &profile_flag, 1,
+   N_("Enable basic program profiling code") },
   {"reorder-blocks", &flag_reorder_blocks, 1,
    N_("Reorder basic blocks to improve code placement") },
+  {"reorder-functions", &flag_reorder_functions, 1,
+   N_("Reorder functions to improve code placement") },
   {"rename-registers", &flag_rename_registers, 1,
    N_("Do the register renaming optimization pass") },
   {"cprop-registers", &flag_cprop_registers, 1,
@@ -1196,8 +1316,16 @@ static const lang_independent_options f_options[] =
    N_("Assume strict aliasing rules apply") },
   {"align-loops", &align_loops, 0,
    N_("Align the start of loops") },
+/* APPLE LOCAL begin -f[align-loops|align-jumps]-max-skip */
+  {"align-loops-max-skip", &align_loops_max_skip, 0,
+   N_("Set Maximum skip for loops alignment") },
+/* APPLE LOCAL end -f[align-loops|align-jumps]-max-skip */
   {"align-jumps", &align_jumps, 0,
    N_("Align labels which are only reached by jumping") },
+/* APPLE LOCAL begin -f[align-loops|align-jumps]-max-skip */
+  {"align-jumps-max-skip", &align_jumps_max_skip, 0,
+   N_("Set Maximum skip for align labels which are only reached by jumping") },
+/* APPLE LOCAL end -f[align-loops|align-jumps]-max-skip */
   {"align-labels", &align_labels, 0,
    N_("Align all labels") },
   {"align-functions", &align_functions, 0,
@@ -1210,6 +1338,8 @@ static const lang_independent_options f_options[] =
    N_("Suppress output of instruction numbers and line number notes in debugging dumps") },
   {"instrument-functions", &flag_instrument_function_entry_exit, 1,
    N_("Instrument function entry/exit with profiling calls") },
+  {"zero-initialized-in-bss", &flag_zero_initialized_in_bss, 1,
+   N_("Put zero initialized data in the bss section") },
   {"ssa", &flag_ssa, 1,
    N_("Enable SSA optimizations") },
   {"ssa-ccp", &flag_ssa_ccp, 1,
@@ -1222,6 +1352,8 @@ static const lang_independent_options f_options[] =
    N_("Process #ident directives") },
   { "peephole2", &flag_peephole2, 1,
    N_("Enables an rtl peephole pass run before sched2") },
+  {"finite-math-only", &flag_finite_math_only, 1,
+   N_("Assume no NaNs or +-Infs are generated") },
   { "guess-branch-probability", &flag_guess_branch_prob, 1,
    N_("Enables guessing of branch probabilities") },
   {"math-errno", &flag_errno_math, 1,
@@ -1230,18 +1362,38 @@ static const lang_independent_options f_options[] =
    N_("Floating-point operations can trap") },
   {"unsafe-math-optimizations", &flag_unsafe_math_optimizations, 1,
    N_("Allow math optimizations that may violate IEEE or ANSI standards") },
-  {"bounded-pointers", &flag_bounded_pointers, 1,
-   N_("Compile pointers as triples: value, base & end") },
+  {"signaling-nans", &flag_signaling_nans, 1,
+   N_("Disable optimizations observable by IEEE signaling NaNs") },
   {"bounds-check", &flag_bounds_check, 1,
-   N_("Generate code to check bounds before dereferencing pointers and arrays") },
+   N_("Generate code to check bounds before indexing arrays") },
   {"single-precision-constant", &flag_single_precision_constant, 1,
    N_("Convert floating point constant to single precision constant") },
   {"time-report", &time_report, 1,
    N_("Report time taken by each compiler pass at end of run") },
   {"mem-report", &mem_report, 1,
    N_("Report on permanent memory allocation at end of run") },
+  /* APPLE LOCAL begin allow disabling branch predictions */
+  { "branch-predictions", &flag_branch_predictions, 1,
+   N_("Enable generation of branch prediction bits") },
+  /* APPLE LOCAL end allow disabling branch predictions */
+  /* APPLE LOCAL begin testsuite OS flush bug workaround */
+  { "slow-exit", &flag_slow_exit, 1,
+   N_("Sleep before exiting") },
+  /* APPLE LOCAL end testsuite OS flush bug workaround */
   { "trapv", &flag_trapv, 1,
    N_("Trap for signed overflow in addition / subtraction / multiplication") },
+  { "new-ra", &flag_new_regalloc, 1,
+   N_("Use graph coloring register allocation.") },
+  /* APPLE LOCAL BEGIN fix-and-continue mrs  */
+  { "fix-and-continue", &flag_fix_and_continue, 1,
+    N_("Generate code suitable for fast turn around debugging") },
+  { "indirect-data", &flag_indirect_data, 1,
+    N_("Generate code suitable for fast turn around debugging") },
+  /* APPLE LOCAL END fix-and-continue mrs  */
+  /* APPLE LOCAL begin read-from-stdin */
+  { "predictive-compilation", &predictive_compilation, 0,
+    N_("Read from stdin but for predictive compilation") },
+  /* APPLE LOCAL end read-from-stdin */
   /* APPLE LOCAL begin -ffppc 2001-08-01 sts */
   { "fppc", &flag_fppc, 1,
    N_("Perform floating-point precision-control pass") },
@@ -1256,9 +1408,18 @@ static const lang_independent_options f_options[] =
   { "export-coalesced", &flag_export_coalesced, 1,
    N_("EXPERIMENTAL: Export coalesced symbols from dylibs") },
   /* APPLE LOCAL end coalescing  turly  */
-  /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+  /* APPLE LOCAL begin - single-set constant propagation */
+  { "ss-const-prop", &flag_ss_const_prop, 1,
+    N_("Perform simple single-assignment constant propagation") },
+  /* APPLE LOCAL end - single-set constant propagation */
+  /* APPLE LOCAL begin - rarely executed bb optimization */
+  { "reorder-blocks-and-partition", &flag_reorder_blocks_and_partition, 1,
+    N_("Put hot and cold blocks in separate sections") },
+  /* APPLE LOCAL end - rarely executed bb optimization */
+  /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
   { "pascal-strings", &flag_pascal_strings, 1,
    N_("Allow Pascal-style string literals") }
+  /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
 };
 
 /* Table of language-specific options.  */
@@ -1274,11 +1435,9 @@ documented_lang_options[] =
      used here is to only describe those options which are not
      enabled by default.  */
 
-  { "-ansi", 
-    N_("Compile just for ISO C89") },
-  { "-fallow-single-precision",
-    N_("Do not promote floats to double if using -traditional") },
-  { "-std= ", 
+  { "-ansi",
+    N_("Compile just for ISO C90") },
+  { "-std= ",
     N_("Determine language standard") },
 
   { "-fsigned-bitfields", "" },
@@ -1286,114 +1445,116 @@ documented_lang_options[] =
     N_("Make bit-fields by unsigned by default") },
   { "-fno-signed-bitfields", "" },
   { "-fno-unsigned-bitfields","" },
-  { "-fsigned-char", 
+  { "-fsigned-char",
     N_("Make 'char' be signed by default") },
-  { "-funsigned-char", 
+  { "-funsigned-char",
     N_("Make 'char' be unsigned by default") },
   { "-fno-signed-char", "" },
   { "-fno-unsigned-char", "" },
 
-  { "-ftraditional", "" },
-  { "-traditional", 
-    N_("Attempt to support traditional K&R style C") },
-  { "-fnotraditional", "" },
-  { "-fno-traditional", "" },
-
   { "-fasm", "" },
-  { "-fno-asm", 
+  { "-fno-asm",
     N_("Do not recognize the 'asm' keyword") },
+  { "-fasm-blocks",
+    N_("Accept blocks and functions of assembly") },
+  { "-fno-asm-blocks", "" },
   { "-fbuiltin", "" },
-  { "-fno-builtin", 
+  { "-fno-builtin",
     N_("Do not recognize any built in functions") },
-  { "-fhosted", 
+  { "-fhosted",
     N_("Assume normal C execution environment") },
   { "-fno-hosted", "" },
   { "-ffreestanding",
     N_("Assume that standard libraries & main might not exist") },
   { "-fno-freestanding", "" },
-  { "-fcond-mismatch", 
+  { "-fcond-mismatch",
     N_("Allow different types as args of ? operator") },
   { "-fno-cond-mismatch", "" },
-  { "-fdollars-in-identifiers", 
+  { "-fdollars-in-identifiers",
     N_("Allow the use of $ inside identifiers") },
   { "-fno-dollars-in-identifiers", "" },
   { "-fpreprocessed", "" },
   { "-fno-preprocessed", "" },
-  { "-fshort-double", 
+  { "-fshort-double",
     N_("Use the same size for double as for float") },
   { "-fno-short-double", "" },
-  { "-fshort-enums", 
+  { "-fshort-enums",
     N_("Use the smallest fitting integer to hold enums") },
   { "-fno-short-enums", "" },
-  { "-fshort-wchar", 
+  { "-fshort-wchar",
     N_("Override the underlying type for wchar_t to `unsigned short'") },
   { "-fno-short-wchar", "" },
-/* APPLE LOCAL: AltiVec */
+  /* APPLE LOCAL: AltiVec */
   { "-faltivec", "Enable the AltiVec Programming Model"},
   { "-fno-altivec", "" },
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  { "-fload=<file>", "Load precompiled header <file>"},
-  { "-fdump=<file>", "Dump precompiled header <file>"},
-  { "-fvalidate", "Validate precompiled header during load"},
-  { "-fno-validate", "Do not validate precompiled header during load"},
-#endif
-
-  { "-Wall", 
+  { "-Wall",
     N_("Enable most warning messages") },
   { "-Wbad-function-cast",
     N_("Warn about casting functions to incompatible types") },
   { "-Wno-bad-function-cast", "" },
-  { "-Wno-missing-noreturn", "" },
   { "-Wmissing-format-attribute",
     N_("Warn about functions which might be candidates for format attributes") },
   { "-Wno-missing-format-attribute", "" },
-  { "-Wcast-qual", 
+  { "-Wcast-qual",
     N_("Warn about casts which discard qualifiers") },
   { "-Wno-cast-qual", "" },
-  { "-Wchar-subscripts", 
+  { "-Wchar-subscripts",
     N_("Warn about subscripts whose type is 'char'") },
   { "-Wno-char-subscripts", "" },
-  { "-Wcomment", 
+  { "-Wcomment",
     N_("Warn if nested comments are detected") },
   { "-Wno-comment", "" },
-  { "-Wcomments", 
+  { "-Wcomments",
     N_("Warn if nested comments are detected") },
   { "-Wno-comments", "" },
-  { "-Wconversion", 
+  { "-Wconversion",
     N_("Warn about possibly confusing type conversions") },
   { "-Wno-conversion", "" },
-  { "-Wformat", 
+  { "-Wdiv-by-zero", "" },
+  { "-Wno-div-by-zero",
+    N_("Do not warn about compile-time integer division by zero") },
+  { "-Wfloat-equal",
+    N_("Warn about testing equality of floating point numbers") },
+  { "-Wno-float-equal", "" },
+  { "-Wformat",
     N_("Warn about printf/scanf/strftime/strfmon format anomalies") },
   { "-Wno-format", "" },
-  { "-Wformat-y2k", "" },
-  { "-Wno-format-y2k",
-    N_("Don't warn about strftime formats yielding 2 digit years") },
   { "-Wformat-extra-args", "" },
   { "-Wno-format-extra-args",
     N_("Don't warn about too many arguments to format functions") },
-  { "-Wformat-nonliteral", 
+  { "-Wformat-nonliteral",
     N_("Warn about non-string-literal format strings") },
   { "-Wno-format-nonliteral", "" },
   { "-Wformat-security",
     N_("Warn about possible security problems with format functions") },
   { "-Wno-format-security", "" },
+  { "-Wformat-y2k", "" },
+  { "-Wno-format-y2k",
+    N_("Don't warn about strftime formats yielding 2 digit years") },
   { "-Wimplicit-function-declaration",
     N_("Warn about implicit function declarations") },
   { "-Wno-implicit-function-declaration", "" },
   { "-Werror-implicit-function-declaration", "" },
-  { "-Wimplicit-int", 
+  { "-Wimplicit-int",
     N_("Warn when a declaration does not specify a type") },
   { "-Wno-implicit-int", "" },
   { "-Wimplicit", "" },
   { "-Wno-implicit", "" },
-  { "-Wimport", 
+  { "-Wimport",
     N_("Warn about the use of the #import directive") },
   { "-Wno-import", "" },
+  /* APPLE LOCAL begin PCH */
+  { "-Winvalid-pch",
+    N_("Warn about PCH files that are found but not used") },
+  /* APPLE LOCAL end PCH */
+  /* APPLE LOCAL begin Symbol Separation */
+  { "-Winvalid-sr",
+    N_("Warn about Symbol Repositories that are found but not used") },
+  /* APPLE LOCAL end Symbol Separation */
   { "-Wlong-long","" },
-  { "-Wno-long-long", 
+  { "-Wno-long-long",
     N_("Do not warn about using 'long long' when -pedantic") },
-  { "-Wmain", 
+  { "-Wmain",
     N_("Warn about suspicious declarations of main") },
   { "-Wno-main", "" },
   { "-Wmissing-braces",
@@ -1402,52 +1563,56 @@ documented_lang_options[] =
   { "-Wmissing-declarations",
     N_("Warn about global funcs without previous declarations") },
   { "-Wno-missing-declarations", "" },
-  { "-Wmissing-prototypes", 
+  { "-Wmissing-prototypes",
     N_("Warn about global funcs without prototypes") },
   { "-Wno-missing-prototypes", "" },
-  { "-Wmultichar", 
+  { "-Wmultichar",
     N_("Warn about use of multicharacter literals") },
   { "-Wno-multichar", "" },
   /* APPLE LOCAL  -Wfour-char-constants  */
   { "-Wfour-char-constants",
     N_("Warn about use of 'abcd' four char literals") },
   { "-Wno-four-char-constants", "" },
-  { "-Wnested-externs", 
+  /* APPLE LOCAL constant cfstrings  */
+  { "-Wnonportable-cfstrings",
+    N_("Warn about use of non-ASCII chars in CFStrings") },
+  { "-Wno-nonportable-cfstrings", "" },
+  { "-Wnested-externs",
     N_("Warn about externs not at file scope level") },
   { "-Wno-nested-externs", "" },
-  { "-Wparentheses", 
+  { "-Wparentheses",
     N_("Warn about possible missing parentheses") },
   { "-Wno-parentheses", "" },
-  { "-Wsequence-point",
-    N_("Warn about possible violations of sequence point rules") },
-  { "-Wno-sequence-point", "" },
-  { "-Wpointer-arith", 
+  { "-Wpointer-arith",
     N_("Warn about function pointer arithmetic") },
   { "-Wno-pointer-arith", "" },
   { "-Wredundant-decls",
     N_("Warn about multiple declarations of the same object") },
   { "-Wno-redundant-decls", "" },
-  { "-Wsign-compare", 
+  { "-Wreturn-type",
+    N_("Warn whenever a function's return-type defaults to int") },
+  { "-Wno-return-type", "" },
+  { "-Wsequence-point",
+    N_("Warn about possible violations of sequence point rules") },
+  { "-Wno-sequence-point", "" },
+  { "-Wsign-compare",
     N_("Warn about signed/unsigned comparisons") },
   { "-Wno-sign-compare", "" },
-  { "-Wfloat-equal", 
-    N_("Warn about testing equality of floating point numbers") },
-  { "-Wno-float-equal", "" },
-  { "-Wunknown-pragmas", 
-    N_("Warn about unrecognized pragmas") },
-  { "-Wno-unknown-pragmas", "" },
-  { "-Wstrict-prototypes", 
+  { "-Wstrict-prototypes",
     N_("Warn about non-prototyped function decls") },
   { "-Wno-strict-prototypes", "" },
-  { "-Wtraditional", 
-    N_("Warn about constructs whose meaning change in ISO C") },
+  { "-Wtraditional",
+    N_("Warn about constructs whose meanings change in ISO C") },
   { "-Wno-traditional", "" },
-  { "-Wtrigraphs", 
+  { "-Wtrigraphs",
     N_("Warn when trigraphs are encountered") },
   { "-Wno-trigraphs", "" },
   { "-Wundef", "" },
   { "-Wno-undef", "" },
-  { "-Wwrite-strings", 
+  { "-Wunknown-pragmas",
+    N_("Warn about unrecognized pragmas") },
+  { "-Wno-unknown-pragmas", "" },
+  { "-Wwrite-strings",
     N_("Mark strings as 'const char *'") },
   { "-Wno-write-strings", "" },
   /* APPLE LOCAL begin AltiVec */
@@ -1473,7 +1638,7 @@ static const struct
   const int value;
   const char *const description;
 }
-target_switches [] = TARGET_SWITCHES;
+target_switches[] = TARGET_SWITCHES;
 
 /* This table is similar, but allows the switch to have a value.  */
 
@@ -1484,7 +1649,7 @@ static const struct
   const char **const variable;
   const char *const description;
 }
-target_options [] = TARGET_OPTIONS;
+target_options[] = TARGET_OPTIONS;
 #endif
 
 /* Options controlling warnings.  */
@@ -1525,9 +1690,19 @@ int warn_uninitialized;
 
 int warn_shadow;
 
-/* Warn if a switch on an enum fails to have a case for every enum value.  */
+/* Warn if a switch on an enum, that does not have a default case,
+   fails to have a case for every enum value.  */
 
 int warn_switch;
+
+/* Warn if a switch does not have a default case.  */
+
+int warn_switch_default;
+
+/* Warn if a switch on an enum fails to have a case for every enum
+   value (regardless of the presence or otherwise of a default case).  */
+
+int warn_switch_enum;
 
 /* Nonzero means warn about function definitions that default the return type
    or that use a null return and have a return-type other than void.  */
@@ -1572,16 +1747,15 @@ int warn_disabled_optimization;
 
 int warn_missing_noreturn;
 
-/* Nonzero means warn about uses of __attribute__((deprecated)) 
+/* Nonzero means warn about uses of __attribute__((deprecated))
    declarations.  */
 
 int warn_deprecated_decl = 1;
 
-/* APPLE LOCAL begin -Wno-#warnings  Radar 2796309 ilr */
-/* Nonzero means suppress all #warning messages.  */
+/* Nonzero means warn about constructs which might not be
+   strict-aliasing safe.  */
 
-int no_pound_warnings = 0;
-/* APPLE LOCAL end -Wno-#warnings  Radar 2796309 ilr */
+int warn_strict_aliasing;
 
 /* Likewise for -W.  */
 
@@ -1603,11 +1777,12 @@ static const lang_independent_options W_options[] =
    N_("Treat all warnings as errors") },
   {"shadow", &warn_shadow, 1,
    N_("Warn when one local variable shadows another") },
-  /* APPLE LOCAL -Wno-#warnings  Radar 2796309 ilr */
-  {"no-#warnings", &no_pound_warnings, 1,
-   N_("Do not display #warning messages") },
   {"switch", &warn_switch, 1,
-   N_("Warn about enumerated switches missing a specific case") },
+   N_("Warn about enumerated switches, with no default, missing a case") },
+  {"switch-default", &warn_switch_default, 1,
+   N_("Warn about enumerated switches missing a default case") },
+  {"switch-enum", &warn_switch_enum, 1,
+   N_("Warn about all enumerated switches missing a specific case") },
   {"aggregate-return", &warn_aggregate_return, 1,
    N_("Warn about returning structures, unions or arrays") },
   {"cast-align", &warn_cast_align, 1,
@@ -1627,7 +1802,9 @@ static const lang_independent_options W_options[] =
   {"deprecated-declarations", &warn_deprecated_decl, 1,
    N_("Warn about uses of __attribute__((deprecated)) declarations") },
   {"missing-noreturn", &warn_missing_noreturn, 1,
-   N_("Warn about functions which might be candidates for attribute noreturn") }
+   N_("Warn about functions which might be candidates for attribute noreturn") },
+  {"strict-aliasing", &warn_strict_aliasing, 1,
+   N_ ("Warn about code which might break the strict aliasing rules") }
 };
 
 void
@@ -1651,19 +1828,25 @@ set_Wunused (setting)
    -ffast-math and -fno-fast-math imply.  */
 
 void
-set_fast_math_flags ()
+set_fast_math_flags (set)
+     int set;
 {
-  flag_trapping_math = 0;
-  flag_unsafe_math_optimizations = 1;
-  flag_errno_math = 0;
+  flag_trapping_math = !set;
+  flag_unsafe_math_optimizations = set;
+  flag_finite_math_only = set;
+  flag_errno_math = !set;
+  if (set)
+    flag_signaling_nans = 0;
 }
 
-void
-set_no_fast_math_flags ()
+/* Return true iff flags are set as if -ffast-math.  */
+bool
+fast_math_flags_set_p ()
 {
-  flag_trapping_math = 1;
-  flag_unsafe_math_optimizations = 0;
-  flag_errno_math = 1;
+  return (!flag_trapping_math
+	  && flag_unsafe_math_optimizations
+	  && flag_finite_math_only
+	  && !flag_errno_math);
 }
 
 
@@ -1725,20 +1908,8 @@ read_integral_parameter (p, pname, defval)
 
   return atoi (p);
 }
-
 
-/* This is the default decl_printable_name function.  */
-
-static const char *
-decl_name (decl, verbosity)
-     tree decl;
-     int verbosity ATTRIBUTE_UNUSED;
-{
-  return IDENTIFIER_POINTER (DECL_NAME (decl));
-}
-
-
-/* This calls abort and is used to avoid problems when abort if a macro.
+/* This calls abort and is used to avoid problems when abort is a macro.
    It is used when we need to pass the address of abort.  */
 
 void
@@ -1791,73 +1962,6 @@ floor_log2_wide (x)
   return log;
 }
 
-static int float_handler_set;
-int float_handled;
-jmp_buf float_handler;
-
-/* Signals actually come here.  */
-
-static void
-float_signal (signo)
-     /* If this is missing, some compilers complain.  */
-     int signo ATTRIBUTE_UNUSED;
-{
-  if (float_handled == 0)
-    crash_signal (signo);
-  float_handled = 0;
-
-  /* On System-V derived systems, we must reinstall the signal handler.
-     This is harmless on BSD-derived systems.  */
-  signal (SIGFPE, float_signal);
-  longjmp (float_handler, 1);
-}
-
-/* Specify where to longjmp to when a floating arithmetic error happens.
-   If HANDLER is 0, it means don't handle the errors any more.  */
-
-static void
-set_float_handler (handler)
-     jmp_buf handler;
-{
-  float_handled = (handler != 0);
-  if (handler)
-    memcpy (float_handler, handler, sizeof (float_handler));
-
-  if (float_handled && ! float_handler_set)
-    {
-      signal (SIGFPE, float_signal);
-      float_handler_set = 1;
-    }
-}
-
-/* This is a wrapper function for code which might elicit an
-   arithmetic exception.  That code should be passed in as a function
-   pointer FN, and one argument DATA.  DATA is usually a struct which
-   contains the real input and output for function FN.  This function
-   returns 0 (failure) if longjmp was called (i.e. an exception
-   occurred.)  It returns 1 (success) otherwise.  */
-
-int
-do_float_handler (fn, data)
-     void (*fn) PARAMS ((PTR));
-     PTR data;
-{
-  jmp_buf buf;
-
-  if (setjmp (buf))
-    {
-      /* We got here via longjmp () caused by an exception in function
-         fn ().  */
-      set_float_handler (NULL);
-      return 0;
-    }
-
-  set_float_handler (buf);
-  (*fn)(data);
-  set_float_handler (NULL);
-  return 1;
-}
-
 /* Handler for fatal signals, such as SIGSEGV.  These are transformed
    into ICE messages, which is much more user friendly.  */
 
@@ -1865,7 +1969,7 @@ static void
 crash_signal (signo)
      int signo;
 {
-  internal_error ("internal error: %s", strsignal (signo));
+  internal_error ("%s", strsignal (signo));
 }
 
 /* APPLE LOCAL begin interrupt signal handler (radar 2941633)  ilr */
@@ -1890,14 +1994,32 @@ interrupt_signal (signo)
       	unlink (asm_file_name);
     }
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  pfe_close_pfe_file (pfe_operation == PFE_DUMP);
-#endif
-
   exit (FATAL_EXIT_CODE);
 }
 /* APPLE LOCAL end interrupt signal handler */
+
+/* Arrange to dump core on error.  (The regular error message is still
+   printed first, except in the case of abort().)  */
+
+static void
+setup_core_dumping ()
+{
+#ifdef SIGABRT
+  signal (SIGABRT, SIG_DFL);
+#endif
+#if defined(HAVE_SETRLIMIT)
+  {
+    struct rlimit rlim;
+    if (getrlimit (RLIMIT_CORE, &rlim) != 0)
+      fatal_io_error ("getting core file size maximum limit");
+    rlim.rlim_cur = rlim.rlim_max;
+    if (setrlimit (RLIMIT_CORE, &rlim) != 0)
+      fatal_io_error ("setting core file size limit to maximum");
+  }
+#endif
+  diagnostic_abort_on_error (global_dc);
+}
+
 
 /* Strip off a legitimate source ending from the input string NAME of
    length LEN.  Rather than having to know the names used by all of
@@ -1910,7 +2032,7 @@ strip_off_ending (name, len)
      int len;
 {
   int i;
-  for (i = 2;  i < 6 && len > i;  i++)
+  for (i = 2; i < 6 && len > i; i++)
     {
       if (name[len - i] == '.')
 	{
@@ -1942,11 +2064,29 @@ output_quoted_string (asm_file, string)
 	  putc (c, asm_file);
 	}
       else
-	fprintf (asm_file, "\\%03o", c);
+	fprintf (asm_file, "\\%03o", (unsigned char) c);
     }
   putc ('\"', asm_file);
 #endif
 }
+
+/* Output NAME into FILE after having turned it into something
+   usable as an identifier in a target's assembly file.  */
+void
+output_clean_symbol_name (file, name)
+     FILE *file;
+     const char *name;
+{
+  /* Make a copy of NAME.  */
+  char *id = xstrdup (name);
+
+  /* Make it look like a valid identifier for an assembler.  */
+  clean_symbol_name (id);
+
+  fputs (id, file);
+  free (id);
+}
+
 
 /* Output a file name in the form wanted by System V.  */
 
@@ -1962,7 +2102,7 @@ output_file_directive (asm_file, input_name)
   while (na > input_name)
     {
       if (IS_DIR_SEPARATOR (na[-1]))
-        break;
+	break;
       na--;
     }
 
@@ -2025,8 +2165,13 @@ open_dump_file (index, decl)
   free (dump_name);
 
   if (decl)
-    fprintf (rtl_dump_file, "\n;; Function %s\n\n",
-	     decl_printable_name (decl, 2));
+    fprintf (rtl_dump_file, "\n;; Function %s%s\n\n",
+	     (*lang_hooks.decl_printable_name) (decl, 2),
+	     cfun->function_frequency == FUNCTION_FREQUENCY_HOT
+	     ? " (hot)"
+	     : cfun->function_frequency == FUNCTION_FREQUENCY_UNLIKELY_EXECUTED
+	     ? " (unlikely executed)"
+	     : "");
 
   timevar_pop (TV_DUMP);
   return 1;
@@ -2070,7 +2215,7 @@ close_dump_file (index, func, insns)
 /* Do any final processing required for the declarations in VEC, of
    which there are LEN.  We write out inline functions and variables
    that have been deferred until this point, but which are required.
-   Returns non-zero if anything was put out.  */
+   Returns nonzero if anything was put out.  */
 
 int
 wrapup_global_declarations (vec, len)
@@ -2086,12 +2231,13 @@ wrapup_global_declarations (vec, len)
     {
       decl = vec[i];
 
-      /* We're not deferring this any longer.  */
-      DECL_DEFER_OUTPUT (decl) = 0;
+      /* We're not deferring this any longer.  Assignment is
+	 conditional to avoid needlessly dirtying PCH pages. */
+      if (DECL_DEFER_OUTPUT (decl) != 0)
+	DECL_DEFER_OUTPUT (decl) = 0;
 
-      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0
-	  && incomplete_decl_finalize_hook != 0)
-	(*incomplete_decl_finalize_hook) (decl);
+      if (TREE_CODE (decl) == VAR_DECL && DECL_SIZE (decl) == 0)
+	(*lang_hooks.finish_incomplete_decl) (decl);
     }
 
   /* Now emit any global variables or functions that we have been
@@ -2200,12 +2346,12 @@ check_global_declarations (vec, len)
 	 because many programs have static variables
 	 that exist only to get some text into the object file.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
-	  && (warn_unused_function
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
-	  && ! TREE_PUBLIC (decl))
+	  && ! TREE_PUBLIC (decl)
+	  && (warn_unused_function
+	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	    pedwarn_with_decl (decl,
@@ -2218,27 +2364,29 @@ check_global_declarations (vec, len)
 	  assemble_external (decl);
 	}
 
-      /* Warn about static fns or vars defined but not used,
-	 but not about inline functions or static consts
-	 since defining those in header files is normal practice.  */
-      if (((warn_unused_function
-	    && TREE_CODE (decl) == FUNCTION_DECL && ! DECL_INLINE (decl))
-	   || (warn_unused_variable
-	       && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-	  && ! DECL_IN_SYSTEM_HEADER (decl)
+      /* Warn about static fns or vars defined but not used.  */
+      if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
+	   || (warn_unused_variable && TREE_CODE (decl) == VAR_DECL))
+	  && ! TREE_USED (decl)
+	  /* The TREE_USED bit for file-scope decls is kept in the identifier,
+	     to handle multiple external decls in different scopes.  */
+	  && ! TREE_USED (DECL_NAME (decl))
 	  && ! DECL_EXTERNAL (decl)
 	  && ! TREE_PUBLIC (decl)
-	  && ! TREE_USED (decl)
-	  && (TREE_CODE (decl) == FUNCTION_DECL || ! DECL_REGISTER (decl))
-	  /* The TREE_USED bit for file-scope decls
-	     is kept in the identifier, to handle multiple
-	     external decls in different scopes.  */
-	  && ! TREE_USED (DECL_NAME (decl)))
+	  /* Global register variables must be declared to reserve them.  */
+	  && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+	  /* Otherwise, ask the language.  */
+	  && (*lang_hooks.decls.warn_unused_global) (decl))
 	warning_with_decl (decl, "`%s' defined but not used");
 
-      timevar_push (TV_SYMOUT);
-      (*debug_hooks->global_decl) (decl);
-      timevar_pop (TV_SYMOUT);
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      if (errorcount == 0 && sorrycount == 0)
+	{
+	  timevar_push (TV_SYMOUT);
+	  (*debug_hooks->global_decl) (decl);
+	  timevar_pop (TV_SYMOUT);
+	}
     }
 }
 
@@ -2262,7 +2410,6 @@ push_srcloc (file, line)
   fs = (struct file_stack *) xmalloc (sizeof (struct file_stack));
   fs->name = input_filename = file;
   fs->line = lineno = line;
-  fs->indent_level = 0;
   fs->next = input_file_stack;
   input_file_stack = fs;
   input_file_stack_tick++;
@@ -2300,26 +2447,16 @@ pop_srcloc ()
 static void
 compile_file ()
 {
-  tree globals;
-
   /* Initialize yet another pass.  */
 
   init_final (main_input_filename);
-  init_branch_prob (dump_base_name);
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  if (pfe_operation == PFE_LOAD)
-    /*pfe_setdecls (getdecls ())*/ ;
-  else
-    pfe_predefined_global_names = getdecls ();
-#endif
+  init_branch_prob (aux_base_name);
 
   timevar_push (TV_PARSE);
 
-  /* Call the parser, which parses the entire file
-     (calling rest_of_compilation for each function).  */
-  yyparse ();
+  /* Call the parser, which parses the entire file (calling
+     rest_of_compilation for each function).  */
+  (*lang_hooks.parse_file) (set_yydebug);
 
   /* In case there were missing block closers,
      get us back to the global binding level.  */
@@ -2327,31 +2464,12 @@ compile_file ()
 
   /* Compilation is now finished except for writing
      what's left of the symbol table output.  */
-
   timevar_pop (TV_PARSE);
 
   if (flag_syntax_only)
     return;
 
-  globals = getdecls ();
-
-  /* Really define vars that have had only a tentative definition.
-     Really output inline functions that must actually be callable
-     and have not been output so far.  */
-
-  {
-    int len = list_length (globals);
-    tree *vec = (tree *) xmalloc (sizeof (tree) * len);
-    int i;
-    tree decl;
-
-    /* Process the decls in reverse order--earliest first.
-       Put them into VEC from back to front, then take out from front.  */
-
-    for (i = 0, decl = globals; i < len; i++, decl = TREE_CHAIN (decl))
-      vec[len - i - 1] = decl;
-
-    wrapup_global_declarations (vec, len);
+  (*lang_hooks.decls.final_write_globals)();
 
     /* This must occur after the loop to output deferred functions.  Else
        the profiler initializer would not be emitted if all the functions
@@ -2361,12 +2479,6 @@ compile_file ()
        data to need to be output, so it need not be in the deferred function
        loop above.  */
     output_func_start_profiler ();
-
-    check_global_declarations (vec, len);
-
-    /* Clean up.  */
-    free (vec);
-  }
 
   /* Write out any pending weak symbol declarations.  */
 
@@ -2387,7 +2499,7 @@ compile_file ()
 
   dw2_output_indirect_constants ();
 
-  end_final (dump_base_name);
+  end_final (aux_base_name);
 
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
@@ -2400,20 +2512,13 @@ compile_file ()
       timevar_pop (TV_DUMP);
     }
 
-#ifdef ASM_FILE_END
-  ASM_FILE_END (asm_out_file);
-#endif
+  /* APPLE LOCAL deep branch prediction pic-base; copied from FSF mainline.  */
+  targetm.asm_out.file_end ();
 
   /* Attach a special .ident directive to the end of the file to identify
      the version of GCC which compiled this code.  The format of the .ident
      string is patterned after the ones produced by native SVR4 compilers.  */
 #ifdef IDENT_ASM_OP
-/* APPLE LOCAL begin PFE */
-#ifdef PFE
-  /* Suppress al asm output when doing a PFE dump.  ilr */
-  if (pfe_operation != PFE_DUMP)
-#endif
-/* APPLE LOCAL end PFE */
   if (!flag_no_ident)
     fprintf (asm_out_file, "%s\"GCC: (GNU) %s\"\n",
 	     IDENT_ASM_OP, version_string);
@@ -2456,17 +2561,31 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP, END)
 #endif
 
+  /* We deferred calling assemble_alias so that we could collect
+     other attributes such as visibility.  Emit the alias now.  */
+  {
+    tree alias;
+    alias = lookup_attribute ("alias", DECL_ATTRIBUTES (decl));
+    if (alias)
+      {
+	alias = TREE_VALUE (TREE_VALUE (alias));
+	alias = get_identifier (TREE_STRING_POINTER (alias));
+	assemble_alias (decl, alias);
+      }
+  }
+
   /* Forward declarations for nested functions are not "external",
      but we need to treat them as if they were.  */
   if (TREE_STATIC (decl) || DECL_EXTERNAL (decl)
       || TREE_CODE (decl) == FUNCTION_DECL)
     {
       timevar_push (TV_VARCONST);
+
       if (asmspec)
 	make_decl_rtl (decl, asmspec);
-      /* Don't output anything
-	 when a tentative file-scope definition is seen.
-	 But at end of compilation, do output code for them.  */
+
+      /* Don't output anything when a tentative file-scope definition
+	 is seen.  But at end of compilation, do output code for them.  */
       if (at_end || !DECL_DEFER_OUTPUT (decl))
 	assemble_variable (decl, top_level, at_end, 0);
       if (decl == last_assemble_variable_decl)
@@ -2474,6 +2593,7 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
 	  ASM_FINISH_DECLARE_OBJECT (asm_out_file, decl,
 				     top_level, at_end);
 	}
+
       timevar_pop (TV_VARCONST);
     }
   else if (DECL_REGISTER (decl) && asmspec != 0)
@@ -2509,6 +2629,17 @@ rest_of_decl_compilation (decl, asmspec, top_level, at_end)
       timevar_pop (TV_SYMOUT);
     }
 #endif
+#ifdef DWARF2_DEBUGGING_INFO
+  else if ((write_symbols == DWARF2_DEBUG
+	   || write_symbols == VMS_AND_DWARF2_DEBUG)
+	   && top_level
+	   && TREE_CODE (decl) == TYPE_DECL)
+    {
+      timevar_push (TV_SYMOUT);
+      dwarf2out_decl (decl);
+      timevar_pop (TV_SYMOUT);
+    }
+#endif
 }
 
 /* Called after finishing a record, union or enumeral type.  */
@@ -2523,6 +2654,11 @@ rest_of_type_compilation (type, toplev)
      int toplev ATTRIBUTE_UNUSED;
 #endif
 {
+  /* Avoid confusing the debug information machinery when there are
+     errors.  */
+  if (errorcount != 0 || sorrycount != 0)
+    return;
+
   timevar_push (TV_SYMOUT);
 #if defined (DBX_DEBUGGING_INFO) || defined (XCOFF_DEBUGGING_INFO)
   if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
@@ -2541,7 +2677,7 @@ rest_of_type_compilation (type, toplev)
   timevar_pop (TV_SYMOUT);
 }
 
-/* This is called from finish_function (within yyparse)
+/* This is called from finish_function (within langhooks.parse_file)
    after each top-level definition is parsed.
    It is supposed to compile that function or variable
    and output the assembler code for it.
@@ -2556,7 +2692,6 @@ rest_of_compilation (decl)
   int failure = 0;
   int rebuild_label_notes_after_reload;
   int register_life_up_to_date;
-  int cleanup_crossjump;
 
   timevar_push (TV_REST_OF_COMPILATION);
 
@@ -2602,6 +2737,9 @@ rest_of_compilation (decl)
 	    DECL_INITIAL (decl) = 0;
 	    goto exit_rest_of_compilation;
 	  }
+	else if (TYPE_P (parent))
+	  /* A function in a local class should be treated normally.  */
+	  break;
 
       /* If requested, consider whether to make this function inline.  */
       if ((DECL_INLINE (decl) && !flag_no_inline)
@@ -2624,12 +2762,16 @@ rest_of_compilation (decl)
 		  goto exit_rest_of_compilation;
 		}
 	    }
-	  else
-	    /* ??? Note that this has the effect of making it look
-		 like "inline" was specified for a function if we choose
-		 to inline it.  This isn't quite right, but it's
-		 probably not worth the trouble to fix.  */
+	  else {
+	    /* ??? Note that we used to just make it look like if
+	         the "inline" keyword was specified when we decide
+	         to inline it (because of -finline-functions).
+	         garloff@suse.de, 2002-04-24: Add another flag to
+	         actually record this piece of information.  */
+	    if (!DECL_INLINE (decl))
+	       DID_INLINE_FUNC (decl) = 1;
 	    inlinable = DECL_INLINE (decl) = 1;
+	  }
 	}
 
       insns = get_insns ();
@@ -2649,10 +2791,11 @@ rest_of_compilation (decl)
       convert_from_eh_region_ranges ();
 
       /* If function is inline, and we don't yet know whether to
-	 compile it by itself, defer decision till end of compilation.
-	 finish_compilation will call rest_of_compilation again
-	 for those functions that need to be output.  Also defer those
-	 functions that we are supposed to defer.  */
+         compile it by itself, defer decision till end of compilation.
+         wrapup_global_declarations will (indirectly) call
+         rest_of_compilation again for those functions that need to
+         be output.  Also defer those functions that we are supposed
+         to defer.  */
 
       if (inlinable
 	  || (DECL_INLINE (decl)
@@ -2691,7 +2834,7 @@ rest_of_compilation (decl)
 	      free_bb_for_insn ();
 	    }
 
-	  current_function_nothrow = nothrow_function_p ();
+	  set_nothrow_function_flags ();
 	  if (current_function_nothrow)
 	    /* Now we know that this can't throw; set the flag for the benefit
 	       of other functions later in this translation unit.  */
@@ -2746,7 +2889,7 @@ rest_of_compilation (decl)
      distinguish between the return value of this function and the
      return value of called functions.  Also, we can remove all SETs
      of subregs of hard registers; they are only here because of
-     integrate.  Also, we can now initialize pseudos intended to 
+     integrate.  Also, we can now initialize pseudos intended to
      carry magic hard reg data throughout the function.  */
   rtx_equal_function_value_matters = 0;
   purge_hard_subreg_sets (get_insns ());
@@ -2758,21 +2901,52 @@ rest_of_compilation (decl)
       || errorcount || sorrycount)
     goto exit_rest_of_compilation;
 
+  timevar_push (TV_JUMP);
+  open_dump_file (DFI_sibling, decl);
+  insns = get_insns ();
+  rebuild_jump_labels (insns);
+  find_exception_handler_labels ();
+  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+
+  delete_unreachable_blocks ();
+
+  /* Turn NOTE_INSN_PREDICTIONs into branch predictions.  */
+  if (flag_guess_branch_prob)
+    {
+      timevar_push (TV_BRANCH_PROB);
+      note_prediction_to_br_prob ();
+      timevar_pop (TV_BRANCH_PROB);
+    }
+
   /* We may have potential sibling or tail recursion sites.  Select one
      (of possibly multiple) methods of performing the call.  */
   if (flag_optimize_sibling_calls)
     {
-      timevar_push (TV_JUMP);
-      open_dump_file (DFI_sibling, decl);
-
+      rtx insn;
       optimize_sibling_and_tail_recursive_calls ();
 
-      close_dump_file (DFI_sibling, print_rtl, get_insns ());
-      timevar_pop (TV_JUMP);
-    }
+      /* Recompute the CFG as sibling optimization clobbers it randomly.  */
+      free_bb_for_insn ();
+      find_exception_handler_labels ();
+      rebuild_jump_labels (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
+      /* There is pass ordering problem - we must lower NOTE_INSN_PREDICTION
+         notes before simplifying cfg and we must do lowering after sibcall
+         that unhides parts of RTL chain and cleans up the CFG.
+
+         Until sibcall is replaced by tree-level optimizer, lets just
+         sweep away the NOTE_INSN_PREDICTION notes that leaked out.  */
+      for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+	if (GET_CODE (insn) == NOTE
+	    && NOTE_LINE_NUMBER (insn) == NOTE_INSN_PREDICTION)
+	  delete_insn (insn);
+    }
+  close_dump_file (DFI_sibling, print_rtl, get_insns ());
+  timevar_pop (TV_JUMP);
+
+  scope_to_insns_initialize ();
   /* Complete generation of exception handling code.  */
-  find_exception_handler_labels ();
   if (doing_eh (0))
     {
       timevar_push (TV_JUMP);
@@ -2803,7 +2977,10 @@ rest_of_compilation (decl)
   unshare_all_rtl (current_function_decl, insns);
 
 #ifdef SETJMP_VIA_SAVE_AREA
-  /* This must be performed before virtual register instantiation.  */
+  /* This must be performed before virtual register instantiation.
+     Please be aware the everything in the compiler that can look
+     at the RTL up to this point must understand that REG_SAVE_AREA
+     is just like a use of the REG contained inside.  */
   if (current_function_calls_alloca)
     optimize_save_area_alloca (insns);
 #endif
@@ -2820,24 +2997,33 @@ rest_of_compilation (decl)
   timevar_push (TV_JUMP);
   /* Turn NOTE_INSN_EXPECTED_VALUE into REG_BR_PROB.  Do this
      before jump optimization switches branch directions.  */
-  expected_value_to_br_prob ();
+  if (flag_guess_branch_prob)
+    expected_value_to_br_prob ();
 
   reg_scan (insns, max_reg_num (), 0);
   rebuild_jump_labels (insns);
   find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP);
+  delete_trivially_dead_insns (insns, max_reg_num ());
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
+  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_PRE_LOOP
+	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* CFG is no longer maintained up-to-date.  */
-  free_bb_for_insn ();
-  copy_loop_headers (insns);
+  if (optimize)
+    {
+      free_bb_for_insn ();
+      copy_loop_headers (insns);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
+    }
   purge_line_number_notes (insns);
 
   timevar_pop (TV_JUMP);
+  close_dump_file (DFI_jump, print_rtl, insns);
 
   /* Now is when we stop if -fsyntax-only and -Wreturn-type.  */
   if (rtl_dump_and_exit || flag_syntax_only || DECL_DEFER_OUTPUT (decl))
     {
-      close_dump_file (DFI_jump, print_rtl, insns);
       goto exit_rest_of_compilation;
     }
 
@@ -2851,7 +3037,6 @@ rest_of_compilation (decl)
       timevar_push (TV_TO_SSA);
       open_dump_file (DFI_ssa, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       convert_to_ssa ();
 
@@ -2887,7 +3072,7 @@ rest_of_compilation (decl)
 	  open_dump_file (DFI_ssa_dce, decl);
 
 	  insns = get_insns ();
-	  ssa_eliminate_dead_code();
+	  ssa_eliminate_dead_code ();
 
 	  close_dump_file (DFI_ssa_dce, print_rtl_with_bb, insns);
 	  timevar_pop (TV_SSA_DCE);
@@ -2906,31 +3091,23 @@ rest_of_compilation (decl)
       timevar_pop (TV_FROM_SSA);
 
       ggc_collect ();
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
     }
 
   timevar_push (TV_JUMP);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-  if (optimize > 0)
+  /* Try to identify useless null pointer tests and delete them.  */
+  if (flag_delete_null_pointer_checks)
     {
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
- 		   | (flag_thread_jumps ? CLEANUP_THREADING : 0));
+      open_dump_file (DFI_null, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
 
-      /* ??? Run if-conversion before delete_null_pointer_checks,
-         since the later does not preserve the CFG.  This should
-	 be changed -- no since converting if's that are going to
-	 be deleted.  */
-      timevar_push (TV_IFCVT);
-      if_convert (0);
-      timevar_pop (TV_IFCVT);
+      if (delete_null_pointer_checks (insns))
+        cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
-      /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks)
-	delete_null_pointer_checks (insns);
+      close_dump_file (DFI_null, print_rtl_with_bb, insns);
     }
 
   /* Jump optimization, and the removal of NULL pointer checks, may
@@ -2941,7 +3118,7 @@ rest_of_compilation (decl)
   renumber_insns (rtl_dump_file);
   timevar_pop (TV_JUMP);
 
-  close_dump_file (DFI_jump, print_rtl, insns);
+  close_dump_file (DFI_jump, print_rtl_with_bb, insns);
 
   ggc_collect ();
 
@@ -2953,44 +3130,32 @@ rest_of_compilation (decl)
   if (optimize > 0)
     {
       open_dump_file (DFI_cse, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
       timevar_push (TV_CSE);
 
       reg_scan (insns, max_reg_num (), 1);
 
       tem = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+      if (tem)
+	rebuild_jump_labels (insns);
+      purge_all_dead_edges (0);
+
+      delete_trivially_dead_insns (insns, max_reg_num ());
 
       /* If we are not running more CSE passes, then we are no longer
 	 expecting CSE to be run.  But always rerun it in a cheap mode.  */
       cse_not_expected = !flag_rerun_cse_after_loop && !flag_gcse;
 
       if (tem || optimize > 1)
-	{
-	  timevar_push (TV_JUMP);
-	  rebuild_jump_labels (insns);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-	  timevar_pop (TV_JUMP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
-	}
-
-      /* Run this after jump optmizations remove all the unreachable code
-	 so that unreachable code will not keep values live.  */
-      delete_trivially_dead_insns (insns, max_reg_num (), 0);
-
+	cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       /* Try to identify useless null pointer tests and delete them.  */
-      if (flag_delete_null_pointer_checks || flag_thread_jumps)
+      if (flag_delete_null_pointer_checks)
 	{
 	  timevar_push (TV_JUMP);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
-	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP
-		       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-
-	  if (flag_delete_null_pointer_checks)
-	    delete_null_pointer_checks (insns);
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
+	  if (delete_null_pointer_checks (insns))
+	    cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
 	  timevar_pop (TV_JUMP);
 	}
 
@@ -2999,12 +3164,14 @@ rest_of_compilation (decl)
       renumber_insns (rtl_dump_file);
 
       timevar_pop (TV_CSE);
-      close_dump_file (DFI_cse, print_rtl, insns);
+      close_dump_file (DFI_cse, print_rtl_with_bb, insns);
     }
 
   open_dump_file (DFI_addressof, decl);
 
   purge_addressof (insns);
+  if (optimize)
+    purge_all_dead_edges (0);
   reg_scan (insns, max_reg_num (), 1);
 
   close_dump_file (DFI_addressof, print_rtl, insns);
@@ -3021,17 +3188,14 @@ rest_of_compilation (decl)
       timevar_push (TV_GCSE);
       open_dump_file (DFI_gcse, decl);
 
-      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       tem = gcse_main (insns, rtl_dump_file);
       rebuild_jump_labels (insns);
+      delete_trivially_dead_insns (insns, max_reg_num ());
 
       save_csb = flag_cse_skip_blocks;
       save_cfj = flag_cse_follow_jumps;
       flag_cse_skip_blocks = flag_cse_follow_jumps = 0;
 
-      /* CFG is no longer maintained up-to-date.  */
-      free_bb_for_insn ();
       /* If -fexpensive-optimizations, re-run CSE to clean up things done
 	 by gcse.  */
       if (flag_expensive_optimizations)
@@ -3039,6 +3203,8 @@ rest_of_compilation (decl)
 	  timevar_push (TV_CSE);
 	  reg_scan (insns, max_reg_num (), 1);
 	  tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	  purge_all_dead_edges (0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 	  timevar_pop (TV_CSE);
 	  cse_not_expected = !flag_rerun_cse_after_loop;
 	}
@@ -3050,11 +3216,7 @@ rest_of_compilation (decl)
 	  tem = tem2 = 0;
 	  timevar_push (TV_JUMP);
 	  rebuild_jump_labels (insns);
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
 	  timevar_pop (TV_JUMP);
 
 	  if (flag_expensive_optimizations)
@@ -3062,125 +3224,78 @@ rest_of_compilation (decl)
 	      timevar_push (TV_CSE);
 	      reg_scan (insns, max_reg_num (), 1);
 	      tem2 = cse_main (insns, max_reg_num (), 0, rtl_dump_file);
+	      purge_all_dead_edges (0);
+	      delete_trivially_dead_insns (insns, max_reg_num ());
 	      timevar_pop (TV_CSE);
 	    }
 	}
 
-      close_dump_file (DFI_gcse, print_rtl, insns);
+      close_dump_file (DFI_gcse, print_rtl_with_bb, insns);
       timevar_pop (TV_GCSE);
 
       ggc_collect ();
       flag_cse_skip_blocks = save_csb;
       flag_cse_follow_jumps = save_cfj;
+#ifdef ENABLE_CHECKING
+      verify_flow_info ();
+#endif
     }
 
   /* Move constant computations out of loops.  */
 
-  if (optimize > 0)
+  if (optimize > 0 && flag_loop_optimize)
     {
+      int do_unroll, do_prefetch;
+
       timevar_push (TV_LOOP);
+      delete_dead_jumptables ();
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_PRE_LOOP);
       open_dump_file (DFI_loop, decl);
+      /* CFG is no longer maintained up-to-date.  */
       free_bb_for_insn ();
 
+      do_unroll = flag_unroll_loops ? LOOP_UNROLL : LOOP_AUTO_UNROLL;
+      do_prefetch = flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0;
       if (flag_rerun_loop_opt)
 	{
 	  cleanup_barriers ();
 
 	  /* We only want to perform unrolling once.  */
-	  loop_optimize (insns, rtl_dump_file, LOOP_FIRST_PASS);
-
-	  loop_optimize (insns, rtl_dump_file, 0);
+	  loop_optimize (insns, rtl_dump_file, do_unroll);
+	  do_unroll = 0;
 
 	  /* The first call to loop_optimize makes some instructions
 	     trivially dead.  We delete those instructions now in the
 	     hope that doing so will make the heuristics in loop work
 	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
+	  delete_trivially_dead_insns (insns, max_reg_num ());
 
 	  /* The regscan pass is currently necessary as the alias
 		  analysis code depends on this information.  */
 	  reg_scan (insns, max_reg_num (), 1);
 	}
       cleanup_barriers ();
-      loop_optimize (insns, rtl_dump_file,
-		     (flag_unroll_loops ? LOOP_UNROLL : 0) | LOOP_BCT
-		     | (flag_prefetch_loop_arrays ? LOOP_PREFETCH : 0));
+      loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
 
+      /* Loop can create trivially dead instructions.  */
+      delete_trivially_dead_insns (insns, max_reg_num ());
       close_dump_file (DFI_loop, print_rtl, insns);
       timevar_pop (TV_LOOP);
+      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
 
       ggc_collect ();
     }
-
-  if (optimize > 0)
-    {
-      timevar_push (TV_CSE2);
-      open_dump_file (DFI_cse2, decl);
-
-      if (flag_rerun_cse_after_loop)
-	{
-	  /* Running another jump optimization pass before the second
-	     cse pass sometimes simplifies the RTL enough to allow
-	     the second CSE pass to do a better job.  Jump_optimize can change
-	     max_reg_num so we must rerun reg_scan afterwards.
-	     ??? Rework to not call reg_scan so often.  */
-	  timevar_push (TV_JUMP);
-
-	  /* The previous call to loop_optimize makes some instructions
-	     trivially dead.  We delete those instructions now in the
-	     hope that doing so will make the heuristics in jump work
-	     better and possibly speed up compilation.  */
-	  delete_trivially_dead_insns (insns, max_reg_num (), 0);
-
-	  reg_scan (insns, max_reg_num (), 0);
-
-	  timevar_push (TV_IFCVT);
-
-	  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	  cleanup_cfg (CLEANUP_EXPENSIVE);
-	  if_convert (0);
-
-	  timevar_pop(TV_IFCVT);
-
-	  timevar_pop (TV_JUMP);
-
-	  /* CFG is no longer maintained up-to-date.  */
-	  free_bb_for_insn ();
-	  reg_scan (insns, max_reg_num (), 0);
-	  tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
-
-	  if (tem)
-	    {
-	      timevar_push (TV_JUMP);
-	      rebuild_jump_labels (insns);
-	      find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-	      cleanup_cfg (CLEANUP_EXPENSIVE);
-	      /* CFG is no longer maintained up-to-date.  */
-	      free_bb_for_insn ();
-	      timevar_pop (TV_JUMP);
-	    }
-	}
-
-      close_dump_file (DFI_cse2, print_rtl, insns);
-      timevar_pop (TV_CSE2);
-
-      ggc_collect ();
-    }
-
-  cse_not_expected = 1;
-
-  regclass_init ();
 
   /* Do control and data flow analysis; wrote some of the results to
      the dump file.  */
 
   timevar_push (TV_FLOW);
   open_dump_file (DFI_cfg, decl);
-
-  find_basic_blocks (insns, max_reg_num (), rtl_dump_file);
-  cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0)
-	       | (flag_thread_jumps ? CLEANUP_THREADING : 0));
-  check_function_return_warnings ();
+  if (rtl_dump_file)
+    dump_flow_info (rtl_dump_file);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
 
   /* It may make more sense to mark constant functions after dead code is
      eliminated by life_analyzis, but we need to do it early, as -fprofile-arcs
@@ -3189,40 +3304,106 @@ rest_of_compilation (decl)
 
      life_analyzis rarely eliminates modification of external memory.
    */
-  mark_constant_function ();
+  if (optimize)
+    mark_constant_function ();
 
   close_dump_file (DFI_cfg, print_rtl_with_bb, insns);
 
-  if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
-    {
-      timevar_push (TV_BRANCH_PROB);
-      open_dump_file (DFI_bp, decl);
-
-      branch_prob ();
-
-      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
-      timevar_pop (TV_BRANCH_PROB);
-    }
-
-  open_dump_file (DFI_life, decl);
-  if (optimize)
+  /* Do branch profiling and static profile estimation passes.  */
+  if (optimize > 0 || cfun->arc_profile || flag_branch_probabilities)
     {
       struct loops loops;
+
+      timevar_push (TV_BRANCH_PROB);
+      open_dump_file (DFI_bp, decl);
+      if (cfun->arc_profile || flag_branch_probabilities)
+	branch_prob ();
 
       /* Discover and record the loop depth at the head of each basic
 	 block.  The loop infrastructure does the real job for us.  */
       flow_loops_find (&loops, LOOP_TREE);
 
+      if (rtl_dump_file)
+	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
+
       /* Estimate using heuristics if no profiling info is available.  */
       if (flag_guess_branch_prob)
 	estimate_probability (&loops);
 
-      if (rtl_dump_file)
-	flow_loops_dump (&loops, rtl_dump_file, NULL, 0);
-
       flow_loops_free (&loops);
+      close_dump_file (DFI_bp, print_rtl_with_bb, insns);
+      timevar_pop (TV_BRANCH_PROB);
     }
+  if (optimize > 0)
+    {
+      open_dump_file (DFI_ce1, decl);
+      if (flag_if_conversion)
+	{
+	  timevar_push (TV_IFCVT);
+	  if (rtl_dump_file)
+	    dump_flow_info (rtl_dump_file);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  reg_scan (insns, max_reg_num (), 0);
+	  if_convert (0);
+	  timevar_pop (TV_IFCVT);
+	}
+      timevar_push (TV_JUMP);
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
+      timevar_pop (TV_JUMP);
+      close_dump_file (DFI_ce1, print_rtl_with_bb, get_insns ());
+    }
+  if (flag_tracer)
+    {
+      timevar_push (TV_TRACER);
+      open_dump_file (DFI_tracer, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      tracer ();
+      cleanup_cfg (CLEANUP_EXPENSIVE);
+      reg_scan (insns, max_reg_num (), 0);
+      close_dump_file (DFI_tracer, print_rtl_with_bb, get_insns ());
+      timevar_pop (TV_TRACER);
+    }
+
+  if (flag_rerun_cse_after_loop)
+    {
+      timevar_push (TV_CSE2);
+      open_dump_file (DFI_cse2, decl);
+      if (rtl_dump_file)
+	dump_flow_info (rtl_dump_file);
+      /* CFG is no longer maintained up-to-date.  */
+      tem = cse_main (insns, max_reg_num (), 1, rtl_dump_file);
+      purge_all_dead_edges (0);
+      delete_trivially_dead_insns (insns, max_reg_num ());
+
+      if (tem)
+	{
+	  timevar_push (TV_JUMP);
+	  rebuild_jump_labels (insns);
+	  cleanup_cfg (CLEANUP_EXPENSIVE);
+	  timevar_pop (TV_JUMP);
+	}
+      reg_scan (insns, max_reg_num (), 0);
+      close_dump_file (DFI_cse2, print_rtl_with_bb, insns);
+      ggc_collect ();
+      timevar_pop (TV_CSE2);
+    }
+
+  cse_not_expected = 1;
+
+  open_dump_file (DFI_life, decl);
+  regclass_init ();
+
+  check_function_return_warnings ();
+
+#ifdef ENABLE_CHECKING
+  verify_flow_info ();
+#endif
   life_analysis (insns, rtl_dump_file, PROP_FINAL);
+  if (optimize)
+    cleanup_cfg ((optimize ? CLEANUP_EXPENSIVE : 0) | CLEANUP_UPDATE_LIFE
+		 | (flag_thread_jumps ? CLEANUP_THREADING : 0));
   timevar_pop (TV_FLOW);
 
   no_new_pseudos = 1;
@@ -3236,12 +3417,14 @@ rest_of_compilation (decl)
 
   if (optimize)
     {
-      if (initialize_uninitialized_subregs ())
+      clear_bb_flags ();
+      if (!flag_new_regalloc && initialize_uninitialized_subregs ())
 	{
 	  /* Insns were inserted, so things might look a bit different.  */
 	  insns = get_insns ();
-	  life_analysis (insns, rtl_dump_file, 
-			 (PROP_LOG_LINKS | PROP_REG_INFO | PROP_DEATH_NOTES));
+	  update_life_info_in_dirty_blocks (UPDATE_LIFE_GLOBAL_RM_NOTES,
+					    PROP_LOG_LINKS | PROP_REG_INFO
+					    | PROP_DEATH_NOTES);
 	}
     }
 
@@ -3258,12 +3441,15 @@ rest_of_compilation (decl)
       timevar_push (TV_COMBINE);
       open_dump_file (DFI_combine, decl);
 
+      /* APPLE LOCAL begin - single-set constant propagation */
+
+      if (flag_ss_const_prop)
+	find_all_single_set_constants ();
+
+      /* APPLE LOCAL end - single-set constant propagation */
+
       rebuild_jump_labels_after_combine
 	= combine_instructions (insns, max_reg_num ());
-
-      /* Always purge dead edges, as we may eliminate an insn throwing
-         exception.  */
-      rebuild_jump_labels_after_combine |= purge_all_dead_edges (true);
 
       /* Combining insns may have turned an indirect jump into a
 	 direct jump.  Rebuid the JUMP_LABEL fields of jumping
@@ -3283,18 +3469,25 @@ rest_of_compilation (decl)
       ggc_collect ();
     }
 
+  /* APPLE LOCAL begin - single-set constant propagation */
+
+  if (flag_ss_const_prop)
+    cleanup_ss_constant_propagation ();
+
+  /* APPLE LOCAL end - single-set constant propagation */
+
   /* Rerun if-conversion, as combine may have simplified things enough to
      now meet sequence length restrictions.  */
-  if (optimize > 0)
+  if (flag_if_conversion)
     {
       timevar_push (TV_IFCVT);
-      open_dump_file (DFI_ce, decl);
+      open_dump_file (DFI_ce2, decl);
 
       no_new_pseudos = 0;
       if_convert (1);
       no_new_pseudos = 1;
 
-      close_dump_file (DFI_ce, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT);
     }
 
@@ -3307,6 +3500,7 @@ rest_of_compilation (decl)
 
       regmove_optimize (insns, max_reg_num (), rtl_dump_file);
 
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE);
       close_dump_file (DFI_regmove, print_rtl_with_bb, insns);
       timevar_pop (TV_REGMOVE);
 
@@ -3325,13 +3519,7 @@ rest_of_compilation (decl)
   timevar_push (TV_MODE_SWITCH);
 
   no_new_pseudos = 0;
-  if (optimize_mode_switching (NULL))
-    {
-      /* We did work, and so had to regenerate global life information.
-	 Take advantage of this and don't re-recompute register life
-	 information below.  */
-      register_life_up_to_date = 1;
-    }
+  optimize_mode_switching (NULL);
   no_new_pseudos = 1;
 
   timevar_pop (TV_MODE_SWITCH);
@@ -3379,60 +3567,101 @@ rest_of_compilation (decl)
   if (! register_life_up_to_date)
     recompute_reg_usage (insns, ! optimize_size);
 
-  /* Allocate the reg_renumber array.  */
-  allocate_reg_info (max_regno, FALSE, TRUE);
-
-  /* And the reg_equiv_memory_loc array.  */
-  reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
-
-  allocate_initial_values (reg_equiv_memory_loc);
-
-  regclass (insns, max_reg_num (), rtl_dump_file);
-  rebuild_label_notes_after_reload = local_alloc ();
-
-  timevar_pop (TV_LOCAL_ALLOC);
-
-  if (dump_file[DFI_lreg].enabled)
+  if (flag_new_regalloc)
     {
-      timevar_push (TV_DUMP);
+      delete_trivially_dead_insns (insns, max_reg_num ());
+      reg_alloc ();
 
-      dump_flow_info (rtl_dump_file);
-      dump_local_alloc (rtl_dump_file);
+      timevar_pop (TV_LOCAL_ALLOC);
+      if (dump_file[DFI_lreg].enabled)
+        {
+          timevar_push (TV_DUMP);
 
-      close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
-      timevar_pop (TV_DUMP);
-    }
+          close_dump_file (DFI_lreg, NULL, NULL);
+          timevar_pop (TV_DUMP);
+        }
 
-  ggc_collect ();
+      /* XXX clean up the whole mess to bring live info in shape again.  */
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
 
-  timevar_push (TV_GLOBAL_ALLOC);
-  open_dump_file (DFI_greg, decl);
-
-  /* If optimizing, allocate remaining pseudo-regs.  Do the reload
-     pass fixing up any insns that are invalid.  */
-
-  if (optimize)
-    failure = global_alloc (rtl_dump_file);
-  else
-    {
       build_insn_chain (insns);
       failure = reload (insns, 0);
+
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+        {
+          timevar_push (TV_DUMP);
+
+          dump_global_regs (rtl_dump_file);
+
+          close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+          timevar_pop (TV_DUMP);
+        }
+
+      if (failure)
+        goto exit_rest_of_compilation;
+      reload_completed = 1;
+      rebuild_label_notes_after_reload = 0;
     }
-
-  timevar_pop (TV_GLOBAL_ALLOC);
-
-  if (dump_file[DFI_greg].enabled)
+  else
     {
-      timevar_push (TV_DUMP);
+      /* Allocate the reg_renumber array.  */
+      allocate_reg_info (max_regno, FALSE, TRUE);
 
-      dump_global_regs (rtl_dump_file);
+      /* And the reg_equiv_memory_loc array.  */
+      reg_equiv_memory_loc = (rtx *) xcalloc (max_regno, sizeof (rtx));
 
-      close_dump_file (DFI_greg, print_rtl_with_bb, insns);
-      timevar_pop (TV_DUMP);
+      allocate_initial_values (reg_equiv_memory_loc);
+
+      regclass (insns, max_reg_num (), rtl_dump_file);
+      rebuild_label_notes_after_reload = local_alloc ();
+
+      timevar_pop (TV_LOCAL_ALLOC);
+
+      if (dump_file[DFI_lreg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_flow_info (rtl_dump_file);
+	  dump_local_alloc (rtl_dump_file);
+
+	  close_dump_file (DFI_lreg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      ggc_collect ();
+
+      timevar_push (TV_GLOBAL_ALLOC);
+      open_dump_file (DFI_greg, decl);
+
+      /* If optimizing, allocate remaining pseudo-regs.  Do the reload
+	 pass fixing up any insns that are invalid.  */
+
+      if (optimize)
+	failure = global_alloc (rtl_dump_file);
+      else
+	{
+	  build_insn_chain (insns);
+	  failure = reload (insns, 0);
+	}
+
+      timevar_pop (TV_GLOBAL_ALLOC);
+
+      if (dump_file[DFI_greg].enabled)
+	{
+	  timevar_push (TV_DUMP);
+
+	  dump_global_regs (rtl_dump_file);
+
+	  close_dump_file (DFI_greg, print_rtl_with_bb, insns);
+	  timevar_pop (TV_DUMP);
+	}
+
+      if (failure)
+	goto exit_rest_of_compilation;
     }
-
-  if (failure)
-    goto exit_rest_of_compilation;
 
   ggc_collect ();
 
@@ -3454,6 +3683,7 @@ rest_of_compilation (decl)
       timevar_push (TV_JUMP);
 
       rebuild_jump_labels (insns);
+      purge_all_dead_edges (0);
 
       timevar_pop (TV_JUMP);
     }
@@ -3469,10 +3699,13 @@ rest_of_compilation (decl)
 #endif
 
   /* If optimizing, then go ahead and split insns now.  */
+#ifndef STACK_REGS
   if (optimize > 0)
+#endif
     split_all_insns (0);
 
-  cleanup_cfg (optimize ? CLEANUP_EXPENSIVE : 0);
+  if (optimize)
+    cleanup_cfg (CLEANUP_EXPENSIVE);
 
   /* On some machines, the prologue and epilogue code, or parts thereof,
      can be represented as RTL.  Doing so lets us schedule insns between
@@ -3480,22 +3713,11 @@ rest_of_compilation (decl)
      scheduling to operate in the epilogue.  */
   thread_prologue_and_epilogue_insns (insns);
 
-  /* Cross-jumping is O(N^3) on the number of edges, thus trying to
-     perform cross-jumping on flow graphs which have a high connectivity
-     will take a long time.  This is similar to the test to disable GCSE.  */
-  cleanup_crossjump = CLEANUP_CROSSJUMP;
-  if (n_basic_blocks > 1000 && n_edges / n_basic_blocks >= 20)
-    {
-      if (optimize && warn_disabled_optimization)
-	warning ("crossjump disabled: %d > 1000 basic blocks and %d >= 20 edges/basic block",
-                 n_basic_blocks, n_edges / n_basic_blocks);
-      cleanup_crossjump = 0;
-    }
-
   if (optimize)
     {
-      cleanup_cfg (CLEANUP_EXPENSIVE | cleanup_crossjump);
       life_analysis (insns, rtl_dump_file, PROP_FINAL);
+      cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_UPDATE_LIFE
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
 
       /* This is kind of a heuristic.  We need to run combine_stack_adjustments
          even for machines with possibly nonzero RETURN_POPS_ARGS
@@ -3527,34 +3749,30 @@ rest_of_compilation (decl)
     }
 #endif
 
-  if (flag_rename_registers || flag_cprop_registers)
+  if (optimize > 0 && (flag_rename_registers || flag_cprop_registers))
     {
       timevar_push (TV_RENAME_REGISTERS);
       open_dump_file (DFI_rnreg, decl);
 
       if (flag_rename_registers)
-        regrename_optimize ();
+	regrename_optimize ();
       if (flag_cprop_registers)
-        copyprop_hardreg_forward ();
+	copyprop_hardreg_forward ();
 
       close_dump_file (DFI_rnreg, print_rtl_with_bb, insns);
       timevar_pop (TV_RENAME_REGISTERS);
     }
 
-  if (optimize > 0)
+  if (flag_if_conversion2)
     {
       timevar_push (TV_IFCVT2);
-      open_dump_file (DFI_ce2, decl);
+      open_dump_file (DFI_ce3, decl);
 
       if_convert (1);
 
-      close_dump_file (DFI_ce2, print_rtl_with_bb, insns);
+      close_dump_file (DFI_ce3, print_rtl_with_bb, insns);
       timevar_pop (TV_IFCVT2);
     }
-#ifdef STACK_REGS
-  if (optimize)
-    split_all_insns (1);
-#endif
 
 #ifdef INSN_SCHEDULING
   if (optimize > 0 && flag_schedule_insns_after_reload)
@@ -3597,15 +3815,22 @@ rest_of_compilation (decl)
       timevar_push (TV_REORDER_BLOCKS);
       open_dump_file (DFI_bbro, decl);
 
-      /* Last attempt to optimize CFG, as life analyzis possibly removed
-	 some instructions.  */
+      /* Last attempt to optimize CFG, as scheduling, peepholing and insn
+	 splitting possibly introduced more crossjumping oppurtuntities.
+	 Except that we can't actually run crossjumping without running
+	 another DCE pass, which we can't do after reg-stack.  */
       cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK
-		   | cleanup_crossjump);
-      if (flag_reorder_blocks)
+		   | (flag_crossjumping ? CLEANUP_CROSSJUMP : 0));
+
+      /* APPLE LOCAL begin - rarely executed bb optimization */
+
+      if ((flag_reorder_blocks) || (flag_reorder_blocks_and_partition))
 	{
-	  reorder_basic_blocks ();
+	  reorder_basic_blocks (flag_reorder_blocks_and_partition);
 	  cleanup_cfg (CLEANUP_EXPENSIVE | CLEANUP_POST_REGSTACK);
 	}
+
+      /* APPLE LOCAL end - rarely executed bb optimization */
 
       close_dump_file (DFI_bbro, print_rtl_with_bb, insns);
       timevar_pop (TV_REORDER_BLOCKS);
@@ -3662,7 +3887,7 @@ rest_of_compilation (decl)
   shorten_branches (get_insns ());
   timevar_pop (TV_SHORTEN_BRANCH);
 
-  current_function_nothrow = nothrow_function_p ();
+  set_nothrow_function_flags ();
   if (current_function_nothrow)
     /* Now we know that this can't throw; set the flag for the benefit
        of other functions later in this translation unit.  */
@@ -3723,9 +3948,10 @@ rest_of_compilation (decl)
      know for certain that we will be generating an out-of-line copy,
      the first invocation of this routine (rest_of_compilation) will
      skip over this code by doing a `goto exit_rest_of_compilation;'.
-     Later on, finish_compilation will call rest_of_compilation again
-     for those inline functions that need to have out-of-line copies
-     generated.  During that call, we *will* be routed past here.  */
+     Later on, wrapup_global_declarations will (indirectly) call
+     rest_of_compilation again for those inline functions that need
+     to have out-of-line copies generated.  During that call, we
+     *will* be routed past here.  */
 
   timevar_push (TV_SYMOUT);
   (*debug_hooks->function_decl) (decl);
@@ -3750,10 +3976,6 @@ rest_of_compilation (decl)
   /* Clear out the insn_length contents now that they are no
      longer valid.  */
   init_insn_lengths ();
-
-  /* Clear out the real_constant_chain before some of the rtx's
-     it runs through become garbage.  */
-  clear_const_double_mem ();
 
   /* Show no temporary slots allocated.  */
   init_temp_slots ();
@@ -3804,12 +4026,13 @@ display_help ()
   printf (_("  -finline-limit=<number> Limits the size of inlined functions to <number>\n"));
   printf (_("  -fmessage-length=<number> Limits diagnostics messages lengths to <number> characters per line.  0 suppresses line-wrapping\n"));
   printf (_("  -fdiagnostics-show-location=[once | every-line] Indicates how often source location information should be emitted, as prefix, at the beginning of diagnostics when line-wrapping\n"));
+  printf (_("  -ftls-model=[global-dynamic | local-dynamic | initial-exec | local-exec] Indicates the default thread-local storage code generation model\n"));
 
   for (i = ARRAY_SIZE (f_options); i--;)
     {
       const char *description = f_options[i].description;
 
-      if (description != NULL && * description != 0)
+      if (description != NULL && *description != 0)
 	printf ("  -f%-21s %s\n",
 		f_options[i].string, _(description));
     }
@@ -3819,9 +4042,9 @@ display_help ()
   for (i = LAST_PARAM; i--;)
     {
       const char *description = compiler_params[i].help;
-      const int length = 21-strlen(compiler_params[i].option);
+      const int length = 21 - strlen (compiler_params[i].option);
 
-      if (description != NULL && * description != 0)
+      if (description != NULL && *description != 0)
 	printf ("  --param %s=<value>%.*s%s\n",
 		compiler_params[i].option,
 		length > 0 ? length : 1, "                     ",
@@ -3836,7 +4059,7 @@ display_help ()
     {
       const char *description = W_options[i].description;
 
-      if (description != NULL && * description != 0)
+      if (description != NULL && *description != 0)
 	printf ("  -W%-21s %s\n",
 		W_options[i].string, _(description));
     }
@@ -3844,12 +4067,6 @@ display_help ()
   printf (_("  -Wunused                Enable unused warnings\n"));
   printf (_("  -Wlarger-than-<number>  Warn if an object is larger than <number> bytes\n"));
   printf (_("  -p                      Enable function profiling\n"));
-#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER)
-  printf (_("  -a                      Enable block profiling \n"));
-#endif
-#if defined (BLOCK_PROFILER) || defined (FUNCTION_BLOCK_PROFILER) || defined FUNCTION_BLOCK_PROFILER_EXIT
-  printf (_("  -ax                     Enable jump profiling \n"));
-#endif
   printf (_("  -o <file>               Place output into <file> \n"));
   printf (_("\
   -G <number>             Put global and static data smaller than <number>\n\
@@ -3866,7 +4083,7 @@ display_help ()
 		debug_args[i].arg, _(debug_args[i].description));
     }
   printf (
-    _("                          (debug info for only used symbols unless 'all' specified)\n"));
+    _("                          (debug info for all symbols)\n"));
 #else
   for (i = ARRAY_SIZE (debug_args); i--;)
     {
@@ -3882,12 +4099,6 @@ display_help ()
   printf (_("  -version                Display the compiler's version\n"));
   printf (_("  -d[letters]             Enable dumps from specific passes of the compiler\n"));
   printf (_("  -dumpbase <file>        Base name to be used for dumps from specific passes\n"));
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  printf (_("  --load-pch <file>       Load pre-compiled header <file>\n"));
-  printf (_("  --dump-pch <file>       Dump pre-compiled header <file>\n"));
-  printf (_("  --validate-pch          Validate pre-compiled header during load\n"));
-#endif
 #if defined INSN_SCHEDULING
   printf (_("  -fsched-verbose=<number> Set the verbosity level of the scheduler\n"));
 #endif
@@ -3983,7 +4194,7 @@ display_target_options ()
 	      if (extra_warnings)
 		printf (_("  -m%-23.23s [undocumented]\n"), option);
 	    }
-	  else if (* description != 0)
+	  else if (*description != 0)
 	    doc += printf ("  -m%-23.23s %s\n", option, _(description));
 	}
 
@@ -4002,7 +4213,7 @@ display_target_options ()
 	      if (extra_warnings)
 		printf (_("  -m%-23.23s [undocumented]\n"), option);
 	    }
-	  else if (* description != 0)
+	  else if (*description != 0)
 	    doc += printf ("  -m%-23.23s %s\n", option, _(description));
 	}
 #endif
@@ -4038,9 +4249,9 @@ decode_d_option (arg)
 	flag_print_asm_name = 1;
 	break;
       case 'P':
-        flag_dump_rtl_in_asm = 1;
-        flag_print_asm_name = 1;
-        break;
+	flag_dump_rtl_in_asm = 1;
+	flag_print_asm_name = 1;
+	break;
       case 'v':
 	graph_dump_format = vcg;
 	break;
@@ -4048,10 +4259,13 @@ decode_d_option (arg)
 	rtl_dump_and_exit = 1;
 	break;
       case 'y':
-	(*lang_hooks.set_yydebug) (1);
+	set_yydebug = 1;
 	break;
       case 'D':	/* These are handled by the preprocessor.  */
       case 'I':
+	break;
+      case 'H':
+	setup_core_dumping();
 	break;
 
       default:
@@ -4097,10 +4311,19 @@ decode_f_option (arg)
 	}
     }
 
+  /* APPLE LOCAL begin -fast */
+  if (!strcmp (arg, "ast"))
+    {
+      flag_fast = 1;
+      return 1;
+    }
+  /* APPLE LOCAL end -fast */
+
+  /* APPLE LOCAL end -fast */
   if (!strcmp (arg, "fast-math"))
-    set_fast_math_flags ();
+    set_fast_math_flags (1);
   else if (!strcmp (arg, "no-fast-math"))
-    set_no_fast_math_flags ();
+    set_fast_math_flags (0);
   else if ((option_value = skip_leading_substring (arg, "inline-limit-"))
 	   || (option_value = skip_leading_substring (arg, "inline-limit=")))
     {
@@ -4108,6 +4331,29 @@ decode_f_option (arg)
 	read_integral_parameter (option_value, arg - 2,
 				 MAX_INLINE_INSNS);
       set_param_value ("max-inline-insns", val);
+      set_param_value ("max-inline-insns-single", val/2);
+      set_param_value ("max-inline-insns-auto", val/2);
+      set_param_value ("max-inline-insns-rtl", val);
+      if (val/4 < MIN_INLINE_INSNS)
+	{
+	  if (val/4 > 10)
+	    set_param_value ("min-inline-insns", val/4);
+	  else
+	    set_param_value ("min-inline-insns", 10);
+	}
+    }
+  else if ((option_value = skip_leading_substring (arg, "tls-model=")))
+    {
+      if (strcmp (option_value, "global-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (strcmp (option_value, "local-dynamic") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_DYNAMIC;
+      else if (strcmp (option_value, "initial-exec") == 0)
+	flag_tls_default = TLS_MODEL_INITIAL_EXEC;
+      else if (strcmp (option_value, "local-exec") == 0)
+	flag_tls_default = TLS_MODEL_LOCAL_EXEC;
+      else
+	warning ("`%s': unknown tls-model option", arg - 2);
     }
 #ifdef INSN_SCHEDULING
   else if ((option_value = skip_leading_substring (arg, "sched-verbose=")))
@@ -4121,11 +4367,19 @@ decode_f_option (arg)
     fix_register (option_value, 0, 0);
   else if ((option_value = skip_leading_substring (arg, "align-loops=")))
     align_loops = read_integral_parameter (option_value, arg - 2, align_loops);
+/* APPLE LOCAL begin -f[align-loops|align-jumps]-max-skip */
+  else if ((option_value = skip_leading_substring (arg, "align-loops-max-skip=")))
+    align_loops_max_skip = read_integral_parameter (option_value, arg - 2, align_loops_max_skip);
+/* APPLE LOCAL end -f[align-loops|align-jumps]-max-skip */
   else if ((option_value = skip_leading_substring (arg, "align-functions=")))
     align_functions
       = read_integral_parameter (option_value, arg - 2, align_functions);
   else if ((option_value = skip_leading_substring (arg, "align-jumps=")))
     align_jumps = read_integral_parameter (option_value, arg - 2, align_jumps);
+/* APPLE LOCAL begin -f[align-loops|align-jumps]-max-skip */
+  else if ((option_value = skip_leading_substring (arg, "align-jumps-max-skip=")))
+    align_jumps_max_skip = read_integral_parameter (option_value, arg - 2, align_jumps_max_skip);
+/* APPLE LOCAL end -f[align-loops|align-jumps]-max-skip */
   else if ((option_value = skip_leading_substring (arg, "align-labels=")))
     align_labels
       = read_integral_parameter (option_value, arg - 2, align_labels);
@@ -4146,7 +4400,7 @@ decode_f_option (arg)
       stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, nm);
     }
   else if ((option_value
-            = skip_leading_substring (arg, "message-length=")))
+	    = skip_leading_substring (arg, "message-length=")))
     output_set_maximum_length
       (&global_dc->buffer, read_integral_parameter
        (option_value, arg - 2, diagnostic_line_cutoff (global_dc)));
@@ -4154,50 +4408,28 @@ decode_f_option (arg)
 	    = skip_leading_substring (arg, "diagnostics-show-location=")))
     {
       if (!strcmp (option_value, "once"))
-        diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
+	diagnostic_prefixing_rule (global_dc) = DIAGNOSTICS_SHOW_PREFIX_ONCE;
       else if (!strcmp (option_value, "every-line"))
-        diagnostic_prefixing_rule (global_dc)
-          = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
+	diagnostic_prefixing_rule (global_dc)
+	  = DIAGNOSTICS_SHOW_PREFIX_EVERY_LINE;
       else
 	error ("unrecognized option `%s'", arg - 2);
     }
   else if (!strcmp (arg, "no-stack-limit"))
     stack_limit_rtx = NULL_RTX;
   else if (!strcmp (arg, "preprocessed"))
-    /* Recognise this switch but do nothing.  This prevents warnings
+    /* Recognize this switch but do nothing.  This prevents warnings
        about an unrecognized switch if cpplib has not been linked in.  */
     ;
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  else if ((option_value
-            = skip_leading_substring (arg, "load=")))
-    {
-      ; /* Nothing more to do - it's all done in toplev_main().  */
-    }
-  else if ((option_value
-            = skip_leading_substring (arg, "dump=")))
-    {
-      ; /* Nothing more to do - it's all done in toplev_main().  */
-    }
-  else if ((option_value
-            = skip_leading_substring (arg, "arch=")))
-    {
-      ; /* Nothing more to do - it's all done in toplev_main().  */
-    }
-  else if ((option_value
-            = skip_leading_substring (arg, "dbgpfe="))
-            || (option_value
-                 = skip_leading_substring (arg, "pfedbg=")))
-    {
-      extern void pfe_decode_dbgpfe_options PARAMS ((const char *));
-      pfe_decode_dbgpfe_options (option_value);
-    }
-#endif /* PFE */
   /* APPLE LOCAL indexing dpatel */
   else if (!strcmp (arg, "debug-gen-index"))
     {
       flag_debug_gen_index = 1;
     }
+/* APPLE LOCAL begin read-from-stdin */
+  else if ((option_value = skip_leading_substring (arg, "predictive-compilation=")))
+    predictive_compilation = read_integral_parameter (option_value, arg - 2, predictive_compilation);
+/* APPLE LOCAL end read-from-stdin */
   else
     return 0;
 
@@ -4253,18 +4485,17 @@ decode_W_option (arg)
     {
       set_Wunused (0);
     }
-  /* APPLE LOCAL begin cpp-precomp */
-  /* One fine day, we should teach the driver not to pass '-Wno-precomp'
-     down here, since only cpp-precomp actually understands it.  */
-  else if (!strcmp (arg, "no-precomp"))
-    return 1;
-  /* APPLE LOCAL end cpp-precomp */
-    
   else
     return 0;
 
   return 1;
 }
+
+/* Indexed by enum debug_info_type.  */
+const char *const debug_type_names[] =
+{
+  "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
+};
 
 /* Parse a -g... command line switch.  ARG is the value after the -g.
    It is safe to access 'ARG - 2' to generate the full switch name.
@@ -4274,7 +4505,7 @@ static int
 decode_g_option (arg)
      const char *arg;
 {
-  static unsigned level=0;
+  static unsigned level = 0;
   /* A lot of code assumes write_symbols == NO_DEBUG if the
      debugging level is 0 (thus -gstabs1 -gstabs0 would lose track
      of what debugging type has been selected).  This records the
@@ -4285,11 +4516,6 @@ decode_g_option (arg)
      -g and -ggdb don't explicitly set the debugging format so
      -gdwarf -g3 is equivalent to -gdwarf3.  */
   static int type_explicitly_set_p = 0;
-  /* Indexed by enum debug_info_type.  */
-  static const char *const debug_type_names[] =
-  {
-    "none", "stabs", "coff", "dwarf-1", "dwarf-2", "xcoff", "vms"
-  };
 
   /* The maximum admissible debug level value.  */
   static const unsigned max_debug_level = 3;
@@ -4317,6 +4543,18 @@ decode_g_option (arg)
     }
 #endif
 /* APPLE LOCAL end gdb only used symbols ilr */
+
+/* APPLE LOCAL begin Symbol Separation */
+  if (strncmp (arg, "repository", 10) == 0 || strncmp (arg, "-repository", 11) == 0)
+    {
+      char *p = (char *)arg + (*(char *)arg == '-') + 10;
+      flag_grepository = 1;
+      if (*p == '-')
+	++p;
+      g_all_len = p - arg;
+      arg += g_all_len;
+    }
+/* APPLE LOCAL end Symbol Separation */
 
   /* Look up ARG in the table.  */
   for (da = debug_args; da->arg; da++)
@@ -4354,9 +4592,9 @@ decode_g_option (arg)
 
 	  if (level > max_debug_level)
 	    {
-	      /* APPLE LOCAL begin gdb only used symbols ilr */
 	      warning ("\
 ignoring option `%s' due to invalid debug level specification",
+		       /* APPLE LOCAL gdb only used symbols ilr */
 		       arg - 2 - g_all_len);
 	      level = debug_info_level;
 	    }
@@ -4374,6 +4612,11 @@ ignoring option `%s' due to invalid debug level specification",
 		  type = DBX_DEBUG;
 #endif
 #endif
+/* APPLE LOCAL begin dwarf */
+/* Even though DWARF2_DEBUGGING_INFO is defined, use stabs for debugging symbols
+   with -ggdb.  Remove this local patch when we switch to dwarf.  */
+                  type = DBX_DEBUG;
+/* APPLE LOCAL end dwarf */
 		}
 	    }
 
@@ -4413,6 +4656,9 @@ ignoring option `%s' due to invalid debug level specification",
 	}
     }
 
+  /* APPLE LOCAL Symbol Separation */
+  /* Save original value */
+  orig_write_symbols = write_symbols;
   if (! da->arg)
     return 0;
 
@@ -4445,18 +4691,21 @@ independent_decode_option (argc, argv)
     {
       display_help ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-target-help"))
     {
       display_target_options ();
       exit_after_options = 1;
+      return 1;
     }
 
   if (!strcmp (arg, "-version"))
     {
       print_version (stderr, "");
       exit_after_options = 1;
+      return 1;
     }
 
   /* Handle '--param <name>=<value>'.  */
@@ -4501,6 +4750,13 @@ independent_decode_option (argc, argv)
     default:
       return 0;
 
+    /* APPLE LOCAL begin indexing */
+    /* Need this flag to disable indexing during preprocessing.  */
+    case 'E':
+      flag_preprocessing = 1;
+      break;
+    /* APPLE LOCAL end indexing */
+
     case 'O':
       /* Already been treated in main (). Do nothing.  */
       break;
@@ -4521,7 +4777,9 @@ independent_decode_option (argc, argv)
 	  if (argc == 1)
 	    return 0;
 
-	  dump_base_name = argv[1];
+	  if (argv[1][0])
+	    dump_base_name = argv[1];
+	  
 	  return 2;
 	}
       else
@@ -4555,28 +4813,11 @@ independent_decode_option (argc, argv)
 	pedantic = 1;
       else if (!strcmp (arg, "pedantic-errors"))
 	flag_pedantic_errors = pedantic = 1;
-      /* APPLE LOCAL begin -precomp-trustfile */
-      else if (!strcmp (arg, "precomp-trustfile"))
-	{
-	  if (argc == 1)
-	    return 0;
-	  return 2;
-	}
-      /* APPLE LOCAL end -precomp-trustfile */
       else if (arg[1] == 0)
 	profile_flag = 1;
       else
 	return 0;
       break;
-
-    /* APPLE LOCAL begin cpp-precomp dpatel */
-    case 'c':
-      if (!strcmp (arg, "cpp-precomp"))
-	flag_cpp_precomp = 1;
-      else
-	return 0;
-      break;
-    /* APPLE LOCAL end cpp-precomp dpatel */
 
     case 'q':
       if (!strcmp (arg, "quiet"))
@@ -4642,6 +4883,30 @@ independent_decode_option (argc, argv)
 	  return 2;
 	}
       /* APPLE LOCAL end fat builds */
+      else if (!strcmp (arg, "auxbase"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    aux_base_name = argv[1];
+	  
+	  return 2;
+	}
+      else if (!strcmp (arg, "auxbase-strip"))
+	{
+	  if (argc == 1)
+	    return 0;
+
+	  if (argv[1][0])
+	    {
+	      strip_off_ending (argv[1], strlen (argv[1]));
+	      if (argv[1][0])
+		aux_base_name = argv[1];
+	    }
+	  
+	  return 2;
+	}
       else
 	return 0;
       break;
@@ -4694,7 +4959,7 @@ independent_decode_option (argc, argv)
 /* Decode -m switches.  */
 /* Decode the switch -mNAME.  */
 
-static void
+void
 set_target_switch (name)
      const char *name;
 {
@@ -4708,6 +4973,13 @@ set_target_switch (name)
 	  target_flags &= ~-target_switches[j].value;
 	else
 	  target_flags |= target_switches[j].value;
+	if (name[0] != 0)
+	  {
+	    if (target_switches[j].value < 0)
+	      target_flags_explicit |= -target_switches[j].value;
+	    else
+	      target_flags_explicit |= target_switches[j].value;
+	  }
 	valid_target_option = 1;
       }
 
@@ -4724,10 +4996,12 @@ set_target_switch (name)
       }
 #endif
 
-  /* APPLE LOCAL fat builds (radar 2865464)  ilr */
-  /* Note, the driver guarantees that -arch will precede the -m options
-     so that arch_specified will be known by the time we get here.  */
+  /* APPLE LOCAL begin fat builds */
+  /* Note, the driver guarantees that -arch will precede the -m
+     options so that arch_specified will be known by the time we get
+     here.  For Radar 2865464.  */
   if (!valid_target_option && !arch_specified)
+    /* APPLE LOCAL end fat builds */
     error ("invalid option `%s'", name);
 }
 
@@ -4752,6 +5026,9 @@ print_version (file, indent)
 	   , indent, *indent != 0 ? " " : "",
 	   lang_hooks.name, version_string, TARGET_NAME,
 	   indent, __VERSION__);
+  fnotice (file, "%s%sGGC heuristics: --param ggc-min-expand=%d --param ggc-min-heapsize=%d\n",
+	   indent, *indent != 0 ? " " : "",
+	   PARAM_VALUE (GGC_MIN_EXPAND), PARAM_VALUE (GGC_MIN_HEAPSIZE));
 }
 
 /* Print an option value and return the adjusted position in the line.
@@ -4871,47 +5148,36 @@ static void
 init_asm_output (name)
      const char *name;
 {
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* A PFE dump implies that no .s should be created.  */
-  if (pfe_operation == PFE_DUMP)
-    {
-      asm_out_file = stdout;  /* For diagnostic messages */
-      return;
-    }
-#endif
-
   if (name == NULL && asm_file_name == 0)
     asm_out_file = stdout;
   else
     {
       if (asm_file_name == 0)
-        {
-          int len = strlen (dump_base_name);
-          char *dumpname = (char *) xmalloc (len + 6);
-          memcpy (dumpname, dump_base_name, len + 1);
-          strip_off_ending (dumpname, len);
-          strcat (dumpname, ".s");
-          asm_file_name = dumpname;
-        }
+	{
+	  int len = strlen (dump_base_name);
+	  char *dumpname = (char *) xmalloc (len + 6);
+	  memcpy (dumpname, dump_base_name, len + 1);
+	  strip_off_ending (dumpname, len);
+	  strcat (dumpname, ".s");
+	  asm_file_name = dumpname;
+	}
       if (!strcmp (asm_file_name, "-"))
-        asm_out_file = stdout;
+	asm_out_file = stdout;
       else
-        asm_out_file = fopen (asm_file_name, "w");
+	asm_out_file = fopen (asm_file_name, "w+");
       if (asm_out_file == 0)
 	fatal_io_error ("can't open %s for writing", asm_file_name);
     }
 
 #ifdef IO_BUFFER_SIZE
   setvbuf (asm_out_file, (char *) xmalloc (IO_BUFFER_SIZE),
-           _IOFBF, IO_BUFFER_SIZE);
+	   _IOFBF, IO_BUFFER_SIZE);
 #endif
 
   if (!flag_syntax_only)
     {
-#ifdef ASM_FILE_START
-      ASM_FILE_START (asm_out_file);
-#endif
+      /* APPLE LOCAL deep branch prediction pic-base; copied from FSF mainline.  */
+      targetm.asm_out.file_start ();
 
 #ifdef ASM_COMMENT_START
       if (flag_verbose_asm)
@@ -4944,11 +5210,9 @@ general_init (argv0)
 
   xmalloc_set_program_name (progname);
 
-  gcc_init_libintl ();
+  hex_init ();
 
-  /* Install handler for SIGFPE, which may be received while we do
-     compile-time floating point arithmetic.  */
-  signal (SIGFPE, float_signal);
+  gcc_init_libintl ();
 
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
@@ -4975,12 +5239,24 @@ general_init (argv0)
   if (signal (SIGTERM, SIG_IGN) != SIG_IGN)
     signal (SIGTERM, interrupt_signal);
   /* APPLE LOCAL end interrupt signal handler */
+#ifdef SIGFPE
+  signal (SIGFPE, crash_signal);
+#endif
+
+  /* Other host-specific signal setup.  */
+  (*host_hooks.extra_signals)();
 
   /* Initialize the diagnostics reporting machinery, so option parsing
      can give warnings and errors.  */
   diagnostic_initialize (global_dc);
 
-  /* APPLE LOCAL setrlimit */
+  /* Initialize the garbage-collector, string pools and tree type hash
+     table.  */
+  init_ggc ();
+  init_stringpool ();
+  init_ttree ();
+
+  /* APPLE LOCAL begin setrlimit */
 #ifdef RLIMIT_STACK
   /* Get rid of any avoidable limit on stack size.  */
   {
@@ -4994,24 +5270,22 @@ general_init (argv0)
     setrlimit (RLIMIT_STACK, &rlim);
   }
 #endif /* RLIMIT_STACK defined */
+  /* APPLE LOCAL end setrlimit */
 }
 
 /* Parse command line options and set default flag values, called
    after language-independent option-independent initialization.  Do
    minimal options processing.  Outputting diagnostics is OK, but GC
-   and identifier hashtables etc. are not initialized yet.  */
+   and identifier hashtables etc. are not initialized yet.
+
+   Return nonzero to suppress compiler back end initialization.  */
 static void
 parse_options_and_default_flags (argc, argv)
      int argc;
      char **argv;
 {
   int i;
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  int flag_pfe_validate = 0;
-  char *arch = (char *) "unkn";
-#endif
-  
+
   /* Save in case md file wants to emit args as a comment.  */
   save_argc = argc;
   save_argv = argv;
@@ -5022,61 +5296,16 @@ parse_options_and_default_flags (argc, argv)
   /* Register the language-independent parameters.  */
   add_params (lang_independent_params, LAST_PARAM);
 
-  /* APPLE LOCAL PFE */
-  /* Assume PFE file is not being used and delay language
-     initialization until we do know since it may need to
-     do PFE memory allocations.  */
-#ifdef PFE
-  pfe_init (PFE_NOP);
-#else
+  /* This must be done after add_params but before argument processing.  */
+  init_ggc_heuristics();
+
   /* Perform language-specific options initialization.  */
   (*lang_hooks.init_options) ();
-#endif
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
   for (i = 1; i < argc; i++)
     {
-#ifdef PFE
-      /* We also need to know whether we're doing -fload or -fdump BEFORE we
-	 allocate any memory.  This scan for -Oxx serves as a convenient
-	 place to check for that too.  */
-      if (errorcount == 0)
-        {
-	  if (strncmp (argv[i], "-fload=", 7) == 0)
-	    {
-	      if (pfe_operation == PFE_LOAD)
-		error ("Only one -fload allowed");
-	      else if (pfe_operation == PFE_DUMP)
-		error ("Cannot specify both -fload and -fdump - which is it?");
-	      else
-		pfe_open_pfe_file (&argv[i][7], arch, 0);
-	    }
-	  else if (strncmp (argv[i], "-fdump=", 7) == 0)
-	    {
-	      if (pfe_operation == PFE_DUMP)
-		error ("Only one -fdump allowed");
-	      else if (pfe_operation == PFE_LOAD)
-		error ("Cannot specify both -fdump and -fload - which is it?");
-	      else
-		pfe_open_pfe_file (&argv[i][7], arch, 1);
-	    }
-	  else if (strcmp (argv[i], "-farch=ppc") == 0)
-	    arch = (char *) "ppc";
-	  else if (strcmp (argv[i], "-farch=i386") == 0)
-	    arch = (char *) "i386";
-	  else if (strcmp (argv[i], "-fvalidate") == 0)
-	    flag_pfe_validate = 1;
-	  else if (strcmp (argv[i], "-fno-validate") == 0)
-	    flag_pfe_validate = 0;
-	}
-      
-      if (strcmp (argv[i], "-ftime-report") == 0)
-        time_report = 1;
-      else if (strcmp (argv[i], "-quiet") == 0)
-        quiet_flag = 1;
-      else
-#endif
       if (!strcmp (argv[i], "-O"))
 	{
 	  optimize = 1;
@@ -5106,47 +5335,8 @@ parse_options_and_default_flags (argc, argv)
 	}
     }
 
-/* APPLE LOCAL begin PFE dpatel */
-#ifdef PFE
-   /* Turn on macro validation during pfe load */
-   if (pfe_operation == PFE_LOAD)
-     pfe_macro_validation = flag_pfe_validate;
-#endif
-/* APPLE LOCAL end PFE dpatel */
-
-    /* APPLE LOCAL radar 2866081: Env. variable -O override  ilr */
-    override_O_option ();
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* If neither -fload nor -fdump was specified then set the PFE state so that
-    calls to routines like pfe_malloc() use the normal xmalloc(), etc.   If
-    doing a load we do it before any further initialization.  The main thing
-    keeping us from moving it to compile_file() to be symmetric with the
-    dump is primarily the stringpool's ident_hash which needs to be known
-    very early.  Sigh :-(  */
-  if (errorcount > 0)
-    {
-      pfe_term (); /* turns off either PFE_DUMP or PFE_LOAD mode */
-      pfe_init (PFE_NOP);
-    }
-  else if (pfe_operation == PFE_DUMP)
-    {
-      pfe_compiler_state_ptr->progname = 
-        (const char *)PFE_SAVESTRING ((char *)progname);
-    }
-  else if (pfe_operation == PFE_LOAD)
-    {
-      if (!quiet_flag)
-        time_report = 1;
-      init_timevar ();
-      timevar_start (TV_TOTAL);
-      pfe_load_compiler_state (pfe_file);
-    }
-  
-  /* Perform language-specific options initialization.  */
-  (*lang_hooks.init_options) ();
-#endif /* PFE */
+  /* APPLE LOCAL radar 2866081: Env. variable -O override  ilr */
+  override_O_option ();
 
   if (!optimize)
     {
@@ -5165,6 +5355,10 @@ parse_options_and_default_flags (argc, argv)
 #endif
       flag_guess_branch_prob = 1;
       flag_cprop_registers = 1;
+      flag_loop_optimize = 1;
+      flag_crossjumping = 1;
+      flag_if_conversion = 1;
+      flag_if_conversion2 = 1;
     }
 
   if (optimize >= 2)
@@ -5188,6 +5382,10 @@ parse_options_and_default_flags (argc, argv)
       flag_strict_aliasing = 1;
       flag_delete_null_pointer_checks = 1;
       flag_reorder_blocks = 1;
+      flag_reorder_functions = 1;
+      /* APPLE LOCAL begin - single-set constant propagation */
+      flag_ss_const_prop = 1;
+      /* APPLE LOCAL end - single-set constant propagation */
     }
 
   if (optimize >= 3)
@@ -5202,6 +5400,18 @@ parse_options_and_default_flags (argc, argv)
       align_jumps = 1;
       align_labels = 1;
       align_functions = 1;
+
+      /* Don't reorder blocks when optimizing for size because extra
+	 jump insns may be created; also barrier may create extra padding.
+
+	 More correctly we should have a block reordering mode that tried
+	 to minimize the combined size of all the jumps.  This would more
+	 or less automatically remove extra jumps, but would also try to
+	 use more short jumps instead of long jumps.  */
+      flag_reorder_blocks = 0;
+      /* APPLE LOCAL begin - rarely executed bb optimization */
+      flag_reorder_blocks_and_partition = 0;
+      /* APPLE LOCAL end - rarely executed bb optimization */
     }
 
   /* Initialize whether `char' is signed.  */
@@ -5333,20 +5543,6 @@ parse_options_and_default_flags (argc, argv)
 
   if (flag_really_no_inline == 2)
     flag_really_no_inline = flag_no_inline;
-
-  /* All command line options have been parsed; allow the front end to
-     perform consistency checks, etc.  */
-  (*lang_hooks.post_options) ();
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* All the command line options are processed.  For a pfe load we
-     already validated the load file with the exception of the
-     language.  That needs to be delayed until now when we know it and
-     it's in the reader.  */
-  if (pfe_operation == PFE_LOAD)
-    pfe_check_compiler ();
-#endif
 }
 
 /* Process the options that have been parsed.  */
@@ -5404,16 +5600,6 @@ process_options ()
     warning ("this target machine does not have delayed branches");
 #endif
 
-  /* Some operating systems do not allow profiling without a frame
-     pointer.  */
-  if (!TARGET_ALLOWS_PROFILING_WITHOUT_FRAME_POINTER
-      && profile_flag
-      && flag_omit_frame_pointer)
-    {
-      error ("profiling does not work without a frame pointer");
-      flag_omit_frame_pointer = 0;
-    }
-    
   user_label_prefix = USER_LABEL_PREFIX;
   if (flag_leading_underscore != -1)
     {
@@ -5438,7 +5624,7 @@ process_options ()
 	print_switch_values (stderr, 0, MAX_LINE, "", " ", "\n");
     }
 
-  if (! quiet_flag)
+  if (! quiet_flag || flag_detailed_statistics)
     time_report = 1;
 
   if (flag_syntax_only)
@@ -5530,32 +5716,20 @@ process_options ()
   if (flag_function_sections && write_symbols != NO_DEBUG)
     warning ("-ffunction-sections may affect debugging on some targets");
 #endif
+
+    /* The presence of IEEE signaling NaNs, implies all math can trap.  */
+    if (flag_signaling_nans)
+      flag_trapping_math = 1;
 }
 
-/* Language-independent initialization, before language-dependent
-   initialization.  */
+/* Initialize the compiler back end.  */
 static void
-lang_independent_init ()
+backend_init ()
 {
-  decl_printable_name = decl_name;
-  lang_expand_expr = (lang_expand_expr_t) do_abort;
-
-  /* Set the language-dependent identifier size.  */
-  tree_code_length[(int) IDENTIFIER_NODE]
-    = ((lang_hooks.identifier_size - sizeof (struct tree_common)
-	+ sizeof (tree) - 1) / sizeof (tree));
-
-  /* Initialize the garbage-collector, and string pools.  */
-  init_ggc ();
-  ggc_add_rtx_root (&stack_limit_rtx, 1);
-  ggc_add_tree_root (&current_function_decl, 1);
-  ggc_add_tree_root (&current_function_func_begin_label, 1);
-
-  init_stringpool ();
-  init_obstacks ();
-
+  /* init_emit_once uses reg_raw_mode and therefore must be called
+     after init_regs which initialized reg_raw_mode.  */
+  init_regs ();
   init_emit_once (debug_info_level == DINFO_LEVEL_NORMAL
-		  /* APPLE LOCAL end PFE */
 		  || debug_info_level == DINFO_LEVEL_VERBOSE
 #ifdef VMS_DEBUGGING_INFO
 		    /* Enable line number info for traceback */
@@ -5563,27 +5737,23 @@ lang_independent_init ()
 #endif
 		    || flag_test_coverage
 		    || warn_notreached);
-  init_regs ();
+  init_fake_stack_mems ();
   init_alias_once ();
-  init_stmt ();
   init_loop ();
   init_reload ();
   init_function_once ();
-  init_stor_layout_once ();
   init_varasm_once ();
-  init_EXPR_INSN_LIST_cache ();
 
   /* The following initialization functions need to generate rtl, so
      provide a dummy function context for them.  */
   init_dummy_function_start ();
   init_expmed ();
-  init_expr_once ();
   if (flag_caller_saves)
     init_caller_save ();
   expand_dummy_function_end ();
 }
 
-/* Language-dependent initialization.  Returns non-zero on success.  */
+/* Language-dependent initialization.  Returns nonzero on success.  */
 static int
 lang_dependent_init (name)
      const char *name;
@@ -5591,10 +5761,13 @@ lang_dependent_init (name)
   if (dump_base_name == 0)
     dump_base_name = name ? name : "gccdump";
 
-  /* APPLE LOCAL begin indexing dpatel */
-  init_gen_indexing ();
-  /* APPLE LOCAL end indexing dpatel */
-
+  /* APPLE LOCAL indexing dpatel */
+  /* With -save-temps, driver invokes compiler again with -fpreprocessed.  */
+  if (flag_preprocessing)
+    disable_gen_index ();
+  else
+    init_gen_indexing ();
+  
   /* Front-end initialization.  This hook can assume that GC,
      identifier hashes etc. are set up, but debug initialization is
      not done yet.  This routine must return the original filename
@@ -5604,13 +5777,13 @@ lang_dependent_init (name)
     return 0;
 
   /* APPLE LOCAL begin indexing dpatel */
-  if (flag_gen_index && !flag_cpp_precomp && flag_gen_index_header)
+  if (flag_gen_index && flag_gen_index_header)
     {
       if (name[0] != '/')
 	{
 	  /* Append current pwd. We need absolute path.  */
 	  char *apath;
-	  int alen = MAXPATHLEN + strlen (name) + 2;
+	  int alen = PATH_MAX + strlen (name) + 2;
 	  apath = (char *) xmalloc (sizeof (char) * alen);
           apath = getcwd(apath, alen);
 	  strcat (apath, "/");
@@ -5630,10 +5803,6 @@ lang_dependent_init (name)
 
   /* Is this duplication necessary?  */
   name = ggc_strdup (name);
-  /* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
-#ifdef PFE
-  name = PFE_SAVESTRING ((char *)name);
-#endif
   main_input_filename = input_filename = name;
   init_asm_output (name);
 
@@ -5641,6 +5810,12 @@ lang_dependent_init (name)
      front end is initialized.  */
   init_eh ();
   init_optabs ();
+
+  /* The following initialization functions need to generate rtl, so
+     provide a dummy function context for them.  */
+  init_dummy_function_start ();
+  init_expr_once ();
+  expand_dummy_function_end ();
 
   /* Put an entry on the input file stack for the main input file.  */
   push_srcloc (input_filename, 0);
@@ -5656,25 +5831,7 @@ lang_dependent_init (name)
 
   /* Now we have the correct original filename, we can initialize
      debug output.  */
-  /* APPLE LOCAL begin PFE */     
-  if (pfe_operation == PFE_DUMP)
-    {
-      /* When creating a PFE precomp, we intercept all the 'dbxout...' calls
-	 and write out all their arguments to a file.  During a PFE load, these
-	 calls will be "played back" using the loaded arguments.  */
-      actual_debug_hooks = debug_hooks;
-      debug_hooks        = &intercept_debug_hooks;
-    }
-  else if (pfe_operation == PFE_LOAD && debug_hooks != &do_nothing_debug_hooks
-	   && flag_debug_only_used_symbols != 1)
-    {
-      (*debug_hooks->init) (name);
-      dbxout_generate_loaded_stabs ();
-      (*debug_hooks->end_source_file) (0); /* generate EINCL for prefix header */
-    }
-  else  
-    (*debug_hooks->init) (name);
-  /* APPLE LOCAL end PFE */     
+  (*debug_hooks->init) (name);
 
   timevar_pop (TV_SYMOUT);
 
@@ -5697,14 +5854,7 @@ finalize ()
   /* Close non-debugging input and output files.  Take special care to note
      whether fclose returns an error, since the pages might still be on the
      buffer chain while the file is open.  */
-/* APPLE LOCAL begin PFE ff */
-#ifdef PFE
-  /* Make sure we don't close stdout (which asm_out_file is mapped to
-     during a dump) so that we can write PFE diagnostics out if 
-     needed.  */
-  if (pfe_operation != PFE_DUMP)
-#endif
-/* APPLE LOCAL end PFE ff */
+
   if (asm_out_file)
     {
       if (ferror (asm_out_file) != 0)
@@ -5758,28 +5908,37 @@ finalize ()
 static void
 do_compile ()
 {
+  /* All command line options have been parsed; allow the front end to
+     perform consistency checks, etc.  */
+  bool no_backend = (*lang_hooks.post_options) ();
+
   /* The bulk of command line switch processing.  */
   process_options ();
 
+  /* If an error has already occurred, give up.  */
+  if (errorcount)
+    return;
+
+  if (aux_base_name)
+    /*NOP*/;
+  else if (filename)
+    {
+      char *name = xstrdup (lbasename (filename));
+      
+      aux_base_name = name;
+      strip_off_ending (name, strlen (name));
+    }
+  else
+    aux_base_name = "gccaux";
+
   /* We cannot start timing until after options are processed since that
      says if we run timers or not.  */
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* We init and start the timer before loading the pfe file when
-     loading.  */
-  if (pfe_operation != PFE_LOAD)
-  {
-#endif
   init_timevar ();
   timevar_start (TV_TOTAL);
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  }
-#endif
 
-  /* Language-independent initialization.  Also sets up GC, identifier
-     hashes etc.  */
-  lang_independent_init ();
+  /* Set up the back-end if requested.  */
+  if (!no_backend)
+    backend_init ();
 
   /* Language-dependent initialization.  Returns true on success.  */
   if (lang_dependent_init (filename))
@@ -5790,30 +5949,34 @@ do_compile ()
   /* Stop timing and print the times.  */
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* If dumping pfe file this is when we actually do it.  But only
-     if there are no errors.  For dumping or loginding this is also
-     when we gracefully terminate the pfe memory usage and close
-     the pfe file.  Note that if there were errors during the
-     compilation for a dump file we will delete that dump file.*/
-  if (pfe_operation == PFE_DUMP)
-    {
-      if (errorcount == 0)
-        pfe_dump_compiler_state (pfe_file);
-      else
-	warning ("dump file not written due to compilation errors");
-      pfe_term ();
-      pfe_close_pfe_file (errorcount != 0);
-    }
-  else if (pfe_operation == PFE_LOAD)
-    {
-      pfe_term ();
-      pfe_close_pfe_file (0);
-    }
-#endif
 }
+/* APPLE LOCAL begin jet */
+/* A hash code taken from all options in argv. */
+unsigned int toplev_argv_hash;
+
+/* Compute a hash code based on all options on the command line.  
+   This is intended to identify identical compilations.  Minor
+   detail: we don't quite use *all* the options, because we want
+   the hash code to be deterministic and the driver usually chooses
+   the output filename randomly. */
+static void
+init_toplev_hash_code (unsigned int argc, const char **argv)
+{
+  unsigned int val = 137;
+  bool output_option = false;
+
+  for ( ; argc ; --argc, ++argv)
+    {
+      const char *s = *argv;
+      if (!output_option)
+	while (*s)
+	  val = val * 67 + ((unsigned) *s++ - 113);
+      output_option = strcmp(*argv, "-o") == 0;
+    }
+
+  toplev_argv_hash = val;
+}
+/* APPLE LOCAL end jet */
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
    Decode command args, then call compile_file.
@@ -5827,10 +5990,11 @@ toplev_main (argc, argv)
      int argc;
      char **argv;
 {
-  hex_init ();
-
   /* Initialization of GCC's environment, and diagnostics.  */
-  general_init (argv [0]);
+  general_init (argv[0]);
+  /* APPLE LOCAL begin jet */
+  init_toplev_hash_code (argc, argv);
+  /* APPLE LOCAL end jet */
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
@@ -5839,6 +6003,13 @@ toplev_main (argc, argv)
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
     do_compile ();
+
+  /* APPLE LOCAL begin testsuite OS flush bug workaround */
+#ifdef CONFIG_DARWIN_H
+  if (flag_slow_exit)
+    sleep (1);
+#endif
+  /* APPLE LOCAL end testsuite OS flush bug workaround */
 
   if (errorcount || sorrycount)
     return (FATAL_EXIT_CODE);
@@ -6336,3 +6507,20 @@ add_env_options (argc, argv)
 }
 /* APPLE LOCAL end radar 2866081: Env. variable override  ilr */
 
+/* APPLE LOCAL BEGIN - PCH distcc debugging mrs  */
+static const char *toplev_pwd;
+
+const char *
+gcc_getpwd ()
+{
+  if (toplev_pwd == 0)
+    toplev_pwd = getpwd ();
+  return toplev_pwd;
+}
+
+void
+gcc_setpwd (const char *wd)
+{
+  toplev_pwd = strcpy (xmalloc (strlen (wd) + 1), wd);
+}
+/* APPLE LOCAL END - PCH distcc debugging mrs  */

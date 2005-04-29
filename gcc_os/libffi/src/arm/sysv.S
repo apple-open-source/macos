@@ -28,8 +28,15 @@
 #ifdef HAVE_MACHINE_ASM_H
 #include <machine/asm.h>
 #else
-/* XXX these lose for some platforms, I'm sure. */
+#ifdef __USER_LABEL_PREFIX__
+#define CONCAT1(a, b) CONCAT2(a, b)
+#define CONCAT2(a, b) a ## b
+
+/* Use the right prefix for global labels.  */
+#define CNAME(x) CONCAT1 (__USER_LABEL_PREFIX__, x)
+#else
 #define CNAME(x) x
+#endif
 #define ENTRY(x) .globl CNAME(x); .type CNAME(x),%function; CNAME(x):
 #endif
 	
@@ -96,12 +103,20 @@ ENTRY(ffi_call_SYSV)
 
 # return FLOAT
 	cmp     a4, #FFI_TYPE_FLOAT
+#ifdef __SOFTFP__
+	streq	a1, [a3]
+#else
 	stfeqs  f0, [a3]
+#endif
 	beq     epilogue
 
 # return DOUBLE or LONGDOUBLE
 	cmp     a4, #FFI_TYPE_DOUBLE
+#ifdef __SOFTFP__
+	stmeqia	a3, {a1, a2}
+#else
 	stfeqd  f0, [a3]
+#endif
 
 epilogue:
         ldmfd sp!, {a1-a4, fp, pc}

@@ -1,0 +1,25 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH apropos 1 "Jan 15, 1991"
+.LO 1
+.SH NAME
+apropos \- whatis 데이타베이스의 문자열을 검색한다
+.SH SYNOPSIS
+.BI apropos
+키워드 ...
+.SH DESCRIPTION
+apropos는 시스템 명령을 키워드로 하는 여러 셋으로 이루어진 데이타베이스를 검색하여 그 결과를 표준출력으로 보여준다.
+.SH "SEE ALSO"
+whatis(1), man(1).

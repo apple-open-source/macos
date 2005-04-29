@@ -1,0 +1,11 @@
+--- bzdiff.orig	2004-08-18 21:21:56.000000000 -0700
++++ bzdiff	2004-08-18 21:22:04.000000000 -0700
+@@ -37,7 +37,7 @@
+ 	echo "Usage: $prog [${comp}_options] file [file]"
+ 	exit 1
+ fi
+-tmp=`tempfile -d /tmp -p bz` || {
++tmp=`mktemp -t bz` || {
+       echo 'cannot create a temporary file' >&2
+       exit 1
+ }

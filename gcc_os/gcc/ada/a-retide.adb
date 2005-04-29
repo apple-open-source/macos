@@ -6,9 +6,8 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
---             Copyright (C) 1991-1999 Florida State University             --
+--         Copyright (C) 1992-2001, Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,22 +27,19 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
 with System.Task_Primitives.Operations;
 --  Used for Timed_Delay
 
-with System.OS_Primitives;
---  Used for Delay_Modes
-
 package body Ada.Real_Time.Delays is
 
    package STPO renames System.Task_Primitives.Operations;
-   package OSP renames System.OS_Primitives;
+
+   Absolute_RT : constant := 2;
 
    -----------------
    -- Delay_Until --
@@ -51,7 +47,7 @@ package body Ada.Real_Time.Delays is
 
    procedure Delay_Until (T : Time) is
    begin
-      STPO.Timed_Delay (STPO.Self, To_Duration (T), OSP.Absolute_RT);
+      STPO.Timed_Delay (STPO.Self, To_Duration (T), Absolute_RT);
    end Delay_Until;
 
    -----------------

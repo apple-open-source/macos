@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -57,8 +54,8 @@ public:
     virtual void free();
 
     virtual bool start(IOService *provider);
-    virtual void stop(IOService *provider);
     virtual bool matchPropertyTable(OSDictionary *table);
+    virtual bool requestTerminate(IOService *provider, IOOptionBits options);
     virtual bool didTerminate(IOService *provider, IOOptionBits options, bool *defer);
 
     virtual IOReturn setProperties(OSObject *properties);
@@ -91,21 +88,21 @@ private:
     dev_t fBaseDev;
 
     int fInOpensPending;	/* Count of opens waiting for carrier */
-    int fDCDDelayTicks;
+    thread_call_t fDCDThreadCall;	/* used for DCD debouncing */
 
     /* state determined at time of open */
     bool fPreemptAllowed; 		/* Active session is pre-emptible */
     bool fConnectTransit;		/* A thread is open() or closing()  */
 
+    boolean_t   fAcquired:1;		/* provider has been acquired */
     boolean_t   fIsClosing:1;		/* Session is actively closing */
-    boolean_t   frxBlocked:1;		/* the rx_thread suspended */
+    boolean_t   fDeferTerminate:1;	/* A terminate has been defered */
     boolean_t   fHasAuditSleeper:1;	/* A process is sleeping on audit */
     boolean_t   fKillThreads:1;		/* Threads must terminate */
     boolean_t   fIstxEnabled:1;		/* en/disabled due to flow control */
     boolean_t   fIsrxEnabled:1;		/* TP_CREAD dependent */
+    boolean_t   frxBlocked:1;		/* the rx_thread suspended */
     boolean_t   fDCDTimerDue:1;		/* DCD debounce flag */
-    boolean_t   frxThreadLaunched:1;	/* RX Thread has finished launching */
-    boolean_t   ftxThreadLaunched:1;	/* RX Thread has finished launching */
 
     IOSerialStreamSync *fProvider;
 
@@ -114,55 +111,54 @@ private:
      */
 
     // Open/close semantic routines
-    virtual int open(dev_t dev, int flags, int devtype, struct proc *p);
-    virtual void close(dev_t dev, int flags, int devtype, struct proc *p);
-    virtual void startConnectTransit();
-    virtual void endConnectTransit();
-    virtual void initSession(Session *sp);
-    virtual bool waitOutDelay(void *event,
-                              const struct timeval *start,
-                              const struct timeval *duration);
-    virtual int waitForIdle();
-    virtual void preemptActive();
+    int open(dev_t dev, int flags, int devtype, struct proc *p);
+    void close(dev_t dev, int flags, int devtype, struct proc *p);
+    void startConnectTransit();
+    void endConnectTransit();
+    void initSession(Session *sp);
+    bool waitOutDelay(void *event,
+		      const struct timeval *start,
+		      const struct timeval *duration);
+    int waitForIdle();
+    void preemptActive();
 
     // General routines
-    virtual bool createDevNodes();
-    virtual bool setBaseTypeForDev();
+    bool createDevNodes();
+    bool setBaseTypeForDev();
 
-    virtual IOReturn setOneProperty(const OSSymbol *key, OSObject *value);
+    IOReturn setOneProperty(const OSSymbol *key, OSObject *value);
 
-    virtual void optimiseInput(struct termios *t);
-    virtual void convertFlowCtrl(Session *sp, struct termios *t);
+    void optimiseInput(struct termios *t);
+    void convertFlowCtrl(Session *sp, struct termios *t);
 
     // Modem control routines
     virtual int  mctl(u_int bits, int how);
 
     // Receive and Transmit engine thread functions
-    virtual void getData(Session *sp);
-    virtual void procEvent(Session *sp);
-    virtual void txload(Session *sp, u_long *wait_mask);
-    virtual void rxFunc();
-    virtual void txFunc();
+    void getData(Session *sp);
+    void procEvent(Session *sp);
+    void txload(Session *sp, u_long *wait_mask);
+    void rxFunc();
+    void txFunc();
 
-    virtual void launchThreads();
-    virtual void killThreads();
+    void launchThreads();
+    void killThreads();
+    void cleanupResources();
 
     // session based accessors to Serial Stream Sync 
-    virtual IOReturn sessionSetState(Session *sp, UInt32 state, UInt32 mask);
-    virtual UInt32 sessionGetState(Session *sp);
-    virtual IOReturn sessionWatchState(Session *sp, UInt32 *state, UInt32 mask);
-    virtual UInt32 sessionNextEvent(Session *sp);
-    virtual IOReturn
-        sessionExecuteEvent(Session *sp, UInt32 event, UInt32 data);
-    virtual IOReturn
-        sessionRequestEvent(Session *sp, UInt32 event, UInt32 *data);
-    virtual IOReturn
+    IOReturn sessionSetState(Session *sp, UInt32 state, UInt32 mask);
+    UInt32   sessionGetState(Session *sp);
+    IOReturn sessionWatchState(Session *sp, UInt32 *state, UInt32 mask);
+    UInt32   sessionNextEvent(Session *sp);
+    IOReturn sessionExecuteEvent(Session *sp, UInt32 event, UInt32 data);
+    IOReturn sessionRequestEvent(Session *sp, UInt32 event, UInt32 *data);
+    IOReturn
         sessionEnqueueEvent(Session *sp, UInt32 event, UInt32 data, bool sleep);
-    virtual IOReturn sessionDequeueEvent
+    IOReturn sessionDequeueEvent
         (Session *sp, UInt32 *event, UInt32 *data, bool sleep);
-    virtual IOReturn sessionEnqueueData
+    IOReturn sessionEnqueueData
         (Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, bool sleep);
-    virtual IOReturn sessionDequeueData
+    IOReturn sessionDequeueData
         (Session *sp, UInt8 *buffer, UInt32 size, UInt32 *count, UInt32 min);
 
     // Unix character device switch table routines.
@@ -176,7 +172,7 @@ private:
     static int  iossstop(struct tty *tp, int rw);
     static void iossstart(struct tty *tp);	// assign to tp->t_oproc
     static int  iossparam(struct tty *tp, struct termios *t);
-    static void iossdcddelay(void *vThis);
+    static void iossdcddelay(thread_call_param_t vSelf, thread_call_param_t vSp);
 };
 
 #endif /* ! _IOSERIALSERVER_H */

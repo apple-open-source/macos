@@ -1,0 +1,18 @@
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-05-01  Andreas Kupries  <andreask@activestate.com>
+
+	* subserv.tcl (muserv): Propagate the auto_path into the
+	  subprocess so that it is able to find all packages the server
+	  might require. Without that the server will need an installed
+	  tcllib, for example. This fixes a hang in the pop3 testsuite
+	  when tcllib is not installed.
+
+2003-04-09  Andreas Kupries  <andreask@activestate.com>
+
+	* New module. 
+	* First contents are support for sub-processes in testsuites.

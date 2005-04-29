@@ -1,5 +1,5 @@
+// { dg-do assemble  }
 // PRMS ID: 7507
-// Build don't link:
 
 /* ------------------------------------------------------------ */
 
@@ -58,10 +58,10 @@ class SmartPtr : public ConstSmartPtr<T>
 			  : ConstSmartPtr<T>(theItem) {}
 
     T*			item() const
-				{ return _item(); }
+				{ return this->_item(); }
 
 			operator T*() const
-				{ return _item(); }
+				{ return this->_item(); }
 };
 
 /* ------------------------------------------------------------ */

@@ -39,17 +39,15 @@
  *	Created.
  */
 
-#import	"assym.h"
 #import	"SYS.h"
 
 /*
  * r3 = sigcontext pointer
  */
 
-LEAF(_sigreturn)
+MI_ENTRY_POINT(_sigreturn)
 
 	/* Now call the kernel routine to restore the rest */	
 
 	SYSCALL_NONAME(sigreturn, 1)
 	blr
-END(_sigreturn)

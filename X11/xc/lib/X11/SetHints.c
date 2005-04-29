@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/SetHints.c,v 1.4 2001/12/14 19:54:06 dawes Exp $ */
+/* $XFree86: xc/lib/X11/SetHints.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xutil.h>
@@ -219,7 +219,6 @@ XSetCommand (dpy, w, argv, argc)
  */
 
 int
-#if NeedFunctionPrototypes
 XSetStandardProperties (
     	Display *dpy,
     	Window w,		/* window to decorate */
@@ -229,17 +228,6 @@ XSetStandardProperties (
     	char **argv,		/* command to be used to restart application */
     	int argc,		/* count of arguments */
     	XSizeHints *hints)	/* size hints for window in its normal state */
-#else
-XSetStandardProperties (dpy, w, name, icon_string, icon_pixmap, argv, argc, hints)
-    	Display *dpy;
-    	Window w;		/* window to decorate */
-    	char *name;		/* name of application */
-    	char *icon_string;	/* name string for icon */
-	Pixmap icon_pixmap;	/* pixmap to use as icon, or None */
-    	char **argv;		/* command to be used to restart application */
-    	int argc;		/* count of arguments */
-    	XSizeHints *hints;	/* size hints for window in its normal state */
-#endif
 {
 	XWMHints phints;
 	phints.flags = 0;

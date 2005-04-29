@@ -35,7 +35,7 @@ ioctl_includes=`
 `
 
 echo "/* XXX obnoxious prerequisites. */"
-echo "#define COMPAT_43 1"
+echo "#define COMPAT_43_TTY 1"
 echo "#include <sys/param.h>"
 echo "#include <sys/socket.h>"
 echo "#include <sys/time.h>"
@@ -76,10 +76,16 @@ BEGIN {
 			break;
 	++i;
 	# 
+	if ($i == "SIOCADDRT" || $i == "SIOCDELRT") {
+		printf("#if 0\n");
+	}
 	if (use_switch)
 		printf("\tcase %s:\n\t\treturn(\"%s\");\n", $i, $i);
 	else
 		printf("\tif (val ==  %s)\n\t\treturn(\"%s\");\n", $i, $i);
+	if ($i == "SIOCADDRT" || $i == "SIOCDELRT") {
+		printf("#endif\n");
+	}
 
 }
 END {

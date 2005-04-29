@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xau/AuGetBest.c,v 1.7 2001/12/14 19:54:36 dawes Exp $ */
+/* $XFree86: xc/lib/Xau/AuGetBest.c,v 1.8 2003/11/17 22:20:21 dawes Exp $ */
 
 #include <X11/Xauth.h>
 #include <X11/Xos.h>
@@ -47,7 +47,6 @@ binaryEqual (_Xconst char *a, _Xconst char *b, int len)
     return 1;
 }
 
-#if NeedFunctionPrototypes
 Xauth *
 XauGetBestAuthByAddr (
 #if NeedWidePrototypes
@@ -67,20 +66,6 @@ XauGetBestAuthByAddr (
     int			types_length,
     char**		types,
     _Xconst int*	type_lengths)
-#else
-Xauth *
-XauGetBestAuthByAddr (family, address_length, address,
-			  number_length, number,
-			  types_length, types, type_lengths)
-    unsigned short	family;
-    unsigned short	address_length;
-    char		*address;
-    unsigned short	number_length;
-    char		*number;
-    int			types_length;
-    char		**types;
-    int			*type_lengths;
-#endif
 {
     FILE    *auth_file;
     char    *auth_name;

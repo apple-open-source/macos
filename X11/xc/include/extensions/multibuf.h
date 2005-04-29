@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
 
-/* $XFree86: xc/include/extensions/multibuf.h,v 3.4 2001/12/14 19:53:28 dawes Exp $ */
+/* $XFree86: xc/include/extensions/multibuf.h,v 3.5 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _MULTIBUF_H_
 #define _MULTIBUF_H_
@@ -173,96 +173,75 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 extern Bool XmbufQueryExtension(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* event_base_return */,
     int*		/* error_base_return */
-#endif
 );
 
 extern Status XmbufGetVersion(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int*		/* major_version_return */,
     int*		/* minor_version_return */
-#endif
 );
 
 extern int XmbufCreateBuffers(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Window		/* w */,
     int			/* count */,
     int			/* update_action */,
     int			/* update_hint */,
     Multibuffer*	/* buffers */
-#endif
 );
 
 extern void XmbufDestroyBuffers(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Window		/* window */
-#endif
 );
 
 extern void XmbufDisplayBuffers(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int			/* count */,
     Multibuffer*	/* buffers */,
     int			/* min_delay */,
     int			/* max_delay */
-#endif
 );
 
 extern Status XmbufGetWindowAttributes(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Window			/* w */,
     XmbufWindowAttributes*	/* attr */
-#endif
 );
 
 extern void XmbufChangeWindowAttributes(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Window			/* w */,
     unsigned long		/* valuemask */,
     XmbufSetWindowAttributes*	/* attr */
-#endif
 );
 
 extern Status XmbufGetBufferAttributes(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Multibuffer			/* b */,
     XmbufBufferAttributes*	/* attr */
-#endif
 );
 
 extern void XmbufChangeBufferAttributes(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Multibuffer			/* b */,
     unsigned long		/* valuemask */,
     XmbufSetBufferAttributes*	/* attr */
-#endif
 );
 
 extern Status XmbufGetScreenInfo(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Drawable			/* d */,
     int*			/* nmono_return */,
     XmbufBufferInfo**		/* mono_info_return */,
     int*			/* nstereo_return */,
     XmbufBufferInfo**		/* stereo_info_return */
-#endif
 );
 
 extern Window XmbufCreateStereoWindow(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Window			/* parent */,
     int				/* x */,
@@ -277,11 +256,9 @@ extern Window XmbufCreateStereoWindow(
     XSetWindowAttributes*	/* attr */,
     Multibuffer*		/* leftp */,
     Multibuffer*		/* rightp */
-#endif
 );
 
 extern void XmbufClearBufferArea(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Multibuffer			/* buffer */,
     int				/* x */,
@@ -289,7 +266,6 @@ extern void XmbufClearBufferArea(
     unsigned int		/* width */,
     unsigned int		/* height */,
     Bool			/* exposures */
-#endif
 );
 
 _XFUNCPROTOEND
@@ -303,21 +279,16 @@ typedef Bool	(* mbInitFunc)();
 struct _mbufScreen;		/* declared in multibufst.h */
 
 extern void	RegisterMultibufferInit(
-#if NeedFunctionPrototypes
     ScreenPtr			/* pScreen */,
     Bool (* /* bufMultibufferInit */)(
-#if NeedNestedPrototypes
 	ScreenPtr		/* pScreen */,
 	struct _mbufScreen *	/* pMBScreen */
-#endif
     )
-#endif
 );
 
 struct xMbufBufferInfo;		/* declared in multibufst.h */
 
 extern void	RegisterDoubleBufferHardware(
-#if NeedFunctionPrototypes
     ScreenPtr			/* pScreen */,
     int				/* nInfo */,
     struct xMbufBufferInfo *	/* pInfo */,
@@ -325,28 +296,21 @@ extern void	RegisterDoubleBufferHardware(
     DevUnion			/* selectPlane */,
     void (* /* CopyBufferBitsFunc */ )(),
     void (* /* DrawSelectPlaneFunc */ )()
-#endif
 );
 
 extern int	CreateImageBuffers (
-#if NeedFunctionPrototypes
     WindowPtr			/* pWin */,
     int				/* nbuf */,
     XID *			/* ids */,
     int				/* action */,
     int				/* hint */
-#endif
 );
 extern void	DestroyImageBuffers (
-#if NeedFunctionPrototypes
     WindowPtr			/* pWin */
-#endif
 );
 extern int	DisplayImageBuffers (
-#if NeedFunctionPrototypes
     XID *			/* ids */,
     int				/* nbuf */
-#endif
 );
 
 #endif /* _MULTIBUF_SERVER_ */

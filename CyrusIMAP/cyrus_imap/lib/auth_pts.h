@@ -1,5 +1,5 @@
 /* auth_pts.h -- PTLOADER authorization module.
-   $Id: auth_pts.h,v 1.2 2003/10/22 18:03:04 rjs3 Exp $
+   $Id: auth_pts.h,v 1.4 2005/03/05 00:37:11 dasenbro Exp $
 	
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

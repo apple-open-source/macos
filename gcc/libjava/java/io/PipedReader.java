@@ -118,7 +118,8 @@ public class PipedReader extends Reader
   }
 
   /**
-    * This method connects this stream to the passed in <code>PipedWriter</code>.
+    * This method connects this stream to the passed in 
+    * <code>PipedWriter</code>.
     * This stream is then ready for reading.  If this stream is already
     * connected or has been previously closed, then an exception is thrown
     *
@@ -207,9 +208,12 @@ public class PipedReader extends Reader
   
   /**
     * This method reads chars from the stream into a caller supplied buffer.
-    * It starts storing chars at position <code>offset</code> into the buffer and
-    * reads a maximum of <code>len</code> chars.  Note that this method can actually
-    * read fewer than <code>len</code> chars.  The actual number of chars read is
+    * It starts storing chars at position <code>offset</code> into the 
+    * buffer and
+    * reads a maximum of <code>len</code> chars.  Note that this method 
+    * can actually
+    * read fewer than <code>len</code> chars.  The actual number of chars 
+    * read is
     * returned.  A -1 is returned to indicated that no chars can be read
     * because the end of the stream was reached.  If the stream is already
     * closed, a -1 will again be returned to indicate the end of the stream.
@@ -237,10 +241,11 @@ public class PipedReader extends Reader
   }
   
   /**
-    * This method reads characters from the stream into a caller supplied buffer.
-    * It starts storing chars at position <code>offset</code> into the buffer and
-    * reads a maximum of <code>len</code> chars.  Note that this method can actually
-    * read fewer than <code>len</code> chars.  The actual number of chars read is
+    * This method reads characters from the stream into a caller supplied 
+    * buffer. It starts storing chars at position <code>offset</code> into 
+    * the buffer and reads a maximum of <code>len</code> chars.  Note that 
+    * this method can actually read fewer than <code>len</code> chars.  
+    * The actual number of chars read is
     * returned.  A -1 is returned to indicated that no chars can be read
     * because the end of the stream was reached - ie close() was called on the
     * connected PipedWriter.
@@ -251,7 +256,7 @@ public class PipedReader extends Reader
     * @param offset The index into the buffer at which to start writing.
     * @param len The maximum number of chars to read.
     *
-    * @exception IOException If <code>close()/code> was called on this Piped
+    * @exception IOException If <code>close()</code> was called on this Piped
     *                        Reader.
     */  
   public int read(char[] buf, int offset, int len)
@@ -361,3 +366,4 @@ public class PipedReader extends Reader
     }
   }
 }
+

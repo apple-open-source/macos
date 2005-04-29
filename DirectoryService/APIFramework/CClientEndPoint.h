@@ -58,10 +58,10 @@ private:
 	char		   *fSrvrName;
 
 	mach_port_t		fServerPort;
-	mach_port_t		fReplyPort;
-	mach_port_t		fNotifyPort;
-    mach_port_t		fRcvPortSet;
+	mach_port_t		fSessionPort;
+	sComData	   *fReplyMsg;
 
+	bool IsLongRequest( sComData *inMsg );
 };
 
 #endif

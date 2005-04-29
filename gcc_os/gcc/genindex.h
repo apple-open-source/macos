@@ -28,9 +28,9 @@ int read_indexed_header_list             PARAMS ((void));
 void write_indexed_header_list           PARAMS ((void));
 struct indexed_header * add_index_header_name PARAMS ((char *));
 struct indexed_header * add_index_header PARAMS ((char *, time_t));
-void push_cur_index_filename             PARAMS ((char *));
+void push_cur_index_filename             PARAMS ((const char *));
 void pop_cur_index_filename              PARAMS ((void));
-void add_dup_header_name                 PARAMS ((char *, char *));
+void add_dup_header_name                 PARAMS ((const char *, const char *));
 
 void free_indexed_header_list            PARAMS ((void));
 int process_header_indexing              PARAMS ((char *, int));
@@ -44,6 +44,7 @@ void gen_indexing_footer                 PARAMS ((void));
 void init_gen_indexing                   PARAMS ((void));
 void finish_gen_indexing                 PARAMS ((void));
 void set_index_lang                      PARAMS ((int));
+void disable_gen_index                   PARAMS ((void));
 
 /* Enum to represet the language of indexing symbol.  */
 typedef enum index_language_kind {

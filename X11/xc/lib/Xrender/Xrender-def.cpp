@@ -39,4 +39,7 @@ XRenderQueryFormats
 XRenderQuerySubpixelOrder
 XRenderQueryVersion
 XRenderSetSubpixelOrder
-/* $XFree86: xc/lib/Xrender/Xrender-def.cpp,v 1.4 2002/10/01 14:31:40 alanh Exp $ */
+#ifdef __UNIXOS2__
+XRenderCreateAnimCursor
+#endif
+/* $XFree86: xc/lib/Xrender/Xrender-def.cpp,v 1.5 2003/03/25 04:18:12 dawes Exp $ */

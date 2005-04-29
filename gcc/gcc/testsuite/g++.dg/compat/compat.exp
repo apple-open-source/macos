@@ -43,10 +43,16 @@ proc compat-fix-library-path { } {
     global ld_library_path
 
     # See comments in lib/g++.exp for why this is needed.
-    setenv  LD_LIBRARY_PATH     $ld_library_path
-    setenv  SHLIB_PATH          $ld_library_path
-    setenv  LD_LIBRARYN32_PATH  $ld_library_path
-    setenv  LD_LIBRARY64_PATH   $ld_library_path
+    if {![is_remote target]} {
+	# See comments in lib/g++.exp for why this is needed.
+	setenv  LD_LIBRARY_PATH     $ld_library_path
+	setenv  SHLIB_PATH          $ld_library_path
+	setenv  LD_LIBRARYN32_PATH  $ld_library_path
+	setenv  LD_LIBRARY64_PATH   $ld_library_path
+	setenv  LD_LIBRARY_PATH_32  $ld_library_path
+	setenv  LD_LIBRARY_PATH_64  $ld_library_path
+	setenv  DYLD_LIBRARY_PATH   $ld_library_path
+    }
 }
 
 #
@@ -105,6 +111,10 @@ set save_cxxflags $CXXFLAGS
 set save_always_cxxflags $ALWAYS_CXXFLAGS
 set save_ld_library_path $ld_library_path
 
+# Define an identifier for use with this suite to avoid name conflicts
+# with other compat tests running at the same time.
+set sid "cp_compat"
+
 # Find out whether there is an alternate compiler to test.  If the
 # variable is defined but is set to "same", that means we use the same
 # compiler twice, which is meaningful if the two parts of COMPAT_OPTIONS
@@ -130,7 +140,7 @@ foreach src [lsort [find $srcdir/$subdir *_main.C]] {
 	continue
     }
 
-    compat-execute $src $use_alt
+    compat-execute $src $sid $use_alt
 }
 
 # Restore the original compiler under test.

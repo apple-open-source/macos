@@ -4,8 +4,8 @@
    argument.  This will only work on MacOS X 10.1.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
+/* { dg-do compile { target powerpc-apple-darwin* } } */
 /* { dg-options "-fconstant-cfstrings" } */
-/* { dg-do compile } */
 
 #import <CoreFoundation/CFString.h>
 

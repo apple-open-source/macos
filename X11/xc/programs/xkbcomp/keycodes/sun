@@ -24,7 +24,7 @@
 //other dealings in this Software without prior written authorization
 //from The Open Group.
 //
-// $XFree86: xc/programs/xkbcomp/keycodes/sun,v 3.5 2001/12/14 20:02:00 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/keycodes/sun,v 3.6 2003/08/09 14:30:48 pascal Exp $
 //
 default xkb_keycodes "type4" {
 
@@ -301,6 +301,152 @@ xkb_keycodes "type5" {
     indicator 1 = "Num Lock";
 };
 
+xkb_keycodes "type6" {
+    minimum= 8;
+    maximum= 255;
+
+    <TLDE> =  49;
+    <AE01> =  10;
+    <AE02> =  11;
+    <AE03> =  12;
+    <AE04> =  13;
+    <AE05> =  14;
+    <AE06> =  15;
+    <AE07> =  16;
+    <AE08> =  17;
+    <AE09> =  18;
+    <AE10> =  19;
+    <AE11> =  20;
+    <AE12> =  21;
+    <BKSP> =  22;
+
+    <TAB>  =  23;
+    <AD01> =  24;
+    <AD02> =  25;
+    <AD03> =  26;
+    <AD04> =  27;
+    <AD05> =  28;
+    <AD06> =  29;
+    <AD07> =  30;
+    <AD08> =  31;
+    <AD09> =  32;
+    <AD10> =  33;
+    <AD11> =  34;
+    <AD12> =  35;
+    <RTRN> =  36;
+
+    <CAPS> =  66;
+    <AC01> =  38;
+    <AC02> =  39;
+    <AC03> =  40;
+    <AC04> =  41;
+    <AC05> =  42;
+    <AC06> =  43;
+    <AC07> =  44;
+    <AC08> =  45;
+    <AC09> =  46;
+    <AC10> =  47;
+    <AC11> =  48;
+
+    <LFSH> =  50;
+    <AB01> =  52;
+    <AB02> =  53;
+    <AB03> =  54;
+    <AB04> =  55;
+    <AB05> =  56;
+    <AB06> =  57;
+    <AB07> =  58;
+    <AB08> =  59;
+    <AB09> =  60;
+    <AB10> =  61;
+    <RTSH> =  62;
+    <BKSL> =  51;
+
+    <LALT> =  64;
+    <LCTL> =  37;
+    <SPCE> =  65;
+    <ALGR> = 113;
+    alias <RALT> = <ALGR>;
+
+    <LMTA> = 115;
+    <RMTA> = 116;
+    <COMP> = 117;
+
+    <ESC>  =   9;
+    <FK01> =  67;
+    <FK02> =  68;
+    <FK03> =  69;
+    <FK04> =  70;
+    <FK05> =  71;
+    <FK06> =  72;
+    <FK07> =  73;
+    <FK08> =  74;
+    <FK09> =  75;
+    <FK10> =  76;
+    <FK11> =  95;
+    <FK12> =  96;
+
+    <PRSC> = 111;
+    <SCLK> =  78;
+    <PAUS> = 110;
+
+    <INS>  = 106;
+    <HOME> =  97;
+    <PGUP> =  99;
+    <DELE> = 107;
+    <END>  = 103;
+    <PGDN> = 105;
+
+    <UP>   =  98;
+    <LEFT> = 100;
+    <DOWN> = 104;
+    <RGHT> = 102;
+
+    <NMLK> =  77;
+    <KPDV> = 112;
+    <KPMU> =  63;
+    <KPSU> =  82;
+
+    <KP7>  =  79;
+    <KP8>  =  80;
+    <KP9>  =  81;
+    <KPAD> =  86;
+
+    <KP4>  =  83;
+    <KP5>  =  84;
+    <KP6>  =  85;
+
+    <KP1>  =  87;
+    <KP2>  =  88;
+    <KP3>  =  89;
+    <KPEN> = 108;
+
+    <KP0>  =  90;
+    <KPDL> =  91;
+
+    <STOP> = 222;
+    <AGAI> = 223;
+    <PROP> = 224;
+    <UNDO> = 225;
+    <FRNT> = 226;
+    <COPY> = 227;
+    <OPEN> = 228;
+    <PAST> = 229;
+    <FIND> = 230;
+    <CUT>  = 231;
+
+    <HELP> = 232;
+
+    <MUTE> = 165;
+    <VOL-> = 159;
+    <VOL+> = 158;
+    <POWR> = 160;
+
+    indicator 1 = "Caps Lock";
+    indicator 2 = "Num Lock";
+    indicator 3 = "Scroll Lock";
+};
+
 xkb_keycodes "type4_euro" {
     include "sun(type4)"
     <LSGT> = 131;
@@ -309,6 +455,11 @@ xkb_keycodes "type4_euro" {
 xkb_keycodes "type5_euro" {
     include "sun(type5)"
     <LSGT> = 131;
+};
+
+xkb_keycodes "type6_euro" {
+    include "sun(type6)"
+    <LSGT> =  94;
 };
 
 xkb_keycodes "type5_se" {

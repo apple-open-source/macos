@@ -1,4 +1,5 @@
-/*	$NetBSD: glob.h,v 1.11 1998/06/22 12:01:43 tv Exp $	*/
+/*	$Id$	*/
+/*	$NetBSD: glob.h,v 1.13 2001/03/16 21:02:42 christos Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993
@@ -79,6 +80,7 @@ typedef struct {
 #define	GLOB_BRACE	0x0080	/* Expand braces ala csh. */
 #define	GLOB_MAGCHAR	0x0100	/* Pattern had globbing characters. */
 #define	GLOB_NOMAGIC	0x0200	/* GLOB_NOCHECK without magic chars (csh). */
+#define GLOB_LIMIT	0x0400	/* Limit memory used by matches to ARG_MAX */
 #define	GLOB_TILDE	0x0800	/* Expand tilde names from the passwd file. */
 #define	GLOB_QUOTE	0		/* source compatibility */
 

@@ -14,9 +14,18 @@ Manual pages:
 <p>
 ]]>
 
+<![ %specdocs; [
+<p>
+Other:
+<itemize>
+<item><htmlurl name="Specification and Related Documents" url="specindex.html">
+</itemize>
+<p>
+]]>
+
 
 </article>
 
 <!--
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/index.post,v 1.2 2000/03/21 19:57:10 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/index.post,v 1.3 2003/03/19 01:49:28 dawes Exp $
 -->

@@ -1,14 +1,18 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2000-2002
+# Copyright (c) 2000-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: test083.tcl,v 1.1.1.1 2003/02/15 04:56:17 zarzycki Exp $
+# $Id: test083.tcl,v 1.2 2004/03/30 01:24:09 jtownsen Exp $
 #
 # TEST	test083
 # TEST	Test of DB->key_range.
 proc test083 { method {pgsz 512} {maxitems 5000} {step 2} args} {
 	source ./include.tcl
+
+	global rand_init
+	error_check_good set_random_seed [berkdb srand $rand_init] 0
+
 	set omethod [convert_method $method]
 	set args [convert_args $method $args]
 

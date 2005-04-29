@@ -24,6 +24,8 @@
 #include <mach/i386/task.h>
 #elif defined(__ppc__)
 #include <mach/ppc/task.h>
+#elif defined(__ppc64__)
+#include <mach/ppc64/task.h>
 #else
 #error unknown architecture
 #endif 

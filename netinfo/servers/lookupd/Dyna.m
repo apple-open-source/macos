@@ -50,7 +50,7 @@ static void *
 fetch_symbol(char *sym, char *agent, NSModule module)
 {
 	char *symbol_name;
-	NSSymbol *symbol;
+	NSSymbol symbol;
 	u_int32_t len;
 
 	len = strlen(agent) + strlen(sym) + 16;
@@ -197,7 +197,7 @@ get_config_agent(void *d, int c, dsrecord **r)
 {
 	NSObjectFileImage image;
 	NSObjectFileImageReturnCode status;
-	NSModule *mod;
+	NSModule mod;
 	void (*module_impl)(void);
 	char *p, *q, *loadpath, *name;
 	int i, len, loadindex;

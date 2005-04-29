@@ -1,0 +1,44 @@
+*** jmorecfg.h.orig	Fri Jan 15 22:02:11 1999
+--- jmorecfg.h	Fri Jan 15 22:02:10 1999
+***************
+*** 187,193 ****
+--- 187,210 ----
+  /* a function referenced thru EXTERNs: */
+  #define GLOBAL(type)		type
+  /* a reference to a GLOBAL function: */
++ 
++ /* Compile with -DJPEG_DLL for Windows DLL support */
++ #if defined(__WIN32__) && defined(JPEG_DLL)
++ #  define WIN32_LEAN_AND_MEAN
++ #  include <windows.h>
++ #  undef WIN32_LEAN_AND_MEAN
++ #  if defined(_MSC_VER)
++ #    define EXTERN(type) extern __declspec(dllexport) type
++ #  else
++ #    if defined(__BORLANDC__)
++ #	define EXTERN(type) extern type _export
++ #    endif
++ #  endif
++ #endif
++ 
++ #if !defined(EXTERN)
+  #define EXTERN(type)		extern type
++ #endif
+  
+  
+  /* This macro is used to declare a "method", that is, a function pointer.
+***************
+*** 209,218 ****
+--- 226,237 ----
+   * explicit coding is needed; see uses of the NEED_FAR_POINTERS symbol.
+   */
+  
++ #ifndef FAR
+  #ifdef NEED_FAR_POINTERS
+  #define FAR  far
+  #else
+  #define FAR
++ #endif
+  #endif
+  
+  

@@ -52,11 +52,17 @@
 #ifndef _POSIX_PTHREAD_INTERNALS_H
 #define _POSIX_PTHREAD_INTERNALS_H
 
+// suppress pthread_attr_t typedef in sys/signal.h
+#define _PTHREAD_ATTR_T
+struct _pthread_attr_t; /* forward reference */
+typedef struct _pthread_attr_t pthread_attr_t;
 
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <errno.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 
@@ -82,21 +88,26 @@ extern pthread_lock_t _pthread_list_lock;
 /*
  * Threads
  */
+#define _PTHREAD_T
 typedef struct _pthread
 {
 	long	       sig;	      /* Unique signature for this structure */
-	struct _pthread_handler_rec *cleanup_stack;
+	struct __darwin_pthread_handler_rec *__cleanup_stack;
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
 	u_int32_t	detached:8,
 			inherit:8,
 			policy:8,
 			pad:8;
 	size_t	       guardsize;	/* size in bytes to guard stack overflow */
-	int	       pad0;
+#if  !defined(__LP64__)
+	int	       pad0;		/* for backwards compatibility */
+#endif
 	struct sched_param param;
 	struct _pthread_mutex *mutexes;
 	struct _pthread *joiner;
-	int			pad1;
+#if !defined(__LP64__)
+	int		pad1;		/* for backwards compatibility */
+#endif
 	void           *exit_value;
 	semaphore_t    death;		/* pthread_join() uses this to wait for death's call */
 	mach_port_t    kernel_thread; /* kernel thread this thread is bound to */
@@ -108,8 +119,14 @@ typedef struct _pthread
         void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
 	mach_port_t    reply_port;     /* Cached MiG reply port */
-        void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
+#if defined(__LP64__)
+        int		pad2;		/* for natural alignment */
+#endif
+	void           *cthread_self;  /* cthread_self() if somebody calls cthread_set_self() */
         boolean_t      freeStackOnExit; /* Should we free the stack when we're done? */
+#if defined(__LP64__)
+	int		pad3;		/* for natural alignment */
+#endif
 	LIST_ENTRY(_pthread) plist;
 } *pthread_t;
 
@@ -122,7 +139,7 @@ typedef char _need_to_change_PTHREAD_TSD_OFFSET[(_PTHREAD_TSD_OFFSET == offsetof
 /*
  * Thread attributes
  */
-typedef struct 
+struct _pthread_attr_t
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
@@ -136,11 +153,12 @@ typedef struct
         void           *stackaddr;     /* Base of the stack (is aligned on vm_page_size boundary */
         size_t         stacksize;      /* Size of the stack (is a multiple of vm_page_size and >= PTHREAD_STACK_MIN) */
 	boolean_t      freeStackOnExit;/* Should we free the stack when we exit? */
-} pthread_attr_t;
+};
 
 /*
  * Mutex attributes
  */
+#define _PTHREAD_MUTEXATTR_T
 typedef struct 
 {
 	long sig;		     /* Unique signature for this structure */
@@ -153,6 +171,7 @@ typedef struct
 /*
  * Mutex variables
  */
+#define _PTHREAD_MUTEX_T
 typedef struct _pthread_mutex
 {
 	long	       sig;	      /* Unique signature for this structure */
@@ -174,6 +193,7 @@ typedef struct _pthread_mutex
 /*
  * Condition variable attributes
  */
+#define _PTHREAD_CONDATTR_T
 typedef struct 
 {
 	long	       sig;	     /* Unique signature for this structure */
@@ -183,6 +203,7 @@ typedef struct
 /*
  * Condition variables
  */
+#define _PTHREAD_COND_T
 typedef struct _pthread_cond
 {
 	long	       sig;	     /* Unique signature for this structure */
@@ -197,18 +218,21 @@ typedef struct _pthread_cond
 /*
  * Initialization control (once) variables
  */
+#define _PTHREAD_ONCE_T
 typedef struct 
 {
 	long	       sig;	      /* Unique signature for this structure */
 	pthread_lock_t lock;	      /* Used for internal mutex on structure */
 } pthread_once_t;
 
+#define _PTHREAD_RWLOCKATTR_T
 typedef struct {
 	long	       sig;	      /* Unique signature for this structure */
 	int             pshared;
 	int		rfu[2];		/* reserved for future use */
 } pthread_rwlockattr_t;
 
+#define _PTHREAD_RWLOCK_T
 typedef struct {
 	long 		sig;
         pthread_mutex_t lock;   /* monitor lock */
@@ -221,6 +245,26 @@ typedef struct {
 } pthread_rwlock_t;
 
 #include "pthread.h"
+
+#if defined(__i386__) || defined(__ppc64__)
+/*
+ * Inside libSystem, we can use r13 or %gs directly to get access to the
+ * thread-specific data area. The current thread is in the first slot.
+ */
+inline static pthread_t __attribute__((__pure__))
+_pthread_self_direct(void)
+{
+       pthread_t ret;
+#if defined(__i386__)
+       asm("movl %%gs:%P1, %0" : "=r" (ret) : "i" (offsetof(struct _pthread, tsd[0])));
+#elif defined(__ppc64__)
+	register const pthread_t __pthread_self asm ("r13");
+	ret = __pthread_self;
+#endif
+       return ret;
+}
+#define pthread_self() _pthread_self_direct()
+#endif
 
 #define _PTHREAD_DEFAULT_INHERITSCHED	PTHREAD_INHERIT_SCHED
 #define _PTHREAD_DEFAULT_PROTOCOL	PTHREAD_PRIO_NONE
@@ -253,8 +297,8 @@ typedef struct {
 #endif
 #define _PTHREAD_MUTEX_OWNER_SWITCHING	(pthread_t)(~0)
 
-#define _PTHREAD_CANCEL_STATE_MASK   0xFE
-#define _PTHREAD_CANCEL_TYPE_MASK    0xFD
+#define _PTHREAD_CANCEL_STATE_MASK   0x01
+#define _PTHREAD_CANCEL_TYPE_MASK    0x02
 #define _PTHREAD_CANCEL_PENDING	     0x10  /* pthread_cancel() has been called for this thread */
 
 extern boolean_t swtch_pri(int);
@@ -278,4 +322,5 @@ extern void _pthread_tsd_cleanup(pthread_t self);
 
 __private_extern__ semaphore_t new_sem_from_pool(void);
 __private_extern__ void restore_sem_to_pool(semaphore_t);
+__private_extern__ void _pthread_atfork_queue_init(void);
 #endif /* _POSIX_PTHREAD_INTERNALS_H */

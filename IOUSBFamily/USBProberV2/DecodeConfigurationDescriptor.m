@@ -133,7 +133,7 @@
     {
         UInt8 descLen = p[0];
         UInt8 descType = p[1];
-        
+
         if ( descLen == 0 )
         {
             [thisDevice addProperty:"Illegal Descriptor:" withValue: "Length of 0" atDepth:CONFIGURATION_DESCRIPTOR_LEVEL];
@@ -141,19 +141,19 @@
         }
         else
         {
-        //  If this is an interface descriptor, save the interface class and subclass
-        //
-        if ( descType == kUSBInterfaceDesc )
-        {
-            [thisDevice setLastInterfaceClassInfo:[BusProbeClass withClass:((IOUSBInterfaceDescriptor *)p)->bInterfaceClass subclass:((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass protocol:((IOUSBInterfaceDescriptor *)p)->bInterfaceProtocol]];
-            [thisDevice setCurrentInterfaceNumber:(int)((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber];
+            //  If this is an interface descriptor, save the interface class and subclass
+            //
+            if ( descType == kUSBInterfaceDesc )
+            {
+                [thisDevice setLastInterfaceClassInfo:[BusProbeClass withClass:((IOUSBInterfaceDescriptor *)p)->bInterfaceClass subclass:((IOUSBInterfaceDescriptor *)p)->bInterfaceSubClass protocol:((IOUSBInterfaceDescriptor *)p)->bInterfaceProtocol]];
+                [thisDevice setCurrentInterfaceNumber:(int)((IOUSBInterfaceDescriptor *)p)->bInterfaceNumber];
+            }
+
+            [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc];
+
+            p += descLen;
         }
-        
-        [DescriptorDecoder decodeBytes:p forDevice:thisDevice deviceInterface:deviceIntf userInfo:NULL isOtherSpeedDesc:isOtherSpeedDesc];
-        
-        p += descLen;
     }
-}
 }
 
 @end

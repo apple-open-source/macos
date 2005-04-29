@@ -206,6 +206,16 @@ static const SearchData SUPPLEMENTARY[] = {
     {"abc \\uD800\\uDC00 \\uD800\\uDC01 \\uD801\\uDC00 \\uD800\\uDC00abc abc\\uD800\\uDC00 \\uD800\\uD800\\uDC00 \\uD800\\uDC00\\uDC00", 
      "\\uD800\\uDC00", NULL, UCOL_TERTIARY, NULL, {4, 13, 22, 26, 29, -1}, 
     {2, 2, 2, 2, 2}},
+    {"and\\uD834\\uDDB9this sentence", "\\uD834\\uDDB9", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {2}},
+    {"and \\uD834\\uDDB9 this sentence", " \\uD834\\uDDB9 ", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and-\\uD834\\uDDB9-this sentence", "-\\uD834\\uDDB9-", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and,\\uD834\\uDDB9,this sentence", ",\\uD834\\uDDB9,", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and?\\uD834\\uDDB9?this sentence", "?\\uD834\\uDDB9?", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
     {NULL, NULL, NULL, UCOL_TERTIARY, NULL, {-1}, {0}}
 };
 
@@ -271,6 +281,8 @@ static const SearchData BASICCANONICAL[] = {
     NULL, {0, -1}, {5}},
     {"a\\u0300\\u0325b\\u0300\\u0325c \\u0325b\\u0300 \\u0300b\\u0325", 
     "\\u0300b\\u0325", NULL, UCOL_TERTIARY, NULL, {1, 12, -1}, {5, 3}},
+    {"\\u00c4\\u0323", "A\\u0323\\u0308", NULL, UCOL_TERTIARY, NULL, {0, -1}, {2}},
+    {"\\u0308\\u0323", "\\u0323\\u0308", NULL, UCOL_TERTIARY, NULL, {0, -1}, {2}},
     {NULL, NULL, NULL, UCOL_TERTIARY, NULL, {-1}, {0}}
 };
 
@@ -428,6 +440,16 @@ static const SearchData SUPPLEMENTARYCANONICAL[] = {
     {"abc \\uD800\\uDC00 \\uD800\\uDC01 \\uD801\\uDC00 \\uD800\\uDC00abc abc\\uD800\\uDC00 \\uD800\\uD800\\uDC00 \\uD800\\uDC00\\uDC00", 
      "\\uD800\\uDC00", NULL, UCOL_TERTIARY, NULL, {4, 13, 22, 26, 29, -1}, 
     {2, 2, 2, 2, 2}},
+    {"and\\uD834\\uDDB9this sentence", "\\uD834\\uDDB9", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {2}},
+    {"and \\uD834\\uDDB9 this sentence", " \\uD834\\uDDB9 ", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and-\\uD834\\uDDB9-this sentence", "-\\uD834\\uDDB9-", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and,\\uD834\\uDDB9,this sentence", ",\\uD834\\uDDB9,", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
+    {"and?\\uD834\\uDDB9?this sentence", "?\\uD834\\uDDB9?", NULL, 
+     UCOL_TERTIARY, NULL, {3, -1}, {4}},
     {NULL, NULL, NULL, UCOL_TERTIARY, NULL, {-1}, {0}}
 };
 

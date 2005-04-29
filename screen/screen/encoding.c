@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h" 
-RCS_ID("$Id: encoding.c,v 1.1.1.1 2003/03/19 21:16:18 landonf Exp $ FAU") 
-
 #include <sys/types.h>
 
 #include "config.h"
@@ -1081,7 +1078,7 @@ char *name;
   if (encmatch(name, "UTF-8"))
     return -1;
 #endif
-  for (encoding = 0; encoding < sizeof(encodings)/sizeof(*encodings); encoding++)
+  for (encoding = 0; encoding < (int)(sizeof(encodings)/sizeof(*encodings)); encoding++)
     if (encmatch(name, encodings[encoding].name))
       {
 #ifdef UTF8
@@ -1096,7 +1093,7 @@ char *
 EncodingName(encoding)
 int encoding;
 {
-  if (encoding >= sizeof(encodings)/sizeof(*encodings))
+  if (encoding >= (int)(sizeof(encodings)/sizeof(*encodings)))
     return 0;
   return encodings[encoding].name;
 }
@@ -1260,8 +1257,8 @@ int *fontp;
 # ifdef DW_CHARS
 	  if (is_dw_font(f))
 	    {
-	      int c2 = c >> 8 & 0xff;
-	      c = (c & 0xff) | (f << 8);
+	      int c2 = c & 0xff;
+	      c = (c >> 8 & 0xff) | (f << 8);
 	      c = recode_char_dw_to_encoding(c, &c2, encoding);
 	    }
 	  else

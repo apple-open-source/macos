@@ -17,6 +17,7 @@
  * templates.
  *
  */
+/* $XFree86: xc/extras/FreeType/contrib/ttf2pfb/ttf2pfb.c,v 1.3 2003/10/21 18:10:08 tsi Exp $ */
 
 /*
  * Requirements:

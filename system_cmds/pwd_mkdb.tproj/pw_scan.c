@@ -64,6 +64,13 @@ pw_scan(char *bp, struct passwd *pw, int *flags)
 	if (flags != (int *)NULL)
 		*flags = 0;
 
+#ifdef __APPLE__
+	if (bp[0] == '#') {
+		pw->pw_name = NULL;
+		return(1);
+	}
+#endif
+
 	if (!(p = strsep(&bp, ":")) || *p == '\0')	/* login */
 		goto fmt;
 	pw->pw_name = p;

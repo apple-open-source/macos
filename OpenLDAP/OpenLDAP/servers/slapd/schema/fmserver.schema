@@ -1,0 +1,60 @@
+# $OpenLDAP: /etc/openldap/schema/fms.schema,v 1.0.0.0 2001/06/28 21:35:00  Exp $
+#
+#
+#
+# Name:
+#
+#	fmserver.schema
+#
+# -------------------------------------------------
+#	attribute definitions
+# -------------------------------------------------
+#
+attributeType ( 1.2.840.113556.1.4.509	NAME 'serviceClassName'
+	DESC 'MSDS serviceClassName'
+	EQUALITY caseIgnoreIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+	SINGLE-VALUE )
+attributeType ( 1.2.840.113556.1.4.510	NAME 'serviceBindingInformation'
+	DESC 'MSDS serviceBindingInformation'
+	EQUALITY caseIgnoreIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+	SINGLE-VALUE )
+attributeType ( 1.2.840.113556.1.4.653	NAME 'managedBy'
+	DESC 'MSDS managedBy'
+	EQUALITY caseExactIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+	SINGLE-VALUE )
+attributeType ( 1.2.840.113556.1.4.657	NAME 'serviceDNSName'
+	DESC 'Microsoft Active Directory Attribute'
+	EQUALITY caseIgnoreIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+	SINGLE-VALUE )
+attributeType ( 1.2.840.113556.1.4.659	NAME 'serviceDNSNameType'
+	DESC 'Microsoft Active Directory Attribute'
+	EQUALITY caseIgnoreIA5Match
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+	SINGLE-VALUE )
+attributeType ( 1.2.840.113556.1.4.48	NAME 'keywords'
+	DESC 'Microsoft Active Directory Attribute'
+	EQUALITY caseExactMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+
+# -------------------------------------------------
+#	object class definitions
+# -------------------------------------------------
+#
+objectClass ( 1.2.840.113556.1.5.20 NAME 'leaf'
+	DESC 'Microsoft Active Directory Leaf Object'
+	SUP ( top ) )
+objectClass ( 1.2.840.113556.1.5.14 NAME 'connectionPoint'
+	DESC 'Microsoft Active Directory ConnectPoint Object'
+	SUP ( leaf )
+	MUST ( cn )
+	MAY ( keywords $ managedBy ) )
+objectClass ( 1.2.840.113556.1.5.126 NAME 'serviceConnectionPoint'
+	DESC 'Microsoft Active Directory ServiceConnectionPoint Object'
+	SUP ( connectionPoint )
+	MUST ( name $ serviceBindingInformation)
+	MAY ( l $ mail $ owner $ serviceClassName $ serviceDNSName $ serviceDNSNameType $ telephonenumber $ description ) )
+

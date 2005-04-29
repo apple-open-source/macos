@@ -1,0 +1,4 @@
+debian/install/usr/lib/libgimpprint.so.*                   usr/lib
+debian/install/usr/lib/libgimpprint-#UPSTREAM_VERSION#.so  usr/lib
+debian/install/usr/lib/gimp-print                          usr/lib
+debian/install/usr/share/gimp-print/#UPSTREAM_VERSION#     usr/share/gimp-print

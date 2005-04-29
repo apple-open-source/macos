@@ -1,6 +1,6 @@
 <?
 //
-// "$Id: phpcups.php,v 1.1.1.1 2003/04/11 21:07:50 jlovell Exp $"
+// "$Id: phpcups.php,v 1.1.1.3 2004/10/31 16:15:49 jlovell Exp $"
 //
 //   PHP test script for the Common UNIX Printing System (CUPS).
 //
@@ -48,6 +48,6 @@ if (extension_loaded($module)) {
 echo "$str\n";
 
 //
-// End of "$Id: phpcups.php,v 1.1.1.1 2003/04/11 21:07:50 jlovell Exp $".
+// End of "$Id: phpcups.php,v 1.1.1.3 2004/10/31 16:15:49 jlovell Exp $".
 //
 ?>

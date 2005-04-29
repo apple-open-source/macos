@@ -1,0 +1,61 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {
+                apply = id; 
+                cancel = id; 
+                defaultPrincipalRadioButtonWasHit = id; 
+                defaultTicketOptionsRadioButtonWasHit = id; 
+                ok = id; 
+            }; 
+            CLASS = PreferencesController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                addresslessCheckbox = NSButton; 
+                alwaysOpenListWindowRadioButtonCell = NSButtonCell; 
+                autoRenewCheckbox = NSButton; 
+                defaultOptionsRadioButtonMatrix = NSMatrix; 
+                defaultPrincipalRadioButtonMatrix = NSMatrix; 
+                defaultToTheseOptionsRadioButtonCell = NSButtonCell; 
+                defaultToThisPrincipalRadioButtonCell = NSButtonCell; 
+                forwardableCheckbox = NSButton; 
+                launchActionMatrix = NSMatrix; 
+                lifetimeHeaderTextField = NSTextField; 
+                lifetimeMaximumDaysTextField = NSTextField; 
+                lifetimeMaximumHoursTextField = NSTextField; 
+                lifetimeMaximumMinutesTextField = NSTextField; 
+                lifetimeMinimumDaysTextField = NSTextField; 
+                lifetimeMinimumHoursTextField = NSTextField; 
+                lifetimeMinimumMinutesTextField = NSTextField; 
+                lifetimeSlider = NSSlider; 
+                lifetimeTextField = NSTextField; 
+                nameHeaderTextField = NSTextField; 
+                nameTextField = NSTextField; 
+                neverOpenListWindowRadioButtonCell = NSButtonCell; 
+                optionsHeaderTextField = NSTextField; 
+                preferencesTabView = NSTabView; 
+                principalBox = NSBox; 
+                realmComboBox = NSComboBox; 
+                realmHeaderTextField = NSTextField; 
+                rememberOptionsRadioButtonCell = NSButtonCell; 
+                rememberPrincipalRadioButtonCell = NSButtonCell; 
+                rememberTicketListWindowOpenessRadioButtonCell = NSButtonCell; 
+                rememberTicketWindowPositionCheckbox = NSButton; 
+                renewableCheckbox = NSButton; 
+                renewableMaximumDaysTextField = NSTextField; 
+                renewableMaximumHoursTextField = NSTextField; 
+                renewableMaximumMinutesTextField = NSTextField; 
+                renewableMinimumDaysTextField = NSTextField; 
+                renewableMinimumHoursTextField = NSTextField; 
+                renewableMinimumMinutesTextField = NSTextField; 
+                renewableSlider = NSSlider; 
+                renewableTextField = NSTextField; 
+                showTimeRemainingInDockCheckbox = NSButton; 
+                timeRangesTabViewItem = NSTabViewItem; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

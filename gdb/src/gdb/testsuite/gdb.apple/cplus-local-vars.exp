@@ -1,0 +1,88 @@
+# Copyright 2003 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+# This file was written by Igor Likhatchev (igor@apple.com)
+
+# This file encapsulates a bug of gcc-3.3 reported in radar 3415844 - 
+# gdb would not show info on some variables.
+
+# This file is part of the gdb testsuite
+
+if $tracelevel then {
+        strace $tracelevel
+        }
+
+#
+# test running programs
+#
+
+set prms_id 0
+set bug_id 0
+
+set testfile "cplus-local-vars"
+set srcfile ${testfile}.cc
+set binfile ${objdir}/${subdir}/${testfile}
+
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug c++}] != "" } {
+     gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+# Start with a fresh gdb
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+gdb_file_cmd "${binfile}"
+
+send_gdb "set width 0\n"
+gdb_expect -re "$gdb_prompt $"
+
+gdb_test "break [gdb_get_line_number "put a breakpoint 1 here"]" "Breakpoint 1 at $hex: file.*, line.*\\." "Set breakpoint on line  'put a breakpoint 1 here'"
+
+gdb_test "run" "Starting program: $binfile *\r\n\Reading symbols for shared libraries \(\[.+\]\)+ done.*Breakpoint 1, foo.*" "continue to breakpoint in foo()"
+
+send_gdb "list\n" 
+
+# The problem was that debugger couldn't get debug info on some variables:
+send_gdb "p acidDivision\n" 
+gdb_expect {
+    -re "No symbol \"acidDivision\".*" {
+        fail "print acidDivision"
+        }
+    -re "$decimal = 0" {
+        pass "print acidDivision"
+        }
+    timeout {
+        fail "(timeout) print acidDivision" 
+  }
+}
+
+send_gdb "print my_i\n" 
+gdb_expect {
+    -re "No symbol \"my_i\".*" {
+        fail "print my_i"
+        }
+    -re "$decimal =.*" {
+        pass "print my_i"
+        }
+    timeout {
+        fail "(timeout) print my_i" 
+  }
+}
+
+gdb_exit
+return 0
+
+

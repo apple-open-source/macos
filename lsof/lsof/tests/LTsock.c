@@ -140,7 +140,7 @@ pid_t MyPid = (pid_t)0;		/* PID of this process */
 char *Pn = (char *)NULL;	/* program name */
 char *PtNm[] = { "client", "server" };
 				/* program type name */
-char Ssock = -1;		/* server socket */
+int Ssock = -1;			/* server socket */
 
 
 /*

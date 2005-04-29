@@ -21,7 +21,7 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
      DRI_SRCS = dri_glx.c dri_driver.c dri_dispatch.c x-hash.c x-list.c
      DRI_OBJS = dri_glx.o dri_driver.o dri_dispatch.o x-hash.o x-list.o
      DRI_INCS = -I. -I$(GLXLIBSRC)/glx -I$(INCLUDESRC) -I$(INCLUDESRC)/GL \
-		-I$(XINCLUDESRC) -I$(SERVERSRC)/GL/dri \
+		-I$(XINCLUDESRC) -I$(SERVERSRC)/GL/dri -I../include \
 		-I$(MESASRCDIR)/include -I$(MESASRCDIR)/src
 #endif
 

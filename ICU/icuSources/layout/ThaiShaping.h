@@ -1,7 +1,6 @@
 /*
- * @(#)ThaiShaping.h	1.9 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -18,6 +17,8 @@
 #include "OpenTypeTables.h"
 
 U_NAMESPACE_BEGIN
+
+class LEGlyphStorage;
 
 class ThaiShaping /* not : public UObject because all methods are static */ {
 public:
@@ -46,15 +47,15 @@ public:
         classCount = 19,
 
         // State Transition actions
-        _A  =  0,
-        _C  =  1,
-        _D  =  2,
-        _E  =  3,
-        _F  =  4,
-        _G  =  5,
-        _H  =  6,
-        _R  =  7,
-        _S  =  8
+        tA  =  0,
+        tC  =  1,
+        tD  =  2,
+        tE  =  3,
+        tF  =  4,
+        tG  =  5,
+        tH  =  6,
+        tR  =  7,
+        tS  =  8
     };
 
     struct StateTransition
@@ -67,7 +68,7 @@ public:
     };
 
     static le_int32 compose(const LEUnicode *input, le_int32 offset, le_int32 charCount, le_uint8 glyphSet,
-        LEUnicode errorChar, LEUnicode *output, le_int32 *charIndicies);
+        LEUnicode errorChar, LEUnicode *output, LEGlyphStorage &glyphStorage);
 
 private:
     // forbid instantiation
@@ -78,10 +79,10 @@ private:
 
     static StateTransition getTransition(le_uint8 state, le_uint8 currClass);
     static le_uint8 doTransition(StateTransition transition, LEUnicode currChar, le_int32 inputIndex, le_uint8 glyphSet,
-        LEUnicode errorChar, LEUnicode *outputBuffer, le_int32 *charIndicies, le_int32 &outputIndex);
+        LEUnicode errorChar, LEUnicode *outputBuffer, LEGlyphStorage &glyphStorage, le_int32 &outputIndex);
 
     static le_uint8 getNextState(LEUnicode ch, le_uint8 state, le_int32 inputIndex, le_uint8 glyphSet, LEUnicode errorChar,
-        le_uint8 &charClass, LEUnicode *output, le_int32 *charIndicies, le_int32 &outputIndex);
+        le_uint8 &charClass, LEUnicode *output, LEGlyphStorage &glyphStorage, le_int32 &outputIndex);
 
     static le_bool isLegalHere(LEUnicode ch, le_uint8 prevState);
     static le_uint8 getCharClass(LEUnicode ch);

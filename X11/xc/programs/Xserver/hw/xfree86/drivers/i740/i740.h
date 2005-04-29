@@ -25,7 +25,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i740/i740.h,v 1.7 2002/10/23 16:08:36 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i740/i740.h,v 1.8 2003/08/23 16:09:17 dawes Exp $ */
 
 /*
  * Authors:
@@ -150,6 +150,7 @@ void I740InitVideo(ScreenPtr pScreen);
 Bool I740SwitchMode(int scrnIndex, DisplayModePtr mode, int flags);
 void I740AdjustFrame(int scrnIndex, int x, int y, int flags);
 
+Bool I740_I2CInit(ScrnInfoPtr pScrn);
 
 #define minb(p) MMIO_IN8(pI740->MMIOBase, (p))
 #define moutb(p,v) MMIO_OUT8(pI740->MMIOBase, (p),(v))

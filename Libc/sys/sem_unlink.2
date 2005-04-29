@@ -45,7 +45,7 @@ will refer to or create a new semaphore named
 .Fa name .
 .Pp
 If successful,
-.Fn sem_close
+.Fn sem_unlink
 will return 0.  Otherwise, -1 is returned and
 .Va errno
 is set, and the state of the semaphore is unchanged.

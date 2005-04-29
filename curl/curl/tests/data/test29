@@ -1,7 +1,7 @@
 # Server-side
 <reply>
 <data>
-HTTP/1.1 200 OK
+HTTP/1.1 200 OK swsclose
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Connection: close
 
@@ -14,13 +14,16 @@ wait 10
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP with 2 secs timeout
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/want/29 -m 2
+http://%HOSTIP:%HTTPPORT/want/29 -m 2
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -29,9 +32,9 @@ http://%HOSTIP:%HOSTPORT/want/29 -m 2
 </strip>
 <protocol>
 GET /want/29 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 <errorcode>

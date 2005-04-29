@@ -1,23 +1,45 @@
-.\" $XFree86: xc/programs/mkfontscale/mkfontscale.man,v 1.2 2002/09/27 01:55:07 dawes Exp $
+.\" $XFree86: xc/programs/mkfontscale/mkfontscale.man,v 1.5 2003/07/04 16:24:30 eich Exp $
 .\"
 .TH MKFONTSCALE 1 __vendorversion__
 .SH NAME
 mkfontscale \- create an index of scalable font files for X
-
 .SH SYNOPSIS
 .B mkfontscale
 [
-.B \-e
+.B \-b 
+] [
+.B \-s
+] [
+.B \-o 
+.I filename
+] [
+.B \-x
+.I suffix
+] [
+.B \-a
 .I encoding
 ] \|.\|.\|. [
-.B \-f
+.B \-f 
 .I fuzz
+] [
+.B \-l
+] [
+.B \-e
+.I directory
+] [
+.B \-p
+.I prefix
+] [
+.B \-r
+.I prefix
+] [
+.B \-n
+.I prefix
 ] [
 .B \-\-
 ] [
 .I directory
 ] \|.\|.\|.
-
 .SH DESCRIPTION
 For each directory argument,
 .I mkfontscale
@@ -33,11 +55,36 @@ file should be checked and possibly manually edited before being used
 as input for the
 .BR mkfontdir (1)
 program.
-
 .SH OPTIONS
-
 .TP
-.BI \-e " encoding"
+.B \-b
+read bitmap fonts.  By default, bitmap fonts are ignored.
+.TP
+.B \-s
+ignore scalable fonts.  By default, scalable fonts are read.  If
+.B \-b
+is set, this flag has the side effect of enabling the reading of
+.B fonts.scale
+files.
+.BI \-o " filename"
+send program output to
+.IR filename ;
+default is
+.B fonts.scale 
+if bitmap fonts are not being read, and
+.B fonts.dir
+if they are.  If
+.I filename
+is relative, it is created in the directory being processed.  If it is
+the special value 
+.BR \- ,
+output is written to standard output.
+.TP
+.BI \-x " suffix"
+exclude all files with the specified
+.I suffix
+.TP
+.BI \-a " encoding"
 add
 .I encoding
 to the list of encodings searched for.
@@ -47,18 +94,55 @@ set the fraction of characters that may be missing in large encodings to
 .I fuzz
 percent.  Defaults to 2%.
 .TP
+.B \-l
+Write
+.B fonts.dir
+files suitable for implementations that cannot reencode legacy fonts
+(BDF and PCF).  By default, it is assumed that the implementation can
+reencode Unicode-encoded legacy fonts.
+.TP
+.B -e
+specifies a directory with encoding files.  Every such
+directory is scanned for encoding files, the list of which is then
+written to an "encodings.dir" file in every font directory.
+.TP
+.B -p
+Specifies a prefix that is prepended to the encoding file path names
+when they are written to the "encodings.dir" file.  The prefix is
+prepended litterally: if a `/' is required between the prefix and the path
+names, it must be supplied explicitly as part of the prefix.
+.TP
+.B \-r
+Keep non-absolute encoding directories in their relative form when
+writing the "encodings.dir" file.  The default is to convert relative
+encoding directories to absolute directories by prepending the current
+directory.  The positioning of this options is significant, as this
+option only applies to subsequent
+.TP
+.B \-n
+do not scan for fonts, do not write font directory files.  This option
+is useful when generating encoding directories only.
+.TP
 .B \-\- 
 end of options.
-
 .SH SEE ALSO
 X(__miscmansuffix__), Xserver(1), mkfontdir(1), ttmkfdir(1), xfs(1), xset(1)
-
 .SH NOTES
+The format of the
+.BR fonts.scale ,
+.B fonts.dir
+and
+.B encodings.dir
+files is documented in the mkfontdir(1) manual page.
+
 .B Mkfontscale
 will overwrite any
 .B fonts.scale
 file even if it has been hand-edited.
 
+.B mkfontscale -b -s -l
+is equivalent to
+.BR mkfontdir .
 .SH AUTHOR
 .B Mkfontscale
 was written by Juliusz Chroboczek <jch@xfree86.org> for the XFree86

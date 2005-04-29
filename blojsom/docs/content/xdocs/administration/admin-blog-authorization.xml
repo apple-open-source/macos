@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Authorization Administation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The Authorization Administration plugin allows you to add new authorized users, change the password for
+                existing authorized users, and delete users from the authorization file for your blog. Authorized
+                users have the ability to log into the administration console and access administrative functions
+                through the console and are authorized to edit the blog remotely via XML-RPC.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                edit-blog-authorization=org.blojsom.plugin.admin.EditBlogAuthorizationPlugin
+            </source>
+        </section>
+        <section>
+            <title>Usage</title>
+            <p>
+                After logging into the administration console, you may click on the link to "Edit Blog Authorization"
+                and you will be able to add, modify, and delete authorized users.
+            </p>
+        </section>
+    </body>
+</document>
+

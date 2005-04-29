@@ -210,6 +210,34 @@ kern_return_t
 IOObjectGetClass(
 	io_object_t	object,
 	io_name_t	className );
+	
+/*! @function CFStringRef IOObjectCopyClass
+    @abstract Return the class name of an IOKit object.
+	@discussion This function does the same thing as IOObjectGetClass, but returns the result as a CFStringRef.
+	@param object The IOKit object.
+	@result The resulting CFStringRef. This should be released by the caller. If a valid object is not passed in, then NULL is returned.*/
+	
+CFStringRef 
+IOObjectCopyClass(io_object_t object)
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*! @function CFStringRef IOObjectCopySuperclassForClass
+    @abstract Return the superclass name of the given class.
+    @discussion This function uses the OSMetaClass system in the kernel to derive the name of the superclass of the class.
+	@param classname The name of the class as a CFString.
+	@result The resulting CFStringRef. This should be released by the caller. If there is no superclass, or a valid class name is not passed in, then NULL is returned.*/
+
+CFStringRef 
+IOObjectCopySuperclassForClass(CFStringRef classname);
+
+/*! @function CFStringRef IOObjectCopyBundleIdentifierForClass
+    @abstract Return the bundle identifier of the given class.
+	@discussion This function uses the OSMetaClass system in the kernel to derive the name of the kmod, which is the same as the bundle identifier.
+	@param classname The name of the class as a CFString.
+	@result The resulting CFStringRef. This should be released by the caller. If a valid class name is not passed in, then NULL is returned.*/
+
+CFStringRef 
+IOObjectCopyBundleIdentifierForClass(CFStringRef classname);
 
 /*! @function IOObjectConformsTo
     @abstract Performs an OSDynamicCast operation on an IOKit object.
@@ -291,7 +319,7 @@ IOIteratorIsValid(
     @abstract Look up a registered IOService object that matches a matching dictionary.
     @discussion This is the preferred method of finding IOService objects currently registered by IOKit (that is, objects that have had their registerService() methods invoked). To find IOService objects that aren't yet registered, use an iterator as created by IORegistryEntryCreateIterator(). IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
-    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
+    @param matching A CF dictionary containing matching information, of which one reference is always consumed by this function (Note prior to the Tiger release there was a small chance that the dictionary might not be released if there was an error attempting to serialize the dictionary). IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @result The first service matched is returned on success. The service must be released by the caller.
   */
 
@@ -304,7 +332,7 @@ IOServiceGetMatchingService(
     @abstract Look up registered IOService objects that match a matching dictionary.
     @discussion This is the preferred method of finding IOService objects currently registered by IOKit (that is, objects that have had their registerService() methods invoked). To find IOService objects that aren't yet registered, use an iterator as created by IORegistryEntryCreateIterator(). IOServiceAddMatchingNotification can also supply this information and install a notification of new IOServices. The matching information used in the matching dictionary may vary depending on the class of service being looked up.
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
-    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
+    @param matching A CF dictionary containing matching information, of which one reference is always consumed by this function (Note prior to the Tiger release there was a small chance that the dictionary might not be released if there was an error attempting to serialize the dictionary). IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @param existing An iterator handle is returned on success, and should be released by the caller when the iteration is finished.
     @result A kern_return_t error code. */
 
@@ -334,7 +362,7 @@ IOServiceAddNotification(
 <br>	kIOMatchedNotification Delivered when an IOService has had all matching drivers in the kernel probed and started.
 <br>	kIOFirstMatchNotification Delivered when an IOService has had all matching drivers in the kernel probed and started, but only once per IOService instance. Some IOService's may be reregistered when their state is changed.
 <br>	kIOTerminatedNotification Delivered after an IOService has been terminated.
-    @param matching A CF dictionary containing matching information, of which one reference is consumed by this function. IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
+    @param matching A CF dictionary containing matching information, of which one reference is always consumed by this function (Note prior to the Tiger release there was a small chance that the dictionary might not be released if there was an error attempting to serialize the dictionary). IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @param callback A callback function called when the notification fires.
     @param refCon A reference constant for the callbacks use.
     @param notification An iterator handle is returned on success, and should be released by the caller when the notification is to be destroyed. The notification is armed when the iterator is emptied by calls to IOIteratorNext - when no more objects are returned, the notification is armed. Note the notification is not armed when first created.
@@ -374,7 +402,7 @@ IOServiceAddInterestNotification(
     @abstract Match an IOService objects with matching dictionary.
     @discussion This function calls the matching method of an IOService object and returns the boolean result.
     @param service The IOService object to match.
-    @param matching A CF dictionary containing matching information. IOKitLib can contruct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOOpenFirmwarePathMatching.
+    @param matching A CF dictionary containing matching information, of which one reference is always consumed by this function (Note prior to the Tiger release there was a small chance that the dictionary might not be released if there was an error attempting to serialize the dictionary). IOKitLib can construct matching dictionaries for common criteria with helper functions such as IOServiceMatching, IOServiceNameMatching, IOBSDNameMatching, IOOpenFirmwarePathMatching.
     @param matches The boolean result is returned.
     @result A kern_return_t error code. */
 
@@ -554,7 +582,7 @@ IOConnectMapMemory(
 
 kern_return_t
 IOConnectUnmapMemory(
-	mach_port_t	connect,
+	io_connect_t	connect,
 	unsigned int	memoryType,
 	task_port_t	intoTask,
 	vm_address_t	atAddress );
@@ -1065,7 +1093,7 @@ kern_return_t
 IOServiceOFPathToBSDName(mach_port_t		masterPort,
                          const io_name_t	openFirmwarePath,
                          io_name_t		bsdName);
-
+						 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 /*! @typedef IOAsyncCallback0

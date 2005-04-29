@@ -1,4 +1,3 @@
-#include "ansidecl.h"
 #include "version.h"
 
 /* This is the string reported as the version number by all components
@@ -16,7 +15,8 @@
    - There are other scripts that search for first word of the string
      to get version number string. Do not use new line.
 */
-const char version_string[] = "3.3 20030304 (Apple Computer, Inc. build 1495)";
+
+const char version_string[] = "4.0.0 20041026 (Apple Computer, Inc. build 4061)";
 /* APPLE LOCAL end Apple version */
 
 /* This is the location of the online document giving instructions for

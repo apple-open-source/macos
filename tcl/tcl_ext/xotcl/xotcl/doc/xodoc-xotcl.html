@@ -1,0 +1,358 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/lib/xodoc.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/lib/xodoc.xotcl" ALIGN="MIDDLE">
+  ./../library/lib/xodoc.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::xodoc 0.84
+    <BR>
+    <b> Package required: </b> xotcl::staticMetadataAnalyzer 
+    <BR>
+    <b> Package required: </b> xotcl::htmllib 
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#ConstraintTokenHTML">
+          <em>ConstraintTokenHTML</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#FileTokenHTML">
+          <em>FileTokenHTML</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MetadataTokenHTML">
+          <em>MetadataTokenHTML</em>:
+        </A>
+        <a href="#MetadataTokenHTML-getDocPropertiesHTML">getDocPropertiesHTML</a>, <a href="#MetadataTokenHTML-printHTML">printHTML</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MethodTokenHTML">
+          <em>MethodTokenHTML</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#ObjTokenHTML">
+          <em>ObjTokenHTML</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#XODoc">
+          <em>XODoc</em>:
+        </A>
+        <a href="#XODoc-documentFileAsHTML">documentFileAsHTML</a>, <a href="#XODoc-printHTML">printHTML</a>, <a href="#XODoc-writeFile">writeFile</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/lib/xodoc.xotcl">
+      ./../library/lib/xodoc.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+    XOTcl documentation tool. Overloads the command @, which is used
+    as a documentation token. 
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="ConstraintTokenHTML">
+        
+      </A>
+      <h2> Class: <em> ConstraintTokenHTML </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataTokenHTML
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="FileTokenHTML">
+        
+      </A>
+      <h2> Class: <em> FileTokenHTML </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataTokenHTML
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MetadataTokenHTML">
+        
+      </A>
+      <h2> Class: <em> MetadataTokenHTML </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#MetadataTokenHTML-getDocPropertiesHTML">getDocPropertiesHTML</a>, <a href="#MetadataTokenHTML-printHTML">printHTML</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Instmixin to provide HTML printing. Such instmixins
+    are registered for all token types.
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="MetadataTokenHTML-printHTML">
+            
+          </A>
+          <b><em>abstract</em></b>
+          <b>printHTML </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Print token to HTML document object
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="MetadataTokenHTML-getDocPropertiesHTML">
+            
+          </A>
+          <b>getDocPropertiesHTML </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+	Returns list of properties as HTML.
+    
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MethodTokenHTML">
+        
+      </A>
+      <h2> Class: <em> MethodTokenHTML </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataTokenHTML
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="ObjTokenHTML">
+        
+      </A>
+      <h2> Class: <em> ObjTokenHTML </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataTokenHTML
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="XODoc">
+        
+      </A>
+      <h2> Class: <em> XODoc </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#XODoc-documentFileAsHTML">documentFileAsHTML</a>, <a href="#XODoc-printHTML">printHTML</a>, <a href="#XODoc-writeFile">writeFile</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Handler class for building a documentation database
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="XODoc-printHTML">
+            
+          </A>
+          <b>printHTML </b>
+          <em>name</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>name</b>: name of the html document
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Create HTML documentation object from metadata token
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="XODoc-writeFile">
+            
+          </A>
+          <b>writeFile </b>
+          <em>filename</em>
+          <em>name</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>filename</b>: file name destination
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>name</b>: name of the html document
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Create HTML docuemntation from metadata token and write to file <filename>
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="XODoc-documentFileAsHTML">
+            
+          </A>
+          <b>documentFileAsHTML </b>
+          <em>file</em>
+          <em>docdir</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>file</b>: filename of the xotcl file to be documented
+            </TD>
+          </TR>
+          <TR VALIGN="top">
+            <TD VALIGN="top">
+              
+            </TD>
+            <TD VALIGN="top">
+              <b>docdir</b>: directory to which the html file is written
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Uses the xoDoc package to produce an HTML documentation of
+               a specified file ***.xotcl. The file is written to ***.html
+               in docdir
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                file basename without suffix
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

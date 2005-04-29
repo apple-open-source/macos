@@ -1,29 +1,52 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3virge/s3v_driver.c,v 1.86 2003/02/04 02:20:50 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3virge/s3v_driver.c,v 1.94 2004/02/13 23:58:43 dawes Exp $ */
 
 /*
-Copyright (C) 1994-1999 The XFree86 Project, Inc.  All Rights Reserved.
+ * Copyright (C) 1994-1999 The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
-of the Software, and to permit persons to whom the Software is furnished to do
-so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FIT-
-NESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
-AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
-WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-Except as contained in this notice, the name of the XFree86 Project shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from the XFree86 Project.
-*/
 #include "xf86Resources.h"
 /* Needed by Resources Access Control (RAC) */
 #include "xf86RAC.h"
@@ -55,6 +78,10 @@ in this Software without prior written authorization from the XFree86 Project.
 #include "globals.h"
 #define DPMS_SERVER
 #include "extensions/dpms.h"
+
+#ifndef USE_INT10
+#define USE_INT10 0
+#endif
 
 /*
  * Internals
@@ -283,7 +310,6 @@ static const char *xaaSymbols[] = {
     "XAACopyROP_PM",
     "XAADestroyInfoRec",
     "XAACreateInfoRec",
-    "XAAFillSolidRects",
     "XAAHelpPatternROP",
     "XAAHelpSolidROP",
     "XAAInit",
@@ -331,12 +357,15 @@ static const char *fbSymbols[] = {
   NULL
 };
 
+#if USE_INT10
 static const char *int10Symbols[] = {
     "xf86InitInt10",
     "xf86FreeInt10",
     NULL
 };
+#endif
 
+#ifdef XFree86LOADER
 static const char *cfbSymbols[] = {
     "cfbScreenInit",
     "cfb16ScreenInit",
@@ -349,8 +378,6 @@ static const char *cfbSymbols[] = {
     "cfb32BresS",
     NULL
 };
-
-#ifdef XFree86LOADER
 
 static MODULESETUPPROTO(s3virgeSetup);
 
@@ -396,7 +423,10 @@ s3virgeSetup(pointer module, pointer opts, int *errmaj, int *errmin)
 	 */
 	LoaderRefSymLists(vgahwSymbols, cfbSymbols, xaaSymbols,
 			  ramdacSymbols, ddcSymbols, i2cSymbols,
-			  int10Symbols, vbeSymbols, shadowSymbols, 
+#if USE_INT10
+			  int10Symbols,
+#endif
+			  vbeSymbols, shadowSymbols, 
 			  fbSymbols, NULL);
 			  
 	/*
@@ -619,10 +649,9 @@ S3VPreInit(ScrnInfoPtr pScrn, int flags)
 
     /*
      * The first thing we should figure out is the depth, bpp, etc.
-     * Our default depth is 8, so pass it to the helper function.
      * We support both 24bpp and 32bpp layouts, so indicate that.
      */
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb |
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb |
 				SupportConvert32to24 | PreferConvert32to24)) {
 	return FALSE;
     } else {
@@ -907,7 +936,7 @@ S3VPreInit(ScrnInfoPtr pScrn, int flags)
 	return FALSE;
     }
 
-#if 0
+#if USE_INT10
     if (xf86LoadSubModule(pScrn, "int10")) {
  	xf86Int10InfoPtr pInt;
  	xf86LoaderReqSymLists(int10Symbols, NULL);
@@ -1011,7 +1040,7 @@ S3VPreInit(ScrnInfoPtr pScrn, int flags)
   vgaCRReg = vgaIOBase + 5;
 
     xf86ErrorFVerb(VERBLEV, 
-	"	S3VPreInit vgaCRIndex=%x, vgaIOBase=%x, MMIOBase=%x\n", 
+	"	S3VPreInit vgaCRIndex=%x, vgaIOBase=%x, MMIOBase=%p\n", 
 	vgaCRIndex, vgaIOBase, hwp->MMIOBase );
 
 
@@ -1342,8 +1371,9 @@ S3VPreInit(ScrnInfoPtr pScrn, int flags)
 	      , lcdclk / 1000.0);
    }
 
+   S3VDisableMmio(pScrn);
    S3VUnmapMem(pScrn);
-
+   
    /* And finally set various possible option flags */
 
    ps3v->bankedMono = FALSE;
@@ -1609,6 +1639,8 @@ S3VEnterVT(int scrnIndex, int flags)
 #ifdef unmap_always
     S3VMapMem(pScrn);
 #endif
+    S3VEnableMmio(pScrn);
+    
     S3VSave(pScrn);
     return S3VModeInit(pScrn, pScrn->currentMode);
 }
@@ -1638,6 +1670,7 @@ S3VLeaveVT(int scrnIndex, int flags)
     S3VWriteMode(pScrn, vgaSavePtr, S3VSavePtr);
     					/* Restore standard register access */
 					/* and unmap memory.		    */
+    S3VDisableMmio(pScrn);
 #ifdef unmap_always
     S3VUnmapMem(pScrn);
 #endif
@@ -1781,8 +1814,8 @@ S3VSave (ScrnInfoPtr pScrn)
       VGAOUT8(vgaCRIndex, 0x93);
       save->CR93 = VGAIN8(vgaCRReg);
    }
-   if (ps3v->Chipset == S3_ViRGE_DXGX || S3_ViRGE_GX2_SERIES(ps3v->Chipset) || 
-       S3_ViRGE_MX_SERIES(ps3v->Chipset)) {
+   if (ps3v->Chipset == S3_ViRGE_DXGX || S3_ViRGE_GX2_SERIES(ps3v->Chipset) ||
+       S3_ViRGE_MX_SERIES(ps3v->Chipset) || S3_TRIO_3D_SERIES(ps3v->Chipset)) {
       VGAOUT8(vgaCRIndex, 0x90);
       save->CR90 = VGAIN8(vgaCRReg);
       VGAOUT8(vgaCRIndex, 0x91);
@@ -1897,11 +1930,11 @@ S3VSave (ScrnInfoPtr pScrn)
        { 
 
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, VERBLEV,
-         "MMPR regs: %08x %08x %08x %08x\n",
-	     INREG(FIFO_CONTROL_REG), 
-	     INREG(MIU_CONTROL_REG), 
-	     INREG(STREAMS_TIMEOUT_REG), 
-	     INREG(MISC_TIMEOUT_REG));
+         "MMPR regs: %08lx %08lx %08lx %08lx\n",
+	     (unsigned long)INREG(FIFO_CONTROL_REG), 
+	     (unsigned long)INREG(MIU_CONTROL_REG), 
+	     (unsigned long)INREG(STREAMS_TIMEOUT_REG), 
+	     (unsigned long)INREG(MISC_TIMEOUT_REG));
        }
 
       PVERB5("\n\nViRGE driver: saved current video mode. Register dump:\n\n");
@@ -2109,7 +2142,7 @@ S3VWriteMode (ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr, S3VRegPtr restore)
       VGAOUT8(vgaCRReg, restore->CR93);
    }
    if (ps3v->Chipset == S3_ViRGE_DXGX || S3_ViRGE_GX2_SERIES(ps3v->Chipset) ||
-       S3_ViRGE_MX_SERIES(ps3v->Chipset)) {
+       S3_ViRGE_MX_SERIES(ps3v->Chipset) || S3_TRIO_3D_SERIES(ps3v->Chipset)) {
       VGAOUT8(vgaCRIndex, 0x90);
       VGAOUT8(vgaCRReg, restore->CR90);
       VGAOUT8(vgaCRIndex, 0x91);
@@ -2267,7 +2300,6 @@ S3VWriteMode (ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr, S3VRegPtr restore)
      VGAOUT8(vgaCRReg, restore->CR3A);
    else
      VGAOUT8(vgaCRReg, cr3a);
-
 
    if (xf86GetVerbosity() > 1) {
       xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, VERBLEV, 
@@ -2469,8 +2501,6 @@ S3VUnmapMem(ScrnInfoPtr pScrn)
     ps3v->PrimaryVidMapped = FALSE;
   }
 
-  S3VDisableMmio(pScrn);
-
   xf86UnMapVidMem(pScrn->scrnIndex, (pointer)ps3v->MapBase,
 		  S3_NEWMMIO_REGSIZE);
   if (ps3v->FBBase)
@@ -2661,19 +2691,7 @@ S3VScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
   if(xf86DPMSInit(pScreen, S3VDisplayPowerManagementSet, 0) == FALSE)
     xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "DPMS initialization failed!\n");
   
-#ifndef XvExtension
-    {
-	XF86VideoAdaptorPtr *ptr;
-	int n;
-
-	n = xf86XVListGenericAdaptors(pScrn,&ptr);
-	if (n) {
-	    xf86XVScreenInit(pScreen, ptr, n);
-	}
-    }
-#else
-    S3VInitVideo(pScreen);
-#endif
+  S3VInitVideo(pScreen);
  
     /* Report any unused options (only for the first generation) */
   if (serverGeneration == 1) {
@@ -3531,6 +3549,7 @@ S3VCloseScreen(int scrnIndex, ScreenPtr pScreen)
   if (pScrn->vtSema) {
       S3VWriteMode(pScrn, vgaSavePtr, S3VSavePtr);
       vgaHWLock(hwp);
+      S3VDisableMmio(pScrn);
       S3VUnmapMem(pScrn);
   }
 

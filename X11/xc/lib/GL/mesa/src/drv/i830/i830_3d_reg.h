@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_3d_reg.h,v 1.4 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_3d_reg.h,v 1.5 2003/09/28 20:15:13 alanh Exp $ */
 #define I830_SET_FIELD( var, mask, value ) (var &= ~(mask), var |= value)
 
 #define CMD_3D (0x3<<29)
@@ -254,9 +254,10 @@
 #define TEXOP_OUTPUT_ACCUM		(1<<15)
 #define ENABLE_TEX_CNTRL_STAGE		((1<<12)|(1<<11))
 #define DISABLE_TEX_CNTRL_STAGE		(1<<12)
-#define TEXOP_SCALE_1X			0
-#define TEXOP_SCALE_2X			(1<<9)
-#define TEXOP_SCALE_4X			(2<<9)
+#define TEXOP_SCALE_SHIFT		9
+#define TEXOP_SCALE_1X			(0 << TEXOP_SCALE_SHIFT)
+#define TEXOP_SCALE_2X			(1 << TEXOP_SCALE_SHIFT)
+#define TEXOP_SCALE_4X			(2 << TEXOP_SCALE_SHIFT)
 #define TEXOP_MODIFY_PARMS		(1<<8)
 #define TEXOP_LAST_STAGE		(1<<7)
 #define TEXBLENDOP_KILLPIXEL		0x02
@@ -324,8 +325,13 @@
 #define TEXCOORD_ADDR_U_MASK		0x7
 
 /* STATE3D_MAP_CUBE, p168 TODO */
-
-
+#define STATE3D_MAP_CUBE		(CMD_3D|(0x1c<<24)|(0x0a<<19))
+#define CUBE_NEGX_ENABLE                (1<<5)
+#define CUBE_POSX_ENABLE                (1<<4)
+#define CUBE_NEGY_ENABLE                (1<<3)
+#define CUBE_POSY_ENABLE                (1<<2)
+#define CUBE_NEGZ_ENABLE                (1<<1)
+#define CUBE_POSZ_ENABLE                (1<<0)
 
 
 /* STATE3D_MODES_1, p190 */
@@ -421,10 +427,11 @@
 #define LOGICOP_OR_RVRSE		0xd
 #define LOGICOP_OR			0xe
 #define LOGICOP_SET			0xf
-#define MODE4_ENABLE_STENCIL_MASK	((1<<17)|(1<<16)|(0xffff))
+#define MODE4_ENABLE_STENCIL_TEST_MASK	((1<<17)|(0xff00))
 #define ENABLE_STENCIL_TEST_MASK	(1<<17)
-#define ENABLE_STENCIL_WRITE_MASK	(1<<16)
 #define STENCIL_TEST_MASK(x)		((x)<<8)
+#define MODE4_ENABLE_STENCIL_WRITE_MASK	((1<<16)|(0x00ff))
+#define ENABLE_STENCIL_WRITE_MASK	(1<<16)
 #define STENCIL_WRITE_MASK(x)		(x)
 
 /* STATE3D_MODES_5, p196 */
@@ -502,15 +509,6 @@
 #define VRTX_HAS_XYZW			(2<<1)
 #define VRTX_HAS_XY			(3<<1)
 #define VRTX_HAS_XYW			(4<<1)
-
-/* grantham - POINT_WIDTH for later implementation of GL_EXT_point_parameters;
-   need to uncomment point_width in vb.h and add point copy to SETUPFUNC */
-#define VRTX_FORMAT_NTEX(n)		(STATE3D_VERTEX_FORMAT_CMD | \
-					 VRTX_TEX_COORD_COUNT(n) | \
-					 VRTX_HAS_SPEC | \
-					 /* VRTX_HAS_POINT_WIDTH | */ \
-					 VRTX_HAS_DIFFUSE | \
-					 VRTX_HAS_XYZW)
 
 /* STATE3D_VERTEX_FORMAT_2, p206 */
 #define STATE3D_VERTEX_FORMAT_2_CMD	(CMD_3D|(0x0a<<24))

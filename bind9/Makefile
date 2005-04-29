@@ -31,10 +31,8 @@ install-strip:
 	strip "$(DSTROOT)/usr/bin/host"
 	strip "$(DSTROOT)/usr/bin/dig"
 install-extra:
-	mkdir -p $(DSTROOT)$(NSLIBRARYDIR)/StartupItems/BIND/Resources/English.lproj
-	install -c -m 755 BIND.startup $(DSTROOT)$(NSLIBRARYDIR)/StartupItems/BIND/BIND                                                                         
-	install -c -m 644 StartupParameters.plist $(DSTROOT)$(NSLIBRARYDIR)/StartupItems/BIND/
-	install -c -m 644 Localizable.strings $(DSTROOT)$(NSLIBRARYDIR)/StartupItems/BIND/Resources/English.lproj/                                              
+	mkdir -p $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
+	install -c -m 644 org.isc.named.plist $(DSTROOT)$(NSLIBRARYDIR)/LaunchDaemons
 	mkdir -p $(DSTROOT)$(ETCDIR)
 	install -c -m 644 named.conf $(DSTROOT)$(ETCDIR)                        
 	mkdir -p $(DSTROOT)$(VARDIR)/named

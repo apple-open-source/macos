@@ -1,0 +1,164 @@
+# urn.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the urn-scheme package.
+#
+# @(#)$Id: urn.test,v 1.4 2004/02/11 08:30:10 andreas_kupries Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require uri}]} {
+    catch {puts stderr "Cannot load the URI package"}
+    return
+}
+
+if {[catch {package require uri::urn}]} {
+    catch {puts stderr "Failed to source the URN scheme extension"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+# Takes a dictionary, returns a list containing the same dictionary,
+# however the keys are sorted alphabetically. This allows for a true
+# comparison of dictionary results.
+
+proc dictsort {dict} {
+    array set a $dict
+    set out [list]
+    foreach key [lsort [array names a]] {
+	lappend out $key $a($key)
+    }
+    return $out
+}
+
+# -------------------------------------------------------------------------
+
+# Tests to check for valid urn sections.
+
+test urn-1.1 {Check basic split} {
+    catch {uri::split urn:tcl:test} result
+    dictsort $result
+} {nid tcl nss test scheme urn}
+
+test urn-1.2 {Check basic join} {
+    catch {uri::join scheme urn nid tcl nss test} result
+    set result
+} {urn:tcl:test}
+
+test urn-1.3 {Split permissible NID} {
+    catch {uri::split urn:tcl-TCL-0123456789:test} result
+    dictsort $result
+} {nid tcl-TCL-0123456789 nss test scheme urn}
+
+test urn-1.4 {Join permissible NID} {
+    catch {uri::join scheme urn nid tcl-TCL-0123456789 nss test} result
+    set result
+} {urn:tcl-TCL-0123456789:test}
+
+test urn-1.5 {Split permissible NSS} {
+    catch {uri::split {urn:tcl:Test-0123456789()+,-.:=@;$_!*'}} result
+    dictsort $result
+} {nid tcl nss {Test-0123456789()+,-.:=@;$_!*'} scheme urn}
+
+test urn-1.6 {Join permissible NSS} {
+    catch {uri::join scheme urn nid tcl nss {Test-0123456789()+,-.:=@;$_!*'}} result
+    set result
+} {urn:tcl:Test-0123456789()+,-.:=@;$_!*'}
+
+# -------------------------------------------------------------------------
+# Now some tests that should fail.
+
+test urn-2.1 {NID too long} {
+    set nid ThisURNNIDparthastoomanycharacters
+    set nss test
+    if {[catch {uri:split urn:$nid:$nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test urn-2.2 {NID too long} {
+    set nid ThisURNNIDparthastoomanycharacters
+    set nss test
+    if {[catch {uri:join scheme urn nid $nid nss $nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test urn-2.3 {NID containing invalid characters} {
+    set nid {This-NID//notOK}
+    set nss test
+    if {[catch {uri::join scheme urn nid $nid nss $nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test urn-2.4 {NID containing no characters} {
+    set nid {}
+    set nss test
+    if {[catch {uri::join scheme urn nid $nid nss $nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test urn-2.5 {NID beginning with hyphen} {
+    set nid {-notvalid}
+    set nss test
+    if {[catch {uri::join scheme urn nid $nid nss $nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+
+# Check the Namespace Specific String.
+
+test urn-3.1 {NSS containing reserved characters} {
+    set nid {tcl}
+    set nss {%}
+    catch {uri::join scheme urn nid $nid nss $nss} result
+    set result
+} {urn:tcl:%25}
+
+test urn-3.2 {NSS containing reserved characters} {
+    set nid {tcl}
+    set nss {/?#}
+    catch {uri::join scheme urn nid $nid nss $nss} result
+    set result
+} {urn:tcl:%2F%3F%23}
+
+test urn-3.3 {NSS containing reserved characters} {
+    set nid {tcl}
+    set nss {urn-test}
+    catch {uri::join scheme urn nid $nid nss $nss} result
+    set result
+} {urn:tcl:urn-test}
+
+test urn-3.4 {NSS containing illegal characters} {
+    set nid {tcl}
+    set nss "\u00" ;# 0 is the only character explicitly denied.
+    if {[catch {uri::join scheme urn nid $nid nss $nss} result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+# -------------------------------------------------------------------------
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

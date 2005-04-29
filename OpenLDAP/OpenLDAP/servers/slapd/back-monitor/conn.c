@@ -1,39 +1,28 @@
 /* conn.c - deal with connection subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/conn.c,v 1.43.2.4 2004/03/18 00:56:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
 
 #include <stdio.h>
+#include <ac/string.h>
 
 #include "slap.h"
 #include "lutil.h"
@@ -50,8 +39,8 @@ monitor_subsys_conn_init(
 	
 	Entry			*e, *e_tmp, *e_conn;
 	struct monitorentrypriv	*mp;
-	char			buf[1024];
-	struct berval		bv[2];
+	char			buf[ BACKMONITOR_BUFSIZE ];
+	struct berval		bv;
 
 	assert( be != NULL );
 
@@ -81,9 +70,16 @@ monitor_subsys_conn_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 		"dn: cn=Total,%s\n"
-		SLAPD_MONITOR_OBJECTCLASSES
-		"cn: Total\n",
-		monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val );
+		"objectClass: %s\n"
+		"structuralObjectClass: %s\n"
+		"cn: Total\n"
+		"createTimestamp: %s\n"
+		"modifyTimestamp: %s\n",
+		monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val,
+		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+		mi->mi_startTime.bv_val,
+		mi->mi_startTime.bv_val );
 	
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -102,10 +98,9 @@ monitor_subsys_conn_init(
 		return( -1 );
 	}
 	
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -139,9 +134,16 @@ monitor_subsys_conn_init(
 	 */
 	snprintf( buf, sizeof( buf ),
 		"dn: cn=Current,%s\n"
-		SLAPD_MONITOR_OBJECTCLASSES
-		"cn: Current\n",
-		monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val );
+		"objectClass: %s\n"
+		"structuralObjectClass: %s\n"
+		"cn: Current\n"
+		"createTimestamp: %s\n"
+		"modifyTimestamp: %s\n",
+		monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val,
+		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+		mi->mi_oc_monitorCounterObject->soc_cname.bv_val,
+		mi->mi_startTime.bv_val,
+		mi->mi_startTime.bv_val );
 	
 	e = str2entry( buf );
 	if ( e == NULL ) {
@@ -160,10 +162,9 @@ monitor_subsys_conn_init(
 		return( -1 );
 	}
 	
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = "0";
-	bv[0].bv_len = 1;
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = "0";
+	bv.bv_len = 1;
+	attr_merge_one( e, mi->mi_ad_monitorCounter, &bv, NULL );
 	
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -202,10 +203,11 @@ monitor_subsys_conn_init(
 
 int
 monitor_subsys_conn_update(
-	struct monitorinfo      *mi,
+	Operation		*op,
 	Entry                   *e
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 	long 		n = -1;
 
 	assert( mi );
@@ -230,9 +232,9 @@ monitor_subsys_conn_update(
 
 	if ( n != -1 ) {
 		Attribute	*a;
-		char		buf[16];
+		char		buf[] = "+9223372036854775807L";
 
-		a = attr_find( e->e_attrs, monitor_ad_desc );
+		a = attr_find( e->e_attrs, mi->mi_ad_monitorCounter );
 		if ( a == NULL ) {
 			return( -1 );
 		}
@@ -247,29 +249,77 @@ monitor_subsys_conn_update(
 
 static int
 conn_create(
+	struct monitorinfo	*mi,
 	Connection		*c,
 	Entry			**ep
 )
 {
 	struct monitorentrypriv *mp;
 	struct tm		*ltm;
-	char			buf[ 1024 ];
+	char			buf[ BACKMONITOR_BUFSIZE ];
 	char			buf2[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 	char			buf3[ LDAP_LUTIL_GENTIME_BUFSIZE ];
 
-	struct berval           bv[2];
+	struct berval           bv;
 
 	Entry			*e;
+
+	struct tm	*ctm;
+	char		ctmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+	struct tm	*mtm;
+	char		mtmbuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
+#ifdef HAVE_GMTIME_R
+	struct tm	tm_buf;
+#endif /* HAVE_GMTIME_R */
 
 	assert( c != NULL );
 	assert( ep != NULL );
 
+#ifndef HAVE_GMTIME_R
+	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
+#endif
+#ifdef HACK_LOCAL_TIME
+# ifdef HAVE_LOCALTIME_R
+	ctm = localtime_r( &c->c_starttime, &tm_buf );
+	lutil_localtime( ctmbuf, sizeof( ctmbuf ), ctm, -timezone );
+	mtm = localtime_r( &c->c_activitytime, &tm_buf );
+	lutil_localtime( mtmbuf, sizeof( mtmbuf ), mtm, -timezone );
+# else
+	ctm = localtime( &c->c_starttime );
+	lutil_localtime( ctmbuf, sizeof( ctmbuf ), ctm, -timezone );
+	mtm = localtime( &c->c_activitytime );
+	lutil_localtime( mtmbuf, sizeof( mtmbuf ), mtm, -timezone );
+# endif /* HAVE_LOCALTIME_R */
+#else /* !HACK_LOCAL_TIME */
+# ifdef HAVE_GMTIME_R
+	ctm = gmtime_r( &c->c_starttime, &tm_buf );
+	lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
+	mtm = gmtime_r( &c->c_activitytime, &tm_buf );
+	lutil_gentime( mtmbuf, sizeof( mtmbuf ), mtm );
+# else
+	ctm = gmtime( &c->c_starttime );
+	lutil_gentime( ctmbuf, sizeof( ctmbuf ), ctm );
+	mtm = gmtime( &c->c_activitytime );
+	lutil_gentime( mtmbuf, sizeof( mtmbuf ), mtm );
+# endif /* HAVE_GMTIME_R */
+#endif /* !HACK_LOCAL_TIME */
+#ifndef HAVE_GMTIME_R
+	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+#endif
+
 	snprintf( buf, sizeof( buf ),
 		"dn: cn=" CONN_CN_PREFIX " %ld,%s\n"
-		SLAPD_MONITOR_OBJECTCLASSES
-		"cn: " CONN_CN_PREFIX " %ld\n",
+		"objectClass: %s\n"
+		"structuralObjectClass: %s\n"
+		"cn: " CONN_CN_PREFIX " %ld\n"
+		"createTimestamp: %s\n"
+		"modifyTimestamp: %s\n",
 		c->c_connid, monitor_subsys[SLAPD_MONITOR_CONN].mss_dn.bv_val,
-		c->c_connid );
+		mi->mi_oc_monitorConnection->soc_cname.bv_val,
+		mi->mi_oc_monitorConnection->soc_cname.bv_val,
+		c->c_connid,
+		ctmbuf, mtmbuf );
+		
 	e = str2entry( buf );
 
 	if ( e == NULL) {
@@ -290,16 +340,29 @@ conn_create(
 		return( -1 );
 	}
 
+#ifndef HAVE_GMTIME_R
 	ldap_pvt_thread_mutex_lock( &gmtime_mutex );
-	
-	ltm = gmtime( &c->c_starttime );
-	lutil_gentime( buf2, sizeof( buf2 ), ltm );
-			
-	ltm = gmtime( &c->c_activitytime );
-	lutil_gentime( buf3, sizeof( buf3 ), ltm );
-			
-	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+#endif
 
+#ifdef HAVE_GMTIME_R
+	ltm = gmtime_r( &c->c_starttime, &tm_buf );
+#else
+	ltm = gmtime( &c->c_starttime );
+#endif
+	lutil_gentime( buf2, sizeof( buf2 ), ltm );
+
+#ifdef HAVE_GMTIME_R
+	ltm = gmtime_r( &c->c_activitytime, &tm_buf );
+#else
+	ltm = gmtime( &c->c_activitytime );
+#endif
+	lutil_gentime( buf3, sizeof( buf3 ), ltm );
+
+#ifndef HAVE_GMTIME_R
+	ldap_pvt_thread_mutex_unlock( &gmtime_mutex );
+#endif /* HAVE_GMTIME_R */
+
+	/* monitored info */
 	sprintf( buf,
 		"%ld : %ld "
 		": %ld/%ld/%ld/%ld "
@@ -333,10 +396,27 @@ conn_create(
 		buf3
 		);
 
-	bv[1].bv_val = NULL;
-	bv[0].bv_val = buf;
-	bv[0].bv_len = strlen( buf );
-	attr_merge( e, monitor_ad_desc, bv );
+	bv.bv_val = buf;
+	bv.bv_len = strlen( buf );
+	attr_merge_one( e, mi->mi_ad_monitoredInfo, &bv, NULL );
+
+	/* connection number */
+	snprintf( buf, sizeof( buf ), "%ld", c->c_connid );
+	bv.bv_val = buf;
+	bv.bv_len = strlen( buf );
+	attr_merge_one( e, mi->mi_ad_monitorConnectionNumber, &bv, NULL );
+
+	/* authz DN */
+	attr_merge_one( e, mi->mi_ad_monitorConnectionAuthzDN,
+			&c->c_dn, &c->c_ndn );
+
+	/* local address */
+	attr_merge_one( e, mi->mi_ad_monitorConnectionLocalAddress,
+			&c->c_sock_name, NULL );
+
+	/* peer address */
+	attr_merge_one( e, mi->mi_ad_monitorConnectionPeerAddress,
+			&c->c_peer_name, NULL );
 
 	mp = ( struct monitorentrypriv * )ch_calloc( sizeof( struct monitorentrypriv ), 1 );
 	e->e_private = ( void * )mp;
@@ -351,12 +431,13 @@ conn_create(
 
 int 
 monitor_subsys_conn_create( 
-	struct monitorinfo 	*mi,
+	Operation		*op,
 	struct berval		*ndn,
 	Entry 			*e_parent,
 	Entry			**ep
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 	Connection		*c;
 	int			connindex;
 	struct monitorentrypriv *mp;
@@ -374,7 +455,7 @@ monitor_subsys_conn_create(
 		for ( c = connection_first( &connindex );
 				c != NULL;
 				c = connection_next( c, &connindex )) {
-			if ( conn_create( c, &e ) || e == NULL ) {
+			if ( conn_create( mi, c, &e ) || e == NULL ) {
 				connection_done(c);
 				for ( ; e_tmp != NULL; ) {
 					mp = ( struct monitorentrypriv * )e_tmp->e_private;
@@ -397,7 +478,7 @@ monitor_subsys_conn_create(
 		*ep = e;
 
 	} else {
-		LDAPRDN		*values = NULL;
+		LDAPRDN		values = NULL;
 		const char	*text = NULL;
 		unsigned long 	connid;
 	       
@@ -410,9 +491,9 @@ monitor_subsys_conn_create(
 		}
 		
 		assert( values );
-		assert( values[ 0 ][ 0 ] );
+		assert( values[ 0 ] );
 
-		connid = atol( values[ 0 ][ 0 ]->la_value.bv_val
+		connid = atol( values[ 0 ]->la_value.bv_val
 				+ sizeof( CONN_CN_PREFIX ) );
 
 		ldap_rdnfree( values );
@@ -421,8 +502,8 @@ monitor_subsys_conn_create(
 				c != NULL;
 				c = connection_next( c, &connindex )) {
 			if ( c->c_connid == connid ) {
-				if ( conn_create( c, ep ) || *ep == NULL ) {
-					connection_done(c);
+				if ( conn_create( mi, c, ep ) || *ep == NULL ) {
+					connection_done( c );
 					return( -1 );
 				}
 

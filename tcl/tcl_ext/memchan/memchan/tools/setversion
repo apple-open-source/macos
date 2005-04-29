@@ -1,0 +1,112 @@
+#!/bin/sh
+# -*- tcl -*- \
+exec tclsh "$0" ${1+"$@"}
+
+# Insert version and other information into a number of files.
+
+global trouble
+set    trouble 0
+
+# ============================================================
+# Generate the substitution map.
+
+proc mapdef {k v} {
+    global map
+    set map(@${k}@) $v
+    return
+}
+
+proc map {} {
+    global map
+    set res [list]
+    foreach k [lsort [array names map]] {
+	lappend res $k $map($k)
+    }
+    return $res
+}
+
+# ============================================================
+
+proc svfile {fname patternlist} {
+    global trouble subst out
+    if {![file exists $fname]} {
+	puts stderr   "File $fname: Does not exist"
+	set trouble 1
+	return
+    }
+
+    puts "Updating file $fname ..."
+
+    set                 fh [open $fname r]
+    set contents [read $fh]
+    close              $fh
+
+    puts $out "svfile [list $fname] \{"
+
+    foreach {pattern current} $patternlist {
+	set newvalue [string map $subst $pattern]
+
+	puts $out "    [list $pattern]"
+	puts $out "    [list $newvalue]"
+
+	set contents [string map [list $current $newvalue] $contents]
+    }
+
+    puts $out "\}"
+
+    if {[catch {
+	set              fh [open ${fname}.new w]
+	puts -nonewline $fh $contents
+	close           $fh
+    }]} {
+	file delete -force ${fname}.new
+	puts stderr "Unable to write new contents of $fname"
+	set trouble 1
+	return
+    }
+    file rename -force ${fname}.new $fname
+    return
+}
+
+proc extension {name data} {
+    global pname
+    set    pname $name
+}
+
+# ============================================================
+
+set v [lindex $argv 0]
+if {$v == {}} {
+    puts stderr "Usage: $argv0 major.minor(\[abp.\]patchlevel)?"
+    exit -1
+}
+
+regexp {([0-9]+)\.([0-9+])(([abp.])([0-9]+))?} $v \
+	-> major minor __ detail patchlevel
+
+source DESCRIPTION
+
+mapdef mDate            [string toupper \
+	[clock format \
+	[clock seconds] -format "%b-%d-%Y"]]
+mapdef mFullVersion     $v
+mapdef mMajor           $major
+mapdef mMinor           $minor
+mapdef mShortDosVersion $major$minor
+mapdef mVersion         ${major}.$minor
+mapdef mName            $pname
+
+
+# ============================================================
+
+set flistfile [file join [file dirname [info script]] svfiles]
+set newflist ${flistfile}.new
+set out [open ${flistfile}.new w]
+set subst [map]
+source $flistfile
+close $out
+
+## set trouble 1 ; # enforce that new file does not overwrite old
+if {!$trouble} {
+    file rename -force ${flistfile}.new ${flistfile}
+}

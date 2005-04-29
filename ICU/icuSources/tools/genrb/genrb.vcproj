@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding = "Windows-1252"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.00"
+	Version="7.10"
 	Name="genrb"
 	SccProjectName=""
 	SccLocalPath="">
@@ -35,17 +35,14 @@
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy $(TargetPath) ..\..\..\bin
+				CommandLine="copy &quot;$(TargetPath)&quot; ..\..\..\bin
 "
-				Outputs="..\..\..\bin\$(InputName).exe"/>
+				Outputs="..\..\..\bin\$(TargetFileName)"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuin.lib icuuc.lib icutu.lib"
 				OutputFile=".\Release/genrb.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\toolutil\Release,..\..\..\lib"
 				ProgramDatabaseFile=".\Release/genrb.pdb"
 				SubSystem="1"/>
 			<Tool
@@ -64,7 +61,13 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
@@ -95,17 +98,14 @@
 				CompileAs="0"/>
 			<Tool
 				Name="VCCustomBuildTool"
-				CommandLine="copy $(TargetPath) ..\..\..\bin
+				CommandLine="copy &quot;$(TargetPath)&quot; ..\..\..\bin
 "
-				Outputs="..\..\..\bin\$(InputName).exe"/>
+				Outputs="..\..\..\bin\$(TargetFileName)"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="icuind.lib icuucd.lib icutud.lib"
 				OutputFile=".\Debug/genrb.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="TRUE"
-				AdditionalLibraryDirectories="..\toolutil\Debug,..\..\..\lib"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile=".\Debug/genrb.pdb"
 				SubSystem="1"/>
@@ -125,9 +125,17 @@
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
 				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
+	<References>
+	</References>
 	<Files>
 		<Filter
 			Name="Source Files"
@@ -140,6 +148,9 @@
 			</File>
 			<File
 				RelativePath=".\parse.c">
+			</File>
+			<File
+				RelativePath=".\prscmnts.cpp">
 			</File>
 			<File
 				RelativePath=".\read.c">
@@ -174,6 +185,9 @@
 			</File>
 			<File
 				RelativePath=".\parse.h">
+			</File>
+			<File
+				RelativePath=".\prscmnts.h">
 			</File>
 			<File
 				RelativePath=".\read.h">

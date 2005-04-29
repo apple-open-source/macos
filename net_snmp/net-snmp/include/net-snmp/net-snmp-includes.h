@@ -13,6 +13,13 @@
      */
 #include <stdio.h>
 #include <sys/types.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
+#ifndef NET_SNMP_CONFIG_H
+#error "Please include <net-snmp/net-snmp-config.h> before this file"
+#endif
 
 #if HAVE_STRING_H
 #include <string.h>
@@ -68,7 +75,6 @@
 #include <net-snmp/varbind_api.h>
 #include <net-snmp/config_api.h>
 #include <net-snmp/output_api.h>
-#include <net-snmp/utilities.h>
 #include <net-snmp/snmpv3_api.h>
 
 #ifdef CMU_COMPATIBLE

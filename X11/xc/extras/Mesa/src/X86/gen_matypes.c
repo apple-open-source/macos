@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Gareth Hughes <gareth@valinux.com>
+ *    Gareth Hughes
  */
 
 /*
@@ -33,13 +33,10 @@
  * Mesa, including lighting, clipping, texture image conversion etc.
  */
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "mtypes.h"
 #include "tnl/t_context.h"
-#endif
+
 
 #undef offsetof
 #define offsetof( type, member ) ((size_t) &((type *)0)->member)
@@ -65,11 +62,21 @@ do {									\
    printf( "\n" );							\
 } while (0)
 
+#if defined(__BEOS__)
+#define OFFSET( s, t, m )						\
+   printf( "#define %s\t%ld\n", s, offsetof( t, m ) );
+#else
 #define OFFSET( s, t, m )						\
    printf( "#define %s\t%d\n", s, offsetof( t, m ) );
+#endif
 
+#if defined(__BEOS__)
+#define SIZEOF( s, t )							\
+   printf( "#define %s\t%ld\n", s, sizeof(t) );
+#else
 #define SIZEOF( s, t )							\
    printf( "#define %s\t%d\n", s, sizeof(t) );
+#endif
 
 #define DEFINE( s, d )							\
    printf( "#define %s\t0x%x\n", s, d );
@@ -121,7 +128,7 @@ int main( int argc, char **argv )
    OFFSET( "VB_OBJ_PTR             ", struct vertex_buffer, ObjPtr );
    OFFSET( "VB_EYE_PTR             ", struct vertex_buffer, EyePtr );
    OFFSET( "VB_CLIP_PTR            ", struct vertex_buffer, ClipPtr );
-   OFFSET( "VB_PROJ_CLIP_PTR       ", struct vertex_buffer, ProjectedClipPtr );
+   OFFSET( "VB_PROJ_CLIP_PTR       ", struct vertex_buffer, NdcPtr );
    OFFSET( "VB_CLIP_OR_MASK        ", struct vertex_buffer, ClipOrMask );
    OFFSET( "VB_CLIP_MASK           ", struct vertex_buffer, ClipMask );
    OFFSET( "VB_NORMAL_PTR          ", struct vertex_buffer, NormalPtr );
@@ -147,34 +154,35 @@ int main( int argc, char **argv )
 
    DEFINE_HEADER( "struct vertex_buffer" );
 
-   DEFINE( "VERT_OBJ               ", VERT_OBJ );
-   DEFINE( "VERT_RGBA              ", VERT_RGBA );
-   DEFINE( "VERT_NORM              ", VERT_NORM );
-   DEFINE( "VERT_INDEX             ", VERT_INDEX );
-   DEFINE( "VERT_EDGE              ", VERT_EDGE );
-   DEFINE( "VERT_SPEC_RGB          ", VERT_SPEC_RGB );
-   DEFINE( "VERT_FOG_COORD         ", VERT_FOG_COORD );
-   DEFINE( "VERT_TEX0              ", VERT_TEX0 );
-   DEFINE( "VERT_TEX1              ", VERT_TEX1 );
-   DEFINE( "VERT_TEX2              ", VERT_TEX2 );
-   DEFINE( "VERT_TEX3              ", VERT_TEX3 );
-   DEFINE( "VERT_EVAL_C1           ", VERT_EVAL_C1 );
-   DEFINE( "VERT_EVAL_C2           ", VERT_EVAL_C2 );
-   DEFINE( "VERT_EVAL_P1           ", VERT_EVAL_P1 );
-   DEFINE( "VERT_EVAL_P2           ", VERT_EVAL_P2 );
-   DEFINE( "VERT_OBJ_3             ", VERT_OBJ_3 );
-   DEFINE( "VERT_OBJ_4             ", VERT_OBJ_4 );
-   DEFINE( "VERT_MATERIAL          ", VERT_MATERIAL );
-   DEFINE( "VERT_ELT               ", VERT_ELT );
-   DEFINE( "VERT_BEGIN             ", VERT_BEGIN );
-   DEFINE( "VERT_END               ", VERT_END );
-   DEFINE( "VERT_END_VB            ", VERT_END_VB );
-   DEFINE( "VERT_POINT_SIZE        ", VERT_POINT_SIZE );
-   DEFINE( "VERT_EYE               ", VERT_EYE );
-   DEFINE( "VERT_CLIP              ", VERT_CLIP );
+   /* XXX use new labels here someday after vertex proram is done */
+   DEFINE( "VERT_BIT_OBJ           ", VERT_BIT_POS );
+   DEFINE( "VERT_BIT_NORM          ", VERT_BIT_NORMAL );
+   DEFINE( "VERT_BIT_RGBA          ", VERT_BIT_COLOR0 );
+   DEFINE( "VERT_BIT_SPEC_RGB      ", VERT_BIT_COLOR1 );
+   DEFINE( "VERT_BIT_FOG_COORD     ", VERT_BIT_FOG );
+   DEFINE( "VERT_BIT_INDEX         ", VERT_BIT_INDEX );
+   DEFINE( "VERT_BIT_EDGE          ", VERT_BIT_EDGEFLAG );
+   DEFINE( "VERT_BIT_TEX0          ", VERT_BIT_TEX0 );
+   DEFINE( "VERT_BIT_TEX1          ", VERT_BIT_TEX1 );
+   DEFINE( "VERT_BIT_TEX2          ", VERT_BIT_TEX2 );
+   DEFINE( "VERT_BIT_TEX3          ", VERT_BIT_TEX3 );
+   DEFINE( "VERT_BIT_EVAL_C1       ", VERT_BIT_EVAL_C1 );
+   DEFINE( "VERT_BIT_EVAL_C2       ", VERT_BIT_EVAL_C2 );
+   DEFINE( "VERT_BIT_EVAL_P1       ", VERT_BIT_EVAL_P1 );
+   DEFINE( "VERT_BIT_EVAL_P2       ", VERT_BIT_EVAL_P2 );
+   DEFINE( "VERT_BIT_OBJ_3         ", VERT_BIT_OBJ_3 );
+   DEFINE( "VERT_BIT_OBJ_4         ", VERT_BIT_OBJ_4 );
+   DEFINE( "VERT_BIT_MATERIAL      ", VERT_BIT_MATERIAL );
+   DEFINE( "VERT_BIT_ELT           ", VERT_BIT_ELT );
+   DEFINE( "VERT_BIT_BEGIN         ", VERT_BIT_BEGIN );
+   DEFINE( "VERT_BIT_END           ", VERT_BIT_END );
+   DEFINE( "VERT_BIT_END_VB        ", VERT_BIT_END_VB );
+   DEFINE( "VERT_BIT_POINT_SIZE    ", VERT_BIT_POINT_SIZE );
+   DEFINE( "VERT_BIT_EYE           ", VERT_BIT_EYE );
+   DEFINE( "VERT_BIT_CLIP          ", VERT_BIT_CLIP );
    printf( "\n" );
-   DEFINE( "VERT_OBJ_23            ", VERT_OBJ_3 );
-   DEFINE( "VERT_OBJ_234           ", VERT_OBJ_4 );
+   DEFINE( "VERT_BIT_OBJ_23        ", VERT_BIT_OBJ_3 );
+   DEFINE( "VERT_BIT_OBJ_234       ", VERT_BIT_OBJ_4 );
 
 
    /* GLvector3f offsets:

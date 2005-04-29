@@ -1,4 +1,4 @@
-
+/* $XFree86: xc/extras/Mesa/src/math/m_xform.c,v 1.5 2003/10/22 15:44:43 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
  * Version:  3.5
@@ -33,8 +33,6 @@
  * 2. Points/vertices are to be thought of as column vectors.
  * 3. Transformation of a point p by a matrix M is: p' = M * p
  */
-
-#include <math.h>
 
 #include "glheader.h"
 #include "macros.h"
@@ -219,6 +217,5 @@ _math_init( void )
 {
    _math_init_transformation();
    _math_init_translate();
-   _math_init_vertices();
    _math_init_eval();
 }

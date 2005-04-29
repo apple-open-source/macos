@@ -240,6 +240,8 @@ const char * const reg_note_name[] =
   "REG_FRAME_RELATED_EXPR", "REG_EH_CONTEXT", "REG_EH_REGION",
   "REG_SAVE_NOTE", "REG_MAYBE_DEAD", "REG_NORETURN",
   "REG_NON_LOCAL_GOTO", "REG_SETJMP", "REG_ALWAYS_RETURN",
+  /* APPLE LOCAL direct calls to objc_msgSend etc.  */
+  "REG_ABSCALL",
   "REG_VTABLE_REF"
 };
 

@@ -45,7 +45,8 @@ PREREQUISITES
 
 Presumably if you're reading this, you've figured out how to get the
 sources. :-) But just to be complete, these sources are available from
-the Darwin repository at opensource.apple.com, CVS module "gcc3".  See
+the Darwin repository at opensource.apple.com, CVS module "gcc",
+branch "apple-ppc-branch".  See
 http://www.opensource.apple.com/tools/cvs if this isn't enough info
 yet.
 
@@ -104,7 +105,7 @@ BUILDING, THE FSF WAY
 In general, standard GCC procedures work for building this version.
 We recommend that you build in a separate objdir; create a sibling
 to the toplevel source dir, call it whatever you want, cd into it,
-and say "../gcc3/configure".  This way you can have more than one
+and say "../gcc/configure".  This way you can have more than one
 build using the same set of sources.
 
 If you insist on building in the source directory using "./configure",
@@ -116,7 +117,7 @@ For instance:
 
 	mkdir darwin
 	cd darwin
-	../gcc3/configure --prefix=/tmp/testplace
+	../configure --prefix=/tmp/testplace
 	make bootstrap
 	make install
 

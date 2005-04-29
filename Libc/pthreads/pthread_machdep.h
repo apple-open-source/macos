@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -49,9 +49,14 @@
 #ifndef _POSIX_PTHREAD_MACHDEP_H
 #define _POSIX_PTHREAD_MACHDEP_H
 
+#ifdef __LP64__
+#define _PTHREAD_TSD_OFFSET 0x60
+#else
 #define _PTHREAD_TSD_OFFSET 0x48
+#endif  /* __LP64__ */
+
 #ifndef __ASSEMBLER__
-typedef long pthread_lock_t;
+typedef int32_t pthread_lock_t;
 #endif
 
 #define LOCK_INIT(l)	((l) = 0)

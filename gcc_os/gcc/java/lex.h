@@ -1,5 +1,5 @@
 /* Language lexer definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
 This file is part of GNU CC.
@@ -95,13 +95,13 @@ struct java_error {
   int error;
 };
 
-typedef struct _java_lc {
+typedef struct java_lc_s GTY(()) {
   int line;
   int prev_col;
   int col;
 } java_lc;
 
-typedef struct java_lexer
+struct java_lexer
 {
   /* The file from which we're reading.  */
   FILE *finput;
@@ -154,7 +154,8 @@ typedef struct java_lexer
   int out_last;
 
 #endif /* HAVE_ICONV */
-} java_lexer;
+};
+typedef struct java_lexer java_lexer;
 
 /* Destroy a lexer object.  */
 extern void java_destroy_lexer PARAMS ((java_lexer *));
@@ -185,7 +186,7 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 #define SET_LVAL_NODE_TYPE(NODE, TYPE)
 #define BUILD_ID_WFL(EXP) (EXP)
 #define JAVA_FLOAT_RANGE_ERROR(S) {}
-#define JAVA_INTEGRAL_RANGE_ERROR(S) {}
+#define JAVA_INTEGRAL_RANGE_ERROR(S) do { } while (0)
 
 #else
 
@@ -237,12 +238,12 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
     ctxp->c_line->current = i;						  \
   }
 #define JAVA_INTEGRAL_RANGE_ERROR(m)		\
-  {						\
+  do {						\
     int i = ctxp->c_line->current;		\
     ctxp->c_line->current = number_beginning;	\
     java_lex_error (m, 0);			\
     ctxp->c_line->current = i;			\
-  }
+  } while (0)
 
 #endif /* Definitions for jc1 compilation only */
 

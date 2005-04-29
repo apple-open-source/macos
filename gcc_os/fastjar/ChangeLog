@@ -1,3 +1,122 @@
+2003-02-04  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* fastjar.texi: Update to GFDL 1.2.
+
+2003-01-31  Daiki Ueno  <ueno@unixuser.org>
+
+	* jartool.c (extract_jar): Don't lseek to skip extra fields.
+	(consume): If the stream is seekable, do lseek.
+
+2003-01-28  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* jargrep.c: Include xregex.h from libiberty instead of
+	system regex.h for better portability.
+
+2003-01-21  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* jartool.c (list_jar): Terminate the 'ascii_date' buffer
+	with a '\0' to guard against the case where the formatted
+	time string is more than the size allowed by the buffer.
+
+2002-12-30  DJ Delorie  <dj@redhat.com>
+
+	* Makefile.am (jar.1, grepjar.1): Protect against
+	texi2pod/pod2man failing.
+	* Makefile.in: Regenerated.
+
+2002-12-23  Joseph S. Myers  <jsm@polyomino.org.uk>
+
+	* fastjar.texi: Include Cover Texts in man page.
+
+2002-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* fastjar.texi (jar @direntry, grepjar @direntry): Add (fastjar).
+
+2002-11-21  Ranjit Mathew <rmathew@hotmail.com>
+
+	* jartool.c (extract_jar): Use "open" with O_BINARY instead of
+	"creat" to create extracted files.
+
+2002-11-11  Tom Tromey  <tromey@redhat.com>
+
+	* dostime.c (dos2unixtime): Mask for seconds is 0x1f.  Correctly
+	compute month.
+	(unix2dostime): Handle years before 1980.  Correctly compute month
+	and day of month.
+
+2002-11-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* jartool.c (add_to_jar): Only compare file to jarfile if jarfile is
+	non-NULL.
+
+	* configure.in (AC_CHECK_HEADERS): Add limits.h.
+	* configure, config.h.in: Rebuilt.
+
+2002-11-07  Tom Tromey  <tromey@redhat.com>
+
+	* dostime.c: Rewrote from scratch.
+	* dostime.h (dostime): Removed.
+
+2002-10-20  Tom Tromey  <tromey@redhat.com>
+
+	* jartool.c: Use mode 0666 when opening new file.
+
+2002-10-15  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* configure, config.h.in: Rebuilt.
+	* configure.in: Call gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG.
+
+2002-09-11  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (TEXINFO_TEX): New macro.
+	(info_TEXINFOS): Likewise.
+	(fastjar_TEXINFOS): Likewise.
+	(man_MANS): Likewise.
+	(EXTRA_DIST): Likewise.
+	(my_makei_flags): Likewise.
+	(fastjar.info): New rule.
+	(fastjar_TEXINFOS): Don't mention `$(srcdir)'.
+	(TEXINFO_TEX): Likewise.
+	(AUTOMAKE_OPTIONS): Added `cygnus'.
+
+2002-09-11  Matthias Klose  <doko@debian.org>
+
+	* Makefile.am: Revert the previous patch.
+	* Makefile.in: Regenerated.
+
+2002-09-10  Matthias Klose  <doko@debian.org>
+
+	* fastjar.texi: New.
+	* Makefile.am: Support building info docs and manpages.
+	* Makefile.in: Regenerated.
+	* configure.in: Set gcc_version.
+	* configure: Regenerated.
+	* jargrep.c: Update usage and help strings.
+
+2002-09-09  Tom Tromey  <tromey@redhat.com>
+
+	* jartool.c (mkdir): Define.
+	* config.h.in: Rebuilt.
+	* aclocal.m4, configure: Rebuilt.
+	* acinclude.m4: New file.  Copied gcc_AC_COMPILE_CHECK_SIZEOF,
+	gcc_AC_EXAMINE_OBJECT, and fastjar_AC_COMPILE_C_BIGENDIAN from
+	aclocal.m4.
+
+2002-09-04  Tom Tromey  <tromey@redhat.com>
+
+	From greenrd@hotmail.com:
+	* jartool.c (list_jar): Correctly determine when new `filename'
+	buffer must be allocated.  Fixes PR java/7830.
+
+2002-06-03  Geoffrey Keating  <geoffk@redhat.com>
+
+	* configure.in: Support cross-compiling.
+	* configure: Regenerate.
+	* aclocal.m4 (gcc_AC_COMPILE_CHECK_SIZEOF): New.
+	(gcc_AC_EXAMINE_OBJECT): New.
+	(fastjar_AC_COMPILE_C_BIGENDIAN): New.
+
 2002-03-18  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
 
 	* jartool.c (expand_options): Handle tar-style argument list with a

@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: help.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>
 
 #include "config.h"
@@ -35,9 +32,10 @@ char version[40];      /* initialised by main() */
 
 extern struct layer *flayer;
 extern struct display *display, *displays;
+extern struct win *windows;
 extern char *noargs[];
 extern struct mchar mchar_blank, mchar_so;
-extern char *blank;
+extern unsigned char *blank;
 extern struct win *wtab[];
 
 static void PadStr __P((char *, int, int, int));
@@ -362,6 +360,7 @@ int x, y;
   char buf[256];
   int del, l;
   char *bp, *cp, **pp;
+  int *lp, ll;
   int fr;
   struct mchar mchar_dol;
 
@@ -381,18 +380,20 @@ int x, y;
   LPutChar(flayer, fr ? &mchar_blank : &mchar_dol, x++, y);
 
   pp = act->args;
+  lp = act->argl;
   while (pp && (cp = *pp) != NULL)
     {
       del = 0;
       bp = buf;
-      if (!*cp || (index(cp, ' ') != NULL))
+      ll = *lp++;
+      if (!ll || (index(cp, ' ') != NULL))
 	{
 	  if (index(cp, '\'') != NULL)
 	    *bp++ = del = '"';
 	  else
 	    *bp++ = del = '\'';
 	}
-      while (*cp && bp < buf + 250)
+      while (ll-- && bp < buf + 250)
 	bp += AddXChar(bp, *(unsigned char *)cp++);
       if (del)
 	*bp++ = del;
@@ -759,6 +760,7 @@ displayspage()
   char tbuf[80];
   struct display *d;
   struct win *w;
+  static char *blockstates[5] = {"nb", "NB", "Z<", "Z>", "BL"};
 
   LClearAll(flayer, 0);
 
@@ -775,8 +777,7 @@ displayspage()
       sprintf(tbuf, "%-10.10s%4dx%-4d%10.10s@%-16.16s%s",
 	      d->d_termname, d->d_width, d->d_height, d->d_user->u_name, 
 	      d->d_usertty, 
-	      d->d_nonblock ? ((( d->d_obufp - d->d_obuf) > d->d_obufmax) ?
-		"NB" : "nb") : "  ");
+	      (d->d_blocked || d->d_nonblock >= 0) && d->d_blocked <= 4 ? blockstates[d->d_blocked] : "  ");
 
       if (w)
 	{
@@ -842,6 +843,8 @@ int y, xs, xe, isblank;
 **
 */
 
+struct wlistdata;
+
 static void WListProcess __P((char **, int *));
 static void WListRedisplayLine __P((int, int, int, int));
 static void wlistpage __P((void));
@@ -851,6 +854,7 @@ static void WListMove __P((int, int));
 static void WListUpdate __P((struct win *));
 static int  WListNormalize __P((void));
 static int  WListResize __P((int, int));
+static int  WListNext __P((struct wlistdata *, int, int));
 
 struct wlistdata {
   int pos;
@@ -860,6 +864,7 @@ struct wlistdata {
   int first;
   int last;
   int start;
+  int order;
 };
 
 static struct LayFuncs WListLf =
@@ -897,6 +902,7 @@ int *plen;
 {
   int done = 0;
   struct wlistdata *wlistdata;
+  struct display *olddisplay = display;
   int h;
 
   ASSERT(flayer);
@@ -910,18 +916,9 @@ int *plen;
 	  int d = 0;
 	  if (n < MAXWIN && wtab[n])
 	    {
-	      while (wlistdata->pos > n)
-		{
-		  if (wtab[n])
-		    d--;
-		  n++;
-		}
-	      while (wlistdata->pos < n)
-		{
-		  if (wtab[n])
-		    d++;
-		  n--;
-		}
+	      int i;
+	      for (d = -wlistdata->npos, i = WListNext(wlistdata, -1, 0); i != n; i = WListNext(wlistdata, i, 1), d++)
+		;
 	    }
 	  if (d)
 	    WListMove(d, -1);
@@ -971,12 +968,15 @@ int *plen;
 #endif
 	  else
 	    ExitOverlayPage();	/* no need to redisplay */
+	  /* restore display, don't switch wrong user */
+	  display = olddisplay;
 	  SwitchWindow(h);
 	  break;
 	case 0033:
 	case 0007:
 	  h = wlistdata->start;
 	  HelpAbort();
+	  display = olddisplay;
 	  if (h >= 0 && wtab[h])
 	    SwitchWindow(h);
 	  else if (h == -2)
@@ -1020,28 +1020,82 @@ int isblank;
   return;
 }
 
+static int
+WListNext(wlistdata, old, delta)
+struct wlistdata *wlistdata;
+int old, delta;
+{
+  int i, j;
+
+  if (old == MAXWIN)
+    return MAXWIN;
+  if (wlistdata->order == WLIST_NUM)
+    {
+      if (old == -1)
+	{
+	  for (old = 0; old < MAXWIN; old++)
+	    if (wtab[old])
+	      break;
+	  if (old == MAXWIN)
+	    return old;
+	}
+      if (!wtab[old])
+	return MAXWIN;
+      i = old;
+      while (delta > 0 && i < MAXWIN - 1)
+	if (wtab[++i])
+	  {
+	    old = i;
+	    delta--;
+	  }
+      while (delta < 0 && i > 0)
+	if (wtab[--i])
+	  {
+	    old = i;
+	    delta++;
+	  }
+    }
+  else
+    {
+      if (old == -1)
+	old = windows->w_number;
+      if (!wtab[old])
+	return MAXWIN;
+      for (; delta > 0; delta--)
+	if (wtab[old]->w_next)
+	  old = wtab[old]->w_next->w_number;
+      if (delta < 0)
+	{
+	  for (j = i = windows->w_number; j != old; )
+	    {
+	      if (delta++ >= 0 && wtab[i]->w_next)
+		i = wtab[i]->w_next->w_number;
+	      if (wtab[j]->w_next)
+		j = wtab[j]->w_next->w_number;
+	    }
+	  old = i;
+	}
+    }
+  return old;
+}
+
 static void
 WListLines(up, oldpos)
 int up, oldpos;
 {
   struct wlistdata *wlistdata;
   int ypos, pos;
-  int y, i, first;
+  int y, i, oldi;
 
   wlistdata = (struct wlistdata *)flayer->l_data;
   ypos = wlistdata->ypos;
   pos = wlistdata->pos;
 
-  first = ypos;
-  for (i = pos; i >= 0; i--)
-    if (wtab[i] && first-- == 0)
-      break;
+  i = WListNext(wlistdata, pos, -ypos);
   for (y = 0; y < wlistdata->numwin; y++)
     {
-      while (i < MAXWIN && wtab[i] == 0)
-	i++;
-      if (i == MAXWIN)
-	continue;
+      if (i == MAXWIN || !wtab[i])
+	return;
       if (y == 0)
 	wlistdata->first = i;
       wlistdata->last = i;
@@ -1049,7 +1103,10 @@ int up, oldpos;
 	WListLine(y, i, pos, i != oldpos);
       if (i == pos)
 	wlistdata->ypos = y;
-      i++;
+      oldi = i;
+      i = WListNext(wlistdata, i, 1);
+      if (i == MAXWIN || i == oldi)
+	break;
     }
 }
 
@@ -1057,7 +1114,7 @@ static int
 WListNormalize()
 {
   struct wlistdata *wlistdata;
-  int i, n;
+  int i, oldi, n;
   int ypos, pos;
 
   wlistdata = (struct wlistdata *)flayer->l_data;
@@ -1067,14 +1124,12 @@ WListNormalize()
     ypos = 0;
   if (ypos >= wlistdata->numwin)
     ypos = wlistdata->numwin - 1;
-  for (n = 0, i = pos; i < MAXWIN && n < wlistdata->numwin; i++)
-    if (wtab[i])
-      n++;
+  for (n = 0, oldi = MAXWIN, i = pos; i != MAXWIN && i != oldi && n < wlistdata->numwin; oldi = i, i = WListNext(wlistdata, i, 1))
+    n++;
   if (ypos < wlistdata->numwin - n)
     ypos = wlistdata->numwin - n;
-  for (n = i = 0; i < pos; i++)
-    if (wtab[i])
-      n++;
+  for (n = 0, oldi = MAXWIN, i = WListNext(wlistdata, -1, 0); i != MAXWIN && i != oldi && i != pos; oldi = i, i = WListNext(wlistdata, i, 1))
+    n++;
   if (ypos > n)
     ypos = n;
   wlistdata->ypos = ypos;
@@ -1089,27 +1144,14 @@ int ypos;
 {
   struct wlistdata *wlistdata;
   int oldpos, oldypos, oldnpos;
-  int pos, up, i;
+  int pos, up;
 
   wlistdata = (struct wlistdata *)flayer->l_data;
   oldpos = wlistdata->pos;
   oldypos = wlistdata->ypos;
   oldnpos = wlistdata->npos;
   wlistdata->ypos = ypos == -1 ? oldypos + num : ypos;
-  pos = oldpos;
-  i = pos;
-  while (num > 0 && i < MAXWIN - 1)
-    if (wtab[++i])
-      {
-	pos = i;
-	num--;
-      }
-  while (num < 0 && i > 0)
-    if (wtab[--i])
-      {
-	pos = i;
-	num++;
-      }
+  pos = WListNext(wlistdata, oldpos, num);
   wlistdata->pos = pos;
   ypos = WListNormalize();
   up = wlistdata->npos - ypos - (oldnpos - oldypos);
@@ -1144,8 +1186,9 @@ int y, xs, xe, isblank;
 }
 
 void
-display_wlist(onblank)
+display_wlist(onblank, order)
 int onblank;
+int order;
 {
   struct win *p;
   struct wlistdata *wlistdata;
@@ -1181,8 +1224,9 @@ int onblank;
   flayer->l_x = 0;
   flayer->l_y = flayer->l_height - 1;
   wlistdata->start = onblank && p ? p->w_number : -1;
-  wlistdata->pos = p ? p->w_number : 0;
-  wlistdata->ypos = 0;
+  wlistdata->order = order;
+  wlistdata->pos = p ? p->w_number : WListNext(wlistdata, -1, 0);
+  wlistdata->ypos = wlistdata->npos = 0;
   wlistdata->numwin= flayer->l_height - 3;
   wlistpage();
 }
@@ -1203,14 +1247,19 @@ wlistpage()
   pos = wlistdata->pos;
   if (wtab[pos] == 0)
     {
-      /* find new position */
-      while(++pos < MAXWIN)
-	if (wtab[pos])
-	  break;
-      if (pos == MAXWIN)
-	while (--pos > 0)
-	  if (wtab[pos])
-	    break;
+      if (wlistdata->order == WLIST_MRU)
+        pos = WListNext(wlistdata, -1, wlistdata->npos);
+      else
+	{
+          /* find new position */
+	  while(++pos < MAXWIN)
+	    if (wtab[pos])
+	      break;
+	  if (pos == MAXWIN)
+	    while (--pos > 0)
+	      if (wtab[pos])
+		break;
+	}
     }
   wlistdata->pos = pos;
 
@@ -1236,18 +1285,14 @@ struct win *p;
     }
   wlistdata = (struct wlistdata *)flayer->l_data;
   n = p->w_number;
-  if (n < wlistdata->first || n > wlistdata->last)
+  if (wlistdata->order == WLIST_NUM && (n < wlistdata->first || n > wlistdata->last))
     return;
   i = wlistdata->first;
   for (y = 0; y < wlistdata->numwin; y++)
     {
-      while (i < MAXWIN && wtab[i] == 0)
-	i++;
-      if (i == MAXWIN)
-	return;
       if (i == n)
 	break;
-      i++;
+      i = WListNext(wlistdata, i, 1);
     }
   if (y == wlistdata->numwin)
     return;
@@ -1263,6 +1308,26 @@ struct win *p;
   if (cv->c_layer->l_layfn != &WListLf)
     return;
   CV_CALL(cv, WListUpdate(p));
+}
+
+void
+WListLinkChanged()
+{
+  struct display *olddisplay = display;
+  struct canvas *cv;
+  struct wlistdata *wlistdata;
+
+  for (display = displays; display; display = display->d_next)
+    for (cv = D_cvlist; cv; cv = cv->c_next)
+      {
+        if (cv->c_layer->l_layfn != &WListLf)
+	  continue;
+        wlistdata = (struct wlistdata *)cv->c_layer->l_data;
+	if (wlistdata->order != WLIST_MRU)
+	  continue;
+        CV_CALL(cv, WListUpdate(0));
+      }
+  display = olddisplay;
 }
 
 int
@@ -1283,9 +1348,12 @@ InWList()
 
 #ifdef MAPKEYS
 
-extern char *kmap_extras[];
-extern int kmap_extras_fl[];
 extern struct term term[];
+extern struct kmap_ext *kmap_exts;
+extern int kmap_extn;
+extern struct action dmtab[];
+extern struct action mmtab[];
+
 
 static void BindkeyProcess __P((char **, int *));
 static void BindkeyAbort __P((void));
@@ -1335,7 +1403,7 @@ struct action *tab;
   bindkeydata->tab = tab;
   
   n = 0;
-  for (i = 0; i < KMAP_KEYS+KMAP_AKEYS+KMAP_EXT; i++)
+  for (i = 0; i < KMAP_KEYS+KMAP_AKEYS+kmap_extn; i++)
     {
       if (tab[i].nr != RC_ILLEGAL)
 	n++;
@@ -1361,8 +1429,9 @@ static void
 bindkeypage()
 {
   struct bindkeydata *bindkeydata;
+  struct kmap_ext *kme;
   char tbuf[256];
-  int del, i, ch, y;
+  int del, i, y, sl;
   struct action *act;
   char *xch, *s, *p;
 
@@ -1373,33 +1442,43 @@ bindkeypage()
   sprintf(tbuf, "%s key bindings, page %d of %d.", bindkeydata->title, bindkeydata->page, bindkeydata->pages);
   centerline(tbuf, 0);
   y = 2;
-  for (i = bindkeydata->pos; i < KMAP_KEYS+KMAP_AKEYS+KMAP_EXT && y < flayer->l_height - 3; i++)
+  for (i = bindkeydata->pos; i < KMAP_KEYS+KMAP_AKEYS+kmap_extn && y < flayer->l_height - 3; i++)
     {
       p = tbuf;
-      act = &bindkeydata->tab[i];
-      if (act->nr == RC_ILLEGAL)
-	continue;
       xch = "   ";
       if (i < KMAP_KEYS)
 	{
+	  act = &bindkeydata->tab[i];
+	  if (act->nr == RC_ILLEGAL)
+	    continue;
 	  del = *p++ = ':';
 	  s = term[i + T_CAPS].tcname;
+	  sl = s ? strlen(s) : 0;
 	}
       else if (i < KMAP_KEYS+KMAP_AKEYS)
 	{
+	  act = &bindkeydata->tab[i];
+	  if (act->nr == RC_ILLEGAL)
+	    continue;
 	  del = *p++ = ':';
 	  s = term[i + (T_CAPS - T_OCAPS + T_CURSOR)].tcname;
+	  sl = s ? strlen(s) : 0;
 	  xch = "[A]";
 	}
       else
 	{
+	  kme = kmap_exts + (i - (KMAP_KEYS+KMAP_AKEYS));
 	  del = 0;
-	  s = kmap_extras[i - (KMAP_KEYS+KMAP_AKEYS)];
-	  if (kmap_extras_fl[i - (KMAP_KEYS+KMAP_AKEYS)])
+	  s = kme->str;
+	  sl = kme->fl & ~KMAP_NOTIMEOUT;
+	  if ((kme->fl & KMAP_NOTIMEOUT) != 0)
 	    xch = "[T]";
+	  act = bindkeydata->tab == dmtab ? &kme->dm : bindkeydata->tab == mmtab ? &kme->mm : &kme->um;
+	  if (act->nr == RC_ILLEGAL)
+	    continue;
 	}
-      while ((ch = *(unsigned char *)s++))
-	p += AddXChar(p, ch);
+      while (sl-- > 0)
+	p += AddXChar(p, *(unsigned char *)s++);
       if (del)
 	*p++ = del;
       *p++ = ' ';
@@ -1477,6 +1556,60 @@ int y, xs, xe, isblank;
 #endif /* MAPKEYS */
 
 
+/*
+**
+**    The zmodem active page
+**
+*/
+
+#ifdef ZMODEM
+
+static void ZmodemRedisplayLine __P((int, int, int, int));
+static int  ZmodemResize __P((int, int));
+
+static struct LayFuncs ZmodemLf =
+{
+  DefProcess,
+  0,
+  ZmodemRedisplayLine,
+  DefClearLine,
+  DefRewrite,
+  ZmodemResize,
+  DefRestore
+};
+
+/*ARGSUSED*/
+static int
+ZmodemResize(wi, he)
+int wi, he; 
+{
+  flayer->l_width = wi;
+  flayer->l_height = he;
+  flayer->l_x = flayer->l_width > 32 ? 32 : 0;
+  return 0;
+}
+
+static void
+ZmodemRedisplayLine(y, xs, xe, isblank)
+int y, xs, xe, isblank;
+{
+  DefRedisplayLine(y, xs, xe, isblank);
+  if (y == 0 && xs == 0)
+    LPutStr(flayer, "Zmodem active on another display", flayer->l_width > 32 ? 32 : flayer->l_width, &mchar_blank, 0, 0);
+}
+
+void
+ZmodemPage()
+{
+  if (InitOverlayPage(1, &ZmodemLf, 1))
+    return;
+  LRefreshAll(flayer, 0);
+  flayer->l_x = flayer->l_width > 32 ? 32 : 0;
+  flayer->l_y = 0;
+}
+
+#endif
+
 
 
 static void
@@ -1491,6 +1624,5 @@ int n, x, y;
     l = n;
   LPutStr(flayer, str, l, &mchar_blank, x, y);
   if (l < n)
-    LPutStr(flayer, blank, n - l, &mchar_blank, x + l, y);
+    LPutStr(flayer, (char *)blank, n - l, &mchar_blank, x + l, y);
 }
-

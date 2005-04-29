@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -95,6 +95,8 @@ static void eatThru(char val, const char **table_p)
 	*table_p = table;
 }
 
+#if UNUSED
+
 /* Remove key and its associated value from the table. */
 
 BOOL
@@ -170,6 +172,8 @@ newStringFromList(
     *size = newsize;
     return newstr;
 }
+
+#endif
 
 /* 
  * compress == compress escaped characters to one character
@@ -257,6 +261,8 @@ BOOL getValueForConfigTableKey(const char *table, const char *key, const char **
 	return NO;
 }
 
+#if UNUSED
+
 /*
  * Returns a new malloc'ed string if one is found
  * in the string table matching 'key'.  Also translates
@@ -298,6 +304,8 @@ char *newStringForStringTableKey(
 	return 0;
     }
 }
+
+#endif
 
 char *
 newStringForKey(char *key)
@@ -341,6 +349,7 @@ BOOL getValueForBootKey(const char *line, const char *match, const char **matchv
 {
     const char *key, *value;
     int key_len, value_len;
+    BOOL retval = NO;
     
     while (*line) {
 	/* look for keyword or argument */
@@ -359,22 +368,32 @@ BOOL getValueForBootKey(const char *line, const char *match, const char **matchv
 	    && strncmp(match, key, key_len) == 0) {
 	    *matchval = value;
 	    *len = value_len;
-	    return YES;
+	    retval = YES;
+            /* Continue to look for this key; last one wins. */
 	}
     }
-    return NO;
+    return retval;
 }
 
+/* Returns TRUE if a value was found, FALSE otherwise.
+ * The boolean value of the key is stored in 'val'.
+ */
 BOOL getBoolForKey(
-    const char *key
+    const char *key,
+    BOOL *result_val
 )
 {
-    const char *val;
+    const char *key_val;
     int size;
     
-    if (getValueForKey(key, &val, &size) && (size >= 1) &&
-	val[0] == 'Y' || val[0] == 'y')
-	    return YES;
+    if (getValueForKey(key, &key_val, &size)) {
+        if ( (size >= 1) && (key_val[0] == 'Y' || key_val[0] == 'y') ) {
+            *result_val = YES;
+        } else {
+            *result_val = NO;
+        }
+        return YES;
+    }
     return NO;
 }
 
@@ -422,33 +441,29 @@ int sysConfigValid;
  * Allocates an extra number of bytes for table expansion.
  */
 int
-loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
+loadConfigFile(const char *configFile)
 {
-    char *configPtr = bootArgs->configEnd;
+    char *configPtr = bootArgs->config;
     int fd, count;
     
     /* Read config file into memory */
     if ((fd = open(configFile, 0)) >= 0)
     {
-	if (allocTable) {
-	    configPtr = malloc(file_size(fd)+2+TABLE_EXPAND_SIZE);
-	} else {
-	    if ((configPtr - bootArgs->config) > CONFIG_SIZE) {
-		error("No room in memory for config files\n");
-		close(fd);
-		return -1;
-	    }
-	    verbose("Reading configuration file '%s'.\n",configFile);	    
-	}
-	if (table) *table = configPtr;
+        if ((configPtr - bootArgs->config) > CONFIG_SIZE) {
+            error("No room in memory for config files\n");
+            close(fd);
+            return -1;
+        }
+        verbose("Reading configuration file '%s'.\n",configFile);	    
+
 	count = read(fd, configPtr, IO_CONFIG_DATA_SIZE);
 	close(fd);
 
 	configPtr += count;
 	*configPtr++ = 0;
 	*configPtr = 0;
-	if (!allocTable)
-	    bootArgs->configEnd = configPtr;
+
+        bootArgs->configEnd = configPtr;
 
 	return 0;
     } else {
@@ -456,81 +471,16 @@ loadConfigFile(const char *configFile, const char **table, BOOL allocTable)
     }
 }
 
-/* Returns 0 if requested config files were loaded,
- *         1 if default files were loaded,
- *        -1 if no files were loaded.
- * Prints error message if files cannot be loaded.
- */
- 
-int
-loadConfigDir(
-    const char *bundleName,	// bundle directory name (e.g. "System")
-    BOOL useDefault,	// use Default.table instead of instance tables
-    const char **table,	// returns pointer to config table
-    BOOL allocTable	// malloc the table and return in *table
-)
-{
-    char *buf;
-    int i, max, ret;
-    const char *device_dir = usrDevices();
-    
-    buf = malloc(256);
-    ret = 0;
-    
-    // load up to 99 instance tables
-    if (allocTable)
-	max = 1;
-    else
-	max = 99;
-    for (i=0; i < max; i++) {
-	sprintf(buf, "%s/%s.config/Instance%d.table",
-		device_dir,
-		bundleName, i);
-	if (useDefault || (loadConfigFile(buf, table, allocTable) != 0)) {
-	    if (i == 0) {
-		// couldn't load first instance table;
-		// try the default table
-		sprintf(buf, "%s/%s.config/%s",
-			device_dir,
-			bundleName,
-			IO_DEFAULT_TABLE_FILENAME);
-		if (loadConfigFile(buf, table, allocTable) == 0) {
-		    ret = 1;
-		} else {
-		    if (!allocTable) {
-			error("Config file \"%s\" not found\n", buf);
-			sleep(1); // let the message be seen!
-		    }
-		    ret = -1;
-		}
-	    }
-	    // we must be done.
-	    break;
-	}
-    }
-    free(buf);
-    return ret;
-}
-
-
-#define USR_SYSTEM_CONFIG \
-	USR_DEVICES "/System.config"
-#define USR_SYSTEM_DEFAULT_FILE \
-	USR_SYSTEM_CONFIG "/Default.table"
-#define ARCH_SYSTEM_CONFIG \
-	ARCH_DEVICES "/System.config"
-#define ARCH_SYSTEM_DEFAULT_FILE \
-	ARCH_SYSTEM_CONFIG "/Default.table"
-#define SYSTEM_CONFIG "System"
 #define LP '('
 #define RP ')'
 
 #define SYSTEM_CONFIG_DIR "/Library/Preferences/SystemConfiguration"
 #define SYSTEM_CONFIG_FILE "/com.apple.Boot.plist"
+#define LRE_CONFIG_FILE "/com.apple.lre.Boot.plist"
 #define SYSTEM_CONFIG_PATH SYSTEM_CONFIG_DIR SYSTEM_CONFIG_FILE
 #define CONFIG_EXT ".plist"
 
-#if 1
+#if UNUSED
 void
 printSystemConfig(void)
 {
@@ -549,8 +499,6 @@ printSystemConfig(void)
 }
 #endif
 
-static int sysconfig_dev;
-
 //==========================================================================
 // ParseXMLFile
 // Modifies the input buffer.
@@ -558,6 +506,7 @@ static int sysconfig_dev;
 // Puts the first dictionary it finds in the
 // tag pointer and returns 0, or returns -1 if not found
 // (and does not modify dict pointer).
+// Prints an error message if there is a parsing error.
 //
 static long
 ParseXMLFile( char * buffer, TagPtr * dict )
@@ -584,6 +533,7 @@ ParseXMLFile( char * buffer, TagPtr * dict )
     }
     free(configBuffer);
     if (length < 0) {
+        error ("Error parsing plist file");
         return -1;
     }
     *dict = tag;
@@ -611,7 +561,7 @@ loadSystemConfig(
         if (*cp == LP) {
             while (len-- && *cp && *cp++ != RP) ;
             /* cp now points past device */
-            strlcpy(buf,which,cp - which);
+            strlcpy(buf,which,cp - which + 1);
             bp += cp - which;
         } else {
             cp = which;
@@ -625,21 +575,26 @@ loadSystemConfig(
                         CONFIG_EXT, strlen(CONFIG_EXT)) != 0)
                 strcat(bp, CONFIG_EXT);
         } else {
-            strlcpy(bp, cp, len);
+            strlcpy(bp, cp, len + 1);
         }
         if ((strcmp(bp, SYSTEM_CONFIG_PATH) == 0)) {
             doDefault = 1;
         }
-        ret = loadConfigFile(bp = buf, 0, 0);
+        bp = buf;
+        ret = loadConfigFile(bp);
     } else {
+        /* First try LRE file */
         strcpy(bp, systemConfigDir());
-        strcat(bp, SYSTEM_CONFIG_FILE);
-        ret = loadConfigFile(bp, 0, 0);
+        strcat(bp, LRE_CONFIG_FILE);
+        ret = loadConfigFile(bp);
+
         if (ret < 0) {
-            ret = loadConfigDir((bp = SYSTEM_CONFIG), 0, 0, 0);
+            /* If not found, try default file */
+            strcpy(bp, systemConfigDir());
+            strcat(bp, SYSTEM_CONFIG_FILE);
+            ret = loadConfigFile(bp);
         }
     }
-    sysconfig_dev = currentdev();
     if (ret < 0) {
 	error("System config file '%s' not found\n", bp);
 	sleep(1);

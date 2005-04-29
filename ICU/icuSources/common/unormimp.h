@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2003, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -21,15 +21,20 @@
 
 #if !UCONFIG_NO_NORMALIZATION
 
+#ifdef XP_CPLUSPLUS
+#include "unicode/uniset.h"
+#endif
+
 #include "unicode/uiter.h"
 #include "unicode/unorm.h"
 #include "unicode/uset.h"
 #include "utrie.h"
 #include "ustr_imp.h"
+#include "udataswp.h"
 
 /*
  * This new implementation of the normalization code loads its data from
- * unorm.dat, which is generated with the gennorm tool.
+ * unorm.icu, which is generated with the gennorm tool.
  * The format of that file is described at the end of this file.
  */
 
@@ -91,11 +96,19 @@ enum {
 
 /* canonStartSets[0..31] contains indexes for what is in the array */
 enum {
-    _NORM_SET_INDEX_CANON_SETS_LENGTH,  /* number of uint16_t in canonical starter sets */
+    _NORM_SET_INDEX_CANON_SETS_LENGTH,      /* number of uint16_t in canonical starter sets */
     _NORM_SET_INDEX_CANON_BMP_TABLE_LENGTH, /* number of uint16_t in the BMP search table (contains pairs) */
     _NORM_SET_INDEX_CANON_SUPP_TABLE_LENGTH,/* number of uint16_t in the supplementary search table (contains triplets) */
 
-    _NORM_SET_INDEX_TOP=32              /* changing this requires a new formatVersion */
+    /* from formatVersion 2.3: */
+    _NORM_SET_INDEX_NX_CJK_COMPAT_OFFSET,   /* uint16_t offset from canonStartSets[0] to the
+                                               exclusion set for CJK compatibility characters */
+    _NORM_SET_INDEX_NX_UNICODE32_OFFSET,    /* uint16_t offset from canonStartSets[0] to the
+                                               exclusion set for Unicode 3.2 characters */
+    _NORM_SET_INDEX_NX_RESERVED_OFFSET,     /* uint16_t offset from canonStartSets[0] to the
+                                               end of the previous exclusion set */
+
+    _NORM_SET_INDEX_TOP=32                  /* changing this requires a new formatVersion */
 };
 
 /* more constants for canonical starter sets */
@@ -174,7 +187,16 @@ enum {
     /** Options bit 0, do not decompose Hangul syllables. @draft ICU 2.6 */
     UNORM_NX_HANGUL=1,
     /** Options bit 1, do not decompose CJK compatibility characters. @draft ICU 2.6 */
-    UNORM_NX_CJK_COMPAT=2
+    UNORM_NX_CJK_COMPAT=2,
+    /**
+     * Options bit 8, use buggy recomposition described in
+     * Unicode Public Review Issue #29
+     * at http://www.unicode.org/review/resolved-pri.html#pri29
+     *
+     * Used in IDNA implementation according to strict interpretation
+     * of IDNA definition based on Unicode 3.2 which predates PRI #29.
+     */
+    UNORM_BEFORE_PRI_29=0x100
 };
 
 /**
@@ -203,6 +225,22 @@ unorm_internalNormalize(UChar *dest, int32_t destCapacity,
                         UNormalizationMode mode, int32_t options,
                         UErrorCode *pErrorCode);
 
+#ifdef XP_CPLUSPLUS
+
+/**
+ * Internal API for normalizing.
+ * Does not check for bad input.
+ * Requires _haveData() to be true.
+ * @internal
+ */
+U_CFUNC int32_t
+unorm_internalNormalizeWithNX(UChar *dest, int32_t destCapacity,
+                              const UChar *src, int32_t srcLength,
+                              UNormalizationMode mode, int32_t options, const UnicodeSet *nx,
+                              UErrorCode *pErrorCode);
+
+#endif
+
 /**
  * internal API, used by normlzr.cpp
  * @internal
@@ -222,6 +260,22 @@ unorm_compose(UChar *dest, int32_t destCapacity,
               const UChar *src, int32_t srcLength,
               UBool compat, int32_t options,
               UErrorCode *pErrorCode);
+
+#ifdef XP_CPLUSPLUS
+
+/**
+ * internal API, used by unormcmp.cpp
+ * @internal
+ */
+U_CFUNC UNormalizationCheckResult
+unorm_internalQuickCheck(const UChar *src,
+                         int32_t srcLength,
+                         UNormalizationMode mode,
+                         UBool allowMaybe,
+                         const UnicodeSet *nx,
+                         UErrorCode *pErrorCode);
+
+#endif
 
 #endif /* #if !UCONFIG_NO_NORMALIZATION */
 
@@ -249,20 +303,15 @@ unorm_compose(UChar *dest, int32_t destCapacity,
  */
 #define _STRNCMP_STYLE 0x1000
 
+#if !UCONFIG_NO_NORMALIZATION
+
 /**
- * Internal API, used by u_strcasecmp() etc.
- * Compare strings for canonical equivalence (optional),
- * case-insensitively (optional),
- * in code point order or code unit order.
+ * Internal API to get the 16-bit FCD value (lccc + tccc) for c,
+ * for u_getIntPropertyValue().
  * @internal
  */
-U_CAPI int32_t U_EXPORT2
-unorm_cmpEquivFold(const UChar *s1, int32_t length1,
-                   const UChar *s2, int32_t length2,
-                   uint32_t options,
-                   UErrorCode *pErrorCode);
-
-#if !UCONFIG_NO_NORMALIZATION
+U_CAPI uint16_t U_EXPORT2
+unorm_getFCD16FromCodePoint(UChar32 c);
 
 /**
  * Internal API, used by collation code.
@@ -329,7 +378,28 @@ U_NAMESPACE_END
 #endif
 
 /**
+ * internal API, used by StringPrep
+ * @internal
+ */
+U_CAPI void U_EXPORT2
+unorm_getUnicodeVersion(UVersionInfo *versionInfo, UErrorCode *pErrorCode);
+
+/**
+ * Get the canonical decomposition for one code point.
+ * Requires unorm_haveData() and buffer!=NULL and pLength!=NULL.
+ * @param c code point
+ * @param buffer out-only buffer for algorithmic decompositions of Hangul
+ * @param length out-only, takes the length of the decomposition, if any
+ * @return pointer to decomposition, or 0 if none
+ * @internal
+ */
+U_CFUNC const UChar *
+unorm_getCanonicalDecomposition(UChar32 c, UChar buffer[4], int32_t *pLength);
+
+/**
  * internal API, used by the canonical iterator
+ * TODO Consider using signature similar to unorm_getCanonicalDecomposition()
+ * for more efficiency
  * @internal
  */
 U_CAPI int32_t U_EXPORT2
@@ -364,21 +434,51 @@ unorm_getCanonStartSet(UChar32 c, USerializedSet *fillSet);
 U_CAPI UBool U_EXPORT2
 unorm_isNFSkippable(UChar32 c, UNormalizationMode mode);
 
+#ifdef XP_CPLUSPLUS
+
+/**
+ * Get normalization exclusion set for the options.
+ * Requires unorm_haveData().
+ * @internal
+ */
+U_CFUNC const UnicodeSet *
+unorm_getNX(int32_t options, UErrorCode *pErrorCode);
+
+#endif
+
 /**
  * Enumerate each normalization data trie and add the
  * start of each range of same properties to the set.
  * @internal
  */
 U_CAPI void U_EXPORT2
-unorm_addPropertyStarts(USet *set, UErrorCode *pErrorCode);
+unorm_addPropertyStarts(USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
- * Description of the format of unorm.dat version 2.2.
+ * Swap unorm.icu. See udataswp.h.
+ * @internal
+ */
+U_CAPI int32_t U_EXPORT2
+unorm_swap(const UDataSwapper *ds,
+           const void *inData, int32_t length, void *outData,
+           UErrorCode *pErrorCode);
+
+/**
+ * Get the NF*_QC property for a code point, for u_getIntPropertyValue().
+ * @internal
+ */
+U_CAPI UNormalizationCheckResult U_EXPORT2
+unorm_getQuickCheck(UChar32 c, UNormalizationMode mode);
+
+/**
+ * Description of the format of unorm.icu version 2.3.
  *
  * Main change from version 1 to version 2:
  * Use of new, common UTrie instead of normalization-specific tries.
  * Change to version 2.1: add third/auxiliary trie with associated data.
  * Change to version 2.2: add skippable (f) flag data (_NORM_AUX_NFC_SKIP_F_MASK).
+ * Change to version 2.3: add serialized sets for normalization exclusions
+ *                        stored inside canonStartSets[]
  *
  * For more details of how to use the data structures see the code
  * in unorm.cpp (runtime normalization code) and
@@ -391,7 +491,7 @@ unorm_addPropertyStarts(USet *set, UErrorCode *pErrorCode);
  * unorm.dat customarily begins with a UDataInfo structure, see udata.h and .c.
  * After that there are the following structures:
  *
- * uint16_t indexes[_NORM_INDEX_TOP];           -- _NORM_INDEX_TOP=32, see enum in this file
+ * int32_t indexes[_NORM_INDEX_TOP];            -- _NORM_INDEX_TOP=32, see enum in this file
  *
  * UTrie normTrie;                              -- size in bytes=indexes[_NORM_INDEX_TRIE_SIZE]
  * 
@@ -662,6 +762,31 @@ unorm_addPropertyStarts(USet *set, UErrorCode *pErrorCode);
  *     if the high word has bit 15 set, then build a set with a single code point
  *     which is (((high16(cp)&0x1f00)<<8)|result;
  *     else there is a USerializedSet at canonStartSets+result
+ *
+ * FormatVersion 2.3 adds 2 serialized sets for normalization exclusions.
+ * They are stored in the data file so that the runtime normalization code need
+ * not depend on other properties and their data and implementation files.
+ * The _NORM_SET_INDEX_NX_..._OFFSET offsets in the canonStartSets index table
+ * give the location for each set.
+ * There is no set stored for UNORM_NX_HANGUL because it's trivial to create
+ * without using properties.
+ *
+ * Set contents:
+ *
+ * _NORM_SET_INDEX_NX_CJK_COMPAT_OFFSET (for UNORM_NX_CJK_COMPAT)
+ *     [[:Ideographic:]&[:NFD_QC=No:]]
+ *     =[CJK Ideographs]&[has canonical decomposition]
+ *
+ * _NORM_SET_INDEX_NX_UNICODE32_OFFSET (for UNORM_UNICODE_3_2)
+ *     [:^Age=3.2:]
+ *     =set with all code points that were not designated by the specified Unicode version
+ *
+ * _NORM_SET_INDEX_NX_RESERVED_OFFSET
+ *     This is an offset that points to where the next, future set would start.
+ *     Currently it indicates where the previous set ends, and thus its length.
+ *     The name for this enum constant may in the future be applied to different
+ *     index slots. In order to get the limit of a set, use its index slot and
+ *     the immediately following one regardless of that one's enum name.
  */
 
 #endif /* #if !UCONFIG_NO_NORMALIZATION */

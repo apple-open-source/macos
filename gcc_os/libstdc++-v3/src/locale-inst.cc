@@ -1,6 +1,6 @@
 // Locale support -*- C++ -*-
 
-// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -34,12 +34,7 @@
 #include <cstdlib>
 #include <clocale>
 #include <cstring>
-#include <cassert>
-#include <limits>
-#include <exception>
 #include <locale>
-#include <istream>
-#include <ostream>
 
 namespace std
 {
@@ -68,6 +63,91 @@ namespace std
   template
     ostreambuf_iterator<char>
     num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		   long) const;
+
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		   unsigned long) const;
+
+#ifdef _GLIBCPP_USE_LONG_LONG
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		   long long) const;
+
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, 
+		   unsigned long long) const;
+#endif
+
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
+		     double) const;
+
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
+    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
+		     long double) const;
+  
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template class numpunct<wchar_t>;
+  template class numpunct_byname<wchar_t>;
+  template class num_get<wchar_t, istreambuf_iterator<wchar_t> >;
+  template class num_put<wchar_t, ostreambuf_iterator<wchar_t> >;
+
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
+		   long) const;
+
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, 
+		   unsigned long) const;
+
+#ifdef _GLIBCPP_USE_LONG_LONG
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
+		   long long) const;
+
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t,
+		   unsigned long long) const;
+#endif
+
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
+		     double) const;
+
+  template
+    ostreambuf_iterator<wchar_t>
+    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
+    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
+		     long double) const;
+#endif
+
+#if 1
+      // XXX GLIBCXX_ABI Deprecated, compatibility only.
+  template
+    ostreambuf_iterator<char>
+    num_put<char, ostreambuf_iterator<char> >::
     _M_convert_int(ostreambuf_iterator<char>, ios_base&, char, char, char, 
 		   long) const;
 
@@ -91,24 +171,7 @@ namespace std
 		   unsigned long long) const;
 #endif
 
-  template
-    ostreambuf_iterator<char>
-    num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
-		     double) const;
-
-  template
-    ostreambuf_iterator<char>
-    num_put<char, ostreambuf_iterator<char> >::
-    _M_convert_float(ostreambuf_iterator<char>, ios_base&, char, char, 
-		    long double) const;
-
 #ifdef _GLIBCPP_USE_WCHAR_T
-  template class numpunct<wchar_t>;
-  template class numpunct_byname<wchar_t>;
-  template class num_get<wchar_t, istreambuf_iterator<wchar_t> >;
-  template class num_put<wchar_t, ostreambuf_iterator<wchar_t> >;
-
   template
     ostreambuf_iterator<wchar_t>
     num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
@@ -134,18 +197,8 @@ namespace std
     _M_convert_int(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
 		   char, unsigned long long) const;
 #endif
+#endif
 
-  template
-    ostreambuf_iterator<wchar_t>
-    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
-		     double) const;
-
-  template
-    ostreambuf_iterator<wchar_t>
-    num_put<wchar_t, ostreambuf_iterator<wchar_t> >::
-    _M_convert_float(ostreambuf_iterator<wchar_t>, ios_base&, wchar_t, char, 
-		     long double) const;
 #endif
 
   // time_get and time_put
@@ -181,9 +234,9 @@ namespace std
   
   // codecvt
   inline template class __codecvt_abstract_base<char, char, mbstate_t>;
-  inline template class __codecvt_abstract_base<wchar_t, char, mbstate_t>;
   template class codecvt_byname<char, char, mbstate_t>;
 #ifdef _GLIBCPP_USE_WCHAR_T
+  inline template class __codecvt_abstract_base<wchar_t, char, mbstate_t>;
   template class codecvt_byname<wchar_t, char, mbstate_t>;
 #endif
 
@@ -420,15 +473,7 @@ namespace std
     bool
     __verify_grouping<char>(const basic_string<char>&, basic_string<char>&);
 
-  template
-    void 
-    __pad<char>(ios_base&, char, char*, const char *, streamsize, 
-		streamsize, const bool);
-
-  template
-    void 
-    __pad<char, char_traits<char> >(ios_base&, char, char*, const char *, 
-				    streamsize, streamsize, const bool);
+  template class __pad<char, char_traits<char> >;
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template
@@ -440,41 +485,64 @@ namespace std
     __verify_grouping<wchar_t>(const basic_string<wchar_t>&, 
 			       basic_string<wchar_t>&);
 
-  template
-    void 
-    __pad<wchar_t>(ios_base&, wchar_t, wchar_t*, const wchar_t*, 
-		   streamsize, streamsize, const bool);
-
-  template
-    void 
-    __pad<wchar_t, char_traits<wchar_t> >(ios_base&, wchar_t, wchar_t*, 
-					  const wchar_t*, streamsize, 
-					  streamsize, const bool);
-#endif // _GLIBCPP_USE_WCHAR_T
+  template class __pad<wchar_t, char_traits<wchar_t> >;
+#endif 
 
   template
     int
-    __convert_from_v(char*, const int, const char*, double, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, double, 
+		     const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const int, const char*, long double, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long double, 
+		     const __c_locale&, int);
 
   template
     int
-    __convert_from_v(char*, const int, const char*, long, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long, 
+		     const __c_locale&, int);
 
   template
     int
     __convert_from_v(char*, const int, const char*, unsigned long, 
 		     const __c_locale&, int);
 
+#ifdef _GLIBCPP_USE_LONG_LONG
   template
     int
-    __convert_from_v(char*, const int, const char*, long long, const __c_locale&, int);
+    __convert_from_v(char*, const int, const char*, long long, 
+		     const __c_locale&, int);
 
   template
     int
     __convert_from_v(char*, const int, const char*, unsigned long long, 
 		     const __c_locale&, int);
+#endif
+
+  template
+    int
+    __int_to_char(char*, const int, unsigned long, const char*, 
+		  ios_base::fmtflags, bool);
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    int
+    __int_to_char(wchar_t*, const int, unsigned long, const wchar_t*, 
+		  ios_base::fmtflags, bool);
+#endif
+
+#ifdef _GLIBCPP_USE_LONG_LONG
+  template
+    int
+    __int_to_char(char*, const int, unsigned long long, const char*, 
+		  ios_base::fmtflags, bool);
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  template
+    int
+    __int_to_char(wchar_t*, const int, unsigned long long, const wchar_t*,
+		  ios_base::fmtflags, bool);
+#endif
+#endif
 } // namespace std

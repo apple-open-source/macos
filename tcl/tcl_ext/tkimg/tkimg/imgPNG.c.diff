@@ -1,0 +1,485 @@
+*** ../img1.2.3/imgPNG.c	Sat Jan 15 11:13:45 2000
+--- imgPNG.c	Sun Aug 13 06:11:31 2000
+***************
+*** 12,18 ****
+  /* Date   : 2/13/97        */
+  /* Original implementation : Joel Crisp     */
+  
+- #include <stdio.h>
+  #include <string.h>
+  #include <stdlib.h>
+  
+--- 12,17 ----
+***************
+*** 40,45 ****
+--- 39,62 ----
+  
+  #define COMPRESS_THRESHOLD 1024
+  
++ typedef struct png_text_struct_compat
++ {
++    int  compression;       /* compression value:
++                              -1: tEXt, none
++                               0: zTXt, deflate
++                               1: iTXt, none
++                               2: iTXt, deflate  */
++    png_charp key;          /* keyword, 1-79 character description of "text" */
++    png_charp text;         /* comment, may be an empty string (ie "")
++                               or a NULL pointer */
++    png_size_t text_length; /* length of the text string */
++    png_size_t itxt_length; /* length of the itxt string */
++    png_charp lang;         /* language code, 0-79 characters
++                               or a NULL pointer */
++    png_charp lang_key;     /* keyword translated UTF-8 string, 0 or more
++                               chars or a NULL pointer */
++ } png_text_compat;
++ 
+  /*
+   * The format record for the PNG file format:
+   */
+***************
+*** 61,66 ****
+--- 78,84 ----
+  	Tcl_DString *dataPtr, Tcl_Obj *format,
+  	Tk_PhotoImageBlock *blockPtr));
+  
++ 
+  Tk_PhotoImageFormat imgFmtPNG = {
+      "png",					/* name */
+      (Tk_ImageFileMatchProc *) ChnMatchPNG,	/* fileMatchProc */
+***************
+*** 114,120 ****
+      png_uint_32 (* get_IHDR) _ANSI_ARGS_((png_structp, png_infop,
+  	   png_uint_32*, png_uint_32*, int*, int*, int*, int*, int*));
+      png_uint_32 (* get_valid) _ANSI_ARGS_((png_structp, png_infop, png_uint_32));
+-     void (* init_io) _ANSI_ARGS_((png_structp, FILE *));
+      void (* read_image) _ANSI_ARGS_((png_structp, png_bytepp));
+      void (* read_info) _ANSI_ARGS_((png_structp, png_infop));
+      void (* read_update_info) _ANSI_ARGS_((png_structp, png_infop));
+--- 132,137 ----
+***************
+*** 137,142 ****
+--- 154,161 ----
+      void (* set_gAMA) PNGARG((png_structp png_ptr, png_infop, double));
+      void (* set_gamma) _ANSI_ARGS_((png_structp, double, double));
+      void (* set_sRGB_gAMA_and_cHRM) _ANSI_ARGS_((png_structp, png_infop, int));
++     void (* write_iTXt) _ANSI_ARGS_((png_structp, int, png_charp, png_charp,
++ 	    png_charp, png_charp));
+  } png = {0};
+  
+  static char *symbols[] = {
+***************
+*** 152,158 ****
+      "png_get_rowbytes",
+      "png_get_IHDR",
+      "png_get_valid",
+-     "png_init_io",
+      "png_read_image",
+      "png_read_info",
+      "png_read_update_info",
+--- 171,176 ----
+***************
+*** 175,186 ****
+      "png_set_gAMA",
+      "png_set_gamma",
+      "png_set_sRGB_gAMA_and_cHRM",
+      (char *) NULL
+  };
+  
+  typedef struct cleanup_info {
+      Tcl_Interp *interp;
+!     char **data;
+  } cleanup_info;
+  
+  static void
+--- 193,205 ----
+      "png_set_gAMA",
+      "png_set_gamma",
+      "png_set_sRGB_gAMA_and_cHRM",
++     "png_write_iTXt", /* Only used to check if libpng has iTXt support at runtime */
+      (char *) NULL
+  };
+  
+  typedef struct cleanup_info {
+      Tcl_Interp *interp;
+!     jmp_buf jmpbuf;
+  } cleanup_info;
+  
+  static void
+***************
+*** 188,202 ****
+      png_structp png_ptr;
+      png_const_charp error_msg;
+  {
+!     cleanup_info *info;
+! 
+!     info = (cleanup_info *) png.get_error_ptr(png_ptr);
+!     if (info->data) {
+! 	ckfree((char *) info->data);
+!     }
+!     Tcl_AppendResult(info->interp,
+! 	    error_msg, (char *) NULL);
+!     longjmp(*(jmp_buf *) png_ptr,1);
+  }
+  
+  static void
+--- 207,215 ----
+      png_structp png_ptr;
+      png_const_charp error_msg;
+  {
+!     cleanup_info *info = (cleanup_info *) png.get_error_ptr(png_ptr);
+!     Tcl_AppendResult(info->interp, error_msg, (char *) NULL);
+!     longjmp(info->jmpbuf,1);
+  }
+  
+  static void
+***************
+*** 271,279 ****
+      unsigned char buf[8];
+  
+      if ((ImgRead(handle, (char *) buf, 8) != 8)
+! 	    || (strncmp("\211PNG\15\12\32\12", (char *) buf, 8) != 0)
+  	    || (ImgRead(handle, (char *) buf, 8) != 8)
+! 	    || (strncmp("IHDR", (char *) buf+4, 4) != 0)
+  	    || (ImgRead(handle, (char *) buf, 8) != 8)) {
+  	return 0;
+      }
+--- 284,292 ----
+      unsigned char buf[8];
+  
+      if ((ImgRead(handle, (char *) buf, 8) != 8)
+! 	    || (strncmp("\211\120\116\107\15\12\32\12", (char *) buf, 8) != 0)
+  	    || (ImgRead(handle, (char *) buf, 8) != 8)
+! 	    || (strncmp("\111\110\104\122", (char *) buf+4, 4) != 0)
+  	    || (ImgRead(handle, (char *) buf, 8) != 8)) {
+  	return 0;
+      }
+***************
+*** 286,292 ****
+  load_png_library(interp)
+      Tcl_Interp *interp;
+  {
+!     if (ImgLoadLib(interp, PNG_LIB_NAME, &png.handle, symbols, 23)
+  	    != TCL_OK) {
+  	return TCL_ERROR;
+      }
+--- 299,305 ----
+  load_png_library(interp)
+      Tcl_Interp *interp;
+  {
+!     if (ImgLoadLib(interp, PNG_LIB_NAME, &png.handle, symbols, 22)
+  	    != TCL_OK) {
+  	return TCL_ERROR;
+      }
+***************
+*** 316,322 ****
+      handle.state = IMG_CHAN;
+  
+      cleanup.interp = interp;
+-     cleanup.data = NULL;
+  
+      png_ptr=png.create_read_struct(PNG_LIBPNG_VER_STRING,
+  	    (png_voidp) &cleanup,tk_png_error,tk_png_warning);
+--- 329,334 ----
+***************
+*** 347,353 ****
+      }
+  
+      cleanup.interp = interp;
+-     cleanup.data = NULL;
+  
+      png_ptr=png.create_read_struct(PNG_LIBPNG_VER_STRING,
+  	    (png_voidp) &cleanup,tk_png_error,tk_png_warning);
+--- 359,364 ----
+***************
+*** 399,405 ****
+  	return(TCL_ERROR);
+      }
+  
+!     if (setjmp(*(jmp_buf *) png_ptr)) {
+  	png.destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+  	return TCL_ERROR;
+      }
+--- 410,419 ----
+  	return(TCL_ERROR);
+      }
+  
+!     if (setjmp((((cleanup_info *) png.get_error_ptr(png_ptr))->jmpbuf))) {
+! 	if (png_data) {
+! 	    ckfree((char *)png_data);
+! 	}
+  	png.destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+  	return TCL_ERROR;
+      }
+***************
+*** 470,476 ****
+      png_data= (char **) ckalloc(sizeof(char *) * info_height +
+  	    info_height * block.pitch);
+  
+-     ((cleanup_info *) png.get_error_ptr(png_ptr))->data = png_data;
+      for(I=0;I<info_height;I++) {
+  	png_data[I]= ((char *) png_data) + (sizeof(char *) * info_height +
+  		I * block.pitch);
+--- 484,489 ----
+***************
+*** 482,490 ****
+      ImgPhotoPutBlock(imageHandle,&block,destX,destY,width,height);
+  
+      ckfree((char *) png_data);
+-     ((cleanup_info *) png.get_error_ptr(png_ptr))->data = NULL;
+-     png_data=NULL;
+- 
+      png.destroy_read_struct(&png_ptr,&info_ptr,&end_info);
+  
+      return(TCL_OK);
+--- 495,500 ----
+***************
+*** 496,544 ****
+      Tcl_Obj *format;
+      Tk_PhotoImageBlock *blockPtr;
+  {
+-     FILE *outfile = NULL;
+      png_structp png_ptr;
+      png_infop info_ptr;
+!     Tcl_DString nameBuffer; 
+!     char *fullname;
+      int result;
+      cleanup_info cleanup;
+  
+!     if ((fullname=Tcl_TranslateFileName(interp,filename,&nameBuffer))==NULL) {
+  	return TCL_ERROR;
+      }
+  
+!     if (!(outfile=fopen(fullname,"wb"))) {
+! 	Tcl_AppendResult(interp, filename, ": ", Tcl_PosixError(interp),
+! 		(char *)NULL);
+! 	Tcl_DStringFree(&nameBuffer);
+! 	return TCL_ERROR;
+!     }
+! 
+!     Tcl_DStringFree(&nameBuffer);
+  
+      if (load_png_library(interp) != TCL_OK) {
+  	return TCL_ERROR;
+      }
+  
+      cleanup.interp = interp;
+-     cleanup.data = (char **) NULL;
+  
+      png_ptr=png.create_write_struct(PNG_LIBPNG_VER_STRING,
+  	    (png_voidp) &cleanup,tk_png_error,tk_png_warning);
+!     if (!png_ptr) return TCL_ERROR; 
+  
+      info_ptr=png.create_info_struct(png_ptr);
+      if (!info_ptr) {
+  	png.destroy_write_struct(&png_ptr,NULL);
+! 	fclose(outfile);
+  	return TCL_ERROR;
+      }
+  
+!     png.init_io(png_ptr,outfile);
+  
+      result = CommonWritePNG(interp, png_ptr, info_ptr, format, blockPtr);
+!     fclose(outfile);
+      return result;
+  }
+  
+--- 506,551 ----
+      Tcl_Obj *format;
+      Tk_PhotoImageBlock *blockPtr;
+  {
+      png_structp png_ptr;
+      png_infop info_ptr;
+!     MFile handle;
+      int result;
+      cleanup_info cleanup;
++     Tcl_Channel chan = (Tcl_Channel) NULL;
+  
+!     chan = ImgOpenFileChannel(interp, filename, 0644);
+!     if (!chan) {
+  	return TCL_ERROR;
+      }
+  
+!     handle.data = (char *) chan;
+!     handle.state = IMG_CHAN;
+  
+      if (load_png_library(interp) != TCL_OK) {
++ 	Tcl_Close(NULL, chan);
+  	return TCL_ERROR;
+      }
+  
+      cleanup.interp = interp;
+  
+      png_ptr=png.create_write_struct(PNG_LIBPNG_VER_STRING,
+  	    (png_voidp) &cleanup,tk_png_error,tk_png_warning);
+!     if (!png_ptr) {
+! 	Tcl_Close(NULL, chan);
+! 	return TCL_ERROR;
+!     }
+  
+      info_ptr=png.create_info_struct(png_ptr);
+      if (!info_ptr) {
+  	png.destroy_write_struct(&png_ptr,NULL);
+! 	Tcl_Close(NULL, chan);
+  	return TCL_ERROR;
+      }
+  
+!     png.set_write_fn(png_ptr,(png_voidp) &handle, tk_png_write, (png_voidp) NULL);
+  
+      result = CommonWritePNG(interp, png_ptr, info_ptr, format, blockPtr);
+!     Tcl_Close(NULL, chan);
+      return result;
+  }
+  
+***************
+*** 562,571 ****
+      }
+  
+      cleanup.interp = interp;
+-     cleanup.data = (char **) NULL;
+  
+      png_ptr=png.create_write_struct(PNG_LIBPNG_VER_STRING,
+! 	    (png_voidp) &cleanup,tk_png_error,tk_png_warning);
+      if (!png_ptr) {
+  	return TCL_ERROR;
+      }
+--- 569,577 ----
+      }
+  
+      cleanup.interp = interp;
+  
+      png_ptr=png.create_write_struct(PNG_LIBPNG_VER_STRING,
+! 	    (png_voidp) &cleanup, tk_png_error, tk_png_warning);
+      if (!png_ptr) {
+  	return TCL_ERROR;
+      }
+***************
+*** 576,582 ****
+  	return TCL_ERROR;
+      }
+  
+!     png.set_write_fn(png_ptr,(png_voidp) &handle, tk_png_write, (png_voidp) NULL);
+  
+      ImgWriteInit(dataPtr, &handle);
+  
+--- 582,588 ----
+  	return TCL_ERROR;
+      }
+  
+!     png.set_write_fn(png_ptr, (png_voidp) &handle, tk_png_write, (png_voidp) NULL);
+  
+      ImgWriteInit(dataPtr, &handle);
+  
+***************
+*** 600,616 ****
+      Tcl_Obj **tags = (Tcl_Obj **) NULL;
+      int I, pass, number_passes, color_type;  
+      int newPixelSize;
+!     png_bytep row_pointers;
+!     png_textp text = (png_textp) NULL;
+  
+      if (ImgListObjGetElements(interp, format, &tagcount, &tags) != TCL_OK) {
+  	return TCL_ERROR;
+      }
+      tagcount = (tagcount > 1) ? (tagcount/2 - 1) : 0;
+  
+!     if (setjmp(*(jmp_buf *)png_ptr)) {
+! 	if (text) {
+! 	    ckfree((char *) text);
+  	}
+  	png.destroy_write_struct(&png_ptr,&info_ptr);
+  	return TCL_ERROR;
+--- 606,621 ----
+      Tcl_Obj **tags = (Tcl_Obj **) NULL;
+      int I, pass, number_passes, color_type;  
+      int newPixelSize;
+!     png_bytep row_pointers = (png_bytep) NULL;
+  
+      if (ImgListObjGetElements(interp, format, &tagcount, &tags) != TCL_OK) {
+  	return TCL_ERROR;
+      }
+      tagcount = (tagcount > 1) ? (tagcount/2 - 1) : 0;
+  
+!     if (setjmp((((cleanup_info *) png.get_error_ptr(png_ptr))->jmpbuf))) {
+! 	if (row_pointers) {
+! 	    ckfree((char *) row_pointers);
+  	}
+  	png.destroy_write_struct(&png_ptr,&info_ptr);
+  	return TCL_ERROR;
+***************
+*** 661,677 ****
+      }
+  
+      if (tagcount > 0) {
+! 	png_text text;
+  	for(I=0;I<tagcount;I++) {
+  	    int length;
+- 	    text.compression = 0;
+  	    text.key = Tcl_GetStringFromObj(tags[2*I+1], (int *) NULL);
+  	    text.text = Tcl_GetStringFromObj(tags[2*I+2], &length);
+  	    text.text_length = length;
+  	    if (text.text_length>COMPRESS_THRESHOLD) { 
+! 		text.compression = -1;
+  	    }
+! 	    png.set_text(png_ptr, info_ptr, &text, 1);
+          }
+      }
+      png.write_info(png_ptr,info_ptr);
+--- 666,684 ----
+      }
+  
+      if (tagcount > 0) {
+! 	png_text_compat text;
+  	for(I=0;I<tagcount;I++) {
+  	    int length;
+  	    text.key = Tcl_GetStringFromObj(tags[2*I+1], (int *) NULL);
+  	    text.text = Tcl_GetStringFromObj(tags[2*I+2], &length);
+  	    text.text_length = length;
+  	    if (text.text_length>COMPRESS_THRESHOLD) { 
+! 		text.compression = PNG_TEXT_COMPRESSION_zTXt;
+! 	    } else {
+! 		text.compression = PNG_TEXT_COMPRESSION_NONE;
+  	    }
+! 	    text.lang = NULL;
+! 	    png.set_text(png_ptr, info_ptr, (png_text *) &text, 1);
+          }
+      }
+      png.write_info(png_ptr,info_ptr);
+***************
+*** 698,716 ****
+  	    }
+  	}
+  	ckfree((char *) row_pointers);
+      } else {
+  	for (pass = 0; pass < number_passes; pass++) {
+  	    for(I=0;I<blockPtr->height;I++) {
+! 		row_pointers = (png_bytep) blockPtr->pixelPtr
+! 			+ I * blockPtr->pitch + blockPtr->offset[0];
+! 		png.write_row(png_ptr, row_pointers);
+  	    }
+  	}
+      }
+      png.write_end(png_ptr,NULL);
+-     if (text) {
+- 	ckfree((char *) text);
+-     }
+      png.destroy_write_struct(&png_ptr,&info_ptr);
+  
+      return(TCL_OK);
+--- 705,720 ----
+  	    }
+  	}
+  	ckfree((char *) row_pointers);
++ 	row_pointers = NULL;
+      } else {
+  	for (pass = 0; pass < number_passes; pass++) {
+  	    for(I=0;I<blockPtr->height;I++) {
+! 		png.write_row(png_ptr, (png_bytep) blockPtr->pixelPtr
+! 			+ I * blockPtr->pitch + blockPtr->offset[0]);
+  	    }
+  	}
+      }
+      png.write_end(png_ptr,NULL);
+      png.destroy_write_struct(&png_ptr,&info_ptr);
+  
+      return(TCL_OK);

@@ -1,5 +1,6 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+/* UnicastConnectionManager.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2002, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,30 +36,28 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.rmi.server;
 
-import java.rmi.server.RMISocketFactory;
-import java.rmi.server.RMIServerSocketFactory;
-import java.rmi.server.RMIClientSocketFactory;
-import java.rmi.RemoteException;
+import gnu.java.rmi.server.RMIIncomingThread;
+import gnu.java.rmi.server.UnicastConnection;
+
 import java.io.IOException;
 import java.io.ObjectOutput;
 import java.io.ObjectInput;
-import java.io.DataInputStream;
-import java.lang.Thread;
-import java.lang.Runnable;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.net.ServerSocket;
 import java.net.UnknownHostException;
-
+import java.rmi.RemoteException;
+import java.rmi.server.RMISocketFactory;
+import java.rmi.server.RMIServerSocketFactory;
+import java.rmi.server.RMIClientSocketFactory;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.Iterator;
-
-import gnu.java.rmi.server.UnicastConnection;
 
 public class UnicastConnectionManager
 	implements Runnable, ProtocolConstants {
@@ -152,6 +151,9 @@ private static void startScavenger(){
             if (debug) System.out.println("************* exit scavenger.");
         }
     });
+    // As it is used for client connection, we may put this thread
+    // in daemon state to prevent the VM from blocking when exiting.
+    scavenger.setDaemon(true);
     scavenger.start();
 }
 
@@ -170,20 +172,16 @@ private UnicastConnectionManager(String host, int port, RMIClientSocketFactory c
 /**
   * Server UnicastConnectionManager constructor
   */
-private UnicastConnectionManager(int port, RMIServerSocketFactory ssf) {
+private UnicastConnectionManager(int port, RMIServerSocketFactory ssf) throws RemoteException {
+
 	try {
 		ssock = ssf.createServerSocket(port);
 		serverPort = ssock.getLocalPort();
 	}
-	catch (IOException _) {
-		try {
-			ssock = ssf.createServerSocket(0);
-			serverPort = ssock.getLocalPort();
-		}
-		catch (IOException __) {
-			ssock = null;
-			serverPort = 0;
-		}
+	catch (IOException ioex) {
+		ssock = null;
+		serverPort = 0;
+		throw new java.rmi.server.ExportException("can not create Server Socket on port " + port,ioex);
 	}
 	serverName = localhost;
 	serverFactory = ssf;
@@ -227,7 +225,7 @@ public static synchronized UnicastConnectionManager getInstance(String host, int
  * Return a server connection manager which will accept connection on the
  * given port.
  */
-public static synchronized UnicastConnectionManager getInstance(int port, RMIServerSocketFactory ssf) {
+public static synchronized UnicastConnectionManager getInstance(int port, RMIServerSocketFactory ssf) throws RemoteException {
 //System.out.println("getInstance: " + port + "," + ssf);
 	if (ssf == null) {
         ssf = defaultSocketFactory;
@@ -373,9 +371,17 @@ public void run() {
 		try {
 //System.out.println("Waiting for connection on " + serverPort);
 			UnicastConnection conn = getServerConnection();
+
+			// get address of remote host for the RMIIncomingThread object
+			String remoteHost = null;
+			if (conn.sock != null) {
+				remoteHost = conn.sock.getInetAddress().getHostAddress();			
+			}
+
 			// use a thread pool to improve performance
             //ConnectionRunnerPool.dispatchConnection(conn);
-            (new Thread(conn)).start();
+            (new RMIIncomingThread(conn, remoteHost)).start();
+//	   (new Thread(conn)).start();
 		}
 		catch (Exception e) {
             e.printStackTrace();

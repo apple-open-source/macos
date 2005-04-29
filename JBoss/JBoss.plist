@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>JBoss</string>
+	<key>OpenSourceVersion</key>
+	<string>3.2.3</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.jboss.org</string>
+	<key>OpenSourceURL</key>
+        <string>http://prdownloads.sourceforge.net/jboss/jboss-3.2.3-src.tar.gz</string>
+	<key>OpenSourceSHA1</key>
+        <string>ea8eb587057c13965ff310ec5df346132a6445d4</string>
+	<key>OpenSourceLicense</key>
+	<string>LGPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>JBoss.txt</string>
+</dict>
+</array>
+</plist>

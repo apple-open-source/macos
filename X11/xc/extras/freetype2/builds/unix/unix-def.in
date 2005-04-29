@@ -13,16 +13,16 @@
 # fully.
 
 
-ifndef TOP
-  TOP := .
+ifndef TOP_DIR
+  TOP_DIR := .
 endif
-TOP := $(shell cd $(TOP); pwd)
+TOP_DIR := $(shell cd $(TOP_DIR); pwd)
 
 DELETE   := @RMF@
 DELDIR   := @RMDIR@
 SEP      := /
 HOSTSEP  := $(SEP)
-BUILD    := $(TOP)/builds/unix
+BUILD    := $(TOP_DIR)/builds/unix
 PLATFORM := unix
 
 # this is used for `make distclean' and `make install'
@@ -58,6 +58,7 @@ exec_prefix  := @exec_prefix@
 libdir       := @libdir@
 bindir       := @bindir@
 includedir   := @includedir@
+datadir      := @datadir@
 
 version_info := @version_info@
 
@@ -66,13 +67,13 @@ version_info := @version_info@
 #
 # This lets you build the library in your own directory with something like
 #
-#   set TOP=.../path/to/freetype2/top/dir...
+#   set TOP_DIR=.../path/to/freetype2/top/dir...
 #   set OBJ_DIR=.../path/to/obj/dir
-#   make -f $TOP/Makefile setup [options]
-#   make -f $TOP/Makefile
+#   make -f $TOP_DIR/Makefile setup [options]
+#   make -f $TOP_DIR/Makefile
 #
 ifndef OBJ_DIR
-  OBJ_DIR := $(shell cd $(TOP)/objs; pwd)
+  OBJ_DIR := $(shell cd $(TOP_DIR)/objs; pwd)
 endif
 
 
@@ -82,6 +83,12 @@ endif
 # to suit particular needs.
 #
 LIB_DIR := $(OBJ_DIR)
+
+
+# The SYSTEM_ZLIB macro is defined if the user wishes to link dynamically
+# with its system wide zlib. If SYSTEM_ZLIB is 'yes', the zlib part of the
+# ftgzip module is not compiled in.
+SYSTEM_ZLIB := @SYSTEM_ZLIB@
 
 
 # The NO_OUTPUT macro is appended to command lines in order to ignore

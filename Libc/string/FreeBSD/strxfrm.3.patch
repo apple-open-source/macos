@@ -1,0 +1,47 @@
+--- strxfrm.3.orig	Fri Mar 11 08:32:37 2005
++++ strxfrm.3	Fri Mar 11 09:46:23 2005
+@@ -40,7 +40,8 @@
+ .Dt STRXFRM 3
+ .Os
+ .Sh NAME
+-.Nm strxfrm
++.Nm strxfrm ,
++.Nm strxfrm_l
+ .Nd transform a string under locale
+ .Sh LIBRARY
+ .Lb libc
+@@ -48,6 +49,9 @@
+ .In string.h
+ .Ft size_t
+ .Fn strxfrm "char * restrict dst" "const char * restrict src" "size_t n"
++.In xlocale.h
++.Ft size_t
++.Fn strxfrm_l "char * restrict dst" "const char * restrict src" "size_t n" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn strxfrm
+@@ -77,6 +81,14 @@
+ is equal to comparing
+ two original strings with
+ .Fn strcoll .
++.Pp
++While the
++.Fn strxfrm
++function uses the current locale, the
++.Fn strxfrm_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ Upon successful completion,
+ .Fn strxfrm
+@@ -91,7 +103,8 @@
+ .Xr setlocale 3 ,
+ .Xr strcmp 3 ,
+ .Xr strcoll 3 ,
+-.Xr wcsxfrm 3
++.Xr wcsxfrm 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn strxfrm

@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: imapd.c,v 1.490 2005/02/14 06:39:55 shadow Exp $ */
+/* $Id: imapd.c,v 1.12 2005/03/05 00:36:55 dasenbro Exp $ */
 
 #include <config.h>
 
@@ -2002,7 +2002,7 @@ void cmd_login(char *tag, char *user)
 			if ( useropts.fDiskQuota == 0 )
 			{
 				/* make sure that quotas are set so that the /quota tool works */
-				mboxlist_setquota( mailboxname, INT_MAX, 0 );
+				mboxlist_setquota( mailboxname, INT32_MAX, 0 );
 				syslog( LOG_DEBUG, "quota set to \"unlimited\" for mailbox %s ", mailboxname);
 			}
 			else
@@ -2306,7 +2306,7 @@ cmd_authenticate(char *tag, char *authtype, char *resp)
 			if ( useropts.fDiskQuota == 0 )
 			{
 				/* make sure that quotas are set so that the /quota tool works */
-				mboxlist_setquota( mailboxname, INT_MAX, 0 );
+				mboxlist_setquota( mailboxname, INT32_MAX, 0 );
 				syslog( LOG_DEBUG, "quota set to \"unlimited\" for mailbox %s ", mailboxname);
 			}
 			else

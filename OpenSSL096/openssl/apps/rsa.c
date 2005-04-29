@@ -186,6 +186,9 @@ bad:
 		BIO_printf(bio_err," -passout arg    output file pass phrase source\n");
 		BIO_printf(bio_err," -des            encrypt PEM output with cbc des\n");
 		BIO_printf(bio_err," -des3           encrypt PEM output with ede cbc des using 168 bit key\n");
+#ifndef NO_IDEA
+		BIO_printf(bio_err," -idea           encrypt PEM output with cbc idea\n");
+#endif
 		BIO_printf(bio_err," -text           print the key in text\n");
 		BIO_printf(bio_err," -noout          don't print key out\n");
 		BIO_printf(bio_err," -modulus        print the RSA key modulus\n");

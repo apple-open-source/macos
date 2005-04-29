@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -34,6 +34,7 @@
 #include "glxheader.h"
 #include "depth.h"
 #include "macros.h"
+#include "imports.h"
 #include "mmath.h"
 #include "mtypes.h"
 #include "xmesaP.h"
@@ -43,7 +44,6 @@
 #include "swrast/s_context.h"
 #include "swrast/s_depth.h"
 #include "swrast/s_triangle.h"
-#include "swrast/s_trispan.h"
 
 
 
@@ -69,7 +69,7 @@ static void smooth_TRUECOLOR_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    GLuint i;							\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          unsigned long p;					\
@@ -107,7 +107,7 @@ static void smooth_8A8B8G8R_z_triangle( GLcontext *ctx,
 
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = PACK_8B8G8R(FixedToInt(span.red),		\
@@ -142,7 +142,7 @@ static void smooth_8R8G8B_z_triangle( GLcontext *ctx,
 
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = PACK_8R8G8B(FixedToInt(span.red),		\
@@ -177,7 +177,7 @@ static void smooth_8R8G8B24_z_triangle( GLcontext *ctx,
 
 #define RENDER_SPAN( span ) 					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
 	 PIXEL_TYPE *ptr = pRow + i;				\
@@ -213,7 +213,7 @@ static void smooth_TRUEDITHER_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          unsigned long p;					\
@@ -250,7 +250,7 @@ static void smooth_5R6G5B_z_triangle( GLcontext *ctx,
 
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = PACK_5R6G5B(FixedToInt(span.red),		\
@@ -286,7 +286,7 @@ static void smooth_DITHER_5R6G5B_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          PACK_TRUEDITHER(pRow[i], x, y, FixedToInt(span.red),	\
@@ -323,7 +323,7 @@ static void smooth_DITHER8_z_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    XDITHER_SETUP(y);						\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = (PIXEL_TYPE) XDITHER(x, FixedToInt(span.red),\
@@ -358,7 +358,7 @@ static void smooth_DITHER_z_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    XDITHER_SETUP(y);						\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          unsigned long p = XDITHER(x, FixedToInt(span.red),	\
@@ -395,7 +395,7 @@ static void smooth_LOOKUP8_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    LOOKUP_SETUP;						\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = LOOKUP(FixedToInt(span.red),			\
@@ -432,7 +432,7 @@ static void smooth_HPCR_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          pRow[i] = DITHER_HPCR(x, y, FixedToInt(span.red),	\
@@ -468,7 +468,7 @@ static void flat_TRUECOLOR_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          XMesaPutPixel(img, x, y, pixel);			\
@@ -500,7 +500,7 @@ static void flat_8A8B8G8R_z_triangle( GLcontext *ctx,
 		 v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )				\
    GLuint i;						\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);	\
       if (z < zRow[i]) {				\
 	 pRow[i] = (PIXEL_TYPE) p;			\
@@ -532,7 +532,7 @@ static void flat_8R8G8B_z_triangle( GLcontext *ctx,
 		 v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )			\
    GLuint i;					\
-   for (i = 0; i < span.count; i++) {		\
+   for (i = 0; i < span.end; i++) {		\
       DEPTH_TYPE z = FixedToDepth(span.z);	\
       if (z < zRow[i]) {			\
 	 pRow[i] = (PIXEL_TYPE) p;		\
@@ -562,7 +562,7 @@ static void flat_8R8G8B24_z_triangle( GLcontext *ctx,
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
 #define RENDER_SPAN( span )				\
    GLuint i;						\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);	\
       if (z < zRow[i]) {				\
 	 PIXEL_TYPE *ptr = pRow + i;			\
@@ -593,7 +593,7 @@ static void flat_TRUEDITHER_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          unsigned long p;					\
@@ -628,7 +628,7 @@ static void flat_5R6G5B_z_triangle( GLcontext *ctx,
             v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )				\
    GLuint i;						\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);	\
       if (z < zRow[i]) {				\
 	 pRow[i] = (PIXEL_TYPE) p;			\
@@ -659,7 +659,7 @@ static void flat_DITHER_5R6G5B_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
 	 PACK_TRUEDITHER(pRow[i], x, y, color[RCOMP],		\
@@ -694,7 +694,7 @@ static void flat_DITHER8_z_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    FLAT_DITHER_ROW_SETUP(FLIP(xmesa->xm_buffer, y));		\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
 	 pRow[i] = (PIXEL_TYPE) FLAT_DITHER(x);			\
@@ -726,7 +726,7 @@ static void flat_DITHER_z_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    FLAT_DITHER_ROW_SETUP(y);					\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
          unsigned long p = FLAT_DITHER(x);			\
@@ -761,7 +761,7 @@ static void flat_HPCR_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {					\
 	 pRow[i] = (PIXEL_TYPE) DITHER_HPCR(x, y, r, g, b);	\
@@ -796,7 +796,7 @@ static void flat_LOOKUP8_z_triangle( GLcontext *ctx,
    GLubyte p = LOOKUP(r,g,b);
 #define RENDER_SPAN( span )				\
    GLuint i;						\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       const DEPTH_TYPE z = FixedToDepth(span.z);	\
       if (z < zRow[i]) {				\
 	 pRow[i] = p;					\
@@ -824,12 +824,12 @@ static void smooth_TRUECOLOR_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       unsigned long p;						\
       PACK_TRUECOLOR(p, FixedToInt(span.red),			\
          FixedToInt(span.green), FixedToInt(span.blue));	\
       XMesaPutPixel(img, x, y, p);				\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -853,10 +853,10 @@ static void smooth_8A8B8G8R_triangle( GLcontext *ctx,
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       pRow[i] = PACK_8B8G8R(FixedToInt(span.red),		\
          FixedToInt(span.green), FixedToInt(span.blue) );	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }								\
@@ -880,10 +880,10 @@ static void smooth_8R8G8B_triangle( GLcontext *ctx,
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       pRow[i] = PACK_8R8G8B(FixedToInt(span.red),		\
          FixedToInt(span.green), FixedToInt(span.blue) );	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -908,11 +908,11 @@ static void smooth_8R8G8B24_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )				\
    GLuint i;						\
    PIXEL_TYPE *pixel = pRow;				\
-   for (i = 0; i < span.count; i++, pixel++) {		\
+   for (i = 0; i < span.end; i++, pixel++) {		\
       pixel->r = FixedToInt(span.red);			\
       pixel->g = FixedToInt(span.green);		\
-      pixel->b = FixedToInt(span.blue);			\
-      span.red += span.redStep;				\
+      pixel->b = FixedToInt(span.blue);		\
+      span.red += span.redStep;			\
       span.green += span.greenStep;			\
       span.blue += span.blueStep;			\
    }
@@ -935,12 +935,12 @@ static void smooth_TRUEDITHER_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       unsigned long p;						\
       PACK_TRUEDITHER(p, x, y, FixedToInt(span.red),		\
          FixedToInt(span.green), FixedToInt(span.blue));	\
       XMesaPutPixel(img, x, y, p );				\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -964,10 +964,10 @@ static void smooth_5R6G5B_triangle( GLcontext *ctx,
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
 #define RENDER_SPAN( span )					\
    GLuint i;							\
-   for (i = 0; i < span.count; i++) {				\
+   for (i = 0; i < span.end; i++) {				\
       pRow[i] = (PIXEL_TYPE) PACK_5R6G5B(FixedToInt(span.red),	\
          FixedToInt(span.green), FixedToInt(span.blue));	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -992,10 +992,10 @@ static void smooth_DITHER_5R6G5B_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       PACK_TRUEDITHER(pRow[i], x, y, FixedToInt(span.red),	\
          FixedToInt(span.green), FixedToInt(span.blue));	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -1021,10 +1021,10 @@ static void smooth_DITHER8_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    XDITHER_SETUP(y);						\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       pRow[i] = (PIXEL_TYPE) XDITHER(x, FixedToInt(span.red),	\
          FixedToInt(span.green), FixedToInt(span.blue) );	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -1043,17 +1043,16 @@ static void smooth_DITHER_triangle( GLcontext *ctx,
 {
    XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    XMesaImage *img = xmesa->xm_buffer->backimage;
-
 #define INTERP_RGB 1
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    XDITHER_SETUP(y);						\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       unsigned long p = XDITHER(x, FixedToInt(span.red),	\
          FixedToInt(span.green), FixedToInt(span.blue) );	\
       XMesaPutPixel(img, x, y, p);				\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -1071,7 +1070,6 @@ static void smooth_LOOKUP8_triangle( GLcontext *ctx,
 				     const SWvertex *v2 )
 {
    XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-
 #define INTERP_RGB 1
 #define PIXEL_ADDRESS(X,Y) PIXELADDR1(xmesa->xm_buffer,X,Y)
 #define PIXEL_TYPE GLubyte
@@ -1079,10 +1077,10 @@ static void smooth_LOOKUP8_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )				\
    GLuint i;						\
    LOOKUP_SETUP;					\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       pRow[i] = LOOKUP(FixedToInt(span.red),		\
          FixedToInt(span.green), FixedToInt(span.blue));\
-      span.red += span.redStep;				\
+      span.red += span.redStep;			\
       span.green += span.greenStep;			\
       span.blue += span.blueStep;			\
    }
@@ -1101,7 +1099,6 @@ static void smooth_HPCR_triangle( GLcontext *ctx,
 				  const SWvertex *v2 )
 {
    XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-
 #define INTERP_RGB 1
 #define PIXEL_ADDRESS(X,Y) PIXELADDR1(xmesa->xm_buffer,X,Y)
 #define PIXEL_TYPE GLubyte
@@ -1109,10 +1106,10 @@ static void smooth_HPCR_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
-      pRow[i] = DITHER_HPCR(x, y, FixedToInt(span.red),		\
+   for (i = 0; i < span.end; i++, x++) {			\
+      pRow[i] = DITHER_HPCR(x, y, FixedToInt(span.red),	\
          FixedToInt(span.green), FixedToInt(span.blue));	\
-      span.red += span.redStep;					\
+      span.red += span.redStep;				\
       span.green += span.greenStep;				\
       span.blue += span.blueStep;				\
    }
@@ -1138,7 +1135,7 @@ static void flat_TRUECOLOR_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       XMesaPutPixel(img, x, y, pixel);				\
    }
 
@@ -1163,7 +1160,7 @@ static void flat_8A8B8G8R_triangle( GLcontext *ctx,
 		 v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )			\
    GLuint i;					\
-   for (i = 0; i < span.count; i++) {		\
+   for (i = 0; i < span.end; i++) {		\
       pRow[i] = (PIXEL_TYPE) p;			\
    }
 
@@ -1188,7 +1185,7 @@ static void flat_8R8G8B_triangle( GLcontext *ctx,
 		 v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )			\
    GLuint i;					\
-   for (i = 0; i < span.count; i++) {		\
+   for (i = 0; i < span.end; i++) {		\
       pRow[i] = (PIXEL_TYPE) p;			\
    }
 
@@ -1212,7 +1209,7 @@ static void flat_8R8G8B24_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )				\
    GLuint i;						\
    PIXEL_TYPE *pixel = pRow;				\
-   for (i = 0; i < span.count; i++, pixel++) {		\
+   for (i = 0; i < span.end; i++, pixel++) {		\
       pixel->r = color[RCOMP];				\
       pixel->g = color[GCOMP];				\
       pixel->b = color[BCOMP];				\
@@ -1231,11 +1228,10 @@ static void flat_TRUEDITHER_triangle( GLcontext *ctx,
 {
    XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    XMesaImage *img = xmesa->xm_buffer->backimage;
-
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       unsigned long p;						\
       PACK_TRUEDITHER(p, x, y, v2->color[0],			\
                v2->color[1], v2->color[2] );			\
@@ -1259,12 +1255,12 @@ static void flat_5R6G5B_triangle( GLcontext *ctx,
 #define PIXEL_ADDRESS(X,Y) PIXELADDR2(xmesa->xm_buffer,X,Y)
 #define PIXEL_TYPE GLushort
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
-#define SETUP_CODE					\
+#define SETUP_CODE				\
    unsigned long p = PACK_5R6G5B( v2->color[0],	\
 		 v2->color[1], v2->color[2] );
 #define RENDER_SPAN( span )			\
    GLuint i;					\
-   for (i = 0; i < span.count; i++) {		\
+   for (i = 0; i < span.end; i++) {		\
       pRow[i] = (PIXEL_TYPE) p;			\
    }
 
@@ -1288,7 +1284,7 @@ static void flat_DITHER_5R6G5B_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       PACK_TRUEDITHER(pRow[i], x, y, color[RCOMP],		\
          color[GCOMP], color[BCOMP]);				\
    }
@@ -1316,7 +1312,7 @@ static void flat_DITHER8_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    FLAT_DITHER_ROW_SETUP(FLIP(xmesa->xm_buffer, y));		\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       pRow[i] = (PIXEL_TYPE) FLAT_DITHER(x);			\
    }
 
@@ -1341,7 +1337,7 @@ static void flat_DITHER_triangle( GLcontext *ctx,
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
    FLAT_DITHER_ROW_SETUP(y);					\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       unsigned long p = FLAT_DITHER(x);				\
       XMesaPutPixel(img, x, y, p );				\
    }
@@ -1362,14 +1358,14 @@ static void flat_HPCR_triangle( GLcontext *ctx,
 #define PIXEL_ADDRESS(X,Y) PIXELADDR1(xmesa->xm_buffer,X,Y)
 #define PIXEL_TYPE GLubyte
 #define BYTES_PER_ROW (xmesa->xm_buffer->backimage->bytes_per_line)
-#define SETUP_CODE				\
+#define SETUP_CODE		\
    GLubyte r = v2->color[0];	\
    GLubyte g = v2->color[1];	\
    GLubyte b = v2->color[2];
-#define RENDER_SPAN( span )				\
+#define RENDER_SPAN( span )					\
    GLuint i;							\
    GLint x = span.x, y = FLIP(xmesa->xm_buffer, span.y);	\
-   for (i = 0; i < span.count; i++, x++) {			\
+   for (i = 0; i < span.end; i++, x++) {			\
       pRow[i] = (PIXEL_TYPE) DITHER_HPCR(x, y, r, g, b);	\
    }
 
@@ -1397,7 +1393,7 @@ static void flat_LOOKUP8_triangle( GLcontext *ctx,
    GLubyte p = LOOKUP(r,g,b);
 #define RENDER_SPAN( span )          		\
    GLuint i;					\
-   for (i = 0; i < span.count; i++) {		\
+   for (i = 0; i < span.end; i++) {		\
       pRow[i] = (PIXEL_TYPE) p;			\
    }
 
@@ -1409,89 +1405,89 @@ static void flat_LOOKUP8_triangle( GLcontext *ctx,
 extern void _xmesa_print_triangle_func( swrast_tri_func triFunc );
 void _xmesa_print_triangle_func( swrast_tri_func triFunc )
 {
-   printf("XMesa tri func = ");
+   _mesa_printf("XMesa tri func = ");
    if (triFunc ==smooth_TRUECOLOR_z_triangle)
-      printf("smooth_TRUECOLOR_z_triangle\n");
+      _mesa_printf("smooth_TRUECOLOR_z_triangle\n");
    else if (triFunc ==smooth_8A8B8G8R_z_triangle)
-      printf("smooth_8A8B8G8R_z_triangle\n");
+      _mesa_printf("smooth_8A8B8G8R_z_triangle\n");
    else if (triFunc ==smooth_8R8G8B_z_triangle)
-      printf("smooth_8R8G8B_z_triangle\n");
+      _mesa_printf("smooth_8R8G8B_z_triangle\n");
    else if (triFunc ==smooth_8R8G8B24_z_triangle)
-      printf("smooth_8R8G8B24_z_triangle\n");
+      _mesa_printf("smooth_8R8G8B24_z_triangle\n");
    else if (triFunc ==smooth_TRUEDITHER_z_triangle)
-      printf("smooth_TRUEDITHER_z_triangle\n");
+      _mesa_printf("smooth_TRUEDITHER_z_triangle\n");
    else if (triFunc ==smooth_5R6G5B_z_triangle)
-      printf("smooth_5R6G5B_z_triangle\n");
+      _mesa_printf("smooth_5R6G5B_z_triangle\n");
    else if (triFunc ==smooth_DITHER_5R6G5B_z_triangle)
-      printf("smooth_DITHER_5R6G5B_z_triangle\n");
+      _mesa_printf("smooth_DITHER_5R6G5B_z_triangle\n");
    else if (triFunc ==smooth_HPCR_z_triangle)
-      printf("smooth_HPCR_z_triangle\n");
+      _mesa_printf("smooth_HPCR_z_triangle\n");
    else if (triFunc ==smooth_DITHER8_z_triangle)
-      printf("smooth_DITHER8_z_triangle\n");
+      _mesa_printf("smooth_DITHER8_z_triangle\n");
    else if (triFunc ==smooth_LOOKUP8_z_triangle)
-      printf("smooth_LOOKUP8_z_triangle\n");
+      _mesa_printf("smooth_LOOKUP8_z_triangle\n");
    else if (triFunc ==flat_TRUECOLOR_z_triangle)
-      printf("flat_TRUECOLOR_z_triangle\n");
+      _mesa_printf("flat_TRUECOLOR_z_triangle\n");
    else if (triFunc ==flat_8A8B8G8R_z_triangle)
-      printf("flat_8A8B8G8R_z_triangle\n");
+      _mesa_printf("flat_8A8B8G8R_z_triangle\n");
    else if (triFunc ==flat_8R8G8B_z_triangle)
-      printf("flat_8R8G8B_z_triangle\n");
+      _mesa_printf("flat_8R8G8B_z_triangle\n");
    else if (triFunc ==flat_8R8G8B24_z_triangle)
-      printf("flat_8R8G8B24_z_triangle\n");
+      _mesa_printf("flat_8R8G8B24_z_triangle\n");
    else if (triFunc ==flat_TRUEDITHER_z_triangle)
-      printf("flat_TRUEDITHER_z_triangle\n");
+      _mesa_printf("flat_TRUEDITHER_z_triangle\n");
    else if (triFunc ==flat_5R6G5B_z_triangle)
-      printf("flat_5R6G5B_z_triangle\n");
+      _mesa_printf("flat_5R6G5B_z_triangle\n");
    else if (triFunc ==flat_DITHER_5R6G5B_z_triangle)
-      printf("flat_DITHER_5R6G5B_z_triangle\n");
+      _mesa_printf("flat_DITHER_5R6G5B_z_triangle\n");
    else if (triFunc ==flat_HPCR_z_triangle)
-      printf("flat_HPCR_z_triangle\n");
+      _mesa_printf("flat_HPCR_z_triangle\n");
    else if (triFunc ==flat_DITHER8_z_triangle)
-      printf("flat_DITHER8_z_triangle\n");
+      _mesa_printf("flat_DITHER8_z_triangle\n");
    else if (triFunc ==flat_LOOKUP8_z_triangle)
-      printf("flat_LOOKUP8_z_triangle\n");
+      _mesa_printf("flat_LOOKUP8_z_triangle\n");
    else if (triFunc ==smooth_TRUECOLOR_triangle)
-      printf("smooth_TRUECOLOR_triangle\n");
+      _mesa_printf("smooth_TRUECOLOR_triangle\n");
    else if (triFunc ==smooth_8A8B8G8R_triangle)
-      printf("smooth_8A8B8G8R_triangle\n");
+      _mesa_printf("smooth_8A8B8G8R_triangle\n");
    else if (triFunc ==smooth_8R8G8B_triangle)
-      printf("smooth_8R8G8B_triangle\n");
+      _mesa_printf("smooth_8R8G8B_triangle\n");
    else if (triFunc ==smooth_8R8G8B24_triangle)
-      printf("smooth_8R8G8B24_triangle\n");
+      _mesa_printf("smooth_8R8G8B24_triangle\n");
    else if (triFunc ==smooth_TRUEDITHER_triangle)
-      printf("smooth_TRUEDITHER_triangle\n");
+      _mesa_printf("smooth_TRUEDITHER_triangle\n");
    else if (triFunc ==smooth_5R6G5B_triangle)
-      printf("smooth_5R6G5B_triangle\n");
+      _mesa_printf("smooth_5R6G5B_triangle\n");
    else if (triFunc ==smooth_DITHER_5R6G5B_triangle)
-      printf("smooth_DITHER_5R6G5B_triangle\n");
+      _mesa_printf("smooth_DITHER_5R6G5B_triangle\n");
    else if (triFunc ==smooth_HPCR_triangle)
-      printf("smooth_HPCR_triangle\n");
+      _mesa_printf("smooth_HPCR_triangle\n");
    else if (triFunc ==smooth_DITHER8_triangle)
-      printf("smooth_DITHER8_triangle\n");
+      _mesa_printf("smooth_DITHER8_triangle\n");
    else if (triFunc ==smooth_LOOKUP8_triangle)
-      printf("smooth_LOOKUP8_triangle\n");
+      _mesa_printf("smooth_LOOKUP8_triangle\n");
    else if (triFunc ==flat_TRUECOLOR_triangle)
-      printf("flat_TRUECOLOR_triangle\n");
+      _mesa_printf("flat_TRUECOLOR_triangle\n");
    else if (triFunc ==flat_TRUEDITHER_triangle)
-      printf("flat_TRUEDITHER_triangle\n");
+      _mesa_printf("flat_TRUEDITHER_triangle\n");
    else if (triFunc ==flat_8A8B8G8R_triangle)
-      printf("flat_8A8B8G8R_triangle\n");
+      _mesa_printf("flat_8A8B8G8R_triangle\n");
    else if (triFunc ==flat_8R8G8B_triangle)
-      printf("flat_8R8G8B_triangle\n");
+      _mesa_printf("flat_8R8G8B_triangle\n");
    else if (triFunc ==flat_8R8G8B24_triangle)
-      printf("flat_8R8G8B24_triangle\n");
+      _mesa_printf("flat_8R8G8B24_triangle\n");
    else if (triFunc ==flat_5R6G5B_triangle)
-      printf("flat_5R6G5B_triangle\n");
+      _mesa_printf("flat_5R6G5B_triangle\n");
    else if (triFunc ==flat_DITHER_5R6G5B_triangle)
-      printf("flat_DITHER_5R6G5B_triangle\n");
+      _mesa_printf("flat_DITHER_5R6G5B_triangle\n");
    else if (triFunc ==flat_HPCR_triangle)
-      printf("flat_HPCR_triangle\n");
+      _mesa_printf("flat_HPCR_triangle\n");
    else if (triFunc ==flat_DITHER8_triangle)
-      printf("flat_DITHER8_triangle\n");
+      _mesa_printf("flat_DITHER8_triangle\n");
    else if (triFunc ==flat_LOOKUP8_triangle)
-      printf("flat_LOOKUP8_triangle\n");
+      _mesa_printf("flat_LOOKUP8_triangle\n");
    else
-      printf("???\n");
+      _mesa_printf("???\n");
 }
 #endif
 
@@ -1526,12 +1522,13 @@ static swrast_tri_func get_triangle_func( GLcontext *ctx )
    triFuncName = NULL;
 #endif
 
-   if (ctx->RenderMode != GL_RENDER ||
-       ctx->Polygon.SmoothFlag ||
-       ctx->Texture._ReallyEnabled ||
-       (swrast->_RasterMask & MULTI_DRAW_BIT) ||
-       (ctx->Polygon.CullFlag && ctx->Polygon.CullFaceMode == GL_FRONT_AND_BACK))
-      return (swrast_tri_func) NULL;
+   if (ctx->RenderMode != GL_RENDER)  return (swrast_tri_func) NULL;
+   if (ctx->Polygon.SmoothFlag)       return (swrast_tri_func) NULL;
+   if (ctx->Texture._EnabledUnits)    return (swrast_tri_func) NULL;
+   if (swrast->_RasterMask & MULTI_DRAW_BIT) return (swrast_tri_func) NULL;
+   if (ctx->Polygon.CullFlag && 
+       ctx->Polygon.CullFaceMode == GL_FRONT_AND_BACK)
+                                        return (swrast_tri_func) NULL;
 
    if (xmesa->xm_buffer->buffer==XIMAGE) {
       if (   ctx->Light.ShadeModel==GL_SMOOTH

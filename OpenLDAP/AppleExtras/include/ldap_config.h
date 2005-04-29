@@ -1,14 +1,17 @@
-/* Generated from /Volumes/Work/Projects/bdb/OpenLDAP/OpenLDAP/include/ldap_config.h.in on Thu Feb 27 18:49:46 PST 2003 */
-/* $OpenLDAP: pkg/ldap/include/ldap_config.h.in,v 1.9 2002/01/04 19:40:30 kurt Exp $ */
-/*
- * Copyright 1998-2002 The OpenLDAP Foundation, Redwood City, California, USA
+/* Generated from /tmp/OpenLDAP.roots/OpenLDAP/OpenLDAP/include/ldap_config.h.in on Fri Dec 10 14:47:11 PST 2004 */
+/* $OpenLDAP: pkg/ldap/include/ldap_config.h.in,v 1.13.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 /*
@@ -63,10 +66,14 @@
 
 /* command locations */
 #ifndef LDAP_EDITOR
-#define LDAP_EDITOR			"/usr/bin/pico"
+#define LDAP_EDITOR			"%EDITOR%"
 #endif
 #ifndef LDAP_SENDMAIL
-#define LDAP_SENDMAIL		"/usr/sbin/sendmail"
+#define LDAP_SENDMAIL		"%SENDMAIL%"
 #endif
+#ifndef LDAP_LOCALEDIR
+#define LDAP_LOCALEDIR		""
+#endif
+
 
 #endif /* _LDAP_CONFIG_H */

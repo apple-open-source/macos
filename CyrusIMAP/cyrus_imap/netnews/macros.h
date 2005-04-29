@@ -1,5 +1,5 @@
-/*  $Revision: 1.7 $
- *  $Id: macros.h,v 1.7 2003/10/22 18:50:15 rjs3 Exp $
+/*  $Revision: 1.5 $
+ *  $Id: macros.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

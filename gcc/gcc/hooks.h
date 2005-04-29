@@ -1,5 +1,5 @@
 /* General-purpose hooks.
-   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -22,38 +22,50 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #ifndef GCC_HOOKS_H
 #define GCC_HOOKS_H
 
-bool hook_bool_void_false PARAMS ((void));
-bool hook_bool_tree_false PARAMS ((tree));
-bool hook_bool_tree_hwi_hwi_tree_false
-  PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
-bool hook_bool_tree_hwi_hwi_tree_true
-  PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
-bool hook_bool_rtx_false PARAMS ((rtx));
-/* APPLE LOCAL begin - 3.4 scheduler update */
-bool hook_bool_rtx_int_int_intp_false PARAMS ((rtx, int, int, int *));
-/* APPLE LOCAL end - 3.4 scheduler update */
+#include "machmode.h"
 
-void hook_void_tree_int PARAMS ((tree, int));
-void hook_void_void PARAMS ((void));
-void hook_void_FILEptr_constcharptr PARAMS ((FILE *, const char *));
-void hook_void_tree PARAMS ((tree));
-void hook_void_tree_treeptr PARAMS ((tree, tree *));
+extern bool hook_bool_void_false (void);
+extern bool hook_bool_void_true (void);
+extern bool hook_bool_bool_false (bool);
+extern bool hook_bool_mode_false (enum machine_mode);
+extern bool hook_bool_tree_false (tree);
+extern bool hook_bool_tree_true (tree);
+extern bool hook_bool_tree_hwi_hwi_tree_false (tree, HOST_WIDE_INT, HOST_WIDE_INT,
+					tree);
+extern bool hook_bool_tree_hwi_hwi_tree_true (tree, HOST_WIDE_INT, HOST_WIDE_INT,
+				       tree);
+extern bool hook_bool_rtx_false (rtx);
+extern bool hook_bool_uintp_uintp_false (unsigned int *, unsigned int *);
+extern bool hook_bool_rtx_int_int_intp_false (rtx, int, int, int *);
+extern bool hook_bool_constcharptr_size_t_false (const char *, size_t);
 
-int hook_int_tree_tree_1 PARAMS ((tree, tree));
-/* APPLE LOCAL begin - 3.4 scheduler update */
-int hook_int_rtx_0 PARAMS ((rtx));
+extern void hook_void_void (void);
+extern void hook_void_constcharptr (const char *);
+extern void hook_void_FILEptr_constcharptr (FILE *, const char *);
+extern void hook_void_tree (tree);
+extern void hook_void_tree_treeptr (tree, tree *);
 
-bool default_can_output_mi_thunk_no_vcall
-  PARAMS ((tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+extern int hook_int_tree_0 (tree);
+extern int hook_int_tree_tree_1 (tree, tree);
+extern int hook_int_rtx_0 (rtx);
+extern int hook_int_size_t_constcharptr_int_0 (size_t, const char *, int);
+extern int hook_int_void_no_regs (void);
 
-bool hook_bool_tree_tree_false PARAMS ((tree, tree));
+extern unsigned hook_uint_uint_constcharptrptr_0 (unsigned, const char **);
 
-rtx hook_rtx_rtx_identity PARAMS ((rtx));
-/* APPLE LOCAL end - 3.4 scheduler update */
-/* APPLE LOCAL begin pch */
+extern bool default_can_output_mi_thunk_no_vcall (tree, HOST_WIDE_INT,
+					   HOST_WIDE_INT, tree);
 
-void * hook_voidp_size_t_null (size_t);
-bool hook_bool_voidp_size_t_false (void *, size_t);
-/* APPLE LOCAL end pch */
+extern bool hook_bool_tree_tree_false (tree, tree);
 
+extern rtx hook_rtx_rtx_identity (rtx);
+extern rtx hook_rtx_rtx_null (rtx);
+extern rtx hook_rtx_tree_int_null (tree, int);
+extern tree hook_tree_tree_identity (tree a);
+extern const char *hook_constcharptr_tree_null (tree);
+/* APPLE LOCAL begin constant cfstrings */
+extern tree hook_tree_tree_null (tree);
+extern tree hook_tree_tree_tree_tree_null (tree, tree, tree);
+/* APPLE LOCAL end constant cfstrings */
+extern tree hook_tree_tree_bool_null (tree, bool);
 #endif

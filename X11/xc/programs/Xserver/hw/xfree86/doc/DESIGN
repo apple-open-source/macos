@@ -1,8 +1,8 @@
-                   XFree86 X server ``New Design'' (DRAFT)
+                      XFree86 server 4.x Design (DRAFT)
 
                           The XFree86 Project, Inc
 
-                        Last modified 2003 January 22
+                              19 December 2003
 
 NOTE: This is a DRAFT document, and the interfaces described here are subject
 to change without notice.
@@ -5780,11 +5780,13 @@ NOTES:
           */
 
          /*
-          * Set the depth/bpp.  Our preferred default depth/bpp is 8, and
-          * we support both 24bpp and 32bpp framebuffer layouts.
+          * Set the depth/bpp.  Use the globally preferred depth/bpp.  If the
+          * driver has special default depth/bpp requirements, the defaults should
+          * be specified here explicitly.
+          * We support both 24bpp and 32bpp framebuffer layouts.
           * This sets pScrn->display also.
           */
-         if (!xf86SetDepthBpp(pScrn, 8, 8, 8,
+         if (!xf86SetDepthBpp(pScrn, 0, 0, 0,
                               Support24bppFb | Support32bppFb)) {
              return FALSE;
          } else {
@@ -6364,7 +6366,7 @@ eScreen() function.
          ZZZFreeRec(xf86Screens[scrnIndex]);
      }
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/DESIGN.sgml,v 1.52 2003/02/25 19:31:00 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/DESIGN.sgml,v 1.54 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/DESIGN,v 1.47 2003/02/25 21:32:33 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/DESIGN,v 1.50 2003/12/20 19:47:28 dawes Exp $

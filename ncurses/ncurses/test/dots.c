@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1999-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,16 +29,13 @@
 /*
  * Author: Thomas E. Dickey <dickey@clark.net> 1999
  *
- * $Id: dots.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: dots.c,v 1.8 2002/04/06 21:33:42 tom Exp $
  *
  * A simple demo of the terminfo interface.
  */
 #include <time.h>
-#include <signal.h>
 
 #include <test.priv.h>
-
-#include <term.h>		/* for tparm() */
 
 #define valid(s) ((s != 0) && s != (char *)-1)
 
@@ -123,13 +120,13 @@ main(
 	y = (int) (r * ranf()) + 2;
 	p = (ranf() > 0.9) ? '*' : ' ';
 
-	tputs(tparm(cursor_address, y, x), 1, outc);
+	tputs(tparm3(cursor_address, y, x), 1, outc);
 	if (max_colors > 0) {
 	    z = (int) (ranf() * max_colors);
 	    if (ranf() > 0.01) {
-		tputs(tparm(set_a_foreground, z), 1, outc);
+		tputs(tparm2(set_a_foreground, z), 1, outc);
 	    } else {
-		tputs(tparm(set_a_background, z), 1, outc);
+		tputs(tparm2(set_a_background, z), 1, outc);
 	    }
 	} else if (valid(exit_attribute_mode)
 		   && valid(enter_reverse_mode)) {

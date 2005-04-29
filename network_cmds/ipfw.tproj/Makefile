@@ -12,7 +12,7 @@ NAME = ipfw
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = ipfw.c
+CFILES = ipfw2.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble ipfw.8
 
@@ -28,6 +28,8 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
+HEADER_PATHS =\
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/
 
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc

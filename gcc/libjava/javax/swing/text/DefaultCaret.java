@@ -1,5 +1,5 @@
-/* DefaultCaret.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* DefaultCaret.java --
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,136 +37,280 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-import java.awt.*;
-import java.util.*;
-import java.awt.event.*;
-import javax.swing.event.*;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.util.EventListener;
+
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.EventListenerList;
 
 
-public class DefaultCaret extends Rectangle implements Caret, FocusListener, MouseListener, MouseMotionListener
+public class DefaultCaret extends Rectangle
+  implements Caret, FocusListener, MouseListener, MouseMotionListener
 {
-    Color color = new Color(0,0,0);
-    JTextComponent parent;
+  private static final long serialVersionUID = 228155774675466193L;
+  
+  protected ChangeEvent changeEvent = new ChangeEvent(this);
+  protected EventListenerList listenerList = new EventListenerList();
+  
+  private JTextComponent textComponent;
+  
+  private boolean selectionVisible = true;
+  private int blinkRate = 0;
+  private int dot = 0;
+  private int mark = 0;
+  private Point magicCaretPosition = null;
+  private boolean visible = true;
+  private Object highlightEntry;
+
+  public void mouseDragged(MouseEvent event)
+  {
+  }
+
+  public void mouseMoved(MouseEvent event)
+  {
+  }
+
+  public void mouseClicked(MouseEvent event)
+  {
+  }
+
+  public void mouseEntered(MouseEvent event)
+  {
+  }
+
+  public void mouseExited(MouseEvent event)
+  {
+  }
+
+  public void mousePressed(MouseEvent event)
+  {
+  }
+
+  public void mouseReleased(MouseEvent event)
+  {
+  }
+
+  public void focusGained(FocusEvent event)
+  {
+  }
+
+  public void focusLost(FocusEvent event)
+  {
+  }
+
+  protected void moveCaret(MouseEvent event)
+  {
+  }
+
+  protected void positionCaret(MouseEvent event)
+  {
+  }
+
+  public void deinstall(JTextComponent c)
+  {
+    textComponent.removeFocusListener(this);
+    textComponent.removeMouseListener(this);
+    textComponent.removeMouseMotionListener(this);
+    textComponent = null;
+  }
+
+  public void install(JTextComponent c)
+  {
+    textComponent = c;
+    textComponent.addFocusListener(this);
+    textComponent.addMouseListener(this);
+    textComponent.addMouseMotionListener(this);
+    repaint();
+  }
+
+  public void setMagicCaretPosition(Point p)
+  {
+    magicCaretPosition = p;
+  }
+
+  public Point getMagicCaretPosition()
+  {
+    return magicCaretPosition;
+  }
+
+  public int getMark()
+  {
+    return mark;
+  }
+
+  private void handleHighlight()
+  {
+    Highlighter highlighter = textComponent.getHighlighter();
     
-    public void mouseDragged(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mouseMoved(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mouseClicked(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mouseEntered(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mouseExited(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mousePressed(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void mouseReleased(java.awt.event.MouseEvent  evt)
-    {
-    }
-
-    public void focusGained(java.awt.event.FocusEvent  evt)
-    {
-    }
-
-    public void focusLost(java.awt.event.FocusEvent  evt)
-    {
-    }
-
-    // caret methods:
-
-    public void deinstall(JTextComponent c)
-    {
-	parent.removeFocusListener(this);
-	parent.removeMouseListener(this);
-
-	parent = null;    
-    }
-    public void install(JTextComponent c)
-    {
-	parent.addFocusListener(this);
-	parent.addMouseListener(this);
-	parent = c;
-	repaint();
-    }
+    if (highlighter == null)
+      return;
     
-    Point magic = null;
-    public void setMagicCaretPosition(Point p)
-    {	magic = p;    }
-    public Point getMagicaretPosition()
-    {	return magic;    }
-
+    int p0 = Math.min(dot, mark);
+    int p1 = Math.max(dot, mark);
     
-    int mark = 0;
-    public int getMark()
-    {	return mark;    }
+    if (selectionVisible && p0 != p1)
+      {
+	try
+	  {
+	    if (highlightEntry == null)
+	      highlightEntry = highlighter.addHighlight(p0, p1, getSelectionPainter());
+	    else
+	      highlighter.changeHighlight(highlightEntry, p0, p1);
+	  }
+	catch (BadLocationException e)
+	  {
+	    // This should never happen.
+	    throw new InternalError();
+	  }
+      }
+    else
+      {
+	if (highlightEntry != null)
+	  {
+	    highlighter.removeHighlight(highlightEntry);
+	    highlightEntry = null;
+	  }
+      }
+  }
 
-    boolean vis_sel = true;
-    public void setSelectionVisible(boolean v)
-    {  vis_sel = v;  repaint();  }
-    public boolean isSelectionVisible()
-    {  return vis_sel;    }
-
-    private void repaint()
-    {	
-	if (parent != null)
-	    {
-		parent.repaint();
-	    }
-    }
-
-    public void paint(Graphics g)
-    {
-	g.setColor(color);
-	g.drawLine(x,y,
-		   x,y+height);
-    }
-
+  public void setSelectionVisible(boolean v)
+  {
+    if (selectionVisible == v)
+      return;
     
-    Vector changes = new Vector();
-    public void addChangeListener(ChangeListener l)
-    {	changes.addElement(l);    }
-    public void removeChangeListener(ChangeListener l)
-    {   changes.removeElement(l);    }
+    selectionVisible = v;
+    handleHighlight();
+    repaint();
+  }
 
+  public boolean isSelectionVisible()
+  {
+    return selectionVisible;
+  }
 
-    int blink = 500;
-    public int getBlinkRate()
-    { return blink;    }
-    public void setBlinkRate(int rate)
-    { blink = rate;    }
+  protected final void repaint()
+  {
+    if (textComponent != null)
+      textComponent.repaint();
+  }
 
-    int dot = 0;
-    public int getDot()
-    {  return dot;     }
-    public void moveDot(int dot)
-    {   setDot(dot);    }
-    public void setDot(int dot)
-    {
-	this.dot = dot;   
-	repaint();
-    }
+  public void paint(Graphics g)
+  {
+    if (textComponent == null)
+      return;
 
-    boolean vis = true;
-    public boolean isVisible()
-    {	return vis;    }
-    public void setVisible(boolean v)
-    {
-	vis = v; 
-	repaint();
-    }
+    int dot = getDot();
+    Rectangle rect = null;
+
+    try
+      {
+	rect = textComponent.modelToView(dot);
+      }
+    catch (BadLocationException e)
+      {
+	// This should never happen as dot should be always valid.
+	return;
+      }
+
+    if (rect == null)
+      return;
+    
+    // First we need to delete the old caret.
+    // FIXME: Implement deleting of old caret.
+    
+    // Now draw the caret on the new position if visible.
+    if (visible)
+      {
+	g.setColor(textComponent.getCaretColor());
+	g.drawLine(rect.x, rect.y, rect.x, rect.y + rect.height);
+      }
+  }
+
+  public EventListener[] getListeners(Class listenerType)
+  {
+    return listenerList.getListeners(listenerType);
+  }
+
+  public void addChangeListener(ChangeListener listener)
+  {
+    listenerList.add(ChangeListener.class, listener);
+  }
+
+  public void removeChangeListener(ChangeListener listener)
+  {
+    listenerList.remove(ChangeListener.class, listener);
+  }
+
+  public ChangeListener[] getChangeListeners()
+  {
+    return (ChangeListener[]) getListeners(ChangeListener.class);
+  }
+
+  protected void fireStateChanged()
+  {
+    ChangeListener[] listeners = getChangeListeners();
+
+    for (int index = 0; index < listeners.length; ++index)
+      listeners[index].stateChanged(changeEvent);
+  }
+
+  protected final JTextComponent getComponent()
+  {
+    return textComponent;
+  }
+  
+  public int getBlinkRate()
+  {
+    return blinkRate;
+  }
+
+  public void setBlinkRate(int rate)
+  {
+    blinkRate = rate;
+  }
+
+  public int getDot()
+  {
+    return dot;
+  }
+
+  public void moveDot(int dot)
+  {
+    this.dot = dot;
+    handleHighlight();
+    repaint();
+  }
+
+  public void setDot(int dot)
+  {
+    this.dot = dot;
+    this.mark = dot;
+    handleHighlight();
+    repaint();
+  }
+
+  public boolean isVisible()
+  {
+    return visible;
+  }
+
+  public void setVisible(boolean v)
+  {
+    visible = v;
+    repaint();
+  }
+
+  protected Highlighter.HighlightPainter getSelectionPainter()
+  {
+    return DefaultHighlighter.DefaultPainter;
+  }
 }
-
-
-

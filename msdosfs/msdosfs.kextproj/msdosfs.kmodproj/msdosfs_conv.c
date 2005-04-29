@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -129,7 +132,7 @@ long msdos_secondsWest = 0;
  * Convert the unix version of time to dos's idea of time to be used in
  * file timestamps. The passed in unix time is assumed to be in GMT.
  */
-void
+__private_extern__ void
 unix2dostime(tsp, ddp, dtp, dhp)
 	struct timespec *tsp;
 	u_int16_t *ddp;
@@ -208,7 +211,7 @@ static u_long  lastseconds;
  * called from the stat(), and fstat() system calls and so probably need
  * not be too efficient.
  */
-void
+__private_extern__ void
 dos2unixtime(dd, dt, dh, tsp)
 	u_int dd;
 	u_int dt;
@@ -272,26 +275,26 @@ dos2unixtime(dd, dt, dh, tsp)
  */
 static u_char
 unilsb2dos[256] = {
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 00-07 */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 08-0f */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 10-17 */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 18-1f */
-	2,    0x21, 0,    0x23, 0x24, 0x25, 0x26, 0x27,	/* 20-27 */
-	0x28, 0x29, 0,    1,    1,    0x2d, 2,    0,	/* 28-2f */
+	0,    1,    1,    1,    1,    1,    1,    1,	/* 00-07 */
+	1,    1,    1,    1,    1,    1,    1,    1,	/* 08-0f */
+	1,    1,    1,    1,    1,    1,    1,    1,	/* 10-17 */
+	1,    1,    1,    1,    1,    1,    1,    1,	/* 18-1f */
+	2,    0x21, 1,    0x23, 0x24, 0x25, 0x26, 0x27,	/* 20-27 */
+	0x28, 0x29, 1,    1,    1,    0x2d, 2,    0,	/* 28-2f */
 	0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,	/* 30-37 */
-	0x38, 0x39, 0,    1,    0,    1,    0,    0,	/* 38-3f */
+	0x38, 0x39, 1,    1,    1,    1,    1,    1,	/* 38-3f */
 	0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,	/* 40-47 */
 	0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,	/* 48-4f */
 	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,	/* 50-57 */
-	0x58, 0x59, 0x5a, 1,    0,    1,    0x5e, 0x5f,	/* 58-5f */
+	0x58, 0x59, 0x5a, 1,    1,    1,    0x5e, 0x5f,	/* 58-5f */
 	0x60, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,	/* 60-67 */
 	0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,	/* 68-6f */
 	0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,	/* 70-77 */
-	0x58, 0x59, 0x5a, 0x7b, 0,    0x7d, 0x7e, 0,	/* 78-7f */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 80-87 */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 88-8f */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 90-97 */
-	0,    0,    0,    0,    0,    0,    0,    0,	/* 98-9f */
+	0x58, 0x59, 0x5a, 0x7b, 1,    0x7d, 0x7e, 0,	/* 78-7f */
+	0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,	/* 80-87 */
+	0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,	/* 88-8f */
+	0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,	/* 90-97 */
+	0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,	/* 98-9f */
 	0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,	/* a0-a7 */
 	0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,	/* a8-af */
 	0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,	/* b0-b7 */
@@ -363,6 +366,78 @@ l2u[256] = {
 	0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff, /* f8-ff */
 };
 
+/*
+ *	Look-up table to determine whether a given ASCII character is
+ *	considered upper case, lower case, or neither.  Also indicates
+ *	which characters should require generation of a long name.
+ *
+ *	Values are bit masks composed of the following constants:
+ */
+enum {
+	CASE_LOWER	= 1,
+	CASE_UPPER	= 2,
+	CASE_LONG	= 4,	/* A long name should be generated */
+};
+
+static u_char
+ascii_case[128] = {
+	0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,	/* 00-07 */
+	0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,	/* 08-0F */
+	0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,	/* 10-17 */
+	0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,	/* 18-1F */
+	0x04, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 20-27 */
+	0x00, 0x00, 0x04, 0x04, 0x04, 0x00, 0x04, 0x04,	/* 28-2F */
+	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,	/* 30-37 */
+	0x00, 0x00, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04,	/* 38-3F */
+	0x00, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,	/* 40-47 */
+	0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,	/* 48-4F */
+	0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02, 0x02,	/* 50-57 */
+	0x02, 0x02, 0x02, 0x04, 0x04, 0x04, 0x00, 0x00,	/* 58-5F */
+	0x00, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,	/* 60-67 */
+	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,	/* 68-6F */
+	0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01,	/* 70-77 */
+	0x01, 0x01, 0x01, 0x00, 0x04, 0x00, 0x00, 0x00,	/* 78-7F */
+};
+
+/*
+ * Macintosh Unicode (LSB) to Microsoft Services for Macintosh (SFM) Unicode
+ */
+static u_int16_t
+mac2sfm[128] = {
+	0x0,    0xf001, 0xf002, 0xf003, 0xf004, 0xf005, 0xf006, 0xf007,	/* 00-07 */
+	0xf008, 0xf009, 0xf00a, 0xf00b, 0xf00c, 0xf00d, 0xf00e, 0xf00f,	/* 08-0f */
+	0xf010, 0xf011, 0xf012, 0xf013, 0xf014, 0xf015, 0xf016, 0xf017,	/* 10-17 */
+	0xf018, 0xf019, 0xf01a, 0xf01b, 0xf01c, 0xf01d, 0xf01e, 0xf01f,	/* 18-1f */
+	0x20,   0x21,   0xf020, 0x23,   0x24,   0x25,   0x26,   0x27,	/* 20-27 */
+	0x28,   0x29,   0xf021, 0x2b,   0x2c,   0x2d,   0x2e,   0x2f,  	/* 28-2f */
+	0x30,   0x31,   0x32,   0x33,   0x34,   0x35,   0x36,   0x37,	/* 30-37 */
+	0x38,   0x39,   0xf022, 0x3b,   0xf023, 0x3d,   0xf024, 0xf025, /* 38-3f */
+	0x40,   0x41,   0x42,   0x43,   0x44,   0x45,   0x46,   0x47,	/* 40-47 */
+	0x48,   0x49,   0x4a,   0x4b,   0x4c,   0x4d,   0x4e,   0x4f,	/* 48-4f */
+	0x50,   0x51,   0x52,   0x53,   0x54,   0x55,   0x56,   0x57,	/* 50-57 */
+	0x58,   0x59,   0x5a,   0x5b,   0xf026, 0x5d,   0x5e,   0x5f,	/* 58-5f */
+	0x60,   0x61,   0x62,   0x63,   0x64,   0x65,   0x66,   0x67,	/* 60-67 */
+	0x68,   0x69,   0x6a,   0x6b,   0x6c,   0x6d,   0x6e,   0x6f,	/* 68-6f */
+	0x70,   0x71,   0x72,   0x73,   0x74,   0x75,   0x76,   0x77,	/* 70-77 */
+	0x78,   0x79,   0x7a,   0x7b,   0xf027, 0x7d,   0x7e,   0x7f,   /* 78-7f */
+};
+
+#define MAX_MAC2SFM			0x80
+#define MAX_SFM2MAC			0x29
+#define SFMCODE_PREFIX_MASK	0xf000 
+/*
+ * SFM Unicode (LSB) to Macintosh Unicode (LSB) 
+ */
+static u_char
+sfm2mac[42] = {
+	0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,	/* 00-07 */
+	0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,	/* 08-0F */
+	0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,	/* 10-17 */
+	0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,	/* 18-1F */
+	0x22, 0x2a, 0x3a, 0x3c, 0x3e, 0x3f, 0x5c, 0x7c,	/* 20-27 */
+	0x20, 0x2e, 	 							 	/* 28-29 */
+};
+
 /* map a Unicode char into a DOS char */
 __private_extern__ u_char
 unicode2dos(uc)
@@ -423,15 +498,11 @@ unicode2dos(uc)
  * characters in the resulting unix filename excluding the terminating
  * null.
  */
-int
-dos2unicodefn(dn, un, lower, d2u_loaded, d2u, ul_loaded, ul)
+__private_extern__ int
+dos2unicodefn(dn, un, lower)
 	u_char dn[11];
 	u_int16_t *un;
 	int lower;
-	int d2u_loaded;
-	u_int8_t *d2u;
-	int ul_loaded;
-	u_int8_t *ul;
 {
 	int i;
 	u_char dc;
@@ -451,9 +522,12 @@ dos2unicodefn(dn, un, lower, d2u_loaded, d2u, ul_loaded, ul)
 			dc = 0xe5;
 		
 		/*
-		 * (lower & LCASE_BASE) is currently not supported.
-		 * Future versions may have a dos2unicode_lc table
+		 * If the name was supposed to be all lower case,
+		 * then convert it.
 		 */
+		if (lower & LCASE_BASE)
+			dc = l2u[dc];	/* Map to lower case equivalent */
+		
 		un[unichars++] = (dc < 0x80 || dc > 0x9F ? (u_int16_t)dc : dos2unicode[dc - 0x80]);
 	}
 	dn += 8 - i;
@@ -466,10 +540,14 @@ dos2unicodefn(dn, un, lower, d2u_loaded, d2u, ul_loaded, ul)
 		un[unichars++] = '.';
 		for (i = 0; i < 3 && *dn != ' '; i++) {
 			dc = *dn++;
+
 			/*
-			* (lower & LCASE_EXT) is currently not supported.
-			* Future versions may have a dos2unicode_lc table
-			*/
+			 * If the extension was supposed to be all lower case,
+			 * then convert it.
+			 */
+			if (lower & LCASE_EXT)
+				dc = l2u[dc];	/* Map to lower case equivalent */
+			
 			un[unichars++] = (dc < 0x80 || dc > 0x9F ? (u_int16_t)dc : dos2unicode[dc - 0x80]);
 		}
 	}
@@ -487,19 +565,34 @@ dos2unicodefn(dn, un, lower, d2u_loaded, d2u, ul_loaded, ul)
  *	  (no long filename entry necessary for Win95)
  *	2 if conversion was successful
  *	3 if conversion was successful and generation number was inserted
+ *
+ * In order to support setting the LCASE_BASE and LCASE_EXT flags, this
+ * routine returns the corresponding value for those flags when the name can
+ * be converted (when the function result is 1).
+ *
+ * The test is whether the name (base or extension) contains at least one
+ * lower case letter, no upper case, and zero or more case-neutral characters
+ * allowed in an 8.3 name (such as digits, dollar sign, ampersand, etc.).
+ *
+ * By experimentation with Windows XP, it seems to always create long names
+ * for names that contain extended characters, such as letter e with acute
+ * (regardless of upper/lower case).  This is true even on a U.S. system
+ * with characters that are representable in code page 437 (which is in
+ * fact what you see in the short name).  I'm guessing it uses pure short
+ * names only if all characters are pure ASCII.
  */
-int
-unicode2dosfn(un, dn, unlen, gen)
-	const u_int16_t *un;
-	u_char dn[12];
-	int unlen;
-	u_int gen;
+__private_extern__ int
+unicode2dosfn(const u_int16_t *un, u_char dn[12], int unlen, u_int gen, u_int8_t *lower_case)
 {
 	int i, j, l;
 	int conv = 1;
 	const u_int16_t *cp, *dp, *dp1;
 	u_char gentext[6], *wcp;
 	u_int16_t c;
+	int case_flags;		/* accumulates upper/low/neither case information */
+
+	*lower_case = 0;	/* default to all upper case, and clear undefined bits */
+	
 	/*
 	 * Fill the dos filename string with blanks. These are DOS's pad
 	 * characters.
@@ -523,16 +616,6 @@ unicode2dosfn(un, dn, unlen, gen)
 	}
 
 	/*
-	 * Filenames with only blanks and dots are not allowed!
-	 */
-	for (cp = un, i = unlen; --i >= 0; cp++)
-		if (*cp != ' ' && *cp != '.')
-			break;
-	if (i < 0)
-		return 0;
-
-
-	/*
 	 * Filenames with some characters are not allowed!
 	 */
 	for (cp = un, i = unlen; --i >= 0; cp++)
@@ -551,8 +634,6 @@ unicode2dosfn(un, dn, unlen, gen)
 			if (!dp1)
 				dp1 = cp;
 			break;
-		case ' ':
-			break;
 		default:
 			if (dp1)
 				dp = dp1;
@@ -569,53 +650,74 @@ unicode2dosfn(un, dn, unlen, gen)
 			l = dp1 - dp;
 		else
 			l = unlen - (dp - un);
-		for (i = 0, j = 8; i < l && j < 11; i++, j++) {
+		for (case_flags = i = 0, j = 8; i < l && j < 11; i++, j++) {
 			c = dp[i];
+			if (c < 0x80)
+				case_flags |= ascii_case[c];
+			else
+				case_flags |= CASE_LONG;	/* Non-ASCII always requires a long name */
 			if (c < 0x100)
    				c = l2u[c];
 			c = unicode2dos(c);
-			if (dp[i] != (dn[j] = c)
-			    && conv != 3)
-				conv = 2;
-			if (dn[j] == 1) {
-				conv = 3;
-				dn[j] = '_';
+			dn[j] = c;
+			if (c == 1) {
+				conv = 3;		/* Character is not allowed in short names */
+				dn[j] = '_';	/* and must be replaced with underscore */
 			}
-			if (dn[j] == 2) {
-				conv = 3;
-				dn[j--] = ' ';
+			if (c == 2) {
+				conv = 3;		/* Character is not allowed in short names */
+				dn[j--] = ' ';	/* and is not substituted */
 			}
 		}
+		if ((case_flags & CASE_LONG) != 0 && conv != 3)
+			conv = 2;	/* Force a long name for things like embedded spaces */
+		if (conv == 1) {
+			if ((case_flags & (CASE_LOWER | CASE_UPPER)) == (CASE_LOWER | CASE_UPPER))
+				conv = 2;	/* Force a long name for names with mixed case */
+			else if (case_flags & CASE_LOWER)
+				*lower_case |= LCASE_EXT;	/* Extension has lower case */
+		}
 		if (i < l)
-			conv = 3;
+			conv = 3;	/* Extension was longer than 3 characters */
 		dp--;
 	} else {
-		for (dp = cp; *--dp == ' ' || *dp == '.';);
-		dp++;
+		dp = cp;
 	}
 
 	/*
 	 * Now convert the rest of the name
 	 */
-	for (i = j = 0; un < dp && j < 8; i++, j++, un++) {
+	for (case_flags = i = j = 0; un < dp && j < 8; i++, j++, un++) {
         c = *un;
+		if (c < 0x80)
+			case_flags |= ascii_case[c];
+		else
+			case_flags |= CASE_LONG;	/* Non-ASCII always requires a long name */
         if (c < 0x100)
             c = l2u[c];
         c = unicode2dos(c);
-		if (*un != (dn[j] = c)
-		    && conv != 3)
-			conv = 2;
-		if (dn[j] == 1) {
-			conv = 3;
-			dn[j] = '_';
+        dn[j] = c;
+		if (c == 1) {
+			conv = 3;		/* Character is not allowed in short names */
+			dn[j] = '_';	/* and must be replaced with underscore */
 		}
-		if (dn[j] == 2) {
-			conv = 3;
-			dn[j--] = ' ';
+		if (c == 2) {
+			conv = 3;		/* Character is not allowed in short names */
+			dn[j--] = ' ';	/* and is not substituted */
 		}
 	}
+	if ((case_flags & CASE_LONG) != 0 && conv != 3)
+		conv = 2;	/* Force a long name for things like embedded spaces */
+	if (conv == 1) {
+		if ((case_flags & (CASE_LOWER | CASE_UPPER)) == (CASE_LOWER | CASE_UPPER))
+			conv = 2;	/* Force a long name for names with mixed case */
+		else if (case_flags & CASE_LOWER)
+			*lower_case |= LCASE_BASE;	/* Base name has lower case */
+	}
+
 	if (un < dp)
-		conv = 3;
+		conv = 3;	/* Base name was longer than 8 characters */
+
 	/*
 	 * If we didn't have any chars in filename,
 	 * generate a default
@@ -629,6 +731,15 @@ unicode2dosfn(un, dn, unlen, gen)
 	 */
 	if (dn[0] == 0xe5)
 		dn[0] = SLOT_E5;
+
+	/*
+	 * If the name couldn't be represented as a short name,
+	 * make sure the lower case flags are clear (in case
+	 * the base or extension was all lower case, but the other
+	 * was not, in which case we left one of the bits set above).
+	 */
+	if (conv != 1)
+		*lower_case = 0;
 
 	/*
 	 * If there wasn't any char dropped,
@@ -664,7 +775,7 @@ unicode2dosfn(un, dn, unlen, gen)
  * Note: assumes that the filename is valid,
  *	 i.e. doesn't consist solely of blanks and dots
  */
-int
+__private_extern__ int
 unicode2winfn(un, unlen, wep, cnt, chksum)
 	const u_int16_t *un;
 	int unlen;
@@ -672,15 +783,9 @@ unicode2winfn(un, unlen, wep, cnt, chksum)
 	int cnt;
 	int chksum;
 {
-	const u_int16_t *cp;
 	u_int8_t *wcp;
 	int i;
 	u_int16_t code;
-
-	/*
-	 * Drop trailing blanks and dots
-	 */
-	for (cp = un + unlen; *--cp == ' ' || *cp == '.'; unlen--);
 
 	un += (cnt - 1) * WIN_CHARS;
 	unlen -= (cnt - 1) * WIN_CHARS;
@@ -766,16 +871,12 @@ static inline u_int16_t case_fold(u_int16_t ch)
  * Compare our filename to the one in the Win95 entry
  * Returns the checksum or -1 if no match
  */
-int
-winChkName(un, ucslen, wep, chksum, u2w_loaded, u2w, ul_loaded, ul)
+__private_extern__ int
+winChkName(un, ucslen, wep, chksum)
 	const u_int16_t *un;
 	int ucslen;
 	struct winentry *wep;
 	int chksum;
-	int u2w_loaded;
-	u_int16_t *u2w;
-	int ul_loaded;
-	u_int8_t *ul;
 {
 	u_int8_t *cp;
 	int i;
@@ -864,7 +965,7 @@ winChkName(un, ucslen, wep, chksum, u2w_loaded, u2w, ul_loaded, ul)
  * Collect Win95 filename Unicode chars into buf.
  * Returns the checksum or -1 if impossible
  */
-int
+__private_extern__ int
 getunicodefn(wep, ucfn, unichars, chksum)
 	struct winentry *wep;
 	u_int16_t *ucfn;
@@ -982,7 +1083,7 @@ getunicodefn(wep, ucfn, unichars, chksum)
 /*
  * Compute the checksum of a DOS filename for Win95 use
  */
-u_int8_t
+__private_extern__ u_int8_t
 winChksum(name)
 	u_int8_t *name;
 {
@@ -997,27 +1098,81 @@ winChksum(name)
 /*
  * Determine the number of slots necessary for Win95 names
  */
-int
+__private_extern__ int
 winSlotCnt(un, unlen)
 	const u_int16_t *un;
 	int unlen;
 {
-	unlen = winLenFixup(un, unlen);
 	if (unlen > WIN_MAXLEN)
 		return 0;
 	return howmany(unlen, WIN_CHARS);
 }
 
-/*
- * Determine the number of bytes neccesary for Win95 names
+/* Convert Macintosh Unicode string to SFM (Microsoft Services for Macintosh) 
+ * Unicode strings.
+ * 
+ * This function converts certain Macintosh filename characters that are not supported
+ * on Windows to characters that SFM recognizes and displays as Macintosh ANSI "Invalid"
+ * NTFS filename characters.
+ *
+ * 		Mac Unicode		SFM Unicode
+ *		0x01-0x1f		0xf001-0xf01f
+ *		"			0xf020
+ *		*			0xf021
+ *		/			0xf022	(See Note)
+ *		<			0xf023
+ *		>			0xf024
+ *		?			0xf025
+ *		\			0xf026
+ *		|			0xf027
+ *		Space(0x20)		0xf028	(Only if occuring as last char of the name)
+ *		Period(0x2e)		0xf029	(Only if occuring as last char of the name)
+ *
+ * Note: Since Mac internally converts "/" to ":" and vice-versa, we replace ":" 
+ * instead of "/" to 0xf022
+ *
+ * This conversion also creating files with trailing spaces and dots in filename.
+ * Reference: http://support.microsoft.com/kb/q117258/
  */
-int
-winLenFixup(un, unlen)
-	const u_int16_t* un;
-	int unlen;
+__private_extern__ void
+mac2sfmfn(un, unlen)
+	u_int16_t* un;
+	size_t unlen;
 {
-	for (un += unlen; unlen > 0; unlen--)
-		if (*--un != ' ' && *un != '.')
-			break;
-	return unlen;
+	size_t i;
+
+	/* Check if the last character of name is space or period */
+	unlen--;
+	if (un[unlen] == 0x20) {	/* space */
+		un[unlen] = 0xf028;
+	} else if (un[unlen] == 0x2e) {	/* period */
+		un[unlen] = 0xf029;
+	} else if (un[unlen] < MAX_MAC2SFM) {	/* other character < 128 */
+		un[unlen] = mac2sfm[un[unlen]];
+	}
+	
+	/* Check the remaining entire name */
+	for (i = 0; i < unlen; i++) 
+		if (un[i] < MAX_MAC2SFM)
+			un[i] = mac2sfm[un[i]];
 }
+
+/* Convert SFM Unicode string to HFS Unicode string similar to
+ * the description provided in mac2sfmfn.
+ */
+__private_extern__ void
+sfm2macfn(un, unlen)
+    u_int16_t* un;
+	u_int16_t unlen;
+{
+	u_int16_t i;
+	
+	/* Check entire name */
+	for (i = 0; i < unlen; i++) {
+		if (((un[i] & 0xff00) == SFMCODE_PREFIX_MASK) && 
+		    ((un[i] & 0x00ff) <= MAX_SFM2MAC)) {
+			un[i] = sfm2mac[un[i] & 0x00ff];
+		}
+	}
+}
+

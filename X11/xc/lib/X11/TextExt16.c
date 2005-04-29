@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/TextExt16.c,v 1.4 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/TextExt16.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 /*
  * Copyright 1995 by FUJITSU LIMITED
  * This is source code modified by FUJITSU LIMITED under the Joint
@@ -44,7 +44,6 @@ from The Open Group.
  * XChar2bs.
  */
 int
-#if NeedFunctionPrototypes
 XTextExtents16 (
     XFontStruct *fs,
     _Xconst XChar2b *string,
@@ -53,14 +52,6 @@ XTextExtents16 (
     int *font_ascent,   /* RETURN font information */
     int *font_descent,  /* RETURN font information */
     register XCharStruct *overall)	/* RETURN character information */
-#else
-XTextExtents16 (fs, string, nchars, dir, font_ascent, font_descent, overall)
-    XFontStruct *fs;
-    XChar2b *string;
-    int nchars;
-    int *dir, *font_ascent, *font_descent;  /* RETURN font information */
-    register XCharStruct *overall;	/* RETURN character information */
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */
@@ -127,17 +118,11 @@ XTextExtents16 (fs, string, nchars, dir, font_ascent, font_descent, overall)
  * XTextWidth16 - compute the width of sequence of XChar2bs.  This is a 
  * subset of XTextExtents16.
  */
-#if NeedFunctionPrototypes
-int XTextWidth16 (
+int
+XTextWidth16 (
     XFontStruct *fs,
     _Xconst XChar2b *string,
     int count)
-#else
-int XTextWidth16 (fs, string, count)
-    XFontStruct *fs;
-    XChar2b *string;
-    int count;
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */
@@ -179,17 +164,11 @@ int XTextWidth16 (fs, string, count)
 /*
  * _XTextHeight16 - compute the height of sequence of XChar2bs.
  */
-#if NeedFunctionPrototypes
-int _XTextHeight16 (
+int
+_XTextHeight16 (
     XFontStruct *fs,
     _Xconst XChar2b *string,
     int count)
-#else
-int _XTextHeight16 (fs, string, count)
-    XFontStruct *fs;
-    XChar2b *string;
-    int count;
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */

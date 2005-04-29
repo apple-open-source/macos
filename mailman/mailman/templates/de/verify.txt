@@ -16,7 +16,7 @@ Zeile! -- in einer Email an %(requestaddr)s zu schicken:
 
     confirm %(cookie)s
 
-Normalerweise reicht eine einfache Antwort aus diese e-Mail voellig aus, da
+Normalerweise reicht eine einfache Antwort auf diese e-Mail voellig aus, da
 das Generieren einer Antwort das "Subject:" bzw. "Betreff:" intakt laesst
 (das zusaetzliche "Re:" im "Subject:" bzw. "Betreff:" ist kein Problem).
 

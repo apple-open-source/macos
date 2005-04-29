@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -43,8 +42,7 @@ package Sem_Ch3  is
 
    function Access_Definition
      (Related_Nod : Node_Id;
-      N           : Node_Id)
-      return        Entity_Id;
+      N           : Node_Id) return Entity_Id;
    --  An access definition defines a general access type for a formal
    --  parameter.  The procedure is called when processing formals, when
    --  the current scope is the subprogram. The Implicit type is attached
@@ -64,11 +62,13 @@ package Sem_Ch3  is
    --  Called to analyze a list of declarations (in what context ???). Also
    --  performs necessary freezing actions (more description needed ???)
 
-   procedure Analyze_Default_Expression (N : Node_Id; T : Entity_Id);
-   --  Default expressions do not freeze their components, and must be
-   --  analyzed and resolved accordingly, by calling the
-   --  Pre_Analyze_And_Resolve routine and setting the global
-   --  In_Default_Expression flag.
+   procedure Analyze_Per_Use_Expression (N : Node_Id; T : Entity_Id);
+   --  Default and per object expressions do not freeze their components,
+   --  and must be analyzed and resolved accordingly. The analysis is
+   --  done by calling the Pre_Analyze_And_Resolve routine and setting
+   --  the global In_Default_Expression flag. See the documentation section
+   --  entitled "Handling of Default and Per-Object Expressions" in sem.ads
+   --  for details. N is the expression to be analyzed, T is the expected type.
 
    procedure Array_Type_Declaration (T : in out Entity_Id; Def : Node_Id);
    --  Process an array type declaration. If the array is constrained, we
@@ -122,25 +122,15 @@ package Sem_Ch3  is
    --  the instance. For tagged types, the derived subprograms are aliased to
    --  those of the actual, not those of the ancestor.
 
-   function Expand_To_Girder_Constraint
-     (Typ        : Entity_Id;
-      Constraint : Elist_Id)
-      return       Elist_Id;
-   --  Given a Constraint (ie a list of expressions) on the discriminants of
-   --  Typ, expand it into a constraint on the girder discriminants and
-   --  return the new list of expressions constraining the girder
-   --  discriminants.
-
    function Find_Type_Name (N : Node_Id) return Entity_Id;
    --  Enter the identifier in a type definition, or find the entity already
    --  declared, in the case of the full declaration of an incomplete or
    --  private type.
 
    function Get_Discriminant_Value
-     (Discriminant         : Entity_Id;
-      Typ_For_Constraint   : Entity_Id;
-      Constraint           : Elist_Id)
-      return                 Node_Id;
+     (Discriminant       : Entity_Id;
+      Typ_For_Constraint : Entity_Id;
+      Constraint         : Elist_Id) return Node_Id;
    --  ??? MORE DOCUMENTATION
    --  Given a discriminant somewhere in the Typ_For_Constraint tree
    --  and a Constraint, return the value of that discriminant.
@@ -174,7 +164,7 @@ package Sem_Ch3  is
    procedure Process_Full_View (N : Node_Id; Full_T, Priv_T : Entity_Id);
    --  Process some semantic actions when the full view of a private type is
    --  encountered and analyzed. The first action is to create the full views
-   --  of the dependent private subtypes. The second action is to recopy the
+   --  of the dependant private subtypes. The second action is to recopy the
    --  primitive operations of the private view (in the tagged case).
    --  N is the N_Full_Type_Declaration node.
 
@@ -203,26 +193,33 @@ package Sem_Ch3  is
      (S           : Node_Id;
       Related_Nod : Node_Id;
       Related_Id  : Entity_Id := Empty;
-      Suffix      : Character := ' ')
-      return        Entity_Id;
+      Suffix      : Character := ' ') return Entity_Id;
    --  Process a subtype indication S and return corresponding entity.
    --  Related_Nod is the node where the potential generated implicit types
    --  will be inserted. The Related_Id and Suffix parameters are used to
    --  build the associated Implicit type name.
 
-   procedure Process_Discriminants (N : Node_Id);
+   procedure Process_Discriminants
+     (N    : Node_Id;
+      Prev : Entity_Id := Empty);
    --  Process the discriminants contained in an N_Full_Type_Declaration or
-   --  N_Incomplete_Type_Decl node N.
+   --  N_Incomplete_Type_Decl node N. If the declaration is a completion,
+   --  Prev is entity on the partial view, on which references are posted.
+
+   function Replace_Anonymous_Access_To_Protected_Subprogram
+     (N      : Node_Id;
+      Prev_E : Entity_Id) return Entity_Id;
+   --  Ada 2005 (AI-254): Create and decorate an internal full type
+   --  declaration in the enclosing scope corresponding to an anonymous
+   --  access to protected subprogram. In addition, replace the anonymous
+   --  access by an occurrence of this internal type. Prev_Etype is used
+   --  to link the new internal entity with the anonymous entity. Return
+   --  the entity of this type declaration.
 
    procedure Set_Completion_Referenced (E : Entity_Id);
    --  If E is the completion of a private or incomplete  type declaration,
    --  or the completion of a deferred constant declaration, mark the entity
    --  as referenced. Warnings on unused entities, if needed, go on the
    --  partial view.
-
-   procedure Set_Girder_Constraint_From_Discriminant_Constraint
-     (E : Entity_Id);
-   --  E is some record type. This routine computes E's Girder_Constraint
-   --  from its Discriminant_Constraint.
 
 end Sem_Ch3;

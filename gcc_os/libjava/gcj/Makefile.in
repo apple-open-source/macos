@@ -1,6 +1,6 @@
-# Makefile.in generated automatically by automake 1.4-p5 from Makefile.am
+# Makefile.in generated automatically by automake 1.4 from Makefile.am
 
-# Copyright (C) 1994, 1995-8, 1999, 2001 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1995-8, 1999 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
 # with or without modifications, as long as this notice is preserved.
@@ -63,9 +63,9 @@ host_alias = @host_alias@
 host_triplet = @host@
 target_alias = @target_alias@
 target_triplet = @target@
-AM_RUNTESTFLAGS = @AM_RUNTESTFLAGS@
 AR = @AR@
 AS = @AS@
+BACKTRACESPEC = @BACKTRACESPEC@
 CC = @CC@
 CHECKREFSPEC = @CHECKREFSPEC@
 COMPPATH = @COMPPATH@
@@ -87,7 +87,9 @@ GCOBJS = @GCOBJS@
 GCSPEC = @GCSPEC@
 GCTESTSPEC = @GCTESTSPEC@
 HASH_SYNC_SPEC = @HASH_SYNC_SPEC@
+IEEESPEC = @IEEESPEC@
 INCLTDL = @INCLTDL@
+INTERPRETER = @INTERPRETER@
 JC1GCSPEC = @JC1GCSPEC@
 LIBFFI = @LIBFFI@
 LIBFFIINCS = @LIBFFIINCS@
@@ -129,6 +131,9 @@ here = @here@
 libgcj_basedir = @libgcj_basedir@
 mkinstalldirs = @mkinstalldirs@
 tool_include_dir = @tool_include_dir@
+toolexecdir = @toolexecdir@
+toolexeclibdir = @toolexeclibdir@
+toolexecmainlibdir = @toolexecmainlibdir@
 
 AUTOMAKE_OPTIONS = foreign
 

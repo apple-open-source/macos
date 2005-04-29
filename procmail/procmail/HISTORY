@@ -579,6 +579,7 @@
 	       - Use the `standard' format for maildir filenames and retry
 		 on name collision
 	       - Rename by linking to prevent lossage
+	       - Avoid dangling pointers when variable capture actions fail
 	    Changes to autoconf:
 	       - Check for enum support
 	       - Warn people that non-ISO/ANSI C compilers might not be
@@ -587,7 +588,7 @@
 	    Changes to lockfile:
 	       - Include the system mailbox lockfile path in the -v output
 	       - Resist attempts to use a setuid lockfile command
-	       - Fix infinite loop on -l, -r, or -s flag with no value.
+	       - Fix infinite loop on -l, -r, or -s flag with no value
 	    Documented formail's treatment of >From_ lines as continuations
 	       of the From_ line and warned of problems caused by non-RFC822
 	       field names like 'Old-From '
@@ -606,3 +607,19 @@
 	       - Incorrect prototype broke compilation on Tru64 UNIX
 	       - INCLUDERC was broken by trying to be fancy and not fully
 		 succeeding when support for multiple -a options was added
+2001/09/10: v3.22
+	    Changes to procmail:
+	       - Regression bugs from 3.20:
+		  - Broke compilation with K&R compilers
+		  - procmail -p -m was overridding PATH
+		  - maildir delivery included garbage in filenames
+		  - Mismatched HOST in last rcfile didn't discard the message
+		  - COMSAT wasn't turned off by an rcfile on the command line
+	       - Catch overly long command line variable assignments
+	       - If a command expansion is truncated, set PROCMAIL_OVERFLOW
+		 and don't trim trailing (really middle) newlines
+	       - If the comsat host can't be resolved, set COMSAT to "no"
+	    Some fixes to the man pages
+	    More paranoia: start to use strlcpy()
+	    Generate safe temp and maildir filenames when the hostname
+	       contains / or : by mapping them to \ooo

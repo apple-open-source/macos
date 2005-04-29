@@ -38,9 +38,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.29 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.31 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <FONT COLOR=green><EM>--  curses binding.</EM></FONT>
@@ -55,8 +55,8 @@
    <b>pragma</b> Linker_Options ("-lncurses");
 
    <FONT COLOR=red><A NAME="53_4">NC_Major_Version</A></FONT> : <b>constant</b> := 5; <FONT COLOR=green><EM>--  Major version of the library</EM></FONT>
-   <FONT COLOR=red><A NAME="54_4">NC_Minor_Version</A></FONT> : <b>constant</b> := 2; <FONT COLOR=green><EM>--  Minor version of the library</EM></FONT>
-   NC_Version : <b>constant</b> String := "5.2";  <FONT COLOR=green><EM>--  Version of library</EM></FONT>
+   <FONT COLOR=red><A NAME="54_4">NC_Minor_Version</A></FONT> : <b>constant</b> := 3; <FONT COLOR=green><EM>--  Minor version of the library</EM></FONT>
+   NC_Version : <b>constant</b> String := "5.3";  <FONT COLOR=green><EM>--  Version of library</EM></FONT>
 
    <b>type</b> Window <b>is</b> <b>private</b>;
    Null_Window : <b>constant</b> Window;
@@ -357,7 +357,7 @@
       <b>record</b>
          <FONT COLOR=red><A NAME="354_10">Attr</A></FONT>  : <A HREF="terminal_interface-curses__ads.htm#297_9">Character_Attribute_Set</A>;
          <FONT COLOR=red><A NAME="355_10">Color</A></FONT> : Color_Pair;
-         Ch    : Character;
+         Ch    :<A HREF="terminal_interface-curses__ads.htm#351_9"> </A>Character;
       <b>end</b> <b>record</b>;
    <b>pragma</b> Convention (C, Attributed_Character);
    <FONT COLOR=green><EM>--  This is the counterpart for the chtype in C.</EM></FONT>
@@ -1486,11 +1486,11 @@
 
    <FONT COLOR=green><EM>--  Not Implemented: slk_attr_on, slk_attr_off, slk_attr_set</EM></FONT>
 
-   <b>type</b> Soft_Label_Key_Format <b>is</b> (Three_Two_Three,
-                                  Four_Four,
-                                  PC_Style,              <FONT COLOR=green><EM>--  ncurses specific</EM></FONT>
+   <b>type</b> Soft_Label_Key_Format <b>is</b> (<FONT COLOR=red><A NAME="1485_35">Three_Two_Three</A></FONT>,
+                                  <FONT COLOR=red><A NAME="1486_35">Four_Four</A></FONT>,
+                                  <FONT COLOR=red><A NAME="1487_35">PC_Style</A></FONT>,              <FONT COLOR=green><EM>--  ncurses specific</EM></FONT>
         <FONT COLOR=red><A NAME="1488_9"> </A></FONT>                         PC_Style_With_Index);  <FONT COLOR=green><EM>--  "</EM></FONT>
-   <b>type</b> <FONT COLOR=red><A NAME="1489_9">Label_Number</A></FONT> <b>is</b> <b>new</b> Positive <b>range</b> 1 .. 12;
+   <b>type</b> <FONT COLOR=red><A NAME="1489_9">Label_Number</A></FONT> <b>is</b> <b>new</b> Positive <b>range</b> 1 .. <FONT COLOR=red><A NAME="1489_49">12</A></FONT>;
    <b>type</b> Label_Justification <b>is</b> (Left, Centered, Right);
 
    <FONT COLOR=green><EM>--  #1A NAME="AFU_108"#2|</EM></FONT>

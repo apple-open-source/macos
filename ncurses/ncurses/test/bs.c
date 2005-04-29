@@ -7,13 +7,9 @@
  * v2.0 featuring strict ANSI/POSIX conformance, November 1993.
  * v2.1 with ncurses mouse support, September 1995
  *
- * $Id: bs.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: bs.c,v 1.39 2003/12/06 18:10:13 tom Exp $
  */
 
-#include <signal.h>
-#include <ctype.h>
-#include <string.h>
-#include <assert.h>
 #include <time.h>
 
 #include <test.priv.h>
@@ -21,15 +17,6 @@
 #ifndef SIGIOT
 #define SIGIOT SIGABRT
 #endif
-
-#ifndef A_UNDERLINE		/* BSD curses */
-#define	beep()	write(1,"\007",1);
-#define	cbreak	crmode
-#define	saveterm savetty
-#define	resetterm resetty
-#define	nocbreak nocrmode
-#define strchr	index
-#endif /* !A_UNDERLINE */
 
 static int getcoord(int);
 
@@ -122,8 +109,8 @@ typedef struct {
     int hits;			/* how many times has this ship been hit? */
     char symbol;		/* symbol for game purposes */
     int length;			/* length of ship */
-    char x, y;			/* coordinates of ship start point */
-    unsigned char dir;		/* direction of `bow' */
+    int x, y;			/* coordinates of ship start point */
+    int dir;			/* direction of `bow' */
     bool placed;		/* has it been placed on the board? */
 } ship_t;
 
@@ -167,7 +154,7 @@ static RETSIGTYPE uninitgame(int sig GCC_UNUSED)
 {
     clear();
     (void) refresh();
-    (void) resetterm();
+    (void) reset_shell_mode();
     (void) echo();
     (void) endwin();
     ExitProgram(sig ? EXIT_FAILURE : EXIT_SUCCESS);
@@ -216,10 +203,8 @@ intro(void)
 	(void) strcpy(name, dftname);
 
     (void) initscr();
-#ifdef KEY_MIN
     keypad(stdscr, TRUE);
-#endif /* KEY_MIN */
-    (void) saveterm();
+    (void) def_prog_mode();
     (void) nonl();
     (void) cbreak();
     (void) noecho();
@@ -264,7 +249,7 @@ intro(void)
 
 /* VARARGS1 */
 static void
-prompt(int n, NCURSES_CONST char *f, const char *s)
+prompt(int n, const char *f, const char *s)
 /* print a message at the prompt line */
 {
     (void) move(PROMPTLINE + n, 0);
@@ -548,65 +533,49 @@ getcoord(int atcpu)
 	switch (c = getch()) {
 	case 'k':
 	case '8':
-#ifdef KEY_MIN
 	case KEY_UP:
-#endif /* KEY_MIN */
 	    ny = cury + BDEPTH - 1;
 	    nx = curx;
 	    break;
 	case 'j':
 	case '2':
-#ifdef KEY_MIN
 	case KEY_DOWN:
-#endif /* KEY_MIN */
 	    ny = cury + 1;
 	    nx = curx;
 	    break;
 	case 'h':
 	case '4':
-#ifdef KEY_MIN
 	case KEY_LEFT:
-#endif /* KEY_MIN */
 	    ny = cury;
 	    nx = curx + BWIDTH - 1;
 	    break;
 	case 'l':
 	case '6':
-#ifdef KEY_MIN
 	case KEY_RIGHT:
-#endif /* KEY_MIN */
 	    ny = cury;
 	    nx = curx + 1;
 	    break;
 	case 'y':
 	case '7':
-#ifdef KEY_MIN
 	case KEY_A1:
-#endif /* KEY_MIN */
 	    ny = cury + BDEPTH - 1;
 	    nx = curx + BWIDTH - 1;
 	    break;
 	case 'b':
 	case '1':
-#ifdef KEY_MIN
 	case KEY_C1:
-#endif /* KEY_MIN */
 	    ny = cury + 1;
 	    nx = curx + BWIDTH - 1;
 	    break;
 	case 'u':
 	case '9':
-#ifdef KEY_MIN
 	case KEY_A3:
-#endif /* KEY_MIN */
 	    ny = cury + BDEPTH - 1;
 	    nx = curx + 1;
 	    break;
 	case 'n':
 	case '3':
-#ifdef KEY_MIN
 	case KEY_C3:
-#endif /* KEY_MIN */
 	    ny = cury + 1;
 	    nx = curx + 1;
 	    break;
@@ -1215,6 +1184,8 @@ scount(int who)
 int
 main(int argc, char *argv[])
 {
+    setlocale(LC_ALL, "");
+
     do_options(argc, argv);
 
     intro();

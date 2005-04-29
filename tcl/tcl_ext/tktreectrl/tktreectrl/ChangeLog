@@ -1,0 +1,30 @@
+2004-02-09  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tkTreeCtrl.c (ImageChangedProc):   cause image change to
+	* generic/tkTreeColumn.c (ImageChangedProc): refresh window.
+	Could narrow down the full update, but better than nothing.
+
+2003-12-02  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* library/filelist-bindings.tcl: whitespace police
+	added check for Priv(buttonMode) before use in bindings that may
+	not get an associated button-down event
+
+	* library/treectrl.tcl: whitespace police
+
+2003-11-26  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tkTreeCtrl.c (LoupeCmd): remove extra interp arg to
+	Tk_PhotoPutZoomedBlock.
+
+2003-11-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* generic/tkTreeColumn.c: whitespace police
+
+	* generic/tkTreeCtrl.h: 
+	* generic/tkTreeCtrl.c: whitespace police
+	(TreeWorldChanged): add calls to TreeStyle_TreeChanged and
+	TreeColumn_TreeChanged to correctly display font size changes
+
+	* ChangeLog: created
+

@@ -1,11 +1,10 @@
-/* APPLE LOCAL file objc typedef */
 /* Check that the sizeof() operator works with ObjC classes and their aliases. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
 
-#import <objc/objc.h>
-#import <objc/Object.h>
+#include <objc/objc.h>
+#include <objc/Object.h>
 
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort();

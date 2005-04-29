@@ -1,5 +1,5 @@
 .ig
-Copyright (C) 1989-1995, 2001, 2002 Free Software Foundation, Inc.
+Copyright (C) 1989-1995, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 Permission is granted to make and distribute verbatim copies of
 this manual provided the copyright notice and this permission notice
@@ -17,17 +17,20 @@ translations approved by the Free Software Foundation instead of in
 the original English.
 ..
 .
+.do nr groff_font_C \n[.C]
+.cp 0
+.
 .de TQ
-.br
-.ns
-.TP \\$1
+.  br
+.  ns
+.  TP \\$1
 ..
 .
 .\" Like TP, but if specified indent is more than half
 .\" the current line-length - indent, use the default indent.
 .de Tp
-.ie \\n(.$=0:((0\\$1)*2u>(\\n(.lu-\\n(.iu)) .TP
-.el .TP "\\$1"
+.  ie \\n(.$=0:((0\\$1)*2u>(\\n(.lu-\\n(.iu)) .TP
+.  el .TP "\\$1"
 ..
 .
 .
@@ -100,25 +103,18 @@ The horizontal resolution is
 machine units.
 .
 .TP
-.BI paperheight\  n
+.BI paperlength\  n
 The physical vertical dimension of the output medium in machine units.
 .
 This isn't used by
 .B troff
-itself; currently, only
-.B grops
-uses it.
+itself but by output devices.
 .
-.TP
-.BI paperwidth\  n
-The physical horizontal dimension of the output medium in machine units.
+Deprecated.
 .
-This isn't used by
-.BR troff .
-.
-Currently, only the
-.B grolbp
-output device uses it.
+Use
+.B papersize
+instead.
 .
 .TP
 .BI papersize\  string
@@ -167,6 +163,19 @@ More than one argument can be specified;
 .B groff
 scans from left to right and uses the first valid paper specification.
 .
+.TP
+.BI paperwidth\  n
+The physical horizontal dimension of the output medium in machine units.
+.
+Deprecated.
+.
+Use
+.B papersize
+instead.
+.
+This isn't used by
+.BR troff
+itself but by output devices.
 .
 .TP
 .B pass_filenames
@@ -286,10 +295,10 @@ and
 .B sizes
 lines are compulsory.
 .
-Other commands are ignored by
+Not all commands in the DESC file are used by
 .B troff
-but may be used by postprocessors to store arbitrary information
-about the device in the DESC file.
+itself; some of the keywords (or even additional ones) are used by
+postprocessors to store arbitrary information about the device.
 .
 .LP
 Here a list of obsolete keywords which are recognized by
@@ -620,6 +629,8 @@ of device
 .
 .BR groff_out (@MAN5EXT@),
 .BR @g@troff (@MAN1EXT@).
+.
+.cp \n[groff_font_C]
 .
 .\" Local Variables:
 .\" mode: nroff

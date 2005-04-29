@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>$BLOJSOM_BLOG.getBlogName()</title>
+<link rel="stylesheet" href="$BLOJSOM_SITE_URL/pumpkin.css" />
+<link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" TYPE="image/x-icon"/>
+<link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+<link rel="alternate" type="application/atom+xml" title="Atom" href="$BLOJSOM_BLOG.getBlogURL()?flavor=atom" />
+<link rel="EditURL" type="application/rsd+xml" title="RSD" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rsd" />
+</head>
+
+<body>
+
+<div id="banner">
+<h1><a href="$BLOJSOM_BLOG.getBlogURL()" accesskey="1">$BLOJSOM_BLOG.getBlogName()</a></h1>
+<span class="description">$BLOJSOM_BLOG.getBlogDescription()</span>
+</div>
+
+
+
+<div id="content">
+
+<div class="blog">
+    #set( $totalEntries = 0)
+
+    #foreach ($entry in $BLOJSOM_ENTRIES)
+	<div class="blogbody">
+
+<!--
+	<a name="000076"></a>
+-->
+	<h3 class="title"><a href="$entry.getLink()">$entry.getTitle()</a></h3>
+
+	$entry.getDescription()
+
+	<div class="posted">
+	 [<a href="$entry.getBlogCategory().getCategoryURL()">#if ($entry.getBlogCategory().getName())$entry.getBlogCategory().getName()#else$entry.getBlogCategory().getCategory()#end</a>]<br />
+     &raquo;&nbsp;Posted
+	 #if ($entry.getMetaData())
+        #if ($entry.getMetaData().get("blog-entry-author"))
+            &nbsp;by: <b>$entry.getMetaData().get("blog-entry-author")</b>
+        #end
+     #end
+	 &nbsp;on $entry.getDate() -
+	 #if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+       Comments (<a href="$entry.getLink()&amp;page=comments">$entry.getNumComments()</a>)&nbsp;
+    #end
+    Trackbacks (<a href="$entry.getLink()&amp;page=trackback">$entry.getNumTrackbacks()</a>)
+	</div>
+
+	#set( $totalEntries = $totalEntries + 1)
+    #if ($BLOJSOM_PERMALINK)
+      <!-- Trackback Auto Discovery -->
+      #set( $blogDescription = $entry.getEscapedDescription() )
+      #if ($blogDescription.length() > 255 )
+          #set( $ellipses = "..." )
+          #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
+      #end
+<!--
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:trackback="http://madskills.com/public/xml/rss/module/trackback/">
+        <rdf:Description
+             rdf:about="$entry.getLink()"
+             dc:identifier="$entry.getLink()"
+             dc:title="$entry.getTitle()"
+             dc:subject="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()"
+             dc:description="$blogDescription"
+             dc:creator="$BLOJSOM_BLOG.getBlogOwner()"
+             dc:date="$entry.getISO8601Date()"
+             trackback:ping="$entry.getLink()&tb=y" />
+     </rdf:RDF>
+-->
+    #end
+	
+	</div>
+	#end
+
+</div>
+
+</div>
+
+
+<!-- Side Bar -->
+<div id="links">
+
+
+<div class="sidetitle" style="margin-top:0px;">
+Search
+</div>
+ 
+<div class="side">
+<form method="post" action=".">
+<label for="search" accesskey="4">Search this site:</label><br />
+<input id="search" name="query" size="22" type="text"/> <input type="submit" value=" Go " />
+</form>
+</div>
+
+
+<div class="sidetitle" style="margin-top:5px;" >
+Calendar Navigation
+</div>
+
+<div class="side">
+
+<!-- -->
+
+</div>
+
+<div class="sidetitle" style="margin-top:5px;" >
+Categories
+</div>
+
+<div class="side">
+<p>
+#foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+    <a href="$blogCategory.getCategoryURL()">&raquo; #if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a><br />
+#end</p>
+
+</div>
+
+
+
+<div class="sidetitle" style="margin-top:5px;" >
+Referers
+</div>
+
+<div class="side">
+
+#if($REFERER_HISTORY)
+  #foreach( $flavorgroup in $REFERER_HISTORY.keySet())
+     #set ($group = $REFERER_HISTORY.get($flavorgroup))
+     #if ($group.isHitCounter())
+         &raquo; $flavorgroup hits:&nbsp;<a href="$BLOJSOM_BLOG.getBlogURL()?&amp;page=referers" title="Referer History">$group.getReferralCount()</a><br />
+     #end
+  #end
+#end
+
+
+</div>
+
+<div class="syndicate">
+Syndicate in <a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=atom">Atom</a>, <a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss">RSS 0.92</a>, <a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss2">RSS 2.0</a> or <a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rdf">RDF</a>.<br /><br />
+
+<a href="http://blojsom.sf.net" title="All Your Blog Are Belong To Us" target="_blank"><img
+src="$BLOJSOM_SITE_URL/powered-by-blojsom.gif" height="31" width="88" alt="Powered By blojsom" border="0" align="left" /></a>
+
+<!-- Creative Commons License -->
+<a href="http://creativecommons.org/licenses/by-nc-sa/1.0"><img alt="Creative Commons
+License" src="http://creativecommons.org/images/public/somerights.gif" border="0" align="right" /></a><br clear="all" /><br />
+This work is licensed under a
+<a href="http://creativecommons.org/licenses/by-nc-sa/1.0">Creative Commons License</a>.
+<!-- /Creative Commons License -->
+
+
+</div>
+
+
+</div>
+<!-- /Side Bar -->
+
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 /*
  *  SQLInstallDriver.c
  *
- *  $Id: SQLInstallDriver.c,v 1.1.1.2 2002/04/30 00:40:25 miner Exp $
+ *  $Id: SQLInstallDriver.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  Install a driver
  *
@@ -91,7 +91,7 @@
 
 
 BOOL
-InstallDriverPath (LPSTR lpszPath, WORD cbPathMax, WORD FAR *pcbPathOut,
+InstallDriverPath (LPSTR lpszPath, WORD cbPathMax, WORD *pcbPathOut,
     LPSTR envname)
 {
 #ifdef _MAC
@@ -228,7 +228,7 @@ quit:
 
 BOOL INSTAPI
 SQLInstallDriver (LPCSTR lpszInfFile, LPCSTR lpszDriver, LPSTR lpszPath,
-    WORD cbPathMax, WORD FAR *pcbPathOut)
+    WORD cbPathMax, WORD *pcbPathOut)
 {
   PCONFIG pCfg = NULL, pOdbcCfg = NULL;
   BOOL retcode = FALSE;

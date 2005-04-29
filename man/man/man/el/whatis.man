@@ -1,0 +1,31 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\" Ελληνική μετάφραση Λ. Δημητρουλάκης edimitro@tee.gr Ιούλιος 2003
+.\"
+.TH whatis 1 "Jan 5, 1991" "Εγχειρίδιο Λίνουξ" "Εντολές Χρήστη"
+.LO 1
+.SH ΟΝΟΜΑ
+whatis \- ερευνά τη βάση δεδομένων whatis για πλήρεις λέξεις.
+.SH ΣΥΝΟΨΗ
+.BI whatis
+λέξη-κλειδί ...
+.SH ΠΕΡΙΓΡΑΦΗ
+Η εντολή whatis ερευνά για λέξεις κλειδιά, 
+ένα σύνολο αρχείων βάσεων δεδομένων που περιέχουν σύντομες περιγραφές εντολών συστήματος,
+κι εμφανίζει το αποτέλεσμα στην τυπική έξοδο. 
+Εμφανίζονται μόνο πλήρεις λέξεις που ταιριάζουν.
+
+Η βάση δεδομένων whatis δημιουργείται και ενημερώνεται με την εντολή @makewhatis@.
+.SH "ΒΛΕΠΕ ΕΠΙΣΗΣ"
+apropos(1), man(1).

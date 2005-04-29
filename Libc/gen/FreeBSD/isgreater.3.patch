@@ -1,0 +1,9 @@
+--- isgreater.3.orig	Fri Oct  3 17:12:54 2003
++++ isgreater.3	Fri Nov  7 15:44:33 2003
+@@ -97,6 +97,3 @@
+ .Fn isunordered
+ macros conform to
+ .St -isoC-99 .
+-.Sh HISTORY
+-The relational macros described above first appeared in
+-.Fx 5.1 .

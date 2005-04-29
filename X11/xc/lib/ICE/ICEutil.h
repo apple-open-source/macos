@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
 
 Author: Ralph Mor, X Consortium
 ******************************************************************************/
-/* $XFree86: xc/lib/ICE/ICEutil.h,v 1.4 2001/12/20 19:40:59 tsi Exp $ */
+/* $XFree86: xc/lib/ICE/ICEutil.h,v 1.5 2003/11/17 22:20:05 dawes Exp $ */
 
 #ifndef _ICEUTIL_H_
 #define _ICEUTIL_H_
@@ -80,64 +80,46 @@ typedef struct {
  */
 
 extern char *IceAuthFileName (
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern int IceLockAuthFile (
-#if NeedFunctionPrototypes
     char *		/* file_name */,
     int			/* retries */,
     int			/* timeout */,
     long		/* dead */
-#endif
 );
 
 extern void IceUnlockAuthFile (
-#if NeedFunctionPrototypes
     char *		/* file_name */
-#endif
 );
 
 extern IceAuthFileEntry *IceReadAuthFileEntry (
-#if NeedFunctionPrototypes
     FILE *		/* auth_file */
-#endif
 );
 
 extern void IceFreeAuthFileEntry (
-#if NeedFunctionPrototypes
     IceAuthFileEntry *	/* auth */
-#endif
 );
 
 extern Status IceWriteAuthFileEntry (
-#if NeedFunctionPrototypes
     FILE *		/* auth_file */,
     IceAuthFileEntry *	/* auth */
-#endif
 );
 
 extern IceAuthFileEntry *IceGetAuthFileEntry (
-#if NeedFunctionPrototypes
     char *		/* protocol_name */,
     char *		/* network_id */,
     char *		/* auth_name */
-#endif
 );
 
 extern char *IceGenerateMagicCookie (
-#if NeedFunctionPrototypes
     int			/* len */
-#endif
 );
 
 extern void IceSetPaAuthData (
-#if NeedFunctionPrototypes
     int			/* numEntries */,
     IceAuthDataEntry *	/* entries */
-#endif
 );
 
 _XFUNCPROTOEND

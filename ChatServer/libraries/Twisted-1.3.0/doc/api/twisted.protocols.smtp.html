@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.smtp</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        Module&nbsp;smtp
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.smtp.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.protocols.smtp</h2>
+
+Simple Mail Transfer Protocol implementation.
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.Address.html"><code>Address</code></a></b></td>
+  <td>Parse and hold an RFC 2821 address.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.ESMTP.html"><code>ESMTP</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.ESMTPClient.html"><code>ESMTPClient</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.IMessage.html"><code>IMessage</code></a></b></td>
+  <td>Interface definition for messages that can be sent via SMTP.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.IMessageDelivery.html"><code>IMessageDelivery</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.IMessageDeliveryFactory.html"><code>IMessageDeliveryFactory</code></a></b></td>
+  <td>An alternate interface to implement for handling message delivery.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTP.html"><code>SMTP</code></a></b></td>
+  <td>SMTP server-side protocol.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPClient.html"><code>SMTPClient</code></a></b></td>
+  <td>SMTP client for sending emails.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPFactory.html"><code>SMTPFactory</code></a></b></td>
+  <td>Factory for SMTP.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPSender.html"><code>SMTPSender</code></a></b></td>
+  <td>Utility class for sending emails easily - use with 
+SMTPSenderFactory.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPSenderFactory.html"><code>SMTPSenderFactory</code></a></b></td>
+  <td>Utility factory for sending emails easily.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.User.html"><code>User</code></a></b></td>
+  <td>Hold information about and SMTP message recipient, including 
+information on where the message came from</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.xtextStreamReader.html"><code>xtextStreamReader</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.xtextStreamWriter.html"><code>xtextStreamWriter</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Exceptions</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.AddressError.html"><code>AddressError</code></a></b></td>
+  <td>Parse error in address</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPAddressError.html"><code>SMTPAddressError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPBadRcpt.html"><code>SMTPBadRcpt</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPBadSender.html"><code>SMTPBadSender</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPClientError.html"><code>SMTPClientError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPConnectError.html"><code>SMTPConnectError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPDeliveryError.html"><code>SMTPDeliveryError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPError.html"><code>SMTPError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPProtocolError.html"><code>SMTPProtocolError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.smtp.SMTPServerError.html"><code>SMTPServerError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="idGenerator"></a><span class="summary-sig"><span class="summary-sig-name">idGenerator</span>()</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.smtp.html#messageid" class="summary-sig-name"><code>messageid</code></a>(<span class=summary-sig-arg>uniq</span>,
+          <span class=summary-sig-arg>N</span>)</span></code>
+<br />
+Return a globally unique random string in RFC 2822 Message-ID 
+format</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.smtp.html#quoteaddr" class="summary-sig-name"><code>quoteaddr</code></a>(<span class=summary-sig-arg>addr</span>)</span></code>
+<br />
+Turn an email address, possibly with realname part etc, into a form 
+suitable for and SMTP envelope.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.smtp.html#rfc822date" class="summary-sig-name"><code>rfc822date</code></a>(<span class=summary-sig-arg>timeinfo</span>,
+          <span class=summary-sig-arg>local</span>)</span></code>
+<br />
+Format an RFC-2822 compliant date string.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        Deferred
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.smtp.html#sendEmail" class="summary-sig-name"><code>sendEmail</code></a>(<span class=summary-sig-arg>smtphost</span>,
+          <span class=summary-sig-arg>fromEmail</span>,
+          <span class=summary-sig-arg>toEmail</span>,
+          <span class=summary-sig-arg>content</span>,
+          <span class=summary-sig-arg>headers</span>,
+          <span class=summary-sig-arg>attachments</span>,
+          <span class=summary-sig-arg>multipartbody</span>)</span></code>
+<br />
+Send an email, optionally with attachments.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.smtp.html#sendmail" class="summary-sig-name"><code>sendmail</code></a>(<span class=summary-sig-arg>smtphost</span>,
+          <span class=summary-sig-arg>from_addr</span>,
+          <span class=summary-sig-arg>to_addrs</span>,
+          <span class=summary-sig-arg>msg</span>)</span></code>
+<br />
+Send an email</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="xtext_codec"></a><span class="summary-sig"><span class="summary-sig-name">xtext_codec</span>(<span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="xtext_decode"></a><span class="summary-sig"><span class="summary-sig-name">xtext_decode</span>(<span class=summary-sig-arg>s</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="xtext_encode"></a><span class="summary-sig"><span class="summary-sig-name">xtext_encode</span>(<span class=summary-sig-arg>s</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.smtp.html#atom"><code>atom</code></a></b> = <span title="&quot;[-A-Za-z0-9!\\#$%&amp;'*+/=?^_`{|}~]&quot;"><code><span class="variable-quote">"</span>[-A-Za-z0-9!\\#$%&amp;'*+/=?^_`{|}~]<span class="variable-quote">"</span>                </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.smtp.html#AUTH"><code>AUTH</code></a></b> = <span title="'AUTH'"><code><span class="variable-quote">'</span>AUTH<span class="variable-quote">'</span>                                            </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.smtp.html#COMMAND"><code>COMMAND</code></a></b> = <span title="'COMMAND'"><code><span class="variable-quote">'</span>COMMAND<span class="variable-quote">'</span>                                      </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.protocols.smtp.html#DATA"><code>DATA</code></a></b> = <span title="'DATA'"><code><span class="variable-quote">'</span>DATA<span class="variable-quote">'</span>                                            </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.smtp.html#SUCCESS"><code>SUCCESS</code></a></b> = <span title="{256: None, 257: None, 258: None, 259: None, 260: None, 261: None, 262: None, 263: None, 264: None, 265: None, 266: None, 267: None, 268: None, 269: None, 270: None, 271: None, 272: None, 273: None, 274: None, 275: None, 276: None, 277: None, 278: None, 279: None, 280: None, 281: None, 282: None, 283: None, 284: None, 285: None, 286: None, 287: None, 288: None, 289: None, 290: None, 291: None, 292: None, 293: None, 294: None, 295: None, 296: None, 297: None, 298: None, 299: None, 200: None, 201: None, 202: None, 203: None, 204: None, 205: None, 206: None, 207: None, 208: None, 209: None, 21..."><code>{256:&nbsp;None,&nbsp;257:&nbsp;None,&nbsp;258:&nbsp;None,&nbsp;259:&nbsp;None,&nbsp;2<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="messageid"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">messageid</span>(<span class=sig-arg>uniq</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>N</span>=<span class=sig-default>&lt;method-wrapper&nbsp;object&nbsp;at&nbsp;0x846c8b4&gt;</span>)</span>
+  </h3>
+  <p>Return a globally unique random string in RFC 2822 Message-ID 
+  format</p>
+  <p>&lt;datetime.pid.random&#64;host.dom.ain&gt;</p>
+  Optional uniq string will be added to strenghten uniqueness if 
+  given.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="quoteaddr"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">quoteaddr</span>(<span class=sig-arg>addr</span>)</span>
+  </h3>
+  Turn an email address, possibly with realname part etc, into a form 
+  suitable for and SMTP envelope.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="rfc822date"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">rfc822date</span>(<span class=sig-arg>timeinfo</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>local</span>=<span class=sig-default>1</span>)</span>
+  </h3>
+  Format an RFC-2822 compliant date string.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>timeinfo</b></code> -
+         (optional) A sequence as returned by 
+        <code>time.localtime()</code> or <code>time.gmtime()</code>. 
+        Default is now.
+      <dd><code><b>local</b></code> -
+         (optional) Indicates if the supplied time is local or 
+        universal time, or if no time is given, whether now should be 
+        local or universal time. Default is local, as suggested (SHOULD) 
+        by rfc-2822.
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A string representing the time and date in RFC-2822 
+        format.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendEmail"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendEmail</span>(<span class=sig-arg>smtphost</span>,
+          <span class=sig-arg>fromEmail</span>,
+          <span class=sig-arg>toEmail</span>,
+          <span class=sig-arg>content</span>,
+          <span class=sig-arg>headers</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>attachments</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>multipartbody</span>=<span class=sig-default>'mixed'</span>)</span>
+  </h3>
+  Send an email, optionally with attachments.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>smtphost</b></code> -
+         hostname of SMTP server to which to connect
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      <dd><code><b>fromEmail</b></code> -
+         email address to indicate this email is from
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      <dd><code><b>toEmail</b></code> -
+         email address to which to send this email
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      <dd><code><b>content</b></code> -
+         The body if this email.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      <dd><code><b>headers</b></code> -
+         Dictionary of headers to include in the email
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=dict)</i>
+      <dd><code><b>attachments</b></code> -
+         Each 3-tuple should consist of the name of the attachment, the 
+        mime-type of the attachment, and a string that is the attachment 
+        itself.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=list of 3-tuples)</i>
+      <dd><code><b>multipartbody</b></code> -
+         The type of MIME multi-part body. Generally either 
+        &quot;mixed&quot; (as in text and images) or 
+        &quot;alternative&quot; (html email with a fallback to 
+        text/plain).
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        The returned Deferred has its callback or errback invoked when 
+        the mail is successfully sent or when an error occurs, 
+        respectively.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=Deferred)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sendmail"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sendmail</span>(<span class=sig-arg>smtphost</span>,
+          <span class=sig-arg>from_addr</span>,
+          <span class=sig-arg>to_addrs</span>,
+          <span class=sig-arg>msg</span>)</span>
+  </h3>
+  <p>Send an email</p>
+  This interface is intended to be a direct replacement for 
+  smtplib.SMTP.sendmail() (with the obvious change that you specify the 
+  smtphost as well). Also, ESMTP options are not accepted, as we don't do 
+  ESMTP yet. I reserve the right to implement the ESMTP options 
+  differently.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>smtphost</b></code> -
+         The host the message should be sent to
+      <dd><code><b>from_addr</b></code> -
+         The (envelope) address sending this mail.
+      <dd><code><b>to_addrs</b></code> -
+         A list of addresses to send this mail to. A string will be 
+        treated as a list of one address
+      <dd><code><b>msg</b></code> -
+         The message, including headers, either as a file or a string. 
+        File-like objects need to support read() and close(). Line 
+        endings must be local (i.e. '\n'). If you pass something that 
+        doesn't look like a file, we try to convert it to a string (so 
+        you should be able to pass an email.Message directly, but doing 
+        the conversion with email.Generator manually will give you more 
+        control over the process).
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <p>A <code>Deferred</code>, its callback will be called if a 
+        message is sent to ANY address, the errback if no message is 
+        sent.</p>
+        The callback will be called with a tuple (numOk, addresses) 
+        where numOk is the number of successful recipient addresses and 
+        addresses is a list of tuples (address, code, resp) giving the 
+        response to the RCPT command for each address.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="atom"></a>
+<h3>atom</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="&quot;[-A-Za-z0-9!\\#$%&amp;'*+/=?^_`{|}~]&quot;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">"</span>[-A-Za-z0-9!\\#$%&amp;'*+/=?^_`{|}~]<span class="variable-quote">"</span>                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="AUTH"></a>
+<h3>AUTH</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'AUTH'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>AUTH<span class="variable-quote">'</span>                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="COMMAND"></a>
+<h3>COMMAND</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'COMMAND'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>COMMAND<span class="variable-quote">'</span>                                                              </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="DATA"></a>
+<h3>DATA</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'DATA'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>DATA<span class="variable-quote">'</span>                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="SUCCESS"></a>
+<h3>SUCCESS</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{256: None, 257: None, 258: None, 259: None, 260: None, 261: None, 262: None, 263: None, 264: None, 265: None, 266: None, 267: None, 268: None, 269: None, 270: None, 271: None, 272: None, 273: None, 274: None, 275: None, 276: None, 277: None, 278: None, 279: None, 280: None, 281: None, 282: None, 283: None, 284: None, 285: None, 286: None, 287: None, 288: None, 289: None, 290: None, 291: None, 292: None, 293: None, 294: None, 295: None, 296: None, 297: None, 298: None, 299: None, 200: None, 201: None, 202: None, 203: None, 204: None, 205: None, 206: None, 207: None, 208: None, 209: None, 21...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{256: None,
+ 257: None,
+ 258: None,
+ 259: None,
+ 260: None,
+ 261: None,
+ 262: None,
+ 263: None,
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:18 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,6 +1,6 @@
 .TH LDAP_MODIFY 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_modify.3,v 1.6.2.3 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_modify.3,v 1.10.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_modify, ldap_modify_s \- Perform an LDAP modify operation
@@ -48,8 +48,8 @@ defined below.
 	    int mod_op;
 	    char *mod_type;
 	    union {
-		char **modv_strvals;
-		struct berval **modv_bvals;
+	        char **modv_strvals;
+	        struct berval **modv_bvals;
 	    } mod_vals;
 	    struct ldapmod *mod_next;
 	} LDAPMod;
@@ -116,7 +116,7 @@ field of \fIld\fP.
 .BR ldap_error (3),
 .BR ldap_add (3)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

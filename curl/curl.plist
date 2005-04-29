@@ -1,0 +1,26 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>curl</string>
+	<key>OpenSourceVersion</key>
+	<string>7.13.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://curl.haxx.se/</string>
+	<key>OpenSourceURL</key>
+	<string>http://curl.haxx.se/download/curl-7.13.1.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>d673f68dbab2553acdbfb5435bd1cd48</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-03-04</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Modified configure script to allow ppc/i386 building.</string>
+		<string>Strip -arch flags from curl-config output.</string>
+		<string>4043204</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>Other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>curl.txt</string>
+</dict>
+</plist>

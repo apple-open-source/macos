@@ -35,12 +35,12 @@
 static char sccsid[] = "@(#)ffs.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/ffs.c,v 1.5 2002/08/30 19:08:53 robert Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/ffs.c,v 1.7 2004/01/14 07:46:36 des Exp $");
 
 #include <strings.h>
 
 /*
- * ffs -- vax ffs instruction
+ * Find First Set bit
  */
 int
 ffs(int mask)
@@ -50,6 +50,6 @@ ffs(int mask)
 	if (mask == 0)
 		return(0);
 	for (bit = 1; !(mask & 1); bit++)
-		mask >>= 1;
-	return(bit);
+		mask = (unsigned int)mask >> 1;
+	return (bit);
 }

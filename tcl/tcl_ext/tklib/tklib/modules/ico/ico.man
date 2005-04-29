@@ -1,0 +1,150 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin ico n 0.3]
+[moddesc   {Windows ICO handling}]
+[titledesc {Reading and writing windows icons}]
+[require Tcl 8.4]
+[require ico [opt 0.3]]
+[description]
+
+This package provides functions for reading and writing Windows icons
+from ICO, ICL, EXE, and DLL files.
+
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::ico::getIconList] [arg file] [opt "[arg option] [arg value]..."]]
+
+Returns a list of icons found in [arg file] where each element has the
+format {width height depth}. Recognizes the following [arg option]s.
+
+[list_begin opt]
+[opt_def -type value]
+[list_end]
+[nl]
+
+
+[call [cmd ::ico::getIcon] [arg file] [arg index] [opt "[arg option] [arg value]..."]]
+
+Extracts the icon at [arg index] from [arg file].
+
+The default [option -format] is [const image] which will return the
+name of a Tk image containing the icon. Optionally [option -name] may
+be used to specify the name of the Tk image that is created. If
+[option -format] is [const colors] then a list of color names in the
+#RRGGBB format is returned. Each list element is a horizontal
+row. Each horizontal row contains a list of colors for all the pixels
+in that row from left to right.
+
+Recognizes the following [arg option]s.
+
+[list_begin opt]
+[opt_def -type value]
+[opt_def -format value]
+[opt_def -name value]
+[list_end]
+[nl]
+
+
+[call [cmd ::ico::writeIcon] [arg file] [arg index] [arg depth] [arg data] [opt "[arg option] [arg value]..."]]
+
+[list_begin arg]
+[arg_def fileName file in]
+[arg_def integer index in]
+
+This is the 0-based index of the icon to write. When writing to an
+EXE, DLL, or ICL file you may only overwrite existing icons with an
+icon of the same dimensions and color depth.
+
+When writing to an ICO, [arg index] may be one greater than the last
+icon. This will append a new icon to the file.
+
+When writing to an ICO, [arg index] will accept [const end]. This will
+also cause the new icon to be appended to the file.
+
+When writing the other types [const end] will refer to the last
+existing icon.
+
+
+[arg_def integer depth in]
+
+This argument must have a value of 1, 4, 8, 24 or 32. If [arg data]
+has more colors than the color depth allows an error will be
+generated.
+
+
+[arg_def options data in]
+
+This argument is either a list of colors in the format returned by
+[cmd {::ico::getIcon -format colors}] or the name of a Tk image.
+
+
+[list_end]
+[nl]
+
+Recognizes the following [arg option]s.
+
+[list_begin opt]
+[opt_def -type value]
+[list_end]
+[nl]
+
+
+[call [cmd ::ico::copyIcon] [arg file] [arg index] [arg file2] [arg index2] [opt "[arg option] [arg value]..."]]
+
+Copies the icon at [arg index] in [arg file] to [arg index2] in [arg file2].
+
+[list_begin opt]
+[opt_def -fromtype value]
+[opt_def -totype value]
+[list_end]
+[nl]
+
+
+[call [cmd ::ico::EXEtoICO] [arg file] [arg file2]]
+
+Extracts all icons from the executable [arg file] to the ICO file [arg file2]
+
+[list_begin opt]
+[opt_def -type value]
+[list_end]
+[nl]
+
+
+[call [cmd ::ico::clearCache] [opt file]]
+
+The [cmd ::ico::getIconList] command caches icon offsets inside EXE, DLL, and
+ICL files in order to speed up extraction.  This command clears that
+cache for the specific [opt file] or all files.
+
+
+[call [cmd ::ico::transparentColor] [arg image] [arg color]]
+
+Sets every pixel matching [arg color] in Tk image [arg image] to transparent.
+
+
+[call [cmd ::ico::Show] [arg file] [opt "[arg option] [arg value]..."]]
+
+Application level command which displays a window showing all the
+icons in [arg file] with information about them.
+
+[list_begin opt]
+[opt_def -type value]
+[opt_def -parent value]
+[list_end]
+[list_end]
+
+
+[section EXAMPLE]
+
+[example {
+    button .explore -image [::ico::getIcon explorer.exe 0 -name explore]
+    set i [lsearch [::ico::getIconList tclkit.exe] {32 32 8}]]
+    set colorlist [::ico::getIcon tclkit.exe $i -format colors -type EXE]
+}]
+
+
+[keywords entry icon ico exe dll]
+[manpage_end]
+

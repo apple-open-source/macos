@@ -17,6 +17,8 @@ was released in November 2001.  Roger Leigh in particular has
 reimplemented the build system to match the GNU standard, making for a
 far more flexible and powerful system.
 
+Version 4.3 is being developed by essentially the same team.
+
 The list of contributors, in alphabetical order, is as follows.  The
 principal areas that each contributed to are listed in addition.
 
@@ -33,6 +35,10 @@ Charles Briscoe-Smith	<cpbs@debian.org>
 
 Dave Hill		<dave@minnie.demon.co.uk>
 	PCL driver
+
+David Pace		<dpace@echo-on.net>
+	Inspiration for user interface library
+	Generalized print panel
 
 Eric Sharkey		<sharkey@ale.physics.sunysb.edu>
 	Debian support
@@ -62,6 +68,9 @@ Karl Heinz Kremer	<khk@khk.net>
 Mark Tomlinson		<mark@southern.co.nz>
 	Implementation of Raph Levien's EvenTone dither
 
+Michael Mraka		<michael.mraka@linux.cz>
+	Olympus driver
+	
 Michael Natterer	<mitschel@cs.tu-berlin.de>
 	New user interface
 	Liaison with the Gimp development team
@@ -86,7 +95,7 @@ Robert Krawitz		<rlk@alum.mit.edu>
 	Documentation
 	Ghostscript front end
 
-Roger Leigh		<rl117@york.ac.uk>
+Roger Leigh		<rleigh@debian.org>
         Complete reimplementation of the configure/build system
 	Architecture
 	Debian support
@@ -102,6 +111,3 @@ Thomas Tonino		<ttonino@bio.vu.nl>
 
 Till Kamppeter		<till.kamppeter@gmx.net>
 	Foomatic interface
-
-Tyler Blessing		<tylerb@mac.com>
-        Macintosh OS X packaging

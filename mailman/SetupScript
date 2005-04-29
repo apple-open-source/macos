@@ -1,4 +1,4 @@
-#/bin/sh
+#!/bin/sh
 
 _mm_dir=/usr/share/mailman
 

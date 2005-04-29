@@ -3,7 +3,6 @@
 #include <objc/objc-api.h>
 #include <objc/Object.h>
 
-/* APPLE LOCAL objc test suite */
 #include "next_mapping.h"
 
 /* This test demonstrate a failure in object_is_meta_class which was fixed */

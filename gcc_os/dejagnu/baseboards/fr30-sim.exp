@@ -8,7 +8,7 @@ load_generic_config "sim"
 # basic-sim.exp is a basic description for the standard Cygnus simulator.
 load_base_board_description "basic-sim"
 
-# "fr30" is the name of the sim subdir in devo/sim.
+# "fr30" is the name of the sim subdir.
 setup_sim fr30
 
 # No multilib options needed by default.

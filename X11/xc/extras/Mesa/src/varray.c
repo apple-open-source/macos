@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,9 +23,6 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "context.h"
 #include "enable.h"
@@ -39,7 +36,6 @@
 #include "mtypes.h"
 #include "varray.h"
 #include "math/m_translate.h"
-#endif
 
 
 
@@ -49,40 +45,41 @@ _mesa_VertexPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (size<2 || size>4) {
+   if (size < 2 || size > 4) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glVertexPointer(size)" );
       return;
    }
-   if (stride<0) {
+   if (stride < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glVertexPointer(stride)" );
       return;
    }
 
    if (MESA_VERBOSE&(VERBOSE_VARRAY|VERBOSE_API))
-      fprintf(stderr, "glVertexPointer( sz %d type %s stride %d )\n", size,
-	      _mesa_lookup_enum_by_nr( type ),
-	      stride);
+      _mesa_debug(ctx, "glVertexPointer( sz %d type %s stride %d )\n", size,
+                  _mesa_lookup_enum_by_nr( type ), stride);
 
-   ctx->Array.Vertex.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   /* always need to check that <type> is legal */
+   switch (type) {
       case GL_SHORT:
-         ctx->Array.Vertex.StrideB =  size*sizeof(GLshort);
+         ctx->Array.Vertex.StrideB = size * sizeof(GLshort);
          break;
       case GL_INT:
-         ctx->Array.Vertex.StrideB =  size*sizeof(GLint);
+         ctx->Array.Vertex.StrideB = size * sizeof(GLint);
          break;
       case GL_FLOAT:
-         ctx->Array.Vertex.StrideB =  size*sizeof(GLfloat);
+         ctx->Array.Vertex.StrideB = size * sizeof(GLfloat);
          break;
       case GL_DOUBLE:
-         ctx->Array.Vertex.StrideB =  size*sizeof(GLdouble);
+         ctx->Array.Vertex.StrideB = size * sizeof(GLdouble);
          break;
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glVertexPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.Vertex.StrideB = stride;
+
    ctx->Array.Vertex.Size = size;
    ctx->Array.Vertex.Type = type;
    ctx->Array.Vertex.Stride = stride;
@@ -103,39 +100,39 @@ _mesa_NormalPointer(GLenum type, GLsizei stride, const GLvoid *ptr )
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (stride<0) {
+   if (stride < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glNormalPointer(stride)" );
       return;
    }
 
    if (MESA_VERBOSE&(VERBOSE_VARRAY|VERBOSE_API))
-      fprintf(stderr, "glNormalPointer( type %s stride %d )\n",
-	      _mesa_lookup_enum_by_nr( type ),
-	      stride);
+      _mesa_debug(ctx, "glNormalPointer( type %s stride %d )\n",
+                  _mesa_lookup_enum_by_nr( type ), stride);
 
-   ctx->Array.Normal.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   switch (type) {
       case GL_BYTE:
-         ctx->Array.Normal.StrideB =  3*sizeof(GLbyte);
+         ctx->Array.Normal.StrideB = 3 * sizeof(GLbyte);
          break;
       case GL_SHORT:
-         ctx->Array.Normal.StrideB =  3*sizeof(GLshort);
+         ctx->Array.Normal.StrideB = 3 * sizeof(GLshort);
          break;
       case GL_INT:
-         ctx->Array.Normal.StrideB =  3*sizeof(GLint);
+         ctx->Array.Normal.StrideB = 3 * sizeof(GLint);
          break;
       case GL_FLOAT:
-         ctx->Array.Normal.StrideB =  3*sizeof(GLfloat);
+         ctx->Array.Normal.StrideB = 3 * sizeof(GLfloat);
          break;
       case GL_DOUBLE:
-         ctx->Array.Normal.StrideB =  3*sizeof(GLdouble);
+         ctx->Array.Normal.StrideB = 3 * sizeof(GLdouble);
          break;
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glNormalPointer(type)" );
          return;
-      }
    }
+   if (stride)
+      ctx->Array.Normal.StrideB = stride;
+
+   ctx->Array.Normal.Size = 3;
    ctx->Array.Normal.Type = type;
    ctx->Array.Normal.Stride = stride;
    ctx->Array.Normal.Ptr = (void *) ptr;
@@ -154,7 +151,7 @@ _mesa_ColorPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (size<3 || size>4) {
+   if (size < 3 || size > 4) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glColorPointer(size)" );
       return;
    }
@@ -164,48 +161,48 @@ _mesa_ColorPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr)
    }
 
    if (MESA_VERBOSE&(VERBOSE_VARRAY|VERBOSE_API))
-      fprintf(stderr, "glColorPointer( sz %d type %s stride %d )\n", size,
-	  _mesa_lookup_enum_by_nr( type ),
-	  stride);
+      _mesa_debug(ctx, "glColorPointer( sz %d type %s stride %d )\n", size,
+                  _mesa_lookup_enum_by_nr( type ), stride);
 
-   ctx->Array.Color.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   switch (type) {
       case GL_BYTE:
-         ctx->Array.Color.StrideB =  size*sizeof(GLbyte);
+         ctx->Array.Color.StrideB = size * sizeof(GLbyte);
          break;
       case GL_UNSIGNED_BYTE:
-         ctx->Array.Color.StrideB =  size*sizeof(GLubyte);
+         ctx->Array.Color.StrideB = size * sizeof(GLubyte);
          break;
       case GL_SHORT:
-         ctx->Array.Color.StrideB =  size*sizeof(GLshort);
+         ctx->Array.Color.StrideB = size * sizeof(GLshort);
          break;
       case GL_UNSIGNED_SHORT:
-         ctx->Array.Color.StrideB =  size*sizeof(GLushort);
+         ctx->Array.Color.StrideB = size * sizeof(GLushort);
          break;
       case GL_INT:
-         ctx->Array.Color.StrideB =  size*sizeof(GLint);
+         ctx->Array.Color.StrideB = size * sizeof(GLint);
          break;
       case GL_UNSIGNED_INT:
-         ctx->Array.Color.StrideB =  size*sizeof(GLuint);
+         ctx->Array.Color.StrideB = size * sizeof(GLuint);
          break;
       case GL_FLOAT:
-         ctx->Array.Color.StrideB =  size*sizeof(GLfloat);
+         ctx->Array.Color.StrideB = size * sizeof(GLfloat);
          break;
       case GL_DOUBLE:
-         ctx->Array.Color.StrideB =  size*sizeof(GLdouble);
+         ctx->Array.Color.StrideB = size * sizeof(GLdouble);
          break;
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glColorPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.Color.StrideB = stride;
+
    ctx->Array.Color.Size = size;
    ctx->Array.Color.Type = type;
    ctx->Array.Color.Stride = stride;
    ctx->Array.Color.Ptr = (void *) ptr;
    ctx->NewState |= _NEW_ARRAY;
-   ctx->Array.NewState |= _NEW_ARRAY_COLOR;
+   ctx->Array.NewState |= _NEW_ARRAY_COLOR0;
 
    if (ctx->Driver.ColorPointer)
       ctx->Driver.ColorPointer( ctx, size, type, stride, ptr );
@@ -219,14 +216,12 @@ _mesa_FogCoordPointerEXT(GLenum type, GLsizei stride, const GLvoid *ptr)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (stride<0) {
+   if (stride < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glFogCoordPointer(stride)" );
       return;
    }
 
-   ctx->Array.FogCoord.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   switch (type) {
       case GL_FLOAT:
          ctx->Array.FogCoord.StrideB =  sizeof(GLfloat);
          break;
@@ -236,8 +231,12 @@ _mesa_FogCoordPointerEXT(GLenum type, GLsizei stride, const GLvoid *ptr)
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glFogCoordPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.FogCoord.StrideB = stride;
+
+   ctx->Array.FogCoord.Size = 1;
    ctx->Array.FogCoord.Type = type;
    ctx->Array.FogCoord.Stride = stride;
    ctx->Array.FogCoord.Ptr = (void *) ptr;
@@ -255,14 +254,12 @@ _mesa_IndexPointer(GLenum type, GLsizei stride, const GLvoid *ptr)
    GET_CURRENT_CONTEXT(ctx);
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (stride<0) {
+   if (stride < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glIndexPointer(stride)" );
       return;
    }
 
-   ctx->Array.Index.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   switch (type) {
       case GL_UNSIGNED_BYTE:
          ctx->Array.Index.StrideB =  sizeof(GLubyte);
          break;
@@ -281,8 +278,12 @@ _mesa_IndexPointer(GLenum type, GLsizei stride, const GLvoid *ptr)
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glIndexPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.Index.StrideB = stride;
+
+   ctx->Array.Index.Size = 1;
    ctx->Array.Index.Type = type;
    ctx->Array.Index.Stride = stride;
    ctx->Array.Index.Ptr = (void *) ptr;
@@ -302,57 +303,57 @@ _mesa_SecondaryColorPointerEXT(GLint size, GLenum type,
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (size != 3 && size != 4) {
-      _mesa_error( ctx, GL_INVALID_VALUE, "glColorPointer(size)" );
+      _mesa_error( ctx, GL_INVALID_VALUE, "glSecondaryColorPointer(size)" );
       return;
    }
-   if (stride<0) {
-      _mesa_error( ctx, GL_INVALID_VALUE, "glColorPointer(stride)" );
+   if (stride < 0) {
+      _mesa_error( ctx, GL_INVALID_VALUE, "glSecondaryColorPointer(stride)" );
       return;
    }
 
    if (MESA_VERBOSE&(VERBOSE_VARRAY|VERBOSE_API))
-      fprintf(stderr, "glColorPointer( sz %d type %s stride %d )\n", size,
-	  _mesa_lookup_enum_by_nr( type ),
-	  stride);
+      _mesa_debug(ctx, "glSecondaryColorPointer( sz %d type %s stride %d )\n",
+                  size, _mesa_lookup_enum_by_nr( type ), stride);
 
-   ctx->Array.SecondaryColor.StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   switch (type) {
       case GL_BYTE:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLbyte);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLbyte);
          break;
       case GL_UNSIGNED_BYTE:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLubyte);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLubyte);
          break;
       case GL_SHORT:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLshort);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLshort);
          break;
       case GL_UNSIGNED_SHORT:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLushort);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLushort);
          break;
       case GL_INT:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLint);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLint);
          break;
       case GL_UNSIGNED_INT:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLuint);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLuint);
          break;
       case GL_FLOAT:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLfloat);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLfloat);
          break;
       case GL_DOUBLE:
-         ctx->Array.SecondaryColor.StrideB =  size*sizeof(GLdouble);
+         ctx->Array.SecondaryColor.StrideB = size * sizeof(GLdouble);
          break;
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glSecondaryColorPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.SecondaryColor.StrideB = stride;
+
    ctx->Array.SecondaryColor.Size = 3; /* hardwire */
    ctx->Array.SecondaryColor.Type = type;
    ctx->Array.SecondaryColor.Stride = stride;
    ctx->Array.SecondaryColor.Ptr = (void *) ptr;
    ctx->NewState |= _NEW_ARRAY;
-   ctx->Array.NewState |= _NEW_ARRAY_SECONDARYCOLOR;
+   ctx->Array.NewState |= _NEW_ARRAY_COLOR1;
 
    if (ctx->Driver.SecondaryColorPointer)
       ctx->Driver.SecondaryColorPointer( ctx, size, type, stride, ptr );
@@ -361,48 +362,48 @@ _mesa_SecondaryColorPointerEXT(GLint size, GLenum type,
 
 
 void
-_mesa_TexCoordPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr)
+_mesa_TexCoordPointer(GLint size, GLenum type, GLsizei stride,
+                      const GLvoid *ptr)
 {
    GET_CURRENT_CONTEXT(ctx);
    GLuint texUnit = ctx->Array.ActiveTexture;
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
-   if (size<1 || size>4) {
+   if (size < 1 || size > 4) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glTexCoordPointer(size)" );
       return;
    }
-   if (stride<0) {
+   if (stride < 0) {
       _mesa_error( ctx, GL_INVALID_VALUE, "glTexCoordPointer(stride)" );
       return;
    }
 
    if (MESA_VERBOSE&(VERBOSE_VARRAY|VERBOSE_API))
-      fprintf(stderr, "glTexCoordPointer( unit %u sz %d type %s stride %d )\n",
-	  texUnit,
-	  size,
-	  _mesa_lookup_enum_by_nr( type ),
-	  stride);
+      _mesa_debug(ctx, "glTexCoordPointer(unit %u sz %d type %s stride %d)\n",
+                  texUnit, size, _mesa_lookup_enum_by_nr( type ), stride);
 
-   ctx->Array.TexCoord[texUnit].StrideB = stride;
-   if (!stride) {
-      switch (type) {
+   /* always need to check that <type> is legal */
+   switch (type) {
       case GL_SHORT:
-         ctx->Array.TexCoord[texUnit].StrideB =  size*sizeof(GLshort);
+         ctx->Array.TexCoord[texUnit].StrideB = size * sizeof(GLshort);
          break;
       case GL_INT:
-         ctx->Array.TexCoord[texUnit].StrideB =  size*sizeof(GLint);
+         ctx->Array.TexCoord[texUnit].StrideB = size * sizeof(GLint);
          break;
       case GL_FLOAT:
-         ctx->Array.TexCoord[texUnit].StrideB =  size*sizeof(GLfloat);
+         ctx->Array.TexCoord[texUnit].StrideB = size * sizeof(GLfloat);
          break;
       case GL_DOUBLE:
-         ctx->Array.TexCoord[texUnit].StrideB =  size*sizeof(GLdouble);
+         ctx->Array.TexCoord[texUnit].StrideB = size * sizeof(GLdouble);
          break;
       default:
          _mesa_error( ctx, GL_INVALID_ENUM, "glTexCoordPointer(type)" );
          return;
-      }
    }
+
+   if (stride)
+      ctx->Array.TexCoord[texUnit].StrideB = stride;
+
    ctx->Array.TexCoord[texUnit].Size = size;
    ctx->Array.TexCoord[texUnit].Type = type;
    ctx->Array.TexCoord[texUnit].Stride = stride;
@@ -410,17 +411,13 @@ _mesa_TexCoordPointer(GLint size, GLenum type, GLsizei stride, const GLvoid *ptr
    ctx->NewState |= _NEW_ARRAY;
    ctx->Array.NewState |= _NEW_ARRAY_TEXCOORD(texUnit);
 
-/*     fprintf(stderr, "%s ptr %p\n", __FUNCTION__, ptr); */
-
    if (ctx->Driver.TexCoordPointer)
       ctx->Driver.TexCoordPointer( ctx, size, type, stride, ptr );
 }
 
 
-
-
 void
-_mesa_EdgeFlagPointer(GLsizei stride, const void *vptr)
+_mesa_EdgeFlagPointer(GLsizei stride, const GLvoid *vptr)
 {
    GET_CURRENT_CONTEXT(ctx);
    const GLboolean *ptr = (GLboolean *)vptr;
@@ -441,7 +438,65 @@ _mesa_EdgeFlagPointer(GLsizei stride, const void *vptr)
 }
 
 
+void _mesa_VertexAttribPointerNV(GLuint index, GLint size, GLenum type,
+                                 GLsizei stride, const GLvoid *ptr)
+{
+   GET_CURRENT_CONTEXT(ctx);
+   ASSERT_OUTSIDE_BEGIN_END(ctx);
 
+   if (index >= VERT_ATTRIB_MAX) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribPointerNV(index)");
+      return;
+   }
+
+   if (size < 1 || size > 4) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribPointerNV(size)");
+      return;
+   }
+
+   if (stride < 0) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribPointerNV(stride)");
+      return;
+   }
+
+   if (type == GL_UNSIGNED_BYTE && size != 4) {
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribPointerNV(size!=4)");
+      return;
+   }
+
+   /* check for valid 'type' and compute StrideB right away */
+   switch (type) {
+      case GL_UNSIGNED_BYTE:
+         ctx->Array.VertexAttrib[index].StrideB = size * sizeof(GLubyte);
+         break;
+      case GL_SHORT:
+         ctx->Array.VertexAttrib[index].StrideB = size * sizeof(GLshort);
+         break;
+      case GL_FLOAT:
+         ctx->Array.VertexAttrib[index].StrideB = size * sizeof(GLfloat);
+         break;
+      case GL_DOUBLE:
+         ctx->Array.VertexAttrib[index].StrideB = size * sizeof(GLdouble);
+         break;
+      default:
+         _mesa_error( ctx, GL_INVALID_ENUM, "glVertexAttribPointerNV(type)" );
+         return;
+   }
+
+   if (stride)
+      ctx->Array.VertexAttrib[index].StrideB = stride;
+
+   ctx->Array.VertexAttrib[index].Stride = stride;
+   ctx->Array.VertexAttrib[index].Size = size;
+   ctx->Array.VertexAttrib[index].Type = type;
+   ctx->Array.VertexAttrib[index].Ptr = (void *) ptr;
+
+   ctx->NewState |= _NEW_ARRAY;
+   ctx->Array.NewState |= _NEW_ARRAY_ATTRIB(index);
+
+   if (ctx->Driver.VertexAttribPointer)
+      ctx->Driver.VertexAttribPointer( ctx, index, size, type, stride, ptr );
+}
 
 
 void
@@ -495,8 +550,6 @@ _mesa_EdgeFlagPointerEXT(GLsizei stride, GLsizei count, const GLboolean *ptr)
    (void) count;
    _mesa_EdgeFlagPointer(stride, ptr);
 }
-
-
 
 
 
@@ -704,7 +757,7 @@ _mesa_LockArraysEXT(GLint first, GLsizei count)
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glLockArrays %d %d\n", first, count);
+      _mesa_debug(ctx, "glLockArrays %d %d\n", first, count);
 
    if (first == 0 && count > 0 &&
        count <= (GLint) ctx->Const.MaxArrayLockSize) {
@@ -731,7 +784,7 @@ _mesa_UnlockArraysEXT( void )
    ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glUnlockArrays\n");
+      _mesa_debug(ctx, "glUnlockArrays\n");
 
    ctx->Array.LockFirst = 0;
    ctx->Array.LockCount = 0;
@@ -740,4 +793,42 @@ _mesa_UnlockArraysEXT( void )
 
    if (ctx->Driver.UnlockArraysEXT)
       ctx->Driver.UnlockArraysEXT( ctx );
+}
+
+
+
+/* GL_EXT_multi_draw_arrays */
+/* Somebody forgot to spec the first and count parameters as const! <sigh> */
+void
+_mesa_MultiDrawArraysEXT( GLenum mode, GLint *first,
+                          GLsizei *count, GLsizei primcount )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   GLint i;
+
+   ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   for (i = 0; i < primcount; i++) {
+      if (count[i] > 0) {
+         (ctx->Exec->DrawArrays)(mode, first[i], count[i]);
+      }
+   }
+}
+
+
+/* GL_EXT_multi_draw_arrays */
+void
+_mesa_MultiDrawElementsEXT( GLenum mode, const GLsizei *count, GLenum type,
+                            const GLvoid **indices, GLsizei primcount )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   GLint i;
+
+   ASSERT_OUTSIDE_BEGIN_END_AND_FLUSH(ctx);
+
+   for (i = 0; i < primcount; i++) {
+      if (count[i] > 0) {
+         (ctx->Exec->DrawElements)(mode, count[i], type, indices[i]);
+      }
+   }
 }

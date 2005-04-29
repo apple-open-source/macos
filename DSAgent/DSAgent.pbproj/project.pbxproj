@@ -6,9 +6,9 @@
 	objectVersion = 39;
 	objects = {
 		0028DF700314031A00DD2B5A = {
-			expectedFileType = text;
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = APPLE_LICENSE;
 			refType = 4;
 			sourceTree = "<group>";
@@ -38,9 +38,8 @@
 			targetProxy = 6182220F04C34CF4006415CA;
 		};
 		002AF54402075B0A00DD2B5B = {
-			expectedFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = ShellScript.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -174,8 +173,6 @@
 			sourceTree = "<group>";
 		};
 		0050C32901F8A54C00DD2B5B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -188,8 +185,6 @@
 			name = Development;
 		};
 		0050C32A01F8A54C00DD2B5B = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -211,9 +206,8 @@
 			sourceTree = "<group>";
 		};
 		0050C32C01F8A5BD00DD2B5B = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = DirectoryService.framework;
 			path = /System/Library/Frameworks/DirectoryService.framework;
 			refType = 0;
@@ -229,10 +223,10 @@
 			sourceTree = "<group>";
 		};
 		0050C32E01F8A5BD00DD2B5B = {
-			expectedFileType = sourcecode.c.c;
 			fileEncoding = 30;
 			indentWidth = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = DS.c;
 			refType = 4;
 			sourceTree = "<group>";
@@ -240,9 +234,8 @@
 			usesTabs = 1;
 		};
 		0050C33001F8A5FB00DD2B5B = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = NetInfo.framework;
 			path = /System/Library/PrivateFrameworks/NetInfo.framework;
 			refType = 0;
@@ -259,9 +252,8 @@
 			sourceTree = "<group>";
 		};
 		0050C33201F8A66600DD2B5B = {
-			expectedFileType = wrapper.cfbundle;
-			fallbackIsa = PBXFileReference;
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = DS.bundle;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -399,9 +391,8 @@
 //613
 //614
 		61097B5204901A7B008420C1 = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
@@ -414,9 +405,8 @@
 			};
 		};
 		61097B5404901A99008420C1 = {
-			expectedFileType = wrapper.framework;
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;

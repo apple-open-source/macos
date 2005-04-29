@@ -51,8 +51,7 @@ public:
     virtual sInt32				InitPlugin				( void );
 	virtual sInt32				SetServerIdleRunLoopRef	( CFRunLoopRef idleRunLoopRef );
 
-            Boolean				IsScopeInReturnList		( const char* scope );
-            void				AddResult				( const char* url );
+	virtual Boolean				PluginSupportsServiceType( const char* serviceType );
     
             uInt32				fSignature;
 

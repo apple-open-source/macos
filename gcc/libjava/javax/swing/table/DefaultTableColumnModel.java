@@ -1,5 +1,5 @@
 /* DefaultTableColumnModel.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,318 +37,376 @@ exception statement from your version. */
 
 package javax.swing.table;
 
-// Imports
-import java.beans.*;
-import java.io.*;
-import java.util.*;
-import javax.swing.*;
-import javax.swing.event.*;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.io.Serializable;
+import java.util.Enumeration;
+import java.util.EventListener;
+import java.util.Vector;
+import javax.swing.ListSelectionModel;
+import javax.swing.DefaultListSelectionModel;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.EventListenerList;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableColumnModelEvent;
+import javax.swing.event.TableColumnModelListener;
+
 
 /**
  * DefaultTableColumnModel
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class DefaultTableColumnModel implements TableColumnModel, PropertyChangeListener, ListSelectionListener, Serializable {
+public class DefaultTableColumnModel
+  implements TableColumnModel, PropertyChangeListener, ListSelectionListener,
+             Serializable
+{
+  private static final long serialVersionUID = 6580012493508960512L;
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * tableColumns
+   */
+  protected Vector tableColumns;
 
-	/**
-	 * tableColumns
-	 */
-	protected Vector tableColumns;
+  /**
+   * selectionModel
+   */
+  protected ListSelectionModel selectionModel;
 
-	/**
-	 * selectionModel
-	 */
-	protected ListSelectionModel selectionModel;
+  /**
+   * columnMargin
+   */
+  protected int columnMargin;
 
-	/**
-	 * columnMargin
-	 */
-	protected int columnMargin;
+  /**
+   * listenerList
+   */
+  protected EventListenerList listenerList = new EventListenerList();
 
-	/**
-	 * listenerList
-	 */
-	protected EventListenerList listenerList;
+  /**
+   * changeEvent
+   */
+  protected transient ChangeEvent changeEvent = new ChangeEvent(this);
 
-	/**
-	 * changeEvent
-	 */
-	protected transient ChangeEvent changeEvent;
+  /**
+   * columnSelectionAllowed
+   */
+  protected boolean columnSelectionAllowed;
 
-	/**
-	 * columnSelectionAllowed
-	 */
-	protected boolean columnSelectionAllowed;
+  /**
+   * totalColumnWidth
+   */
+  protected int totalColumnWidth;
 
-	/**
-	 * totalColumnWidth
-	 */
-	protected int totalColumnWidth;
+  /**
+   * Constructor DefaultTableColumnModel
+   */
+  public DefaultTableColumnModel()
+  {
+    tableColumns = new Vector();
+    setSelectionModel(new DefaultListSelectionModel());
+    columnMargin = 1;
+    columnSelectionAllowed = false;
+  }
 
+  /**
+   * addColumn
+   * @param value0 TODO
+   */
+  public void addColumn(TableColumn col)
+  {
+    tableColumns.add(col);
+    invalidateWidthCache();
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * removeColumn
+   * @param value0 TODO
+   */
+  public void removeColumn(TableColumn col)
+  {
+    tableColumns.remove(col);
+    invalidateWidthCache();
+  }
 
-	/**
-	 * Constructor DefaultTableColumnModel
-	 */
-	public DefaultTableColumnModel() {
-		// TODO
-	} // DefaultTableColumnModel()
+  /**
+   * moveColumn
+   * @param value0 TODO
+   * @param value1 TODO
+   */
+  public void moveColumn(int i, int j)
+  {
+    Object tmp = tableColumns.get(i);
+    tableColumns.set(i, tableColumns.get(j));
+    tableColumns.set(j, tmp);
+  }
 
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
-
-	/**
-	 * addColumn
-	 * @param value0 TODO
-	 */
-	public void addColumn(TableColumn value0) {
-		// TODO
-	} // addColumn()
-
-	/**
-	 * removeColumn
-	 * @param value0 TODO
-	 */
-	public void removeColumn(TableColumn value0) {
-		// TODO
-	} // removeColumn()
-
-	/**
-	 * moveColumn
-	 * @param value0 TODO
-	 * @param value1 TODO
-	 */
-	public void moveColumn(int value0, int value1) {
-		// TODO
-	} // moveColumn()
-
-	/**
-	 * setColumnMargin
-	 * @param value0 TODO
-	 */
-	public void setColumnMargin(int value0) {
-		// TODO
-	} // setColumnMargin()
+  /**
+   * setColumnMargin
+   * @param value0 TODO
+   */
+  public void setColumnMargin(int m)
+  {
+    columnMargin = m;
+  }
 
 	/**
 	 * getColumnCount
-	 * @returns int
+   * @return int
 	 */
-	public int getColumnCount() {
-		return 0; // TODO
-	} // getColumnCount()
+  public int getColumnCount()
+  {
+    return tableColumns.size();
+  }
 
 	/**
 	 * getColumns
-	 * @returns Enumeration
+   * @return Enumeration
 	 */
-	public Enumeration getColumns() {
-		return null; // TODO
-	} // getColumns()
+  public Enumeration getColumns()
+  {
+    return tableColumns.elements();
+  }
 
 	/**
 	 * getColumnIndex
 	 * @param value0 TODO
-	 * @returns int
-	 */
-	public int getColumnIndex(Object value0) {
-		return 0; // TODO
-	} // getColumnIndex()
+   * @return int
+   */
+  public int getColumnIndex(Object obj)
+  {
+    return tableColumns.indexOf(obj, 0);
+  }
 
 	/**
 	 * getColumn
 	 * @param value0 TODO
-	 * @returns TableColumn
-	 */
-	public TableColumn getColumn(int value0) {
-		return null; // TODO
-	} // getColumn()
+   * @return TableColumn
+   */
+  public TableColumn getColumn(int i)
+  {
+    return (TableColumn) tableColumns.get(i);
+  }
 
 	/**
 	 * getColumnMargin
-	 * @returns int
+   * @return int
 	 */
-	public int getColumnMargin() {
-		return 0; // TODO
-	} // getColumnMargin()
+  public int getColumnMargin()
+  {
+    return columnMargin;
+  }
 
 	/**
 	 * getColumnIndexAtX
 	 * @param value0 TODO
-	 * @returns int
-	 */
-	public int getColumnIndexAtX(int value0) {
-		return 0; // TODO
-	} // getColumnIndexAtX()
+   * @return int
+   */
+  public int getColumnIndexAtX(int x)
+  {    
+    for (int i = 0; i < tableColumns.size(); ++i)
+      {
+        int w = ((TableColumn)tableColumns.get(i)).getWidth();
+        if (0 <= x && x < w)
+          return i;
+        else
+          x -= w;
+      }
+    return -1;
+  }
 
 	/**
 	 * getTotalColumnWidth
-	 * @returns int
+   * @return int
 	 */
-	public int getTotalColumnWidth() {
-		return 0; // TODO
-	} // getTotalColumnWidth()
+  public int getTotalColumnWidth()
+  {
+    if (totalColumnWidth == -1)
+      recalcWidthCache();
+    return totalColumnWidth;
+  }
 
-	/**
-	 * setSelectionModel
-	 * @param value0 TODO
-	 */
-	public void setSelectionModel(ListSelectionModel value0) {
-		// TODO
-	} // setSelectionModel()
+  /**
+   * setSelectionModel
+   * @param model TODO
+   * @exception IllegalArgumentException if model is null
+   */
+  public void setSelectionModel(ListSelectionModel model)
+  {
+    if (model == null)
+      throw new IllegalArgumentException();
+    
+    selectionModel = model;
+    selectionModel.addListSelectionListener(this);
+  }
 
 	/**
 	 * getSelectionModel
-	 * @returns ListSelectionModel
+   * @return ListSelectionModel
 	 */
-	public ListSelectionModel getSelectionModel() {
-		return null; // TODO
-	} // getSelectionModel()
+  public ListSelectionModel getSelectionModel()
+  {
+    return selectionModel;
+  }
 
-	/**
-	 * setColumnSelectionAllowed
-	 * @param value0 TODO
-	 */
-	public void setColumnSelectionAllowed(boolean value0) {
-		// TODO
-	} // setColumnSelectionAllowed()
+  /**
+   * setColumnSelectionAllowed
+   * @param value0 TODO
+   */
+  public void setColumnSelectionAllowed(boolean a)
+  {
+    columnSelectionAllowed = a;
+  }
 
 	/**
 	 * getColumnSelectionAllowed
-	 * @returns boolean
+   * @return boolean
 	 */
-	public boolean getColumnSelectionAllowed() {
-		return false; // TODO
-	} // getColumnSelectionAllowed()
+  public boolean getColumnSelectionAllowed()
+  {
+    return columnSelectionAllowed;
+  }
 
 	/**
 	 * getSelectedColumns
-	 * @returns int[]
+   * @return int[]
 	 */
-	public int[] getSelectedColumns() {
+  public int[] getSelectedColumns()
+  {
 		return null; // TODO
-	} // getSelectedColumns()
+  }
 
 	/**
 	 * getSelectedColumnCount
-	 * @returns int
+   * @return int
 	 */
-	public int getSelectedColumnCount() {
+  public int getSelectedColumnCount()
+  {
 		return 0; // TODO
-	} // getSelectedColumnCount()
+  }
 
-	/**
-	 * addColumnModelListener
-	 * @param value0 TODO
-	 */
-	public void addColumnModelListener(TableColumnModelListener value0) {
-		// TODO
-	} // addColumnModelListener()
+  /**
+   * addColumnModelListener
+   * @param value0 TODO
+   */
+  public void addColumnModelListener(TableColumnModelListener listener)
+  {
+    listenerList.add(TableColumnModelListener.class, listener);
+  }
 
 	/**
 	 * removeColumnModelListener
 	 * @param value0 TODO
 	 */
-	public void removeColumnModelListener(TableColumnModelListener value0) {
+  public void removeColumnModelListener(TableColumnModelListener value0)
+  {
 		// TODO
-	} // removeColumnModelListener()
+  }
 
 	/**
 	 * fireColumnAdded
 	 * @param value0 TODO
 	 */
-	protected void fireColumnAdded(TableColumnModelEvent value0) {
+  protected void fireColumnAdded(TableColumnModelEvent value0)
+  {
 		// TODO
-	} // fireColumnAdded()
+  }
 
 	/**
 	 * fireColumnRemoved
 	 * @param value0 TODO
 	 */
-	protected void fireColumnRemoved(TableColumnModelEvent value0) {
+  protected void fireColumnRemoved(TableColumnModelEvent value0)
+  {
 		// TODO
-	} // fireColumnRemoved()
+  }
 
 	/**
 	 * fireColumnMoved
 	 * @param value0 TODO
 	 */
-	protected void fireColumnMoved(TableColumnModelEvent value0) {
+  protected void fireColumnMoved(TableColumnModelEvent value0)
+  {
 		// TODO
-	} // fireColumnMoved()
+  }
 
-	/**
-	 * fireColumnSelectionChanged
-	 * @param value0 TODO
-	 */
-	protected void fireColumnSelectionChanged(ListSelectionEvent value0) {
-		// TODO
-	} // fireColumnSelectionChanged()
+  /**
+   * fireColumnSelectionChanged
+   * @param value0 TODO
+   */
+  protected void fireColumnSelectionChanged(ListSelectionEvent evt)
+  {
+    EventListener [] listeners = getListeners(TableColumnModelListener.class);
+    for (int i = 0; i < listeners.length; ++i)
+      ((TableColumnModelListener)listeners[i]).columnSelectionChanged(evt);
+  }
 
 	/**
 	 * fireColumnMarginChanged
 	 */
-	protected void fireColumnMarginChanged() {
+  protected void fireColumnMarginChanged()
+  {
 		// TODO
-	} // fireColumnMarginChanged()
+  }
 
 	/**
 	 * getListeners
 	 * @param value0 TODO
-	 * @returns EventListener[]
-	 */
-	public EventListener[] getListeners(Class value0) {
-		return null; // TODO
-	} // getListeners()
+   * @return EventListener[]
+   */
+  public EventListener[] getListeners(Class klass)
+  {
+    return listenerList.getListeners(klass);
+  }
 
 	/**
 	 * propertyChange
 	 * @param value0 TODO
 	 */
-	public void propertyChange(PropertyChangeEvent value0) {
+  public void propertyChange(PropertyChangeEvent value0)
+  {
 		// TODO
-	} // propertyChange()
+  }
 
 	/**
 	 * valueChanged
 	 * @param value0 TODO
 	 */
-	public void valueChanged(ListSelectionEvent value0) {
-		// TODO
-	} // valueChanged()
+  public void valueChanged(ListSelectionEvent value0)
+  {
+    fireColumnSelectionChanged(value0);
+  }
 
 	/**
 	 * createSelectionModel
-	 * @returns ListSelectionModel
+   * @return ListSelectionModel
 	 */
-	protected ListSelectionModel createSelectionModel() {
+  protected ListSelectionModel createSelectionModel()
+  {
 		return null; // TODO
-	} // createSelectionModel()
+  }
 
 	/**
 	 * recalcWidthCache
 	 */
-	protected void recalcWidthCache() {
-		// TODO
-	} // recalcWidthCache()
+  protected void recalcWidthCache()
+  {
+    if (totalColumnWidth == -1)
+      {
+        totalColumnWidth = 0;
+        for (int i = 0; i < tableColumns.size(); ++i)
+          {
+            totalColumnWidth += ((TableColumn)tableColumns.get(i)).getWidth();
+          }
+      }
+  }
 
 	/**
 	 * invalidateWidthCache
 	 */
-	private void invalidateWidthCache() {
-		// TODO
-	} // invalidateWidthCache()
-
-
-} // DefaultTableColumnModel
-
+  private void invalidateWidthCache()
+  {
+    totalColumnWidth = -1;
+  }
+}

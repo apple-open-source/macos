@@ -1,20 +1,20 @@
 /* Functions related to the Boehm garbage collector.
-   Copyright (C) 2000 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -27,30 +27,26 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include <config.h>
 
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "java-tree.h"
 #include "parse.h"
 #include "toplev.h"
 
-static void mark_reference_fields PARAMS ((tree,
-					   unsigned HOST_WIDE_INT *,
-					   unsigned HOST_WIDE_INT *,
-					   unsigned int,
-					   int *, int *,
-					   int *,
-					   HOST_WIDE_INT *));
-static void set_bit PARAMS ((unsigned HOST_WIDE_INT *,
-			     unsigned HOST_WIDE_INT *,
-			     unsigned int));
+static void mark_reference_fields (tree, unsigned HOST_WIDE_INT *,
+				   unsigned HOST_WIDE_INT *, unsigned int,
+				   int *, int *, int *, HOST_WIDE_INT *);
+static void set_bit (unsigned HOST_WIDE_INT *, unsigned HOST_WIDE_INT *,
+		     unsigned int);
 
 /* Treat two HOST_WIDE_INT's as a contiguous bitmap, with bit 0 being
    the least significant.  This function sets bit N in the bitmap.  */
 static void
-set_bit (low, high, n)
-     unsigned HOST_WIDE_INT *low, *high;
-     unsigned int n;
+set_bit (unsigned HOST_WIDE_INT *low, unsigned HOST_WIDE_INT *high,
+	 unsigned int n)
 {
-  HOST_WIDE_INT *which;
+  unsigned HOST_WIDE_INT *which;
 
   if (n >= HOST_BITS_PER_WIDE_INT)
     {
@@ -60,20 +56,19 @@ set_bit (low, high, n)
   else
     which = low;
 
-  *which |= (HOST_WIDE_INT) 1 << n;
+  *which |= (unsigned HOST_WIDE_INT) 1 << n;
 }
 
 /* Recursively mark reference fields.  */
 static void
-mark_reference_fields (field, low, high, ubit,
-		       pointer_after_end, all_bits_set,
-		       last_set_index, last_view_index)
-     tree field;
-     unsigned HOST_WIDE_INT *low, *high;
-     unsigned int ubit;
-     int *pointer_after_end, *all_bits_set;
-     int *last_set_index;
-     HOST_WIDE_INT *last_view_index;
+mark_reference_fields (tree field,
+		       unsigned HOST_WIDE_INT *low,
+		       unsigned HOST_WIDE_INT *high,
+		       unsigned int ubit,
+		       int *pointer_after_end,
+		       int *all_bits_set,
+		       int *last_set_index,
+		       HOST_WIDE_INT *last_view_index)
 {
   /* See if we have fields from our superclass.  */
   if (DECL_NAME (field) == NULL_TREE)
@@ -151,12 +146,13 @@ get_boehm_type_descriptor (tree type)
   HOST_WIDE_INT last_view_index = -1;
   int pointer_after_end = 0;
   unsigned HOST_WIDE_INT low = 0, high = 0;
-  tree field, value;
+  tree field, value, value_type;
 
   /* If the GC wasn't requested, just use a null pointer.  */
   if (! flag_use_boehm_gc)
     return null_pointer_node;
 
+  value_type = java_type_for_mode (ptr_mode, 1);
   /* If we have a type of unknown size, use a proc.  */
   if (int_size_in_bytes (type) == -1)
     goto procedure_object_descriptor;
@@ -210,13 +206,13 @@ get_boehm_type_descriptor (tree type)
 	  last_set_index >>= 1;
 	  ++count;
 	}
-      value = build_int_2 (low, high);
+      value = build_int_cst_wide (value_type, low, high);
     }
   else if (! pointer_after_end)
     {
       /* Bottom two bits for bitmap mark type are 01.  */
       set_bit (&low, &high, 0);
-      value = build_int_2 (low, high);
+      value = build_int_cst_wide (value_type, low, high);
     }
   else
     {
@@ -227,9 +223,8 @@ get_boehm_type_descriptor (tree type)
 	    | DS_PROC)
 	 Here DS_PROC == 2.  */
     procedure_object_descriptor:
-      value = build_int_2 (2, 0);
+      value = build_int_cst (value_type, 2);
     }
 
-  TREE_TYPE (value) = java_type_for_mode (ptr_mode, 1);
   return value;
 }

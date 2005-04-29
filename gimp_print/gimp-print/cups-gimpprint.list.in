@@ -1,5 +1,5 @@
 #
-# "$Id: cups-gimpprint.list.in,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $"
+# "$Id: cups-gimpprint.list.in,v 1.1.1.2 2004/07/23 06:26:24 jlovell Exp $"
 #
 # EPM list file for CUPS drivers; EPM is available at:
 #
@@ -25,7 +25,7 @@
 #
 
 # Basic product info...
-%product GIMP-print drivers for CUPS
+%product Gimp-Print drivers for CUPS
 %copyright 1997-2001 by Michael Sweet and Robert Krawitz
 %vendor Michael Sweet and Robert Krawitz
 %version @GIMPPRINT_VERSION@
@@ -35,6 +35,7 @@
 
 # Directories
 $prefix=@cups_prefix@
+$sbindir=@cups_sbindir@
 $bindir=@cups_bindir@
 $datadir=@cups_datadir@
 $libdir=@cups_libdir@
@@ -52,6 +53,9 @@ f 0444 root sys $datadir/cups/data/calibrate.ppm src/cups/calibrate.ppm
 
 # User commands...
 f 0555 root sys $bindir/cups-calibrate src/cups/cups-calibrate
+f 0555 root sys $sbindir/cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ src/cups/cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
+f 0555 root sys $sbindir/cups-genppdupdate.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ src/cups/cups-genppdupdate.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
+f 0555 root sys $bindir/cups-genppdconfig.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ src/cups/cups-genppdconfig.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
 
 # Backends for printer drivers...
 f 0555 root sys $libdir/cups/backend/canon src/cups/canon
@@ -60,11 +64,11 @@ f 0555 root sys $libdir/cups/backend/epson src/cups/epson
 # Filters for printer drivers...
 f 0555 root sys $libdir/cups/filter/commandtocanon src/cups/commandtocanon
 f 0555 root sys $libdir/cups/filter/commandtoepson src/cups/commandtoepson
-f 0555 root sys $libdir/cups/filter/rastertoprinter src/cups/rastertoprinter
+f 0555 root sys $libdir/cups/filter/rastertogimpprint.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ src/cups/rastertogimpprint.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
 
 # Reload PPD database after installation...
 %postinstall /etc/software/init.d/cups restart
 
 #
-# End of "$Id: cups-gimpprint.list.in,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $"
+# End of "$Id: cups-gimpprint.list.in,v 1.1.1.2 2004/07/23 06:26:24 jlovell Exp $"
 #

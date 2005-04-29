@@ -1,1648 +1,1138 @@
-# pseudo-XML description of printers known to the Print plugin
-# This file was originally generated.  It should be edited by hand.
-
-# "$Id: printers.xml,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
-
-<printer name="PostScript Level 1" driver="ps">
-<color>
-<model value=0>
-<gamma value=1.000>
-<density value=1.000>
-<language value=ps>
-</printer>
-
-<printer name="PostScript Level 2" driver="ps2">
-<color>
-<model value=1>
-<gamma value=1.000>
-<density value=1.000>
-<language value=ps>
-</printer>
-
-<printer name="CANON BJC 30" driver="bjc-30">
-<color>
-<model value=30>
-<gamma value=2.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 50" driver="bjc-50">
-<color>
-<model value=4400>
-<gamma value=0.5>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 55" driver="bjc-55">
-<color>
-<model value=4400>
-<gamma value=0.5>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 80" driver="bjc-80">
-<color>
-<model value=4400>
-<gamma value=0.5>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 85" driver="bjc-85">
-<color>
-<model value=85>
-<gamma value=0.5>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 210" driver="bjc-210">
-<color>
-<model value=210>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 240" driver="bjc-240">
-<color>
-<model value=240>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 250" driver="bjc-250">
-<color>
-<model value=250>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 1000" driver="bjc-1000">
-<color>
-<model value=1000>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 2000" driver="bjc-2000">
-<color>
-<model value=2000>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 3000" driver="bjc-3000">
-<color>
-<model value=3000>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 4300" driver="bjc-4300">
-<color>
-<model value=4300>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 4400 photo" driver="bjc-4400">
-<color>
-<model value=4400>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 6000" driver="bjc-6000">
-<color>
-<model value=6000>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 6100" driver="bjc-6100">
-<color>
-<model value=6100>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 6200" driver="bjc-6200">
-<color>
-<model value=6200>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 6500" driver="bjc-6500">
-<color>
-<model value=6500>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 7000" driver="bjc-7000">
-<color>
-<model value=7000>
-<gamma value=0.600>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 7100" driver="bjc-7100">
-<color>
-<model value=7100>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON BJC 8200" driver="bjc-8200">
-<color>
-<model value=8200>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON S400" driver="bjc-s400">
-<color>
-<model value=3000>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON S450" driver="bjc-s450">
-<color>
-<model value=6200>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="CANON S800" driver="bjc-s800">
-<color>
-<model value=8200>
-<gamma value=1.000>
-<density value=0.800>
-<language value=canon>
-</printer>
-
-<printer name="CANON S4500" driver="bjc-s4500">
-<color>
-<model value=6500>
-<gamma value=0.750>
-<density value=1.000>
-<language value=canon>
-</printer>
-
-<printer name="EPSON Stylus C20SX" driver="escp2-c20sx">
-<color>
-<model value=42>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C20UX" driver="escp2-c20ux">
-<color>
-<model value=42>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C40SX" driver="escp2-c40sx">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C40UX" driver="escp2-c40ux">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C41SX" driver="escp2-c41sx">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C41UX" driver="escp2-c41ux">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C42SX" driver="escp2-c42sx">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C42UX" driver="escp2-c42ux">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C60" driver="escp2-c60">
-<color>
-<model value=33>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C61" driver="escp2-c61">
-<color>
-<model value=52>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C62" driver="escp2-c62">
-<color>
-<model value=52>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C70" driver="escp2-c70">
-<color>
-<model value=44>
-<gamma value=0.688>
-<density value=1.0>
-<cyan value=0.96>
-<magenta value=1.02>
-<yellow value=1.02>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C80" driver="escp2-c80">
-<color>
-<model value=44>
-<gamma value=0.688>
-<density value=1.0>
-<cyan value=0.96>
-<magenta value=1.02>
-<yellow value=1.02>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus C82" driver="escp2-c82">
-<color>
-<model value=55>
-<gamma value=0.688>
-<density value=1.0>
-<cyan value=0.96>
-<magenta value=1.02>
-<yellow value=1.02>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color" driver="escp2">
-<color>
-<model value=0>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color Pro" driver="escp2-pro">
-<color>
-<model value=45>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color Pro XL" driver="escp2-pro-xl">
-<color>
-<model value=39>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 400" driver="escp2-400">
-<color>
-<model value=1>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 440" driver="escp2-440">
-<color>
-<model value=10>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 460" driver="escp2-460">
-<color>
-<model value=10>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 480" driver="escp2-480">
-<color>
-<model value=21>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 500" driver="escp2-500">
-<color>
-<model value=1>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 580" driver="escp2-580">
-<color>
-<model value=38>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 600" driver="escp2-600">
-<color>
-<model value=3>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 640" driver="escp2-640">
-<color>
-<model value=11>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 660" driver="escp2-660">
-<color>
-<model value=18>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 670" driver="escp2-670">
-<color>
-<model value=25>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 680" driver="escp2-680">
-<color>
-<model value=32>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 740" driver="escp2-740">
-<color>
-<model value=12>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 760" driver="escp2-760">
-<color>
-<model value=19>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 777" driver="escp2-777">
-<color>
-<model value=32>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 800" driver="escp2-800">
-<color>
-<model value=4>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 850" driver="escp2-850">
-<color>
-<model value=5>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 860" driver="escp2-860">
-<color>
-<model value=16>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 880" driver="escp2-880">
-<color>
-<model value=33>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 83" driver="escp2-83">
-<color>
-<model value=33>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 900" driver="escp2-900">
-<color>
-<model value=13>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 980" driver="escp2-980">
-<color>
-<model value=34>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 1160" driver="escp2-1160">
-<color>
-<model value=17>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 1500" driver="escp2-1500">
-<color>
-<model value=2>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 1520" driver="escp2-1520">
-<color>
-<model value=6>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Color 3000" driver="escp2-3000">
-<color>
-<model value=24>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo" driver="escp2-photo">
-<color>
-<model value=9>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 700" driver="escp2-700">
-<color>
-<model value=7>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo EX" driver="escp2-ex">
-<color>
-<model value=8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo EX3" driver="escp2-ex3">
-<color>
-<model value=54>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 720" driver="escp2-720">
-<color>
-<model value=20>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 750" driver="escp2-750">
-<color>
-<model value=14>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 780" driver="escp2-780">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-# Note that the 785EPX has a roll feed holder.  It's more like the 890
-# than the 780, despite the name.
-<printer name="EPSON Stylus Photo 785EPX" driver="escp2-785">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 790" driver="escp2-790">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 810" driver="escp2-810">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 820" driver="escp2-820">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 825" driver="escp2-825">
-<color>
-<model value=50>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 830" driver="escp2-830">
-<color>
-<model value=50>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 870" driver="escp2-870">
-<color>
-<model value=22>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 875" driver="escp2-875">
-<color>
-<model value=22>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 890" driver="escp2-890">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 895" driver="escp2-895">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 915" driver="escp2-915">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 925" driver="escp2-925">
-<color>
-<model value=51>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 950" driver="escp2-950">
-<color>
-<model value=46>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 960" driver="escp2-960">
-<color>
-<model value=46>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 1200" driver="escp2-1200">
-<color>
-<model value=15>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 1270" driver="escp2-1270">
-<color>
-<model value=23>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 1280" driver="escp2-1280">
-<color>
-<model value=37>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 1290" driver="escp2-1290">
-<color>
-<model value=37>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 2000P" driver="escp2-2000">
-<color>
-<model value=26>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 2100" driver="escp2-2100">
-<color>
-<model value=47>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Photo 2200" driver="escp2-2200">
-<color>
-<model value=47>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 5000" driver="escp2-5000">
-<color>
-<model value=27>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 5500" driver="escp2-5500">
-<color>
-<model value=40>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 7000" driver="escp2-7000">
-<color>
-<model value=28>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 7500" driver="escp2-7500">
-<color>
-<model value=29>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 7600" driver="escp2-7600">
-<color>
-<model value=48>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 9000" driver="escp2-9000">
-<color>
-<model value=30>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 9500" driver="escp2-9500">
-<color>
-<model value=31>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 9600" driver="escp2-9600">
-<color>
-<model value=49>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Pro 10000" driver="escp2-10000">
-<color>
-<model value=41>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Scan 2000" driver="escp2-scan2000">
-<color>
-<model value=12>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus Scan 2500" driver="escp2-scan2500">
-<color>
-<model value=12>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus CX-3200" driver="escp2-cx3200">
-<color>
-<model value=52>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON Stylus CX-5200" driver="escp2-cx5200">
-<color>
-<model value=55>
-<gamma value=0.688>
-<density value=1.0>
-<cyan value=0.96>
-<magenta value=1.02>
-<yellow value=1.02>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON CL-700" driver="escp2-cl700">
-<color>
-<model value=38>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON CL-750" driver="escp2-cl750">
-<color>
-<model value=43>
-<gamma value=0.585>
-<density value=1.0>
-<magenta value=0.95>
-<yellow value=0.9>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON EM-900C" driver="escp2-em900c">
-<color>
-<model value=13>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON EM-930C" driver="escp2-em930c">
-<color>
-<model value=34>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MC-2000" driver="escp2-mc2000">
-<color>
-<model value=26>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MC-5000" driver="escp2-mc5000">
-<color>
-<model value=40>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MC-7000" driver="escp2-mc7000">
-<color>
-<model value=29>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MC-9000" driver="escp2-mc9000">
-<color>
-<model value=31>
-<cyan value=0.8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MC-10000" driver="escp2-mc10000">
-<color>
-<model value=41>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MJ-930C" driver="escp2-mj930c">
-<color>
-<model value=4>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MJ-5100C" driver="escp2-mj5100c">
-<color>
-<model value=39>
-<gamma value=0.597>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MJ-6000C" driver="escp2-mj6000c">
-<color>
-<model value=6>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON MJ-8000C" driver="escp2-mj8000c">
-<color>
-<model value=24>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-700C" driver="escp2-pm700c">
-<color>
-<model value=9>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-730C" driver="escp2-pm730c">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-750C" driver="escp2-pm750c">
-<color>
-<model value=7>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-760C" driver="escp2-pm760c">
-<color>
-<model value=20>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-770C" driver="escp2-pm770c">
-<color>
-<model value=14>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-780C" driver="escp2-pm780c">
-<color>
-<model value=35>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-790PT" driver="escp2-pm790pt">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-800C" driver="escp2-pm800c">
-<color>
-<model value=22>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-850PT" driver="escp2-pm850pt">
-<color>
-<model value=51>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-880C" driver="escp2-pm880c">
-<color>
-<model value=36>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-950C" driver="escp2-pm950c">
-<color>
-<model value=53>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-2000C" driver="escp2-pm2000c">
-<color>
-<model value=8>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-2200C" driver="escp2-pm2200c">
-<color>
-<model value=54>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-3000C" driver="escp2-pm3000c">
-<color>
-<model value=15>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-3300C" driver="escp2-pm3300c">
-<color>
-<model value=23>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-3500C" driver="escp2-pm3500c">
-<color>
-<model value=37>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-4000PX" driver="escp2-pm4000px">
-<color>
-<model value=47>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-5000C" driver="escp2-pm5000c">
-<color>
-<model value=27>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-7000C" driver="escp2-pm7000c">
-<color>
-<model value=28>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-9000C" driver="escp2-pm9000c">
-<color>
-<model value=30>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PM-10000" driver="escp2-pm10000">
-<color>
-<model value=41>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PX-7000" driver="escp2-px7000">
-<color>
-<model value=48>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="EPSON PX-9000" driver="escp2-px9000">
-<color>
-<model value=49>
-<gamma value=0.585>
-<density value=1.0>
-<language value=escp2>
-</printer>
-
-<printer name="HP DeskJet 340" driver="pcl-340">
-<color>
-<model value=340>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 400" driver="pcl-400">
-<color>
-<model value=400>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 500" driver="pcl-500">
-<nocolor>
-<model value=500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 230" driver="pcl-desnj-230">
-<nocolor>
-<model value=10230>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 250C" driver="pcl-desnj-250">
-<color>
-<model value=10250>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 700" driver="pcl-desnj-700">
-<nocolor>
-<model value=10700>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 750C" driver="pcl-750">
-<color>
-<model value=10750>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 2500C" driver="pcl-desnj-2500">
-<color>
-<model value=12500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 3500C" driver="pcl-desnj-3500">
-<color>
-<model value=12500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 430" driver="pcl-desnj-430">
-<nocolor>
-<model value=10230>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 450C" driver="pcl-desnj-450">
-<color>
-<model value=10250>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 455CA" driver="pcl-desnj-455">
-<color>
-<model value=10250>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DesignJet 488CA" driver="pcl-desnj-488">
-<color>
-<model value=10250>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 500C" driver="pcl-501">
-<color>
-<model value=501>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 520" driver="pcl-520">
-<nocolor>
-<model value=500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 540C" driver="pcl-540">
-<color>
-<model value=540>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 550C" driver="pcl-550">
-<color>
-<model value=550>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 560C" driver="pcl-560">
-<color>
-<model value=550>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 600/600C" driver="pcl-600">
-<color>
-<model value=600>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 600 series" driver="pcl-601">
-<color>
-<model value=601>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 690 series" driver="pcl-690">
-<color>
-<model value=690>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 810C" driver="pcl-810">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 812C" driver="pcl-812">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 840C" driver="pcl-840">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 842C" driver="pcl-842">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 845C" driver="pcl-845">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 850C" driver="pcl-850">
-<color>
-<model value=800>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 855C" driver="pcl-855">
-<color>
-<model value=800>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 870C" driver="pcl-870">
-<color>
-<model value=800>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 890C" driver="pcl-890">
-<color>
-<model value=800>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 895C" driver="pcl-895">
-<color>
-<model value=840>	# Uses 840 driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 900 series" driver="pcl-900">
-<color>
-<model value=900>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 1100C" driver="pcl-1100">
-<color>
-<model value=1100>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 1120C" driver="pcl-1120">
-<color>
-<model value=1100>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 1200C" driver="pcl-1200">
-<color>
-<model value=1200>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 1220C" driver="pcl-1220">
-<color>
-<model value=901>	# Uses 900 series driver (large)
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 1600C" driver="pcl-1600">
-<color>
-<model value=1600>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 2000 series" driver="pcl-2000">
-<color>
-<model value=2000>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP DeskJet 2500 series" driver="pcl-2500">
-<color>
-<model value=2500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP PhotoSmart P1000" driver="pcl-P1000">
-<color>
-<model value=900>	# Uses 900 series driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP PhotoSmart P1100" driver="pcl-P1100">
-<color>
-<model value=900>	# Uses 900 series driver
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet II series" driver="pcl-2">
-<nocolor>
-<model value=2>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet III series" driver="pcl-3">
-<nocolor>
-<model value=3>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 4 series" driver="pcl-4">
-<nocolor>
-<model value=6>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 4L" driver="pcl-4l">
-<nocolor>
-<model value=4>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 4V, 4Si" driver="pcl-4v">
-<nocolor>
-<model value=5>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 5 series" driver="pcl-5">
-<nocolor>
-<model value=6>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 5Si" driver="pcl-5si">
-<nocolor>
-<model value=7>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="HP LaserJet 6 series" driver="pcl-6">
-<nocolor>
-<model value=6>
-<gamma value=1.000>
-<density value=1.000>
-<language value=pcl>
-</printer>
-
-<printer name="LEXMARK 4076" driver="lexmark-4076">
-<nocolor>
-<model value=500>
-<gamma value=0.818>
-<density value=0.786>
-<language value=pcl>
-</printer>
-
-<printer name="LEXMARK Z42" driver="lexmark-z42">
-<color>
-<model value=10042>
-<gamma value=0.5>
-<density value=2.0>
-<magenta value=0.95>
-<yellow value=1.0>
-<language value=lexmark>
-</printer>
-
-<printer name="LEXMARK Z43" driver="lexmark-z43">
-<color>
-<model value=10042>
-<gamma value=0.5>
-<density value=2.0>
-<magenta value=0.95>
-<yellow value=1.0>
-<language value=lexmark>
-</printer>
-
-<printer name="LEXMARK Z52" driver="lexmark-z52">
-<color>
-<model value=10052>
-<gamma value=0.5>
-<density value=2.0>
-<magenta value=0.95>
-<yellow value=1.0>
-<language value=lexmark>
-</printer>
-
-<printer name="LEXMARK Z53" driver="lexmark-z53">
-<color>
-<model value=10052>
-<gamma value=0.5>
-<density value=2.0>
-<magenta value=0.95>
-<yellow value=1.0>
-<language value=lexmark>
-</printer>
+<?xml version="1.0"?>
+
+<!--
+   XML description of printers known to libgimpprint
+   This file was originally generated.  It should be edited by hand.
+
+   "$Id: printers.xml,v 1.7 2005/03/10 21:12:26 jlovell Exp $"
+-->
+
+<gimp-print xmlns="http://gimp-print.sourceforge.net/xsd/gp.xsd-1.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://gimp-print.sourceforge.net/xsd/gp.xsd-1.0 gimpprint.xsd">
+  <printdef>
+    <family name="ps">
+      <printer name="PostScript Level 1" driver="ps" manufacturer="Adobe" model="0">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="PostScript Level 2" driver="ps2" manufacturer="Adobe" model="1">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+    </family>
+    <family name="canon">
+      <printer name="Canon BJC-30" driver="bjc-30" manufacturer="Canon" model="30">
+        <parameter type="float" name="Gamma">2.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-50" driver="bjc-50" manufacturer="Canon" model="4400">
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-55" driver="bjc-55" manufacturer="Canon" model="4400">
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-80" driver="bjc-80" manufacturer="Canon" model="4400">
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-85" driver="bjc-85" manufacturer="Canon" model="85">
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-210" driver="bjc-210" manufacturer="Canon" model="210">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-240" driver="bjc-240" manufacturer="Canon" model="240">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-250" driver="bjc-250" manufacturer="Canon" model="250">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-1000" driver="bjc-1000" manufacturer="Canon" model="1000">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-2000" driver="bjc-2000" manufacturer="Canon" model="2000">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-3000" driver="bjc-3000" manufacturer="Canon" model="3000">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-4300" driver="bjc-4300" manufacturer="Canon" model="4300">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Canon BJC-4400 photo" driver="bjc-4400" manufacturer="Canon" model="4400">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-6000" driver="bjc-6000" manufacturer="Canon" model="6000">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Canon BJC-6100" driver="bjc-6100" manufacturer="Canon" model="6100">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-6200" driver="bjc-6200" manufacturer="Canon" model="6200">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Canon BJC-6500" driver="bjc-6500" manufacturer="Canon" model="6500">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Canon BJC-7000" driver="bjc-7000" manufacturer="Canon" model="7000">
+        <parameter type="float" name="Gamma">0.600</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-7100" driver="bjc-7100" manufacturer="Canon" model="7100">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon BJC-8200" driver="bjc-8200" manufacturer="Canon" model="8200">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon S400" driver="bjc-s400" manufacturer="Canon" model="3000">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon S450" driver="bjc-s450" manufacturer="Canon" model="6200">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Canon S800" driver="bjc-s800" manufacturer="Canon" model="8200">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">0.800</parameter>
+      </printer>
+      <printer name="Canon S4500" driver="bjc-s4500" manufacturer="Canon" model="6500">
+        <parameter type="float" name="Gamma">0.750</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+    </family>
+    <family name="escp2">
+      <printer name="EPSON Stylus C20SX" driver="escp2-c20sx" manufacturer="Epson" model="42">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C20UX" driver="escp2-c20ux" manufacturer="Epson" model="42">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C40SX" driver="escp2-c40sx" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C40UX" driver="escp2-c40ux" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C41SX" driver="escp2-c41sx" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C41UX" driver="escp2-c41ux" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C42SX" driver="escp2-c42sx" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C42UX" driver="escp2-c42ux" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C43SX" driver="escp2-c43sx" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C43UX" driver="escp2-c43ux" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C44SX" driver="escp2-c44sx" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C44UX" driver="escp2-c44ux" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C45" driver="escp2-c45" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C46" driver="escp2-c46" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C50" driver="escp2-c50" manufacturer="Epson" model="56">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C60" driver="escp2-c60" manufacturer="Epson" model="33">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C61" driver="escp2-c61" manufacturer="Epson" model="52">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C62" driver="escp2-c62" manufacturer="Epson" model="52">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C63" driver="escp2-c63" manufacturer="Epson" model="61">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C64" driver="escp2-c64" manufacturer="Epson" model="61">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C65" driver="escp2-c65" manufacturer="Epson" model="61">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C66" driver="escp2-c66" manufacturer="Epson" model="61">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C70" driver="escp2-c70" manufacturer="Epson" model="44">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C80" driver="escp2-c80" manufacturer="Epson" model="44">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C82" driver="escp2-c82" manufacturer="Epson" model="55">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C83" driver="escp2-c83" manufacturer="Epson" model="60">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C84" driver="escp2-c84" manufacturer="Epson" model="60">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C85" driver="escp2-c85" manufacturer="Epson" model="60">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus C86" driver="escp2-c86" manufacturer="Epson" model="60">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color" driver="escp2" manufacturer="Epson" model="0">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color Pro" driver="escp2-pro" manufacturer="Epson" model="45">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color Pro XL" driver="escp2-pro-xl" manufacturer="Epson" model="39">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 400" driver="escp2-400" manufacturer="Epson" model="1">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 440" driver="escp2-440" manufacturer="Epson" model="10">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 460" driver="escp2-460" manufacturer="Epson" model="10">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 480" driver="escp2-480" manufacturer="Epson" model="21">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 500" driver="escp2-500" manufacturer="Epson" model="1">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 580" driver="escp2-580" manufacturer="Epson" model="38">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 600" driver="escp2-600" manufacturer="Epson" model="3">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 640" driver="escp2-640" manufacturer="Epson" model="11">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 660" driver="escp2-660" manufacturer="Epson" model="18">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 670" driver="escp2-670" manufacturer="Epson" model="25">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 680" driver="escp2-680" manufacturer="Epson" model="32">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 740" driver="escp2-740" manufacturer="Epson" model="12">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 760" driver="escp2-760" manufacturer="Epson" model="19">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 777" driver="escp2-777" manufacturer="Epson" model="32">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 800" driver="escp2-800" manufacturer="Epson" model="4">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 850" driver="escp2-850" manufacturer="Epson" model="5">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 860" driver="escp2-860" manufacturer="Epson" model="16">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 880" driver="escp2-880" manufacturer="Epson" model="33">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 83" driver="escp2-83" manufacturer="Epson" model="33">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 900" driver="escp2-900" manufacturer="Epson" model="13">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 980" driver="escp2-980" manufacturer="Epson" model="34">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 1160" driver="escp2-1160" manufacturer="Epson" model="17">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 1500" driver="escp2-1500" manufacturer="Epson" model="2">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 1520" driver="escp2-1520" manufacturer="Epson" model="6">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Color 3000" driver="escp2-3000" manufacturer="Epson" model="24">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo" driver="escp2-photo" manufacturer="Epson" model="9">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 700" driver="escp2-700" manufacturer="Epson" model="7">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo EX" driver="escp2-ex" manufacturer="Epson" model="8">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo EX3" driver="escp2-ex3" manufacturer="Epson" model="54">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 720" driver="escp2-720" manufacturer="Epson" model="20">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 750" driver="escp2-750" manufacturer="Epson" model="14">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 780" driver="escp2-780" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+    <!--
+         Note that the 785EPX has a roll feed holder.  It's more like the 890
+         than the 780, despite the name.
+    -->
+      <printer name="EPSON Stylus Photo 785EPX" driver="escp2-785" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 790" driver="escp2-790" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 810" driver="escp2-810" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 820" driver="escp2-820" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 825" driver="escp2-825" manufacturer="Epson" model="50">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 830" driver="escp2-830" manufacturer="Epson" model="50">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 870" driver="escp2-870" manufacturer="Epson" model="22">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 875" driver="escp2-875" manufacturer="Epson" model="22">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 890" driver="escp2-890" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 895" driver="escp2-895" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 900" driver="escp2-ph900" manufacturer="Epson" model="62">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 915" driver="escp2-915" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 925" driver="escp2-925" manufacturer="Epson" model="51">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 935" driver="escp2-935" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 950" driver="escp2-950" manufacturer="Epson" model="46">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 960" driver="escp2-960" manufacturer="Epson" model="46">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 1200" driver="escp2-1200" manufacturer="Epson" model="15">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 1270" driver="escp2-1270" manufacturer="Epson" model="23">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 1280" driver="escp2-1280" manufacturer="Epson" model="37">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 1290" driver="escp2-1290" manufacturer="Epson" model="37">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 2000P" driver="escp2-2000" manufacturer="Epson" model="26">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 2100" driver="escp2-2100" manufacturer="Epson" model="47">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo 2200" driver="escp2-2200" manufacturer="Epson" model="47">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo R200" driver="escp2-r200" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo R300" driver="escp2-r300" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo RX500" driver="escp2-rx500" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo RX600" driver="escp2-rx600" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Photo R800" driver="escp2-r800" manufacturer="Epson" model="64">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 5000" driver="escp2-5000" manufacturer="Epson" model="27">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 5500" driver="escp2-5500" manufacturer="Epson" model="40">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 7000" driver="escp2-7000" manufacturer="Epson" model="28">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 7500" driver="escp2-7500" manufacturer="Epson" model="29">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 7600" driver="escp2-7600" manufacturer="Epson" model="48">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 9000" driver="escp2-9000" manufacturer="Epson" model="30">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 9500" driver="escp2-9500" manufacturer="Epson" model="31">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 9600" driver="escp2-9600" manufacturer="Epson" model="49">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Pro 10000" driver="escp2-10000" manufacturer="Epson" model="41">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Scan 2000" driver="escp2-scan2000" manufacturer="Epson" model="12">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus Scan 2500" driver="escp2-scan2500" manufacturer="Epson" model="12">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-3100" driver="escp2-cx3100" manufacturer="Epson" model="52">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-3200" driver="escp2-cx3200" manufacturer="Epson" model="52">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-5100" driver="escp2-cx5100" manufacturer="Epson" model="55">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-5200" driver="escp2-cx5200" manufacturer="Epson" model="55">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-5300" driver="escp2-cx5300" manufacturer="Epson" model="55">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-5400" driver="escp2-cx5400" manufacturer="Epson" model="55">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-6300" driver="escp2-cx6300" manufacturer="Epson" model="60">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-6400" driver="escp2-cx6400" manufacturer="Epson" model="60">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-6600" driver="escp2-cx6600" manufacturer="Epson" model="60">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-8300" driver="escp2-cx8300" manufacturer="Epson" model="60">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON Stylus CX-8400" driver="escp2-cx8400" manufacturer="Epson" model="60">
+        <parameter type="float" name="CyanGamma">0.96</parameter>
+        <parameter type="float" name="MagentaGamma">1.02</parameter>
+        <parameter type="float" name="YellowGamma">1.02</parameter>
+        <parameter type="float" name="Gamma">0.688</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON CL-700" driver="escp2-cl700" manufacturer="Epson" model="38">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON CL-750" driver="escp2-cl750" manufacturer="Epson" model="43">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON CL-760" driver="escp2-cl760" manufacturer="Epson" model="56">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">0.9</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON EM-900C" driver="escp2-em900c" manufacturer="Epson" model="13">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON EM-930C" driver="escp2-em930c" manufacturer="Epson" model="34">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MC-2000" driver="escp2-mc2000" manufacturer="Epson" model="26">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MC-5000" driver="escp2-mc5000" manufacturer="Epson" model="40">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MC-7000" driver="escp2-mc7000" manufacturer="Epson" model="29">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MC-9000" driver="escp2-mc9000" manufacturer="Epson" model="31">
+        <parameter type="float" name="CyanGamma">0.8</parameter>
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MC-10000" driver="escp2-mc10000" manufacturer="Epson" model="41">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MJ-930C" driver="escp2-mj930c" manufacturer="Epson" model="4">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MJ-5100C" driver="escp2-mj5100c" manufacturer="Epson" model="39">
+        <parameter type="float" name="Gamma">0.597</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MJ-6000C" driver="escp2-mj6000c" manufacturer="Epson" model="6">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON MJ-8000C" driver="escp2-mj8000c" manufacturer="Epson" model="24">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-700C" driver="escp2-pm700c" manufacturer="Epson" model="9">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-730C" driver="escp2-pm730c" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-740C" driver="escp2-pm740c" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-750C" driver="escp2-pm750c" manufacturer="Epson" model="7">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-760C" driver="escp2-pm760c" manufacturer="Epson" model="20">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-770C" driver="escp2-pm770c" manufacturer="Epson" model="14">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-780C" driver="escp2-pm780c" manufacturer="Epson" model="35">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-790PT" driver="escp2-pm790pt" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-800C" driver="escp2-pm800c" manufacturer="Epson" model="22">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-850PT" driver="escp2-pm850pt" manufacturer="Epson" model="51">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-870C" driver="escp2-pm870c" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-880C" driver="escp2-pm880c" manufacturer="Epson" model="36">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-930C" driver="escp2-pm930c" manufacturer="Epson" model="58">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-940C" driver="escp2-pm940c" manufacturer="Epson" model="58">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-950C" driver="escp2-pm950c" manufacturer="Epson" model="53">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-970C" driver="escp2-pm970c" manufacturer="Epson" model="57">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-980C" driver="escp2-pm980c" manufacturer="Epson" model="57">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-2000C" driver="escp2-pm2000c" manufacturer="Epson" model="8">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-2200C" driver="escp2-pm2200c" manufacturer="Epson" model="54">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-3000C" driver="escp2-pm3000c" manufacturer="Epson" model="15">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-3300C" driver="escp2-pm3300c" manufacturer="Epson" model="23">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-3500C" driver="escp2-pm3500c" manufacturer="Epson" model="37">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-3700C" driver="escp2-pm3700c" manufacturer="Epson" model="37">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-4000PX" driver="escp2-pm4000px" manufacturer="Epson" model="47">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-5000C" driver="escp2-pm5000c" manufacturer="Epson" model="27">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-7000C" driver="escp2-pm7000c" manufacturer="Epson" model="28">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-9000C" driver="escp2-pm9000c" manufacturer="Epson" model="30">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-10000" driver="escp2-pm10000" manufacturer="Epson" model="41">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-D750" driver="escp2-pmd750" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-G700" driver="escp2-pmg700" manufacturer="Epson" model="63">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PM-G800" driver="escp2-pmg800" manufacturer="Epson" model="64">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PX-V500" driver="escp2-pxv500" manufacturer="Epson" model="61">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PX-V600" driver="escp2-pxv600" manufacturer="Epson" model="60">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PX-7000" driver="escp2-px7000" manufacturer="Epson" model="48">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+      <printer name="EPSON PX-9000" driver="escp2-px9000" manufacturer="Epson" model="49">
+        <parameter type="float" name="Gamma">0.636</parameter>
+        <parameter type="float" name="Density">1.0</parameter>
+      </printer>
+    </family>
+    <family name="pcl">
+      <printer name="Apple Color StyleWriter 4100" driver="pcl-apple-4100" manufacturer="Apple" model="601">	<!-- Uses 600 series driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="Apple Color StyleWriter 4500" driver="pcl-apple-4500" manufacturer="Apple" model="690">	<!-- Uses 690 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="Apple Color StyleWriter 6500" driver="pcl-apple-6500" manufacturer="Apple" model="800">	<!-- Uses 850 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 340" driver="pcl-340" manufacturer="HP" model="340">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 400" driver="pcl-400" manufacturer="HP" model="400">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 450" driver="pcl-450" manufacturer="HP" model="340">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 500" driver="pcl-500" manufacturer="HP" model="500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 230" driver="pcl-desnj-230" manufacturer="HP" model="10230">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 250C" driver="pcl-desnj-250" manufacturer="HP" model="10250">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+	</printer>
+      <printer name="HP DesignJet 700" driver="pcl-desnj-700" manufacturer="HP" model="10700">
+	<parameter type="float" name="Gamma">0.818</parameter>
+	<parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 750C" driver="pcl-750" manufacturer="HP" model="10750">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 2500C" driver="pcl-desnj-2500" manufacturer="HP" model="12500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 3500C" driver="pcl-desnj-3500" manufacturer="HP" model="13500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 430" driver="pcl-desnj-430" manufacturer="HP" model="10230">
+	<parameter type="float" name="Gamma">0.818</parameter>
+	<parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 450C" driver="pcl-desnj-450" manufacturer="HP" model="10250">
+	<parameter type="float" name="Gamma">0.818</parameter>
+	<parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 455CA" driver="pcl-desnj-455" manufacturer="HP" model="10250">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DesignJet 488CA" driver="pcl-desnj-488" manufacturer="HP" model="10250">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 500C" driver="pcl-501" manufacturer="HP" model="501">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 520" driver="pcl-520" manufacturer="HP" model="500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 540C" driver="pcl-540" manufacturer="HP" model="540">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 550C" driver="pcl-550" manufacturer="HP" model="550">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 560C" driver="pcl-560" manufacturer="HP" model="550">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 600/600C" driver="pcl-600" manufacturer="HP" model="600">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 600 series" driver="pcl-601" manufacturer="HP" model="601">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 690 series" driver="pcl-690" manufacturer="HP" model="690">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 810C" driver="pcl-810" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 812C" driver="pcl-812" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 840C" driver="pcl-840" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 842C" driver="pcl-842" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 845C" driver="pcl-845" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 850C" driver="pcl-850" manufacturer="HP" model="800">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 855C" driver="pcl-855" manufacturer="HP" model="800">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 870C" driver="pcl-870" manufacturer="HP" model="800">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 890C" driver="pcl-890" manufacturer="HP" model="800">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 895C" driver="pcl-895" manufacturer="HP" model="840">  <!-- Uses 840 driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 900 series" driver="pcl-900" manufacturer="HP" model="900">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 995C" driver="pcl-995" manufacturer="HP" model="900">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 1100C" driver="pcl-1100" manufacturer="HP" model="1100">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 1120C" driver="pcl-1120" manufacturer="HP" model="1100">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 1200C" driver="pcl-1200" manufacturer="HP" model="1200">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 1220C" driver="pcl-1220" manufacturer="HP" model="901">  <!-- Uses 900 series driver (large) -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 1600C" driver="pcl-1600" manufacturer="HP" model="1600">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 2000 series" driver="pcl-2000" manufacturer="HP" model="2000">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP DeskJet 2500 series" driver="pcl-2500" manufacturer="HP" model="2500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP PhotoSmart P1000" driver="pcl-P1000" manufacturer="HP" model="900">  <!-- Uses 900 series driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP PhotoSmart P1100" driver="pcl-P1100" manufacturer="HP" model="900">  <!-- Uses 900 series driver -->
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+      <printer name="HP LaserJet II series" driver="pcl-2" manufacturer="HP" model="2">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet IIP series" driver="pcl-2p" manufacturer="HP" model="21">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet III series" driver="pcl-3" manufacturer="HP" model="3">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 4 series" driver="pcl-4" manufacturer="HP" model="6">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 4L" driver="pcl-4l" manufacturer="HP" model="4">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 4V" driver="pcl-4v" manufacturer="HP" model="5">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 4Si" driver="pcl-4si" manufacturer="HP" model="51">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 5 series" driver="pcl-5" manufacturer="HP" model="6">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 5Si" driver="pcl-5si" manufacturer="HP" model="7">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="HP LaserJet 6 series" driver="pcl-6" manufacturer="HP" model="6">
+        <parameter type="float" name="Gamma">1.000</parameter>
+        <parameter type="float" name="Density">1.000</parameter>
+      </printer>
+      <printer name="Lexmark 4076" driver="lexmark-4076" manufacturer="Lexmark" model="500">
+        <parameter type="float" name="Gamma">0.818</parameter>
+        <parameter type="float" name="Density">0.786</parameter>
+      </printer>
+    </family>
+    <family name="lexmark">
+      <printer name="Lexmark Z42" driver="lexmark-z42" manufacturer="Lexmark" model="10042">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">1.0</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">2.0</parameter>
+      </printer>
+      <printer name="Lexmark Z43" driver="lexmark-z43" manufacturer="Lexmark" model="10042">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">1.0</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">2.0</parameter>
+      </printer>
+      <printer name="Lexmark Z52" driver="lexmark-z52" manufacturer="Lexmark" model="10052">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">1.0</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">2.0</parameter>
+      </printer>
+      <printer name="Lexmark Z53" driver="lexmark-z53" manufacturer="Lexmark" model="10052">
+        <parameter type="float" name="MagentaGamma">0.95</parameter>
+        <parameter type="float" name="YellowGamma">1.0</parameter>
+        <parameter type="float" name="Gamma">0.5</parameter>
+        <parameter type="float" name="Density">2.0</parameter>
+      </printer>
+    </family>
+    <family name="olympus">
+      <printer name="Olympus P10" driver="olympus-p10" manufacturer="Olympus" model="2">
+      </printer>
+      <printer name="Olympus P200" driver="olympus-p200" manufacturer="Olympus" model="4">
+      </printer>
+      <printer name="Olympus P300" driver="olympus-p300" manufacturer="Olympus" model="0">
+      </printer>
+      <printer name="Olympus P400" driver="olympus-p400" manufacturer="Olympus" model="1">
+      </printer>
+      <printer name="Olympus P440" driver="olympus-p440" manufacturer="Olympus" model="3">
+      </printer>
+      <printer name="Canon CP100" driver="canon-cp100" manufacturer="Canon" model="1000">
+      </printer>
+      <printer name="Canon CP220" driver="canon-cp220" manufacturer="Canon" model="1001">
+      </printer>
+      <printer name="Sony UP-DP10" driver="sony-updp10" manufacturer="Sony" model="2000">
+      </printer>
+      <printer name="Fujifilm Printpix CX-400" driver="fujifilm-cx400" manufacturer="Fujifilm" model="3000">
+      </printer>
+      <printer name="Fujifilm Printpix CX-550" driver="fujifilm-cx550" manufacturer="Fujifilm" model="3001">
+      </printer>
+    </family>
+    <family name="raw">
+      <printer name="RAW DATA 16 bit" driver="raw-data-16" manufacturer="" model="0">
+      </printer>
+      <printer name="RAW DATA 8 bit" driver="raw-data-8" manufacturer="" model="1">
+      </printer>
+    </family>
+  </printdef>
+</gimp-print>

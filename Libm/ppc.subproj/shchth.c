@@ -69,9 +69,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "math.h"
 #include    "fenv_private.h"
 #include    "fp_private.h"
@@ -86,7 +83,8 @@
 
 static const hexdouble SqrtNegEps = HEXDOUBLE(0x3e400000, 0x00000000); 
 static const hexdouble Huge       = HEXDOUBLE(0x7ff00000, 0x00000000);
-static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
+static const double kMinNormal    = 0x1.0p-1022;                 // 2.2250738585072014e-308;
+static const double maxExp        = 7.0978271289338397000e+02; /* 0x40862e42, 0xfefa39ef */
 
 
 /*******************************************************************************
@@ -97,42 +95,6 @@ static const double kMinNormal = 2.2250738585072014e-308;  // 0x1.0p-1022
 ********************************************************************************
 *                            S      I      N      H                            *
 *******************************************************************************/
-#ifdef notdef
-double sinh ( double x )
-      {
-      register double PositiveX;
-      hexdouble OldEnvironment, NewEnvironment;
-      
-      FEGETENVD ( OldEnvironment.d );
-      FESETENVD ( 0.0 );
-      PositiveX = __FABS ( x );
-
-      if ( PositiveX > SqrtNegEps.d )       /* return the arg if too small  */
-            {                  
-            PositiveX = expm1 ( PositiveX );
-            if ( PositiveX != Huge.d )
-                  PositiveX = 0.5 * ( PositiveX + PositiveX / ( 1.0 + PositiveX ) );
-            }
-
-      switch ( __fpclassifyd ( PositiveX ) )
-            {
-            case FP_SUBNORMAL:
-                  OldEnvironment.i.lo |= FE_UNDERFLOW;
-                  /* Falls through! */
-            case FP_NORMAL:
-                  OldEnvironment.i.lo |= FE_INEXACT;
-                  /* Falls through! */
-            default:
-                  break;
-            }
-
-      FEGETENVD ( NewEnvironment.d );
-      OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );
-      FESETENVD ( OldEnvironment.d );
-
-      return ( copysign ( PositiveX, x ) );
-      }
-#else
 
 static const hexdouble Log2        = HEXDOUBLE(0x3FE62E42, 0xFEFA39EF); /* = 6.9314718055994530942E-1 */
 static const double kMaxNormal = 1.7976931348623157e308;
@@ -155,26 +117,30 @@ double sinh ( double x )
       FESETENVD ( FPR_z );
       __ENSURE( FPR_z, FPR_one, FPR_inf );
 
-      if ( PositiveX > FPR_sqreps )       	/* return the arg if too small  */
+      if ( PositiveX > (maxExp - M_LN2) )
+	  {
+			result = exp ( FPR_half * PositiveX );
+			result = ( FPR_half * result ) * result;
+	  }
+	  else if ( PositiveX > FPR_sqreps )       	/* return the arg if too small  */
       {                  
             result = expm1 ( PositiveX );
-            if ( result != FPR_inf )
-                  result = FPR_half * ( result + result / ( FPR_one + result ) );
+			result = FPR_half * ( result + result / ( FPR_one + result ) );
       }
       else
             result = PositiveX;
 
       FESETENVD ( FPR_env );
       
-      if ( result != result)
+      if (unlikely( result != result))
             ; /* NOTHING */
-      else if ( result == FPR_z )		// iff x == 0.0
+      else if (unlikely( result == FPR_z ))		// iff x == 0.0
             result = x; 			// Get +-0.0 right
-      else if ( result < FPR_kMinNormal )
+      else if (unlikely( result < FPR_kMinNormal ))
             __PROG_UF_INEXACT( FPR_kMinNormal );
-      else if ( result < FPR_inf )
+      else if (likely( result < FPR_inf ))
             __PROG_INEXACT( FPR_ln2 );
-      else if ( PositiveX < FPR_inf )
+      else if (likely( PositiveX < FPR_inf ))
             __PROG_OF_INEXACT( FPR_kMaxNormal );
       
       if ( x < FPR_z)
@@ -182,55 +148,45 @@ double sinh ( double x )
       
       return result;
 }
-#endif
       
 /*******************************************************************************
 *                              C      O      S      H                          *
 *******************************************************************************/
 
-#ifdef notdeef
-double cosh ( double x )
-      {
-      hexdouble OldEnvironment, NewEnvironment;
-      
-      FEGETENVD ( OldEnvironment.d );
-      FESETENVD ( 0.0 );
-      
-      x = 0.5 * exp ( __FABS ( x ) );
-      x = x + 0.25 / x;
-            
-      FEGETENVD ( NewEnvironment.d );
-      OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );
-      FESETENVD ( OldEnvironment.d );
-
-      return x;
-    }
-#else
 double cosh ( double x )
 {
       hexdouble OldEnvironment, NewEnvironment;
       
-      register double result, FPR_env, FPR_z, FPR_fourth, FPR_half, FPR_t;
+      register double result, FPR_env, FPR_z, FPR_one, FPR_half, FPR_t, FPR_lim;
       
       FPR_t = __FABS ( x );
       FPR_z = 0.0;				FPR_half = 0.5;
-      FPR_fourth = 0.25;
+      FPR_one = 1.0;
 
       FEGETENVD ( FPR_env);
-      __ENSURE( FPR_z, FPR_half, FPR_fourth );
+      __ENSURE( FPR_z, FPR_half, FPR_one );
+      FPR_lim = maxExp - M_LN2; // gcc-3.5 doesn't fold. Emitted code raises inexact. Care for env!
       FESETENVD ( FPR_z );
       
-      FPR_t = FPR_half * exp ( FPR_t );
-      
-      result = FPR_t + FPR_fourth / FPR_t;	OldEnvironment.d = FPR_env;
+	  if ( FPR_t < FPR_lim )
+	  {
+		  FPR_t = exp ( FPR_t );
+		  
+		  result = FPR_half * (FPR_t + FPR_one / FPR_t);	OldEnvironment.d = FPR_env;
+	  }
+	  else
+	  {
+		  FPR_t = exp ( FPR_half * FPR_t );
+		  
+		  result = ( FPR_half * FPR_t ) * FPR_t;			OldEnvironment.d = FPR_env;
+	  }
             
-      FEGETENVD ( NewEnvironment.d );
-      OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );
-      FESETENVD ( OldEnvironment.d );
+      FEGETENVD_GRP ( NewEnvironment.d );
+	  OldEnvironment.i.lo |= ( NewEnvironment.i.lo & EXCEPT_MASK );
+      FESETENVD_GRP ( OldEnvironment.d );
 
       return result;
 }
-#endif
 
 /*******************************************************************************
 *     This function is odd.  The positive interval is computed and for         *
@@ -242,59 +198,7 @@ double cosh ( double x )
 ********************************************************************************
 *                            T      A      N      H                            *
 *******************************************************************************/
-#ifdef notdef
-double tanh ( double x )
-      {
-      register double PositiveX;
-      hexdouble OldEnvironment;
 
-      PositiveX = __FABS ( x );
-
-      /* N.B., NaN's fail all if's and the switch, and so trickle through. */
-      
-      if ( PositiveX == Huge.d )
-            return (x >= 0 ? 1.0 : -1.0);
-
-      FEGETENVD ( OldEnvironment.d );
-      FESETENVD ( 0.0 );
-
-/*******************************************************************************
-*     Reduce the number of calls to exp1 function by using the identity:       *
-*     th(x) = ( e^x - e^-x ) / ( e^x + e^-x )                                  *
-*           = - ( e^-2x - 1 ) / ( 2 + ( e^-2x - 1 ) )                          *
-*******************************************************************************/
-      if ( PositiveX > SqrtNegEps.d ) /* return the arg if too small  */
-            {                  
-            PositiveX = expm1 ( -2.0 * PositiveX ); /* call exp1 once   */
-            PositiveX = - PositiveX / ( 2.0 + PositiveX );
-            }
-
-/*******************************************************************************
-*     If the argument to expm1 above is 7fe0000000000000 or 40d0000000000000   *
-*     then expm1 will either set an overflow or an underflow which is          *
-*     undeserved for tanh.                                                     *
-*******************************************************************************/
-
-      switch ( __fpclassifyd ( PositiveX ) )
-            {
-            case FP_SUBNORMAL:
-                  OldEnvironment.i.lo |= FE_UNDERFLOW;
-                  /* Falls through! */
-            case FP_NORMAL:
-                  OldEnvironment.i.lo |= FE_INEXACT;
-                  /* Falls through! */
-            default:
-                  break;
-            }
-
-      FESETENVD ( OldEnvironment.d );
-
-      if (x == 0 || x != x)	// +0 -0 NaN preserved
-        return x;
-      else
-        return (x > 0 ? PositiveX : -PositiveX);
-      }
-#else
 double tanh ( double x )
 {
       register double PositiveX;
@@ -308,14 +212,14 @@ double tanh ( double x )
       FPR_sqreps = SqrtNegEps.d;		FPR_kMinNormal = kMinNormal;
       FPR_ln2 = Log2.d;				FPR_kMaxNormal = kMaxNormal;
       
-      if ( PositiveX == FPR_inf )
+      if (unlikely( PositiveX == FPR_inf ))
             return (x >= FPR_z ? 1.0 : -1.0);
 
       FEGETENVD ( FPR_env );
       __ENSURE( FPR_negTwo, FPR_sqreps, FPR_kMinNormal ); __ENSURE( FPR_z, FPR_kMaxNormal, FPR_ln2 );
       FESETENVD ( FPR_z );
       __ENSURE( FPR_z, FPR_inf, FPR_two );
-
+      
 /*******************************************************************************
 *     Reduce the number of calls to expm1 function by using the identity:      *
 *     th(x) = ( e^x - e^-x ) / ( e^x + e^-x )                                  *
@@ -337,15 +241,15 @@ double tanh ( double x )
 
       FESETENVD ( FPR_env );
       
-      if ( result != result)
+      if (unlikely( result != result ))
             ; /* NOTHING */
-      else if ( result == FPR_z )		// iff x == 0.0
+      else if (unlikely( result == FPR_z ))		// iff x == 0.0
             result = x; 			// Get +-0.0 right
-      else if ( result < FPR_kMinNormal )
+      else if (unlikely( result < FPR_kMinNormal ))
             __PROG_UF_INEXACT( FPR_kMinNormal );
-      else if ( result < FPR_inf )
+      else if (likely( result < FPR_inf ))
             __PROG_INEXACT( FPR_ln2 );
-      else if ( PositiveX < FPR_inf )
+      else if (likely( PositiveX < FPR_inf ))
             __PROG_OF_INEXACT( FPR_kMaxNormal );
       
       if ( x < FPR_z)
@@ -353,9 +257,3 @@ double tanh ( double x )
       
       return result;
 }
-#endif
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

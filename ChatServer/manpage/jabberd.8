@@ -1,0 +1,90 @@
+.\"	$Id: jabberd.8,v 1.5 2005/02/05 02:32:48 cjalbert Exp $
+.\"
+.\" Copyright (c) 2000-2005 Apple Computer, Inc., all rights reserved.
+.\" Distributed only as part of Mac OS X Server
+.\"/usr/share/misc/mdoc.template
+.do mso www.tmac
+.Dd February 4, 2005
+.Dt jabberd 8 SMM
+.Os Darwin
+.Sh NAME
+.Nm jabberd ,
+.Nm iChatServer
+.Nd chat message server for xmpp clients
+.Sh SYNOPSIS
+.Nm
+.Op Fl B | Fl D
+.Op Fl c Ar path         \" [-c configuration file] 
+.Op Fl H Ar dir          \" [-H home directory]
+.Op Fl Z Ar zone Ns Op Ns , Ns ...
+.Pp
+.Nm
+.Op Fl h | Fl v | Fl V
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+The jabberd server is an open-source server implementation of the
+Jabber protocol. It is used for deploying messaging services inside a
+company or as a public IM service.
+.Pp
+.Nm
+is typically launched at boot time under the control of
+.Xr launchd 8 .
+.Sh OPTIONS
+The following options are available:
+.Bl -tag -width ".It Fl Z Ar zone Ns Op Ns , Ns ..."
+.It Fl B
+Run in the background.
+.It Fl c Ar path                 \"-a flag as a list item
+Define the relative or absolute path to the jabber.xml configuration file.
+.It Fl D
+Runs in foreground and displays debug information.
+.It Fl H Ar dir
+Define the relative or absolute path to the home directory.
+.It Fl h
+Print usage summary and exit.
+.It Fl V , Fl v
+Print build version and exit.
+.It Fl Z Ar zone Ns Op Ns , Ns ...
+Define a comma-separated list of zones to filter for debug output.
+.El                      \" Ends the list
+.Pp
+.Sh FILES                \" File used or created by the topic of the man page
+.Bl -ohang -width ".Pa /System/Library/LaunchDaemons/org.jabberstudio.jabberd.plist" -compact
+.It Pa /etc/jabber/jabber.xml
+.Bl -dash -offset indent -compact
+.It
+default configuration file
+.El
+.It Pa /usr/sbin/jabberd
+.Bl -dash -offset indent -compact
+.It
+daemon
+.El
+.It Pa /var/jabberd/key.pem
+.Bl -dash -offset indent -compact
+.It
+SSL certificate and key
+.El
+.It Pa /var/jabberd/run/jabber.pid
+.Bl -dash -offset indent -compact
+.It
+daemon pid file
+.El
+.It Pa /System/Library/LaunchDaemons/org.jabberstudio.jabberd.plist
+.Bl -dash -offset indent -compact
+.It
+.Xr launchd 8
+configuration file.
+.El
+.El
+.Pp
+.Sh SEE ALSO
+.URL http://jabberd.jabberstudio.org/1.4/doc/adminguide "Administration Guide"
+.Pp
+.URL http://jabberd.jabberstudio.org/1.4/doc/adminfaq "Administration FAQ"
+.Pp
+Other documentation can be found on-line at
+.URL http://jabberd.jabberstudio.org/1.4/#docs "Jabberd 1.4 Documentation" .
+.Pp
+.Xr syslog.conf 5 ,
+.Xr launchd 8 ,
+.Xr syslogd 8

@@ -15,7 +15,7 @@ extern          "C" {
 #define ENGINEID_TYPE_IPV6    2
 #define ENGINEID_TYPE_MACADDR 3
 #define ENGINEID_TYPE_TEXT    4
-#define ENGINEID_TYPE_UCD_RND 128
+#define ENGINEID_TYPE_NETSNMP_RND 128
 
 #define	DEFAULT_NIC "eth0"
 
@@ -49,6 +49,8 @@ extern          "C" {
     const oid      *get_default_authtype(size_t *);
     const oid      *get_default_privtype(size_t *);
     void            snmpv3_set_engineBootsAndTime(int boots, int ttime);
+    int             free_engineID(int majorid, int minorid, void *serverarg,
+				  void *clientarg);
 
 #ifdef __cplusplus
 }

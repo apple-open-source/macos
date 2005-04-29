@@ -1,0 +1,29 @@
+TODO 
+(Not in any order)
+
+* Add in support for x-commands (JEP-0050)
+  - Useful for clearing history
+
+* Add in support for MySQL logging
+
+* Add in user-definable room destruction delay
+
+* add code to handle registration in a room, if can understand
+* add code to support storing persistant room configuration to xdb
+  - All done except room registration, when added
+
+* profanity filter?
+  - May look into adding this as an external loadable module
+
+* Fix jid checking
+  - Requires JEP to stablise
+
+* Multiple service handling
+  - Allow server 'divisions' dependant on requested server jid
+
+* Three Strike rule for pw protected rooms, to limit brute force attacks
+
+Requests:
+---------
+
+* ability to lock a nick to the users jid

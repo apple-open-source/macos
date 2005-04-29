@@ -1,3 +1,5 @@
+// { dg-do run  }
+// { dg-options "-Wconversion" }
 extern "C" void abort();
 
 struct A {
@@ -26,6 +28,6 @@ A::operator A::B ()
 
 int main ()
 {
-  (A::C) A ();		// WARNING - 
+  (A::C) A ();
   return 0;
 }

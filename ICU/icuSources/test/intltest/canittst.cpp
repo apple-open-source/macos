@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2003, International Business Machines Corporation and
+ * Copyright (c) 2002-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************
  *
@@ -16,7 +16,9 @@
 #include "cstring.h"
 #include "canittst.h"
 #include "unicode/caniter.h"
+#include "unicode/normlzr.h"
 #include "unicode/uchar.h"
+#include "hash.h"
 
 #define ARRAY_LENGTH(array) ((int32_t)(sizeof (array) / sizeof (*array)))
 
@@ -71,10 +73,10 @@ void CanonicalIteratorTest::TestExhaustive() {
     CanonicalIterator it("", status);
     UChar32 i = 0;
     UnicodeString s, decomp, comp;
-	// Test static and dynamic class IDs
+    // Test static and dynamic class IDs
     if(it.getDynamicClassID() != CanonicalIterator::getStaticClassID()){
-		errln("CanonicalIterator::getStaticClassId ! = CanonicalIterator.getDynamicClassID");
-	}
+        errln("CanonicalIterator::getStaticClassId ! = CanonicalIterator.getDynamicClassID");
+    }
     for (i = 0; i < 0x10FFFF; quick?i+=0x10:++i) {
         //for (i = 0xae00; i < 0xaf00; ++i) {
         
@@ -230,7 +232,8 @@ UnicodeString CanonicalIteratorTest::getReadable(const UnicodeString &s) {
     //return "[" + (verbose ? name->transliterate(s) + "; " : "") + hex->transliterate(s) + "]";
 }
 
-U_CAPI int compareUnicodeStrings(const void *s1, const void *s2) {
+U_CFUNC int U_CALLCONV
+compareUnicodeStrings(const void *s1, const void *s2) {
   UnicodeString **st1 = (UnicodeString **)s1;
   UnicodeString **st2 = (UnicodeString **)s2;
 

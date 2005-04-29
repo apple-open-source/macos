@@ -1,6 +1,0 @@
-{
-  Description     = "Network Information Service";
-  Provides        = ("NIS");
-  Requires        = ("Portmap", "Network Configuration");
-  OrderPreference = "None";
-}

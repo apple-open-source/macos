@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)pmap_rmt.c 1.21 87/08/27 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)pmap_rmt.c	2.2 88/08/01 4.0 RPCSRC";*/
-static char *rcsid = "$Id: pmap_rmt.c,v 1.5 2003/06/05 21:43:28 majka Exp $";
+static char *rcsid = "$Id: pmap_rmt.c,v 1.6 2004/12/19 22:45:44 zarzycki Exp $";
 #endif
 
 /*
@@ -79,7 +79,8 @@ static char *rcsid = "$Id: pmap_rmt.c,v 1.5 2003/06/05 21:43:28 majka Exp $";
 #include <arpa/inet.h>
 #define MAX_BROADCAST_SIZE 1400
 
-extern int errno;
+#include "pmap_wakeup.h"
+
 static struct timeval timeout = { 3, 0 };
 
 
@@ -104,6 +105,8 @@ pmap_rmtcall(addr, prog, vers, proc, xdrargs, argsp, xdrres, resp, tout, port_pt
 	struct rmtcallargs a;
 	struct rmtcallres r;
 	enum clnt_stat stat;
+
+	pmap_wakeup();
 
 	addr->sin_port = htons(PMAPPORT);
 	client = clntudp_create(addr, PMAPPROG, PMAPVERS, timeout, &socket);

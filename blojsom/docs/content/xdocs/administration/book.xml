@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//APACHE//DTD Cocoon Documentation Book V1.0//EN" "book-cocoon-v10.dtd">
+
+<!-- Sample book.xml file.  If this file is renamed to 'book.xml', it will be
+used to define the menu in this subdirectory, instead of that generated from
+site.xml. -->
+
+<book software="blojsom"
+    title="blojsom"
+    copyright="@year@ David A. Czarnecki"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+
+    <menu label="Web-based Administration">
+        <menu-item label="Overview" href="site:administration/index"/>
+        <menu-item label="Authorization" href="admin-blog-authorization.html"/>
+        <menu-item label="Categories" href="admin-blog-categories.html"/>
+        <menu-item label="Entries" href="admin-blog-entries.html"/>
+        <menu-item label="Flavors" href="admin-blog-flavors.html"/>
+        <menu-item label="Plugin Chains" href="admin-blog-plugins.html"/>
+        <menu-item label="Properties" href="admin-blog-properties.html"/>
+        <menu-item label="Templates" href="admin-blog-templates.html"/>
+        <menu-item label="File Upload" href="admin-file-upload.html"/>
+        <menu-item label="Users" href="admin-blog-users.html"/>
+    </menu>
+</book>

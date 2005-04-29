@@ -23,14 +23,11 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_tris.c,v 1.4 2002/10/30 12:52:01 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_tris.c,v 1.6 2004/01/23 03:57:07 dawes Exp $ */
 
 /* Authors:
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
-
-#include <stdio.h>
-#include <math.h>
 
 #include "glheader.h"
 #include "mtypes.h"
@@ -219,7 +216,7 @@ static void tdfx_print_vertex( GLcontext *ctx, const tdfxVertex *v )
 {
    tdfxContextPtr imesa = TDFX_CONTEXT( ctx );
 
-   fprintf(stderr, "vertex at %p\n", v);
+   fprintf(stderr, "vertex at %p\n", (void *)v);
 
    if (imesa->vertexFormat == TDFX_LAYOUT_TINY) {
       fprintf(stderr, "x %f y %f z %f\n", v->v.x, v->v.y, v->v.z);
@@ -565,9 +562,9 @@ static void tdfx_render_vb_points( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    int stride = 1<<shift;
-   char *tmp;
+   GLubyte *tmp;
    GLint i;
    (void) flags;
 
@@ -593,9 +590,9 @@ static void tdfx_render_vb_line_strip( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    int stride = 1<<shift;
-   char *tmp;
+   GLubyte *tmp;
    GLint i;
    (void) flags;
 
@@ -622,9 +619,9 @@ static void tdfx_render_vb_line_loop( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    int stride = 1<<shift;
-   char *tmp, *tmp2 = fxVB;
+   GLubyte *tmp, *tmp2 = fxVB;
    GLint i;
    GLint j = start;
    (void) flags;
@@ -661,9 +658,9 @@ static void tdfx_render_vb_lines( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    int stride = 1<<shift;
-   char *tmp;
+   GLubyte *tmp;
    GLint i;
    (void) flags;
 
@@ -690,7 +687,7 @@ static void tdfx_render_vb_triangles( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    (void) flags;
 
    fxMesa->Glide.grDrawVertexArrayContiguous( GR_TRIANGLES, count-start,
@@ -705,7 +702,7 @@ static void tdfx_render_vb_tri_strip( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    int mode;
    (void) flags;
 
@@ -729,7 +726,7 @@ static void tdfx_render_vb_tri_fan( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    (void) flags;
 
    fxMesa->Glide.grDrawVertexArrayContiguous( GR_TRIANGLE_FAN, count-start,
@@ -743,7 +740,7 @@ static void tdfx_render_vb_quads( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts;
+   GLubyte *fxVB = fxMesa->verts;
    GLuint i;
    (void) flags;
    
@@ -762,7 +759,7 @@ static void tdfx_render_vb_quad_strip( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    (void) flags;
 
    count -= (count-start)&1;
@@ -778,7 +775,7 @@ static void tdfx_render_vb_poly( GLcontext *ctx,
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
    GLuint shift = fxMesa->vertex_stride_shift;
-   char *fxVB = fxMesa->verts + (start << shift);
+   GLubyte *fxVB = fxMesa->verts + (start << shift);
    (void) flags;
    
    fxMesa->Glide.grDrawVertexArrayContiguous( GR_POLYGON, count-start,

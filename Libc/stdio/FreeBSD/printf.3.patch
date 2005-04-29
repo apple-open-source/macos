@@ -1,12 +1,25 @@
---- printf.3.orig	Thu Aug 21 18:19:02 2003
-+++ printf.3	Thu Aug 21 18:17:44 2003
-@@ -287,6 +287,20 @@
+--- printf.3.orig	Fri Mar 11 17:08:43 2005
++++ printf.3	Fri Mar 11 17:04:50 2005
+@@ -101,6 +101,12 @@
+ dynamically allocate a new string with
+ .Xr malloc 3 .
+ .Pp
++Extended locale versions of these functions are documented in
++.Xr printf_l 3 .
++See
++.Xr xlocale 3
++for more information.
++.Pp
+ These functions write the output under the control of a
+ .Fa format
+ string that specifies how subsequent arguments
+@@ -287,6 +293,20 @@
  .Xr localeconv 3 .
  .El
  .It
-+An optional seperator character (
++An optional separator character (
 +.Cm \ , | \;  | \ : | _
-+) used for seperating multiple values when printing an AltiVec vector,
++) used for separating multiple values when printing an AltiVec vector,
 +or other multi-value unit.
 +.Pp
 +NOTE: This is an AltiVec only extension onto the
@@ -21,7 +34,7 @@
  An optional decimal digit string specifying a minimum field width.
  If the converted value has fewer characters than the field width, it will
  be padded with spaces on the left (or right, if the left-adjustment
-@@ -377,6 +391,28 @@
+@@ -379,6 +399,28 @@
  .It Sy Modifier Ta Cm c Ta Cm s
  .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
  .El
@@ -50,3 +63,18 @@
  .It
  A character that specifies the type of conversion to be applied.
  .El
+@@ -792,12 +834,8 @@
+ .Xr fmtcheck 3 ,
+ .Xr scanf 3 ,
+ .Xr setlocale 3 ,
+-.Xr wprintf 3
+-.Rs
+-.%T "The FreeBSD Security Architecture"
+-.Re
+-(See
+-.Pa "/usr/share/doc/{to be determined}" . )
++.Xr wprintf 3 ,
++.Xr printf_l 3
+ .Sh STANDARDS
+ Subject to the caveats noted in the
+ .Sx BUGS

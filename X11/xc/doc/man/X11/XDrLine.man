@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XDrLine.man,v 1.2 2001/01/27 18:19:58 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XDrLine.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,41 +144,15 @@
 .SH NAME
 XDrawLine, XDrawLines, XDrawSegments, XSegment \- draw lines, polygons, and line structure
 .SH SYNTAX
-XDrawLine\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIx1\fP\^, \fIy1\fP\^, \fIx2\fP\^, \fIy2\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIx1\fP\^, \fIy1\fP\^, \fIx2\fP\^, \fIy2\fP\^;
-.LP
-XDrawLines\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIpoints\fP\^, \fInpoints\fP\^, \fImode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      XPoint *\fIpoints\fP\^;
-.br
-      int \fInpoints\fP\^;
-.br
-      int \fImode\fP\^; 
-.LP
-XDrawSegments\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIsegments\fP\^, \fInsegments\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      XSegment *\fIsegments\fP\^;
-.br
-      int \fInsegments\fP\^;
+.HP
+int XDrawLine\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC \fIgc\fP\^,
+int \fIx1\fP\^, int \fIy1\fP\^, int \fIx2\fP\^, int \fIy2\fP\^); 
+.HP 
+int XDrawLines\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, XPoint *\fIpoints\fP\^, int \fInpoints\fP\^, int \fImode\fP\^); 
+.HP 
+int XDrawSegments\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, XSegment *\fIsegments\fP\^, int \fInsegments\fP\^); 
 .SH ARGUMENTS
 .IP \fId\fP 1i
 Specifies the drawable. 

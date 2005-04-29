@@ -1,24 +1,30 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/XFree86.man,v 3.59 2003/02/26 18:59:49 dawes Exp $ 
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/XFree86.man,v 3.65 2003/11/12 19:06:46 dawes Exp $
 .TH XFree86 1 __vendorversion__
 .SH NAME
 XFree86 - X11R6 X server
 .SH SYNOPSIS
 .B XFree86
-[:display] [option ...]
+.RI [\fB:\fP display ]
+.RI [ option
+.IR ... ]
 .SH DESCRIPTION
-XFree86 is an X server that was originally designed for UNIX and UNIX-like
-operating systems running on Intel x86 hardware.  It now runs on a wider
-range of hardware and OS platforms.
+.B XFree86
+is a full featured X server that was originally designed for UNIX and
+UNIX-like operating systems running on Intel x86 hardware.  It now runs
+on a wider range of hardware and OS platforms.
 .PP
 This work was originally derived from
 .I "X386\ 1.2"
-which was contributed to X11R5 by Snitily Graphics Consulting Service.
-The XFree86 X server architecture was redesigned for the 4.0 release,
-and it includes among other things a loadable module system donated by
-Metro Link, Inc.  The current XFree86 release is compatible with X11R6.6.
-.SH CONFIGURATIONS
+by Thomas Roell which was contributed to X11R5 by Snitily Graphics
+Consulting Service.  The
+.B XFree86
+server architecture was redesigned for the 4.0 release, and it includes
+among many other things a loadable module system derived from code
+donated by Metro Link, Inc.  The current XFree86 release is compatible
+with X11R6.6.
+.SH PLATFORMS
 .PP
-.I XFree86
+.B XFree86
 operates under a wide range of operating systems and hardware platforms.
 The Intel x86 (IA32) architecture is the most widely supported hardware
 platform.  Other hardware platforms include Compaq Alpha, Intel IA64,
@@ -30,7 +36,8 @@ LynxOS, and GNU Hurd.  Darwin and Mac OS X are supported with the
 XDarwin(1) X server.  Win32/Cygwin is supported with the XWin X server.
 .PP
 .SH "NETWORK CONNECTIONS"
-\fIXFree86\fP supports connections made using the following reliable
+.B XFree86
+supports connections made using the following reliable
 byte-streams:
 .TP 4
 .I "Local"
@@ -39,21 +46,32 @@ On some System V platforms, the "local" connection types also include
 STREAMS pipes, named pipes, and some other mechanisms.
 .TP 4
 .I TCP\/IP
-\fIXFree86\fP listens on port 6000+\fIn\fP, where \fIn\fP is the display
-number.  This connection type can be disabled with the \fB\-nolisten\fP
+.B XFree86
+listens on port
+.RI 6000+ n ,
+where
+.I n
+is the display number.  This connection type can be disabled with the
+.B \-nolisten
 option (see the Xserver(1) man page for details).
 .SH "ENVIRONMENT VARIABLES"
-For operating systems that support local connections other than Unix Domain
-sockets (SVR3 and SVR4), there is a compiled-in list specifying the order 
-in which local connections should be attempted.  This list can be overridden by
-the \fIXLOCAL\fP environment variable described below.  If the display name 
-indicates a best-choice connection should be made (e.g. \fI:0.0\fP), each 
-connection mechanism is tried until a connection succeeds or no more 
-mechanisms are available.  Note: for these OSs, the Unix Domain socket
-connection is treated differently from the other local connection types.
-To use it the connection must be made to \fIunix:0.0\fP.
+For operating systems that support local connections other than Unix
+Domain sockets (SVR3 and SVR4), there is a compiled-in list specifying
+the order in which local connections should be attempted.  This list
+can be overridden by the
+.I XLOCAL
+environment variable described below.  If the display name indicates a
+best-choice connection should be made (e.g.
+.BR :0.0 ),
+each connection mechanism is tried until a connection succeeds or no
+more mechanisms are available.  Note: for these OSs, the Unix Domain
+socket connection is treated differently from the other local connection
+types.  To use it the connection must be made to
+.BR unix:0.0 .
 .PP
-The \fIXLOCAL\fP environment variable should contain a list of one more
+The
+.I XLOCAL
+environment variable should contain a list of one more
 more of the following:
 .PP
 .RS 8
@@ -65,29 +83,68 @@ ISC
 .fi
 .RE
 .PP
-which represent SVR4 Named Streams pipe, Old-style USL
-Streams pipe, SCO XSight Streams pipe, and ISC Streams pipe, respectively.
-You can select a single mechanism (e.g. \fIXLOCAL=NAMED\fP), or an ordered
-list (e.g. \fIXLOCAL="NAMED:PTS:SCO"\fP).  This variable overrides the
-compiled-in defaults.  For SVR4 it is recommended that \fINAMED\fP be
-the first preference connection.  The default setting is
-\fIPTS:NAMED:ISC:SCO\fP.
+which represent SVR4 Named Streams pipe, Old-style USL Streams pipe,
+SCO XSight Streams pipe, and ISC Streams pipe, respectively.  You can
+select a single mechanism (e.g.
+.IR XLOCAL=NAMED ),
+or an ordered list (e.g. \fIXLOCAL="NAMED:PTS:SCO"\fP).
+his variable overrides the compiled-in defaults.  For SVR4 it is
+recommended that
+.I NAMED
+be the first preference connection.  The default setting is
+.IR PTS:NAMED:ISC:SCO .
 .PP
 To globally override the compiled-in defaults, you should define (and
-export if using \fIsh\fP or \fIksh\fP) \fIXLOCAL\fP globally.  If you
-use \fIstartx/xinit\fP, the definition should be at the top of
-your \fI.xinitrc\fP file.  If you use \fIxdm\fP, the definitions should be
-early on in the \fI __projectroot__/lib/X11/xdm/Xsession\fP script.
+export if using
+.B sh
+or
+.BR ksh )
+.I XLOCAL
+globally.  If you use startx(1) or xinit(1), the definition should be
+at the top of your
+.I .xinitrc
+file.  If you use xdm(1), the definitions should be early on in the
+.I __projectroot__/lib/X11/xdm/Xsession
+script.
 .SH OPTIONS
-In addition to the normal server options described in the \fIXserver(1)\fP
-manual page, \fIXFree86\fP accepts the following command line switches:
+.B XFree86
+supports several mechanisms for supplying/obtaining configuration and
+run-time parameters: command line options, environment variables, the
+XF86Config(__filemansuffix__) configuration file, auto-detection, and
+fallback defaults.  When the same information is supplied in more than
+one way, the highest precedence mechanism is used.  The list of mechanisms
+is ordered from highest precedence to lowest.  Note that not all parameters
+can be supplied via all methods.  The available command line options
+and environment variables (and some defaults) are described here and in
+the Xserver(1) manual page.  Most configuration file parameters, with
+their defaults, are described in the XF86Config(__filemansuffix__) manual
+page.  Driver and module specific configuration parameters are described
+in the relevant driver or module manual page.
+.PP
+Starting with version 4.4,
+.B XFree86
+has support for generating a usable configuration at run-time when no
+XF86Config(__filemansuffix__) configuration file is provided.  The
+initial version of this automatic configuration support is targeted at
+the most popular hardware and software platforms supported by XFree86.
+Some details about how this works can be found in the
+.B CONFIGURATION
+section below and in the getconfig(1) manual page.
+.PP
+In addition to the normal server options described in the Xserver(1)
+manual page,
+.B XFree86
+accepts the following command line switches:
 .TP 8
-.B vt\fIXX\fP
-\fIXX\fP specifies the Virtual Terminal device number which \fIXFree86\fP
-will use.  Without this option, \fIXFree86\fP will pick the first
-available Virtual Terminal that it can locate.  This option applies only
-to platforms such as Linux, BSD, SVR3 and SVR4, that have virtual terminal
-support.
+.BI vt XX
+.I XX
+specifies the Virtual Terminal device number which
+.B XFree86
+will use.  Without this option,
+.B XFree86
+will pick the first available Virtual Terminal that it can locate.  This
+option applies only to platforms such as Linux, BSD, SVR3 and SVR4, that
+have virtual terminal support.
 .TP
 .B \-allowMouseOpenFail
 Allow the server to start up even if the mouse device can't be opened
@@ -110,8 +167,10 @@ to the
 XF86Config(__filemansuffix__) file option.  By default non-local
 connections are not allowed.
 .TP 8
-.B \-bgamma \fIvalue\fP
-Set the blue gamma correction.  \fIvalue\fP must be between 0.1 and 10.
+.BI \-bgamma " value"
+Set the blue gamma correction.
+.I value
+must be between 0.1 and 10.
 The default is 1.0.  Not all drivers support this.  See also the
 .BR \-gamma ,
 .BR \-rgamma ,
@@ -119,25 +178,30 @@ and
 .B \-ggamma
 options.
 .TP 8
-.B \-bpp \fIn\fP
-No longer supported.  Use \fB\-depth\fP to set the color depth, and use
-\fB\-fbbpp\fP if you really need to force a non-default framebuffer
-(hardware) pixel format.
+.BI \-bpp " n"
+No longer supported.  Use
+.B \-depth
+to set the color depth, and use
+.B \-fbbpp
+if you really need to force a non-default framebuffer (hardware) pixel
+format.
 .TP
 .B \-configure
-When this option is specified, the X server loads all video driver
-modules, probes for available hardware, and writes out an initial
-XF86Config(__filemansuffix__) file based on what was detected.  This
-option currently has some problems on some platforms, but in most cases
-it is a good way to bootstrap the configuration process.  This option
-is only available when the server is run as root (i.e, with real-uid
-0).
+When this option is specified, the
+.B XFree86
+server loads all video driver modules, probes for available hardware,
+and writes out an initial XF86Config(__filemansuffix__) file based on
+what was detected.  This option currently has some problems on some
+platforms, but in most cases it is a good way to bootstrap the
+configuration process.  This option is only available when the server
+is run as root (i.e, with real-uid 0).
 .TP 8
-.B \-crt /dev/tty\fIXX\fP
-SCO only.  This is the same as the \fBvt\fP option, and is provided for
-compatibility with the native SCO X server.
+.BI "\-crt /dev/tty" XX
+SCO only.  This is the same as the
+.B vt
+option, and is provided for compatibility with the native SCO X server.
 .TP 8
-.B \-depth \fIn\fP
+.BI \-depth " n"
 Sets the default color depth.  Legal values are 1, 4, 8, 15, 16, and
 24.  Not all drivers support all values.
 .TP 8
@@ -157,27 +221,33 @@ XF86Config(__filemansuffix__) file option.
 .B \-fbbpp \fIn\fP
 Sets the number of framebuffer bits per pixel.  You should only set this
 if you're sure it's necessary; normally the server can deduce the correct
-value from \fB\-depth\fP above.  Useful if you want to run a depth 24
-configuration with a 24 bpp framebuffer rather than the (possibly default)
-32 bpp framebuffer (or vice versa).  Legal values are 1, 8, 16, 24, 32.
-Not all drivers support all values.
+value from
+.B \-depth
+above.  Useful if you want to run a depth 24 configuration with a 24
+bpp framebuffer rather than the (possibly default) 32 bpp framebuffer
+(or vice versa).  Legal values are 1, 8, 16, 24, 32.  Not all drivers
+support all values.
 .TP 8
 .B \-flipPixels
 Swap the default values for the black and white pixels.
 .TP 8
-.B \-gamma \fIvalue\fP
-Set the gamma correction.  \fIvalue\fP must be between 0.1 and 10.  The
-default is 1.0.  This value is applied equally to the R, G and B values.
-Those values can be set independently with the
+.BI \-gamma " value"
+Set the gamma correction.
+.I value
+must be between 0.1 and 10.  The default is 1.0.  This value is applied
+equally to the R, G and B values.  Those values can be set independently
+with the
 .BR \-rgamma ,
 .BR \-bgamma ,
 and
 .B \-ggamma
 options.  Not all drivers support this.
 .TP 8
-.B \-ggamma \fIvalue\fP
-Set the green gamma correction.  \fIvalue\fP must be between 0.1 and
-10.  The default is 1.0.  Not all drivers support this.  See also the
+.BI \-ggamma " value"
+Set the green gamma correction.
+.I value
+must be between 0.1 and 10.  The default is 1.0.  Not all drivers support
+this.  See also the
 .BR \-gamma ,
 .BR \-rgamma ,
 and
@@ -185,32 +255,33 @@ and
 options.
 .TP 8
 .B \-ignoreABI
-The X server checks the ABI revision levels of each module that it loads.
-It will normally refuse to load modules with ABI revisions that are newer
-than the server's.  This is because such modules might use interfaces that
-the server does not have.  When this option is specified, mismatches like
-this are downgraded from fatal errors to warnings.  This option should
-be used with care.
+The
+.B XFree86
+server checks the ABI revision levels of each module that it loads.  It
+will normally refuse to load modules with ABI revisions that are newer
+than the server's.  This is because such modules might use interfaces
+that the server does not have.  When this option is specified, mismatches
+like this are downgraded from fatal errors to warnings.  This option
+should be used with care.
 .TP 8
 .B \-keeptty
 Prevent the server from detaching its initial controlling terminal.
 This option is only useful when debugging the server.  Not all platforms
 support (or can use) this option.
 .TP 8
-.B \-keyboard \fIkeyboard-name\fP
+.BI \-keyboard " keyboard-name"
 Use the XF86Config(__filemansuffix__) file
 .B InputDevice
 section called
 .I keyboard-name
 as the core keyboard.  This option is ignored when the
 .B Layout
-section specifies a core keyboard.
-In the absence of both a Layout section and this option,
-the first relevant
+section specifies a core keyboard.  In the absence of both a Layout
+section and this option, the first relevant
 .B InputDevice
 section is used for the core keyboard.
 .TP 8
-.B \-layout \fIlayout-name\fP
+.BI \-layout " layout-name"
 Use the XF86Config(__filemansuffix__) file
 .B Layout
 section called
@@ -219,34 +290,40 @@ By default the first
 .B Layout
 section is used.
 .TP 8
-.B \-logfile \fIfilename\fP
+.BI \-logfile " filename"
 Use the file called
 .I filename
-as the X server log file.  The default log file is
-.B __logdir__/XFree86.\fIn\fP.log
+as the
+.B XFree86
+server log file.  The default log file is
+.BI __logdir__/XFree86. n .log
 on most platforms, where
 .I n
-is the display number of the X server.  The default may be in a different
-directory on some platforms.  This option is only available when the
-server is run as root (i.e, with real-uid 0).
+is the display number of the
+.B XFree86
+server.  The default may be in a different directory on some platforms.
+This option is only available when the server is run as root (i.e, with
+real-uid 0).
 .TP 8
 .BR \-logverbose " [\fIn\fP]"
-Sets the verbosity level for information printed to the X server log
-file.  If the
+Sets the verbosity level for information printed to the
+.B XFree86
+server log file.  If the
 .I n
-value isn't supplied, each occurrance of this option increments the log
+value isn't supplied, each occurrence of this option increments the log
 file verbosity level.  When the
 .I n
 value is supplied, the log file verbosity level is set to that value.
 The default log file verbosity level is 3.
 .TP 8
-.B \-modulepath \fIsearchpath\fP
+.BI \-modulepath " searchpath"
 Set the module search path to
 .IR searchpath .
 .I searchpath
-is a comma separated list of directories to search for X server modules.
-This option is only available when the server is run as root (i.e, with
-real-uid 0).
+is a comma separated list of directories to search for
+.B XFree86
+server modules.  This option is only available when the server is run
+as root (i.e, with real-uid 0).
 .TP 8
 .B \-nosilk
 Disable Silken Mouse support.
@@ -255,43 +332,43 @@ Disable Silken Mouse support.
 Set the internal pixmap format for depth 24 pixmaps to 24 bits per pixel.
 The default is usually 32 bits per pixel.  There is normally little
 reason to use this option.  Some client applications don't like this
-pixmap format, even though it is a perfectly legal format.
-This is equvalent to the
+pixmap format, even though it is a perfectly legal format.  This is
+equivalent to the
 .B Pixmap
 XF86Config(__filemansuffix__) file option.
 .TP 8
 .B \-pixmap32
 Set the internal pixmap format for depth 24 pixmaps to 32 bits per pixel.
-This is usually the default.
-This is equvalent to the
+This is usually the default.  This is equivalent to the
 .B Pixmap
 XF86Config(__filemansuffix__) file option.
 .TP 8
-.B \-pointer \fIpointer-name\fP
+.BI \-pointer " pointer-name"
 Use the XF86Config(__filemansuffix__) file
 .B InputDevice
 section called
 .I pointer-name
 as the core pointer.  This option is ignored when the
 .B Layout
-section specifies a core pointer.
-In the absence of both a Layout section and this option,
-the first relevant
+section specifies a core pointer.  In the absence of both a Layout
+section and this option, the first relevant
 .B InputDevice
 section is used for the core pointer.
 .TP 8
 .B \-probeonly
-Causes the server to exit after the device probing stage.  The XF86Config
-file is still used when this option is given, so information that can
-be auto-detected should be commented out.
+Causes the server to exit after the device probing stage.  The
+XF86Config(__filemansuffix__) file is still used when this option is
+given, so information that can be auto-detected should be commented out.
 .TP 8
 .B \-quiet
 Suppress most informational messages at startup.  The verbosity level
 is set to zero.
 .TP 8
-.B \-rgamma \fIvalue\fP
-Set the red gamma correction.  \fIvalue\fP must be between 0.1 and 10.
-The default is 1.0.  Not all drivers support this.  See also the
+.BI \-rgamma " value"
+Set the red gamma correction.
+.I value
+must be between 0.1 and 10.  The default is 1.0.  Not all drivers support
+this.  See also the
 .BR \-gamma ,
 .BR \-bgamma ,
 and
@@ -299,11 +376,12 @@ and
 options.
 .TP 8
 .B \-scanpci
-When this option is specified, the X server scans the PCI bus, and prints
-out some information about each device that was detected.  See also
-scanpci(1) and pcitweak(1).
+When this option is specified, the
+.B XFree86
+server scans the PCI bus, and prints out some information about each
+device that was detected.  See also scanpci(1) and pcitweak(1).
 .TP 8
-.B \-screen \fIscreen-name\fP
+.BI \-screen " screen-name"
 Use the XF86Config(__filemansuffix__) file
 .B Screen
 section called
@@ -319,19 +397,19 @@ sections.
 .B \-showconfig
 This is the same as the
 .B \-version
-option, and is included for compatibility reasons.  It may be removed in
-a future release, so the
+option, and is included for compatibility reasons.  It may be removed
+in a future release, so the
 .B \-version
 option should be used instead.
 .TP 8
-.B \-weight \fInnn\fP
+.BI \-weight " nnn"
 Set RGB weighting at 16 bpp.  The default is 565.  This applies only to
 those drivers which support 16 bpp.
 .TP 8
 .BR \-verbose " [\fIn\fP]"
 Sets the verbosity level for information printed on stderr.  If the
 .I n
-value isn't supplied, each occurrance of this option increments the
+value isn't supplied, each occurrence of this option increments the
 verbosity level.  When the
 .I n
 value is supplied, the verbosity level is set to that value.  The default
@@ -342,22 +420,24 @@ Print out the server version, patchlevel, release date, the operating
 system/platform it was built on, and whether it includes module loader
 support.
 .TP 8
-.B \-xf86config \fIfile\fP
-Read the server configuration from \fIfile\fP.  This option will work
-for any file when the server is run as root (i.e, with real-uid 0), or
-for files relative to a directory in the config search path for all
-other users.
+.BI \-xf86config " file"
+Read the server configuration from
+.IR file .
+This option will work for any file when the server is run as root (i.e,
+with real-uid 0), or for files relative to a directory in the config
+search path for all other users.
 .SH "KEYBOARD"
 .PP
-The XFree86 server is normally configured to recognize various
-special combinations of key presses that instruct the server to
-perform some action, rather than just sending the keypress event
-to a client application.
-The default XKEYBOARD keymap defines the key combinations listed below.
-The server also has these key combinations builtin to its event
-handler for cases where the XKEYBOARD extension is not being used.
-When using the XKEYBOARD extension, which key combinations
-perform which actions is completely configurable.
+The
+.B XFree86
+server is normally configured to recognize various special combinations
+of key presses that instruct the server to perform some action, rather
+than just sending the key press event to a client application.  The
+default XKEYBOARD keymap defines the key combinations listed below.
+The server also has these key combinations builtin to its event handler
+for cases where the XKEYBOARD extension is not being used.  When using
+the XKEYBOARD extension, which key combinations perform which actions
+is completely configurable.
 .PP
 For more information about when the builtin event handler
 is used to recognize the special key combinations, see
@@ -366,7 +446,9 @@ the documentation on the
 option in the XF86Config(__filemansuffix__) man page.
 .PP
 The special combinations of key presses recognized directly
-by \fIXFree86\fP are:
+by
+.B XFree86
+are:
 .TP 8
 .B Ctrl+Alt+Backspace
 Immediately kills the server -- no questions asked.  This can be disabled
@@ -406,63 +488,98 @@ combinations are used to switch to virtual terminals 1 through 12,
 respectively.  This can be disabled with the
 .B DontVTSwitch
 XF86Config(__filemansuffix__) file option.
-.SH SETUP
-.I XFree86
-uses a configuration file called \fBXF86Config\fP for its initial setup.  
-Refer to the
-.I XF86Config(__filemansuffix__)
-manual page for information about the
-format of this file.
+.SH CONFIGURATION
+.B XFree86
+typically uses a configuration file called
+.B XF86Config
+for its initial setup.
+Refer to the XF86Config(__filemansuffix__) manual page for information
+about the format of this file.
+.PP
+Starting with version 4.4,
+.B XFree86
+has a mechanism for automatically generating a built-in configuration
+at run-time when no
+.B XF86Config
+file is present.  The current version of this automatic configuration
+mechanism works in three ways.
+.PP
+The first is via enhancements that have made many components of the
+.B XF86Config
+file optional.  This means that information that can be probed or
+reasonably deduced doesn't need to be specified explicitly, greatly
+reducing the amount of built-in configuration information that needs to
+be generated at run-time.
+.PP
+The second is to use an external utility called getconfig(1), when
+available, to use meta-configuration information to generate a suitable
+configuration for the primary video device.  The meta-configuration
+information can be updated to allow an existing installation to get the
+best out of new hardware or to work around bugs that are found
+post-release.
+.PP
+The third is to have "safe" fallbacks for most configuration information.
+This maximises the likelihood that the
+.B XFree86
+server will start up in some usable configuration even when information
+about the specific hardware is not available.
+.PP
+The automatic configuration support for XFree86 is work in progress.
+It is currently aimed at the most popular hardware and software platforms
+supported by XFree86.  Enhancements are planned for future releases.
 .SH FILES
-The X server config file can be found in a range of locations.  These
-are documented fully in the
-.I XF86Config(__filemansuffix__)
-manual page.  The most commonly used locations are shown here.
+The
+.B XFree86
+server config file can be found in a range of locations.  These are
+documented fully in the XF86Config(__filemansuffix__) manual page.  The
+most commonly used locations are shown here.
 .TP 30
-/etc/X11/XF86Config
-Server configuration file
+.B /etc/X11/XF86Config
+Server configuration file.
 .TP 30
-/etc/X11/XF86Config-4
-Server configuration file
+.B /etc/X11/XF86Config-4
+Server configuration file.
 .TP 30
-/etc/XF86Config
-Server configuration file
+.B /etc/XF86Config
+Server configuration file.
 .TP 30
-__projectroot__/etc/XF86Config
-Server configuration file
+.B __projectroot__/etc/XF86Config
+Server configuration file.
 .TP 30
-__projectroot__/lib/X11/XF86Config
-Server configuration file
+.B __projectroot__/lib/X11/XF86Config
+Server configuration file.
 .TP 30
-__logdir__/XFree86.\fIn\fP.log
-Server log file for display \fIn\fP.
+.BI __logdir__/XFree86. n .log
+Server log file for display
+.IR n .
 .TP 30
-__projectroot__/bin/\(**
-Client binaries
+.B __projectroot__/bin/\(**
+Client binaries.
 .TP 30
-__projectroot__/include/\(**
-Header files
+.B __projectroot__/include/\(**
+Header files.
 .TP 30
-__projectroot__/lib/\(**
-Libraries
+.B __projectroot__/lib/\(**
+Libraries.
 .TP 30
-__projectroot__/lib/X11/fonts/\(**
-Fonts
+.B __projectroot__/lib/X11/fonts/\(**
+Fonts.
 .TP 30
-__projectroot__/lib/X11/rgb.txt
-Color names to RGB mapping
+.B __projectroot__/lib/X11/rgb.txt
+Color names to RGB mapping.
 .TP 30
-__projectroot__/lib/X11/XErrorDB
-Client error message database
+.B __projectroot__/lib/X11/XErrorDB
+Client error message database.
 .TP 30
-__projectroot__/lib/X11/app-defaults/\(**
-Client resource specifications
+.B __projectroot__/lib/X11/app-defaults/\(**
+Client resource specifications.
 .TP 30
-__projectroot__/man/man?/\(**
-Manual pages
+.B __projectroot__/man/man?/\(**
+Manual pages.
 .TP 30
-/etc/X\fIn\fP.hosts
-Initial access control list for display \fIn\fP
+.BI /etc/X n .hosts
+Initial access control list for display
+.IR n .
 .SH "SEE ALSO"
 X(__miscmansuffix__), Xserver(1), xdm(1), xinit(1),
 XF86Config(__filemansuffix__), xf86config(1), xf86cfg(1), xvidtune(1),
@@ -571,27 +688,37 @@ The current XFree86 core team consists of:
 .PP
 .RS 4
 .nf
-Stuart Anderson    \fIanderson@netsweng.com\fP
-Robin Cutshaw      \fIrobin@xfree86.org\fP
 David Dawes        \fIdawes@xfree86.org\fP
 Egbert Eich        \fIeich@xfree86.org\fP
 Marc Evans         \fImarc@xfree86.org\fP
-Dirk Hohndel       \fIhohndel@xfree86.org\fP
+Matthieu Herrb     \fIherrb@xfree86.org\fP
 Alan Hourihane     \fIalanh@xfree86.org\fP
-Harald Koenig      \fIkoenig@xfree86.org\fP
 Marc La France     \fItsi@xfree86.org\fP
 Kevin Martin       \fImartin@xfree86.org\fP
 Rich Murphey       \fIrich@xfree86.org\fP
-Takaaki Nomura     \fIamadeus@yk.rim.or.jp\fP
-Keith Packard      \fIkeithp@xfree86.org\fP
-Jon Tombs          \fIjon@gtex02.us.es\fP
 Mark Vojkovich     \fImarkv@xfree86.org\fP
 David Wexelblat    \fIdwex@xfree86.org\fP
 .fi
 .RE
 .PP
-\fIXFree86\fP source is available from the FTP server
-\fI<ftp://ftp.XFree86.org/pub/XFree86/>\fP, and from the XFree86
-CVS server \fI<http://www.xfree86.org/cvs/>\fP.  Documentation
-and other information can be found from the XFree86 web site
+
+XFree86 source is available from the FTP server
+\fI<ftp://ftp.XFree86.org/pub/XFree86/>\fP, and from the XFree86 CVS
+server \fI<http://www.xfree86.org/cvs/>\fP.  Documentation and other
+information can be found from the XFree86 web site
 \fI<http://www.xfree86.org/>\fP.
+
+.SH LEGAL
+.PP
+.B XFree86
+is copyright software, provided under licenses that permit modification
+and redistribution in source and binary form without fee.  Portions of
+.B XFree86
+are copyright by The XFree86 Project, Inc. and numerous authors and
+contributors from around the world.  Licensing information can be found
+at
+.IR <http://www.xfree86.org/current/LICENSE.html> .
+Refer to the source code for specific copyright notices.
+.PP
+.B XFree86(TM)
+is a trademark of The XFree86 Project, Inc.

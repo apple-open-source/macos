@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtCreateSR.man,v 1.2 2001/01/27 18:20:25 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtCreateSR.man,v 1.3 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,25 +130,13 @@
 .SH NAME
 XtCreateSelectionRequest, XtSendSelectionRequest, XtCancelSelectionRequest \- bundle multiple selection conversion requests into a single request using MULTIPLE target
 .SH SYNTAX
-void XtCreateSelectionRequest(\fIrequestor\fP, \fIselection\fP)
-.br
-      Widget \fIrequestor\fP;
-.br
-      Atom \fIselection\fP;
-.LP
-void XtSendSelectionRequest(\fIrequestor\fP, \fIselection\fP, \fItime\fP)
-.br
-      Widget \fIrequestor\fP;
-.br
-      Atom \fIselection\fP;
-.br
-      Time \fItime\fP;
-.LP
-void XtCancelSelectionRequest(\fIrequestor\fP, \fIselection\fP)
-.br
-      Widget \fIrequestor\fP;
-.br
-      Atom \fIselection\fP;
+.HP
+void XtCreateSelectionRequest(Widget \fIrequestor\fP, Atom \fIselection\fP): 
+.HP
+void XtSendSelectionRequest(Widget \fIrequestor\fP, Atom \fIselection\fP, Time
+\fItime\fP); 
+.HP
+void XtCancelSelectionRequest(Widget \fIrequestor\fP, Atom \fIselection\fP); 
 .SH ARGUMENTS
 .IP \fIrequestor\fP 1i
 Specifies the widget making the request. Must be of class Core or a

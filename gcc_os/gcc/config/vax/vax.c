@@ -22,6 +22,7 @@ Boston, MA 02111-1307, USA.  */
 #include "config.h"
 #include "system.h"
 #include "rtl.h"
+#include "tree.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "real.h"
@@ -30,9 +31,10 @@ Boston, MA 02111-1307, USA.  */
 #include "function.h"
 #include "output.h"
 #include "insn-attr.h"
-#include "tree.h"
 #include "recog.h"
 #include "expr.h"
+#include "flags.h"
+#include "debug.h"
 #include "tm_p.h"
 #include "target.h"
 #include "target-def.h"
@@ -42,7 +44,12 @@ static void vax_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 #if VMS_TARGET
 static void vms_asm_out_constructor PARAMS ((rtx, int));
 static void vms_asm_out_destructor PARAMS ((rtx, int));
+static void vms_select_section PARAMS ((tree, int, unsigned HOST_WIDE_INT));
+static void vms_encode_section_info PARAMS ((tree, int));
+static void vms_globalize_label PARAMS ((FILE *, const char *));
 #endif
+static void vax_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					 HOST_WIDE_INT, tree));
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -51,8 +58,34 @@ static void vms_asm_out_destructor PARAMS ((rtx, int));
 #undef TARGET_ASM_FUNCTION_PROLOGUE
 #define TARGET_ASM_FUNCTION_PROLOGUE vax_output_function_prologue
 
+#if VMS_TARGET
+#undef TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION vms_select_section
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO vms_encode_section_info
+#undef TARGET_ASM_GLOBALIZE_LABEL
+#define TARGET_ASM_GLOBALIZE_LABEL vms_globalize_label
+#endif
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK vax_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
+/* Set global variables as needed for the options enabled.  */
+
+void
+override_options ()
+{
+  /* We're VAX floating point, not IEEE floating point.  */
+  memset (real_format_for_mode, 0, sizeof real_format_for_mode);
+  real_format_for_mode[SFmode - QFmode] = &vax_f_format;
+  real_format_for_mode[DFmode - QFmode]
+    = (TARGET_G_FLOAT ? &vax_g_format : &vax_d_format);
+}
+
 /* Generate the assembly code for function entry.  FILE is a stdio
    stream to output the code to.  SIZE is an int: how many units of
    temporary storage to allocate.
@@ -76,48 +109,39 @@ vax_output_function_prologue (file, size)
 
   fprintf (file, "\t.word 0x%x\n", mask);
 
-  if (VMS_TARGET)
+  if (dwarf2out_do_frame ())
     {
-      /*
-       * This works for both gcc and g++.  It first checks to see if
-       * the current routine is "main", which will only happen for
-       * GCC, and add the jsb if it is.  If is not the case then try
-       * and see if __MAIN_NAME is part of current_function_name,
-       * which will only happen if we are running g++, and add the jsb
-       * if it is.  In gcc there should never be a paren in the
-       * function name, and in g++ there is always a "(" in the
-       * function name, thus there should never be any confusion.
-       *
-       * Adjusting the stack pointer by 4 before calling C$MAIN_ARGS
-       * is required when linking with the VMS POSIX version of the C
-       * run-time library; using `subl2 $4,r0' is adequate but we use
-       * `clrl -(sp)' instead.  The extra 4 bytes could be removed
-       * after the call because STARTING_FRAME_OFFSET's setting of -4
-       * will end up adding them right back again, but don't bother.
-       */
+      const char *label = dwarf2out_cfi_label ();
+      int offset = 0;
 
-      const char *p = current_function_name;
-      int is_main = strcmp ("main", p) == 0;
-#     define __MAIN_NAME " main("
+      for (regno = FIRST_PSEUDO_REGISTER-1; regno >= 0; --regno)
+	if (regs_ever_live[regno] && !call_used_regs[regno])
+	  dwarf2out_reg_save (label, regno, offset -= 4);
 
-      while (!is_main && *p != '\0')
-	{
-	  if (*p == *__MAIN_NAME
-	      && strncmp (p, __MAIN_NAME, sizeof __MAIN_NAME - sizeof "") == 0)
-	    is_main = 1;
-	  else
-	    p++;
-	}
-
-      if (is_main)
-	fprintf (file, "\t%s\n\t%s\n", "clrl -(sp)", "jsb _C$MAIN_ARGS");
+      dwarf2out_reg_save (label, PC_REGNUM, offset -= 4);
+      dwarf2out_reg_save (label, FRAME_POINTER_REGNUM, offset -= 4);
+      dwarf2out_reg_save (label, ARG_POINTER_REGNUM, offset -= 4);
+      dwarf2out_def_cfa (label, FRAME_POINTER_REGNUM, -(offset - 4));
     }
 
-    size -= STARTING_FRAME_OFFSET;
-    if (size >= 64)
-      fprintf (file, "\tmovab %d(sp),sp\n", -size);
-    else if (size)
-      fprintf (file, "\tsubl2 $%d,sp\n", size);
+  if (VMS_TARGET)
+    {
+      /* Adjusting the stack pointer by 4 before calling C$MAIN_ARGS
+	 is required when linking with the VMS POSIX version of the C
+	 run-time library; using `subl2 $4,r0' is adequate but we use
+	 `clrl -(sp)' instead.  The extra 4 bytes could be removed
+	 after the call because STARTING_FRAME_OFFSET's setting of -4
+	 will end up adding them right back again, but don't bother.  */
+
+      if (MAIN_NAME_P (DECL_NAME (current_function_decl)))
+	asm_fprintf (file, "\tclrl -(%Rsp)\n\tjsb _C$MAIN_ARGS\n");
+    }
+
+  size -= STARTING_FRAME_OFFSET;
+  if (size >= 64)
+    asm_fprintf (file, "\tmovab %d(%Rsp),%Rsp\n", -size);
+  else if (size)
+    asm_fprintf (file, "\tsubl2 $%d,%Rsp\n", size);
 }
 
 /* This is like nonimmediate_operand with a restriction on the type of MEM.  */
@@ -303,7 +327,7 @@ print_operand_address (file, addr)
       else
 	abort ();
 
-      /* If REG1 is non-zero, figure out if it is a base or index register.  */
+      /* If REG1 is nonzero, figure out if it is a base or index register.  */
       if (reg1)
 	{
 	  if (breg != 0 || (offset && GET_CODE (offset) == MEM))
@@ -374,10 +398,8 @@ vax_float_literal(c)
     register rtx c;
 {
   register enum machine_mode mode;
-#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT
+  REAL_VALUE_TYPE r, s;
   int i;
-  union {double d; int i[2];} val;
-#endif
 
   if (GET_CODE (c) != CONST_DOUBLE)
     return 0;
@@ -389,15 +411,20 @@ vax_float_literal(c)
       || c == const_tiny_rtx[(int) mode][2])
     return 1;
 
-#if HOST_FLOAT_FORMAT == VAX_FLOAT_FORMAT
+  REAL_VALUE_FROM_CONST_DOUBLE (r, c);
 
-  val.i[0] = CONST_DOUBLE_LOW (c);
-  val.i[1] = CONST_DOUBLE_HIGH (c);
+  for (i = 0; i < 7; i++)
+    {
+      int x = 1 << i;
+      REAL_VALUE_FROM_INT (s, x, 0, mode);
 
-  for (i = 0; i < 7; i ++)
-    if (val.d == 1 << i || val.d == 1 / (1 << i))
-      return 1;
-#endif
+      if (REAL_VALUES_EQUAL (r, s))
+	return 1;
+      if (!exact_real_inverse (mode, &s))
+	abort ();
+      if (REAL_VALUES_EQUAL (r, s))
+	return 1;
+    }
   return 0;
 }
 
@@ -678,75 +705,6 @@ vax_rtx_cost (x)
     }
   return c;
 }
-
-/* Check a `double' value for validity for a particular machine mode.  */
-
-static const char *const float_strings[] =
-{
-   "1.70141173319264430e+38", /* 2^127 (2^24 - 1) / 2^24 */
-  "-1.70141173319264430e+38",
-   "2.93873587705571877e-39", /* 2^-128 */
-  "-2.93873587705571877e-39"
-};
-
-static REAL_VALUE_TYPE float_values[4];
-
-static int inited_float_values = 0;
-
-
-int
-check_float_value (mode, d, overflow)
-     enum machine_mode mode;
-     REAL_VALUE_TYPE *d;
-     int overflow;
-{
-  if (inited_float_values == 0)
-    {
-      int i;
-      for (i = 0; i < 4; i++)
-	{
-	  float_values[i] = REAL_VALUE_ATOF (float_strings[i], DFmode);
-	}
-
-      inited_float_values = 1;
-    }
-
-  if (overflow)
-    {
-      memcpy (d, &float_values[0], sizeof (REAL_VALUE_TYPE));
-      return 1;
-    }
-
-  if ((mode) == SFmode)
-    {
-      REAL_VALUE_TYPE r;
-      memcpy (&r, d, sizeof (REAL_VALUE_TYPE));
-      if (REAL_VALUES_LESS (float_values[0], r))
-	{
-	  memcpy (d, &float_values[0], sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (r, float_values[1]))
-	{
-	  memcpy (d, &float_values[1], sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (dconst0, r)
-		&& REAL_VALUES_LESS (r, float_values[2]))
-	{
-	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-      else if (REAL_VALUES_LESS (r, dconst0)
-		&& REAL_VALUES_LESS (float_values[3], r))
-	{
-	  memcpy (d, &dconst0, sizeof (REAL_VALUE_TYPE));
-	  return 1;
-	}
-    }
-
-  return 0;
-}
 
 #if VMS_TARGET
 /* Additional support code for VMS target.  */
@@ -795,7 +753,7 @@ vms_check_external (decl, name, pending)
       }
 
   /* Not previously seen; create a new list entry.  */
-  p = (struct extern_list *)permalloc ((long) sizeof (struct extern_list));
+  p = (struct extern_list *) xmalloc (sizeof (struct extern_list));
   p->name = name;
 
   if (pending)
@@ -867,6 +825,59 @@ vms_asm_out_destructor (symbol, priority)
   fprintf (asm_out_file,"$$PsectAttributes_NOOVR$$__gxx_clean_1:\n\t.long\t");
   assemble_name (asm_out_file, XSTR (symbol, 0));
   fputc ('\n', asm_out_file);
+}
+
+static void
+vms_select_section (exp, reloc, align)
+     tree exp;
+     int reloc ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (TREE_CODE (exp) == VAR_DECL)
+    {
+      if (TREE_READONLY (exp) && ! TREE_THIS_VOLATILE (exp)
+	  && DECL_INITIAL (exp)
+	  && (DECL_INITIAL (exp) == error_mark_node
+	      || TREE_CONSTANT (DECL_INITIAL (exp))))
+	{
+	  if (TREE_PUBLIC (exp))
+	    const_section ();
+	  else
+	    text_section ();
+	}
+      else
+	data_section ();
+    }
+  if (TREE_CODE_CLASS (TREE_CODE (exp)) == 'c')
+    {
+      if (TREE_CODE (exp) == STRING_CST && flag_writable_strings)
+	data_section ();
+      else
+	text_section ();
+    }
+}
+
+/* Make sure that external variables are correctly addressed.  Under VMS
+   there is some brain damage in the linker that requires us to do this.  */
+
+static void
+vms_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* This is how to output a command to make the user-level label named NAME
+   defined for reference from other files.  */
+static void
+vms_globalize_label (stream, name)
+     FILE *stream;
+     const char *name;
+{
+  default_globalize_label (stream, name);
+  vms_check_external (NULL_TREE, name, 0);
 }
 #endif /* VMS_TARGET */
 
@@ -987,4 +998,21 @@ reg_was_0_p (insn, op)
 	  && no_labels_between_p (XEXP (link, 0), insn)
 	  /* Make sure the reg hasn't been clobbered.  */
 	  && ! reg_set_between_p (op, XEXP (link, 0), insn));
+}
+
+static void
+vax_output_mi_thunk (file, thunk, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
+     tree function;
+{
+  fprintf (file, "\t.word 0x0ffc\n");					
+  fprintf (file, "\taddl2 $");
+  fprintf (file, HOST_WIDE_INT_PRINT_DEC, delta);
+  asm_fprintf (file, ",4(%Rap)\n");
+  fprintf (file, "\tjmp ");						
+  assemble_name (file,  XSTR (XEXP (DECL_RTL (function), 0), 0));	
+  fprintf (file, "+2\n");						
 }

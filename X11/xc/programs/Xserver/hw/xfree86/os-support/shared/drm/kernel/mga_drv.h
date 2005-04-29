@@ -90,14 +90,14 @@ typedef struct drm_mga_private {
 	unsigned int texture_offset;
 	unsigned int texture_size;
 
-	drm_map_t *sarea;
-	drm_map_t *fb;
-	drm_map_t *mmio;
-	drm_map_t *status;
-	drm_map_t *warp;
-	drm_map_t *primary;
-	drm_map_t *buffers;
-	drm_map_t *agp_textures;
+	drm_local_map_t *sarea;
+	drm_local_map_t *fb;
+	drm_local_map_t *mmio;
+	drm_local_map_t *status;
+	drm_local_map_t *warp;
+	drm_local_map_t *primary;
+	drm_local_map_t *buffers;
+	drm_local_map_t *agp_textures;
 } drm_mga_private_t;
 
 				/* mga_dma.c */
@@ -133,14 +133,13 @@ extern int mga_warp_init( drm_mga_private_t *dev_priv );
 
 #define mga_flush_write_combine()	DRM_WRITEMEMORYBARRIER()
 
-
+#if defined(__linux__) && defined(__alpha__)
 #define MGA_BASE( reg )		((unsigned long)(dev_priv->mmio->handle))
 #define MGA_ADDR( reg )		(MGA_BASE(reg) + reg)
 
 #define MGA_DEREF( reg )	*(volatile u32 *)MGA_ADDR( reg )
 #define MGA_DEREF8( reg )	*(volatile u8 *)MGA_ADDR( reg )
 
-#ifdef __alpha__
 #define MGA_READ( reg )		(_MGA_READ((u32 *)MGA_ADDR(reg)))
 #define MGA_READ8( reg )	(_MGA_READ((u8 *)MGA_ADDR(reg)))
 #define MGA_WRITE( reg, val )	do { DRM_WRITEMEMORYBARRIER(); MGA_DEREF( reg ) = val; } while (0)
@@ -148,15 +147,14 @@ extern int mga_warp_init( drm_mga_private_t *dev_priv );
 
 static inline u32 _MGA_READ(u32 *addr)
 {
-	DRM_READMEMORYBARRIER();
+	DRM_MEMORYBARRIER();
 	return *(volatile u32 *)addr;
 }
-
 #else
-#define MGA_READ( reg )		MGA_DEREF( reg )
-#define MGA_READ8( reg )	MGA_DEREF8( reg )
-#define MGA_WRITE( reg, val )	do { MGA_DEREF( reg ) = val; } while (0)
-#define MGA_WRITE8( reg, val )  do { MGA_DEREF8( reg ) = val; } while (0)
+#define MGA_READ8( reg )	DRM_READ8(dev_priv->mmio, (reg))
+#define MGA_READ( reg )		DRM_READ32(dev_priv->mmio, (reg))
+#define MGA_WRITE8( reg, val )  DRM_WRITE8(dev_priv->mmio, (reg), (val))
+#define MGA_WRITE( reg, val )	DRM_WRITE32(dev_priv->mmio, (reg), (val))
 #endif
 
 #define DWGREG0 	0x1c00
@@ -183,16 +181,6 @@ do {									\
 		} else {						\
 			mga_g200_emit_state( dev_priv );		\
 		}							\
-	}								\
-} while (0)
-
-#define LOCK_TEST_WITH_RETURN( dev )					\
-do {									\
-	if ( !_DRM_LOCK_IS_HELD( dev->lock.hw_lock->lock ) ||		\
-	     dev->lock.pid != DRM_CURRENTPID ) {				\
-		DRM_ERROR( "%s called without lock held\n",		\
-			   __FUNCTION__ );					\
-		return DRM_ERR(EINVAL);				\
 	}								\
 } while (0)
 
@@ -238,7 +226,7 @@ do {									\
 	if ( MGA_VERBOSE ) {						\
 		DRM_INFO( "BEGIN_DMA( %d ) in %s\n",			\
 			  (n), __FUNCTION__ );				\
-		DRM_INFO( "   space=0x%x req=0x%x\n",			\
+		DRM_INFO( "   space=0x%x req=0x%Zx\n",			\
 			  dev_priv->prim.space, (n) * DMA_BLOCK_SIZE );	\
 	}								\
 	prim = dev_priv->prim.start;					\
@@ -288,7 +276,7 @@ do {									\
 #define DMA_WRITE( offset, val )					\
 do {									\
 	if ( MGA_VERBOSE ) {						\
-		DRM_INFO( "   DMA_WRITE( 0x%08x ) at 0x%04x\n",		\
+		DRM_INFO( "   DMA_WRITE( 0x%08x ) at 0x%04Zx\n",	\
 			  (u32)(val), write + (offset) * sizeof(u32) );	\
 	}								\
 	*(volatile u32 *)(prim + write + (offset) * sizeof(u32)) = val;	\

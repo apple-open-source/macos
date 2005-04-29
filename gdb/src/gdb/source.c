@@ -45,7 +45,7 @@
 #include "filenames.h"		/* for DOSish file names */
 #include "completer.h"
 #include "ui-out.h"
-#include <readline/readline.h>
+#include "readline/readline.h"
 
 #ifdef CRLF_SOURCE_FILES
 
@@ -80,8 +80,6 @@ static void reverse_search_command (char *, int);
 static void forward_search_command (char *, int);
 
 static void line_info (char *, int);
-
-static void ambiguous_line_spec (struct symtabs_and_lines *);
 
 static void source_info (char *, int);
 
@@ -222,7 +220,7 @@ clear_current_source_symtab_and_line (void)
    before we need to would make things slower than necessary.  */
 
 void
-select_source_symtab (register struct symtab *s)
+select_source_symtab (struct symtab *s)
 {
   struct symtabs_and_lines sals;
   struct symtab_and_line sal;
@@ -242,7 +240,7 @@ select_source_symtab (register struct symtab *s)
 
   /* Make the default place to list be the function `main'
      if one exists.  */
-  if (lookup_symbol (main_name (), 0, VAR_NAMESPACE, 0, NULL))
+  if (lookup_symbol (main_name (), 0, VAR_DOMAIN, 0, NULL))
     {
       sals = decode_line_spec (main_name (), 1);
       sal = sals.sals[0];
@@ -263,7 +261,7 @@ select_source_symtab (register struct symtab *s)
 	{
 	  char *name = s->filename;
 	  int len = strlen (name);
-	  if (!(len > 2 && (STREQ (&name[len - 2], ".h"))))
+	  if (!(len > 2 && (DEPRECATED_STREQ (&name[len - 2], ".h"))))
 	    {
 	      current_source_symtab = s;
 	    }
@@ -280,7 +278,7 @@ select_source_symtab (register struct symtab *s)
 	{
 	  char *name = ps->filename;
 	  int len = strlen (name);
-	  if (!(len > 2 && (STREQ (&name[len - 2], ".h"))))
+	  if (!(len > 2 && (DEPRECATED_STREQ (&name[len - 2], ".h"))))
 	    {
 	      cs_pst = ps;
 	    }
@@ -320,8 +318,8 @@ show_directories (char *ignore, int from_tty)
 void
 forget_cached_source_info (void)
 {
-  register struct symtab *s;
-  register struct objfile *objfile;
+  struct symtab *s;
+  struct objfile *objfile;
   struct partial_symtab *pst;
 
   ALL_OBJFILES (objfile)
@@ -421,7 +419,7 @@ add_path (char *dirname, char **which_path, int parse_separators)
   do
     {
       char *name = dirname;
-      register char *p;
+      char *p;
       struct stat st;
 
       {
@@ -550,7 +548,7 @@ add_path (char *dirname, char **which_path, int parse_separators)
 
     append:
       {
-	register unsigned int len = strlen (name);
+	unsigned int len = strlen (name);
 
 	p = *which_path;
 	while (1)
@@ -618,7 +616,7 @@ add_path (char *dirname, char **which_path, int parse_separators)
 static void
 source_info (char *ignore, int from_tty)
 {
-  register struct symtab *s = current_source_symtab;
+  struct symtab *s = current_source_symtab;
 
   if (!s)
     {
@@ -684,11 +682,11 @@ openp (const char *path, int try_cwd_first, const char *string,
        int mode, int prot,
        char **filename_opened)
 {
-  register int fd;
-  register char *filename;
+  int fd;
+  char *filename;
   const char *p;
   const char *p1;
-  register int len;
+  int len;
   int alloclen;
 
   if (!path)
@@ -960,20 +958,19 @@ open_source_file (struct symtab *s)
   result = open_source_file_fullpath (s);
 
   if (result < 0) 
-    result = openp (path, 0, s->filename, OPEN_MODE, 0, &s->fullname);
+    result = openp (path, 0, s->filename, OPEN_MODE, 0, &fullname);
 
   if (result < 0)
     {
       /* Didn't work.  Try using just the basename. */
       p = lbasename (s->filename);
       if (p != s->filename)
-	result = openp (path, 0, p, OPEN_MODE, 0, &s->fullname);
+	result = openp (path, 0, p, OPEN_MODE, 0, &fullname);
     }
 
   if (result >= 0)
     {
-      fullname = s->fullname;
-      s->fullname = mstrsave (s->objfile->md, s->fullname);
+      s->fullname = mstrsave (s->objfile->md, fullname);
       xfree (fullname);
     }
   return result;
@@ -1017,6 +1014,7 @@ void
 find_source_lines (struct symtab *s, int desc)
 {
   struct stat st;
+  char *data, *p, *end;
   int nlines = 0;
   int lines_allocated = 1000;
   int *line_charpos;
@@ -1144,10 +1142,10 @@ source_line_charpos (struct symtab *s, int line)
 /* Return the line number of character position POS in symtab S.  */
 
 int
-source_charpos_line (register struct symtab *s, register int chr)
+source_charpos_line (struct symtab *s, int chr)
 {
-  register int line = 0;
-  register int *lnp;
+  int line = 0;
+  int *lnp;
 
   if (s == 0 || s->line_charpos == 0)
     return 0;
@@ -1174,7 +1172,7 @@ source_charpos_line (register struct symtab *s, register int chr)
 static int
 get_filename_and_charpos (struct symtab *s, char **fullname)
 {
-  register int desc, linenums_changed = 0;
+  int desc, linenums_changed = 0;
 
   desc = open_source_file (s);
   if (desc < 0)
@@ -1232,8 +1230,8 @@ static void print_source_lines_base (struct symtab *s, int line, int stopline,
 static void
 print_source_lines_base (struct symtab *s, int line, int nlines, int noerror)
 {
-  register int desc;
-  register FILE *stream;
+  int desc;
+  FILE *stream;
   int stopline = line + nlines;
   int c, oldc;
   int eol;
@@ -1321,9 +1319,6 @@ print_source_lines_base (struct symtab *s, int line, int nlines, int noerror)
 
   c = fgetc (stream);
   eol = 0;
-
-
-
 
   while (nlines-- > 0)
     {
@@ -1415,26 +1410,6 @@ void convert_sal (struct symtab_and_line *sal)
 	  break;
 	}
     }
-}
-
-
-/* Print a list of files and line numbers which a user may choose from
-   in order to list a function which was specified ambiguously (as with
-   `list classname::overloadedfuncname', or 'list objectiveCSelector:).
-   The vector in SALS provides the filenames and line numbers.
-   NOTE: some of the SALS may have no filename or line information! */
-
-static void
-ambiguous_line_spec (struct symtabs_and_lines *sals)
-{
-  int i;
-
-  for (i = 0; i < sals->nelts; ++i)
-    if (sals->sals[i].symtab != 0)
-      printf_filtered ("file: \"%s\", line number: %d\n",
-		       sals->sals[i].symtab->filename, sals->sals[i].line);
-    else
-      printf_filtered ("No file and line information.\n");
 }
 
 
@@ -1537,13 +1512,12 @@ line_info (char *arg, int from_tty)
 
 /* Commands to search the source file for a regexp.  */
 
-/* ARGSUSED */
 static void
 forward_search_command (char *regex, int from_tty)
 {
-  register int c;
-  register int desc;
-  register FILE *stream;
+  int c;
+  int desc;
+  FILE *stream;
   int line;
   char *msg;
 
@@ -1551,7 +1525,7 @@ forward_search_command (char *regex, int from_tty)
 
   msg = (char *) re_comp (regex);
   if (msg)
-    error (msg);
+    error ("%s", msg);
 
   if (current_source_symtab == 0)
     select_source_symtab (0);
@@ -1580,7 +1554,7 @@ forward_search_command (char *regex, int from_tty)
   while (1)
     {
       static char *buf = NULL;
-      register char *p;
+      char *p;
       int cursize, newsize;
 
       cursize = 256;
@@ -1633,13 +1607,12 @@ forward_search_command (char *regex, int from_tty)
   fclose (stream);
 }
 
-/* ARGSUSED */
 static void
 reverse_search_command (char *regex, int from_tty)
 {
-  register int c;
-  register int desc;
-  register FILE *stream;
+  int c;
+  int desc;
+  FILE *stream;
   int line;
   char *msg;
 
@@ -1647,7 +1620,7 @@ reverse_search_command (char *regex, int from_tty)
 
   msg = (char *) re_comp (regex);
   if (msg)
-    error (msg);
+    error ("%s", msg);
 
   if (current_source_symtab == 0)
     select_source_symtab (0);
@@ -1677,7 +1650,7 @@ reverse_search_command (char *regex, int from_tty)
     {
 /* FIXME!!!  We walk right off the end of buf if we get a long line!!! */
       char buf[4096];		/* Should be reasonable??? */
-      register char *p = buf;
+      char *p = buf;
 
       c = getc (stream);
       if (c == EOF)

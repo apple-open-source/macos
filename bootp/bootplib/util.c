@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 /*
  * util.c
@@ -175,13 +197,13 @@ timeval_compare(struct timeval tv1, struct timeval tv2)
 }
 
 /*
- * Function: print_data
+ * Function: fprint_data
  * Purpose:
  *   Displays the buffer as a series of 8-bit hex numbers with an ASCII
  *   representation off to the side.
  */
 void
-print_data(u_char * data_p, int n_bytes)
+fprint_data(FILE * f, u_char * data_p, int n_bytes)
 {
 #define CHARS_PER_LINE 	16
     char		line_buf[CHARS_PER_LINE + 1];
@@ -190,7 +212,7 @@ print_data(u_char * data_p, int n_bytes)
 
     for (line_pos = 0, offset = 0; offset < n_bytes; offset++, data_p++) {
 	if (line_pos == 0)
-	    printf("%04x ", offset);
+	    fprintf(f, "%04x ", offset);
 
 	line_buf[line_pos] = isprint(*data_p) ? *data_p : '.';
 	printf(" %02x", *data_p);
@@ -211,6 +233,12 @@ print_data(u_char * data_p, int n_bytes)
 	line_buf[CHARS_PER_LINE] = '\0';
 	printf("  %s\n", line_buf);
     }
+}
+
+void
+print_data(u_char * data_p, int n_bytes)
+{
+    fprint_data(stdout, data_p, n_bytes);
 }
 
 /*
@@ -320,60 +348,6 @@ tagtext_get(char * data, char * data_end, char * tag, char * * end_p)
     return (start);
 }
 
-/* 
- * Function: timestamp_syslog
- *
- * Purpose:
- *   Log a timestamped event message to the syslog.
- */
-void
-timestamp_syslog(char * msg)
-{
-    static struct timeval	tvp = {0,0};
-    struct timeval		tv;
-
-    gettimeofday(&tv, 0);
-    if (tvp.tv_sec) {
-	struct timeval result;
-      
-	timeval_subtract(tv, tvp, &result);
-	syslog(LOG_INFO, "%d.%06d (%d.%06d): %s", 
-	       tv.tv_sec, tv.tv_usec, result.tv_sec, result.tv_usec, msg);
-    }
-    else 
-	syslog(LOG_INFO, "%d.%06d (%d.%06d): %s", 
-	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
-    tvp = tv;
-}
-
-
-/* 
- * Function: timestamp_printf
- *
- * Purpose:
- *   Log a timestamped event message to the printf.
- */
-void
-timestamp_printf(char * msg)
-{
-    static struct timeval	tvp = {0,0};
-    struct timeval		tv;
-
-    gettimeofday(&tv, 0);
-    if (tvp.tv_sec) {
-	struct timeval result;
-	
-	timeval_subtract(tv, tvp, &result);
-	printf("%d.%06d (%d.%06d): %s\n", 
-	       tv.tv_sec, tv.tv_usec, result.tv_sec, result.tv_usec, msg);
-    }
-    else 
-	printf("%d.%06d (%d.%06d): %s\n", 
-	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
-    tvp = tv;
-}
-
-
 int
 ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
 {
@@ -389,64 +363,4 @@ ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
     return (0);
 }
 
-
-#include <stdio.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <string.h>
-
-#include <CoreFoundation/CFString.h>
-
-/* 
- * Function: dns_hostname_clean
- * Purpose:
- *   Check whether the given hostname is DNS clean.
- * Returns:
- *   TRUE if the hostname is clean, FALSE otherwise
- */
-int
-dns_hostname_is_clean(const char * source_str)
-{
-    int		i;
-    int		len = strlen(source_str);
-    char	prev_ch = '\0';
-    const char *scan;
-
-    if (len == 0) {
-	return (NULL);
-    }
-    for (scan = source_str, i = 0; i < len; i++, scan++) {
-	char	ch = *scan;
-	char 	next_ch = *(scan + 1);
-
-	if (prev_ch == '.' || prev_ch == '\0') {
-	    if (isalpha(ch) == 0) {
-		goto failed;
-	    }
-	}
-	else if (next_ch == '\0' || next_ch == '.') {
-	    if (isalnum(ch) == 0) {
-		goto failed;
-	    }
-	}
-	else if (isalnum(ch) == 0) {
-	    switch (ch) {
-	    case '.':
-	    case '-':
-		if (prev_ch == '.' || prev_ch == '-') {
-		    goto failed;
-		}
-		break;
-	    default:
-		goto failed;
-		break;
-	    }
-	}
-	prev_ch = ch;
-    }
-    return (TRUE);
-
- failed:
-    return (FALSE);
-}
 

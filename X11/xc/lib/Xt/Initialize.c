@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Initialize.c,v 3.20 2002/04/10 16:20:07 tsi Exp $ */
+/* $XFree86: xc/lib/Xt/Initialize.c,v 3.22 2003/12/22 21:10:25 dickey Exp $ */
 
 /*
 
@@ -183,6 +183,66 @@ void _XtInherit()
 }
 #define _XtInherit __XtInherit
 #endif
+
+
+#if defined(__CYGWIN__)
+/*
+ * The Symbol _XtInherit is used in two different manners.
+ * First it could be used as a generic function and second
+ * as an absolute address reference, which will be used to
+ * check the initialisation process of several other libraries.
+ * Because of this the symbol must be accessable by all
+ * client dll's and applications.  In unix environments
+ * this is no problem, because the used shared libraries
+ * format (elf) supports this immediatly.  Under Windows
+ * this isn't true, because a functions address in a dll
+ * is different from the same function in another dll or
+ * applications, because the used Portable Executable
+ * File adds a code stub to each client to provide the
+ * exported symbol name.  This stub uses an indirect
+ * pointer to get the original symbol address, which is
+ * then jumped to, like in this example: 
+ *
+ * --- client ---                                     --- dll ----
+ *  ... 
+ *  call foo 
+ * 
+ * foo: jmp (*_imp_foo)               ---->           foo: .... 
+ *      nop
+ *      nop       
+ * 
+ * _imp_foo: .long <index of foo in dll export table, is
+ *		    set to the real address by the runtime linker>
+ * 
+ * Now it is clear why the clients symbol foo isn't the same
+ * as in the dll and we can think about how to deal which
+ * this two above mentioned requirements, to export this
+ * symbol to all clients and to allow calling this symbol
+ * as a function.  The solution I've used exports the
+ * symbol _XtInherit as data symbol, because global data
+ * symbols are exported to all clients.  But how to deal
+ * with the second requirement, that this symbol should
+ * be used as function.  The Trick is to build a little
+ * code stub in the data section in the exact manner as
+ * above explained.  This is done with the assembler code 
+ * below.
+ * 
+ * Ralf Habacker
+ *
+ * References: 
+ * msdn          http://msdn.microsoft.com/msdnmag/issues/02/02/PE/PE.asp
+ * cygwin-xfree: http://www.cygwin.com/ml/cygwin-xfree/2003-10/msg00000.html
+ */
+
+asm (".data\n\
+ .globl __XtInherit        \n\
+ __XtInherit:      jmp *_y \n\
+  _y: .long ___XtInherit   \n\
+    .text                 \n"); 
+
+#define _XtInherit __XtInherit
+#endif
+
 
 void _XtInherit()
 {
@@ -404,18 +464,10 @@ static String _XtDefaultLanguageProc(
     return setlocale(LC_ALL, NULL); /* re-query in case overwritten */
 }
 
-#if NeedFunctionPrototypes
 XtLanguageProc XtSetLanguageProc(
     XtAppContext      app,
     XtLanguageProc    proc,
-    XtPointer         closure
-    )
-#else
-XtLanguageProc XtSetLanguageProc(app, proc, closure)
-    XtAppContext      app;
-    XtLanguageProc    proc;
-    XtPointer         closure;
-#endif
+    XtPointer         closure)
 {
     XtLanguageProc    old;
 
@@ -788,7 +840,6 @@ static void ConnectionWatch (
     }
 }
 
-#if NeedFunctionPrototypes
 void _XtDisplayInitialize(
 	Display *dpy,
         XtPerDisplay pd,
@@ -797,16 +848,6 @@ void _XtDisplayInitialize(
 	Cardinal num_urs,
 	int *argc,
 	char **argv)
-#else
-void _XtDisplayInitialize(dpy, pd, name, urlist, num_urs, argc, argv)
-	Display *dpy;
-        XtPerDisplay pd;
-	String name;
-	XrmOptionDescRec *urlist;
-	Cardinal num_urs;
-	int *argc;
-	char **argv;
-#endif
 {
 	Boolean tmp_bool;
 	XrmValue value;
@@ -901,18 +942,10 @@ void _XtDisplayInitialize(dpy, pd, name, urlist, num_urs, argc, argv)
  *	Returns: none.
  */
 
-#if NeedFunctionPrototypes
 void
 XtAppSetFallbackResources(
-XtAppContext app_context,
-String *specification_list
-)
-#else
-void
-XtAppSetFallbackResources(app_context, specification_list)
-XtAppContext app_context;
-String *specification_list;
-#endif
+    XtAppContext app_context,
+    String *specification_list)
 {
     LOCK_APP(app_context);
     app_context->fallback_resources = specification_list;
@@ -920,27 +953,12 @@ String *specification_list;
 }
 
 	
-#if NeedFunctionPrototypes
 Widget XtOpenApplication(XtAppContext *app_context_return,
 			 _Xconst char *application_class,
 			 XrmOptionDescRec *options, Cardinal num_options,
 			 int *argc_in_out, String *argv_in_out,
 			 String *fallback_resources, WidgetClass widget_class,
 			 ArgList args_in, Cardinal num_args_in)
-#else
-Widget XtOpenApplication(app_context_return, application_class,
-			 options, num_options, argc_in_out, argv_in_out,
-			 fallback_resources, widget_class,
-			 args_in, num_args_in)
-    XtAppContext *app_context_return;
-    String application_class;
-    XrmOptionDescRec *options;
-    Cardinal num_options, num_args_in;
-    int *argc_in_out;
-    String *argv_in_out, *fallback_resources;
-    WidgetClass widget_class;
-    ArgList args_in;
-#endif
 {
     XtAppContext app_con;
     Display * dpy;
@@ -975,32 +993,17 @@ Widget XtOpenApplication(app_context_return, application_class,
 }
 
 	
-#if NeedFunctionPrototypes
 Widget
 XtAppInitialize(
-XtAppContext * app_context_return,
-_Xconst char* application_class,
-XrmOptionDescRec *options,
-Cardinal num_options,
-int *argc_in_out,
-String *argv_in_out,
-String *fallback_resources,
-ArgList args_in,
-Cardinal num_args_in
-)
-#else
-Widget
-XtAppInitialize(app_context_return, application_class, options, num_options,
-		argc_in_out, argv_in_out, fallback_resources, 
-		args_in, num_args_in)
-XtAppContext * app_context_return;
-String application_class;
-XrmOptionDescRec *options;
-Cardinal num_options, num_args_in;
-int *argc_in_out;
-String *argv_in_out, * fallback_resources;     
-ArgList args_in;
-#endif
+    XtAppContext * app_context_return,
+    _Xconst char* application_class,
+    XrmOptionDescRec *options,
+    Cardinal num_options,
+    int *argc_in_out,
+    String *argv_in_out,
+    String *fallback_resources,
+    ArgList args_in,
+    Cardinal num_args_in)
 {
     return XtOpenApplication(app_context_return, application_class,
 			     options, num_options, 
@@ -1011,25 +1014,14 @@ ArgList args_in;
 
 
 /*ARGSUSED*/
-#if NeedFunctionPrototypes
 Widget 
 XtInitialize(
-_Xconst char* name,
-_Xconst char* classname,
-XrmOptionDescRec *options,
-Cardinal num_options,
-int *argc,
-String *argv
-)
-#else
-Widget 
-XtInitialize(name, classname, options, num_options, argc, argv)
-String name, classname;
-XrmOptionDescRec *options;
-Cardinal num_options;
-String *argv;
-int *argc;
-#endif
+    _Xconst char* name,
+    _Xconst char* classname,
+    XrmOptionDescRec *options,
+    Cardinal num_options,
+    int *argc,
+    String *argv)
 {
     Widget root;
     XtAppContext app_con;

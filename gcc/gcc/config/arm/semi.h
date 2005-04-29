@@ -1,23 +1,24 @@
 /* Definitions of target machine for GNU compiler.  ARM on semi-hosted platform
-   Copyright (C) 1994, 1995, 1996, 1997, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 2001, 2004
+   Free Software Foundation, Inc.
    Contributed by Richard Earnshaw (richard.earnshaw@arm.com)
 
-This file is part of GNU CC.
+   This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+   GCC is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published
+   by the Free Software Foundation; either version 2, or (at your
+   option) any later version.
 
-GNU CC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   GCC is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public
+   License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
-the Free Software Foundation, 59 Temple Place - Suite 330,
-Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with GCC; see the file COPYING.  If not, write to
+   the Free Software Foundation, 59 Temple Place - Suite 330,
+   Boston, MA 02111-1307, USA.  */
 
 #define STARTFILE_SPEC  "crt0.o%s"
 
@@ -38,7 +39,7 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT (ARM_FLAG_APCS_32 | ARM_FLAG_APCS_FRAME)
+#define TARGET_DEFAULT (ARM_FLAG_APCS_FRAME)
 #endif
 
 #ifndef SUBTARGET_EXTRA_SPECS
@@ -59,15 +60,13 @@ Boston, MA 02111-1307, USA.  */
    binutils can't.  */
 #ifndef ASM_SPEC
 #define ASM_SPEC "\
-%{fpic: -k} %{fPIC: -k} \
+%{fpic|fpie: -k} %{fPIC|fPIE: -k} \
 %{mbig-endian:-EB} \
 %{mcpu=*:-mcpu=%*} \
 %{march=*:-march=%*} \
 %{mapcs-float:-mfloat} \
-%{msoft-float:-mno-fpu} \
+%{msoft-float:-mfloat-abi=soft} %{mhard-float:mfloat-abi=hard} \
+%{mfloat-abi=*} %{mfpu=*} \
 %{mthumb-interwork:-mthumb-interwork} \
 %(subtarget_extra_asm_spec)"
 #endif
-
-#undef  CPP_APCS_PC_DEFAULT_SPEC
-#define CPP_APCS_PC_DEFAULT_SPEC "-D__APCS_32__"

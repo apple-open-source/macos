@@ -1,9 +1,9 @@
 /*
  * "$Id$"
  *
- *   HTTP test program for the Common UNIX Printing System (CUPS).
+ *   Localization test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -45,6 +45,7 @@ main(int  argc,				/* I - Number of command-line arguments */
      char *argv[])			/* I - Command-line arguments */
 {
   cups_lang_t		*language;	/* Message catalog */
+  cups_lang_t		*language2;	/* Message catalog */
   static const char * const charsets[] =/* Character sets */
 			{
 			  "us-ascii",
@@ -78,14 +79,36 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
   if (argc == 1)
-    language = cupsLangDefault();
+  {
+    language  = cupsLangDefault();
+    language2 = cupsLangDefault();
+  }
   else
-    language = cupsLangGet(argv[1]);
+  {
+    language  = cupsLangGet(argv[1]);
+    language2 = cupsLangGet(argv[1]);
+  }
+
+  if (language != language2)
+  {
+    puts("**** ERROR: Language cache did not work! ****");
+    puts("First result from cupsLangGet:");
+  }
 
   printf("Language = \"%s\"\n", language->language);
   printf("Encoding = \"%s\"\n", charsets[language->encoding]);
   printf("No       = \"%s\"\n", cupsLangString(language, CUPS_MSG_NO));
   printf("Yes      = \"%s\"\n", cupsLangString(language, CUPS_MSG_YES));
+
+  if (language != language2)
+  {
+    puts("Second result from cupsLangGet:");
+
+    printf("Language = \"%s\"\n", language2->language);
+    printf("Encoding = \"%s\"\n", charsets[language2->encoding]);
+    printf("No       = \"%s\"\n", cupsLangString(language2, CUPS_MSG_NO));
+    printf("Yes      = \"%s\"\n", cupsLangString(language2, CUPS_MSG_YES));
+  }
 
   return (0);
 }

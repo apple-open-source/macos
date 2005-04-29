@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGetWProp.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGetWProp.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,77 +144,24 @@
 .SH NAME
 XGetWindowProperty, XListProperties, XChangeProperty, XRotateWindowProperties, XDeleteProperty \- obtain and change window properties
 .SH SYNTAX
-int XGetWindowProperty\^(\^\fIdisplay\fP, \fIw\fP\^, \fIproperty\fP\^, \fIlong_offset\fP\^, \fIlong_length\fP\^, \fIdelete\fP\^, \fIreq_type\fP\^, 
-.br
-                        \fIactual_type_return\fP\^, \fIactual_format_return\fP\^, \fInitems_return\fP\^, \fIbytes_after_return\fP\^, 
-.br
-                        \fIprop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Atom \fIproperty\fP\^;
-.br
-      long \fIlong_offset\fP\^, \fIlong_length\fP\^;
-.br
-      Bool \fIdelete\fP\^;
-.br
-      Atom \fIreq_type\fP\^; 
-.br
-      Atom *\fIactual_type_return\fP\^;
-.br
-      int *\fIactual_format_return\fP\^;
-.br
-      unsigned long *\fInitems_return\fP\^;
-.br
-      unsigned long *\fIbytes_after_return\fP\^;
-.br
-      unsigned char **\fIprop_return\fP\^;
-.LP
-Atom *XListProperties\^(\^\fIdisplay\fP, \fIw\fP\^, \fInum_prop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int *\fInum_prop_return\fP\^; 
-.LP
-XChangeProperty\^(\^\fIdisplay\fP, \fIw\fP\^, \fIproperty\fP\^, \fItype\fP\^, \fIformat\fP\^, \fImode\fP\^, \fIdata\fP\^, \fInelements\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Atom \fIproperty\fP\^, \fItype\fP\^;
-.br
-      int \fIformat\fP\^;
-.br
-      int \fImode\fP\^;
-.br
-      unsigned char *\fIdata\fP\^;
-.br
-      int \fInelements\fP\^;
-.LP
-XRotateWindowProperties\^(\^\fIdisplay\fP, \fIw\fP, \fIproperties\fP, \fInum_prop\fP, \fInpositions\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Atom \fIproperties\fP\^[]\^;
-.br
-      int \fInum_prop\fP\^;
-.br
-      int \fInpositions\fP\^;
-.LP
-XDeleteProperty\^(\^\fIdisplay\fP, \fIw\fP\^, \fIproperty\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Atom \fIproperty\fP\^;
+.HP
+int XGetWindowProperty\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Atom
+\fIproperty\fP\^, long \fIlong_offset\fP\^, long \fIlong_length\fP\^, Bool
+\fIdelete\fP\^, Atom \fIreq_type\fP\^, Atom *\fIactual_type_return\fP\^, int
+*\fIactual_format_return\fP\^, unsigned long *\fInitems_return\fP\^, unsigned
+long *\fIbytes_after_return\fP\^, unsigned char **\fIprop_return\fP\^); 
+.HP
+Atom *XListProperties\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int
+*\fInum_prop_return\fP\^); 
+int XChangeProperty\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Atom
+\fIproperty\fP\^, Atom \fItype\fP\^, int \fIformat\fP\^, int \fImode\fP\^,
+unsigned char *\fIdata\fP\^, int \fInelements\fP\^); 
+.HP
+int XRotateWindowProperties\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+Atom \fIproperties\fP\^[]\^, int \fInum_prop\fP\^, int \fInpositions\fP\^); 
+.HP
+int XDeleteProperty\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, Atom
+\fIproperty\fP\^); 
 .SH ARGUMENTS
 .IP \fIactual_format_return\fP 1i
 Returns the actual format of the property.

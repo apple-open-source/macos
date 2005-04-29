@@ -22,5 +22,12 @@
  */
 #include "SYS.h"
 
+#ifdef __LP64__
 SYSCALL(getsockname, 3)
+#else /* !__LP64__ */
+PSEUDO(getsockname$UNIX2003, getsockname, 3)
+	blr
+
+SYSCALL_ERR(getsockname, 3, cerror_cvt)
+#endif /* __LP64__ */
 

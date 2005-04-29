@@ -36,8 +36,8 @@ type check, fixup and logger stages of a request.
 
 =head1 FAQ
 
-The mod_perl FAQ is maintained by Frank Cringle <fdc@cliwe.ping.de>:
-http://perl.apache.org/faq/
+The mod_perl FAQ is maintained by Frank Cringle
+E<lt>fdc@cliwe.ping.deE<gt>: http://perl.apache.org/faq/
 
 =head1 Apache/Perl API
 
@@ -69,7 +69,7 @@ return a true value, i.e., the end of this file should have a:
 
 See eg/startup.pl for an example to start with.
 
-In an httpd.conf <Location /foo> or .htaccess you need:
+In an httpd.conf E<lt>Location /fooE<gt> or .htaccess you need:
 
     PerlHandler sub_routine_name
 
@@ -467,10 +467,10 @@ e.g. (in config files)
 
  PerlTransHandler OneTrans TwoTrans RedTrans BlueTrans
 
-With the method, Apache->push_handlers, callbacks can be added to
+With the method, Apache-E<gt>push_handlers, callbacks can be added to
 the stack by scripts at runtime by mod_perl scripts.
 
-Apache->push_handlers takes the callback hook name as it's first
+Apache-E<gt>push_handlers takes the callback hook name as it's first
 argument and a subroutine name or reference as it's second. e.g.:
 
  Apache->push_handlers("PerlLogHandler", \&first_one);
@@ -493,7 +493,7 @@ example uses:
 
 CGI.pm maintains a global object for it's plain function interface.
 Since the object is global, it does not go out of scope, DESTROY is
-never called.  CGI->new can call: 
+never called.  CGI-E<gt>new can call: 
 
  Apache->push_handlers("PerlCleanupHandler", \&CGI::_reset_globals);
 
@@ -526,8 +526,8 @@ handlers, users must configure:
  PerlHandler      Apache::MsqlProxy
 
 PerlHandler is never actually invoked unless translate() sees the
-request is a proxy request ($r->proxyreq), if it is a proxy request,
-translate() set $r->handler("perl-script"), only then will PerlHandler
+request is a proxy request ($r-E<gt>proxyreq), if it is a proxy request,
+translate() set $r-E<gt>handler("perl-script"), only then will PerlHandler
 handle the request.  Now, users do not have to specify 'PerlHandler
 Apache::MsqlProxy', the translate() function can set it with
 push_handlers().
@@ -601,7 +601,7 @@ To build in this feature, configure with:
 
  % perl Makefile.PL PERL_STACKED_HANDLERS=1 [PERL_FOO_HOOK=1,etc]
 
-Another method 'Apache->can_stack_handlers' will return TRUE if
+Another method 'Apache-E<gt>can_stack_handlers' will return TRUE if
 mod_perl was configured with PERL_STACKED_HANDLERS=1, FALSE
 otherwise. 
 
@@ -611,13 +611,13 @@ See L<mod_perl_method_handlers>.
 
 =head1 PERL SECTIONS
 
-With <Perl></Perl> sections, it is possible to configure your server
-entirely in Perl.   
+With E<lt>PerlE<gt>E<lt>/PerlE<gt> sections, it is possible to
+configure your server entirely in Perl.
 
-<Perl> sections can contain *any* and as much Perl code as you
+E<lt>PerlE<gt> sections can contain *any* and as much Perl code as you
 wish.  These sections are compiled into a special package who's symbol
 table mod_perl can then walk and grind the names and values of Perl
-variables/structures through the Apache core config gears.    Most of
+variables/structures through the Apache core config gears.  Most of
 the configurations directives can be represented as C<$Scalars> or
 C<@Lists>.  A C<@List> inside these sections is simply converted into
 a single-space delimited string for you inside.  Here's an example:
@@ -634,8 +634,8 @@ a single-space delimited string for you inside.  Here's an example:
 
  </Perl>
 
-Block sections such as <Location></Location> are represented in a
-C<%Hash>, e.g.:
+Block sections such as E<lt>LocationE<gt>E<lt>/LocationE<gt> are
+represented in a C<%Hash>, e.g.:
 
  $Location{"/~dougm/"} = {
      AuthUserFile => '/tmp/htpasswd',
@@ -679,9 +679,9 @@ A tip for syntax checking outside of httpd:
 
 Now you may run C<perl -cx httpd.conf>.
 
-It may be the case that <Perl> sections are not completed or an
-oversight was made in an certain area.  If they do not behave as you
-expect, please send a report to the modperl mailing list.
+It may be the case that E<lt>PerlE<gt> sections are not completed or
+an oversight was made in an certain area.  If they do not behave as
+you expect, please send a report to the modperl mailing list.
 
 To configure this feature build with 
  'perl Makefile.PL PERL_SECTIONS=1'
@@ -692,7 +692,7 @@ As of apache 1.2.0, mod_include can handle Perl callbacks.
 
 A `sub' key value may be anything a Perl*Handler can be:
 subroutine name, package name (defaults to package::handler),
-Class->method call or anonymous sub {}
+Class-E<gt>method call or anonymous sub {}
 
 Example:
 
@@ -813,7 +813,7 @@ from:
 
 =head1 REVISION
 
-$Id: mod_perl.pod,v 1.1.1.2 2001/04/05 05:04:59 zarzycki Exp $
+$Id: mod_perl.pod,v 1.1.1.3 2003/10/08 21:31:40 eseidel Exp $
 
 =head1 AUTHOR
 

@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003, International Business Machines
+ *   Copyright (C) 2003-2004, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -18,7 +18,6 @@
 
 #if !UCONFIG_NO_IDNA && !UCONFIG_NO_TRANSLITERATION
 #include "idnaref.h"
-#include "strprep.h"
 #include "punyref.h"
 #include "ustr_imp.h"
 #include "cmemory.h"
@@ -29,7 +28,7 @@
 #include "unicode/ustring.h"
 
 /* it is official IDNA ACE Prefix is "xn--" */
-static const UChar ACE_PREFIX[] ={ 0x0058,0x004E,0x002d,0x002d } ;
+static const UChar ACE_PREFIX[] ={ 0x0078,0x006E,0x002d,0x002d } ;
 #define ACE_PREFIX_LENGTH 4
 
 #define MAX_LABEL_LENGTH 63
@@ -44,21 +43,6 @@ static const UChar ACE_PREFIX[] ={ 0x0058,0x004E,0x002d,0x002d } ;
 #define FULL_STOP        0x002E
 
 
-NamePrepTransform* TestIDNA::prep = NULL;
-
-NamePrepTransform* TestIDNA::getInstance(UErrorCode& status){
-    if(TestIDNA::prep == NULL){
-        UParseError parseError;
-        TestIDNA::prep = NamePrepTransform::createInstance(parseError, status);
-        if(TestIDNA::prep ==NULL){
-           //status = U_MEMORY_ALLOCATION_ERROR;
-           return NULL;
-        }
-    }
-    return TestIDNA::prep;
-
-}
-
 inline static UBool 
 startsWithPrefix(const UChar* src , int32_t srcLength){
     UBool startsWithPrefix = TRUE;
@@ -68,7 +52,7 @@ startsWithPrefix(const UChar* src , int32_t srcLength){
     }
 
     for(int8_t i=0; i< ACE_PREFIX_LENGTH; i++){
-        if(u_toupper(src[i]) != ACE_PREFIX[i]){
+        if(u_tolower(src[i]) != ACE_PREFIX[i]){
             startsWithPrefix = FALSE;
         }
     }
@@ -143,7 +127,7 @@ static inline int32_t convertUCharsToASCII(const UChar* src,char* dest, int32_t 
 }
 // wrapper around the reference Punycode implementation 
 static int32_t convertToPuny(const UChar* src, int32_t srcLength, 
-							 UChar* dest, int32_t destCapacity,
+                             UChar* dest, int32_t destCapacity,
                              UErrorCode& status){
     uint32_t b1Stack[MAX_LABEL_BUFFER_SIZE];
     int32_t b1Len = 0, b1Capacity = MAX_LABEL_BUFFER_SIZE;
@@ -213,7 +197,7 @@ CLEANUP:
 }
 
 static int32_t convertFromPuny(  const UChar* src, int32_t srcLength,
-								 UChar* dest, int32_t destCapacity,
+                                 UChar* dest, int32_t destCapacity,
                                  UErrorCode& status){
     char b1Stack[MAX_LABEL_BUFFER_SIZE];
     char* b1 = b1Stack;
@@ -257,11 +241,11 @@ CLEANUP:
 
 
 
-U_CFUNC int32_t  
+U_CFUNC int32_t U_EXPORT2
 idnaref_toASCII(const UChar* src, int32_t srcLength, 
-			  UChar* dest, int32_t destCapacity,
+              UChar* dest, int32_t destCapacity,
               int32_t options,
-			  UParseError* parseError,
+              UParseError* parseError,
               UErrorCode* status){
     
     if(status == NULL || U_FAILURE(*status)){
@@ -279,7 +263,7 @@ idnaref_toASCII(const UChar* src, int32_t srcLength,
             b2Capacity = MAX_LABEL_BUFFER_SIZE ,
             reqLength=0;
 
-	//get the options
+    //get the options
     UBool allowUnassigned   = (UBool)((options & IDNAREF_ALLOW_UNASSIGNED) != 0);
     UBool useSTD3ASCIIRules = (UBool)((options & IDNAREF_USE_STD3_RULES) != 0);
 
@@ -320,8 +304,11 @@ idnaref_toASCII(const UChar* src, int32_t srcLength,
 
     // step 3 & 4
     for( j=0;j<b1Len;j++){
-        if(b1[j] > 0x7F) srcIsASCII = FALSE;
-        srcIsLDH = prep->isLDHChar(b1[j]);
+        if(b1[j] > 0x7F){
+            srcIsASCII = FALSE;
+        }else if(prep->isLDHChar(b1[j])==FALSE){  // if the char is in ASCII range verify that it is an LDH character{
+            srcIsLDH = FALSE;
+        }
     }
     
     if(useSTD3ASCIIRules == TRUE){
@@ -337,7 +324,7 @@ idnaref_toASCII(const UChar* src, int32_t srcLength,
             uprv_memmove(dest, b1, b1Len * U_SIZEOF_UCHAR);
             reqLength = b1Len;
         }else{
-			reqLength = b1Len;
+            reqLength = b1Len;
             goto CLEANUP;
         }
     }else{
@@ -404,11 +391,11 @@ CLEANUP:
 }
 
 
-U_CFUNC int32_t  
+U_CFUNC int32_t U_EXPORT2
 idnaref_toUnicode(const UChar* src, int32_t srcLength,
-				UChar* dest, int32_t destCapacity,
+                UChar* dest, int32_t destCapacity,
                 int32_t options,
-				UParseError* parseError,
+                UParseError* parseError,
                 UErrorCode* status){
 
     if(status == NULL || U_FAILURE(*status)){
@@ -436,7 +423,7 @@ idnaref_toUnicode(const UChar* src, int32_t srcLength,
     b1Len = 0;
     UBool* caseFlags = NULL;
 
-	//get the options
+    //get the options
     UBool allowUnassigned   = (UBool)((options & IDNAREF_ALLOW_UNASSIGNED) != 0);
     UBool useSTD3ASCIIRules = (UBool)((options & IDNAREF_USE_STD3_RULES) != 0);
 
@@ -453,11 +440,10 @@ idnaref_toUnicode(const UChar* src, int32_t srcLength,
         for(;src[srcLength]!=0;){
             if(src[srcLength]> 0x7f){
                 srcIsASCII = FALSE;
-            }
-            // here we do not assemble surrogates
-            // since we know that LDH code points
-            // are in the ASCII range only
-            if(prep->isLDHChar(src[srcLength])==FALSE){
+            }if(prep->isLDHChar(src[srcLength])==FALSE){
+                // here we do not assemble surrogates
+                // since we know that LDH code points
+                // are in the ASCII range only
                 srcIsLDH = FALSE;
                 failPos = srcLength;
             }
@@ -467,11 +453,10 @@ idnaref_toUnicode(const UChar* src, int32_t srcLength,
         for(int32_t j=0; j<srcLength; j++){
             if(src[j]> 0x7f){
                 srcIsASCII = FALSE;
-            }
-            // here we do not assemble surrogates
-            // since we know that LDH code points
-            // are in the ASCII range only
-            if(prep->isLDHChar(src[j])==FALSE){
+            }else if(prep->isLDHChar(src[j])==FALSE){
+                // here we do not assemble surrogates
+                // since we know that LDH code points
+                // are in the ASCII range only
                 srcIsLDH = FALSE;
                 failPos = j;
             }
@@ -655,11 +640,11 @@ getNextSeparator(UChar *src,int32_t srcLength,NamePrepTransform* prep,
     }
 }
 
-U_CFUNC int32_t 
+U_CFUNC int32_t U_EXPORT2
 idnaref_IDNToASCII(  const UChar* src, int32_t srcLength,
-				   UChar* dest, int32_t destCapacity,
-				   int32_t options,
-				   UParseError* parseError,
+                   UChar* dest, int32_t destCapacity,
+                   int32_t options,
+                   UParseError* parseError,
                    UErrorCode* status){
 
     if(status == NULL || U_FAILURE(*status)){
@@ -684,7 +669,7 @@ idnaref_IDNToASCII(  const UChar* src, int32_t srcLength,
     int32_t remainingLen = srcLength;
     int32_t b1Capacity = MAX_LABEL_BUFFER_SIZE;
     
-	//get the options
+    //get the options
 //    UBool allowUnassigned   = (UBool)((options & IDNAREF_ALLOW_UNASSIGNED) != 0);
 //    UBool useSTD3ASCIIRules = (UBool)((options & IDNAREF_USE_STD3_RULES) != 0);
     UBool done = FALSE;
@@ -807,11 +792,11 @@ CLEANUP:
     return u_terminateUChars(dest, destCapacity, reqLength, status);
 }
 
-U_CFUNC int32_t
+U_CFUNC int32_t U_EXPORT2
 idnaref_IDNToUnicode(  const UChar* src, int32_t srcLength,
-				     UChar* dest, int32_t destCapacity,
-					 int32_t options,
-					 UParseError* parseError,
+                     UChar* dest, int32_t destCapacity,
+                     int32_t options,
+                     UParseError* parseError,
                      UErrorCode* status){
     
     if(status == NULL || U_FAILURE(*status)){
@@ -837,11 +822,11 @@ idnaref_IDNToUnicode(  const UChar* src, int32_t srcLength,
     int32_t remainingLen = srcLength;
     int32_t b1Capacity = MAX_LABEL_BUFFER_SIZE;
     
-	//get the options
+    //get the options
 //    UBool allowUnassigned   = (UBool)((options & IDNAREF_ALLOW_UNASSIGNED) != 0);
 //    UBool useSTD3ASCIIRules = (UBool)((options & IDNAREF_USE_STD3_RULES) != 0);
     
-	if(U_FAILURE(*status)){
+    if(U_FAILURE(*status)){
         goto CLEANUP;
     }
     
@@ -956,10 +941,10 @@ CLEANUP:
     return u_terminateUChars(dest, destCapacity, reqLength, status);
 }
 
-U_CFUNC int32_t
+U_CFUNC int32_t U_EXPORT2
 idnaref_compare(  const UChar *s1, int32_t length1,
                 const UChar *s2, int32_t length2,
-				int32_t options,
+                int32_t options,
                 UErrorCode* status){
 
     if(status == NULL || U_FAILURE(*status)){
@@ -971,7 +956,7 @@ idnaref_compare(  const UChar *s1, int32_t length1,
     int32_t b1Len, b2Len, b1Capacity = MAX_IDN_BUFFER_SIZE, b2Capacity = MAX_IDN_BUFFER_SIZE;
     int32_t result = -1;
     
-	UParseError parseError;
+    UParseError parseError;
 
     b1Len = idnaref_IDNToASCII(s1, length1, b1, b1Capacity, options, &parseError, status);
     if(*status == U_BUFFER_OVERFLOW_ERROR){

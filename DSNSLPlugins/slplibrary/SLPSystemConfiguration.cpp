@@ -58,6 +58,7 @@ Boolean IsNetworkSetToTriggerDialup( void )
 	
 	SCNetworkCheckReachabilityByAddress( (struct sockaddr*)&addr, sizeof(addr), &connectionFlags );
 
+#ifdef ENABLE_SLP_LOGGING
 	if (connectionFlags & kSCNetworkFlagsReachable)
 		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: kSCNetworkFlagsReachable\n" );
 	else
@@ -72,10 +73,13 @@ Boolean IsNetworkSetToTriggerDialup( void )
 		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: kSCNetworkFlagsTransientConnection\n" );
 	else
 		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup, flag: !kSCNetworkFlagsTransientConnection\n" );
+#endif
 	
 	if ( (connectionFlags & kSCNetworkFlagsReachable) && !(connectionFlags & kSCNetworkFlagsConnectionRequired) && !(connectionFlags & kSCNetworkFlagsTransientConnection) )
 	{
+#ifdef ENABLE_SLP_LOGGING
 		SLP_LOG( SLP_LOG_DEBUG, "CSLPPlugin::IsNetworkSetToTriggerDialup found address reachable w/o dialup required\n" );
+#endif
 		dialupWillBeTriggered = false;
 	}
 	
@@ -154,8 +158,9 @@ void SLPSystemConfiguration::FreeSLPSC( void )
 
 SLPSystemConfiguration::SLPSystemConfiguration( CFRunLoopRef runLoopRef )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "New SLPSystemConfiguration created" );
-    
+#endif    
     mSCRef = 0;
     mEncodedScopeToRegisterIn = NULL;
     mUseOnlyPreConfiguredDAs = false;
@@ -169,8 +174,9 @@ SLPSystemConfiguration::SLPSystemConfiguration( CFRunLoopRef runLoopRef )
 
 SLPSystemConfiguration::~SLPSystemConfiguration()
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_CONFIG, "SLPSystemConfiguration deleted" );
-    
+#endif    
     if ( mEncodedScopeToRegisterIn )
         free( mEncodedScopeToRegisterIn );
     
@@ -225,7 +231,9 @@ void SLPSystemConfiguration::SetEncodedScopeToRegisterIn( const char* scope, boo
 
 void SLPSystemConfiguration::Initialize( void )
 {
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_CONFIG, "SLPSystemConfiguration::Initialize\n" );
+#endif
     if ( !mSCRef )
     {
         mSCRef = ::SCDynamicStoreCreate(NULL, kSLPTagSAFE_CFSTR, NULL, NULL);
@@ -263,8 +271,9 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
 	CFMutableArrayRef	notifyPatterns		= 0;
 	Boolean				setStatus			= FALSE;
 	
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange" );
-
+#endif
 	if (mSCRef != 0)
 	{
 		if ( !mMainRunLoopRef )
@@ -277,7 +286,9 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
 												0,
 												&kCFTypeArrayCallBacks);
 
+#ifdef ENABLE_SLP_LOGGING
 		SLP_LOG( SLP_LOG_DEBUG, "RegisterForNetworkChange for kSCEntNetIPv4:\n" );
+#endif
 		ipKey = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetIPv4);
 		CFArrayAppendValue(notifyKeys, ipKey);
 		CFRelease(ipKey);
@@ -290,10 +301,14 @@ SInt32 SLPSystemConfiguration::RegisterForNetworkChange( void )
         {
             ::CFRunLoopAddCommonMode( mMainRunLoopRef, kCFRunLoopDefaultMode );
             scdStatus = ::SCDynamicStoreNotifyCallback( mSCRef, mMainRunLoopRef, SLPSystemConfigurationNetworkChangedCallBack, this );
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "SCDynamicStoreNotifyCallback returned %ld\n", scdStatus );
+#endif
         }
+#ifdef ENABLE_SLP_LOGGING
         else
             SLP_LOG( SLP_LOG_DEBUG, "No Current Run Loop, couldn't store Notify callback\n" );
+#endif
 	} // SCDSessionRef okay
 
 	return scdStatus;
@@ -305,8 +320,9 @@ SInt32 SLPSystemConfiguration::UnRegisterForNetworkChange ( void )
 {
 	SInt32		scdStatus = 0;
 
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_DEBUG, "UnRegisterForNetworkChange():\n" );
-	
+#endif	
 	return scdStatus;
 
 } // UnRegisterForNetworkChange
@@ -330,7 +346,9 @@ CFStringRef SLPSystemConfiguration::CopyCurrentActivePrimaryInterfaceName( void 
         dict = (CFDictionaryRef)SCDynamicStoreCopyValue(mSCRef, key);
         if ( !dict )
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DROP, "CopyCurrentActivePrimaryInterfaceName, coudn't get the interface dictionary, sleep a second and try again\n" );
+#endif
             SmartSleep(1*USEC_PER_SEC);
             retryNum++;
         }
@@ -347,11 +365,12 @@ CFStringRef SLPSystemConfiguration::CopyCurrentActivePrimaryInterfaceName( void 
             CFRetain( primary );
         }
     }
+#ifdef ENABLE_SLP_LOGGING
     else 
     {
         SLP_LOG( SLP_LOG_DROP, "No primary interface was found!");
     }
-    
+#endif    
     if (dict) 
     {
         CFRelease(dict);
@@ -403,34 +422,40 @@ void SLPSystemConfiguration::CheckIfFirstLaunchSinceReboot( void )
  */
 	if ( SCDynamicStoreAddValue( mSCRef, kSLPTimeOfFirstStartSAFE_CFSTR, dateRef ) )
     {
-        // this wasn't there before
-        if ( SLPGetProperty("com.sun.slp.regfile") )
+        const char* regFilePath = SLPGetProperty("com.sun.slp.regfile");
+		
+		// this wasn't there before
+        if ( regFilePath )
         {
-            char		msg[1200];
+            unlink( regFilePath );
             
-            sprintf( msg, "rm %s", SLPGetProperty("com.sun.slp.regfile") );
-            system( msg );
-            
-            SLP_LOG( SLP_LOG_DEBUG, "First time up, slp is deleting regfile: %s", SLPGetProperty("com.sun.slp.regfile") );
+#ifdef ENABLE_SLP_LOGGING
+            SLP_LOG( SLP_LOG_DEBUG, "First time up, slp is deleting regfile: %s", regFilePath );
+#endif
         }
     }
+#ifdef ENABLE_SLP_LOGGING
     else
     {
         SLP_LOG( SLP_LOG_DEBUG, "Not first time up this reboot, ignoring regfile" );
     }
+#endif
 
     CFRelease( dateRef );
 }
 
 void SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation( void )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation" );
+#endif
     // this data should be retrieved in the following priority:
     // 1) Are we specifically configured via DirectoryServices
     // 2) Do we have info from DHCP?
     // 2) Have we been set locally via com.apple.slp.defaultRegistrationScope (lower priority as it is older tech)
     // 3) use DEFAULT
     
+#ifdef ENABLE_SLP_LOGGING
     if ( false )
     {
         // skip #1 for now 
@@ -441,23 +466,30 @@ void SLPSystemConfiguration::DeterminePreconfiguredRegistrationScopeInformation(
         // cool, we were able to get it from here
         SLP_LOG( SLP_LOG_DEBUG, "Using scope info from DHCP: %s", mEncodedScopeToRegisterIn );      
     }
-    else if ( SLPGetProperty("com.apple.slp.defaultRegistrationScope") )
+    else
+#endif
+	if ( SLPGetProperty("com.apple.slp.defaultRegistrationScope") )
     {
         SetEncodedScopeToRegisterIn( SLPGetProperty("com.apple.slp.defaultRegistrationScope"), false );
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Using scope info from config file: %s", mEncodedScopeToRegisterIn );      
+#endif
     }
     else
     {
         // ok, we should just use the special "DEFAULT" scope, it doesn't need to be encoded
         SetEncodedScopeToRegisterIn( SLP_DEFAULT_SCOPE, true );
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Using default scope info: %s", mEncodedScopeToRegisterIn );      
+#endif
     }
 }
 
 void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation" );
-    
+#endif    
     // this data should be retrieved in the following priority:
     // 1) Are we specifically configured via DirectoryServices
     // 2) Do we have info from DHCP?
@@ -467,13 +499,17 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
     if ( false )
     {
         // skip #1 for now       
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Using DAAgent info from Directory Services" );      
+#endif
         mUseOnlyPreConfiguredDAs = true;
     }
     else if ( GetDAAgentInformationFromDCHP() )
     {
         // cool, we were able to get it from here
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Using DAAgent info from DHCP" );
+#endif
         mUseOnlyPreConfiguredDAs = true;  
     }
     else if ( SLPGetProperty("net.slp.DAAddresses") )
@@ -483,8 +519,9 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
         char			cDelim;
         int   			iOffset = 0;
     	// if there are any preconfigured DAs, add them to the DA table.
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Using DAAgent info from config file" );      
-
+#endif
         do {
         
             if ( !pcDAs )
@@ -502,16 +539,18 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
             {
                 pcScopes = get_next_string(")",pcDAs,&iOffset,&cDelim);
 
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent info from config file, da: %s", pcDA );      
-               
+#endif               
                 if ( !pcScopes )
                 {
                     pcScopes = (char*)malloc(1);
                     pcScopes[0] = '\0';
                 }
                 
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent info from config file, scope: %s", pcScopes );      
-
+#endif
                 if (!pcDA) { /* eventually we will run out: clean up & exit */
 					SLPFree(pcDA);
 					SLPFree(pcScopes);
@@ -524,14 +563,18 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
             else
             {
                 pcDA = get_next_string(",",pcDAs,&iOffset,&cDelim);			// they are perhaps just using a comma delimited list (da1,da2 etc)
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent info from config file, da: %s", pcDA );      
+#endif
             }
             
             if ( pcDA )
             {
                 struct in_addr addr = get_in_addr_by_name(pcDA);
                 
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "...Using DAAgent calling LocateAndAddDA for da: %s", pcDA );      
+#endif
                 LocateAndAddDA( addr.s_addr );		// ignore any scope info and talk to the DA itself
                 mUseOnlyPreConfiguredDAs = true;
             }
@@ -548,11 +591,15 @@ void SLPSystemConfiguration::DeterminePreconfiguredDAAgentInformation( void )
 
 void SLPSystemConfiguration::DeterminePreconfiguredInterfaceInformation( void )
 {
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_DEBUG, "SLPSystemConfiguration::DeterminePreconfiguredInterfaceInformation\n" );
+#endif
     if ( SLPGetProperty("com.apple.slp.interface") )
     {
         mConfiguredInterfaceToUse = ::CFStringCreateWithCString( NULL, SLPGetProperty("com.apple.slp.interface"), kCFStringEncodingASCII );
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Configured to use interface: %s", SLPGetProperty("com.apple.slp.interface") );
+#endif
     }
 }
 
@@ -711,7 +758,9 @@ boolean_t SLPSystemConfigurationNetworkChangedCallBack(SCDynamicStoreRef session
     SLPSystemConfiguration*		config = (SLPSystemConfiguration*)callback_argument;
     
     // do nothing by default
+#ifdef ENABLE_SLP_LOGGING
 	SLP_LOG( SLP_LOG_NOTIFICATIONS, "*****Network Change Detected******\n" );
+#endif
 	CFArrayRef	changedKeys;
 	
 	changedKeys = SCDynamicStoreCopyNotifiedKeys(session);

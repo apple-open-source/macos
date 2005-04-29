@@ -1,4 +1,4 @@
-/*	$NetBSD: search.c,v 1.9 2000/09/04 22:06:32 lukem Exp $	*/
+/*	$NetBSD: search.c,v 1.12 2002/03/18 16:00:58 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,15 +36,13 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * search.c: History and character search functions
  */
-#include "sys.h"
-#if defined(REGEX)
-#include <regex.h>
-#elif defined(REGEXP)
-#include <regexp.h>
-#endif
+#include <stdlib.h>
 #include "el.h"
 
 /*
@@ -62,6 +60,8 @@ search_init(EditLine *el)
 {
 
 	el->el_search.patbuf = (char *) el_malloc(EL_BUFSIZ);
+	if (el->el_search.patbuf == NULL)
+		return (-1);
 	el->el_search.patlen = 0;
 	el->el_search.patdir = -1;
 	el->el_search.chacha = '\0';
@@ -191,11 +191,12 @@ c_setpat(EditLine *el)
 protected el_action_t
 ce_inc_search(EditLine *el, int dir)
 {
-	static char STRfwd[] = {'f', 'w', 'd', '\0'},
+	static const char STRfwd[] = {'f', 'w', 'd', '\0'},
 	     STRbck[] = {'b', 'c', 'k', '\0'};
 	static char pchar = ':';/* ':' = normal, '?' = failed */
 	static char endcmd[2] = {'\0', '\0'};
-	char ch, *cp, *ocursor = el->el_line.cursor, oldpchar = pchar;
+	char ch, *ocursor = el->el_line.cursor, oldpchar = pchar;
+	const char *cp;
 
 	el_action_t ret = CC_NORM;
 
@@ -219,7 +220,7 @@ ce_inc_search(EditLine *el, int dir)
 		}
 		done = redo = 0;
 		*el->el_line.lastchar++ = '\n';
-		for (cp = newdir == ED_SEARCH_PREV_HISTORY ? STRbck : STRfwd;
+		for (cp = (newdir == ED_SEARCH_PREV_HISTORY) ? STRbck : STRfwd;
 		    *cp; *el->el_line.lastchar++ = *cp++)
 			continue;
 		*el->el_line.lastchar++ = pchar;

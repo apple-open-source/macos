@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)time.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/time.c,v 1.2 2002/03/22 21:52:05 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/time.c,v 1.4 2003/07/19 02:53:46 wollman Exp $");
 
 #include <sys/types.h>
 #include <sys/time.h>
@@ -45,10 +45,13 @@ time(t)
 	time_t *t;
 {
 	struct timeval tt;
+	time_t retval;
 
 	if (gettimeofday(&tt, (struct timezone *)0) < 0)
-		return(-1);
-	if (t)
-		*t = tt.tv_sec;
-	return(tt.tv_sec);
+		retval = -1;
+	else
+		retval = tt.tv_sec;
+	if (t != NULL)
+		*t = retval;
+	return (retval);
 }

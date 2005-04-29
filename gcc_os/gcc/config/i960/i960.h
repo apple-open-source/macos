@@ -111,10 +111,10 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr," (intel 80960)");
 
 /* Generate DBX debugging information.  */
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Generate SDB style debugging information.  */
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 #define EXTENDED_SDB_BASIC_TYPES
 
 /* Generate DBX_DEBUGGING_INFO by default.  */
@@ -335,54 +335,13 @@ extern int target_flags;
 /* Override conflicting target switch options.
    Doesn't actually detect if more than one -mARCH option is given, but
    does handle the case of two blatantly conflicting -mARCH options.  */
-#define OVERRIDE_OPTIONS					\
-{								\
-  if (TARGET_K_SERIES && TARGET_C_SERIES)			\
-    {								\
-      warning ("conflicting architectures defined - using C series"); \
-      target_flags &= ~TARGET_FLAG_K_SERIES;			\
-    }								\
-  if (TARGET_K_SERIES && TARGET_MC)				\
-    {								\
-      warning ("conflicting architectures defined - using K series"); \
-      target_flags &= ~TARGET_FLAG_MC;				\
-    }								\
-  if (TARGET_C_SERIES && TARGET_MC)				\
-    {								\
-      warning ("conflicting architectures defined - using C series");\
-      target_flags &= ~TARGET_FLAG_MC;				\
-    }								\
-  if (TARGET_IC_COMPAT3_0)					\
-    {								\
-      flag_short_enums = 1;					\
-      flag_signed_char = 1;					\
-      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
-      if (TARGET_IC_COMPAT2_0)					\
-	{							\
-	  warning ("iC2.0 and iC3.0 are incompatible - using iC3.0"); \
-	  target_flags &= ~TARGET_FLAG_IC_COMPAT2_0;		\
-	}							\
-    }								\
-  if (TARGET_IC_COMPAT2_0)					\
-    {								\
-      flag_signed_char = 1;					\
-      target_flags |= TARGET_FLAG_CLEAN_LINKAGE;		\
-    }								\
-  /* ??? See the LONG_DOUBLE_TYPE_SIZE definition below.  */	\
-  if (TARGET_LONG_DOUBLE_64)					\
-    warning ("the -mlong-double-64 option does not work yet");\
-  i960_initialize ();						\
-}
+#define OVERRIDE_OPTIONS  i960_initialize ()
 
 /* Don't enable anything by default.  The user is expected to supply a -mARCH
    option.  If none is given, then -mka is added by CC1_SPEC.  */
 #define TARGET_DEFAULT 0
 
 /* Target machine storage layout.  */
-
-/* Define for cross-compilation from a host with a different float format
-   or endianness, as well as to support 80 bit long doubles on the i960.  */
-#define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
@@ -397,38 +356,22 @@ extern int target_flags;
    numbered.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
 /* Bitfields cannot cross word boundaries.  */
 #define BITFIELD_NBYTES_LIMITED 1
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
 
-/* Width in bits of a pointer.  See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
-
-/* Width in bits of a long double.  Define to 96, and let
-   ROUND_TYPE_ALIGN adjust the alignment for speed.  */
-#define	LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 96)
-
-/* ??? This must be a constant, because real.c and real.h test it with #if.  */
-#undef LONG_DOUBLE_TYPE_SIZE
-#define LONG_DOUBLE_TYPE_SIZE 96
+/* Width in bits of a long double.  */
+#define	LONG_DOUBLE_TYPE_SIZE (TARGET_LONG_DOUBLE_64 ? 64 : 128)
+#define MAX_LONG_DOUBLE_TYPE_SIZE 128
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */
 #if defined(__LONG_DOUBLE_64__)
 #define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 64
 #else
-#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 96
+#define LIBGCC2_LONG_DOUBLE_TYPE_SIZE 128
 #endif
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
@@ -473,33 +416,14 @@ extern int target_flags;
    ? i960_object_bytes_bitalign (int_size_in_bytes (TREE_TYPE (EXP)))	    \
    : (ALIGN))
 
-/* Make XFmode floating point quantities be 128 bit aligned.  */
-#define DATA_ALIGNMENT(TYPE, ALIGN)					\
-  (TREE_CODE (TYPE) == ARRAY_TYPE					\
-   && TYPE_MODE (TREE_TYPE (TYPE)) == XFmode				\
-   && (ALIGN) < 128 ? 128 : (ALIGN))
-
 /* Macros to determine size of aggregates (structures and unions
    in C).  Normally, these may be defined to simply return the maximum
    alignment and simple rounded-up size, but on some machines (like
    the i960), the total size of a structure is based on a non-trivial
    rounding method.  */
 
-#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	   \
-   ? 128  /* Put 80 bit floating point elements on 128 bit boundaries.  */ \
-   : ((!TARGET_OLD_ALIGN && !TYPE_PACKED (TYPE)				   \
-       && TREE_CODE (TYPE) == RECORD_TYPE)				   \
-      ? i960_round_align (MAX ((COMPUTED), (SPECIFIED)), TYPE_SIZE (TYPE)) \
-      : MAX ((COMPUTED), (SPECIFIED))))
-
-#define ROUND_TYPE_SIZE(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	\
-   ? bitsize_int (128) : round_up (COMPUTED, SPECIFIED))
-#define ROUND_TYPE_SIZE_UNIT(TYPE, COMPUTED, SPECIFIED)		\
-  ((TREE_CODE (TYPE) == REAL_TYPE && TYPE_MODE (TYPE) == XFmode)	\
-   ? size_int (16) : round_up (COMPUTED, SPECIFIED))
-
+#define ROUND_TYPE_ALIGN(TYPE, COMPUTED, SPECIFIED) \
+  i960_round_align (MAX ((COMPUTED), (SPECIFIED)), TYPE)
 
 /* Standard register usage.  */
 
@@ -582,7 +506,7 @@ extern int target_flags;
 
 /* Value is 1 if hard register REGNO can hold a value of machine-mode MODE.
    On 80960, the cpu registers can hold any mode but the float registers
-   can only hold SFmode, DFmode, or XFmode.  */
+   can only hold SFmode, DFmode, or TFmode.  */
 #define HARD_REGNO_MODE_OK(REGNO, MODE) hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
@@ -888,8 +812,8 @@ enum reg_class { NO_REGS, GLOBAL_REGS, LOCAL_REGS, LOCAL_OR_GLOBAL_REGS,
   (VALIST) = i960_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  i960_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  i960_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1167,9 +1091,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 0
 
-/* Allow and ignore #sccs directives.  */
-#define	SCCS_DIRECTIVE
-
 /* Max number of bytes we can move from memory to memory
    in one reasonably fast instruction.  */
 #define MOVE_MAX 16
@@ -1185,15 +1106,10 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
 #define LOAD_EXTEND_OP(MODE) ZERO_EXTEND
 
 /* Nonzero if access to memory by bytes is no faster than for words.
-   Value changed to 1 after reports of poor bitfield code with g++.
+   Value changed to 1 after reports of poor bit-field code with g++.
    Indications are that code is usually as good, sometimes better.  */   
 
 #define SLOW_BYTE_ACCESS 1
-
-/* Force sizeof(bool) == 1 to maintain binary compatibility; otherwise, the
-   change in SLOW_BYTE_ACCESS would have changed it to 4.  */
-
-#define BOOL_TYPE_SIZE CHAR_TYPE_SIZE
 
 /* We assume that the store-condition-codes instructions store 0 for false
    and some other value for true.  This is the value stored for true.  */
@@ -1220,14 +1136,6 @@ struct cum_args { int ca_nregparms; int ca_nstackparms; };
    cc setter and cc user at insn emit time.  */
 
 extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
-
-/* Add any extra modes needed to represent the condition code.
-
-   Also, signed and unsigned comparisons are distinguished, as
-   are operations which are compatible with chkbit insns.  */
-#define EXTRA_CC_MODES		\
-    CC(CC_UNSmode, "CC_UNS")	\
-    CC(CC_CHKmode, "CC_CHK")
 
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode
@@ -1344,19 +1252,8 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 	fprintf((FILE),"\t.stabd	68,0,%d\n",(LINE));	\
   } }
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)		\
-{ fputs ("\t.globl ", FILE);			\
-  assemble_name (FILE, NAME);			\
-  fputs ("\n", FILE); }
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -1460,25 +1357,6 @@ extern struct rtx_def *i960_compare_op0, *i960_compare_op1;
 #define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
 	( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
 	  sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
-
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-{ fprintf (FILE, "\tld	LPBX0,g12\n");			\
-  fprintf (FILE, "\tcmpobne	0,g12,LPY%d\n",LABELNO);\
-  fprintf (FILE, "\tlda	LPBX0,g12\n");			\
-  fprintf (FILE, "\tcall	___bb_init_func\n");	\
-  fprintf (FILE, "LPY%d:\n",LABELNO); }
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-
-#define BLOCK_PROFILER(FILE, BLOCKNO) \
-{ int blockn = (BLOCKNO);				\
-  fprintf (FILE, "\tld	LPBX2+%d,g12\n", 4 * blockn);	\
-  fprintf (FILE, "\taddo	g12,1,g12\n");		\
-  fprintf (FILE, "\tst	g12,LPBX2+%d\n", 4 * blockn); }
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.
@@ -1585,22 +1463,3 @@ extern enum insn_types i960_last_insn_type;
 /* Defined in reload.c, and used in insn-recog.c.  */
 
 extern int rtx_equal_function_value_matters;
-
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.  */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
-do {									\
-  int d = (DELTA);							\
-  if (d < 0 && d > -32)							\
-    fprintf (FILE, "\tsubo %d,g0,g0\n", -d);				\
-  else if (d > 0 && d < 32)						\
-    fprintf (FILE, "\taddo %d,g0,g0\n", d);				\
-  else									\
-    {									\
-      fprintf (FILE, "\tldconst %d,r5\n", d);				\
-      fprintf (FILE, "\taddo r5,g0,g0\n");				\
-    }									\
-  fprintf (FILE, "\tbx ");						\
-  assemble_name (FILE, XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0));	\
-  fprintf (FILE, "\n");							\
-} while (0);

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -115,7 +115,7 @@ public:
 
     UVector(UObjectDeleter *d, UKeyComparator *c, int32_t initialCapacity, UErrorCode &status);
 
-    ~UVector();
+    virtual ~UVector();
 
     /**
      * Assign this object to another (make this a copy of 'other').
@@ -250,14 +250,14 @@ public:
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID();
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
 private:
     void _init(int32_t initialCapacity, UErrorCode &status);
@@ -272,11 +272,6 @@ private:
     // Disallow
     UVector& operator=(const UVector&);
 
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 
@@ -306,6 +301,8 @@ public:
 
     UStack(UObjectDeleter *d, UKeyComparator *c, int32_t initialCapacity, UErrorCode &status);
 
+    virtual ~UStack();
+
     // It's okay not to have a virtual destructor (in UVector)
     // because UStack has no special cleanup to do.
 
@@ -330,14 +327,14 @@ public:
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID();
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
 private:
     // Disallow
@@ -345,12 +342,6 @@ private:
 
     // Disallow
     UStack& operator=(const UStack&);
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 

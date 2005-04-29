@@ -1,11 +1,10 @@
-/* APPLE LOCAL file zero link */
 /* Check if the '-fzero-link' flag correctly emits an objc_getClass() call. */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-fnext-runtime -fzero-link" } */
-/* { dg-do compile { target *-*-darwin* } } */
+/* { dg-do compile } */
 
-#import <objc/objc.h>
-#import <objc/Object.h>
+#include <objc/objc.h>
+#include <objc/Object.h>
 
 extern void abort(void);
 #define CHECK_IF(expr) if(!(expr)) abort();

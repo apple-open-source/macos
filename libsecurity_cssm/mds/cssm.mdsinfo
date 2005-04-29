@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
+<plist version="0.9">
+<dict>
+	<key>CDSAVersion</key>
+	<string>2.0</string>
+	<key>Desc</key>
+	<string>Apple Standard CSSM</string>
+	<key>MdsFileDescription</key>
+	<string>Built-in CSSM Common info</string>
+	<key>MdsFileType</key>
+	<string>CSSM</string>
+	<key>ModuleID</key>
+	<string>{87191ca0-0fc9-11d4-849a-000502b52122}</string>
+	<key>ModuleName</key>
+	<string>Security.framework</string>
+	<key>NativeServices</key>
+	<string>CSSM_SERVICE_CSSM|CSSM_SERVICE_CSP|CSSM_SERVICE_DL|CSSM_SERVICE_CL|CSSM_SERVICE_TP|CSSM_SERVICE_AC</string>
+	<key>ProductVersion</key>
+	<string>2.0</string>
+	<key>Vendor</key>
+	<string>Apple Computer, Inc.</string>
+</dict>
+</plist>

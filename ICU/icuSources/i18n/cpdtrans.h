@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -18,7 +18,7 @@
 
 U_NAMESPACE_BEGIN
 
-class U_I18N_API UVector;
+class U_COMMON_API UVector;
 class TransliteratorRegistry;
 
 /**
@@ -115,7 +115,7 @@ public:
      * Transliterator API.
      * @internal Use transliterator factory methods instead since this class will be removed in that release.
      */
-    Transliterator* clone(void) const;
+    virtual Transliterator* clone(void) const;
 
     /**
      * Returns the number of transliterators in this chain.
@@ -188,14 +188,14 @@ public:
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const;
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID();
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
 
@@ -243,21 +243,7 @@ private:
     void freeTransliterators(void);
 
     void computeMaximumContextLength(void);
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
-
-inline UClassID
-CompoundTransliterator::getStaticClassID()
-{ return (UClassID)&fgClassID; }
-
-inline UClassID
-CompoundTransliterator::getDynamicClassID() const
-{ return CompoundTransliterator::getStaticClassID(); }
 
 U_NAMESPACE_END
 

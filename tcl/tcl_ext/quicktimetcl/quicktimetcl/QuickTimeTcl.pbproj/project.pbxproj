@@ -1,0 +1,617 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		034768DDFF38A45A11DB9C8B = {
+			children = (
+				F550918E036C35030130931B,
+			);
+			isa = PBXGroup;
+			name = Products;
+			path = "";
+			refType = 4;
+		};
+//030
+//031
+//032
+//033
+//034
+//080
+//081
+//082
+//083
+//084
+		0867D690FE84028FC02AAC07 = {
+			buildStyles = (
+				4F0BB7EC011F40E904CA0E50,
+				4F0BB7ED011F40E904CA0E50,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 0867D691FE84028FC02AAC07;
+			productRefGroup = 034768DDFF38A45A11DB9C8B;
+			projectDirPath = "";
+			targets = (
+				F550918D036C35030130931B,
+			);
+		};
+		0867D691FE84028FC02AAC07 = {
+			children = (
+				08FB77ACFE841707C02AAC07,
+				034768DDFF38A45A11DB9C8B,
+				089C1665FE841158C02AAC07,
+				0867D69AFE84028FC02AAC07,
+			);
+			isa = PBXGroup;
+			name = MatsFramework;
+			refType = 4;
+		};
+		0867D69AFE84028FC02AAC07 = {
+			children = (
+				08FB77AAFE841565C02AAC07,
+				F5151047037FF19401FE12CD,
+				F5564883038142E001A4FCC0,
+				9A578441043C3672009A6529,
+				9A57846A043C3778009A6529,
+				9A578465043C369F009A6529,
+				9A57846C043C37A8009A6529,
+			);
+			isa = PBXGroup;
+			name = "External Frameworks and Libraries";
+			refType = 4;
+		};
+		089C1665FE841158C02AAC07 = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		08FB77AAFE841565C02AAC07 = {
+			isa = PBXFrameworkReference;
+			name = Carbon.framework;
+			path = /System/Library/Frameworks/Carbon.framework;
+			refType = 0;
+		};
+		08FB77ACFE841707C02AAC07 = {
+			children = (
+				F515103B037FEFAD01FE12CD,
+				F515103D037FEFAD01FE12CD,
+				F5151035037FEF6D01FE12CD,
+				9A5EB6E9041F7AFF00D04299,
+				9A5EB6E3041F7ACF00D04299,
+				9A5EB6E5041F7ADF00D04299,
+				9A5EB6E7041F7AF100D04299,
+				F5151036037FEF6D01FE12CD,
+				9A5EB6EB041F7B0B00D04299,
+				9A89517C03F514530038A759,
+				9A5EB6EF041F7B2B00D04299,
+				9A9603150410D07700CBE39A,
+				F5151041037FEFCC01FE12CD,
+				9A5EB6ED041F7B1A00D04299,
+				9A92936A0431F94D00FE9F03,
+				9A92936C0431F9F100FE9F03,
+				9A5EB6F1041F7B3800D04299,
+				F5151039037FEF8801FE12CD,
+				F5151042037FEFCC01FE12CD,
+				F5151043037FEFCC01FE12CD,
+				9A57F99D0428A7190092B6B0,
+				9A57F99F0428A72A0092B6B0,
+				9AE343390651FC5500D67178,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+		};
+//080
+//081
+//082
+//083
+//084
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+		4F0BB7EC011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4F0BB7ED011F40E904CA0E50 = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUGGING_SYMBOLS = NO;
+				OPTIMIZATION_CFLAGS = "-Os";
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//4F0
+//4F1
+//4F2
+//4F3
+//4F4
+//9A0
+//9A1
+//9A2
+//9A3
+//9A4
+		9A1DB81C043C78B100B00F29 = {
+			fileRef = F5151039037FEF8801FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A578441043C3672009A6529 = {
+			isa = PBXFrameworkReference;
+			name = Tcl.framework;
+			path = /Library/Frameworks/Tcl.framework;
+			refType = 0;
+		};
+		9A578465043C369F009A6529 = {
+			isa = PBXFrameworkReference;
+			name = Tk.framework;
+			path = /Library/Frameworks/Tk.framework;
+			refType = 0;
+		};
+		9A57846A043C3778009A6529 = {
+			isa = PBXFileReference;
+			name = libtclstub8.4.a;
+			path = /Library/Frameworks/Tcl.framework/libtclstub8.4.a;
+			refType = 0;
+		};
+		9A57846C043C37A8009A6529 = {
+			isa = PBXFileReference;
+			name = libtkstub8.4.a;
+			path = /Library/Frameworks/Tk.framework/libtkstub8.4.a;
+			refType = 0;
+		};
+		9A57CB83042709AD000D8B82 = {
+			buildActionMask = 8;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "# ensure we can overwrite a previous install\nif [ -d \"${INSTALL_ROOT}${INSTALL_PATH}\" ]; then\n    chmod -RH u+w \"${INSTALL_ROOT}${INSTALL_PATH}\"\nfi";
+		};
+		9A57CB84042709D4000D8B82 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "/usr/bin/install -m 444 -g staff \"${SRCROOT}/pkgIndex.tcl\" \"${TARGET_BUILD_DIR}\"\n/usr/bin/install -m 444 -g staff \"${SRCROOT}/movie.tcl\" \"${TARGET_BUILD_DIR}\"";
+		};
+		9A57F99D0428A7190092B6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = osxMacTcl.c;
+			refType = 4;
+		};
+		9A57F99E0428A7190092B6B0 = {
+			fileRef = 9A57F99D0428A7190092B6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A57F99F0428A72A0092B6B0 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = osxMacTcl.h;
+			refType = 4;
+		};
+		9A57F9A00428A72A0092B6B0 = {
+			fileRef = 9A57F99F0428A72A0092B6B0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6E3041F7ACF00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = EffectCommand.c;
+			refType = 2;
+		};
+		9A5EB6E4041F7ACF00D04299 = {
+			fileRef = 9A5EB6E3041F7ACF00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6E5041F7ADF00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = ExportCommand.c;
+			refType = 2;
+		};
+		9A5EB6E6041F7ADF00D04299 = {
+			fileRef = 9A5EB6E5041F7ADF00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6E7041F7AF100D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MovieCallBack.c;
+			refType = 2;
+		};
+		9A5EB6E8041F7AF100D04299 = {
+			fileRef = 9A5EB6E7041F7AF100D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6E9041F7AFF00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MoviePlayer.h;
+			refType = 2;
+		};
+		9A5EB6EA041F7AFF00D04299 = {
+			fileRef = 9A5EB6E9041F7AFF00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6EB041F7B0B00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MovieUtils.c;
+			refType = 2;
+		};
+		9A5EB6EC041F7B0B00D04299 = {
+			fileRef = 9A5EB6EB041F7B0B00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6ED041F7B1A00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SeqGrabber.h;
+			refType = 2;
+		};
+		9A5EB6EE041F7B1A00D04299 = {
+			fileRef = 9A5EB6ED041F7B1A00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6EF041F7B2B00D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = TracksCommand.c;
+			refType = 2;
+		};
+		9A5EB6F0041F7B2B00D04299 = {
+			fileRef = 9A5EB6EF041F7B2B00D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A5EB6F1041F7B3800D04299 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Utils.c;
+			refType = 2;
+		};
+		9A5EB6F2041F7B3800D04299 = {
+			fileRef = 9A5EB6F1041F7B3800D04299;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A750F2B04330FE000A8000C = {
+			fileRef = 9A92936A0431F94D00FE9F03;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A750F2C04330FE200A8000C = {
+			fileRef = 9A92936C0431F9F100FE9F03;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A89517C03F514530038A759 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = TimeCode.c;
+			refType = 2;
+		};
+		9A89517D03F514530038A759 = {
+			fileRef = 9A89517C03F514530038A759;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9A92936A0431F94D00FE9F03 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Broadcast.c;
+			refType = 2;
+		};
+		9A92936C0431F9F100FE9F03 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Broadcast.h;
+			refType = 2;
+		};
+		9A9603150410D07700CBE39A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = UserData.c;
+			refType = 2;
+		};
+		9A9603160410D07700CBE39A = {
+			fileRef = 9A9603150410D07700CBE39A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		9AE343390651FC5500D67178 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = SystemUI.c;
+			refType = 4;
+		};
+		9AE3433B0651FC5500D67178 = {
+			fileRef = 9AE343390651FC5500D67178;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//9A0
+//9A1
+//9A2
+//9A3
+//9A4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5151035037FEF6D01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MoviePlayer.c;
+			refType = 4;
+		};
+		F5151036037FEF6D01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = MovieQTVRUtils.c;
+			refType = 4;
+		};
+		F5151037037FEF6D01FE12CD = {
+			fileRef = F5151035037FEF6D01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151038037FEF6D01FE12CD = {
+			fileRef = F5151036037FEF6D01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151039037FEF8801FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = NavigationGetFile.c;
+			refType = 4;
+		};
+		F515103B037FEFAD01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = QuickTimeTcl.c;
+			refType = 4;
+		};
+		F515103D037FEFAD01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = QuickTimeTcl.h;
+			refType = 4;
+		};
+		F515103E037FEFAD01FE12CD = {
+			fileRef = F515103B037FEFAD01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151040037FEFAD01FE12CD = {
+			fileRef = F515103D037FEFAD01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151041037FEFCC01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = SeqGrabber.c;
+			refType = 4;
+		};
+		F5151042037FEFCC01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Tfp_Arrays.c;
+			refType = 4;
+		};
+		F5151043037FEFCC01FE12CD = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = Tfp_Arrays.h;
+			refType = 4;
+		};
+		F5151044037FEFCC01FE12CD = {
+			fileRef = F5151041037FEFCC01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151045037FEFCC01FE12CD = {
+			fileRef = F5151042037FEFCC01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151046037FEFCC01FE12CD = {
+			fileRef = F5151043037FEFCC01FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5151047037FF19401FE12CD = {
+			isa = PBXFrameworkReference;
+			name = QuickTime.framework;
+			path = /System/Library/Frameworks/QuickTime.framework;
+			refType = 0;
+		};
+		F5151068037FF19401FE12CD = {
+			fileRef = F5151047037FF19401FE12CD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5509189036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+				F5151040037FEFAD01FE12CD,
+				F5151046037FEFCC01FE12CD,
+				9A5EB6EA041F7AFF00D04299,
+				9A5EB6EE041F7B1A00D04299,
+				9A57F9A00428A72A0092B6B0,
+				9A750F2C04330FE200A8000C,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918A036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+				F5151037037FEF6D01FE12CD,
+				F5151038037FEF6D01FE12CD,
+				F515103E037FEFAD01FE12CD,
+				F5151044037FEFCC01FE12CD,
+				F5151045037FEFCC01FE12CD,
+				9A89517D03F514530038A759,
+				9A9603160410D07700CBE39A,
+				9A5EB6E4041F7ACF00D04299,
+				9A5EB6E6041F7ADF00D04299,
+				9A5EB6E8041F7AF100D04299,
+				9A5EB6EC041F7B0B00D04299,
+				9A5EB6F0041F7B2B00D04299,
+				9A5EB6F2041F7B3800D04299,
+				9A57F99E0428A7190092B6B0,
+				9A750F2B04330FE000A8000C,
+				9A1DB81C043C78B100B00F29,
+				9AE3433B0651FC5500D67178,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918B036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+				F5509190036C35B40130931B,
+				F5151068037FF19401FE12CD,
+				F55648FE038142E001A4FCC0,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918C036C35030130931B = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F550918D036C35030130931B = {
+			buildPhases = (
+				9A57CB83042709AD000D8B82,
+				F5509189036C35030130931B,
+				F550918A036C35030130931B,
+				F550918B036C35030130931B,
+				F550918C036C35030130931B,
+				9A57CB84042709D4000D8B82,
+			);
+			buildSettings = {
+				CC = "/usr/bin/gcc-3.3";
+				CPLUSPLUS = "/usr/bin/g++-3.3";
+				DYLIB_COMPATIBILITY_VERSION = 3.1;
+				DYLIB_CURRENT_VERSION = 3.1;
+				EXPORTED_SYMBOLS_FILE = ./PBExportedSymbols;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GLOBAL_CFLAGS = "-I`source \"$(TK_FRAMEWORK)/tkConfig.sh\"; echo $${}{TK_SRC_DIR}`/generic -F`dirname \"$(TCL_FRAMEWORK)\"` -F`dirname \"$(TK_FRAMEWORK)\"`";
+				HEADER_SEARCH_PATHS = "\"$(TK_FRAMEWORK)/Headers\" \"$(TK_FRAMEWORK)/PrivateHeaders\"";
+				INSTALL_PATH = "/Library/Tcl/QuickTimeTcl${DYLIB_COMPATIBILITY_VERSION}";
+				LIBRARY_SEARCH_PATHS = "\"$(TCL_FRAMEWORK)\" \"$(TK_FRAMEWORK)\"";
+				LIBRARY_STYLE = DYNAMIC;
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DUSE_TCL_STUBS -DTARGET_OS_MAC=1 -DTARGET_API_MAC_CARBON=1 -DUSE_TK_STUBS -DMAC_OSX_TK -DHAVE_LIMITS_H -DHAVE_UNISTD_H";
+				OTHER_LDFLAGS = "-ltclstub8.4 -ltkstub8.4";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = QuickTimeTcl3.1.dylib;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				TCL_FRAMEWORK = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/Tcl.framework\"";
+				TK_FRAMEWORK = "\"$(LOCAL_LIBRARY_DIR)/Frameworks/Tk.framework\"";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXLibraryTarget;
+			name = "QuickTimeTcl dylib";
+			productInstallPath = "/Library/Tcl/QuickTimeTcl${DYLIB_COMPATIBILITY_VERSION}";
+			productName = "MovableAlerts dylib";
+			productReference = F550918E036C35030130931B;
+		};
+		F550918E036C35030130931B = {
+			isa = PBXLibraryReference;
+			path = QuickTimeTcl3.1.dylib;
+			refType = 3;
+		};
+		F5509190036C35B40130931B = {
+			fileRef = 08FB77AAFE841565C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		F5564883038142E001A4FCC0 = {
+			isa = PBXFrameworkReference;
+			name = CoreServices.framework;
+			path = /System/Library/Frameworks/CoreServices.framework;
+			refType = 0;
+		};
+		F55648FE038142E001A4FCC0 = {
+			fileRef = F5564883038142E001A4FCC0;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 0867D690FE84028FC02AAC07;
+}

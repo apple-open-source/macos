@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeTile.man,v 1.2 2001/01/27 18:20:05 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeTile.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,29 +144,15 @@
 .SH NAME
 XSetTile, XSetStipple, XSetTSOrigin \- GC convenience routines
 .SH SYNTAX
-XSetTile\^(\^\fIdisplay\fP, \fIgc\fP\^, \fItile\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      Pixmap \fItile\fP\^;
-.LP
-XSetStipple\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIstipple\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      Pixmap \fIstipple\fP\^;
-.LP
-XSetTSOrigin\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIts_x_origin\fP\^, \fIts_y_origin\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIts_x_origin\fP\^, \fIts_y_origin\fP\^;
+.HP
+int XSetTile\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, Pixmap
+\fItile\fP\^); 
+.HP
+int XSetStipple\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, Pixmap
+\fIstipple\fP\^); 
+.HP
+int XSetTSOrigin\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIts_x_origin\fP\^, int \fIts_y_origin\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

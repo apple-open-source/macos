@@ -1,0 +1,122 @@
+
+*	Each base channel is either seekable or not
+
+
+*	Each transformation can use one of several seek policies while attached
+	to a channel.
+
+	-	'transform position'
+
+		Each seek/tell request is passed down to the channel below, and
+		the specified/returned position is converted as necessary (one
+		additional vector in the transformation driver).
+
+	-	'pass'
+
+		Is subsumed by the policy above, with position transformation
+		= identity.
+
+	-	'unseekable'
+
+		The transformation does a running count of the current position
+		as it sees the world. Returns the information upon request
+		(tell). Real seeking is disallowed.
+
+
+*	The actual seek policy used by a transformation is computed from
+	several sources:
+
+	-	The 'natural seek policy' of the transformation.
+	-	The seekability of the base channel.
+	-	The seek policies used by the transformations below it.
+		(how to determine ?)
+	-	Policy requests by the user.
+
+	Rules:
+
+	1)	An unseekable base channel enforces 'unseekable' in all
+		transformations	above it.
+
+	2)	An unseekable transformation enforces 'unseekable' in all
+		transformations	above it.
+
+	3)	The user is able to overide 'unseekable' with pass or
+		transform, but only for the transformation currently at
+		the top, and not if lower transformations or the base
+		channel enforce unseekable. I.e. the rules (1) and (2)
+		have precedence.
+
+		In case of 'transform position' the user has to specify the
+		conversion he wishes for the location in the form of a tcl
+		command. An empty command causes the system to use 'identity'.
+
+		This way the user is able to enforce the current behaviour of
+		simply passing the position without changing it. The user has
+		to know the effects of this on the various transformations in
+		the stack.
+
+
+*	The user specifies his requests by using the new standard options
+
+	@	-seekpolicy	transform|unseekable
+
+	@	-seektransform	command
+
+	('-seektransform' command implies '-seekpolicy tranform')
+
+
+*	A transformation specifies its natural policy through a new attribute
+	and a new function vector in its driver structure.
+
+	One argument to the vector specifies the direction of the conversion
+	(pass position down to channel, get position from channel below), the
+	instance configuration provides additional context (mode encode/decode,
+	etc.).
+
+*	A position transformation returning an error causes the system to
+	reject the seek.
+
+	An error during up-conversion (tell) implies that an
+	'identity loc. transform' was in effect for some time allowing the
+	fractional placement of the down-location with respect to up-location.
+
+	Handling:	?
+
+
+
+*	The general 'transform' command uses additional keywords while calling
+	back into the tcl level to query and implement its natural seek policy.
+
+
+*	Questions:
+
+	-	Is it possible to determine the seekability of a channel
+		by simply using the public API's ?
+
+		(Without destroying the state of the channel ?)
+
+		Answer:	Yes, by checking the channel type for a non-NULL
+			pointer for the SeekProc.
+
+
+	-	Is it possible to determine the seekability of a
+		transformation ?
+
+		Yes, if the seekability of a channel is checkable via Tcl_Seek
+		itself. But not necessarily without disturbing the state of
+		the transformation and/or channel below (Because we will have
+		to try to seek to get either success or error. On success the
+		test seek has to be reversed immediately. But a transformation
+		below may have already discarded its input buffer !).
+
+		Answer:	Not generally. As the notion of an unseekable
+			transformation is slightly different from unseekable
+			channel	we have to provide a SeekProc at all times,
+			rendering the check above for channels unusable.
+
+			If we don't want to disturb the state of other
+			transformations we are reduced to check for
+			SeekProc == TrfSeek first, to filter out any non-Trf
+			transforms and then to look directly into the instance
+			structure. For non-Trf transforms we have to make
+			conservative assumptions.

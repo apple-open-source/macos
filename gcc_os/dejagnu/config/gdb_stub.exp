@@ -1,4 +1,4 @@
-#   Copyright (C) 1996-98, 1999 Free Software Foundation, Inc.
+#   Copyright (C) 1997 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# DejaGnu@cygnus.com
+# bug-dejagnu@gnu.org
 
 # This file was written by Michael Snyder <msnyder@cygnus.com>.
 
@@ -494,7 +494,7 @@ proc gdb_stub_load { dest prog args } {
     
     if { $status == 0 } {
 	return [list "pass" $output];
-    } elseif { $status > 0 } {
+    } else if { $status > 0 } {
 	return [list "fail" $output];
     } else {
 	global gdb_stub_retry;

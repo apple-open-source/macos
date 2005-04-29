@@ -1,15 +1,15 @@
 /* Definitions for SH running NetBSD using ELF
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Wasabi Systems, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
@@ -27,11 +27,11 @@ Boston, MA 02111-1307, USA.  */
 #endif
 
 #if TARGET_CPU_DEFAULT & SH5_BIT
-#if TARGET_CPU_DEFAULT & SH3E_BIT
+#if TARGET_CPU_DEFAULT & SH_E_BIT
 #define TARGET_VERSION_CPU "sh5"
 #else
 #define TARGET_VERSION_CPU "sh64"
-#endif /* SH3E_BIT */
+#endif /* SH_E_BIT */
 #else
 #define TARGET_VERSION_CPU "sh"
 #endif /* SH5_BIT */
@@ -52,8 +52,6 @@ Boston, MA 02111-1307, USA.  */
   do									\
     {									\
       NETBSD_OS_CPP_BUILTINS_ELF();					\
-      if (TARGET_SHMEDIA64)						\
-	NETBSD_OS_CPP_BUILTINS_LP64();					\
       builtin_define ("__NO_LEADING_UNDERSCORES__");			\
     }									\
   while (0)
@@ -64,17 +62,6 @@ Boston, MA 02111-1307, USA.  */
    NetBSD ELF LINK_SPEC.  */
 
 /* LINK_EMUL_PREFIX from sh/elf.h */
-
-#undef LINK_DEFAULT_CPU_EMUL
-#if TARGET_CPU_DEFAULT & SH5_BIT
-#if TARGET_CPU_DEFAULT & SH3E_BIT
-#define LINK_DEFAULT_CPU_EMUL "32"
-#else
-#define LINK_DEFAULT_CPU_EMUL "64"
-#endif /* SH3E_BIT */
-#else
-#define LINK_DEFAULT_CPU_EMUL ""
-#endif /* SH5_BIT */
 
 #undef SUBTARGET_LINK_EMUL_SUFFIX
 #define SUBTARGET_LINK_EMUL_SUFFIX "_nbsd"
@@ -95,6 +82,8 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_DEFAULT \
   (TARGET_CPU_DEFAULT | USERMODE_BIT | TARGET_ENDIAN_DEFAULT)
 
+/* Define because we use the label and we do not need them.  */
+#define NO_PROFILE_COUNTERS 1
  
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(STREAM,LABELNO)				\

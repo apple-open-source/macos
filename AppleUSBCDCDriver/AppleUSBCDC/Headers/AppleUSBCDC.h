@@ -54,7 +54,7 @@ public:
     UInt8			Asciihex_to_binary(char c);
     virtual IOUSBDevice		*getCDCDevice(void);
     bool			initDevice(UInt8 numConfigs);
-	IOReturn		reInitDevice(void);
+	virtual IOReturn		reInitDevice(void);
     bool			checkACM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
     bool			checkECM(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);
     bool			checkWMC(IOUSBInterface *Comm, UInt8 cInterfaceNumber, UInt8 dataInterfaceNum);

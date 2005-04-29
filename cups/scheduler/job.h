@@ -1,9 +1,9 @@
 /*
- * "$Id: job.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
+ * "$Id: job.h,v 1.6 2005/01/25 00:24:15 jlovell Exp $"
  *
  *   Print job definitions for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
@@ -27,6 +27,16 @@
  */
 
 #define JOB_BUFFER_SIZE	1024	/* Bytes for job status buffer */
+
+
+typedef unsigned jobs_loaded_t;		/**** Jobs loaded type bits ****/
+enum					/* Not a typedef'd enum so we can OR */
+{
+  NO_JOBS          = 0x0000,		/* No jobs */
+  ACTIVE_JOBS      = 0x0001,		/* Active jobs */
+  HISTORY_JOBS     = 0x0002,		/* History or inactive jobs */
+  ALL_JOBS         = 0x0003,		/* All jobs */
+};
 
 
 /*
@@ -52,7 +62,8 @@ typedef struct job_str
   ipp_t		*attrs;			/* Job attributes */
   int		pipe;			/* Status pipe for this job */
   int		cost;			/* Filtering cost */
-  int		procs[MAX_FILTERS + 2];	/* Process IDs, 0 terminated */
+  int		*procs;			/* Process ID array, 0 terminated */
+  char		**filters;		/* Filter name array, 0 terminated */
   int		status;			/* Status code from filters */
   printer_t	*printer;		/* Printer this job is assigned to */
   char		*buffer;		/* Status buffer */
@@ -93,7 +104,7 @@ extern void	FreeAllJobs(void);
 extern int	GetPrinterJobCount(const char *dest);
 extern int	GetUserJobCount(const char *username);
 extern void	HoldJob(int id);
-extern void	LoadAllJobs(void);
+extern void	LoadAllJobs(jobs_loaded_t which_jobs);
 extern void	MoveJob(int id, const char *dest);
 extern void	ReleaseJob(int id);
 extern void	RestartJob(int id);
@@ -107,5 +118,5 @@ extern void	UpdateJob(job_t *job);
 
 
 /*
- * End of "$Id: job.h,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
+ * End of "$Id: job.h,v 1.6 2005/01/25 00:24:15 jlovell Exp $".
  */

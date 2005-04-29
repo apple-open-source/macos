@@ -1,0 +1,1607 @@
+# Mesajele în limba românã pentru nano.
+# Copyright (C) 2003 Free Software Foundation, Inc.
+# Acest fiºier este distribuit sub aceeaºi licenþã ca ºi pachetul nano.
+# Laurentiu Buzdugan <buzdugan@voyager.net>, 2003.
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: nano 1.2.2\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2004-06-25 20:25-0400\n"
+"PO-Revision-Date: 2003-11-24 12:00-0500\n"
+"Last-Translator: Laurentiu Buzdugan <buzdugan@voyager.net>\n"
+"Language-Team: Romanian <translation-team-ro@lists.sourceforge.net>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ISO-8859-2\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: files.c:321
+#, c-format
+msgid "Read %d line (Converted from Mac format)"
+msgid_plural "Read %d lines (Converted from Mac format)"
+msgstr[0] "Am citit %d linie (convertitã din formatul Mac)"
+msgstr[1] "Am citit %d linii (convertite din formatul Mac)"
+
+#: files.c:325
+#, c-format
+msgid "Read %d line (Converted from DOS format)"
+msgid_plural "Read %d lines (Converted from DOS format)"
+msgstr[0] "Am citit %d linie (convertitã din formatul DOS)"
+msgstr[1] "Am citit %d linii (convertite din formatul DOS)"
+
+#: files.c:330
+#, c-format
+msgid "Read %d line"
+msgid_plural "Read %d lines"
+msgstr[0] "Am citit %d linie"
+msgstr[1] "Am citit %d linii"
+
+#: files.c:356 search.c:58
+#, c-format
+msgid "\"%s\" not found"
+msgstr "\"%s\" nu a fost gãsit"
+
+#: files.c:360
+msgid "New File"
+msgstr "Fiºier nou"
+
+#: files.c:366
+#, c-format
+msgid "\"%s\" is a directory"
+msgstr "\"%s\" este un director"
+
+#: files.c:367
+#, c-format
+msgid "File \"%s\" is a device file"
+msgstr "Fiºierul \"%s\" este un fiºier dispozitiv (device)"
+
+#: files.c:385
+msgid "Reading File"
+msgstr "Citesc Fiºier"
+
+#: files.c:461
+#, c-format
+msgid "File to insert into new buffer [from %s] "
+msgstr "Fiºier de inserat în buffer nou [din %s]"
+
+#: files.c:469
+#, c-format
+msgid "File to insert [from %s] "
+msgstr "Fiºier de inserat [din %s]"
+
+#: files.c:480
+msgid "File to insert into new buffer [from ./] "
+msgstr "Fiºier de inserat în buffer nou [din ./]"
+
+#: files.c:487
+msgid "File to insert [from ./] "
+msgstr "Fiºier de inserat [din ./]"
+
+#: files.c:508
+msgid "Command to execute"
+msgstr "Comandã de executat"
+
+#: files.c:510 files.c:622 files.c:1353 files.c:1797 nano.c:2736
+msgid "Cancelled"
+msgstr "Am renunþat"
+
+#: files.c:531
+#, c-format
+msgid "Can't insert file from outside of %s"
+msgstr "Nu pot insera fiºier din afara lui %s"
+
+#: files.c:645
+msgid "Key illegal in non-multibuffer mode"
+msgstr "Tastã ilegalã în modul non-multibuffer"
+
+#: files.c:886 files.c:949
+msgid "No more open files"
+msgstr "Nici un alt fiºier deschis"
+
+#: files.c:913 files.c:976
+#, c-format
+msgid "Switched to %s"
+msgstr "Am schimbat la %s"
+
+#: files.c:1367
+#, c-format
+msgid "Can't write outside of %s"
+msgstr "Nu pot scrie în afarã de %s"
+
+#: files.c:1398
+#, c-format
+msgid "Could not read %s for backup: %s"
+msgstr "Nu pot citi %s pentru copie de siguranþã (backup): %s"
+
+#: files.c:1409
+#, c-format
+msgid "Couldn't write backup: %s"
+msgstr "Nu pot scrie copie de siguranþã (backup): %s"
+
+#: files.c:1427
+#, c-format
+msgid "Could not set permissions %o on backup %s: %s"
+msgstr "Nu pot seta permisiunile %o la copierea de siguranþã (backup) %s: %s"
+
+#: files.c:1433
+#, c-format
+msgid "Could not set owner %d/group %d on backup %s: %s"
+msgstr "Nu pot seta proprietarul %d/group %d la copierea de siguranþã %s: %s"
+
+#: files.c:1438
+#, c-format
+msgid "Could not set access/modification time on backup %s: %s"
+msgstr "Nu pot seta timpul de acces/modificare la copierea de siguranþã %s: %s"
+
+#: files.c:1473 files.c:1489 files.c:1504 files.c:1526 files.c:1559
+#: files.c:1566 files.c:1578
+#, c-format
+msgid "Could not open file for writing: %s"
+msgstr "Nu pot deschide fiºier pentru scriere: %s"
+
+#: files.c:1589
+#, c-format
+msgid "Could not close %s: %s"
+msgstr "Nu am putut închide %s: %s"
+
+#: files.c:1601 files.c:1606 files.c:1634
+#, c-format
+msgid "Could not reopen %s: %s"
+msgstr "Nu am putut redeschide %s: %s"
+
+#: files.c:1611 files.c:1617 files.c:1626
+#, c-format
+msgid "Could not open %s for prepend: %s"
+msgstr "Nu am putut deschide %s pentru a pre-adãuga: %s"
+
+#: files.c:1664 files.c:1673 files.c:1678
+#, c-format
+msgid "Could not open %s for writing: %s"
+msgstr "Nu am putut deschide %s pentru scriere: %s"
+
+#: files.c:1685
+#, c-format
+msgid "Could not set permissions %o on %s: %s"
+msgstr "Nu am putut seta permisiunile %o pe %s: %s"
+
+#: files.c:1701
+#, c-format
+msgid "Wrote %d line"
+msgid_plural "Wrote %d lines"
+msgstr[0] "Am scris %d linie"
+msgstr[1] "Am scris %d linii"
+
+#: files.c:1751
+msgid " [Mac Format]"
+msgstr " [Format Mac]"
+
+#: files.c:1753
+msgid " [DOS Format]"
+msgstr " [Format DOS]"
+
+#: files.c:1758
+msgid " [Backup]"
+msgstr " [Copie de siguranþã (backup)]"
+
+#: files.c:1766
+msgid "Prepend Selection to File"
+msgstr "Pre-adaugã Selecþie la fiºier"
+
+#: files.c:1769
+msgid "Append Selection to File"
+msgstr "Adaugã Selecþie la fiºier"
+
+#: files.c:1772
+msgid "Write Selection to File"
+msgstr "Scrie Selecþie în fiºier"
+
+#: files.c:1776 files.c:1787
+msgid "File Name to Prepend to"
+msgstr "Nume de pre-adãugat la"
+
+#: files.c:1779 files.c:1790
+msgid "File Name to Append to"
+msgstr "Nume de adãugat la"
+
+#: files.c:1782 files.c:1793
+msgid "File Name to Write"
+msgstr "Nume de scris"
+
+#: files.c:1851
+msgid "File exists, OVERWRITE ?"
+msgstr "Fiºierul existã, SUPRASCRIE ?"
+
+#: files.c:2340
+msgid "(more)"
+msgstr "(suplimentar)"
+
+#: files.c:2640
+msgid "Can't move up a directory"
+msgstr "Nu pot schimba în sus un director"
+
+#: files.c:2651 files.c:2724
+#, c-format
+msgid "Can't go outside of %s in restricted mode"
+msgstr "Nu pot merge în afara %s în modul restricþionat"
+
+#: files.c:2658 files.c:2685 files.c:2732
+#, c-format
+msgid "Can't open \"%s\": %s"
+msgstr "Nu pot deschide \"%s\": %s"
+
+#: files.c:2706
+msgid "Goto Directory"
+msgstr "Mergi la Director"
+
+#: files.c:2711
+msgid "Goto Cancelled"
+msgstr "Mergi la Terminat"
+
+#: files.c:2912
+#, c-format
+msgid "Unable to open ~/.nano_history file, %s"
+msgstr "Nu pot deschide fiºierul ~/.nano_history, %s"
+
+#: files.c:2962 files.c:2971 files.c:2976 files.c:2983
+#, c-format
+msgid "Unable to write ~/.nano_history file, %s"
+msgstr "Nu pot scrie fiºierul ~/.nano_history, %s"
+
+#: global.c:247
+msgid "Constant cursor position"
+msgstr "Poziþie cursor neschimbatã"
+
+#: global.c:248
+msgid "Auto indent"
+msgstr "Auto paragraf"
+
+#: global.c:249
+msgid "Suspend"
+msgstr "Suspendã"
+
+#: global.c:250
+msgid "Help mode"
+msgstr "Mod Ajutor"
+
+#: global.c:252
+msgid "Mouse support"
+msgstr "Suport maus"
+
+#: global.c:254
+msgid "Cut to end"
+msgstr "Taie pânã la sfârºit"
+
+#: global.c:255
+msgid "No conversion from DOS/Mac format"
+msgstr "Nici o conversie de format DOS/Mac"
+
+#: global.c:256
+msgid "Writing file in DOS format"
+msgstr "Fiºier scris în format DOS"
+
+#: global.c:257
+msgid "Writing file in Mac format"
+msgstr "Fiºier scris în format Mac"
+
+#: global.c:258
+msgid "Backing up file"
+msgstr "Scriu copie de siguranþã (backup) pentru fiºier"
+
+#: global.c:259 nano.c:664
+msgid "Smooth scrolling"
+msgstr "Rulare (scrolling) finã"
+
+#: global.c:261
+msgid "Color syntax highlighting"
+msgstr "Evidenþiere sintaxã color"
+
+#: global.c:264
+msgid "Auto wrap"
+msgstr "Trecere automatã (wrap) la linie nouã"
+
+#: global.c:267
+msgid "Multiple file buffers"
+msgstr "Multiple buffere fiºiere"
+
+#: global.c:350
+msgid "Invoke the help menu"
+msgstr "Invocã meniul de ajutor"
+
+#: global.c:351
+msgid "Write the current file to disk"
+msgstr "Scrie fiºierul curent pe disc"
+
+#: global.c:353
+msgid "Close currently loaded file/Exit from nano"
+msgstr "Închide fiºierul încãrcat curent/Ieºi din nano"
+
+#: global.c:355
+msgid "Exit from nano"
+msgstr "Ieºire din nano"
+
+#: global.c:357
+msgid "Go to a specific line number"
+msgstr "Du-te la o anumitã linie"
+
+#: global.c:358
+msgid "Justify the current paragraph"
+msgstr "Aliniazã paragraful curent"
+
+#: global.c:359
+msgid "Unjustify after a justify"
+msgstr "De-aliniazã dupã un aliniament"
+
+#: global.c:360
+msgid "Replace text within the editor"
+msgstr "Înlocuieºte textul din editor"
+
+#: global.c:361
+msgid "Insert another file into the current one"
+msgstr "Insereazã alt fiºier în fiºierul curent"
+
+#: global.c:362
+msgid "Search for text within the editor"
+msgstr "Cautã un anumit text în editor"
+
+#: global.c:363
+msgid "Move to the previous screen"
+msgstr "Du-te la ecranul precedent"
+
+#: global.c:364
+msgid "Move to the next screen"
+msgstr "Du-te la ecraul urmãtor"
+
+#: global.c:365
+msgid "Cut the current line and store it in the cutbuffer"
+msgstr "Taie linia curentã ºi pãstreazã-o în cutbuffer"
+
+#: global.c:366
+msgid "Uncut from the cutbuffer into the current line"
+msgstr "Copiazã din cutbuffer în linia curentã"
+
+#: global.c:367
+msgid "Show the position of the cursor"
+msgstr "Aratã poziþia cursorului"
+
+#: global.c:368
+msgid "Invoke the spell checker, if available"
+msgstr "Invocã corectorul ortografic, dacã e disponibil"
+
+#: global.c:369
+msgid "Move up one line"
+msgstr "Urcã o linie"
+
+#: global.c:370
+msgid "Move down one line"
+msgstr "Coboarã o linie"
+
+#: global.c:371
+msgid "Move forward one character"
+msgstr "Du-te înainte un caracter"
+
+#: global.c:372
+msgid "Move back one character"
+msgstr "Du-te înapoi un caracter"
+
+#: global.c:373
+msgid "Move to the beginning of the current line"
+msgstr "Du-te la începutul liniei"
+
+#: global.c:374
+msgid "Move to the end of the current line"
+msgstr "Du-te la sfârºitul liniei"
+
+#: global.c:375
+msgid "Go to the first line of the file"
+msgstr "Du-te la prima linie din fiºier"
+
+#: global.c:376
+msgid "Go to the last line of the file"
+msgstr "Du-te la ultima linie din fiºier"
+
+#: global.c:377
+msgid "Refresh (redraw) the current screen"
+msgstr "Reîmprospãteazã zona de ecran curentã"
+
+#: global.c:378
+msgid "Mark text at the current cursor location"
+msgstr "Marcheazã textul la poziþia curentã a cursorului"
+
+#: global.c:379
+msgid "Delete the character under the cursor"
+msgstr "ªterge caracterul de sub cursor"
+
+#: global.c:381
+msgid "Delete the character to the left of the cursor"
+msgstr "ªterge caracterul de la stânga cursorului"
+
+#: global.c:382
+msgid "Insert a tab character"
+msgstr "Insereazã un caracter tab"
+
+#: global.c:383
+msgid "Insert a carriage return at the cursor position"
+msgstr ""
+"Insereazã un caracter \"carriage return\" la poziþia curentã a cursorului"
+
+#: global.c:385
+msgid "Make the current search or replace case (in)sensitive"
+msgstr "Executã cãutarea curentã sau schimbã indiferent de mãrimea literelor"
+
+#: global.c:386
+msgid "Go to file browser"
+msgstr "Du-te la navigatorul de fiºiere"
+
+#: global.c:387
+msgid "Execute external command"
+msgstr "Executã comandã externã"
+
+#: global.c:388
+msgid "Go to directory"
+msgstr "Du-te la director"
+
+#: global.c:389
+msgid "Cancel the current function"
+msgstr "Anuleazã funcþia curentã"
+
+#: global.c:390
+msgid "Append to the current file"
+msgstr "Adaugã la fiºierul curent"
+
+#: global.c:391
+msgid "Prepend to the current file"
+msgstr "Pre-adaugã la fiºierul curent"
+
+#: global.c:392
+msgid "Search backwards"
+msgstr "Cautã spre înapoi"
+
+#: global.c:393
+msgid "Write file out in DOS format"
+msgstr "Scrie fiºierul ieºire în format DOS"
+
+#: global.c:394
+msgid "Write file out in Mac format"
+msgstr "Scrie fiºierul ieºire în format Mac"
+
+#: global.c:395
+msgid "Back up original file when saving"
+msgstr "Creazã copie de siguranþã (backup) pentru fiºierul original la salvare"
+
+#: global.c:396
+msgid "Edit the previous search/replace strings"
+msgstr "Editeazã ºirurile precedente de cãutare/înlocuire"
+
+#: global.c:398
+msgid "Use regular expressions"
+msgstr "Foloseºte expresii regulare (regular expressions)"
+
+#: global.c:399
+msgid "Find other bracket"
+msgstr "Gãseºte cealaltã parantezã"
+
+#: global.c:402
+msgid "Open previously loaded file"
+msgstr "Deschide fiºierul încãrcat anterior"
+
+#: global.c:403
+msgid "Open next loaded file"
+msgstr "Deschide urmãtorul fiºier încãrcat"
+
+#: global.c:404
+msgid "Toggle insert into new buffer"
+msgstr "Comutã inserare în buffer nou"
+
+#: global.c:419 global.c:579 global.c:628 global.c:665 global.c:684
+#: global.c:714 global.c:752 global.c:776 global.c:786 global.c:796
+#: global.c:817
+msgid "Get Help"
+msgstr "Cere ajutor"
+
+#: global.c:426
+msgid "Close"
+msgstr "Închide"
+
+#: global.c:433 global.c:707
+msgid "Exit"
+msgstr "Terminã"
+
+#: global.c:438
+msgid "WriteOut"
+msgstr "Scrie ieºire"
+
+#: global.c:443
+msgid "Justify"
+msgstr "Aliniazã"
+
+#: global.c:449
+msgid "Read File"
+msgstr "Citeºte fiºier"
+
+#: global.c:459
+msgid "Where Is"
+msgstr "Unde este"
+
+#: global.c:464 global.c:699 global.c:802
+msgid "Prev Page"
+msgstr "Pagina precedentã"
+
+#: global.c:469 global.c:703 global.c:806
+msgid "Next Page"
+msgstr "Pagina urmãtoare"
+
+#: global.c:474
+msgid "Cut Text"
+msgstr "Taie text"
+
+#: global.c:480
+msgid "UnJustify"
+msgstr "De-aliniazã"
+
+#: global.c:485
+msgid "UnCut Txt"
+msgstr "Anuleazã tãiere text"
+
+#: global.c:490
+msgid "Cur Pos"
+msgstr "Poz. Crt."
+
+#: global.c:495
+msgid "To Spell"
+msgstr "De ortografiat"
+
+#: global.c:499 nano.c:428 winio.c:655
+msgid "Up"
+msgstr "Sus"
+
+#: global.c:503
+msgid "Down"
+msgstr "Jos"
+
+#: global.c:507
+msgid "Forward"
+msgstr "Înainte"
+
+#: global.c:511
+msgid "Back"
+msgstr "Înapoi"
+
+#: global.c:515
+msgid "Home"
+msgstr "Acasã"
+
+#: global.c:519
+msgid "End"
+msgstr "Sfârºit"
+
+#: global.c:523
+msgid "Refresh"
+msgstr "Împrospãteazã"
+
+#: global.c:527
+msgid "Mark Text"
+msgstr "Marcheazã text"
+
+#: global.c:531
+msgid "Delete"
+msgstr "ªterge"
+
+#: global.c:535
+msgid "Backspace"
+msgstr "ªterge înapoi (backspace)"
+
+#: global.c:539
+msgid "Tab"
+msgstr "Tab"
+
+#: global.c:542 global.c:596
+msgid "Replace"
+msgstr "Înlocuieºte"
+
+#: global.c:546
+msgid "Enter"
+msgstr "Enter"
+
+#: global.c:550 global.c:600 global.c:644
+msgid "Go To Line"
+msgstr "Du-te la linia"
+
+#: global.c:555
+msgid "Next Word"
+msgstr "Cuvânt urmãtor"
+
+#: global.c:556
+msgid "Move forward one word"
+msgstr "Du-te înainte un cuvânt"
+
+#: global.c:559
+msgid "Prev Word"
+msgstr "Cuvânt precedent"
+
+#: global.c:560
+msgid "Move backward one word"
+msgstr "Du-te înapoi un cuvânt"
+
+#: global.c:564
+msgid "Find Other Bracket"
+msgstr "Gãseºte cealaltã parantezã"
+
+#: global.c:569
+msgid "Previous File"
+msgstr "Fiºier precedent"
+
+#: global.c:572
+msgid "Next File"
+msgstr "Fiºier urmãtor"
+
+#: global.c:583 global.c:631 global.c:668 global.c:687 global.c:747
+#: global.c:755 global.c:779 global.c:789 global.c:799 global.c:820
+#: winio.c:1323
+msgid "Cancel"
+msgstr "Renunþã"
+
+#: global.c:587 global.c:634 global.c:671 global.c:690
+msgid "First Line"
+msgstr "Prima linie"
+
+#: global.c:592 global.c:637 global.c:674 global.c:693
+msgid "Last Line"
+msgstr "Ultima linie"
+
+#: global.c:605 global.c:648
+msgid "Case Sens"
+msgstr "Cu majuscule semnificative"
+
+#: global.c:609 global.c:651
+msgid "Direction"
+msgstr "Direcþie"
+
+#: global.c:614 global.c:655
+msgid "Regexp"
+msgstr "Regexp"
+
+#: global.c:620 global.c:659 global.c:678
+msgid "History"
+msgstr "Istorie"
+
+#: global.c:641
+msgid "No Replace"
+msgstr "Nici o înlocuire"
+
+#: global.c:719 global.c:759
+msgid "To Files"
+msgstr "În fiºiere"
+
+#: global.c:725
+msgid "DOS Format"
+msgstr "Format DOS"
+
+#: global.c:729
+msgid "Mac Format"
+msgstr "Format Mac"
+
+#: global.c:734
+msgid "Append"
+msgstr "Adaugã"
+
+#: global.c:738
+msgid "Prepend"
+msgstr "Pre-adaugã"
+
+#: global.c:743
+msgid "Backup File"
+msgstr "Fiºier copie de siguranþã (backup)"
+
+#: global.c:764
+msgid "Execute Command"
+msgstr "Executã comandã"
+
+#: global.c:768 winio.c:596
+msgid "New Buffer"
+msgstr "Buffer nou"
+
+#: global.c:811
+msgid "Go To Dir"
+msgstr "Du-te la Director"
+
+#: nano.c:173
+#, c-format
+msgid ""
+"\n"
+"Buffer written to %s\n"
+msgstr ""
+"\n"
+"Buffer scris în %s\n"
+
+#: nano.c:175
+#, c-format
+msgid ""
+"\n"
+"No %s written (too many backup files?)\n"
+msgstr ""
+"\n"
+"Nici un %s scris (prea multe fiºiere copii de siguranþã <backup>?)\n"
+
+#: nano.c:184
+msgid "Window size is too small for nano...\n"
+msgstr "Dimensiunea ferestrei prea micã pentru nano...\n"
+
+#: nano.c:189
+msgid "Key illegal in VIEW mode"
+msgstr "Tastã ilegalã în modul VIZUALIZARE"
+
+#: nano.c:287
+msgid ""
+"Search Command Help Text\n"
+"\n"
+" Enter the words or characters you would like to search for, then hit "
+"enter.  If there is a match for the text you entered, the screen will be "
+"updated to the location of the nearest match for the search string.\n"
+"\n"
+" The previous search string will be shown in brackets after the Search: "
+"prompt.  Hitting Enter without entering any text will perform the previous "
+"search.\n"
+"\n"
+" The following function keys are available in Search mode:\n"
+"\n"
+msgstr ""
+"Text de ajutor pentru comanda \"Cautã\"\n"
+"\n"
+"Introduceþi cuvântul sau caracterele pe care aþi dori sã le cãutaþi, apoi "
+"apãsaþi Enter.  Dacã existã vreo potrivire pentru textul cãutat, ecranul va "
+"fi actualizat la locaþia cea mai apropiatã de locul unde aceastã potrivire a "
+"avut loc.\n"
+"\n"
+"ªirul cãutat anterior va fi arãtat în paranteze dupã cuvântul Cautã: . "
+"Apãsând Enter fãrã a introduce vreun text va executa cãutarea anterioarã.\n"
+"\n"
+"Urmãtoarele taste de funcþii sunt disponibile în modul \"Cautã\"\n"
+"\n"
+
+#: nano.c:297
+msgid ""
+"Go To Line Help Text\n"
+"\n"
+" Enter the line number that you wish to go to and hit Enter.  If there are "
+"fewer lines of text than the number you entered, you will be brought to the "
+"last line of the file.\n"
+"\n"
+" The following function keys are available in Go To Line mode:\n"
+"\n"
+msgstr ""
+"Textul de ajutor pentru \"Du-te la linia\"\n"
+"\n"
+" Introduceþi numãrul liniei unde doriþi sã mergeþi ºi apãsaþi Enter. Dacã "
+"existã mai puþine linii de text decât numãrul introdus veþi ajunge la ultima "
+"linie a fiºierului.\n"
+"\n"
+" Urmãtoarele taste de funcþii sunt disponibile în modul \"Du-te la linia\" \n"
+
+#: nano.c:304
+msgid ""
+"Insert File Help Text\n"
+"\n"
+" Type in the name of a file to be inserted into the current file buffer at "
+"the current cursor location.\n"
+"\n"
+" If you have compiled nano with multiple file buffer support, and enable "
+"multiple buffers with the -F or --multibuffer command line flags, the Meta-F "
+"toggle, or a nanorc file, inserting a file will cause it to be loaded into a "
+"separate buffer (use Meta-< and > to switch between file buffers).\n"
+"\n"
+" If you need another blank buffer, do not enter any filename, or type in a "
+"nonexistent filename at the prompt and press Enter.\n"
+"\n"
+" The following function keys are available in Insert File mode:\n"
+"\n"
+msgstr ""
+"Textul de ajutor pentru \"Insereazã fiºier\"\n"
+"\n"
+" Tastaþi numele unui fiºier de introdus în buffer-ul pentru fiºierul curent "
+"la poziþia curentã a cursorului.\n"
+"\n"
+"  Dacã aþi compilat nano cu suport pentru multiple buffere ºi aþi activat "
+"acestã opþiune cu indicatorii de linie de comandã -F sau --multibuffer, "
+"comutatorul Meta-F, sau un fiºier nanorc, inserând un fiºier va face ca "
+"acesta sã fie încãrcat într-un alt buffer (folosiþi Meta-< ºi > pentru a "
+"comuta între buffere).\n"
+"\n"
+"Dacã aveþi nevoie de un alt buffer liber, nu introduceþi nici un nume sau "
+"introduceþi un nume de fiºier ce nu existã ºi apãsaþi Enter.\n"
+"\n"
+" Urmãtoarele taste de funcþii sunt disponibile în modul \"Insereazã fiºier"
+"\" \n"
+
+#: nano.c:318
+msgid ""
+"Write File Help Text\n"
+"\n"
+" Type the name that you wish to save the current file as and hit Enter to "
+"save the file.\n"
+"\n"
+" If you have selected text with Ctrl-^, you will be prompted to save only "
+"the selected portion to a separate file.  To reduce the chance of "
+"overwriting the current file with just a portion of it, the current filename "
+"is not the default in this mode.\n"
+"\n"
+" The following function keys are available in Write File mode:\n"
+"\n"
+msgstr ""
+"Textul de ajutor pentru \"Scrie fiºier\"\n"
+"\n"
+" Tastaþi numele sub care doriþi sã salvaþi fiºierul curent ºi apãsaþi Enter "
+"pentru a salva fiºierul.\n"
+"\n"
+" Dacã aþi selectat text cu Ctrl-^, veþi fi interpolat sã salvaþi numai "
+"porþiunea selectatã într-un fiºier separat.  Pentru a reduce ºansa de a "
+"suprascrie fiºierul curent cu doar o porþiune a sa, numele de fiºier curent "
+"nu este implicit în acest mod.\n"
+"\n"
+" Urmãtoarele taste de funcþii sunt disponibile în modul \"Scrie fiºier\"\n"
+"\n"
+
+#: nano.c:329
+msgid ""
+"File Browser Help Text\n"
+"\n"
+" The file browser is used to visually browse the directory structure to "
+"select a file for reading or writing.  You may use the arrow keys or Page Up/"
+"Down to browse through the files, and S or Enter to choose the selected file "
+"or enter the selected directory.  To move up one level, select the directory "
+"called \"..\" at the top of the file list.\n"
+"\n"
+" The following function keys are available in the file browser:\n"
+"\n"
+msgstr ""
+"Textul de ajutor pentru \"Navigator fiºiere\"\n"
+"\n"
+" Navigatorul de fiºiere este folosit pentru a naviga vizual structura de "
+"directoare ºi a selecta un fiºier pentru citire sau scriere.  Puteþi folosi "
+"tastele cu sãgeþi sau Page Up/Down pentru a naviga prin fiºiere, ºi S sau "
+"Enter pentru a alege fiºierul selectat sau a intra într-un director "
+"selectat. Pentru a vã muta în sus un nivel, selectaþi directorul numit \".."
+"\" din capãtul de sus a listei de fiºiere.\n"
+"\n"
+" Urmãtoarele taste de funcþii sunt disponibile în \"Navigator fiºiere\":\n"
+"\n"
+
+#: nano.c:340
+msgid ""
+"Browser Go To Directory Help Text\n"
+"\n"
+" Enter the name of the directory you would like to browse to.\n"
+"\n"
+" If tab completion has not been disabled, you can use the TAB key to "
+"(attempt to) automatically complete the directory name.\n"
+"\n"
+" The following function keys are available in Browser Go To Directory mode:\n"
+"\n"
+msgstr ""
+"Text de ajutor pentru \"Navigator Du-te la Directorul\"\n"
+"\n"
+" Introduceþi numele directorului pe care aþi dori sã-l navigaþi.\n"
+"\n"
+" Dacã completarea cu tab nu a fost deactivatã, puteþi folosi tasta TAB "
+"pentru a încerca sã completaþi automat numele directorului.\n"
+"\n"
+" Urmãtoarele taste de funcþii sunt disponibile în modul \"Navigator Du-te la "
+"Directorul\":\n"
+"\n"
+
+#: nano.c:349
+msgid ""
+"Spell Check Help Text\n"
+"\n"
+" The spell checker checks the spelling of all text in the current file.  "
+"When an unknown word is encountered, it is highlighted and a replacement can "
+"be edited.  It will then prompt to replace every instance of the given "
+"misspelled word in the current file.\n"
+"\n"
+" The following other functions are available in Spell Check mode:\n"
+"\n"
+msgstr ""
+"Text de ajutor pentru \"Corector ortografic\"\n"
+"\n"
+" Corectorul ortografic verificã ortografierea întregului text din fiºierul "
+"curent. Când un cuvânt necunoscut este întâlnit, acesta este evidenþiat ºi "
+"un înlocuitor poate fi introdus/editat.  Corectorul vã va întreba dacã "
+"doriþi sã înlocuiþi toate apariþiile cu aceeaºi greºealã în fiºierul "
+"curent.\n"
+"\n"
+" Urmãtoarele alte funcþii sunt disponibile în modul \"Corector ortografic"
+"\":\n"
+"\n"
+
+#: nano.c:360
+msgid ""
+"External Command Help Text\n"
+"\n"
+" This menu allows you to insert the output of a command run by the shell "
+"into the current buffer (or a new buffer in multibuffer mode).\n"
+"\n"
+" The following keys are available in this mode:\n"
+"\n"
+msgstr ""
+"Text de ajutor \"Comandã externã\"\n"
+"\n"
+" Acest meniu vã permite sã inseraþi ieºirea unei comenzi executate de shell "
+"în buffer-ul curent (sau într-un nou buffer în modul multibuffer).\n"
+"\n"
+" Urmãtoarele taste sunt disponibile în acest mod:\n"
+"\n"
+
+#: nano.c:367
+msgid ""
+" nano help text\n"
+"\n"
+" The nano editor is designed to emulate the functionality and ease-of-use of "
+"the UW Pico text editor.  There are four main sections of the editor: The "
+"top line shows the program version, the current filename being edited, and "
+"whether or not the file has been modified.  Next is the main editor window "
+"showing the file being edited.  The status line is the third line from the "
+"bottom and shows important messages. The bottom two lines show the most "
+"commonly used shortcuts in the editor.\n"
+"\n"
+" The notation for shortcuts is as follows: Control-key sequences are notated "
+"with a caret (^) symbol and are entered with the Control (Ctrl) key.  Escape-"
+"key sequences are notated with the Meta (M) symbol and can be entered using "
+"either the Esc, Alt or Meta key depending on your keyboard setup.  The "
+"following keystrokes are available in the main editor window.  Alternative "
+"keys are shown in parentheses:\n"
+"\n"
+msgstr ""
+" text ajutor pentru nano\n"
+"\n"
+" Editotul nano este proiectat sa emuleze funþionalitatea ºi uºurinþa de "
+"folosire a editorului de texte UW Pico.  Existã patru secþiuni principale "
+"ale editorului: Linia de sus aratã versiunea programului, numele fiºierului "
+"curent ce este editat ºi dacã fiºierul a fost sau nu modificat.  Urmãtoarea "
+"secþiune principalã este fereastra de editare ce aratã fiºierul ce este "
+"editat.  Linia de stare este a treia linie de jos ºi aratã mesaje "
+"importante.  Ultimele douã linii aratã cele mai frecvente scurtãturi "
+"folosite în editor.\n"
+"\n"
+" Notaþia pentru scurtãturi este dupã cum urmeazã: secvenþe Control-tastã "
+"sunt notate cu un simbol (^) ºi sunt introduse cu tasta Control (Ctrl). "
+"Secvenþele Escape-tastã sunt notate cu sombolul Meta (M) ºi pot fi introduse "
+"folosind oricare din tastele Esc, Alt sau Meta, în funcþie de setarea "
+"tastaturii d-voastrã.  Urmãtoarele combinaþii de taste sunt disponibile în "
+"fereastra de editare principalã.  Tastele alternative sunt arãtate în "
+"paranteze:\n"
+"\n"
+
+#: nano.c:396 nano.c:466
+msgid "enable/disable"
+msgstr "activeazã/deactiveazã"
+
+#: nano.c:423 nano.c:426
+msgid "Space"
+msgstr "Spaþiu"
+
+#: nano.c:630
+#, c-format
+msgid ""
+"Usage: nano [+LINE] [GNU long option] [option] [file]\n"
+"\n"
+msgstr ""
+"Folosire: nano [+LINIE] [opþiune GNU lungã] [opþiune] [fiºier]\n"
+"\n"
+
+#: nano.c:631
+#, c-format
+msgid "Option\t\tLong option\t\tMeaning\n"
+msgstr "Opþiune\t\tOpþiune lungã\t\tÎnþeles\n"
+
+#: nano.c:633
+#, c-format
+msgid ""
+"Usage: nano [+LINE] [option] [file]\n"
+"\n"
+msgstr ""
+"Folosire: nano [+LINIE] [opþiune] [fiºier]\n"
+"\n"
+
+#: nano.c:634
+#, c-format
+msgid "Option\t\tMeaning\n"
+msgstr "Opþiune\t\tÎnþeles\n"
+
+#: nano.c:637
+msgid "Show this message"
+msgstr "Aratã acest mesaj"
+
+#: nano.c:638
+msgid "+LINE"
+msgstr "+LINIE"
+
+#: nano.c:638
+msgid "Start at line number LINE"
+msgstr "Începe la linia cu numãrul LINIE"
+
+#: nano.c:640
+msgid "Backup existing files on save"
+msgstr "Creazã copii de siguranþã (backup) la salvare"
+
+#: nano.c:641
+msgid "Write file in DOS format"
+msgstr "Scrie fiºierul în format DOS"
+
+#: nano.c:644
+msgid "Enable multiple file buffers"
+msgstr "Activeazã buffere fiºier multiple"
+
+#: nano.c:648
+msgid "Log & read search/replace string history"
+msgstr "Scrie în jurnal ºi citeºte istoria ºirurilor de cãutare/înlocuire"
+
+#: nano.c:650
+msgid "Don't look at nanorc files"
+msgstr "Nu te uita la fiºierele nanorc"
+
+#: nano.c:652
+msgid "Use alternate keypad routines"
+msgstr "Foloseºte rutine tastaturã alternative"
+
+#: nano.c:654
+msgid "Write file in Mac format"
+msgstr "Scrie fiºier în format Mac"
+
+#: nano.c:655
+msgid "Don't convert files from DOS/Mac format"
+msgstr "Nu converti fiºierele din formatul DOS/Mac"
+
+#: nano.c:658
+msgid "-Q [str]"
+msgstr "-Q [sir]"
+
+#: nano.c:658
+msgid "--quotestr=[str]"
+msgstr "--quotestr=[ºir]"
+
+#: nano.c:658
+msgid "Quoting string, default \"> \""
+msgstr "ªir citate. implicit \"> \""
+
+#: nano.c:661
+msgid "Do regular expression searches"
+msgstr "Executã cãutãri cu expresii regulare"
+
+#: nano.c:666
+msgid "-T [num]"
+msgstr "-T [num]"
+
+#: nano.c:666
+msgid "--tabsize=[num]"
+msgstr "--tabsize=[num]"
+
+#: nano.c:666
+msgid "Set width of a tab to num"
+msgstr "Seleazã lungime tab ca num"
+
+#: nano.c:667
+msgid "Print version information and exit"
+msgstr "Afiºeazã informaþii despre versiune ºi terminã"
+
+#: nano.c:669
+msgid "-Y [str]"
+msgstr "-Y [ºir]"
+
+#: nano.c:669
+msgid "--syntax [str]"
+msgstr "--syntax [ºir]"
+
+#: nano.c:669
+msgid "Syntax definition to use"
+msgstr "Definiþie sintaxã de folosit"
+
+#: nano.c:671
+msgid "Constantly show cursor position"
+msgstr "Aratã continuu poziþia cursorului"
+
+#: nano.c:673
+msgid "Automatically indent new lines"
+msgstr "Indent-eazã automatic liniile noi"
+
+#: nano.c:674
+msgid "Let ^K cut from cursor to end of line"
+msgstr "Permite ^K sã taie de la cursor la sfârºitul liniei"
+
+#: nano.c:676
+msgid "Don't follow symbolic links, overwrite"
+msgstr "Nu urma link-urile simbolice, scrie peste"
+
+#: nano.c:678
+msgid "Enable mouse"
+msgstr "Permite maus"
+
+#: nano.c:681
+msgid "-o [dir]"
+msgstr "-o [dir]"
+
+#: nano.c:681
+msgid "--operatingdir=[dir]"
+msgstr "--operatingdir=[dir]"
+
+#: nano.c:681
+msgid "Set operating directory"
+msgstr "Seteazã directorul de operare"
+
+#: nano.c:683
+msgid "Preserve XON (^Q) and XOFF (^S) keys"
+msgstr "Conservã tastele XON (^Q) ºi XOFF (^S)"
+
+#: nano.c:685
+msgid "-r [#cols]"
+msgstr "-r [#coloane]"
+
+#: nano.c:685
+msgid "--fill=[#cols]"
+msgstr "--fill=[#coloane]"
+
+#: nano.c:685
+msgid "Set fill cols to (wrap lines at) #cols"
+msgstr "Seteazã coloane de umplere (sparge/wrap linii la) #coloane"
+
+#: nano.c:688
+msgid "-s [prog]"
+msgstr "-s [prog]"
+
+#: nano.c:688
+msgid "--speller=[prog]"
+msgstr "--speller=[prog]"
+
+#: nano.c:688
+msgid "Enable alternate speller"
+msgstr "Permite corector ortografic alternativ"
+
+#: nano.c:690
+msgid "Auto save on exit, don't prompt"
+msgstr "Salveazã automat la ieºire, nu întreba"
+
+#: nano.c:691
+msgid "View (read only) mode"
+msgstr "Mod vedere (numai citire)"
+
+#: nano.c:693
+msgid "Don't wrap long lines"
+msgstr "Nu sparge (wrap) liniile lungi"
+
+#: nano.c:695
+msgid "Don't show help window"
+msgstr "Nu arãta fereastra de ajutor"
+
+#: nano.c:696
+msgid "Enable suspend"
+msgstr "Permite suspendarea"
+
+#: nano.c:699
+msgid "(ignored, for Pico compatibility)"
+msgstr "(ignorat, pentru compatibilitate cu Pico)"
+
+#: nano.c:706
+#, c-format
+msgid " GNU nano version %s (compiled %s, %s)\n"
+msgstr " GNU nano versiunea %s (compilat %s, %s)\n"
+
+#: nano.c:709
+#, c-format
+msgid " Email: nano@nano-editor.org\tWeb: http://www.nano-editor.org/"
+msgstr " Email: nano@nano-editor.org\tWeb: http://www.nano-editor.org/"
+
+#: nano.c:710
+#, c-format
+msgid ""
+"\n"
+" Compiled options:"
+msgstr ""
+"\n"
+" Opþiuni compilare:"
+
+#: nano.c:782
+msgid "Sorry, support for this function has been disabled"
+msgstr "Ne pare rãu, suportul pentru aceastã funcþie a fost deactivat"
+
+#: nano.c:816
+msgid "Could not pipe"
+msgstr "Nu am putut pipe"
+
+#: nano.c:838 nano.c:1788 nano.c:1921
+msgid "Could not fork"
+msgstr "Nu am putut fork"
+
+#: nano.c:1375
+msgid "Mark Set"
+msgstr "Marcaj Setare"
+
+#: nano.c:1380
+msgid "Mark UNset"
+msgstr "Marcaj DEsetare"
+
+#: nano.c:1643
+msgid "Edit a replacement"
+msgstr "Editeazã o înlocuire"
+
+#: nano.c:1696
+msgid "Could not create pipe"
+msgstr "Nu am putut crea pipe"
+
+#: nano.c:1698
+msgid "Creating misspelled word list, please wait..."
+msgstr "Creez listã cuvinte ortografiate greºit, vã rog aºteptaþi..."
+
+#: nano.c:1794
+msgid "Could not get size of pipe buffer"
+msgstr "Nu am putut obþine dimensiune buffer pentru pipe"
+
+#: nano.c:1846
+msgid "Error invoking \"spell\""
+msgstr "Eroare invocare \"spell\""
+
+#: nano.c:1849
+msgid "Error invoking \"sort -f\""
+msgstr "Eroare invocare \"sort -f\""
+
+#: nano.c:1852
+msgid "Error invoking \"uniq\""
+msgstr "Eroare invocare \"uniq\""
+
+#: nano.c:1928
+#, c-format
+msgid "Could not invoke \"%s\""
+msgstr "Nu am putut invoca \"%s\""
+
+#: nano.c:1971
+#, c-format
+msgid "Could not create a temporary filename: %s"
+msgstr "Nu am putut crea un fiºier temporar: %s"
+
+#: nano.c:1977
+msgid "Spell checking failed: unable to write temp file!"
+msgstr "Verificarea ortografiei a eºuat: nu pot scrie un fiºier temporar!"
+
+#: nano.c:1996
+#, c-format
+msgid "Spell checking failed: %s"
+msgstr "Verificarea ortografiei a eºuat: %s"
+
+#: nano.c:2000
+msgid "Finished checking spelling"
+msgstr "Am terminat verificarea ortografiei"
+
+#: nano.c:2343
+#, c-format
+msgid "Bad quote string %s: %s"
+msgstr "ªir greºit pentru ghilimele %s: %s"
+
+#: nano.c:2610
+msgid "Can now UnJustify!"
+msgstr "Nu pot De-Alinia!"
+
+#: nano.c:2706
+msgid "Save modified buffer (ANSWERING \"No\" WILL DESTROY CHANGES) ? "
+msgstr ""
+"Salvez buffer-ul modificat (RÃSPUNSUL \"Nu\" VA DISTRUGE SCHIMBÃRILE) ?"
+
+#: nano.c:2806
+msgid "Received SIGHUP or SIGTERM\n"
+msgstr "Am recepþionat SIGHUP sau SIGTERM\n"
+
+#: nano.c:2813
+msgid "Use \"fg\" to return to nano"
+msgstr "Folosiþi \"fg\" pentru a vã întoarce la nano"
+
+#: nano.c:2941
+msgid "NumLock glitch detected.  Keypad will malfunction with NumLock off"
+msgstr ""
+"Am detectat problema cu NumLock.  Keypad-ul va funcþiona greºit cu NumLock "
+"deactivat"
+
+#: nano.c:2990
+msgid "enabled"
+msgstr "activat"
+
+#: nano.c:2990
+msgid "disabled"
+msgstr "deactivat"
+
+#: nano.c:3186
+#, c-format
+msgid "Tab size is too small for nano...\n"
+msgstr "Dimensiune tab prea micã pentr nano...\n"
+
+#: nano.c:3745
+msgid "XOFF ignored, mumble mumble."
+msgstr "XOFF ignorat, murmur, murmur."
+
+#: nano.c:3747
+msgid "XON ignored, mumble mumble."
+msgstr "XON ignorat, murmur, murmur."
+
+#: rcfile.c:105
+#, c-format
+msgid "Error in %s on line %d: "
+msgstr "Eroare în %s pe linia %d: "
+
+#: rcfile.c:110
+#, c-format
+msgid ""
+"\n"
+"Press return to continue starting nano\n"
+msgstr ""
+"\n"
+"Apãsaþi Enter pentru a continua lansarea nano\n"
+
+#: rcfile.c:175
+#, c-format
+msgid "argument %s has unterminated \""
+msgstr "argumentul %s are \" neterminat"
+
+#: rcfile.c:217
+#, c-format
+msgid ""
+"color %s not understood.\n"
+"Valid colors are \"green\", \"red\", \"blue\", \n"
+"\"white\", \"yellow\", \"cyan\", \"magenta\" and \n"
+"\"black\", with the optional prefix \"bright\".\n"
+msgstr ""
+"culoare %s incorectã.\n"
+"Culori valide sunt \"green\"(verde), \"red\"(roºu), \"blue\"(albastru), \n"
+"\"white\"(alb), \"yellow\"(galben), \"cyan\", \"magenta\"(purpuriu) ºi \n"
+"\"black\"(negru), cu prefixul opþional \"bright\"(strãlucitor).\n"
+
+#: rcfile.c:256
+#, c-format
+msgid "Bad regex \"%s\": %s"
+msgstr "Regex incorect \"%s\": %s"
+
+#: rcfile.c:276 rcfile.c:400 rcfile.c:447
+msgid "regex strings must begin and end with a \" character\n"
+msgstr "ºir regex trebuie sã înceapã ºi sfârºeascã cu un caracter\"\n"
+
+#: rcfile.c:285
+msgid "Missing syntax name"
+msgstr "Lipseºte nume sintaxã"
+
+#: rcfile.c:354
+msgid "Missing color name"
+msgstr "Lipseºte nume culoare"
+
+#: rcfile.c:371
+msgid "Cannot add a color directive without a syntax line"
+msgstr "Nu pot adãuga o directivã de culoare fãrã o linie de sintaxã"
+
+#: rcfile.c:439
+msgid "\"start=\" requires a corresponding \"end=\""
+msgstr "\"start=\" necesitã un \"end=\" corespunzãtor"
+
+#: rcfile.c:511
+#, c-format
+msgid "command %s not understood"
+msgstr "comanda %s nu a fost înþeleasã"
+
+#: rcfile.c:543
+#, c-format
+msgid "option %s requires an argument"
+msgstr "opþiunea %s necesitã un argument"
+
+#: rcfile.c:568
+#, c-format
+msgid "requested fill size %d invalid"
+msgstr "dimensiune umplere cerutã %d invalidã"
+
+#: rcfile.c:592
+#, c-format
+msgid "requested tab size %d invalid"
+msgstr "dimensiune tab cerutã %d invalidã"
+
+#: rcfile.c:616
+msgid "Errors found in .nanorc file"
+msgstr "Erori gãsite în fiºierul .nanorc"
+
+#: rcfile.c:652
+msgid "I can't find my home directory!  Wah!"
+msgstr "Nu pot gãsi directorul meu home!  Uãu!"
+
+#: rcfile.c:672
+#, c-format
+msgid "Unable to open ~/.nanorc file, %s"
+msgstr "Nu pot deschide fiºierul ~/.nanorc, %s"
+
+#: search.c:63
+#, c-format
+msgid "\"%s...\" not found"
+msgstr "\"%s...\" nu a fost gãsit"
+
+#: search.c:105
+#, c-format
+msgid "Invalid regex \"%s\""
+msgstr "Regex invalid \"%s\""
+
+#: search.c:133
+msgid "Search"
+msgstr "Cautã"
+
+#: search.c:137
+msgid " [Case Sensitive]"
+msgstr " [Case Sensitive]"
+
+#: search.c:141
+msgid " [Regexp]"
+msgstr " [Regexp]"
+
+#: search.c:145
+msgid " [Backwards]"
+msgstr " [Înapoi]"
+
+#: search.c:147
+msgid " (to replace)"
+msgstr " (de înlocuit)"
+
+#: search.c:155
+msgid "Search Cancelled"
+msgstr "Cãutare Anulatã"
+
+#: search.c:300 search.c:357
+msgid "Search Wrapped"
+msgstr "Cãutare de la început"
+
+#: search.c:432
+msgid "This is the only occurrence"
+msgstr "Aceasta este singura apariþie"
+
+#: search.c:585 search.c:751
+msgid "Replace Cancelled"
+msgstr "Înlocuire Anulatã"
+
+#: search.c:661
+msgid "Replace this instance?"
+msgstr "Înlocuieºte în acest caz?"
+
+#: search.c:686
+msgid "Replace failed: unknown subexpression!"
+msgstr "Înlocuire eºuatã: subexpresie necunoscutã!"
+
+#: search.c:788
+msgid "Replace with"
+msgstr "Înlocuieºte cu"
+
+#: search.c:808
+#, c-format
+msgid "Replaced %d occurrence"
+msgid_plural "Replaced %d occurrences"
+msgstr[0] "Am înlocuit în %d loc"
+msgstr[1] "Am înlocuit în %d locuri"
+
+#: search.c:829
+msgid "Enter line number"
+msgstr "Introduceþi numãrul liniei"
+
+#: search.c:833
+msgid "Aborted"
+msgstr "Renunþat"
+
+#: search.c:843
+msgid "Come on, be reasonable"
+msgstr "Haideþi, fiþi rezonabil"
+
+#: search.c:903
+msgid "Not a bracket"
+msgstr "Nu este o parantezã"
+
+#: search.c:954
+msgid "No matching bracket"
+msgstr "Nici o parantezã pereche"
+
+#: utils.c:257 utils.c:267
+msgid "nano is out of memory!"
+msgstr "nano a epuizat memoria!"
+
+#: winio.c:600
+msgid "  File: ..."
+msgstr "  Fiºier: ..."
+
+#: winio.c:602
+msgid "   DIR: ..."
+msgstr "   DIR: ..."
+
+#: winio.c:607
+msgid "File: "
+msgstr "Fiºier: "
+
+#: winio.c:610
+msgid " DIR: "
+msgstr " DIR: "
+
+#: winio.c:615
+msgid " Modified "
+msgstr " Modificat "
+
+#: winio.c:617
+msgid " View "
+msgstr " Vedere "
+
+#: winio.c:803
+msgid "Refusing 0 length regex match"
+msgstr "Refuz potrivire regex de lungime 0"
+
+#: winio.c:1297
+msgid "Yy"
+msgstr "Yy"
+
+#: winio.c:1298
+msgid "Nn"
+msgstr "Nn"
+
+#: winio.c:1299
+msgid "Aa"
+msgstr "Aa"
+
+#: winio.c:1310
+msgid "Yes"
+msgstr "Da"
+
+#: winio.c:1315
+msgid "All"
+msgstr "Tot"
+
+#: winio.c:1320
+msgid "No"
+msgstr "Nu"
+
+#: winio.c:1499
+#, c-format
+msgid "line %ld/%ld (%d%%), col %lu/%lu (%d%%), char %lu/%ld (%d%%)"
+msgstr ""
+"linia %ld/%ld (%d%%), coloana %lu/%lu (%d%%), caracterul %lu/%ld (%d%%)"
+
+#: winio.c:1838
+msgid "The nano text editor"
+msgstr "Editorul de texte nano"
+
+#: winio.c:1839
+msgid "version "
+msgstr "versiune "
+
+#: winio.c:1840
+msgid "Brought to you by:"
+msgstr "Adus pentru d-voastrã de:"
+
+#: winio.c:1841
+msgid "Special thanks to:"
+msgstr "Mulþumiri speciale lui:"
+
+#: winio.c:1842
+msgid "The Free Software Foundation"
+msgstr "The Free Software Foundation"
+
+#: winio.c:1843
+msgid "For ncurses:"
+msgstr "Pentru ncurses:"
+
+#: winio.c:1844
+msgid "and anyone else we forgot..."
+msgstr "ºi oricine altcineva a fost uitat..."
+
+#: winio.c:1845
+msgid "Thank you for using nano!\n"
+msgstr "Vã mulþumim cã folosiþi nano!\n"
+
+#~ msgid "Cannot resize top win"
+#~ msgstr "Nu pot redimensiona fereastra de sus"
+
+#~ msgid "Cannot move top win"
+#~ msgstr "Nu pot muta fereastra de sus"
+
+#~ msgid "Cannot resize edit win"
+#~ msgstr "Nu pot redimensiona fereastra de editare"
+
+#~ msgid "Cannot move edit win"
+#~ msgstr "Nu pot muta fereastra de editare"
+
+#~ msgid "Cannot resize bottom win"
+#~ msgstr "Nu pot redimensiona fereastra de jos"
+
+#~ msgid "Cannot move bottom win"
+#~ msgstr "Nu pot muta fereastra de jos"

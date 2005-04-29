@@ -28,30 +28,10 @@
 #ifndef __NBPUTILITIES__
 #define __NBPUTILITIES__
 
-#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "NSLDebugLog.h"
 
-#include <stdlib.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <sys/protosw.h>
-#include <sys/errno.h>
-#include <sys/socketvar.h>
-#include <sys/domain.h>
-#include <sys/mount.h>
-#include <nfs/nfsproto.h>
-#include <sys/malloc.h>
-#include <sys/mbuf.h>
-#include <string.h>
-#include <machine/spl.h>
-#include <sys/uio.h>
-#include <unistd.h>
-#include <sys/time.h>
-#include <fcntl.h>
-#include <sys/attr.h>
 #include <netat/appletalk.h>
 #include <netat/atp.h>
 #include <netat/zip.h>

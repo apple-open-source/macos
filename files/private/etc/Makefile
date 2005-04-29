@@ -4,7 +4,7 @@ Destination = $(DSTROOT)/private/etc
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # Subdirectories with their own makefiles
-SubDirs = resolver
+SubDirs = 
 
 install::
 	$(_v) for subdir in $(SubDirs); do						\
@@ -19,7 +19,6 @@ install-sysconf:
 	$(_v) $(INSTALL_FILE) -c -m 644 afpovertcp.cfg	 "$(Destination)/afpovertcp.cfg"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/find.codes"
 	$(_v) $(INSTALL_FILE) -c -m 644 ftpusers	 "$(Destination)/ftpusers"
-	$(_v) $(INSTALL_FILE) -c -m 644 fstab	 "$(Destination)/fstab"
 	$(_v) $(INSTALL_FILE) -c -m 644 fstab.hd	 "$(Destination)/fstab.hd"
 	$(_v) $(INSTALL_FILE) -c -m 644 gettytab	 "$(Destination)/gettytab"
 	$(_v) $(INSTALL_FILE) -c -m 644 /dev/null	 "$(Destination)/hosts.lpd"

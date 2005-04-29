@@ -470,7 +470,7 @@ void perl_reload_inc(server_rec *s, pool *sp)
     dPSRV(s);
     HV *hash = GvHV(incgv);
     HE *entry;
-    I32 old_warn = dowarn;
+    U8 old_warn = dowarn;
     pool *p = ap_make_sub_pool(sp);
     table *reload = ap_make_table(p, HvKEYS(hash));
     char **entries;
@@ -573,10 +573,10 @@ void perl_do_file(char *pv)
     /*(void)hv_delete(GvHV(incgv), pv, strlen(pv), G_DISCARD);*/
 }      
 
-int perl_load_startup_script(server_rec *s, pool *p, char *script, I32 my_warn)
+int perl_load_startup_script(server_rec *s, pool *p, char *script, U8 my_warn)
 {
     dTHR;
-    I32 old_warn = dowarn;
+    U8 old_warn = dowarn;
 
     if(!script) {
 	MP_TRACE_d(fprintf(stderr, "no Perl script to load\n"));
@@ -708,7 +708,8 @@ int perl_eval_ok(server_rec *s)
 
 int perl_sv_is_http_code(SV *errsv, int *status) 
 {
-    int i=0, http_code=0, retval = FALSE;
+    int retval = FALSE;
+    STRLEN i=0, http_code=0;
     char *errpv;
     char cpcode[4];
     dTHR;
@@ -785,7 +786,7 @@ int perl_sv_is_http_code(SV *errsv, int *status)
 #define PERLLIB_SEP ':'
 #endif
 
-void perl_incpush(char *p)
+void perl_inc_unshift(char *p)
 {
     if(!p) return;
 
@@ -803,7 +804,8 @@ void perl_incpush(char *p)
 	    sv_setpv(libdir, p);
 	    p = Nullch;
 	}
-	av_push(GvAV(incgv), libdir);
+       av_unshift(GvAV(incgv), 1);
+       av_store(GvAV(incgv), 0, libdir);
     }
 }
 
@@ -851,11 +853,16 @@ void mod_perl_mark_where(char *where, SV *sub)
 	name = perl_sv_name(sub);
 
     sv_setpv(GvSV(CopFILEGV(curcop)), "");
-    sv_catpvf(GvSV(CopFILEGV(curcop)), "%s subroutine `%_'", where, name);
+    if (name) {
+        sv_catpvf(GvSV(CopFILEGV(curcop)), "%s subroutine `%_'", where, name);
+        SvREFCNT_dec(name);
+    }
+    else {
+        sv_catpvf(GvSV(CopFILEGV(curcop)), "%s subroutine <unknown>", where);
+    }
+    
     CopLINE_set(curcop, 1);
 
-    if(name)
-	SvREFCNT_dec(name);
 }
 #endif
 

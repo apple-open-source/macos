@@ -1,0 +1,39 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* stooop.tcl:
+	* stooop.man:
+	* pkgIndex.tcl: Set version of the package to to 4.4.1 throughout.
+
+2003-04-01  Andreas Kupries  <andreask@activestate.com>
+
+	* stooop.man:
+	* stooop.htm: Renamed to 'stoop_man.html'. Updated doctools
+	  documentation to refer to manual under the new name. This
+	  resolves the circular link reported in Tcllib SF bug #687923.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* stooop.man: More semantic markup, less visual one.
+
+2002-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* stooop.man: Added doctools manpage.
+

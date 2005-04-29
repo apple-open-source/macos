@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)erf.3	6.4 (Berkeley) 4/20/91
-.\"	$Id: tgamma.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: tgamma.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
 .Dd July 23, 2003
 .Dt TGAMMA 3
@@ -43,6 +43,8 @@
 .Fd #include <math.h>
 .Ft double
 .Fn tgamma "double x"
+.Ft long double
+.Fn tgammal "long double x"
 .Ft float
 .Fn tgamma "float x"
 .Ft double
@@ -101,10 +103,6 @@ A range error may occur if x is a negative integer or 0.
 .Sh STANDARDS
 The
 .Fn tgamma
-,
-.Fn tgammf
-,
-.Fn lgamma
 , and
-.Fn lgammaf
+.Fn lgamma
 functions conform to ISO/IEC 9899:1999(E).

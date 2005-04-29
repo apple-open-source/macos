@@ -1,6 +1,6 @@
 /* script.h -- script definition
  * Larry Greenfield
- * $Id: script.h,v 1.11 2003/10/22 18:50:30 rjs3 Exp $
+ * $Id: script.h,v 1.4 2005/03/05 00:37:38 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

@@ -42,7 +42,7 @@
 tDirStatus dsauth_get_search_node_ref(tDirReference dirRef, unsigned long index, 
                 tDirNodeReference *searchNodeRef, unsigned long *count)
 {
-    tDirStatus			dsResult = eDSNoErr;
+    tDirStatus			dsResult = -1;
     tDataBufferPtr		searchNodeDataBufferPtr = 0;
     tDataListPtr	   	searchNodeNameDataListPtr = 0;
 
@@ -95,7 +95,7 @@ tDirStatus dsauth_get_user_attr(tDirReference dirRef, tDirNodeReference searchNo
                 char *attr, tAttributeValueEntryPtr *attr_value)
 {
 
-    tDirStatus			dsResult = eDSNoErr;
+    tDirStatus			dsResult = -1;
    
     tDataBufferPtr		userRcdDataBufferPtr = 0;
     tDataListPtr	   	recordNameDataListPtr = 0;
@@ -104,7 +104,7 @@ tDirStatus dsauth_get_user_attr(tDirReference dirRef, tDirNodeReference searchNo
     tContextData		continueData = 0;
 
     unsigned long		outRecordCount;
-    int				userRcdFound = 0;
+    int					userRcdFound = 0;
     u_int32_t			userRecordIndex, attrIndex;
     
     *attr_value	= 0;
@@ -198,11 +198,11 @@ tDirStatus dsauth_get_user_attr(tDirReference dirRef, tDirNodeReference searchNo
                 dsDeallocRecordEntry(dirRef, userRcdEntryPtr);
             }
         }
-        if (continueData)
-            dsReleaseContinueData(dirRef, continueData);
     }
         
 cleanup:
+	if (continueData)
+		dsReleaseContinueData(searchNodeRef, continueData);
     if (userRcdDataBufferPtr)
         dsDataBufferDeAllocate(dirRef, userRcdDataBufferPtr);
     if (recordNameDataListPtr)

@@ -29,6 +29,8 @@ bin/unshunt
 bin/update
 bin/version
 bin/withlist
+bin/rb-archfix
+bin/rb-archfix.~1~
 bin/msgfmt.py
 bin/show_qfiles
 bin/discard

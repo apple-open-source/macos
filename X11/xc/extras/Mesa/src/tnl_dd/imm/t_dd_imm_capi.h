@@ -1,4 +1,3 @@
-/* $Id: t_dd_imm_capi.h,v 1.1.1.1 2003/03/13 23:56:56 jharper Exp $ */
 
 /*
  * Mesa 3-D graphics library

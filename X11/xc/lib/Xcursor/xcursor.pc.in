@@ -1,11 +1,12 @@
 prefix=@prefix@
 exec_prefix=@exec_prefix@
 libdir=@libdir@
+hardcode_libdir_flag_spec=@hardcode_libdir_flag_spec@
 includedir=@includedir@
 
 Name: Xcursor
 Description: X Cursor library
 Version: @PACKAGE_VERSION@
 Requires:
-Libs: -L${libdir} -lXcursor
+Libs: ${hardcode_libdir_flag_spec} -L${libdir} -lXcursor
 Cflags: -I${includedir}

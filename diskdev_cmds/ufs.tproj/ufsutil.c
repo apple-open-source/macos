@@ -44,11 +44,12 @@
 static void 
 usage(const char * progname)
 {
-    fprintf(stderr, "usage: %s -p device_arg\n", progname);
-    fprintf(stderr, "device_arg:\n");
-    fprintf(stderr, "       device we are acting upon (for example, 'sd2')\n");
-    return;
+    fprintf(stderr, "usage: %s [-m mountflag1 mountflag2 mountflag3 mountflag4] device node\n", progname);
+    fprintf(stderr, "       %s [-p mountflag1 mountflag2 mountflag3 mountflag4] device\n", progname);
+    fprintf(stderr, "       %s [-ksu] device\n", progname);
+    fprintf(stderr, "       %s [-n] device name\n", progname);
 
+    return;
 }
 
 union sbunion {

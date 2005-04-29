@@ -1,0 +1,26 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>grep</string>
+	<key>OpenSourceVersion</key>
+	<string>2.5.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/grep/</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.de.uu.net/pub/gnu/grep/grep-2.5.1.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>ddd99e2d5d4f4611357e31e97f080cf2</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-03</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>3489414</string>
+		<string>3681071</string>
+		<string>Install HTML instead of texinfo.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>grep.txt</string>
+</dict>
+</plist>

@@ -1,5 +1,5 @@
 XCOMM $XConsortium: Imakefile /main/10 1996/12/02 10:20:33 lehors $
-XCOMM $XFree86: xc/programs/Xserver/hw/xwin/Imakefile,v 1.15 2003/02/12 15:01:38 alanh Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xwin/Imakefile,v 1.18 2003/10/02 13:30:09 eich Exp $
 
 #include <Server.tmpl>
 
@@ -8,6 +8,7 @@ SHMDEF = -DHAS_SHM
 #endif
 
 MMAPDEF = -DHAS_MMAP
+
 
 SRCS =	InitInput.c \
 	InitOutput.c \
@@ -45,17 +46,42 @@ SRCS =	InitInput.c \
 	winregistry.c \
 	winconfig.c \
 	winmsg.c \
+	winmultiwindowclass.c \
+	winmultiwindowicons.c \
+	winmultiwindowshape.c \
 	winmultiwindowwindow.c \
 	winmultiwindowwm.c \
+	winmultiwindowwndproc.c \
 	winclipboardinit.c \
 	winclipboardtextconv.c \
 	winclipboardthread.c \
 	winclipboardunicode.c \
 	winclipboardwndproc.c \
-	winclipboardxevents.c
+	winclipboardxevents.c \
+	winvideo.c \
+	wintrayicon.c \
+	windialogs.c \
+	winrop.c \
+	winpushpxl.c \
+	winprefsyacc.y \
+	winprefslex.l \
+	winprefs.c
+
+winprefsyacc.c: winprefsyacc.y
+	bison -d -o winprefsyacc.c winprefsyacc.y
+
+winprefsyacc.h: winprefsyacc.c
+
+winprefslex.c: winprefsyacc.y winprefslex.l winprefsyacc.h
+	flex -owinprefslex.c winprefslex.l
+
+clean::
+	$(RM) winprefslex.c winprefsyacc.h winprefsyacc.c
+
+depend:: winprefslex.c winprefsyacc.h winprefsyacc.c
 
 /*
- * NOTE: The windialogs.rc file is compiled into windialogs.res.
+ * NOTE: The XWin.rc file is compiled into XWin.res.
  * This compiled-resource file must be directly linked into XWin.exe
  * by the commands in xc/programs/Xserver/Imakefile; it cannot be
  * linked into libXwin.a because it will not be correctly positioned
@@ -98,14 +124,26 @@ OBJS =	InitInput.o \
 	winregistry.o \
 	winconfig.o \
 	winmsg.o \
+	winmultiwindowclass.o \
+	winmultiwindowicons.o \
+	winmultiwindowshape.o \
 	winmultiwindowwindow.o \
 	winmultiwindowwm.o \
+	winmultiwindowwndproc.o \
 	winclipboardinit.o \
 	winclipboardtextconv.o \
 	winclipboardthread.o \
 	winclipboardunicode.o \
 	winclipboardwndproc.o \
-	winclipboardxevents.o
+	winclipboardxevents.o \
+	winvideo.o \
+	wintrayicon.o \
+	windialogs.o \
+	winrop.o \
+	winpushpxl.o \
+	winprefs.o \
+	winprefsyacc.o \
+	winprefslex.o
 
 INCLUDES = -I. -I$(XBUILDINCDIR) -I$(FONTINCSRC) \
 	   -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi \
@@ -125,7 +163,7 @@ SpecialCObjectRule(stubs,$(ICONFIGFILES),$(EXT_DEFINES))
  * Build the Windows resource file (contains the program icon, etc.)
  */
 
-ResourceObjectRule(XWin,,)
+ResourceObjectRule(XWin,X.ico,)
 
 NormalLibraryObjectRule()
 NormalLibraryTarget(Xwin,$(OBJS))

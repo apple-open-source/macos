@@ -65,13 +65,12 @@ gdb_exit
 gdb_start
 gdb_reinitialize_dir $srcdir/$subdir
 
-# APPLE LOCAL: Our add-symbol-file doesn't support the ``a-s-f file addr''
-# syntax, so specify the text section explicitly.
+# APPLE LOCAL: allow other section names in the query prompt
 # Load the object file.
-gdb_test "add-symbol-file ${binfile} -s text 0" \
-	"Reading symbols from .*${testfile}\\.o\\.\\.\\.done\\." \
+gdb_test "add-symbol-file ${binfile} 0" \
+	"Reading symbols from .*${testfile}\\.o\\.\\.\\.done\\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)" \
 	"add-symbol-file ${testfile}.o 0" \
-	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+\.text_addr = 0x0\[\r\n\]+\\(y or n\\) " \
+	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT_addr = 0x0\[\r\n\]+\\(y or n\\) " \
 	"y"
 
 # Print the addresses of static variables.
@@ -105,6 +104,33 @@ if { "${function_foo_addr}" == "${function_bar_addr}" } {
   fail "functions have different addresses"
 } else {
   pass "functions have different addresses"
+}
+
+# Now use a variable as an offset to add-symbol-file, and check that
+# the functions' addresses change.
+
+gdb_exit
+gdb_start
+gdb_reinitialize_dir $srcdir/$subdir
+
+gdb_test "set \$offset = 0x10000" ""
+
+# APPLE LOCAL: allow other section names in the query prompt
+# Load the object file.
+gdb_test "add-symbol-file ${binfile} \$offset" \
+	"Reading symbols from .*${testfile}\\.o\\.\\.\\.done\\.(|\r\nUsing host libthread_db library .*libthread_db.so.*\\.)" \
+	"add-symbol-file ${testfile}.o \$offset" \
+	"add symbol table from file \".*${testfile}\\.o\" at\[ \t\r\n\]+.*TEXT_addr = 0x10000\[\r\n\]+\\(y or n\\) " \
+	"y"
+
+# Print the addresses of functions.
+set new_function_foo_addr [get_var_address function_foo]
+
+# Make sure they have different addresses.
+if { "${function_foo_addr}" == "${new_function_foo_addr}" } {
+  fail "function foo has a different address"
+} else {
+  pass "function foo has a different address"
 }
 
 return 0

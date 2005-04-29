@@ -20,6 +20,8 @@
  * OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+/* $XFree86: xc/extras/FreeType/contrib/ttf2bdf/remap.c,v 1.3 2003/10/21 18:10:06 tsi Exp $ */
+
 #ifndef lint
 #ifdef __GNUC__
 static char rcsid[] __attribute__ ((unused)) = "Id: remap.c,v 1.9 1999/06/16 16:13:11 mleisher Exp $";

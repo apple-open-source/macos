@@ -129,6 +129,9 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#if	LT_VERS>=800
+#undef	USE_LSOF_C_OPT
+#endif	/* LT_VERS>=800 */
 # endif	/* defined(LT_DIAL_darwin) */
 
 

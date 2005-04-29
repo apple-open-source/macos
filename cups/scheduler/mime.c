@@ -1,9 +1,9 @@
 /*
- * "$Id: mime.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $"
+ * "$Id: mime.c,v 1.10 2005/01/27 01:06:40 jlovell Exp $"
  *
  *   MIME database file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -61,6 +61,24 @@ typedef struct dirent DIRENT;
 typedef struct direct DIRENT;
 #  define NAMLEN(dirent) (dirent)->d_namlen
 #endif
+
+
+/*
+ * Filter executable data ...
+ */
+
+typedef struct filter_struct
+{
+  struct filter_struct *next;		/* Next element in list */
+  char *filter;				/* Filter file name */
+  int x_ok;				/* Is the filter executable? */
+} filter_t;
+
+/*
+ * Local globals...
+ */
+
+static filter_t *FilterList = NULL;	/* Temporary list of filters */
 
 
 /*
@@ -207,6 +225,8 @@ mimeMerge(mime_t     *mime,	/* I - MIME database to add to */
   DIR		*dir;		/* Directory */
   DIRENT	*dent;		/* Directory entry */
   char		filename[1024];	/* Full filename of types/converts file */
+  filter_t	*current,	/* Current filter in list */
+  		*next;		/* Next filter in list */
 
 
  /*
@@ -267,6 +287,20 @@ mimeMerge(mime_t     *mime,	/* I - MIME database to add to */
   }
 
   closedir(dir);
+
+ /*
+  * Free the temporary list of filters
+  */
+
+  for (current = FilterList; current; current = next)
+  {
+    next = current->next;
+    if (current->filter)
+      free(current->filter);
+    free(current);
+  }
+
+  FilterList = NULL;
 
   return (mime);
 #endif /* WIN32 */
@@ -348,7 +382,7 @@ load_types(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != '/' && *lineptr != '\n' && *lineptr != '\0' &&
            (temp - super + 1) < MIME_MAX_SUPER)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -360,7 +394,7 @@ load_types(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != ' ' && *lineptr != '\t' && *lineptr != '\n' &&
            *lineptr != '\0' && (temp - type + 1) < MIME_MAX_TYPE)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -397,6 +431,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 		*dsttype;		/* Destination MIME type */
   int		cost;			/* Cost of filter */
   char		filterprog[1024];	/* Full path of filter... */
+  filter_t	*current;		/* Current filter in list */
 
 
  /*
@@ -424,7 +459,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
     */
 
     for (lineptr = line + strlen(line) - 1;
-         lineptr >= line && isspace(*lineptr);
+         lineptr >= line && isspace(*lineptr & 255);
 	 lineptr --)
       *lineptr = '\0';
 
@@ -444,7 +479,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != '/' && *lineptr != '\n' && *lineptr != '\0' &&
            (temp - super + 1) < MIME_MAX_SUPER)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -456,7 +491,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != ' ' && *lineptr != '\t' && *lineptr != '\n' &&
            *lineptr != '\0' && (temp - type + 1) < MIME_MAX_TYPE)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -492,15 +527,40 @@ load_convs(mime_t     *mime,		/* I - MIME database */
     if (strcmp(filter, "-") != 0)
     {
      /*
-      * Verify that the filter exists and is executable...
+      * Verify that the filter exists and is executable.
+      * To avoid extra calls to access(2) we keep a list of previously tested
+      * filters; we search the list before making the call...
       */
 
-      if (filter[0] == '/')
-	strlcpy(filterprog, filter, sizeof(filterprog));
-      else
-	snprintf(filterprog, sizeof(filterprog), "%s/%s", filterpath, filter);
+      for (current = FilterList; current; current = current->next)
+        if (current->filter && !strcmp(filter, current->filter))
+          break;
 
-      if (access(filterprog, X_OK))
+      if (current == NULL)
+      {
+       /*
+	* We haven't tested this filter before so add an item to the 
+	* list and set it's access(2) result.
+	*/
+
+        current = malloc(sizeof(filter_t));
+	current->filter = strdup(filter);
+        current->next = FilterList;
+        FilterList = current;
+
+	if (filter[0] == '/')
+	  strlcpy(filterprog, filter, sizeof(filterprog));
+	else
+	  snprintf(filterprog, sizeof(filterprog), "%s/%s", filterpath, filter);
+
+	current->x_ok = (access(filterprog, X_OK) == 0);
+      }
+
+     /*
+      * If the filter isn't executable don't add it to the mime database...
+      */
+
+      if (!current->x_ok)
 	continue;
     }
 #endif /* !WIN32 */
@@ -515,7 +575,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != '/' && *lineptr != '\n' && *lineptr != '\0' &&
            (temp - super + 1) < MIME_MAX_SUPER)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -527,7 +587,7 @@ load_convs(mime_t     *mime,		/* I - MIME database */
 
     while (*lineptr != ' ' && *lineptr != '\t' && *lineptr != '\n' &&
            *lineptr != '\0' && (temp - type + 1) < MIME_MAX_TYPE)
-      *temp++ = tolower(*lineptr++);
+      *temp++ = tolower(*lineptr++ & 255);
 
     *temp = '\0';
 
@@ -583,5 +643,5 @@ delete_rules(mime_magic_t *rules)	/* I - Rules to free */
 
 
 /*
- * End of "$Id: mime.c,v 1.1.1.8 2003/04/11 21:07:49 jlovell Exp $".
+ * End of "$Id: mime.c,v 1.10 2005/01/27 01:06:40 jlovell Exp $".
  */

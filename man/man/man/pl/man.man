@@ -1,0 +1,427 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" T³umaczenie - 950322 Rafa³ Maszkowski <rzm@pdi.net>
+.\" 960619 - aktualizacja -K
+.\" 20011102 - aktualizacja do wersji z man-1.5i2, czê¶ciowo w oparciu
+.\"            o alternatywne t³umaczenie PB z PTM - AMK
+.\"
+.TH man 1 "2 wrze¶nia 1995"
+.LO 1
+.SH NAZWA
+man \- formatowanie i wy¶wietlanie dostêpnych stron podrêcznika man
+.br
+manpath \- wyznaczanie ¶cie¿ki poszukiwania stron podrêcznika odpowiedniej dla
+danego u¿ytkownika
+.SH SK£ADNIA
+.TP 4
+.B man
+.RB [ \-adfhkKtwW ]
+.RB [ \-m
+.IR system ]
+.RB [ \-p
+.IR ³añcuch_znaków ]
+.RB [\-C
+.IR plik_konfiguracyjny ]
+.RB [ \-M
+.IR ¶cie¿ka ]
+.RB [ \-P
+.IR pager ]
+.RB [ \-S
+.IR lista_rozdzia³ów ]
+.RI [ rozdzia³ ]
+.IR nazwa ...
+.SH OPIS
+.B man
+formatuje i wy¶wietla dostêpne w systemie strony podrêcznika man.
+.\" Ta wersja sprawdza zmienne ¶rodowiskowe
+.\" .B MANPATH
+.\" i
+.\" .BR (MAN)PAGER ,
+.\" wiêc mo¿esz mieæ swój w³asny zestaw stron podrêcznika man i wybraæ do ich
+.\" wy¶wietlania ulubiony program.
+Je¿eli zostanie podany
+.IR rozdzia³ ,
+.B man
+sprawdza tylko ten rozdzia³ podrêcznika.
+.\" U¿ywaj±c opcji lub zmiennych ¶rodowiskowych mo¿esz tak¿e podaæ porz±dek,
+.\" w jakim nale¿y przeszukiwaæ rozdzia³y oraz jakie preprocesory powinny
+.\" zostaæ u¿yte do wstêpnego przetworzenia stron.
+Je¿eli
+.I nazwa
+zawiera znak /, to man próbuje najpierw znale¼æ podany plik, wiêc mo¿na np.
+wydaæ polecenie
+.B "man ./foo.5"
+a nawet
+.B "man /cd/foo/bar.1.gz\fR.\fP"
+.PP
+Ni¿ej znajdziesz informacje, gdzie
+.B man
+szuka plików stron podrêcznika.
+
+.SH OPCJE
+.TP
+.B \-\^C " plik_konfiguracyjny"
+Okre¶la plik konfiguracyjny, którego nale¿y u¿yæ. Domy¶lnym jest
+.BR @man_config_file@ .
+(Zobacz
+.BR man.conf (5).)
+.TP
+.B \-\^M " ¶cie¿ka"
+Okre¶la listê katalogów, w których bêd± szukane strony podrêcznika man.
+Katalogi nale¿y rozdzielaæ dwukropkami. Pusta lista jest równoznaczna z nie
+podaniem tej opcji. Zobacz
+.BR "¦CIE¯KA PRZESZUKIWANIA DLA STRON PODRÊCZNIKA" .
+.TP
+.B \-\^P " pager"
+Okre¶la, który pager ma zostaæ u¿yty.  Je¿eli podana jest ta opcja,
+ignorowana jest zmienna ¶rodowiskowa
+.BR MANPAGER ,
+której u¿ycie z kolei powoduje zignorowanie zmiennej ¶rodowiskowej
+.BR PAGER .
+Domy¶lnie
+.B man
+u¿ywa
+.BR @pager@ .
+.TP
+.B \-\^S " lista_rozdzia³ów"
+Rozdzielona dwukropkami lista rozdzia³ów podrêcznika, które maj± byæ
+przeszukane. Je¿eli podana jest ta opcja, zmienna ¶rodowiskowa
+.B MANSECT
+jest ignorowana.
+.TP
+.B \-\^a
+Domy¶lnie man koñczy dzia³anie po wy¶wietleniu pierwszej znalezionej
+strony. Podanie tej opcji powoduje wy¶wietlenie wszystkich stron
+podrêcznika, które pasuj± do
+.BR nazwa , 
+a nie tylko pierwszej.
+.TP
+.B \-\^c
+Przeformatowuje ¼ród³ow± stronê podrêcznika, nawet je¿eli istnieje aktualna
+strona cat. Mo¿e to byæ istotne, je¿eli strona cat jest sformatowana
+dla ekranu z inn± liczb± kolumn.
+.TP
+.B \-\^d
+Zamiast stron podrêcznika wy¶wietla mnóstwo informacji diagnostycznych.
+.TP
+.B \-\^D
+Wy¶wietla zarówno stronê podrêcznika jak i informacje diagnostyczne.
+.TP
+.B \-\^f
+Równowa¿ne
+.BR whatis .
+.TP
+.B \-\^h
+Wy¶wietla krótk± informacjê pomocy i koñczy pracê.
+.TP
+.B \-\^k
+Równowa¿ne
+.BR apropos .
+.TP
+.B \-\^K
+Szuka podanego ³añcucha znaków we *wszystkich* stronach podrêcznika. Uwaga:
+bêdzie to prawdopodobnie bardzo powolne! Podanie rozdzia³ów pomaga
+przyspieszyæ szukanie. (Dla ogólnej orientacji: na mojej maszynie zajmuje to
+ok. minuty na ka¿de 500 stron podrêcznika.)
+.TP
+.B \-\^m " system"
+Podanie alternatywnego zestawu stron podrêcznika, odpowiedniego dla
+systemu o podanej nazwie.
+.TP
+.B \-\^p " ³añcuch_znaków"
+Podanie listy nazw preprocesorów, ktore zostan± uruchomione przed
+.B nroff
+i
+.BR troff .
+Nie wszystkie intalacje maj± pe³ny zestaw preprocesorów.
+Niektóre z nich oraz oznaczaj±ce je litery to:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Podanie tej opcji powoduje zignorowanie zmiennej ¶rodowiskowej
+.BR MANROFFSEQ .
+.TP
+.B \-\^t
+Sformatuj stronê podrêcznika za pomoc±
+.BR @troff@ ,
+a wynik wy¶lij na
+.B stdout
+(standardowe wyj¶cie).
+Mo¿e byæ konieczne przepuszczenie wyniku z
+.B @troff@
+przez jaki¶ filtr przed wydrukowaniem.
+.TP
+.B \-\^w \fRlub\fP \-\-path
+Nie wy¶wietlaj stron podrêcznika, podaj tylko gdzie znajduj± siê pliki, które
+by³yby sformatowane i wy¶wietlone. Je¿eli nie podano ¿adnych argumentów:
+wy¶wietla (na stdout) listê katalogów, w których
+.B man
+poszukuje stron podrêcznika. Je¿eli
+.B manpath
+jest dowi±zaniem man to "manpath" jest równowa¿ne "man --path".
+.TP
+.B \-\^W
+Podobne do \-\^w, lecz podaje nazwy plików, ka¿d± w osobnej linii, bez
+dodatkowych informacji. Przydaje siê w poleceniach pow³oki, np.
+.ft CW
+.B "man -aW man | xargs ls -l"
+.ft
+
+.SH "STRONY CAT"
+Man bêdzie próbowa³ zachowaæ sformatowane strony podrêcznika aby
+skróciæ czas potrzebny na sformatowanie ich po raz kolejny,
+kiedy te strony bêd± znowu potrzebne.
+Tradycyjnie, sformatowane wersje stron podrêcznika z katalogu DIR/manX s±
+zachowywane w DIR/catX, ale mo¿na te¿ w pliku
+.BR @man_config_file@
+okre¶liæ inne zasady.
+Strony cat nie s± tworzone, je¿eli wymagany katalog nie istnieje.
+.PP
+Mo¿liwe jest uczynienie programu
+.B man
+suidowym na u¿ytkownika man. Wtedy, je¶li katalogi cat maj± w³a¶ciciela man
+i prawa dostêpu 0755 (zapisywalne tylko przez u¿ytkownika man), a pliki cat
+maj± w³a¶ciciela man i prawa dostêpu 0644 lub 0444 (zapisywalne przez
+u¿ytkownika man lub przez nikogo), to ¿aden zwyk³y u¿ytkownik nie mo¿e
+zmieniaæ stron cat lub umieszczaæ w katalogach cat innych plików. Je¿eli
+.B man
+nie jest suidowy to katalog cat powinien mieæ prawa dostêpu 0777,
+o ile wszyscy u¿ytkownicy powinni mieæ mo¿liwo¶æ pozostawiania tam stron cat.
+.PP
+Opcja
+.B \-c
+wymusza przeformatowanie strony nawet je¿eli istnieje ju¿ odpowiednia strona
+cat.
+
+
+.SH "¦CIE¯KA PRZESZUKIWANIA DLA STRON PODRÊCZNIKA"
+.B man
+stosuje wymy¶ln± metodê poszukiwania plików stron podrêcznika, opart± na
+opcjach wywo³ania, zmiennych ¶rodowiskowych, pliku konfiguracyjnym
+.B @man_config_file@
+oraz na pewnych wbudowanych konwencjach i heurystyce.
+.PP
+Najpierw, gdy argument
+.I nazwa
+polecenia
+.B man
+zawiera uko¶nik
+.RB ( / ),
+.B man
+zak³ada, ¿e jest on nazw± w³a¶ciwego pliku i nie prowadzi poszukiwania.
+.PP
+Ale zazwyczaj, gdy
+.I nazwa
+nie zawiera uko¶nika,
+.B man
+poszukuje pliku, który móg³by stanowiæ stronê podrêcznika o zadanym temacie,
+w ró¿nych katalogach.
+.PP
+Je¶li zostanie podana opcja
+.BI "-M " ¶cie¿ka\fR,
+to
+.I ¶cie¿ka
+jest rozdzielon± dwukropkami list± przeszukiwanych przez program
+.B man
+katalogów.
+.PP
+Gdy opcja
+.B -M
+nie zostanie podana, ale zostanie zdefiniowana zmienna ¶rodowiskowa
+.BR MANPATH ,
+warto¶æ tej zmiennej stanowi listê przeszukiwanych przez program
+.B man
+katalogów.
+.PP
+Je¶li ¶cie¿ka nie zostanie podana w sposób jawny ani za pomoc±
+.B -M
+ani poprzez
+.BR MANPATH ,
+.B man
+rozwija swoj± w³asn± ¶cie¿kê w oparciu o zawarto¶æ pliku konfiguracyjnego
+.BR @man_config_file@ .
+Instrukcje
+.B MANPATH
+w pliku konfiguracyjnym okre¶laj± poszczególne katalogi w³±czane do ¶cie¿ki
+przeszukiwania.
+.PP
+Ponadto, instrukcje
+.B MANPATH_MAP
+dodaj± do ¶cie¿ki przeszukiwania katalogi zale¿ne od ¶cie¿ki przeszukiwania
+dla poleceñ (tzn. zawartej w zmiennej ¶rodowiskowej
+.B PATH
+).
+Instrukcja
+.B MANPATH_MAP
+dodaje do ¶cie¿ki przeszukiwania dla stron podrêcznika po jednym katalogu dla
+ka¿dego katalogu zawartego w ¶cie¿ce przeszukiwania dla poleceñ.
+.B man
+przegl±da zmienn±
+.B PATH
+i dodaje odpowiednie katalogi do ¶cie¿ki przeszukiwania dla stron podrêcznika.
+Zatem przy w³a¶ciwym u¿yciu
+.BR MANPATH_MAP ,
+po wydaniu polecenia
+.BR "man xyz" ,
+otrzyma siê stronê podrêcznika dla programu, który zosta³by uruchomiony
+poprzez wydanie polecenia
+.BR xyz .
+.PP
+Dodatkowo, dla ka¿dego katalogu w ¶cie¿ce przeszukiwania dla poleceñ
+(bêdziemy go nazywaæ "katalogiem poleceñ"), dla którego
+.I nie
+ma instrukcji
+.BR MANPATH_MAP ,
+.B man
+automatycznie poszukuje "bliskiego" katalogu stron podrêcznika jako
+podkatalogu w³a¶ciwego katalogu poleceñ lub w katalogu nadrzêdnym dla katalogu
+poleceñ.
+.PP
+Mo¿na wy³±czyæ automatyczne "bliskie" przeszukiwania do³±czaj±c instrukcjê
+.B NOAUTOPATH
+do
+.BR @man_config_file@ .
+.PP
+Jak opisano powy¿ej, w ka¿dym z katalogów ¶cie¿ki przeszukiwania
+.B man
+poszukuje pliku o nazwie
+.IB tytu³ . rozdzia³\fR,
+z opcjonalnym przyrostkiem dla numeru rozdzia³u i mo¿liwym przyrostkiem
+kompresji. Je¶li nie znajdzie takiego pliku, bêdzie szuka³ w podkatalogach 
+o nazwach
+.BI man N
+i
+.BI cat N\fR,
+gdzie
+.I N
+jest numerem rozdzia³u podrêcznika.
+Je¶li plik znajduje siê w podkatalogu
+.BIR cat N ,
+.B man
+zak³ada, ¿e jest to sformatowany plik strony podrêcznika (cat page). 
+W przeciwnym przypadku,
+.B man
+zak³ada, ¿e jest ona niesformatowana. W obu przypadkach, je¶li nazwa pliku
+zawiera znany przyrostek kompresji (jak
+.BR .gz ),
+.B man
+zak³ada, ¿e jest ona spakowania gzipem.
+.PP
+Aby zobaczyæ, gdzie (lub czy)
+.B man
+znajdzie stronê podrêcznika o okre¶lonym tytule, nale¿y pos³u¿yc siê opcj±
+.BR "--path " ( -w ).
+
+.SH "¦RODOWISKO"
+.TP
+.B MANPL
+Je¶li zmienna
+.B MANPL
+jest zdefinowana, to jej warto¶æ jest u¿ywana do okre¶lenia d³ugo¶ci strony.
+W przeciwnym przypadku, ca³a strona podrêcznika bêdzie stanowiæ jedn± (d³ug±)
+stronê.
+.TP
+.B MANROFFSEQ
+Je¶li zmienna
+.B MANROFFSEQ
+jest zdefinowana, to jej warto¶æ jest u¿ywana do zdefinowania zestawu
+preprocesorów uruchamianych przed
+.B nroff
+i
+.BR troff .
+Domy¶lnie strony s± przepuszczane przez preprocesor tbl przed u¿yciem nroff.
+.TP
+.B MANSECT
+Je¶li zmienna
+.B MANSECT
+jest zdefiniowana, to jej warto¶æ jest u¿ywana do okre¶lenia jakie rozdzia³y
+podrêcznika powinny zostaæ przeszukane.
+.TP
+.B MANWIDTH
+Je¶li zmienna
+.B MANWIDTH
+jest zdefiniowana, to jej warto¶æ jest u¿ywana jako szeroko¶æ wy¶wietlanych
+stron podrêcznika man. W przeciwnym wypadku, strony bêd± wy¶wietlane na ca³ej
+szeroko¶ci ekranu.
+.TP
+.B MANPAGER
+Je¶li zmienna
+.B MANPAGER
+jest zdefiniowana, to jej warto¶æ jest u¿ywana jako nazwa programu do
+wy¶wietlania strony podrêcznika man. Je¶li nie jest zdefiniowana, to u¿ywana
+jest zmienna
+.BR PAGER .
+Je¿eli ta równie¿ nie ma nadanej warto¶ci, to u¿ywany jest
+.BR @pager@ .
+.TP
+.B LANG
+Je¶li zmienna
+.B LANG
+jest zdefiniowana, to jej warto¶æ okre¶la nazwê podkatalogu, w którym man
+najpierw bêdzie szukaæ stron podrêcznika. Zatem polecenie `LANG=pl man 1 co¶'
+(w sh lub bash) spowoduje, ¿e man bêdzie szukaæ strony "co¶"
+w .../pl/man1/co¶.1, a nastêpnie, je¿eli takiego pliku nie znajdzie,
+w .../man1/co¶.1, gdzie ... jest katalogiem ze ¶cie¿ki przeszukiwania.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Zmienne ¶rodowiskowe
+.B NLSPATH
+i
+.B LC_MESSAGES
+(lub
+.BR LANG ,
+je¿eli ta druga nie istnieje)
+steruj± przeszukiwaniem katalogów z komunikatami.
+(Komunikaty angielskie s± wkompilowane, wiêc dla angielskiego taki
+katalog nie jest potrzebny.)
+Zauwa¿, ¿e programy takie jak
+.BR col(1) ,
+wo³ane przez man, równie¿ u¿ywaj± np. LC_TYPE.
+.TP
+.B PATH
+.B PATH
+pomaga okre¶liæ ¶cie¿kê przeszukiwania dla plików stron podrêcznika.
+Zobacz
+.BR "¦CIE¯KA PRZESZUKIWANIA DLA STRON PODRÊCZNIKA" .
+.TP
+.B SYSTEM
+.B SYSTEM
+jest u¿ywana do pobierania domy¶lnej alternatywnej nazwy systemu (do u¿ywania
+razem z opcj±
+.BR \-m ). 
+.SH "ZOBACZ TAK¯E"
+apropos(1), whatis(1), less(1), groff(1), man.conf(5).
+.SH B£ÊDY
+Opcja
+.B \-t
+dzia³a tylko je¿eli jest zainstalowany jaki¶ program dzia³aj±cy jak troff.
+.br
+Je¿eli zamiast my¶lników pojawi± siê migaj±ce \e255 lub <AD>, to nale¿y
+ustawiæ w ¶rodowisku u¿ytkownika `LESSCHARSET=latin1'.
+.SH ZAKOÑCZENIE
+Je¶li do pliku
+.IR .emacs
+u¿ytkownika dodana zostanie linia
+
+  (global-set-key [(f1)] (lambda () (interactive) (manual-entry (current-word))))
+
+to naci¶niêcie F1 spowoduje wy¶wietlenie strony podrêcznika dla funkcji
+bibliotecznej, na której ustawiony jest kursor.
+.LP
+Aby uzyskaæ czysto tekstow± wersjê strony podrêcznika, bez cofniêæ
+i podkre¶leñ, nale¿y wydaæ polecenie
+
+  # man co¶ | col -b > co¶.mantxt
+

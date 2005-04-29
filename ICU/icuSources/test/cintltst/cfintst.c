@@ -1,7 +1,7 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
- * others. All Rights Reserved.
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
 *
@@ -102,7 +102,7 @@ static void TestPrimary()
     }
     log_verbose("Testing Finnish Collation with Tertiary strength\n");
     ucol_setStrength(myCollation, UCOL_PRIMARY);
-    for (i = 4; i < 4; i++)
+    for (i = 4; i < 5; i++)
     {
         doTest(myCollation, testSourceCases[i], testTargetCases[i], results[i]);
     }

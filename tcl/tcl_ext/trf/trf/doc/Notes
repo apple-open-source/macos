@@ -1,0 +1,46 @@
+ *
+ *------------------------------------------------------*
+ */
+
+/* THREADING */
+
+
+Memchan:
+	source distributions:
+		memchanXX.tar.gz
+		memchanXX.zip
+
+	binary distributions:
+		mchanXXb.zip	(windoze)
+			mchanXX.dll
+			pkgIndex.tcl
+
+	infos
+		memchanXX.README
+		memchanXX.ANNOUNCE
+		memchanXX.LSM
+
+
+Trf:
+	source distributions:
+		trfXX.tar.gz
+		trfXX.zip
+
+	binary distributions:
+		trfXXb.zip	(windoze)
+			trfXX.dll
+			pkgIndex.tcl
+
+	infos:
+		trfXX.README
+		trfXX.ANNOUNCE
+		trfXX.LSM
+
+	loaded libraries:
+		zlib-1.0.4
+		lib-3.23
+
+	=> separate binary distribution for windoze
+	=>	trfXXbs.zip
+			zlib.dll
+			libdes.dll

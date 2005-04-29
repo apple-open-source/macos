@@ -1,8 +1,17 @@
-/* back-bdb.h - ldap ldbm back-end header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.h,v 1.11.2.2 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* idl.h - ldap bdb back-end ID list header file */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/idl.h,v 1.13.2.3 2004/07/25 22:40:08 hyc Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _BDB_IDL_H_

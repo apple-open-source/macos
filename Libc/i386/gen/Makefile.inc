@@ -1,9 +1,4 @@
-SRCS+=  bcopy.s \
-	bzero.s \
-	ecvt.c \
-	icacheinval.s \
-	isinf.c \
+.PATH: ${.CURDIR}/i386/gen
+MDSRCS+= icacheinval.s \
 	mcount.s \
-	memcpy.s \
-	memmove.s \
 	setjmperr.c

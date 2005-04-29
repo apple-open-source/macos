@@ -2,8 +2,8 @@
    process.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
-   Foundation, Inc.
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -38,13 +38,18 @@
 #include "annotate.h"
 #include "symfile.h"
 #include "top.h"
-#include "objc-lang.h"
 #include <signal.h>
 #include "inf-loop.h"
 #include "event-top.h"
 #include "regcache.h"
 #include "value.h"
+#include "observer.h"
+#include "language.h"
+#include "gdb_assert.h"
+/* APPLE LOCAL: need objfile.h for pc_set_load_state.  */
+#include "objfiles.h"
 
+/* APPLE LOCAL: codewarrior support */
 int metrowerks_stepping = 0;
 CORE_ADDR metrowerks_step_func_start = 0;
 CORE_ADDR metrowerks_step_func_end = 0;
@@ -65,15 +70,9 @@ static int hook_stop_stub (void *);
 
 static void delete_breakpoint_current_contents (void *);
 
-static void set_follow_fork_mode_command (char *arg, int from_tty,
-					  struct cmd_list_element *c);
-
 static int restore_selected_frame (void *);
 
 static void build_infrun (void);
-
-static void follow_inferior_fork (int parent_pid, int child_pid,
-				  int has_forked, int has_vforked);
 
 static int follow_fork (void);
 
@@ -85,6 +84,8 @@ struct execution_control_state;
 static int currently_stepping (struct execution_control_state *ecs);
 
 static void xdb_handle_command (char *args, int from_tty);
+
+static int prepare_to_proceed (void);
 
 void _initialize_infrun (void);
 
@@ -98,6 +99,7 @@ int step_stop_if_no_debug = 0;
 
 /* In asynchronous mode, but simulating synchronous execution. */
 
+/* APPLE LOCAL: async support */
 int sync_execution = 1;
 
 /* wait_for_inferior and normal_stop use this to notify the user
@@ -114,21 +116,6 @@ static ptid_t previous_inferior_ptid;
 #endif
 
 static int may_follow_exec = MAY_FOLLOW_EXEC;
-
-/* Dynamic function trampolines are similar to solib trampolines in that they
-   are between the caller and the callee.  The difference is that when you
-   enter a dynamic trampoline, you can't determine the callee's address.  Some
-   (usually complex) code needs to run in the dynamic trampoline to figure out
-   the callee's address.  This macro is usually called twice.  First, when we
-   enter the trampoline (looks like a normal function call at that point).  It
-   should return the PC of a point within the trampoline where the callee's
-   address is known.  Second, when we hit the breakpoint, this routine returns
-   the callee's address.  At that point, things proceed as per a step resume
-   breakpoint.  */
-
-#ifndef DYNAMIC_TRAMPOLINE_NEXTPC
-#define DYNAMIC_TRAMPOLINE_NEXTPC(pc) 0
-#endif
 
 /* If the program uses ELF-style shared libraries, then calls to
    functions in shared libraries go through stubs, which live in a
@@ -171,10 +158,6 @@ static int may_follow_exec = MAY_FOLLOW_EXEC;
 
 #ifndef IN_SOLIB_DYNSYM_RESOLVE_CODE
 #define IN_SOLIB_DYNSYM_RESOLVE_CODE(pc) 0
-#endif
-
-#ifndef SKIP_SOLIB_RESOLVER
-#define SKIP_SOLIB_RESOLVER(pc) 0
 #endif
 
 /* This function returns TRUE if pc is the address of an instruction
@@ -235,13 +218,6 @@ a command like `return' or `jump' to continue execution.");
 #define HAVE_STEPPABLE_WATCHPOINT 1
 #endif
 
-#ifndef HAVE_CONTINUABLE_WATCHPOINT
-#define HAVE_CONTINUABLE_WATCHPOINT 0
-#else
-#undef  HAVE_CONTINUABLE_WATCHPOINT
-#define HAVE_CONTINUABLE_WATCHPOINT 1
-#endif
-
 #ifndef CANNOT_STEP_HW_WATCHPOINTS
 #define CANNOT_STEP_HW_WATCHPOINTS 0
 #else
@@ -296,12 +272,13 @@ static int trap_expected;
    of shared library events by the dynamic linker.  */
 static int stop_on_solib_events;
 
-/* If we stop on a shlib load event while in the middle of finish or step
-   then the step_resume_bp or the bp_finish bp will have gotten lost,
-   and a continue following this will not finish or step, but just run
-   on.  This is very inconvenient, particularly for GUI's that are
-   using gdb under the covers.  These breakpoints try to stash away this
-   info when we hit the solib breakpoint. */
+/* APPLE LOCAL:  If we stop on a shlib load event while in the
+   middle of finish or step then the step_resume_bp or the bp_finish
+   bp will have gotten lost, and a continue following this will not
+   finish or step, but just run on.  This is very inconvenient,
+   particularly for GUI's that are using gdb under the covers.
+   These breakpoints try to stash away this info when we hit the
+   solib breakpoint. */
 static struct breakpoint *solib_step_bp;
 static struct breakpoint *solib_finish_bp;
 #endif
@@ -324,7 +301,7 @@ int stop_after_trap;
    when running in the shell before the child program has been exec'd;
    and when running some kinds of remote stuff (FIXME?).  */
 
-int stop_soon_quietly;
+enum stop_kind stop_soon;
 
 /* Nonzero if proceed is being used for a "finish" command or a similar
    situation when stop_registers should be saved.  */
@@ -380,12 +357,10 @@ static struct
 }
 pending_follow;
 
-static const char follow_fork_mode_ask[] = "ask";
 static const char follow_fork_mode_child[] = "child";
 static const char follow_fork_mode_parent[] = "parent";
 
 static const char *follow_fork_mode_kind_names[] = {
-  follow_fork_mode_ask,
   follow_fork_mode_child,
   follow_fork_mode_parent,
   NULL
@@ -397,16 +372,7 @@ static const char *follow_fork_mode_string = follow_fork_mode_parent;
 static int
 follow_fork (void)
 {
-  const char *follow_mode = follow_fork_mode_string;
-  int follow_child = (follow_mode == follow_fork_mode_child);
-
-  /* Or, did the user not know, and want us to ask? */
-  if (follow_fork_mode_string == follow_fork_mode_ask)
-    {
-      internal_error (__FILE__, __LINE__,
-                      "follow_inferior_fork: \"ask\" mode not implemented");
-      /* follow_mode = follow_fork_mode_...; */
-    }
+  int follow_child = (follow_fork_mode_string == follow_fork_mode_child);
 
   return target_follow_fork (follow_child);
 }
@@ -433,6 +399,7 @@ follow_inferior_reset_breakpoints (void)
      were never set in the child, but only in the parent.  This makes
      sure the inserted breakpoints match the breakpoint list.  */
 
+  /* APPLE LOCAL: Our breakpoint_re_set() takes an argument.  */
   breakpoint_re_set (NULL);
   insert_breakpoints ();
 }
@@ -528,10 +495,17 @@ follow_exec (int pid, char *execd_pathname)
    because we cannot remove the breakpoints in the inferior process
    until after the `wait' in `wait_for_inferior'.  */
 static int singlestep_breakpoints_inserted_p = 0;
+
+/* The thread we inserted single-step breakpoints for.  */
+static ptid_t singlestep_ptid;
+
+/* If another thread hit the singlestep breakpoint, we save the original
+   thread here so that we can resume single-stepping it later.  */
+static ptid_t saved_singlestep_ptid;
+static int stepping_past_singlestep_breakpoint;
 
 
 /* Things to clean up if we QUIT out of resume ().  */
-/* ARGSUSED */
 static void
 resume_cleanups (void *ignore)
 {
@@ -549,23 +523,23 @@ static const char *scheduler_enums[] = {
   NULL
 };
 
-/* Sometimes although you try to run one thread, another
-   thread will return anyway (for instance if it had a 
-   pending exception).  In this case, we need to remind
-   ourselves that we really intended to run the original
-   thread.  Use SCHEDULER_LOCK_PTID for this purpose */
+/* APPLE LOCAL: Sometimes although you try to run one thread, another
+   thread will return anyway (for instance if it had a pending
+   exception).  In this case, we need to remind ourselves that we
+   really intended to run the original thread.  Use SCHEDULER_LOCK_PTID
+   for this purpose */
 
 static struct ptid scheduler_lock_ptid;
 
-/* Record the current thread as the one you are trying
-   to run. */
+/* APPLE LOCAL: Record the current thread as the one you are trying
+   to run.  */
 void 
 scheduler_run_this_ptid (struct ptid this_ptid)
 {
   scheduler_lock_ptid = this_ptid;
 }
 
-/* This returns whether the schedule lock is on or 
+/* APPLE LOCAL: This returns whether the schedule lock is on or
    step.  */
 
 int
@@ -575,6 +549,7 @@ scheduler_lock_on_p ()
 	  || (scheduler_mode == schedlock_step));
 }
 
+/* APPLE LOCAL */
 static void
 set_schedlock_helper (void)
 {
@@ -589,10 +564,12 @@ set_schedlock_helper (void)
     scheduler_lock_ptid = minus_one_ptid;
 }
 
-/* Set the scheduler locking mode to NEW_MODE.  Basically just translates
-   between the enum and the strings used for the command. */
+/* APPLE LOCAL: Set the scheduler locking mode to NEW_MODE.  Basically
+   just translates between the enum and the strings used for the
+   command. */
 
-enum scheduler_locking_mode set_scheduler_locking_mode (enum scheduler_locking_mode new_mode)
+enum scheduler_locking_mode 
+set_scheduler_locking_mode (enum scheduler_locking_mode new_mode)
 {
   enum scheduler_locking_mode old_mode;
 
@@ -632,12 +609,13 @@ set_schedlock_func (char *args, int from_tty, struct cmd_list_element *c)
      the set command passed as a parameter.  The clone operation will
      include (BUG?) any ``set'' command callback, if present.
      Commands like ``info set'' call all the ``show'' command
-     callbacks.  Unfortunatly, for ``show'' commands cloned from
+     callbacks.  Unfortunately, for ``show'' commands cloned from
      ``set'', this includes callbacks belonging to ``set'' commands.
      Making this worse, this only occures if add_show_from_set() is
      called after add_cmd_sfunc() (BUG?).  */
   if (cmd_type (c) == set_cmd)
     {
+      /* APPLE LOCAL:  Handle this in our helper func.  */
       set_schedlock_helper ();
     }
 }
@@ -689,6 +667,7 @@ resume (int step, enum target_signal sig)
       /* and do not pull these breakpoints until after a `wait' in
          `wait_for_inferior' */
       singlestep_breakpoints_inserted_p = 1;
+      singlestep_ptid = inferior_ptid;
     }
 
   /* Handle any optimized stores to the inferior NOW...  */
@@ -726,7 +705,8 @@ resume (int step, enum target_signal sig)
       resume_ptid = RESUME_ALL;	/* Default */
 
       if ((step || singlestep_breakpoints_inserted_p) &&
-	  !breakpoints_inserted && breakpoint_here_p (read_pc ()))
+	  (stepping_past_singlestep_breakpoint
+	   || (!breakpoints_inserted && breakpoint_here_p (read_pc ()))))
 	{
 	  /* Stepping past a breakpoint without inserting breakpoints.
 	     Make sure only the current thread gets to step, so that
@@ -736,6 +716,8 @@ resume (int step, enum target_signal sig)
 	  resume_ptid = inferior_ptid;
 	}
 
+      /* APPLE LOCAL start: Handle the first part of this condition
+         differently (the scheduler_mode == schedlock_on).  */
       if (scheduler_mode == schedlock_on) 
 	{
 	  /* Store this ptid away in scheduler_lock_ptid, in
@@ -747,6 +729,7 @@ resume (int step, enum target_signal sig)
 	  
 	  resume_ptid = scheduler_lock_ptid;
 	}
+      /* APPLE LOCAL end */
       else if ((scheduler_mode == schedlock_step &&
 		(step || singlestep_breakpoints_inserted_p)))
 	{
@@ -781,13 +764,68 @@ clear_proceed_status (void)
   step_frame_id = null_frame_id;
   step_over_calls = STEP_OVER_UNDEBUGGABLE;
   stop_after_trap = 0;
-  stop_soon_quietly = 0;
+  stop_soon = NO_STOP_QUIETLY;
   proceed_to_finish = 0;
   breakpoint_proceeded = 1;	/* We're about to proceed... */
 
   /* Discard any remaining commands or status from previous stop.  */
   bpstat_clear (&stop_bpstat);
 }
+
+/* This should be suitable for any targets that support threads. */
+
+static int
+prepare_to_proceed (void)
+{
+  ptid_t wait_ptid;
+  struct target_waitstatus wait_status;
+
+  /* Get the last target status returned by target_wait().  */
+  get_last_target_status (&wait_ptid, &wait_status);
+
+  /* Make sure we were stopped either at a breakpoint, or because
+     of a Ctrl-C.  */
+  if (wait_status.kind != TARGET_WAITKIND_STOPPED
+      || (wait_status.value.sig != TARGET_SIGNAL_TRAP &&
+          wait_status.value.sig != TARGET_SIGNAL_INT))
+    {
+      return 0;
+    }
+
+  if (!ptid_equal (wait_ptid, minus_one_ptid)
+      && !ptid_equal (inferior_ptid, wait_ptid))
+    {
+      /* Switched over from WAIT_PID.  */
+      CORE_ADDR wait_pc = read_pc_pid (wait_ptid);
+
+      if (wait_pc != read_pc ())
+	{
+	  /* Switch back to WAIT_PID thread.  */
+	  inferior_ptid = wait_ptid;
+
+	  /* FIXME: This stuff came from switch_to_thread() in
+	     thread.c (which should probably be a public function).  */
+	  flush_cached_frames ();
+	  registers_changed ();
+	  stop_pc = wait_pc;
+	  select_frame (get_current_frame ());
+	}
+
+	/* We return 1 to indicate that there is a breakpoint here,
+	   so we need to step over it before continuing to avoid
+	   hitting it straight away. */
+	if (breakpoint_here_p (wait_pc))
+	   return 1;
+    }
+
+  return 0;
+  
+}
+
+/* Record the pc of the program the last time it stopped.  This is
+   just used internally by wait_for_inferior, but need to be preserved
+   over calls to it and cleared when the inferior is started.  */
+static CORE_ADDR prev_pc;
 
 /* Basic routine for continuing the program in various fashions.
 
@@ -838,7 +876,6 @@ proceed (CORE_ADDR addr, enum target_signal siggnal, int step)
       write_pc (addr);
     }
 
-#ifdef PREPARE_TO_PROCEED
   /* In a multi-threaded task we may select another thread
      and then continue or step.
 
@@ -847,15 +884,11 @@ proceed (CORE_ADDR addr, enum target_signal siggnal, int step)
      any execution (i.e. it will report a breakpoint hit
      incorrectly).  So we must step over it first.
 
-     PREPARE_TO_PROCEED checks the current thread against the thread
+     prepare_to_proceed checks the current thread against the thread
      that reported the most recent event.  If a step-over is required
      it returns TRUE and sets the current thread to the old thread. */
-  if (PREPARE_TO_PROCEED (1) && breakpoint_here_p (read_pc ()))
-    {
-      oneproc = 1;
-    }
-
-#endif /* PREPARE_TO_PROCEED */
+  if (prepare_to_proceed () && breakpoint_here_p (read_pc ()))
+    oneproc = 1;
 
 #ifdef HP_OS_BUG
   if (trap_expected_after_continue)
@@ -894,6 +927,30 @@ proceed (CORE_ADDR addr, enum target_signal siggnal, int step)
      inferior.  */
   gdb_flush (gdb_stdout);
 
+  /* Refresh prev_pc value just prior to resuming.  This used to be
+     done in stop_stepping, however, setting prev_pc there did not handle
+     scenarios such as inferior function calls or returning from
+     a function via the return command.  In those cases, the prev_pc
+     value was not set properly for subsequent commands.  The prev_pc value 
+     is used to initialize the starting line number in the ecs.  With an 
+     invalid value, the gdb next command ends up stopping at the position
+     represented by the next line table entry past our start position.
+     On platforms that generate one line table entry per line, this
+     is not a problem.  However, on the ia64, the compiler generates
+     extraneous line table entries that do not increase the line number.
+     When we issue the gdb next command on the ia64 after an inferior call
+     or a return command, we often end up a few instructions forward, still 
+     within the original line we started.
+
+     An attempt was made to have init_execution_control_state () refresh
+     the prev_pc value before calculating the line number.  This approach
+     did not work because on platforms that use ptrace, the pc register
+     cannot be read unless the inferior is stopped.  At that point, we
+     are not guaranteed the inferior is stopped and so the read_pc ()
+     call can fail.  Setting the prev_pc value here ensures the value is 
+     updated correctly when the inferior is stopped.  */  
+  prev_pc = read_pc ();
+
   /* Resume inferior.  */
   resume (oneproc || step || bpstat_should_step (), stop_signal);
 
@@ -905,18 +962,10 @@ proceed (CORE_ADDR addr, enum target_signal siggnal, int step)
     {
       wait_for_inferior ();
       normal_stop ();
-      /* Why doesn't normal_stop set target_executing to 0? */
+      /* APPLE LOCAL: Why doesn't normal_stop set target_executing to 0?  */
       target_executing = 0;
     }
 }
-
-/* Record the pc and sp of the program the last time it stopped.
-   These are just used internally by wait_for_inferior, but need
-   to be preserved over calls to it and cleared when the inferior
-   is started.  */
-static CORE_ADDR prev_pc;
-static CORE_ADDR prev_func_start;
-static char *prev_func_name;
 
 
 /* Start remote-debugging of a machine over a serial link.  */
@@ -926,7 +975,7 @@ start_remote (void)
 {
   init_thread_list ();
   init_wait_for_inferior ();
-  stop_soon_quietly = 1;
+  stop_soon = STOP_QUIETLY;
   trap_expected = 0;
 
   /* Always go on waiting for the target, regardless of the mode. */
@@ -954,8 +1003,6 @@ init_wait_for_inferior (void)
 {
   /* These are meaningless until the first time through wait_for_inferior.  */
   prev_pc = 0;
-  prev_func_start = 0;
-  prev_func_name = NULL;
 
 #ifdef HP_OS_BUG
   trap_expected_after_continue = 0;
@@ -972,10 +1019,12 @@ init_wait_for_inferior (void)
   /* See wait_for_inferior's handling of SYSCALL_ENTRY/RETURN events. */
   number_of_threads_in_syscalls = 0;
 
-  /* Clear the scheduler-locking ptid. */
+  /* APPLE LOCAL: Clear the scheduler-locking ptid. */
   scheduler_lock_ptid = minus_one_ptid;
 
   clear_proceed_status ();
+
+  stepping_past_singlestep_breakpoint = 0;
 }
 
 static void
@@ -1053,6 +1102,7 @@ struct execution_control_state
 
 void init_execution_control_state (struct execution_control_state *ecs);
 
+static void handle_step_into_function (struct execution_control_state *ecs);
 void handle_inferior_event (struct execution_control_state *ecs);
 
 static void check_sigtramp2 (struct execution_control_state *ecs);
@@ -1104,6 +1154,7 @@ wait_for_inferior (void)
 
   while (1)
     {
+      /* APPLE LOCAL: jingham/2002-01-25 add 3rd arg to target_wait*.  */
       if (target_wait_hook)
 	ecs->ptid = target_wait_hook (ecs->waiton_ptid, ecs->wp, NULL);
       else
@@ -1176,6 +1227,7 @@ fetch_inferior_event (void *client_data)
          function. Let the continuations for the commands do the rest,
          if there are any. */
       do_exec_cleanups (old_cleanups);
+      /* APPLE LOCAL begin: codewarrior support.  */
       /* FIXME: Because proceed is asynchronous, I need to unset
 	 metrowerks_stepping here.  I tried to do it with an exec
 	 cleanup, but it turns out that the old_cleanups is set
@@ -1188,15 +1240,18 @@ fetch_inferior_event (void *client_data)
 	  metrowerks_step_func_start = 0;
 	  metrowerks_step_func_end = 0;
 	}
+      /* APPLE LOCAL end  */
       normal_stop ();
       if (step_multi && stop_step)
 	inferior_event_handler (INF_EXEC_CONTINUE, NULL);
       else
+      /* APPLE LOCAL begin: codewarrior support.  */
         {
 	  /* Why doesn't normal_stop set target_executing to 0? */
           target_executing = 0;
 	  inferior_event_handler (INF_EXEC_COMPLETE, NULL);
         }
+      /* APPLE LOCAL end  */
     }
 }
 
@@ -1220,6 +1275,8 @@ init_execution_control_state (struct execution_control_state *ecs)
   ecs->current_symtab = ecs->sal.symtab;
   ecs->infwait_state = infwait_normal_state;
   ecs->waiton_ptid = pid_to_ptid (-1);
+  /* APPLE LOCAL: Set code to -1 - means nothing interesting here.  */
+  ecs->ws.code = -1;
   ecs->wp = &(ecs->ws);
 }
 
@@ -1262,7 +1319,6 @@ context_switch (struct execution_control_state *ecs)
     {				/* Perform infrun state context switch: */
       /* Save infrun state for the old thread.  */
       save_infrun_state (inferior_ptid, prev_pc,
-			 prev_func_start, prev_func_name,
 			 trap_expected, step_resume_breakpoint,
 			 through_sigtramp_breakpoint, step_range_start,
 			 step_range_end, &step_frame_id,
@@ -1274,7 +1330,6 @@ context_switch (struct execution_control_state *ecs)
 
       /* Load infrun state for the new thread.  */
       load_infrun_state (ecs->ptid, &prev_pc,
-			 &prev_func_start, &prev_func_name,
 			 &trap_expected, &step_resume_breakpoint,
 			 &through_sigtramp_breakpoint, &step_range_start,
 			 &step_range_end, &step_frame_id,
@@ -1287,6 +1342,222 @@ context_switch (struct execution_control_state *ecs)
   inferior_ptid = ecs->ptid;
 }
 
+/* Wrapper for PC_IN_SIGTRAMP that takes care of the need to find the
+   function's name.
+
+   In a classic example of "left hand VS right hand", "infrun.c" was
+   trying to improve GDB's performance by caching the result of calls
+   to calls to find_pc_partial_funtion, while at the same time
+   find_pc_partial_function was also trying to ramp up performance by
+   caching its most recent return value.  The below makes the the
+   function find_pc_partial_function solely responsibile for
+   performance issues (the local cache that relied on a global
+   variable - arrrggg - deleted).
+
+   Using the testsuite and gcov, it was found that dropping the local
+   "infrun.c" cache and instead relying on find_pc_partial_function
+   increased the number of calls to 12000 (from 10000), but the number
+   of times find_pc_partial_function's cache missed (this is what
+   matters) was only increased by only 4 (to 3569).  (A quick back of
+   envelope caculation suggests that the extra 2000 function calls
+   @1000 extra instructions per call make the 1 MIP VAX testsuite run
+   take two extra seconds, oops :-)
+
+   Long term, this function can be eliminated, replaced by the code:
+   get_frame_type(current_frame()) == SIGTRAMP_FRAME (for new
+   architectures this is very cheap).  */
+
+static int
+pc_in_sigtramp (CORE_ADDR pc)
+{
+  char *name;
+  find_pc_partial_function (pc, &name, NULL, NULL);
+  return PC_IN_SIGTRAMP (pc, name);
+}
+
+/* Handle the inferior event in the cases when we just stepped
+   into a function.  */
+
+static void
+handle_step_into_function (struct execution_control_state *ecs)
+{
+  CORE_ADDR real_stop_pc;
+
+  if ((step_over_calls == STEP_OVER_NONE)
+      || ((step_range_end == 1)
+          && in_prologue (prev_pc, ecs->stop_func_start)))
+    {
+      /* I presume that step_over_calls is only 0 when we're
+         supposed to be stepping at the assembly language level
+         ("stepi").  Just stop.  */
+      /* Also, maybe we just did a "nexti" inside a prolog,
+         so we thought it was a subroutine call but it was not.
+         Stop as well.  FENN */
+      stop_step = 1;
+      print_stop_reason (END_STEPPING_RANGE, 0);
+      stop_stepping (ecs);
+      return;
+    }
+
+  if (step_over_calls == STEP_OVER_ALL || IGNORE_HELPER_CALL (stop_pc))
+    {
+      /* We're doing a next, or a (APPLE LOCAL) nexti.  */
+
+      if (pc_in_sigtramp (stop_pc)
+          && frame_id_inner (step_frame_id,
+                             frame_id_build (read_sp (), 0)))
+        /* We stepped out of a signal handler, and into its
+           calling trampoline.  This is misdetected as a
+           subroutine call, but stepping over the signal
+           trampoline isn't such a bad idea.  In order to do that,
+           we have to ignore the value in step_frame_id, since
+           that doesn't represent the frame that'll reach when we
+           return from the signal trampoline.  Otherwise we'll
+           probably continue to the end of the program.  */
+        step_frame_id = null_frame_id;
+
+      /* APPLE LOCAL: Check here to see if it is a "nexti".  If it
+	 is, and we were able to find the stop_func_start, then
+	 only continue if we are at the FIRST instruction of the
+	 prologue.  Otherwise nexti won't work in the body of a
+	 function prologue (which people do expect!) */
+      if (step_range_start == 1
+	  && ecs->stop_func_start != 0
+	  && stop_pc > ecs->stop_func_start)
+	{
+	  stop_step = 1;
+	  print_stop_reason (END_STEPPING_RANGE, 0);
+	  stop_stepping (ecs);
+	  return;
+	}
+      
+      step_over_function (ecs);
+      keep_going (ecs);
+      return;
+    }
+
+  /* If we are in a function call trampoline (a stub between
+     the calling routine and the real function), locate the real
+     function.  That's what tells us (a) whether we want to step
+     into it at all, and (b) what prologue we want to run to
+     the end of, if we do step into it.  */
+  real_stop_pc = skip_language_trampoline (stop_pc);
+  if (real_stop_pc == 0)
+    real_stop_pc = SKIP_TRAMPOLINE_CODE (stop_pc);
+  if (real_stop_pc != 0)
+    ecs->stop_func_start = real_stop_pc;
+
+  /* If we have line number information for the function we
+     are thinking of stepping into, step into it.
+
+     If there are several symtabs at that PC (e.g. with include
+     files), just want to know whether *any* of them have line
+     numbers.  find_pc_line handles this.  */
+  {
+    struct symtab_and_line tmp_sal;
+
+    /* APPLE LOCAL: We need to up the symbol loading level
+       before looking to see if we have file & line info here.  */
+
+    pc_set_load_state (ecs->stop_func_start, OBJF_SYM_ALL, 0);
+    /* END APPLE LOCAL */
+
+    tmp_sal = find_pc_line (ecs->stop_func_start, 0);
+    if (tmp_sal.line != 0)
+      {
+        step_into_function (ecs);
+        return;
+      }
+  }
+
+  /* If we have no line number and the step-stop-if-no-debug
+     is set, we stop the step so that the user has a chance to
+     switch in assembly mode.  */
+  if (step_over_calls == STEP_OVER_UNDEBUGGABLE && step_stop_if_no_debug)
+    {
+      stop_step = 1;
+      print_stop_reason (END_STEPPING_RANGE, 0);
+      stop_stepping (ecs);
+      return;
+    }
+
+  step_over_function (ecs);
+  keep_going (ecs);
+  return;
+}
+
+static void
+adjust_pc_after_break (struct execution_control_state *ecs)
+{
+  CORE_ADDR stop_pc;
+
+  /* If this target does not decrement the PC after breakpoints, then
+     we have nothing to do.  */
+  if (DECR_PC_AFTER_BREAK == 0)
+    return;
+
+  /* If we've hit a breakpoint, we'll normally be stopped with SIGTRAP.  If
+     we aren't, just return.
+
+     We assume that waitkinds other than TARGET_WAITKIND_STOPPED are not
+     affected by DECR_PC_AFTER_BREAK.  Other waitkinds which are implemented
+     by software breakpoints should be handled through the normal breakpoint
+     layer.
+     
+     NOTE drow/2004-01-31: On some targets, breakpoints may generate
+     different signals (SIGILL or SIGEMT for instance), but it is less
+     clear where the PC is pointing afterwards.  It may not match
+     DECR_PC_AFTER_BREAK.  I don't know any specific target that generates
+     these signals at breakpoints (the code has been in GDB since at least
+     1992) so I can not guess how to handle them here.
+     
+     In earlier versions of GDB, a target with HAVE_NONSTEPPABLE_WATCHPOINTS
+     would have the PC after hitting a watchpoint affected by
+     DECR_PC_AFTER_BREAK.  I haven't found any target with both of these set
+     in GDB history, and it seems unlikely to be correct, so
+     HAVE_NONSTEPPABLE_WATCHPOINTS is not checked here.  */
+
+  if (ecs->ws.kind != TARGET_WAITKIND_STOPPED)
+    return;
+
+  if (ecs->ws.value.sig != TARGET_SIGNAL_TRAP)
+    return;
+
+  /* Find the location where (if we've hit a breakpoint) the breakpoint would
+     be.  */
+  stop_pc = read_pc_pid (ecs->ptid) - DECR_PC_AFTER_BREAK;
+
+  /* If we're software-single-stepping, then assume this is a breakpoint.
+     NOTE drow/2004-01-17: This doesn't check that the PC matches, or that
+     we're even in the right thread.  The software-single-step code needs
+     some modernization.
+
+     If we're not software-single-stepping, then we first check that there
+     is an enabled software breakpoint at this address.  If there is, and
+     we weren't using hardware-single-step, then we've hit the breakpoint.
+
+     If we were using hardware-single-step, we check prev_pc; if we just
+     stepped over an inserted software breakpoint, then we should decrement
+     the PC and eventually report hitting the breakpoint.  The prev_pc check
+     prevents us from decrementing the PC if we just stepped over a jump
+     instruction and landed on the instruction after a breakpoint.
+
+     The last bit checks that we didn't hit a breakpoint in a signal handler
+     without an intervening stop in sigtramp, which is detected by a new
+     stack pointer value below any usual function calling stack adjustments.
+
+     NOTE drow/2004-01-17: I'm not sure that this is necessary.  The check
+     predates checking for software single step at the same time.  Also,
+     if we've moved into a signal handler we should have seen the
+     signal.  */
+
+  if ((SOFTWARE_SINGLE_STEP_P () && singlestep_breakpoints_inserted_p)
+      || (software_breakpoint_inserted_here_p (stop_pc)
+	  && !(currently_stepping (ecs)
+	       && prev_pc != stop_pc
+	       && !(step_range_end && INNER_THAN (read_sp (), (step_sp - 16))))))
+    write_pc_pid (stop_pc, ecs->ptid);
+}
 
 /* Given an execution control state that has been freshly filled in
    by an event from the inferior, figure out what it means and take
@@ -1295,8 +1566,11 @@ context_switch (struct execution_control_state *ecs)
 void
 handle_inferior_event (struct execution_control_state *ecs)
 {
-  CORE_ADDR tmp;
-  CORE_ADDR new_stop;
+  /* NOTE: cagney/2003-03-28: If you're looking at this code and
+     thinking that the variable stepped_after_stopped_by_watchpoint
+     isn't used, then you're wrong!  The macro STOPPED_BY_WATCHPOINT,
+     defined in the file "config/pa/nm-hppah.h", accesses the variable
+     indirectly.  Mutter something rude about the HP merge.  */
   int stepped_after_stopped_by_watchpoint;
   int sw_single_step_trap_p = 0;
 
@@ -1304,12 +1578,22 @@ handle_inferior_event (struct execution_control_state *ecs)
   target_last_wait_ptid = ecs->ptid;
   target_last_waitstatus = *ecs->wp;
 
+  adjust_pc_after_break (ecs);
+
   switch (ecs->infwait_state)
     {
     case infwait_thread_hop_state:
       /* Cancel the waiton_ptid. */
       ecs->waiton_ptid = pid_to_ptid (-1);
-      /* Fall thru to the normal_state case. */
+      /* See comments where a TARGET_WAITKIND_SYSCALL_RETURN event
+         is serviced in this loop, below. */
+      if (ecs->enable_hw_watchpoints_after_wait)
+	{
+	  TARGET_ENABLE_HW_WATCHPOINTS (PIDGET (inferior_ptid));
+	  ecs->enable_hw_watchpoints_after_wait = 0;
+	}
+      stepped_after_stopped_by_watchpoint = 0;
+      break;
 
     case infwait_normal_state:
       /* See comments where a TARGET_WAITKIND_SYSCALL_RETURN event
@@ -1323,6 +1607,7 @@ handle_inferior_event (struct execution_control_state *ecs)
       break;
 
     case infwait_nullified_state:
+      stepped_after_stopped_by_watchpoint = 0;
       break;
 
     case infwait_nonstep_watch_state:
@@ -1333,6 +1618,9 @@ handle_inferior_event (struct execution_control_state *ecs)
          in combination correctly?  */
       stepped_after_stopped_by_watchpoint = 1;
       break;
+
+    default:
+      internal_error (__FILE__, __LINE__, "bad switch");
     }
   ecs->infwait_state = infwait_normal_state;
 
@@ -1385,7 +1673,7 @@ handle_inferior_event (struct execution_control_state *ecs)
          might be the shell which has just loaded some objects,
          otherwise add the symbols for the newly loaded objects.  */
 #ifdef SOLIB_ADD
-      if (!stop_soon_quietly)
+      if (stop_soon == NO_STOP_QUIETLY)
 	{
 	  /* Remove breakpoints, SOLIB_ADD might adjust
 	     breakpoint addresses via breakpoint_re_set.  */
@@ -1397,7 +1685,22 @@ handle_inferior_event (struct execution_control_state *ecs)
 	     terminal for any messages produced by
 	     breakpoint_re_set.  */
 	  target_terminal_ours_for_output ();
-	  SOLIB_ADD (NULL, 0, NULL, auto_solib_add);
+	  /* NOTE: cagney/2003-11-25: Make certain that the target
+             stack's section table is kept up-to-date.  Architectures,
+             (e.g., PPC64), use the section table to perform
+             operations such as address => section name and hence
+             require the table to contain all sections (including
+             those found in shared libraries).  */
+	  /* NOTE: cagney/2003-11-25: Pass current_target and not
+             exec_ops to SOLIB_ADD.  This is because current GDB is
+             only tooled to propagate section_table changes out from
+             the "current_target" (see target_resize_to_sections), and
+             not up from the exec stratum.  This, of course, isn't
+             right.  "infrun.c" should only interact with the
+             exec/process stratum, instead relying on the target stack
+             to propagate relevant changes (stop, section table
+             changed, ...) up to other layers.  */
+	  SOLIB_ADD (NULL, 0, &current_target, auto_solib_add);
 	  target_terminal_inferior ();
 
 	  /* Reinsert breakpoints and continue.  */
@@ -1427,6 +1730,7 @@ handle_inferior_event (struct execution_control_state *ecs)
       target_mourn_inferior ();
       singlestep_breakpoints_inserted_p = 0;	/*SOFTWARE_SINGLE_STEP_P() */
       stop_print_frame = 0;
+      /* APPLE LOCAL */
       if (state_change_hook)
 	state_change_hook (STATE_INFERIOR_EXITED);
       stop_stepping (ecs);
@@ -1446,8 +1750,9 @@ handle_inferior_event (struct execution_control_state *ecs)
 
       print_stop_reason (SIGNAL_EXITED, stop_signal);
       singlestep_breakpoints_inserted_p = 0;	/*SOFTWARE_SINGLE_STEP_P() */
-       if (state_change_hook)
-	 state_change_hook (STATE_INFERIOR_EXITED);
+      /* APPLE LOCAL */
+      if (state_change_hook)
+	state_change_hook (STATE_INFERIOR_EXITED);
       stop_stepping (ecs);
       return;
 
@@ -1463,13 +1768,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 
       stop_pc = read_pc ();
 
-      /* Assume that catchpoints are not really software breakpoints.  If
-	 some future target implements them using software breakpoints then
-	 that target is responsible for fudging DECR_PC_AFTER_BREAK.  Thus
-	 we pass 1 for the NOT_A_SW_BREAKPOINT argument, so that
-	 bpstat_stop_status will not decrement the PC.  */
-
-      stop_bpstat = bpstat_stop_status (&stop_pc, 1);
+      stop_bpstat = bpstat_stop_status (stop_pc, ecs->ptid);
 
       ecs->random_signal = !bpstat_explains_signal (stop_bpstat);
 
@@ -1518,13 +1817,7 @@ handle_inferior_event (struct execution_control_state *ecs)
       ecs->saved_inferior_ptid = inferior_ptid;
       inferior_ptid = ecs->ptid;
 
-      /* Assume that catchpoints are not really software breakpoints.  If
-	 some future target implements them using software breakpoints then
-	 that target is responsible for fudging DECR_PC_AFTER_BREAK.  Thus
-	 we pass 1 for the NOT_A_SW_BREAKPOINT argument, so that
-	 bpstat_stop_status will not decrement the PC.  */
-
-      stop_bpstat = bpstat_stop_status (&stop_pc, 1);
+      stop_bpstat = bpstat_stop_status (stop_pc, ecs->ptid);
 
       ecs->random_signal = !bpstat_explains_signal (stop_bpstat);
       inferior_ptid = ecs->saved_inferior_ptid;
@@ -1625,28 +1918,84 @@ handle_inferior_event (struct execution_control_state *ecs)
 
   stop_pc = read_pc_pid (ecs->ptid);
 
+  if (stepping_past_singlestep_breakpoint)
+    {
+      gdb_assert (SOFTWARE_SINGLE_STEP_P () && singlestep_breakpoints_inserted_p);
+      gdb_assert (ptid_equal (singlestep_ptid, ecs->ptid));
+      gdb_assert (!ptid_equal (singlestep_ptid, saved_singlestep_ptid));
+
+      stepping_past_singlestep_breakpoint = 0;
+
+      /* We've either finished single-stepping past the single-step
+	 breakpoint, or stopped for some other reason.  It would be nice if
+	 we could tell, but we can't reliably.  */
+      if (stop_signal == TARGET_SIGNAL_TRAP)
+        {
+	  /* Pull the single step breakpoints out of the target.  */
+	  SOFTWARE_SINGLE_STEP (0, 0);
+	  singlestep_breakpoints_inserted_p = 0;
+
+	  ecs->random_signal = 0;
+
+	  ecs->ptid = saved_singlestep_ptid;
+	  context_switch (ecs);
+	  if (context_hook)
+	    context_hook (pid_to_thread_id (ecs->ptid));
+
+	  resume (1, TARGET_SIGNAL_0);
+	  prepare_to_wait (ecs);
+	  return;
+	}
+    }
+
+  stepping_past_singlestep_breakpoint = 0;
+
   /* See if a thread hit a thread-specific breakpoint that was meant for
      another thread.  If so, then step that thread past the breakpoint,
      and continue it.  */
 
   if (stop_signal == TARGET_SIGNAL_TRAP)
     {
+      int thread_hop_needed = 0;
+
       /* Check if a regular breakpoint has been hit before checking
          for a potential single step breakpoint. Otherwise, GDB will
          not see this breakpoint hit when stepping onto breakpoints.  */
-      if (breakpoints_inserted
-          && breakpoint_here_p (stop_pc - DECR_PC_AFTER_BREAK))
+      if (breakpoints_inserted && breakpoint_here_p (stop_pc))
 	{
 	  ecs->random_signal = 0;
-	  if (!breakpoint_thread_match (stop_pc - DECR_PC_AFTER_BREAK,
-					ecs->ptid))
+	  if (!breakpoint_thread_match (stop_pc, ecs->ptid))
+	    thread_hop_needed = 1;
+	}
+      else if (SOFTWARE_SINGLE_STEP_P () && singlestep_breakpoints_inserted_p)
+	{
+	  ecs->random_signal = 0;
+	  /* The call to in_thread_list is necessary because PTIDs sometimes
+	     change when we go from single-threaded to multi-threaded.  If
+	     the singlestep_ptid is still in the list, assume that it is
+	     really different from ecs->ptid.  */
+	  if (!ptid_equal (singlestep_ptid, ecs->ptid)
+	      && in_thread_list (singlestep_ptid))
+	    {
+	      thread_hop_needed = 1;
+	      stepping_past_singlestep_breakpoint = 1;
+	      saved_singlestep_ptid = singlestep_ptid;
+	    }
+	}
+
+      if (thread_hop_needed)
 	    {
 	      int remove_status;
 
 	      /* Saw a breakpoint, but it was hit by the wrong thread.
 	         Just continue. */
-	      if (DECR_PC_AFTER_BREAK)
-		write_pc_pid (stop_pc - DECR_PC_AFTER_BREAK, ecs->ptid);
+
+	      if (SOFTWARE_SINGLE_STEP_P () && singlestep_breakpoints_inserted_p)
+		{
+		  /* Pull the single step breakpoints out of the target. */
+		  SOFTWARE_SINGLE_STEP (0, 0);
+		  singlestep_breakpoints_inserted_p = 0;
+		}
 
 	      remove_status = remove_breakpoints ();
 	      /* Did we fail to remove breakpoints?  If so, try
@@ -1659,7 +2008,7 @@ handle_inferior_event (struct execution_control_state *ecs)
 	      if (remove_status != 0)
 		{
 		  /* FIXME!  This is obviously non-portable! */
-		  write_pc_pid (stop_pc - DECR_PC_AFTER_BREAK + 4, ecs->ptid);
+		  write_pc_pid (stop_pc + 4, ecs->ptid);
 		  /* We need to restart all the threads now,
 		   * unles we're running in scheduler-locked mode. 
 		   * Use currently_stepping to determine whether to 
@@ -1689,21 +2038,9 @@ handle_inferior_event (struct execution_control_state *ecs)
 		  registers_changed ();
 		  return;
 		}
-	    }
 	}
       else if (SOFTWARE_SINGLE_STEP_P () && singlestep_breakpoints_inserted_p)
         {
-          /* Readjust the stop_pc as it is off by DECR_PC_AFTER_BREAK
-             compared to the value it would have if the system stepping
-             capability was used. This allows the rest of the code in
-             this function to use this address without having to worry
-             whether software single step is in use or not.  */
-          if (DECR_PC_AFTER_BREAK)
-            {
-              stop_pc -= DECR_PC_AFTER_BREAK;
-              write_pc_pid (stop_pc, ecs->ptid);
-            }
-
           sw_single_step_trap_p = 1;
           ecs->random_signal = 0;
         }
@@ -1712,66 +2049,16 @@ handle_inferior_event (struct execution_control_state *ecs)
     ecs->random_signal = 1;
 
   /* See if something interesting happened to the non-current thread.  If
-     so, then switch to that thread, and eventually give control back to
-     the user.
-
-     Note that if there's any kind of pending follow (i.e., of a fork,
-     vfork or exec), we don't want to do this now.  Rather, we'll let
-     the next resume handle it. */
-  if (!ptid_equal (ecs->ptid, inferior_ptid) &&
-      (pending_follow.kind == TARGET_WAITKIND_SPURIOUS))
+     so, then switch to that thread.   */
+  if (!ptid_equal (ecs->ptid, inferior_ptid))
     {
-      int printed = 0;
-
-      /* If it's a random signal for a non-current thread, notify user
-         if he's expressed an interest. */
-      if (ecs->random_signal && signal_print[stop_signal])
-	{
-/* ??rehrauer: I don't understand the rationale for this code.  If the
-   inferior will stop as a result of this signal, then the act of handling
-   the stop ought to print a message that's couches the stoppage in user
-   terms, e.g., "Stopped for breakpoint/watchpoint".  If the inferior
-   won't stop as a result of the signal -- i.e., if the signal is merely
-   a side-effect of something GDB's doing "under the covers" for the
-   user, such as stepping threads over a breakpoint they shouldn't stop
-   for -- then the message seems to be a serious annoyance at best.
-
-   For now, remove the message altogether. */
-#if 0
-	  printed = 1;
-	  target_terminal_ours_for_output ();
-	  printf_filtered ("\nProgram received signal %s, %s.\n",
-			   target_signal_to_name (stop_signal),
-			   target_signal_to_string (stop_signal));
-	  gdb_flush (gdb_stdout);
-#endif
-	}
-
-      /* If it's not SIGTRAP and not a signal we want to stop for, then
-         continue the thread. */
-
-      if (stop_signal != TARGET_SIGNAL_TRAP && !signal_stop[stop_signal])
-	{
-	  if (printed)
-	    target_terminal_inferior ();
-
-	  /* Clear the signal if it should not be passed.  */
-	  if (signal_program[stop_signal] == 0)
-	    stop_signal = TARGET_SIGNAL_0;
-
-	  target_resume (ecs->ptid, 0, stop_signal);
-	  prepare_to_wait (ecs);
-	  return;
-	}
-
-      /* It's a SIGTRAP or a signal we're interested in.  Switch threads,
-         and fall into the rest of wait_for_inferior().  */
 
       context_switch (ecs);
 
       if (context_hook)
 	context_hook (pid_to_thread_id (ecs->ptid));
 
+      /* APPLE LOCAL  */
       if (ui_out_is_mi_like_p (uiout))
 	{
 	  target_terminal_ours_for_output ();
@@ -1842,17 +2129,6 @@ handle_inferior_event (struct execution_control_state *ecs)
          includes evaluating watchpoints, things will come to a
          stop in the correct manner.  */
 
-#if 0
-	/* This breaks page-protection watchpoints on i386, as GDB
-	   keeps trying to back up and single-step over the offending
-	   instruction.  This is likely non-portable; my guess is that
-	   we will need to add a DECR_PC_AFTER_WATCHPOINT target
-	   macro. */
-
-      if (DECR_PC_AFTER_BREAK)
-	write_pc (stop_pc - DECR_PC_AFTER_BREAK);
-#endif
-
       remove_breakpoints ();
       registers_changed ();
       target_resume (ecs->ptid, 1, TARGET_SIGNAL_0);	/* Single step */
@@ -1894,16 +2170,23 @@ handle_inferior_event (struct execution_control_state *ecs)
      will be made according to the signal handling tables.  */
 
   /* First, distinguish signals caused by the debugger from signals
-     that have to do with the program's own actions.
-     Note that breakpoint insns may cause SIGTRAP or SIGILL
-     or SIGEMT, depending on the operating system version.
-     Here we detect when a SIGILL or SIGEMT is really a breakpoint
-     and change it to SIGTRAP.  */
+     that have to do with the program's own actions.  Note that
+     breakpoint insns may cause SIGTRAP or SIGILL or SIGEMT, depending
+     on the operating system version.  Here we detect when a SIGILL or
+     SIGEMT is really a breakpoint and change it to SIGTRAP.  We do
+     something similar for SIGSEGV, since a SIGSEGV will be generated
+     when we're trying to execute a breakpoint instruction on a
+     non-executable stack.  This happens for call dummy breakpoints
+     for architectures like SPARC that place call dummies on the
+     stack.  */
 
   if (stop_signal == TARGET_SIGNAL_TRAP
       || (breakpoints_inserted &&
 	  (stop_signal == TARGET_SIGNAL_ILL
-	   || stop_signal == TARGET_SIGNAL_EMT)) || stop_soon_quietly)
+	   || stop_signal == TARGET_SIGNAL_SEGV
+	   || stop_signal == TARGET_SIGNAL_EMT))
+      || stop_soon == STOP_QUIETLY
+      || stop_soon == STOP_QUIETLY_NO_SIGSTOP)
     {
       if (stop_signal == TARGET_SIGNAL_TRAP && stop_after_trap)
 	{
@@ -1911,9 +2194,24 @@ handle_inferior_event (struct execution_control_state *ecs)
 	  stop_stepping (ecs);
 	  return;
 	}
-      if (stop_soon_quietly)
+
+      /* This is originated from start_remote(), start_inferior() and
+         shared libraries hook functions.  */
+      if (stop_soon == STOP_QUIETLY)
 	{
 	  stop_stepping (ecs);
+	  return;
+	}
+
+      /* This originates from attach_command().  We need to overwrite
+         the stop_signal here, because some kernels don't ignore a
+         SIGSTOP in a subsequent ptrace(PTRACE_SONT,SOGSTOP) call.
+         See more comments in inferior.h.  */
+      if (stop_soon == STOP_QUIETLY_NO_SIGSTOP)
+	{
+	  stop_stepping (ecs);
+	  if (stop_signal == TARGET_SIGNAL_STOP)
+	    stop_signal = TARGET_SIGNAL_0;
 	  return;
 	}
 
@@ -1930,54 +2228,41 @@ handle_inferior_event (struct execution_control_state *ecs)
       else
 	{
 	  /* See if there is a breakpoint at the current PC.  */
+	  stop_bpstat = bpstat_stop_status (stop_pc, ecs->ptid);
 
-	  /* The second argument of bpstat_stop_status is meant to help
-	     distinguish between a breakpoint trap and a singlestep trap.
-	     This is only important on targets where DECR_PC_AFTER_BREAK
-	     is non-zero.  The prev_pc test is meant to distinguish between
-	     singlestepping a trap instruction, and singlestepping thru a
-	     jump to the instruction following a trap instruction.
-
-             Therefore, pass TRUE if our reason for stopping is
-             something other than hitting a breakpoint.  We do this by
-             checking that either: we detected earlier a software single
-             step trap or, 1) stepping is going on and 2) we didn't hit
-             a breakpoint in a signal handler without an intervening stop
-             in sigtramp, which is detected by a new stack pointer value
-             below any usual function calling stack adjustments.  */
-	  stop_bpstat =
-            bpstat_stop_status
-              (&stop_pc,
-               sw_single_step_trap_p
-               || (currently_stepping (ecs)
-                   && prev_pc != stop_pc - DECR_PC_AFTER_BREAK
-                   && !(step_range_end
-                        && INNER_THAN (read_sp (), (step_sp - 16)))));
 	  /* Following in case break condition called a
 	     function.  */
 	  stop_print_frame = 1;
 	}
 
+      /* NOTE: cagney/2003-03-29: These two checks for a random signal
+	 at one stage in the past included checks for an inferior
+	 function call's call dummy's return breakpoint.  The original
+	 comment, that went with the test, read:
+
+	 ``End of a stack dummy.  Some systems (e.g. Sony news) give
+	 another signal besides SIGTRAP, so check here as well as
+	 above.''
+
+         If someone ever tries to get get call dummys on a
+         non-executable stack to work (where the target would stop
+         with something like a SIGSEGV), then those tests might need
+         to be re-instated.  Given, however, that the tests were only
+         enabled when momentary breakpoints were not being used, I
+         suspect that it won't be the case.
+
+	 NOTE: kettenis/2004-02-05: Indeed such checks don't seem to
+	 be necessary for call dummies on a non-executable stack on
+	 SPARC.  */
+
       if (stop_signal == TARGET_SIGNAL_TRAP)
 	ecs->random_signal
 	  = !(bpstat_explains_signal (stop_bpstat)
 	      || trap_expected
-	      || (!CALL_DUMMY_BREAKPOINT_OFFSET_P
-		  && DEPRECATED_PC_IN_CALL_DUMMY (stop_pc, read_sp (),
-				       get_frame_base (get_current_frame ())))
 	      || (step_range_end && step_resume_breakpoint == NULL));
-
       else
 	{
-	  ecs->random_signal = !(bpstat_explains_signal (stop_bpstat)
-				 /* End of a stack dummy.  Some systems (e.g. Sony
-				    news) give another signal besides SIGTRAP, so
-				    check here as well as above.  */
-				 || (!CALL_DUMMY_BREAKPOINT_OFFSET_P
-				     && DEPRECATED_PC_IN_CALL_DUMMY (stop_pc, read_sp (),
-							  get_frame_base
-							  (get_current_frame
-							   ()))));
+	  ecs->random_signal = !bpstat_explains_signal (stop_bpstat);
 	  if (!ecs->random_signal)
 	    stop_signal = TARGET_SIGNAL_TRAP;
 	}
@@ -2006,6 +2291,19 @@ process_event_stop_test:
 	  printed = 1;
 	  target_terminal_ours_for_output ();
 	  print_stop_reason (SIGNAL_RECEIVED, stop_signal);
+#ifdef NM_NEXTSTEP
+	  /* APPLE LOCAL: We have more interesting info on the target
+	     side to print here.  If you want to do this correctly,
+	     you would change print_stop_reason to take the full
+	     target_waitstatus, and then pass that down to the
+	     target_signal_to_string so it can print the extra bits.
+	     But that's lots of diffs for no real benefit.  */
+	  
+extern void macosx_print_extra_stop_info (int, CORE_ADDR);
+
+	  if (ecs->ws.code != -1) 
+	    macosx_print_extra_stop_info (ecs->ws.code, ecs->ws.address);
+#endif	  
 	}
       if (signal_stop[stop_signal])
 	{
@@ -2206,6 +2504,7 @@ process_event_stop_test:
       case BPSTAT_WHAT_CHECK_SHLIBS_RESUME_FROM_HOOK:
 #ifdef SOLIB_ADD
 	{
+          /* APPLE LOCAL:  Two new vars for aync happiness.  */
 	  int was_sync_execution = 0;
 	  int solib_changed = 0;
 
@@ -2219,34 +2518,52 @@ process_event_stop_test:
 	  /* Check for any newly added shared libraries if we're
 	     supposed to be adding them automatically.  Switch
 	     terminal for any messages produced by
-	     breakpoint_re_set. Also, the error handlers for
+	     breakpoint_re_set.  */
+          /* APPLE LOCAL:  Also, the error handlers for
 	     breakpoint_re_set may have run async_enable_stdin,
 	     which is not appropriate in this case.  Run it again
-	     just in case...
-	  */
+	     just in case...  */
 	  was_sync_execution = sync_execution;
 	  target_terminal_ours_for_output ();
-	  solib_changed = SOLIB_ADD (NULL, 0, NULL, auto_solib_add);
+	  /* NOTE: cagney/2003-11-25: Make certain that the target
+             stack's section table is kept up-to-date.  Architectures,
+             (e.g., PPC64), use the section table to perform
+             operations such as address => section name and hence
+             require the table to contain all sections (including
+             those found in shared libraries).  */
+	  /* NOTE: cagney/2003-11-25: Pass current_target and not
+             exec_ops to SOLIB_ADD.  This is because current GDB is
+             only tooled to propagate section_table changes out from
+             the "current_target" (see target_resize_to_sections), and
+             not up from the exec stratum.  This, of course, isn't
+             right.  "infrun.c" should only interact with the
+             exec/process stratum, instead relying on the target stack
+             to propagate relevant changes (stop, section table
+             changed, ...) up to other layers.  */
+          /* APPLE LOCAL start */
+	  solib_changed = SOLIB_ADD (NULL, 0, &current_target, auto_solib_add);
 	  if (was_sync_execution && !sync_execution)
 	    async_disable_stdin();
+          /* APPLE LOCAL end */
 	  target_terminal_inferior ();
 
 	  /* Try to reenable shared library breakpoints, additional
 	     code segments in shared libraries might be mapped in now. */
+          /* APPLE LOCAL: Our re_enable_..._shlibs() func takes an arg.  */
 	  re_enable_breakpoints_in_shlibs (0);
 
 	  /* If requested, stop when the dynamic linker notifies
 	     gdb of events.  This allows the user to get control
 	     and place breakpoints in initializer routines for
 	     dynamically loaded objects (among other things).  */
-
-	  if (stop_on_solib_events && solib_changed)
+	  if ((stop_on_solib_events && solib_changed) || stop_stack_dummy)
 	    {
 	      char addr_string[80];
 	      struct breakpoint *b;
 
 	      stop_stepping (ecs);
 
+              /* APPLE LOCAL start cf comment by "solib_step_bp".  */
 	      if (((b = step_resume_breakpoint) != NULL)
 		  || ((b = find_finish_breakpoint ()) != NULL))
 		{
@@ -2262,19 +2579,20 @@ process_event_stop_test:
 
 		  fsr_sal.symtab = NULL;
 		  fsr_sal.line = 0;
-		  fsr_sal.pc = b->address;
+		  fsr_sal.pc = b->loc->address;
 
 		  new_bp = set_breakpoint_sal (fsr_sal);
 		  new_bp->disposition = disp_del;
 		  new_bp->frame_id = b->frame_id;
 		  /* We have to set addr_string or breakpoint_re_set
 		     will delete the breakpoint. */
-		  sprintf (addr_string, "*0x%s", paddr (new_bp->address));
+		  sprintf (addr_string, "*0x%s", paddr (new_bp->loc->address));
 		  new_bp->addr_string = xstrdup (addr_string);
 
 		  if (breakpoints_inserted)
 		    insert_breakpoints ();
 		}
+              /* APPLE LOCAL end */
 	      return;
 	    }
 
@@ -2362,31 +2680,6 @@ process_event_stop_test:
       return;
     }
 
-  if (!CALL_DUMMY_BREAKPOINT_OFFSET_P)
-    {
-      /* This is the old way of detecting the end of the stack dummy.
-         An architecture which defines CALL_DUMMY_BREAKPOINT_OFFSET gets
-         handled above.  As soon as we can test it on all of them, all
-         architectures should define it.  */
-
-      /* If this is the breakpoint at the end of a stack dummy,
-         just stop silently, unless the user was doing an si/ni, in which
-         case she'd better know what she's doing.  */
-
-      if (CALL_DUMMY_HAS_COMPLETED (stop_pc, read_sp (),
-				    get_frame_base (get_current_frame ()))
-	  && !step_range_end)
-	{
-	  stop_print_frame = 0;
-	  stop_stack_dummy = 1;
-#ifdef HP_OS_BUG
-	  trap_expected_after_continue = 1;
-#endif
-	  stop_stepping (ecs);
-	  return;
-	}
-    }
-
   if (step_resume_breakpoint)
     {
       /* Having a step-resume breakpoint overrides anything
@@ -2420,7 +2713,8 @@ process_event_stop_test:
          So definately need to check for sigtramp here.  */
       check_sigtramp2 (ecs);
 
-      /* Here is a subtle point.  If you start stepping IN a prologue,
+      /* APPLE LOCAL begin: codewarrior support.  
+         Here is a subtle point.  If you start stepping IN a prologue,
 	 you will record the step_frame_id BEFORE it has been set
 	 for the frame.  Then when you go to set a step resume breakpoint,
 	 you will put the step_frame_id into it.  This won't match
@@ -2435,6 +2729,7 @@ process_event_stop_test:
 	  if (! frame_id_eq (step_frame_id, current_frame_id))
 	    step_frame_id = current_frame_id;
 	}
+      /* APPLE LOCAL end */
 
       keep_going (ecs);
       return;
@@ -2449,7 +2744,8 @@ process_event_stop_test:
   if (step_over_calls == STEP_OVER_UNDEBUGGABLE
       && IN_SOLIB_DYNSYM_RESOLVE_CODE (stop_pc))
     {
-      CORE_ADDR pc_after_resolver = SKIP_SOLIB_RESOLVER (stop_pc);
+      CORE_ADDR pc_after_resolver =
+	gdbarch_skip_solib_resolver (current_gdbarch, stop_pc);
 
       if (pc_after_resolver)
 	{
@@ -2476,8 +2772,8 @@ process_event_stop_test:
   ecs->update_step_sp = 1;
 
   /* Did we just take a signal?  */
-  if (PC_IN_SIGTRAMP (stop_pc, ecs->stop_func_name)
-      && !PC_IN_SIGTRAMP (prev_pc, prev_func_name)
+  if (pc_in_sigtramp (stop_pc)
+      && !pc_in_sigtramp (prev_pc)
       && INNER_THAN (read_sp (), step_sp))
     {
       /* We've just taken a signal; go until we are back to
@@ -2559,10 +2855,12 @@ process_event_stop_test:
       return;
     }
 
+  /* APPLE LOCAL begin  */
     /* Here we handle the case of nexti when we have no symbols.
-       We must test separately for this case, since the next test will always
-       succeed, and we will effectively "finish".  So if we are NOT in a function
-       prologue, we will just do a stepi. */
+       We must test separately for this case, since the next test
+       will always succeed, and we will effectively "finish".  So
+       if we are NOT in a function prologue, we will just do a
+       stepi. */
 
   if (ecs->stop_func_name == NULL
       && step_range_end == 1
@@ -2579,12 +2877,13 @@ process_event_stop_test:
       return;
     }
 
-  /* We have reached the end of the stepping range.  The code following
-     will do the right thing if the region we are stepping in has symbols,
-     but the in_prologue part of the test assumes that we have just stepped
-     into a subroutine if we find ourselves in code for which we have NO symbols.
-     We can't really change that behavior, but we can trap some common cases
-     where we KNOW that we haven't just stepped into a function. */
+  /* We have reached the end of the stepping range.  The code
+     following will do the right thing if the region we are stepping
+     in has symbols, but the in_prologue part of the test assumes
+     that we have just stepped into a subroutine if we find ourselves
+     in code for which we have NO symbols.  We can't really change
+     that behavior, but we can trap some common cases where we KNOW
+     that we haven't just stepped into a function. */
   
   /* The case we handle here is branching within current function.
      To detect this case, we use the step_func ranges that were passed to
@@ -2604,144 +2903,18 @@ process_event_stop_test:
 
 	}
     }
+  /* APPLE LOCAL end  */
 
-  if (stop_pc == ecs->stop_func_start	/* Quick test */
-       || ((stop_pc != ADDR_BITS_REMOVE (SAVED_PC_AFTER_CALL (get_current_frame ())))
-           && (((in_prologue (stop_pc, ecs->stop_func_start) &&
-	  !IN_SOLIB_RETURN_TRAMPOLINE (stop_pc, ecs->stop_func_name))
+  /* APPLE LOCAL codewarrior support: "metrowerks_stepping" check below.  */
+  if (((stop_pc == ecs->stop_func_start /* Quick test */
+        || in_prologue (stop_pc, ecs->stop_func_start))
+       && !IN_SOLIB_RETURN_TRAMPOLINE (stop_pc, ecs->stop_func_name))
       || IN_SOLIB_CALL_TRAMPOLINE (stop_pc, ecs->stop_func_name)
-     || (!metrowerks_stepping && ecs->stop_func_name == 0)))))
+      || (!metrowerks_stepping && ecs->stop_func_name == 0))
     {
       /* It's a subroutine call.  */
-
-      if ((step_over_calls == STEP_OVER_NONE)
-	  || ((step_range_end == 1)
-	      && in_prologue (prev_pc, ecs->stop_func_start)))
-	{
-	  /* I presume that step_over_calls is only 0 when we're
-	     supposed to be stepping at the assembly language level
-	     ("stepi").  Just stop.  */
-	  /* Also, maybe we just did a "nexti" inside a prolog,
-	     so we thought it was a subroutine call but it was not.
-	     Stop as well.  FENN */
-	  stop_step = 1;
-	  print_stop_reason (END_STEPPING_RANGE, 0);
-	  stop_stepping (ecs);
-	  return;
-	}
-
-      if (step_over_calls == STEP_OVER_ALL || IGNORE_HELPER_CALL (stop_pc))
-	{
-	  /* We're doing a next, or a nexti.  */
-
-	  if (PC_IN_SIGTRAMP (stop_pc, ecs->stop_func_name)
-	      && frame_id_inner (step_frame_id,
-				 frame_id_build (read_sp (), 0)))
-	    /* We stepped out of a signal handler, and into its
-	       calling trampoline.  This is misdetected as a
-	       subroutine call, but stepping over the signal
-	       trampoline isn't such a bad idea.  In order to do that,
-	       we have to ignore the value in step_frame_id, since
-	       that doesn't represent the frame that'll reach when we
-	       return from the signal trampoline.  Otherwise we'll
-	       probably continue to the end of the program.  */
-	    step_frame_id = null_frame_id;
-
-	  /* Check here to see if it is a "nexti".  If it is,
-	     and we were able to find the stop_func_start,
-	     then only continue if we are at the FIRST instruction
-	     of the prologue.  Otherwise nexti won't work in the
-	     body of a function prologue (which people do expect!) */
-	  if (step_range_start == 1
-	      && ecs->stop_func_start != 0
-	      && stop_pc > ecs->stop_func_start)
-	    {
-	      stop_step = 1;
-	      print_stop_reason (END_STEPPING_RANGE, 0);
-	      stop_stepping (ecs);
-	      return;
-	    }
-	  
-	  step_over_function (ecs);
-	  keep_going (ecs);
-	  return;
-	}
-      
-      /* If we are in a function call trampoline (a stub between
-         the calling routine and the real function), locate the real
-         function.  That's what tells us (a) whether we want to step
-         into it at all, and (b) what prologue we want to run to
-         the end of, if we do step into it.  */
-      tmp = SKIP_TRAMPOLINE_CODE (stop_pc);
-      if (tmp != 0)
-	ecs->stop_func_start = tmp;
-      else
-	{
-	  tmp = DYNAMIC_TRAMPOLINE_NEXTPC (stop_pc);
-	  if (tmp)
-	    {
-	      struct symtab_and_line xxx;
-	      /* Why isn't this s_a_l called "sr_sal", like all of the
-	         other s_a_l's where this code is duplicated?  */
-	      init_sal (&xxx);	/* initialize to zeroes */
-	      xxx.pc = tmp;
-	      xxx.section = find_pc_overlay (xxx.pc);
-	      check_for_old_step_resume_breakpoint ();
-	      step_resume_breakpoint =
-		set_momentary_breakpoint (xxx, null_frame_id, bp_step_resume);
-	      insert_breakpoints ();
-	      keep_going (ecs);
-	      return;
-	    }
-	}
-
-      if (tmp)
-	find_objc_msgcall (tmp, &new_stop);
-      else
-	find_objc_msgcall (stop_pc, &new_stop);
-      
-      if (new_stop)           /* step into a method call */
-	ecs->stop_func_start = new_stop;
-      
-      if (new_stop)
-	{
-	  tmp = SKIP_TRAMPOLINE_CODE (new_stop);
-	  if (tmp != 0)
-	    ecs->stop_func_start = tmp;
-	}
-
-      /* If we have line number information for the function we
-         are thinking of stepping into, step into it.
-
-         If there are several symtabs at that PC (e.g. with include
-         files), just want to know whether *any* of them have line
-         numbers.  find_pc_line handles this.  */
-      {
-	struct symtab_and_line tmp_sal;
-
-	tmp_sal = find_pc_line (ecs->stop_func_start, 0);
-	if (tmp_sal.line != 0)
-	  {
-	    step_into_function (ecs);
-	    return;
-	  }
-      }
-
-      /* If we have no line number and the step-stop-if-no-debug
-         is set, we stop the step so that the user has a chance to
-         switch in assembly mode.  */
-      if (step_over_calls == STEP_OVER_UNDEBUGGABLE && step_stop_if_no_debug)
-	{
-	  stop_step = 1;
-	  print_stop_reason (END_STEPPING_RANGE, 0);
-	  stop_stepping (ecs);
-	  return;
-	}
-
-      step_over_function (ecs);
-      keep_going (ecs);
+      handle_step_into_function (ecs);
       return;
-
     }
 
   /* We've wandered out of the step range.  */
@@ -2762,19 +2935,17 @@ process_event_stop_test:
      we want to proceed through the trampoline when stepping.  */
   if (IN_SOLIB_RETURN_TRAMPOLINE (stop_pc, ecs->stop_func_name))
     {
-      CORE_ADDR tmp;
-
       /* Determine where this trampoline returns.  */
-      tmp = SKIP_TRAMPOLINE_CODE (stop_pc);
+      CORE_ADDR real_stop_pc = SKIP_TRAMPOLINE_CODE (stop_pc);
 
       /* Only proceed through if we know where it's going.  */
-      if (tmp)
+      if (real_stop_pc)
 	{
 	  /* And put the step-breakpoint there and go until there. */
 	  struct symtab_and_line sr_sal;
 
 	  init_sal (&sr_sal);	/* initialize to zeroes */
-	  sr_sal.pc = tmp;
+	  sr_sal.pc = real_stop_pc;
 	  sr_sal.section = find_pc_overlay (sr_sal.pc);
 	  /* Do not specify what the fp should be when we stop
 	     since on some machines the prologue
@@ -2838,6 +3009,7 @@ process_event_stop_test:
       return;
     }
 
+  /* APPLE LOCAL codewarrior support */
   if (metrowerks_stepping)
     {
       stop_step = 1;
@@ -2855,6 +3027,22 @@ process_event_stop_test:
   /* In the case where we just stepped out of a function into the
      middle of a line of the caller, continue stepping, but
      step_frame_id must be modified to current frame */
+#if 0
+  /* NOTE: cagney/2003-10-16: I think this frame ID inner test is too
+     generous.  It will trigger on things like a step into a frameless
+     stackless leaf function.  I think the logic should instead look
+     at the unwound frame ID has that should give a more robust
+     indication of what happened.  */
+     if (step-ID == current-ID)
+       still stepping in same function;
+     else if (step-ID == unwind (current-ID))
+       stepped into a function;
+     else
+       stepped out of a function;
+     /* Of course this assumes that the frame ID unwind code is robust
+        and we're willing to introduce frame unwind logic into this
+        function.  Fortunately, those days are nearly upon us.  */
+#endif
   {
     struct frame_id current_frame = get_frame_id (get_current_frame ());
     if (!(frame_id_inner (current_frame, step_frame_id)))
@@ -2881,8 +3069,8 @@ static void
 check_sigtramp2 (struct execution_control_state *ecs)
 {
   if (trap_expected
-      && PC_IN_SIGTRAMP (stop_pc, ecs->stop_func_name)
-      && !PC_IN_SIGTRAMP (prev_pc, prev_func_name)
+      && pc_in_sigtramp (stop_pc)
+      && !pc_in_sigtramp (prev_pc)
       && INNER_THAN (read_sp (), step_sp))
     {
       /* What has happened here is that we have just stepped the
@@ -2933,15 +3121,33 @@ step_into_function (struct execution_control_state *ecs)
   /* If the prologue ends in the middle of a source line, continue to
      the end of that source line (if it is still within the function).
      Otherwise, just go to end of prologue.  */
-#ifdef PROLOGUE_FIRSTLINE_OVERLAP
-  /* no, don't either.  It skips any code that's legitimately on the
-     first line.  */
-#else
   if (ecs->sal.end
       && ecs->sal.pc != ecs->stop_func_start
       && ecs->sal.end < ecs->stop_func_end)
     ecs->stop_func_start = ecs->sal.end;
-#endif
+
+  /* Architectures which require breakpoint adjustment might not be able
+     to place a breakpoint at the computed address.  If so, the test
+     ``ecs->stop_func_start == stop_pc'' will never succeed.  Adjust
+     ecs->stop_func_start to an address at which a breakpoint may be
+     legitimately placed.
+     
+     Note:  kevinb/2004-01-19:  On FR-V, if this adjustment is not
+     made, GDB will enter an infinite loop when stepping through
+     optimized code consisting of VLIW instructions which contain
+     subinstructions corresponding to different source lines.  On
+     FR-V, it's not permitted to place a breakpoint on any but the
+     first subinstruction of a VLIW instruction.  When a breakpoint is
+     set, GDB will adjust the breakpoint address to the beginning of
+     the VLIW instruction.  Thus, we need to make the corresponding
+     adjustment here when computing the stop address.  */
+     
+  if (gdbarch_adjust_breakpoint_address_p (current_gdbarch))
+    {
+      ecs->stop_func_start
+	= gdbarch_adjust_breakpoint_address (current_gdbarch,
+	                                     ecs->stop_func_start);
+    }
 
   if (ecs->stop_func_start == stop_pc)
     {
@@ -2990,7 +3196,44 @@ step_over_function (struct execution_control_state *ecs)
   struct symtab_and_line sr_sal;
 
   init_sal (&sr_sal);		/* initialize to zeros */
-  sr_sal.pc = ADDR_BITS_REMOVE (SAVED_PC_AFTER_CALL (get_current_frame ()));
+
+  /* NOTE: cagney/2003-04-06:
+
+     At this point the equality get_frame_pc() == get_frame_func()
+     should hold.  This may make it possible for this code to tell the
+     frame where it's function is, instead of the reverse.  This would
+     avoid the need to search for the frame's function, which can get
+     very messy when there is no debug info available (look at the
+     heuristic find pc start code found in targets like the MIPS).  */
+
+  /* NOTE: cagney/2003-04-06:
+
+     The intent of DEPRECATED_SAVED_PC_AFTER_CALL was to:
+
+     - provide a very light weight equivalent to frame_unwind_pc()
+     (nee FRAME_SAVED_PC) that avoids the prologue analyzer
+
+     - avoid handling the case where the PC hasn't been saved in the
+     prologue analyzer
+
+     Unfortunately, not five lines further down, is a call to
+     get_frame_id() and that is guarenteed to trigger the prologue
+     analyzer.
+     
+     The `correct fix' is for the prologe analyzer to handle the case
+     where the prologue is incomplete (PC in prologue) and,
+     consequently, the return pc has not yet been saved.  It should be
+     noted that the prologue analyzer needs to handle this case
+     anyway: frameless leaf functions that don't save the return PC;
+     single stepping through a prologue.
+
+     The d10v handles all this by bailing out of the prologue analsis
+     when it reaches the current instruction.  */
+
+  if (DEPRECATED_SAVED_PC_AFTER_CALL_P ())
+    sr_sal.pc = ADDR_BITS_REMOVE (DEPRECATED_SAVED_PC_AFTER_CALL (get_current_frame ()));
+  else
+    sr_sal.pc = ADDR_BITS_REMOVE (frame_pc_unwind (get_current_frame ()));
   sr_sal.section = find_pc_overlay (sr_sal.pc);
 
   check_for_old_step_resume_breakpoint ();
@@ -3009,16 +3252,6 @@ step_over_function (struct execution_control_state *ecs)
 static void
 stop_stepping (struct execution_control_state *ecs)
 {
-  if (target_has_execution)
-    {
-      /* Assuming the inferior still exists, set these up for next
-         time, just like we did above if we didn't break out of the
-         loop.  */
-      prev_pc = read_pc ();
-      prev_func_start = ecs->stop_func_start;
-      prev_func_name = ecs->stop_func_name;
-    }
-
   /* Let callers know we don't want to wait for the inferior anymore.  */
   ecs->wait_some_more = 0;
 }
@@ -3032,12 +3265,6 @@ keep_going (struct execution_control_state *ecs)
 {
   /* Save the pc before execution, to compare with pc after stop.  */
   prev_pc = read_pc ();		/* Might have been DECR_AFTER_BREAK */
-  prev_func_start = ecs->stop_func_start;	/* Ok, since if DECR_PC_AFTER
-						   BREAK is defined, the
-						   original pc would not have
-						   been at the start of a
-						   function. */
-  prev_func_name = ecs->stop_func_name;
 
   if (ecs->update_step_sp)
     step_sp = read_sp ();
@@ -3105,17 +3332,6 @@ keep_going (struct execution_control_state *ecs)
       if (stop_signal == TARGET_SIGNAL_TRAP && !signal_program[stop_signal])
 	stop_signal = TARGET_SIGNAL_0;
 
-#ifdef SHIFT_INST_REGS
-      /* I'm not sure when this following segment applies.  I do know,
-         now, that we shouldn't rewrite the regs when we were stopped
-         by a random signal from the inferior process.  */
-      /* FIXME: Shouldn't this be based on the valid bit of the SXIP?
-         (this is only used on the 88k).  */
-
-      if (!bpstat_explains_signal (stop_bpstat)
-	  && (stop_signal != TARGET_SIGNAL_CHLD) && !stopped_by_random_signal)
-	SHIFT_INST_REGS ();
-#endif /* SHIFT_INST_REGS */
 
       resume (currently_stepping (ecs), stop_signal);
     }
@@ -3251,14 +3467,22 @@ print_stop_reason (enum inferior_stop_reason stop_reason, int stop_info)
 void
 normal_stop (void)
 {
+  struct target_waitstatus last;
+  ptid_t last_ptid;
+
+  get_last_target_status (&last_ptid, &last);
+
   /* As with the notification of thread events, we want to delay
      notifying the user that we've switched thread context until
      the inferior actually stops.
 
-     (Note that there's no point in saying anything if the inferior
-     has exited!) */
+     There's no point in saying anything if the inferior has exited.
+     Note that SIGNALLED here means "exited with a signal", not
+     "received a signal".  */
   if (!ptid_equal (previous_inferior_ptid, inferior_ptid)
-      && target_has_execution)
+      && target_has_execution
+      && last.kind != TARGET_WAITKIND_SIGNALLED
+      && last.kind != TARGET_WAITKIND_EXITED)
     {
       target_terminal_ours_for_output ();
       printf_filtered ("[Switching to %s]\n",
@@ -3266,6 +3490,7 @@ normal_stop (void)
       previous_inferior_ptid = inferior_ptid;
     }
 
+  /* NOTE drow/2004-01-17: Is this still necessary?  */
   /* Make sure that the current_frame's pc is correct.  This
      is a correction for setting up the frame info before doing
      DECR_PC_AFTER_BREAK */
@@ -3288,6 +3513,8 @@ normal_stop (void)
 	}
     }
   breakpoints_inserted = 0;
+
+  /* APPLE LOCAL: omission of breakpoint_auto_delete call.  */
 
   /* If an auto-display called a function and that got a signal,
      delete that auto-display to avoid an infinite recursion.  */
@@ -3336,6 +3563,7 @@ normal_stop (void)
 	  int source_flag = -1;
 	  int do_frame_printing = 1;
 
+/* APPLE LOCAL begin */
 #ifdef SOLIB_ADD
 	  if (stop_on_solib_events)
 	    {
@@ -3371,7 +3599,10 @@ normal_stop (void)
 		}
 	    }
 #endif /* SOLIB_ADD */
+/* APPLE LOCAL end */
 
+         /* APPLE LOCAL: The following block exists in the FSF sources 
+            verbatim, but is not bracketed by the following conditional exp. */
          if (!solib_step_bpstat_p)
            {
 	     bpstat_ret = bpstat_print (stop_bpstat);
@@ -3448,13 +3679,12 @@ normal_stop (void)
     }
 
 done:
-
+  /* APPLE LOCAL start */
   /* Delete the breakpoint we stopped at, if it wants to be deleted.
      Delete any breakpoint that is to be deleted at the next stop.  */
 
   breakpoint_auto_delete (stop_bpstat);
 
-  annotate_stopped ();
   if (!stop_stack_dummy)
     {
       /* don't invoke hooks for called-by-hand functions */
@@ -3472,6 +3702,10 @@ done:
 	  stack_changed_hook ();
 	}
     }
+  /* APPLE LOCAL end */
+
+  annotate_stopped ();
+  observer_notify_normal_stop ();
 }
 
 static int
@@ -3852,7 +4086,7 @@ struct inferior_status
   enum step_over_calls_kind step_over_calls;
   CORE_ADDR step_resume_break_address;
   int stop_after_trap;
-  int stop_soon_quietly;
+  int stop_soon;
   struct regcache *stop_registers;
 
   /* These are here because if call_function_by_hand has written some
@@ -3872,7 +4106,7 @@ void
 write_inferior_status_register (struct inferior_status *inf_status, int regno,
 				LONGEST val)
 {
-  int size = REGISTER_RAW_SIZE (regno);
+  int size = DEPRECATED_REGISTER_RAW_SIZE (regno);
   void *buf = alloca (size);
   store_signed_integer (buf, size, val);
   regcache_raw_write (inf_status->registers, regno, buf);
@@ -3898,7 +4132,7 @@ save_inferior_status (int restore_stack_info)
   inf_status->step_frame_id = step_frame_id;
   inf_status->step_over_calls = step_over_calls;
   inf_status->stop_after_trap = stop_after_trap;
-  inf_status->stop_soon_quietly = stop_soon_quietly;
+  inf_status->stop_soon = stop_soon;
   /* Save original bpstat chain here; replace it with copy of chain.
      If caller's caller is walking the chain, they'll be happier if we
      hand them back the original chain when restore_inferior_status is
@@ -3952,7 +4186,7 @@ restore_inferior_status (struct inferior_status *inf_status)
   step_frame_id = inf_status->step_frame_id;
   step_over_calls = inf_status->step_over_calls;
   stop_after_trap = inf_status->stop_after_trap;
-  stop_soon_quietly = inf_status->stop_soon_quietly;
+  stop_soon = inf_status->stop_soon;
   bpstat_clear (&stop_bpstat);
   stop_bpstat = inf_status->stop_bpstat;
   breakpoint_proceeded = inf_status->breakpoint_proceeded;
@@ -4164,12 +4398,12 @@ build_infrun (void)
 void
 _initialize_infrun (void)
 {
-  register int i;
-  register int numsigs;
+  int i;
+  int numsigs;
   struct cmd_list_element *c;
 
-  register_gdbarch_swap (&stop_registers, sizeof (stop_registers), NULL);
-  register_gdbarch_swap (NULL, 0, build_infrun);
+  DEPRECATED_REGISTER_GDBARCH_SWAP (stop_registers);
+  deprecated_register_gdbarch_swap (NULL, 0, build_infrun);
 
   add_info ("signals", signals_info,
 	    "What debugger does when program gets various signals.\n\
@@ -4278,31 +4512,12 @@ to the user would be loading/unloading of a new library.\n", &setlist), &showlis
   c = add_set_enum_cmd ("follow-fork-mode",
 			class_run,
 			follow_fork_mode_kind_names, &follow_fork_mode_string,
-/* ??rehrauer:  The "both" option is broken, by what may be a 10.20
-   kernel problem.  It's also not terribly useful without a GUI to
-   help the user drive two debuggers.  So for now, I'm disabling
-   the "both" option.  */
-/*                      "Set debugger response to a program call of fork \
-   or vfork.\n\
-   A fork or vfork creates a new process.  follow-fork-mode can be:\n\
-   parent  - the original process is debugged after a fork\n\
-   child   - the new process is debugged after a fork\n\
-   both    - both the parent and child are debugged after a fork\n\
-   ask     - the debugger will ask for one of the above choices\n\
-   For \"both\", another copy of the debugger will be started to follow\n\
-   the new child process.  The original debugger will continue to follow\n\
-   the original parent process.  To distinguish their prompts, the\n\
-   debugger copy's prompt will be changed.\n\
-   For \"parent\" or \"child\", the unfollowed process will run free.\n\
-   By default, the debugger will follow the parent process.",
- */
 			"Set debugger response to a program call of fork \
 or vfork.\n\
 A fork or vfork creates a new process.  follow-fork-mode can be:\n\
   parent  - the original process is debugged after a fork\n\
   child   - the new process is debugged after a fork\n\
-  ask     - the debugger will ask for one of the above choices\n\
-For \"parent\" or \"child\", the unfollowed process will run free.\n\
+The unfollowed process will continue to run.\n\
 By default, the debugger will follow the parent process.", &setlist);
   add_show_from_set (c, &showlist);
 
@@ -4317,6 +4532,7 @@ step == scheduler locked during every single-step operation.\n\
 
   set_cmd_sfunc (c, set_schedlock_func);	/* traps on target vector */
   add_show_from_set (c, &showlist);
+  /* APPLE LOCAL: Clear the scheduler-locking ptid. */
   scheduler_lock_ptid = minus_one_ptid;
 
   c = add_set_cmd ("step-mode", class_run,

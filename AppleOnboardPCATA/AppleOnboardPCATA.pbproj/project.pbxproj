@@ -1,0 +1,628 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 38;
+	objects = {
+		06AA1264FFB2107B11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		06AA1265FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildRules = (
+			);
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		06AA1267FFB2110C11CA28AA = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			generatedFileNames = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			neededFileNames = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				089C1673FE841209C02AAC07,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+			);
+			isa = PBXGroup;
+			name = AppleOnboardPCATA;
+			refType = 4;
+		};
+		089C1673FE841209C02AAC07 = {
+			buildPhases = (
+				06AA1267FFB2110C11CA28AA,
+				089C1674FE841209C02AAC07,
+				089C1675FE841209C02AAC07,
+				089C1676FE841209C02AAC07,
+				089C1677FE841209C02AAC07,
+				089C1679FE841209C02AAC07,
+				06AA1264FFB2107B11CA28AA,
+			);
+			buildSettings = {
+				DEBUGGING_SYMBOLS = NO;
+				FRAMEWORK_SEARCH_PATHS = "";
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleOnboardPCATA;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = AppleOnboardPCATA;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = i386;
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = AppleOnboardPCATA;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = AppleOnboardPCATA;
+			productReference = 0B81C263FFB7832611CA28AA;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>AppleOnboardPCATA</string>
+	<key>CFBundleGetInfoString</key>
+	<string>1.0.0, Copyright Apple Computer, Inc. 2004</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleOnboardPCATA</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Apple Onboard PC ATA Driver</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AMD CS5535 ATA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>AMD</string>
+			<key>IOClass</key>
+			<string>AppleAMDCS5535ATA</string>
+			<key>IOProviderClass</key>
+			<string>AppleOnboardPCATAChannel</string>
+		</dict>
+		<key>AMD CS5535 PCI</key>
+		<dict>
+			<key>ATA Channel Count</key>
+			<integer>1</integer>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>AMD</string>
+			<key>IOClass</key>
+			<string>AppleOnboardPCATARoot</string>
+			<key>IOPCIPrimaryMatch</key>
+			<string>0x002d100b</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+		<key>NVIDIA nForce ATA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>NVIDIA</string>
+			<key>IOClass</key>
+			<string>AppleNVIDIAnForceATA</string>
+			<key>IOProviderClass</key>
+			<string>AppleOnboardPCATAChannel</string>
+		</dict>
+		<key>NVIDIA nForce PCI</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>NVIDIA</string>
+			<key>IOClass</key>
+			<string>AppleOnboardPCATARoot</string>
+			<key>IOPCIPrimaryMatch</key>
+			<string>0x00d510de 0x006510de 0x01bc10de</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+		<key>ServerWorks ATA</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>ServerWorks</string>
+			<key>IOClass</key>
+			<string>AppleServerWorksATA</string>
+			<key>IOProviderClass</key>
+			<string>AppleOnboardPCATAChannel</string>
+		</dict>
+		<key>ServerWorks PCI</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleOnboardPCATA</string>
+			<key>Hardware Vendor</key>
+			<string>ServerWorks</string>
+			<key>IOClass</key>
+			<string>AppleOnboardPCATARoot</string>
+			<key>IOPCIPrimaryMatch</key>
+			<string>0x02121166 0x02131166 0x02171166</string>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCIDevice</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOATAFamily</key>
+		<string>1.5.0d1</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.1</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Local-Root</string>
+</dict>
+</plist>
+";
+		};
+		089C1674FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				427894EF06B8322B006A2C3D,
+				427894F106B8322B006A2C3D,
+				427894F306B8322B006A2C3D,
+				427894F806B8323E006A2C3D,
+				427894F906B8323E006A2C3D,
+				427894FF06B84C71006A2C3D,
+				4278950306B86627006A2C3D,
+				42DA08F506B99078000F55E8,
+				42F94AB00743D59100E24240,
+				42F94AB50743D7A100E24240,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1675FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				089C1680FE841241C02AAC07,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1676FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+				427894F006B8322B006A2C3D,
+				427894F206B8322B006A2C3D,
+				427894F706B8323E006A2C3D,
+				427894FD06B84A29006A2C3D,
+				4278950406B86627006A2C3D,
+				42F94AB10743D59100E24240,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1677FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C1679FE841209C02AAC07 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+		};
+		089C1680FE841241C02AAC07 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//080
+//081
+//082
+//083
+//084
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+		0B81C263FFB7832611CA28AA = {
+			isa = PBXBundleReference;
+			path = AppleOnboardPCATA.kext;
+			refType = 3;
+		};
+//0B0
+//0B1
+//0B2
+//0B3
+//0B4
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				0B81C263FFB7832611CA28AA,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+		};
+//190
+//191
+//192
+//193
+//194
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				428BF33706B14D4E008D9B03,
+				4258CD6506B01CFD0015B967,
+				427894E906B831B3006A2C3D,
+				42F94AAD0743D51C00E24240,
+			);
+			isa = PBXGroup;
+			name = Source;
+			path = "";
+			refType = 4;
+		};
+//240
+//241
+//242
+//243
+//244
+//420
+//421
+//422
+//423
+//424
+		4258CD6506B01CFD0015B967 = {
+			children = (
+				427894F506B8323E006A2C3D,
+				427894F406B8323E006A2C3D,
+				427894F606B8323E006A2C3D,
+			);
+			isa = PBXGroup;
+			path = AppleAMDCS5535ATA;
+			refType = 4;
+		};
+		427894E906B831B3006A2C3D = {
+			children = (
+				4278950106B86627006A2C3D,
+				4278950206B86627006A2C3D,
+				42DA08F406B99078000F55E8,
+			);
+			isa = PBXGroup;
+			path = AppleServerWorksATA;
+			refType = 4;
+		};
+		427894EA06B8322B006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATAShared.h;
+			refType = 4;
+		};
+		427894EB06B8322B006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATAChannel.cpp;
+			refType = 4;
+		};
+		427894EC06B8322B006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATAChannel.h;
+			refType = 4;
+		};
+		427894ED06B8322B006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATARoot.cpp;
+			refType = 4;
+		};
+		427894EE06B8322B006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATARoot.h;
+			refType = 4;
+		};
+		427894EF06B8322B006A2C3D = {
+			fileRef = 427894EA06B8322B006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F006B8322B006A2C3D = {
+			fileRef = 427894EB06B8322B006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F106B8322B006A2C3D = {
+			fileRef = 427894EC06B8322B006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F206B8322B006A2C3D = {
+			fileRef = 427894ED06B8322B006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F306B8322B006A2C3D = {
+			fileRef = 427894EE06B8322B006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F406B8323E006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleAMDCS5535ATA.cpp;
+			refType = 4;
+		};
+		427894F506B8323E006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleAMDCS5535ATA.h;
+			refType = 4;
+		};
+		427894F606B8323E006A2C3D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			path = AppleAMDCS5535ATATiming.h;
+			refType = 4;
+		};
+		427894F706B8323E006A2C3D = {
+			fileRef = 427894F406B8323E006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F806B8323E006A2C3D = {
+			fileRef = 427894F506B8323E006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894F906B8323E006A2C3D = {
+			fileRef = 427894F606B8323E006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894FC06B84A29006A2C3D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATA.cpp;
+			refType = 4;
+		};
+		427894FD06B84A29006A2C3D = {
+			fileRef = 427894FC06B84A29006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		427894FE06B84C71006A2C3D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleOnboardPCATA.h;
+			refType = 4;
+		};
+		427894FF06B84C71006A2C3D = {
+			fileRef = 427894FE06B84C71006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4278950106B86627006A2C3D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleServerWorksATA.h;
+			refType = 4;
+		};
+		4278950206B86627006A2C3D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleServerWorksATA.cpp;
+			refType = 4;
+		};
+		4278950306B86627006A2C3D = {
+			fileRef = 4278950106B86627006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4278950406B86627006A2C3D = {
+			fileRef = 4278950206B86627006A2C3D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		428BF33706B14D4E008D9B03 = {
+			children = (
+				427894FE06B84C71006A2C3D,
+				427894FC06B84A29006A2C3D,
+				427894EE06B8322B006A2C3D,
+				427894ED06B8322B006A2C3D,
+				427894EC06B8322B006A2C3D,
+				427894EB06B8322B006A2C3D,
+				427894EA06B8322B006A2C3D,
+			);
+			isa = PBXGroup;
+			path = AppleOnboardPCATA;
+			refType = 4;
+		};
+		42DA08F406B99078000F55E8 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleServerWorksATATiming.h;
+			refType = 4;
+		};
+		42DA08F506B99078000F55E8 = {
+			fileRef = 42DA08F406B99078000F55E8;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		42F94AAD0743D51C00E24240 = {
+			children = (
+				42F94AAE0743D59100E24240,
+				42F94AAF0743D59100E24240,
+				42F94AB40743D7A100E24240,
+			);
+			isa = PBXGroup;
+			path = AppleNVIDIAnForceATA;
+			refType = 4;
+		};
+		42F94AAE0743D59100E24240 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleNVIDIAnForceATA.h;
+			refType = 4;
+		};
+		42F94AAF0743D59100E24240 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleNVIDIAnForceATA.cpp;
+			refType = 4;
+		};
+		42F94AB00743D59100E24240 = {
+			fileRef = 42F94AAE0743D59100E24240;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		42F94AB10743D59100E24240 = {
+			fileRef = 42F94AAF0743D59100E24240;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		42F94AB40743D7A100E24240 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			path = AppleNVIDIAnForceATATiming.h;
+			refType = 4;
+		};
+		42F94AB50743D7A100E24240 = {
+			fileRef = 42F94AB40743D7A100E24240;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

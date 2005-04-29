@@ -1,0 +1,18 @@
+--- swab.c.orig	2004-08-03 14:33:13.000000000 -0700
++++ swab.c	2004-08-03 15:05:03.000000000 -0700
+@@ -43,12 +43,14 @@
+ #include <string.h>
+ 
+ void
+-swab(const void * __restrict from, void * __restrict to, size_t len)
++swab(const void * __restrict from, void * __restrict to, ssize_t len)
+ {
+ 	unsigned long temp;
+ 	int n;
+ 	char *fp, *tp;
+ 
++	if (len <= 0)
++		return;
+ 	n = len >> 1;
+ 	fp = (char *)from;
+ 	tp = (char *)to;

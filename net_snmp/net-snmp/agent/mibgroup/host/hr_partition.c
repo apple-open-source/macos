@@ -34,7 +34,7 @@
 
 static int      HRP_savedDiskIndex;
 static int      HRP_savedPartIndex;
-static char     HRP_savedName[100];
+static char     HRP_savedName[1024];
 
 static int      HRP_DiskIndex;
 
@@ -209,7 +209,7 @@ var_hrpartition(struct variable * vp,
                 int exact, size_t * var_len, WriteMethod ** write_method)
 {
     int             part_idx;
-    static char     string[100];
+    static char     string[1024];
     struct stat     stat_buf;
 
     part_idx =
@@ -269,7 +269,7 @@ Init_HR_Partition(void)
 static int
 Get_Next_HR_Partition(void)
 {
-    char            string[100];
+    char            string[1024];
     int             fd;
 
     if (HRP_DiskIndex == -1) {
@@ -277,7 +277,7 @@ Get_Next_HR_Partition(void)
     }
 
     HRP_index++;
-    while (Get_Next_HR_Disk_Partition(string, HRP_index) != -1) {
+    while (Get_Next_HR_Disk_Partition(string, sizeof(string), HRP_index) != -1) {
         DEBUGMSGTL(("host/hr_partition",
                     "Get_Next_HR_Partition: %s (:%d)\n",
                     string, HRP_index));
@@ -304,5 +304,5 @@ Save_HR_Partition(int disk_idx, int part_idx)
 {
     HRP_savedDiskIndex = disk_idx;
     HRP_savedPartIndex = part_idx;
-    (void) Get_Next_HR_Disk_Partition(HRP_savedName, HRP_index);
+    (void) Get_Next_HR_Disk_Partition(HRP_savedName, sizeof(HRP_savedName), HRP_index);
 }

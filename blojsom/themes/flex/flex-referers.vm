@@ -1,0 +1,6 @@
+#set($hideNavigation = true)
+#set($hideRefererHistory = true)
+#set($hideCalendar = true)
+#set($mainContent = 'default/flex-inc-referers.vm')
+#parse('default/flex-inc-main.vm')
+

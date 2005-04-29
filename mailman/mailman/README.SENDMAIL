@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 SECURITY NOTE
@@ -21,23 +21,30 @@ SENDMAIL `smrsh' COMPATIBILITY
     utility called "smrsh", which limits the executables that Sendmail
     will allow to be used as mail filter programs.  You need to
     explicitly allow Mailman's wrapper program to be used with smrsh
-    before it will work.  If mail is not getting delivered to
+    or Mailman will not work.  If mail is not getting delivered to
     Mailman's wrapper program and you're getting an "operating system
     error" in your mail syslog, this could be your problem.
 
     One good way of doing this is to:
 
-        - cd into /etc/smrsh (or where ever it happens to reside on
-          your system, such as /var/smrsh or /usr/local/smrsh).
+        - Find out where your Sendmail executes its smrsh wrapper
+
+           % grep smrsh /etc/mail/sendmail.cf
+
+        - Figure out where smrsh expects symlinks for allowable filter
+          programs.  At the very beginning of the following output you will
+          see a full path to some directory, e.g. /var/adm/sm.bin or similar:
+
+          % strings $path_to_smrsh | less
+
+        - cd into /var/adm/sm.bin, or where ever it happens to reside on your
+          system, such as /etc/smrsh, /var/smrsh or /usr/local/smrsh.
+
+          % cd /var/adm/sm.bin
 
         - create a symbolic link to Mailman's wrapper program
 
-    For example, if you've installed Mailman in the standard location,
-    you can just execute these commands (you might have to do these as
-    root):
-
-        % cd /etc/smrsh
-        % ln -s /usr/local/mailman/mail/mailman mailman
+          % ln -s /usr/local/mailman/mail/mailman mailman
 
 
 INTEGRATING SENDMAIL AND MAILMAN

@@ -1,14 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  */
 
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: snprintf.c,v 1.1.1.1 2003/02/15 04:55:40 zarzycki Exp $";
+static const char revid[] = "$Id: snprintf.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -29,7 +29,7 @@ static const char revid[] = "$Id: snprintf.c,v 1.1.1.1 2003/02/15 04:55:40 zarzy
  */
 #ifndef HAVE_SNPRINTF
 int
-#ifdef __STDC__
+#ifdef STDC_HEADERS
 snprintf(char *str, size_t n, const char *fmt, ...)
 #else
 snprintf(str, n, fmt, va_alist)
@@ -62,7 +62,7 @@ snprintf(str, n, fmt, va_alist)
 		    sprintf(buf, "1234") != 4;
 	}
 
-#ifdef __STDC__
+#ifdef STDC_HEADERS
 	va_start(ap, fmt);
 #else
 	va_start(ap);

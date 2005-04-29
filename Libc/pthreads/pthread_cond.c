@@ -53,6 +53,9 @@
 #include <stdio.h>
     
 extern void _pthread_mutex_remove(pthread_mutex_t *, pthread_t);
+extern int __unix_conforming;
+
+#ifndef BUILDING_VARIANT /* [ */
 
 /*
  * Destroy a condition variable.
@@ -285,21 +288,42 @@ _pthread_cond_remove(pthread_cond_t *cond, pthread_mutex_t *mutex)
 	}
 }
 
+static void cond_cleanup(void *arg)
+{
+    pthread_cond_t *cond = (pthread_cond_t *)arg;
+    pthread_mutex_t *mutex;
+    LOCK(cond->lock);
+    mutex = cond->busy;
+    cond->waiters--;
+    if (cond->waiters == 0) {
+        _pthread_cond_remove(cond, mutex);
+        cond->busy = (pthread_mutex_t *)NULL;
+    }
+    UNLOCK(cond->lock);
+    /*
+    ** Can't do anything if this fails -- we're on the way out
+    */
+    (void)pthread_mutex_lock(mutex);
+}
+
 /*
  * Suspend waiting for a condition variable.
  * Note: we have to keep a list of condition variables which are using
  * this same mutex variable so we can detect invalid 'destroy' sequences.
  */
-static int       
+__private_extern__ int       
 _pthread_cond_wait(pthread_cond_t *cond, 
 		   pthread_mutex_t *mutex,
 		   const struct timespec *abstime,
-		   int isRelative)
+		   int isRelative,
+		    int isconforming)
 {
 	int res;
 	kern_return_t kern_res;
+	int wait_res;
 	pthread_mutex_t *busy;
 	mach_timespec_t then;
+	struct timespec cthen = {0,0};
 	int sig = cond->sig;
 
 	/* to provide backwards compat for apps using united condtn vars */
@@ -316,40 +340,49 @@ _pthread_cond_wait(pthread_cond_t *cond,
 		_pthread_cond_init(cond, NULL);
 	}
 
-	if (abstime)
-	{
-	        if (isRelative == 0)
+	if (abstime) {
+		if (!isconforming)
 		{
-			struct timespec now;
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-			TIMEVAL_TO_TIMESPEC(&tv, &now);
+			if (isRelative == 0) {
+				struct timespec now;
+				struct timeval tv;
+				gettimeofday(&tv, NULL);
+				TIMEVAL_TO_TIMESPEC(&tv, &now);
 
-			/* Compute relative time to sleep */
-			then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-			then.tv_sec = abstime->tv_sec - now.tv_sec;
-			if (then.tv_nsec < 0)
-			{
-				then.tv_nsec += NSEC_PER_SEC;
-				then.tv_sec--;
+				/* Compute relative time to sleep */
+				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+				then.tv_sec = abstime->tv_sec - now.tv_sec;
+				if (then.tv_nsec < 0)
+				{
+					then.tv_nsec += NSEC_PER_SEC;
+					then.tv_sec--;
+				}
+				if (((int)then.tv_sec < 0) ||
+					((then.tv_sec == 0) && (then.tv_nsec == 0)))
+				{
+					UNLOCK(cond->lock);
+					return ETIMEDOUT;
+				}
+			} else {
+				then.tv_sec = abstime->tv_sec;
+				then.tv_nsec = abstime->tv_nsec;
 			}
-			if (((int)then.tv_sec < 0) ||
-				((then.tv_sec == 0) && (then.tv_nsec == 0)))
-			{
+			if (then.tv_nsec >= NSEC_PER_SEC) {
 				UNLOCK(cond->lock);
-				return ETIMEDOUT;
+				return EINVAL;
 			}
-		}
-		else
-		{
-			then.tv_sec = abstime->tv_sec;
-			then.tv_nsec = abstime->tv_nsec;
-		}
-		if (then.tv_nsec >= NSEC_PER_SEC)
-		{
-			UNLOCK(cond->lock);
-			return EINVAL;
-		}
+		} else {
+			cthen.tv_sec = abstime->tv_sec;
+            cthen.tv_nsec = abstime->tv_nsec;
+            if ((cthen.tv_sec < 0) || (cthen.tv_nsec < 0)) {
+                UNLOCK(cond->lock);
+                return EINVAL;
+            }
+            if (cthen.tv_nsec >= NSEC_PER_SEC) {
+                UNLOCK(cond->lock);
+                return EINVAL;
+            }
+        }
 	}
 
 	if (++cond->waiters == 1)
@@ -377,20 +410,33 @@ _pthread_cond_wait(pthread_cond_t *cond,
 		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
 		UNLOCK(mutex->lock);
 
-		if (abstime) {
-			kern_res = semaphore_timedwait_signal(cond->sem, mutex->sem, then);
+		if (!isconforming) {
+			if (abstime) {
+				kern_res = semaphore_timedwait_signal(cond->sem, mutex->sem, then);
+			} else {
+				PTHREAD_MACH_CALL(semaphore_wait_signal(cond->sem, mutex->sem), kern_res);
+			}
 		} else {
-			PTHREAD_MACH_CALL(semaphore_wait_signal(cond->sem, mutex->sem), kern_res);
+            pthread_cleanup_push(cond_cleanup, (void *)cond);
+            wait_res = __semwait_signal(cond->sem, mutex->sem, abstime != NULL, isRelative,
+			cthen.tv_sec, cthen.tv_nsec);
+            pthread_cleanup_pop(0);
 		}
-	}
-	else
-	{
+	} else {
 		UNLOCK(mutex->lock);
-		if (abstime) {
-			kern_res = semaphore_timedwait(cond->sem, then);
-		} else {
-			PTHREAD_MACH_CALL(semaphore_wait(cond->sem), kern_res);
+		if (!isconforming) {
+			if (abstime) {
+				kern_res = semaphore_timedwait(cond->sem, then);
+			} else {
+				PTHREAD_MACH_CALL(semaphore_wait(cond->sem), kern_res);
+			}
+		 } else {
+				pthread_cleanup_push(cond_cleanup, (void *)cond);
+                wait_res = __semwait_signal(cond->sem, NULL, abstime != NULL, isRelative,
+			cthen.tv_sec, cthen.tv_nsec);
+                pthread_cleanup_pop(0);
 		}
+
 	}
 
 	LOCK(cond->lock);
@@ -404,35 +450,36 @@ _pthread_cond_wait(pthread_cond_t *cond,
 	if ((res = pthread_mutex_lock(mutex)) != ESUCCESS)
 		return (res);
 
-	/* KERN_ABORTED can be treated as a spurious wakeup */
-	if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED))
-		return (ESUCCESS);
-	else if (kern_res == KERN_OPERATION_TIMED_OUT)
-		return (ETIMEDOUT);
-	return (EINVAL);
+	if (!isconforming) {
+		/* KERN_ABORTED can be treated as a spurious wakeup */
+		if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED))
+			return (ESUCCESS);
+		else if (kern_res == KERN_OPERATION_TIMED_OUT)
+			return (ETIMEDOUT);
+		return (EINVAL);
+	} else {
+    	if (wait_res < 0) {
+			if (errno == ETIMEDOUT) {
+				return ETIMEDOUT;
+			} else if (errno == EINTR) {
+				/*
+				**  EINTR can be treated as a spurious wakeup unless we were canceled.
+				*/
+				return 0;	
+				}
+			return EINVAL;
+    	}
+    	return 0;
+	}
 }
 
-int       
-pthread_cond_wait(pthread_cond_t *cond, 
-		  pthread_mutex_t *mutex)
-{
-	return (_pthread_cond_wait(cond, mutex, (struct timespec *)NULL, 0));
-}
-
-int       
-pthread_cond_timedwait(pthread_cond_t *cond, 
-		       pthread_mutex_t *mutex,
-		       const struct timespec *abstime)
-{
-	return (_pthread_cond_wait(cond, mutex, abstime, 0));
-}
 
 int       
 pthread_cond_timedwait_relative_np(pthread_cond_t *cond, 
 		       pthread_mutex_t *mutex,
 		       const struct timespec *abstime)
 {
-	return (_pthread_cond_wait(cond, mutex, abstime, 1));
+	return (_pthread_cond_wait(cond, mutex, abstime, 1, 0));
 }
 
 int
@@ -482,5 +529,49 @@ pthread_condattr_setpshared(pthread_condattr_t * attr, int pshared)
                 return (EINVAL); /* Not an initialized 'attribute' structure */
         }
 
+}
+
+#else /* !BUILDING_VARIANT */
+extern int _pthread_cond_wait(pthread_cond_t *cond, 
+			pthread_mutex_t *mutex,
+			const struct timespec *abstime,
+			int isRelative,
+			int isconforming);
+
+#endif /* !BUILDING_VARIANT ] */
+
+int       
+pthread_cond_wait(pthread_cond_t *cond, 
+		  pthread_mutex_t *mutex)
+{
+	int conforming;
+#if __DARWIN_UNIX03
+
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+
+	conforming = 1;
+#else /* __DARWIN_UNIX03 */
+	conforming = 0;
+#endif /* __DARWIN_UNIX03 */
+	return (_pthread_cond_wait(cond, mutex, (struct timespec *)NULL, 0, conforming));
+}
+
+int       
+pthread_cond_timedwait(pthread_cond_t *cond, 
+		       pthread_mutex_t *mutex,
+		       const struct timespec *abstime)
+{
+	int conforming;
+#if __DARWIN_UNIX03
+	if (__unix_conforming == 0)
+		__unix_conforming = 1;
+
+        conforming = 1;
+#else /* __DARWIN_UNIX03 */
+        conforming = 0;
+#endif /* __DARWIN_UNIX03 */
+
+	return (_pthread_cond_wait(cond, mutex, abstime, 0, conforming));
 }
 

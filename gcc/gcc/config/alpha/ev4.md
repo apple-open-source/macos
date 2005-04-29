@@ -1,20 +1,20 @@
 ;; Scheduling description for Alpha EV4.
-;;   Copyright (C) 2002 Free Software Foundation, Inc.
+;;   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 ;;
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 ;;
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 ;;
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 ;;
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -98,7 +98,7 @@
   "ev4_ist"
   "store_data_bypass_p")
 
-; Multiplies use a non-piplined imul unit.  Also, "no [ebox] insn can
+; Multiplies use a non-pipelined imul unit.  Also, "no [ebox] insn can
 ; be issued exactly three cycles before an integer multiply completes".
 
 (define_insn_reservation "ev4_imulsi" 21

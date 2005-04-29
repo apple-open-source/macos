@@ -206,6 +206,7 @@ extern long  dec2l(const decimal * d)                         AVAILABLE_MAC_OS_X
 #define SIGSIZE8 (SIGSIZE == 8)
 #define FORDBGRORSIG8 (FORDEBUGGER || SIGSIZE8)
 
+#if 0
 struct decimal {
 	char 							sgn;						/* sign 0 for +, 1 for - */
 	char 							unused;
@@ -224,6 +225,7 @@ struct decform {
 	short 							digits;
 };
 typedef struct decform decform;
+#endif
 
 
 //#define SIGDIGLEN 128						/* significant decimal digits */
@@ -279,14 +281,14 @@ void str2dec(const char *s,short *ix,decimal *d,short *vp);
 struct big {
 	long exp;
 	union {
-	unsigned long lng [SIGSIZE];
-	unsigned short shrt [2*SIGSIZE];
+	uint32_t lng [SIGSIZE];
+	uint16_t shrt [2*SIGSIZE];
 		} sig;
 };
 
 typedef struct big big;
 
-void bigtenpower (const long n, big *y );
+void bigtenpower (const int32_t n, big *y );
 void axb2c ( big *a, big *b, big *c, int finishRounding );
 void adivb2c ( big *a, big *b, big *c );
 void biggetsig ( big *s, decimal *d );

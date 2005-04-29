@@ -1,7 +1,7 @@
 /*
  *  SQLConfigDataSource.c
  *
- *  $Id: SQLConfigDataSource.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: SQLConfigDataSource.c,v 1.3 2004/08/24 21:14:59 luesang Exp $
  *
  *  Add, modify or delete datasources
  *
@@ -73,8 +73,8 @@
 #include <iodbc.h>
 #include <iodbcinst.h>
 
-#ifdef _MACX
-#  include <Carbon/Carbon.h>
+#ifdef __APPLE__
+#  include <CoreFoundation/CoreFoundation.h>
 #endif
 
 #include "dlf.h"
@@ -89,21 +89,21 @@
 	{ \
 		if ((pConfigDSN = (pConfigDSNFunc)DLL_PROC(handle, "ConfigDSN")) != NULL) \
 		{ \
-	  	if (pConfigDSN(hwndParent, fRequest, lpszDriver, lpszAttributes)) \
-	  	{ \
-	    	DLL_CLOSE(handle); \
-	    	retcode = TRUE; \
-	    	goto done; \
-	  	} \
-			else \
-			{ \
-				PUSH_ERROR(ODBC_ERROR_REQUEST_FAILED); \
-	    	DLL_CLOSE(handle); \
-	    	retcode = FALSE; \
-	    	goto done; \
-			} \
+	  	  if (pConfigDSN(hwndParent, fRequest, lpszDriver, lpszAttributes)) \
+	  	  { \
+	    	  DLL_CLOSE(handle); \
+	    	  retcode = TRUE; \
+	    	  goto done; \
+	  	  } \
+		  else \
+		  { \
+		    PUSH_ERROR(ODBC_ERROR_REQUEST_FAILED); \
+	    	 DLL_CLOSE(handle); \
+	    	 retcode = FALSE; \
+	    	 goto done; \
+		  } \
 		} \
-		DLL_CLOSE(handle); \
+	  DLL_CLOSE(handle); \
 	}
 #endif
 
@@ -170,8 +170,8 @@ SQLConfigDataSource (HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
   BOOL retcode = FALSE;
   void *handle;
   pConfigDSNFunc pConfigDSN;
-#ifdef _MACX
-  CFStringRef libname;
+#ifdef __APPLE__
+  CFStringRef libname = NULL;
   CFBundleRef bundle;
   CFURLRef liburl;
   char name[1024] = { 0 };
@@ -249,7 +249,7 @@ SQLConfigDataSource (HWND hwndParent, WORD fRequest, LPCSTR lpszDriver,
     }
 
   /* The last ressort, a proxy driver */
-#ifdef _MACX
+#ifdef __APPLE__
   bundle = CFBundleGetBundleWithIdentifier (CFSTR ("org.iodbc.core"));
   if (bundle)
     {

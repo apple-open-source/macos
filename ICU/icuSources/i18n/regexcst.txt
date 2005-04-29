@@ -135,6 +135,7 @@ open-paren-extended:
     'i'                     paren-flag                              doBeginMatchMode
     'm'                     paren-flag                              doBeginMatchMode
     's'                     paren-flag                              doBeginMatchMode
+    'w'                     paren-flag                              doBeginMatchMode
     'x'                     paren-flag                              doBeginMatchMode
     '-'                     paren-flag                              doBeginMatchMode
     '('                  n  errorDeath                              doConditionalExpr
@@ -163,11 +164,12 @@ paren-flag:
     'i'                  n  paren-flag                              doMatchMode
     'm'                  n  paren-flag                              doMatchMode
     's'                  n  paren-flag                              doMatchMode
+    'w'                  n  paren-flag                              doMatchMode
     'x'                  n  paren-flag                              doMatchMode
     '-'                  n  paren-flag                              doMatchMode
     ')'                  n  term                                    doSetMatchMode
     ':'                  n  term              ^expr-quant           doMatchModeParen
-    default                 errorDeath
+    default                 errorDeath                              doBadModeFlag
     
     
 #
@@ -248,7 +250,6 @@ backslash:
    'X'                   n  expr-quant                              doBackslashX
    'Z'                   n  term                                    doBackslashZ
    'z'                   n  term                                    doBackslashz
-   '0'                   n  expr-quant                              doOctal
    digit_char	         n  expr-quant                              doBackRef         #  Will scan multiple digits
    eof                      errorDeath                              doEscapeError
    default               n  expr-quant		                    doLiteralChar     #  Escaped literal char.		       

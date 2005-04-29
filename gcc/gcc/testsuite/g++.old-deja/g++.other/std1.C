@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 extern "C" int memcmp (const void * __s1,
@@ -9,4 +9,4 @@ namespace std {
 void f () {
   memcmp (0, 0, 0);
 }
-};
+}

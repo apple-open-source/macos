@@ -8,6 +8,9 @@
 /* Define to 1 if using `alloca.c'. */
 #undef C_ALLOCA
 
+/* true if ea support enabled */
+#undef EA_SUPPORT
+
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
@@ -46,6 +49,12 @@
 /* */
 #undef HAVE_CONNECT
 
+/* Define to 1 if you have the `copyfile' function. */
+#undef HAVE_COPYFILE
+
+/* Define to 1 if you have the <copyfile.h> header file. */
+#undef HAVE_COPYFILE_H
+
 /* Define to 1 if you have the <ctype.h> header file. */
 #undef HAVE_CTYPE_H
 
@@ -67,6 +76,9 @@
 
 /* Define to 1 if you have the `fstat' function. */
 #undef HAVE_FSTAT
+
+/* Define to 1 if you have the `ftruncate' function. */
+#undef HAVE_FTRUNCATE
 
 /* Define if you have the `getaddrinfo' function. */
 #undef HAVE_GETADDRINFO
@@ -155,6 +167,9 @@
 /* Define to 1 if you have the `mknod' function. */
 #undef HAVE_MKNOD
 
+/* Define to 1 if you have the `mkstemp64' function. */
+#undef HAVE_MKSTEMP64
+
 /* Define to 1 if you have the `mtrace' function. */
 #undef HAVE_MTRACE
 
@@ -166,6 +181,9 @@
 
 /* */
 #undef HAVE_OFF64_T
+
+/* Define to 1 if you have the `open64' function. */
+#undef HAVE_OPEN64
 
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK

@@ -1,6 +1,6 @@
 /* lmtp_sieve.h -- Sieve implementation for lmtpd
  *
- * $Id: lmtp_sieve.h,v 1.2 2004/02/12 02:32:23 ken3 Exp $
+ * $Id: lmtp_sieve.h,v 1.3 2005/03/05 00:36:57 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

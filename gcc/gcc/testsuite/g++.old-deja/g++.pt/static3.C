@@ -1,7 +1,7 @@
+// { dg-do run }
 // On targets that don't support weak symbols, we require an explicit
 // instantiation of arr.
-// APPLE LOCAL darwin native
-// excess errors test - XFAIL *-*-aout *-*-coff *-*-hpux* *-*-hms *-*-darwin*
+// { dg-require-weak "" }
 
 template<class T>
 struct A {

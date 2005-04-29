@@ -64,10 +64,14 @@ __RCSID("$NetBSD: date.c,v 1.25 1998/07/28 11:41:47 mycroft Exp $");
 #include <unistd.h>
 #include <util.h>
 
+#include "get_compat.h"
+
 #include "extern.h"
 
 time_t tval;
-int retval, nflag;
+int nflag;
+int retval = 0;
+int  unix2003_std = 0;		/* to determine legacy vs std mode */
 
 int main __P((int, char *[]));
 static void setthetime __P((const char *));
@@ -127,8 +131,15 @@ main(argc, argv)
 
 	(void)strftime(buf, sizeof(buf), format, localtime(&tval));
 	(void)printf("%s\n", buf);
-	exit(retval);
-	/* NOTREACHED */
+
+	/* if date/time could not be set/notified in the other hosts as
+	   determined by netsetval() a return value 2 is set, which is
+	   to be propogated back to shell in the legacy mode.
+	*/
+	if( unix2003_std )
+		exit(0);	/* set/notify time thru NTPD isn't stds */
+	else
+		exit(retval);	/* Propogate the error condition set, if any */
 }
 
 #define	ATOI2(s)	((s) += 2, ((s)[-2] - '0') * 10 + ((s)[-1] - '0'))
@@ -137,10 +148,14 @@ void
 setthetime(p)
 	const char *p;
 {
+
 	struct tm *lt;
 	struct timeval tv;
 	const char *dot, *t;
 	int yearset, len;
+
+	char tmp1_p[5] = "";		/* to hold ccyy and reformat */
+	char tmp2_p[16] = "";		/* ccyyMMddhhmm.ss is 15 chars */
 
 	for (t = p, dot = NULL; *t; ++t) {
 		if (isdigit(*t))
@@ -166,12 +181,43 @@ setthetime(p)
 	}
 
 	yearset = 0;
+
+	if (compat_mode("bin/date", "unix2003"))	/* Determine the STD */
+		unix2003_std = 1;
+	else
+		unix2003_std = 0;
+
 	switch (strlen(p) - len) {
 	case 12:				/* cc */
+		if(unix2003_std) {
+			/* The last 4 chars are ccyy;
+			   reformat it to be in the first */
+			strncpy(tmp1_p, &p[8], 4);
+			tmp1_p[4] = '\0';
+			p[8] = '\0';	/* .ss already processed; so no harm */
+			strcpy(tmp2_p, p);
+			strcpy(p, tmp1_p);
+			strcat(p, tmp2_p);
+		}
+
 		lt->tm_year = ATOI2(p) * 100 - TM_YEAR_BASE;
 		yearset = 1;
 		/* FALLTHROUGH */
 	case 10:				/* yy */
+		if(unix2003_std) {
+			/* The last 2 chars are yy; reformat it to be in the
+			   first, only if already not done. */
+			if (tmp1_p[0] == '\0') {
+				strncpy(tmp1_p, &p[8], 2);
+				tmp1_p[2] = '\0';
+				p[8] = '\0';	/* .ss done; so no harm */
+				strcpy(tmp2_p, p);
+				strcpy(p, tmp1_p);
+				strcat(p, tmp2_p);
+			} else
+				;  /* do nothing, already reformatted */
+		}
+
 		if (yearset) {
 			lt->tm_year += ATOI2(p);
 		} else {
@@ -238,7 +284,10 @@ usage()
 {
 	(void)fprintf(stderr,
 	    "usage: date [-nu] [-r seconds] [+format]\n");
-	(void)fprintf(stderr, "       date [[[[[cc]yy]mm]dd]hh]mm[.ss]\n");
+	if (unix2003_std)
+		(void)fprintf(stderr, "       date [-u] mmddhhmm[[cc]yy]\n");
+	else
+		(void)fprintf(stderr, "       date [[[[[cc]yy]mm]dd]hh]mm[.ss]\n");
 	exit(1);
 	/* NOTREACHED */
 }

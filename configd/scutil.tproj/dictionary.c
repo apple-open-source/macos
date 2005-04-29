@@ -39,6 +39,7 @@
 //#include <limits.h>
 
 
+__private_extern__
 void
 do_dictInit(int argc, char **argv)
 {
@@ -56,6 +57,7 @@ do_dictInit(int argc, char **argv)
 }
 
 
+__private_extern__
 void
 do_dictShow(int argc, char **argv)
 {
@@ -70,6 +72,7 @@ do_dictShow(int argc, char **argv)
 }
 
 
+__private_extern__
 void
 do_dictSetKey(int argc, char **argv)
 {
@@ -94,7 +97,7 @@ do_dictSetKey(int argc, char **argv)
 	CFRelease(value);
 	value = val;
 
-	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	argv++; argc--;
 
 	while (argc > 0) {
@@ -161,7 +164,7 @@ do_dictSetKey(int argc, char **argv)
 				return;
 			}
 		} else {
-			val = (CFPropertyListRef)CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+			val = (CFPropertyListRef)CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 		}
 
 		if (doArray) {
@@ -183,6 +186,7 @@ do_dictSetKey(int argc, char **argv)
 }
 
 
+__private_extern__
 void
 do_dictRemoveKey(int argc, char **argv)
 {
@@ -203,7 +207,7 @@ do_dictRemoveKey(int argc, char **argv)
 	CFRelease(value);
 	value = val;
 
-	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingMacRoman);
+	key = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
 	CFDictionaryRemoveValue((CFMutableDictionaryRef)value, key);
 	CFRelease(key);
 

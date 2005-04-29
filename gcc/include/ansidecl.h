@@ -264,12 +264,42 @@ So instead we use the macro below and test it against specific values.  */
 #define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 #endif /* ATTRIBUTE_UNUSED */
 
+/* Before GCC 3.4, the C++ frontend couldn't parse attributes placed after the
+   identifier name.  */
+#if ! defined(__cplusplus) || (GCC_VERSION >= 3004)
+# define ARG_UNUSED(NAME) NAME ATTRIBUTE_UNUSED
+#else /* !__cplusplus || GNUC >= 3.4 */
+# define ARG_UNUSED(NAME) NAME
+#endif /* !__cplusplus || GNUC >= 3.4 */
+
 #ifndef ATTRIBUTE_NORETURN
 #define ATTRIBUTE_NORETURN __attribute__ ((__noreturn__))
 #endif /* ATTRIBUTE_NORETURN */
 
+/* Attribute `nonnull' was valid as of gcc 3.3.  */
+#ifndef ATTRIBUTE_NONNULL
+# if (GCC_VERSION >= 3003)
+#  define ATTRIBUTE_NONNULL(m) __attribute__ ((__nonnull__ (m)))
+# else
+#  define ATTRIBUTE_NONNULL(m)
+# endif /* GNUC >= 3.3 */
+#endif /* ATTRIBUTE_NONNULL */
+
+/* Attribute `pure' was valid as of gcc 3.0.  */
+#ifndef ATTRIBUTE_PURE
+# if (GCC_VERSION >= 3000)
+#  define ATTRIBUTE_PURE __attribute__ ((__pure__))
+# else
+#  define ATTRIBUTE_PURE
+# endif /* GNUC >= 3.0 */
+#endif /* ATTRIBUTE_PURE */
+
+/* Use ATTRIBUTE_PRINTF when the format specifier must not be NULL.
+   This was the case for the `printf' format attribute by itself
+   before GCC 3.3, but as of 3.3 we need to add the `nonnull'
+   attribute to retain this behavior.  */
 #ifndef ATTRIBUTE_PRINTF
-#define ATTRIBUTE_PRINTF(m, n) __attribute__ ((__format__ (__printf__, m, n)))
+#define ATTRIBUTE_PRINTF(m, n) __attribute__ ((__format__ (__printf__, m, n))) ATTRIBUTE_NONNULL(m)
 #define ATTRIBUTE_PRINTF_1 ATTRIBUTE_PRINTF(1, 2)
 #define ATTRIBUTE_PRINTF_2 ATTRIBUTE_PRINTF(2, 3)
 #define ATTRIBUTE_PRINTF_3 ATTRIBUTE_PRINTF(3, 4)
@@ -277,22 +307,35 @@ So instead we use the macro below and test it against specific values.  */
 #define ATTRIBUTE_PRINTF_5 ATTRIBUTE_PRINTF(5, 6)
 #endif /* ATTRIBUTE_PRINTF */
 
+/* Use ATTRIBUTE_NULL_PRINTF when the format specifier may be NULL.  A
+   NULL format specifier was allowed as of gcc 3.3.  */
+#ifndef ATTRIBUTE_NULL_PRINTF
+# if (GCC_VERSION >= 3003)
+#  define ATTRIBUTE_NULL_PRINTF(m, n) __attribute__ ((__format__ (__printf__, m, n)))
+# else
+#  define ATTRIBUTE_NULL_PRINTF(m, n)
+# endif /* GNUC >= 3.3 */
+# define ATTRIBUTE_NULL_PRINTF_1 ATTRIBUTE_NULL_PRINTF(1, 2)
+# define ATTRIBUTE_NULL_PRINTF_2 ATTRIBUTE_NULL_PRINTF(2, 3)
+# define ATTRIBUTE_NULL_PRINTF_3 ATTRIBUTE_NULL_PRINTF(3, 4)
+# define ATTRIBUTE_NULL_PRINTF_4 ATTRIBUTE_NULL_PRINTF(4, 5)
+# define ATTRIBUTE_NULL_PRINTF_5 ATTRIBUTE_NULL_PRINTF(5, 6)
+#endif /* ATTRIBUTE_NULL_PRINTF */
+
+/* Attribute `sentinel' was valid as of gcc 3.5.  */
+#ifndef ATTRIBUTE_SENTINEL
+# if (GCC_VERSION >= 3005)
+#  define ATTRIBUTE_SENTINEL __attribute__ ((__sentinel__))
+# else
+#  define ATTRIBUTE_SENTINEL
+# endif /* GNUC >= 3.5 */
+#endif /* ATTRIBUTE_SENTINEL */
+
 /* We use __extension__ in some places to suppress -pedantic warnings
    about GCC extensions.  This feature didn't work properly before
    gcc 2.8.  */
 #if GCC_VERSION < 2008
 #define __extension__
 #endif
-
-/* Bootstrap support:  Adjust certain macros defined by Autoconf,
-   which are only valid for the stage1 compiler.  If we detect
-   a modern version of GCC, we are probably in stage2 or beyond,
-   so unconditionally reset the values.  Note that const, inline,
-   etc. have been dealt with above.  */
-#if (GCC_VERSION >= 2007)
-# ifndef HAVE_LONG_DOUBLE
-#  define HAVE_LONG_DOUBLE 1
-# endif
-#endif /* GCC >= 2.7 */
 
 #endif	/* ansidecl.h	*/

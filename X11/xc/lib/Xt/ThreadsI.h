@@ -53,7 +53,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/ThreadsI.h,v 3.5 2001/12/14 19:56:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/ThreadsI.h,v 3.6 2003/04/21 16:34:29 herrb Exp $ */
 
 #ifndef _XtThreadsI_h
 #define _XtThreadsI_h
@@ -63,44 +63,32 @@ in this Software without prior written authorization from The Open Group.
 typedef struct _LockRec *LockPtr;
 
 typedef void (*ThreadAppProc)(
-#if NeedFunctionPrototypes
     XtAppContext /* app */
-#endif
 );
 
 typedef void (*ThreadAppYieldLockProc)(
-#if NeedFunctionPrototypes
     XtAppContext, /* app */
     Boolean*, /* push_thread */
     Boolean*, /* pushed_thread */
     int* /* level */
-#endif
 );
 
 typedef void (*ThreadAppRestoreLockProc)(
-#if NeedFunctionPrototypes
     XtAppContext /* app */,
     int, /* level */
     Boolean* /* pushed_thread */
-#endif
 );
 
 extern void (*_XtProcessLock)(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void (*_XtProcessUnlock)(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void (*_XtInitAppLock)(
-#if NeedFunctionPrototypes
     XtAppContext /* app */
-#endif
 );
 
 #define INIT_APP_LOCK(app) if(_XtInitAppLock) (*_XtInitAppLock)(app)

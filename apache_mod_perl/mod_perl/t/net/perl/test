@@ -5,7 +5,7 @@ use strict;
 use vars qw($Scalar @Array %Hash); #for testing perl-status
 use vars qw($filename); 
 use Config;
-use Apache::test qw($USE_THREAD);
+use Apache::testold qw($USE_THREAD);
 
 not $filename or die "Apache::Registry scoping is broken!\n";
 
@@ -41,7 +41,7 @@ sub reset_scalar {
 
 $r->post_connection(sub {
     my $r = shift;
-    unless(Apache::test::WIN32()) { #XXX
+    unless(Apache::testold::WIN32()) { #XXX
 	my $loc = $r->uri;
 	$loc =~ /test/i or die "post_connection can't see \$r->uri! ($loc)\n";
     }

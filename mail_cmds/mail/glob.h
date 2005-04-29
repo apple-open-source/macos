@@ -35,17 +35,20 @@
  * $FreeBSD: src/usr.bin/mail/glob.h,v 1.2 2001/03/25 04:57:04 mikeh Exp $
  */
 
-/*
- * A bunch of global variable declarations lie herein.
- * def.h must be included first.
- */
+#ifndef GLOB_H
+#define GLOB_H
 
 #ifndef EXTERN
 #define EXTERN extern
 #endif
 
+/*
+ * A bunch of global variable declarations lie herein.
+ * def.h must be included first.
+ */
+
 EXTERN int	msgCount;			/* Count of messages read in */
-EXTERN int	rcvmode;			/* True if receiving mail */
+EXTERN int	 rcvmode;			/* True if receiving mail */
 EXTERN int	sawcom;				/* Set after first command */
 EXTERN char	*Tflag;				/* -T temp file for netnews */
 EXTERN int	senderr;			/* An error while checking */
@@ -104,3 +107,6 @@ EXTERN struct strings {
 	char	*s_nextFree;		/* Next alloctable place here */
 	unsigned s_nleft;		/* Number of bytes left here */
 } stringdope[NSPACE];
+
+#endif GLOB_H
+

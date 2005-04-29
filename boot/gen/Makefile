@@ -42,7 +42,7 @@ all tags clean debug install installhdrs:
 			"RC_KANJI=$(RC_KANJI)"				  \
 			"JAPANESE=$(JAPANESE)"				  \
 			"RC_CFLAGS=$(RC_CFLAGS)" $@ 			  \
-		) || exit $?; 						  \
+		) || exit $$?; 						  \
 	done
 
 installsrc:

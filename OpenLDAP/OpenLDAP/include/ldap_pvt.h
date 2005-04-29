@@ -1,17 +1,20 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.58.2.7 2003/03/05 23:48:31 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.73.2.6 2004/08/30 00:59:22 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ * 
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * ldap-pvt.h - Header for ldap_pvt_ functions. These are meant to be used
- * 		by the OpenLDAP distribution only.
+
+/* ldap-pvt.h - Header for ldap_pvt_ functions.
+ * These are meant to be internal to OpenLDAP Software.
  */
 
 #ifndef _LDAP_PVT_H
@@ -31,6 +34,10 @@ ldap_pvt_url_scheme2proto LDAP_P((
 LDAP_F ( int )
 ldap_pvt_url_scheme2tls LDAP_P((
 	const char * ));
+
+LDAP_F ( int )
+ldap_pvt_url_scheme_port LDAP_P((
+	const char *, int ));
 
 struct ldap_url_desc; /* avoid pulling in <ldap.h> */
 
@@ -82,7 +89,7 @@ ldap_pvt_get_hname LDAP_P((
 LDAP_F( int )
 ldap_charray_add LDAP_P((
     char	***a,
-    char	*s ));
+    const char *s ));
 
 LDAP_F( int )
 ldap_charray_merge LDAP_P((
@@ -95,7 +102,7 @@ ldap_charray_free LDAP_P(( char **a ));
 LDAP_F( int )
 ldap_charray_inlist LDAP_P((
     char	**a,
-    char	*s ));
+    const char *s ));
 
 LDAP_F( char ** )
 ldap_charray_dup LDAP_P(( char **a ));
@@ -108,6 +115,22 @@ ldap_str2charray LDAP_P((
 LDAP_F( char * )
 ldap_charray2str LDAP_P((
 	char **array, const char* sep ));
+
+/* getdn.c */
+
+#ifdef LDAP_AVA_NULL	/* in ldap.h */
+LDAP_F( void ) ldap_rdnfree_x LDAP_P(( LDAPRDN rdn, void *ctx ));
+LDAP_F( void ) ldap_dnfree_x LDAP_P(( LDAPDN dn, void *ctx ));
+
+LDAP_F( int ) ldap_bv2dn_x LDAP_P(( 
+	struct berval *bv, LDAPDN *dn, unsigned flags, void *ctx ));
+LDAP_F( int ) ldap_dn2bv_x LDAP_P(( 
+	LDAPDN dn, struct berval *bv, unsigned flags, void *ctx ));
+LDAP_F( int ) ldap_bv2rdn_x LDAP_P(( 
+	struct berval *, LDAPRDN *, char **, unsigned flags, void *ctx ));
+LDAP_F( int ) ldap_rdn2bv_x LDAP_P(( 
+	LDAPRDN rdn, struct berval *bv, unsigned flags, void *ctx ));
+#endif
 
 /* url.c */
 LDAP_F (void) ldap_pvt_hex_unescape LDAP_P(( char *s ));
@@ -139,6 +162,9 @@ LDAP_F (struct ldapcontrol *) ldap_control_dup LDAP_P((
 LDAP_F (struct ldapcontrol **) ldap_controls_dup LDAP_P((
 	struct ldapcontrol *const *ctrls ));
 
+LDAP_F (int) ldap_pvt_get_controls LDAP_P((
+	BerElement *be,
+	struct ldapcontrol ***ctrlsp));
 
 #ifdef HAVE_CYRUS_SASL
 /* cyrus.c */
@@ -154,14 +180,23 @@ LDAP_F (void) ldap_pvt_sasl_mutex_dispose LDAP_P((void *mutex));
 
 struct sockbuf; /* avoid pulling in <lber.h> */
 LDAP_F (int) ldap_pvt_sasl_install LDAP_P(( struct sockbuf *, void * ));
+LDAP_F (void) ldap_pvt_sasl_remove LDAP_P(( struct sockbuf * ));
 #endif /* HAVE_CYRUS_SASL */
 
+#ifndef LDAP_PVT_SASL_LOCAL_SSF
 #define LDAP_PVT_SASL_LOCAL_SSF	71	/* SSF for Unix Domain Sockets */
+#endif
 
 struct ldap;
+struct ldapmsg;
 
 LDAP_F (int) ldap_open_internal_connection LDAP_P((
 	struct ldap **ldp, ber_socket_t *fdp ));
+
+/* messages.c */
+LDAP_F( BerElement * )
+ldap_get_message_ber LDAP_P((
+	struct ldapmsg * ));
 
 /* search.c */
 LDAP_F( int ) ldap_pvt_put_filter LDAP_P((
@@ -188,6 +223,8 @@ LDAP_F( struct berval * )
 ldap_pvt_str2lowerbv LDAP_P(( char *str, struct berval *bv ));
 
 /* tls.c */
+#define LDAP_OPT_X_TLS_PASSPHRASE_TOOL	0x600b
+
 LDAP_F (int) ldap_int_tls_config LDAP_P(( struct ldap *ld,
 	int option, const char *arg ));
 LDAP_F (int) ldap_pvt_tls_get_option LDAP_P(( struct ldap *ld,

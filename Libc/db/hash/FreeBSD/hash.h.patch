@@ -1,0 +1,11 @@
+--- hash.h.orig	2003-10-22 19:07:01.000000000 -0700
++++ hash.h	2004-10-23 22:52:09.000000000 -0700
+@@ -117,6 +117,8 @@
+ 					 * allocate */
+ 	BUFHEAD 	bufhead;	/* Header of buffer lru list */
+ 	SEGMENT 	*dir;		/* Hash Bucket directory */
++					/* other flags */
++	int		nextkey_eof :1;	/* dbm_nextkey() reached EOF */
+ } HTAB;
+ 
+ /*

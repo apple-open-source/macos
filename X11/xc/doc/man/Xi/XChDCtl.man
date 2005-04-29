@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChDCtl.man,v 1.2 2001/01/27 18:20:20 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChDCtl.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,25 +17,12 @@
 .SH NAME
 XGetDeviceControl, XChangeDeviceControl \- query and change input device controls
 .SH SYNTAX
-XDeviceControl *
-XGetDeviceControl\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIcontrol\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      int *\fIcontrolType\fP\^; 
-.br
-.sp 
-int XChangeDeviceControl\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIcontrolType\fP\^, \fIcontrol\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      int \fIcontrolType\fP\^; 
-.br
-      XDeviceControl *\fIcontrol\fP\^; 
+.HP
+XDeviceControl *XGetDeviceControl\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, int *\fIcontrolType\fP\^); 
+.HP
+int XChangeDeviceControl\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, int \fIcontrolType\fP\^, XDeviceControl *\fIcontrol\fP\^); 
 .SH ARGUMENTS
 .TP 15
 .I display

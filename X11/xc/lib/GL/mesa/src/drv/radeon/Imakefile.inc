@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/drv/radeon/Imakefile.inc,v 1.4 2002/10/30 12:51:54 alanh Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/drv/radeon/Imakefile.inc,v 1.6 2003/09/28 20:15:27 alanh Exp $
 
 #ifndef MesaDrvSrcDir
 #define MesaDrvSrcDir $(GLXLIBSRC)/mesa/src/drv
@@ -16,7 +16,7 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
 #endif
 
 #if BuildXF86DRI
-  DRI_DEFINES = GlxDefines -DX_BYTE_ORDER=ByteOrder
+  DRI_DEFINES = GlxDefines -DX_BYTE_ORDER=$(X_BYTE_ORDER)
  DRI_INCLUDES = -I$(GLXLIBSRC)/dri \
 		-I$(GLXLIBSRC)/glx \
 		-I$(INCLUDESRC) \
@@ -36,7 +36,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
    X_INCLUDES = -I$(XINCLUDESRC) -I$(EXTINCSRC)
 
    RADEONSRCS = $(MESADRVRADEONBUILDDIR)radeon_context.c \
-		$(MESADRVRADEONBUILDDIR)radeon_compat.c \
 		$(MESADRVRADEONBUILDDIR)radeon_ioctl.c \
 		$(MESADRVRADEONBUILDDIR)radeon_lock.c \
 		$(MESADRVRADEONBUILDDIR)radeon_maos.c \
@@ -57,7 +56,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
 		$(MESADRVRADEONBUILDDIR)radeon_vtxfmt_c.c
 
    RADEONOBJS = $(MESADRVRADEONBUILDDIR)radeon_context.o \
-		$(MESADRVRADEONBUILDDIR)radeon_compat.o \
 		$(MESADRVRADEONBUILDDIR)radeon_ioctl.o \
 		$(MESADRVRADEONBUILDDIR)radeon_lock.o \
 		$(MESADRVRADEONBUILDDIR)radeon_maos.o \
@@ -81,7 +79,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
 #endif
 
    RADEONUOBJS = $(MESADRVRADEONBUILDDIR)unshared/radeon_context.o \
-		$(MESADRVRADEONBUILDDIR)unshared/radeon_compat.o \
 		$(MESADRVRADEONBUILDDIR)unshared/radeon_ioctl.o \
 		$(MESADRVRADEONBUILDDIR)unshared/radeon_lock.o \
 		$(MESADRVRADEONBUILDDIR)unshared/radeon_maos.o \
@@ -105,7 +102,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
 #endif
 
    RADEONDOBJS = $(MESADRVRADEONBUILDDIR)debugger/radeon_context.o \
-		$(MESADRVRADEONBUILDDIR)debugger/radeon_compat.o \
 		$(MESADRVRADEONBUILDDIR)debugger/radeon_ioctl.o \
 		$(MESADRVRADEONBUILDDIR)debugger/radeon_lock.o \
 		$(MESADRVRADEONBUILDDIR)debugger/radeon_maos.o \
@@ -129,7 +125,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
 #endif
 
    RADEONPOBJS = $(MESADRVRADEONBUILDDIR)profiled/radeon_context.o \
-		$(MESADRVRADEONBUILDDIR)profiled/radeon_compat.o \
 		$(MESADRVRADEONBUILDDIR)profiled/radeon_ioctl.o \
 		$(MESADRVRADEONBUILDDIR)profiled/radeon_lock.o \
 		$(MESADRVRADEONBUILDDIR)profiled/radeon_maos.o \
@@ -154,7 +149,6 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src \
 
 #ifdef NeedToLinkMesaSrc
 LinkSourceFile(radeon_context.c, $(MESADRVSRCDIR)/radeon)
-LinkSourceFile(radeon_compat.c, $(MESADRVSRCDIR)/radeon)
 LinkSourceFile(radeon_ioctl.c, $(MESADRVSRCDIR)/radeon)
 LinkSourceFile(radeon_lock.c, $(MESADRVSRCDIR)/radeon)
 LinkSourceFile(radeon_maos.c, $(MESADRVSRCDIR)/radeon)

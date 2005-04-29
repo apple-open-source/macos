@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                                                                          --
---             Copyright (C) 1991-2001 Florida State University             --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,9 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -39,9 +37,6 @@ pragma Polling (Off);
 
 with System.Task_Primitives.Operations;
 --  used for Self
-
-with Unchecked_Deallocation;
---  To recover from failure of ATCB initialization.
 
 with System.Storage_Elements;
 --  Needed for initializing Stack_Info.Size
@@ -53,29 +48,26 @@ package body System.Tasking is
 
    package STPO renames System.Task_Primitives.Operations;
 
-   procedure Free is new
-     Unchecked_Deallocation (Ada_Task_Control_Block, Task_ID);
-
    ----------
    -- Self --
    ----------
 
-   function Self return Task_ID renames STPO.Self;
+   function Self return Task_Id renames STPO.Self;
 
    ---------------------
    -- Initialize_ATCB --
    ---------------------
 
    procedure Initialize_ATCB
-     (Self_ID          : Task_ID;
+     (Self_ID          : Task_Id;
       Task_Entry_Point : Task_Procedure_Access;
       Task_Arg         : System.Address;
-      Parent           : Task_ID;
+      Parent           : Task_Id;
       Elaborated       : Access_Boolean;
       Base_Priority    : System.Any_Priority;
       Task_Info        : System.Task_Info.Task_Info_Type;
       Stack_Size       : System.Parameters.Size_Type;
-      T                : in out Task_ID;
+      T                : Task_Id;
       Success          : out Boolean) is
    begin
       T.Common.State := Unactivated;
@@ -85,13 +77,13 @@ package body System.Tasking is
       STPO.Initialize_TCB (T, Success);
 
       if not Success then
-         Free (T);
          return;
       end if;
 
       T.Common.Parent := Parent;
       T.Common.Base_Priority := Base_Priority;
       T.Common.Current_Priority := 0;
+      T.Common.Protected_Action_Nesting := 0;
       T.Common.Call := null;
       T.Common.Task_Arg := Task_Arg;
       T.Common.Task_Entry_Point := Task_Entry_Point;
@@ -124,11 +116,14 @@ package body System.Tasking is
       All_Tasks_List := T;
    end Initialize_ATCB;
 
-   Main_Task_Image : aliased String := "main_task";
-   --  Declare a global variable to avoid allocating dynamic memory.
+   Main_Task_Image : constant String := "main_task";
+   --  Image of environment task.
 
-   Main_Priority : Priority;
+   Main_Priority : Integer;
    pragma Import (C, Main_Priority, "__gl_main_priority");
+   --  Priority for main task. Note that this is of type Integer, not
+   --  Priority, because we use the value -1 to indicate the default
+   --  main priority, and that is of course not in Priority'range.
 
    ----------------------------
    -- Tasking Initialization --
@@ -145,7 +140,7 @@ package body System.Tasking is
 
 begin
    declare
-      T             : Task_ID;
+      T             : Task_Id;
       Success       : Boolean;
       Base_Priority : Any_Priority;
 
@@ -155,7 +150,7 @@ begin
       if Main_Priority = Unspecified_Priority then
          Base_Priority := Default_Priority;
       else
-         Base_Priority := Main_Priority;
+         Base_Priority := Priority (Main_Priority);
       end if;
 
       Success := True;
@@ -168,7 +163,8 @@ begin
       STPO.Initialize (T);
       STPO.Set_Priority (T, T.Common.Base_Priority);
       T.Common.State := Runnable;
-      T.Common.Task_Image := Main_Task_Image'Unrestricted_Access;
+      T.Common.Task_Image_Len := Main_Task_Image'Length;
+      T.Common.Task_Image (Main_Task_Image'Range) := Main_Task_Image;
 
       --  Only initialize the first element since others are not relevant
       --  in ravenscar mode. Rest of the initialization is done in Init_RTS.

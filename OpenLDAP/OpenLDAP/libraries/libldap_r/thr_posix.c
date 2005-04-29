@@ -1,15 +1,17 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_posix.c,v 1.25.2.9 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* thr_posix.c - wrapper around posix and posixish thread implementations.  */
+/* $OpenLDAP: pkg/ldap/libraries/libldap_r/thr_posix.c,v 1.34.2.3 2004/01/01 18:16:30 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted only
- * as authorized by the OpenLDAP Public License.  A copy of this
- * license is available at http://www.OpenLDAP.org/license.html or
- * in file LICENSE in the top-level directory of the distribution.
- */
-
-/* thr_posix.c - wrapper around posix and posixish thread implementations.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -121,7 +123,12 @@ ldap_pvt_thread_create( ldap_pvt_thread_t * thread,
 	pthread_attr_setdetachstate(&attr, detach);
 #endif
 #endif
+
+#if HAVE_PTHREADS < 5
+	rtn = pthread_create( thread, attr, start_routine, arg );
+#else
 	rtn = pthread_create( thread, &attr, start_routine, arg );
+#endif
 #if HAVE_PTHREADS > 5
 	pthread_attr_destroy(&attr);
 #else

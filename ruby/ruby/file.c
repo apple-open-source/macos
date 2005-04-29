@@ -2,23 +2,24 @@
 
   file.c -
 
-  $Author: melville $
-  $Date: 2003/05/14 13:58:43 $
+  $Author: matz $
+  $Date: 2004/12/18 02:07:29 $
   created at: Mon Nov 15 12:24:34 JST 1993
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
   Copyright (C) 2000  Network Applied Communication Laboratory, Inc.
   Copyright (C) 2000  Information-technology Promotion Agency, Japan
 
 **********************************************************************/
 
-#ifdef NT
+#ifdef _WIN32
 #include "missing/file.h"
 #endif
 
 #include "ruby.h"
 #include "rubyio.h"
 #include "rubysig.h"
+#include "util.h"
 #include "dln.h"
 
 #ifdef HAVE_UNISTD_H
@@ -33,26 +34,19 @@ int flock _((int, int));
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
-#else
+#endif
+#ifndef MAXPATHLEN
 # define MAXPATHLEN 1024
 #endif
 
 #include <time.h>
-#ifdef HAVE_SYS_TIME_H
-# include <sys/time.h>
-#else
-#ifndef NT
-struct timeval {
-        long    tv_sec;         /* seconds */
-        long    tv_usec;        /* and microseconds */
-};
-#endif /* NT */
-#endif
 
 VALUE rb_time_new _((time_t, time_t));
 
 #ifdef HAVE_UTIME_H
 #include <utime.h>
+#elif defined HAVE_SYS_UTIME_H
+#include <sys/utime.h>
 #endif
 
 #ifdef HAVE_PWD_H
@@ -66,35 +60,51 @@ char *strrchr _((const char*,const char));
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifndef HAVE_LSTAT
-#define lstat rb_sys_stat
+#ifdef HAVE_SYS_MKDEV_H
+#include <sys/mkdev.h>
 #endif
- 
+
+#ifndef HAVE_LSTAT
+#define lstat(path,st) stat(path,st)
+#endif
+#if !HAVE_FSEEKO && !defined(fseeko)
+# define fseeko  fseek
+#endif
+
 VALUE rb_cFile;
 VALUE rb_mFileTest;
 static VALUE rb_cStat;
 
-static int
+static long
 apply2files(func, vargs, arg)
     void (*func)();
     VALUE vargs;
     void *arg;
 {
-    int i;
+    long i;
     VALUE path;
     struct RArray *args = RARRAY(vargs);
 
     for (i=0; i<args->len; i++) {
-	Check_SafeStr(args->ptr[i]);
-    }
-
-    for (i=0; i<args->len; i++) {
 	path = args->ptr[i];
-	(*func)(RSTRING(path)->ptr, arg);
+	SafeStringValue(path);
+	(*func)(StringValueCStr(path), arg);
     }
 
     return args->len;
 }
+
+/*
+ *  call-seq:
+ *     file.path -> file_ame
+ *  
+ *  Returns the pathname used to create <i>file</i> as a string. Does
+ *  not normalize the name.
+ *     
+ *     File.new("testfile").path               #=> "testfile"
+ *     File.new("/tmp/../tmp/xxx", "w").path   #=> "/tmp/../tmp/xxx"
+ *     
+ */
 
 static VALUE
 rb_file_path(obj)
@@ -102,25 +112,23 @@ rb_file_path(obj)
 {
     OpenFile *fptr;
 
-    GetOpenFile(obj, fptr);
+    fptr = RFILE(rb_io_taint_check(obj))->fptr;
+    rb_io_check_initialized(fptr);
     if (!fptr->path) return Qnil;
-    return rb_str_new2(fptr->path);
+    return rb_tainted_str_new2(fptr->path);
 }
-
-#ifdef NT
-#include "missing/file.h"
-#endif
 
 static VALUE
 stat_new_0(klass, st)
     VALUE klass;
     struct stat *st;
 {
-    struct stat *nst;
-    if (!st) rb_bug("stat_new() called with bad value");
+    struct stat *nst = 0;
 
-    nst = ALLOC(struct stat);
-    *nst = *st;
+    if (st) {
+	nst = ALLOC(struct stat);
+	*nst = *st;
+    }
     return Data_Wrap_Struct(klass, NULL, free, nst);
 }
 
@@ -137,9 +145,22 @@ get_stat(self)
 {
     struct stat* st;
     Data_Get_Struct(self, struct stat, st);
-    if (!st) rb_bug("collapsed File::Stat");
+    if (!st) rb_raise(rb_eTypeError, "uninitialized File::Stat");
     return st;
 }
+
+/*
+ *  call-seq:
+ *     stat <=> other_stat    => -1, 0, 1
+ *  
+ *  Compares <code>File::Stat</code> objects by comparing their
+ *  respective modification times.
+ *     
+ *     f1 = File.new("f1", "w")
+ *     sleep 1
+ *     f2 = File.new("f2", "w")
+ *     f1.stat <=> f2.stat   #=> -1
+ */
 
 static VALUE
 rb_stat_cmp(self, other)
@@ -155,8 +176,18 @@ rb_stat_cmp(self, other)
 	else
 	    return INT2FIX(1);
     }
-    rb_raise(rb_eTypeError, "operand is not File::Stat");
+    return Qnil;
 }
+
+/*
+ *  call-seq:
+ *     stat.dev    => fixnum
+ *  
+ *  Returns an integer representing the device on which <i>stat</i>
+ *  resides.
+ *     
+ *     File.stat("testfile").dev   #=> 774
+ */
 
 static VALUE
 rb_stat_dev(self)
@@ -165,19 +196,109 @@ rb_stat_dev(self)
     return INT2NUM(get_stat(self)->st_dev);
 }
 
+/*
+ *  call-seq:
+ *     stat.dev_major   => fixnum
+ *  
+ *  Returns the major part of <code>File_Stat#dev</code> or
+ *  <code>nil</code>.
+ *     
+ *     File.stat("/dev/fd1").dev_major   #=> 2
+ *     File.stat("/dev/tty").dev_major   #=> 5
+ */
+
+static VALUE
+rb_stat_dev_major(self)
+    VALUE self;
+{
+#if defined(major)
+    long dev = get_stat(self)->st_dev;
+    return ULONG2NUM(major(dev));
+#else
+    return Qnil;
+#endif
+}
+
+/*
+ *  call-seq:
+ *     stat.dev_minor   => fixnum
+ *  
+ *  Returns the minor part of <code>File_Stat#dev</code> or
+ *  <code>nil</code>.
+ *     
+ *     File.stat("/dev/fd1").dev_minor   #=> 1
+ *     File.stat("/dev/tty").dev_minor   #=> 0
+ */
+
+static VALUE
+rb_stat_dev_minor(self)
+    VALUE self;
+{
+#if defined(minor)
+    long dev = get_stat(self)->st_dev;
+    return ULONG2NUM(minor(dev));
+#else
+    return Qnil;
+#endif
+}
+
+
+/*
+ *  call-seq:
+ *     stat.ino   => fixnum
+ *  
+ *  Returns the inode number for <i>stat</i>.
+ *     
+ *     File.stat("testfile").ino   #=> 1083669
+ *     
+ */
+
 static VALUE
 rb_stat_ino(self)
     VALUE self;
 {
-    return UINT2NUM(get_stat(self)->st_ino);
+#ifdef HUGE_ST_INO
+    return ULL2NUM(get_stat(self)->st_ino);
+#else
+    return ULONG2NUM(get_stat(self)->st_ino);
+#endif
 }
+
+/*
+ *  call-seq:
+ *     stat.mode   => fixnum
+ *  
+ *  Returns an integer representing the permission bits of
+ *  <i>stat</i>. The meaning of the bits is platform dependent; on
+ *  Unix systems, see <code>stat(2)</code>.
+ *     
+ *     File.chmod(0644, "testfile")   #=> 1
+ *     s = File.stat("testfile")
+ *     sprintf("%o", s.mode)          #=> "100644"
+ */
 
 static VALUE
 rb_stat_mode(self)
     VALUE self;
 {
+#ifdef __BORLANDC__
+    return UINT2NUM((unsigned short)(get_stat(self)->st_mode));
+#else
     return UINT2NUM(get_stat(self)->st_mode);
+#endif
 }
+
+/*
+ *  call-seq:
+ *     stat.nlink   => fixnum
+ *  
+ *  Returns the number of hard links to <i>stat</i>.
+ *     
+ *     File.stat("testfile").nlink             #=> 1
+ *     File.link("testfile", "testfile.bak")   #=> 0
+ *     File.stat("testfile").nlink             #=> 2
+ *     
+ */
 
 static VALUE
 rb_stat_nlink(self)
@@ -186,12 +307,33 @@ rb_stat_nlink(self)
     return UINT2NUM(get_stat(self)->st_nlink);
 }
 
+
+/*
+ *  call-seq:
+ *     stat.uid    => fixnum
+ *  
+ *  Returns the numeric user id of the owner of <i>stat</i>.
+ *     
+ *     File.stat("testfile").uid   #=> 501
+ *     
+ */
+
 static VALUE
 rb_stat_uid(self)
     VALUE self;
 {
     return UINT2NUM(get_stat(self)->st_uid);
 }
+
+/*
+ *  call-seq:
+ *     stat.gid   => fixnum
+ *  
+ *  Returns the numeric group id of the owner of <i>stat</i>.
+ *     
+ *     File.stat("testfile").gid   #=> 500
+ *     
+ */
 
 static VALUE
 rb_stat_gid(self)
@@ -200,45 +342,147 @@ rb_stat_gid(self)
     return UINT2NUM(get_stat(self)->st_gid);
 }
 
+
+/*
+ *  call-seq:
+ *     stat.rdev   =>  fixnum or nil
+ *  
+ *  Returns an integer representing the device type on which
+ *  <i>stat</i> resides. Returns <code>nil</code> if the operating
+ *  system doesn't support this feature.
+ *     
+ *     File.stat("/dev/fd1").rdev   #=> 513
+ *     File.stat("/dev/tty").rdev   #=> 1280
+ */
+
 static VALUE
 rb_stat_rdev(self)
     VALUE self;
 {
 #ifdef HAVE_ST_RDEV
-    return INT2NUM(get_stat(self)->st_rdev);
+    return ULONG2NUM(get_stat(self)->st_rdev);
 #else
-    return INT2FIX(0);
+    return Qnil;
 #endif
 }
+
+/*
+ *  call-seq:
+ *     stat.rdev_major   => fixnum
+ *  
+ *  Returns the major part of <code>File_Stat#rdev</code> or
+ *  <code>nil</code>.
+ *     
+ *     File.stat("/dev/fd1").rdev_major   #=> 2
+ *     File.stat("/dev/tty").rdev_major   #=> 5
+ */
+
+static VALUE
+rb_stat_rdev_major(self)
+    VALUE self;
+{
+#if defined(HAVE_ST_RDEV) && defined(major)
+    long rdev = get_stat(self)->st_rdev;
+    return ULONG2NUM(major(rdev));
+#else
+    return Qnil;
+#endif
+}
+
+/*
+ *  call-seq:
+ *     stat.rdev_minor   => fixnum
+ *  
+ *  Returns the minor part of <code>File_Stat#rdev</code> or
+ *  <code>nil</code>.
+ *     
+ *     File.stat("/dev/fd1").rdev_minor   #=> 1
+ *     File.stat("/dev/tty").rdev_minor   #=> 0
+ */
+
+static VALUE
+rb_stat_rdev_minor(self)
+    VALUE self;
+{
+#if defined(HAVE_ST_RDEV) && defined(minor)
+    long rdev = get_stat(self)->st_rdev;
+    return ULONG2NUM(minor(rdev));
+#else
+    return Qnil;
+#endif
+}
+
+/*
+ *  call-seq:
+ *     stat.size    => fixnum
+ *  
+ *  Returns the size of <i>stat</i> in bytes.
+ *     
+ *     File.stat("testfile").size   #=> 66
+ */
 
 static VALUE
 rb_stat_size(self)
     VALUE self;
 {
-    return INT2NUM(get_stat(self)->st_size);
+    return OFFT2NUM(get_stat(self)->st_size);
 }
+
+/*
+ *  call-seq:
+ *     stat.blksize   => integer or nil
+ *  
+ *  Returns the native file system's block size. Will return <code>nil</code>
+ *  on platforms that don't support this information.
+ *     
+ *     File.stat("testfile").blksize   #=> 4096
+ *     
+ */
 
 static VALUE
 rb_stat_blksize(self)
     VALUE self;
 {
 #ifdef HAVE_ST_BLKSIZE
-    return UINT2NUM(get_stat(self)->st_blksize);
+    return ULONG2NUM(get_stat(self)->st_blksize);
 #else
-    return INT2FIX(0);
+    return Qnil;
 #endif
 }
+
+/*
+ *  call-seq:
+ *     stat.blocks    => integer or nil
+ *  
+ *  Returns the number of native file system blocks allocated for this
+ *  file, or <code>nil</code> if the operating system doesn't 
+ *  support this feature.
+ *     
+ *     File.stat("testfile").blocks   #=> 2
+ */
 
 static VALUE
 rb_stat_blocks(self)
     VALUE self;
 {
 #ifdef HAVE_ST_BLOCKS
-    return UINT2NUM(get_stat(self)->st_blocks);
+    return ULONG2NUM(get_stat(self)->st_blocks);
 #else
-    return INT2FIX(0);
+    return Qnil;
 #endif
 }
+
+
+/*
+ *  call-seq:
+ *     stat.atime   => time
+ *  
+ *  Returns the last access time for this file as an object of class
+ *  <code>Time</code>.
+ *     
+ *     File.stat("testfile").atime   #=> Wed Dec 31 18:00:00 CST 1969
+ *     
+ */
 
 static VALUE
 rb_stat_atime(self)
@@ -247,6 +491,16 @@ rb_stat_atime(self)
     return rb_time_new(get_stat(self)->st_atime, 0);
 }
 
+/*
+ *  call-seq:
+ *     stat.mtime -> aTime
+ *  
+ *  Returns the modification time of <i>stat</i>.
+ *     
+ *     File.stat("testfile").mtime   #=> Wed Apr 09 08:53:14 CDT 2003
+ *     
+ */
+
 static VALUE
 rb_stat_mtime(self)
     VALUE self;
@@ -254,12 +508,38 @@ rb_stat_mtime(self)
     return rb_time_new(get_stat(self)->st_mtime, 0);
 }
 
+/*
+ *  call-seq:
+ *     stat.ctime -> aTime
+ *  
+ *  Returns the change time for <i>stat</i> (that is, the time
+ *  directory information about the file was changed, not the file
+ *  itself).
+ *     
+ *     File.stat("testfile").ctime   #=> Wed Apr 09 08:53:14 CDT 2003
+ *     
+ */
+
 static VALUE
 rb_stat_ctime(self)
     VALUE self;
 {
     return rb_time_new(get_stat(self)->st_ctime, 0);
 }
+
+/*
+ * call-seq:
+ *   stat.inspect  =>  string
+ *
+ * Produce a nicely formatted description of <i>stat</i>.
+ *
+ *   File.stat("/etc/passwd").inspect
+ *      #=> "#<File::Stat dev=0xe000005, ino=1078078, mode=0100644, 
+ *           nlink=1, uid=0, gid=0, rdev=0x0, size=1374, blksize=4096, 
+ *           blocks=8, atime=Wed Dec 10 10:16:12 CST 2003, 
+ *           mtime=Fri Sep 12 15:41:41 CDT 2003, 
+ *           ctime=Mon Oct 27 11:20:27 CST 2003>"
+ */
 
 static VALUE
 rb_stat_inspect(self)
@@ -286,23 +566,36 @@ rb_stat_inspect(self)
         {"ctime",   rb_stat_ctime},
     };
 
-    str = rb_str_new2("#<");
-    rb_str_cat2(str, rb_class2name(CLASS_OF(self)));
-    rb_str_cat2(str, " ");
+    str = rb_str_buf_new2("#<");
+    rb_str_buf_cat2(str, rb_obj_classname(self));
+    rb_str_buf_cat2(str, " ");
 
     for (i = 0; i < sizeof(member)/sizeof(member[0]); i++) {
-	VALUE str2;
-	char *p;
+	VALUE v;
 
 	if (i > 0) {
-	    rb_str_cat2(str, ", ");
+	    rb_str_buf_cat2(str, ", ");
 	}
-	rb_str_cat2(str, member[i].name);
-	rb_str_cat2(str, "=");
-	str2 = rb_inspect((*member[i].func)(self));
-	rb_str_append(str, str2);
+	rb_str_buf_cat2(str, member[i].name);
+	rb_str_buf_cat2(str, "=");
+	v = (*member[i].func)(self);
+	if (i == 2) {		/* mode */
+	    char buf[32];
+
+	    sprintf(buf, "0%lo", NUM2ULONG(v));
+	    rb_str_buf_cat2(str, buf);
+	}
+	else if (i == 0 || i == 6) { /* dev/rdev */
+	    char buf[32];
+
+	    sprintf(buf, "0x%lx", NUM2ULONG(v));
+	    rb_str_buf_cat2(str, buf);
+	}
+	else {
+	    rb_str_append(str, rb_inspect(v));
+	}
     }
-    rb_str_cat2(str, ">");
+    rb_str_buf_cat2(str, ">");
     OBJ_INFECT(str, self);
 
     return str;
@@ -313,19 +606,30 @@ rb_stat(file, st)
     VALUE file;
     struct stat *st;
 {
-    if (TYPE(file) == T_FILE) {
+    VALUE tmp;
+
+    tmp = rb_check_convert_type(file, T_FILE, "IO", "to_io");
+    if (!NIL_P(tmp)) {
 	OpenFile *fptr;
 
 	rb_secure(2);
-	GetOpenFile(file, fptr);
+	GetOpenFile(tmp, fptr);
 	return fstat(fileno(fptr->f), st);
     }
-    Check_SafeStr(file);
-#if defined DJGPP
-    if (RSTRING(file)->len == 0) return -1;
-#endif
-    return rb_sys_stat(RSTRING(file)->ptr, st);
+    SafeStringValue(file);
+    return stat(StringValueCStr(file), st);
 }
+
+/*
+ *  call-seq:
+ *     File.stat(file_name)   =>  stat
+ *  
+ *  Returns a <code>File::Stat</code> object for the named file (see
+ *  <code>File::Stat</code>).
+ *     
+ *     File.stat("testfile").mtime   #=> Tue Apr 08 12:58:04 CDT 2003
+ *     
+ */
 
 static VALUE
 rb_file_s_stat(klass, fname)
@@ -333,12 +637,27 @@ rb_file_s_stat(klass, fname)
 {
     struct stat st;
 
-    Check_SafeStr(fname);
-    if (rb_sys_stat(RSTRING(fname)->ptr, &st) == -1) {
-	rb_sys_fail(RSTRING(fname)->ptr);
+    SafeStringValue(fname);
+    if (rb_stat(fname, &st) < 0) {
+	rb_sys_fail(StringValueCStr(fname));
     }
     return stat_new(&st);
 }
+
+/*
+ *  call-seq:
+ *     ios.stat    => stat
+ *  
+ *  Returns status information for <em>ios</em> as an object of type
+ *  <code>File::Stat</code>.
+ *     
+ *     f = File.new("testfile")
+ *     s = f.stat
+ *     "%o" % s.mode   #=> "100644"
+ *     s.blksize       #=> 4096
+ *     s.atime         #=> Wed Apr 09 08:53:54 CDT 2003
+ *     
+ */
 
 static VALUE
 rb_io_stat(obj)
@@ -354,6 +673,20 @@ rb_io_stat(obj)
     return stat_new(&st);
 }
 
+/*
+ *  call-seq:
+ *     File.lstat(file_name)   => stat
+ *  
+ *  Same as <code>File::stat</code>, but does not follow the last symbolic
+ *  link. Instead, reports on the link itself.
+ *     
+ *     File.symlink("testfile", "link2test")   #=> 0
+ *     File.stat("testfile").size              #=> 66
+ *     File.lstat("link2test").size            #=> 8
+ *     File.stat("link2test").size             #=> 66
+ *     
+ */
+
 static VALUE
 rb_file_s_lstat(klass, fname)
     VALUE klass, fname;
@@ -361,8 +694,8 @@ rb_file_s_lstat(klass, fname)
 #ifdef HAVE_LSTAT
     struct stat st;
 
-    Check_SafeStr(fname);
-    if (lstat(RSTRING(fname)->ptr, &st) == -1) {
+    SafeStringValue(fname);
+    if (lstat(StringValueCStr(fname), &st) == -1) {
 	rb_sys_fail(RSTRING(fname)->ptr);
     }
     return stat_new(&st);
@@ -370,6 +703,21 @@ rb_file_s_lstat(klass, fname)
     return rb_file_s_stat(klass, fname);
 #endif
 }
+
+
+/*
+ *  call-seq:
+ *     file.lstat   =>  stat
+ *  
+ *  Same as <code>IO#stat</code>, but does not follow the last symbolic
+ *  link. Instead, reports on the link itself.
+ *     
+ *     File.symlink("testfile", "link2test")   #=> 0
+ *     File.stat("testfile").size              #=> 66
+ *     f = File.new("link2test")
+ *     f.lstat.size                            #=> 8
+ *     f.stat.size                             #=> 66
+ */
 
 static VALUE
 rb_file_lstat(obj)
@@ -395,13 +743,17 @@ static int
 group_member(gid)
     GETGROUPS_T gid;
 {
-#if !defined(NT)
+#ifndef _WIN32
     if (getgid() ==  gid)
 	return Qtrue;
 
 # ifdef HAVE_GETGROUPS
 #  ifndef NGROUPS
+#   ifdef NGROUPS_MAX
+#    define NGROUPS NGROUPS_MAX
+#   else
 #    define NGROUPS 32
+#   endif
 #  endif
     {
 	GETGROUPS_T gary[NGROUPS];
@@ -426,38 +778,61 @@ eaccess(path, mode)
      const char *path;
      int mode;
 {
-#ifdef S_IXGRP
-  struct stat st;
-  int euid;
+#if defined(S_IXGRP) && !defined(_WIN32) && !defined(__CYGWIN__)
+    struct stat st;
+    int euid;
 
-  if (rb_sys_stat(path, &st) < 0) return (-1);
+    if (stat(path, &st) < 0) return -1;
 
-  euid = geteuid();
-  if (euid == 0) {
-      /* Root can read or write any file. */
-      if (!(mode & X_OK))
-	return 0;
+    euid = geteuid();
 
-      /* Root can execute any file that has any one of the execute
-	 bits set. */
-      if (st.st_mode & S_IXUGO)
-	return 0;
+    if (euid == 0) {
+	/* Root can read or write any file. */
+	if (!(mode & X_OK))
+	    return 0;
 
-      return -1;
-  }
+	/* Root can execute any file that has any one of the execute
+	   bits set. */
+	if (st.st_mode & S_IXUGO)
+	    return 0;
 
-  if (st.st_uid == euid)        /* owner */
-      mode <<= 6;
-  else if (getegid() == st.st_gid || group_member(st.st_gid))
-      mode <<= 3;
+	return -1;
+    }
 
-  if ((st.st_mode & mode) == mode) return 0;
+    if (st.st_uid == euid)        /* owner */
+	mode <<= 6;
+    else if (getegid() == st.st_gid || group_member(st.st_gid))
+	mode <<= 3;
 
-  return -1;
-#else  /* !NT */
-  return access(path, mode);
+    if ((st.st_mode & mode) == mode) return 0;
+
+    return -1;
+#else
+    return access(path, mode);
 #endif
 }
+
+
+/*
+ * Document-class: FileTest
+ *
+ *  <code>FileTest</code> implements file test operations similar to
+ *  those used in <code>File::Stat</code>. It exists as a standalone
+ *  module, and its methods are also insinuated into the <code>File</code>
+ *  class. (Note that this is not done by inclusion: the interpreter cheats).
+ *     
+ */
+
+
+/*
+ * call-seq:
+ *   File.directory?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a directory,
+ * <code>false</code> otherwise.
+ *
+ *    File.directory?(".")
+ */
 
 static VALUE
 test_d(obj, fname)
@@ -473,6 +848,13 @@ test_d(obj, fname)
     if (S_ISDIR(st.st_mode)) return Qtrue;
     return Qfalse;
 }
+
+/*
+ * call-seq:
+ *   File.pipe?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a pipe.
+ */
 
 static VALUE
 test_p(obj, fname)
@@ -492,6 +874,13 @@ test_p(obj, fname)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *   File.symlink?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a symbolic link.
+ */
+
 static VALUE
 test_l(obj, fname)
     VALUE obj, fname;
@@ -499,6 +888,14 @@ test_l(obj, fname)
 #ifndef S_ISLNK
 #  ifdef _S_ISLNK
 #    define S_ISLNK(m) _S_ISLNK(m)
+#  elif defined __BORLANDC__
+#    ifdef _S_IFLNK
+#      define S_ISLNK(m) (((unsigned short)(m) & S_IFMT) == _S_IFLNK)
+#    else
+#      ifdef S_IFLNK
+#        define S_ISLNK(m) (((unsigned short)(m) & S_IFMT) == S_IFLNK)
+#      endif
+#    endif
 #  else
 #    ifdef _S_IFLNK
 #      define S_ISLNK(m) ((m & S_IFMT) == _S_IFLNK)
@@ -513,13 +910,20 @@ test_l(obj, fname)
 #ifdef S_ISLNK
     struct stat st;
 
-    Check_SafeStr(fname);
-    if (lstat(RSTRING(fname)->ptr, &st) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (lstat(StringValueCStr(fname), &st) < 0) return Qfalse;
     if (S_ISLNK(st.st_mode)) return Qtrue;
 #endif
 
     return Qfalse;
 }
+
+/*
+ * call-seq:
+ *   File.socket?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a socket.
+ */
 
 static VALUE
 test_S(obj, fname)
@@ -528,6 +932,14 @@ test_S(obj, fname)
 #ifndef S_ISSOCK
 #  ifdef _S_ISSOCK
 #    define S_ISSOCK(m) _S_ISSOCK(m)
+#  elif defined __BORLANDC__
+#    ifdef _S_IFSOCK
+#      define S_ISSOCK(m) (((unsigned short)(m) & S_IFMT) == _S_IFSOCK)
+#    else
+#      ifdef S_IFSOCK
+#        define S_ISSOCK(m) (((unsigned short)(m) & S_IFMT) == S_IFSOCK)
+#      endif
+#    endif
 #  else
 #    ifdef _S_IFSOCK
 #      define S_ISSOCK(m) ((m & S_IFMT) == _S_IFSOCK)
@@ -548,6 +960,13 @@ test_S(obj, fname)
 #endif
     return Qfalse;
 }
+
+/*
+ * call-seq:
+ *   File.blockdev?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a block device.
+ */
 
 static VALUE
 test_b(obj, fname)
@@ -571,6 +990,12 @@ test_b(obj, fname)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *   File.chardev?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a character device.
+ */
 static VALUE
 test_c(obj, fname)
     VALUE obj, fname;
@@ -587,6 +1012,15 @@ test_c(obj, fname)
     return Qfalse;
 }
 
+
+/*
+ * call-seq:
+ *    File.exist?(file_name)    =>  true or false
+ *    File.exists?(file_name)   =>  true or false    (obsolete)
+ *
+ * Return <code>true</code> if the named file exists.
+ */
+
 static VALUE
 test_e(obj, fname)
     VALUE obj, fname;
@@ -597,63 +1031,120 @@ test_e(obj, fname)
     return Qtrue;
 }
 
+/*
+ * call-seq:
+ *    File.readable?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is readable by the effective
+ * user id of this process.
+ */
+
 static VALUE
 test_r(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (eaccess(RSTRING(fname)->ptr, R_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (eaccess(StringValueCStr(fname), R_OK) < 0) return Qfalse;
     return Qtrue;
 }
+
+/*
+ * call-seq:
+ *    File.readable_real?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is readable by the real
+ * user id of this process.
+ */
 
 static VALUE
 test_R(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (access(RSTRING(fname)->ptr, R_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (access(StringValueCStr(fname), R_OK) < 0) return Qfalse;
     return Qtrue;
 }
+
+
+/*
+ * call-seq:
+ *    File.writable?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is writable by the effective
+ * user id of this process.
+ */
 
 static VALUE
 test_w(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (eaccess(RSTRING(fname)->ptr, W_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (eaccess(StringValueCStr(fname), W_OK) < 0) return Qfalse;
     return Qtrue;
 }
+
+/*
+ * call-seq:
+ *    File.writable_real?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is writable by the real
+ * user id of this process.
+ */
 
 static VALUE
 test_W(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (access(RSTRING(fname)->ptr, W_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (access(StringValueCStr(fname), W_OK) < 0) return Qfalse;
     return Qtrue;
 }
+
+/*
+ * call-seq:
+ *    File.executable?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is executable by the effective
+ * user id of this process.
+ */
 
 static VALUE
 test_x(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (eaccess(RSTRING(fname)->ptr, X_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (eaccess(StringValueCStr(fname), X_OK) < 0) return Qfalse;
     return Qtrue;
 }
+
+/*
+ * call-seq:
+ *    File.executable_real?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file is executable by the real
+ * user id of this process.
+ */
 
 static VALUE
 test_X(obj, fname)
     VALUE obj, fname;
 {
-    Check_SafeStr(fname);
-    if (access(RSTRING(fname)->ptr, X_OK) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (access(StringValueCStr(fname), X_OK) < 0) return Qfalse;
     return Qtrue;
 }
 
 #ifndef S_ISREG
 #   define S_ISREG(m) ((m & S_IFMT) == S_IFREG)
 #endif
+
+/*
+ * call-seq:
+ *    File.file?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file exists and is a
+ * regular file.
+ */
 
 static VALUE
 test_f(obj, fname)
@@ -666,6 +1157,14 @@ test_f(obj, fname)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *    File.zero?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file exists and has
+ * a zero size.
+ */
+
 static VALUE
 test_z(obj, fname)
     VALUE obj, fname;
@@ -677,6 +1176,14 @@ test_z(obj, fname)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *    File.file?(file_name)   => integer  or  nil
+ *
+ * Returns <code>nil</code> if <code>file_name</code> doesn't
+ * exist or has zero size, the size of the file otherwise.
+ */
+
 static VALUE
 test_s(obj, fname)
     VALUE obj, fname;
@@ -685,8 +1192,17 @@ test_s(obj, fname)
 
     if (rb_stat(fname, &st) < 0) return Qnil;
     if (st.st_size == 0) return Qnil;
-    return rb_int2inum(st.st_size);
+    return OFFT2NUM(st.st_size);
 }
+
+/*
+ * call-seq:
+ *    File.owned?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file exists and the
+ * effective used id of the calling process is the owner of
+ * the file.
+ */
 
 static VALUE
 test_owned(obj, fname)
@@ -710,11 +1226,20 @@ test_rowned(obj, fname)
     return Qfalse;
 }
 
+/*
+ * call-seq:
+ *    File.grpowned?(file_name)   => true or false
+ *
+ * Returns <code>true</code> if the named file exists and the
+ * effective group id of the calling process is the owner of
+ * the file. Returns <code>false</code> on Windows.
+ */
+
 static VALUE
 test_grpowned(obj, fname)
     VALUE obj, fname;
 {
-#ifndef NT
+#ifndef _WIN32
     struct stat st;
 
     if (rb_stat(fname, &st) < 0) return Qfalse;
@@ -725,53 +1250,79 @@ test_grpowned(obj, fname)
 
 #if defined(S_ISUID) || defined(S_ISGID) || defined(S_ISVTX)
 static VALUE
-check3rdbyte(file, mode)
-    const char *file;
+check3rdbyte(fname, mode)
+    VALUE fname;
     int mode;
 {
     struct stat st;
 
-    if (rb_sys_stat(file, &st) < 0) return Qfalse;
+    SafeStringValue(fname);
+    if (stat(StringValueCStr(fname), &st) < 0) return Qfalse;
     if (st.st_mode & mode) return Qtrue;
     return Qfalse;
 }
 #endif
+
+/*
+ * call-seq:
+ *   File.setuid?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a has the setuid bit set.
+ */
 
 static VALUE
 test_suid(obj, fname)
     VALUE obj, fname;
 {
 #ifdef S_ISUID
-    Check_SafeStr(fname);
-    return check3rdbyte(RSTRING(fname)->ptr, S_ISUID);
+    return check3rdbyte(fname, S_ISUID);
 #else
     return Qfalse;
 #endif
 }
+
+/*
+ * call-seq:
+ *   File.setgid?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a has the setgid bit set.
+ */
 
 static VALUE
 test_sgid(obj, fname)
     VALUE obj, fname;
 {
 #ifdef S_ISGID
-    Check_SafeStr(fname);
-    return check3rdbyte(RSTRING(fname)->ptr, S_ISGID);
+    return check3rdbyte(fname, S_ISGID);
 #else
     return Qfalse;
 #endif
 }
+
+/*
+ * call-seq:
+ *   File.sticky?(file_name)   =>  true or false
+ *
+ * Returns <code>true</code> if the named file is a has the sticky bit set.
+ */
 
 static VALUE
 test_sticky(obj, fname)
     VALUE obj, fname;
 {
 #ifdef S_ISVTX
-    Check_SafeStr(fname);
-    return check3rdbyte(RSTRING(fname)->ptr, S_ISVTX);
+    return check3rdbyte(fname, S_ISVTX);
 #else
     return Qnil;
 #endif
 }
+
+/*
+ * call-seq:
+ *    File.size(file_name)   => integer
+ *
+ * Returns the size of <code>file_name</code>.
+ */
 
 static VALUE
 rb_file_s_size(klass, fname)
@@ -780,8 +1331,8 @@ rb_file_s_size(klass, fname)
     struct stat st;
 
     if (rb_stat(fname, &st) < 0)
-	rb_sys_fail(RSTRING(fname)->ptr);
-    return rb_int2inum(st.st_size);
+	rb_sys_fail(StringValueCStr(fname));
+    return OFFT2NUM(st.st_size);
 }
 
 static VALUE
@@ -792,9 +1343,11 @@ rb_file_ftype(st)
 
     if (S_ISREG(st->st_mode)) {
 	t = "file";
-    } else if (S_ISDIR(st->st_mode)) {
+    }
+    else if (S_ISDIR(st->st_mode)) {
 	t = "directory";
-    } else if (S_ISCHR(st->st_mode)) {
+    }
+    else if (S_ISCHR(st->st_mode)) {
 	t = "characterSpecial";
     }
 #ifdef S_ISBLK
@@ -824,19 +1377,44 @@ rb_file_ftype(st)
     return rb_str_new2(t);
 }
 
+/*
+ *  call-seq:
+ *     File.ftype(file_name)   => string
+ *  
+ *  Identifies the type of the named file; the return string is one of
+ *  ``<code>file</code>'', ``<code>directory</code>'',
+ *  ``<code>characterSpecial</code>'', ``<code>blockSpecial</code>'',
+ *  ``<code>fifo</code>'', ``<code>link</code>'',
+ *  ``<code>socket</code>'', or ``<code>unknown</code>''.
+ *     
+ *     File.ftype("testfile")            #=> "file"
+ *     File.ftype("/dev/tty")            #=> "characterSpecial"
+ *     File.ftype("/tmp/.X11-unix/X0")   #=> "socket"
+ */
+
 static VALUE
 rb_file_s_ftype(klass, fname)
     VALUE klass, fname;
 {
     struct stat st;
 
-    Check_SafeStr(fname);
-    if (lstat(RSTRING(fname)->ptr, &st) == -1) {
+    SafeStringValue(fname);
+    if (lstat(StringValueCStr(fname), &st) == -1) {
 	rb_sys_fail(RSTRING(fname)->ptr);
     }
 
     return rb_file_ftype(&st);
 }
+
+/*
+ *  call-seq:
+ *     File.atime(file_name)  =>  time
+ *  
+ *  Returns the last access time for the named file as a Time object).
+ *     
+ *     File.atime("testfile")   #=> Wed Apr 09 08:51:48 CDT 2003
+ *     
+ */
 
 static VALUE
 rb_file_s_atime(klass, fname)
@@ -845,9 +1423,20 @@ rb_file_s_atime(klass, fname)
     struct stat st;
 
     if (rb_stat(fname, &st) < 0)
-	rb_sys_fail(RSTRING(fname)->ptr);
+	rb_sys_fail(StringValueCStr(fname));
     return rb_time_new(st.st_atime, 0);
 }
+
+/*
+ *  call-seq:
+ *     file.atime    => time
+ *  
+ *  Returns the last access time (a <code>Time</code> object)
+ *   for <i>file</i>, or epoch if <i>file</i> has not been accessed.
+ *     
+ *     File.new("testfile").atime   #=> Wed Dec 31 18:00:00 CST 1969
+ *     
+ */
 
 static VALUE
 rb_file_atime(obj)
@@ -863,6 +1452,16 @@ rb_file_atime(obj)
     return rb_time_new(st.st_atime, 0);
 }
 
+/*
+ *  call-seq:
+ *     File.mtime(file_name)  =>  time
+ *  
+ *  Returns the modification time for the named file as a Time object.
+ *     
+ *     File.mtime("testfile")   #=> Tue Apr 08 12:58:04 CDT 2003
+ *     
+ */
+
 static VALUE
 rb_file_s_mtime(klass, fname)
     VALUE klass, fname;
@@ -873,6 +1472,16 @@ rb_file_s_mtime(klass, fname)
 	rb_sys_fail(RSTRING(fname)->ptr);
     return rb_time_new(st.st_mtime, 0);
 }
+
+/*
+ *  call-seq:
+ *     file.mtime -> time
+ *  
+ *  Returns the modification time for <i>file</i>.
+ *     
+ *     File.new("testfile").mtime   #=> Wed Apr 09 08:53:14 CDT 2003
+ *     
+ */
 
 static VALUE
 rb_file_mtime(obj)
@@ -888,6 +1497,18 @@ rb_file_mtime(obj)
     return rb_time_new(st.st_mtime, 0);
 }
 
+/*
+ *  call-seq:
+ *     File.ctime(file_name)  => time
+ *  
+ *  Returns the change time for the named file (the time at which
+ *  directory information about the file was changed, not the file
+ *  itself).
+ *     
+ *     File.ctime("testfile")   #=> Wed Apr 09 08:53:13 CDT 2003
+ *     
+ */
+
 static VALUE
 rb_file_s_ctime(klass, fname)
     VALUE klass, fname;
@@ -898,6 +1519,17 @@ rb_file_s_ctime(klass, fname)
 	rb_sys_fail(RSTRING(fname)->ptr);
     return rb_time_new(st.st_ctime, 0);
 }
+
+/*
+ *  call-seq:
+ *     file.ctime -> time
+ *  
+ *  Returns the change time for <i>file</i> (that is, the time directory
+ *  information about the file was changed, not the file itself).
+ *     
+ *     File.new("testfile").ctime   #=> Wed Apr 09 08:53:14 CDT 2003
+ *     
+ */
 
 static VALUE
 rb_file_ctime(obj)
@@ -918,9 +1550,22 @@ chmod_internal(path, mode)
     const char *path;
     int mode;
 {
-    if (chmod(path, mode) == -1)
+    if (chmod(path, mode) < 0)
 	rb_sys_fail(path);
 }
+
+/*
+ *  call-seq:
+ *     File.chmod(mode_int, file_name, ... ) -> integer
+ *  
+ *  Changes permission bits on the named file(s) to the bit pattern
+ *  represented by <i>mode_int</i>. Actual effects are operating system
+ *  dependent (see the beginning of this section). On Unix systems, see
+ *  <code>chmod(2)</code> for details. Returns the number of files
+ *  processed.
+ *     
+ *     File.chmod(0644, "testfile", "out")   #=> 2
+ */
 
 static VALUE
 rb_file_s_chmod(argc, argv)
@@ -929,15 +1574,29 @@ rb_file_s_chmod(argc, argv)
 {
     VALUE vmode;
     VALUE rest;
-    int mode, n;
+    int mode;
+    long n;
 
     rb_secure(2);
     rb_scan_args(argc, argv, "1*", &vmode, &rest);
     mode = NUM2INT(vmode);
 
-    n = apply2files(chmod_internal, rest, mode);
-    return INT2FIX(n);
+    n = apply2files(chmod_internal, rest, (void *)(long)mode);
+    return LONG2FIX(n);
 }
+
+/*
+ *  call-seq:
+ *     file.chmod(mode_int)   => 0
+ *  
+ *  Changes permission bits on <i>file</i> to the bit pattern
+ *  represented by <i>mode_int</i>. Actual effects are platform
+ *  dependent; on Unix systems, see <code>chmod(2)</code> for details.
+ *  Follows symbolic links. Also see <code>File#lchmod</code>.
+ *     
+ *     f = File.new("out", "w");
+ *     f.chmod(0644)   #=> 0
+ */
 
 static VALUE
 rb_file_chmod(obj, vmode)
@@ -962,6 +1621,53 @@ rb_file_chmod(obj, vmode)
     return INT2FIX(0);
 }
 
+#if defined(HAVE_LCHMOD)
+static void
+lchmod_internal(path, mode)
+    const char *path;
+    int mode;
+{
+    if (lchmod(path, mode) < 0)
+	rb_sys_fail(path);
+}
+
+/*
+ *  call-seq:
+ *     File.lchmod(mode_int, file_name, ...)  => integer
+ *  
+ *  Equivalent to <code>File::chmod</code>, but does not follow symbolic
+ *  links (so it will change the permissions associated with the link,
+ *  not the file referenced by the link). Often not available.
+ *     
+ */
+
+static VALUE
+rb_file_s_lchmod(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    VALUE vmode;
+    VALUE rest;
+    long mode, n;
+
+    rb_secure(2);
+    rb_scan_args(argc, argv, "1*", &vmode, &rest);
+    mode = NUM2INT(vmode);
+
+    n = apply2files(lchmod_internal, rest, (void *)(long)mode);
+    return LONG2FIX(n);
+}
+#else
+static VALUE
+rb_file_s_lchmod(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    rb_notimplement();
+    return Qnil;		/* not reached */
+}
+#endif
+
 struct chown_args {
     int owner, group;
 };
@@ -975,6 +1681,21 @@ chown_internal(path, args)
 	rb_sys_fail(path);
 }
 
+/*
+ *  call-seq:
+ *     File.chown(owner_int, group_int, file_name,... ) -> integer
+ *  
+ *  Changes the owner and group of the named file(s) to the given
+ *  numeric owner and group id's. Only a process with superuser
+ *  privileges may change the owner of a file. The current owner of a
+ *  file may change the file's group to any group to which the owner
+ *  belongs. A <code>nil</code> or -1 owner or group id is ignored.
+ *  Returns the number of files processed.
+ *     
+ *     File.chown(nil, 100, "testfile")
+ *     
+ */
+
 static VALUE
 rb_file_s_chown(argc, argv)
     int argc;
@@ -982,7 +1703,7 @@ rb_file_s_chown(argc, argv)
 {
     VALUE o, g, rest;
     struct chown_args arg;
-    int n;
+    long n;
 
     rb_secure(2);
     rb_scan_args(argc, argv, "2*", &o, &g, &rest);
@@ -1000,28 +1721,105 @@ rb_file_s_chown(argc, argv)
     }
 
     n = apply2files(chown_internal, rest, &arg);
-    return INT2FIX(n);
+    return LONG2FIX(n);
 }
+
+/*
+ *  call-seq:
+ *     file.chown(owner_int, group_int )   => 0
+ *  
+ *  Changes the owner and group of <i>file</i> to the given numeric
+ *  owner and group id's. Only a process with superuser privileges may
+ *  change the owner of a file. The current owner of a file may change
+ *  the file's group to any group to which the owner belongs. A
+ *  <code>nil</code> or -1 owner or group id is ignored. Follows
+ *  symbolic links. See also <code>File#lchown</code>.
+ *     
+ *     File.new("testfile").chown(502, 1000)
+ *     
+ */
 
 static VALUE
 rb_file_chown(obj, owner, group)
     VALUE obj, owner, group;
 {
     OpenFile *fptr;
+    int o, g;
 
     rb_secure(2);
+    o = NUM2INT(owner);
+    g = NUM2INT(group);
     GetOpenFile(obj, fptr);
-#if defined(DJGPP) || defined(__CYGWIN32__) || defined(NT) || defined(__EMX__)
+#if defined(DJGPP) || defined(__CYGWIN32__) || defined(_WIN32) || defined(__EMX__)
     if (!fptr->path) return Qnil;
-    if (chown(fptr->path, NUM2INT(owner), NUM2INT(group)) == -1)
+    if (chown(fptr->path, o, g) == -1)
 	rb_sys_fail(fptr->path);
 #else
-    if (fchown(fileno(fptr->f), NUM2INT(owner), NUM2INT(group)) == -1)
+    if (fchown(fileno(fptr->f), o, g) == -1)
 	rb_sys_fail(fptr->path);
 #endif
 
     return INT2FIX(0);
 }
+
+#if defined(HAVE_LCHOWN) && !defined(__CHECKER__)
+static void
+lchown_internal(path, args)
+    const char *path;
+    struct chown_args *args;
+{
+    if (lchown(path, args->owner, args->group) < 0)
+	rb_sys_fail(path);
+}
+
+
+/*
+ *  call-seq:
+ *     file.lchown(owner_int, group_int, file_name,..) => integer
+ *  
+ *  Equivalent to <code>File::chown</code>, but does not follow symbolic
+ *  links (so it will change the owner associated with the link, not the
+ *  file referenced by the link). Often not available. Returns number
+ *  of files in the argument list.
+ *     
+ */
+
+static VALUE
+rb_file_s_lchown(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    VALUE o, g, rest;
+    struct chown_args arg;
+    long n;
+
+    rb_secure(2);
+    rb_scan_args(argc, argv, "2*", &o, &g, &rest);
+    if (NIL_P(o)) {
+	arg.owner = -1;
+    }
+    else {
+	arg.owner = NUM2INT(o);
+    }
+    if (NIL_P(g)) {
+	arg.group = -1;
+    }
+    else {
+	arg.group = NUM2INT(g);
+    }
+
+    n = apply2files(lchown_internal, rest, &arg);
+    return LONG2FIX(n);
+}
+#else
+static VALUE
+rb_file_s_lchown(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    rb_notimplement();
+}
+#endif
 
 struct timeval rb_time_timeval();
 
@@ -1036,6 +1834,15 @@ utime_internal(path, tvp)
 	rb_sys_fail(path);
 }
 
+/*
+ * call-seq:
+ *  File.utime(atime, mtime, file_name,...)   =>  integer
+ *
+ * Sets the access and modification times of each
+ * named file to the first two arguments. Returns
+ * the number of file names in the argument list.
+ */
+
 static VALUE
 rb_file_s_utime(argc, argv)
     int argc;
@@ -1043,7 +1850,7 @@ rb_file_s_utime(argc, argv)
 {
     VALUE atime, mtime, rest;
     struct timeval tvp[2];
-    int n;
+    long n;
 
     rb_scan_args(argc, argv, "2*", &atime, &mtime, &rest);
 
@@ -1051,27 +1858,16 @@ rb_file_s_utime(argc, argv)
     tvp[1] = rb_time_timeval(mtime);
 
     n = apply2files(utime_internal, rest, tvp);
-    return INT2FIX(n);
+    return LONG2FIX(n);
 }
 
 #else
 
-#ifndef HAVE_UTIME_H
-# ifdef NT
-#   if defined(__BORLANDC__)
-#     include <utime.h>
-#   else
-#  include <sys/utime.h>
-#   endif
-#   if defined(_MSC_VER) || defined __MINGW32__
-#  define utimbuf _utimbuf
-#   endif
-# else
+#if !defined HAVE_UTIME_H && !defined HAVE_SYS_UTIME_H
 struct utimbuf {
     long actime;
     long modtime;
 };
-# endif
 #endif
 
 static void
@@ -1089,7 +1885,7 @@ rb_file_s_utime(argc, argv)
     VALUE *argv;
 {
     VALUE atime, mtime, rest;
-    int n;
+    long n;
     struct timeval tv;
     struct utimbuf utbuf;
 
@@ -1101,33 +1897,73 @@ rb_file_s_utime(argc, argv)
     utbuf.modtime = tv.tv_sec;
 
     n = apply2files(utime_internal, rest, &utbuf);
-    return INT2FIX(n);
+    return LONG2FIX(n);
 }
 
 #endif
+
+NORETURN(static void sys_fail2 _((VALUE,VALUE)));
+static void
+sys_fail2(s1, s2)
+    VALUE s1, s2;
+{
+    char *buf;
+    int len;
+
+    len = RSTRING(s1)->len + RSTRING(s2)->len + 5;
+    buf = ALLOCA_N(char, len);
+    snprintf(buf, len, "%s or %s", RSTRING(s1)->ptr, RSTRING(s2)->ptr);
+    rb_sys_fail(buf);
+}
+
+/*
+ *  call-seq:
+ *     File.link(old_name, new_name)    => 0
+ *  
+ *  Creates a new name for an existing file using a hard link. Will not
+ *  overwrite <i>new_name</i> if it already exists (raising a subclass
+ *  of <code>SystemCallError</code>). Not available on all platforms.
+ *     
+ *     File.link("testfile", ".testfile")   #=> 0
+ *     IO.readlines(".testfile")[0]         #=> "This is line one\n"
+ */
 
 static VALUE
 rb_file_s_link(klass, from, to)
     VALUE klass, from, to;
 {
-    Check_SafeStr(from);
-    Check_SafeStr(to);
+    SafeStringValue(from);
+    SafeStringValue(to);
 
-    if (link(RSTRING(from)->ptr, RSTRING(to)->ptr) < 0)
-	rb_sys_fail(RSTRING(from)->ptr);
+    if (link(StringValueCStr(from), StringValueCStr(to)) < 0) {
+	sys_fail2(from, to);
+    }
     return INT2FIX(0);
 }
+
+/*
+ *  call-seq:
+ *     File.symlink(old_name, new_name)   => 0
+ *  
+ *  Creates a symbolic link called <i>new_name</i> for the existing file
+ *  <i>old_name</i>. Raises a <code>NotImplemented</code> exception on
+ *  platforms that do not support symbolic links.
+ *     
+ *     File.symlink("testfile", "link2test")   #=> 0
+ *     
+ */
 
 static VALUE
 rb_file_s_symlink(klass, from, to)
     VALUE klass, from, to;
 {
 #ifdef HAVE_SYMLINK
-    Check_SafeStr(from);
-    Check_SafeStr(to);
+    SafeStringValue(from);
+    SafeStringValue(to);
 
-    if (symlink(RSTRING(from)->ptr, RSTRING(to)->ptr) < 0)
-	rb_sys_fail(RSTRING(from)->ptr);
+    if (symlink(StringValueCStr(from), StringValueCStr(to)) < 0) {
+	sys_fail2(from, to);
+    }
     return INT2FIX(0);
 #else
     rb_notimplement();
@@ -1135,20 +1971,41 @@ rb_file_s_symlink(klass, from, to)
 #endif
 }
 
+/*
+ *  call-seq:
+ *     File.readlink(link_name) -> file_name
+ *  
+ *  Returns the name of the file referenced by the given link.
+ *  Not available on all platforms.
+ *     
+ *     File.symlink("testfile", "link2test")   #=> 0
+ *     File.readlink("link2test")              #=> "testfile"
+ */
+
 static VALUE
 rb_file_s_readlink(klass, path)
     VALUE klass, path;
 {
 #ifdef HAVE_READLINK
-    char buf[MAXPATHLEN];
-    int cc;
+    char *buf;
+    int size = 100;
+    int rv;
+    VALUE v;
 
-    Check_SafeStr(path);
-
-    if ((cc = readlink(RSTRING(path)->ptr, buf, MAXPATHLEN)) < 0)
+    SafeStringValue(path);
+    buf = xmalloc(size);
+    while ((rv = readlink(StringValueCStr(path), buf, size)) == size) {
+	size *= 2;
+	buf = xrealloc(buf, size);
+    }
+    if (rv < 0) {
+	free(buf);
 	rb_sys_fail(RSTRING(path)->ptr);
+    }
+    v = rb_tainted_str_new(buf, rv);
+    free(buf);
 
-    return rb_tainted_str_new(buf, cc);
+    return v;
 #else
     rb_notimplement();
     return Qnil;		/* not reached */
@@ -1163,34 +2020,83 @@ unlink_internal(path)
 	rb_sys_fail(path);
 }
 
+/*
+ *  call-seq:
+ *     File.delete(file_name, ...)  => integer
+ *     File.unlink(file_name, ...)  => integer
+ *  
+ *  Deletes the named files, returning the number of names
+ *  passed as arguments. Raises an exception on any error.
+ *  See also <code>Dir::rmdir</code>.
+ */
+
 static VALUE
 rb_file_s_unlink(klass, args)
     VALUE klass, args;
 {
-    int n;
+    long n;
 
     rb_secure(2);
     n = apply2files(unlink_internal, args, 0);
-    return INT2FIX(n);
+    return LONG2FIX(n);
 }
+
+/*
+ *  call-seq:
+ *     File.rename(old_name, new_name)   => 0
+ *  
+ *  Renames the given file to the new name. Raises a
+ *  <code>SystemCallError</code> if the file cannot be renamed.
+ *     
+ *     File.rename("afile", "afile.bak")   #=> 0
+ */
 
 static VALUE
 rb_file_s_rename(klass, from, to)
     VALUE klass, from, to;
 {
-    Check_SafeStr(from);
-    Check_SafeStr(to);
+    const char *src, *dst;
+    SafeStringValue(from);
+    SafeStringValue(to);
 
-    if (rename(RSTRING(from)->ptr, RSTRING(to)->ptr) < 0) {
+    src = StringValueCStr(from);
+    dst = StringValueCStr(to);
+    if (rename(src, dst) < 0) {
 #if defined __CYGWIN__
 	extern unsigned long __attribute__((stdcall)) GetLastError();
 	errno = GetLastError(); /* This is a Cygwin bug */
+#elif defined DOSISH && !defined _WIN32
+	if (errno == EEXIST
+#if defined (__EMX__)
+	    || errno == EACCES
 #endif
-	rb_sys_fail(RSTRING(from)->ptr);
+	    ) {
+	    if (chmod(dst, 0666) == 0 &&
+		unlink(dst) == 0 &&
+		rename(src, dst) == 0)
+		return INT2FIX(0);
+	}
+#endif
+	sys_fail2(from, to);
     }
 
     return INT2FIX(0);
 }
+
+/*
+ *  call-seq:
+ *     File.umask()          => integer
+ *     File.umask(integer)   => integer
+ *  
+ *  Returns the current umask value for this process. If the optional
+ *  argument is given, set the umask to that value and return the
+ *  previous value. Umask values are <em>subtracted</em> from the
+ *  default permissions, so a umask of <code>0222</code> would make a
+ *  file read-only for everyone.
+ *     
+ *     File.umask(0006)   #=> 18
+ *     File.umask         #=> 6
+ */
 
 static VALUE
 rb_file_s_umask(argc, argv)
@@ -1208,33 +2114,188 @@ rb_file_s_umask(argc, argv)
 	omask = umask(NUM2INT(argv[0]));
     }
     else {
-	rb_raise(rb_eArgError, "wrong # of argument");
+	rb_raise(rb_eArgError, "wrong number of arguments");
     }
     return INT2FIX(omask);
 }
 
 #if defined DOSISH
+#define DOSISH_UNC
 #define isdirsep(x) ((x) == '/' || (x) == '\\')
 #else
 #define isdirsep(x) ((x) == '/')
 #endif
+#ifndef CharNext		/* defined as CharNext[AW] on Windows. */
+# if defined(DJGPP)
+#   define CharNext(p) ((p) + mblen(p, MB_CUR_MAX))
+# else
+#   define CharNext(p) ((p) + 1)
+# endif
+#endif
 
-VALUE
-rb_file_s_expand_path(argc, argv)
-    int argc;
-    VALUE *argv;
+#ifdef __CYGWIN__
+#undef DOSISH
+#define DOSISH_UNC
+#define DOSISH_DRIVE_LETTER
+#endif
+
+#ifdef DOSISH_DRIVE_LETTER
+static inline int
+has_drive_letter(buf)
+    const char *buf;
 {
-    VALUE fname, dname;
-    char *s, *p;
-    char buf[MAXPATHLEN+2];
-    char *bend = buf + sizeof(buf) - 2;
+    if (ISALPHA(buf[0]) && buf[1] == ':') {
+	return 1;
+    }
+    else {
+	return 0;
+    }
+}
+
+static char*
+getcwdofdrv(drv)
+    int drv;
+{
+    char drive[4];
+    char *drvcwd, *oldcwd;
+
+    drive[0] = drv;
+    drive[1] = ':';
+    drive[2] = '\0';
+
+    /* the only way that I know to get the current directory
+       of a particular drive is to change chdir() to that drive,
+       so save the old cwd before chdir()
+    */
+    oldcwd = my_getcwd();
+    if (chdir(drive) == 0) {
+	drvcwd = my_getcwd();
+	chdir(oldcwd);
+	free(oldcwd);
+    }
+    else {
+	/* perhaps the drive is not exist. we return only drive letter */
+	drvcwd = strdup(drive);
+    }
+    return drvcwd;
+}
+#endif
+
+static inline char *
+skiproot(path)
+    const char *path;
+{
+#ifdef DOSISH_DRIVE_LETTER
+    if (has_drive_letter(path)) path += 2;
+#endif
+    while (isdirsep(*path)) path++;
+    return (char *)path;
+}
+
+#define nextdirsep rb_path_next
+char *
+rb_path_next(s)
+    const char *s;
+{
+    while (*s && !isdirsep(*s)) {
+	s = CharNext(s);
+    }
+    return (char *)s;
+}
+
+#define skipprefix rb_path_skip_prefix
+char *
+rb_path_skip_prefix(path)
+    const char *path;
+{
+#if defined(DOSISH_UNC) || defined(DOSISH_DRIVE_LETTER) 
+#ifdef DOSISH_UNC
+    if (isdirsep(path[0]) && isdirsep(path[1])) {
+	if (*(path = nextdirsep(path + 2)))
+	    path = nextdirsep(path + 1);
+	return (char *)path;
+    }
+#endif
+#ifdef DOSISH_DRIVE_LETTER
+    if (has_drive_letter(path))
+	return (char *)(path + 2);
+#endif
+#endif
+    return (char *)path;
+}
+
+#define strrdirsep rb_path_last_separator
+char *
+rb_path_last_separator(path)
+    const char *path;
+{
+    char *last = NULL;
+    while (*path) {
+	if (isdirsep(*path)) {
+	    const char *tmp = path++;
+	    while (isdirsep(*path)) path++;
+	    if (!*path) break;
+	    last = (char *)tmp;
+	}
+	else {
+	    path = CharNext(path);
+	}
+    }
+    return last;
+}
+
+#define chompdirsep rb_path_end
+char *
+rb_path_end(path)
+    const char *path;
+{
+    while (*path) {
+	if (isdirsep(*path)) {
+	    const char *last = path++;
+	    while (isdirsep(*path)) path++;
+	    if (!*path) return (char *)last;
+	}
+	else {
+	    path = CharNext(path);
+	}
+    }
+    return (char *)path;
+}
+
+#define BUFCHECK(cond) do {\
+    long bdiff = p - buf;\
+    while (cond) {\
+	buflen *= 2;\
+    }\
+    rb_str_resize(result, buflen);\
+    buf = RSTRING(result)->ptr;\
+    p = buf + bdiff;\
+    pend = buf + buflen;\
+} while (0)
+
+#define BUFINIT() (\
+    p = buf = RSTRING(result)->ptr,\
+    buflen = RSTRING(result)->len,\
+    pend = p + buflen)
+
+#if !defined(TOLOWER)
+#define TOLOWER(c) (ISUPPER(c) ? tolower(c) : (c))
+#endif
+
+static int is_absolute_path _((const char*));
+
+static VALUE
+file_expand_path(fname, dname, result)
+    VALUE fname, dname, result;
+{
+    char *s, *buf, *b, *p, *pend, *root;
+    long buflen, dirlen;
     int tainted;
 
-    rb_scan_args(argc, argv, "11", &fname, &dname);
-
+    s = StringValuePtr(fname);
+    BUFINIT();
     tainted = OBJ_TAINTED(fname);
-    s = STR2CSTR(fname);
-    p = buf;
+
     if (s[0] == '~') {
 	if (isdirsep(s[1]) || s[1] == '\0') {
 	    char *dir = getenv("HOME");
@@ -1242,9 +2303,18 @@ rb_file_s_expand_path(argc, argv)
 	    if (!dir) {
 		rb_raise(rb_eArgError, "couldn't find HOME environment -- expanding `%s'", s);
 	    }
-	    if (strlen(dir) > MAXPATHLEN) goto toolong;
+	    dirlen = strlen(dir);
+	    BUFCHECK(dirlen > buflen);
 	    strcpy(buf, dir);
-	    p = &buf[strlen(buf)];
+#if defined DOSISH || defined __CYGWIN__
+	    for (p = buf; *p; p = CharNext(p)) {
+		if (*p == '\\') {
+		    *p = '/';
+		}
+	    }
+#else
+	    p = buf + strlen(dir);
+#endif
 	    s++;
 	    tainted = 1;
 	}
@@ -1253,10 +2323,10 @@ rb_file_s_expand_path(argc, argv)
 	    struct passwd *pwPtr;
 	    s++;
 #endif
-	    while (*s && !isdirsep(*s)) {
-		*p++ = *s++;
-		if (p >= bend) goto toolong;
-	    }
+	    s = nextdirsep(b = s);
+	    BUFCHECK(bdiff + (s-b) >= buflen);
+	    memcpy(p, b, s-b);
+	    p += s-b;
 	    *p = '\0';
 #ifdef HAVE_PWD_H
 	    pwPtr = getpwnam(buf);
@@ -1264,103 +2334,193 @@ rb_file_s_expand_path(argc, argv)
 		endpwent();
 		rb_raise(rb_eArgError, "user %s doesn't exist", buf);
 	    }
-	    if (strlen(pwPtr->pw_dir) > MAXPATHLEN) goto toolong;
+	    dirlen = strlen(pwPtr->pw_dir);
+	    BUFCHECK(dirlen > buflen);
 	    strcpy(buf, pwPtr->pw_dir);
-	    p = &buf[strlen(buf)];
+	    p = buf + strlen(pwPtr->pw_dir);
 	    endpwent();
 #endif
 	}
     }
-#if defined DOSISH || __CYGWIN__
+#ifdef DOSISH_DRIVE_LETTER
     /* skip drive letter */
-    else if (ISALPHA(s[0]) && s[1] == ':' && isdirsep(s[2])) {
-	while (*s && !isdirsep(*s)) {
-	    *p++ = *s++;
-	    if (p >= bend) goto toolong;
-	}
-    }
-#endif
-    else if (!isdirsep(*s)) {
-	if (!NIL_P(dname)) {
-	    dname = rb_file_s_expand_path(1, &dname);
-	    if (OBJ_TAINTED(dname)) tainted = 1;
-	    if (strlen(RSTRING(dname)->ptr) > MAXPATHLEN) goto toolong;
-	    strcpy(buf, RSTRING(dname)->ptr);
+    else if (has_drive_letter(s)) {
+	if (isdirsep(s[2])) {
+	    /* specified drive letter, and full path */
+	    /* skip drive letter */
+	    BUFCHECK(bdiff + 2 >= buflen);
+	    memcpy(p, s, 2);
+	    p += 2;
+	    s += 2;
 	}
 	else {
-	    tainted = 1;
-#ifdef HAVE_GETCWD
-	    getcwd(buf, MAXPATHLEN);
-#else
-	    getwd(buf);
-#endif
+	    /* specified drive, but not full path */
+	    int same = 0;
+	    if (!NIL_P(dname)) {
+		file_expand_path(dname, Qnil, result);
+		BUFINIT();
+		if (has_drive_letter(p) && TOLOWER(p[0]) == TOLOWER(s[0])) {
+		    /* ok, same drive */
+		    same = 1;
+		}
+	    }
+	    if (!same) {
+		char *dir = getcwdofdrv(*s);
+
+		tainted = 1;
+		dirlen = strlen(dir);
+		BUFCHECK(dirlen > buflen);
+		strcpy(buf, dir);
+		free(dir);
+	    }
+	    p = chompdirsep(skiproot(buf));
+	    s += 2;
 	}
-	p = &buf[strlen(buf)];
-	while (p > buf && *(p - 1) == '/') p--;
+    }
+#endif
+    else if (!is_absolute_path(s)) {
+	if (!NIL_P(dname)) {
+	    file_expand_path(dname, Qnil, result);
+	    BUFINIT();
+	}
+	else {
+	    char *dir = my_getcwd();
+
+	    tainted = 1;
+	    dirlen = strlen(dir);
+	    BUFCHECK(dirlen > buflen);
+	    strcpy(buf, dir);
+	    free(dir);
+	}
+#if defined DOSISH || defined __CYGWIN__
+	if (isdirsep(*s)) {
+	    /* specified full path, but not drive letter nor UNC */
+	    /* we need to get the drive letter or UNC share name */
+	    p = skipprefix(buf);
+	}
+	else
+#endif
+	    p = chompdirsep(skiproot(buf));
     }
     else {
-	while (*s && isdirsep(*s)) {
-	    *p++ = '/';
-	    if (p >= bend) goto toolong;
-	    s++;
-	}
-	if (p > buf && *s) p--;
+	b = s;
+	do s++; while (isdirsep(*s));
+	p = buf + (s - b);
+	BUFCHECK(bdiff >= buflen);
+	memset(buf, '/', p - buf);
     }
-    *p = '/';
+    if (p > buf && p[-1] == '/')
+	--p;
+    else
+	*p = '/';
 
-    for ( ; *s; s++) {
+    p[1] = 0;
+    root = skipprefix(buf);
+
+    b = s;
+    while (*s) {
 	switch (*s) {
 	  case '.':
-	    if (!isdirsep(*p)) {
-		*++p = '.';
-	    }
-	    else if (*(s+1)) {
-		switch (*++s) {
+	    if (b == s++) {	/* beginning of path element */
+		switch (*s) {
+		  case '\0':
+		    b = s;
+		    break;
 		  case '.':
-		    if (*(s+1) == '\0' || isdirsep(*(s+1))) { 
+		    if (*(s+1) == '\0' || isdirsep(*(s+1))) {
 			/* We must go back to the parent */
-			if (isdirsep(*p) && p > buf) p--;
-			while (p > buf && !isdirsep(*p)) p--;
-		    }
-		    else {
-			*++p = '.';
-			*++p = *s;
-			if (p >= bend) goto toolong;
+			*p = '\0';
+			if (!(b = strrdirsep(root))) {
+			    *p = '/';
+			}
+			else {
+			    p = b;
+			}
+			b = ++s;
 		    }
 		    break;
 		  case '/':
-#if defined DOSISH
+#if defined DOSISH || defined __CYGWIN__
 		  case '\\':
 #endif
-		    if (!isdirsep(*p)) *++p = '/'; 
+		    b = ++s;
 		    break;
 		  default:
-		    *++p = '.'; *++p = *s; break;
+		    /* ordinary path element, beginning don't move */
+		    break;
 		}
 	    }
 	    break;
 	  case '/':
-#if defined DOSISH
+#if defined DOSISH || defined __CYGWIN__
 	  case '\\':
 #endif
-	    if (!isdirsep(*p)) *++p = '/'; break;
+	    if (s > b) {
+		long rootdiff = root - buf;
+		BUFCHECK(bdiff + (s-b+1) >= buflen);
+		root = buf + rootdiff;
+		memcpy(++p, b, s-b);
+		p += s-b;
+		*p = '/';
+	    }
+	    b = ++s;
+	    break;
 	  default:
-	    *++p = *s;
-	    if (p >= bend) goto toolong;
+	    s = CharNext(s);
+	    break;
 	}
     }
-  
-    /* Place a \0 at end. If path ends with a "/", delete it */
-    if (p == buf || !isdirsep(*p)) p++;
+
+    if (s > b) {
+	BUFCHECK(bdiff + (s-b) >= buflen);
+	memcpy(++p, b, s-b);
+	p += s-b;
+    }
+    if (p == skiproot(buf) - 1) p++;
+
+    if (tainted) OBJ_TAINT(result);
+    RSTRING(result)->len = p - buf;
     *p = '\0';
+    return result;
+}
 
-    fname = rb_str_new2(buf);
-    if (tainted) OBJ_TAINT(fname);
-    return fname;
+VALUE
+rb_file_expand_path(fname, dname)
+    VALUE fname, dname;
+{
+    return file_expand_path(fname, dname, rb_str_new(0, MAXPATHLEN + 2));
+}
 
-  toolong:
-    rb_raise(rb_eArgError, "argument too long (size=%ld)", RSTRING(fname)->len);
-    return Qnil;		/* not reached */
+/*
+ *  call-seq:
+ *     File.expand_path(file_name [, dir_string] ) -> abs_file_name
+ *  
+ *  Converts a pathname to an absolute pathname. Relative paths are
+ *  referenced from the current working directory of the process unless
+ *  <i>dir_string</i> is given, in which case it will be used as the
+ *  starting point. The given pathname may start with a
+ *  ``<code>~</code>'', which expands to the process owner's home
+ *  directory (the environment variable <code>HOME</code> must be set
+ *  correctly). ``<code>~</code><i>user</i>'' expands to the named
+ *  user's home directory.
+ *     
+ *     File.expand_path("~oracle/bin")           #=> "/home/oracle/bin"
+ *     File.expand_path("../../bin", "/tmp/x")   #=> "/bin"
+ */
+
+VALUE
+rb_file_s_expand_path(argc, argv)
+    int argc;
+    VALUE *argv;
+{
+    VALUE fname, dname;
+
+    if (argc == 1) {
+	return rb_file_expand_path(argv[0], Qnil);
+    }
+    rb_scan_args(argc, argv, "11", &fname, &dname);
+
+    return rb_file_expand_path(fname, dname);
 }
 
 static int
@@ -1369,9 +2529,9 @@ rmext(p, e)
 {
     int l1, l2;
 
-    l1 = strlen(p);
     if (!e) return 0;
 
+    l1 = chompdirsep(p) - p;
     l2 = strlen(e);
     if (l2 == 2 && e[1] == '*') {
 	e = strrchr(p, *e);
@@ -1380,11 +2540,25 @@ rmext(p, e)
     }
     if (l1 < l2) return l1;
 
-    if (strcmp(p+l1-l2, e) == 0) {
+    if (strncmp(p+l1-l2, e, l2) == 0) {
 	return l1-l2;
     }
     return 0;
 }
+
+/*
+ *  call-seq:
+ *     File.basename(file_name [, suffix] ) -> base_name
+ *  
+ *  Returns the last component of the filename given in <i>file_name</i>,
+ *  which must be formed using forward slashes (``<code>/</code>'')
+ *  regardless of the separator used on the local file system. If
+ *  <i>suffix</i> is given and present at the end of <i>file_name</i>,
+ *  it is removed.
+ *     
+ *     File.basename("/home/gumby/work/ruby.rb")          #=> "ruby.rb"
+ *     File.basename("/home/gumby/work/ruby.rb", ".rb")   #=> "ruby"
+ */
 
 static VALUE
 rb_file_s_basename(argc, argv)
@@ -1392,92 +2566,271 @@ rb_file_s_basename(argc, argv)
     VALUE *argv;
 {
     VALUE fname, fext, basename;
-    char *name, *p, *ext;
+    char *name, *p;
     int f;
 
     if (rb_scan_args(argc, argv, "11", &fname, &fext) == 2) {
-	ext = STR2CSTR(fext);
+	StringValue(fext);
     }
-    name = STR2CSTR(fname);
-    p = strrchr(name, '/');
-    if (!p) {
-	if (NIL_P(fext) || !(f = rmext(name, ext)))
-	    return fname;
-	basename = rb_str_new(name, f);
+    StringValue(fname);
+    if (RSTRING(fname)->len == 0 || !*(name = RSTRING(fname)->ptr))
+	return fname;
+    if (!*(name = skiproot(name))) {
+	p = name - 1;
+	f = 1;
+#ifdef DOSISH_DRIVE_LETTER
+	if (*p == ':') {
+	    p++;
+	    f = 0;
+	}
+#endif
+    }
+    else if (!(p = strrdirsep(name))) {
+	if (NIL_P(fext) || !(f = rmext(name, StringValueCStr(fext)))) {
+	    f = chompdirsep(name) - name;
+	    if (f == RSTRING(fname)->len) return fname;
+	}
+	p = name;
     }
     else {
-	p++;			/* skip last `/' */
-	if (NIL_P(fext) || !(f = rmext(p, ext))) {
-	    basename = rb_str_new2(p);
-	}
-	else {
-	    basename = rb_str_new(p, f);
+	while (isdirsep(*p)) p++; /* skip last / */
+	if (NIL_P(fext) || !(f = rmext(p, StringValueCStr(fext)))) {
+	    f = chompdirsep(p) - p;
 	}
     }
+    basename = rb_str_new(p, f);
     OBJ_INFECT(basename, fname);
     return basename;
 }
+
+/*
+ *  call-seq:
+ *     File.dirname(file_name ) -> dir_name
+ *  
+ *  Returns all components of the filename given in <i>file_name</i>
+ *  except the last one. The filename must be formed using forward
+ *  slashes (``<code>/</code>'') regardless of the separator used on the
+ *  local file system.
+ *     
+ *     File.dirname("/home/gumby/work/ruby.rb")   #=> "/home/gumby/work"
+ */
 
 static VALUE
 rb_file_s_dirname(klass, fname)
     VALUE klass, fname;
 {
-    char *name, *p;
+    char *name, *root, *p;
     VALUE dirname;
 
-    name = STR2CSTR(fname);
-    p = strrchr(name, '/');
+    name = StringValueCStr(fname);
+    root = skiproot(name);
+#ifdef DOSISH_UNC
+    if (root > name + 2 && isdirsep(*name))
+	name = root - 2;
+#else
+    if (root > name + 1)
+	name = root - 1;
+#endif
+    p = strrdirsep(root);
     if (!p) {
-	return rb_str_new2(".");
+	p = root;
     }
     if (p == name)
-	p++;
+	return rb_str_new2(".");
     dirname = rb_str_new(name, p - name);
-    if (OBJ_TAINTED(fname)) OBJ_TAINT(dirname);
+#ifdef DOSISH_DRIVE_LETTER
+    if (root == name + 2 && name[1] == ':')
+	rb_str_cat(dirname, ".", 1);
+#endif
+    OBJ_INFECT(dirname, fname);
     return dirname;
 }
+
+/*
+ *  call-seq:
+ *     File.extname(path) -> string
+ *  
+ *  Returns the extension (the portion of file name in <i>path</i>
+ *  after the period).
+ *     
+ *     File.extname("test.rb")         #=> ".rb"
+ *     File.extname("a/b/d/test.rb")   #=> ".rb"
+ *     File.extname("test")            #=> ""
+ *     File.extname(".profile")        #=> ""
+ *     
+ */
+
+static VALUE
+rb_file_s_extname(klass, fname)
+    VALUE klass, fname;
+{
+    char *name, *p, *e;
+    VALUE extname;
+
+    name = StringValueCStr(fname);
+    p = strrdirsep(name);	/* get the last path component */
+    if (!p)
+ 	p = name;
+    else
+ 	p++;
+ 
+     e = strrchr(p, '.');	/* get the last dot of the last component */
+     if (!e || e == p)		/* no dot, or the only dot is first? */
+	 return rb_str_new2("");
+     extname = rb_str_new(e, chompdirsep(e) - e);	/* keep the dot, too! */
+     OBJ_INFECT(extname, fname);
+     return extname;
+}
+
+/*
+ *  call-seq:
+ *     File.split(file_name)   => array
+ *  
+ *  Splits the given string into a directory and a file component and
+ *  returns them in a two-element array. See also
+ *  <code>File::dirname</code> and <code>File::basename</code>.
+ *     
+ *     File.split("/home/gumby/.profile")   #=> ["/home/gumby", ".profile"]
+ */
 
 static VALUE
 rb_file_s_split(klass, path)
     VALUE klass, path;
 {
+    StringValue(path);		/* get rid of converting twice */
     return rb_assoc_new(rb_file_s_dirname(Qnil, path), rb_file_s_basename(1,&path));
 }
 
 static VALUE separator;
 
+static VALUE rb_file_join _((VALUE ary, VALUE sep));
+
+static VALUE
+file_inspect_join(ary, arg)
+    VALUE ary;
+    VALUE *arg;
+{
+    return rb_file_join(arg[0], arg[1]);
+}
+
+static VALUE
+rb_file_join(ary, sep)
+    VALUE ary, sep;
+{
+    long len, i;
+    int taint = 0;
+    VALUE result, tmp;
+    char *name;
+
+    if (RARRAY(ary)->len == 0) return rb_str_new(0, 0);
+    if (OBJ_TAINTED(ary)) taint = 1;
+    if (OBJ_TAINTED(sep)) taint = 1;
+
+    len = 1;
+    for (i=0; i<RARRAY(ary)->len; i++) {
+	if (TYPE(RARRAY(ary)->ptr[i]) == T_STRING) {
+	    len += RSTRING(RARRAY(ary)->ptr[i])->len;
+	}
+	else {
+	    len += 10;
+	}
+    }
+    if (!NIL_P(sep) && TYPE(sep) == T_STRING) {
+	len += RSTRING(sep)->len * RARRAY(ary)->len - 1;
+    }
+    result = rb_str_buf_new(len);
+    for (i=0; i<RARRAY(ary)->len; i++) {
+	tmp = RARRAY(ary)->ptr[i];
+	switch (TYPE(tmp)) {
+	  case T_STRING:
+	    break;
+	  case T_ARRAY:
+	    if (rb_inspecting_p(tmp)) {
+		tmp = rb_str_new2("[...]");
+	    }
+	    else {
+		VALUE args[2];
+
+		args[0] = tmp;
+		args[1] = sep;
+		tmp = rb_protect_inspect(file_inspect_join, ary, (VALUE)args);
+	    }
+	    break;
+	  default:
+	    tmp = rb_obj_as_string(tmp);
+	}
+	name = StringValueCStr(result);
+	if (i > 0 && !NIL_P(sep) && !*chompdirsep(name))
+	    rb_str_buf_append(result, sep);
+	rb_str_buf_append(result, tmp);
+	if (OBJ_TAINTED(tmp)) taint = 1;
+    }
+
+    if (taint) OBJ_TAINT(result);
+    return result;
+}
+
+/*
+ *  call-seq:
+ *     File.join(string, ...) -> path
+ *  
+ *  Returns a new string formed by joining the strings using
+ *  <code>File::SEPARATOR</code>.
+ *     
+ *     File.join("usr", "mail", "gumby")   #=> "usr/mail/gumby"
+ *     
+ */
+
 static VALUE
 rb_file_s_join(klass, args)
     VALUE klass, args;
 {
-    return rb_ary_join(args, separator);
+    return rb_file_join(args, separator);
 }
+
+/*
+ *  call-seq:
+ *     File.truncate(file_name, integer)  => 0
+ *  
+ *  Truncates the file <i>file_name</i> to be at most <i>integer</i>
+ *  bytes long. Not available on all platforms.
+ *     
+ *     f = File.new("out", "w")
+ *     f.write("1234567890")     #=> 10
+ *     f.close                   #=> nil
+ *     File.truncate("out", 5)   #=> 0
+ *     File.size("out")          #=> 5
+ *     
+ */
 
 static VALUE
 rb_file_s_truncate(klass, path, len)
     VALUE klass, path, len;
 {
+    off_t pos;
+
     rb_secure(2);
-    Check_SafeStr(path);
+    pos = NUM2OFFT(len);
+    SafeStringValue(path);
 
 #ifdef HAVE_TRUNCATE
-    if (truncate(RSTRING(path)->ptr, NUM2INT(len)) < 0)
+    if (truncate(StringValueCStr(path), pos) < 0)
 	rb_sys_fail(RSTRING(path)->ptr);
 #else
 # ifdef HAVE_CHSIZE
     {
 	int tmpfd;
 
-#  if defined(NT)
-	if ((tmpfd = open(RSTRING(path)->ptr, O_RDWR)) < 0) {
+#  ifdef _WIN32
+	if ((tmpfd = open(StringValueCStr(path), O_RDWR)) < 0) {
 	    rb_sys_fail(RSTRING(path)->ptr);
 	}
 #  else
-	if ((tmpfd = open(RSTRING(path)->ptr, 0)) < 0) {
+	if ((tmpfd = open(StringValueCStr(path), 0)) < 0) {
 	    rb_sys_fail(RSTRING(path)->ptr);
 	}
 #  endif
-	if (chsize(tmpfd, NUM2INT(len)) < 0) {
+	if (chsize(tmpfd, pos) < 0) {
 	    close(tmpfd);
 	    rb_sys_fail(RSTRING(path)->ptr);
 	}
@@ -1490,23 +2843,43 @@ rb_file_s_truncate(klass, path, len)
     return INT2FIX(0);
 }
 
+/*
+ *  call-seq:
+ *     file.truncate(integer)    => 0
+ *  
+ *  Truncates <i>file</i> to at most <i>integer</i> bytes. The file
+ *  must be opened for writing. Not available on all platforms.
+ *     
+ *     f = File.new("out", "w")
+ *     f.syswrite("1234567890")   #=> 10
+ *     f.truncate(5)              #=> 0
+ *     f.close()                  #=> nil
+ *     File.size("out")           #=> 5
+ */
+
 static VALUE
 rb_file_truncate(obj, len)
     VALUE obj, len;
 {
     OpenFile *fptr;
+    FILE *f;
+    off_t pos;
 
     rb_secure(2);
+    pos = NUM2OFFT(len);
     GetOpenFile(obj, fptr);
     if (!(fptr->mode & FMODE_WRITABLE)) {
 	rb_raise(rb_eIOError, "not opened for writing");
     }
+    f = GetWriteFile(fptr);
+    fflush(f);
+    fseeko(f, (off_t)0, SEEK_CUR);
 #ifdef HAVE_TRUNCATE
-    if (ftruncate(fileno(fptr->f), NUM2INT(len)) < 0)
+    if (ftruncate(fileno(f), pos) < 0)
 	rb_sys_fail(fptr->path);
 #else
 # ifdef HAVE_CHSIZE
-    if (chsize(fileno(fptr->f), NUM2INT(len)) < 0)
+    if (chsize(fileno(f), pos) < 0)
 	rb_sys_fail(fptr->path);
 # else
     rb_notimplement();
@@ -1528,7 +2901,7 @@ rb_file_truncate(obj, len)
 #  define LOCK_UN 8
 # endif
 
-#if defined(EWOULDBLOCK) && 0
+#if 1
 static int
 rb_thread_flock(fd, op, fptr)
     int fd, op;
@@ -1557,6 +2930,35 @@ rb_thread_flock(fd, op, fptr)
 #define flock(fd, op) rb_thread_flock(fd, op, fptr)
 #endif
 
+/*
+ *  call-seq:
+ *     file.flock (locking_constant ) =>  0 or false
+ *  
+ *  Locks or unlocks a file according to <i>locking_constant</i> (a
+ *  logical <em>or</em> of the values in the table below).
+ *  Returns <code>false</code> if <code>File::LOCK_NB</code> is
+ *  specified and the operation would otherwise have blocked. Not
+ *  available on all platforms.
+ *     
+ *  Locking constants (in class File):
+ *
+ *     LOCK_EX   | Exclusive lock. Only one process may hold an
+ *               | exclusive lock for a given file at a time.
+ *     ----------+------------------------------------------------
+ *     LOCK_NB   | Don't block when locking. May be combined
+ *               | with other lock options using logical or.
+ *     ----------+------------------------------------------------
+ *     LOCK_SH   | Shared lock. Multiple processes may each hold a
+ *               | shared lock for a given file at the same time.
+ *     ----------+------------------------------------------------
+ *     LOCK_UN   | Unlock.
+ *
+ *  Example:
+ *
+ *     File.new("testfile").flock(File::LOCK_UN)   #=> 0
+ *     
+ */
+
 static VALUE
 rb_file_flock(obj, operation)
     VALUE obj;
@@ -1564,18 +2966,17 @@ rb_file_flock(obj, operation)
 {
 #ifndef __CHECKER__
     OpenFile *fptr;
-    int ret;
+    int op;
 
     rb_secure(2);
+    op = NUM2INT(operation);
     GetOpenFile(obj, fptr);
 
     if (fptr->mode & FMODE_WRITABLE) {
 	fflush(GetWriteFile(fptr));
     }
-    TRAP_BEG;
-    ret = flock(fileno(fptr->f), NUM2INT(operation));
-    TRAP_END;
-    if (ret < 0) {
+  retry:
+    if (flock(fileno(fptr->f), op) < 0) {
         switch (errno) {
           case EAGAIN:
           case EACCES:
@@ -1583,6 +2984,11 @@ rb_file_flock(obj, operation)
           case EWOULDBLOCK:
 #endif
               return Qfalse;
+	  case EINTR:
+#if defined(ERESTART)
+	  case ERESTART:
+#endif
+	    goto retry;
         }
 	rb_sys_fail(fptr->path);
     }
@@ -1599,22 +3005,79 @@ test_check(n, argc, argv)
     int i;
 
     n+=1;
-    if (n != argc) rb_raise(rb_eArgError, "wrong # of arguments(%d for %d)", argc, n);
+    if (n != argc) rb_raise(rb_eArgError, "wrong number of arguments (%d for %d)", argc, n);
     for (i=1; i<n; i++) {
 	switch (TYPE(argv[i])) {
 	  case T_STRING:
-	    Check_SafeStr(argv[i]);
+	  default:
+	    SafeStringValue(argv[i]);
 	    break;
 	  case T_FILE:
-	    break;
-	  default:
-	    Check_Type(argv[i], T_STRING);
 	    break;
 	}
     }
 }
 
 #define CHECK(n) test_check((n), argc, argv)
+
+/*
+ *  call-seq:
+ *     test(int_cmd, file1 [, file2] ) => obj
+ *  
+ *  Uses the integer <i>aCmd</i> to perform various tests on
+ *  <i>file1</i> (first table below) or on <i>file1</i> and
+ *  <i>file2</i> (second table).
+ *     
+ *  File tests on a single file:
+ *
+ *    Test   Returns   Meaning
+ *     ?A  | Time    | Last access time for file1
+ *     ?b  | boolean | True if file1 is a block device
+ *     ?c  | boolean | True if file1 is a character device
+ *     ?C  | Time    | Last change time for file1
+ *     ?d  | boolean | True if file1 exists and is a directory
+ *     ?e  | boolean | True if file1 exists
+ *     ?f  | boolean | True if file1 exists and is a regular file
+ *     ?g  | boolean | True if files has the \CF{setgid} bit
+ *         |         | set (false under NT)
+ *     ?G  | boolean | True if file1 exists and has a group
+ *         |         | ownership equal to the caller's group
+ *     ?k  | boolean | True if file1 exists and has the sticky bit set
+ *     ?l  | boolean | True if files exists and is a symbolic link
+ *     ?M  | Time    | Last modification time for file1
+ *     ?o  | boolean | True if files exists and is owned by 
+ *         |         | the caller's effective uid
+ *     ?O  | boolean | True if file1 exists and is owned by
+ *         |         | the caller's real uid
+ *     ?p  | boolean | True if file1 exists and is a fifo
+ *     ?r  | boolean | True if file1 is readable by the effective
+ *         |         | uid/gid of the caller
+ *     ?R  | boolean | True if file is readable by the real
+ *         |         | uid/gid of the caller
+ *     ?s  | int/nil | If files has nonzero size, return the size,
+ *         |         | otherwise return nil
+ *     ?S  | boolean | True if file1 exists and is a socket
+ *     ?u  | boolean | True if file1 has the setuid bit set
+ *     ?w  | boolean | True if file1 exists and is writable by
+ *         |         | the effective uid/gid
+ *     ?W  | boolean | True if file1 exists and is writable by
+ *         |         | the real uid/gid
+ *     ?x  | boolean | True if file1 exists and is executable by
+ *         |         | the effective uid/gid
+ *     ?X  | boolean | True if file1 exists and is executable by
+ *         |         | the real uid/gid
+ *     ?z  | boolean | True if file1 exists and has a zero length
+ *
+ * Tests that take two files:
+ *
+ *     ?-  | boolean | True if file1 is a hard link to file2
+ *     ?=  | boolean | True if the modification times of file1
+ *         |         | and file2 are equal
+ *     ?<  | boolean | True if the modification time of file1
+ *         |         | is prior to that of file2
+ *     ?>  | boolean | True if the modification time of file1
+ *         |         | is after that of file2
+ */
 
 static VALUE
 rb_f_test(argc, argv)
@@ -1623,7 +3086,7 @@ rb_f_test(argc, argv)
 {
     int cmd;
 
-    if (argc == 0) rb_raise(rb_eArgError, "wrong # of arguments");
+    if (argc == 0) rb_raise(rb_eArgError, "wrong number of arguments");
 #if 0 /* 1.7 behavior? */
     if (argc == 1) {
 	return RTEST(argv[0]) ? Qtrue : Qfalse;
@@ -1733,15 +3196,15 @@ rb_f_test(argc, argv)
 	    if (st1.st_dev == st2.st_dev && st1.st_ino == st2.st_ino)
 		return Qtrue;
             return Qfalse;
-                        
+
 	  case '=':
 	    if (st1.st_mtime == st2.st_mtime) return Qtrue;
 	    return Qfalse;
-                        
+
 	  case '>':
 	    if (st1.st_mtime > st2.st_mtime) return Qtrue;
 	    return Qfalse;
-            
+
 	  case '<':
 	    if (st1.st_mtime < st2.st_mtime) return Qtrue;
 	    return Qfalse;
@@ -1752,29 +3215,99 @@ rb_f_test(argc, argv)
     return Qnil;		/* not reached */
 }
 
-static VALUE
-rb_stat_s_new(klass, fname)
-    VALUE klass, fname;
-{
-    VALUE s;
-    struct stat st;
 
-    Check_SafeStr(fname);
-    if (rb_sys_stat(RSTRING(fname)->ptr, &st) == -1) {
+
+/*
+ *  Document-class: File::Stat
+ *
+ *  Objects of class <code>File::Stat</code> encapsulate common status
+ *  information for <code>File</code> objects. The information is
+ *  recorded at the moment the <code>File::Stat</code> object is
+ *  created; changes made to the file after that point will not be
+ *  reflected. <code>File::Stat</code> objects are returned by
+ *  <code>IO#stat</code>, <code>File::stat</code>,
+ *  <code>File#lstat</code>, and <code>File::lstat</code>. Many of these
+ *  methods return platform-specific values, and not all values are
+ *  meaningful on all systems. See also <code>Kernel#test</code>.
+ */
+
+static VALUE rb_stat_s_alloc _((VALUE));
+static VALUE
+rb_stat_s_alloc(klass)
+    VALUE klass;
+{
+    return stat_new_0(klass, 0);
+}
+
+/*
+ * call-seq:
+ *
+ *   File::Stat.new(file_name)  => stat
+ *
+ * Create a File::Stat object for the given file name (raising an
+ * exception if the file doesn't exist).
+ */
+
+static VALUE
+rb_stat_init(obj, fname)
+    VALUE obj, fname;
+{
+    struct stat st, *nst;
+
+    SafeStringValue(fname);
+
+    if (stat(StringValueCStr(fname), &st) == -1) {
 	rb_sys_fail(RSTRING(fname)->ptr);
     }
-    s = stat_new_0(klass, &st);
-    rb_obj_call_init(s, 1, &fname);
-    return s;
+    if (DATA_PTR(obj)) {
+	free(DATA_PTR(obj));
+	DATA_PTR(obj) = NULL;
+    }
+    nst = ALLOC(struct stat);
+    *nst = st;
+    DATA_PTR(obj) = nst;
+
+    return Qnil;
 }
 
 static VALUE
-rb_stat_init(klass, fname)
-    VALUE klass, fname;
+rb_stat_init_copy(copy, orig)
+    VALUE copy, orig;
 {
-    /* do nothing */
-    return Qnil;
+    struct stat *nst;
+
+    if (copy == orig) return orig;
+    rb_check_frozen(copy);
+    /* need better argument type check */
+    if (!rb_obj_is_instance_of(orig, rb_obj_class(copy))) {
+	rb_raise(rb_eTypeError, "wrong argument class");
+    }
+    if (DATA_PTR(copy)) {
+	free(DATA_PTR(copy));
+	DATA_PTR(copy) = 0;
+    }
+    if (DATA_PTR(orig)) {
+	nst = ALLOC(struct stat);
+	*nst = *(struct stat*)DATA_PTR(orig);
+	DATA_PTR(copy) = nst;
+    }
+
+    return copy;
 }
+
+/*
+ *  call-seq:
+ *     stat.ftype   => string
+ *  
+ *  Identifies the type of <i>stat</i>. The return string is one of:
+ *  ``<code>file</code>'', ``<code>directory</code>'',
+ *  ``<code>characterSpecial</code>'', ``<code>blockSpecial</code>'',
+ *  ``<code>fifo</code>'', ``<code>link</code>'',
+ *  ``<code>socket</code>'', or ``<code>unknown</code>''.
+ *     
+ *     File.stat("/dev/tty").ftype   #=> "characterSpecial"
+ *     
+ */
 
 static VALUE
 rb_stat_ftype(obj)
@@ -1783,6 +3316,17 @@ rb_stat_ftype(obj)
     return rb_file_ftype(get_stat(obj));
 }
 
+/*
+ *  call-seq:
+ *     stat.directory?   => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is a directory,
+ *  <code>false</code> otherwise.
+ *     
+ *     File.stat("testfile").directory?   #=> false
+ *     File.stat(".").directory?          #=> true
+ */
+
 static VALUE
 rb_stat_d(obj)
     VALUE obj;
@@ -1790,6 +3334,14 @@ rb_stat_d(obj)
     if (S_ISDIR(get_stat(obj)->st_mode)) return Qtrue;
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.pipe?    => true or false
+ *  
+ *  Returns <code>true</code> if the operating system supports pipes and
+ *  <i>stat</i> is a pipe; <code>false</code> otherwise.
+ */
 
 static VALUE
 rb_stat_p(obj)
@@ -1802,6 +3354,23 @@ rb_stat_p(obj)
     return Qfalse;
 }
 
+/*
+ *  call-seq:
+ *     stat.symlink?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is a symbolic link,
+ *  <code>false</code> if it isn't or if the operating system doesn't
+ *  support this feature. As <code>File::stat</code> automatically
+ *  follows symbolic links, <code>symlink?</code> will always be
+ *  <code>false</code> for an object returned by
+ *  <code>File::stat</code>.
+ *     
+ *     File.symlink("testfile", "alink")   #=> 0
+ *     File.stat("alink").symlink?         #=> false
+ *     File.lstat("alink").symlink?        #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_l(obj)
     VALUE obj;
@@ -1811,6 +3380,18 @@ rb_stat_l(obj)
 #endif
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.socket?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is a socket,
+ *  <code>false</code> if it isn't or if the operating system doesn't
+ *  support this feature.
+ *     
+ *     File.stat("testfile").socket?   #=> false
+ *     
+ */
 
 static VALUE
 rb_stat_S(obj)
@@ -1823,6 +3404,19 @@ rb_stat_S(obj)
     return Qfalse;
 }
 
+/*
+ *  call-seq:
+ *     stat.blockdev?   => true or false
+ *  
+ *  Returns <code>true</code> if the file is a block device,
+ *  <code>false</code> if it isn't or if the operating system doesn't
+ *  support this feature.
+ *     
+ *     File.stat("testfile").blockdev?    #=> false
+ *     File.stat("/dev/hda1").blockdev?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_b(obj)
     VALUE obj;
@@ -1834,6 +3428,18 @@ rb_stat_b(obj)
     return Qfalse;
 }
 
+/*
+ *  call-seq:
+ *     stat.chardev?    => true or false
+ *  
+ *  Returns <code>true</code> if the file is a character device,
+ *  <code>false</code> if it isn't or if the operating system doesn't
+ *  support this feature.
+ *     
+ *     File.stat("/dev/tty").chardev?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_c(obj)
     VALUE obj;
@@ -1842,6 +3448,18 @@ rb_stat_c(obj)
 
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.owned?    => true or false
+ *  
+ *  Returns <code>true</code> if the effective user id of the process is
+ *  the same as the owner of <i>stat</i>.
+ *     
+ *     File.stat("testfile").owned?      #=> true
+ *     File.stat("/etc/passwd").owned?   #=> false
+ *     
+ */
 
 static VALUE
 rb_stat_owned(obj)
@@ -1859,15 +3477,38 @@ rb_stat_rowned(obj)
     return Qfalse;
 }
 
+/*
+ *  call-seq:
+ *     stat.grpowned?   => true or false
+ *  
+ *  Returns true if the effective group id of the process is the same as
+ *  the group id of <i>stat</i>. On Windows NT, returns <code>false</code>.
+ *     
+ *     File.stat("testfile").grpowned?      #=> true
+ *     File.stat("/etc/passwd").grpowned?   #=> false
+ *     
+ */
+
 static VALUE
 rb_stat_grpowned(obj)
     VALUE obj;
 {
-#ifndef NT
+#ifndef _WIN32
     if (get_stat(obj)->st_gid == getegid()) return Qtrue;
 #endif
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.readable?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is readable by the
+ *  effective user id of this process.
+ *     
+ *     File.stat("testfile").readable?   #=> true
+ *     
+ */
 
 static VALUE
 rb_stat_r(obj)
@@ -1889,6 +3530,19 @@ rb_stat_r(obj)
     return Qtrue;
 }
 
+
+
+/*
+ *  call-seq:
+ *     stat.readable_real? -> true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is readable by the real
+ *  user id of this process.
+ *     
+ *     File.stat("testfile").readable_real?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_R(obj)
     VALUE obj;
@@ -1908,6 +3562,17 @@ rb_stat_R(obj)
 #endif
     return Qtrue;
 }
+
+/*
+ *  call-seq:
+ *     stat.writable? -> true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is writable by the
+ *  effective user id of this process.
+ *     
+ *     File.stat("testfile").writable?   #=> true
+ *     
+ */
 
 static VALUE
 rb_stat_w(obj)
@@ -1929,6 +3594,17 @@ rb_stat_w(obj)
     return Qtrue;
 }
 
+/*
+ *  call-seq:
+ *     stat.writable_real? -> true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is writable by the real
+ *  user id of this process.
+ *     
+ *     File.stat("testfile").writable_real?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_W(obj)
     VALUE obj;
@@ -1948,6 +3624,19 @@ rb_stat_W(obj)
 #endif
     return Qtrue;
 }
+
+/*
+ *  call-seq:
+ *     stat.executable?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is executable or if the
+ *  operating system doesn't distinguish executable files from
+ *  nonexecutable files. The tests are made using the effective owner of
+ *  the process.
+ *     
+ *     File.stat("testfile").executable?   #=> false
+ *     
+ */
 
 static VALUE
 rb_stat_x(obj)
@@ -1969,6 +3658,15 @@ rb_stat_x(obj)
     return Qtrue;
 }
 
+/*
+ *  call-seq:
+ *     stat.executable_real?    => true or false
+ *  
+ *  Same as <code>executable?</code>, but tests using the real owner of
+ *  the process.
+ */
+
+
 static VALUE
 rb_stat_X(obj)
     VALUE obj;
@@ -1989,6 +3687,17 @@ rb_stat_X(obj)
     return Qtrue;
 }
 
+/*
+ *  call-seq:
+ *     stat.file?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is a regular file (not
+ *  a device file, pipe, socket, etc.).
+ *     
+ *     File.stat("testfile").file?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_f(obj)
     VALUE obj;
@@ -1996,6 +3705,17 @@ rb_stat_f(obj)
     if (S_ISREG(get_stat(obj)->st_mode)) return Qtrue;
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.zero?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> is a zero-length file;
+ *  <code>false</code> otherwise.
+ *     
+ *     File.stat("testfile").zero?   #=> false
+ *     
+ */
 
 static VALUE
 rb_stat_z(obj)
@@ -2005,15 +3725,37 @@ rb_stat_z(obj)
     return Qfalse;
 }
 
+
+/*
+ *  call-seq:
+ *     state.size    => integer
+ *  
+ *  Returns the size of <i>stat</i> in bytes.
+ *     
+ *     File.stat("testfile").size   #=> 66
+ *     
+ */
+
 static VALUE
 rb_stat_s(obj)
     VALUE obj;
 {
-    int size = get_stat(obj)->st_size;
+    off_t size = get_stat(obj)->st_size;
 
     if (size == 0) return Qnil;
-    return INT2FIX(size);
+    return OFFT2NUM(size);
 }
+
+/*
+ *  call-seq:
+ *     stat.setuid?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> has the set-user-id
+ *  permission bit set, <code>false</code> if it doesn't or if the
+ *  operating system doesn't support this feature.
+ *     
+ *     File.stat("/bin/su").setuid?   #=> true
+ */
 
 static VALUE
 rb_stat_suid(obj)
@@ -2025,6 +3767,18 @@ rb_stat_suid(obj)
     return Qfalse;
 }
 
+/*
+ *  call-seq:
+ *     stat.setgid?   => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> has the set-group-id
+ *  permission bit set, <code>false</code> if it doesn't or if the
+ *  operating system doesn't support this feature.
+ *     
+ *     File.stat("/usr/sbin/lpc").setgid?   #=> true
+ *     
+ */
+
 static VALUE
 rb_stat_sgid(obj)
     VALUE obj;
@@ -2034,6 +3788,18 @@ rb_stat_sgid(obj)
 #endif
     return Qfalse;
 }
+
+/*
+ *  call-seq:
+ *     stat.sticky?    => true or false
+ *  
+ *  Returns <code>true</code> if <i>stat</i> has its sticky bit set,
+ *  <code>false</code> if it doesn't or if the operating system doesn't
+ *  support this feature.
+ *     
+ *     File.stat("testfile").sticky?   #=> false
+ *     
+ */
 
 static VALUE
 rb_stat_sticky(obj)
@@ -2059,44 +3825,54 @@ static int
 is_absolute_path(path)
     const char *path;
 {
+#ifdef DOSISH_DRIVE_LETTER
+    if (has_drive_letter(path) && isdirsep(path[2])) return 1;
+#endif
+#ifdef DOSISH_UNC
+    if (isdirsep(path[0]) && isdirsep(path[1])) return 1;
+#endif
+#ifndef DOSISH
     if (path[0] == '/') return 1;
-# if defined DOSISH || defined __CYGWIN__
-    if (path[0] == '\\') return 1;
-    if (strlen(path) > 2 && path[1] == ':') return 1;
-# endif
+#endif
     return 0;
 }
 
 #ifndef DOSISH
 static int
 path_check_1(path)
-    char *path;
+     VALUE path;
 {
     struct stat st;
-    char *p = 0;
-    char *s;
+    char *p0 = StringValueCStr(path);
+    char *p = 0, *s;
 
-    if (!is_absolute_path(path)) {
-	char buf[MAXPATHLEN+1];
+    if (!is_absolute_path(p0)) {
+	char *buf = my_getcwd();
+	VALUE newpath;
 
-#ifdef HAVE_GETCWD
-	if (getcwd(buf, MAXPATHLEN) == 0) return 0;
-#else
-	if (getwd(buf) == 0) return 0;
-#endif
-	strncat(buf, "/", MAXPATHLEN);
-	strncat(buf, path, MAXPATHLEN);
-	buf[MAXPATHLEN] = '\0';
-	return path_check_1(buf);
+	newpath = rb_str_new2(buf);
+	free(buf);
+
+	rb_str_cat2(newpath, "/");
+	rb_str_cat2(newpath, p0);
+	return path_check_1(newpath);
     }
     for (;;) {
-	if (stat(path, &st) == 0 && (st.st_mode & 002)) {
-           if (p) *p = '/';
-	   return 0;
+#ifndef S_IWOTH
+# define S_IWOTH 002
+#endif
+	if (stat(p0, &st) == 0 && S_ISDIR(st.st_mode) && (st.st_mode & S_IWOTH)
+#ifdef S_ISVTX
+	    && !(st.st_mode & S_ISVTX)
+#endif
+	    ) {
+	    rb_warn("Insecure world writable dir %s, mode 0%o", p0, st.st_mode);
+	    if (p) *p = '/';
+	    return 0;
 	}
-	s = strrchr(path, '/');
+	s = strrdirsep(p0);
 	if (p) *p = '/';
-	if (!s || s == path) return 1;
+	if (!s || s == p0) return 1;
 	p = s;
 	*p = '\0';
     }
@@ -2108,27 +3884,24 @@ rb_path_check(path)
     char *path;
 {
 #ifndef DOSISH
-    char *p, *pend;
+    char *p0, *p, *pend;
     const char sep = PATH_SEP_CHAR;
 
     if (!path) return 1;
 
-    p = path;
-    pend = strchr(path, sep);
-    
-    for (;;) {
-	int safe;
+    pend = path + strlen(path);
+    p0 = path;
+    p = strchr(path, sep);
+    if (!p) p = pend;
 
-	if (pend) *pend = '\0';
-	safe = path_check_1(p);
-	if (!safe) {
-	    if (pend) *pend = sep;
-	    return 0;
+    for (;;) {
+	if (!path_check_1(rb_str_new(p0, p - p0))) {
+	    return 0;		/* not safe */
 	}
-	if (!pend) break;
-	*pend = sep;
-	p = pend + 1;
-	pend = strchr(p, sep);
+	p0 = p + 1;
+	if (p0 > pend) break;
+	p = strchr(p0, sep);
+	if (!p) p = pend;
     }
 #endif
     return 1;
@@ -2162,20 +3935,20 @@ extern VALUE rb_load_path;
 int
 rb_find_file_ext(filep, ext)
     VALUE *filep;
-    const char *const *ext;
+    const char * const *ext;
 {
-    char *path, *e, *found;
+    char *path, *found;
     char *f = RSTRING(*filep)->ptr;
     VALUE fname;
-    int i, j;
+    long i, j;
 
     if (f[0] == '~') {
-	fname = *filep;
-	fname = rb_file_s_expand_path(1, &fname);
+	fname = rb_file_expand_path(*filep, Qnil);
 	if (rb_safe_level() >= 2 && OBJ_TAINTED(fname)) {
 	    rb_raise(rb_eSecurityError, "loading from unsafe file %s", f);
 	}
-	f = STR2CSTR(fname);
+	OBJ_FREEZE(fname);
+	f = StringValueCStr(fname);
 	*filep = fname;
     }
 
@@ -2183,7 +3956,8 @@ rb_find_file_ext(filep, ext)
 	for (i=0; ext[i]; i++) {
 	    fname = rb_str_dup(*filep);
 	    rb_str_cat2(fname, ext[i]);
-	    if (file_load_ok(RSTRING(fname)->ptr)) {
+	    OBJ_FREEZE(fname);
+	    if (file_load_ok(StringValueCStr(fname))) {
 		*filep = fname;
 		return i+1;
 	    }
@@ -2197,13 +3971,14 @@ rb_find_file_ext(filep, ext)
     for (i=0;i<RARRAY(rb_load_path)->len;i++) {
 	VALUE str = RARRAY(rb_load_path)->ptr[i];
 
-	Check_SafeStr(str);
-	if (RSTRING(str)->len == 0) return 0;
+	SafeStringValue(str);
+	if (RSTRING(str)->len == 0) continue;
 	path = RSTRING(str)->ptr;
 	for (j=0; ext[j]; j++) {
 	    fname = rb_str_dup(*filep);
 	    rb_str_cat2(fname, ext[j]);
-	    found = dln_find_file(RSTRING(fname)->ptr, path);
+	    OBJ_FREEZE(fname);
+	    found = dln_find_file(StringValueCStr(fname), path);
 	    if (found && file_load_ok(found)) {
 		*filep = fname;
 		return j+1;
@@ -2217,22 +3992,22 @@ VALUE
 rb_find_file(path)
     VALUE path;
 {
-    VALUE tmp, fname;
-    char *f = RSTRING(path)->ptr;
+    VALUE tmp;
+    char *f = StringValueCStr(path);
     char *lpath;
-    struct stat st;
 
     if (f[0] == '~') {
-	path = rb_file_s_expand_path(1, &path);
-	if (rb_safe_level() >= 2 && OBJ_TAINTED(path)) {
-	    rb_raise(rb_eSecurityError, "loading from unsafe file %s", f);
+	path = rb_file_expand_path(path, Qnil);
+	if (rb_safe_level() >= 1 && OBJ_TAINTED(path)) {
+	    rb_raise(rb_eSecurityError, "loading from unsafe path %s", f);
 	}
-	f = STR2CSTR(path);
+	OBJ_FREEZE(path);
+	f = StringValueCStr(path);
     }
 
 #if defined(__MACOS__) || defined(riscos)
     if (is_macos_native_path(f)) {
-	if (rb_safe_level() >= 2 && !rb_path_check(f)) {
+	if (rb_safe_level() >= 1 && !rb_path_check(f)) {
 	    rb_raise(rb_eSecurityError, "loading from unsafe file %s", f);
 	}
 	if (file_load_ok(f)) return path;
@@ -2240,7 +4015,7 @@ rb_find_file(path)
 #endif
 
     if (is_absolute_path(f)) {
-	if (rb_safe_level() >= 2 && !rb_path_check(f)) {
+	if (rb_safe_level() >= 1 && !rb_path_check(f)) {
 	    rb_raise(rb_eSecurityError, "loading from unsafe file %s", f);
 	}
 	if (file_load_ok(f)) return path;
@@ -2251,13 +4026,13 @@ rb_find_file(path)
     }
 
     if (rb_load_path) {
-	int i;
+	long i;
 
 	Check_Type(rb_load_path, T_ARRAY);
 	tmp = rb_ary_new();
 	for (i=0;i<RARRAY(rb_load_path)->len;i++) {
 	    VALUE str = RARRAY(rb_load_path)->ptr[i];
-	    Check_SafeStr(str);
+	    SafeStringValue(str);
 	    if (RSTRING(str)->len > 0) {
 		rb_ary_push(tmp, str);
 	    }
@@ -2267,8 +4042,8 @@ rb_find_file(path)
 	    lpath = 0;
 	}
 	else {
-	    lpath = STR2CSTR(tmp);
-	    if (rb_safe_level() >= 2 && !rb_path_check(lpath)) {
+	    lpath = RSTRING(tmp)->ptr;
+	    if (rb_safe_level() >= 1 && !rb_path_check(lpath)) {
 		rb_raise(rb_eSecurityError, "loading from unsafe path %s", lpath);
 	    }
 	}
@@ -2281,8 +4056,13 @@ rb_find_file(path)
 	return 0;		/* no path, no load */
     }
     f = dln_find_file(f, lpath);
+    if (rb_safe_level() >= 1 && !rb_path_check(f)) {
+	rb_raise(rb_eSecurityError, "loading from unsafe file %s", f);
+    }
     if (file_load_ok(f)) {
-	return rb_str_new2(f);
+	tmp = rb_str_new2(f);
+	OBJ_FREEZE(tmp);
+	return tmp;
     }
     return 0;
 }
@@ -2296,6 +4076,39 @@ define_filetest_function(name, func, argc)
     rb_define_module_function(rb_mFileTest, name, func, argc);
     rb_define_singleton_method(rb_cFile, name, func, argc);
 }
+
+
+/*
+ *  A <code>File</code> is an abstraction of any file object accessible
+ *  by the program and is closely associated with class <code>IO</code>
+ *  <code>File</code> includes the methods of module
+ *  <code>FileTest</code> as class methods, allowing you to write (for
+ *  example) <code>File.exist?("foo")</code>.
+ *     
+ *  In the description of File methods,
+ *  <em>permission bits</em> are a platform-specific
+ *  set of bits that indicate permissions of a file. On Unix-based
+ *  systems, permissions are viewed as a set of three octets, for the
+ *  owner, the group, and the rest of the world. For each of these
+ *  entities, permissions may be set to read, write, or execute the
+ *  file:
+ *     
+ *  The permission bits <code>0644</code> (in octal) would thus be
+ *  interpreted as read/write for owner, and read-only for group and
+ *  other. Higher-order bits may also be used to indicate the type of
+ *  file (plain, directory, pipe, socket, and so on) and various other
+ *  special features. If the permissions are for a directory, the
+ *  meaning of the execute bit changes; when set the directory can be
+ *  searched.
+ *     
+ *  On non-Posix operating systems, there may be only the ability to
+ *  make a file read-only or read-write. In this case, the remaining
+ *  permission bits will be synthesized to resemble typical values. For
+ *  instance, on Windows NT the default permission bits are
+ *  <code>0644</code>, which means read/write for owner, read-only for
+ *  all others. The only change that can be made is to make the file
+ *  read-only, which is reported as <code>0444</code>.
+ */
 
 void
 Init_File()
@@ -2341,6 +4154,8 @@ Init_File()
     rb_define_singleton_method(rb_cFile, "utime", rb_file_s_utime, -1);
     rb_define_singleton_method(rb_cFile, "chmod", rb_file_s_chmod, -1);
     rb_define_singleton_method(rb_cFile, "chown", rb_file_s_chown, -1);
+    rb_define_singleton_method(rb_cFile, "lchmod", rb_file_s_lchmod, -1);
+    rb_define_singleton_method(rb_cFile, "lchown", rb_file_s_lchown, -1);
 
     rb_define_singleton_method(rb_cFile, "link", rb_file_s_link, 2);
     rb_define_singleton_method(rb_cFile, "symlink", rb_file_s_symlink, 2);
@@ -2354,6 +4169,7 @@ Init_File()
     rb_define_singleton_method(rb_cFile, "expand_path", rb_file_s_expand_path, -1);
     rb_define_singleton_method(rb_cFile, "basename", rb_file_s_basename, -1);
     rb_define_singleton_method(rb_cFile, "dirname", rb_file_s_dirname, 1);
+    rb_define_singleton_method(rb_cFile, "extname", rb_file_s_extname, 1);
 
     separator = rb_obj_freeze(rb_str_new2("/"));
     rb_define_const(rb_cFile, "Separator", separator);
@@ -2361,7 +4177,7 @@ Init_File()
     rb_define_singleton_method(rb_cFile, "split",  rb_file_s_split, 1);
     rb_define_singleton_method(rb_cFile, "join",   rb_file_s_join, -2);
 
-#if defined DOSISH && !defined __CYGWIN__
+#ifdef DOSISH
     rb_define_const(rb_cFile, "ALT_SEPARATOR", rb_obj_freeze(rb_str_new2("\\")));
 #else
     rb_define_const(rb_cFile, "ALT_SEPARATOR", Qnil);
@@ -2382,31 +4198,35 @@ Init_File()
     rb_define_method(rb_cFile, "flock", rb_file_flock, 1);
 
     rb_mFConst = rb_define_module_under(rb_cFile, "Constants");
-    rb_include_module(rb_cFile, rb_mFConst);
+    rb_include_module(rb_cIO, rb_mFConst);
     rb_file_const("LOCK_SH", INT2FIX(LOCK_SH));
     rb_file_const("LOCK_EX", INT2FIX(LOCK_EX));
     rb_file_const("LOCK_UN", INT2FIX(LOCK_UN));
     rb_file_const("LOCK_NB", INT2FIX(LOCK_NB));
 
     rb_define_method(rb_cFile, "path",  rb_file_path, 0);
-
     rb_define_global_function("test", rb_f_test, -1);
 
     rb_cStat = rb_define_class_under(rb_cFile, "Stat", rb_cObject);
-    rb_define_singleton_method(rb_cStat, "new",  rb_stat_s_new, 1);
+    rb_define_alloc_func(rb_cStat,  rb_stat_s_alloc);
     rb_define_method(rb_cStat, "initialize", rb_stat_init, 1);
+    rb_define_method(rb_cStat, "initialize_copy", rb_stat_init_copy, 1);
 
     rb_include_module(rb_cStat, rb_mComparable);
 
     rb_define_method(rb_cStat, "<=>", rb_stat_cmp, 1);
 
     rb_define_method(rb_cStat, "dev", rb_stat_dev, 0);
+    rb_define_method(rb_cStat, "dev_major", rb_stat_dev_major, 0);
+    rb_define_method(rb_cStat, "dev_minor", rb_stat_dev_minor, 0);
     rb_define_method(rb_cStat, "ino", rb_stat_ino, 0);
     rb_define_method(rb_cStat, "mode", rb_stat_mode, 0);
     rb_define_method(rb_cStat, "nlink", rb_stat_nlink, 0);
     rb_define_method(rb_cStat, "uid", rb_stat_uid, 0);
     rb_define_method(rb_cStat, "gid", rb_stat_gid, 0);
     rb_define_method(rb_cStat, "rdev", rb_stat_rdev, 0);
+    rb_define_method(rb_cStat, "rdev_major", rb_stat_rdev_major, 0);
+    rb_define_method(rb_cStat, "rdev_minor", rb_stat_rdev_minor, 0);
     rb_define_method(rb_cStat, "size", rb_stat_size, 0);
     rb_define_method(rb_cStat, "blksize", rb_stat_blksize, 0);
     rb_define_method(rb_cStat, "blocks", rb_stat_blocks, 0);

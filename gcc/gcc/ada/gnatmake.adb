@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-1997 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,9 +26,11 @@
 
 --  Gnatmake usage: please consult the gnat documentation
 
+with Gnatvsn;
 with Make;
 
 procedure Gnatmake is
+   pragma Ident (Gnatvsn.Gnat_Static_Version_String);
 begin
    --  The real work is done in Package Make. Gnatmake used to be a standalone
    --  routine. Now Gnatmake's facilities have been placed in a package

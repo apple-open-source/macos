@@ -85,7 +85,7 @@ struct ppp_comp_reg {
 	/* Reset a compressor */
 	void	(*comp_reset) __P((void *state));
 	/* Compress a packet */
-	int	(*compress) __P((void *state, struct mbuf **m));
+	int	(*compress) __P((void *state, mbuf_t *m));
 	/* Return compression statistics */
 	void	(*comp_stat) __P((void *state, struct compstat *stats));
 
@@ -99,9 +99,9 @@ struct ppp_comp_reg {
 	/* Reset a decompressor */
 	void	(*decomp_reset) __P((void *state));
 	/* Decompress a packet. */
-	int	(*decompress) __P((void *state, struct mbuf **m));
+	int	(*decompress) __P((void *state, mbuf_t *m));
 	/* Update state for an incompressible packet received */
-	void	(*incomp) __P((void *state, struct mbuf *m));
+	void	(*incomp) __P((void *state, mbuf_t m));
 	/* Return decompression statistics */
 	void	(*decomp_stat) __P((void *state, struct compstat *stats));
 };

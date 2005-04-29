@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,9 +25,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Nov 14 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: bless.c,v 1.58 2003/08/04 06:38:45 ssen Exp $
+ *  $Id: bless.c,v 1.69 2005/02/23 21:42:26 ssen Exp $
  *
  */
 
@@ -38,33 +36,65 @@
 #include <string.h>
 #include <stdarg.h>
 #include <unistd.h>
+#include <getopt.h>
+#include <err.h>
 
 #include "enums.h"
 #include "structs.h"
 
 #include "bless.h"
 
-#define xstr(s) str(s)
-#define str(s) #s
-
-struct clopt commandlineopts[klast];
 struct clarg actargs[klast];
 
-int modeInfo(BLContextPtr context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
-int modeDevice(BLContextPtr context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
-int modeFolder(BLContextPtr context, struct clopt commandlineopts[klast], struct clarg actargs[klast]);
+/* options descriptor */
+static struct option longopts[] = {
+{ "bootinfo",       optional_argument,      0,              kbootinfo},
+{ "bootBlockFile",  required_argument,      0,              kbootblockfile },
+{ "device",         required_argument,      0,              kdevice },
+{ "firmware",       required_argument,      0,              kfirmware },	
+{ "folder",         required_argument,      0,              kfolder },
+{ "folder9",        required_argument,      0,              kfolder9 },
+{ "getBoot",        no_argument,            0,              kgetboot },
+{ "help",           no_argument,            0,              khelp },
+{ "info",           optional_argument,      0,              kinfo },
+{ "label",          required_argument,      0,              klabel },
+{ "labelfile",      required_argument,      0,              klabelfile },
+{ "mount",          required_argument,      0,              kmount },
+{ "openfolder",     required_argument,      0,              kopenfolder },
+{ "plist",          no_argument,            0,              kplist },
+{ "quiet",          no_argument,            0,              kquiet },
+{ "save9",          no_argument,            0,              ksave9 },
+{ "saveX",          no_argument,            0,              ksaveX },
+{ "setBoot",        no_argument,            0,              ksetboot },
+{ "setOF",          no_argument,            0,              ksetOF },
+{ "startupfile",    required_argument,      0,              kstartupfile },
+{ "use9",           no_argument,            0,              kuse9 },
+{ "verbose",        no_argument,            0,              kverbose },
+{ "version",        no_argument,            0,              kversion },
+{ 0,            0,                      0,              0 }
+};
+
+extern char *optarg;
+extern int optind;
+
+
+int modeInfo(BLContextPtr context, struct clarg actargs[klast]);
+int modeDevice(BLContextPtr context, struct clarg actargs[klast]);
+int modeFolder(BLContextPtr context, struct clarg actargs[klast]);
+int modeFirmware(BLContextPtr context, struct clarg actargs[klast]);
 
 int blesslog(void *context, int loglevel, const char *string);
-static void initConfig();
-void usage(struct clopt[]);
-void usage_short();
+extern void usage();
+extern void usage_short();
+static char ** canon_argv(int argc, char *argv[]);
 
 void arg_err(char *message, char *opt);
 
 int main (int argc, char * argv[])
 {
 
-    int i;
+    int ch;
+    char **newargv = NULL;
     
     BLContext context;
     struct blesscon bcon;
@@ -75,145 +105,110 @@ int main (int argc, char * argv[])
     context.version = 0;
     context.logstring = blesslog;
     context.logrefcon = &bcon;
-    
-    initConfig();
-	
+
     if(argc == 1) {
         arg_err(NULL, NULL);
     }
-        
-    /* start at 1, since argc >=2 */
-    for(i=1; i < argc; i++) {
-        int j;
-        int found = 0;
-        
-        /* check against each option */
-        for(j=0; j < klast; j++) {
+    
+    newargv = canon_argv(argc, argv);
 
-            /* if it matches the option text */
-            if(!strcasecmp(&(argv[i][1]), commandlineopts[j].flag)) {
-
-                if(commandlineopts[j].takesarg == aRequired) {
-                    if(i+1 >= argc) {
-			arg_err("Missing argument for option", argv[i]); /* no arg given */
-		    }
-                    i++;
-                    strncpy(actargs[j].argument, argv[i], kMaxArgLength-1);
-					actargs[j].argument[kMaxArgLength-1] = '\0';
-					actargs[j].hasArg = 1;
-					found = 1;
-					break;
-                } else if(commandlineopts[j].takesarg == aOptional) {
-					if((i+1>=argc) || ((i+1<argc) && argv[i+1][0] == '-')) {
-						// if next item appears to be a flag, or doesn't exist, no opt
-						actargs[j].argument[0] = '\0';
-						found = 1;
-						break;
-					} else if(i+1<argc) {
-						// looks like we're taking an argument
-						i++;
-						strncpy(actargs[j].argument, argv[i], kMaxArgLength-1);
-						actargs[j].argument[kMaxArgLength-1] = '\0';
-						actargs[j].hasArg = 1;
-						found = 1;
-						break;
-					}
-				} else if(commandlineopts[j].takesarg == aNone) {
-					actargs[j].argument[0] = '\0';
-					found = 1;
-					break;
-				}
-            }
+    while ((ch = getopt_long(argc, newargv, "", longopts, NULL)) != -1) {
+        if(ch == ksetOF) ch = ksetboot; // remap here
+        
+        switch(ch) {
+            case khelp:
+                usage();
+                break;
+            case kquiet:
+                break;
+            case kverbose:
+                bcon.verbose = 1;
+                break;
+                
+            // common handling for all other options
+            case kbootinfo:
+            case kbootblockfile:
+            case kdevice:
+			case kfirmware:
+            case kfolder:
+            case kfolder9:
+            case kgetboot:
+            case kinfo:
+            case klabel:
+            case klabelfile:
+            case kmount:
+            case kopenfolder:
+            case kplist:
+            case ksave9:
+            case ksaveX:
+            case ksetboot:
+            case kstartupfile:
+            case kuse9:
+            case kversion:
+                if(actargs[ch].present) {
+                    warnx("Option \"%s\" already specified", longopts[ch-1].name);
+                    usage_short();
+                    break;
+                } else {
+                    actargs[ch].present = 1;
+                }
+                
+                switch(longopts[ch-1].has_arg) {
+                    case no_argument:
+                        actargs[ch].hasArg = 0;
+                        break;
+                    case required_argument:
+                        actargs[ch].hasArg = 1;
+                        strcpy(actargs[ch].argument, optarg);
+                        break;
+                    case optional_argument:
+                        if(newargv[optind] && newargv[optind][0] != '-') {
+                            actargs[ch].hasArg = 1;
+                            strcpy(actargs[ch].argument, newargv[optind]);
+                        } else {
+                            actargs[ch].hasArg = 0;
+                        }
+                        break;
+                }
+                break;
+            case '?':
+            default:
+                usage_short();
         }
-
-	if(strcmp("-h", argv[i]) == 0) {
-	    actargs[khelp].present = 1;
-	    found = 1;
-	}
-
-        /* if the option wasn't found, we have a problem */
-        if(!found) {
-            arg_err("Unrecognized argument:", argv[i]);
-        } else {
-	    actargs[j].present = 1;
-	}
     }
 
-    bcon.verbose = actargs[kverbose].present ? 1 : 0;
-    bcon.quiet = actargs[kquiet].present ? 1 : 0;
-
-    // hack for now so the frontend can parse the new option
-    if(actargs[ksetOF].present && !actargs[ksetboot].present) {
-      actargs[ksetboot].present = 1;
+    argc -= optind;
+    argc += optind;
+    
+    if(actargs[kversion].present) {
+        extern double blessVersionNumber;
+        printf("%.1f\n", blessVersionNumber);
+        return 0;
     }
 
-    /* There are four modes of execution: help, info, device, folder.
+    /* There are three modes of execution: info, device, folder.
      * These are all one-way function jumps.
      */
 
-    if(actargs[khelp].present) {
-	usage(commandlineopts);
-    }
-	
     /* If it was requested, print out the Finder Info words */
-    if(actargs[kinfo].present || actargs[kversion].present || actargs[kgetboot].present) {
-        return modeInfo(&context, commandlineopts, actargs);
+    if(actargs[kinfo].present || actargs[kgetboot].present) {
+        return modeInfo(&context, actargs);
     }
 
     if(actargs[kdevice].present) {
-        return modeDevice(&context, commandlineopts, actargs);
+        return modeDevice(&context, actargs);
     }
 
+	if(actargs[kfirmware].present) {
+		return modeFirmware(&context, actargs);
+	}
+	
     /* default */
-    return modeFolder(&context, commandlineopts, actargs);
+    return modeFolder(&context, actargs);
 
 }
 
-#define setoption(opt, desc, fflag, hasarg, mode)  commandlineopts[opt].description = desc; \
-                                            commandlineopts[opt].flag = fflag; \
-                                            commandlineopts[opt].takesarg = hasarg; \
-					    commandlineopts[opt].modes = mode
 
-
-static void initConfig() {
-    int i;
-
-
-    for(i=0; i< klast; i++) {
-		bzero(&actargs[i], sizeof(struct clarg));
-    }
-
-setoption(kbootinfo, "Path to a bootx.bootinfo file to be used as a BootX", "bootinfo", aRequired, mFolder);
-setoption(kbootblocks, "Get/set boot blocks if an OS 9 folder was specified", "bootBlocks", aNone, mFolder|mInfo);
-setoption(kbootblockfile, "Data fork file with boot blocks", "bootBlockFile", aRequired, mFolder);
-setoption(kdevice, "Unmounted block device to operate on", "device", aRequired, mDevice);
-setoption(kfolder, "Darwin/Mac OS X folder to be blessed", "folder", aRequired, mFolder);
-setoption(kfolder9, "Classic/Mac OS 9 folder to be blessed", "folder9", aRequired, mFolder);
-setoption(kformat, "Format the device with the given filesystem", "format", aOptional, mDevice);
-setoption(kfsargs, "Extra arguments to newfs", "fsargs", aRequired, mDevice);
-setoption(kgetboot, "Get boot device", "getBoot", aNone, mInfo);
-setoption(khelp, "Usage statement", "help", aNone, mGlobal);
-setoption(kinfo, "Print out Finder info fields for the specified volume", "info", aOptional, mInfo);
-setoption(klabel, "Label for a volume", "label", aRequired, mDevice|mFolder);
-setoption(klabelfile, "Label bitmap volume", "labelfile", aRequired, mDevice|mFolder);
-setoption(kmount, "Mount point to use", "mount", aRequired, mFolder|mDevice);
-setoption(kopenfolder, "Directory to open automatically in Finder", "openfolder", aRequired, mFolder);
-setoption(kquiet, "Quiet mode", "quiet", aNone, mGlobal);
-setoption(kplist, "Output in plist format", "plist", aNone, mInfo);
-setoption(ksave9, "Save the existing 9 blessed folder", "save9", aNone, mFolder);
-setoption(ksaveX, "Save the existing X blessed folder", "saveX", aNone, mFolder);
-setoption(ksetboot, "Set machine to boot off this partition", "setBoot", aNone, mDevice|mFolder);
-setoption(ksetOF, "Set OF to boot off this partition (deprecated)", "setOF", aNone, mDevice|mFolder);
-setoption(ksystem, "Fallback system for wrapper or boot blocks", "system", aRequired, mDevice|mFolder);
-setoption(kuse9, "If both an X and 9 folder is specified, prefer the 9 one", "use9", aNone, mFolder);
-setoption(kverbose, "Verbose mode", "verbose", aNone, mGlobal);
-setoption(kwrapper, "Data fork System file to place in HFS+ wrapper", "wrapper", aRequired, mDevice);
-setoption(kstartupfile, "Path to data to by used as StartupFile", "startupfile", aRequired, mDevice);
-setoption(ksystemfile, "Data fork System file to place in blessed System Folder", "systemfile", aRequired, mFolder);
-setoption(kxcoff, "Path to bootx.xcoff to be used as StartupFile (ignored)", "xcoff", aRequired, mDevice|mFolder);
-setoption(kversion, "Print bless version and exit", "version", aNone, mInfo);
-
-}
 
 int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...) {
     int ret;
@@ -221,12 +216,7 @@ int blesscontextprintf(BLContextPtr context, int loglevel, char const *fmt, ...)
     va_list ap;
 
     va_start(ap, fmt);
-#if OSX_TARGET < 1020
-    out = malloc(1024);
-    ret = vsnprintf(out, 1024, fmt, ap);  
-#else
     ret = vasprintf(&out, fmt, ap);  
-#endif
     va_end(ap);
     
     if((ret == -1) || (out == NULL)) {
@@ -243,4 +233,25 @@ void arg_err(char *message, char *opt) {
 	fprintf(stderr, "%s \"%s\"\n", message, opt);
 
     usage_short();
+}
+
+static char ** canon_argv(int argc, char *argv[])
+{
+    char ** newargv = NULL;
+    int i;
+    
+    newargv = calloc(argc+1, sizeof(char *));
+    for(i=0; i < argc; i++) {
+        char *newarg = NULL;
+        if(argv[i][0] == '-' && argv[i][1] != '-') {
+            // turn -foo into --foo, for getopt_long
+            newarg = malloc(strlen(argv[i]) + 1 + 1);
+            sprintf(newarg, "-%s", argv[i]);
+        } else {
+            newarg = strdup(argv[i]);
+        }
+        newargv[i] = newarg;
+    }
+    
+    return newargv;
 }

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+
+<head>
+<title>$BLOJSOM_BLOG.getBlogName()</title>
+<link rel="stylesheet" type="text/css" href="$BLOJSOM_SITE_URL/blojsom-shrubbery.css" />
+<link rel="SHORTCUT ICON" type="image/gif" href="$BLOJSOM_SITE_URL/favicon.ico" />
+<link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+</head>
+
+<body>
+
+#parse( "shrubbery-header.vm" )
+#parse( "shrubbery-categories.vm" )
+
+#set( $totalEntries = 0)
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div class="es">
+    <p class="wlt">$entry.getTitle() <span class="st">[<a href="$entry.getLink()">Permalink</a>]</span> </p>
+    <p class="wldl">$entry.getDate()</p>
+    $entry.getDescription()
+    </div>
+
+    <p class="wlt">Trackback for this entry</p>
+    <p class="wldl"><a href="$entry.getLink()&amp;tb=y"><img src="$BLOJSOM_SITE_URL/tb.gif" border="0" /></a>$entry.getLink()&amp;tb=y</p>
+    #foreach ($entryTrackback in $entry.getTrackbacks())
+        <div class="cs">
+            Trackback from: <a href="$entryTrackback.getUrl()">#if ($entryTrackback.getBlogName())$entryTrackback.getBlogName()#else$entryTrackback.getUrl()#end</a>
+            <div class="wldl">Left on: $entryTrackback.getTrackbackDate()</div><br />
+            Title: #if ($entryTrackback.getTitle()) $entryTrackback.getTitle() #end<br />
+            #if ($entryTrackback.getExcerpt()) $entryTrackback.getExcerpt() #end<br />
+        </div>
+    #end
+
+    #set( $totalEntries = $totalEntries + 1)
+#end
+<br />
+#if ($totalEntries > 0)
+	#parse( "shrubbery-categories.vm" )
+#end
+
+#parse( "shrubbery-pbb.vm" )
+</body>
+
+</html>

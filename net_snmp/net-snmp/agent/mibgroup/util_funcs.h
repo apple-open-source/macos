@@ -13,6 +13,7 @@ extern "C" {
 void            Exit(int);
 int             shell_command(struct extensible *);
 int             exec_command(struct extensible *);
+struct extensible *get_exten_instance(struct extensible *, size_t);
 int             get_exec_output(struct extensible *);
 int             get_exec_pipes(char *cmd, int *fdIn, int *fdOut, int *pid);
 WriteMethod     clear_cache;
@@ -31,6 +32,7 @@ char           *find_field(char *, int);
 int             parse_miboid(const char *, oid *);
 void            string_append_int(char *, int);
 void            wait_on_exec(struct extensible *);
+const char     *make_tempfile(void);
 
 #define     satosin(x)      ((struct sockaddr_in *) &(x))
 #define     SOCKADDR(x)     (satosin(x)->sin_addr.s_addr)
@@ -41,13 +43,13 @@ void            wait_on_exec(struct extensible *);
 typedef void   *mib_table_t;
 typedef int     (RELOAD) (mib_table_t);
 typedef int     (COMPARE) (const void *, const void *);
-mib_table_t     Initialise_Table(int, int, RELOAD, COMPARE);
+mib_table_t     Initialise_Table(int, int, RELOAD*, COMPARE*);
 int             Search_Table(mib_table_t, void *, int);
 int             Add_Entry(mib_table_t, void *);
 void           *Retrieve_Table_Data(mib_table_t, int *);
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 #endif                          /* _MIBGROUP_UTIL_FUNCS_H */

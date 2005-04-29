@@ -1,8 +1,41 @@
+/***************************************************************************
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
+ *                             \___|\___/|_| \_\_____|
+ *
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ * $Id: getpart.c,v 1.16 2005/02/24 18:54:23 danf Exp $
+ ***************************************************************************/
+
+#include "setup.h"
 
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
 #include <stdlib.h>
+#include "getpart.h"
+
+#define _MPRINTF_REPLACE /* use our functions only */
+#include <curl/mprintf.h>
+
+#include "base64.h"
+
+/* include memdebug.h last */
+#include "memdebug.h"
 
 #define EAT_SPACE(ptr) while( ptr && *ptr && isspace((int)*ptr) ) ptr++
 #define EAT_WORD(ptr) while( ptr && *ptr && !isspace((int)*ptr) && ('>' != *ptr)) ptr++
@@ -13,29 +46,59 @@
 #define show(x)
 #endif
 
+curl_malloc_callback Curl_cmalloc = (curl_malloc_callback)malloc;
+curl_free_callback Curl_cfree = (curl_free_callback)free;
+curl_realloc_callback Curl_crealloc = (curl_realloc_callback)realloc;
+curl_strdup_callback Curl_cstrdup = (curl_strdup_callback)strdup;
+curl_calloc_callback Curl_ccalloc = (curl_calloc_callback)calloc;
+
 static
 char *appendstring(char *string, /* original string */
                    char *buffer, /* to append */
-                   int *stringlen, int *stralloc)
+                   size_t *stringlen, /* length of string */
+                   size_t *stralloc,  /* allocated size */
+                   char base64) /* 1 if base64 encoded */
 {
-  int len = strlen(buffer);
+  size_t len = strlen(buffer);
+  size_t needed_len = len + *stringlen + 1;
+  char *buf64=NULL;
 
-  if((len + *stringlen) > *stralloc) {
-    char *newptr= realloc(string, *stralloc*2);
+  if(base64) {
+    /* decode the given buffer first */
+    len = Curl_base64_decode(buffer, (unsigned char**)&buf64); /* updated len */
+    buffer = buf64;
+    needed_len = len + *stringlen + 1; /* recalculate */
+  }
+
+  if(needed_len >= *stralloc) {
+    char *newptr;
+    size_t newsize = needed_len*2; /* get twice the needed size */
+
+    newptr = realloc(string, newsize);
     if(newptr) {
       string = newptr;
-      *stralloc *= 2;
+      *stralloc = newsize;
     }
-    else
+    else {
+      if(buf64)
+        free(buf64);
       return NULL;
+    }
   }
-  strcpy(&string[*stringlen], buffer);
+  /* memcpy to support binary blobs */
+  memcpy(&string[*stringlen], buffer, len);
   *stringlen += len;
+  string[*stringlen]=0;
+
+  if(buf64)
+    free(buf64);
 
   return string;
 }
 
-char *spitout(FILE *stream, char *main, char *sub, int *size)
+const char *spitout(FILE *stream,
+                    const char *main,
+                    const char *sub, size_t *size)
 {
   char buffer[8192]; /* big enough for anything */
   char cmain[128]=""; /* current main section */
@@ -45,8 +108,9 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
   char display = 0;
 
   char *string;
-  int stringlen=0;
-  int stralloc=256;
+  size_t stringlen=0;
+  size_t stralloc=256;
+  char base64 = 0; /* set to 1 if true */
 
   enum {
     STATE_OUTSIDE,
@@ -56,7 +120,11 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
   } state = STATE_OUTSIDE;
 
   string = (char *)malloc(stralloc);
-  
+  if(!string)
+    return NULL;
+
+  string[0] = 0; /* zero first byte in case of no data */
+
   while(fgets(buffer, sizeof(buffer), stream)) {
 
     ptr = buffer;
@@ -67,7 +135,7 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
     if('<' != *ptr) {
       if(display) {
         show(("=> %s", buffer));
-        string = appendstring(string, buffer, &stringlen, &stralloc);
+        string = appendstring(string, buffer, &stringlen, &stralloc, base64);
         show(("* %s\n", buffer));
       }
       continue;
@@ -104,7 +172,7 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
       /* this is the beginning of a section */
       end = ptr;
       EAT_WORD(end);
-      
+
       *end = 0;
       switch(state) {
       case STATE_OUTSIDE:
@@ -115,10 +183,22 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
         strcpy(csub, ptr);
         state = STATE_INSUB;
         break;
+      default:
+        break;
+      }
+
+      if(!end[1] != '>') {
+        /* There might be attributes here. Check for those we know of and care
+           about. */
+        if(strstr(&end[1], "base64=")) {
+          /* rought and dirty, but "mostly" functional */
+          /* Treat all data as base64 encoded */
+          base64 = 1;
+        }
       }
     }
     if(display) {
-      string = appendstring(string, buffer, &stringlen, &stralloc);
+      string = appendstring(string, buffer, &stringlen, &stralloc, base64);
       show(("* %s\n", buffer));
     }
 
@@ -138,15 +218,18 @@ char *spitout(FILE *stream, char *main, char *sub, int *size)
   return string;
 }
 
-#ifdef TEST
+#ifdef GETPART_TEST
 int main(int argc, char **argv)
 {
   if(argc< 3) {
     printf("./moo main sub\n");
   }
   else {
-    int size;
-    char *buffer = spitout(stdin, argv[1], argv[2], &size);
+    size_t size;
+    unsigned int i;
+    const char *buffer = spitout(stdin, argv[1], argv[2], &size);
+    for(i=0; i< size; i++)
+      printf("%c", buffer[i]);
   }
   return 0;
 }

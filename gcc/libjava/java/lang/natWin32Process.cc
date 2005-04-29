@@ -9,17 +9,10 @@ Libgcj License.  Please consult the file "LIBGCJ_LICENSE" for
 details.  */
 
 #include <config.h>
-
-#include <stdio.h>
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include <platform.h>
 
 // Conflicts with the definition in "java/lang/reflect/Modifier.h"
 #undef STRICT
-
-#include <gcj/cni.h>
-#include <jvm.h>
 
 #include <java/lang/ConcreteProcess.h>
 #include <java/lang/IllegalThreadStateException.h>
@@ -32,26 +25,40 @@ details.  */
 #include <java/io/FileOutputStream.h>
 #include <java/io/IOException.h>
 #include <java/lang/OutOfMemoryError.h>
+#include <gnu/java/nio/channels/FileChannelImpl.h>
+
+using gnu::java::nio::channels::FileChannelImpl;
 
 void
 java::lang::ConcreteProcess::cleanup (void)
 {
-  if (inputStream != NULL)
+  // FIXME:
+  // We used to close the input, output and
+  // error streams here, but we can't do that
+  // because the caller also has the right
+  // to close these and FileInputStream and FileOutputStream
+  // scream if you attempt to close() them twice. Presently,
+  // we use _Jv_platform_close_on_exec, which is similar
+  // to the POSIX approach.
+  //
+  // What I wanted to do is have private nested
+  // classes in ConcreteProcess which extend FileInputStream
+  // and FileOutputStream, respectively, but override
+  // close() to permit multiple calls to close(). This
+  // led to class header and platform configury issues
+  // that I didn't feel like dealing with. However,
+  // this approach could conceivably be a good multiplatform
+  // one since delaying the pipe close until process
+  // termination could be wasteful if many child processes
+  // are spawned within the parent process' lifetime.
+  inputStream = NULL;
+  outputStream = NULL;
+  errorStream = NULL;
+  
+  if (procHandle)
     {
-      inputStream->close ();
-      inputStream = NULL;
-    }
-
-  if (outputStream != NULL)
-    {
-      outputStream->close ();
-      outputStream = NULL;
-    }
-
-  if (errorStream != NULL)
-    {
-      errorStream->close ();
-      errorStream = NULL;
+      CloseHandle((HANDLE) procHandle);
+      procHandle = (jint) INVALID_HANDLE_VALUE;
     }
 }
 
@@ -99,8 +106,28 @@ java::lang::ConcreteProcess::waitFor (void)
     {
       DWORD exitStatus = 0UL;
 
-      // FIXME: The wait should be interruptible.
-      WaitForSingleObject ((HANDLE) procHandle, INFINITE);
+      // Set up our waitable objects array
+      // - 0: the handle to the process we just launched
+      // - 1: our thread's interrupt event
+      HANDLE arh[2];
+      arh[0] = (HANDLE) procHandle;
+      arh[1] = _Jv_Win32GetInterruptEvent ();
+      DWORD rval = WaitForMultipleObjects (2, arh, 0, INFINITE);
+
+      // Use the returned value from WaitForMultipleObjects
+      // instead of our thread's interrupt_flag to test for
+      // thread interruption. See the comment for
+      // _Jv_Win32GetInterruptEvent().
+      bool bInterrupted = rval == (WAIT_OBJECT_0 + 1);
+      
+      if (bInterrupted)
+        {
+          // Querying this forces a reset our thread's interrupt flag.
+          Thread::interrupted();
+          
+          cleanup ();
+          throw new InterruptedException ();
+        }
 
       GetExitCodeProcess ((HANDLE) procHandle, &exitStatus);
       exitCode = exitStatus;
@@ -111,14 +138,74 @@ java::lang::ConcreteProcess::waitFor (void)
   return exitCode;
 }
 
-static char *
-new_string (jstring string)
+
+// Helper class for creating and managing the pipes
+// used for I/O redirection for child processes.
+class ChildProcessPipe
 {
-  jsize s = _Jv_GetStringUTFLength (string);
-  char *buf = (char *) _Jv_Malloc (s + 1);
-  _Jv_GetStringUTFRegion (string, 0, s, buf);
-  buf[s] = '\0';
-  return buf;
+public:
+  // Indicates from the child process' point of view
+  // whether the pipe is for reading or writing.
+  enum EType {INPUT, OUTPUT};
+
+  ChildProcessPipe(EType eType);
+  ~ChildProcessPipe();
+  
+  // Returns a pipe handle suitable for use by the parent process
+  HANDLE getParentHandle();
+  
+  // Returns a pipe handle suitable for use by the child process.
+  HANDLE getChildHandle();
+  
+private:
+  EType m_eType;
+  HANDLE m_hRead, m_hWrite;
+};
+
+ChildProcessPipe::ChildProcessPipe(EType eType):
+  m_eType(eType)
+{
+  SECURITY_ATTRIBUTES sAttrs;
+
+  // Explicitly allow the handles to the pipes to be inherited.
+  sAttrs.nLength = sizeof (SECURITY_ATTRIBUTES);
+  sAttrs.bInheritHandle = 1;
+  sAttrs.lpSecurityDescriptor = NULL;
+
+  if (CreatePipe (&m_hRead, &m_hWrite, &sAttrs, 0) == 0)
+    {
+      DWORD dwErrorCode = GetLastError ();
+      throw new java::io::IOException (
+        _Jv_WinStrError (_T("Error creating pipe"), dwErrorCode));
+    }
+
+  // If this is the read end of the child, we need
+  // to make the parent write end non-inheritable. Similarly,
+  // if this is the write end of the child, we need to make
+  // the parent read end non-inheritable. If we didn't
+  // do this, the child would inherit these ends and we wouldn't
+  // be able to close them from our end. For full details,
+  // do a Google search on "Q190351".
+  HANDLE& rhStd = m_eType==INPUT ? m_hWrite : m_hRead;
+  _Jv_platform_close_on_exec (rhStd);
+}
+
+ChildProcessPipe::~ChildProcessPipe()
+{
+  // Close the parent end of the pipe. This
+  // destructor is called after the child process
+  // has been spawned.
+  CloseHandle(getChildHandle());
+}
+
+HANDLE ChildProcessPipe::getParentHandle()
+{
+  return m_eType==INPUT ? m_hWrite : m_hRead;
+}
+
+HANDLE ChildProcessPipe::getChildHandle()
+{
+  return m_eType==INPUT ? m_hRead : m_hWrite;
 }
 
 void
@@ -136,52 +223,53 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
   int cmdLineLen = 0;
 
   for (int i = 0; i < progarray->length; ++i)
-    cmdLineLen += (_Jv_GetStringUTFLength (elts[i]) + 3);
+    cmdLineLen += (elts[i]->length() + 1);
 
-  char *cmdLine = (char *) _Jv_Malloc (cmdLineLen + 1);
-  char *cmdLineCurPos = cmdLine;
+  LPTSTR cmdLine = (LPTSTR) _Jv_Malloc ((cmdLineLen + 1) * sizeof(TCHAR));
+  LPTSTR cmdLineCurPos = cmdLine;
 
   for (int i = 0; i < progarray->length; ++i)
     {
       if (i > 0)
-        *cmdLineCurPos++ = ' ';
-      *cmdLineCurPos++ = '\"';
-      jsize s = _Jv_GetStringUTFLength (elts[i]);
-      _Jv_GetStringUTFRegion (elts[i], 0, s, cmdLineCurPos);
-      cmdLineCurPos += s;
-      *cmdLineCurPos++ = '\"';
+        *cmdLineCurPos++ = _T(' ');
+        
+      jint len = elts[i]->length();
+      JV_TEMP_STRING_WIN32(thiselt, elts[i]);
+      _tcscpy(cmdLineCurPos, thiselt);
+      cmdLineCurPos += len;
     }
-  *cmdLineCurPos = '\0';
+  *cmdLineCurPos = _T('\0');
 
   // Get the environment, if any.
-  char *env = NULL;
+  LPTSTR env = NULL;
   if (envp)
     {
       elts = elements (envp);
 
       int envLen = 0;
       for (int i = 0; i < envp->length; ++i)
-        envLen += (_Jv_GetStringUTFLength (elts[i]) + 1);
+        envLen += (elts[i]->length() + 1);
 
-      env = (char *) _Jv_Malloc (envLen + 1);
+      env = (LPTSTR) _Jv_Malloc ((envLen + 1) * sizeof(TCHAR));
 
       int j = 0;
       for (int i = 0; i < envp->length; ++i)
         {
-          jsize s = _Jv_GetStringUTFLength (elts[i]);
-          _Jv_GetStringUTFRegion (elts[i], 0, s, (env + j));
-
-          j += s;
-          *(env + j) = '\0';
+          jint len = elts[i]->length();
+          
+          JV_TEMP_STRING_WIN32(thiselt, elts[i]);
+          _tcscpy(env + j, thiselt);
+          
+          j += len;
+          
+          // Skip past the null terminator that _tcscpy just inserted.
           j++;
         }
-      *(env + j) = '\0';
+      *(env + j) = _T('\0');
     }
 
   // Get the working directory path, if specified.
-  char *wdir = NULL;
-  if (dir != NULL)
-    wdir = new_string (dir->getPath ());
+  JV_TEMP_STRING_WIN32 (wdir, dir ? dir->getPath () : 0);
 
   errorStream = NULL;
   inputStream = NULL;
@@ -193,50 +281,19 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
     {
       // We create anonymous pipes to communicate with the child
       // on each of standard streams.
+      ChildProcessPipe aChildStdIn(ChildProcessPipe::INPUT);
+      ChildProcessPipe aChildStdOut(ChildProcessPipe::OUTPUT);
+      ChildProcessPipe aChildStdErr(ChildProcessPipe::OUTPUT);
 
-      HANDLE cldStdInRd, cldStdInWr;
-      HANDLE cldStdOutRd, cldStdOutWr;
-      HANDLE cldStdErrRd, cldStdErrWr;
-
-      SECURITY_ATTRIBUTES sAttrs;
-
-      // Explicitly allow the handles to the pipes to be inherited.
-      sAttrs.nLength = sizeof (SECURITY_ATTRIBUTES);
-      sAttrs.bInheritHandle = 1;
-      sAttrs.lpSecurityDescriptor = NULL;
-
-
-      char tmpBuff[64];
-      if (CreatePipe (&cldStdInRd, &cldStdInWr, &sAttrs, 0) == 0)
-        {
-          sprintf (tmpBuff,
-                   "Error creating stdin pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
-        }
-
-      if (CreatePipe (&cldStdOutRd, &cldStdOutWr, &sAttrs, 0) == 0)
-        {
-          sprintf (tmpBuff,
-                   "Error creating stdout pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
-        }
-
-      if (CreatePipe (&cldStdErrRd, &cldStdErrWr, &sAttrs, 0) == 0)
-        {
-          sprintf (tmpBuff,
-                   "Error creating stderr pipe (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
-        }
-
-      outputStream = new FileOutputStream
-                         (new FileDescriptor ((jint) cldStdInWr));
-      inputStream = new FileInputStream
-                        (new FileDescriptor ((jint) cldStdOutRd));
-      errorStream = new FileInputStream
-                        (new FileDescriptor ((jint) cldStdErrRd));
+      outputStream = new FileOutputStream (new FileChannelImpl (
+                           (jint) aChildStdIn.getParentHandle (),
+			   FileChannelImpl::WRITE));
+      inputStream = new FileInputStream (new FileChannelImpl (
+                           (jint) aChildStdOut.getParentHandle (),
+			   FileChannelImpl::READ));
+      errorStream = new FileInputStream (new FileChannelImpl (
+                           (jint) aChildStdErr.getParentHandle (),
+			   FileChannelImpl::READ));
 
       // Now create the child process.
       PROCESS_INFORMATION pi;
@@ -250,39 +307,36 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
       // Explicitly specify the handles to the standard streams.
       si.dwFlags |= STARTF_USESTDHANDLES;
 
-      si.hStdInput = cldStdInRd;
-      si.hStdOutput = cldStdOutWr;
-      si.hStdError = cldStdErrWr;
+      si.hStdInput = aChildStdIn.getChildHandle();
+      si.hStdOutput = aChildStdOut.getChildHandle();
+      si.hStdError = aChildStdErr.getChildHandle();
 
+      // Spawn the process. CREATE_NO_WINDOW only applies when
+      // starting a console application; it suppresses the
+      // creation of a console window. This flag is ignored on
+      // Win9X.
+      
       if (CreateProcess (NULL,
                          cmdLine,
                          NULL,
                          NULL,
                          1,
-                         0,
+                         CREATE_NO_WINDOW | CREATE_UNICODE_ENVIRONMENT,
                          env,
                          wdir,
                          &si,
                          &pi) == 0)
         {
-          sprintf (tmpBuff,
-                   "Error creating child process (Win32 Error Code: %lu)",
-                   GetLastError ());
-          throw new IOException (JvNewStringLatin1 (tmpBuff));
+          DWORD dwErrorCode = GetLastError ();
+          throw new IOException (
+            _Jv_WinStrError (_T("Error creating child process"), dwErrorCode));
         }
 
       procHandle = (jint ) pi.hProcess;
 
-      // Close the wrong ends (for the parent) of the pipes.
-      CloseHandle (cldStdInRd);
-      CloseHandle (cldStdOutWr);
-      CloseHandle (cldStdErrWr);
-
       _Jv_Free (cmdLine);
       if (env != NULL)
         _Jv_Free (env);
-      if (wdir != NULL)
-        _Jv_Free (wdir);
     }
   catch (java::lang::Throwable *thrown)
     {

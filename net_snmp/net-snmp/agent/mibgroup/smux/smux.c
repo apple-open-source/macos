@@ -127,6 +127,13 @@ struct variable2 smux_variables[] = {
 
 
 void
+smux_parse_smux_socket(const char *token, char *cptr)
+{
+    DEBUGMSGTL(("smux", "port spec: %s\n", cptr));
+    netsnmp_ds_set_string(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_SMUX_SOCKET, cptr);
+}
+
+void
 smux_parse_peer_auth(const char *token, char *cptr)
 {
     smux_peer_auth *aptr;
@@ -189,8 +196,19 @@ smux_free_peer_auth(void)
 void
 init_smux(void)
 {
+    snmpd_register_config_handler("smuxpeer", smux_parse_peer_auth,
+                                  smux_free_peer_auth,
+                                  "OID-IDENTITY PASSWORD");
+    snmpd_register_config_handler("smuxsocket",
+                                  smux_parse_smux_socket, NULL,
+                                  "SMUX bind address");
+}
 
+void
+real_init_smux(void)
+{
     struct sockaddr_in lo_socket;
+    char           *smux_socket;
     int             one = 1;
 
     if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_ROLE) == SUB_AGENT) {
@@ -198,9 +216,6 @@ init_smux(void)
         return;
     }
 
-    snmpd_register_config_handler("smuxpeer", smux_parse_peer_auth,
-                                  smux_free_peer_auth,
-                                  "OID-IDENTITY PASSWORD");
     /*
      * Reqid 
      */
@@ -218,7 +233,14 @@ init_smux(void)
      */
     memset(&lo_socket, (0), sizeof(lo_socket));
     lo_socket.sin_family = AF_INET;
-    lo_socket.sin_port = htons((u_short) SMUXPORT);
+
+    smux_socket = netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID, 
+					NETSNMP_DS_SMUX_SOCKET);
+#ifdef LOCAL_SMUX
+    if (!smux_socket)
+        smux_socket = "127.0.0.1";   /* By default, listen on localhost only */
+#endif
+    netsnmp_sockaddr_in( &lo_socket, smux_socket, SMUXPORT );
 
     if ((smux_listen_sd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         snmp_log_perror("[init_smux] socket failed");
@@ -323,7 +345,7 @@ var_smux_write(int action,
     u_char          buf[SMUXMAXPKTSIZE], *ptr, sout[3], type;
     int             reterr;
     size_t          var_len, datalen, name_length, packet_len;
-    int             len;
+    ssize_t         len;
     long            reqid, errsts, erridx;
     u_char          var_type, *dataptr;
 
@@ -418,7 +440,7 @@ var_smux_write(int action,
             packet_len = len;
             ptr = asn_parse_header(buf, &packet_len, &type);
             packet_len += (ptr - buf);
-            if (len > packet_len) {
+            if (len > (ssize_t)packet_len) {
                 /*
                  * set length to receive only the first packet 
                  */
@@ -533,7 +555,8 @@ smux_accept(int sd)
     struct sockaddr_in in_socket;
     struct timeval  tv;
     int             fail, fd, alen;
-    int             length, len;
+    int             length;
+    ssize_t         len;
 
     alen = sizeof(struct sockaddr_in);
     /*
@@ -796,14 +819,14 @@ smux_open_process(int fd, u_char * ptr, size_t * len, int *fail)
     passwd[string_len] = '\0';
     if (!smux_auth_peer(oid_name, oid_name_len, passwd, fd)) {
         snmp_log(LOG_WARNING,
-                 "refused smux peer: oid %s, password %s, descr %s\n",
-                 oid_print, passwd, descr);
+                 "refused smux peer: oid %s, descr %s\n",
+                 oid_print, descr);
         *fail = TRUE;
         return ptr;
     }
     snmp_log(LOG_INFO,
-             "accepted smux peer: oid %s, password %s, descr %s\n",
-             oid_print, passwd, descr);
+             "accepted smux peer: oid %s, descr %s\n",
+             oid_print, descr);
     *fail = FALSE;
     return ptr;
 }
@@ -1707,7 +1730,7 @@ smux_trap_process(u_char * rsp, size_t * len)
 {
     oid             sa_enterpriseoid[MAX_OID_LEN], var_name[MAX_OID_LEN];
     size_t          datalen, var_name_len, var_val_len, maxlen;
-    int             sa_enterpriseoid_len;
+    size_t          sa_enterpriseoid_len;
     u_char          vartype, *ptr, *var_val;
 
     long            trap, specific;
@@ -1722,7 +1745,7 @@ smux_trap_process(u_char * rsp, size_t * len)
     /*
      * parse the sub-agent enterprise oid 
      */
-    datalen = MAX_OID_LEN;
+    sa_enterpriseoid_len = MAX_OID_LEN;
     if ((ptr = asn_parse_objid(ptr, len,
                                &vartype, (oid *) & sa_enterpriseoid,
                                &sa_enterpriseoid_len)) == NULL) {

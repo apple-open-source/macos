@@ -32,10 +32,21 @@
 #endif
 
 #if DEBUGTIME
-#include "CLog.h"
+//#include "CLog.h"
+#include <syslog.h>
+#define SRVLOG1(A,B, args...)	syslog(LOG_ALERT, (B), ##args)
 #endif
 
+#include <sys/stat.h>
 #include "AuthFile.h"
+#include "CAuthFileBase.h"
+#include "CReplicaFile.h"
+
+// from DirServicesConst.h (our layer is below DS)
+#define kDSValueAuthAuthorityShadowHash				";ShadowHash;"
+#define kDSTagAuthAuthorityShadowHash				"ShadowHash"
+#define kDSTagAuthAuthorityBetterHashOnly			"BetterHashOnly"
+#define kHashNameListPrefix							"HASHLIST:"
 
 #if DEBUGTIME
 //------------------------------------------------------------------------------------------------
@@ -79,11 +90,13 @@ int TimeIsStale( BSDTimeStructCopy *inTime )
     
     // get user time in seconds
     theTime = timegm( (struct tm *)inTime );
-    
+    if ( theTime <= 0 )
+		theTime = 0x7FFFFFFF;
+	
 #if DEBUGTIME
     LogTimeAsString( (BSDTimeStructCopy *)inTime, "pwrec" );
-    SRVLOG1( kLogMeta, "theTime: %l, %l", theGMTime, theTime );
-    SRVLOG1( kLogMeta, "diff: %l", theGMTime - theTime );
+    SRVLOG1( kLogMeta, "theTime: %ld, %ld", theGMTime, theTime );
+    SRVLOG1( kLogMeta, "diff: %ld", theGMTime - theTime );
 #endif
     // broken for dates that push the signing bit?
     //return ( difftime( theGMTime, theTime ) > 0 );
@@ -108,11 +121,15 @@ int LoginTimeIsStale( BSDTimeStructCopy *inLastLogin, unsigned long inMaxMinutes
     
     // get user time in seconds
     theTime = timegm( (struct tm *)inLastLogin );
-    
+//    if ( theTime <= 0 )
+//		theTime = theGMTime;
+
 #if DEBUGTIME
     LogTimeAsString( (BSDTimeStructCopy *)inLastLogin, "pwrec" );
-    SRVLOG1( kLogMeta, "theGMTime, theTime: %l, %l", theGMTime, theTime );
-    SRVLOG1( kLogMeta, "diff: %l", ((theGMTime - theTime)/60) );
+    SRVLOG1( kLogMeta, "theGMTime, theTime: %ld, %ld", theGMTime, theTime );
+    SRVLOG1( kLogMeta, "diff: %ld", ((theGMTime - theTime)/60) );
+    SRVLOG1( kLogMeta, "min-nonuse: %ld", maxMinutesOfNonUse );
+    SRVLOG1( kLogMeta, "returning: %d", ( ((theGMTime - theTime)/60) > maxMinutesOfNonUse ) );
 #endif
     
     return ( ((theGMTime - theTime)/60) > maxMinutesOfNonUse );
@@ -141,8 +158,9 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
 	if ( inAccessFeatures->usingHistory )
 		historyValue = 1 + inAccessFeatures->historyCount;
 	
-    sprintf( temp1Str, "%s=%d %s=%d %s=%d %s=%d %s=%d ",
+    sprintf( temp1Str, "%s=%d %s=%d %s=%d %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_usingHistory, historyValue,
+				kPWPolicyStr_canModifyPasswordforSelf, (inAccessFeatures->noModifyPasswordforSelf == 0),
                 kPWPolicyStr_usingExpirationDate, (inAccessFeatures->usingExpirationDate != 0),
                 kPWPolicyStr_usingHardExpirationDate, (inAccessFeatures->usingHardExpirationDate != 0),
                 kPWPolicyStr_requiresAlpha, (inAccessFeatures->requiresAlpha != 0),
@@ -153,17 +171,42 @@ void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, c
                 kPWPolicyStr_hardExpireDateGMT, timegm( (struct tm *)&inAccessFeatures->hardExpireDateGMT ),
                 kPWPolicyStr_maxMinutesUntilChangePW, inAccessFeatures->maxMinutesUntilChangePassword );
     
-    sprintf( temp3Str, "%s=%lu %s=%lu %s=%u %s=%u %s=%u %s=%d ",
+    sprintf( temp3Str, "%s=%lu %s=%lu %s=%u %s=%u %s=%u %s=%d %s=%d %s=%d ",
                 kPWPolicyStr_maxMinutesUntilDisabled, inAccessFeatures->maxMinutesUntilDisabled,
                 kPWPolicyStr_maxMinutesOfNonUse, inAccessFeatures->maxMinutesOfNonUse,
                 kPWPolicyStr_maxFailedLoginAttempts, inAccessFeatures->maxFailedLoginAttempts,
                 kPWPolicyStr_minChars, inAccessFeatures->minChars,
                 kPWPolicyStr_maxChars, inAccessFeatures->maxChars,
-				kPWPolicyStr_passwordCannotBeName, (inAccessFeatures->passwordCannotBeName != 0) );
+				kPWPolicyStr_passwordCannotBeName, (inAccessFeatures->passwordCannotBeName != 0),
+				kPWPolicyStr_requiresMixedCase, (inAccessFeatures->requiresMixedCase != 0),
+				kPWPolicyStr_newPasswordRequired, (inAccessFeatures->newPasswordRequired != 0) );
     
     strcpy( outString, temp1Str );
     strcat( outString, temp2Str );
     strcat( outString, temp3Str );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	PWGlobalAccessFeaturesToStringExtra
+//------------------------------------------------------------------------------------------------
+
+void PWGlobalAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inAccessFeatures, PWGlobalMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString )
+{
+    char tempStr[2048];
+	long len;
+	
+    if ( outString == NULL || inAccessFeatures == NULL )
+        return;
+	
+	PWGlobalAccessFeaturesToString( inAccessFeatures, tempStr );
+	len = snprintf( outString, inMaxLen, "%s", tempStr );
+	if ( len >= inMaxLen )
+		return;
+	
+	snprintf( outString + len, inMaxLen - len, "%s=%lu %s=%lu", 
+				kPWPolicyStr_minutesUntilFailedLoginReset, inExtraFeatures->minutesUntilFailedLoginReset,
+				kPWPolicyStr_notGuessablePattern, inExtraFeatures->notGuessablePattern );
 }
 
 
@@ -198,6 +241,37 @@ void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outStri
     strcpy( outString, temp1Str );
     strcat( outString, temp2Str );
     strcat( outString, temp3Str );
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	PWAccessFeaturesToStringExtra
+//
+//	Prepares the PWAccessFeatures struct for transmission over our text-based protocol
+//------------------------------------------------------------------------------------------------
+
+void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString )
+{
+    char temp2Str[2048];
+	
+    if ( outString == NULL || inAccessFeatures == NULL )
+        return;
+	
+    // Boolean values are stored in the struct as single bits. They must be unsigned for
+    // display.
+    
+    int segment1Length = snprintf( outString, inMaxLen, "%s=%d %s=%d %s=%d ",
+							kPWPolicyStr_isDisabled, (inAccessFeatures->isDisabled != 0),
+							kPWPolicyStr_isAdminUser, (inAccessFeatures->isAdminUser != 0),
+							kPWPolicyStr_newPasswordRequired, (inAccessFeatures->newPasswordRequired != 0) );
+	inMaxLen -= segment1Length;
+	
+	PWAccessFeaturesToStringWithoutStateInfoExtra( inAccessFeatures, inExtraFeatures, sizeof(temp2Str), temp2Str );
+	int segment2Length = snprintf( outString + segment1Length, inMaxLen, "%s", temp2Str );
+	inMaxLen -= segment2Length;
+	
+	snprintf( outString + segment1Length + segment2Length, inMaxLen, " %s=%d",
+				kPWPolicyStr_isSessionKeyAgent, (inAccessFeatures->isSessionKeyAgent != 0) );
 }
 
 
@@ -324,6 +398,42 @@ void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, 
 
 
 //------------------------------------------------------------------------------------------------
+//	PWActualAccessFeaturesToStringExtra
+//
+//	Prepares the PWAccessFeatures struct and PWGlobalAccessFeatures defaults for transmission
+//	over our text-based protocol
+//------------------------------------------------------------------------------------------------
+
+void PWActualAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString )
+{
+	int segment1Length = 0;
+	unsigned int requiresMixedCase = (inExtraFeatures->requiresMixedCase || inGAccessFeatures->requiresMixedCase);
+	unsigned long notGuessablePattern = inExtraFeatures->notGuessablePattern;
+	
+	if ( inMaxLen > 1280 )
+	{
+		PWActualAccessFeaturesToString( inGAccessFeatures, inAccessFeatures, outString );
+		segment1Length = strlen( outString );
+	}
+	else
+	{
+		char tempStr[1280];
+		
+		PWActualAccessFeaturesToString( inGAccessFeatures, inAccessFeatures, tempStr );
+		segment1Length = snprintf( outString, inMaxLen, "%s", tempStr );
+	}
+	inMaxLen -= segment1Length;
+	
+	if ( notGuessablePattern == 0 )
+		notGuessablePattern = 0/*inGAccessFeatures->notGuessablePattern*/;
+	
+	snprintf( outString + segment1Length, inMaxLen, " %s=%d, %s=%lu",
+			kPWPolicyStr_requiresMixedCase, (requiresMixedCase != 0),
+			kPWPolicyStr_notGuessablePattern, notGuessablePattern );
+}
+
+
+//------------------------------------------------------------------------------------------------
 //	PWAccessFeaturesToStringWithoutStateInfo
 //
 //	Prepares the PWAccessFeatures struct for transmission over our text-based protocol
@@ -365,6 +475,40 @@ void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeature
 
 
 //------------------------------------------------------------------------------------------------
+//	PWAccessFeaturesToStringWithoutStateInfoExtra
+//
+//	Prepares the policy data for transmission over our text-based protocol.
+//  Returns in <outString> the subset of policies that are true policies and not state
+//  information, such as: isDisabled, isAdminUser, and newPasswordRequired.
+//------------------------------------------------------------------------------------------------
+
+void PWAccessFeaturesToStringWithoutStateInfoExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString )
+{
+	if ( inMaxLen >= 2048 )
+	{
+		PWAccessFeaturesToStringWithoutStateInfo( inAccessFeatures, outString );
+	}
+	else
+	{
+		char tempStr[2048];
+		
+		PWAccessFeaturesToStringWithoutStateInfo( inAccessFeatures, tempStr );
+		snprintf( outString, inMaxLen, "%s", tempStr );
+	}
+	
+	long firstSegmentLen = strlen( outString );
+	inMaxLen -= firstSegmentLen;
+	if ( inMaxLen > 0 )
+	{
+		snprintf( outString + firstSegmentLen, inMaxLen,
+			" %s=%d %s=%lu",
+			kPWPolicyStr_requiresMixedCase, (inExtraFeatures->requiresMixedCase != 0),
+			kPWPolicyStr_notGuessablePattern, inExtraFeatures->notGuessablePattern );
+	}
+}
+
+
+//------------------------------------------------------------------------------------------------
 //	StringToPWGlobalAccessFeatures
 //
 //	Returns: TRUE if the string is successfully parsed
@@ -377,6 +521,7 @@ void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeature
 Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures )
 {
     const char *usingHistory = strstr( inString, kPWPolicyStr_usingHistory );
+	const char *canModifyPasswordforSelf = strstr( inString, kPWPolicyStr_canModifyPasswordforSelf );
     const char *usingExpirationDate = strstr( inString, kPWPolicyStr_usingExpirationDate );
     const char *usingHardExpirationDate = strstr( inString, kPWPolicyStr_usingHardExpirationDate );
     const char *requiresAlpha = strstr( inString, kPWPolicyStr_requiresAlpha );
@@ -390,6 +535,9 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
     const char *minChars = strstr( inString, kPWPolicyStr_minChars );
     const char *maxChars = strstr( inString, kPWPolicyStr_maxChars );
     const char *passwordCannotBeName = strstr( inString, kPWPolicyStr_passwordCannotBeName );
+    const char *requiresMixedCase = strstr( inString, kPWPolicyStr_requiresMixedCase );
+    const char *newPasswordRequired = strstr( inString, kPWPolicyStr_newPasswordRequired );
+//    const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
     unsigned long value;
     
     if ( StringToPWAccessFeatures_GetValue( usingHistory, &value ) )
@@ -410,6 +558,9 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
 		}
     }
 	
+	if ( StringToPWAccessFeatures_GetValue( canModifyPasswordforSelf, &value ) )
+		inOutAccessFeatures->noModifyPasswordforSelf = (value==0);
+	
     if ( StringToPWAccessFeatures_GetValue( usingExpirationDate, &value ) )
         inOutAccessFeatures->usingExpirationDate = value;
     
@@ -423,11 +574,11 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
         inOutAccessFeatures->requiresNumeric = value;
     
     if ( StringToPWAccessFeatures_GetValue( expirationDateGMT, &value ) )
-        memcpy( &inOutAccessFeatures->expirationDateGMT, (BSDTimeStructCopy *) gmtime((time_t *)&value), sizeof(BSDTimeStructCopy) );
+		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->expirationDateGMT );
     
     if ( StringToPWAccessFeatures_GetValue( hardExpireDateGMT, &value ) )
-        memcpy( &inOutAccessFeatures->hardExpireDateGMT, (BSDTimeStructCopy *) gmtime((time_t *)&value), sizeof(BSDTimeStructCopy) ); 
-    
+		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->hardExpireDateGMT );
+	
     if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilChangePassword, &value ) )
         inOutAccessFeatures->maxMinutesUntilChangePassword = value;
     
@@ -449,8 +600,37 @@ Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeat
 	if ( StringToPWAccessFeatures_GetValue( passwordCannotBeName, &value ) )
 		inOutAccessFeatures->passwordCannotBeName = value;
 	
+	if ( StringToPWAccessFeatures_GetValue( requiresMixedCase, &value ) )
+		inOutAccessFeatures->requiresMixedCase = value;
+	
+	if ( StringToPWAccessFeatures_GetValue( newPasswordRequired, &value ) )
+		inOutAccessFeatures->newPasswordRequired = value;
+	
     // no checking for now
     return true;
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	StringToPWGlobalAccessFeaturesExtra
+//
+//	Returns: TRUE if the string is successfully parsed
+//------------------------------------------------------------------------------------------------
+
+Boolean StringToPWGlobalAccessFeaturesExtra( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures, PWGlobalMoreAccessFeatures *inOutExtraFeatures )
+{
+	Boolean result = StringToPWGlobalAccessFeatures( inString, inOutAccessFeatures );
+	const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
+	const char *minutesUntilFailedLoginReset = strstr( inString, kPWPolicyStr_minutesUntilFailedLoginReset );
+    unsigned long value;
+	
+	if ( StringToPWAccessFeatures_GetValue( notGuessablePattern, &value ) )
+		inOutExtraFeatures->notGuessablePattern = value;
+		
+	if ( StringToPWAccessFeatures_GetValue( minutesUntilFailedLoginReset, &value ) )
+		inOutExtraFeatures->minutesUntilFailedLoginReset = value;
+	
+	return result;
 }
 
 
@@ -531,11 +711,11 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
         inOutAccessFeatures->requiresNumeric = value;
     
     if ( StringToPWAccessFeatures_GetValue( expirationDateGMT, &value ) )
-        memcpy( &inOutAccessFeatures->expirationDateGMT, (BSDTimeStructCopy *) gmtime((time_t *)&value), sizeof(BSDTimeStructCopy) );
+		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->expirationDateGMT );
     
     if ( StringToPWAccessFeatures_GetValue( hardExpireDateGMT, &value ) )
-        memcpy( &inOutAccessFeatures->hardExpireDateGMT, (BSDTimeStructCopy *) gmtime((time_t *)&value), sizeof(BSDTimeStructCopy) ); 
-    
+		gmtime_r( (time_t *)&value, (struct tm *)&inOutAccessFeatures->hardExpireDateGMT );
+	
 	if ( StringToPWAccessFeatures_GetValue( maxMinutesUntilChangePassword, &value ) )
         inOutAccessFeatures->maxMinutesUntilChangePassword = value;
     
@@ -581,6 +761,49 @@ Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutA
 	
     // no checking for now
     return true;
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	StringToPWAccessFeaturesExtra
+//
+//	Returns: TRUE if the string is successfully parsed
+//
+//	Features specified in the string overwrite features in <inOutAccessFeatures>. Features
+//	not specified in the string remain as-is. If they were undefined before, they are undefined
+//	on exit.
+//------------------------------------------------------------------------------------------------
+
+Boolean StringToPWAccessFeaturesExtra( const char *inString, PWAccessFeatures *inOutAccessFeatures, PWMoreAccessFeatures *inOutExtraFeatures )
+{
+	const char *requiresMixedCase = strstr( inString, kPWPolicyStr_requiresMixedCase );
+	const char *notGuessablePattern = strstr( inString, kPWPolicyStr_notGuessablePattern );
+	const char *resetToGlobalDefaults = strstr( inString, kPWPolicyStr_resetToGlobalDefaults );
+    unsigned long value;
+    
+	if ( inOutExtraFeatures == NULL )
+		return false;
+	
+	Boolean result = StringToPWAccessFeatures( inString, inOutAccessFeatures );
+	if ( result )
+	{   
+		if ( StringToPWAccessFeatures_GetValue( requiresMixedCase, &value ) )
+			inOutExtraFeatures->requiresMixedCase = value;
+		
+		if ( StringToPWAccessFeatures_GetValue( notGuessablePattern, &value ) )
+			inOutExtraFeatures->notGuessablePattern = value;
+		
+		if ( StringToPWAccessFeatures_GetValue( resetToGlobalDefaults, &value ) && value > 0 )
+		{
+			inOutExtraFeatures->requiresMixedCase = 0;
+			inOutExtraFeatures->notGuessablePattern = 0;
+		}
+		
+		// no checking for now
+		result = true;
+	}
+	
+	return result;
 }
 
 
@@ -648,8 +871,286 @@ void CrashIfBuiltWrong(void)
 }
 
 
+//------------------------------------------------------------------------------------------------
+//	pwsf_GetPublicKey
+//
+//  RETURNS: 0=ok, -1 fail
+//
+//	Retrieves the RSA public key from the password server database.
+//  <outPublicKey> must be a pointer to a buffer at least kPWFileMaxPublicKeyBytes long.
+//------------------------------------------------------------------------------------------------
+
+int pwsf_GetPublicKey(char *outPublicKey)
+{
+	int err = -1;
+	CAuthFileBase authFile;
+		
+	err = authFile.validateFiles();
+	if ( err == 0 )
+		err = authFile.getRSAPublicKey( outPublicKey );
+	
+	return err;
+}
 
 
+//------------------------------------------------------------------------------------------------
+//	pwsf_GetPublicKeyFromFile
+//
+//  RETURNS: 0=ok, -1 fail
+//
+//	Retrieves the RSA public key from the password server database.
+//  <outPublicKey> must be a pointer to a buffer at least kPWFileMaxPublicKeyBytes long.
+//------------------------------------------------------------------------------------------------
+
+int pwsf_GetPublicKeyFromFile(const char *inFile, char *outPublicKey)
+{
+	int err = -1;
+	CAuthFileBase authFile(inFile);
+	
+	err = authFile.validateFiles();
+	if ( err == 0 )
+		err = authFile.getRSAPublicKey( outPublicKey );
+	
+	return err;
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_CreateReplicaFile
+//
+//  Creates the '/var/db/authserver/authserverreplicas' file.
+//  Client must be running as root.
+//------------------------------------------------------------------------------------------------
+
+void pwsf_CreateReplicaFile( const char *inIPStr, const char *inDNSStr, const char *inPublicKey )
+{
+	struct stat sb;
+	
+	if ( stat(kPWReplicaFile, &sb) == 0 )
+	{
+		// replace the existing file
+		remove( kPWReplicaFile );
+	}
+	
+	{
+		CReplicaFile replicaFile;
+		replicaFile.SetParent( inIPStr, (inDNSStr != NULL && inDNSStr[0] != '\0') ? inDNSStr : NULL );
+		
+		if ( inPublicKey != NULL )
+		{
+			replicaFile.AddServerUniqueID( inPublicKey );
+		}
+		else
+		{
+			CAuthFileBase authFile;
+			char rsaKey[kPWFileMaxPublicKeyBytes];
+			
+			if ( authFile.getRSAPublicKey( rsaKey ) == 0 )
+				replicaFile.AddServerUniqueID( rsaKey );
+		}
+		
+		replicaFile.SetReplicaPolicy( kReplicaAllowAll );
+		replicaFile.SaveXMLData();
+	}
+}
+
+
+//------------------------------------------------------------------------------------------------
+//	pwsf_ResetReplicaFile
+//
+//  Resets the '/var/db/authserver/authserverreplicas' file to have no replicas.
+//  Client must be running as root.
+//------------------------------------------------------------------------------------------------
+
+void pwsf_ResetReplicaFile( const char *inPublicKey )
+{
+	CFStringRef firstIPAddressString;
+	CFStringRef dnsString;
+	CFMutableArrayRef ipAddressArray = NULL;
+	CFIndex ipAddressCount = 0;
+	CReplicaFile replicaFile;
+	CFMutableDictionaryRef serverDict = (CFMutableDictionaryRef) replicaFile.GetParent();
+	char ipStr[256] = {0,};
+	char dnsStr[256] = {0,};
+	
+	strcpy( ipStr, "0.0.0.0" );
+	
+	if ( serverDict != NULL )
+	{
+		// fetch data to preserve
+		ipAddressArray = replicaFile.GetIPAddresses( serverDict );
+		if ( ipAddressArray != NULL )
+		{
+			ipAddressCount = CFArrayGetCount( ipAddressArray );
+			firstIPAddressString = (CFStringRef) CFArrayGetValueAtIndex( ipAddressArray, 0 );
+			if ( firstIPAddressString != NULL )
+				CFStringGetCString( firstIPAddressString, ipStr, sizeof(ipStr), kCFStringEncodingUTF8 );
+		}
+		
+		if ( CFDictionaryGetValueIfPresent(serverDict, CFSTR(kPWReplicaDNSKey), (const void **)&dnsString) )
+			CFStringGetCString( dnsString, dnsStr, sizeof(dnsStr), kCFStringEncodingUTF8 );
+	}
+	
+	// replace the replica file
+	pwsf_CreateReplicaFile( ipStr, dnsStr, inPublicKey );
+	
+	// restore IP list (if > 1 address)
+	if ( ipAddressCount > 1 )
+	{
+		CReplicaFile newReplicaFile;
+		serverDict = (CFMutableDictionaryRef) newReplicaFile.GetParent();
+		if ( serverDict != NULL )
+		{
+			newReplicaFile.AddOrReplaceValue( serverDict, CFSTR(kPWReplicaIPKey), ipAddressArray );
+			newReplicaFile.SetParent( serverDict );
+			newReplicaFile.SaveXMLData();
+		}
+	}
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_GetPrincName
+//
+//  Returns: the kerberos principal name for the record; must never return NULL.
+// ----------------------------------------------------------------------------------------
+
+char* pwsf_GetPrincName( PWFileEntry *userRec )
+{
+	if ( strcmp( userRec->digest[kPWHashSlotKERBEROS_NAME].method, "KerberosPrincName" ) == 0 )
+		return userRec->digest[kPWHashSlotKERBEROS_NAME].digest;
+	
+	return userRec->usernameStr;
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_ShadowHashDataToArray
+//
+//	Returns: TRUE if an array is returned in <outHashTypeArray>.
+// ----------------------------------------------------------------------------------------
+
+int pwsf_ShadowHashDataToArray( const char *inAAData, CFMutableArrayRef *outHashTypeArray )
+{
+	CFMutableArrayRef hashTypeArray = NULL;
+	char hashType[256];
+	
+	if ( inAAData == NULL || outHashTypeArray == NULL || *inAAData == '\0' )
+		return 0;
+	
+	*outHashTypeArray = NULL;
+	
+	// get the existing list (if any)
+	if ( strncmp( inAAData, kDSTagAuthAuthorityBetterHashOnly, sizeof(kDSTagAuthAuthorityBetterHashOnly)-1 ) == 0 )
+	{	
+		hashTypeArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+		if ( hashTypeArray == NULL )
+			return 0;
+		
+		pwsf_AppendUTF8StringToArray( "SMB-NT", hashTypeArray );
+		pwsf_AppendUTF8StringToArray( "SALTED-SHA1", hashTypeArray );
+	}
+	else
+	if ( strncmp( inAAData, kHashNameListPrefix, sizeof(kHashNameListPrefix)-1 ) == 0 )
+	{
+		// comma delimited list
+		const char *endPtr;
+		const char *tptr = inAAData + sizeof(kHashNameListPrefix) - 1;
+		
+		hashTypeArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+		if ( hashTypeArray == NULL )
+			return 0;
+		
+		if ( *tptr++ == '<' && strchr(tptr, '>') != NULL )
+		{
+			while ( (endPtr = strchr( tptr, ',' )) != NULL )
+			{
+				strlcpy( hashType, tptr, (endPtr - tptr) + 1 );
+				pwsf_AppendUTF8StringToArray( hashType, hashTypeArray );
+				
+				tptr += (endPtr - tptr) + 1;
+			}
+			
+			endPtr = strchr( tptr, '>' );
+			if ( endPtr != NULL )
+			{
+				strlcpy( hashType, tptr, (endPtr - tptr) + 1 );
+				pwsf_AppendUTF8StringToArray( hashType, hashTypeArray );
+			}
+		}
+	}
+	
+	*outHashTypeArray = hashTypeArray;
+	
+	return 1;
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_ShadowHashArrayToData
+// ----------------------------------------------------------------------------------------
+
+char * pwsf_ShadowHashArrayToData( CFArrayRef inHashTypeArray, long *outResultLen )
+{
+	char *aaNewData = NULL;
+	char *newDataCStr = NULL;
+	long len = 0;
+	CFMutableStringRef newDataString = NULL;
+	CFStringRef stringRef;
+	CFIndex stringLen;
+	
+	// build the new string
+	CFIndex typeCount = CFArrayGetCount( inHashTypeArray );
+	if ( typeCount > 0 )
+	{
+		newDataString = CFStringCreateMutable( kCFAllocatorDefault, 0 );
+		if ( newDataString == NULL )
+			return NULL;
+		
+		for ( CFIndex index = 0; index < typeCount; index++ )
+		{
+			stringRef = (CFStringRef) CFArrayGetValueAtIndex( inHashTypeArray, index );
+			if ( stringRef != NULL )
+			{
+				if ( CFStringGetLength(newDataString) > 0 )
+					CFStringAppend( newDataString, CFSTR(",") );
+				CFStringAppend( newDataString, stringRef );
+			}
+		}
+	}
+	
+	// build the auth-authority
+	stringLen = CFStringGetLength( newDataString );
+	newDataCStr = (char *) calloc( 1, stringLen + 1 );
+	CFStringGetCString( newDataString, newDataCStr, stringLen + 1, kCFStringEncodingUTF8 );
+	aaNewData = (char *) calloc( 1, sizeof(kDSValueAuthAuthorityShadowHash) + sizeof(kHashNameListPrefix) + stringLen + 2 );
+	
+	// build string
+	if ( newDataCStr != NULL && aaNewData != NULL )
+		len = sprintf( aaNewData, "%s<%s>", kHashNameListPrefix, newDataCStr );
+	
+	// clean up
+	if ( newDataCStr != NULL )
+		free( newDataCStr );
+	
+	// return string length (if requested)
+	if ( outResultLen != NULL )
+		*outResultLen = len;
+	
+	return aaNewData;
+}
+	
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_AppendUTF8StringToArray
+// ----------------------------------------------------------------------------------------
+
+void pwsf_AppendUTF8StringToArray( const char *inUTF8Str, CFMutableArrayRef inArray )
+{
+	CFStringRef stringRef = CFStringCreateWithCString( kCFAllocatorDefault, inUTF8Str, kCFStringEncodingUTF8 );
+	CFArrayAppendValue( inArray, stringRef );
+	CFRelease( stringRef );
+}
 
 
 

@@ -75,60 +75,63 @@
 *                                                                               *
 ********************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include      "math.h"
 #include      "fp_private.h"
 #include      "fenv_private.h"
 
 #define      REM_NAN      "9"
-static const hexdouble Huge		= HEXDOUBLE(0x7ff00000, 0x00000000);
-static const hexdouble HugeHalved	= HEXDOUBLE(0x7fe00000, 0x00000000);
-static const hexsingle HugeF		= { 0x7f800000 };
-static const hexsingle HugeFHalved	= { 0x7f000000 };
 
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
-static long int ___fpclassifyd ( double arg )
+static const hexdouble Huge		= HEXDOUBLE(0x7ff00000, 0x00000000);
+static const hexdouble HugeHalved	= HEXDOUBLE(0x7fe00000, 0x00000000);
+
+static int ___fpclassifyd ( double arg )
 {
-      register unsigned long int exponent;
+      register uint32_t exponent;
       hexdouble      x;
             
       x.d = arg;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
       
       exponent = x.i.hi & 0x7ff00000;
       if ( exponent == 0x7ff00000 )
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_INFINITE;
+                  return FP_INFINITE;
             else
                   return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
       }
       else if ( exponent != 0)
-            return (long int) FP_NORMAL;
+            return FP_NORMAL;
       else
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_ZERO;
+                  return FP_ZERO;
             else
-                  return (long int) FP_SUBNORMAL;
+                  return FP_SUBNORMAL;
       }
 }
 
-static const double twoTo52 = 4.50359962737049600e15;              // 0x1p52
+static const double twoTo52 = 0x1.0p+52;							   // 4.50359962737049600e15;
 static const double klTod = 4503601774854144.0;                    // 0x1.000008p52
 static const hexdouble minusInf  = HEXDOUBLE(0xfff00000, 0x00000000);
 
 static double __logb (  double x  )
 {
       hexdouble xInHex;
-      long int shiftedExp;
+      int32_t shiftedExp;
       
       xInHex.d = x;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+
       shiftedExp = ( xInHex.i.hi & 0x7ff00000 ) >> 20;
       
-      if ( shiftedExp == 2047 ) 
+      if (unlikely( shiftedExp == 2047 )) 
       {                                                  // NaN or INF
             if ( ( ( xInHex.i.hi & 0x80000000 ) == 0 ) || ( x != x ) )
                   return x;                              // NaN or +INF return x
@@ -136,41 +139,49 @@ static double __logb (  double x  )
                   return -x;                             // -INF returns +INF
       }
       
-      if ( shiftedExp != 0 )                             // normal number
+      if (likely( shiftedExp != 0 ))                     // normal number
             shiftedExp -= 1023;                          // unbias exponent
       else if ( x == 0.0 ) 
       {                                                  // zero
             hexdouble OldEnvironment;
-            FEGETENVD( OldEnvironment.d );             // raise zero divide for DOMAIN error
+            FEGETENVD_GRP( OldEnvironment.d );             // raise zero divide for DOMAIN error
             OldEnvironment.i.lo |= FE_DIVBYZERO;
-            FESETENVD( OldEnvironment.d );
+            FESETENVD_GRP( OldEnvironment.d );
             return ( minusInf.d );			 // return -infinity
       }
       else 
       {                                                  // subnormal number
             xInHex.d *= twoTo52;                         // scale up
+		    __NOOP;
+		    __NOOP;
+		    __NOOP;
+
             shiftedExp = ( xInHex.i.hi & 0x7ff00000 ) >> 20;
             shiftedExp -= 1075;                          // unbias exponent
       }
       
-      if ( shiftedExp == 0 )                             // zero result
+      if (unlikely( shiftedExp == 0 ))                   // zero result
             return ( 0.0 );
       else 
       {                                                  // nonzero result
             xInHex.d = klTod;
+		    __NOOP;
+		    __NOOP;
+		    __NOOP;
+
             xInHex.i.lo += shiftedExp;
             return ( xInHex.d - klTod );
       }
 }
 
-static const double twoTo1023  = 8.988465674311579539e307;   // 0x1p1023
-static const double twoToM1022 = 2.225073858507201383e-308;  // 0x1p-1022
+static const double twoTo1023  = 0x1.0p+1023;
+static const double twoToM1022 = 0x1.0p-1022;
 
 static double __scalbn ( double x, int n  )
 {
       hexdouble xInHex;
       
-      xInHex.i.lo = 0UL;                        // init. low half of xInHex
+      xInHex.i.lo = 0u;                        // init. low half of xInHex
       
       if ( n > 1023 ) 
        {                                        // large positive scaling
@@ -198,16 +209,23 @@ static double __scalbn ( double x, int n  )
 *      -1022 <= n <= 1023; convert n to double scale factor.                   *
 *******************************************************************************/
 
-      xInHex.i.hi = ( ( unsigned long ) ( n + 1023 ) ) << 20;
-      return ( x * xInHex.d );
+      xInHex.i.hi = ( ( uint32_t ) ( n + 1023 ) ) << 20;
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+      
+	  return ( x * xInHex.d );
 }
 
-static long int ___signbitd ( double arg )
+static int ___signbitd ( double arg )
 {
       hexdouble z;
 
       z.d = arg;
-      return (((signed long int)z.i.hi) < 0);
+	  __NOOP;
+	  __NOOP;
+	  __NOOP;
+      return (((int32_t)z.i.hi) < 0);
 }
 
 /***********************************************************************
@@ -222,10 +240,10 @@ static long int ___signbitd ( double arg )
 
 double remquo ( double x, double y, int *quo)
 {
-      long int      iclx,icly;                        /* classify results of x,y */
-      long int      iquo;                             /* low 32 bits of integral quotient */
-      long int      iscx, iscy, idiff;                /* logb values and difference */
-      long int      i;                                /* loop variable */
+      int			iclx,icly;						  /* classify results of x,y */
+      int32_t		iquo;                             /* low 32 bits of integral quotient */
+      int32_t		iscx, iscy, idiff;                /* logb values and difference */
+      int			i;                                /* loop variable */
       double        absy,x1,y1,z;                     /* local floating-point variables */
       double        rslt;
       fenv_t        OldEnv;
@@ -234,17 +252,20 @@ double remquo ( double x, double y, int *quo)
 
       FEGETENVD ( OldEnvironment.d );
       FESETENVD ( 0.0 );
+	  __NOOP;
+	  __NOOP;
+
       OldEnv = OldEnvironment.i.lo;
       
       *quo = 0;                                       /* initialize quotient result */
       iclx = ___fpclassifyd(x);
       icly = ___fpclassifyd(y);
-      if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
+      if (likely((iclx & icly) >= FP_NORMAL))    {    /* x,y both nonzero finite case */
          x1 = __FABS(x);                              /* work with absolute values */
          absy = __FABS(y);
          iquo = 0;                                    /* zero local quotient */
-         iscx = (long int) __logb(x1);                  /* get binary exponents */
-         iscy = (long int) __logb(absy);
+         iscx = (int32_t) __logb(x1);                  /* get binary exponents */
+         iscy = (int32_t) __logb(absy);
          idiff = iscx - iscy;                         /* exponent difference */
          if (idiff >= 0) {                            /* exponent of x1 >= exponent of y1 */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
@@ -265,7 +286,7 @@ double remquo ( double x, double y, int *quo)
                    iquo +=1;
               }                                       /* end of last remainder step */
          }                                            /* remainder (x1) has smaller exponent than y */
-         if ( x1 < HugeHalved.d )
+         if (likely( x1 < HugeHalved.d ))
             z = x1 + x1;                              /* double remainder, without overflow */
          else
             z = Huge.d;
@@ -289,30 +310,33 @@ double remquo ( double x, double y, int *quo)
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nan(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            FESETENVD( OldEnvironment.d );
+            FESETENVD_GRP( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite REM infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-      FEGETENVD( OldEnvironment.d );
+      FEGETENVD_GRP( OldEnvironment.d );
       newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
       OldEnvironment.i.lo = OldEnv;
       if ((newexc & FE_INVALID) != 0)
             OldEnvironment.i.lo |= SET_INVALID;
       OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      FESETENVD( OldEnvironment.d );
+      FESETENVD_GRP( OldEnvironment.d );
       return rslt;
 }
 
 #else /* !BUILDING_FOR_CARBONCORE_LEGACY */
 
+static const hexsingle HugeF		= { 0x7f800000 };
+static const hexsingle HugeFHalved	= { 0x7f000000 };
+
 float remquof ( float x, float y, int *quo)
 {
-      long int      iclx,icly;                        /* classify results of x,y */
-      long int      iquo;                             /* low 32 bits of integral quotient */
-      long int      iscx, iscy, idiff;                /* logb values and difference */
-      long int      i;                                /* loop variable */
+      int			iclx,icly;                        /* classify results of x,y */
+      int32_t		iquo;                             /* low 32 bits of integral quotient */
+      int32_t		iscx, iscy, idiff;                /* logb values and difference */
+      int			i;                                /* loop variable */
       float        absy,x1,y1,z;                     /* local floating-point variables */
       float        rslt;
       fenv_t        OldEnv;
@@ -321,17 +345,20 @@ float remquof ( float x, float y, int *quo)
     
       FEGETENVD ( OldEnvironment.d );
       FESETENVD ( 0.0 );
+	  __NOOP;
+	  __NOOP;
+
       OldEnv = OldEnvironment.i.lo;
       
       *quo = 0;                                       /* initialize quotient result */
       iclx = __fpclassifyf(x);
       icly = __fpclassifyf(y);
-      if ((iclx & icly) >= FP_NORMAL)    {            /* x,y both nonzero finite case */
+      if (likely((iclx & icly) >= FP_NORMAL))    {     /* x,y both nonzero finite case */
          x1 = __FABSF(x);                              /* work with absolute values */
          absy = __FABSF(y);
          iquo = 0;                                    /* zero local quotient */
-         iscx = (long int) logbf(x1);                  /* get binary exponents */
-         iscy = (long int) logbf(absy);
+         iscx = (int32_t) logbf(x1);                  /* get binary exponents */
+         iscy = (int32_t) logbf(absy);
          idiff = iscx - iscy;                         /* exponent difference */
          if (idiff >= 0) {                            /* exponent of x1 >= exponent of y1 */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
@@ -352,7 +379,7 @@ float remquof ( float x, float y, int *quo)
                    iquo +=1;
               }                                       /* end of last remainder step */
          }                                            /* remainder (x1) has smaller exponent than y */
-         if ( x1 < HugeFHalved.fval )
+         if (likely( x1 < HugeFHalved.fval ))
             z = x1 + x1;                              /* double remainder, without overflow */
          else
             z = HugeF.fval;
@@ -376,19 +403,19 @@ float remquof ( float x, float y, int *quo)
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nanf(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            FESETENVD( OldEnvironment.d );
+            FESETENVD_GRP( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite REM infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-      FEGETENVD( OldEnvironment.d );
+      FEGETENVD_GRP( OldEnvironment.d );
       newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
       OldEnvironment.i.lo = OldEnv;
       if ((newexc & FE_INVALID) != 0)
             OldEnvironment.i.lo |= SET_INVALID;
       OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-      FESETENVD( OldEnvironment.d );
+      FESETENVD_GRP( OldEnvironment.d );
       return rslt;
 }
 
@@ -428,9 +455,9 @@ float remainderf ( float x, float y )
 
 double fmod ( double x, double y )
 {
-    long int      iclx,icly;                           /* classify results of x,y */
-    long int      iscx,iscy,idiff;                     /* logb values and difference */
-    long int      i;                                   /* loop variable */
+    int			  iclx,icly;                           /* classify results of x,y */
+    int32_t		  iscx,iscy,idiff;                     /* logb values and difference */
+    int			  i;                                   /* loop variable */
     double        absy,x1,y1,z;                        /* local floating-point variables */
     double        rslt;
     fenv_t        OldEnv;
@@ -439,11 +466,14 @@ double fmod ( double x, double y )
     
     FEGETENVD( OldEnvironment.d );
     FESETENVD( 0.0 );
+	  __NOOP;
+	  __NOOP;
+
     OldEnv = OldEnvironment.i.lo;
     
     iclx = __fpclassifyd(x);
     icly = __fpclassifyd(y);
-    if ((iclx & icly) >= FP_NORMAL)    {              /* x,y both nonzero finite case */
+    if (likely((iclx & icly) >= FP_NORMAL))    {      /* x,y both nonzero finite case */
          x1 = __FABS(x);                              /* work with absolute values */
          absy = __FABS(y);
          if (absy > x1) {
@@ -451,8 +481,8 @@ double fmod ( double x, double y )
                   goto ret;
             }
          else {                                       /* nontrivial case requires reduction */
-              iscx = (long int) logb(x1);             /* get binary exponents of |x| and |y| */
-              iscy = (long int) logb(absy);
+              iscx = (int32_t) logb(x1);             /* get binary exponents of |x| and |y| */
+              iscy = (int32_t) logb(absy);
               idiff = iscx - iscy;                    /* exponent difference */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
                    y1 = scalbn(absy,-iscy);            /* scale |y| to unit binade */
@@ -481,27 +511,27 @@ double fmod ( double x, double y )
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nan(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            FESETENVD ( OldEnvironment.d );
+            FESETENVD_GRP ( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite MOD infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-    FEGETENVD (OldEnvironment.d );
+    FEGETENVD_GRP (OldEnvironment.d );
     newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
     OldEnvironment.i.lo = OldEnv;
     if ((newexc & FE_INVALID) != 0)
           OldEnvironment.i.lo |= SET_INVALID;
     OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-    FESETENVD (OldEnvironment.d );
+    FESETENVD_GRP (OldEnvironment.d );
     return rslt;
 }
 
 float fmodf ( float x, float y )
 {
-    long int      iclx,icly;                           /* classify results of x,y */
-    long int      iscx,iscy,idiff;                     /* logb values and difference */
-    long int      i;                                   /* loop variable */
+    int			  iclx,icly;                           /* classify results of x,y */
+    int32_t		  iscx,iscy,idiff;                     /* logb values and difference */
+    int			  i;                                   /* loop variable */
     float        absy,x1,y1,z;                        /* local floating-point variables */
     float        rslt;
     fenv_t        OldEnv;
@@ -510,11 +540,14 @@ float fmodf ( float x, float y )
     
     FEGETENVD( OldEnvironment.d );
     FESETENVD( 0.0 );
+	  __NOOP;
+	  __NOOP;
+
     OldEnv = OldEnvironment.i.lo;
     
     iclx = __fpclassifyf(x);
     icly = __fpclassifyf(y);
-    if ((iclx & icly) >= FP_NORMAL)    {              /* x,y both nonzero finite case */
+    if (likely((iclx & icly) >= FP_NORMAL))    {       /* x,y both nonzero finite case */
          x1 = __FABSF(x);                              /* work with absolute values */
          absy = __FABSF(y);
          if (absy > x1) {
@@ -522,8 +555,8 @@ float fmodf ( float x, float y )
                   goto ret;
             }
          else {                                       /* nontrivial case requires reduction */
-              iscx = (long int) logbf(x1);             /* get binary exponents of |x| and |y| */
-              iscy = (long int) logbf(absy);
+              iscx = (int32_t) logbf(x1);             /* get binary exponents of |x| and |y| */
+              iscy = (int32_t) logbf(absy);
               idiff = iscx - iscy;                    /* exponent difference */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
                    y1 = scalbnf(absy,-iscy);            /* scale |y| to unit binade */
@@ -552,25 +585,20 @@ float fmodf ( float x, float y )
     else if ((iclx == FP_INFINITE)||(icly == FP_ZERO)) {    /* invalid result */
          rslt = nanf(REM_NAN);
             OldEnvironment.i.lo |= SET_INVALID;
-            FESETENVD ( OldEnvironment.d );
+            FESETENVD_GRP ( OldEnvironment.d );
          goto ret;
     }
     else                                              /* trivial cases (finite MOD infinite   */
          rslt = x;                                    /*  or  zero REM nonzero) with *quo = 0 */
   ret:
-    FEGETENVD (OldEnvironment.d );
+    FEGETENVD_GRP (OldEnvironment.d );
     newexc = OldEnvironment.i.lo & FE_ALL_EXCEPT;
     OldEnvironment.i.lo = OldEnv;
     if ((newexc & FE_INVALID) != 0)
           OldEnvironment.i.lo |= SET_INVALID;
     OldEnvironment.i.lo |=  newexc & ( FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW );
-    FESETENVD (OldEnvironment.d );
+    FESETENVD_GRP (OldEnvironment.d );
     return rslt;
 }
 
 #endif /* !BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

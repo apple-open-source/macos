@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: idled.h,v 1.4 2003/02/13 20:15:24 rjs3 Exp $ */
+/* $Id: idled.h,v 1.5 2005/03/05 00:36:54 dasenbro Exp $ */
 
 #ifndef IDLED_H
 #define IDLED_H

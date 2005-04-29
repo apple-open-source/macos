@@ -25,6 +25,27 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "cpplib.h"
 
+/* APPLE LOCAL begin CW asm blocks */
+/* We use a small state machine to inform the lexer when to start
+   returning tokens marking the beginning of each asm line.  */
+enum cw_asm_states {
+  /* Normal code.  */
+  cw_asm_none,
+  /* '{' of asm block seen, decls may appear.  */
+  cw_asm_decls,
+  /* No more decls, in asm block proper, '}' not seen yet.  */
+  cw_asm_asm
+};
+
+extern enum cw_asm_states cw_asm_state;
+extern int cw_asm_in_decl;
+extern int cw_asm_block;
+extern int cw_asm_at_bol;
+extern int cw_asm_in_operands;
+extern int cw_asm_labelno;
+extern int cw_asm_lineno;
+/* APPLE LOCAL end CW asm blocks */
+
 /* Usage of TREE_LANG_FLAG_?:
    0: COMPOUND_STMT_NO_SCOPE (in COMPOUND_STMT).
       TREE_NEGATED_INT (in INTEGER_CST).
@@ -43,7 +64,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 /* Reserved identifiers.  This is the union of all the keywords for C,
-   C++, and Objective C.  All the type modifiers have to be in one
+   C++, and Objective-C.  All the type modifiers have to be in one
    block at the beginning, because they are used as mask bits.  There
    APPLE LOCAL AltiVec
    are 27 type modifiers (30 with AltiVec modifiers); if we add many more
@@ -59,7 +80,7 @@ enum rid
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
 
   /* C extensions */
-  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX,
+  RID_BOUNDED, RID_UNBOUNDED, RID_COMPLEX, RID_THREAD,
   /* APPLE LOCAL private extern */
   RID_PRIVATE_EXTERN,
 
@@ -103,16 +124,16 @@ enum rid
   /* casts */
   RID_CONSTCAST, RID_DYNCAST, RID_REINTCAST, RID_STATCAST,
 
-  /* alternate spellings */
-  RID_AND, RID_AND_EQ, RID_NOT, RID_NOT_EQ,
-  RID_OR,  RID_OR_EQ,  RID_XOR, RID_XOR_EQ,
-  RID_BITAND, RID_BITOR, RID_COMPL,
-
-  /* Objective C */
+  /* Objective-C */
   RID_ID,          RID_AT_ENCODE,    RID_AT_END,
   RID_AT_CLASS,    RID_AT_ALIAS,     RID_AT_DEFS,
   RID_AT_PRIVATE,  RID_AT_PROTECTED, RID_AT_PUBLIC,
-  RID_AT_PROTOCOL, RID_AT_SELECTOR,  RID_AT_INTERFACE,
+  /* APPLE LOCAL begin Panther ObjC enhancements */
+  RID_AT_PROTOCOL, RID_AT_SELECTOR,  
+  RID_AT_THROW,	   RID_AT_TRY,       RID_AT_CATCH,
+  RID_AT_FINALLY,  RID_AT_SYNCHRONIZED,
+  RID_AT_INTERFACE,
+  /* APPLE LOCAL end Panther ObjC enhancements */
   RID_AT_IMPLEMENTATION,
 
   RID_MAX,
@@ -154,7 +175,7 @@ extern tree altivec_vector_constant		PARAMS ((tree, tree));
 
 /* The elements of `ridpointers' are identifier nodes for the reserved
    type names and storage classes.  It is indexed by a RID_... value.  */
-extern tree *ridpointers;
+extern GTY ((length ("(int)RID_MAX"))) tree *ridpointers;
 
 /* Standard named or nameless data types of the C compiler.  */
 
@@ -164,10 +185,6 @@ enum c_tree_index
     CTI_SIGNED_WCHAR_TYPE,
     CTI_UNSIGNED_WCHAR_TYPE,
     CTI_WINT_TYPE,
-    CTI_C_SIZE_TYPE, /* The type used for the size_t typedef and the
-			result type of sizeof (an ordinary type without
-			TYPE_IS_SIZETYPE set, unlike the internal
-			sizetype).  */
     CTI_SIGNED_SIZE_TYPE, /* For format checking only.  */
     CTI_UNSIGNED_PTRDIFF_TYPE, /* For format checking only.  */
     CTI_INTMAX_TYPE,
@@ -176,9 +193,8 @@ enum c_tree_index
     CTI_WIDEST_UINT_LIT_TYPE,
 
     CTI_CHAR_ARRAY_TYPE,
-    /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+    /* APPLE LOCAL Pascal strings 2001-07-05 zll */
     CTI_PASCAL_STRING_TYPE,    /* for Pascal strings */
-    /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
     CTI_WCHAR_ARRAY_TYPE,
     CTI_INT_ARRAY_TYPE,
     CTI_STRING_TYPE,
@@ -214,7 +230,7 @@ enum c_tree_index
 
 /* Identifier part common to the C front ends.  Inherits from
    tree_identifier, despite appearances.  */
-struct c_common_identifier
+struct c_common_identifier GTY(())
 {
   struct tree_common common;
   struct cpp_hashnode node;
@@ -224,7 +240,6 @@ struct c_common_identifier
 #define signed_wchar_type_node		c_global_trees[CTI_SIGNED_WCHAR_TYPE]
 #define unsigned_wchar_type_node	c_global_trees[CTI_UNSIGNED_WCHAR_TYPE]
 #define wint_type_node			c_global_trees[CTI_WINT_TYPE]
-#define c_size_type_node		c_global_trees[CTI_C_SIZE_TYPE]
 #define signed_size_type_node		c_global_trees[CTI_SIGNED_SIZE_TYPE]
 #define unsigned_ptrdiff_type_node	c_global_trees[CTI_UNSIGNED_PTRDIFF_TYPE]
 #define intmax_type_node		c_global_trees[CTI_INTMAX_TYPE]
@@ -241,9 +256,8 @@ struct c_common_identifier
 #define c_bool_false_node		c_global_trees[CTI_C_BOOL_FALSE]
 
 #define char_array_type_node		c_global_trees[CTI_CHAR_ARRAY_TYPE]
-/* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+/* APPLE LOCAL Pascal strings 2001-07-05 zll */
 #define pascal_string_type_node 	c_global_trees[CTI_PASCAL_STRING_TYPE]
-/* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
 #define wchar_array_type_node		c_global_trees[CTI_WCHAR_ARRAY_TYPE]
 #define int_array_type_node		c_global_trees[CTI_INT_ARRAY_TYPE]
 #define string_type_node		c_global_trees[CTI_STRING_TYPE]
@@ -265,7 +279,7 @@ struct c_common_identifier
 /* A node for `((void) 0)'.  */
 #define void_zero_node                  c_global_trees[CTI_VOID_ZERO]
 
-extern tree c_global_trees[CTI_MAX];
+extern GTY(()) tree c_global_trees[CTI_MAX];
 
 /* Mark which labels are explicitly declared.
    These may be shadowed, and may be referenced from nested functions.  */
@@ -277,16 +291,14 @@ extern tree c_global_trees[CTI_MAX];
 
 typedef enum c_language_kind
 {
-  clk_c,           /* A dialect of C: K&R C, ANSI/ISO C89, C2000,
-		       etc.  */
-  /* APPLE LOCAL compiling_objc */		       
+  clk_c = 0,      /* A dialect of C: K&R C, ANSI/ISO C89, C2000, etc.  */
   clk_cplusplus   /* ANSI/ISO C++ */
 }
 c_language_kind;
 
 /* Information about a statement tree.  */
 
-struct stmt_tree_s {
+struct stmt_tree_s GTY(()) {
   /* The last statement added to the tree.  */
   tree x_last_stmt;
   /* The type of the last expression statement.  (This information is
@@ -294,12 +306,12 @@ struct stmt_tree_s {
   tree x_last_expr_type;
   /* The last filename we recorded.  */
   const char *x_last_expr_filename;
-  /* In C++, Non-zero if we should treat statements as full
+  /* In C++, Nonzero if we should treat statements as full
      expressions.  In particular, this variable is no-zero if at the
      end of a statement we should destroy any temporaries created
      during that statement.  Similarly, if, at the end of a block, we
      should destroy any local variables in this block.  Normally, this
-     variable is non-zero, since those are the normal semantics of
+     variable is nonzero, since those are the normal semantics of
      C++.
 
      However, in order to represent aggregate initialization code as
@@ -316,7 +328,7 @@ typedef struct stmt_tree_s *stmt_tree;
 /* Global state pertinent to the current function.  Some C dialects
    extend this structure with additional fields.  */
 
-struct language_function {
+struct c_language_function GTY(()) {
   /* While we are parsing the function, this contains information
      about the statement-tree that we are building.  */
   struct stmt_tree_s x_stmt_tree;
@@ -355,11 +367,14 @@ extern int (*lang_statement_code_p)             PARAMS ((enum tree_code));
 extern void (*lang_expand_stmt)                 PARAMS ((tree));
 extern void (*lang_expand_decl_stmt)            PARAMS ((tree));
 extern void (*lang_expand_function_end)         PARAMS ((void));
+extern tree gettags				PARAMS ((void));
 
 /* Callback that determines if it's ok for a function to have no
    noreturn attribute.  */
 extern int (*lang_missing_noreturn_ok_p)	PARAMS ((tree));
 
+extern int yyparse				PARAMS ((void));
+extern void free_parser_stacks			PARAMS ((void));
 
 extern stmt_tree current_stmt_tree              PARAMS ((void));
 extern tree *current_scope_stmt_stack           PARAMS ((void));
@@ -375,7 +390,6 @@ extern tree walk_stmt_tree			PARAMS ((tree *,
 							 void *));
 extern void prep_stmt                           PARAMS ((tree));
 extern void expand_stmt                         PARAMS ((tree));
-extern void mark_stmt_tree                      PARAMS ((void *));
 extern void shadow_warning			PARAMS ((const char *,
 							 tree, tree));
 extern tree c_begin_if_stmt			PARAMS ((void));
@@ -388,7 +402,7 @@ extern void c_finish_while_stmt_cond		PARAMS ((tree, tree));
    structure for FUNCTION_DECLs; all other DECLs have a NULL
    DECL_LANG_SPECIFIC field.  */
 
-struct c_lang_decl {
+struct c_lang_decl GTY(()) {
   unsigned declared_inline : 1;
 };
 
@@ -399,24 +413,89 @@ struct c_lang_decl {
 #define DECL_NUM_STMTS(NODE) \
   (FUNCTION_DECL_CHECK (NODE)->decl.u1.i)
 
-extern void c_mark_lang_decl                    PARAMS ((struct c_lang_decl *));
-
 /* The variant of the C language being processed.  Each C language
    front-end defines this variable.  */
 
 extern c_language_kind c_language;
 
-/* APPLE LOCAL begin Objective-C++ */
-/* The following flag is non-zero whenever ObjC or ObjC++ is being
-   compiled.  */
+/* APPLE LOCAL begin PCH */
+/* The file name to which we should write a precompiled header, or
+   NULL if no header will be written in this compile.  */
+extern const char *pch_file;
+/* APPLE LOCAL end PCH */
 
-extern int compiling_objc;
-/* APPLE LOCAL end Objective-C++ */
+/* Switches common to the C front ends.  */
 
-/* Nonzero means give string constants the type `const char *', rather
-   than `char *'.  */
+/* Nonzero if prepreprocessing only.  */
 
-extern int flag_const_strings;
+extern int flag_preprocess_only;
+
+/* APPLE LOCAL begin Symbol Separation */
+/* The directory name where separate debug repository and context
+   available. NULL if Symbol Separation is not used.  */
+
+extern const char *dbg_dir;
+/* APPLE LOCAL end Symbol Separation */
+
+/* APPLE LOCAL begin Panther ObjC enhancements */
+/* Zero means that faster, ...NonNil variants of objc_msgSend...
+   calls will be used in ObjC; passing nil receivers to such calls
+   will most likely result in crashes.  */
+extern int flag_nil_receivers;
+
+/* Nonzero means that we will allow new ObjC exception syntax (@throw,
+   @try, etc.) in source code.  */
+extern int flag_objc_exceptions;
+
+/* Nonzero means that code generation will be altered to support
+   "zero-link" execution.  This currently affects ObjC only, but may
+   affect other languages in the future.  */
+extern int flag_zero_link;
+/* APPLE LOCAL end Panther ObjC enhancements */
+
+/* APPLE LOCAL begin XJR */
+/* Warn whenever an ObjC assignment is being handled by an interceptor
+   routine in the garbage collector.  */
+extern int warn_assign_intercept;
+
+/* Nonzero means jump to entry points provided in high memory comm page.  
+   This is solely a performance improvement, so this option may be a no-op
+   for some targets.  */
+extern int flag_objc_direct_dispatch;
+
+/* Nonzero means include ObjC classes in the garbage collection scheme
+   by default, unless the class is marked `static'.  When zero, only
+   classes marked `auto' are included.  */
+extern int flag_objc_gc;
+/* APPLE LOCAL end XJR */
+
+/* APPLE LOCAL begin fix and continue */
+/* Nonzero means emit an '__OBJC, __image_info' for the current translation
+   unit.  It will inform the ObjC runtime that class definition(s) herein
+   contained are to replace one(s) previously loaded.  */
+extern int flag_replace_objc_classes;
+/* APPLE LOCAL end fix and continue */
+
+/* Nonzero if an ISO standard was selected.  It rejects macros in the
+   user's namespace.  */
+
+extern int flag_iso;
+
+/* Nonzero whenever Objective-C functionality is being used.  */
+extern int flag_objc;
+
+/* Nonzero if -undef was given.  It suppresses target built-in macros
+   and assertions.  */
+extern int flag_undef;
+
+/* Nonzero means don't recognize the non-ANSI builtin functions.  */
+
+extern int flag_no_builtin;
+
+/* Nonzero means don't recognize the non-ANSI builtin functions.
+   -ansi sets this.  */
+
+extern int flag_no_nonansi_builtin;
 
 /* Nonzero means give `double' the same size as `float'.  */
 
@@ -426,7 +505,112 @@ extern int flag_short_double;
 
 extern int flag_short_wchar;
 
-/* Warn about *printf or *scanf format/argument anomalies.  */
+/* Nonzero means allow Microsoft extensions without warnings or errors.  */
+extern int flag_ms_extensions;
+
+/* Nonzero means don't recognize the keyword `asm'.  */
+
+extern int flag_no_asm;
+
+/* APPLE LOCAL CW asm blocks */
+extern int flag_cw_asm_blocks;
+
+/* Nonzero means give string constants the type `const char *', as mandated
+   by the standard.  */
+
+extern int flag_const_strings;
+
+/* Nonzero means `$' can be in an identifier.  */
+
+extern int dollars_in_ident;
+
+/* Nonzero means to treat bitfields as signed unless they say `unsigned'.  */
+
+extern int flag_signed_bitfields;
+extern int explicit_flag_signed_bitfields;
+
+/* Nonzero means warn about pointer casts that can drop a type qualifier
+   from the pointer target type.  */
+
+extern int warn_cast_qual;
+
+/* Warn about functions which might be candidates for format attributes.  */
+
+extern int warn_missing_format_attribute;
+
+/* Nonzero means warn about sizeof(function) or addition/subtraction
+   of function pointers.  */
+
+extern int warn_pointer_arith;
+
+/* Nonzero means warn for any global function def
+   without separate previous prototype decl.  */
+
+extern int warn_missing_prototypes;
+
+/* Warn if adding () is suggested.  */
+
+extern int warn_parentheses;
+
+/* Warn if initializer is not completely bracketed.  */
+
+extern int warn_missing_braces;
+
+/* Warn about comparison of signed and unsigned values.
+   If -1, neither -Wsign-compare nor -Wno-sign-compare has been specified.  */
+
+extern int warn_sign_compare;
+
+/* Nonzero means warn about usage of long long when `-pedantic'.  */
+
+extern int warn_long_long;
+
+/* APPLE LOCAL begin radar 3247235 disable warnings about bad offsetof */
+/* If nonzero, warn about invalid uses of offsetof.  (C++-only) */
+
+extern int warn_invalid_offsetof;
+/* APPLE LOCAL end radar 3247235 disable warnings about bad offsetof */
+
+/* APPLE LOCAL begin -Wlong-double */
+/* Nonzero means warn about usage of long double.  */
+
+extern int warn_long_double;
+/* APPLE LOCAL end -Wlong-double */
+
+/* APPLE LOCAL begin AltiVec */
+/* Nonzero means warn about deprecated use of 'long' vector types.  */
+
+extern int warn_altivec_long_deprecated;  /* radar 2841709 */
+/* APPLE LOCAL end AltiVec */
+
+/* Nonzero means warn about deprecated conversion from string constant to
+   `char *'.  */
+
+extern int warn_write_strings;
+
+/* Nonzero means warn about multiple (redundant) decls for the same single
+   variable or function.  */
+
+extern int warn_redundant_decls;
+
+/* Warn about testing equality of floating point numbers.  */
+
+extern int warn_float_equal;
+
+/* Warn about a subscript that has type char.  */
+
+extern int warn_char_subscripts;
+
+/* Warn if a type conversion is done that might have confusing results.  */
+
+extern int warn_conversion;
+
+/* Warn about #pragma directives that are not recognized.  */      
+
+extern int warn_unknown_pragmas; /* Tri state variable.  */  
+
+/* Warn about format/argument anomalies in calls to formatted I/O functions
+   (*printf, *scanf, strftime, strfmon, etc.).  */
 
 extern int warn_format;
 
@@ -438,6 +622,10 @@ extern int warn_format_y2k;
 
 extern int warn_format_extra_args;
 
+/* Warn about zero-length formats.  */
+
+extern int warn_format_zero_length;
+
 /* Warn about non-literal format arguments.  */
 
 extern int warn_format_nonliteral;
@@ -446,25 +634,19 @@ extern int warn_format_nonliteral;
 
 extern int warn_format_security;
 
-/* Warn about possible violations of sequence point rules.  */
 
-extern int warn_sequence_point;
+/* C/ObjC language option variables.  */
 
-/* Warn about functions which might be candidates for format attributes.  */
 
-extern int warn_missing_format_attribute;
+/* Nonzero means message about use of implicit function declarations;
+ 1 means warning; 2 means error.  */
 
-/* Nonzero means warn about sizeof (function) or addition/subtraction
-   of function pointers.  */
+extern int mesg_implicit_function_declaration;
 
-extern int warn_pointer_arith;
+/* Nonzero means allow type mismatches in conditional expressions;
+   just make their values `void'.  */
 
-/* Nonzero means to warn about compile-time division by zero.  */
-extern int warn_div_by_zero;
-
-/* Nonzero means do some things the same way PCC does.  */
-
-extern int flag_traditional;
+extern int flag_cond_mismatch;
 
 /* Nonzero means enable C89 Amendment 1 features.  */
 
@@ -474,7 +656,7 @@ extern int flag_isoc94;
 
 extern int flag_isoc99;
 
-/* Nonzero means environment is hosted (i.e., not freestanding) */
+/* Nonzero means that we have builtin functions, and main is an int */
 
 extern int flag_hosted;
 
@@ -483,33 +665,366 @@ extern int flag_hosted;
 
 extern int flag_noniso_default_format_attributes;
 
-/* Nonzero means don't recognize any builtin functions.  */
+/* Nonzero means warn when casting a function call to a type that does
+   not match the return type (e.g. (float)sqrt() or (anything*)malloc()
+   when there is no previous declaration of sqrt or malloc.  */
 
-extern int flag_no_builtin;
+extern int warn_bad_function_cast;
 
-/* Nonzero means don't recognize the non-ANSI builtin functions.
-   -ansi sets this.  */
+/* Warn about traditional constructs whose meanings changed in ANSI C.  */
 
-extern int flag_no_nonansi_builtin;
+extern int warn_traditional;
 
-/* Nonzero means warn about suggesting putting in ()'s.  */
+/* Nonzero means warn for non-prototype function decls
+   or non-prototyped defs without previous prototype.  */
 
-extern int warn_parentheses;
+extern int warn_strict_prototypes;
 
-/* Warn if a type conversion is done that might have confusing results.  */
+/* Nonzero means warn for any global function def
+   without separate previous decl.  */
 
-extern int warn_conversion;
+extern int warn_missing_declarations;
 
-/* Nonzero means warn about usage of long long,
-   when `-pedantic' and not C99.  */
+/* Nonzero means warn about extern declarations of objects not at
+   file-scope level and about *all* declarations of functions (whether
+   extern or static) not at file-scope level.  Note that we exclude
+   implicit function declarations.  To get warnings about those, use
+   -Wimplicit.  */
 
-extern int warn_long_long;
+extern int warn_nested_externs;
 
-/* APPLE LOCAL begin long double */
-/* Nonzero means warn about usage of long double.  */
+/* Warn if main is suspicious.  */
 
-extern int warn_long_double;
-/* APPLE LOCAL end long double */
+extern int warn_main;
+
+/* Nonzero means warn about possible violations of sequence point rules.  */
+
+extern int warn_sequence_point;
+
+/* Nonzero means to warn about compile-time division by zero.  */
+extern int warn_div_by_zero;
+
+/* Nonzero means warn about use of implicit int.  */
+
+extern int warn_implicit_int;
+
+/* Warn about NULL being passed to argument slots marked as requiring
+   non-NULL.  */ 
+      
+extern int warn_nonnull;
+
+
+/* ObjC language option variables.  */
+
+
+/* Open and close the file for outputting class declarations, if
+   requested (ObjC).  */
+
+extern int flag_gen_declaration;
+
+/* Generate code for GNU or NeXT runtime environment.  */
+
+extern int flag_next_runtime;
+
+/* Tells the compiler that this is a special run.  Do not perform any
+   compiling, instead we are to test some platform dependent features
+   and output a C header file with appropriate definitions.  */
+
+extern int print_struct_values;
+
+/* ???.  Undocumented.  */
+
+extern const char *constant_string_class_name;
+
+/* Warn if multiple methods are seen for the same selector, but with
+   different argument types.  Performs the check on the whole selector
+   table at the end of compilation.  */
+
+extern int warn_selector;
+
+/* Warn if a @selector() is found, and no method with that selector
+   has been previously declared.  The check is done on each
+   @selector() as soon as it is found - so it warns about forward
+   declarations.  */
+
+extern int warn_undeclared_selector;
+
+/* Warn if methods required by a protocol are not implemented in the 
+   class adopting it.  When turned off, methods inherited to that
+   class are also considered implemented.  */
+
+extern int warn_protocol;
+
+
+/* C++ language option variables.  */
+
+
+/* Nonzero means don't recognize any extension keywords.  */
+
+extern int flag_no_gnu_keywords;
+
+/* Nonzero means do emit exported implementations of functions even if
+   they can be inlined.  */
+
+extern int flag_implement_inlines;
+
+/* Nonzero means do emit exported implementations of templates, instead of
+   multiple static copies in each file that needs a definition.  */
+
+extern int flag_external_templates;
+
+/* Nonzero means that the decision to emit or not emit the implementation of a
+   template depends on where the template is instantiated, rather than where
+   it is defined.  */
+
+extern int flag_alt_external_templates;
+
+/* Nonzero means that implicit instantiations will be emitted if needed.  */
+
+extern int flag_implicit_templates;
+
+/* Nonzero means that implicit instantiations of inline templates will be
+   emitted if needed, even if instantiations of non-inline templates
+   aren't.  */
+
+extern int flag_implicit_inline_templates;
+
+/* Nonzero means generate separate instantiation control files and
+   juggle them at link time.  */
+
+extern int flag_use_repository;
+
+/* Nonzero if we want to issue diagnostics that the standard says are not
+   required.  */
+
+extern int flag_optional_diags;
+
+/* Nonzero means we should attempt to elide constructors when possible.  */
+
+extern int flag_elide_constructors;
+
+/* Nonzero means that member functions defined in class scope are
+   inline by default.  */
+
+extern int flag_default_inline;
+
+/* Controls whether compiler generates 'type descriptor' that give
+   run-time type information.  */
+
+extern int flag_rtti;
+
+/* Nonzero if we want to conserve space in the .o files.  We do this
+   by putting uninitialized data and runtime initialized data into
+   .common instead of .data at the expense of not flagging multiple
+   definitions.  */
+
+extern int flag_conserve_space;
+
+/* Nonzero if we want to obey access control semantics.  */
+
+extern int flag_access_control;
+
+/* Nonzero if we want to check the return value of new and avoid calling
+   constructors if it is a null pointer.  */
+
+extern int flag_check_new;
+
+/* Nonzero if we want the new ISO rules for pushing a new scope for `for'
+   initialization variables.
+   0: Old rules, set by -fno-for-scope.
+   2: New ISO rules, set by -ffor-scope.
+   1: Try to implement new ISO rules, but with backup compatibility
+   (and warnings).  This is the default, for now.  */
+
+extern int flag_new_for_scope;
+
+/* Nonzero if we want to emit defined symbols with common-like linkage as
+   weak symbols where possible, in order to conform to C++ semantics.
+   Otherwise, emit them as local symbols.  */
+
+extern int flag_weak;
+
+/* Nonzero if the user permits us to skip declarations that are not
+   actually referenced in the rest of the program (possibly meaning
+   that error messages for those declarations are not output).  */
+
+/* APPLE LOCAL begin jet */
+extern int flag_jet;
+
+/*  Debugging: print extra information for jet debugging.
+     1 - dump token stream before jet runs
+     2 - dump token stream after jet runs
+     4 - dump region array
+     8 - dump jet's identifier hashtable
+    16 - print timing for jet processing
+    32 - print hashing information.
+    Values may be orred together.
+*/
+
+extern int flag_debug_jet;
+
+/* A hash code provided on the command line.  If it is nonzero, and if
+   we are using jet, then calculate a hash of unstripped tokens, compare
+   it to this value, and don't do the compilation if the two are equal.
+ */
+
+extern unsigned int flag_jet_hash_code;
+
+/* APPLE LOCAL end jet */
+
+/* Nonzero to use __cxa_atexit, rather than atexit, to register
+   destructors for local statics and global objects.  */
+
+extern int flag_use_cxa_atexit;
+
+/* Nonzero means output .vtable_{entry,inherit} for use in doing vtable gc.  */
+
+extern int flag_vtable_gc;
+
+/* Nonzero means make the default pedwarns warnings instead of errors.
+   The value of this flag is ignored if -pedantic is specified.  */
+
+extern int flag_permissive;
+
+/* Nonzero means to implement standard semantics for exception
+   specifications, calling unexpected if an exception is thrown that
+   doesn't match the specification.  Zero means to treat them as
+   assertions and optimize accordingly, but not check them.  */
+
+extern int flag_enforce_eh_specs;
+
+/*  The version of the C++ ABI in use.  The following values are
+    allowed:
+
+    APPLE LOCAL begin 10.2 C++ abi compat mrs
+    -2: 2.95.2  Apple uses for kernel extensions.
+
+    -1: gcc 3.1 20020420.  Apple uses for gcc3 compatible 10.2.
+
+    APPLE LOCAL end 10.2 C++ abi compat mrs
+    0: The version of the ABI believed most conformant with the 
+       C++ ABI specification.  This ABI may change as bugs are
+       discovered and fixed.  Therefore, 0 will not necessarily
+       indicate the same ABI in different versions of G++.
+
+    1: The version of the ABI first used in G++ 3.2.
+
+    Additional positive integers will be assigned as new versions of
+    the ABI become the default version of the ABI.  */
+
+extern int flag_abi_version;
+
+/* APPLE LOCAL begin -findirect-virtual-calls 2001-10-30 sts */
+/* Nonzero if all calls to virtual functions should cause indirection
+   through a vtable.  */
+
+extern int flag_indirect_virtual_calls;
+/* APPLE LOCAL end -findirect-virtual-calls 2001-10-30 sts */
+
+/* APPLE LOCAL begin -fterminated-vtables */
+/* Nonzero to terminate vtables with a unique value, currently zero.
+   Used by the darwin kernel to find ends of vtables for patching
+   when loading drivers dynamically.  */
+
+extern int flag_terminated_vtables;
+/* APPLE LOCAL end -fterminated-vtables */
+
+/* APPLE LOCAL begin 2.95-compatibility stuff turly */
+/* Nonzero if we're compiling in a gcc2.95-compatibility mode.
+   Implies -fterminated-vtables and -findirect-virtual-calls,
+   only-deleting-destructor support, 2.95 ptmfs, vptr initialisation,
+   constructors-returning-this...  */
+ 
+extern int flag_apple_kext;
+/* APPLE LOCAL end 2.95-compatibility stuff turly */
+
+/* APPLE LOCAL begin structor thunks */
+/* Nonzero if we prefer to clone con/de/structors.
+   Alternative is to gen multiple tiny thunk-esque things that
+   call/jump to a unified con/de/structor.  This is a classic
+   size/speed tradeoff.  */
+extern int flag_clone_structors;
+/* APPLE LOCAL begin structor thunks */
+
+/* APPLE LOCAL begin private extern  Radar 2872481 ilr */
+/* Nonzero if -fpreprocessed specified.  This is needed by init_reswords()
+   so that it can make __private_extern__ have the same rid code as extern
+   when -fpreprocessed is specified.  Normally there is a -D on the command
+   line for this.  But if -fpreprocessed was specified then macros aren't
+   expanded.  So we fake the token value out using the rid code.  */
+extern int flag_preprocessed;
+/* APPLE LOCAL end private extern  Radar 2872481 ilr */
+
+/* Nonzero means warn about things that will change when compiling
+   with an ABI-compliant compiler.  */
+
+extern int warn_abi;
+
+/* Nonzero means warn about implicit declarations.  */
+
+extern int warn_implicit;
+
+/* Nonzero means warn when all ctors or dtors are private, and the class
+   has no friends.  */
+
+extern int warn_ctor_dtor_privacy;
+
+/* Nonzero means warn in function declared in derived class has the
+   same name as a virtual in the base class, but fails to match the
+   type signature of any virtual function in the base class.  */
+
+extern int warn_overloaded_virtual;
+
+/* Nonzero means warn when declaring a class that has a non virtual
+   destructor, when it really ought to have a virtual one.  */
+
+extern int warn_nonvdtor;
+
+/* Nonzero means warn when the compiler will reorder code.  */
+
+extern int warn_reorder;
+
+/* Nonzero means warn when synthesis behavior differs from Cfront's.  */
+
+extern int warn_synth;
+
+/* Nonzero means warn when we convert a pointer to member function
+   into a pointer to (void or function).  */
+
+extern int warn_pmf2ptr;
+
+/* Nonzero means warn about violation of some Effective C++ style rules.  */
+
+extern int warn_ecpp;
+
+/* Nonzero means warn where overload resolution chooses a promotion from
+   unsigned to signed over a conversion to an unsigned of the same size.  */
+
+extern int warn_sign_promo;
+
+/* Nonzero means warn when an old-style cast is used.  */
+
+extern int warn_old_style_cast;
+
+/* Nonzero means warn when non-templatized friend functions are
+   declared within a template */
+
+extern int warn_nontemplate_friend;
+
+/* Nonzero means complain about deprecated features.  */
+
+extern int warn_deprecated;
+
+/* Maximum template instantiation depth.  This limit is rather
+   arbitrary, but it exists to limit the time it takes to notice
+   infinite template instantiations.  */
+
+extern int max_tinst_depth;
+
+/* Nonzero means the expression being parsed will never be evaluated.
+   This is a count, since unevaluated expressions can nest.  */
+
+extern int skip_evaluation;
 
 /* C types are partitioned into three subsets: object, function, and
    incomplete types.  */
@@ -531,6 +1046,10 @@ extern int warn_long_double;
    what operator was specified for it.  */
 #define C_EXP_ORIGINAL_CODE(exp) ((enum tree_code) TREE_COMPLEXITY (exp))
 
+/* Attribute table common to the C front ends.  */
+extern const struct attribute_spec c_common_attribute_table[];
+extern const struct attribute_spec c_common_format_attribute_table[];
+
 /* Pointer to function to lazily generate the VAR_DECL for __FUNCTION__ etc.
    ID is the identifier to use, NAME is the string.
    TYPE_DEP indicates whether it depends on type of the function or not
@@ -548,6 +1067,12 @@ extern const char *fname_as_string		PARAMS ((int));
 extern tree fname_decl				PARAMS ((unsigned, tree));
 extern const char *fname_string			PARAMS ((unsigned));
 
+extern void check_function_arguments		PARAMS ((tree, tree));
+extern void check_function_arguments_recurse	PARAMS ((void (*) (void *,
+								   tree,
+								   unsigned HOST_WIDE_INT),
+							 void *, tree,
+							 unsigned HOST_WIDE_INT));
 extern void check_function_format		PARAMS ((int *, tree, tree));
 extern void set_Wformat				PARAMS ((int));
 extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
@@ -555,23 +1080,34 @@ extern tree handle_format_attribute		PARAMS ((tree *, tree, tree,
 extern tree handle_format_arg_attribute		PARAMS ((tree *, tree, tree,
 							 int, bool *));
 extern void c_common_insert_default_attributes	PARAMS ((tree));
+extern int c_common_decode_option		PARAMS ((int, char **));
+extern tree c_common_type_for_mode		PARAMS ((enum machine_mode,
+							 int));
+extern tree c_common_type_for_size		PARAMS ((unsigned int, int));
+extern tree c_common_unsigned_type		PARAMS ((tree));
+extern tree c_common_signed_type		PARAMS ((tree));
+extern tree c_common_signed_or_unsigned_type	PARAMS ((int, tree));
+extern tree c_common_truthvalue_conversion	PARAMS ((tree));
 extern void c_apply_type_quals_to_decl		PARAMS ((int, tree));
-extern tree c_sizeof				PARAMS ((tree));
-extern tree c_alignof				PARAMS ((tree));
+extern tree c_sizeof_or_alignof_type	PARAMS ((tree, enum tree_code, int));
 extern tree c_alignof_expr			PARAMS ((tree));
 /* Print an error message for invalid operands to arith operation CODE.
    NOP_EXPR is used as a special case (see truthvalue_conversion).  */
 extern void binary_op_error			PARAMS ((enum tree_code));
+#define my_friendly_assert(EXP, N) (void) \
+ (((EXP) == 0) ? (fancy_abort (__FILE__, __LINE__, __FUNCTION__), 0) : 0)
+
 extern tree c_expand_expr_stmt			PARAMS ((tree));
 extern void c_expand_start_cond			PARAMS ((tree, int, tree));
 extern void c_finish_then                       PARAMS ((void));
 extern void c_expand_start_else			PARAMS ((void));
-extern void c_finish_else                   PARAMS ((void));
+extern void c_finish_else			PARAMS ((void));
 extern void c_expand_end_cond			PARAMS ((void));
 /* Validate the expression after `case' and apply default promotions.  */
 extern tree check_case_value			PARAMS ((tree));
-/* Concatenate a list of STRING_CST nodes into one STRING_CST.  */
-extern tree combine_strings			PARAMS ((tree));
+extern tree fix_string_type			PARAMS ((tree));
+struct varray_head_tag;
+extern tree combine_strings		PARAMS ((struct varray_head_tag *));
 extern void constant_expression_warning		PARAMS ((tree));
 extern tree convert_and_check			PARAMS ((tree, tree));
 extern void overflow_warning			PARAMS ((tree));
@@ -580,6 +1116,8 @@ extern void unsigned_conversion_warning		PARAMS ((tree, tree));
 /* Read the rest of the current #-directive line.  */
 extern char *get_directive_line			PARAMS ((void));
 #define GET_DIRECTIVE_LINE() get_directive_line ()
+#define c_sizeof(T)  c_sizeof_or_alignof_type (T, SIZEOF_EXPR, 1)
+#define c_alignof(T) c_sizeof_or_alignof_type (T, ALIGNOF_EXPR, 1)
 
 /* Subroutine of build_binary_op, used for comparison operations.
    See if the operands have both been converted from subword integer types
@@ -596,23 +1134,18 @@ extern tree c_build_qualified_type              PARAMS ((tree, int));
    frontends.  */
 extern void c_common_nodes_and_builtins		PARAMS ((void));
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-extern void pfe_c_common_nodes_and_builtins	PARAMS ((void));
-#endif
-
 extern void disable_builtin_function		PARAMS ((const char *));
 
 extern tree build_va_arg			PARAMS ((tree, tree));
 
 extern void c_common_init_options		PARAMS ((enum c_language_kind));
-extern void c_common_post_options		PARAMS ((void));
+extern bool c_common_post_options		PARAMS ((void));
 extern const char *c_common_init		PARAMS ((const char *));
 extern void c_common_finish			PARAMS ((void));
+extern void c_common_parse_file			PARAMS ((int));
 extern HOST_WIDE_INT c_common_get_alias_set	PARAMS ((tree));
 extern bool c_promoting_integer_type_p		PARAMS ((tree));
 extern int self_promoting_args_p		PARAMS ((tree));
-extern tree simple_type_promotes_to		PARAMS ((tree));
 extern tree strip_array_types                   PARAMS ((tree));
 
 /* These macros provide convenient access to the various _STMT nodes.  */
@@ -643,7 +1176,7 @@ extern tree strip_array_types                   PARAMS ((tree));
 /* RETURN_STMT accessors. These give the expression associated with a
    return statement, and whether it should be ignored when expanding
    (as opposed to inlining).  */
-#define RETURN_EXPR(NODE)       TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
+#define RETURN_STMT_EXPR(NODE)  TREE_OPERAND (RETURN_STMT_CHECK (NODE), 0)
 
 /* EXPR_STMT accessor. This gives the expression associated with an
    expression statement.  */
@@ -773,7 +1306,7 @@ extern tree strip_array_types                   PARAMS ((tree));
 #define STMT_LINENO(NODE)			\
   (TREE_COMPLEXITY ((NODE)))
 
-/* If non-zero, the STMT_LINENO for NODE is the line at which the
+/* If nonzero, the STMT_LINENO for NODE is the line at which the
    function ended.  */
 #define STMT_LINENO_FOR_FN_P(NODE)		\
   (TREE_LANG_FLAG_2 ((NODE)))
@@ -796,7 +1329,6 @@ enum c_tree_code {
 
 #undef DEFTREECODE
 
-extern void add_c_tree_codes		        PARAMS ((void));
 extern void genrtl_do_pushlevel                 PARAMS ((void));
 extern void genrtl_goto_stmt                    PARAMS ((tree));
 extern void genrtl_expr_stmt                    PARAMS ((tree));
@@ -882,8 +1414,6 @@ extern tree boolean_increment			PARAMS ((enum tree_code,
    after entering or leaving a header file.  */
 extern void extract_interface_info		PARAMS ((void));
 
-extern void mark_c_language_function            PARAMS ((struct language_function *));
-
 extern int case_compare                         PARAMS ((splay_tree_key,
 							 splay_tree_key));
 
@@ -899,18 +1429,19 @@ extern tree finish_label_address_expr		PARAMS ((tree));
    different implementations.  Used in c-common.c.  */
 extern tree lookup_label			PARAMS ((tree));
 
-/* enum expand_modified is in expr.h, as is the macro below.  */
-
-#ifdef QUEUED_VAR
-extern rtx c_expand_expr            PARAMS ((tree, rtx, enum machine_mode,
-					     enum expand_modifier));
-#endif
+extern rtx c_expand_expr			PARAMS ((tree, rtx,
+							 enum machine_mode,
+							 int));
 
 extern int c_safe_from_p                        PARAMS ((rtx, tree));
 
 extern int c_staticp                            PARAMS ((tree));
 
-extern int c_unsafe_for_reeval			PARAMS ((tree));
+extern int c_common_unsafe_for_reeval		PARAMS ((tree));
+
+extern const char *init_c_lex			PARAMS ((const char *));
+
+extern void cb_register_builtins		PARAMS ((cpp_reader *));
 
 /* Information recorded about each file examined during compilation.  */
 
@@ -924,24 +1455,70 @@ struct c_fileinfo
 struct c_fileinfo *get_fileinfo			PARAMS ((const char *));
 extern void dump_time_statistics		PARAMS ((void));
 
+extern int c_dump_tree				PARAMS ((void *, tree));
+
+extern void pch_init				PARAMS ((void));
+extern int c_common_valid_pch			PARAMS ((cpp_reader *pfile,
+							 const char *name,
+							 int fd));
+extern void c_common_read_pch			PARAMS ((cpp_reader *pfile,
+							 const char *name,
+							 int fd,
+							 const char *orig));
+extern void c_common_write_pch			PARAMS ((void));
+
+/* APPLE LOCAL begin AltiVec */
+extern int altivec_treat_as_keyword 		PARAMS ((tree));
+extern int altivec_context;
+/* APPLE LOCAL end AltiVec */
+
 /* APPLE LOCAL begin Objective-C++  */
 /* The following have been moved here from c-tree.h, since they're needed
    in the ObjC++ world, too.  */
 extern tree lookup_interface			PARAMS ((tree));
 extern tree is_class_name			PARAMS ((tree));
-extern tree is_id				PARAMS ((tree));
+extern tree objc_is_id				PARAMS ((tree));
 extern void objc_check_decl			PARAMS ((tree));
 extern int objc_comptypes                 	PARAMS ((tree, tree, int));
 extern tree objc_message_selector		PARAMS ((void));
 extern int recognize_objc_keyword		PARAMS ((void));
 extern tree lookup_objc_ivar			PARAMS ((tree));
 /* APPLE LOCAL end Objective-C++  */
+/* APPLE LOCAL Panther ObjC enhancements */
+extern void objc_mark_locals_volatile		PARAMS ((void *));
+/* APPLE LOCAL XJR */
+extern tree objc_generate_write_barrier		PARAMS ((tree, enum tree_code, tree));
 
-/* APPLE LOCAL long double  */
+/* APPLE LOCAL -Wlong-double  */
 extern void warn_about_long_double		PARAMS ((void));
 
 /* APPLE LOCAL begin constant cfstrings */
 extern tree build_cfstring_ascii		PARAMS ((tree));
 /* APPLE LOCAL end constant cfstrings */
+
+/* APPLE LOCAL begin Symbol Separation */
+extern void dbg_ss_init                         PARAMS ((void));
+extern void c_common_write_context              PARAMS ((void));
+extern void cb_clear_write_symbols              PARAMS ((const char *, unsigned long));
+extern void cb_restore_write_symbols            PARAMS ((void));
+extern void cb_start_symbol_repository          PARAMS ((unsigned int,
+							 const char *,
+							 unsigned long));
+extern void cb_end_symbol_repository            PARAMS ((unsigned int));
+extern int c_valid_cinfo                        PARAMS ((cpp_reader *, 
+							 const char *));
+extern int cb_is_builtin_identifier             PARAMS ((cpp_hashnode *));
+/* APPLE LOCAL end Symbol Separation */
+
+/* APPLE LOCAL begin CW asm blocks */
+extern tree cw_asm_stmt				PARAMS ((tree, tree));
+extern tree cw_asm_build_register_offset	PARAMS ((tree, tree));
+extern tree cw_asm_label			PARAMS ((tree, int));
+extern tree get_atsign_identifier		PARAMS ((tree));
+extern void clear_cw_asm_labels			PARAMS ((void));
+extern tree cw_asm_reg_name			PARAMS ((tree));
+extern tree get_cw_asm_label			PARAMS ((tree));
+extern tree cw_asm_entry			PARAMS ((tree, tree, tree));
+/* APPLE LOCAL end CW asm blocks */
 
 #endif /* ! GCC_C_COMMON_H */

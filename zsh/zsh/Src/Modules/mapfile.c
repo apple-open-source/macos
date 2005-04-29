@@ -74,6 +74,9 @@ shempty(void)
 {
 }
 
+static const struct gsu_hash mapfiles_gsu =
+{ hashgetfn, setpmmapfiles, stdunsetfn };
+
 /* Create the special hash parameter. */
 
 /**/
@@ -91,9 +94,7 @@ createmapfilehash()
 	return NULL;
 
     pm->level = pm->old ? locallevel : 0;
-    pm->gets.hfn = hashgetfn;
-    pm->sets.hfn = setpmmapfiles;
-    pm->unsetfn = stdunsetfn;
+    pm->gsu.h = &mapfiles_gsu;
     pm->u.hash = ht = newhashtable(7, mapfile_nam, NULL);
 
     ht->hash        = hasher;
@@ -171,7 +172,7 @@ setpmmapfile(Param pm, char *value)
 
 /**/
 static void
-unsetpmmapfile(Param pm, int exp)
+unsetpmmapfile(Param pm, UNUSED(int exp))
 {
     /* Unlink the file given by pm->nam */
     char *fname = ztrdup(pm->nam);
@@ -257,25 +258,20 @@ get_contents(char *fname)
     return val;
 }
 
+static const struct gsu_scalar mapfile_gsu =
+{ strgetfn, setpmmapfile, unsetpmmapfile };
+
 /**/
 static HashNode
-getpmmapfile(HashTable ht, char *name)
+getpmmapfile(UNUSED(HashTable ht), char *name)
 {
     char *contents;
     Param pm = NULL;
 
-    pm = (Param) zhalloc(sizeof(struct param));
+    pm = (Param) hcalloc(sizeof(struct param));
     pm->nam = dupstring(name);
     pm->flags = PM_SCALAR;
-    pm->sets.cfn = setpmmapfile;
-    pm->gets.cfn = strgetfn;
-    pm->unsetfn = unsetpmmapfile;
-    pm->ct = 0;
-    pm->env = NULL;
-    pm->ename = NULL;
-    pm->old = NULL;
-    pm->level = 0;
-
+    pm->gsu.s = &mapfile_gsu;
     pm->flags |= (mapfile_pm->flags & PM_READONLY);
 
     /* Set u.str to contents of file given by name */
@@ -288,9 +284,10 @@ getpmmapfile(HashTable ht, char *name)
     return (HashNode) pm;
 }
 
+
 /**/
 static void
-scanpmmapfile(HashTable ht, ScanFunc func, int flags)
+scanpmmapfile(UNUSED(HashTable ht), ScanFunc func, int flags)
 {
     struct param pm;
     DIR *dir;
@@ -298,16 +295,9 @@ scanpmmapfile(HashTable ht, ScanFunc func, int flags)
     if (!(dir = opendir(".")))
 	return;
 
+    memset((void *)&pm, 0, sizeof(struct param));
     pm.flags = PM_SCALAR;
-    pm.sets.cfn = setpmmapfile;
-    pm.gets.cfn = strgetfn;
-    pm.unsetfn = unsetpmmapfile;
-    pm.ct = 0;
-    pm.env = NULL;
-    pm.ename = NULL;
-    pm.old = NULL;
-    pm.level = 0;
-
+    pm.gsu.s = &mapfile_gsu;
     pm.flags |= (mapfile_pm->flags & PM_READONLY);
 
     /* Here we scan the current directory, calling func() for each file */
@@ -327,14 +317,14 @@ scanpmmapfile(HashTable ht, ScanFunc func, int flags)
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     /* Create the special associative array. */
 
@@ -346,7 +336,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
     Param pm;
 
@@ -362,7 +352,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

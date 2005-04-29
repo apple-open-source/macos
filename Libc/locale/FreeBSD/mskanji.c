@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2002-2004 Tim J. Robbins. All rights reserved.
+ *
  *    ja_JP.SJIS locale table for BSD4.4/rune
  *    version 1.0
  *    (C) Sin'ichiro MIYATANI / Phase One, Inc
@@ -34,78 +36,121 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)mskanji.c	1.0 (Phase One) 5/5/95";
 #endif /* LIBC_SCCS and not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.8 2002/10/14 01:50:45 tjr Exp $");
+#include <sys/param.h>
+__FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.16 2004/05/14 15:40:47 tjr Exp $");
 
-#include <sys/types.h>
-
-#include <rune.h>
-#include <stddef.h>
-#include <stdio.h>
+#include <errno.h>
+#include <runetype.h>
 #include <stdlib.h>
+#include <string.h>
+#include <wchar.h>
+#include "mblocal.h"
 
-rune_t	_MSKanji_sgetrune(const char *, size_t, char const **);
-int	_MSKanji_sputrune(rune_t, char *, size_t, char **);
+int	_MSKanji_init(_RuneLocale *);
+size_t	_MSKanji_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+	    mbstate_t * __restrict);
+int	_MSKanji_mbsinit(const mbstate_t *);
+size_t	_MSKanji_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+
+typedef struct {
+	wchar_t	ch;
+} _MSKanjiState;
 
 int
-_MSKanji_init(rl)
-	_RuneLocale *rl;
+_MSKanji_init(_RuneLocale *rl)
 {
-	rl->sgetrune = _MSKanji_sgetrune;
-	rl->sputrune = _MSKanji_sputrune;
 
+	__mbrtowc = _MSKanji_mbrtowc;
+	__wcrtomb = _MSKanji_wcrtomb;
+	__mbsinit = _MSKanji_mbsinit;
 	_CurrentRuneLocale = rl;
 	__mb_cur_max = 2;
 	return (0);
 }
 
-rune_t
-_MSKanji_sgetrune(string, n, result)
-	const char *string;
-	size_t n;
-	char const **result;
+int
+_MSKanji_mbsinit(const mbstate_t *ps)
 {
-	rune_t rune = 0;
 
-	if (n < 1) {
-		if (result != NULL)
-			*result = string;
-		return (_INVALID_RUNE);
-	}
-
-	rune = *string++ & 0xff;
-	if ((rune > 0x80 && rune < 0xa0) ||
-	    (rune >= 0xe0 && rune < 0xfd)) {
-		if (n < 2) {
-			rune = _INVALID_RUNE;
-			--string;
-		} else
-			rune = (rune << 8) | (*string++ & 0xff);
-	}
-	if (result != NULL)
-		*result = string;
-
-	return (rune);
+	return (ps == NULL || ((const _MSKanjiState *)ps)->ch == 0);
 }
 
-int
-_MSKanji_sputrune(c, string, n, result)
-	rune_t c;
-	char *string, **result;
-	size_t n;
+size_t
+_MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+    mbstate_t * __restrict ps)
 {
-	int len, i;
+	_MSKanjiState *ms;
+	wchar_t wc;
 
-	len = (c > 0x100) ? 2 : 1;
-	if (n < len) {
-		if (result != NULL)
-			*result = NULL;
-	} else {
-		if (result != NULL)
-			*result = string + len;
-		for (i = len; i-- > 0; )
-			*string++ = c >> (i << 3);
+	ms = (_MSKanjiState *)ps;
+
+	if ((ms->ch & ~0xFF) != 0) {
+		/* Bad conversion state. */
+		errno = EINVAL;
+		return ((size_t)-1);
 	}
 
+	if (s == NULL) {
+		s = "";
+		n = 1;
+		pwc = NULL;
+	}
+
+	if (n == 0)
+		/* Incomplete multibyte sequence */
+		return ((size_t)-2);
+
+	if (ms->ch != 0) {
+		if (*s == '\0') {
+			errno = EILSEQ;
+			return ((size_t)-1);
+		}
+		wc = (ms->ch << 8) | (*s & 0xFF);
+		if (pwc != NULL)
+			*pwc = wc;
+		ms->ch = 0;
+		return (1);
+	}
+	wc = *s++ & 0xff;
+	if ((wc > 0x80 && wc < 0xa0) || (wc >= 0xe0 && wc < 0xfd)) {
+		if (n < 2) {
+			/* Incomplete multibyte sequence */
+			ms->ch = wc;
+			return ((size_t)-2);
+		}
+		if (*s == '\0') {
+			errno = EILSEQ;
+			return ((size_t)-1);
+		}
+		wc = (wc << 8) | (*s++ & 0xff);
+		if (pwc != NULL)
+			*pwc = wc;
+		return (2);
+	} else {
+		if (pwc != NULL)
+			*pwc = wc;
+		return (wc == L'\0' ? 0 : 1);
+	}
+}
+
+size_t
+_MSKanji_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
+{
+	_MSKanjiState *ms;
+	int len, i;
+
+	ms = (_MSKanjiState *)ps;
+
+	if (ms->ch != 0) {
+		errno = EINVAL;
+		return ((size_t)-1);
+	}
+
+	if (s == NULL)
+		/* Reset to initial shift state (no-op) */
+		return (1);
+	len = (wc > 0x100) ? 2 : 1;
+	for (i = len; i-- > 0; )
+		*s++ = wc >> (i << 3);
 	return (len);
 }

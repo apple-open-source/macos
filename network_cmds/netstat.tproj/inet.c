@@ -36,7 +36,7 @@
 static char sccsid[] = "@(#)inet.c	8.5 (Berkeley) 5/24/95";
 */
 static const char rcsid[] =
-	"$Id: inet.c,v 1.6 2003/07/08 22:49:49 lindak Exp $";
+	"$Id: inet.c,v 1.7 2004/08/26 23:55:22 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -44,7 +44,6 @@ static const char rcsid[] =
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/sysctl.h>
-#include <sys/protosw.h>
 
 #include <net/route.h>
 #include <netinet/in.h>
@@ -63,9 +62,7 @@ static const char rcsid[] =
 #include <netinet/tcp_seq.h>
 #define TCPSTATES
 #include <netinet/tcp_fsm.h>
-#include <netinet/tcp_timer.h>
 #include <netinet/tcp_var.h>
-#include <netinet/tcp_debug.h>
 #include <netinet/udp.h>
 #include <netinet/udp_var.h>
 

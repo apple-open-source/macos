@@ -103,7 +103,9 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
     if (isAsync) 
         return SLP_NOT_IMPLEMENTED;
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPOpen called" );
+#endif
     if (pmhConfig == NULL) 
         pmhConfig = mslp_hash_init();
     
@@ -169,7 +171,9 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
             if (iErr) 
             {
                 err = SLP_NETWORK_INIT_FAILED;
+#ifdef ENABLE_SLP_LOGGING
                 mslplog(SLP_LOG_DEBUG,"SLPOpen could not set broadcast interface",strerror(errno));
+#endif
             }
             
             puas->sinSendTo.sin_addr.s_addr = BROADCAST;
@@ -180,7 +184,9 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
             
             if ( err ) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP,"SLPOpen could not set multicast interface: %s", strerror(errno) );
+#endif
             }
             else
                 puas->sinSendTo.sin_addr.s_addr = SLP_MCAST;
@@ -207,8 +213,9 @@ EXPORT SLPInternalError SLPOpen(const char *pcLang, SLPBoolean isAsync, SLPHandl
         #endif /* EXTRA_MSGS */
     }
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPOpen finished" );
-
+#endif
     return err;
 }
 
@@ -333,7 +340,9 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
         // the current data
         int				lastCheckedSize = 0;
 
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is getting scopelist from the currently running DA Discovery" );        
+#endif
         do {
             SmartSleep(2*USEC_PER_SEC);		// sleep a couple of secs
             
@@ -357,7 +366,9 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
                
                 while( !slpbDone && (pcScope = get_next_string(",",pcList,&offset,&c)) )	// its valid for us to get a scope list back "apple.com,kev.com"
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is returning single scope %s", pcScope );
+#endif
                     slpbDone = !callback( hSLP, pcScope, err, pvUser );
                     SLPFree(pcScope);
                 }
@@ -377,8 +388,9 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
         char 			*pcList=NULL, *pcScan=NULL, *pcScope=NULL, c;
         SLPBoolean		slpbDone = SLP_FALSE;
 
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is returning scopelist from the %d DA(s) we know about", pdat->iSize );
-        
+#endif        
         LockGlobalDATable();
         iListLen += strlen(pdat->pDAE[0].pcScopeList);
         pcList = safe_malloc(iListLen, (char*)pdat->pDAE[0].pcScopeList, iListLen-LISTINCR);
@@ -395,11 +407,14 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
         
         UnlockGlobalDATable();
         
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is returning scopelist %s", pcList );
- 
+#endif 
         while( !slpbDone && (pcScope = get_next_string(",",pcList,&offset,&c)) )	// its valid for us to get a scope list back "apple.com,kev.com"
         {
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is returning single scope %s", pcScope );
+#endif
             slpbDone = !callback( hSLP, pcScope, err, pvUser );
             SLPFree(pcScope);
         }
@@ -410,13 +425,15 @@ EXPORT SLPInternalError SLPFindScopesAsync(SLPHandle hSLP,
     {
         const char *pcTypeHint = SLPGetProperty("net.slp.typeHint");
     
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is getting scopelist from active sa discovery" );
-        
+#endif        
         err = active_sa_async_discovery( hSLP, callback, pvUser, pcTypeHint );
     }
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "SLPFindScopesAsync is finished" );
-    
+#endif    
 	return err;
 }
 #endif /* MAC_OS_X */
@@ -477,7 +494,7 @@ EXPORT void SLPSetProperty(const char *   pcName  ,
         SLPGetProperty("com.sun.slp.isSA")))) 
     {
 
-        LOG(SLP_LOG_ERR,"SLPSetProperty: attempt to erase a critical property failed");
+        SLPLOG(SLP_LOG_ERR,"SLPSetProperty: attempt to erase a critical property failed");
         return;
     }
 
@@ -1003,8 +1020,9 @@ static SLPInternalError get_reply(	char*		pcSend,
             */
             int tcp_used = 0; /* set if overflow occurs and is handled by tcp */
     
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG( SLP_LOG_DEBUG, "get_reply connecting to DA [%s]",inet_ntoa(sin.sin_addr));
-        
+#endif        
             pcRecvBuf = (char*)malloc(RECVMTU);
             
             if ((err = get_unicast_result(
@@ -1017,8 +1035,9 @@ static SLPInternalError get_reply(	char*		pcSend,
                                             &len, 
                                             sin)) != SLP_OK) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DA, "get_reply could not get_da_results from [%s]...: %s",inet_ntoa(sin.sin_addr), slperror(err) );
-                
+#endif                
                 dat_strike_da( NULL, sin );		// this DA was bad, give them a strike and when we return an error, the caller can try again
                 
                 SLPFree(pcRecvBuf);
@@ -1044,19 +1063,23 @@ static SLPInternalError get_reply(	char*		pcSend,
                         SLPFree(pcRecvBuf);
                         pcRecvBuf = NULL;
 
+#ifdef ENABLE_SLP_LOGGING
                         SLP_LOG(SLP_LOG_DEBUG, "get_reply overflow, tcp failed from [%s] when getting a reply...: %s",inet_ntoa(sin.sin_addr), slperror(err));
-                
+#endif                
                         dat_strike_da( NULL, sin );		// this DA was bad, give them a strike and when we return an error, the caller can try again
                 
                         continue; 						// try again
                     }
+#ifdef ENABLE_SLP_LOGGING
                     else
                         SLP_LOG( SLP_LOG_DEBUG, "get_tcp_result, received %ld bytes from [%s]", len, inet_ntoa(sin.sin_addr) );
-                    
+#endif                    
                     tcp_used = 1;	
                 }
+#ifdef ENABLE_SLP_LOGGING
                 else
                     SLP_LOG( SLP_LOG_DEBUG, "get_unicast_result, received %ld bytes from [%s]", len, inet_ntoa(sin.sin_addr) );
+#endif
             }
             /* evokes the callback once */
             if ( !err )

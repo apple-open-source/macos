@@ -1,19 +1,17 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/cs_CZ.xml
 // *
 // ***************************************************************************
-
-cs_CZ {
-    Version{ "2.0" }
-//    LocaleString { "cs_CZ" }
-    NumberPatterns { 
+cs_CZ{
+    NumberPatterns{
         "#,##0.##;-#,##0.##",
-        "#,##0.00 \u00A4;-#,##0.00 \u00A4",
+        "#,##0.00 ¤;-#,##0.00 ¤",
         "#,##0%",
         "#E0",
     }
-//    ShortCountry { "CZE" }
-    LocaleID:int { 0x0405 }
+    Version{"1.2"}
 }

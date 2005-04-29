@@ -475,7 +475,7 @@ typedef struct {
 
 
 static pthread_once_t	tsKeyInitialized	= PTHREAD_ONCE_INIT;
-static pthread_key_t	tsDataKey		= NULL;
+static pthread_key_t	tsDataKey;
 
 
 static void

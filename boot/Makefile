@@ -62,7 +62,7 @@ all tags clean debug install installhdrs: $(SYMROOT) $(OBJROOT)
 			"RC_KANJI=$(RC_KANJI)"				  \
 			"JAPANESE=$(JAPANESE)"				  \
 			"RC_CFLAGS=$$XCFLAGS" $@			  \
-		) || exit $?; 						  \
+		) || exit $$?; 						  \
 	    else							  \
 	    	echo "========= nothing to build for $$i =========";	  \
 	    fi;								  \

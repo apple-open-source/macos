@@ -12,9 +12,9 @@ NAME = sl
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Component
 
-HFILES = appleboot.h clut.h elf.h failedboot.h netboot.h
+HFILES = appleboot.h clut.h elf.h failedboot.h netboot.h aesopt.h aestab.h aes.h
 
-CFILES = main.c macho.c device_tree.c display.c drivers.c elf.c lzss.c
+CFILES = main.c macho.c device_tree.c display.c drivers.c elf.c lzss.c aescrypt.c aeskey.c aestab.c bmdecompress.c plist.c raid.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
 

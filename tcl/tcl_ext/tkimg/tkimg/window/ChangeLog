@@ -1,0 +1,10 @@
+2002-12-03  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Makefile.in (CYGPATH): Added this variable. Is substituted by
+	  configure. The miss caused problems on Linux (empty backtick).
+
+2002-11-25  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/window: WINDOW photo image type. Provided by Paul Obermeier
+	  <obermeier@users.sourceforge.net> using the original Img sources.

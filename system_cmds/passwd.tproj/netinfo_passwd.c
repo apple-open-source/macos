@@ -48,7 +48,7 @@ sys_ismyaddress(unsigned long addr)
 	int offset;
 	int sock;
 	struct sockaddr_in *sin;
-	int i, len;
+	//int i, len; (unused)
 
 	if (addr == htonl(INADDR_LOOPBACK)) return 1;
 

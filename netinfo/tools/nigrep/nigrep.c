@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
-#include <c.h>
 #include <strings.h>
 #include <pwd.h>
 #include <unistd.h>

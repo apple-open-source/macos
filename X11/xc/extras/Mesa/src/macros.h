@@ -58,15 +58,6 @@
 #endif
 
 
-
-/*
- * Bitmask helpers
- */
-#define SET_BITS(WORD, BITS)    (WORD) |= (BITS)
-#define CLEAR_BITS(WORD, BITS)  (WORD) &= ~(BITS)
-#define TEST_BITS(WORD, BITS)   ((WORD) & (BITS))
-
-
 /* Stepping a GLfloat pointer by a byte stride
  */
 #define STRIDE_F(p, i)  (p = (GLfloat *)((GLubyte *)p + i))
@@ -119,6 +110,27 @@ do {						\
    (DST)[1] = (SRC)[1];				\
    (DST)[2] = (SRC)[2];				\
    (DST)[3] = (SRC)[3];				\
+} while (0)
+
+#define COPY_2V_CAST( DST, SRC, CAST )		\
+do {						\
+   (DST)[0] = (CAST)(SRC)[0];			\
+   (DST)[1] = (CAST)(SRC)[1];			\
+} while (0)
+
+#define COPY_3V_CAST( DST, SRC, CAST )		\
+do {						\
+   (DST)[0] = (CAST)(SRC)[0];			\
+   (DST)[1] = (CAST)(SRC)[1];			\
+   (DST)[2] = (CAST)(SRC)[2];			\
+} while (0)
+
+#define COPY_4V_CAST( DST, SRC, CAST )		\
+do {						\
+   (DST)[0] = (CAST)(SRC)[0];			\
+   (DST)[1] = (CAST)(SRC)[1];			\
+   (DST)[2] = (CAST)(SRC)[2];			\
+   (DST)[3] = (CAST)(SRC)[3];			\
 } while (0)
 
 #if defined(__i386__)
@@ -453,7 +465,7 @@ do {						\
 
 
 
-/* Generic color packing macros.
+/* Generic color packing macros
  * XXX We may move these into texutil.h at some point.
  */
 

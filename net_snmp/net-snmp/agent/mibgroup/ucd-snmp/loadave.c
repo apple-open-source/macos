@@ -56,7 +56,6 @@
 #if HAVE_MTAB_H
 #include <mtab.h>
 #endif
-#include <sys/stat.h>
 #include <errno.h>
 #if HAVE_FSTAB_H
 #include <fstab.h>
@@ -119,6 +118,9 @@
 #endif
 #if defined(hpux10) || defined(hpux11)
 #include <sys/pstat.h>
+#endif
+#if defined(aix4) || defined(aix5)
+#include <libperfstat.h>
 #endif
 
 #include <net-snmp/net-snmp-includes.h>
@@ -212,6 +214,7 @@ int
 try_getloadavg(double *r_ave, size_t s_ave)
 {
     double         *pave = r_ave;
+#ifndef HAVE_GETLOADAVG
 #ifdef HAVE_SYS_FIXPOINT_H
     fix             favenrun[3];
 #endif
@@ -224,13 +227,14 @@ try_getloadavg(double *r_ave, size_t s_ave)
 #define FIX_TO_DBL(_IN) (((double) _IN)/((double) FSCALE))
 #endif
 #endif
-#ifdef aix4
+#if defined(aix4) || defined(aix5)
     int             favenrun[3];
+    perfstat_cpu_total_t cs;
 #endif
 #if defined(hpux10) || defined(hpux11)
   struct pst_dynamic pst_buf;
 #endif
-
+#endif	/* HAVE_GETLOADAVG */
 
 #ifdef HAVE_GETLOADAVG
     if (getloadavg(pave, s_ave) == -1)
@@ -259,13 +263,12 @@ try_getloadavg(double *r_ave, size_t s_ave)
     r_ave[2] = pst_buf.psd_avg_15_min;
 #elif !defined(cygwin)
 #ifdef CAN_USE_NLIST
-#if aix4
-    if (auto_nlist(LOADAVE_SYMBOL, (char *) favenrun, sizeof(favenrun)) ==
-        0)
-        return -1;
-    r_ave[0] = favenrun[0] / 65536.0;
-    r_ave[1] = favenrun[1] / 65536.0;
-    r_ave[2] = favenrun[2] / 65536.0;
+#if defined(aix4) || defined(aix5)
+    if(perfstat_cpu_total((perfstat_id_t *)NULL, &cs, sizeof(perfstat_cpu_total_t), 1) > 0) {
+        r_ave[0] = cs.loadavg[0] / 65536.0;
+        r_ave[1] = cs.loadavg[1] / 65536.0;
+        r_ave[2] = cs.loadavg[2] / 65536.0;
+    }
     return 0;
 #else
     if (auto_nlist(LOADAVE_SYMBOL, (char *) pave, sizeof(double) * s_ave)

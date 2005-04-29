@@ -4,11 +4,15 @@
 #include <stdarg.h>
 #include <stddef.h>
 
+/* APPLE LOCAL wint handling for panther  mrs */
+#ifndef _BSD_WINT_T_DEFINED_
 #ifndef _WINT_T
 #ifndef __WINT_TYPE__
 #define __WINT_TYPE__ unsigned int
 #endif
 typedef __WINT_TYPE__ wint_t;
+#endif
+/* APPLE LOCAL wint handling for panther  mrs */
 #endif
 
 /* Kludges to get types corresponding to size_t and ptrdiff_t.  */

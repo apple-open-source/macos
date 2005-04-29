@@ -29,7 +29,7 @@
 #ifndef _DSEventSemaphore_H_
 #define _DSEventSemaphore_H_
 
-#include "DSSemaphore.h"
+#include <DirectoryServiceCore/DSSemaphore.h>
 
 // --------------------------------------------------------------------------------
 // DSEventSemaphore class definition

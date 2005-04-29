@@ -1,0 +1,9 @@
+#
+# (c) 2001, Andreas Kupries <andreas_kupries@users.sourceforge.net>
+#
+#       Hourly cron job to regenerate the dynamic parts of the
+#	trf website.
+#
+
+44 * * * * /home/groups/t/tc/tcltrf/tools/htdocs_refresh
+34 6 * * * /home/groups/t/tc/tcltrf/tools/watch_cvs

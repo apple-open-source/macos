@@ -4,6 +4,13 @@
  */
 
 #include <net-snmp/net-snmp-config.h>
+
+#if defined(freebsd5)
+/* undefine these in order to use getfsstat */
+#undef HAVE_STATVFS
+#undef STRUCT_STATVFS_HAS_F_FRSIZE
+#endif
+
 #include <sys/types.h>
 #include <sys/param.h>
 #if HAVE_UNISTD_H
@@ -72,11 +79,15 @@
 #if defined(CTL_HW) && defined(HW_PAGESIZE)
 #define USE_SYSCTL
 #endif
-#if defined(CTL_VM) && defined(VM_METER)
+#if defined(CTL_VM) && defined(VM_METER) && !defined(darwin8)
 #define USE_SYSCTL_VM
 #endif
 #endif
 #endif                          /* ifndef dynix */
+
+#if defined(darwin8) /* This is to use host_statistics on OS X */
+#include <mach/mach.h>
+#endif
 
 #include "host_res.h"
 #include "hr_storage.h"
@@ -147,13 +158,23 @@
 extern struct mnttab *HRFS_entry;
 #define HRFS_mount	mnt_mountp
 #define HRFS_statfs	statvfs
+#define HRFS_HAS_FRSIZE STRUCT_STATVFS_HAS_F_FRSIZE
 
-#elif defined(HAVE_STATVFS)
+#elif defined(HAVE_STATVFS) && defined(__NetBSD__)
+
+extern struct statvfs *HRFS_entry;
+extern int      fscount;
+#define HRFS_statfs	statvfs
+#define HRFS_mount	f_mntonname
+#define HRFS_HAS_FRSIZE STRUCT_STATVFS_HAS_F_FRSIZE
+
+#elif defined(HAVE_STATVFS) && defined(STRUCT_STATVFS_HAS_MNT_DIR)
 
 extern struct mntent *HRFS_entry;
 extern int      fscount;
 #define HRFS_statfs	statvfs
 #define HRFS_mount	mnt_dir
+#define HRFS_HAS_FRSIZE STRUCT_STATVFS_HAS_F_FRSIZE
 
 #elif defined(HAVE_GETFSSTAT)
 
@@ -161,13 +182,19 @@ extern struct statfs *HRFS_entry;
 extern int      fscount;
 #define HRFS_statfs	statfs
 #define HRFS_mount	f_mntonname
+#define HRFS_HAS_FRSIZE STRUCT_STATFS_HAS_F_FRSIZE
 
 #else
 
 extern struct mntent *HRFS_entry;
 #define HRFS_mount	mnt_dir
 #define HRFS_statfs	statfs
+#define HRFS_HAS_FRSIZE STRUCT_STATFS_HAS_F_FRSIZE
 
+#endif
+
+#if defined(darwin8) /* This is to use host_statistics() on OS X */
+mach_port_t myHost;
 #endif
 
 static int      physmem, pagesize;
@@ -238,7 +265,7 @@ init_hr_storage(void)
     physmem /= pagesize;
 #elif defined(hpux10) || defined(hpux11)
     if (pstat_getstatic(&pst_buf, sizeof(struct pst_static), 1, 0) < 0) {
-        perror("pstat_getstatic");
+        snmp_log_perror("pstat_getstatic");
     } else {
         physmem = pst_buf.physical_memory;
         pagesize = pst_buf.page_size;
@@ -257,7 +284,8 @@ init_hr_storage(void)
 #elif defined(linux)
     {
         struct stat     kc_buf;
-        stat("/proc/kcore", &kc_buf);
+        if (stat("/proc/kcore", &kc_buf) == -1)
+	    snmp_log_perror("/proc/kcore");
         pagesize = kc_buf.st_size / 1024;       /* 4K too large ? */
     }
 #else
@@ -278,6 +306,10 @@ init_hr_storage(void)
 #endif
 #ifdef MBSTAT_SYMBOL
     auto_nlist(MBSTAT_SYMBOL, 0, 0);
+#endif
+
+#if defined(darwin8)
+    myHost = mach_host_self();
 #endif
 
     REGISTER_MIB("host/hr_storage", hrstore_variables, variable4,
@@ -428,9 +460,9 @@ int             storage_type_len =
 
 static const char *hrs_descr[] = {
     NULL,
+    "Memory Buffers",           /* HRS_TYPE_MBUF */
     "Real Memory",              /* HRS_TYPE_MEM */
-    "Swap Space",               /* HRS_TYPE_SWAP */
-    "Memory Buffers"            /* HRS_TYPE_MBUF */
+    "Swap Space"                /* HRS_TYPE_SWAP */
 };
 
 
@@ -448,6 +480,9 @@ var_hrstore(struct variable *vp,
     int             swap_total, swap_used;
 #elif defined(hpux10) || defined(hpux11)
     struct pst_dynamic pst_buf;
+#elif defined(darwin8)
+    vm_statistics_data_t vm_stat;
+    int count = HOST_VM_INFO_COUNT;
 #elif defined(TOTAL_MEMORY_SYMBOL) || defined(USE_SYSCTL_VM)
     struct vmtotal  memory_totals;
 #endif
@@ -459,7 +494,7 @@ var_hrstore(struct variable *vp,
     struct mbstat   mbstat;
 #endif
 #endif                          /* !linux */
-    static char     string[100];
+    static char     string[1024];
     struct HRFS_statfs stat_buf;
 
     if (vp->magic == HRSTORE_MEMSIZE) {
@@ -468,16 +503,18 @@ var_hrstore(struct variable *vp,
             return NULL;
     } else {
 
-        store_idx =
-            header_hrstoreEntry(vp, name, length, exact, var_len,
-                                write_method);
-        if (store_idx == MATCH_FAILED)
-            return NULL;
+try_next:
+	store_idx = header_hrstoreEntry(vp, name, length, exact, var_len,
+					write_method);
+	if (store_idx == MATCH_FAILED)
+	    return NULL;
 
-        if (store_idx < HRS_TYPE_FS_MAX) {
-            if (HRFS_statfs(HRFS_entry->HRFS_mount, &stat_buf) < 0)
-                return NULL;
-        }
+	if (store_idx > HRS_TYPE_FIXED_MAX) {
+	    if (HRFS_statfs(HRFS_entry->HRFS_mount, &stat_buf) < 0) {
+		snmp_log_perror(HRFS_entry->HRFS_mount);
+		goto try_next;
+	    }
+	}
 #if !defined(linux) && !defined(solaris2)
         else
             switch (store_idx) {
@@ -491,6 +528,8 @@ var_hrstore(struct variable *vp,
                     mib[1] = VM_METER;
                     sysctl(mib, 2, &memory_totals, &len, NULL, 0);
                 }
+#elif defined(darwin8)
+		host_statistics(myHost,HOST_VM_INFO,&vm_stat,&count);
 #elif defined(hpux10) || defined(hpux11)
                 pstat_getdynamic(&pst_buf, sizeof(struct pst_dynamic), 1, 0);
 #elif defined(TOTAL_MEMORY_SYMBOL)
@@ -529,7 +568,7 @@ var_hrstore(struct variable *vp,
         long_return = store_idx;
         return (u_char *) & long_return;
     case HRSTORE_TYPE:
-        if (store_idx < HRS_TYPE_FS_MAX)
+        if (store_idx > HRS_TYPE_FIXED_MAX)
             if (storageUseNFS && Check_HR_FileSys_NFS())
                 storage_type_id[storage_type_len - 1] = 10;     /* Network Disk */
             else
@@ -552,19 +591,19 @@ var_hrstore(struct variable *vp,
         *var_len = sizeof(storage_type_id);
         return (u_char *) storage_type_id;
     case HRSTORE_DESCR:
-        if (store_idx < HRS_TYPE_FS_MAX) {
+        if (store_idx > HRS_TYPE_FIXED_MAX) {
             strncpy(string, HRFS_entry->HRFS_mount, sizeof(string)-1);
             string[ sizeof(string)-1 ] = 0;
             *var_len = strlen(string);
             return (u_char *) string;
         } else {
-            store_idx = store_idx - HRS_TYPE_FS_MAX;
+            /* store_idx = store_idx - 1; */
             *var_len = strlen(hrs_descr[store_idx]);
             return (u_char *) hrs_descr[store_idx];
         }
     case HRSTORE_UNITS:
-        if (store_idx < HRS_TYPE_FS_MAX)
-#if STRUCT_STATVFS_HAS_F_FRSIZE
+        if (store_idx > HRS_TYPE_FIXED_MAX)
+#if HRFS_HAS_FRSIZE
             long_return = stat_buf.f_frsize;
 #else
             long_return = stat_buf.f_bsize;
@@ -590,14 +629,14 @@ var_hrstore(struct variable *vp,
                 break;
             default:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 1024;     /* As likely as any! */
                 break;
             }
         return (u_char *) & long_return;
     case HRSTORE_SIZE:
-        if (store_idx < HRS_TYPE_FS_MAX)
+        if (store_idx > HRS_TYPE_FIXED_MAX)
             long_return = stat_buf.f_blocks;
         else
             switch (store_idx) {
@@ -621,7 +660,19 @@ var_hrstore(struct variable *vp,
             case HRS_TYPE_SWAP:
                 long_return = pst_buf.psd_vm;
                 break;
-#elif defined(TOTAL_MEMORY_SYMBOL) || defined(USE_SYSCTL_VM)
+#elif defined(darwin8)
+            case HRS_TYPE_MEM:
+                long_return = physmem;
+                break;
+            case HRS_TYPE_SWAP:
+                long_return = -1;
+	        break;
+#if defined(MBSTAT_SYMBOL)
+	    case HRS_TYPE_MBUF:
+                long_return = mbstat.m_mbufs;
+                break; 
+#endif /* defined(darwin8) */
+#elif defined(TOTAL_MEMORY_SYMBOL) || defined(USE_SYSCTL_VM) 
             case HRS_TYPE_MEM:
                 long_return = memory_totals.t_rm;
                 break;
@@ -634,7 +685,7 @@ var_hrstore(struct variable *vp,
                 break;
             case HRS_TYPE_SWAP:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 0;
                 break;
@@ -649,7 +700,7 @@ var_hrstore(struct variable *vp,
 #elif defined(MBSTAT_SYMBOL)
                 long_return = mbstat.m_mbufs;
 #elif defined(NO_DUMMY_VALUES)
-                return NULL;
+                goto try_next;
 #else
                 long_return = 0;
 #endif
@@ -657,14 +708,14 @@ var_hrstore(struct variable *vp,
 #endif              /* !linux && !solaris2 && !hpux10 && !hpux11 && ... */
             default:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 1024;
                 break;
             }
         return (u_char *) & long_return;
     case HRSTORE_USED:
-        if (store_idx < HRS_TYPE_FS_MAX)
+        if (store_idx > HRS_TYPE_FIXED_MAX)
             long_return = (stat_buf.f_blocks - stat_buf.f_bfree);
         else
             switch (store_idx) {
@@ -689,6 +740,13 @@ var_hrstore(struct variable *vp,
             case HRS_TYPE_SWAP:
                 long_return = pst_buf.psd_avm;
                 break;
+#elif defined(darwin8)
+	    case HRS_TYPE_MEM:
+		long_return = vm_stat.active_count + vm_stat.inactive_count + vm_stat.wire_count;
+		break;
+	    case HRS_TYPE_SWAP:
+		long_return = -1;
+		break;
 #elif defined(TOTAL_MEMORY_SYMBOL) || defined(USE_SYSCTL_VM)
             case HRS_TYPE_MEM:
                 long_return = memory_totals.t_arm;
@@ -707,7 +765,7 @@ var_hrstore(struct variable *vp,
 #elif defined(MBSTAT_SYMBOL)
                 long_return = mbstat.m_clusters - mbstat.m_clfree;      /* unlikely, but... */
 #elif defined(NO_DUMMY_VALUES)
-                return NULL;
+                goto try_next;
 #else
                 long_return = 0;
 #endif
@@ -715,21 +773,25 @@ var_hrstore(struct variable *vp,
 #endif                      /* !linux && !solaris2 && !hpux10 && !hpux11 && ... */
             default:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 1024;
                 break;
             }
         return (u_char *) & long_return;
     case HRSTORE_FAILS:
-        if (store_idx < HRS_TYPE_FS_MAX)
+        if (store_idx > HRS_TYPE_FIXED_MAX)
+#if NO_DUMMY_VALUES
+	    goto try_next;
+#else
             long_return = 0;
+#endif
         else
             switch (store_idx) {
             case HRS_TYPE_MEM:
             case HRS_TYPE_SWAP:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 0;
                 break;
@@ -740,7 +802,7 @@ var_hrstore(struct variable *vp,
 #endif                          /* !linux && !solaris2 && !hpux10 && !hpux11 && MBSTAT_SYMBOL */
             default:
 #if NO_DUMMY_VALUES
-                return NULL;
+                goto try_next;
 #endif
                 long_return = 0;
                 break;
@@ -766,41 +828,42 @@ static int      HRS_index;
 void
 Init_HR_Store(void)
 {
-    HRS_index = -1;
+#if !defined(solaris2) && !defined(hpux10) && !defined(hpux11) && !defined(linux)
+    HRS_index = 0;
+#else
+    HRS_index = HRS_TYPE_MBUF;
+#endif
+
     Init_HR_FileSys();
-    FS_storage = 1;             /* Start with file-based storage */
+    FS_storage = 0;             /* Start with file-based storage */
 }
 
 int
 Get_Next_HR_Store(void)
 {
     /*
-     * File-based storage 
+     * Fixed-style 'other' storage types
      */
     long_return = -1;
-    if (FS_storage == 1) {
-        HRS_index = Get_Next_HR_FileSys();
-
-        if (HRS_index >= 0)
+    if (FS_storage == 0) {
+        ++HRS_index;
+        if (HRS_index <= HRS_TYPE_FIXED_MAX)
             return HRS_index;
-        FS_storage = 0;         /* End of filesystems */
-        HRS_index = HRS_TYPE_FS_MAX;
+        else {
+            FS_storage = 1;
+            HRS_index = 0;
+        }
     }
 
     /*
-     * 'Other' storage types 
+     * File-based storage 
      */
-    ++HRS_index;
-#if !defined(solaris2) && !defined(hpux10) && !defined(hpux11)
-    if (HRS_index < HRS_TYPE_MAX)
-        return HRS_index;
-    else
-#else
-    if (HRS_index < HRS_TYPE_MBUF)
-        return HRS_index;
-    else
-#endif
-        return -1;
+    HRS_index = Get_Next_HR_FileSys();
+
+    if (HRS_index >= 0)
+        return HRS_index + HRS_TYPE_FIXED_MAX;
+
+    return -1;
 }
 
 #ifdef linux
@@ -808,22 +871,24 @@ int
 linux_mem(int mem_type, int size_or_used)
 {
     FILE           *fp;
-    char            buf[100];
-    int             size = -1, used = -1;
+    char            buf[1024];
+    int             size = -1, free = -1;
 
     if ((fp = fopen("/proc/meminfo", "r")) == NULL)
         return -1;
 
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if ((!strncmp(buf, "Mem:", 4) && mem_type == HRS_TYPE_MEM) ||
-            (!strncmp(buf, "Swap:", 5) && mem_type == HRS_TYPE_SWAP)) {
-            sscanf(buf, "%*s %d %d", &size, &used);
-            break;
-        }
+       if ((!strncmp(buf, "MemTotal:", 9) && mem_type == HRS_TYPE_MEM) ||
+            (!strncmp(buf, "SwapTotal:", 10) && mem_type == HRS_TYPE_SWAP))
+            sscanf(buf, "%*s %d", &size);
+
+       if ((!strncmp(buf, "MemFree:", 8) && mem_type == HRS_TYPE_MEM) ||
+            (!strncmp(buf, "SwapFree:", 9) && mem_type == HRS_TYPE_SWAP))
+            sscanf(buf, "%*s %d", &free);
     }
 
     fclose(fp);
-    return (size_or_used == HRSTORE_SIZE ? size : used) / 1024;
+    return (size_or_used == HRSTORE_SIZE ? size : (size - free));
 
 }
 #endif

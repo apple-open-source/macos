@@ -1,0 +1,70 @@
+# -*- tcl -*-
+# Commands covered:  bz2
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: bz2.test,v 1.3 1999/09/20 21:28:12 aku Exp $
+
+if {[string compare test [info procs test]] == 1} then {source defs}
+
+set text                   "hello, hello!"
+set text_compressed_as_hex "425A68393141592653592C546C72000003110060040244A0002129A3108603690E70A1E2EE48A70A12058A8D8E40"
+
+
+
+# differentiate tcl versions
+if {[info tclversion] < 8.0} {
+    # 7.6, use channels to transfer information, we have embedded \0s.
+
+    test bz2-1.0-7.6 {bz2 compression} {hasBz} {
+	set in  [text2chan $text]
+	set out [memchan]
+
+	fconfigure   $out -translation binary
+	hex  -attach $out -mode encode
+
+	bz2 -mode compress -in $in -out $out
+
+	unstack $out
+	seek             $out 0
+	set data   [read $out]
+	close            $out
+	close $in
+
+	set data
+    } $text_compressed_as_hex	; #{}
+
+    test bz2-1.1-7.6 {bz2 decompression} {hasBz} {
+	set in  [hex2chan $text_compressed_as_hex]
+	set out [memchan]
+
+	seek $in 0
+	bz2 -mode decompress -in $in -out $out
+
+	seek             $out 0
+	set data   [read $out]
+	close            $out
+	close $in
+
+	set data
+    } $text	; #{}
+
+} else {
+    # 8.x is able to work with embedded \0s.
+
+    test bz2-1.0-8.x {bz2 compression} {hasBz} {
+	hex -mode encode [bz2 -mode compress $text]
+    } $text_compressed_as_hex	; #{}
+
+    test bz2-1.1-8.x {bz2 decompression} {hasBz} {
+	bz2 -mode decompress [hex -mode decode $text_compressed_as_hex]
+    } $text	; #{}
+}

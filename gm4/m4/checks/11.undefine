@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1113: Origin of test
+dnl ../doc/m4.texinfo:1114: Origin of test
 foo
 dnl @result{}foo
 define(`foo', `expansion text')

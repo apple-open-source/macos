@@ -38,7 +38,6 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Rectangle2D;
 import java.io.Serializable;
 
@@ -282,10 +281,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setBounds(Rectangle r)
   {
-    x = r.x;
-    y = r.y;
-    width = r.width;
-    height = r.height;
+    setBounds (r.x, r.y, r.width, r.height);
   }
 
   /**
@@ -299,10 +295,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setBounds(int x, int y, int width, int height)
   {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
+    reshape (x, y, width, height);
   }
 
   /**
@@ -334,7 +327,10 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void reshape(int x, int y, int width, int height)
   {
-    setBounds(x, y, width, height);
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
   }
 
   /**
@@ -361,8 +357,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setLocation(Point p)
   {
-    this.x = p.x;
-    this.y = p.y;
+    setLocation (p.x, p.y);
   }
 
   /**
@@ -375,8 +370,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setLocation(int x, int y)
   {
-    this.x = x;
-    this.y = y;
+    move (x, y);
   }
 
   /**
@@ -389,7 +383,8 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void move(int x, int y)
   {
-    setLocation(x, y);
+    this.x = x;
+    this.y = y;
   }
 
   /**
@@ -427,8 +422,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setSize(Dimension d)
   {
-    width = d.width;
-    height = d.height;
+    setSize (d.width, d.height);
   }
 
   /**
@@ -440,8 +434,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void setSize(int width, int height)
   {
-    this.width = width;
-    this.height = height;
+    resize (width, height);
   }
 
   /**
@@ -453,7 +446,8 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public void resize(int width, int height)
   {
-    setSize(width, height);
+    this.width = width;
+    this.height = height;
   }
 
   /**
@@ -470,9 +464,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public boolean contains(Point p)
   {
-    return width > 0 && height > 0
-      && p.x >= x && p.x < x + width
-      && p.y >= y && p.y < y + height;
+    return contains (p.x, p.y);
   }
 
   /**
@@ -488,9 +480,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public boolean contains(int x, int y)
   {
-    return width > 0 && height > 0
-      && x >= this.x && x < this.x + width
-      && y >= this.y && y < this.y + height;
+    return inside (x, y);
   }
 
   /**
@@ -505,9 +495,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public boolean contains(Rectangle r)
   {
-    return width > 0 && height > 0 && r.width > 0 && r.height > 0
-      && r.x >= x && r.x + r.width <= x + width
-      && r.y >= y && r.y + r.height <= y + height;
+    return contains (r.x, r.y, r.width, r.height);
   }
 
   /**
@@ -538,7 +526,9 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public boolean inside(int x, int y)
   {
-    return contains(x, y);
+    return width > 0 && height > 0
+      && x >= this.x && x < this.x + width
+      && y >= this.y && y < this.y + height;
   }
 
   /**
@@ -552,7 +542,7 @@ public class Rectangle extends Rectangle2D implements Shape, Serializable
    */
   public boolean intersects(Rectangle r)
   {
-    return width > 0 && height > 0 && r.width > 0 && r.height > 0
+    return r.width > 0 && r.height > 0 && width > 0 && height > 0
       && r.x < x + width && r.x + r.width > x
       && r.y < y + height && r.y + r.height > y;
   }

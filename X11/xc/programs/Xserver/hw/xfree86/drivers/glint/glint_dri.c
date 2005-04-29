@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/glint_dri.c,v 1.32 2003/02/10 13:20:10 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/glint_dri.c,v 1.38 2003/11/12 17:56:35 tsi Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -328,7 +328,7 @@ static Bool GLINTDRIAgpInit(ScreenPtr pScreen)
       return FALSE;
    }
    xf86DrvMsg( pScreen->myNum, X_INFO,
-	       "[agp] %d kB allocated with handle 0x%08x\n",
+	       "[agp] %d kB allocated with handle 0x%08lx\n",
 	       pGlint->agp.size/1024, pGlint->agp.handle );
 
    if ( drmAgpBind( pGlint->drmSubFD, pGlint->agp.handle, 0 ) < 0 ) {
@@ -358,7 +358,7 @@ static Bool GLINTDRIAgpInit(ScreenPtr pScreen)
       return FALSE;
    }
    xf86DrvMsg( pScreen->myNum, X_INFO,
-	       "[agp] DMA buffers mapped at 0x%08lx\n", pGlint->buffers.map);
+	       "[agp] DMA buffers mapped at %p\n", pGlint->buffers.map);
 
    count = drmAddBufs( pGlint->drmSubFD,
 		       GLINT_DRI_BUF_COUNT, GLINT_DRI_BUF_SIZE,
@@ -413,6 +413,7 @@ static Bool GLINTDRIKernelInit( ScreenPtr pScreen )
    init.mmio1 = pGlintDRI->registers1.handle;
    init.mmio2 = pGlintDRI->registers2.handle;
    init.mmio3 = pGlintDRI->registers3.handle;
+   init.num_rast = pGlint->numMultiDevices;
 
    if (!pGlint->PCIMode) {
        init.pcimode = 0;
@@ -547,7 +548,7 @@ GLINTDRIScreenInit(ScreenPtr pScreen)
 
     /* So DRICloseScreen does the right thing if we abort */
     pGlint->buffers.map = 0;
-    pGlint->agp.handle = 0;
+    pGlint->agp.handle = DRM_AGP_NO_HANDLE;
 
     if (!DRIScreenInit(pScreen, pDRIInfo, &(pGlint->drmSubFD))) {
 	DRIDestroyInfoRec(pGlint->pDRIInfo);
@@ -760,7 +761,7 @@ GLINTDRIScreenInit(ScreenPtr pScreen)
 	    return FALSE;
     	}
     	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[drm] buffers mapped with %p\n",
-	       pGlint->drmBufs);
+	       (void *)pGlint->drmBufs);
     	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[drm] %d DMA buffers mapped\n",
 	       pGlint->drmBufs->count);
     } /* PCIMODE */
@@ -789,7 +790,7 @@ GLINTDRICloseScreen(ScreenPtr pScreen)
 	pGlint->buffers.map = NULL;
     }
 
-    if (pGlint->agp.handle) {
+    if (pGlint->agp.handle != DRM_AGP_NO_HANDLE) {
 	drmAgpUnbind( pGlint->drmSubFD, pGlint->agp.handle );
 	drmAgpFree( pGlint->drmSubFD, pGlint->agp.handle );
 	pGlint->agp.handle = 0;
@@ -965,7 +966,7 @@ GLINTDRIFinishScreenInit(ScreenPtr pScreen)
 		return FALSE;
     	}
     	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[agp] buffers mapped with %p\n",
-	       pGlint->drmBufs);
+	       (void *)pGlint->drmBufs);
     	xf86DrvMsg(pScrn->scrnIndex, X_INFO, "[agp] %d DMA buffers mapped\n",
 	       pGlint->drmBufs->count);
     }
@@ -1914,8 +1915,8 @@ GLINTDRIMoveBuffers(
     RegionPtr prgnSrc,
     CARD32 index)
 {
-#if 0
     ScreenPtr pScreen = pParent->drawable.pScreen;
+#if 0
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
 #endif
     int dx, dy;
@@ -1927,8 +1928,8 @@ GLINTDRIMoveBuffers(
      * and stencil, they just get redrawn for the next frame(s).
      */
 
-    REGION_INIT(pScreen, &rgnSubWindow, NullBox, 0);
-    REGION_INIT(pScreen, &rgnTranslateSrc, NullBox, 0);
+    REGION_NULL(pScreen, &rgnSubWindow);
+    REGION_NULL(pScreen, &rgnTranslateSrc);
     REGION_COPY(pScreen, &rgnTranslateSrc, prgnSrc);
     dx = ptOldOrg.x - pParent->drawable.x;
     dy = ptOldOrg.y - pParent->drawable.y;

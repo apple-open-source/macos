@@ -29,8 +29,8 @@
  * SUCH DAMAGE.
  */
 
-#if !defined(_VAR_H_)
-#define _VAR_H_
+#ifndef __VAR_H__
+#define __VAR_H__
 
 #define MAX3(a, b, c) (a > b ? (a > c ? a : c) : (b > c ? b : c))
 
@@ -90,4 +90,5 @@ do { \
 
 #include "gcmalloc.h"
 
-#endif /*!defined(_VAR_H_)*/
+#endif /* __VAR_H__ */
+

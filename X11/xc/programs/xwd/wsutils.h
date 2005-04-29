@@ -34,6 +34,8 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
     ------------------------------------------------------------------------ **/
+/* $XFree86: xc/programs/xwd/wsutils.h,v 1.3 2003/11/17 22:20:54 dawes Exp $ */
+
 /******************************************************************************
  *
  * This file contains various typedef's, macros and procedure declarations for
@@ -129,7 +131,6 @@ typedef struct
  ******************************************************************************/
 
 extern int GetXVisualInfo(
-#if NeedFunctionPrototypes
     Display	*display,		/* Which X server (aka "display"). */
     int		screen,			/* Which screen of the "display". */
     int		*transparentOverlays,	/* Non-zero if there's at least one
@@ -148,7 +149,6 @@ extern int GetXVisualInfo(
     int		*numImageVisuals,	/* Number of XVisualInfo's pointed
 					 * to by pImageVisuals. */
     XVisualInfo	***pImageVisuals	/* The device's image visuals. */
-#endif
 		    );
 
 
@@ -161,11 +161,9 @@ extern int GetXVisualInfo(
  ******************************************************************************/
 
 extern void FreeXVisualInfo(
-#if NeedFunctionPrototypes
     XVisualInfo	*pVisuals,
     OverlayInfo	*pOverlayVisuals,
     XVisualInfo	**pImageVisuals
-#endif
 		     );
 
 
@@ -190,7 +188,6 @@ extern void FreeXVisualInfo(
  ******************************************************************************/
 
 extern int FindImagePlanesVisual(
-#if NeedFunctionPrototypes
     Display	*display,		/* Which X server (aka "display"). */
     int		screen,			/* Which screen of the "display". */
     int		numImageVisuals,	/* Number of XVisualInfo's pointed
@@ -204,7 +201,6 @@ extern int FindImagePlanesVisual(
 					 * "depthHint" is desired. */
     Visual	**pImageVisualToUse,	/* The screen's image visual to use. */
     int		*depthObtained		/* Actual depth of the visual. */
-#endif
 				     );
 
 
@@ -238,7 +234,6 @@ extern int FindImagePlanesVisual(
  ******************************************************************************/
 
 extern int FindOverlayPlanesVisual(
-#if NeedFunctionPrototypes
     Display	*display,		/* Which X server (aka "display"). */
     int		screen,			/* Which screen of the "display". */
     int		numOverlayVisuals,	/* Number of OverlayInfo's pointed
@@ -255,7 +250,6 @@ extern int FindOverlayPlanesVisual(
     int		*depthObtained,		/* Actual depth of the visual. */
     int		*transparentColor	/* The transparent color the program
 					 * can use with the visual. */
-#endif
 				);
 
 
@@ -279,7 +273,6 @@ extern int FindOverlayPlanesVisual(
  ******************************************************************************/
 
 extern int CreateImagePlanesWindow(
-#if NeedFunctionPrototypes
     Display	*display,		/* Which X server (aka "display"). */
     int		screen,			/* Which screen of the "display". */
     Window	parentWindow,		/* Window ID of the parent window for
@@ -298,7 +291,6 @@ extern int CreateImagePlanesWindow(
     Colormap	*imageColormap,		/* The window's colormap. */
     int		*mustFreeImageColormap	/* Non-zero if the program must call
 					 * XFreeColormap() for imageColormap. */
-#endif
 				);
 
 
@@ -322,7 +314,6 @@ extern int CreateImagePlanesWindow(
  ******************************************************************************/
 
 int CreateOverlayPlanesWindow(
-#if NeedFunctionPrototypes
     Display	*display,		/* Which X server (aka "display"). */
     int		screen,			/* Which screen of the "display". */
     Window	parentWindow,		/* Window ID of the parent window for
@@ -346,5 +337,4 @@ int CreateOverlayPlanesWindow(
     int		*mustFreeOverlayColormap/* Non-zero if the program must call
 					  * XFreeColormap() for
 					  * overlayColormap. */
-#endif
 				);

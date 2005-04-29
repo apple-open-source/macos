@@ -44,7 +44,7 @@
 # endif
 
 /* Determine the machine type: */
-# if defined(__XSCALE__)
+# if defined(__arm__) || defined(__thumb__)
 #    define ARM32
 #    if !defined(LINUX)
 #      define NOSYS
@@ -95,8 +95,8 @@
 #    if defined(nec_ews) || defined(_nec_ews)
 #      define EWS4800
 #    endif
-#    if !defined(LINUX) && !defined(EWS4800)
-#      if defined(ultrix) || defined(__ultrix) || defined(__NetBSD__)
+#    if !defined(LINUX) && !defined(EWS4800) && !defined(NETBSD)
+#      if defined(ultrix) || defined(__ultrix)
 #	 define ULTRIX
 #      else
 #	 if defined(_SYSTYPE_SVR4) || defined(SYSTYPE_SVR4) \
@@ -107,9 +107,6 @@
 #	 endif
 #      endif
 #    endif /* !LINUX */
-#    if defined(__NetBSD__) && defined(__MIPSEL__)
-#      undef ULTRIX
-#    endif
 #    define mach_type_known
 # endif
 # if defined(sequent) && (defined(i386) || defined(__i386__))
@@ -191,6 +188,10 @@
 # endif
 # if defined(LINUX) && (defined(i386) || defined(__i386__))
 #    define I386
+#    define mach_type_known
+# endif
+# if defined(LINUX) && defined(__x86_64__)
+#    define X86_64
 #    define mach_type_known
 # endif
 # if defined(LINUX) && (defined(__ia64__) || defined(__ia64))
@@ -369,7 +370,7 @@
 #   define mach_type_known
 # endif
 # if defined(__s390__) && defined(LINUX)
-#    define S370
+#    define S390
 #    define mach_type_known
 # endif
 # if defined(__GNU__)
@@ -418,7 +419,8 @@
 		    /* 		        (CX_UX and DGUX)		*/
 		    /* 		   S370	      ==> 370-like machine	*/
 		    /* 			running Amdahl UTS4		*/
-		    /*			or a 390 running LINUX		*/
+		    /*		   S390       ==> 390-like machine      */
+		    /*			running LINUX			*/
 		    /* 		   ARM32      ==> Intel StrongARM	*/
 		    /* 		   IA64	      ==> Intel IPF		*/
 		    /*				  (e.g. Itanium)	*/
@@ -427,6 +429,7 @@
 		    /* 			(HPUX)				*/
 		    /*		   SH	      ==> Hitachi SuperH	*/
 		    /* 			(LINUX & MSWINCE)		*/
+		    /* 		   X86_64     ==> AMD x86-64		*/
 
 
 /*
@@ -682,7 +685,7 @@
 #     define DATASTART ((ptr_t) get_etext())
 #     define STACKBOTTOM ((ptr_t) 0xc0000000)
 #     define DATAEND	/* not needed */
-#     define MPROTECT_VDB
+#     undef MPROTECT_VDB
 #     include <unistd.h>
 #     define GETPAGESIZE() getpagesize()
 #   endif
@@ -777,9 +780,7 @@
 #       define GETPAGESIZE()  sysconf(_SC_PAGESIZE)
 		/* getpagesize() appeared to be missing from at least one */
 		/* Solaris 5.4 installation.  Weird.			  */
-#       if CPP_WORDSZ == 32
-#	  define DYNAMIC_LOADING
-#    	endif
+#	define DYNAMIC_LOADING
 #   endif
 #   ifdef SUNOS4
 #	define OS_TYPE "SUNOS4"
@@ -820,10 +821,12 @@
       extern int _etext[];
 #     define DATAEND (_end)
 #     define SVR4
-#     define LINUX_STACKBOTTOM
 #     ifdef __arch64__
+	/* libc_stack_end is not set reliably for sparc64 */
+#       define STACKBOTTOM ((ptr_t) 0x80000000000)
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x100000, _etext)
 #     else
+#       define LINUX_STACKBOTTOM
 #	define DATASTART (ptr_t)GC_SysVGetDataStart(0x10000, _etext)
 #     endif
 #   endif
@@ -1141,15 +1144,14 @@
       /* This was developed for a linuxce style platform.  Probably	*/
       /* needs to be tweaked for workstation class machines.		*/
 #     define OS_TYPE "LINUX"
+#     define DYNAMIC_LOADING
+      extern int _end[];
+#     define DATAEND (_end)
       extern int __data_start[];
 #     define DATASTART ((ptr_t)(__data_start))
 #     define ALIGNMENT 4
 #     define USE_GENERIC_PUSH_REGS
-#     define STACKBOTTOM ((ptr_t)0x7fff8000)
-        /* Older toolchains may need 0x80000000.	*/
-	/* In many cases, this should probably use LINUX_STACKBOTTOM 	*/
-	/* instead. But some kernel versions seem to give the wrong	*/
-	/* value from /proc.						*/
+#     define LINUX_STACKBOTTOM
 #   endif /* Linux */
 #   ifdef EWS4800
 #      define HEURISTIC2
@@ -1222,21 +1224,15 @@
 #       define DATAEND /* not needed */
 #   endif
 #   if defined(NETBSD)
-      /* This also checked for __MIPSEL__ .  Why?  NETBSD recognition	*/
-      /* should be handled at the top of the file.			*/
-#     define ALIGNMENT 4
 #     define OS_TYPE "NETBSD"
+#     define ALIGNMENT 4
 #     define HEURISTIC2
 #     define USE_GENERIC_PUSH_REGS
-#     ifdef __ELF__
-        extern int etext[];
-#       define DATASTART GC_data_start
-#       define NEED_FIND_LIMIT
-#       define DYNAMIC_LOADING
-#     else
-#       define DATASTART ((ptr_t) 0x10000000)
-#       define STACKBOTTOM ((ptr_t) 0x7ffff000)
-#     endif /* _ELF_ */
+      extern int _fdata[];
+#     define DATASTART ((ptr_t)(_fdata))
+      extern int _end[];
+#     define DATAEND ((ptr_t)(_end))
+#     define DYNAMIC_LOADING
 #  endif
 # endif
 
@@ -1528,12 +1524,29 @@
 #	define DATAEND (_end)
 #	define HEURISTIC2
 #   endif
+# endif
+
+# ifdef S390
+#   define MACH_TYPE "S390"
+#   define USE_GENERIC_PUSH_REGS
+#   ifndef __s390x__
+#	define ALIGNMENT 4
+#	define CPP_WORDSZ 32
+#   else
+#	define ALIGNMENT 8
+#	define CPP_WORDSZ 64
+#	define HBLKSIZE 4096
+#   endif
 #   ifdef LINUX
 #       define OS_TYPE "LINUX"
-#       define HEURISTIC1
+#       define LINUX_STACKBOTTOM
 #       define DYNAMIC_LOADING
         extern int __data_start[];
 #       define DATASTART ((ptr_t)(__data_start))
+	extern int _end[];
+#	define DATAEND (_end)
+#	define CACHE_LINE_SIZE 256
+#	define GETPAGESIZE() 4096
 #   endif
 # endif
 
@@ -1623,6 +1636,44 @@
 #   define OS_TYPE "MSWINCE"
 #   define ALIGNMENT 4
 #   define DATAEND /* not needed */
+# endif
+
+# ifdef X86_64
+#   define MACH_TYPE "X86_64"
+#   define ALIGNMENT 8
+#   define CPP_WORDSZ 64
+#   define HBLKSIZE 4096
+#   define CACHE_LINE_SIZE 64
+#   define USE_GENERIC_PUSH_REGS
+#   ifdef LINUX
+#	define OS_TYPE "LINUX"
+#       define LINUX_STACKBOTTOM
+#       if !defined(GC_LINUX_THREADS) || !defined(REDIRECT_MALLOC)
+#	    define MPROTECT_VDB
+#	else
+	    /* We seem to get random errors in incremental mode,	*/
+	    /* possibly because Linux threads is itself a malloc client */
+	    /* and can't deal with the signals.				*/
+#	endif
+#       ifdef __ELF__
+#            define DYNAMIC_LOADING
+#	     ifdef UNDEFINED	/* includes ro data */
+	       extern int _etext[];
+#              define DATASTART ((ptr_t)((((word) (_etext)) + 0xfff) & ~0xfff))
+#	     endif
+#	     include <features.h>
+#	     define LINUX_DATA_START
+	     extern int _end[];
+#	     define DATAEND (_end)
+#	else
+	     extern int etext[];
+#            define DATASTART ((ptr_t)((((word) (etext)) + 0xfff) & ~0xfff))
+#       endif
+#	define PREFETCH(x) \
+	  __asm__ __volatile__ ("	prefetch	%0": : "m"(*(char *)(x)))
+#	define PREFETCH_FOR_WRITE(x) \
+	  __asm__ __volatile__ ("	prefetchw	%0": : "m"(*(char *)(x)))
+#   endif
 # endif
 
 #ifdef LINUX_DATA_START
@@ -1750,6 +1801,19 @@
 #   define CACHE_LINE_SIZE 32	/* Wild guess	*/
 # endif
 
+# ifdef LINUX
+#   define REGISTER_LIBRARIES_EARLY
+    /* We sometimes use dl_iterate_phdr, which may acquire an internal	*/
+    /* lock.  This isn't safe after the world has stopped.  So we must	*/
+    /* call GC_register_dynamic_libraries before stopping the world.	*/
+    /* For performance reasons, this may be beneficial on other		*/
+    /* platforms as well, though it should be avoided in win32.		*/
+# endif /* LINUX */
+
+# if defined(SEARCH_FOR_DATA_START) && defined(GC_PRIVATE_H)
+    extern ptr_t GC_data_start;
+# endif
+
 # ifndef CLEAR_DOUBLE
 #   define CLEAR_DOUBLE(x) \
 	((word*)x)[0] = 0; \
@@ -1818,7 +1882,7 @@
 # define CAN_SAVE_CALL_STACKS
 # define CAN_SAVE_CALL_ARGS
 #endif
-#if defined(I386) && defined(LINUX)
+#if (defined(I386) || defined(X86_64)) && defined(LINUX)
     /* SAVE_CALL_CHAIN is supported if the code is compiled to save	*/
     /* frame pointers by default, i.e. no -fomit-frame-pointer flag.	*/
 # define CAN_SAVE_CALL_STACKS

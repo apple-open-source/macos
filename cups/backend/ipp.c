@@ -1,9 +1,9 @@
 /*
- * "$Id: ipp.c,v 1.1.1.15 2003/08/03 06:18:38 jlovell Exp $"
+ * "$Id: ipp.c,v 1.7 2005/01/04 22:10:36 jlovell Exp $"
  *
  *   IPP backend for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -26,6 +26,7 @@
  * Contents:
  *
  *   main()                 - Send a file to the printer or server.
+ *   check_printer_state()  - Check the printer state...
  *   password_cb()          - Disable the password prompt for
  *                            cupsDoFileRequest().
  *   report_printer_state() - Report the printer state.
@@ -43,6 +44,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <cups/http-private.h>
 #include <cups/cups.h>
 #include <cups/language.h>
 #include <cups/string.h>
@@ -54,49 +56,21 @@
  * Globals...
  */
 
-static char	tmpfilename[1024] = "";	/* Temporary spool file name */
+static char	*password = NULL;	/* Password for device URI */
 #ifdef __APPLE__
 static char	pstmpname[1024] = "";	/* Temporary PostScript file name */
 #endif /* __APPLE__ */
-
-
-/*
- * Some OS's don't have hstrerror(), most notably Solaris...
- */
-
-#ifndef HAVE_HSTRERROR
-#  define hstrerror cups_hstrerror
-
-const char *					/* O - Error string */
-cups_hstrerror(int error)			/* I - Error number */
-{
-  static const char * const errors[] =
-		{
-		  "OK",
-		  "Host not found.",
-		  "Try again.",
-		  "Unrecoverable lookup error.",
-		  "No data associated with name."
-		};
-
-
-  if (error < 0 || error > 4)
-    return ("Unknown hostname lookup error.");
-  else
-    return (errors[error]);
-}
-#elif defined(_AIX)
-/*
- * AIX doesn't provide a prototype but does provide the function...
- */
-extern const char *hstrerror(int);
-#endif /* !HAVE_HSTRERROR */
+static char	tmpfilename[1024] = "";	/* Temporary spool file name */
 
 
 /*
  * Local functions...
  */
 
+void		check_printer_state(http_t *http, cups_lang_t *language,
+				    const char *charset, const char *uri,	/* I - Printer URI */
+		                    const char *resource, const char *user,
+				    int version);
 const char	*password_cb(const char *);
 int		report_printer_state(ipp_t *ipp);
 
@@ -104,13 +78,6 @@ int		report_printer_state(ipp_t *ipp);
 int		run_pictwps_filter(char **argv, const char *filename);
 #endif /* __APPLE__ */
 static void	sigterm_handler(int sig);
-
-
-/*
- * Local globals...
- */
-
-char	*password = NULL;
 
 
 /*
@@ -131,7 +98,11 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   char		method[255],	/* Method in URI */
 		hostname[1024],	/* Hostname */
 		username[255],	/* Username info */
-		resource[1024];	/* Resource info (printer name) */
+		resource[1024],	/* Resource info (printer name) */
+		*optptr,	/* Pointer to URI options */
+		name[255],	/* Name of option */
+		value[255],	/* Value of option */
+		*ptr;		/* Pointer into name or value */
   char		*filename;	/* File to print */
   int		port;		/* Port number (not used) */
   char		uri[HTTP_MAX_URI];/* Updated URI without user/pass */
@@ -140,6 +111,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   ipp_t		*request,	/* IPP request */
 		*response,	/* IPP response */
 		*supported;	/* get-printer-attributes response */
+  int		waitjob,	/* Wait for job complete? */
+		waitprinter;	/* Wait for printer ready? */
   ipp_attribute_t *job_id_attr;	/* job-id attribute */
   int		job_id;		/* job-id value */
   ipp_attribute_t *job_sheets;	/* job-media-sheets-completed attribute */
@@ -239,6 +212,26 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     content_type = "application/octet-stream";
 
  /*
+  * Extract the hostname and printer name from the URI...
+  */
+
+  if (getenv("DEVICE_URI") != NULL)
+    /* authentication information is only available in the env var */
+    httpSeparate(getenv("DEVICE_URI"), method, username, hostname, &port,
+                 resource);
+  else if (strchr(argv[0], ':') != NULL)
+    httpSeparate(argv[0], method, username, hostname, &port, resource);
+  else
+  {
+    fputs("ERROR: Missing device URI on command-line and no DEVICE_URI environment variable!\n",
+          stderr);
+    return (1);
+  }
+
+  if (!strcmp(method, "https"))
+    cupsSetEncryption(HTTP_ENCRYPT_ALWAYS);
+
+ /*
   * If we have 7 arguments, print the file named on the command-line.
   * Otherwise, copy stdin to a temporary file and print the temporary
   * file.
@@ -277,10 +270,123 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     filename = argv[6];
 
  /*
-  * Extract the hostname and printer name from the URI...
+  * See if there are any options...
   */
 
-  httpSeparate(argv[0], method, username, hostname, &port, resource);
+  version     = 1;
+  waitjob     = 1;
+  waitprinter = 1;
+
+  if ((optptr = strchr(resource, '?')) != NULL)
+  {
+   /*
+    * Yup, terminate the device name string and move to the first
+    * character of the optptr...
+    */
+
+    *optptr++ = '\0';
+
+   /*
+    * Then parse the optptr...
+    */
+
+    while (*optptr)
+    {
+     /*
+      * Get the name...
+      */
+
+      for (ptr = name; *optptr && *optptr != '=';)
+        if (ptr < (name + sizeof(name) - 1))
+          *ptr++ = *optptr++;
+      *ptr = '\0';
+
+      if (*optptr == '=')
+      {
+       /*
+        * Get the value...
+	*/
+
+        optptr ++;
+
+	for (ptr = value; *optptr && *optptr != '+';)
+          if (ptr < (value + sizeof(value) - 1))
+            *ptr++ = *optptr++;
+	*ptr = '\0';
+
+	if (*optptr == '+')
+	  optptr ++;
+      }
+      else
+        value[0] = '\0';
+
+     /*
+      * Process the option...
+      */
+
+      if (!strcasecmp(name, "waitjob"))
+      {
+       /*
+        * Wait for job completion?
+	*/
+
+        waitjob = !strcasecmp(value, "on") ||
+	          !strcasecmp(value, "yes") ||
+	          !strcasecmp(value, "true");
+      }
+      else if (!strcasecmp(name, "waitprinter"))
+      {
+       /*
+        * Wait for printer idle?
+	*/
+
+        waitprinter = !strcasecmp(value, "on") ||
+	              !strcasecmp(value, "yes") ||
+	              !strcasecmp(value, "true");
+      }
+      else if (!strcasecmp(name, "encryption"))
+      {
+       /*
+        * Enable/disable encryption?
+	*/
+
+        if (!strcasecmp(value, "always"))
+	  cupsSetEncryption(HTTP_ENCRYPT_ALWAYS);
+        else if (!strcasecmp(value, "required"))
+	  cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
+        else if (!strcasecmp(value, "never"))
+	  cupsSetEncryption(HTTP_ENCRYPT_NEVER);
+        else if (!strcasecmp(value, "ifrequested"))
+	  cupsSetEncryption(HTTP_ENCRYPT_IF_REQUESTED);
+	else
+	{
+	  fprintf(stderr, "ERROR: Unknown encryption option value \"%s\"!\n",
+	          value);
+        }
+      }
+      else if (!strcasecmp(name, "version"))
+      {
+        if (!strcmp(value, "1.0"))
+	  version = 0;
+	else if (!strcmp(value, "1.1"))
+	  version = 1;
+	else
+	{
+	  fprintf(stderr, "ERROR: Unknown version option value \"%s\"!\n",
+	          value);
+	}
+      }
+      else
+      {
+       /*
+        * Unknown option...
+	*/
+
+	fprintf(stderr, "ERROR: Unknown option \"%s\" with value \"%s\"!\n",
+	        name, value);
+      }
+    }
+  }
 
  /*
   * Set the authentication info, if any...
@@ -315,7 +421,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	* available printer in the class.
 	*/
 
-        fprintf(stderr, "INFO: Unable to queue job on %s, queuing on next printer in class...\n",
+        fprintf(stderr, "INFO: Unable to connect to %s, queuing on next printer in class...\n",
 	        hostname);
 
         if (argc == 6 || strcmp(filename, argv[6]))
@@ -333,7 +439,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
       if (errno == ECONNREFUSED || errno == EHOSTDOWN ||
           errno == EHOSTUNREACH)
       {
-	fprintf(stderr, "INFO: Network host \'%s\' is busy; will retry in 30 seconds...",
+	fprintf(stderr, "INFO: Network host \'%s\' is busy; will retry in 30 seconds...\n",
                 hostname);
 	sleep(30);
       }
@@ -372,7 +478,6 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   charset_sup = NULL;
   copies_sup  = NULL;
   format_sup  = NULL;
-  version     = 1;
   supported   = NULL;
 
   do
@@ -495,7 +600,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
                                 	 IPP_TAG_BOOLEAN);
 
     if (printer_state == NULL ||
-	printer_state->values[0].integer > IPP_PRINTER_PROCESSING ||
+	(printer_state->values[0].integer > IPP_PRINTER_PROCESSING && waitprinter) ||
 	printer_accepting == NULL ||
 	!printer_accepting->values[0].boolean)
     {
@@ -601,8 +706,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     fprintf(stderr, "DEBUG: printer-uri = \"%s\"\n", uri);
 
     if (argv[2][0])
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
-        	   NULL, argv[2]);
+      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                   "requesting-user-name", NULL, argv[2]);
 
     fprintf(stderr, "DEBUG: requesting-user-name = \"%s\"\n", argv[2]);
 
@@ -715,13 +820,13 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     else if ((job_id_attr = ippFindAttribute(response, "job-id",
                                              IPP_TAG_INTEGER)) == NULL)
     {
-      fputs("INFO: Print file accepted - job ID unknown.\n", stderr);
+      fputs("NOTICE: Print file accepted - job ID unknown.\n", stderr);
       job_id = 0;
     }
     else
     {
       job_id = job_id_attr->values[0].integer;
-      fprintf(stderr, "INFO: Print file accepted - job ID %d.\n", job_id);
+      fprintf(stderr, "NOTICE: Print file accepted - job ID %d.\n", job_id);
     }
 
     if (response)
@@ -740,7 +845,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
     * Wait for the job to complete...
     */
 
-    if (!job_id)
+    if (!job_id || !waitjob)
       continue;
 
     fputs("INFO: Waiting for job to complete...\n", stderr);
@@ -770,8 +875,8 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
         	    job_id);
 
       if (argv[2][0])
-	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
-        	     NULL, argv[2]);
+	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+	             "requesting-user-name", NULL, argv[2]);
 
       ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
                     "requested-attributes", sizeof(jattrs) / sizeof(jattrs[0]),
@@ -811,7 +916,7 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 
           fprintf(stderr, "ERROR: Unable to get job %d attributes (%s)!\n",
 	          job_id, ippErrorString(ipp_status));
-          break;
+	  break;
 	}
       }
 
@@ -841,43 +946,14 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
 	ippDelete(response);
 
      /*
-      * Now check on the printer state...
+      * Check the printer state and report it if necessary...
       */
 
-      request = ippNew();
-      request->request.op.version[1]   = version;
-      request->request.op.operation_id = IPP_GET_PRINTER_ATTRIBUTES;
-      request->request.op.request_id   = 1;
+/*      if (!copies_sup)
+	httpReconnect(http);*/
 
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
-        	   "attributes-charset", NULL, charset);
-
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
-        	   "attributes-natural-language", NULL,
-        	   language != NULL ? language->language : "en");
-
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
-        	   NULL, uri);
-
-      if (argv[2][0])
-	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name",
-        	     NULL, argv[2]);
-
-      ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
-                   "requested-attributes", NULL, "printer-state-reasons");
-
-     /*
-      * Do the request...
-      */
-
-      if (!copies_sup)
-	httpReconnect(http);
-
-      if ((response = cupsDoRequest(http, request, resource)) != NULL)
-      {
-        reasons = report_printer_state(response);
-	ippDelete(response);
-      }
+      check_printer_state(http, language, charset, uri, resource, argv[2],
+                          version);
 
      /*
       * Wait 10 seconds before polling again...
@@ -886,6 +962,15 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
       sleep(10);
     }
   }
+
+ /*
+  * Check the printer state and report it if necessary...
+  */
+
+/*      if (!copies_sup)
+	httpReconnect(http);*/
+
+  check_printer_state(http, language, charset, uri, resource, argv[2], version);
 
  /*
   * Free memory...
@@ -912,10 +997,65 @@ main(int  argc,		/* I - Number of command-line arguments (6 or 7) */
   * Return the queue status...
   */
 
-  if (ipp_status <= IPP_OK_CONFLICT && reasons == 0)
-    fputs("INFO: Ready to print.\n", stderr);
-
   return (ipp_status > IPP_OK_CONFLICT);
+}
+
+
+/*
+ * 'check_printer_state()' - Check the printer state...
+ */
+
+void
+check_printer_state(http_t      *http,	/* I - HTTP connection */
+                    cups_lang_t *language,
+					/* I - Language */
+		    const char  *charset,
+					/* I - Charset */
+		    const char  *uri,	/* I - Printer URI */
+		    const char  *resource,
+					/* I - Resource path */
+		    const char  *user,	/* I - Username, if any */
+		    int         version)/* I - IPP version */
+{
+  ipp_t	*request,			/* IPP request */
+	*response;			/* IPP response */
+
+
+ /*
+  * Check on the printer state...
+  */
+
+  request = ippNew();
+  request->request.op.version[1]   = version;
+  request->request.op.operation_id = IPP_GET_PRINTER_ATTRIBUTES;
+  request->request.op.request_id   = 1;
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
+               "attributes-charset", NULL, charset);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
+               "attributes-natural-language", NULL,
+               language != NULL ? language->language : "en");
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
+               NULL, uri);
+
+  if (user && user[0])
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME,
+                 "requesting-user-name", NULL, user);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+               "requested-attributes", NULL, "printer-state-reasons");
+
+ /*
+  * Do the request...
+  */
+
+  if ((response = cupsDoRequest(http, request, resource)) != NULL)
+  {
+    report_printer_state(response);
+    ippDelete(response);
+  }
 }
 
 
@@ -1239,5 +1379,5 @@ sigterm_handler(int sig)		/* I - Signal */
 
 
 /*
- * End of "$Id: ipp.c,v 1.1.1.15 2003/08/03 06:18:38 jlovell Exp $".
+ * End of "$Id: ipp.c,v 1.7 2005/01/04 22:10:36 jlovell Exp $".
  */

@@ -1,0 +1,27 @@
+# -*- tcl -*-
+package require    msgcat
+namespace import ::msgcat::*
+
+mcset fr end/open/list    "End of manpage reached, \[list_end\] missing" "Fin de la page de manuel atteinte, \[list_end\] manquant"
+mcset fr end/open/example "End of manpage reached, \[example_end\] missing" "Fin de la page de manuel atteinte, \[example_end\] manquant"
+mcset fr end/open/mp	     "End of manpage reached, \[manpage_end\] missing" "Fin de la page de manuel atteinte, \[manpage_end\] manquant"
+mcset fr mpbegin          "Command must be first of manpage" "Cette commande doit \xEAtre la premi\xE8re de la page de manuel"
+mcset fr hdrcmd           "Command not allowed outside of the header section" "Commande interdite \xE0 l'ext\xE9rieur de l'en-t\xEAte"
+mcset fr bodycmd          "Command not allowed outside of the body of the manpage" "Commande interdite \xE0 l'ext\xE9rieur du corps de la page de manuel"
+mcset fr body             "Plain text not allowed outside of the body of the manpage" "Le texte est interdit \xE0 l'ext\xE9rieur du corps de la page de manuel"
+mcset fr reqcmd           "Command not allowed outside of header or requirement section" "Commande interdite \xE0 l'ext\xE9rieur de l'en-t\xEAte ou de la section de condition"
+mcset fr invalidlist      "Invalid list type \"@\"" "Type de liste non valide \"@\""
+mcset fr nolistcmd        "Command not allowed inside of a list" "Commande interdite \xE0 l'int\xE9rieur d'une liste"
+mcset fr nolisthdr        "Command not allowed between beginning of a list and its first item" "Commande interdite entre le d\xE9but d'une liste et son premier \xE9l\xE9ment"
+mcset fr nolisttxt        "Plain text not allowed between beginning of a list and its first item" "Le texte est interdit entre le d\xE9but d'une liste et son premier \xE9l\xE9ment"
+mcset fr listcmd          "Command not allowed outside of a list" "Commande interdite \xE0 l'ext\xE9rieur d'une liste"
+mcset fr deflist          "Command restricted to usage in definition lists" "Commande restreinte \xE0 l'utilisation dans les listes de d\xE9finition"
+mcset fr bulletlist       "Command restricted to usage in itemized lists" "Commande restreinte \xE0 l'utilisation dans les listes d'\xE9l\xE9ments"
+mcset fr enumlist         "Command restricted to usage in enumerated lists" "Commande restreinte \xE0 l'utilisation dans les listes num\xE9rot\xE9es"
+mcset fr examplecmd       "Command allowed only to close example section" "Commande autoris\xE9e uniquement pour fermer une section d'exemple"
+mcset fr nodonecmd        "Command not allowed after \[manpage_end\]" "Commande interdite apr\xE8s  \[manpage_end\]"
+mcset fr arg_list         "Command restricted to usage in argument lists" "Commande restreinte \xE0 l'utilisation dans les listes d'arguments"
+mcset fr cmd_list         "Command restricted to usage in command lists" "Commande restreinte \xE0 l'utilisation dans les listes de commandes"
+mcset fr opt_list         "Command restricted to usage in option lists" "Commande restreinte \xE0 l'utilisation dans les listes d'options"
+mcset fr tkoption_list    "Command restricted to usage in tkoption lists" "Commande restreinte \xE0 l'utilisation dans les listes de tkoption"
+mcset fr depr_strong      "Deprecated command \"%s\".\n\tPlease consider appropriate semantic markup or \[emph\] instead." "Commande obsol\xE8te \"%s\".\n\tConsultez l'aide s\xE9mantique correspondante ou \[emph\] \xE0 la place."

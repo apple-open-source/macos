@@ -21,18 +21,6 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*
- * Copyright (c) 1995 NeXT Computer, Inc. All Rights Reserved
- *
- * Copyright (c) 1989, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * The NEXTSTEP Software License Agreement specifies the terms
- * and conditions for redistribution.
- *
- *	@(#)pwcache.c	8.1 (Berkeley) 6/4/93
- */
-
 
 #include <sys/types.h>
 

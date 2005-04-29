@@ -312,18 +312,19 @@ IOReturn IOFireWireSBP2LUN::message( UInt32 type, IOService *nub, void *arg )
         switch (type)
         {
             case kIOMessageServiceIsTerminated:
+				terminateNotify();
                 FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsTerminated\n", (UInt32)this ) );
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsSuspended:
-                FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsSuspended\n", (UInt32)this ) );
+				FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsSuspended\n", (UInt32)this ) );
                 suspendedNotify();
                 res = kIOReturnSuccess;
                 break;
 
             case kIOMessageServiceIsResumed:
-                FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsResumed\n", (UInt32)this ) );
+				FWKLOG( ( "IOFireWireSBP2LUN<0x%08lx> : kIOMessageServiceIsResumed\n", (UInt32)this ) );
                 resumeNotify();
                 res = kIOReturnSuccess;
                 break;
@@ -449,6 +450,18 @@ IOReturn IOFireWireSBP2LUN::removeLoginAction( IOFireWireSBP2Login * login )
 
 void IOFireWireSBP2LUN::clearAllTasksInSet( void )
 {
+	if( fORBSetIterator )
+	{
+		IOFireWireSBP2ManagementORB * item = NULL;		
+		fORBSetIterator->reset();
+		do
+		{
+			item = (IOFireWireSBP2ManagementORB *)fORBSetIterator->getNextObject();
+			if( item )
+				item->suspendedNotify();
+		} while( item );
+	}
+
  	if( fLoginSetIterator )
 	{
 		IOFireWireSBP2Login * item = NULL;
@@ -642,6 +655,22 @@ void IOFireWireSBP2LUN::resumeNotify( void )
 		} while( item );
 	}
 }
+
+void IOFireWireSBP2LUN::terminateNotify( void )
+{ 
+    if( fLoginSetIterator )
+	{
+		IOFireWireSBP2Login * item = NULL;
+		fLoginSetIterator->reset();        
+		do
+		{
+			item = (IOFireWireSBP2Login *)fLoginSetIterator->getNextObject();
+			if( item )
+				item->terminateNotify();
+		} while( item );
+	}
+}
+
 
 // getDiagnostics
 //

@@ -1,0 +1,51 @@
+#macro(adminPageHeader $page)
+    <html>
+
+    <head>
+        <title>$BLOJSOM_BLOG.getBlogName() - $page</title>
+        <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/blojsom_resources/includes/admin-basic.css";</style>
+	    <style type="text/css" media="screen">@import "$BLOJSOM_SITE_URL/blojsom_resources/includes/admin-tabs.css";</style>
+        <link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
+        <script type="text/javascript">
+        function reloadPreviewDiv() {
+            var previewString = document.getElementById('blog-entry-description').value;
+            document.getElementById('blog-entry-preview').innerHTML = previewString;
+        }
+
+        function loadPreviewText() {
+            document.getElementById('blog-entry-preview').innerHTML = document.getElementById('blog-entry-description').value;
+        }
+        </script>
+    </head>
+
+    <body>
+        <div id="header">
+            <h1>$page</h1>
+        </div>
+        
+        <div id="main">
+#end
+
+#macro(adminPageFooter)
+        </div>
+    </body>
+</html>
+#end
+
+#macro(showErrorMessage)
+    #if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT)
+        <p class="note"><a href="#">Status</a>: $BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT</p>
+    #end
+#end
+
+#macro(trueFalseSelectList $selectListName $selectedValue)
+    <select name="$selectListName" size="2">
+        #if (!$selectedValue)
+            $selectedValue = "false"
+        #end
+        #if ($selectedValue == true || $selectedValue == "true")<option value="true" selected>True</option> #else <option value="true">True</option>#end
+        #if ($selectedValue == false || $selectedValue == "false")<option value="false" selected>False</option> #else <option value="false">False</option>#end
+    </select>
+#end
+
+#macro( adminResource $resourceID $fallback )$!BLOJSOM_RESOURCE_MANAGER.getString($resourceID, "org.blojsom.plugin.admin.resources.messages", $fallback, $BLOJSOM_BLOG.getBlogLanguage(), $BLOJSOM_BLOG.getBlogCountry())#end

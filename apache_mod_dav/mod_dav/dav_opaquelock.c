@@ -71,7 +71,7 @@
 
 typedef unsigned64_t uuid_time_t;
 
-static void format_uuid_v1(uuid_t * uuid, unsigned16 clockseq, uuid_time_t timestamp, uuid_node_t node);
+static void format_uuid_v1(dav_uuid_t * uuid, unsigned16 clockseq, uuid_time_t timestamp, uuid_node_t node);
 static void get_current_time(uuid_time_t * timestamp);
 static unsigned16 true_random(void);
 static void get_pseudo_node_identifier(uuid_node_t *node);
@@ -85,7 +85,7 @@ static void get_random_info(unsigned char seed[16]);
  *
  *   Should postpend pid to account for non-seralized creation?
  */
-void dav_create_opaquelocktoken(uuid_state *st, uuid_t *u)
+void dav_create_opaquelocktoken(uuid_state *st, dav_uuid_t *u)
 {
     uuid_time_t timestamp;
     
@@ -106,7 +106,7 @@ void dav_create_uuid_state(uuid_state *st)
  * dav_format_opaquelocktoken - generates a text representation
  *    of an opaquelocktoken
  */
-const char *dav_format_opaquelocktoken(pool *p, const uuid_t *u)
+const char *dav_format_opaquelocktoken(pool *p, const dav_uuid_t *u)
 {
     return ap_psprintf(p, "%08lx-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 		       u->time_low, u->time_mid, u->time_hi_and_version,
@@ -154,12 +154,12 @@ static int dav_parse_hexpair(const char *s)
 }
 
 /* dav_parse_opaquelocktoken:  Parses string produced from
- *    dav_format_opaquelocktoken back into a uuid_t
+ *    dav_format_opaquelocktoken back into a dav_uuid_t
  *    structure.
  *
  * Returns 0 on success, 1 on failure.
  */
-int dav_parse_opaquelocktoken(const char *char_token, uuid_t *bin_token)
+int dav_parse_opaquelocktoken(const char *char_token, dav_uuid_t *bin_token)
 {
     int i;
 
@@ -200,13 +200,13 @@ int dav_parse_opaquelocktoken(const char *char_token, uuid_t *bin_token)
  *   == 0 : a = b
  *    > 0 : a > b
  */
-int dav_compare_opaquelocktoken(const uuid_t a, const uuid_t b)
+int dav_compare_opaquelocktoken(const dav_uuid_t a, const dav_uuid_t b)
 {
-    return memcmp(&a, &b, sizeof(uuid_t));
+    return memcmp(&a, &b, sizeof(dav_uuid_t));
 }
 
 /* format_uuid_v1 -- make a UUID from the timestamp, clockseq, and node ID */
-static void format_uuid_v1(uuid_t * uuid, unsigned16 clock_seq,
+static void format_uuid_v1(dav_uuid_t * uuid, unsigned16 clock_seq,
 			   uuid_time_t timestamp, uuid_node_t node)
 {
     /* Construct a version 1 uuid with the information we've gathered

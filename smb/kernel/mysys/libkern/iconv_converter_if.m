@@ -29,10 +29,10 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 # SUCH DAMAGE.
 #
-# $Id: iconv_converter_if.m,v 1.1.1.2 2001/07/06 22:38:40 conrad Exp $
+# $Id: iconv_converter_if.m,v 1.2 2004/12/13 00:25:16 lindak Exp $
 #
 
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 INTERFACE iconv_converter;
 

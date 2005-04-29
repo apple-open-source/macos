@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/IntrinsicI.h,v 3.8 2001/12/14 19:56:25 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/IntrinsicI.h,v 3.9 2003/04/21 16:34:28 herrb Exp $ */
 
 #ifndef _XtintrinsicI_h
 #define _XtintrinsicI_h
@@ -193,37 +193,27 @@ SOFTWARE.
 extern String XtCXtToolkitError;
 
 extern void _XtAllocError(
-#if NeedFunctionPrototypes
     String	/* alloc_type */
-#endif
 );
 
 extern void _XtCompileResourceList(
-#if NeedFunctionPrototypes
     XtResourceList 	/* resources */,
     Cardinal 		/* num_resources */
-#endif
 );
 
 extern XtGeometryResult _XtMakeGeometryRequest(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtWidgetGeometry*	/* request */,
     XtWidgetGeometry*	/* reply_return */,
     Boolean*		/* clear_rect_obj */
-#endif
 );
 
 extern Boolean _XtIsHookObject(
-#if NeedFunctionPrototypes
     Widget      /* widget */
-#endif
 );
 
 extern void _XtAddShellToHookObj(
-#if NeedFunctionPrototypes
     Widget      /* widget */
-#endif
 );
 
 /* GCManager.c */
@@ -233,7 +223,7 @@ extern void _XtGClistFree(Display *dpy, XtPerDisplay pd);
 
 #ifdef XT_GEO_TATTLER
 
-extern void _XtGeoTab ();
+extern void _XtGeoTab (int);
 extern void _XtGeoTrace (
 			    Widget widget, 
 			    ...
@@ -250,15 +240,11 @@ extern void _XtGeoTrace (
 #ifndef XTTRACEMEMORY
 
 extern char* __XtMalloc (
-#if NeedFunctionPrototypes
     unsigned	/* size */
-#endif
 );
 extern char* __XtCalloc (
-#if NeedFunctionPrototypes
     unsigned	/* num */,
     unsigned	/* size */
-#endif
 );
 
 #else

@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed visibility
 // visibility file
 // From: Sandeep Shroff <ss@caere.com>
@@ -31,24 +31,24 @@ private:
   int num_;
 };
 
-Base::Base()
-{ // ERROR - private
+Base::Base() // { dg-error "is private" }
+{
   name_ = std::strcpy(new char[std::strlen(" ") + 1], " ");
 }
 
-Base::Base(char* str)
-{ // ERROR - private
+Base::Base(char* str) // { dg-error "is private" }
+{
   if(str != NULL)
     name_ = std::strcpy(new char[std::strlen(str) + 1], str);
 }
 
-Derived::Derived(int n, char* str) : Base(str)
-{// ERROR - .*
+Derived::Derived(int n, char* str) : Base(str) // { dg-error "within this context" }
+{
   num_ = n;
 }
 
-Derived::Derived(int n) : Base()
-{// ERROR - .*
+Derived::Derived(int n) : Base() // { dg-error "within this context" }
+{
   num_ = n;
 }
 

@@ -32,5 +32,14 @@ dg-init
 # Main loop.
 dg-runtest [libstdc++-v3-list-sourcefiles] "" $DEFAULT_CXXFLAGS
 
+# APPLE LOCAL begin libstdc++ debug mode
+# Rerun all tests with -D_GLIBCXX_DEBUG. We do this because we always
+# want to check with -D_GLIBCXX_DEBUG because so many things change
+# under this mode, and we don't want to rely on running the test suite
+# multiple times to get this information.
+set cxxflags "$cxxflags -D_GLIBCXX_DEBUG"
+dg-runtest [libstdc++-v3-list-sourcefiles] "" $DEFAULT_CXXFLAGS
+# APPLE LOCAL end libstdc++ debug mode
+
 # All done.
 dg-finish

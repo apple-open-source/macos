@@ -823,7 +823,7 @@ xsltRegisterGlobalVariable(xsltStylesheetPtr style, const xmlChar *name,
     elem->name = xmlDictLookup(style->dict, name, -1);
     elem->select = xmlDictLookup(style->dict, select, -1);
     if (ns_uri)
-	elem->nameURI = xmlStrdup(ns_uri);
+	elem->nameURI = xmlDictLookup(style->dict, ns_uri, -1);
     elem->tree = tree;
     tmp = style->variables;
     if (tmp == NULL) {

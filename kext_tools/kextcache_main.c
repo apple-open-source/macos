@@ -27,6 +27,7 @@
 #define DEFAULT_CACHE_DIR	"/System/Library/Caches/com.apple.kernelcaches"
 #define SA_HAS_RUN_PATH		"/var/db/.AppleSetupDone"
 #define kKXROMExtensionsFolder  "/System/Library/Caches/com.apple.romextensions/"
+#define TEMP_DIR		"/com.apple.iokit.kextcache.mkext.XX"
 
 /*******************************************************************************
 * Global variables.
@@ -64,6 +65,7 @@ Boolean checkMkextArchiveSize( ssize_t size );
 KXKextManagerError
 PreLink(KXKextManagerRef theKextManager, CFDictionaryRef kextDict,
         const char * kernelCacheFilename,
+	const struct timeval *cacheFileTimes,
 	const char * kernel_file_name, 
 	const char * platform_name,
 	const char * root_path,
@@ -150,6 +152,18 @@ int main(int argc, const char * argv[])
     int verbose_level = 0;		     // -v
     const char * default_kernel_file = "/mach_kernel";
     const char * kernel_file = default_kernel_file;  // overriden by -K option
+    const char * source_extensions    = "/System/Library/Extensions";
+    int fd = -1;
+    const char * output_filename = NULL;
+    const char * temp_dir;
+    char * temp_file = NULL;
+
+    struct stat kernel_stat_buf;
+    struct stat extensions_stat_buf;
+    struct stat rom_extensions_stat_buf;
+    Boolean have_kernel_time, have_extensions_time;
+    struct timeval _cacheFileTimes[2];
+    struct timeval *cacheFileTimes = NULL;
 
     struct {
 	char platform_name[64];
@@ -273,6 +287,25 @@ int main(int argc, const char * argv[])
     if (!platform_name_root_path.platform_name[0] || !platform_name_root_path.root_path[0])
 	platform_name_root_path.platform_name[0] = platform_name_root_path.root_path[0] = 0;
 
+    have_kernel_time     = (0 == stat(kernel_file,       &kernel_stat_buf));
+    have_extensions_time = (0 == stat(source_extensions, &extensions_stat_buf));
+
+    if (have_kernel_time || have_extensions_time)
+    {
+	cacheFileTimes = _cacheFileTimes;
+	if (!have_kernel_time 
+	    || (have_extensions_time && (extensions_stat_buf.st_mtime > kernel_stat_buf.st_mtime)))
+	{
+	    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &extensions_stat_buf.st_atimespec);
+	    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &extensions_stat_buf.st_mtimespec);
+	}
+	else
+	{
+	    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &kernel_stat_buf.st_atimespec);
+	    TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &kernel_stat_buf.st_mtimespec);
+	}
+	cacheFileTimes[1].tv_sec++;
+    }
     /*****
     * Process command line arguments. If running in kextload-compatibiliy
     * mode, accept its old set of options and none other. If running in
@@ -352,8 +385,7 @@ int main(int argc, const char * argv[])
 
 		kernelCacheFilename = DEFAULT_CACHE_DIR "/kernelcache";
 		struct stat cache_stat_buf;
-		struct stat kernel_stat_buf;
-		struct stat extensions_stat_buf;
+
 		if ((-1 == stat(DEFAULT_CACHE_DIR, &cache_stat_buf))
 		    || !(S_IFDIR & cache_stat_buf.st_mode)) {
 		    mkdir(DEFAULT_CACHE_DIR, 0755);
@@ -362,7 +394,7 @@ int main(int argc, const char * argv[])
 		CFArrayAppendValue(repositoryDirectories,
 		    kKXSystemExtensionsFolder);
 		// Make sure we scan the ROM Extensions folder.
-		if (0 == stat(kKXROMExtensionsFolder, &extensions_stat_buf))
+		if (0 == stat(kKXROMExtensionsFolder, &rom_extensions_stat_buf))
 		    CFArrayAppendValue(repositoryDirectories, CFSTR(kKXROMExtensionsFolder));
 
 		if (!platform_name_root_path.platform_name[0]) {
@@ -384,12 +416,12 @@ int main(int argc, const char * argv[])
 		    kernelCacheFilename = kernelCacheBuffer;
 		}
 
-		if (   (0 == stat(kernelCacheFilename,          &cache_stat_buf))
-		    && (0 == stat(kernel_file,                  &kernel_stat_buf))
-		    && (0 == stat("/System/Library/Extensions", &extensions_stat_buf)))
+		if ((0 == stat(kernelCacheFilename, &cache_stat_buf))
+		    && have_kernel_time && have_extensions_time)
 		{
 		    if ((cache_stat_buf.st_mtime > kernel_stat_buf.st_mtime)
-		    &&  (cache_stat_buf.st_mtime > extensions_stat_buf.st_mtime))
+  		     &&  (cache_stat_buf.st_mtime > extensions_stat_buf.st_mtime)
+		     &&  (cache_stat_buf.st_mtime == cacheFileTimes[1].tv_sec))
 			cache_looks_uptodate = true;
 		}
 
@@ -512,7 +544,30 @@ int main(int argc, const char * argv[])
         if (CFStringHasSuffix(argString, CFSTR(".kext")) ||
             CFStringHasSuffix(argString, CFSTR(".kext/")) ) {
             CFArrayAppendValue(kextNames, argString);
-        } else {
+        }
+        else
+        {
+            if (!CFArrayGetCount(repositoryDirectories))
+            {
+                source_extensions = argv[i];
+                have_extensions_time = (0 == stat(source_extensions, &extensions_stat_buf));
+                if (have_kernel_time || have_extensions_time)
+                {
+                    cacheFileTimes = _cacheFileTimes;
+                    if (!have_kernel_time 
+                        || (have_extensions_time && (extensions_stat_buf.st_mtime > kernel_stat_buf.st_mtime)))
+                    {
+                        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &extensions_stat_buf.st_atimespec);
+                        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &extensions_stat_buf.st_mtimespec);
+                    }
+                    else
+                    {
+                        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &kernel_stat_buf.st_atimespec);
+                        TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &kernel_stat_buf.st_mtimespec);
+                    }
+                    cacheFileTimes[1].tv_sec++;
+                }
+            }
             CFArrayAppendValue(repositoryDirectories, argString);
         }
         CFRelease(argString);
@@ -566,7 +621,10 @@ int main(int argc, const char * argv[])
 
     if (cache_looks_uptodate)
     {
+	CFShow(kernel_cache_misses);
+	CFShow(kernel_requests);
 	if ((!kernel_cache_misses || !kernel_requests)
+	    || (!CFSetGetCount(kernel_cache_misses))
 	    || (CFSetGetCount(kernel_cache_misses) == CFSetGetCount(kernel_requests)))
 	{
 	    if (verbose_level >= 1) {
@@ -756,9 +814,6 @@ int main(int argc, const char * argv[])
         archs[nArchs++] = &archAny;
     }
 
-    int fd;
-    const char * output_filename;
-
     if (kernelCacheFilename)
     {
 	KXKextManagerError err;
@@ -802,7 +857,7 @@ int main(int argc, const char * argv[])
 			    || network_for_repositories || network_for_all
 			    || safeboot_for_repositories || safeboot_for_all);
 	}
-	err = PreLink(theKextManager, checkDictionary, kernelCacheFilename, kernel_file,
+	err = PreLink(theKextManager, checkDictionary, kernelCacheFilename, cacheFileTimes, kernel_file,
 			platform_name_root_path.platform_name, platform_name_root_path.root_path,
 			kernel_requests, all_plists,
 			hostArch, // archs[0],
@@ -821,14 +876,22 @@ domkext:
         goto finish;
     }
 
-    output_filename = mkextFilename;
-    fd = open(output_filename, O_WRONLY|O_CREAT|O_TRUNC, 0666);
+    temp_dir = getenv("TMPDIR");
+    if (!temp_dir)
+        temp_dir = "/tmp";
+    temp_file = malloc(strlen(temp_dir) + strlen(TEMP_DIR) + 1);
+    strcpy(temp_file, temp_dir);
+    strcat(temp_file, TEMP_DIR);
+    mktemp(temp_file);
+
+    fd = open(temp_file, O_WRONLY|O_CREAT|O_TRUNC, 0666);
     if (-1 == fd) {
-        fprintf(stderr, "can't create %s - %s\n", output_filename,
+        fprintf(stderr, "can't create %s - %s\n", temp_file,
             strerror(errno));
         result = false;
         goto finish;  // FIXME: mkextcache used to exit with EX_CANTCREAT
     }
+    output_filename = temp_file;
 
     struct fat_header fatHeader;
     struct fat_arch fatArchs[kMaxArchs];
@@ -862,17 +925,10 @@ domkext:
 				  NULL /*kernel_requests*/,
                                   verbose_level, do_tests);
 
-        bytes_written = createMkextArchive(fd, checkDictionary, mkextFilename,
+        bytes_written = createMkextArchive(fd, checkDictionary, output_filename,
                                 archs[i]->name, archs[i]->cputype, archs[i]->cpusubtype, verbose_level);
 
         if (bytes_written < 0) {
-            close(fd);
-            if ((bytes_written < 0) && fd != -1) {
-                if (-1 == unlink(output_filename)) {
-                    fprintf(stderr, "can't remove file %s - %s\n", output_filename,
-                            strerror(errno));
-                }
-            }
             exit_code = 1;
             goto finish;
         }
@@ -884,11 +940,6 @@ domkext:
 
     if (checkMkextArchiveSize(fat_offset) == false) {
             fprintf(stderr, "archive would be too large; aborting\n");
-            close(fd);
-            if (-1 == unlink(output_filename)) {
-                fprintf(stderr, "can't remove file %s - %s\n", output_filename,
-                            strerror(errno));
-            }
             exit_code = 1;
             goto finish;
     }
@@ -900,13 +951,6 @@ domkext:
         bytes_written = write(fd, &fatHeader, sizeof(fatHeader));
         if (bytes_written != sizeof(fatHeader)) {
             perror("write");
-            close(fd);
-            if ((bytes_written < 0) && fd != -1) {
-                if (-1 == unlink(output_filename)) {
-                    fprintf(stderr, "can't remove file %s - %s\n", output_filename,
-                            strerror(errno));
-                }
-            }
             exit_code = 1;
             goto finish;
         }
@@ -915,13 +959,6 @@ domkext:
             bytes_written = write(fd, &fatArchs[i], sizeof(fatArchs[i]));
             if (bytes_written != sizeof(fatArchs[i])) {
                 perror("write");
-                close(fd);
-                if ((bytes_written < 0) && fd != -1) {
-                    if (-1 == unlink(output_filename)) {
-                        fprintf(stderr, "can't remove file %s - %s\n", output_filename,
-                                strerror(errno));
-                    }
-                }
                 exit_code = 1;
                 goto finish;
             }
@@ -929,12 +966,57 @@ domkext:
     }
 
     close(fd);
+    fd = -1;
+
+    if (have_extensions_time)
+    {
+	struct timespec mod_time = extensions_stat_buf.st_mtimespec;
+	if ((0 == stat(source_extensions, &extensions_stat_buf))
+	  && ((mod_time.tv_sec != extensions_stat_buf.st_mtimespec.tv_sec)
+	      || (mod_time.tv_nsec != extensions_stat_buf.st_mtimespec.tv_nsec)))
+	{
+	    fprintf(stderr, "cache stale - not creating %s\n", mkextFilename);
+	    exit_code = 1;
+	    goto finish;
+	}
+
+	TIMESPEC_TO_TIMEVAL(&cacheFileTimes[0], &extensions_stat_buf.st_atimespec);
+	TIMESPEC_TO_TIMEVAL(&cacheFileTimes[1], &extensions_stat_buf.st_mtimespec);
+	cacheFileTimes[1].tv_sec++;
+    }
+
+    // move it to the final destination
+    if (-1 == rename(output_filename, mkextFilename)) {
+	fprintf(stderr, "can't create file %s: %s\n", mkextFilename,
+		strerror(errno));
+	exit_code = 1;
+	goto finish;
+    }
+    output_filename = NULL;
+
+    // give the cache file the mod time of the source files when kextcache started
+    if (cacheFileTimes && (-1 == utimes(mkextFilename, cacheFileTimes))) {
+	fprintf(stderr, "can't set file times %s: %s\n", mkextFilename,
+		strerror(errno));
+	exit_code = 1;
+	goto finish;
+    }
 
 finish:
 
    /*****
     * Clean everything up.
     */
+
+    if (-1 != fd) close(fd);
+    if (output_filename)
+    {
+	if (-1 == unlink(output_filename)) {
+	    fprintf(stderr, "can't remove file %s - %s\n", output_filename,
+			strerror(errno));
+	}
+    }
+    if (temp_file)             free(temp_file);
     if (repositoryDirectories) CFRelease(repositoryDirectories);
     if (kextNames)             CFRelease(kextNames);
     if (kextNamesToUse)        CFRelease(kextNamesToUse);
@@ -1183,7 +1265,7 @@ static void addKextForMkextCache(
     }
 
     if (!KXKextIsAuthentic(theKext)) {
-        fprintf(stderr, "kernel extension %s is not authentic; "
+        fprintf(stderr, "kernel extension %s is not authentic (check ownership and permissions); "
              "skipping it and any plugins\n", kext_name);
         if (do_tests) {
             fprintf(stderr, "kext diagnostics:\n");

@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -33,21 +33,6 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 static unsigned int calc_hash PARAMS ((const unsigned char *, unsigned int));
 static void ht_expand PARAMS ((hash_table *));
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-/* Use PFE memory management routines instead of xmalloc & free.  */
-#define OBSTACK_CHUNK_ALLOC pfe_obstack_chuck_alloc
-#define OBSTACK_CHUNK_FREE pfe_free
-static void *pfe_obstack_chuck_alloc PARAMS ((size_t));
-static void *
-pfe_obstack_chuck_alloc (size)
-     size_t size;
-{
-  return PFE_MALLOC (size, PFE_ALLOC_OBSTACK_CHUNK);
-}
-#endif /* PFE */
-
 /* Let particular systems override the size of a chunk.  */
 #ifndef OBSTACK_CHUNK_SIZE
 #define OBSTACK_CHUNK_SIZE 0
@@ -60,7 +45,7 @@ pfe_obstack_chuck_alloc (size)
 #define OBSTACK_CHUNK_FREE free
 #endif
 
-/* Initialise an obstack.  */
+/* Initialize an obstack.  */
 void
 gcc_obstack_init (obstack)
      struct obstack *obstack;
@@ -97,23 +82,15 @@ ht_create (order)
   unsigned int nslots = 1 << order;
   hash_table *table;
 
-  /* APPLE LOCAL PFE - expand to pfe_malloc or xmalloc  */
-  table = (hash_table *) PFE_MALLOC (sizeof (hash_table), PFE_ALLOC_HASH_TABLE);
+  table = (hash_table *) xmalloc (sizeof (hash_table));
   memset (table, 0, sizeof (hash_table));
 
   /* Strings need no alignment.  */
   gcc_obstack_init (&table->stack);
   obstack_alignment_mask (&table->stack) = 0;
 
-  /* APPLE LOCAL PFE */
-#ifdef PFE
-  /* We need string alignment to avoid odd pointers.  */
-  obstack_alignment_mask (&table->stack) = 1;
-#endif
-
-  /* APPLE LOCAL PFE - expand to pfe_calloc or xcalloc  */
-  table->entries = (hashnode *) PFE_CALLOC (nslots, sizeof (hashnode),
-  					    PFE_ALLOC_HASHNODE);
+  table->entries = (hashnode *) xcalloc (nslots, sizeof (hashnode));
+  table->entries_owned = true;
   table->nslots = nslots;
   return table;
 }
@@ -125,7 +102,8 @@ ht_destroy (table)
      hash_table *table;
 {
   obstack_free (&table->stack, NULL);
-  free (table->entries);
+  if (table->entries_owned)
+    free (table->entries);
   free (table);
 }
 
@@ -207,8 +185,7 @@ ht_expand (table)
   unsigned int size, sizemask;
 
   size = table->nslots * 2;
-  /* APPLE LOCAL PFE - expand to pfe_calloc or xcalloc  */
-  nentries = (hashnode *) PFE_CALLOC (size, sizeof (hashnode), PFE_ALLOC_HASHNODE);
+  nentries = (hashnode *) xcalloc (size, sizeof (hashnode));
   sizemask = size - 1;
 
   p = table->entries;
@@ -235,8 +212,9 @@ ht_expand (table)
       }
   while (++p < limit);
 
-  /* APPLE LOCAL PFE - expand to pfe_free or free  */
-  PFE_FREE (table->entries);
+  if (table->entries_owned)
+    free (table->entries);
+  table->entries_owned = true;
   table->entries = nentries;
   table->nslots = size;
 }
@@ -260,6 +238,20 @@ ht_forall (table, cb, v)
 	  break;
       }
   while (++p < limit);
+}
+
+/* Restore the hash table.  */
+void
+ht_load (hash_table *ht, hashnode *entries,
+	 unsigned int nslots, unsigned int nelements,
+	 bool own)
+{
+  if (ht->entries_owned)
+    free (ht->entries);
+  ht->entries = entries;
+  ht->nslots = nslots;
+  ht->nelements = nelements;
+  ht->entries_owned = own;
 }
 
 /* Dump allocation statistics to stderr.  */

@@ -20,6 +20,7 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+#define CONSTANT_POOL_BEFORE_FUNCTION	0
 
 /* check whether load_fpu_reg or not */
 #define LOAD_FPU_REG_P(x) ((x)>=8 && (x)<=11)
@@ -131,7 +132,6 @@ extern int target_flags;
 
 
 /* TYPE SIZES */
-#define CHAR_TYPE_SIZE		8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		(TARGET_INT16 ? 16 : 32)
 #define LONG_TYPE_SIZE		32
@@ -165,16 +165,6 @@ extern int target_flags;
 /* Define this if most significant word of a multiword number is numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-/*  This is a machine with 16-bit registers */
-#define BITS_PER_WORD 16
-
 /* Width of a word, in units (bytes). 
 
    UNITS OR BYTES - seems like units */
@@ -183,10 +173,6 @@ extern int target_flags;
 /* Maximum sized of reasonable data type 
    DImode or Dfmode ...*/
 #define MAX_FIXED_MODE_SIZE 64	
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 16
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 16
@@ -523,7 +509,7 @@ loading is easier into LOAD_FPU_REGS than FPU_REGS! */
 extern int current_first_parm_offset;
 
 /* Offset of first parameter from the argument pointer register value.  
-   For the pdp11, this is non-zero to account for the return address.
+   For the pdp11, this is nonzero to account for the return address.
 	1 - return address
 	2 - frame pointer (always saved, even when not used!!!!)
 		-- chnage some day !!!:q!
@@ -717,7 +703,7 @@ extern int may_call_alloca;
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (1)
+#define LEGITIMATE_CONSTANT_P(X) (TARGET_FPU? 1: !(GET_CODE(X) == CONST_DOUBLE))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -788,6 +774,29 @@ extern int may_call_alloca;
 	&& GET_CODE (XEXP (operand, 0)) == REG				\
 	&& REG_OK_FOR_BASE_P (XEXP (operand, 0)))			\
       goto ADDR;							\
+									\
+    /* accept -(SP) -- which uses PRE_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == PRE_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == -2)      	               		\
+      goto ADDR;							\
+									\
+    /* accept (SP)+ -- which uses POST_MODIFY for byte mode */		\
+    if (GET_CODE (operand) == POST_MODIFY				\
+	&& GET_CODE (XEXP (operand, 0)) == REG				\
+	&& REGNO (XEXP (operand, 0)) == 6        	        	\
+	&& GET_CODE ((xfoob = XEXP (operand, 1))) == PLUS		\
+	&& GET_CODE (XEXP (xfoob, 0)) == REG				\
+	&& REGNO (XEXP (xfoob, 0)) == 6	        	        	\
+	&& CONSTANT_P (XEXP (xfoob, 1))                                 \
+	&& INTVAL (XEXP (xfoob,1)) == 2)      	               		\
+      goto ADDR;							\
+									\
     									\
     /* handle another level of indirection ! */				\
     if (GET_CODE(operand) != MEM)					\
@@ -898,12 +907,6 @@ extern int may_call_alloca;
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) 1
-
-
-/* Add any extra modes needed to represent the condition code.
-
-   CCFPmode is used for FPU, but should we use a separate reg? */
-#define EXTRA_CC_MODES CC(CCFPmode, "CCFP")
 
 /* Give a comparison code (EQ, NE etc) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  For floating-point, CCFPmode
@@ -1050,17 +1053,8 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 {"r0", "r1", "r2", "r3", "r4", "r5", "sp", "pc",     \
  "ac0", "ac1", "ac2", "ac3", "ac4", "ac5" }
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs ("\t.globl ", FILE); assemble_name (FILE, NAME); fputs("\n", FILE); } while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.globl "
 
 /* The prefix to add to user-visible assembler symbols. */
 
@@ -1113,7 +1107,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
     }
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
-  fprintf (FILE, "\t.=.+ %o\n", (SIZE))
+  fprintf (FILE, "\t.=.+ %#ho\n", (unsigned short)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1123,7 +1117,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   assemble_name ((FILE), (NAME)),		\
   fprintf ((FILE), "\n"),			\
   assemble_name ((FILE), (NAME)),		\
-  fprintf ((FILE), ": .=.+ %o\n", (ROUNDED))		\
+  fprintf ((FILE), ": .=.+ %#ho\n", (unsigned short)(ROUNDED))		\
 )
 
 /* This says how to output an assembler line
@@ -1131,7 +1125,7 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)  \
 ( assemble_name ((FILE), (NAME)),				\
-  fprintf ((FILE), ":\t.=.+ %o\n", (ROUNDED)))
+  fprintf ((FILE), ":\t.=.+ %#ho\n", (unsigned short)(ROUNDED)))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -1155,9 +1149,9 @@ fprintf (FILE, "$help$: . = .+8 ; space for tmp moves!\n")	\
   else if (GET_CODE (X) == MEM)						\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) != SImode)	\
-    { union { double d; int i[2]; } u;					\
-      u.i[0] = CONST_DOUBLE_LOW (X); u.i[1] = CONST_DOUBLE_HIGH (X);	\
-      fprintf (FILE, "#%.20e", u.d); }					\
+    { char buf[30];							\
+      real_to_decimal (buf, CONST_DOUBLE_REAL_VALUE (X), sizeof (buf), 0, 1); \
+      fprintf (FILE, "$0F%s", buf); }					\
   else { putc ('$', FILE); output_addr_const_pdp11 (FILE, X); }}
 
 /* Print a memory address as an operand to reference that memory location.  */

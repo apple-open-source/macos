@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: ocs,v 1.1.1.2 2002/01/09 18:50:29 umeshv Exp $
+# $Id: ocs,v 1.2 2004/07/09 21:34:43 nicolai Exp $
 # This utility maintains the database for cscope on a recursive dir set
 # Author:   donwo	Tue Jun 25 15:36:39 PDT 1996
 # Modified: hops Jan 2000  chg defaults to not update if files exist and force

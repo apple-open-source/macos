@@ -18,7 +18,7 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/programs/glxgears/glxgears.c,v 1.3 2001/11/03 17:29:20 dawes Exp $ */
+/* $XFree86: xc/programs/glxgears/glxgears.c,v 1.4 2003/10/24 20:38:11 tsi Exp $ */
 
 /*
  * This is a port of the infamous "gears" demo to straight GLX (i.e. no GLUT)
@@ -393,7 +393,7 @@ event_loop(Display *dpy, Window win)
          case KeyPress:
             {
                char buffer[10];
-               int r, code;
+               int code;
                code = XLookupKeysym(&event.xkey, 0);
                if (code == XK_Left) {
                   view_roty += 5.0;
@@ -408,7 +408,7 @@ event_loop(Display *dpy, Window win)
                   view_rotx -= 5.0;
                }
                else {
-                  r = XLookupString(&event.xkey, buffer, sizeof(buffer),
+                  (void) XLookupString(&event.xkey, buffer, sizeof(buffer),
                                     NULL, NULL);
                   if (buffer[0] == 27) {
                      /* escape */

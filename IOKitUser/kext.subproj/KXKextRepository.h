@@ -68,6 +68,10 @@ KXKextManagerError KXKextRepositoryWriteCache(
     KXKextRepositoryRef aRepository,
     CFURLRef anURL);  // may be null; will write to repositoryPath.kextcache
 
+KXKextManagerError KXKextRepositorySendCatalogFromCache(
+    KXKextRepositoryRef aRepository,
+    CFMutableDictionaryRef candidateKexts);
+
 #if 0
 #endif 0
 

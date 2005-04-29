@@ -1,0 +1,55 @@
+# tcldomConfig.sh --
+# 
+# This shell script (for sh) is generated automatically by tcldomxml's
+# configure script.  It will create shell variables for most of
+# the configuration options discovered by the configure script.
+# This script is intended to be included by the configure scripts
+# for tcldomxml extensions so that they don't have to figure this all
+# out for themselves.  This file does not duplicate information
+# already provided by tclConfig.sh, so you may need to use that
+# file in addition to this one.
+#
+# The information in this file is specific to a single platform.
+
+# tcldomxml's version number.
+tcldomxml_VERSION='@VERSION@'
+tcldomxml_MAJOR_VERSION='@MAJOR_VERSION@'
+tcldomxml_MINOR_VERSION='@MINOR_VERSION@'
+tcldomxml_RELEASE_LEVEL='@PATCHLEVEL@'
+
+# The name of the tcldomxml library (may be either a .a file or a shared library):
+tcldomxml_LIB_FILE=@tcldomxml_LIB_FILE@
+
+# String to pass to linker to pick up the tcldomxml library from its
+# build directory.
+tcldomxml_BUILD_LIB_SPEC='@tcldomxml_BUILD_LIB_SPEC@'
+
+# String to pass to linker to pick up the tcldomxml library from its
+# installed directory.
+tcldomxml_LIB_SPEC='@tcldomxml_LIB_SPEC@'
+
+# The name of the tcldomxml stub library (a .a file):
+tcldomxml_STUB_LIB_FILE=@tcldomxmlstub_LIB_FILE@
+
+# String to pass to linker to pick up the tcldomxml stub library from its
+# build directory.
+tcldomxml_BUILD_STUB_LIB_SPEC='@tcldomxml_BUILD_STUB_LIB_SPEC@'
+
+# String to pass to linker to pick up the tcldomxml stub library from its
+# installed directory.
+tcldomxml_STUB_LIB_SPEC='@tcldomxml_STUB_LIB_SPEC@'
+
+# String to pass to linker to pick up the tcldomxml stub library from its
+# build directory.
+tcldomxml_BUILD_STUB_LIB_PATH='@tcldomxml_BUILD_STUB_LIB_PATH@'
+
+# String to pass to linker to pick up the tcldomxml stub library from its
+# installed directory.
+tcldomxml_STUB_LIB_PATH='@tcldomxml_STUB_LIB_PATH@'
+
+# Location of the top-level source directories from which [incr Tcl]
+# was built.  This is the directory that contains generic, unix, etc.
+# If [incr Tcl] was compiled in a different place than the directory
+# containing the source files, this points to the location of the sources,
+# not the location where [incr Tcl] was compiled.
+tcldomxml_SRC_DIR='@srcdir@'

@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2003, International Business Machines Corporation.       *
+ * Copyright (C) 2001-2004, International Business Machines Corporation.       *
  * All Rights Reserved.                                                        *
  *******************************************************************************
  */
@@ -24,11 +24,8 @@ U_NAMESPACE_END
 
 #else
 
-#include "unicode/uobject.h"
 #include "unicode/unistr.h"
-#include "unicode/chariter.h"
 #include "unicode/locid.h"
-#include "unicode/ubrk.h"
 
 #include "hash.h"
 #include "uvector.h"
@@ -42,7 +39,6 @@ class ICUServiceKey;
 class ICUServiceFactory;
 class SimpleFactory;
 class ServiceListener;
-class ICUServiceEnumeration;
 class ICUService;
 
 class DNCache;
@@ -183,20 +179,16 @@ class U_COMMON_API ICUServiceKey : public UObject {
   */
   static UnicodeString& parseSuffix(UnicodeString& result);
 
- public:
+public:
   /**
    * UObject RTTI boilerplate.
    */
-  static inline UClassID getStaticClassID() { 
-    return (UClassID)&fgClassID;
-  }
+  static UClassID U_EXPORT2 getStaticClassID();
 
   /**
    * UObject RTTI boilerplate.
    */
-  virtual UClassID getDynamicClassID() const {
-    return getStaticClassID();
-  }
+  virtual UClassID getDynamicClassID() const;
 
 #ifdef SERVICE_DEBUG
  public:
@@ -204,8 +196,6 @@ class U_COMMON_API ICUServiceKey : public UObject {
   virtual UnicodeString& debugClass(UnicodeString& result) const;
 #endif
 
- private:
-    static const char fgClassID;
 };
 
  /*******************************************************************
@@ -347,16 +337,12 @@ class U_COMMON_API SimpleFactory : public ICUServiceFactory {
  /**
   * UObject RTTI boilerplate.
   */
-  static inline UClassID getStaticClassID() { 
-	  return (UClassID)&fgClassID;
-  }
+  static UClassID U_EXPORT2 getStaticClassID();
 
  /**
   * UObject RTTI boilerplate.
   */
-  virtual UClassID getDynamicClassID() const {
-	  return getStaticClassID();
-  }
+  virtual UClassID getDynamicClassID() const;
 
 #ifdef SERVICE_DEBUG
  public:
@@ -364,8 +350,6 @@ class U_COMMON_API SimpleFactory : public ICUServiceFactory {
   virtual UnicodeString& debugClass(UnicodeString& toAppendTo) const;
 #endif
 
- private:
-  static const char fgClassID;
 };
 
 /*
@@ -394,19 +378,13 @@ public:
     /**
      * UObject RTTI boilerplate.
      */
-    static inline UClassID getStaticClassID() {
-        return (UClassID)&fgClassID;
-    }
+    static UClassID U_EXPORT2 getStaticClassID();
     
     /**
      * UObject RTTI boilerplate.
      */
-    virtual UClassID getDynamicClassID() const {
-        return getStaticClassID();
-    }
+    virtual UClassID getDynamicClassID() const;
     
-private:
-    static const char fgClassID;
 };
 
 /*
@@ -455,7 +433,7 @@ private:
  * Deleter for StringPairs
  */
 U_CAPI void U_EXPORT2
-deleteStringPair(void *obj);
+userv_deleteStringPair(void *obj);
 
 /**
  * Opaque type returned by registerInstance and registerFactory.
@@ -661,9 +639,9 @@ class U_COMMON_API ICUService : public ICUNotifier {
      * the key, until either a factory returns a service object, or the key
      * has no fallback.  If no object is found, the result of handleDefault
      * is returned.</p>
-	 *
-	 * <p>Subclasses can override this method to further customize the 
-	 * result before returning it.
+     *
+     * <p>Subclasses can override this method to further customize the 
+     * result before returning it.
      *
      * @param key the key.
      * @param actualReturn a pointer to a UnicodeString to hold the matched descriptor, or NULL.
@@ -676,7 +654,7 @@ class U_COMMON_API ICUService : public ICUNotifier {
      * <p>This version of getKey is only called by ICUServiceFactories within the scope
      * of a previous getKey call, to determine what previously-registered factories would
      * have returned.  For details, see getKey(ICUServiceKey&, UErrorCode&).  Subclasses
-	 * should not call it directly, but call through one of the other get functions.</p>
+     * should not call it directly, but call through one of the other get functions.</p>
      * 
      * @param key the key.
      * @param actualReturn a pointer to a UnicodeString to hold the matched descriptor, or NULL.

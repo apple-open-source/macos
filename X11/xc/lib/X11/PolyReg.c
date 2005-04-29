@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ************************************************************************/
-/* $XFree86: xc/lib/X11/PolyReg.c,v 1.6 2001/12/14 19:54:03 dawes Exp $ */
+/* $XFree86: xc/lib/X11/PolyReg.c,v 1.7 2003/04/13 19:22:17 dawes Exp $ */
 
 #define LARGE_COORDINATE 1000000
 #define SMALL_COORDINATE -LARGE_COORDINATE
@@ -65,12 +65,12 @@ SOFTWARE.
  *
  */
 static void
-InsertEdgeInET(ET, ETE, scanline, SLLBlock, iSLLBlock)
-    EdgeTable *ET;
-    EdgeTableEntry *ETE;
-    int scanline;
-    ScanLineListBlock **SLLBlock;
-    int *iSLLBlock;
+InsertEdgeInET(
+    EdgeTable *ET,
+    EdgeTableEntry *ETE,
+    int scanline,
+    ScanLineListBlock **SLLBlock,
+    int *iSLLBlock)
 {
     register EdgeTableEntry *start, *prev;
     register ScanLineList *pSLL, *pPrevSLL;
@@ -153,13 +153,13 @@ InsertEdgeInET(ET, ETE, scanline, SLLBlock, iSLLBlock)
  */
 
 static void
-CreateETandAET(count, pts, ET, AET, pETEs, pSLLBlock)
-    register int count;
-    register XPoint *pts;
-    EdgeTable *ET;
-    EdgeTableEntry *AET;
-    register EdgeTableEntry *pETEs;
-    ScanLineListBlock   *pSLLBlock;
+CreateETandAET(
+    register int count,
+    register XPoint *pts,
+    EdgeTable *ET,
+    EdgeTableEntry *AET,
+    register EdgeTableEntry *pETEs,
+    ScanLineListBlock   *pSLLBlock)
 {
     register XPoint *top, *bottom;
     register XPoint *PrevPt, *CurrPt;
@@ -245,8 +245,9 @@ CreateETandAET(count, pts, ET, AET, pETEs, pSLLBlock)
  */
 
 static void
-loadAET(AET, ETEs)
-    register EdgeTableEntry *AET, *ETEs;
+loadAET(
+    register EdgeTableEntry *AET,
+    register EdgeTableEntry *ETEs)
 {
     register EdgeTableEntry *pPrevAET;
     register EdgeTableEntry *tmp;
@@ -293,8 +294,8 @@ loadAET(AET, ETEs)
  *
  */
 static void
-computeWAET(AET)
-    register EdgeTableEntry *AET;
+computeWAET(
+    register EdgeTableEntry *AET)
 {
     register EdgeTableEntry *pWETE;
     register int inside = 1;
@@ -332,8 +333,8 @@ computeWAET(AET)
  */
 
 static int
-InsertionSort(AET)
-    register EdgeTableEntry *AET;
+InsertionSort(
+    register EdgeTableEntry *AET)
 {
     register EdgeTableEntry *pETEchase;
     register EdgeTableEntry *pETEinsert;
@@ -369,8 +370,8 @@ InsertionSort(AET)
  *     Clean up our act.
  */
 static void
-FreeStorage(pSLLBlock)
-    register ScanLineListBlock   *pSLLBlock;
+FreeStorage(
+    register ScanLineListBlock   *pSLLBlock)
 {
     register ScanLineListBlock   *tmpSLLBlock;
 
@@ -390,10 +391,11 @@ FreeStorage(pSLLBlock)
  *     stack by the calling procedure.
  *
  */
-static int PtsToRegion(numFullPtBlocks, iCurPtBlock, FirstPtBlock, reg)
-    register int  numFullPtBlocks, iCurPtBlock;
-    POINTBLOCK *FirstPtBlock;
-    REGION *reg;
+static int PtsToRegion(
+    register int numFullPtBlocks,
+    register int iCurPtBlock,
+    POINTBLOCK *FirstPtBlock,
+    REGION *reg)
 {
     register BOX  *rects;
     register XPoint *pts;

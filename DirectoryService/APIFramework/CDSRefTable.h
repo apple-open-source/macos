@@ -39,8 +39,6 @@
 #include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
 
-//RCF#include <CoreFoundation/CoreFoundation.h>
-
 class CDSRefTable;
 
 extern DSMutexSemaphore		*gFWTableMutex;
@@ -98,8 +96,8 @@ typedef struct sRefFWTable {
 
 class CDSRefTable {
 public:
-					CDSRefTable			( RefFWDeallocateProc *deallocProc );
-	virtual		   ~CDSRefTable			( void );
+					CDSRefTable				( RefFWDeallocateProc *deallocProc );
+	virtual		   ~CDSRefTable				( void );
 
 	static tDirStatus	VerifyDirRef		( tDirReference inDirRef, sInt32 inPID );
 	static tDirStatus	VerifyNodeRef		( tDirNodeReference inDirNodeRef, sInt32 inPID );
@@ -121,8 +119,6 @@ public:
 
 	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID );
 	
-	static void			CheckClientPIDs		( bool inUseTimeOuts );
-    
     static tDirStatus	GetOffset			( uInt32 inRefNum, uInt32 inType, uInt32* outOffset, sInt32 inPID );
     static tDirStatus	SetOffset			( uInt32 inRefNum, uInt32 inType, uInt32 inOffset, sInt32 inPID );
     static tDirStatus	GetBufTag			( uInt32 inRefNum, uInt32 inType, uInt32* outBufTag, sInt32 inPID );
@@ -140,24 +136,20 @@ private:
 
 	void		RemoveChildren		( sListFWInfo *inChildList, sInt32 inPID );
 
-	sRefFWTable*	GetNextTable		( sRefFWTable *inCurTable );
-	sRefFWTable*	GetThisTable		( uInt32 inTableNum );
+	sRefFWTable*	GetNextTable	( sRefFWTable *inCurTable );
+	sRefFWTable*	GetThisTable	( uInt32 inTableNum );
 
-	sFWRefEntry*	GetTableRef			( uInt32 inRefNum );
+	sFWRefEntry*	GetTableRef		( uInt32 inRefNum );
 
-	uInt32		UpdateClientPIDRefCount
-									( sInt32 inClientPID, bool inUpRefCount, uInt32 inDirRef=0 );
-
-	void		DoCheckClientPIDs	( bool inUseTimeOuts );
+	uInt32			GetRefCount		( void );
 
 	uInt32		fTableCount;
 	sRefFWTable	*fRefTables[ kMaxFWTables + 1 ];	//added 1 since table is 1-based and code depends upon having that last
 													//index in as kMaxFWTables ie. note array is 0-based
 	RefFWDeallocateProc *fDeallocProc;
 	
-//RCF	CFMutableDictionaryRef	fClientPIDList;
-//RCF	DSMutexSemaphore	   *fClientPIDListLock;		//mutex on the client PID list tracking references per PID
 	time_t					fSunsetTime;
+	uInt32					fRefCount;
 
 };
 

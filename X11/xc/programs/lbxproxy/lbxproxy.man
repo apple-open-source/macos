@@ -24,7 +24,7 @@
 .\" from The Open Group.
 .\" 
 .\"
-.\" $XFree86: xc/programs/lbxproxy/lbxproxy.man,v 1.8 2001/12/14 20:00:49 dawes Exp $
+.\" $XFree86: xc/programs/lbxproxy/lbxproxy.man,v 1.9 2003/05/29 21:48:10 herrb Exp $
 .\"
 .TH LBXPROXY 1 __xorgversion__
 .SH NAME
@@ -74,7 +74,7 @@ DISPLAY environment variable.
 .TP 8
 .B \-motion \fIcount\fP
 A limited number of pointer motion events are allowed to be in flight
-between the server and the proxy at any given time.  The maximimum
+between the server and the proxy at any given time.  The maximum
 number of motion events that can be in flight is set with this option;
 the default is 8.
 .TP 8

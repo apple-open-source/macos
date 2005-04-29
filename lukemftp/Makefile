@@ -5,7 +5,7 @@
 SHELL := /bin/sh
 
 # Sane defaults, which are typically overridden on the command line.
-SRCROOT=
+SRCROOT=.
 OBJROOT=$(SRCROOT)
 SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
@@ -13,7 +13,7 @@ RC_ARCHS=
 
 PROJNAME=lukemftp
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -O"
+ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -mdynamic-no-pic -O"
 
 .PHONY : installsrc installhdrs install clean
 

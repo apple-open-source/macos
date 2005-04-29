@@ -1,7 +1,7 @@
 /*
  *  drvconn.c
  *
- *  $Id: drvconn.c,v 1.1.1.1 2002/04/08 22:48:09 miner Exp $
+ *  $Id: drvconn.c,v 1.3 2004/11/11 01:52:35 luesang Exp $
  *
  *  The data_sources dialog for SQLDriverConnect and a login box procedures
  *
@@ -77,13 +77,17 @@
 #include <dlproc.h>
 
 SQLRETURN SQL_API
-_iodbcdm_drvconn_dialbox (HWND hwnd,
-    LPSTR szInOutConnStr, DWORD cbInOutConnStr, int FAR * sqlStat)
+_iodbcdm_drvconn_dialbox (
+    HWND	  hwnd,
+    LPSTR	  szInOutConnStr,
+    DWORD	  cbInOutConnStr,
+    int	 	* sqlStat,
+    SQLUSMALLINT  fDriverCompletion,
+    UWORD	* config)
 {
   RETCODE retcode = SQL_ERROR;
-  char *szDSN = NULL, *szDriver = NULL, *curr;
-  char dsnbuf[SQL_MAX_DSN_LENGTH + 1];
-  int driver_type = -1, flags = 0, i;
+  char *szDSN = NULL, *szDriver = NULL, *szUID = NULL, *szPWD = NULL, *curr;
+  TLOGIN log_t;
 
   /* Check input parameters */
   if (!hwnd || !szInOutConnStr || cbInOutConnStr < 1)
@@ -93,56 +97,71 @@ _iodbcdm_drvconn_dialbox (HWND hwnd,
   for (curr = szInOutConnStr; *curr; curr += (STRLEN (curr) + 1))
     {
       if (!strncasecmp (curr, "DSN=", STRLEN ("DSN=")))
-	szDSN = curr + STRLEN ("DSN=");
+		  {
+	       szDSN = curr + STRLEN ("DSN=");
+			 continue;
+		  }
       if (!strncasecmp (curr, "DRIVER=", STRLEN ("DRIVER=")))
-	szDriver = curr + STRLEN ("DRIVER=");
+		  {
+	       szDriver = curr + STRLEN ("DRIVER=");
+			 continue;
+		  }
+      if (!strncasecmp (curr, "UID=", STRLEN ("UID=")))
+		  {
+	       szUID = curr + STRLEN ("UID=");
+			 continue;
+		  }
+      if (!strncasecmp (curr, "UserName=", STRLEN ("UserName=")))
+		  {
+	       szUID = curr + STRLEN ("UserName=");
+			 continue;
+		  }
+      if (!strncasecmp (curr, "LastUser=", STRLEN ("LastUser=")))
+		  {
+	       szUID = curr + STRLEN ("LastUser=");
+			 continue;
+		  }
+      if (!strncasecmp (curr, "PWD=", STRLEN ("PWD=")))
+		  {
+	       szPWD = curr + STRLEN ("PWD=");
+			 continue;
+		  }
+      if (!strncasecmp (curr, "Password=", STRLEN ("Password=")))
+		  {
+	       szPWD = curr + STRLEN ("Password=");
+			 continue;
+		  }
     }
 
-  /* Retrieve the corresponding driver */
-  /*if( strstr(szDriver, "OpenLink") || strstr(szDriver, "Openlink") || strstr(szDriver, "oplodbc") )
-     driver_type = 0;
-     else if( (strstr(szDriver, "Virtuoso") || strstr(szDriver, "virtodbc")) )
-     driver_type = 1; */
-
-  switch (driver_type)
+  if (fDriverCompletion != SQL_DRIVER_NOPROMPT && (!szUID || !szPWD))
     {
-    case 0:
-      /*curr = create_oplsetup(hwnd, szDSN, szInOutConnStr, TRUE);
-         if( curr && curr!=(LPSTR)-1L )
-         {
-         STRNCPY(szInOutConnStr, curr, (cbInOutConnStr==SQL_NTS) ? STRLEN(curr) : cbInOutConnStr);
-         free(curr);
-         } */
+	   create_login (hwnd, szUID, szPWD, szDSN ? szDSN : "(File DSN)", &log_t);
+		
+		if (log_t.user && !szUID)
+		  {
+		    sprintf(curr, "UID=%s", log_t.user);
+			 curr += STRLEN (curr);
+			 *curr = '\0';
+			 free (log_t.user);
+		  }
 
-      break;
+		if (log_t.pwd && !szPWD)
+		  {
+		    sprintf(curr, "PWD=%s", log_t.pwd);
+			 curr += STRLEN (curr);
+			 *curr = '\0';
+			 free (log_t.pwd);
+		  }
+	 }
 
-    case 1:
-      /*if( szFile )
-         {
-         curr = create_virtsetup(hwnd, szDSN, szInOutConnStr, TRUE);
-         if( curr && curr!=(LPSTR)-1L )
-         {
-         STRNCPY(szInOutConnStr, curr, (cbInOutConnStr==SQL_NTS) ? STRLEN(curr) : cbInOutConnStr);
-         free(curr);
-         }
-         } */
-      break;
-
-    default:
-      /*if( szFile )
-         {
-         curr = create_gensetup(hwnd, szDSN, szInOutConnStr, TRUE);
-         if( curr && curr!=(LPSTR)-1L )
-         {
-         STRNCPY(szInOutConnStr, curr, (cbInOutConnStr==SQL_NTS) ? STRLEN(curr) : cbInOutConnStr);
-         free(curr);
-         }
-         } */
-      break;
-    };
-
-  retcode = SQL_SUCCESS;
+  retcode = log_t.ok ? SQL_SUCCESS : SQL_NO_DATA_FOUND;
 
 quit:
+  for( curr = szInOutConnStr ; *curr ; curr = szDSN + 1 )
+    {
+	   szDSN = curr + STRLEN(curr);
+		if(szDSN[1]) szDSN[0] = ';';
+	 }
+
   return retcode;
 }

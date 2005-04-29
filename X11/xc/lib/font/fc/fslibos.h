@@ -31,7 +31,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/fc/fslibos.h,v 3.7 2002/05/31 18:45:49 dawes Exp $ */
+/* $XFree86: xc/lib/font/fc/fslibos.h,v 3.9 2003/09/01 20:50:44 herrb Exp $ */
 
 /*
  * FSlib networking & os include file
@@ -48,13 +48,20 @@ from The Open Group.
 #ifndef FONT_OPEN_MAX
 
 #ifndef X_NOT_POSIX
-#ifdef _POSIX_SOURCE
-#include <limits.h>
-#else
-#define _POSIX_SOURCE
-#include <limits.h>
-#undef _POSIX_SOURCE
+# ifdef _POSIX_SOURCE
+#  include <limits.h>
+# else
+#  define _POSIX_SOURCE
+#  include <limits.h>
+#  undef _POSIX_SOURCE
+# endif
 #endif
+#ifndef SIZE_MAX
+# ifdef ULONG_MAX
+#  define SIZE_MAX ULONG_MAX
+# else
+#  define SIZE_MAX UINT_MAX
+# endif
 #endif
 #ifndef OPEN_MAX
 #if defined(SVR4) || defined(__UNIXOS2__)

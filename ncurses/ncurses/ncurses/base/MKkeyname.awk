@@ -1,6 +1,6 @@
-# $Id: MKkeyname.awk,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $
+# $Id: MKkeyname.awk,v 1.24 2002/09/01 19:43:34 tom Exp $
 ##############################################################################
-# Copyright (c) 1999,2000,2001 Free Software Foundation, Inc.                #
+# Copyright (c) 1999-2001,2002 Free Software Foundation, Inc.                #
 #                                                                            #
 # Permission is hereby granted, free of charge, to any person obtaining a    #
 # copy of this software and associated documentation files (the "Software"), #
@@ -49,10 +49,12 @@ END {
 	print "char name[20];"
 	print "char *p;"
 	print ""
+	print "\tif (c == -1) return \"-1\";"
+	print ""
 	print "\tfor (i = 0; _nc_key_names[i].name != 0; i++)"
 	print "\t\tif (_nc_key_names[i].code == c)"
 	print "\t\t\treturn (NCURSES_CONST char *)_nc_key_names[i].name;"
-	print "\tif (c >= 256) return \"UNKNOWN KEY\";"
+	print "\tif (c < 0 || c >= 256) return 0;"
 	print ""
 	print "\tif (table == 0)"
 	print "\t\ttable = typeCalloc(char *, 256);"
@@ -66,9 +68,7 @@ END {
 	print "\t\t\tp += 2;"
 	print "\t\t\tc -= 128;"
 	print "\t\t}"
-	print "\t\tif (c < 0)"
-	print "\t\t\tsprintf(p, \"%d\", c);"
-	print "\t\telse if (c < 32)"
+	print "\t\tif (c < 32)"
 	print "\t\t\tsprintf(p, \"^%c\", c + '@');"
 	print "\t\telse if (c == 127)"
 	print "\t\t\tstrcpy(p, \"^?\");"
@@ -78,4 +78,13 @@ END {
 	print "\t}"
 	print "\treturn (NCURSES_CONST char *)table[c];"
 	print "}"
+	print ""
+	print "#if USE_WIDEC_SUPPORT"
+	print "NCURSES_EXPORT(NCURSES_CONST char *) key_name (wchar_t c)"
+	print "{"
+	print "\tNCURSES_CONST char *result = keyname((int)c);"
+	print "\tif (!strncmp(result, \"M-\", 2)) result = 0;"
+	print "\treturn result;"
+	print "}"
+	print "#endif"
 }

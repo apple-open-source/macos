@@ -1,0 +1,47 @@
+--- atof.3.orig	Fri Mar 11 10:10:58 2005
++++ atof.3	Fri Mar 11 10:12:33 2005
+@@ -40,7 +40,8 @@
+ .Dt ATOF 3
+ .Os
+ .Sh NAME
+-.Nm atof
++.Nm atof ,
++.Nm atof_l
+ .Nd convert
+ .Tn ASCII
+ string to double
+@@ -50,6 +51,9 @@
+ .In stdlib.h
+ .Ft double
+ .Fn atof "const char *nptr"
++.In xlocale.h
++.Ft double
++.Fn atof_l "const char *nptr" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn atof
+@@ -67,6 +71,14 @@
+ The decimal point
+ character is defined in the program's locale (category
+ .Dv LC_NUMERIC ) .
++.Pp
++While the
++.Fn atof
++function uses the current locale, the
++.Fn atof_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh IMPLEMENTATION NOTES
+ The
+ .Fn atof
+@@ -88,7 +100,8 @@
+ .Xr atol 3 ,
+ .Xr strtod 3 ,
+ .Xr strtol 3 ,
+-.Xr strtoul 3
++.Xr strtoul 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn atof

@@ -6,19 +6,23 @@ Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 Content-Type: text/html
 Funny-head: yesyes
+swsclose: booo
 
 </data>
 </reply>
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP with simple cookie send
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/we/want/that/page/6 -b "name=contents;name2=content2"
+http://%HOSTIP:%HTTPPORT/we/want/that/page/6 -b "name=contents;name2=content2"
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -27,10 +31,10 @@ http://%HOSTIP:%HOSTPORT/we/want/that/page/6 -b "name=contents;name2=content2"
 </strip>
 <protocol>
 GET /we/want/that/page/6 HTTP/1.1
-Cookie: name=contents;name2=content2
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
+Cookie: name=contents;name2=content2
 
 </protocol>
 </verify>

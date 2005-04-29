@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFirst.c,v 1.6 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -54,7 +53,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstFirst.c,v 1.6 2000/07/09 00:08:47
  *	Return the first node on the given list.
  *
  * Results:
- *	The first node or NILLNODE if the list is empty.
+ *	The first node or NULL if the list is empty.
  *
  * Side Effects:
  *	None.
@@ -66,7 +65,7 @@ Lst_First (l)
     Lst	l;
 {
     if (!LstValid (l) || LstIsEmpty (l)) {
-	return (NILLNODE);
+	return (NULL);
     } else {
 	return ((LstNode)((List)l)->firstPtr);
     }

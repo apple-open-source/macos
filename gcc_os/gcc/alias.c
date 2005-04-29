@@ -1,5 +1,6 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -36,6 +37,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "splay-tree.h"
 #include "ggc.h"
 #include "langhooks.h"
+#include "target.h"
 
 /* The alias sets assigned to MEMs assist the back-end in determining
    which MEMs can alias which other MEMs.  In general, two MEMs in
@@ -75,7 +77,7 @@ typedef struct alias_set_entry
   /* The children of the alias set.  These are not just the immediate
      children, but, in fact, all descendents.  So, if we have:
 
-       struct T { struct S s; float f; } 
+       struct T { struct S s; float f; }
 
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
@@ -107,8 +109,18 @@ static bool nonoverlapping_component_refs_p PARAMS ((tree, tree));
 static tree decl_for_component_ref	PARAMS ((tree));
 static rtx adjust_offset_for_component_ref PARAMS ((tree, rtx));
 static int nonoverlapping_memrefs_p	PARAMS ((rtx, rtx));
+/* APPLE LOCAL */
+static int overlapping_trees_p		PARAMS ((tree, tree));
+static int overlapping_memrefs_p	PARAMS ((rtx, rtx));
+/* APPLE LOCAL end */
 static int write_dependence_p           PARAMS ((rtx, rtx, int));
+
+static int nonlocal_mentioned_p_1       PARAMS ((rtx *, void *));
 static int nonlocal_mentioned_p         PARAMS ((rtx));
+static int nonlocal_referenced_p_1      PARAMS ((rtx *, void *));
+static int nonlocal_referenced_p        PARAMS ((rtx));
+static int nonlocal_set_p_1             PARAMS ((rtx *, void *));
+static int nonlocal_set_p               PARAMS ((rtx));
 
 /* Set up all info needed to perform alias analysis on memory references.  */
 
@@ -125,7 +137,7 @@ static int nonlocal_mentioned_p         PARAMS ((rtx));
 /* Cap the number of passes we make over the insns propagating alias
    information through set chains.   10 is a completely arbitrary choice.  */
 #define MAX_ALIAS_LOOP_PASSES 10
-   
+
 /* reg_base_value[N] gives an address to which register N is related.
    If all sets after the first add or subtract to the current value
    or otherwise modify it so it does not point to a different top level
@@ -134,7 +146,7 @@ static int nonlocal_mentioned_p         PARAMS ((rtx));
 
    A base address can be an ADDRESS, SYMBOL_REF, or LABEL_REF.  ADDRESS
    expressions represent certain special values: function arguments and
-   the stack, frame, and argument pointers.  
+   the stack, frame, and argument pointers.
 
    The contents of an ADDRESS is not normally used, the mode of the
    ADDRESS determines whether the ADDRESS is a function argument or some
@@ -145,9 +157,13 @@ static int nonlocal_mentioned_p         PARAMS ((rtx));
    current function performs nonlocal memory memory references for the
    purposes of marking the function as a constant function.  */
 
-static rtx *reg_base_value;
+static GTY((length ("reg_base_value_size"))) rtx *reg_base_value;
 static rtx *new_reg_base_value;
 static unsigned int reg_base_value_size; /* size of reg_base_value array */
+
+/* Static hunks of RTL used by the aliasing code; these are initialized
+   once per function to avoid unnecessary RTL allocations.  */
+static GTY (()) rtx static_reg_base_value[FIRST_PSEUDO_REGISTER];
 
 #define REG_BASE_VALUE(X) \
   (REGNO (X) < reg_base_value_size \
@@ -188,7 +204,7 @@ char *reg_known_equiv_p;
 
 /* True when scanning insns from the start of the rtl to the
    NOTE_INSN_FUNCTION_BEG note.  */
-static int copying_arguments;
+static bool copying_arguments;
 
 /* The splay-tree used to store the various alias set entries.  */
 static splay_tree alias_sets;
@@ -209,12 +225,12 @@ get_alias_set_entry (alias_set)
 /* Returns nonzero if the alias sets for MEM1 and MEM2 are such that
    the two MEMs cannot alias each other.  */
 
-static int 
+static int
 mems_in_disjoint_alias_sets_p (mem1, mem2)
      rtx mem1;
      rtx mem2;
 {
-#ifdef ENABLE_CHECKING	
+#ifdef ENABLE_CHECKING
 /* Perform a basic sanity check.  Namely, that there are no alias sets
    if we're not using strict aliasing.  This helps to catch bugs
    whereby someone uses PUT_CODE, but doesn't clear MEM_ALIAS_SET, or
@@ -321,8 +337,8 @@ objects_must_conflict_p (t1, t2)
      then they may not conflict.  */
   if ((t1 != 0 && readonly_fields_p (t1))
       || (t2 != 0 && readonly_fields_p (t2))
-      || (t1 != 0 && TYPE_READONLY (t1))
-      || (t2 != 0 && TYPE_READONLY (t2)))
+      || (t1 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t1))
+      || (t2 != 0 && lang_hooks.honor_readonly && TYPE_READONLY (t2)))
     return 0;
 
   /* If they are the same type, they must conflict.  */
@@ -508,8 +524,8 @@ get_alias_set (t)
 		  else
 		    {
 		      DECL_POINTER_ALIAS_SET (decl) = new_alias_set ();
-		      record_alias_subset  (pointed_to_alias_set,
-					    DECL_POINTER_ALIAS_SET (decl));
+		      record_alias_subset (pointed_to_alias_set,
+					   DECL_POINTER_ALIAS_SET (decl));
 		    }
 		}
 
@@ -564,6 +580,14 @@ get_alias_set (t)
      and references to functions, but that's different.)  */
   else if (TREE_CODE (t) == FUNCTION_TYPE)
     set = 0;
+
+  /* Unless the language specifies otherwise, let vector types alias
+     their components.  This avoids some nasty type punning issues in
+     normal usage.  And indeed lets vectors be treated more like an
+     array slice.  */
+  else if (TREE_CODE (t) == VECTOR_TYPE)
+    set = get_alias_set (TREE_TYPE (t));
+
   else
     /* Otherwise make a new alias set for this type.  */
     set = new_alias_set ();
@@ -595,7 +619,7 @@ new_alias_set ()
    not vice versa.  For example, in C, a store to an `int' can alias a
    structure containing an `int', but not vice versa.  Here, the
    structure would be the SUPERSET and `int' the SUBSET.  This
-   function should be called only once per SUPERSET/SUBSET pair. 
+   function should be called only once per SUPERSET/SUBSET pair.
 
    It is illegal for SUPERSET to be zero; everything is implicitly a
    subset of alias set zero.  */
@@ -617,14 +641,14 @@ record_alias_subset (superset, subset)
     abort ();
 
   superset_entry = get_alias_set_entry (superset);
-  if (superset_entry == 0) 
+  if (superset_entry == 0)
     {
       /* Create an entry for the SUPERSET, so that we have a place to
 	 attach the SUBSET.  */
       superset_entry
 	= (alias_set_entry) xmalloc (sizeof (struct alias_set_entry));
       superset_entry->alias_set = superset;
-      superset_entry->children 
+      superset_entry->children
 	= splay_tree_new (splay_tree_compare_ints, 0, 0);
       superset_entry->has_zero_child = 0;
       splay_tree_insert (alias_sets, (splay_tree_key) superset,
@@ -638,7 +662,7 @@ record_alias_subset (superset, subset)
       subset_entry = get_alias_set_entry (subset);
       /* If there is an entry for the subset, enter all of its children
 	 (if they are not already present) as children of the SUPERSET.  */
-      if (subset_entry) 
+      if (subset_entry)
 	{
 	  if (subset_entry->has_zero_child)
 	    superset_entry->has_zero_child = 1;
@@ -648,7 +672,7 @@ record_alias_subset (superset, subset)
 	}
 
       /* Enter the SUBSET itself as a child of the SUPERSET.  */
-      splay_tree_insert (superset_entry->children, 
+      splay_tree_insert (superset_entry->children,
 			 (splay_tree_key) subset, 0);
     }
 }
@@ -679,6 +703,17 @@ record_component_aliases (type)
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
+      /* Recursively record aliases for the base classes, if there are any */
+      if (TYPE_BINFO (type) != NULL && TYPE_BINFO_BASETYPES (type) != NULL)
+	{
+	  int i;
+	  for (i = 0; i < TREE_VEC_LENGTH (TYPE_BINFO_BASETYPES (type)); i++)
+	    {
+	      tree binfo = TREE_VEC_ELT (TYPE_BINFO_BASETYPES (type), i);
+	      record_alias_subset (superset,
+				   get_alias_set (BINFO_TYPE (binfo)));
+	    }
+	}
       for (field = TYPE_FIELDS (type); field != 0; field = TREE_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL && ! DECL_NONADDRESSABLE_P (field))
 	  record_alias_subset (superset, get_alias_set (TREE_TYPE (field)));
@@ -751,9 +786,17 @@ find_base_value (src)
 	 The test above is not sufficient because the scheduler may move
 	 a copy out of an arg reg past the NOTE_INSN_FUNCTION_BEGIN.  */
       if ((regno >= FIRST_PSEUDO_REGISTER || fixed_regs[regno])
-	  && regno < reg_base_value_size
-	  && reg_base_value[regno])
-	return reg_base_value[regno];
+	  && regno < reg_base_value_size)
+	{
+	  /* If we're inside init_alias_analysis, use new_reg_base_value
+	     to reduce the number of relaxation iterations.  */
+	  if (new_reg_base_value && new_reg_base_value[regno]
+	      && REG_N_SETS (regno) == 1)
+	    return new_reg_base_value[regno];
+
+	  if (reg_base_value[regno])
+	    return reg_base_value[regno];
+	}
 
       return src;
 
@@ -1103,7 +1146,7 @@ rtx_equal_for_memref_p (x, y)
 
     case LABEL_REF:
       return XEXP (x, 0) == XEXP (y, 0);
-      
+
     case SYMBOL_REF:
       return XSTR (x, 0) == XSTR (y, 0);
 
@@ -1240,7 +1283,7 @@ find_base_term (x)
 
     case TRUNCATE:
       if (GET_MODE_SIZE (GET_MODE (x)) < GET_MODE_SIZE (Pmode))
-        return 0;
+	return 0;
       /* Fall through.  */
     case HIGH:
     case PRE_INC:
@@ -1294,7 +1337,7 @@ find_base_term (x)
 	   tests can certainly be added.  For example, if one of the operands
 	   is a shift or multiply, then it must be the index register and the
 	   other operand is the base register.  */
-	
+
 	if (tmp1 == pic_offset_table_rtx && CONSTANT_P (tmp2))
 	  return find_base_term (tmp2);
 
@@ -1392,7 +1435,7 @@ base_alias_check (x, y, x_mode, y_mode)
   if (rtx_equal_p (x_base, y_base))
     return 1;
 
-  /* The base addresses of the read and write are different expressions. 
+  /* The base addresses of the read and write are different expressions.
      If they are both symbols and they are not accessed via AND, there is
      no conflict.  We can bring knowledge of object alignment into play
      here.  For example, on alpha, "char a, b;" can alias one another,
@@ -1467,7 +1510,7 @@ addr_side_effect_eval (addr, size, n_refs)
      int n_refs;
 {
   int offset = 0;
-  
+
   switch (GET_CODE (addr))
     {
     case PRE_INC:
@@ -1486,7 +1529,7 @@ addr_side_effect_eval (addr, size, n_refs)
     default:
       return addr;
     }
-  
+
   if (offset)
     addr = gen_rtx_PLUS (GET_MODE (addr), XEXP (addr, 0), GEN_INT (offset));
   else
@@ -1649,7 +1692,7 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
       }
 
   /* Treat an access through an AND (e.g. a subword access on an Alpha)
-     as an access with indeterminate size.  Assume that references 
+     as an access with indeterminate size.  Assume that references
      besides AND are aligned, so if the size of the other reference is
      at least as large as the alignment, assume no other overlap.  */
   if (GET_CODE (x) == AND && GET_CODE (XEXP (x, 1)) == CONST_INT)
@@ -1661,7 +1704,7 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
   if (GET_CODE (y) == AND && GET_CODE (XEXP (y, 1)) == CONST_INT)
     {
       /* ??? If we are indexing far enough into the array/structure, we
-	 may yet be able to determine that we can not overlap.  But we 
+	 may yet be able to determine that we can not overlap.  But we
 	 also need to that we are far enough from the end not to overlap
 	 a following reference, so we do nothing with that for now.  */
       if (GET_CODE (x) == AND || xsize < -INTVAL (XEXP (y, 1)))
@@ -1723,7 +1766,7 @@ memrefs_conflict_p (xsize, x, ysize, y, c)
    If both memory references are volatile, then there must always be a
    dependence between the two references, since their order can not be
    changed.  A volatile and non-volatile reference can be interchanged
-   though. 
+   though.
 
    A MEM_IN_STRUCT reference at a non-AND varying address can never
    conflict with a non-MEM_IN_STRUCT reference at a fixed address.  We
@@ -1750,23 +1793,23 @@ read_dependence (mem, x)
    to decide whether or not an address may vary; it should return
    nonzero whenever variation is possible.
    MEM1_ADDR and MEM2_ADDR are the addresses of MEM1 and MEM2.  */
-  
+
 static rtx
 fixed_scalar_and_varying_struct_p (mem1, mem2, mem1_addr, mem2_addr, varies_p)
      rtx mem1, mem2;
      rtx mem1_addr, mem2_addr;
      int (*varies_p) PARAMS ((rtx, int));
-{  
+{
   if (! flag_strict_aliasing)
     return NULL_RTX;
 
-  if (MEM_SCALAR_P (mem1) && MEM_IN_STRUCT_P (mem2) 
+  if (MEM_SCALAR_P (mem1) && MEM_IN_STRUCT_P (mem2)
       && !varies_p (mem1_addr, 1) && varies_p (mem2_addr, 1))
     /* MEM1 is a scalar at a fixed address; MEM2 is a struct at a
        varying address.  */
     return mem1;
 
-  if (MEM_IN_STRUCT_P (mem1) && MEM_SCALAR_P (mem2) 
+  if (MEM_IN_STRUCT_P (mem1) && MEM_SCALAR_P (mem2)
       && varies_p (mem1_addr, 1) && !varies_p (mem2_addr, 1))
     /* MEM2 is a scalar at a fixed address; MEM1 is a struct at a
        varying address.  */
@@ -1786,7 +1829,7 @@ aliases_everything_p (mem)
     /* If the address is an AND, its very hard to know at what it is
        actually pointing.  */
     return 1;
-    
+
   return 0;
 }
 
@@ -1844,7 +1887,7 @@ nonoverlapping_component_refs_p (x, y)
   while (x && y
 	 && TREE_CODE (x) == COMPONENT_REF
 	 && TREE_CODE (y) == COMPONENT_REF);
-  
+
   return false;
 }
 
@@ -1877,7 +1920,7 @@ adjust_offset_for_component_ref (x, offset)
     return NULL_RTX;
 
   ioffset = INTVAL (offset);
-  do 
+  do
     {
       tree field = TREE_OPERAND (x, 1);
 
@@ -1927,6 +1970,14 @@ nonoverlapping_memrefs_p (x, y)
       moffsetx = adjust_offset_for_component_ref (exprx, moffsetx);
       exprx = t;
     }
+  else if (TREE_CODE (exprx) == INDIRECT_REF)
+    {
+      exprx = TREE_OPERAND (exprx, 0);
+      if (flag_argument_noalias < 2
+	  || TREE_CODE (exprx) != PARM_DECL)
+	return 0;
+    }
+
   moffsety = MEM_OFFSET (y);
   if (TREE_CODE (expry) == COMPONENT_REF)
     {
@@ -1935,6 +1986,13 @@ nonoverlapping_memrefs_p (x, y)
 	return 0;
       moffsety = adjust_offset_for_component_ref (expry, moffsety);
       expry = t;
+    }
+  else if (TREE_CODE (expry) == INDIRECT_REF)
+    {
+      expry = TREE_OPERAND (expry, 0);
+      if (flag_argument_noalias < 2
+	  || TREE_CODE (expry) != PARM_DECL)
+	return 0;
     }
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
@@ -1963,15 +2021,15 @@ nonoverlapping_memrefs_p (x, y)
     offsety = INTVAL (XEXP (basey, 1)), basey = XEXP (basey, 0);
 
   /* If the bases are different, we know they do not overlap if both
-     are constants or if one is a constant and the other a pointer into the 
+     are constants or if one is a constant and the other a pointer into the
      stack frame.  Otherwise a different base means we can't tell if they
      overlap or not.  */
   if (! rtx_equal_p (basex, basey))
-      return ((CONSTANT_P (basex) && CONSTANT_P (basey))
-	      || (CONSTANT_P (basex) && REG_P (basey)
-		  && REGNO_PTR_FRAME_P (REGNO (basey)))
-	      || (CONSTANT_P (basey) && REG_P (basex)
-		  && REGNO_PTR_FRAME_P (REGNO (basex))));
+    return ((CONSTANT_P (basex) && CONSTANT_P (basey))
+	    || (CONSTANT_P (basex) && REG_P (basey)
+		&& REGNO_PTR_FRAME_P (REGNO (basey)))
+	    || (CONSTANT_P (basey) && REG_P (basex)
+		&& REGNO_PTR_FRAME_P (REGNO (basex))));
 
   sizex = (GET_CODE (rtlx) != MEM ? (int) GET_MODE_SIZE (GET_MODE (rtlx))
 	   : MEM_SIZE (rtlx) ? INTVAL (MEM_SIZE (rtlx))
@@ -2004,8 +2062,67 @@ nonoverlapping_memrefs_p (x, y)
 
   /* If we don't know the size of the lower-offset value, we can't tell
      if they conflict.  Otherwise, we do the test.  */
-  return sizex >= 0 && offsety > offsetx + sizex;
+  return sizex >= 0 && offsety >= offsetx + sizex;
 }
+
+/* APPLE LOCAL aliasing improvement */
+/* Helper for the following.  Return 1 only if we're sure of overlap. */
+
+static int
+overlapping_trees_p (exprx, expry)
+    tree exprx, expry;
+{
+  /* If no info about either one, can't tell. */
+  if (exprx == 0 || expry == 0)
+    return 0;
+
+  /* Top level code must match. */
+  if (TREE_CODE (exprx) != TREE_CODE (expry))
+    return 0;
+
+  /* Components.  */
+  if (TREE_CODE (exprx) == COMPONENT_REF)
+    {
+      /* They must refer to the same field... */
+      if (TREE_OPERAND (exprx, 1) != TREE_OPERAND (expry, 1))
+	return 0;
+      /* ...of the same object.  (The object may be null, which 
+	 will compare as not overlapping.) */
+      return overlapping_trees_p (TREE_OPERAND (exprx, 0), 
+				  TREE_OPERAND (expry, 0));
+    }
+
+  /* Pointers. */
+  if (TREE_CODE (exprx) == INDIRECT_REF)
+    return overlapping_trees_p (TREE_OPERAND (exprx, 0), 
+				TREE_OPERAND (expry, 0));
+
+  if (TREE_CODE (exprx) == VAR_DECL
+      || TREE_CODE (exprx) == PARM_DECL
+      || TREE_CODE (exprx) == CONST_DECL
+      || TREE_CODE (exprx) == FUNCTION_DECL)
+    return exprx == expry;
+
+  return 0;
+}
+
+/* Return 1 if memrefs definitely overlap, 0 otherwise. */
+
+static int
+overlapping_memrefs_p (x, y)
+     rtx x, y;
+{
+  tree exprx = MEM_EXPR (x), expry = MEM_EXPR (y);
+  rtx offsetx = MEM_OFFSET (x), offsety = MEM_OFFSET (y);
+
+  /* See if offsets collide.  Known but different offsets do not
+     overlap.  Unknown offsets will if the underlying object is the same. */
+  if (offsetx != 0 && offsety != 0 && !rtx_equal_p (offsetx, offsety))
+    return 0;
+
+  return overlapping_trees_p (exprx, expry);
+}
+/* APPLE LOCAL end aliasing */
 
 /* True dependence: X is read after store in MEM takes place.  */
 
@@ -2060,6 +2177,10 @@ true_dependence (mem, mem_mode, x, varies)
 		   && CONSTANT_POOL_ADDRESS_P (base))))
     return 0;
 
+  /* APPLE LOCAL */
+  if (overlapping_memrefs_p (mem, x))
+    return 1;
+
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
 
@@ -2088,9 +2209,9 @@ true_dependence (mem, mem_mode, x, varies)
 }
 
 /* Canonical true dependence: X is read after store in MEM takes place.
-   Variant of true_dependence which assumes MEM has already been 
-   canonicalized (hence we no longer do that here).  
-   The mem_addr argument has been added, since true_dependence computed 
+   Variant of true_dependence which assumes MEM has already been
+   canonicalized (hence we no longer do that here).
+   The mem_addr argument has been added, since true_dependence computed
    this value prior to canonicalizing.  */
 
 int
@@ -2102,6 +2223,13 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
   rtx x_addr;
 
   if (MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem))
+    return 1;
+
+  /* (mem:BLK (scratch)) is a special mechanism to conflict with everything.
+     This is used in epilogue deallocation functions.  */
+  if (GET_MODE (x) == BLKmode && GET_CODE (XEXP (x, 0)) == SCRATCH)
+    return 1;
+  if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
 
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
@@ -2121,6 +2249,10 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
     return 0;
 
   x_addr = get_addr (XEXP (x, 0));
+
+  /* APPLE LOCAL */
+  if (overlapping_memrefs_p (mem, x))
+    return 1;
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2147,8 +2279,8 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
 					      varies);
 }
 
-/* Returns non-zero if a write to X might alias a previous read from
-   (or, if WRITEP is non-zero, a write to) MEM.  */
+/* Returns nonzero if a write to X might alias a previous read from
+   (or, if WRITEP is nonzero, a write to) MEM.  */
 
 static int
 write_dependence_p (mem, x, writep)
@@ -2170,6 +2302,19 @@ write_dependence_p (mem, x, writep)
   if (GET_MODE (mem) == BLKmode && GET_CODE (XEXP (mem, 0)) == SCRATCH)
     return 1;
 
+  /* APPLE LOCAL begin make SPEC gcc work with strict aliasing */
+  x_addr = get_addr (XEXP (x, 0));
+  mem_addr = get_addr (XEXP (mem, 0));
+
+  /* If two addresses are "the same" they conflict, even if type
+     checking says they don't.  This is a bit too conservative
+     since there's no guarantee identical registers will have the
+     same values in both addresses.  This is required to build
+     the (nonstandard) version of gcc found in SPEC.  */
+  if (rtx_equal_p (x_addr, mem_addr))
+    return 1;
+  /* APPLE LOCAL end make SPEC gcc work with strict aliasing */
+
   if (DIFFERENT_ALIAS_SETS_P (x, mem))
     return 0;
 
@@ -2183,23 +2328,10 @@ write_dependence_p (mem, x, writep)
   if (! writep && RTX_UNCHANGING_P (mem))
     return 0;
 
-  /* APPLE LOCAL begin 3074317 */
-  x_addr = cselib_values_to_subst (x);
-  mem_addr = cselib_values_to_subst (mem);
-
-  /* If two addresses are "the same" they conflict, even if type
-     checking says they don't.  This is a bit too conservative
-     since there's no guarantee identical registers will have the
-     same values in both addresses.  This is required to build
-     the (nonstandard) version of gcc found in SPEC.  */
-  if (rtx_equal_p (x_addr, mem_addr))
-    return 1;
-  /* APPLE LOCAL end 3074317 */
-
   if (nonoverlapping_memrefs_p (x, mem))
     return 0;
 
-  /* APPLE LOCAL 3074317 x_addr and mem_addr moved up from here */
+  /* APPLE LOCAL x_addr and mem_addr moved up from here */
 
   if (! writep)
     {
@@ -2221,7 +2353,7 @@ write_dependence_p (mem, x, writep)
 			   SIZE_FOR_MODE (x), x_addr, 0))
     return 0;
 
-  fixed_scalar 
+  fixed_scalar
     = fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr,
 					 rtx_addr_varies_p);
 
@@ -2248,36 +2380,23 @@ output_dependence (mem, x)
 {
   return write_dependence_p (mem, x, /*writep=*/1);
 }
-
-/* Returns non-zero if X mentions something which is not
-   local to the function and is not constant.  */
+
+/* A subroutine of nonlocal_mentioned_p, returns 1 if *LOC mentions
+   something which is not local to the function and is not constant.  */
 
 static int
-nonlocal_mentioned_p (x)
-     rtx x;
+nonlocal_mentioned_p_1 (loc, data)
+     rtx *loc;
+     void *data ATTRIBUTE_UNUSED;
 {
+  rtx x = *loc;
   rtx base;
-  RTX_CODE code;
   int regno;
 
-  code = GET_CODE (x);
+  if (! x)
+    return 0;
 
-  if (GET_RTX_CLASS (code) == 'i')
-    {
-      /* Constant functions can be constant if they don't use
-         scratch memory used to mark function w/o side effects.  */
-      if (code == CALL_INSN && CONST_OR_PURE_CALL_P (x))
-        {
-	  x = CALL_INSN_FUNCTION_USAGE (x);
-	  if (x == 0)
-	    return 0;
-        }
-      else
-        x = PATTERN (x);
-      code = GET_CODE (x);
-    }
-
-  switch (code)
+  switch (GET_CODE (x))
     {
     case SUBREG:
       if (GET_CODE (SUBREG_REG (x)) == REG)
@@ -2359,30 +2478,210 @@ nonlocal_mentioned_p (x)
       break;
     }
 
-  /* Recursively scan the operands of this expression.  */
+  return 0;
+}
 
-  {
-    const char *fmt = GET_RTX_FORMAT (code);
-    int i;
-    
-    for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-      {
-	if (fmt[i] == 'e' && XEXP (x, i))
-	  {
-	    if (nonlocal_mentioned_p (XEXP (x, i)))
-	      return 1;
-	  }
-	else if (fmt[i] == 'E')
-	  {
-	    int j;
-	    for (j = 0; j < XVECLEN (x, i); j++)
-	      if (nonlocal_mentioned_p (XVECEXP (x, i, j)))
-		return 1;
-	  }
-      }
-  }
+/* Returns nonzero if X might mention something which is not
+   local to the function and is not constant.  */
+
+static int
+nonlocal_mentioned_p (x)
+     rtx x;
+{
+
+  if (INSN_P (x))
+    {
+      if (GET_CODE (x) == CALL_INSN)
+	{
+	  if (! CONST_OR_PURE_CALL_P (x))
+	    return 1;
+	  x = CALL_INSN_FUNCTION_USAGE (x);
+	  if (x == 0)
+	    return 0;
+	}
+      else
+	x = PATTERN (x);
+    }
+
+  return for_each_rtx (&x, nonlocal_mentioned_p_1, NULL);
+}
+
+/* A subroutine of nonlocal_referenced_p, returns 1 if *LOC references
+   something which is not local to the function and is not constant.  */
+
+static int
+nonlocal_referenced_p_1 (loc, data)
+     rtx *loc;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *loc;
+
+  if (! x)
+    return 0;
+
+  switch (GET_CODE (x))
+    {
+    case MEM:
+    case REG:
+    case SYMBOL_REF:
+    case SUBREG:
+      return nonlocal_mentioned_p (x);
+
+    case CALL:
+      /* Non-constant calls and recursion are not local.  */
+      return 1;
+
+    case SET:
+      if (nonlocal_mentioned_p (SET_SRC (x)))
+	return 1;
+
+      if (GET_CODE (SET_DEST (x)) == MEM)
+	return nonlocal_mentioned_p (XEXP (SET_DEST (x), 0));
+
+      /* If the destination is anything other than a CC0, PC,
+	 MEM, REG, or a SUBREG of a REG that occupies all of
+	 the REG, then X references nonlocal memory if it is
+	 mentioned in the destination.  */
+      if (GET_CODE (SET_DEST (x)) != CC0
+	  && GET_CODE (SET_DEST (x)) != PC
+	  && GET_CODE (SET_DEST (x)) != REG
+	  && ! (GET_CODE (SET_DEST (x)) == SUBREG
+		&& GET_CODE (SUBREG_REG (SET_DEST (x))) == REG
+		&& (((GET_MODE_SIZE (GET_MODE (SUBREG_REG (SET_DEST (x))))
+		      + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD)
+		    == ((GET_MODE_SIZE (GET_MODE (SET_DEST (x)))
+			 + (UNITS_PER_WORD - 1)) / UNITS_PER_WORD))))
+	return nonlocal_mentioned_p (SET_DEST (x));
+      return 0;
+
+    case CLOBBER:
+      if (GET_CODE (XEXP (x, 0)) == MEM)
+	return nonlocal_mentioned_p (XEXP (XEXP (x, 0), 0));
+      return 0;
+
+    case USE:
+      return nonlocal_mentioned_p (XEXP (x, 0));
+
+    case ASM_INPUT:
+    case UNSPEC_VOLATILE:
+      return 1;
+
+    case ASM_OPERANDS:
+      if (MEM_VOLATILE_P (x))
+	return 1;
+
+    /* FALLTHROUGH */
+
+    default:
+      break;
+    }
 
   return 0;
+}
+
+/* Returns nonzero if X might reference something which is not
+   local to the function and is not constant.  */
+
+static int
+nonlocal_referenced_p (x)
+     rtx x;
+{
+
+  if (INSN_P (x))
+    {
+      if (GET_CODE (x) == CALL_INSN)
+	{
+	  if (! CONST_OR_PURE_CALL_P (x))
+	    return 1;
+	  x = CALL_INSN_FUNCTION_USAGE (x);
+	  if (x == 0)
+	    return 0;
+	}
+      else
+	x = PATTERN (x);
+    }
+
+  return for_each_rtx (&x, nonlocal_referenced_p_1, NULL);
+}
+
+/* A subroutine of nonlocal_set_p, returns 1 if *LOC sets
+   something which is not local to the function and is not constant.  */
+
+static int
+nonlocal_set_p_1 (loc, data)
+     rtx *loc;
+     void *data ATTRIBUTE_UNUSED;
+{
+  rtx x = *loc;
+
+  if (! x)
+    return 0;
+
+  switch (GET_CODE (x))
+    {
+    case CALL:
+      /* Non-constant calls and recursion are not local.  */
+      return 1;
+
+    case PRE_INC:
+    case PRE_DEC:
+    case POST_INC:
+    case POST_DEC:
+    case PRE_MODIFY:
+    case POST_MODIFY:
+      return nonlocal_mentioned_p (XEXP (x, 0));
+
+    case SET:
+      if (nonlocal_mentioned_p (SET_DEST (x)))
+	return 1;
+      return nonlocal_set_p (SET_SRC (x));
+
+    case CLOBBER:
+      return nonlocal_mentioned_p (XEXP (x, 0));
+
+    case USE:
+      return 0;
+
+    case ASM_INPUT:
+    case UNSPEC_VOLATILE:
+      return 1;
+
+    case ASM_OPERANDS:
+      if (MEM_VOLATILE_P (x))
+	return 1;
+
+    /* FALLTHROUGH */
+
+    default:
+      break;
+    }
+
+  return 0;
+}
+
+/* Returns nonzero if X might set something which is not
+   local to the function and is not constant.  */
+
+static int
+nonlocal_set_p (x)
+     rtx x;
+{
+
+  if (INSN_P (x))
+    {
+      if (GET_CODE (x) == CALL_INSN)
+	{
+	  if (! CONST_OR_PURE_CALL_P (x))
+	    return 1;
+	  x = CALL_INSN_FUNCTION_USAGE (x);
+	  if (x == 0)
+	    return 0;
+	}
+      else
+	x = PATTERN (x);
+    }
+
+  return for_each_rtx (&x, nonlocal_set_p_1, NULL);
 }
 
 /* Mark the function if it is constant.  */
@@ -2391,42 +2690,51 @@ void
 mark_constant_function ()
 {
   rtx insn;
-  int nonlocal_mentioned;
+  int nonlocal_memory_referenced;
 
-  if (TREE_PUBLIC (current_function_decl)
-      || TREE_READONLY (current_function_decl)
+  if (TREE_READONLY (current_function_decl)
       || DECL_IS_PURE (current_function_decl)
       || TREE_THIS_VOLATILE (current_function_decl)
-      || TYPE_MODE (TREE_TYPE (current_function_decl)) == VOIDmode)
+      || TYPE_MODE (TREE_TYPE (current_function_decl)) == VOIDmode
+      || current_function_has_nonlocal_goto
+      || !(*targetm.binds_local_p) (current_function_decl))
     return;
 
   /* A loop might not return which counts as a side effect.  */
   if (mark_dfs_back_edges ())
     return;
 
-  nonlocal_mentioned = 0;
+  nonlocal_memory_referenced = 0;
 
   init_alias_analysis ();
 
-  /* Determine if this is a constant function.  */
+  /* Determine if this is a constant or pure function.  */
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
-    if (INSN_P (insn) && nonlocal_mentioned_p (insn))
-      {
-	nonlocal_mentioned = 1;
+    {
+      if (! INSN_P (insn))
+	continue;
+
+      if (nonlocal_set_p (insn) || global_reg_mentioned_p (insn)
+	  || volatile_refs_p (PATTERN (insn)))
 	break;
-      }
+
+      if (! nonlocal_memory_referenced)
+	nonlocal_memory_referenced = nonlocal_referenced_p (insn);
+    }
 
   end_alias_analysis ();
 
   /* Mark the function.  */
 
-  if (! nonlocal_mentioned)
+  if (insn)
+    ;
+  else if (nonlocal_memory_referenced)
+    DECL_IS_PURE (current_function_decl) = 1;
+  else
     TREE_READONLY (current_function_decl) = 1;
 }
-
-
-static HARD_REG_SET argument_registers;
+
 
 void
 init_alias_once ()
@@ -2442,7 +2750,19 @@ init_alias_once ()
        numbers, so translate if necessary due to register windows.  */
     if (FUNCTION_ARG_REGNO_P (OUTGOING_REGNO (i))
 	&& HARD_REGNO_MODE_OK (i, Pmode))
-      SET_HARD_REG_BIT (argument_registers, i);
+      static_reg_base_value[i]
+	= gen_rtx_ADDRESS (VOIDmode, gen_rtx_REG (Pmode, i));
+
+  static_reg_base_value[STACK_POINTER_REGNUM]
+    = gen_rtx_ADDRESS (Pmode, stack_pointer_rtx);
+  static_reg_base_value[ARG_POINTER_REGNUM]
+    = gen_rtx_ADDRESS (Pmode, arg_pointer_rtx);
+  static_reg_base_value[FRAME_POINTER_REGNUM]
+    = gen_rtx_ADDRESS (Pmode, frame_pointer_rtx);
+#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
+  static_reg_base_value[HARD_FRAME_POINTER_REGNUM]
+    = gen_rtx_ADDRESS (Pmode, hard_frame_pointer_rtx);
+#endif
 
   alias_sets = splay_tree_new (splay_tree_compare_ints, 0, 0);
 }
@@ -2461,10 +2781,10 @@ init_alias_analysis ()
 
   reg_known_value_size = maxreg;
 
-  reg_known_value 
+  reg_known_value
     = (rtx *) xcalloc ((maxreg - FIRST_PSEUDO_REGISTER), sizeof (rtx))
     - FIRST_PSEUDO_REGISTER;
-  reg_known_equiv_p 
+  reg_known_equiv_p
     = (char*) xcalloc ((maxreg - FIRST_PSEUDO_REGISTER), sizeof (char))
     - FIRST_PSEUDO_REGISTER;
 
@@ -2472,8 +2792,8 @@ init_alias_analysis ()
      optimization.  Loop unrolling can create a large number of
      registers.  */
   reg_base_value_size = maxreg * 2;
-  reg_base_value = (rtx *) xcalloc (reg_base_value_size, sizeof (rtx));
-  ggc_add_rtx_root (reg_base_value, reg_base_value_size);
+  reg_base_value = (rtx *) ggc_alloc_cleared (reg_base_value_size
+					      * sizeof (rtx));
 
   new_reg_base_value = (rtx *) xmalloc (reg_base_value_size * sizeof (rtx));
   reg_seen = (char *) xmalloc (reg_base_value_size);
@@ -2516,7 +2836,7 @@ init_alias_analysis ()
 
       /* We're at the start of the function each iteration through the
 	 loop, so we're copying arguments.  */
-      copying_arguments = 1;
+      copying_arguments = true;
 
       /* Wipe the potential alias information clean for this pass.  */
       memset ((char *) new_reg_base_value, 0, reg_base_value_size * sizeof (rtx));
@@ -2532,21 +2852,8 @@ init_alias_analysis ()
 	 The address expression is VOIDmode for an argument and
 	 Pmode for other registers.  */
 
-      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-	if (TEST_HARD_REG_BIT (argument_registers, i))
-	  new_reg_base_value[i] = gen_rtx_ADDRESS (VOIDmode,
-						   gen_rtx_REG (Pmode, i));
-
-      new_reg_base_value[STACK_POINTER_REGNUM]
-	= gen_rtx_ADDRESS (Pmode, stack_pointer_rtx);
-      new_reg_base_value[ARG_POINTER_REGNUM]
-	= gen_rtx_ADDRESS (Pmode, arg_pointer_rtx);
-      new_reg_base_value[FRAME_POINTER_REGNUM]
-	= gen_rtx_ADDRESS (Pmode, frame_pointer_rtx);
-#if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
-      new_reg_base_value[HARD_FRAME_POINTER_REGNUM]
-	= gen_rtx_ADDRESS (Pmode, hard_frame_pointer_rtx);
-#endif
+      memcpy (new_reg_base_value, static_reg_base_value,
+	      FIRST_PSEUDO_REGISTER * sizeof (rtx));
 
       /* Walk the insns adding values to the new_reg_base_value array.  */
       for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
@@ -2619,7 +2926,7 @@ init_alias_analysis ()
 	    }
 	  else if (GET_CODE (insn) == NOTE
 		   && NOTE_LINE_NUMBER (insn) == NOTE_INSN_FUNCTION_BEG)
-	    copying_arguments = 0;
+	    copying_arguments = false;
 	}
 
       /* Now propagate values from new_reg_base_value to reg_base_value.  */
@@ -2687,12 +2994,7 @@ end_alias_analysis ()
   reg_known_value_size = 0;
   free (reg_known_equiv_p + FIRST_PSEUDO_REGISTER);
   reg_known_equiv_p = 0;
-  if (reg_base_value)
-    {
-      ggc_del_root (reg_base_value);
-      free (reg_base_value);
-      reg_base_value = 0;
-    }
+  reg_base_value = 0;
   reg_base_value_size = 0;
   if (alias_invariant)
     {
@@ -2700,3 +3002,5 @@ end_alias_analysis ()
       alias_invariant = 0;
     }
 }
+
+#include "gt-alias.h"

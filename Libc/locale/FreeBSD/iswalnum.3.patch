@@ -1,0 +1,25 @@
+--- iswalnum.3.orig	Fri Mar 11 19:18:47 2005
++++ iswalnum.3	Fri Mar 11 19:20:06 2005
+@@ -114,6 +114,12 @@
+ functions (like
+ .Xr isalnum 3 ) ,
+ for details.
++.Pp
++Extended locale versions of these functions are documented in
++.Xr iswalnum_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The functions return zero if the character tests false and
+ return non-zero if the character tests true.
+@@ -137,7 +143,8 @@
+ .Xr isspecial 3 ,
+ .Xr isupper 3 ,
+ .Xr isxdigit 3 ,
+-.Xr wctype 3
++.Xr wctype 3 ,
++.Xr iswalnum_l 3
+ .Sh STANDARDS
+ These functions conform to
+ .St -p1003.1-2001 ,

@@ -57,27 +57,44 @@ __RCSID("$FreeBSD: src/bin/chmod/chmod.c,v 1.27 2002/08/04 05:29:13 obrien Exp $
 #include <string.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include "chmod_acl.h"
+
+#endif /*__APPLE__*/
+
+int fflag = 0;
+
 int main(int, char *[]);
 void usage(void);
 
 int
 main(int argc, char *argv[])
 {
-	FTS *ftsp;
-	FTSENT *p;
-	mode_t *set;
-	long val;
-	int oct;
-	int Hflag, Lflag, Rflag, ch, fflag, fts_options, hflag, rval;
+	FTS *ftsp = NULL;
+	FTSENT *p = NULL;
+	mode_t *set = NULL;
+	long val = 0;
+	int oct = 0;
+	int Hflag, Lflag, Rflag, ch, fts_options, hflag, rval;
 	int vflag;
 	char *ep, *mode;
 	mode_t newmode, omode;
+#ifdef __APPLE__
+	unsigned int acloptflags = 0;
+	int aclpos = -1, inheritance_level = 0;
+	int index = 0, acloptlen = 0, ace_arg_not_required = 0;
+	acl_t acl_input = NULL;
+#endif /* __APPLE__*/
 	int (*change_mode)(const char *, mode_t);
 
 	set = NULL;
 	omode = 0;
 	Hflag = Lflag = Rflag = fflag = hflag = vflag = 0;
+#ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "ACEHILPRVXafginorstuvwx")) != -1)
+#endif
 		switch (ch) {
 		case 'H':
 			Hflag = 1;
@@ -108,6 +125,34 @@ main(int argc, char *argv[])
 			 */
 			hflag = 1;
 			break;
+#else
+		case 'a':
+			if (argv[optind - 1][0] == '-' &&
+			    argv[optind - 1][1] == ch)
+				--optind;
+			goto done;
+		case 'E':
+			acloptflags |= ACL_FLAG | ACL_FROM_STDIN;
+			goto done;
+		case 'C':
+			acloptflags |= ACL_FLAG | ACL_CHECK_CANONICITY;
+			ace_arg_not_required = 1;
+			goto done;
+		case 'i':
+			acloptflags |= ACL_FLAG | ACL_REMOVE_INHERIT_FLAG;
+			ace_arg_not_required = 1;
+			goto done;
+		case 'I':
+			acloptflags |= ACL_FLAG | ACL_REMOVE_INHERITED_ENTRIES;
+			ace_arg_not_required = 1;
+			goto done;
+		case 'n':
+			acloptflags |= ACL_FLAG | ACL_NO_TRANSLATE;
+			break;
+		case 'V':
+			acloptflags |= ACL_FLAG | ACL_INVOKE_EDITOR;
+			ace_arg_not_required = 1;
+			goto done;
 #endif /* __APPLE__ */
 		/*
 		 * XXX
@@ -132,8 +177,82 @@ main(int argc, char *argv[])
 done:	argv += optind;
 	argc -= optind;
 
+#ifdef __APPLE__
+	if (argc < ((acloptflags & ACL_FLAG) ? 1 : 2))
+		usage();
+#else
 	if (argc < 2)
 		usage();
+#endif
+
+#ifdef __APPLE__
+	if (!(acloptflags & ACL_FLAG) && ((acloptlen = strlen(argv[0])) > 1) && (argv[0][1] == 'a')) {
+		acloptflags |= ACL_FLAG;
+		switch (argv[0][0]) {
+		case '+':
+			acloptflags |= ACL_SET_FLAG;
+			break;
+		case '-':
+			acloptflags |= ACL_DELETE_FLAG;
+			break;
+		case '=':
+			acloptflags |= ACL_REWRITE_FLAG;
+			break;
+		default:
+			acloptflags &= ~ACL_FLAG;
+			goto apnoacl;
+		}
+		
+		if (argc < 3)
+			usage();
+
+		if (acloptlen > 2) {
+			for (index = 2; index < acloptlen; index++) {
+				switch (argv[0][index]) {
+				case '#':
+					acloptflags |= ACL_ORDER_FLAG;
+
+					if (argc < ((acloptflags & ACL_DELETE_FLAG)
+						    ? 3 : 4))
+						usage();
+					argv++;
+					argc--;
+					errno = 0;
+					aclpos = strtol(argv[0], &ep, 0);
+
+					if (aclpos > ACL_MAX_ENTRIES
+					    || aclpos < 0)
+						errno = ERANGE;
+					if (errno || *ep)
+						err(1, "Invalid ACL entry number: %s", aclpos);
+					if (acloptflags & ACL_DELETE_FLAG)
+						ace_arg_not_required = 1;
+
+					goto apdone;
+				case 'i':
+					acloptflags |= ACL_INHERIT_FLAG;
+					/* The +aii.. syntax to specify
+					 * inheritance level is rather unwieldy,
+					 * find an alternative.
+					 */
+					inheritance_level++;
+					if (inheritance_level > 1)
+						warn("Inheritance across more than one generation is not currently supported");
+					if (inheritance_level >= MAX_INHERITANCE_LEVEL)
+						goto apdone;
+					break;
+				default:
+					errno = EINVAL;
+					usage();
+				}
+			}
+		}
+apdone:
+		argv++;
+		argc--;
+	}
+apnoacl:
+#endif /*__APPLE__*/
 
 	if (Rflag) {
 		fts_options = FTS_PHYSICAL;
@@ -157,25 +276,72 @@ done:	argv += optind;
 #else
 	change_mode = chmod;
 #endif /* __APPLE__ */
-
-	mode = *argv;
-	if (*mode >= '0' && *mode <= '7') {
-		errno = 0;
-		val = strtol(mode, &ep, 8);
-		if (val > USHRT_MAX || val < 0)
-			errno = ERANGE;
-		if (errno)
-			err(1, "invalid file mode: %s", mode);
-		if (*ep)
-			errx(1, "invalid file mode: %s", mode);
-		omode = (mode_t)val;
-		oct = 1;
-	} else {
-		if ((set = setmode(mode)) == NULL)
-			errx(1, "invalid file mode: %s", mode);
-		oct = 0;
+#ifdef __APPLE__
+	if (acloptflags & ACL_FROM_STDIN) {
+		int readval = 0, readtotal = 0;
+		
+		mode = (char *) malloc(MAX_ACL_TEXT_SIZE);
+		
+		if (mode == NULL)
+			err(1, "Unable to allocate mode string");
+		/* Read the ACEs from STDIN */
+		do {
+			readtotal += readval;
+			readval = read(STDIN_FILENO, mode + readtotal, 
+				       MAX_ACL_TEXT_SIZE);
+		} while ((readval > 0) && (readtotal <= MAX_ACL_TEXT_SIZE));
+			
+		if (0 == readtotal)
+			err(1, "-E specified, but read from STDIN failed");
+		else
+			mode[readtotal - 1] = '\0';
+		--argv;
 	}
+	else
+#endif /* __APPLE */
+		mode = *argv;
 
+#ifdef __APPLE__
+	if ((acloptflags & ACL_FLAG)) {
+
+		/* Are we deleting by entry number, verifying
+		 * canonicity or performing some other operation that
+		 * does not require an input entry? If so, there's no
+		 * entry to convert.
+		 */
+		if (ace_arg_not_required) {
+			--argv;
+		}
+		else {
+                        /* Parse the text into an ACL*/
+			acl_input = parse_acl_entries(mode);
+			if (acl_input == NULL) {
+				errno = EINVAL;
+				err(1, "Invalid ACL specification: %s", mode);
+			}
+		}
+	}
+	else {
+#endif /* __APPLE__*/
+		if (*mode >= '0' && *mode <= '7') {
+			errno = 0;
+			val = strtol(mode, &ep, 8);
+			if (val > USHRT_MAX || val < 0)
+				errno = ERANGE;
+			if (errno)
+				err(1, "Invalid file mode: %s", mode);
+			if (*ep)
+				errx(1, "Invalid file mode: %s", mode);
+			omode = (mode_t)val;
+			oct = 1;
+		} else {
+			if ((set = setmode(mode)) == NULL)
+				errx(1, "Invalid file mode: %s", mode);
+			oct = 0;
+		}
+#ifdef __APPLE__
+	}
+#endif /* __APPLE__*/
 	if ((ftsp = fts_open(++argv, fts_options, 0)) == NULL)
 		err(1, "fts_open");
 	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
@@ -207,36 +373,55 @@ done:	argv += optind;
 		default:
 			break;
 		}
-		newmode = oct ? omode : getmode(set, p->fts_statp->st_mode);
-		if ((newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
-			continue;
-		if ((*change_mode)(p->fts_accpath, newmode) && !fflag) {
-			warn("%s", p->fts_path);
-			rval = 1;
-		} else {
-			if (vflag) {
-				(void)printf("%s", p->fts_accpath);
-
-				if (vflag > 1) {
-					char m1[12], m2[12];
-
-					strmode(p->fts_statp->st_mode, m1);
-					strmode((p->fts_statp->st_mode &
-					    S_IFMT) | newmode, m2);
-
-					(void)printf(": 0%o [%s] -> 0%o [%s]",
-					    p->fts_statp->st_mode, m1,
-					    (p->fts_statp->st_mode & S_IFMT) |
-					    newmode, m2);
-				}
-				(void)printf("\n");
-			}
-
+#ifdef __APPLE__
+/* If an ACL manipulation option was specified, manipulate */
+		if (acloptflags & ACL_FLAG)	{
+			if (0 != modify_file_acl(acloptflags, p->fts_accpath, acl_input, aclpos, inheritance_level))
+				rval = 1;
 		}
+		else {
+#endif /* __APPLE__ */
+			newmode = oct ? omode : getmode(set, p->fts_statp->st_mode);
+			if ((newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
+				continue;
+			if ((*change_mode)(p->fts_accpath, newmode) && !fflag) {
+				warn("%s", p->fts_path);
+				rval = 1;
+			} else {
+				if (vflag) {
+					(void)printf("%s", p->fts_accpath);
+
+					if (vflag > 1) {
+						char m1[12], m2[12];
+						
+						strmode(p->fts_statp->st_mode, m1);
+						strmode((p->fts_statp->st_mode &
+							 S_IFMT) | newmode, m2);
+						
+						(void)printf(": 0%o [%s] -> 0%o [%s]",
+							     p->fts_statp->st_mode, m1,
+					    (p->fts_statp->st_mode & S_IFMT) |
+							     newmode, m2);
+					}
+					(void)printf("\n");
+				}
+				
+			}
+#ifdef __APPLE__
+		}
+#endif /* __APPLE__*/
 	}
 	if (errno)
 		err(1, "fts_read");
-	free(set);
+#ifdef __APPLE__
+	if (acl_input)
+		acl_free(acl_input);
+	if (mode && (acloptflags & ACL_FROM_STDIN))
+		free(mode);
+	
+#endif /* __APPLE__ */
+	if (set)
+		free(set);
 	exit(rval);
 }
 
@@ -245,7 +430,7 @@ usage(void)
 {
 #ifdef __APPLE__
 	(void)fprintf(stderr,
-	    "usage: chmod [-fv] [-R [-H | -L | -P]] mode file ...\n");
+	    "usage: chmod [-fv] [-R [-H | -L | -P]] [-a | +a | =a  [i][# [ n]]] mode|entry file ...\n");
 #else
 	(void)fprintf(stderr,
 	    "usage: chmod [-fhv] [-R [-H | -L | -P]] mode file ...\n");

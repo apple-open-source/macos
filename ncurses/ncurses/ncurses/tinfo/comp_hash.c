@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998,2001,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -48,7 +48,7 @@
 #define DEBUG(level, params)	/*nothing */
 #endif
 
-MODULE_ID("$Id: comp_hash.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: comp_hash.c,v 1.26 2003/11/08 21:58:36 tom Exp $")
 
 static int hash_function(const char *);
 
@@ -97,7 +97,7 @@ _nc_make_hash_table(struct name_table_entry *table,
  *	Computes the hashing function on the given string.
  *
  *	The current hash function is the sum of each consectutive pair
- *	of characters, taken as two-byte integers, mod Hashtabsize.
+ *	of characters, taken as two-byte integers, mod HASHTABSIZE.
  *
  */
 

@@ -41,7 +41,7 @@
  **
  ******************************************************************************
  *****************************************************************************/
-/* $XFree86: xc/lib/Xp/XpNotifyPdm.c,v 1.6 2002/10/16 00:37:32 dawes Exp $ */
+/* $XFree86: xc/lib/Xp/XpNotifyPdm.c,v 1.8 2003/12/22 17:48:04 tsi Exp $ */
 
 #include <X11/extensions/Print.h>
 #include <X11/Xlibint.h>
@@ -131,16 +131,18 @@ _XpGetSelectionServer (
 
 	    /*
 	     * remove ".scr" portion from "host:disp.scr" strings.
+	     * Use strrchr to find : separating host from display
+	     * to allow IPv6 numeric addresses with embedded colons.
 	     */
-	    if (( tstrptr = strchr( tstr1, ':' ) ))
+	    if (( tstrptr = strrchr( tstr1, ':' ) ))
 		if (( tstrptr = strchr( tstrptr, '.' ) ))
 		    *tstrptr = '\0';
 
-	    if (( tstrptr = strchr( tstr2, ':' ) ))
+	    if (( tstrptr = strrchr( tstr2, ':' ) ))
 		if (( tstrptr = strchr( tstrptr, '.' ) ))
 		    *tstrptr = '\0';
 
-	    if (( tstrptr = strchr( tstr3, ':' ) ))
+	    if (( tstrptr = strrchr( tstr3, ':' ) ))
 		if (( tstrptr = strchr( tstrptr, '.' ) ))
 		    *tstrptr = '\0';
 
@@ -568,6 +570,7 @@ static Bool digOutPropertyNotify(
     return( False );
 }
 
+#ifdef UNUSED
 /*
  * Dig out a ClientMessage of type PDM_REPLY.
  */
@@ -588,7 +591,7 @@ static Bool digOutClientMessage(
     }
     return( False );
 }
-
+#endif
 
 
 /******************************************************************************

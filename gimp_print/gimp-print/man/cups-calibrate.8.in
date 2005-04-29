@@ -1,5 +1,5 @@
-.\" $Id: cups-calibrate.8.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
-.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\" $Id: cups-calibrate.8.in,v 1.3 2004/07/30 01:28:56 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <rleigh@debian.org>
 .\"
 .\" This program is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
@@ -14,11 +14,11 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with this program; if not, write to the Free Software
 .\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-.TH CUPS-CALIBRATE "8" "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.TH CUPS\-CALIBRATE "8" "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
 .SH NAME
-cups-calibrate \- ESP CUPS Printer Calibration Tool
+cups\-calibrate \- ESP CUPS Printer Calibration Tool
 .SH SYNOPSIS
-.B cups-calibrate
+.B cups\-calibrate
 .SH DESCRIPTION
 This program allows you to calibrate the color output of printers using the
 \fBGimp-Print\fR \fICUPS\fR or \fIESP Print Pro\fR drivers.
@@ -28,7 +28,7 @@ Please note that this program \fBonly\fP works with the \fBGimp-Print\fR
 \fIstp\fR or \fIijsgimmprint\fR driver for GhostScript or the drivers for the
 Gimp-Print plug-in for \fIThe GIMP\fR, the calibration will not work.
 .PP
-These drivers are identified by the text \fICUPS+GIMP-print\fR or \fIESP Print
+These drivers are identified by the text \fICUPS+GIMP\-print\fR or \fIESP Print
 Pro\fR in the model description displayed by the CUPS web interface, KUPS, the
 ESP Print Pro Printer Manager, or printerdrake.
 .PP
@@ -44,7 +44,7 @@ This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2, as
 published by the Free Software Foundation.
 .PP
-This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net).
+This manual page was written by Roger Leigh (rleigh@debian.org).
 .\"#
 .\"# The following sets edit modes for GNU EMACS
 .\"# Local Variables:

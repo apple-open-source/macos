@@ -1,8 +1,12 @@
 /* $RoughId: md5init.c,v 1.2 2001/07/13 19:49:10 knu Exp $ */
-/* $Id: md5init.c,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $ */
+/* $Id: md5init.c,v 1.5 2002/09/26 16:27:23 knu Exp $ */
 
 #include "digest.h"
+#if defined(HAVE_OPENSSL_MD5_H)
+#include "md5ossl.h"
+#else
 #include "md5.h"
+#endif
 
 static algo_t md5 = {
     MD5_DIGEST_LENGTH,
@@ -18,7 +22,6 @@ void
 Init_md5()
 {
     VALUE mDigest, cDigest_Base, cDigest_MD5;
-    ID id_metadata;
 
     rb_require("digest.so");
 
@@ -27,8 +30,6 @@ Init_md5()
 
     cDigest_MD5 = rb_define_class_under(mDigest, "MD5", cDigest_Base);
 
-    id_metadata = rb_intern("metadata");
-
-    rb_cvar_declare(cDigest_MD5, id_metadata,
-		    Data_Wrap_Struct(rb_cObject, 0, 0, &md5));
+    rb_cvar_set(cDigest_MD5, rb_intern("metadata"),
+		Data_Wrap_Struct(rb_cObject, 0, 0, &md5), Qtrue);
 }

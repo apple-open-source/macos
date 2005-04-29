@@ -202,6 +202,7 @@ redirect:
 				if (!nflag && !pd)
 					OUT(ps)
 				flush_appends();
+				lseek(STDIN_FILENO, ftell(stdin), SEEK_SET);
 				exit(0);
 			case 'r':
 				if (appendx >= appendnum)

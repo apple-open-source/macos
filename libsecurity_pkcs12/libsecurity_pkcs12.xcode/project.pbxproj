@@ -1,0 +1,660 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		05396DB50417A34400003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12BagAttrs.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05396DB60417A34400003D05 = {
+			fileRef = 05396DB50417A34400003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05396DB90417B81000003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12Debug.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05396DBA0417B81000003D05 = {
+			fileRef = 05396DB90417B81000003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054289210416A4EA00003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12SafeBag.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054289220416A4EA00003D05 = {
+			fileRef = 054289210416A4EA00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054289230416A5A800003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12BagAttrs.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054289240416A5A800003D05 = {
+			fileRef = 054289230416A5A800003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054289250416AA2F00003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12Coder.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054289260416AA2F00003D05 = {
+			fileRef = 054289250416AA2F00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		054289270416AA2F00003D05 = {
+			fileRef = 054289250416AA2F00003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		054289280416B3D100003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Coder.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054289290416B3D100003D05 = {
+			fileRef = 054289280416B3D100003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0542892B0416B65F00003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Encode.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0542892C0416B65F00003D05 = {
+			fileRef = 0542892B0416B65F00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0542892D0416B6C300003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Decode.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0542892E0416B6C300003D05 = {
+			fileRef = 0542892D0416B6C300003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0542892F0416BB4500003D05 = {
+			isa = PBXTargetDependency;
+			target = 0592AC930415527A00003D05;
+			targetProxy = 4C9A5B87056AB50100B1BEFE;
+		};
+		054289300416BBF800003D05 = {
+			fileRef = 054289230416A5A800003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		054289310416BC4100003D05 = {
+			fileRef = 054289210416A4EA00003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Private,
+				);
+			};
+		};
+		054289330416C36700003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12SafeBag.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		054289340416C36700003D05 = {
+			fileRef = 054289330416C36700003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592AC81041551E100003D05 = {
+			children = (
+				0592AC96041552BB00003D05,
+				0592AC8D0415523C00003D05,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC83041551E100003D05 = {
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		0592AC84041551E100003D05 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		0592AC85041551E100003D05 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				0592AC83041551E100003D05,
+				0592AC84041551E100003D05,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 0592AC81041551E100003D05;
+			productRefGroup = 0592AC8D0415523C00003D05;
+			projectDirPath = "";
+			targets = (
+				0592AC8B0415523C00003D05,
+				0592AC930415527A00003D05,
+			);
+		};
+		0592AC870415523C00003D05 = {
+			buildActionMask = 2147483647;
+			files = (
+				0592ACAD04156B4000003D05,
+				0592ACAE04156B4000003D05,
+				0592ACB004156B4000003D05,
+				0592ACB104156B4000003D05,
+				0592ACD1041665AE00003D05,
+				054289220416A4EA00003D05,
+				054289240416A5A800003D05,
+				054289260416AA2F00003D05,
+				05396DBA0417B81000003D05,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC880415523C00003D05 = {
+			buildActionMask = 2147483647;
+			files = (
+				05396DB60417A34400003D05,
+				054289290416B3D100003D05,
+				0592ACA004156B2B00003D05,
+				0542892E0416B6C300003D05,
+				0542892C0416B65F00003D05,
+				05A9EF65041FB7C600003D05,
+				054289340416C36700003D05,
+				0592ACA204156B2B00003D05,
+				0592ACA304156B2B00003D05,
+				0592AC9F04156B2B00003D05,
+				0592ACD404167B1F00003D05,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC890415523C00003D05 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC8B0415523C00003D05 = {
+			buildPhases = (
+				0592AC870415523C00003D05,
+				0592AC880415523C00003D05,
+				0592AC890415523C00003D05,
+				4C9A5BB2056AB5EC00B1BEFE,
+				4C9A5BB3056AB5EF00B1BEFE,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal debug";
+				CURRENT_PROJECT_VERSION = 12;
+				FRAMEWORK_SEARCH_PATHS = "/usr/local/SecurityPieces/Frameworks /usr/local/SecurityPieces/Components/Security";
+				HEADER_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers\" \"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders\"";
+				LIBRARY_STYLE = STATIC;
+				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
+				OPT_CPPFLAGS = "$(OPT_CFLAGS) -fno-enforce-eh-specs -fno-implement-inlines -fcoalesce-templates";
+				OPT_INLINEFLAGS = "-finline-functions --param max-inline-insns-single=100 --param max-inline-insns-auto=150 --param max-inline-insns=180 --param min-inline-insns=60";
+				OPT_LDFLAGS = "";
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "$(OPT_CFLAGS)  $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "$(OPT_CFLAGS)  $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "$(OPT_CPPFLAGS) $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) $(OTHER_LDFLAGS) -pg";
+				PRODUCT_NAME = security_pkcs12;
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				0542892F0416BB4500003D05,
+			);
+			isa = PBXLibraryTarget;
+			name = libsecurity_pkcs12;
+			productInstallPath = /usr/local/lib;
+			productName = libnsspkcs12;
+			productReference = 0592AC8C0415523C00003D05;
+		};
+		0592AC8C0415523C00003D05 = {
+			explicitFileType = "compiled.mach-o.dylib";
+			isa = PBXFileReference;
+			path = security_pkcs12;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		0592AC8D0415523C00003D05 = {
+			children = (
+				0592AC8C0415523C00003D05,
+				0592AC940415527A00003D05,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC8E0415527A00003D05 = {
+			buildActionMask = 2147483647;
+			files = (
+				054289300416BBF800003D05,
+				054289270416AA2F00003D05,
+				0592ACB504156B4000003D05,
+				054289310416BC4100003D05,
+				0592ACB704156B4000003D05,
+				0592ACB804156B4000003D05,
+				0592ACB404156B4000003D05,
+				0592ACD2041665AE00003D05,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0592AC930415527A00003D05 = {
+			buildPhases = (
+				0592AC8E0415527A00003D05,
+			);
+			buildSettings = {
+				FRAMEWORK_VERSION = A;
+				INSTALL_PATH = /usr/local/SecurityPieces/Frameworks;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_LIBTOOL_FLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRINCIPAL_CLASS = "";
+				PRODUCT_NAME = security_pkcs12;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = framework;
+			};
+			dependencies = (
+			);
+			isa = PBXFrameworkTarget;
+			name = security_pkcs12;
+			productInstallPath = /System/Library/PrivateFrameworks;
+			productName = "SecurityNssPkcs12 Headers";
+			productReference = 0592AC940415527A00003D05;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>security_pkcs12</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.securitynsspkcs12</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SecurityNssPkcs12</string>
+	<key>CFBundlePackageType</key>
+	<string>FMWK</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>12</string>
+</dict>
+</plist>
+";
+		};
+		0592AC940415527A00003D05 = {
+			explicitFileType = wrapper.framework;
+			isa = PBXFileReference;
+			path = security_pkcs12.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		0592AC96041552BB00003D05 = {
+			children = (
+				05396DB50417A34400003D05,
+				054289230416A5A800003D05,
+				054289280416B3D100003D05,
+				054289250416AA2F00003D05,
+				0592AC9904156B2B00003D05,
+				0592ACA704156B4000003D05,
+				05396DB90417B81000003D05,
+				0542892D0416B6C300003D05,
+				0542892B0416B65F00003D05,
+				05A9EF64041FB7C600003D05,
+				054289330416C36700003D05,
+				054289210416A4EA00003D05,
+				0592AC9B04156B2B00003D05,
+				0592ACA904156B4000003D05,
+				0592AC9C04156B2B00003D05,
+				0592ACAA04156B4000003D05,
+				0592AC9804156B2B00003D05,
+				0592ACA604156B4000003D05,
+				0592ACD304167B1F00003D05,
+				0592ACD0041665AE00003D05,
+			);
+			isa = PBXGroup;
+			path = lib;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC9804156B2B00003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs7Templates.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC9904156B2B00003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Crypto.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC9B04156B2B00003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Templates.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC9C04156B2B00003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Utils.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592AC9F04156B2B00003D05 = {
+			fileRef = 0592AC9804156B2B00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACA004156B2B00003D05 = {
+			fileRef = 0592AC9904156B2B00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACA204156B2B00003D05 = {
+			fileRef = 0592AC9B04156B2B00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACA304156B2B00003D05 = {
+			fileRef = 0592AC9C04156B2B00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACA604156B4000003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs7Templates.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACA704156B4000003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12Crypto.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACA904156B4000003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12Templates.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACAA04156B4000003D05 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = pkcs12Utils.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACAD04156B4000003D05 = {
+			fileRef = 0592ACA604156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACAE04156B4000003D05 = {
+			fileRef = 0592ACA704156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACB004156B4000003D05 = {
+			fileRef = 0592ACA904156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACB104156B4000003D05 = {
+			fileRef = 0592ACAA04156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACB404156B4000003D05 = {
+			fileRef = 0592ACA604156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0592ACB504156B4000003D05 = {
+			fileRef = 0592ACA704156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0592ACB704156B4000003D05 = {
+			fileRef = 0592ACA904156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0592ACB804156B4000003D05 = {
+			fileRef = 0592ACAA04156B4000003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0592ACD0041665AE00003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = SecPkcs12.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACD1041665AE00003D05 = {
+			fileRef = 0592ACD0041665AE00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0592ACD2041665AE00003D05 = {
+			fileRef = 0592ACD0041665AE00003D05;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+					Public,
+				);
+			};
+		};
+		0592ACD304167B1F00003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = SecPkcs12.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0592ACD404167B1F00003D05 = {
+			fileRef = 0592ACD304167B1F00003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05A9EF64041FB7C600003D05 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = pkcs12Keychain.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05A9EF65041FB7C600003D05 = {
+			fileRef = 05A9EF64041FB7C600003D05;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//050
+//051
+//052
+//053
+//054
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4C9A5B87056AB50100B1BEFE = {
+			containerPortal = 0592AC85041551E100003D05;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0592AC930415527A00003D05;
+			remoteInfo = "SecurityNssPkcs12 Headers";
+		};
+		4C9A5BB2056AB5EC00B1BEFE = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs \"../../../${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework/Versions/A\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${SYMROOT}/${PRODUCT_NAME}.framework\ndone";
+		};
+		4C9A5BB3056AB5EF00B1BEFE = {
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "for variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tcp -p \"${SYMROOT}/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A\n\tranlib \"${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework/Versions/A/${PRODUCT_NAME}${postfix}\"\n\tln -fs \"Versions/Current/${PRODUCT_NAME}${postfix}\" ${DSTROOT}/usr/local/SecurityPieces/Frameworks/${PRODUCT_NAME}.framework\ndone";
+		};
+	};
+	rootObject = 0592AC85041551E100003D05;
+}

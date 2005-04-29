@@ -1,0 +1,35 @@
+##
+## UPGRADING
+##
+## Jeffrey Hobbs, jeff.hobbs@acm.org
+## 23 April 1998
+##
+
+For those users who became familiar with v1.x of tkTable, there are
+several changes in v2.x that might affect you.  If v2.x is new to you,
+then just read the man page (or HTML equivalent).
+
+The format of this upgrade document is to define the area of the change and
+the show the old code and its new equivalent.  Comments may follow for
+seemingly obscure changes.  Not all the new features are listed (we just
+want you to be able to upgrade old code), so don't forget to look through
+the documentation for new procedures that will make previous tasks easier.
+
+METHOD CHANGES:
+
+* new "window" method for embedded windows
+
+MISC CHANGES:
+
+* No more explicit Kanji or incr Tcl support.  Kanji support comes
+  with using the new core Unicode support, and incr Tcl v3.0 for Tcl8
+  is just another loadable library.
+
+* -rowheight now supports line and pixel sizes, but positive
+  numbers now mean size in lines instead of pixels.
+
+* <Return> binding now puts a \n into the cell instead of moving
+  to the next cell
+
+* -batchmode no longer supported.  It's purpose was regularly
+  misconstrued.  User probably wants "-drawmode slow" instead.

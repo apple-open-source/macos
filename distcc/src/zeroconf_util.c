@@ -2,7 +2,7 @@
  * 
  * distcc -- A simple distributed compiler system
  *
- * Copyright (C) 2003 by Apple Computer, Inc.
+ * Copyright (C) 2003, 2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -275,6 +275,119 @@ static char *dcc_output_from_simple_execution(const char *path,
     return output;
 }
 
+char *dcc_get_compiler_versions(void)
+{
+    char  *gcc33Path       = (char *) "/usr/bin/gcc-3.3";
+    char  *gcc40Path       = (char *) "/usr/bin/gcc-4.0";
+    char  *gcc33Args[]     = { gcc33Path, (char *) "-v", NULL };
+    char  *gcc40Args[]     = { gcc40Path, (char *) "-v", NULL };
+    char  *gcc33Version;
+    char  *gcc33VersionShort;
+    char  *gcc40Version;
+    char  *gcc40VersionShort;
+    char  *gccVersions[10];	// support at most 10 compiler versions
+    char  *gccVersionString;
+    int   versionIndex = 0;
+
+    // get the compiler versions
+
+    if (!access(gcc33Path, X_OK)) {
+        gcc33Version = dcc_output_from_simple_execution(gcc33Path, gcc33Args);
+
+        if ( gcc33Version == NULL ) {
+            rs_log_error("Unable to get gcc version");
+        } else {
+            // only return the last line of the string
+	    gcc33VersionShort = strrchr(gcc33Version, '\n');
+	    *gcc33VersionShort = '\0';
+	    gcc33VersionShort = strrchr(gcc33Version, '\n') + 1;
+	    if (gcc33VersionShort != (char *)1)
+		    gccVersions[versionIndex++] = gcc33VersionShort;
+        }
+    }
+    
+    if (!access(gcc40Path, X_OK)) {
+        gcc40Version = dcc_output_from_simple_execution(gcc40Path, gcc40Args);
+
+        if ( gcc40Version == NULL ) {
+            rs_log_error("Unable to get gcc version");
+        } else {
+            // only return the last line of the string
+	    gcc40VersionShort = strrchr(gcc40Version, '\n');
+	    *gcc40VersionShort = '\0';
+	    gcc40VersionShort = strrchr(gcc40Version, '\n') + 1;
+	    if (gcc40VersionShort != (char *)1)
+		gccVersions[versionIndex++] = gcc40VersionShort;
+        }
+    }
+
+    {
+	int len = 8;
+	int i;
+	for (i=0; i< versionIndex; i++ )
+		len += strlen(gccVersions[i]);
+	gccVersionString = malloc(len);
+	sprintf(gccVersionString, "%d", versionIndex);
+	for (i=0; i < versionIndex; i++) {
+		strcat(gccVersionString, " ");
+		strcat(gccVersionString, gccVersions[i]);
+	}
+    }
+
+
+    return gccVersionString;
+}
+
+#define PROTOCOL_VERSION "373"
+
+char *dcc_get_protocol_version(void)
+{
+	return PROTOCOL_VERSION;
+}
+
+char *dcc_get_system_version(void)
+{
+    char  *osRelease;
+    int    releaseMib[2];
+    size_t releaseLen;
+    char  *osType;
+    int    typeMib[2];
+    size_t typeLen;
+    char *ret;
+
+    typeMib[0] = CTL_KERN;
+    typeMib[1] = KERN_OSTYPE;
+    
+    releaseMib[0] = CTL_KERN;
+    releaseMib[1] = KERN_OSRELEASE;
+    
+    if ( sysctl(typeMib, 2, NULL, &typeLen, NULL, 0) ) {
+        rs_log_error("Unable to get length for kern.ostype: (%d) %s", errno,
+                     strerror(errno));
+    }
+    
+    if ( sysctl(releaseMib, 2, NULL, &releaseLen, NULL, 0) ) { 
+        rs_log_error("Unable to get length for kern.osrelease: (%d) %s", errno,
+                     strerror(errno));
+    }
+    
+    osType    = (char *) malloc(typeLen);
+    osRelease = (char *) malloc(releaseLen);
+    
+    if ( sysctl(typeMib, 2, osType, &typeLen, NULL, 0) ) { 
+        rs_log_error("Unable to get kern.ostype: (%d) %s", errno,
+                     strerror(errno));
+    }
+
+    if ( sysctl(releaseMib, 2, osRelease, &releaseLen, NULL, 0) ) {
+        rs_log_error("Unable to get kern.osrelease: (%d) %s", errno,
+                     strerror(errno));
+    }
+
+    ret = malloc(releaseLen + typeLen + 4);
+    sprintf(ret, "%s %s", osRelease, osType);
+    return ret;
+}
 
 /**
  * Generate the TXT record used to determine whether a given client and
@@ -285,82 +398,32 @@ static char *dcc_output_from_simple_execution(const char *path,
  * The TXT record is currently of the form:
  * <br><code>
  * txtvers=1;
- * protovers=371;
+ * protovers=373;
  * SystemVersion="</code>OS version<code>";
- * GCCVersion="</code>version of gcc 3.3<code>";
+ * GCCVersions="</code>(number of compiler versions) (version of gcc 3.3) (version of gcc 4.0)<code>";
  * </code>
  *
  * Each key/value pair is preceded by a length byte, per the zeroconf spec.
  **/
 char *dcc_generate_txt_record(void)
 {
-    char  *osRelease;
-    int    releaseMib[2];
-    size_t releaseLen;
-    char  *osType;
-    int    typeMib[2];
-    size_t typeLen;
-    char  *gccPath       = (char *) "/usr/bin/gcc-3.3";
-    char  *gccArgs[]     = { gccPath, (char *) "-v", NULL };
-    char  *gccVersion;
+    char  *systemVersion;
+    char  *gccVersionString;
     char  *txtRecord     = NULL;
     char  *comAppleEnd   = (char *) "\";";
-    char  *comAppleGCC   = (char *) "GCCVersion=\"";
+    char  *comAppleGCC   = (char *) "GCCVersions=\"";
     char  *comAppleOS    = (char *) "SystemVersion=\"";
-    char  *protoVers     = (char *) "protovers=371;";
+    char  *protoVers     = (char *) "protovers=" PROTOCOL_VERSION  ";";
     char  *txtVers       = (char *) "txtvers=1;";
 
-    // get the compiler part
+    gccVersionString = dcc_get_compiler_versions();
+    systemVersion = dcc_get_system_version();
 
-    gccVersion = dcc_output_from_simple_execution(gccPath, gccArgs);
-
-    if ( gccVersion == NULL ) {
-        rs_log_error("Unable to get gcc version");
-    } else {
-        char *next;
-
-        // Replace all newlines, so that the value is a single line.
-        while ( ( next = strchr(gccVersion, '\n') ) ) {
-            *next = ' ';
-        }
-    }
-    
-    // get the OS part
-
-    typeMib[0] = CTL_KERN;
-    typeMib[1] = KERN_OSTYPE;
-
-    releaseMib[0] = CTL_KERN;
-    releaseMib[1] = KERN_OSRELEASE;
-
-    if ( sysctl(typeMib, 2, NULL, &typeLen, NULL, 0) ) {
-        rs_log_error("Unable to get length for kern.ostype: (%d) %s", errno,
-                     strerror(errno));
-    }
-
-    if ( sysctl(releaseMib, 2, NULL, &releaseLen, NULL, 0) ) {
-        rs_log_error("Unable to get length for kern.osrelease: (%d) %s", errno,
-                     strerror(errno));
-    }
-
-    osType    = (char *) malloc(typeLen);
-    osRelease = (char *) malloc(releaseLen);
-
-    if ( sysctl(typeMib, 2, osType, &typeLen, NULL, 0) ) {
-        rs_log_error("Unable to get kern.ostype: (%d) %s", errno,
-                     strerror(errno));
-    }
-
-    if ( sysctl(releaseMib, 2, osRelease, &releaseLen, NULL, 0) ) {
-        rs_log_error("Unable to get kern.osrelease: (%d) %s", errno, 
-                     strerror(errno)); 
-    } 
-
-    if ( gccVersion != NULL && osType != NULL && osRelease != NULL ) {
+    if ( gccVersionString != NULL && systemVersion != NULL ) {
         txtRecord = malloc(1 + strlen(txtVers) + 1 + 1 + strlen(protoVers) + 1 +
-                           1 + strlen(comAppleOS) + typeLen + 1 + releaseLen +
+                           1 + strlen(comAppleOS) + strlen(systemVersion) +
                            strlen(comAppleEnd) + 1 + 1 + strlen(comAppleGCC) +
-                           strlen(gccVersion) + strlen(comAppleEnd) + 1);
+                           strlen(gccVersionString) + strlen(comAppleEnd) + 1);
 
         if ( txtRecord == NULL ) {
             rs_log_error("Unable to allocate memory for txtRecord");
@@ -383,41 +446,34 @@ char *dcc_generate_txt_record(void)
             endOfRecord              = strlen(txtRecord);
             txtRecord[endOfRecord+1] = '\0';
             txtRecord[endOfRecord]   = (char) ( strlen(comAppleOS)  +
-                                                strlen(osType)      +
-                                                strlen(" ")         +
-                                                strlen(osRelease)   +
+						strlen(systemVersion) +
                                                 strlen(comAppleEnd) + 1 );
 
             strcat(txtRecord, comAppleOS);
-            strcat(txtRecord, osType);
-            strcat(txtRecord, " ");
-            strcat(txtRecord, osRelease);
+	    strcat(txtRecord, systemVersion);
             strcat(txtRecord, comAppleEnd);
             strcat(txtRecord, "\n");
 
             endOfRecord              = strlen(txtRecord);
             txtRecord[endOfRecord+1] = '\0';
             txtRecord[endOfRecord]   = (char) ( strlen(comAppleGCC) +
-                                                strlen(gccVersion)  +
+                                                strlen(gccVersionString)  +
                                                 strlen(comAppleEnd) + 1 + 1 );
 
             strcat(txtRecord, comAppleGCC);
-            strcat(txtRecord, gccVersion);
+            strcat(txtRecord, gccVersionString);
             strcat(txtRecord, comAppleEnd);
             strcat(txtRecord, "\n");
+
         }
     }
 
-    if ( gccVersion != NULL ) {
-        free(gccVersion);
+    if (gccVersionString  != NULL ) {
+        free(gccVersionString);
     }
 
-    if ( osType != NULL ) {
-        free(osType);
-    }
-
-    if ( osRelease != NULL ) {
-        free(osRelease);
+    if (systemVersion != NULL) {
+	free(systemVersion);
     }
 
     return txtRecord;

@@ -78,7 +78,7 @@
 
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)res_debug.c	8.1 (Berkeley) 6/4/93";
-static char rcsid[] = "$Id: res_debug.c,v 1.4 2003/02/18 17:29:24 majka Exp $";
+static char rcsid[] = "$Id: res_debug.c,v 1.5 2004/06/11 23:16:00 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/param.h>
@@ -476,7 +476,8 @@ __p_rr(cp, msg, file)
 	const u_char *cp, *msg;
 	FILE *file;
 {
-	int type, class, dlen, n, c;
+	int type, class, n, c;
+	long dlen;
 	struct in_addr inaddr;
 	const u_char *cp1, *cp2;
 	u_int32_t tmpttl, t;
@@ -703,7 +704,7 @@ __p_rr(cp, msg, file)
 	putc('\n', file);
 #endif
 	if (cp - cp1 != dlen) {
-		fprintf(file, ";; packet size error (found %d, dlen was %d)\n",
+		fprintf(file, ";; packet size error (found %ld, dlen was %ld)\n",
 			cp - cp1, dlen);
 		cp = NULL;
 	}

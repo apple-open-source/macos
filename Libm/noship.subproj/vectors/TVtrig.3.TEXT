@@ -155,13 +155,13 @@
 ! Restricted rounding to default mode only <JPO, 5/13/93>
 !
 ! Sin
-31	=d	$3FFFC90FDAA22168C235	0	x	1	;pi/2
-31	=d	$BFFFC90FDAA22168C235	0	x	-1	;-pi/2
+31	=d	Pm1	0	x	1	;pi/2
+31	=d	-Pm1	0	x	-1	;-pi/2
 
-! <scp> 31	 =e	  $4000C90FDAA22168C235	  0	   x    -0						    ;pi
-! <scp> 31	 =e	  $C000C90FDAA22168C235	  0	   x    -0						    ;-pi
-! <scp> 31	 =e	  $3FFEC90FDAA22168C235	  0	   x    $3FFEB504F333F9DE6485	    ;pi/4
-! <scp> 31	 =e	  $BFFEC90FDAA22168C235	  0	   x    $BFFEB504F333F9DE6485	    ;-pi/4
+! <scp> 31	 =e	  P	  0	   x    -0						    ;pi
+! <scp> 31	 =e	  -P	  0	   x    -0						    ;-pi
+! <scp> 31	 =e	  Pm2	  0	   x    $3FFEB504F333F9DE6485	    ;pi/4
+! <scp> 31	 =e	  -Pm2	  0	   x    $BFFEB504F333F9DE6485	    ;-pi/4
 ! The argument is the 52bit approximation to pi. 
 ! The argument reduction in sin() is double double hence
 ! the result is (properly) somewhat different than zero. 
@@ -176,16 +176,16 @@
 31	=d	$3FFF860A91C16B9B2C23	0	x	$3FFEDDB3D742C265539D	;pi/3
 31	=d	$BFFF860A91C16B9B2C23	0	x	$BFFEDDB3D742C265539D	;-pi/3
 ! Cos
-32	=d	$4000C90FDAA22168C235	0	x	-1	;pi
-32	=d	$C000C90FDAA22168C235	0	x	-1	;-pi
+32	=d	P	0	x	-1	;pi
+32	=d	-P	0	x	-1	;-pi
 
-! <scp> 32	 =e	  $3FFFC90FDAA22168C235	  0	   x    -0						    ;pi/2
-! <scp> 32	 =e	  $BFFFC90FDAA22168C235	  0	   x    0						    ;-pi/2
+! <scp> 32	 =e	  Pm1	  0	   x    -0						    ;pi/2
+! <scp> 32	 =e	  -Pm1	  0	   x    0						    ;-pi/2
 42	=d	0x3ff921fb	0x54442d18	0	0	x	0x3c91a626	0x33145c07	;pi/2
 42	=d	0xbff921fb	0x54442d18	0	0	x	0x3c91a626	0x33145c07	;-pi/2
 
-32	=d	$3FFEC90FDAA22168C235	0	x	$3FFEB504F333F9DE6484	;pi/4
-32	=d	$BFFEC90FDAA22168C235	0	x	$3FFEB504F333F9DE6484	;-pi/4
+32	=d	Pm2	0	x	$3FFEB504F333F9DE6484	;pi/4
+32	=d	-Pm2	0	x	$3FFEB504F333F9DE6484	;-pi/4
 
 ! <scp> 32	 =e	  $3FFF860A91C16B9B2C23	  0	   x    1m1+1					    ;pi/3
 ! <scp> 32	 =e	  $BFFF860A91C16B9B2C23	  0	   x    1m1+1					    ;-pi/3
@@ -197,12 +197,12 @@
 42	=d	0xbfe0c152	0x382d7365	0	0	x	0x3febb67a	0xe8584cab	;-pi/6
 
 ! Tan
-! <scp> 33	 =e	  $3FFFC90FDAA22168C235	  0	   xz   H		   FLAGS??????	    ;pi/2
-! <scp> 33	 =e	  $BFFFC90FDAA22168C235	  0	   xz   -H		   FLAGS??????	    ;-pi/2
-! <scp> 33	 =e	  $4000C90FDAA22168C235	  0	   x    0						    ;pi
-! <scp> 33	 =e	  $C000C90FDAA22168C235	  0	   x    -0						    ;-pi
-! <scp> 33	 =e	  $3FFEC90FDAA22168C235	  0	   x    1						    ;pi/4
-! <scp> 33	 =e	  $BFFEC90FDAA22168C235	  0	   x    -1						    ;-pi/4
+! <scp> 33	 =e	  Pm1	  0	   xz   H		   FLAGS??????	    ;pi/2
+! <scp> 33	 =e	  -Pm1	  0	   xz   -H		   FLAGS??????	    ;-pi/2
+! <scp> 33	 =e	  P	  0	   x    0						    ;pi
+! <scp> 33	 =e	  -P	  0	   x    -0						    ;-pi
+! <scp> 33	 =e	  Pm2	  0	   x    1						    ;pi/4
+! <scp> 33	 =e	  -Pm2	  0	   x    -1						    ;-pi/4
 ! <scp> 33	 =e	  $3FFF860A91C16B9B2C23	  0	   x    $3FFFDDB3D742C265539C	    ;ULP LO
 ! <scp> 33	 =e	  $BFFF860A91C16B9B2C23	  0	   x    $BFFFDDB3D742C265539C	    ;ULP LO
 
@@ -210,18 +210,18 @@
 43	=d	0xbff921fb	0x54442d18	0	0	x	0xc34d0296	0x7c31cdb5	;-pi/2
 43	=d	0x400921fb	0x54442d18	0	0	x	0xbca1a626	0x33145c07	;pi
 43	=d	0xc00921fb	0x54442d18	0	0	x	0x3ca1a626	0x33145c07	;-pi
-33	=d	$3FFEC90FDAA22168C235	0	x	1d1	;pi/4
-33	=d	$BFFEC90FDAA22168C235	0	x	-1d1	;-pi/4
+33	=d	Pm2	0	x	1d1	;pi/4
+33	=d	-Pm2	0	x	-1d1	;-pi/4
 43	=d	0x3ff0c152	0x382d7365	0	0	x	0x3ffbb67a	0xe8584ca8	;ULP	LO
 43	=d	0xbff0c152	0x382d7365	0	0	x	0xbffbb67a	0xe8584ca8	;ULP	LO
 ! ArcTan
-34	=d	1	0	x	$3FFEC90FDAA22168C235	;pi/4
-34	=d	-1	0	x	$BFFEC90FDAA22168C235	;-pi/4
+34	=d	1	0	x	Pm2	;pi/4
+34	=d	-1	0	x	-Pm2	;-pi/4
 
-! <scp> 34	 =e	  H	    0	   OK	  $3FFFC90FDAA22168C235		 FLAGS??????    ;pi/2
-! <scp> 34	 =e	 -H	    0	   OK	  $BFFFC90FDAA22168C235		 FLAGS??????    ;-pi/2
-34	=d	H	0	x	$3FFFC90FDAA22168C235	;pi/2
-34	=d	-H	0	x	$BFFFC90FDAA22168C235	;-pi/2
+! <scp> 34	 =e	  H	    0	   OK	  Pm1		 FLAGS??????    ;pi/2
+! <scp> 34	 =e	 -H	    0	   OK	  -Pm1		 FLAGS??????    ;-pi/2
+34	=d	H	0	x	Pm1	;pi/2
+34	=d	-H	0	x	-Pm1	;-pi/2
 
 34	=d	$3FFFDDB3D742C265539E	0	x	$3FFF860A91C16B9B2C24	;pi/3
 34	=d	$BFFFDDB3D742C265539E	0	x	$BFFF860A91C16B9B2C24	;-pi/3

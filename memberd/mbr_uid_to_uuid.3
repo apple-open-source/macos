@@ -1,0 +1,58 @@
+.Dd February 3, 2005
+.Dt MBR_UID_TO_UUID 3
+.Os
+.Sh NAME
+.Nm mbr_uid_to_uuid,
+.Nm mbr_gid_to_uuid,
+.Nm mbr_uuid_to_id,
+.Nm mbr_sid_to_uuid,
+.Nm mbr_uuid_to_sid
+.Nd translate user and group identifiers from one form to another
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In membership.h
+.Ft int
+.Fn mbr_uid_to_uuid "uid_t id" "uuid_t uu"
+.Ft int
+.Fn mbr_gid_to_uuid "gid_t id" "uuid_t uu"
+.Ft int
+.Fn mbr_uuid_to_id "uuid_t uu" "uid_t* id" "int* id_type"
+.Ft int
+.Fn mbr_sid_to_uuid "const nt_sid_t* sid" "uuid_t uu"
+.Ft int
+.Fn mbr_uuid_to_sid "uuid_t uu" "const nt_sid_t* sid"
+.Sh DESCRIPTION
+Users and groups can be referred to in multiple ways.  In addition to the traditional uid and gid concepts, 
+every user or group can be looked up by a 128 bit uuid.  In addition, if the user or group is hosted on a PDC
+or Active Directory server, it will also have a 128 bit or larger sid.
+.Pp
+.Fn mbr_uid_to_uuid
+will take a uid and look up the user the same way as getpwuid.  It will then return the uuid for that user.
+.Pp
+.Fn mbr_gid_to_uuid
+does the same thing to get the uuid for a group.
+.Pp
+.Fn mbr_uuid_to_id
+takes a uuid that refers to a user or group and returns the uid or gid for the item.
+.Fa id_type
+will be filled in with either ID_TYPE_UID or ID_TYPE_GID to tell you which was found.  It is important to note that
+.Fn mbr_uuid_to_id
+will always return an id even if the uuid is not found.  This returned id is not persistant, 
+but can be used to map back to the uuid during runtime.  If you need to know if the uuid exists, 
+you should call getgrgid on the returned id.
+.Pp
+.Fn mbr_sid_to_uuid
+takes a sid and returns the associated uuid.  Like
+.Fn mbr_uuid_to_id
+,
+.Fn mbr_uuid_to_sid
+will always return a uuid for the sid, even if the sid cannot be found.
+.Pp
+.Fn mbr_sid_to_uuid
+will return a sid for the associate uuid if the item contains a sid.
+.Sh RETURN VALUES
+All function may return EIO if the memberd daemon is not reachable.  
+They will also return ENOENT if the mapping could not be performed.
+.Sh SEE ALSO
+.Xr mbr_check_membership 3

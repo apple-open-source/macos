@@ -61,7 +61,8 @@ __loadIOKit(void) {
 __private_extern__ CFMutableDictionaryRef
 _IOBSDNameMatching(mach_port_t masterPort, unsigned int options, const char *bsdName)
 {
-	static CFMutableDictionaryRef (*dyfunc)(mach_port_t, unsigned int, const char *) = NULL;
+	#undef IOBSDNameMatching
+	static typeof (IOBSDNameMatching) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOBSDNameMatching", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -73,7 +74,8 @@ _IOBSDNameMatching(mach_port_t masterPort, unsigned int options, const char *bsd
 __private_extern__ io_object_t
 _IOIteratorNext(io_iterator_t iterator)
 {
-	static io_object_t (*dyfunc)(io_iterator_t) = NULL;
+	#undef IOIteratorNext
+	static typeof (IOIteratorNext) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOIteratorNext", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -85,7 +87,8 @@ _IOIteratorNext(io_iterator_t iterator)
 __private_extern__ kern_return_t
 _IOMasterPort(mach_port_t bootstrapPort, mach_port_t *masterPort)
 {
-	static kern_return_t (*dyfunc)(mach_port_t, mach_port_t *) = NULL;
+	#undef IOMasterPort
+	static typeof (IOMasterPort) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOMasterPort", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -94,10 +97,37 @@ _IOMasterPort(mach_port_t bootstrapPort, mach_port_t *masterPort)
 }
 
 
+__private_extern__ boolean_t
+_IOObjectConformsTo(io_object_t object, const io_name_t className)
+{
+	#undef IOObjectConformsTo
+	static typeof (IOObjectConformsTo) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOObjectConformsTo", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(object, className) : FALSE;
+}
+
+
+__private_extern__ boolean_t
+_IOObjectGetClass(io_object_t object, io_name_t className)
+{
+	#undef IOObjectGetClass
+	static typeof (IOObjectGetClass) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOObjectGetClass", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(object, className) : FALSE;
+}
+
+
 __private_extern__ kern_return_t
 _IOObjectRelease(io_object_t object)
 {
-	static kern_return_t (*dyfunc)(io_object_t) = NULL;
+	#undef IOObjectRelease
+	static typeof (IOObjectRelease) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOObjectRelease", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -109,7 +139,8 @@ _IOObjectRelease(io_object_t object)
 __private_extern__ CFTypeRef
 _IORegistryEntryCreateCFProperty(io_registry_entry_t entry, CFStringRef key, CFAllocatorRef allocator, IOOptionBits options)
 {
-	static CFTypeRef (*dyfunc)(io_registry_entry_t, CFStringRef, CFAllocatorRef, IOOptionBits) = NULL;
+	#undef IORegistryEntryCreateCFProperty
+	static typeof (IORegistryEntryCreateCFProperty) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryCreateCFProperty", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -121,7 +152,8 @@ _IORegistryEntryCreateCFProperty(io_registry_entry_t entry, CFStringRef key, CFA
 __private_extern__ kern_return_t
 _IORegistryEntryCreateCFProperties(io_registry_entry_t entry, CFMutableDictionaryRef *properties, CFAllocatorRef allocator, IOOptionBits options)
 {
-	static kern_return_t (*dyfunc)(io_registry_entry_t, CFMutableDictionaryRef *, CFAllocatorRef, IOOptionBits) = NULL;
+	#undef IORegistryEntryCreateCFProperties
+	static typeof (IORegistryEntryCreateCFProperties) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryCreateCFProperties", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -131,21 +163,49 @@ _IORegistryEntryCreateCFProperties(io_registry_entry_t entry, CFMutableDictionar
 
 
 __private_extern__ kern_return_t
+_IORegistryEntryCreateIterator(mach_port_t masterPort, const io_name_t plane, IOOptionBits options, io_iterator_t *iterator)
+{
+	#undef IORegistryEntryCreateIterator
+	static typeof (IORegistryEntryCreateIterator) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryCreateIterator", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(masterPort, plane, options, iterator) : KERN_FAILURE;
+}
+
+
+__private_extern__ kern_return_t
+_IORegistryEntryGetName(io_registry_entry_t entry, io_name_t name)
+{
+	#undef IORegistryEntryGetName
+	static typeof (IORegistryEntryGetName) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryGetName", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(entry, name) : KERN_FAILURE;
+}
+
+
+__private_extern__ kern_return_t
 _IORegistryEntryGetParentEntry(io_registry_entry_t entry, const io_name_t plane, io_registry_entry_t *parent)
 {
-	static kern_return_t (*dyfunc)(io_registry_entry_t, const io_name_t, io_registry_entry_t *) = NULL;
+	#undef IORegistryEntryGetParentEntry
+	static typeof (IORegistryEntryGetParentEntry) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryGetParentEntry", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
 	}
-	return dyfunc ? dyfunc(entry, plane, parent) : NULL;
+	return dyfunc ? dyfunc(entry, plane, parent) : KERN_FAILURE;
 }
 
 
 __private_extern__ kern_return_t
 _IORegistryEntryGetPath(io_registry_entry_t entry, const io_name_t plane, io_string_t path)
 {
-	static kern_return_t (*dyfunc)(io_registry_entry_t, const io_name_t, io_string_t) = NULL;
+	#undef IORegistryEntryGetPath
+	static typeof (IORegistryEntryGetPath) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntryGetPath", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -154,10 +214,24 @@ _IORegistryEntryGetPath(io_registry_entry_t entry, const io_name_t plane, io_str
 }
 
 
+__private_extern__ CFTypeRef
+_IORegistryEntrySearchCFProperty(io_registry_entry_t entry, const io_name_t plane, CFStringRef key, CFAllocatorRef allocator, IOOptionBits options)
+{
+	#undef IORegistryEntrySearchCFProperty
+	static typeof (IORegistryEntrySearchCFProperty) *dyfunc = NULL;
+	if (!dyfunc) {
+		void *image = __loadIOKit();
+		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IORegistryEntrySearchCFProperty", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
+	}
+	return dyfunc ? dyfunc(entry, plane, key, allocator, options) : NULL;
+}
+
+
 __private_extern__ kern_return_t
 _IOServiceGetMatchingServices(mach_port_t masterPort, CFDictionaryRef matching, io_iterator_t *existing)
 {
-	static kern_return_t (*dyfunc)(mach_port_t, CFDictionaryRef, io_iterator_t *) = NULL;
+	#undef IOServiceGetMatchingServices
+	static typeof (IOServiceGetMatchingServices) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOServiceGetMatchingServices", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -169,7 +243,8 @@ _IOServiceGetMatchingServices(mach_port_t masterPort, CFDictionaryRef matching, 
 __private_extern__ CFMutableDictionaryRef
 _IOServiceMatching(const char *name)
 {
-	static CFMutableDictionaryRef (*dyfunc)(const char *) = NULL;
+	#undef IOServiceMatching
+	static typeof (IOServiceMatching) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadIOKit();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_IOServiceMatching", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -201,7 +276,8 @@ __loadSecurity(void) {
 __private_extern__ OSStatus
 _SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass, SecKeychainAttributeList *attrList, UInt32 *length, void **outData)
 {
-	static OSStatus (*dyfunc)(SecKeychainItemRef, SecItemClass *, SecKeychainAttributeList *, UInt32 *, void **) = NULL;
+	#undef SecKeychainItemCopyContent
+	static typeof (SecKeychainItemCopyContent) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadSecurity();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainItemCopyContent", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -212,7 +288,8 @@ _SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass *itemClass,
 __private_extern__ OSStatus
 _SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef)
 {
-	static OSStatus (*dyfunc)(SecKeychainSearchRef, SecKeychainItemRef *) = NULL;
+	#undef SecKeychainSearchCopyNext
+	static typeof (SecKeychainSearchCopyNext) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadSecurity();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainSearchCopyNext", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));
@@ -223,7 +300,8 @@ _SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *i
 __private_extern__ OSStatus
 _SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef)
 {
-	static OSStatus (*dyfunc)(CFTypeRef, SecItemClass, const SecKeychainAttributeList *, SecKeychainSearchRef *) = NULL;
+	#undef SecKeychainSearchCreateFromAttributes
+	static typeof (SecKeychainSearchCreateFromAttributes) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadSecurity();
 		if (image) dyfunc = NSAddressOfSymbol(NSLookupSymbolInImage(image, "_SecKeychainSearchCreateFromAttributes", NSLOOKUPSYMBOLINIMAGE_OPTION_BIND));

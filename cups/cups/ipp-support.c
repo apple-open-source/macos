@@ -1,10 +1,10 @@
 /*
- * "$Id: ipp-support.c,v 1.1.1.4 2003/02/10 21:57:18 jlovell Exp $"
+ * "$Id: ipp-support.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $"
  *
  *   Internet Printing Protocol support functions for the Common UNIX
  *   Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -42,15 +42,9 @@
 #include "language.h"
 
 #include "ipp.h"
+#include "globals.h"
 #include "debug.h"
 #include <ctype.h>
-
-
-/*
- * Local globals...
- */
-
-static int	ipp_port = 0;
 
 
 /*
@@ -60,7 +54,7 @@ static int	ipp_port = 0;
 const char *				/* O - Text string */
 ippErrorString(ipp_status_t error)	/* I - Error status */
 {
-  static char	unknown[255];		/* Unknown error statuses */
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
   static const char * const status_oks[] =
 		{			/* "OK" status codes */
 		  "successful-ok",
@@ -131,9 +125,9 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
   * No, build an "unknown-xxxx" error string...
   */
 
-  sprintf(unknown, "unknown-%04x", error);
+  sprintf(cg->unknown, "unknown-%04x", error);
 
-  return (unknown);
+  return (cg->unknown);
 }
 
 
@@ -144,18 +138,19 @@ ippErrorString(ipp_status_t error)	/* I - Error status */
 int				/* O - Port number */
 ippPort(void)
 {
-  const char	*server_port;	/* SERVER_PORT environment variable */
-  struct servent *port;		/* Port number info */  
+  const char	*server_port;		/* SERVER_PORT environment variable */
+  struct servent *port;			/* Port number info */  
+  cups_globals_t *cg = _cups_globals();	/* Pointer to library globals */
 
 
-  if (ipp_port)
-    return (ipp_port);
+  if (cg->ipp_port)
+    return (cg->ipp_port);
   else if ((server_port = getenv("IPP_PORT")) != NULL)
-    return (ipp_port = atoi(server_port));
+    return (cg->ipp_port = atoi(server_port));
   else if ((port = getservbyname("ipp", NULL)) == NULL)
-    return (ipp_port = IPP_PORT);
+    return (cg->ipp_port = IPP_PORT);
   else
-    return (ipp_port = ntohs(port->s_port));
+    return (cg->ipp_port = ntohs(port->s_port));
 }
 
 
@@ -166,10 +161,10 @@ ippPort(void)
 void
 ippSetPort(int p)		/* I - Port number to use */
 {
-  ipp_port = p;
+  _cups_globals()->ipp_port = p;
 }
 
 
 /*
- * End of "$Id: ipp-support.c,v 1.1.1.4 2003/02/10 21:57:18 jlovell Exp $".
+ * End of "$Id: ipp-support.c,v 1.5 2005/01/04 22:10:39 jlovell Exp $".
  */

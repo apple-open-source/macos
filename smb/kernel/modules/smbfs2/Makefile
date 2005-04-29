@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.1.1.5 2001/07/06 22:38:40 conrad Exp $
+# $Id: Makefile,v 1.2 2004/09/17 20:41:59 lindak Exp $
 
 .ifmake !clean && !cleandepend
 .include "../../../config.int"
@@ -76,7 +76,7 @@ opt_ipx.h:
 .endif
 
 opt_netsmb.h:
-	echo "#define NETSMB	1"  > ${.TARGET}
+	touch ${.TARGET}
 .if defined(ENCRYPTED_PASSWD)
 	echo "#define NETSMBCRYPTO 1" >> ${.TARGET}
 .endif

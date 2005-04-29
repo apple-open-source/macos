@@ -182,6 +182,11 @@ struct file_stack *input_file_stack;
 /* Incremented on each change to input_file_stack.  */
 int input_file_stack_tick;
 
+/* APPLE LOCAL begin read-from-stdin */
+  int predictive_compilation = -1;
+/* APPLE LOCAL end read-from-stdin */
+
+
 /* Name to use as base of names for dump output files.  */
 
 const char *dump_base_name;
@@ -1578,6 +1583,10 @@ static const lang_independent_options f_options[] =
   { "indirect-data", &flag_indirect_data, 1,
     N_("Generate code suitable for fast turn around debugging") },
   /* APPLE LOCAL END fix-and-continue mrs  */
+  /* APPLE LOCAL begin read-from-stdin */
+  { "predictive-compilation", &predictive_compilation, 0,
+    N_("Read from stdin but for predictive compilation") },
+  /* APPLE LOCAL end read-from-stdin */
   /* APPLE LOCAL begin -ffppc 2001-08-01 sts */
   { "fppc", &flag_fppc, 1,
    N_("Perform floating-point precision-control pass") },
@@ -2542,12 +2551,12 @@ check_global_declarations (vec, len)
 	 because many programs have static variables
 	 that exist only to get some text into the object file.  */
       if (TREE_CODE (decl) == FUNCTION_DECL
-	  && (warn_unused_function
-	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	  && DECL_INITIAL (decl) == 0
 	  && DECL_EXTERNAL (decl)
 	  && ! DECL_ARTIFICIAL (decl)
-	  && ! TREE_PUBLIC (decl))
+	  && ! TREE_PUBLIC (decl)
+	  && (warn_unused_function
+	      || TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl))))
 	{
 	  if (TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (decl)))
 	    pedwarn_with_decl (decl,
@@ -3499,6 +3508,9 @@ rest_of_compilation (decl)
 	  /* The regscan pass is currently necessary as the alias
 		  analysis code depends on this information.  */
 	  reg_scan (insns, max_reg_num (), 1);
+
+	  /* APPLE LOCAL make very large functions compile. */
+	  ggc_collect ();
 	}
       cleanup_barriers ();
       loop_optimize (insns, rtl_dump_file, do_unroll | LOOP_BCT | do_prefetch);
@@ -4777,6 +4789,10 @@ decode_f_option (arg)
     {
       flag_debug_gen_index = 1;
     }
+/* APPLE LOCAL begin read-from-stdin */
+  else if ((option_value = skip_leading_substring (arg, "predictive-compilation=")))
+    predictive_compilation = read_integral_parameter (option_value, arg - 2, predictive_compilation);
+/* APPLE LOCAL end read-from-stdin */
   else
     return 0;
 
@@ -6387,6 +6403,33 @@ do_compile ()
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
 }
+/* APPLE LOCAL begin jet */
+/* A hash code taken from all options in argv. */
+unsigned int toplev_argv_hash;
+
+/* Compute a hash code based on all options on the command line.  
+   This is intended to identify identical compilations.  Minor
+   detail: we don't quite use *all* the options, because we want
+   the hash code to be deterministic and the driver usually chooses
+   the output filename randomly. */
+static void
+init_toplev_hash_code (unsigned int argc, const char **argv)
+{
+  unsigned int val = 137;
+  bool output_option = false;
+
+  for ( ; argc ; --argc, ++argv)
+    {
+      const char *s = *argv;
+      if (!output_option)
+	while (*s)
+	  val = val * 67 + ((unsigned) *s++ - 113);
+      output_option = strcmp(*argv, "-o") == 0;
+    }
+
+  toplev_argv_hash = val;
+}
+/* APPLE LOCAL end jet */
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
    Decode command args, then call compile_file.
@@ -6402,6 +6445,9 @@ toplev_main (argc, argv)
 {
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0]);
+  /* APPLE LOCAL begin jet */
+  init_toplev_hash_code (argc, argv);
+  /* APPLE LOCAL end jet */
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */

@@ -86,6 +86,7 @@ CheckHFS( 	int fsReadRef, int fsWriteRef, int checkLevel, int repairLevel,
 	OSErr				err = noErr;
 	OSErr				scavError = 0;
 	int					scanCount = 0;
+	int					isJournaled = 0;
 	Boolean 			autoRepair;
 
 	autoRepair = (fsWriteRef != -1 && repairLevel != kNeverRepair);
@@ -122,7 +123,8 @@ DoAgain:
 		goto termScav;
 	}
 
-	if (CheckIfJournaled(&dataArea)
+	isJournaled = CheckIfJournaled( &dataArea );
+	if (isJournaled != 0
 	    && scanCount == 0
 	    && checkLevel != kForceCheck
 	    && !(checkLevel == kPartialCheck && repairLevel == kForceRepairs)) {
@@ -145,20 +147,40 @@ DoAgain:
 	if (scavError == noErr && logLevel >= kDebugLog)
 		printVerifyStatus(&dataArea);
 
-	if (scavError == noErr && !dataArea.cleanUnmount && fsWriteRef != -1)
+	// Looped for maximum times for verify and repair.  This was the last verify and
+	// we bail out if problems were found
+	if (scanCount >= kMaxReScan && (dataArea.RepLevel != repairLevelNoProblemsFound)) {
+		PrintStatus(&dataArea, M_ReRepairFailed, 1, dataArea.volumeName);
+		scavError = R_RFail;
+		goto termScav;
+	}
+
+	// mark the volume clean if there are no errors and we have write access
+	// and either the volume is not marked as clean or if the volume is journaled.
+	// 
+	if ( scavError == noErr && fsWriteRef != -1 &&
+		 (dataArea.cleanUnmount == false || isJournaled != 0) ) 
 		CheckForClean(&dataArea, true);		/* mark volume clean */
 
-	if ( dataArea.RepLevel == repairLevelUnrepairable )
+	if ( dataArea.RepLevel == repairLevelUnrepairable ) 
 		err = cdUnrepairableErr;
 
 	if ( !autoRepair &&
 	     (dataArea.RepLevel == repairLevelVolumeRecoverable ||
 	      dataArea.RepLevel == repairLevelCatalogBtreeRebuild  ||
-	      dataArea.RepLevel == repairLevelUnrepairable) )
+	      dataArea.RepLevel == repairLevelUnrepairable) ) {
 		PrintStatus(&dataArea, M_NeedsRepair, 1, dataArea.volumeName);
+		scavError = R_VFail;
+		goto termScav;
+	}
 
-	if ( scavError == noErr && dataArea.RepLevel == repairLevelNoProblemsFound )
-		PrintStatus(&dataArea, M_AllOK, 1, dataArea.volumeName);
+	if ( scavError == noErr && dataArea.RepLevel == repairLevelNoProblemsFound ) {
+		if (scanCount == 0) {
+			PrintStatus(&dataArea, M_AllOK, 1, dataArea.volumeName);
+		} else {
+			PrintStatus(&dataArea, M_RepairOK, 1, dataArea.volumeName);
+		}
+	}
 
 	//
 	//	Repair the volume if it needs repairs, its repairable and we were able to unmount it
@@ -187,18 +209,16 @@ DoAgain:
 		if ( scavError == noErr )
 		{
 			*modified = 1;	/* Report back that we made repairs */
-			if ( (dataArea.scanAgain || dataArea.RepLevel == repairLevelCatalogBtreeRebuild) && 
-				  scanCount++ == 0 )
-			{
-				ScavCtrl( &dataArea, scavTerminate, &temp );
-				repairLevel = kMajorRepairs;
-				checkLevel = kAlwaysCheck;
-				PrintStatus(&dataArea, M_Rescan, 0);
-				goto DoAgain;
-			}
-			PrintStatus(&dataArea, M_RepairOK, 1, dataArea.volumeName);
+
+			/* we just repaired a volume, so scan it again to check if it corrected everything properly */
+			ScavCtrl( &dataArea, scavTerminate, &temp );
+			repairLevel = kMajorRepairs;
+			checkLevel = kAlwaysCheck;
+			PrintStatus(&dataArea, M_Rescan, 0);
+			scanCount++;
+			goto DoAgain;
 		}
-		else
+		else 
 			PrintStatus(&dataArea, M_RepairFailed, 1, dataArea.volumeName);
 	}
 	else if ( scavError != noErr ) {
@@ -225,7 +245,9 @@ DoAgain:
 	}
 
 termScav:
-	err = scavError;
+	if (err == noErr) {
+		err = scavError;
+	}
 		
 	//
 	//	Terminate the scavenger
@@ -286,29 +308,38 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 	switch ( ScavOp )
 	{
 		case scavInitialize:								//	INITIAL VOLUME CHECK
+		{
+			int clean;
+
 			if ( result = ScavSetUp( GPtr ) )			//	set up BEFORE CheckForStop
 				break;
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
 			if ( result = CheckForStop( GPtr ) )		//	in order to initialize wrCnt
 				break;
-			
-			if (GPtr->chkLevel == kNeverCheck || GPtr->chkLevel == kDirtyCheck) {
-				int clean;
-
-				clean = CheckForClean(GPtr, false);
-				if (clean == 1)
+		
+			/* Call for all chkLevel options and check return value only 
+			 * for kDirtyCheck for preen option and kNeverCheck for quick option
+			 */
+			clean = CheckForClean(GPtr, false);
+			if ((GPtr->chkLevel == kDirtyCheck) || (GPtr->chkLevel == kNeverCheck)) {
+				if (clean == 1) {
+					/* volume was unmounted cleanly */
 					GPtr->cleanUnmount = true;
+					break;
+				}
 
 				if (GPtr->chkLevel == kNeverCheck) {
 					if (clean == -1)
 						result = R_BadSig;
 					else if (clean == 0) {
 						/*
-						 * We lie for journaled file systems since
-						 * they get cleaned up in mount by replaying
-						 * the journal.
-						 */
+					 	 * We lie for journaled file systems since
+					     * they get cleaned up in mount by replaying
+					 	 * the journal.
+					 	 * Note: CheckIfJournaled will return negative
+					     * if it finds lastMountedVersion = FSK!.
+					     */
 						if (CheckIfJournaled(GPtr))
 							GPtr->cleanUnmount = true;
 						else
@@ -316,9 +347,6 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 					}
 					break;
 				}
-
-				if (GPtr->cleanUnmount)
-					break;
 			}
 			
 			if (CheckIfJournaled(GPtr)
@@ -327,11 +355,14 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				&& !(GPtr->chkLevel == kAlwaysCheck && GPtr->repairLevel == kMajorRepairs)) {
 			    break;
 			}
-			
+
 			result = IVChk( GPtr );
+			
 			break;
+		}
 	
 		case scavVerify:								//	VERIFY
+		{
 
 #if SHOW_ELAPSED_TIMES
 			gettimeofday( &myStartTime, &zone );
@@ -503,7 +534,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 #endif
 
 			stat =	GPtr->VIStat  | GPtr->ABTStat | GPtr->EBTStat | GPtr->CBTStat | 
-					GPtr->CatStat;
+					GPtr->CatStat | GPtr->JStat;
 			
 			if ( stat != 0 )
 			{
@@ -512,7 +543,7 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 					//	2200106, We isolate very minor errors so that if the volume cannot be unmounted
 					//	CheckDisk will just return noErr
 					short minorErrors = (GPtr->CatStat & ~S_LockedDirName)  |
-								GPtr->VIStat | GPtr->ABTStat | GPtr->EBTStat | GPtr->CBTStat;
+								GPtr->VIStat | GPtr->ABTStat | GPtr->EBTStat | GPtr->CBTStat | GPtr->JStat;
 					if ( minorErrors == 0 )
 						GPtr->RepLevel =  repairLevelVeryMinorErrors;
 					else
@@ -526,8 +557,10 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 			GPtr->itemsProcessed = GPtr->itemsToProcess;
 			result = CheckForStop(GPtr);				//	one last check for modified volume
 			break;
-							
+		}					
+		
 		case scavRepair:									//	REPAIR
+		{
 			if ( IsBlueBoxSharedDrive( GPtr->DrvPtr ) )
 				break;
 			if ( result = CheckForStop(GPtr) )
@@ -538,10 +571,13 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				WriteMsg( GPtr, M_Repair, kTitleMessage );
 			result = RepairVolume( GPtr );
 			break;
+		}
 		
 		case scavTerminate:									//	CLEANUP AFTER SCAVENGE
+		{
 			result = ScavTerm(GPtr);
 			break;
+		}
 	}													//	end ScavOp switch
 
 
@@ -857,6 +893,10 @@ static int ScavSetUp( SGlob *GPtr)
 	GPtr->CBTStat			= 0;
 	GPtr->CatStat			= 0;
 	GPtr->VeryMinorErrorsStat	= 0;
+	GPtr->JStat			= 0;
+
+	/* Assume that the volume is dirty unmounted */
+	GPtr->cleanUnmount		= false;
 
  	// 
  	// Initialize VolumeObject
@@ -872,7 +912,7 @@ static int ScavSetUp( SGlob *GPtr)
 		}
 		return( R_NoMem );
 	}
-	
+
 	// Convert the security attribute name from utf8 to utf16.  This will
 	// avoid repeated conversion of all extended attributes to compare with
 	// security attribute name

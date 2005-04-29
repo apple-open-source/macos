@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/man.c,v 1.7 2002/08/05 01:47:34 torrey Exp $ */
+/* $XFree86: xc/programs/xman/man.c,v 1.8 2003/04/09 20:31:31 herrb Exp $ */
 
 
 #include "globals.h"
@@ -1090,6 +1090,7 @@ ReadManConfig(char manpath[])
 	memset(&gs, 0, sizeof(glob_t));
 	while ((path = strtok((char *)NULL, " \t\n"))) {
 	    if (glob(path, GLOB_BRACE, NULL, &gs) < 0) {
+		fclose(fp);
 		return FALSE;
 	    }
 	} /* while */

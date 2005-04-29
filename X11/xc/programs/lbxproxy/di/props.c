@@ -46,7 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/di/props.c,v 1.6 2001/12/14 20:00:52 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/props.c,v 1.7 2003/10/24 20:38:12 tsi Exp $ */
 
 /*
  * property handling
@@ -124,14 +124,15 @@ propTagStoreData(server, tid, dlen, swapit, ptdp)
  */
 /*ARGSUSED*/
 static Bool
-rewrite_change_prop(client, win, property, type, format, mode, nUnits)
-    ClientPtr client;
-    Window win;
-    Atom property;
-    Atom type;
-    int format;
-    int mode;
-    unsigned long nUnits;
+rewrite_change_prop(
+    ClientPtr client,
+    Window win,
+    Atom property,
+    Atom type,
+    int format,
+    int mode,
+    unsigned long nUnits
+)
 {
     unsigned flags;
 

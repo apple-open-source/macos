@@ -11,6 +11,10 @@
  
 #include	<IOKit/IOService.h>
 #include	<IOKit/IOInterruptEventSource.h>
+#include	<IOKit/IOTimerEventSource.h>
+#include	<IOKit/IOWorkLoop.h>
+#include	<IOKit/IOCommandGate.h>
+
 #include	"AudioHardwareConstants.h"
 #include	<IOKit/ppc/IODBDMA.h>
 
@@ -21,6 +25,8 @@
 #include	"PlatformInterfaceGPIO.h"
 #include	"PlatformInterfaceI2C.h"
 #include	"PlatformInterfaceI2S.h"
+
+#define	kComboJackDelay		( NSEC_PER_SEC / 4 )
 
 //	If this enumeration changes then please apply the same changes to the DiagnosticSupport/AOA Viewer sources.
 typedef enum PlatformInterfaceObjectType {
@@ -203,6 +209,9 @@ typedef PlatformStateStruct * PlatformStateStructPtr;
 
 #define kAnalogCodecResetSel kCodecResetSel
 
+void		comboDelayTimerCallback ( OSObject *owner, IOTimerEventSource *device );						//	[3787193]
+IOReturn	runComboDelayTasks ( OSObject * owner, void * arg1, void * arg2, void * arg3, void * arg4 );	//	[3787193]
+
 class AppleOnboardAudio;
 class AppleOnboardAudioUserClient;
 
@@ -366,6 +375,15 @@ public:
 	virtual IOReturn					getPlatformState ( PlatformStateStructPtr outState );
 	virtual IOReturn					setPlatformState ( PlatformStateStructPtr inState );
 	
+	virtual void						platformRunComboDelayTasks ( void );								//	[3787193]
+
+	UInt32								mComboInInterruptsProduced;											//	[3787193]
+	UInt32								mComboInInterruptsConsumed;											//	[3787193]
+	UInt32								mComboOutInterruptsProduced;										//	[3787193]
+	UInt32								mComboOutInterruptsConsumed;										//	[3787193]
+
+	virtual	void						triggerComboOneShot ();												//	[3787193]
+
 protected:
 
 	UInt32								mGpioMessageFlag;
@@ -379,13 +397,12 @@ protected:
     thread_call_t						mRegisterDetectInterruptsThread;									//  [3517442] mpc
     thread_call_t						mRegisterNonDetectInterruptsThread;									//  [3517442] mpc
 
-	GPIOSelector						mComboInAssociation;										//	[3453799]
-	GPIOSelector						mComboOutAssociation;										//	[3453799]
-	GpioAttributes						mComboInJackState;											//	[3453799]
-	GpioAttributes						mComboOutJackState;											//	[3453799]
+	GPIOSelector						mComboInAssociation;												//	[3453799]
+	GPIOSelector						mComboOutAssociation;												//	[3453799]
+	GpioAttributes						mComboInJackState;													//	[3453799]
+	GpioAttributes						mComboOutJackState;													//	[3453799]
 
-	virtual void						RunComboStateMachine ( IOCommandGate * cg, PlatformInterface * platformInterface, UInt32 detectState, UInt32 typeSenseState, UInt32 analogJackType );	//	[3517297]
-	ComboStateMachineState				mComboStateMachine[kNumberOfActionSelectors];				//	[3517297]
+	IOTimerEventSource *				comboDelayTimer;													//	[3787193]
 
 	PlatformInterfaceDBDMA *			platformInterfaceDBDMA;
 	PlatformInterfaceFCR *				platformInterfaceFCR;

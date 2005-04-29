@@ -1,0 +1,21 @@
+--- timelocal.h.orig	2003-05-20 15:23:48.000000000 -0700
++++ timelocal.h	2005-02-19 14:49:09.000000000 -0800
+@@ -29,6 +29,8 @@
+ #ifndef _TIMELOCAL_H_
+ #define	_TIMELOCAL_H_
+ 
++#include <xlocale.h>
++
+ /*
+  * Private header file for the strftime and strptime localization
+  * stuff.
+@@ -49,7 +51,7 @@
+ 	const char	*ampm_fmt;
+ };
+ 
+-struct lc_time_T *__get_current_time_locale(void);
+-int	__time_load_locale(const char *);
++struct lc_time_T *__get_current_time_locale(locale_t);
++int	__time_load_locale(const char *, locale_t);
+ 
+ #endif /* !_TIMELOCAL_H_ */

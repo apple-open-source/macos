@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/xtrap/xtrapin.c,v 1.2 2001/12/12 00:43:50 dawes Exp $ */
+/* $XFree86: xc/programs/xtrap/xtrapin.c,v 1.3 2003/05/27 22:27:13 tsi Exp $ */
 /*
  * @DEC_COPYRIGHT@
  */
@@ -229,17 +229,16 @@ static Bool found_input_rec(FILE *ifp, file_rec *rec)
     int found = False;
     char buff[BUFSIZ];
     char junk[16L];
-    int  match;
     int  tmp[8L];
 
     while ((found != True) && (fgets(buff,BUFSIZ,ifp) != NULL))
     {
         if (!strncmp(buff, "Event:", strlen("Event:")))
         {   /* we want this record */
-            if ((match = sscanf(buff,
+            if (sscanf(buff,
              "Event: %s (%d):det=%d scr=%d (%d,%d) root=%d Msk=%d TS=%d\n",
                 junk, &(tmp[0L]), &(tmp[1L]), &(tmp[2L]), &(tmp[3L]), 
-                &(tmp[4L]), &(tmp[5L]), &(tmp[6L]), &(tmp[7L]))) != 9L)
+                &(tmp[4L]), &(tmp[5L]), &(tmp[6L]), &(tmp[7L])) != 9L)
             {
                 fprintf(stderr, "%s:  Error parsing script input!\n\t'%s'\n",
                     ProgName, buff);

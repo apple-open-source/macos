@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfs.h,v 1.9 1999/10/31 19:45:26 jdolecek Exp $	*/
 
 /*-
@@ -30,21 +54,11 @@
 
 /*#define NTFS_DEBUG 1*/
 
-#ifdef APPLE
 /* We're using FreeBSD style byte order macros in the source. */
 #include <libkern/OSByteOrder.h>
 #define le16toh(x)		OSSwapLittleToHostInt16(x)
 #define le32toh(x)		OSSwapLittleToHostInt32(x)
 #define le64toh(x)		OSSwapLittleToHostInt64(x)
-
-/* FreeBSD mutexes correspond to Darwin's simple locks */
-#define mtx_lock(lock)		simple_lock(lock)
-#define mtx_unlock(lock)	simple_unlock(lock)
-#define mtx_destroy(lock)	/* Nothing. */
-
-#define lockdestroy(lock)	/* Nothing. */
-
-#endif
 
 typedef u_int64_t cn_t;
 typedef u_int16_t wchar;
@@ -263,20 +277,17 @@ struct bootfile {
  *
  * So, I'm using #ifdef KERNEL around the things that are only relevant
  * to the in-kernel implementation.
- *
- *ее I don't know if FreeBSD defines KERNEL, or if I need to use or
- * invent a different conditional here.
  */
 #ifdef KERNEL
 
 #define	NTFS_SYSNODESNUM	0x0B
 struct ntfsmount {
-	struct mount   *ntm_mountp;	/* filesystem vfs structure */
+	mount_t		    ntm_mountp;	/* filesystem vfs structure */
 	struct bootfile ntm_bootfile;
 	dev_t           ntm_dev;	/* device mounted */
-	struct vnode   *ntm_devvp;	/* block device mounted vnode */
-	struct vnode   *ntm_sysvn[NTFS_SYSNODESNUM];
-	u_int32_t       ntm_bpmftrec;
+	vnode_t			ntm_devvp;	/* block device mounted vnode */
+	vnode_t			ntm_sysvn[NTFS_SYSNODESNUM];
+	u_int32_t       ntm_bpmftrec;	/* blocks (sectors) per MFT record */
 	uid_t           ntm_uid;
 	gid_t           ntm_gid;
 	mode_t          ntm_mode;
@@ -284,11 +295,7 @@ struct ntfsmount {
 	cn_t		ntm_cfree;
 	struct ntvattrdef *ntm_ad;	/* attribute names are stored in native byte order */
 	int		ntm_adnum;
- 	wchar *		ntm_82u;	/* 8bit to Unicode */
  	char **		ntm_u28;	/* Unicode to 8 bit */
-#ifdef APPLE
-	struct netexport ntm_export;	/* NFS export information */
-#endif
 };
 
 #define ntm_mftcn	ntm_bootfile.bf_mftcn
@@ -302,9 +309,9 @@ struct ntfsmount {
 #define	NTFS_NEXTREC(s, type) ((type)(((caddr_t) s) + le16toh((s)->reclen)))
 
 /* Convert mount ptr to ntfsmount ptr. */
-#define VFSTONTFS(mp)	((struct ntfsmount *)((mp)->mnt_data))
+#define VFSTONTFS(mp)	((struct ntfsmount *)vfs_fsprivate(mp))
 #define VTONT(v)	FTONT(VTOF(v))
-#define	VTOF(v)		((struct fnode *)((v)->v_data))
+#define	VTOF(v)		((struct fnode *)vnode_fsnode(v))
 #define	FTOV(f)		((f)->f_vp)
 #define	FTONT(f)	((f)->f_ip)
 #define ntfs_cntobn(cn)	((daddr_t)(cn) * (ntmp->ntm_spc))
@@ -365,9 +372,4 @@ MALLOC_DECLARE(M_NTFSNTHASH);
 #define ddprintf(a)
 #endif
 
-#ifdef APPLE
-typedef int     vop_t(void *);
-#else
-#endif
-extern vop_t  **ntfs_vnodeop_p;
 #endif /* KERNEL */

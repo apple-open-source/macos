@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_lock.c,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_lock.c,v 1.3 2003/12/02 13:02:39 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -51,7 +52,7 @@ r200UpdatePageFlipping( r200ContextPtr rmesa )
    int use_back;
    rmesa->doPageFlip = rmesa->sarea->pfAllowPageFlip;
 
-   use_back = (rmesa->glCtx->Color.DriverDrawBuffer == GL_BACK_LEFT);
+   use_back = (rmesa->glCtx->Color._DrawDestMask == BACK_LEFT_BIT);
    use_back ^= (rmesa->sarea->pfCurrentPage == 1);
    
    if (use_back) {
@@ -63,7 +64,8 @@ r200UpdatePageFlipping( r200ContextPtr rmesa )
    }
 
    R200_STATECHANGE( rmesa, ctx );
-   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset;
+   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset
+					   + rmesa->r200Screen->fbLocation;
    rmesa->hw.ctx.cmd[CTX_RB3D_COLORPITCH]  = rmesa->state.color.drawPitch;
 }
 
@@ -82,6 +84,7 @@ void r200GetLock( r200ContextPtr rmesa, GLuint flags )
    __DRIdrawablePrivate *dPriv = rmesa->dri.drawable;
    __DRIscreenPrivate *sPriv = rmesa->dri.screen;
    RADEONSAREAPrivPtr sarea = rmesa->sarea;
+   int i;
 
    drmGetLock( rmesa->dri.fd, rmesa->dri.hwContext, flags );
 
@@ -93,16 +96,23 @@ void r200GetLock( r200ContextPtr rmesa, GLuint flags )
     * Since the hardware state depends on having the latest drawable
     * clip rects, all state checking must be done _after_ this call.
     */
-   DRI_VALIDATE_DRAWABLE_INFO( rmesa->dri.display, sPriv, dPriv );
+   DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv );
 
    if ( rmesa->lastStamp != dPriv->lastStamp ) {
       r200UpdatePageFlipping( rmesa );
-      r200SetCliprects( rmesa, rmesa->glCtx->Color.DriverDrawBuffer );
+      if (rmesa->glCtx->Color._DrawDestMask == BACK_LEFT_BIT)
+         r200SetCliprects( rmesa, GL_BACK_LEFT );
+      else
+         r200SetCliprects( rmesa, GL_FRONT_LEFT );
       r200UpdateViewportOffset( rmesa->glCtx );
       rmesa->lastStamp = dPriv->lastStamp;
    }
 
    if ( sarea->ctxOwner != rmesa->dri.hwContext ) {
       sarea->ctxOwner = rmesa->dri.hwContext;
+   }
+
+   for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+      DRI_AGE_TEXTURES( rmesa->texture_heaps[ i ] );
    }
 }

@@ -32,12 +32,16 @@ PERFORMANCE OF THIS SOFTWARE.
 		 	     makoto@sm.sony.co.jp
 				
 ***********************************************************************/
-/* $XFree86: xc/lib/X11/imCallbk.c,v 3.8 2002/12/15 01:20:56 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imCallbk.c,v 3.10 2003/11/17 22:20:11 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
 #include "Ximint.h"
 #include "XlcPubI.h"
+#ifdef X_LOCALE
+#define mblen(a,b)	_Xmblen(a,b)
+extern int _Xmblen ();
+#endif
 
 #define sz_CARD8                 1
 #define sz_INT8                  1
@@ -72,9 +76,7 @@ typedef enum {
 } XimCbStatus;
 
 typedef XimCbStatus (*XimCb)(
-#if NeedFunctionPrototypes
 			     Xim, Xic, char*, int
-#endif
 			     );
 
 #define PACKET_TO_MAJOROPCODE(p) (*(CARD8*)((CARD8*)(p)))
@@ -89,7 +91,6 @@ typedef XimCbStatus (*XimCb)(
     (im->private.proto.read((im),(XPointer)(buf),(buf_len),&(len)))
 #define _XimFlushData(im) im->private.proto.flush((im))
 
-#if NeedFunctionPrototypes
 Private XimCbStatus _XimGeometryCallback(Xim, Xic, char*, int);
 Private XimCbStatus _XimStrConversionCallback(Xim, Xic, char*, int);
 Private XimCbStatus _XimPreeditStartCallback(Xim, Xic, char*, int);
@@ -101,20 +102,6 @@ Private XimCbStatus _XimStatusStartCallback(Xim, Xic, char*, int);
 Private XimCbStatus _XimStatusDoneCallback(Xim, Xic, char*, int);
 Private XimCbStatus _XimStatusDrawCallback(Xim, Xic, char*, int);
 Private XimCbStatus _XimPreeditStateNotifyCallback(Xim, Xic, char *, int);
-#else
-Public Bool _XimCbDispatch();
-Private XimCbStatus _XimGeometryCallback();
-Private XimCbStatus _XimStrConversionCallback();
-Private XimCbStatus _XimPreeditStartCallback();
-Private XimCbStatus _XimPreeditDoneCallback();
-Private void _free_memory_for_text();
-Private XimCbStatus _XimPreeditDrawCallback();
-Private XimCbStatus _XimPreeditCaretCallback();
-Private XimCbStatus _XimStatusStartCallback();
-Private XimCbStatus _XimStatusDoneCallback();
-Private XimCbStatus _XimStatusDrawCallback();
-Private XimCbStatus _XimPreeditStateNotifyCallback();
-#endif /* NeedFunctionPrototypes */
 
 #if defined(__STDC__) && ((defined(sun) && defined(SVR4)) || defined(WIN32))
 #define RConst /**/
@@ -151,23 +138,13 @@ static RConst XimCb callback_table[] = {
 
 
 Private Bool
-#if NeedFunctionPrototypes
 _XimIsReadyForProcess(Xic ic)
-#else
-_XimIsReadyForProcess(ic)
-  Xic ic;
-#endif
 {
     return(!ic->private.proto.waitCallback); /* check HM */
 }
 
 Private void
-#if NeedFunctionPrototypes
 _XimProcessPendingCallbacks(Xic ic)
-#else
-_XimProcessPendingCallbacks(ic)
-  Xic ic;
-#endif
 {
     XimPendingCallback pcbq;
 
@@ -184,13 +161,7 @@ _XimProcessPendingCallbacks(ic)
 }
 
 Private void
-#if NeedFunctionPrototypes
 _XimPutCbIntoQueue(Xic ic, XimPendingCallback call_data)
-#else
-_XimPutCbIntoQueue(ic, call_data)
-  Xic ic;
-  XimPendingCallback call_data;
-#endif
 {
     XimPendingCallback pcbq = ic->private.proto.pend_cb_que;
 
@@ -211,18 +182,10 @@ _XimPutCbIntoQueue(ic, call_data)
 }
 
 Public Bool
-#if NeedFunctionPrototypes
 _XimCbDispatch(Xim xim, 
 	       INT16 len, 
 	       XPointer data, 
 	       XPointer call_data)
-#else
-_XimCbDispatch(xim, len, data, call_data)
-  Xim xim;
-  INT16 len;
-  XPointer data;
-  XPointer call_data;
-#endif
 {
     /* `data' points to the beginning of the packet defined in IM Protocol doc.
      */
@@ -296,18 +259,10 @@ _XimCbDispatch(xim, len, data, call_data)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimGeometryCallback(Xim im, 
 		     Xic ic, 
 		     char* proto, 
 		     int len)
-#else
-_XimGeometryCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.geometry_callback;
 
@@ -327,18 +282,10 @@ _XimGeometryCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimStrConversionCallback(Xim im, 
 			  Xic ic, 
 			  char* proto, 
 			  int len)
-#else
-_XimStrConversionCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.string_conversion_callback; /* check HM */
     XIMStringConversionCallbackStruct cbrec;
@@ -418,18 +365,10 @@ _XimStrConversionCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimPreeditStartCallback(Xim im, 
 			 Xic ic, 
 			 char* proto, 
 			 int len)
-#else
-_XimPreeditStartCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.preedit_attr.start_callback;
     int ret;
@@ -475,18 +414,10 @@ _XimPreeditStartCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimPreeditDoneCallback(Xim im, 
 			Xic ic, 
 			char* proto, 
 			int len)
-#else
-_XimPreeditDoneCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.preedit_attr.done_callback;
 
@@ -506,16 +437,9 @@ _XimPreeditDoneCallback(im, ic, proto, len)
 }
 
 Private void
-#if NeedFunctionPrototypes
 _read_text_from_packet(Xim im, 
 		       char* buf, 
 		       XIMText** text_ptr)
-#else
-_read_text_from_packet(im, buf, text_ptr)
-  Xim im;
-  char* buf;
-  XIMText** text_ptr;
-#endif
 {
     int status;
     XIMText* text;
@@ -628,12 +552,7 @@ _read_text_from_packet(im, buf, text_ptr)
 }
 
 Private void
-#if NeedFunctionPrototypes
 _free_memory_for_text(XIMText* text)
-#else
-_free_memory_for_text(text)
-  XIMText* text;
-#endif
 {
     if (text) {
 	if (text->string.multi_byte)
@@ -645,18 +564,10 @@ _free_memory_for_text(text)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimPreeditDrawCallback(Xim im, 
 			Xic ic, 
 			char* proto, 
 			int len)
-#else
-_XimPreeditDrawCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.preedit_attr.draw_callback;
     XIMPreeditDrawCallbackStruct cbs;
@@ -684,18 +595,10 @@ _XimPreeditDrawCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimPreeditCaretCallback(Xim im, 
 			 Xic ic, 
 			 char* proto,
 			 int len)
-#else
-_XimPreeditCaretCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.preedit_attr.caret_callback;
     XIMPreeditCaretCallbackStruct cbs;
@@ -744,18 +647,10 @@ _XimPreeditCaretCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimStatusStartCallback(Xim im, 
 			Xic ic, 
 			char* proto, 
 			int len)
-#else
-_XimStatusStartCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.status_attr.start_callback;
 
@@ -775,18 +670,10 @@ _XimStatusStartCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimStatusDoneCallback(Xim im, 
 		       Xic ic, 
 		       char* proto, 
 		       int len)
-#else
-_XimStatusDoneCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.status_attr.done_callback;
 
@@ -806,18 +693,10 @@ _XimStatusDoneCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimStatusDrawCallback(Xim im, 
 		       Xic ic, 
 		       char* proto, 
 		       int len)
-#else
-_XimStatusDrawCallback(im, ic, proto, len)
-  Xim im;
-  Xic ic;
-  char* proto;
-  int len;
-#endif
 {
     XICCallback* cb = &ic->core.status_attr.draw_callback;
     XIMStatusDrawCallbackStruct cbs;
@@ -849,15 +728,7 @@ _XimStatusDrawCallback(im, ic, proto, len)
 }
 
 Private XimCbStatus
-#if NeedFunctionPrototypes
 _XimPreeditStateNotifyCallback( Xim im, Xic ic, char* proto, int len )
-#else
-_XimPreeditStateNotifyCallback( im, ic, proto, len )
-    Xim		 im;
-    Xic		 ic;
-    char	*proto;
-    int		 len;
-#endif
 {
     XICCallback	*cb = &ic->core.preedit_attr.state_notify_callback;
 

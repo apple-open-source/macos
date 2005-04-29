@@ -1,0 +1,19 @@
+include "$(SRCROOT)/../../Common/Scripts/AbsolutePathMig.jam" ;
+
+Intermediates = "$(BUILT_PRODUCTS_DIR)/CredentialsCache.intermediates" ;
+
+MACH_CLIENT_AND_SERVER = YES ;
+AbsolutePathMig     "$(Intermediates)/CCacheIPC.h" 
+                    "$(Intermediates)/CCacheIPCUser.c"
+                    "$(Intermediates)/CCacheIPCServer.h" 
+                    "$(Intermediates)/CCacheIPCServer.c" : 
+                    "$(SRCROOT)/../../CredentialsCache/Sources/MachIPCImplementations/CCacheIPC.defs" ;
+
+DEPENDS all : 	"$(Intermediates)/CCacheIPC.h" 
+                "$(Intermediates)/CCacheIPCUser.c"
+                "$(Intermediates)/CCacheIPCServer.h" 
+                "$(Intermediates)/CCacheIPCServer.c" ;
+DEPENDS install : all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

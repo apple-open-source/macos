@@ -18,8 +18,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-linux* *-*-solaris* *-*-cygwin } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 // This multi-threading C++/STL/POSIX code adheres to rules outlined here:
@@ -124,7 +124,7 @@ main (int argc, char** argv)
 	{
 	  pthread_join (prod[i], NULL);
 	  pthread_join (cons[i], NULL);
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) && __FreeBSD__ < 5
 	  // These lines are not required by POSIX since a successful
 	  // join is suppose to detach as well...
 	  pthread_detach (prod[i]);

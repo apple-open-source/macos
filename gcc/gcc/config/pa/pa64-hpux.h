@@ -1,21 +1,21 @@
 /* Definitions of target machine for GNU compiler, for HPs running
    HPUX using the 64bit runtime model.
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -37,20 +37,55 @@ Boston, MA 02111-1307, USA.  */
 #undef LINK_SPEC
 #if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LINK_SPEC \
-  "%{mhp-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}}"
+  "%{!shared:%{p:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{mhp-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{static:-a archive} %{shared:%{mhp-ld:-b}%{!mhp-ld:-shared}}"
 #else
 #define LINK_SPEC \
-  "%{!mgnu-ld:+Accept TypeMismatch} -E %{mlinker-opt:-O} %{!shared:-u main} %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}}"
+  "%{!shared:%{p:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!shared:%{pg:-L/lib/pa20_64/libp -L/usr/lib/pa20_64/libp %{!static:\
+     %nWarning: consider linking with `-static' as system libraries with\n\
+     %n  profiling support are only provided in archive format}}}\
+   %{!mgnu-ld:+Accept TypeMismatch -z} -E %{mlinker-opt:-O} %{!shared:-u main}\
+   %{static:-a archive} %{shared:%{mgnu-ld:-shared}%{!mgnu-ld:-b}}"
 #endif
 
-/* Like the default, except no -lg.  */
+/* Profiling support is only provided in libc.a.  However, libprof and
+   libgprof are only available in shared form on HP-UX 11.00.  We use
+   the shared form if we are using the GNU linker or an archive form
+   isn't available.  We also usually need to link with libdld and it's
+   only available in shared form.  */
 #undef LIB_SPEC
+#if ((TARGET_DEFAULT | TARGET_CPU_DEFAULT) & MASK_GNU_LD)
 #define LIB_SPEC \
   "%{!shared:\
-     %{!p:\
-       %{!pg: %{!threads:-lc} %{threads:-lcma -lc_r}}\
-       %{pg: -L/usr/lib/pa20_64/libp/ -lgprof -lc}}\
-     %{p: -L/usr/lib/pa20_64/libp/ -lprof -lc}} /usr/lib/pa20_64/milli.a"
+     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{p:%{!pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
+	   -lprof %{static:-a archive} -lc\
+	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{pg:%{static:%{!mhp-ld:-a shared}%{mhp-ld:-a archive_shared}}\
+       -lgprof %{static:-a archive} -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+   /usr/lib/pa20_64/milli.a"
+#else
+#define LIB_SPEC \
+  "%{!shared:\
+     %{!p:%{!pg: -lc %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{p:%{!pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
+	   -lprof %{static:-a archive} -lc\
+	   %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+     %{pg:%{static:%{mgnu-ld:-a shared}%{!mgnu-ld:-a archive_shared}}\
+       -lgprof %{static:-a archive} -lc\
+       %{static:%{!nolibdld:-a shared -ldld -a archive -lc}}}}\
+   /usr/lib/pa20_64/milli.a"
+#endif
 
 /* Under hpux11, the normal location of the `ld' and `as' programs is the
    /usr/ccs/bin directory.  */
@@ -59,6 +94,14 @@ Boston, MA 02111-1307, USA.  */
 #undef MD_EXEC_PREFIX
 #define MD_EXEC_PREFIX "/usr/ccs/bin"
 #endif
+
+/* Default prefixes.  */
+
+#undef STANDARD_STARTFILE_PREFIX_1
+#define STANDARD_STARTFILE_PREFIX_1 "/lib/pa20_64/"
+
+#undef STANDARD_STARTFILE_PREFIX_2
+#define STANDARD_STARTFILE_PREFIX_2 "/usr/lib/pa20_64/"
 
 /* Under hpux11 the normal location of the various pa20_64 *crt*.o files
    is the /usr/ccs/lib/pa20_64 directory.  Some files may also be in the
@@ -74,6 +117,17 @@ Boston, MA 02111-1307, USA.  */
 #define MD_STARTFILE_PREFIX_1 "/opt/langtools/lib/pa20_64/"
 #endif
 
+/* This macro specifies the biggest alignment supported by the object
+   file format of this machine.
+
+   The .align directive in the HP assembler allows alignments up to
+   4096 bytes.  However, the maximum alignment of a global common symbol
+   is 16 bytes using HP ld.  For consistency, we use the same limit
+   with GNU ld.  */
+#undef MAX_OFILE_ALIGNMENT
+#define MAX_OFILE_ALIGNMENT                                             \
+  (TREE_PUBLIC (decl) && DECL_COMMON (decl) ? 128 : 32768)
+
 /* Due to limitations in the target structure, it isn't currently possible
    to dynamically switch between the GNU and HP assemblers.  */
 #undef TARGET_GAS
@@ -84,25 +138,8 @@ Boston, MA 02111-1307, USA.  */
 /* We are using GAS.  */
 #define TARGET_GAS 1
 
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) \
-do {								\
-  if (TARGET_64BIT)						\
-    fputs("\t.LEVEL 2.0w\n", FILE);				\
-  else if (TARGET_PA_20)					\
-    fputs("\t.LEVEL 2.0\n", FILE);				\
-  else if (TARGET_PA_11)					\
-    fputs("\t.LEVEL 1.1\n", FILE);				\
-  else								\
-    fputs("\t.LEVEL 1.0\n", FILE);				\
-  if (profile_flag)						\
-    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, "_mcount", "function");	\
-  if (write_symbols != NO_DEBUG)				\
-    {								\
-      output_file_directive ((FILE), main_input_filename);	\
-      fputs ("\t.version\t\"01.01\"\n", FILE);			\
-    }								\
-} while (0)
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START pa_hpux64_gas_file_start
 
 /* This is how we output a null terminated string.  */
 #undef STRING_ASM_OP
@@ -119,23 +156,16 @@ do {								\
 #define HP_FINI_ARRAY_SECTION_ASM_OP	"\t.section\t.fini"
 #define GNU_FINI_ARRAY_SECTION_ASM_OP	"\t.section\t.fini_array"
 
+/* We need to override the following two macros defined in elfos.h since
+   the .comm directive has a different syntax and it can't be used for
+   local common symbols.  */
 #undef ASM_OUTPUT_ALIGNED_COMMON
 #define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)		\
-do {									\
-  bss_section ();							\
-  assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGN) / BITS_PER_UNIT)));	\
-} while (0)
+  pa_asm_output_aligned_common (FILE, NAME, SIZE, ALIGN)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
 #define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)		\
-do {									\
-  bss_section ();							\
-  fprintf ((FILE), "\t.align %d\n", ((ALIGN) / BITS_PER_UNIT));		\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));				\
-} while (0)
+  pa_asm_output_aligned_local (FILE, NAME, SIZE, ALIGN)
 
 /* The define in pa.h doesn't work with the alias attribute.  The
    default is ok with the following define for GLOBAL_ASM_OP.  */
@@ -180,10 +210,6 @@ do {								\
 } while (0)
 
 /* We need to use the HP style for internal labels.  */
-#undef  ASM_OUTPUT_INTERNAL_LABEL
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  fprintf (FILE, "%c$%s%04d\n", (PREFIX)[0], (PREFIX) + 1, NUM)
-
 #undef ASM_GENERATE_INTERNAL_LABEL
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
   sprintf (LABEL, "*%c$%s%04ld", (PREFIX)[0], (PREFIX) + 1, (long)(NUM))
@@ -207,28 +233,8 @@ do {								\
 /* This target uses the ELF object file format.  */
 #define OBJECT_FORMAT_ELF
 
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE)					\
-do {								\
-  if (TARGET_64BIT)						\
-    fputs("\t.LEVEL 2.0w\n", FILE);				\
-  else if (TARGET_PA_20)					\
-    fputs("\t.LEVEL 2.0\n", FILE);				\
-  else if (TARGET_PA_11)					\
-    fputs("\t.LEVEL 1.1\n", FILE);				\
-  else								\
-    fputs("\t.LEVEL 1.0\n", FILE);				\
-  fputs("\t.SPACE $PRIVATE$,SORT=16\n\
-\t.SUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31\n\
-\t.SUBSPA $BSS$,QUAD=1,ALIGN=8,ACCESS=31,ZERO,SORT=82\n\
-\t.SPACE $TEXT$,SORT=8\n\
-\t.SUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=44\n\
-\t.SUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE);	\
-  if (profile_flag)						\
-    fprintf (FILE, "\t.IMPORT _mcount, CODE\n");		\
-  if (write_symbols != NO_DEBUG)				\
-    output_file_directive ((FILE), main_input_filename);	\
-} while (0)
+#undef TARGET_ASM_FILE_START
+#define TARGET_ASM_FILE_START pa_hpux64_hpas_file_start
 
 #undef TEXT_SECTION_ASM_OP
 #define TEXT_SECTION_ASM_OP		"\t.SUBSPA $CODE$\n"
@@ -267,11 +273,19 @@ do {								\
 /* The following STARTFILE_SPEC and ENDFILE_SPEC defines provide the
    magic needed to run initializers and finalizers.  */
 #undef STARTFILE_SPEC
+#if TARGET_HPUX_11_11
 #define STARTFILE_SPEC \
-  "%{!shared: %{!symbolic: crt0.o%s}} %{static:crtbeginT.o%s} \
-   %{!static:%{!shared:crtbegin.o%s} %{shared:crtbeginS.o%s}}"
+  "%{!shared: %{!symbolic: crt0%O%s} %{munix=95:unix95.o%s} \
+     %{!munix=93:%{!munix=95:unix98%O%s}}} %{static:crtbeginT%Oos} \
+   %{!static:%{!shared:crtbegin%O%s} %{shared:crtbeginS%O%s}}"
+#else
+#define STARTFILE_SPEC \
+  "%{!shared: %{!symbolic: crt0%O%s} %{munix=95:unix95%O%s}} \
+   %{static:crtbeginT%O%s} %{!static:%{!shared:crtbegin%O%s} \
+   %{shared:crtbeginS%O%s}}"
+#endif
 #undef ENDFILE_SPEC
-#define ENDFILE_SPEC "%{!shared:crtend.o%s} %{shared:crtendS.o%s}"
+#define ENDFILE_SPEC "%{!shared:crtend%O%s} %{shared:crtendS%O%s}"
 
 /* Since HP uses the .init and .fini sections for array initializers
    and finalizers, we need different defines for INIT_SECTION_ASM_OP
@@ -406,3 +420,7 @@ PA_INIT_FINI_HACK
    and returns 0.  /bin/true cannot be used because it is a script without
    an interpreter.  */
 #define INIT_ENVIRONMENT "LD_PXDB=/usr/ccs/bin/size"
+
+/* The HPUX dynamic linker objects to weak symbols with no
+   definitions, so do not use them in gthr-posix.h.  */
+#define GTHREAD_USE_WEAK 0

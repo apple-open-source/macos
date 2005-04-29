@@ -168,6 +168,7 @@ extern void	htab_clear_slot	PARAMS ((htab_t, void **));
 extern void	htab_remove_elt	PARAMS ((htab_t, void *));
 
 extern void	htab_traverse	PARAMS ((htab_t, htab_trav, void *));
+extern void	htab_traverse_noresize	PARAMS ((htab_t, htab_trav, void *));
 
 extern size_t	htab_size	PARAMS ((htab_t));
 extern size_t	htab_elements	PARAMS ((htab_t));
@@ -181,6 +182,11 @@ extern htab_eq htab_eq_pointer;
 
 /* A hash function for null-terminated strings.  */
 extern hashval_t htab_hash_string PARAMS ((const PTR));
+
+/* An iterative hash function for arbitrary data.  */
+extern hashval_t iterative_hash PARAMS ((const PTR, size_t, hashval_t));
+/* Shorthand for hashing something with an intrinsic size.  */
+#define iterative_hash_object(OB,INIT) iterative_hash (&OB, sizeof (OB), INIT)
 
 #ifdef __cplusplus
 }

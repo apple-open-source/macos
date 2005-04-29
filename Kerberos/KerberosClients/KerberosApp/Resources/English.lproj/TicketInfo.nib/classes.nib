@@ -1,0 +1,42 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = TicketInfoController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                clientPrincipalTextField = NSTextField; 
+                expirationTimeTextField = NSTextField; 
+                flagsTabViewItem = NSTabViewItem; 
+                forwardableTextField = NSTextField; 
+                forwardedTextField = NSTextField; 
+                hardwareAuthenticatedTextField = NSTextField; 
+                initialTextField = NSTextField; 
+                invalidTextField = NSTextField; 
+                ipAddressesTableView = NSTableView; 
+                issuedTimeTextField = NSTextField; 
+                postdatableTextField = NSTextField; 
+                postdatedTextField = NSTextField; 
+                preauthenticatedTextField = NSTextField; 
+                proxiableTextField = NSTextField; 
+                proxiedTextField = NSTextField; 
+                renewUntilTimeHeaderTextField = NSTextField; 
+                renewUntilTimeTextField = NSTextField; 
+                renewableTextField = NSTextField; 
+                sKeyTextField = NSTextField; 
+                servicePrincipalEnctypeTextField = NSTextField; 
+                servicePrincipalTextField = NSTextField; 
+                sessionKeyEnctypeTextField = NSTextField; 
+                startTimeTextField = NSTextField; 
+                statusTextField = NSTextField; 
+                stringToKeyTypeTextField = NSTextField; 
+                ticketTabView = NSTabView; 
+                v4EncryptionTabViewItem = NSTabViewItem; 
+                v5EncryptionTabViewItem = NSTabViewItem; 
+                versionTextField = NSTextField; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

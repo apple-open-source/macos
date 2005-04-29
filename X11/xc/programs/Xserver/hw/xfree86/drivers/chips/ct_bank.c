@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_bank.c,v 1.6 2002/01/25 21:55:58 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_bank.c,v 1.7 2003/12/31 06:14:36 dawes Exp $ */
 
 /*
  * Copyright 1997
@@ -53,11 +53,14 @@
 /* Driver specific headers */
 #include "ct_driver.h"
 
-#ifdef	__arm32__
-/*#include <machine/sysarch.h>*/
+#if defined(__arm32__) && defined(__NetBSD__)
+#include <machine/sysarch.h>
 #define	arm32_drain_writebuf()	sysarch(1, 0)
-#define ChipsBank(pScreen) CHIPSPTR(xf86Screens[pScreen->myNum])->Bank
+#elif defined(__arm32__)
+#define arm32_drain_writebuf()
 #endif
+
+#define ChipsBank(pScreen) CHIPSPTR(xf86Screens[pScreen->myNum])->Bank
 
 #ifdef DIRECT_REGISTER_ACCESS
 int

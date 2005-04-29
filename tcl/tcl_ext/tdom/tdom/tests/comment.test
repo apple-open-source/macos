@@ -1,0 +1,209 @@
+# Features covered:  comments
+#
+# This file tests the parser's performance on comments.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1998-2000 Zveno Pty Ltd.
+#
+# $Id: comment.test,v 1.5 2002/07/28 23:20:37 rolf Exp $
+
+source [file join [file dir [info script]] loadtdom.tcl]
+
+catch {unset result}
+proc pcdata data {
+    append ::result $data
+}
+proc comment data {
+    append ::comment $data
+}
+proc Estart {tagName attrList} {
+    switch -- $tagName {
+	test -
+	Test {
+	}
+	default {
+	    incr ::element
+	}
+    }
+}
+
+proc EStop tagname {
+}
+
+test comment-1.1 {Simple comment} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-1.1 {}}
+    set parser [xml::parser comment-1.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!-- This is a comment --></Test>
+}
+    list $::comment $::result $::element
+} {{ This is a comment } {} 0}
+
+test comment-1.2 {Simple comment, no white space} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-1.2 {}}
+    set parser [xml::parser comment-1.2 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!--This is a comment--></Test>
+}
+    list $::comment $::result $::element
+} {{This is a comment} {} 0}
+
+test comment-1.3 {Simple comment, within PCDATA} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-1.3 {}}
+    set parser [xml::parser comment-1.3 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test>surrounding <!--This is a comment--> PCDATA</Test>
+}
+    list $::comment $::result $::element
+} {{This is a comment} {surrounding  PCDATA} 0}
+
+test comment-1.3 {Simple comment, no white space} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-1.3 {}}
+    set parser [xml::parser comment-1.3 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!--comment--></Test>
+}
+    list $::comment $::result $::element
+} {comment {} 0}
+
+test comment-1.4 {comment, with nested element} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-1.4 {}}
+    set parser [xml::parser comment-1.4 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!-- comment <!blah>--></Test>
+}
+    list $::comment $::result $::element
+} {{ comment <!blah>} {} 0}
+
+test comment-2.1 {comment with an angle bracket} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-2.1 {}}
+    set parser [xml::parser comment-2.1 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!-- This is a > greater than sign --></Test>
+}
+    list $::comment $::result $::element
+} {{ This is a > greater than sign } {} 0}
+
+test comment-2.2 {comment with multiple angle brackets} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-2.2 {}}
+    set parser [xml::parser comment-2.2 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse {<?xml version="1.0"?>
+<!DOCTYPE Test>
+<Test><!-- 
+  <Test>
+    <Element>
+      <Empty/>
+    </Element>
+  </Test>
+ --></Test>
+}
+    list $::comment $::result $::element
+} {{ 
+  <Test>
+    <Element>
+      <Empty/>
+    </Element>
+  </Test>
+ } {} 0}
+
+set comment_2_3 [format {
+    <question title="This is &lt;okay&gt;, right?" />
+    <question title="Is &lt;this> bogus?" />
+    <section title="This is a problem%s" />
+  } \}]
+
+test comment-2.3 {comment with entities} {
+    set ::result {}
+    set ::comment {}
+    set ::element 0
+
+    catch {rename xml::comment-2.3 {}}
+    set parser [xml::parser comment-2.3 \
+	-elementstartcommand Estart \
+	-elementendcommand EStop \
+	-characterdatacommand pcdata \
+	-commentcommand comment]
+    $parser parse "<?xml version='1.0'?>
+<!DOCTYPE test SYSTEM 'test.dtd'>
+<test>
+
+<author>
+<organization/>
+</author>
+
+<!--${comment_2_3}-->
+</test>"
+
+list [string compare $::comment ${comment_2_3}] [string trim $::result] $::element
+} [list 0 {} 2]
+
+foreach parser [info commands comment-*] {
+    $parser free
+}
+
+# cleanup
+::tcltest::cleanupTests
+return

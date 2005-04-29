@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <!-- 
   ****************************************************************************
-  * Copyright (c) 1998 Free Software Foundation, Inc.                        *
+  * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -27,17 +27,23 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: curs_inopts.3x,v 1.8 1998/03/11 21:12:53 juergen Exp @
+  * @Id: curs_inopts.3x,v 1.11 2003/12/27 18:45:42 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>curs_inopts 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>curs_inopts 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>curs_inopts 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>                                   <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
@@ -133,7 +139,7 @@
        invoke <STRONG>meta</STRONG>(<EM>win</EM>, <STRONG>TRUE</STRONG>); this is equivalent,  under  POSIX,
        to  setting the CS8 flag on the terminal.  To force 7 bits
        to be returned, invoke <STRONG>meta</STRONG>(<EM>win</EM>, <STRONG>FALSE</STRONG>); this  is  equiva-
-       lent,  under  POSIX, to setting the CS8 flag on the termi-
+       lent,  under  POSIX, to setting the CS7 flag on the termi-
        nal.  The window argument, <EM>win</EM>, is always ignored.  If the
        terminfo capabilities <STRONG>smm</STRONG> (meta_on) and <STRONG>rmm</STRONG> (meta_off) are
        defined for the terminal, <STRONG>smm</STRONG> is sent to the terminal when
@@ -170,9 +176,9 @@
 
        The <STRONG>timeout</STRONG> and <STRONG>wtimeout</STRONG> routines  set  blocking  or  non-
        blocking  read  for a given window.  If <EM>delay</EM> is negative,
-       blocking  read  is  used  (<EM>i</EM>.<EM>e</EM>.,  waits  indefinitely  for
+       blocking  read  is  used  (i.e.,  waits  indefinitely  for
        input).   If <EM>delay</EM> is zero, then non-blocking read is used
-       (<EM>i</EM>.<EM>e</EM>., read returns <STRONG>ERR</STRONG> if no input is waiting).  If <EM>delay</EM>
+       (i.e., read returns <STRONG>ERR</STRONG> if no input is waiting).  If <EM>delay</EM>
        is  positive, then read blocks for <EM>delay</EM> milliseconds, and
        returns <STRONG>ERR</STRONG> if there is still no input.  Hence, these rou-
        tines  provide the same functionality as <STRONG>nodelay</STRONG>, plus the
@@ -235,39 +241,7 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                                  <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

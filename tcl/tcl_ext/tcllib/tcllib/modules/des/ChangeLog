@@ -1,0 +1,35 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-05-07  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* des.tcl, des.man, pkgIndex.tcl: Hiked the version to 0.8.1
+	* des.tcl (DesBlock): Change the final result from binary format
+	to some bit-shifting for tcl < 8.4 to fix for 64 bit platforms.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* des.tcl:  Fixed bug #614591.
+
+2003-02-11  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* des.tcl: Imported and tcllib-ised the DES package
+	from wiki page "DES in Tcl" by Jochen Loewer. NOT added to the
+	main package list as it requires CBC/CFB/OFB modes for real use.
+	* des.test: Modified the Trfcrypt DES test suite.
+	* des.man: Simple documentation - needs more.

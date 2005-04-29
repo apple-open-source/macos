@@ -1,6 +1,10 @@
 /*
  * system.c
  */
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
 /***********************************************************
         Copyright 1992 by Carnegie Mellon University
 
@@ -22,6 +26,12 @@ WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
 ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 ******************************************************************/
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
 /*
  * System dependent routines go here
  */
@@ -108,6 +118,9 @@ SOFTWARE.
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#if HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
 
 #if defined(hpux10) || defined(hpux11)
 #include <sys/pstat.h>
@@ -130,7 +143,101 @@ SOFTWARE.
 # define LOOPBACK    0x7f000001
 #endif
 
+/**
+ * fork current process into the background.
+ *
+ * This function forks a process into the background, in order to
+ * become a daemon process. It does a few things along the way:
+ *
+ * - becoming a process/session group leader, and  forking a second time so
+ *   that process/session group leader can exit.
+ *
+ * - changing the working directory to /
+ *
+ * - closing stdin, stdout and stderr (unless stderr_log is set) and
+ *   redirecting them to /dev/null
+ *
+ * @param quit_immediately : indicates if the parent process should
+ *                           exit after a successful fork.
+ * @param stderr_log       : indicates if stderr is being used for
+ *                           logging and shouldn't be closed
+ * @returns -1 : fork error
+ *           0 : child process returning
+ *          >0 : parent process returning. returned value is the child PID.
+ */
+int
+netsnmp_daemonize(int quit_immediately, int stderr_log)
+{
+    int i = 0;
+    DEBUGMSGT(("daemonize","deamonizing...\n"));
+#if HAVE_FORK
+    /*
+     * Fork to return control to the invoking process and to
+     * guarantee that we aren't a process group leader.
+     */
+    i = fork();
+    if (i != 0) {
+        /* Parent. */
+        DEBUGMSGT(("daemonize","first fork returned %d.\n", i));
+        if(i == -1) {
+            snmp_log(LOG_ERR,"first fork failed (errno %d) in "
+                     "netsnmp_daemonize()\n", errno);
+            return -1;
+        }
+        if (quit_immediately) {
+            DEBUGMSGT(("daemonize","parent exiting\n"));
+            exit(0);
+        }
+    } else {
+        /* Child. */
+#ifdef HAVE_SETSID
+        /* Become a process/session group leader. */
+        setsid();
+#endif
+        /*
+         * Fork to let the process/session group leader exit.
+         */
+        if ((i = fork()) != 0) {
+            DEBUGMSGT(("daemonize","second fork returned %d.\n", i));
+            if(i == -1) {
+                snmp_log(LOG_ERR,"second fork failed (errno %d) in "
+                         "netsnmp_daemonize()\n", errno);
+            }
+            /* Parent. */
+            exit(0);
+        }
+#ifndef WIN32
+        else {
+            /* Child. */
+            
+            DEBUGMSGT(("daemonize","child continuing\n"));
 
+            /* Avoid keeping any directory in use. */
+            chdir("/");
+            
+            if (!stderr_log) {
+                /*
+                 * Close inherited file descriptors to avoid
+                 * keeping unnecessary references.
+                 */
+                close(0);
+                close(1);
+                close(2);
+                
+                /*
+                 * Redirect std{in,out,err} to /dev/null, just in
+                 * case.
+                 */
+                open("/dev/null", O_RDWR);
+                dup(0);
+                dup(0);
+            }
+        }
+#endif /* !WIN32 */
+    }
+#endif /* HAVE_FORK */
+    return i;
+}
 
 /*
  * ********************************************* 
@@ -143,6 +250,10 @@ SOFTWARE.
 #	include <tchar.h>
 #	include <windows.h>
 
+/*
+ * MinGW defines WIN32, but has working dirent stuff.
+ */
+#ifndef HAVE_DIRENT_H 
 
 /*
  * The idea here is to read all the directory names into a string table
@@ -314,6 +425,7 @@ closedir(DIR * dirp)
     free(dirp);
     return 1;
 }
+#endif /* HAVE_DIRENT_H */
 
 #ifndef HAVE_GETTIMEOFDAY
 
@@ -361,7 +473,7 @@ get_myaddr(void)
          */
         remote_in_addr.sin_family = AF_INET;
         remote_in_addr.sin_port = htons(IPPORT_ECHO);
-        remote_in_addr.sin_addr.s_addr = inet_addr("128.22.33.11");
+        remote_in_addr.sin_addr.s_addr = inet_addr("0.0.0.0");
         result =
             connect(hSock, (LPSOCKADDR) & remote_in_addr,
                     sizeof(SOCKADDR));
@@ -425,7 +537,10 @@ winsock_startup(void)
     int             i;
     static char     errmsg[100];
 
-    VersionRequested = MAKEWORD(1, 1);
+	/* winsock 1: use MAKEWORD(1,1) */
+	/* winsock 2: use MAKEWORD(2,2) */
+
+    VersionRequested = MAKEWORD(2,2);
     i = WSAStartup(VersionRequested, &stWSAData);
     if (i != 0) {
         if (i == WSAVERNOTSUPPORTED)
@@ -650,8 +765,8 @@ get_uptime(void)
             if (kid != -1) {
                 named = kstat_data_lookup(ks, "lbolt");
                 if (named) {
-#ifdef KSTAT_DATA_INT32
-                    lbolt = named->value.ul;
+#ifdef KSTAT_DATA_UINT32
+                    lbolt = named->value.ui32;
 #else
                     lbolt = named->value.ul;
 #endif
@@ -772,6 +887,7 @@ setenv(const char *name, const char *value, int overwrite)
 }
 #endif                          /* HAVE_SETENV */
 
+/* returns centiseconds */
 int
 calculate_time_diff(struct timeval *now, struct timeval *then)
 {
@@ -786,6 +902,25 @@ calculate_time_diff(struct timeval *now, struct timeval *then)
         diff.tv_sec++;
     }
     return ((diff.tv_sec * 100) + (diff.tv_usec / 10000));
+}
+
+/* returns diff in rounded seconds */
+u_int
+calculate_sectime_diff(struct timeval *now, struct timeval *then)
+{
+    struct timeval  tmp, diff;
+    memcpy(&tmp, now, sizeof(struct timeval));
+    tmp.tv_sec--;
+    tmp.tv_usec += 1000000L;
+    diff.tv_sec = tmp.tv_sec - then->tv_sec;
+    diff.tv_usec = tmp.tv_usec - then->tv_usec;
+    if (diff.tv_usec > 1000000L) {
+        diff.tv_usec -= 1000000L;
+        diff.tv_sec++;
+    }
+    if (diff.tv_usec >= 500000L)
+        return diff.tv_sec + 1;
+    return  diff.tv_sec;
 }
 
 #ifndef HAVE_STRCASESTR
@@ -850,17 +985,38 @@ mkdirhier(const char *pathname, mode_t mode, int skiplast)
     char           *ourcopy = strdup(pathname);
     char           *entry;
     char            buf[SNMP_MAXPATH];
+    char           *st;
 
-    entry = strtok(ourcopy, "/");
+#if defined (WIN32) || defined (cygwin)
+    /* convert backslash to forward slash */
+    for (entry = ourcopy; *entry; entry++)
+        if (*entry == '\\')
+            *entry = '/';
+#endif
+
+    entry = strtok_r(ourcopy, "/", &st);
 
     buf[0] = '\0';
+
+#if defined (WIN32) || defined (cygwin)
+    /*
+     * Check if first entry contains a drive-letter
+     *   e.g  "c:/path"
+     */
+    if ((entry) && (':' == entry[1]) &&
+        (('\0' == entry[2]) || ('/' == entry[2]))) {
+        strcat(buf, entry);
+        entry = strtok_r(NULL, "/", &st);
+    }
+#endif
+
     /*
      * check to see if filename is a directory 
      */
     while (entry) {
         strcat(buf, "/");
         strcat(buf, entry);
-        entry = strtok(NULL, "/");
+        entry = strtok_r(NULL, "/", &st);
         if (entry == NULL && skiplast)
             break;
         if (stat(buf, &sbuf) < 0) {
@@ -869,13 +1025,14 @@ mkdirhier(const char *pathname, mode_t mode, int skiplast)
              */
             snmp_log(LOG_INFO, "Creating directory: %s\n", buf);
 #ifdef WIN32
-            CreateDirectory(buf, NULL);
+            if (CreateDirectory(buf, NULL) == 0)
 #else
-            if (mkdir(buf, mode) == -1) {
+            if (mkdir(buf, mode) == -1)
+#endif
+            {
                 free(ourcopy);
                 return SNMPERR_GENERR;
             }
-#endif
         } else {
             /*
              * exists, is it a file? 
@@ -892,3 +1049,46 @@ mkdirhier(const char *pathname, mode_t mode, int skiplast)
     free(ourcopy);
     return SNMPERR_SUCCESS;
 }
+
+/*
+ * This function was created to differentiate actions
+ * that are appropriate for Linux 2.4 kernels, but not later kernels.
+ *
+ * This function can be used to test kernels on any platform that supports uname().
+ *
+ * If not running a platform that supports uname(), return -1.
+ *
+ * If ospname matches, and the release matches up through the prefix,
+ *  return 0.
+ * If the release is ordered higher, return 1.
+ * Be aware that "ordered higher" is not a guarantee of correctness.
+ */
+int
+netsnmp_os_prematch(const char *ospmname,
+                    const char *ospmrelprefix)
+{
+#if HAVE_SYS_UTSNAME_H
+#include <sys/utsname.h>
+static int printOSonce = 1;
+  struct utsname utsbuf;
+  if ( 0 != uname(&utsbuf))
+    return -1;
+
+  if (printOSonce) {
+    printOSonce = 0;
+    /* show the four elements that the kernel can be sure of */
+  DEBUGMSGT(("daemonize","sysname '%s',\nrelease '%s',\nversion '%s',\nmachine '%s'\n",
+      utsbuf.sysname, utsbuf.release, utsbuf.version, utsbuf.machine));
+  }
+  if (0 != strcasecmp(utsbuf.sysname, ospmname)) return -1;
+
+  /* Required to match only the leading characters */
+  return strncasecmp(utsbuf.release, ospmrelprefix, strlen(ospmrelprefix));
+
+#else
+
+  return -1;
+
+#endif /* HAVE_SYS_UTSNAME_H */
+}
+

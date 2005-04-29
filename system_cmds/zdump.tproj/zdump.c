@@ -1,33 +1,9 @@
-/*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-#if defined(LIBC_SCCS) && !defined(lint)
-#if 0
-static char	elsieid[] = "@(#)zdump.c	7.24";
-#else
-static char rcsid[] = "$OpenBSD: zdump.c,v 1.5 1997/01/21 04:52:45 millert Exp $";
-#endif
-#endif /* LIBC_SCCS and not lint */
+static const char	elsieid[] = "@(#)zdump.c	7.31";
+
+#ifndef lint
+static const char rcsid[] =
+  "$FreeBSD: src/usr.sbin/zic/zdump.c,v 1.9 2004/06/20 21:41:11 stefanf Exp $";
+#endif /* not lint */
 
 /*
 ** This code has been made independent of the rest of the time
@@ -35,11 +11,13 @@ static char rcsid[] = "$OpenBSD: zdump.c,v 1.5 1997/01/21 04:52:45 millert Exp $
 ** You can use this code to help in verifying other implementations.
 */
 
-#include "stdio.h"	/* for stdout, stderr, perror */
-#include "string.h"	/* for strcpy */
-#include "sys/types.h"	/* for time_t */
-#include "time.h"	/* for struct tm */
-#include "stdlib.h"	/* for exit, malloc, atoi */
+#include <err.h>
+#include <stdio.h>	/* for stdout, stderr */
+#include <stdlib.h>	/* for exit, malloc, atoi */
+#include <string.h>	/* for strcpy */
+#include <sys/types.h>	/* for time_t */
+#include <time.h>	/* for struct tm */
+#include <unistd.h>
 
 #ifndef MAX_STRING_LENGTH
 #define MAX_STRING_LENGTH	1024
@@ -136,19 +114,24 @@ static char rcsid[] = "$OpenBSD: zdump.c,v 1.5 1997/01/21 04:52:45 millert Exp $
 #define TZ_DOMAIN "tz"
 #endif /* !defined TZ_DOMAIN */
 
+#ifndef P
+#ifdef __STDC__
+#define P(x)	x
+#endif /* defined __STDC__ */
+#ifndef __STDC__
+#define P(x)	()
+#endif /* !defined __STDC__ */
+#endif /* !defined P */
+
 extern char **	environ;
-extern int	getopt();
-extern char *	optarg;
-extern int	optind;
-extern time_t	time();
 extern char *	tzname[2];
 
-static char *	abbr();
-static long	delta();
-static time_t	hunt();
-static int	longest;
-static char *	progname;
-static void	show();
+static char *	abbr P((struct tm * tmp));
+static long	delta P((struct tm * newp, struct tm * oldp));
+static time_t	hunt P((char * name, time_t lot, time_t	hit));
+static size_t	longest;
+static void	show P((char * zone, time_t t, int v));
+static void     usage(void);
 
 int
 main(argc, argv)
@@ -177,19 +160,19 @@ char *	argv[];
 #endif /* defined(TEXTDOMAINDIR) */
 	(void) textdomain(TZ_DOMAIN);
 #endif /* HAVE_GETTEXT - 0 */
-	progname = argv[0];
+	for (i = 1; i < argc; ++i)
+		if (strcmp(argv[i], "--version") == 0) {
+			errx(EXIT_SUCCESS, "%s", elsieid);
+		}
 	vflag = 0;
 	cutoff = NULL;
 	while ((c = getopt(argc, argv, "c:v")) == 'c' || c == 'v')
 		if (c == 'v')
 			vflag = 1;
 		else	cutoff = optarg;
-	if (c != EOF ||
+	if ((c != EOF && c != -1) ||
 		(optind == argc - 1 && strcmp(argv[optind], "=") == 0)) {
-			(void) fprintf(stderr,
-_("%s: usage is %s [ -v ] [ -c cutoff ] zonename ...\n"),
-				argv[0], argv[0]);
-			(void) exit(EXIT_FAILURE);
+			usage();
 	}
 	if (cutoff != NULL) {
 		int	y;
@@ -217,10 +200,9 @@ _("%s: usage is %s [ -v ] [ -c cutoff ] zonename ...\n"),
 			sizeof *fakeenv));
 		if (fakeenv == NULL ||
 			(fakeenv[0] = (char *) malloc((size_t) (longest +
-				4))) == NULL) {
-					(void) perror(progname);
-					(void) exit(EXIT_FAILURE);
-		}
+				4))) == NULL)
+					errx(EXIT_FAILURE,
+					     _("malloc() failed"));
 		to = 0;
 		(void) strcpy(fakeenv[to++], "TZ=");
 		for (from = 0; environ[from] != NULL; ++from)
@@ -233,9 +215,10 @@ _("%s: usage is %s [ -v ] [ -c cutoff ] zonename ...\n"),
 		static char	buf[MAX_STRING_LENGTH];
 
 		(void) strcpy(&fakeenv[0][3], argv[i]);
-		show(argv[i], now, FALSE);
-		if (!vflag)
+		if (!vflag) {
+			show(argv[i], now, FALSE);
 			continue;
+		}
 		/*
 		** Get lowest value of t.
 		*/
@@ -278,17 +261,21 @@ _("%s: usage is %s [ -v ] [ -c cutoff ] zonename ...\n"),
 		t += SECSPERHOUR * HOURSPERDAY;
 		show(argv[i], t, TRUE);
 	}
-	if (fflush(stdout) || ferror(stdout)) {
-		(void) fprintf(stderr, _("%s: Error writing standard output "),
-			argv[0]);
-		(void) perror(_("standard output"));
-		(void) exit(EXIT_FAILURE);
-	}
+	if (fflush(stdout) || ferror(stdout))
+		errx(EXIT_FAILURE, _("error writing standard output"));
 	exit(EXIT_SUCCESS);
 
 	/* gcc -Wall pacifier */
 	for ( ; ; )
 		continue;
+}
+
+static void
+usage(void)
+{
+	fprintf(stderr,
+_("usage: zdump [--version] [-v] [-c cutoff] zonename ...\n"));
+	exit(EXIT_FAILURE);
 }
 
 static time_t
@@ -304,7 +291,6 @@ time_t	hit;
 
 	lotm = *localtime(&lot);
 	(void) strncpy(loab, abbr(&lotm), (sizeof loab) - 1);
-	loab[(sizeof loab) - 1] = '\0';
 	while ((hit - lot) >= 2) {
 		t = lot / 2 + hit / 2;
 		if (t <= lot)
@@ -351,8 +337,6 @@ struct tm *	oldp;
 	return result;
 }
 
-extern struct tm *	localtime();
-
 static void
 show(zone, t, v)
 char *	zone;
@@ -361,9 +345,9 @@ int	v;
 {
 	struct tm *	tmp;
 
-	(void) printf("%-*s  ", longest, zone);
+	(void) printf("%-*s  ", (int) longest, zone);
 	if (v)
-		(void) printf("%.24s GMT = ", asctime(gmtime(&t)));
+		(void) printf("%.24s UTC = ", asctime(gmtime(&t)));
 	tmp = localtime(&t);
 	(void) printf("%.24s", asctime(tmp));
 	if (*abbr(tmp) != '\0')

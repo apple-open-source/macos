@@ -22,7 +22,7 @@
 
 #include <tack.h>
 
-MODULE_ID("$Id: scan.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: scan.c,v 1.2 1999/08/21 23:09:35 tom Exp $")
 
 int scan_max;			/* length of longest scan code */
 char **scan_up, **scan_down, **scan_name;

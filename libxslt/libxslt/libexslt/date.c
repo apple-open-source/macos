@@ -50,9 +50,9 @@
 #endif
 
 /* needed to get localtime_r on Solaris */
-#ifdef sun
-#ifndef __EXTENSION__
-#define __EXTENSION__
+#ifdef __sun
+#ifndef __EXTENSIONS__
+#define __EXTENSIONS__
 #endif
 #endif
 
@@ -132,6 +132,7 @@ struct _exsltDateVal {
 #define IS_TZO_CHAR(c)						\
 	((c == 0) || (c == 'Z') || (c == '+') || (c == '-'))
 
+#define VALID_ALWAYS(num)	(num >= 0)
 #define VALID_YEAR(yr)          (yr != 0)
 #define VALID_MONTH(mon)        ((mon >= 1) && (mon <= 12))
 /* VALID_DAY should only be used when month is unknown */
@@ -277,6 +278,7 @@ _exsltDateParseGYear (exsltDateValDatePtr dt, const xmlChar **str)
  * PARSE_2_DIGITS:
  * @num:  the integer to fill in
  * @cur:  an #xmlChar *
+ * @func: validation function for the number
  * @invalid: an integer
  *
  * Parses a 2-digits integer and updates @num with the value. @cur is
@@ -284,12 +286,18 @@ _exsltDateParseGYear (exsltDateValDatePtr dt, const xmlChar **str)
  * In case of error, @invalid is set to %TRUE, values of @num and
  * @cur are undefined.
  */
-#define PARSE_2_DIGITS(num, cur, invalid)			\
+#define PARSE_2_DIGITS(num, cur, func, invalid)			\
 	if ((cur[0] < '0') || (cur[0] > '9') ||			\
 	    (cur[1] < '0') || (cur[1] > '9'))			\
 	    invalid = 1;					\
-	else							\
-	    num = (cur[0] - '0') * 10 + (cur[1] - '0');		\
+	else {							\
+	    int val;						\
+	    val = (cur[0] - '0') * 10 + (cur[1] - '0');		\
+	    if (!func(val))					\
+	        invalid = 2;					\
+	    else						\
+	        num = val;					\
+	}							\
 	cur += 2;
 
 /**
@@ -319,7 +327,7 @@ _exsltDateParseGYear (exsltDateValDatePtr dt, const xmlChar **str)
  * @cur are undefined.
  */
 #define PARSE_FLOAT(num, cur, invalid)				\
-	PARSE_2_DIGITS(num, cur, invalid);			\
+	PARSE_2_DIGITS(num, cur, VALID_ALWAYS, invalid);	\
 	if (!invalid && (*cur == '.')) {			\
 	    double mult = 1;				        \
 	    cur++;						\
@@ -372,12 +380,9 @@ _exsltDateParseGMonth (exsltDateValDatePtr dt, const xmlChar **str)
     const xmlChar *cur = *str;
     int ret = 0;
 
-    PARSE_2_DIGITS(dt->mon, cur, ret);
+    PARSE_2_DIGITS(dt->mon, cur, VALID_MONTH, ret);
     if (ret != 0)
 	return ret;
-
-    if (!VALID_MONTH(dt->mon))
-	return 2;
 
     *str = cur;
 
@@ -417,12 +422,9 @@ _exsltDateParseGDay (exsltDateValDatePtr dt, const xmlChar **str)
     const xmlChar *cur = *str;
     int ret = 0;
 
-    PARSE_2_DIGITS(dt->day, cur, ret);
+    PARSE_2_DIGITS(dt->day, cur, VALID_DAY, ret);
     if (ret != 0)
 	return ret;
-
-    if (!VALID_DAY(dt->day))
-	return 2;
 
     *str = cur;
 
@@ -481,7 +483,7 @@ _exsltDateParseTime (exsltDateValDatePtr dt, const xmlChar **str)
     unsigned int hour = 0; /* use temp var in case str is not xs:time */
     int ret = 0;
 
-    PARSE_2_DIGITS(hour, cur, ret);
+    PARSE_2_DIGITS(hour, cur, VALID_HOUR, ret);
     if (ret != 0)
 	return ret;
 
@@ -492,7 +494,7 @@ _exsltDateParseTime (exsltDateValDatePtr dt, const xmlChar **str)
     /* the ':' insures this string is xs:time */
     dt->hour = hour;
 
-    PARSE_2_DIGITS(dt->min, cur, ret);
+    PARSE_2_DIGITS(dt->min, cur, VALID_MIN, ret);
     if (ret != 0)
 	return ret;
 
@@ -574,11 +576,9 @@ _exsltDateParseTimeZone (exsltDateValDatePtr dt, const xmlChar **str)
 
 	cur++;
 
-	PARSE_2_DIGITS(tmp, cur, ret);
+	PARSE_2_DIGITS(tmp, cur, VALID_HOUR, ret);
 	if (ret != 0)
 	    return ret;
-	if (!VALID_HOUR(tmp))
-	    return 2;
 
 	if (*cur != ':')
 	    return 1;
@@ -586,11 +586,9 @@ _exsltDateParseTimeZone (exsltDateValDatePtr dt, const xmlChar **str)
 
 	dt->tzo = tmp * 60;
 
-	PARSE_2_DIGITS(tmp, cur, ret);
+	PARSE_2_DIGITS(tmp, cur, VALID_MIN, ret);
 	if (ret != 0)
 	    return ret;
-	if (!VALID_MIN(tmp))
-	    return 2;
 
 	dt->tzo += tmp;
 	if (isneg)
@@ -1451,7 +1449,7 @@ _exsltDateAdd (exsltDateValPtr dt, exsltDateValPtr dur)
         d->mon = 1;
 
     /* normalize for time zone offset */
-    u->sec += (d->tzo * 60);
+    u->sec -= (d->tzo * 60);	/* changed from + to - (bug 153000) */
     d->tzo = 0;
 
     /* normalization */
@@ -2750,20 +2748,34 @@ exsltDateSumFunction (xmlXPathParserContextPtr ctxt, int nargs)
     if (xmlXPathCheckError (ctxt))
 	return;
 
-    if ((ns == NULL) || (ns->nodeNr == 0))
+    if ((ns == NULL) || (ns->nodeNr == 0)) {
+	xmlXPathReturnEmptyString (ctxt);
+	if (ns != NULL)
+	    xmlXPathFreeNodeSet (ns);
 	return;
+    }
 
     total = exsltDateCreateDate (XS_DURATION);
+    if (total == NULL) {
+        xmlXPathFreeNodeSet (ns);
+        return;
+    }
 
     for (i = 0; i < ns->nodeNr; i++) {
 
 	tmp = xmlXPathCastNodeToString (ns->nodeTab[i]);
-	if (tmp == NULL)
+	if (tmp == NULL) {
+	    xmlXPathFreeNodeSet (ns);
+	    exsltDateFreeDate (total);
 	    return;
+	}
 
 	x = exsltDateParseDuration (tmp);
 	if (x == NULL) {
 	    xmlFree (tmp);
+	    exsltDateFreeDate (total);
+	    xmlXPathFreeNodeSet (ns);
+	    xmlXPathReturnEmptyString (ctxt);
 	    return;
 	}
 

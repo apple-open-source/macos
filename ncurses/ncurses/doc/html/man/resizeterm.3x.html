@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
 <!-- 
   ****************************************************************************
-  * Copyright (c) 1998 Free Software Foundation, Inc.                        *
+  * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -27,65 +27,81 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * Author: Thomas E. Dickey &lt;dickey@clark.net&gt; 1996,1997
-  * @Id: resizeterm.3x,v 1.7 1998/03/14 23:42:52 tom Exp @
+  * Author: Thomas E. Dickey 1996,1997,2002
+  * @Id: resizeterm.3x,v 1.10 2003/10/25 20:41:08 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>resizeterm 3x</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>resizeterm 3x</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>resizeterm 3x</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>                                     <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
-       <STRONG>resizeterm</STRONG> - change the curses terminal size
+       <STRONG>is_term_resized</STRONG>,  <STRONG>resize_term</STRONG>,  <STRONG>resizeterm</STRONG>  -  change  the
+       curses terminal size
 
 
 </PRE>
 <H2>SYNOPSIS</H2><PRE>
        <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
 
+       <STRONG>bool</STRONG> <STRONG>is_term_resized(int</STRONG> <STRONG>lines,</STRONG> <STRONG>int</STRONG> <STRONG>columns);</STRONG>
+       <STRONG>int</STRONG> <STRONG>resize_term(int</STRONG> <STRONG>lines,</STRONG> <STRONG>int</STRONG> <STRONG>columns);</STRONG>
        <STRONG>int</STRONG> <STRONG>resizeterm(int</STRONG> <STRONG>lines,</STRONG> <STRONG>int</STRONG> <STRONG>columns);</STRONG>
 
 
 </PRE>
 <H2>DESCRIPTION</H2><PRE>
-       This  is  an extension to the curses library.  It provides
-       callers with a hook into the <STRONG>ncurses</STRONG> data to  resize  win-
+       This is an extension to the curses library.   It  provides
+       callers  with  a hook into the <STRONG>ncurses</STRONG> data to resize win-
        dows, primarily for use by programs running in an X Window
-       terminal (e.g., xterm).  The function  <STRONG>resizeterm</STRONG>  resizes
-       the  standard  and current windows to the specified dimen-
-       sions, and adjusts other  bookkeeping  data  used  by  the
+       terminal  (e.g.,  xterm).  The function <STRONG>resizeterm</STRONG> resizes
+       the standard and current windows to the  specified  dimen-
+       sions,  and  adjusts  other  bookkeeping  data used by the
        <STRONG>ncurses</STRONG> library that record the window dimensions.
 
-       When  resizing  the  windows, the function blank-fills the
-       areas that are extended. The  calling  application  should
-       fill in these areas with appropriate data.
+       Most  of  the  work  is  done  by   the   inner   function
+       <STRONG>resize_term</STRONG>.  The outer function <STRONG>resizeterm</STRONG> adds bookkeep-
+       ing for the SIGWINCH handler.  When resizing the  windows,
+       <STRONG>resize_term</STRONG>  blank-fills the areas that are extended.  The
+       calling application should fill in these areas with appro-
+       priate  data.  The <STRONG>resize_term</STRONG> function attempts to resize
+       all windows.  However, due to the  calling  convention  of
+       pads,  it  is  not  possible to resize these without addi-
+       tional interaction with the application.
 
-       The function attempts to resize all windows.  However, due
-       to the calling convention of pads, it is not  possible  to
-       resize  these  without  additional  interaction  with  the
-       application.
+       A support function <STRONG>is_term_resized</STRONG>  is  provided  so  that
+       applications  can  check if the <STRONG>resize_term</STRONG> function would
+       modify the window structures.  It returns TRUE if the win-
+       dows would be modified, and FALSE otherwise.
 
 
 </PRE>
 <H2>RETURN VALUE</H2><PRE>
-       The function returns the integer <STRONG>ERR</STRONG> upon failure  and  <STRONG>OK</STRONG>
-       on success.  It will fail if either of the dimensions less
-       than or equal  to  zero,  or  if  an  error  occurs  while
-       (re)allocating memory for the windows.
+       Except  as  notes,  these  function return the integer <STRONG>ERR</STRONG>
+       upon failure and <STRONG>OK</STRONG> on success.  They will fail if  either
+       of the dimensions are less than or equal to zero, or if an
+       error occurs while (re)allocating memory for the  windows.
 
 
 </PRE>
 <H2>NOTES</H2><PRE>
-       While  this  function  is intended to be used to support a
+       While these functions are intended to be used to support a
        signal handler (i.e., for SIGWINCH), care should be  taken
-       to  avoid invoking it in a context where <STRONG>malloc</STRONG> or <STRONG>realloc</STRONG>
-       may have been interrupted, since it uses those  functions.
+       to  avoid invoking them in a context where <STRONG>malloc</STRONG> or <STRONG>real-</STRONG>
+       <STRONG>loc</STRONG> may have been interrupted, since it uses  those  func-
+       tions.
 
        If  ncurses  is configured to supply its own SIGWINCH han-
        dler, the <STRONG>resizeterm</STRONG> function ungetch's a <STRONG>KEY_RESIZE</STRONG> which
@@ -107,6 +123,7 @@
 
 
 
+                                                   <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

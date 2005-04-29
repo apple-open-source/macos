@@ -1,7 +1,7 @@
 // using the level(switch) map, the right Control key temporarily
 // chooses the third group level (until it is released).
 //
-// $XFree86: xc/programs/xkbcomp/symbols/level3,v 1.2 2002/12/17 19:55:15 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/level3,v 1.7 2003/09/08 14:25:32 eich Exp $
 //
 
 partial modifier_keys
@@ -10,6 +10,38 @@ xkb_symbols "switch" {
     symbols[Group1] = [ ISO_Level3_Shift ]
     };
   modifier_map Mod5   { ISO_Level3_Shift };
+};
+
+// using the level(alt_switch) map, both Alt keys temporarily choose the third
+// group level.  This will mostly be used for imitating Mac OS functionality.
+partial modifier_keys
+xkb_symbols "alt_switch" {
+  include "level3(lalt_switch)"
+  include "level3(ralt_switch)"
+};
+
+partial modifier_keys
+xkb_symbols "lalt_switch" {
+  key <LALT> {
+    type[Group1]="ONE_LEVEL",
+    symbols[Group1] = [ ISO_Level3_Shift ]
+    };
+};
+
+partial modifier_keys
+xkb_symbols "ralt_switch" {
+  key <RALT> {
+    type[Group1]="TWO_LEVEL",
+    symbols[Group1] = [ ISO_Level3_Shift, ISO_Level3_Shift ]
+    };
+};
+
+partial modifier_keys
+xkb_symbols "ralt_switch_multikey" {
+  key <RALT> {
+    type[Group1]="TWO_LEVEL",
+    symbols[Group1] = [ ISO_Level3_Shift, Multi_key ]
+    };
 };
 
 // using the level(menu_switch) map, the Menu key temporarily

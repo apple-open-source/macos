@@ -55,7 +55,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 ..\..\lib\icuuc.lib /nologo /dll /machine:I386 /out:"..\..\bin\icule26.dll" /implib:"..\..\lib\icule.lib"
+# ADD LINK32 ..\..\lib\icuuc.lib /nologo /dll /machine:I386 /out:"..\..\bin\icule32.dll" /implib:"..\..\lib\icule.lib"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "layout - Win32 Debug"
@@ -82,7 +82,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 ..\..\lib\icuucd.lib /nologo /dll /debug /machine:I386 /out:"..\..\bin\icule26d.dll" /implib:"..\..\lib\iculed.lib" /pdbtype:sept
+# ADD LINK32 ..\..\lib\icuucd.lib /nologo /dll /debug /machine:I386 /out:"..\..\bin\icule32d.dll" /implib:"..\..\lib\iculed.lib" /pdbtype:sept
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "layout - Win64 Release"
@@ -99,7 +99,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /FD /c
-# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\include" /I "..\common" /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /D "U_LAYOUT_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /QIA64_fmaopt /Wp64 /Zm600 /c
+# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\include" /I "..\common" /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /D "U_LAYOUT_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /Wp64 /Zm600 /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win64
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -109,7 +109,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:IX86 /machine:IA64
-# ADD LINK32 ..\..\lib\icuuc.lib /nologo /dll /machine:IX86 /out:"..\..\bin\icule26.dll" /implib:"..\..\lib\icule.lib" /machine:IA64
+# ADD LINK32 ..\..\lib\icuuc.lib /nologo /dll /machine:IX86 /out:"..\..\bin\icule32.dll" /implib:"..\..\lib\icule.lib" /machine:IA64
 
 !ELSEIF  "$(CFG)" == "layout - Win64 Debug"
 
@@ -125,7 +125,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN64" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /FD /GZ /c
-# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\include" /I "..\common" /D "WIN64" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /D "U_LAYOUT_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /QIA64_fmaopt /Wp64 /Zm600 /c
+# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\include" /I "..\common" /D "WIN64" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LAYOUT_EXPORTS" /D "U_LAYOUT_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GZ /Wp64 /Zm600 /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win64
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -135,7 +135,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:IX86 /pdbtype:sept /machine:IA64
-# ADD LINK32 ..\..\lib\icuucd.lib /nologo /dll /incremental:no /debug /machine:IX86 /out:"..\..\bin\icule26d.dll" /implib:"..\..\lib\iculed.lib" /pdbtype:sept /machine:IA64
+# ADD LINK32 ..\..\lib\icuucd.lib /nologo /dll /incremental:no /debug /machine:IX86 /out:"..\..\bin\icule32d.dll" /implib:"..\..\lib\iculed.lib" /pdbtype:sept /machine:IA64
 
 !ENDIF 
 
@@ -162,11 +162,11 @@ SOURCE=.\ArabicLayoutEngine.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\ArabicLigatureData.cpp
+SOURCE=.\ArabicShaping.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\ArabicShaping.cpp
+SOURCE=.\CanonData.cpp
 # End Source File
 # Begin Source File
 
@@ -214,6 +214,10 @@ SOURCE=.\GlyphIterator.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\GlyphLookupTables.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\GlyphPositioningTables.cpp
 # End Source File
 # Begin Source File
@@ -238,14 +242,6 @@ SOURCE=.\HanLayoutEngine.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\HebrewLigatureData.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\HebrewShaping.cpp
-# End Source File
-# Begin Source File
-
 SOURCE=.\IndicClassTables.cpp
 # End Source File
 # Begin Source File
@@ -267,6 +263,14 @@ SOURCE=.\LayoutEngine.cpp
 # Begin Source File
 
 SOURCE=.\LEFontInstance.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\LEGlyphStorage.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\LEInsertionList.cpp
 # End Source File
 # Begin Source File
 
@@ -426,6 +430,14 @@ SOURCE=.\AttachmentPosnSubtables.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\CanonShaping.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\CharSubstitutionFilter.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\ClassDefinitionTables.h
 # End Source File
 # Begin Source File
@@ -482,6 +494,10 @@ SOURCE=.\GlyphIterator.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\GlyphLookupTables.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\GlyphPositionAdjustments.h
 # End Source File
 # Begin Source File
@@ -507,10 +523,6 @@ SOURCE=.\GXLayoutEngine.h
 # Begin Source File
 
 SOURCE=.\HanLayoutEngine.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\HebrewShaping.h
 # End Source File
 # Begin Source File
 
@@ -670,6 +682,100 @@ InputPath=.\LEGlyphFilter.h
 InputPath=.\LEGlyphFilter.h
 
 "..\..\include\layout\LEGlyphFilter.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\LEGlyphStorage.h
+
+!IF  "$(CFG)" == "layout - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\LEGlyphStorage.h
+
+"..\..\include\layout\LEGlyphStorage.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\LEGlyphStorage.h
+
+"..\..\include\layout\LEGlyphStorage.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\LEGlyphStorage.h
+
+"..\..\include\layout\LEGlyphStorage.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\LEGlyphStorage.h
+
+"..\..\include\layout\LEGlyphStorage.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\LEInsertionList.h
+
+!IF  "$(CFG)" == "layout - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\LEInsertionList.h
+
+"..\..\include\layout\LEInsertionList.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\LEInsertionList.h
+
+"..\..\include\layout\LEInsertionList.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\LEInsertionList.h
+
+"..\..\include\layout\LEInsertionList.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy  $(InputPath)  ..\..\include\layout
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "layout - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\LEInsertionList.h
+
+"..\..\include\layout\LEInsertionList.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
 	copy  $(InputPath)  ..\..\include\layout
 
 # End Custom Build

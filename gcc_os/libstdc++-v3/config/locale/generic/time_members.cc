@@ -1,4 +1,4 @@
-// std::time_get, std::time_put implementation, GNU version -*- C++ -*-
+// std::time_get, std::time_put implementation, generic version -*- C++ -*-
 
 // Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 //
@@ -39,21 +39,16 @@
 namespace std
 {
   template<>
-    __timepunct<char>::~__timepunct()
-    {
-      if (_M_c_locale_timepunct != _S_c_locale)
-	_S_destroy_c_locale(_M_c_locale_timepunct); 
-    }
-
-  template<>
     void
     __timepunct<char>::
     _M_put(char* __s, size_t __maxlen, const char* __format, 
 	   const tm* __tm) const
     {
-      const char* __old = setlocale(LC_ALL, _M_name_timepunct);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_timepunct);
       strftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
+      free(__old);
     }
 
   template<> 
@@ -61,8 +56,8 @@ namespace std
     __timepunct<char>::_M_initialize_timepunct(__c_locale)
     { 
       // "C" locale
-      _M_date_format = "%m/%d/%Y";
-      _M_date_era_format = "%m/%d/%Y";
+      _M_date_format = "%m/%d/%y";
+      _M_date_era_format = "%m/%d/%y";
       _M_time_format = "%H:%M:%S";
       _M_time_era_format = "%H:%M:%S";
       _M_date_time_format = "";
@@ -120,21 +115,16 @@ namespace std
 
 #ifdef _GLIBCPP_USE_WCHAR_T
   template<>
-    __timepunct<wchar_t>::~__timepunct()
-    {
-      if (_M_c_locale_timepunct != _S_c_locale)
-	_S_destroy_c_locale(_M_c_locale_timepunct); 
-    }
-
-  template<>
     void
     __timepunct<wchar_t>::
     _M_put(wchar_t* __s, size_t __maxlen, const wchar_t* __format, 
 	   const tm* __tm) const
     {
-      const char* __old = setlocale(LC_ALL, _M_name_timepunct);
+      char* __old = strdup(setlocale(LC_ALL, NULL));
+      setlocale(LC_ALL, _M_name_timepunct);
       wcsftime(__s, __maxlen, __format, __tm);
       setlocale(LC_ALL, __old);
+      free(__old);
     }
 
   template<> 

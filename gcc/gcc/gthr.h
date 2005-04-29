@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1998 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_GTHR_H
 #define GCC_GTHR_H
 
+#pragma GCC visibility push(default)
+
 /* If this file is compiled with threads support, it must
        #define __GTHREADS 1
    to indicate that threads support is present.  Also it has define
@@ -40,6 +42,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      __gthread_key_t
      __gthread_once_t
      __gthread_mutex_t
+     __gthread_recursive_mutex_t
 
    The threads interface must define the following macros:
 
@@ -54,6 +57,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 		function which looks like this:
 		  void __GTHREAD_MUTEX_INIT_FUNCTION (__gthread_mutex_t *)
 		Don't define __GTHREAD_MUTEX_INIT in this case
+     __GTHREAD_RECURSIVE_MUTEX_INIT
+     __GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION
+     		as above, but for a recursive mutex.
 
    The threads interface must define the following static functions:
 
@@ -62,14 +68,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
      int __gthread_key_create (__gthread_key_t *keyp, void (*dtor) (void *))
      int __gthread_key_delete (__gthread_key_t key)
 
-     int __gthread_key_dtor (__gthread_key_t key, void *ptr)
-
      void *__gthread_getspecific (__gthread_key_t key)
      int __gthread_setspecific (__gthread_key_t key, const void *ptr)
 
      int __gthread_mutex_lock (__gthread_mutex_t *mutex);
      int __gthread_mutex_trylock (__gthread_mutex_t *mutex);
      int __gthread_mutex_unlock (__gthread_mutex_t *mutex);
+
+     int __gthread_recursive_mutex_lock (__gthread_recursive_mutex_t *mutex);
+     int __gthread_recursive_mutex_trylock (__gthread_recursive_mutex_t *mutex);
+     int __gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex);
 
    All functions returning int should return zero on success or the error
    number.  If the operation is not supported, -1 is returned.
@@ -81,7 +89,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 */
 
 /* Check first for thread specific defines.  */
-#if _PTHREADS
+#if defined (__tpf__)
+#include "gthr-tpf.h"
+#elif _PTHREADS
 #include "gthr-posix.h"
 #elif _DCE_THREADS
 #include "gthr-dce.h"
@@ -101,5 +111,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #else
 #include "gthr-single.h"
 #endif
+
+#pragma GCC visibility pop
 
 #endif /* ! GCC_GTHR_H */

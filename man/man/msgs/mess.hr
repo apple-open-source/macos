@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"datoteka %s nema smisla\n"
+CONFIG_OPEN_ERROR
+	"Upozorenje: konfiguracijska datoteka %s se ne mo¾e otvoriti\n"
+PARSE_ERROR_IN_CONFIG
+	"Gre¹ka pri obradi konfiguracijske datoteke\n"
+INCOMPAT
+	"opcije %s i %s nekompatibilne\n"
+NO_ALTERNATE
+	"Na¾alost, podr¹ka za druge sustave nije ugraðena\n"
+NO_COMPRESS
+	"Man je kompajliran za automatsko sa¾imanje cat stranica,\n\
+no konfiguracijska datoteka ne navodi COMPRESS.\n"
+NO_NAME_FROM_SECTION
+	"Koju man stranicu iz dijela %s ¾elite?\n"
+NO_NAME_NO_SECTION
+	"Koju man stranicu ¾elite?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"Stranice %s nema u dijelu %s\n"
+NO_SUCH_ENTRY
+	"Stranice %s nema\n"
+PAGER_IS
+	"\nkao preglednik se koristi %s\n"
+SYSTEM_FAILED
+	"Gre¹ka pri izvr¹avanju naredbe za formatiranje ili prikaz.\n\
+Naredba sustava %s zavr¹ila uz stanje %d.\n"
+VERSION
+	"%s, verzija %s\n\n"
+OUT_OF_MEMORY
+	"Bez memorije -- malloc %d bajtova nije moguæ\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Gre¹ka pri obradi *roff naredbe iz datoteke %s\n"
+MANROFFSEQ_ERROR
+	"Gre¹ka pri obradi MANROFFSEQ. Koriste se predodreðene vrijednosti sustava.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Gre¹ka pri obradi *roff naredbe s naredbenog reda.\n"
+UNRECOGNIZED_LINE
+	"Neprepoznat red u konfiguracijskoj datoteci (zanemaren)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: interna gre¹ka: niz %s nije naðen\n"
+FOUND_MANDIR
+	"naðen man direktorij %s\n"
+FOUND_MAP
+	"naðeno mapiranje man staze %s u %s\n"
+FOUND_CATDIR
+	"odgovarajuæi catdir je %s\n"
+LINE_TOO_LONG
+	"Red predug u konfiguracijskoj datoteci\n"
+SECTION
+	"\ndio: %s\n"
+UNLINKED
+	"%s je obrisan\n"
+GLOBBING
+	"%s se pro¹iruje\n"
+EXPANSION_FAILED
+	"Poku¹aj [%s] pro¹irivanja man stranice nije uspio\n"
+OPEN_ERROR
+	"Man stranica %s se ne mo¾e otvoriti\n"
+READ_ERROR
+	"Gre¹ka pri èitanju man stranice %s\n"
+FOUND_EQN
+	"naðena eqn(1) odrednica\n"
+FOUND_GRAP
+	"naðena grap(1) odrednica\n"
+FOUND_PIC
+	"naðena pic(1) odrednica\n"
+FOUND_TBL
+	"naðena tbl(1) odrednica\n"
+FOUND_VGRIND
+	"naðena vgrind(1) odrednica\n"
+FOUND_REFER
+	"naðena refer(1) odrednica\n"
+ROFF_FROM_COMMAND_LINE
+	"obraðuje se odrednica s naredbenog reda\n"
+ROFF_FROM_FILE
+	"obraðuje se odrednica iz datoteke %s\n"
+ROFF_FROM_ENV
+	"obraðuje se odrednica iz okru¾ja\n"
+USING_DEFAULT
+	"koristi se predodreðeni niz preprocesora\n"
+PLEASE_WAIT
+	"Stranica se formatira, molim prièekajte...\n"
+CHANGED_MODE
+	"dozvole %s promijenjene u %o\n"
+CAT_OPEN_ERROR
+	"%s se nije mogla otvoriti za pisanje.\n"
+PROPOSED_CATFILE
+	"ako bude potrebno, poku¹at æe se pisati u %s\n"
+IS_NEWER_RESULT
+	"stanje is_newer() = %d\n"
+TRYING_SECTION
+	"poku¹ava se u dijelu %s\n"
+SEARCHING
+	"\npretraga u %s\n"
+ALREADY_IN_MANPATH
+	"no %s se veæ nalazi u man stazi\n"
+CANNOT_STAT
+	"Upozorenje: stat datoteke %s nije moguæ!\n"
+IS_NO_DIR
+	"Upozorenje: %s nije direktorij!\n"
+ADDING_TO_MANPATH
+	"%s se dodaje man stazi\n"
+PATH_DIR
+	"\ndirektorij staze %s "
+IS_IN_CONFIG
+	"je u konfiguracijskoj datoteci\n"
+IS_NOT_IN_CONFIG
+	"nije u konfiguracijskoj datoteci\n"
+MAN_NEARBY
+	"ali u blizini postoji man direktorij\n"
+NO_MAN_NEARBY
+	"a u blizini nije pronaðen nijedan man direktorij\n"
+ADDING_MANDIRS
+	"\ndodaju se obvezni man direktoriji\n\n"
+CATNAME_IS
+	"cat_name u convert_to_cat () je: %s\n"
+NO_EXEC
+	"\nnaredba se ne izvr¹ava:\n  %s\n"
+USAGE1
+	"kori¹tenje: %s [-adfhktwW] [dio] [-M staza] [-P preglednik] [-S popis]\n\t"
+USAGE2
+	"[-m sustav] "
+USAGE3
+	"[-p niz] ime ...\n\n"
+USAGE4
+	"  a: pronalazi sve odgovarajuæe man stranice\n\
+  c: ne koristi cat datoteku\n\
+  d: ispisuje gomilu informacija za otklanjanje gre¹aka\n\
+  D: kao i za -d, ali takoðer prikazuje stranice\n\
+  f: isto ¹to i whatis(1)\n\
+  h: ispisuje ovu poruku o kori¹tenju\n\
+  k: isto ¹to i apropos(1)\n\
+  K: tra¾i niz u svim stranicama\n"
+USAGE5
+	"  t: koristi troff za formatiranje stranica za tiskanje\n"
+USAGE6
+	"\
+  w: ispisuje lokacije man stranica koje bi se prikazale\n\
+       (ako ime nije dano, ispisuje direktorije koji bi se pretra¾ili)\n\
+  W: kao i za -w, no prikazuje samo imena datoteka\n\n\
+  C datoteka:   kao konfiguracijsku datoteku koristi `datoteka'\n\
+  M staza:      stazu tra¾enja man stranica postavlja na `staza'\n\
+  P preglednik: za prikaz stranica koristi program `preglednik'\n\
+  S popis:      popis dvotoèkama razdvojenih dijelova\n"
+USAGE7
+	"  m sustav:     pretra¾uje man stranice drugog sustava\n"
+USAGE8
+	"  p niz:        niz govori koje preprocesore treba pokrenuti\n\
+                  e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+                  g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"a ni pravi korisnik ne mo¾e otvoriti cat datoteku\n"
+USER_CAN_OPEN_CAT
+	"no pravi korisnik mo¾e otvoriti cat datoteku\n"
+CANNOT_FORK
+	"fork naredbom _%s_ nije uspio\n"
+WAIT_FAILED
+	"gre¹ka pri èekanju na dijete _%s_\n"
+GOT_WRONG_PID
+	"vrlo èudno...; pri èekanju na moje dijete dobijen krivi PID\n"
+CHILD_TERMINATED_ABNORMALLY
+	"kobna gre¹ka: naredba _%s_ zavr¹ila abnormalno\n"
+IDENTICAL
+	"Man stranica %s je istovjetna stranici %s\n"
+MAN_FOUND
+	"Naðene man stranice:\n"
+NO_TROFF
+	"gre¹ka: u %s nema TROFF naredbi\n"
+NO_CAT_FOR_NONSTD_LL
+	"zbog nestandardne duljine reda cat stranica nije pohranjena\n"

@@ -52,6 +52,7 @@ typedef struct IOAudioClientBuffer {
     struct IOAudioClientBuffer	*nextClip;
     struct IOAudioClientBuffer	*previousClip;
     struct IOAudioClientBuffer	*nextClient;
+	IOAudioBufferDataDescriptor *bufferDataDescriptor;
 } IOAudioClientBuffer;
 
 typedef struct IOAudioClientBufferExtendedInfo {

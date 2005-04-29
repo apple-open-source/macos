@@ -3,7 +3,7 @@
  *
  * Greg Parker     gparker@cs.stanford.edu
  */
-/* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessWindow.c,v 1.1 2002/03/28 02:21:20 torrey Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/darwin/quartz_1.3/rootlessWindow.c,v 1.2 2003/11/10 18:21:48 tsi Exp $ */
 
 #include "rootlessCommon.h"
 #include "rootlessWindow.h"
@@ -157,7 +157,7 @@ RootlessRealizeWindow(WindowPtr pWin)
         winRec->frame.win = pWin;
         winRec->frame.devPrivate = NULL;
 
-        REGION_INIT(pScreen, &winRec->damage, NullBox, 0);
+        REGION_NULL(pScreen, &winRec->damage);
         winRec->borderWidth = pWin->borderWidth;
 
         winRec->pixmap = NULL;
@@ -331,7 +331,7 @@ RootlessResizeCopyWindow(WindowPtr pWin, DDXPointRec ptOldOrg,
         dx = ptOldOrg.x - pWin->drawable.x;
         dy = ptOldOrg.y - pWin->drawable.y;
         REGION_TRANSLATE(pScreen, prgnSrc, -dx, -dy);
-        REGION_INIT (pScreen, &rgnDst, NullBox, 0);
+        REGION_NULL(pScreen, &rgnDst);
         REGION_INTERSECT(pScreen, &rgnDst, &pWin->borderClip, prgnSrc);
 
         fbCopyRegion (&gResizeCopyWindowSource->drawable,
@@ -371,7 +371,7 @@ RootlessCopyWindow(WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
         dy = ptOldOrg.y - pWin->drawable.y;
         REGION_TRANSLATE(pScreen, prgnSrc, -dx, -dy);
 
-        REGION_INIT(pScreen, &rgnDst, NullBox, 0);
+        REGION_NULL(pScreen, &rgnDst);
         REGION_INTERSECT(pScreen, &rgnDst, &pWin->borderClip, prgnSrc);
 
         fbCopyRegion ((DrawablePtr)pWin, (DrawablePtr)pWin,

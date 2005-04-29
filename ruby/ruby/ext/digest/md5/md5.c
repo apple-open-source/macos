@@ -43,15 +43,9 @@
 
 /*$OrigId: md5c.c,v 1.2 2001/03/26 08:57:14 matz Exp $ */
 /*$RoughId: md5.c,v 1.2 2001/07/13 19:48:41 knu Exp $ */
-/*$Id: md5.c,v 1.2 2003/04/03 05:35:19 melville Exp $ */
+/*$Id: md5.c,v 1.1 2001/07/13 20:06:14 knu Exp $ */
 
 #include "md5.h"
-
-#ifdef __BIG_ENDIAN__
-#define WORDS_BIGENDIAN
-#else
-#undef WORDS_BIGENDIAN
-#endif
 
 #ifdef TEST
 /*

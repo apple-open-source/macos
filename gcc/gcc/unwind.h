@@ -1,5 +1,5 @@
 /* Exception handling and frame unwind runtime interface routines.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -18,8 +18,20 @@
    Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    02111-1307, USA.  */
 
+/* As a special exception, if you include this header file into source
+   files compiled by GCC, this header file does not by itself cause
+   the resulting executable to be covered by the GNU General Public
+   License.  This exception does not however invalidate any other
+   reasons why the executable file might be covered by the GNU General
+   Public License.  */
+
 /* This is derived from the C++ ABI for IA-64.  Where we diverge
    for cross-architecture compatibility are noted with "@@@".  */
+
+#ifndef _UNWIND_H
+#define _UNWIND_H
+
+#pragma GCC visibility push(default)
 
 #ifdef __cplusplus
 extern "C" {
@@ -120,6 +132,18 @@ extern void _Unwind_DeleteException (struct _Unwind_Exception *);
    e.g. executing cleanup code, and not to implement rethrowing.  */
 extern void _Unwind_Resume (struct _Unwind_Exception *);
 
+/* @@@ Resume propagation of an FORCE_UNWIND exception, or to rethrow
+   a normal exception that was handled.  */
+extern _Unwind_Reason_Code _Unwind_Resume_or_Rethrow (struct _Unwind_Exception *);
+
+/* @@@ Use unwind data to perform a stack backtrace.  The trace callback
+   is called for every stack frame in the call chain, but no cleanup
+   actions are performed.  */
+typedef _Unwind_Reason_Code (*_Unwind_Trace_Fn)
+     (struct _Unwind_Context *, void *);
+
+extern _Unwind_Reason_Code _Unwind_Backtrace (_Unwind_Trace_Fn, void *);
+
 /* These functions are used for communicating information about the unwind
    context (i.e. the unwind descriptors and the user register state) between
    the unwind library and the personality routine and landing pad.  Only
@@ -130,6 +154,9 @@ extern void _Unwind_SetGR (struct _Unwind_Context *, int, _Unwind_Word);
 
 extern _Unwind_Ptr _Unwind_GetIP (struct _Unwind_Context *);
 extern void _Unwind_SetIP (struct _Unwind_Context *, _Unwind_Ptr);
+
+/* @@@ Retrieve the CFA of the given context.  */
+extern _Unwind_Word _Unwind_GetCFA (struct _Unwind_Context *);
 
 extern void *_Unwind_GetLanguageSpecificData (struct _Unwind_Context *);
 
@@ -166,6 +193,7 @@ extern _Unwind_Reason_Code _Unwind_SjLj_RaiseException
 extern _Unwind_Reason_Code _Unwind_SjLj_ForcedUnwind
      (struct _Unwind_Exception *, _Unwind_Stop_Fn, void *);
 extern void _Unwind_SjLj_Resume (struct _Unwind_Exception *);
+extern _Unwind_Reason_Code _Unwind_SjLj_Resume_or_Rethrow (struct _Unwind_Exception *);
 
 /* @@@ The following provide access to the base addresses for text
    and data-relative addressing in the LDSA.  In order to stay link
@@ -182,11 +210,14 @@ _Unwind_GetDataRelBase (struct _Unwind_Context *_C)
 }
 
 static inline _Unwind_Ptr
-_Unwind_GetTextRelBase (struct _Unwind_Context *_C)
+_Unwind_GetTextRelBase (struct _Unwind_Context *_C __attribute__ ((__unused__)))
 {
   abort ();
   return 0;
 }
+
+/* @@@ Retrieve the Backing Store Pointer of the given context.  */
+extern _Unwind_Word _Unwind_GetBSP (struct _Unwind_Context *);
 #else
 extern _Unwind_Ptr _Unwind_GetDataRelBase (struct _Unwind_Context *);
 extern _Unwind_Ptr _Unwind_GetTextRelBase (struct _Unwind_Context *);
@@ -199,3 +230,7 @@ extern void * _Unwind_FindEnclosingFunction (void *pc);
 #ifdef __cplusplus
 }
 #endif
+
+#pragma GCC visibility pop
+
+#endif /* unwind.h */

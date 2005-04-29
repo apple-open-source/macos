@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_delwin.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_delwin.c,v 1.13 2001/08/26 00:40:20 tom Exp $")
 
 static bool
 cannot_delete(WINDOW *win)

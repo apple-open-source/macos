@@ -29,8 +29,16 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ADMIN_VAR_H__
+#define __ADMIN_VAR_H__
+
+
 #define PORT_ADMIN "/tmp/.racoon"
 
 extern int admin_handler __P((void));
 extern int admin_init __P((void));
 extern int admin_close __P((void));
+
+
+#endif /*__ADMIN_VAR_H__ */
+

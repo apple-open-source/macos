@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/programs/ico/ico.c,v 1.9 2002/12/24 17:43:00 tsi Exp $ */
+/* $XFree86: xc/programs/ico/ico.c,v 1.10 2003/05/27 22:26:56 tsi Exp $ */
 
 /******************************************************************************
  * Description
@@ -459,7 +459,7 @@ icoClearArea(struct closure *closure, int x, int y, int w, int h)
 /* Set up points, transforms, etc.  */
 
 static void
-initPoly(struct closure *closure, const Polyinfo *poly, int icoW, int icoH)
+initPoly(struct closure *closure, Polyinfo *poly, int icoW, int icoH)
 {
     Point3D *vertices = poly->v;
     int NV = poly->numverts;
@@ -713,7 +713,7 @@ static void
 initDBufs(struct closure *closure, int fg, int bg, int planesperbuf)
 {
 	int i,j,jj,j0,j1,k,m,t;
-	DBufInfo *b, *otherb;
+	DBufInfo *b;
 	XColor bgcolor, fgcolor;
 
 	closure->nplanesets = (dblbuf && !multibufext ? 2 : 1);
@@ -755,8 +755,6 @@ initDBufs(struct closure *closure, int fg, int bg, int planesperbuf)
 	setBufColor(closure, 1,&fgcolor);
 	for (i=0; i<closure->nplanesets; i++) {
 		b = closure->bufs+i;
-		if (dblbuf)
-			otherb = closure->bufs+(1-i);
 		for (j0=0; j0<(dblbuf&&!multibufext?closure->pixelsperbuf:1); j0++) {
 		    for (j1=0; j1<closure->pixelsperbuf; j1++) {
 			j = (j0<<closure->planesperbuf)|j1;

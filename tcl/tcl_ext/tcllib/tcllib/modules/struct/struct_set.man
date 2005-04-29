@@ -1,0 +1,95 @@
+[comment {-*- tcl -*- doctools manpage}]
+[comment {$Id: struct_set.man,v 1.1 2004/02/04 05:36:27 andreas_kupries Exp $}]
+[manpage_begin set n 2.0]
+[copyright {2004 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc {Tcl Data Structures}]
+[titledesc {Procedures for manipulating sets}]
+[require Tcl 8.0]
+[require struct [opt 2.0]]
+[description]
+
+[para]
+
+The [cmd ::struct::set] namespace contains several useful commands for
+processing finite sets.
+
+[para]
+
+It exports only a single command, [cmd struct::set]. All
+functionality provided here can be reached through a subcommand of
+this command.
+
+[section COMMANDS]
+[list_begin definitions]
+
+[call [cmd ::struct::set] [method empty] [arg set]]
+
+Returns a boolean value indicating if the [arg set] is
+empty ([const true]), or not ([const false]).
+
+
+[call [cmd ::struct::set] [method size] [arg set]]
+
+Returns an integer number greater than or equal to zero. This is the
+number of elements in the [arg set]. In other words, its cardinality.
+
+
+[call [cmd ::struct::set] [method contains] [arg set] [arg item]]
+
+Returns a boolean value indicating if the [arg set] contains the
+element [arg item] ([const true]), or not ([const false]).
+
+
+[call [cmd ::struct::set] [method union] [opt [arg set1]...]]
+
+Computes the set containing the union of [arg set1], [arg set2],
+etc., i.e. "[arg set1] + [arg set2] + ...", and returns this set
+as the result of the command.
+
+
+[call [cmd ::struct::set] [method intersect] [opt [arg set1]...]]
+
+Computes the set containing the intersection of [arg set1],
+[arg set2], etc., i.e. "[arg set1] * [arg set2] * ...", and
+returns this set as the result of the command.
+
+
+[call [cmd ::struct::set] [method difference] [arg set1] [arg set2]]
+
+Computes the set containing the difference of [arg set1] and
+[arg set2], i.e. ("[arg set1] - [arg set2]") and returns this
+set as the result of the command.
+
+
+[call [cmd ::struct::set] [method symdiff] [arg set1] [arg set2]]
+
+Computes the set containing the symmetric difference of [arg set1] and
+[arg set2], i.e. ("([arg set1] - [arg set2]) + ([arg set2] - [arg set1])")
+and returns this set as the result of the command.
+
+
+[call [cmd ::struct::set] [method intersect3] [arg set1] [arg set2]]
+
+This command is a combination of the methods [method intersect] and
+[method difference].
+
+It returns a three-element list containing "[arg set1]*[arg set2]",
+"[arg set1]-[arg set2]", and "[arg set2]-[arg set1]", in this
+order. In other words, the intersection of the two parameter sets, and
+their differences.
+
+
+[call [cmd ::struct::set] [method equal] [arg set1] [arg set2]]
+
+Returns a boolean value indicating if the two sets are equal
+([const true]) or not ([const false]).
+
+
+
+[list_end]
+
+
+[section REFERENCES]
+
+[keywords set union intersection difference {symmetric difference} emptiness membership cardinality]
+[manpage_end]

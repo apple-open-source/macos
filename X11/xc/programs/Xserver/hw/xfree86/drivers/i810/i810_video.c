@@ -23,7 +23,7 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_video.c,v 1.22 2002/09/11 00:29:32 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_video.c,v 1.27 2003/11/11 00:58:18 dawes Exp $ */
 
 /*
  * i810_video.c: i810 Xv driver. Based on the mga Xv driver by Mark Vojkovich.
@@ -216,14 +216,51 @@ static XF86AttributeRec Attributes[NUM_ATTRIBUTES] =
    {XvSettable | XvGettable, 0, 255, "XV_CONTRAST"}
 };
 
-#define NUM_IMAGES 4
+#define NUM_IMAGES 6
+
+#define I810_RV15 0x35315652
+#define I810_RV16 0x36315652
 
 static XF86ImageRec Images[NUM_IMAGES] =
 {
-   XVIMAGE_YUY2,
-   XVIMAGE_YV12,
-   XVIMAGE_I420,
-   XVIMAGE_UYVY
+   {
+	I810_RV15,
+        XvRGB,
+	LSBFirst,
+	{'R','V','1','5',
+	  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
+	16,
+	XvPacked,
+	1,
+	15, 0x7C00, 0x03E0, 0x001F,
+	0, 0, 0,
+	0, 0, 0,
+	0, 0, 0,
+	{'R','V','B',0,
+	  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	XvTopToBottom
+   },
+   {
+	I810_RV16,
+        XvRGB,
+	LSBFirst,
+	{'R','V','1','6',
+	  0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
+	16,
+	XvPacked,
+	1,
+	16, 0xF800, 0x07E0, 0x001F,
+	0, 0, 0,
+	0, 0, 0,
+	0, 0, 0,
+	{'R','V','B',0,
+	  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+	XvTopToBottom
+   },
+	XVIMAGE_YUY2,
+	XVIMAGE_YV12,
+	XVIMAGE_I420,
+	XVIMAGE_UYVY
 };
 /* *INDENT-ON* */
 
@@ -383,7 +420,7 @@ I810SetupImageVideo(ScreenPtr pScreen)
     pPriv->currentBuf = 0;
 
     /* gotta uninit this someplace */
-    REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+    REGION_NULL(pScreen, &pPriv->clip);
 
     pI810->adaptor = adapt;
 
@@ -397,36 +434,6 @@ I810SetupImageVideo(ScreenPtr pScreen)
     I810ResetVideo(pScrn);
 
     return adapt;
-}
-
-
-static Bool
-RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
 }
 
 
@@ -758,9 +765,9 @@ I810DisplayVideo(
     } else {
 	overlay->OV0CONF = 0; /* two 720 pixel line buffers */
     }
-
+	    
     overlay->SHEIGHT = height | (height << 15);
-    overlay->DWINPOS = (dstBox->y1 << 16) | dstBox->x1;
+    overlay->DWINPOS = (dstBox->y1 << 16) | (dstBox->x1);
     overlay->DWINSZ = ((dstBox->y2 - dstBox->y1) << 16) | 
 	              (dstBox->x2 - dstBox->x1);
 
@@ -879,6 +886,15 @@ I810DisplayVideo(
 	overlay->OV0CMD &= ~SOURCE_FORMAT;
 	overlay->OV0CMD |= YUV_420;
 	break;
+    case I810_RV15:
+    case I810_RV16:
+	overlay->UV_VPH = 0;
+	overlay->INIT_PH = 0;
+	overlay->OV0STRIDE = dstPitch;
+	overlay->OV0CMD &= ~SOURCE_FORMAT;
+	overlay->OV0CMD |= (id==I810_RV15 ? RGB_555 : RGB_565);
+	overlay->OV0CMD &= ~OV_BYTE_ORDER;
+	break;
     case FOURCC_UYVY:
     case FOURCC_YUY2:
     default:
@@ -975,14 +991,18 @@ I810PutImage(
     dstBox.y2 = drw_y + drw_h;
 
     I810ClipVideo(&dstBox, &x1, &x2, &y1, &y2, 
-		  REGION_EXTENTS(pScreen, clipBoxes), width, height);
-
+		  REGION_EXTENTS(pScrn->pScreen, clipBoxes), width, height);
+    
     if((x1 >= x2) || (y1 >= y2))
        return Success;
-
-    dstBox.x1 -= pScrn->frameX0;
-    dstBox.x2 -= pScrn->frameX0;
-    dstBox.y1 -= pScrn->frameY0;
+    /* 
+     * Fix for 4 pixel granularity of AdjustFrame  
+     * unless boarder is clipped  by frame 
+     */
+    dstBox.x1 -= (pScrn->frameX0 & 
+		  ((dstBox.x1 == pScrn->frameX0) ? ~0x0UL : ~0x3UL));
+    dstBox.x2 -= (pScrn->frameX0 & ~0x3);
+    dstBox.y1 -= pScrn->frameY0; 
     dstBox.y2 -= pScrn->frameY0;
 
     switch(id) {
@@ -1057,14 +1077,11 @@ I810PutImage(
     }
 
     /* update cliplist */
-    if(!RegionsEqual(&pPriv->clip, clipBoxes)) {
-	REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
+    if(!REGION_EQUAL(pScrn->pScreen, &pPriv->clip, clipBoxes)) {
+	REGION_COPY(pScrn->pScreen, &pPriv->clip, clipBoxes);
 	/* draw these */
-	XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0, 
-					REGION_NUM_RECTS(clipBoxes),
-					REGION_RECTS(clipBoxes));
+	xf86XVFillKeyHelper(pScrn->pScreen, pPriv->colorKey, clipBoxes);
     }
-
 
     I810DisplayVideo(pScrn, id, width, height, dstPitch, 
 	     x1, y1, x2, y2, &dstBox, src_w, src_h, drw_w, drw_h);
@@ -1322,8 +1339,13 @@ I810DisplaySurface(
 		  REGION_EXTENTS(screenInfo.screens[0], clipBoxes),
 		  surface->width, surface->height);
 
-    dstBox.x1 -= pScrn->frameX0;
-    dstBox.x2 -= pScrn->frameX0;
+    /* 
+     * Fix for 4 pixel granularity of AdjustFrame  
+     * unless boarder is clipped  by frame 
+     */
+    dstBox.x1 -= (pScrn->frameX0 & 
+		  ((dstBox.x1 == pScrn->frameX0) ? ~0x0UL : ~0x3UL));
+    dstBox.x2 -= (pScrn->frameX0 & ~0x3);
     dstBox.y1 -= pScrn->frameY0;
     dstBox.y2 -= pScrn->frameY0;
 
@@ -1352,9 +1374,7 @@ I810DisplaySurface(
 		     surface->pitches[0], x1, y1, x2, y2, &dstBox,
 		     src_w, src_h, drw_w, drw_h);
 
-    XAAFillSolidRects(pScrn, pI810Priv->colorKey, GXcopy, ~0,
-		      REGION_NUM_RECTS(clipBoxes),
-		      REGION_RECTS(clipBoxes));
+    xf86XVFillKeyHelper(pScrn->pScreen, pI810Priv->colorKey, clipBoxes);
 
     pPriv->isOn = TRUE;
     /* we've prempted the XvImage stream so set its free timer */

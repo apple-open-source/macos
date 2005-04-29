@@ -35,7 +35,7 @@ static Widget w_zaptochar;
 
 /**/
 static int
-deltochar(char **args)
+deltochar(UNUSED(char **args))
 {
     int c = getkey(0), dest = cs, ok = 0, n = zmult;
     int zap = (bindk->widget == w_zaptochar);
@@ -75,7 +75,7 @@ deltochar(char **args)
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -100,7 +100,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
     deletezlefunction(w_deletetochar);
     deletezlefunction(w_zaptochar);
@@ -109,7 +109,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

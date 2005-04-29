@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,6 +61,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
+#include <sys/sysctl.h>
 
 #include <netdb.h>
 #include <rpc/rpc.h>
@@ -74,6 +75,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 typedef enum { MNTON, MNTFROM } mntwhat;
 
@@ -83,7 +85,10 @@ char	*nfshost;
 uid_t real_uid, eff_uid;
 
 int	 checkvfsname(const char *, char **);
-char	*getmntname(char *, mntwhat, char **);
+char	*getmntname(const char *, mntwhat, char **);
+int	 getmntfsid(const char *, fsid_t *);
+int	 sysctl_fsid(int, fsid_t *, void *, size_t *, void *, size_t);
+int	 unmount_by_fsid(const char *mntpt, int flag);
 char	**makevfslist(char *);
 int	 selected(int);
 int	 namematch(struct hostent *);
@@ -147,6 +152,20 @@ main(int argc, char *argv[])
 	/* -h implies "-t nfs" if no -t flag. */
 	if ((nfshost != NULL) && (typelist == NULL))
 		typelist = makevfslist("nfs");
+
+	if (fflag & MNT_FORCE) {
+		/*
+		 * If we really mean business, we don't want to get hung up on
+		 * any remote file systems.  So, we set the "noremotehang" flag.
+		 */
+		pid_t pid;
+		pid = getpid();
+		seteuid(eff_uid);
+		errs = sysctlbyname("vfs.generic.noremotehang", NULL, NULL, &pid, sizeof(pid));
+		seteuid(real_uid);
+		if ((errs != 0) && vflag)
+		        warn("sysctl vfs.generic.noremotehang");
+	}
 
 	errs = EXIT_SUCCESS;
 	switch (all) {
@@ -229,28 +248,53 @@ umountfs(char *name, char **typelist)
 	struct timeval pertry, try;
 	CLIENT *clp;
 	int so, isftpfs;
-	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN];
+	char *type, *delimp, *hostp, *mntpt, rname[MAXPATHLEN], *expname, *tname;
 
-	if (!fake && (fflag & MNT_FORCE)) {
-		if (unmount(name, fflag) < 0) {
-			warn("%s", name);
-			return (1);
+	if (fflag & MNT_FORCE) {
+		/*
+		 * For force unmounts, we first directly check the
+		 * current mount list for a match.  If we find it,
+		 * we skip the realpath()/stat() below to avoid
+		 * depending on the "noremotehang" flag to save us
+		 * if we get hung up on an unresponsive file system.
+		 */
+		tname = name;
+		/* check if name is a non-device "mount from" name */
+		if ((mntpt = getmntname(tname, MNTON, &type)) == NULL) {
+			/* or if name is a mounted-on directory */
+			mntpt = tname;
+			tname = getmntname(mntpt, MNTFROM, &type);
 		}
-		return (0);
+		if (mntpt && tname) {
+			/* we found a match */
+			name = tname;
+			goto got_mount_point;
+		}
 	}
+
+	/*
+	 * Note: in the face of path resolution errors (realpath/stat),
+	 * we just try using the name passed in as is.
+	 */
 
 	if (realpath(name, rname) == NULL) {
-		warn("%s", rname);
-		return (1);
+		if (vflag)
+			warn("realpath(%s)", rname);
+	} else {
+		name = rname;
 	}
 
-	name = rname;
-
 	if (stat(name, &sb) < 0) {
-		if (((mntpt = getmntname(name, MNTFROM, &type)) == NULL) &&
-		    ((mntpt = getmntname(name, MNTON, &type)) == NULL)) {
-			warnx("%s: not currently mounted", name);
-			return (1);
+		if (vflag)
+			warn("stat(%s)", name);
+		/* maybe name is a non-device "mount from" name? */
+		if ((mntpt = getmntname(name, MNTON, &type)) == NULL) {
+			/* or name is a directory we simply can't reach? */
+			mntpt = name;
+			if ((name = getmntname(mntpt, MNTFROM, &type)) == NULL) {
+				warnx("%s: not currently mounted", mntpt);
+				return (1);
+			}
 		}
 	} else if (S_ISBLK(sb.st_mode)) {
 		if ((mntpt = getmntname(name, MNTON, &type)) == NULL) {
@@ -268,6 +312,8 @@ umountfs(char *name, char **typelist)
 		return (1);
 	}
 
+got_mount_point:
+
 	if (checkvfsname(type, typelist))
 		return (1);
 
@@ -278,17 +324,19 @@ umountfs(char *name, char **typelist)
 
 	hp = NULL;
 	delimp = NULL;
+	expname = NULL;
 	if (!strcmp(type, "nfs") && !isftpfs) {
 		if ((delimp = strchr(name, '@')) != NULL) {
 			hostp = delimp + 1;
 			*delimp = '\0';
 			hp = gethostbyname(hostp);
 			*delimp = '@';
+			expname = name;
 		} else if ((delimp = strchr(name, ':')) != NULL) {
 			*delimp = '\0';
 			hostp = name;
 			hp = gethostbyname(hostp);
-			name = delimp + 1;
+			expname = delimp + 1;
 			*delimp = ':';
 		}
 	}
@@ -297,13 +345,29 @@ umountfs(char *name, char **typelist)
 		return (1);
 
 	if (vflag)
-		(void)printf("%s: unmount from %s\n", name, mntpt);
+		(void)printf("%s unmount from %s\n", name, mntpt);
 	if (fake)
 		return (0);
 
 	if (unmount(mntpt, fflag) < 0) {
-		warn("%s", mntpt);
-		return (1);
+		/*
+		 * If we're root and it looks like the error is that the
+		 * mounted on directory is just not reachable or if we really
+		 * want this filesystem unmounted (MNT_FORCE), then try doing
+		 * the unmount by fsid.  (Note: the sysctl only works for root)
+		 */
+		if ((real_uid == 0) &&
+		    ((errno == ESTALE) || (errno == ENOENT) || (fflag & MNT_FORCE))) {
+			if (vflag)
+				warn("unmount(%s)", mntpt);
+			if (unmount_by_fsid(mntpt, fflag) < 0) {
+				warn("unmount(%s)", mntpt);
+				return (1);
+			}
+		} else {
+			warn("unmount(%s)", mntpt);
+			return (1);
+		}
 	}
 
 	if ((hp != NULL) && !(fflag & MNT_FORCE)) {
@@ -332,7 +396,7 @@ umountfs(char *name, char **typelist)
 		try.tv_sec = 20;
 		try.tv_usec = 0;
 		clnt_stat = clnt_call(clp,
-		    RPCMNT_UMOUNT, xdr_dir, name, xdr_void, (caddr_t)0, try);
+		    RPCMNT_UMOUNT, xdr_dir, expname, xdr_void, (caddr_t)0, try);
 		if (clnt_stat != RPC_SUCCESS) {
 			clnt_perror(clp, "Bad MNT RPC");
 			/* unmount succeeded above, so don't actually return error */
@@ -344,11 +408,12 @@ umountfs(char *name, char **typelist)
 	return (0);
 }
 
+static struct statfs *mntbuf;
+static int mntsize;
+
 char *
-getmntname(char *name, mntwhat what, char **type)
+getmntname(const char *name, mntwhat what, char **type)
 {
-	static struct statfs *mntbuf;
-	static int mntsize;
 	int i;
 
 	if (mntbuf == NULL &&
@@ -372,12 +437,34 @@ getmntname(char *name, mntwhat what, char **type)
 }
 
 int
+getmntfsid(const char *name, fsid_t *fsid)
+{
+	int i;
+
+	if (mntbuf == NULL &&
+	    (mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0) {
+		warn("getmntinfo");
+		return (-1);
+	}
+	for (i = 0; i < mntsize; i++) {
+		if (!strcmp(mntbuf[i].f_mntonname, name)) {
+			*fsid = mntbuf[i].f_fsid;
+			return (0);
+		}
+	}
+	return (-1);
+}
+
+int
 namematch(struct hostent *hp)
 {
 	char *cp, **np;
 
-	if ((hp == NULL) || (nfshost == NULL))
+	if (nfshost == NULL)
 		return (1);
+
+	if (hp == NULL)
+		return (0);
 
 	if (strcasecmp(nfshost, hp->h_name) == 0)
 		return (1);
@@ -397,6 +484,48 @@ namematch(struct hostent *hp)
 		}
 	}
 	return (0);
+}
+
+
+int
+sysctl_fsid(
+	int op,
+	fsid_t *fsid,
+	void *oldp,
+	size_t *oldlenp,
+	void *newp,
+	size_t newlen)
+{
+	int ctlname[CTL_MAXNAME+2];
+	size_t ctllen;
+	const char *sysstr = "vfs.generic.ctlbyfsid";
+	struct vfsidctl vc;
+
+	ctllen = CTL_MAXNAME+2;
+	if (sysctlnametomib(sysstr, ctlname, &ctllen) == -1) {
+		warn("sysctlnametomib(%s)", sysstr);
+		return (-1);
+	};
+	ctlname[ctllen] = op;
+
+	bzero(&vc, sizeof(vc));
+	vc.vc_vers = VFS_CTL_VERS1;
+	vc.vc_fsid = *fsid;
+	vc.vc_ptr = newp;
+	vc.vc_len = newlen;
+	return (sysctl(ctlname, ctllen + 1, oldp, oldlenp, &vc, sizeof(vc)));
+}
+
+
+int
+unmount_by_fsid(const char *mntpt, int flag)
+{
+	fsid_t fsid;
+	if (getmntfsid(mntpt, &fsid) < 0)
+		return (-1);
+	if (vflag)
+		printf("attempting to unmount %s by fsid\n", mntpt);
+	return sysctl_fsid(VFS_CTL_UMOUNT, &fsid, NULL, 0, &flag, sizeof(flag));
 }
 
 /*

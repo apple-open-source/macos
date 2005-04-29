@@ -1,0 +1,232 @@
+#!../tclsh
+# -*- tcl -*-
+#
+# md = Message Digest
+# superset of md5sum, with more message digests.
+#
+# options:	-b      = read files as binary => no effect here
+#		-v      = verbose operation, print filenames during check
+#		-c      = check mode, read digests and filenames from stdin
+#		-c file = as above, but read information from specified FILE
+#		-a alg  = use algorithm ALG to compute or check digests
+#			  default is md5.
+#			possibilities: md5, haval, sha, crc, crc-zlib, adler
+#		-z	= compress generated listing, decompress read listing
+#
+#	without -c enter generator mode. interpret all non-option arguments
+#	as filenames and generate digests for them. if there are no files,
+#	generate a digest of stdin. the generated information is written to
+#	stdout.
+
+package require Trf
+if {[info tclversion] < 8.0} {
+    package require -exact Memchan 1.2
+} else {
+    package require Memchan
+}
+
+# --- internal library --- --- --- --- --- --- --- --- ---
+
+proc usage {args} {
+    global argv0
+
+    puts stdout ""
+    puts stdout "\tusage: $argv0 \[-b] \[-v] \[-c \[file]] \[-a alg] \[-z] file..."
+    puts stdout ""
+    puts stdout "\t-h\t\tproduce this help"
+    puts stdout "\t-b\t\tirrelevant, for compatibility only"
+    puts stdout "\t-v\t\tbe more verbose in check mode"
+    puts stdout "\t-z\t\tde/compress read/generated digest file"
+    puts stdout "\t-c\t\tenter check mode, read data from stdin"
+    puts stdout "\t-c file\t\tenter check mode, read data from file"
+    puts stdout "\t-a alg\t\tuse specified algorithm to generate/check digests"
+    puts stdout ""
+    puts stdout "\tallowed algorithms are: md5, haval, sha, crc, crc-zlib, adler, ripemd160, ripemd128"
+    puts stdout ""
+
+    exit
+}
+
+proc lshift {varnameOfList} {
+    upvar $varnameOfList list
+
+    if {[llength $list] == 0} {return ""} else {
+	set first [lindex   $list 0]
+	set list  [lreplace $list 0 0]
+	return $first
+    }
+}
+
+proc handle_command_line {} {
+    global md mode verbose check_src files zip
+    global argc argv
+
+    while {$argc > 0} {
+	set  arg  [lshift argv]
+	incr argc -1
+
+	switch -glob -- $arg {
+	    -h {usage}
+	    -b {}
+	    -v {set verbose 1}
+	    -a {
+		set md [lshift argv]
+		incr argc -1
+	    }
+	    -c {
+		if {$argc > 0} {
+		    set check_src [lshift argv]
+		    incr argc -1
+		}
+
+		set mode check
+	    }
+	    -z {set zip 1}
+	    -* {usage}
+	    default {lappend files $arg}
+	}
+    }
+}
+
+proc gen-hash {} {
+    global md files zip
+
+    if {{} == $files} {usage}
+
+    set out stdout
+    if {$zip} {
+	fconfigure  stdout -translation binary
+	catch {fconfigure  stdout -encoding binary}
+	zip -attach stdout -mode compress
+    }
+
+    foreach f $files {
+	set fname $f
+	if {0 != [string compare stdin $f]} {set f [open $f r]}
+
+	fconfigure  $f -translation binary
+	catch {fconfigure $f -encoding binary}
+	hex -attach [set digest [memchan]] -mode encode
+	$md -attach $f                     -mode write -read-dest $digest -read-type channel
+
+	read  $f
+	close $f
+
+	#transform remove $digest head
+	unstack $digest
+	seek    $digest 0
+
+	if {0 == [string compare stdin $f]} {
+	    puts $out "[string tolower [read $digest]]"
+	} else {
+	    puts $out "[string tolower [read $digest]]\t$fname"
+	}
+
+	close $digest
+    }
+
+    close $out
+}
+
+proc check-hash {} {
+    global md verbose check_src zip
+
+    set files   0
+    set failed  0
+    set missing 0
+    set in_name $check_src
+
+    if {0 != [string compare stdin $check_src]} {
+	set check_src [open $check_src r]
+    }
+
+    puts "performing $md check of incoming digests ($in_name)"
+
+    if {$zip} {
+	fconfigure        $check_src -translation binary
+	catch {fconfigure $check_src -encoding    binary}
+	zip -attach $check_src -mode compress
+	#                            on write, aka decompress for read
+    }
+
+    while {! [eof $check_src]} {
+	set n [gets $check_src line]
+	if {$n < 0} {break}
+
+	set old_digest [lshift line]
+	set fname      [lshift line]
+
+	incr files
+
+	set res [catch {set f [open $fname r]} msg]
+	if {$res} {
+	    incr missing
+	    puts "$fname inaccessible, check skipped: $msg"
+	    continue
+	}
+
+	if {$verbose} {puts -nonewline stdout "checking $fname ... "; flush stdout}
+
+	fconfigure        $f -translation binary
+	catch {fconfigure $f -encoding    binary}
+	hex -attach [set digest [memchan]] -mode encode
+	$md -attach $f                     -mode write -read-dest $digest -read-type channel
+
+	read  $f
+	close $f
+
+	#transform remove $digest head
+	unstack $digest
+	seek    $digest 0
+
+	set new_digest [string tolower [read $digest]]
+	close $digest
+
+	if {0 != [string compare $old_digest $new_digest]} {
+	    puts -nonewline stdout "\r                                                            "
+	    puts  stdout "\rcheck failed \[$new_digest -- $old_digest] for $fname"
+	    incr failed
+
+	} elseif {$verbose} {
+	    puts -nonewline stdout "\r                                                            "
+	    puts stdout "\rok: $fname"
+	}
+
+	flush stdout
+    }
+
+    close $check_src
+
+    if {$missing == $files} {
+	puts stdout "all files missing"
+    } elseif {$missing == 1} {
+	puts stdout "missing $missing file out of $files"
+    } elseif {$missing > 0} {
+	puts stdout "missing $missing files out of $files"
+    }
+
+    if {$failed == $files} {
+	puts stdout "$md check failed for all files"
+    } elseif {$failed == 1} {
+	puts stdout "$md check failed for $failed file out of $files"
+    } elseif {$failed > 0} {
+	puts stdout "$md check failed for $failed files out of $files"
+    }
+}
+
+# --- application --- --- --- --- --- --- --- --- ---
+# flags:
+
+set md        md5
+set mode      gen
+set verbose   0
+set check_src stdin
+set files     ""
+set zip       0
+
+handle_command_line
+
+set res [catch {${mode}-hash} msg]
+
+if {$res} {puts stdout $msg}
+exit 0

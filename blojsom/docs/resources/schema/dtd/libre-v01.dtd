@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!ELEMENT libre (entry | auto)*>
+<!ELEMENT entry (label?, href?)>
+<!ATTLIST entry
+  location CDATA #REQUIRED
+>
+<!ELEMENT auto (filter?, sorter?, label?, href?)>
+<!ELEMENT label (xpath | property)>
+<!ELEMENT href (xpath | property)>
+<!ELEMENT filter (xpath | property)>
+<!ATTLIST filter
+  logic (inverse | normal) "normal"
+  clear (yes | no) "no"
+>
+<!ELEMENT sorter (xpath | property)>
+<!ATTLIST sorter
+  order (ascending | descending) "ascending"
+  clear (yes | no) "no"
+>
+<!ELEMENT xpath EMPTY>
+<!ATTLIST xpath
+  expression CDATA #REQUIRED
+>
+<!ELEMENT property EMPTY>
+<!ATTLIST property
+  name CDATA #REQUIRED
+  mask CDATA #IMPLIED
+  regex CDATA #IMPLIED
+  substitute CDATA #IMPLIED
+>

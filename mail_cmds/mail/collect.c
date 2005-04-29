@@ -36,8 +36,10 @@
 static char sccsid[] = "@(#)collect.c	8.2 (Berkeley) 4/19/94";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/collect.c,v 1.11 2001/12/23 06:12:41 mikeh Exp $";
+  "$FreeBSD: src/usr.bin/mail/collect.c,v 1.12 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /*
  * Mail -- a mail program

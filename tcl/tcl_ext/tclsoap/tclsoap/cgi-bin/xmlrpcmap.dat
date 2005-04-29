@@ -1,0 +1,21 @@
+# xmlrpcmap.dat - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Map XML-RPC class name (that is the portion of a method name before the
+# dot ie: `tclsoap.square' gives a class name of `tclsoap' and a method name
+# of `square'
+#
+# Each line defines information for one class name. The format is
+# `classname' `filename' `interpname'
+# where each name is separated by whitespace.
+# `filename' is the name of the implementation file to source
+# `interpname' is the optional name of a safe interpreter to use
+#
+# If an interpreter name is provided then the implementation will be sourced
+# into a safe interpreter with this name.
+
+tclsoap		tclsoap-Test.tcl			# run in main interp
+slavetcl	tclsoap-Test.tcl	slavetcl	# run in slave interp
+
+# Our implementation of the UserLand validation suite.
+validator1	validator.tcl
+

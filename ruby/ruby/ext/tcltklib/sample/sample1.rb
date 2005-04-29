@@ -189,8 +189,8 @@ class Test1
       grid.e(w, "-row", ro, "-column", co, "-sticky news")
       ro += 1
       if ro == 7
-	ro = 0
-	co += 1
+        ro = 0
+        co += 1
       end
     }
   end
@@ -535,7 +535,7 @@ class Test1
       # clipboard をクリア.
       clipboard.e("clear")
       # selection から文字列を読み込み clipboard に追加する.
-      clipboard.e("append {#{selection.e(\"get\")}}")}))
+      clipboard.e("append {#{selection.e('get')}}")}))
     me1.e("add command -label {selection -> clipboard} -command",c)
     cb.push(c = TclTkCallback.new(ip, proc{
       # li1 をクリア.

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,7 +26,6 @@
 
 with Atree;    use Atree;
 with Casing;   use Casing;
-with Csets;    use Csets;
 with Debug;    use Debug;
 with Elists;   use Elists;
 with Errout;   use Errout;
@@ -46,15 +44,17 @@ with Sinfo;    use Sinfo;
 with Snames;   use Snames;
 with Style;
 with Table;
+with Tbuild;   use Tbuild;
+
+---------
+-- Par --
+---------
 
 function Par (Configuration_Pragmas : Boolean) return List_Id is
 
    Num_Library_Units : Natural := 0;
    --  Count number of units parsed (relevant only in syntax check only mode,
    --  since in semantics check mode only a single unit is permitted anyway)
-
-   Unit_Node : Node_Id;
-   --  Stores compilation unit node for current unit
 
    Save_Config_Switches : Config_Switches_Type;
    --  Variable used to save values of config switches while we parse the
@@ -192,6 +192,73 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --   that there is a missing body, but it seems more reasonable to let the
    --   later semantic checking discover this.
 
+   ----------------------------------------------------
+   -- Handling of Reserved Words Used as Identifiers --
+   ----------------------------------------------------
+
+   --  Note: throughout the parser, the terms reserved word and keyword
+   --  are used interchangably to refer to the same set of reserved
+   --  keywords (including until, protected, etc).
+
+   --  If a reserved word is used in place of an identifier, the parser
+   --  where possible tries to recover gracefully. In particular, if the
+   --  keyword is clearly spelled using identifier casing, e.g. Until in
+   --  a source program using mixed case identifiers and lower case keywords,
+   --  then the keyword is treated as an identifier if it appears in a place
+   --  where an identifier is required.
+
+   --  The situation is more complex if the keyword is spelled with normal
+   --  keyword casing. In this case, the parser is more reluctant to
+   --  consider it to be intended as an identifier, unless it has some
+   --  further confirmation.
+
+   --  In the case of an identifier appearing in the identifier list of a
+   --  declaration, the appearence of a comma or colon right after the
+   --  keyword on the same line is taken as confirmation. For an enumeration
+   --  literal, a comma or right paren right after the identifier is also
+   --  treated as adequate confirmation.
+
+   --  The following type is used in calls to Is_Reserved_Identifier and
+   --  also to P_Defining_Identifier and P_Identifier. The default for all
+   --  these functins is that reserved words in reserved word case are not
+   --  considered to be reserved identifiers. The Id_Check value indicates
+   --  tokens, which if they appear immediately after the identifier, are
+   --  taken as confirming that the use of an identifier was expected
+
+   type Id_Check is
+     (None,
+      --  Default, no special token test
+
+      C_Comma_Right_Paren,
+      --  Consider as identifier if followed by comma or right paren
+
+      C_Comma_Colon,
+      --  Consider as identifier if followed by comma or colon
+
+      C_Do,
+      --  Consider as identifier if followed by DO
+
+      C_Dot,
+      --  Consider as identifier if followed by period
+
+      C_Greater_Greater,
+      --  Consider as identifier if followed by >>
+
+      C_In,
+      --  Consider as identifier if followed by IN
+
+      C_Is,
+      --  Consider as identifier if followed by IS
+
+      C_Left_Paren_Semicolon,
+      --  Consider as identifier if followed by left paren or semicolon
+
+      C_Use,
+      --  Consider as identifier if followed by USE
+
+      C_Vertical_Bar_Arrow);
+      --  Consider as identifier if followed by | or =>
+
    --------------------------------------------
    -- Handling IS Used in Place of Semicolon --
    --------------------------------------------
@@ -328,6 +395,11 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    SS_Whtm           : constant SS_Rec := SS_Rec'(F, F, F, F, F, F, T, F);
    SS_Unco           : constant SS_Rec := SS_Rec'(F, F, F, F, F, F, F, T);
 
+   Goto_List : Elist_Id;
+   --  List of goto nodes appearing in the current compilation. Used to
+   --  recognize natural loops and convert them into bona fide loops for
+   --  optimization purposes.
+
    Label_List : Elist_Id;
    --  List of label nodes for labels appearing in the current compilation.
    --  Used by Par.Labl to construct the corresponding implicit declarations.
@@ -452,9 +524,16 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --  corresponding to their name, and return an ID value for the Node or
    --  List that is created.
 
+   -------------
+   -- Par.Ch2 --
+   -------------
+
    package Ch2 is
-      function P_Identifier                           return Node_Id;
       function P_Pragma                               return Node_Id;
+
+      function P_Identifier (C : Id_Check := None) return Node_Id;
+      --  Scans out an identifier. The parameter C determines the treatment
+      --  of reserved identifiers. See declaration of Id_Check for details.
 
       function P_Pragmas_Opt return List_Id;
       --  This function scans for a sequence of pragmas in other than a
@@ -469,6 +548,10 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Parses optional pragmas and appends them to the List
    end Ch2;
 
+   -------------
+   -- Par.Ch3 --
+   -------------
+
    package Ch3 is
       Missing_Begin_Msg : Error_Msg_Id;
       --  This variable is set by a call to P_Declarative_Part. Normally it
@@ -479,13 +562,10 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  variable, then the caller can change it to an appropriate missing
       --  begin message if indeed the BEGIN is missing.
 
-      function P_Access_Definition                    return Node_Id;
-      function P_Access_Type_Definition               return Node_Id;
       function P_Array_Type_Definition                return Node_Id;
       function P_Basic_Declarative_Items              return List_Id;
       function P_Constraint_Opt                       return Node_Id;
       function P_Declarative_Part                     return List_Id;
-      function P_Defining_Identifier                  return Node_Id;
       function P_Discrete_Choice_List                 return List_Id;
       function P_Discrete_Range                       return Node_Id;
       function P_Discrete_Subtype_Definition          return Node_Id;
@@ -495,16 +575,40 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       function P_Range_Or_Subtype_Mark                return Node_Id;
       function P_Range_Constraint                     return Node_Id;
       function P_Record_Definition                    return Node_Id;
-      function P_Subtype_Indication                   return Node_Id;
       function P_Subtype_Mark                         return Node_Id;
       function P_Subtype_Mark_Resync                  return Node_Id;
       function P_Unknown_Discriminant_Part_Opt        return Boolean;
+
+      function P_Access_Definition
+        (Null_Exclusion_Present : Boolean) return Node_Id;
+      --  Ada 2005 (AI-231/AI-254): The caller parses the null-exclusion part
+      --  and indicates if it was present
+
+      function P_Access_Type_Definition
+        (Header_Already_Parsed : Boolean := False) return Node_Id;
+      --  Ada 2005 (AI-254): The formal is used to indicate if the caller has
+      --  parsed the null_exclusion part. In this case the caller has also
+      --  removed the ACCESS token
 
       procedure P_Component_Items (Decls : List_Id);
       --  Scan out one or more component items and append them to the
       --  given list. Only scans out more than one declaration in the
       --  case where the source has a single declaration with multiple
       --  defining identifiers.
+
+      function P_Defining_Identifier (C : Id_Check := None) return Node_Id;
+      --  Scan out a defining identifier. The parameter C controls the
+      --  treatment of errors in case a reserved word is scanned. See the
+      --  declaration of this type for details.
+
+      function P_Null_Exclusion return Boolean;
+      --  Ada 2005 (AI-231): Parse the null-excluding part. True indicates
+      --  that the null-excluding part was present.
+
+      function P_Subtype_Indication
+        (Not_Null_Present : Boolean := False) return Node_Id;
+      --  Ada 2005 (AI-231): The flag Not_Null_Present indicates that the
+      --  null-excluding part has been scanned out and it was present.
 
       function Init_Expr_Opt (P : Boolean := False) return Node_Id;
       --  If an initialization expression is present (:= expression), then
@@ -520,16 +624,23 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Token is known to be a declaration token (in Token_Class_Declk)
       --  on entry, so there definition is a declaration to be scanned.
 
-      function P_Subtype_Indication (Subtype_Mark : Node_Id) return Node_Id;
+      function P_Subtype_Indication
+        (Subtype_Mark     : Node_Id;
+         Not_Null_Present : Boolean := False) return Node_Id;
       --  This version of P_Subtype_Indication is called when the caller has
       --  already scanned out the subtype mark which is passed as a parameter.
+      --  Ada 2005 (AI-231): The flag Not_Null_Present indicates that the
+      --  null-excluding part has been scanned out and it was present.
 
       function P_Subtype_Mark_Attribute (Type_Node : Node_Id) return Node_Id;
       --  Parse a subtype mark attribute. The caller has already parsed the
       --  subtype mark, which is passed in as the argument, and has checked
       --  that the current token is apostrophe.
-
    end Ch3;
+
+   -------------
+   -- Par.Ch4 --
+   -------------
 
    package Ch4 is
       function P_Aggregate                            return Node_Id;
@@ -548,11 +659,13 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
          return         Node_Id;
       --  This routine scans out a qualified expression when the caller has
       --  already scanned out the name and apostrophe of the construct.
-
    end Ch4;
 
-   package Ch5 is
+   -------------
+   -- Par.Ch5 --
+   -------------
 
+   package Ch5 is
       function P_Statement_Name (Name_Node : Node_Id) return Node_Id;
       --  Given a node representing a name (which is a call), converts it
       --  to the syntactically corresponding procedure call statement.
@@ -564,8 +677,11 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       procedure Parse_Decls_Begin_End (Parent : Node_Id);
       --  Parses declarations and handled statement sequence, setting
       --  fields of Parent node appropriately.
-
    end Ch5;
+
+   -------------
+   -- Par.Ch6 --
+   -------------
 
    package Ch6 is
       function P_Designator                           return Node_Id;
@@ -584,8 +700,11 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  PROCEDURE or FUNCTION. The parameter indicates which possible
       --  possible kinds of construct (body, spec, instantiation etc.)
       --  are permissible in the current context.
-
    end Ch6;
+
+   -------------
+   -- Par.Ch7 --
+   -------------
 
    package Ch7 is
       function P_Package (Pf_Flags : Pf_Rec) return Node_Id;
@@ -594,9 +713,17 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  instantiation etc.) are permissible in the current context.
    end Ch7;
 
+   -------------
+   -- Par.Ch8 --
+   -------------
+
    package Ch8 is
       function P_Use_Clause                           return Node_Id;
    end Ch8;
+
+   -------------
+   -- Par.Ch9 --
+   -------------
 
    package Ch9 is
       function P_Abort_Statement                      return Node_Id;
@@ -611,6 +738,10 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       function P_Terminate_Alternative                return Node_Id;
    end Ch9;
 
+   --------------
+   -- Par.Ch10 --
+   --------------
+
    package Ch10 is
       function P_Compilation_Unit                     return Node_Id;
       --  Note: this function scans a single compilation unit, and
@@ -622,7 +753,15 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  for end of file and there may be more compilation units to
       --  scan. The caller can uniquely detect this situation by the
       --  fact that Token is not set to Tok_EOF on return.
+      --
+      --  The Ignore parameter is normally set False. It is set True
+      --  in multiple unit per file mode if we are skipping past a unit
+      --  that we are not interested in.
    end Ch10;
+
+   --------------
+   -- Par.Ch11 --
+   --------------
 
    package Ch11 is
       function P_Handled_Sequence_Of_Statements       return Node_Id;
@@ -632,13 +771,20 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Parses the partial construct EXCEPTION followed by a list of
       --  exception handlers which appears in a number of productions,
       --  and returns the list of exception handlers.
-
    end Ch11;
+
+   --------------
+   -- Par.Ch12 --
+   --------------
 
    package Ch12 is
       function P_Generic                              return Node_Id;
       function P_Generic_Actual_Part_Opt              return List_Id;
    end Ch12;
+
+   --------------
+   -- Par.Ch13 --
+   --------------
 
    package Ch13 is
       function P_Representation_Clause                return Node_Id;
@@ -660,14 +806,13 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --    At clause is parsed by P_At_Clause (13.1)
    --    Mod clause is parsed by P_Mod_Clause (13.5.1)
 
-   ------------------
-   -- End Handling --
-   ------------------
+   --------------
+   -- Par.Endh --
+   --------------
 
    --  Routines for handling end lines, including scope recovery
 
    package Endh is
-
       function Check_End return Boolean;
       --  Called when an end sequence is required. In the absence of an error
       --  situation, Token contains Tok_End on entry, but in a missing end
@@ -695,12 +840,11 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  only be used in cases where the only appropriate terminator is end.
       --  If Parent is non-empty, then if a correct END line is encountered,
       --  the End_Label field of Parent is set appropriately.
-
    end Endh;
 
-   ------------------------------------
-   -- Resynchronization After Errors --
-   ------------------------------------
+   --------------
+   -- Par.Sync --
+   --------------
 
    --  These procedures are used to resynchronize after errors. Following an
    --  error which is not immediately locally recoverable, the exception
@@ -713,7 +857,6 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --  Multiple_Errors_Per_Line is set in Options.
 
    package Sync is
-
       procedure Resync_Choice;
       --  Used if an error occurs scanning a choice. The scan pointer is
       --  advanced to the next vertical bar, arrow, or semicolon, whichever
@@ -734,6 +877,10 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  starts a declaration (but we make sure to skip at least one token
       --  in this case, to avoid getting stuck in a loop).
 
+      procedure Resync_To_Semicolon;
+      --  Similar to Resync_Past_Semicolon, except that the scan pointer is
+      --  left pointing to the semicolon rather than past it.
+
       procedure Resync_Past_Semicolon_Or_To_Loop_Or_Then;
       --  Used if an error occurs while scanning a sequence of statements.
       --  The scan pointer is positioned past the next semicolon, or to the
@@ -749,17 +896,16 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  Used if an error occurs while scanning a parenthesized list of items
       --  separated by semicolons. The scan pointer is advanced to the next
       --  semicolon or right parenthesis at the outer parenthesis level, or
-      --  to the next is or RETURN keyword occurrence, whichever comes first.
+      --  to the next is or RETURN keyword occurence, whichever comes first.
 
       procedure Resync_Cunit;
       --  Synchronize to next token which could be the start of a compilation
       --  unit, or to the end of file token.
-
    end Sync;
 
-   -------------------------
-   -- Token Scan Routines --
-   -------------------------
+   --------------
+   -- Par.Tchk --
+   --------------
 
    --  Routines to check for expected tokens
 
@@ -826,15 +972,13 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       procedure TF_Semicolon;
       procedure TF_Then;
       procedure TF_Use;
-
    end Tchk;
 
-   ----------------------
-   -- Utility Routines --
-   ----------------------
+   --------------
+   -- Par.Util --
+   --------------
 
    package Util is
-
       function Bad_Spelling_Of (T : Token_Type) return Boolean;
       --  This function is called in an error situation. It checks if the
       --  current token is an identifier whose name is a plausible bad
@@ -907,10 +1051,12 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       --  past it, otherwise the call has no effect at all. T may be any
       --  reserved word token, or comma, left or right paren, or semicolon.
 
-      function Is_Reserved_Identifier return Boolean;
+      function Is_Reserved_Identifier (C : Id_Check := None) return Boolean;
       --  Test if current token is a reserved identifier. This test is based
       --  on the token being a keyword and being spelled in typical identifier
-      --  style (i.e. starting with an upper case letter).
+      --  style (i.e. starting with an upper case letter). The parameter C
+      --  determines the special treatment if a reserved word is encountered
+      --  that has the normal casing of a reserved word.
 
       procedure Merge_Identifier (Prev : Node_Id; Nxt : Token_Type);
       --  Called when the previous token is an identifier (whose Token_Node
@@ -957,11 +1103,15 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
       pragma Inline (Token_Is_At_Start_Of_Line);
       --  Determines if the current token is the first token on the line
 
+      function Token_Is_At_End_Of_Line return Boolean;
+      --  Determines if the current token is the last token on the line
    end Util;
 
-   ---------------------------------------
-   -- Specialized Syntax Check Routines --
-   ---------------------------------------
+   --------------
+   -- Par.Prag --
+   --------------
+
+   --  The processing for pragmas is split off from chapter 2
 
    function Prag (Pragma_Node : Node_Id; Semi : Source_Ptr) return Node_Id;
    --  This function is passed a tree for a pragma that has been scanned out.
@@ -980,9 +1130,9 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --  the scanning of the semicolon so that it will be scanned using the
    --  settings from the Style_Checks pragma preceding it.
 
-   -------------------------
-   -- Subsidiary Routines --
-   -------------------------
+   --------------
+   -- Par.Labl --
+   --------------
 
    procedure Labl;
    --  This procedure creates implicit label declarations for all label that
@@ -991,6 +1141,10 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    --  to do it then, since the tree is not hooked up at the point where the
    --  label is declared (e.g. a sequence of statements is not yet attached
    --  to its containing scope at the point a label in the sequence is found)
+
+   --------------
+   -- Par.Load --
+   --------------
 
    procedure Load;
    --  This procedure loads all subsidiary units that are required by this
@@ -1046,20 +1200,16 @@ function Par (Configuration_Pragmas : Boolean) return List_Id is
    procedure Labl is separate;
    procedure Load is separate;
 
-   ---------
-   -- Par --
-   ---------
-
---  This function is the parse routine called at the outer level. It parses
---  the current compilation unit and adds implicit label declarations.
+--  Start of processing for Par
 
 begin
+
    --  Deal with configuration pragmas case first
 
    if Configuration_Pragmas then
       declare
-         Ecount  : constant Int := Total_Errors_Detected;
-         Pragmas : List_Id := Empty_List;
+         Ecount  : constant Int     := Serious_Errors_Detected;
+         Pragmas : constant List_Id := Empty_List;
          P_Node  : Node_Id;
 
       begin
@@ -1074,7 +1224,7 @@ begin
             else
                P_Node := P_Pragma;
 
-               if Total_Errors_Detected > Ecount then
+               if Serious_Errors_Detected > Ecount then
                   return Error_List;
                end if;
 
@@ -1097,43 +1247,12 @@ begin
    else
       Save_Opt_Config_Switches (Save_Config_Switches);
 
-      --  Special processing for language defined units. For this purpose
-      --  we do NOT consider the renamings in annex J as predefined. That
-      --  allows users to compile their own versions of these files, and
-      --  in particular, in the VMS implementation, the DEC versions can
-      --  be substituted for the standard Ada 95 versions.
+      --  The following loop runs more than once in syntax check mode
+      --  where we allow multiple compilation units in the same file
+      --  and in Multiple_Unit_Per_file mode where we skip units till
+      --  we get to the unit we want.
 
-      if Is_Predefined_File_Name
-           (Fname => File_Name (Current_Source_File),
-            Renamings_Included => False)
-      then
-         Set_Opt_Config_Switches
-           (Is_Internal_File_Name (File_Name (Current_Source_File)));
-
-         --  If this is the main unit, disallow compilation unless the -gnatg
-         --  (GNAT mode) switch is set (from a user point of view, the rule is
-         --  that language defined units cannot be recompiled).
-
-         --  However, an exception is s-rpc, and its children. We test this
-         --  by looking at the character after the minus, the rule is that
-         --  System.RPC and its children are the only children in System
-         --  whose second level name can start with the letter r.
-
-         Get_Name_String (File_Name (Current_Source_File));
-
-         if (Name_Len < 3 or else Name_Buffer (1 .. 3) /= "s-r")
-           and then Current_Source_Unit = Main_Unit
-           and then not GNAT_Mode
-           and then Operating_Mode = Generate_Code
-         then
-            Error_Msg_SC ("language defined units may not be recompiled");
-         end if;
-      end if;
-
-      --  The following loop runs more than once only in syntax check mode
-      --  where we allow multiple compilation units in the same file.
-
-      loop
+      for Ucount in Pos loop
          Set_Opt_Config_Switches
            (Is_Internal_File_Name (File_Name (Current_Source_File)));
 
@@ -1146,16 +1265,121 @@ begin
          SIS_Entry_Active := False;
          Last_Resync_Point := No_Location;
 
+         Goto_List  := New_Elmt_List;
          Label_List := New_Elmt_List;
-         Unit_Node := P_Compilation_Unit;
 
-         --  If we are not at an end of file, then this means that we are
-         --  in syntax scan mode, and we can have another compilation unit,
-         --  otherwise we will exit from the loop.
+         --  If in multiple unit per file mode, skip past ignored unit
 
-         exit when Token = Tok_EOF;
+         if Ucount < Multiple_Unit_Index then
+
+            --  We skip in syntax check only mode, since we don't want
+            --  to do anything more than skip past the unit and ignore it.
+            --  This causes processing like setting up a unit table entry
+            --  to be skipped.
+
+            declare
+               Save_Operating_Mode : constant Operating_Mode_Type :=
+                                       Operating_Mode;
+
+               Save_Style_Check : constant Boolean := Style_Check;
+
+            begin
+               Operating_Mode := Check_Syntax;
+               Style_Check := False;
+               Discard_Node (P_Compilation_Unit);
+               Operating_Mode := Save_Operating_Mode;
+               Style_Check := Save_Style_Check;
+
+               --  If we are at an end of file, and not yet at the right
+               --  unit, then we have a fatal error. The unit is missing.
+
+               if Token = Tok_EOF then
+                  Error_Msg_SC ("file has too few compilation units");
+                  raise Unrecoverable_Error;
+               end if;
+            end;
+
+            --  Here if we are not skipping a file in multiple unit per file
+            --  mode. Parse the unit that we are interested in. Note that in
+            --  check syntax mode we are interested in all units in the file.
+
+         else
+            declare
+               Comp_Unit_Node : constant Node_Id := P_Compilation_Unit;
+
+            begin
+               --  If parsing was successful and we are not in check syntax
+               --  mode, check that language defined units are compiled in
+               --  GNAT mode. For this purpose we do NOT consider renamings
+               --  in annex J as predefined. That allows users to compile
+               --  their own versions of these files, and in particular,
+               --  in the VMS implementation, the DEC versions can be
+               --  substituted for the standard Ada 95 versions. Another
+               --  exception is System.RPC and its children. This allows
+               --  a user to supply their own communication layer.
+
+               if Comp_Unit_Node /= Error
+                 and then Operating_Mode = Generate_Code
+                 and then Current_Source_Unit = Main_Unit
+                 and then not GNAT_Mode
+               then
+                  declare
+                     Uname : constant String :=
+                               Get_Name_String
+                                 (Unit_Name (Current_Source_Unit));
+                     Name : String (1 .. Uname'Length - 2);
+
+                  begin
+                     --  Because Unit_Name includes "%s" or "%b", we need to
+                     --  strip the last two characters to get the real unit
+                     --  name.
+
+                     Name := Uname (Uname'First .. Uname'Last - 2);
+
+                     if (Name = "ada"                    or else
+                         Name = "calendar"               or else
+                         Name = "interfaces"             or else
+                         Name = "system"                 or else
+                         Name = "machine_code"           or else
+                         Name = "unchecked_conversion"   or else
+                         Name = "unchecked_deallocation"
+                           or else (Name'Length > 4
+                                     and then
+                                       Name (Name'First .. Name'First + 3) =
+                                                                 "ada.")
+                           or else (Name'Length > 11
+                                     and then
+                                       Name (Name'First .. Name'First + 10) =
+                                                                 "interfaces.")
+                           or else (Name'Length > 7
+                                     and then
+                                       Name (Name'First .. Name'First + 6) =
+                                                                 "system."))
+                       and then Name /= "system.rpc"
+                       and then
+                         (Name'Length < 11
+                            or else Name (Name'First .. Name'First + 10) /=
+                                                                 "system.rpc.")
+                     then
+                        Error_Msg
+                          ("language defined units may not be recompiled",
+                           Sloc (Unit (Comp_Unit_Node)));
+                     end if;
+                  end;
+               end if;
+            end;
+
+            --  All done if at end of file
+
+            exit when Token = Tok_EOF;
+
+            --  If we are not at an end of file, it means we are in syntax
+            --  check only mode, and we keep the loop going to parse all
+            --  remaining units in the file.
+
+         end if;
+
          Restore_Opt_Config_Switches (Save_Config_Switches);
-         Set_Comes_From_Source_Default (False);
       end loop;
 
       --  Now that we have completely parsed the source file, we can
@@ -1182,5 +1406,4 @@ begin
       Set_Comes_From_Source_Default (False);
       return Empty_List;
    end if;
-
 end Par;

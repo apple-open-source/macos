@@ -39,7 +39,9 @@
 #include "pptest.h"         // ParsePositionTest
 #include "calregts.h"       // CalendarRegressionTest
 #include "tzregts.h"        // TimeZoneRegressionTest
+#include "astrotst.h"       // AstroTest
 #include "incaltst.h"       // IntlCalendarTest
+#include "calcasts.h"       // CalendarCaseTest
 
 #define TESTCLASS(id, TestClass)          \
     case id:                              \
@@ -97,20 +99,9 @@ void IntlTestFormat::runIndexedTest( int32_t index, UBool exec, const char* &nam
         TESTCLASS(24,CalendarRegressionTest);
         TESTCLASS(25,TimeZoneRegressionTest);
         TESTCLASS(26,IntlCalendarTest);
+        TESTCLASS(27,AstroTest);
+        TESTCLASS(28,CalendarCaseTest);
 
-        //TESTCLASS(0,IntlTestDateFormatSymbolsC);
-        //TESTCLASS(0,IntlTestDecimalFormatSymbolsC);
-        //TESTCLASS(0,IntlTestSimpleDateFormatAPIC);
-        //TESTCLASS(0,IntlTestDateFormatAPIC);
-        //TESTCLASS(0,IntlTestDecimalFormatAPIC);
-        //TESTCLASS(0,IntlTestNumberFormatAPIC);
-        //TESTCLASS(0,CNumberSpelloutFormatTest);
-        //TESTCLASS(0,CNumberSpelloutFormatRoundTripTest);
-        //TESTCLASS(0,TestCwrapperFormatSmallClasses);
-        //TESTCLASS(0,TestCwrapperMessageFormat);
-        //TESTCLASS(0,TestCwrapperChoiceFormat);
-        //TESTCLASS(0,TestCwrapperCalendar);
-        //TESTCLASS(0,TestCwrapperTimeZone);
         default: name = ""; break; //needed to end loop
     }
     if (exec) {

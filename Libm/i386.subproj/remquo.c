@@ -75,9 +75,6 @@
 *                                                                               *
 ********************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include      "math.h"
 #include      "math_private.h"
 #include      "fenv.h"
@@ -85,10 +82,6 @@
 
 #define      REM_NAN      "9"
 static const double zero	 = 0.0;
-static const hexdouble Huge     = HEXDOUBLE(0x7ff00000, 0x00000000);
-static const hexdouble HugeHalved     = HEXDOUBLE(0x7fe00000, 0x00000000);
-static const hexsingle HugeF     = { 0x7f800000 };
-static const hexsingle HugeFHalved     = { 0x7f000000 };
 
 /***********************************************************************
    The function remquo returns the IEEE-mandated floating-point remainder
@@ -102,9 +95,12 @@ static const hexsingle HugeFHalved     = { 0x7f000000 };
 
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
-static long int ___fpclassifyd ( double arg )
+static const hexdouble Huge     = HEXDOUBLE(0x7ff00000, 0x00000000);
+static const hexdouble HugeHalved     = HEXDOUBLE(0x7fe00000, 0x00000000);
+
+static int ___fpclassifyd ( double arg )
 {
-      register unsigned long int exponent;
+      uint32_t exponent;
       hexdouble      x;
             
       x.d = arg;
@@ -113,31 +109,31 @@ static long int ___fpclassifyd ( double arg )
       if ( exponent == 0x7ff00000 )
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_INFINITE;
+                  return FP_INFINITE;
             else
                   return ( x.i.hi & dQuietNan ) ? FP_QNAN : FP_SNAN; 
       }
       else if ( exponent != 0)
-            return (long int) FP_NORMAL;
+            return FP_NORMAL;
       else
       {
             if ( ( ( x.i.hi & 0x000fffff ) | x.i.lo ) == 0 )
-                  return (long int) FP_ZERO;
+                  return FP_ZERO;
             else
-                  return (long int) FP_SUBNORMAL;
+                  return FP_SUBNORMAL;
       }
 }
 
 extern double __logb ( double x );
 
-static const double twoTo1023  = 8.988465674311579539e307;   // 0x1p1023
-static const double twoToM1022 = 2.225073858507201383e-308;  // 0x1p-1022
+static const double twoTo1023  = 0x1.0p+1023; // 8.988465674311579539e307
+static const double twoToM1022 = 0x1.0p-1022; // 2.225073858507201383e-308
 
 static double __scalbn ( double x, int n  )
 {
       hexdouble xInHex;
       
-      xInHex.i.lo = 0UL;                        // init. low half of xInHex
+      xInHex.i.lo = 0u;                        // init. low half of xInHex
       
       if ( n > 1023 ) 
        {                                        // large positive scaling
@@ -165,24 +161,24 @@ static double __scalbn ( double x, int n  )
 *      -1022 <= n <= 1023; convert n to double scale factor.                   *
 *******************************************************************************/
 
-      xInHex.i.hi = ( ( unsigned long ) ( n + 1023 ) ) << 20;
+      xInHex.i.hi = ( ( uint32_t ) ( n + 1023 ) ) << 20;
       return ( x * xInHex.d );
 }
 
-static long int ___signbitd ( double arg )
+static int ___signbitd ( double arg )
 {
       hexdouble z;
 
       z.d = arg;
-      return (((signed long int)z.i.hi) < 0);
+      return (((int32_t)z.i.hi) < 0);
 }
 
 double remquo ( double x, double y, int *quo)
 {
-      long int      iclx,icly;                        /* classify results of x,y */
-      long int      iquo;                             /* low 32 bits of integral quotient */
-      long int      iscx, iscy, idiff;                /* logb values and difference */
-      long int      i;                                /* loop variable */
+      int			iclx,icly;                        /* classify results of x,y */
+      int32_t		iquo;                             /* low 32 bits of integral quotient */
+      int32_t		iscx, iscy, idiff;                /* logb values and difference */
+      int			i;                                /* loop variable */
       double        absy,x1,y1,z;                     /* local floating-point variables */
       double        rslt;
       fenv_t 	    OldEnvironment;
@@ -197,8 +193,8 @@ double remquo ( double x, double y, int *quo)
          x1 = __FABS(x);                              /* work with absolute values */
          absy = __FABS(y);
          iquo = 0;                                    /* zero local quotient */
-         iscx = (long int) __logb(x1);                /* get binary exponents */
-         iscy = (long int) __logb(absy);
+         iscx = (int32_t) __logb(x1);                /* get binary exponents */
+         iscy = (int32_t) __logb(absy);
          idiff = iscx - iscy;                         /* exponent difference */
          if (idiff >= 0) {                            /* exponent of x1 >= exponent of y1 */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
@@ -255,12 +251,15 @@ double remquo ( double x, double y, int *quo)
 
 #else /* !BUILDING_FOR_CARBONCORE_LEGACY */
 
+static const hexsingle HugeF     = { 0x7f800000 };
+static const hexsingle HugeFHalved     = { 0x7f000000 };
+
 float remquof ( float x, float y, int *quo)
 {
-      long int      iclx,icly;                        /* classify results of x,y */
-      long int      iquo;                             /* low 32 bits of integral quotient */
-      long int      iscx, iscy, idiff;                /* logb values and difference */
-      long int      i;                                /* loop variable */
+      int			iclx,icly;                        /* classify results of x,y */
+      int32_t		iquo;                             /* low 32 bits of integral quotient */
+      int32_t		iscx, iscy, idiff;                /* logb values and difference */
+      int			i;                                /* loop variable */
       float        absy,x1,y1,z;                     /* local floating-point variables */
       float        rslt;
       fenv_t 	    OldEnvironment;
@@ -275,8 +274,8 @@ float remquof ( float x, float y, int *quo)
          x1 = __FABSF(x);                              /* work with absolute values */
          absy = __FABSF(y);
          iquo = 0;                                    /* zero local quotient */
-         iscx = (long int) logbf(x1);                  /* get binary exponents */
-         iscy = (long int) logbf(absy);
+         iscx = (int32_t) logbf(x1);                  /* get binary exponents */
+         iscy = (int32_t) logbf(absy);
          idiff = iscx - iscy;                         /* exponent difference */
          if (idiff >= 0) {                            /* exponent of x1 >= exponent of y1 */
               if (idiff != 0) {                       /* exponent of x1 > exponent of y1 */
@@ -332,8 +331,3 @@ float remquof ( float x, float y, int *quo)
 }
 
 #endif /* BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

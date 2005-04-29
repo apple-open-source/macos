@@ -1,6 +1,5 @@
 /* Definitions of target machine for GNU compiler.  System/370 version.
-   Copyright (C) 1989, 1993, 1995, 1996, 1997, 1999, 2000, 2001, 2002
-   Free Software Foundation, Inc.
+   Copyright (C) 1989, 1993, 1995, 1996, 1997 Free Software Foundation, Inc.
    Contributed by Jan Stein (jan@cd.chalmers.se).
    Modified for Linux/390 by Linas Vepstas (linas@linas.org)
 
@@ -29,22 +28,19 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_ELF_ABI
 #define LINUX_DEFAULT_ELF
 
-
-/* hack alert define to get dbx/gdb/dwarf to compile  */
-/* problem is that host float format is not target float format.  */
-/* define REAL_ARITHMETIC for software emulation of float to
- * int conversion.  This seems to have somethings to do with 
- * cross-compiling ...  */
-#define REAL_ARITHMETIC
-
 /* Include system common definitions */
 /* TODO: convert include to ${tm_file} list in config.gcc.  */
 #include "i370/i370.h"
 
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#undef CPP_PREDEFINES
-#define CPP_PREDEFINES "-DGCC -Dgcc -D__ELF__ -Dunix -D__gnu_linux__ -Dlinux -Asystem=posix -Acpu=i370 -Amachine=i370"
+/* Target OS preprocessor built-ins.  */
+#define TARGET_OS_CPP_BUILTINS()		\
+    do {					\
+	builtin_define_std ("unix");		\
+	builtin_define_std ("linux");		\
+	builtin_define ("__gnu_linux__");	\
+	builtin_define ("__ELF__");		\
+	builtin_assert ("system=posix");	\
+    } while (0)
 
 /* Options for this target machine.  */
 

@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)rint.3	5.1 (Berkeley) 5/2/91
-.\"	$Id: nearbyint.3,v 1.3 2003/08/17 20:36:47 scp Exp $
+.\"	$Id: nearbyint.3,v 1.4 2004/12/20 21:35:46 scp Exp $
 .\"
 .Dd January 29, 2003
 .Dt NEARBYINT 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn nearbyint "double x"
+.Ft long double
+.Fn nearbyintl "long double x"
 .Ft float
 .Fn nearbyintf "float x"
 .Sh DESCRIPTION
 The
 .Fn nearbyint
-and
-.Fn nearbyintf
 functions return the integral value (represented as a double precision number)
 nearest to
 .Fa x
@@ -64,11 +64,8 @@ returns ±infinity for all rounding modes.
 .Xr fabs 3 ,
 .Xr ceil 3 ,
 .Xr floor 3 ,
-.Xr ieee 3 ,
 .Xr math 3
 .Sh STANDARDS
 The
 .Fn nearbyint
-and
-.Fn nearbyintf
 functions conform to ISO/IEC 9899:1999(E).

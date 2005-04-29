@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)fflush.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fflush.c,v 1.12 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fflush.c,v 1.13 2004/07/04 20:17:00 cperciva Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -61,6 +61,18 @@ fflush(FILE *fp)
 	if (fp == NULL)
 		return (_fwalk(sflush_locked));
 	FLOCKFILE(fp);
+
+	/*
+	 * There is disagreement about the correct behaviour of fflush()
+	 * when passed a file which is not open for reading.  According to
+	 * the ISO C standard, the behaviour is undefined.
+	 * Under linux, such an fflush returns success and has no effect;
+	 * under Windows, such an fflush is documented as behaving instead
+	 * as fpurge().
+	 * Given that applications may be written with the expectation of
+	 * either of these two behaviours, the only safe (non-astonishing)
+	 * option is to return EBADF and ask that applications be fixed.
+	 */
 	if ((fp->_flags & (__SWR | __SRW)) == 0) {
 		errno = EBADF;
 		retval = EOF;

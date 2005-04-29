@@ -24,7 +24,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/x11perf/x11perf.man,v 1.8 2001/12/14 20:01:14 dawes Exp $
+.\" $XFree86: xc/programs/x11perf/x11perf.man,v 1.9 2003/05/29 21:48:11 herrb Exp $
 .\"
 .TH X11PERF 1 __xorgversion__
 .SH NAME
@@ -47,7 +47,7 @@ Since workstations are not used as standalone graphics engines, but as
 super-terminals, 
 .I x11perf 
 measures window management performance as well as
-traditional graphics performace.  
+traditional graphics performance.  
 .I x11perf 
 includes benchmarks for the time it
 takes to create and map windows (as when you start up an application); to map a
@@ -223,7 +223,7 @@ StaticColor, PseudoColor, TrueColor, or DirectColor.  (default is the default
 visual).
 .TP 14
 .B \-reps <n>
-Specify the repetion count (Default is number that takes aprox. 5 seconds)
+Specify the repetition count (Default is number that takes aprox. 5 seconds)
 .TP 14
 .B \-subs <s0 s1 ...>
 Specify the number of sub windows to use in the Window tests.

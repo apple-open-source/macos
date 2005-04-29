@@ -1,34 +1,22 @@
 /* log.c - deal with log subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/log.c,v 1.33.2.6 2004/04/12 18:20:14 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -38,6 +26,7 @@
 #include <ac/string.h>
 
 #include "slap.h"
+#include <lber_pvt.h>
 #include "lutil.h"
 #include "ldif.h"
 #include "back-monitor.h"
@@ -49,27 +38,28 @@ ldap_pvt_thread_mutex_t		monitor_log_mutex;
 
 static struct {
 	int i;
-	const char *s;
+	struct berval s;
+	struct berval n;
 } int_2_level[] = {
-	{ LDAP_DEBUG_TRACE,	"Trace" },
-	{ LDAP_DEBUG_PACKETS,	"Packets" },
-	{ LDAP_DEBUG_ARGS,	"Args" },
-	{ LDAP_DEBUG_CONNS,	"Conns" },
-	{ LDAP_DEBUG_BER,	"BER" },
-	{ LDAP_DEBUG_FILTER,	"Filter" },
-	{ LDAP_DEBUG_CONFIG,	"Config" },	/* useless */
-	{ LDAP_DEBUG_ACL,	"ACL" },
-	{ LDAP_DEBUG_STATS,	"Stats" },
-	{ LDAP_DEBUG_STATS2,	"Stats2" },
-	{ LDAP_DEBUG_SHELL,	"Shell" },
-	{ LDAP_DEBUG_PARSE,	"Parse" },
-	{ LDAP_DEBUG_CACHE,	"Cache" },
-	{ LDAP_DEBUG_INDEX,	"Index" },
-	{ 0,			NULL }
+	{ LDAP_DEBUG_TRACE,	BER_BVC("Trace"),	BER_BVNULL },
+	{ LDAP_DEBUG_PACKETS,	BER_BVC("Packets"),	BER_BVNULL },
+	{ LDAP_DEBUG_ARGS,	BER_BVC("Args"),	BER_BVNULL },
+	{ LDAP_DEBUG_CONNS,	BER_BVC("Conns"),	BER_BVNULL },
+	{ LDAP_DEBUG_BER,	BER_BVC("BER"),	BER_BVNULL },
+	{ LDAP_DEBUG_FILTER,	BER_BVC("Filter"),	BER_BVNULL },
+	{ LDAP_DEBUG_CONFIG,	BER_BVC("Config"),	BER_BVNULL },	/* useless */
+	{ LDAP_DEBUG_ACL,	BER_BVC("ACL"),	BER_BVNULL },
+	{ LDAP_DEBUG_STATS,	BER_BVC("Stats"),	BER_BVNULL },
+	{ LDAP_DEBUG_STATS2,	BER_BVC("Stats2"),	BER_BVNULL },
+	{ LDAP_DEBUG_SHELL,	BER_BVC("Shell"),	BER_BVNULL },
+	{ LDAP_DEBUG_PARSE,	BER_BVC("Parse"),	BER_BVNULL },
+	{ LDAP_DEBUG_CACHE,	BER_BVC("Cache"),	BER_BVNULL },
+	{ LDAP_DEBUG_INDEX,	BER_BVC("Index"),	BER_BVNULL },
+	{ 0,			BER_BVNULL,	BER_BVNULL }
 };
 
-static int loglevel2int( const char *str );
-static const char * int2loglevel( int n );
+static int loglevel2int( struct berval *l );
+static int int2loglevel( int n );
 
 static int add_values( Entry *e, Modification *mod, int *newlevel );
 static int delete_values( Entry *e, Modification *mod, int *newlevel );
@@ -86,7 +76,11 @@ monitor_subsys_log_init(
 	struct monitorinfo	*mi;
 	Entry			*e;
 	int			i;
-	struct berval 		bv[2];
+	struct berval		desc[] = {
+		BER_BVC("This entry allows to set the log level runtime."),
+		BER_BVC("Set the attribute 'managedInfo' to the desired log levels."),
+		BER_BVNULL
+	};
 
 	ldap_pvt_thread_mutex_init( &monitor_log_mutex );
 
@@ -109,17 +103,31 @@ monitor_subsys_log_init(
 		return( -1 );
 	}
 
-	bv[1].bv_val = NULL;
-
-	/* initialize the debug level */
+	/* initialize the debug level(s) */
 	for ( i = 0; int_2_level[ i ].i != 0; i++ ) {
-		if ( int_2_level[ i ].i & ldap_syslog ) {
-			bv[0].bv_val = ( char * )int_2_level[ i ].s;
-			bv[0].bv_len = strlen( bv[0].bv_val );
 
-			attr_merge( e, monitor_ad_desc, bv );
+		if ( mi->mi_ad_managedInfo->ad_type->sat_equality->smr_normalize ) {
+			int	rc;
+
+			rc = (*mi->mi_ad_managedInfo->ad_type->sat_equality->smr_normalize)(
+					SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX,
+					mi->mi_ad_managedInfo->ad_type->sat_syntax,
+					mi->mi_ad_managedInfo->ad_type->sat_equality,
+					&int_2_level[ i ].s,
+					&int_2_level[ i ].n, NULL );
+			if ( rc ) {
+				return( -1 );
+			}
+		}
+
+		if ( int_2_level[ i ].i & ldap_syslog ) {
+			attr_merge_one( e, mi->mi_ad_managedInfo,
+					&int_2_level[ i ].s,
+					&int_2_level[ i ].n );
 		}
 	}
+
+	attr_merge( e, mi->mi_ad_description, desc, NULL );
 
 	monitor_cache_release( mi, e );
 
@@ -128,14 +136,15 @@ monitor_subsys_log_init(
 
 int 
 monitor_subsys_log_modify( 
-	struct monitorinfo 	*mi,
-	Entry 			*e,
-	Modifications		*modlist
+	Operation		*op,
+	Entry 			*e
 )
 {
+	struct monitorinfo *mi = (struct monitorinfo *)op->o_bd->be_private;
 	int		rc = LDAP_OTHER;
 	int		newlevel = ldap_syslog;
 	Attribute	*save_attrs;
+	Modifications	*modlist = op->oq_modify.rs_modlist;
 	Modifications	*ml;
 
 	ldap_pvt_thread_mutex_lock( &monitor_log_mutex );
@@ -151,7 +160,7 @@ monitor_subsys_log_modify(
 		 */
 		if ( is_at_operational( mod->sm_desc->ad_type ) ) {
 			( void ) attr_delete( &e->e_attrs, mod->sm_desc );
-			rc = attr_merge( e, mod->sm_desc, mod->sm_bvalues );
+			rc = attr_merge( e, mod->sm_desc, mod->sm_values, mod->sm_nvalues );
 			if ( rc != 0 ) {
 				rc = LDAP_OTHER;
 				break;
@@ -161,7 +170,7 @@ monitor_subsys_log_modify(
 		/*
 		 * only the monitor description attribute can be modified
 		 */
-		} else if ( mod->sm_desc != monitor_ad_desc ) {
+		} else if ( mod->sm_desc != mi->mi_ad_managedInfo) {
 			rc = LDAP_UNWILLING_TO_PERFORM;
 			break;
 		}
@@ -191,17 +200,15 @@ monitor_subsys_log_modify(
 
 	/* set the new debug level */
 	if ( rc == LDAP_SUCCESS ) {
-		const char *text;
-		static char textbuf[1024];
+		const char	*text;
+		static char	textbuf[ BACKMONITOR_BUFSIZE ];
 
-#if 0 	/* need op */
 		/* check for abandon */
 		if ( op->o_abandon ) {
 			rc = SLAPD_ABANDON;
 
 			goto cleanup;
 		}
-#endif
 
 		/* check that the entry still obeys the schema */
 		rc = entry_schema_check( be_monitor, e, save_attrs, 
@@ -239,12 +246,16 @@ cleanup:;
 }
 
 static int
-loglevel2int( const char *str )
+loglevel2int( struct berval *l )
 {
 	int		i;
 	
 	for ( i = 0; int_2_level[ i ].i != 0; i++ ) {
-		if ( strcasecmp( str, int_2_level[ i ].s ) == 0 ) {
+		if ( l->bv_len != int_2_level[ i ].s.bv_len ) {
+			continue;
+		}
+
+		if ( strcasecmp( l->bv_val, int_2_level[ i ].s.bv_val ) == 0 ) {
 			return int_2_level[ i ].i;
 		}
 	}
@@ -252,18 +263,18 @@ loglevel2int( const char *str )
 	return 0;
 }
 
-static const char *
+static int
 int2loglevel( int n )
 {
 	int		i;
 	
 	for ( i = 0; int_2_level[ i ].i != 0; i++ ) {
 		if ( int_2_level[ i ].i == n ) {
-			return int_2_level[ i ].s;
+			return i;
 		}
 	}
 
-	return NULL;
+	return -1;
 }
 
 static int
@@ -271,21 +282,28 @@ check_constraints( Modification *mod, int *newlevel )
 {
 	int		i;
 
-	for ( i = 0; mod->sm_bvalues && mod->sm_bvalues[i].bv_val != NULL; i++ ) {
-		int l;
-		const char *s;
-		ber_len_t len;
+	for ( i = 0; mod->sm_values && mod->sm_values[i].bv_val != NULL; i++ ) {
+		int		l;
 		
-		l = loglevel2int( mod->sm_bvalues[i].bv_val );
+		l = loglevel2int( &mod->sm_values[i] );
 		if ( !l ) {
 			return LDAP_CONSTRAINT_VIOLATION;
 		}
 
-		s = int2loglevel( l );
-		len = strlen( s );
-		assert( len == mod->sm_bvalues[i].bv_len );
+		if ( ( l = int2loglevel( l ) ) == -1 ) {
+			return LDAP_OTHER;
+		}
+
+		assert( int_2_level[ l ].s.bv_len
+				== mod->sm_values[i].bv_len );
 		
-		AC_MEMCPY( mod->sm_bvalues[i].bv_val, s, len );
+		AC_MEMCPY( mod->sm_values[i].bv_val,
+				int_2_level[ l ].s.bv_val,
+				int_2_level[ l ].s.bv_len );
+
+		AC_MEMCPY( mod->sm_nvalues[i].bv_val,
+				int_2_level[ l ].n.bv_val,
+				int_2_level[ l ].n.bv_len );
 
 		*newlevel |= l;
 	}
@@ -308,23 +326,20 @@ add_values( Entry *e, Modification *mod, int *newlevel )
 	a = attr_find( e->e_attrs, mod->sm_desc );
 
 	if ( a != NULL ) {
-		
 		/* "description" SHOULD have appropriate rules ... */
 		if ( mr == NULL || !mr->smr_match ) {
 			return LDAP_INAPPROPRIATE_MATCHING;
 		}
 
-		for ( i = 0; mod->sm_bvalues[i].bv_val != NULL; i++ ) {
+		for ( i = 0; mod->sm_values[i].bv_val != NULL; i++ ) {
 			int rc;
 			int j;
 			const char *text = NULL;
 			struct berval asserted;
 
-			rc = value_normalize( mod->sm_desc,
-					SLAP_MR_EQUALITY,
-					&mod->sm_bvalues[i],
-					&asserted,
-					&text );
+			rc = asserted_value_validate_normalize(
+				mod->sm_desc, mr, SLAP_MR_EQUALITY,
+				&mod->sm_values[i], &asserted, &text, NULL );
 
 			if ( rc != LDAP_SUCCESS ) {
 				return rc;
@@ -333,8 +348,7 @@ add_values( Entry *e, Modification *mod, int *newlevel )
 			for ( j = 0; a->a_vals[j].bv_val != NULL; j++ ) {
 				int match;
 				int rc = value_match( &match, mod->sm_desc, mr,
-						SLAP_MR_VALUE_SYNTAX_MATCH,
-						&a->a_vals[j], &asserted, &text );
+					0, &a->a_vals[j], &asserted, &text );
 
 				if ( rc == LDAP_SUCCESS && match == 0 ) {
 					free( asserted.bv_val );
@@ -347,9 +361,10 @@ add_values( Entry *e, Modification *mod, int *newlevel )
 	}
 
 	/* no - add them */
-	if ( attr_merge( e, mod->sm_desc, mod->sm_bvalues ) != 0 ) {
-		/* this should return result of attr_merge */
-		return LDAP_OTHER;
+	rc = attr_merge( e, mod->sm_desc, mod->sm_values, mod->sm_nvalues );
+	if ( rc != LDAP_SUCCESS ) {
+		/* this should return result of attr_mergeit */
+		return rc;
 	}
 
 	return LDAP_SUCCESS;
@@ -370,7 +385,7 @@ delete_values( Entry *e, Modification *mod, int *newlevel )
 	*newlevel &= ~nl;
 
 	/* delete the entire attribute */
-	if ( mod->sm_bvalues == NULL ) {
+	if ( mod->sm_values == NULL ) {
 		int rc = attr_delete( &e->e_attrs, mod->sm_desc );
 
 		if ( rc ) {
@@ -394,17 +409,15 @@ delete_values( Entry *e, Modification *mod, int *newlevel )
 	}
 
 	/* find each value to delete */
-	for ( i = 0; mod->sm_bvalues[i].bv_val != NULL; i++ ) {
+	for ( i = 0; mod->sm_values[i].bv_val != NULL; i++ ) {
 		int rc;
 		const char *text = NULL;
 
 		struct berval asserted;
 
-		rc = value_normalize( mod->sm_desc,
-				SLAP_MR_EQUALITY,
-				&mod->sm_bvalues[i],
-				&asserted,
-				&text );
+		rc = asserted_value_validate_normalize(
+				mod->sm_desc, mr, SLAP_MR_EQUALITY,
+				&mod->sm_values[i], &asserted, &text, NULL );
 
 		if( rc != LDAP_SUCCESS ) return rc;
 
@@ -412,8 +425,8 @@ delete_values( Entry *e, Modification *mod, int *newlevel )
 		for ( j = 0; a->a_vals[j].bv_val != NULL; j++ ) {
 			int match;
 			int rc = value_match( &match, mod->sm_desc, mr,
-					SLAP_MR_VALUE_SYNTAX_MATCH,
-					&a->a_vals[j], &asserted, &text );
+				0,
+				&a->a_vals[j], &asserted, &text );
 
 			if( rc == LDAP_SUCCESS && match != 0 ) {
 				continue;
@@ -470,9 +483,11 @@ replace_values( Entry *e, Modification *mod, int *newlevel )
 		return rc;
 	}
 
-	if ( mod->sm_bvalues != NULL &&
-		attr_merge( e, mod->sm_desc, mod->sm_bvalues ) != 0 ) {
-		return LDAP_OTHER;
+	if ( mod->sm_values != NULL ) {
+		rc = attr_merge( e, mod->sm_desc, mod->sm_values, mod->sm_nvalues );
+		if ( rc != LDAP_SUCCESS ) {
+			return rc;
+		}
 	}
 
 	return LDAP_SUCCESS;

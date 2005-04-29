@@ -781,8 +781,14 @@ user(const char *name)
 			goto cleanup_user;
 		}
 		name = "ftp";
-	} else
+	} else {
 		pw = sgetpwnam(name);
+
+		/* Get the real username; getpwnam() works with long usernames. */
+		if (pw != NULL) {
+			name = pw->pw_name;
+		}
+	}
 
 	strlcpy(curname, name, curname_len);
 
@@ -3373,9 +3379,12 @@ int aapl_conv(int num_msg, const struct pam_message **msg, struct pam_response *
 
 	reply = calloc(num_msg, sizeof(struct pam_response));
 	if( reply == NULL )
+		return PAM_BUF_ERR;
+
+	if( mystuff == NULL )
 		return PAM_CONV_ERR;
 
-	reply[0].resp = mystuff;
+	reply[0].resp = xstrdup(mystuff);
 	*resp = reply;
 	return PAM_SUCCESS;
 }

@@ -1,29 +1,49 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/XF98Conf.cpp,v 1.3 2001/12/17 20:52:30 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/XF98Conf.cpp,v 1.4 2004/02/13 23:58:34 dawes Exp $
 XCOMM
 XCOMM Copyright (c) 1994-1998 by The XFree86 Project, Inc.
+XCOMM All rights reserved.
 XCOMM
-XCOMM Permission is hereby granted, free of charge, to any person obtaining a
-XCOMM copy of this software and associated documentation files (the "Software"),
-XCOMM to deal in the Software without restriction, including without limitation
-XCOMM the rights to use, copy, modify, merge, publish, distribute, sublicense,
-XCOMM and/or sell copies of the Software, and to permit persons to whom the
-XCOMM Software is furnished to do so, subject to the following conditions:
-XCOMM 
-XCOMM The above copyright notice and this permission notice shall be included in
-XCOMM all copies or substantial portions of the Software.
-XCOMM 
-XCOMM THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-XCOMM IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-XCOMM FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-XCOMM THE XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-XCOMM WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
-XCOMM OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-XCOMM SOFTWARE.
-XCOMM 
-XCOMM Except as contained in this notice, the name of the XFree86 Project shall
-XCOMM not be used in advertising or otherwise to promote the sale, use or other
-XCOMM dealings in this Software without prior written authorization from the
-XCOMM XFree86 Project.
+XCOMM Permission is hereby granted, free of charge, to any person obtaining
+XCOMM a copy of this software and associated documentation files (the
+XCOMM "Software"), to deal in the Software without restriction, including
+XCOMM without limitation the rights to use, copy, modify, merge, publish,
+XCOMM distribute, sublicense, and/or sell copies of the Software, and to
+XCOMM permit persons to whom the Software is furnished to do so, subject
+XCOMM to the following conditions:
+XCOMM
+XCOMM   1.  Redistributions of source code must retain the above copyright
+XCOMM       notice, this list of conditions, and the following disclaimer.
+XCOMM
+XCOMM   2.  Redistributions in binary form must reproduce the above copyright
+XCOMM       notice, this list of conditions and the following disclaimer
+XCOMM       in the documentation and/or other materials provided with the
+XCOMM       distribution, and in the same place and form as other copyright,
+XCOMM       license and disclaimer information.
+XCOMM
+XCOMM   3.  The end-user documentation included with the redistribution,
+XCOMM       if any, must include the following acknowledgment: "This product
+XCOMM       includes software developed by The XFree86 Project, Inc
+XCOMM       (http://www.xfree86.org/) and its contributors", in the same
+XCOMM       place and form as other third-party acknowledgments.  Alternately,
+XCOMM       this acknowledgment may appear in the software itself, in the
+XCOMM       same form and location as other such third-party acknowledgments.
+XCOMM
+XCOMM   4.  Except as contained in this notice, the name of The XFree86
+XCOMM       Project, Inc shall not be used in advertising or otherwise to
+XCOMM       promote the sale, use or other dealings in this Software without
+XCOMM       prior written authorization from The XFree86 Project, Inc.
+XCOMM
+XCOMM THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+XCOMM WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+XCOMM MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+XCOMM IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+XCOMM LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+XCOMM OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+XCOMM OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+XCOMM BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+XCOMM WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+XCOMM OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+XCOMM EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 XCOMM
 XCOMM $XConsortium: XF86Conf.cpp /main/22 1996/10/23 11:43:51 kaleb $
 

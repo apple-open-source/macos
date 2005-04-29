@@ -1,7 +1,7 @@
-/* APPLE LOCAL PPC_INTRINSICS */
+/* APPLE LOCAL file PPC_INTRINSICS */
 
 /* Definitions for PowerPC intrinsic instructions
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -34,9 +34,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __eieio    - Enforce In-Order Execution of I/O
  *   __isync    - Instruction Synchronize
  *   __sync     - Synchronize
+ *   __lwsync   - Lightweight Synchronize
  *
  * Manipulating the Contents of a Variable or Register
  *   __cntlzw   - Count Leading Zeros Word
+ *   __cntlzd   - Count Leading Zeros Double Word
  *   __rlwimi   - Rotate Left Word Immediate then Mask Insert
  *   __rlwinm   - Rotate Left Word Immediate then AND with Mask
  *   __rlwnm    - Rotate Left Word then AND with Mask
@@ -49,11 +51,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *
  * Data Cache Manipulation
  *   __dcba     - Data Cache Block Allocate
- *   __dcba     - Data Cache Block Flush
+ *   __dcbf     - Data Cache Block Flush
  *   __dcbst    - Data Cache Block Store
  *   __dcbt     - Data Cache Block Touch
  *   __dcbtst   - Data Cache Block Touch for Store
- *   __dcbz     - Data Cache Block Set to Zero
+ *   __dcbzl    - Data Cache Block Set to Zero
+ *   __dcbz     - Data Cache Block Set to Zero (32-bytes only)
  *
  * Setting the Floating-Point Environment
  *   __setflm   - Set Floating-point Mode
@@ -63,6 +66,9 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __fnabs    - Floating Negative Absolute Value
  *   __fctiw    - Floating Convert to Integer Word
  *   __fctiwz   - Floating Convert to Integer Word with Round toward Zero
+ *   __fctidz   - Floating Convert to Integer Doubleword with Round toward Zero
+ *   __fctid    - Floating Convert to Integer Doubleword
+ *   __fcfid    - Floating Convert From Integer Doubleword
  *   __fmadd    - Floating Multiply-Add (Double-Precision)
  *   __fmadds   - Floating Multiply-Add Single
  *   __fmsub    - Floating Multiply-Subract (Double-Precision)
@@ -86,6 +92,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   __stfiwx   - Store Floating-Point as Integer Word Indexed
  *
  * Miscellaneous Functions
+ *   __nop      - PPC preferred form of no operation
  *   __astrcmp  - assembly strcmp
  *   __icbi     - Instruction Cache Block Invalidate
  *   __mffs     - Move from FPSCR
@@ -114,14 +121,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   has been added where it appears that it should not be needed are
  *   lhbrx and lwbrx.
  *
- * Contributors: Fred Forsman (editor), Turly O'Connor, Ian Ollmann
- * Last modified: June 4, 2002
+ * Contributors: Fred Forsman (editor), Turly O'Connor, Ian Ollmann, Sanjay Patel
+ * Last modified: October 6, 2004
  */
 
 #ifndef _PPC_INTRINSICS_H_
 #define _PPC_INTRINSICS_H_
 
-#if defined(__ppc__) && ! defined(__MWERKS__)
+#if (defined(__ppc__) || defined(__ppc64__)) && ! defined(__MWERKS__)
 
 /*******************************************************************
  *                 Special Purpose Registers (SPRs)                *
@@ -191,6 +198,13 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  */
 #define __sync() __asm__ volatile ("sync")
 
+/*
+ * __lwsync - Lightweight Synchronize, see PPC2.01, Book 2
+ *
+ *  void __lwsync (void);
+ */
+#define __lwsync() __asm__ volatile ("sync 1")
+
 
 /*******************************************************************
  *                     Byte-Reversing Functions                    *
@@ -212,7 +226,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
  *   int __lwbrx(void *, int);
  */
 #define __lwbrx(base, index)    \
-  ({ unsigned long lwbrxResult; \
+  ({ unsigned int lwbrxResult; \
      __asm__ volatile ("lwbrx %0, %1, %2" : "=r" (lwbrxResult) : "b%" (index), "r" (base) : "memory"); \
      /*return*/ lwbrxResult; })
 
@@ -239,22 +253,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 /*
  * __cntlzw - Count Leading Zeros Word
+ * __cntlzd - Count Leading Zeros Double Word
  */
-static inline int __cntlzw (int value) __attribute__((always_inline));
-static inline int 
-__cntlzw (int value)
-{
-  long result;
-  __asm__ ("cntlzw %0, %1" 
-           /* outputs:  */ : "=r" (result) 
-           /* inputs:   */ : "r" (value));
-  return result;
-}
+
+#define __cntlzw(a)     __builtin_clz(a)
+#define __cntlzd(a)     __builtin_clzll(a)
 
 /*
  * __rlwimi - Rotate Left Word Immediate then Mask Insert
  *
- *   int __rlwimi(int, int, int, int, int);
+ *   int __rlwimi(int, long, int, int, int);
  *
  * We don't mention "%1" below: operand[1] needs to be skipped as 
  * it's just a placeholder to let the compiler know that rA is read 
@@ -268,21 +276,21 @@ __cntlzw (int value)
 /*
  * __rlwinm - Rotate Left Word Immediate then AND with Mask
  *
- *   int __rlwinm(int, int, int, int);
+ *   int __rlwinm(long, int, int, int);
  */
 #define __rlwinm(rS, cnt, mb, me)                          \
-  ({ unsigned long val, src = (rS);                        \
+  ({ unsigned int val;                         \
      __asm__ ("rlwinm %0,%1,%2,%3,%4" : "=r" (val)         \
-              : "r" (src), "n" (cnt), "n" (mb), "n" (me)); \
+              : "r" (rS), "n" (cnt), "n" (mb), "n" (me)); \
      /*return*/ val;})
 
 /*
  * __rlwnm - Rotate Left Word then AND with Mask
  *
- *   int __rlwnm(int, int, int, int);
+ *   int __rlwnm(long, int, int, int);
  */
 #define __rlwnm(value, leftRotateBits, maskStart, maskEnd)                        \
-  ({ long result;                                                        \
+  ({ unsigned int result;                                                        \
      __asm__ ("rlwnm %0, %1, %2, %3, %4" : "=r" (result) :                        \
               "r" (value), "r" (leftRotateBits), "n" (maskStart), "n" (maskEnd)); \
      /*return */ result; })
@@ -361,7 +369,17 @@ __cntlzw (int value)
   __asm__ ("dcbtst %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")
 
 /*
- * __dcbz - Data Cache Block Set to Zero
+ * __dcbzl - Data Cache Block Set to Zero
+ *
+ *   void __dcbzl(void *, int);
+ */
+#define __dcbzl(base, index)     \
+  __asm__ ("dcbzl %0, %1" : /*no result*/ : "b%" (index), "r" (base) : "memory")
+
+/*
+ * __dcbz - Data Cache Block Set to Zero (32-bytes only)
+ *
+ * WARNING: this is for legacy purposes only
  *
  *   void __dcbz(void *, int);
  */
@@ -460,6 +478,67 @@ __fctiwz (double b)
 {
   double result;
   __asm__ ("fctiwz %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fctidz - Floating Convert to Integer Double Word with Round toward Zero
+ *
+ * Convert the input value to a signed 64-bit int and place in the FP
+ * destination register.  Clip to LLONG_MIN (-2**63) or LLONG_MAX (2**63-1) 
+ * if the FP value exceeds the range representable by a int64_t.
+ * 
+ * WARNING: fctidz is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fctidz (double b) __attribute__((always_inline));
+static inline double 
+__fctidz (double b)
+{
+  double result;
+  __asm__ ("fctidz %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fctid - Floating Convert to Integer Double Word
+ *
+ * Convert the input value to a signed 64-bit int and place in the FP
+ * destination register.  Clip to LLONG_MIN (-2**63) or LLONG_MAX (2**63-1) 
+ * if the FP value exceeds the range representable by a int64_t. Use the 
+ * rounding mode indicated in the FPSCR.
+ * 
+ * WARNING: fctid is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fctid (double b) __attribute__((always_inline));
+static inline double 
+__fctid (double b)
+{
+  double result;
+  __asm__ ("fctid %0, %1" 
+           /* outputs:  */ : "=f" (result) 
+           /* inputs:   */ : "f" (b));
+  return result;
+}
+
+/*
+ * fcfid - Floating Convert From Integer Double Word
+ *
+ * Convert the 64-bit signed integer input value to a 64-bit FP value.  
+ * Use the rounding mode indicated in the FPSCR if the integer is out of
+ * double precision range.
+ * 
+ * WARNING: fcfid is a valid instruction only on 64-bit PowerPC 
+ */
+static inline double __fcfid (double b) __attribute__((always_inline));
+static inline double 
+__fcfid (double b)
+{
+  double result;
+  __asm__ ("fcfid %0, %1" 
            /* outputs:  */ : "=f" (result) 
            /* inputs:   */ : "f" (b));
   return result;
@@ -782,7 +861,7 @@ static inline int __mulhw (int a, int b) __attribute__((always_inline));
 static inline int 
 __mulhw (int a, int b)
 {
-  long result;
+  int result;
   __asm__ ("mulhw %0, %1, %2" 
            /* outputs:  */ : "=r" (result) 
            /* inputs:   */ : "r" (a), "r"(b));
@@ -796,7 +875,7 @@ static inline unsigned int __mulhwu (unsigned int a, unsigned int b) __attribute
 static inline unsigned int 
 __mulhwu (unsigned int a, unsigned int b)
 {
-  unsigned long result;
+  unsigned int result;
   __asm__ ("mulhwu %0, %1, %2" 
            /* outputs:  */ : "=r" (result) 
            /* inputs:   */ : "r" (a), "r"(b));
@@ -816,6 +895,14 @@ __mulhwu (unsigned int a, unsigned int b)
 /*******************************************************************
  *                     Miscellaneous Functions                     *
  *******************************************************************/
+
+/*
+ * __nop - no operation (PowerPC preferred form)
+ *
+ *   void __nop();
+ */
+#define __nop()    \
+  __asm__ ("ori 0,0,0")
 
 /*
  * __icbi - Instruction Cache Block Invalidate
@@ -844,7 +931,7 @@ __mffs (void)
  *   int __mfspr(int);
  */
 #define __mfspr(spr)    \
-  ({ long mfsprResult; \
+  __extension__ ({ long mfsprResult; \
      __asm__ volatile ("mfspr %0, %1" : "=r" (mfsprResult) : "n" (spr)); \
      /*return*/ mfsprResult; })
 
@@ -934,6 +1021,6 @@ astrcmp (const char *in_s1, const char *in_s2)
    */
 }
 
-#endif  /* defined(__ppc__) && ! defined(__MWERKS__) */
+#endif  /* (defined(__ppc__) || defined(__ppc64__)) && ! defined(__MWERKS__) */
 
 #endif /* _PPC_INTRINSICS_H_ */

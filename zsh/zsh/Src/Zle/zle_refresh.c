@@ -148,8 +148,8 @@ resetvideo(void)
 	    free(nbuf);
 	    free(obuf);
 	}
-	nbuf = (char **)zcalloc((winh + 1) * sizeof(char *));
-	obuf = (char **)zcalloc((winh + 1) * sizeof(char *));
+	nbuf = (char **)zshcalloc((winh + 1) * sizeof(char *));
+	obuf = (char **)zshcalloc((winh + 1) * sizeof(char *));
 	nbuf[0] = (char *)zalloc(winw + 2);
 	obuf[0] = (char *)zalloc(winw + 2);
 
@@ -291,7 +291,9 @@ zrefresh(void)
     unsigned char *tmpline;	/* line with added pre/post text */
     int tmpcs, tmpll;		/* ditto cursor position and line length */
     int tmpalloced;		/* flag to free tmpline when finished */
-	
+
+    if (trashedzle)
+	reexpandprompt();
 
     /* If this is called from listmatches() (indirectly via trashzle()), and *
      * that was called from the end of zrefresh(), then we don't need to do  *
@@ -1033,7 +1035,7 @@ tc_rightcurs(int ct)
    if we're anywhere in the prompt, goto the left column and write the whole
    prompt out unless ztrlen(lpromptbuf) == lpromptw : we can cheat then */
     if (vln == 0 && i < lpromptw && !(termflags & TERM_SHORT)) {
-	if (strlen(lpromptbuf) == lpromptw)
+	if ((int)strlen(lpromptbuf) == lpromptw)
 	    fputs(lpromptbuf + i, shout);
 	else if (tccan(TCRIGHT) && (tclen[TCRIGHT] * ct <= ztrlen(lpromptbuf)))
 	    /* it is cheaper to send TCRIGHT than reprint the whole prompt */
@@ -1096,7 +1098,7 @@ tcoutarg(int cap, int arg)
 
 /**/
 mod_export int
-clearscreen(char **args)
+clearscreen(UNUSED(char **args))
 {
     tcout(TCCLEARSCREEN);
     resetneeded = 1;
@@ -1106,7 +1108,7 @@ clearscreen(char **args)
 
 /**/
 mod_export int
-redisplay(char **args)
+redisplay(UNUSED(char **args))
 {
     moveto(0, 0);
     zputc('\r', shout);		/* extra care */

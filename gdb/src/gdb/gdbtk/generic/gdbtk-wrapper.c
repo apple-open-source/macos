@@ -20,6 +20,7 @@
 #include "defs.h"
 #include "frame.h"
 #include "value.h"
+#include "block.h"
 #include "gdbtk-wrapper.h"
 
 /*

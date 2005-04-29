@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -59,7 +58,6 @@ package body Exp_Prag is
 
    function Arg1 (N : Node_Id) return Node_Id;
    function Arg2 (N : Node_Id) return Node_Id;
-   function Arg3 (N : Node_Id) return Node_Id;
    --  Obtain specified Pragma_Argument_Association
 
    procedure Expand_Pragma_Abort_Defer             (N : Node_Id);
@@ -69,24 +67,23 @@ package body Exp_Prag is
    procedure Expand_Pragma_Inspection_Point        (N : Node_Id);
    procedure Expand_Pragma_Interrupt_Priority      (N : Node_Id);
 
-   --------------
-   -- Arg1,2,3 --
-   --------------
+   ----------
+   -- Arg1 --
+   ----------
 
    function Arg1 (N : Node_Id) return Node_Id is
    begin
       return First (Pragma_Argument_Associations (N));
    end Arg1;
 
+   ----------
+   -- Arg2 --
+   ----------
+
    function Arg2 (N : Node_Id) return Node_Id is
    begin
       return Next (Arg1 (N));
    end Arg2;
-
-   function Arg3 (N : Node_Id) return Node_Id is
-   begin
-      return Next (Arg2 (N));
-   end Arg3;
 
    ---------------------
    -- Expand_N_Pragma --

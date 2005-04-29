@@ -32,6 +32,8 @@ LIBS = -lipsec
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
+HEADER_PATHS =\
+               -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

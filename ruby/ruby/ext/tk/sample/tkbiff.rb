@@ -1,4 +1,4 @@
-#! /usr/local/bin/ruby
+#!/usr/bin/env ruby
 
 if ARGV[0] != '-d'
   unless $DEBUG
@@ -12,7 +12,7 @@ if ARGV.length == 0
   if ENV['MAIL']
     $spool = ENV['MAIL']
   else  
-    $spool = '/usr/spool/mail/' + ENV['USER']
+    $spool = '/var/spool/mail/' + ENV['USER']
   end
 else 
   $spool = ARGV[0]
@@ -38,22 +38,22 @@ class Mail
   def initialize(f)
     @header = {}
     @body = []
-    while f.gets()
-      $_.chop!
-      next if /^From /	# skip From-line  
-      break if /^$/		# end of header
-      if /^(\S+):\s*(.*)/
-	@header[attr = $1.capitalize] = $2
+    while line = f.gets()
+      line.chop!
+      next if /^From / =~ line  # skip From-line  
+      break if /^$/ =~ line     # end of header
+      if /^(\S+):\s*(.*)/ =~ line
+        @header[attr = $1.capitalize] = $2
       elsif attr
-	sub(/^\s*/, '')
-	@header[attr] += "\n" + $_
+        sub(/^\s*/, '')
+        @header[attr] += "\n" + $_
       end
     end
 
-    return if ! $_
+    return unless $_
 
-    while f.gets()
-      break if /^From /
+    while line = f.gets()
+      break if /^From / =~ line
       @body.push($_)
     end
   end
@@ -70,7 +70,13 @@ end
 
 require "tkscrollbox"
 
+my_appname = Tk.appname('tkbiff')
 $top = TkRoot.new
+if ((TkWinfo.interps($top) - [my_appname]).find{|ip| ip =~ /^tkbiff/})
+  STDERR.print("Probably other 'tkbiff's are running. Bye.\n")
+  exit
+end
+
 $top.withdraw
 $list = TkScrollbox.new($top) {
   relief 'raised'
@@ -106,7 +112,7 @@ if defined? Thread
     loop do
       sleep 600
       if Time.now - $check_time > 200
-	Tk.after 5000, proc{check}
+        Tk.after 5000, proc{check}
       end
     end
   end
@@ -136,12 +142,12 @@ def pop_up
     $list.see 'end'
   end
   $top.deiconify
-  Tk.after 2000, proc{$top.withdraw}
+  Tk.after 2000, proc{$top.iconify}
 end
 
 $list.insert 'end', "You have no mail."
 check
-Tk.after 2000, proc{$top.withdraw}
+Tk.after 2000, proc{$top.iconify}
 begin
   Tk.mainloop
 rescue

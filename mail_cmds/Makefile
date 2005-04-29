@@ -24,7 +24,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -Wmost
+NEXTSTEP_PB_CFLAGS = -Wmost -mdynamic-no-pic
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

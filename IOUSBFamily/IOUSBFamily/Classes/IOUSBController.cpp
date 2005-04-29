@@ -34,9 +34,9 @@
 #include <libkern/c++/OSData.h>
 
 #include <IOKit/assert.h>
-#include <IOKit/IOSyncer.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOKitKeys.h>
+#include <IOKit/IOCommandGate.h>
 #include <IOKit/IOCommandPool.h>
 #include <IOKit/IOTimerEventSource.h>
 
@@ -77,6 +77,14 @@ enum {
     
 };
 
+struct IOUSBSyncCompletionTarget
+{
+    IOUSBController *	controller;		// Used to access our object in the completion
+    void *		flag;					// Contains the variable used to sleep/wake the threads
+};
+
+typedef struct IOUSBSyncCompletionTarget IOUSBSyncCompletionTarget;
+
 //================================================================================================
 //
 //   Globals (static member variables)
@@ -97,31 +105,84 @@ bool			IOUSBController::gUsedBusIDs[kMaxNumberUSBBusses];
 
 //================================================================================================
 //
-//   Syncer routines to implement synchronous requests
+//   Callback routines to implement synchronous requests
 //
 //================================================================================================
 //
-void IOUSBSyncCompletion(void *	target,
-                    void * 	parameter,
-                    IOReturn	status,
-                    UInt32	bufferSizeRemaining)
-{
-    IOSyncer *syncer = (IOSyncer *)target;
 
+void IOUSBSyncCompletion(   void *	target,
+                            void * 	parameter,
+                            IOReturn	status,
+                            UInt32	bufferSizeRemaining)
+{
+    IOCommandGate * 	commandGate;
+    IOUSBController *	me;
+
+    IOUSBSyncCompletionTarget	*syncTarget = (IOUSBSyncCompletionTarget*)target;
+    if ( !syncTarget )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncCompletion syncTarget is NULL");
+        return;
+    }
+    
+    me = syncTarget->controller;
+    if ( !me )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncCompletion controller is NULL");
+        return;
+    }
+    
+    commandGate = me->GetCommandGate();
+    if ( !commandGate )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncCompletion commandGate is NULL");
+        return;
+    }
+    
     if(parameter != NULL) {
         *(UInt32 *)parameter -= bufferSizeRemaining;
     }
 
-    syncer->signal(status);
+    // Wake it up
+    //
+    // USBLog(6,"%s[%p]::IOUSBSyncCompletion calling commandWakeUp (%p,%p,%p)", me->getName(), me, syncTarget, syncTarget->controller, syncTarget->flag);
+    commandGate->commandWakeup(syncTarget->flag,  true);
 }
 
-void IOUSBSyncIsoCompletion(void *target, void * 	parameter,
-                                 IOReturn	status,
-                                 IOUSBIsocFrame *pFrames)
+void IOUSBSyncIsoCompletion(void *		target,
+                               void * 		parameter,
+                               IOReturn		status,
+                               IOUSBIsocFrame *	pFrames)
 {
-    IOSyncer *syncer = (IOSyncer *)target;
-    syncer->signal(status);
+    IOCommandGate * 	commandGate;
+    IOUSBController *	me;
+
+    IOUSBSyncCompletionTarget	*syncTarget = (IOUSBSyncCompletionTarget*)target;
+    if ( !syncTarget )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncIsoCompletion syncTarget is NULL");
+        return;
+    }
+
+    me = syncTarget->controller;
+    if ( !me )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncIsoCompletion controller is NULL");
+        return;
+    }
+
+    commandGate = me->GetCommandGate();
+    if ( !commandGate )
+    {
+        USBError(1,"IOUSBController::IOUSBSyncIsoCompletion commandGate is NULL");
+        return;
+    }
+    
+    // Wake it up
+    // USBLog(6,"%s[%p]::IOUSBSyncIsoCompletion calling commandWakeUp (%p,%p,%p)",me->getName(), me, syncTarget, syncTarget->controller, syncTarget->flag);
+    commandGate->commandWakeup(syncTarget->flag,  true);
 }
+
 
 
 //================================================================================================
@@ -170,8 +231,9 @@ IOUSBController::init(OSDictionary * propTable)
 bool 
 IOUSBController::start( IOService * provider )
 {
-    int		i;
+    int			i;
     IOReturn	err = kIOReturnSuccess;
+	bool		commandGateAdded = false;
     
     if( !super::start(provider))
         return (false);
@@ -204,6 +266,8 @@ IOUSBController::start( IOService * provider )
             break;
         }
         
+		commandGateAdded = true;
+		
 	_freeUSBCommandPool = IOCommandPool::withWorkLoop(_workLoop);
         if (!_freeUSBCommandPool)
         {
@@ -301,9 +365,21 @@ IOUSBController::start( IOService * provider )
 
     } while (false);
 
-    if (_workLoop)	_workLoop->release();
-    if (_commandGate)	_commandGate->release();
-
+    if (_commandGate)	
+	{
+		if (commandGateAdded && _workLoop )
+	        _workLoop->removeEventSource( _commandGate );
+		
+		_commandGate->release();
+		_commandGate = NULL;
+	}
+	
+    if (_workLoop)	
+	{
+		_workLoop->release();
+		_workLoop = NULL;
+	}
+	
     return( false );
 }
 
@@ -441,7 +517,7 @@ IOUSBController::GetNewAddress(void)
         }
     }
 
-    USBLog(2, "%s[%p]::GetnewAddress - ran out of new addresses!", getName(), this);
+    USBLog(2, "%s[%p]::GetNewAddress - ran out of new addresses!", getName(), this);
     return (0);	// No free device addresses!
 }
 
@@ -472,14 +548,13 @@ IOUSBController::ControlTransaction(IOUSBCommand *command)
 	completion = command->GetUSLCompletion();
 	if(completion.action == NULL)
 	{
-//USBLog(1,"ControlTransaction new version, setting old completion");
 	    completion.target    = (void *)this;
 	    completion.action    = (IOUSBCompletionAction) &ControlPacketHandler;
 	    completion.parameter = (void *)command;
 	}
 	else
 	{
-USBLog(7,"ControlTransaction new version, using V2 completion");
+            USBLog(7,"%s[%p]::ControlTransaction new version, using V2 completion", getName(), this);
 	}
 
 	// the request is in Host format, so I need to convert the 16 bit fields to bus format
@@ -517,7 +592,7 @@ USBLog(7,"ControlTransaction new version, using V2 completion");
 	command->SetBufferMemoryDescriptor(bufferMemoryDescriptor);
 	command->SetMultiTransferTransaction(true);
 	command->SetFinalTransferInTransaction(false);
-        USBLog(7,"\tQueueing Setup TD (dir=%d) packet=0x%08lx%08lx",
+        USBLog(7,"\t%s[%p]  Queueing Setup TD (dir=%d) packet=0x%08lx%08lx",getName(), this,
               direction, *(UInt32*)request, *((UInt32*)request+1));
         err = UIMCreateControlTransfer(
                     command->GetAddress(),	// functionAddress
@@ -536,7 +611,7 @@ USBLog(7,"ControlTransaction new version, using V2 completion");
         // Data Stage
         if (wLength && (request->pData != NULL))
         {
-            USBLog(7,"\tQueueing Data TD (dir=%d, wLength=0x%x, pData=%lx)", 
+            USBLog(7,"\t%s[%p] Queueing Data TD (dir=%d, wLength=0x%x, pData=%lx)", getName(), this,
 		direction, wLength, (UInt32)request->pData);
             command->SetStage(command->GetStage() | kDataSent);
             if(command->GetSelector() == DEVICE_REQUEST_DESC)
@@ -572,7 +647,7 @@ USBLog(7,"ControlTransaction new version, using V2 completion");
 	direction = kUSBOut + kUSBIn - direction;		// swap direction
 
         // Status Stage
-        USBLog(7,"\tQueueing Status TD (dir=%d)", direction);
+        USBLog(7,"\t%s[%p]  Queueing Status TD (dir=%d)", getName(), this, direction);
         command->SetStage(command->GetStage() | kStatusSent);
 	command->SetFinalTransferInTransaction(true);
         err = UIMCreateControlTransfer(
@@ -586,7 +661,7 @@ USBLog(7,"ControlTransaction new version, using V2 completion");
         if (err)
         {
             char theString[255]="";
-            sprintf(theString, "ControlTransaction: control packet 3 error 0x%x", err);
+            sprintf(theString, "%s[%p]::ControlTransaction: control packet 3 error 0x%x", getName(), this, err);
             USBError(1, theString);
             break;
         }
@@ -615,7 +690,7 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     Boolean in = false;
     IOUSBController *	me = (IOUSBController *)target;
 
-    USBLog(7,"ControlPacketHandler lParam=%lx  status=0x%x bufferSizeRemaining=0x%x", 
+    USBLog(7,"%s[%p]::ControlPacketHandler lParam=%lx  status=0x%x bufferSizeRemaining=0x%x", me->getName(), me, 
 	    (UInt32)parameter, status, (unsigned int)bufferSizeRemaining);
 
     if (command == 0)
@@ -696,7 +771,7 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
     
     if (todo == 0)
     {
-        USBLog(7,"ControlPacketHandler: transaction complete status=0x%x", status);
+        USBLog(7,"%s[%p]::ControlPacketHandler: transaction complete status=0x%x", me->getName(), me, status);
     
 	// release my memory descriptors as needed
 	if (command->GetRequestMemoryDescriptor())
@@ -729,7 +804,7 @@ IOUSBController::ControlPacketHandler( OSObject * 	target,
 	me->_freeUSBCommandPool->returnCommand(command);
     }
     else
-        USBLog(7,"ControlPacketHandler: still more to come: todo=0x%x", todo);
+        USBLog(7,"%s[%p]::ControlPacketHandler: still more to come: todo=0x%x", me->getName(), me, todo);
         
 }
 
@@ -765,18 +840,37 @@ IOUSBController::InterruptPacketHandler(OSObject * target, void * parameter, IOR
 {
     IOUSBCommand 	*command = (IOUSBCommand *)parameter;
     IOUSBController 	*me = (IOUSBController *)target;
+    AbsoluteTime	timeStart, timeNow;
+    UInt64       	timeElapsed;
 
     if (command == 0)
         return;
 
-    USBLog(7,"InterruptPacketHandler: transaction complete status=0x%x bufferSizeRemaining = %d", status, 
-	    (int)bufferSizeRemaining);
+    USBLog(7,"%s[%p]::InterruptPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%d)",  me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
 
     if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
         
+    // Write the status out to our IOUSBCommand so that the completion routine can access it
+    //
+    command->SetStatus(status);
+
     /* Call the clients handler */
-    me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
+    if ( command->GetUseTimeStamp() )
+    {
+        IOUSBCompletion			completion = command->GetClientCompletion();
+        IOUSBCompletionWithTimeStamp	completionWithTimeStamp;
+
+        // Copy the completion to a completion with time stamp
+        //
+        completionWithTimeStamp.target = completion.target;
+        completionWithTimeStamp.parameter = completion.parameter;
+        completionWithTimeStamp.action = (IOUSBCompletionActionWithTimeStamp) completion.action;
+        
+        me->CompleteWithTimeStamp( completionWithTimeStamp, status, bufferSizeRemaining, command->GetTimeStamp());
+    }
+    else
+        me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
 
     // Free/give back the command 
     me->_freeUSBCommandPool->returnCommand(command);
@@ -806,7 +900,7 @@ IOUSBController::BulkTransaction(IOUSBCommand *command)
     err = UIMCreateBulkTransfer(command);
 
     if (err)
-        USBLog(3,"BulkTransaction: error queueing bulk packet (0x%x)", err);
+        USBLog(3,"%s[%p]::BulkTransaction: error queueing bulk packet (0x%x)", getName(), this, err);
 
     return(err);
 }
@@ -823,12 +917,14 @@ IOUSBController::BulkPacketHandler(OSObject *target, void *parameter, IOReturn	s
     if (command == 0)
         return;
 
-    USBLog(7,"BulkPacketHandler: transaction complete status=0x%x bufferSizeRemaining = %d", status, (int)bufferSizeRemaining);
+    USBLog(7,"%s[%p]::BulkPacketHandler: addr %d:%d(%s) complete status=0x%x bufferSizeRemaining = %d (%d)", me->getName(), me, command->GetAddress(), command->GetEndpoint(), command->GetDirection() == kUSBIn ? "in" : "out", status, (int)bufferSizeRemaining, command->GetReqCount());
 
      if ( status == kIOUSBTransactionReturned )
         status = kIOReturnAborted;
-        
-   /* Call the clients handler */
+
+     command->SetStatus(status);
+
+     /* Call the clients handler */
     me->Complete(command->GetClientCompletion(), status, bufferSizeRemaining);
 
     // Free/give back the command 
@@ -846,18 +942,136 @@ IOReturn
 IOUSBController::DoIsocTransfer(OSObject *owner, void *cmd,
                         void */*field2*/, void */*field3*/, void */*field4*/)
 {
-    IOUSBController	*controller = (IOUSBController *)owner;
-    IOUSBIsocCommand	*command  = (IOUSBIsocCommand *) cmd;
-    return controller->IsocTransaction(command);
+    IOUSBController *		controller = (IOUSBController *)owner;
+    IOUSBIsocCommand *		command = (IOUSBIsocCommand *) cmd;
+    IOUSBIsocCompletion 	completion;
+    IOReturn			kr = kIOReturnSuccess;
+
+    if ( !controller || !command )
+    {
+        USBError(1,"IOUSBController[%p]::DoIsocTransfer -- bad controller or command (%p,%p)", controller, controller, command);
+        return kIOReturnBadArgument;
+    }
+    
+    // If we have a synchronous completion, then we need to sleep
+    // this thread (unless we're on the workloop thread).  A synchronous completion will have IOUSBSyncCompletion
+    // as our completion action.
+    //
+    completion = command->GetCompletion();
+    
+    if ( (UInt32) completion.action == (UInt32) &IOUSBSyncIsoCompletion )
+    {
+        IOUSBSyncCompletionTarget	syncTarget;
+        bool				inCommandSleep = true;
+
+        if ( controller->getWorkLoop()->onThread() )
+        {
+            USBError(1,"%s[%p]::DoIsocTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+
+        // Fill out our structure that the completion routine will use to wake
+        // the thread up.  Set this structure as the target for the completion
+        //
+        syncTarget.controller = controller;
+        syncTarget.flag = &inCommandSleep;
+        completion.target = &syncTarget;
+        command->SetCompletion(completion);
+
+        // Now, do the transaction and put the thread to sleep
+        //
+        kr = controller->IsocTransaction(command);
+
+        // If we didn't get an immediate error, then put the thread to sleep and wait for it to wake up
+        //
+        if ( kr == kIOReturnSuccess )
+        {
+			IOCommandGate * 	commandGate = controller->GetCommandGate();
+
+            //USBLog(3,"%s[%p]::DoIsocTransfer calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+            kr = commandGate->commandSleep(&inCommandSleep, THREAD_UNINT);
+            inCommandSleep = false;
+            //USBLog(3,"%s[%p]::DoIsocTransfer woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), kr);
+
+            // We need to return the result of the transfer here, not just the result of the commandSleep()
+            //
+           kr = command->GetStatus();
+        }
+    }
+    else
+    {
+        kr = controller->IsocTransaction(command);
+    }
+
+    return kr;
 }
 
 IOReturn 
 IOUSBController::DoLowLatencyIsocTransfer(OSObject *owner, void *cmd,
                         void */*field2*/, void */*field3*/, void */*field4*/)
 {
-    IOUSBController	*controller = (IOUSBController *)owner;
-    IOUSBIsocCommand	*command  = (IOUSBIsocCommand *) cmd;
-    return controller->LowLatencyIsocTransaction(command);
+    IOUSBController *		controller = (IOUSBController *)owner;
+    IOUSBIsocCommand *		command = (IOUSBIsocCommand *) cmd;
+    IOUSBIsocCompletion 	completion;
+    IOReturn			kr = kIOReturnSuccess;
+
+    if ( !controller || !command )
+    {
+        USBError(1,"IOUSBController[%p]::DoLowLatencyIsocTransfer -- bad controller or command (%p,%p)", controller, controller, command);
+        return kIOReturnBadArgument;
+    }
+
+    // If we have a synchronous completion, then we need to sleep
+    // this thread (unless we're on the workloop thread).  A synchronous completion will have IOUSBSyncCompletion
+    // as our completion action.
+    //
+    completion = command->GetCompletion();
+    
+    if ( (UInt32) completion.action == (UInt32) &IOUSBSyncIsoCompletion )
+    {
+        IOUSBSyncCompletionTarget	syncTarget;
+        bool				inCommandSleep = true;
+
+        if ( controller->getWorkLoop()->onThread() )
+        {
+            USBError(1,"%s[%p]::DoLowLatencyIsocTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+
+        // Fill out our structure that the completion routine will use to wake
+        // the thread up.  Set this structure as the target for the completion
+        //
+        syncTarget.controller = controller;
+        syncTarget.flag = &inCommandSleep;
+        completion.target = &syncTarget;
+        command->SetCompletion(completion);
+
+        // Now, do the transaction and put the thread to sleep
+        //
+        kr = controller->LowLatencyIsocTransaction(command);
+
+        // If we didn't get an immediate error, then put the thread to sleep and wait for it to wake up
+        //
+        if ( kr == kIOReturnSuccess )
+        {
+			IOCommandGate * 	commandGate = controller->GetCommandGate();
+
+            //USBLog(3,"%s[%p]::DoLowLatencyIsocTransfer calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+            kr = commandGate->commandSleep(&inCommandSleep, THREAD_UNINT);
+            inCommandSleep = false;
+            //USBLog(3,"%s[%p]::DoLowLatencyIsocTransfer woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), kr);
+
+            // We need to return the result of the transfer here, not just the result of the commandSleep()
+            //
+            kr = command->GetStatus();
+        }
+    }
+    else
+    {
+        kr = controller->LowLatencyIsocTransaction(command);
+    }
+
+    return kr;
 }
 
 
@@ -884,7 +1098,7 @@ IOUSBController::IsocTransaction(IOUSBIsocCommand *command)
 									);
 
     if (err) {
-        USBLog(3,"IsocTransaction: error queueing isoc transfer (0x%x)", err);
+        USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
     }
     return(err);
 }
@@ -911,10 +1125,10 @@ IOUSBController::LowLatencyIsocTransaction(IOUSBIsocCommand *command)
 									command->GetNumFrames(),								// number of frames
 									(IOUSBLowLatencyIsocFrame *) command->GetFrameList(),   // transfer for each frame
 									command->GetUpdateFrequency()							// How often do we update frameList
-                );
+									);
 
     if (err) {
-        USBLog(3,"IsocTransaction: error queueing isoc transfer (0x%x)", err);
+        USBLog(3,"%s[%p]::IsocTransaction: error queueing isoc transfer (0x%x)", getName(), this, err);
     }
     return(err);
 }
@@ -933,12 +1147,10 @@ IOUSBController::IsocCompletionHandler(OSObject *target,
     if (command == 0)
         return;
 
-#if 0 // Not for isochronous??
-    if (status != kIOReturnSuccess)
-        me->UIMClearEndpointStall(command->address,
-                              command->endpoint,
-                              command->direction);
-#endif
+	// Write the status to our command so that we can access it from our
+	// commandWake, if this was a synchronous call
+	//
+    command->SetStatus(status);
 
     /* Call the clients handler */
     IOUSBIsocCompletion completion = command->GetCompletion();
@@ -968,7 +1180,7 @@ IOUSBController::WatchdogTimer(OSObject *target, IOTimerEventSource *source)
     if (err)
     {
         // do not remove the braces around this USBLog call, or the code will be wrong!
-        USBError(1, "USL Watchdog: error %08x", err);
+        USBError(1, "%s[%p]::WatchdogTime: error 0x%08x", me->getName(), me, err);
     }
     else
     {
@@ -984,9 +1196,18 @@ IOUSBController::DoIOTransfer(OSObject *owner,
                            void *cmd,
                            void */*field2*/, void */*field3*/, void */*field4*/)
 {
-    IOUSBController	*controller = (IOUSBController *)owner;
-    IOUSBCommand	*command  = (IOUSBCommand *) cmd;
-    IOReturn		err       = kIOReturnSuccess;
+    IOUSBController *	controller = (IOUSBController *)owner;
+    IOUSBCommand *	command = (IOUSBCommand *) cmd;
+    IOReturn		err = kIOReturnSuccess;
+    IOUSBCompletion 	completion;
+    IOUSBCompletion 	disjointCompletion;
+	IOCommandGate * 	commandGate;
+
+    if ( !controller || !command )
+    {
+        USBError(1,"IOUSBController[%p]::DoIOTransfer -- bad controller or command (%p,%p)", controller, controller, command);
+        return kIOReturnBadArgument;
+    }
 
     if ( controller->_pcCardEjected )
     {
@@ -994,22 +1215,117 @@ IOUSBController::DoIOTransfer(OSObject *owner,
         return kIOReturnNotResponding;
     }
 
-    switch (command->GetType())
+	commandGate = controller->GetCommandGate();
+
+    // If we have a synchronous completion, then we need to sleep
+    // this thread.  A synchronous completion will have
+    //
+    // 1. IOUSBSyncCompletion as our completion action OR
+    // 2. IOUSBSyncCompletion as the disjointCompletion;
+    //
+    completion = command->GetClientCompletion();
+    disjointCompletion = command->GetDisjointCompletion();
+
+    if ( ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion) ||
+         ( (UInt32) disjointCompletion.action == (UInt32) &IOUSBSyncCompletion) )
     {
-        case kUSBInterrupt:
-            err = controller->InterruptTransaction(command);
-            break;
-        case kUSBIsoc:
-            USBLog(3,"Isoc transactions not supported on non-isoc pipes!!");
-            err = kIOReturnBadArgument;
-            break;
-        case kUSBBulk:
-            err = controller->BulkTransaction(command);
-            break;
-        default:
-            USBLog(3,"Unknown transaction type");
-            err = kIOReturnBadArgument;
-            break;
+        IOUSBSyncCompletionTarget	syncTarget;
+        bool				inCommandSleep = true;
+
+        if ( controller->getWorkLoop()->onThread() )
+        {
+            USBError(1,"%s[%p]::DoIOTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+
+        // Fill out our structure that the completion routine will use to wake
+        // the thread up.  Set this structure as the target for the completion
+        //
+        syncTarget.controller = controller;
+        syncTarget.flag = &inCommandSleep;
+
+        if ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion )
+        {
+            completion.target = &syncTarget;
+            command->SetClientCompletion(completion);
+        }
+        else
+        {
+            disjointCompletion.target = &syncTarget;
+            command->SetDisjointCompletion(disjointCompletion);
+        }
+        
+        // Now, do the transaction and put the thread to sleep
+        //
+        switch (command->GetType())
+        {
+            case kUSBInterrupt:
+                err = controller->InterruptTransaction(command);
+
+                // If we didn't get an immediate error, then put the thread to sleep and wait for it to wake up
+                //
+                if ( err == kIOReturnSuccess )
+                {
+
+                    //USBLog(6,"%s[%p]::DoIOTransfer(Interrupt) calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+                    err = commandGate->commandSleep(&inCommandSleep, THREAD_UNINT);
+                    inCommandSleep = false;
+                    //USBLog(6,"%s[%p]::DoIOTransfer(Interrupt) woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), err);
+
+                    // We need to return the result of the transfer here, not the result of the commandSleep()
+                    //
+                   err = command->GetStatus();
+                }
+                break;
+
+            case kUSBBulk:
+                err = controller->BulkTransaction(command);
+                if ( err == kIOReturnSuccess )
+                {
+                    //USBLog(6,"%s[%p]::DoIOTransfer(Bulk) calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+                    err = commandGate->commandSleep(&inCommandSleep, THREAD_UNINT);
+                    inCommandSleep = false;
+                    //USBLog(6,"%s[%p]::DoIOTransfer(Bulk) woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), err);
+
+                    // We need to return the result of the transfer here, not just the result of the commandSleep()
+                    //
+                    err = command->GetStatus();
+                }
+                break;
+                
+            case kUSBIsoc:
+                USBLog(3,"%s[%p]::DoIOTransfer  Isoc transactions not supported on non-isoc pipes!!", controller->getName(), controller);
+                err = kIOReturnBadArgument;
+                break;
+                
+            default:
+                USBLog(3,"%s[%p]::DoIOTransfer  Unknown transaction type", controller->getName(), controller);
+                err = kIOReturnBadArgument;
+                break;
+        }
+        
+    }
+    else
+    {
+    	// It was NOT a synchronous call, so don't need to set any threads to sleep
+    	//
+        switch (command->GetType())
+        {
+            case kUSBInterrupt:
+                err = controller->InterruptTransaction(command);
+                break;
+            case kUSBIsoc:
+                USBLog(3,"%s[%p]::DoIOTransfer  Isoc transactions not supported on non-isoc pipes!!", controller->getName(), controller);
+                err = kIOReturnBadArgument;
+                break;
+            case kUSBBulk:
+                err = controller->BulkTransaction(command);
+                break;
+            default:
+                USBLog(3,"%s[%p]::DoIOTransfer  Unknown transaction type", controller->getName(), controller);
+                err = kIOReturnBadArgument;
+                break;
+        }
     }
 
     if (err)
@@ -1029,15 +1345,88 @@ IOUSBController::DoControlTransfer(OSObject *owner,
                            void *arg0, void *arg1,
                            void *arg2, void *arg3)
 {
-    IOUSBController *me = (IOUSBController *)owner;
+    IOUSBController *	controller = (IOUSBController *)owner;
+    IOUSBCommand *	command = (IOUSBCommand *) arg0;
+    IOUSBCompletion 	completion;
+    IOUSBCompletion 	disjointCompletion;
+    IOReturn		kr = kIOReturnSuccess;
 
-    if ( me->_pcCardEjected )
+    if ( !controller || !command )
     {
-        USBLog(1, "%s[%p]::DoControlTransfer - trying to queue when PC Card ejected", me->getName(), me);
+        USBError(1,"IOUSBController[%p]::DoControlTransfer -- bad controller or command (%p,%p)", controller, controller, command);
+        return kIOReturnBadArgument;
+    }
+    
+    if ( controller->_pcCardEjected )
+    {
+        USBLog(1, "%s[%p]::DoControlTransfer - trying to queue when PC Card ejected", controller->getName(), controller);
         return kIOReturnNotResponding;
     }
 
-    return me->ControlTransaction((IOUSBCommand *)arg0);
+    // If we have a synchronous completion, then we need to sleep
+    // this thread (unless we are on the workloop thread).  A synchronous completion will have
+    //
+    // 1. IOUSBSyncCompletion as our completion action OR
+    // 2. IOUSBSyncCompletion as the disjointCompletion;
+    //
+    completion = command->GetClientCompletion();
+    disjointCompletion = command->GetDisjointCompletion();
+
+    if ( ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion) ||
+         ( (UInt32) disjointCompletion.action == (UInt32) &IOUSBSyncCompletion) )
+    {
+        IOUSBSyncCompletionTarget	syncTarget;
+        bool				inCommandSleep = true;
+
+        if ( controller->getWorkLoop()->onThread() )
+        {
+            USBError(1,"%s[%p]::DoControlTransfer sync request on workloop thread.  Use async!", controller->getName(), controller);
+            return kIOUSBSyncRequestOnWLThread;
+        }
+
+        // Fill out our structure that the completion routine will use to wake
+        // the thread up.  Set this structure as the target for the completion
+        //
+        syncTarget.controller = controller;
+        syncTarget.flag = &inCommandSleep;
+
+        if ( (UInt32) completion.action == (UInt32) &IOUSBSyncCompletion )
+        {
+            completion.target = &syncTarget;
+            command->SetClientCompletion(completion);
+        }
+        else
+        {
+            disjointCompletion.target = &syncTarget;
+            command->SetDisjointCompletion(disjointCompletion);
+        }
+
+        // Now, do the transaction and put the thread to sleep
+        //
+        kr = controller->ControlTransaction((IOUSBCommand *)arg0);
+
+        // If we didn't get an immediate error, then put the thread to sleep and wait for it to wake up
+        //
+        if ( kr == kIOReturnSuccess )
+        {
+			IOCommandGate * 	commandGate = controller->GetCommandGate();
+
+            //USBLog(6,"%s[%p]::DoControlTransfer calling commandSleep (%p,%p,%p)", controller->getName(), controller, &syncTarget, syncTarget.controller, syncTarget.flag);
+            kr = commandGate->commandSleep(&inCommandSleep, THREAD_UNINT);
+            inCommandSleep = false;
+            //USBLog(6,"%s[%p]::DoControlTransfer woke up: 0x%x, 0x%x", controller->getName(), controller, command->GetStatus(), kr);
+
+            // We need to return the result of the transfer here, not  the result of the commandSleep()
+            //
+          	kr = command->GetStatus();
+        }
+    }
+    else
+    {
+        kr = controller->ControlTransaction((IOUSBCommand *)arg0);
+    }
+
+    return kr;
 }
 
 
@@ -1141,6 +1530,7 @@ IOReturn
 IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, void* arg3, void* arg4)
 {
     IOUSBController	*me = (IOUSBController*)target;
+	IOCommandGate * 	commandGate = me->GetCommandGate();
     
     USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - about to %s device zero lock", me->getName(), me, lock ? "obtain" : "release");
     if (lock)
@@ -1154,7 +1544,7 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
 	USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - somebody already has it - running commandSleep", me->getName(), me);
 	while (me->_devZeroLock)
 	{
-	    me->_commandGate->commandSleep(&me->_devZeroLock, THREAD_UNINT);
+		commandGate->commandSleep(&me->_devZeroLock, THREAD_UNINT);
 	    if (me->_devZeroLock)
 		USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - _devZeroLock still held - back to sleep", me->getName(), me);
 	}
@@ -1165,7 +1555,7 @@ IOUSBController::ProtectedDevZeroLock(OSObject *target, void* lock, void* arg2, 
     {
 	USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - releasing lock", me->getName(), me);
 	me->_devZeroLock = false;
-	me->_commandGate->commandWakeup(&me->_devZeroLock, THREAD_UNINT);
+	commandGate->commandWakeup(&me->_devZeroLock, true);
 	USBLog(5, "%s[%p]::ProtectedAcquireDevZeroLock - wakeup done", me->getName(), me);
 	return kIOReturnSuccess;
     }
@@ -1178,13 +1568,14 @@ IOUSBController::AcquireDeviceZero()
 {
     IOReturn err = 0;
     Endpoint ep;
+	IOCommandGate * 	commandGate = GetCommandGate();
 
     ep.number = 0;
     ep.transferType = kUSBControl;
     ep.maxPacketSize = 8;
 
     USBLog(6,"%s[%p]: Trying to acquire Device Zero", getName(), this);
-    _commandGate->runAction(ProtectedDevZeroLock, (void*)true);
+    commandGate->runAction(ProtectedDevZeroLock, (void*)true);
     // IOTakeLock(_devZeroLock);
 
     USBLog(5,"%s[%p]: Acquired Device Zero", getName(), this);
@@ -1202,9 +1593,10 @@ void
 IOUSBController::ReleaseDeviceZero(void)
 {
     IOReturn err = 0;
+	IOCommandGate * 	commandGate = GetCommandGate();
 
-    err = _commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
-    _commandGate->runAction(ProtectedDevZeroLock, (void*)false);
+    err = commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
+    err = commandGate->runAction(ProtectedDevZeroLock, (void*)false);
 
     USBLog(5,"%s[%p]:: Released Device Zero", getName(), this);
 
@@ -1216,8 +1608,10 @@ IOUSBController::ReleaseDeviceZero(void)
 void 
 IOUSBController::WaitForReleaseDeviceZero()
 {
-    _commandGate->runAction(ProtectedDevZeroLock, (void*)true);
-    _commandGate->runAction(ProtectedDevZeroLock, (void*)false);
+	IOCommandGate * 	commandGate = GetCommandGate();
+
+    commandGate->runAction(ProtectedDevZeroLock, (void*)true);
+    commandGate->runAction(ProtectedDevZeroLock, (void*)false);
 }
 
 
@@ -1234,9 +1628,8 @@ IOUSBController::ConfigureDeviceZero(UInt8 maxPacketSize, UInt8 speed)
 
     USBLog(6, "%s[%p]::ConfigureDeviceZero (maxPacketSize: %d, Speed: %d)", getName(), this, maxPacketSize, speed);
 
-//    err = _commandGate->runAction(DoDeleteEP, (void *)0, (void *)0, (void *)kUSBAnyDirn);
-// BT paired with OpenPipe in AcquireDeviceZero
-
+    // BT paired with OpenPipe in AcquireDeviceZero
+    //
     err = OpenPipe(0, speed, &ep);
 
     return(err);
@@ -1253,12 +1646,11 @@ IOUSBController::GetDeviceZeroDescriptor(IOUSBDeviceDescriptor *desc, UInt16 siz
 
     do
     {
-        IOUSBCompletion	tap;
-        IOSyncer *	syncer;
+        IOUSBCompletion			tap;
 
-        syncer  = IOSyncer::create();
-
-        tap.target = syncer;
+		// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
+		//
+        tap.target = NULL;
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = NULL;
 
@@ -1277,19 +1669,14 @@ IOUSBController::GetDeviceZeroDescriptor(IOUSBDeviceDescriptor *desc, UInt16 siz
 
         err = DeviceRequest(&request, &tap, 0, 0);
 
-        if (err)
-        {
-            USBLog(3,"%s[%p]::GetDeviceZeroDescriptor Error: 0x%x", getName(), this, err);
-
-            syncer->release();
-            syncer->release();
-            break;
-        }
-        err = syncer->wait();
-
     } while(false);
 
-    return(err);
+    if (err)
+    {
+        USBLog(3,"%s[%p]::GetDeviceZeroDescriptor Error: 0x%x", getName(), this, err);
+    }
+    
+    return err;
 }
 
 
@@ -1305,14 +1692,14 @@ IOUSBController::SetDeviceZeroAddress(USBDeviceAddress address)
     do
     {
         IOUSBCompletion	tap;
-        IOSyncer *	syncer;
 
-        syncer  = IOSyncer::create();
-
-        tap.target = syncer;
+		// The action of IOUSBSyncCompletion will tell the USL that this is a sync transfer
+		//
+        tap.target = NULL;
         tap.action = &IOUSBSyncCompletion;
         tap.parameter = NULL;
 
+        
         request.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
         request.bRequest = kUSBRqSetAddress;
         request.wValue = address;
@@ -1321,13 +1708,6 @@ IOUSBController::SetDeviceZeroAddress(USBDeviceAddress address)
         request.pData = 0;
 
         err = DeviceRequest(&request, &tap, 0, 0);
-
-        if (err)
-        {
-            syncer->release(); syncer->release();
-            break;
-        }
-        err = syncer->wait();
 
     } while(false);
 
@@ -1357,19 +1737,19 @@ IOUSBController::MakeDevice(USBDeviceAddress *	address)
     *address = GetNewAddress();
     if(*address == 0) 
     {
-        USBError(1, "%s[%p]::MakeDevice error getting address - releasing newDev", getName(), this);
-	newDev->release();
-	return NULL;
+        USBLog(1, "%s[%p]::MakeDevice error getting address - releasing newDev", getName(), this);
+		newDev->release();
+		return NULL;
     }
 
     err = SetDeviceZeroAddress(*address);
     
     if (err)
     {
-        USBError(1, "%s[%p]::MakeDevice error setting address. err=0x%x device=%p - releasing device", getName(), this, err, newDev);
+        USBLog(1, "%s[%p]::MakeDevice error setting address. err=0x%x device=%p - releasing device", getName(), this, err, newDev);
         *address = 0;
-	newDev->release();
-	return NULL;
+		newDev->release();
+		return NULL;
     }
 	
     return(newDev);
@@ -1404,6 +1784,7 @@ IOUSBController::PolledRead(
         }
     }
 
+    command->SetUseTimeStamp(true);
     command->SetSelector(READ);
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(functionNumber);
@@ -1436,7 +1817,6 @@ IOUSBController::message( UInt32 type, IOService * provider,  void * argument )
     switch ( type )
     {
         case kIOMessageServiceIsTerminated:
-            USBLog(6,"%s[%p]: Received kIOMessageServiceIsTerminated - ignoring",getName(),this);
             break;
             
         // Do we really need to return success from the following two messages?
@@ -1475,7 +1855,7 @@ IOUSBController::stop( IOService * provider )
     IOUSBCommand *	command;
     UInt32		retries = 0;
 
-    USBLog(5,"+%s::stop (0x%lx)", getName(), (UInt32) provider);
+    USBLog(5,"+%s[%p]::stop (0x%lx)", getName(), this, (UInt32) provider);
     
     // Wait for the watchdog timer to expire.  There doesn't seem to be any
     // way to cancel a timer that is already "executing".  cancelTimeout will
@@ -1556,7 +1936,8 @@ IOUSBController::stop( IOService * provider )
         
     if ( _commandGate )
     {
-        _workLoop->removeEventSource( _commandGate );
+		if ( _workLoop )
+			_workLoop->removeEventSource( _commandGate );
         _commandGate->release();
         _commandGate = NULL;
     }
@@ -1567,7 +1948,7 @@ IOUSBController::stop( IOService * provider )
         _workLoop = NULL;
     }
 
-    USBLog(5,"-%s::stop (0x%lx)", getName(), (UInt32) provider);
+    USBLog(5,"-%s[%p]::stop (0x%lx)", getName(), this, (UInt32) provider);
     
 }
 
@@ -1583,8 +1964,8 @@ void
 IOUSBController::IncreaseCommandPool(void)
 {
     int i;
-    
-    USBLog(3,"%s[%p] Adding (%d) to Command Pool", getName(), this, kSizeToIncrementCommandPool);
+
+    USBLog(3,"%s[%p]::IncreaseCommandPool Adding (%d) to Command Pool", getName(), this, kSizeToIncrementCommandPool);
 
     for (i = 0; i < kSizeToIncrementCommandPool; i++)
     {
@@ -1600,8 +1981,8 @@ void
 IOUSBController::IncreaseIsocCommandPool(void)
 {
     int i;
-    
-    USBLog(3,"%s[%p] Adding (%d) to Isoc Command Pool", getName(), this, kSizeToIncrementIsocCommandPool);
+
+    USBLog(3,"%s[%p]::IncreaseIsocCommandPool Adding (%d) to Isoc Command Pool", getName(), this, kSizeToIncrementIsocCommandPool);
     
     for (i = 0; i < kSizeToIncrementIsocCommandPool; i++)
     {
@@ -1612,15 +1993,29 @@ IOUSBController::IncreaseIsocCommandPool(void)
     _currentSizeOfIsocCommandPool += kSizeToIncrementIsocCommandPool;
 }
 
-void 
+void
 IOUSBController::Complete(IOUSBCompletion	completion,
-                                      IOReturn		status,
-                                      UInt32		actualByteCount)
+                          IOReturn		status,
+                          UInt32		actualByteCount)
 {
     if (completion.action)  (*completion.action)(completion.target,
                                                  completion.parameter,
                                                  status,
                                                  actualByteCount);
+}
+
+
+void
+IOUSBController::CompleteWithTimeStamp(IOUSBCompletionWithTimeStamp	completion,
+                                       IOReturn		status,
+                                       UInt32		actualByteCount,
+                                       AbsoluteTime	timeStamp)
+{
+    if (completion.action)  (*completion.action)(completion.target,
+                                                 completion.parameter,
+                                                 status,
+                                                 actualByteCount,
+                                                 timeStamp);
 }
 
 
@@ -1640,10 +2035,11 @@ IOUSBController::TerminatePCCard(OSObject *target)
     if (!me)
         return;
 
-    USBLog(5,"%s[%p]: Terminating RootHub", me->getName(),me);
+    USBLog(5,"%s[%p]::TerminatePCCard Terminating RootHub", me->getName(),me);
     ok = me->_rootHubDevice->terminate(kIOServiceRequired | kIOServiceSynchronous);
     if ( !ok )
-        USBLog(3,"%s: Could not terminate RootHub device",me->getName());
+        USBLog(3,"%s[%p]::TerminatePCCard Could not terminate RootHub device",me->getName());
+    
     me->_rootHubDevice->detachAll(gIOUSBPlane);
     me->_rootHubDevice->release();
     me->_rootHubDevice = NULL;
@@ -1834,7 +2230,8 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
     do
     {
 	int	i;
-	
+
+        command->SetUseTimeStamp(false);
         command->SetSelector(DEVICE_REQUEST);
         command->SetRequest(request);
         command->SetAddress(address);
@@ -1846,19 +2243,22 @@ IOUSBController::DeviceRequest(IOUSBDevRequest *request, IOUSBCompletion *comple
 	command->SetCompletionTimeout(completionTimeout);
 
 	/* Set the USL completion to NULL, so the high speed controller can do its own thing. */
-	nullCompletion.action = NULL;
+        nullCompletion.target = (void *) NULL;
+        nullCompletion.action = (IOUSBCompletionAction) NULL;
+        nullCompletion.parameter = (void *) NULL;
         command->SetUSLCompletion(nullCompletion);
+        command->SetDisjointCompletion(nullCompletion);
 	
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 	    
-        if (_commandGate == 0)
+        if ( GetCommandGate() == 0)
         {
             err = kIOReturnInternalError;
             break;
         }
 
-        err = _commandGate->runAction(DoControlTransfer, command);
+        err = GetCommandGate()->runAction(DoControlTransfer, command);
         if ( err)
             break;
             
@@ -1898,7 +2298,8 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
     do
     {
 	int		i;
-	
+
+        command->SetUseTimeStamp(false);
         command->SetSelector(DEVICE_REQUEST_DESC);
 	// IOUSBDevRequest and IOUSBDevRequestDesc are same except for
         // pData (void * or descriptor).
@@ -1912,19 +2313,22 @@ IOUSBController::DeviceRequest(IOUSBDevRequestDesc *request, IOUSBCompletion *	c
 	command->SetCompletionTimeout(completionTimeout);
 
 	/* Set the USL completion to NULL, so the high speed controller can do its own thing. */
-	nullCompletion.action = NULL;
+        nullCompletion.target = (void *) NULL;
+        nullCompletion.action = (IOUSBCompletionAction) NULL;
+        nullCompletion.parameter = (void *) NULL;
         command->SetUSLCompletion(nullCompletion);
-
+        command->SetDisjointCompletion(nullCompletion);
+        
 	for (i=0; i < 10; i++)
 	    command->SetUIMScratch(i, 0);
 
-        if (_commandGate == 0)
+        if (GetCommandGate() == 0)
         {
             err = kIOReturnInternalError;
             break;
         }
 
-        err = _commandGate->runAction(DoControlTransfer, command);
+        err = GetCommandGate()->runAction(DoControlTransfer, command);
         if ( err)
             break;
 
@@ -2091,14 +2495,14 @@ ErrorExit:
 OSMetaClassDefineReservedUsed(IOUSBController,  16);
 IOReturn 		
 IOUSBController::UIMCreateIsochTransfer(	short						functionAddress,
-                                                        short			endpointNumber,
-                                                        IOUSBIsocCompletion	completion,
-                                                        UInt8			direction,
-                                                        UInt64			frameStart,
+											short						endpointNumber,
+											IOUSBIsocCompletion			completion,
+											UInt8						direction,
+											UInt64						frameStart,
 											IOMemoryDescriptor			*pBuffer,
-                                                        UInt32			frameCount,
-                                                        IOUSBLowLatencyIsocFrame *pFrames,
-                                                        UInt32			updateFrequency)
+											UInt32						frameCount,
+											IOUSBLowLatencyIsocFrame	*pFrames,
+											UInt32						updateFrequency)
 {
     // This would normally be a pure virtual function which is implemented only in the UIM. However, 
     // too maintain binary compatibility, I am implementing it
@@ -2107,7 +2511,6 @@ IOUSBController::UIMCreateIsochTransfer(	short						functionAddress,
     return kIOReturnUnsupported;
 }
 
-OSMetaClassDefineReservedUnused(IOUSBController,  17);
 OSMetaClassDefineReservedUnused(IOUSBController,  18);
 OSMetaClassDefineReservedUnused(IOUSBController,  19);
 

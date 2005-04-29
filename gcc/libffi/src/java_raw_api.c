@@ -1,5 +1,5 @@
 /* -----------------------------------------------------------------------
-   java_raw_api.c - Copyright (c) 1999  Cygnus Solutions
+   java_raw_api.c - Copyright (c) 1999  Red Hat, Inc.
 
    Cloned from raw_api.c
 
@@ -36,6 +36,7 @@
 
 #include <ffi.h>
 #include <ffi_common.h>
+#include <stdlib.h>
 
 #if !defined(NO_JAVA_RAW_API) && !defined(FFI_NO_RAW_API)
 
@@ -53,13 +54,13 @@ ffi_java_raw_size (ffi_cif *cif)
 	case FFI_TYPE_UINT64:
 	case FFI_TYPE_SINT64:
 	case FFI_TYPE_DOUBLE:
-	  result += 2 * SIZEOF_ARG;
+	  result += 2 * FFI_SIZEOF_ARG;
 	  break;
 	case FFI_TYPE_STRUCT:
 	  /* No structure parameters in Java.	*/
 	  abort();
 	default:
-	  result += SIZEOF_ARG;
+	  result += FFI_SIZEOF_ARG;
       }
     }
 
@@ -89,7 +90,7 @@ ffi_java_raw_to_ptrarray (ffi_cif *cif, ffi_raw *raw, void **args)
 	  *args = (void*) ((char*)(raw++) + 2);
 	  break;
 
-#if SIZEOF_ARG == 8	  
+#if FFI_SIZEOF_ARG == 8	  
 	case FFI_TYPE_UINT64:
 	case FFI_TYPE_SINT64:
 	case FFI_TYPE_DOUBLE:
@@ -104,7 +105,7 @@ ffi_java_raw_to_ptrarray (ffi_cif *cif, ffi_raw *raw, void **args)
 	  
 	default:
 	  *args = raw;
-	  raw += ALIGN ((*tp)->size, SIZEOF_ARG) / SIZEOF_ARG;
+	  raw += ALIGN ((*tp)->size, FFI_SIZEOF_ARG) / FFI_SIZEOF_ARG;
 	}
     }
 
@@ -115,7 +116,7 @@ ffi_java_raw_to_ptrarray (ffi_cif *cif, ffi_raw *raw, void **args)
   /* then assume little endian */
   for (i = 0; i < cif->nargs; i++, tp++, args++)
     {
-#if SIZEOF_ARG == 8
+#if FFI_SIZEOF_ARG == 8
       switch((*tp)->type) {
 	case FFI_TYPE_UINT64:
 	case FFI_TYPE_SINT64:
@@ -126,10 +127,10 @@ ffi_java_raw_to_ptrarray (ffi_cif *cif, ffi_raw *raw, void **args)
 	default:
 	  *args = (void*) raw++;
       }
-#else /* SIZEOF_ARG != 8 */
+#else /* FFI_SIZEOF_ARG != 8 */
 	*args = (void*) raw;
 	raw += ALIGN ((*tp)->size, sizeof (void*)) / sizeof (void*);
-#endif /* SIZEOF_ARG == 8 */
+#endif /* FFI_SIZEOF_ARG == 8 */
     }
 
 #else
@@ -201,7 +202,7 @@ ffi_java_ptrarray_to_raw (ffi_cif *cif, void **args, ffi_raw *raw)
 	  (raw++)->flt = *(FLOAT32*) (*args);
 	  break;
 
-#if SIZEOF_ARG == 8
+#if FFI_SIZEOF_ARG == 8
 	case FFI_TYPE_UINT64:
 	case FFI_TYPE_SINT64:
 	case FFI_TYPE_DOUBLE:
@@ -215,11 +216,11 @@ ffi_java_ptrarray_to_raw (ffi_cif *cif, void **args, ffi_raw *raw)
 	  break;
 
 	default:
-#if SIZEOF_ARG == 8
-	  FFI_ASSERT(FALSE);	/* Should have covered all cases */
+#if FFI_SIZEOF_ARG == 8
+	  FFI_ASSERT(0);	/* Should have covered all cases */
 #else	
 	  memcpy ((void*) raw->data, (void*)*args, (*tp)->size);
-	  raw += ALIGN ((*tp)->size, SIZEOF_ARG) / SIZEOF_ARG;
+	  raw += ALIGN ((*tp)->size, FFI_SIZEOF_ARG) / FFI_SIZEOF_ARG;
 #endif
 	}
     }
@@ -230,7 +231,7 @@ ffi_java_ptrarray_to_raw (ffi_cif *cif, void **args, ffi_raw *raw)
 static void
 ffi_java_rvalue_to_raw (ffi_cif *cif, void *rvalue)
 {
-#if WORDS_BIGENDIAN && SIZEOF_ARG == 8
+#if WORDS_BIGENDIAN && FFI_SIZEOF_ARG == 8
   switch (cif->rtype->type)
     {
     case FFI_TYPE_UINT8:
@@ -255,7 +256,7 @@ ffi_java_rvalue_to_raw (ffi_cif *cif, void *rvalue)
 static void
 ffi_java_raw_to_rvalue (ffi_cif *cif, void *rvalue)
 {
-#if WORDS_BIGENDIAN && SIZEOF_ARG == 8
+#if WORDS_BIGENDIAN && FFI_SIZEOF_ARG == 8
   switch (cif->rtype->type)
     {
     case FFI_TYPE_UINT8:

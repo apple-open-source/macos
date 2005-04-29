@@ -1,0 +1,75 @@
+# This file is a Tcl script to test out GIF reading and writing.
+# It is organized in the standard fashion for Tcl tests.
+#
+
+if {[string compare test [info procs test]] == 1} {
+    source defs
+}
+
+set jpegdata \
+{/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof
+Hh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwh
+MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAAR
+CAAMABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA
+AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkK
+FhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWG
+h4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl
+5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA
+AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYk
+NOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOE
+hYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk
+5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDpdJ8Naj4g0ey1q9uNDnu763S5E8+kyPNA
+HUMqRyC4BQJnClNpyN33iWOxaHWtN1ux0vU9QtL9J7GaXzorNoJN8TQrlv3jKc+aScAcjj0r
+xXTfjd4l0fSbHTYLLSXitbaOGN5IpCxVVAGcSAE4HpXX/Dzx9qvjvxwBqcFnD9j02cx/ZUZc
+7pIM53M39wdMd687Dqv7ezlo7/1sB//Z}
+
+set jpegdata2 \
+{/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRof
+Hh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwh
+MjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAAR
+CAAMABADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAA
+AgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkK
+FhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWG
+h4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl
+5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREA
+AgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYk
+NOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOE
+hYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk
+5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDptJ8Nahr+j2WtXtxok93fW6XInn0qR5oA
+6hlSOQXAKBM4UptORu+8Sx17Q61p2tWOl6nqFpfpPYzS+dFZtBJviaFct+8ZTnzSTgDkcele
+Lad8bfEuj6VY6bBZaU8VrbRwxvJFIWKqoAziQAnHtXX/AA78ear478cEanBZw/YtNuDH9lRl
+zukgznczf3B0x3rhoKu61nLR3/rYD//Z}
+
+catch {image delete i}
+test jpeg-1.1 {} {
+    image create photo i -file folder.jpg
+    i data -format jpeg
+} $jpegdata
+test jpeg-1.2 {} {
+    image delete i
+    image create photo i -data $jpegdata
+    set data [i data -format jpeg]
+} $jpegdata2
+test jpeg-1.3 {} {
+    i blank
+    i put $jpegdata
+    set data [i data -format jpeg]
+} $jpegdata2
+test jpeg-1.4 {} {
+    i blank
+    i put $jpegdata -format jpeg
+    set data [i data -format jpeg]
+} $jpegdata2
+
+if {[info tclversion] < 8.0} {
+    return
+}
+
+test jpeg-2.0 {Binary I/O with JPEG images} {
+    i blank
+    set f [open folder.jpg r]
+    fconfigure $f -translation binary
+    set return [catch {i put [read $f]} msg]
+    close $f
+    lappend return $msg
+} {0 {}}

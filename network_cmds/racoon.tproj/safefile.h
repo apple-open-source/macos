@@ -31,4 +31,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __SAFEFILE_H__
+#define __SAFEFILE_H__
+
 extern int safefile __P((const char *, int));
+
+#endif /* __SAFEFILE_H__ */
+

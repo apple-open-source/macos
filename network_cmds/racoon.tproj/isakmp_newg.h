@@ -29,4 +29,11 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_NEWG_H__
+#define __ISAKMP_NEWG_H__
+
+
 extern int isakmp_newgroup_r __P((struct ph1handle *, vchar_t *));
+
+#endif /* __ISAKMP_NEWG_H__ */
+

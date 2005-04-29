@@ -53,6 +53,7 @@
  * SUCH DAMAGE.
  */
 
+#include "xlocale_private.h"
 
 #include <sys/param.h>
 #include <sys/file.h>
@@ -114,6 +115,7 @@ initshells()
 	register char **sp, *cp;
 	register FILE *fp;
 	struct stat statb;
+	locale_t loc = __current_locale();
 
 	if (shells != NULL)
 		free(shells);
@@ -146,7 +148,7 @@ initshells()
 		if (*cp == '#' || *cp == '\0')
 			continue;
 		*sp++ = cp;
-		while (!isspace(*cp) && *cp != '#' && *cp != '\0')
+		while (!isspace_l(*cp, loc) && *cp != '#' && *cp != '\0')
 			cp++;
 		*cp++ = '\0';
 	}

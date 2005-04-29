@@ -45,7 +45,7 @@
 
 #define DRIVER_NAME		"i810"
 #define DRIVER_DESC		"Intel i810"
-#define DRIVER_DATE		"20020211"
+#define DRIVER_DATE		"20030605"
 
 /* Interface history
  *
@@ -54,10 +54,12 @@
  *       - XFree86 4.2
  * 1.2.1 - Disable copying code (leave stub ioctls for backwards compatibility)
  *       - Remove requirement for interrupt (leave stubs again)
+ * 1.3   - Add page flipping.
+ * 1.4   - fix DRM interface
  */
 #define DRIVER_MAJOR		1
-#define DRIVER_MINOR		2
-#define DRIVER_PATCHLEVEL	1
+#define DRIVER_MINOR		4
+#define DRIVER_PATCHLEVEL	0
 
 #define DRIVER_IOCTLS							    \
 	[DRM_IOCTL_NR(DRM_IOCTL_I810_INIT)]   = { i810_dma_init,    1, 1 }, \
@@ -73,7 +75,15 @@
 	[DRM_IOCTL_NR(DRM_IOCTL_I810_FSTATUS)] = { i810_fstatus,    1, 0 }, \
 	[DRM_IOCTL_NR(DRM_IOCTL_I810_OV0FLIP)] = { i810_ov0_flip,   1, 0 }, \
 	[DRM_IOCTL_NR(DRM_IOCTL_I810_MC)]      = { i810_dma_mc,     1, 1 }, \
-	[DRM_IOCTL_NR(DRM_IOCTL_I810_RSTATUS)] = { i810_rstatus,    1, 0 }
+	[DRM_IOCTL_NR(DRM_IOCTL_I810_RSTATUS)] = { i810_rstatus,    1, 0 }, \
+	[DRM_IOCTL_NR(DRM_IOCTL_I810_FLIP)] =    { i810_flip_bufs,  1, 0 }
+
+#define DRIVER_PCI_IDS							\
+	{0x8086, 0x7121, 0, "Intel i810 GMCH"},				\
+	{0x8086, 0x7123, 0, "Intel i810-DC100 GMCH"},			\
+	{0x8086, 0x7125, 0, "Intel i810E GMCH"},			\
+	{0x8086, 0x1132, 0, "Intel i815 GMCH"},				\
+	{0, 0, 0, NULL}
 
 
 #define __HAVE_COUNTERS         4
@@ -86,14 +96,18 @@
  */
 #define __HAVE_RELEASE		1
 #define DRIVER_RELEASE() do {						\
-	i810_reclaim_buffers( dev, priv->pid );				\
+	i810_reclaim_buffers( filp );					\
+} while (0)
+
+#define DRIVER_PRETAKEDOWN() do {					\
+	i810_dma_cleanup( dev );					\
 } while (0)
 
 /* DMA customization:
  */
 #define __HAVE_DMA		1
 #define __HAVE_DMA_QUEUE	1
-#define __HAVE_DMA_WAITLIST	1
+#define __HAVE_DMA_WAITLIST	0
 #define __HAVE_DMA_RECLAIM	1
 
 #define __HAVE_DMA_QUIESCENT	1
@@ -104,7 +118,8 @@
 /* Don't need an irq any more.  The template code will make sure that
  * a noop stub is generated for compatibility.
  */
-#define __HAVE_DMA_IRQ		0
+/* XXX: Add vblank support? */
+#define __HAVE_IRQ		0
 
 /* Buffer customization:
  */

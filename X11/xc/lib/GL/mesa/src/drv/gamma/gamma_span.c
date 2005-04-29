@@ -1,7 +1,8 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_span.c,v 1.4 2002/11/05 17:46:07 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_span.c,v 1.5 2003/09/28 20:15:10 alanh Exp $ */
 
 #include "gamma_context.h"
 #include "gamma_lock.h"
+#include "colormac.h"
 
 #include "swrast/swrast.h"
 
@@ -260,17 +261,17 @@ done:
 }
 #endif
 
-static void gammaSetReadBuffer( GLcontext *ctx,
-				 GLframebuffer *colorBuffer,
-				 GLenum mode )
+static void gammaSetBuffer( GLcontext *ctx,
+                            GLframebuffer *colorBuffer,
+                            GLuint bufferBit )
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
       gmesa->readOffset = 0;
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       gmesa->readOffset = gmesa->driScreen->fbHeight * gmesa->driScreen->fbWidth * gmesa->gammaScreen->cpp; 
       break;
    }
@@ -282,7 +283,7 @@ void gammaDDInitSpanFuncs( GLcontext *ctx )
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = gammaSetReadBuffer;
+   swdd->SetBuffer = gammaSetBuffer;
 
    switch ( gmesa->gammaScreen->cpp ) {
    case 2:

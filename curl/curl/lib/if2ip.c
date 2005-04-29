@@ -1,16 +1,16 @@
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -18,7 +18,7 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: if2ip.c,v 1.1.1.3 2002/11/26 19:07:56 zarzycki Exp $
+ * $Id: if2ip.c,v 1.38 2004/11/02 10:12:23 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -27,12 +27,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 
-#if ! defined(WIN32) && ! defined(__BEOS__) && !defined(__CYGWIN32__)
+#if !defined(WIN32) && !defined(__BEOS__) && !defined(__CYGWIN32__) && \
+    !defined(__riscos__) && !defined(__INTERIX) && !defined(NETWARE)
 
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
@@ -51,7 +51,9 @@
 #ifdef HAVE_NET_IF_H
 #include <net/if.h>
 #endif
+#ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
+#endif
 
 /* -- if2ip() -- */
 #ifdef HAVE_NETDB_H
@@ -62,27 +64,27 @@
 #include <sys/sockio.h>
 #endif
 
-#if defined(HAVE_INET_NTOA_R) && !defined(HAVE_INET_NTOA_R_DECL) 
+#if defined(HAVE_INET_NTOA_R) && !defined(HAVE_INET_NTOA_R_DECL)
 #include "inet_ntoa_r.h"
 #endif
 
-#ifdef	VMS
-#define	IOCTL_3_ARGS
+#ifdef VMS
 #include <inet.h>
 #endif
 
+#include "if2ip.h"
+#include "memory.h"
+
 /* The last #include file should be: */
-#ifdef MALLOCDEBUG
 #include "memdebug.h"
-#endif
 
 #define SYS_ERROR -1
 
-char *Curl_if2ip(char *interface, char *buf, int buf_size)
+char *Curl_if2ip(const char *interface, char *buf, int buf_size)
 {
   int dummy;
   char *ip=NULL;
-  
+
   if(!interface)
     return NULL;
 
@@ -92,10 +94,13 @@ char *Curl_if2ip(char *interface, char *buf, int buf_size)
   }
   else {
     struct ifreq req;
+    size_t len = strlen(interface);
     memset(&req, 0, sizeof(req));
-    strcpy(req.ifr_name, interface);
+    if(len >= sizeof(req.ifr_name))
+      return NULL; /* this can't be a fine interface name */
+    memcpy(req.ifr_name, interface, len+1);
     req.ifr_addr.sa_family = AF_INET;
-#ifdef	IOCTL_3_ARGS
+#ifdef IOCTL_3_ARGS
     if (SYS_ERROR == ioctl(dummy, SIOCGIFADDR, &req)) {
 #else
     if (SYS_ERROR == ioctl(dummy, SIOCGIFADDR, &req, sizeof(req))) {
@@ -122,13 +127,11 @@ char *Curl_if2ip(char *interface, char *buf, int buf_size)
 
 /* -- end of if2ip() -- */
 #else
-#define if2ip(x) NULL
+char *Curl_if2ip(const char *interf, char *buf, int buf_size)
+{
+    (void) interf;
+    (void) buf;
+    (void) buf_size;
+    return NULL;
+}
 #endif
-
-/*
- * local variables:
- * eval: (load-file "../curl-mode.el")
- * end:
- * vim600: fdm=marker
- * vim: et sw=2 ts=2 sts=2 tw=78
- */

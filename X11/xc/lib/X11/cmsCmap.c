@@ -33,18 +33,20 @@
  *
  *
  */
+/* $XFree86: xc/lib/X11/cmsCmap.c,v 3.2 2003/04/13 19:22:20 dawes Exp $ */
 
 #define NEED_EVENTS
 #define NEED_REPLIES
 #include "Xlibint.h"
 #include "Xcmsint.h"
 #include "Xutil.h"
+#include "Cmap.h"
+#include "Cv.h"
 
 /*
  *      FORWARD DECLARATIONS
  */
-XcmsCmapRec *_XcmsAddCmapRec();
-static void _XcmsFreeClientCmaps();
+static void _XcmsFreeClientCmaps(Display *dpy);
 
 
 /************************************************************************
@@ -60,9 +62,9 @@ static void _XcmsFreeClientCmaps();
  *	SYNOPSIS
  */
 static XcmsCmapRec *
-CmapRecForColormap(dpy, cmap)
-    Display *dpy;
-    Colormap cmap;
+CmapRecForColormap(
+    Display *dpy,
+    Colormap cmap)
 /*
  *	DESCRIPTION
  *		Find the corresponding XcmsCmapRec for cmap.  In not found
@@ -278,10 +280,10 @@ _XcmsAddCmapRec(dpy, cmap, windowID, visual)
  *	SYNOPSIS
  */
 XcmsCmapRec *
-_XcmsCopyCmapRecAndFree(dpy, src_cmap, copy_cmap)
-    Display *dpy;
-    Colormap src_cmap;
-    Colormap copy_cmap;
+_XcmsCopyCmapRecAndFree(
+    Display *dpy,
+    Colormap src_cmap,
+    Colormap copy_cmap)
 /*
  *	DESCRIPTION
  *		Augments Xlib's XCopyColormapAndFree() to copy
@@ -317,9 +319,9 @@ _XcmsCopyCmapRecAndFree(dpy, src_cmap, copy_cmap)
  *	SYNOPSIS
  */
 void
-_XcmsDeleteCmapRec(dpy, cmap)
-    Display *dpy;
-    Colormap cmap;
+_XcmsDeleteCmapRec(
+    Display *dpy,
+    Colormap cmap)
 /*
  *	DESCRIPTION
  *		Removes and frees the specified XcmsCmapRec structure
@@ -364,8 +366,8 @@ _XcmsDeleteCmapRec(dpy, cmap)
  *	SYNOPSIS
  */
 static void
-_XcmsFreeClientCmaps(dpy)
-    Display *dpy;
+_XcmsFreeClientCmaps(
+    Display *dpy)
 /*
  *	DESCRIPTION
  *		Frees all XcmsCmapRec structures in the linked list

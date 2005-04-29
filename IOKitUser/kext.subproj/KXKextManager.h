@@ -167,6 +167,13 @@ Boolean KXKextManagerPerformsFullTests(KXKextManagerRef aKextManager);
 void KXKextManagerSetPerformsFullTests(KXKextManagerRef aKextManager,
     Boolean flag);
 
+// Set this before adding any repositories or kexts.
+Boolean KXKextManagerWillUpdateCatalog(KXKextManagerRef aKextManager);
+void KXKextManagerSetWillUpdateCatalog(KXKextManagerRef aKextManager,
+    Boolean flag);
+KXKextManagerError KXKextManagerSendAllKextPersonalitiesToCatalog(
+    KXKextManagerRef aKextManager);
+
 /*****
  * Adding or removing a repository invalidates all calculated
  * relationship info among currently known kexts. This info

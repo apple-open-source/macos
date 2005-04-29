@@ -1,0 +1,98 @@
+\section{Working from Twisted's Subversion repository\label{doc/howto/policy/svn-dev.xhtml}}
+
+
+If you're going to be doing development on Twisted itself, or if you want to take advantage of bleeding-edge features (or bug fixes) that are not yet available in a numbered release, you'll probably want to check out a tree from the Twisted Subversion repository. The Trunk is where all current development takes place.
+
+This document lists some useful tips for working on this cutting edge.
+
+\subsection{Checkout}
+
+
+Subversion tutorials can be found elsewhere, see in particular the Subversion homepage\footnote{http://subversion.tigris.org/}. The relevant data you need to check out a copy of the Twisted tree is available on the pserver page\footnote{http://twistedmatrix.com/developers/cvs}, and is as follows:\begin{verbatim}
+$ svn co svn://svn.twistedmatrix.com/svn/Twisted/trunk Twisted
+\end{verbatim}
+
+
+\subsection{Alternate tree names}
+
+
+By using \texttt{cvs checkout -d foo Twisted}, you can put the workspace tree in a directory other than ``Twisted''. I do this (with a name like ``Twisted-Subversion'') to remind myself that this tree comes from Subversion and not from a released version (like ``Twisted-1.0.5''). This practice can cause a few problems, because there are a few places in the Twisted tree that need to know where the tree starts, so they can add it to \texttt{sys.\linebreak[1]path} without requiring the user manually set their PYTHONPATH. These functions walk the current directory up to the root, looking for a directory named ``Twisted'' (sometimes exactly that, sometimes with a \texttt{.startswith} test). Generally these are test scripts or other administrative tools which expect to be launched from somewhere inside the tree (but not necessarily from the top).
+
+If you rename the tree to something other than \texttt{Twisted}, these tools may wind up trying to use Twisted source files from /usr/lib/python2.2 or elsewhere on the default \texttt{sys.\linebreak[1]path}.  Normally this won't matter, but it is good to be aware of the issue in case you run into problems.
+
+\texttt{twisted/test/process\_twisted.\linebreak[1]py} is one of these programs.
+
+\subsection{Compiling C extensions}
+
+
+There are currently 3 C extension modules in Twisted: twisted.internet.cReactor, twisted.runner.portmap, and twisted.spread.cBanana . These modules are optional, but you'll have to compile them if you want to experience their features, performance improvements, or bugs. There are two approaches.
+
+The first is to do a regular distutils \texttt{./setup.\linebreak[1]py build}, which will create a directory under \texttt{build/} to hold both the generated \texttt{.so} files as well as a copy of the 600-odd \texttt{.py} files that make up Twisted. If you do this, you will need to set your PYTHONPATH to something like \texttt{My\linebreak[1]Dir/Twisted/build/lib.\linebreak[1]linux-i686-2.\linebreak[1]2} in order to run code against the Subversion twisted (as opposed to whatever's installed in \texttt{/usr/lib/python2.\linebreak[1]2} or wherever python usually looks). In addition, you will need to re-run the \texttt{build} command \begin{em}every time\end{em} you change a \texttt{.py} file. The \texttt{build/lib.\linebreak[1]foo} directory is a copy of the main tree, and that copy is only updated when you re-run \texttt{setup.\linebreak[1]py build}. It is easy to forget this and then wonder why your code changes aren't being expressed.
+
+The second technique is to build the C modules in place, and point your PYTHONPATH at the top of the tree, like \texttt{My\linebreak[1]Dir/Twisted}. This way you're using the .py files in place too, removing the confusion a forgotten rebuild could cause with the separate build/ directory above. To build the C modules in place, do \texttt{./setup.\linebreak[1]py build\_ext -i}. You only need to re-run this command when you change the C files. Note that \texttt{setup.\linebreak[1]py} is not Make, it does not always get the dependencies right (\texttt{.h} files in particular), so if you are hacking on the cReactor you may need to manually delete the \texttt{.o} files before doing a rebuild. Also note that doing a \texttt{setup.\linebreak[1]py clean} will remove the \texttt{.o} files but not the final \texttt{.so} files, they must be deleted by hand.
+
+\subsection{Running tests}
+
+
+To run the full unit-test suite, do:\begin{verbatim}
+./bin/trial -v twisted.test
+\end{verbatim}
+
+
+To run a single test file (like \texttt{twisted/test/test\_defer.\linebreak[1]py}), do one of:\begin{verbatim}
+./bin/trial -v twisted.test.test_defer
+\end{verbatim}
+
+
+or\begin{verbatim}
+./bin/trial -v twisted/test/test_defer.py
+\end{verbatim}
+
+
+To run any tests that are related to a code file, like \texttt{twisted/protocols/imap4.\linebreak[1]py}, do:\begin{verbatim}
+./bin/trial -v --testmodule twisted/protocols/imap4.py
+\end{verbatim}
+
+
+This depends upon the \texttt{.py} file having an appropriate ``test-case-name'' tag that indicates which test cases provide coverage. See the \textit{Test Standards}\loreref{doc/howto/policy/test-standard.xhtml} document for details about using ``test-case-name''. In this example, the \texttt{twisted.\linebreak[1]test.\linebreak[1]test\_imap} test will be run.
+
+Many tests create temporary files in /tmp or ./\_trial\_temp, but everything in /tmp should be deleted when the test finishes. Sometimes these cleanup calls are commented out by mistake, so if you see a stray /tmp/@12345.1 directory, it is probably from test\_dirdbm or test\_popsicle. Look for an \texttt{rmtree} that has been commented out and complain to the last developer who touched that file.
+
+\subsection{Admin scripts}
+
+
+The \texttt{admin/} directory holds several administrative tools, some of which are used when turning a Subversion checkout into a full numbered release.
+
+\subsection{Building docs}
+
+
+Twisted documentation (not including the automatically-generated API docs) is in \textit{Lore Format}\loreref{doc/howto/lore.xhtml}. These \texttt{.html} files are translated into \texttt{.xhtml} files by the ``bin/lore'' script, which can check the files for syntax problems (hlint), process multiple files at once, insert the files into a template before processing, and can also translate the files into LaTeX or PostScript instead.
+
+To generate the full documentation set, run the \texttt{admin/process-docs} shell script. This will create processed HTML, man pages, and 250-page ``book.pdf'' file containing all the docs rolled into a single nicely-formatted volume. This script needs several helper tools to handle the images and the LaTeX conversion: debian packages ``tetex-extra'', ``netpbm'', and ``gs-common'' should be sufficient. The docs-build process currently takes about 3 minutes on the twistedmatrix.com build machine.
+
+To build just the HTML form of the howto/ docs, do a subset of the work done in \texttt{admin/process-docs}, such as the following. Note that the index file will be placed in \texttt{doc/howto/index.\linebreak[1]xhtml}.\begin{verbatim}
+./bin/lore -p --config template=doc/howto/template.tpl doc/howto/*.html
+\end{verbatim}
+
+
+To run hlint over a single Lore document, such as \texttt{doc/howto/cvs-dev.\linebreak[1]html}, do the following. This is useful because the HTML conversion may bail without a useful explanation if it sees mismatched tags.\begin{verbatim}
+./bin/lore -n --output lint doc/howto/cvs-dev.html
+\end{verbatim}
+
+
+To convert it to HTML (including markup, interpolation of examples, footnote processing, etc), do the following. The results will be placed in \texttt{doc/howto/cvs-dev.\linebreak[1]xhtml}:\begin{verbatim}
+./bin/lore -p --config template=doc/howto/template.tpl doc/howto/cvs-dev.html
+\end{verbatim}
+
+
+Note that hyperlinks to other documents may not be quite right unless you include a ``-l'' argument to \texttt{bin/lore}. Links in the .html file are to .html targets: when the .html is turned into .xhtml, the link targets are supposed to be turned into .xhtml also. In addition to this, Lore markup of the form $<$code class="API"$>$ is supposed to turn into a link to the corresponding API reference page. These links will probably be wrong unless the correct base URL is provided to Lore.
+
+\subsection{Emacs}
+
+
+Check out the TwistedEmacs module (which lives in the same Subversion repository, just do ``cvs checkout TwistedEmacs'' instead of ``cvs checkout Twisted''). \texttt{twisted-dev.\linebreak[1]el} has several utility functions which make it easier to grep for methods, run test cases, process Lore documents, etc.
+
+\subsection{Building Debian packages}
+
+
+Running ``debuild -uc -us'' from the top of the Subversion tree will (hopefully) result in a collection of .deb packages in the tree's parent directory. This requires other tools to be installed (devscripts for one), and requires that ``admin/process-docs'' be run first. The .debs created will have a version number based upon whatever is at the top of \texttt{debian/changelog}, which is generally only updated when an official release is made, so be careful that you don't create confusingly-numbered package files. 

@@ -38,7 +38,7 @@
 
 extern void getpasswd(char *, int, int, int, int, char *, char **, char**, char **);
 
-static int do_compat = 1;
+//static int do_compat = 1; (unused)
 
 char *
 getline(FILE *fp)
@@ -197,8 +197,8 @@ rewrite_file(char *pwname, FILE *fp, struct passwd *newpw)
 			if (cfp != NULL) fprintf(cfp, "%s\n", line);
 			continue;
 		}
-
-		fprintf(tfp, "%s:%s:%d:%d:%s:%d:%d:%s:%s:%s\n",
+		
+		fprintf(tfp, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
 			newpw->pw_name, newpw->pw_passwd, newpw->pw_uid, newpw->pw_gid,
 			newpw->pw_class, newpw->pw_change, newpw->pw_expire,
 			newpw->pw_gecos, newpw->pw_dir, newpw->pw_shell);

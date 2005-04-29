@@ -1,0 +1,8 @@
+2003-08-02 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	ipentry.tcl: added highlightcolor, highlightbackground, highlightthickness options
+	ipentry.man: added docs for above, as well as disabledforeground, readonlybackground
+
+2003-07-23 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	initial import

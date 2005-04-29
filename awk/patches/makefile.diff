@@ -1,0 +1,10 @@
+--- makefile.orig	2004-09-29 17:22:24.000000000 -0700
++++ makefile	2004-09-29 17:27:20.000000000 -0700
+@@ -59,6 +59,7 @@
+ 	$(CC) $(CFLAGS) -c ytab.c
+ 
+ proctab.c:	maketab
++	/bin/mv proctab.c proctab.c.orig
+ 	./maketab >proctab.c
+ 
+ maketab:	ytab.h maketab.c

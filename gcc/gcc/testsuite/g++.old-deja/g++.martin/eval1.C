@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Postfix expression must be evaluated even if accessing a static member.
 
 struct S
@@ -9,7 +10,7 @@ struct S
 S* S::foo(){
   i = 0;
   return this;
-};
+}
 
 int S::i = 1;
 int main(void)

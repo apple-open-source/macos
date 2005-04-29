@@ -34,6 +34,5 @@
 #include "math/m_xform.h"
 
 void _mesa_init_sse_transform_asm( void );
-void _mesa_init_sse_vertex_asm( void );
 
 #endif

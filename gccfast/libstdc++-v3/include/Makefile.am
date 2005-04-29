@@ -169,6 +169,41 @@ bits_headers = \
 	${bits_srcdir}/valarray_meta.h \
 	${bits_srcdir}/vector.tcc
 
+# APPLE LOCAL begin libstdc++ debug mode
+# Debug mode headers
+debug_srcdir = ${glibcpp_srcdir}/include/debug
+debug_builddir = ./debug
+debug_headers = \
+	${debug_srcdir}/bitset \
+        ${debug_srcdir}/dbg_bitset.h \
+        ${debug_srcdir}/dbg_deque.h \
+        ${debug_srcdir}/dbg_hash_map.h \
+        ${debug_srcdir}/dbg_hash_multimap.h \
+        ${debug_srcdir}/dbg_hash_multiset.h \
+        ${debug_srcdir}/dbg_hash_set.h \
+        ${debug_srcdir}/dbg_list.h \
+        ${debug_srcdir}/dbg_map.h \
+        ${debug_srcdir}/dbg_multimap.h \
+        ${debug_srcdir}/dbg_multiset.h \
+        ${debug_srcdir}/dbg_set.h \
+        ${debug_srcdir}/dbg_vector.h \
+        ${debug_srcdir}/debug.h \
+        ${debug_srcdir}/deque \
+        ${debug_srcdir}/formatter.h \
+        ${debug_srcdir}/hash_map \
+        ${debug_srcdir}/hash_set \
+        ${debug_srcdir}/list \
+        ${debug_srcdir}/map \
+        ${debug_srcdir}/safe_base.h \
+        ${debug_srcdir}/safe_iterator.h \
+        ${debug_srcdir}/safe_iterator.tcc \
+        ${debug_srcdir}/safe_sequence.h \
+        ${debug_srcdir}/set \
+        ${debug_srcdir}/string \
+        ${debug_srcdir}/support.h \
+        ${debug_srcdir}/vector
+# APPLE LOCAL end libstdc++ debug mode
+
 backward_srcdir = ${glibcpp_srcdir}/include/backward
 backward_builddir = ./backward
 backward_headers = \
@@ -340,9 +375,10 @@ thread_target_headers = \
 
 # List of all timestamp files.  By keeping only one copy of this list, both
 # CLEANFILES and all-local are kept up-to-date.
+# APPLE LOCAL libstdc++ debug mode
 allstamps = \
 	stamp-std stamp-bits stamp-c_base stamp-c_compatibility \
-	stamp-backward stamp-ext stamp-target
+	stamp-debug stamp-backward stamp-ext stamp-target
 
 # Here are the rules for building the headers
 all-local: ${target_builddir}/c++config.h ${thread_target_headers} ${allstamps}
@@ -371,6 +407,15 @@ stamp-bits: ${bits_headers}
 	fi ;\
 	(cd ${bits_builddir} && @LN_S@ $? . || true) ;\
 	echo `date` > stamp-bits
+
+# APPLE LOCAL begin libstdc++ debug mode
+stamp-debug: ${debug_headers}
+	@if [ ! -d "${debug_builddir}" ]; then \
+	  mkdir -p ${debug_builddir} ;\
+	fi ;\
+	(cd ${debug_builddir} && @LN_S@ $? . || true) ;\
+	echo `date` > stamp-debug
+# APPLE LOCAL end libstdc++ debug mode
 
 stamp-c_base: ${c_base_headers} ${c_base_headers_extra} 
 	@if [ ! -d "${c_base_builddir}" ]; then \
@@ -486,6 +531,11 @@ install-data-local:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${bits_builddir}
 	for file in ${bits_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${bits_builddir}; done
+# APPLE LOCAL begin libstdc++ debug mode	
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${debug_builddir}
+	for file in ${debug_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${debug_builddir}; done
+# APPLE LOCAL end libstdc++ debug mode
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${backward_builddir}
 	for file in ${backward_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${backward_builddir}; done

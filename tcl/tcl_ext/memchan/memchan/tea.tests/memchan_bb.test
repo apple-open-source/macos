@@ -1,0 +1,86 @@
+# -*- tcl -*-
+# Commands covered:	memchan
+#
+# This file contains a collection of tests for one or more of the commands
+# the Memchan extension. Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: memchan_bb.test,v 1.1 1999/09/18 13:36:03 aku Exp $
+
+
+test memchan-basic-1.0 {Create memory channels} {
+    set chan [memchan]
+    close $chan
+    regsub -all {[0-9]} $chan {} chan
+    set chan
+} {mem}
+
+
+test memchan-basic-1.1 {Check tell on memory channels} {
+    set chan [memchan]
+    set res [tell $chan]
+    close $chan
+    set res
+} {0}
+
+
+test memchan-basic-1.2 {Check seek on memory channels} {
+    set chan [memchan]
+    set res [seek $chan 0]
+    close $chan
+    set res
+} {}
+
+
+test memchan-basic-1.3 {Check fconfigure/get on memory channels} {
+    set chan [memchan]
+    set conf [fconfigure $chan]
+    set res  [list]
+    lappend res [lrange $conf [set x [lsearch -exact $conf -length]] [incr x]]
+    lappend res [lrange $conf [set x [lsearch -exact $conf -allocated]] [incr x]]
+    close $chan
+    set res
+} {{-length 0} {-allocated 0}}
+
+
+test memchan-basic-1.4 {Check fconfigure/get -length} {
+    set chan [memchan]
+    set res  [fconfigure $chan -length]
+    close $chan
+    set res
+} {0}
+
+
+test memchan-basic-1.5 {check -initial-size} {
+    set chan [memchan -init 1024]
+    set res  [fconfigure $chan -allocated]
+    close $chan
+    set res
+} {1024}
+
+
+test memchan-rw-1.0 {Write, length and tell} {
+    set chan [memchan]
+    puts -nonewline $chan {hello world}
+    set res [list [fconfigure $chan -length] [tell $chan]]
+    close $chan
+    set res
+} {11 11}
+
+test memchan-rw-1.1 {Write, seek and read} {
+    set chan [memchan]
+    puts -nonewline $chan {hello world!}
+    set res [list [fconfigure $chan -length] [tell $chan]]
+    seek $chan 0
+    lappend res [read $chan]
+    close $chan
+    set res
+} {12 12 {hello world!}}
+
+
+::tcltest::cleanupTests

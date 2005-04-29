@@ -51,9 +51,8 @@ class IOFireWireDeviceAux : public IOFireWireNubAux
 	
 protected:
 	
-	bool 		fTerminated;
-	IOFWSpeed	fMaxSpeed;
 	UInt32		fUnitCount;
+	IOFWSpeed	fMaxSpeed;
 	
 	/*! 
 		@struct ExpansionData
@@ -71,15 +70,14 @@ protected:
 
     virtual bool init( IOFireWireDevice * primary );
 	virtual	void free();
-	
-	virtual bool isTerminated( void );
-	virtual void setTerminated( bool terminated );
 
+	virtual bool isTerminated( void );
+	virtual void setTerminationState( TerminationState state );
 	void setMaxSpeed( IOFWSpeed speed );
 	
 	void setUnitCount( UInt32 count );
 	UInt32 getUnitCount( void );
-	
+		
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireDeviceAux, 0);
     OSMetaClassDeclareReservedUnused(IOFireWireDeviceAux, 1);
@@ -198,12 +196,7 @@ protected:
 public:
 	inline bool isTerminated( void )
 		{ return ((IOFireWireDeviceAux*)fAuxiliary)->isTerminated(); }
-
-protected:	
-	inline void setTerminated( bool terminated )
-		{ ((IOFireWireDeviceAux*)fAuxiliary)->setTerminated( terminated ); }
-
-public:
+		
 	inline void setMaxSpeed( IOFWSpeed speed )
 		{ ((IOFireWireDeviceAux*)fAuxiliary)->setMaxSpeed( speed ); }		
 

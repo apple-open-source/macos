@@ -11,9 +11,6 @@ CFLAG=-g
 INSTALL_PREFIX=
 OPENSSLDIR=     /usr/local/ssl
 INSTALLTOP=/usr/local/ssl
-BINDIR=$(INSTALLTOP)/bin
-LIBDIR=$(INSTALLTOP)/lib
-INCLUDEDIR=$(INSTALLTOP)/include/openssl
 MAKE=           make -f Makefile.ssl
 MAKEDEPEND=	$(TOP)/util/domd $(TOP)
 MAKEFILE=       Makefile.ssl
@@ -59,8 +56,8 @@ links:
 install:
 	@for i in $(EXHEADER) ; \
 	do  \
-	(cp $$i $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i; \
-	chmod 644 $(INSTALL_PREFIX)$(INCLUDEDIR)/$$i ); \
+	(cp $$i $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i; \
+	chmod 644 $(INSTALL_PREFIX)$(INSTALLTOP)/include/openssl/$$i ); \
 	done;
 
 tags:

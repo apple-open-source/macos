@@ -1,5 +1,11 @@
---- Makefile.in	10 Feb 2004 17:06:11 -0000	1.98
-+++ Makefile.in	22 Apr 2004 23:39:42 -0000
+After applying this patch and running configure, you MUST run this
+command before "make":
+
+    make proto
+
+
+--- orig/Makefile.in	2004-08-13 07:18:58
++++ Makefile.in	2004-07-03 20:13:41
 @@ -34,7 +34,7 @@ ZLIBOBJ=zlib/deflate.o zlib/infblock.o z
  OBJS1=rsync.o generator.o receiver.o cleanup.o sender.o exclude.o util.o \
  	main.o checksum.o match.o syscall.o log.o backup.o
@@ -9,8 +15,8 @@
  OBJS3=progress.o pipe.o
  DAEMON_OBJ = params.o loadparm.o clientserver.o access.o connection.o authenticate.o
  popt_OBJS=popt/findme.o  popt/popt.o  popt/poptconfig.o \
---- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ chmod.c	22 Apr 2004 23:39:43 -0000
+--- orig/chmod.c	2004-06-18 17:22:08
++++ chmod.c	2004-06-18 17:22:08
 @@ -0,0 +1,184 @@
 +#include "rsync.h"
 +
@@ -196,26 +202,18 @@
 +	}
 +	return 0;
 +}
---- flist.c	22 Apr 2004 22:17:15 -0000	1.216
-+++ flist.c	22 Apr 2004 23:39:43 -0000
-@@ -33,6 +33,7 @@ extern int verbose;
- extern int do_progress;
- extern int am_root;
- extern int am_server;
-+extern int am_sender;
- extern int am_daemon;
- extern int always_checksum;
- extern int module_id;
-@@ -64,6 +65,8 @@ extern int sanitize_paths;
- extern int read_batch;
- extern int write_batch;
+--- orig/flist.c	2004-09-21 09:40:27
++++ flist.c	2004-09-18 01:51:11
+@@ -65,6 +65,8 @@ extern int delete_excluded;
+ extern int orig_umask;
+ extern int list_only;
  
 +extern struct chmod_mode_struct *chmod_modes;
 +
  extern struct exclude_list_struct exclude_list;
  extern struct exclude_list_struct server_exclude_list;
  extern struct exclude_list_struct local_exclude_list;
-@@ -853,7 +856,10 @@ skip_excludes:
+@@ -869,7 +871,10 @@ skip_excludes:
  	file->flags = flags;
  	file->modtime = st.st_mtime;
  	file->length = st.st_size;
@@ -227,9 +225,9 @@
  	file->uid = st.st_uid;
  	file->gid = st.st_gid;
  
---- options.c	17 Apr 2004 17:07:23 -0000	1.147
-+++ options.c	22 Apr 2004 23:39:43 -0000
-@@ -121,6 +121,7 @@ char *log_format = NULL;
+--- orig/options.c	2004-09-23 17:42:07
++++ options.c	2004-07-03 20:13:41
+@@ -126,6 +126,7 @@ char *log_format = NULL;
  char *password_file = NULL;
  char *rsync_path = RSYNC_PATH;
  char *backup_dir = NULL;
@@ -237,16 +235,16 @@
  char backup_dir_buf[MAXPATHLEN];
  int rsync_port = RSYNC_PORT;
  int link_dest = 0;
-@@ -134,6 +135,8 @@ int list_only = 0;
- #define MAX_BATCH_PREFIX_LEN 256	/* Must be less than MAXPATHLEN-13 */
- char *batch_prefix = NULL;
+@@ -138,6 +139,8 @@ int list_only = 0;
+ #define MAX_BATCH_NAME_LEN 256	/* Must be less than MAXPATHLEN-13 */
+ char *batch_name = NULL;
  
 +struct chmod_mode_struct *chmod_modes = NULL;
 +
  static int daemon_opt;   /* sets am_daemon after option error-reporting */
  static int modify_window_set;
  
-@@ -241,6 +244,7 @@ void usage(enum logcode F)
+@@ -253,6 +256,7 @@ void usage(enum logcode F)
    rprintf(F," -g, --group                 preserve group\n");
    rprintf(F," -D, --devices               preserve devices (root only)\n");
    rprintf(F," -t, --times                 preserve times\n");
@@ -254,7 +252,7 @@
    rprintf(F," -S, --sparse                handle sparse files efficiently\n");
    rprintf(F," -n, --dry-run               show what would have been transferred\n");
    rprintf(F," -W, --whole-file            copy whole files, no incremental checks\n");
-@@ -344,6 +348,7 @@ static struct poptOption long_options[] 
+@@ -360,6 +364,7 @@ static struct poptOption long_options[] 
    {"perms",           'p', POPT_ARG_NONE,   &preserve_perms, 0, 0, 0 },
    {"owner",           'o', POPT_ARG_NONE,   &preserve_uid, 0, 0, 0 },
    {"group",           'g', POPT_ARG_NONE,   &preserve_gid, 0, 0, 0 },
@@ -262,8 +260,8 @@
    {"devices",         'D', POPT_ARG_NONE,   &preserve_devices, 0, 0, 0 },
    {"times",           't', POPT_ARG_NONE,   &preserve_times, 0, 0, 0 },
    {"checksum",        'c', POPT_ARG_NONE,   &always_checksum, 0, 0, 0 },
-@@ -720,6 +725,13 @@ int parse_arguments(int *argc, const cha
- 		exit_cleanup(RERR_SYNTAX);
+@@ -804,6 +809,13 @@ int parse_arguments(int *argc, const cha
+ 		return 0;
  	}
  
 +	if (chmod_mode && !(chmod_modes = parse_chmod(chmod_mode))) {
@@ -276,33 +274,21 @@
  	if (do_progress && !verbose)
  		verbose = 1;
  
-@@ -951,6 +963,11 @@ void server_options(char **args,int *arg
- 		 */
- 		args[ac++] = link_dest ? "--link-dest" : "--compare-dest";
+@@ -1087,6 +1099,11 @@ void server_options(char **args,int *arg
  		args[ac++] = compare_dest;
-+	}
-+
+ 	}
+ 
 +	if (chmod_mode && !am_sender) {
 +		args[ac++] = "--chmod";
 +		args[ac++] = chmod_mode;
- 	}
- 
++	}
++
  	if (files_from && (!am_sender || remote_filesfrom_file)) {
---- proto.h	22 Apr 2004 09:58:09 -0000	1.189
-+++ proto.h	22 Apr 2004 23:39:43 -0000
-@@ -25,6 +25,9 @@ void file_checksum(char *fname,char *sum
- void sum_init(void);
- void sum_update(char *p, int len);
- void sum_end(char *sum);
-+struct chmod_mode_struct *parse_chmod(char *modestr);
-+int tweak_mode(int mode, struct chmod_mode_struct *chmod_modes);
-+int free_chmod_mode(struct chmod_mode_struct *chmod_modes);
- void close_all(void);
- void _exit_cleanup(int code, const char *file, int line);
- void cleanup_disable(void);
---- rsync.yo	24 Apr 2004 06:16:04 -0000	1.164
-+++ rsync.yo	24 Apr 2004 07:32:05 -0000
-@@ -299,6 +299,7 @@ verb(
+ 		if (remote_filesfrom_file) {
+ 			args[ac++] = "--files-from";
+--- orig/rsync.yo	2004-09-24 16:42:30
++++ rsync.yo	2004-07-03 20:13:41
+@@ -330,6 +330,7 @@ verb(
   -g, --group                 preserve group
   -D, --devices               preserve devices (root only)
   -t, --times                 preserve times
@@ -310,11 +296,10 @@
   -S, --sparse                handle sparse files efficiently
   -n, --dry-run               show what would have been transferred
   -W, --whole-file            copy whole files, no incremental checks
-@@ -543,6 +544,14 @@ modified cannot be effective; in other w
- cause the next transfer to behave as if it used -I, and all files will have
- their checksums compared and show up in log messages even if they haven't
- changed.
-+
+@@ -610,6 +611,14 @@ cause the next transfer to behave as if 
+ updated (though the rsync algorithm will make the update fairly efficient
+ if the files haven't actually changed, you're much better off using -t).
+ 
 +dit(bf(--chmod)) This options tells rsync to apply the listed "chmod" pattern
 +to the permission of the files on the destination.  In addition to the normal
 +parsing rules specified in the chmod manpage, you can specify an item that
@@ -322,11 +307,12 @@
 +item that should only apply to a file by prefixing it with a 'F'.  For example:
 +
 +quote(--chmod=Dg+s,ug+w,Fo-w,+X)
- 
++
  dit(bf(-n, --dry-run)) This tells rsync to not do any file transfers,
  instead it will just report the actions it would have taken.
---- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ testsuite/chmod.test	22 Apr 2004 23:39:44 -0000
+ 
+--- orig/testsuite/chmod-option.test	2004-06-18 17:22:09
++++ testsuite/chmod-option.test	2004-06-18 17:22:09
 @@ -0,0 +1,43 @@
 +#! /bin/sh
 +

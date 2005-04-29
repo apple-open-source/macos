@@ -1,0 +1,52 @@
+.TH ECC 1 "June 9,1992"
+.AT 3
+.SH NAME
+ecc \-\- Reed \- Solomon Error Correcting Coder
+.SH SYNOPSIS
+.B ecc
+[
+.B \-edv
+] 
+.SH DESCRIPTION
+.I Ecc
+reads blocks of bytes from stdin, applies the (255,249,7) Reed - Solomon
+Error Correcting block code, and writes the resulting block to stdout.
+Ecc is capable of correcting three byte errors in a block of 255 bytes,
+and is capable of detecting more severe errors.
+.SH OPTIONS
+.TP
+.B \-e
+Read blocks of 248 bytes or less from stdin, and encode them, generating six 
+bytes of redundancy.  A 256 byte code block is then written to stdout, 
+consisting of an ASCII letter G, a length byte, 248 bytes read from stdin and
+padded as necessary, and the six redundancy bytes.
+.TP
+.B \-d
+Read blocks of 256 bytes from stdin, and decode them.  Any errors discovered
+during the decoding process are reported to stderr.  The number of bytes
+indicated by the length byte are then written to stdout.
+.TP
+.B \-v
+Write the 
+.I ecc
+version number to stderr.
+.SH DIAGNOSTICS
+.TP
+.I "nn byte error in block xx."
+.I Ecc
+found nn error bytes in consecutive block xx, and was able to correct the
+errors.
+.TP
+.I "unrecoverable error in block xx."
+Four or more errors were detected in consecutive block xx.  The flawed block
+is written uncorrected to stdout.
+.TP
+.I "sync error in block xx."
+The block sync character G was not found.  This usually means bytes were
+added or subtracted from the stream of coded blocks.
+.SH AUTHOR
+Paul Flaherty (paulf@Stanford.EDU)
+.SH "SEE ALSO"
+uuencode(1),dd(1)
+.SH BUGS
+Doesn't automatically correct dropped bytes.

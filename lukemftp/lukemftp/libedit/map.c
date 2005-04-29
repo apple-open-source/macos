@@ -1,4 +1,4 @@
-/*	$NetBSD: map.c,v 1.11 2000/09/04 22:06:30 lukem Exp $	*/
+/*	$NetBSD: map.c,v 1.15 2002/03/18 16:00:55 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,15 +36,18 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * map.c: Editor function definitions
  */
-#include "sys.h"
+#include <stdlib.h>
 #include "el.h"
 
 #define	N_KEYS 256
 
-private void	map_print_key(EditLine *, el_action_t *, char *);
+private void	map_print_key(EditLine *, el_action_t *, const char *);
 private void	map_print_some_keys(EditLine *, el_action_t *, int, int);
 private void	map_print_all_keys(EditLine *);
 private void	map_init_nls(EditLine *);
@@ -53,7 +56,7 @@ private void	map_init_meta(EditLine *);
 /* keymap tables ; should be N_KEYS*sizeof(KEYCMD) bytes long */
 
 
-private el_action_t  el_map_emacs[] = {
+private const el_action_t  el_map_emacs[] = {
 	/*   0 */	EM_SET_MARK,		/* ^@ */
 	/*   1 */	ED_MOVE_TO_BEG,		/* ^A */
 	/*   2 */	ED_PREV_CHAR,		/* ^B */
@@ -320,7 +323,7 @@ private el_action_t  el_map_emacs[] = {
  * insert mode characters are in the normal keymap, and command mode
  * in the extended keymap.
  */
-private el_action_t  el_map_vi_insert[] = {
+private const el_action_t  el_map_vi_insert[] = {
 #ifdef KSHVI
 	/*   0 */	ED_UNASSIGNED,		/* ^@ */
 	/*   1 */	ED_INSERT,		/* ^A */
@@ -621,7 +624,7 @@ private el_action_t  el_map_vi_insert[] = {
 	/* 255 */	ED_UNASSIGNED		/* M-^? */
 };
 
-private el_action_t el_map_vi_command[] = {
+private const el_action_t el_map_vi_command[] = {
 	/*   0 */	ED_UNASSIGNED,		/* ^@ */
 	/*   1 */	ED_MOVE_TO_BEG,		/* ^A */
 	/*   2 */	ED_UNASSIGNED,		/* ^B */
@@ -893,24 +896,32 @@ map_init(EditLine *el)
          */
 #ifdef MAP_DEBUG
 	if (sizeof(el_map_emacs) != N_KEYS * sizeof(el_action_t))
-		abort();
+		EL_ABORT((el->errfile, "Emacs map incorrect\n"));
 	if (sizeof(el_map_vi_command) != N_KEYS * sizeof(el_action_t))
-		abort();
+		EL_ABORT((el->errfile, "Vi command map incorrect\n"));
 	if (sizeof(el_map_vi_insert) != N_KEYS * sizeof(el_action_t))
-		abort();
+		EL_ABORT((el->errfile, "Vi insert map incorrect\n"));
 #endif
 
 	el->el_map.alt = (el_action_t *)el_malloc(sizeof(el_action_t) * N_KEYS);
+	if (el->el_map.alt == NULL)
+		return (-1);
 	el->el_map.key = (el_action_t *)el_malloc(sizeof(el_action_t) * N_KEYS);
+	if (el->el_map.key == NULL)
+		return (-1);
 	el->el_map.emacs = el_map_emacs;
 	el->el_map.vic = el_map_vi_command;
 	el->el_map.vii = el_map_vi_insert;
 	el->el_map.help = (el_bindings_t *) el_malloc(sizeof(el_bindings_t) *
 	    EL_NUM_FCNS);
+	if (el->el_map.help == NULL)
+		return (-1);
 	(void) memcpy(el->el_map.help, help__get(),
 	    sizeof(el_bindings_t) * EL_NUM_FCNS);
-	el->el_map.func = (el_func_t *) el_malloc(sizeof(el_func_t) *
+	el->el_map.func = (el_func_t *)el_malloc(sizeof(el_func_t) *
 	    EL_NUM_FCNS);
+	if (el->el_map.func == NULL)
+		return (-1);
 	memcpy(el->el_map.func, func__get(), sizeof(el_func_t) * EL_NUM_FCNS);
 	el->el_map.nfunc = EL_NUM_FCNS;
 
@@ -1010,8 +1021,8 @@ map_init_vi(EditLine *el)
 	int i;
 	el_action_t *key = el->el_map.key;
 	el_action_t *alt = el->el_map.alt;
-	el_action_t *vii = el->el_map.vii;
-	el_action_t *vic = el->el_map.vic;
+	const el_action_t *vii = el->el_map.vii;
+	const el_action_t *vic = el->el_map.vic;
 
 	el->el_map.type = MAP_VI;
 	el->el_map.current = el->el_map.key;
@@ -1041,7 +1052,7 @@ map_init_emacs(EditLine *el)
 	char buf[3];
 	el_action_t *key = el->el_map.key;
 	el_action_t *alt = el->el_map.alt;
-	el_action_t *emacs = el->el_map.emacs;
+	const el_action_t *emacs = el->el_map.emacs;
 
 	el->el_map.type = MAP_EMACS;
 	el->el_map.current = el->el_map.key;
@@ -1109,7 +1120,7 @@ map_get_editor(EditLine *el, const char **editor)
  *	Print the function description for 1 key
  */
 private void
-map_print_key(EditLine *el, el_action_t *map, char *in)
+map_print_key(EditLine *el, el_action_t *map, const char *in)
 {
 	char outbuf[EL_BUFSIZ];
 	el_bindings_t *bp;
@@ -1179,7 +1190,7 @@ map_print_some_keys(EditLine *el, el_action_t *map, int first, int last)
 		    first, el->el_map.alt[first]);
 	}
 #endif
-	abort();
+	EL_ABORT((el->el_errfile, "Error printing keys\n"));
 }
 
 
@@ -1222,14 +1233,14 @@ map_print_all_keys(EditLine *el)
  *	Add/remove/change bindings
  */
 protected int
-map_bind(EditLine *el, int argc, char **argv)
+map_bind(EditLine *el, int argc, const char **argv)
 {
 	el_action_t *map;
 	int ntype, rem;
-	char *p;
+	const char *p;
 	char inbuf[EL_BUFSIZ];
 	char outbuf[EL_BUFSIZ];
-	char *in = NULL;
+	const char *in = NULL;
 	char *out = NULL;
 	el_bindings_t *bp;
 	int cmd;
@@ -1361,7 +1372,7 @@ map_bind(EditLine *el, int argc, char **argv)
 		break;
 
 	default:
-		abort();
+		EL_ABORT((el->el_errfile, "Bad XK_ type\n", ntype));
 		break;
 	}
 	return (0);
@@ -1374,15 +1385,19 @@ map_bind(EditLine *el, int argc, char **argv)
 protected int
 map_addfunc(EditLine *el, const char *name, const char *help, el_func_t func)
 {
+	void *p;
 	int nf = el->el_map.nfunc + 2;
 
 	if (name == NULL || help == NULL || func == NULL)
 		return (-1);
 
-	el->el_map.func = (el_func_t *)
-	    el_realloc(el->el_map.func, nf * sizeof(el_func_t));
-	el->el_map.help = (el_bindings_t *)
-	    el_realloc(el->el_map.help, nf * sizeof(el_bindings_t));
+	if ((p = el_realloc(el->el_map.func, nf * sizeof(el_func_t))) == NULL)
+		return (-1);
+	el->el_map.func = (el_func_t *) p;
+	if ((p = el_realloc(el->el_map.help, nf * sizeof(el_bindings_t)))
+	    == NULL)
+		return (-1);
+	el->el_map.help = (el_bindings_t *) p;
 
 	nf = el->el_map.nfunc;
 	el->el_map.func[nf] = func;

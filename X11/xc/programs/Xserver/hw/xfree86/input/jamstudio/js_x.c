@@ -20,7 +20,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/jamstudio/js_x.c,v 1.2 2002/11/15 16:05:25 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/jamstudio/js_x.c,v 1.4 2003/11/03 05:11:47 tsi Exp $ */
 
 #include <sys/types.h>
 #include "xf86Version.h"
@@ -80,15 +80,10 @@ xf86JS_XReadInput(LocalDevicePtr local)
    JS_XDevPtr priv = local->private;
    struct hiddev_event event;
    int x = priv->jsxOldX, y = priv->jsxOldY, press = priv->jsxOldPress;
-   int btn = priv->jsxOldBtn, len = 0;
+   int btn = priv->jsxOldBtn;
    int btn_notify = priv->jsxOldNotify;
 
-#if 0
-   SYSCALL(len = read(local->fd, &event, sizeof(struct hiddev_event)));
-   if (len < sizeof(struct hiddev_event))
-      return;
-#endif
-   while ((len = read(local->fd, &event, sizeof(struct hiddev_event)))
+   while (read(local->fd, &event, sizeof(struct hiddev_event))
 	  == sizeof(struct hiddev_event)) {
       switch (event.hid) {
       case JSX_XCOORD:
@@ -238,9 +233,18 @@ xf86JS_XSwitchMode(ClientPtr client, DeviceIntPtr dev, int mode)
 static LocalDevicePtr
 xf86JS_XAllocate(InputDriverPtr drv)
 {
-   LocalDevicePtr local = xf86AllocateInput(drv, 0);
+   LocalDevicePtr local;
    JS_XDevPtr priv = xalloc(sizeof(JS_XDevRec));
 
+   if (!priv)
+       return NULL;
+
+   local = xf86AllocateInput(drv, 0);
+   if (!local) {
+       xfree(priv);
+       return NULL;
+   }
+	   
    memset(priv, 0, sizeof(JS_XDevRec));
    local->name = "JAMSTUDIO";
    local->flags = 0;
@@ -294,11 +298,6 @@ xf86JS_XInit(InputDriverPtr drv, IDevPtr dev, int flags)
 
    if ((local = xf86JS_XAllocate(drv)) == NULL) {
       xf86Msg(X_ERROR, "Could not allocate local device.\n");
-      return NULL;
-   }
-   if (local->private == NULL) {
-      xf86Msg(X_ERROR, "Could not allocate private structure.\n");
-      xfree(local);
       return NULL;
    }
    local->conf_idev = dev;

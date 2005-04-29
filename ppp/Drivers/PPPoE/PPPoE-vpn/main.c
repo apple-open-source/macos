@@ -58,7 +58,6 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <pthread.h>
@@ -73,7 +72,10 @@
 #include "../../../Family/ppp_defs.h"
 #include "../../../Family/if_ppp.h"
 #include "../../../Family/ppp_domain.h"
+#include "../../../Helpers/vpnd/vpnd.h"
 #include "../../../Helpers/vpnd/vpnplugins.h"
+#include "../../../Helpers/vpnd/RASSchemaDefinitions.h"
+#include "../../../Helpers/vpnd/cf_utils.h"
 #include "../PPPoE-extension/PPPoE.h"
 
 
@@ -83,12 +85,14 @@
 // ----------------------------------------------------------------------------
 
 static CFBundleRef 	bundle = 0;
-static int 			listen_sockfd = -1;
-
+static int 		listen_sockfd = -1;
+static char		device[17];
+static CFStringRef	service = NULL;
+static CFStringRef	access_concentrator = NULL;
 
 #define PPPOE_NKE	"PPPoE.kext"
 
-int pppoevpn_get_pppd_args(struct vpn_params *params);
+int pppoevpn_get_pppd_args(struct vpn_params *params, int reload);
 int pppoevpn_listen(void);
 int pppoevpn_accept(void);
 int pppoevpn_refuse(void);
@@ -109,7 +113,7 @@ if a simple vpn bundle was used, pppref will be NULL.
 if a ppp bundle was used, the vpn plugin will be able to get access to the 
 Plugins directory and load the vpn kext.
 ----------------------------------------------------------------------------- */
-int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug)
+int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug, int log_verbose)
 {
     int 	s;
     char 	name[MAXPATHLEN]; 
@@ -135,7 +139,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                 }	
             }
             if (s < 0) {
-                syslog(LOG_ERR, "VPND PPPoE plugin: Unable to load PPPoE kernel extension\n");
+                vpnlog(LOG_ERR, "PPPoE plugin: Unable to load PPPoE kernel extension\n");
                 return -1;
             }
         }
@@ -154,20 +158,39 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
     the_vpn_channel->refuse = pppoevpn_refuse;
     the_vpn_channel->close = pppoevpn_close;
 
+    /* copy default interface */
+    strcpy(device, "en0");
+
     return 0;
 }
 
 /* ----------------------------------------------------------------------------- 
     pppoevpn_get_pppd_args
 ----------------------------------------------------------------------------- */
-int pppoevpn_get_pppd_args(struct vpn_params *params)
+int pppoevpn_get_pppd_args(struct vpn_params *params, int reload)
 {
-    if (params->serverRef)			
+    CFStringRef	string;
+    
+    if (params->serverRef) {			
         /* arguments from the preferences file */
         addstrparam(params->exec_args, &params->next_arg_index, "pppoemode", "answer");
 
-    return 0;
+        if (string = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEDeviceName)) {
+            if (!CFStringGetCString(string, device, sizeof(device), kCFStringEncodingUTF8)) {
+                vpnlog(LOG_ERR, "PPPoE plugin: Could not get device name\n");
+                return -1;
+            }
+        }
+        addstrparam(params->exec_args, &params->next_arg_index, "device", device);
 
+        if (service = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEServiceName))
+            CFRetain(service);
+
+        if (access_concentrator = get_cfstr_option(params->serverRef, kRASEntPPPoE, kRASPropPPPoEAccessConcentratorName))
+            CFRetain(access_concentrator);
+    }
+
+    return 0;
 }
 
 
@@ -180,7 +203,7 @@ int pppoe_sys_accept(int sockfd, struct sockaddr *cliaddr, int *addrlen)
     
     while ((fd = accept(sockfd, cliaddr, addrlen)) == -1)
         if (errno != EINTR) {
-            syslog(LOG_ERR, "VPND PPPoE plugin: error calling accept = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPPoE plugin: error calling accept = %s\n", strerror(errno));
             return -1;
         }
     return fd;
@@ -190,7 +213,7 @@ int pppoe_sys_close(int sockfd)
 {
     while (close(sockfd) == -1)
         if (errno != EINTR) {
-            syslog(LOG_ERR, "VPND PPPoE plugin: error calling close on socket = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "PPPoE plugin: error calling close on socket = %s\n", strerror(errno));
             return -1;
         }
     return 0;
@@ -244,43 +267,74 @@ static u_long load_kext(char *kext)
 int pppoevpn_listen(void)
 {
 
-    //struct sockaddr_in	addrListener;    
-    
+    struct sockaddr_pppoe 	addr;
+    int 			s, error = -1;
+    struct ifreq 		ifr;
+
+    /* first, make sure the interface is UP */
+    error = -1;
+    s = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
+    if (s >= 0) {
+        bzero(&ifr, sizeof(ifr));
+        bcopy(device, ifr.ifr_name, strlen(device));
+        if (ioctl(s, SIOCGIFFLAGS, (caddr_t) &ifr) >= 0) {
+            // ensure that the device is UP
+            ifr.ifr_flags |= IFF_UP;
+            if (ioctl(s, SIOCSIFFLAGS, (caddr_t) &ifr) >= 0)
+                error = 0 ;
+        }
+        close(s);
+    }
+    if (error) {
+        vpnlog(LOG_ERR, "PPPoE plugin: Could not configure the interface UP - err = %s\n", strerror(errno));
+        goto fail;
+    }
+
     // Create the requested socket
-    while ((listen_sockfd = socket (PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE)) < 0) 
+    while ((listen_sockfd = socket (PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE)) < 0) {
         if (errno != EINTR) {
-            syslog(LOG_ERR, "VPND PPPoE: Could not create socket - err = %s\n", strerror(errno));
-            return -1 ;
+            vpnlog(LOG_ERR, "PPPoE plugin: Could not create socket - err = %s\n", strerror(errno));
+            goto fail;
+        }
     }
     
-/*
-    struct sockaddr_pppoe 	addr;
-    int				len, fd;
+    if (setsockopt(listen_sockfd, PPPPROTO_PPPOE, PPPOE_OPT_INTERFACE, device, strlen(device))) {
+        vpnlog(LOG_ERR, "PPPoE plugin: Could not specify listening interface '%s' - err = %s\n", device, strerror(errno));
+        goto fail;
+    }
 
-    info("PPPoE listening on service '%s' [access concentrator '%s']...\n", 
-            service ? service : "", 
-            access_concentrator ? access_concentrator : "");
+    if (access_concentrator || service) {
+        bzero(&addr, sizeof(addr));
+        addr.ppp.ppp_len = sizeof(struct sockaddr_pppoe);
+        addr.ppp.ppp_family = AF_PPP;
+        addr.ppp.ppp_proto = PPPPROTO_PPPOE;
+        if (access_concentrator)
+            CFStringGetCString(access_concentrator, addr.pppoe_ac_name, sizeof(addr.pppoe_ac_name), kCFStringEncodingUTF8);
+        if (service)
+            CFStringGetCString(service, addr.pppoe_service, sizeof(addr.pppoe_service), kCFStringEncodingUTF8);
 
-    bzero(&addr, sizeof(addr));
-    addr.ppp.ppp_len = sizeof(struct sockaddr_pppoe);
-    addr.ppp.ppp_family = AF_PPP;
-    addr.ppp.ppp_proto = PPPPROTO_PPPOE;
-    if (access_concentrator)
-        strncpy(addr.pppoe_ac_name, access_concentrator, sizeof(addr.pppoe_ac_name));
-    if (service)
-        strncpy(addr.pppoe_service, service, sizeof(addr.pppoe_service));
-    if (bind(sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
-        error("PPPoE bind failed, %m");
-        return -1;
-*/
-
-    while (listen(listen_sockfd, SOMAXCONN) < 0) 
-        if (errno == EINTR) {
-            syslog(LOG_ERR, "VPND PPPoE plugin: error calling listen = %s\n", strerror(errno));
-            return -1;
+        if (bind(listen_sockfd, (struct sockaddr *)&addr, sizeof(struct sockaddr_pppoe)) < 0) {
+            vpnlog(LOG_ERR, "PPPoE plugin: bind failed for service = '%s', access concentrator = '%s'. Error = %s\n", 
+                    service, access_concentrator, strerror(errno));
+            goto fail;
         }
-
+    }
+    
+    while (listen(listen_sockfd, SOMAXCONN) < 0) {
+        if (errno == EINTR) {
+            vpnlog(LOG_ERR, "PPPoE plugin: error calling listen = %s\n", strerror(errno));
+            goto fail;
+        }
+    }
+    
     return listen_sockfd; 
+
+fail:
+    if (listen_sockfd!= -1) {
+        close(listen_sockfd);
+        listen_sockfd = -1;
+    }
+    return -1;
 }
 
 
@@ -298,7 +352,7 @@ int pppoevpn_accept(void)
     if ((fdConn = pppoe_sys_accept(listen_sockfd, sapSender, &nSize)) < 0)
             return -1;
     if (sapSender->sa_family != AF_PPP) {
-        syslog(LOG_ERR, "VPND PPPoE plugin: Unexpected protocol family!\n");
+        vpnlog(LOG_ERR, "PPPoE plugin: Unexpected protocol family!\n");
         if (pppoe_sys_close(fdConn) < 0)
             return -1;
         return 0;

@@ -1,8 +1,17 @@
 /* schemaparse.c - routines to parse config file objectclass definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.53.2.7 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/schemaparse.c,v 1.64.2.4 2004/01/01 18:16:35 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -45,7 +54,7 @@ static char *const err2text[] = {
 	"OID could not be expanded",
 	"Duplicate Content Rule",
 	"Content Rule not for STRUCTURAL object class",
-	"Content Rule AUX contains non-AUXILIARY object class"
+	"Content Rule AUX contains inappropriate object class",
 	"Content Rule attribute type list contains duplicate"
 };
 
@@ -95,8 +104,6 @@ dscompare(const char *s1, const char *s2, char delim)
 		return s1 - orig;
 	return 0;
 }
-
-#ifdef SLAP_EXTENDED_SCHEMA
 
 static void
 cr_usage( void )
@@ -153,14 +160,13 @@ parse_cr(
 	return 0;
 }
 
-#endif
-
 int
 parse_oc(
     const char	*fname,
     int		lineno,
     char	*line,
-    char	**argv
+    char	**argv,
+	int		ignore_duplicates
 )
 {
 	LDAPObjectClass *oc;
@@ -183,6 +189,9 @@ parse_oc(
 		return 1;
 	}
 
+	if ( ignore_duplicates && oc_find(oc->oc_oid) )
+		return 0;
+		
 	code = oc_add(oc,1,&err);
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",
@@ -214,20 +223,20 @@ oc_usage( void )
 static void
 at_usage( void )
 {
-	fprintf( stderr,
+	fprintf( stderr, "%s%s%s",
 		"AttributeTypeDescription = \"(\" whsp\n"
 		"  numericoid whsp      ; AttributeType identifier\n"
 		"  [ \"NAME\" qdescrs ]             ; name used in AttributeType\n"
 		"  [ \"DESC\" qdstring ]            ; description\n"
 		"  [ \"OBSOLETE\" whsp ]\n"
 		"  [ \"SUP\" woid ]                 ; derived from this other\n"
-		"                                   ; AttributeType\n"
+		"                                   ; AttributeType\n",
 		"  [ \"EQUALITY\" woid ]            ; Matching Rule name\n"
 		"  [ \"ORDERING\" woid ]            ; Matching Rule name\n"
 		"  [ \"SUBSTR\" woid ]              ; Matching Rule name\n"
 		"  [ \"SYNTAX\" whsp noidlen whsp ] ; see section 4.3\n"
 		"  [ \"SINGLE-VALUE\" whsp ]        ; default multi-valued\n"
-		"  [ \"COLLECTIVE\" whsp ]          ; default not collective\n"
+		"  [ \"COLLECTIVE\" whsp ]          ; default not collective\n",
 		"  [ \"NO-USER-MODIFICATION\" whsp ]; default user modifiable\n"
 		"  [ \"USAGE\" whsp AttributeUsage ]; default userApplications\n"
 		"                                   ; userApplications\n"
@@ -242,7 +251,8 @@ parse_at(
     const char	*fname,
     int		lineno,
     char	*line,
-    char	**argv
+    char	**argv,
+	int		ignore_duplicates
 )
 {
 	LDAPAttributeType *at;
@@ -272,6 +282,9 @@ parse_at(
 		return 1;
 	}
 
+	if ( ignore_duplicates && at_find(at->at_oid) )
+		return 0;
+		
 	code = at_add(at,&err);
 	if ( code ) {
 		fprintf( stderr, "%s: line %d: %s: \"%s\"\n",

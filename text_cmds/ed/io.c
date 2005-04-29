@@ -63,7 +63,7 @@ read_file(fn, n)
 		sprintf(errmsg, "cannot close input file");
 		return ERR;
 	}
-	fprintf(stderr, !scripted ? "%lu\n" : "", size);
+	fprintf(stdout, !scripted ? "%lu\n" : "", size);
 	return current_addr - n;
 }
 
@@ -178,7 +178,7 @@ write_file(fn, mode, n, m)
 		sprintf(errmsg, "cannot close output file");
 		return ERR;
 	}
-	fprintf(stderr, !scripted ? "%lu\n" : "", size);
+	fprintf(stdout, !scripted ? "%lu\n" : "", size);
 	return n ? m - n + 1 : 0;
 }
 
@@ -343,15 +343,6 @@ put_tty_line(s, l, n, gflag)
 		if ((gflag & GLS) && ++col > cols) {
 			fputs("\\\n", stdout);
 			col = 1;
-#ifndef BACKWARDS
-			if (!scripted && !isglobal && ++lc > rows) {
-				lc = 0;
-				fputs("Press <RETURN> to continue... ", stdout);
-				fflush(stdout);
-				if (get_tty_line() < 0)
-					return ERR;
-			}
-#endif
 		}
 		if (gflag & GLS) {
 			if (31 < *s && *s < 127 && *s != '\\')
@@ -372,10 +363,8 @@ put_tty_line(s, l, n, gflag)
 		} else
 			putchar(*s);
 	}
-#ifndef BACKWARDS
-	if (gflag & GLS)
+	if (posixly_correct && (gflag & GLS))
 		putchar('$');
-#endif
 	putchar('\n');
 	return 0;
 }

@@ -15,7 +15,7 @@
 class UnicodeStringTest: public IntlTest {
 public:
     UnicodeStringTest() {}
-    virtual ~UnicodeStringTest() {}
+    virtual ~UnicodeStringTest();
     
     void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = NULL );
 
@@ -71,12 +71,13 @@ public:
     void _testUnicodeStringHasMoreChar32Than(const UnicodeString &s, int32_t start, int32_t length, int32_t number);
     void TestCountChar32(void);
     void TestBogus();
+    void TestStringEnumeration();
 };
 
 class StringCaseTest: public IntlTest {
 public:
     StringCaseTest() {}
-    virtual ~StringCaseTest() {}
+    virtual ~StringCaseTest();
     
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par=0);
 

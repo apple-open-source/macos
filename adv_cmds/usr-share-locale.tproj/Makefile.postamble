@@ -1,4 +1,0 @@
-after_install::
-	@$(RM) -f $(DSTROOT)/usr/share/locale/usr-share-locale
-	cd $(SRCROOT)/usr-share-locale.tproj; \
-	    PATH=$(DSTROOT)/usr/bin:$$PATH bsdmake -f Makefile.bsd DESTDIR=$(DSTROOT) all install

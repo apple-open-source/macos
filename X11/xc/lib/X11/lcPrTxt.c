@@ -23,7 +23,7 @@
  * Author: Katsuhisa Yano	TOSHIBA Corp.
  *			   	mopi@osa.ilab.toshiba.co.jp
  */
-/* $XFree86: xc/lib/X11/lcPrTxt.c,v 1.8 2002/06/03 22:36:00 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcPrTxt.c,v 1.10 2003/05/29 13:22:51 pascal Exp $ */
 
 #include "Xlibint.h"
 #include "XlcPubI.h"
@@ -212,7 +212,8 @@ _XTextPropertyToTextList(
 		to++;
 		to_left--;
 	    }
-	    _XlcResetConverter(conv);
+	    if (! do_strcpy)
+	        _XlcResetConverter(conv);
 	} else
 	    str_ptr++;
 

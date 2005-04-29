@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Utility subroutines for the C++ library testsuite. 
 //
-// Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,7 @@
 
 // This file provides the following:
 //
-// 1)  VERIFY(), via DEBUG_ASSERT, from Brent Verner <brent@rcfile.org>.
+// 1)  VERIFY(), via _GLIBCXX_ASSERT, from Brent Verner <brent@rcfile.org>.
 //   This file is included in the various testsuite programs to provide
 //   #define(able) assert() behavior for debugging/testing. It may be
 //   a suitable location for other furry woodland creatures as well.
@@ -39,7 +39,7 @@
 //   set_memory_limits() uses setrlimit() to restrict dynamic memory
 //   allocation.  We provide a default memory limit if none is passed by the
 //   calling application.  The argument to set_memory_limits() is the
-//   limit in megabytes (a floating-point number).  If _GLIBCPP_MEM_LIMITS is
+//   limit in megabytes (a floating-point number).  If _GLIBCXX_RES_LIMITS is
 //   not #defined before including this header, then no limiting is attempted.
 //
 // 3)  counter
@@ -55,27 +55,38 @@
 // 5) pod_char, pod_int, , abstract character classes and
 //   char_traits specializations for testing instantiations.
 
-#ifndef _GLIBCPP_TESTSUITE_HOOKS_H
-#define _GLIBCPP_TESTSUITE_HOOKS_H
+#ifndef _GLIBCXX_TESTSUITE_HOOKS_H
+#define _GLIBCXX_TESTSUITE_HOOKS_H
 
 #include <bits/c++config.h>
 #include <bits/functexcept.h>
 #include <cstddef>
-#ifdef DEBUG_ASSERT
+#include <locale>
+#include <ext/pod_char_traits.h>
+#ifdef _GLIBCXX_HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
+#ifdef _GLIBCXX_ASSERT
 # include <cassert>
 # define VERIFY(fn) assert(fn)
 #else
 # define VERIFY(fn) test &= (fn)
 #endif
-#include <list>
 
-namespace __gnu_cxx_test
+#ifdef _GLIBCXX_HAVE_UNISTD_H
+# include <unistd.h>
+#else
+# define unlink(x)
+#endif
+
+namespace __gnu_test
 {
-  // All macros are defined in GLIBCPP_CONFIGURE_TESTSUITE and imported
+  // All macros are defined in GLIBCXX_CONFIGURE_TESTSUITE and imported
   // from c++config.h
 
   // Set memory limits if possible, if not set to 0.
-#ifndef _GLIBCPP_MEM_LIMITS
+#ifndef _GLIBCXX_RES_LIMITS
 #  define MEMLIMIT_MB 0
 #else
 # ifndef MEMLIMIT_MB
@@ -85,11 +96,47 @@ namespace __gnu_cxx_test
   extern void
   set_memory_limits(float __size = MEMLIMIT_MB);
 
+  extern void
+  set_file_limit(unsigned long __size);
+
+  // Check mangled name demangles (using __cxa_demangle) as expected.
+  void
+  verify_demangle(const char* mangled, const char* wanted);
+
   // Simple callback structure for variable numbers of tests (all with
   // same signature).  Assume all unit tests are of the signature
   // void test01(); 
-  typedef void (*test_func) (void);
-  typedef std::list<test_func> func_callback;
+  class func_callback
+  {
+  public:
+    typedef void (*test_type) (void);
+
+  private:
+    int		_M_size;
+    test_type	_M_tests[15];
+
+    func_callback&
+    operator=(const func_callback&);
+
+    func_callback(const func_callback&);
+
+  public:
+    func_callback(): _M_size(0) { };
+
+    int
+    size() const { return _M_size; }
+
+    const test_type*
+    tests() const { return _M_tests; }
+
+    void
+    push_back(test_type test)
+    {
+      _M_tests[_M_size] = test;
+      ++_M_size;
+    }
+  };
+
 
   // Run select unit tests after setting global locale.
   void 
@@ -99,25 +146,26 @@ namespace __gnu_cxx_test
   void 
   run_tests_wrapped_env(const char*, const char*, const func_callback&);
 
+  // Try to create a locale with the given name. If it fails, bail.
+  std::locale
+  try_named_locale(const char* name);
+
+  int
+  try_mkfifo (const char* filename, mode_t mode);
+
   // Test data types.
   struct pod_char
   {
     unsigned char c;
   };
+
+  inline bool
+  operator==(const pod_char& lhs, const pod_char& rhs)
+  { return lhs.c == rhs.c; }
   
   struct pod_int
   {
     int i;
-  };
-  
-  struct pod_unsigned_int
-  {
-    unsigned int i;
-  };
-  
-  struct pod_long
-  {
-    unsigned long i;
   };
   
   struct state
@@ -125,6 +173,11 @@ namespace __gnu_cxx_test
     unsigned long l;
     unsigned long l2;
   };
+
+  typedef unsigned short				value_type;
+  typedef unsigned int					int_type;
+  typedef __gnu_cxx::character<value_type, int_type>	pod_type;
+
 
   // Counting.
   struct counter
@@ -139,7 +192,7 @@ namespace __gnu_cxx_test
     ~counter() { --count; }
   };
   
-#define assert_count(n)   VERIFY(__gnu_cxx_test::counter::count == n)
+#define assert_count(n)   VERIFY(__gnu_test::counter::count == n)
   
   // A (static) class for counting copy constructors and possibly throwing an
   // exception on a desired count.
@@ -237,7 +290,6 @@ namespace __gnu_cxx_test
     copy_tracker(const copy_tracker& rhs)
     : id_(rhs.id()), throw_on_copy_(rhs.throw_on_copy_)
     {
-      int kkk = throw_on_copy_;
       if (throw_on_copy_)
 	copy_constructor::throw_on(copy_constructor::count() + 1);
       copy_constructor::mark_call();
@@ -254,6 +306,7 @@ namespace __gnu_cxx_test
       if (rhs.throw_on_copy_)
         assignment_operator::throw_on(assignment_operator::count() + 1);
       assignment_operator::mark_call();
+      return *this;
     }
 
     ~copy_tracker()
@@ -292,7 +345,25 @@ namespace __gnu_cxx_test
   inline bool
   operator==(const copy_tracker& lhs, const copy_tracker& rhs)
   { return lhs.id() == rhs.id(); }
-}; // namespace __gnu_cxx_test
+
+  // Class for checking required type conversions, implicit and
+  // explicit for given library data structures. 
+  template<typename _Container>
+    struct conversion
+    {
+      typedef typename _Container::const_iterator const_iterator;
+      
+      // Implicit conversion iterator to const_iterator.
+      static const_iterator
+      iterator_to_const_iterator()
+      {
+	_Container v;
+	const_iterator it = v.begin();
+	const_iterator end = v.end();
+	return it == end ? v.end() : it;
+      }
+    };
+} // namespace __gnu_test
 
 namespace std
 {
@@ -301,57 +372,96 @@ namespace std
 
   // char_traits specialization
   template<>
-    struct char_traits<__gnu_cxx_test::pod_char>
+    struct char_traits<__gnu_test::pod_char>
     {
-      typedef __gnu_cxx_test::pod_char	char_type;
-      typedef __gnu_cxx_test::pod_int  	int_type;
-      typedef long 			pos_type;
-      typedef unsigned long 		off_type;
-      typedef __gnu_cxx_test::state   	state_type;
+      typedef __gnu_test::pod_char	char_type;
+      typedef __gnu_test::pod_int  	int_type;
+      typedef __gnu_test::state   	state_type;
+      typedef fpos<state_type> 		pos_type;
+      typedef streamoff 		off_type;
       
       static void 
-      assign(char_type& __c1, const char_type& __c2);
+      assign(char_type& c1, const char_type& c2)
+      { c1.c = c2.c; }
 
       static bool 
-      eq(const char_type& __c1, const char_type& __c2);
+      eq(const char_type& c1, const char_type& c2)
+      { return c1.c == c2.c; }
 
       static bool 
-      lt(const char_type& __c1, const char_type& __c2);
+      lt(const char_type& c1, const char_type& c2)
+      { return c1.c < c2.c; }
 
       static int 
-      compare(const char_type* __s1, const char_type* __s2, size_t __n);
+      compare(const char_type* s1, const char_type* s2, size_t n)
+      { return memcmp(s1, s2, n); }
 
       static size_t
-      length(const char_type* __s);
+      length(const char_type* s)
+      { return strlen(reinterpret_cast<const char*>(s)); }
 
       static const char_type* 
-      find(const char_type* __s, size_t __n, const char_type& __a);
+      find(const char_type* s, size_t n, const char_type& a)
+      { return static_cast<const char_type*>(memchr(s, a.c, n)); }
 
       static char_type* 
-      move(char_type* __s1, const char_type* __s2, size_t __n);
+      move(char_type* s1, const char_type* s2, size_t n)
+      {
+	memmove(s1, s2, n);
+	return s1;
+      }
 
       static char_type* 
-      copy(char_type* __s1, const char_type* __s2, size_t __n);
+      copy(char_type* s1, const char_type* s2, size_t n)
+      {
+	memcpy(s1, s2, n);
+	return s1;
+      }
 
       static char_type* 
-      assign(char_type* __s, size_t __n, char_type __a);
+      assign(char_type* s, size_t n, char_type a)
+      {
+	memset(s, a.c, n);
+	return s;
+      }
 
       static char_type 
-      to_char_type(const int_type& __c);
+      to_char_type(const int_type& c)
+      {
+	char_type ret;
+	ret.c = static_cast<unsigned char>(c.i);
+	return ret;
+      }
 
       static int_type 
-      to_int_type(const char_type& __c);
+      to_int_type(const char_type& c)
+      {
+	int_type ret;
+	ret.i = c.c;
+	return ret;
+      }
 
       static bool 
-      eq_int_type(const int_type& __c1, const int_type& __c2);
+      eq_int_type(const int_type& c1, const int_type& c2)
+      { return c1.i == c2.i; }
 
       static int_type 
-      eof();
+      eof()
+      {
+	int_type n;
+	n.i = -10;
+	return n;
+      }
 
       static int_type 
-      not_eof(const int_type& __c);
+      not_eof(const int_type& c)
+      {
+	if (eq_int_type(c, eof()))
+	  return int_type();
+	return c;
+      }
     };
 } // namespace std
 
-#endif // _GLIBCPP_TESTSUITE_HOOKS_H
+#endif // _GLIBCXX_TESTSUITE_HOOKS_H
 

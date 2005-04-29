@@ -1,7 +1,7 @@
 XCOMM UTF-8 (Unicode) compose sequence
 XCOMM David.Monniaux@ens.fr
 XCOMM
-XCOMM $XFree86: xc/nls/Compose/en_US.UTF-8,v 1.8 2003/02/25 04:38:32 dawes Exp $
+XCOMM $XFree86: xc/nls/Compose/en_US.UTF-8,v 1.12 2004/01/09 14:46:06 pascal Exp $
 
 XCOMM Part 1 - Manual definitions
 
@@ -23,7 +23,7 @@ XCOMM Spacing versions of dead accents
 <dead_abovedot> <space>			: "˙"	abovedot
 <dead_abovedot> <dead_abovedot>		: "˙"	abovedot
 <dead_diaeresis> <dead_diaeresis>	: "¨"	diaeresis
-<dead_diaeresis> <space>		: "¨"	diaeresis
+<dead_diaeresis> <space>		: "\""	quotedbl
 <dead_doubleacute> <space>		: "˝"	U2dd
 <dead_doubleacute> <dead_doubleacute>	: "˝"	U2dd
 <dead_caron> <space>			: "ˇ"	caron
@@ -55,6 +55,9 @@ XCOMM on some keyboards.
 <Multi_key> <grave> <space>		: "`"	grave
 <Multi_key> <space> <grave>		: "`"	grave
 
+<Multi_key> <comma> <space>		: "¸"	cedilla
+<Multi_key> <space> <comma>		: "¸"	cedilla
+
 <Multi_key> <parenleft> <minus>		: "{"	braceleft
 <Multi_key> <minus> <parenleft>		: "{"	braceleft
 
@@ -74,7 +77,7 @@ XCOMM on some keyboards.
 <Multi_key> <space> <minus>		: "~"	asciitilde
 
 XCOMM Spaces
-<Multi_key> <space> <space> : " " nobreakspace # NO-BREAK SPACE
+<Multi_key> <space> <space> : " " nobreakspace # NO-BREAK SPACE
 <Multi_key> <space> <period>: " " U2008 # PUNCTUATION SPACE
 
 <Multi_key> <o> <c> : "©" copyright
@@ -96,7 +99,6 @@ XCOMM Spaces
 <Multi_key> <P> <exclam> : "¶" paragraph
 <Multi_key> <plus> <minus> : "±" plusminus
 <Multi_key> <question> <question> : "¿" questiondown
-<Multi_key> <e> <e> : "Ə" U018f
 <Multi_key> <minus> <d> : "đ" dstroke
 <Multi_key> <minus> <D> : "Đ" Dstroke
 <Multi_key> <s> <s> : "ß" ssharp
@@ -152,6 +154,14 @@ XCOMM "₪" U20aa NEW SHEQEL SIGN
 <Multi_key> <E> <equal>			: "€" EuroSign # EURO SIGN
 <Multi_key> <equal> <E>			: "€" EuroSign # EURO SIGN
 
+<Multi_key> <bar> <c>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <bar> <C>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <c> <bar>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <C> <bar>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <c> <slash>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <C> <slash>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <slash> <c>			: "¢" U00A2 # CENT SIGN
+<Multi_key> <slash> <C>			: "¢" U00A2 # CENT SIGN
 <Multi_key> <L> <minus> 		: "£" U00a3 # POUND SIGN
 <Multi_key> <minus> <L> 		: "£" U00a3 # POUND SIGN
 <Multi_key> <Y> <equal>			: "¥" yen
@@ -189,237 +199,239 @@ XCOMM There are some conflicts among sequences, but I left them alone.
 XCOMM
 XCOMM group 1: cluster jamos made of three basic jamos
 
-  <Multi_key> <U1107> <U1109> <U1100> : "ᄢ"  	U1122	 : ᄇᅠ ᄉᅠ ᄀᅠ  = ᄢᅠ
-  <Multi_key> <U1107> <U1109> <U1103> : "ᄣ"  	U1123	 : ᄇᅠ ᄉᅠ ᄃᅠ  = ᄣᅠ
-  <Multi_key> <U1107> <U1109> <U1107> : "ᄤ"  	U1124	 : ᄇᅠ ᄉᅠ ᄇᅠ  = ᄤᅠ
-  <Multi_key> <U1107> <U1109> <U1109> : "ᄥ"  	U1125	 : ᄇᅠ ᄉᅠ ᄉᅠ  = ᄥᅠ
-  <Multi_key> <U1107> <U1109> <U110c> : "ᄦ"  	U1126	 : ᄇᅠ ᄉᅠ ᄌᅠ  = ᄦᅠ
-  <Multi_key> <U1107> <U1107> <U110b> : "ᄬ"  	U112c	 : ᄇᅠ ᄇᅠ ᄋᅠ  = ᄬᅠ
-  <Multi_key> <U1109> <U1107> <U1100> : "ᄳ"  	U1133	 : ᄉᅠ ᄇᅠ ᄀᅠ  = ᄳᅠ
-  <Multi_key> <U1109> <U1109> <U1109> : "ᄴ"  	U1134	 : ᄉᅠ ᄉᅠ ᄉᅠ  = ᄴᅠ
-  <Multi_key> <U1169> <U1161> <U1175> : "ᅫ"  	U116b	 : ᅟᅩ ᅟᅡ ᅟᅵ  = ᅟᅫ
-  <Multi_key> <U116e> <U1165> <U1175> : "ᅰ"  	U1170	 : ᅟᅮ ᅟᅥ ᅟᅵ  = ᅟᅰ
-  <Multi_key> <U116e> <U1165> <U1173> : "ᆋ"  	U118b	 : ᅟᅮ ᅟᅥ ᅟᅳ  = ᅟᆋ
-  <Multi_key> <U11a8> <U11ba> <U11a8> : "ᇄ"  	U11c4	 : ᅟᅠᆨ ᅟᅠᆺ ᅟᅠᆨ  = ᅟᅠᇄ
-  <Multi_key> <U11af> <U11a8> <U11ba> : "ᇌ"  	U11cc	 : ᅟᅠᆯ ᅟᅠᆨ ᅟᅠᆺ  = ᅟᅠᇌ
-  <Multi_key> <U11af> <U11ae> <U11c2> : "ᇏ"  	U11cf	 : ᅟᅠᆯ ᅟᅠᆮ ᅟᅠᇂ  = ᅟᅠᇏ
-  <Multi_key> <U11af> <U11b7> <U11a8> : "ᇑ"  	U11d1	 : ᅟᅠᆯ ᅟᅠᆷ ᅟᅠᆨ  = ᅟᅠᇑ
-  <Multi_key> <U11af> <U11b7> <U11ba> : "ᇒ"  	U11d2	 : ᅟᅠᆯ ᅟᅠᆷ ᅟᅠᆺ  = ᅟᅠᇒ
-  <Multi_key> <U11af> <U11b8> <U11ba> : "ᇓ"  	U11d3	 : ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᆺ  = ᅟᅠᇓ
-  <Multi_key> <U11af> <U11b8> <U11c2> : "ᇔ"  	U11d4	 : ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᇂ  = ᅟᅠᇔ
-  <Multi_key> <U11af> <U11b8> <U11bc> : "ᇕ"  	U11d5	 : ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᆼ  = ᅟᅠᇕ
-  <Multi_key> <U11af> <U11ba> <U11ba> : "ᇖ"  	U11d6	 : ᅟᅠᆯ ᅟᅠᆺ ᅟᅠᆺ  = ᅟᅠᇖ
-  <Multi_key> <U11b7> <U11ba> <U11ba> : "ᇞ"  	U11de	 : ᅟᅠᆷ ᅟᅠᆺ ᅟᅠᆺ  = ᅟᅠᇞ
-  <Multi_key> <U11bc> <U11a8> <U11a8> : "ᇭ"  	U11ed	 : ᅟᅠᆼ ᅟᅠᆨ ᅟᅠᆨ  = ᅟᅠᇭ
-  <Multi_key> <U1100> <U1100> : "ᄁ"  	U1101	 : ᄀᅠ ᄀᅠ   = ᄁᅠ
-  <Multi_key> <U1103> <U1103> : "ᄄ"  	U1104	 : ᄃᅠ ᄃᅠ   = ᄄᅠ
-  <Multi_key> <U1107> <U1107> : "ᄈ"  	U1108	 : ᄇᅠ ᄇᅠ   = ᄈᅠ
-  <Multi_key> <U1109> <U1109> : "ᄊ"  	U110a	 : ᄉᅠ ᄉᅠ   = ᄊᅠ
-  <Multi_key> <U110c> <U110c> : "ᄍ"  	U110d	 : ᄌᅠ ᄌᅠ   = ᄍᅠ
-  <Multi_key> <U1102> <U1100> : "ᄓ"  	U1113	 : ᄂᅠ ᄀᅠ   = ᄓᅠ
-  <Multi_key> <U1102> <U1102> : "ᄔ"  	U1114	 : ᄂᅠ ᄂᅠ   = ᄔᅠ
-  <Multi_key> <U1102> <U1103> : "ᄕ"  	U1115	 : ᄂᅠ ᄃᅠ   = ᄕᅠ
-  <Multi_key> <U1102> <U1107> : "ᄖ"  	U1116	 : ᄂᅠ ᄇᅠ   = ᄖᅠ
-  <Multi_key> <U1103> <U1100> : "ᄗ"  	U1117	 : ᄃᅠ ᄀᅠ   = ᄗᅠ
-  <Multi_key> <U1105> <U1102> : "ᄘ"  	U1118	 : ᄅᅠ ᄂᅠ   = ᄘᅠ
-  <Multi_key> <U1105> <U1105> : "ᄙ"  	U1119	 : ᄅᅠ ᄅᅠ   = ᄙᅠ
-  <Multi_key> <U1105> <U1112> : "ᄚ"  	U111a	 : ᄅᅠ ᄒᅠ   = ᄚᅠ
-  <Multi_key> <U1105> <U110b> : "ᄛ"  	U111b	 : ᄅᅠ ᄋᅠ   = ᄛᅠ
-  <Multi_key> <U1106> <U1107> : "ᄜ"  	U111c	 : ᄆᅠ ᄇᅠ   = ᄜᅠ
-  <Multi_key> <U1106> <U110b> : "ᄝ"  	U111d	 : ᄆᅠ ᄋᅠ   = ᄝᅠ
-  <Multi_key> <U1107> <U1100> : "ᄞ"  	U111e	 : ᄇᅠ ᄀᅠ   = ᄞᅠ
-  <Multi_key> <U1107> <U1102> : "ᄟ"  	U111f	 : ᄇᅠ ᄂᅠ   = ᄟᅠ
-  <Multi_key> <U1107> <U1103> : "ᄠ"  	U1120	 : ᄇᅠ ᄃᅠ   = ᄠᅠ
-  <Multi_key> <U1107> <U1109> : "ᄡ"  	U1121	 : ᄇᅠ ᄉᅠ   = ᄡᅠ
-  <Multi_key> <U1107> <U110c> : "ᄧ"  	U1127	 : ᄇᅠ ᄌᅠ   = ᄧᅠ
-  <Multi_key> <U1107> <U110e> : "ᄨ"  	U1128	 : ᄇᅠ ᄎᅠ   = ᄨᅠ
-  <Multi_key> <U1107> <U1110> : "ᄩ"  	U1129	 : ᄇᅠ ᄐᅠ   = ᄩᅠ
-  <Multi_key> <U1107> <U1111> : "ᄪ"  	U112a	 : ᄇᅠ ᄑᅠ   = ᄪᅠ
-  <Multi_key> <U1107> <U110b> : "ᄫ"  	U112b	 : ᄇᅠ ᄋᅠ   = ᄫᅠ
-  <Multi_key> <U1109> <U1100> : "ᄭ"  	U112d	 : ᄉᅠ ᄀᅠ   = ᄭᅠ
-  <Multi_key> <U1109> <U1102> : "ᄮ"  	U112e	 : ᄉᅠ ᄂᅠ   = ᄮᅠ
-  <Multi_key> <U1109> <U1103> : "ᄯ"  	U112f	 : ᄉᅠ ᄃᅠ   = ᄯᅠ
-  <Multi_key> <U1109> <U1105> : "ᄰ"  	U1130	 : ᄉᅠ ᄅᅠ   = ᄰᅠ
-  <Multi_key> <U1109> <U1106> : "ᄱ"  	U1131	 : ᄉᅠ ᄆᅠ   = ᄱᅠ
-  <Multi_key> <U1109> <U1107> : "ᄲ"  	U1132	 : ᄉᅠ ᄇᅠ   = ᄲᅠ
-  <Multi_key> <U1109> <U110b> : "ᄵ"  	U1135	 : ᄉᅠ ᄋᅠ   = ᄵᅠ
-  <Multi_key> <U1109> <U110c> : "ᄶ"  	U1136	 : ᄉᅠ ᄌᅠ   = ᄶᅠ
-  <Multi_key> <U1109> <U110e> : "ᄷ"  	U1137	 : ᄉᅠ ᄎᅠ   = ᄷᅠ
-  <Multi_key> <U1109> <U110f> : "ᄸ"  	U1138	 : ᄉᅠ ᄏᅠ   = ᄸᅠ
-  <Multi_key> <U1109> <U1110> : "ᄹ"  	U1139	 : ᄉᅠ ᄐᅠ   = ᄹᅠ
-  <Multi_key> <U1109> <U1111> : "ᄺ"  	U113a	 : ᄉᅠ ᄑᅠ   = ᄺᅠ
-  <Multi_key> <U1109> <U1112> : "ᄻ"  	U113b	 : ᄉᅠ ᄒᅠ   = ᄻᅠ
-  <Multi_key> <U113c> <U113c> : "ᄽ"  	U113d	 : ᄼᅠ ᄼᅠ   = ᄽᅠ
-  <Multi_key> <U113e> <U113e> : "ᄿ"  	U113f	 : ᄾᅠ ᄾᅠ   = ᄿᅠ
-  <Multi_key> <U110b> <U1100> : "ᅁ"  	U1141	 : ᄋᅠ ᄀᅠ   = ᅁᅠ
-  <Multi_key> <U110b> <U1103> : "ᅂ"  	U1142	 : ᄋᅠ ᄃᅠ   = ᅂᅠ
-  <Multi_key> <U110b> <U1106> : "ᅃ"  	U1143	 : ᄋᅠ ᄆᅠ   = ᅃᅠ
-  <Multi_key> <U110b> <U1107> : "ᅄ"  	U1144	 : ᄋᅠ ᄇᅠ   = ᅄᅠ
-  <Multi_key> <U110b> <U1109> : "ᅅ"  	U1145	 : ᄋᅠ ᄉᅠ   = ᅅᅠ
-  <Multi_key> <U110b> <U1140> : "ᅆ"  	U1146	 : ᄋᅠ ᅀᅠ   = ᅆᅠ
-  <Multi_key> <U110b> <U110b> : "ᅇ"  	U1147	 : ᄋᅠ ᄋᅠ   = ᅇᅠ
-  <Multi_key> <U110b> <U110c> : "ᅈ"  	U1148	 : ᄋᅠ ᄌᅠ   = ᅈᅠ
-  <Multi_key> <U110b> <U110e> : "ᅉ"  	U1149	 : ᄋᅠ ᄎᅠ   = ᅉᅠ
-  <Multi_key> <U110b> <U1110> : "ᅊ"  	U114a	 : ᄋᅠ ᄐᅠ   = ᅊᅠ
-  <Multi_key> <U110b> <U1111> : "ᅋ"  	U114b	 : ᄋᅠ ᄑᅠ   = ᅋᅠ
-  <Multi_key> <U110c> <U110b> : "ᅍ"  	U114d	 : ᄌᅠ ᄋᅠ   = ᅍᅠ
-  <Multi_key> <U114e> <U114e> : "ᅏ"  	U114f	 : ᅎᅠ ᅎᅠ   = ᅏᅠ
-  <Multi_key> <U1150> <U1150> : "ᅑ"  	U1151	 : ᅐᅠ ᅐᅠ   = ᅑᅠ
-  <Multi_key> <U110e> <U110f> : "ᅒ"  	U1152	 : ᄎᅠ ᄏᅠ   = ᅒᅠ
-  <Multi_key> <U110e> <U1112> : "ᅓ"  	U1153	 : ᄎᅠ ᄒᅠ   = ᅓᅠ
-  <Multi_key> <U1111> <U1107> : "ᅖ"  	U1156	 : ᄑᅠ ᄇᅠ   = ᅖᅠ
-  <Multi_key> <U1111> <U110b> : "ᅗ"  	U1157	 : ᄑᅠ ᄋᅠ   = ᅗᅠ
-  <Multi_key> <U1112> <U1112> : "ᅘ"  	U1158	 : ᄒᅠ ᄒᅠ   = ᅘᅠ
-  <Multi_key> <U1161> <U1175> : "ᅢ"  	U1162	 : ᅟᅡ ᅟᅵ   = ᅟᅢ
-  <Multi_key> <U1163> <U1175> : "ᅤ"  	U1164	 : ᅟᅣ ᅟᅵ   = ᅟᅤ
-  <Multi_key> <U1165> <U1175> : "ᅦ"  	U1166	 : ᅟᅥ ᅟᅵ   = ᅟᅦ
-  <Multi_key> <U1167> <U1175> : "ᅨ"  	U1168	 : ᅟᅧ ᅟᅵ   = ᅟᅨ
-  <Multi_key> <U1169> <U1161> : "ᅪ"  	U116a	 : ᅟᅩ ᅟᅡ   = ᅟᅪ
-  <Multi_key> <U1169> <U1175> : "ᅬ"  	U116c	 : ᅟᅩ ᅟᅵ   = ᅟᅬ
-  <Multi_key> <U116e> <U1165> : "ᅯ"  	U116f	 : ᅟᅮ ᅟᅥ   = ᅟᅯ
-  <Multi_key> <U116e> <U1175> : "ᅱ"  	U1171	 : ᅟᅮ ᅟᅵ   = ᅟᅱ
-  <Multi_key> <U1173> <U1175> : "ᅴ"  	U1174	 : ᅟᅳ ᅟᅵ   = ᅟᅴ
-  <Multi_key> <U1161> <U1169> : "ᅶ"  	U1176	 : ᅟᅡ ᅟᅩ   = ᅟᅶ
-  <Multi_key> <U1161> <U116e> : "ᅷ"  	U1177	 : ᅟᅡ ᅟᅮ   = ᅟᅷ
-  <Multi_key> <U1163> <U1169> : "ᅸ"  	U1178	 : ᅟᅣ ᅟᅩ   = ᅟᅸ
-  <Multi_key> <U1163> <U116d> : "ᅹ"  	U1179	 : ᅟᅣ ᅟᅭ   = ᅟᅹ
-  <Multi_key> <U1165> <U1169> : "ᅺ"  	U117a	 : ᅟᅥ ᅟᅩ   = ᅟᅺ
-  <Multi_key> <U1165> <U116e> : "ᅻ"  	U117b	 : ᅟᅥ ᅟᅮ   = ᅟᅻ
-  <Multi_key> <U1165> <U1173> : "ᅼ"  	U117c	 : ᅟᅥ ᅟᅳ   = ᅟᅼ
-  <Multi_key> <U1167> <U1169> : "ᅽ"  	U117d	 : ᅟᅧ ᅟᅩ   = ᅟᅽ
-  <Multi_key> <U1167> <U116e> : "ᅾ"  	U117e	 : ᅟᅧ ᅟᅮ   = ᅟᅾ
-  <Multi_key> <U1169> <U1165> : "ᅿ"  	U117f	 : ᅟᅩ ᅟᅥ   = ᅟᅿ
-  <Multi_key> <U1169> <U1166> : "ᆀ"  	U1180	 : ᅟᅩ ᅟᅦ   = ᅟᆀ
-  <Multi_key> <U1169> <U1168> : "ᆁ"  	U1181	 : ᅟᅩ ᅟᅨ   = ᅟᆁ
-  <Multi_key> <U1169> <U1169> : "ᆂ"  	U1182	 : ᅟᅩ ᅟᅩ   = ᅟᆂ
-  <Multi_key> <U1169> <U116e> : "ᆃ"  	U1183	 : ᅟᅩ ᅟᅮ   = ᅟᆃ
-  <Multi_key> <U116d> <U1163> : "ᆄ"  	U1184	 : ᅟᅭ ᅟᅣ   = ᅟᆄ
-  <Multi_key> <U116d> <U1164> : "ᆅ"  	U1185	 : ᅟᅭ ᅟᅤ   = ᅟᆅ
-  <Multi_key> <U116d> <U1167> : "ᆆ"  	U1186	 : ᅟᅭ ᅟᅧ   = ᅟᆆ
-  <Multi_key> <U116d> <U1169> : "ᆇ"  	U1187	 : ᅟᅭ ᅟᅩ   = ᅟᆇ
-  <Multi_key> <U116d> <U1175> : "ᆈ"  	U1188	 : ᅟᅭ ᅟᅵ   = ᅟᆈ
-  <Multi_key> <U116e> <U1161> : "ᆉ"  	U1189	 : ᅟᅮ ᅟᅡ   = ᅟᆉ
-  <Multi_key> <U116e> <U1162> : "ᆊ"  	U118a	 : ᅟᅮ ᅟᅢ   = ᅟᆊ
-  <Multi_key> <U116e> <U1168> : "ᆌ"  	U118c	 : ᅟᅮ ᅟᅨ   = ᅟᆌ
-  <Multi_key> <U116e> <U116e> : "ᆍ"  	U118d	 : ᅟᅮ ᅟᅮ   = ᅟᆍ
-  <Multi_key> <U1172> <U1161> : "ᆎ"  	U118e	 : ᅟᅲ ᅟᅡ   = ᅟᆎ
-  <Multi_key> <U1172> <U1165> : "ᆏ"  	U118f	 : ᅟᅲ ᅟᅥ   = ᅟᆏ
-  <Multi_key> <U1172> <U1166> : "ᆐ"  	U1190	 : ᅟᅲ ᅟᅦ   = ᅟᆐ
-  <Multi_key> <U1172> <U1167> : "ᆑ"  	U1191	 : ᅟᅲ ᅟᅧ   = ᅟᆑ
-  <Multi_key> <U1172> <U1168> : "ᆒ"  	U1192	 : ᅟᅲ ᅟᅨ   = ᅟᆒ
-  <Multi_key> <U1172> <U116e> : "ᆓ"  	U1193	 : ᅟᅲ ᅟᅮ   = ᅟᆓ
-  <Multi_key> <U1172> <U1175> : "ᆔ"  	U1194	 : ᅟᅲ ᅟᅵ   = ᅟᆔ
-  <Multi_key> <U1173> <U116e> : "ᆕ"  	U1195	 : ᅟᅳ ᅟᅮ   = ᅟᆕ
-  <Multi_key> <U1173> <U1173> : "ᆖ"  	U1196	 : ᅟᅳ ᅟᅳ   = ᅟᆖ
-  <Multi_key> <U1174> <U116e> : "ᆗ"  	U1197	 : ᅟᅴ ᅟᅮ   = ᅟᆗ
-  <Multi_key> <U1175> <U1161> : "ᆘ"  	U1198	 : ᅟᅵ ᅟᅡ   = ᅟᆘ
-  <Multi_key> <U1175> <U1163> : "ᆙ"  	U1199	 : ᅟᅵ ᅟᅣ   = ᅟᆙ
-  <Multi_key> <U1175> <U1169> : "ᆚ"  	U119a	 : ᅟᅵ ᅟᅩ   = ᅟᆚ
-  <Multi_key> <U1175> <U116e> : "ᆛ"  	U119b	 : ᅟᅵ ᅟᅮ   = ᅟᆛ
-  <Multi_key> <U1175> <U1173> : "ᆜ"  	U119c	 : ᅟᅵ ᅟᅳ   = ᅟᆜ
-  <Multi_key> <U1175> <U119e> : "ᆝ"  	U119d	 : ᅟᅵ ᅟᆞ   = ᅟᆝ
-  <Multi_key> <U119e> <U1165> : "ᆟ"  	U119f	 : ᅟᆞ ᅟᅥ   = ᅟᆟ
-  <Multi_key> <U119e> <U116e> : "ᆠ"  	U11a0	 : ᅟᆞ ᅟᅮ   = ᅟᆠ
-  <Multi_key> <U119e> <U1175> : "ᆡ"  	U11a1	 : ᅟᆞ ᅟᅵ   = ᅟᆡ
-  <Multi_key> <U119e> <U119e> : "ᆢ"  	U11a2	 : ᅟᆞ ᅟᆞ   = ᅟᆢ
-  <Multi_key> <U11a8> <U11a8> : "ᆩ"  	U11a9	 : ᅟᅠᆨ ᅟᅠᆨ   = ᅟᅠᆩ
-  <Multi_key> <U11a8> <U11ba> : "ᆪ"  	U11aa	 : ᅟᅠᆨ ᅟᅠᆺ   = ᅟᅠᆪ
-  <Multi_key> <U11ab> <U11bd> : "ᆬ"  	U11ac	 : ᅟᅠᆫ ᅟᅠᆽ   = ᅟᅠᆬ
-  <Multi_key> <U11ab> <U11c2> : "ᆭ"  	U11ad	 : ᅟᅠᆫ ᅟᅠᇂ   = ᅟᅠᆭ
-  <Multi_key> <U11af> <U11a8> : "ᆰ"  	U11b0	 : ᅟᅠᆯ ᅟᅠᆨ   = ᅟᅠᆰ
-  <Multi_key> <U11af> <U11b7> : "ᆱ"  	U11b1	 : ᅟᅠᆯ ᅟᅠᆷ   = ᅟᅠᆱ
-  <Multi_key> <U11af> <U11b8> : "ᆲ"  	U11b2	 : ᅟᅠᆯ ᅟᅠᆸ   = ᅟᅠᆲ
-  <Multi_key> <U11af> <U11ba> : "ᆳ"  	U11b3	 : ᅟᅠᆯ ᅟᅠᆺ   = ᅟᅠᆳ
-  <Multi_key> <U11af> <U11c0> : "ᆴ"  	U11b4	 : ᅟᅠᆯ ᅟᅠᇀ   = ᅟᅠᆴ
-  <Multi_key> <U11af> <U11c1> : "ᆵ"  	U11b5	 : ᅟᅠᆯ ᅟᅠᇁ   = ᅟᅠᆵ
-  <Multi_key> <U11af> <U11c2> : "ᆶ"  	U11b6	 : ᅟᅠᆯ ᅟᅠᇂ   = ᅟᅠᆶ
-  <Multi_key> <U11b8> <U11ba> : "ᆹ"  	U11b9	 : ᅟᅠᆸ ᅟᅠᆺ   = ᅟᅠᆹ
-  <Multi_key> <U11ba> <U11ba> : "ᆻ"  	U11bb	 : ᅟᅠᆺ ᅟᅠᆺ   = ᅟᅠᆻ
-  <Multi_key> <U11a8> <U11af> : "ᇃ"  	U11c3	 : ᅟᅠᆨ ᅟᅠᆯ   = ᅟᅠᇃ
-  <Multi_key> <U11ab> <U11a8> : "ᇅ"  	U11c5	 : ᅟᅠᆫ ᅟᅠᆨ   = ᅟᅠᇅ
-  <Multi_key> <U11ab> <U11ae> : "ᇆ"  	U11c6	 : ᅟᅠᆫ ᅟᅠᆮ   = ᅟᅠᇆ
-  <Multi_key> <U11ab> <U11ba> : "ᇇ"  	U11c7	 : ᅟᅠᆫ ᅟᅠᆺ   = ᅟᅠᇇ
-  <Multi_key> <U11ab> <U11eb> : "ᇈ"  	U11c8	 : ᅟᅠᆫ ᅟᅠᇫ   = ᅟᅠᇈ
-  <Multi_key> <U11ab> <U11c0> : "ᇉ"  	U11c9	 : ᅟᅠᆫ ᅟᅠᇀ   = ᅟᅠᇉ
-  <Multi_key> <U11ae> <U11a8> : "ᇊ"  	U11ca	 : ᅟᅠᆮ ᅟᅠᆨ   = ᅟᅠᇊ
-  <Multi_key> <U11ae> <U11af> : "ᇋ"  	U11cb	 : ᅟᅠᆮ ᅟᅠᆯ   = ᅟᅠᇋ
-  <Multi_key> <U11af> <U11ab> : "ᇍ"  	U11cd	 : ᅟᅠᆯ ᅟᅠᆫ   = ᅟᅠᇍ
-  <Multi_key> <U11af> <U11ae> : "ᇎ"  	U11ce	 : ᅟᅠᆯ ᅟᅠᆮ   = ᅟᅠᇎ
-  <Multi_key> <U11af> <U11af> : "ᇐ"  	U11d0	 : ᅟᅠᆯ ᅟᅠᆯ   = ᅟᅠᇐ
-  <Multi_key> <U11af> <U11eb> : "ᇗ"  	U11d7	 : ᅟᅠᆯ ᅟᅠᇫ   = ᅟᅠᇗ
-  <Multi_key> <U11af> <U11bf> : "ᇘ"  	U11d8	 : ᅟᅠᆯ ᅟᅠᆿ   = ᅟᅠᇘ
-  <Multi_key> <U11af> <U11f9> : "ᇙ"  	U11d9	 : ᅟᅠᆯ ᅟᅠᇹ   = ᅟᅠᇙ
-  <Multi_key> <U11b7> <U11a8> : "ᇚ"  	U11da	 : ᅟᅠᆷ ᅟᅠᆨ   = ᅟᅠᇚ
-  <Multi_key> <U11b7> <U11af> : "ᇛ"  	U11db	 : ᅟᅠᆷ ᅟᅠᆯ   = ᅟᅠᇛ
-  <Multi_key> <U11b7> <U11b8> : "ᇜ"  	U11dc	 : ᅟᅠᆷ ᅟᅠᆸ   = ᅟᅠᇜ
-  <Multi_key> <U11b7> <U11ba> : "ᇝ"  	U11dd	 : ᅟᅠᆷ ᅟᅠᆺ   = ᅟᅠᇝ
-  <Multi_key> <U11b7> <U11eb> : "ᇟ"  	U11df	 : ᅟᅠᆷ ᅟᅠᇫ   = ᅟᅠᇟ
-  <Multi_key> <U11b7> <U11be> : "ᇠ"  	U11e0	 : ᅟᅠᆷ ᅟᅠᆾ   = ᅟᅠᇠ
-  <Multi_key> <U11b7> <U11c2> : "ᇡ"  	U11e1	 : ᅟᅠᆷ ᅟᅠᇂ   = ᅟᅠᇡ
-  <Multi_key> <U11b7> <U11bc> : "ᇢ"  	U11e2	 : ᅟᅠᆷ ᅟᅠᆼ   = ᅟᅠᇢ
-  <Multi_key> <U11b8> <U11af> : "ᇣ"  	U11e3	 : ᅟᅠᆸ ᅟᅠᆯ   = ᅟᅠᇣ
-  <Multi_key> <U11b8> <U11c1> : "ᇤ"  	U11e4	 : ᅟᅠᆸ ᅟᅠᇁ   = ᅟᅠᇤ
-  <Multi_key> <U11b8> <U11c2> : "ᇥ"  	U11e5	 : ᅟᅠᆸ ᅟᅠᇂ   = ᅟᅠᇥ
-  <Multi_key> <U11b8> <U11bc> : "ᇦ"  	U11e6	 : ᅟᅠᆸ ᅟᅠᆼ   = ᅟᅠᇦ
-  <Multi_key> <U11ba> <U11a8> : "ᇧ"  	U11e7	 : ᅟᅠᆺ ᅟᅠᆨ   = ᅟᅠᇧ
-  <Multi_key> <U11ba> <U11ae> : "ᇨ"  	U11e8	 : ᅟᅠᆺ ᅟᅠᆮ   = ᅟᅠᇨ
-  <Multi_key> <U11ba> <U11af> : "ᇩ"  	U11e9	 : ᅟᅠᆺ ᅟᅠᆯ   = ᅟᅠᇩ
-  <Multi_key> <U11ba> <U11b8> : "ᇪ"  	U11ea	 : ᅟᅠᆺ ᅟᅠᆸ   = ᅟᅠᇪ
-  <Multi_key> <U11bc> <U11a8> : "ᇬ"  	U11ec	 : ᅟᅠᆼ ᅟᅠᆨ   = ᅟᅠᇬ
-  <Multi_key> <U11bc> <U11bc> : "ᇮ"  	U11ee	 : ᅟᅠᆼ ᅟᅠᆼ   = ᅟᅠᇮ
-  <Multi_key> <U11bc> <U11bf> : "ᇯ"  	U11ef	 : ᅟᅠᆼ ᅟᅠᆿ   = ᅟᅠᇯ
-  <Multi_key> <U11f0> <U11ba> : "ᇱ"  	U11f1	 : ᅟᅠᇰ ᅟᅠᆺ   = ᅟᅠᇱ
-  <Multi_key> <U11f0> <U11eb> : "ᇲ"  	U11f2	 : ᅟᅠᇰ ᅟᅠᇫ   = ᅟᅠᇲ
-  <Multi_key> <U11c1> <U11b8> : "ᇳ"  	U11f3	 : ᅟᅠᇁ ᅟᅠᆸ   = ᅟᅠᇳ
-  <Multi_key> <U11c1> <U11bc> : "ᇴ"  	U11f4	 : ᅟᅠᇁ ᅟᅠᆼ   = ᅟᅠᇴ
-  <Multi_key> <U11c2> <U11ab> : "ᇵ"  	U11f5	 : ᅟᅠᇂ ᅟᅠᆫ   = ᅟᅠᇵ
-  <Multi_key> <U11c2> <U11af> : "ᇶ"  	U11f6	 : ᅟᅠᇂ ᅟᅠᆯ   = ᅟᅠᇶ
-  <Multi_key> <U11c2> <U11b7> : "ᇷ"  	U11f7	 : ᅟᅠᇂ ᅟᅠᆷ   = ᅟᅠᇷ
-  <Multi_key> <U11c2> <U11b8> : "ᇸ"  	U11f8	 : ᅟᅠᇂ ᅟᅠᆸ   = ᅟᅠᇸ
-  <Multi_key> <U1121> <U1100> : "ᄢ"  	U1122	 : ᄡᅠ ᄀᅠ   = ᄢᅠ
-  <Multi_key> <U1121> <U1103> : "ᄣ"  	U1123	 : ᄡᅠ ᄃᅠ   = ᄣᅠ
-  <Multi_key> <U1121> <U1107> : "ᄤ"  	U1124	 : ᄡᅠ ᄇᅠ   = ᄤᅠ
-  <Multi_key> <U1121> <U1109> : "ᄥ"  	U1125	 : ᄡᅠ ᄉᅠ   = ᄥᅠ
-  <Multi_key> <U1121> <U110c> : "ᄦ"  	U1126	 : ᄡᅠ ᄌᅠ   = ᄦᅠ
-  <Multi_key> <U1108> <U110b> : "ᄬ"  	U112c	 : ᄈᅠ ᄋᅠ   = ᄬᅠ
-  <Multi_key> <U1132> <U1100> : "ᄳ"  	U1133	 : ᄲᅠ ᄀᅠ   = ᄳᅠ
-  <Multi_key> <U110a> <U1109> : "ᄴ"  	U1134	 : ᄊᅠ ᄉᅠ   = ᄴᅠ
-  <Multi_key> <U116a> <U1175> : "ᅫ"  	U116b	 : ᅟᅪ ᅟᅵ   = ᅟᅫ
-  <Multi_key> <U116f> <U1175> : "ᅰ"  	U1170	 : ᅟᅯ ᅟᅵ   = ᅟᅰ
-  <Multi_key> <U116f> <U1173> : "ᆋ"  	U118b	 : ᅟᅯ ᅟᅳ   = ᅟᆋ
-  <Multi_key> <U11aa> <U11a8> : "ᇄ"  	U11c4	 : ᅟᅠᆪ ᅟᅠᆨ   = ᅟᅠᇄ
-  <Multi_key> <U11b0> <U11ba> : "ᇌ"  	U11cc	 : ᅟᅠᆰ ᅟᅠᆺ   = ᅟᅠᇌ
-  <Multi_key> <U11ce> <U11c2> : "ᇏ"  	U11cf	 : ᅟᅠᇎ ᅟᅠᇂ   = ᅟᅠᇏ
-  <Multi_key> <U11b1> <U11a8> : "ᇑ"  	U11d1	 : ᅟᅠᆱ ᅟᅠᆨ   = ᅟᅠᇑ
-  <Multi_key> <U11b1> <U11ba> : "ᇒ"  	U11d2	 : ᅟᅠᆱ ᅟᅠᆺ   = ᅟᅠᇒ
-  <Multi_key> <U11b2> <U11ba> : "ᇓ"  	U11d3	 : ᅟᅠᆲ ᅟᅠᆺ   = ᅟᅠᇓ
-  <Multi_key> <U11b2> <U11c2> : "ᇔ"  	U11d4	 : ᅟᅠᆲ ᅟᅠᇂ   = ᅟᅠᇔ
-  <Multi_key> <U11b2> <U11bc> : "ᇕ"  	U11d5	 : ᅟᅠᆲ ᅟᅠᆼ   = ᅟᅠᇕ
-  <Multi_key> <U11b3> <U11ba> : "ᇖ"  	U11d6	 : ᅟᅠᆳ ᅟᅠᆺ   = ᅟᅠᇖ
-  <Multi_key> <U11dd> <U11ba> : "ᇞ"  	U11de	 : ᅟᅠᇝ ᅟᅠᆺ   = ᅟᅠᇞ
-  <Multi_key> <U11ec> <U11a8> : "ᇭ"  	U11ed	 : ᅟᅠᇬ ᅟᅠᆨ   = ᅟᅠᇭ
-  <Multi_key> <U1107> <U112d> : "ᄢ"  	U1122	 : ᄇᅠ ᄭᅠ   = ᄢᅠ
-  <Multi_key> <U1107> <U112f> : "ᄣ"  	U1123	 : ᄇᅠ ᄯᅠ   = ᄣᅠ
-  <Multi_key> <U1107> <U1132> : "ᄤ"  	U1124	 : ᄇᅠ ᄲᅠ   = ᄤᅠ
-  <Multi_key> <U1107> <U110a> : "ᄥ"  	U1125	 : ᄇᅠ ᄊᅠ   = ᄥᅠ
-  <Multi_key> <U1107> <U1136> : "ᄦ"  	U1126	 : ᄇᅠ ᄶᅠ   = ᄦᅠ
-  <Multi_key> <U1107> <U112b> : "ᄬ"  	U112c	 : ᄇᅠ ᄫᅠ   = ᄬᅠ
-  <Multi_key> <U1109> <U111e> : "ᄳ"  	U1133	 : ᄉᅠ ᄞᅠ   = ᄳᅠ
-  <Multi_key> <U1109> <U110a> : "ᄴ"  	U1134	 : ᄉᅠ ᄊᅠ   = ᄴᅠ
-  <Multi_key> <U1169> <U1162> : "ᅫ"  	U116b	 : ᅟᅩ ᅟᅢ   = ᅟᅫ
-  <Multi_key> <U116e> <U1166> : "ᅰ"  	U1170	 : ᅟᅮ ᅟᅦ   = ᅟᅰ
-  <Multi_key> <U116e> <U117c> : "ᆋ"  	U118b	 : ᅟᅮ ᅟᅼ   = ᅟᆋ
-  <Multi_key> <U11a8> <U11e7> : "ᇄ"  	U11c4	 : ᅟᅠᆨ ᅟᅠᇧ   = ᅟᅠᇄ
-  <Multi_key> <U11af> <U11aa> : "ᇌ"  	U11cc	 : ᅟᅠᆯ ᅟᅠᆪ   = ᅟᅠᇌ
-  <Multi_key> <U11af> <U11da> : "ᇑ"  	U11d1	 : ᅟᅠᆯ ᅟᅠᇚ   = ᅟᅠᇑ
-  <Multi_key> <U11af> <U11dd> : "ᇒ"  	U11d2	 : ᅟᅠᆯ ᅟᅠᇝ   = ᅟᅠᇒ
-  <Multi_key> <U11af> <U11b9> : "ᇓ"  	U11d3	 : ᅟᅠᆯ ᅟᅠᆹ   = ᅟᅠᇓ
-  <Multi_key> <U11af> <U11e5> : "ᇔ"  	U11d4	 : ᅟᅠᆯ ᅟᅠᇥ   = ᅟᅠᇔ
-  <Multi_key> <U11af> <U11e6> : "ᇕ"  	U11d5	 : ᅟᅠᆯ ᅟᅠᇦ   = ᅟᅠᇕ
-  <Multi_key> <U11af> <U11bb> : "ᇖ"  	U11d6	 : ᅟᅠᆯ ᅟᅠᆻ   = ᅟᅠᇖ
-  <Multi_key> <U11b7> <U11bb> : "ᇞ"  	U11de	 : ᅟᅠᆷ ᅟᅠᆻ   = ᅟᅠᇞ
-  <Multi_key> <U11bc> <U11a9> : "ᇭ"  	U11ed	 : ᅟᅠᆼ ᅟᅠᆩ   = ᅟᅠᇭ
+  <Multi_key> <U1107> <U1109> <U1100> : "ᄢ"  	U1122	 # ᄇᅠ ᄉᅠ ᄀᅠ  = ᄢᅠ
+  <Multi_key> <U1107> <U1109> <U1103> : "ᄣ"  	U1123	 # ᄇᅠ ᄉᅠ ᄃᅠ  = ᄣᅠ
+  <Multi_key> <U1107> <U1109> <U1107> : "ᄤ"  	U1124	 # ᄇᅠ ᄉᅠ ᄇᅠ  = ᄤᅠ
+  <Multi_key> <U1107> <U1109> <U1109> : "ᄥ"  	U1125	 # ᄇᅠ ᄉᅠ ᄉᅠ  = ᄥᅠ
+  <Multi_key> <U1107> <U1109> <U110c> : "ᄦ"  	U1126	 # ᄇᅠ ᄉᅠ ᄌᅠ  = ᄦᅠ
+  <Multi_key> <U1107> <U1107> <U110b> : "ᄬ"  	U112c	 # ᄇᅠ ᄇᅠ ᄋᅠ  = ᄬᅠ
+  <Multi_key> <U1109> <U1107> <U1100> : "ᄳ"  	U1133	 # ᄉᅠ ᄇᅠ ᄀᅠ  = ᄳᅠ
+  <Multi_key> <U1109> <U1109> <U1109> : "ᄴ"  	U1134	 # ᄉᅠ ᄉᅠ ᄉᅠ  = ᄴᅠ
+  <Multi_key> <U1169> <U1161> <U1175> : "ᅫ"  	U116b	 # ᅟᅩ ᅟᅡ ᅟᅵ  = ᅟᅫ
+  <Multi_key> <U116e> <U1165> <U1175> : "ᅰ"  	U1170	 # ᅟᅮ ᅟᅥ ᅟᅵ  = ᅟᅰ
+  <Multi_key> <U116e> <U1165> <U1173> : "ᆋ"  	U118b	 # ᅟᅮ ᅟᅥ ᅟᅳ  = ᅟᆋ
+  <Multi_key> <U11a8> <U11ba> <U11a8> : "ᇄ"  	U11c4	 # ᅟᅠᆨ ᅟᅠᆺ ᅟᅠᆨ  = ᅟᅠᇄ
+  <Multi_key> <U11af> <U11a8> <U11ba> : "ᇌ"  	U11cc	 # ᅟᅠᆯ ᅟᅠᆨ ᅟᅠᆺ  = ᅟᅠᇌ
+  <Multi_key> <U11af> <U11ae> <U11c2> : "ᇏ"  	U11cf	 # ᅟᅠᆯ ᅟᅠᆮ ᅟᅠᇂ  = ᅟᅠᇏ
+  <Multi_key> <U11af> <U11b7> <U11a8> : "ᇑ"  	U11d1	 # ᅟᅠᆯ ᅟᅠᆷ ᅟᅠᆨ  = ᅟᅠᇑ
+  <Multi_key> <U11af> <U11b7> <U11ba> : "ᇒ"  	U11d2	 # ᅟᅠᆯ ᅟᅠᆷ ᅟᅠᆺ  = ᅟᅠᇒ
+  <Multi_key> <U11af> <U11b8> <U11ba> : "ᇓ"  	U11d3	 # ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᆺ  = ᅟᅠᇓ
+  <Multi_key> <U11af> <U11b8> <U11c2> : "ᇔ"  	U11d4	 # ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᇂ  = ᅟᅠᇔ
+  <Multi_key> <U11af> <U11b8> <U11bc> : "ᇕ"  	U11d5	 # ᅟᅠᆯ ᅟᅠᆸ ᅟᅠᆼ  = ᅟᅠᇕ
+  <Multi_key> <U11af> <U11ba> <U11ba> : "ᇖ"  	U11d6	 # ᅟᅠᆯ ᅟᅠᆺ ᅟᅠᆺ  = ᅟᅠᇖ
+  <Multi_key> <U11b7> <U11ba> <U11ba> : "ᇞ"  	U11de	 # ᅟᅠᆷ ᅟᅠᆺ ᅟᅠᆺ  = ᅟᅠᇞ
+  <Multi_key> <U11bc> <U11a8> <U11a8> : "ᇭ"  	U11ed	 # ᅟᅠᆼ ᅟᅠᆨ ᅟᅠᆨ  = ᅟᅠᇭ
+  <Multi_key> <U1100> <U1100> : "ᄁ"  	U1101	 # ᄀᅠ ᄀᅠ   = ᄁᅠ
+  <Multi_key> <U1103> <U1103> : "ᄄ"  	U1104	 # ᄃᅠ ᄃᅠ   = ᄄᅠ
+  <Multi_key> <U1107> <U1107> : "ᄈ"  	U1108	 # ᄇᅠ ᄇᅠ   = ᄈᅠ
+  <Multi_key> <U1109> <U1109> : "ᄊ"  	U110a	 # ᄉᅠ ᄉᅠ   = ᄊᅠ
+  <Multi_key> <U110c> <U110c> : "ᄍ"  	U110d	 # ᄌᅠ ᄌᅠ   = ᄍᅠ
+  <Multi_key> <U1102> <U1100> : "ᄓ"  	U1113	 # ᄂᅠ ᄀᅠ   = ᄓᅠ
+  <Multi_key> <U1102> <U1102> : "ᄔ"  	U1114	 # ᄂᅠ ᄂᅠ   = ᄔᅠ
+  <Multi_key> <U1102> <U1103> : "ᄕ"  	U1115	 # ᄂᅠ ᄃᅠ   = ᄕᅠ
+  <Multi_key> <U1102> <U1107> : "ᄖ"  	U1116	 # ᄂᅠ ᄇᅠ   = ᄖᅠ
+  <Multi_key> <U1103> <U1100> : "ᄗ"  	U1117	 # ᄃᅠ ᄀᅠ   = ᄗᅠ
+  <Multi_key> <U1105> <U1102> : "ᄘ"  	U1118	 # ᄅᅠ ᄂᅠ   = ᄘᅠ
+  <Multi_key> <U1105> <U1105> : "ᄙ"  	U1119	 # ᄅᅠ ᄅᅠ   = ᄙᅠ
+  <Multi_key> <U1105> <U1112> : "ᄚ"  	U111a	 # ᄅᅠ ᄒᅠ   = ᄚᅠ
+  <Multi_key> <U1105> <U110b> : "ᄛ"  	U111b	 # ᄅᅠ ᄋᅠ   = ᄛᅠ
+  <Multi_key> <U1106> <U1107> : "ᄜ"  	U111c	 # ᄆᅠ ᄇᅠ   = ᄜᅠ
+  <Multi_key> <U1106> <U110b> : "ᄝ"  	U111d	 # ᄆᅠ ᄋᅠ   = ᄝᅠ
+  <Multi_key> <U1107> <U1100> : "ᄞ"  	U111e	 # ᄇᅠ ᄀᅠ   = ᄞᅠ
+  <Multi_key> <U1107> <U1102> : "ᄟ"  	U111f	 # ᄇᅠ ᄂᅠ   = ᄟᅠ
+  <Multi_key> <U1107> <U1103> : "ᄠ"  	U1120	 # ᄇᅠ ᄃᅠ   = ᄠᅠ
+  <Multi_key> <U1107> <U1109> : "ᄡ"  	U1121	 # ᄇᅠ ᄉᅠ   = ᄡᅠ
+  <Multi_key> <U1107> <U110c> : "ᄧ"  	U1127	 # ᄇᅠ ᄌᅠ   = ᄧᅠ
+  <Multi_key> <U1107> <U110e> : "ᄨ"  	U1128	 # ᄇᅠ ᄎᅠ   = ᄨᅠ
+  <Multi_key> <U1107> <U1110> : "ᄩ"  	U1129	 # ᄇᅠ ᄐᅠ   = ᄩᅠ
+  <Multi_key> <U1107> <U1111> : "ᄪ"  	U112a	 # ᄇᅠ ᄑᅠ   = ᄪᅠ
+  <Multi_key> <U1107> <U110b> : "ᄫ"  	U112b	 # ᄇᅠ ᄋᅠ   = ᄫᅠ
+  <Multi_key> <U1109> <U1100> : "ᄭ"  	U112d	 # ᄉᅠ ᄀᅠ   = ᄭᅠ
+  <Multi_key> <U1109> <U1102> : "ᄮ"  	U112e	 # ᄉᅠ ᄂᅠ   = ᄮᅠ
+  <Multi_key> <U1109> <U1103> : "ᄯ"  	U112f	 # ᄉᅠ ᄃᅠ   = ᄯᅠ
+  <Multi_key> <U1109> <U1105> : "ᄰ"  	U1130	 # ᄉᅠ ᄅᅠ   = ᄰᅠ
+  <Multi_key> <U1109> <U1106> : "ᄱ"  	U1131	 # ᄉᅠ ᄆᅠ   = ᄱᅠ
+  <Multi_key> <U1109> <U1107> : "ᄲ"  	U1132	 # ᄉᅠ ᄇᅠ   = ᄲᅠ
+  <Multi_key> <U1109> <U110b> : "ᄵ"  	U1135	 # ᄉᅠ ᄋᅠ   = ᄵᅠ
+  <Multi_key> <U1109> <U110c> : "ᄶ"  	U1136	 # ᄉᅠ ᄌᅠ   = ᄶᅠ
+  <Multi_key> <U1109> <U110e> : "ᄷ"  	U1137	 # ᄉᅠ ᄎᅠ   = ᄷᅠ
+  <Multi_key> <U1109> <U110f> : "ᄸ"  	U1138	 # ᄉᅠ ᄏᅠ   = ᄸᅠ
+  <Multi_key> <U1109> <U1110> : "ᄹ"  	U1139	 # ᄉᅠ ᄐᅠ   = ᄹᅠ
+  <Multi_key> <U1109> <U1111> : "ᄺ"  	U113a	 # ᄉᅠ ᄑᅠ   = ᄺᅠ
+  <Multi_key> <U1109> <U1112> : "ᄻ"  	U113b	 # ᄉᅠ ᄒᅠ   = ᄻᅠ
+  <Multi_key> <U113c> <U113c> : "ᄽ"  	U113d	 # ᄼᅠ ᄼᅠ   = ᄽᅠ
+  <Multi_key> <U113e> <U113e> : "ᄿ"  	U113f	 # ᄾᅠ ᄾᅠ   = ᄿᅠ
+  <Multi_key> <U110b> <U1100> : "ᅁ"  	U1141	 # ᄋᅠ ᄀᅠ   = ᅁᅠ
+  <Multi_key> <U110b> <U1103> : "ᅂ"  	U1142	 # ᄋᅠ ᄃᅠ   = ᅂᅠ
+  <Multi_key> <U110b> <U1106> : "ᅃ"  	U1143	 # ᄋᅠ ᄆᅠ   = ᅃᅠ
+  <Multi_key> <U110b> <U1107> : "ᅄ"  	U1144	 # ᄋᅠ ᄇᅠ   = ᅄᅠ
+  <Multi_key> <U110b> <U1109> : "ᅅ"  	U1145	 # ᄋᅠ ᄉᅠ   = ᅅᅠ
+  <Multi_key> <U110b> <U1140> : "ᅆ"  	U1146	 # ᄋᅠ ᅀᅠ   = ᅆᅠ
+  <Multi_key> <U110b> <U110b> : "ᅇ"  	U1147	 # ᄋᅠ ᄋᅠ   = ᅇᅠ
+  <Multi_key> <U110b> <U110c> : "ᅈ"  	U1148	 # ᄋᅠ ᄌᅠ   = ᅈᅠ
+  <Multi_key> <U110b> <U110e> : "ᅉ"  	U1149	 # ᄋᅠ ᄎᅠ   = ᅉᅠ
+  <Multi_key> <U110b> <U1110> : "ᅊ"  	U114a	 # ᄋᅠ ᄐᅠ   = ᅊᅠ
+  <Multi_key> <U110b> <U1111> : "ᅋ"  	U114b	 # ᄋᅠ ᄑᅠ   = ᅋᅠ
+  <Multi_key> <U110c> <U110b> : "ᅍ"  	U114d	 # ᄌᅠ ᄋᅠ   = ᅍᅠ
+  <Multi_key> <U114e> <U114e> : "ᅏ"  	U114f	 # ᅎᅠ ᅎᅠ   = ᅏᅠ
+  <Multi_key> <U1150> <U1150> : "ᅑ"  	U1151	 # ᅐᅠ ᅐᅠ   = ᅑᅠ
+  <Multi_key> <U110e> <U110f> : "ᅒ"  	U1152	 # ᄎᅠ ᄏᅠ   = ᅒᅠ
+  <Multi_key> <U110e> <U1112> : "ᅓ"  	U1153	 # ᄎᅠ ᄒᅠ   = ᅓᅠ
+  <Multi_key> <U1111> <U1107> : "ᅖ"  	U1156	 # ᄑᅠ ᄇᅠ   = ᅖᅠ
+  <Multi_key> <U1111> <U110b> : "ᅗ"  	U1157	 # ᄑᅠ ᄋᅠ   = ᅗᅠ
+  <Multi_key> <U1112> <U1112> : "ᅘ"  	U1158	 # ᄒᅠ ᄒᅠ   = ᅘᅠ
+  <Multi_key> <U1161> <U1175> : "ᅢ"  	U1162	 # ᅟᅡ ᅟᅵ   = ᅟᅢ
+  <Multi_key> <U1163> <U1175> : "ᅤ"  	U1164	 # ᅟᅣ ᅟᅵ   = ᅟᅤ
+  <Multi_key> <U1165> <U1175> : "ᅦ"  	U1166	 # ᅟᅥ ᅟᅵ   = ᅟᅦ
+  <Multi_key> <U1167> <U1175> : "ᅨ"  	U1168	 # ᅟᅧ ᅟᅵ   = ᅟᅨ
+  <Multi_key> <U1169> <U1161> : "ᅪ"  	U116a	 # ᅟᅩ ᅟᅡ   = ᅟᅪ
+  <Multi_key> <U1169> <U1175> : "ᅬ"  	U116c	 # ᅟᅩ ᅟᅵ   = ᅟᅬ
+  <Multi_key> <U116e> <U1165> : "ᅯ"  	U116f	 # ᅟᅮ ᅟᅥ   = ᅟᅯ
+  <Multi_key> <U116e> <U1175> : "ᅱ"  	U1171	 # ᅟᅮ ᅟᅵ   = ᅟᅱ
+  <Multi_key> <U1173> <U1175> : "ᅴ"  	U1174	 # ᅟᅳ ᅟᅵ   = ᅟᅴ
+  <Multi_key> <U1161> <U1169> : "ᅶ"  	U1176	 # ᅟᅡ ᅟᅩ   = ᅟᅶ
+  <Multi_key> <U1161> <U116e> : "ᅷ"  	U1177	 # ᅟᅡ ᅟᅮ   = ᅟᅷ
+  <Multi_key> <U1163> <U1169> : "ᅸ"  	U1178	 # ᅟᅣ ᅟᅩ   = ᅟᅸ
+  <Multi_key> <U1163> <U116d> : "ᅹ"  	U1179	 # ᅟᅣ ᅟᅭ   = ᅟᅹ
+  <Multi_key> <U1165> <U1169> : "ᅺ"  	U117a	 # ᅟᅥ ᅟᅩ   = ᅟᅺ
+  <Multi_key> <U1165> <U116e> : "ᅻ"  	U117b	 # ᅟᅥ ᅟᅮ   = ᅟᅻ
+  <Multi_key> <U1165> <U1173> : "ᅼ"  	U117c	 # ᅟᅥ ᅟᅳ   = ᅟᅼ
+  <Multi_key> <U1167> <U1169> : "ᅽ"  	U117d	 # ᅟᅧ ᅟᅩ   = ᅟᅽ
+  <Multi_key> <U1167> <U116e> : "ᅾ"  	U117e	 # ᅟᅧ ᅟᅮ   = ᅟᅾ
+  <Multi_key> <U1169> <U1165> : "ᅿ"  	U117f	 # ᅟᅩ ᅟᅥ   = ᅟᅿ
+  <Multi_key> <U1169> <U1166> : "ᆀ"  	U1180	 # ᅟᅩ ᅟᅦ   = ᅟᆀ
+  <Multi_key> <U1169> <U1168> : "ᆁ"  	U1181	 # ᅟᅩ ᅟᅨ   = ᅟᆁ
+  <Multi_key> <U1169> <U1169> : "ᆂ"  	U1182	 # ᅟᅩ ᅟᅩ   = ᅟᆂ
+  <Multi_key> <U1169> <U116e> : "ᆃ"  	U1183	 # ᅟᅩ ᅟᅮ   = ᅟᆃ
+  <Multi_key> <U116d> <U1163> : "ᆄ"  	U1184	 # ᅟᅭ ᅟᅣ   = ᅟᆄ
+  <Multi_key> <U116d> <U1164> : "ᆅ"  	U1185	 # ᅟᅭ ᅟᅤ   = ᅟᆅ
+  <Multi_key> <U116d> <U1167> : "ᆆ"  	U1186	 # ᅟᅭ ᅟᅧ   = ᅟᆆ
+  <Multi_key> <U116d> <U1169> : "ᆇ"  	U1187	 # ᅟᅭ ᅟᅩ   = ᅟᆇ
+  <Multi_key> <U116d> <U1175> : "ᆈ"  	U1188	 # ᅟᅭ ᅟᅵ   = ᅟᆈ
+  <Multi_key> <U116e> <U1161> : "ᆉ"  	U1189	 # ᅟᅮ ᅟᅡ   = ᅟᆉ
+  <Multi_key> <U116e> <U1162> : "ᆊ"  	U118a	 # ᅟᅮ ᅟᅢ   = ᅟᆊ
+  <Multi_key> <U116e> <U1168> : "ᆌ"  	U118c	 # ᅟᅮ ᅟᅨ   = ᅟᆌ
+  <Multi_key> <U116e> <U116e> : "ᆍ"  	U118d	 # ᅟᅮ ᅟᅮ   = ᅟᆍ
+  <Multi_key> <U1172> <U1161> : "ᆎ"  	U118e	 # ᅟᅲ ᅟᅡ   = ᅟᆎ
+  <Multi_key> <U1172> <U1165> : "ᆏ"  	U118f	 # ᅟᅲ ᅟᅥ   = ᅟᆏ
+  <Multi_key> <U1172> <U1166> : "ᆐ"  	U1190	 # ᅟᅲ ᅟᅦ   = ᅟᆐ
+  <Multi_key> <U1172> <U1167> : "ᆑ"  	U1191	 # ᅟᅲ ᅟᅧ   = ᅟᆑ
+  <Multi_key> <U1172> <U1168> : "ᆒ"  	U1192	 # ᅟᅲ ᅟᅨ   = ᅟᆒ
+  <Multi_key> <U1172> <U116e> : "ᆓ"  	U1193	 # ᅟᅲ ᅟᅮ   = ᅟᆓ
+  <Multi_key> <U1172> <U1175> : "ᆔ"  	U1194	 # ᅟᅲ ᅟᅵ   = ᅟᆔ
+  <Multi_key> <U1173> <U116e> : "ᆕ"  	U1195	 # ᅟᅳ ᅟᅮ   = ᅟᆕ
+  <Multi_key> <U1173> <U1173> : "ᆖ"  	U1196	 # ᅟᅳ ᅟᅳ   = ᅟᆖ
+  <Multi_key> <U1174> <U116e> : "ᆗ"  	U1197	 # ᅟᅴ ᅟᅮ   = ᅟᆗ
+  <Multi_key> <U1175> <U1161> : "ᆘ"  	U1198	 # ᅟᅵ ᅟᅡ   = ᅟᆘ
+  <Multi_key> <U1175> <U1163> : "ᆙ"  	U1199	 # ᅟᅵ ᅟᅣ   = ᅟᆙ
+  <Multi_key> <U1175> <U1169> : "ᆚ"  	U119a	 # ᅟᅵ ᅟᅩ   = ᅟᆚ
+  <Multi_key> <U1175> <U116e> : "ᆛ"  	U119b	 # ᅟᅵ ᅟᅮ   = ᅟᆛ
+  <Multi_key> <U1175> <U1173> : "ᆜ"  	U119c	 # ᅟᅵ ᅟᅳ   = ᅟᆜ
+  <Multi_key> <U1175> <U119e> : "ᆝ"  	U119d	 # ᅟᅵ ᅟᆞ   = ᅟᆝ
+  <Multi_key> <U119e> <U1165> : "ᆟ"  	U119f	 # ᅟᆞ ᅟᅥ   = ᅟᆟ
+  <Multi_key> <U119e> <U116e> : "ᆠ"  	U11a0	 # ᅟᆞ ᅟᅮ   = ᅟᆠ
+  <Multi_key> <U119e> <U1175> : "ᆡ"  	U11a1	 # ᅟᆞ ᅟᅵ   = ᅟᆡ
+  <Multi_key> <U119e> <U119e> : "ᆢ"  	U11a2	 # ᅟᆞ ᅟᆞ   = ᅟᆢ
+  <Multi_key> <U11a8> <U11a8> : "ᆩ"  	U11a9	 # ᅟᅠᆨ ᅟᅠᆨ   = ᅟᅠᆩ
+  <Multi_key> <U11a8> <U11ba> : "ᆪ"  	U11aa	 # ᅟᅠᆨ ᅟᅠᆺ   = ᅟᅠᆪ
+  <Multi_key> <U11ab> <U11bd> : "ᆬ"  	U11ac	 # ᅟᅠᆫ ᅟᅠᆽ   = ᅟᅠᆬ
+  <Multi_key> <U11ab> <U11c2> : "ᆭ"  	U11ad	 # ᅟᅠᆫ ᅟᅠᇂ   = ᅟᅠᆭ
+  <Multi_key> <U11af> <U11a8> : "ᆰ"  	U11b0	 # ᅟᅠᆯ ᅟᅠᆨ   = ᅟᅠᆰ
+  <Multi_key> <U11af> <U11b7> : "ᆱ"  	U11b1	 # ᅟᅠᆯ ᅟᅠᆷ   = ᅟᅠᆱ
+  <Multi_key> <U11af> <U11b8> : "ᆲ"  	U11b2	 # ᅟᅠᆯ ᅟᅠᆸ   = ᅟᅠᆲ
+  <Multi_key> <U11af> <U11ba> : "ᆳ"  	U11b3	 # ᅟᅠᆯ ᅟᅠᆺ   = ᅟᅠᆳ
+  <Multi_key> <U11af> <U11c0> : "ᆴ"  	U11b4	 # ᅟᅠᆯ ᅟᅠᇀ   = ᅟᅠᆴ
+  <Multi_key> <U11af> <U11c1> : "ᆵ"  	U11b5	 # ᅟᅠᆯ ᅟᅠᇁ   = ᅟᅠᆵ
+  <Multi_key> <U11af> <U11c2> : "ᆶ"  	U11b6	 # ᅟᅠᆯ ᅟᅠᇂ   = ᅟᅠᆶ
+  <Multi_key> <U11b8> <U11ba> : "ᆹ"  	U11b9	 # ᅟᅠᆸ ᅟᅠᆺ   = ᅟᅠᆹ
+  <Multi_key> <U11ba> <U11ba> : "ᆻ"  	U11bb	 # ᅟᅠᆺ ᅟᅠᆺ   = ᅟᅠᆻ
+  <Multi_key> <U11a8> <U11af> : "ᇃ"  	U11c3	 # ᅟᅠᆨ ᅟᅠᆯ   = ᅟᅠᇃ
+  <Multi_key> <U11ab> <U11a8> : "ᇅ"  	U11c5	 # ᅟᅠᆫ ᅟᅠᆨ   = ᅟᅠᇅ
+  <Multi_key> <U11ab> <U11ae> : "ᇆ"  	U11c6	 # ᅟᅠᆫ ᅟᅠᆮ   = ᅟᅠᇆ
+  <Multi_key> <U11ab> <U11ba> : "ᇇ"  	U11c7	 # ᅟᅠᆫ ᅟᅠᆺ   = ᅟᅠᇇ
+  <Multi_key> <U11ab> <U11eb> : "ᇈ"  	U11c8	 # ᅟᅠᆫ ᅟᅠᇫ   = ᅟᅠᇈ
+  <Multi_key> <U11ab> <U11c0> : "ᇉ"  	U11c9	 # ᅟᅠᆫ ᅟᅠᇀ   = ᅟᅠᇉ
+  <Multi_key> <U11ae> <U11a8> : "ᇊ"  	U11ca	 # ᅟᅠᆮ ᅟᅠᆨ   = ᅟᅠᇊ
+  <Multi_key> <U11ae> <U11af> : "ᇋ"  	U11cb	 # ᅟᅠᆮ ᅟᅠᆯ   = ᅟᅠᇋ
+  <Multi_key> <U11af> <U11ab> : "ᇍ"  	U11cd	 # ᅟᅠᆯ ᅟᅠᆫ   = ᅟᅠᇍ
+  <Multi_key> <U11af> <U11ae> : "ᇎ"  	U11ce	 # ᅟᅠᆯ ᅟᅠᆮ   = ᅟᅠᇎ
+  <Multi_key> <U11af> <U11af> : "ᇐ"  	U11d0	 # ᅟᅠᆯ ᅟᅠᆯ   = ᅟᅠᇐ
+  <Multi_key> <U11af> <U11eb> : "ᇗ"  	U11d7	 # ᅟᅠᆯ ᅟᅠᇫ   = ᅟᅠᇗ
+  <Multi_key> <U11af> <U11bf> : "ᇘ"  	U11d8	 # ᅟᅠᆯ ᅟᅠᆿ   = ᅟᅠᇘ
+  <Multi_key> <U11af> <U11f9> : "ᇙ"  	U11d9	 # ᅟᅠᆯ ᅟᅠᇹ   = ᅟᅠᇙ
+  <Multi_key> <U11b7> <U11a8> : "ᇚ"  	U11da	 # ᅟᅠᆷ ᅟᅠᆨ   = ᅟᅠᇚ
+  <Multi_key> <U11b7> <U11af> : "ᇛ"  	U11db	 # ᅟᅠᆷ ᅟᅠᆯ   = ᅟᅠᇛ
+  <Multi_key> <U11b7> <U11b8> : "ᇜ"  	U11dc	 # ᅟᅠᆷ ᅟᅠᆸ   = ᅟᅠᇜ
+  <Multi_key> <U11b7> <U11ba> : "ᇝ"  	U11dd	 # ᅟᅠᆷ ᅟᅠᆺ   = ᅟᅠᇝ
+  <Multi_key> <U11b7> <U11eb> : "ᇟ"  	U11df	 # ᅟᅠᆷ ᅟᅠᇫ   = ᅟᅠᇟ
+  <Multi_key> <U11b7> <U11be> : "ᇠ"  	U11e0	 # ᅟᅠᆷ ᅟᅠᆾ   = ᅟᅠᇠ
+  <Multi_key> <U11b7> <U11c2> : "ᇡ"  	U11e1	 # ᅟᅠᆷ ᅟᅠᇂ   = ᅟᅠᇡ
+  <Multi_key> <U11b7> <U11bc> : "ᇢ"  	U11e2	 # ᅟᅠᆷ ᅟᅠᆼ   = ᅟᅠᇢ
+  <Multi_key> <U11b8> <U11af> : "ᇣ"  	U11e3	 # ᅟᅠᆸ ᅟᅠᆯ   = ᅟᅠᇣ
+  <Multi_key> <U11b8> <U11c1> : "ᇤ"  	U11e4	 # ᅟᅠᆸ ᅟᅠᇁ   = ᅟᅠᇤ
+  <Multi_key> <U11b8> <U11c2> : "ᇥ"  	U11e5	 # ᅟᅠᆸ ᅟᅠᇂ   = ᅟᅠᇥ
+  <Multi_key> <U11b8> <U11bc> : "ᇦ"  	U11e6	 # ᅟᅠᆸ ᅟᅠᆼ   = ᅟᅠᇦ
+  <Multi_key> <U11ba> <U11a8> : "ᇧ"  	U11e7	 # ᅟᅠᆺ ᅟᅠᆨ   = ᅟᅠᇧ
+  <Multi_key> <U11ba> <U11ae> : "ᇨ"  	U11e8	 # ᅟᅠᆺ ᅟᅠᆮ   = ᅟᅠᇨ
+  <Multi_key> <U11ba> <U11af> : "ᇩ"  	U11e9	 # ᅟᅠᆺ ᅟᅠᆯ   = ᅟᅠᇩ
+  <Multi_key> <U11ba> <U11b8> : "ᇪ"  	U11ea	 # ᅟᅠᆺ ᅟᅠᆸ   = ᅟᅠᇪ
+  <Multi_key> <U11bc> <U11a8> : "ᇬ"  	U11ec	 # ᅟᅠᆼ ᅟᅠᆨ   = ᅟᅠᇬ
+  <Multi_key> <U11bc> <U11bc> : "ᇮ"  	U11ee	 # ᅟᅠᆼ ᅟᅠᆼ   = ᅟᅠᇮ
+  <Multi_key> <U11bc> <U11bf> : "ᇯ"  	U11ef	 # ᅟᅠᆼ ᅟᅠᆿ   = ᅟᅠᇯ
+  <Multi_key> <U11f0> <U11ba> : "ᇱ"  	U11f1	 # ᅟᅠᇰ ᅟᅠᆺ   = ᅟᅠᇱ
+  <Multi_key> <U11f0> <U11eb> : "ᇲ"  	U11f2	 # ᅟᅠᇰ ᅟᅠᇫ   = ᅟᅠᇲ
+  <Multi_key> <U11c1> <U11b8> : "ᇳ"  	U11f3	 # ᅟᅠᇁ ᅟᅠᆸ   = ᅟᅠᇳ
+  <Multi_key> <U11c1> <U11bc> : "ᇴ"  	U11f4	 # ᅟᅠᇁ ᅟᅠᆼ   = ᅟᅠᇴ
+  <Multi_key> <U11c2> <U11ab> : "ᇵ"  	U11f5	 # ᅟᅠᇂ ᅟᅠᆫ   = ᅟᅠᇵ
+  <Multi_key> <U11c2> <U11af> : "ᇶ"  	U11f6	 # ᅟᅠᇂ ᅟᅠᆯ   = ᅟᅠᇶ
+  <Multi_key> <U11c2> <U11b7> : "ᇷ"  	U11f7	 # ᅟᅠᇂ ᅟᅠᆷ   = ᅟᅠᇷ
+  <Multi_key> <U11c2> <U11b8> : "ᇸ"  	U11f8	 # ᅟᅠᇂ ᅟᅠᆸ   = ᅟᅠᇸ
+  <Multi_key> <U1121> <U1100> : "ᄢ"  	U1122	 # ᄡᅠ ᄀᅠ   = ᄢᅠ
+  <Multi_key> <U1121> <U1103> : "ᄣ"  	U1123	 # ᄡᅠ ᄃᅠ   = ᄣᅠ
+  <Multi_key> <U1121> <U1107> : "ᄤ"  	U1124	 # ᄡᅠ ᄇᅠ   = ᄤᅠ
+  <Multi_key> <U1121> <U1109> : "ᄥ"  	U1125	 # ᄡᅠ ᄉᅠ   = ᄥᅠ
+  <Multi_key> <U1121> <U110c> : "ᄦ"  	U1126	 # ᄡᅠ ᄌᅠ   = ᄦᅠ
+  <Multi_key> <U1108> <U110b> : "ᄬ"  	U112c	 # ᄈᅠ ᄋᅠ   = ᄬᅠ
+  <Multi_key> <U1132> <U1100> : "ᄳ"  	U1133	 # ᄲᅠ ᄀᅠ   = ᄳᅠ
+  <Multi_key> <U110a> <U1109> : "ᄴ"  	U1134	 # ᄊᅠ ᄉᅠ   = ᄴᅠ
+  <Multi_key> <U116a> <U1175> : "ᅫ"  	U116b	 # ᅟᅪ ᅟᅵ   = ᅟᅫ
+  <Multi_key> <U116f> <U1175> : "ᅰ"  	U1170	 # ᅟᅯ ᅟᅵ   = ᅟᅰ
+  <Multi_key> <U116f> <U1173> : "ᆋ"  	U118b	 # ᅟᅯ ᅟᅳ   = ᅟᆋ
+  <Multi_key> <U11aa> <U11a8> : "ᇄ"  	U11c4	 # ᅟᅠᆪ ᅟᅠᆨ   = ᅟᅠᇄ
+  <Multi_key> <U11b0> <U11ba> : "ᇌ"  	U11cc	 # ᅟᅠᆰ ᅟᅠᆺ   = ᅟᅠᇌ
+  <Multi_key> <U11ce> <U11c2> : "ᇏ"  	U11cf	 # ᅟᅠᇎ ᅟᅠᇂ   = ᅟᅠᇏ
+  <Multi_key> <U11b1> <U11a8> : "ᇑ"  	U11d1	 # ᅟᅠᆱ ᅟᅠᆨ   = ᅟᅠᇑ
+  <Multi_key> <U11b1> <U11ba> : "ᇒ"  	U11d2	 # ᅟᅠᆱ ᅟᅠᆺ   = ᅟᅠᇒ
+  <Multi_key> <U11b2> <U11ba> : "ᇓ"  	U11d3	 # ᅟᅠᆲ ᅟᅠᆺ   = ᅟᅠᇓ
+  <Multi_key> <U11b2> <U11c2> : "ᇔ"  	U11d4	 # ᅟᅠᆲ ᅟᅠᇂ   = ᅟᅠᇔ
+  <Multi_key> <U11b2> <U11bc> : "ᇕ"  	U11d5	 # ᅟᅠᆲ ᅟᅠᆼ   = ᅟᅠᇕ
+  <Multi_key> <U11b3> <U11ba> : "ᇖ"  	U11d6	 # ᅟᅠᆳ ᅟᅠᆺ   = ᅟᅠᇖ
+  <Multi_key> <U11dd> <U11ba> : "ᇞ"  	U11de	 # ᅟᅠᇝ ᅟᅠᆺ   = ᅟᅠᇞ
+  <Multi_key> <U11ec> <U11a8> : "ᇭ"  	U11ed	 # ᅟᅠᇬ ᅟᅠᆨ   = ᅟᅠᇭ
+  <Multi_key> <U1107> <U112d> : "ᄢ"  	U1122	 # ᄇᅠ ᄭᅠ   = ᄢᅠ
+  <Multi_key> <U1107> <U112f> : "ᄣ"  	U1123	 # ᄇᅠ ᄯᅠ   = ᄣᅠ
+  <Multi_key> <U1107> <U1132> : "ᄤ"  	U1124	 # ᄇᅠ ᄲᅠ   = ᄤᅠ
+  <Multi_key> <U1107> <U110a> : "ᄥ"  	U1125	 # ᄇᅠ ᄊᅠ   = ᄥᅠ
+  <Multi_key> <U1107> <U1136> : "ᄦ"  	U1126	 # ᄇᅠ ᄶᅠ   = ᄦᅠ
+  <Multi_key> <U1107> <U112b> : "ᄬ"  	U112c	 # ᄇᅠ ᄫᅠ   = ᄬᅠ
+  <Multi_key> <U1109> <U111e> : "ᄳ"  	U1133	 # ᄉᅠ ᄞᅠ   = ᄳᅠ
+  <Multi_key> <U1109> <U110a> : "ᄴ"  	U1134	 # ᄉᅠ ᄊᅠ   = ᄴᅠ
+  <Multi_key> <U1169> <U1162> : "ᅫ"  	U116b	 # ᅟᅩ ᅟᅢ   = ᅟᅫ
+  <Multi_key> <U116e> <U1166> : "ᅰ"  	U1170	 # ᅟᅮ ᅟᅦ   = ᅟᅰ
+  <Multi_key> <U116e> <U117c> : "ᆋ"  	U118b	 # ᅟᅮ ᅟᅼ   = ᅟᆋ
+  <Multi_key> <U11a8> <U11e7> : "ᇄ"  	U11c4	 # ᅟᅠᆨ ᅟᅠᇧ   = ᅟᅠᇄ
+  <Multi_key> <U11af> <U11aa> : "ᇌ"  	U11cc	 # ᅟᅠᆯ ᅟᅠᆪ   = ᅟᅠᇌ
+  <Multi_key> <U11af> <U11da> : "ᇑ"  	U11d1	 # ᅟᅠᆯ ᅟᅠᇚ   = ᅟᅠᇑ
+  <Multi_key> <U11af> <U11dd> : "ᇒ"  	U11d2	 # ᅟᅠᆯ ᅟᅠᇝ   = ᅟᅠᇒ
+  <Multi_key> <U11af> <U11b9> : "ᇓ"  	U11d3	 # ᅟᅠᆯ ᅟᅠᆹ   = ᅟᅠᇓ
+  <Multi_key> <U11af> <U11e5> : "ᇔ"  	U11d4	 # ᅟᅠᆯ ᅟᅠᇥ   = ᅟᅠᇔ
+  <Multi_key> <U11af> <U11e6> : "ᇕ"  	U11d5	 # ᅟᅠᆯ ᅟᅠᇦ   = ᅟᅠᇕ
+  <Multi_key> <U11af> <U11bb> : "ᇖ"  	U11d6	 # ᅟᅠᆯ ᅟᅠᆻ   = ᅟᅠᇖ
+  <Multi_key> <U11b7> <U11bb> : "ᇞ"  	U11de	 # ᅟᅠᆷ ᅟᅠᆻ   = ᅟᅠᇞ
+  <Multi_key> <U11bc> <U11a9> : "ᇭ"  	U11ed	 # ᅟᅠᆼ ᅟᅠᆩ   = ᅟᅠᇭ
 
+<Multi_key> <comma> <minus>	: "¬" U00AC # NOT SIGN
+<Multi_key> <minus> <comma>	: "¬" U00AC # NOT SIGN
 <dead_circumflex> <Multi_key> <underscore> <a>	: "ª" U00AA # FEMININE ORDINAL INDICATOR
 <Multi_key> <asciicircum> <underscore> <a>	: "ª" U00AA # FEMININE ORDINAL INDICATOR
 <dead_circumflex> <Multi_key> <underbar> <a>	: "ª" U00AA # FEMININE ORDINAL INDICATOR
@@ -434,6 +446,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <3>	: "³" U00B3 # SUPERSCRIPT THREE
 <dead_circumflex> <KP_3>	: "³" U00B3 # SUPERSCRIPT THREE
 <Multi_key> <asciicircum> <KP_3>	: "³" U00B3 # SUPERSCRIPT THREE
+<Multi_key> <m> <u>	: "µ" U00B5 # MICRO SIGN
 <dead_circumflex> <1>	: "¹" U00B9 # SUPERSCRIPT ONE
 <Multi_key> <asciicircum> <1>	: "¹" U00B9 # SUPERSCRIPT ONE
 <dead_circumflex> <KP_1>	: "¹" U00B9 # SUPERSCRIPT ONE
@@ -442,6 +455,9 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <underscore> <o>	: "º" U00BA # MASCULINE ORDINAL INDICATOR
 <dead_circumflex> <Multi_key> <underbar> <o>	: "º" U00BA # MASCULINE ORDINAL INDICATOR
 <Multi_key> <asciicircum> <underbar> <o>	: "º" U00BA # MASCULINE ORDINAL INDICATOR
+<Multi_key> <1> <4>	: "¼" U00BC # VULGAR FRACTION ONE QUARTER
+<Multi_key> <1> <2>	: "½" U00BD # VULGAR FRACTION ONE HALF
+<Multi_key> <3> <4>	: "¾" U00BE # VULGAR FRACTION THREE QUARTERS
 <dead_grave> <A>	: "À" U00C0 # LATIN CAPITAL LETTER A WITH GRAVE
 <Multi_key> <grave> <A>	: "À" U00C0 # LATIN CAPITAL LETTER A WITH GRAVE
 <combining_grave> <A>	: "À" U00C0 # LATIN CAPITAL LETTER A WITH GRAVE
@@ -482,6 +498,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <I>	: "Î" U00CE # LATIN CAPITAL LETTER I WITH CIRCUMFLEX
 <dead_diaeresis> <I>	: "Ï" U00CF # LATIN CAPITAL LETTER I WITH DIAERESIS
 <Multi_key> <quotedbl> <I>	: "Ï" U00CF # LATIN CAPITAL LETTER I WITH DIAERESIS
+<Multi_key> <D> <H>	: "Ð" U00D0 # LATIN CAPITAL LETTER ETH
 <dead_tilde> <N>	: "Ñ" U00D1 # LATIN CAPITAL LETTER N WITH TILDE
 <Multi_key> <asciitilde> <N>	: "Ñ" U00D1 # LATIN CAPITAL LETTER N WITH TILDE
 <combining_tilde> <N>	: "Ñ" U00D1 # LATIN CAPITAL LETTER N WITH TILDE
@@ -499,6 +516,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <O>	: "Õ" U00D5 # LATIN CAPITAL LETTER O WITH TILDE
 <dead_diaeresis> <O>	: "Ö" U00D6 # LATIN CAPITAL LETTER O WITH DIAERESIS
 <Multi_key> <quotedbl> <O>	: "Ö" U00D6 # LATIN CAPITAL LETTER O WITH DIAERESIS
+<Multi_key> <x> <x>	: "×" U00D7 # MULTIPLICATION SIGN
 <Multi_key> <slash> <O>	: "Ø" U00D8 # LATIN CAPITAL LETTER O WITH STROKE
 <Multi_key> <KP_Divide> <O>	: "Ø" U00D8 # LATIN CAPITAL LETTER O WITH STROKE
 <dead_grave> <U>	: "Ù" U00D9 # LATIN CAPITAL LETTER U WITH GRAVE
@@ -516,6 +534,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <acute> <Y>	: "Ý" U00DD # LATIN CAPITAL LETTER Y WITH ACUTE
 <Multi_key> <apostrophe> <Y>	: "Ý" U00DD # LATIN CAPITAL LETTER Y WITH ACUTE
 <combining_acute> <Y>	: "Ý" U00DD # LATIN CAPITAL LETTER Y WITH ACUTE
+<Multi_key> <T> <H>	: "Þ" U00DE # LATIN CAPITAL LETTER THORN
 <dead_grave> <a>	: "à" U00E0 # LATIN SMALL LETTER A WITH GRAVE
 <Multi_key> <grave> <a>	: "à" U00E0 # LATIN SMALL LETTER A WITH GRAVE
 <combining_grave> <a>	: "à" U00E0 # LATIN SMALL LETTER A WITH GRAVE
@@ -556,6 +575,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <i>	: "î" U00EE # LATIN SMALL LETTER I WITH CIRCUMFLEX
 <dead_diaeresis> <i>	: "ï" U00EF # LATIN SMALL LETTER I WITH DIAERESIS
 <Multi_key> <quotedbl> <i>	: "ï" U00EF # LATIN SMALL LETTER I WITH DIAERESIS
+<Multi_key> <d> <h>	: "ð" U00F0 # LATIN SMALL LETTER ETH
 <dead_tilde> <n>	: "ñ" U00F1 # LATIN SMALL LETTER N WITH TILDE
 <Multi_key> <asciitilde> <n>	: "ñ" U00F1 # LATIN SMALL LETTER N WITH TILDE
 <combining_tilde> <n>	: "ñ" U00F1 # LATIN SMALL LETTER N WITH TILDE
@@ -573,6 +593,8 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <o>	: "õ" U00F5 # LATIN SMALL LETTER O WITH TILDE
 <dead_diaeresis> <o>	: "ö" U00F6 # LATIN SMALL LETTER O WITH DIAERESIS
 <Multi_key> <quotedbl> <o>	: "ö" U00F6 # LATIN SMALL LETTER O WITH DIAERESIS
+<Multi_key> <colon> <minus>	: "÷" U00F7 # DIVISION SIGN
+<Multi_key> <minus> <colon>	: "÷" U00F7 # DIVISION SIGN
 <Multi_key> <slash> <o>	: "ø" U00F8 # LATIN SMALL LETTER O WITH STROKE
 <Multi_key> <KP_Divide> <o>	: "ø" U00F8 # LATIN SMALL LETTER O WITH STROKE
 <dead_grave> <u>	: "ù" U00F9 # LATIN SMALL LETTER U WITH GRAVE
@@ -590,6 +612,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <acute> <y>	: "ý" U00FD # LATIN SMALL LETTER Y WITH ACUTE
 <Multi_key> <apostrophe> <y>	: "ý" U00FD # LATIN SMALL LETTER Y WITH ACUTE
 <combining_acute> <y>	: "ý" U00FD # LATIN SMALL LETTER Y WITH ACUTE
+<Multi_key> <t> <h>	: "þ" U00FE # LATIN SMALL LETTER THORN
 <dead_diaeresis> <y>	: "ÿ" U00FF # LATIN SMALL LETTER Y WITH DIAERESIS
 <Multi_key> <quotedbl> <y>	: "ÿ" U00FF # LATIN SMALL LETTER Y WITH DIAERESIS
 <dead_macron> <A>	: "Ā" U0100 # LATIN CAPITAL LETTER A WITH MACRON
@@ -710,6 +733,8 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <semicolon> <i>	: "į" U012F # LATIN SMALL LETTER I WITH OGONEK
 <dead_abovedot> <I>	: "İ" U0130 # LATIN CAPITAL LETTER I WITH DOT ABOVE
 <Multi_key> <period> <I>	: "İ" U0130 # LATIN CAPITAL LETTER I WITH DOT ABOVE
+<dead_abovedot> <i>	: "ı" U0131 # LATIN SMALL LETTER DOTLESS I
+<Multi_key> <i> <period>	: "ı" U0131 # LATIN SMALL LETTER DOTLESS I
 <dead_circumflex> <J>	: "Ĵ" U0134 # LATIN CAPITAL LETTER J WITH CIRCUMFLEX
 <Multi_key> <asciicircum> <J>	: "Ĵ" U0134 # LATIN CAPITAL LETTER J WITH CIRCUMFLEX
 <dead_circumflex> <j>	: "ĵ" U0135 # LATIN SMALL LETTER J WITH CIRCUMFLEX
@@ -718,6 +743,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <comma> <K>	: "Ķ" U0136 # LATIN CAPITAL LETTER K WITH CEDILLA
 <dead_cedilla> <k>	: "ķ" U0137 # LATIN SMALL LETTER K WITH CEDILLA
 <Multi_key> <comma> <k>	: "ķ" U0137 # LATIN SMALL LETTER K WITH CEDILLA
+<Multi_key> <k> <k>	: "ĸ" U0138 # LATIN SMALL LETTER KRA
 <dead_acute> <L>	: "Ĺ" U0139 # LATIN CAPITAL LETTER L WITH ACUTE
 <Multi_key> <acute> <L>	: "Ĺ" U0139 # LATIN CAPITAL LETTER L WITH ACUTE
 <Multi_key> <apostrophe> <L>	: "Ĺ" U0139 # LATIN CAPITAL LETTER L WITH ACUTE
@@ -754,6 +780,8 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <c> <N>	: "Ň" U0147 # LATIN CAPITAL LETTER N WITH CARON
 <dead_caron> <n>	: "ň" U0148 # LATIN SMALL LETTER N WITH CARON
 <Multi_key> <c> <n>	: "ň" U0148 # LATIN SMALL LETTER N WITH CARON
+<Multi_key> <N> <G>	: "Ŋ" U014A # LATIN CAPITAL LETTER ENG
+<Multi_key> <n> <g>	: "ŋ" U014B # LATIN SMALL LETTER ENG
 <dead_macron> <O>	: "Ō" U014C # LATIN CAPITAL LETTER O WITH MACRON
 <Multi_key> <macron> <O>	: "Ō" U014C # LATIN CAPITAL LETTER O WITH MACRON
 <Multi_key> <underscore> <O>	: "Ō" U014C # LATIN CAPITAL LETTER O WITH MACRON
@@ -1082,7 +1110,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <acute> <dead_abovering> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
 <Multi_key> <acute> <o> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
 <Multi_key> <apostrophe> <dead_abovering> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
-<Multi_key> <apostrophe> <o> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
+<Multi_key> <o> <apostrophe> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <Aring>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <dead_abovering> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <Multi_key> <o> <A>	: "Ǻ" U01FA # LATIN CAPITAL LETTER A WITH RING ABOVE AND ACUTE
@@ -1094,7 +1122,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <acute> <dead_abovering> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
 <Multi_key> <acute> <o> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
 <Multi_key> <apostrophe> <dead_abovering> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
-<Multi_key> <apostrophe> <o> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
+<Multi_key> <o> <apostrophe> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <aring>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <dead_abovering> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
 <combining_acute> <Multi_key> <o> <a>	: "ǻ" U01FB # LATIN SMALL LETTER A WITH RING ABOVE AND ACUTE
@@ -1240,6 +1268,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <dead_macron> <y>	: "ȳ" U0233 # LATIN SMALL LETTER Y WITH MACRON
 <Multi_key> <macron> <y>	: "ȳ" U0233 # LATIN SMALL LETTER Y WITH MACRON
 <Multi_key> <underscore> <y>	: "ȳ" U0233 # LATIN SMALL LETTER Y WITH MACRON
+<Multi_key> <e> <e>	: "ə" U0259 # LATIN SMALL LETTER SCHWA
 <Multi_key> <slash> <i>	: "ɨ" U0268 # LATIN SMALL LETTER I WITH STROKE
 <Multi_key> <KP_Divide> <i>	: "ɨ" U0268 # LATIN SMALL LETTER I WITH STROKE
 <Multi_key> <slash> <U0294>	: "ʡ" U02A1 # LATIN LETTER GLOTTAL STOP WITH STROKE
@@ -2334,6 +2363,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <A>	: "Ậ" U1EAC # LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <A>	: "Ậ" U1EAC # LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <A>	: "Ậ" U1EAC # LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <Acircumflex>		: "Ậ" U1EAC # LATIN CAPITAL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <U1ea1>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <U1ea1>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <dead_belowdot> <a>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
@@ -2342,6 +2372,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <a>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <a>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <a>	: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <acircumflex>		: "ậ" U1EAD # LATIN SMALL LETTER A WITH CIRCUMFLEX AND DOT BELOW
 <dead_acute> <Abreve>	: "Ắ" U1EAE # LATIN CAPITAL LETTER A WITH BREVE AND ACUTE
 <Multi_key> <acute> <Abreve>	: "Ắ" U1EAE # LATIN CAPITAL LETTER A WITH BREVE AND ACUTE
 <Multi_key> <apostrophe> <Abreve>	: "Ắ" U1EAE # LATIN CAPITAL LETTER A WITH BREVE AND ACUTE
@@ -2458,6 +2489,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <dead_breve> <combining_belowdot> <A>	: "Ặ" U1EB6 # LATIN CAPITAL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <U> <combining_belowdot> <A>	: "Ặ" U1EB6 # LATIN CAPITAL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <b> <combining_belowdot> <A>	: "Ặ" U1EB6 # LATIN CAPITAL LETTER A WITH BREVE AND DOT BELOW
+<dead_belowdot> <Abreve>		: "Ặ" U1EB6 # LATIN CAPITAL LETTER A WITH BREVE AND DOT BELOW
 <dead_breve> <U1ea1>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <U> <U1ea1>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <b> <U1ea1>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
@@ -2470,6 +2502,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <dead_breve> <combining_belowdot> <a>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <U> <combining_belowdot> <a>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
 <Multi_key> <b> <combining_belowdot> <a>	: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
+<dead_belowdot> <abreve>		: "ặ" U1EB7 # LATIN SMALL LETTER A WITH BREVE AND DOT BELOW
 <dead_belowdot> <E>	: "Ẹ" U1EB8 # LATIN CAPITAL LETTER E WITH DOT BELOW
 <Multi_key> <exclam> <E>	: "Ẹ" U1EB8 # LATIN CAPITAL LETTER E WITH DOT BELOW
 <combining_belowdot> <E>	: "Ẹ" U1EB8 # LATIN CAPITAL LETTER E WITH DOT BELOW
@@ -2574,6 +2607,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <E>	: "Ệ" U1EC6 # LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <E>	: "Ệ" U1EC6 # LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <E>	: "Ệ" U1EC6 # LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <Ecircumflex>	: "Ệ" U1EC6 # LATIN CAPITAL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <U1eb9>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <U1eb9>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <dead_belowdot> <e>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
@@ -2582,6 +2616,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <e>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <e>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <e>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <ecircumflex>	: "ệ" U1EC7 # LATIN SMALL LETTER E WITH CIRCUMFLEX AND DOT BELOW
 <dead_hook> <I>	: "Ỉ" U1EC8 # LATIN CAPITAL LETTER I WITH HOOK ABOVE
 <Multi_key> <question> <I>	: "Ỉ" U1EC8 # LATIN CAPITAL LETTER I WITH HOOK ABOVE
 <combining_hook> <I>	: "Ỉ" U1EC8 # LATIN CAPITAL LETTER I WITH HOOK ABOVE
@@ -2692,6 +2727,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <O>	: "Ộ" U1ED8 # LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <O>	: "Ộ" U1ED8 # LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <O>	: "Ộ" U1ED8 # LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <Ocircumflex>	: "Ộ" U1ED8 # LATIN CAPITAL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <U1ecd>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <U1ecd>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <dead_belowdot> <o>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
@@ -2700,7 +2736,9 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <asciicircum> <exclam> <o>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <dead_circumflex> <combining_belowdot> <o>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <Multi_key> <asciicircum> <combining_belowdot> <o>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
+<dead_belowdot> <ocircumflex>	: "ộ" U1ED9 # LATIN SMALL LETTER O WITH CIRCUMFLEX AND DOT BELOW
 <dead_acute> <Ohorn>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
+<dead_acute> <U01A0>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
 <Multi_key> <acute> <Ohorn>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
 <Multi_key> <apostrophe> <Ohorn>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
 <dead_acute> <dead_horn> <O>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
@@ -2713,6 +2751,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_acute> <dead_horn> <O>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
 <combining_acute> <Multi_key> <plus> <O>	: "Ớ" U1EDA # LATIN CAPITAL LETTER O WITH HORN AND ACUTE
 <dead_acute> <ohorn>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
+<dead_acute> <U01A1>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
 <Multi_key> <acute> <ohorn>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
 <Multi_key> <apostrophe> <ohorn>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
 <dead_acute> <dead_horn> <o>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
@@ -2725,6 +2764,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_acute> <dead_horn> <o>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
 <combining_acute> <Multi_key> <plus> <o>	: "ớ" U1EDB # LATIN SMALL LETTER O WITH HORN AND ACUTE
 <dead_grave> <Ohorn>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
+<dead_grave> <U01A0>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
 <Multi_key> <grave> <Ohorn>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
 <dead_grave> <dead_horn> <O>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
 <dead_grave> <Multi_key> <plus> <O>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
@@ -2734,6 +2774,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_grave> <dead_horn> <O>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
 <combining_grave> <Multi_key> <plus> <O>	: "Ờ" U1EDC # LATIN CAPITAL LETTER O WITH HORN AND GRAVE
 <dead_grave> <ohorn>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
+<dead_grave> <U01A1>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
 <Multi_key> <grave> <ohorn>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
 <dead_grave> <dead_horn> <o>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
 <dead_grave> <Multi_key> <plus> <o>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
@@ -2743,6 +2784,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_grave> <dead_horn> <o>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
 <combining_grave> <Multi_key> <plus> <o>	: "ờ" U1EDD # LATIN SMALL LETTER O WITH HORN AND GRAVE
 <dead_hook> <Ohorn>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
+<dead_hook> <U01A0>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
 <Multi_key> <question> <Ohorn>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
 <dead_hook> <dead_horn> <O>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
 <dead_hook> <Multi_key> <plus> <O>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
@@ -2752,6 +2794,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_hook> <dead_horn> <O>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
 <combining_hook> <Multi_key> <plus> <O>	: "Ở" U1EDE # LATIN CAPITAL LETTER O WITH HORN AND HOOK ABOVE
 <dead_hook> <ohorn>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
+<dead_hook> <U01A1>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
 <Multi_key> <question> <ohorn>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
 <dead_hook> <dead_horn> <o>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
 <dead_hook> <Multi_key> <plus> <o>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
@@ -2761,6 +2804,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_hook> <dead_horn> <o>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
 <combining_hook> <Multi_key> <plus> <o>	: "ở" U1EDF # LATIN SMALL LETTER O WITH HORN AND HOOK ABOVE
 <dead_tilde> <Ohorn>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
+<dead_tilde> <U01A0>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
 <Multi_key> <asciitilde> <Ohorn>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
 <dead_tilde> <dead_horn> <O>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
 <dead_tilde> <Multi_key> <plus> <O>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
@@ -2770,6 +2814,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <dead_horn> <O>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
 <combining_tilde> <Multi_key> <plus> <O>	: "Ỡ" U1EE0 # LATIN CAPITAL LETTER O WITH HORN AND TILDE
 <dead_tilde> <ohorn>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
+<dead_tilde> <U01A1>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
 <Multi_key> <asciitilde> <ohorn>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
 <dead_tilde> <dead_horn> <o>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
 <dead_tilde> <Multi_key> <plus> <o>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
@@ -2779,6 +2824,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <dead_horn> <o>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
 <combining_tilde> <Multi_key> <plus> <o>	: "ỡ" U1EE1 # LATIN SMALL LETTER O WITH HORN AND TILDE
 <dead_belowdot> <Ohorn>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
+<dead_belowdot> <U01A0>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
 <Multi_key> <exclam> <Ohorn>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
 <dead_belowdot> <dead_horn> <O>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
 <dead_belowdot> <Multi_key> <plus> <O>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
@@ -2788,6 +2834,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_belowdot> <dead_horn> <O>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
 <combining_belowdot> <Multi_key> <plus> <O>	: "Ợ" U1EE2 # LATIN CAPITAL LETTER O WITH HORN AND DOT BELOW
 <dead_belowdot> <ohorn>	: "ợ" U1EE3 # LATIN SMALL LETTER O WITH HORN AND DOT BELOW
+<dead_belowdot> <U01A1>	: "ợ" U1EE3 # LATIN SMALL LETTER O WITH HORN AND DOT BELOW
 <Multi_key> <exclam> <ohorn>	: "ợ" U1EE3 # LATIN SMALL LETTER O WITH HORN AND DOT BELOW
 <dead_belowdot> <dead_horn> <o>	: "ợ" U1EE3 # LATIN SMALL LETTER O WITH HORN AND DOT BELOW
 <dead_belowdot> <Multi_key> <plus> <o>	: "ợ" U1EE3 # LATIN SMALL LETTER O WITH HORN AND DOT BELOW
@@ -2809,6 +2856,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <Multi_key> <question> <u>	: "ủ" U1EE7 # LATIN SMALL LETTER U WITH HOOK ABOVE
 <combining_hook> <u>	: "ủ" U1EE7 # LATIN SMALL LETTER U WITH HOOK ABOVE
 <dead_acute> <Uhorn>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
+<dead_acute> <U01AF>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
 <Multi_key> <acute> <Uhorn>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
 <Multi_key> <apostrophe> <Uhorn>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
 <dead_acute> <dead_horn> <U>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
@@ -2821,6 +2869,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_acute> <dead_horn> <U>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
 <combining_acute> <Multi_key> <plus> <U>	: "Ứ" U1EE8 # LATIN CAPITAL LETTER U WITH HORN AND ACUTE
 <dead_acute> <uhorn>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
+<dead_acute> <U01B0>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
 <Multi_key> <acute> <uhorn>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
 <Multi_key> <apostrophe> <uhorn>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
 <dead_acute> <dead_horn> <u>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
@@ -2833,6 +2882,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_acute> <dead_horn> <u>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
 <combining_acute> <Multi_key> <plus> <u>	: "ứ" U1EE9 # LATIN SMALL LETTER U WITH HORN AND ACUTE
 <dead_grave> <Uhorn>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
+<dead_grave> <U01AF>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
 <Multi_key> <grave> <Uhorn>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
 <dead_grave> <dead_horn> <U>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
 <dead_grave> <Multi_key> <plus> <U>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
@@ -2842,6 +2892,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_grave> <dead_horn> <U>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
 <combining_grave> <Multi_key> <plus> <U>	: "Ừ" U1EEA # LATIN CAPITAL LETTER U WITH HORN AND GRAVE
 <dead_grave> <uhorn>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
+<dead_grave> <U01B0>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
 <Multi_key> <grave> <uhorn>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
 <dead_grave> <dead_horn> <u>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
 <dead_grave> <Multi_key> <plus> <u>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
@@ -2851,6 +2902,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_grave> <dead_horn> <u>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
 <combining_grave> <Multi_key> <plus> <u>	: "ừ" U1EEB # LATIN SMALL LETTER U WITH HORN AND GRAVE
 <dead_hook> <Uhorn>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
+<dead_hook> <U01AF>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
 <Multi_key> <question> <Uhorn>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
 <dead_hook> <dead_horn> <U>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
 <dead_hook> <Multi_key> <plus> <U>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
@@ -2860,6 +2912,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_hook> <dead_horn> <U>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
 <combining_hook> <Multi_key> <plus> <U>	: "Ử" U1EEC # LATIN CAPITAL LETTER U WITH HORN AND HOOK ABOVE
 <dead_hook> <uhorn>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
+<dead_hook> <U01B0>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
 <Multi_key> <question> <uhorn>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
 <dead_hook> <dead_horn> <u>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
 <dead_hook> <Multi_key> <plus> <u>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
@@ -2869,6 +2922,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_hook> <dead_horn> <u>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
 <combining_hook> <Multi_key> <plus> <u>	: "ử" U1EED # LATIN SMALL LETTER U WITH HORN AND HOOK ABOVE
 <dead_tilde> <Uhorn>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
+<dead_tilde> <U01AF>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
 <Multi_key> <asciitilde> <Uhorn>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
 <dead_tilde> <dead_horn> <U>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
 <dead_tilde> <Multi_key> <plus> <U>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
@@ -2878,6 +2932,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <dead_horn> <U>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
 <combining_tilde> <Multi_key> <plus> <U>	: "Ữ" U1EEE # LATIN CAPITAL LETTER U WITH HORN AND TILDE
 <dead_tilde> <uhorn>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
+<dead_tilde> <U01B0>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
 <Multi_key> <asciitilde> <uhorn>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
 <dead_tilde> <dead_horn> <u>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
 <dead_tilde> <Multi_key> <plus> <u>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
@@ -2887,6 +2942,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_tilde> <dead_horn> <u>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
 <combining_tilde> <Multi_key> <plus> <u>	: "ữ" U1EEF # LATIN SMALL LETTER U WITH HORN AND TILDE
 <dead_belowdot> <Uhorn>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
+<dead_belowdot> <U01AF>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
 <Multi_key> <exclam> <Uhorn>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
 <dead_belowdot> <dead_horn> <U>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
 <dead_belowdot> <Multi_key> <plus> <U>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
@@ -2896,6 +2952,7 @@ XCOMM group 1: cluster jamos made of three basic jamos
 <combining_belowdot> <dead_horn> <U>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
 <combining_belowdot> <Multi_key> <plus> <U>	: "Ự" U1EF0 # LATIN CAPITAL LETTER U WITH HORN AND DOT BELOW
 <dead_belowdot> <uhorn>	: "ự" U1EF1 # LATIN SMALL LETTER U WITH HORN AND DOT BELOW
+<dead_belowdot> <U01B0>	: "ự" U1EF1 # LATIN SMALL LETTER U WITH HORN AND DOT BELOW
 <Multi_key> <exclam> <uhorn>	: "ự" U1EF1 # LATIN SMALL LETTER U WITH HORN AND DOT BELOW
 <dead_belowdot> <dead_horn> <u>	: "ự" U1EF1 # LATIN SMALL LETTER U WITH HORN AND DOT BELOW
 <dead_belowdot> <Multi_key> <plus> <u>	: "ự" U1EF1 # LATIN SMALL LETTER U WITH HORN AND DOT BELOW

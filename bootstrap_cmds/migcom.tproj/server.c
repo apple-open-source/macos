@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -136,9 +135,9 @@ WriteMyIncludes(file, stats)
         WriteImplImports(file, stats, FALSE);
     if (UseEventLogger) {
 	if (IsKernelServer) {
-	    fprintf(file, "#if\t_MIG_KERNEL_SPECIFIC_CODE_\n");
+	    fprintf(file, "#if\t__MigKernelSpecificCode\n");
 	    fprintf(file, "#include <mig_debug.h>\n");
-	    fprintf(file, "#endif\t/* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+	    fprintf(file, "#endif\t/* __MigKernelSpecificCode */\n");
         }
 	fprintf(file, "#if  MIG_DEBUG\n"); 
 	fprintf(file, "#include <mach/mig_log.h>\n");
@@ -170,7 +169,7 @@ WriteGlobalDecls(file)
 
     if (IsKernelServer)
     {
-        fprintf(file, "#if\t_MIG_KERNEL_SPECIFIC_CODE_\n");
+        fprintf(file, "#if\t__MigKernelSpecificCode\n");
 	fprintf(file, "#define msgh_request_port\tmsgh_remote_port\n");
 	fprintf(file, "#define MACH_MSGH_BITS_REQUEST(bits)");
 	fprintf(file, "\tMACH_MSGH_BITS_REMOTE(bits)\n");
@@ -186,7 +185,7 @@ WriteGlobalDecls(file)
     fprintf(file, "#define MACH_MSGH_BITS_REPLY(bits)");
     fprintf(file, "\tMACH_MSGH_BITS_REMOTE(bits)\n");
     if (IsKernelServer) {
-      fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+      fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
     }
     fprintf(file, "\n");
     if (UseEventLogger)
@@ -293,10 +292,10 @@ WriteRoutineEntries(file, stats)
 	    while (current++ < rt->rtNumber)
 		fprintf(file, "\t\t{0, 0, 0, 0, 0, 0},\n");
 	    if (UseRPCTrap) {
-		sprintf(sig_array, "&%s.arg_descriptor[%d], sizeof(__Reply__%s_t)",
+		sprintf(sig_array, "&%s.arg_descriptor[%d], (mach_msg_size_t)sizeof(__Reply__%s_t)",
 			ServerSubsys, offset, rt->rtName);
 	    } else {
-		sprintf(sig_array, "(routine_arg_descriptor_t)0, sizeof(__Reply__%s_t)",
+		sprintf(sig_array, "(routine_arg_descriptor_t)0, (mach_msg_size_t)sizeof(__Reply__%s_t)",
 			rt->rtName);
 	    }
 	    sprintf(rt_name, "_X%s", rt->rtName);
@@ -404,7 +403,7 @@ WriteSubsystem(file, stats)
     }
     fprintf(file, "\t%d,\n", SubsystemBase);
     fprintf(file, "\t%d,\n", SubsystemBase + rtNumber);
-    fprintf(file, "\tsizeof(union __ReplyUnion__%s),\n", ServerSubsys);
+    fprintf(file, "\t(mach_msg_size_t)sizeof(union __ReplyUnion__%s),\n", ServerSubsys);
     if (UseRPCTrap) {
         fprintf(file, "\t(vm_address_t)&%s,\n", ServerSubsys);
     } else {
@@ -437,7 +436,7 @@ WriteArraySizes(file, stats)
 
 	    while (current++ < rt->rtNumber)
 		fprintf(file, "\t\t0,\n");
-	    fprintf(file, "\t\tsizeof(__Reply__%s_t),\n", rt->rtName);
+	    fprintf(file, "\t\t(mach_msg_size_t)sizeof(__Reply__%s_t),\n", rt->rtName);
 	}
     while (current++ < rtNumber)
 	fprintf(file, "\t\t\t0,\n");
@@ -538,7 +537,7 @@ WriteDispatcher(file, stats)
     fprintf(file, "MACH_MSGH_BITS(MACH_MSGH_BITS_REPLY(InHeadP->msgh_bits), 0);\n");
     fprintf(file, "\tOutHeadP->msgh_remote_port = InHeadP->msgh_reply_port;\n");
     fprintf(file, "\t/* Minimal size: routine() will update it if different */\n");
-    fprintf(file, "\tOutHeadP->msgh_size = sizeof(mig_reply_error_t);\n");
+    fprintf(file, "\tOutHeadP->msgh_size = (mach_msg_size_t)sizeof(mig_reply_error_t);\n");
     fprintf(file, "\tOutHeadP->msgh_local_port = MACH_PORT_NULL;\n");
     fprintf(file, "\tOutHeadP->msgh_id = InHeadP->msgh_id + 100;\n");
     fprintf(file, "\n");
@@ -689,9 +688,9 @@ WriteVarDecls(file, rt)
 
     if (rt->rtServerImpl) {
 		fprintf(file, "\tmach_msg_max_trailer_t *TrailerP;\n");
-		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "#if\t__MigTypeCheck\n");
 		fprintf(file, "\tunsigned int trailer_size;\n");
-        fprintf(file, "#endif\t/* TypeCheck */\n");
+        fprintf(file, "#endif\t/* __MigTypeCheck */\n");
     }
     fprintf(file, "#ifdef\t__MIG_check__Request__%s_t__defined\n", rt->rtName);
     fprintf(file, "\tkern_return_t check_result;\n");
@@ -728,7 +727,7 @@ WriteRetCArgCheckError(file, rt)
     routine_t *rt;
 {
     fprintf(file, "\tif (!(In0P->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) &&\n");
-    fprintf(file, "\t    (In0P->Head.msgh_size == sizeof(mig_reply_error_t)))\n");
+    fprintf(file, "\t    (In0P->Head.msgh_size == (mach_msg_size_t)sizeof(mig_reply_error_t)))\n");
     fprintf(file, "\t{\n");
 }
 
@@ -749,7 +748,7 @@ WriteCheckHead(file, rt)
     FILE *file;
     routine_t *rt;
 {
-    fprintf(file, "#if\tTypeCheck\n");
+    fprintf(file, "#if\t__MigTypeCheck\n");
     if (rt->rtNumRequestVar > 0)
 	fprintf(file, "\tmsgh_size = In0P->Head.msgh_size;\n");
 
@@ -760,9 +759,9 @@ WriteCheckHead(file, rt)
 	if (rt->rtNumRequestVar > 0) {
 	    fprintf(file, "\t    (msgh_size < ");
 	    rtMinRequestSize(file, rt, "__Request");
-	    fprintf(file, ") ||  (msgh_size > sizeof(__Request)))\n");
+	    fprintf(file, ") ||  (msgh_size > (mach_msg_size_t)sizeof(__Request)))\n");
 	} else 
-	    fprintf(file, "\t    (In0P->Head.msgh_size != sizeof(__Request)))\n");
+	    fprintf(file, "\t    (In0P->Head.msgh_size != (mach_msg_size_t)sizeof(__Request)))\n");
     } else {
 	/* Expecting a complex message. */
 
@@ -775,20 +774,20 @@ WriteCheckHead(file, rt)
 	if (rt->rtNumRequestVar > 0) {
 	    fprintf(file, "\t    (msgh_size < ");
 	    rtMinRequestSize(file, rt, "__Request");
-	    fprintf(file, ") ||  (msgh_size > sizeof(__Request))\n");
+	    fprintf(file, ") ||  (msgh_size > (mach_msg_size_t)sizeof(__Request))\n");
 	} else 
-	    fprintf(file, "\t    (In0P->Head.msgh_size != sizeof(__Request))");
+	    fprintf(file, "\t    (In0P->Head.msgh_size != (mach_msg_size_t)sizeof(__Request))");
 	if (rt->rtRetCArg == argNULL) 
 	    fprintf(file, ")\n");
 	else {
 	    fprintf(file, ") &&\n");
 	    fprintf(file, "\t    ((In0P->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) ||\n");
-	    fprintf(file, "\t    In0P->Head.msgh_size != sizeof(mig_reply_error_t) ||\n");
+	    fprintf(file, "\t    In0P->Head.msgh_size != (mach_msg_size_t)sizeof(mig_reply_error_t) ||\n");
       	    fprintf(file, "\t    ((mig_reply_error_t *)In0P)->RetCode == KERN_SUCCESS))\n");	
         }
     }
     fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
-    fprintf(file, "#endif\t/* TypeCheck */\n");
+    fprintf(file, "#endif\t/* __MigTypeCheck */\n");
     fprintf(file, "\n");
 }
 
@@ -987,7 +986,7 @@ WriteCheckMsgSize(file, arg)
 	if (arg->argCount && !arg->argSameCount)
 		WriteRequestNDRConvertIntRepOneArgUse(file, arg->argCount);
     if (arg->argRequestPos == rt->rtMaxRequestPos)  {
-		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "#if\t__MigTypeCheck\n");
 		fprintf(file, "\tif (msgh_size != ");
 		rtMinRequestSize(file, rt, "__Request");
 		fprintf(file, " + (");
@@ -995,7 +994,7 @@ WriteCheckMsgSize(file, arg)
 		fprintf(file, "))\n");
 
 		fprintf(file, "\t\treturn MIG_BAD_ARGUMENTS;\n");
-		fprintf(file, "#endif\t/* TypeCheck */\n");
+		fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 	} else {
 		/* If there aren't any more variable-sized arguments after this,
 		   then we must check for exact msg-size and we don't need to
@@ -1012,7 +1011,7 @@ WriteCheckMsgSize(file, arg)
 		fprintf(file, "\tmsgh_size_delta = ");
 		WriteCheckArgSize(file, arg);
 		fprintf(file, ";\n");
-		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "#if\t__MigTypeCheck\n");
 
 		/* Don't decrement msgh_size until we've checked that
 		   it won't underflow. */
@@ -1028,7 +1027,7 @@ WriteCheckMsgSize(file, arg)
 		if (!LastVarArg)
 			fprintf(file, "\tmsgh_size -= msgh_size_delta;\n");
 		
-		fprintf(file, "#endif\t/* TypeCheck */\n");
+		fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 	}
 	fprintf(file, "\n");
 }
@@ -1390,7 +1389,7 @@ WriteDestroyArg(file, arg)
 	int	multiplier = btype->itNumber ? btype->itSize / (8 * btype->itNumber) : 0;
 
         if (IsKernelServer) {
-	    fprintf(file, "#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+	    fprintf(file, "#if __MigKernelSpecificCode\n");
             fprintf(file, "\tvm_map_copy_discard(%s);\n", 
 		    InArgMsgField(arg, ""));
 	    fprintf(file, "#else\n");
@@ -1404,7 +1403,7 @@ WriteDestroyArg(file, arg)
 	} else
 	    fprintf(file, "%d);\n", (it->itNumber * it->itSize + 7) / 8);
 	if (IsKernelServer) {
-	    fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+	    fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
 	}
 	fprintf(file, "\t%s = (vm_offset_t) 0;\n", 
 	    InArgMsgField(arg, ""));
@@ -1545,13 +1544,13 @@ WriteInitKPD_port(file, arg)
 	fprintf(file, "\t%sname = MACH_PORT_NULL;\n", string);
     if (arg->argPoly == argNULL) {
       if (IsKernelServer) {
-	fprintf(file, "#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+	fprintf(file, "#if __MigKernelSpecificCode\n");
 	fprintf(file, "\t%sdisposition = %s;\n", string, it->itOutNameStr); 
 	fprintf(file, "#else\n");
       }
       fprintf(file, "\t%sdisposition = %s;\n", string, it->itInNameStr); 
       if (IsKernelServer)
-	fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+	fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
     }
     fprintf(file, "\t%stype = MACH_MSG_PORT_DESCRIPTOR;\n", string);
     fprintf(file, "#endif\t/* UseStaticTemplates */\n");
@@ -1651,13 +1650,13 @@ WriteInitKPD_oolport(file, arg)
             howmany);
     if (arg->argPoly == argNULL) {
         if (IsKernelServer) {
-	    fprintf(file, "#if\t_MIG_KERNEL_SPECIFIC_CODE_\n");
+	    fprintf(file, "#if\t__MigKernelSpecificCode\n");
 	    fprintf(file, "\t%sdisposition = %s;\n", string, howit->itOutNameStr);
 	    fprintf(file, "#else\n");
 	}
 	fprintf(file, "\t%sdisposition = %s;\n", string, howit->itInNameStr);
 	if (IsKernelServer)
-	    fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+	    fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
     }
     if (arg->argDeallocate != d_MAYBE)
         fprintf(file, "\t%sdeallocate =  %s;\n", string,
@@ -1685,7 +1684,7 @@ WriteAdjustMsgCircular(file, arg)
 {
     fprintf(file, "\n");
 
-    fprintf(file,"#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+    fprintf(file,"#if\t__MigKernelSpecificCode\n");
     if (arg->argType->itOutName == MACH_MSG_TYPE_POLYMORPHIC)
 	fprintf(file, "\tif (%s == MACH_MSG_TYPE_PORT_RECEIVE)\n",
 		arg->argPoly->argVarName);
@@ -1706,7 +1705,7 @@ WriteAdjustMsgCircular(file, arg)
     fprintf(file, "\t    IP_VALID((ipc_port_t) OutP->%s.name) &&\n", arg->argMsgField);
     fprintf(file, "\t    ipc_port_check_circularity((ipc_port_t) OutP->%s.name, (ipc_port_t) In0P->Head.msgh_reply_port))\n", arg->argMsgField);
     fprintf(file, "\t\tOutP->Head.msgh_bits |= MACH_MSGH_BITS_CIRCULAR;\n");
-    fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+    fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
 }
 
 /*
@@ -2043,9 +2042,9 @@ WriteTypeCheck(file, arg)
     FILE *file;
     register argument_t *arg;
 {
-    fprintf(file, "#if\tTypeCheck\n");
+    fprintf(file, "#if\t__MigTypeCheck\n");
     (*arg->argKPD_TypeCheck)(file, arg);
-    fprintf(file, "#endif\t/* TypeCheck */\n");
+    fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 }
 
 static void
@@ -2391,7 +2390,7 @@ WriteCheckRequest(file, rt)
 	InitKPD_Disciplines(rt->rtArgs);
 
     fprintf(file, "\n");
-	fprintf(file, "#if ( TypeCheck || __NDR_convert__ )\n");
+	fprintf(file, "#if (__MigTypeCheck || __NDR_convert__ )\n");
 	fprintf(file, "#if __MIG_check__Request__%s_subsystem__\n", SubsystemName);
 	fprintf(file, "#if !defined(__MIG_check__Request__%s_t__defined)\n", rt->rtName);
 	fprintf(file, "#define __MIG_check__Request__%s_t__defined\n", rt->rtName);
@@ -2414,9 +2413,9 @@ WriteCheckRequest(file, rt)
 	for (i = 1; i <= rt->rtMaxRequestPos; i++)
 		fprintf(file, "\t__Request *In%dP;\n", i);
 	if (rt->rtNumRequestVar > 0) {
-		fprintf(file, "#if\tTypeCheck\n");
+		fprintf(file, "#if\t__MigTypeCheck\n");
 		fprintf(file, "\tunsigned int msgh_size;\n");
-		fprintf(file, "#endif\t/* TypeCheck */\n");
+		fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 	}
 	if (rt->rtMaxRequestPos > 0)
 		fprintf(file, "\tunsigned int msgh_size_delta;\n");
@@ -2469,7 +2468,7 @@ WriteCheckRequest(file, rt)
 	fprintf(file, "}\n");
 	fprintf(file, "#endif /* !defined(__MIG_check__Request__%s_t__defined) */\n", rt->rtName);
 	fprintf(file, "#endif /* __MIG_check__Request__%s_subsystem__ */\n", SubsystemName);
-	fprintf(file, "#endif /* ( TypeCheck || __NDR_convert__ ) */\n");
+	fprintf(file, "#endif /* ( __MigTypeCheck || __NDR_convert__ ) */\n");
 	fprintf(file, "\n");
 }
 
@@ -2552,13 +2551,13 @@ WriteRoutine(file, rt)
     WriteVarDecls(file, rt);
 
     if (IsKernelServer) {
-        fprintf(file, "#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+        fprintf(file, "#if\t__MigKernelSpecificCode\n");
 	WriteList(file, rt->rtArgs, WriteTemplateDeclOut, akbReturnKPD, "\n", "\n");
 	fprintf(file, "#else\n");
     }
     WriteList(file, rt->rtArgs, WriteTemplateDeclIn, akbReturnKPD, "\n", "\n");
     if (IsKernelServer) {
-        fprintf(file, "#endif /* _MIG_KERNEL_SPECIFIC_CODE_ */\n");
+        fprintf(file, "#endif /* __MigKernelSpecificCode */\n");
     }
     WriteRetCode(file, rt->rtRetCode);
     WriteList(file, rt->rtArgs, WriteLocalVarDecl,
@@ -2602,14 +2601,14 @@ WriteRoutine(file, rt)
      */
     if (rt->rtOneWay || rt->rtNoReplyArgs) {
 	if (IsKernelServer) {
-	    fprintf(file,"#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+	    fprintf(file,"#if\t__MigKernelSpecificCode\n");
 	    if (rtCheckMaskFunction(rt->rtArgs, akbSendKPD,
 				CheckDestroyPortArg)) {
 		WriteCheckReturnValue(file, rt);
 	    }
 	    WriteReverseList(file, rt->rtArgs, WriteDestroyPortArg,
 			 akbSendKPD, "", "");
-	    fprintf(file,"#endif /* _MIG_KENREL_SPECIFIC_CODE */\n");
+	    fprintf(file,"#endif /* __MigKernelSpecificCode */\n");
 	} 
 	/* although we have an empty reply, we still have to make sure that
 	   some fields such as NDR get properly initialized */
@@ -2619,10 +2618,10 @@ WriteRoutine(file, rt)
 	WriteCheckReturnValue(file, rt);
 
 	if (IsKernelServer) {
-	    fprintf(file,"#if _MIG_KERNEL_SPECIFIC_CODE_\n");
+	    fprintf(file,"#if\t__MigKernelSpecificCode\n");
 	    WriteReverseList(file, rt->rtArgs, WriteDestroyPortArg,
 			 akbSendKPD, "", "");
-	    fprintf(file,"#endif /* _MIG_KENREL_SPECIFIC_CODE */\n");
+	    fprintf(file,"#endif /* __MigKernelSpecificCode */\n");
 	}
 	WriteReplyArgs(file, rt);
 	WriteReplyInit(file, rt);

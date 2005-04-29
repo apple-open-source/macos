@@ -39,28 +39,28 @@
 //4D2
 //4D3
 //4D4
-		4D30CB1F0794A4AE00904478 = {
+		4DF791C005B49C360038DC5D = {
 			containerPortal = 7D8BA340010E490C02CA2964;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 7DE2785C010E618E02CA2964;
 			remoteInfo = msdos.fs;
 		};
-		4D30CB200794A4AE00904478 = {
+		4DF791C105B49C360038DC5D = {
 			containerPortal = 7D8BA340010E490C02CA2964;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 7D8BA383010E490C02CA2964;
 			remoteInfo = msdos.util;
 		};
-		4D30CB210794A4AE00904478 = {
+		4DF791C205B49C360038DC5D = {
 			containerPortal = 7D8BA340010E490C02CA2964;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 7D8BA38A010E490C02CA2964;
 			remoteInfo = msdosfs;
 		};
-		4D30CB220794A4AE00904478 = {
+		4DF791C305B49C360038DC5D = {
 			containerPortal = 7D8BA340010E490C02CA2964;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
@@ -80,7 +80,7 @@
 		7D3170220117A10D02CA2964 = {
 			isa = PBXTargetDependency;
 			target = 7D8BA383010E490C02CA2964;
-			targetProxy = 4D30CB200794A4AE00904478;
+			targetProxy = 4DF791C105B49C360038DC5D;
 		};
 		7D3170230117A1E602CA2964 = {
 			fileRef = 7D8BA378010E490C02CA2964;
@@ -107,7 +107,7 @@
 		7D871B7B010E6ACA02CA2964 = {
 			isa = PBXTargetDependency;
 			target = 7DE2785C010E618E02CA2964;
-			targetProxy = 4D30CB1F0794A4AE00904478;
+			targetProxy = 4DF791C005B49C360038DC5D;
 		};
 		7D88539B010E5E2C02CA2964 = {
 			isa = PBXFileReference;
@@ -280,7 +280,6 @@
 		};
 		7D8BA369010E490C02CA2964 = {
 			children = (
-				B673AAE70250E44704C9147C,
 				7D8BA36A010E490C02CA2964,
 				7D8BA36B010E490C02CA2964,
 				7D8BA36C010E490C02CA2964,
@@ -403,7 +402,7 @@
 		7D8BA37B010E490C02CA2964 = {
 			isa = PBXTargetDependency;
 			target = 7D8BA37C010E490C02CA2964;
-			targetProxy = 4D30CB220794A4AE00904478;
+			targetProxy = 4DF791C305B49C360038DC5D;
 		};
 		7D8BA37C010E490C02CA2964 = {
 			buildPhases = (
@@ -540,7 +539,7 @@
 		7D8BA389010E490C02CA2964 = {
 			isa = PBXTargetDependency;
 			target = 7D8BA38A010E490C02CA2964;
-			targetProxy = 4D30CB210794A4AE00904478;
+			targetProxy = 4DF791C205B49C360038DC5D;
 		};
 		7D8BA38A010E490C02CA2964 = {
 			buildPhases = (
@@ -562,7 +561,7 @@
 				MODULE_NAME = com.apple.filesystems.msdosfs;
 				MODULE_START = msdosfs_module_start;
 				MODULE_STOP = "msdosfs_module_stop ";
-				MODULE_VERSION = 1.3;
+				MODULE_VERSION = 1.4;
 				OTHER_CFLAGS = "-Wno-format";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -597,21 +596,23 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.0.0b1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b1</string>
 	</dict>
 </dict>
 </plist>
@@ -693,7 +694,6 @@
 				7D8BA399010E490C02CA2964,
 				7D8BA39A010E490C02CA2964,
 				B64F35810230385404C9147C,
-				B673AAE80250E44704C9147C,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -773,11 +773,11 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
@@ -851,11 +851,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>DOS_FAT_12</key>
@@ -981,18 +981,107 @@
 			<string>DOS_FAT_32</string>
 			<key>FSFormatExecutable</key>
 			<string>../../../../../../sbin/newfs_msdos</string>
+			<key>FSFormatMaximumSize</key>
+			<integer>8796093022208</integer>
 			<key>FSFormatMinimumSize</key>
-			<integer>49152</integer>
+			<integer>32768</integer>
 			<key>FSMountArguments</key>
 			<string></string>
 			<key>FSMountExecutable</key>
 			<string>../../../../../../sbin/mount_msdos</string>
 			<key>FSName</key>
-			<string>MS-DOS</string>
+			<string>MS-DOS File System</string>
 			<key>FSRepairArguments</key>
 			<string>-y</string>
 			<key>FSRepairExecutable</key>
 			<string>../../../../../../sbin/fsck_msdos</string>
+			<key>FSVerificationArguments</key>
+			<string>-n</string>
+			<key>FSVerificationExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+		</dict>
+		<key>MS-DOS FAT12</key>
+		<dict>
+			<key>FSFormatArguments</key>
+			<string>-F 12</string>
+			<key>FSFormatContentMask</key>
+			<string>DOS_FAT_12</string>
+			<key>FSFormatExecutable</key>
+			<string>../../../../../../sbin/newfs_msdos</string>
+			<key>FSFormatMaximumSize</key>
+			<integer>133169152</integer>
+			<key>FSFormatMinimumSize</key>
+			<integer>32768</integer>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_msdos</string>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT12)</string>
+			<key>FSRepairArguments</key>
+			<string>-y</string>
+			<key>FSRepairExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+			<key>FSSubType</key>
+			<integer>0</integer>
+			<key>FSVerificationArguments</key>
+			<string>-n</string>
+			<key>FSVerificationExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+		</dict>
+		<key>MS-DOS FAT16</key>
+		<dict>
+			<key>FSFormatArguments</key>
+			<string>-F 16</string>
+			<key>FSFormatContentMask</key>
+			<string>DOS_FAT_16</string>
+			<key>FSFormatExecutable</key>
+			<string>../../../../../../sbin/newfs_msdos</string>
+			<key>FSFormatMaximumSize</key>
+			<integer>2147483648</integer>
+			<key>FSFormatMinimumSize</key>
+			<integer>4299161</integer>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_msdos</string>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT16)</string>
+			<key>FSRepairArguments</key>
+			<string>-y</string>
+			<key>FSRepairExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+			<key>FSSubType</key>
+			<integer>1</integer>
+			<key>FSVerificationArguments</key>
+			<string>-n</string>
+			<key>FSVerificationExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+		</dict>
+		<key>MS-DOS FAT32</key>
+		<dict>
+			<key>FSFormatArguments</key>
+			<string>-F 32</string>
+			<key>FSFormatContentMask</key>
+			<string>DOS_FAT_32</string>
+			<key>FSFormatExecutable</key>
+			<string>../../../../../../sbin/newfs_msdos</string>
+			<key>FSFormatMaximumSize</key>
+			<integer>8796093022208</integer>
+			<key>FSFormatMinimumSize</key>
+			<integer>34603008</integer>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_msdos</string>
+			<key>FSName</key>
+			<string>MS-DOS File System (FAT32)</string>
+			<key>FSRepairArguments</key>
+			<string>-y</string>
+			<key>FSRepairExecutable</key>
+			<string>../../../../../../sbin/fsck_msdos</string>
+			<key>FSSubType</key>
+			<integer>2</integer>
 			<key>FSVerificationArguments</key>
 			<string>-n</string>
 			<key>FSVerificationExecutable</key>
@@ -1114,23 +1203,6 @@
 		};
 		B64F35810230385404C9147C = {
 			fileRef = B64F35800230385404C9147C;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		B673AAE70250E44704C9147C = {
-			fileEncoding = 30;
-			indentWidth = 4;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			path = msdosfs_attrlist.c;
-			refType = 4;
-			sourceTree = "<group>";
-			tabWidth = 4;
-			usesTabs = 0;
-		};
-		B673AAE80250E44704C9147C = {
-			fileRef = B673AAE70250E44704C9147C;
 			isa = PBXBuildFile;
 			settings = {
 			};

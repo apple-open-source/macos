@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,23 +24,18 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
+#include "imports.h"
 #include "colormac.h"
 #include "context.h"
 #include "enums.h"
 #include "light.h"
 #include "macros.h"
-#include "mem.h"
 #include "mmath.h"
 #include "simple_list.h"
 #include "mtypes.h"
-
 #include "math/m_xform.h"
 #include "math/m_matrix.h"
-#endif
 
 
 /* XXX this is a bit of a hack needed for compilation within XFree86 */
@@ -56,7 +51,7 @@ _mesa_ShadeModel( GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glShadeModel %s\n", _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glShadeModel %s\n", _mesa_lookup_enum_by_nr(mode));
 
    if (mode != GL_FLAT && mode != GL_SMOOTH) {
       _mesa_error( ctx, GL_INVALID_ENUM, "glShadeModel" );
@@ -90,7 +85,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
    struct gl_light *l = &ctx->Light.Light[i];
 
    if (i < 0 || i >= (GLint) ctx->Const.MaxLights) {
-      _mesa_error( ctx, GL_INVALID_ENUM, "glLight" );
+      _mesa_error( ctx, GL_INVALID_ENUM, "glLight(light=0x%x)", light );
       return;
    }
 
@@ -116,7 +111,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
    case GL_POSITION: {
       GLfloat tmp[4];
       /* transform position by ModelView matrix */
-      TRANSFORM_POINT( tmp, ctx->ModelView.m, params );
+      TRANSFORM_POINT( tmp, ctx->ModelviewMatrixStack.Top->m, params );
       if (TEST_EQ_4V(l->EyePosition, tmp))
 	 return;
       FLUSH_VERTICES(ctx, _NEW_LIGHT);
@@ -130,10 +125,10 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
    case GL_SPOT_DIRECTION: {
       GLfloat tmp[4];
       /* transform direction by inverse modelview */
-      if (ctx->ModelView.flags & MAT_DIRTY_INVERSE) {
-	 _math_matrix_analyse( &ctx->ModelView );
+      if (ctx->ModelviewMatrixStack.Top->flags & MAT_DIRTY_INVERSE) {
+	 _math_matrix_analyse( ctx->ModelviewMatrixStack.Top );
       }
-      TRANSFORM_NORMAL( tmp, params, ctx->ModelView.inv );
+      TRANSFORM_NORMAL( tmp, params, ctx->ModelviewMatrixStack.Top->inv );
       if (TEST_EQ_3V(l->EyeDirection, tmp))
 	 return;
       FLUSH_VERTICES(ctx, _NEW_LIGHT);
@@ -160,7 +155,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
 	 return;
       FLUSH_VERTICES(ctx, _NEW_LIGHT);
       l->SpotCutoff = params[0];
-      l->_CosCutoff = (GLfloat) cos(params[0]*DEG2RAD);
+      l->_CosCutoff = (GLfloat) _mesa_cos(params[0]*DEG2RAD);
       if (l->_CosCutoff < 0)
 	 l->_CosCutoff = 0;
       if (l->SpotCutoff != 180.0F)
@@ -199,7 +194,7 @@ _mesa_Lightfv( GLenum light, GLenum pname, const GLfloat *params )
       l->QuadraticAttenuation = params[0];
       break;
    default:
-      _mesa_error( ctx, GL_INVALID_ENUM, "glLight" );
+      _mesa_error( ctx, GL_INVALID_ENUM, "glLight(pname=0x%x)", pname );
       return;
    }
 
@@ -418,7 +413,8 @@ _mesa_LightModelfv( GLenum pname, const GLfloat *params )
          else if (params[0] == (GLfloat) GL_SEPARATE_SPECULAR_COLOR)
 	    newenum = GL_SEPARATE_SPECULAR_COLOR;
 	 else {
-            _mesa_error( ctx, GL_INVALID_ENUM, "glLightModel(param)" );
+            _mesa_error( ctx, GL_INVALID_ENUM, "glLightModel(param=0x0%x)",
+                         (GLint) params[0] );
 	    return;
          }
 	 if (ctx->Light.Model.ColorControl == newenum)
@@ -435,7 +431,7 @@ _mesa_LightModelfv( GLenum pname, const GLfloat *params )
 
          break;
       default:
-         _mesa_error( ctx, GL_INVALID_ENUM, "glLightModel" );
+         _mesa_error( ctx, GL_INVALID_ENUM, "glLightModel(pname=0x%x)", pname );
          break;
    }
 
@@ -616,7 +612,7 @@ void _mesa_update_material( GLcontext *ctx,
       bitmask &= ~ctx->Light.ColorMaterialBitmask;
 
    if (MESA_VERBOSE&VERBOSE_IMMEDIATE)
-      fprintf(stderr, "_mesa_update_material, mask 0x%x\n", bitmask);
+      _mesa_debug(ctx, "_mesa_update_material, mask 0x%x\n", bitmask);
 
    if (!bitmask)
       return;
@@ -713,25 +709,16 @@ void _mesa_update_material( GLcontext *ctx,
       ctx->Light.Material[1].SpecularIndex = src[1].SpecularIndex;
    }
 
-   if (0)
-   {
+   if (0) {
       struct gl_material *mat = &ctx->Light.Material[0];
-      fprintf(stderr, "update_mat  emission : %f %f %f\n",
-	      mat->Emission[0],
-	      mat->Emission[1],
-	      mat->Emission[2]);
-      fprintf(stderr, "update_mat  specular : %f %f %f\n",
-	      mat->Specular[0],
-	      mat->Specular[1],
-	      mat->Specular[2]);
-      fprintf(stderr, "update_mat  diffuse : %f %f %f\n",
-	      mat->Diffuse[0],
-	      mat->Diffuse[1],
-	      mat->Diffuse[2]);
-      fprintf(stderr, "update_mat  ambient : %f %f %f\n",
-	      mat->Ambient[0],
-	      mat->Ambient[1],
-	      mat->Ambient[2]);
+      _mesa_debug(ctx, "update_mat  emission : %f %f %f\n",
+                  mat->Emission[0], mat->Emission[1], mat->Emission[2]);
+      _mesa_debug(ctx, "update_mat  specular : %f %f %f\n",
+                  mat->Specular[0], mat->Specular[1], mat->Specular[2]);
+      _mesa_debug(ctx, "update_mat  diffuse : %f %f %f\n",
+                  mat->Diffuse[0], mat->Diffuse[1], mat->Diffuse[2]);
+      _mesa_debug(ctx, "update_mat  ambient : %f %f %f\n",
+                  mat->Ambient[0], mat->Ambient[1], mat->Ambient[2]);
    }
 }
 
@@ -753,7 +740,7 @@ void _mesa_update_color_material( GLcontext *ctx,
    GLuint bitmask = ctx->Light.ColorMaterialBitmask;
 
    if (MESA_VERBOSE&VERBOSE_IMMEDIATE)
-      fprintf(stderr, "_mesa_update_color_material, mask 0x%x\n", bitmask);
+      _mesa_debug(ctx, "_mesa_update_color_material, mask 0x%x\n", bitmask);
 
    /* update emissive colors */
    if (bitmask & FRONT_EMISSION_BIT) {
@@ -830,25 +817,16 @@ void _mesa_update_color_material( GLcontext *ctx,
       }
    }
 
-   if (0)
-   {
+   if (0) {
       struct gl_material *mat = &ctx->Light.Material[0];
-      fprintf(stderr, "update_color_mat  emission : %f %f %f\n",
-	      mat->Emission[0],
-	      mat->Emission[1],
-	      mat->Emission[2]);
-      fprintf(stderr, "update_color_mat  specular : %f %f %f\n",
-	      mat->Specular[0],
-	      mat->Specular[1],
-	      mat->Specular[2]);
-      fprintf(stderr, "update_color_mat  diffuse : %f %f %f\n",
-	      mat->Diffuse[0],
-	      mat->Diffuse[1],
-	      mat->Diffuse[2]);
-      fprintf(stderr, "update_color_mat  ambient : %f %f %f\n",
-	      mat->Ambient[0],
-	      mat->Ambient[1],
-	      mat->Ambient[2]);
+      _mesa_debug(ctx, "update_color_mat  emission : %f %f %f\n",
+                  mat->Emission[0], mat->Emission[1], mat->Emission[2]);
+      _mesa_debug(ctx, "update_color_mat  specular : %f %f %f\n",
+                  mat->Specular[0], mat->Specular[1], mat->Specular[2]);
+      _mesa_debug(ctx, "update_color_mat  diffuse : %f %f %f\n",
+                  mat->Diffuse[0], mat->Diffuse[1], mat->Diffuse[2]);
+      _mesa_debug(ctx, "update_color_mat  ambient : %f %f %f\n",
+                  mat->Ambient[0], mat->Ambient[1], mat->Ambient[2]);
    }
 }
 
@@ -867,9 +845,9 @@ _mesa_ColorMaterial( GLenum face, GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE&VERBOSE_API)
-      fprintf(stderr, "glColorMaterial %s %s\n",
-	      _mesa_lookup_enum_by_nr(face),
-	      _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glColorMaterial %s %s\n",
+                  _mesa_lookup_enum_by_nr(face),
+                  _mesa_lookup_enum_by_nr(mode));
 
    bitmask = _mesa_material_bitmask(ctx, face, mode, legal, "glColorMaterial");
 
@@ -885,7 +863,7 @@ _mesa_ColorMaterial( GLenum face, GLenum mode )
 
    if (ctx->Light.ColorMaterialEnabled) {
       FLUSH_CURRENT( ctx, 0 );
-      _mesa_update_color_material( ctx, ctx->Current.Color );
+      _mesa_update_color_material(ctx,ctx->Current.Attrib[VERT_ATTRIB_COLOR0]);
    }
 
    if (ctx->Driver.ColorMaterial)
@@ -1059,7 +1037,7 @@ static void validate_spot_exp_table( struct gl_light *l )
 
    for (i = EXP_TABLE_SIZE - 1; i > 0 ;i--) {
       if (clamp == 0) {
-	 tmp = pow(i / (GLdouble) (EXP_TABLE_SIZE - 1), exponent);
+	 tmp = _mesa_pow(i / (GLdouble) (EXP_TABLE_SIZE - 1), exponent);
 	 if (tmp < FLT_MIN * 100.0) {
 	    tmp = 0.0;
 	    clamp = 1;
@@ -1117,7 +1095,7 @@ static void validate_shine_table( GLcontext *ctx, GLuint i, GLfloat shininess )
             GLdouble t, x = j / (GLfloat) (SHINE_TABLE_SIZE - 1);
             if (x < 0.005) /* underflow check */
                x = 0.005;
-            t = pow(x, shininess);
+            t = _mesa_pow(x, shininess);
 	    if (t > 1e-20)
 	       m[j] = (GLfloat) t;
 	    else
@@ -1257,7 +1235,7 @@ _mesa_compute_light_positions( GLcontext *ctx )
       COPY_3V( ctx->_EyeZDir, eye_z );
    }
    else {
-      TRANSFORM_NORMAL( ctx->_EyeZDir, eye_z, ctx->ModelView.m );
+      TRANSFORM_NORMAL( ctx->_EyeZDir, eye_z, ctx->ModelviewMatrixStack.Top->m );
    }
 
    foreach (light, &ctx->Light.EnabledList) {
@@ -1266,7 +1244,7 @@ _mesa_compute_light_positions( GLcontext *ctx )
 	 COPY_4FV( light->_Position, light->EyePosition );
       }
       else {
-	 TRANSFORM_POINT( light->_Position, ctx->ModelView.inv,
+	 TRANSFORM_POINT( light->_Position, ctx->ModelviewMatrixStack.Top->inv,
 			  light->EyePosition );
       }
 
@@ -1290,7 +1268,7 @@ _mesa_compute_light_positions( GLcontext *ctx )
          else {
 	    TRANSFORM_NORMAL( light->_NormDirection,
 			      light->EyeDirection,
-			      ctx->ModelView.m);
+			      ctx->ModelviewMatrixStack.Top->m);
 	 }
 
 	 NORMALIZE_3FV( light->_NormDirection );

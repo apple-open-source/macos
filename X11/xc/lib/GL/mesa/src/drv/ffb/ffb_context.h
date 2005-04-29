@@ -1,9 +1,8 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_context.h,v 1.2 2002/02/22 21:32:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_context.h,v 1.3 2003/09/28 20:15:07 alanh Exp $ */
 
 #ifndef _FFB_CONTEXT_H
 #define _FFB_CONTEXT_H
 
-#include <X11/Xlibint.h>
 #include "dri_util.h"
 
 #include "mtypes.h"
@@ -269,7 +268,6 @@ do {	if ((STATE_MASK) & ~((FMESA)->state_dirty)) {	\
 	drmContext		hHWContext;
 	drmLock			*driHwLock;
 	int			driFd;
-	Display			*display;
 
 	unsigned int		clear_pixel;
 	unsigned int		clear_depth;

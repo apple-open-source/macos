@@ -31,7 +31,7 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/cmsColNm.c,v 3.10 2002/05/31 18:45:42 dawes Exp $ */
+/* $XFree86: xc/lib/X11/cmsColNm.c,v 3.12 2003/11/17 22:20:11 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
@@ -41,24 +41,10 @@
 #include <ctype.h>
 #define XK_LATIN1
 #include <X11/keysymdef.h>
+#include "Cv.h"
 
-
-/*
- *      EXTERNS
- *              External declarations required locally to this package
- *              that are not already declared in any of the included header
- *		files (external includes or internal includes).
- */
-extern XcmsColorSpace **_XcmsDIColorSpaces;
-
-/* CvCols.c */
-extern Status _XcmsDDConvertColors();
-extern int _XcmsEqualWhitePts();
-extern Status _XcmsDIConvertColors();
-
-
-static Status LoadColornameDB();
-void _XcmsCopyISOLatin1Lowered();
+/* forwards/locals */
+static Status LoadColornameDB(void);
 
 
 /*
@@ -121,9 +107,9 @@ static const char whitePtStr[] = "WhitePoint";
  *	SYNOPSIS
  */
 static XcmsColorSpace *
-_XcmsColorSpaceOfString(ccc, color_string)
-    XcmsCCC ccc;
-    const char *color_string;
+_XcmsColorSpaceOfString(
+    XcmsCCC ccc,
+    const char *color_string)
 /*
  *	DESCRIPTION
  *		Returns a pointer to the color space structure
@@ -189,10 +175,10 @@ _XcmsColorSpaceOfString(ccc, color_string)
  *	SYNOPSIS
  */
 static int
-_XcmsParseColorString(ccc, color_string, pColor)
-    XcmsCCC ccc;
-    const char *color_string;
-    XcmsColor *pColor;
+_XcmsParseColorString(
+    XcmsCCC ccc,
+    const char *color_string,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Assuming color_string contains a numerical string color
@@ -254,8 +240,7 @@ _XcmsParseColorString(ccc, color_string, pColor)
  *	SYNOPSIS
  */
 static int
-FirstCmp(p1, p2)
-    const void *p1, *p2;
+FirstCmp(const void *p1, const void *p2)
 /*
  *	DESCRIPTION
  *		Compares the color names of XcmsColorTuples.
@@ -280,7 +265,7 @@ FirstCmp(p1, p2)
  *	SYNOPSIS
  */
 static void
-SetNoVisit()
+SetNoVisit(void)
 /*
  *	DESCRIPTION
  *
@@ -309,11 +294,11 @@ SetNoVisit()
  *	SYNOPSIS
  */
 static int
-field2(pBuf, delim, p1, p2)
-    char *pBuf;
-    char delim;	/* in:  field delimiter */
-    char **p1;	/* in/out: pointer to pointer to field 1 */
-    char **p2;	/* in/out: pointer to pointer to field 2 */
+field2(
+    char *pBuf,
+    char delim,	/* in:  field delimiter */
+    char **p1,	/* in/out: pointer to pointer to field 1 */
+    char **p2)	/* in/out: pointer to pointer to field 2 */
 /*
  *	DESCRIPTION
  *		Extracts two fields from a "record".
@@ -379,10 +364,10 @@ field2(pBuf, delim, p1, p2)
  *	SYNOPSIS
  */
 static Status
-_XcmsLookupColorName(ccc, name, pColor)
-    XcmsCCC ccc;
-    const char **name;
-    XcmsColor *pColor;
+_XcmsLookupColorName(
+    XcmsCCC ccc,
+    const char **name,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Searches for an entry in the Device-Independent Color Name
@@ -502,8 +487,8 @@ Retry:
  *	SYNOPSIS
  */
 static int
-RemoveSpaces(pString)
-    char *pString;
+RemoveSpaces(
+    char *pString)
 /*
  *	DESCRIPTION
  *		Removes spaces from string.
@@ -536,10 +521,10 @@ RemoveSpaces(pString)
  *	SYNOPSIS
  */
 static int
-stringSectionSize(stream, pNumEntries, pSectionSize)
-    FILE *stream;
-    int	*pNumEntries;
-    int	*pSectionSize;
+stringSectionSize(
+    FILE *stream,
+    int	*pNumEntries,
+    int	*pSectionSize)
 /*
  *	DESCRIPTION
  *		Determines the amount of memory required to store the
@@ -621,10 +606,10 @@ stringSectionSize(stream, pNumEntries, pSectionSize)
  *	SYNOPSIS
  */
 static Status
-ReadColornameDB(stream, pRec, pString)
-    FILE *stream;
-    XcmsPair *pRec;
-    char *pString;
+ReadColornameDB(
+    FILE *stream,
+    XcmsPair *pRec,
+    char *pString)
 /*
  *	DESCRIPTION
  *		Loads the Color Name Database from a text file.
@@ -708,7 +693,7 @@ ReadColornameDB(stream, pRec, pString)
  *	SYNOPSIS
  */
 static Status
-LoadColornameDB()
+LoadColornameDB(void)
 /*
  *	DESCRIPTION
  *		Loads the Color Name Database from a text file.
@@ -781,9 +766,9 @@ LoadColornameDB()
  *	SYNOPSIS
  */
 void
-_XcmsCopyISOLatin1Lowered(dst, src)
-    char *dst;
-    const char *src;
+_XcmsCopyISOLatin1Lowered(
+    char *dst,
+    const char *src)
 /*
  *	DESCRIPTION
  *		ISO Latin-1 case conversion routine
@@ -824,21 +809,12 @@ _XcmsCopyISOLatin1Lowered(dst, src)
  *
  *	SYNOPSIS
  */
-#if NeedFunctionPrototypes
 Status
 _XcmsResolveColorString (
     XcmsCCC ccc,
     const char **color_string,
     XcmsColor *pColor_exact_return,
     XcmsColorFormat result_format)
-#else
-Status
-_XcmsResolveColorString(ccc, color_string, pColor_exact_return, result_format)
-    XcmsCCC ccc;
-    const char **color_string;
-    XcmsColor *pColor_exact_return;
-    XcmsColorFormat result_format;
-#endif
 /*
  *	DESCRIPTION
  *		The XcmsLookupColor function finds the color specification

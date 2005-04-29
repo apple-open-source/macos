@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.internet.process.Process</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.internet.html">Package&nbsp;internet</a> ::
+        <a href="twisted.internet.process.html">Module&nbsp;process</a> ::
+        Class&nbsp;Process
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.internet.process.Process.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Process</h2>
+
+<pre class="base-tree">
+<a href="twisted.persisted.styles.Ephemeral.html"><code>Ephemeral</code></a> --+
+            |
+           <b>Process</b>
+</pre><br />
+
+<hr/>
+
+<p>An operating-system Process.</p>
+<p>This represents an operating-system process with arbitrary 
+input/output pipes connected to it. Those pipes may represent standard 
+input, standard output, and standard error, or any other file 
+descriptor.</p>
+On UNIX, this is implemented using fork(), exec(), pipe() and fcntl(). 
+These calls may not exist elsewhere so this code is not cross-platform. 
+(also, windows can only select on sockets...)
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.process.Process.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reactor</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>environment</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>proto</span>,
+          <span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>gid</span>,
+          <span class=summary-sig-arg>childFDs</span>)</span></code>
+<br />
+Spawn an operating-system process.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_execChild"></a><span class="summary-sig"><span class="summary-sig-name">_execChild</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>settingUID</span>,
+          <span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>gid</span>,
+          <span class=summary-sig-arg>command</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>environment</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.process.Process.html#_setupChild" class="summary-sig-name"><code>_setupChild</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>fdmap</span>)</span></code>
+<br />
+fdmap[childFD] = parentFD
+
+The child wants to end up with 'childFD' attached to what used to be
+the parent's parentFD.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="childConnectionLost"></a><span class="summary-sig"><span class="summary-sig-name">childConnectionLost</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>childFD</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="closeChildFD"></a><span class="summary-sig"><span class="summary-sig-name">closeChildFD</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>childFD</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="closeStderr"></a><span class="summary-sig"><span class="summary-sig-name">closeStderr</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.process.Process.html#closeStdin" class="summary-sig-name"><code>closeStdin</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Call this to close standard input on this process.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="closeStdout"></a><span class="summary-sig"><span class="summary-sig-name">closeStdout</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="loseConnection"></a><span class="summary-sig"><span class="summary-sig-name">loseConnection</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="maybeCallProcessEnded"></a><span class="summary-sig"><span class="summary-sig-name">maybeCallProcessEnded</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="pauseProducing"></a><span class="summary-sig"><span class="summary-sig-name">pauseProducing</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="processEnded"></a><span class="summary-sig"><span class="summary-sig-name">processEnded</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>status</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.process.Process.html#reapProcess" class="summary-sig-name"><code>reapProcess</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Try to reap a process (without blocking) via waitpid.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="resumeProducing"></a><span class="summary-sig"><span class="summary-sig-name">resumeProducing</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="signalProcess"></a><span class="summary-sig"><span class="summary-sig-name">signalProcess</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>signalID</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.process.Process.html#write" class="summary-sig-name"><code>write</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Call this to write to standard input on this process.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="writeToChild"></a><span class="summary-sig"><span class="summary-sig-name">writeToChild</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>childFD</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Ephemeral</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Ephemeral.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.persisted.styles.Ephemeral.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.process.Process.html#debug"><code>debug</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.process.Process.html#debug_child"><code>debug_child</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>reactor</span>,
+          <span class=sig-arg>command</span>,
+          <span class=sig-arg>args</span>,
+          <span class=sig-arg>environment</span>,
+          <span class=sig-arg>path</span>,
+          <span class=sig-arg>proto</span>,
+          <span class=sig-arg>uid</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>gid</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>childFDs</span>=<span class=sig-default>None</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+<pre class="literalblock">
+Spawn an operating-system process.
+
+This is where the hard work of disconnecting all currently open
+files / forking / executing the new process happens.  (This is
+executed automatically when a Process is instantiated.)
+
+This will also run the subprocess as a given user ID and group ID, if
+specified.  (Implementation Note: this doesn't support all the arcane
+nuances of setXXuid on UNIX: it will assume that either your effective
+or real UID is 0.)
+
+&#64;param childFDs: a dictionary mapping
+    fd_in_child -&gt; current_fd_in_parent/'r'/'w'
+
+     If the value is a number, it specifies one of the parent's fds
+     that will be remapped to the child's fd. This is useful for
+     things like inetd and shell-like file redirection.
+
+     If it is the string 'r', a pipe will be created and attached to
+     the child at that fd number, and the parent will be able to
+     read from the pipe. This is useful for the child's stdout and
+     stderr.
+
+     If it is the string 'w', a pipe will be created and attached,
+     and the parent will be able to write into that pipe. This is
+     useful for the child's stdin.
+
+    If childFDs is not passed, the default behaviour is to use a
+    mapping that opens the usual stdin/stdout/stderr pipes.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_setupChild"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_setupChild</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>fdmap</span>)</span>
+  </h3>
+<pre class="literalblock">
+fdmap[childFD] = parentFD
+
+The child wants to end up with 'childFD' attached to what used to be
+the parent's parentFD. As an example, a bash command run like
+'command 2&gt;&amp;1' would correspond to an fdmap of {0:0, 1:1, 2:1}.
+'command &gt;foo.txt' would be {0:0, 1:os.open('foo.txt'), 2:2}.
+
+Step 1: close all file descriptors that aren't values of fdmap.
+This means 0 .. maxfds.
+
+Step 2: for each childFD:
+ if fdmap[childFD] == childFD, the descriptor is already in place.
+ Make sure the CLOEXEC flag is not set, then delete the entry from
+ fdmap.
+
+ if childFD is in fdmap.values(), then the target descriptor is
+ busy. Use os.dup() to move it elsewhere, update all fdmap[childFD]
+ items that point to it, then close the original. Then fall through
+ to the next case.
+
+ now fdmap[childFD] is not in fdmap.values(), and is free. Use
+ os.dup2() to move it to the right place, then close the original.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="closeStdin"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">closeStdin</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Call this to close standard input on this process.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="reapProcess"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">reapProcess</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Try to reap a process (without blocking) via waitpid.</p>
+  <p>This is called when sigchild is caught or a Process object loses its 
+  &quot;connection&quot; (stdout is closed) This ought to result in 
+  reaping all zombie processes, since it will be called twice as often as 
+  it needs to be.</p>
+  (Unfortunately, this is a slightly experimental approach, since UNIX 
+  has no way to be really sure that your process is going to go away w/o 
+  blocking. I don't want to block.)
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="write"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">write</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Call this to write to standard input on this process.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="debug"></a>
+<h3>debug</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="debug_child"></a>
+<h3>debug_child</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:06 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

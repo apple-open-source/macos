@@ -198,6 +198,7 @@ extern VAR_CONTEXT *shell_variables;
 
 extern HASH_TABLE *shell_functions;
 extern HASH_TABLE *temporary_env;
+extern int temporary_env_errors;
 
 extern int variable_context;
 extern char *dollar_vars[];

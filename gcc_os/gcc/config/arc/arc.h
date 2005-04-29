@@ -43,13 +43,17 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_VERSION fprintf (stderr, " (arc)")
 
 /* Names to predefine in the preprocessor for this target machine.  */
-#define CPP_PREDEFINES "-Acpu=arc -Amachine=arc -D__arc__"
-
-/* Additional flags for the preprocessor.  */
-#define CPP_SPEC "\
-%{!mcpu=*:-D__base__} %{mcpu=base:-D__base__} \
-%{EB:-D__big_endian__} \
-"
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+	builtin_define ("__arc__");		\
+	if (TARGET_BIG_ENDIAN)			\
+	  builtin_define ("__big_endian__");	\
+	if (arc_cpu_type == 0)			\
+	  builtin_define ("__base__");		\
+	builtin_assert ("cpu=arc");		\
+	builtin_assert ("machine=arc");		\
+    } while (0)
 
 /* Pass -mmangle-cpu if we get -mcpu=*.
    Doing it this way lets one have it on as default with -mcpu=*,
@@ -127,7 +131,7 @@ extern int target_flags;
 /* Instruction set characteristics.
    These are internal macros, set by the appropriate -mcpu= option.  */
 
-/* Non-zero means the cpu has a barrel shifter.  */
+/* Nonzero means the cpu has a barrel shifter.  */
 #define TARGET_SHIFTER 0
 
 extern const char *arc_cpu_string;
@@ -145,7 +149,7 @@ extern const char *arc_text_string,*arc_data_string,*arc_rodata_string;
 extern int arc_cpu_type;
 
 /* Check if CPU is an extension and set `arc_cpu_type' and `arc_mangle_cpu'
-   appropriately.  The result should be non-zero if the cpu is recognized,
+   appropriately.  The result should be nonzero if the cpu is recognized,
    otherwise zero.  This is intended to be redefined in a cover file.
    This is used by arc_init.  */
 #define ARC_EXTENSION_CPU(cpu) 0
@@ -168,10 +172,6 @@ do {				\
 
 /* Target machine storage layout.  */
 
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.  */
 #define BITS_BIG_ENDIAN 1
@@ -190,15 +190,6 @@ do {				\
 #else
 #define LIBGCC2_WORDS_BIG_ENDIAN 0
 #endif
-
-/* Number of bits in an addressable storage unit.  */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
@@ -222,10 +213,6 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* Likewise, if the function return value is promoted.  */
 #define PROMOTE_FUNCTION_RETURN
 
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
-
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
 
@@ -244,7 +231,7 @@ if (GET_MODE_CLASS (MODE) == MODE_INT		\
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* No data type wants to be aligned rounder than this.  */
@@ -678,15 +665,9 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    a reg.  This includes arguments that have to be passed by reference as the
    pointer to them is passed in a reg if one is available (and that is what
    we're given).
-   When passing arguments NAMED is always 1.  When receiving arguments NAMED
-   is 1 for each argument except the last in a stdarg/varargs function.  In
-   a stdarg function we want to treat the last named arg as named.  In a
-   varargs function we want to treat the last named arg (which is
-   `__builtin_va_alist') as unnamed.
    This macro is only used in this file.  */
-#define PASS_IN_REG_P(CUM, MODE, TYPE, NAMED) \
-((!current_function_varargs || (NAMED))					\
- && (CUM) < MAX_ARC_PARM_REGS						\
+#define PASS_IN_REG_P(CUM, MODE, TYPE) \
+((CUM) < MAX_ARC_PARM_REGS						\
  && ((ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE))				\
       + ROUND_ADVANCE_ARG ((MODE), (TYPE))				\
       <= MAX_ARC_PARM_REGS)))
@@ -706,7 +687,7 @@ extern enum reg_class arc_regno_reg_class[FIRST_PSEUDO_REGISTER];
 /* On the ARC the first MAX_ARC_PARM_REGS args are normally in registers
    and the rest are pushed.  */
 #define FUNCTION_ARG(CUM, MODE, TYPE, NAMED) \
-(PASS_IN_REG_P ((CUM), (MODE), (TYPE), (NAMED))				\
+(PASS_IN_REG_P ((CUM), (MODE), (TYPE))					\
  ? gen_rtx_REG ((MODE), ROUND_ADVANCE_CUM ((CUM), (MODE), (TYPE)))	\
  : 0)
 
@@ -1003,21 +984,12 @@ do { \
     goto LABEL;				\
 }
 
-/* Condition code usage.  */
-
-/* Some insns set all condition code flags, some only set the ZNC flags, and
-   some only set the ZN flags.  */
-
-#define EXTRA_CC_MODES \
-	CC(CCZNCmode, "CCZNC") \
-	CC(CCZNmode, "CCZN")
-
 /* Given a comparison code (EQ, NE, etc.) and the first operand of a COMPARE,
    return the mode to be used for the comparison.  */
 #define SELECT_CC_MODE(OP, X, Y) \
 arc_select_cc_mode (OP, X, Y)
 
-/* Return non-zero if SELECT_CC_MODE will never return MODE for a
+/* Return nonzero if SELECT_CC_MODE will never return MODE for a
    floating point inequality comparison.  */
 #define REVERSIBLE_CC_MODE(MODE) 1 /*???*/
 
@@ -1119,12 +1091,12 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
 #if defined (CRT_INIT) || defined (CRT_FINI)
 #define TEXT_SECTION_ASM_OP	"\t.section .text"
 #else
-#define TEXT_SECTION_ASM_OP	arc_text_section /*"\t.section .text"*/
+#define TEXT_SECTION_ASM_OP	arc_text_section
 #endif
-#define DATA_SECTION_ASM_OP	arc_data_section /*"\t.section .data"*/
+#define DATA_SECTION_ASM_OP	arc_data_section
 
-#undef CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP	arc_rodata_section /*"\t.section .rodata"*/
+#undef  READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP	arc_rodata_section
 
 #define BSS_SECTION_ASM_OP	"\t.section .bss"
 
@@ -1133,35 +1105,6 @@ extern const char *arc_text_section, *arc_data_section, *arc_rodata_section;
    Otherwise, the readonly data section is used.
    This macro is irrelevant if there is no separate readonly data section.  */
 /*#define JUMP_TABLES_IN_TEXT_SECTION*/
-
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL or other node is created.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to store a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).  */
-
-/* On the ARC, function addresses are not the same as normal addresses.
-   Branch to absolute address insns take an address that is right-shifted
-   by 2.  We encode the fact that we have a function here, and then emit a
-   special assembler op when outputting the address.  */
-#define ENCODE_SECTION_INFO(DECL) \
-do {							\
-  if (TREE_CODE (DECL) == FUNCTION_DECL)		\
-    SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-} while (0)
-
-/* Decode SYM_NAME and store the real name part in VAR, sans
-   the characters that encode section info.  Define this macro if
-   ENCODE_SECTION_INFO alters the symbol's name string.  */
-/*#define STRIP_NAME_ENCODING(VAR, SYM_NAME)*/
 
 /* For DWARF.  Marginally different than default so output is "prettier"
    (and consistent with above).  */
@@ -1231,19 +1174,8 @@ do {							\
    no longer contain unusual constructs.  */
 #define ASM_APP_OFF ""
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE, NAME) \
-do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-do {				\
-  fputs ("\t.global\t", FILE);	\
-  assemble_name (FILE, NAME);	\
-  fputs ("\n", FILE);		\
-} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 /* A C statement (sans semicolon) to output on FILE an assembler pseudo-op to
    declare a library function name external.  The name of the library function
@@ -1337,12 +1269,7 @@ arc_print_operand (FILE, X, CODE)
 
 /* A C compound statement to output to stdio stream STREAM the
    assembler syntax for an instruction operand that is a memory
-   reference whose address is ADDR.  ADDR is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on
-   the section that the address refers to.  On these machines,
-   define the macro `ENCODE_SECTION_INFO' to store the information
-   into the `symbol_ref', and then check for it here.  */
+   reference whose address is ADDR.  ADDR is an RTL expression.  */
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) \
 arc_print_operand_address (FILE, ADDR)
 
@@ -1384,12 +1311,8 @@ do { if ((LOG) != 0) fprintf (FILE, "\t.align %d\n", 1 << (LOG)); } while (0)
 /* Debugging information.  */
 
 /* Generate DBX and DWARF debugging information.  */
-#ifndef DBX_DEBUGGING_INFO
-#define DBX_DEBUGGING_INFO
-#endif
-#ifndef DWARF_DEBUGGING_INFO
-#define DWARF_DEBUGGING_INFO
-#endif
+#define DBX_DEBUGGING_INFO 1
+#define DWARF_DEBUGGING_INFO 1
 
 /* Prefer STABS (for now).  */
 #undef PREFERRED_DEBUGGING_TYPE
@@ -1472,8 +1395,8 @@ enum arc_function_type {
 
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  arc_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  arc_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \

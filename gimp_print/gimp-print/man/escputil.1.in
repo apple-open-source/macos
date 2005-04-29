@@ -1,4 +1,4 @@
-.\" $Id: escputil.1.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+.\" $Id: escputil.1.in,v 1.1.1.3 2004/07/23 06:26:28 jlovell Exp $
 .\" Copyright (C) 2000-2002 Robert Krawitz <rlk@alum.mit.edu>
 .\"
 .\" This program is free software; you can redistribute it and/or modify
@@ -16,7 +16,7 @@
 .\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 .TH ESCPUTIL 1 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
 .SH NAME
-escputil - maintain Epson Stylus inkjet printers
+escputil \- maintain Epson Stylus inkjet printers
 .SH SYNOPSIS
 .B escputil
 [ \fI\-P\fP \fIprinter\fP | \fI\-r\fP \fIdevice\fP ] [ \fI\-m\fP \fImodel\fP ] [
@@ -30,11 +30,11 @@ the printer.
 .SH OPTIONS
 \fBescputil\fP accepts the following options:
 .TP
-.B \-P, \-\-printer-name=\fIprinter\fP
+.B \-P, \-\-printer\-name=\fIprinter\fP
 Specify the name of the printer to operate on.  The default is the default
 system printer.
 .TP
-.B \-r, \-\-raw-device=\fIdevice\fP
+.B \-r, \-\-raw\-device=\fIdevice\fP
 Specify the name of the device to write to directly rather than going through a
 printer queue. You must use this (rather than specifying a printer) when
 retrieving ink levels or identifying the printer, or if you wish to perform
@@ -46,21 +46,21 @@ Specify the precise printer model for head alignment.
 .B \-u, \-\-new
 The printer is a new printer (Stylus Color 740 or newer).
 .TP
-.B \-c, \-\-clean-head
+.B \-c, \-\-clean\-head
 Clean the print head.  This can also be performed from the printer
 front panel.
 .TP
-.B \-n, \-\-nozzle-check
+.B \-n, \-\-nozzle\-check
 Print a nozzle test pattern.  Dirty or clogged nozzles will show as gaps in the
 pattern.  If you see any gaps, you should run a head cleaning pass or two.
 .TP
-.B \-a, \-\-align-head
+.B \-a, \-\-align\-head
 Align the print head.  CAUTION: Misuse of this option may result in poor print
 quality and/or damage to the printer.  You must either specify the printer
 model with the \-m option, or use the raw printer device to allow escputil to
 detect the printer model.
 .TP
-.B \-i, \-\-ink-level
+.B \-i, \-\-ink\-level
 Obtain the ink level from the printer.  This requires
 read/write access to the raw printer device.
 .TP
@@ -115,8 +115,8 @@ under the terms of the GNU General Public License as published by the Free
 Software Foundation; either version 2 of the License, or (at your option)
 any later version.
 .SH OTHER INFORMATION
-The homepage of the gimp-print project from which this utility was
-contributed is located at http://gimp-print.sourceforge.net/.
+The homepage of the Gimp-Print project from which this utility was
+contributed is located at http://gimp\-print.sourceforge.net/.
 .SH "SEE ALSO"
 .BR lp (4),
 .BR tunelp (8).

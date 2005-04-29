@@ -31,7 +31,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: egrep.y,v 1.1.1.2 2002/01/09 18:50:31 umeshv Exp $ */
+/* $Id: egrep.y,v 1.2 2004/07/09 21:34:44 nicolai Exp $ */
 
 /*
  * egrep -- fine lines containing a regular expression
@@ -45,26 +45,11 @@
 %left STAR PLUS QUEST
 
 %{
-  /*#include "global.h"*/
+#include "global.h"
 #include <ctype.h>
 #include <stdio.h>
-#ifdef BSD	/* build command requires #ifdef instead of #if */
-#undef	tolower		/* BSD tolower doesn't test the character */
-#define	tolower(c)	(islower(c) ? (c) : (c) - 'A' + 'a')	
-char	*memset();
-#else
-#ifdef V9
-char	*memset();
-#else /*V9*/
-#include <memory.h>	/* memset */
-#endif /*V9*/
-#endif
-#include <setjmp.h>	/* jmp_buf */
 
-/* HBB 20000509: only this line from 'global.h' is really
- * needed. #include'ing all of it would pull in the unwanted
- * non-static prototype for 'yylex()'.  */
-FILE	*myfopen(char *path, char *mode);
+#include <setjmp.h>	/* jmp_buf */
 
 #define nextch()	(*input++)
 
@@ -96,6 +81,10 @@ static	long lnum;
 static	int iflag;
 static	jmp_buf	env;	/* setjmp/longjmp buffer */
 static	char *message;	/* error message */
+
+/* Internal prototypes: */
+static	void cfoll(int v);
+static	void cgotofn(void);
 static	int cstate(int v);
 static	int member(int symb, int set, int torf);
 static	int notin(int n);
@@ -109,54 +98,55 @@ static	int cclenter(int x);
 static	int enter(int x);
 
 static int yylex(void);
+static int yyerror(char *);
 %}
 
 %%
 s:	t
-		={ unary(FINAL, $1);
+		{ unary(FINAL, $1);
 		  line--;
 		}
 	;
 t:	b r
-		={ $$ = node(CAT, $1, $2); }
+		{ $$ = node(CAT, $1, $2); }
 	| OR b r OR
-		={ $$ = node(CAT, $2, $3); }
+		{ $$ = node(CAT, $2, $3); }
 	| OR b r
-		={ $$ = node(CAT, $2, $3); }
+		{ $$ = node(CAT, $2, $3); }
 	| b r OR
-		={ $$ = node(CAT, $1, $2); }
+		{ $$ = node(CAT, $1, $2); }
 	;
 b:
-		={ $$ = enter(DOT);
+		{ $$ = enter(DOT);
 		   $$ = unary(STAR, $$); }
 	;
 r:	CHAR
-		={ $$ = enter($1); }
+		{ $$ = enter($1); }
 	| DOT
-		={ $$ = enter(DOT); }
+		{ $$ = enter(DOT); }
 	| CCL
-		={ $$ = cclenter(CCL); }
+		{ $$ = cclenter(CCL); }
 	| NCCL
-		={ $$ = cclenter(NCCL); }
+		{ $$ = cclenter(NCCL); }
 	;
 
 r:	r OR r
-		={ $$ = node(OR, $1, $3); }
+		{ $$ = node(OR, $1, $3); }
 	| r r %prec CAT
-		={ $$ = node(CAT, $1, $2); }
+		{ $$ = node(CAT, $1, $2); }
 	| r STAR
-		={ $$ = unary(STAR, $1); }
+		{ $$ = unary(STAR, $1); }
 	| r PLUS
-		={ $$ = unary(PLUS, $1); }
+		{ $$ = unary(PLUS, $1); }
 	| r QUEST
-		={ $$ = unary(QUEST, $1); }
+		{ $$ = unary(QUEST, $1); }
 	| '(' r ')'
-		={ $$ = $2; }
+		{ $$ = $2; }
 	| error 
 	;
 
 %%
-int
+static int
 yyerror(char *s)
 {
 	message = s;
@@ -166,9 +156,6 @@ yyerror(char *s)
 static int
 yylex(void)
 {
-	/* HBB 20010327: shouldn't be needed: we're inside the Yacc
-	 * source itself */
-	/* extern int yylval; */ 
 	int cclcnt, x;
 	char c, d;
 	switch(c = nextch()) {
@@ -218,7 +205,7 @@ yylex(void)
 	}
 }
 
-void
+static void
 synerror(void)
 {
 	yyerror("Syntax error");
@@ -615,6 +602,9 @@ egrep(char *file, FILE *output, char *format)
 done:	(void) fclose(fptr);
 	return(0);
 }
+
+/* FIXME HBB: should export this to a separate file and use
+ * AC_REPLACE_FUNCS() */
 #if BSD
 /*LINTLIBRARY*/
 /*

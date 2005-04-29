@@ -1,0 +1,26 @@
+--- wcwidth.c.orig	2004-11-25 11:38:21.000000000 -0800
++++ wcwidth.c	2005-02-24 00:37:25.000000000 -0800
+@@ -42,6 +42,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcwidth.c,v 1.7 2004/08/12 12:19:11 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <wchar.h>
+ 
+ #undef wcwidth
+@@ -50,5 +52,13 @@
+ wcwidth(wchar_t wc)
+ {
+ 
+-	return (__wcwidth(wc));
++	return (__wcwidth_l(wc, __current_locale()));
++}
++
++int
++wcwidth_l(wchar_t wc, locale_t loc)
++{
++
++	NORMALIZE_LOCALE(loc);
++	return (__wcwidth_l(wc, loc));
+ }

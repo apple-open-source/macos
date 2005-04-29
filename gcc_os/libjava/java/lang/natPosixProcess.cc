@@ -30,6 +30,7 @@ details.  */
 #include <java/lang/InterruptedException.h>
 #include <java/lang/NullPointerException.h>
 #include <java/lang/Thread.h>
+#include <java/io/File.h>
 #include <java/io/FileDescriptor.h>
 #include <java/io/FileInputStream.h>
 #include <java/io/FileOutputStream.h>
@@ -87,7 +88,7 @@ new_string (jstring string)
 }
 
 static void
-cleanup (char **args, char **env)
+cleanup (char **args, char **env, char *path)
 {
   if (args != NULL)
     {
@@ -101,6 +102,8 @@ cleanup (char **args, char **env)
 	_Jv_Free (env[i]);
       _Jv_Free (env);
     }
+  if (path != NULL)
+    _Jv_Free (path);
 }
 
 // This makes our error handling a bit simpler and it lets us avoid
@@ -116,7 +119,8 @@ myclose (int &fd)
 
 void
 java::lang::ConcreteProcess::startProcess (jstringArray progarray,
-					   jstringArray envp)
+					   jstringArray envp,
+					   java::io::File *dir)
 {
   using namespace java::io;
 
@@ -125,6 +129,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
   // Initialize all locals here to make cleanup simpler.
   char **args = NULL;
   char **env = NULL;
+  char *path = NULL;
   int inp[2], outp[2], errp[2], msgp[2];
   inp[0] = -1;
   inp[1] = -1;
@@ -168,6 +173,11 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 	  env[envp->length] = NULL;
 	}
 
+      // We allocate this here because we can't call malloc() after
+      // the fork.
+      if (dir != NULL)
+	path = new_string (dir->getPath ());
+
       // Create pipes for I/O.  MSGP is for communicating exec()
       // status.
       if (pipe (inp) || pipe (outp) || pipe (errp) || pipe (msgp)
@@ -188,7 +198,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 
       if (pid == 0)
 	{
-	  // Child process, so remap descriptors and exec.
+	  // Child process, so remap descriptors, chdir and exec.
 
 	  if (envp)
 	    {
@@ -229,6 +239,17 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
 	  close (outp[0]);
 	  close (outp[1]);
 	  close (msgp[0]);
+          
+	  // Change directory.
+	  if (path != NULL)
+	    {
+	      if (chdir (path) != 0)
+		{
+		  char c = errno;
+		  write (msgp[1], &c, 1);
+		  _exit (127);
+		}
+	    }
 
 	  execvp (args[0], args);
 
@@ -304,7 +325,7 @@ java::lang::ConcreteProcess::startProcess (jstringArray progarray,
     }
 
   myclose (msgp[0]);
-  cleanup (args, env);
+  cleanup (args, env, path);
 
   if (exc != NULL)
     throw exc;

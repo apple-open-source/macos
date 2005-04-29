@@ -1,0 +1,25 @@
+rule CatInfoPlist
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean.Remove clean : "$(1)" ;
+}
+
+actions CatInfoPlist
+{
+    # we would like to be using perl unicode support but the X perl version is too old
+    mkdir -p "$(1:D)"
+    cat "$(2)" | perl -e '{local $/; undef $/; $_ = <STDIN>;} s/(.)/\0$1/sg; print chr(0xFE) . chr(0xFF) . $_;' > "$(1)"
+}
+
+rule CatAlreadyConverted
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean.Remove clean : "$(1)" ;
+}
+
+actions CatAlreadyConverted
+{
+    # we would like to be using perl unicode support but the X perl version is too old
+    mkdir -p "$(1:D)"
+    cat "$(2)" | perl -e '{local $/; undef $/; $_ = <STDIN>;} $start = chr(0xFE) . chr(0xFF); s/$start//sg; print $start . $_;' > "$(1)"
+}

@@ -2381,8 +2381,7 @@ char **argv;
                /* This doesn't work on cygwin32, because
                    Tcl_GetChannelHandle is likely to return a Windows
                    handle, and passing that to dup will fail.  */
-               exp_error(interp,"log_file -open and -leaveopen not supported on
- cygwin32");
+               exp_error(interp,"log_file -open and -leaveopen not supported on cygwin32");
                return TCL_ERROR;
 #endif
 

@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Jakub Jelinek <jakub@redhat.com>
 
 class X {
@@ -7,10 +7,10 @@ public:
   virtual ~X();
 }
 
-X::x()
-{				// ERROR - 
+X::x()	// { dg-error "return type|member function" }
+{
 }
 
-X::~x()
-{				// ERROR - 
+X::~x()	// { dg-error "expected class-name" }
+{				
 }

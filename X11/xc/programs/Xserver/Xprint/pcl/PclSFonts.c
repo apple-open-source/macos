@@ -45,7 +45,7 @@ not be used in advertising or otherwise to promote the sale, use or other
 dealings in this Software without prior written authorization from said
 copyright holders.
 */
-/* $XFree86: xc/programs/Xserver/Xprint/pcl/PclSFonts.c,v 1.6 2001/10/28 03:32:55 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/Xprint/pcl/PclSFonts.c,v 1.8 2003/12/22 17:48:05 tsi Exp $ */
 
 
 #include <stdio.h>
@@ -58,7 +58,6 @@ static short tmp2;
 
 #define ESC 0x1b
 #define SYMBOL_SET 277
-#define MAX_CINDEX 255
 
 static unsigned int PclDownloadChar(FILE *,PclCharDataPtr,unsigned short,unsigned char);
 static unsigned int PclDownloadHeader(FILE *, PclFontDescPtr, unsigned short);
@@ -117,8 +116,6 @@ PclDownloadSoftFont16(
     }
     pfh->index[row][col].fid = pfh->cur_fid;
     pfh->index[row][col].cindex = pfh->cur_cindex++;
-    if ( pfh->cur_cindex > MAX_CINDEX )
-	pfh->cur_cindex = 0;
 
     PclDownloadChar(fp, pcd, pfh->index[row][col].fid, pfh->index[row][col].cindex);
 }
@@ -151,7 +148,7 @@ PclDestroySoftFontInfo( PclSoftFontInfoPtr pSoftFontInfo )
 PclFontHead8Ptr  pfh8,  pfh8_next;
 PclFontHead16Ptr pfh16, pfh16_next;
 PclInternalFontPtr pin, pin_next;
-unsigned char nindex_row, nindex_col;
+unsigned char nindex_row;
 int i;
 
     if ( pSoftFontInfo == (PclSoftFontInfoPtr) NULL )
@@ -169,7 +166,6 @@ int i;
     pfh16 = pSoftFontInfo->phead16;
     while (pfh16 != (PclFontHead16Ptr) NULL) {
 	xfree(pfh16->fontname);
-	nindex_col = pfh16->lastCol - pfh16->firstCol + 1;
 	nindex_row = pfh16->lastRow - pfh16->firstRow + 1;
 	for (i=0; i<nindex_row; i++)
 	    xfree(pfh16->index[i]);

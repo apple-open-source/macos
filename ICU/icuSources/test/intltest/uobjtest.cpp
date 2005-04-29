@@ -1,11 +1,13 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2003, International Business Machines Corporation and
+ * Copyright (c) 2002-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
 #include "uobjtest.h"
+#include "cmemory.h" // UAlignedMemory
 #include <string.h>
+#include <stdio.h>
 
 /**
  * 
@@ -41,8 +43,8 @@ const char *ids_class[MAX_CLASS_ID];
 uint32_t    ids_count = 0;
 
 UObject *UObjectTest::testClass(UObject *obj,
-				const char *className, const char *factory, 
-				UClassID staticID)
+                const char *className, const char *factory, 
+                UClassID staticID)
 {
   uint32_t i;
   UnicodeString what = UnicodeString(className) + " * x= " + UnicodeString(factory?factory:" ABSTRACT ") + "; ";
@@ -92,11 +94,11 @@ UObject *UObjectTest::testClass(UObject *obj,
   for(i=0;i<ids_count;i++) {
     if(staticID == ids[i]) {
       if(!strcmp(ids_class[i], className)) {
-	logln("OK: ID found is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
-	return obj; 
+    logln("OK: ID found is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
+    return obj; 
       } else {
-	errln("FAIL: ID is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
-	return obj;
+    errln("FAIL: ID is the same as " + UnicodeString(ids_class[i]) + UnicodeString(" *y= ") + ids_factory[i] + what);
+    return obj;
       }
     }
   }
@@ -128,8 +130,6 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "cpdtrans.h"
 #include "rbt.h"
 #include "rbt_data.h"
-#include "hextouni.h"
-#include "unitohex.h"
 #include "nultrans.h"
 #include "anytrans.h"
 #include "digitlst.h"
@@ -150,6 +150,7 @@ UObject *UObjectTest::testClass(UObject *obj,
 #include "unesctrn.h"
 #include "uni2name.h"
 #include "uvector.h"
+#include "islamcal.h"
 
 // External Things
 #include "unicode/brkiter.h"
@@ -235,6 +236,7 @@ void UObjectTest::testIDs()
     TESTCLASSID_DEFAULT(FieldPosition);
     TESTCLASSID_DEFAULT(Formattable);
     TESTCLASSID_CTOR(GregorianCalendar, (status));
+    TESTCLASSID_CTOR(IslamicCalendar, (Locale::getUS(), status));
 #endif
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -250,8 +252,6 @@ void UObjectTest::testIDs()
 #if !UCONFIG_NO_TRANSLITERATION
 
     
-    TESTCLASSID_DEFAULT(HexToUnicodeTransliterator);
-    TESTCLASSID_DEFAULT(UnicodeToHexTransliterator);
     TESTCLASSID_TRANSLIT(AnyTransliterator, "Any-Latin");
     TESTCLASSID_TRANSLIT(CompoundTransliterator, "Latin-Greek");
     TESTCLASSID_TRANSLIT(EscapeTransliterator, "Any-Hex");
@@ -295,6 +295,7 @@ void UObjectTest::testIDs()
     //TESTCLASSID_DEFAULT(TempSearch);
     //TESTCLASSID_DEFAULT(TestMultipleKeyStringFactory);
     //TESTCLASSID_DEFAULT(TestReplaceable);
+
 #if !UCONFIG_NO_FORMATTING
     TESTCLASSID_ABSTRACT(TimeZone);
 #endif
@@ -340,6 +341,59 @@ void UObjectTest::testIDs()
 #endif
 }
 
+void UObjectTest::testUMemory() {
+    // additional tests for code coverage
+#if U_OVERRIDE_CXX_ALLOCATION && U_HAVE_PLACEMENT_NEW
+    UAlignedMemory stackMemory[sizeof(UnicodeString)/sizeof(UAlignedMemory)+1];
+    UnicodeString *p;
+    enum { len=20 };
+
+    p=new(stackMemory) UnicodeString(len, (UChar32)0x20ac, len);
+    if((void *)p!=(void *)stackMemory) {
+        errln("placement new did not place the object at the expected address");
+    }
+    if(p->length()!=len || p->charAt(0)!=0x20ac || p->charAt(len-1)!=0x20ac) {
+        errln("constructor used with placement new did not work right");
+    }
+
+    /*
+     * It is not possible to simply say
+     *     delete(p, stackMemory);
+     * which results in a call to the normal, non-placement delete operator.
+     *
+     * Via a search on google.com for "c++ placement delete" I found
+     * http://cpptips.hyperformix.com/cpptips/placement_del3
+     * which says:
+     *
+     * TITLE: using placement delete
+     *
+     * (Newsgroups: comp.std.c++, 27 Aug 97)
+     *
+     * ISJ: isj@image.dk
+     *
+     * > I do not completely understand how placement works on operator delete.
+     * > ...
+     * There is no delete-expression which will invoke a placement
+     * form of operator delete. You can still call the function
+     * explicitly. Example:
+     * ...
+     *     // destroy object and delete space manually
+     *     p->~T();
+     *     operator delete(p, 12);
+     *
+     * ... so that's what I am doing here.
+     * markus 20031216
+     */
+    // destroy object and delete space manually
+    p->~UnicodeString(); 
+    UnicodeString::operator delete(p, stackMemory); 
+#endif
+
+    // try to call the compiler-generated UMemory::operator=(class UMemory const &)
+    UMemory m, n;
+    m=n;
+}
+
 /* --------------- */
 
 #define CASE(id,test) case id: name = #test; if (exec) { logln(#test "---"); logln((UnicodeString)""); test(); } break;
@@ -350,6 +404,7 @@ void UObjectTest::runIndexedTest( int32_t index, UBool exec, const char* &name, 
     switch (index) {
 
     CASE(0, testIDs);
+    CASE(1, testUMemory);
 
     default: name = ""; break; //needed to end loop
     }

@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xmessage/xmessage.c,v 1.4 2000/02/17 16:53:03 dawes Exp $ */
+/* $XFree86: xc/programs/xmessage/xmessage.c,v 1.5 2003/04/14 23:03:13 herrb Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -36,8 +36,8 @@ from the X Consortium.
 #include <stdio.h>
 #include <stdlib.h>
 
-extern char *read_file();
-extern Widget make_queryform();
+#include "xmessage.h"
+#include "readfile.h"
 
 /*
  * data used by xmessage
@@ -100,8 +100,8 @@ static String fallback_resources[] = {
  * usage
  */
 
-static void usage (outf)
-    FILE *outf;
+static void 
+usage (FILE *outf)
 {
     static const char *options[] = {
 "    -file filename              file to read message from, \"-\" for stdin",
@@ -130,11 +130,7 @@ NULL};
 static Atom wm_delete_window;
 /* ARGSUSED */
 static void
-exit_action(w, event, params, num_params)
-    Widget w;			/* unused */
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+exit_action(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
     int exit_status = 0;
 
@@ -151,11 +147,8 @@ int default_exitstatus = -1;		/* value of button named by -default */
 
 /* ARGSUSED */
 static void
-default_exit_action(w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+default_exit_action(Widget w, XEvent *event, String *params, 
+    Cardinal *num_params)
 {
     if (default_exitstatus >= 0)
 	exit(default_exitstatus);
@@ -172,9 +165,7 @@ static String top_trans =
 /* assumes shell widget has already been realized */
 
 static void
-position_near(shell, x, y)
-    Widget shell;
-    int x, y;
+position_near(Widget shell, int x, int y)
 {
     int max_x, max_y;
     Dimension width, height, border;
@@ -220,8 +211,7 @@ position_near(shell, x, y)
 }
 
 static void
-position_near_mouse(shell)
-    Widget shell;
+position_near_mouse(Widget shell)
 {
     int x, y;
     Window root, child;
@@ -234,8 +224,7 @@ position_near_mouse(shell)
 }
 
 static void
-position_near_center(shell)
-    Widget shell;
+position_near_center(Widget shell)
 {
     position_near(shell,
 		  WidthOfScreen(XtScreen(shell))/2,
@@ -244,9 +233,7 @@ position_near_center(shell)
 
 /* ARGSUSED */
 static void
-time_out(client_data, iid)
-    XtPointer client_data;
-    XtIntervalId *iid;
+time_out(XtPointer client_data, XtIntervalId *iid)
 {
     exit(0);
 }
@@ -256,9 +243,7 @@ time_out(client_data, iid)
  * then create the query box and go.  Callbacks take care of exiting.
  */
 int
-main (argc, argv)
-    int argc;
-    char **argv;
+main (int argc, char *argv[])
 {
     Widget top, queryform;
     XtAppContext app_con;

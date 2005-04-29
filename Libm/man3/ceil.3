@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: ceil.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: ceil.3,v 1.4 2004/12/20 21:35:44 scp Exp $
 .\"
 .Dd July 2, 2003
 .Dt CEIL 3
@@ -42,13 +42,13 @@
 .Fd #include <math.h>
 .Ft double
 .Fn ceil "double x"
+.Ft long double
+.Fn ceill "long double x"
 .Ft float
 .Fn ceilf "float x"
 .Sh DESCRIPTION
 The
 .Fn ceil
-and
-.Fn ceilf
 functions return the smallest integral value 
 greater than or equal to
 .Fa x .
@@ -62,12 +62,9 @@ returns ±infinity.
 .Xr abs 3 ,
 .Xr fabs 3 ,
 .Xr floor 3 ,
-.Xr ieee 3 ,
 .Xr rint 3 ,
 .Xr math 3
 .Sh STANDARDS
 The
 .Fn ceil
-and
-.Fn ceilf
 functions conform to ISO/IEC 9899:1999(E).

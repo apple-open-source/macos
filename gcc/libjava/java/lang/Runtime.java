@@ -1,5 +1,5 @@
 /* Runtime.java -- access to the VM process
-   Copyright (C) 1998, 2002 Free Software Foundation
+   Copyright (C) 1998, 2002, 2003, 2004 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -35,11 +35,12 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.lang;
 
 import java.io.File;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -65,7 +66,7 @@ public class Runtime
 
   /**
    * The current security manager. This is located here instead of in
-   * Runtime, to avoid security problems, as well as bootstrap issues.
+   * System, to avoid security problems, as well as bootstrap issues.
    * Make sure to access it in a thread-safe manner; it is package visible
    * to avoid overhead in java.lang.
    */
@@ -79,26 +80,27 @@ public class Runtime
    * treated as read-only.
    *
    * No matter what class you start initialization with, it defers to the
-   * superclass, therefore Object.<clinit> will be the first Java code
+   * superclass, therefore Object.&lt;clinit&gt; will be the first Java code
    * executed. From there, the bootstrap sequence, up to the point that
    * native libraries are loaded (as of March 24, when I traced this
    * manually) is as follows:
    *
-   * Object.<clinit> uses a String literal, possibly triggering initialization
-   *  String.<clinit> calls WeakHashMap.<init>, triggering initialization
+   * Object.&lt;clinit&gt; uses a String literal, possibly triggering initialization
+   *  String.&lt;clinit&gt; calls WeakHashMap.&lt;init&gt;, triggering initialization
    *   AbstractMap, WeakHashMap, WeakHashMap$1 have no dependencies
-   *  String.<clinit> calls CaseInsensitiveComparator.<init>, triggering
+   *  String.&lt;clinit&gt; calls CaseInsensitiveComparator.&lt;init&gt;, triggering
    *      initialization
    *   CaseInsensitiveComparator has no dependencies
-   * Object.<clinit> calls System.loadLibrary, triggering initialization
-   *  System.<clinit> calls System.loadLibrary
+   * Object.&lt;clinit&gt; calls System.loadLibrary, triggering initialization
+   *  System.&lt;clinit&gt; calls System.loadLibrary
    *  System.loadLibrary calls Runtime.getRuntime, triggering initialization
-   *   Runtime.<clinit> calls Properties.<init>, triggering initialization
+   *   Runtime.&lt;clinit&gt; calls Properties.&lt;init&gt;, triggering initialization
    *    Dictionary, Hashtable, and Properties have no dependencies
-   *   Runtime.<clinit> calls insertSystemProperties; the VM must make sure
-   *      that there are not any harmful dependencies
-   *   Runtime.<clinit> calls Runtime.<init>
-   *    Runtime.<init> calls StringTokenizer.<init>, triggering initialization
+   *   Runtime.&lt;clinit&gt; calls VMRuntime.insertSystemProperties, triggering
+   *      initialization of VMRuntime; the VM must make sure that there are
+   *      not any harmful dependencies
+   *   Runtime.&lt;clinit&gt; calls Runtime.&lt;init&gt;
+   *    Runtime.&lt;init&gt; calls StringTokenizer.&lt;init&gt;, triggering initialization
    *     StringTokenizer has no dependencies
    *  System.loadLibrary calls Runtime.loadLibrary
    *   Runtime.loadLibrary should be able to load the library, although it
@@ -106,6 +108,7 @@ public class Runtime
    *       ClassLoader first
    */
   static Properties defaultProperties = new Properties();
+
   static
   {
     insertSystemProperties(defaultProperties);
@@ -170,13 +173,13 @@ public class Runtime
    *
    * <p>First, all shutdown hooks are run, in unspecified order, and
    * concurrently. Next, if finalization on exit has been enabled, all pending
-   * finalizers are run. Finally, the system calls <code>halt</code>.
+   * finalizers are run. Finally, the system calls <code>halt</code>.</p>
    *
    * <p>If this is run a second time after shutdown has already started, there
    * are two actions. If shutdown hooks are still executing, it blocks
    * indefinitely. Otherwise, if the status is nonzero it halts immediately;
    * if it is zero, it blocks indefinitely. This is typically called by
-   * <code>System.exit</code>.
+   * <code>System.exit</code>.</p>
    *
    * @param status the status to exit with
    * @throws SecurityException if permission is denied
@@ -237,7 +240,7 @@ public class Runtime
                       }
                 try
                   {
-                    exitSequence.sleep(1); // Give other threads a chance.
+                    Thread.sleep(1); // Give other threads a chance.
                   }
                 catch (InterruptedException e)
                   {
@@ -285,23 +288,23 @@ public class Runtime
    * <code>System.exit</code> was invoked), or when the user terminates
    * the virtual machine (such as by typing ^C, or logging off). There is
    * a security check to add hooks,
-   * <code>RuntimePermission("shutdownHooks")<code>.
+   * <code>RuntimePermission("shutdownHooks")</code>.
    *
    * <p>The hook must be an initialized, but unstarted Thread. The threads
    * are run concurrently, and started in an arbitrary order; and user
    * threads or daemons may still be running. Once shutdown hooks have
    * started, they must all complete, or else you must use <code>halt</code>,
    * to actually finish the shutdown sequence. Attempts to modify hooks
-   * after shutdown has started result in IllegalStateExceptions.
+   * after shutdown has started result in IllegalStateExceptions.</p>
    *
    * <p>It is imperative that you code shutdown hooks defensively, as you
    * do not want to deadlock, and have no idea what other hooks will be
    * running concurrently. It is also a good idea to finish quickly, as the
-   * virtual machine really wants to shut down!
+   * virtual machine really wants to shut down!</p>
    *
    * <p>There are no guarantees that such hooks will run, as there are ways
    * to forcibly kill a process. But in such a drastic case, shutdown hooks
-   * would do little for you in the first place.
+   * would do little for you in the first place.</p>
    *
    * @param hook an initialized, unstarted Thread
    * @throws IllegalArgumentException if the hook is already registered or run
@@ -334,7 +337,7 @@ public class Runtime
   /**
    * De-register a shutdown hook. As when you registered it, there is a
    * security check to remove hooks,
-   * <code>RuntimePermission("shutdownHooks")<code>.
+   * <code>RuntimePermission("shutdownHooks")</code>.
    *
    * @param hook the hook to remove
    * @return true if the hook was successfully removed, false if it was not
@@ -408,7 +411,7 @@ public class Runtime
 
   /**
    * Create a new subprocess with the specified command line. Calls
-   * <code>exec(cmdline, null, null)<code>. A security check is performed,
+   * <code>exec(cmdline, null, null)</code>. A security check is performed,
    * <code>checkExec</code>.
    *
    * @param cmdline the command to call
@@ -635,9 +638,11 @@ public class Runtime
    * <code>System.mapLibraryName(libname)</code>. There may be a security
    * check, of <code>checkLink</code>.
    *
-   * @param filename the file to load
+   * @param libname the library to load
+   *
    * @throws SecurityException if permission is denied
    * @throws UnsatisfiedLinkError if the library is not found
+   *
    * @see System#mapLibraryName(String)
    * @see ClassLoader#findLibrary(String)
    */
@@ -731,8 +736,11 @@ public class Runtime
    * @param dir the directory to use, may be null
    * @return the newly created process
    * @throws NullPointerException if cmd or env have null elements
+   * @throws IOException if the exec fails
    */
-  native Process execInternal(String[] cmd, String[] env, File dir);
+  native Process execInternal(String[] cmd, String[] env, File dir)
+    throws IOException;
+    
 
   /**
    * Get the system properties. This is done here, instead of in System,

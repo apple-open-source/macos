@@ -35,12 +35,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "toplev.h"
 #include "output.h"
 #include "ggc.h"
-#include "obstack.h"
 #include "hashtab.h"
 #include "cselib.h"
 
 static int entry_and_rtx_equal_p	PARAMS ((const void *, const void *));
-static unsigned int get_value_hash	PARAMS ((const void *));
+static hashval_t get_value_hash		PARAMS ((const void *));
 static struct elt_list *new_elt_list	PARAMS ((struct elt_list *,
 						 cselib_val *));
 static struct elt_loc_list *new_elt_loc_list PARAMS ((struct elt_loc_list *,
@@ -79,11 +78,12 @@ static void cselib_record_sets		PARAMS ((rtx));
      the locations of the entries with the rtx we are looking up.  */
 
 /* A table that enables us to look up elts by their value.  */
-static htab_t hash_table;
+static GTY((param_is (cselib_val))) htab_t hash_table;
 
 /* This is a global so we don't have to pass this through every function.
    It is used in new_elt_loc_list to set SETTING_INSN.  */
 static rtx cselib_current_insn;
+static bool cselib_current_insn_in_libcall;
 
 /* Every new unknown value gets a unique number.  */
 static unsigned int next_unknown_value;
@@ -101,27 +101,27 @@ static int n_useless_values;
 /* This table maps from register number to values.  It does not contain
    pointers to cselib_val structures, but rather elt_lists.  The purpose is
    to be able to refer to the same register in different modes.  */
-static varray_type reg_values;
+static GTY(()) varray_type reg_values;
+static GTY((deletable (""))) varray_type reg_values_old;
 #define REG_VALUES(I) VARRAY_ELT_LIST (reg_values, (I))
+
+/* The largest number of hard regs used by any entry added to the
+   REG_VALUES table.  Cleared on each clear_table() invocation.  */
+static unsigned int max_value_regs;
 
 /* Here the set of indices I with REG_VALUES(I) != 0 is saved.  This is used
    in clear_table() for fast emptying.  */
-static varray_type used_regs;
+static GTY(()) varray_type used_regs;
+static GTY((deletable (""))) varray_type used_regs_old;
 
 /* We pass this to cselib_invalidate_mem to invalidate all of
    memory for a non-const call instruction.  */
-static rtx callmem;
-
-/* Memory for our structures is allocated from this obstack.  */
-static struct obstack cselib_obstack;
-
-/* Used to quickly free all memory.  */
-static char *cselib_startobj;
+static GTY(()) rtx callmem;
 
 /* Caches for unused structures.  */
-static cselib_val *empty_vals;
-static struct elt_list *empty_elt_lists;
-static struct elt_loc_list *empty_elt_loc_lists;
+static GTY((deletable (""))) cselib_val *empty_vals;
+static GTY((deletable (""))) struct elt_list *empty_elt_lists;
+static GTY((deletable (""))) struct elt_loc_list *empty_elt_loc_lists;
 
 /* Set by discard_useless_locs if it deleted the last location of any
    value.  */
@@ -141,8 +141,7 @@ new_elt_list (next, elt)
   if (el)
     empty_elt_lists = el->next;
   else
-    el = (struct elt_list *) obstack_alloc (&cselib_obstack,
-					    sizeof (struct elt_list));
+    el = (struct elt_list *) ggc_alloc (sizeof (struct elt_list));
   el->next = next;
   el->elt = elt;
   return el;
@@ -161,11 +160,11 @@ new_elt_loc_list (next, loc)
   if (el)
     empty_elt_loc_lists = el->next;
   else
-    el = (struct elt_loc_list *) obstack_alloc (&cselib_obstack,
-						sizeof (struct elt_loc_list));
+    el = (struct elt_loc_list *) ggc_alloc (sizeof (struct elt_loc_list));
   el->next = next;
   el->loc = loc;
   el->setting_insn = cselib_current_insn;
+  el->in_libcall = cselib_current_insn_in_libcall;
   return el;
 }
 
@@ -227,14 +226,12 @@ clear_table (clear_all)
     for (i = 0; i < VARRAY_ACTIVE_SIZE (used_regs); i++)
       REG_VALUES (VARRAY_UINT (used_regs, i)) = 0;
 
+  max_value_regs = 0;
+
   VARRAY_POP_ALL (used_regs);
 
   htab_empty (hash_table);
-  obstack_free (&cselib_obstack, cselib_startobj);
 
-  empty_vals = 0;
-  empty_elt_lists = 0;
-  empty_elt_loc_lists = 0;
   n_useless_values = 0;
 
   next_unknown_value = 0;
@@ -279,7 +276,7 @@ entry_and_rtx_equal_p (entry, x_arg)
    hash_rtx when adding an element; this function just extracts the hash
    value from a cselib_val structure.  */
 
-static unsigned int
+static hashval_t
 get_value_hash (entry)
      const void *entry;
 {
@@ -586,8 +583,7 @@ hash_rtx (x, mode, create)
 	 the integers representing the constant.  */
       hash += (unsigned) code + (unsigned) GET_MODE (x);
       if (GET_MODE (x) != VOIDmode)
-	for (i = 2; i < GET_RTX_LENGTH (CONST_DOUBLE); i++)
-	  hash += XWINT (x, i);
+	hash += real_hash (CONST_DOUBLE_REAL_VALUE (x));
       else
 	hash += ((unsigned) CONST_DOUBLE_LOW (x)
 		 + (unsigned) CONST_DOUBLE_HIGH (x));
@@ -698,7 +694,7 @@ new_cselib_val (value, mode)
   if (e)
     empty_vals = e->u.next_free;
   else
-    e = (cselib_val *) obstack_alloc (&cselib_obstack, sizeof (cselib_val));
+    e = (cselib_val *) ggc_alloc (sizeof (cselib_val));
 
   if (value == 0)
     abort ();
@@ -864,62 +860,6 @@ cselib_subst_to_values (x)
   return copy;
 }
 
-/* APPLE LOCAL begin 3074317 */
-/* Walk rtx X and replace all occurrences of VALUE with their
-   original expressions.  Allocates new rtx nodes for VALUE nodes;
-   rtxs that are not VALUE and have no VALUE children are returned
-   unscathed.  */
-rtx
-cselib_values_to_subst (x)
-     rtx x;
-{
-  enum rtx_code code = GET_CODE (x);
-  const char *fmt = GET_RTX_FORMAT (code);
-  rtx copy = x;
-  int i;
-
-  /* Replace VALUE node with a copy of its original rtx.  */
-  if (GET_CODE (x) == VALUE)
-    copy = shallow_copy_rtx (get_addr (x));
-
-  /* If any [[great-]grand-]child is a VALUE, substitute/copy them all.  */
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  rtx t = cselib_values_to_subst (XEXP (x, i));
-
-	  if (t != XEXP (x, i) && x == copy)
-	    copy = shallow_copy_rtx (x);
-
-	  XEXP (copy, i) = t;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  int j, k;
-
-	  for (j = 0; j < XVECLEN (x, i); j++)
-	    {
-	      rtx t = cselib_values_to_subst (XVECEXP (x, i, j));
-
-	      if (t != XVECEXP (x, i, j) && XVEC (x, i) == XVEC (copy, i))
-		{
-		  if (x == copy)
-		    copy = shallow_copy_rtx (x);
-
-		  XVEC (copy, i) = rtvec_alloc (XVECLEN (x, i));
-		  for (k = 0; k < j; k++)
-		    XVECEXP (copy, i, k) = XVECEXP (x, i, k);
-		}
-
-	      XVECEXP (copy, i, j) = t;
-	    }
-	}
-    }
-  return copy;
-}
-/* APPLE LOCAL end 3074317 */
-
 /* Look up the rtl expression X in our tables and return the value it has.
    If CREATE is zero, we return NULL if we don't know the value.  Otherwise,
    we create a new one if possible, using mode MODE if X doesn't have a mode
@@ -952,6 +892,14 @@ cselib_lookup (x, mode, create)
 
       if (! create)
 	return 0;
+
+      if (i < FIRST_PSEUDO_REGISTER)
+	{
+	  unsigned int n = HARD_REGNO_NREGS (i, mode);
+
+	  if (n > max_value_regs)
+	    max_value_regs = n;
+	}
 
       e = new_cselib_val (++next_unknown_value, GET_MODE (x));
       e->locs = new_elt_loc_list (e->locs, x);
@@ -1013,11 +961,22 @@ cselib_invalidate_regno (regno, mode)
      pseudos, only REGNO is affected.  For hard regs, we must take MODE
      into account, and we must also invalidate lower register numbers
      if they contain values that overlap REGNO.  */
-  endregno = regno + 1;
   if (regno < FIRST_PSEUDO_REGISTER && mode != VOIDmode) 
-    endregno = regno + HARD_REGNO_NREGS (regno, mode);
+    {
+      if (regno < max_value_regs)
+	i = 0;
+      else
+	i = regno - max_value_regs;
 
-  for (i = 0; i < endregno; i++)
+      endregno = regno + HARD_REGNO_NREGS (regno, mode);
+    }
+  else
+    {
+      i = regno;
+      endregno = regno + 1;
+    }
+
+  for (; i < endregno; i++)
     {
       struct elt_list **l = &REG_VALUES (i);
 
@@ -1227,6 +1186,14 @@ cselib_record_set (dest, src_elt, dest_addr_elt)
       if (REG_VALUES (dreg) == 0)
         VARRAY_PUSH_UINT (used_regs, dreg);
 
+      if (dreg < FIRST_PSEUDO_REGISTER)
+	{
+	  unsigned int n = HARD_REGNO_NREGS (dreg, GET_MODE (dest));
+
+	  if (n > max_value_regs)
+	    max_value_regs = n;
+	}
+
       REG_VALUES (dreg) = new_elt_list (REG_VALUES (dreg), src_elt);
       if (src_elt->locs == 0)
 	n_useless_values--;
@@ -1343,6 +1310,10 @@ cselib_process_insn (insn)
   int i;
   rtx x;
 
+  if (find_reg_note (insn, REG_LIBCALL, NULL))
+    cselib_current_insn_in_libcall = true;
+  if (find_reg_note (insn, REG_RETVAL, NULL))
+    cselib_current_insn_in_libcall = false;
   cselib_current_insn = insn;
 
   /* Forget everything at a CODE_LABEL, a volatile asm, or a setjmp.  */
@@ -1422,21 +1393,27 @@ cselib_update_varray_sizes ()
 void
 cselib_init ()
 {
-  /* These are only created once.  */
+  /* This is only created once.  */
   if (! callmem)
-    {
-      gcc_obstack_init (&cselib_obstack);
-      cselib_startobj = obstack_alloc (&cselib_obstack, 0);
-
-      callmem = gen_rtx_MEM (BLKmode, const0_rtx);
-      ggc_add_rtx_root (&callmem, 1);
-    }
+    callmem = gen_rtx_MEM (BLKmode, const0_rtx);
 
   cselib_nregs = max_reg_num ();
-  VARRAY_ELT_LIST_INIT (reg_values, cselib_nregs, "reg_values");
-  VARRAY_UINT_INIT (used_regs, cselib_nregs, "used_regs");
-  hash_table = htab_create (31, get_value_hash, entry_and_rtx_equal_p, NULL);
+  if (reg_values_old != NULL && VARRAY_SIZE (reg_values_old) >= cselib_nregs)
+    {
+      reg_values = reg_values_old;
+      used_regs = used_regs_old;
+      VARRAY_CLEAR (reg_values);
+      VARRAY_CLEAR (used_regs);
+    }
+  else
+    {
+      VARRAY_ELT_LIST_INIT (reg_values, cselib_nregs, "reg_values");
+      VARRAY_UINT_INIT (used_regs, cselib_nregs, "used_regs");
+    }
+  hash_table = htab_create_ggc (31, get_value_hash, entry_and_rtx_equal_p, 
+				NULL);
   clear_table (1);
+  cselib_current_insn_in_libcall = false;
 }
 
 /* Called when the current user is done with cselib.  */
@@ -1444,8 +1421,13 @@ cselib_init ()
 void
 cselib_finish ()
 {
-  clear_table (0);
-  VARRAY_FREE (reg_values);
-  VARRAY_FREE (used_regs);
-  htab_delete (hash_table);
+  reg_values_old = reg_values;
+  reg_values = 0;
+  used_regs_old = used_regs;
+  used_regs = 0;
+  hash_table = 0;
+  n_useless_values = 0;
+  next_unknown_value = 0;
 }
+
+#include "gt-cselib.h"

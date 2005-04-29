@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -17,17 +17,12 @@
 #include "unicode/dtfmtsym.h"
 #include "unicode/normlzr.h"
 #include "unicode/translit.h"
-#include "unicode/ucnv.h"
-#include "unicode/ucnv_err.h"
 #include "unicode/uchar.h"
 #include "unicode/unifilt.h"
 #include "unicode/uniset.h"
-#include "unitohex.h"
-#include "unicode/utypes.h"
 #include "unicode/ustring.h"
 #include "unicode/usetiter.h"
 #include "unicode/uscript.h"
-#include "hextouni.h"
 #include "cpdtrans.h"
 #include "nultrans.h"
 #include "rbt.h"
@@ -42,6 +37,8 @@
 #include "unesctrn.h"
 #include "uni2name.h"
 #include "cstring.h"
+#include "cmemory.h"
+#include <stdio.h>
 
 /***********************************************************************
 
@@ -101,6 +98,8 @@ TransliteratorTest::TransliteratorTest()
     DESERET_dee((UChar32)0x1043C)
 {
 }
+
+TransliteratorTest::~TransliteratorTest() {}
 
 void
 TransliteratorTest::runIndexedTest(int32_t index, UBool exec,
@@ -188,6 +187,7 @@ TransliteratorTest::runIndexedTest(int32_t index, UBool exec,
     }
 }
 
+static const UVersionInfo ICU_31 = {3,1,0,0};
 /**
  * Make sure every system transliterator can be instantiated.
  * 
@@ -196,13 +196,33 @@ TransliteratorTest::runIndexedTest(int32_t index, UBool exec,
  * instantiates everything as well.
  */
 void TransliteratorTest::TestInstantiation() {
+    UErrorCode ec = U_ZERO_ERROR;
+    StringEnumeration* avail = Transliterator::getAvailableIDs(ec);
+    assertSuccess("getAvailableIDs()", ec);
+    assertTrue("getAvailableIDs()!=NULL", avail!=NULL);
     int32_t n = Transliterator::countAvailableIDs();
+    assertTrue("getAvailableIDs().count()==countAvailableIDs()",
+               avail->count(ec) == n);
+    assertSuccess("count()", ec);
     UnicodeString name;
     for (int32_t i=0; i<n; ++i) {
-        UnicodeString id = Transliterator::getAvailableID(i);
+        const UnicodeString& id = *avail->snext(ec);
+        if (!assertSuccess("snext()", ec) ||
+            !assertTrue("snext()!=NULL", (&id)!=NULL, TRUE)) {
+            break;
+        }
+        UnicodeString id2 = Transliterator::getAvailableID(i);
         if (id.length() < 1) {
             errln(UnicodeString("FAIL: getAvailableID(") +
                   i + ") returned empty string");
+            continue;
+        }
+        if (id != id2) {
+            errln(UnicodeString("FAIL: getAvailableID(") +
+                  i + ") != getAvailableIDs().snext()");
+            continue;
+        }
+        if(id2.indexOf("Thai")>-1 && isICUVersionAtLeast(ICU_31)){
             continue;
         }
         UParseError parseError;
@@ -249,6 +269,9 @@ void TransliteratorTest::TestInstantiation() {
             delete t;
         }
     }
+    assertTrue("snext()==NULL", avail->snext(ec)==NULL);
+    assertSuccess("snext()", ec);
+    delete avail;
 
     // Now test the failure path
     UParseError parseError;
@@ -784,22 +807,27 @@ void TransliteratorTest::TestJ277(void) {
  * Prefix, suffix support in hex transliterators
  */
 void TransliteratorTest::TestJ243(void) {
-    UErrorCode status = U_ZERO_ERROR;
+    UErrorCode ec = U_ZERO_ERROR;
 
     // Test default Hex-Any, which should handle
     // \u, \U, u+, and U+
-    HexToUnicodeTransliterator hex;
-    expect(hex, UnicodeString("\\u0041+\\U0042,u+0043uu+0044z", ""), "A+B,CuDz");
-    // Try a custom Hex-Unicode
-    // \uXXXX and &#xXXXX;
-    status = U_ZERO_ERROR;
-    HexToUnicodeTransliterator hex2(UnicodeString("\\\\u###0;&\\#x###0\\;", ""), status);
-    expect(hex2, UnicodeString("\\u61\\u062\\u0063\\u00645\\u66x&#x30;&#x031;&#x0032;&#x00033;", ""),
-           "abcd5fx012&#x00033;");
-    // Try custom Any-Hex (default is tested elsewhere)
-    status = U_ZERO_ERROR;
-    UnicodeToHexTransliterator hex3(UnicodeString("&\\#x###0;", ""), status);
-    expect(hex3, "012", "&#x30;&#x31;&#x32;");
+    Transliterator *hex =
+        Transliterator::createInstance("Hex-Any", UTRANS_FORWARD, ec);
+    if (assertSuccess("getInstance", ec)) {
+        expect(*hex, UnicodeString("\\u0041+\\U00000042,U+0043uU+0044z", ""), "A+B,CuDz");
+    }
+    delete hex;
+
+//    // Try a custom Hex-Unicode
+//    // \uXXXX and &#xXXXX;
+//    ec = U_ZERO_ERROR;
+//    HexToUnicodeTransliterator hex2(UnicodeString("\\\\u###0;&\\#x###0\\;", ""), ec);
+//    expect(hex2, UnicodeString("\\u61\\u062\\u0063\\u00645\\u66x&#x30;&#x031;&#x0032;&#x00033;", ""),
+//           "abcd5fx012&#x00033;");
+//    // Try custom Any-Hex (default is tested elsewhere)
+//    ec = U_ZERO_ERROR;
+//    UnicodeToHexTransliterator hex3(UnicodeString("&\\#x###0;", ""), ec);
+//    expect(hex3, "012", "&#x30;&#x31;&#x32;");
 }
 
 /**
@@ -1296,7 +1324,10 @@ void TransliteratorTest::TestCreateInstance(){
         UnicodeString expID(DATA[i+2]);
         Transliterator* t =
             Transliterator::createInstance(id,dir,err,ec);
-        UnicodeString newID = t?t->getID():UnicodeString();
+        UnicodeString newID;
+        if (t) {
+            newID = t->getID();
+        }
         UBool ok = (newID == expID);
         if (!t) {
             newID = u_errorName(ec);
@@ -2250,15 +2281,22 @@ void TransliteratorTest::TestCompoundFilterID(void) {
             t = Transliterator::createInstance(id, direction, pe, ec);
         }
         UBool ok = (t != NULL && U_SUCCESS(ec));
+        UnicodeString transID;
+        if (t!=0) {
+            transID = t->getID();
+        }
+        else {
+            transID = UnicodeString("NULL", "");
+        }
         if (ok == expOk) {
-            logln((UnicodeString)"Ok: " + id + " => " + (t!=0?t->getID():(UnicodeString)"NULL") + ", " +
+            logln((UnicodeString)"Ok: " + id + " => " + transID + ", " +
                   u_errorName(ec));
             if (source.length() != 0) {
                 expect(*t, source, exp);
             }
             delete t;
         } else {
-            errln((UnicodeString)"FAIL: " + id + " => " + (t!=0?t->getID():(UnicodeString)"NULL") + ", " +
+            errln((UnicodeString)"FAIL: " + id + " => " + transID + ", " +
                   u_errorName(ec));
         }
     }
@@ -2295,9 +2333,9 @@ void TransliteratorTest::TestNewEngine() {
     // true.  Otherwise, this test will fail, revealing a
     // limitation of global filters in incremental mode.
     Transliterator *a =
-        Transliterator::createFromRules("a", "a > A;", UTRANS_FORWARD, pe, ec);
+        Transliterator::createFromRules("a_to_A", "a > A;", UTRANS_FORWARD, pe, ec);
     Transliterator *A =
-        Transliterator::createFromRules("A", "A > b;", UTRANS_FORWARD, pe, ec);
+        Transliterator::createFromRules("A_to_b", "A > b;", UTRANS_FORWARD, pe, ec);
     if (U_FAILURE(ec)) {
         delete a;
         delete A;
@@ -2327,6 +2365,13 @@ void TransliteratorTest::TestNewEngine() {
     }
 
     expect(*t, "aAaA", "bAbA");
+
+    assertTrue("countElements", t->countElements() == 3);
+    assertEquals("getElement(0)", t->getElement(0, ec).getID(), "a_to_A");
+    assertEquals("getElement(1)", t->getElement(1, ec).getID(), "NFD");
+    assertEquals("getElement(2)", t->getElement(2, ec).getID(), "A_to_b");
+    assertSuccess("getElement", ec);
+
     delete a;
     delete A;
     delete array[1];
@@ -3321,9 +3366,9 @@ void TransliteratorTest::TestSpecialCases(void) {
 
 char* Char32ToEscapedChars(UChar32 ch, char* buffer) {
     if (ch <= 0xFFFF) {
-        sprintf(buffer, "\\u%04x", ch);
+        sprintf(buffer, "\\u%04x", (int)ch);
     } else {
-        sprintf(buffer, "\\u%08x", ch);
+        sprintf(buffer, "\\U%08x", (int)ch);
     }
     return buffer;
 }
@@ -3432,7 +3477,10 @@ void TransliteratorTest::TestIncrementalProgress(void) {
 
                 Transliterator::getAvailableVariant(k, source, target, variant);
                 UnicodeString id = source + "-" + target + "/" + variant;
-    
+                
+                if(id.indexOf("Thai")>-1 && isICUVersionAtLeast(ICU_31)){
+                    continue;
+                }    
                 Transliterator *t = Transliterator::createInstance(id, UTRANS_FORWARD, err, status);
                 if (U_FAILURE(status)) {
                     errln((UnicodeString)"FAIL: Could not create " + id);
@@ -3598,7 +3646,7 @@ void TransliteratorTest::TestMulticharStringSet() {
 Transliterator* _TUFF[4];
 UnicodeString* _TUFID[4];
 
-static Transliterator* _TUFFactory(const UnicodeString& /*ID*/,
+static Transliterator* U_EXPORT2 _TUFFactory(const UnicodeString& /*ID*/,
                                    Transliterator::Token context) {
     return _TUFF[context.integer]->clone();
 }

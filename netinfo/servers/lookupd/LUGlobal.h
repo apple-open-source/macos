@@ -25,6 +25,7 @@
 #import "Root.h"
 #import <NetInfo/syslock.h>
 #import <NetInfo/DynaAPI.h>
+#import <stdint.h>
 
 #define DefaultName "lookup daemon v2"
 
@@ -46,9 +47,11 @@ extern id statistics;
 
 extern BOOL shutting_down;
 extern BOOL debug_enabled;
+extern BOOL trace_enabled;
+extern BOOL agent_debug_enabled;
 extern BOOL statistics_enabled;
 extern BOOL coredump_enabled;
-extern BOOL lookup_local_interfaces;
+extern BOOL aaaa_cutoff_enabled;
 
 /* preferences for getaddrinfo */
 #define GAI_UNSET 0

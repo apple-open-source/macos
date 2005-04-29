@@ -1,0 +1,47 @@
+--- wcswidth.3.orig	Fri Mar 11 08:30:37 2005
++++ wcswidth.3	Fri Mar 11 08:31:35 2005
+@@ -28,7 +28,8 @@
+ .Dt WCSWIDTH 3
+ .Os
+ .Sh NAME
+-.Nm wcswidth
++.Nm wcswidth ,
++.Nm wcswidth_l
+ .Nd "number of column positions in wide-character string"
+ .Sh LIBRARY
+ .Lb libc
+@@ -36,6 +37,9 @@
+ .In wchar.h
+ .Ft int
+ .Fn wcswidth "const wchar_t *pwcs" "size_t n"
++.In xlocale.h
++.Ft int
++.Fn wcswidth_l "const wchar_t *pwcs" "size_t n" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wcswidth
+@@ -44,6 +48,14 @@
+ characters of
+ .Fa pwcs ,
+ or until a null wide character (L'\e0') is encountered.
++.Pp
++While the
++.Fn wcswidth
++function uses the current locale, the
++.Fn wcswidth_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn wcswidth
+@@ -54,7 +66,8 @@
+ otherwise it returns the number of column positions occupied.
+ .Sh SEE ALSO
+ .Xr iswprint 3 ,
+-.Xr wcwidth 3
++.Xr wcwidth 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wcswidth

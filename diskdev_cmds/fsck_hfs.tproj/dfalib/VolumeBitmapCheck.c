@@ -144,7 +144,7 @@ BitMapCheckBegin(SGlobPtr g)
 			alignBits = 1;
 		else
 			alignBits = 0;
-		
+
 		(void) CaptureBitmapBits(0, 1 + alignBits);
 
 		if (g->calculatedVCB->vcbBlockSize == 512)

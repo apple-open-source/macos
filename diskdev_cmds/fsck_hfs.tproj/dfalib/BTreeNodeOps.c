@@ -345,7 +345,7 @@ OSStatus	TrashNode	(BTreeControlBlockPtr	 btreePtr,
 		err = releaseNodeProc (btreePtr->fcbPtr,
 							   nodePtr,
 							   kReleaseBlock | kTrashBlock );
-		PanicIf (err, "\TrashNode: releaseNodeProc returned error.");
+		PanicIf (err, "TrashNode: releaseNodeProc returned error.");
 		++btreePtr->numReleaseNodes;
 	}
 

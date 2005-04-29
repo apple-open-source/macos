@@ -28,10 +28,7 @@
 extern "C"
 {
 #include <pexpert/pexpert.h>
-#include <kern/host.h>
-#include <kern/simple_lock.h>
-    extern simple_lock_data_t kmod_lock;
-    extern kmod_info_t *kmod;
+#include <mach/kmod.h>
 };
 
 #include "IONDRV.h"
@@ -70,12 +67,12 @@ void IOPEFNDRV::initialize( void )
 	gIOPEFContainers = OSArray::withCapacity(2);
 }
 
-IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
-                                 IOLogicalAddress container,
-                                 IOByteCount containerSize,
-				 bool checkDate,
-                                 IONDRVUndefinedSymbolHandler undefHandler,
-                                 void * self )
+IOPEFNDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
+				     IOLogicalAddress container,
+				     IOByteCount containerSize,
+				     bool checkDate,
+				     IONDRVUndefinedSymbolHandler undefHandler,
+				     void * self )
 {
     OSStatus	err = 1;
     IOPEFNDRV *	inst;
@@ -127,8 +124,11 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 	    if (plen >= sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName))
 		plen = sizeof(inst->fDriverDesc->driverOSRuntimeInfo.driverName) - 1;
 	    strncpy( inst->fName, name + 1, plen);
+#if 1
+	    inst->fName[plen] = 0;
+#else
 	    sprintf( inst->fName + plen, "-%08lx", *((UInt32 *) &inst->fDriverDesc->driverType.version));
-
+#endif
             name = (char *) inst->fDriverDesc->driverType.nameInfoStr;
             plen = name[ 0 ];
             if (plen >= sizeof(inst->fDriverDesc->driverType.nameInfoStr))
@@ -181,19 +181,13 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 		    s += sprintf(s, "%c%d", c, build);
             }
 
-            if (KERN_SUCCESS == kmod_create_fake(kmodName, kmodVers))
-            {
-                simple_lock(&kmod_lock);
-                inst->fKModInfo = kmod_lookupbyname( kmodName );
-                simple_unlock(&kmod_lock);
-
-                if (inst->fKModInfo)
-                {
-                    inst->fKModInfo->address = round_page_32((vm_address_t) container);
-                    inst->fKModInfo->size    = trunc_page_32((vm_size_t) container + containerSize)
-                                             - inst->fKModInfo->address;
-                }
-            }
+            if (KERN_SUCCESS != kmod_create_fake_with_address(
+                    kmodName, kmodVers,
+                    round_page_32((vm_address_t) container), 
+                    trunc_page_32((vm_size_t) container + containerSize) 
+                        - round_page_32((vm_address_t) container),
+                    &inst->fKModID))
+                inst->fKModID = 0;
         }
         while (false);
     }
@@ -208,33 +202,9 @@ IONDRV * IOPEFNDRV::instantiate( IORegistryEntry * regEntry,
 
 void IOPEFNDRV::free( void )
 {
-    kmod_info_t *k;
-    kmod_info_t *p;
 
-    if (fKModInfo)
-    {
-        simple_lock(&kmod_lock);
-        k = p = kmod;
-        while (k)
-        {
-            if (k == fKModInfo)
-            {
-                if (k == p)
-                {    // first element
-                    kmod = k->next;
-                }
-                else
-                {
-                    p->next = k->next;
-                }
-            }
-            p = k;
-            k = k->next;
-        }
-        simple_unlock(&kmod_lock);
-
-        kfree( (vm_address_t) fKModInfo, sizeof(kmod_info_t) );
-    }
+    if (fKModID)
+        kmod_destroy_fake(fKModID);
 
     if (fPEFInst)
         PCodeClose( fPEFInst );
@@ -313,7 +283,48 @@ IOReturn IOPEFNDRV::doDriverIO( UInt32 commandID, void * contents,
     return (err);
 }
 
-IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
+OSDefineMetaClassAndStructors(IOPEFContainer, OSData);
+
+IOPEFContainer * IOPEFContainer::withData(OSData * data, OSData * description)
+{
+    IOPEFContainer * inst;
+
+    if (!data || !description)
+	return (0);
+
+    inst = new IOPEFContainer;
+    if (inst && !inst->initWithBytesNoCopy((void *) data->getBytesNoCopy(),
+					    data->getLength()))
+    {
+	inst->release();
+	inst = 0;
+    }
+    if (inst)
+    {
+	data->retain();
+	inst->fContainer = data;
+	description->retain();
+	inst->fDescription = description;
+    }
+
+    return (inst);
+}
+
+void IOPEFContainer::free( void )
+{
+    if (fContainer)
+	fContainer->release();
+    if (fDescription)
+	fDescription->release();
+    OSData::free();
+}
+
+bool IOPEFContainer::serialize(OSSerialize *s) const
+{
+    return (fDescription->serialize(s));
+}
+
+IOPEFNDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 				       OSData * newData,
                                        IONDRVUndefinedSymbolHandler handler,
                                        void * self )
@@ -321,7 +332,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     IOLogicalAddress	pef = 0;
     IOByteCount		propSize = 0;
     OSData *		prop;
-    IONDRV *		inst;
+    IOPEFNDRV *		inst;
     unsigned int 	i;
     bool		checkDate;
 
@@ -345,7 +356,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     }
     else
     {
-	inst = (IONDRV *) regEntry->copyProperty("AAPL,ndrvInst");
+	inst = (IOPEFNDRV *) regEntry->copyProperty("AAPL,ndrvInst");
 	if (inst)
 	    return (inst);
 	prop = (OSData *) regEntry->getProperty("driver,AAPL,MacOS,PowerPC");
@@ -363,11 +374,7 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 		break;
 	    }
 	}
-	if (!newData)
-	    gIOPEFContainers->setObject(prop);
 	IOLockUnlock(gIOPEFLock);
-
-	regEntry->setProperty("driver,AAPL,MacOS,PowerPC", prop);
         pef = (IOLogicalAddress) prop->getBytesNoCopy();
         propSize = prop->getLength();
     }
@@ -376,17 +383,31 @@ IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
     {
         inst = IOPEFNDRV::instantiate(regEntry, pef, propSize, checkDate, handler, self);
         if (inst)
-            regEntry->setProperty("AAPL,ndrvInst", inst);
-	else if (checkDate)
 	{
-	
-	    IOLockLock(gIOPEFLock);
-	    i = gIOPEFContainers->getNextIndexOfObject(prop, 0);
-	    if (i != (unsigned int) -1)
-		gIOPEFContainers->removeObject(i);
-	    IOLockUnlock(gIOPEFLock);
-	    regEntry->removeProperty("driver,AAPL,MacOS,PowerPC");
+	    if (!newData)
+	    {
+		OSData * description;
+		IOPEFContainer * pefData;
+
+		description = OSData::withBytes(inst->fDriverDesc, sizeof(DriverDescription));
+		pefData = IOPEFContainer::withData(prop, description);
+		if (pefData)
+		{
+		    IOLockLock(gIOPEFLock);
+		    gIOPEFContainers->setObject(pefData);
+		    pefData->release();
+		    prop = pefData;
+		    IOLockUnlock(gIOPEFLock);
+
+		}
+		if (description)
+		    description->release();
+	    }
+	    regEntry->setProperty("driver,AAPL,MacOS,PowerPC", prop);
+            regEntry->setProperty("AAPL,ndrvInst", inst);
 	}
+	else if (checkDate)
+	    regEntry->removeProperty("driver,AAPL,MacOS,PowerPC");
     }
     else
         inst = 0;
@@ -403,7 +424,7 @@ const char * IOPEFNDRV::driverName( void )
 
 #else  /* __ppc__ */
 
-IONDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
+IOPEFNDRV * IOPEFNDRV::fromRegistryEntry( IORegistryEntry * regEntry,
 				       OSData * newData,
                                        IONDRVUndefinedSymbolHandler handler,
                                        void * self )

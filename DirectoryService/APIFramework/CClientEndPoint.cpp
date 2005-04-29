@@ -42,6 +42,7 @@
 #include "PrivateTypes.h"
 #include "DSSemaphore.h"
 #include "DSCThread.h"
+#include "DirectoryServiceMIG.h"
 
 #define kMsgSize	sizeof( sComData )
 #define kIPCMsgSize	sizeof( sIPCMsg )
@@ -63,12 +64,11 @@ CClientEndPoint::CClientEndPoint ( const char *inSrvrName )
 	{
 		fSrvrName = strdup(inSrvrName);
 	}
-
-	fServerPort		= MACH_PORT_NULL;
-	fReplyPort		= MACH_PORT_NULL;
-	fNotifyPort		= MACH_PORT_NULL;
-    fRcvPortSet		= MACH_PORT_NULL;
-
+	
+	fReplyMsg	= NULL;
+	fServerPort	= MACH_PORT_NULL;
+	fSessionPort = MACH_PORT_NULL;
+	
 } // CClientEndPoint
 
 
@@ -79,37 +79,28 @@ CClientEndPoint::CClientEndPoint ( const char *inSrvrName )
 
 CClientEndPoint::~CClientEndPoint ( void )
 {
-	kern_return_t	result	= eDSNoErr;
-
-	if ( fReplyPort != 0)
-	{
-		result = mach_port_destroy( mach_task_self(), fReplyPort );
-		if ( result != eDSNoErr )
-		{
-			LOG3( kStdErr, "*** DS Error in: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-		}
-	}
-	if ( fNotifyPort != 0)
-	{
-		result = mach_port_destroy( mach_task_self(), fNotifyPort );
-		if ( result != eDSNoErr )
-		{
-			LOG3( kStdErr, "*** DS Error in: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-		}
-	}
-	if ( fRcvPortSet != 0)
-	{
-		result = mach_port_destroy( mach_task_self(), fRcvPortSet );
-		if ( result != eDSNoErr )
-		{
-			LOG3( kStdErr, "*** DS Error in: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-		}
-	}
-
 	if ( fSrvrName != nil )
 	{
 		free( fSrvrName );
 		fSrvrName = nil;
+	}
+	
+	if ( fReplyMsg != NULL )
+	{
+		free( fReplyMsg );
+		fReplyMsg = NULL;
+	}
+	
+	if ( fServerPort != MACH_PORT_NULL )
+	{
+		mach_port_mod_refs( mach_task_self(), fServerPort, MACH_PORT_RIGHT_SEND, -1 );
+		fServerPort = MACH_PORT_NULL;
+	}
+	
+	if ( fSessionPort != MACH_PORT_NULL )
+	{
+		mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
+		fSessionPort = MACH_PORT_NULL;
 	}
 } // ~CClientEndPoint
 
@@ -119,7 +110,7 @@ CClientEndPoint::~CClientEndPoint ( void )
 //
 //------------------------------------------------------------------------------
 
-uInt32 CClientEndPoint::GetMessageID ( void )
+inline uInt32 CClientEndPoint::GetMessageID ( void )
 {
 	return( ++fMessageID );
 } // GetMessageID
@@ -132,40 +123,28 @@ uInt32 CClientEndPoint::GetMessageID ( void )
 
 sInt32 CClientEndPoint::Initialize ( void )
 {
-	kern_return_t		result	= eDSNoErr;
-	mach_port_limits_t  qlimits;
-
-	try
+	// let's get the server boot port right off the bat...
+	if( fServerPort != MACH_PORT_NULL )
 	{
-		result = mach_port_allocate( mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &fReplyPort );
-		if ( result != eDSNoErr )
-		{
-			LOG3( kStdErr, "*** DS Error with mach_port_allocate: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-			throw( (sInt32)result );
-		}
-
-        qlimits.mpl_qlimit = MACH_PORT_QLIMIT_MAX;
-		//increase the queue depth to the maximum
-		result = mach_port_set_attributes(  (mach_task_self)(),
-											fReplyPort,
-											MACH_PORT_LIMITS_INFO,
-											(mach_port_info_t)&qlimits,
-											MACH_PORT_LIMITS_INFO_COUNT);
-		if ( result != eDSNoErr )
-		{
-			LOG3( kStdErr, "*** DS Error with mach_port_set_attributes: unable to set reply port queue depth to maximum: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-			throw( (sInt32)result );
-		}
+		mach_port_mod_refs( mach_task_self(), fServerPort, MACH_PORT_RIGHT_SEND, -1 );
+		fServerPort = MACH_PORT_NULL;
 	}
-
-	catch( sInt32 err )
+	
+	kern_return_t kr = bootstrap_look_up( bootstrap_port, kDSStdMachPortName, &fServerPort );
+	if (kr != KERN_SUCCESS)
 	{
-		LOG3( kStdErr, "*** DS Error in Initialize: %s at: %d: Exception = %d\n", __FILE__, __LINE__, err );
-		result = err;
+		LOG3( kStdErr, "*** bootstrap_look_up: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( kr ) );
 	}
-
-	return( result );
-
+	
+	if( fSessionPort != MACH_PORT_NULL )
+	{
+		mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
+		fSessionPort = MACH_PORT_NULL;
+	}
+	
+	dsmig_create_api_session( fServerPort, &fSessionPort );
+	
+	return( eDSNoErr );
 } // Initialize
 
 
@@ -176,111 +155,8 @@ sInt32 CClientEndPoint::Initialize ( void )
 
 sInt32 CClientEndPoint:: CheckForServer ( void )
 {
-	kern_return_t	result			= eDSNoErr;
-	DSSemaphore		timedWait;
-	time_t			waitTime		= 0;
-	mach_port_t		mach_init_port	= MACH_PORT_NULL;
-	int				numberTries		= 3;
-
-	fServerPort = MACH_PORT_NULL;
-	result = bootstrap_look_up( bootstrap_port, kDSServiceName, &fServerPort );
-	if ( result != eDSNoErr )
-	{
-		do
-		{
-			numberTries--;
-			
-			//lookup mach init port to start/restart DS daemon on demand
-			result = bootstrap_look_up( bootstrap_port, kDSStdMachPortName, &mach_init_port );
-			if ( result != eDSNoErr )
-			{
-				syslog( LOG_ALERT, "Error with bootstrap_look_up on mach_init port: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-			}
-			else
-			{
-				sIPCMsg aMsg;
-				
-				aMsg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
-				aMsg.fHeader.msgh_size			= kIPCMsgSize - sizeof( mach_msg_audit_trailer_t );
-				aMsg.fHeader.msgh_id			= 0;
-				aMsg.fHeader.msgh_remote_port	= mach_init_port;
-				aMsg.fHeader.msgh_local_port	= fReplyPort;
-			
-				aMsg.fMsgType	= 0;
-				aMsg.fCount		= 1;
-				aMsg.fPort		= fReplyPort;
-				aMsg.fPID		= 0;
-				aMsg.fMsgID		= ::time( nil );
-				aMsg.fOf		= 1;
-				//tickle the mach init port - should this really be required to start the daemon - 1 sec timeout
-				mach_msg((mach_msg_header_t *)&aMsg, MACH_SEND_MSG | MACH_SEND_TIMEOUT, aMsg.fHeader.msgh_size, 0, MACH_PORT_NULL, 1 * 1000, MACH_PORT_NULL);
-				//don't retain the mach init port since only using it to kickstart the DS daemon if it is not running
-				mach_port_destroy(mach_task_self(), mach_init_port);
-				mach_init_port = MACH_PORT_NULL;
-				syslog( LOG_ALERT, "Sent launch request message to DirectoryService mach_init port\n");
-			}
-			
-			waitTime = ::time( nil ) + 5;
-
-			//try getting the server port regardless if mach_init port lookup succeeded or not
-			do
-			{
-				fServerPort = MACH_PORT_NULL;
-				result = bootstrap_look_up( bootstrap_port, kDSServiceName, &fServerPort );
-				if (result == eDSNoErr)
-				{
-					break;
-				}
-				// Check every .5 seconds
-				timedWait.Wait( (uInt32)(.5 * kMilliSecsPerSec) );
-
-				// Wait for 5 seconds MAX
-				if ( ::time( nil ) > waitTime )
-				{
-					break;
-				}
-			}
-			while (result != eDSNoErr);
-			
-			if ( result != eDSNoErr )
-			{
-				syslog( LOG_ALERT, "Error with bootstrap_look_up on server port after 10 tries: %s at: %d: Msg (%d) = %s\n", __FILE__, __LINE__, result, mach_error_string( result ) );
-				result = eServerNotRunning;
-				if (mach_init_port != MACH_PORT_NULL)
-				{
-					mach_port_destroy(mach_task_self(), mach_init_port);
-					mach_init_port = MACH_PORT_NULL;
-				}
-				// Check every 1 second
-				timedWait.Wait( (uInt32)(1 * kMilliSecsPerSec) );
-			}
-		}
-		while( (result != eDSNoErr) && (numberTries > 0) );
-	}
-	
-	if ( (result == eDSNoErr) && (fReplyPort != MACH_PORT_NULL) && (fServerPort != MACH_PORT_NULL) )
-	{
-		fNotifyPort	= MACH_PORT_NULL;
-		fRcvPortSet	= MACH_PORT_NULL;
-		mach_port_t previous = MACH_PORT_NULL;
-
-		//set up the port set to get the reply and use our fReplyPort
-		mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &(fNotifyPort));
-		mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_PORT_SET, &(fRcvPortSet));
-		mach_port_move_member(mach_task_self(), fReplyPort, fRcvPortSet);
-		mach_port_move_member(mach_task_self(), fNotifyPort, fRcvPortSet);
-	
-		// sign up for port-death notifications of the fServerPort on the fNotifyPort port.
-		mach_port_request_notification(	mach_task_self(), fServerPort,
-										MACH_NOTIFY_DEAD_NAME, TRUE, fNotifyPort,
-										MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous);
-
-	}
-
-	return( result );
-
+	return( eDSNoErr );
 } // CheckForServer
-
 
 //------------------------------------------------------------------------------
 //	* SendServerMessage
@@ -289,116 +165,96 @@ sInt32 CClientEndPoint:: CheckForServer ( void )
 
 sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 {
-	sInt32				result		= MACH_MSG_SUCCESS;
-	uInt32				offset		= 0;
-	sInt32				bytesLeft	= 0;
-	sIPCMsg				msg;
+	sInt32					result		= eServerSendError;
+	bool					bTryAgain	= false;
 	
-	msg.fHeader.msgh_bits			= MACH_MSGH_BITS( MACH_MSG_TYPE_COPY_SEND, MACH_MSG_TYPE_MAKE_SEND );
-	msg.fHeader.msgh_size			= kIPCMsgSize - sizeof( mach_msg_audit_trailer_t );
-	msg.fHeader.msgh_id				= GetMessageID();
-	msg.fHeader.msgh_remote_port	= fServerPort;
-	msg.fHeader.msgh_local_port		= fReplyPort;
-
-	msg.fMsgType	= inMsg->type.msgt_name;
-	msg.fCount		= 1;
-	msg.fPort		= fReplyPort;
-	msg.fPID		= gProcessPID; //::getpid();
-	msg.fMsgID		= ::time( nil ) + fMessageID;
-	msg.fOf			= inMsg->fDataLength / kMsgBlockSize;
-	
-	if ((inMsg->fDataLength % kMsgBlockSize) != 0)
+	do
 	{
-		msg.fOf++;
-	}
-
-	//here for the client fDataSize is the
-	//allocated buffer size of the data buffer which
-	//will never be zero but we check to make sure a
-	//message is sent anyways
-	if (msg.fOf == 0)
-	{
-		msg.fOf = 1;
-	}
-
-	::memcpy( msg.obj, inMsg->obj, kObjSize );
-
-	bytesLeft = inMsg->fDataLength;
-
-	while ( (msg.fCount <= msg.fOf) && (result == err_none) )
-	{
-		::memset( msg.fData, 0, kIPCMsgLen );
-
-		if ( bytesLeft >= (sInt32)kMsgBlockSize )
+		kern_return_t			kr			= KERN_FAILURE;
+		mach_msg_type_name_t	serverPoly	= MACH_MSG_TYPE_COPY_SEND; 
+		
+		// let's do the call
+		if( fSessionPort != MACH_PORT_NULL )
 		{
-			::memcpy( msg.fData, (char *)(inMsg->data) + offset, kMsgBlockSize );
-
-			bytesLeft -= kMsgBlockSize;
-		}
-		else
-		{
-			if ( bytesLeft != 0 )
+			char					replyFixedBuffer[ kMaxFixedMsg ];
+			
+			sComDataPtr				replyFixedData	= (sComDataPtr) replyFixedBuffer;
+			mach_msg_type_number_t	replyFixedLen	= 0;
+			vm_address_t			sendData		= 0;
+			mach_msg_type_number_t	sendLen			= sizeof(sComData) + inMsg->fDataLength - 1;
+			vm_address_t			replyData		= 0;
+			mach_msg_type_number_t	replyLen		= 0;
+			
+			if( inMsg->fDataLength <= kMaxFixedMsgData )
 			{
-				::memcpy( msg.fData, (char *)(inMsg->data) + offset, bytesLeft );
-			}
-			bytesLeft = 0;
-		}
-
-		result = ::mach_msg(	(mach_msg_header_t *)&msg, MACH_SEND_MSG | MACH_SEND_TIMEOUT,
-								msg.fHeader.msgh_size, 0, MACH_PORT_NULL, 300 * 1000, MACH_PORT_NULL );
-
-		if ( result == MACH_MSG_SUCCESS )
-		{
-			msg.fCount++;
-			offset += kMsgBlockSize;
-		}
-		else
-		{
-			LOG3( kStdErr, "*** DS Error in: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-			if (result == MACH_SEND_TIMED_OUT)
-			{
-				result = eDSServerTimeout;
-			}
-			else if ( (result == MACH_SEND_INVALID_DEST) || (result == MACH_SEND_INVALID_REPLY) )
-			{
-				if ( result == MACH_SEND_INVALID_DEST )
-				{
-					LOG1( kStdErr, "Error (%s) trying to send mach message to DirectoryServices.  Retrying...\n", mach_error_string( result ) );
-
-					result = Initialize();
-					result = CheckForServer();
-					if ( result == eDSNoErr)
-					{
-						msg.fHeader.msgh_remote_port	= fServerPort;
-						msg.fHeader.msgh_local_port		= fReplyPort;
-						msg.fPort						= fReplyPort;
-	
-						result = ::mach_msg(	(mach_msg_header_t *)&msg, MACH_SEND_MSG | MACH_SEND_TIMEOUT,
-												msg.fHeader.msgh_size, 0, MACH_PORT_NULL, 300 * 1000, MACH_PORT_NULL );
-				
-						if ( result == MACH_MSG_SUCCESS )
-						{
-							msg.fCount++;
-							offset += kMsgBlockSize;
-						}
-						else
-						{
-							result = eIPCSendError;
-						}
-					}
-				}
-				else
-					result = eDSCannotAccessSession;
+				kr = dsmig_api_call( fSessionPort, serverPoly, inMsg, sendLen, 0, 0, replyFixedData, &replyFixedLen, &replyData, &replyLen );
 			}
 			else
 			{
-				result = eIPCSendError;
+				vm_read( mach_task_self(), (vm_address_t)inMsg, sendLen, &sendData, &sendLen );
+				
+				kr = dsmig_api_call( fSessionPort, serverPoly, NULL, 0, sendData, sendLen, replyFixedData, &replyFixedLen, &replyData, &replyLen );
+				
+				// let's deallocate the memory we allocated... if we failed..
+				if( kr == MACH_SEND_INVALID_DEST )
+				{
+					vm_deallocate( mach_task_self(), sendData, sendLen );
+				}
+			}
+			
+			if( kr == KERN_SUCCESS )
+			{
+				sComDataPtr		pComData = NULL;
+				uInt32			uiLength = 0;
+				
+				// if we have OOL data, we need to copy it and deallocate it..
+				if( replyFixedLen )
+				{
+					pComData = (sComDataPtr) replyFixedData;
+					uiLength = replyFixedLen;
+				}
+				else if( replyLen ) 
+				{
+					pComData = (sComDataPtr) replyData;
+					uiLength = replyLen;
+				}
+				
+				// if this is a valid reply..
+				if( pComData != NULL && pComData->fDataLength == (uiLength - (sizeof(sComData) - 1)) )
+				{
+					fReplyMsg = (sComData *) calloc( sizeof(char), sizeof(sComData) + pComData->fDataSize );
+					
+					bcopy( pComData, fReplyMsg, uiLength );
+					
+					result = eDSNoErr;
+				}
+				
+				// if we had reply data OOL, let's free it appropriately...
+				if( replyLen )
+				{
+					vm_deallocate( mach_task_self(), replyData, replyLen );			
+				}
 			}
 		}
-	}
-
-	return( result );
-
+		
+		if( bTryAgain == false && kr == MACH_SEND_INVALID_DEST )
+		{
+			mach_port_mod_refs( mach_task_self(), fSessionPort, MACH_PORT_RIGHT_SEND, -1 );
+			fSessionPort = MACH_PORT_NULL;
+			
+			if( dsmig_create_api_session( fServerPort, &fSessionPort ) == KERN_SUCCESS )
+			{
+				bTryAgain = true;
+			}
+		}
+		else
+		{
+			bTryAgain = false;
+		}
+		
+	} while( bTryAgain );
+		
+	return result;
 } // SendServerMessage
 
 
@@ -409,127 +265,20 @@ sInt32 CClientEndPoint::SendServerMessage ( sComData *inMsg )
 
 sInt32 CClientEndPoint::GetServerReply ( sComData **outMsg )
 {
-	sInt32				result		= MACH_MSG_SUCCESS;
-	uInt32				offset		= 0;
-	uInt32				last		= 0;
-	bool				done		= false;
-	sIPCMsg				msg;
-	sComData		   *aMsg		= nil;
-
-	while ( !done && (result == MACH_MSG_SUCCESS) )
+	sInt32	siResult = eServerReplyError;
+	
+	if( fReplyMsg != NULL )
 	{
-		::memset( msg.fData, 0, kIPCMsgLen );
+		if( *outMsg )
+			free( *outMsg );
 
-		result = ::mach_msg( (mach_msg_header_t *)&msg, MACH_RCV_MSG | MACH_RCV_TIMEOUT | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) | MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0),
-								0, kIPCMsgSize, fRcvPortSet, 300 * 1000, MACH_PORT_NULL );
-																
-		if ( (	result == MACH_MSG_SUCCESS )
-				&& (msg.fHeader.msgh_size == (kIPCMsgSize - sizeof( mach_msg_audit_trailer_t )))
-				&& ( msg.fHeader.msgh_local_port != fNotifyPort ) )
-		{
-			// let's make sure that this message is actually the intended reply
-			// if we timed out any requests we may need to ignore some messages in order to catch up
-			if ( ((uInt32)msg.fHeader.msgh_id) != fMessageID )
-			{
-				// if it is an old message, skip it and look for the appropriate reply
-				continue;
-			}
-			if ( msg.fCount == 1 )
-			{
-				if ( (*outMsg)->fDataSize < (kMsgBlockSize * msg.fOf) )
-				{					
-					//calloc the new block
-					aMsg = (sComData *)::calloc( 1, sizeof(sComData) + (kMsgBlockSize * msg.fOf) );
-					//copy the old over mainly for the header info
-					memcpy(aMsg, *outMsg, sizeof(sComData) + (*outMsg)->fDataSize); //not used?
-					//free the old block
-					free(*outMsg);
-					//assign the block back
-					*outMsg = aMsg;
-					//clear the temp block
-					aMsg = nil;
-					//get the new size
-					(*outMsg)->fDataSize = kMsgBlockSize * msg.fOf;
-				}
-				::memcpy( (*outMsg)->obj, msg.obj, kObjSize );
-			}
-
-			if ( msg.fCount == ++last )
-			{
-				// Copy the data into the destination buffer
-				::memcpy( (char *)((*outMsg)->data) + offset, msg.fData, kMsgBlockSize );
-
-				// Move the offset
-				// xxxx check for buffer overflow
-				offset += kMsgBlockSize;
-
-				if ( msg.fCount >= msg.fOf )
-				{
-					done = true;
-				}
-			}
-			else
-			{
-				result = eServerSendError;
-				LOG3( kStdErr, "*** DS Error in: %s at: %d: err = %d\n", __FILE__, __LINE__, result );
-			}
-		}
-		else if ( msg.fHeader.msgh_local_port == fNotifyPort )
-		{
-			syslog( LOG_INFO, "DirectoryService daemon has been shutdown - future client API calls can restart the daemon\n" );
-			result = eDSCannotAccessSession;
-
-			// this means the server either died or was shutdown - so clean up
-			typedef union {
-				mach_port_deleted_notification_t del;
-				mach_port_destroyed_notification_t des;
-				mach_no_senders_notification_t nms;
-				mach_send_once_notification_t so;
-				mach_dead_name_notification_t dn;
-			} notification_t;
-			notification_t *notice = (notification_t *)&msg.fHeader;
-			mach_port_t dead_port = MACH_PORT_NULL;
-
-			switch (msg.fHeader.msgh_id)
-			{
-				case MACH_NOTIFY_PORT_DELETED:
-					dead_port = notice->del.not_port;
-					break;
-				case MACH_NOTIFY_PORT_DESTROYED:
-					dead_port = notice->des.not_port.name;
-					break;
-				case MACH_NOTIFY_DEAD_NAME:
-					dead_port = notice->dn.not_port;
-					break;
-				case MACH_NOTIFY_NO_SENDERS:
-				case MACH_NOTIFY_SEND_ONCE:
-					break;
-			}
-			if (dead_port != MACH_PORT_NULL) {
-				// discard any remaining rights
-				mach_port_destroy(mach_task_self(), dead_port);
-			}
-			break;
-		}
-		else
-		{
-			LOG3( kStdErr, "*** DS Error in: %s at: %d: Msg = %s\n", __FILE__, __LINE__, mach_error_string( result ) );
-			if (result == MACH_RCV_TIMED_OUT)
-			{
-				result = eDSServerTimeout;
-			}
-			else if ( result == MACH_RCV_PORT_DIED )
-			{
-				result = eDSCannotAccessSession;
-			}
-			else
-			{
-				result = eIPCReceiveError;
-			}
-		}
+		*outMsg = fReplyMsg;
+		fReplyMsg = NULL;
+		
+		siResult = eDSNoErr;
 	}
 
-	return( result );
+	return( siResult );
 
 } // GetServerReply
 

@@ -1,4 +1,4 @@
-# $Id: Makefile.dist,v 1.2 2003/10/22 18:03:03 rjs3 Exp $
+# $Id: Makefile.dist,v 1.4 2005/03/05 00:37:10 dasenbro Exp $
 # it would be nice to figure out how to make "Makefile" do an
 # 'include' of this file.
 

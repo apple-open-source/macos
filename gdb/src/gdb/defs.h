@@ -1,7 +1,7 @@
 /* *INDENT-OFF* */ /* ATTR_FORMAT confuses indent, avoid running it for now */
 /* Basic, host-specific, and target-specific definitions for GDB.
    Copyright 1986, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995, 1996,
-   1997, 1998, 1999, 2000, 2001, 2002, 2003
+   1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -67,8 +67,6 @@
 #include <stdarg.h>		/* For va_list.  */
 
 #include "libiberty.h"
-
-#include "progress.h"
 
 /* For BFD64 and bfd_vma.  */
 #include "bfd.h"
@@ -159,14 +157,22 @@ typedef bfd_vma CORE_ADDR;
    issue is found that we spend the effort on algorithmic
    optimizations than micro-optimizing.'' J.T. */
 
-#define STREQ(a,b) (*(a) == *(b) ? !strcmp ((a), (b)) : 0)
-#define STREQN(a,b,c) (*(a) == *(b) ? !strncmp ((a), (b), (c)) : 0)
+/* NOTE: cagney/2003-11-23: All instances of STREQ[N] covered by
+   testing GDB on a stabs system have been replaced by equivalent
+   str[n]cmp calls.  To avoid the possability of introducing bugs when
+   making untested changes, the remaining references were deprecated
+   rather than replaced.  */
+
+/* DISCLAIMER: cagney/2003-11-23: Simplified definition of these
+   macros so that they just map directly onto strcmp equivalent.  I'm
+   not responsible for any breakage due to code that relied on the old
+   underlying implementation.  */
+
+#define DEPRECATED_STREQ(a,b) (strcmp ((a), (b)) == 0)
+#define DEPRECATED_STREQN(a,b,c) (strncmp ((a), (b), (c)) == 0)
 
 /* Check if a character is one of the commonly used C++ marker characters.  */
 extern int is_cplus_marker (int);
-
-/* use tui interface if non-zero */
-extern int tui_version;
 
 /* enable xdb commands if set */
 extern int xdb_commands;
@@ -198,7 +204,6 @@ extern void quit (void);
 #define QUIT { \
   if (quit_flag) quit (); \
   if (interactive_hook) interactive_hook (); \
-  PROGRESS (1); \
 }
 #endif
 
@@ -220,7 +225,8 @@ enum language
     language_m2,		/* Modula-2 */
     language_asm,		/* Assembly language */
     language_scm,    		/* Scheme / Guile */
-    language_pascal		/* Pascal */
+    language_pascal,		/* Pascal */
+    language_minimal		/* All other languages, minimal support only */
   };
 
 enum precision_type
@@ -236,6 +242,35 @@ enum auto_boolean
   AUTO_BOOLEAN_TRUE,
   AUTO_BOOLEAN_FALSE,
   AUTO_BOOLEAN_AUTO
+};
+
+/* Potential ways that a function can return a value of a given type.  */
+/* APPLE LOCAL: I back ported this from the current (11-2004) version of
+   this enum.  */
+enum return_value_convention
+{
+  /* Where the return value has been squeezed into one or more
+     registers.  */
+  RETURN_VALUE_REGISTER_CONVENTION,
+  /* Commonly known as the "struct return convention".  The caller
+     passes an additional hidden first parameter to the caller.  That
+     parameter contains the address at which the value being returned
+     should be stored.  While typically, and historically, used for
+     large structs, this is convention is applied to values of many
+     different types.  */
+  RETURN_VALUE_STRUCT_CONVENTION,
+  /* Like the "struct return convention" above, but where the ABI
+     guarantees that the called function stores the address at which
+     the value being returned is stored in a well-defined location,
+     such as a register or memory slot in the stack frame.  Don't use
+     this if the ABI doesn't explicitly guarantees this.  */
+  RETURN_VALUE_ABI_RETURNS_ADDRESS,
+  /* Like the "struct return convention" above, but where the ABI
+     guarantees that the address at which the value being returned is
+     stored will be available in a well-defined location, such as a
+     register or memory slot in the stack frame.  Don't use this if
+     the ABI doesn't explicitly guarantees this.  */
+  RETURN_VALUE_ABI_PRESERVES_ADDRESS
 };
 
 /* the cleanup list records things that have to be undone
@@ -293,29 +328,47 @@ struct cleanup
 #endif
 #endif
 
+/* Be conservative and use enum bitfields only with GCC.
+   This is copied from gcc 3.3.1, system.h.  */
+
+#if defined(__GNUC__) && (__GNUC__ >= 2)
+#define ENUM_BITFIELD(TYPE) enum TYPE
+#else
+#define ENUM_BITFIELD(TYPE) unsigned int
+#endif
+
 /* Needed for various prototypes */
 
 struct symtab;
 struct breakpoint;
+struct frame_info;
+
 struct symtab_and_line;
 struct ui_out;
 struct symbol;
 
 /* From blockframe.c */
 
-extern int inside_entry_func (CORE_ADDR);
+extern int inside_entry_func (struct frame_info *this_frame);
 
-extern int inside_entry_file (CORE_ADDR addr);
+extern int deprecated_inside_entry_file (CORE_ADDR addr);
 
 extern int inside_main_func (CORE_ADDR pc);
 
 /* From utils.c */
+
+extern void set_screen_size (void);
+extern void set_width (void);
 
 extern void initialize_utils (void);
 
 extern void notice_quit (void);
 
 extern int strcmp_iw (const char *, const char *);
+
+extern int strcmp_iw_ordered (const char *, const char *);
+
+extern int streq (const char *, const char *);
 
 extern int subset_compare (char *, char *);
 
@@ -328,7 +381,6 @@ extern void request_quit (int);
 
 extern void do_cleanups (struct cleanup *);
 extern void do_final_cleanups (struct cleanup *);
-extern void do_my_cleanups (struct cleanup **, struct cleanup *);
 extern void do_run_cleanups (struct cleanup *);
 extern void do_exec_cleanups (struct cleanup *);
 extern void do_exec_error_cleanups (struct cleanup *);
@@ -385,11 +437,10 @@ extern void null_cleanup (void *);
 extern int myread (int, char *, int);
 
 extern int query (const char *, ...) ATTR_FORMAT (printf, 1, 2);
+extern int nquery (const char *, ...) ATTR_FORMAT (printf, 1, 2);
+extern int yquery (const char *, ...) ATTR_FORMAT (printf, 1, 2);
 
 extern void init_page_info (void);
-
-extern CORE_ADDR host_pointer_to_address (void *ptr);
-extern void *address_to_host_pointer (CORE_ADDR addr);
 
 extern char *gdb_realpath (const char *);
 extern char *xfullpath (const char *);
@@ -406,6 +457,8 @@ extern void set_demangling_style (char *);
 
 extern CORE_ADDR decode_fix_and_continue_trampoline (CORE_ADDR);
 extern void update_picbase_register (struct symbol *);
+extern void fix_command_1 (const char *, const char *, const char *, const char *);
+int fix_and_continue_supported (void);
 
 /* From tm.h */
 
@@ -428,24 +481,23 @@ extern void reinitialize_more_filter (void);
 
 /* Normal results */
 extern struct ui_file *gdb_stdout;
+/* Input stream */
+extern struct ui_file *gdb_stdin;
 /* Serious error notifications */
 extern struct ui_file *gdb_stderr;
 /* Log/debug/trace messages that should bypass normal stdout/stderr
-   filtering.  For momement, always call this stream using
+   filtering.  For moment, always call this stream using
    *_unfiltered. In the very near future that restriction shall be
    removed - either call shall be unfiltered. (cagney 1999-06-13). */
 extern struct ui_file *gdb_stdlog;
 /* Target output that should bypass normal stdout/stderr filtering.
-   For momement, always call this stream using *_unfiltered. In the
+   For moment, always call this stream using *_unfiltered. In the
    very near future that restriction shall be removed - either call
    shall be unfiltered. (cagney 1999-07-02). */
 extern struct ui_file *gdb_stdtarg;
-
+extern struct ui_file *gdb_stdtargerr;
+extern struct ui_file *gdb_stdtargin;
 extern struct ui_file *gdb_null;
-
-#if defined(TUI) && !defined(NOTUI)
-#include "tui.h"
-#endif
 
 #include "ui-file.h"
 
@@ -505,7 +557,7 @@ extern void fputstr_unfiltered (const char *str, int quotr, struct ui_file * str
 extern void fputstrn_unfiltered (const char *str, int n, int quotr, struct ui_file * stream);
 
 /* Display the host ADDR on STREAM formatted as ``0x%x''. */
-extern void gdb_print_host_address (void *addr, struct ui_file *stream);
+extern void gdb_print_host_address (const void *addr, struct ui_file *stream);
 
 /* Convert a CORE_ADDR into a HEX string.  paddr() is like %08lx.
    paddr_nz() is like %lx.  paddr_u() is like %lu. paddr_width() is
@@ -643,8 +695,6 @@ enum lval_type
     lval_reg_frame_relative
   };
 
-struct frame_info;
-
 /* Control types for commands */
 
 enum misc_command_type
@@ -677,7 +727,11 @@ struct command_line
     struct command_line **body_list;
   };
 
+/* APPLE LOCAL: Break out the read_command_lines from Readline,
+   so you can read command lines directly from the MI.  */
+
 extern struct command_line *read_command_lines (char *, int);
+extern struct command_line * read_command_lines_1 (char * (*read_next_line_func) ());
 
 extern void free_command_lines (struct command_line **);
 
@@ -819,16 +873,6 @@ struct cleanup *
 #include "tm.h"
 #endif
 
-/* GDB_MULTI_ARCH is normally set by configure.in using information
-   from configure.tgt or the config/%/%.mt Makefile fragment.  Since
-   some targets have defined it in their "tm.h" file, delay providing
-   a default definition until after "tm.h" has been included.. */
-
-#ifndef GDB_MULTI_ARCH
-#define GDB_MULTI_ARCH 0
-#endif
-
-
 /* If the xm.h file did not define the mode string used to open the
    files, assume that binary files are opened the same way as text
    files */
@@ -891,9 +935,14 @@ extern void *xmrealloc (void *md, void *ptr, size_t size);
 extern void *xmcalloc (void *md, size_t number, size_t size);
 extern void xmfree (void *md, void *ptr);
 
-/* Utility macros to allocate typed memory.  Avoids errors like
-   ``struct foo *foo = xmalloc (sizeof bar)'' and ``struct foo *foo =
-   (struct foo *) xmalloc (sizeof bar)''.  */
+/* xmalloc(), xrealloc() and xcalloc() have already been declared in
+   "libiberty.h". */
+extern void xfree (void *);
+
+/* Utility macros to allocate typed memory.  Avoids errors like:
+   struct foo *foo = xmalloc (sizeof struct bar); and memset (foo,
+   sizeof (struct foo), 0).  */
+#define XZALLOC(TYPE) ((TYPE*) memset (xmalloc (sizeof (TYPE)), 0, sizeof (TYPE)))
 #define XMALLOC(TYPE) ((TYPE*) xmalloc (sizeof (TYPE)))
 #define XCALLOC(NMEMB, TYPE) ((TYPE*) xcalloc ((NMEMB), sizeof (TYPE)))
 
@@ -901,6 +950,9 @@ extern void xmfree (void *md, void *ptr);
    fails. */
 extern void xasprintf (char **ret, const char *format, ...) ATTR_FORMAT (printf, 2, 3);
 extern void xvasprintf (char **ret, const char *format, va_list ap);
+
+/* Like asprintf, but return the string, throw an error if no memory.  */
+extern char *xstrprintf (const char *format, ...) ATTR_FORMAT (printf, 1, 2);
 
 extern int parse_escape (char **);
 
@@ -920,11 +972,19 @@ extern NORETURN void verror (const char *fmt, va_list ap) ATTR_NORETURN;
 
 extern NORETURN void error (const char *fmt, ...) ATTR_NORETURN ATTR_FORMAT (printf, 1, 2);
 
+extern NORETURN void error_silent (const char *fmt, ...) ATTR_NORETURN ATTR_FORMAT (printf, 1, 2);
+
 extern NORETURN void error_stream (struct ui_file *) ATTR_NORETURN;
+
+/* Initialize the error buffer.  */
+extern void error_init (void);
 
 /* Returns a freshly allocate buffer containing the last error
    message.  */
 extern char *error_last_message (void);
+
+/* Output arbitrary error message.  */
+extern void error_output_message (char *pre_print, char *msg);
 
 extern NORETURN void internal_verror (const char *file, int line,
 				      const char *, va_list ap) ATTR_NORETURN;
@@ -988,6 +1048,11 @@ extern NORETURN void throw_exception (enum return_reason) ATTR_NORETURN;
    new cleanup_chain is established.  The old values are restored
    before catch_exceptions() returns.
 
+   The variant catch_exceptions_with_msg() is the same as
+   catch_exceptions() but adds the ability to return an allocated
+   copy of the gdb error message.  This is used when a silent error is 
+   issued and the caller wants to manually issue the error message.
+
    FIXME; cagney/2001-08-13: The need to override the global UIOUT
    builder variable should just go away.
 
@@ -1000,6 +1065,11 @@ typedef int (catch_exceptions_ftype) (struct ui_out *ui_out, void *args);
 extern int catch_exceptions (struct ui_out *uiout,
 			     catch_exceptions_ftype *func, void *func_args,
 			     char *errstring, return_mask mask);
+extern int catch_exceptions_with_msg (struct ui_out *uiout,
+			     	      catch_exceptions_ftype *func, 
+			     	      void *func_args,
+			     	      char *errstring, char **gdberrmsg,
+				      return_mask mask);
 
 /* If CATCH_ERRORS_FTYPE throws an error, catch_errors() returns zero
    otherwize the result from CATCH_ERRORS_FTYPE is returned. It is
@@ -1040,6 +1110,7 @@ enum gdb_osabi
   GDB_OSABI_FREEBSD_ELF,
   GDB_OSABI_NETBSD_AOUT,
   GDB_OSABI_NETBSD_ELF,
+  GDB_OSABI_OPENBSD_ELF,
   GDB_OSABI_WINCE,
   GDB_OSABI_GO32,
   GDB_OSABI_NETWARE,
@@ -1054,6 +1125,9 @@ enum gdb_osabi
   GDB_OSABI_ARM_EABI_V1,
   GDB_OSABI_ARM_EABI_V2,
   GDB_OSABI_ARM_APCS,
+  GDB_OSABI_QNXNTO,
+
+  GDB_OSABI_CYGWIN,
 
   GDB_OSABI_INVALID		/* keep this last */
 };
@@ -1117,14 +1191,22 @@ extern void *alloca ();
 #endif /* Not GNU C */
 #endif /* alloca not defined */
 
+/* Is GDB multi-arch?  If there's a "tm.h" file, it is not.  */
+#ifndef GDB_MULTI_ARCH
+#ifdef GDB_TM_FILE
+#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PARTIAL
+#else
+#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PURE
+#endif
+#endif
+
 /* Dynamic target-system-dependent parameters for GDB. */
 #include "gdbarch.h"
-#if (GDB_MULTI_ARCH == 0)
-/* Multi-arch targets _should_ be including "arch-utils.h" directly
-   into their *-tdep.c file.  This is a prop to help old non-
-   multi-arch targets to continue to compile. */
-#include "arch-utils.h"
-#endif
+
+/* Maximum size of a register.  Something small, but large enough for
+   all known ISAs.  If it turns out to be too small, make it bigger.  */
+
+enum { MAX_REGISTER_SIZE = 16 };
 
 /* Static target-system-dependent parameters for GDB. */
 
@@ -1161,15 +1243,11 @@ extern ULONGEST extract_unsigned_integer (const void *, int);
 
 extern int extract_long_unsigned_integer (const void *, int, LONGEST *);
 
-extern CORE_ADDR extract_address (const void *, int);
-
 extern CORE_ADDR extract_typed_address (const void *buf, struct type *type);
 
 extern void store_signed_integer (void *, int, LONGEST);
 
 extern void store_unsigned_integer (void *, int, ULONGEST);
-
-extern void store_address (void *, int, LONGEST);
 
 extern void store_typed_address (void *buf, struct type *type, CORE_ADDR addr);
 
@@ -1341,6 +1419,38 @@ extern int use_windows;
 #ifndef ISATTY
 #define ISATTY(FP)	(isatty (fileno (FP)))
 #endif
+
+/* Ensure that V is aligned to an N byte boundary (B's assumed to be a
+   power of 2).  Round up/down when necessary.  Examples of correct
+   use include:
+
+   addr = align_up (addr, 8); -- VALUE needs 8 byte alignment
+   write_memory (addr, value, len);
+   addr += len;
+
+   and:
+
+   sp = align_down (sp - len, 16); -- Keep SP 16 byte aligned
+   write_memory (sp, value, len);
+
+   Note that uses such as:
+
+   write_memory (addr, value, len);
+   addr += align_up (len, 8);
+
+   and:
+
+   sp -= align_up (len, 8);
+   write_memory (sp, value, len);
+
+   are typically not correct as they don't ensure that the address (SP
+   or ADDR) is correctly aligned (relying on previous alignment to
+   keep things right).  This is also why the methods are called
+   "align_..." instead of "round_..." as the latter reads better with
+   this incorrect coding style.  */
+
+extern ULONGEST align_up (ULONGEST v, int n);
+extern ULONGEST align_down (ULONGEST v, int n);
 
 #if defined(NeXT_PDO)
 #undef environ

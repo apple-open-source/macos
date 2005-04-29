@@ -1,0 +1,358 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.spread.pb.PBClientFactory</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.spread.html">Package&nbsp;spread</a> ::
+        <a href="twisted.spread.pb.html">Module&nbsp;pb</a> ::
+        Class&nbsp;PBClientFactory
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.spread.pb.PBClientFactory.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class PBClientFactory</h2>
+
+<pre class="base-tree">
+  <a href="twisted.internet.protocol.Factory.html"><code>Factory</code></a> --+    
+            |    
+<a href="twisted.internet.protocol.ClientFactory.html"><code>ClientFactory</code></a> --+
+                |
+               <b>PBClientFactory</b>
+</pre><br />
+
+<hr/>
+
+<p>Client factory for PB brokers.</p>
+As with all client factories, use with reactor.connectTCP/SSL/etc.. 
+getPerspective and getRootObject can be called either before or after the 
+connect.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="__init__"></a><span class="summary-sig"><span class="summary-sig-name">__init__</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbAuthIdentity"></a><span class="summary-sig"><span class="summary-sig-name">_cbAuthIdentity</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>authServRef</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>password</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbGetPerspective"></a><span class="summary-sig"><span class="summary-sig-name">_cbGetPerspective</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>identityWrapper</span>,
+          <span class=summary-sig-arg>serviceName</span>,
+          <span class=summary-sig-arg>perspectiveName</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbRespondToChallenge"></a><span class="summary-sig"><span class="summary-sig-name">_cbRespondToChallenge</span>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>challenge</span>,
+           <span class=summary-sig-arg>challenger</span>),
+          <span class=summary-sig-arg>password</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbResponse"></a><span class="summary-sig"><span class="summary-sig-name">_cbResponse</span>(<span class=summary-sig-arg>self</span>,
+          (<span class=summary-sig-arg>challenge</span>,
+           <span class=summary-sig-arg>challenger</span>),
+          <span class=summary-sig-arg>password</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_cbSendUsername"></a><span class="summary-sig"><span class="summary-sig-name">_cbSendUsername</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>root</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>password</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_failAll"></a><span class="summary-sig"><span class="summary-sig-name">_failAll</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_reset"></a><span class="summary-sig"><span class="summary-sig-name">_reset</span>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#clientConnectionFailed" class="summary-sig-name"><code>clientConnectionFailed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>connector</span>,
+          <span class=summary-sig-arg>reason</span>)</span></code>
+<br />
+Called when a connection has failed to connect.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#clientConnectionLost" class="summary-sig-name"><code>clientConnectionLost</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>connector</span>,
+          <span class=summary-sig-arg>reason</span>,
+          <span class=summary-sig-arg>reconnecting</span>)</span></code>
+<br />
+Reconnecting subclasses should call with reconnecting=1.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="clientConnectionMade"></a><span class="summary-sig"><span class="summary-sig-name">clientConnectionMade</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>broker</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#disconnect" class="summary-sig-name"><code>disconnect</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+If the factory is connected, close the connection.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#getPerspective" class="summary-sig-name"><code>getPerspective</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>username</span>,
+          <span class=summary-sig-arg>password</span>,
+          <span class=summary-sig-arg>serviceName</span>,
+          <span class=summary-sig-arg>perspectiveName</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+<br />
+Get perspective from remote PB server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#getRootObject" class="summary-sig-name"><code>getRootObject</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Get root object of remote PB server.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.spread.pb.PBClientFactory.html#login" class="summary-sig-name"><code>login</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>credentials</span>,
+          <span class=summary-sig-arg>client</span>)</span></code>
+<br />
+Login and get perspective from remote PB server.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from ClientFactory</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.ClientFactory.html#startedConnecting" class="summary-sig-name"><code>startedConnecting</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>connector</span>)</span></code>
+<br />
+Called when a connection has been started.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Factory</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Factory.html#buildProtocol" class="summary-sig-name"><code>buildProtocol</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>addr</span>)</span></code>
+<br />
+Create an instance of a subclass of Protocol.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Factory.html#doStart" class="summary-sig-name"><code>doStart</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Make sure startFactory is called.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Factory.html#doStop" class="summary-sig-name"><code>doStop</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Make sure stopFactory is called.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Factory.html#startFactory" class="summary-sig-name"><code>startFactory</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+This will be called before I begin listening on a Port or 
+Connector.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.protocol.Factory.html#stopFactory" class="summary-sig-name"><code>stopFactory</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+This will be called before I stop listening on all 
+Ports/Connectors.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>class</code></font></td>
+  <td><a name="protocol"></a><b><code>protocol</code></b> = <a href="twisted.spread.pb.Broker.html"><code>twisted.spread.pb.Broker</code></a></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.spread.pb.PBClientFactory.html#unsafeTracebacks"><code>unsafeTracebacks</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Factory</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.protocol.Factory.html#__implements__"><code>__implements__</code></a></b> = <span title="(&lt;class twisted.internet.interfaces.IProtocolFactory at 0x827f7bc&gt;,)"><code>(&lt;class&nbsp;twisted.internet.interfaces.IPr<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.internet.protocol.Factory.html#noisy"><code>noisy</code></a></b> = <span title="'sure, why not'"><code><span class="variable-quote">'</span>sure,&nbsp;why&nbsp;not<span class="variable-quote">'</span>                                  </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.protocol.Factory.html#numPorts"><code>numPorts</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="clientConnectionFailed"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">clientConnectionFailed</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>connector</span>,
+          <span class=sig-arg>reason</span>)</span>
+  </h3>
+  <p>Called when a connection has failed to connect.</p>
+  It may be useful to call connector.connect() - this will 
+  reconnect.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>reason</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<a href="twisted.python.failure.Failure.html" 
+              class="link"><code>twisted.python.failure.Failure</code></a>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.protocol.ClientFactory.html#clientConnectionFailed"><code>twisted.internet.protocol.ClientFactory.clientConnectionFailed</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="clientConnectionLost"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">clientConnectionLost</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>connector</span>,
+          <span class=sig-arg>reason</span>,
+          <span class=sig-arg>reconnecting</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Reconnecting subclasses should call with reconnecting=1.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.protocol.ClientFactory.html#clientConnectionLost"><code>twisted.internet.protocol.ClientFactory.clientConnectionLost</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="disconnect"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">disconnect</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>If the factory is connected, close the connection.</p>
+  Note that if you set up the factory to reconnect, you will need to 
+  implement extra logic to prevent automatic reconnection after this is 
+  called.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getPerspective"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getPerspective</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>username</span>,
+          <span class=sig-arg>password</span>,
+          <span class=sig-arg>serviceName</span>,
+          <span class=sig-arg>perspectiveName</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>client</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Get perspective from remote PB server.</p>
+  <p>New systems should use login() instead.</p>
+  &#64;return Deferred of RemoteReference to the perspective.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getRootObject"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getRootObject</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Get root object of remote PB server.</p>
+  &#64;return Deferred of the root object.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="login"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">login</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>credentials</span>,
+          <span class=sig-arg>client</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Login and get perspective from remote PB server.</p>
+  <p>Currently only credentials implementing IUsernamePassword are 
+  supported.</p>
+  &#64;return Deferred of RemoteReference to the perspective.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="unsafeTracebacks"></a>
+<h3>unsafeTracebacks</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:59 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

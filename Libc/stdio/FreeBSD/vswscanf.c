@@ -41,7 +41,7 @@ static char sccsid[] = "@(#)vsscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 __FBSDID("FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.11 2002/08/21 16:19:57 mike Exp ");
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vswscanf.c,v 1.1 2002/09/23 12:40:06 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vswscanf.c,v 1.3 2004/04/07 09:55:05 tjr Exp $");
 
 #include <limits.h>
 #include <stdarg.h>
@@ -64,8 +64,9 @@ int
 vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
     va_list ap)
 {
-	FILE f;
+	static const mbstate_t initial;
 	mbstate_t mbs;
+	FILE f;
 	struct __sFILEX ext;
 	char *mbstr;
 	size_t mlen;
@@ -77,7 +78,7 @@ vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
 	 */
 	if ((mbstr = malloc(wcslen(str) * MB_CUR_MAX + 1)) == NULL)
 		return (EOF);
-	memset(&mbs, 0, sizeof(mbs));
+	mbs = initial;
 	if ((mlen = wcsrtombs(mbstr, &str, SIZE_T_MAX, &mbs)) == (size_t)-1) {
 		free(mbstr);
 		return (EOF);

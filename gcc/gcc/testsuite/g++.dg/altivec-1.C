@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
 /* Test for static_cast<...> among AltiVec types.  */
-/* { dg-do compile } */
+/* { dg-do compile { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
 
 struct Foo2 {

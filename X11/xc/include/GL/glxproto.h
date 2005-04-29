@@ -1,7 +1,7 @@
 #ifndef _GLX_glxproto_h_
 #define _GLX_glxproto_h_
 
-/* $XFree86: xc/include/GL/glxproto.h,v 1.5 2001/08/01 00:44:34 tsi Exp $ */
+/* $XFree86: xc/include/GL/glxproto.h,v 1.7 2004/01/28 18:11:37 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -941,6 +941,72 @@ typedef struct {
 } xGLXQueryContextInfoEXTReply;
 #define sz_xGLXQueryContextInfoEXTReply 32
 
+/*
+** glXMakeCurrentReadSGI request
+*/
+typedef struct GLXMakeCurrentReadSGI {
+    CARD8	reqType;
+    CARD8	glxCode;
+    CARD16	length B16;
+    CARD32	vendorCode B32;		/* vendor-specific opcode */
+    GLXContextTag oldContextTag B32;
+    GLXDrawable drawable B32;
+    GLXDrawable readable B32;
+    GLXContextID context B32;
+} xGLXMakeCurrentReadSGIReq;
+#define sz_xGLXMakeCurrentReadSGIReq 24
+
+/*
+** glXGetFBConfigsSGIX request
+*/
+typedef struct GLXGetFBConfigsSGIX {
+    CARD8	reqType;
+    CARD8	glxCode;
+    CARD16	length B16;
+    CARD32	vendorCode B32;		/* vendor-specific opcode */
+    CARD32	pad1 B32;   /* unused; corresponds to contextTag in header */
+    CARD32	screen B32;
+} xGLXGetFBConfigsSGIXReq;
+#define sz_xGLXGetFBConfigsSGIXReq 16
+
+/*
+** glXCreateContextWithConfigSGIX request
+*/
+
+typedef struct GLXCreateContextWithConfigSGIX {
+    CARD8	reqType;
+    CARD8	glxCode;
+    CARD16	length B16;
+    CARD32	vendorCode B32;		/* vendor-specific opcode */
+    CARD32	pad1 B32;   /* unused; corresponds to contextTag in header */
+    GLXContextID context B32;
+    GLXFBConfigID fbconfig B32;
+    CARD32	screen B32;
+    CARD32	renderType;
+    GLXContextID shareList B32;
+    BOOL	isDirect;
+    CARD8	reserved1;
+    CARD16	reserved2 B16;
+} xGLXCreateContextWithConfigSGIXReq;
+#define sz_xGLXCreateContextWithConfigSGIXReq 36
+
+/*
+** glXCreatePixmapWithConfigSGIX request
+*/
+
+typedef struct GLXCreateGLXPixmapWithConfigSGIX {
+    CARD8	reqType;
+    CARD8	glxCode;
+    CARD16	length B16;
+    CARD32	vendorCode B32;		/* vendor-specific opcode */
+    CARD32	pad1 B32;   /* unused; corresponds to contextTag in header */
+    CARD32	screen B32;
+    GLXFBConfigID fbconfig B32;
+    CARD32	pixmap B32;
+    GLXPixmap	glxpixmap B32;
+} xGLXCreateGLXPixmapWithConfigSGIXReq;
+#define sz_xGLXCreateGLXPixmapWithConfigSGIXReq 28
+
 /************************************************************************/
 
 /*
@@ -1271,6 +1337,171 @@ typedef struct {
     __GLX_TEXSUBIMAGE_3D_HDR;
 } __GLXdispatchTexSubImage3DHeader;
 
+/**
+ * Data that is specific to a \c glCompressedTexImage1D or
+ * \c glCompressedTexImage2D call.  The data is sent in the following
+ * order:
+ *     - Render or RenderLarge header
+ *     - CompressedTexImage header
+ * 
+ * When a \c glCompressedTexImage1D call is made, the \c height field is
+ * not examined by the server and is considered padding.
+ */
+
+#define __GLX_COMPRESSED_TEXIMAGE_HDR \
+    CARD32     target B32;            \
+    CARD32     level B32;             \
+    CARD32     internalFormat B32;    \
+    CARD32     width B32;             \
+    CARD32     height B32;            \
+    CARD32     border B32;            \
+    CARD32     imageSize B32
+
+#define __GLX_COMPRESSED_TEXIMAGE_HDR_SIZE 28
+
+#define __GLX_COMPRESSED_TEXIMAGE_CMD_HDR_SIZE \
+    (__GLX_RENDER_HDR_SIZE + __GLX_COMPRESSED_TEXIMAGE_HDR_SIZE)
+
+#define __GLX_COMPRESSED_TEXIMAGE_DISPATCH_HDR_SIZE \
+    (__GLX_COMPRESSED_TEXIMAGE_HDR_SIZE)
+
+typedef struct {
+    __GLX_RENDER_HDR;
+    __GLX_COMPRESSED_TEXIMAGE_HDR;
+} __GLXcompressedTexImageHeader;
+
+typedef struct {
+    __GLX_RENDER_LARGE_HDR;
+    __GLX_COMPRESSED_TEXIMAGE_HDR;
+} __GLXcompressedTexImageLargeHeader;
+
+typedef struct {
+    __GLX_COMPRESSED_TEXIMAGE_HDR;
+} __GLXdispatchCompressedTexImageHeader;
+
+/**
+ * Data that is specifi to a \c glCompressedTexSubImage1D or
+ * \c glCompressedTexSubImage2D call.  The data is sent in the following
+ * order:
+ *     - Render or RenderLarge header
+ *     - CompressedTexSubImage header
+ * 
+ * When a \c glCompressedTexSubImage1D call is made, the \c yoffset and
+ * \c height fields are not examined by the server and are considered padding.
+ */
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_HDR \
+    CARD32     target B32;            \
+    CARD32     level B32;             \
+    CARD32     xoffset B32;           \
+    CARD32     yoffset B32;           \
+    CARD32     width B32;             \
+    CARD32     height B32;            \
+    CARD32     format B32;            \
+    CARD32     imageSize B32
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_HDR_SIZE 32
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_CMD_HDR_SIZE \
+    (__GLX_RENDER_HDR_SIZE + __GLX_COMPRESSED_TEXSUBIMAGE_HDR_SIZE)
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_DISPATCH_HDR_SIZE \
+    (__GLX_COMPRESSED_TEXSUBIMAGE_HDR_SIZE)
+
+typedef struct {
+    __GLX_RENDER_HDR;
+    __GLX_COMPRESSED_TEXSUBIMAGE_HDR;
+} __GLXcompressedTexSubImageHeader;
+
+typedef struct {
+    __GLX_RENDER_LARGE_HDR;
+    __GLX_COMPRESSED_TEXSUBIMAGE_HDR;
+} __GLXcompressedTexSubImageLargeHeader;
+
+typedef struct {
+    __GLX_COMPRESSED_TEXSUBIMAGE_HDR;
+} __GLXdispatchCompressedTexSubImageHeader;
+
+/**
+ * Data that is specific to a \c glCompressedTexImage3D call.  The data is
+ * sent in the following order:
+ *     - Render or RenderLarge header
+ *     - CompressedTexImage3D header
+ */
+
+#define __GLX_COMPRESSED_TEXIMAGE_3D_HDR \
+    CARD32     target B32;            \
+    CARD32     level B32;             \
+    CARD32     internalFormat B32;    \
+    CARD32     width B32;             \
+    CARD32     height B32;            \
+    CARD32     depth B32;             \
+    CARD32     border B32;            \
+    CARD32     imageSize B32
+
+#define __GLX_COMPRESSED_TEXIMAGE_3D_HDR_SIZE 32
+
+#define __GLX_COMPRESSED_TEXIMAGE_3D_CMD_HDR_SIZE \
+    (__GLX_RENDER_HDR_SIZE + __GLX_COMPRESSED_TEXIMAGE_3D_HDR_SIZE)
+
+#define __GLX_COMPRESSED_TEXIMAGE_3D_DISPATCH_HDR_SIZE \
+    (__GLX_COMPRESSED_TEXIMAGE_3D_HDR_SIZE)
+
+typedef struct {
+    __GLX_RENDER_HDR;
+    __GLX_COMPRESSED_TEXIMAGE_3D_HDR;
+} __GLXcompressedTexImage3DHeader;
+
+typedef struct {
+    __GLX_RENDER_LARGE_HDR;
+    __GLX_COMPRESSED_TEXIMAGE_3D_HDR;
+} __GLXcompressedTexImage3DLargeHeader;
+
+typedef struct {
+    __GLX_COMPRESSED_TEXIMAGE_3D_HDR;
+} __GLXdispatchCompressedTexImage3DHeader;
+
+/**
+ * Data that is specifi to a \c glCompressedTexSubImage3D call.  The data is
+ * sent in the following order:
+ *     - Render or RenderLarge header
+ *     - CompressedTexSubImage3D header
+ */
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR \
+    CARD32     target B32;            \
+    CARD32     level B32;             \
+    CARD32     xoffset B32;           \
+    CARD32     yoffset B32;           \
+    CARD32     zoffset B32;           \
+    CARD32     width B32;             \
+    CARD32     height B32;            \
+    CARD32     depth B32;             \
+    CARD32     format B32;            \
+    CARD32     imageSize B32
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR_SIZE 32
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_3D_CMD_HDR_SIZE \
+    (__GLX_RENDER_HDR_SIZE + __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR_SIZE)
+
+#define __GLX_COMPRESSED_TEXSUBIMAGE_3D_DISPATCH_HDR_SIZE \
+    (__GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR_SIZE)
+
+typedef struct {
+    __GLX_RENDER_HDR;
+    __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR;
+} __GLXcompressedTexSubImage3DHeader;
+
+typedef struct {
+    __GLX_RENDER_LARGE_HDR;
+    __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR;
+} __GLXcompressedTexSubImage3DLargeHeader;
+
+typedef struct {
+    __GLX_COMPRESSED_TEXSUBIMAGE_3D_HDR;
+} __GLXdispatchCompressedTexSubImage3DHeader;
+
 /*
 ** Data that is specific to a glDrawPixels call.  The data is sent in the
 ** following order:
@@ -1506,6 +1737,18 @@ typedef struct {
 #define X_GLXQueryExtensionsString       18
 #define X_GLXQueryServerString           19
 #define X_GLXClientInfo                  20
+#define X_GLXGetFBConfigs                21
+#define X_GLXCreatePixmap                22
+#define X_GLXDestroyPixmap               23
+#define X_GLXCreateNewContext            24
+#define X_GLXQueryContext                25
+#define X_GLXMakeContextCurrent          26
+#define X_GLXCreatePbuffer               27
+#define X_GLXDestroyPbuffer              28
+#define X_GLXGetDrawableAttributes       29
+#define X_GLXChangeDrawableAttributes    30
+#define X_GLXCreateWindow                31
+#define X_GLXDestroyWindow               32
 
 
 /* Opcodes for single commands (part of GLX command space) */
@@ -1569,6 +1812,7 @@ typedef struct {
 #define X_GLsop_GetMinmax                  157
 #define X_GLsop_GetMinmaxParameterfv       158
 #define X_GLsop_GetMinmaxParameteriv       159
+#define X_GLsop_GetCompressedTexImage      160
 
 
 /* Opcodes for rendering commands */
@@ -1798,37 +2042,242 @@ typedef struct {
 #define X_GLrop_TexImage3D                 4114
 #define X_GLrop_TexSubImage3D              4115
 #define X_GLrop_CopyTexSubImage3D          4123
-#define X_GLrop_ActiveTextureARB           197
-#define X_GLrop_MultiTexCoord1dvARB        198
-#define X_GLrop_MultiTexCoord1fvARB        199
-#define X_GLrop_MultiTexCoord1ivARB        200
-#define X_GLrop_MultiTexCoord1svARB        201
-#define X_GLrop_MultiTexCoord2dvARB        202
-#define X_GLrop_MultiTexCoord2fvARB        203
-#define X_GLrop_MultiTexCoord2ivARB        204
-#define X_GLrop_MultiTexCoord2svARB        205
-#define X_GLrop_MultiTexCoord3dvARB        206
-#define X_GLrop_MultiTexCoord3fvARB        207
-#define X_GLrop_MultiTexCoord3ivARB        208
-#define X_GLrop_MultiTexCoord3svARB        209
-#define X_GLrop_MultiTexCoord4dvARB        210
-#define X_GLrop_MultiTexCoord4fvARB        211
-#define X_GLrop_MultiTexCoord4ivARB        212
-#define X_GLrop_MultiTexCoord4svARB        213
 #define X_GLrop_DrawArraysEXT              4116
 
+/* Added for core GL version 1.3 */
+
+#define X_GLrop_ActiveTextureARB            197
+#define X_GLrop_MultiTexCoord1dvARB         198
+#define X_GLrop_MultiTexCoord1fvARB         199
+#define X_GLrop_MultiTexCoord1ivARB         200
+#define X_GLrop_MultiTexCoord1svARB         201
+#define X_GLrop_MultiTexCoord2dvARB         202
+#define X_GLrop_MultiTexCoord2fvARB         203
+#define X_GLrop_MultiTexCoord2ivARB         204
+#define X_GLrop_MultiTexCoord2svARB         205
+#define X_GLrop_MultiTexCoord3dvARB         206
+#define X_GLrop_MultiTexCoord3fvARB         207
+#define X_GLrop_MultiTexCoord3ivARB         208
+#define X_GLrop_MultiTexCoord3svARB         209
+#define X_GLrop_MultiTexCoord4dvARB         210
+#define X_GLrop_MultiTexCoord4fvARB         211
+#define X_GLrop_MultiTexCoord4ivARB         212
+#define X_GLrop_MultiTexCoord4svARB         213
+#define X_GLrop_CompressedTexImage1D        214
+#define X_GLrop_CompressedTexImage2D        215
+#define X_GLrop_CompressedTexImage3D        216
+#define X_GLrop_CompressedTexSubImage1D     217
+#define X_GLrop_CompressedTexSubImage2D     218
+#define X_GLrop_CompressedTexSubImage3D     219
+#define X_GLrop_SampleCoverageARB           229
+
+/* Added for core GL version 1.4 */
+
+#define X_GLrop_WindowPos3fARB              230
+#define X_GLrop_FogCoordfv                  4124
+#define X_GLrop_FogCoorddv                  4125
+#define X_GLrop_PointParameterfARB          2065
+#define X_GLrop_PointParameterfvARB         2066
+#define X_GLrop_SecondaryColor3bv           4126
+#define X_GLrop_SecondaryColor3sv           4127
+#define X_GLrop_SecondaryColor3iv           4128
+#define X_GLrop_SecondaryColor3fv           4129
+#define X_GLrop_SecondaryColor3dv           4130
+#define X_GLrop_SecondaryColor3ubv          4131
+#define X_GLrop_SecondaryColor3usv          4132
+#define X_GLrop_SecondaryColor3uiv          4133
+#define X_GLrop_BlendFuncSeparate           4134
+#define X_GLrop_PointParameteri             4221
+#define X_GLrop_PointParameteriv            4222
+
+/* Added for core GL version 1.5 */
+/* XXX opcodes not defined in the spec */
 
 /* Opcodes for Vendor Private commands */
 
-#define X_GLvop_AreTexturesResidentEXT      11
-#define X_GLvop_DeleteTexturesEXT           12
-#define X_GLvop_GenTexturesEXT              13
-#define X_GLvop_IsTextureEXT                14
+#define X_GLvop_AreTexturesResidentEXT         11
+#define X_GLvop_DeleteTexturesEXT              12
+#define X_GLvop_GenTexturesEXT                 13
+#define X_GLvop_IsTextureEXT                   14
+#define X_GLvop_GetCombinerInputParameterfvNV  1270
+#define X_GLvop_GetCombinerInputParameterivNV  1271
+#define X_GLvop_GetCombinerOutputParameterfvNV 1272
+#define X_GLvop_GetCombinerOutputParameterivNV 1273
+#define X_GLvop_GetFinalCombinerOutputParameterfvNV 1274
+#define X_GLvop_GetFinalCombinerOutputParameterivNV 1275
+#define X_GLvop_DeleteFenceNV                  1276
+#define X_GLvop_GenFencesNV                    1277
+#define X_GLvop_IsFenceNV                      1278
+#define X_GLvop_TestFenceNV                    1279
+#define X_GLvop_GetFenceivNV                   1280
+#define X_GLvop_AreProgramsResidentNV          1293
+#define X_GLvop_DeleteProgramARB               1294
+#define X_GLvop_GenProgramsARB                 1295
+#define X_GLvop_GetProgramEnvParameterfvARB    1296
+#define X_GLvop_GetProgramEnvParameterdvARB    1297
+#define X_GLvop_GetProgramEnvParameterivNV     1298
+#define X_GLvop_GetProgramStringNV             1299
+#define X_GLvop_GetTrackMatrixivNV             1300
+#define X_GLvop_GetVetrexAttribdvARB           1301
+#define X_GLvop_GetVetrexAttribfvARB           1302
+#define X_GLvop_GetVetrexAttribivARB           1303
+#define X_GLvop_IsProgramARB                   1304
+#define X_GLvop_GetProgramLocalParameterfvARB  1305
+#define X_GLvop_GetProgramLocalParameterdvARB  1306
+#define X_GLvop_GetProgramivARB                1307
+#define X_GLvop_GetProgramStringARB            1308
+#define X_GLvop_GetProgramNamedParameter4fvNV  1310
+#define X_GLvop_GetProgramNamedParameter4dvNV  1311
+#define X_GLvop_SampleMaskSGIS                 2048
+#define X_GLvop_SamplePatternSGIS              2049
 
 
 /* Opcodes for GLX vendor private commands */
 
-#define X_GLXvop_QueryContextInfoEXT        1024
+#define X_GLXvop_QueryContextInfoEXT            1024
+#define X_GLXvop_SwapIntervalSGI                65536
+#define X_GLXvop_MakeCurrentReadSGI             65537
+#define X_GLXvop_CreateGLXVideoSourceSGIX       65538
+#define X_GLXvop_DestroyGLXVideoSourceSGIX      65539
+#define X_GLXvop_GetFBConfigsSGIX               65540
+#define X_GLXvop_CreateContextWithConfigSGIX    65541
+#define X_GLXvop_CreateGLXPixmapWithConfigSGIX  65542
+#define X_GLXvop_CreateGLXPbufferSGIX           65543
+#define X_GLXvop_DestroyGLXPbufferSGIX          65544
+#define X_GLXvop_ChangeDrawableAttributesSGIX   65545
+#define X_GLXvop_GetDrawableAttributesSGIX      65546
+#define X_GLXvop_JoinSwapGroupSGIX              65547
+#define X_GLXvop_BindSwapBarrierSGIX            65548
+#define X_GLXvop_QueryMaxSwapBarriersSGIX       65549
+#define X_GLXvop_QueryHyperpipeNetworkSGIX      65550
+#define X_GLXvop_QueryHyperpipeConfigSGIX       65551
+#define X_GLXvop_HyperpipeConfigSGIX            65552
+#define X_GLXvop_DestroyHyperpipeConfigSGIX     65553
 
+
+/* ARB extension opcodes */
+
+/*  1. GL_ARB_multitexture - see GL 1.2 opcodes */
+/*  5. GL_ARB_multisample - see GL 1.3 opcodes */
+/* 12. GL_ARB_texture_compression - see GL 1.3 opcodes */
+/* 14. GL_ARB_point_parameters - see GL 1.4 opcodees */
+
+/* 15. GL_ARB_vertex_blend */
+#define X_GLrop_WeightbvARB                  220
+#define X_GLrop_WeightubvARB                 221
+#define X_GLrop_WeightsvARB                  222
+#define X_GLrop_WeightusvARB                 223
+#define X_GLrop_WeightivARB                  224
+#define X_GLrop_WeightuivARB                 225
+#define X_GLrop_VertexBlendARB               226
+#define X_GLrop_WeightfvARB                  227
+#define X_GLrop_WeightdvARB                  228
+
+/* 16. GL_ARB_matrix_palette */
+/* XXX opcodes not defined in the spec */
+
+/* 25. GL_ARB_window_pos - see GL 1.4 opcodes */
+
+/* 26. GL_ARB_vertex_program */
+#define X_GLrop_BindProgramARB              4180
+#define X_GLrop_ProgramEnvParameter4fvARB   4184
+#define X_GLrop_ProgramEnvParameter4dvARB   4185
+#define X_GLrop_VertexAttrib1svARB          4189
+#define X_GLrop_VertexAttrib2svARB          4190
+#define X_GLrop_VertexAttrib3svARB          4191
+#define X_GLrop_VertexAttrib4svARB          4192
+#define X_GLrop_VertexAttrib1fvARB          4193
+#define X_GLrop_VertexAttrib2fvARB          4194
+#define X_GLrop_VertexAttrib3fvARB          4195
+#define X_GLrop_VertexAttrib4fvARB          4196
+#define X_GLrop_VertexAttrib1dvARB          4197
+#define X_GLrop_VertexAttrib2dvARB          4198
+#define X_GLrop_VertexAttrib3dvARB          4199
+#define X_GLrop_ProgramLocalParameter4fvARB 4215
+#define X_GLrop_ProgramLocalParameter4dvARB 4216
+#define X_GLrop_ProgramStringARB            4217
+#define X_GLrop_VertexAttrib4dvARB          4200
+#define X_GLrop_VertexAttrib4NubvARB        4201
+#define X_GLrop_VertexAttrib4bvARB          4230
+#define X_GLrop_VertexAttrib4ivARB          4231
+#define X_GLrop_VertexAttrib4ubvARB         4232
+#define X_GLrop_VertexAttrib4usvARB         4233
+#define X_GLrop_VertexAttrib4uivARB         4234
+#define X_GLrop_VertexAttrib4NbvARB         4235
+#define X_GLrop_VertexAttrib4NsvARB         4236
+#define X_GLrop_VertexAttrib4NivARB         4237
+#define X_GLrop_VertexAttrib4NusvARB        4238
+#define X_GLrop_VertexAttrib4NuivARB        4239
+
+/* 27. GL_ARB_fragment_program - see GL_ARB_vertex_program opcodes */
+
+/* 29. GL_ARB_occlusion_query */
+/* XXX opcodes not defined in the spec */
+
+
+/* New extension opcodes */
+
+/* 145. GL_EXT_secondary_color - see GL 1.4 opcodes */
+
+/* 188. GL_EXT_vertex_weighting */
+#define X_GLrop_VertexWeightfvEXT           4135
+
+/* 191. GL_NV_register_combiners */
+#define X_GLrop_CombinerParameterfNV        4136
+#define X_GLrop_CombinerParameterfvNV       4137
+#define X_GLrop_CombinerParameteriNV        4138
+#define X_GLrop_CombinerParameterivNV       4139
+#define X_GLrop_CombinerInputNV             4140
+#define X_GLrop_CombinerOutputNV            4141
+#define X_GLrop_FinalCombinerInputNV        4142
+
+/* 222. GL_NV_fence */
+#define X_GLrop_SetFenceNV                  4143
+#define X_GLrop_FinishFenceNV               4144
+
+/* 227. GL_NV_register_combiners2 */
+/* XXX opcodes not defined in the spec */
+
+/* 233. GL_NV_vertex_program - see also GL_ARB_vertex_program opcodes */
+#define X_GLrop_ExecuteProgramNV            4181
+#define X_GLrop_RequestResidentProgramsNV   4182
+#define X_GLrop_LoadProgamNV                4183
+#define X_GLrop_ProgramParameters4fvNV      4186
+#define X_GLrop_ProgramParameters4dvNV      4187
+#define X_GLrop_TrackMatrixNV               4188
+#define X_GLrop_VertexAttribs1svNV          4202
+#define X_GLrop_VertexAttribs2svNV          4203
+#define X_GLrop_VertexAttribs3svNV          4204
+#define X_GLrop_VertexAttribs4svNV          4205
+#define X_GLrop_VertexAttribs1fvNV          4206
+#define X_GLrop_VertexAttribs2fvNV          4207
+#define X_GLrop_VertexAttribs3fvNV          4208
+#define X_GLrop_VertexAttribs4fvNV          4209
+#define X_GLrop_VertexAttribs1dvNV          4210
+#define X_GLrop_VertexAttribs2dvNV          4211
+#define X_GLrop_VertexAttribs3dvNV          4212
+#define X_GLrop_VertexAttribs4dvNV          4213
+#define X_GLrop_VertexAttribs4ubvNV         4214
+
+/* 261. GL_NV_occlusion_query */
+/* XXX opcodes not defined in the spec */
+
+/* 262. GL_NV_point_sprite - see GL 1.4 opcodes */
+
+/* 268. GL_EXT_stencil_two_side */
+#define X_GLrop_ActiveStencilFaceEXT        4220
+
+/* 282. GL_NV_fragment_program - see also GL_NV_vertex_program and GL_ARB_vertex_program opcodes */
+#define X_GLrop_ProgramNamedParameter4fvNV  4218
+#define X_GLrop_ProgramNamedParameter4dvNV  4219
+
+/* 285. GL_NV_primitive_restart */
+/* XXX opcodes not defined in the spec */
+
+/* 297. GL_EXT_depth_bounds_test */
+#define X_GLrop_DepthBoundsEXT              4229
+
+/* 299. GL_EXT_blend_equation_separate */
+#define X_GLrop_BlendEquationSeparateEXT    4228
 
 #endif /* _GLX_glxproto_h_ */

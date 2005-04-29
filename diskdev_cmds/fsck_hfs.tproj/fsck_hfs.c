@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
+#include <sys/ucred.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
@@ -40,13 +41,29 @@
 #include "fsck_hfs.h"
 #include "dfalib/CheckHFS.h"
 
+/*
+ * The definition of CACHE_IOSIZE below matches the definition in SVerify1.c.
+ * If you change it here, then change it there, too.  Or else put it in some
+ * common header file.
+ */
 #define CACHE_IOSIZE	32768
 #define CACHE_BLOCKS	128
 #define CACHE_HASHSIZE	111
 
+/*
+ * These definitions are duplicated from xnu's hfs_readwrite.c, and could live
+ * in a shared header file if desired. On the other hand, the freeze and thaw
+ * commands are not really supposed to be public.
+ */
+#ifndef    F_FREEZE_FS
+#define F_FREEZE_FS     53              /* "freeze" all fs operations */
+#define F_THAW_FS       54              /* "thaw" all fs operations */
+#endif  // F_FREEZE_FS
+
 /* Global Variables for front end */
 const char *cdevname;		/* name of device being checked */
 char	*progname;
+char	lflag;			/* live fsck */
 char	nflag;			/* assume a no response */
 char	yflag;			/* assume a yes response */
 char	preen;			/* just fix normal inconsistencies */
@@ -71,6 +88,7 @@ static int checkfilesys __P((char * filesys));
 static int setup __P(( char *dev, int *blockDevice_fdPtr, int *canWritePtr ));
 static void usage __P((void));
 static void getWriteAccess __P(( char *dev, int *blockDevice_fdPtr, int *canWritePtr ));
+extern char *unrawname __P((char *name));
 
 int
 main(argc, argv)
@@ -87,7 +105,7 @@ main(argc, argv)
 	else
 		progname = *argv;
 
-	while ((ch = getopt(argc, argv, "dfgm:npqruy")) != EOF) {
+	while ((ch = getopt(argc, argv, "dfglm:npqruy")) != EOF) {
 		switch (ch) {
 		case 'd':
 			debug++;
@@ -99,6 +117,13 @@ main(argc, argv)
 
 		case 'g':
 			guiControl++;
+			break;
+
+		case 'l':
+			lflag++;
+			nflag++;
+			yflag = 0;
+			force++;
 			break;
 			
 		case 'm':
@@ -167,12 +192,47 @@ checkfilesys(char * filesys)
 	int flags;
 	int result;
 	int chkLev, repLev, logLev;
-	int	blockDevice_fd, canWrite;
+	int blockDevice_fd, canWrite;
+	char *unraw, *mntonname;
+	struct statfs *fsinfo;
+	int fs_fd=-1;  // fd to the root-dir of the fs we're checking (only w/lfag == 1)
 
 	flags = 0;
 	cdevname = filesys;
 	blockDevice_fd = -1;
 	canWrite = 0;
+	unraw = NULL;
+	mntonname = NULL;
+
+	if (lflag) {
+		result = getmntinfo(&fsinfo, MNT_NOWAIT);
+
+		while (result--) {
+			unraw = strdup(cdevname);
+			unrawname(unraw);
+			if (unraw != NULL &&
+			    strcmp(unraw, fsinfo[result].f_mntfromname) == 0) {
+				mntonname = strdup(fsinfo[result].f_mntonname);
+			}
+		}
+
+		if (mntonname != NULL) {
+		    fs_fd = open(mntonname, O_RDONLY);
+		    if (fs_fd < 0) {
+			printf("ERROR: could not open %s to freeze the volume.\n", mntonname);
+			free(mntonname);
+			free(unraw);
+			return 0;
+		    }
+
+		    if (fcntl(fs_fd, F_FREEZE_FS, NULL) != 0) {
+			free(mntonname);
+			free(unraw);
+			printf("ERROR: could not freeze volume (%s)\n", strerror(errno));
+			return 0;
+		    }
+		}
+	}
 
 	if (debug && preen)
 		pwarn("starting\n");
@@ -259,11 +319,7 @@ checkfilesys(char * filesys)
 
 	/* XXX free any allocated memory here */
 
-	if (!fsmodified) {
-		result = (result == 0) ? 0 : EEXIT;
-		goto ExitThisRoutine;
-	}
-	if (hotroot) {
+	if (hotroot && fsmodified) {
 		struct hfs_mount_args args;
 		/*
 		 * We modified the root.  Do a mount update on
@@ -286,9 +342,16 @@ checkfilesys(char * filesys)
 		goto ExitThisRoutine;
 	}
 
-	result = 0;
+	result = (result == 0) ? 0 : EEXIT;
 	
 ExitThisRoutine:
+	if (lflag) {
+	    fcntl(fs_fd, F_THAW_FS, NULL);
+	    close(fs_fd);
+	    free(unraw);
+	    free(mntonname);
+	}
+
 	if ( blockDevice_fd > 0 ) {
 		close( blockDevice_fd );
 		blockDevice_fd = -1;
@@ -431,9 +494,10 @@ ExitThisRoutine:
 static void
 usage()
 {
-	(void) fprintf(stderr, "usage: %s [-df m [mode] npqruy] special-device\n", progname);
+	(void) fprintf(stderr, "usage: %s [-dfl m [mode] npqruy] special-device\n", progname);
 	(void) fprintf(stderr, "  d = output debugging info\n");
 	(void) fprintf(stderr, "  f = force fsck even if clean (preen only) \n");
+	(void) fprintf(stderr, "  l = live fsck (lock down and test-only)\n");
 	(void) fprintf(stderr, "  m arg = octal mode used when creating lost+found directory \n");
 	(void) fprintf(stderr, "  n = assume a no response \n");
 	(void) fprintf(stderr, "  p = just fix normal inconsistencies \n");

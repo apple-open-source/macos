@@ -138,10 +138,10 @@ void IOFireWireSBP2ORB::free( void )
     removeORB( this );
 
     deallocateTimer();
-    deallocateORB();
-	deallocatePageTable();
+    deallocatePageTable();
     deallocateBufferAddressSpace();
-
+	deallocateORB();
+	
     IOCommand::free();
 }
 
@@ -259,6 +259,7 @@ void IOFireWireSBP2ORB::deallocateORB( void )
     // free mem
     if( fORBDescriptor != NULL )
 	{
+		fORBBuffer = NULL;
         fORBDescriptor->release();
 		fORBDescriptor = NULL;
 	}
@@ -675,7 +676,18 @@ void IOFireWireSBP2ORB::deallocateBufferAddressSpace( void )
         fBufferDescriptor->release();
         fBufferAddressSpaceAllocated = false;
     }
-    
+
+	// no page table
+	if( fORBBuffer )
+	{
+		fORBBuffer->dataDescriptorHi	= 0;
+		fORBBuffer->dataDescriptorLo	= 0;
+		fORBBuffer->options				&= 0xfff0;	// no page table
+		fORBBuffer->dataSize			= 0;
+	}
+	
+	fPTECount = 0;
+	    
     fControl->openGate();
 }
 
@@ -737,94 +749,7 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
     IOReturn status = kIOReturnSuccess;
  
 	fControl->closeGate();
-   
-    //
-    // count ptes
-    //
-    
-    UInt32 		pte = 0;
-    vm_size_t 		pos = offset;
-    UInt32 		step = 0;
-    UInt32		toMap = 0;
 	
-    IOPhysicalAddress 	phys;
-    IOPhysicalLength 	lengthOfSegment;
-  
-    if( memoryDescriptor != NULL )
-    {
-        // use memory descriptor's length if length = 0
-        if( length == 0 )
-            length = memoryDescriptor->getLength();
-
-#if FWLOGGING
-        // I occasionally get memory descriptors with bogus lengths
-        UInt32 tempLength = memoryDescriptor->getLength();
-	if(length != tempLength)
-        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ### buffer length = %d, memDescriptor length = %d ###\n", (UInt32)this, length, tempLength  ) );
-        // length = tempLength;
-#endif
-        
-        while( pos < (length + offset) )
-        {
-            // get next segment
-            phys = memoryDescriptor->getPhysicalSegment(pos, &lengthOfSegment);
-
- //           FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : physical address = 0x%08lx, length = %d\n", phys, lengthOfSegment ) );
-
-            // nothing more to map
-            if( phys == 0 )
-            {
-                status = kIOReturnBadArgument;  // buffer not large enough
-                break;
-            }
-
-            while( (pos < (length + offset)) && (lengthOfSegment != 0) )
-            {
-                // kFWSBP2MaxPageClusterSize max page table entry
-                if( lengthOfSegment > kFWSBP2MaxPageClusterSize )
-                    step = kFWSBP2MaxPageClusterSize;
-                else
-                    step = lengthOfSegment;
-                
-                lengthOfSegment -= step;
-
-                // clip mapping by length if necessary
-                if( (pos + step) > (length + offset) )
-                    toMap = length + offset - pos;
-                else
-                    toMap = step;
-
-                // count it if we've got anything to map
-                if( toMap != 0 )
-                    pte++;
-                
-                pos += toMap;
-            }
-        }
-
-        FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : number of required PTE's = %d\n", (UInt32)this, pte ) );
-
-        // make sure we have enough memory
-        if( pte > fPageTableSize / sizeof(FWSBP2PTE) )
-		{
-			if( fCommandFlags & kFWSBP2CommandFixedSize )
-			{
-            	fControl->openGate();
-            	return kIOReturnNoMemory;
-			}
-            else
-			{
-                // reallocate
-                status = allocatePageTable( pte );
-                if( status != kIOReturnSuccess )
-                {
-                    fControl->openGate();
-                    return kIOReturnNoMemory;
-                }
-            }
-		}
-	}
-    
     //
     // deallocate old physical address space
     //
@@ -833,88 +758,191 @@ IOReturn IOFireWireSBP2ORB::setCommandBuffers( IOMemoryDescriptor * memoryDescri
     // that seems like it would be the more expected behavior
     
     deallocateBufferAddressSpace();
-    
+
+	//
+	// bail if no memory descriptor
+	//
+	
+    if( memoryDescriptor == NULL )
+    {
+		fControl->openGate();
+
+		return kIOReturnSuccess;
+	}
+   
+   	// memoryDescriptor is valid from here on
+   	
+   	//
+   	// fix up length if necessary
+   	//
+   	
+    if( status == kIOReturnSuccess )
+    {
+        // use memory descriptor's length if length = 0
+
+        if( length == 0 )
+        {
+            length = memoryDescriptor->getLength();
+		}
+		
+#if FWLOGGING
+        // I occasionally get memory descriptors with bogus lengths
+
+        UInt32 tempLength = memoryDescriptor->getLength();
+
+		if(length != tempLength)
+		{
+        	FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : ### buffer length = %d, memDescriptor length = %d ###\n", (UInt32)this, length, tempLength  ) );
+        // length = tempLength;
+		}
+#endif
+        
+	}
+        
     //
     // write page table
     //
 
-    if( ( status == kIOReturnSuccess ) && ( memoryDescriptor != NULL ) )
-    {
-        pos = offset;
-        pte = 0;
+	UInt32 		pte = 0;
+    
+	if( status == kIOReturnSuccess ) 
+	{    	
+		UInt32 	ptes_allocated = 0;
+		bool 	done = false;
+		
+		// algorithm is usually 1 pass, but may take 2 
+		// passes if we need to grow the page table
+		
+		// we never shrink the page table
+		
+		while( !done )
+		{
+			ptes_allocated = fPageTableSize / sizeof(FWSBP2PTE);
+			
+			vm_size_t pos = offset;
+ 			
+ 			pte = 0;
+			
+			while( pos < (length + offset) )
+			{
+	    		IOPhysicalAddress 	phys;
+   				IOPhysicalLength 	lengthOfSegment;
 
-        while( pos < (length + offset) )
-        {
-            // get next segment
-            phys = memoryDescriptor->getPhysicalSegment(pos, &lengthOfSegment);
+				// get next segment
+				
+				phys = memoryDescriptor->getPhysicalSegment( pos, &lengthOfSegment );
+	
+				// nothing more to map
+				
+				if( phys == 0 )
+				{
+					status = kIOReturnBadArgument;  // buffer not large enough
+					done = true;
+					break;
+				}
+				
+				// map until we are done or we run out of segment
+				
+				while( (pos < (length + offset)) && (lengthOfSegment != 0) )
+				{
+					UInt32 		step = 0;
+    				UInt32		toMap = 0;
 
-            // nothing more to map
-            if( phys == 0 )
-            {
-                status = kIOReturnBadArgument;  // buffer not large enough
-                break;
-            }
-            
-            // map until we are done or we run out of segment
-            while( (pos < (length + offset)) && (lengthOfSegment != 0) )
-            {
-                // 64k max page table entry, so we do it in chunks
-                if( lengthOfSegment > kFWSBP2MaxPageClusterSize )
-                    step = kFWSBP2MaxPageClusterSize;
-                else
-                    step = lengthOfSegment;
-
-                lengthOfSegment -= step;
-
-                // clip mapping by length if necessary
-                if( (pos + step) > (length + offset) )
-                    toMap = length + offset - pos;
-                else
-                    toMap = step;
-
-                // map it if we've got anything to map
-                if( toMap != 0 )
-                {
-					FWSBP2PTE entry;
-
-                    entry.segmentLength = toMap;
-                    entry.segmentBaseAddressHi = 0x0000;
-                    entry.segmentBaseAddressLo = phys;
-
-					fPageTableDescriptor->writeBytes( pte * sizeof(FWSBP2PTE), &entry, sizeof(FWSBP2PTE) );
+					// 64k max page table entry, so we do it in chunks
 					
- //                   FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : PTE = %d, size = %d\n", (UInt32)this, pte, toMap  ) );
+					if( lengthOfSegment > kFWSBP2MaxPageClusterSize )
+						step = kFWSBP2MaxPageClusterSize;
+					else
+						step = lengthOfSegment;
+	
+					lengthOfSegment -= step;
+	
+					// clip mapping by length if necessary
+					
+					if( (pos + step) > (length + offset) )
+						toMap = length + offset - pos;
+					else
+						toMap = step;
+	
+					// map it if we've got anything to map
+					
+					if( toMap != 0 )
+					{	
+						pte++;
 
-                    // move to new page table entry and beginning of unmapped memory
-                    pte++;
-                    phys += toMap;
-                    pos += toMap;
-                }
-            }
-        }
+						if( pte <= ptes_allocated )
+						{
+							FWSBP2PTE entry;
+		
+							entry.segmentLength = toMap;
+							entry.segmentBaseAddressHi = 0x0000;
+							entry.segmentBaseAddressLo = phys;
+		
+							fPageTableDescriptor->writeBytes( (pte-1) * sizeof(FWSBP2PTE), &entry, sizeof(FWSBP2PTE) );
+							
+		 //                  FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : PTE = %d, size = %d\n", (UInt32)this, pte-1, toMap  ) );
+		
+							// move to new page table entry and beginning of unmapped memory
+							phys += toMap;
+							pos += toMap;
+						}		
+					}
+				}
+			}
 
-        // map buffers
+			FWKLOG( ( "IOFireWireSBP2ORB<0x%08lx> : number of required PTE's = %d\n", (UInt32)this, pte ) );
+			
+			if( pte <= ptes_allocated )
+			{
+				done = true;
+			}
+			else
+			{
+				if( fCommandFlags & kFWSBP2CommandFixedSize )
+				{
+					status = kIOReturnNoMemory;
+					done = true;
+				}
+				else
+				{
+					// reallocate
+					status = allocatePageTable( pte );
+					if( status != kIOReturnSuccess )
+					{
+						status = kIOReturnNoMemory;
+						done = true;
+					}
+				}
+			}			
+		}
+	}
+	
+	//
+	// map buffers
+	//
+	
+	// allocate and register an address space for the buffers
+	
+	if( status == kIOReturnSuccess )
+	{
+		fBufferDescriptor = memoryDescriptor;
+		fBufferDescriptor->retain();
+		fBufferAddressSpace = fUnit->createPhysicalAddressSpace( memoryDescriptor );
+		if( fBufferAddressSpace == NULL )
+		{
+			status = kIOReturnNoMemory;
+		}
+	}
 
-        // allocate and register an address space for the buffers
-        if( status == kIOReturnSuccess )
-        {
-            fBufferDescriptor = memoryDescriptor;
-            fBufferDescriptor->retain();
-            fBufferAddressSpace = fUnit->createPhysicalAddressSpace( memoryDescriptor );
-            if( fBufferAddressSpace == NULL )
-                status = kIOReturnNoMemory;
-        }
+	if( status == kIOReturnSuccess )
+	{
+		status = fBufferAddressSpace->activate();
+	}
 
-        if( status == kIOReturnSuccess )
-        {
-            status = fBufferAddressSpace->activate();
-        }
-
-        if( status == kIOReturnSuccess )
-        {
-            fBufferAddressSpaceAllocated = true;
-        }
-    }
+	if( status == kIOReturnSuccess )
+	{
+		fBufferAddressSpaceAllocated = true;
+	}
     
     //
     // fill in orb

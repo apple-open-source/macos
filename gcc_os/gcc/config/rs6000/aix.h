@@ -21,14 +21,31 @@ Boston, MA 02111-1307, USA.  */
 
 /* Yes!  We are AIX!  */
 #define DEFAULT_ABI ABI_AIX
-#undef TARGET_AIX
+#undef  TARGET_AIX
 #define TARGET_AIX 1
+
+/* AIX always has a TOC.  */
+#define TARGET_NO_TOC 0
+#define TARGET_TOC 1
+#define FIXED_R2 1
+
+/* AIX allows r13 to be used in 32-bit mode.  */
+#define FIXED_R13 0
+
+/* AIX does not support Altivec.  */
+#undef  TARGET_ALTIVEC
+#define TARGET_ALTIVEC 0
+#undef  TARGET_ALTIVEC_ABI
+#define TARGET_ALTIVEC_ABI 0
+#undef  TARGET_ALTIVEC_VRSAVE
+#define TARGET_ALTIVEC_VRSAVE 0
+
 /* The AIX linker will discard static constructors in object files before
    collect has a chance to see them, so scan the object files directly.  */
 #define COLLECT_EXPORT_LIST
 
 /* Handle #pragma weak and #pragma pack.  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* This is the only version of nm that collect2 can work with.  */
 #define REAL_NM_FILE_NAME "/usr/ucb/nm"
@@ -41,18 +58,26 @@ Boston, MA 02111-1307, USA.  */
 #define LINK_LIBGCC_SPECIAL_1
 
 /* Names to predefine in the preprocessor for this target machine.  */
-#define CPP_PREDEFINES "-D_IBMR2 -D_POWER -D_AIX -D_AIX32 -D_LONG_LONG \
--Asystem=unix -Asystem=aix -Acpu=rs6000 -Amachine=rs6000"
+#define TARGET_OS_CPP_BUILTINS()         \
+  do                                     \
+    {                                    \
+      builtin_define ("_IBMR2");         \
+      builtin_define ("_POWER");         \
+      builtin_define ("_AIX");           \
+      builtin_define ("_AIX32");         \
+      builtin_define ("_LONG_LONG");     \
+      builtin_assert ("system=unix");    \
+      builtin_assert ("system=aix");     \
+      builtin_assert ("cpu=rs6000");     \
+      builtin_assert ("machine=rs6000"); \
+    }                                    \
+  while (0)
 
 /* Define appropriate architecture macros for preprocessor depending on
    target switches.  */
 
 #define CPP_SPEC "%{posix: -D_POSIX_SOURCE}\
-   %{ansi: -D_ANSI_C_SOURCE}\
-   %(cpp_cpu)"
-
-#undef CPP_DEFAULT_SPEC
-#define CPP_DEFAULT_SPEC "-D_ARCH_PWR"
+   %{ansi: -D_ANSI_C_SOURCE}"
 
 #undef ASM_DEFAULT_SPEC
 #define ASM_DEFAULT_SPEC ""
@@ -121,8 +146,6 @@ Boston, MA 02111-1307, USA.  */
    ? MAX (MAX ((COMPUTED), (SPECIFIED)), 64)		\
    : MAX ((COMPUTED), (SPECIFIED)))
 
-
-
 /* Indicate that jump tables go in the text section.  */
 
 #define JUMP_TABLES_IN_TEXT_SECTION 1
@@ -146,27 +169,8 @@ Boston, MA 02111-1307, USA.  */
   { "link_syscalls",            LINK_SYSCALLS_SPEC },			\
   { "link_libg",                LINK_LIBG_SPEC }
 
-/* FP save and restore routines.  */
-#define	SAVE_FP_PREFIX "._savef"
-#define SAVE_FP_SUFFIX ""
-#define	RESTORE_FP_PREFIX "._restf"
-#define RESTORE_FP_SUFFIX ""
-
-/* APPLE LOCAL begin AltiVec */
-/* Vector save and restore routines.  */
-#define	SAVE_VECTOR_PREFIX "._savev"
-#define SAVE_VECTOR_SUFFIX ""
-#define	RESTORE_VECTOR_PREFIX "._restv"
-#define RESTORE_VECTOR_SUFFIX ""
-/* APPLE LOCAL end AltiVec */
-
 /* Define cutoff for using external functions to save floating point.  */
 #define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) == 62 || (FIRST_REG) == 63)
-
-/* APPLE LOCAL begin AltiVec */
-/* Define cutoff for using external functions to save vector registers */
-#define VECTOR_SAVE_INLINE(FIRST_REG) ((FIRST_REG) >= 108 && (FIRST_REG) <= 109)
-/* APPLE LOCAL end AltiVec */
 
 /* Optabs entries for the int->float routines and quad FP operations
    using the standard AIX names.  */
@@ -194,14 +198,6 @@ Boston, MA 02111-1307, USA.  */
 	  = init_one_libfunc (DIVTF3_LIBCALL);				\
       }									\
   } while (0)
-
-/* AIX always has a TOC.  */
-#define TARGET_NO_TOC		0
-#define	TARGET_TOC		1
-
-#define FIXED_R2 1
-/* AIX allows r13 to be used.  */
-#define FIXED_R13 0
 
 /* __throw will restore its own return address to be the same as the
    return address of the function that the throw is being made to.

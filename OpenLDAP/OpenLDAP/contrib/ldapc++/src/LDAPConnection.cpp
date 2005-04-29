@@ -198,9 +198,10 @@ void LDAPConnection::modify(const string& dn, const LDAPModList* mods,
         }
         break;
         default :
+            string srvMsg = res->getErrMsg();
             delete res;
             delete msg;
-            throw LDAPException(resCode);
+            throw LDAPException(resCode,srvMsg);
     }
     
 }
@@ -334,26 +335,3 @@ void LDAPConnection::setConstraints(LDAPConstraints* cons){
 const LDAPConstraints* LDAPConnection::getConstraints() const{
     return LDAPAsynConnection::getConstraints();
 }
-
-int LDAPConnection::enableCache(long timeout, long maxmem) {
-    return LDAPAsynConnection::enableCache(timeout, maxmem);
-}
-
-
-void LDAPConnection::disableCache() {
-    LDAPAsynConnection::disableCache();
-}
-
-bool LDAPConnection::getCacheEnabled() { 
-    return LDAPAsynConnection::getCacheEnabled();
-}
-
-void LDAPConnection::uncache_entry(string &dn) {
-    LDAPAsynConnection::uncache_entry(dn);
-}
-
-void LDAPConnection::flush_cache()
-{
-    LDAPAsynConnection::flush_cache();
-}
-

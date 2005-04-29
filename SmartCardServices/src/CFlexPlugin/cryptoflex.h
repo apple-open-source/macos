@@ -153,6 +153,7 @@
 
     /** There have been memory problems on the card */
 #define CFMSC_NO_MEMORY_LEFT                 0x6A84
+#define CFMSC_NO_MEMORY_LEFT_1               0x6A83
     /** Entered PIN is not correct */
 #define CFMSC_AUTH_FAILED                    0x6300
     /** Required operation is not allowed in actual circumstances */

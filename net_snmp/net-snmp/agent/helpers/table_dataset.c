@@ -58,6 +58,17 @@ typedef struct newrow_stash_s {
  *  @{
  */
 
+void
+netsnmp_init_table_dataset(void) {
+#ifndef DISABLE_MIB_LOADING
+    register_app_config_handler("table",
+                                netsnmp_config_parse_table_set, NULL,
+                                "tableoid");
+#endif /* DISABLE_MIB_LOADING */
+    register_app_config_handler("add_row", netsnmp_config_parse_add_row,
+                                NULL, "table_name indexes... values...");
+}
+
 /** Create a netsnmp_table_data_set structure given a table_data definition */
 netsnmp_table_data_set *
 netsnmp_create_table_data_set(const char *table_name)
@@ -86,6 +97,7 @@ netsnmp_get_table_data_set_handler(netsnmp_table_data_set *data_set)
         netsnmp_create_handler(TABLE_DATA_SET_NAME,
                                netsnmp_table_data_set_helper_handler);
     if (ret) {
+        ret->flags |= MIB_HANDLER_AUTO_NEXT;
         ret->myvoid = (void *) data_set;
     }
     return ret;
@@ -281,7 +293,7 @@ netsnmp_table_set_add_default_row(netsnmp_table_data_set *table_set,
                                   size_t default_value_len)
 {
 
-    netsnmp_table_data_set_storage *new_col, *ptr;
+    netsnmp_table_data_set_storage *new_col, *ptr, *pptr;
 
     if (!table_set)
         return SNMPERR_GENERR;
@@ -309,9 +321,23 @@ netsnmp_table_set_add_default_row(netsnmp_table_data_set *table_set,
     if (table_set->default_row == NULL)
         table_set->default_row = new_col;
     else {
-        for (ptr = table_set->default_row; ptr->next; ptr = ptr->next) {
+        /* sort in order just because (needed for add_row support) */
+        for (ptr = table_set->default_row, pptr = NULL;
+             ptr;
+             pptr = ptr, ptr = ptr->next) {
+            if (ptr->column > column) {
+                new_col->next = ptr;
+                if (pptr)
+                    pptr->next = new_col;
+                else
+                    table_set->default_row = new_col;
+                return SNMPERR_SUCCESS;
+            }
         }
-        ptr->next = new_col;
+        if (pptr)
+            pptr->next = new_col;
+        else
+            snmp_log(LOG_ERR,"Shouldn't have gotten here: table_dataset/add_row");
     }
     return SNMPERR_SUCCESS;
 }
@@ -426,6 +452,11 @@ netsnmp_table_data_set_helper_handler(netsnmp_mib_handler *handler,
             (reginfo->rootoid_len + 2);
 
         if (MODE_IS_SET(reqinfo->mode)) {
+
+            char buf[256]; /* is this reasonable size?? */
+            int  rc;
+            size_t len;
+
             /*
              * use a cached copy of the row for modification 
              */
@@ -434,9 +465,27 @@ netsnmp_table_data_set_helper_handler(netsnmp_mib_handler *handler,
              * cache location: may have been created already by other
              * SET requests in the same master request. 
              */
+            rc = snprintf(buf, sizeof(buf), "dataset_row_stash:%s:",
+                          datatable->table->name);
+            if ((-1 == rc) || (rc >= sizeof(buf))) {
+                snmp_log(LOG_ERR,"%s handler name too long\n",
+                         datatable->table->name);
+                netsnmp_set_request_error(reqinfo, request,
+                                          SNMP_ERR_GENERR);
+                continue;
+            }
+            len = sizeof(buf) - rc;
+            rc = snprint_objid(&buf[rc], len, table_info->index_oid,
+                               table_info->index_oid_len);
+            if (-1 == rc) {
+                snmp_log(LOG_ERR,"%s oid or name too long\n",
+                         datatable->table->name);
+                netsnmp_set_request_error(reqinfo, request,
+                                          SNMP_ERR_GENERR);
+                continue;
+            }
             stashp = (netsnmp_oid_stash_node **)
-                netsnmp_table_get_or_create_row_stash(reqinfo,
-                                                      "dataset_row_stash");
+                netsnmp_table_get_or_create_row_stash(reqinfo, buf);
 
             newrowstash
                 = netsnmp_oid_stash_get_data(*stashp, suffix, suffix_len);
@@ -710,8 +759,7 @@ netsnmp_table_data_set_helper_handler(netsnmp_mib_handler *handler,
         }
     }
 
-    if (handler->next && handler->next->access_method)
-        netsnmp_call_next_handler(handler, reginfo, reqinfo, requests);
+    /* next handler called automatically - 'AUTO_NEXT' */
     return SNMP_ERR_NOERROR;
 }
 
@@ -738,6 +786,7 @@ netsnmp_register_auto_data_table(netsnmp_table_data_set *table_set,
     netsnmp_add_list_data(&auto_tables, netsnmp_create_data_list(registration_name, tables, NULL));     /* XXX */
 }
 
+#ifndef DISABLE_MIB_LOADING
 /** @internal */
 void
 netsnmp_config_parse_table_set(const char *token, char *line)
@@ -844,6 +893,7 @@ netsnmp_config_parse_table_set(const char *token, char *line)
 
     netsnmp_register_auto_data_table(table_set, NULL);
 }
+#endif /* DISABLE_MIB_LOADING */
 
 /** @internal */
 void
@@ -1065,10 +1115,18 @@ netsnmp_table_set_add_indexes(va_alist)
 #endif
 
     while ((type = va_arg(debugargs, int)) != 0) {
-        netsnmp_table_dataset_add_index(tset, type);
+        netsnmp_table_dataset_add_index(tset, (u_char)type);
     }
 
     va_end(debugargs);
+}
+
+int
+netsnmp_table_set_num_rows(netsnmp_table_data_set *table)
+{
+    if (!table)
+        return 0;
+    return netsnmp_table_data_num_rows(table->table);
 }
 
 /*

@@ -1,9 +1,22 @@
 /* APPLE LOCAL file AltiVec */
-/* { dg-do compile { target powerpc-*-darwin* } } */
+/* { dg-do run { target powerpc*-*-* } } */
 /* { dg-options "-faltivec" } */
 
-void foo() {
-  vector bool int boolVector = (vector bool int) vec_splat_u32(3);
-  boolVector = vec_sld( boolVector, boolVector, 
-    1 );  /* { dg-bogus "no instance of overloaded" } */
+/* Check whether AltiVec allows for 'bool'
+   and 'pixel' to be #defined to mean other things.  */
+
+extern void abort (void);
+#define CHECK_IF(E) if(!(E)) abort()
+
+#define bool char
+#define pixel unsigned char
+
+int main(void) {
+  bool x1;
+  pixel x2;
+
+  CHECK_IF(sizeof(x1) == 1);
+  CHECK_IF(sizeof(x2) == 1);
+  return 0;
 }
+

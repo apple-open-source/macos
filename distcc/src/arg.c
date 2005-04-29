@@ -62,6 +62,7 @@
 #include "io.h"
 #include "util.h"
 #include "exitcode.h"
+#include "cpp_dialect.h"
 
 
 static int dcc_argv_append(char *argv[], char *toadd)
@@ -190,8 +191,15 @@ int dcc_scan_args(char *argv[], char **input_file, char **output_file,
                  * extension.  I haven't seen anyone use them yet
                  * though. */
 
-                rs_log_info("gcc's -x handling is complex; running locally");
-                return -1;
+                a = argv[++i];      /* get argument for -x */
+                char *ext;
+                if (ext = ext_lookup(a)) {
+                    opt_x_ext = ext;
+                    seen_opt_x = 1; /* if it's something we understand, keep parsing */
+                } else {
+                    rs_log_info("gcc's -x handling is complex; running locally");
+                    return -1;
+                }
             } else if (!strcmp(a, "-c")) {
                 seen_opt_c = 1;
             } else if (!strcmp(a, "-o")) {

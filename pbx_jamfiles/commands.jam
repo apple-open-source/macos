@@ -39,7 +39,7 @@ NMEDIT		default = /usr/bin/nmedit ;
 OSAC		default = /usr/bin/osacompile ;
 OSAL		default = /usr/bin/osalang ;
 OSAS		default = /usr/bin/osascript ;
-PBXCP		default = $(SYSTEM_DEVELOPER_TOOLS)/pbxcp ;
+PBXCP		default = $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/DevToolsCore.framework/Resources/pbxcp ;
 RANLIB		default = /usr/bin/ranlib ;
 REGGEN		default = reggen ;
 RESMERGER	default = $(SYSTEM_DEVELOPER_TOOLS)/ResMerger ;
@@ -405,6 +405,9 @@ rule PBXCp
     if $(REMOVE_CVS_FROM_RESOURCES) = YES {
         PBXCP_FLAGS on $(1) += -exclude CVS ;
     }
+    if $(REMOVE_SVN_FROM_RESOURCES) = YES {
+        PBXCP_FLAGS on $(1) += -exclude .svn ;
+    }
     if $(COPY_PHASE_STRIP) = YES  &&  $(ACTION) != installhdrs {
         PBXCP_FLAGS on $(1) += -strip-debug-symbols ;
     }
@@ -706,6 +709,7 @@ rule Bridget
         BRIDGET_FILE_LIST default = $(FILE_LIST)Bridget ;
         BRIDGET_CFLAGS on $(1) = -arch $(ARCH) $(PER_ARCH_CFLAGS) -fno-common -fpascal-strings $(OPTIMIZATION_CFLAGS) $(WARNING_CFLAGS) ;
         BRIDGET_CFLAGS on $(1) += -pipe ;
+
         # seed search paths with target-wide values
         HEADER_SEARCH_PATHS on $(1) = $(HEADER_SEARCH_PATHS) ;
         FRAMEWORK_SEARCH_PATHS on $(1) = $(FRAMEWORK_SEARCH_PATHS) ;
@@ -725,9 +729,20 @@ rule Bridget
         if $(OS) in MACOS DARWIN {
             BRIDGET_CFLAGS on $(1) += -precomp-trustfile $(PRECOMP_TRUSTFILE) ;
         }
+
+        # Pass headermap and/or header symlinks directory.
         if $(CPP_HEADERMAP_FILE) {
-            BRIDGET_CFLAGS on $(1) += "-Wp,-header-mapfile,$(CPP_HEADERMAP_FILE)" ;
+            if $(GCC_VERSION) <= 3.3 {
+                CPP_HEADERMAP_FLAGS on $(1) = -Wp,-header-mapfile,$(CPP_HEADERMAP_FILE) ;
+            }
+            else if $(GCC_VERSION) >= 4.0 {
+                CPP_HEADERMAP_FLAGS on $(1) = -I$(CPP_HEADERMAP_FILE) ;
+            }
+            else {
+                ECHO jam: warning: GCC v$(GCC_VERSION) does not support headermaps ;
+            }
         }
+
         if YES in $(GENERATE_CPP_ILOG_FILES) {
             local INCLUSION_LOG_FILE default = $(OBJECT_FILE_DIR)-$(VARIANT)$(/)$(ARCH)$(/)$(1:DB).ilog ;
             BRIDGET_CFLAGS on $(1) += "-Wp,-inclusion-log-file,$(INCLUSION_LOG_FILE)" ;
@@ -791,7 +806,7 @@ actions Bridget.DeriveAndCompileC
 {
     $(BRIDGET) -stub -init -o "$(BRIDGET_FILES_DIR)" "-I$(BRIDGET_FILES_DIR)" "-I$(SOURCE_ROOT)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(JAVA_HEADERS_DIR)" "$(BRIDGETFLAGS)" "$(OTHER_BRIDGETFLAGS)" "$(2)" && \
     cd "$(BRIDGET_FILES_DIR)" && \
-    $(CC) -c $(ARCH_FLAGS) -O -fno-common -no-cpp-precomp -dynamic "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-I$(JAVA_HEADERS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(TARGET_BUILD_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(TARGET_BUILD_DIR)/$(PRIVATE_HEADER_DIR:G=)" "$(BRIDGET_CFLAGS)" $(PREFIX_HEADER_CFLAGS) `cat "$(BRIDGET_DERIVED_C_FILE_LIST:G=)"` && \
+    $(CC) -c $(ARCH_FLAGS) $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -O -fno-common -no-cpp-precomp -dynamic "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-I$(JAVA_HEADERS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(TARGET_BUILD_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(TARGET_BUILD_DIR)/$(PRIVATE_HEADER_DIR:G=)" "$(BRIDGET_CFLAGS)" $(PREFIX_HEADER_CFLAGS) `cat "$(BRIDGET_DERIVED_C_FILE_LIST:G=)"` && \
     find "$(BRIDGET_FILES_DIR)" -type f -name '*.o' -print > "$(BRIDGET_FILE_LIST:G=)" && \
     /usr/bin/touch "$(1:G=)"
 }
@@ -954,7 +969,7 @@ actions Interfacer.RawExportSetsAndGlue
         if [ ! "$_upp_glue_modules" = x"$_upp_glue_modules" ]; then
             cd "$(UPP_GLUE_DIR)"
             for _upp_glue in *.c ; do
-                $(CC) -c $(ARCH_FLAGS) -O -fno-common -no-cpp-precomp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILT_PRODUCTS_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILT_PRODUCTS_DIR)/$(PRIVATE_HEADER_DIR:G=)" $_upp_glue
+                $(CC) -c $(ARCH_FLAGS) $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -O -fno-common -no-cpp-precomp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILT_PRODUCTS_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILT_PRODUCTS_DIR)/$(PRIVATE_HEADER_DIR:G=)" $_upp_glue
             done
             find "$(UPP_GLUE_DIR)" -type f -name '*.i.o' -print > "$(GLUE_FILE_LIST)"
         fi
@@ -964,7 +979,7 @@ actions Interfacer.RawExportSetsAndGlue
         if [ ! "$_component_glue_modules" = x"$_component_glue_modules" ]; then
             cd "$(COMPONENT_GLUE_DIR)"
             for _component_glue in *.c ; do
-                $(CC) -c $(ARCH_FLAGS) -O -fno-common -no-cpp-precomp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILT_PRODUCTS_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILT_PRODUCTS_DIR)/$(PRIVATE_HEADER_DIR:G=)" $_component_glue
+                $(CC) -c $(ARCH_FLAGS) $(CPP_HEADERMAP_FLAGS:Q) -I$(CPP_HEADER_SYMLINKS_DIR:Q) -O -fno-common -no-cpp-precomp -dynamic -Wmost -Wno-four-char-constants -fpascal-strings -fwritable-strings -fexceptions -DCARBON_THRASH=1 -DforCarbon=1 -DACCESSORS_CALLS_ARE_FUNCTIONS=1 -DUSE_INVOKEUPP_C_GLUE=1 "$(FLAGS)" $(GLOBAL_CFLAGS) "-I$(DERIVED_PATHS)" "-I$(HEADER_SEARCH_PATHS)" "-F$(FRAMEWORK_SEARCH_PATHS)" "-I$(BUILT_PRODUCTS_DIR)/$(PUBLIC_HEADER_DIR:G=)" "-I$(BUILT_PRODUCTS_DIR)/$(PRIVATE_HEADER_DIR:G=)" $_component_glue
             done
             find "$(COMPONENT_GLUE_DIR)" -type f -name '*.i.o' -print >> "$(GLUE_FILE_LIST)"
         fi
@@ -1479,8 +1494,8 @@ actions VersioningSystem_apple-generic.Create
     vers_info_prefix="$(VERSION_INFO_PREFIX)"
     vers_info_suffix="$(VERSION_INFO_SUFFIX)"
     vers_info_builder="$(VERSION_INFO_BUILDER)"
-    echo ${vers_info_export_decl} " const unsigned char ${vers_info_prefix}${target_name}VersionString${vers_info_suffix}[] =  \"@(#)PROGRAM:${target_name}  PROJECT:${project_name}-${project_vers}  DEVELOPER:${vers_info_builder}  BUILT:\" __DATE__  \" \" __TIME__ \"\n\";" > "$(1)"
-    echo ${vers_info_export_decl} " const double ${vers_info_prefix}${target_name}VersionNumber${vers_info_suffix} = (double)${project_vers};" >> $(1:Q)
+    printf "%s%s\n" ${vers_info_export_decl} " const unsigned char ${vers_info_prefix}${target_name}VersionString${vers_info_suffix}[] __attribute__ ((used)) = \"@(#)PROGRAM:${target_name}  PROJECT:${project_name}-${project_vers}  DEVELOPER:${vers_info_builder}  BUILT:\" __DATE__  \" \" __TIME__ \"\n\";" > "$(1)"
+    printf "%s%s\n" ${vers_info_export_decl} " const double ${vers_info_prefix}${target_name}VersionNumber${vers_info_suffix} __attribute__ ((used)) = (double)${project_vers};" >> $(1:Q)
 }
 
 # KernelModuleGeneratedSource

@@ -18,9 +18,7 @@
 __RCSID("$NetBSD: e_scalbf.c,v 1.5 1999/07/02 15:37:41 simonb Exp $");
 #endif
 
-#include "math.h"
-#include "math_private.h"
-
+extern float scalbnf ( float, int );
 float scalbf(float x, int fn)
 {
 	return scalbnf(x,fn);

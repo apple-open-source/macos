@@ -1,0 +1,148 @@
+TclXML Version 2.6
+
+Configuration tests:
+
+Configuration            | Linux | Windows | Mac OS X | Solaris | HP/UX |
+-------------------------+-------+---------+----------+---------+-------+
+Pure-Tcl                 |  SRB  |   SRB   |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build generic layer only |  SRB  |         |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build expat              |  SRB  |         |    SRB   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+
+       Package:
+
+Bugs fixed since last release:
+
+#453760, #654276, #675798, #678139
+
+Known bugs outstanding:
+
+#413341, #456273, #467785, #583947, #630810, #641705, #676399
+
+	Tcl parser:
+
+Bugs fixed since last release:
+
+Known bugs outstanding:
+
+	Expat wrapper:
+
+Bugs fixed since last release:
+
+Known bugs outstanding:
+
+=====================================================
+
+TclXML Version 2.5
+
+Configuration tests:
+
+Configuration            | Linux | Windows | Mac OS X | Solaris | HP/UX |
+-------------------------+-------+---------+----------+---------+-------+
+Pure-Tcl                 |  SRB  |         |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build generic layer only |  SRB  |         |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build expat              |  SRB  |         |    SRB   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+
+       Package:
+
+Bugs fixed since last release:
+
+Known bugs outstanding:
+
+#630810
+
+	Tcl parser:
+
+Bugs fixed since last release:
+
+#620034
+
+Known bugs outstanding:
+
+#413341, #456273, #583947, #641705
+
+	Expat wrapper:
+
+Bugs fixed since last release:
+
+
+
+Known bugs outstanding:
+
+#453760, #467785
+
+=====================================================
+
+TclXML Version 2.4
+
+Configuration tests:
+
+Configuration            | Linux | Windows | Mac OS X | Solaris | HP/UX |
+-------------------------+-------+---------+----------+---------+-------+
+Pure-Tcl                 |  SRB  |         |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build generic layer only |  SRB  |         |    N/A   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+Build expat              |  SRB  |         |    SRB   |         |       |
+-------------------------+-------+---------+----------+---------+-------+
+
+       Package:
+
+Bugs fixed since last release:
+
+#616117, #624382, #627772
+
+	Tcl parser:
+
+Bugs fixed since last release:
+
+
+
+Known bugs outstanding:
+
+#413341, #456273, #583947, #620034
+
+	Expat wrapper:
+
+Bugs fixed since last release:
+
+#618093
+
+Known bugs outstanding:
+
+#453760, #467785
+
+=====================================================
+
+TclXML Version 2.3
+
+       Package:
+
+Bugs fixed since last release:
+
+	Tcl parser:
+
+Bugs fixed since last release:
+
+#596959, #561535, many, many others...
+
+Known bugs outstanding:
+
+#413341, #456273, #583947
+
+	Expat wrapper:
+
+Bugs fixed since last release:
+
+Many...
+
+Known bugs outstanding:
+
+#453760, #467785
+
+$Id: RELNOTES,v 1.6 2003/02/25 04:08:59 balls Exp $

@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2002
+ * Copyright (c) 2000-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: db_server_int.h,v 1.1.1.1 2003/02/15 04:55:42 zarzycki Exp $
+ * $Id: db_server_int.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
  */
 
 #ifndef _DB_SERVER_INT_H_

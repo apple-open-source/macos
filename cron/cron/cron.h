@@ -35,6 +35,7 @@
 #include <err.h>
 #include <errno.h>
 #include <pwd.h>
+#include <grp.h>
 #include <signal.h>
 #include <stdio.h>
 #include <time.h>
@@ -156,8 +157,8 @@
 
 typedef	struct _entry {
 	struct _entry	*next;
-	uid_t		uid;
-	gid_t		gid;
+	char            uname[MAXLOGNAME];
+	char            gname[MAXLOGNAME]; /* there is no MAXGROUPNAME, but if there were, it'd probably be the same */
 #ifdef LOGIN_CAP
 	char            *class;
 #endif
@@ -235,11 +236,11 @@ char		*env_get __P((char *, char **)),
 		**env_copy __P((char **)),
 		**env_set __P((char **, char *));
 
-user		*load_user __P((int, struct passwd *, char *)),
+user		*load_user __P((int, char *)),
 		*find_user __P((cron_db *, char *));
 
 entry		*load_entry __P((FILE *, void (*)(),
-				 struct passwd *, char **));
+				 char *, char **));
 
 FILE		*cron_popen __P((char *, char *, entry *));
 

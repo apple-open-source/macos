@@ -31,7 +31,8 @@
 
 #include <DirectoryServiceCore/DSLThread.h>
 
-#define CONFIG_DA_FIND	1*60*60		// once per hour
+#define CONFIG_DA_FIND				1*60*60		// once per hour
+#define CONFIG_DA_INITIAL_DELAY		1*60		// wait a minute before looking for DAs
 
 class SLPDALocator /* : public DSLThread */
 {

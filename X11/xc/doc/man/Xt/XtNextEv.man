@@ -26,7 +26,7 @@
 .\" other dealing in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtNextEv.man,v 1.4 2001/01/27 18:20:28 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtNextEv.man,v 1.5 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,21 +131,16 @@
 .SH NAME
 XtNextEvent, XtPending, XtPeekEvent, XtProcessEvent, XtMainLoop \- query and process events and input
 .SH SYNTAX
-void XtNextEvent(\fIevent_return\fP)
-.br
-      XEvent *\fIevent_return\fP;
-.LP
-Boolean XtPeekEvent(\fIevent_return\fP)
-.br
-      XEvent *\fIevent_return\fP;
-.LP
-Boolean XtPending()
-.LP
-void XtProcessEvent(\fImask\fP)
-.br
-      XtInputMask \fImask\fP;
-.LP
-void XtMainLoop()
+.HP
+void XtNextEvent(XEvent *\fIevent_return\fP); 
+.HP
+Boolean XtPeekEvent(XEvent *\fIevent_return\fP); 
+.HP
+Boolean XtPending(void); 
+.Hp
+void XtProcessEvent(XtInputMask \fImask\fP); 
+.HP
+void XtMainLoop(void); 
 .SH ARGUMENTS
 .IP \fIevent\fP 1i
 Specifies a pointer to the event structure that is to be dispatched

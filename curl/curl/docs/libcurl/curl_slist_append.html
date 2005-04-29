@@ -1,74 +1,60 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       curl_slist_append - add a string to an slist
+<html><head>
+<title>curl_slist_append man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>SYNOPSIS</H2><PRE>
-       <B>#include</B> <B>&lt;curl/curl.h&gt;</B>
+P.level2 {
+ padding-left: 6em;
+}
 
-       <B>struct</B>   <B>curl_slist</B>  <B>*curl_slist_append(struct</B>  <B>curl_slist</B>
-       <B>*</B><I>list,</I> <B>const</B> <B>char</B> <B>*</B> <I>string</I><B>);</B>
+span.emphasis {
+ font-style: italic;
+}
 
+span.bold {
+ font-weight: bold;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       curl_slist_append() appends a specified string to a linked
-       list of strings. The existing <I>list</I> should be passed as the
-       first argument while the new list is  returned  from  this
-       function. The specified <I>string</I> has been appended when this
-       function returns.
+span.manpage {
+ font-weight: bold;
+}
 
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-</PRE>
-<H2>RETURN VALUE</H2><PRE>
-       A null pointer is returned if anything went wrong,  other-
-       wise the new list pointer is returned.
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-</PRE>
-<H2>SEE ALSO</H2><PRE>
-       <B>curl_slist_free_all(3)</B>,
-
-
-</PRE>
-<H2>BUGS</H2><PRE>
-       Surely there are some, you tell me!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">curl_slist_append - add a string to an slist <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0"><span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<p class="level0"><span Class="bold">struct curl_slist *curl_slist_append(struct curl_slist * list,</span> <span Class="bold">const char * string );</span> 
+<p class="level0"><a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">curl_slist_append() appends a specified string to a linked list of strings. The existing <span Class="emphasis">list</span> should be passed as the first argument while the new list is returned from this function. The specified <span Class="emphasis">string</span> has been appended when this function returns. curl_slist_append() copies the string. 
+<p class="level0">The list should be freed again (after usage) with <a class="bold" href="./curl_slist_free_all.html">curl_slist_free_all(3)</a>. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level0">A null pointer is returned if anything went wrong, otherwise the new list pointer is returned. <a name="EXAMPLE"></a><h2 class="nroffsh">EXAMPLE</h2>
+<p class="level0">&nbsp;CURL handle; &nbsp;curl_slist *slist=NULL; 
+<p class="level0">&nbsp;slist = curl_slist_append(slist, "pragma:"); &nbsp;curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist); 
+<p class="level0">&nbsp;curl_easy_perform(handle); 
+<p class="level0">&nbsp;curl_slist_free_all(slist); /* free the list again */ <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a class="manpage" href="./curl_slist_free_all.html">curl_slist_free_all (3)</a> <span Class="manpage"> </span> <p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

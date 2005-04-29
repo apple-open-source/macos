@@ -9,13 +9,11 @@ void foo(void)
 {
         int View;	/* ok */
         View = 1;	/* ok */
-	View *view;	/* { dg-error "`view' undeclared" } */
-	/* { dg-error "is reported only once" "" { target *-*-* } 12 } */
-	/* { dg-error "function it appears in" "" { target *-*-* } 12 } */
+	View *view;	/* { dg-error "undeclared|only once|it appears" } */
 }
 
 void bar(void)
 {
 	View *view;	/* ok */
-	View = 1;	/* { dg-error "parse error" } */
+	View = 1;	/* { dg-error "(parse|syntax) error" } */
 }

@@ -2708,6 +2708,14 @@ execute_simple_command (simple_command, pipe_in, pipe_out, async, fds_to_close)
 		  if (builtin_is_special)
 		    special_builtin_failed = 1;
 		}
+	      /* In POSIX mode, if there are assignment errors preceding
+		 a special builtin, a non-interactive shell shall exit. */
+	      if (posixly_correct && interactive_shell==0 && 
+		  builtin_is_special && temporary_env_errors) 
+	        {
+		  last_command_exit_value = EXECUTION_FAILURE;
+		  jump_to_top_level(FORCE_EOF);
+		}
 	      /* In POSIX mode, if there are assignment statements preceding
 		 a special builtin, they persist after the builtin
 		 completes. */

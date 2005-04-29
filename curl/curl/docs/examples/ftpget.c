@@ -1,11 +1,11 @@
 /*****************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ftpget.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: ftpget.c,v 1.4 2004/08/23 14:22:52 bagder Exp $
  */
 
 #include <stdio.h>
@@ -49,16 +49,20 @@ int main(void)
   };
 
   curl_global_init(CURL_GLOBAL_DEFAULT);
-  
+
   curl = curl_easy_init();
   if(curl) {
-    /* Get curl 7.9.2 from sunet.se's FTP site: */
+    /*
+     * Get curl 7.9.2 from sunet.se's FTP site. curl 7.9.2 is most likely not
+     * present there by the time you read this, so you'd better replace the
+     * URL with one that works!
+     */
     curl_easy_setopt(curl, CURLOPT_URL,
                      "ftp://ftp.sunet.se/pub/www/utilities/curl/curl-7.9.2.tar.gz");
     /* Define our callback to get called when there's data to be written */
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, my_fwrite);
     /* Set a pointer to our struct to pass to the callback */
-    curl_easy_setopt(curl, CURLOPT_FILE, &ftpfile);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &ftpfile);
 
     /* Switch on full protocol/debug output */
     curl_easy_setopt(curl, CURLOPT_VERBOSE, TRUE);

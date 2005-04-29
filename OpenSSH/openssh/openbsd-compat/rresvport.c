@@ -1,3 +1,5 @@
+/* OPENBSD ORIGINAL: lib/libc/net/rresvport.c */
+
 /*
  * Copyright (c) 1995, 1996, 1998 Theo de Raadt.  All rights reserved.
  * Copyright (c) 1983, 1993, 1994
@@ -11,12 +13,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- *	This product includes software developed by Theo de Raadt.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -38,7 +35,7 @@
 #ifndef HAVE_RRESVPORT_AF
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char *rcsid = "$OpenBSD: rresvport.c,v 1.5 2000/01/26 03:43:20 deraadt Exp $";
+static char *rcsid = "$OpenBSD: rresvport.c,v 1.6 2003/06/03 02:11:35 deraadt Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include "includes.h"

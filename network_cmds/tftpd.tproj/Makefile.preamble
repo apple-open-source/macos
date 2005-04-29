@@ -116,6 +116,4 @@ OTHER_HELP_DIRS =
 # Don't add more rules here unless you want the first one to be the default
 # target for make!  Put all your targets in Makefile.postamble.
 
-OTHER_OFILES = tftpsubs.o
-
 -include ../Makefile.include

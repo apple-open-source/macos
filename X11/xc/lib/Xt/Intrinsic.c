@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Intrinsic.c,v 3.22 2003/01/12 03:55:46 tsi Exp $ */
+/* $XFree86: xc/lib/Xt/Intrinsic.c,v 3.23 2003/04/21 16:34:27 herrb Exp $ */
 
 /*
 
@@ -96,16 +96,9 @@ Boolean XtIsSubclass(widget, widgetClass)
 } /* XtIsSubclass */
 
 
-#if NeedFunctionPrototypes
 Boolean _XtCheckSubclassFlag(
     Widget object,
-    _XtXtEnum flag
-    )
-#else
-Boolean _XtCheckSubclassFlag(object, flag)
-    Widget object;
-    XtEnum flag;
-#endif
+    _XtXtEnum flag)
 {
     Boolean retval;
 
@@ -119,19 +112,11 @@ Boolean _XtCheckSubclassFlag(object, flag)
 } /*_XtVerifySubclass */
 
 
-#if NeedFunctionPrototypes
 Boolean _XtIsSubclassOf(
     Widget object,
     WidgetClass widgetClass,
     WidgetClass superClass,
-    _XtXtEnum flag
-    )
-#else
-Boolean _XtIsSubclassOf(object, widgetClass, superClass, flag)
-    Widget object;
-    WidgetClass widgetClass, superClass;
-    XtEnum flag;
-#endif
+    _XtXtEnum flag)
 {
     LOCK_PROCESS;
     if (!(object->core.widget_class->core_class.class_inited & flag)) {
@@ -152,23 +137,12 @@ Boolean _XtIsSubclassOf(object, widgetClass, superClass, flag)
 } /*_XtIsSubclassOf */
 
 
-#if NeedFunctionPrototypes
 XtPointer XtGetClassExtension(
     WidgetClass	object_class,
     Cardinal	byte_offset,
     XrmQuark	type,
     long	version,
-    Cardinal	record_size
-    )
-#else
-XtPointer XtGetClassExtension(object_class, byte_offset, type, version,
-			      record_size)
-    WidgetClass	object_class;
-    Cardinal	byte_offset;
-    XrmQuark	type;
-    long        version;
-    Cardinal	record_size;
-#endif
+    Cardinal	record_size)
 {
     ObjectClassExtension ext;
     LOCK_PROCESS;
@@ -633,16 +607,9 @@ static Widget NameListToWidget(root, names, bindings,
     }
 } /* NameListToWidget */
 
-#if NeedFunctionPrototypes
 Widget XtNameToWidget(
     Widget root,
-    _Xconst char* name
-    )
-#else
-Widget XtNameToWidget(root, name)
-    Widget root;
-    String name;
-#endif
+    _Xconst char* name)
 {
     XrmName *names;
     XrmBinding *bindings;
@@ -1080,20 +1047,11 @@ static Boolean Resolve(source, len, sub, num, buf, collapse)
 }
 
 
-#if NeedFunctionPrototypes
 String XtFindFile(
     _Xconst char* path,
     Substitution substitutions,
     Cardinal num_substitutions,
-    XtFilePredicate predicate
-    )
-#else
-String XtFindFile(path, substitutions, num_substitutions, predicate)
-    String path;
-    Substitution substitutions;
-    Cardinal num_substitutions;
-    XtFilePredicate predicate;
-#endif
+    XtFilePredicate predicate)
 {
     char *buf, *buf1, *buf2, *colon;
     int len;
@@ -1348,11 +1306,7 @@ static void FillInLangSubs(subs, pd)
  * The exact value should be documented in the implementation
  * notes for any Xt implementation.
  */
-#if NeedFunctionPrototypes
 static char *implementation_default_path(void)
-#else
-static char *implementation_default_path()
-#endif
 {
 #if defined(WIN32) || defined(__UNIXOS2__)
     /* if you know how to pass % thru the compiler let me know */
@@ -1384,7 +1338,6 @@ static SubstitutionRec defaultSubs[] = {
 };
 
 
-#if NeedFunctionPrototypes
 String XtResolvePathname(
     Display *dpy,
     _Xconst char* type,
@@ -1393,17 +1346,7 @@ String XtResolvePathname(
     _Xconst char* path,
     Substitution substitutions,
     Cardinal num_substitutions,
-    XtFilePredicate predicate
-    )
-#else
-String XtResolvePathname(dpy, type, filename, suffix, path, substitutions,
-			 num_substitutions, predicate)
-    Display *dpy;
-    String type, filename, suffix, path;
-    Substitution substitutions;
-    Cardinal num_substitutions;
-    XtFilePredicate predicate;
-#endif
+    XtFilePredicate predicate)
 {
     XtPerDisplay pd;
     static char *defaultPath = NULL;
@@ -1604,11 +1547,7 @@ static XtResource geo_resources[] = {
 /************************************************************************
   This function uses XtGetSubresources to find out if a widget
   needs to be geo-spied by the caller. */
-#if NeedFunctionPrototypes
 static Boolean IsTattled (Widget widget)
-#else
-static Boolean IsTattled (widget) Widget widget ;
-#endif
 {
     GeoDataRec geo_data ;
 
@@ -1624,12 +1563,7 @@ static Boolean IsTattled (widget) Widget widget ;
 static int n_tab = 0 ;  /* not MT for now */
 
 void
-#if NeedFunctionPrototypes
 _XtGeoTab (int direction)  /* +1 or -1 */
-#else
-_XtGeoTab (direction) 
-int direction ;
-#endif
 {
     n_tab += direction ;
 }

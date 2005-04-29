@@ -127,9 +127,6 @@ void killchildren(void)
 }
 
 
-/*
- * Note that respawn doesn't preserve debug flags.
- */
 void respawn(void)
 {
 	int i;
@@ -138,14 +135,7 @@ void respawn(void)
 	
 	system_log(LOG_ERR, "Restarting NetInfo");
 
-	for (i = getdtablesize() - 1; i >= 0; i--) close(i);
-
-	open("/dev/null", O_RDWR, 0);
-	dup(0);
-	dup(0);
-
-	execl(NIBINDD_PROG, NIBINDD_PROG, 0);
-	exit(1);
+	exit(0); /* let launchd restart us */
 }
 
 

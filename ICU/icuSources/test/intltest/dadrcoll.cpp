@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -20,12 +20,10 @@
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/uchar.h"
-
+#include "unicode/tstdtmod.h"
 #include "cstring.h"
 #include "ucol_tok.h"
-
 #include "tscoll.h"
-
 #include "dadrcoll.h"
 
 U_CDECL_BEGIN
@@ -39,9 +37,7 @@ DataDrivenCollatorTest::DataDrivenCollatorTest()
 status(U_ZERO_ERROR),
 sequences(status)
 {
-  TestLog testLog;
-
-  driver = TestDataModule::getTestDataModule("DataDrivenCollationTest", testLog, status);
+  driver = TestDataModule::getTestDataModule("DataDrivenCollationTest", *this, status);
   sequences.setDeleter(deleteSeqElement);
 }
 

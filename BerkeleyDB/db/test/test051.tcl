@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2002
+# Copyright (c) 1999-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: test051.tcl,v 1.1.1.1 2003/02/15 04:56:17 zarzycki Exp $
+# $Id: test051.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
 #
 # TEST	test051
 # TEST	Fixed-length record Recno test.
@@ -99,15 +99,16 @@ proc test051 { method { args "" } } {
 			puts "\t\tTest051.e: dlen: $dlen, doff: $doff, \
 			    size: [expr $dlen+1]"
 			set data [repeat $test_char [expr $dlen + 1]]
-			error_check_good catch:put 1 [catch {eval {$db put -partial \
+			error_check_good \
+			    catch:put 1 [catch {eval {$db put -partial \
 			    [list $doff $dlen]} $txn {$key $data}} ret]
-			#
+
 			# We don't get back the server error string just
 			# the result.
-			#
 			if { $eindex == -1 } {
 				error_check_good "dbput:partial: dlen < size" \
-				    [is_substr $errorInfo "Length improper"] 1
+				    [is_substr \
+				    $errorInfo "Record length error"] 1
 			} else {
 				error_check_good "dbput:partial: dlen < size" \
 				    [is_substr $errorCode "EINVAL"] 1
@@ -117,11 +118,13 @@ proc test051 { method { args "" } } {
 			puts "\t\tTest051.e: dlen: $dlen, doff: $doff, \
 			    size: [expr $dlen-1]"
 			set data [repeat $test_char [expr $dlen - 1]]
-			error_check_good catch:put 1 [catch {eval {$db put -partial \
+			error_check_good \
+			    catch:put 1 [catch {eval {$db put -partial \
 			    [list $doff $dlen]} $txn {$key $data}} ret]
 			if { $eindex == -1 } {
 				error_check_good "dbput:partial: dlen > size" \
-				    [is_substr $errorInfo "Length improper"] 1
+				    [is_substr \
+				    $errorInfo "Record length error"] 1
 			} else {
 				error_check_good "dbput:partial: dlen < size" \
 				    [is_substr $errorCode "EINVAL"] 1

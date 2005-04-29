@@ -1,0 +1,543 @@
+<refentry id="glib-Miscellaneous-Macros">
+<refmeta>
+<refentrytitle>Miscellaneous Macros</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Miscellaneous Macros</refname><refpurpose>specialized macros which are not used often.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+#define     <link linkend="G-INLINE-FUNC-CAPS">G_INLINE_FUNC</link>
+
+#define     <link linkend="G-STMT-START-CAPS">G_STMT_START</link>
+#define     <link linkend="G-STMT-END-CAPS">G_STMT_END</link>
+
+#define     <link linkend="G-BEGIN-DECLS-CAPS">G_BEGIN_DECLS</link>
+#define     <link linkend="G-END-DECLS-CAPS">G_END_DECLS</link>
+
+#define     <link linkend="G-N-ELEMENTS-CAPS">G_N_ELEMENTS</link>                    (arr)
+
+#define     <link linkend="G-VA-COPY-CAPS">G_VA_COPY</link>
+
+#define     <link linkend="G-STRINGIFY-CAPS">G_STRINGIFY</link>                     (macro_or_string)
+
+#define     <link linkend="G-GNUC-EXTENSION-CAPS">G_GNUC_EXTENSION</link>
+#define     <link linkend="G-GNUC-CONST-CAPS">G_GNUC_CONST</link>
+#define     <link linkend="G-GNUC-DEPRECATED-CAPS">G_GNUC_DEPRECATED</link>
+#define     <link linkend="G-GNUC-NORETURN-CAPS">G_GNUC_NORETURN</link>
+#define     <link linkend="G-GNUC-UNUSED-CAPS">G_GNUC_UNUSED</link>
+#define     <link linkend="G-GNUC-PURE-CAPS">G_GNUC_PURE</link>
+#define     <link linkend="G-GNUC-PRINTF-CAPS">G_GNUC_PRINTF</link>                   ( format_idx, arg_idx )
+#define     <link linkend="G-GNUC-SCANF-CAPS">G_GNUC_SCANF</link>                    ( format_idx, arg_idx )
+#define     <link linkend="G-GNUC-FORMAT-CAPS">G_GNUC_FORMAT</link>                   ( arg_idx )
+#define     <link linkend="G-GNUC-FUNCTION-CAPS">G_GNUC_FUNCTION</link>
+#define     <link linkend="G-GNUC-PRETTY-FUNCTION-CAPS">G_GNUC_PRETTY_FUNCTION</link>
+#define     <link linkend="G-GNUC-NO-INSTRUMENT-CAPS">G_GNUC_NO_INSTRUMENT</link>
+
+#define     <link linkend="G-LIKELY-CAPS">G_LIKELY</link>                        (expr)
+#define     <link linkend="G-UNLIKELY-CAPS">G_UNLIKELY</link>                      (expr)
+
+#define     <link linkend="G-STRLOC-CAPS">G_STRLOC</link>
+#define     <link linkend="G-STRFUNC-CAPS">G_STRFUNC</link>
+
+#define     <link linkend="G-GINT16-MODIFIER-CAPS">G_GINT16_MODIFIER</link>
+#define     <link linkend="G-GINT16-FORMAT-CAPS">G_GINT16_FORMAT</link>
+#define     <link linkend="G-GUINT16-FORMAT-CAPS">G_GUINT16_FORMAT</link>
+#define     <link linkend="G-GINT32-MODIFIER-CAPS">G_GINT32_MODIFIER</link>
+#define     <link linkend="G-GINT32-FORMAT-CAPS">G_GINT32_FORMAT</link>
+#define     <link linkend="G-GUINT32-FORMAT-CAPS">G_GUINT32_FORMAT</link>
+#define     <link linkend="G-GINT64-MODIFIER-CAPS">G_GINT64_MODIFIER</link>
+#define     <link linkend="G-GINT64-FORMAT-CAPS">G_GINT64_FORMAT</link>
+#define     <link linkend="G-GUINT64-FORMAT-CAPS">G_GUINT64_FORMAT</link>
+#define     <link linkend="G-GSIZE-MODIFIER-CAPS">G_GSIZE_MODIFIER</link>
+#define     <link linkend="G-GSIZE-FORMAT-CAPS">G_GSIZE_FORMAT</link>
+#define     <link linkend="G-GSSIZE-FORMAT-CAPS">G_GSSIZE_FORMAT</link>
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+These macros provide more specialized features which are not needed so often
+by application programmers.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="G-INLINE-FUNC-CAPS"/>G_INLINE_FUNC</title>
+<indexterm><primary>G_INLINE_FUNC</primary></indexterm><programlisting>#define     G_INLINE_FUNC</programlisting>
+<para>
+Used to declare inline functions. If inline functions are not supported on
+the particular platform, the macro evaluates to the empty string.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-STMT-START-CAPS"/>G_STMT_START</title>
+<indexterm><primary>G_STMT_START</primary></indexterm><programlisting>#define     G_STMT_START</programlisting>
+<para>
+Used within multi-statement macros so that they can be used in places where
+only one statement is expected by the compiler.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-STMT-END-CAPS"/>G_STMT_END</title>
+<indexterm><primary>G_STMT_END</primary></indexterm><programlisting>#define     G_STMT_END</programlisting>
+<para>
+Used within multi-statement macros so that they can be used in places where
+only one statement is expected by the compiler.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-BEGIN-DECLS-CAPS"/>G_BEGIN_DECLS</title>
+<indexterm><primary>G_BEGIN_DECLS</primary></indexterm><programlisting>#define     G_BEGIN_DECLS</programlisting>
+<para>
+Used (along with <link linkend="G-END-DECLS-CAPS"><type>G_END_DECLS</type></link>) to bracket header files. If the
+compiler in use is a C++ compiler, adds <literal>extern "C"</literal> 
+around the header.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-END-DECLS-CAPS"/>G_END_DECLS</title>
+<indexterm><primary>G_END_DECLS</primary></indexterm><programlisting>#define     G_END_DECLS</programlisting>
+<para>
+Used (along with <link linkend="G-BEGIN-DECLS-CAPS"><type>G_BEGIN_DECLS</type></link>) to bracket header files. If the
+compiler in use is a C++ compiler, adds <literal>extern "C"</literal> 
+around the header.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-N-ELEMENTS-CAPS"/>G_N_ELEMENTS()</title>
+<indexterm><primary>G_N_ELEMENTS</primary></indexterm><programlisting>#define G_N_ELEMENTS(arr)		(sizeof (arr) / sizeof ((arr)[0]))
+</programlisting>
+<para>
+Determines the number of elements in an array. The array must be
+declared so the compiler knows its size at compile-time; this 
+macro will not work on an array allocated on the heap, only static
+arrays or arrays on the stack.
+</para><variablelist role="params">
+<varlistentry><term><parameter>arr</parameter>&nbsp;:</term>
+<listitem><simpara>the array
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-VA-COPY-CAPS"/>G_VA_COPY</title>
+<indexterm><primary>G_VA_COPY</primary></indexterm><programlisting>#define     G_VA_COPY</programlisting>
+<para>
+Portable way to copy <type>va_list</type> variables.
+</para>
+<para>
+In order to use this function, you must include <filename>string.h</filename> 
+yourself, because this macro may use <function><link linkend="memmove"><function>memmove()</function></link></function> and GLib 
+does not include <function>string.h</function> for you.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-STRINGIFY-CAPS"/>G_STRINGIFY()</title>
+<indexterm><primary>G_STRINGIFY</primary></indexterm><programlisting>#define G_STRINGIFY(macro_or_string)	G_STRINGIFY_ARG (macro_or_string)
+</programlisting>
+<para>
+Accepts a macro or a string and converts it into a string.
+</para><variablelist role="params">
+<varlistentry><term><parameter>macro_or_string</parameter>&nbsp;:</term>
+<listitem><simpara>a macro or a string.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-EXTENSION-CAPS"/>G_GNUC_EXTENSION</title>
+<indexterm><primary>G_GNUC_EXTENSION</primary></indexterm><programlisting>#define     G_GNUC_EXTENSION</programlisting>
+<para>
+Expands to <literal>__extension__</literal> when <command>gcc</command> is 
+used as the compiler.
+This simply tells <command>gcc</command> not to warn about the following non-standard code
+when compiling with the <option>-pedantic</option> option.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-CONST-CAPS"/>G_GNUC_CONST</title>
+<indexterm><primary>G_GNUC_CONST</primary></indexterm><programlisting>#define     G_GNUC_CONST</programlisting>
+<para>
+Expands to the GNU C <literal>const</literal> function attribute if the compiler is <command>gcc</command>.
+Declaring a function as const enables better optimization of the function.
+A const function doesn't examine any values except its parameters,
+and has no effects except its return value.
+See the GNU C documentation for details. 
+</para>
+<note><para>
+A function that has pointer arguments and examines the data pointed to 
+must <emphasis>not</emphasis> be declared const. Likewise, a function that 
+calls a non-const function usually must not be const. It doesn't make sense 
+for a const function to return void.
+</para></note></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-DEPRECATED-CAPS"/>G_GNUC_DEPRECATED</title>
+<indexterm role="2.2"><primary>G_GNUC_DEPRECATED</primary></indexterm><programlisting>#define     G_GNUC_DEPRECATED</programlisting>
+<para>
+Expands to the GNU C <literal>deprecated</literal> attribute if the compiler 
+is <command>gcc</command>.
+It can be used to mark typedefs, variables and functions as deprecated. 
+When called with the <option>-Wdeprecated</option> option, the compiler will 
+generate warnings when deprecated interfaces are used.
+See the GNU C documentation for details. 
+</para><para>Since 2.2
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-NORETURN-CAPS"/>G_GNUC_NORETURN</title>
+<indexterm><primary>G_GNUC_NORETURN</primary></indexterm><programlisting>#define     G_GNUC_NORETURN</programlisting>
+<para>
+Expands to the GNU C <literal>noreturn</literal> function attribute if the 
+compiler is <command>gcc</command>.
+It is used for declaring functions which never return.
+It enables optimization of the function, and avoids possible compiler
+warnings. See the GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-UNUSED-CAPS"/>G_GNUC_UNUSED</title>
+<indexterm><primary>G_GNUC_UNUSED</primary></indexterm><programlisting>#define     G_GNUC_UNUSED</programlisting>
+<para>
+Expands to the GNU C <literal>unused</literal> function attribute if the compiler is <command>gcc</command>.
+It is used for declaring functions which may never be used.
+It avoids possible compiler warnings. See the GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-PURE-CAPS"/>G_GNUC_PURE</title>
+<indexterm><primary>G_GNUC_PURE</primary></indexterm><programlisting>#define     G_GNUC_PURE</programlisting>
+<para>
+Expands to the GNU C <literal>pure</literal> function attribute if the compiler is <command>gcc</command>.
+Declaring a function as pure enables better optimization of the function.
+A pure function has no effects except its return value and the return 
+value depends only on the parameters and/or global variables.
+See the GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-PRINTF-CAPS"/>G_GNUC_PRINTF()</title>
+<indexterm><primary>G_GNUC_PRINTF</primary></indexterm><programlisting>#define     G_GNUC_PRINTF( format_idx, arg_idx )</programlisting>
+<para>
+Expands to the GNU C <literal>format</literal> function attribute if the compiler is <command>gcc</command>.
+This is used for declaring functions which take a variable number of
+arguments, with the same syntax as <function><link linkend="printf"><function>printf()</function></link></function>.
+It allows the compiler to type-check the arguments passed to the function.
+See the GNU C documentation for details. 
+</para>
+<informalexample><programlisting>
+gint g_snprintf (gchar  *string,
+                 gulong       n,
+                 gchar const *format,
+                 ...) G_GNUC_PRINTF (3, 4);
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>format_idx</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the argument corresponding to the format string.
+(The arguments are numbered from 1).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>arg_idx</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the first of the format arguments.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-SCANF-CAPS"/>G_GNUC_SCANF()</title>
+<indexterm><primary>G_GNUC_SCANF</primary></indexterm><programlisting>#define     G_GNUC_SCANF( format_idx, arg_idx )</programlisting>
+<para>
+Expands to the GNU C <literal>format</literal> function attribute if the compiler is <command>gcc</command>.
+This is used for declaring functions which take a variable number of
+arguments, with the same syntax as <function><link linkend="scanf"><function>scanf()</function></link></function>.
+It allows the compiler to type-check the arguments passed to the function.
+See the GNU C documentation for details. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>format_idx</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the argument corresponding to the format string.
+(The arguments are numbered from 1).
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>arg_idx</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the first of the format arguments.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-FORMAT-CAPS"/>G_GNUC_FORMAT()</title>
+<indexterm><primary>G_GNUC_FORMAT</primary></indexterm><programlisting>#define     G_GNUC_FORMAT( arg_idx )</programlisting>
+<para>
+Expands to the GNU C <literal>format_arg</literal> function attribute if the compiler is <command>gcc</command>.
+This function attribute specifies that a function takes a format
+string for a <function><link linkend="printf"><function>printf()</function></link></function>, <function><link linkend="scanf"><function>scanf()</function></link></function>, 
+<function><link linkend="strftime"><function>strftime()</function></link></function> or <function><link linkend="strfmon"><function>strfmon()</function></link></function> style
+function and modifies it, so that the result can be passed to a 
+<function><link linkend="printf"><function>printf()</function></link></function>, <function><link linkend="scanf"><function>scanf()</function></link></function>, 
+<function><link linkend="strftime"><function>strftime()</function></link></function> or <function><link linkend="strfmon"><function>strfmon()</function></link></function> style 
+function (with the remaining arguments to the format function the same as 
+they would have been for the unmodified string). 
+See the GNU C documentation for details. 
+</para>
+<informalexample><programlisting>
+gchar *g_dgettext (gchar *domain_name, gchar *msgid) G_GNUC_FORMAT (2);
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>arg_idx</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the argument.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-FUNCTION-CAPS"/>G_GNUC_FUNCTION</title>
+<indexterm><primary>G_GNUC_FUNCTION</primary></indexterm><programlisting>#define     G_GNUC_FUNCTION</programlisting>
+<para>
+Expands to the GNU C <literal>__FUNCTION__</literal> variable if the 
+compiler is <command>gcc</command>, or "" if it isn't. The GNU C 
+<literal>__FUNCTION__</literal> variable contains the name of the 
+current function. See the GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-PRETTY-FUNCTION-CAPS"/>G_GNUC_PRETTY_FUNCTION</title>
+<indexterm><primary>G_GNUC_PRETTY_FUNCTION</primary></indexterm><programlisting>#define     G_GNUC_PRETTY_FUNCTION</programlisting>
+<para>
+Expands to the GNU C <literal>__PRETTY_FUNCTION__</literal> variable 
+if the compiler is <command>gcc</command>, or "" if it isn't.
+The GNU C <literal>__PRETTY_FUNCTION__</literal> variable contains the 
+name of the current function. For a C program this is the same as the 
+<literal>__FUNCTION__</literal> variable but for C++ it also includes 
+extra information such as the class and function prototype. See the 
+GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GNUC-NO-INSTRUMENT-CAPS"/>G_GNUC_NO_INSTRUMENT</title>
+<indexterm><primary>G_GNUC_NO_INSTRUMENT</primary></indexterm><programlisting>#define     G_GNUC_NO_INSTRUMENT</programlisting>
+<para>
+Expands to the GNU C <literal>no_instrument_function</literal> function 
+attribute if the compiler is <command>gcc</command>. Functions with this 
+attribute will not be 
+instrumented for profiling, when the compiler is called with the
+<option>-finstrument-functions</option> option.
+See the GNU C documentation for details. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-LIKELY-CAPS"/>G_LIKELY()</title>
+<indexterm role="2.2"><primary>G_LIKELY</primary></indexterm><programlisting>#define     G_LIKELY(expr)</programlisting>
+<para>
+Hints the compiler that the expression is likely to evaluate to a true
+value. The compiler may use this information for optimizations.
+</para>
+<informalexample><programlisting>
+if (G_LIKELY (<link linkend="random"><function>random()</function></link> != 1))
+  g_print ("not one");
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>expr</parameter>&nbsp;:</term>
+<listitem><simpara>the expression
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.2
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-UNLIKELY-CAPS"/>G_UNLIKELY()</title>
+<indexterm role="2.2"><primary>G_UNLIKELY</primary></indexterm><programlisting>#define     G_UNLIKELY(expr)</programlisting>
+<para>
+Hints the compiler that the expression is unlikely to evaluate to a true
+value. The compiler may use this information for optimizations.
+</para>
+<informalexample><programlisting>
+if (G_UNLIKELY (<link linkend="random"><function>random()</function></link> == 1))
+  g_print ("a random one");
+</programlisting></informalexample><variablelist role="params">
+<varlistentry><term><parameter>expr</parameter>&nbsp;:</term>
+<listitem><simpara>the expression
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.2
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-STRLOC-CAPS"/>G_STRLOC</title>
+<indexterm><primary>G_STRLOC</primary></indexterm><programlisting>#define     G_STRLOC</programlisting>
+<para>
+Expands to a string identifying the current code position. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-STRFUNC-CAPS"/>G_STRFUNC</title>
+<indexterm><primary>G_STRFUNC</primary></indexterm><programlisting>#define     G_STRFUNC</programlisting>
+<para>
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT16-MODIFIER-CAPS"/>G_GINT16_MODIFIER</title>
+<indexterm role="2.4"><primary>G_GINT16_MODIFIER</primary></indexterm><programlisting>#define G_GINT16_MODIFIER "h"
+</programlisting>
+<para>
+The platform dependent length modifier for constructing <link linkend="printf"><function>printf()</function></link> conversion
+specifiers for values of type <link linkend="gint16"><type>gint16</type></link>. It is a string literal, but doesn't
+include the percent-sign, such that you can add precision and length
+modifiers between percent-sign and conversion specifier and append a 
+conversion specifier.
+</para>
+
+<para>
+The following example prints "0x7b";
+<informalexample>
+<programlisting>
+gint16 value = 123;
+g_print ("%#" G_GINT16_MODIFIER "x", value);
+</programlisting>
+</informalexample>
+</para><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT16-FORMAT-CAPS"/>G_GINT16_FORMAT</title>
+<indexterm><primary>G_GINT16_FORMAT</primary></indexterm><programlisting>#define G_GINT16_FORMAT "hi"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="gint16"><type>gint16</type></link>. It is a string literal, but doesn't
+include the percent-sign, such that you can add precision and length
+modifiers between percent-sign and conversion specifier.
+</para>
+
+<para>
+<informalexample>
+<programlisting>
+gint16 in;
+gint32 out;
+sscanf ("42", "%" G_GINT16_FORMAT, &amp;in)
+out = in * 1000;
+g_print ("%" G_GINT32_FORMAT, out);
+</programlisting>
+</informalexample>
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GUINT16-FORMAT-CAPS"/>G_GUINT16_FORMAT</title>
+<indexterm><primary>G_GUINT16_FORMAT</primary></indexterm><programlisting>#define G_GUINT16_FORMAT "hu"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="guint16"><type>guint16</type></link>. See also <link linkend="G-GINT16-FORMAT-CAPS"><type>G_GINT16_FORMAT</type></link>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT32-MODIFIER-CAPS"/>G_GINT32_MODIFIER</title>
+<indexterm role="2.4"><primary>G_GINT32_MODIFIER</primary></indexterm><programlisting>#define G_GINT32_MODIFIER ""
+</programlisting>
+<para>
+The platform dependent length modifier for constructing <link linkend="printf"><function>printf()</function></link> conversion
+specifiers for values of type <link linkend="gint32"><type>gint32</type></link>. See also <link linkend="G-GINT16-MODIFIER-CAPS"><type>G_GINT16_MODIFIER</type></link>.
+</para><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT32-FORMAT-CAPS"/>G_GINT32_FORMAT</title>
+<indexterm><primary>G_GINT32_FORMAT</primary></indexterm><programlisting>#define G_GINT32_FORMAT "i"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="gint32"><type>gint32</type></link>. See also <link linkend="G-GINT16-FORMAT-CAPS"><type>G_GINT16_FORMAT</type></link>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GUINT32-FORMAT-CAPS"/>G_GUINT32_FORMAT</title>
+<indexterm><primary>G_GUINT32_FORMAT</primary></indexterm><programlisting>#define G_GUINT32_FORMAT "u"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="guint32"><type>guint32</type></link>. See also <link linkend="G-GINT16-FORMAT-CAPS"><type>G_GINT16_FORMAT</type></link>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT64-MODIFIER-CAPS"/>G_GINT64_MODIFIER</title>
+<indexterm role="2.4"><primary>G_GINT64_MODIFIER</primary></indexterm><programlisting>#define G_GINT64_MODIFIER "ll"
+</programlisting>
+<para>
+The platform dependent length modifier for constructing <link linkend="printf"><function>printf()</function></link> conversion
+specifiers for values of type <link linkend="gint64"><type>gint64</type></link>. See also <link linkend="G-GINT16-MODIFIER-CAPS"><type>G_GINT16_MODIFIER</type></link>.
+</para>
+
+<note>
+<para>
+Some platforms do not support printing 64 bit integers,
+even though the types are supported. On such platforms <link linkend="G-GINT64-MODIFIER-CAPS"><type>G_GINT64_MODIFIER</type></link>
+is not defined.
+</para>
+</note><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GINT64-FORMAT-CAPS"/>G_GINT64_FORMAT</title>
+<indexterm><primary>G_GINT64_FORMAT</primary></indexterm><programlisting>#define G_GINT64_FORMAT "lli"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="gint64"><type>gint64</type></link>. See also <link linkend="G-GINT16-FORMAT-CAPS"><type>G_GINT16_FORMAT</type></link>.
+</para>
+
+<note>
+<para>
+Some platforms do not support scanning and printing 64 bit integers,
+even though the types are supported. On such platforms <link linkend="G-GINT64-FORMAT-CAPS"><type>G_GINT64_FORMAT</type></link>
+is not defined. Note that <link linkend="scanf"><function>scanf()</function></link> may not support 64 bit integers, even
+if <link linkend="G-GINT64-FORMAT-CAPS"><type>G_GINT64_FORMAT</type></link> is defined. Due to its weak error handling, <link linkend="scanf"><function>scanf()</function></link> is not 
+recommended for parsing anyway; consider using <link linkend="g-strtoull"><function>g_strtoull()</function></link> instead.
+</para>
+</note></refsect2>
+<refsect2>
+<title><anchor id="G-GUINT64-FORMAT-CAPS"/>G_GUINT64_FORMAT</title>
+<indexterm><primary>G_GUINT64_FORMAT</primary></indexterm><programlisting>#define G_GUINT64_FORMAT "llu"
+</programlisting>
+<para>
+This is the platform dependent conversion specifier for scanning and
+printing values of type <link linkend="guint64"><type>guint64</type></link>. See also <link linkend="G-GINT16-FORMAT-CAPS"><type>G_GINT16_FORMAT</type></link>.
+</para>
+
+<note>
+<para>
+Some platforms do not support scanning and printing 64 bit integers,
+even though the types are supported. On such platforms <link linkend="G-GUINT64-FORMAT-CAPS"><type>G_GUINT64_FORMAT</type></link>
+is not defined.  Note that <link linkend="scanf"><function>scanf()</function></link> may not support 64 bit integers, even
+if <link linkend="G-GINT64-FORMAT-CAPS"><type>G_GINT64_FORMAT</type></link> is defined. Due to its weak error handling, <link linkend="scanf"><function>scanf()</function></link> is not 
+recommended for parsing anyway; consider using <link linkend="g-strtoull"><function>g_strtoull()</function></link> instead.
+</para>
+</note></refsect2>
+<refsect2>
+<title><anchor id="G-GSIZE-MODIFIER-CAPS"/>G_GSIZE_MODIFIER</title>
+<indexterm><primary>G_GSIZE_MODIFIER</primary></indexterm><programlisting>#define G_GSIZE_MODIFIER ""
+</programlisting>
+<para>
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GSIZE-FORMAT-CAPS"/>G_GSIZE_FORMAT</title>
+<indexterm><primary>G_GSIZE_FORMAT</primary></indexterm><programlisting>#define G_GSIZE_FORMAT "u"
+</programlisting>
+<para>
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-GSSIZE-FORMAT-CAPS"/>G_GSSIZE_FORMAT</title>
+<indexterm><primary>G_GSSIZE_FORMAT</primary></indexterm><programlisting>#define G_GSSIZE_FORMAT "i"
+</programlisting>
+<para>
+
+</para></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

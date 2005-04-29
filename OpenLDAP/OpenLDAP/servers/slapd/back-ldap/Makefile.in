@@ -1,25 +1,40 @@
-# $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/Makefile.in,v 1.14.2.1 2002/06/21 01:15:07 kurt Exp $
+# Makefile.in for back-ldap
+# $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/Makefile.in,v 1.18.2.7 2004/04/12 18:20:13 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 
 SRCS	= init.c config.c search.c bind.c unbind.c add.c compare.c \
-		delete.c modify.c modrdn.c group.c attribute.c \
-		suffixmassage.c map.c
+		delete.c modify.c modrdn.c \
+		suffixmassage.c map.c extended.c chain.c
 OBJS	= init.lo config.lo search.lo bind.lo unbind.lo add.lo compare.lo \
-		delete.lo modify.lo modrdn.lo group.lo attribute.lo \
-		suffixmassage.lo map.lo
+		delete.lo modify.lo modrdn.lo \
+		suffixmassage.lo map.lo extended.lo chain.lo
 
 LDAP_INCDIR= ../../../include       
 LDAP_LIBDIR= ../../../libraries
 
 BUILD_OPT = "--enable-ldap"
 BUILD_MOD = @BUILD_LDAP@
-BUILD_MOD_DYNAMIC = @BUILD_LDAP_DYNAMIC@
 
 mod_DEFS = -DSLAPD_IMPORT
 MOD_DEFS = $(@BUILD_LDAP@_DEFS)
 
+mod_REWRITE = $(LDAP_LIBREWRITE_A)
+
+REWRITE = $(@BUILD_META@_REWRITE) $(@BUILD_LDAP@_REWRITE)
 shared_LDAP_LIBS = $(LDAP_LIBLDAP_R_LA) $(LDAP_LIBLBER_LA)
-NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
-UNIX_LINK_LIBS = $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
+NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS) $(REWRITE)
+UNIX_LINK_LIBS = $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS) $(REWRITE)
 
 LIBBASE = back_ldap
 

@@ -1,6 +1,0 @@
-{
-  Description     = "LDAP";
-  Provides        = ("LDAP");
-  Requires        = ("Network", "NetInfo");
-  OrderPreference = "Early";
-}

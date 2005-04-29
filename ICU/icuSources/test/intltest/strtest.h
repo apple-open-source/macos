@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*   file name:  strtest.h
@@ -25,14 +25,13 @@
 class StringTest : public IntlTest {
 public:
     StringTest() {}
-    virtual ~StringTest() {}
+    virtual ~StringTest();
 
     void runIndexedTest(int32_t index, UBool exec, const char *&name, char *par=NULL);
 
 private:
     void TestEndian(void);
-    void TestSizeofWCharT(void);
-    void TestSizeofInt64(void);
+    void TestSizeofTypes(void);
     void TestCharsetFamily(void);
 };
 

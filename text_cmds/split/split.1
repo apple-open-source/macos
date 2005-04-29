@@ -33,7 +33,7 @@
 .\"
 .\"	@(#)split.1	8.3 (Berkeley) 4/16/94
 .\"
-.Dd April 16, 1994
+.Dd October 27, 2004
 .Dt SPLIT 1
 .Os
 .Sh NAME
@@ -43,6 +43,7 @@
 .Nm
 .Op Fl b Ar byte_count[k|m]
 .Op Fl l Ar line_count
+.Op Fl a Ar suffix_length
 .Op Ar file Op Ar name
 .Sh DESCRIPTION
 The
@@ -50,12 +51,12 @@ The
 utility reads the given
 .Ar file
 (or standard input if no file is specified)
-and breaks it up into files of 1000 lines each.
+and breaks it up into files of, by default, 1000 lines each.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
 .It Fl b
-Create smaller files
+Create files
 .Ar byte_count
 bytes in length.
 If
@@ -69,31 +70,43 @@ is appended to the number, the file is split into
 .Ar byte_count
 megabyte pieces.
 .It Fl l
-Create smaller files
+Create output files
 .Ar n
 lines in length.
+.It Fl a
+Use
+.Ar suffix_length
+letters to form the suffix portion of the filenames of the split file.
+If -a is not specified, the default suffix length will be two. If the sum of the 
+.Ar name
+operand and the
+.Ar suffix_length
+option-argument would create a filename exceeding {NAME_MAX} bytes, an 
+error will occur, and
+.Nm
+will exit with no output files having been created.
 .El
 .Pp
 If additional arguments are specified, the first is used as the name
-of the input file which is to be split.
+of the input file which is to be split. A
+.Dq Li - 
+character may be used as the first argument, to specify that
+Standard Input is to be used.
 If a second additional argument is specified, it is used as a prefix
 for the names of the files into which the file is split.
 In this case, each file into which the file is split is named by the
 prefix followed by a lexically ordered suffix in the range of 
 .Dq Li aa-zz .
+(If
+.Ar suffix_length
+is provided, the suffix will be created using the specified number of
+characters, rather than the default of two characters.)
 .Pp
 If the
 .Ar name
 argument is not specified, the file is split into lexically ordered
 files named in the range of
-.Dq Li xaa-zzz .
-.Sh BUGS
-For historical reasons, if you specify
-.Ar name ,
-.Nm
-can only create 676 separate
-files.
-The default naming convention allows 2028 separate files.
+.Dq Li xaa-xzz .
 .Sh HISTORY
 A
 .Nm

@@ -42,7 +42,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\"
-.\" $XFree86: xc/doc/man/X11/XTLTTProp.man,v 1.5 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XTLTTProp.man,v 1.7 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -147,77 +147,32 @@
 .SH NAME
 XmbTextListToTextProperty, XwcTextListToTextProperty, Xutf8TextListToTextProperty, XmbTextPropertyToTextList, XwcTextPropertyToTextList, Xutf8TextPropertyToTextList, XwcFreeStringList, XDefaultString \- convert text lists and text property structures
 .SH SYNTAX
-int XmbTextListToTextProperty\^(\^\fIdisplay\fP\^, \fIlist\fP\^, \fIcount\fP\^, \fIstyle\fP\^, \fItext_prop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char **\fIlist\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      XICCEncodingStyle \fIstyle\fP\^;
-.br
-      XTextProperty *\fItext_prop_return\fP\^;
-.LP
-int XwcTextListToTextProperty\^(\^\fIdisplay\fP\^, \fIlist\fP\^, \fIcount\fP\^, \fIstyle\fP\^, \fItext_prop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      wchar_t **\fIlist\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      XICCEncodingStyle \fIstyle\fP\^;
-.br
-      XTextProperty *\fItext_prop_return\fP\^;
-.LP
-int Xutf8TextListToTextProperty\^(\^\fIdisplay\fP\^, \fIlist\fP\^, \fIcount\fP\^, \fIstyle\fP\^, \fItext_prop_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char **\fIlist\fP\^;
-.br
-      int \fIcount\fP\^;
-.br
-      XICCEncodingStyle \fIstyle\fP\^;
-.br
-      XTextProperty *\fItext_prop_return\fP\^;
-.LP
-int XmbTextPropertyToTextList\^(\^\fIdisplay\fP\^, \fItext_prop\fP\^, \fIlist_return\fP\^, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XTextProperty *\fItext_prop\fP\^;
-.br
-      char ***\fIlist_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.LP
-int XwcTextPropertyToTextList\^(\^\fIdisplay\fP\^, \fItext_prop\fP\^, \fIlist_return\fP\^, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XTextProperty *\fItext_prop\fP\^;
-.br
-      wchar_t ***\fIlist_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.LP
-int Xutf8TextPropertyToTextList\^(\^\fIdisplay\fP\^, \fItext_prop\fP\^, \fIlist_return\fP\^, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XTextProperty *\fItext_prop\fP\^;
-.br
-      char ***\fIlist_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.LP
-void XwcFreeStringList\^(\^\fIlist\fP\^)
-.br
-      wchar_t **\fIlist\fP\^;
-.LP
-char *XDefaultString\^(\|)
+.HP
+int XmbTextListToTextProperty\^(\^Display *\fIdisplay\fP\^, char
+**\fIlist\fP\^, int \fIcount\fP\^, XICCEncodingStyle \fIstyle\fP\^,
+XTextProperty *\fItext_prop_return\fP\^); 
+.HP
+int XwcTextListToTextProperty\^(\^Display *\fIdisplay\fP\^, wchar_t
+**\fIlist\fP\^, int \fIcount\fP\^, XICCEncodingStyle \fIstyle\fP\^,
+XTextProperty *\fItext_prop_return\fP\^); 
+.HP
+int Xutf8TextListToTextProperty\^(\^Display *\fIdisplay\fP\^, char
+**\fIlist\fP\^, int \fIcount\fP\^, XICCEncodingStyle \fIstyle\fP\^,
+XTextProperty *\fItext_prop_return\fP\^); 
+.HP
+int XmbTextPropertyToTextList\^(\^Display *\fIdisplay\fP\^, XTextProperty
+*\fItext_prop\fP\^, char ***\fIlist_return\fP\^, int *\fIcount_return\fP\^); 
+.HP
+int XwcTextPropertyToTextList\^(\^Display *\fIdisplay\fP\^, XTextProperty
+*\fItext_prop\fP\^, wchar_t ***\fIlist_return\fP\^, int
+*\fIcount_return\fP\^); 
+.HP
+int Xutf8TextPropertyToTextList\^(\^Display *\fIdisplay\fP\^, XTextProperty
+*\fItext_prop\fP\^, char ***\fIlist_return\fP\^, int *\fIcount_return\fP\^); 
+.HP
+void XwcFreeStringList\^(\^wchar_t **\fIlist\fP\^); 
+.HP
+char *XDefaultString\^(void)
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -450,10 +405,10 @@ structure contains:
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	unsigned char *value;	/* property data */
-	Atom encoding;	/* type of property */
-	int format;	/* 8, 16, or 32 */
-	unsigned long nitems;	/* number of items in value */
+	unsigned char *value;	/\(** property data */
+	Atom encoding;	/\(** type of property */
+	int format;	/\(** 8, 16, or 32 */
+	unsigned long nitems;	/\(** number of items in value */
 } XTextProperty;
 .De
 .LP
@@ -489,11 +444,11 @@ T}
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef enum {
-	XStringStyle,		/* STRING */
-	XCompoundTextStyle,	/* COMPOUND_TEXT */
-	XTextStyle,		/* text in owner's encoding (current locale) */
-	XStdICCTextStyle,	/* STRING, else COMPOUND_TEXT */
-	XUTF8StringStyle	/* UTF8_STRING */
+	XStringStyle,		/\(** STRING */
+	XCompoundTextStyle,	/\(** COMPOUND_TEXT */
+	XTextStyle,		/\(** text in owner's encoding (current locale) */
+	XStdICCTextStyle,	/\(** STRING, else COMPOUND_TEXT */
+	XUTF8StringStyle	/\(** UTF8_STRING */
 } XICCEncodingStyle;
 .De
 .SH "SEE ALSO"

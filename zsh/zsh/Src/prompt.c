@@ -49,7 +49,7 @@ int cmdsp;
 
 /* parser states, for %_ */
 
-static char *cmdnames[] = {
+static char *cmdnames[CS_COUNT] = {
     "for",      "while",     "repeat",    "select",
     "until",    "if",        "then",      "else",
     "elif",     "math",      "cond",      "cmdor",
@@ -57,7 +57,7 @@ static char *cmdnames[] = {
     "case",     "function",  "subsh",     "cursh",
     "array",    "quote",     "dquote",    "bquote",
     "cmdsubst", "mathsubst", "elif-then", "heredoc",
-    "heredocd", "brace",     "braceparam",
+    "heredocd", "brace",     "braceparam", "always",
 };
  
 /* The buffer into which an expanded and metafied prompt is being written, *
@@ -163,19 +163,21 @@ promptexpand(char *s, int ns, char *rs, char *Rs)
 
     if (isset(PROMPTSUBST)) {
 	int olderr = errflag;
+	int oldval = lastval;
 
 	s = dupstring(s);
 	if (!parsestr(s))
 	    singsub(&s);
 
-	/* Ignore errors in prompt substitution */
+	/* Ignore errors and status change in prompt substitution */
 	errflag = olderr;
+	lastval = oldval;
     }
 
     rstring = rs;
     Rstring = Rs;
     fm = s;
-    bp = bufline = buf = zcalloc(bufspc = 256);
+    bp = bufline = buf = zshcalloc(bufspc = 256);
     bp1 = NULL;
     trunclen = 0;
     putpromptchar(1, '\0');
@@ -244,9 +246,12 @@ putpromptchar(int doprint, int endchar)
 		    if ((nd = finddir(ss))) {
 			arg--;
 			ss += strlen(nd->dir);
-		    }
+		    } /*FALLTHROUGH*/
 		case '/':
 		case 'C':
+		    /* `/' gives 0, `/any' gives 1, etc. */
+		    if (*ss++ == '/' && *ss)
+			arg--;
 		    for (; *ss; ss++)
 			if (*ss == '/')
 			    arg--;
@@ -283,15 +288,15 @@ putpromptchar(int doprint, int endchar)
 			test = 1;
 		    break;
 		case '#':
-		    if (geteuid() == arg)
+		    if (geteuid() == (uid_t)arg)
 			test = 1;
 		    break;
 		case 'g':
-		    if (getegid() == arg)
+		    if (getegid() == (gid_t)arg)
 			test = 1;
 		    break;
 		case 'j':
-		    for (numjobs = 0, j = 1; j < MAXJOB; j++)
+		    for (numjobs = 0, j = 1; j <= maxjob; j++)
 			if (jobtab[j].stat && jobtab[j].procs &&
 		    	    !(jobtab[j].stat & STAT_NOPRINT)) numjobs++;
 		    if (numjobs >= arg)
@@ -379,11 +384,11 @@ putpromptchar(int doprint, int endchar)
 	    case 'h':
 	    case '!':
 		addbufspc(DIGBUFSIZE);
-		sprintf(bp, "%d", curhist);
+		convbase(bp, curhist, 10);
 		bp += strlen(bp);
 		break;
 	    case 'j':
-		for (numjobs = 0, j = 1; j < MAXJOB; j++)
+		for (numjobs = 0, j = 1; j <= maxjob; j++)
 		    if (jobtab[j].stat && jobtab[j].procs &&
 		    	!(jobtab[j].stat & STAT_NOPRINT)) numjobs++;
 		addbufspc(DIGBUFSIZE);
@@ -500,18 +505,23 @@ putpromptchar(int doprint, int endchar)
 			tmfmt = "%m/%d/%y";
 			break;
 		    case 'D':
-			if (fm[1] == '{') /*}*/ {
+			if (fm[1] == '{' /*}*/) {
 			    for (ss = fm + 2; *ss && *ss != /*{*/ '}'; ss++)
 				if(*ss == '\\' && ss[1])
 				    ss++;
 			    dd = tmfmt = tmbuf = zalloc(ss - fm);
-			    for (ss = fm + 2; *ss && *ss != /*{*/ '}'; ss++) {
+			    for (ss = fm + 2; *ss && *ss != /*{*/ '}';
+				 ss++) {
 				if(*ss == '\\' && ss[1])
 				    ss++;
 				*dd++ = *ss;
 			    }
 			    *dd = 0;
 			    fm = ss - !*ss;
+			    if (!*tmfmt) {
+				free(tmbuf);
+				continue;
+			    }
 			} else
 			    tmfmt = "%y-%m-%d";
 			break;
@@ -521,9 +531,16 @@ putpromptchar(int doprint, int endchar)
 		    }
 		    timet = time(NULL);
 		    tm = localtime(&timet);
-		    for(t0=80; ; t0*=2) {
+		    /*
+		     * Hack because strftime won't say how
+		     * much space it actually needs.  Try to add it
+		     * a few times until it works.  Some formats don't
+		     * actually have a length, so we could go on for
+		     * ever.
+		     */
+		    for(j = 0, t0 = strlen(tmfmt)*8; j < 3; j++, t0*=2) {
 			addbufspc(t0);
-			if(ztrftime(bp, t0, tmfmt, tm) != t0)
+			if (ztrftime(bp, t0, tmfmt, tm) >= 0)
 			    break;
 		    }
 		    bp += strlen(bp);
@@ -574,7 +591,7 @@ putpromptchar(int doprint, int endchar)
 		    arg = 1;
 		else if (arg < 0)
 		    arg += arrlen(psvar) + 1;
-		if (arrlen(psvar) >= arg)
+		if (arg > 0 && arrlen(psvar) >= arg)
 		    stradd(psvar[arg - 1]);
 		break;
 	    case 'E':
@@ -659,7 +676,7 @@ putpromptchar(int doprint, int endchar)
 		    pputc('!');
 		} else {
 		    addbufspc(DIGBUFSIZE);
-		    sprintf(bp, "%d", curhist);
+		    convbase(bp, curhist, 10);
 		    bp += strlen(bp);
 		}
 	    }
@@ -734,7 +751,8 @@ stradd(char *d)
 mod_export void
 tsetcap(int cap, int flag)
 {
-    if (!(termflags & TERM_SHORT) && tcstr[cap]) {
+    if (tccan(cap) && !isset(SINGLELINEZLE) &&
+        !(termflags & (TERM_NOUP|TERM_BAD|TERM_UNKNOWN))) {
 	switch(flag) {
 	case -1:
 	    tputs(tcstr[cap], 1, putraw);

@@ -121,6 +121,20 @@ typedef IOReturn (*IOFWAVCSubunitPlugHandlerCallback)(void *refCon,
 
 typedef struct _IOFireWireAVCLibProtocolInterface IOFireWireAVCLibProtocolInterface;
 
+typedef struct _IOFireWireAVCLibAsynchronousCommand
+{
+	IOFWAVCAsyncCommandState cmdState;
+	void	*pRefCon;
+	UInt8	*pCommandBuf;
+	UInt32	cmdLen;
+	UInt8	*pInterimResponseBuf;
+	UInt32	interimResponseLen;
+	UInt8	*pFinalResponseBuf;
+	UInt32	finalResponseLen;
+}IOFireWireAVCLibAsynchronousCommand;
+
+typedef void (*IOFireWireAVCLibAsynchronousCommandCallback)(void *pRefCon, IOFireWireAVCLibAsynchronousCommand *pCommandObject);
+
 /*!
     @class IOFireWireAVCLibUnitInterface
     @abstract Initial interface discovered for all AVC Unit drivers. 
@@ -329,7 +343,50 @@ typedef struct
     */
     IOReturn (*breakP2POutputConnection)(void * self, UInt32 outputPlug);
 
-} IOFireWireAVCLibUnitInterface;
+    /*!
+		@function createAVCAsynchronousCommand
+	 */
+
+	IOReturn (*createAVCAsynchronousCommand)(void * self,
+										  const UInt8 * command,
+										  UInt32 cmdLen,
+										  IOFireWireAVCLibAsynchronousCommandCallback completionCallback,
+										  void *pRefCon,
+										  IOFireWireAVCLibAsynchronousCommand **ppCommandObject);
+
+    /*!
+		@function AVCAsynchronousCommandSubmit
+	 */
+
+	IOReturn (*AVCAsynchronousCommandSubmit)(void * self, IOFireWireAVCLibAsynchronousCommand *pCommandObject);
+
+    /*!
+		@function AVCAsynchronousCommandReinit
+	 */
+
+	IOReturn (*AVCAsynchronousCommandReinit)(void * self, IOFireWireAVCLibAsynchronousCommand *pCommandObject);
+
+	/*!
+		@function AVCAsynchronousCommandCancel
+	 */
+
+	IOReturn (*AVCAsynchronousCommandCancel)(void * self, IOFireWireAVCLibAsynchronousCommand *pCommandObject);
+
+    /*!
+		@function AVCAsynchronousCommandRelease
+	 */
+
+	IOReturn (*AVCAsynchronousCommandRelease)(void * self, IOFireWireAVCLibAsynchronousCommand *pCommandObject);
+
+    /*!
+		@function AVCAsynchronousCommandReinitWithCommandBytes
+	 */
+
+	IOReturn (*AVCAsynchronousCommandReinitWithCommandBytes)(void * self, 
+															 IOFireWireAVCLibAsynchronousCommand *pCommandObject, 
+															 const UInt8 * command,
+															 UInt32 cmdLen);
+ } IOFireWireAVCLibUnitInterface;
 
 /*!
     @class IOFireWireAVCLibProtocolInterface

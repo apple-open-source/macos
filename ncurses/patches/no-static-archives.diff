@@ -1,0 +1,11 @@
+diff -upr ../../ncurses.old/ncurses/Makefile.in ./Makefile.in
+--- ../../ncurses.old/ncurses/Makefile.in	2005-02-14 13:16:49.000000000 -0800
++++ ./Makefile.in	2005-02-14 13:18:37.000000000 -0800
+@@ -87,6 +87,7 @@ install-strip: install
+ 	-find $(DSTROOT)/usr/lib -type f -print0 | xargs -0 strip -S
+ 	-find $(DSTROOT)/usr/bin -type f -print0 | xargs -0 strip
+ 	find $(DSTROOT) -group apple_sw -print0 | xargs -0 chgrp -h wheel
++	-rm -f $(DSTROOT)/usr/lib/*.a
+ 
+ # Put the common rules here so that we can easily construct the list of
+ # directories to visit.

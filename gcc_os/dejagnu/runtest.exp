@@ -1,5 +1,5 @@
 # Test Framework Driver
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,11 +16,11 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
-set frame_version	1.3.1
+set frame_version	1.4.3
 if ![info exists argv0] {
     send_error "Must use a version of Expect greater than 5.0\n"
     exit 1
@@ -49,10 +49,14 @@ set psum_file   "latest"	;# file name of previous summary to diff against
 
 set exit_status	0		;# exit code returned by this program
 
-set xfail_flag  0
-set xfail_prms	0
+set xfail_flag  0		;# indicates that a failure is expected
+set xfail_prms	0		;# GNATS prms id number for this expected failure
+set kfail_flag  0		;# indicates that it is a known failure
+set kfail_prms	0		;# bug id for the description of the known failure 
 set sum_file	""		;# name of the file that contains the summary log
 set base_dir	""		;# the current working directory
+set xml_file    ""              ;# name of the xml output if requested
+set xml         0               ;# flag for requesting xml
 set logname     ""		;# the users login name
 set prms_id	0               ;# GNATS prms id number
 set bug_id	0               ;# optional bug id number
@@ -64,6 +68,8 @@ set reboot      0
 set configfile  site.exp	;# (local to this file)
 set multipass   ""		;# list of passes and var settings
 set errno	"";		;# 
+set exit_error  0		;# Toggle for whether to set the exit status
+				;# on Tcl bugs in test case drivers.
 #
 # These describe the host and target environments.
 #
@@ -156,6 +162,8 @@ proc verbose { args } {
 		set newline 0
 	    } elseif { [lindex $args $i] == "-log" } {
 		set logfile 1
+            } elseif { [lindex $args $i] == "-x" } {
+                set xml 1
 	    } elseif { [string index [lindex $args $i] 0] == "-" } {
 		clone_output "ERROR: verbose: illegal argument: [lindex $args $i]"
 		return
@@ -331,7 +339,7 @@ proc search_and_load_file { type filelist dirlist } {
 
     foreach dir $dirlist {
 	foreach initfile $filelist {
-	    verbose "Looking for $type ${dir}/${initfile}" 1
+	    verbose "Looking for $type ${dir}/${initfile}" 2
 	    if [file exists ${dir}/${initfile}] {
 		set found 1
 		set error ""
@@ -370,8 +378,10 @@ proc usage { } {
     send_user "\t--host \[string\]\t\tThe canonical config name of the host machine\n"
     send_user "\t--host_board \[name\]\tThe host board to use\n"
     send_user "\t--target \[string\]\tThe canonical config name of the target board\n"
+    send_user "\t--status (-sta)\t\tSet the exit status to fail on Tcl errors\n"
     send_user "\t--debug (-de)\t\tSet expect debugging ON\n"
     send_user "\t--help (-he)\t\tPrint help text\n"
+    send_user "\t--mail \[name(s)\]\tWhom to mail the results to\n"
     send_user "\t--ignore \[name(s)\]\tThe names of specific tests to ignore\n"
     send_user "\t--objdir \[name\]\t\tThe test suite binary directory\n"
     send_user "\t--outdir \[name\]\t\tThe directory to put logs in\n"
@@ -385,6 +395,7 @@ proc usage { } {
     send_user "\t--directory (-di) name\tRun only the tests in directory 'name'\n"
     send_user "\t--verbose (-v)\t\tEmit verbose output\n"
     send_user "\t--version (-V)\t\tEmit all version numbers\n"
+    send_user "\t--xml (-x)\t\tTurn on XML output generation\n"
     send_user "\t--D\[0-1\]\t\tTcl debugger\n"
     send_user "\tscript.exp\[=arg(s)\]\tRun these tests only\n"
     if { [info exists tool] } {
@@ -435,7 +446,7 @@ for { set i 0 } { $i < $argc } { incr i } {
 	"--ob*" -
 	"--ou*" -
 	"--sr*" -
-	"--st*" -
+	"--str*" -
         "--ta*" -
 	"--di*" -
 	"--to*" {
@@ -503,7 +514,6 @@ for { set i 0 } { $i < $argc } { incr i } {
 
 	"--di*" {
 	    set cmdline_dir_to_run $optarg
-	    puts "cmdline_dir_to_run = $cmdline_dir_to_run"
 	    continue
 	}
 
@@ -512,6 +522,20 @@ for { set i 0 } { $i < $argc } { incr i } {
 	    incr verbose
 	    continue
 	}
+
+	"[A-Z0-9_-.]*=*" { # process makefile style args like CC=gcc, etc...
+	    if [regexp "^(\[A-Z0-9_-\]+)=(.*)$" $option junk var val] {
+		set $var $val
+		verbose "$var is now $val"
+		append makevars "set $var $val;" ;# FIXME: Used anywhere?
+		unset junk var val
+	    } else {
+		send_error "Illegal variable specification:\n"
+		send_error "$option\n"
+	    }
+	    continue
+	}
+
     }
 }
 verbose "Verbose level is $verbose"
@@ -548,7 +572,7 @@ if [string match "" $logname] {
 #
 proc lookfor_file { dir name } {
     foreach x ".. ../.. ../../.. ../../../.." {
-	verbose "$dir/$name"
+	verbose "$dir/$name" 2
 	if [file exists $dir/$name] {
 	    return $dir/$name;
 	}
@@ -574,7 +598,7 @@ proc load_lib { file } {
 
     set loaded_libs($file) "";
 
-    if { [search_and_load_file "library file" $file [list $libdir $libdir/lib [file dirname [file dirname $srcdir]]/dejagnu/lib $srcdir/lib . [file dirname [file dirname [file dirname $srcdir]]]/dejagnu/lib]] == 0 } {
+    if { [search_and_load_file "library file" $file [list ../lib $libdir $libdir/lib [file dirname [file dirname $srcdir]]/dejagnu/lib $srcdir/lib $execpath/lib . [file dirname [file dirname [file dirname $srcdir]]]/dejagnu/lib]] == 0 } {
 	send_error "ERROR: Couldn't find library file $file.\n"
 	exit 1
     }
@@ -660,7 +684,7 @@ unset arg_host_triplet arg_build_triplet
 
 if [expr  { $build_triplet == ""  &&  $host_triplet == ""} ] {
     # find config.guess
-    foreach dir "$libdir $libdir/.. $srcdir/.. $srcdir/../.." {
+    foreach dir "$libdir $libdir/libexec $libdir/.. $execpath $srcdir $srcdir/.. $srcdir/../.." {
 	verbose "Looking for ${dir}/config.guess" 2
 	if [file exists ${dir}/config.guess] {
 	    set config_guess ${dir}/config.guess
@@ -979,7 +1003,7 @@ for { set i 0 } { $i < $argc } { incr i } {
 	"--ob*" -
 	"--ou*" -
 	"--sr*" -
-	"--st*" -
+	"--str*" -
         "--ta*" -
 	"--di*" -
 	"--to*" {
@@ -1109,10 +1133,16 @@ for { set i 0 } { $i < $argc } { incr i } {
 	    continue
 	}
 	
-	"--st*" {			# (--strace) expect trace level
+	"--str*" {			# (--strace) expect trace level
 	    set tracelevel $optarg
 	    strace $tracelevel
 	    verbose "Source Trace level is now $tracelevel"
+	    continue
+	}
+	
+	"--sta*" {			# (--status) exit status flag
+	    set exit_error 1
+	    verbose "Tcl errors will set an ERROR exit status"
 	    continue
 	}
 	
@@ -1136,17 +1166,10 @@ for { set i 0 } { $i < $argc } { incr i } {
 	    continue
         }
 
-	"[A-Z0-9_-.]*=*" { # process makefile style args like CC=gcc, etc...
-	    if [regexp "^(\[A-Z0-9_-\]+)=(.*)$" $option junk var val] {
-		set $var $val
-		verbose "$var is now $val"
-		append makevars "set $var $val;" ;# FIXME: Used anywhere?
-		unset junk var val
-	    } else {
-		send_error "Illegal variable specification:\n"
-		send_error "$option\n"
-	    }
-	    continue
+        "--x*" {
+            set xml 1
+            verbose "XML logging turned on"
+            continue
 	}
 
 	"--he*" {			# (--help) help text
@@ -1154,6 +1177,10 @@ for { set i 0 } { $i < $argc } { incr i } {
 	    exit 0	
 	}
 
+       "[A-Z0-9_-.]*=*" { # skip makefile style args like CC=gcc, etc... (processed in first pass)
+               continue
+       }
+  
 	default {
 	    if [info exists tool] {
 		if { [info proc ${tool}_option_proc] != "" } {
@@ -1167,6 +1194,7 @@ for { set i 0 } { $i < $argc } { incr i } {
 	    exit 1
 	}
     }
+
 }
 
 #
@@ -1274,15 +1302,20 @@ proc load_config { args } {
 #
 
 proc load_tool_target_config { name } {
-    global target_os
+    global target_os libdir srcdir
 
     set found [load_config "${name}.exp" "${target_os}.exp" "default.exp" "unknown.exp"];
 
     if { $found == 0 } {
-	send_error "ERROR: Couldn't find tool config file for $name.\n"
+	send_error "WARNING: Couldn't find tool config file for $name, using default.\n"
+	# If we can't load the tool init file, this must be a simple natively hosted
+	# test suite, so we use the default procs for Unix.
+	if { [search_and_load_file "library file" default.exp [list $libdir $libdir/config [file dirname [file dirname $srcdir]]/dejagnu/config $srcdir/config . [file dirname [file dirname [file dirname $srcdir]]]/dejagnu/config]] == 0 } {
+	send_error "ERROR: Couldn't find default tool init file.\n"
+	exit 1
+	}
     }
 }
-
 
 #
 # Find the file that describes the machine specified by board_name.
@@ -1424,6 +1457,13 @@ proc runtest { test_file_name } {
 	}
 
 	if { [catch "uplevel #0 source $test_file_name"] == 1 } {
+	    # If we have a Tcl error, propogate the exit status do make
+	    # notices the error.
+	    global exit_status exit_error
+	    # exit error is set by a command line option
+	    if { $exit_status == 0 } {
+		set exit_status $exit_error
+	    }
 	    # We can't call `perror' here, it resets `errorInfo'
 	    # before we want to look at it.  Also remember that perror
 	    # increments `errcnt'.  If we do call perror we'd have to

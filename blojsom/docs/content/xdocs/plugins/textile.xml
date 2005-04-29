@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Textile plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The Textile plugin is an implementation of the amazing Textile Humane Web Text Generator.
+                You can see the original at the
+                <link href="http://www.textism.com/tools/textile/">Textism Textile</link>
+                site.
+            </p>
+        </section>
+        <section>
+            <title>installation and setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                textile=org.blojsom.plugin.textile.TextilePlugin
+            </source>
+            <p>
+                You may then add "textile" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+            </p>
+            <source>
+                html.blojsom-plugin-chain=textile
+            </source>
+            <p>
+                In your individual
+                <code>blog.properties</code> file, be sure to add
+                <code>.*textile</code> to the
+                <em>blog-file-extensions</em> value.
+                The textile plugin uses
+                <strong>.textile</strong> to identify blog entries that should be passed through
+                the plugin for processing, so be sure your entries end with this extension if you want this
+                plugin to work correctly.
+            </p>
+            <p>
+                The textile plugin can also be run on entries not ending in a <strong>.textile</strong> extension
+                by using the metadata plugin before the textile plugin in one of the flavor-based plugin chains.
+                The metadata key for the textile plugin would be specified as <em>meta-run-textile=y</em> on a
+                separate line in your blog entry text.
+            </p>
+        </section>
+        <section>
+            <title>context attributes and types</title>
+            <p>
+                No context attributes are made available or used by the Textile plugin.
+            </p>
+        </section>
+        <section>
+            <title>sample textile document</title>
+            <p>from
+                <link href="http://www.textism.com/tools/textile/">Textism</link> website
+            </p>
+            <source>
+                h2. This is a title
+
+                h3. This is a subhead
+
+                This is some text of dubious character. Isn't the use of "quotes" just lazy writing -- and
+                theft of 'intellectual property' besides? I think the time has come to see a block quote.
+
+                bq. This is a block quote. I'll admit it's not the most exciting block quote ever devised.
+
+                Well, that went well. How about we insert
+                an &lt;a href="/" title="watch out"&gt;old-fashioned hypertext link&lt;/a&gt;?
+                Will the quote marks in the tags get messed up? No!
+
+                "This is a link (optional title)":http://www.textism.com
+
+                An image:
+
+                !/common/textist.gif(optional alt text)!
+
+                # Librarians rule
+                # Yes they do
+                # But you knew that
+
+                Some more text of dubious character. Here is a noisome string of CAPITAL letters.
+                Here is something we want to _emphasize_.
+                That was a linebreak. And something to indicate *strength*. Of course I could
+                use &lt;em&gt;my own HTML tags&lt;/em&gt; if I &lt;strong&gt;felt&lt;/strong&gt; like it.
+
+                h3. Coding
+
+                This &lt;code&gt;is some code, "isn't it"&lt;/code&gt;. Watch those quote marks!
+                Now for some preformatted text:
+
+                &lt;pre&gt;
+                &lt;code&gt;
+                $text = str_replace("&lt;p&gt;%::%&lt;/p&gt;","",$text);
+                $text = str_replace("%::%&lt;/p&gt;","",$text);
+                $text = str_replace("%::%","",$text);
+
+                &lt;/code&gt;
+                &lt;/pre&gt;
+
+                This isn't code.
+
+
+                So you see, my friends:
+
+                * The time is now
+                * The time is not later
+                * The time is not yesterday
+                * We must act
+            </source>
+        </section>
+    </body>
+</document>
+

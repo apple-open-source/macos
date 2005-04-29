@@ -32,7 +32,7 @@ THIS SOFTWARE.
 	                          frankyling@hgrd01.enet.dec.com
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/imThaiIc.c,v 1.4 2001/01/17 19:41:52 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imThaiIc.c,v 1.5 2003/04/13 19:22:21 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xlib.h>
@@ -42,8 +42,8 @@ THIS SOFTWARE.
 #include "Ximint.h"
 
 Private void
-_XimThaiUnSetFocus(xic)
-    XIC	 xic;
+_XimThaiUnSetFocus(
+    XIC	 xic)
 {
     Xic  ic = (Xic)xic;
     ((Xim)ic->core.im)->private.local.current_ic = (XIC)NULL;
@@ -55,8 +55,8 @@ _XimThaiUnSetFocus(xic)
 }
 
 Private void
-_XimThaiDestroyIC(xic)
-    XIC	 xic;
+_XimThaiDestroyIC(
+    XIC	 xic)
 {
     Xic	 ic = (Xic)xic;
     if(((Xim)ic->core.im)->private.local.current_ic == (XIC)ic) {
@@ -79,8 +79,8 @@ _XimThaiDestroyIC(xic)
 }
 
 Private void
-_XimThaiSetFocus(xic)
-    XIC	 xic;
+_XimThaiSetFocus(
+    XIC	 xic)
 {
     Xic	 ic = (Xic)xic;
     XIC	 current_ic = ((Xim)ic->core.im)->private.local.current_ic;
@@ -100,8 +100,8 @@ _XimThaiSetFocus(xic)
 }
 
 Private void
-_XimThaiReset(xic)
-    XIC	 xic;
+_XimThaiReset(
+    XIC	 xic)
 {
     Xic	 ic = (Xic)xic;
     ic->private.local.thai.comp_state = 0;
@@ -112,16 +112,16 @@ _XimThaiReset(xic)
 }
 
 Private char *
-_XimThaiMbReset(xic)
-    XIC	 xic;
+_XimThaiMbReset(
+    XIC	 xic)
 {
     _XimThaiReset(xic);
     return (char *)NULL;
 }
 
 Private wchar_t *
-_XimThaiWcReset(xic)
-    XIC	 xic;
+_XimThaiWcReset(
+    XIC	 xic)
 {
     _XimThaiReset(xic);
     return (wchar_t *)NULL;
@@ -142,9 +142,9 @@ Private XICMethodsRec Thai_ic_methods = {
 };
 
 XIC
-_XimThaiCreateIC(im, values)
-    XIM			 im;
-    XIMArg		*values;
+_XimThaiCreateIC(
+    XIM			 im,
+    XIMArg		*values)
 {
     Xic			 ic;
     XimDefICValues	 ic_values;

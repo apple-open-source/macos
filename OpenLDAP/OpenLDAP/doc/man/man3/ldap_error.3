@@ -1,6 +1,6 @@
 .TH LDAP_ERROR 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_error.3,v 1.10.2.5 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/ldap_error.3,v 1.16.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldap_perror, ld_errno, ldap_result2error, ldap_errlist, ldap_err2string \- LDAP protocol error handling routines
@@ -28,8 +28,9 @@ is accessible using
 and
 .BR ldap_set_option (3)
 with the
-.B LDAP_OPT_ERROR_NUMBER
-option.
+.B LDAP_OPT_RESULT_CODE
+option (previously called
+.BR LDAP_OPT_ERROR_NUMBER ).
 .LP
 The
 .B ldap_result2error()
@@ -205,7 +206,7 @@ library routine.
 .BR ldap (3),
 .BR perror (3)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

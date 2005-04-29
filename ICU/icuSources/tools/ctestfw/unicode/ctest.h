@@ -1,59 +1,25 @@
 /*
-*****************************************************************************************
+********************************************************************************
 *
-*   Copyright (C) 1996-2000, International Business Machines
+*   Copyright (C) 1996-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
-*****************************************************************************************
+********************************************************************************
 */
-
 
 #ifndef CTEST_H
 #define CTEST_H
 
-#include "unicode/utypes.h"
-
-/*Deals with imports and exports of the dynamic library*/
-#if defined(_WIN32) || defined(U_CYGWIN)
-    #define T_CTEST_EXPORT __declspec(dllexport)
-    #define T_CTEST_IMPORT __declspec(dllimport)
-#else
-    #define T_CTEST_EXPORT
-    #define T_CTEST_IMPORT
-#endif
-
-#ifdef __cplusplus
-    #define C_CTEST_API extern "C"
-#else
-    #define C_CTEST_API
-#endif
-
-#ifdef T_CTEST_IMPLEMENTATION
-    #define T_CTEST_API C_CTEST_API  T_CTEST_EXPORT
-    #define T_CTEST_EXPORT_API T_CTEST_EXPORT
-#else
-    #define T_CTEST_API C_CTEST_API  T_CTEST_IMPORT
-    #define T_CTEST_EXPORT_API T_CTEST_IMPORT
-#endif
-
-
-
-/* True and false for sanity. (removes ICU dependancy) */
-
-#ifndef FALSE
-#define FALSE 0
-#endif
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-
+#include "unicode/testtype.h"
+#include "unicode/utrace.h"
 
 
 /* prototypes *********************************/
 
-typedef void (*TestFunctionPtr)(void);
+U_CDECL_BEGIN
+typedef void (U_CALLCONV *TestFunctionPtr)(void);
 typedef struct TestNode TestNode;
+U_CDECL_END
 
 /**
  * Set this to zero to disable log_verbose() messages.
@@ -61,7 +27,7 @@ typedef struct TestNode TestNode;
  *
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_EXPORT_API extern int REPEAT_TESTS;
+extern T_CTEST_EXPORT_API int REPEAT_TESTS;
 
 /**
  * Set this to zero to disable log_verbose() messages.
@@ -69,7 +35,7 @@ T_CTEST_EXPORT_API extern int REPEAT_TESTS;
  *
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_EXPORT_API extern int VERBOSITY;
+extern T_CTEST_EXPORT_API int VERBOSITY;
 
 /**
  * Set this to zero to disable log_verbose() messages.
@@ -77,7 +43,7 @@ T_CTEST_EXPORT_API extern int VERBOSITY;
  *
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_EXPORT_API extern int ERR_MSG;
+extern T_CTEST_EXPORT_API int ERR_MSG;
 
 /**
  * Set this to zero to disable some of the slower tests.
@@ -85,7 +51,7 @@ T_CTEST_EXPORT_API extern int ERR_MSG;
  *
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_EXPORT_API extern int QUICK;
+extern T_CTEST_EXPORT_API int QUICK;
 
 /**
  * Set this to nonzero to warn (not error) on missing data. 
@@ -95,7 +61,14 @@ T_CTEST_EXPORT_API extern int QUICK;
  * @see log_data_err
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_EXPORT_API extern int WARN_ON_MISSING_DATA;
+extern T_CTEST_EXPORT_API int WARN_ON_MISSING_DATA;
+
+/**
+ * ICU tracing level, is set by command line option
+ *
+ * @internal
+ */
+extern T_CTEST_EXPORT_API UTraceLevel ICU_TRACE;
 
 /**
  * Show the names of all nodes.
@@ -103,7 +76,8 @@ T_CTEST_EXPORT_API extern int WARN_ON_MISSING_DATA;
  * @param root Subtree of tests.
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void showTests ( const TestNode *root);
+T_CTEST_API void T_CTEST_EXPORT2
+showTests ( const TestNode *root);
 
 /**
  * Run a subtree of tests.
@@ -111,7 +85,8 @@ T_CTEST_API void showTests ( const TestNode *root);
  * @param root Subtree of tests.
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void runTests ( const TestNode* root);
+T_CTEST_API void T_CTEST_EXPORT2
+runTests ( const TestNode* root);
 
 /**
  * Add a test to the subtree.
@@ -125,11 +100,19 @@ T_CTEST_API void runTests ( const TestNode* root);
  * @param path Path from root under which test will be placed. Ex. '/a/b/mytest'
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void addTest ( TestNode** root,
-           TestFunctionPtr test,
-           const char *path);
+T_CTEST_API void T_CTEST_EXPORT2
+addTest(TestNode** root,
+        TestFunctionPtr test,
+        const char *path);
 
-T_CTEST_API void cleanUpTestTree(TestNode *tn);
+/**
+ * Clean up any allocated memory.
+ * Conditions for calling this function are the same as u_cleanup().
+ * @see u_cleanup
+ * @internal Internal APIs for testing purpose only
+ */
+T_CTEST_API void T_CTEST_EXPORT2
+cleanUpTestTree(TestNode *tn);
 
 /**
  * Retreive a specific subtest. (subtree).
@@ -139,8 +122,9 @@ T_CTEST_API void cleanUpTestTree(TestNode *tn);
  * @return The subtest, or NULL on failure.
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API const TestNode* getTest (const TestNode* root,
-                                     const char *path);
+T_CTEST_API const TestNode* T_CTEST_EXPORT2
+getTest(const TestNode* root,
+        const char *path);
 
 
 /**
@@ -148,14 +132,26 @@ T_CTEST_API const TestNode* getTest (const TestNode* root,
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void log_err(const char* pattern, ...);
+T_CTEST_API void T_CTEST_EXPORT2
+log_err(const char* pattern, ...);
 
 /**
  * Log an informational message. (printf style)
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void log_info(const char* pattern, ...);
+T_CTEST_API void T_CTEST_EXPORT2
+log_info(const char* pattern, ...);
+
+/**
+ * Log an informational message. (vprintf style)
+ * @param prefix a string that is output before the pattern and without formatting
+ * @param pattern printf-style format string
+ * @param ap variable-arguments list
+ * @internal Internal APIs for testing purpose only
+ */
+T_CTEST_API void T_CTEST_EXPORT2
+vlog_info(const char *prefix, const char *pattern, va_list ap);
 
 /**
  * Log a verbose informational message. (printf style)
@@ -163,7 +159,8 @@ T_CTEST_API void log_info(const char* pattern, ...);
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void log_verbose(const char* pattern, ...);
+T_CTEST_API void T_CTEST_EXPORT2
+log_verbose(const char* pattern, ...);
 
 /**
  * Log an error message concerning missing data. (printf style)
@@ -172,7 +169,8 @@ T_CTEST_API void log_verbose(const char* pattern, ...);
  * @param pattern printf-style format string
  * @internal Internal APIs for testing purpose only
  */
-T_CTEST_API void log_data_err(const char *pattern, ...);
+T_CTEST_API void T_CTEST_EXPORT2
+log_data_err(const char *pattern, ...);
 
 /**
  * Processes the command line arguments.
@@ -187,14 +185,14 @@ T_CTEST_API void log_data_err(const char *pattern, ...);
  * @return positive for error count, 0 for success, negative for illegal argument
  * @internal Internal APIs for testing purpose only
  */
+T_CTEST_API int T_CTEST_EXPORT2 
+processArgs(const TestNode* root,
+            int argc,
+            const char* const argv[]);
 
-T_CTEST_API int processArgs(const TestNode* root,
-                             int argc,
-                             const char* const argv[]);
 
-
-T_CTEST_API 
-const char* getTestName(void);
+T_CTEST_API const char* T_CTEST_EXPORT2
+getTestName(void);
 
 
 

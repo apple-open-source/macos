@@ -34,7 +34,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)exit.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdlib/exit.3,v 1.13 2002/12/13 16:53:50 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/exit.3,v 1.15 2004/07/04 20:55:48 ru Exp $
 .\"
 .Dd September 9, 2002
 .Dt EXIT 3
@@ -97,7 +97,7 @@ as possible values of
 .Fa status .
 Cooperating processes may use other values;
 in a program which might be called by a mail transfer agent, the
-the values described in
+values described in
 .Xr sysexits 3
 may be used to provide more information to the parent process.
 .Pp
@@ -119,8 +119,8 @@ and
 functions
 never return.
 .Sh SEE ALSO
-.Xr wait 2 ,
 .Xr _exit 2 ,
+.Xr wait 2 ,
 .Xr atexit 3 ,
 .Xr intro 3 ,
 .Xr sysexits 3 ,

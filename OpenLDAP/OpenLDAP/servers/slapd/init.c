@@ -1,8 +1,27 @@
 /* init.c - initialize various things */
-/* $OpenLDAP: pkg/ldap/servers/slapd/init.c,v 1.50.2.5 2003/02/09 16:31:36 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/init.c,v 1.59.2.8 2004/09/23 22:32:12 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
  */
 
 #include "portable.h"
@@ -15,6 +34,9 @@
 
 #include "slap.h"
 #include "lber_pvt.h"
+#ifdef LDAP_SLAPI
+#include "slapi/slapi.h"
+#endif
 
 /*
  * read-only global variables or variables only written by the listener
@@ -43,7 +65,9 @@ struct berval NoAttrs = BER_BVC( LDAP_NO_ATTRS );
  */
 ldap_pvt_thread_pool_t	connection_pool;
 int			connection_pool_max = SLAP_MAX_WORKER_THREADS;
+#ifndef HAVE_GMTIME_R
 ldap_pvt_thread_mutex_t	gmtime_mutex;
+#endif
 #if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 ldap_pvt_thread_mutex_t	passwd_mutex;
 #endif
@@ -114,7 +138,8 @@ slap_init( int mode, const char *name )
 	
 			(void) ldap_pvt_thread_initialize();
 
-			ldap_pvt_thread_pool_init(&connection_pool, connection_pool_max, 0);
+			ldap_pvt_thread_pool_init( &connection_pool,
+				connection_pool_max, 0);
 
 			ldap_pvt_thread_mutex_init( &entry2str_mutex );
 			ldap_pvt_thread_mutex_init( &replog_mutex );
@@ -131,7 +156,9 @@ slap_init( int mode, const char *name )
 			}
 #endif
 
+#ifndef HAVE_GMTIME_R
 			ldap_pvt_thread_mutex_init( &gmtime_mutex );
+#endif
 #if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 			ldap_pvt_thread_mutex_init( &passwd_mutex );
 #endif
@@ -141,6 +168,7 @@ slap_init( int mode, const char *name )
 			if( rc == 0 ) {
 				rc = backend_init( );
 			}
+
 			break;
 
 		default:
@@ -174,12 +202,26 @@ int slap_startup( Backend *be )
 
 	rc = backend_startup( be );
 
+#ifdef LDAP_SLAPI
+	if( rc == 0 ) {
+		Slapi_PBlock *pb = slapi_pblock_new();
+
+		if ( slapi_int_call_plugins( NULL, SLAPI_PLUGIN_START_FN, pb ) < 0 ) {
+			rc = -1;
+		}
+		slapi_pblock_destroy( pb );
+	}
+#endif /* LDAP_SLAPI */
+
 	return rc;
 }
 
 int slap_shutdown( Backend *be )
 {
 	int rc;
+#ifdef LDAP_SLAPI
+	Slapi_PBlock *pb;
+#endif
 
 #ifdef NEW_LOGGING
 	LDAP_LOG( OPERATION, CRIT, 
@@ -190,11 +232,14 @@ int slap_shutdown( Backend *be )
 		slap_name, 0, 0 );
 #endif
 
-
-	slap_sasl_destroy();
-
 	/* let backends do whatever cleanup they need to do */
 	rc = backend_shutdown( be ); 
+
+#ifdef LDAP_SLAPI
+	pb = slapi_pblock_new();
+	(void) slapi_int_call_plugins( NULL, SLAPI_PLUGIN_CLOSE_FN, pb );
+	slapi_pblock_destroy( pb );
+#endif /* LDAP_SLAPI */
 
 	return rc;
 }
@@ -212,8 +257,13 @@ int slap_destroy(void)
 		slap_name, 0, 0 );
 #endif
 
+	if ( default_referral ) {
+		ber_bvarray_free( default_referral );
+	}
 
 	rc = backend_destroy();
+
+	slap_sasl_destroy();
 
 	entry_destroy();
 

@@ -1,9 +1,9 @@
 /*
- * "$Id: cupstestppd.c,v 1.1.1.7 2003/08/03 06:18:46 jlovell Exp $"
+ * "$Id: cupstestppd.c,v 1.3 2005/03/09 21:45:07 jlovell Exp $"
  *
  *   PPD test program for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -40,6 +40,7 @@
 #include <cups/string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <sys/stat.h>
 
 
 /*
@@ -80,6 +81,12 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		ppdversion;	/* PPD spec version in PPD file */
   ppd_status_t	error;		/* Status of ppdOpen*() */
   int		line;		/* Line number for error */
+  struct stat	statbuf;	/* File information */
+  char		super[1024],	/* Super-type for filter */
+		type[1024],	/* Type for filter */
+		program[1024],	/* Program/filter name */
+		pathprog[1024];	/* Complete path to program/filter */
+  int		cost;		/* Cost of filter */
   ppd_file_t	*ppd;		/* PPD file record */
   ppd_attr_t	*attr;		/* PPD attribute */
   ppd_size_t	*size;		/* Size record */
@@ -282,12 +289,32 @@ main(int  argc,			/* I - Number of command-line arguments */
           attr->value)
         ppdversion = (int)(10 * atof(attr->value) + 0.5);
 
-      if (ppdFindAttr(ppd, "DefaultImageableArea", NULL) != NULL)
+      if (verbose > 0)
       {
-	if (verbose > 0)
-	  puts("        PASS    DefaultImageableArea");
+       /*
+        * Look for default keywords with no matching option...
+	*/
+
+        for (j = 0; j < ppd->num_attrs; j ++)
+	{
+	  attr = ppd->attrs[j];
+
+          if (!strcmp(attr->name, "DefaultColorSpace") ||
+	      !strcmp(attr->name, "DefaultFont") ||
+	      !strcmp(attr->name, "DefaultImageableArea") ||
+	      !strcmp(attr->name, "DefaultOutputOrder") ||
+	      !strcmp(attr->name, "DefaultPaperDimension") ||
+	      !strcmp(attr->name, "DefaultTransfer"))
+	    continue;
+	      
+	  if (!strncmp(attr->name, "Default", 7) &&
+	      !ppdFindOption(ppd, attr->name + 7))
+            printf("        WARN    %s has no corresponding options!\n",
+	           attr->name);
+        }
       }
-      else
+
+      if ((attr = ppdFindAttr(ppd, "DefaultImageableArea", NULL)) == NULL)
       {
 	if (verbose >= 0)
 	{
@@ -300,13 +327,26 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	errors ++;
       }
-
-      if (ppdFindAttr(ppd, "DefaultPaperDimension", NULL) != NULL)
+      else if (ppdPageSize(ppd, attr->value) == NULL)
       {
-	if (verbose > 0)
-	  puts("        PASS    DefaultPaperDimension");
+	if (verbose >= 0)
+	{
+	  if (!errors && !verbose)
+	    puts(" FAIL");
+
+	  printf("      **FAIL**  BAD DefaultImageableArea %s!\n", attr->value);
+	  puts("                REF: Page 102, section 5.15.");
+        }
+
+	errors ++;
       }
       else
+      {
+	if (verbose > 0)
+	  puts("        PASS    DefaultImageableArea");
+      }
+
+      if (ppdFindAttr(ppd, "DefaultPaperDimension", NULL) == NULL)
       {
 	if (verbose >= 0)
 	{
@@ -319,6 +359,21 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	errors ++;
       }
+      else if (ppdPageSize(ppd, attr->value) == NULL)
+      {
+	if (verbose >= 0)
+	{
+	  if (!errors && !verbose)
+	    puts(" FAIL");
+
+	  printf("      **FAIL**  BAD DefaultPaperDimension %s!\n", attr->value);
+	  puts("                REF: Page 103, section 5.15.");
+        }
+
+	errors ++;
+      }
+      else if (verbose > 0)
+	puts("        PASS    DefaultPaperDimension");
 
       for (j = 0, group = ppd->groups; j < ppd->num_groups; j ++, group ++)
 	for (k = 0, option = group->options; k < group->num_options; k ++, option ++)
@@ -329,7 +384,22 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 	  if (option->defchoice[0])
 	  {
-	    if (verbose > 0)
+            if (ppdFindChoice(option, option->defchoice) == NULL &&
+	        strcmp(option->defchoice, "Unknown"))
+	    {
+	      if (verbose >= 0)
+	      {
+		if (!errors && !verbose)
+		  puts(" FAIL");
+
+		printf("      **FAIL**  BAD Default%s %s\n", option->keyword,
+	               option->defchoice);
+		puts("                REF: Page 40, section 4.5.");
+              }
+
+	      errors ++;
+	    }
+	    else if (verbose > 0)
 	      printf("        PASS    Default%s\n", option->keyword);
 	  }
 	  else
@@ -459,7 +529,7 @@ main(int  argc,			/* I - Number of command-line arguments */
       if (ppd->modelname != NULL)
       {
         for (ptr = ppd->modelname; *ptr; ptr ++)
-	  if (!isalnum(*ptr) && !strchr(" ./-+", *ptr))
+	  if (!isalnum(*ptr & 255) && !strchr(" ./-+", *ptr))
 	    break;
 
 	if (*ptr)
@@ -686,6 +756,125 @@ main(int  argc,			/* I - Number of command-line arguments */
 	errors ++;
       }
 
+     /*
+      * Check for page sizes without the corresponding ImageableArea or
+      * PaperDimension values...
+      */
+
+      if (ppd->num_sizes == 0)
+      {
+	if (verbose >= 0)
+	{
+	  if (!errors && !verbose)
+	    puts(" FAIL");
+
+	  puts("      **FAIL**  REQUIRED PageSize");
+	  puts("                REF: Page 41, section 5.");
+	  puts("                REF: Page 99, section 5.14.");
+        }
+
+	errors ++;
+      }
+      else
+      {
+	for (j = 0, size = ppd->sizes; j < ppd->num_sizes; j ++, size ++)
+	{
+	 /*
+	  * Don't check custom size...
+	  */
+
+	  if (!strcmp(size->name, "Custom"))
+	    continue;
+
+	 /*
+	  * Check for ImageableArea...
+	  */
+
+          if (size->left == 0.0 && size->bottom == 0.0 &&
+	      size->right == 0.0 && size->top == 0.0)
+	  {
+	    if (verbose >= 0)
+	    {
+	      if (!errors && !verbose)
+		puts(" FAIL");
+
+	      printf("      **FAIL**  REQUIRED ImageableArea for PageSize %s\n",
+	             size->name);
+	      puts("                REF: Page 41, section 5.");
+	      puts("                REF: Page 102, section 5.15.");
+            }
+
+	    errors ++;
+	  }
+
+	 /*
+	  * Check for PaperDimension...
+	  */
+
+          if (size->width == 0.0 && size->length == 0.0)
+	  {
+	    if (verbose >= 0)
+	    {
+	      if (!errors && !verbose)
+		puts(" FAIL");
+
+	      printf("      **FAIL**  REQUIRED PaperDimension for PageSize %s\n",
+	             size->name);
+	      puts("                REF: Page 41, section 5.");
+	      puts("                REF: Page 103, section 5.15.");
+            }
+
+	    errors ++;
+	  }
+	}
+      }
+
+     /*
+      * Check for a duplex option, and for standard values...
+      */
+
+      if ((option = ppdFindOption(ppd, "Duplex")) == NULL)
+	if ((option = ppdFindOption(ppd, "JCLDuplex")) == NULL)
+	  if ((option = ppdFindOption(ppd, "EFDuplex")) == NULL)
+            option = ppdFindOption(ppd, "KD03Duplex");
+
+      if (option != NULL)
+      {
+        if (ppdFindChoice(option, "None") == NULL)
+	{
+	  if (verbose >= 0)
+	  {
+	    if (!errors && !verbose)
+	      puts(" FAIL");
+
+	    printf("      **FAIL**  REQUIRED %s does not define choice None!\n",
+	           option->keyword);
+	    puts("                REF: Page 122, section 5.17");
+          }
+
+	  errors ++;
+	}
+
+        for (j = option->num_choices, choice = option->choices; j > 0; j --, choice ++)
+          if (strcmp(choice->choice, "None") &&
+	      strcmp(choice->choice, "DuplexNoTumble") &&
+	      strcmp(choice->choice, "DuplexTumble") &&
+	      strcmp(choice->choice, "SimplexTumble"))
+	  {
+	    if (verbose >= 0)
+	    {
+	      if (!errors && !verbose)
+		puts(" FAIL");
+
+	      printf("      **FAIL**  Bad %s choice %s!\n",
+	             option->keyword, choice->choice);
+	      puts("                REF: Page 122, section 5.17");
+            }
+
+	    errors ++;
+	  }
+      }
+
       if (errors)
 	status = ERROR_CONFORMANCE;
       else if (!verbose)
@@ -693,6 +882,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 	 
       if (verbose >= 0)
       {
+        if (option &&
+	    strcmp(option->keyword, "Duplex") &&
+	    strcmp(option->keyword, "JCLDuplex"))
+	{
+	  printf("        WARN    Duplex option keyword %s should be named Duplex!\n",
+	         option->keyword);
+	}
+
         ppdMarkDefaults(ppd);
 	if (ppdConflicts(ppd))
 	{
@@ -738,6 +935,29 @@ main(int  argc,			/* I - Number of command-line arguments */
 	}
 
        /*
+        * Check the Protocols line and flag PJL + BCP since TBCP is
+	* usually used with PJL...
+	*/
+
+        if (ppd->protocols)
+	{
+	  if (strstr(ppd->protocols, "PJL") &&
+	      strstr(ppd->protocols, "BCP") &&
+	      !strstr(ppd->protocols, "TBCP"))
+	  {
+	    puts("        WARN    Protocols contains both PJL and BCP; expected TBCP.");
+	    puts("                REF: Pages 78-79, section 5.7.");
+	  }
+
+	  if (strstr(ppd->protocols, "PJL") &&
+	      (!ppd->jcl_begin || !ppd->jcl_end || !ppd->jcl_ps))
+	  {
+	    puts("        WARN    Protocols contains PJL but JCL attributes are not set.");
+	    puts("                REF: Pages 78-79, section 5.7.");
+	  }
+	}
+
+       /*
         * Check for options with a common prefix, e.g. Duplex and Duplexer,
 	* which are errors according to the spec but won't cause problems
 	* with CUPS specifically...
@@ -764,6 +984,102 @@ main(int  argc,			/* I - Number of command-line arguments */
         	}
 	  }
       }
+
+      /*
+       * cupsFilter
+       */
+
+      for (j = 0; j < ppd->num_filters; j ++)
+      {
+       /*
+	* Parse the filter string; it should be in the following format:
+	*
+	*     super/type cost program
+	*/
+
+	if (sscanf(ppd->filters[j], "%15[^/]/%31s%d%1023s", super, type, &cost, program) != 4)
+	{
+	  if (verbose >= 0)
+	  {
+	    if (!errors && !verbose)
+	      puts(" FAIL");
+
+	    printf("      **FAIL**  Invalid filter string \"%s\"!\n", ppd->filters[j]);
+	  }
+	  errors ++;
+	}
+	else
+	{
+	  if (program[0] == '/')
+	    strlcpy(pathprog, program, sizeof(pathprog));
+	  else
+	    snprintf(pathprog, sizeof(pathprog), "%s/filter/%s", CUPS_SERVERBIN, program);
+
+	  if (stat(pathprog, &statbuf))
+	  {
+	    if (verbose >= 0)
+	      printf("        WARN    Missing cupsFilter file \"%s\"\n", pathprog);
+	  }
+	}
+      }
+
+      /*
+       * cupsICCProfile
+       */
+
+      for (attr = ppdFindAttr(ppd, "cupsICCProfile", NULL); 
+	   attr != NULL; 
+	   attr = ppdFindNextAttr(ppd, "cupsICCProfile", NULL))
+      {
+	if (attr->value)
+	{
+	  if (attr->value[0] == '/')
+	    strlcpy(pathprog, attr->value, sizeof(pathprog));
+	  else
+	    snprintf(pathprog, sizeof(pathprog), "%s/profiles/%s", CUPS_DATADIR, attr->value);
+	}
+
+	if (!attr->value || !attr->value[0] || stat(pathprog, &statbuf))
+	{
+	  if (verbose >= 0)
+	    printf("        WARN    Missing cupsICCProfile file \"%s\"\n",
+		!attr->value || !attr->value[0] ? "<NULL>" : pathprog);
+	}
+      }
+
+#ifdef __APPLE__
+      /*
+       * APDialogExtension
+       */
+
+      for (attr = ppdFindAttr(ppd, "APDialogExtension", NULL); 
+	   attr != NULL; 
+	   attr = ppdFindNextAttr(ppd, "APDialogExtension", NULL))
+      {
+	if (!attr->value || stat(attr->value, &statbuf))
+	{
+	  if (verbose >= 0)
+	    printf("        WARN    Missing APDialogExtension file \"%s\"\n",
+		    attr->value ? attr->value : "<NULL>");
+	}
+      }
+
+      /*
+       * APPrinterIconPath
+       */
+
+      for (attr = ppdFindAttr(ppd, "APPrinterIconPath", NULL); 
+	   attr != NULL; 
+	   attr = ppdFindNextAttr(ppd, "APPrinterIconPath", NULL))
+      {
+	if (!attr->value || stat(attr->value, &statbuf))
+	{
+	  if (verbose >= 0)
+	    printf("        WARN    Missing APPrinterIconPath file \"%s\"\n",
+		    attr->value ? attr->value : "<NULL>");
+	}
+      }
+#endif	/* __APPLE__ */
 
       if (verbose > 0)
       {
@@ -1020,5 +1336,5 @@ usage(void)
 
 
 /*
- * End of "$Id: cupstestppd.c,v 1.1.1.7 2003/08/03 06:18:46 jlovell Exp $".
+ * End of "$Id: cupstestppd.c,v 1.3 2005/03/09 21:45:07 jlovell Exp $".
  */

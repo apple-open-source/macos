@@ -12,10 +12,6 @@
 #include <string.h>
 #include <errno.h>
 
-#ifndef kDSStdAuthSMBNTv2UserSessionKey
-#define kDSStdAuthSMBNTv2UserSessionKey "dsAuthMethodStandard:dsSMBNTv2UserSessionKey"
-#endif
-
 /* Private */
 
 #define credentialfile "/var/db/samba/opendirectorysam"

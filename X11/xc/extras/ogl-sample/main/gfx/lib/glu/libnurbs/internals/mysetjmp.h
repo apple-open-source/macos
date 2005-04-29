@@ -31,6 +31,7 @@
 ** published by SGI, but has not been independently verified as being
 ** compliant with the OpenGL(R) version 1.2.1 Specification.
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/internals/mysetjmp.h,v 1.4 2003/10/22 19:20:57 tsi Exp $ */
 
 /*
  * mysetjmp.h
@@ -55,13 +56,34 @@ extern "C" int mysetjmp( JumpBuffer * );
 #define longjmp 	gl_longjmp
 #endif
 
-#if LIBRARYBUILD | GLBUILD
+#if defined(LIBRARYBUILD) || defined(GLBUILD)
 #include <setjmp.h>
 #include <stdlib.h>
 
+/* Fix up for libc5 Linux systems */
+#ifndef LIBC5BUILD
+#if defined(setjmp) && defined(__GNU_LIBRARY__) && \
+    (!defined(__GLIBC__) || (__GLIBC__ < 2))
+#define LIBC5BUILD 1
+#else
+#if !LIBC5BUILD
+#undef LIBC5BUILD
+#endif
+#endif
+#endif
+
+#ifndef LIBC5BUILD
 struct JumpBuffer {
     jmp_buf	buf;
 };
+#else
+struct JumpBuffer {
+    union {
+	jmp_buf		jbuf;
+	sigjmp_buf	sbuf;
+    } buf;
+};
+#endif
 
 inline JumpBuffer *
 newJumpbuffer( void )
@@ -78,13 +100,22 @@ deleteJumpbuffer(JumpBuffer *jb)
 inline void
 mylongjmp( JumpBuffer *j, int code ) 
 {
-    ::longjmp( j->buf, code );
+#ifndef LIBC5BUILD
+    longjmp( j->buf, code );
+#else
+    longjmp( j->buf.jbuf, code);
+#endif
 }
 
 inline int
 mysetjmp( JumpBuffer *j )
 {
-    return ::setjmp( j->buf );
+#ifndef LIBC5BUILD
+    return setjmp( j->buf );
+#else
+    __sigjmp_save( j->buf.sbuf, 1);
+    return __setjmp( j->buf.sbuf->__jmpbuf );
+#endif
 }
 #endif
 

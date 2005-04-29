@@ -1,39 +1,25 @@
 %{
 /*
- * Copyright (c) 1996, 1998-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1996, 1998-2004 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * This code is derived from software contributed by Chris Jepeway.
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * This code is derived from software contributed by Chris Jepeway
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
 #include "config.h"
@@ -68,7 +54,7 @@
 #include <sudo.tab.h>
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: parse.lex,v 1.119 2002/03/16 00:44:47 millert Exp $";
+static const char rcsid[] = "$Sudo: parse.lex,v 1.132 2004/05/17 20:51:13 millert Exp $";
 #endif /* lint */
 
 #undef yywrap		/* guard against a yywrap macro */
@@ -99,7 +85,7 @@ extern void yyerror		__P((char *));
 OCTET			(1?[0-9]{1,2})|(2[0-4][0-9])|(25[0-5])
 DOTTEDQUAD		{OCTET}(\.{OCTET}){3}
 HOSTNAME		[[:alnum:]_-]+
-WORD			([^#@!=:,\(\) \t\n\\]|\\[^\n])+
+WORD			([^#>@!=:,\(\) \t\n\\]|\\[^\n])+
 ENVAR			([^#!=, \t\n\\]|\\[^\n])([^#=, \t\n\\]|\\[^\n])*
 DEFVAR			[a-z_]+
 
@@ -156,7 +142,15 @@ DEFVAR			[a-z_]+
 }
 
 <GOTCMND>{
+    \\[\*\?\[\]\!]	{
+			    /* quoted fnmatch glob char, pass verbatim */
+			    LEXTRACE("QUOTEDCHAR ");
+			    fill_args(yytext, 2, sawspace);
+			    sawspace = FALSE;
+			}
+
     \\[:\\,= \t#]	{
+			    /* quoted sudoers special char, strip backslash */
 			    LEXTRACE("QUOTEDCHAR ");
 			    fill_args(yytext + 1, 1, sawspace);
 			    sawspace = FALSE;
@@ -175,12 +169,15 @@ DEFVAR			[a-z_]+
 			}			/* a command line arg */
 }
 
-<INITIAL>^Defaults[:@]?	{
+<INITIAL>^Defaults[:@>]? {
 			    BEGIN GOTDEFS;
 			    switch (yytext[8]) {
 				case ':':
 				    LEXTRACE("DEFAULTS_USER ");
 				    return(DEFAULTS_USER);
+				case '>':
+				    LEXTRACE("DEFAULTS_RUNAS ");
+				    return(DEFAULTS_RUNAS);
 				case '@':
 				    LEXTRACE("DEFAULTS_HOST ");
 				    return(DEFAULTS_HOST);
@@ -219,6 +216,16 @@ PASSWD[[:blank:]]*:	{
 				/* cmnd requires passwd for this user */
 			    	LEXTRACE("PASSWD ");
 			    	return(PASSWD);
+			}
+
+NOEXEC[[:blank:]]*:	{
+			    	LEXTRACE("NOEXEC ");
+			    	return(NOEXEC);
+			}
+
+EXEC[[:blank:]]*:	{
+			    	LEXTRACE("EXEC ");
+			    	return(EXEC);
 			}
 
 \+{WORD}		{
@@ -274,6 +281,12 @@ PASSWD[[:blank:]]*:	{
 <GOTRUNAS>\)		{
 			    BEGIN INITIAL;
 			}
+
+sudoedit		{
+			    BEGIN GOTCMND;
+			    LEXTRACE("COMMAND ");
+			    fill_cmnd(yytext, yyleng);
+			}			/* sudo -e */
 
 \/(\\[\,:= \t#]|[^\,:=\\ \t\n#])+	{
 			    /* directories can't have args... */
@@ -344,6 +357,15 @@ PASSWD[[:blank:]]*:	{
 			    return(ERROR);
 			}	/* parse error */
 
+<*><<EOF>>		{
+			    if (YY_START != INITIAL) {
+			    	BEGIN INITIAL;
+				LEXTRACE("ERROR ");
+				return(ERROR);
+			    }
+			    yyterminate();
+			}
+
 %%
 static void
 fill(s, len)
@@ -353,8 +375,10 @@ fill(s, len)
     int i, j;
 
     yylval.string = (char *) malloc(len + 1);
-    if (yylval.string == NULL)
+    if (yylval.string == NULL) {
 	yyerror("unable to allocate memory");
+	return;
+    }
 
     /* Copy the string and collapse any escaped characters. */
     for (i = 0, j = 0; i < len; i++, j++) {
@@ -373,13 +397,14 @@ fill_cmnd(s, len)
 {
     arg_len = arg_size = 0;
 
-    yylval.command.cmnd = (char *) malloc(len + 1);
-    if (yylval.command.cmnd == NULL)
+    yylval.command.cmnd = (char *) malloc(++len);
+    if (yylval.command.cmnd == NULL) {
 	yyerror("unable to allocate memory");
+	return;
+    }
 
     /* copy the string and NULL-terminate it (escapes handled by fnmatch) */
-    (void) strncpy(yylval.command.cmnd, s, len);
-    yylval.command.cmnd[len] = '\0';
+    (void) strlcpy(yylval.command.cmnd, s, len);
 
     yylval.command.args = NULL;
 }
@@ -393,41 +418,35 @@ fill_args(s, len, addspace)
     int new_len;
     char *p;
 
-    /*
-     * If first arg, malloc() some room, else if we don't
-     * have enough space realloc() some more.
-     */
     if (yylval.command.args == NULL) {
 	addspace = 0;
 	new_len = len;
+    } else
+	new_len = arg_len + len + addspace;
 
+    if (new_len >= arg_size) {
+	/* Allocate more space than we need for subsequent args */
 	while (new_len >= (arg_size += COMMANDARGINC))
 	    ;
 
-	yylval.command.args = (char *) malloc(arg_size);
-	if (yylval.command.args == NULL)
-	    yyerror("unable to allocate memory");
-    } else {
-	new_len = arg_len + len + addspace;
-
-	if (new_len >= arg_size) {
-	    /* Allocate more space than we need for subsequent args */
-	    while (new_len >= (arg_size += COMMANDARGINC))
-		;
-
-	    if ((p = (char *) realloc(yylval.command.args, arg_size)) == NULL) {
+	p = yylval.command.args ?
+	    (char *) realloc(yylval.command.args, arg_size) :
+	    (char *) malloc(arg_size);
+	if (p == NULL) {
+	    if (yylval.command.args != NULL)
 		free(yylval.command.args);
-		yyerror("unable to allocate memory");
-	    } else
-		yylval.command.args = p;
-	}
+	    yyerror("unable to allocate memory");
+	    return;
+	} else
+	    yylval.command.args = p;
     }
 
     /* Efficiently append the arg (with a leading space if needed). */
     p = yylval.command.args + arg_len;
     if (addspace)
 	*p++ = ' ';
-    (void) strcpy(p, s);
+    if (strlcpy(p, s, arg_size - (p - yylval.command.args)) != len)
+	yyerror("fill_args: buffer overflow");	/* paranoia */
     arg_len = new_len;
 }
 

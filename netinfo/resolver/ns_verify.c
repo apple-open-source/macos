@@ -15,8 +15,10 @@
  * SOFTWARE.
  */
 
+#ifndef __APPLE__
 #ifndef lint
-static const char rcsid[] = "$Id: ns_verify.c,v 1.2 2003/02/18 16:52:05 majka Exp $";
+static const char rcsid[] = "$Id: ns_verify.c,v 1.3 2003/10/16 22:13:09 majka Exp $";
+#endif
 #endif
 
 /* Import. */

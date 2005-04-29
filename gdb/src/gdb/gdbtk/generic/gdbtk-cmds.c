@@ -1,5 +1,5 @@
 /* Tcl/Tk command definitions for Insight.
-   Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002
+   Copyright 1994, 1995, 1996, 1997, 1998, 1999, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
@@ -34,6 +34,10 @@
 #include "tui/tui-file.h"
 #include "top.h"
 #include "annotate.h"
+#include "block.h"
+#include "dictionary.h"
+#include "filenames.h"
+#include "disasm.h"
 
 /* tcl header files includes varargs.h unless HAS_STDARG is defined,
    but gdb uses stdarg.h, so make sure HAS_STDARG is defined.  */
@@ -77,7 +81,7 @@ static Tcl_Obj *mangled, *not_mangled;
 int No_Update = 0;
 int load_in_progress = 0;
 
-/* This Structure is used in gdb_disassemble.
+/* This Structure is used in gdb_disassemble_driver.
    We need a different sort of line table from the normal one cuz we can't
    depend upon implicit line-end pc's for lines to do the
    reordering in this function.  */
@@ -100,8 +104,8 @@ struct disassembly_client_data
   Tcl_Interp *interp;
   char *widget;
   Tcl_Obj *result_obj[3];
-  char *asm_argv[14];
-  char *source_argv[7];
+  const char *asm_argv[14];
+  const char *source_argv[7];
   char *map_arr;
   Tcl_DString src_to_line_prefix;
   Tcl_DString pc_to_line_prefix;
@@ -109,9 +113,9 @@ struct disassembly_client_data
   Tcl_CmdInfo cmd;
 };
 
-/* This variable determines where memory used for disassembly is read from.
- * See note in gdbtk.h for details.
- */
+/* This variable determines where memory used for disassembly is read
+   from.  See note in gdbtk.h for details.  */
+/* NOTE: cagney/2003-09-08: This variable is unused.  */
 int disassemble_from_exec = -1;
 
 extern int gdb_variable_init (Tcl_Interp * interp);
@@ -133,7 +137,6 @@ static int gdb_clear_file (ClientData, Tcl_Interp * interp, int,
 static int gdb_cmd (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_confirm_quit (ClientData, Tcl_Interp *, int,
 			     Tcl_Obj * CONST[]);
-static int gdb_disassemble (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_entry_point (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_eval (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_find_file_command (ClientData, Tcl_Interp *, int,
@@ -150,6 +153,7 @@ static int gdb_set_mem (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_immediate_command (ClientData, Tcl_Interp *, int,
 				  Tcl_Obj * CONST[]);
 static int gdb_incr_addr (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
+static int gdb_CA_to_TAS (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_listfiles (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_listfuncs (ClientData, Tcl_Interp *, int, Tcl_Obj * CONST[]);
 static int gdb_loadfile (ClientData, Tcl_Interp *, int,
@@ -182,11 +186,6 @@ static void gdbtk_load_source (ClientData clientData,
 			       int start_line, int end_line);
 static CORE_ADDR gdbtk_load_asm (ClientData clientData, CORE_ADDR pc,
 				 struct disassemble_info *di);
-static void gdbtk_print_source (ClientData clientData,
-				struct symtab *symtab,
-				int start_line, int end_line);
-static CORE_ADDR gdbtk_print_asm (ClientData clientData, CORE_ADDR pc,
-				  struct disassemble_info *di);
 static int gdb_disassemble_driver (CORE_ADDR low, CORE_ADDR high,
 				   int mixed_source_and_assembly,
 				   ClientData clientData,
@@ -237,10 +236,9 @@ Gdbtk_Init (Tcl_Interp *interp)
   Tcl_CreateObjCommand (interp, "gdb_stop", gdbtk_call_wrapper, gdb_stop, NULL);
   Tcl_CreateObjCommand (interp, "gdb_restore_fputs", gdbtk_call_wrapper, gdb_restore_fputs,
 			NULL);
-  Tcl_CreateObjCommand (interp, "gdb_disassemble", gdbtk_call_wrapper,
-			gdb_disassemble, NULL);
   Tcl_CreateObjCommand (interp, "gdb_eval", gdbtk_call_wrapper, gdb_eval, NULL);
   Tcl_CreateObjCommand (interp, "gdb_incr_addr", gdbtk_call_wrapper, gdb_incr_addr, NULL);
+  Tcl_CreateObjCommand (interp, "gdb_CA_to_TAS", gdbtk_call_wrapper, gdb_CA_to_TAS, NULL);
   Tcl_CreateObjCommand (interp, "gdb_clear_file", gdbtk_call_wrapper,
 			gdb_clear_file, NULL);
   Tcl_CreateObjCommand (interp, "gdb_confirm_quit", gdbtk_call_wrapper,
@@ -419,23 +417,6 @@ wrapped_call (PTR opaque_args)
   return 1;
 }
 
-/* This is a convenience function to sprintf something(s) into a
- * new element in a Tcl list object.
- */
-
-void
-sprintf_append_element_to_obj (Tcl_Obj * objp, char *format,...)
-{
-  va_list args;
-  char *buf;
-
-  va_start (args, format);
-
-  xvasprintf (&buf, format, args);
-
-  Tcl_ListObjAppendElement (NULL, objp, Tcl_NewStringObj (buf, -1));
-  free(buf);
-}
 
 /*
  * This section contains the commands that control execution.
@@ -566,7 +547,7 @@ gdb_stop (ClientData clientData, Tcl_Interp *interp,
   if (objc > 1)
     {
       s = Tcl_GetStringFromObj (objv[1], NULL);
-      if (STREQ (s, "detach"))
+      if (strcmp (s, "detach") == 0)
 	force = 1;
     }
 
@@ -957,7 +938,7 @@ gdb_get_line_command (ClientData clientData, Tcl_Interp *interp,
     }
 
   args = Tcl_GetStringFromObj (objv[1], NULL);
-  sals = decode_line_1 (&args, 1, NULL, 0, &canonical);
+  sals = decode_line_1 (&args, 1, NULL, 0, &canonical, NULL);
   if (sals.nelts == 1)
     {
       Tcl_SetIntObj (result_ptr->obj_ptr, sals.sals[0].line);
@@ -993,7 +974,7 @@ gdb_get_file_command (ClientData clientData, Tcl_Interp *interp,
     }
 
   args = Tcl_GetStringFromObj (objv[1], NULL);
-  sals = decode_line_1 (&args, 1, NULL, 0, &canonical);
+  sals = decode_line_1 (&args, 1, NULL, 0, &canonical, NULL);
   if (sals.nelts == 1)
     {
       Tcl_SetStringObj (result_ptr->obj_ptr,
@@ -1029,7 +1010,7 @@ gdb_get_function_command (ClientData clientData, Tcl_Interp *interp,
     }
 
   args = Tcl_GetStringFromObj (objv[1], NULL);
-  sals = decode_line_1 (&args, 1, NULL, 0, &canonical);
+  sals = decode_line_1 (&args, 1, NULL, 0, &canonical, NULL);
   if (sals.nelts == 1)
     {
       resolve_sal_pc (&sals.sals[0]);
@@ -1058,7 +1039,7 @@ gdb_find_file_command (ClientData clientData, Tcl_Interp *interp,
 		       int objc, Tcl_Obj *CONST objv[])
 {
   struct symtab *st;
-  char *filename, *fullname;
+  char *filename, *fullname = NULL;
 
   if (objc != 2)
     {
@@ -1067,20 +1048,40 @@ gdb_find_file_command (ClientData clientData, Tcl_Interp *interp,
     }
 
   filename = Tcl_GetStringFromObj (objv[1], NULL);
-  st = lookup_symtab (filename);
 
-  /* We should always get a symtab. */
-  if (!st)
+  /* Shortcut: There seems to be some mess in gdb dealing with
+     files. While we should let gdb sort it out, it doesn't hurt
+     to be a little defensive here.
+
+     If the filename is already an absolute filename, just try
+     to stat it. If it's not found, then ask gdb to find it for us. */
+  if (IS_ABSOLUTE_PATH (filename))
     {
-      gdbtk_set_result (interp, "File not found in symtab (2)");
-      return TCL_ERROR;
+      struct stat st;
+      const int status = stat (filename, &st);
+
+      if (status == 0)
+	{
+	  if (S_ISREG (st.st_mode))
+	    fullname = filename;
+	}
     }
-
-  if (st->fullname == NULL)
-    fullname = symtab_to_filename (st);
   else
-    fullname = st->fullname;
+    {
+      /* Ask gdb to find the file for us. */
+      st = lookup_symtab (filename);
 
+      /* We should always get a symtab. */
+      if (!st)
+	{
+	  gdbtk_set_result (interp, "File not found in symtab (2)");
+	  return TCL_ERROR;
+	}
+
+      fullname =
+	(st->fullname == NULL ? symtab_to_filename (st) : st->fullname);
+    }
+  
   /* We may not be able to open the file (not available). */
   if (fullname == NULL)
     {
@@ -1221,14 +1222,14 @@ gdb_search (ClientData clientData, Tcl_Interp *interp,
   struct cleanup *old_chain = NULL;
   Tcl_Obj *CONST * switch_objv;
   int index, switch_objc, i, show_files = 0;
-  namespace_enum space = 0;
+  domain_enum space = 0;
   char *regexp;
   int static_only, nfiles;
   Tcl_Obj **file_list;
   char **files;
-  static char *search_options[] =
+  static const char *search_options[] =
     {"functions", "variables", "types", (char *) NULL};
-  static char *switches[] =
+  static const char *switches[] =
     {"-files", "-filename", "-static", (char *) NULL};
   enum search_opts
     {
@@ -1258,13 +1259,13 @@ gdb_search (ClientData clientData, Tcl_Interp *interp,
   switch ((enum search_opts) index)
     {
     case SEARCH_FUNCTIONS:
-      space = FUNCTIONS_NAMESPACE;
+      space = FUNCTIONS_DOMAIN;
       break;
     case SEARCH_VARIABLES:
-      space = VARIABLES_NAMESPACE;
+      space = VARIABLES_DOMAIN;
       break;
     case SEARCH_TYPES:
-      space = TYPES_NAMESPACE;
+      space = TYPES_DOMAIN;
       break;
     }
 
@@ -1364,18 +1365,19 @@ gdb_search (ClientData clientData, Tcl_Interp *interp,
 
       /* Strip off some C++ special symbols, like RTTI and global
          constructors/destructors. */
-      if ((p->symbol != NULL && !STREQN (SYMBOL_NAME (p->symbol), "__tf", 4)
-	   && !STREQN (SYMBOL_NAME (p->symbol), "_GLOBAL_", 8))
+      if ((p->symbol != NULL
+	   && strncmp (SYMBOL_LINKAGE_NAME (p->symbol), "__tf", 4) != 0
+	   && strncmp (SYMBOL_LINKAGE_NAME (p->symbol), "_GLOBAL_", 8) != 0)
 	  || p->msymbol != NULL)
 	{
 	  elem = Tcl_NewListObj (0, NULL);
 
 	  if (p->msymbol == NULL)
 	    Tcl_ListObjAppendElement (interp, elem,
-				      Tcl_NewStringObj (SYMBOL_SOURCE_NAME (p->symbol), -1));
+				      Tcl_NewStringObj (SYMBOL_PRINT_NAME (p->symbol), -1));
 	  else
 	    Tcl_ListObjAppendElement (interp, elem,
-				      Tcl_NewStringObj (SYMBOL_SOURCE_NAME (p->msymbol), -1));
+				      Tcl_NewStringObj (SYMBOL_PRINT_NAME (p->msymbol), -1));
 
 	  if (show_files)
 	    {
@@ -1424,7 +1426,8 @@ gdb_listfuncs (clientData, interp, objc, objv)
   struct blockvector *bv;
   struct block *b;
   struct symbol *sym;
-  int i, j;
+  int i;
+  struct dict_iterator iter;
   Tcl_Obj *funcVals[2];
 
   if (objc != 2)
@@ -1455,7 +1458,7 @@ gdb_listfuncs (clientData, interp, objc, objv)
   for (i = GLOBAL_BLOCK; i <= STATIC_BLOCK; i++)
     {
       b = BLOCKVECTOR_BLOCK (bv, i);
-      ALL_BLOCK_SYMBOLS (b, j, sym)
+      ALL_BLOCK_SYMBOLS (b, iter, sym)
 	{
 	  if (SYMBOL_CLASS (sym) == LOC_BLOCK)
 	    {
@@ -1483,7 +1486,7 @@ gdb_listfuncs (clientData, interp, objc, objv)
 		}
 	      else
 		{
-		  funcVals[0] = Tcl_NewStringObj (SYMBOL_NAME (sym), -1);
+		  funcVals[0] = Tcl_NewStringObj (DEPRECATED_SYMBOL_NAME (sym), -1);
 		  funcVals[1] = not_mangled;
 		}
 	      Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
@@ -1510,68 +1513,14 @@ gdb_restore_fputs (ClientData clientData, Tcl_Interp *interp,
   return TCL_OK;
 }
 
-/*
- * This section has commands that handle source disassembly.
- */
-/* This implements the tcl command gdb_disassemble.  It is no longer
- * used in GDBTk, we use gdb_load_disassembly, but I kept it around in
- * case other folks want it.
- *
- * Arguments:
- *    source_with_assm - must be "source" or "nosource"
- *    low_address - the address from which to start disassembly
- *    ?hi_address? - the address to which to disassemble, defaults
- *                   to the end of the function containing low_address.
- * Tcl Result:
- *    The disassembled code is passed to fputs_unfiltered, so it
- *    either goes to the console if result_ptr->obj_ptr is NULL or to
- *    the Tcl result.
- */
-
-static int
-gdb_disassemble (ClientData clientData, Tcl_Interp *interp,
-		 int objc, Tcl_Obj *CONST objv[])
-{
-  CORE_ADDR low, high;
-  char *arg_ptr;
-  int mixed_source_and_assembly;
-
-  if (objc != 3 && objc != 4)
-    {
-      Tcl_WrongNumArgs (interp, 1, objv, "source lowaddr ?highaddr?");
-      return TCL_ERROR;
-    }
-
-  arg_ptr = Tcl_GetStringFromObj (objv[1], NULL);
-  if (*arg_ptr == 's' && strcmp (arg_ptr, "source") == 0)
-    mixed_source_and_assembly = 1;
-  else if (*arg_ptr == 'n' && strcmp (arg_ptr, "nosource") == 0)
-    mixed_source_and_assembly = 0;
-  else
-    error ("First arg must be 'source' or 'nosource'");
-
-  low = string_to_core_addr (Tcl_GetStringFromObj (objv[2], NULL));
-
-  if (objc == 3)
-    {
-      if (find_pc_partial_function (low, NULL, &low, &high) == 0)
-        error ("No function contains specified address");
-    }
-  else
-    high = string_to_core_addr (Tcl_GetStringFromObj (objv[3], NULL));
-
-  return gdb_disassemble_driver (low, high, mixed_source_and_assembly, NULL,
-				 gdbtk_print_source, gdbtk_print_asm);
-
-}
 
 /* This implements the tcl command gdb_load_disassembly
  *
  * Arguments:
  *    widget - the name of a text widget into which to load the data
  *    source_with_assm - must be "source" or "nosource"
- *    low_address - the address from which to start disassembly
- *    ?hi_address? - the address to which to disassemble, defaults
+ *    low_address - the CORE_ADDR from which to start disassembly
+ *    ?hi_address? - the CORE_ADDR to which to disassemble, defaults
  *                   to the end of the function containing low_address.
  * Tcl Result:
  *    The text widget is loaded with the data, and a list is returned.
@@ -1591,6 +1540,7 @@ gdb_load_disassembly (ClientData clientData, Tcl_Interp *interp,
   int mixed_source_and_assembly, ret_val, i;
   char *arg_ptr;
   char *map_name;
+  Tcl_WideInt waddr;
 
   if (objc != 6 && objc != 7)
     {
@@ -1676,20 +1626,24 @@ gdb_load_disassembly (ClientData clientData, Tcl_Interp *interp,
     }
 
   /* Now parse the addresses */
-  
-  low = string_to_core_addr (Tcl_GetStringFromObj (objv[5], NULL));
+  if (Tcl_GetWideIntFromObj (interp, objv[5], &waddr) != TCL_OK)
+    return TCL_ERROR;
+  low = waddr;
+
   orig = low;
 
   if (objc == 6)
     {
       if (find_pc_partial_function (low, NULL, &low, &high) == 0)
-	error ("No function contains address 0x%s (%s)",
-	       paddr_nz (orig), Tcl_GetStringFromObj (objv[5], NULL));
+	error ("No function contains address 0x%s", core_addr_to_string (orig));
     }
   else
-    high = string_to_core_addr (Tcl_GetStringFromObj (objv[6], NULL));
-
-
+    {
+      if (Tcl_GetWideIntFromObj (interp, objv[6], &waddr) != TCL_OK)
+	return TCL_ERROR;
+      high = waddr;
+    }
+  
   /* Setup the client_data structure, and call the driver function. */
   
   client_data.file_opened_p = 0;
@@ -1754,19 +1708,10 @@ gdb_load_disassembly (ClientData clientData, Tcl_Interp *interp,
 
   if (ret_val == TCL_OK) 
     {
-      char *buffer;
-      Tcl_Obj *limits_obj[2];
-      
-      xasprintf (&buffer, "0x%s", paddr_nz (low));
-      limits_obj[0] = Tcl_NewStringObj (buffer, -1);
-      free(buffer);
-      
-      xasprintf (&buffer, "0x%s", paddr_nz (high));
-      limits_obj[1] = Tcl_NewStringObj (buffer, -1);
-      free(buffer);
-      
-      Tcl_DecrRefCount (result_ptr->obj_ptr);
-      result_ptr->obj_ptr = Tcl_NewListObj (2, limits_obj);
+      Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
+				Tcl_NewStringObj (core_addr_to_string (low), -1));
+      Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
+				Tcl_NewStringObj (core_addr_to_string (high), -1));
     }
   return ret_val;
 }
@@ -1784,7 +1729,7 @@ gdbtk_load_source (ClientData clientData, struct symtab *symtab,
   
   if (client_data->file_opened_p == 1)
     {
-      char **text_argv;
+      const char **text_argv;
       char line[10000], line_number[18];
       int found_carriage_return = 1;
 
@@ -1904,15 +1849,17 @@ gdbtk_load_source (ClientData clientData, struct symtab *symtab,
 }
 
 
+/* FIXME: cagney/2003-09-08: "di" is not used and unneeded.  */
 static CORE_ADDR
 gdbtk_load_asm (ClientData clientData, CORE_ADDR pc, 
 		struct disassemble_info *di)
 {
   struct disassembly_client_data * client_data
     = (struct disassembly_client_data *) clientData;
-  char **text_argv;
+  const char **text_argv;
   int i, pc_to_line_len, line_to_pc_len;
   gdbtk_result new_result;
+  int insn;
   struct cleanup *old_chain = NULL;
 
   pc_to_line_len = Tcl_DStringLength (&client_data->pc_to_line_prefix);
@@ -1932,17 +1879,17 @@ gdbtk_load_asm (ClientData clientData, CORE_ADDR pc,
 
   for (i = 0; i < 3; i++)
     Tcl_SetObjLength (client_data->result_obj[i], 0);
-  
+
   print_address_numeric (pc, 1, gdb_stdout);
   gdb_flush (gdb_stdout);
 
   result_ptr->obj_ptr = client_data->result_obj[1];
-  
   print_address_symbolic (pc, gdb_stdout, 1, "\t");
   gdb_flush (gdb_stdout);
 
   result_ptr->obj_ptr = client_data->result_obj[2];
-  pc += TARGET_PRINT_INSN (pc, di);
+  /* FIXME: cagney/2003-09-08: This should use gdb_disassembly.  */
+  insn = gdb_print_insn (pc, gdb_stdout);
   gdb_flush (gdb_stdout);
 
   client_data->widget_line_no++;
@@ -1961,7 +1908,7 @@ gdbtk_load_asm (ClientData clientData, CORE_ADDR pc,
       /* Run the command, then add an entry to the map array in
 	 the caller's scope. */
       
-      Tcl_DStringAppend (&client_data->pc_to_line_prefix, text_argv[5], -1);
+      Tcl_DStringAppend (&client_data->pc_to_line_prefix, core_addr_to_string (pc), -1);
       
       /* FIXME: Convert to Tcl_SetVar2Ex when we move to 8.2.  This
 	 will allow us avoid converting widget_line_no into a string. */
@@ -1974,10 +1921,11 @@ gdbtk_load_asm (ClientData clientData, CORE_ADDR pc,
 
       Tcl_DStringAppend (&client_data->line_to_pc_prefix, buffer, -1);
       
+
       Tcl_SetVar2 (client_data->interp, client_data->map_arr,
 		   Tcl_DStringValue (&client_data->line_to_pc_prefix),
-		   text_argv[5], 0);
-
+		   core_addr_to_string (pc), 0);
+      
       /* Restore the prefixes to their initial state. */
       
       Tcl_DStringSetLength (&client_data->pc_to_line_prefix, pc_to_line_len);      
@@ -1987,29 +1935,8 @@ gdbtk_load_asm (ClientData clientData, CORE_ADDR pc,
     }
   
   do_cleanups (old_chain);
-    
-  return pc;
-}
 
-static void
-gdbtk_print_source (ClientData clientData, struct symtab *symtab,
-		    int start_line, int end_line)
-{
-  print_source_lines (symtab, start_line, end_line, 0);
-  gdb_flush (gdb_stdout);
-}
-
-static CORE_ADDR
-gdbtk_print_asm (ClientData clientData, CORE_ADDR pc,
-		 struct disassemble_info *di)
-{
-  fputs_unfiltered ("    ", gdb_stdout);
-  print_address (pc, gdb_stdout);
-  fputs_unfiltered (":\t    ", gdb_stdout);
-  pc += TARGET_PRINT_INSN (pc, di);
-  fputs_unfiltered ("\n", gdb_stdout);
-  gdb_flush (gdb_stdout);
-  return pc;
+  return pc + insn;
 }
 
 static int
@@ -2020,64 +1947,6 @@ gdb_disassemble_driver (CORE_ADDR low, CORE_ADDR high,
 			CORE_ADDR (*print_asm_fn) (ClientData, CORE_ADDR, struct disassemble_info *))
 {
   CORE_ADDR pc;
-  static disassemble_info di;
-  static int di_initialized;
-
-  if (! di_initialized)
-    {
-      INIT_DISASSEMBLE_INFO_NO_ARCH (di, gdb_stdout,
-                                     (fprintf_ftype) fprintf_unfiltered);
-      di.flavour = bfd_target_unknown_flavour;
-      di.memory_error_func = dis_asm_memory_error;
-      di.print_address_func = dis_asm_print_address;
-      di_initialized = 1;
-    }
-
-  di.mach = TARGET_PRINT_INSN_INFO->mach;
-  if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
-    di.endian = BFD_ENDIAN_BIG;
-  else
-    di.endian = BFD_ENDIAN_LITTLE;
-
-  /* Set the architecture for multi-arch configurations. */
-  if (TARGET_ARCHITECTURE != NULL)
-    di.mach = TARGET_ARCHITECTURE->mach;
-
-  /* If disassemble_from_exec == -1, then we use the following heuristic to
-     determine whether or not to do disassembly from target memory or from the
-     exec file:
-
-     If we're debugging a local process, read target memory, instead of the
-     exec file.  This makes disassembly of functions in shared libs work
-     correctly.  Also, read target memory if we are debugging native threads.
-
-     Else, we're debugging a remote process, and should disassemble from the
-     exec file for speed.  However, this is no good if the target modifies its
-     code (for relocation, or whatever).
-
-     As an aside, it is fairly bogus that there is not a better way to
-     determine where to disassemble from.  There should be a target vector
-     entry for this or something.
-     
-  */
-
-  if (disassemble_from_exec == -1)
-    {
-      if (strcmp (target_shortname, "child") == 0
-          || strcmp (target_shortname, "procfs") == 0
-          || strcmp (target_shortname, "vxprocess") == 0
-	  || strstr (target_shortname, "thread") != NULL)
-	/* It's a child process, read inferior mem */
-        disassemble_from_exec = 0; 
-      else
-	/* It's remote, read the exec file */
-        disassemble_from_exec = 1; 
-    }
-
-  if (disassemble_from_exec)
-    di.read_memory_func = gdbtk_dis_asm_read_memory;
-  else
-    di.read_memory_func = dis_asm_read_memory;
 
   /* If just doing straight assembly, all we need to do is disassemble
      everything between low and high.  If doing mixed source/assembly, we've
@@ -2186,7 +2055,9 @@ gdb_disassemble_driver (CORE_ADDR low, CORE_ADDR high,
           for (pc = mle[i].start_pc; pc < mle[i].end_pc; )
             {
               QUIT;
-	      pc = print_asm_fn (clientData, pc, &di);
+	      /* FIXME: cagney/2003-09-08: This entire function should
+                 be replaced by gdb_disassembly.  */
+	      pc = print_asm_fn (clientData, pc, NULL);
             }
         }
     }
@@ -2196,14 +2067,16 @@ gdb_disassemble_driver (CORE_ADDR low, CORE_ADDR high,
       for (pc = low; pc < high; )
         {
           QUIT;
-	  pc = print_asm_fn (clientData, pc, &di);
+	  /* FIXME: cagney/2003-09-08: This entire function should be
+	     replaced by gdb_disassembly.  */
+	  pc = print_asm_fn (clientData, pc, NULL);
         }
     }
 
   return TCL_OK;
 }
 
-/* This is the memory_read_func for gdb_disassemble when we are
+/* This is the memory_read_func for gdb_disassemble_driver when we are
    disassembling from the exec file. */
 
 static int
@@ -2321,17 +2194,15 @@ gdb_loc (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST obj
     filename = "";
 
   /* file name */
-  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
-			    Tcl_NewStringObj (filename, -1));
+  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewStringObj (filename, -1));
   /* line number */
-  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
-			    Tcl_NewIntObj (sal.line));
+  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, Tcl_NewIntObj (sal.line));
   /* PC in current frame */
-  sprintf_append_element_to_obj (result_ptr->obj_ptr, "0x%s", paddr_nz (pc));
+  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, 
+			    Tcl_NewStringObj (core_addr_to_string (pc), -1));
   /* Real PC */
-  sprintf_append_element_to_obj (result_ptr->obj_ptr, "0x%s",
-				 paddr_nz (stop_pc));
-
+  Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr, 
+			    Tcl_NewStringObj (core_addr_to_string (stop_pc), -1));
   /* shared library */
 #ifdef PC_SOLIB
   Tcl_ListObjAppendElement (NULL, result_ptr->obj_ptr,
@@ -2356,7 +2227,7 @@ gdb_entry_point (ClientData clientData, Tcl_Interp *interp,
      entry point, so return an empty string.*/
   if ((int) current_target.to_stratum > (int) dummy_stratum)
     {
-      addrstr = paddr_nz (entry_point_address ());
+      addrstr = (char *)core_addr_to_string (entry_point_address ());
       Tcl_SetStringObj (result_ptr->obj_ptr, addrstr, -1);
     }
   else
@@ -2500,7 +2371,6 @@ gdb_update_mem (ClientData clientData, Tcl_Interp *interp,
   struct ui_file *stb;
   struct type *val_type;
   struct cleanup *old_chain;
-  Tcl_Obj *result;
 
   if (objc < 7 || objc > 8)
     {
@@ -2745,7 +2615,7 @@ gdb_loadfile (ClientData clientData, Tcl_Interp *interp, int objc,
   long mtime = 0;
   struct stat st;
   char line[10000], line_num_buf[18];
-  char *text_argv[9];
+  const char *text_argv[9];
   Tcl_CmdInfo text_cmd;
 
  
@@ -3039,16 +2909,22 @@ gdbtk_set_result (Tcl_Interp *interp, const char *fmt,...)
 
 
 /* This implements the tcl command 'gdb_incr_addr'.
- * It increments addresses, which must be implemented
- * this way because tcl cannot handle 64-bit values.
+ * It does address arithmetic and outputs a proper
+ * hex string.  This was originally implemented
+ * when tcl did not support 64-bit values, but we keep
+ * it because it saves us from having to call incr 
+ * followed by format to get the result in hex.
+ * Also, it may be true in the future that CORE_ADDRs
+ * will have their own ALU to deal properly with
+ * architecture-specific address arithmetic.
  *
  * Tcl Arguments:
- *     addr   - 32 or 64-bit address
+ *     addr   - CORE_ADDR
  *     number - optional number to add to the address
  *	default is 1.
  *
  * Tcl Result:
- *     addr + number
+ *     hex string containing the result of addr + number
  */
 
 static int
@@ -3060,7 +2936,7 @@ gdb_incr_addr (ClientData clientData, Tcl_Interp *interp,
 
   if (objc != 2 && objc != 3)
     {
-      Tcl_WrongNumArgs (interp, 1, objv, "address [number]");
+      Tcl_WrongNumArgs (interp, 1, objv, "CORE_ADDR [number]");
       return TCL_ERROR;
     }
 
@@ -3076,5 +2952,50 @@ gdb_incr_addr (ClientData clientData, Tcl_Interp *interp,
 
   Tcl_SetStringObj (result_ptr->obj_ptr, (char *)core_addr_to_string (address), -1);
   
+  return TCL_OK;
+}
+
+/* This implements the tcl command 'gdb_CAS_to_TAS'.
+ * It takes a CORE_ADDR and outputs a string suitable
+ * for displaying as the target address.
+ *
+ * Note that CORE_ADDRs are internal addresses which map
+ * to target addresses in different ways depending on the 
+ * architecture. The target address string is a user-readable
+ * string may be quite different than the CORE_ADDR. For example,
+ * a CORE_ADDR of 0x02001234 might indicate a data address of
+ * 0x1234 which this function might someday output as something
+ * like "D:1234".
+ *
+ * Tcl Arguments:
+ *     address   - CORE_ADDR
+ *
+ * Tcl Result:
+ *     string
+ */
+
+static int
+gdb_CA_to_TAS (ClientData clientData, Tcl_Interp *interp,
+	       int objc, Tcl_Obj *CONST objv[])
+{
+  CORE_ADDR address;
+  Tcl_WideInt wide_addr;
+
+  if (objc != 2)
+    {
+      Tcl_WrongNumArgs (interp, 1, objv, "CORE_ADDR");
+      return TCL_ERROR;
+    }
+
+  /* Read address into a wideint, which is the largest tcl supports
+     then convert to a CORE_ADDR */
+  if (Tcl_GetWideIntFromObj (interp, objv[1], &wide_addr) != TCL_OK)
+    return TCL_ERROR;
+  address = wide_addr;
+
+  /* This is not really correct.  Using paddr_nz() will convert to hex and truncate 
+     to 32-bits when required but will otherwise not do what we really want. */
+  Tcl_SetStringObj (result_ptr->obj_ptr, paddr_nz (address), -1);
+
   return TCL_OK;
 }

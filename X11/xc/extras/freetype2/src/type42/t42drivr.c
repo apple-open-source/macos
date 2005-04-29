@@ -15,6 +15,27 @@
 /***************************************************************************/
 
 
+  /*************************************************************************/
+  /*                                                                       */
+  /* This driver implements Type42 fonts as described in the               */
+  /* Technical Note #5012 from Adobe, with these limitations:              */
+  /*                                                                       */
+  /* 1) CID Fonts are not currently supported.                             */
+  /* 2) Incremental fonts making use of the GlyphDirectory keyword         */
+  /*    will be loaded, but the rendering will be using the TrueType       */
+  /*    tables.                                                            */
+  /* 3) The sfnts array is expected to be ASCII, not binary.               */
+  /* 4) As for Type1 fonts, CDevProc is not supported.                     */
+  /* 5) The Metrics dictionary is not supported.                           */
+  /* 6) AFM metrics are not supported.                                     */
+  /*                                                                       */
+  /* In other words, this driver supports Type42 fonts derived from        */
+  /* TrueType fonts in a non-CID manner, as done by usual conversion       */
+  /* programs.                                                             */
+  /*                                                                       */
+  /*************************************************************************/
+
+
 #include "t42drivr.h"
 #include "t42objs.h"
 #include "t42error.h"
@@ -40,10 +61,10 @@
     {
       FT_UInt  len = (FT_UInt)( ft_strlen( gname ) );
 
-  
+
       if ( len >= buffer_max )
         len = buffer_max - 1;
-        
+
       FT_MEM_COPY( buffer, gname, len );
       ((FT_Byte*)buffer)[len] = 0;
     }
@@ -137,14 +158,11 @@
     (FT_Size_ResetPointsFunc) T42_Size_SetChars,
     (FT_Size_ResetPixelsFunc) T42_Size_SetPixels,
     (FT_Slot_LoadFunc)        T42_GlyphSlot_Load,
-    (FT_CharMap_CharIndexFunc)T42_CMap_CharIndex,
 
     (FT_Face_GetKerningFunc)  0,
     (FT_Face_AttachFunc)      0,
 
-    (FT_Face_GetAdvancesFunc) 0,
-
-    (FT_CharMap_CharNextFunc) T42_CMap_CharNext,
+    (FT_Face_GetAdvancesFunc) 0
   };
 
 

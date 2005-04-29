@@ -1,0 +1,9 @@
+# remember to change configure.in as well when these change
+# (then re-autoconf)
+
+THREAD_MAJOR	= 2
+THREAD_MINOR	= 6
+#THREAD_SERIAL	= 0
+THREAD_VERSION	= "2.6"
+
+THREAD_VERSION_SUBSET83	= "2.1.6"

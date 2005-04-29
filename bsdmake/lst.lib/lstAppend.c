@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstAppend.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -60,7 +59,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstAppend.c,v 1.7 2000/07/09 00:08:4
  *	A new ListNode is created and linked in to the List. The lastPtr
  *	field of the List will be altered if ln is the last node in the
  *	list. lastPtr and firstPtr will alter if the list was empty and
- *	ln was NILLNODE.
+ *	ln was NULL.
  *
  *-----------------------------------------------------------------------
  */
@@ -68,13 +67,13 @@ ReturnStatus
 Lst_Append (l, ln, d)
     Lst	  	l;	/* affected list */
     LstNode	ln;	/* node after which to append the datum */
-    ClientData	d;	/* said datum */
+    void *	d;	/* said datum */
 {
     register List 	list;
     register ListNode	lNode;
     register ListNode	nLNode;
 
-    if (LstValid (l) && (ln == NILLNODE && LstIsEmpty (l))) {
+    if (LstValid (l) && (ln == NULL && LstIsEmpty (l))) {
 	goto ok;
     }
 
@@ -90,11 +89,11 @@ Lst_Append (l, ln, d)
     nLNode->datum = d;
     nLNode->useCount = nLNode->flags = 0;
 
-    if (lNode == NilListNode) {
+    if (lNode == NULL) {
 	if (list->isCirc) {
 	    nLNode->nextPtr = nLNode->prevPtr = nLNode;
 	} else {
-	    nLNode->nextPtr = nLNode->prevPtr = NilListNode;
+	    nLNode->nextPtr = nLNode->prevPtr = NULL;
 	}
 	list->firstPtr = list->lastPtr = nLNode;
     } else {
@@ -102,7 +101,7 @@ Lst_Append (l, ln, d)
 	nLNode->nextPtr = lNode->nextPtr;
 
 	lNode->nextPtr = nLNode;
-	if (nLNode->nextPtr != NilListNode) {
+	if (nLNode->nextPtr != NULL) {
 	    nLNode->nextPtr->prevPtr = nLNode;
 	}
 

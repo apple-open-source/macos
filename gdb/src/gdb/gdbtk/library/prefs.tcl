@@ -1,5 +1,5 @@
 # Local preferences functions for Insight.
-# Copyright 1997, 1998, 1999, 2002 Red Hat
+# Copyright 1997, 1998, 1999, 2002, 2003 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -88,11 +88,11 @@ proc pref_read {} {
 	    ;# empty line; ignore it
 	  }
 
-	  {\[.*\]} {
+	  {^[ \t\n]*\[.*\]} {
 	    regexp {\[(.*)\]} $line match section
 	  }
 
-	  {[ \t\n]*option.*} {
+	  {^[ \t\n]*option.*} {
 	    set line [string trimleft $line]
 	    eval $line
 	  }
@@ -376,10 +376,7 @@ proc pref_set_defaults {} {
   pref define gdb/search/filter_mode     "starts with"
 
   pref define gdb/browser/hide_h          0
-  pref define gdb/browser/width           0
-  pref define gdb/browser/top_height       0
-  pref define gdb/browser/view_height      -1
-  pref define gdb/browser/view_is_open    0
+  pref define gdb/browser/layout	2
 
   # BP (breakpoint)
   pref define gdb/bp/show_threads         0
@@ -391,7 +388,7 @@ proc pref_set_defaults {} {
   pref define gdb/kod/show_icon           0
 
   # Various possible "main" functions. What's for Java?
-  pref define gdb/main_names              [list MAIN___ MAIN__ main cyg_user_start cyg_start ]
+  pref define gdb/main_names              [list main MAIN___ MAIN__ cyg_user_start cyg_start ]
 
   # These are the classes of warning dialogs, and whether the user plans
   # to ignore them.
@@ -582,12 +579,20 @@ proc load_gnome_file {fd} {
     } elseif {[regexp "\[ \t\n\]*\(.+\) = \(.+\)" $line a name val] == 0} {
       continue 
     }
-    set res [scan $val "\{ %f, %f, %f \}" r g b]
-    if {$res != 3} {continue}
-    set r [expr int($r*255)]
-    set g [expr int($g*255)]
-    set b [expr int($b*255)]
-    set val [format "\#%02x%02x%02x" $r $g $b]
+
+    if {[regexp "\"#......\"" $val a] == 1} {
+	set val [lindex $a 0]
+    } else {
+	set res [scan $val "\{ %f, %f, %f \}" r g b]
+	if {$res != 3} {
+	    continue
+	}
+	set r [expr int($r*255)]
+	set g [expr int($g*255)]
+	set b [expr int($b*255)]
+	set val [format "\#%02x%02x%02x" $r $g $b]
+    }
+
     debug "name=\"$name\"  val=\"$val\""
 
     # This is a bit of a hack and probably only
@@ -677,8 +682,14 @@ proc pref_set_option_db {makebg} {
 
   option add *highlightBackground $Colors(bg)
   option add *selectBackground $Colors(sbg)
-  option add *activeBackground $Colors(sbg)
+
+  if {$::tcl_platform(platform) == "unix"}  {
+    option add *activeBackground $Colors(sbg)
+  }
+
   option add *selectForeground $Colors(sfg)
+  option add *Menu*activeForeground $Colors(sfg)
+
   if {[info exists Colors(prelight)]} {
     option add *Button*activeBackground $Colors(prelight)
   }
@@ -698,5 +709,7 @@ proc pref_set_option_db {makebg} {
 
   # Change the default select color for checkbuttons, etc to match 
   # selectBackground.
-  option add *selectColor $Colors(sbg)
+  if {$::tcl_platform(platform) == "unix"}  {
+    option add *selectColor $Colors(sbg)
+  }
 }

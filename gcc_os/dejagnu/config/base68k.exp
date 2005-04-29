@@ -1,4 +1,4 @@
-# Copyright (C) 1994, 1996, 1997 Free Software Foundation, Inc.
+# Copyright (C) 1994 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# DejaGnu@cygnus.com
+# bug-dejagnu@gnu.org
 
 # This file was written by Bob Manson (manson@cygnus.com)
 # based on earlier work by JT Conklin (jtc@cygnus.com)
@@ -80,8 +80,8 @@ proc base68k_ld { dest prog } {
 	# dbug has problems if we go into binary mode, so this allows us to
 	# disable entry into binary mode.
 	if ![board_info $dest exists no_binary_mode] {
-	    remote_binary $dest;
-	}
+	remote_binary $dest;
+    }
     }
 
     # if we built the srecord on a remote host, copy it back here so we

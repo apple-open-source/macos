@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *                                                                            *
-* Copyright (C) 2001-2003, International Business Machines                   *
+* Copyright (C) 2001-2004, International Business Machines                   *
 *                Corporation and others. All Rights Reserved.                *
 *                                                                            *
 ******************************************************************************
@@ -33,18 +33,22 @@
  *  application must guarantee that the first call to u_init() happen
  *  without contention, in a single thread only.
  *  <p>
+ *  If <code>u_setMemoryFunctions()</code> or 
+ *  <code>u_setMutexFunctions</code> are needed (uncommon), they must be
+ *  called _before_ <code>u_init()</code>.
+ *  <p>
  *  Extra, repeated, or otherwise unneeded calls to u_init() do no harm,
  *  other than taking a small amount of time.
  *
- * @param pErrorCode An ICU UErrorCode parameter. It must not be <code>NULL</code>.
+ * @param status An ICU UErrorCode parameter. It must not be <code>NULL</code>.
  *    An Error will be returned if some required part of ICU data can not
  *    be loaded or initialized.
  *    The function returns immediately if the input error code indicates a
  *    failure, as usual.
  *
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */  
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 u_init(UErrorCode *status);
 
 /**
@@ -58,6 +62,15 @@ u_init(UErrorCode *status);
  * an application exits. For applications that dynamically load and unload
  * the ICU libraries (relatively uncommon), u_cleanup() should be called
  * just before the library unload.
+ * <p>
+ * u_cleanup() also clears any ICU heap functions, mutex functions or
+ * trace functions that may have been set for the process.  
+ * This has the effect of restoring ICU to its initial condition, before
+ * any of these override functions were installed.  Refer to
+ * u_setMemoryFunctions(), u_setMutexFunctions and 
+ * utrace_setFunctions().  If ICU is to be reinitialized after after
+ * calling u_cleanup(), these runtime override functions will need to
+ * be set up again if they are still required.
  * <p>
  * u_cleanup() is not thread safe.  All other threads should stop using ICU
  * before calling this function.
@@ -83,7 +96,155 @@ u_init(UErrorCode *status);
  * @stable ICU 2.0
  * @system
  */
-U_CAPI void U_EXPORT2 
+U_STABLE void U_EXPORT2 
 u_cleanup(void);
+
+
+
+
+/**
+  * An opaque pointer type that represents an ICU mutex.
+  * For user-implemented mutexes, the value will typically point to a
+  *  struct or object that implements the mutex.
+  * @draft ICU 2.8
+  * @system
+  */
+typedef void *UMTX;
+
+/**
+  *  Function Pointer type for a user supplied mutex initialization function.
+  *  The user-supplied function will be called by ICU whenever ICU needs to create a
+  *  new mutex.  The function implementation should create a mutex, and store a pointer
+  *  to something that uniquely identifies the mutex into the UMTX that is supplied
+  *  as a paramter.
+  *  @param context user supplied value, obtained from from u_setMutexFunctions().
+  *  @param mutex   Receives a pointer that identifies the new mutex.
+  *                 The mutex init function must set the UMTX to a non-null value.   
+  *                 Subsequent calls by ICU to lock, unlock, or destroy a mutex will 
+  *                 identify the mutex by the UMTX value.
+  *  @param status  Error status.  Report errors back to ICU by setting this variable
+  *                 with an error code.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef void U_CALLCONV UMtxInitFn (const void *context, UMTX  *mutex, UErrorCode* status);
+
+
+/**
+  *  Function Pointer type for a user supplied mutex functions.
+  *  One of the  user-supplied functions with this signature will be called by ICU
+  *  whenever ICU needs to lock, unlock, or destroy a mutex.
+  *  @param context user supplied value, obtained from from u_setMutexFunctions().
+  *  @param mutex   specify the mutex on which to operate.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef void U_CALLCONV UMtxFn   (const void *context, UMTX  *mutex);
+
+
+/**
+  *  Set the functions that ICU will use for mutex operations
+  *  Use of this function is optional; by default (without this function), ICU will
+  *  directly access system functions for mutex operations
+  *  This function can only be used when ICU is in an initial, unused state, before
+  *  u_init() has been called.
+  *  This function may be used even when ICU has been built without multi-threaded
+  *  support  (see ICU_USE_THREADS pre-processor variable, umutex.h)
+  *  @param context This pointer value will be saved, and then (later) passed as
+  *                 a parameter to the user-supplied mutex functions each time they
+  *                 are called. 
+  *  @param init    Pointer to a mutex initialization function.  Must be non-null.
+  *  @param destroy Pointer to the mutex destroy function.  Must be non-null.
+  *  @param lock    pointer to the mutex lock function.  Must be non-null.
+  *  @param unlock  Pointer to the mutex unlock function.  Must be non-null.
+  *  @param status  Receives error values.
+  *  @draft ICU 2.8
+  *  @system
+  */  
+U_DRAFT void U_EXPORT2 
+u_setMutexFunctions(const void *context, UMtxInitFn *init, UMtxFn *destroy, UMtxFn *lock, UMtxFn *unlock,
+                    UErrorCode *status);
+
+
+/**
+  *  Pointer type for a user supplied atomic increment or decrement function.
+  *  @param context user supplied value, obtained from from u_setAtomicIncDecFunctions().
+  *  @param p   Pointer to a 32 bit int to be incremented or decremented
+  *  @return    The value of the variable after the inc or dec operation.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef int32_t U_CALLCONV UMtxAtomicFn(const void *context, int32_t *p);
+
+/**
+ *  Set the functions that ICU will use for atomic increment and decrement of int32_t values.
+ *  Use of this function is optional; by default (without this function), ICU will
+ *  use its own internal implementation of atomic increment/decrement.
+ *  This function can only be used when ICU is in an initial, unused state, before
+ *  u_init() has been called.
+ *  @param context This pointer value will be saved, and then (later) passed as
+ *                 a parameter to the increment and decrement functions each time they
+ *                 are called.  This function can only be called 
+ *  @param inc     Pointer to a function to do an atomic increment operation.  Must be non-null.
+ *  @param dec     Pointer to a function to do an atomic decrement operation.  Must be non-null.
+ *  @param status  Receives error values.
+ *  @draft ICU 2.8
+ *  @system
+ */  
+U_DRAFT void U_EXPORT2 
+u_setAtomicIncDecFunctions(const void *context, UMtxAtomicFn *inc, UMtxAtomicFn *dec,
+                    UErrorCode *status);
+
+
+
+/**
+  *  Pointer type for a user supplied memory allocation function.
+  *  @param context user supplied value, obtained from from u_setMemoryFunctions().
+  *  @param size    The number of bytes to be allocated
+  *  @return        Pointer to the newly allocated memory, or NULL if the allocation failed.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef void *U_CALLCONV UMemAllocFn(const void *context, size_t size);
+/**
+  *  Pointer type for a user supplied memory re-allocation function.
+  *  @param context user supplied value, obtained from from u_setMemoryFunctions().
+  *  @param size    The number of bytes to be allocated
+  *  @return        Pointer to the newly allocated memory, or NULL if the allocation failed.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef void *U_CALLCONV UMemReallocFn(const void *context, void *mem, size_t size);
+/**
+  *  Pointer type for a user supplied memory free  function.  Behavior should be
+  *  similar the standard C library free().
+  *  @param context user supplied value, obtained from from u_setMemoryFunctions().
+  *  @param mem     Pointer to the memory block to be resized
+  *  @param size    The new size for the block
+  *  @return        Pointer to the resized memory block, or NULL if the resizing failed.
+  *  @draft ICU 2.8
+  *  @system
+  */
+typedef void  U_CALLCONV UMemFreeFn (const void *context, void *mem);
+
+/**
+ *  Set the functions that ICU will use for memory allocation.
+ *  Use of this function is optional; by default (without this function), ICU will
+ *  use the standard C library malloc() and free() functions.
+ *  This function can only be used when ICU is in an initial, unused state, before
+ *  u_init() has been called.
+ *  @param context This pointer value will be saved, and then (later) passed as
+ *                 a parameter to the memory functions each time they
+ *                 are called.
+ *  @param a       Pointer to a user-supplied malloc function.
+ *  @param r       Pointer to a user-supplied realloc function.
+ *  @param f       Pointer to a user-supplied free function.
+ *  @param status  Receives error values.
+ *  @draft ICU 2.8
+ *  @system
+ */  
+U_DRAFT void U_EXPORT2 
+u_setMemoryFunctions(const void *context, UMemAllocFn *a, UMemReallocFn *r, UMemFreeFn *f, 
+                    UErrorCode *status);
 
 #endif

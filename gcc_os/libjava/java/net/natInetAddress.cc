@@ -1,6 +1,6 @@
 // natInetAddress.cc
 
-/* Copyright (C) 1998, 1999, 2000, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -20,7 +20,7 @@ details.  */
 #define MAXHOSTNAMELEN	64
 #endif /* MAXHOSTNAMELEN */
 
-#else
+#else /* WIN32 */
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -121,7 +121,7 @@ java::net::InetAddress::aton (jstring host)
 #endif
 #if defined (HAVE_INET_PTON) && defined (HAVE_INET6)
   char inet6_addr[16];
-  if (len == 0 && inet_pton (AF_INET6, hostname, inet6_addr) > 0)
+  if (len != 0 && inet_pton (AF_INET6, hostname, inet6_addr) > 0)
     {
       bytes = inet6_addr;
       blen = 16;

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_driver.c,v 1.61 2002/10/16 21:13:46 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_driver.c,v 1.66 2003/10/30 18:37:20 tsi Exp $ */
 
 #include "apm.h"
 #include "xf86cmap.h"
@@ -36,8 +36,8 @@ static Bool     ApmEnterVT(int scrnIndex, int flags);
 static void     ApmLeaveVT(int scrnIndex, int flags);
 static Bool     ApmCloseScreen(int scrnIndex, ScreenPtr pScreen);
 static void     ApmFreeScreen(int scrnIndex, int flags);
-static int      ApmValidMode(int scrnIndex, DisplayModePtr mode,
-                                 Bool verbose, int flags);
+static ModeStatus ApmValidMode(int scrnIndex, DisplayModePtr mode,
+                               Bool verbose, int flags);
 static Bool	ApmSaveScreen(ScreenPtr pScreen, int mode);
 static void	ApmUnlock(ApmPtr pApm);
 static void	ApmLock(ApmPtr pApm);
@@ -161,12 +161,8 @@ static const char *xaaSymbols[] = {
     "XAADestroyInfoRec",
     "XAAGlyphScanlineFuncLSBFirst",
     "XAAInit",
-    "XAAQueryBestSize",
     "XAAReverseBitOrder",
-    "XAARestoreCursor",
-    "XAAScreenIndex",
     "XAAStippleScanlineFuncMSBFirst",
-    "XAAWarpCursor",
     NULL
 };
 
@@ -177,12 +173,14 @@ static const char *ramdacSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *vbeSymbols[] = {
     "VBEInit",
     "vbeDoEDID",
     "vbeFree",
     NULL
 };
+#endif
 
 static const char *ddcSymbols[] = {
     "xf86DoEDID_DDC1",
@@ -202,11 +200,13 @@ static const char *shadowSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *miscfbSymbols[] = {
     "xf1bppScreenInit",
     "xf4bppScreenInit",
     NULL
 };
+#endif
 
 static const char *fbSymbols[] = {
     "fbPictureInit",
@@ -471,7 +471,7 @@ static int *
 GetAccelPitchValues(ScrnInfoPtr pScrn)
 {
     int *linePitches = NULL;
-    int linep[] = {640, 800, 1024, 1152, 1280, 1600, 0};
+    int linep[] = {640, 800, 1024, 1152, 1280, 0};
 
     if (sizeof linep > 0) {
 	linePitches = (int *)xnfalloc(sizeof linep);
@@ -1076,12 +1076,12 @@ ApmPreInit(ScrnInfoPtr pScrn, int flags)
     if (pApm->NoAccel) {
 	/*
 	 * XXX Assuming min pitch 256, max 2048
-	 * XXX Assuming min height 128, max 2048
+	 * XXX Assuming min height 128, max 1024 (changed EE)
 	 */
 	i = xf86ValidateModes(pScrn, pScrn->monitor->Modes,
 			      pScrn->display->modes, clockRanges,
 			      NULL, 256, 2048,
-			      pScrn->bitsPerPixel, 128, 2048,
+			      pScrn->bitsPerPixel, 128, 1024,
 			      pScrn->display->virtualX,
 			      pScrn->display->virtualY,
 			      pApm->FbMapSize,
@@ -1093,7 +1093,7 @@ ApmPreInit(ScrnInfoPtr pScrn, int flags)
 	i = xf86ValidateModes(pScrn, pScrn->monitor->Modes,
 			      pScrn->display->modes, clockRanges,
 			      GetAccelPitchValues(pScrn), 0, 0,
-			      pScrn->bitsPerPixel, 128, 2048,
+			      pScrn->bitsPerPixel, 128, 1024,
 			      pScrn->display->virtualX,
 			      pScrn->display->virtualY,
 			      pApm->FbMapSize,
@@ -1431,7 +1431,9 @@ comp_lmn(ApmPtr pApm, long clock)
   double  fref;
   double  fvco_goal;
   double  k, c;
-
+  double fout_best = 0;
+  unsigned int best = 0;
+  
   if (pApm->Chipset >= AT3D)
     fmax = 370000.0;
   else
@@ -1449,7 +1451,7 @@ comp_lmn(ApmPtr pApm, long clock)
         fout = ((double)(n + 1) * fref)/((double)(m + 1) * (1 << l));
         fvco_goal = (double)clock * (double)(1 << l);
         fvco = fout * (double)(1 << l);
-        if (!WITHIN(fvco, 0.995*fvco_goal, 1.005*fvco_goal))
+        if (!WITHIN(fvco, 0.99*fvco_goal, 1.01*fvco_goal))
           continue;
         if (!WITHIN(fvco, fmin, fmax))
           continue;
@@ -1458,6 +1460,16 @@ comp_lmn(ApmPtr pApm, long clock)
         if (!WITHIN(fref / (double)(m+1), 300.0, 300000.0))
           continue;
 
+	if (fout_best != 0) {
+	    double diff_new = clock - fout;
+	    double diff_old = clock - best;
+	    diff_new = diff_new < 0 ? -diff_new : diff_new;
+	    diff_old = diff_old < 0 ? -diff_old : diff_old;
+	    if (diff_new > diff_old)
+		continue;
+	}
+	fout_best = fout;
+	
         /* The following formula was empirically derived by
            matching a number of fvco values with acceptable
            values of f.
@@ -1514,11 +1526,15 @@ comp_lmn(ApmPtr pApm, long clock)
           if (f > 7) f = 7;
           if (f < 0) f = 0;
         }
-
-        return (n << 16) | (m << 8) | (l << 2) | (f << 4);
+	
+        best =  (n << 16) | (m << 8) | (l << 2) | (f << 4);
       }
     }
   }
+  
+  if (fout_best != 0)
+      return best;
+  
   xf86DrvMsg(pApm->scrnIndex, X_PROBED,
 		"Cannot find register values for clock %6.2f MHz. "
 		"Please use a (slightly) different clock.\n",
@@ -1724,24 +1740,26 @@ ApmRestore(ScrnInfoPtr pScrn, vgaRegPtr vgaReg, ApmRegPtr ApmReg)
 	ApmWriteCrtc(0x19, ApmReg->CRT[0x19]);
 	ApmWriteCrtc(0x1A, ApmReg->CRT[0x1A]);
 	ApmWriteCrtc(0x1B, ApmReg->CRT[0x1B]);
-	ApmWriteCrtc(0x1C, ApmReg->CRT[0x1C]);
 	ApmWriteCrtc(0x1D, ApmReg->CRT[0x1D]);
 	ApmWriteCrtc(0x1E, ApmReg->CRT[0x1E]);
 
 	/* RAMDAC registers. */
 	WRXL(0xE8, ApmReg->EX[XRE8]);
+
 	WRXL(0xEC, ApmReg->EX[XREC] & ~(1 << 7));
 	WRXL(0xEC, ApmReg->EX[XREC] | (1 << 7)); /* Do a PLL resync */
 
 	/* Color correction */
 	WRXL(0xE0, ApmReg->EX[XRE0]);
 
-	WRXB(0x80, ApmReg->EX[XR80]);
-
 	/*
 	 * This function handles restoring the generic VGA registers.
 	 */
 	vgaHWRestore(pScrn, vgaReg, VGA_SR_MODE | VGA_SR_CMAP);
+
+	/* set these after setting the default VGA registers */
+	ApmWriteCrtc(0x1C, ApmReg->CRT[0x1C]);
+	WRXB(0x80, ApmReg->EX[XR80]);
     }
     else {
 	/* Set aperture index to 0. */
@@ -1983,6 +2001,13 @@ ApmScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 	}
     }
 
+    /*
+     * Initialize the acceleration interface.
+     */
+    if (!pApm->NoAccel) {
+	ApmAccelInit(pScreen);		/* set up XAA interface */
+    }
+
     miInitializeBackingStore(pScreen);
     xf86SetBackingStore(pScreen);
     xf86SetSilkenMouse(pScreen);
@@ -1997,12 +2022,6 @@ ApmScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
                 "Hardware cursor initialization failed\n");
     }
 
-    /*
-     * Initialize the acceleration interface.
-     */
-    if (!pApm->NoAccel) {
-	ApmAccelInit(pScreen);		/* set up XAA interface */
-    }
 
     /* Initialise default colourmap */
     if (!miCreateDefColormap(pScreen))
@@ -2233,9 +2252,6 @@ ApmCloseScreen(int scrnIndex, ScreenPtr pScreen)
     pApm->CursorInfoRec = NULL;
     if (pApm->DGAModes)
 	xfree(pApm->DGAModes);
-    if (pApm->I2CPtr)
-	xf86DestroyI2CBusRec(pApm->I2CPtr, TRUE, TRUE);
-    pApm->I2CPtr = NULL;
     if (pApm->adaptor)
 	xfree(pApm->adaptor);
 
@@ -2261,7 +2277,7 @@ ApmFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 ApmValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

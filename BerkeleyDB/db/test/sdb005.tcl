@@ -1,11 +1,11 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1999-2002
+# Copyright (c) 1999-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: sdb005.tcl,v 1.1.1.1 2003/02/15 04:56:16 zarzycki Exp $
+# $Id: sdb005.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
 #
-# TEST	subdb005
+# TEST	sdb005
 # TEST	Tests cursor operations in subdbs
 # TEST		Put/get per key
 # TEST		Verify cursor operations work within subdb
@@ -13,7 +13,7 @@
 # TEST
 #
 # We should test this on all btrees, all hash, and a combination thereof
-proc subdb005 {method {nentries 100} args } {
+proc sdb005 {method {nentries 100} args } {
 	source ./include.tcl
 
 	set args [convert_args $method $args]

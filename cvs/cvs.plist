@@ -1,0 +1,23 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>cvs</string>
+	<key>OpenSourceVersion</key>
+	<string>1.11.18</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://www.cvshome.org/</string>
+	<key>OpenSourceURL</key>
+	<string>https://ccvs.cvshome.org/files/documents/19/534/cvs-1.11.18.tar.bz2</string>
+	<key>OpenSourceSHA1</key>
+	<string>934206a23aee42e690e78bd2b38b31a5d25f4ac8</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-11-18</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>cvs.txt</string>
+</dict>
+</plist>

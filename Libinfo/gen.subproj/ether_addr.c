@@ -54,7 +54,7 @@ static const char ethers[] = "/etc/ethers";
  * Returns zero if successful, non-zero otherwise.
  */
 int ether_line(s, e, hostname)
-	char *s;		/* the string to be parsed */
+	const char *s;		/* the string to be parsed */
 	struct ether_addr *e;	/* ethernet address struct to be filled in */
 	char *hostname;		/* hosts name to be set */
 {
@@ -97,7 +97,7 @@ ether_ntoa(e)
  */
 struct ether_addr *
 ether_aton(s)
-	char *s;
+	const char *s;
 {
 	static struct ether_addr *ep;
 	register int i;
@@ -121,9 +121,8 @@ ether_aton(s)
  * Given a host's name, this routine returns its 48 bit ethernet address.
  * Returns zero if successful, non-zero otherwise.
  */
-/* XXX need to override in netinfo */
-int ether_hostton(host, e)
-	char *host;		/* function input */
+int _old_ether_hostton(host, e)
+	const char *host;		/* function input */
 	struct ether_addr *e;	/* function output */
 {
 	char currenthost[256];
@@ -156,10 +155,9 @@ int ether_hostton(host, e)
  * Given a 48 bit ethernet address, this routine return its host name.
  * Returns zero if successful, non-zero otherwise.
  */
-/* XXX need to override in netinfo */
-int ether_ntohost(host, e)
+int _old_ether_ntohost(host, e)
 	char *host;		/* function output */
-	struct ether_addr *e;	/* function input */
+	const struct ether_addr *e;	/* function input */
 {
 	struct ether_addr currente;
 	char buf[512];

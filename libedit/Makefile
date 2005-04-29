@@ -1,53 +1,58 @@
-#
-# xbs-compatible Makefile for libedit.
-#
+##
+# Makefile for libedit
+##
 
-SHELL := /bin/sh
+Project             = libedit
+Extra_Install_Flags = PREFIX=$(DSTROOT)$(Install_Prefix)
+GnuAfterInstall     = install-plist fix-install
 
-# Sane defaults, which are typically overridden on the command line.
-SRCROOT=
-OBJROOT=$(SRCROOT)
-SYMROOT=$(OBJROOT)
-DSTROOT=/usr/local
-RC_ARCHS=
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %)" \
-	S_LDFLAGS="$(RC_ARCHS:%=-arch %)"
+Install_Target      = install
 
-INSTALLED_STLIBS := libedit.a
-INSTALLED_DYLIBS := libedit.2.dylib
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
-.PHONY : installsrc installhdrs install clean
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(HEAD) $(Sources)/el.c | $(SED) 1,2d > $(OSL)/$(Project).txt
 
-installsrc :
-	tar cf - . | (cd $(SRCROOT) ; tar xfp -)
-	for i in `find $(SRCROOT) | grep "CVS$$"` ; do \
-		if test -d $$i ; then \
-			rm -rf $$i; \
-		fi; \
+fix-install:
+	$(MKDIR) $(DSTROOT)/usr/share
+	$(MV) $(DSTROOT)/usr/man $(DSTROOT)/usr/share
+	$(MKDIR) $(DSTROOT)/usr/local/lib
+	$(MV) $(DSTROOT)/usr/lib/libedit.a $(DSTROOT)/usr/local/lib
+	$(MV) $(DSTROOT)/usr/lib/libreadline.a $(DSTROOT)/usr/local/lib
+	$(STRIP) -x $(DSTROOT)/usr/lib/libedit.2.dylib
+
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 2.6.9
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = patch-Makefile.in \
+                 patch-configure
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
 	done
+endif
 
-installhdrs :
-	$(SHELL) -ec \
-	'cd $(SRCROOT)/libedit; \
-	$(ENV) ./configure --prefix=/usr --disable-readline; \
-	$(ENV) $(MAKE) PREFIX=$(DSTROOT)/usr install_hdr'
-
-install :
-	$(SHELL) -ec \
-	'cd $(SRCROOT)/libedit; \
-	$(ENV) ./configure --prefix=/usr --disable-readline; \
-	$(ENV) $(MAKE); \
-	$(ENV) $(MAKE) PREFIX=$(DSTROOT)/usr install; \
-	$(ENV) $(MAKE) distclean; \
-	mkdir -p $(DSTROOT)/usr/share; \
-	mv $(DSTROOT)/usr/man $(DSTROOT)/usr/share/man; \
-	mkdir -p $(DSTROOT)/usr/local/lib; \
-	for l in $(INSTALLED_STLIBS) ; do \
-		mv $(DSTROOT)/usr/lib/$${l} $(DSTROOT)/usr/local/lib/; \
-	done; \
-	for l in $(INSTALLED_DYLIBS) ; do \
-		strip -x $(DSTROOT)/usr/lib/$${l}; \
-	done'
-
-clean:
+install_headers:: shadow_source configure
+	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) install_hdr

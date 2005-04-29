@@ -1,5 +1,5 @@
 /* Tcl/Tk interface routines header file.
-   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 2001
+   Copyright 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2003
    Free Software Foundation, Inc.
 
    Written by Stu Grossman <grossman@cygnus.com> of Cygnus Support.
@@ -21,6 +21,9 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
+
+#ifndef _GDBTK_H
+#define _GDBTK_H
 
 #ifdef _WIN32
 #define GDBTK_PATH_SEP ";"
@@ -169,10 +172,17 @@ extern void
 #define GDBTK_SYMBOL_SOURCE_NAME(symbol) \
       (SYMBOL_DEMANGLED_NAME (symbol) != NULL \
        ? SYMBOL_DEMANGLED_NAME (symbol)       \
-       : SYMBOL_NAME (symbol))
+       : DEPRECATED_SYMBOL_NAME (symbol))
 
 
 /* gdbtk_add_hooks - add all the hooks to gdb.  This will get called
    by the startup code to fill in the hooks needed by core gdb. */
 extern void gdbtk_add_hooks (void);
 
+/* Initialize Insight */
+extern void gdbtk_init (void);
+
+/* Start Insight. Insight must have already been initialized with a call
+   to gdbtk_init. */
+extern void gdbtk_source_start_file (void);
+#endif /* !_GDBTK_H */

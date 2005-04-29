@@ -225,7 +225,7 @@ static size_t object_size_table[NUM_ORDERS];
 
 static struct
 {
-  unsigned int mult;
+  size_t mult;
   unsigned int shift;
 }
 inverse_table[NUM_ORDERS];
@@ -1233,19 +1233,8 @@ static void
 compute_inverse (order)
      unsigned order;
 {
-  unsigned size, inv, e;
-
-  /* There can be only one object per "page" in a bucket for sizes
-     larger than half a machine page; it will always have offset zero.  */
-  if (OBJECT_SIZE (order) > G.pagesize/2)
-    {
-      if (OBJECTS_PER_PAGE (order) != 1)
-	abort ();
-
-      DIV_MULT (order) = 1;
-      DIV_SHIFT (order) = 0;
-      return;
-    }
+  size_t size, inv; 
+  unsigned int e;
 
   size = OBJECT_SIZE (order);
   e = 0;

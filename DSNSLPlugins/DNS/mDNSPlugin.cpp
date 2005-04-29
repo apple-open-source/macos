@@ -34,7 +34,7 @@
 
 #include "CNSLHeaders.h"
 
-#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "mDNSPlugin.h"
 #include "DNSBrowserThread.h"
@@ -42,17 +42,8 @@
 #include "mDNSNodeLookupThread.h"
 #include "mDNSServiceLookupThread.h"
 
-#define kLocalizedStringsID				128
-#define kNetworkNeighborhoodStrID		1
-
-#define kCommandParamsID				129
-#define kServiceTypeStrID				1
-#define kListClassPathStrID				2
-#define kLookupWorkgroupsJCIFSCommand	3
-#define kDefaultGroupName			"WORKGROUP"
-
-const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.Rendezvous");
-const char*			gProtocolPrefixString = "Rendezvous";
+const CFStringRef	gBundleIdentifier = CFSTR("com.apple.DirectoryService.Bonjour");
+const char*			gProtocolPrefixString = "Bonjour";
 
 #pragma warning "Need to get our default Node String from our resource"
 
@@ -83,6 +74,7 @@ mDNSPlugin::mDNSPlugin( void )
     mLookupThread = NULL;
     mRegistrationThread = NULL;
     mListOfServicesToRegisterManually = NULL;
+	mStartedLocalNodeLookups = false;
 	mStartedNodeLookups = false;
 	mRegisteredHostedServices = false;
 	mComputerNameRef = NULL;
@@ -123,7 +115,7 @@ sInt32 mDNSPlugin::InitPlugin( void )
     
 	DBGLOG( "mDNSPlugin::InitPlugin\n" );
 	
-	mActivatedByNSL = true;	// we should always be active
+//	mActivatedByNSL = true;	// we should always be active
 
     return siResult;
 }
@@ -165,11 +157,11 @@ void mDNSPlugin::ActivateSelf( void )
 	
 	AddNode( kLocalSAFE_CFSTR, true );	// local node
 	
-	// we are going to simulate a network transition event here that will cause internal services to be registered
 	CFStringEncoding	encoding;
 	mComputerNameRef = SCDynamicStoreCopyComputerName(NULL, &encoding);
 	mComputerMACAddressNameRef = CreateComputerNameEthernetString(mComputerNameRef);
 
+	// we are going to simulate a network transition event here that will cause internal services to be registered
 	sHeader		header = {kHandleNetworkTransition, 0, NULL};
 	
 	DBGLOG( "mDNSPlugin::ActivateSelf, calling HandleRequest with a kHandleNetworkTransition event\n" );
@@ -210,19 +202,26 @@ Boolean mDNSPlugin::IsLocalNode( const char *inNode )
         DBGLOG( "mDNSPlugin::IsLocalNode result:%d (strcmp(%s,%s))\n", result, inNode, mLocalNodeString );
     
     }
-    
+	else
+		result = ( strcmp( inNode, "local" ) == 0 );
+
     return result;
 }
 
 void mDNSPlugin::NewNodeLookup( void )
 {
-	DBGLOG( "mDNSPlugin::NewNodeLookup - start a new node lookup\n" );
-	
-	// we are going to simulate a network transition event here that will cause internal lookups to fire if needed
-	sHeader		header = {kHandleNetworkTransition, 0, NULL};
-	
-	DBGLOG( "mDNSPlugin::NewNodeLookup, calling HandleRequest with a kHandleNetworkTransition event\n" );
-	HandleRequest( &header );
+	if ( (!mStartedNodeLookups || !mStartedLocalNodeLookups) && mLookupThread )	// only need to do this once, CFNetServices calls us if node info changes
+	{
+		DBGLOG( "mDNSPlugin::NewNodeLookup - start a new node lookup\n" );
+		
+		// we are going to simulate a network transition event here that will cause internal lookups to fire if needed
+		sHeader		header = {kHandleNetworkTransition, 0, NULL};
+		
+		DBGLOG( "mDNSPlugin::NewNodeLookup, calling HandleRequest with a kHandleNetworkTransition event\n" );
+		HandleRequest( &header );
+	}
+	else
+		DBGLOG( "mDNSPlugin::NewNodeLookup - ignore new node lookup, Bonjour will notifiy us of any changes\n" );
 }
 
 Boolean mDNSPlugin::OKToOpenUnPublishedNode	( const char* parentNodeName )
@@ -255,17 +254,24 @@ sInt32 mDNSPlugin::HandleNetworkTransition( sHeader *inData )
 	DBGLOG( "mDNSPlugin::HandleNetworkTransition called\n" );
 	if ( IsActive() )
     {
-		if ( !mStartedNodeLookups && mLookupThread )	// only need to do this once, CFNetServices calls us if node info changes
+		if ( mActivatedByNSL && !mStartedLocalNodeLookups && mLookupThread )	// only need to do this once, CFNetServices calls us if node info changes
 		{
-            DBGLOG( "mDNSPlugin::HandleNetworkTransition calling StartNodeLookups\n" );
-			mStartedNodeLookups = true;
+            DBGLOG( "mDNSPlugin::HandleNetworkTransition calling StartNodeLookups for default nodes\n" );
+			mStartedLocalNodeLookups = true;
 			if ( mLookupThread->StartNodeLookups( true ) != eDSNoErr )			// start looking up default nodes
 			{
 				DBGLOG( "mDNSPlugin::HandleNetworkTransition StartNodeLookups failed, reset to try again later\n" );
-				mStartedNodeLookups = false;
+				mStartedLocalNodeLookups = false;
 				ResetNodeLookupTimer( 5 );			// try again in five seconds
 			}
-			else if ( mLookupThread->StartNodeLookups( false ) != eDSNoErr )	// start looking up non-default nodes
+		}
+		
+		if ( mActivatedByNSL && !mStartedNodeLookups && mLookupThread )	// only need to do this once (but only if we've been activated by NSL), CFNetServices calls us if node info changes
+		{
+			DBGLOG( "mDNSPlugin::HandleNetworkTransition calling StartNodeLookups for non-default nodes\n" );
+
+			mStartedNodeLookups = true;
+			if ( mLookupThread->StartNodeLookups( false ) != eDSNoErr )	// start looking up non-default nodes
 			{
 				DBGLOG( "mDNSPlugin::HandleNetworkTransition StartNodeLookups failed, reset to try again later\n" );
 				mStartedNodeLookups = false;
@@ -298,7 +304,7 @@ Boolean mDNSPlugin::IsClientAuthorizedToCreateRecords ( sCreateRecord *inData )
     
     if( ::CFDictionaryGetValueIfPresent( mOpenRefTable, (const void*)inData->fInNodeRef, &dictionaryResult ) )
     {
-        if ( ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kEmptySAFE_CFSTR, 0 ) || ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kLocalSAFE_CFSTR, 0 ) || ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kLocalDotSAFE_CFSTR, 0 ) )
+        if ( ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kEmptySAFE_CFSTR, 0 ) == kCFCompareEqualTo || ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kLocalSAFE_CFSTR, 0 ) == kCFCompareEqualTo || ::CFStringCompare( ((CNSLDirNodeRep*)dictionaryResult)->GetNodeName(), kLocalDotSAFE_CFSTR, 0 ) == kCFCompareEqualTo )
         {
             okToCreate = true;	// always ok to register local data
             DBGLOG( "mDNSPlugin::IsClientAuthorizedToCreateRecords returning true because client is registering in local or default.\n" );
@@ -319,14 +325,15 @@ Boolean mDNSPlugin::IsClientAuthorizedToCreateRecords ( sCreateRecord *inData )
 //	* CreateNSLTypeFromRecType
 // ---------------------------------------------------------------------------
 
-char* mDNSPlugin::CreateNSLTypeFromRecType ( char *inRecType )
+char* mDNSPlugin::CreateNSLTypeFromRecType ( char *inRecType, Boolean* needToFreeRecType )
 {
     char				   *outResult	= nil;
     uInt32					uiStrLen	= 0;
     uInt32					uiStdLen	= ::strlen( kDSStdRecordTypePrefix );
 	
 	DBGLOG( "mDNSPlugin::CreateNSLTypeFromRecType called on %s\n", inRecType );
-
+	*needToFreeRecType = false;
+	
     if ( ( inRecType != nil ) )
     {
         uiStrLen = ::strlen( inRecType );
@@ -336,8 +343,7 @@ char* mDNSPlugin::CreateNSLTypeFromRecType ( char *inRecType )
             DBGLOG( "mDNSPlugin::CreateNSLTypeFromRecType kDSStdRecordTypePrefix, uiStrLen:%ld uiStdLen:%ld\n", uiStrLen, uiStdLen );
             if ( strcmp( inRecType, kDSStdRecordTypeAFPServer ) == 0 )
             {
-                outResult = new char[1+::strlen(kAFPoverTCPServiceType)];
-                ::strcpy(outResult, kAFPoverTCPServiceType);
+                outResult = kAFPoverTCPServiceType;
 
 				DBGLOG( "mDNSPlugin::CreateNSLTypeFromRecType mapping %s to %s\n", inRecType, outResult );
             }
@@ -345,7 +351,7 @@ char* mDNSPlugin::CreateNSLTypeFromRecType ( char *inRecType )
 	}// ( inRecType != nil )
     
 	if ( !outResult )
-		outResult = CNSLPlugin::CreateNSLTypeFromRecType( inRecType );		// let the parent handle it
+		outResult = CNSLPlugin::CreateNSLTypeFromRecType( inRecType, needToFreeRecType );		// let the parent handle it
 		
 	return( outResult );
 
@@ -396,8 +402,30 @@ sInt32 mDNSPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
             
         locationOfService = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrLocationSAFE_CFSTR );
         if ( !locationOfService )
+		{
+			DBGLOG( "mDNSPlugin::RegisterService, no location specified, use \"\"\n" );
             locationOfService = kEmptySAFE_CFSTR;		// just register local
-            
+		}
+		else
+		if ( CFStringCompare( locationOfService, CFSTR("local"), 0 ) == kCFCompareEqualTo )
+		{
+			DBGLOG( "mDNSPlugin::RegisterService, registering in local, use \"\"\n" );
+            locationOfService = kEmptySAFE_CFSTR;		// just register local
+		}
+		else
+		if ( DEBUGGING_NSL )
+		{
+			char*		location = (char*)malloc( CFStringGetMaximumSizeForEncoding( CFStringGetLength(locationOfService), kCFStringEncodingUTF8 ) + 1 );
+			
+			if ( location )
+			{
+				CFStringGetCString( locationOfService, location, CFStringGetMaximumSizeForEncoding( CFStringGetLength(locationOfService), kCFStringEncodingUTF8 ) + 1, kCFStringEncodingUTF8 );
+
+				DBGLOG("mDNSPlugin::RegisterService using specified location [%s]\n", location );
+			}
+		
+		}
+		
         typeOfService = (CFStringRef)::CFDictionaryGetValue( service, kDS1AttrServiceTypeSAFE_CFSTR );
         if ( !typeOfService )
             typeOfService = (CFStringRef)::CFDictionaryGetValue( service, kDSNAttrRecordTypeSAFE_CFSTR );
@@ -414,7 +442,7 @@ sInt32 mDNSPlugin::RegisterService( tRecordReference recordRef, CFDictionaryRef 
 				
 				CFStringGetCString( nameOfService, name, sizeof(name), kCFStringEncodingUTF8 );
 				CFStringGetCString( typeOfService, type, sizeof(type), kCFStringEncodingUTF8 );
-				syslog( LOG_ERR, "DS Rendezvous couldn't register %s (%s) since our Registration Thread hasn't been created!\n", name, type );
+				syslog( LOG_ERR, "DS Bonjour couldn't register %s (%s) since our Registration Thread hasn't been created!\n", name, type );
 				status = ePlugInError;
             }
             
@@ -465,7 +493,7 @@ sInt32 mDNSPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
 		if ( typeOfService )
 			CFStringGetCString( typeOfService, type, sizeof(type), kCFStringEncodingUTF8 );
 	
-		syslog( LOG_ERR, "DS Rendezvous couldn't deregister %s (%s) since our Registration Thread hasn't been created!\n", name, type );
+		syslog( LOG_ERR, "DS Bonjour couldn't deregister %s (%s) since our Registration Thread hasn't been created!\n", name, type );
 		status = ePlugInError;
 	}
         

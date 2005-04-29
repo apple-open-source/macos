@@ -1,15 +1,18 @@
 .TH SNMP.CONF 5 "11 Dec 2002" VVERSIONINFO "Net-SNMP"
 .UC 4
 .SH NAME
-SYSCONFDIR/snmp/snmp.conf - configuration file for the Net-SNMP applications.
-.br
-~/.snmp/snmp.conf - personal configuration file.
+SYSCONFDIR/snmp/snmp.conf, ~/.snmp/snmp.conf - configuration files for the Net-SNMP applications.
 .SH DESCRIPTION
 .B snmp.conf
 is the configuration file which define how the Net-SNMP applications
 operate.  Tokens that can be put in them are described in the
 .B DIRECTIVES
 section below.
+.PP
+SYSCONFDIR/snmp/snmp.conf is a common file, shared by all users of the system.
+.br
+~/.snmp/snmp.conf is a personal file, with configuration settings for a
+particular user.
 .SH PLEASE READ FIRST
 Make sure you make these files readable only by the user if you are
 storing sensitive information in them like passphrases!
@@ -44,6 +47,9 @@ environment variable.
 .IP "persistentDir directory"
 The directory where snmpd and snmptrapd stores their persistent data
 files.
+.IP "tempFilePattern pattern"
+The file pattern used by snmptrapd to create temporary files.  Example:
+/tmp/snmpdXXXXXX.  Used by mkstemp() and mktemp() functions.
 .IP "defaultPort port"
 The default port number that all SNMP applications and daemons should use.
 .IP "defVersion (1|2c|3)"
@@ -68,6 +74,24 @@ The SNMPv3 USM privacy type to use.  Currently, DES is the only
 possible value.
 .IP "defSecurityLevel noAuthNoPriv|authNoPriv|authPriv"
 The SNMPv3 default security level to use.
+.IP "defAuthMasterKey 0xHEXSTRING"
+.IP "defPrivMasterKey 0xHEXSTRING"
+.IP "defAuthLocalizedKey 0xHEXSTRING"
+.IP "defPrivLocalizedKey 0xHEXSTRING"
+Defines the SNMPv3 keys to be used for SNMPv3 secure communications.
+SNMPv3 keys are frequently derived from a passphrase, as discussed in
+the defPassphrase section above, however for improved security a
+truely random key can be generated and used instead (which would
+normally has better entropy than a password unless your password is
+amazingly long).  But to do this, you need to specify the hexadecimal
+keys directly to be used for authentication and encryption.  These
+tokens let you do just that.  They are equivalent to the short-form
+command line arguments -3m, -3M, -3k, and -3K.  Localized keys are
+master keys which have been converted to a unique key which is only
+suitable for on particular SNMP engine (agent).  The length of the key
+needs to be appropriate for the authentication or encryption type
+being used (auth keys: MD5=16 bytes, SHA1=20 bytes, DES=16 bytes (8
+bytes of which is used as an IV and not a key), and AES=16 bytes).
 .IP "showMibErrors (1|yes|true|0|no|false)"
 Whether or not to display textual MIB parsing errors when commands are
 run.
@@ -84,7 +108,7 @@ Whether the commands should log timestamps with their error/message
 logging or not.  Note that output will not look as pretty with
 timestamps if the source code that is doing the logging does
 incremental logging of messages that are not line buffered before
-being passed to the logging routines.
+being passed to the logging routines.  This option is only used when file logging is active. 
 .IP "printNumericEnums (1|yes|true|0|no|false)"
 Equivalent to
 .BR -Oe .
@@ -135,6 +159,26 @@ Turns on debugging for all applications run if set to 1.
 The debugging tokens that should be printed.  See the
 .I snmpcmd(1)
 manual page for debugging usage details.
+.IP "serverRecvBuf integer"
+.B serverRecvBuf
+is used to specify the receive buffer size (in bytes)
+for the initialization of server sockets (eg. snmpd, snmptrapd).
+If the OS hard limit is smaller than
+.B serverRecvBuf
+the resulting buffer will be lowered so it is close to the hard limit.  
+Some platforms may decide to increment the actual buffersize themselves 
+for internal housekeeping.
+This directive will be ignored on platforms that don't support
+..I setsockopt()
+.IP "serverSendBuf integer"
+Similar to serverRecvBuf, but this directive applies to the send 
+buffer of server sockets. 
+.IP "clientRecvBuf integer"
+Similar to serverRecvBuf, but this directive applies to the receive 
+buffer of client sockets (eg. snmpget). 
+.IP "clientSendBuf integer"
+Similar to serverRecvBuf, but this directive applies to the send 
+buffer of client sockets. 
 .SH "SEE ALSO"
 snmp_config(5), read_config(3), snmpcmd(1).
 .\" Local Variables:

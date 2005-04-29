@@ -31,8 +31,9 @@
 // HID system includes.
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
 #include <IOKit/hidsystem/IOHIDShared.h>
-#include <IOKit/hidsystem/IOHIKeyboard.h>
+#include "IOHIKeyboard.h"
 #include "IOHIDKeyboard.h"
+#include "IOHIDEventService.h"
 
 // extra includes.
 #include <libkern/OSByteOrder.h>
@@ -45,93 +46,48 @@
 class IOHIDConsumer : public IOHIKeyboard
 {
     OSDeclareDefaultStructors(IOHIDConsumer)
-
-    bool				_isDispatcher;
-    bool				_states[NX_NUMSPECIALKEYS];
     
-    OSNumber *				_vendorID;
-    OSNumber *				_productID;
-    OSNumber *				_locationID;
-    OSString *				_transport;
+    IOHIDEventService *     _provider;
+    IOHIDKeyboard *         _keyboardNub;
     
-    // Generic Deskop Element Value Ptrs
-    UInt32 **				_systemPowerValuePtrs;
-    UInt32				_systemPowerValuePtrsCount;
-    UInt32 **				_systemSleepValuePtrs;
-    UInt32				_systemSleepValuePtrsCount;
-    UInt32 **				_systemWakeUpValuePtrs;
-    UInt32				_systemWakeUpValuePtrsCount;
+    UInt32                  _otherEventFlags;
+    UInt32                  _cachedEventFlags;
+    bool                    _otherCapsLockOn;
+	
+	bool					_repeat;
     
-    // Consumer Element Value Ptrs    
-    UInt32 **				_powerValuePtrs;
-    UInt32				_powerValuePtrsCount;
-    UInt32 **				_resetValuePtrs;
-    UInt32				_resetValuePtrsCount;
-    UInt32 **				_sleepValuePtrs;
-    UInt32				_sleepValuePtrsCount;
-    
-    UInt32 **				_playValuePtrs;
-    UInt32				_playValuePtrsCount;
-    UInt32 **				_playOrPauseValuePtrs;
-    UInt32				_playOrPauseValuePtrsCount;
-    UInt32 **				_playOrSkipPtrs;
-    UInt32				_playOrSkipPtrsCount;
-    UInt32 **				_nextTrackValuePtrs;
-    UInt32				_nextTrackValuePtrsCount;
-    UInt32 **				_prevTrackValuePtrs;
-    UInt32				_prevTrackValuePtrsCount;
-    UInt32 **				_fastFowardValuePtrs;
-    UInt32				_fastFowardValuePtrsCount;
-    UInt32 **				_rewindValuePtrs;
-    UInt32				_rewindValuePtrsCount;
-    UInt32 **				_stopOrEjectPtrs;
-    UInt32				_stopOrEjectPtrsCount;
-    UInt32 **				_ejectValuePtrs;
-    UInt32				_ejectValuePtrsCount;
-
-    UInt32 **				_volumeIncValuePtrs;
-    UInt32				_volumeIncValuePtrsCount;
-    UInt32 **				_volumeDecValuePtrs;
-    UInt32				_volumeDecValuePtrsCount;
-    UInt32 **				_volumeMuteValuePtrs;
-    UInt32				_volumeMuteValuePtrsCount;
-    
-    IOHIDKeyboard *			_keyboard;
-    IONotifier *			_publishNotify;
-    IOLock *				_keyboardLock;
-    
-    UInt32				_otherEventFlags;
-    bool				_otherCapsLockOn;
+    bool                    _isDispatcher;
     
     // Our implementation specific stuff.
-    bool				findDesiredElements(OSArray *elements);
-    UInt32				findKeyboardsAndGetModifiers();
-    static bool 			_publishNotificationHandler(void * target, void * ref, IOService * newService );
+    UInt32                  findKeyboardsAndGetModifiers();
     
 public:
     // Allocator
-    static IOHIDConsumer * 		Consumer(OSArray *elements);
-    static IOHIDConsumer * 		Dispatcher(IOService * owner);
+    static IOHIDConsumer * 		Consumer(bool isDispatcher = false);
     
     // IOService methods
     virtual bool			init(OSDictionary *properties=0);
-    virtual void			free();
-    virtual bool			start(IOService * provider);
-    virtual void 			stop(IOService *  provider);
-    virtual bool 			matchPropertyTable(OSDictionary * table, SInt32 * score);    
-    virtual void			handleReport();
-    virtual void			dispatchSpecialKeyEvent(int key, bool down, AbsoluteTime ts);
+    virtual bool			start(IOService * provider);    
+    
+    virtual void            dispatchConsumerEvent(
+                                IOHIDKeyboard *             sendingkeyboardNub,
+                                AbsoluteTime                timeStamp,
+                                UInt32                      usagePage,
+                                UInt32                      usage,
+                                UInt32						value,
+                                IOOptionBits                options = 0);
 
+    inline bool             isDispatcher() { return _isDispatcher;};
    
     // IOHIKeyboard methods
     virtual const unsigned char*	defaultKeymapOfLength( UInt32 * length );
-    virtual bool 			doesKeyLock(unsigned key);
-    virtual unsigned 			eventFlags();
-    virtual void 			setNumLock(bool val);
-    virtual bool 			numLock();
-    virtual bool 			alphaLock();
-    virtual UInt32    			deviceType();
-    
-    inline bool				isDispatcher() const { return _isDispatcher;}
+    virtual bool                    doesKeyLock(unsigned key);
+    virtual unsigned                eventFlags();
+    virtual unsigned                deviceFlags();
+    virtual void                    setDeviceFlags(unsigned flags);
+    virtual void                    setNumLock(bool val);
+    virtual bool                    numLock();
+    virtual bool                    alphaLock();
+    virtual UInt32                  deviceType();
 };
 #endif /* !_IOKIT_HID_IOHIDCONSUMER_H */

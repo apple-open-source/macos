@@ -1,0 +1,18 @@
+[vset    encoding otp_words]
+[include encoding/header.inc]
+
+[para]
+
+This encoding transforms every block of four bytes (64 bit) into six
+english words, as defined in
+
+RFC 2289 ([uri http://www.rfc-editor.org/rfc/rfc2289.txt]).
+
+This encoding is the sole one which is [emph {not able}] to handle an
+incomplete block at the end of the input.
+
+[include encoding/middle.inc]
+
+[keywords {rfc 2289} md5_otp]
+[see_also trf-intro md5_otp]
+[include encoding/footer.inc]

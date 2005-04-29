@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_screen.h,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_screen.h,v 1.3 2003/12/02 13:02:39 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -37,7 +38,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #ifdef GLX_DIRECT_RENDERING
 
-#include <X11/Xlibint.h>
 #include "dri_util.h"
 #include "xf86drm.h"
 #include "radeon_common.h"
@@ -63,6 +63,7 @@ typedef struct {
    int AGPMode;
    unsigned int irq;			/* IRQ number (0 means none) */
 
+   unsigned int fbLocation;
    unsigned int frontOffset;
    unsigned int frontPitch;
    unsigned int backOffset;
@@ -79,7 +80,7 @@ typedef struct {
 
    r200RegionRec mmio;
    r200RegionRec status;
-   r200RegionRec agpTextures;
+   r200RegionRec gartTextures;
 
    drmBufMapPtr buffers;
 
@@ -87,9 +88,11 @@ typedef struct {
 
    __DRIscreenPrivate *driScreen;
    unsigned int sarea_priv_offset;
-   unsigned int agp_buffer_offset;	/* offset in card memory space */
-   unsigned int agp_texture_offset;	/* offset in card memory space */
-   unsigned int agp_base;
+   unsigned int gart_buffer_offset;	/* offset in card memory space */
+   unsigned int gart_texture_offset;	/* offset in card memory space */
+   unsigned int gart_base;
+
+   GLboolean drmSupportsCubeMaps;       /* need radeon kernel module >=1.7 */
 } r200ScreenRec, *r200ScreenPtr;
 
 #endif

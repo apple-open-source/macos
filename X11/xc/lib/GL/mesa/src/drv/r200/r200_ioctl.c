@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_ioctl.c,v 1.4 2002/12/17 00:32:56 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_ioctl.c,v 1.7 2004/01/23 03:57:05 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,12 +25,19 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "macros.h"
+#include "context.h"
+#include "swrast/swrast.h"
 
 #include "r200_context.h"
 #include "r200_state.h"
@@ -39,22 +46,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r200_sanity.h"
 #include "radeon_reg.h"
 
-#include "mem.h"
-#include "macros.h"
-#include "context.h"
-#include "swrast/swrast.h"
+#include "vblank.h"
 
-#include <unistd.h>	/* for usleep */
 
 #define R200_TIMEOUT             512
 #define R200_IDLE_RETRY           16
 
-
-static void do_usleep( int nr, const char *caller )
-{
-   if (0) fprintf(stderr, "usleep %d in %s\n", nr, caller );
-   if (1) usleep( nr );
-}
 
 static void r200WaitForIdle( r200ContextPtr rmesa );
 
@@ -94,6 +91,15 @@ int r200FlushCmdBufLocked( r200ContextPtr rmesa, const char * caller )
    }
 
 
+   if (R200_DEBUG & DEBUG_MEMORY) {
+      if (! driValidateTextureHeaps( rmesa->texture_heaps, rmesa->nr_heaps,
+				     & rmesa->swapped ) ) {
+	 fprintf( stderr, "%s: texture memory is inconsistent - expect "
+		  "mangled textures\n", __FUNCTION__ );
+      }
+   }
+
+
    cmd.bufsz = rmesa->store.cmd_used;
    cmd.buf = rmesa->store.cmd_buf;
 
@@ -123,7 +129,6 @@ int r200FlushCmdBufLocked( r200ContextPtr rmesa, const char * caller )
    rmesa->store.statenr = 0;
    rmesa->store.cmd_used = 0;
    rmesa->dma.nr_released_bufs = 0;
-/*    rmesa->lost_context = 0; */
    rmesa->lost_context = 1;	
    return ret;
 }
@@ -143,7 +148,7 @@ void r200FlushCmdBuf( r200ContextPtr rmesa, const char *caller )
    UNLOCK_HARDWARE( rmesa );
 
    if (ret) {
-      fprintf(stderr, "drmRadeonCmdBuffer: %d\n", ret);
+      fprintf(stderr, "drmRadeonCmdBuffer: %d (exiting)\n", ret);
       exit(ret);
    }
 }
@@ -197,10 +202,10 @@ void r200RefillCurrentDmaRegion( r200ContextPtr rmesa )
       if (rmesa->dma.nr_released_bufs) {
 	 r200FlushCmdBufLocked( rmesa, __FUNCTION__ );
       }
-      
+
       if (rmesa->do_usleeps) {
 	 UNLOCK_HARDWARE( rmesa );
-	 do_usleep(1, __FUNCTION__);
+	 DO_USLEEP( 1 );
 	 LOCK_HARDWARE( rmesa );
       }
    }
@@ -287,6 +292,8 @@ void r200AllocDmaRegion( r200ContextPtr rmesa,
    rmesa->dma.current.ptr += bytes; /* bug - if alignment > 7 */
    rmesa->dma.current.start = 
       rmesa->dma.current.ptr = (rmesa->dma.current.ptr + 0x7) & ~0x7;  
+
+   assert( rmesa->dma.current.ptr <= rmesa->dma.current.end );
 }
 
 void r200AllocDmaRegionVerts( r200ContextPtr rmesa, 
@@ -378,7 +385,7 @@ static void r200WaitForFrameCompletion( r200ContextPtr rmesa )
       while (r200GetLastFrame (rmesa) < sarea->last_frame) {
 	 UNLOCK_HARDWARE( rmesa ); 
 	 if (rmesa->do_usleeps) 
-	    do_usleep(1, __FUNCTION__); 
+	    DO_USLEEP( 1 );
 	 LOCK_HARDWARE( rmesa ); 
       }
    }
@@ -392,6 +399,8 @@ void r200CopyBuffer( const __DRIdrawablePrivate *dPriv )
 {
    r200ContextPtr rmesa;
    GLint nbox, i, ret;
+   GLboolean   missed_target;
+   int64_t     ust;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -400,7 +409,7 @@ void r200CopyBuffer( const __DRIdrawablePrivate *dPriv )
    rmesa = (r200ContextPtr) dPriv->driContextPriv->driverPrivate;
 
    if ( R200_DEBUG & DEBUG_IOCTL ) {
-      fprintf( stderr, "\n%s( %p )\n\n", __FUNCTION__, rmesa->glCtx );
+      fprintf( stderr, "\n%s( %p )\n\n", __FUNCTION__, (void *)rmesa->glCtx );
    }
 
    R200_FIREVERTICES( rmesa );
@@ -412,14 +421,15 @@ void r200CopyBuffer( const __DRIdrawablePrivate *dPriv )
     * request at a time.
     */
    r200WaitForFrameCompletion( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, & rmesa->vbl_seq, rmesa->vblank_flags, & missed_target );
+   LOCK_HARDWARE( rmesa );
 
-   r200WaitForVBlank( rmesa );
-
-   nbox = rmesa->dri.drawable->numClipRects; /* must be in locked region */
+   nbox = dPriv->numClipRects; /* must be in locked region */
 
    for ( i = 0 ; i < nbox ; ) {
       GLint nr = MIN2( i + RADEON_NR_SAREA_CLIPRECTS , nbox );
-      XF86DRIClipRectPtr box = rmesa->dri.drawable->pClipRects;
+      XF86DRIClipRectPtr box = dPriv->pClipRects;
       XF86DRIClipRectPtr b = rmesa->sarea->boxes;
       GLint n = 0;
 
@@ -440,12 +450,24 @@ void r200CopyBuffer( const __DRIdrawablePrivate *dPriv )
 
    UNLOCK_HARDWARE( rmesa );
    rmesa->lost_context = 1;
+
+   rmesa->swap_count++;
+   (*rmesa->get_ust)( & ust );
+   if ( missed_target ) {
+      rmesa->swap_missed_count++;
+      rmesa->swap_missed_ust = ust - rmesa->swap_ust;
+   }
+
+   rmesa->swap_ust = ust;
+
+   sched_yield();
 }
 
 void r200PageFlip( const __DRIdrawablePrivate *dPriv )
 {
    r200ContextPtr rmesa;
    GLint ret;
+   GLboolean   missed_target;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -461,7 +483,7 @@ void r200PageFlip( const __DRIdrawablePrivate *dPriv )
    R200_FIREVERTICES( rmesa );
    LOCK_HARDWARE( rmesa );
 
-   if (!rmesa->dri.drawable->numClipRects) {
+   if (!dPriv->numClipRects) {
       UNLOCK_HARDWARE( rmesa );
       usleep( 10000 );		/* throttle invisible client 10ms */
       return;
@@ -470,7 +492,7 @@ void r200PageFlip( const __DRIdrawablePrivate *dPriv )
    /* Need to do this for the perf box placement:
     */
    {
-      XF86DRIClipRectPtr box = rmesa->dri.drawable->pClipRects;
+      XF86DRIClipRectPtr box = dPriv->pClipRects;
       XF86DRIClipRectPtr b = rmesa->sarea->boxes;
       b[0] = box[0];
       rmesa->sarea->nbox = 1;
@@ -480,17 +502,25 @@ void r200PageFlip( const __DRIdrawablePrivate *dPriv )
     * request at a time.
     */
    r200WaitForFrameCompletion( rmesa );
-
-   r200WaitForVBlank( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, & rmesa->vbl_seq, rmesa->vblank_flags, & missed_target );
+   if ( missed_target ) {
+      rmesa->swap_missed_count++;
+      (void) (*rmesa->get_ust)( & rmesa->swap_missed_ust );
+   }
+   LOCK_HARDWARE( rmesa );
 
    ret = drmCommandNone( rmesa->dri.fd, DRM_RADEON_FLIP );
 
    UNLOCK_HARDWARE( rmesa );
 
    if ( ret ) {
-      fprintf( stderr, "DRM_R200_FLIP: return = %d\n", ret );
+      fprintf( stderr, "DRM_RADEON_FLIP: return = %d\n", ret );
       exit( 1 );
    }
+
+   rmesa->swap_count++;
+   (void) (*rmesa->get_ust)( & rmesa->swap_ust );
 
    if ( rmesa->sarea->pfCurrentPage == 1 ) {
 	 rmesa->state.color.drawOffset = rmesa->r200Screen->frontOffset;
@@ -501,7 +531,8 @@ void r200PageFlip( const __DRIdrawablePrivate *dPriv )
    }
 
    R200_STATECHANGE( rmesa, ctx );
-   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset;
+   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = rmesa->state.color.drawOffset
+					   + rmesa->r200Screen->fbLocation;
    rmesa->hw.ctx.cmd[CTX_RB3D_COLORPITCH]  = rmesa->state.color.drawPitch;
 }
 
@@ -559,8 +590,11 @@ static void r200Clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
       mask &= ~DD_STENCIL_BIT;
    }
 
-   if ( mask )
+   if ( mask ) {
+      if (R200_DEBUG & DEBUG_FALLBACKS)
+	 fprintf(stderr, "%s: swrast clear, mask: %x\n", __FUNCTION__, mask);
       _swrast_Clear( ctx, mask, all, cx, cy, cw, ch );
+   }
 
    if ( !flags ) 
       return;
@@ -590,13 +624,13 @@ static void r200Clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 
       /* Clear throttling needs more thought.
        */
-      if ( rmesa->sarea->last_clear - clear <= 8 ) {
+      if ( rmesa->sarea->last_clear - clear <= 25 ) {
 	 break;
       }
       
       if (rmesa->do_usleeps) {
 	 UNLOCK_HARDWARE( rmesa );
-	 do_usleep(1, __FUNCTION__);
+	 DO_USLEEP( 1 );
 	 LOCK_HARDWARE( rmesa );
       }
    }
@@ -681,7 +715,7 @@ void r200WaitForIdleLocked( r200ContextPtr rmesa )
     do {
        ret = drmCommandNone( rmesa->dri.fd, DRM_RADEON_CP_IDLE);
        if (ret) 
-	  do_usleep( 1, __FUNCTION__ );
+	  DO_USLEEP( 1 );
     } while (ret && ++i < 100);
     
     if ( ret < 0 ) {
@@ -691,46 +725,12 @@ void r200WaitForIdleLocked( r200ContextPtr rmesa )
     }
 }
 
+
 static void r200WaitForIdle( r200ContextPtr rmesa )
 {
    LOCK_HARDWARE(rmesa);
    r200WaitForIdleLocked( rmesa );
    UNLOCK_HARDWARE(rmesa);
-}
-
-
-void r200WaitForVBlank( r200ContextPtr rmesa )
-{
-   drmVBlank vbl;
-   int ret;
-
-   if ( !rmesa->r200Screen->irq )
-      return;
-
-   if ( getenv("LIBGL_SYNC_REFRESH") ) {
-      /* Wait for until the next vertical blank */
-      vbl.request.type = DRM_VBLANK_RELATIVE;
-      vbl.request.sequence = 1;
-   } else if ( getenv("LIBGL_THROTTLE_REFRESH") ) {
-      /* Wait for at least one vertical blank since the last call */
-      vbl.request.type = DRM_VBLANK_ABSOLUTE;
-      vbl.request.sequence = rmesa->vbl_seq + 1;
-   } else {
-      return;
-   }
-
-   UNLOCK_HARDWARE( rmesa );
-
-   if ((ret = drmWaitVBlank( rmesa->dri.fd, &vbl ))) {
-      fprintf(stderr, "%s: drmWaitVBlank returned %d, IRQs don't seem to be"
-	      " working correctly.\nTry running with LIBGL_THROTTLE_REFRESH"
-	      " and LIBL_SYNC_REFRESH unset.\n", __FUNCTION__, ret);
-      exit(1);
-   } else if (R200_DEBUG & DEBUG_IOCTL)
-      fprintf(stderr, "%s: drmWaitVBlank returned %d\n", __FUNCTION__, ret);
-   rmesa->vbl_seq = vbl.reply.sequence;
-
-   LOCK_HARDWARE( rmesa );
 }
 
 
@@ -770,7 +770,7 @@ void r200Finish( GLcontext *ctx )
 }
 
 
-/* This version of AllocateMemoryNV allocates only agp memory, and
+/* This version of AllocateMemoryMESA allocates only GART memory, and
  * only does so after the point at which the driver has been
  * initialized.
  *
@@ -779,8 +779,9 @@ void r200Finish( GLcontext *ctx )
  * the kernel data structures, and the current context to get the
  * device fd.
  */
-void *r200AllocateMemoryNV(GLsizei size, GLfloat readfreq,
-			    GLfloat writefreq, GLfloat priority)
+void *r200AllocateMemoryMESA(Display *dpy, int scrn, GLsizei size,
+			     GLfloat readfreq, GLfloat writefreq, 
+			     GLfloat priority)
 {
    GET_CURRENT_CONTEXT(ctx);
    r200ContextPtr rmesa;
@@ -792,7 +793,7 @@ void *r200AllocateMemoryNV(GLsizei size, GLfloat readfreq,
       fprintf(stderr, "%s sz %d %f/%f/%f\n", __FUNCTION__, size, readfreq, 
 	      writefreq, priority);
 
-   if (!ctx || !(rmesa = R200_CONTEXT(ctx)) || rmesa->r200Screen->IsPCI ) 
+   if (!ctx || !(rmesa = R200_CONTEXT(ctx)) || !rmesa->r200Screen->gartTextures.map)
       return NULL;
 
    if (getenv("R200_NO_ALLOC"))
@@ -801,7 +802,7 @@ void *r200AllocateMemoryNV(GLsizei size, GLfloat readfreq,
    if (rmesa->dri.drmMinor < 6) 
       return NULL;
       
-   alloc.region = RADEON_MEM_REGION_AGP;
+   alloc.region = RADEON_MEM_REGION_GART;
    alloc.alignment = 0;
    alloc.size = size;
    alloc.region_offset = &region_offset;
@@ -816,14 +817,14 @@ void *r200AllocateMemoryNV(GLsizei size, GLfloat readfreq,
    }
    
    {
-      char *region_start = (char *)rmesa->r200Screen->agpTextures.map;
+      char *region_start = (char *)rmesa->r200Screen->gartTextures.map;
       return (void *)(region_start + region_offset);
    }
 }
 
 
-/* Called via glXFreeMemoryNV() */
-void r200FreeMemoryNV(GLvoid *pointer)
+/* Called via glXFreeMemoryMESA() */
+void r200FreeMemoryMESA(Display *dpy, int scrn, GLvoid *pointer)
 {
    GET_CURRENT_CONTEXT(ctx);
    r200ContextPtr rmesa;
@@ -834,7 +835,7 @@ void r200FreeMemoryNV(GLvoid *pointer)
    if (R200_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s %p\n", __FUNCTION__, pointer);
 
-   if (!ctx || !(rmesa = R200_CONTEXT(ctx)) || rmesa->r200Screen->IsPCI ) {
+   if (!ctx || !(rmesa = R200_CONTEXT(ctx)) || !rmesa->r200Screen->gartTextures.map) {
       fprintf(stderr, "%s: no context\n", __FUNCTION__);
       return;
    }
@@ -842,16 +843,16 @@ void r200FreeMemoryNV(GLvoid *pointer)
    if (rmesa->dri.drmMinor < 6) 
       return;
 
-   region_offset = (char *)pointer - (char *)rmesa->r200Screen->agpTextures.map;
+   region_offset = (char *)pointer - (char *)rmesa->r200Screen->gartTextures.map;
 
    if (region_offset < 0 || 
-       region_offset > rmesa->r200Screen->agpTextures.size) {
+       region_offset > rmesa->r200Screen->gartTextures.size) {
       fprintf(stderr, "offset %d outside range 0..%d\n", region_offset,
-	      rmesa->r200Screen->agpTextures.size);
+	      rmesa->r200Screen->gartTextures.size);
       return;
    }
 
-   memfree.region = RADEON_MEM_REGION_AGP;
+   memfree.region = RADEON_MEM_REGION_GART;
    memfree.region_offset = region_offset;
    
    ret = drmCommandWrite( rmesa->r200Screen->driScreen->fd,
@@ -862,8 +863,8 @@ void r200FreeMemoryNV(GLvoid *pointer)
       fprintf(stderr, "%s: DRM_RADEON_FREE ret %d\n", __FUNCTION__, ret);
 }
 
-/* Called via glXGetAGPOffsetMESA() */
-GLuint r200GetAGPOffset(const GLvoid *pointer)
+/* Called via glXGetMemoryOffsetMESA() */
+GLuint r200GetMemoryOffsetMESA(Display *dpy, int scrn, const GLvoid *pointer)
 {
    GET_CURRENT_CONTEXT(ctx);
    r200ContextPtr rmesa;
@@ -874,41 +875,41 @@ GLuint r200GetAGPOffset(const GLvoid *pointer)
       return ~0;
    }
 
-   if (!r200IsAgpMemory( rmesa, pointer, 0 ))
+   if (!r200IsGartMemory( rmesa, pointer, 0 ))
       return ~0;
 
    if (rmesa->dri.drmMinor < 6) 
       return ~0;
 
-   card_offset = r200AgpOffsetFromVirtual( rmesa, pointer );
+   card_offset = r200GartOffsetFromVirtual( rmesa, pointer );
 
-   return card_offset - rmesa->r200Screen->agp_base;
+   return card_offset - rmesa->r200Screen->gart_base;
 }
 
 
-GLboolean r200IsAgpMemory( r200ContextPtr rmesa, const GLvoid *pointer,
+GLboolean r200IsGartMemory( r200ContextPtr rmesa, const GLvoid *pointer,
 			   GLint size )
 {
-   int offset = (char *)pointer - (char *)rmesa->r200Screen->agpTextures.map;
+   int offset = (char *)pointer - (char *)rmesa->r200Screen->gartTextures.map;
    int valid = (size >= 0 &&
 		offset >= 0 &&
-		offset + size < rmesa->r200Screen->agpTextures.size);
+		offset + size < rmesa->r200Screen->gartTextures.size);
 
    if (R200_DEBUG & DEBUG_IOCTL)
-      fprintf(stderr, "r200IsAgpMemory( %p ) : %d\n", pointer, valid );
+      fprintf(stderr, "r200IsGartMemory( %p ) : %d\n", pointer, valid );
    
    return valid;
 }
 
 
-GLuint r200AgpOffsetFromVirtual( r200ContextPtr rmesa, const GLvoid *pointer )
+GLuint r200GartOffsetFromVirtual( r200ContextPtr rmesa, const GLvoid *pointer )
 {
-   int offset = (char *)pointer - (char *)rmesa->r200Screen->agpTextures.map;
+   int offset = (char *)pointer - (char *)rmesa->r200Screen->gartTextures.map;
 
-   if (offset < 0 || offset > rmesa->r200Screen->agpTextures.size)
+   if (offset < 0 || offset > rmesa->r200Screen->gartTextures.size)
       return ~0;
    else
-      return rmesa->r200Screen->agp_texture_offset + offset;
+      return rmesa->r200Screen->gart_texture_offset + offset;
 }
 
 

@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx1_driver.c,v 1.7 2003/02/14 13:28:29 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx1_driver.c,v 1.11 2003/11/03 05:11:20 tsi Exp $ */
 /*
  * $Workfile: nsc_gx1_driver.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * File Contents: This is the main module configures the interfacing 
@@ -204,12 +204,10 @@
 #include "extensions/xf86dgastr.h"
 #endif /* XFreeXDGA */
 
-#ifdef DPMSExtension
 #include "globals.h"
 #include "opaque.h"
 #define DPMS_SERVER
 #include "extensions/dpms.h"
-#endif /* DPMSExtension */
 
 /* Our private include file (this also includes the durango headers) */
 #include "nsc.h"
@@ -273,7 +271,7 @@ static void GX1LeaveVT(int, int);
 static void GX1FreeScreen(int, int);
 void GX1AdjustFrame(int, int, int, int);
 Bool GX1SwitchMode(int, DisplayModePtr, int);
-static int GX1ValidMode(int, DisplayModePtr, Bool, int);
+static ModeStatus GX1ValidMode(int, DisplayModePtr, Bool, int);
 static void GX1LoadPalette(ScrnInfoPtr pScreenInfo,
 			   int numColors, int *indizes,
 			   LOCO * colors, VisualPtr pVisual);
@@ -476,9 +474,9 @@ GX1PreInit(ScrnInfoPtr pScreenInfo, int flags)
    MessageType from;
    int i = 0;
    GeodePtr pGeode;
+#if CFB
    char *mod = NULL;
 
-#if CFB
    char *reqSymbol = NULL;
 #endif
 
@@ -562,7 +560,7 @@ GX1PreInit(ScrnInfoPtr pScreenInfo, int flags)
    pScreenInfo->monitor = pScreenInfo->confScreen->monitor;
    GeodeDebug(("GX1PreInit(2)!\n"));
    /* Determine depth, bpp, etc. */
-   if (!xf86SetDepthBpp(pScreenInfo, 8, 8, 8, 0)) {
+   if (!xf86SetDepthBpp(pScreenInfo, 16, 0, 0, 0)) {
       return FALSE;
 
    } else {
@@ -1021,10 +1019,11 @@ GX1PreInit(ScrnInfoPtr pScreenInfo, int flags)
    /* Set the display resolution */
    xf86SetDpi(pScreenInfo, 0, 0);
    GeodeDebug(("GX1PreInit(14)!\n"));
+
+#if CFB
    /* Load bpp-specific modules */
    mod = NULL;
 
-#if CFB
    /* Load bpp-specific modules */
    switch (pScreenInfo->bitsPerPixel) {
    case 8:
@@ -1088,6 +1087,7 @@ GX1PreInit(ScrnInfoPtr pScreenInfo, int flags)
    GeodeDebug(("GX1PreInit(19)!\n"));
    GeodeDebug(("GX1PreInit(20)!\n"));
    GeodeDebug(("GX1PreInit ... done successfully!\n"));
+   (void) from;
    return TRUE;
 }
 
@@ -1260,7 +1260,8 @@ GX1SetMode(ScrnInfoPtr pScreenInfo, DisplayModePtr pMode)
 #else
       /* sequence might be important */
       gfx_set_tv_display(pGeode->TvParam.wWidth, pGeode->TvParam.wHeight);
-      gfx_set_tv_format(pGeode->TvParam.wStandard, pGeode->TvParam.wType);
+      gfx_set_tv_format((TVStandardType)pGeode->TvParam.wStandard,
+			(GfxOnTVType)pGeode->TvParam.wType);
       gfx_set_tv_output(pGeode->TvParam.wOutput);
       gfx_set_tv_enable(pGeode->TvParam.bState);
 
@@ -1704,7 +1705,6 @@ GX1CloseScreen(int scrnIndex, ScreenPtr pScreen)
 
 }
 
-#ifdef DPMSExtension
 /*----------------------------------------------------------------------------
  * GX1DPMSet.
  *
@@ -1791,7 +1791,6 @@ GX1DPMSSet(ScrnInfoPtr pScreenInfo, int mode, int flags)
       break;
    }
 }
-#endif
 
 /*----------------------------------------------------------------------------
  * GX1ScreenInit.
@@ -2135,9 +2134,7 @@ GX1ScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
       }
       ShadowFBInit(pScreen, refreshArea);
    }
-#ifdef DPMSExtension
    xf86DPMSInit(pScreen, GX1DPMSSet, 0);
-#endif
    GeodeDebug(("GX1ScreenInit(12)!\n"));
 
    if (pGeode->TV_Overscan_On) {
@@ -2312,7 +2309,7 @@ GX1FreeScreen(int scrnIndex, int flags)
  * Comments     :none.
 *----------------------------------------------------------------------------
 */
-static int
+static ModeStatus
 GX1ValidMode(int scrnIndex, DisplayModePtr pMode, Bool Verbose, int flags)
 {
    ScrnInfoPtr pScreenInfo = xf86Screens[scrnIndex];
@@ -2334,7 +2331,7 @@ GX1ValidMode(int scrnIndex, DisplayModePtr pMode, Bool Verbose, int flags)
 #else
 	 ret = gfx_is_tv_display_mode_supported(pMode->CrtcHDisplay,
 						pMode->CrtcVDisplay,
-						pGeode->TvParam.wStandard);
+			(TVStandardType)pGeode->TvParam.wStandard);
 #endif
       }
    } else {

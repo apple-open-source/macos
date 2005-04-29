@@ -1,0 +1,186 @@
+*** tcl.h.orig	Sat Mar 20 19:59:09 1999
+--- tcl.h	Sat Mar 20 19:59:11 1999
+***************
+*** 1336,1341 ****
+--- 1336,1348 ----
+  
+  EXTERN int		Tcl_AppInit _ANSI_ARGS_((Tcl_Interp *interp));
+  
++ 
++ /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++  * "Trf-Patch for channels with a switchable byteorder"
++  */
++ EXTERN int	Tcl_GetChannelByteorder _ANSI_ARGS_((
++     			    Tcl_Channel chan));
++ 
+  #endif /* RESOURCE_INCLUDED */
+  
+  #undef TCL_STORAGE_CLASS
+*** tclIO.c.orig	Thu Mar 11 06:14:58 1999
+--- tclIO.c	Sat Mar 20 19:58:01 1999
+***************
+*** 261,266 ****
+--- 261,270 ----
+  					 * When set, file events will not be
+  					 * delivered for buffered data until
+  					 * the state of the channel changes. */
++ /* Andreas Kupries <a.kupries@westend.com>, 03/21/1997.
++  * "Trf-Patch for channels with a switchable byteorder"
++  */
++ #define CHANNEL_IS_SMALLENDIAN	(1<<16)	/* Multibyte words are stored with MSB last  */
+  
+  /*
+   * For each channel handler registered in a call to Tcl_CreateChannelHandler,
+***************
+*** 1241,1246 ****
+--- 1245,1264 ----
+      CONST char *name;
+      ThreadSpecificData *tsdPtr = TCL_TSD_INIT(&dataKey);
+  
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * "Trf-Patch for channels with a switchable byteorder"
++      * Location: Tcl_CreateChannel.
++      */
++     union {
++ 	char c[sizeof(short)];
++ 	short s;
++     } order;
++ 
++     order.s = 1;
++     if (order.c[0] == 1) {
++ 	mask |= CHANNEL_IS_SMALLENDIAN;
++     }
++ 
+      chanPtr = (Channel *) ckalloc((unsigned) sizeof(Channel));
+      
+      if (chanName != (char *) NULL) {
+***************
+*** 4924,4930 ****
+  {
+      if (interp) {
+  	CONST char *genericopt = 
+! 	    	"blocking buffering buffersize eofchar translation";
+  	char **argv;
+  	int  argc, i;
+  	Tcl_DString ds;
+--- 4942,4948 ----
+  {
+      if (interp) {
+  	CONST char *genericopt = 
+! 	    	"blocking buffering buffersize byteorder eofchar translation";
+  	char **argv;
+  	int  argc, i;
+  	Tcl_DString ds;
+***************
+*** 4954,4959 ****
+--- 4972,5009 ----
+      return TCL_ERROR;
+  }
+  
++ /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++  * "Trf-Patch for channels with a switchable byteorder"
++  * Exported functionality.
++  */
++ 
++ /*
++  *----------------------------------------------------------------------
++  *
++  * Tcl_GetChannelByteorder --
++  *
++  *	Retrieves the byteorder set for this channel.
++  *
++  * Results:
++  *	The size.
++  *
++  * Side effects:
++  *	None.
++  *
++  *----------------------------------------------------------------------
++  */
++ 
++ int
++ Tcl_GetChannelByteorder(chan)
++     Tcl_Channel chan;		/* The channel for which to find the
++                                  * buffer size. */
++ {
++     Channel *chanPtr;
++ 
++     chanPtr = (Channel *) chan;
++     return ((chanPtr->flags & CHANNEL_IS_SMALLENDIAN) != 0);
++ }
++ 
+  /*
+   *----------------------------------------------------------------------
+   *
+***************
+*** 5074,5079 ****
+--- 5124,5148 ----
+  	    return TCL_OK;
+  	}
+      }
++ 
++     /* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++      * "Trf-Patch for channels with a switchable byteorder"
++      * Location: Tcl_GetChannelOption
++      */
++ 
++     if ((len == 0) || ((len > 2) && (optionName[1] == 'b') &&
++ 		       (strncmp(optionName, "-byteorder", len) == 0))) {
++       if (len == 0) {
++         Tcl_DStringAppendElement(dsPtr, "-byteorder");
++       }
++       Tcl_DStringAppendElement(dsPtr,
++ 			       (chanPtr->flags & CHANNEL_IS_SMALLENDIAN) ?
++ 			       "smallendian" : "bigendian");
++       if (len > 0) {
++         return TCL_OK;
++       }
++     }
++ 
+      if ((len == 0) ||
+              ((len > 2) && (optionName[1] == 'e') &&
+                      (strncmp(optionName, "-eofchar", len) == 0))) {
+***************
+*** 5269,5274 ****
+--- 5338,5378 ----
+          if ((chanPtr->bufSize < 10) || (chanPtr->bufSize > (1024 * 1024))) {
+              chanPtr->bufSize = CHANNELBUFFER_DEFAULT_SIZE;
+          }
++ 
++ 	/* Andreas Kupries <a.kupries@westend.com>, 05/31/1997.
++ 	 * "Trf-Patch for channels with a switchable byteorder"
++ 	 * Location: Tcl_SetChannelOption.
++ 	 */
++ 
++     } else if ((len > 2) && (optionName[1] == 'b') &&
++ 	       (strncmp(optionName, "-byteorder", len) == 0)) {
++       int nv_len = strlen (newValue);
++ 
++       if ((nv_len > 0) &&
++ 	  (strncmp (newValue, "smallendian", nv_len) == 0)) {
++ 	chanPtr->flags |= CHANNEL_IS_SMALLENDIAN;
++ 	return TCL_OK;
++       } else if ((nv_len > 0) &&
++ 		 (strncmp (newValue, "littleendian", nv_len) == 0)) {
++ 	chanPtr->flags |= CHANNEL_IS_SMALLENDIAN;
++ 	return TCL_OK;
++       } else if ((nv_len > 0) &&
++ 		 (strncmp (newValue, "network", nv_len) == 0)) {
++ 	chanPtr->flags &= ~CHANNEL_IS_SMALLENDIAN;
++ 	return TCL_OK;
++       } else if ((nv_len > 0) &&
++ 		 (strncmp (newValue, "bigendian", nv_len) == 0)) {
++ 	chanPtr->flags &= ~CHANNEL_IS_SMALLENDIAN;
++ 	return TCL_OK;
++       } 
++ 
++       if (interp != (Tcl_Interp *) NULL) {
++ 	Tcl_AppendResult(interp,
++ 			 "bad value for -byteorder: ",
++ 			 "must be one of smallendian, littleendian, bigendian or network",
++ 			 (char *) NULL);
++       }
++       return TCL_ERROR;
+      } else if ((len > 2) && (optionName[1] == 'e') &&
+  	    (strncmp(optionName, "-encoding", len) == 0)) {
+  	Tcl_Encoding encoding;

@@ -175,7 +175,7 @@ postfix(char *s, char c)
 	t[len] = '\0';
 	return t;
 }
-	
+
 char *
 presuffix(char *s, char c)
 {
@@ -273,16 +273,8 @@ explode(char *s, char *delim)
 		if (p[i + 1] == '\0') l = appendString("", l);
 		p = p + i + 1;
 	}
+
 	return l;
-}
-
-char *
-itoa(int n)
-{
-	char s[64];
-
-	sprintf(s, "%d", n);
-	return copyString(s);
 }
 
 dsrecord *
@@ -293,11 +285,11 @@ dsutil_parse_netinfo_string_path(char *path)
 	u_int32_t i, n, m;
 	dsdata *k, *v;
 	dsattribute *a;
-	
+
 	if (path == NULL) return NULL;
-	
+
 	p = dsrecord_new();
-	
+
 	c = path;
 
 	/* Skip leading slashes */
@@ -579,7 +571,7 @@ dsattribute_from_cstrings(char *key, ...)
 	}
 
 	va_end(ap);
-	
+
 	return a;
 }
 

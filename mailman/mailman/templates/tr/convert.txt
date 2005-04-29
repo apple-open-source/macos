@@ -1,0 +1,34 @@
+%(listname)s mesaj listesi, büyük bir deðiþikliðe uðradý. Þu anda
+yeni bir mesaj listesi programý olan "Mailman" üzerinde çalýþýyor.
+Bu, umarýz listeyi yönetirken karþýlaþýlan birçok sorunu
+giderecektir.
+
+Bu sizi nasýl etkiler?
+
+1) Tüm listeye gönderilen mesajlar þu adrese gönderilmelidir: %(listaddr)s.
+
+2) Sizi, baþkalarýnýn bilginiz dýþýnda listeden çýkarmasýný önlemek
+için size geliþigüzel bir þifre verildi. Bu, size ayrý bir mesajda
+gönderilecek, belki zaten bu mesajý aldýnýz. Þifrenizi unutursanýz
+merak etmeyin, her ay bir þifre hatýrlatýcý e-posta yoluyla size
+gönderilecek.
+
+3) Eðer World Wide Web eriþiminiz varsa, bu listeden çýkmak, toplu
+veya ayrý ayrý mesaj almak, listenin arþivlerini okumak (liste
+bir iki gün mesaj aldýktan sonra bunlar oluþacaktýr) vb. iþler için
+kullanabilirsiniz. Bu kaynaklar için web adresi:
+
+    %(listinfo_url)s
+
+4) WWW eriþiminiz yoksa, ayný iþleri e-posta yoluyla da yapabilirsiniz.
+%(requestaddr)s adresine konu satýrý veya gövdesi sadece "help"
+(týrnaklar olmadan) sözcüðünü içeren bir e-posta gönderin. Daha
+geniþ açýklamalar içeren bir otomatik yanýt alacaksýnýz.
+
+Lütfen bu yeni kurulum ile ilgili tüm soru ve sorunlarýnýzý
+%(adminaddr)s adresine gönderin.
+
+Bu mesaj Mailman %(version)s tarafýndan otomatik olarak oluþturulmuþtur.
+Mailman yazýlýmý ile ilgili daha fazla bilgi için, http://www.list.org
+adresinden Mailman ana sayfasýna ulaþabilirsiniz.
+

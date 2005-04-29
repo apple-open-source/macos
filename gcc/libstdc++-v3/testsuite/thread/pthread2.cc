@@ -1,7 +1,7 @@
 // 2002-01-23  Loren J. Rittle <rittle@labs.mot.com> <ljrittle@acm.org>
 // Adpated from libstdc++/5347 submitted by markus.breuer@materna.de
 //
-// Copyright (C) 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,16 +19,14 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <fstream>
 
 // Do not include <pthread.h> explicitly; if threads are properly
 // configured for the port, then it is picked up free from STL headers.
-
-#if __GTHREADS
 
 const int max_thread_count = 2;
 const int max_loop_count = 1000000;
@@ -62,6 +60,3 @@ main()
 
   return 0;
 }
-#else
-int main (void) {}
-#endif

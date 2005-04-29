@@ -1,0 +1,46 @@
+--- wcwidth.3.orig	Fri Mar 11 19:44:47 2005
++++ wcwidth.3	Fri Mar 11 19:46:47 2005
+@@ -28,7 +28,8 @@
+ .Dt WCWIDTH 3
+ .Os
+ .Sh NAME
+-.Nm wcwidth
++.Nm wcwidth ,
++.Nm wcwidth_l
+ .Nd "number of column positions of a wide-character code"
+ .Sh LIBRARY
+ .Lb libc
+@@ -36,12 +37,23 @@
+ .In wchar.h
+ .Ft int
+ .Fn wcwidth "wchar_t wc"
++.In xlocale.h
++.Ft int
++.Fn wcwidth_l "wchar_t wc" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wcwidth
+ function determines the number of column positions required to
+ display the wide character
+ .Fa wc .
++.Pp
++While the
++.Fn wcwidth
++function uses the current locale, the
++.Fn wcwidth_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn wcwidth
+@@ -79,7 +91,8 @@
+ .Ed
+ .Sh SEE ALSO
+ .Xr iswprint 3 ,
+-.Xr wcswidth 3
++.Xr wcswidth 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn wcwidth

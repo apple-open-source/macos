@@ -34,6 +34,7 @@
 #include <pwd.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <errno.h>
 #include <unistd.h>
 
 #include "_lu_types.h"
@@ -237,12 +238,12 @@ copy_user_r(struct passwd *in, struct passwd *out, char *buffer, int buflen)
 
 	/* Calculate size of input */
 	hsize = 0;
-	if (in->pw_name != NULL) hsize += strlen(in->pw_name);
-	if (in->pw_passwd != NULL) hsize += strlen(in->pw_passwd);
-	if (in->pw_class != NULL) hsize += strlen(in->pw_class);
-	if (in->pw_gecos != NULL) hsize += strlen(in->pw_gecos);
-	if (in->pw_dir != NULL) hsize += strlen(in->pw_dir);
-	if (in->pw_shell != NULL) hsize += strlen(in->pw_shell);
+	if (in->pw_name != NULL) hsize += (strlen(in->pw_name) + 1);
+	if (in->pw_passwd != NULL) hsize += (strlen(in->pw_passwd) + 1);
+	if (in->pw_class != NULL) hsize += (strlen(in->pw_class) + 1);
+	if (in->pw_gecos != NULL) hsize += (strlen(in->pw_gecos) + 1);
+	if (in->pw_dir != NULL) hsize += (strlen(in->pw_dir) + 1);
+	if (in->pw_shell != NULL) hsize += (strlen(in->pw_shell) + 1);
 
 	/* Check buffer space */
 	if (hsize > buflen) return -1;

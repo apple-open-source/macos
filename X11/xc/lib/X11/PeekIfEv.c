@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/PeekIfEv.c,v 1.4 2001/12/14 19:54:03 dawes Exp $ */
+/* $XFree86: xc/lib/X11/PeekIfEv.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #define NEED_EVENTS
 #include "Xlibint.h"
@@ -40,11 +40,9 @@ XPeekIfEvent (dpy, event, predicate, arg)
 	register Display *dpy;
 	register XEvent *event;
 	Bool (*predicate)(
-#if NeedNestedPrototypes
 			  Display*			/* display */,
 			  XEvent*			/* event */,
 			  char*				/* arg */
-#endif
 			  );
 	char *arg;
 {

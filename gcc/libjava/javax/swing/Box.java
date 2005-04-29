@@ -1,5 +1,5 @@
 /* Box.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,18 +35,249 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
+import java.awt.LayoutManager;
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.AWTError;
+
 /**
- * Needs some work I guess....
+ * A component that uses a {@link BoxLayout} as Layout Manager.
+ *
+ * In addition to that, this class provides a set of static methods for
+ * creating some filler components ('struts' and 'glue') for use in
+ * containers that are laid out using BoxLayout.
  *
  * @author Ronald Veldema (rveldema@cs.vu.nl)
  */
-public class Box extends JComponent
+public class Box extends JComponent implements Accessible
 {
-    Box(int a)
+  private static final long serialVersionUID = 1525417495883046342L;
+  
+  // FIXME: disable to make libjava compile; visibility rules are broken
+  protected class AccessibleBox // extends Container.AccessibleAWTContainer
+  {
+    private static final long serialVersionUID = -7775079816389931944L;
+  
+    protected AccessibleBox()
     {
-        setLayout(new BoxLayout(this, 
-				a));	
     }
+    
+    public AccessibleRole getAccessibleRole()
+    {
+      return null;
+    }
+  }
+
+  /**
+   * A component that servers as a filler in BoxLayout controlled containers.
+   */
+  public static class Filler extends JComponent implements Accessible
+  {
+    private static final long serialVersionUID = -1204263191910183998L;
+  
+    // FIXME: disable to make libjava compile; visibility rules are broken
+    protected class AccessibleBoxFiller // extends Component.AccessibleAWTComponent
+    {
+      private static final long serialVersionUID = 164963348357479321L;
+      
+      protected AccessibleBoxFiller()
+      {
+      }
+      
+      public AccessibleRole getAccessibleRole()
+      {
+        return null;
+      }
+    }
+    
+    protected AccessibleContext accessibleContext;
+    
+    private transient Dimension min, pref, max;
+    
+    /**
+     * Creates a new instance of Filler.
+     *
+     * @param min the minimum size of the filler.
+     * @param pref the preferred size of the filler.
+     * @param max the maximum size of the filler.
+     */
+    public Filler(Dimension min, Dimension pref, Dimension max)
+    {
+      changeShape(min, pref, max);
+    }
+    
+    /**
+     * Changes the dimensions of this Filler.
+     *
+     * @param min the new minimum size of the filler.
+     * @param pref the new preferred size of the filler.
+     * @param max the new maximum size of the filler.
+     */
+    public void changeShape(Dimension min, Dimension pref, Dimension max)
+    {
+      this.min = min;
+      this.pref = pref;
+      this.max = max;    
+    }
+    
+    public AccessibleContext getAccessibleContext()
+    {
+      // FIXME: disable to make libjava compile; visibility rules are broken      
+      //      if (accessibleContext == null)
+      //        accessibleContext = new AccessibleBoxFiller();
+      return accessibleContext;
+    }
+    
+    /**
+     * Returns the maximum size of this Filler.
+     *
+     * @return the maximum size of this Filler.
+     */
+    public Dimension getMaximumSize()
+    {
+      return max;
+    }
+    
+    /**
+     * Returns the minimum size of this Filler.
+     *
+     * @return the minimum size of this Filler.
+     */
+    public Dimension getMinimumSize()
+    {
+      return min;
+    }
+    
+    /**
+     * Returns the preferred size of this Filler.
+     *
+     * @return the preferred size of this Filler.
+     */
+    public Dimension getPreferredSize()
+    {
+      return pref;
+    }
+  }
+  
+  /**
+   * Creates a new Box component, that lays out its children according
+   * to the <code>axis</code> parameter.
+   *
+   * @param axis the orientation of the BoxLayout.
+   *
+   * @see BoxLayout#X_AXIS
+   * @see BoxLayout#Y_AXIS
+   * @see BoxLayout#LINE_AXIS
+   * @see BoxLayout#PAGE_AXIS
+   */
+  public Box(int axis)
+  {
+    super.setLayout(new BoxLayout(this, axis));	
+  }
+  
+  /**
+   * Creates a filler component which acts as glue between components.
+   * It does not take space unless some extra space is available. If extra
+   * space is available, this component can expand in both X and Y directions.
+   *
+   * @return a glue-like filler component.
+   */
+  public static Component createGlue()
+  {
+    Filler glue = new Filler(new Dimension(0,0), new Dimension(0,0),
+                             new Dimension(Integer.MAX_VALUE,Integer.MAX_VALUE)
+                             );
+    return glue;
+  }
+  
+  public static Box createHorizontalBox()
+  {
+    return new Box(BoxLayout.X_AXIS);
+  }
+  
+  /**
+   * Creates a filler component which acts as glue between components.
+   * It does not take space unless some extra space is available. If extra
+   * space is available, this component can expand in the X direction.
+   *
+   * @return a glue-like filler component.
+   */
+  public static Component createHorizontalGlue()
+  {
+    return createGlue();
+  }
+  
+  /**
+   * Creates a filler component which acts as strut between components.
+   * It will fill exactly the specified horizontal size.
+   *
+   * @param width the width of this strut in pixels.
+   *
+   * @return a strut-like filler component.
+   */
+  public static Component createHorizontalStrut(int width)
+  {
+    Filler strut = new Filler(new Dimension(width, 0),
+                              new Dimension(width, 0),
+                              new Dimension(width, Integer.MAX_VALUE));
+    return strut;
+  }
+  
+  public static Component createRigidArea(Dimension d)
+  {
+    return new Filler(d, d, d);
+  }
+  
+  public static Box createVerticalBox()
+  {
+    return new Box(BoxLayout.Y_AXIS);
+  }
+  
+  /**
+   * Creates a filler component which acts as glue between components.
+   * It does not take space unless some extra space is available. If extra
+   * space is available, this component can expand in the Y direction.
+   *
+   * @return a glue-like filler component.
+   */
+  public static Component createVerticalGlue()
+  {
+    return createGlue();
+  }
+  
+  /**
+   * Creates a filler component which acts as strut between components.
+   * It will fill exactly the specified vertical size.
+   *
+   * @param height the height of this strut in pixels.
+   *
+   * @return a strut-like filler component.
+   */
+  public static Component createVerticalStrut(int height)
+  {
+    Filler strut = new Filler(new Dimension(0, height),
+                              new Dimension(0, height),
+                              new Dimension(Integer.MAX_VALUE, height));
+    return strut;
+  }
+  
+  public void setLayout(LayoutManager l)
+  {
+    throw new AWTError("Not allowed to set layout managers for boxes.");
+  }
+  
+  public AccessibleContext getAccessibleContext()
+  {
+    //     if (accessibleContext == null)
+    //       accessibleContext = new AccessibleBox();
+    return accessibleContext;
+  }
+  
+  
 }

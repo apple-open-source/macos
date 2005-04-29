@@ -1,2 +1,9 @@
 g/ -arch_only ppc/s///
+/Some systems cannot stand _XOPEN_SOURCE/a
+.
+/| Darwin\/6\*/s,,| Darwin/[68]*,
+/^if test -z "$LDSHARED"/a
+.
+g/-current_version $(VERSION)/s//-current_version $(PYTHON_CURRENT_VERSION)/
+/DYNLOADFILE="dynload_next.o"/s,Darwin/\*,Darwin/[1-7].*,
 w

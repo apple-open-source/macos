@@ -1,7 +1,8 @@
 ;; libgcc routines for the Hitachi H8/300 CPU.
 ;; Contributed by Steve Chamberlain <sac@cygnus.com>
+;; Optimizations by Toshiyasu Morita <toshiyasu.morita@hsa.hitachi.com>
 
-/* Copyright (C) 1994, 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1994, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -108,24 +109,21 @@ Boston, MA 02111-1307, USA.  */
 	.align 2
 	.global ___cmpsi2
 ___cmpsi2:
-	cmp.w	A2,A0
+	cmp.w	A0,A2
 	bne	.L2
-	cmp.w	A3,A1
-	bne	.L2
+	cmp.w	A1,A3
+	bne	.L4
 	mov.w	#1,A0
 	rts
 .L2:
-	cmp.w	A0,A2
-	bgt	.L4
-	bne	.L3
-	cmp.w	A1,A3
-	bls	.L3
-.L4:
-	sub.w	A0,A0
-	rts
+	bgt	.L5
 .L3:
 	mov.w	#2,A0
+	rts
+.L4:
+	bls	.L3
 .L5:
+	sub.w	A0,A0
 	rts
 	.end
 #endif
@@ -137,24 +135,21 @@ ___cmpsi2:
 	.align 2
 	.global ___ucmpsi2
 ___ucmpsi2:
-	cmp.w	A2,A0
+	cmp.w	A0,A2
 	bne	.L2
-	cmp.w	A3,A1
-	bne	.L2
+	cmp.w	A1,A3
+	bne	.L4
 	mov.w	#1,A0
 	rts
 .L2:
-	cmp.w	A0,A2
-	bhi	.L4
-	bne	.L3
-	cmp.w	A1,A3
-	bls	.L3
-.L4:
-	sub.w	A0,A0
-	rts
+	bhi	.L5
 .L3:
 	mov.w	#2,A0
+	rts
+.L4:
+	bls	.L3
 .L5:
+	sub.w	A0,A0
 	rts
 	.end
 #endif
@@ -167,7 +162,7 @@ ___ucmpsi2:
 ;; "supporting routines".
 
 ; general purpose normalize routine
-; 
+;
 ; divisor in A0
 ; dividend in A1
 ; turns both into +ve numbers, and leaves what the answer sign
@@ -179,13 +174,13 @@ ___ucmpsi2:
 divnorm:
 	mov.b	#0x0,A2L
 	or	A0H,A0H		; is divisor > 0
-	bge	_lab1			
+	bge	_lab1
 	not	A0H		; no - then make it +ve
 	not	A0L
-	adds	#1,A0			
+	adds	#1,A0
 	xor	#0x1,A2L	; and remember that in A2L
 _lab1:	or	A1H,A1H	; look at dividend
-	bge	_lab2		
+	bge	_lab2
 	not	A1H		; it is -ve, make it positive
 	not	A1L
 	adds	#1,A1
@@ -196,13 +191,13 @@ _lab2:	rts
 modnorm:
 	mov.b	#0x0,A2L
 	or	A0H,A0H		; is divisor > 0
-	bge	_lab7			
+	bge	_lab7
 	not	A0H		; no - then make it +ve
 	not	A0L
-	adds	#1,A0			
+	adds	#1,A0
 	xor	#0x1,A2L	; and remember that in A2L
 _lab7:	or	A1H,A1H	; look at dividend
-	bge	_lab8		
+	bge	_lab8
 	not	A1H		; it is -ve, make it positive
 	not	A1L
 	adds	#1,A1
@@ -219,7 +214,7 @@ negans:	or	A2L,A2L	; should answer be negative ?
 	not	A0H	; yes, so make it so
 	not	A0L
 	adds	#1,A0
-_lab4:	rts	
+_lab4:	rts
 
 ; A0=A0%A1 signed
 
@@ -256,13 +251,13 @@ ___umodhi3:
 
 	.global	___udivhi3
 ___udivhi3:
-				; A0 A1 A2 A3 
+				; A0 A1 A2 A3
 				; Nn Dd       P
-	sub.w	A3,A3		; Nn Dd xP 00 
-	or	A1H,A1H		 
+	sub.w	A3,A3		; Nn Dd xP 00
+	or	A1H,A1H
 	bne	divlongway
-	or	A0H,A0H		
-	beq	_lab6		
+	or	A0H,A0H
+	beq	_lab6
 
 ; we know that D == 0 and N is != 0
 	mov.b	A0H,A3L		; Nn Dd xP 0N
@@ -274,7 +269,7 @@ _lab6:	mov.b	A0L,A3L		;           n
 	mov.b	A3L,A0L		; Qq
 	mov.b	A3H,A3L         ;           m
 	mov.b	#0x0,A3H	; Qq       0m
-	rts	
+	rts
 
 ; D != 0 - which means the denominator is
 ;          loop around to get the result.
@@ -285,19 +280,19 @@ divlongway:
 	mov.b	#0x8,A2H	;       8
 div8:	add.b	A0L,A0L		; n*=2
 	rotxl	A3L		; Make remainder bigger
-	rotxl	A3H		
+	rotxl	A3H
 	sub.w	A1,A3		; Q-=N
 	bhs	setbit		; set a bit ?
 	add.w	A1,A3		;  no : too far , Q+=N
 
-	dec	A2H		
-	bne	div8		; next bit	
-	rts	
+	dec	A2H
+	bne	div8		; next bit
+	rts
 
 setbit:	inc	A0L		; do insert bit
-	dec	A2H		
-	bne	div8		; next bit	
-	rts	
+	dec	A2H
+	bne	div8		; next bit
+	rts
 
 #endif /* __H8300__ */
 #endif /* L_divhi3 */
@@ -306,7 +301,7 @@ setbit:	inc	A0L		; do insert bit
 
 ;; 4 byte integer divides for the H8/300.
 ;;
-;; We have one routine which does all the work and lots of 
+;; We have one routine which does all the work and lots of
 ;; little ones which prepare the args and massage the sign.
 ;; We bunch all of this into one object file since there are several
 ;; "supporting routines".
@@ -339,11 +334,11 @@ divnorm:
 postive:
 	mov.b	A2H,A2H		; is the denominator -ve
 	bge	postive2
-	not	A2L		
+	not	A2L
 	not	A2H
 	not	A3L
 	not	A3H
-	add.b	#1,A3L	
+	add.b	#1,A3L
 	addx	#0,A3H
 	addx	#0,A2L
 	addx	#0,A2H
@@ -373,11 +368,11 @@ modnorm:
 mpostive:
 	mov.b	A2H,A2H		; is the denominator -ve
 	bge	mpostive2
-	not	A2L		
+	not	A2L
 	not	A2H
 	not	A3L
 	not	A3H
-	add.b	#1,A3L	
+	add.b	#1,A3L
 	addx	#0,A3H
 	addx	#0,A2L
 	addx	#0,A2H
@@ -429,7 +424,7 @@ mpostive2:
 ; denominator in A2/A3
 	.global	___modsi3
 ___modsi3:
-	PUSHP	S2P		
+	PUSHP	S2P
 	PUSHP	S0P
 	PUSHP	S1P
 
@@ -466,7 +461,7 @@ ___umodsi3:
 	mov.l	S0P,A0P
 #endif
 	bra	exitdiv
-	
+
 	.global	___divsi3
 ___divsi3:
 	PUSHP	S2P
@@ -482,7 +477,7 @@ exitdiv:
 
 	or	S2L,S2L
 	beq	reti
-	
+
 	; should be -ve
 #ifdef __H8300__
 	not	A0H
@@ -500,12 +495,12 @@ exitdiv:
 
 reti:
 	POPP	S2P
-	rts	
+	rts
 
-	; takes A0/A1 numerator (A0P for 300H)
-	; A2/A3 denominator (A1P for 300H)
-	; returns A0/A1 quotient (A0P for 300H)
-	; S0/S1 remainder (S0P for 300H)
+	; takes A0/A1 numerator (A0P for H8/300H)
+	; A2/A3 denominator (A1P for H8/300H)
+	; returns A0/A1 quotient (A0P for H8/300H)
+	; S0/S1 remainder (S0P for H8/300H)
 	; trashes S2
 
 #ifdef __H8300__
@@ -543,7 +538,7 @@ NumByte3Zero:
 
         mov.b	S1H,S1L
         mov.b	#0x0,S1H
-        rts	
+        rts
 
 ; have to do the divide by shift and test
 DenHighZero:
@@ -567,7 +562,7 @@ nextbit:
         sub.w	A3,S1	; does it all fit
         subx	A2L,S0L
         subx	A2H,S0H
-        bhs	setone	 
+        bhs	setone
 
         add.w	A3,S1	; no, restore mistake
         addx	A2L,S0L
@@ -575,13 +570,13 @@ nextbit:
 
         dec	S2H
         bne	nextbit
-        rts	
-	
+        rts
+
 setone:
 	inc	A1L
         dec	S2H
         bne	nextbit
-        rts	
+        rts
 
 #else /* __H8300H__ */
 
@@ -636,11 +631,11 @@ setone:
 ;; HImode multiply.
 ; The H8/300 only has an 8*8->16 multiply.
 ; The answer is the same as:
-; 
+;
 ; product = (srca.l * srcb.l) + ((srca.h * srcb.l) + (srcb.h * srca.l)) * 256
 ; (we can ignore A1.h * A0.h cause that will all off the top)
 ; A0 in
-; A1 in 
+; A1 in
 ; A0 answer
 
 #ifdef __H8300__
@@ -649,7 +644,7 @@ setone:
 	.global	___mulhi3
 ___mulhi3:
 	mov.b	A1L,A2L		; A2l gets srcb.l
-	mulxu	A0L,A2		; A2 gets first sub product 
+	mulxu	A0L,A2		; A2 gets first sub product
 
 	mov.b	A0H,A3L		; prepare for
 	mulxu	A1L,A3		; second sub product
@@ -657,7 +652,7 @@ ___mulhi3:
 	add.b	A3L,A2H		; sum first two terms
 
 	mov.b	A1H,A3L		; third sub product
-	mulxu	A0L,A3		
+	mulxu	A0L,A3
 
 	add.b	A3L,A2H		; almost there
 	mov.w	A2,A0		; that is
@@ -669,7 +664,7 @@ ___mulhi3:
 #ifdef L_mulsi3
 
 ;; SImode multiply.
-;; 
+;;
 ;; I think that shift and add may be sufficient for this.  Using the
 ;; supplied 8x8->16 would need 10 ops of 14 cycles each + overhead.  This way
 ;; the inner loop uses maybe 20 cycles + overhead, but terminates
@@ -678,7 +673,7 @@ ___mulhi3:
 ;; A0/A1 src_a
 ;; A2/A3 src_b
 ;;
-;;  while (a) 
+;;  while (a)
 ;;    {
 ;;      if (a & 1)
 ;;        r += b;
@@ -696,10 +691,10 @@ ___mulsi3:
 	PUSHP	S0P
 	PUSHP	S1P
 	PUSHP	S2P
-	
+
 	sub.w	S0,S0
 	sub.w	S1,S1
-	
+
 	; while (a)
 _top:	mov.w	A0,A0
 	bne	_more
@@ -718,7 +713,7 @@ _nobit:
 	rotxr	A0L
 	rotxr	A1H
 	rotxr	A1L
-	
+
 	; b <<= 1
 	add.w	A3,A3
 	addx	A2L,A2L
@@ -726,7 +721,7 @@ _nobit:
 	bra 	_top
 
 _done:
-	mov.w	S0,A0	
+	mov.w	S0,A0
 	mov.w	S1,A1
 	POPP	S2P
 	POPP	S1P
@@ -735,32 +730,42 @@ _done:
 
 #else /* __H8300H__ */
 
+;
+; mulsi3 for H8/300H - based on Hitachi SH implementation
+;
+; by Toshiyasu Morita
+;
+; Old code:
+;
+; 16b * 16b = 372 states (worst case)
+; 32b * 32b = 724 states (worst case)
+;
+; New code:
+;
+; 16b * 16b =  48 states
+; 16b * 32b =  72 states
+; 32b * 32b =  92 states
+;
+
 	.global	___mulsi3
 ___mulsi3:
-	sub.l	A2P,A2P
+	mov.w	r1,r2   ; ( 2 states) b * d
+	mulxu	r0,er2  ; (22 states)
 
-	; while (a)
-_top:	mov.l	A0P,A0P
-	beq	_done
+	mov.w	e0,r3   ; ( 2 states) a * d
+	beq	L_skip1 ; ( 4 states)
+	mulxu	r1,er3  ; (22 states)
+	add.w	r3,e2   ; ( 2 states)
 
-	; if (a & 1)
-	bld	#0,A0L
-	bcc	_nobit
+L_skip1:
+	mov.w	e1,r3   ; ( 2 states) c * b
+	beq	L_skip2 ; ( 4 states)
+	mulxu	r0,er3  ; (22 states)
+	add.w	r3,e2   ; ( 2 states)
 
-	; r += b
-	add.l	A1P,A2P
-
-_nobit:
-	; a >>= 1
-	shlr.l	A0P
-
-	; b <<= 1
-	shll.l	A1P
-	bra	_top
-
-_done:
-	mov.l	A2P,A0P
-	rts
+L_skip2:
+	mov.l	er2,er0	; ( 2 states)
+	rts		; (10 states)
 
 #endif
 #endif /* L_mulsi3 */
@@ -770,7 +775,7 @@ _done:
    space.  For the H8/300H and H8S, the C version is good enough.  */
 #ifdef __H8300__
 /* We still treat NANs different than libgcc2.c, but then, the
-   behaviour is undefined anyways.  */
+   behavior is undefined anyways.  */
 	.global	___fixunssfsi
 ___fixunssfsi:
 	cmp.b #0x47,r0h

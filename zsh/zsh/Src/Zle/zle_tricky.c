@@ -193,7 +193,7 @@ completeword(char **args)
     usemenu = !!isset(MENUCOMPLETE);
     useglob = isset(GLOBCOMPLETE);
     wouldinstab = 0;
-    if (c == '\t' && usetab())
+    if (lastchar == '\t' && usetab())
 	return selfinsert(args);
     else {
 	int ret;
@@ -215,7 +215,7 @@ menucomplete(char **args)
     usemenu = 1;
     useglob = isset(GLOBCOMPLETE);
     wouldinstab = 0;
-    if (c == '\t' && usetab())
+    if (lastchar == '\t' && usetab())
 	return selfinsert(args);
     else
 	return docomplete(COMP_COMPLETE);
@@ -223,7 +223,7 @@ menucomplete(char **args)
 
 /**/
 int
-listchoices(char **args)
+listchoices(UNUSED(char **args))
 {
     usemenu = !!isset(MENUCOMPLETE);
     useglob = isset(GLOBCOMPLETE);
@@ -233,7 +233,7 @@ listchoices(char **args)
 
 /**/
 int
-spellword(char **args)
+spellword(UNUSED(char **args))
 {
     usemenu = useglob = 0;
     wouldinstab = 0;
@@ -262,7 +262,7 @@ expandword(char **args)
 {
     usemenu = useglob = 0;
     wouldinstab = 0;
-    if (c == '\t' && usetab())
+    if (lastchar == '\t' && usetab())
 	return selfinsert(args);
     else
 	return docomplete(COMP_EXPAND);
@@ -275,7 +275,7 @@ expandorcomplete(char **args)
     usemenu = !!isset(MENUCOMPLETE);
     useglob = isset(GLOBCOMPLETE);
     wouldinstab = 0;
-    if (c == '\t' && usetab())
+    if (lastchar == '\t' && usetab())
 	return selfinsert(args);
     else {
 	int ret;
@@ -297,7 +297,7 @@ menuexpandorcomplete(char **args)
     usemenu = 1;
     useglob = isset(GLOBCOMPLETE);
     wouldinstab = 0;
-    if (c == '\t' && usetab())
+    if (lastchar == '\t' && usetab())
 	return selfinsert(args);
     else
 	return docomplete(COMP_EXPAND_COMPLETE);
@@ -305,7 +305,7 @@ menuexpandorcomplete(char **args)
 
 /**/
 int
-listexpand(char **args)
+listexpand(UNUSED(char **args))
 {
     usemenu = !!isset(MENUCOMPLETE);
     useglob = isset(GLOBCOMPLETE);
@@ -399,7 +399,7 @@ checkparams(char *p)
 	for (hn = paramtab->nodes[t0]; n < 2 && hn; hn = hn->next)
 	    if (pfxlen(p, hn->nam) == l) {
 		n++;
-		if (strlen(hn->nam) == l)
+		if ((int)strlen(hn->nam) == l)
 		    e = 1;
 	    }
     return (n == 1) ? (getsparam(p) != NULL) :
@@ -1105,7 +1105,7 @@ get_comp_string(void)
 	/* We reached the end. */
 	if (tok == ENDINPUT)
 	    break;
-	if ((ins && (tok == DO || tok == SEPER)) ||
+	if ((ins && (tok == DOLOOP || tok == SEPER)) ||
 	    (ins == 2 && i == 2) || (ins == 3 && i == 3) ||
 	    tok == BAR    || tok == AMPER     ||
 	    tok == BARAMP || tok == AMPERBANG ||
@@ -1472,7 +1472,7 @@ get_comp_string(void)
 
     if (!isset(IGNOREBRACES)) {
 	/* Try and deal with foo{xxx etc. */
-	char *curs = s + (isset(COMPLETEINWORD) ? offs : strlen(s));
+	char *curs = s + (isset(COMPLETEINWORD) ? offs : (int)strlen(s));
 	char *predup = dupstring(s), *dp = predup;
 	char *bbeg = NULL, *bend = NULL, *dbeg = NULL;
 	char *lastp = NULL, *firsts = NULL;
@@ -1907,7 +1907,11 @@ strbpcmp(char **aa, char **bb)
 	    }
 	}
     }
+#ifndef HAVE_STRCOLL
     return (int)(*a - *b);
+#else
+    return strcoll(a,b);
+#endif
 }
 
 /* This is used to print the strings (e.g. explanations). *
@@ -2294,7 +2298,7 @@ magicspace(char **args)
 {
     char *bangq;
     int ret;
-    c = ' ';
+    lastchar = ' ';
     for (bangq = (char *)line; (bangq = strchr(bangq, bangchar)); bangq += 2)
 	if (bangq[1] == '"' && (bangq == (char *)line || bangq[-1] != '\\'))
 	    break;
@@ -2305,7 +2309,7 @@ magicspace(char **args)
 
 /**/
 int
-expandhistory(char **args)
+expandhistory(UNUSED(char **args))
 {
     if (!doexpandhist())
 	return 1;
@@ -2352,7 +2356,7 @@ getcurcmd(void)
 
 /**/
 int
-processcmd(char **args)
+processcmd(UNUSED(char **args))
 {
     char *s;
     int m = zmult;
@@ -2376,7 +2380,7 @@ processcmd(char **args)
 
 /**/
 int
-expandcmdpath(char **args)
+expandcmdpath(UNUSED(char **args))
 {
     int oldcs = cs, na = noaliases;
     char *s, *str;
@@ -2421,7 +2425,7 @@ expandorcompleteprefix(char **args)
 
 /**/
 int
-endoflist(char **args)
+endoflist(UNUSED(char **args))
 {
     if (lastlistlen > 0) {
 	int i;

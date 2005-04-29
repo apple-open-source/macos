@@ -1,0 +1,55 @@
+# -*- tcl -*-
+# Helper rules for the creation of the trf website from the .exp files.
+
+proc releases/url {} {return http://sourceforge.net/project/showfiles.php?group_id=[sfgroup]}
+
+img sf/logo  "SourceForge Logo" http://sourceforge.net/sflogo.php?group_id=34191
+img tcl/logo "Tcl Logo"         http://tcl.sourceforge.net/images/logo125.gif
+
+img trf/logo/120  "Trf Logo"     art/logo-120x181.gif
+img trf/logo/64   "Trf Logo"     art/logo-64x64.gif
+img trf/logo/60   "Trf Logo"     art/logo-60x90.gif
+img trf/logo/32   "Trf Logo"     art/logo-32x32.gif
+img trf/logo/16   "Trf Logo"     art/logo-16x16.gif
+
+url sf/img          [sf/logo]             http://sourceforge.net
+url tcl/sf/img      [tcl/logo]            http://sourceforge.net/projects/tcl
+url tcl/sf/txt      Tcl                   http://sourceforge.net/projects/tcl
+url tcl/sf/txt/home "Tcl Homepage"        http://sourceforge.net/projects/tcl
+url trf/txt          Trf                  http://www.purl.org/net/akupries/soft/trf
+url trf/txt/home    "Trf Homepage"        http://www.purl.org/net/akupries/soft/trf
+
+url trf/sf/txt     "Trf SF Project"    http://sourceforge.net/projects/tcltrf
+url trf/txt        Trf                 http://www.purl.org/net/akupries/soft/trf
+url trf/txt/old    "Old Trf page"      http://www.purl.org/net/akupries/soft/trf
+url trf/txt/old/2  "old Trf homepage"  http://www.purl.org/net/akupries/soft/trf
+
+url copyright    "&#169;"        disclaimer.html
+
+if {0} {
+    url trf/images   "Logos"         images.html
+    url trf/home     "Homepage"      index.html
+    url trf/releases "Releases"      [releases/url]
+    url trf/doc      "Documentation" documentation.html
+    url trf/clog     "ChangeLog"     changelog.html
+}
+
+url tcl/foundry  "Tcl Foundry" http://sourceforge.net/foundry/tcl-foundry/
+
+
+url me                   "Andreas Kupries"  http://www.purl.org/net/akupries/
+
+## Future ## Try to make this automatic ...
+
+url andreas_kupries/home "Andreas Kupries"  http://www.purl.org/net/akupries/
+##url stevel/home          "Steve Landers"    http://www.digital-smarties.com/
+
+
+url jo      "John Ousterhout"     http://www.scriptics.com/people/john.ousterhout
+url jcw     "Jean-Claude Wippler" http://www.equi4.com/jcw/
+url tclwiki "Tcl'ers Wiki"        http://www.purl.org/tcl/wiki/
+url lvirden "Larry W. Virden"     http://www.purl.org/net/lvirden/
+url jan     "Jan Nijtmans"        http://www.purl.org/net/nijtmans/
+
+url tcl/io/fevent "Interaction of I/O system and notifier in the Tcl core" \
+	http://sourceforge.net/docman/display_doc.php?docid=6710&group_id=10894

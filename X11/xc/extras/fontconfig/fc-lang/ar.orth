@@ -1,0 +1,88 @@
+#
+# $XFree86: xc/extras/fontconfig/fc-lang/ar.orth,v 1.1.1.1 2003/06/04 02:56:38 dawes Exp $
+#
+# Copyright © 2002 Keith Packard, member of The XFree86 Project, Inc.
+#
+# Permission to use, copy, modify, distribute, and sell this software and its
+# documentation for any purpose is hereby granted without fee, provided that
+# the above copyright notice appear in all copies and that both that
+# copyright notice and this permission notice appear in supporting
+# documentation, and that the name of Keith Packard not be used in
+# advertising or publicity pertaining to distribution of the software without
+# specific, written prior permission.  Keith Packard makes no
+# representations about the suitability of this software for any purpose.  It
+# is provided "as is" without express or implied warranty.
+#
+# KEITH PACKARD DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+# INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+# EVENT SHALL KEITH PACKARD BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+# CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+# DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+# TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+# PERFORMANCE OF THIS SOFTWARE.
+#
+# Arabic (AR)
+#
+# General forms.  Leave these out for now as most software
+# expects presentation forms.
+#
+#060C	# ARABIC COMMA
+#061B	# ARABIC SEMICOLON
+#061F	# ARABIC QUESTION MARK
+#0621	# ARABIC LETTER HAMZA
+#0622	# ARABIC LETTER ALEF WITH MADDA ABOVE
+#0623	# ARABIC LETTER ALEF WITH HAMZA ABOVE
+#0624	# ARABIC LETTER WAW WITH HAMZA ABOVE
+#0625	# ARABIC LETTER ALEF WITH HAMZA BELOW
+#0626	# ARABIC LETTER YEH WITH HAMZA ABOVE
+#0627	# ARABIC LETTER ALEF
+#0628	# ARABIC LETTER BEH
+#0629	# ARABIC LETTER TEH MARBUTA
+#062A	# ARABIC LETTER TEH
+#062B	# ARABIC LETTER THEH
+#062C	# ARABIC LETTER JEEM
+#062D	# ARABIC LETTER HAH
+#062E	# ARABIC LETTER KHAH
+#062F	# ARABIC LETTER DAL
+#0630	# ARABIC LETTER THAL
+#0631	# ARABIC LETTER REH
+#0632	# ARABIC LETTER ZAIN
+#0633	# ARABIC LETTER SEEN
+#0634	# ARABIC LETTER SHEEN
+#0635	# ARABIC LETTER SAD
+#0636	# ARABIC LETTER DAD
+#0637	# ARABIC LETTER TAH
+#0638	# ARABIC LETTER ZAH
+#0639	# ARABIC LETTER AIN
+#063A	# ARABIC LETTER GHAIN
+#0640	# ARABIC TATWEEL
+#0641	# ARABIC LETTER FEH
+#0642	# ARABIC LETTER QAF
+#0643	# ARABIC LETTER KAF
+#0644	# ARABIC LETTER LAM
+#0645	# ARABIC LETTER MEEM
+#0646	# ARABIC LETTER NOON
+#0647	# ARABIC LETTER HEH
+#0648	# ARABIC LETTER WAW
+#0649	# ARABIC LETTER ALEF MAKSURA
+#064A	# ARABIC LETTER YEH
+#064B	# ARABIC FATHATAN
+#064C	# ARABIC DAMMATAN
+#064D	# ARABIC KASRATAN
+#064E	# ARABIC FATHA
+#064F	# ARABIC DAMMA
+#0650	# ARABIC KASRA
+#0651	# ARABIC SHADDA
+#0652	# ARABIC SUKUN
+#
+# Data from Roozbeh Pournader <roozbeh@sharif.edu>
+#
+# Select fonts based on support for presentation forms; this may
+# exclude some OpenType fonts, but the hope is those would be
+# located by a clever shaper by Unicode codepoints in any case.
+#
+# General Forms:
+#0621-063a
+#0641-064a
+# Presentations Forms:
+fe80-fefc

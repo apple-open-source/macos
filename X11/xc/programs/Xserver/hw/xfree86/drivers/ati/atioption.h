@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atioption.h,v 1.11 2003/01/01 19:16:33 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atioption.h,v 1.13 2004/01/05 16:42:03 tsi Exp $ */
 /*
- * Copyright 1999 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1999 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -45,6 +45,7 @@ typedef enum
 #endif /* AVOID_CPIO */
 
     ATI_OPTION_MMIO_CACHE,
+    ATI_OPTION_TEST_MMIO_CACHE,
     ATI_OPTION_PANEL_DISPLAY,
     ATI_OPTION_PROBE_CLOCKS,
     ATI_OPTION_REFERENCE_CLOCK,

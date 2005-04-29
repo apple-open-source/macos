@@ -1,4 +1,4 @@
-# Copyright (C) 92, 1993, 1994, 1996, 1997, 1998 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-gcc@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
 if ![info exists board] {
     error "must set $board before loading unix.exp"
@@ -35,7 +35,8 @@ load_lib remote.exp
 
 proc unix_load { dest prog args } {
     global ld_library_path
-    set output "";
+    set output ""
+    set orig_ld_library_path ""
 
     if { [llength $args] > 0 } {
 	set parg [lindex $args 0];
@@ -63,11 +64,15 @@ proc unix_load { dest prog args } {
 	    set command "$prog $parg";
 	}
 
-        if [info exists ld_library_path] {
-            setenv LD_LIBRARY_PATH $ld_library_path                 
-            setenv SHLIB_PATH $ld_library_path
+        if ![info exists ld_library_path] {
+	    set ld_library_path ""
         }
- 
+
+	set orig_ld_library_path "[getenv LD_LIBRARY_PATH]"
+	setenv LD_LIBRARY_PATH "$ld_library_path:$orig_ld_library_path"
+	setenv SHLIB_PATH "$ld_library_path:$orig_ld_library_path"
+	verbose -log "Setting LD_LIBRARY_PATH to $ld_library_path:$orig_ld_library_path" 2
+
 	set id [remote_spawn $dest "$command" "readonly"];
 	if { $id < 0 } {
 	    set output "remote_spawn failed"
@@ -82,8 +87,8 @@ proc unix_load { dest prog args } {
 	# fix in the first place; this just tries to minimize the resulting
 	# crap.)
 	if [info exists ld_library_path] {
-	    unsetenv LD_LIBRARY_PATH
-	    unsetenv SHLIB_PATH
+	    setenv LD_LIBRARY_PATH $orig_ld_library_path
+	    setenv SHLIB_PATH $orig_ld_library_path
 	}
     } else { 
 	set remotefile "/tmp/[file tail $prog].[pid]"
@@ -118,6 +123,9 @@ proc unix_load { dest prog args } {
 	set output [lindex $status 1]
 	set status [lindex $status 0]
     }
+    
+    setenv LD_LIBRARY_PATH $orig_ld_library_path
+    setenv SHLIB_PATH $orig_ld_library_path
 
     verbose "Executed $prog, status $status" 2
     if ![string match "" $output] {

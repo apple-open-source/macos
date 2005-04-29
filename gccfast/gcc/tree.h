@@ -155,7 +155,8 @@ struct tree_common GTY(())
   unsigned lang_flag_4 : 1;
   unsigned lang_flag_5 : 1;
   unsigned lang_flag_6 : 1;
-  unsigned unused_1 : 1;
+  /* APPLE LOCAL dead code strip.  */
+  unsigned live_flag : 1;
 };
 
 /* The following table lists the uses of each of the above flags and
@@ -284,6 +285,13 @@ struct tree_common GTY(())
 	TREE_UNAVAILABLE in
 	   ..._DECL
    APPLE LOCAL end unavailable ilr
+
+   APPLE LOCAL begin dead code strip
+   live_flag:
+   
+        TREE_LIVE in
+	   ..._DECL
+   APPLE LOCAL end dead code strip
 */
 
 /* Define accessors for the fields that all tree nodes have
@@ -706,6 +714,13 @@ extern void tree_vec_elt_check_failed PARAMS ((int, int, const char *,
    unavailable feature by __attribute__((unavailable)).  */
 #define TREE_UNAVAILABLE(NODE) ((NODE)->common.unavailable_flag)
 /* APPLE LOCAL end unavailable ilr */
+
+/* APPLE LOCAL begin dead code strip.  */
+/* Nonzer if the use of the decl is defined as a live. 
+   .no_dead_string assembler directive is used for live symbols. This
+   indicates linker to consider symbol as live during dead code stripping.  */
+#define TREE_LIVE(NODE) ((NODE)->common.live_flag)
+/* APPLE LOCAL end dead code strip.  */
 
 /* These flags are available for each language front end to use internally.  */
 #define TREE_LANG_FLAG_0(NODE) ((NODE)->common.lang_flag_0)

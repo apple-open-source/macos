@@ -1,4 +1,4 @@
-// Copyright (C) 2000 Free Software Foundation
+// Copyright (C) 2000, 2002 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -84,10 +84,6 @@ test01()
   VERIFY( B::ctor_count == 1 );
   VERIFY( B::dtor_count == 0 );
 
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
 
@@ -111,10 +107,6 @@ test02()
   VERIFY( A::dtor_count == 0 );
   VERIFY( B::ctor_count == 1 );
   VERIFY( B::dtor_count == 0 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
 
   return 0;
 }
@@ -142,10 +134,6 @@ test03()
   VERIFY( B::ctor_count == 1 );
   VERIFY( B::dtor_count == 0 );
 
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
 
@@ -166,10 +154,6 @@ test04()
   VERIFY( A::dtor_count == 3 );
   VERIFY( B::ctor_count == 2 );
   VERIFY( B::dtor_count == 2 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
 
   return 0;
 }
@@ -196,11 +180,6 @@ test05()
   VERIFY( A::dtor_count == 2 );
   VERIFY( B::ctor_count == 1 );
   VERIFY( B::dtor_count == 1 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
 
@@ -218,8 +197,10 @@ test06()
   std::auto_ptr<A> A_from_A_ptr(A_from_A.release());
   VERIFY( A_from_A.get() == 0 );
   VERIFY( A_from_A_ptr.get() != 0 );
-  VERIFY( A_from_A->ctor_count == 1 );
-  VERIFY( (*A_from_A).dtor_count == 0 );
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  VERIFY( A_from_A_ptr->ctor_count == 1 );
+  VERIFY( (*A_from_A_ptr).dtor_count == 0 );
+  /* APPLE LOCAL end libstdc++ debug mode */
 
   A* A_ptr = A_from_A_ptr.get();
 
@@ -232,11 +213,6 @@ test06()
   VERIFY( A_from_A_ptr.get() != A_ptr );
   VERIFY( A_from_A_ptr->ctor_count == 2 );
   VERIFY( (*A_from_A_ptr).dtor_count == 1 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
 
@@ -268,13 +244,24 @@ test07()
   VERIFY( A::dtor_count == 2 );
   VERIFY( B::ctor_count == 1 );
   VERIFY( B::dtor_count == 1 );
-
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-
   return 0;
 }
+
+// libstdc++/3946
+// http://gcc.gnu.org/ml/libstdc++/2002-07/msg00024.html
+struct Base { };
+struct Derived : public Base { };
+
+std::auto_ptr<Derived> 
+conversiontest08() { return std::auto_ptr<Derived>(new Derived); }
+
+void
+test08()
+{
+  std::auto_ptr<Base> ptr;
+  ptr = conversiontest08();
+}
+
 
 int 
 main()
@@ -286,6 +273,7 @@ main()
   test05();
   test06();
   test07();
+  test08();
 
   return 0;
 }

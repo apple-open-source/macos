@@ -2,7 +2,7 @@
  * 
  * distcc -- A simple distributed compiler system
  *
- * Copyright (C) 2003 by Apple Computer, Inc.
+ * Copyright (C) 2003, 2005 by Apple Computer, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -91,7 +91,7 @@ static fd_set            zcSelectFDs;
 static ServiceEntryTable zcServices      = { 0, NULL };
 
 
-// Rendezvous browsing and resolution utility functions
+// Bonjour browsing and resolution utility functions
 
 
 /**
@@ -357,7 +357,7 @@ static void dcc_zc_build_resolved_services_list(void)
 }
 
 
-// Rendezvous resolution
+// Bonjour resolution
 
 
 /**
@@ -388,6 +388,8 @@ static void dcc_zc_service_resolved(const DNSServiceRef ref,
     size_t         i;
     ServiceEntry  *service     = NULL;
     ServiceEntry **serviceList = zcServices.services;
+
+    aPort = ntohs(aPort);
 
     // Find the matching entry.
 
@@ -517,7 +519,7 @@ static void dcc_zc_resolve_reply(const DNSServiceRef       ref,
 }
 
 
-// Rendezvous browsing
+// Bonjour browsing
 
 
 /**

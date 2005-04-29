@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1998-2000, International Business Machines
+*   Copyright (C) 1998-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -19,6 +19,7 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "unicode/ustring.h"
+#include "unicode/putil.h"
 
 /* Protos */
 static void ustr_resize(struct UString *s, int32_t len, UErrorCode *status);
@@ -85,7 +86,9 @@ ustr_cpy(struct UString *dst,
         if(U_FAILURE(*status))
             return;
     }
-
+    if(src->fChars == NULL || dst->fChars == NULL){
+        return;
+    }
     uprv_memcpy(dst->fChars, src->fChars, sizeof(UChar) * src->fLength);
     dst->fLength = src->fLength;
     dst->fChars[dst->fLength] = 0x0000;
@@ -157,7 +160,19 @@ ustr_ucat(struct UString *dst,
     dst->fLength += 1;
     dst->fChars[dst->fLength] = 0x0000;
 }
-
+void 
+ustr_u32cat(struct UString *dst, UChar32 c, UErrorCode *status){
+    if(c > 0x10FFFF){
+        *status = U_ILLEGAL_CHAR_FOUND;
+        return;
+    }
+    if(c >0xFFFF){
+        ustr_ucat(dst, U16_LEAD(c), status);
+        ustr_ucat(dst, U16_TRAIL(c), status);
+    }else{
+        ustr_ucat(dst, (UChar) c, status);
+    }
+}
 void
 ustr_uscat(struct UString *dst,
       const UChar* src,int len,

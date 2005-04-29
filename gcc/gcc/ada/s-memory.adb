@@ -4,14 +4,9 @@
 --                                                                          --
 --                         S Y S T E M . M E M O R Y                        --
 --                                                                          --
---                                 S p e c                                  --
+--                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 2001-2002 Free Software Foundation, Inc.          --
---                                                                          --
--- This specification is derived from the Ada Reference Manual for use with --
--- GNAT. The copyright notice above, and the license provisions that follow --
--- apply solely to the  contents of the part following the private keyword. --
+--          Copyright (C) 2001-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -51,21 +46,22 @@
 with Ada.Exceptions;
 with System.Soft_Links;
 with System.Parameters;
+with System.CRTL;
 
 package body System.Memory is
 
    use Ada.Exceptions;
    use System.Soft_Links;
 
-   function c_malloc (Size : size_t) return System.Address;
-   pragma Import (C, c_malloc, "malloc");
+   function c_malloc (Size : System.CRTL.size_t) return System.Address
+    renames System.CRTL.malloc;
 
-   procedure c_free (Ptr : System.Address);
-   pragma Import (C, c_free, "free");
+   procedure c_free (Ptr : System.Address)
+     renames System.CRTL.free;
 
    function c_realloc
-     (Ptr : System.Address; Size : size_t) return System.Address;
-   pragma Import (C, c_realloc, "realloc");
+     (Ptr : System.Address; Size : System.CRTL.size_t) return System.Address
+     renames System.CRTL.realloc;
 
    -----------
    -- Alloc --
@@ -90,10 +86,10 @@ package body System.Memory is
       end if;
 
       if Parameters.No_Abort then
-         Result := c_malloc (Actual_Size);
+         Result := c_malloc (System.CRTL.size_t (Actual_Size));
       else
          Abort_Defer.all;
-         Result := c_malloc (Actual_Size);
+         Result := c_malloc (System.CRTL.size_t (Actual_Size));
          Abort_Undefer.all;
       end if;
 
@@ -129,7 +125,7 @@ package body System.Memory is
       return System.Address
    is
       Result      : System.Address;
-      Actual_Size : size_t := Size;
+      Actual_Size : constant size_t := Size;
 
    begin
       if Size = size_t'Last then
@@ -137,10 +133,10 @@ package body System.Memory is
       end if;
 
       if Parameters.No_Abort then
-         Result := c_realloc (Ptr, Actual_Size);
+         Result := c_realloc (Ptr, System.CRTL.size_t (Actual_Size));
       else
          Abort_Defer.all;
-         Result := c_realloc (Ptr, Actual_Size);
+         Result := c_realloc (Ptr, System.CRTL.size_t (Actual_Size));
          Abort_Undefer.all;
       end if;
 

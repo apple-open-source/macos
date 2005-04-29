@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*   Copyright (C) 2000, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "filestrm.h"
@@ -75,8 +76,13 @@ void pkg_mode_common(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
   sprintf(tmp, "all: $(TARGET)\n\n");
   T_FileStream_writeLine(makefile, tmp);
   
+  if(!o->embed) {
   T_FileStream_writeLine(makefile, "$(TARGET): $(CMNLIST) $(DATAFILEPATHS)\n"
-               "\t$(INVOKE) $(GENCMN) -n $(CNAME) -c -d $(TARGETDIR) 0 $(CMNLIST)\n\n");
+               "\t$(INVOKE) $(GENCMN) -n $(CNAME) -c -s $(SRCDIR) -d $(TARGETDIR) 0 $(CMNLIST)\n\n");
+  } else {
+    T_FileStream_writeLine(makefile, "$(TARGET): $(CMNLIST) $(DATAFILEPATHS)\n"
+              "\t$(INVOKE) $(GENCMN) -n $(CNAME) -c -d $(TARGETDIR) 0 -E $(CMNLIST)\n\n");
+  }
 
   if(o->hadStdin == FALSE) { /* shortcut */
     T_FileStream_writeLine(makefile, "$(CMNLIST): $(LISTFILES)\n"

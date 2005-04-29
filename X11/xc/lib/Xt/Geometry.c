@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Geometry.c,v 1.12 2001/12/14 19:56:15 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Geometry.c,v 1.13 2003/04/21 16:34:27 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include "ShellP.h"
@@ -492,7 +492,6 @@ XtGeometryResult XtMakeGeometryRequest (widget, request, reply)
     return ((r == XtGeometryDone) ? XtGeometryYes : r);
 }
 
-#if NeedFunctionPrototypes
 XtGeometryResult 
 XtMakeResizeRequest(
     Widget	widget,
@@ -500,13 +499,6 @@ XtMakeResizeRequest(
     _XtDimension height,
     Dimension	*replyWidth,
     Dimension	*replyHeight)
-#else
-XtGeometryResult 
-XtMakeResizeRequest (widget, width, height, replyWidth, replyHeight)
-    Widget	widget;
-    Dimension	width, height;
-    Dimension	*replyWidth, *replyHeight;
-#endif
 {
     XtWidgetGeometry request, reply;
     XtGeometryResult r;
@@ -580,37 +572,22 @@ void XtResizeWindow(w)
     UNLOCK_APP(app);
 } /* XtResizeWindow */
 
-#if NeedFunctionPrototypes
 void XtResizeWidget(
     Widget w,
     _XtDimension width,
     _XtDimension height,
-    _XtDimension borderWidth
-    )
-#else
-void XtResizeWidget(w, width, height, borderWidth)
-    Widget w;
-    Dimension width, height, borderWidth;
-#endif
+    _XtDimension borderWidth)
 {
     XtConfigureWidget(w, w->core.x, w->core.y, width, height, borderWidth);
 } /* XtResizeWidget */
 
-#if NeedFunctionPrototypes
 void XtConfigureWidget(
     Widget w,
     _XtPosition x,
     _XtPosition y,
     _XtDimension width,
     _XtDimension height,
-    _XtDimension borderWidth
-    )
-#else
-void XtConfigureWidget(w, x, y, width, height, borderWidth)
-    Widget w;
-    Position x, y;
-    Dimension width, height, borderWidth;
-#endif
+    _XtDimension borderWidth)
 {
     XtConfigureHookDataRec req;
     Widget hookobj;
@@ -699,36 +676,21 @@ void XtConfigureWidget(w, x, y, width, height, borderWidth)
     UNLOCK_APP(app);
 } /* XtConfigureWidget */
 
-#if NeedFunctionPrototypes
 void XtMoveWidget(
     Widget w,
     _XtPosition x,
-    _XtPosition y
-    )
-#else
-void XtMoveWidget(w, x, y)
-    Widget w;
-    Position x, y;
-#endif
+    _XtPosition y)
 {
     XtConfigureWidget(w, x, y, w->core.width, w->core.height,
 		      w->core.border_width);
 } /* XtMoveWidget */
 
-#if NeedFunctionPrototypes
 void XtTranslateCoords(
     register Widget w,
     _XtPosition x,
     _XtPosition y,
     register Position *rootx,	/* return */
-    register Position *rooty	/* return */
-    )
-#else
-void XtTranslateCoords(w, x, y, rootx, rooty)
-    register Widget w;
-    Position x, y;
-    register Position *rootx, *rooty;	/* return */
-#endif
+    register Position *rooty)	/* return */
 {
     Position garbagex, garbagey;
     XtAppContext app = XtWidgetToApplicationContext(w);

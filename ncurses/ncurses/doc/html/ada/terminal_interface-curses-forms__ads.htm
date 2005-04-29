@@ -38,9 +38,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.25 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.27 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <FONT COLOR=green><EM>--  form binding.</EM></FONT>
@@ -63,9 +63,9 @@
    <FONT COLOR=red><A NAME="59_4">Null_Field</A></FONT>        : <b>constant</b> <A HREF="terminal_interface-curses-forms__ads.htm#56_9">Field</A>;
    Null_Form         : <b>constant</b> Form;
 
-   <b>type</b> Field_Justification <b>is</b> (None,
-                                Left,
-                                Center,
+   <b>type</b> Field_Justification <b>is</b> (<FONT COLOR=red><A NAME="62_33">None</A></FONT>,
+                                <FONT COLOR=red><A NAME="63_33">Left</A></FONT>,
+                                <FONT COLOR=red><A NAME="64_33">Center</A></FONT>,
                                 Right);
 
    <b>pragma</b> Warnings (Off);
@@ -80,7 +80,7 @@
          <FONT COLOR=red><A NAME="76_10">Auto_Skip</A></FONT>   : Boolean;
          <FONT COLOR=red><A NAME="77_10">Null_Ok</A></FONT>     : Boolean;
          <FONT COLOR=red><A NAME="78_10">Pass_Ok</A></FONT>     : Boolean;
-         Static      : Boolean;
+         Static <A HREF="terminal_interface-curses-forms__ads.htm#67_9"> </A>    : Boolean;
       <b>end</b> <b>record</b><A HREF="terminal_interface-curses-forms__ads.htm#67_9">;</A>
    <b>pragma</b> Pack (Field_Option_Set);
    <b>pragma</b> Convention (C, Field_Option_Set);

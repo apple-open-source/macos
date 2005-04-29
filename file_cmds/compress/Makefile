@@ -15,8 +15,9 @@ PROJECT_TYPE = Tool
 CFILES = compress.c zopen.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble compress.1\
-            zopen.3 uncompress.1
+            zopen.3 uncompress.1 zopen.h
 
+NEXTSTEP_PB_CFLAGS += -D__FBSDID=__RCSID -D"__printflike(a,b)="
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
@@ -26,10 +27,7 @@ LIBS =
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-
-
-
-NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/developer_cmds/Build
+NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/file_cmds/Build
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

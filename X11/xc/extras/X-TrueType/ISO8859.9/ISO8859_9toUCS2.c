@@ -33,11 +33,14 @@ Notice===
    (ftp://ftp.unicode.org/Public/MAPPINGS/ISO8859/8859-9.TXT)
 
  */
+/* $XFree86: xc/extras/X-TrueType/ISO8859.9/ISO8859_9toUCS2.c,v 1.2 2003/10/22 16:25:42 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

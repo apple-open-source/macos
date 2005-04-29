@@ -53,7 +53,7 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 /*static char *sccsid = "from: @(#)svc_udp.c 1.24 87/08/11 Copyr 1984 Sun Micro";*/
 /*static char *sccsid = "from: @(#)svc_udp.c	2.2 88/07/29 4.0 RPCSRC";*/
-static char *rcsid = "$Id: svc_udp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
+static char *rcsid = "$Id: svc_udp.c,v 1.5 2004/10/13 00:24:07 jkh Exp $";
 #endif
 
 /*
@@ -70,6 +70,7 @@ static char *rcsid = "$Id: svc_udp.c,v 1.3 2002/02/19 20:36:25 epeyton Exp $";
 #include <unistd.h>
 #include <rpc/rpc.h>
 #include <sys/socket.h>
+#include <sys/param.h>
 #include <errno.h>
 
 extern int		bindresvport();
@@ -192,6 +193,9 @@ svcudp_stat(xprt)
 	return (XPRT_IDLE); 
 }
 
+static int cache_get();
+static void cache_set();
+
 static bool_t
 svcudp_recv(xprt, msg)
 	register SVCXPRT *xprt;
@@ -202,7 +206,6 @@ svcudp_recv(xprt, msg)
 	register int rlen;
 	char *reply;
 	u_long replylen;
-	static int cache_get();
 
     again:
 	xprt->xp_addrlen = sizeof(struct sockaddr_in);
@@ -236,7 +239,6 @@ svcudp_reply(xprt, msg)
 	register XDR *xdrs = &(su->su_xdrs);
 	register int slen;
 	register bool_t stat = FALSE;
-	static void cache_set();
 
 	xdrs->x_op = XDR_ENCODE;
 	XDR_SETPOS(xdrs, 0);

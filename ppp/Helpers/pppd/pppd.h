@@ -23,22 +23,45 @@
 /*
  * pppd.h - PPP daemon global declarations.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * $Id: pppd.h,v 1.16 2003/09/21 03:05:21 callie Exp $
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: pppd.h,v 1.30 2005/03/09 16:49:36 lindak Exp $
  */
 
 /*
@@ -59,6 +82,9 @@
 #include <net/ppp_defs.h>
 #endif
 #include "patchlevel.h"
+#ifdef __APPLE__
+#include "../../PPP_VERSION.h"
+#endif
 
 #if defined(__STDC__)
 #include <stdarg.h>
@@ -117,7 +143,9 @@ typedef struct {
 	const char *source;
 	short int priority;
 	short int winner;
+#ifdef __APPLE__
 	void	*addr3;
+#endif
 } option_t;
 
 /* Values for flags */
@@ -238,14 +266,18 @@ extern GIDSET_TYPE groups[NGROUPS_MAX];	/* groups the user is in */
 extern int	ngroups;	/* How many groups valid in groups */
 extern struct pppd_stats link_stats; /* byte/packet counts etc. for link */
 extern int	link_stats_valid; /* set if link_stats is valid */
-extern int	link_connect_time; /* time the link was up for */
+extern unsigned	link_connect_time; /* time the link was up for */
 extern int	using_pty;	/* using pty as device (notty or pty opt.) */
 extern int	log_to_fd;	/* logging to this fd as well as syslog */
 extern bool	log_default;	/* log_to_fd is default (stdout) */
 extern char	*no_ppp_msg;	/* message to print if ppp not in kernel */
 extern volatile int status;	/* exit status for pppd */
 #ifdef __APPLE__
-extern int 	optionsfd;	/* parameters are given via pipe */
+extern bool	controlled ;	/* Is pppd controlled by the PPPController ?  */
+extern FILE 	*controlfile;	/* file descriptor for options and control */
+extern int 	controlfd;	/* file descriptor for options and control */
+extern uid_t 	controlfd_uid;	/* uid at the other end of the control file descriptor */
+extern int 	statusfd ;	/* file descriptor status update */
 extern volatile int devstatus;	/* exit device status for pppd */
 extern char	username[MAXNAMELEN];/* Our name for authenticating ourselves */
 #endif
@@ -253,6 +285,7 @@ extern bool	devnam_fixed;	/* can no longer change devnam */
 extern int	unsuccess;	/* # unsuccessful connection attempts */
 extern int	do_callback;	/* set if we want to do callback next */
 extern int	doing_callback;	/* set if this is a callback */
+extern int	error_count;	/* # of times error() has been called */
 extern char	ppp_devnam[MAXPATHLEN];
 extern char     remote_number[MAXNAMELEN]; /* Remote telephone number, if avail. */
 extern int      ppp_session_number; /* Session number (eg PPPoE session) */
@@ -266,9 +299,12 @@ extern struct notifier *ip_up_notifier; /* IPCP has come up */
 extern struct notifier *ip_down_notifier; /* IPCP has gone down */
 extern struct notifier *auth_up_notifier; /* peer has authenticated */
 extern struct notifier *link_down_notifier; /* link has gone down */
+extern struct notifier *fork_notifier;	/* we are a new child process */
 
 #ifdef __APPLE__
 extern u_char inpacket_buf[PPP_MRU+PPP_HDRLEN]; /* buffer for incoming packet */
+extern uid_t	connector_uid;	/* uid for connect script */
+extern uid_t	disconnector_uid;	/*uid for disconnect script */
 extern char	*terminal_script;/* Script to etablish connection once modem is connected */
 extern char	*altconnect_script;/* alternate script to establish physical link */
 extern int 	pty_delay;	/* timeout to wait for the pty command */
@@ -281,11 +317,15 @@ extern bool 	redialalternate; /* do we redial alternate number */
 extern int  	redialingcount;  /* current redialing count */
 extern bool  	redialingalternate;  /* currently redialing main or alternate number */
 extern int 	busycode;	/* busy error code that triggers the redial */
+extern bool hasbusystate;	/* change phase to report busy state */
 extern int 	cancelcode;	/* cancel error code for connectors*/
 extern int (*start_link_hook) __P((void));
+extern int (*change_password_hook) __P((char *msg));
+extern int (*retry_password_hook) __P((char *msg));
 extern int (*link_up_hook) __P((void));
 extern bool link_up_done;
 extern void (*wait_input_hook) __P((void));
+extern int 	extraconnecttime;	/* give some extra connection time to the connection sequence */
 
 extern int (*terminal_window_hook) __P((char *, int, int));
 
@@ -332,6 +372,7 @@ extern struct notifier *disconnect_done_notify;
 
 extern struct notifier *stop_notify;
 extern struct notifier *cont_notify;
+
 #endif
 
 /* Values for do_callback and doing_callback */
@@ -371,7 +412,13 @@ extern bool	demand;		/* Do dial-on-demand */
 extern char	*ipparam;	/* Extra parameter for ip up/down scripts */
 extern bool	cryptpap;	/* Others' PAP passwords are encrypted */
 extern int	idle_time_limit;/* Shut down link if idle for this long */
+#ifdef __APPLE__
+extern char	new_passwd[MAXSECRETLEN];	/* new password for protocol supporting changing password */
 extern bool    	noidlerecv;     /* Disconnect if idle only for outgoing traffic */
+extern bool    	noidlesend;     /* Disconnect if idle only for incoming traffic */
+extern int	tokencard;		/* Token card authentication. default is just name/password */
+extern bool	holdfirst;	/* apply holdoff timer when starting pppd, useful to delay dialondemand */
+#endif
 extern int	holdoff;	/* Dead time before restarting */
 extern bool	holdoff_specified; /* true if user gave a holdoff value */
 extern bool	notty;		/* Stdin/out is not a tty */
@@ -421,19 +468,18 @@ extern bool	ms_lanman;	/* Use LanMan password instead of NT */
 #define PAP_PEER	0x2
 #define CHAP_WITHPEER	0x4
 #define CHAP_PEER	0x8
-#ifdef EAP
 #define EAP_WITHPEER	0x10
 #define EAP_PEER	0x20
-#endif
+
 /* Values for auth_done only */
-#define CHAP_MD5_WITHPEER	0x10
-#define CHAP_MD5_PEER		0x20
+#define CHAP_MD5_WITHPEER	0x40
+#define CHAP_MD5_PEER		0x80
 #ifdef CHAPMS
-#define CHAP_MS_SHIFT		6	/* LSB position for MS auths */
-#define CHAP_MS_WITHPEER	0x40
-#define CHAP_MS_PEER		0x80
-#define CHAP_MS2_WITHPEER	0x100
-#define CHAP_MS2_PEER		0x200
+#define CHAP_MS_SHIFT		8	/* LSB position for MS auths */
+#define CHAP_MS_WITHPEER	0x100
+#define CHAP_MS_PEER		0x200
+#define CHAP_MS2_WITHPEER	0x400
+#define CHAP_MS2_PEER		0x800
 #endif
 
 extern char *current_option;	/* the name of the option being parsed */
@@ -456,8 +502,10 @@ extern int  option_priority;	/* priority of current options */
 #define PHASE_TERMINATE		9
 #define PHASE_DISCONNECT	10
 #define PHASE_HOLDOFF		11
+#ifdef __APPLE__
 #define PHASE_ONHOLD		12
 #define PHASE_WAITONBUSY	13
+#endif
 
 /*
  * The following struct gives the addresses of procedures to call
@@ -548,18 +596,6 @@ struct channel {
 
 extern struct channel *the_channel;
 
-#define ppp_send_config(unit, mtu, accm, pc, acc)			 \
-do {									 \
-	if (the_channel->send_config)					 \
-		(*the_channel->send_config)((mtu), (accm), (pc), (acc)); \
-} while (0)
-
-#define ppp_recv_config(unit, mtu, accm, pc, acc)			 \
-do {									 \
-	if (the_channel->send_config)					 \
-		(*the_channel->recv_config)((mtu), (accm), (pc), (acc)); \
-} while (0)
-
 /*
  * Prototypes.
  */
@@ -571,12 +607,18 @@ void die __P((int));		/* Cleanup and exit */
 void quit __P((void));		/* like die(1) */
 void novm __P((char *));	/* Say we ran out of memory, and die */
 void timeout __P((void (*func)(void *), void *arg, int s, int us));
-                                /* Call func(arg) after s.us seconds */
+				/* Call func(arg) after s.us seconds */
 void untimeout __P((void (*func)(void *), void *arg));
 				/* Cancel call to func(arg) */
 void record_child __P((int, char *, void (*) (void *), void *));
+pid_t safe_fork __P((void));	/* Fork & close stuff in child */
+#ifdef __APPLE__
+int  device_script __P((char *cmd, int in, int out, int dont_wait, uid_t program_uid));
+				/* Run `cmd' with given stdin and stdout */
+#else
 int  device_script __P((char *cmd, int in, int out, int dont_wait));
 				/* Run `cmd' with given stdin and stdout */
+#endif
 pid_t run_program __P((char *prog, char **args, int must_exist,
 		       void (*done)(void *), void *arg));
 				/* Run program prog with args in child */
@@ -588,6 +630,8 @@ void new_phase __P((int));	/* signal start of new phase */
 void add_notifier __P((struct notifier **, notify_func, void *));
 void remove_notifier __P((struct notifier **, notify_func, void *));
 void notify __P((struct notifier *, int));
+int  ppp_send_config __P((int, int, u_int32_t, int, int));
+int  ppp_recv_config __P((int, int, u_int32_t, int, int));
 
 /* Procedures exported from tty.c. */
 void tty_init __P((void));
@@ -599,8 +643,10 @@ void print_string __P((char *, int,  void (*) (void *, char *, ...),
 		void *));	/* Format a string for output */
 int slprintf __P((char *, int, char *, ...));		/* sprintf++ */
 int vslprintf __P((char *, int, char *, va_list));	/* vsprintf++ */
+#ifdef NO_SRTLXXX
 size_t strlcpy __P((char *, const char *, size_t));	/* safe strcpy */
 size_t strlcat __P((char *, const char *, size_t));	/* safe strncpy */
+#endif
 void dbglog __P((char *, ...));	/* log a debug message */
 void info __P((char *, ...));	/* log an informational message */
 void notice __P((char *, ...));	/* log a notice-level message */
@@ -612,6 +658,8 @@ void pr_log __P((void *, char *, ...));	/* printer fn, output to syslog */
 void end_pr_log __P((void));	/* finish up after using pr_log */
 void dump_packet __P((const char *, u_char *, int));
 				/* dump packet to debug log if interesting */
+ssize_t complete_read __P((int, void *, size_t));
+				/* read a complete buffer */
 
 /* Procedures exported from auth.c */
 void link_required __P((int));	  /* we are starting to use the link */
@@ -630,6 +678,7 @@ void auth_peer_success __P((int, int, int, char *, int));
 void auth_withpeer_fail __P((int, int));
 				/* we failed to authenticate ourselves */
 #ifdef __APPLE__
+int unexpected_network_packet __P((int, int));
 void auth_withpeer_cancelled __P((int, int));
 				/* authentication cancelled by user */
 #endif
@@ -642,8 +691,11 @@ int  check_passwd __P((int, char *, int, char *, int, char **));
 				/* Check peer-supplied username/password */
 int  get_secret __P((int, char *, char *, char *, int *, int));
 				/* get "secret" for chap */
+int  get_srp_secret __P((int unit, char *client, char *server, char *secret,
+    int am_server));
 int  auth_ip_addr __P((int, u_int32_t));
 				/* check if IP address is authorized */
+int  auth_number __P((void));	/* check if remote number is authorized */
 int  bad_ip_adrs __P((u_int32_t));
 				/* check if IP address is unreasonable */
 #ifdef __APPLE__
@@ -690,12 +742,13 @@ void wait_input __P((struct timeval *));
 void add_fd __P((int));		/* Add fd to set to wait for */
 void remove_fd __P((int));	/* Remove fd from set to wait for */
 #ifdef __APPLE__
+uid_t fd_local_uid(int fd); /* uid of the local socket file descriptor */
+void sys_statusnotify(); /* send status notification to the controller */
 void sys_reinit();			/* reinit after pid has changed */
 void sys_install_options(void);		/* install system specific options, before sys_init */
 int sys_loadplugin(char *arg);
 int sys_getconsoleuser(uid_t *uid);	/* get the current console user */
 void sys_new_event(u_long m);
-void sys_publish_status(u_long status, u_long devstatus);
 void sys_publish_remoteaddress(char *addr);
 int getabsolutetime(struct timeval *timenow);
 bool is_ready_fd(int fd);	/* check if fd is ready (out of select) */
@@ -704,6 +757,7 @@ void ppp_hold __P((int unit));	/* stop ppp traffic on this link */
 void ppp_cont __P((int unit));	/* resume ppp traffic on this link */
 void auth_hold(int unit);
 void auth_cont(int unit);
+void option_change_idle();
 int wait_input_fd(int fd, int delay);
 #ifdef INET6
 int ether_to_eui64(eui64_t *p_eui64);
@@ -749,6 +803,10 @@ int  cif6addr __P((int, eui64_t, eui64_t));
 				/* Remove an IPv6 address from i/f */
 #endif
 #ifdef __APPLE__
+int sifroute __P((int, u_int32_t, u_int32_t, u_int32_t));
+				/* set the route for the interface */
+int cifroute __P((void));
+				/* clear the route for the interface */
 int  sifnpafmode __P((int u, int proto, enum NPAFmode mode));
 				/* Set mode for filtering addresses for proto */
 int sifdns(u_int32_t dns1, u_int32_t dns2);
@@ -785,7 +843,7 @@ int setipaddr __P((char *, char **, int)); /* Set local/remote ip addresses */
 int  parse_args __P((int argc, char **argv));
 				/* Parse options from arguments given */
 #ifdef __APPLE__
-int options_from_fd __P((int));
+int options_from_controller __P(());
 #endif
 int  options_from_file __P((char *filename, int must_exist, int check_prot,
 			    int privileged));
@@ -887,6 +945,7 @@ extern int (*acl_hook) __P((char *user, int len));
 
 #define BCOPY(s, d, l)		memcpy(d, s, l)
 #define BZERO(s, n)		memset(s, 0, n)
+#define	BCMP(s1, s2, l)		memcmp(s1, s2, l)
 
 #define PRINTMSG(m, l)		{ info("Remote message: %0.*v", l, m); }
 
@@ -930,10 +989,12 @@ extern int (*acl_hook) __P((char *user, int len));
 #define EXIT_TRAFFIC_LIMIT	22
 #else
 #define EXIT_TRAFFIC_LIMIT	20
+#define EXIT_CNID_AUTH_FAILED	21
 #endif
 #endif
 #ifdef __APPLE__
 #define EXIT_PEER_NOT_AUTHORIZED	23
+#define EXIT_CNID_AUTH_FAILED	24
 #endif
 
 /*
@@ -945,11 +1006,17 @@ extern int (*acl_hook) __P((char *user, int len));
 #define DEBUGFSM	1
 #define DEBUGLCP	1
 #define DEBUGIPCP	1
+#define DEBUGIPV6CP	1
 #define DEBUGACSCP	1
 #define DEBUGUPAP	1
-#define DEBUGIPV6CP	1
 #define DEBUGCHAP	1
 #define DEBUGEAP	1
+#endif
+
+#ifdef __APPLE__
+#ifndef LOG_PPP 
+#define LOG_PPP LOG_RAS
+#endif
 #endif
 
 #ifndef LOG_PPP			/* we use LOG_LOCAL2 for syslog by default */

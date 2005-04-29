@@ -25,7 +25,7 @@
 .\" not be used in advertising or otherwise to promote the sale, use or
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
-.\" $XFree86: xc/doc/man/Xt/XtAppAI.man,v 1.5 2001/02/09 03:47:49 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppAI.man,v 1.6 2003/04/28 22:18:18 herrb Exp $
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xI Intrinsics
@@ -129,22 +129,12 @@
 .SH NAME
 XtAppAddInput, XtRemoveInput \- register and remove an input source
 .SH SYNTAX
-XtInputId XtAppAddInput(\fIapp_context\fP, \fIsource\fP, \fIcondition\fP,
-\fIproc\fP, \fIclient_data\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      int \fIsource\fP;
-.br
-      XtPointer \fIcondition\fP;
-.br
-      XtInputCallbackProc \fIproc\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.LP
-void XtRemoveInput(\fIid\fP)
-.br
-      XtInputId \fIid\fP;
+.HP
+XtInputId XtAppAddInput(XtAppContext \fIapp_context\fP, int \fIsource\fP,
+XtPointer \fIcondition\fP, XtInputCallbackProc \fIproc\fP, XtPointer
+\fIclient_data\fP); 
+.HP
+void XtRemoveInput(XtInputId \fIid\fP); 
 .SH ARGUMENTS
 .ds Co that identifies the application
 .IP \fIapp_context\fP 1i

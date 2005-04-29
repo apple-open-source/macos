@@ -1,0 +1,128 @@
+# -*- tcl -*-
+# Helper rules for the creation of the memchan website from the .exp files.
+# General formatting instructions ...
+
+proc state {} [list return [file join [pwd] state]]
+
+proc use_bg {} {
+    set c [bgcolor]
+    #puts stderr "using $c"
+    if {$c == {}} {return ""}
+    return bgcolor=$c
+}
+
+
+proc nbsp  {} {return "&nbsp;"}
+proc p     {} {return <p>}
+proc ptop  {} {return "<p valign=top>"}
+proc td    {} {return "<td [use_bg]>"}
+proc trtop {} {return "<tr valign=top [use_bg]>"}
+proc tr    {} {return "<tr            [use_bg]>"}
+proc sect {s} {return "<b>$s</b><br><hr>"}
+proc link {text url} {return "<a href=\"$url\">$text</a>"}
+proc table  {} {return "<table [border] width=100% cellspacing=0 cellpadding=0>"}
+proc btable {} {return "<table border=1 width=100% cellspacing=0 cellpadding=0>"}
+proc stable {} {return "<table [border] cellspacing=0 cellpadding=0>"}
+
+
+proc tcl_cmd {cmd} {return "<b>\[$cmd]</b>"}
+proc wget    {url} {exec /usr/bin/wget -q -O - $url 2>/dev/null}
+
+proc url {tag text url} {
+    set body {
+	switch -exact -- $what {
+	    link {return {<a href="%url%">%text%</a>}}
+	    text {return {%text%}}
+	    url  {return {%url%}}
+	}
+    }
+    proc $tag {{what link}} [string map [list %text% $text %url% $url] $body]
+}
+
+proc img {tag alt img} {
+    proc $tag {} [list return "<img alt=\"$alt\" src=\"$img\">"]
+}
+
+proc header {title} {
+    proc pagetitle {} [list return $title]
+    return "<html><head><title>[sfproject] @ SourceForge : $title</title><meta name=\"Author\" content=[author]></head><body [use_bg]>"
+}
+
+proc trailer {} {
+    return "<hr>[table][tr]<td align=left><address>[copyright][me]</address></td><td align=right>Last update at [clock format [clock seconds]]</td></tr></table></body></html>"
+}
+
+proc protect {text} {return [string map [list & "&amp;" < "&lt;" > "&gt;"] $text]}
+
+proc get_changelog {} {
+    set cl [exec [file join [here] .. changelog_to_list] [file join [pwd] .. memchan ChangeLog]]
+    proc get_changelog {} [list return $cl]
+    return $cl
+}
+
+proc changelog {} {
+    set cl   [get_changelog]
+    set html "<ul>"
+
+    foreach chunk $cl {
+	foreach {date person items} $chunk break ; # lassign
+	append html "<li><hr><b>[protect $date]</b><p align=right>[protect $person] ...<hr>[p][changelog_items $items][p]\n"
+    }
+
+    return $html</ul>
+}
+
+proc changelog_items {items} {
+    set dlopen  0
+    set onlykey 0
+
+    set html ""
+    foreach item $items {
+	set key [set com {}]
+	foreach {key com} $item break
+
+	if {$key != {}} {
+	    if {!$dlopen} {
+		if {$onlykey} {
+		    append html [p]
+		    set onlykey 0
+		}
+		append html <dl>\n
+	    }
+	    set dlopen 1
+
+	    append html <dt><i>[protect $key]</i></dt>
+	    if {$com != {}} {
+		append html <dd>[protect $com]</dd>\n
+	    }
+	} else {
+	    if {$com != {}} {
+		if {$dlopen} {append html </dl>[p]\n}
+		set dlopen 0
+		append html [protect $com]
+		set onlykey 1
+	    }
+	}
+
+    }
+    if {$dlopen} {append html </dl>\n}
+    return $html
+}
+
+proc news {} {
+    set nfile [file join [state] news]
+    set data [read [set fh [open $nfile r]]][close $fh]
+    return [string trim $data]\n
+}
+
+proc stats {} {
+    set nfile [file join [state] statistics]
+    set data [read [set fh [open $nfile r]]][close $fh]
+
+    set data [string trim $data]
+
+    regsub -all {BGCOLOR="[^"]*"} $data "[use_bg]" data
+    regsub -all {bgcolor="[^"]*"} $data "[use_bg]" data
+
+    return [string trim $data]\n
+}

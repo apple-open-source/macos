@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_lock.c,v 1.5 2002/10/30 12:51:38 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_lock.c,v 1.6 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -35,12 +35,43 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r128_context.h"
 #include "r128_lock.h"
 #include "r128_tex.h"
+#include "r128_state.h"
 
 #if DEBUG_LOCKING
 char *prevLockFile = NULL;
 int prevLockLine = 0;
 #endif
 
+
+/* Turn on/off page flipping according to the flags in the sarea:
+ */
+static void
+r128UpdatePageFlipping( r128ContextPtr rmesa )
+{
+   int use_back;
+
+   rmesa->doPageFlip = rmesa->sarea->pfAllowPageFlip;
+
+   use_back = (rmesa->glCtx->Color._DrawDestMask == BACK_LEFT_BIT);
+   use_back ^= (rmesa->sarea->pfCurrentPage == 1);
+
+   if ( R128_DEBUG & DEBUG_VERBOSE_API )
+      fprintf(stderr, "%s allow %d current %d\n", __FUNCTION__, 
+	      rmesa->doPageFlip,
+	      rmesa->sarea->pfCurrentPage );
+
+   if ( use_back ) {
+	 rmesa->drawOffset = rmesa->r128Screen->backOffset;
+	 rmesa->drawPitch  = rmesa->r128Screen->backPitch;
+   } else {
+	 rmesa->drawOffset = rmesa->r128Screen->frontOffset;
+	 rmesa->drawPitch  = rmesa->r128Screen->frontPitch;
+   }
+
+   rmesa->setup.dst_pitch_offset_c = (((rmesa->drawPitch/8) << 21) |
+                                      (rmesa->drawOffset >> 5));
+   rmesa->new_state |= R128_NEW_WINDOW;
+}
 
 /* Update the hardware state.  This is called if another context has
  * grabbed the hardware lock, which includes the X server.  This
@@ -67,11 +98,12 @@ void r128GetLock( r128ContextPtr rmesa, GLuint flags )
     * Since the hardware state depends on having the latest drawable
     * clip rects, all state checking must be done _after_ this call.
     */
-   DRI_VALIDATE_DRAWABLE_INFO( rmesa->display, sPriv, dPriv );
+   DRI_VALIDATE_DRAWABLE_INFO( sPriv, dPriv );
 
    if ( rmesa->lastStamp != dPriv->lastStamp ) {
+      r128UpdatePageFlipping( rmesa );
       rmesa->lastStamp = dPriv->lastStamp;
-      rmesa->new_state |= R128_NEW_WINDOW | R128_NEW_CLIP;
+      rmesa->new_state |= R128_NEW_CLIP;
       rmesa->SetupNewInputs = ~0;
    }
 
@@ -85,9 +117,7 @@ void r128GetLock( r128ContextPtr rmesa, GLuint flags )
       rmesa->dirty = R128_UPLOAD_ALL;
    }
 
-   for ( i = 0 ; i < rmesa->lastTexHeap ; i++ ) {
-      if ( rmesa->texHeap[i] && sarea->texAge[i] != rmesa->lastTexAge[i] ) {
-	 r128AgeTextures( rmesa, i );
-      }
+   for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+      DRI_AGE_TEXTURES( rmesa->texture_heaps[i] );
    }
 }

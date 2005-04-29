@@ -22,7 +22,7 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/di/lbxfuncs.c,v 1.6 2002/09/18 17:11:50 tsi Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/lbxfuncs.c,v 1.7 2003/05/27 22:26:56 tsi Exp $ */
 
 /*
  * top level LBX request & reply handling
@@ -137,12 +137,8 @@ get_connection_info(client, cs, cs_len, change_type, changes, changes_len)
 }
 
 static void
-send_setup_reply(client, success, majorVer, minorVer, cs, cs_len)
-    ClientPtr client;
-    Bool success;
-    int majorVer, minorVer;
-    void *cs;
-    int cs_len;
+send_setup_reply(ClientPtr client, Bool success, int majorVer, int minorVer,
+		 void *cs, int cs_len)
 {
     xConnSetupPrefix reply;
 
@@ -772,11 +768,7 @@ unpack_val(val, mask, sft, bts)
 
 /*ARGSUSED*/
 static int
-UnsquishFontInfo(compression, fdata, dlen, qfr)
-    int	compression;
-    xLbxFontInfo	*fdata;
-    int		dlen;
-    pointer	*qfr;
+UnsquishFontInfo(int compression, xLbxFontInfo *fdata, int dlen, pointer *qfr)
 {
     int         len,
                 hlen,

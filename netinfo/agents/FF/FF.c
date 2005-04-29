@@ -45,18 +45,41 @@
 #define NOTIFY_PREFIX "com.apple.system.lookupd.FF"
 #define BUFSIZE 8192
 
+#define CACHE_OFF  0
+#define CACHE_ON   1
+#define CACHE_DISABLED -1
+
 extern uint32_t notify_monitor_file(int token, const char *name, int flags);
 
 typedef struct ff_cache_s
 {
+	int status;
 	int notify_token;
 	pthread_mutex_t lock;
 	long modtime;
 	dsrecord *crecord;
 } ff_cache_t;
 
-static ff_cache_t host_cache = {-1, PTHREAD_MUTEX_INITIALIZER, 0, NULL};
-static ff_cache_t service_cache = {-1, PTHREAD_MUTEX_INITIALIZER, 0, NULL};
+static ff_cache_t filecache[] = 
+{
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryUser */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryGroup */
+	{CACHE_ON,  -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryHost */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryNetwork */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryService */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryProtocol */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryRpc */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryMount */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryPrinter */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryBootparam */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryBootp */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryAlias */
+	{CACHE_DISABLED, -1, {0}, 0, NULL},                      /* NO FILE FOR LUCategoryNetDomain */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryEthernet */
+	{CACHE_OFF, -1, PTHREAD_MUTEX_INITIALIZER, 0, NULL}, /* LUCategoryNetgroup */
+	{CACHE_DISABLED, -1, {0}, 0, NULL},                      /* NO FILE FOR LUCategoryInitgroups */
+	{CACHE_DISABLED, -1, {0}, 0, NULL}                       /* NO FILE FOR LUCategoryHostServices */
+};
 
 typedef struct
 {
@@ -91,7 +114,7 @@ char *categoryFilename[] =
 };
 
 static void
-add_validation(dsrecord *r, char *fname, long ts)
+add_validation(dsrecord *r, int cat, char *fname, long ts)
 {
 	char *str;
 	dsdata *d;
@@ -107,7 +130,7 @@ add_validation(dsrecord *r, char *fname, long ts)
 
 	dsdata_release(d);
 
-	asprintf(&str, "%s %lu", fname, ts);
+	asprintf(&str, "%s %d %lu", fname, cat, ts);
 
 	d = cstring_to_dsdata(str);
 	dsattribute_append(a, d);
@@ -185,6 +208,7 @@ load_cache(int cat, ff_cache_t *cache)
 	struct stat sb;
 
 	if (cache == NULL) return NULL;
+	if (cache->status != CACHE_ON) return NULL;
 
 	dsrecord_release(cache->crecord);
 	cache->crecord = NULL;
@@ -250,7 +274,7 @@ load_cache(int cat, ff_cache_t *cache)
 
 		if (item == NULL) continue;
 
-		add_validation(item, fpath, cache->modtime);
+		add_validation(item, cat, fpath, cache->modtime);
 
 		if (cache->crecord == NULL) cache->crecord = item;
 		if (lastrec != NULL) lastrec->next = item;
@@ -271,6 +295,7 @@ prep_cache(int cat, ff_cache_t *cache)
 	ff_cache_t *c;
 
 	if (cache == NULL) return NULL;
+	if (cache->status != CACHE_ON) return NULL;
 
 	if (cache->notify_token == -1)
 	{
@@ -285,6 +310,8 @@ prep_cache(int cat, ff_cache_t *cache)
 		status = notify_monitor_file(cache->notify_token, s, 0);
 		free(s);
 		if (status != NOTIFY_STATUS_OK) return NULL;
+
+		status = notify_check(cache->notify_token, &check);
 	}
 
 	pthread_mutex_lock(&(cache->lock));
@@ -307,9 +334,115 @@ prep_cache(int cat, ff_cache_t *cache)
 static ff_cache_t *
 cache_for_category(int cat)
 {
-	if (cat == LUCategoryHost) return prep_cache(cat, &host_cache);
-	if (cat == LUCategoryService) return prep_cache(cat, &service_cache);
-	return NULL;
+	if ((cat < 0) || (cat > NCATEGORIES)) return NULL;
+	if (filecache[cat].status != CACHE_ON) return NULL;
+
+	return prep_cache(cat, &(filecache[cat]));
+}
+
+static int
+cache_enable_check_name(char *n, int *how)
+{
+	char *p;
+
+	if (n == NULL) return -1;
+
+	p = n;
+	*how = CACHE_ON;
+
+	if (n[0] == '-')
+	{
+		p++;
+		*how = CACHE_OFF;
+	}
+
+	if (!strcasecmp(p, "user")) return LUCategoryUser;
+	if (!strcasecmp(p, "users")) return LUCategoryUser;
+	if (!strcasecmp(p, "passwd")) return LUCategoryUser;
+	if (!strcasecmp(p, "master.passwd")) return LUCategoryUser;
+	if (!strcasecmp(p, "group")) return LUCategoryGroup;
+	if (!strcasecmp(p, "groups")) return LUCategoryGroup;
+	if (!strcasecmp(p, "host")) return LUCategoryHost;
+	if (!strcasecmp(p, "hosts")) return LUCategoryHost;
+	if (!strcasecmp(p, "network")) return LUCategoryNetwork;
+	if (!strcasecmp(p, "networks")) return LUCategoryNetwork;
+	if (!strcasecmp(p, "service")) return LUCategoryService;
+	if (!strcasecmp(p, "services")) return LUCategoryService;
+	if (!strcasecmp(p, "protocol")) return LUCategoryProtocol;
+	if (!strcasecmp(p, "protocols")) return LUCategoryProtocol;
+	if (!strcasecmp(p, "rpc")) return LUCategoryRpc;
+	if (!strcasecmp(p, "rpcs")) return LUCategoryRpc;
+	if (!strcasecmp(p, "mount")) return LUCategoryMount;
+	if (!strcasecmp(p, "mounts")) return LUCategoryMount;
+	if (!strcasecmp(p, "fstab")) return LUCategoryMount;
+	if (!strcasecmp(p, "printer")) return LUCategoryPrinter;
+	if (!strcasecmp(p, "printers")) return LUCategoryPrinter;
+	if (!strcasecmp(p, "printcap")) return LUCategoryPrinter;
+	if (!strcasecmp(p, "bootparam")) return LUCategoryBootparam;
+	if (!strcasecmp(p, "bootparams")) return LUCategoryBootparam;
+	if (!strcasecmp(p, "bootp")) return LUCategoryBootp;
+	if (!strcasecmp(p, "bootptab")) return LUCategoryBootp;
+	if (!strcasecmp(p, "alias")) return LUCategoryAlias;
+	if (!strcasecmp(p, "aliases")) return LUCategoryAlias;
+	if (!strcasecmp(p, "ether")) return LUCategoryEthernet;
+	if (!strcasecmp(p, "ethers")) return LUCategoryEthernet;
+	if (!strcasecmp(p, "netgroup")) return LUCategoryNetgroup;
+	if (!strcasecmp(p, "netgroups")) return LUCategoryNetgroup;
+	return -1;
+}
+
+static void
+FF_configure(agent_private *ap)
+{
+	int status, i, cat, enable;
+	dsrecord *r;
+	dsattribute *a;
+	dsdata *d;
+
+	if (ap == NULL) return;
+
+	if (ap->dyna->dyna_config_agent != NULL)
+	{
+		status = (ap->dyna->dyna_config_agent)(ap->dyna, -1, &r);
+		if (status == 0)
+		{
+			d = cstring_to_dsdata("CacheFile");
+			a = dsrecord_attribute(r, d, SELECT_ATTRIBUTE);
+			dsdata_release(d);
+			if (a != NULL)
+			{
+				for (i = 0; i < a->count; i++)
+				{
+					if (!strcasecmp(dsdata_to_cstring(a->value[i]), "all"))
+					{
+						for (cat = 0; cat < NCATEGORIES; cat++)
+						{
+							if (filecache[cat].status != CACHE_DISABLED) filecache[cat].status = CACHE_ON;
+						}
+					}
+					else if (!strcasecmp(dsdata_to_cstring(a->value[i]), "none"))
+					{
+						for (cat = 0; cat < NCATEGORIES; cat++)
+						{
+							if (filecache[cat].status != CACHE_DISABLED) filecache[cat].status = CACHE_OFF;
+						}
+					}
+					else
+					{
+						cat = cache_enable_check_name(dsdata_to_cstring(a->value[i]), &enable);
+						if ((cat > 0) && (filecache[cat].status != CACHE_DISABLED))
+						{
+							filecache[cat].status = enable;
+						}
+					}
+				}
+
+				dsattribute_release(a);
+			}
+			
+			dsrecord_release(r);
+		}
+	}
 }
 
 u_int32_t
@@ -334,7 +467,9 @@ FF_new(void **c, char *args, dynainfo *d)
 
 	ap->dyna = d;
 
-	system_log(LOG_DEBUG, "Allocated FF 0x%08x\n", (int)ap);
+	FF_configure(ap);
+
+	system_log(LOG_DEBUG, "Allocated FF 0x%08x", (int)ap);
 
 	return 0;
 }
@@ -351,7 +486,7 @@ FF_free(void *c)
 	if (ap->dir != NULL) free(ap->dir);
 	ap->dir = NULL;
 
-	system_log(LOG_DEBUG, "Deallocated FF 0x%08x\n", (int)ap);
+	system_log(LOG_DEBUG, "Deallocated FF 0x%08x", (int)ap);
 
 	free(ap);
 	c = NULL;
@@ -514,7 +649,7 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 	if (stamp == 1)
 	{
 		item = dsrecord_new();
-		add_validation(item, fpath, ts);
+		add_validation(item, cat, fpath, ts);
 		*list = item;
 		free(fpath);
 		return 0;
@@ -525,7 +660,7 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 		free(fpath);
 		return cache_query(cache, cat, single_item, pattern, list);
 	}
-
+	
 	fp = fopen(fpath, "r");
 	if (fp == NULL)
 	{
@@ -572,7 +707,7 @@ FF_query(void *c, dsrecord *pattern, dsrecord **list)
 		match = dsrecord_match_select(item, pattern, SELECT_ATTRIBUTE);
 		if (match == 1)
 		{
-			add_validation(item, fpath, ts);
+			add_validation(item, cat, fpath, ts);
 
 			if (*list == NULL) *list = dsrecord_retain(item);
 			else lastrec->next = dsrecord_retain(item);
@@ -635,7 +770,7 @@ u_int32_t
 FF_validate(void *c, char *v)
 {
 	agent_private *ap;
-	int n;
+	int n, cat;
 	u_int32_t ts, status, check;
 	struct stat st;
 	char fpath[MAXPATHLEN + 1];
@@ -645,25 +780,19 @@ FF_validate(void *c, char *v)
 
 	ap = (agent_private *)c;
 
-	n = sscanf(v, "%s %u", fpath, &ts);
-	if (n != 2) return 0;
+	n = sscanf(v, "%s %d %u", fpath, &cat, &ts);
+	if (n != 3) return 0;
 
-	if ((!strcmp(fpath, "/etc/hosts")) && (host_cache.notify_token != -1))
+	if ((cat < 0) || (cat > NCATEGORIES)) return 0;
+
+	if ((filecache[cat].status == CACHE_ON) && (filecache[cat].notify_token != -1))
 	{
 		check = 1;
-		status = notify_check(host_cache.notify_token, &check);
+		status = notify_check(filecache[cat].notify_token, &check);
 		if ((status == NOTIFY_STATUS_OK) && (check == 0)) return 1;
-		host_cache.modtime = 0;
+		filecache[cat].modtime = 0;
 	}
 
-	if ((!strcmp(fpath, "/etc/services")) && (service_cache.notify_token != -1))
-	{
-		check = 1;
-		status = notify_check(service_cache.notify_token, &check);
-		if ((status == NOTIFY_STATUS_OK) && (check == 0)) return 1;
-		service_cache.modtime = 0;
-	}
-	
 	if (stat(fpath, &st) < 0) return 0;
 	if (ts == st.st_mtime) return 1;
 

@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2002
+ * Copyright (c) 2000-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: TestConstruct01.cpp,v 1.1.1.1 2003/02/15 04:56:19 zarzycki Exp $
+ * $Id: TestConstruct01.cpp,v 1.2 2004/03/30 01:24:38 jtownsen Exp $
  */
 
 /*
@@ -252,13 +252,6 @@ void t6(int except_flag)
 	}
 	delete penv;
 
-	// Make sure we get a message from C++ layer reminding us to close.
-	cerr << "expected error: ";
-	{
-		DbEnv foo(DB_CXX_NO_EXCEPTIONS);
-		foo.open(CONSTRUCT01_DBDIR, DB_CREATE, 0);
-	}
-	cerr << "should have received error.\n";
 	cout << "  finished.\n";
 }
 

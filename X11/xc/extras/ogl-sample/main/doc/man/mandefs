@@ -30,8 +30,7 @@
 # published by SGI, but has not been independently verified as being
 # compliant with the OpenGL(R) version 1.2.1 Specification.
 #
-# $Date$ $Revision$
-# $Header: //depot/main/doc/man/mandefs#8 $
+# $XFree86: xc/extras/ogl-sample/main/doc/man/mandefs,v 1.4 2003/10/22 19:45:56 tsi Exp $
 
 # Common definitions for man page Makefiles
 

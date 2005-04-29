@@ -1,0 +1,165 @@
+[manpage_begin math::optimize n 0.1]
+[moddesc   {Math}]
+[titledesc {Optimisation routines}]
+[require Tcl 8.2]
+[require math::optimize [opt 0.1]]
+[description]
+[para]
+This package implements several optimisation algorithms:
+
+[list_begin bullet]
+[bullet]
+Minimize or maximize a function over a given interval
+
+[bullet]
+Solve a linear program (maximize a linear function subject to linear
+constraints)
+
+[list_end]
+
+[para]
+The package is fully implemented in Tcl. No particular attention has
+been paid to the accuracy of the calculations. Instead, the
+algorithms have been used in a straightforward manner.
+[para]
+This document describes the procedures and explains their usage.
+[para]
+[emph Note:] The linear programming algorithm is described but not yet
+operational.
+
+[section "PROCEDURES"]
+[para]
+This package defines the following public procedures:
+[list_begin definitions]
+
+[call [cmd ::math::optimize::minimize] [arg begin] [arg end] [arg func] [arg maxerr]]
+Minimize the given (continuous) function by examining the values in the
+given interval. The procedure determines the values at both ends and in the
+centre of the interval and then constructs a new interval of 2/3 length
+that includes the minimum. No guarantee is made that the [emph global]
+minimum is found.
+[nl]
+The procedure returns the "x" value for which the function is minimal.
+[nl]
+[arg begin] - Start of the interval
+[nl]
+[arg end] - End of the interval
+[nl]
+[arg func] - Name of the function to be minimized (a procedure taking
+one argument).
+[nl]
+[arg maxerr] - Maximum relative error (defaults to 1.0e-4)
+
+[call [cmd ::math::optimize::maximize] [arg begin] [arg end] [arg func] [arg maxerr]]
+Maximize the given (continuous) function by examining the values in the
+given interval. The procedure determines the values at both ends and in the
+centre of the interval and then constructs a new interval of 1/2 length
+that includes the maximum. No guarantee is made that the [emph global]
+maximum is found.
+[nl]
+The procedure returns the "x" value for which the function is maximal.
+[nl]
+[arg begin] - Start of the interval
+[nl]
+[arg end] - End of the interval
+[nl]
+[arg func] - Name of the function to be maximized (a procedure taking
+one argument).
+[nl]
+[arg maxerr] - Maximum relative error (defaults to 1.0e-4)
+
+[call [cmd ::math::optimize::solveLinearProgram] [arg constraints] [arg objective]]
+Solve a [emph "linear program"] in standard form using a straightforward
+implementation of the Simplex algorithm. (In the explanation below: The
+linear program has N constraints and M variables).
+[nl]
+The procedure returns a list of M values, the values for which the
+objective function is maximal or a single keyword if the linear program
+is not feasible or unbounded (either "unfeasible" or "unbounded")
+[nl]
+[arg constraints] - Matrix of coefficients plus maximum values that
+implement the linear constraints. It is expected to be a list of N lists
+of M+1 numbers each, M coefficients and the maximum value.
+[nl]
+[arg objective] - The M coefficients of the objective function
+[list_end]
+
+[section NOTES]
+[para]
+Several of the above procedures take the [emph names] of procedures as
+arguments. To avoid problems with the [emph visibility] of these
+procedures, the fully-qualified name of these procedures is determined
+inside the optimize routines. For the user this has only one
+consequence: the named procedure must be visible in the calling
+procedure. For instance:
+[example_begin]
+    namespace eval ::mySpace {
+       namespace export calcfunc
+       proc calcfunc { x } { return $x }
+    }
+    #
+    # Use a fully-qualified name
+    #
+    namespace eval ::myCalc {
+       puts [lb]minimum ::myCalc::calcfunc $begin $end[rb]
+    }
+    #
+    # Import the name
+    #
+    namespace eval ::myCalc {
+       namespace import ::mySpace::calcfunc
+       puts [lb]minimum calcfunc $begin $end[rb]
+    }
+[example_end]
+
+[section EXAMPLES]
+[para]
+Let us take a few simple examples:
+[para]
+Determine the maximum of f(x) = x^3 exp(-3x), on the interval (0,10):
+[example_begin]
+proc efunc { x } { expr {[lb]$x*$x*$x * exp(-3.0*$x)[rb]} }
+puts "Maximum at: [lb]::math::optimize::maximum 0.0 10.0 efunc[rb]"
+[example_end]
+[para]
+The maximum allowed error determines the number of steps taken (with
+each step in the iteration the interval is reduced with a factor 1/2).
+Hence, a maximum error of 0.0001 is achieved in approximately 14 steps.
+[para]
+An example of a [emph "linear program"] is:
+[para]
+Optimise the expression 3x+2y, where:
+[example_begin]
+   x >= 0 and y >= 0 (implicit constraints, part of the
+                     definition of linear programs)
+
+   x + y   <= 1      (constraints specific to the problem)
+   2x + 5y <= 10
+[example_end]
+[para]
+This problem can be solved as follows:
+[example_begin]
+
+   set solution [lb]::math::optimize::solveLinearProgram \
+      { { 1.0   1.0   1.0 }
+        { 2.0   5.0  10.0 } } \
+        { 3.0   2.0 }[rb]
+[example_end]
+[para]
+Note, that a constraint like:
+[example_begin]
+   x + y >= 1
+[example_end]
+can be turned into standard form using:
+[example_begin]
+   -x  -y <= -1
+[example_end]
+
+[para]
+The theory of linear programming is the subject of many a text book and
+the Simplex algorithm that is implemented here is the most well-known
+method to solve this type of problems.
+
+[keywords math optimization minimum maximum "linear program"]
+
+[manpage_end]

@@ -47,12 +47,12 @@ package java.awt;
   * least the following methods:
   * <p>
   * <ul>
-  * <li>getAscent
-  * <li>getDescent
-  * <li>getLeading()
-  * <li>getMaxAdvance()
-  * <li>charWidth(char)
-  * <li>charsWidth(char[], int, int)
+  * <li>getAscent()</li>
+  * <li>getDescent()</li>
+  * <li>getLeading()</li>
+  * <li>getMaxAdvance()</li>
+  * <li>charWidth(char)</li>
+  * <li>charsWidth(char[], int, int)</li>
   * </ul>
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
@@ -195,7 +195,7 @@ getMaxAscent()
 public int
 getMaxDescent()
 {
-  return(getDescent());
+  return getMaxDecent ();
 }
 
 /*************************************************************************/
@@ -212,7 +212,7 @@ getMaxDescent()
 public int
 getMaxDecent()
 {
-  return(getMaxDescent());
+  return getDescent ();
 }
 
 /*************************************************************************/
@@ -292,8 +292,7 @@ charsWidth(char buf[], int offset, int len)
 {
   int total_width = 0;
   for (int i = offset; i < len; i++)
-    total_width = charWidth(buf[i]);
-
+    total_width += charWidth(buf[i]);
   return(total_width);
 }
 
@@ -328,7 +327,12 @@ bytesWidth(byte buf[], int offset, int len)
 public int[]
 getWidths()
 {
-  return(new int[256]);
+  int [] result = new int[256];
+  for(char i = 0; i < 256; i++)
+  {
+    result[i]= charWidth(i);
+  }
+  return(result);
 }
 
 /*************************************************************************/
@@ -346,4 +350,5 @@ toString()
 }
 
 } // class FontMetrics 
+
 

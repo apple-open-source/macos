@@ -4,7 +4,7 @@
 *
 * Author: Robert Story <rstory@freesnmp.com>
 *
-* $Id: README.build-scripts,v 1.1.1.1 2003/05/29 00:03:09 rbraun Exp $
+* $Id: README.build-scripts,v 1.7 2003/12/23 15:19:08 rstory Exp $
 *
 ******************************************************************************
 
@@ -103,6 +103,6 @@ OTHER PROBLEMS
 
 * "gcc: snmp_version.lo: No such file or directory"
 
-   This is a good indication that you have previously built in your
+   This is a good indication that you have previously build in your
    source directory. 'make distclean' in your source directory, or
    check out a fresh new version from CVS.

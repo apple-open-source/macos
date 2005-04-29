@@ -1,26 +1,30 @@
 /* Main for jv-scan
-   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "intl.h"
 
 #include "obstack.h"		/* We use obstacks in lex.c */
 
@@ -36,15 +40,14 @@ Boston, MA 02111-1307, USA.  */
 
 #include <getopt.h>
 
-extern void fatal_error PARAMS ((const char *s, ...))
+extern void fatal_error (const char *msgid, ...)
      ATTRIBUTE_PRINTF_1 ATTRIBUTE_NORETURN;
-void warning PARAMS ((const char *s, ...)) ATTRIBUTE_PRINTF_1;
-void gcc_obstack_init PARAMS ((struct obstack *obstack));
-void report PARAMS ((void));
+void warning (const char *msgid, ...) ATTRIBUTE_PRINTF_1;
+void report (void);
 
-static void usage PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void help PARAMS ((void)) ATTRIBUTE_NORETURN;
-static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
+static void usage (void) ATTRIBUTE_NORETURN;
+static void help (void) ATTRIBUTE_NORETURN;
+static void version (void) ATTRIBUTE_NORETURN;
 
 #define JC1_LITE
 #include "jcf.h"
@@ -53,11 +56,10 @@ static void version PARAMS ((void)) ATTRIBUTE_NORETURN;
 /* Current input file and output file IO streams.  */
 FILE *finput, *out;
 
-/* Current input filename.  */
-char *input_filename;
-
 /* Executable name.  */
 char *exec_name;
+
+struct line_maps line_table;
 
 /* Flags matching command line options.  */
 int flag_find_main = 0;
@@ -92,47 +94,69 @@ static const struct option options[] =
 };
 
 static void
-usage ()
+usage (void)
 {
-  fprintf (stderr, "Try `jv-scan --help' for more information.\n");
+  fprintf (stderr, _("Try `jv-scan --help' for more information.\n"));
   exit (1);
 }
 
 static void
-help ()
+help (void)
 {
-  printf ("Usage: jv-scan [OPTION]... FILE...\n\n");
-  printf ("Print useful information read from Java source files.\n\n");
-  printf ("  --no-assert             Don't recognize the assert keyword\n");
-  printf ("  --complexity            Print cyclomatic complexity of input file\n");
-  printf ("  --encoding NAME         Specify encoding of input file\n");
-  printf ("  --print-main            Print name of class containing `main'\n");
-  printf ("  --list-class            List all classes defined in file\n");
-  printf ("  --list-filename         Print input filename when listing class names\n");
-  printf ("  -o FILE                 Set output file name\n");
+  printf (_("Usage: jv-scan [OPTION]... FILE...\n\n"));
+  printf (_("Print useful information read from Java source files.\n\n"));
+  printf (_("  --no-assert             Don't recognize the assert keyword\n"));
+  printf (_("  --complexity            Print cyclomatic complexity of input file\n"));
+  printf (_("  --encoding NAME         Specify encoding of input file\n"));
+  printf (_("  --print-main            Print name of class containing `main'\n"));
+  printf (_("  --list-class            List all classes defined in file\n"));
+  printf (_("  --list-filename         Print input filename when listing class names\n"));
+  printf (_("  -o FILE                 Set output file name\n"));
   printf ("\n");
-  printf ("  --help                  Print this help, then exit\n");
-  printf ("  --version               Print version number, then exit\n");
+  printf (_("  --help                  Print this help, then exit\n"));
+  printf (_("  --version               Print version number, then exit\n"));
   printf ("\n");
-  printf ("For bug reporting instructions, please see:\n");
-  printf ("%s.\n", bug_report_url);
+  printf (_("For bug reporting instructions, please see:\n"
+	    "%s.\n"), bug_report_url);
   exit (0);
 }
 
 static void
-version ()
+version (void)
 {
   printf ("jv-scan (GCC) %s\n\n", version_string);
-  printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
-  printf ("This is free software; see the source for copying conditions.  There is NO\n");
-  printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n");
+  printf ("Copyright %s 2004 Free Software Foundation, Inc.\n", _("(C)"));
+  printf (_("This is free software; see the source for copying conditions.  There is NO\n"
+	    "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n"));
   exit (0);
 }
 
+#ifdef USE_MAPPED_LOCATION
+/* FIXME - this is the same as the function in tree.c, which is awkward.
+   Probably the cleanest solution is to move the function to line-map.c.
+   This is difficult as long as we still support --disable-mapped-location,
+   since whether expanded_location has a column fields depends on
+   USE_MAPPED_LOCATION. */
+
+expanded_location
+expand_location (source_location loc)
+{
+  expanded_location xloc;
+  if (loc == 0) { xloc.file = NULL; xloc.line = 0;  xloc.column = 0; }
+  else
+    {
+      const struct line_map *map = linemap_lookup (&line_table, loc);
+      xloc.file = map->to_file;
+      xloc.line = SOURCE_LINE (map, loc);
+      xloc.column = SOURCE_COLUMN (map, loc);
+    };
+  return xloc;
+}
+#endif
+
 /* jc1-lite main entry point */
 int
-DEFUN (main, (argc, argv),
-       int argc AND char **argv)
+main (int argc, char **argv)
 {
   int i = 1;
   const char *output_file = NULL;
@@ -144,6 +168,8 @@ DEFUN (main, (argc, argv),
 
   /* Default for output */
   out = stdout;
+
+  gcc_init_libintl ();
 
   /* Process options first.  We use getopt_long and not
      getopt_long_only because we only support `--' long options here.  */
@@ -197,8 +223,8 @@ DEFUN (main, (argc, argv),
   for ( i = optind; i < argc; i++ )
     if (argv [i])
       {
-	input_filename = argv [i];
-	if ( (finput = fopen (argv [i], "r")) )
+	char *filename = argv[i];
+	if ( (finput = fopen (filename, "r")) )
 	  {
 	    /* There's no point in trying to find the current encoding
 	       unless we are going to do something intelligent with it
@@ -212,6 +238,7 @@ DEFUN (main, (argc, argv),
 	      encoding = DEFAULT_ENCODING;
 
 	    java_init_lex (finput, encoding);
+	    ctxp->filename = filename;
 	    yyparse ();
 	    report ();
 	    if (ftell (out) != ft)
@@ -239,46 +266,30 @@ DEFUN (main, (argc, argv),
    functions */
 
 void
-fatal_error VPARAMS ((const char *s, ...))
+fatal_error (const char *msgid, ...)
 {
-  VA_OPEN (ap, s);
-  VA_FIXEDARG (ap, const char *, s);
-
-  fprintf (stderr, "%s: error: ", exec_name);
-  vfprintf (stderr, s, ap);
+  va_list ap;
+  va_start (ap, msgid);
+  fprintf (stderr, _("%s: error: "), exec_name);
+  vfprintf (stderr, _(msgid), ap);
   fputc ('\n', stderr);
-  VA_CLOSE (ap);
+  va_end (ap);
   exit (1);
 }
 
 void
-warning VPARAMS ((const char *s, ...))
+warning (const char *msgid, ...)
 {
-  VA_OPEN (ap, s);
-  VA_FIXEDARG (ap, const char *, s);
-
-  fprintf (stderr, "%s: warning: ", exec_name);
-  vfprintf (stderr, s, ap);
+  va_list ap;
+  va_start (ap, msgid);
+  fprintf (stderr, _("%s: warning: "), exec_name);
+  vfprintf (stderr, _(msgid), ap);
   fputc ('\n', stderr);
-  VA_CLOSE (ap);
+  va_end (ap);
 }
 
 void
-gcc_obstack_init (obstack)
-     struct obstack *obstack;
+fancy_abort (const char *file, int line, const char *func)
 {
-  /* Let particular systems override the size of a chunk.  */
-#ifndef OBSTACK_CHUNK_SIZE
-#define OBSTACK_CHUNK_SIZE 0
-#endif
-  /* Let them override the alloc and free routines too.  */
-#ifndef OBSTACK_CHUNK_ALLOC
-#define OBSTACK_CHUNK_ALLOC xmalloc
-#endif
-#ifndef OBSTACK_CHUNK_FREE
-#define OBSTACK_CHUNK_FREE free
-#endif
-  _obstack_begin (obstack, OBSTACK_CHUNK_SIZE, 0,
-		  (void *(*) (long)) OBSTACK_CHUNK_ALLOC,
-		  (void (*) (void *)) OBSTACK_CHUNK_FREE);
+  fatal_error ("abort in %s, at %s:%d", func, file, line);
 }

@@ -1,0 +1,80 @@
+# -- CVS $Id: INSTALL.optional,v 1.1.1.1 1997/02/05 20:51:09 aku Exp $
+#
+
+Installation and compilation instructions for zlib/libdes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Please read entirely.
+
+
+Background:
+	The functionality of 4 commands depends on the
+	libraries 'libz' and 'libdes'. Trf will load them
+	on demand if and only if they are installed as
+	shared libraries.
+
+Problem:
+	The distributions contain no instructions on how
+	to build them as shared libraries.
+
+Solution here:
+	2 special make-targets are provided, 'zlib' and 'libdes'. 
+	They assume that the distributions were unpacked into
+	subdirectories of the trf source-directory, their names
+	must be equal to the targets (soft links should be
+	possible to).
+
+	Executing 'make zlib' will then generate the shared
+	library libz.XX in the trf source-directory
+	(XX = suffix of shared libraries on your system).
+
+	'libdes' is created analogously.
+
+	The targets are valid for zlib-1.0.4 and libdes-3.23.
+	If you have newer versions, please check source- and
+	object-list and make sure that no files are missing.
+
+	On systems with a.out libraries you have to update the
+	files 'compat/zsymbols.c' and 'compat/ld_symbols.c' too.
+	All new symbols must be added to them.
+
+
+	For zlib and a.out systems an alternative is available.
+	Copy 'compat/zsymbols.c' and 'doc/Makefile.zlib.aout'
+	into the distribution and compile. You should get a
+	standard and a shared library for zlib.
+
+
+Remarks:
+*	doc/Makefile.zlib.aout and compat/tclLoad*.c are courtesy
+	of Jan Nijtmans (nijtmans@nici.kun.nl). If you have
+	problems compiling/linking/using them, please contact him.
+
+*	Feel free to install the created shared libraries at any
+	place in your system you like. But:
+
+	If your systems allows to define the search-path for shared
+	externally, then don't forget to update this definition.
+
+	On systems without such you have to edit Makefile(.in) of Trf.
+	Search for -DZ_LIB_NAME (and -DLIBDES_LIB_NAME) and add
+	the installation paths to these definitions.
+
+*	On systems not supporting dynamic loading 'configure' will
+	choose 'compat/tclLoadNone.c'. This file will force static
+	linkage of 'libz' and 'libdes'!. You have to add the appropriate
+	link-specifications to LOADLIBES in 'Makefile.in'.
+
+
+***>	Trf will search for 'libz.so.1', then 'libz.so', then fail.
+	The same holds for libdes. Substitute '.so' with the
+	appropriate suffix of shared libraries on your system.
+
+	On Ultrix and other systems using aout as shared libraries
+	the suffix '.a' is used instead of '..o'. This enables static
+	linking of the dynamic libraries as well.
+
+
+
+Thanks for your attention,
+	Andreas
+	(a.kupries@westend.com)

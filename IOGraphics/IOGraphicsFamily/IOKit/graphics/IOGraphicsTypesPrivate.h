@@ -28,7 +28,24 @@
 enum {
     // options for IOServiceRequestProbe()
     kIOFBForceReadEDID			= 0x00000100,
-    kIOFBAVProbe			= 0x00000200
+    kIOFBAVProbe			= 0x00000200,
+    kIOFBSetTransform			= 0x00000400,
+    kIOFBTransformShift			= 16,
+    kIOFBScalerUnderscan		= 0x01000000,
+};
+
+enum {
+    // transforms
+    kIOFBRotateFlags		        = 0x0000000f,
+
+    kIOFBSwapAxes			= 0x00000001,
+    kIOFBInvertX			= 0x00000002,
+    kIOFBInvertY			= 0x00000004,
+
+    kIOFBRotate0			= 0x00000000,
+    kIOFBRotate90			= kIOFBSwapAxes | kIOFBInvertX,
+    kIOFBRotate180			= kIOFBInvertX  | kIOFBInvertY,
+    kIOFBRotate270			= kIOFBSwapAxes | kIOFBInvertY
 };
 
 enum {
@@ -56,12 +73,52 @@ enum {
     kConnectionPALMode			= 2
 };
 
+// values for kIOCapturedAttribute
+enum {
+    kIOCaptureDisableDisplayChange	= 0x00000001,
+    kIOCaptureDisableDisplayDimming	= 0x00000002
+};
+
 #define kIOFBGammaHeaderSizeKey		"IOFBGammaHeaderSize"
 
 #define kIONDRVFramebufferGenerationKey "IONDRVFramebufferGeneration"
 
+#define kIOFramebufferOpenGLIndexKey 	"IOFramebufferOpenGLIndex"
+
 #define kIOFBCurrentPixelClockKey 	"IOFBCurrentPixelClock"
 #define kIOFBCurrentPixelCountKey 	"IOFBCurrentPixelCount"
+
+#define kIOFBTransformKey 		"IOFBTransform"
+#define kIOFBRotatePrefsKey 		"framebuffer-rotation"
+
+#define kIOFBConnectInterruptDelayKey 	"connect-interrupt-delay"
+
+#define kIOGraphicsPrefsKey 		"IOGraphicsPrefs"
+#define kIODisplayPrefKeyKey 		"IODisplayPrefsKey"
+#define kIOGraphicsPrefsParametersKey  "IOGraphicsPrefsParameters"
+
+#define kIODisplayFastBootEDIDKey 	"nv-edid"
+
+#define kIOFBBuiltInKey			"built-in"
+
+
+#define detailedTimingModeID		__reservedA[0]
+
+enum {
+    kIOAccelSpecificID		= 0x00000002
+};
+
+#ifndef kIOFBLowPowerAggressiveness
+#define kIOFBLowPowerAggressiveness	iokit_family_err(sub_iokit_graphics, 1)
+#endif
+
+#ifndef kIOFBCaptureAggressiveness
+#define kIOFBCaptureAggressiveness	iokit_family_err(sub_iokit_graphics, 2)
+#endif
+
+#ifndef kIODisplayDimAggressiveness
+#define kIODisplayDimAggressiveness	iokit_family_err(sub_iokit_graphics, 3)
+#endif
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

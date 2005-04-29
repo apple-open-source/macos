@@ -67,18 +67,39 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
 
+SUBDIRS			= trace .
+
 INCLUDES		= -I$(top_srcdir)/include
 
 lib_LTLIBRARIES		= libiodbc.la
 
 libiodbc_la_LDFLAGS	= -version-info @lib_version@ \
 	                  -export-symbols $(srcdir)/iodbc.exp
-libiodbc_la_LIBADD	= $(LIBADD_DL)
+libiodbc_la_LIBADD	= trace/libiodbctrace.la \
+			  ../iodbcinst/libiodbcinst.la \
+			  $(LIBADD_DL) $(LIBADD_OS)
 libiodbc_la_SOURCES	= catalog.c connect.c dlf.c dlproc.c execute.c \
 			  fetch.c hdbc.c henv.c herr.c hstmt.c info.c \
-			  itrace.c misc.c prepare.c result.c odbc3.c 
+			  misc.c prepare.c result.c odbc3.c \
+			  unicode.c
 
-noinst_HEADERS		= iodbc.h dlf.h dlproc.h hdbc.h henv.h herr.h \
-			  hstmt.h itrace.h henv.ci herr.ci hdesc.h ithread.h
+noinst_HEADERS		= dlf.h dlproc.h hdbc.h henv.h herr.h \
+			  hstmt.h itrace.h henv.ci herr.ci hdesc.h ithread.h \
+			  unicode.h
 
-EXTRA_DIST		= iodbc.def iodbc.exp main.c vmscompile.com
+libiodbc.la: $(libiodbc_la_OBJECTS) $(libiodbc_la_DEPENDENCIES)
+	$(LINK) -rpath $(libdir) $(libiodbc_la_LDFLAGS) $(libiodbc_la_OBJECTS) $(libiodbc_la_LIBADD) $(LIBS)
+if DARWIN
+	$(STRIP) -s $(top_srcdir)/mac/iodbc.exp -u .libs/*.dylib
+endif
+
+EXTRA_DIST		= iodbc.def iodbc.exp main.c vmscompile.com \
+			  install_libodbc.sh
+
+
+#
+#  Add symbolic link for libodbc.so as some apps need this
+#
+install-exec-hook:
+	$(SHELL) $(srcdir)/install_libodbc.sh $(prefix)
+

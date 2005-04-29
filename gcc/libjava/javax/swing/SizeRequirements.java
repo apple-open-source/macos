@@ -35,17 +35,19 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-// Imports
-import java.io.*;
+import java.io.Serializable;
 
 /**
  * SizeRequirements
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class SizeRequirements implements Serializable {
+public class SizeRequirements implements Serializable
+{
+  static final long serialVersionUID = 9217749429906736553L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

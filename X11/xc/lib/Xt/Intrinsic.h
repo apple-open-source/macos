@@ -48,7 +48,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Intrinsic.h,v 3.8 2001/12/14 19:56:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Intrinsic.h,v 3.9 2003/04/21 16:34:27 herrb Exp $ */
 
 #ifndef _XtIntrinsic_h
 #define _XtIntrinsic_h
@@ -67,8 +67,6 @@ in this Software without prior written authorization from The Open Group.
 #define XtSpecificationRelease 6
 
 typedef char *String;
-
-#if NeedFunctionPrototypes
 
 /* We do this in order to get "const" declarations to work right.  We
  * use _XtString instead of String so that C++ applications can
@@ -91,8 +89,6 @@ typedef char *String;
 #define _XtPosition	Position
 #define _XtXtEnum	XtEnum
 #endif /* NeedWidePrototypes */
-
-#endif /* NeedFunctionPrototypes */
 
 #include <stddef.h>
 
@@ -168,11 +164,7 @@ typedef unsigned int	Cardinal;
 typedef unsigned short	Dimension;  /* Size in pixels			*/
 typedef short		Position;   /* Offset from 0 coordinate		*/
 
-#if NeedFunctionPrototypes
 typedef void*		XtPointer;
-#else
-typedef char*		XtPointer;
-#endif
 
 /* The type Opaque is NOT part of the Xt standard, do NOT use it. */
 /* (It remains here only for backward compatibility.) */
@@ -189,12 +181,10 @@ typedef struct _TranslationData *XtAccelerators;
 typedef unsigned int Modifiers;
 
 typedef void (*XtActionProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 typedef XtActionProc* XtBoundActions;
@@ -223,11 +213,9 @@ typedef struct {
 } XtConvertArgRec, *XtConvertArgList;
 
 typedef void (*XtConvertArgProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Cardinal*		/* size */,
     XrmValue*		/* value */
-#endif
 );
 
 typedef struct {
@@ -245,33 +233,27 @@ typedef struct {
 #define XtSMDontChange	5
 
 typedef void (*XtConverter)( /* obsolete */
-#if NeedFunctionPrototypes
     XrmValue*		/* args */,
     Cardinal*		/* num_args */,
     XrmValue*		/* from */,
     XrmValue*		/* to */
-#endif
 );
 
 typedef Boolean (*XtTypeConverter)(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XrmValue*		/* args */,
     Cardinal*		/* num_args */,
     XrmValue*		/* from */,
     XrmValue*		/* to */,
     XtPointer*		/* converter_data */
-#endif
 );
 
 typedef void (*XtDestructor)(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */,
     XrmValue*		/* to */,
     XtPointer 		/* converter_data */,
     XrmValue*		/* args */,
     Cardinal*		/* num_args */
-#endif
 );
 
 typedef Opaque XtCacheRef;
@@ -279,50 +261,40 @@ typedef Opaque XtCacheRef;
 typedef Opaque XtActionHookId;
 
 typedef void (*XtActionHookProc)(
-#if NeedFunctionPrototypes
     Widget		/* w */,
     XtPointer		/* client_data */,
     String		/* action_name */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 typedef unsigned long XtBlockHookId;
 
 typedef void (*XtBlockHookProc)(
-#if NeedFunctionPrototypes
     XtPointer		/* client_data */
-#endif
 );
 
 typedef void (*XtKeyProc)(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     _XtKeyCode 		/* keycode */,
     Modifiers		/* modifiers */,
     Modifiers*		/* modifiers_return */,
     KeySym*		/* keysym_return */
-#endif
 );
 
 typedef void (*XtCaseProc)(
-#if NeedFunctionPrototypes
     Display*		/* display */,
     KeySym		/* keysym */,
     KeySym*		/* lower_return */,
     KeySym*		/* upper_return */
-#endif
 );
 
 typedef void (*XtEventHandler)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     XEvent*		/* event */,
     Boolean*		/* continue_to_dispatch */
-#endif
 );
 typedef unsigned long EventMask;
 
@@ -335,25 +307,19 @@ typedef unsigned long	XtInputMask;
 #define XtInputExceptMask	(1L<<2)
 
 typedef void (*XtTimerCallbackProc)(
-#if NeedFunctionPrototypes
     XtPointer 		/* closure */,
     XtIntervalId*	/* id */
-#endif
 );
 
 typedef void (*XtInputCallbackProc)(
-#if NeedFunctionPrototypes
     XtPointer 		/* closure */,
     int*		/* source */,
     XtInputId*		/* id */
-#endif
 );
 
 typedef void (*XtSignalCallbackProc)(
-#if NeedFunctionPrototypes
     XtPointer		/* closure */,
     XtSignalId*		/* id */
-#endif
 );
 
 typedef struct {
@@ -364,11 +330,9 @@ typedef struct {
 typedef XtPointer	XtVarArgsList;
 
 typedef void (*XtCallbackProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,	/* data the application registered */
     XtPointer 		/* call_data */	/* callback specific data */
-#endif
 );
 
 typedef struct _XtCallbackRec {
@@ -407,48 +371,36 @@ typedef struct _XtResource {
 } XtResource, *XtResourceList;
 
 typedef void (*XtResourceDefaultProc)(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     int		/* offset */,
     XrmValue*	/* value */
-#endif
 );
 
 typedef String (*XtLanguageProc)(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     String	/* xnl */,
     XtPointer	/* client_data */
-#endif
 );
 
 typedef void (*XtErrorMsgHandler)(
-#if NeedFunctionPrototypes
     String 		/* name */,
     String		/* type */,
     String		/* class */,
     String		/* default */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 typedef void (*XtErrorHandler)(
-#if NeedFunctionPrototypes
   String		/* msg */
-#endif
 );
 
 typedef void (*XtCreatePopupChildProc)(
-#if NeedFunctionPrototypes
     Widget	/* shell */
-#endif
 );
 
 typedef Boolean (*XtWorkProc)(
-#if NeedFunctionPrototypes
     XtPointer 		/* closure */	/* data the application registered */
-#endif
 );
 
 typedef struct {
@@ -457,15 +409,12 @@ typedef struct {
 } SubstitutionRec, *Substitution;
 
 typedef Boolean (*XtFilePredicate)(
-#if NeedFunctionPrototypes
    String /* filename */
-#endif
 );
 
 typedef XtPointer XtRequestId;
 
 typedef Boolean (*XtConvertSelectionProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     Atom*		/* target */,
@@ -473,26 +422,20 @@ typedef Boolean (*XtConvertSelectionProc)(
     XtPointer*		/* value_return */,
     unsigned long*	/* length_return */,
     int*		/* format_return */
-#endif
 );
 
 typedef void (*XtLoseSelectionProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */
-#endif
 );
 
 typedef void (*XtSelectionDoneProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     Atom*		/* target */
-#endif
 );
 
 typedef void (*XtSelectionCallbackProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     Atom*		/* selection */,
@@ -500,29 +443,23 @@ typedef void (*XtSelectionCallbackProc)(
     XtPointer 		/* value */,
     unsigned long*	/* length */,
     int*		/* format */
-#endif
 );
 
 typedef void (*XtLoseSelectionIncrProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     XtPointer 		/* client_data */
-#endif
 );
 
 typedef void (*XtSelectionDoneIncrProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     Atom*		/* target */,
     XtRequestId*	/* receiver_id */,
     XtPointer 		/* client_data */
-#endif
 );
 
 typedef Boolean (*XtConvertSelectionIncrProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     Atom*		/* target */,
@@ -533,33 +470,26 @@ typedef Boolean (*XtConvertSelectionIncrProc)(
     unsigned long*	/* max_length */,
     XtPointer 		/* client_data */,
     XtRequestId*	/* receiver_id */
-#endif
 );
 
 typedef void (*XtCancelConvertSelectionProc)(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom*		/* selection */,
     Atom*		/* target */,
     XtRequestId*	/* receiver_id */,
     XtPointer 		/* client_data */
-#endif
 );
 
 typedef Boolean (*XtEventDispatchProc)(
-#if NeedFunctionPrototypes
     XEvent*		/* event */
-#endif
 );
 
 typedef void (*XtExtensionSelectProc)(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     int*		/* event_types */,
     XtPointer*		/* select_data */,
     int			/* count */,
     XtPointer		/* client_data */
-#endif
 );
 
 /***************************************************************
@@ -571,17 +501,14 @@ typedef void (*XtExtensionSelectProc)(
 _XFUNCPROTOBEGIN
 
 extern Boolean XtConvertAndStore(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* from_type */,
     XrmValue*		/* from */,
     _Xconst _XtString 	/* to_type */,
     XrmValue*		/* to_in_out */
-#endif
 );
 
 extern Boolean XtCallConverter(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XtTypeConverter 	/* converter */,
     XrmValuePtr 	/* args */,
@@ -589,95 +516,69 @@ extern Boolean XtCallConverter(
     XrmValuePtr 	/* from */,
     XrmValue*		/* to_in_out */,
     XtCacheRef*		/* cache_ref_return */
-#endif
 );
 
 extern Boolean XtDispatchEvent(
-#if NeedFunctionPrototypes
     XEvent* 		/* event */
-#endif
 );
 
 extern Boolean XtCallAcceptFocus(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Time*		/* time */
-#endif
 );
 
 extern Boolean XtPeekEvent( /* obsolete */
-#if NeedFunctionPrototypes
     XEvent*		/* event_return */
-#endif
 );
 
 extern Boolean XtAppPeekEvent(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XEvent*		/* event_return */
-#endif
 );
 
 extern Boolean XtIsSubclass(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     WidgetClass 	/* widgetClass */
-#endif
 );
 
 extern Boolean XtIsObject(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern Boolean _XtCheckSubclassFlag( /* implementation-private */
-#if NeedFunctionPrototypes
     Widget		/* object */,
     _XtXtEnum		/* type_flag */
-#endif
 );
 
 extern Boolean _XtIsSubclassOf( /* implementation-private */
-#if NeedFunctionPrototypes
     Widget		/* object */,
     WidgetClass		/* widget_class */,
     WidgetClass		/* flag_class */,
     _XtXtEnum		/* type_flag */
-#endif
 );
 
 extern Boolean XtIsManaged(
-#if NeedFunctionPrototypes
     Widget 		/* rectobj */
-#endif
 );
 
 extern Boolean XtIsRealized(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern Boolean XtIsSensitive(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern Boolean XtOwnSelection(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Time 		/* time */,
     XtConvertSelectionProc /* convert */,
     XtLoseSelectionProc	/* lose */,
     XtSelectionDoneProc /* done */
-#endif
 );
 
 extern Boolean XtOwnSelectionIncremental(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Time 		/* time */,
@@ -686,87 +587,69 @@ extern Boolean XtOwnSelectionIncremental(
     XtSelectionDoneIncrProc	/* done_callback */,
     XtCancelConvertSelectionProc /* cancel_callback */,
     XtPointer 		/* client_data */
-#endif
 );
 
 extern XtGeometryResult XtMakeResizeRequest(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtDimension	/* width */,
     _XtDimension	/* height */,
     Dimension*		/* width_return */,
     Dimension*		/* height_return */
-#endif
 );
 
 extern void XtTranslateCoords(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtPosition		/* x */,
     _XtPosition		/* y */,
     Position*		/* rootx_return */,
     Position*		/* rooty_return */
-#endif
 );
 
 extern KeySym* XtGetKeysymTable(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     KeyCode*		/* min_keycode_return */,
     int*		/* keysyms_per_keycode_return */
-#endif
 );
 
 extern void XtKeysymToKeycodeList(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     KeySym 		/* keysym */,
     KeyCode**		/* keycodes_return */,
     Cardinal*		/* keycount_return */
-#endif
 );
 
 extern void XtStringConversionWarning( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* from_value */,
     _Xconst _XtString	/* to_type */
-#endif
 );
 
 extern void XtDisplayStringConversionWarning(
-#if NeedFunctionPrototypes
     Display*	 	/* dpy */,
     _Xconst _XtString	/* from_value */,
     _Xconst _XtString	/* to_type */
-#endif
 );
 
 externalref XtConvertArgRec const colorConvertArgs[];
 externalref XtConvertArgRec const screenConvertArg[];
 
 extern void XtAppAddConverter( /* obsolete */
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */,
     _Xconst _XtString	/* from_type */,
     _Xconst _XtString	/* to_type */,
     XtConverter 	/* converter */,
     XtConvertArgList	/* convert_args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtAddConverter( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* from_type */,
     _Xconst _XtString 	/* to_type */,
     XtConverter 	/* converter */,
     XtConvertArgList 	/* convert_args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtSetTypeConverter(
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* from_type */,
     _Xconst _XtString 	/* to_type */,
     XtTypeConverter 	/* converter */,
@@ -774,11 +657,9 @@ extern void XtSetTypeConverter(
     Cardinal 		/* num_args */,
     XtCacheType 	/* cache_type */,
     XtDestructor 	/* destructor */
-#endif
 );
 
 extern void XtAppSetTypeConverter(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString 	/* from_type */,
     _Xconst _XtString 	/* to_type */,
@@ -787,27 +668,22 @@ extern void XtAppSetTypeConverter(
     Cardinal 		/* num_args */,
     XtCacheType 	/* cache_type */,
     XtDestructor 	/* destructor */
-#endif
 );
 
 extern void XtConvert( /* obsolete */
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* from_type */,
     XrmValue*		/* from */,
     _Xconst _XtString 	/* to_type */,
     XrmValue*		/* to_return */
-#endif
 );
 
 extern void XtDirectConvert( /* obsolete */
-#if NeedFunctionPrototypes
     XtConverter 	/* converter */,
     XrmValuePtr 	/* args */,
     Cardinal 		/* num_args */,
     XrmValuePtr 	/* from */,
     XrmValue*		/* to_return */
-#endif
 );
 
 /****************************************************************
@@ -817,126 +693,92 @@ extern void XtDirectConvert( /* obsolete */
  ****************************************************************/
 
 extern XtTranslations XtParseTranslationTable(
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* table */
-#endif
 );
 
 extern XtAccelerators XtParseAcceleratorTable(
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* source */
-#endif
 );
 
 extern void XtOverrideTranslations(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtTranslations 	/* translations */
-#endif
 );
 
 extern void XtAugmentTranslations(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtTranslations 	/* translations */
-#endif
 );
 
 extern void XtInstallAccelerators(
-#if NeedFunctionPrototypes
     Widget 		/* destination */,
     Widget		/* source */
-#endif
 );
 
 extern void XtInstallAllAccelerators(
-#if NeedFunctionPrototypes
     Widget 		/* destination */,
     Widget		/* source */
-#endif
 );
 
 extern void XtUninstallTranslations(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtAppAddActions(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtActionList 	/* actions */,
     Cardinal 		/* num_actions */
-#endif
 );
 
 extern void XtAddActions( /* obsolete */
-#if NeedFunctionPrototypes
     XtActionList 	/* actions */,
     Cardinal 		/* num_actions */
-#endif
 );
 
 extern XtActionHookId XtAppAddActionHook(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtActionHookProc 	/* proc */,
     XtPointer 		/* client_data */
-#endif
 );
 
 extern void XtRemoveActionHook(
-#if NeedFunctionPrototypes
     XtActionHookId 	/* id */
-#endif
 );
 
 extern void XtGetActionList(
-#if NeedFunctionPrototypes
     WidgetClass		/* widget_class */,
     XtActionList*	/* actions_return */,
     Cardinal*		/* num_actions_return */
-#endif
 );
 
 extern void XtCallActionProc(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     _Xconst _XtString	/* action */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal		/* num_params */
-#endif
 );
 
 extern void XtRegisterGrabAction(
-#if NeedFunctionPrototypes
     XtActionProc 	/* action_proc */,
     _XtBoolean 		/* owner_events */,
     unsigned int 	/* event_mask */,
     int			/* pointer_mode */,
     int	 		/* keyboard_mode */
-#endif
 );
 
 extern void XtSetMultiClickTime(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int 		/* milliseconds */
-#endif
 );
 
 extern int XtGetMultiClickTime(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern KeySym XtGetActionKeysym(
-#if NeedFunctionPrototypes
     XEvent*		/* event */,
     Modifiers*		/* modifiers_return */
-#endif
 );
 
 /***************************************************************
@@ -946,48 +788,38 @@ extern KeySym XtGetActionKeysym(
  ****************************************************************/
 
 extern void XtTranslateKeycode(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     _XtKeyCode 		/* keycode */,
     Modifiers 		/* modifiers */,
     Modifiers*		/* modifiers_return */,
     KeySym*		/* keysym_return */
-#endif
 );
 
 extern void XtTranslateKey(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     _XtKeyCode		/* keycode */,
     Modifiers		/* modifiers */,
     Modifiers*		/* modifiers_return */,
     KeySym*		/* keysym_return */
-#endif
 );
 
 extern void XtSetKeyTranslator(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XtKeyProc 		/* proc */
-#endif
 );
 
 extern void XtRegisterCaseConverter(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XtCaseProc 		/* proc */,
     KeySym 		/* start */,
     KeySym 		/* stop */
-#endif
 );
 
 extern void XtConvertCase(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     KeySym 		/* keysym */,
     KeySym*		/* lower_return */,
     KeySym*		/* upper_return */
-#endif
 );
 
 /****************************************************************
@@ -1002,188 +834,142 @@ extern void XtConvertCase(
 #define XtAllEvents ((EventMask) -1L)
 
 extern void XtAddEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtAddRawEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveRawEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtInsertEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */,
     XtListPosition 	/* position */
-#endif
 );
 
 extern void XtInsertRawEventHandler(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     EventMask 		/* event_mask */,
     _XtBoolean 		/* nonmaskable */,
     XtEventHandler 	/* proc */,
     XtPointer 		/* closure */,
     XtListPosition 	/* position */
-#endif
 );
 
 extern XtEventDispatchProc XtSetEventDispatcher(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int			/* event_type */,
     XtEventDispatchProc	/* proc */
-#endif
 );
 
 extern Boolean XtDispatchEventToWidget(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XEvent*		/* event */
-#endif
 );
 
 extern void XtInsertEventTypeHandler(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     int			/* type */,
     XtPointer		/* select_data */,
     XtEventHandler	/* proc */,
     XtPointer		/* closure */,
     XtListPosition	/* position */
-#endif
 );
 
 extern void XtRemoveEventTypeHandler(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     int			/* type */,
     XtPointer		/* select_data */,
     XtEventHandler	/* proc */,
     XtPointer		/* closure */
-#endif
 );
 
 extern EventMask XtBuildEventMask(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtRegisterExtensionSelector(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     int			/* min_event_type */,
     int			/* max_event_type */,
     XtExtensionSelectProc /* proc */,
     XtPointer		/* client_data */
-#endif
 );
 
 extern void XtAddGrab(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtBoolean 		/* exclusive */,
     _XtBoolean 		/* spring_loaded */
-#endif
 );
 
 extern void XtRemoveGrab(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtProcessEvent( /* obsolete */
-#if NeedFunctionPrototypes
     XtInputMask 		/* mask */
-#endif
 );
 
 extern void XtAppProcessEvent(
-#if NeedFunctionPrototypes
     XtAppContext 		/* app_context */,
     XtInputMask 		/* mask */
-#endif
 );
 
 extern void XtMainLoop( /* obsolete */
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtAppMainLoop(
-#if NeedFunctionPrototypes
     XtAppContext 		/* app_context */
-#endif
 );
 
 extern void XtAddExposureToRegion(
-#if NeedFunctionPrototypes
     XEvent*		/* event */,
     Region 		/* region */
-#endif
 );
 
 extern void XtSetKeyboardFocus(
-#if NeedFunctionPrototypes
     Widget		/* subtree */,
     Widget 		/* descendent */
-#endif
 );
 
 extern Widget XtGetKeyboardFocusWidget(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern XEvent* XtLastEventProcessed(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern Time XtLastTimestampProcessed(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 /****************************************************************
@@ -1193,84 +979,62 @@ extern Time XtLastTimestampProcessed(
  ****************************************************************/
 
 extern XtIntervalId XtAddTimeOut( /* obsolete */
-#if NeedFunctionPrototypes
     unsigned long 	/* interval */,
     XtTimerCallbackProc /* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern XtIntervalId XtAppAddTimeOut(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     unsigned long 	/* interval */,
     XtTimerCallbackProc /* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveTimeOut(
-#if NeedFunctionPrototypes
     XtIntervalId 	/* timer */
-#endif
 );
 
 extern XtInputId XtAddInput( /* obsolete */
-#if NeedFunctionPrototypes
     int 		/* source */,
     XtPointer 		/* condition */,
     XtInputCallbackProc /* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern XtInputId XtAppAddInput(
-#if NeedFunctionPrototypes
     XtAppContext       	/* app_context */,
     int 		/* source */,
     XtPointer 		/* condition */,
     XtInputCallbackProc /* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveInput(
-#if NeedFunctionPrototypes
     XtInputId 		/* id */
-#endif
 );
 
 extern XtSignalId XtAppAddSignal(
-#if NeedFunctionPrototypes
     XtAppContext       	/* app_context */,
     XtSignalCallbackProc /* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveSignal(
-#if NeedFunctionPrototypes
     XtSignalId 		/* id */
-#endif
 );
 
 extern void XtNoticeSignal(
-#if NeedFunctionPrototypes
     XtSignalId		/* id */
-#endif
 );
 
 extern void XtNextEvent( /* obsolete */
-#if NeedFunctionPrototypes
     XEvent* 		/* event */
-#endif
 );
 
 extern void XtAppNextEvent(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XEvent*		/* event_return */
-#endif
 );
 
 #define XtIMXEvent		1
@@ -1280,29 +1044,21 @@ extern void XtAppNextEvent(
 #define XtIMAll (XtIMXEvent | XtIMTimer | XtIMAlternateInput | XtIMSignal)
 
 extern Boolean XtPending( /* obsolete */
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern XtInputMask XtAppPending(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */
-#endif
 );
 
 extern XtBlockHookId XtAppAddBlockHook(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtBlockHookProc 	/* proc */,
     XtPointer 		/* client_data */
-#endif
 );
 
 extern void XtRemoveBlockHook(
-#if NeedFunctionPrototypes
     XtBlockHookId 	/* id */
-#endif
 );
 
 /****************************************************************
@@ -1335,59 +1091,43 @@ extern void XtRemoveBlockHook(
 		     (WidgetClass)topLevelShellWidgetClass, (XtEnum)0x80))
 
 extern void XtRealizeWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 void XtUnrealizeWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtDestroyWidget(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern void XtSetSensitive(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtBoolean 		/* sensitive */
-#endif
 );
 
 extern void XtSetMappedWhenManaged(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtBoolean 		/* mapped_when_managed */
-#endif
 );
 
 extern Widget XtNameToWidget(
-#if NeedFunctionPrototypes
     Widget 		/* reference */,
     _Xconst _XtString	/* names */
-#endif
 );
 
 extern Widget XtWindowToWidget(
-#if NeedFunctionPrototypes
     Display*		/* display */,
     Window 		/* window */
-#endif
 );
 
 extern XtPointer XtGetClassExtension(
-#if NeedFunctionPrototypes
     WidgetClass		/* object_class */,
     Cardinal		/* byte_offset */,
     XrmQuark		/* type */,
     long		/* version */,
     Cardinal		/* record_size */
-#endif
 );
 
 /***************************************************************
@@ -1401,12 +1141,10 @@ extern XtPointer XtGetClassExtension(
     ((void)( (arg).name = (n), (arg).value = (XtArgVal)(d) ))
 
 extern ArgList XtMergeArgLists(
-#if NeedFunctionPrototypes
     ArgList 		/* args1 */,
     Cardinal 		/* num_args1 */,
     ArgList 		/* args2 */,
     Cardinal 		/* num_args2 */
-#endif
 );
 
 /***************************************************************
@@ -1419,9 +1157,7 @@ extern ArgList XtMergeArgLists(
 #define XtVaTypedArg    "XtVaTypedArg"
 
 extern XtVarArgsList XtVaCreateArgsList(
-#if NeedVarargsPrototypes
     XtPointer		/*unused*/, ...
-#endif
 );
 
 /*************************************************************
@@ -1435,63 +1171,43 @@ extern XtVarArgsList XtVaCreateArgsList(
 /* We're not included from the private file, so define these */
 
 extern Display *XtDisplay(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern Display *XtDisplayOfObject(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern Screen *XtScreen(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern Screen *XtScreenOfObject(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern Window XtWindow(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern Window XtWindowOfObject(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern String XtName(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern WidgetClass XtSuperclass(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern WidgetClass XtClass(
-#if NeedFunctionPrototypes
     Widget 		/* object */
-#endif
 );
 
 extern Widget XtParent(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 #endif /*_XtIntrinsicP_h*/
@@ -1501,68 +1217,52 @@ extern Widget XtParent(
 		XUnmapWindow(XtDisplay(widget), XtWindow(widget))
 
 extern void XtAddCallback(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */,
     XtCallbackProc 	/* callback */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtRemoveCallback(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */,
     XtCallbackProc 	/* callback */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void XtAddCallbacks(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString	/* callback_name */,
     XtCallbackList 	/* callbacks */
-#endif
 );
 
 extern void XtRemoveCallbacks(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */,
     XtCallbackList 	/* callbacks */
-#endif
 );
 
 extern void XtRemoveAllCallbacks(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */
-#endif
 );
 
 
 extern void XtCallCallbacks(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtCallCallbackList(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtCallbackList 	/* callbacks */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern XtCallbackStatus XtHasCallbacks(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _Xconst _XtString 	/* callback_name */
-#endif
 );
 
 /****************************************************************
@@ -1573,166 +1273,128 @@ extern XtCallbackStatus XtHasCallbacks(
 
 
 extern XtGeometryResult XtMakeGeometryRequest(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtWidgetGeometry*	/* request */,
     XtWidgetGeometry*	/* reply_return */
-#endif
 );
 
 extern XtGeometryResult XtQueryGeometry(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtWidgetGeometry*	/* intended */,
     XtWidgetGeometry*	/* preferred_return */
-#endif
 );
 
 extern Widget XtCreatePopupShell(
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* name */,
     WidgetClass 	/* widgetClass */,
     Widget 		/* parent */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtVaCreatePopupShell(
-#if NeedVarargsPrototypes
     _Xconst _XtString	/* name */,
     WidgetClass		/* widgetClass */,
     Widget		/* parent */,
     ...
-#endif
 );
 
 extern void XtPopup(
-#if NeedFunctionPrototypes
     Widget 		/* popup_shell */,
     XtGrabKind 		/* grab_kind */
-#endif
 );
 
 extern void XtPopupSpringLoaded(
-#if NeedFunctionPrototypes
     Widget 		/* popup_shell */
-#endif
 );
 
 extern void XtCallbackNone(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtCallbackNonexclusive(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtCallbackExclusive(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtPopdown(
-#if NeedFunctionPrototypes
     Widget 		/* popup_shell */
-#endif
 );
 
 extern void XtCallbackPopdown(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtMenuPopupAction(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern Widget XtCreateWidget(
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* name */,
     WidgetClass 	/* widget_class */,
     Widget 		/* parent */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtCreateManagedWidget(
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* name */,
     WidgetClass 	/* widget_class */,
     Widget 		/* parent */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtVaCreateWidget(
-#if NeedVarargsPrototypes
     _Xconst _XtString	/* name */,
     WidgetClass		/* widget */,
     Widget		/* parent */,
     ...
-#endif
 );
 
 extern Widget XtVaCreateManagedWidget(
-#if NeedVarargsPrototypes
     _Xconst _XtString	/* name */,
     WidgetClass		/* widget_class */,
     Widget		/* parent */,
     ...
-#endif
 );
 
 extern Widget XtCreateApplicationShell( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* name */,
     WidgetClass 	/* widget_class */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtAppCreateShell(
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* application_name */,
     _Xconst _XtString	/* application_class */,
     WidgetClass 	/* widget_class */,
     Display*		/* display */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtVaAppCreateShell(
-#if NeedVarargsPrototypes
     _Xconst _XtString	/* application_name */,
     _Xconst _XtString	/* application_class */,
     WidgetClass		/* widget_class */,
     Display*		/* display */,
     ...
-#endif
 );
 
 /****************************************************************
@@ -1742,21 +1404,16 @@ extern Widget XtVaAppCreateShell(
  ****************************************************************/
 
 extern void XtToolkitInitialize(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern XtLanguageProc XtSetLanguageProc(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */,
     XtLanguageProc	/* proc */,
     XtPointer		/* client_data */
-#endif
 );
 
 extern void XtDisplayInitialize(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     Display*		/* dpy */,
     _Xconst _XtString	/* application_name */,
@@ -1765,11 +1422,9 @@ extern void XtDisplayInitialize(
     Cardinal 		/* num_options */,
     int*		/* argc */,
     char**		/* argv */
-#endif
 );
 
 extern Widget XtOpenApplication(
-#if NeedFunctionPrototypes
     XtAppContext*	/* app_context_return */,
     _Xconst _XtString	/* application_class */,
     XrmOptionDescList 	/* options */,
@@ -1780,11 +1435,9 @@ extern Widget XtOpenApplication(
     WidgetClass		/* widget_class */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtVaOpenApplication(
-#if NeedVarargsPrototypes
     XtAppContext*	/* app_context_return */,
     _Xconst _XtString	/* application_class */,
     XrmOptionDescList	/* options */,
@@ -1794,11 +1447,9 @@ extern Widget XtVaOpenApplication(
     String*		/* fallback_resources */,
     WidgetClass		/* widget_class */,
     ...
-#endif
 );
 
 extern Widget XtAppInitialize( /* obsolete */
-#if NeedFunctionPrototypes
     XtAppContext*	/* app_context_return */,
     _Xconst _XtString	/* application_class */,
     XrmOptionDescList 	/* options */,
@@ -1808,11 +1459,9 @@ extern Widget XtAppInitialize( /* obsolete */
     String*		/* fallback_resources */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern Widget XtVaAppInitialize( /* obsolete */
-#if NeedVarargsPrototypes
     XtAppContext*	/* app_context_return */,
     _Xconst _XtString	/* application_class */,
     XrmOptionDescList	/* options */,
@@ -1821,22 +1470,18 @@ extern Widget XtVaAppInitialize( /* obsolete */
     String*		/* argv_in_out */,
     String*		/* fallback_resources */,
     ...
-#endif
 );
 
 extern Widget XtInitialize( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* shell_name */,
     _Xconst _XtString 	/* application_class */,
     XrmOptionDescRec* 	/* options */,
     Cardinal 		/* num_options */,
     int*		/* argc */,
     char**		/* argv */
-#endif
 );
 
 extern Display *XtOpenDisplay(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString	/* display_string */,
     _Xconst _XtString	/* application_name */,
@@ -1845,87 +1490,63 @@ extern Display *XtOpenDisplay(
     Cardinal 		/* num_options */,
     int*		/* argc */,
     char**		/* argv */
-#endif
 );
 
 extern XtAppContext XtCreateApplicationContext(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtAppSetFallbackResources(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     String*		/* specification_list */
-#endif
 );
 
 extern void XtDestroyApplicationContext(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */
-#endif
 );
 
 extern void XtInitializeWidgetClass(
-#if NeedFunctionPrototypes
     WidgetClass 	/* widget_class */
-#endif
 );
 
 extern XtAppContext XtWidgetToApplicationContext(
-#if NeedFunctionPrototypes
     Widget 		/* widget */
-#endif
 );
 
 extern XtAppContext XtDisplayToApplicationContext(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern XrmDatabase XtDatabase(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern XrmDatabase XtScreenDatabase(
-#if NeedFunctionPrototypes
     Screen*		/* screen */
-#endif
 );
 
 extern void XtCloseDisplay(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern void XtGetApplicationResources(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* base */,
     XtResourceList 	/* resources */,
     Cardinal 		/* num_resources */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaGetApplicationResources(
-#if NeedVarargsPrototypes
     Widget		/* widget */,
     XtPointer		/* base */,
     XtResourceList	/* resources */,
     Cardinal		/* num_resources */,
     ...
-#endif
 );
 
 extern void XtGetSubresources(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* base */,
     _Xconst _XtString 	/* name */,
@@ -1934,11 +1555,9 @@ extern void XtGetSubresources(
     Cardinal 		/* num_resources */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaGetSubresources(
-#if NeedVarargsPrototypes
     Widget		/* widget */,
     XtPointer		/* base */,
     _Xconst _XtString	/* name */,
@@ -1946,91 +1565,70 @@ extern void XtVaGetSubresources(
     XtResourceList	/* resources */,
     Cardinal		/* num_resources */,
     ...
-#endif
 );
 
 extern void XtSetValues(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaSetValues(
-#if NeedVarargsPrototypes
     Widget		/* widget */,
     ...
-#endif
 );
 
 extern void XtGetValues(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaGetValues(
-#if NeedVarargsPrototypes
     Widget		/* widget */,
     ...
-#endif
 );
 
 extern void XtSetSubvalues(
-#if NeedFunctionPrototypes
     XtPointer 		/* base */,
     XtResourceList 	/* resources */,
     Cardinal 		/* num_resources */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaSetSubvalues(
-#if NeedVarargsPrototypes
     XtPointer		/* base */,
     XtResourceList	/* resources */,
     Cardinal		/* num_resources */,
     ...
-#endif
 );
 
 extern void XtGetSubvalues(
-#if NeedFunctionPrototypes
     XtPointer 		/* base */,
     XtResourceList 	/* resources */,
     Cardinal 		/* num_resources */,
     ArgList 		/* args */,
     Cardinal 		/* num_args */
-#endif
 );
 
 extern void XtVaGetSubvalues(
-#if NeedVarargsPrototypes
     XtPointer		/* base */,
     XtResourceList	/* resources */,
     Cardinal		/* num_resources */,
     ...
-#endif
 );
 
 extern void XtGetResourceList(
-#if NeedFunctionPrototypes
     WidgetClass 	/* widget_class */,
     XtResourceList*	/* resources_return */,
     Cardinal*		/* num_resources_return */
-#endif
 );
 
 extern void XtGetConstraintResourceList(
-#if NeedFunctionPrototypes
     WidgetClass 	/* widget_class */,
     XtResourceList*	/* resources_return */,
     Cardinal*		/* num_resources_return */
-#endif
 );
 
 #define XtUnspecifiedPixmap	((Pixmap)2)
@@ -2078,15 +1676,11 @@ typedef struct _XtCheckpointTokenRec {
 } XtCheckpointTokenRec, *XtCheckpointToken;
 
 XtCheckpointToken XtSessionGetToken(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 void XtSessionReturnToken(
-#if NeedFunctionPrototypes
     XtCheckpointToken	/* token */
-#endif
 );
 
 /*************************************************************
@@ -2096,33 +1690,24 @@ void XtSessionReturnToken(
  ************************************************************/
 
 extern XtErrorMsgHandler XtAppSetErrorMsgHandler(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtErrorMsgHandler 	/* handler */
-#endif
 );
 
 extern void XtSetErrorMsgHandler( /* obsolete */
-#if NeedFunctionPrototypes
     XtErrorMsgHandler 	/* handler */
-#endif
 );
 
 extern XtErrorMsgHandler XtAppSetWarningMsgHandler(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtErrorMsgHandler 	/* handler */
-#endif
 );
 
 extern void XtSetWarningMsgHandler( /* obsolete */
-#if NeedFunctionPrototypes
     XtErrorMsgHandler 	/* handler */
-#endif
 );
 
 extern void XtAppErrorMsg(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString 	/* name */,
     _Xconst _XtString	/* type */,
@@ -2130,22 +1715,18 @@ extern void XtAppErrorMsg(
     _Xconst _XtString	/* default */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern void XtErrorMsg( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString 	/* name */,
     _Xconst _XtString	/* type */,
     _Xconst _XtString	/* class */,
     _Xconst _XtString	/* default */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern void XtAppWarningMsg(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString 	/* name */,
     _Xconst _XtString 	/* type */,
@@ -2153,86 +1734,62 @@ extern void XtAppWarningMsg(
     _Xconst _XtString 	/* default */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern void XtWarningMsg( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* name */,
     _Xconst _XtString	/* type */,
     _Xconst _XtString	/* class */,
     _Xconst _XtString	/* default */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern XtErrorHandler XtAppSetErrorHandler(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtErrorHandler 	/* handler */
-#endif
 );
 
 extern void XtSetErrorHandler( /* obsolete */
-#if NeedFunctionPrototypes
     XtErrorHandler 	/* handler */
-#endif
 );
 
 extern XtErrorHandler XtAppSetWarningHandler(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtErrorHandler 	/* handler */
-#endif
 );
 
 extern void XtSetWarningHandler( /* obsolete */
-#if NeedFunctionPrototypes
     XtErrorHandler 	/* handler */
-#endif
 );
 
 extern void XtAppError(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString	/* message */
-#endif
 );
 
 extern void XtError( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* message */
-#endif
 );
 
 extern void XtAppWarning(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString	/* message */
-#endif
 );
 
 extern void XtWarning( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* message */
-#endif
 );
 
 extern XrmDatabase *XtAppGetErrorDatabase(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */
-#endif
 );
 
 extern XrmDatabase *XtGetErrorDatabase( /* obsolete */
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtAppGetErrorDatabaseText(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     _Xconst _XtString	/* name */,
     _Xconst _XtString	/* type */,
@@ -2241,18 +1798,15 @@ extern void XtAppGetErrorDatabaseText(
     String 		/* buffer_return */,
     int 		/* nbytes */,
     XrmDatabase 	/* database */
-#endif
 );
 
 extern void XtGetErrorDatabaseText( /* obsolete */
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* name */,
     _Xconst _XtString	/* type */,
     _Xconst _XtString	/* class */,
     _Xconst _XtString 	/* default */,
     String 		/* buffer_return */,
     int 		/* nbytes */
-#endif
 );
 
 /****************************************************************
@@ -2262,63 +1816,47 @@ extern void XtGetErrorDatabaseText( /* obsolete */
  ****************************************************************/
 
 extern char *XtMalloc(
-#if NeedFunctionPrototypes
     Cardinal 		/* size */
-#endif
 );
 
 extern char *XtCalloc(
-#if NeedFunctionPrototypes
     Cardinal		/* num */,
     Cardinal 		/* size */
-#endif
 );
 
 extern char *XtRealloc(
-#if NeedFunctionPrototypes
     char* 		/* ptr */,
     Cardinal 		/* num */
-#endif
 );
 
 extern void XtFree(
-#if NeedFunctionPrototypes
     char*		/* ptr */
-#endif
 );
 
 #ifdef XTTRACEMEMORY
 
 extern char *_XtMalloc( /* implementation-private */
-#if NeedFunctionPrototypes
     Cardinal	/* size */,
     char *	/* file */,
     int	        /* line */
-#endif		       
 );
 
 extern char *_XtRealloc( /* implementation-private */
-#if NeedFunctionPrototypes
     char *	/* ptr */,
     Cardinal    /* size */,
     char *	/* file */,
     int		/* line */
-#endif
 );
 
 extern char *_XtCalloc( /* implementation-private */
-#if NeedFunctionPrototypes
     Cardinal	/* num */,
     Cardinal 	/* size */,
     char *	/* file */,
     int		/* line */
-#endif
 );
 
 extern void _XtFree( /* implementation-private */
-#if NeedFunctionPrototypes
     char *	/* ptr */
-#endif
 );
 
 #define XtMalloc(size) _XtMalloc(size, __FILE__, __LINE__)
@@ -2339,24 +1877,18 @@ extern void _XtFree( /* implementation-private */
  **************************************************************/
 
 extern XtWorkProcId XtAddWorkProc( /* obsolete */
-#if NeedFunctionPrototypes
     XtWorkProc 		/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern XtWorkProcId XtAppAddWorkProc(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     XtWorkProc 		/* proc */,
     XtPointer 		/* closure */
-#endif
 );
 
 extern void  XtRemoveWorkProc(
-#if NeedFunctionPrototypes
     XtWorkProcId 	/* id */
-#endif
 );
 
 
@@ -2366,22 +1898,18 @@ extern void  XtRemoveWorkProc(
  *****************************************************************/
 
 extern GC XtGetGC(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtGCMask 		/* valueMask */,
     XGCValues* 		/* values */
-#endif
 );
 
 extern GC XtAllocateGC(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Cardinal		/* depth */,
     XtGCMask 		/* valueMask */,
     XGCValues* 		/* values */,
     XtGCMask		/* dynamicMask */,
     XtGCMask		/* unusedMask */
-#endif
 );
 
 /* This implementation of XtDestroyGC differs from the formal specification
@@ -2389,62 +1917,47 @@ extern GC XtAllocateGC(
  * may conform to the spec, use of XtReleaseGC is strongly encouraged.
  */
 extern void XtDestroyGC( /* obsolete */
-#if NeedFunctionPrototypes
     GC 			/* gc */
-#endif
 );
 
 extern void XtReleaseGC(
-#if NeedFunctionPrototypes
     Widget 		/* object */,
     GC 			/* gc */
-#endif
 );
 
 
 
 extern void XtAppReleaseCacheRefs(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */,
     XtCacheRef*		/* cache_ref */
-#endif
 );
 
 extern void XtCallbackReleaseCacheRef(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,	/* XtCacheRef */
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtCallbackReleaseCacheRefList(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     XtPointer 		/* closure */,	/* XtCacheRef* */
     XtPointer 		/* call_data */
-#endif
 );
 
 extern void XtSetWMColormapWindows(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Widget*		/* list */,
     Cardinal		/* count */
-#endif
 );
 
 extern String XtFindFile(
-#if NeedFunctionPrototypes
     _Xconst _XtString	/* path */,
     Substitution	/* substitutions */,
     Cardinal 		/* num_substitutions */,
     XtFilePredicate	/* predicate */
-#endif
 );
 
 extern String XtResolvePathname(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     _Xconst _XtString	/* type */,
     _Xconst _XtString	/* filename */,
@@ -2453,7 +1966,6 @@ extern String XtResolvePathname(
     Substitution	/* substitutions */,
     Cardinal		/* num_substitutions */,
     XtFilePredicate 	/* predicate */
-#endif
 );
 
 /****************************************************************
@@ -2465,26 +1977,21 @@ extern String XtResolvePathname(
 #define XT_CONVERT_FAIL (Atom)0x80000001
     
 extern void XtDisownSelection(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Time 		/* time */
-#endif
 );
 
 extern void XtGetSelectionValue(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Atom 		/* target */,
     XtSelectionCallbackProc /* callback */,
     XtPointer 		/* closure */,
     Time 		/* time */
-#endif
 );
 
 extern void XtGetSelectionValues(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Atom*		/* targets */,
@@ -2492,55 +1999,41 @@ extern void XtGetSelectionValues(
     XtSelectionCallbackProc /* callback */,
     XtPointer*		/* closures */,
     Time 		/* time */
-#endif
 );
 
 extern void XtAppSetSelectionTimeout(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */,
     unsigned long 	/* timeout */
-#endif
 );
 
 extern void XtSetSelectionTimeout( /* obsolete */
-#if NeedFunctionPrototypes
     unsigned long 	/* timeout */
-#endif
 );
 
 extern unsigned long XtAppGetSelectionTimeout(
-#if NeedFunctionPrototypes
     XtAppContext 	/* app_context */
-#endif
 );
 
 extern unsigned long XtGetSelectionTimeout( /* obsolete */
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern XSelectionRequestEvent *XtGetSelectionRequest(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     XtRequestId 	/* request_id */
-#endif
 );
 
 extern void XtGetSelectionValueIncremental(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Atom 		/* target */,
     XtSelectionCallbackProc /* selection_callback */,
     XtPointer 		/* client_data */,
     Time 		/* time */
-#endif
 );
 
 extern void XtGetSelectionValuesIncremental(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Atom 		/* selection */,
     Atom*		/* targets */,
@@ -2548,22 +2041,18 @@ extern void XtGetSelectionValuesIncremental(
     XtSelectionCallbackProc /* callback */,
     XtPointer*		/* client_data */,
     Time 		/* time */
-#endif
 );
 
 extern void XtSetSelectionParameters(
-#if NeedFunctionPrototypes
     Widget		/* requestor */,
     Atom		/* selection */,
     Atom		/* type */,
     XtPointer		/* value */,
     unsigned long	/* length */,
     int			/* format */
-#endif
 );
 
 extern void XtGetSelectionParameters(
-#if NeedFunctionPrototypes
     Widget		/* owner */,
     Atom		/* selection */,
     XtRequestId		/* request_id */,
@@ -2571,82 +2060,62 @@ extern void XtGetSelectionParameters(
     XtPointer*		/* value_return */,
     unsigned long*	/* length_return */,
     int*		/* format_return */
-#endif
 );
 
 extern void XtCreateSelectionRequest(
-#if NeedFunctionPrototypes
     Widget		/* requestor */,
     Atom		/* selection */
-#endif
 );
 
 extern void XtSendSelectionRequest(
-#if NeedFunctionPrototypes
     Widget		/* requestor */,
     Atom		/* selection */,
     Time		/* time */
-#endif
 );
 
 extern void XtCancelSelectionRequest(
-#if NeedFunctionPrototypes
     Widget		/* requestor */,
     Atom		/* selection */
-#endif
 );
 
 extern Atom XtReservePropertyAtom(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern void XtReleasePropertyAtom(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     Atom		/* selection */
-#endif
 );
 
 extern void XtGrabKey(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtKeyCode 		/* keycode */,
     Modifiers	 	/* modifiers */,
     _XtBoolean 		/* owner_events */,
     int 		/* pointer_mode */,
     int 		/* keyboard_mode */
-#endif
 );
 
 extern void XtUngrabKey(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtKeyCode 		/* keycode */,
     Modifiers	 	/* modifiers */
-#endif
 );
 
 extern int XtGrabKeyboard(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtBoolean 		/* owner_events */,
     int 		/* pointer_mode */,
     int 		/* keyboard_mode */,
     Time 		/* time */
-#endif
 );
 
 extern void XtUngrabKeyboard(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Time 		/* time */
-#endif
 );
 
 extern void XtGrabButton(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     int 		/* button */,
     Modifiers	 	/* modifiers */,
@@ -2656,19 +2125,15 @@ extern void XtGrabButton(
     int 		/* keyboard_mode */,
     Window 		/* confine_to */,
     Cursor 		/* cursor */
-#endif
 );
 
 extern void XtUngrabButton(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     unsigned int	/* button */,
     Modifiers	 	/* modifiers */
-#endif
 );
 
 extern int XtGrabPointer(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     _XtBoolean 		/* owner_events */,
     unsigned int	/* event_mask */,
@@ -2677,43 +2142,32 @@ extern int XtGrabPointer(
     Window 		/* confine_to */,
     Cursor 		/* cursor */,
     Time 		/* time */
-#endif
 );
 
 extern void XtUngrabPointer(
-#if NeedFunctionPrototypes
     Widget 		/* widget */,
     Time 		/* time */
-#endif
 );
 
 extern void XtGetApplicationNameAndClass(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     String*		/* name_return */,
     String*		/* class_return */
-#endif
 );
 
 extern void XtRegisterDrawable(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Drawable		/* drawable */,
     Widget		/* widget */
-#endif
 );
 
 extern void XtUnregisterDrawable(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     Drawable		/* drawable */
-#endif
 );
 
 extern Widget XtHooksOfDisplay(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 typedef struct {
@@ -2757,41 +2211,29 @@ typedef struct {
 } XtDestroyHookDataRec, *XtDestroyHookData;
 
 extern void XtGetDisplays(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */,
     Display***		/* dpy_return */,
     Cardinal*		/* num_dpy_return */
-#endif
 );
 
 extern Boolean XtToolkitThreadInitialize(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void XtAppSetExitFlag(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */
-#endif
 );
 
 extern Boolean XtAppGetExitFlag(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */
-#endif
 );
 
 extern void XtAppLock(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */
-#endif
 );
 
 extern void XtAppUnlock(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */
-#endif
 );
 
 /*
@@ -2802,376 +2244,310 @@ extern void XtAppUnlock(
 /* String converters */
 
 extern Boolean XtCvtStringToAcceleratorTable(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToAtom(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Display */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToBool(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToBoolean(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToCommandArgArray(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToCursor(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Display */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToDimension(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToDirectoryString(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToDisplay(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToFile(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToFloat(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToFont(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Display */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToFontSet(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Display, locale */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToFontStruct(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Display */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToGravity(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToInitialState(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToInt(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToPixel(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Screen, Colormap */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 #define XtCvtStringToPosition XtCvtStringToShort
 
 extern Boolean XtCvtStringToRestartStyle(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToShort(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToTranslationTable(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToUnsignedChar(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtStringToVisual(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Screen, depth */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 /* int converters */
 
 extern Boolean XtCvtIntToBool(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToBoolean(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToColor(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* Screen, Colormap */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 #define XtCvtIntToDimension XtCvtIntToShort
 
 extern Boolean XtCvtIntToFloat(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToFont(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToPixel(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToPixmap(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 #define XtCvtIntToPosition XtCvtIntToShort
 
 extern Boolean XtCvtIntToShort(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 extern Boolean XtCvtIntToUnsignedChar(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 /* Color converter */
 
 extern Boolean XtCvtColorToPixel(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr /* args */,	/* none */
     Cardinal*   /* num_args */,	
     XrmValuePtr	/* fromVal */,
     XrmValuePtr	/* toVal */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 /* Pixel converter */

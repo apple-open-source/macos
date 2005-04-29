@@ -1,9 +1,9 @@
 /*
- * "$Id: lpstat.c,v 1.1.1.10 2003/07/16 17:22:07 jlovell Exp $"
+ * "$Id: lpstat.c,v 1.6 2005/01/04 22:10:52 jlovell Exp $"
  *
  *   "lpstat" command for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -25,6 +25,7 @@
  *
  *   main()           - Parse options and show status information.
  *   check_dest()     - Verify that the named destination(s) exists.
+ *   connect_server() - Connect to the server as necessary...
  *   show_accepting() - Show acceptance status.
  *   show_classes()   - Show printer classes.
  *   show_default()   - Show default destination.
@@ -45,13 +46,17 @@
 #include <cups/language.h>
 #include <cups/debug.h>
 #include <cups/string.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
 
 /*
  * Local functions...
  */
 
-static void	check_dest(const char *, int *, cups_dest_t **);
+static void	check_dest(http_t *, const char *, int *, cups_dest_t **);
+static http_t	*connect_server(http_t *);
 static int	show_accepting(http_t *, const char *, int, cups_dest_t *);
 static int	show_classes(http_t *, const char *);
 static void	show_default(int, cups_dest_t *);
@@ -78,6 +83,7 @@ main(int  argc,			/* I - Number of command-line arguments */
   int		long_status;	/* Long status report? */
   int		ranking;	/* Show job ranking? */
   const char	*which;		/* Which jobs to show? */
+  char		op;		/* Last operation on command-line */
 
 
 #ifdef LC_TIME
@@ -91,6 +97,7 @@ main(int  argc,			/* I - Number of command-line arguments */
   ranking     = 0;
   status      = 0;
   which       = "not-completed";
+  op          = 0;
 
   for (i = 1; i < argc; i ++)
     if (argv[i][0] == '-')
@@ -113,13 +120,15 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'P' : /* Show paper types */
+	    op = 'P';
 	    break;
-	    
+
         case 'R' : /* Show ranking */
 	    ranking = 1;
 	    break;
-	    
+
         case 'S' : /* Show charsets */
+	    op = 'S';
 	    if (!argv[i][2])
 	      i ++;
 	    break;
@@ -150,21 +159,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'a' : /* Show acceptance status */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'a';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_accepting(http, argv[i] + 2, num_dests, dests);
 	    }
@@ -172,14 +172,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    {
 	      i ++;
 
-              check_dest(argv[i], &num_dests, &dests);
+              check_dest(http, argv[i], &num_dests, &dests);
 
 	      status |= show_accepting(http, argv[i], num_dests, dests);
 	    }
 	    else
 	    {
               if (num_dests == 0)
-		num_dests = cupsGetDests(&dests);
+		num_dests = cupsGetDests2(http, &dests);
 
 	      status |= show_accepting(http, NULL, num_dests, dests);
 	    }
@@ -187,17 +187,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 #ifdef __sgi
         case 'b' : /* Show both the local and remote status */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'b';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
@@ -210,7 +201,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      * happy...
 	      */
 
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      puts("");
 	      status |= show_jobs(http, argv[i] + 2, NULL, 3, ranking, which);
@@ -226,21 +217,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 #endif /* __sgi */
 
         case 'c' : /* Show classes and members */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'c';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_classes(http, argv[i] + 2);
 	    }
@@ -248,7 +230,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    {
 	      i ++;
 
-              check_dest(argv[i], &num_dests, &dests);
+              check_dest(http, argv[i], &num_dests, &dests);
 
 	      status |= show_classes(http, argv[i]);
 	    }
@@ -257,17 +239,21 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'd' : /* Show default destination */
+	    op   = 'd';
+	    http = connect_server(http);
+
             if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
+	      num_dests = cupsGetDests2(http, &dests);
 
             show_default(num_dests, dests);
 	    break;
 
         case 'f' : /* Show forms */
+	    op   = 'f';
 	    if (!argv[i][2])
 	      i ++;
 	    break;
-	    
+
         case 'h' : /* Connect to host */
 	    if (http)
 	    {
@@ -293,21 +279,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 
         case 'l' : /* Long status or long job status */
 #ifdef __sgi
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'l';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_jobs(http, argv[i] + 2, NULL, 3, ranking, which);
 	    }
@@ -317,21 +294,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'o' : /* Show jobs by destination */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'o';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_jobs(http, argv[i] + 2, NULL, long_status,
 	                          ranking, which);
@@ -340,7 +308,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    {
 	      i ++;
 
-              check_dest(argv[i], &num_dests, &dests);
+              check_dest(http, argv[i], &num_dests, &dests);
 
 	      status |= show_jobs(http, argv[i], NULL, long_status,
 	                          ranking, which);
@@ -351,21 +319,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'p' : /* Show printers */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'p';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_printers(http, argv[i] + 2, num_dests, dests, long_status);
 	    }
@@ -373,50 +332,32 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    {
 	      i ++;
 
-              check_dest(argv[i], &num_dests, &dests);
+              check_dest(http, argv[i], &num_dests, &dests);
 
 	      status |= show_printers(http, argv[i], num_dests, dests, long_status);
 	    }
 	    else
 	    {
               if (num_dests == 0)
-		num_dests = cupsGetDests(&dests);
+		num_dests = cupsGetDests2(http, &dests);
 
 	      status |= show_printers(http, NULL, num_dests, dests, long_status);
 	    }
 	    break;
 
         case 'r' : /* Show scheduler status */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'r';
+	    http = connect_server(http);
 
 	    show_scheduler(http);
 	    break;
 
         case 's' : /* Show summary */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 's';
+	    http = connect_server(http);
 
             if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
+	      num_dests = cupsGetDests2(http, &dests);
 
 	    show_default(num_dests, dests);
 	    status |= show_classes(http, NULL);
@@ -424,20 +365,11 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 't' : /* Show all info */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 't';
+	    http = connect_server(http);
 
             if (num_dests == 0)
-	      num_dests = cupsGetDests(&dests);
+	      num_dests = cupsGetDests2(http, &dests);
 
 	    show_scheduler(http);
 	    show_default(num_dests, dests);
@@ -449,17 +381,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'u' : /* Show jobs by user */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'u';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	      status |= show_jobs(http, NULL, argv[i] + 2, long_status,
@@ -476,21 +399,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
         case 'v' : /* Show printer devices */
-	    if (!http)
-	    {
-              http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                                cupsEncryption());
-
-	      if (http == NULL)
-	      {
-		perror("lpstat: Unable to connect to server");
-		return (1);
-	      }
-            }
+	    op   = 'v';
+	    http = connect_server(http);
 
 	    if (argv[i][2] != '\0')
 	    {
-              check_dest(argv[i] + 2, &num_dests, &dests);
+              check_dest(http, argv[i] + 2, &num_dests, &dests);
 
 	      status |= show_devices(http, argv[i] + 2, num_dests, dests);
 	    }
@@ -498,14 +412,14 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    {
 	      i ++;
 
-              check_dest(argv[i], &num_dests, &dests);
+              check_dest(http, argv[i], &num_dests, &dests);
 
 	      status |= show_devices(http, argv[i], num_dests, dests);
 	    }
 	    else
 	    {
               if (num_dests == 0)
-		num_dests = cupsGetDests(&dests);
+		num_dests = cupsGetDests2(http, &dests);
 
 	      status |= show_devices(http, NULL, num_dests, dests);
 	    }
@@ -518,34 +432,15 @@ main(int  argc,			/* I - Number of command-line arguments */
       }
     else
     {
-      if (!http)
-      {
-	http = httpConnectEncrypt(cupsServer(), ippPort(),
-	                          cupsEncryption());
-
-	if (http == NULL)
-	{
-	  perror("lpstat: Unable to connect to server");
-	  return (1);
-	}
-      }
+      http = connect_server(http);
 
       status |= show_jobs(http, argv[i], NULL, long_status, ranking, which);
+      op = 'o';
     }
 
-  if (argc == 1)
+  if (!op)
   {
-    if (!http)
-    {
-      http = httpConnectEncrypt(cupsServer(), ippPort(),
-                                cupsEncryption());
-
-      if (http == NULL)
-      {
-	perror("lpstat: Unable to connect to server");
-	return (1);
-      }
-    }
+    http = connect_server(http);
 
     status |= show_jobs(http, NULL, cupsUser(), long_status, ranking, which);
   }
@@ -559,7 +454,8 @@ main(int  argc,			/* I - Number of command-line arguments */
  */
 
 static void
-check_dest(const char  *name,		/* I  - Name of printer/class(es) */
+check_dest(http_t      *http,		/* I  - HTTP connection */
+           const char  *name,		/* I  - Name of printer/class(es) */
            int         *num_dests,	/* IO - Number of destinations */
 	   cups_dest_t **dests)		/* IO - Destinations */
 {
@@ -573,7 +469,7 @@ check_dest(const char  *name,		/* I  - Name of printer/class(es) */
   */
 
   if (*num_dests == 0)
-    *num_dests = cupsGetDests(dests);
+    *num_dests = cupsGetDests2(http, dests);
 
  /*
   * Scan the name string for printer/class name(s)...
@@ -585,7 +481,7 @@ check_dest(const char  *name,		/* I  - Name of printer/class(es) */
     * Skip leading whitespace and commas...
     */
 
-    while (isspace(*dptr) || *dptr == ',')
+    while (isspace(*dptr & 255) || *dptr == ',')
       dptr ++;
 
     if (*dptr == '\0')
@@ -595,7 +491,7 @@ check_dest(const char  *name,		/* I  - Name of printer/class(es) */
     * Extract a single destination name from the name string...
     */
 
-    for (pptr = printer; !isspace(*dptr) && *dptr != ',' && *dptr != '\0';)
+    for (pptr = printer; !isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0';)
     {
       if ((pptr - printer) < (sizeof(printer) - 1))
         *pptr++ = *dptr++;
@@ -618,6 +514,29 @@ check_dest(const char  *name,		/* I  - Name of printer/class(es) */
       exit(1);
     }
   }
+}
+
+
+/*
+ * 'connect_server()' - Connect to the server as necessary...
+ */
+
+static http_t *				/* O - New HTTP connection */
+connect_server(http_t *http)		/* I - Current HTTP connection */
+{
+  if (!http)
+  {
+    http = httpConnectEncrypt(cupsServer(), ippPort(),
+	                      cupsEncryption());
+
+    if (http == NULL)
+    {
+      perror("lpstat: Unable to connect to server");
+      exit(1);
+    }
+  }
+
+  return (http);
 }
 
 
@@ -768,7 +687,7 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -779,10 +698,10 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr & 255) == tolower(*dptr & 255);
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -792,9 +711,9 @@ show_accepting(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -979,7 +898,12 @@ show_classes(http_t     *http,		/* I - HTTP connection to server */
       {
         httpSeparate(printer_uri, method, username, server, &port, resource);
 
-        if ((http2 = httpConnectEncrypt(server, port, cupsEncryption())) != NULL)
+        if (!strcasecmp(server, http->hostname))
+	  http2 = http;
+	else
+	  http2 = httpConnectEncrypt(server, port, cupsEncryption());
+
+	if (http2 != NULL)
 	{
 	 /*
 	  * Build an IPP_GET_PRINTER_ATTRIBUTES request, which requires the
@@ -1014,7 +938,8 @@ show_classes(http_t     *http,		/* I - HTTP connection to server */
           if ((response2 = cupsDoRequest(http2, request, "/")) != NULL)
 	    members = ippFindAttribute(response2, "member-names", IPP_TAG_NAME);
 
-          httpClose(http2);
+          if (http2 != http)
+            httpClose(http2);
         }
       }
 
@@ -1047,7 +972,7 @@ show_classes(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1058,10 +983,10 @@ show_classes(http_t     *http,		/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr & 255) == tolower(*dptr & 255);
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -1071,9 +996,9 @@ show_classes(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1127,6 +1052,8 @@ show_default(int         num_dests,	/* I - Number of user-defined dests */
 	     cups_dest_t *dests)	/* I - User-defined destinations */
 {
   cups_dest_t	*dest;			/* Destination */
+  const char	*printer,		/* Printer name */
+		*val;			/* Environment variable name */
 
   if ((dest = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
   {
@@ -1136,7 +1063,28 @@ show_default(int         num_dests,	/* I - Number of user-defined dests */
       printf("system default destination: %s\n", dest->name);
   }
   else
-    puts("no system default destination");
+  {
+    val = NULL;
+
+    if ((printer = getenv("LPDEST")) == NULL)
+    {
+      if ((printer = getenv("PRINTER")) != NULL)
+      {
+        if (!strcmp(printer, "lp"))
+          printer = NULL;
+	else
+	  val = "PRINTER";
+      }
+    }
+    else
+      val = "LPDEST";
+
+    if (printer && !cupsGetDest(printer, NULL, num_dests, dests))
+      printf("lpstat: error - %s environment variable names non-existent destination \"%s\"!\n",
+             val, printer);
+    else
+      puts("no system default destination");
+  }
 }
 
 
@@ -1287,7 +1235,7 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1298,10 +1246,10 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr & 255) == tolower(*dptr & 255);
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -1311,9 +1259,9 @@ show_devices(http_t      *http,		/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1416,8 +1364,8 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 		*username,		/* Pointer to job-originating-user-name */
 		*title;			/* Pointer to job-name */
   int		rank,			/* Rank in queue */
-		jobid,			/* job-id */
-		size;			/* job-k-octets */
+		jobid;			/* job-id */
+  off_t		size;			/* job-k-octets */
   time_t	jobtime;		/* time-at-creation */
   struct tm	*jobdate;		/* Date & time */
   const char	*dptr,			/* Pointer into destination list */
@@ -1528,7 +1476,7 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 
         if (strcmp(attr->name, "job-k-octets") == 0 &&
 	    attr->value_tag == IPP_TAG_INTEGER)
-	  size = attr->values[0].integer * 1024;
+	  size = (off_t)attr->values[0].integer * 1024;
 
         if (strcmp(attr->name, "time-at-creation") == 0 &&
 	    attr->value_tag == IPP_TAG_INTEGER)
@@ -1577,7 +1525,7 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1588,10 +1536,10 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = dest;
-	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr & 255) == tolower(*dptr & 255);
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -1601,9 +1549,9 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1619,7 +1567,7 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1633,7 +1581,7 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	       *ptr != '\0' && *dptr != '\0' && *ptr == *dptr;
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -1643,9 +1591,9 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1670,19 +1618,19 @@ show_jobs(http_t     *http,		/* I - HTTP connection to server */
 
 	  strftime(date, sizeof(date), "%b %d %H:%M", jobdate);
 
-	  printf("%s;%s;%d;%s;%s\n", temp, username ? username : "unknown",
-	         size, title ? title : "unknown", date);
+	  printf("%s;%s;%" PRIdMAX ";%s;%s\n", temp, username ? username : "unknown",
+	         (intmax_t)size, title ? title : "unknown", date);
 	}
 	else
 	{
 	  strftime(date, sizeof(date), CUPS_STRFTIME_FORMAT, jobdate);
 
           if (ranking)
-	    printf("%3d %-21s %-13s %8d %s\n", rank, temp,
-	           username ? username : "unknown", size, date);
+	    printf("%3d %-21s %-13s %8" PRIdMAX " %s\n", rank, temp,
+	           username ? username : "unknown", (intmax_t)size, date);
           else
-	    printf("%-23s %-13s %8d   %s\n", temp,
-	           username ? username : "unknown", size, date);
+	    printf("%-23s %-13s %8" PRIdMAX "   %s\n", temp,
+	           username ? username : "unknown", (intmax_t)size, date);
           if (long_status)
 	    printf("\tqueued for %s\n", dest);
 	}
@@ -1901,7 +1849,7 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip leading whitespace and commas...
 	  */
 
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -1912,10 +1860,10 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  */
 
 	  for (ptr = printer;
-	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr) == tolower(*dptr);
+	       *ptr != '\0' && *dptr != '\0' && tolower(*ptr & 255) == tolower(*dptr & 255);
 	       ptr ++, dptr ++);
 
-          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr)))
+          if (*ptr == '\0' && (*dptr == '\0' || *dptr == ',' || isspace(*dptr & 255)))
 	  {
 	    match = 1;
 	    break;
@@ -1925,9 +1873,9 @@ show_printers(http_t      *http,	/* I - HTTP connection to server */
 	  * Skip trailing junk...
 	  */
 
-          while (!isspace(*dptr) && *dptr != ',' && *dptr != '\0')
+          while (!isspace(*dptr & 255) && *dptr != ',' && *dptr != '\0')
 	    dptr ++;
-	  while (isspace(*dptr) || *dptr == ',')
+	  while (isspace(*dptr & 255) || *dptr == ',')
 	    dptr ++;
 
 	  if (*dptr == '\0')
@@ -2162,5 +2110,5 @@ show_scheduler(http_t *http)	/* I - HTTP connection to server */
 
 
 /*
- * End of "$Id: lpstat.c,v 1.1.1.10 2003/07/16 17:22:07 jlovell Exp $".
+ * End of "$Id: lpstat.c,v 1.6 2005/01/04 22:10:52 jlovell Exp $".
  */

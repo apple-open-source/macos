@@ -55,9 +55,7 @@ __RCSID("$FreeBSD: src/usr.bin/calendar/io.c,v 1.19 2002/07/28 13:46:09 jmallett
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
-#ifndef __APPLE__
 #include <langinfo.h>
-#endif
 #include <locale.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -115,9 +113,7 @@ cal()
 			continue;
 		if (strncmp(buf, "LANG=", 5) == 0) {
 			(void) setlocale(LC_ALL, buf + 5);
-#ifndef __APPLE__
 			d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
-#endif
 			setnnames();
 			continue;
 		}
@@ -147,10 +143,8 @@ cal()
 				struct tm tm;
 				char dbuf[80];
 
-#ifndef __APPLE__
 				if (d_first < 0)
 					d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
-#endif
 				tm.tm_sec = 0;  /* unused */
 				tm.tm_min = 0;  /* unused */
 				tm.tm_hour = 0; /* unused */
@@ -295,15 +289,9 @@ opencal()
 			warnx("setuid failed");
 			_exit(1);
 		}
-#ifndef __APPLE__
 		execl(_PATH_CPP, "cpp", "-P",
 		    "-traditional", "-nostdinc",	/* GCC specific opts */
-		    "-I.", "-I", _PATH_INCLUDE, (char *)NULL);
-#else
-		execl(_PATH_CPP, "cpp", "-P",
-		    "-traditional", "-nostdinc",	/* GCC specific opts */
-		    "-I.", "-I" _PATH_INCLUDE, (char *)NULL);
-#endif
+		    "-I.", "-I/usr/share/calendar", (char *)NULL);
 		warn(_PATH_CPP);
 		_exit(1);
 	}

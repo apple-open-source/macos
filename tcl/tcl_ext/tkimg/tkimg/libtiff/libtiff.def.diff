@@ -1,0 +1,66 @@
+*** libtiff.def.orig	Sat May 13 07:16:54 2000
+--- libtiff.def	Sat May 13 07:50:00 2000
+***************
+*** 74,77 ****
+--- 74,134 ----
+  	_TIFFmemset
+  	_TIFFmemcpy
+  	_TIFFmemcmp
++ 	TIFFCurrentDirOffset
++ 	TIFFDefaultDirectory
++ 	TIFFDefaultTileSize
++ 	TIFFFindCODEC
++ 	TIFFFlushData1
++ 	TIFFFreeDirectory
++ 	TIFFIsMSB2LSB
++ 	TIFFIsUpSampled
++ 	TIFFNumberOfDirectories
++ 	TIFFPredictorInit
++ 	TIFFRGBAImageBegin
++ 	TIFFRGBAImageEnd
++ 	TIFFRGBAImageGet
++ 	TIFFRGBAImageOK
++ 	TIFFRasterScanlineSize
++ 	TIFFReadRGBAStrip
++ 	TIFFReadRGBATile
++ 	TIFFReassignTagToIgnore
++ 	TIFFRegisterCODEC
++ 	TIFFSetCompressionScheme
++ 	TIFFSetTagExtender
++ 	TIFFSwabArrayOfDouble
++ 	TIFFSwabDouble
++ 	TIFFUnRegisterCODEC
++ 	TIFFWriteBufferSetup
++ 	_TIFFDefaultStripSize
++ 	_TIFFDefaultTileSize
++ 	_TIFFFax3fillruns
++ 	_TIFFFieldWithTag
++ 	_TIFFFindFieldInfo
++ 	_TIFFMergeFieldInfo
++ 	_TIFFNoPostDecode
++ 	_TIFFNoPreCode
++ 	_TIFFNoRowDecode
++ 	_TIFFNoRowEncode
++ 	_TIFFNoSeek
++ 	_TIFFNoStripDecode
++ 	_TIFFNoStripEncode
++ 	_TIFFNoTileDecode
++ 	_TIFFNoTileEncode
++ 	_TIFFPrintFieldInfo
++ 	_TIFFSampleToTagType
++ 	_TIFFSetDefaultCompressionState
++ 	_TIFFSetupFieldInfo
++ 	_TIFFSwab16BitData
++ 	_TIFFSwab32BitData
++ 	_TIFFSwab64BitData
++ 	_TIFFgetMode
++ 	_TIFFprintAscii
++ 	_TIFFprintAsciiTag
++ 	_TIFFsetByteArray
++ 	_TIFFsetDoubleArray
++ 	_TIFFsetFloatArray
++ 	_TIFFsetLongArray
++ 	_TIFFsetNString
++ 	_TIFFsetShortArray
++ 	_TIFFsetString
+  

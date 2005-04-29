@@ -121,38 +121,41 @@ class AppleU3ART : public IOMapper
 // alias the fTable variable into our mappings table
 #define fMappings	((volatile ppnum_t *) super::fTable)
 
-protected:
+private:
 
-    static vm_size_t	gCacheLineSize;
+    static vm_size_t	 gCacheLineSize;
+
+    UInt32		fFreeLists[kMaxNumZones];
+
+    IOLock		*fTableLock;
+    IOSimpleLock	*fInvalidateLock;
+
+    void		*fDummyPage;
+
+    UInt8		*fRegBase;
+    IOMemoryMap		*fRegisterVMMap;
+    volatile UInt32	*fRegTagBase;
+    IOMemoryMap		*fTagVMMap;
     
-    void *		fDummyPage;
-    ppnum_t		fDummyPageNumber;
-
-    UInt8 *		fRegBase;
-    IOMemoryMap *	fRegisterVMMap;
-    volatile UInt32 * 	fRegTagBase;
-    IOMemoryMap *	fTagVMMap;
-
 #define fDARTCNTLReg	((volatile UInt32 *) (fRegBase + DARTCNTL))
 #define fDARTEXCPReg	((volatile UInt32 *) (fRegBase + DARTEXCP))
 #define fDARTTAGReg	((volatile UInt32 *) (fRegBase + DARTTAG))
 #define fDARTDATAPReg	((volatile UInt32 *) (fRegBase + DARTDATA))
 
-    UInt32		fDARTCNTLVal;	// Shadow value of DARTCNTL register
-    UInt32		fFreeLists[kMaxNumZones];
-    UInt32		fNumZones;
-    UInt32		fMapperRegionSize;
+    UInt32		 fDARTCNTLVal;	// Shadow value of DARTCNTL register
+    UInt32		 fNumZones;
+    UInt32		 fMapperRegionSize;
+    UInt32		 fFreeSleepers;
+    ppnum_t		 fDummyPageNumber;
 
-    IOLock *		fTableLock;
-    IOSimpleLock *	fInvalidateLock;
-
-    virtual void free();
-
-    void flushMemory(volatile void *vaddr, UInt32 len);
+    // Internal functions
+    void flushMappings(volatile void *vaddr, UInt32 numMappings);
 
     void breakUp(unsigned start, unsigned end, unsigned freeInd);
     void invalidateArt(ppnum_t pnum, IOItemCount size);
     void tlbInvalidate(ppnum_t pnum, IOItemCount size);
+
+    virtual void free();
 
     virtual bool initHardware(IOService *provider);
 
@@ -278,8 +281,8 @@ bool AppleU3ART::initHardware(IOService *provider)
     *(ppnum_t *) fTable = kInvalidInUse;
 
     fDummyPage = IOMallocAligned(0x1000, 0x1000);
-    fDummyPageNumber = pmap_find_phys(kernel_pmap,
-                                        (addr64_t) (uintptr_t) fDummyPage);
+    fDummyPageNumber =
+        pmap_find_phys(kernel_pmap, (addr64_t) (uintptr_t) fDummyPage);
 
     IOLog("DART enabled\n");
     kprintf("DART enabled\n");
@@ -373,12 +376,12 @@ ppnum_t AppleU3ART::iovmAlloc(IOItemCount pages)
                 if ( (ret = fFreeLists[z]) )
                     break;
             }
-        
-            if (!ret)
-                // @@@ gvdl: need to block thread
-                panic("AppleU3ART: Out of IOVM Space");
-    
-            break;
+            if (ret)
+                break;
+
+            fFreeSleepers++;
+            IOLockSleep(fTableLock, fFreeLists, THREAD_UNINT);
+            fFreeSleepers--;
         }
     
         // If we didn't find a entry in our size then break up the free block
@@ -398,8 +401,10 @@ ppnum_t AppleU3ART::iovmAlloc(IOItemCount pages)
     // ret is free list offset not page offset;
     ret *= kActivePerFree;
 
+    ppnum_t pageEntry = fDummyPageNumber | kValidEntry;
     for (cnt = 0; cnt < pages; cnt++) {
-        iovmInsert(ret, cnt, fDummyPageNumber);
+        volatile ppnum_t *activeArt = &fMappings[ret + cnt];
+        *activeArt = pageEntry;
     }
 
     return ret;
@@ -480,7 +485,7 @@ void AppleU3ART::invalidateArt(ppnum_t pnum, IOItemCount size)
     }
 
     // Flush changes out to the U3
-    flushMemory(&fMappings[pnum], size * sizeof(fMappings[0]));
+    flushMappings(&fMappings[pnum], size);
 
     tlbInvalidate(pnum, size);
 }
@@ -544,7 +549,10 @@ void AppleU3ART::iovmFree(ppnum_t addr, IOItemCount pages)
         freeArt[fFreeLists[z]].fPrev = addr;
     freeArt[addr].fPrev = 0;
     fFreeLists[z] = addr;
-    
+
+    if (fFreeSleepers)
+        IOLockWakeup(fTableLock, fFreeLists, /* oneThread */ false);
+
     IOLockUnlock(fTableLock);
 }
 
@@ -577,7 +585,7 @@ void AppleU3ART::iovmInsert(ppnum_t addr, IOItemCount offset, ppnum_t page)
     *activeArt = page | kValidEntry;
 
     // Flush changes out to the U3
-    flushMemory(activeArt, sizeof(fMappings[0]));
+    flushMappings(activeArt, 1);
 
     tlbInvalidate(addr, 1);
 }
@@ -594,7 +602,7 @@ void AppleU3ART::iovmInsert(ppnum_t addr, IOItemCount offset,
         activeArt[i] = pageList[i] | kValidEntry;
 
     // Flush changes out to the U3
-    flushMemory(activeArt, pageCount * sizeof(fMappings[0]));
+    flushMappings(activeArt, pageCount);
 
     tlbInvalidate(addr, pageCount);
 }
@@ -611,7 +619,7 @@ void AppleU3ART::iovmInsert(ppnum_t addr, IOItemCount offset,
         activeArt[i] = pageList[i].phys_addr | kValidEntry;
 
     // Flush changes out to the U3
-    flushMemory(activeArt, pageCount * sizeof(fMappings[0]));
+    flushMappings(activeArt, pageCount);
 
     tlbInvalidate(addr, pageCount);
 }
@@ -649,11 +657,15 @@ static inline unsigned long __lwzx(vm_address_t base, unsigned long offset)
     /* return *((unsigned long *) ((unsigned char *) base + offset)); */
 }
 
-void AppleU3ART::flushMemory(volatile void *vaddr, UInt32 len)
+// Note to workaround an issue where the memory controller does read-ahead
+// of unmapped memory it is necessary to flush one more mapping than
+// requested by the actual call, see len initialisation below.
+void AppleU3ART::flushMappings(volatile void *vaddr, UInt32 numMappings)
 {
     SInt32 csize = gCacheLineSize;
     vm_address_t arithAddr = (vm_address_t) vaddr;
     vm_address_t vaddr_cache_aligned = arithAddr & ~(csize-1);
+    UInt32 len = (numMappings + 1) * sizeof(fMappings[0]);	// add one
     SInt c, end = ((SInt)((arithAddr & (csize-1)) + len)) - csize;
 
     for (c = 0; c < end; c += csize)

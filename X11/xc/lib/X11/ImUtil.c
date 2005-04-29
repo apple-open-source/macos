@@ -24,16 +24,13 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ImUtil.c,v 3.10 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ImUtil.c,v 3.13 2003/11/17 22:20:07 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xutil.h>
 #include <stdio.h>
+#include "ImUtil.h"
 
-/* PutImage.c */
-extern int _XReverse_Bytes();
-
-#if NeedFunctionPrototypes
 static int _XDestroyImage(XImage *);
 static unsigned long _XGetPixel(XImage *, int, int);
 static unsigned long _XGetPixel1(XImage *, int, int);
@@ -47,7 +44,6 @@ static int _XPutPixel16(XImage *, int, int, unsigned long);
 static int _XPutPixel32(XImage *, int, int, unsigned long);
 static XImage *_XSubImage(XImage *, int, int, unsigned int, unsigned int);
 static int _XAddPixel(XImage *, long);
-#endif
 
 static unsigned char const _lomask[0x09] = { 0x00, 0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f, 0xff };
 static unsigned char const _himask[0x09] = { 0xff, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0, 0xc0, 0x80, 0x00 };
@@ -57,9 +53,9 @@ static unsigned char const _himask[0x09] = { 0xff, 0xfe, 0xfc, 0xf8, 0xf0, 0xe0,
 	display. */
 
 int
-_XGetScanlinePad(dpy, depth)
- Display *dpy;
- int depth;
+_XGetScanlinePad(
+ Display *dpy,
+ int depth)
  {
  	register ScreenFormat *fmt = dpy->pixmap_format;
  	register int i;
@@ -72,9 +68,9 @@ _XGetScanlinePad(dpy, depth)
  }
  
 int
-_XGetBitsPerPixel(dpy, depth)
- Display *dpy;
- int depth;
+_XGetBitsPerPixel(
+ Display *dpy,
+ int depth)
  {
  	register ScreenFormat *fmt = dpy->pixmap_format;
  	register int i;
@@ -121,9 +117,9 @@ _XGetBitsPerPixel(dpy, depth)
  *	For XY formats, bitmap_unit is 8, 16, or 32 bits.
  *	For Z format, bits_per_pixel is 1, 4, 8, 16, 24, or 32 bits.
  */
-static void _xynormalizeimagebits (bp, img)
-    register unsigned char *bp;
-    register XImage *img;
+static void _xynormalizeimagebits (
+    register unsigned char *bp,
+    register XImage *img)
 {
 	register unsigned char c;
 
@@ -150,9 +146,9 @@ static void _xynormalizeimagebits (bp, img)
 	    _XReverse_Bytes (bp, img->bitmap_unit >> 3);
 }
 
-static void _znormalizeimagebits (bp, img)
-    register unsigned char *bp;
-    register XImage *img;
+static void _znormalizeimagebits (
+    register unsigned char *bp,
+    register XImage *img)
 {
 	register unsigned char c;
 	switch (img->bits_per_pixel) {
@@ -184,11 +180,11 @@ static void _znormalizeimagebits (bp, img)
 	}
 }
 
-static void _putbits (src, dstoffset, numbits, dst)
-    register char *src;	/* address of source bit string */
-    int dstoffset;	/* bit offset into destination; range is 0-31 */
-    register int numbits;/* number of bits to copy to destination */
-    register char *dst;	/* address of destination bit string */
+static void _putbits(
+    register char *src,	/* address of source bit string */
+    int dstoffset,	/* bit offset into destination; range is 0-31 */
+    register int numbits,/* number of bits to copy to destination */
+    register char *dst)	/* address of destination bit string */
 {
 	register unsigned char chlo, chhi;
 	int hibits;
@@ -271,8 +267,8 @@ static void _putbits (src, dstoffset, numbits, dst)
  * routines always have to check to make sure the optimization is still
  * valid, and reinit the functions if not.
  */
-void _XInitImageFuncPtrs (image)
-    register XImage *image;
+void _XInitImageFuncPtrs (
+    register XImage *image)
 {
 	image->f.create_image = XCreateImage;
 	image->f.destroy_image = _XDestroyImage;
@@ -917,12 +913,11 @@ static XImage *_XSubImage (ximage, x, y, width, height)
  *
  */
 
-int _XSetImage (srcimg, dstimg, x, y)
-    XImage *srcimg;
-    register XImage *dstimg;
-    register int x;
-    register int y;
-
+int _XSetImage(
+    XImage *srcimg,
+    register XImage *dstimg,
+    register int x,
+    register int y)
 {
 	register unsigned long pixel;
 	register int row, col;

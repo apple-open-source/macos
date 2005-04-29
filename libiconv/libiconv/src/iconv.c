@@ -273,6 +273,10 @@ int main (int argc, char* argv[])
       const char *option = argv[i] + 1;
       if (*option == '\0')
         usage(1);
+      if (!strcmp(option,"-")) { /* handle -- option delimiter */
+	i++;
+	break;
+      }
       for (; *option; option++)
         switch (*option) {
           case 'c': discard_unconvertible = 1; break;

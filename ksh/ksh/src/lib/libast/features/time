@@ -1,0 +1,77 @@
+set	prototyped
+hdr,sys	time,times
+lib	_strftime
+mem	tm.tm_sec,timeval.tv_sec sys/time.h
+typ	clock_t,time_t
+
+cat{
+#if !_typ_clock_t
+#define _typ_clock_t	1
+typedef unsigned long clock_t;
+#endif
+#if !_typ_time_t
+#define _typ_time_t	1
+typedef unsigned long time_t;
+#endif
+#if _sys_time
+#include <sys/time.h>
+#endif
+#if _hdr_time && !_mem_tm_sec_tm
+#include <time.h>
+#endif
+#if _sys_times
+#include <sys/times.h>
+#else
+struct tms
+{
+	clock_t	tms_utime;
+	clock_t	tms_stime;
+	clock_t	tms_cutime;
+	clock_t	tms_cstime;
+};
+extern clock_t		times(struct tms*);
+#endif
+#if !_mem_tv_sec_timeval
+struct timeval
+{
+	time_t	tv_sec;
+	time_t	tv_usec;
+};
+#endif
+#ifndef CLOCKS_PER_SEC
+#ifdef	CLK_TCK
+#define CLOCKS_PER_SEC	CLK_TCK
+#else
+#define CLOCKS_PER_SEC	_AST_CLK_TCK
+#endif
+#endif
+}end
+
+tst	- -DN=1 - -DN=2 - -DN=3 - -DN=4 output{
+	#include <sys/types.h>
+	#include <sys/time.h>
+	main()
+	{
+		struct timeval	tv;
+#if N == 1
+		struct timezone	tz;
+		if (gettimeofday(&tv, (struct timezone*)0) < 0)
+			return 1;
+		printf("#define tmtimeofday(p)	gettimeofday(p,(struct timezone*)0)\n");
+#endif
+#if N == 2
+		if (gettimeofday(&tv, (void*)0) < 0)
+			return 1;
+		printf("#define tmtimeofday(p)	gettimeofday(p,(void*)0)\n");
+#endif
+#if N == 3
+		if (gettimeofday(&tv) < 0)
+			return 1;
+		printf("#define tmtimeofday(p)	gettimeofday(p)\n");
+#endif
+#if N == 4
+		printf("#define tmtimeofday(p)	((p)->tv_sec=time((time_t*)0),(p)->tv_usec=0,0)\n");
+#endif
+		return 0;
+	}
+}end

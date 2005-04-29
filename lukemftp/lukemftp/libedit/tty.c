@@ -1,4 +1,4 @@
-/*	$NetBSD: tty.c,v 1.13 2000/09/04 22:06:33 lukem Exp $	*/
+/*	$NetBSD: tty.c,v 1.16 2002/03/18 16:01:01 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,15 +36,17 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * tty.c: tty interface stuff
  */
-#include "sys.h"
 #include "tty.h"
 #include "el.h"
 
 typedef struct ttymodes_t {
-	char *m_name;
+	const char *m_name;
 	u_int m_value;
 	int m_type;
 }          ttymodes_t;
@@ -52,10 +54,10 @@ typedef struct ttymodes_t {
 typedef struct ttymap_t {
 	int nch, och;		/* Internal and termio rep of chars */
 	el_action_t bind[3];	/* emacs, vi, and vi-cmd */
-}        ttymap_t;
+} ttymap_t;
 
 
-private ttyperm_t ttyperm = {
+private const ttyperm_t ttyperm = {
 	{
 		{"iflag:", ICRNL, (INLCR | IGNCR)},
 		{"oflag:", (OPOST | ONLCR), ONLRET},
@@ -83,7 +85,7 @@ private ttyperm_t ttyperm = {
 	}
 };
 
-private ttychar_t ttychar = {
+private const ttychar_t ttychar = {
 	{
 		CINTR, CQUIT, CERASE, CKILL,
 		CEOF, CEOL, CEOL2, CSWTCH,
@@ -113,7 +115,7 @@ private ttychar_t ttychar = {
 	}
 };
 
-private ttymap_t tty_map[] = {
+private const ttymap_t tty_map[] = {
 #ifdef VERASE
 	{C_ERASE, VERASE,
 	{ED_DELETE_PREV_CHAR, VI_DELETE_PREV_CHAR, ED_PREV_CHAR}},
@@ -150,7 +152,7 @@ private ttymap_t tty_map[] = {
 	{ED_UNASSIGNED, ED_UNASSIGNED, ED_UNASSIGNED}}
 };
 
-private ttymodes_t ttymodes[] = {
+private const ttymodes_t ttymodes[] = {
 #ifdef	IGNBRK
 	{"ignbrk", IGNBRK, MD_INP},
 #endif /* IGNBRK */
@@ -754,9 +756,10 @@ tty_bind_char(EditLine *el, int force)
 
 	unsigned char *t_n = el->el_tty.t_c[ED_IO];
 	unsigned char *t_o = el->el_tty.t_ed.c_cc;
-	char new[2], old[2];
-	ttymap_t *tp;
-	el_action_t *dmap, *dalt, *map, *alt;
+	unsigned char new[2], old[2];
+	const ttymap_t *tp;
+	el_action_t *map, *alt;
+	const el_action_t *dmap, *dalt;
 	new[1] = old[1] = '\0';
 
 	map = el->el_map.key;
@@ -775,16 +778,16 @@ tty_bind_char(EditLine *el, int force)
 		if (new[0] == old[0] && !force)
 			continue;
 		/* Put the old default binding back, and set the new binding */
-		key_clear(el, map, old);
-		map[(int) old[0]] = dmap[(int) old[0]];
-		key_clear(el, map, new);
+		key_clear(el, map, (char *)old);
+		map[old[0]] = dmap[old[0]];
+		key_clear(el, map, (char *)new);
 		/* MAP_VI == 1, MAP_EMACS == 0... */
-		map[(int) new[0]] = tp->bind[(int) el->el_map.type];
+		map[new[0]] = tp->bind[el->el_map.type];
 		if (dalt) {
-			key_clear(el, alt, old);
-			alt[(int) old[0]] = dalt[(int) old[0]];
-			key_clear(el, alt, new);
-			alt[(int) new[0]] = tp->bind[(int) el->el_map.type + 1];
+			key_clear(el, alt, (char *)old);
+			alt[old[0]] = dalt[old[0]];
+			key_clear(el, alt, (char *)new);
+			alt[new[0]] = tp->bind[el->el_map.type + 1];
 		}
 	}
 }
@@ -1032,13 +1035,13 @@ tty_noquotemode(EditLine *el)
  */
 protected int
 /*ARGSUSED*/
-tty_stty(EditLine *el, int argc, char **argv)
+tty_stty(EditLine *el, int argc, const char **argv)
 {
-	ttymodes_t *m;
-	char x, *d;
+	const ttymodes_t *m;
+	char x;
 	int aflag = 0;
-	char *s;
-	char *name;
+	const char *s, *d;
+	const char *name;
 	int z = EX_IO;
 
 	if (argv == NULL)

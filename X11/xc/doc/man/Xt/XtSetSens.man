@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtSetSens.man,v 1.2 2001/01/27 18:20:30 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtSetSens.man,v 1.3 2003/04/28 22:18:21 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,15 +131,10 @@
 .SH NAME
 XtSetSensitive, XtIsSensitive \- set and check a widget's sensitivity state
 .SH SYNTAX
-void XtSetSensitive(\fIw\fP, \fIsensitive\fP)
-.br
-      Widget \fIw\fP;
-.br
-      Boolean \fIsensitive\fP;
-.LP
-Boolean XtIsSensitive(\fIw\fP)
-.br
-     Widget \fIw\fP;
+.HP
+void XtSetSensitive(Widget \fIw\fP, Boolean \fIsensitive\fP); 
+.HP
+Boolean XtIsSensitive(Widget \fIw\fP); 
 .SH ARGUMENTS
 .IP \fIsensitive\fP 1i
 Specifies a Boolean value that indicates whether the widget should receive 

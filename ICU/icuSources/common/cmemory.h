@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2001, International Business Machines
+*   Copyright (C) 1997-2003, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -64,5 +64,20 @@ typedef union {
  * in order to get the next aligned address
  */
 #define U_ALIGNMENT_OFFSET_UP(ptr) (sizeof(UAlignedMemory) - U_ALIGNMENT_OFFSET(ptr))
+
+/**
+  *  Indicate whether the ICU allocation functions have been used.
+  *  This is used to determine whether ICU is in an initial, unused state.
+  */
+U_CFUNC UBool 
+cmemory_inUse(void);
+
+/**
+  *  Heap clean up function, called from u_cleanup()
+  *    Clears any user heap functions from u_setMemoryFunctions()
+  *    Does NOT deallocate any remaining allocated memory.
+  */
+U_CFUNC UBool 
+cmemory_cleanup(void);
 
 #endif

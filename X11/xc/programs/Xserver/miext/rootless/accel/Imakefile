@@ -1,0 +1,28 @@
+XCOMM $XFree86: xc/programs/Xserver/miext/rootless/accel/Imakefile,v 1.1 2003/10/24 00:33:15 torrey Exp $
+
+#include <Server.tmpl>
+
+SRCS =  rlBlt.c \
+        rlCopy.c \
+        rlFill.c \
+        rlFillRect.c \
+        rlFillSpans.c \
+        rlGlyph.c \
+        rlSolid.c
+
+OBJS =  rlBlt.o \
+        rlCopy.o \
+        rlFill.o \
+        rlFillRect.o \
+        rlFillSpans.o \
+        rlGlyph.o \
+        rlSolid.o
+
+INCLUDES = -I. -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(FONTINCSRC) -I$(SERVERSRC)/render \
+           -I$(EXTINCSRC) -I$(SERVERSRC)/Xext -I..
+
+NormalLibraryObjectRule()
+LibraryModuleTarget(rlAccel,$(OBJS))
+
+DependTarget()

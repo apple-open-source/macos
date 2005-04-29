@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_cursor.c,v 1.14 2000/06/30 18:27:02 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/apm/apm_cursor.c,v 1.15 2003/10/30 18:37:20 tsi Exp $ */
 
 
 #include "X.h"
@@ -84,17 +84,6 @@ int ApmHWCursorInit(ScreenPtr pScreen)
   infoPtr->ShowCursor		= ApmShowCursor;
   infoPtr->UseHWCursor		= ApmUseHWCursor;
   
-  /*ErrorF("%s %s: %s: Using hardware cursor (XAA).\n", 
-         XCONFIG_PROBED, vga256InfoRec.name, vga256InfoRec.chipset);    
-
-  if(XAACursorInfoRec.Flags & USE_HARDWARE_CURSOR) {
-    vgaHWCursor.Init = XAACursorInit;
-    vgaHWCursor.Initialized = TRUE;
-    vgaHWCursor.Restore = XAARestoreCursor;
-    vgaHWCursor.Warp = XAAWarpCursor;
-    vgaHWCursor.QueryBestSize = XAAQueryBestSize;
-  }*/
-
   /* Set up the convert table for the input cursor data */
   for (i = 0; i < 256; i++)
     ConvertTable[i] = ((~i) & 0xAA) | (i & (i >> 1) & 0x55);

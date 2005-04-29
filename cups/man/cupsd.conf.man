@@ -1,5 +1,5 @@
 .\"
-.\" "$Id: cupsd.conf.man,v 1.1.1.8 2003/04/18 19:52:31 jlovell Exp $"
+.\" "$Id: cupsd.conf.man,v 1.2 2004/09/02 05:09:46 jlovell Exp $"
 .\"
 .\"   cupsd.conf man page for the Common UNIX Printing System (CUPS).
 .\"
@@ -91,7 +91,16 @@ Specifies the port to listen to for printer information packets.
 .TP 5
 BrowseProtocols
 .br
-Specifies the protocols to use for printer browsing.
+Specifies the protocols to use for printer registration and discovery. Using BrowseProtocols sets 
+the BrowseLocalProtocols and BrowseRemoteProtocols directives to the specified value.
+.TP 5
+BrowseLocalProtocols
+.br
+Specifies the protocols to use for the sending or registration of local printers.
+.TP 5
+BrowseRemoteProtocols
+.br
+Specifies the protocols to use for printer discovery of remote printers.
 .TP 5
 BrowseRelay
 .br
@@ -397,5 +406,5 @@ http://localhost:631/documentation.html
 .SH COPYRIGHT
 Copyright 1993-2003 by Easy Software Products, All Rights Reserved.
 .\"
-.\" End of "$Id: cupsd.conf.man,v 1.1.1.8 2003/04/18 19:52:31 jlovell Exp $".
+.\" End of "$Id: cupsd.conf.man,v 1.2 2004/09/02 05:09:46 jlovell Exp $".
 .\"

@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,1999,2000,2001 Free Software Foundation, Inc.         *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -34,16 +34,16 @@
  * Magnus Bengtsson, d6mbeng@dtek.chalmers.se (Nov'93)                      *
  ****************************************************************************/
 
+#define __INTERNAL_CAPS_VISIBLE
 #include <curses.priv.h>
 
 #include <termcap.h>
 #include <tic.h>
 #include <ctype.h>
 
-#define __INTERNAL_CAPS_VISIBLE
 #include <term_entry.h>
 
-MODULE_ID("$Id: lib_termcap.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: lib_termcap.c,v 1.44 2003/05/24 21:10:28 tom Exp $")
 
 #define CSI       233
 #define ESC       033		/* ^[ */
@@ -233,7 +233,7 @@ tgetent(char *bufp GCC_UNUSED, const char *name)
 NCURSES_EXPORT(int)
 tgetflag(NCURSES_CONST char *id)
 {
-    int i;
+    unsigned i;
 
     T((T_CALLED("tgetflag(%s)"), id));
     if (cur_term != 0) {
@@ -261,7 +261,7 @@ tgetflag(NCURSES_CONST char *id)
 NCURSES_EXPORT(int)
 tgetnum(NCURSES_CONST char *id)
 {
-    int i;
+    unsigned i;
 
     T((T_CALLED("tgetnum(%s)"), id));
     if (cur_term != 0) {
@@ -290,7 +290,7 @@ tgetnum(NCURSES_CONST char *id)
 NCURSES_EXPORT(char *)
 tgetstr(NCURSES_CONST char *id, char **area)
 {
-    int i;
+    unsigned i;
     char *result = NULL;
 
     T((T_CALLED("tgetstr(%s,%p)"), id, area));

@@ -85,6 +85,7 @@ virtual		   ~CMessaging					( void );
 		uInt32	GetServerVersion			( void );
 		void	SetServerVersion			( uInt32 inServerVersion );
 		const char	*GetProxyIPAddress		( void );
+		void	ResetMessageBlock			( void );
 #ifdef SERVERINTERNAL
 		static bool	IsThreadUsingInternalDispatchBuffering
 											( OSType inThreadSig );

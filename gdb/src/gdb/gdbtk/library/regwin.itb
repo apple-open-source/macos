@@ -241,12 +241,6 @@ itcl::body RegWin::_build_win {} {
   grid rowconfigure $itk_interior 0 -weight 0
   grid rowconfigure $itk_interior 1 -weight 1
 
-# Add sizebox for windows
-#  if {[string compare $::tcl_platform(platform) "windows"] == 0} {
-#    ide_sizebox $itk_interior.sbox
-#    place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
-#  }
-
   # Add popup menu - we populate it in the event handler
   itk_component add popup {
     menu $itk_interior.pop -tearoff 0

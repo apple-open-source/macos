@@ -35,7 +35,7 @@
  *
  * Author:  Adobe Systems Incorporated
  */
-/* $XFree86: xc/lib/dps/cslibext.c,v 1.4 2002/09/18 17:11:44 tsi Exp $ */
+/* $XFree86: xc/lib/dps/cslibext.c,v 1.5 2003/05/27 22:26:44 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -714,7 +714,9 @@ DPSCAPFlushGCProc(
     XGCValues values;
     DPSCAPData my;
     XExtData *extData;
+#ifdef CSDPSDEBUG
     unsigned long int dirty;
+#endif /* CSDPSDEBUG */
 
     /* When GC is created, it is flushed with no dirty bits set,
        so we have to notice that situation. */
@@ -731,7 +733,9 @@ DPSCAPFlushGCProc(
     else
         return(0);
     /* HERE IF (gc->dirty & DPSGCBITS || !gc->dirty) */
+#ifdef CSDPSDEBUG
     dirty = gc->dirty;
+#endif /* CSDPSDEBUG */
     DPSAssertWarn(XGetGCValues(dpy, gc, DPSGCBITS & ~(GCClipMask), &values),
 	NULL, "NX: XGetGCValues returned False\n");
     values.clip_mask = gc->values.clip_mask;

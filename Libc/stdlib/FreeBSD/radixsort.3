@@ -30,13 +30,13 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)radixsort.3	8.2 (Berkeley) 1/27/94
-.\" $FreeBSD: src/lib/libc/stdlib/radixsort.3,v 1.9 2001/09/07 14:46:35 asmodai Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/radixsort.3,v 1.11 2004/07/02 23:52:12 ru Exp $
 .\"
 .Dd January 27, 1994
 .Dt RADIXSORT 3
 .Os
 .Sh NAME
-.Nm radixsort
+.Nm radixsort , sradixsort
 .Nd radix sort
 .Sh LIBRARY
 .Lb libc
@@ -105,7 +105,10 @@ The
 function is not stable, but uses no additional memory.
 .Pp
 These functions are variants of most-significant-byte radix sorting; in
-particular, see D.E. Knuth's Algorithm R and section 5.2.5, exercise 10.
+particular, see
+.An "D.E. Knuth" Ns 's
+.%T "Algorithm R"
+and section 5.2.5, exercise 10.
 They take linear time relative to the number of bytes in the strings.
 .Sh RETURN VALUES
 .Rv -std radixsort

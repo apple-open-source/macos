@@ -41,7 +41,6 @@ public:
 	virtual void*			Run					( void ) = 0;
 
             void			AddResult			( CFStringRef newNodeName );
-            void			AddResult			( const char* newNodeName );
     
             CNSLPlugin*		GetParentPlugin		( void ) { return mParentPlugin; }
 

@@ -40,50 +40,38 @@
 #include <unistd.h>
 #include <UNCUserNotification.h>
 #include <CoreFoundation/CoreFoundation.h>
-/* #include <CoreFoundation/CFStringDefaultEncoding.h> */
-#include <Security/SecKeychainAPI.h>
+#include <Security/Security.h>
+#include <netsmb/smb.h>
+#include <charsets.h>
 
 /* hide keychain redundancy and complexity */
-#define	 kc_add		SecKeychainAddInternetPassword
-#define	 kc_find	SecKeychainFindInternetPassword
-#define	 kc_replace	SecKeychainItemModifyContent
-#define	 kc_status	SecKeychainGetStatus
-#define	 kc_get		SecKeychainCopyDefault
-#define	 kc_release	SecKeychainRelease
+#define kc_add		SecKeychainAddInternetPassword
+#define kc_find		SecKeychainFindInternetPassword
+#define kc_get		SecKeychainCopyDefault
+#define kc_getattr	SecKeychainItemCopyContent
+#define kc_release	CFRelease
+#define kc_replace	SecKeychainItemModifyContent
+#define kc_status	SecKeychainGetStatus
 
 #if 0
 #include <CarbonCore/MacErrors.h>
 #endif
 
-#include <sys/mchain.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
-#include <netsmb/smb_rap.h>
+#include <netsmb/smb_netshareenum.h>
 
-/*
- * Note that if any of these strings are changed, the corresponding
- * key in Localizable.strings has to be changed as well.
- */
-#define SMB_HEADER_KEY "SMB/CIFS Filesystem Authentication"
-#define SMB_MSG_KEY "Enter username and password for "
-#define SMB_MSG_TRAILING_COLON ":"
-#define SMB_DOMAINNAME_KEY "Workgroup/Domain"
-#define SMB_USERNAME_KEY "Username"
+#include "charsets.h"
+
+#define SMB_DOMAINNAME_KEY "Workgroup or Domain"
+#define SMB_USERNAME_KEY "Name"
 #define SMB_PASSWORD_KEY "Password"
-#define SMB_KEYCHAIN_KEY "Add to Keychain"
-#define SMB_OK_KEY "OK"
-#define SMB_CANCEL_KEY "Cancel"
-#define SMB_AUTH_KEY "Authenticate"
-#define SMB_REAUTH_KEY "Re-authenticate"
-#define SMB_SELECT_KEY "Select a share"
-#define SMB_MOUNT_KEY "SMB Mount"
 
-#define SMB_LOCALIZATION_BUNDLE "/System/Library/CoreServices/smb.bundle"
-#define SMB_SERVER_ICON_PATH "/System/Library/CoreServices/SystemIcons.bundle/Contents/Resources/GenericFileServerIcon.icns"
+#define SMB_LOCALIZATION_BUNDLE "/System/Library/Filesystems/smbfs.fs"
+#define SMB_SERVER_ICON_PATH "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericFileServerIcon.icns"
 
 #define SMB_AUTH_TIMEOUT 300
 
-extern uid_t real_uid, eff_uid;
 
 static void
 smb_tty_prompt(char *prmpt, char *buf, size_t buflen)
@@ -179,192 +167,6 @@ smb_save2keychain(struct smb_ctx *ctx)
 	if (err)
 		smb_error("add null to keychain error %d", 0, err);
 }
-
-static void
-GetSystemEncoding(CFStringEncoding *encoding,UInt32 *region_not_US )
-
-{
-
-        /* need to parse out the encoding from /var/root/.CFUserTextEncoding */
-
-        FILE *fp;
-
-        char buf[1024];
-
-        *region_not_US = 0; /* 0 = US region 1 = other */
-
-        *encoding = 0;
-
-        seteuid(eff_uid);
-        fp = fopen("/var/root/.CFUserTextEncoding","r");
-
-        if (fp == NULL) {
-
-                smb_error( "GetSystemEncoding: Could not open config file, return 0 (MacRoman)",
-                        -1,"/var/root/.CFUserTextEncoding");
-
-                seteuid(real_uid);
-                return; /* both encoding and region are 0 by default */
-
-        }
-
-        seteuid(real_uid);
-
-        if ( fgets(buf,sizeof(buf),fp) != NULL) {
-
-                int i = 0;
-
-                /* null or eof terminates */
-                while ( buf[i] != '\0' && buf[i] != 0x0a && buf[i] != ':' )
-
-                i++;
-
-                if (buf[i] == ':')
-                        /* not a terminating char? */
-                        if (buf[i+1] != '0')
-                                *region_not_US = 1; /* not US region */
-
-                buf[i] = '\0';
-
-                char* endPtr = NULL;
-
-                *encoding = strtol(buf,&endPtr,10);
-        }
-
-        fclose(fp);
-
-
-        return;
-
-}
-
-static CFStringEncoding
-get_windows_encoding_equivalent( void )
-{
-       
-        CFStringEncoding encoding;
-        UInt32 region_not_US;
-
-        GetSystemEncoding(&encoding,&region_not_US);
-
-        switch ( encoding )
-        {
-                case    kCFStringEncodingMacRoman:
-                        if (region_not_US) /* not US */
-                                encoding = kCFStringEncodingDOSLatin1;
-                        else /* US region */
-                                encoding = kCFStringEncodingDOSLatinUS;
-                        break;
-
-                case	kCFStringEncodingMacJapanese:
-                        encoding = kCFStringEncodingDOSJapanese;
-                        break;
-                
-                case	kCFStringEncodingMacChineseTrad:		
-                        encoding = kCFStringEncodingDOSChineseTrad;
-                        break;
-                
-                case	kCFStringEncodingMacKorean:
-                        encoding = kCFStringEncodingDOSKorean;
-                        break;
-                
-                case	kCFStringEncodingMacArabic:				
-                        encoding = kCFStringEncodingDOSArabic;
-                        break;
-                
-                case	kCFStringEncodingMacHebrew:	
-                        encoding = kCFStringEncodingDOSHebrew;
-                        break;
-                
-                case	kCFStringEncodingMacGreek:
-                        encoding = kCFStringEncodingDOSGreek;
-                        break;
-                
-                case	kCFStringEncodingMacCyrillic:	
-                        encoding = kCFStringEncodingDOSCyrillic;
-                        break;
-                
-                case	kCFStringEncodingMacThai:
-                        encoding = kCFStringEncodingDOSThai;
-                        break;
-                
-                case	kCFStringEncodingMacChineseSimp:
-                        encoding = kCFStringEncodingDOSChineseSimplif;
-                        break;
-                
-                case	kCFStringEncodingMacCentralEurRoman:
-                        encoding = kCFStringEncodingDOSLatin2;
-                        break;
-                
-                case	kCFStringEncodingMacTurkish:
-                        encoding = kCFStringEncodingDOSTurkish;
-                        break;
-                
-                case	kCFStringEncodingMacCroatian:
-                        encoding = kCFStringEncodingDOSLatin2;
-                        break;
-                
-                case	kCFStringEncodingMacIcelandic:
-                        encoding = kCFStringEncodingDOSIcelandic;
-                        break;
-                
-                case	kCFStringEncodingMacRomanian:
-                        encoding = kCFStringEncodingDOSLatin2;
-                        break;
-                
-                case	kCFStringEncodingMacFarsi:
-                        encoding = kCFStringEncodingDOSArabic;
-                        break;
-                
-                case	kCFStringEncodingMacUkrainian:
-                        encoding = kCFStringEncodingDOSCyrillic;
-                        break;
-                        
-                default:
-                        encoding = kCFStringEncodingDOSLatin1;
-                        break;
-        }
-
-        return encoding;
-}
-
-/*
- * Try to encode the given string using the equivalent Windows encoding. If that
- * fails, fall back on MacRoman as that should always succeed. If converting
- * back to UTF-8 fails, just copy the original string over. Return the encoding
- * that was used.
- */
-static CFStringEncoding
-smb_encode_string(const char *src, char *buf, unsigned int buflen)
-{
-	CFStringRef enc_string;
-	CFStringEncoding enc_used = kCFStringEncodingInvalidId;
-
-	if (src == NULL) {
-		buf[0] = '\0';
-		return kCFStringEncodingInvalidId;
-	}
-
-	CFStringEncoding win_enc = get_windows_encoding_equivalent();
-        if ((enc_string = CFStringCreateWithCString(NULL, src, win_enc))) {
-		enc_used = win_enc;
-	} else if ((enc_string = CFStringCreateWithCString(NULL, src, kCFStringEncodingMacRoman))) {
-		enc_used = kCFStringEncodingMacRoman;
-	}
-		
-        if (!enc_string || (enc_string && !CFStringGetCString(enc_string, buf, buflen, 
-							      kCFStringEncodingUTF8))) {
-                smb_error("can't decode string \"%s\"", -1, src);
-		strncpy(buf, src, buflen);
-		enc_used = kCFStringEncodingInvalidId;
-        }
-
-	if (enc_string)
-		CFRelease(enc_string);
-	
-	buf[buflen - 1] = '\0';
-	return (enc_used);
-}
  
 int
 smb_get_authentication(char *wrkgrp, size_t wrkgrplen,
@@ -383,16 +185,16 @@ smb_get_authentication(char *wrkgrp, size_t wrkgrplen,
 	UInt32 kcpasswdlen;
 	char *kcpasswd;
 	SecKeychainRef kc = NULL;
-        char enc_systemname[SMB_MAXSRVNAMELEN * 3];
-	char enc_wrkgrp[SMB_MAXUSERNAMELEN + 1];
+	char *gui_systemname;
+	char *free_buffer = NULL;
+	SecKeychainItemRef kcitem;
+	SecKeychainAttribute kats[] = {
+		{ kSecAccountItemAttr, 0, NULL },
+		{ kSecSecurityDomainItemAttr, 0, NULL } };
+	SecKeychainAttributeList katlist = { sizeof(kats) / sizeof(kats[0]),
+					     kats };
+	char *wgptr;
 	
-	/*
-	 * Encode the system name and workgroup name in an attempt to get
-	 * them to display properly in the UNC dialog.
-	 */
-	smb_encode_string(systemname, enc_systemname, sizeof(enc_systemname));
-	smb_encode_string(wrkgrp, enc_wrkgrp, sizeof(enc_wrkgrp));
-
 	if (ctx->ct_flags & SMBCF_KCFOUND) {
 		ctx->ct_flags &= ~SMBCF_KCFOUND;
 	} else {
@@ -400,12 +202,11 @@ smb_get_authentication(char *wrkgrp, size_t wrkgrplen,
 		if (!strcmp(sharename, "IPC$"))
 			sharename = "";
 kcagain:
-		kcerr = kc_find(NULL, strlen(systemname), systemname,
-				strlen(wrkgrp), wrkgrp,
-				strlen(usrname), usrname,
-				strlen(sharename), sharename, SMB_TCP_PORT,
-				'smb ', kSecAuthenticationTypeNTLM,
-				&kcpasswdlen, (void **)&kcpasswd, NULL);
+		kcerr = kc_find(NULL, strlen(systemname), systemname, 0, NULL,
+				0, NULL, strlen(sharename), sharename,
+				SMB_TCP_PORT, 'smb ',
+				kSecAuthenticationTypeNTLM, &kcpasswdlen,
+				(void **)&kcpasswd, &kcitem);
 		if (!kcerr) {
 			if (kcpasswdlen >= passwdlen) {
 				smb_error("bogus password in keychain, len=%d",
@@ -414,6 +215,33 @@ kcagain:
 				ctx->ct_flags |= SMBCF_KCFOUND;
 				memcpy(passwd, kcpasswd, kcpasswdlen);
 				passwd[kcpasswdlen] = '\0';
+				kcerr = kc_getattr(kcitem, NULL, &katlist,
+						   NULL, NULL);
+				if (kcerr) {
+					smb_error("keychain attrs! error=%d",
+						  0, kcerr);
+				} else {
+					if (kats[0].length > SMB_MAXUSERNAMELEN)
+						smb_error("username size!", 0);
+					else {
+						memcpy(usrname, kats[0].data,
+						       kats[0].length);
+						usrname[kats[0].length] = '\0';
+					}
+					if (kats[1].length > SMB_MAXUSERNAMELEN)
+						smb_error("workgroup size!", 0);
+					else {
+						memcpy(wrkgrp, kats[1].data,
+						       kats[1].length);
+						wrkgrp[kats[1].length] = '\0';
+					}
+					SecKeychainItemFreeContent(&katlist,
+								   NULL);
+				}
+#if DEBUGKEYCHAIN
+				printf("kc_getattr wkgrp %s user %s pass %s\n",
+				       wrkgrp, usrname, passwd);
+#endif
 				return (0);
 			}
 		} else if (kcerr == errSecItemNotFound) {
@@ -456,33 +284,52 @@ kcagain:
 	dialogue[i++] = kUNCIconPathKey;
 	dialogue[i++] = SMB_SERVER_ICON_PATH;
 	dialogue[i++] = kUNCAlertHeaderKey;
-	dialogue[i++] = SMB_HEADER_KEY;
-	dialogue[i++] = kUNCAlertMessageKey;
-	dialogue[i++] = SMB_MSG_KEY;    
-	dialogue[i++] = kUNCAlertMessageKey;
-        dialogue[i++] = enc_systemname; /* display the encoded systemname */
-	dialogue[i++] = kUNCAlertMessageKey;
-	dialogue[i++] = SMB_MSG_TRAILING_COLON;
+	dialogue[i++] = "SMB_AUTH_HEADER_KEY";
+	/*
+	 * In the future, there will be a symbolic string constant for "AlertMessageWithParameters".
+	 * It will probably be called kUNCAlertMessageWithParametersKey.
+	 */
+	dialogue[i++] = "AlertMessageWithParameters";
+	dialogue[i++] = "SMB_AUTH_MSG_WITH_PARAMETERS_KEY";    
+	/*
+	 * In the future, there will be a symbolic string constant for "AlertMessageParameter".
+	 * It will probably be called kUNCAlertMessageParameterKey.
+	 */
+	dialogue[i++] = "AlertMessageParameter";
+
+	free_buffer = convert_wincs_to_utf8(systemname);
+	/*
+	 * gui_systemname points to a buffer allocated
+	 * in the previous call, or NULL if the 
+	 * conversion failed. If not null we will
+	 * free it later.
+	 */
+	if (free_buffer)
+		gui_systemname = free_buffer;
+	else /* conversion failed */
+		gui_systemname = " ";
+
+	dialogue[i++] = gui_systemname;
 	if (wrkgrp) {
 		dialogue[i++] = kUNCTextFieldTitlesKey;
-		dialogue[i++] = SMB_DOMAINNAME_KEY;
+		dialogue[i++] = "SMB_AUTH_DOMAIN_KEY";
 		domainindex = 0;
 	}
 	if (usrname) {
 		dialogue[i++] = kUNCTextFieldTitlesKey;
-		dialogue[i++] = SMB_USERNAME_KEY;
+		dialogue[i++] = "SMB_AUTH_USERNAME_KEY";
 		nameindex = domainindex + 1;
 	}
 	if (passwd) {
 		dialogue[i++] = kUNCTextFieldTitlesKey;
-		dialogue[i++] = SMB_PASSWORD_KEY;
+		dialogue[i++] = "SMB_AUTH_PASSWORD_KEY";
 		passindex = nameindex + 1;
 /*		dialogue[i++] = kUNCTextFieldValuesKey;		*/
 /*		dialogue[i++] = passwd;				*/
 	}
 	if (wrkgrp) {
 		dialogue[i++] = kUNCTextFieldValuesKey;
-		dialogue[i++] = enc_wrkgrp;
+		dialogue[i++] = wrkgrp;
 	}
 	if (usrname) {
 		dialogue[i++] = kUNCTextFieldValuesKey;
@@ -490,54 +337,43 @@ kcagain:
 	}
 	if (kcask) {
 		dialogue[i++] = kUNCCheckBoxTitlesKey;
-		dialogue[i++] = SMB_KEYCHAIN_KEY;
+		dialogue[i++] = "SMB_AUTH_KEYCHAIN_KEY";
 	}
 	dialogue[i++] = kUNCDefaultButtonTitleKey;
-	dialogue[i++] = SMB_OK_KEY;
+	dialogue[i++] = "SMB_AUTH_OK_KEY";
 	dialogue[i++] = kUNCAlternateButtonTitleKey;
-	dialogue[i++] = SMB_CANCEL_KEY;
+	dialogue[i++] = "SMB_AUTH_CANCEL_KEY";
 	dialogue[i++] = 0;
 
 	UNCref = UNCUserNotificationCreate(SMB_AUTH_TIMEOUT,
 					   UNCSecureTextField(passindex),
 					   &error, dialogue);
-	if (error)
+	if (error) {
+		if (free_buffer)
+			free(free_buffer);
 		return (error);
+	}
 	error = UNCUserNotificationReceiveResponse(UNCref, SMB_AUTH_TIMEOUT,
 						   &response);
-	if (error)
+	if (error) {
+		if (free_buffer)
+			free(free_buffer);
 		return (error); /* probably MACH_RCV_TIMED_OUT */
+	}
 	if ((response & 0x3) == kUNCAlternateResponse) {
 		error = ECANCELED;
 	} else {	/* fill in domain, username, and password */
 		if (wrkgrp) {
-			char unc_wrkgrp[SMB_MAXUSERNAMELEN + 1];	
-			CFStringRef enc_string = NULL;
-			
-			smb_unc_val(UNCref, domainindex, unc_wrkgrp, SMB_MAXUSERNAMELEN + 1);
-			
 			/*
-			 * If the user edited the workgroup, try to convert it back to 
-			 * the server's encoding. Otherwise, leave it as it was passed in. 
+			 * Just leave the domain name as UTF-8.
+			 * the kernel/netsmb routines convert to unicode-16
 			 */
-			if (strcmp(unc_wrkgrp, enc_wrkgrp)) {
-				if ((enc_string = CFStringCreateWithCString(NULL, unc_wrkgrp, 
-									    kCFStringEncodingUTF8))) {
-					if (!CFStringGetCString(enc_string, enc_wrkgrp, sizeof(enc_wrkgrp),
-								get_windows_encoding_equivalent())) {
-						smb_error("Can't encode workgroup string", -1);
-					} else {
-						strncpy(wrkgrp, enc_wrkgrp, wrkgrplen);
-					}
-				} else {
-					smb_error("Can't create workgroup string", -1);
-				}
-			};
+			smb_unc_val(UNCref, domainindex, wrkgrp,
+				    SMB_MAXUSERNAMELEN + 1);
 
-			wrkgrp[wrkgrplen - 1] = '\0';
-			
-			if (enc_string)
-				CFRelease(enc_string);
+			/* Now uppercase the WG */
+			for (wgptr = wrkgrp; *wgptr; wgptr++)
+				*wgptr = toupper(*wgptr);
 		}
 		if (usrname)
 			smb_unc_val(UNCref, nameindex, usrname, usrnamelen);
@@ -552,6 +388,8 @@ kcagain:
 
 	/* Note we (must) allow entry of null password and username */
 
+	if (free_buffer)
+		free(free_buffer);
 	return (error);
 }
 
@@ -562,17 +400,21 @@ compFn(const void *ptr1, const void *ptr2)
 	if (ptr1 == NULL || ptr2 == NULL)
 		return 0;
 
-	return strcmp((*(struct smb_share_info_1 **) ptr1)->shi1_netname,
-		      (*(struct smb_share_info_1 **) ptr2)->shi1_netname);
+	/*
+	 * XXX - this compares UTF-8 strings; should we do a
+	 * dictionary comparison?
+	 */
+	return strcmp((*(struct share_info **) ptr1)->netname,
+		      (*(struct share_info **) ptr2)->netname);
 }
 
 
 static int
 smb_browse_int(struct smb_ctx *ctx, int anon)
 {  
-	struct smb_share_info_1 *rpbuf = NULL, *ep;
-	struct smb_share_info_1 **sortbuf = NULL;
-	int error, bufsize, entries, total, ch, maxch;
+	struct share_info *share_info = NULL, *ep;
+	struct share_info **sortbuf = NULL;
+	int error, entries, total, ch, maxch;
 	char **choices = NULL;
 
 	CFUserNotificationRef un;
@@ -600,13 +442,9 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 	}
 	connected = 1;
 
-	bufsize = 0xffe0;	/* samba states win2k bug for 65535 */
-	rpbuf = malloc(bufsize); /* XXX handle malloc failure */
-
-	error = smb_rap_NetShareEnum(ctx, 1, rpbuf, bufsize, &entries, &total);
+	error = smb_netshareenum(ctx, &entries, &total, &share_info);
 	(void)smb_ctx_setshare(ctx, "", SMB_ST_ANY); /* all done with IPC$ */
-	if (error &&
-	    error != (SMB_ERROR_MORE_DATA | SMB_RAP_ERROR)) {
+	if (error) {
 		if (anon && smb_autherr(error)) {
 			error = 0;
 		} else
@@ -626,62 +464,56 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 		shares = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
 
-        /* sort the list of shares */
-        sortbuf = malloc( entries * sizeof(struct smb_share_info_1 *));
-        if (sortbuf) {
-            for(i = 0; i < entries; i++) {
-                sortbuf[i] = rpbuf+i;
-            }
-        
-            qsort( sortbuf, entries, sizeof(struct smb_share_info_1 *), compFn );
-        }
-        
+	/* sort the list of shares */
+	sortbuf = malloc( entries * sizeof(struct share_info *));
+	if (sortbuf) {
+	    for(i = 0; i < entries; i++)
+		sortbuf[i] = share_info+i;
+	
+	    qsort(sortbuf, entries, sizeof(struct share_info *), compFn);
+	}
+
 	choices = malloc((entries+2) * sizeof(char *)); /* XXX handle failure */
 	for (i = 0, ch = 0; i < entries; i++) {
 		CFStringRef s;
-		u_int16_t type;
 		int nlen;
-                
+
 		if (sortbuf)
 			ep = sortbuf[i];
-		else ep = rpbuf+i;
-                
-		type = letohs(ep->shi1_type);
-		if (type != 0) /* we want "disk" type only */
+		else ep = share_info+i;
+
+		if (ep->type != 0) /* we want "disk" type only */
 			continue;
-		ep->shi1_pad = '\0'; /* ensure null termination */
-		nlen = strlen(ep->shi1_netname);
-		if (nlen == 0  || ep->shi1_netname[nlen - 1] == '$')
+		nlen = strlen(ep->netname);
+		if (nlen == 0 || ep->netname[nlen - 1] == '$')
 			continue;	/* hide administrative shares */
 		if (!(ctx->ct_flags & SMBCF_XXX)) {
-			s = CFStringCreateWithCString(NULL, ep->shi1_netname,
-						      get_windows_encoding_equivalent());
+			s = CFStringCreateWithCString(NULL, ep->netname,
+			    kCFStringEncodingUTF8);
 			if (s == NULL) {
-                                smb_error("%s failed on \"%s\"", -1,
-					  "CFStringCreateWithCString",
-					  ep->shi1_netname);
-                                        
-                                /* kCFStringEncodingMacRoman should always succeed */
-                                s = CFStringCreateWithCString(NULL, ep->shi1_netname, 
-							      kCFStringEncodingMacRoman);
-				if (s == NULL) {
-					smb_error("skipping \"%s\"", -1, ep->shi1_netname);
-					continue;
-				}
+				smb_error("skipping \"%s\"", -1, ep->netname);
+				continue;
 			}
 			CFArrayAppendValue(shares, s);
 			CFRelease(s);
 		}
-		choices[ch++] = ep->shi1_netname;
+		choices[ch++] = ep->netname;
 	}
 	if (ctx->ct_flags & SMBCF_XXX) {
 		if (ctx->ct_maxxxx && ch > ctx->ct_maxxxx)
 			ch = 0; /* mount none if there are too many */
+
+		/*
+		 * Put in a null terminator so our caller knows
+		 * where the end of the list is, and store a pointer
+		 * to the raw share list so they can free it when
+		 * they're done with it.
+		 */
 		choices[ch] = NULL;
-		choices[ch+1] = (char *)rpbuf;
+		choices[ch+1] = (char *)share_info;
 		ctx->ct_xxx = choices;
 		error = 0;
-		goto exit2;	/* free neither choices nor rpbuf */
+		goto exit2;	/* free neither choices nor share_info */
 	}
 	if (ch == 0) {
 		/* XXX probably should be quiet */
@@ -693,27 +525,25 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, SMB_LOCALIZATION_BUNDLE, strlen(SMB_LOCALIZATION_BUNDLE), true);
 	CFDictionaryAddValue(d, kCFUserNotificationLocalizationURLKey,
 			     urlRef);
-        CFRelease(urlRef);
+	CFRelease(urlRef);
 	urlRef = CFURLCreateFromFileSystemRepresentation(NULL, SMB_SERVER_ICON_PATH, strlen(SMB_SERVER_ICON_PATH), true);
 	CFDictionaryAddValue(d, kCFUserNotificationIconURLKey,
 			     urlRef);
-        CFRelease(urlRef);
+	CFRelease(urlRef);
 	CFDictionaryAddValue(d, kCFUserNotificationAlertHeaderKey,
-			     CFSTR(SMB_MOUNT_KEY));
-	CFDictionaryAddValue(d, kCFUserNotificationAlertMessageKey,
-			     CFSTR(SMB_SELECT_KEY));
-        CFDictionaryAddValue(d, kCFUserNotificationPopUpTitlesKey, shares);
-        CFRelease(shares);
+			     CFSTR("SMB_SELECT_HEADER_KEY"));
+	CFDictionaryAddValue(d, kCFUserNotificationPopUpTitlesKey, shares);
+	CFRelease(shares);
 
-        CFDictionaryAddValue(d, kCFUserNotificationDefaultButtonTitleKey,
-			     CFSTR(SMB_OK_KEY));
-        CFDictionaryAddValue(d, kCFUserNotificationAlternateButtonTitleKey,
-			     CFSTR(SMB_CANCEL_KEY));
+	CFDictionaryAddValue(d, kCFUserNotificationDefaultButtonTitleKey,
+			     CFSTR("SMB_SELECT_OK_KEY"));
+	CFDictionaryAddValue(d, kCFUserNotificationAlternateButtonTitleKey,
+			     CFSTR("SMB_SELECT_CANCEL_KEY"));
 	if (!ctx->ct_secblob) {
 		if (anon) {
-        		CFDictionaryAddValue(d, kCFUserNotificationOtherButtonTitleKey, CFSTR(SMB_AUTH_KEY));
+			CFDictionaryAddValue(d, kCFUserNotificationOtherButtonTitleKey, CFSTR("SMB_SELECT_AUTHENTICATE_KEY"));
 		} else {
-        		CFDictionaryAddValue(d, kCFUserNotificationOtherButtonTitleKey, CFSTR(SMB_REAUTH_KEY));
+			CFDictionaryAddValue(d, kCFUserNotificationOtherButtonTitleKey, CFSTR("SMB_SELECT_REAUTHENTICATE_KEY"));
 		}
 	}
 	un = CFUserNotificationCreate(NULL, 0, kCFUserNotificationNoteAlertLevel|CFUserNotificationSecureTextField(1), (SInt32 *)&error, d);
@@ -721,31 +551,31 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 	if (!un) {
 		smb_error("UNC send error", error);
 		exit(error); /* XXX handle gracefully? */
-        }
+	}
 
-        error = CFUserNotificationReceiveResponse(un, 0, &respflags);
-        if (error) {
-                smb_error("UNC receive error", error);
-                exit(error); /* XXX handle gracefully? */
-        }
+	error = CFUserNotificationReceiveResponse(un, 0, &respflags);
+	if (error) {
+		smb_error("UNC receive error", error);
+		exit(error); /* XXX handle gracefully? */
+	}
 
 	if ((respflags & 0x3) == kCFUserNotificationDefaultResponse) {
 		ch = maxch; /* cause EINVAL if we can't get value */
 		errno = 0;
 		rd = CFUserNotificationGetResponseDictionary(un);
 		if (!rd)
-                	smb_error("UNC no resp dict, rd=0x%x", 0, (int)rd);
+			smb_error("UNC no resp dict, rd=0x%x", 0, (int)rd);
 		else if (!CFDictionaryGetValueIfPresent(rd,
 					kCFUserNotificationPopUpSelectionKey,
 					(const void **)&nvalue)) {
-                	smb_error("UNC no selection key, rd=0x%x", 0, (int)rd);
+			smb_error("UNC no selection key, rd=0x%x", 0, (int)rd);
 		} else {
 			CFTypeID t = CFGetTypeID(nvalue);
 			if (t == CFNumberGetTypeID()) {
 				if (!CFNumberGetValue(nvalue,
 						      kCFNumberSInt32Type,
 						      &ch))
-                			smb_error("UNC NumberGetValue", 0);
+					smb_error("UNC NumberGetValue", 0);
 			} else if (t == CFStringGetTypeID()) {
 				char cs[64];
 				/*
@@ -755,19 +585,19 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 				 */
 				if (!CFStringGetCString(nvalue, cs, sizeof cs,
 							kCFStringEncodingASCII))
-                			smb_error("UNC GetCString", 0);
+					smb_error("UNC GetCString", 0);
 				else {
 					ch = strtol(cs, NULL, 0);
 					if (errno)
-                				smb_error("UNC strtol", 0);
+						smb_error("UNC strtol", 0);
 				}
 			} else
-                		smb_error("UNC api change?, t=0x%x", 0, (int)t);
+				smb_error("UNC api change?, t=0x%x", 0, (int)t);
 		}
 		if (errno)
-                	smb_error("UNC selection error", 0);
+			smb_error("UNC selection error", 0);
 		else if (ch >= maxch) {
-                	smb_error("UNC selection out of bounds %d > %d", 0,
+			smb_error("UNC selection out of bounds %d > %d", 0,
 				  ch, maxch);
 			error = EINVAL;
 		} else
@@ -779,8 +609,8 @@ smb_browse_int(struct smb_ctx *ctx, int anon)
 exit:
 	if (choices)
 		free(choices);
-	if (rpbuf)
-		free(rpbuf);
+	if (share_info)
+		free(share_info);
 exit2:
 	if (connected) {
 		connected = smb_ctx_tdis(ctx);

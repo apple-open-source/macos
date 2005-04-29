@@ -1,6 +1,6 @@
 // 2001-11-19 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002 Free Software Foundation
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -202,14 +202,14 @@ void test01()
   result1 = oss.str();
   // No grouping characters.
   VERIFY( !char_traits<char>::find(result1.c_str(), 
-				   numpunct_de.decimal_point(), 
-				   result1.size()) );
+				   result1.size(),
+				   numpunct_de.decimal_point()) );
   // Should contain an 'x'.
   VERIFY( result1.find('x') == 1 );
 
 #ifdef _GLIBCPP_USE_LONG_LONG
-  long long ll1 = 9223372036854775807;
-  long long ll2 = -9223372036854775807;
+  long long ll1 = 9223372036854775807LL;
+  long long ll2 = -9223372036854775807LL;
 
   oss.str(empty);
   oss.clear();
@@ -257,7 +257,7 @@ void test02()
   VERIFY( sanity1 == "1798" );
 
   // 02 put(long double)
-  const long double ld = 1798;
+  const long double ld = 1798.0;
   res = x;
   iter_type ret2 = tp.put(res.begin(), oss, ' ', ld);
   string sanity2(res.begin(), ret2);
@@ -310,11 +310,96 @@ void test03()
 #endif
 }
 
+// http://gcc.gnu.org/ml/libstdc++/2002-05/msg00038.html
+void test04()
+{
+  bool test = true;
+
+  const char* tentLANG = std::setlocale(LC_ALL, "ja_JP.eucjp");
+  if (tentLANG != NULL)
+    {
+      std::string preLANG = tentLANG;
+      test01();
+      test02();
+      std::string postLANG = std::setlocale(LC_ALL, NULL);
+      VERIFY( preLANG == postLANG );
+    }
+}
+
+// Make sure that, in a locale that expects grouping, when showbase
+// is true, an hexadecimal or octal zero is correctly output (the case 
+// of zero is special since there is no 0x, 0 respectively, prefix)
+void test05()
+{
+  using namespace std;
+  bool test = true;
+
+  // A locale that expects grouping.
+  locale loc_de("de_DE");
+
+  const string empty;
+  string result;
+
+  ostringstream oss;
+  oss.imbue(loc_de);
+  const num_put<char>& np = use_facet<num_put<char> >(oss.getloc()); 
+
+  long l = 0;
+
+  oss.str(empty);
+  oss.clear();
+  oss.setf(ios::showbase);
+  oss.setf(ios::hex, ios::basefield);
+  np.put(oss.rdbuf(), oss, '+', l);
+  result = oss.str();
+  VERIFY( result == "0" );
+
+  oss.str(empty);
+  oss.clear();
+  oss.setf(ios::showbase);
+  oss.setf(ios::oct, ios::basefield);
+  np.put(oss.rdbuf(), oss, '+', l);
+  result = oss.str();
+  VERIFY( result == "0" );
+}
+
+// libstdc++/9548 and DR 231
+void test06()
+{
+  using namespace std;
+  bool test = true;
+
+  const locale loc_c = locale::classic();
+
+  ostringstream oss1, oss2;
+  oss1.imbue(loc_c);
+  oss2.imbue(loc_c);
+  const num_put<char>& np1 = use_facet<num_put<char> >(oss1.getloc());
+  const num_put<char>& np2 = use_facet<num_put<char> >(oss2.getloc());
+
+  string result1, result2;
+
+  oss1.precision(-1);
+  oss1.setf(ios_base::fixed, ios_base::floatfield);
+  np1.put(oss1.rdbuf(), oss1, '+', 30.5);
+  result1 = oss1.str();
+  VERIFY( result1 == "30.500000" );
+
+  oss2.precision(0);
+  oss2.setf(ios_base::scientific, ios_base::floatfield);
+  np2.put(oss2.rdbuf(), oss2, '+', 1.0);
+  result2 = oss2.str();
+  VERIFY( result2 == "1e+00" );
+}
+
 int main()
 {
   test01();
   test02();
   test03();
+  test04();
+  test05();
+  test06();
   return 0;
 }
 

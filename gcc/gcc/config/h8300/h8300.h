@@ -1,24 +1,24 @@
 /* Definitions of target machine for GNU compiler.
-   Hitachi H8/300 version generating coff
+   Renesas H8/300 (generic)
    Copyright (C) 1992, 1993, 1994, 1995, 1996, 1996, 1997, 1998, 1999,
-   2000, 2001, 2002 Free Software Foundation, Inc.
+   2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Steve Chamberlain (sac@cygnus.com),
    Jim Wilson (wilson@cygnus.com), and Doug Evans (dje@cygnus.com).
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -51,6 +51,14 @@ extern const char * const *h8_reg_names;
 	      builtin_define ("__NORMAL_MODE__");	\
 	    }						\
 	}						\
+      else if (TARGET_H8300SX)				\
+	{						\
+	  builtin_define ("__H8300SX__");		\
+	  if (TARGET_NORMAL_MODE)			\
+	    {						\
+	      builtin_define ("__NORMAL_MODE__");	\
+	    }						\
+	}						\
       else if (TARGET_H8300S)				\
 	{						\
 	  builtin_define ("__H8300S__");		\
@@ -70,7 +78,7 @@ extern const char * const *h8_reg_names;
     }							\
   while (0)
 
-#define LINK_SPEC "%{mh:-m h8300h} %{ms:-m h8300s}"
+#define LINK_SPEC "%{mh:%{mn:-m h8300hn}} %{mh:%{!mn:-m h8300h}} %{ms:%{mn:-m h8300sn}} %{ms:%{!mn:-m h8300s}}"
 
 #define LIB_SPEC "%{mrelax:-relax} %{g:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}"
 
@@ -86,7 +94,7 @@ extern const char * const *h8_reg_names;
 
 /* Print subsidiary information on the compiler version in use.  */
 
-#define TARGET_VERSION fprintf (stderr, " (Hitachi H8/300)");
+#define TARGET_VERSION fprintf (stderr, " (Renesas H8/300)");
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -101,9 +109,9 @@ extern int target_flags;
 #define MASK_SLOWBYTE		0x00000100
 #define MASK_NORMAL_MODE 	0x00000200
 #define MASK_RELAX		0x00000400
-#define MASK_RTL_DUMP		0x00000800
 #define MASK_H8300H		0x00001000
 #define MASK_ALIGN_300		0x00002000
+#define MASK_H8300SX		0x00004000
 
 /* Macros used in the machine description to test the flags.  */
 
@@ -120,14 +128,15 @@ extern int target_flags;
 /* Pretend byte accesses are slow.  */
 #define TARGET_SLOWBYTE (target_flags & MASK_SLOWBYTE)
 
-/* Dump each assembler insn's rtl into the output file.
-   This is for debugging the compiler only.  */
-#define TARGET_RTL_DUMP	(target_flags & MASK_RTL_DUMP)
-
 /* Select between the H8/300 and H8/300H CPUs.  */
 #define TARGET_H8300	(! TARGET_H8300H && ! TARGET_H8300S)
 #define TARGET_H8300H	(target_flags & MASK_H8300H)
-#define TARGET_H8300S	(target_flags & MASK_H8300S)
+#define TARGET_H8300S	(target_flags & (MASK_H8300S | MASK_H8300SX))
+#define TARGET_H8300SX	(target_flags & MASK_H8300SX)
+/* Some multiply instructions are not available in all H8SX variants.
+   Use this macro instead of TARGET_H8300SX to indicate this, even
+   though we don't actually generate different code for now.  */
+#define TARGET_H8300SXMUL TARGET_H8300SX
 #define TARGET_NORMAL_MODE (target_flags & MASK_NORMAL_MODE)
 
 /* mac register and relevant instructions are available.  */
@@ -149,6 +158,8 @@ extern int target_flags;
 #define TARGET_SWITCHES							    \
 { {"s",			 MASK_H8300S, N_("Generate H8S code")},		    \
   {"no-s",		-MASK_H8300S, N_("Do not generate H8S code")},	    \
+  {"sx",		 MASK_H8300SX, N_("Generate H8SX code")},	    \
+  {"no-sx",		-MASK_H8300SX, N_("Do not generate H8SX code")},    \
   {"s2600",		 MASK_MAC, N_("Generate H8S/2600 code")},	    \
   {"no-s2600",		-MASK_MAC, N_("Do not generate H8S/2600 code")},    \
   {"int32",		 MASK_INT32, N_("Make integers 32 bits wide")},	    \
@@ -160,7 +171,6 @@ extern int target_flags;
   {"slowbyte",		 MASK_SLOWBYTE,					    \
    N_("Consider access to byte sized memory slow")},			    \
   {"relax",		 MASK_RELAX, N_("Enable linker relaxing")},	    \
-  {"rtl-dump",		 MASK_RTL_DUMP, NULL},				    \
   {"h",			 MASK_H8300H, N_("Generate H8/300H code")},	    \
   {"n",			 MASK_NORMAL_MODE, N_("Enable the normal mode")},   \
   {"no-h",		-MASK_H8300H, N_("Do not generate H8/300H code")},  \
@@ -230,9 +240,7 @@ extern int target_flags;
 #define BYTES_BIG_ENDIAN 1
 
 /* Define this if most significant word of a multiword number is lowest
-   numbered.
-   This is true on an H8/300 (actually we can make it up, but we choose to
-   be consistent).  */
+   numbered.  */
 #define WORDS_BIG_ENDIAN 1
 
 #define MAX_BITS_PER_WORD	32
@@ -244,7 +252,7 @@ extern int target_flags;
 #define SHORT_TYPE_SIZE	16
 #define INT_TYPE_SIZE		(TARGET_INT32 ? 32 : 16)
 #define LONG_TYPE_SIZE		32
-#define LONG_LONG_TYPE_SIZE	32
+#define LONG_LONG_TYPE_SIZE	64
 #define FLOAT_TYPE_SIZE	32
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	DOUBLE_TYPE_SIZE
@@ -262,9 +270,6 @@ extern int target_flags;
    need 16 bit alignment, this is left as is so that -mint32 doesn't change
    structure layouts.  */
 #define EMPTY_FIELD_BOUNDARY 16
-
-/* A bit-field declared as `int' forces `int' alignment for the struct.  */
-#define PCC_BITFIELD_TYPE_MATTERS  0
 
 /* No data type wants to be aligned rounder than this.
    32 bit values are aligned as such on the H8/300H and H8S for speed.  */
@@ -294,13 +299,14 @@ extern int target_flags;
    eliminated during reloading in favor of either the stack or frame
    pointer.  */
 
-#define FIRST_PSEUDO_REGISTER 11
+#define FIRST_PSEUDO_REGISTER 12
 
 /* 1 for registers that have pervasive standard uses
    and are not available for the register allocator.  */
 
-#define FIXED_REGISTERS \
-  { 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1}
+#define FIXED_REGISTERS				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 0, 0, 0, 0, 0, 0, 0, 1,  0, 1,  1, 1 }
 
 /* 1 for registers not available across function calls.
    These must include the FIXED_REGISTERS and also any
@@ -312,11 +318,13 @@ extern int target_flags;
 
    H8 destroys r0,r1,r2,r3.  */
 
-#define CALL_USED_REGISTERS \
-  { 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1 }
+#define CALL_USED_REGISTERS			\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap fp */	\
+  { 1, 1, 1, 1, 0, 0, 0, 1,  1, 1,  1, 1 }
 
-#define REG_ALLOC_ORDER \
-  { 2, 3, 0, 1, 4, 5, 6, 8, 7, 9, 10}
+#define REG_ALLOC_ORDER				\
+/* r0 r1 r2 r3 r4 r5 r6 r7 mac ap rap  fp */	\
+  { 2, 3, 0, 1, 4, 5, 6, 8,  7, 9, 10, 11 }
 
 #define CONDITIONAL_REGISTER_USAGE			\
 {							\
@@ -324,29 +332,11 @@ extern int target_flags;
     fixed_regs[MAC_REG] = call_used_regs[MAC_REG] = 1;	\
 }
 
-/* Return number of consecutive hard regs needed starting at reg REGNO
-   to hold something of mode MODE.
+#define HARD_REGNO_NREGS(REGNO, MODE)		\
+  h8300_hard_regno_nregs ((REGNO), (MODE))
 
-   This is ordinarily the length in words of a value of mode MODE
-   but can be less for certain modes in special long registers.
-
-   We pretend the MAC register is 32bits -- we don't have any data
-   types on the H8 series to handle more than 32bits.  */
-
-#define HARD_REGNO_NREGS(REGNO, MODE)   \
-   ((GET_MODE_SIZE (MODE) + UNITS_PER_WORD - 1) / UNITS_PER_WORD)
-
-/* Value is 1 if hard register REGNO can hold a value of machine-mode
-   MODE.
-
-   H8/300: If an even reg, then anything goes. Otherwise the mode must be QI
-           or HI.
-   H8/300H: Anything goes.  */
-
-#define HARD_REGNO_MODE_OK(REGNO, MODE)					\
-  (TARGET_H8300								\
-   ? ((((REGNO) & 1) == 0) || ((MODE) == HImode) || ((MODE) == QImode))	\
-   : (REGNO) == MAC_REG ? (MODE) == SImode : 1)
+#define HARD_REGNO_MODE_OK(REGNO, MODE)		\
+  h8300_hard_regno_mode_ok ((REGNO), (MODE))
 
 /* Value is 1 if it is a good idea to tie two pseudo registers
    when one has mode MODE1 and one has mode MODE2.
@@ -359,6 +349,12 @@ extern int target_flags;
        &&  ((MODE2) == QImode || (MODE2) == HImode			  \
 	    || ((TARGET_H8300H || TARGET_H8300S) && (MODE2) == SImode))))
 
+/* A C expression that is nonzero if hard register NEW_REG can be
+   considered for use as a rename register for OLD_REG register */
+
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG)		\
+   h8300_hard_regno_rename_ok (OLD_REG, NEW_REG)
+
 /* Specify the registers used for certain standard purposes.
    The values of these macros are register numbers.  */
 
@@ -368,6 +364,9 @@ extern int target_flags;
 
 /* Register to use for pushing function arguments.  */
 #define STACK_POINTER_REGNUM SP_REG
+
+/* Base register for access to local variables of the function.  */
+#define HARD_FRAME_POINTER_REGNUM HFP_REG
 
 /* Base register for access to local variables of the function.  */
 #define FRAME_POINTER_REGNUM FP_REG
@@ -415,7 +414,8 @@ extern int target_flags;
    class that represents their union.  */
 
 enum reg_class {
-  NO_REGS, GENERAL_REGS, MAC_REGS, ALL_REGS, LIM_REG_CLASSES
+  NO_REGS, COUNTER_REGS, SOURCE_REGS, DESTINATION_REGS,
+  GENERAL_REGS, MAC_REGS, ALL_REGS, LIM_REG_CLASSES
 };
 
 #define N_REG_CLASSES ((int) LIM_REG_CLASSES)
@@ -423,7 +423,8 @@ enum reg_class {
 /* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
-{ "NO_REGS", "GENERAL_REGS", "MAC_REGS", "ALL_REGS", "LIM_REGS" }
+{ "NO_REGS", "COUNTER_REGS", "SOURCE_REGS", "DESTINATION_REGS", \
+  "GENERAL_REGS", "MAC_REGS", "ALL_REGS", "LIM_REGS" }
 
 /* Define which registers fit in which classes.
    This is an initializer for a vector of HARD_REG_SET
@@ -431,9 +432,12 @@ enum reg_class {
 
 #define REG_CLASS_CONTENTS			\
 {      {0},		/* No regs      */	\
-   {0x6ff},		/* GENERAL_REGS */	\
-   {0x100},		/* MAC_REGS */	\
-   {0x7ff},		/* ALL_REGS	*/	\
+   {0x010},		/* COUNTER_REGS */	\
+   {0x020},		/* SOURCE_REGS */	\
+   {0x040},		/* DESTINATION_REGS */	\
+   {0xeff},		/* GENERAL_REGS */	\
+   {0x100},		/* MAC_REGS */		\
+   {0xfff},		/* ALL_REGS	*/	\
 }
 
 /* The same information, inverted:
@@ -441,18 +445,23 @@ enum reg_class {
    reg number REGNO.  This could be a conditional expression
    or could index an array.  */
 
-#define REGNO_REG_CLASS(REGNO) (REGNO != MAC_REG ? GENERAL_REGS : MAC_REGS)
+#define REGNO_REG_CLASS(REGNO)				\
+  ((REGNO) == MAC_REG ? MAC_REGS			\
+   : (REGNO) == COUNTER_REG ? COUNTER_REGS		\
+   : (REGNO) == SOURCE_REG ? SOURCE_REGS		\
+   : (REGNO) == DESTINATION_REG ? DESTINATION_REGS	\
+   : GENERAL_REGS)
 
 /* The class value for index registers, and the one for base regs.  */
 
-#define INDEX_REG_CLASS NO_REGS
+#define INDEX_REG_CLASS (TARGET_H8300SX ? GENERAL_REGS : NO_REGS)
 #define BASE_REG_CLASS  GENERAL_REGS
 
 /* Get reg_class from a letter such as appears in the machine description.
 
    'a' is the MAC register.  */
 
-#define REG_CLASS_FROM_LETTER(C) ((C) == 'a' ? MAC_REGS : NO_REGS)
+#define REG_CLASS_FROM_LETTER(C) (h8300_reg_class_from_letter (C))
 
 /* The letters I, J, K, L, M, N, O, P in a register constraint string
    can be used to stand for particular ranges of immediate operands.
@@ -466,16 +475,47 @@ enum reg_class {
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == 1 || (VALUE) == 2 || (VALUE) == 4	\
    : (VALUE) == 1 || (VALUE) == 2)
+#define CONST_OK_FOR_M(VALUE)				\
+  ((VALUE) == 1 || (VALUE) == 2)
 #define CONST_OK_FOR_N(VALUE)				\
   (TARGET_H8300H || TARGET_H8300S			\
    ? (VALUE) == -1 || (VALUE) == -2 || (VALUE) == -4	\
    : (VALUE) == -1 || (VALUE) == -2)
+#define CONST_OK_FOR_O(VALUE)				\
+  ((VALUE) == -1 || (VALUE) == -2)
 
+/* Multi-letter constraints for constant are always started with P
+   (just because it was the only letter in the range left.  New
+   constraints for constants should be added here.  */
+#define CONST_OK_FOR_Ppositive(VALUE, NBITS)		\
+  ((VALUE) > 0 && (VALUE) < (1 << (NBITS)))
+#define CONST_OK_FOR_Pnegative(VALUE, NBITS)		\
+  ((VALUE) < 0 && (VALUE) > -(1 << (NBITS)))
+#define CONST_OK_FOR_P(VALUE, STR) \
+  ((STR)[1] >= '1' && (STR)[1] <= '9' && (STR)[2] == '<' 	\
+   ? (((STR)[3] == '0' || ((STR)[3] == 'X' && TARGET_H8300SX))	\
+      && CONST_OK_FOR_Pnegative ((VALUE), (STR)[1] - '0'))	\
+   : ((STR)[1] >= '1' && (STR)[1] <= '9' && (STR)[2] == '>')	\
+   ? (((STR)[3] == '0' || ((STR)[3] == 'X' && TARGET_H8300SX))	\
+      && CONST_OK_FOR_Ppositive ((VALUE), (STR)[1] - '0'))	\
+   : 0)
+#define CONSTRAINT_LEN_FOR_P(STR) \
+  ((((STR)[1] >= '1' && (STR)[1] <= '9')			\
+    && ((STR)[2] == '<' || (STR)[2] == '>')			\
+    && ((STR)[3] == 'X' || (STR)[3] == '0')) ? 4		\
+   : 0)
+
+#define CONST_OK_FOR_CONSTRAINT_P(VALUE, C, STR)	\
+  ((C) == 'P' ? CONST_OK_FOR_P ((VALUE), (STR))		\
+   : CONST_OK_FOR_LETTER_P ((VALUE), (C)))
+  
 #define CONST_OK_FOR_LETTER_P(VALUE, C)		\
   ((C) == 'I' ? CONST_OK_FOR_I (VALUE) :	\
    (C) == 'J' ? CONST_OK_FOR_J (VALUE) :	\
    (C) == 'L' ? CONST_OK_FOR_L (VALUE) :	\
+   (C) == 'M' ? CONST_OK_FOR_M (VALUE) :	\
    (C) == 'N' ? CONST_OK_FOR_N (VALUE) :	\
+   (C) == 'O' ? CONST_OK_FOR_O (VALUE) :	\
    0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -484,7 +524,7 @@ enum reg_class {
   `G' is a floating-point zero.  */
 
 #define CONST_DOUBLE_OK_FOR_LETTER_P(VALUE, C)	\
-  ((C) == 'G' ? (VALUE) == CONST0_RTX (DFmode)	\
+  ((C) == 'G' ? (VALUE) == CONST0_RTX (SFmode)	\
    : 0)
 
 /* Given an rtx X being reloaded into a reg required to be
@@ -567,17 +607,20 @@ enum reg_class {
    followed by "to".  Eliminations of the same "from" register are listed
    in order of preference.
 
-   We have two registers that can be eliminated on the h8300.  First, the
-   frame pointer register can often be eliminated in favor of the stack
-   pointer register.  Secondly, the argument pointer register can always be
-   eliminated; it is replaced with either the stack or frame pointer.  */
+   We have three registers that can be eliminated on the h8300.
+   First, the frame pointer register can often be eliminated in favor
+   of the stack pointer register.  Secondly, the argument pointer
+   register and the return address pointer register are always
+   eliminated; they are replaced with either the stack or frame
+   pointer.  */
 
-#define ELIMINABLE_REGS					\
-{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},		\
- { ARG_POINTER_REGNUM, FRAME_POINTER_REGNUM},		\
- { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},\
- { RETURN_ADDRESS_POINTER_REGNUM, FRAME_POINTER_REGNUM},\
- { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM}}
+#define ELIMINABLE_REGS						\
+{{ ARG_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+ { ARG_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},		\
+ { RETURN_ADDRESS_POINTER_REGNUM, STACK_POINTER_REGNUM},	\
+ { RETURN_ADDRESS_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM},	\
+ { FRAME_POINTER_REGNUM, STACK_POINTER_REGNUM},			\
+ { FRAME_POINTER_REGNUM, HARD_FRAME_POINTER_REGNUM}}
 
 /* Given FROM and TO register numbers, say whether this elimination is allowed.
    Frame pointer elimination is automatically handled.
@@ -604,7 +647,7 @@ enum reg_class {
    On the H8 the return value is in R0/R1.  */
 
 #define FUNCTION_VALUE(VALTYPE, FUNC) \
-  gen_rtx_REG (TYPE_MODE (VALTYPE), 0)
+  gen_rtx_REG (TYPE_MODE (VALTYPE), R0_REG)
 
 /* Define how to find the value returned by a library function
    assuming the value has mode MODE.  */
@@ -612,12 +655,12 @@ enum reg_class {
 /* On the H8 the return value is in R0/R1.  */
 
 #define LIBCALL_VALUE(MODE) \
-  gen_rtx_REG (MODE, 0)
+  gen_rtx_REG (MODE, R0_REG)
 
 /* 1 if N is a possible register number for a function value.
    On the H8, R0 is the only register thus used.  */
 
-#define FUNCTION_VALUE_REGNO_P(N) ((N) == 0)
+#define FUNCTION_VALUE_REGNO_P(N) ((N) == R0_REG)
 
 /* Define this if PCC uses the nonreentrant convention for returning
    structure and union values.  */
@@ -628,15 +671,6 @@ enum reg_class {
    On the H8, no registers are used in this way.  */
 
 #define FUNCTION_ARG_REGNO_P(N) (TARGET_QUICKCALL ? N < 3 : 0)
-
-/* Register in which address to store a structure value
-   is passed to a function.  */
-
-#define STRUCT_VALUE 0
-
-/* Return true if X should be returned in memory.  */
-#define RETURN_IN_MEMORY(X) \
-  (TYPE_MODE (X) == BLKmode || GET_MODE_SIZE (TYPE_MODE (X)) > 4)
 
 /* When defined, the compiler allows registers explicitly used in the
    rtl to be used as spill registers but prevents the compiler from
@@ -667,7 +701,7 @@ struct cum_arg
 
    On the H8/300, the offset starts at 0.  */
 
-#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
+#define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT, N_NAMED_ARGS) \
  ((CUM).nbytes = 0, (CUM).libcall = LIBNAME)
 
 /* Update the data in CUM to advance over an argument
@@ -713,59 +747,65 @@ struct cum_arg
 
 #define EXIT_IGNORE_STACK 0
 
-/* Output assembler code for a block containing the constant parts
-   of a trampoline, leaving space for the variable parts.
+/* We emit the entire trampoline with INITIALIZE_TRAMPOLINE.
+   Depending on the pointer size, we use a different trampoline.
 
-   H8/300
+   Pmode == HImode
 	      vvvv context
-   1 0000 7900xxxx		mov.w	#0x1234,r3
+   1 0000 7903xxxx		mov.w	#0x1234,r3
    2 0004 5A00xxxx		jmp	@0x1234
 	      ^^^^ function
 
-   H8/300H
+   Pmode == SImode
 	      vvvvvvvv context
-   2 0000 7A00xxxxxxxx		mov.l	#0x12345678,er3
+   2 0000 7A03xxxxxxxx		mov.l	#0x12345678,er3
    3 0006 5Axxxxxx		jmp	@0x123456
 	    ^^^^^^ function
 */
 
-#define TRAMPOLINE_TEMPLATE(FILE)				\
-  do								\
-    {								\
-      if (TARGET_H8300)						\
-	{							\
-	  fprintf (FILE, "\tmov.w	#0x1234,r3\n");		\
-	  fprintf (FILE, "\tjmp	@0x1234\n");			\
-	}							\
-      else							\
-	{							\
-	  fprintf (FILE, "\tmov.l	#0x12345678,er3\n");	\
-	  fprintf (FILE, "\tjmp	@0x123456\n");			\
-	}							\
-    }								\
-  while (0)
-
 /* Length in units of the trampoline for entering a nested function.  */
 
-#define TRAMPOLINE_SIZE (TARGET_H8300 ? 8 : 12)
+#define TRAMPOLINE_SIZE ((Pmode == HImode) ? 8 : 12)
 
-/* Emit RTL insns to initialize the variable parts of a trampoline.
+/* Emit RTL insns to build a trampoline.
    FNADDR is an RTX for the address of the function's pure code.
    CXT is an RTX for the static chain value for the function.  */
 
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			    \
-{									    \
-  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)), CXT);    \
-  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)), FNADDR); \
-  if (TARGET_H8300H || TARGET_H8300S)					    \
-    emit_move_insn (gen_rtx_MEM (QImode, plus_constant ((TRAMP), 6)),	    \
-		    GEN_INT (0x5A));					    \
-}
+  do									    \
+    {									    \
+      if (Pmode == HImode)						    \
+	{								    \
+	  emit_move_insn (gen_rtx_MEM (HImode, (TRAMP)), GEN_INT (0x7903)); \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)),  \
+			  (CXT));					    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 4)),  \
+			  GEN_INT (0x5a00));				    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)),  \
+			  (FNADDR));					    \
+	}								    \
+      else								    \
+	{								    \
+	  rtx tem = gen_reg_rtx (Pmode);				    \
+									    \
+	  emit_move_insn (gen_rtx_MEM (HImode, (TRAMP)), GEN_INT (0x7a03)); \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 2)),  \
+			  (CXT));					    \
+	  emit_move_insn (tem, (FNADDR));				    \
+	  emit_insn (gen_andsi3 (tem, tem, GEN_INT (0x00ffffff)));	    \
+	  emit_insn (gen_iorsi3 (tem, tem, GEN_INT (0x5a000000)));	    \
+	  emit_move_insn (gen_rtx_MEM (Pmode, plus_constant ((TRAMP), 6)),  \
+			  tem);						    \
+	}								    \
+    }									    \
+  while (0)
 
 /* Addressing modes, and classification of registers for them.  */
 
 #define HAVE_POST_INCREMENT 1
 #define HAVE_PRE_DECREMENT 1
+#define HAVE_POST_DECREMENT TARGET_H8300SX
+#define HAVE_PRE_INCREMENT TARGET_H8300SX
 
 /* Macros to check register numbers against specific register classes.  */
 
@@ -777,8 +817,9 @@ struct cum_arg
 
 #define REGNO_OK_FOR_INDEX_P(regno) 0
 
-#define REGNO_OK_FOR_BASE_P(regno) \
-  (((regno) < FIRST_PSEUDO_REGISTER && regno != 8) || reg_renumber[regno] >= 0)
+#define REGNO_OK_FOR_BASE_P(regno)				\
+  (((regno) < FIRST_PSEUDO_REGISTER && regno != MAC_REG)	\
+   || reg_renumber[regno] >= 0)
 
 /* Maximum number of registers that can appear in a valid memory address.  */
 
@@ -792,13 +833,12 @@ struct cum_arg
        /* We handle signed and unsigned offsets here.  */	\
        && INTVAL (X) > (TARGET_H8300 ? -0x10000 : -0x1000000)	\
        && INTVAL (X) < (TARGET_H8300 ? 0x10000 : 0x1000000))	\
-   || ((GET_CODE (X) == HIGH || GET_CODE (X) == CONST)		\
-       && TARGET_H8300))
+   || (GET_CODE (X) == HIGH || GET_CODE (X) == CONST))
 
 /* Nonzero if the constant value X is a legitimate general operand.
    It is given that X satisfies CONSTANT_P or is a CONST_DOUBLE.  */
 
-#define LEGITIMATE_CONSTANT_P(X) (GET_CODE (X) != CONST_DOUBLE)
+#define LEGITIMATE_CONSTANT_P(X) (h8300_legitimate_constant_p (X))
 
 /* The macros REG_OK_FOR..._P assume that the arg is a REG rtx
    and check its validity for a certain class.
@@ -813,31 +853,32 @@ struct cum_arg
    After reload, it makes no difference, since pseudo regs have
    been eliminated by then.  */
 
+/* Non-strict versions.  */
+#define REG_OK_FOR_INDEX_NONSTRICT_P(X) 0
+/* Don't use REGNO_OK_FOR_BASE_P here because it uses reg_renumber.  */
+#define REG_OK_FOR_BASE_NONSTRICT_P(X)				\
+  (REGNO (X) >= FIRST_PSEUDO_REGISTER || REGNO (X) != MAC_REG)
+
+/* Strict versions.  */
+#define REG_OK_FOR_INDEX_STRICT_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
+#define REG_OK_FOR_BASE_STRICT_P(X)  REGNO_OK_FOR_BASE_P (REGNO (X))
+
 #ifndef REG_OK_STRICT
 
-/* Nonzero if X is a hard reg that can be used as an index
-   or if it is a pseudo reg.  */
-#define REG_OK_FOR_INDEX_P(X) 0
-/* Nonzero if X is a hard reg that can be used as a base reg
-   or if it is a pseudo reg.  */
-/* Don't use REGNO_OK_FOR_BASE_P here because it uses reg_renumber.  */
-#define REG_OK_FOR_BASE_P(X) \
-	(REGNO (X) >= FIRST_PSEUDO_REGISTER || REGNO (X) != 8)
-#define REG_OK_FOR_INDEX_P_STRICT(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-#define REG_OK_FOR_BASE_P_STRICT(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-#define STRICT 0
+#define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_INDEX_NONSTRICT_P (X)
+#define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_BASE_NONSTRICT_P (X)
 
 #else
 
-/* Nonzero if X is a hard reg that can be used as an index.  */
-#define REG_OK_FOR_INDEX_P(X) REGNO_OK_FOR_INDEX_P (REGNO (X))
-/* Nonzero if X is a hard reg that can be used as a base reg.  */
-#define REG_OK_FOR_BASE_P(X) REGNO_OK_FOR_BASE_P (REGNO (X))
-#define STRICT 1
+#define REG_OK_FOR_INDEX_P(X) REG_OK_FOR_INDEX_STRICT_P (X)
+#define REG_OK_FOR_BASE_P(X)  REG_OK_FOR_BASE_STRICT_P (X)
 
 #endif
 
 /* Extra constraints.  */
+
+#define OK_FOR_Q(OP)					\
+  (TARGET_H8300SX && memory_operand ((OP), VOIDmode))
 
 #define OK_FOR_R(OP)					\
   (GET_CODE (OP) == CONST_INT				\
@@ -876,56 +917,92 @@ struct cum_arg
    || (GET_CODE (OP) == MEM && TARGET_H8300S				\
        && GET_CODE (XEXP (OP, 0)) == CONST_INT))
 
-#define EXTRA_CONSTRAINT(OP, C)			\
-  ((C) == 'R' ? OK_FOR_R (OP) :			\
+/* Multi-letter constraints starting with W are to be used for
+   operands that require a memory operand, i.e,. that are never used
+   along with register constraints (see EXTRA_MEMORY_CONSTRAINTS).
+   For operands that require a memory operand (or not) but that always
+   accept a register, a multi-letter constraint starting with Y should
+   be used instead.  */
+
+#define OK_FOR_WU(OP)					\
+  (GET_CODE (OP) == MEM && OK_FOR_U (OP))
+
+#define OK_FOR_W(OP, STR)				\
+  ((STR)[1] == 'U' ? OK_FOR_WU (OP)			\
+   : 0)
+
+#define CONSTRAINT_LEN_FOR_W(STR)			\
+  ((STR)[1] == 'U' ? 2					\
+   : 0)
+
+/* We don't have any constraint starting with Y yet, but before
+   someone uses it for a one-letter constraint and we're left without
+   any upper-case constraints left, we reserve it for extensions
+   here.  */
+#define OK_FOR_Y(OP, STR)				\
+  (0)
+
+#define CONSTRAINT_LEN_FOR_Y(STR)			\
+  (0)
+
+#define OK_FOR_Z(OP)					\
+  (TARGET_H8300SX					\
+   && GET_CODE (OP) == MEM				\
+   && CONSTANT_P (XEXP ((OP), 0)))
+
+#define EXTRA_CONSTRAINT_STR(OP, C, STR)	\
+  ((C) == 'Q' ? OK_FOR_Q (OP) :			\
+   (C) == 'R' ? OK_FOR_R (OP) :			\
    (C) == 'S' ? OK_FOR_S (OP) :			\
    (C) == 'T' ? OK_FOR_T (OP) :			\
    (C) == 'U' ? OK_FOR_U (OP) :			\
+   (C) == 'W' ? OK_FOR_W ((OP), (STR)) :	\
+   (C) == 'Y' ? OK_FOR_Y ((OP), (STR)) :	\
+   (C) == 'Z' ? OK_FOR_Z (OP) :			\
    0)
+
+#define CONSTRAINT_LEN(C, STR) \
+  ((C) == 'P' ? CONSTRAINT_LEN_FOR_P (STR)	\
+   : (C) == 'W' ? CONSTRAINT_LEN_FOR_W (STR)	\
+   : (C) == 'Y' ? CONSTRAINT_LEN_FOR_Y (STR)	\
+   : DEFAULT_CONSTRAINT_LEN ((C), (STR)))
+
+/* Experiments suggest that it's better not add 'Q' or 'U' here.  No
+   patterns need it for correctness (no patterns use 'Q' and 'U'
+   without also providing a register alternative).  And defining it
+   will mean that a spilled pseudo could be replaced by its frame
+   location in several consecutive insns.
+
+   Instead, it seems to be better to force pseudos to be reloaded
+   into registers and then use peepholes to recombine insns when
+   beneficial.
+
+   Unfortunately, for WU (unlike plain U, that matches regs as well),
+   we must require a memory address.  In fact, all multi-letter
+   constraints started with W are supposed to have this property, so
+   we just test for W here.  */
+#define EXTRA_MEMORY_CONSTRAINT(C, STR) \
+  ((C) == 'W')
+
 
-/* GO_IF_LEGITIMATE_ADDRESS recognizes an RTL expression
-   that is a valid memory address for an instruction.
-   The MODE argument is the machine mode for the MEM expression
-   that wants to use this address.
-
-   The other macros defined here are used only in GO_IF_LEGITIMATE_ADDRESS,
-   except for CONSTANT_ADDRESS_P which is actually
-   machine-independent.
-
-   On the H8/300, a legitimate address has the form
-   REG, REG+CONSTANT_ADDRESS or CONSTANT_ADDRESS.  */
-
-/* Accept either REG or SUBREG where a register is valid.  */
-
-#define RTX_OK_FOR_BASE_P(X)				\
-  ((REG_P (X) && REG_OK_FOR_BASE_P (X))			\
-   || (GET_CODE (X) == SUBREG && REG_P (SUBREG_REG (X))	\
-       && REG_OK_FOR_BASE_P (SUBREG_REG (X))))
-
-#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)		\
-  if (RTX_OK_FOR_BASE_P (X)) goto ADDR;			\
-  if (CONSTANT_ADDRESS_P (X)) goto ADDR;		\
-  if (GET_CODE (X) == PLUS				\
-      && CONSTANT_ADDRESS_P (XEXP (X, 1))		\
-      && RTX_OK_FOR_BASE_P (XEXP (X, 0))) goto ADDR;
+#ifndef REG_OK_STRICT
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
+  do						\
+    {						\
+      if (h8300_legitimate_address_p ((MODE), (X), 0))	\
+	goto ADDR;				\
+    }						\
+  while (0)
+#else
+#define GO_IF_LEGITIMATE_ADDRESS(MODE, X, ADDR)	\
+  do						\
+    {						\
+      if (h8300_legitimate_address_p ((MODE), (X), 1))	\
+	goto ADDR;				\
+    }						\
+  while (0)
+#endif
 
-/* Try machine-dependent ways of modifying an illegitimate address
-   to be legitimate.  If we find one, return the new, valid address.
-   This macro is used in only one place: `memory_address' in explow.c.
-
-   OLDX is the address as it was before break_out_memory_refs was called.
-   In some cases it is useful to look at this to decide what needs to be done.
-
-   MODE and WIN are passed so that this macro can use
-   GO_IF_LEGITIMATE_ADDRESS.
-
-   It is always safe for this macro to do nothing.  It exists to recognize
-   opportunities to optimize the output.
-
-   For the H8/300, don't do anything.  */
-
-#define LEGITIMIZE_ADDRESS(X, OLDX, MODE, WIN)  {}
-
 /* Go to LABEL if ADDR (a legitimate address expression)
    has an effect that depends on the machine mode it is used for.
 
@@ -933,17 +1010,18 @@ struct cum_arg
    (the amount of decrement or increment being the length of the operand).  */
 
 #define GO_IF_MODE_DEPENDENT_ADDRESS(ADDR, LABEL) \
-  if (GET_CODE (ADDR) == POST_INC || GET_CODE (ADDR) == PRE_DEC) goto LABEL;
+  if (GET_CODE (ADDR) == POST_INC \
+      || GET_CODE (ADDR) == POST_DEC \
+      || GET_CODE (ADDR) == PRE_INC \
+      || GET_CODE (ADDR) == PRE_DEC) \
+    goto LABEL; \
+  if (GET_CODE (ADDR) == PLUS \
+      && h8300_get_index (XEXP (ADDR, 0), VOIDmode, 0) != XEXP (ADDR, 0)) \
+    goto LABEL;
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
 #define CASE_VECTOR_MODE Pmode
-
-/* Define as C expression which evaluates to nonzero if the tablejump
-   instruction expects the table to contain offsets from the address of the
-   table.
-   Do not define this if the table should contain absolute addresses.  */
-/*#define CASE_VECTOR_PC_RELATIVE 1 */
 
 /* Define this as 1 if `char' should by default be signed; else as 0.
 
@@ -982,57 +1060,28 @@ struct cum_arg
    We use longs for the H8/300H and the H8S because ints can be 16 or 32.
    GCC requires SIZE_TYPE to be the same size as pointers.  */
 #define SIZE_TYPE								\
-  (TARGET_H8300 || TARGET_NORMAL_MODE ? "unsigned int" : "long unsigned int")
+  (TARGET_H8300 || TARGET_NORMAL_MODE ? TARGET_INT32 ? "short unsigned int" : "unsigned int" : "long unsigned int")
 #define PTRDIFF_TYPE						\
-  (TARGET_H8300 || TARGET_NORMAL_MODE ? "int" : "long int")
+  (TARGET_H8300 || TARGET_NORMAL_MODE ? TARGET_INT32 ? "short int" : "int" : "long int")
 
 #define POINTER_SIZE							\
   ((TARGET_H8300H || TARGET_H8300S) && !TARGET_NORMAL_MODE ? 32 : 16)
 
 #define WCHAR_TYPE "short unsigned int"
 #define WCHAR_TYPE_SIZE 16
-#define MAX_WCHAR_TYPE_SIZE 16
 
 /* A function address in a call instruction
    is a byte address (for indexing purposes)
    so give the MEM rtx a byte's mode.  */
 #define FUNCTION_MODE QImode
 
-#define ADJUST_INSN_LENGTH(INSN, LENGTH) \
-  LENGTH += h8300_adjust_insn_length (INSN, LENGTH);
-
-/* Compute the cost of computing a constant rtl expression RTX
-   whose rtx-code is CODE.  The body of this macro is a portion
-   of a switch statement.  If the code is computed here,
-   return it with a return statement.  Otherwise, break from the switch.  */
-
-#define DEFAULT_RTX_COSTS(RTX, CODE, OUTER_CODE) \
-  return (const_costs (RTX, CODE, OUTER_CODE));
+/* Return the length of JUMP's delay slot insn (0 if it has none).
+   If JUMP is a delayed branch, NEXT_INSN (PREV_INSN (JUMP)) will
+   be the containing SEQUENCE, not JUMP itself.  */
+#define DELAY_SLOT_LENGTH(JUMP) \
+  (NEXT_INSN (PREV_INSN (JUMP)) == JUMP ? 0 : 2)
 
 #define BRANCH_COST 0
-
-/* We say that MOD and DIV are so cheap because otherwise we'll
-   generate some really horrible code for division of a power of two.  */
-
-/* Provide the costs of a rtl expression.  This is in the body of a
-   switch on CODE.  */
-
-#define RTX_COSTS(RTX, CODE, OUTER_CODE)		\
-  case AND:						\
-    return COSTS_N_INSNS (h8300_and_costs (RTX));	\
-  case MOD:						\
-  case DIV:						\
-    return 60;						\
-  case MULT:						\
-    return 20;						\
-  case ASHIFT:						\
-  case ASHIFTRT:					\
-  case LSHIFTRT:					\
-    return COSTS_N_INSNS (h8300_shift_costs (RTX));	\
-  case ROTATE:						\
-  case ROTATERT:					\
-    if (GET_MODE (RTX) == HImode) return 2;		\
-    return 8;
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1057,12 +1106,6 @@ struct cum_arg
 
 /* Control the assembler format that we output.  */
 
-/* Output at beginning/end of assembler file.  */
-
-#define ASM_FILE_START(FILE) asm_file_start (FILE)
-
-#define ASM_FILE_END(FILE) asm_file_end (FILE)
-
 /* Output to assembler file text saying following lines
    may contain character constants, extra white space, comments, etc.  */
 
@@ -1074,7 +1117,6 @@ struct cum_arg
 #define ASM_APP_OFF "; #NO_APP\n"
 
 #define FILE_ASM_OP "\t.file\n"
-#define IDENT_ASM_OP "\t.ident\t"
 
 /* The assembler op to get a word, 2 bytes for the H8/300, 4 for H8/300H.  */
 #define ASM_WORD_OP							\
@@ -1083,16 +1125,13 @@ struct cum_arg
 #define TEXT_SECTION_ASM_OP "\t.section .text"
 #define DATA_SECTION_ASM_OP "\t.section .data"
 #define BSS_SECTION_ASM_OP "\t.section .bss"
-#define INIT_SECTION_ASM_OP "\t.section .init"
-#define READONLY_DATA_SECTION_ASM_OP "\t.section .rodata"
 
 #undef DO_GLOBAL_CTORS_BODY
 #define DO_GLOBAL_CTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __ctors[];			\
-  extern pfunc __ctors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __ctors[];			\
+  extern func_ptr __ctors_end[];		\
+  func_ptr *p;					\
   for (p = __ctors_end; p > __ctors; )		\
     {						\
       (*--p)();					\
@@ -1102,50 +1141,24 @@ struct cum_arg
 #undef DO_GLOBAL_DTORS_BODY
 #define DO_GLOBAL_DTORS_BODY			\
 {						\
-  typedef (*pfunc)();				\
-  extern pfunc __dtors[];			\
-  extern pfunc __dtors_end[];			\
-  pfunc *p;					\
+  extern func_ptr __dtors[];			\
+  extern func_ptr __dtors_end[];		\
+  func_ptr *p;					\
   for (p = __dtors; p < __dtors_end; p++)	\
     {						\
       (*p)();					\
     }						\
 }
 
-#define TINY_DATA_NAME_P(NAME) (*(NAME) == '&')
-
 /* How to refer to registers in assembler output.
    This sequence is indexed by compiler's hard-register-number (see above).  */
 
 #define REGISTER_NAMES \
-{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap", "rap" }
+{ "r0", "r1", "r2", "r3", "r4", "r5", "r6", "sp", "mac", "ap", "rap", "fp" }
 
 #define ADDITIONAL_REGISTER_NAMES \
 { {"er0", 0}, {"er1", 1}, {"er2", 2}, {"er3", 3}, {"er4", 4}, \
   {"er5", 5}, {"er6", 6}, {"er7", 7}, {"r7", 7} }
-
-#define SDB_DEBUGGING_INFO 1
-#define SDB_DELIM	"\n"
-
-/* Support -gstabs.  */
-
-#include "dbxcoff.h"
-
-/* Override definition in dbxcoff.h.  */
-/* Generate a blank trailing N_SO to mark the end of the .o file, since
-   we can't depend upon the linker to mark .o file boundaries with
-   embedded stabs.  */
-
-#undef DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME)			\
-  fprintf (FILE,							\
-	   "\t.text\n.stabs \"\",%d,0,0,.Letext\n.Letext:\n", N_SO)
-
-/* Switch into a generic section.  */
-#define TARGET_ASM_NAMED_SECTION h8300_asm_named_section
-
-#define ASM_OUTPUT_LABELREF(FILE, NAME)  \
-  asm_fprintf ((FILE), "%U%s", (NAME) + (TINY_DATA_NAME_P (NAME) ? 1 : 0))
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME)
 
@@ -1159,22 +1172,15 @@ struct cum_arg
 
 #define USER_LABEL_PREFIX "_"
 
-/* This is how to output an internal numbered label where
-   PREFIX is the class of label and NUM is the number within the class.
-
-   N.B.: The h8300.md branch_true and branch_false patterns also know
-   how to generate internal labels.  */
-
-#define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-  fprintf (FILE, ".%s%d:\n", PREFIX, NUM)
-
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
    PREFIX is the class of label and NUM is the number within the class.
-   This is suitable for output with `assemble_name'.  */
+   This is suitable for output with `assemble_name'.
 
+   N.B.: The h8300.md branch_true and branch_false patterns also know
+   how to generate internal labels.  */
 #define ASM_GENERATE_INTERNAL_LABEL(LABEL, PREFIX, NUM)	\
-  sprintf (LABEL, "*.%s%d", PREFIX, NUM)
+  sprintf (LABEL, "*.%s%lu", PREFIX, (unsigned long)(NUM))
 
 /* This is how to output an insn to push a register on the stack.
    It need not be very fast code.  */
@@ -1206,14 +1212,8 @@ struct cum_arg
   if ((LOG) != 0)				\
     fprintf (FILE, "\t.align %d\n", (LOG))
 
-/* This is how to output an assembler line
-   that says to advance the location counter by SIZE bytes.  */
-
-#define ASM_OUTPUT_IDENT(FILE, NAME)			\
-  fprintf (FILE, "%s\"%s\"\n", IDENT_ASM_OP, NAME)
-
 #define ASM_OUTPUT_SKIP(FILE, SIZE) \
-  fprintf (FILE, "\t.space %d\n", (SIZE))
+  fprintf (FILE, "\t.space %d\n", (int)(SIZE))
 
 /* This says how to output an assembler line
    to define a global common symbol.  */
@@ -1221,7 +1221,7 @@ struct cum_arg
 #define ASM_OUTPUT_COMMON(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.comm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%lu\n", (unsigned long)(SIZE)))
 
 /* This says how to output the assembler to define a global
    uninitialized but not common symbol.
@@ -1230,21 +1230,18 @@ struct cum_arg
 #define ASM_OUTPUT_BSS(FILE, DECL, NAME, SIZE, ROUNDED)		\
   asm_output_bss ((FILE), (DECL), (NAME), (SIZE), (ROUNDED))
 
+#define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
+  asm_output_aligned_bss (FILE, DECL, NAME, SIZE, ALIGN)
+
 /* This says how to output an assembler line
    to define a local common symbol.  */
 
 #define ASM_OUTPUT_LOCAL(FILE, NAME, SIZE, ROUNDED)	\
 ( fputs ("\t.lcomm ", (FILE)),				\
   assemble_name ((FILE), (NAME)),			\
-  fprintf ((FILE), ",%d\n", (SIZE)))
+  fprintf ((FILE), ",%d\n", (int)(SIZE)))
 
-/* Store in OUTPUT a string (made with alloca) containing
-   an assembler-name for a local static variable named NAME.
-   LABELNO is an integer which is different for each call.  */
-
-#define ASM_FORMAT_PRIVATE_NAME(OUTPUT, NAME, LABELNO)	\
-( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
-  sprintf ((OUTPUT), "%s___%d", (NAME), (LABELNO)))
+#define ASM_PN_FORMAT "%s___%lu"
 
 /* Print an instruction operand X on file FILE.
    Look in h8300.c for details.  */
@@ -1260,47 +1257,60 @@ struct cum_arg
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR) print_operand_address (FILE, ADDR)
 
 /* H8300 specific pragmas.  */
-#define REGISTER_TARGET_PRAGMAS(PFILE)					\
-  do									\
-    {									\
-      cpp_register_pragma (PFILE, 0, "saveall", h8300_pr_saveall);	\
-      cpp_register_pragma (PFILE, 0, "interrupt", h8300_pr_interrupt);	\
-    }									\
+#define REGISTER_TARGET_PRAGMAS()				\
+  do								\
+    {								\
+      c_register_pragma (0, "saveall", h8300_pr_saveall);	\
+      c_register_pragma (0, "interrupt", h8300_pr_interrupt);	\
+    }								\
   while (0)
 
 #define FINAL_PRESCAN_INSN(insn, operand, nop)	\
   final_prescan_insn (insn, operand, nop)
 
-/* Define this macro if GNU CC should generate calls to the System V
-   (and ANSI C) library functions `memcpy' and `memset' rather than
-   the BSD functions `bcopy' and `bzero'.  */
-
-#define TARGET_MEM_FUNCTIONS 1
-
-#define MULHI3_LIBCALL	"__mulhi3"
-#define DIVHI3_LIBCALL	"__divhi3"
-#define UDIVHI3_LIBCALL	"__udivhi3"
-#define MODHI3_LIBCALL	"__modhi3"
-#define UMODHI3_LIBCALL	"__umodhi3"
-
-/* Perform target dependent optabs initialization.  */
-
-#define INIT_TARGET_OPTABS					\
-  do								\
-    {								\
-      smul_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (MULHI3_LIBCALL);			\
-      sdiv_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (DIVHI3_LIBCALL);			\
-      udiv_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (UDIVHI3_LIBCALL);			\
-      smod_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (MODHI3_LIBCALL);			\
-      umod_optab->handlers[(int) HImode].libfunc		\
-	= init_one_libfunc (UMODHI3_LIBCALL);			\
-    }								\
-  while (0)
-
 #define MOVE_RATIO 3
+extern int h8300_move_ratio;
+#undef  MOVE_RATIO
+#define MOVE_RATIO h8300_move_ratio
+
+/* Define the codes that are matched by predicates in h8300.c.  */
+
+#define PREDICATE_CODES							\
+  {"general_operand_src", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			   LABEL_REF, SUBREG, REG, MEM}},		\
+  {"general_operand_dst", {SUBREG, REG, MEM}},				\
+  {"h8300_src_operand", {CONST_INT, CONST_DOUBLE, CONST, SYMBOL_REF,	\
+			 LABEL_REF, SUBREG, REG, MEM}},			\
+  {"h8300_dst_operand", {SUBREG, REG, MEM}},				\
+  {"nibble_operand", {CONST_INT}},					\
+  {"reg_or_nibble_operand", {CONST_INT, SUBREG, REG}},			\
+  {"h8sx_unary_shift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT, ROTATE}},	\
+  {"h8sx_binary_shift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},		\
+  {"h8sx_binary_memory_operator", {PLUS, MINUS, AND, IOR, XOR, ASHIFT,	\
+				   ASHIFTRT, LSHIFTRT, ROTATE}},	\
+  {"h8sx_unary_memory_operator", {NEG, NOT}},				\
+  {"h8300_ldm_parallel", {PARALLEL}},					\
+  {"h8300_stm_parallel", {PARALLEL}},					\
+  {"h8300_return_parallel", {PARALLEL}},				\
+  {"single_one_operand", {CONST_INT}},					\
+  {"single_zero_operand", {CONST_INT}},					\
+  {"call_insn_operand", {MEM}},						\
+  {"small_call_insn_operand", {MEM}},					\
+  {"jump_address_operand", {REG, MEM}},					\
+  {"two_insn_adds_subs_operand", {CONST_INT}},				\
+  {"bit_operand", {REG, SUBREG, MEM}},					\
+  {"bit_memory_operand", {MEM}},					\
+  {"stack_pointer_operand", {REG}},					\
+  {"const_int_gt_2_operand", {CONST_INT}},				\
+  {"const_int_ge_8_operand", {CONST_INT}},				\
+  {"const_int_qi_operand", {CONST_INT}},				\
+  {"const_int_hi_operand", {CONST_INT}},				\
+  {"incdec_operand", {CONST_INT}},					\
+  {"bit_operator", {XOR, AND, IOR}},					\
+  {"nshift_operator", {ASHIFTRT, LSHIFTRT, ASHIFT}},			\
+  {"eqne_operator", {EQ, NE}},						\
+  {"gtle_operator", {GT, LE, GTU, LEU}},				\
+  {"gtuleu_operator", {GTU, LEU}},					\
+  {"iorxor_operator", {IOR, XOR}},
 
 #endif /* ! GCC_H8300_H */

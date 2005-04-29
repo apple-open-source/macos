@@ -22,5 +22,12 @@
  */
 #include "SYS.h"
 
+#ifdef __LP64__
 SYSCALL(socketpair, 5)
+#else /* !__LP64__ */
+PSEUDO(socketpair$UNIX2003, socketpair, 5)
+	blr
+
+SYSCALL_ERR(socketpair, 5, cerror_cvt)
+#endif /* __LP64__ */
 

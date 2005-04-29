@@ -32,16 +32,23 @@
 #include <time.h>
 
 static int
-bin_strftime(char *nam, char **argv, Options ops, int func)
+bin_strftime(char *nam, char **argv, Options ops, UNUSED(int func))
 {
     int bufsize, x;
-    char *endptr = NULL, *buffer = NULL;
+    char *endptr = NULL, *scalar = NULL, *buffer;
     time_t secs;
     struct tm *t;
-    int size;
+
+    if (OPT_ISSET(ops,'s')) {
+	scalar = OPT_ARG(ops, 's');
+	if (!isident(scalar)) {
+	    zwarnnam(nam, "not an identifier: %s", scalar, 0);
+	    return 1;
+	}
+    }
 
     secs = (time_t)strtoul(argv[1], &endptr, 10);
-    if (secs == ULONG_MAX) {
+    if (secs == (time_t)ULONG_MAX) {
 	zwarnnam(nam, "%s: %e", argv[1], errno);
 	return 1;
     } else if (*endptr != '\0') {
@@ -51,25 +58,45 @@ bin_strftime(char *nam, char **argv, Options ops, int func)
 
     t = localtime(&secs);
     bufsize = strlen(argv[0]) * 2;
+    buffer = zalloc(bufsize);
 
-    for (x=1;x<4;x++) {
-	buffer = zrealloc(buffer, bufsize * x);
-        size = ztrftime(buffer, bufsize * x, argv[0], t);
-	if (size) x = 4;
+    for (x=0; x < 4; x++) {
+        if (ztrftime(buffer, bufsize, argv[0], t) >= 0)
+	    break;
+	buffer = zrealloc(buffer, bufsize *= 2);
     }
 
-    printf("%s\n", buffer);
-    
+    if (scalar) {
+	setsparam(scalar, ztrdup(buffer));
+    } else {
+	printf("%s\n", buffer);
+    }
+    zfree(buffer, bufsize);
+
     return 0;
 }
 
+static zlong
+getcurrentsecs()
+{
+    return (zlong) time(NULL);
+}
+
 static struct builtin bintab[] = {
-    BUILTIN("strftime",    0, bin_strftime,    2,   2, 0, NULL, NULL),
+    BUILTIN("strftime",    0, bin_strftime,    2,   2, 0, "s:", NULL),
+};
+
+static const struct gsu_integer epochseconds_gsu =
+{ getcurrentsecs, NULL, stdunsetfn };
+
+static struct paramdef patab[] = {
+    PARAMDEF("EPOCHSECONDS", PM_INTEGER|PM_SPECIAL|PM_READONLY,
+		    NULL, &epochseconds_gsu),
 };
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     return 0;
 }
@@ -78,20 +105,29 @@ setup_(Module m)
 int
 boot_(Module m)
 {
-    return !addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
+    return !(addbuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab)) |
+	     addparamdefs(m->nam, patab, sizeof(patab)/sizeof(*patab))
+	    );
 }
 
 /**/
 int
 cleanup_(Module m)
 {
+    Param pm;
+
     deletebuiltins(m->nam, bintab, sizeof(bintab)/sizeof(*bintab));
+    pm = (Param) paramtab->getnode(paramtab, "EPOCHSECONDS");
+    if (pm && (pm->flags & PM_SPECIAL)) {
+	pm->flags &= ~PM_READONLY;
+	unsetparam_pm(pm, 0, 1);
+    }
     return 0;
 }
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

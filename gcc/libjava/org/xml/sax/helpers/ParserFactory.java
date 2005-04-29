@@ -1,7 +1,7 @@
 // SAX parser factory.
 // http://www.saxproject.org
 // No warranty; no copyright -- use this as you will.
-// $Id: ParserFactory.java,v 1.4 2003/01/22 06:04:38 gkeating Exp $
+// $Id: ParserFactory.java,v 1.4.2.3 2002/01/29 21:34:14 dbrownell Exp $
 
 package org.xml.sax.helpers;
 

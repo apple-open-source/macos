@@ -1,0 +1,7 @@
+# Tcl package index file, version 1.0
+#
+# @configure_input@
+#
+
+package ifneeded Trf @TRF_VERSION@ \
+	"[list load [file join $dir @TRF_LIB_FILE@] Trf]"

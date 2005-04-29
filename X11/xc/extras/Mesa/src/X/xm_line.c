@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  3.5
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2000  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -100,7 +100,7 @@ void xmesa_choose_point( GLcontext *ctx )
    if (ctx->RenderMode == GL_RENDER
        && ctx->Point.Size == 1.0F && !ctx->Point.SmoothFlag
        && swrast->_RasterMask == 0
-       && !ctx->Texture._ReallyEnabled
+       && !ctx->Texture._EnabledUnits
        && xmesa->xm_buffer->buffer != XIMAGE) {
       swrast->Point = draw_points_ANY_pixmap;
    }
@@ -556,7 +556,7 @@ static swrast_line_func get_line_func( GLcontext *ctx )
 
    if (ctx->RenderMode != GL_RENDER)      return (swrast_line_func) NULL;
    if (ctx->Line.SmoothFlag)              return (swrast_line_func) NULL;
-   if (ctx->Texture._ReallyEnabled)       return (swrast_line_func) NULL;
+   if (ctx->Texture._EnabledUnits)        return (swrast_line_func) NULL;
    if (ctx->Light.ShadeModel != GL_FLAT)  return (swrast_line_func) NULL;
    if (ctx->Line.StippleFlag)             return (swrast_line_func) NULL;
    if (swrast->_RasterMask & MULTI_DRAW_BIT) return (swrast_line_func) NULL;

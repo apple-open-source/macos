@@ -1,8 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/options.c,v 1.30.2.1 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/liblber/options.c,v 1.34.2.3 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
+
 #include "portable.h"
 
 #include <ac/stdlib.h>
@@ -10,8 +20,10 @@
 #include <ac/stdarg.h>
 #include "lber-int.h"
 
+char ber_pvt_opt_on;	/* used to get a non-NULL address for *_OPT_ON */
+
 struct lber_options ber_int_options = {
-	LBER_UNINITIALIZED, 0, 0 };
+	LBER_UNINITIALIZED, 0, 0, 0 };
 
 int
 ber_get_option(
@@ -86,6 +98,11 @@ ber_get_option(
 		*((ber_len_t *) outvalue) = ber_pvt_ber_write(ber);
 		return LBER_OPT_SUCCESS;
 
+	case LBER_OPT_BER_MEMCTX:
+		assert( LBER_VALID( ber ) );
+		*((void **) outvalue) = ber->ber_memctx;
+		return LBER_OPT_SUCCESS;
+	
 	default:
 		/* bad param */
 		ber_errno = LBER_ERROR_PARAM;
@@ -121,7 +138,7 @@ ber_set_option(
 		}
 
 		ber_int_memory_fns = (BerMemoryFunctions *)
-			(*(f->bmf_malloc))(sizeof(BerMemoryFunctions));
+			(*(f->bmf_malloc))(sizeof(BerMemoryFunctions), NULL);
 
 		if ( ber_int_memory_fns == NULL ) {
 			ber_errno = LBER_ERROR_MEMORY;
@@ -202,6 +219,11 @@ ber_set_option(
 	case LBER_OPT_BER_BYTES_TO_WRITE:
 		assert( LBER_VALID( ber ) );
 		ber->ber_ptr = &ber->ber_buf[* (const ber_len_t *) invalue];
+		return LBER_OPT_SUCCESS;
+
+	case LBER_OPT_BER_MEMCTX:
+		assert( LBER_VALID( ber ) );
+		ber->ber_memctx = *(void **)invalue;
 		return LBER_OPT_SUCCESS;
 
 	default:

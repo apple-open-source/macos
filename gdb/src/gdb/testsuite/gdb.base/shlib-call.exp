@@ -1,4 +1,4 @@
-#   Copyright 1997, 1998, 1999, 2000 Free Software Foundation, Inc.
+#   Copyright 1997, 1998, 1999, 2000, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -304,20 +304,7 @@ send_gdb "set width 0\n" ; gdb_expect -re "$gdb_prompt $"
 
 # PR's 16495, 18213
 # test that we can re-set breakpoints in shared libraries
-
-# APPLE LOCAL: The Apple model of breakpoints is a bit different than most
-# others.  On e.g. a Linux box, doing "break shr1" pre-execution will put
-# the breakpoint on the dyld trampoline address.  When the library is loaded
-# into memory at run-time, the bp address is updated.
-# On an Apple system, gdb loads the symbols for all shared libraries that
-# have specified load addresses when you do "file shmain", so it knows where
-# the breakpoints will really go.  shr1.sl and shr2.sl don't have specified 
-# load addresses, so their symbols aren't loaded until runtime.
-#
-# You could imagine a hybrid where Apple gdb would back off to setting the
-# bp on the dyld trampoline, but it's unlikely to happen any time soon.
-
-gdb_test "future-break shr1" "Breakpoint 1.*" "set bp in shared library"
+gdb_breakpoint "shr1"
 
 # FIXME: should not send "run" explicitly.  Non-portable.
 

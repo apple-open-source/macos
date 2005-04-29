@@ -6,3 +6,7 @@
   record/playback.
 . Add a "testing methodologies" section to the manual.
 
+
+. Add a configure test to make sure Tcl and expect are installed.
+. Add support to runtest to produce a better error message when expect
+  can't be found.

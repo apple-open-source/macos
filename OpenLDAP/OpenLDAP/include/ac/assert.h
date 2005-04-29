@@ -1,14 +1,17 @@
 /* Generic assert.h */
-/* $OpenLDAP: pkg/ldap/include/ac/assert.h,v 1.14.2.1 2003/02/09 17:02:17 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ac/assert.h,v 1.16.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _AC_ASSERT_H
@@ -33,7 +36,7 @@
  */
 
 LBER_F (void) ber_pvt_assert LDAP_P(( const char *file, int line,
-					 const char *test ));
+	const char *test ));
 
 /* Can't use LDAP_STRING(test), that'd expand to "test" */
 #if defined(__STDC__) || defined(__cplusplus)

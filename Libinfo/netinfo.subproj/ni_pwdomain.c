@@ -149,9 +149,9 @@ ni_domainof(void *ni, void *parent)
 		return dom;
 	}
 
-	ilist = sys_interfaces();
+	ilist = _libinfo_ni_sys_interfaces();
 	if (ilist == NULL) return ni_name_dup(NAME_UNKNOWN);
-	if (sys_is_my_address(ilist, &(addr.sin_addr)))
+	if (_libinfo_ni_sys_is_my_address(ilist, &(addr.sin_addr)))
 	{
 		/* Try all my non-loopback interfaces */
 		for (i = 0; i < ilist->count; i++)
@@ -163,12 +163,12 @@ ni_domainof(void *ni, void *parent)
 			if (dom != NULL)
 			{
 				ni_name_free(&tag);
-				sys_interfaces_release(ilist);
+				_libinfo_ni_sys_interfaces_release(ilist);
 				return dom;
 			}
 		}
 	}
-	sys_interfaces_release(ilist);
+	_libinfo_ni_sys_interfaces_release(ilist);
 
 	dom = malloc(strlen(tag) + 256);
 	sprintf(dom, "%s@%s", tag, inet_ntoa(addr.sin_addr.s_addr));

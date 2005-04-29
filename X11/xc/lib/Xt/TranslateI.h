@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/TranslateI.h,v 1.3 2001/12/14 19:56:32 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TranslateI.h,v 1.4 2003/04/21 16:34:29 herrb Exp $ */
 
 /* 
  * TranslateI.h - Header file private to translation management
@@ -376,80 +376,60 @@ extern TMGlobalRec _XtGlobalTM;
  */
 
 extern void _XtPopup(
-#if NeedFunctionPrototypes
     Widget      /* widget */,
     XtGrabKind  /* grab_kind */,
     _XtBoolean	/* spring_loaded */
-#endif
 );
 
 extern String _XtPrintXlations(
-#if NeedFunctionPrototypes
     Widget		/* w */,
     XtTranslations 	/* xlations */,
     Widget		/* accelWidget */,
     _XtBoolean		/* includeRHS */
-#endif
 );
 
 extern void _XtRegisterGrabs(
-#if NeedFunctionPrototypes
     Widget	/* widget */
-#endif
 );
 
 extern XtPointer _XtInitializeActionData(
-#if NeedFunctionPrototypes
     struct _XtActionsRec *	/* actions */,
     Cardinal 			/* count */,
     _XtBoolean			/* inPlace */
-#endif
 );
 
 extern void _XtAddEventSeqToStateTree(
-#if NeedFunctionPrototypes
     EventSeqPtr		/* eventSeq */,
     TMParseStateTree	/* stateTree */
-#endif 
 );
 
 extern Boolean _XtMatchUsingStandardMods(
-#if NeedFunctionPrototypes
     TMTypeMatch		/* typeMatch */,
     TMModifierMatch	/* modMatch */,
     TMEventPtr		/* eventSeq */
-#endif
 );
 
 extern Boolean _XtMatchUsingDontCareMods(
-#if NeedFunctionPrototypes
     TMTypeMatch		/* typeMatch */,
     TMModifierMatch	/* modMatch */,
     TMEventPtr		/* eventSeq */
-#endif
 );
 
 extern Boolean _XtRegularMatch(
-#if NeedFunctionPrototypes
     TMTypeMatch		/* typeMatch */,
     TMModifierMatch	/* modMatch */,
     TMEventPtr		/* eventSeq */
-#endif
 );
 
 extern Boolean _XtMatchAtom(
-#if NeedFunctionPrototypes
     TMTypeMatch		/* typeMatch */,
     TMModifierMatch	/* modMatch */,
     TMEventPtr		/* eventSeq */
-#endif
 );
 
 extern void _XtTranslateEvent(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XEvent*		/* event */
-#endif
 );
 
 #include "CallbackI.h"
@@ -465,208 +445,152 @@ extern void _XtBuildKeysymTables(Display *dpy, XtPerDisplay pd);
 
 #ifndef NO_MIT_HACKS
 extern void  _XtDisplayTranslations(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif 
 );
 
 extern void  _XtDisplayAccelerators(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 
 extern void _XtDisplayInstalledAccelerators(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XEvent*		/* event */,
     String*		/* params */,
     Cardinal*		/* num_params */
-#endif
 );
 #endif /* ifndef NO_MIT_HACKS */
 
 extern void _XtPopupInitialize(
-#if NeedFunctionPrototypes
     XtAppContext	/* app_context */
-#endif
 );
 
 extern void _XtBindActions(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     XtTM 	/* tm_rec */
-#endif
 );
 
 extern Boolean _XtComputeLateBindings(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     LateBindingsPtr	/* lateModifiers */,
     Modifiers*		/* computed */,
     Modifiers*		/* computedMask */
-#endif
 );
 
 extern XtTranslations _XtCreateXlations(
-#if NeedFunctionPrototypes
     TMStateTree *	/* stateTrees */,
     TMShortCard		/* numStateTrees */,
     XtTranslations 	/* first */,
     XtTranslations	/* second */
-#endif
 );
 
 extern Boolean _XtCvtMergeTranslations(
-#if NeedFunctionPrototypes
     Display*	/* dpy */,
     XrmValuePtr	/* args */,
     Cardinal*	/* num_args */,
     XrmValuePtr	/* from */,
     XrmValuePtr	/* to */,
     XtPointer*	/* closure_ret */
-#endif
 );
 
 void _XtFreeTranslations(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */,
     XrmValuePtr		/* toVal */,
     XtPointer		/* closure */,
     XrmValuePtr		/* args */,
     Cardinal*		/* num_args */
-#endif
 );
 
 extern TMShortCard _XtGetModifierIndex(
-#if NeedFunctionPrototypes
     Event*	/* event */
-#endif
 );
    
 extern TMShortCard _XtGetQuarkIndex(
-#if NeedFunctionPrototypes
     TMParseStateTree	/* stateTreePtr */,
     XrmQuark		/* quark */
-#endif
 );
 
 extern XtTranslations _XtGetTranslationValue(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern TMShortCard _XtGetTypeIndex(
-#if NeedFunctionPrototypes
     Event*	/* event */
-#endif
 );
 
 extern void _XtGrabInitialize(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */
-#endif
 );
 
 extern void _XtInstallTranslations(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern void _XtRemoveTranslations(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern void _XtDestroyTMData(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern void _XtMergeTranslations(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtTranslations	/* newXlations */,
     _XtTranslateOp	/* operation */
-#endif
 );
 
 extern void _XtActionInitialize(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */
-#endif
 );
 
 extern TMStateTree _XtParseTreeToStateTree(
-#if NeedFunctionPrototypes
     TMParseStateTree 	/* parseTree */
-#endif
 );
 
 extern String _XtPrintActions(
-#if NeedFunctionPrototypes
     ActionRec*	/* actions */,
     XrmQuark*	/* quarkTbl */
-#endif
 );
 
 extern String _XtPrintEventSeq(
-#if NeedFunctionPrototypes
     EventSeqPtr	/* eventSeq */,
     Display*	/* dpy */
-#endif
 );
 
 typedef Boolean (*_XtTraversalProc)(
-#if NeedFunctionPrototypes
     StatePtr	/* state */,
     XtPointer	/* data */
-#endif
 );
 				    
 extern void _XtTraverseStateTree(
-#if NeedFunctionPrototypes
     TMStateTree		/* tree */,
     _XtTraversalProc	/* func */,				 
     XtPointer		/* data */
-#endif
 );
 
 extern void _XtTranslateInitialize(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void _XtAddTMConverters(
-#if NeedFunctionPrototypes
     ConverterTable	/* table */
-#endif
 );
 
 extern void _XtUnbindActions(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtTranslations	/* xlations */,
     TMBindData		/* bindData */
-#endif
 );
 
 extern void _XtUnmergeTranslations(
-#if NeedFunctionPrototypes
     Widget		/* widget */,
     XtTranslations 	/* xlations */
-#endif
 );
 
 /* TMKey.c */

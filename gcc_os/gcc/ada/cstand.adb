@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -353,7 +352,7 @@ package body CStand is
       Set_Ekind          (Standard_Boolean, E_Enumeration_Type);
       Set_First_Literal  (Standard_Boolean, Standard_False);
       Set_Etype          (Standard_Boolean, Standard_Boolean);
-      Init_Esize         (Standard_Boolean, 8);
+      Init_Esize         (Standard_Boolean, Standard_Character_Size);
       Init_RM_Size       (Standard_Boolean, 1);
       Set_Prim_Alignment (Standard_Boolean);
 
@@ -471,7 +470,8 @@ package body CStand is
 
       Set_Ekind          (Standard_Character, E_Enumeration_Type);
       Set_Etype          (Standard_Character, Standard_Character);
-      Init_Size          (Standard_Character, Standard_Character_Size);
+      Init_Esize         (Standard_Character, Standard_Character_Size);
+      Init_RM_Size       (Standard_Character, 8);
       Set_Prim_Alignment (Standard_Character);
 
       Set_Is_Unsigned_Type           (Standard_Character);
@@ -800,7 +800,7 @@ package body CStand is
       Set_Ekind             (Any_Boolean, E_Enumeration_Type);
       Set_Scope             (Any_Boolean, Standard_Standard);
       Set_Etype             (Any_Boolean, Standard_Boolean);
-      Init_Esize            (Any_Boolean, 8);
+      Init_Esize            (Any_Boolean, Standard_Character_Size);
       Init_RM_Size          (Any_Boolean, 1);
       Set_Prim_Alignment    (Any_Boolean);
       Set_Is_Unsigned_Type  (Any_Boolean);
@@ -813,7 +813,8 @@ package body CStand is
       Set_Etype             (Any_Character, Any_Character);
       Set_Is_Unsigned_Type  (Any_Character);
       Set_Is_Character_Type (Any_Character);
-      Init_Size             (Any_Character, Standard_Character_Size);
+      Init_Esize            (Any_Character, Standard_Character_Size);
+      Init_RM_Size          (Any_Character, 8);
       Set_Prim_Alignment    (Any_Character);
       Set_Scalar_Range      (Any_Character, Scalar_Range (Standard_Character));
       Make_Name             (Any_Character, "a character type");

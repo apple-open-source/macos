@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,21 +35,53 @@ OSDefineMetaClassAndStructors( AppleIntelPIIXATARoot, IOService )
  * for the Serial ATA controller, return the (logical) channel
  * configuration for both primary and secondary channels.
  */
-static const UInt8 gChannelModeMap[8 /*map value*/][2 /*channel*/] =
+static const UInt8 gICH5ChannelModeMap[8 /*map value*/][2 /*channel*/] =
 {
     /* Non-combined SATA only modes */
     { kChannelModeSATAPort0,  kChannelModeSATAPort1  },  /* 000 */
     { kChannelModeSATAPort1,  kChannelModeSATAPort0  },  /* 001 */
 
     /* Undefined modes in ICH5 PRM (April 2003) */
-    { kChannelModePATA,       kChannelModePATA       },  /* 010 */
-    { kChannelModePATA,       kChannelModePATA       },  /* 011 */
+    { kChannelModeDisabled,   kChannelModeDisabled   },  /* 010 */
+    { kChannelModeDisabled,   kChannelModeDisabled   },  /* 011 */
 
     /* Combined SATA/PATA modes */
     { kChannelModeSATAPort01, kChannelModePATA       },  /* 100 */
     { kChannelModeSATAPort10, kChannelModePATA       },  /* 101 */
     { kChannelModePATA,       kChannelModeSATAPort01 },  /* 110 */
     { kChannelModePATA,       kChannelModeSATAPort10 }   /* 111 */
+};
+
+/*
+ * ICH6 / ICH6-R
+ */
+static const UInt8 gICH6ChannelModeMap[4 /*map value*/][2 /*channel*/] =
+{
+    /* Non-combined SATA only modes */
+    { kChannelModeSATAPort02, kChannelModeSATAPort13 },  /* 00 */
+
+    /* Combined SATA/PATA modes */
+    { kChannelModePATA,       kChannelModeSATAPort13 },  /* 01 */
+    { kChannelModeSATAPort02, kChannelModePATA       },  /* 10 */
+
+    /* Reserved mode */
+    { kChannelModeDisabled,   kChannelModeDisabled   }   /* 11 */
+};
+
+/*
+ * ICH6-M (does not implement SATA ports 1 and 3)
+ */
+static const UInt8 gICH6MChannelModeMap[4 /*map value*/][2 /*channel*/] =
+{
+    /* Non-combined SATA only modes */
+    { kChannelModeSATAPort02, kChannelModeDisabled   },  /* 00 */
+
+    /* Combined SATA/PATA modes */
+    { kChannelModePATA,       kChannelModeDisabled   },  /* 01 */
+    { kChannelModeSATAPort02, kChannelModePATA       },  /* 10 */
+
+    /* Reserved mode */
+    { kChannelModeDisabled,   kChannelModeDisabled   }   /* 11 */
 };
 
 //---------------------------------------------------------------------------
@@ -181,7 +210,7 @@ IORegistryEntry * AppleIntelPIIXATARoot::getDTChannelEntry( int channelID )
     IORegistryEntry * entry = 0;
     const char *      location;
 
-	OSIterator * iter = _provider->getChildIterator( gIODTPlane );
+    OSIterator * iter = _provider->getChildIterator( gIODTPlane );
     if (iter == 0) return 0;
 
     while (( entry = (IORegistryEntry *) iter->getNextObject() ))
@@ -208,8 +237,10 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
 {
     OSSet *           nubSet;
     OSDictionary *    channelInfo;
-    UInt8             mapValue;
     IORegistryEntry * dtEntry;
+    UInt32            priChannelMode;
+    UInt32            secChannelMode;
+    UInt8             mapValue = 0;
 
     do {
         nubSet = OSSet::withCapacity(2);
@@ -219,26 +250,64 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
         if ( _provider->open( this ) != true )
             break;
 
+        priChannelMode = kChannelModePATA;
+        secChannelMode = kChannelModePATA;
+
+        // Determine SATA channel mode based on Port Mapping Register.
+
         if ( getProperty( kSerialATAKey ) == kOSBooleanTrue )
         {
-            mapValue = _provider->configRead8( kPIIX_PCI_MAP ) & 0x7;
-            if ( mapValue == 2 || mapValue == 3 )
-                IOLog("%s: bad value (%x) in Port Mapping register",
-                      getName(), mapValue);
+            OSString * hwName;
+
+            hwName = OSDynamicCast(OSString, getProperty(kControllerNameKey));
+            mapValue = _provider->configRead8(kPIIX_PCI_MAP);
+            setProperty( kPortMappingKey, mapValue, 8 );
+
+            priChannelMode = kChannelModeDisabled;
+            secChannelMode = kChannelModeDisabled;
+
+            if (hwName)
+            {
+                if (hwName->isEqualTo("ICH6 SATA"))
+                {
+                    mapValue &= 0x3;
+                    priChannelMode = gICH6ChannelModeMap[mapValue][0];
+                    secChannelMode = gICH6ChannelModeMap[mapValue][1];
+                }
+                else if (hwName->isEqualTo("ICH6-M SATA"))
+                {
+                    mapValue &= 0x3;
+                    priChannelMode = gICH6MChannelModeMap[mapValue][0];
+                    secChannelMode = gICH6MChannelModeMap[mapValue][1];
+                }
+                else if (hwName->isEqualTo("ICH5 SATA"))
+                {
+                    mapValue &= 0x7;
+                    priChannelMode = gICH5ChannelModeMap[mapValue][0];
+                    secChannelMode = gICH5ChannelModeMap[mapValue][1];
+                }
+            }
         }
-        else
-            mapValue = 2;
-        
-        setProperty( kPortMappingKey, mapValue, 8 );
+
+        if ( priChannelMode == kChannelModeDisabled &&
+             secChannelMode == kChannelModeDisabled )
+        {
+            IOLog("%s: bad value (%x) in Port Mapping register",
+                  getName(), mapValue);
+            _provider->close( this );
+            break;
+        }
 
         for ( UInt32 channelID = 0; channelID < 2; channelID++ )
         {
+            UInt32 channelMode = (channelID ? secChannelMode : priChannelMode);
+
             // Create a dictionary for the channel info. Use native mode
             // settings if possible, else default to legacy mode.
 
-            channelInfo = createNativeModeChannelInfo( channelID, mapValue );
+            channelInfo = createNativeModeChannelInfo( channelID, channelMode );
             if (channelInfo == 0)
-                channelInfo = createLegacyModeChannelInfo( channelID, mapValue );
+                channelInfo = createLegacyModeChannelInfo( channelID, channelMode );
             if (channelInfo == 0)
                 continue;
 
@@ -258,6 +327,21 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
                 if ( dtEntry )
                 {
                     dtEntry->release();
+                }
+                else
+                {
+                    // Platform did not create a device tree entry for
+                    // this ATA channel. Do it here.
+
+                    char channelName[5] = {'C','H','N','_','\0'};
+
+                    channelName[3] = '0' + channelID;
+                    nub->setName( channelName );
+
+                    if ( _provider->inPlane(gIODTPlane) )
+                    {
+                        nub->attachToParent( _provider, gIODTPlane );
+                    }
                 }
 
                 nub->release();
@@ -285,7 +369,7 @@ OSSet * AppleIntelPIIXATARoot::createATAChannelNubs( void )
 
 OSDictionary *
 AppleIntelPIIXATARoot::createNativeModeChannelInfo( UInt32 ataChannel,
-                                                    UInt8  mapValue )
+                                                    UInt32 channelMode )
 {
     UInt8  pi = _provider->configRead8( kPIIX_PCI_PI );
     UInt16 cmdPort = 0;
@@ -294,8 +378,10 @@ AppleIntelPIIXATARoot::createNativeModeChannelInfo( UInt32 ataChannel,
     switch ( ataChannel )
     {
         case kPIIX_CHANNEL_PRIMARY:
-            if ( pi & 0x3 )
+            if ((pi & kPIIX_PCI_PRI_NATIVE_MASK) == kPIIX_PCI_PRI_NATIVE_MASK)
             {
+                // Primary channel native mode supported and enabled.
+
                 cmdPort = _provider->configRead16( kIOPCIConfigBaseAddress0 );
                 ctrPort = _provider->configRead16( kIOPCIConfigBaseAddress1 );
                 
@@ -317,7 +403,7 @@ AppleIntelPIIXATARoot::createNativeModeChannelInfo( UInt32 ataChannel,
             break;
 
         case kPIIX_CHANNEL_SECONDARY:
-            if ( pi & 0xc0 )
+            if ((pi & kPIIX_PCI_SEC_NATIVE_MASK) == kPIIX_PCI_SEC_NATIVE_MASK)
             {
                 cmdPort = _provider->configRead16( kIOPCIConfigBaseAddress2 );
                 ctrPort = _provider->configRead16( kIOPCIConfigBaseAddress3 );
@@ -335,7 +421,7 @@ AppleIntelPIIXATARoot::createNativeModeChannelInfo( UInt32 ataChannel,
     }
 
     if ( cmdPort && ctrPort )
-        return createChannelInfo( ataChannel, mapValue, cmdPort, ctrPort,
+        return createChannelInfo( ataChannel, channelMode, cmdPort, ctrPort,
                      _provider->configRead8( kIOPCIConfigInterruptLine ) );
     else
         return 0;
@@ -345,7 +431,7 @@ AppleIntelPIIXATARoot::createNativeModeChannelInfo( UInt32 ataChannel,
 
 OSDictionary *
 AppleIntelPIIXATARoot::createLegacyModeChannelInfo( UInt32 ataChannel,
-                                                    UInt8  mapValue )
+                                                    UInt32 channelMode )
 {
     UInt16  cmdPort = 0;
     UInt16  ctrPort = 0;
@@ -366,7 +452,7 @@ AppleIntelPIIXATARoot::createLegacyModeChannelInfo( UInt32 ataChannel,
             break;
     }
 
-    return createChannelInfo( ataChannel, mapValue,
+    return createChannelInfo( ataChannel, channelMode,
                               cmdPort, ctrPort, irq );
 }
 
@@ -374,7 +460,7 @@ AppleIntelPIIXATARoot::createLegacyModeChannelInfo( UInt32 ataChannel,
 
 OSDictionary *
 AppleIntelPIIXATARoot::createChannelInfo( UInt32 ataChannel,
-                                          UInt8  mapValue,
+                                          UInt32 channelMode,
                                           UInt16 commandPort,
                                           UInt16 controlPort,
                                           UInt8  interruptVector )
@@ -417,7 +503,7 @@ AppleIntelPIIXATARoot::createChannelInfo( UInt32 ataChannel,
         num->release();
     }
 
-    num = OSNumber::withNumber( gChannelModeMap[mapValue][ataChannel], 32 );
+    num = OSNumber::withNumber( channelMode, 32 );
     if (num)
     {
         dict->setObject( kChannelModeKey, num );

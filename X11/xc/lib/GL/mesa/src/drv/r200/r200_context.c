@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_context.c,v 1.2 2002/12/16 16:18:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_context.c,v 1.6 2004/01/23 03:57:05 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,13 +25,29 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#include "glheader.h"
+#include "api_arrayelt.h"
+#include "context.h"
+#include "simple_list.h"
+#include "imports.h"
+#include "matrix.h"
+#include "extensions.h"
+#include "state.h"
+
+#include "swrast/swrast.h"
+#include "swrast_setup/swrast_setup.h"
+#include "array_cache/acache.h"
+
+#include "tnl/tnl.h"
+#include "tnl/t_pipeline.h"
 
 #include "r200_context.h"
 #include "r200_ioctl.h"
@@ -44,28 +60,10 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r200_vtxfmt.h"
 #include "r200_maos.h"
 
-#include "swrast/swrast.h"
-#include "swrast_setup/swrast_setup.h"
-#include "array_cache/acache.h"
+#define DRIVER_DATE	"20030328"
 
-#include "tnl/tnl.h"
-#include "tnl/t_pipeline.h"
-
-#include "attrib.h"
-#include "api_arrayelt.h"
-#include "context.h"
-#include "simple_list.h"
-#include "mem.h"
-#include "matrix.h"
-#include "state.h"
-#include "extensions.h"
-#include "state.h"
-#if defined(USE_X86_ASM)
-#include "X86/common_x86_asm.h"
-#endif
-
-#define R200_DATE	"20020827"
-
+#include "vblank.h"
+#include "utils.h"
 #ifndef R200_DEBUG
 int R200_DEBUG = (0);
 #endif
@@ -92,60 +90,21 @@ static const GLubyte *r200GetString( GLcontext *ctx, GLenum name )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
    static char buffer[128];
+   unsigned   offset;
+   GLuint agp_mode = rmesa->r200Screen->IsPCI ? 0 :
+      rmesa->r200Screen->AGPMode;
 
    switch ( name ) {
    case GL_VENDOR:
       return (GLubyte *)"Tungsten Graphics, Inc.";
 
    case GL_RENDERER:
-      sprintf( buffer, "Mesa DRI R200 " R200_DATE);
+      offset = driGetRendererString( buffer, "R200", DRIVER_DATE,
+				     agp_mode );
 
-      /* Append any chipset-specific information.  None yet.
-       */
-
-      /* Append any AGP-specific information.
-       */
-      switch ( rmesa->r200Screen->AGPMode ) {
-      case 1:
-	 strncat( buffer, " AGP 1x", 7 );
-	 break;
-      case 2:
-	 strncat( buffer, " AGP 2x", 7 );
-	 break;
-      case 4:
-	 strncat( buffer, " AGP 4x", 7 );
-	 break;
-      }
-
-      /* Append any CPU-specific information.
-       */
-#ifdef USE_X86_ASM
-      if ( _mesa_x86_cpu_features ) {
-	 strncat( buffer, " x86", 4 );
-      }
-#ifdef USE_MMX_ASM
-      if ( cpu_has_mmx ) {
-	 strncat( buffer, "/MMX", 4 );
-      }
-#endif
-#ifdef USE_3DNOW_ASM
-      if ( cpu_has_3dnow ) {
-	 strncat( buffer, "/3DNow!", 7 );
-      }
-#endif
-#ifdef USE_SSE_ASM
-      if ( cpu_has_xmm ) {
-	 strncat( buffer, "/SSE", 4 );
-      }
-#endif
-#endif
-
-      if ( !(rmesa->TclFallback & R200_TCL_FALLBACK_TCL_DISABLE) ) {
-	 strncat( buffer, " TCL", 4 );
-      }
-      else {
-	 strncat( buffer, " NO-TCL", 7 );
-      }
+      sprintf( & buffer[ offset ], " %sTCL",
+	       !(rmesa->TclFallback & R200_TCL_FALLBACK_TCL_DISABLE)
+	       ? "" : "NO-" );
 
       return (GLubyte *)buffer;
 
@@ -155,36 +114,41 @@ static const GLubyte *r200GetString( GLcontext *ctx, GLenum name )
 }
 
 
-
-/* Initialize the extensions supported by this driver.
+/* Extension strings exported by the R200 driver.
  */
-static void r200InitExtensions( GLcontext *ctx )
+static const char * const card_extensions[] =
 {
-   _mesa_enable_imaging_extensions( ctx );
-
-   _mesa_enable_extension( ctx, "GL_ARB_multitexture" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_add" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_combine" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_dot3" );
-
-   _mesa_enable_extension( ctx, "GL_EXT_blend_logic_op" );
-   _mesa_enable_extension( ctx, "GL_EXT_stencil_wrap" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_add" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_combine" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_dot3" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_filter_anisotropic" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_lod_bias" );
-   _mesa_enable_extension( ctx, "GL_EXT_secondary_color" );
-   _mesa_enable_extension( ctx, "GL_EXT_blend_subtract" );
-   _mesa_enable_extension( ctx, "GL_EXT_blend_minmax" );
-
-/*     _mesa_enable_extension( ctx, "GL_EXT_fog_coord" ); */
-
-   _mesa_enable_extension( ctx, "GL_MESA_pack_invert" );
-   _mesa_enable_extension( ctx, "GL_MESA_ycbcr_texture" );
-   _mesa_enable_extension( ctx, "GL_NV_texture_rectangle" );
-
-}
+    "GL_ARB_multisample",
+    "GL_ARB_multitexture",
+    "GL_ARB_texture_border_clamp",
+    "GL_ARB_texture_compression",
+    "GL_ARB_texture_env_add",
+    "GL_ARB_texture_env_combine",
+    "GL_ARB_texture_env_dot3",
+    "GL_ARB_texture_mirrored_repeat",
+    "GL_EXT_blend_logic_op",
+    "GL_EXT_blend_minmax",
+    "GL_EXT_blend_subtract",
+    "GL_EXT_secondary_color",
+    "GL_EXT_stencil_wrap",
+    "GL_EXT_texture_edge_clamp",
+    "GL_EXT_texture_env_add",
+    "GL_EXT_texture_env_combine",
+    "GL_EXT_texture_env_dot3",
+    "GL_EXT_texture_filter_anisotropic",
+    "GL_EXT_texture_lod_bias",
+    "GL_ATI_texture_env_combine3",
+    "GL_ATI_texture_mirror_once",
+    "GL_IBM_texture_mirrored_repeat",
+    "GL_MESA_pack_invert",
+    "GL_MESA_ycbcr_texture",
+    "GL_NV_blend_square",
+    "GL_NV_texture_rectangle",
+    "GL_SGIS_generate_mipmap",
+    "GL_SGIS_texture_border_clamp",
+    "GL_SGIS_texture_edge_clamp",
+    NULL
+};
 
 extern const struct gl_pipeline_stage _r200_render_stage;
 extern const struct gl_pipeline_stage _r200_tcl_stage;
@@ -216,7 +180,7 @@ static const struct gl_pipeline_stage *r200_pipeline[] = {
 			
    /* Else do them here.
     */
-   &_r200_render_stage, 
+/*    &_r200_render_stage,  */ /* FIXME: bugs with ut2003 */
    &_tnl_render_stage,		/* FALLBACK:  */
    0,
 };
@@ -236,67 +200,51 @@ static void r200InitDriverFuncs( GLcontext *ctx )
     ctx->Driver.Bitmap			= NULL;
 }
 
-static void add_debug_flags( const char *debug )
+static const struct dri_debug_control debug_control[] =
 {
-   if (strstr(debug, "fall")) 
-      R200_DEBUG |= DEBUG_FALLBACKS;
+    { "fall",  DEBUG_FALLBACKS },
+    { "tex",   DEBUG_TEXTURE },
+    { "ioctl", DEBUG_IOCTL },
+    { "prim",  DEBUG_PRIMS },
+    { "vert",  DEBUG_VERTS },
+    { "state", DEBUG_STATE },
+    { "code",  DEBUG_CODEGEN },
+    { "vfmt",  DEBUG_VFMT },
+    { "vtxf",  DEBUG_VFMT },
+    { "verb",  DEBUG_VERBOSE },
+    { "dri",   DEBUG_DRI },
+    { "dma",   DEBUG_DMA },
+    { "san",   DEBUG_SANITY },
+    { "sync",  DEBUG_SYNC },
+    { "pix",   DEBUG_PIXEL },
+    { "mem",   DEBUG_MEMORY },
+    { NULL,    0 }
+};
 
-   if (strstr(debug, "tex")) 
-      R200_DEBUG |= DEBUG_TEXTURE;
 
-   if (strstr(debug, "ioctl")) 
-      R200_DEBUG |= DEBUG_IOCTL;
-
-   if (strstr(debug, "prim")) 
-      R200_DEBUG |= DEBUG_PRIMS;
-
-   if (strstr(debug, "vert")) 
-      R200_DEBUG |= DEBUG_VERTS;
-
-   if (strstr(debug, "state")) 
-      R200_DEBUG |= DEBUG_STATE;
-
-   if (strstr(debug, "code")) 
-      R200_DEBUG |= DEBUG_CODEGEN;
-
-   if (strstr(debug, "vfmt") || strstr(debug, "vtxf")) 
-      R200_DEBUG |= DEBUG_VFMT;
-
-   if (strstr(debug, "verb")) 
-      R200_DEBUG |= DEBUG_VERBOSE;
-
-   if (strstr(debug, "dri")) 
-      R200_DEBUG |= DEBUG_DRI;
-
-   if (strstr(debug, "dma")) 
-      R200_DEBUG |= DEBUG_DMA;
-
-   if (strstr(debug, "san")) 
-      R200_DEBUG |= DEBUG_SANITY;
-
-   if (strstr(debug, "sync")) 
-      R200_DEBUG |= DEBUG_SYNC;
-
-   if (strstr(debug, "pix")) 
-      R200_DEBUG |= DEBUG_PIXEL;
+static int
+get_ust_nop( int64_t * ust )
+{
+   *ust = 1;
+   return 0;
 }
+
 
 /* Create the device specific context.
  */
-GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
+GLboolean r200CreateContext( const __GLcontextModes *glVisual,
 			     __DRIcontextPrivate *driContextPriv,
 			     void *sharedContextPrivate)
 {
    __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
-   r200ScreenPtr r200Screen = (r200ScreenPtr)(sPriv->private);
+   r200ScreenPtr screen = (r200ScreenPtr)(sPriv->private);
    r200ContextPtr rmesa;
    GLcontext *ctx, *shareCtx;
    int i;
 
-   assert(dpy);
    assert(glVisual);
    assert(driContextPriv);
-   assert(r200Screen);
+   assert(screen);
 
    /* Allocate the R200 context */
    rmesa = (r200ContextPtr) CALLOC( sizeof(*rmesa) );
@@ -308,7 +256,7 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
       shareCtx = ((r200ContextPtr) sharedContextPrivate)->glCtx;
    else
       shareCtx = NULL;
-   rmesa->glCtx = _mesa_create_context(glVisual, shareCtx, rmesa, GL_TRUE);
+   rmesa->glCtx = _mesa_create_context(glVisual, shareCtx, (void *) rmesa, GL_TRUE);
    if (!rmesa->glCtx) {
       FREE(rmesa);
       return GL_FALSE;
@@ -316,7 +264,6 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
    driContextPriv->driverPrivate = rmesa;
 
    /* Init r200 context data */
-   rmesa->dri.display = dpy;
    rmesa->dri.context = driContextPriv;
    rmesa->dri.screen = sPriv;
    rmesa->dri.drawable = NULL; /* Set by XMesaMakeCurrent */
@@ -325,44 +272,55 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
    rmesa->dri.fd = sPriv->fd;
    rmesa->dri.drmMinor = sPriv->drmMinor;
 
-   rmesa->r200Screen = r200Screen;
+   rmesa->r200Screen = screen;
    rmesa->sarea = (RADEONSAREAPrivPtr)((GLubyte *)sPriv->pSAREA +
-				       r200Screen->sarea_priv_offset);
+				       screen->sarea_priv_offset);
 
 
    rmesa->dma.buf0_address = rmesa->r200Screen->buffers->list[0].address;
 
-   for ( i = 0 ; i < r200Screen->numTexHeaps ; i++ ) {
-      make_empty_list( &rmesa->texture.objects[i] );
-      rmesa->texture.heap[i] = mmInit( 0, r200Screen->texSize[i] );
-      rmesa->texture.age[i] = -1;
+   (void) memset( rmesa->texture_heaps, 0, sizeof( rmesa->texture_heaps ) );
+   make_empty_list( & rmesa->swapped );
+
+   rmesa->nr_heaps = 1 /* screen->numTexHeaps */ ;
+   for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+      rmesa->texture_heaps[i] = driCreateTextureHeap( i, rmesa,
+	    screen->texSize[i],
+	    12,
+	    RADEON_NR_TEX_REGIONS,
+	    rmesa->sarea->texList[i],
+	    & rmesa->sarea->texAge[i],
+	    & rmesa->swapped,
+	    sizeof( r200TexObj ),
+	    (destroy_texture_object_t *) r200DestroyTexObj );
    }
-   rmesa->texture.numHeaps = r200Screen->numTexHeaps;
-   make_empty_list( &rmesa->texture.swapped );
 
    rmesa->swtcl.RenderIndex = ~0;
    rmesa->lost_context = 1;
 
-   /* KW: Set the maximum texture size small enough that we can
-    * guarentee that both texture units can bind a maximal texture
-    * and have them both in on-card memory at once.
-    * Test for 2 textures * 4 bytes/texel * size * size.
+   /* Set the maximum texture size small enough that we can guarentee that
+    * all texture units can bind a maximal texture and have them both in
+    * texturable memory at once.
     */
-   ctx = rmesa->glCtx;
-   if (r200Screen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 2048 * 2048) {
-      ctx->Const.MaxTextureLevels = 12; /* 2048x2048 */
-   }
-   else if (r200Screen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 1024 * 1024) {
-      ctx->Const.MaxTextureLevels = 11; /* 1024x1024 */
-   }
-   else if (r200Screen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 512 * 512) {
-      ctx->Const.MaxTextureLevels = 10; /* 512x512 */
-   }
-   else {
-      ctx->Const.MaxTextureLevels = 9; /* 256x256 */
-   }
 
+   ctx = rmesa->glCtx;
    ctx->Const.MaxTextureUnits = 2;
+
+   driCalculateMaxTextureLevels( rmesa->texture_heaps,
+				 rmesa->nr_heaps,
+				 & ctx->Const,
+				 4,
+				 11, /* max 2D texture size is 2048x2048 */
+#if ENABLE_HW_3D_TEXTURE
+				 8,  /* max 3D texture size is 256^3 */
+#else
+				 0,  /* 3D textures unsupported */
+#endif
+				 11, /* max cube texture size is 2048x2048 */
+				 11, /* max texture rectangle size is 2048x2048 */
+				 12,
+				 GL_FALSE );
+
    ctx->Const.MaxTextureMaxAnisotropy = 16.0;
 
    /* No wide points.
@@ -378,7 +336,6 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
    ctx->Const.MaxLineWidthAA = 10.0;
    ctx->Const.LineWidthGranularity = 0.0625;
 
-
    /* Initialize the software rasterizer and helper modules.
     */
    _swrast_CreateContext( ctx );
@@ -391,6 +348,7 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
     */
    _tnl_destroy_pipeline( ctx );
    _tnl_install_pipeline( ctx, r200_pipeline );
+   ctx->Driver.FlushVertices = r200FlushVertices;
 
    /* Try and keep materials and vertices separate:
     */
@@ -410,7 +368,10 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
    _math_matrix_set_identity( &rmesa->TexGenMatrix[1] );
    _math_matrix_set_identity( &rmesa->tmpmat );
 
-   r200InitExtensions( ctx );
+   driInitExtensions( ctx, card_extensions, GL_TRUE );
+   if (rmesa->r200Screen->drmSupportsCubeMaps)
+      _mesa_enable_extension( ctx, "GL_ARB_texture_cube_map" );
+
    r200InitDriverFuncs( ctx );
    r200InitIoctlFuncs( ctx );
    r200InitStateFuncs( ctx );
@@ -435,15 +396,26 @@ GLboolean r200CreateContext( Display *dpy, const __GLcontextModes *glVisual,
 
 
    rmesa->do_usleeps = !getenv("R200_NO_USLEEPS");
-   rmesa->prefer_agp_client_texturing = 
-      (getenv("R200_AGP_CLIENT_TEXTURES") != 0);
+
+   rmesa->vblank_flags = (rmesa->r200Screen->irq != 0)
+       ? driGetDefaultVBlankFlags() : VBLANK_FLAG_NO_IRQ;
+
+   rmesa->prefer_gart_client_texturing = 
+      (getenv("R200_GART_CLIENT_TEXTURES") != 0);
    
-   
+   rmesa->get_ust = (PFNGLXGETUSTPROC) glXGetProcAddress( (const GLubyte *) "__glXGetUST" );
+   if ( rmesa->get_ust == NULL ) {
+      rmesa->get_ust = get_ust_nop;
+   }
+
+   (*rmesa->get_ust)( & rmesa->swap_ust );
+
+
 #if DO_DEBUG
-   if (getenv("R200_DEBUG"))
-      add_debug_flags( getenv("R200_DEBUG") );
-   if (getenv("RADEON_DEBUG"))
-      add_debug_flags( getenv("RADEON_DEBUG") );
+   R200_DEBUG  = driParseDebugString( getenv( "R200_DEBUG" ),
+				      debug_control );
+   R200_DEBUG |= driParseDebugString( getenv( "RADEON_DEBUG" ),
+				      debug_control );
 #endif
 
    if (getenv("R200_NO_RAST")) {
@@ -483,33 +455,16 @@ void r200DestroyContext( __DRIcontextPrivate *driContextPriv )
    /* Free r200 context resources */
    assert(rmesa); /* should never be null */
    if ( rmesa ) {
-      if (rmesa->glCtx->Shared->RefCount == 1) {
-         /* This share group is about to go away, free our private
-          * texture object data.
-          */
-         r200TexObjPtr t, next_t;
-         int i;
+      GLboolean   release_texture_heaps;
 
-         for ( i = 0 ; i < rmesa->texture.numHeaps ; i++ ) {
-            foreach_s ( t, next_t, &rmesa->texture.objects[i] ) {
-               r200DestroyTexObj( rmesa, t );
-            }
-            mmDestroy( rmesa->texture.heap[i] );
-	    rmesa->texture.heap[i] = NULL;
-         }
 
-         foreach_s ( t, next_t, &rmesa->texture.swapped ) {
-            r200DestroyTexObj( rmesa, t );
-         }
-      }
-
+      release_texture_heaps = (rmesa->glCtx->Shared->RefCount == 1);
       _swsetup_DestroyContext( rmesa->glCtx );
       _tnl_DestroyContext( rmesa->glCtx );
       _ac_DestroyContext( rmesa->glCtx );
       _swrast_DestroyContext( rmesa->glCtx );
 
       r200DestroySwtcl( rmesa->glCtx );
-
       r200ReleaseArrays( rmesa->glCtx, ~0 );
 
       if (rmesa->dma.current.buf) {
@@ -530,6 +485,20 @@ void r200DestroyContext( __DRIcontextPrivate *driContextPriv )
 	 rmesa->state.scissor.pClipRects = 0;
       }
 
+      if ( release_texture_heaps ) {
+         /* This share group is about to go away, free our private
+          * texture object data.
+          */
+         int i;
+
+         for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+	    driDestroyTextureHeap( rmesa->texture_heaps[ i ] );
+	    rmesa->texture_heaps[ i ] = NULL;
+         }
+
+	 assert( is_empty_list( & rmesa->swapped ) );
+      }
+
       FREE( rmesa );
    }
 }
@@ -538,19 +507,15 @@ void r200DestroyContext( __DRIcontextPrivate *driContextPriv )
 
 
 void
-r200SwapBuffers(Display *dpy, void *drawablePrivate)
+r200SwapBuffers( __DRIdrawablePrivate *dPriv )
 {
-   __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
-   (void) dpy;
-
    if (dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
       r200ContextPtr rmesa;
       GLcontext *ctx;
       rmesa = (r200ContextPtr) dPriv->driContextPriv->driverPrivate;
       ctx = rmesa->glCtx;
       if (ctx->Visual.doubleBufferMode) {
-         _mesa_swapbuffers( ctx );  /* flush pending rendering comands */
-
+         _mesa_notifySwapBuffers( ctx );  /* flush pending rendering comands */
          if ( rmesa->doPageFlip ) {
             r200PageFlip( dPriv );
          }
@@ -561,7 +526,7 @@ r200SwapBuffers(Display *dpy, void *drawablePrivate)
    }
    else {
       /* XXX this shouldn't be an error but we can't handle it for now */
-      _mesa_problem(NULL, "r200SwapBuffers: drawable has no context!\n");
+      _mesa_problem(NULL, "%s: drawable has no context!", __FUNCTION__);
    }
 }
 
@@ -575,32 +540,32 @@ r200MakeCurrent( __DRIcontextPrivate *driContextPriv,
                    __DRIdrawablePrivate *driReadPriv )
 {
    if ( driContextPriv ) {
-      r200ContextPtr newR200Ctx = 
+      r200ContextPtr newCtx = 
 	 (r200ContextPtr) driContextPriv->driverPrivate;
 
       if (R200_DEBUG & DEBUG_DRI)
-	 fprintf(stderr, "%s ctx %p\n", __FUNCTION__, newR200Ctx->glCtx);
+	 fprintf(stderr, "%s ctx %p\n", __FUNCTION__, (void *)newCtx->glCtx);
 
-      if ( newR200Ctx->dri.drawable != driDrawPriv ) {
-	 newR200Ctx->dri.drawable = driDrawPriv;
-	 r200UpdateWindow( newR200Ctx->glCtx );
-	 r200UpdateViewportOffset( newR200Ctx->glCtx );
+      if ( newCtx->dri.drawable != driDrawPriv ) {
+	 newCtx->dri.drawable = driDrawPriv;
+	 r200UpdateWindow( newCtx->glCtx );
+	 r200UpdateViewportOffset( newCtx->glCtx );
       }
 
-      _mesa_make_current2( newR200Ctx->glCtx,
+      _mesa_make_current2( newCtx->glCtx,
 			   (GLframebuffer *) driDrawPriv->driverPrivate,
 			   (GLframebuffer *) driReadPriv->driverPrivate );
 
-      if ( !newR200Ctx->glCtx->Viewport.Width ) {
-	 _mesa_set_viewport( newR200Ctx->glCtx, 0, 0,
+      if ( !newCtx->glCtx->Viewport.Width ) {
+	 _mesa_set_viewport( newCtx->glCtx, 0, 0,
 			     driDrawPriv->w, driDrawPriv->h );
       }
 
-      if (newR200Ctx->vb.enabled)
-	 r200VtxfmtMakeCurrent( newR200Ctx->glCtx );
+      if (newCtx->vb.enabled)
+	 r200VtxfmtMakeCurrent( newCtx->glCtx );
 
-      _mesa_update_state( newR200Ctx->glCtx );
-      r200ValidateState( newR200Ctx->glCtx );
+      _mesa_update_state( newCtx->glCtx );
+      r200ValidateState( newCtx->glCtx );
 
    } else {
       if (R200_DEBUG & DEBUG_DRI)
@@ -621,14 +586,8 @@ r200UnbindContext( __DRIcontextPrivate *driContextPriv )
    r200ContextPtr rmesa = (r200ContextPtr) driContextPriv->driverPrivate;
 
    if (R200_DEBUG & DEBUG_DRI)
-      fprintf(stderr, "%s ctx %p\n", __FUNCTION__, rmesa->glCtx);
+      fprintf(stderr, "%s ctx %p\n", __FUNCTION__, (void *)rmesa->glCtx);
 
    r200VtxfmtUnbindContext( rmesa->glCtx );
    return GL_TRUE;
 }
-
-
-
-
-
-

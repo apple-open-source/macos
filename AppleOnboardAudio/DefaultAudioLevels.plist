@@ -32,8 +32,6 @@
                 <real>-7.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook3,3</key>
         <array>
             <dict>
@@ -41,8 +39,6 @@
                 <real>-7.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook3,4</key>
         <array>
             <dict>
@@ -50,8 +46,6 @@
                 <real>-7.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook3,5</key>
         <array>
             <dict>
@@ -59,8 +53,6 @@
                 <real>-7.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook4,1</key>
         <array>
             <dict>
@@ -68,8 +60,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook4,3</key>
         <array>
             <dict>
@@ -77,8 +67,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook5,1</key>
         <array>
             <dict>
@@ -86,8 +74,6 @@
                 <real>-13.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook5,2</key>
         <array>
             <dict>
@@ -95,8 +81,6 @@
                 <real>-12.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook5,3</key>
         <array>
             <dict>
@@ -104,8 +88,6 @@
                 <real>-13.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook5,4</key>
         <array>
             <dict>
@@ -113,8 +95,20 @@
                 <real>-12.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
+        <key>PowerBook5,6</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.0</real>
+            </dict>
+        </array>
+        <key>PowerBook5,7</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.0</real>
+            </dict>
+        </array>
         <key>PowerBook6,1</key>
         <array>
             <dict>
@@ -122,8 +116,6 @@
                 <real>-12.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook6,2</key>
         <array>
             <dict>
@@ -131,8 +123,6 @@
                 <real>-12.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook6,3</key>
         <array>
             <dict>
@@ -140,8 +130,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook6,4</key>
         <array>
             <dict>
@@ -149,8 +137,6 @@
                 <real>-12.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerBook6,5</key>
         <array>
             <dict>
@@ -158,8 +144,13 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
+        <key>PowerBook6,8</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-12.5</real>
+            </dict>
+        </array>
         <key>PowerMac3,5</key>
         <array>
             <dict>
@@ -172,8 +163,6 @@
                 <real>-7.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac3,6</key>
         <array>
             <dict>
@@ -186,8 +175,6 @@
                 <real>-8.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac4,1</key>
         <array>
             <dict>
@@ -195,8 +182,6 @@
                 <real>-17.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac4,2</key>
         <array>
             <dict>
@@ -209,8 +194,6 @@
                 <real>-9.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac4,4</key>
         <array>
             <dict>
@@ -218,8 +201,6 @@
                 <real>-14.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac4,5</key>
         <array>
             <dict>
@@ -232,8 +213,6 @@
                 <real>-9.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac5,6</key>
         <array>
             <dict>
@@ -246,8 +225,6 @@
                 <real>-9.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac6,1</key>
         <array>
             <dict>
@@ -260,8 +237,18 @@
                 <real>-9.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
+        <key>PowerMac6,3</key>
+        <array>
+            <dict>
+                <key>External Speaker</key>
+                <real>-17.0</real>
+            </dict>
+
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-9.0</real>
+            </dict>
+        </array>
         <key>PowerMac6,4</key>
         <array>
             <dict>
@@ -269,8 +256,6 @@
                 <real>-10.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac7,2</key>
         <array>
             <dict>
@@ -278,8 +263,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac7,3</key>
         <array>
             <dict>
@@ -287,8 +270,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac8,1</key>
         <array>
             <dict>
@@ -296,8 +277,13 @@
                 <real>-11.5</real>
             </dict>
         </array>
-    </dict>
-    <dict>
+        <key>PowerMac8,2</key>
+        <array>
+            <dict>
+                <key>Internal Speaker</key>
+                <real>-11.0</real>
+            </dict>
+        </array>
         <key>PowerMac9,1</key>
         <array>
             <dict>
@@ -305,8 +291,6 @@
                 <real>-10.0</real>
             </dict>
         </array>
-    </dict>
-    <dict>
         <key>PowerMac10,1</key>
         <array>
             <dict>

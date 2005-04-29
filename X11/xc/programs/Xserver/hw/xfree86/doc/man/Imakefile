@@ -1,18 +1,9 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/Imakefile,v 3.8 2002/12/22 00:46:53 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/man/Imakefile,v 3.9 2003/11/22 01:33:32 dawes Exp $
 
 MANDIR = $(LIBMANDIR)
 MANSUFFIX = $(LIBMANSUFFIX)
 
 all::
-
-#if 0
-
-InstallManPage(XF86DGA,$(MANDIR))
-#if ExpandNamNames
-InstallManPageAliases(XF86DGA,$(MANDIR),XF86DGAQueryExtension XF86DGAQueryVersion XF86DGAQueryDirectVideo XF86DGAGetVideo XF86DGADirectVideo XF86DGASetVidPage XF86DGASetViewPort XF86DGAViewPortChanged XF86DGAGetViewPortSize XF86DGAInstallColormap XF86DGAForkApp)
-#endif
-
-#endif
 
 #if 0
 

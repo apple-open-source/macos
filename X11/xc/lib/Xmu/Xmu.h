@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xmu/Xmu.h,v 1.9 2001/12/14 19:55:59 dawes Exp $ */
+/* $XFree86: xc/lib/Xmu/Xmu.h,v 1.10 2004/01/23 03:57:58 dawes Exp $ */
 
 /*
  * The interfaces described by this header file are for miscellaneous utilities
@@ -116,7 +116,12 @@ XmuScanline *XmuScanlineXorSegment(XmuScanline*, XmuSegment*);
 #endif /* notdef */
 
 #ifndef _SYSUTIL_H_
-int XmuSnprintf(char *str, int size, _Xconst char *fmt, ...);
+int XmuSnprintf(char *str, int size, _Xconst char *fmt, ...)
+#if defined(__GNUC__) && \
+    ((__GNUC__ > 2) || ((__GNUC__ == 2) && (__GNUC_MINOR__ > 4)))
+__attribute((format(printf,3,4)))
+#endif
+;
 #endif
 
 #endif /* _XMU_H_ */

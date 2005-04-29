@@ -1,0 +1,56 @@
+--- strxfrm.c.orig	2003-05-20 15:23:55.000000000 -0700
++++ strxfrm.c	2005-02-17 15:06:28.000000000 -0800
+@@ -28,24 +28,28 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.15 2002/09/06 11:24:06 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <stdlib.h>
+ #include <string.h>
+ #include "collate.h"
+ 
+ size_t
+-strxfrm(char * __restrict dest, const char * __restrict src, size_t len)
++strxfrm_l(char * __restrict dest, const char * __restrict src, size_t len,
++    locale_t loc)
+ {
+ 	int prim, sec, l;
+ 	size_t slen;
+ 	char *s, *ss;
+ 
++	NORMALIZE_LOCALE(loc);
+ 	if (!*src) {
+ 		if (len > 0)
+ 			*dest = '\0';
+ 		return 0;
+ 	}
+ 
+-	if (__collate_load_error) {
++	if (loc->__collate_load_error) {
+ 		slen = strlen(src);
+ 		if (len > 0) {
+ 			if (slen < len)
+@@ -60,10 +64,10 @@
+ 
+ 	slen = 0;
+ 	prim = sec = 0;
+-	ss = s = __collate_substitute(src);
++	ss = s = (char *)__collate_substitute_l((unsigned char *)src, loc);
+ 	while (*s) {
+ 		while (*s && !prim) {
+-			__collate_lookup(s, &l, &prim, &sec);
++			__collate_lookup_l((unsigned char *)s, &l, &prim, &sec, loc);
+ 			s += l;
+ 		}
+ 		if (prim) {
+@@ -81,3 +85,9 @@
+ 
+ 	return slen;
+ }
++
++size_t
++strxfrm(char * __restrict dest, const char * __restrict src, size_t len)
++{
++	return strxfrm_l(dest, src, len, __current_locale());
++}

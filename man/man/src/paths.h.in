@@ -1,0 +1,37 @@
+/* paths.h - included in man-config.c */
+/*
+ * Define the absolute path to the configuration file and programs used.
+ * (If no configuration file is found then the preset values are used.)
+ */
+#ifndef CONFIG_FILE
+#define CONFIG_FILE "@man_config_file@"
+#endif
+
+static struct paths {
+    char *name;
+    char *path;			/* path plus command options - never NULL */
+} paths[] = {
+    { "MANBIN",	"" },		/* value unused */
+    { "APROPOS",  "@apropos@" },
+    { "WHATIS",   "@whatis@" },
+    { "TROFF",	"@troff@" },
+    { "NROFF",	"@nroff@" },
+    { "JNROFF",	"@jnroff@" },
+    { "EQN",	"@eqn@" },
+    { "NEQN",	"@neqn@" },
+    { "JNEQN",	"@jneqn@" },
+    { "TBL",	"@tbl@" },
+    { "COL",	"@pcol@" },
+    { "REFER",	"@refer@" },
+    { "PIC",	"@pic@" },
+    { "VGRIND",	"@vgrind@" },
+    { "GRAP",	"@grap@" },
+    { "PAGER",	"@pager@" },
+    { "CMP",	"@cmp@" },
+    { "CAT",	"@cat@" },
+    { "COMPRESS",	"@compress@" },
+    { "COMPRESS_EXT", "@compress_ext@" }, /* not a path, just a string variable */
+    { "DECOMPRESS",	"@decompress@" },
+    { "MANSECT",  "@sections@"},          /* idem */
+    { "MANDEFOPTIONS", ""}                /* idem */
+};

@@ -26,8 +26,9 @@
  *   Jens Owen <jens@tungstengraphics.com>
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/drm/xf86drmCompat.c,v 1.1 2002/10/30 12:52:33 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/linux/drm/xf86drmCompat.c,v 1.4 2003/12/30 22:11:12 tsi Exp $ */
 
+#include <sys/types.h>		/* for int64_t & friends */
 #ifdef XFree86Server
 # include "xf86.h"
 # include "xf86_OSproc.h"
@@ -733,7 +734,7 @@ int drmRadeonInitCP( int fd, drmCompatRadeonInit *info )
    init.sarea_priv_offset	= info->sarea_priv_offset;
    init.is_pci			= info->is_pci;
    init.cp_mode			= info->cp_mode;
-   init.agp_size		= info->agp_size;
+   init.gart_size		= info->agp_size;
    init.ring_size		= info->ring_size;
    init.usec_timeout		= info->usec_timeout;
 
@@ -752,7 +753,7 @@ int drmRadeonInitCP( int fd, drmCompatRadeonInit *info )
    init.ring_offset		= info->ring_offset;
    init.ring_rptr_offset	= info->ring_rptr_offset;
    init.buffers_offset		= info->buffers_offset;
-   init.agp_textures_offset	= info->agp_textures_offset;
+   init.gart_textures_offset	= info->agp_textures_offset;
 
    if ( ioctl( fd, DRM_IOCTL_RADEON_CP_INIT, &init ) ) {
       return -errno;
@@ -1020,7 +1021,7 @@ Bool drmSiSAgpInit(int driSubFD, int offset, int size)
       
    agp.offset = offset;
    agp.size = size;
-   ioctl(driSubFD, SIS_IOCTL_AGP_INIT, &agp);
+   ioctl(driSubFD, DRM_IOCTL_SIS_AGP_INIT, &agp);
 
    return 1; /* TRUE */
 }

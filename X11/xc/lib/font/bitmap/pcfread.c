@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/pcfread.c,v 1.20 2003/01/12 03:55:46 tsi Exp $ */
+/* $XFree86: xc/lib/font/bitmap/pcfread.c,v 1.22 2003/11/18 01:17:04 dawes Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -40,28 +40,14 @@ from The Open Group.
 #define   MAX(a,b)    (((a)>(b)) ? a : b)
 #endif
 
-#if NeedVarargsPrototypes
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 void
-#if NeedVarargsPrototypes
-pcfError(char* message, ...)
-#else
-pcfError (message, va_alist)
-    char* message;
-    va_dcl
-#endif
+pcfError(const char* message, ...)
 {
     va_list args;
 
-#if NeedVarargsPrototypes
     va_start(args, message);
-#else
-    va_start(args);
-#endif
 
     fprintf(stderr, "PCF Error: ");
     vfprintf(stderr, message, args);

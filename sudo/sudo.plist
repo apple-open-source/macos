@@ -1,0 +1,30 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>sudo</string>
+        <key>OpenSourceVersion</key>
+        <string>1.6.8p5</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.courtesan.com/sudo/</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.courtesan.com/sudo/dist/sudo-1.6.8p5.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>cb3773d11ffbbc3f485314168061889a2d5add60</string>
+        <key>OpenSourceImportDate</key>
+        <string>2004-12-01</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        	<string>Add BSM auditing support.</string>
+        	<string>Disable sudoedit.</string>
+        	<string>Remove login_cap reference from man page.</string>
+        	<string>Allow admin group by default.</string>
+        	<string>3900587</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>Other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>sudo.txt</string>
+</dict>
+</array>
+</plist>

@@ -8,9 +8,14 @@
  * between FSF and Macintosh alignment modes.
  * Fred Forsman
  * Apple Computer, Inc.
- * (C) 2000-2002.
- * Last modified 2002-1-22.
  */
+
+#ifdef __LP64__
+int main()
+{
+  return 0;
+}
+#else /* 32-bit */
  
  /* Check whether we are testing GCC 3 or later.  */
 #ifdef __GNUC__
@@ -72,8 +77,14 @@ typedef struct S2 {
 } S2;
 #endif /* GCC3 */
 
-static void check(char * rec_name, int actual, int expected, char * comment)
+static void check(char * rec_name, int actual, int expected_ppc32, int expected_ia32, char * comment)
 {
+    int expected;
+#ifdef __i386__
+    expected = expected_ia32;
+#else
+    expected = expected_ppc32;
+#endif
     if (flag_verbose || (actual != expected)) {
         printf("%-20s = %2d (%2d) ", rec_name, actual, expected);
         if (actual != expected) {
@@ -103,17 +114,17 @@ static void check_option(char *option)
 int main(int argc, char *argv[])
 {
     int i;
-    
+
     for (i = 1; i < argc; i++)
         check_option(argv[i]);
     
     if (bad_option)
         return 1;
 
-    check(Q(sizeof(S0)), 5, "struct with 1 long, 1 char; pack(1) mode");
-    check(Q(sizeof(S1)), 6, "struct with 1 long, 1 char; should be mac68k mode");
+    check(Q(sizeof(S0)), 5, 5, "struct with 1 long, 1 char; pack(1) mode");
+    check(Q(sizeof(S1)), 6, 6, "struct with 1 long, 1 char; should be mac68k mode");
 #if GCC3
-    check(Q(sizeof(S2)), 6, "struct with 1 long, 1 char; should be mac68k mode");
+    check(Q(sizeof(S2)), 6, 6, "struct with 1 long, 1 char; should be mac68k mode");
 #endif
 
     if (nbr_failures > 0)
@@ -121,3 +132,5 @@ int main(int argc, char *argv[])
     else
     	return 0;
 }
+
+#endif /* 32-bit */

@@ -1,4 +1,5 @@
-/* APPLE LOCAL file Positive C++ test cases 2001-07-05 zll */
+/* APPLE LOCAL file Pascal strings 2001-07-05 zll */
+/* Positive C++ test cases.  */
 /* Origin: Ziemowit Laski <zlaski@apple.com> */
 /* { dg-do run } */
 /* { dg-options "-fpascal-strings" } */

@@ -531,10 +531,11 @@ print_COMPOUND_LITERAL_EXPR (file, annotation, node, indent)
 }
 
 static void
-print_CLEANUP_STMT (FILE *file,
-		    const char *annotation ATTRIBUTE_UNUSED,
-		    tree node,
-		    int indent)
+print_CLEANUP_STMT (file, annotation, node, indent)
+     FILE *file;
+     const char *annotation ATTRIBUTE_UNUSED;
+     tree node;
+     int indent;
 {
   print_operands (file, node, indent, TRUE, "(decl)", "(expr)", NULL);
 }
@@ -567,19 +568,3 @@ c_dump_tree_p (file, annotation, node, indent)
 }
 
 #endif /* ENABLE_DMP_TREE */
-
-/*-------------------------------------------------------------------*/
-
-#if 0
-
-cd $gcc3/gcc; \
-cc -no-cpp-precomp -c  -DIN_GCC  -g \
-  -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wtraditional -pedantic -Wno-long-long \
-  -DHAVE_CONFIG_H \
-  -I$gcc3obj \
-  -I. \
-  -Iconfig \
-  -I../include \
-  c-dmp-tree.c -o ~/tmp.o -w 
-
-#endif

@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __SOCKMISC_H__
+#define __SOCKMISC_H__
+
 extern const int niflags;
 
 extern int cmpsaddrwop __P((struct sockaddr *, struct sockaddr *));
@@ -51,3 +54,6 @@ extern char *saddrwop2str __P((struct sockaddr *));
 extern struct sockaddr *str2saddr __P((char *, char *));
 extern void mask_sockaddr __P((struct sockaddr *, const struct sockaddr *,
 	size_t));
+
+#endif /* __SOCKMISC_H__ */
+

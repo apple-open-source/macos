@@ -18,7 +18,13 @@ dr-xr-xr-x   5 0        1            512 Oct  1  1997 usr
 
 #
 # Client-side
-<client requires=netrc_debug>
+<client>
+<features>
+netrc_debug
+</features>
+<server>
+ftp
+</server>
  <name>
 FTP (optional .netrc; user/passwd supplied) dir list PASV
  </name>
@@ -30,7 +36,7 @@ FTP (optional .netrc; user/passwd supplied) dir list PASV
 machine %HOSTIP login user1 password passwd1
 machine %HOSTIP login user2 password passwd2
 </file>
-</test>
+</client>
 
 #
 # Verify data after the test has been "shot"
@@ -45,5 +51,6 @@ PWD
 EPSV
 TYPE A
 LIST
+QUIT
 </protocol>
 </verify>

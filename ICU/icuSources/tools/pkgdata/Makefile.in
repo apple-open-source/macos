@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/pkgdata
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Steven R. Loomis
 
@@ -16,28 +16,34 @@ subdir = tools/pkgdata
 
 ##
 
+TARGET_STUB_NAME = pkgdata
+
 SECTION = 1
 
-MANX_FILES = $(TARGET:$(EXEEXT)=).$(SECTION)
+MANX_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
 ALL_MAN_FILES = $(MANX_FILES)
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(RES_FILES) $(TEST_FILES) mkmap.tmp $(ALL_MAN_FILES)
+CLEANFILES = *~ $(DEPS) $(ALL_MAN_FILES)
+
+ifneq ($(PKGDATA_DEFS),)
+DEFS += $(PKGDATA_DEFS)
+endif
 
 ## Target information
-TARGET = pkgdata$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil
 DEFS += -DUDATA_SO_SUFFIX=\".$(SO)\" -DSTATIC_O=\"$(STATIC_O)\"
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
 
-OBJECTS = pkgdata.o pkgtypes.o gmake.o dllmode.o cmnmode.o filemode.o sttcmode.o winmode.o
+OBJECTS = pkgdata.o pkgtypes.o make.o dllmode.o cmnmode.o filemode.o sttcmode.o winmode.o
 
 DEPS = $(OBJECTS:.o=.d)
 
 ## List of phony targets
-.PHONY : all all-local install install-local clean clean-local		\
+.PHONY : all all-local install install-local clean clean-local	\
 distclean distclean-local dist dist-local check	\
 check-local install-man install-manx
 
@@ -52,11 +58,11 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 
-all-local: $(TARGET) $(RES_FILES) $(TRANSLIT_RES) $(TEST_FILES) $(ALL_MAN_FILES)
+all-local: $(TARGET) $(ALL_MAN_FILES)
 
 install-local: all-local install-man
 	$(MKINSTALLDIRS) $(DESTDIR)$(bindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)
 
 # man page
 install-man: install-manx

@@ -221,6 +221,8 @@ output_prologue ()
   printf ("#include \"system.h\"\n");
   printf ("#include \"flags.h\"\n");
   printf ("#include \"ggc.h\"\n");
+  /* APPLE LOCAL 3.4 sse backport */
+  printf ("#include \"target.h\"\n");
   printf ("#include \"rtl.h\"\n");
   printf ("#include \"expr.h\"\n");
   printf ("#include \"insn-codes.h\"\n");

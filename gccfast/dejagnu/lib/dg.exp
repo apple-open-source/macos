@@ -805,8 +805,9 @@ proc dg-test { args } {
     set output_file [lindex $results 1]
 
     # Check for matching spewage.
+    set got_slaves [expr [llength $slaves] > 0]
     foreach file [concat [list $prog] $slaves] {
-	dg-match-messages $file
+	dg-match-messages $file $got_slaves
     }
 
     # From this point on, we can ignore the slave files, if any.
@@ -935,11 +936,12 @@ proc dg-test { args } {
 #
 # Lines in the compiler output COMP_OUTPUT are matched and "consumed"
 # by patterns previously gleaned from dg-error etc. directives in
-# FILE.  Depending on the directive, matching/not-matching leads to
-# the message test pass'ing or fail'ing (etc).  Note that patterns are
+# FILE.  Boolean GOT_SLAVES is true if this test case has slave files.
+# Depending on the directive, matching/not-matching leads to the
+# message test pass'ing or fail'ing (etc).  Note that patterns are
 # augmented with line-number and source file name where appropriate.
 #
-proc dg-match-messages { file } {
+proc dg-match-messages { file got_slaves } {
     upvar dg_messages messages
     upvar comp_output output
     upvar prog master
@@ -961,20 +963,27 @@ proc dg-match-messages { file } {
 	set pattern [lindex $i 2]
 	set comment [lindex $i 3]
 
-	# Backslash-escape regexp metacharacters in test file pathname.
-	# FIXME: isn't is possible to include [ and ] in the `range'?
-	set metachars "\[-.\\*+?^]|\[|]"
-	regsub -all -- "($metachars)" $match_path "\\\\&" re_path
-
-	# Regular expression for the match.  If there's no line, that
-	# means $line will be something simple, like "" :-).  Note:
-	# $pattern is encl. in parens because it may contain re `branches'.
-	# FIXME: `line' should be formatted here, not in the dg-* proc's.
-	if [regexp "\[0-9]+" $line] {
-	    set re "(^|\n)(\[^\n]*$re_path$line\[^\n]*($pattern)\[^\n]*\n?)+"
+	# Backslash-escape regexp metacharacters in test file
+	# pathname.  For backward compatibility, if no match and there
+	# are no slave files, then $match_path is not matched.
+	# FIXME: there needs to be a way to force matches on a
+	# particular file.  That would require enhancing the syntax of
+	# dg-error etc.
+	# FIXME: isn't it possible to include [ and ] in the `range'?
+	if { $got_slaves && [regexp "\[0-9]+" $line] } {
+	    set metachars "\[-.\\*+?^]|\[|]"
+	    regsub -all -- "($metachars)" $match_path "\\\\&" re_path
 	} else {
-	    set re "(^|\n)(\[^\n]*$line\[^\n]*($pattern)\[^\n]*\n?)+"
+	    set re_path ""
 	}
+
+	# Regular expression for the match.  If there's no applicable
+	# line, $line must evaluate to "".  Thus, either $re_path or
+	# $line or both can be empty.  Note: $pattern is encl. in
+	# parens because it may contain re `branches'.
+	# FIXME: `line' should be formatted here, not in the dg-* proc's.
+	set re "(^|\n)(\[^\n]*$re_path$line\[^\n]*($pattern)\[^\n]*\n?)+"
+
 	verbose "matching re: $re" 3
 	verbose "matching output: $output" 3
 	if [regsub -all $re $output "\n" output] {

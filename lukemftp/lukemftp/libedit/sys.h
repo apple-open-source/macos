@@ -1,4 +1,4 @@
-/*	$NetBSD: sys.h,v 1.4 2000/09/04 22:06:32 lukem Exp $	*/
+/*	$NetBSD: sys.h,v 1.5 2002/03/18 16:00:59 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -57,8 +57,6 @@
 			/* When we want to hide everything	*/
 #endif
 
-#include "lukemftp.h"
-
 #ifndef _PTR_T
 # define _PTR_T
 typedef void	*ptr_t;
@@ -73,6 +71,7 @@ typedef void	*ioctl_t;
 #undef	REGEXP		/* Use UNIX V8 regular expression functions */
 
 #if HAVE_REGEX_H
+# include <regex.h>
 # define REGEX
 #endif
 

@@ -51,55 +51,126 @@
 
 using namespace std;
 
-typedef struct sLDAPNodeStruct sLDAPNodeStruct;
+#define	kMinTimeToLogLockBeingHeld			1
+
+//#define LOG_LDAPSessionMutex_Attempts
+//#define LOG_LDAPNodeOpenMutex_Attempts
+
+// LDAP Node Data - One exists for each open connection, shared via fRefCount
+// Stored in a Map based on ConfigName : sLDAPContextData->fAuthUserName (e.g., ldap.apple.com:admin )
+struct sLDAPNodeStruct
+{
+	char		   *fNodeName;				//used for map searches based on nodeName, replaces configIndex
+											// if this is NULL, then no config
+	char		   *fLDAPServer;			// This is the LDAP Server that was connected to (could be different than original)
+
+	LDAP		   *fHost;					//LDAP session handle
+	DSMutexSemaphore
+				   *fLDAPSessionMutex;		//mutex for changing the session handle
+
+	uInt32			fRefCount;				//ref count on host handle
+	uInt32			fConnectionActiveCount;	//count of active use of connection
+
+	char		   *fDirectServerName;		//server name used if directed open ie. fConfigName = NULL
+	int				fDirectLDAPPort;		//port if directed open ie. fConfigName = NULL
+
+	// These are populated when a connection is opened from the LDAPConfigData
+	
+	// If an authCall is active, then the local username and password always override config
+    bool			bAuthCallActive;		//indicates if authentication was made through the API
+	bool			bBadSession;			//this means don't try credentials due to password bad
+	
+	// If no Config available, the local credentials are used instead.  
+	//    This is just in case the config is removed
+	char		   *fKerberosId;			//KerberosID of LDAP user if present
+	char		   *fLDAPUserName;			//LDAP user name
+	void		   *fLDAPCredentials;		//LDAP user authentication credential default is char* password
+	uInt32			fLDAPCredentialsLen;	//Length of LDAP Credentials
+	char		   *fLDAPAuthType;			//LDAP authentication type ie. kDSStdAuthClearText means password used
+
+	int				fConnectionStatus;		//The status of this connection, kUnknown, kSafe, kUnsafe, supersedes bHasFailed
+	time_t			fDelayedBindTime;		//time after which to retry to bind
+	
+	int				fIdleTOCount;			//count of 30 sec periodic task calls for idle connection release
+	int				fIdleTO;				//user defined idle timeout in minutes times 2 based on 30 sec periodic task
+	int				fDelayRebindTry;		//Delay rebind try after bind failure in seconds
+
+	double			fLDAPSessionMutexStartTime;
+											// keep track of how long the mutex was held
+
+	public:
+			sLDAPNodeStruct( void );
+			~sLDAPNodeStruct( void );
+		
+			sLDAPNodeStruct( const sLDAPNodeStruct &inLDAPNodeStruct);
+		
+#define SessionMutexWait()		SessionMutexWaitWithFunctionName(__PRETTY_FUNCTION__)
+#define SessionMutexSignal()	SessionMutexSignalWithFunctionName(__PRETTY_FUNCTION__)
+	void	SessionMutexWaitWithFunctionName	( const char* callingFunction );
+	void	SessionMutexSignalWithFunctionName	( const char* callingFunction  );
+
+	void	setLastLDAPServer( const char *inServer )
+	{
+		SessionMutexWait();
+		if( fLDAPServer )
+		{
+			delete fLDAPServer;
+		}
+		fLDAPServer = (inServer ? strdup(inServer) : NULL);
+		SessionMutexSignal();
+	}
+	void	updateCredentials( void *inLDAPCredentials, uInt32 inLDAPCredentialLen, char *inAuthType );
+	
+	inline void ChangeRefCountBy( int inValue )
+	{
+		SessionMutexWait();
+		fRefCount += inValue;
+		if ( bAuthCallActive && fRefCount <= 0 && fHost != NULL )
+		{
+			ldap_unbind(fHost);
+			fHost = NULL;
+		}
+		SessionMutexSignal();
+	}
+};
 
 // Context data structure
-//KW need to get away from using UserDefName, Name, and Port in the context but get it
-// from the config table
-typedef struct sLDAPContextData {
-	LDAP		   *fHost;				//LDAP session handle
-	DSMutexSemaphore
-				   *fLDAPSessionMutex;	//mutex for changing the session handle if authCallActive
-	uInt32			fConfigTableIndex;	//gLDAPConfigTable Hash index
-	char		   *fName;				//LDAP domain name ie. ldap.apple.com
-	int				fPort;				//LDAP port number - default is 389 - SSL default port is 636
+struct sLDAPContextData
+{
+	char		   *fNodeName;			//Node name used for sLDAPConfigDataMap
 	int				fType;				//KW type of reference entry - not used yet
-    bool			authCallActive;		//indicates if authentication was made through the API
-    									//call and if set means don't use config file auth name/password
     uInt32			offset;				//offset into the data buffer
     uInt32			index;
     char		   *fOpenRecordType;	//record type used to open a record
     char		   *fOpenRecordName;	//record name used to open a record
     char		   *fOpenRecordDN;		//record name used to open a record
-	char		   *fUserName;			//LDAP user name
-	void		   *fAuthCredential;	//LDAP user authentication credential default is char* password
-	char		   *fAuthType;			//LDAP authentication type ie. kDSStdAuthClearText means password used
-    
-    tDirReference	fPWSRef;
-    tDirNodeReference	fPWSNodeRef;
-    uid_t			fUID;
-    uid_t			fEffectiveUID;
-	sLDAPNodeStruct		*fLDAPNodeStruct;
-} sLDAPContextData;
+	
+    bool			bLDAPv2ReadOnly;	//indicates that this is a LDAPv2 read only node
 
-struct sLDAPNodeStruct {
-	LDAP		   *fHost;					//LDAP session handle
-	DSMutexSemaphore
-				   *fLDAPSessionMutex;		//mutex for changing the session handle
-	uInt32			fRefCount;				//ref count on host handle
-	uInt32			fOperationsCount;		//ref count of operations in progress
-	uInt32			fLDAPConfigTableIndex;	//gLDAPConfigTable index
-	char		   *fServerName;			//server name used if directed open ie. fLDAPConfigTableIndex = 0
-	int				fDirectLDAPPort;		//port if directed open ie. fLDAPConfigTableIndex = 0
-	char		   *fUserName;				//LDAP user name
-	void		   *fAuthCredential;		//LDAP user authentication credential default is char* password
-	char		   *fAuthType;				//LDAP authentication type ie. kDSStdAuthClearText means password used
-	int				fConnectionStatus;		//The status of this connection, kUnknown, kSafe, kUnsafe, supersedes bHasFailed
-	time_t			fDelayedBindTime;		//time after which to retry to bind
-	uInt32			fConnectionActiveCount;	//count of active use of connection
-	int				fIdleTOCount;			//count of 30 sec periodic task calls for idle connection release
-	int				fIdleTO;				//user defined idle timeout in minutes times 2 based on 30 sec periodic task
-	int				fDelayRebindTry;		//Delay rebind try after bind failure in seconds
+	// this Credential Information is stored here cause it is not LDAP oriented, it is Node Oriented
+	char		   *fAuthUserName;		//Auth'd username, not an LDAP DN, recordname-style
+	void		   *fAuthCredential;	//Credentials of user, can be any type, only cleartext/kerberos allows node authentications
+	uInt32			fAuthCredentialLen; //Length of AuthCredentials
+	char		   *fAuthType;			//Authentication type ie. kDSStdAuthClearText means cleartext password used
+    
+    tDirReference		fPWSRef;
+    tDirNodeReference	fPWSNodeRef;
+	unsigned long		fPWSUserIDLength;
+	char				*fPWSUserID;
+	
+    uid_t				fUID;
+    uid_t				fEffectiveUID;
+	
+	// The Node Connection information, specific LDAP connection information, this is ALWAYS present
+	sLDAPNodeStruct		*fLDAPNodeStruct;
+	
+	public:
+		sLDAPContextData( void );
+		~sLDAPContextData( void );
+		
+		sLDAPContextData( const sLDAPContextData& inContextData );
+		
+		void setCredentials( char *inUserName, void *inCredential, uInt32 inCredentialLen, char *inAuthType );
 };
 
 typedef map<string, sLDAPNodeStruct*>	LDAPNodeMap;
@@ -123,86 +194,81 @@ public:
 public:
                 	CLDAPNode		(	void );
 	virtual		   ~CLDAPNode		(	void );
-	sInt32			SafeOpen		(	char	   *inNodeName,
-										LDAP	  **outLDAPHost,
-										uInt32	   *outLDAPConfigTableIndex,
-                                        CLDAPv3Configs *inConfigFromXML );
+
+	#define NodeOpenMutexWaitButNotForCheckFailedThread() \
+		NodeOpenMutexWaitWithFunctionName(__PRETTY_FUNCTION__, false)
+	#define NodeOpenMutexWait() \
+		NodeOpenMutexWaitWithFunctionName(__PRETTY_FUNCTION__, true)
+	void			NodeOpenMutexWaitWithFunctionName	( const char* callingFunction, bool waitForCheckFailedThreadToComplete );
+
+	#define NodeOpenMutexSignal() \
+		NodeOpenMutexSignalWithFunctionName(__PRETTY_FUNCTION__)
+	void			NodeOpenMutexSignalWithFunctionName	( const char* callingFunction );
+	
+	sInt32			SafeOpen		(	char			*inNodeName,
+										sLDAPNodeStruct **inLDAPNodeStruct );
 									//if already open then just get host and config index if host okay
 									//else try rebind first
-									//if not open then bind to get host and search for config index
+									//if not open then bind to get host and search for node
 									//called from OpenDirNode
-	sInt32			AuthOpen		(	char	   *inNodeName,
-										LDAP	   *inHost,
-										char	   *inUserName,
-										void	   *inAuthCredential,
-										char	   *inAuthType,
-										LDAP	  **outLDAPHost,
-										uInt32	   *inOutLDAPConfigTableIndex,
-										bool	   shouldCloseOld );
+	sInt32			AuthOpen		(	char			*inLDAPUserName,
+										char			*inKerberosId,
+										void			*inLDAPCredentials,
+										uInt32			 inLDAPCredentialsLen,
+										char			*inLDAPAuthType,
+										sLDAPNodeStruct **outLDAPNodeStruct );
 									//there must be a fLDAPNodeMap entry for this ie. SafeOpen was already called since
-									//this would come from a known Node Ref
-									//this is not ref counted NOR reused
-									//inOutLDAPConfigTableIndex could be passed in for a directed open ie. not zero
-									//called from the hierarchy below DoAuthentication
-	sInt32			RebindSession	(	char	   *inNodeName,
-										LDAP	   *inHost,
-										CLDAPv3Configs *inConfigFromXML,
-										LDAP	  **outLDAPHost );
+									//this would come from a known Node Ref, we will decremented refCount of original
+									//and do a new nodeStruct to replace it, if successful
+	sInt32			RebindSession	(	sLDAPNodeStruct *pLDAPNodeStruct );
 									//must already be open
 									//check if already rebound during a continue for some other node ref
 									//use rebind if continue not set
 									//called from CLDAPv3Plugin::RebindLDAPSession
-	sInt32			SimpleAuth		(	char	   *inNodeName,
-										char	   *inUserName,
-										void	   *inAuthCredential );
+	sInt32			SimpleAuth		(	sLDAPNodeStruct *inLDAPNodeStruct,
+										char			*inLDAPUserName,
+										void			*inLDAPCredentials,
+										uInt32			 inLDAPCredentialsLen,
+										char			*inKerberosId );
 									//use rebind to do the auth
 									//called from DoClearTextAuth
-	sInt32			RebindAuthSession(	char	   *inNodeName,
-										LDAP	   *inHost,
-										char	   *inUserName,
-										void	   *inAuthCredential,
-										char	   *inAuthType,
-										uInt32	   inLDAPConfigTableIndex,
-										LDAP	  **outLDAPHost );
-									//use rebind if continue not set
-									//called from CLDAPv3Plugin::RebindLDAPSession
-	sInt32			SafeClose		(	char	   *inNodeName,
-										LDAP	   *inHost);
-									//decrement ref count and delete if ref count zero
-									//called from CloseDirNode
-	sInt32			ForcedSafeClose	(	char	   *inNodeName);
-									//delete regardless of refcount since config has been removed
-									//called from Initialize due to config removal
-
+									
 	void			GetSchema		( sLDAPContextData *inContext );
+	void			SessionMapMutexLock
+									( void ) {fLDAPNodeOpenMutex.Wait();}
+	void			SessionMapMutexUnlock
+									( void ) {fLDAPNodeOpenMutex.Signal();}
 	LDAP* 			LockSession		( sLDAPContextData *inContext );
-	void			UnLockSession	( sLDAPContextData *inContext, bool inHasFailed = false, bool inNewMutex = false );
+	void			UnLockSession	( sLDAPContextData *inContext, bool inHasFailed = false );
 	void			CheckIdles		( void );
 	void			CheckFailed		( void );
 	void			EnsureCheckFailedConnectionsThreadIsRunning	( void );
-	void			NetTransition   ( void );
-	void			ActiveConnection( char *inNodeName );
-	void			IdleConnection	( char *inNodeName );
+	void			SystemGoingToSleep	( void );
+	void			SystemWillPowerOn		( void );
+	void			NetTransition		( void );
 	LDAP*			InitLDAPConnection
 									(	sLDAPNodeStruct *inLDAPNodeStruct,
 										sLDAPConfigData *inConfig,
-										CLDAPv3Configs *inConfigFromXML = nil,
 										bool bInNeedWriteable = false );
 	static struct addrinfo*
 					ResolveHostName	( 	CFStringRef inServerNameRef,
 										int inPortNumber );
 	static LDAP*	EstablishConnection
-									( 	sReplicaInfo *inList,
+									( 	sLDAPNodeStruct *inLDAPNodeStruct,
+										sReplicaInfo *inList,
 										int inPort,
 										int inOpenTimeout,
 										bool bInNeedWriteable = false );
+	bool			isSASLMethodSupported ( CFStringRef inMethod );
+	void			ForcedSafeClose (   const char *inNodeName );
+	void			CredentialChange(	sLDAPNodeStruct *inLDAPNodeStruct, char *inUserDN );
 
 protected:
 	
-	sInt32			CleanLDAPNodeStruct	(	sLDAPNodeStruct	   *inLDAPNodeStruct );
 	sInt32			BindProc			(	sLDAPNodeStruct	   *inLDAPNodeStruct,
-											CLDAPv3Configs *inConfigFromXML = nil,
-											bool bSessionBased = false, bool bForceBind = false );
+											bool bForceBind = false,
+											bool bCheckPasswordOnly = false,
+											bool bNeedWriteable = false );
 	sInt32			ParseLDAPNodeName	(	char	   *inNodeName,
 											char	  **outLDAPName,
 											int		   *outLDAPPort );
@@ -210,50 +276,53 @@ protected:
 	sInt32			GetSchemaMessage	(	LDAP *inHost,
 											int inSearchTO,
 											LDAPMessage **outResultMsg );
-	sInt32			GetReplicaListMessage
-										(	LDAP *inHost,
-											int inSearchTO,
-											char *inConfigServerString,
-											CFMutableArrayRef outList,
-											CFMutableArrayRef outWriteableList );
 	char**			GetNamingContexts	(	LDAP *inHost,
 											int inSearchTO,
 											uInt32 *outCount );
-	sInt32			ExtractReplicaListMessage
+    void            MergeArraysRemovingDuplicates
+                                        (   CFMutableArrayRef   cfPrimaryArray,
+                                            CFArrayRef          cfArrayToAdd );
+    void            BuildReplicaInfoLinkList
+                                        (   sReplicaInfo **inOutList,
+                                            CFArrayRef inRepList,
+                                            CFArrayRef inWriteableList,
+                                            int inPort );
+	sInt32			GetReplicaListFromConfigRecord
 										(	LDAP *inHost,
 											int inSearchTO, 
 											sLDAPNodeStruct *inLDAPNodeStruct,
-											CLDAPv3Configs *inConfigFromXML,
-											CFMutableArrayRef outList,
-											CFMutableArrayRef outWriteableList );
+											CFMutableArrayRef inOutRepList,
+											CFMutableArrayRef inOutWriteableList );
+	sInt32			GetReplicaListFromAltServer
+										(	LDAP *inHost,
+											int inSearchTO,
+											CFMutableArrayRef inOutRepList );
+	sInt32			GetReplicaListFromDNS
+										(	sLDAPNodeStruct *inLDAPNodeStruct,
+											CFMutableArrayRef inOutRepList );
 	sInt32			RetrieveDefinedReplicas
 										(	sLDAPNodeStruct *inLDAPNodeStruct, 
-											CLDAPv3Configs *inConfigFromXML,
-											char *inConfigServerString,
 											CFMutableArrayRef &inOutRepList,
 											CFMutableArrayRef &inOutWriteableList,
 											int inPort,
 											sReplicaInfo **inOutList );
 	bool			IsTokenNotATag		(	char *inToken );
 	void			RetrieveServerMappingsIfRequired
-										(   sLDAPNodeStruct *inLDAPNodeStruct,
-											CLDAPv3Configs *inConfigFromXML);
-	void			FreeReplicaList		(   sReplicaInfo *inList );
+										(   sLDAPNodeStruct *inLDAPNodeStruct );
 	static char *   LDAPWithBlockingSocket
 										(   struct addrinfo *addrInfo, int seconds );
 	static char *   ConvertToIPAddress  (   struct addrinfo *addrInfo );
 	static bool		IsLocalAddress		(   struct addrinfo *addrInfo );
 	static bool		ReachableAddress	(   struct addrinfo *addrInfo );
 	
-	void			CheckSASLMethods	(   sLDAPNodeStruct *inLDAPNodeStruct,
-							 CLDAPv3Configs *inConfigFromXML );
+	void			CheckSASLMethods	(   sLDAPNodeStruct *inLDAPNodeStruct );
 	bool			LocalServerIsLDAPReplica	( void );
 
 private:
-
+	CFMutableArrayRef   fSupportedSASLMethods;
 	LDAPNodeMap			fLDAPNodeMap;
-	LDAPNodeVector		fDeadPoolLDAPNodeVector;
 	DSMutexSemaphore	fLDAPNodeOpenMutex; //used for the ldap_bind as well as the LDAPNodeMap container
+	bool				fInStartupState;	//Whether we are in our initial startup state
 
 };
 

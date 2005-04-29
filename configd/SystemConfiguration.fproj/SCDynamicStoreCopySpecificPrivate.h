@@ -30,9 +30,9 @@
 
 
 /*!
-	@header SCDynamicStoreCopySpecificPrivate.h
-	The following APIs allow an application to retrieve console
-	information.
+	@header SCDynamicStoreCopySpecificPrivate
+	@discussion The following APIs allow an application to retrieve
+		console information.
  */
 
 
@@ -41,11 +41,14 @@ __BEGIN_DECLS
 /*
  * Predefined keys for the console session dictionaries
  */
-extern const CFStringRef kSCConsoleSessionID;		/* value is CFNumber */
-extern const CFStringRef kSCConsoleSessionUserName;	/* value is CFString */
-extern const CFStringRef kSCConsoleSessionUID;		/* value is CFNumber */
-extern const CFStringRef kSCConsoleSessionConsoleSet;	/* value is CFNumber */
-extern const CFStringRef kSCConsoleSessionOnConsole;	/* value is CFBoolean */
+extern const CFStringRef kSCConsoleSessionID;			/* value is CFNumber */
+extern const CFStringRef kSCConsoleSessionUserName;		/* value is CFString */
+extern const CFStringRef kSCConsoleSessionUID;			/* value is CFNumber (a uid_t) */
+extern const CFStringRef kSCConsoleSessionConsoleSet;		/* value is CFNumber */
+extern const CFStringRef kSCConsoleSessionOnConsole;		/* value is CFBoolean */
+extern const CFStringRef kSCConsoleSessionLoginDone;		/* value is CFBoolean */
+extern const CFStringRef kSCConsoleSessionSystemSafeBoot;	/* value is CFBoolean */
+extern const CFStringRef kSCConsoleSessionLoginwindowSafeLogin;	/* value is CFBoolean */
 
 /*!
 	@function SCDynamicStoreCopyConsoleInformation

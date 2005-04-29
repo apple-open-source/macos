@@ -51,7 +51,9 @@
  */
 int
 netinfo_back_modrdn(
-	BackendDB *be,
+	struct slap_op *op, 
+	struct slap_rep *rs
+/*	BackendDB *be,
 	Connection *conn,
 	Operation *op,
 	struct berval *dn,
@@ -60,15 +62,15 @@ netinfo_back_modrdn(
 	struct berval *nnewrdn,
 	int deleteoldrdn,
 	struct berval *newSuperior,
-	struct berval *nnewSuperior
+	struct berval *nnewSuperior*/
 )
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	dsstatus status;
 	u_int32_t dsid, newParentId, oldParentId, index;
 	dsrecord *child, *parent;
 	dsdata *rdnValue, *rdnKey;
-	LDAPRDN *new_rdn;
+	LDAPRDN *new_rdn = NULL;
 	dsattribute *a;
 	char *p;
 	AttributeDescription *ad = NULL;
@@ -78,34 +80,34 @@ netinfo_back_modrdn(
 
 #ifdef NEW_LOGGING
 	LDAP_LOG((BACK_NETINFO, ARGS, "netinfo_back_modrdn DN %s "
-		"new RDN %s new superior DN %s\n", dn->bv_val, newrdn->bv_val,
-		(newSuperior != NULL) ? newSuperior->bv_val : "(null)"));
+		"new RDN %s new superior DN %s\n", op->o_req_dn.bv_val, op->orr_newrdn.bv_val,
+		(op->orr_newSup != NULL) ? op->orr_newSup->bv_val : "(null)"));
 #else
 	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_modrdn dn=%s newrdn=%s newsuperior=%s\n",
-		dn->bv_val, newrdn->bv_val, newSuperior ? newSuperior->bv_val : "(null)");
+		op->o_req_dn.bv_val, op->orr_newrdn.bv_val, op->orr_newSup ? op->orr_newSup->bv_val : "(null)");
 #endif
 
-	if (netinfo_back_send_referrals(be, conn, op, ndn) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &op->o_req_ndn) == DSStatusOK)
 	{
 		return 1;
 	}
 
 	ENGINE_LOCK(di);
 
-	status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, &op->o_req_ndn, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
  	}
 
 	/* check the entry ACL to see whether we can change it */
 	/* really we should check the attribute type for newrdn/oldrdn */
-	status = netinfo_back_access_allowed(be, conn, op, dsid, slap_schema.si_ad_entry, NULL, ACL_WRITE);
+	status = netinfo_back_access_allowed(op, dsid, slap_schema.si_ad_entry, NULL, ACL_WRITE);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	status = dsengine_fetch(di->engine, dsid, &child);
@@ -113,40 +115,39 @@ netinfo_back_modrdn(
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	if (ldap_str2rdn(newrdn->bv_val, &new_rdn, &p, LDAP_DN_FORMAT_LDAP) != LDAP_SUCCESS)
+	if (ldap_str2rdn(op->orr_newrdn.bv_val, new_rdn, &p, LDAP_DN_FORMAT_LDAP) != LDAP_SUCCESS)
 	{
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
-			"Could not parse new RDN", NULL, NULL);
+		send_ldap_error(op, rs, LDAP_OPERATIONS_ERROR,
+			"Could not parse new RDN");
 		return -1;
 	}
 
 	rc = slap_bv2ad(&new_rdn[0][0]->la_attr, &ad, &text);
 	if (rc != LDAP_SUCCESS)
 	{
-		ldap_rdnfree(new_rdn);
+		ldap_rdnfree(*new_rdn);
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		send_ldap_result(conn, op, rc, NULL,
-			text, NULL, NULL);
+		send_ldap_error(op, rs, rc, text);
 		return -1;
 	}
 
 	/*
 	 * Get the mapped naming attribute.
 	 */
-	status = schemamap_x500_to_ni_at(be, SUPER(child), ad, &map);
+	status = schemamap_x500_to_ni_at(op->o_bd, SUPER(child), ad, &map);
 	if (status != DSStatusOK)
 	{
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		ldap_rdnfree(new_rdn);
-		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
-			"Could not parse new RDN type", NULL, NULL);
+		ldap_rdnfree(*new_rdn);
+		send_ldap_error(op, rs, LDAP_OPERATIONS_ERROR,
+			"Could not parse new RDN type");
 		return -1;
 	}
 
@@ -155,26 +156,26 @@ netinfo_back_modrdn(
 		schemamap_atmap_release(&map);
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		ldap_rdnfree(new_rdn);
-		send_ldap_result(conn, op, LDAP_NAMING_VIOLATION, NULL,
-			"Meta-attributes cannot name entries", NULL, NULL);
+		ldap_rdnfree(*new_rdn);
+		send_ldap_error(op, rs, LDAP_NAMING_VIOLATION,
+			"Meta-attributes cannot name entries");
 		return -1;
 	}
 
-	status = (map.x500ToNiTransform)(be, &rdnValue, &new_rdn[0][0]->la_value,
+	status = (map.x500ToNiTransform)(op->o_bd, &rdnValue, &new_rdn[0][0]->la_value,
 		map.type, map.x500ToNiArg);
 	if (status != DSStatusOK)
 	{
 		schemamap_atmap_release(&map);
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		ldap_rdnfree(new_rdn);
-		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
-			"Could not transform RDN value", NULL, NULL);
+		ldap_rdnfree(*new_rdn);
+		send_ldap_error(op, rs, LDAP_OPERATIONS_ERROR,
+			"Could not transform RDN value");
 		return -1;
 	}
 
-	ldap_rdnfree(new_rdn);
+	ldap_rdnfree(*new_rdn);
 
 	rdnKey = dsdata_copy((dsdata *)&netinfo_back_name_rdn); 
 
@@ -203,7 +204,7 @@ netinfo_back_modrdn(
 	}
 	else
 	{
-		if (deleteoldrdn)
+		if (op->orr_deleteoldrdn)
 		{
 			/* RDN is by definition first value; trash it. */
 			dsattribute_remove(a, 0);
@@ -234,25 +235,25 @@ netinfo_back_modrdn(
 	/*
 	 * If newSuperior != NULL, move to a new parent. 
 	 */
-	if (newSuperior != NULL)
+	if (op->orr_newSup != NULL)
 	{
 		/* get the parent dir ID */
-		status = netinfo_back_dn_pathmatch(be, nnewSuperior, &newParentId);
+		status = netinfo_back_dn_pathmatch(op->o_bd, op->orr_nnewSup, &newParentId);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(child);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
  		}
 
 		/* check ACLs, fail if we can't modify new parent record */
-		status = netinfo_back_access_allowed(be, conn, op, newParentId,
+		status = netinfo_back_access_allowed(op, newParentId,
 			slap_schema.si_ad_children, NULL, ACL_WRITE);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(child);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
  		}
 
 		oldParentId = child->super;
@@ -261,32 +262,32 @@ netinfo_back_modrdn(
 			Entry *ent;
 
 			/* check ACLs, fail if we can't modify old parent record */
-			status = netinfo_back_access_allowed(be, conn, op, oldParentId,
+			status = netinfo_back_access_allowed(op, oldParentId,
 				slap_schema.si_ad_children, NULL, ACL_WRITE);
 			if (status != DSStatusOK)
 			{
 				dsrecord_release(child);
 				ENGINE_UNLOCK(di);
-				return netinfo_back_op_result(be, conn, op, status);
+				return netinfo_back_op_result(op, rs, status);
  			}
 
 			/* temporarily convert to an entry */
-			status = dsrecord_to_entry(be, child, &ent);
+			status = dsrecord_to_entry(op->o_bd, child, &ent);
 			if (status != DSStatusOK)
 			{
 				dsrecord_release(child);
 				ENGINE_UNLOCK(di);
-				return netinfo_back_op_result(be, conn, op, status);
+				return netinfo_back_op_result(op, rs, status);
 			}
 
 			/* check that structure rules allow move */
-			status = schemamap_validate_objectclasses(be, newParentId, ent);
+			status = schemamap_validate_objectclasses(op->o_bd, newParentId, ent);
 			if (status != DSStatusOK)
 			{
 				dsrecord_release(child);
 				netinfo_back_entry_free(ent);
 				ENGINE_UNLOCK(di);
-				return netinfo_back_op_result(be, conn, op, status);
+				return netinfo_back_op_result(op, rs, status);
 			}
 
 			netinfo_back_entry_free(ent);
@@ -317,18 +318,18 @@ netinfo_back_modrdn(
 		/* XXX can't save changes to record; DB may be inconsistent */
 		dsrecord_release(child);
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	/* now fix up parent, if it wasn't the existing parent */
-	if (newSuperior != NULL && oldParentId != newParentId)
+	if (op->orr_newSup != NULL && oldParentId != newParentId)
 	{
 		parent = dsstore_fetch(di->engine->store, oldParentId);
 		if (parent == NULL)
 		{
 			dsrecord_release(child);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, DSStatusInvalidPath);
+			return netinfo_back_op_result(op, rs, DSStatusInvalidPath);
 		}
 
 		dsrecord_remove_sub(parent, dsid);
@@ -344,7 +345,7 @@ netinfo_back_modrdn(
 			/* XXX can't save changes to original parent!! */
 			dsrecord_release(child);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		parent = dsstore_fetch(di->engine->store, newParentId);
@@ -352,7 +353,7 @@ netinfo_back_modrdn(
 		{
 			dsrecord_release(child);
 			ENGINE_UNLOCK(di);
-			return netinfo_back_op_result(be, conn, op, DSStatusInvalidPath);
+			return netinfo_back_op_result(op, rs, DSStatusInvalidPath);
 		}
 
 		dsrecord_append_sub(parent, dsid);
@@ -374,5 +375,5 @@ netinfo_back_modrdn(
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_modrdn \n", 0, 0, 0);
 #endif
 
-	return netinfo_back_op_result(be, conn, op, status);
+	return netinfo_back_op_result(op, rs, status);
 }

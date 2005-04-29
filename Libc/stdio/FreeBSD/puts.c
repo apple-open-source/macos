@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)puts.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/puts.c,v 1.9 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/puts.c,v 1.10 2004/03/10 09:15:38 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -46,6 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/puts.c,v 1.9 2002/03/22 21:53:04 obrien E
 #include "un-namespace.h"
 #include "fvwrite.h"
 #include "libc_private.h"
+#include "local.h"
 
 /*
  * Write the given string to stdout, appending a newline.
@@ -67,6 +68,7 @@ puts(s)
 	uio.uio_iov = &iov[0];
 	uio.uio_iovcnt = 2;
 	FLOCKFILE(stdout);
+	ORIENT(stdout, -1);
 	retval = __sfvwrite(stdout, &uio) ? EOF : '\n';
 	FUNLOCKFILE(stdout);
 	return (retval);

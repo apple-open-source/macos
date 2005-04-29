@@ -24,6 +24,17 @@
 #include <mach/ppc/asm.h>
 #undef	ASSEMBLER
 
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
+/* We use mode-independent "g" opcodes such as "srgi".  These expand
+ * into word operations when targeting __ppc__, and into doubleword
+ * operations when targeting __ppc64__.
+ */
+#include <architecture/ppc/mode_independent_asm.h>
+
+
 // *****************
 // * S T R L C A T *
 // *****************
@@ -48,19 +59,24 @@
 //
 // Note that "count" is the total buffer length, including the length
 // of the "dst" string.  This is different than strncat().
+//
+// In 64-bit mode, this algorithm is doubleword parallel.
 
         .text
         .globl EXT(strlcat)
 
         .align 	5
-LEXT(strlcat)
-        srwi.	r0,r5,2				// get #words to scan
-        dcbtst	0,r3				// touch in dst
-        lis		r6,hi16(0xFEFEFEFF)	// start to load magic constants
+LEXT(strlcat)                       // size_t strlcat(char *dst, const char *src, size_t count);
+        srgi.	r0,r5,LOG2_GPR_BYTES// get #words or doublewords to scan
+#if defined(__ppc__)
+        lis		r6,hi16(0xFEFEFEFF)	// start to generate 32-bit magic constants
         lis		r7,hi16(0x80808080)
-        dcbt	0,r4				// touch in source
         ori		r6,r6,lo16(0xFEFEFEFF)
         ori		r7,r7,lo16(0x80808080)
+#else
+        ld		r6,_COMM_PAGE_MAGIC_FE(0)	// get 0xFEFEFEFE FEFEFEFF from commpage
+        ld		r7,_COMM_PAGE_MAGIC_80(0)	// get 0x80808080 80808080 from commpage
+#endif
         mr		r9,r3				// use r9 for dest ptr (r3 remembers dst start)
         beq--	L0bytes				// buffer length <4
         mtctr	r0 					// set up loop
@@ -73,12 +89,12 @@ LEXT(strlcat)
 //		r6 = 0xFEFEFEFF
 //		r7 = 0x80808080
 //		r9 = dest ptr (unaligned)
-//     ctr = #words remaining in buffer
+//     ctr = #words or doublewords remaining in buffer
 
         .align	5					// align inner loops for speed
 L0words:
-        lwz		r8,0(r9)			// r8 <- next dest word
-        addi	r9,r9,4
+        lg		r8,0(r9)			// r8 <- next dest word or doubleword
+        addi	r9,r9,GPR_BYTES
         add		r10,r8,r6			// r10 <-  word + 0xFEFEFEFF
         andc	r12,r7,r8			// r12 <- ~word & 0x80808080
         and.	r11,r10,r12			// r11 <- nonzero iff word has a 0-byte
@@ -86,10 +102,10 @@ L0words:
        
         beq--	L0bytes				// skip if 0 not found
         
-        slwi	r0,r8,7				// move 0x01 bits (false hits) into 0x80 position
-        subi	r9,r9,4				// back up r9 to the start of the word
+        slgi	r0,r8,7				// move 0x01 bits (false hits) into 0x80 position
+        subi	r9,r9,GPR_BYTES     // back up r9 to the start of the word
         andc	r11,r11,r0			// mask out false hits
-        cntlzw	r0,r11				// find 0 byte (r0 = 0, 8, 16, or 24)
+        cntlzg	r0,r11				// find 0 byte (r0 = 0, 8, 16, or 24)
         srwi	r0,r0,3				// now r0 = 0, 1, 2, or 3
         add		r9,r9,r0			// now r9 points to the 0-byte in dest
         b		L0found				// start to append source
@@ -103,7 +119,7 @@ L0words:
 //		r9 = dest ptr (unaligned)
 
 L0bytes:
-        andi.	r0,r5,3				// get #bytes remaining in buffer
+        andi.	r0,r5,GPR_BYTES-1   // get #bytes remaining in buffer
         mtctr	r0					// set up byte loop
         beq--	L0notfound			// skip if 0 not found in buffer (error)
 L0byteloop:
@@ -125,11 +141,11 @@ L0byteloop:
 //		r9 = ptr to 0-byte in dest (unaligned)
 
 L0found:
-        andi.	r0,r4,3				// is source aligned?
+        andi.	r0,r4,GPR_BYTES-1   // is source aligned?
         add		r5,r5,r3			// get ptr to end of buffer
         sub		r5,r5,r9			// get #bytes remaining in buffer, counting the 0 (r5>0)
         beq		Laligned			// skip if source already word aligned
-        subfic	r0,r0,4				// not aligned, get #bytes to align r4
+        subfic	r0,r0,GPR_BYTES     // not aligned, get #bytes to align r4
         b		Lbyteloop1			// r5!=0, so skip check
         
 // Copy min(r0,r5) bytes, until 0-byte.
@@ -141,7 +157,7 @@ L0found:
 //		r9 = dest ptr (unaligned)
 
 Lbyteloop:
-        cmpwi	r5,0				// buffer empty? (note: unsigned)
+        cmpgi	r5,0				// buffer empty? (note: length is unsigned)
         beq--	Loverrun			// buffer filled before end of source reached
 Lbyteloop1:							// entry when we know r5!=0
         lbz		r8,0(r4)			// r8 <- next source byte
@@ -154,42 +170,42 @@ Lbyteloop1:							// entry when we know r5!=0
         beq		cr1,L0stored		// byte was 0, so done
         bne		Lbyteloop			// r0!=0, source not yet aligned
         
-// Source is word aligned.  Loop over words until 0-byte found or end
+// Source is aligned.  Loop over words or doublewords until 0-byte found or end
 // of buffer.
 //		r3 = original start of buffer
-//		r4 = source ptr (word aligned)
+//		r4 = source ptr (aligned)
 //		r5 = length remaining in buffer
 //		r6 = 0xFEFEFEFF
 //		r7 = 0x80808080
 //		r9 = dest ptr (unaligned)
 
 Laligned:
-        srwi.	r8,r5,2				// get #words in buffer
+        srgi.	r8,r5,LOG2_GPR_BYTES// get #words or doublewords in buffer
         addi	r0,r5,1				// if no words...
         beq--	Lbyteloop			// ...copy to end of buffer
-        mtctr	r8					// set up word loop count
-        rlwinm	r5,r5,0,0x3			// mask buffer length down to leftover bytes
+        mtctr	r8					// set up loop count
+        rlwinm	r5,r5,0,GPR_BYTES-1 // mask buffer length down to leftover bytes
         b		LwordloopEnter
         
-// Inner loop: move a word at a time, until one of two conditions:
+// Inner loop: move a word or doubleword at a time, until one of two conditions:
 //		- a zero byte is found
 //		- end of buffer
 // At this point, registers are as follows:
 //		r3 = original start of buffer
-//		r4 = source ptr (word aligned)
-//		r5 = bytes leftover in buffer (0..3)
+//		r4 = source ptr (aligned)
+//		r5 = bytes leftover in buffer (0..GPR_BYTES-1)
 //		r6 = 0xFEFEFEFF
 //		r7 = 0x80808080
 //		r9 = dest ptr (unaligned)
-//     ctr = whole words left in buffer
+//     ctr = loop count
 
         .align	5					// align inner loop, which is 8 words long
 Lwordloop:
-        stw		r8,0(r9)			// pack word into destination
-        addi	r9,r9,4
+        stg		r8,0(r9)			// pack word into destination
+        addi	r9,r9,GPR_BYTES
 LwordloopEnter:
-        lwz		r8,0(r4)			// r8 <- next 4 source bytes
-        addi	r4,r4,4
+        lg		r8,0(r4)			// r8 <- next 4 or 8 source bytes
+        addi	r4,r4,GPR_BYTES
         add		r10,r8,r6			// r10 <-  word + 0xFEFEFEFF
         andc	r12,r7,r8			// r12 <- ~word & 0x80808080
         and.	r11,r10,r12			// r11 <- nonzero iff word has a 0-byte
@@ -203,8 +219,8 @@ LwordloopEnter:
 //		r9 = dest ptr (one past 0)
 
 Lstorelastbytes:
-        srwi.	r0,r8,24			// right justify next byte and test for 0
-        slwi	r8,r8,8				// shift next byte into position
+        srgi.	r0,r8,GPR_BYTES*8-8 // right justify next byte and test for 0
+        slgi	r8,r8,8				// shift next byte into position
         stb		r0,0(r9)			// pack into dest
         addi	r9,r9,1
         bne		Lstorelastbytes		// loop until 0 stored
@@ -218,18 +234,18 @@ L0stored:
         subi	r3,r3,1				// return length
         blr
         
-// 0-byte not found in aligned source words.  There are up to 3 leftover source
-// bytes, hopefully the 0-byte is among them.
-//		r4 = source ptr (word aligned)
-//		r5 = leftover bytes in buffer (0..3)
+// 0-byte not found in aligned source words.  There are up to GPR_BYTES-1 leftover 
+// source bytes, hopefully the 0-byte is among them.
+//		r4 = source ptr (aligned)
+//		r5 = leftover bytes in buffer (0..GPR_BYTES-1)
 //		r6 = 0xFEFEFEFF
 //		r7 = 0x80808080
-//		r8 = last full word of source
+//		r8 = last full word or doubleword of source
 //		r9 = dest ptr (unaligned)
 
 Lleftovers:
-        stw		r8,0(r9)			// store last word
-        addi	r9,r9,4
+        stg		r8,0(r9)			// store last word
+        addi	r9,r9,GPR_BYTES
         addi	r0,r5,1				// make sure r5 terminates byte loop (not r0)
         b		Lbyteloop
         

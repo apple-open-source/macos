@@ -1,28 +1,27 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <stdlib.h>
+#include <sys/types.h>
 #include <mach/bootstrap.h>
 #include <mach/host_priv.h>
 #include <mach/mach_error.h>
@@ -45,18 +44,16 @@
 #include <IOKit/storage/IOBlockStorageDriver.h>
 
 #include <fcntl.h>
-#include <kvm.h>
 #include <nlist.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#include <sys/types.h>
 #include <pwd.h>
 
 #include <sys/resource.h>
 
 #include <sys/socket.h>
 #include <net/if.h>
-#include <net/if_var.h>
+#include <ifaddrs.h>
 
 #define LIBTOP_DBG
 #ifndef LIBTOP_DBG
@@ -177,8 +174,6 @@ static mach_port_t libtop_port;
 static char *libtop_arg;
 static int libtop_argmax;
 
-static kvm_t *libtop_kvmd;
-static struct nlist libtop_nlist_net[2];
 static mach_port_t libtop_master_port;
 
 /*
@@ -220,8 +215,6 @@ static boolean_t
 libtop_p_print(void *a_user_data, const char *a_format, ...);
 static int
 libtop_p_mach_state_order(int a_state, long a_sleep_time);
-static boolean_t
-libtop_p_kread(u_long a_addr, void *r_buf, size_t a_nbytes);
 static boolean_t
 libtop_p_load_get(host_cpu_load_info_t r_load);
 static boolean_t
@@ -267,7 +260,6 @@ boolean_t
 libtop_init(libtop_print_t *a_print, void *a_user_data)
 {
 	boolean_t	retval;
-	char		errbuf[_POSIX2_LINE_MAX];
 
 	if (a_print != NULL) {
 		libtop_print = a_print;
@@ -316,31 +308,6 @@ libtop_init(libtop_print_t *a_print, void *a_user_data)
 			retval = TRUE;
 			goto RETURN;
 		}
-	}
-
-	/*
-	 * Initialize the kvm descriptor and get the location of _ifnet in
-	 * preparation for gathering network statistics.
-	 */
-	libtop_kvmd = kvm_openfiles(NULL, NULL, NULL, O_RDONLY, errbuf);
-	if (libtop_kvmd == NULL) {
-		libtop_print(libtop_user_data,
-		    "Error in kvm_openfiles(): %s", errbuf);
-		retval = TRUE;
-		goto RETURN;
-	}
-	libtop_nlist_net[0].n_name = "_ifnet";
-	libtop_nlist_net[1].n_name = NULL;
-	if (kvm_nlist(libtop_kvmd, libtop_nlist_net) < 0) {
-		libtop_print(libtop_user_data,
-		    "Error in kvm_nlist(): %s", kvm_geterr(libtop_kvmd));
-		retval = TRUE;
-		goto RETURN;
-	}
-	if (libtop_nlist_net[0].n_type == N_UNDF) {
-		libtop_print(libtop_user_data, "No nlist for _ifnet");
-		retval = TRUE;
-		goto RETURN;
 	}
 
 	/*
@@ -728,26 +695,6 @@ libtop_p_mach_state_order(int a_state, long a_sleep_time)
 	return retval;
 }
 
-/* Read data from kernel memory. */
-static boolean_t
-libtop_p_kread(u_long a_addr, void *r_buf, size_t a_nbytes)
-{
-	boolean_t	retval;
-
-	assert(r_buf != NULL);
-
-	if (kvm_read(libtop_kvmd, a_addr, r_buf, a_nbytes) != a_nbytes) {
-		libtop_print(libtop_user_data, "Error in kvm_read(): %s",
-		    kvm_geterr(libtop_kvmd));
-		retval = TRUE;
-		goto RETURN;
-	}
-
-	retval = FALSE;
-	RETURN:
-	return retval;
-}
-
 /* Get CPU load. */
 static boolean_t
 libtop_p_load_get(host_cpu_load_info_t r_load)
@@ -776,26 +723,19 @@ static boolean_t
 libtop_p_loadavg_update(void)
 {
 	boolean_t	retval;
-	int		mib[2];
-	size_t		size;
-	struct loadavg	loadavg;
+	double avg[3];
 
-	mib[0] = CTL_VM;
-	mib[1] = VM_LOADAVG;
-
-	size = sizeof(loadavg);
-	if (sysctl(mib, 2, &loadavg, &size, NULL, 0) == -1) {
+	if (getloadavg(avg, sizeof(avg)) < 0) {
 		libtop_print(libtop_user_data,
-		    "%s(): Error in sysctl(): %s",
+		    "%s(): Error in getloadavg(): %s",
 		    __FUNCTION__, strerror(errno));
 		retval = TRUE;
 		goto RETURN;
 	}
 
-	/* Convert fixed point loads to floats. */
-	tsamp.loadavg[0] = (float)loadavg.ldavg[0] / (float)loadavg.fscale;
-	tsamp.loadavg[1] = (float)loadavg.ldavg[1] / (float)loadavg.fscale;
-	tsamp.loadavg[2] = (float)loadavg.ldavg[2] / (float)loadavg.fscale;
+	tsamp.loadavg[0] = avg[0];
+	tsamp.loadavg[1] = avg[1];
+	tsamp.loadavg[2] = avg[2];
 
 	retval = FALSE;
 	RETURN:
@@ -885,10 +825,12 @@ libtop_p_vm_sample(void)
 	kern_return_t		error;
 	unsigned		i, ocount;
 	libtop_oinfo_t		*oinfo;
+	int			mib[2];
+	size_t			len;
 
 	/* Get VM statistics. */
 	tsamp.p_vm_stat = tsamp.vm_stat;
-	count = sizeof(tsamp.vm_stat) / sizeof(integer_t);
+	count = sizeof(tsamp.vm_stat) / sizeof(natural_t);
 	error = host_statistics(libtop_port, HOST_VM_INFO,
 	    (host_info_t)&tsamp.vm_stat, &count);
 	if (error != KERN_SUCCESS) {
@@ -897,9 +839,46 @@ libtop_p_vm_sample(void)
 		retval = TRUE;
 		goto RETURN;
 	}
+	if (count == sizeof (tsamp.vm_stat) / sizeof (natural_t)) {
+		tsamp.purgeable_is_valid = TRUE;
+	} else {
+		/*
+		 * This older kernel doesn't have the "rev1" new fields about
+		 * purgeable memory: "purgeable_count" and "purges".  Info is
+		 * not valid.
+		 */
+		tsamp.vm_stat.purgeable_count = 0;
+		tsamp.vm_stat.purges = 0;
+
+		tsamp.purgeable_is_valid = FALSE;
+	}
 	if (tsamp.seq == 1) {
 		tsamp.p_vm_stat = tsamp.vm_stat;
 		tsamp.b_vm_stat = tsamp.vm_stat;
+	}
+
+	/* Get swap usage */
+	mib[0] = CTL_VM;
+	mib[1] = VM_SWAPUSAGE;
+	len = sizeof (tsamp.xsu);
+	if (sysctl(mib, 2, &tsamp.xsu, &len, NULL, 0) != 0) {
+		if (errno == ENOENT) {
+			/*
+			 * This is most probably an older kernel that doesn't
+			 * implement sysctl(CTL_VM, VM_SWAPUSAGE).
+			 * Signal that the swap usage data is not available.
+			 */
+			tsamp.xsu_is_valid = FALSE;
+		} else {
+			libtop_print(libtop_user_data,
+				     "Error in sysctl(VM_SWAPUSAGE): %s",
+				     strerror(errno));
+			retval = TRUE;
+			goto RETURN;
+		}
+	} else {
+		/* we got valid swap usage information */
+		tsamp.xsu_is_valid = TRUE;
 	}
 
 	/*
@@ -945,10 +924,7 @@ libtop_p_vm_sample(void)
 static void
 libtop_p_networks_sample(void)
 {
-	struct ifnet		ifnet;
-	struct ifnethead	ifnethead;
-	u_long			off;
-	char			tname[16];
+    struct ifaddrs *ifa_list = 0, *ifa;
 
 	tsamp.p_net_ipackets = tsamp.net_ipackets;
 	tsamp.p_net_opackets = tsamp.net_opackets;
@@ -959,28 +935,28 @@ libtop_p_networks_sample(void)
 	tsamp.net_opackets = 0;
 	tsamp.net_ibytes = 0;
 	tsamp.net_obytes = 0;
-	if (libtop_nlist_net[0].n_value != 0
-	    && libtop_p_kread(libtop_nlist_net[0].n_value, &ifnethead,
-	    sizeof(ifnethead)) == FALSE) {
-		for (off = (u_long)ifnethead.tqh_first;
-		     off != 0;
-		     off = (u_long)ifnet.if_link.tqe_next) {
-			if (libtop_p_kread(off, &ifnet, sizeof(ifnet))) {
-				break;
-			}
-			if (libtop_p_kread((u_long)ifnet.if_name, tname,
-			    sizeof(tname))) {
-				break;
-			}
-			if (strncmp(tname, "lo", 2)) {
-				/* Not a loopback device. */
-				tsamp.net_ipackets += ifnet.if_ipackets;
-				tsamp.net_opackets += ifnet.if_opackets;
 
-				tsamp.net_ibytes += ifnet.if_ibytes;
-				tsamp.net_obytes += ifnet.if_obytes;
-			}
+	if (getifaddrs(&ifa_list) == -1)
+	    goto RETURN;
+	for (ifa = ifa_list; ifa; ifa = ifa->ifa_next) {
+		if (AF_LINK != ifa->ifa_addr->sa_family)
+				continue;
+		if (!(ifa->ifa_flags & IFF_UP) && !(ifa->ifa_flags & IFF_RUNNING))
+			continue;
+		if (ifa->ifa_data == 0)
+			continue;
+
+		/* Not a loopback device. */
+		if (strncmp(ifa->ifa_name, "lo", 2)) {
+			struct if_data *if_data = (struct if_data *)ifa->ifa_data;
+
+			tsamp.net_ipackets += if_data->ifi_ipackets;
+			tsamp.net_opackets += if_data->ifi_opackets;
+
+			tsamp.net_ibytes += if_data->ifi_ibytes;
+			tsamp.net_obytes += if_data->ifi_obytes;
 		}
+		
 	}
 	if (tsamp.seq == 1) {
 		tsamp.b_net_ipackets = tsamp.net_ipackets;
@@ -995,6 +971,9 @@ libtop_p_networks_sample(void)
 		tsamp.b_net_obytes = tsamp.net_obytes;
 		tsamp.p_net_obytes = tsamp.net_obytes;
 	}
+RETURN:
+	if(ifa_list)
+	    freeifaddrs(ifa_list);
 }
 
 /*

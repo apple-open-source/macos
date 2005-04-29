@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-1999 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -37,16 +36,17 @@ package Debug is
 pragma Preelaborate (Debug);
 
 --  This package contains global flags used to control the inclusion
---  of debugging code in various phases of the compiler.
+--  of debugging code in various phases of the compiler. Some of these
+--  flags are also used by the binder and gnatmake.
 
    -------------------------
    -- Dynamic Debug Flags --
    -------------------------
 
-   --  Thirty six flags that can be used to active various specialized
+   --  Sixty two flags that can be used to active various specialized
    --  debugging output information. The flags are preset to False, which
    --  corresponds to the given output being suppressed. The individual
-   --  flags can be turned on using the undocumented switch /dxxx where
+   --  flags can be turned on using the undocumented switch dxxx where
    --  xxx is a string of letters for flags to be turned on. Documentation
    --  on the current usage of these flags is contained in the body of Debug
    --  rather than the spec, so that we don't have to recompile the world

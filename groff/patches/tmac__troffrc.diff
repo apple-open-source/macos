@@ -1,0 +1,15 @@
+--- tmac/troffrc.orig	Fri Jun 11 12:48:25 2004
++++ tmac/troffrc	Fri Jun 11 12:49:04 2004
+@@ -43,4 +43,12 @@
+ .\" Handle paper formats
+ .do mso papersize.tmac
+ .
++.\" Disable SGR support in grotty(1).
++.if n \{\
++.	do nop \X'tty: sgr 0'
++.	sp -1
++.	nr nl 0-1
++.	nr % -1
++.\}
++.
+ .\" Don't let blank lines creep in here.

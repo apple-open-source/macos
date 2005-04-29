@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_context.h,v 1.5 2002/02/24 21:51:10 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_context.h,v 1.6 2003/09/28 20:15:36 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -56,7 +56,7 @@
 #include "context.h"
 #include "macros.h"
 #include "matrix.h"
-#include "mem.h"
+#include "imports.h"
 #include "mtypes.h"
 
 #include "tdfx_screen.h"
@@ -507,7 +507,7 @@ struct tdfx_texcombine_ext {
 
 /* Used to track changes between Glide's state and Mesa's */
 struct tdfx_texstate {
-   GLuint Enabled;                 /* bitmask of all units */
+   GLuint Enabled[2];              /* values ala ctx->Texture.Unit[i]._ReallyEnabled */
    GLenum EnvMode[TDFX_NUM_TMU];   /* index is Glide index, not OpenGL */
    GLenum TexFormat[TDFX_NUM_TMU]; /* index is Glide index, not OpenGL */
 };
@@ -885,7 +885,7 @@ struct tdfx_context {
    GLuint vertexFormat;            /* the current format */
    GLuint vertex_stride_shift;
    void *layout[TDFX_NUM_LAYOUTS];
-   char *verts;			   /* tdfxVertices, arbitarily packed */
+   GLubyte *verts;			   /* tdfxVertices, arbitarily packed */
    
    GLfloat hw_viewport[16];
    
@@ -947,8 +947,7 @@ struct tdfx_context {
 
 
 extern GLboolean
-tdfxCreateContext( Display *dpy,
-                   const __GLcontextModes *mesaVis,
+tdfxCreateContext( const __GLcontextModes *mesaVis,
                    __DRIcontextPrivate *driContextPriv,
                    void *sharedContextPrivate );
 

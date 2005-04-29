@@ -1,0 +1,49 @@
+--- fputws.c.orig	2004-11-25 11:38:34.000000000 -0800
++++ fputws.c	2005-02-23 17:23:49.000000000 -0800
+@@ -27,6 +27,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include "namespace.h"
+ #include <errno.h>
+ #include <limits.h>
+@@ -39,13 +41,17 @@
+ #include "mblocal.h"
+ 
+ int
+-fputws(const wchar_t * __restrict ws, FILE * __restrict fp)
++fputws_l(const wchar_t * __restrict ws, FILE * __restrict fp, locale_t loc)
+ {
+ 	size_t nbytes;
+ 	char buf[BUFSIZ];
+ 	struct __suio uio;
+ 	struct __siov iov;
++	size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
++	    size_t, size_t, mbstate_t * __restrict, locale_t);
+ 
++	NORMALIZE_LOCALE(loc);
++	__wcsnrtombs = loc->__lc_ctype->__wcsnrtombs;
+ 	FLOCKFILE(fp);
+ 	ORIENT(fp, 1);
+ 	if (prepwrite(fp) != 0)
+@@ -55,7 +61,7 @@
+ 	iov.iov_base = buf;
+ 	do {
+ 		nbytes = __wcsnrtombs(buf, &ws, SIZE_T_MAX, sizeof(buf),
+-		    &fp->_extra->mbstate);
++		    &fp->_extra->mbstate, loc);
+ 		if (nbytes == (size_t)-1)
+ 			goto error;
+ 		iov.iov_len = uio.uio_resid = nbytes;
+@@ -69,3 +75,9 @@
+ 	FUNLOCKFILE(fp);
+ 	return (-1);
+ }
++
++int
++fputws(const wchar_t * __restrict ws, FILE * __restrict fp)
++{
++	return fputws_l(ws, fp, __current_locale());
++}

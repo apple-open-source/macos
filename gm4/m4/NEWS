@@ -1,5 +1,14 @@
 GNU m4 NEWS - User visible changes.
-Copyright (C) 1992, 1993, 1994 Free Software Foundation, Inc.
+Copyright (C) 1992, 1993, 1994, 2004 Free Software Foundation, Inc.
+
+Version 1.4.2 - August 2004, by Paul Eggert
+
+* No user visible changes; portability bug fixes only.
+
+Version 1.4.1 - June 2004, by Paul Eggert
+
+* maketemp now creates an empty file with the given name, instead of merely
+  returning the name of a nonexistent file.  This closes a security hole.
 
 Version 1.4 - October 1994, by Franc,ois Pinard
 

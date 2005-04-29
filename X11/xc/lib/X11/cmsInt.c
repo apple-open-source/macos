@@ -34,32 +34,20 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/cmsInt.c,v 1.3 2001/01/17 19:41:51 dawes Exp $ */
+/* $XFree86: xc/lib/X11/cmsInt.c,v 1.5 2003/04/17 02:06:31 dawes Exp $ */
 
 /* #define NEED_EVENTS */
 #include <stdio.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 #ifndef XCMSCOMPPROC
 #  define XCMSCOMPPROC	XcmsTekHVCClipC
 #endif
 
-/*
- *      EXTERNS
- */
-extern XcmsColorSpace **_XcmsDIColorSpaces;
-extern XcmsFunctionSet **_XcmsSCCFuncSets;
-
-/* LRGB.c */
-extern int _XcmsLRGB_InitScrnDefault();
-
-static void _XcmsFreeDefaultCCCs();
-
-/*
- *      GLOBALS
- */
-
+/* forward/static */
+static void _XcmsFreeDefaultCCCs(Display *dpy);
 
 
 /************************************************************************
@@ -75,8 +63,8 @@ static void _XcmsFreeDefaultCCCs();
  *	SYNOPSIS
  */
 XPointer *
-_XcmsCopyPointerArray(pap)
-    XPointer *pap;
+_XcmsCopyPointerArray(
+    XPointer *pap)
 /*
  *	DESCRIPTION
  *		Copies an array of NULL terminated pointers.
@@ -108,8 +96,8 @@ _XcmsCopyPointerArray(pap)
  *	SYNOPSIS
  */
 void
-_XcmsFreePointerArray(pap)
-    XPointer *pap;
+_XcmsFreePointerArray(
+    XPointer *pap)
 /*
  *	DESCRIPTION
  *		Frees an array of NULL terminated pointers.
@@ -129,10 +117,10 @@ _XcmsFreePointerArray(pap)
  *	SYNOPSIS
  */
 XPointer *
-_XcmsPushPointerArray(pap, p, papNoFree)
-    XPointer *pap;
-    XPointer p;
-    XPointer *papNoFree;
+_XcmsPushPointerArray(
+    XPointer *pap,
+    XPointer p,
+    XPointer *papNoFree)
 /*
  *	DESCRIPTION
  *		Places the specified pointer at the head of an array of NULL
@@ -171,8 +159,8 @@ _XcmsPushPointerArray(pap, p, papNoFree)
  *	SYNOPSIS
  */
 int
-_XcmsInitDefaultCCCs(dpy)
-    Display *dpy;
+_XcmsInitDefaultCCCs(
+    Display *dpy)
 /*
  *	DESCRIPTION
  *		Initializes the Xcms per Display Info structure
@@ -232,8 +220,8 @@ _XcmsInitDefaultCCCs(dpy)
  *	SYNOPSIS
  */
 static void
-_XcmsFreeDefaultCCCs(dpy)
-    Display *dpy;
+_XcmsFreeDefaultCCCs(
+    Display *dpy)
 /*
  *	DESCRIPTION
  *		This routine frees the default XcmsCCC's associated with
@@ -291,9 +279,9 @@ _XcmsFreeDefaultCCCs(dpy)
  *	SYNOPSIS
  */
 int
-_XcmsInitScrnInfo(dpy, screenNumber)
-    register Display *dpy;
-    int screenNumber;
+_XcmsInitScrnInfo(
+    register Display *dpy,
+    int screenNumber)
 /*
  *	DESCRIPTION
  *		Given a display and screen number, this routine attempts
@@ -364,8 +352,8 @@ _XcmsInitScrnInfo(dpy, screenNumber)
  *	SYNOPSIS
  */
 void
-_XcmsFreeIntensityMaps(dpy)
-    Display *dpy;
+_XcmsFreeIntensityMaps(
+    Display *dpy)
 /*
  *	DESCRIPTION
  *		Frees all XcmsIntensityMap structures in the linked list
@@ -397,9 +385,9 @@ _XcmsFreeIntensityMaps(dpy)
  *	SYNOPSIS
  */
 XcmsIntensityMap *
-_XcmsGetIntensityMap(dpy, visual)
-    Display *dpy;
-    Visual *visual;
+_XcmsGetIntensityMap(
+    Display *dpy,
+    Visual *visual)
 /*
  *	DESCRIPTION
  *		Attempts to return a per-Visual intensity map.

@@ -1,0 +1,629 @@
+Index: Makefile.in
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/Makefile.in,v
+retrieving revision 1.7
+diff -u -p -r1.7 Makefile.in
+--- Makefile.in	9 Jan 2003 21:26:58 -0000	1.7
++++ Makefile.in	1 Jun 2004 14:16:46 -0000
+@@ -208,6 +208,7 @@ MAKE_STATIC_LIB	= @MAKE_STATIC_LIB@
+ MAKE_STUB_LIB	= @MAKE_STUB_LIB@
+ OBJEXT		= @OBJEXT@
+ RANLIB		= @RANLIB@
++RANLIB_STUB	= @RANLIB_STUB@
+ SHLIB_CFLAGS	= @SHLIB_CFLAGS@
+ SHLIB_SUFFIX	= @SHLIB_SUFFIX@
+ SHLIB_LD	= @SHLIB_LD@
+@@ -232,6 +233,7 @@ TCL_LIBS	= @TCL_LIBS@
+ EXTRA_PATH	= $(top_builddir):$(TCL_BIN_DIR)
+ TCLSH_ENV	= TCL_LIBRARY=`@CYGPATH@ $(TCL_SRC_DIR)/library` \
+ 		  LD_LIBRARY_PATH="$(EXTRA_PATH):$(LD_LIBRARY_PATH)" \
++		  DYLD_LIBRARY_PATH="$(EXTRA_PATH):$(DYLD_LIBRARY_PATH)" \
+ 		  LIBPATH="$(EXTRA_PATH):${LIBPATH}" \
+ 		  SHLIB_PATH="$(EXTRA_PATH):${SHLIB_PATH}" \
+ 		  PATH="$(EXTRA_PATH):$(PATH)" \
+@@ -368,7 +370,7 @@ $($(PACKAGE)_LIB_FILE): $($(PACKAGE)_OBJ
+ $($(PACKAGE)stub_LIB_FILE): $($(PACKAGE)stub_OBJECTS)
+ 	-rm -f $($(PACKAGE)stub_LIB_FILE)
+ 	${MAKE_STUB_LIB}
+-	$(RANLIB) $($(PACKAGE)stub_LIB_FILE)
++	$(RANLIB_STUB) $($(PACKAGE)stub_LIB_FILE)
+ 
+ #========================================================================
+ # MD5 targets - Not anymore, integrated with main library
+@@ -511,8 +513,14 @@ install-lib-binaries:
+ 	  if test -f $$p; then \
+ 	    echo " $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p"; \
+ 	    $(INSTALL_PROGRAM) $$p $(DESTDIR)$(pkglibdir)/$$p; \
++	    stub=`echo $$p|sed -e "s/.*\(stub\).*/\1/"`; \
++	    if test "x$$stub" = "xstub"; then \
++	    echo " $(RANLIB_STUB) $(DESTDIR)$(pkglibdir)/$$p"; \
++	    $(RANLIB_STUB) $(DESTDIR)$(pkglibdir)/$$p; \
++	    else \
+ 	    echo " $(RANLIB) $(DESTDIR)$(pkglibdir)/$$p"; \
+ 	    $(RANLIB) $(DESTDIR)$(pkglibdir)/$$p; \
++	    fi; \
+ 	    ext=`echo $$p|sed -e "s/.*\.//"`; \
+ 	    if test "x$$ext" = "xdll"; then \
+ 		lib=`basename $$p|sed -e 's/.[^.]*$$//'`.lib; \
+Index: configure
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/configure,v
+retrieving revision 1.14
+diff -u -p -r1.14 configure
+--- configure	4 Apr 2003 21:27:30 -0000	1.14
++++ configure	1 Jun 2004 14:16:46 -0000
+@@ -5746,6 +5746,7 @@ EOF
+     # substituted.
+     #--------------------------------------------------------------------
+ 
++    RANLIB_STUB="${RANLIB}"
+     if test "${TEA_PLATFORM}" = "windows" ; then
+ 	if test "${SHARED_BUILD}" = "1" ; then
+ 	    # We force the unresolved linking of symbols that are really in
+@@ -5787,6 +5788,7 @@ EOF
+     
+     
+     
++    
+ 
+ 
+ #--------------------------------------------------------------------
+@@ -5796,9 +5798,9 @@ EOF
+ 
+ if test $HAVE_zlibtcl_PACKAGE -gt 0 ; then
+     if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes" ; then
+-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${zlibtcl_STUB_LIB_PATH}`\""
++	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${zlibtcl_BUILD_STUB_LIB_PATH}`\""
+     else
+-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${zlibtcl_STUB_LIB_SPEC}"
++	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${zlibtcl_BUILD_STUB_LIB_SPEC}"
+     fi
+ fi
+ 
+@@ -5814,7 +5816,7 @@ fi
+ 
+ 
+     echo $ac_n "checking for tclsh""... $ac_c" 1>&6
+-echo "configure:5818: checking for tclsh" >&5
++echo "configure:5820: checking for tclsh" >&5
+ 
+     if eval "test \"`echo '$''{'ac_cv_path_tclsh'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+@@ -5986,7 +5988,7 @@ fi
+ 
+ 
+ echo $ac_n "checking for directory with zlib.h""... $ac_c" 1>&6
+-echo "configure:5990: checking for directory with zlib.h" >&5
++echo "configure:5992: checking for directory with zlib.h" >&5
+ if eval "test \"`echo '$''{'trf_cv_path_ZLIB_INCLUDE_DIR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -6023,7 +6025,7 @@ fi
+ 
+ 
+ echo $ac_n "checking for libz library""... $ac_c" 1>&6
+-echo "configure:6027: checking for libz library" >&5
++echo "configure:6029: checking for libz library" >&5
+ if eval "test \"`echo '$''{'trf_cv_lib_ZLIB_LIB_DIR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -6039,7 +6041,7 @@ else
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_ZLIB_LIB_DIR"; then
+                     break
+             fi
+@@ -6070,7 +6072,7 @@ fi
+ 
+ 
+ echo $ac_n "checking for directory with ssl.h""... $ac_c" 1>&6
+-echo "configure:6074: checking for directory with ssl.h" >&5
++echo "configure:6076: checking for directory with ssl.h" >&5
+ if eval "test \"`echo '$''{'trf_cv_path_SSL_INCLUDE_DIR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -6144,7 +6146,7 @@ fi
+ 
+ 
+ echo $ac_n "checking for ssl libcrypto library (for message digests)""... $ac_c" 1>&6
+-echo "configure:6148: checking for ssl libcrypto library (for message digests)" >&5
++echo "configure:6150: checking for ssl libcrypto library (for message digests)" >&5
+ if eval "test \"`echo '$''{'trf_cv_lib_SSL_LIB_DIR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -6161,7 +6163,7 @@ else
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_SSL_LIB_DIR"; then
+                     break
+             fi
+@@ -6192,7 +6194,7 @@ fi
+ 
+ 
+ echo $ac_n "checking for bz2 compressor library""... $ac_c" 1>&6
+-echo "configure:6196: checking for bz2 compressor library" >&5
++echo "configure:6198: checking for bz2 compressor library" >&5
+ if eval "test \"`echo '$''{'trf_cv_lib_BZ2_LIB_DIR'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+@@ -6210,7 +6212,7 @@ else
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_BZ2_LIB_DIR"; then
+                     break
+             fi
+@@ -6288,17 +6290,17 @@ for ac_hdr in dlfcn.h stdlib.h features.
+ do
+ ac_safe=`echo "$ac_hdr" | sed 'y%./+-%__p_%'`
+ echo $ac_n "checking for $ac_hdr""... $ac_c" 1>&6
+-echo "configure:6292: checking for $ac_hdr" >&5
++echo "configure:6294: checking for $ac_hdr" >&5
+ if eval "test \"`echo '$''{'ac_cv_header_$ac_safe'+set}'`\" = set"; then
+   echo $ac_n "(cached) $ac_c" 1>&6
+ else
+   cat > conftest.$ac_ext <<EOF
+-#line 6297 "configure"
++#line 6299 "configure"
+ #include "confdefs.h"
+ #include <$ac_hdr>
+ EOF
+ ac_try="$ac_cpp conftest.$ac_ext >/dev/null 2>conftest.out"
+-{ (eval echo configure:6302: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
++{ (eval echo configure:6304: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }
+ ac_err=`grep -v '^ *+' conftest.out | grep -v "^conftest.${ac_ext}\$"`
+ if test -z "$ac_err"; then
+   rm -rf conftest*
+@@ -6598,6 +6600,7 @@ s%@MAKE_LIB@%$MAKE_LIB%g
+ s%@MAKE_SHARED_LIB@%$MAKE_SHARED_LIB%g
+ s%@MAKE_STATIC_LIB@%$MAKE_STATIC_LIB%g
+ s%@MAKE_STUB_LIB@%$MAKE_STUB_LIB%g
++s%@RANLIB_STUB@%$RANLIB_STUB%g
+ s%@SHLIB_SUFFIX@%$SHLIB_SUFFIX%g
+ s%@TCLSH_PROG@%$TCLSH_PROG%g
+ s%@DL_OBJS@%$DL_OBJS%g
+Index: configure.in
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/configure.in,v
+retrieving revision 1.9
+diff -u -p -r1.9 configure.in
+--- configure.in	9 Jan 2003 21:27:00 -0000	1.9
++++ configure.in	1 Jun 2004 14:16:46 -0000
+@@ -258,9 +258,9 @@ TEA_MAKE_LIB
+ 
+ if test $HAVE_zlibtcl_PACKAGE -gt 0 ; then
+     if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes" ; then
+-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${zlibtcl_STUB_LIB_PATH}`\""
++	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${zlibtcl_BUILD_STUB_LIB_PATH}`\""
+     else
+-	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${zlibtcl_STUB_LIB_SPEC}"
++	SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${zlibtcl_BUILD_STUB_LIB_SPEC}"
+     fi
+ fi
+ AC_SUBST(SHLIB_SUFFIX)
+Index: trf.m4
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/trf.m4,v
+retrieving revision 1.3
+diff -u -p -r1.3 trf.m4
+--- trf.m4	1 Oct 2002 23:01:46 -0000	1.3
++++ trf.m4	1 Jun 2004 14:16:46 -0000
+@@ -159,7 +159,7 @@ AC_CACHE_CHECK(for libz library,
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_ZLIB_LIB_DIR"; then
+                     break
+             fi
+@@ -277,7 +277,7 @@ AC_CACHE_CHECK(for ssl libcrypto library
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_SSL_LIB_DIR"; then
+                     break
+             fi
+@@ -327,7 +327,7 @@ AC_CACHE_CHECK(for bz2 compressor librar
+             break
+         fi
+ 
+-        for libsuff in .so ".so.*" .sl .a; do
++        for libsuff in .so ".so.*" .sl .a .dylib; do
+ 	    if test -n "$trf_cv_lib_BZ2_LIB_DIR"; then
+                     break
+             fi
+Index: compat/tclLoadDyld.c
+===================================================================
+RCS file: compat/tclLoadDyld.c
+diff -N compat/tclLoadDyld.c
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ compat/tclLoadDyld.c	1 Jun 2004 14:16:47 -0000
+@@ -0,0 +1,166 @@
++/* 
++ * tclLoadDyld.c --
++ *
++ *     This procedure provides a version of the TclLoadFile that
++ *     works with Apple's dyld dynamic loading.  This file
++ *     provided by Wilfredo Sanchez (wsanchez@apple.com).
++ *     This works on Mac OS X.
++ *
++ * Copyright (c) 1995 Apple Computer, Inc.
++ *
++ * See the file "license.terms" for information on usage and redistribution
++ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
++ *
++ * RCS: @(#) $Id: trf.diff,v 1.2 2004/08/20 18:39:39 tpeterso Exp $
++ */
++
++#include <mach-o/dyld.h>
++#include <errno.h>
++
++#include "tcl.h"
++
++typedef struct Tcl_DyldModuleHandle {
++    struct Tcl_DyldModuleHandle *nextModuleHandle;
++    NSModule module;
++} Tcl_DyldModuleHandle;
++
++typedef struct Tcl_DyldLoadHandle {
++    const struct mach_header *dyld_lib;
++    Tcl_DyldModuleHandle *firstModuleHandle;
++} Tcl_DyldLoadHandle;
++
++/*
++ *----------------------------------------------------------------------
++ *
++ * TclpDlopen --
++ *
++ *	Dynamically loads a binary code file into memory and returns
++ *	a handle to the new code.
++ *
++ * Results:
++ *     A standard Tcl completion code.  If an error occurs, an error
++ *     message is left in the interpreter's result. 
++ *
++ * Side effects:
++ *     New code suddenly appears in memory.
++ *
++ *----------------------------------------------------------------------
++ */
++
++VOID *
++dlopen(path, flags)
++    CONST char *path;
++    int flags;
++{
++    Tcl_DyldLoadHandle *dyldLoadHandle;
++    const struct mach_header *dyld_lib;
++
++    dyld_lib = NSAddImage(path, 
++        NSADDIMAGE_OPTION_WITH_SEARCHING | 
++        NSADDIMAGE_OPTION_RETURN_ON_ERROR);
++    
++    if (!dyld_lib) {
++        return NULL;
++    }
++    dyldLoadHandle = (Tcl_DyldLoadHandle *) ckalloc(sizeof(Tcl_DyldLoadHandle));
++    if (!dyldLoadHandle) return NULL;
++    dyldLoadHandle->dyld_lib = dyld_lib;
++    dyldLoadHandle->firstModuleHandle = NULL;
++    return (Tcl_LoadHandle) dyldLoadHandle;     
++}
++
++char *
++dlerror()
++{
++    NSLinkEditErrors editError;
++    char *name, *msg;
++    NSLinkEditError(&editError, &errno, &name, &msg);
++    return msg;
++}
++
++/*
++ *----------------------------------------------------------------------
++ *
++ * TclpFindSymbol --
++ *
++ *	Looks up a symbol, by name, through a handle associated with
++ *	a previously loaded piece of code (shared library).
++ *
++ * Results:
++ *	Returns a pointer to the function associated with 'symbol' if
++ *	it is found.  Otherwise returns NULL and may leave an error
++ *	message in the interp's result.
++ *
++ *----------------------------------------------------------------------
++ */
++VOID *dlsym(handle, symbol)
++    VOID *handle;
++    CONST char *symbol;
++{
++    NSSymbol nsSymbol;
++    CONST char *native;
++    Tcl_DString newName, ds;
++    Tcl_PackageInitProc* proc = NULL;
++    Tcl_DyldLoadHandle *dyldLoadHandle = (Tcl_DyldLoadHandle *) handle;
++    /* 
++     * dyld adds an underscore to the beginning of symbol names.
++     */
++
++    native = Tcl_UtfToExternalDString(NULL, symbol, -1, &ds);
++    Tcl_DStringInit(&newName);
++    Tcl_DStringAppend(&newName, "_", 1);
++    native = Tcl_DStringAppend(&newName, native, -1);
++    nsSymbol = NSLookupSymbolInImage(dyldLoadHandle->dyld_lib, native, 
++	NSLOOKUPSYMBOLINIMAGE_OPTION_BIND_NOW | 
++	NSLOOKUPSYMBOLINIMAGE_OPTION_RETURN_ON_ERROR);
++    if(nsSymbol) {
++	Tcl_DyldModuleHandle *dyldModuleHandle;
++	proc = NSAddressOfSymbol(nsSymbol);
++	dyldModuleHandle = (Tcl_DyldModuleHandle *) ckalloc(sizeof(Tcl_DyldModuleHandle));
++	if (dyldModuleHandle) {
++	    dyldModuleHandle->module = NSModuleForSymbol(nsSymbol);
++	    dyldModuleHandle->nextModuleHandle = dyldLoadHandle->firstModuleHandle;
++	    dyldLoadHandle->firstModuleHandle = dyldModuleHandle;
++	}
++    }
++    Tcl_DStringFree(&newName);
++    Tcl_DStringFree(&ds);
++    
++    return proc;
++}
++
++/*
++ *----------------------------------------------------------------------
++ *
++ * TclpUnloadFile --
++ *
++ *     Unloads a dynamically loaded binary code file from memory.
++ *     Code pointers in the formerly loaded file are no longer valid
++ *     after calling this function.
++ *
++ * Results:
++ *     None.
++ *
++ * Side effects:
++ *     Code dissapears from memory.
++ *     Note that this is a no-op on older (OpenStep) versions of dyld.
++ *
++ *----------------------------------------------------------------------
++ */
++
++int
++dlclose(handle)
++    VOID *handle;
++{
++    Tcl_DyldLoadHandle *dyldLoadHandle = (Tcl_DyldLoadHandle *) handle;
++    Tcl_DyldModuleHandle *dyldModuleHandle = dyldLoadHandle->firstModuleHandle;
++    void *ptr;
++
++    while (dyldModuleHandle) {
++	NSUnLinkModule(dyldModuleHandle->module, NSUNLINKMODULE_OPTION_NONE);
++	ptr = dyldModuleHandle;
++	dyldModuleHandle = dyldModuleHandle->nextModuleHandle;
++	ckfree(ptr);
++    }
++    ckfree(dyldLoadHandle);
++}
+Index: doc/rs_ecc.man
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/doc/rs_ecc.man,v
+retrieving revision 1.1
+diff -u -p -r1.1 rs_ecc.man
+--- doc/rs_ecc.man	13 Mar 2003 00:39:46 -0000	1.1
++++ doc/rs_ecc.man	1 Jun 2004 14:16:47 -0000
+@@ -11,7 +11,7 @@ buffering 247 bytes.
+ [para]
+ [list_begin definitions]
+ 
+-[call [cmd [vset encoding]] [opt [arg options...]] [opt [arg data]]]
++[call [cmd rs_ecc] [opt [arg options...]] [opt [arg data]]]
+ 
+ [list_begin definitions]
+ 
+Index: tclconfig/tcl.m4
+===================================================================
+RCS file: /cvsroot/tcltrf/trf/tclconfig/tcl.m4,v
+retrieving revision 1.6
+diff -u -p -r1.6 tcl.m4
+--- tclconfig/tcl.m4	4 Apr 2003 21:27:36 -0000	1.6
++++ tclconfig/tcl.m4	1 Jun 2004 14:16:47 -0000
+@@ -2591,6 +2591,7 @@ AC_DEFUN(TEA_MAKE_LIB, [
+     # substituted.
+     #--------------------------------------------------------------------
+ 
++    RANLIB_STUB="${RANLIB}"
+     if test "${TEA_PLATFORM}" = "windows" ; then
+ 	if test "${SHARED_BUILD}" = "1" ; then
+ 	    # We force the unresolved linking of symbols that are really in
+@@ -2632,6 +2633,7 @@ AC_DEFUN(TEA_MAKE_LIB, [
+     AC_SUBST(MAKE_SHARED_LIB)
+     AC_SUBST(MAKE_STATIC_LIB)
+     AC_SUBST(MAKE_STUB_LIB)
++    AC_SUBST(RANLIB_STUB)
+ ])
+ 
+ #------------------------------------------------------------------------
+Index: tools/mpexpand.tcl
+===================================================================
+RCS file: tools/mpexpand.tcl
+diff -N tools/mpexpand.tcl
+--- /dev/null	1 Jan 1970 00:00:00 -0000
++++ tools/mpexpand.tcl	1 Jun 2004 14:16:47 -0000
+@@ -0,0 +1,165 @@
++#!/bin/sh
++# -*- tcl -*- \
++exec tclsh "$0" ${1+"$@"}
++
++lappend auto_path [file dirname [file dirname [info script]]]
++
++if 0 {
++    puts auto_path=\n\t[join $auto_path \n\t]
++    catch {puts tcl_pkgPath=\n\t[join $tcl_pkgPath \n\t]}
++    catch {puts tcl_libPath=\n\t[join $tcl_libPath \n\t]}
++
++    puts [package require doctools]
++    exit
++}
++
++package require doctools
++
++
++
++# ---------------------------------------------------------------------
++#  1. Handle command line options, input and output
++#  2. Initialize a doctools object.
++#  3. Run the input through the object.
++#  4. Write output.
++# ---------------------------------------------------------------------
++
++proc usage {{exitstate 1}} {
++    global argv0
++    puts "Usage: $argv0\
++	    ?-h|--help|-help|-??\
++	    ?-help-fmt|--help-fmt?\
++	    ?-module module?\
++	    ?-deprecated?\
++	    ?-copyright text?\
++	    format in|- ?out|-?"
++    exit $exitstate
++}
++
++# ---------------------------------------------------------------------
++
++proc fmthelp {} {
++    # Tcllib FR #527029: short reference of formatting commands.
++
++    global argv0
++    puts "$argv0 [doctools::help]"
++    exit 0
++}
++
++# ---------------------------------------------------------------------
++# 1. Handle command line options, input and output
++
++proc cmdline {} {
++    global argv0 argv format in out extmodule deprecated copyright
++
++    set copyright ""
++    set extmodule ""
++    set deprecated 0
++
++    while {[string match -* [set opt [lindex $argv 0]]]} {
++	switch -exact -- $opt {
++	    -module {
++		set extmodule [lindex $argv 1]
++		set argv [lrange $argv 2 end]
++		continue
++	    }
++	    -copyright {
++		set copyright [lindex $argv 1]
++		set argv [lrange $argv 2 end]
++		continue
++	    }
++	    -deprecated {
++		set deprecated 1
++		set argv [lrange $argv 1 end]
++	    }
++	    -help - -h - --help - -? {
++		# Tcllib FR #527029
++		usage 0
++	    }
++	    -help-fmt - --help-fmt {
++		# Tcllib FR #527029
++		fmthelp
++	    }
++	    default {
++		# Unknown option
++		usage
++	    }
++	}
++    }
++
++    if {[llength $argv] < 3} {
++	usage
++    }
++    foreach {format in out} $argv break
++
++    if {$format == {} || $in == {}} {
++	usage
++    }
++    if {$out == {}} {set out -}
++    return $format
++}
++
++# ---------------------------------------------------------------------
++#  3. Read input. Also providing the namespace with file information.
++
++proc get_input {} {
++    global in
++    if {[string equal $in -]} {
++	return [read stdin]
++    } else {
++	set if [open $in r]
++	set text [read $if]
++	close $if
++	return $text
++    }
++}
++
++# ---------------------------------------------------------------------
++# 4. Write output.
++
++proc write_out {text} {
++    global out
++    if {[string equal $out -]} {
++	puts -nonewline stdout $text
++    } else {
++	set of [open $out w]
++	puts -nonewline $of $text
++	close $of
++    }
++}
++
++
++# ---------------------------------------------------------------------
++# Get it all together
++
++proc main {} {
++    global format deprecated extmodule in copyright
++
++    #if {[catch {}
++	cmdline
++
++	::doctools::new dt -format $format -deprecated $deprecated -file $in
++	if {$extmodule != {}} {
++	    dt configure -module $extmodule
++	}
++	if {$copyright != {}} {
++	    dt configure -copyright $copyright
++	}
++
++	write_out [dt format [get_input]]
++
++	set warnings [dt warnings]
++	if {[llength $warnings] > 0} {
++	    puts stderr [join $warnings \n]
++	}
++
++	#{} msg]} {}
++	#puts stderr "Execution error: $msg"
++    #{}
++    return
++}
++
++
++# ---------------------------------------------------------------------
++main
++exit

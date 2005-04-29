@@ -55,12 +55,13 @@
  *      void lm_init (int pack_level, ush *flags)
  *          Initialize the "longest match" routines for a new file
  *
- *      ulg deflate (void)
+ *      off_t deflate (void)
  *          Processes a new input file and return its compressed length. Sets
  *          the compressed length, crc, deflate flags and internal file
  *          attributes.
  */
 
+#include <config.h>
 #include <stdio.h>
 
 #include "tailor.h"
@@ -68,7 +69,7 @@
 #include "lzw.h" /* just for consistency checking */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: deflate.c,v 1.1.1.1 1999/04/23 01:05:56 wsanchez Exp $";
+static char rcsid[] = "$Id: deflate.c,v 0.15 1993/06/24 10:53:53 jloup Exp $";
 #endif
 
 /* ===========================================================================
@@ -248,7 +249,7 @@ local config configuration_table[10] = {
  *  Prototypes for local functions.
  */
 local void fill_window   OF((void));
-local ulg deflate_fast   OF((void));
+local off_t deflate_fast OF((void));
 
       int  longest_match OF((IPos cur_match));
 #ifdef ASMV
@@ -577,7 +578,7 @@ local void fill_window()
  * new strings in the dictionary only for unmatched strings or for short
  * matches. It is used only for the fast compression options.
  */
-local ulg deflate_fast()
+local off_t deflate_fast()
 {
     IPos hash_head; /* head of the hash chain */
     int flush;      /* set if current block must be flushed */
@@ -658,16 +659,13 @@ local ulg deflate_fast()
  * evaluation for matches: a match is finally adopted only if there is
  * no better match at the next window position.
  */
-ulg deflate()
+off_t deflate()
 {
     IPos hash_head;          /* head of hash chain */
     IPos prev_match;         /* previous match */
     int flush;               /* set if current block must be flushed */
     int match_available = 0; /* set if previous match exists */
     register unsigned match_length = MIN_MATCH-1; /* length of best match */
-#ifdef DEBUG
-    extern long isize;        /* byte length of input file, for debug only */
-#endif
 
     if (compr_level <= 3) return deflate_fast(); /* optimized for speed */
 
@@ -748,7 +746,7 @@ ulg deflate()
             strstart++;
             lookahead--;
         }
-        Assert (strstart <= isize && lookahead <= isize, "a bit too far");
+        Assert (strstart <= bytes_in && lookahead <= bytes_in, "a bit too far");
 
         /* Make sure that we always have enough lookahead, except
          * at the end of the input file. We need MAX_MATCH bytes

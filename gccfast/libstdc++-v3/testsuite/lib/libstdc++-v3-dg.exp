@@ -67,7 +67,13 @@ proc libstdc++-v3-init { args } {
 
     set ld_library_path "."
     append ld_library_path ":${gccdir}"
-    set compiler ${gccdir}/g++
+    # APPLE LOCAL begin libstdc++ regression testing
+    if {$gccdir != ""} {
+	set compiler ${gccdir}/g++
+    } else {
+	set compiler g++
+    }
+    # APPLE LOCAL end libstdc++ regression testing
     if { [is_remote host] == 0 && [which $compiler] != 0 } {
       foreach i "[exec $compiler --print-multi-lib]" {
 	set mldir ""
@@ -114,8 +120,35 @@ proc libstdc++-v3-init { args } {
             set includes [exec sh $flags_file --build-includes]
         } else {
             set cxx [transform "g++"]
-            set cxxflags "-ggdb3 -DDEBUG_ASSERT"
+	    set cxxflags "-ggdb3 -DDEBUG_ASSERT"
             set includes "-I${srcdir}"
+
+	    # APPLE LOCAL begin libstdc++ regression testing.
+	    # Builds the testing support libraries. This is hideous,
+	    # but the Makefile.am that builds these libraries when
+	    # running from within the FSF tree is even more hideous,
+	    # because it overrides CXX to point to the build directory
+	    # (we don't always have one!) and therefore thwarts all
+	    # attempts at reuse. The code below just does what the
+	    # Makefile would do: build libv3test.a and
+	    # libv3test-debug.a using libtool, but may not be as
+	    # portable as the makefile.
+	    set cxxflags "$cxxflags -Wno-long-double -DLOCALEDIR=\".\" -fmessage-length=0"
+	    set compile "$cxx $cxxflags $includes -c"
+	    puts "Building testsuite_hooks.o..."
+	    catch "exec $compile $srcdir/testsuite_hooks.cc -o $outdir/testsuite_hooks.o"
+	    puts "Building testsuite_allocator.o..."
+	    catch "exec $compile $srcdir/testsuite_allocator.cc -o $outdir/testsuite_allocator.o"
+	    puts "Building libv3test.a..."
+	    exec libtool -static -o $outdir/libv3test.a $outdir/testsuite_hooks.o $outdir/testsuite_allocator.o
+
+	    puts "Building testsuite_hooks_dbg.o..."
+	    catch "exec $compile -D_GLIBCXX_DEBUG $srcdir/testsuite_hooks.cc -o $outdir/testsuite_hooks_dbg.o"
+	    puts "Building testsuite_allocator_dbg.o..."
+	    catch "exec $compile -D_GLIBCXX_DEBUG $srcdir/testsuite_allocator.cc -o $outdir/testsuite_allocator_dbg.o"
+	    puts "Building libv3test-debug.a..."
+	    exec libtool -static -o $outdir/libv3test-debug.a $outdir/testsuite_hooks_dbg.o $outdir/testsuite_allocator_dbg.o
+	    # APPLE LOCAL end libstdc++ regression testing
         }
     }
 
@@ -202,8 +235,22 @@ proc libstdc++-v3_target_compile { source dest type options } {
 
     # Picks up the freshly-built testsuite library corresponding to the
     # multilib under test.
-    lappend options "ldflags=-L${blddir}/testsuite"
-    lappend options "libs=-lv3test"
+    # APPLE LOCAL begin libstdc++ regression testing
+    if { $blddir != "" } {
+	lappend options "ldflags=-L${blddir}/testsuite"
+    } else {
+	global outdir
+	lappend options "ldflags=-L${outdir}"
+    }
+    # APPLE LOCAL end libstdc++ regression testing
+
+    # APPLE LOCAL begin libstdc++ debug mode
+    if { [lsearch -exact $cxx_final "-D_GLIBCXX_DEBUG"] >= 0 } {
+      lappend options "libs=-lv3test-debug" 
+    } else {
+      lappend options "libs=-lv3test"
+    }
+    # APPLE LOCAL end libstdc++ debug mode
 
     return [target_compile $source $dest $type $options]
 }

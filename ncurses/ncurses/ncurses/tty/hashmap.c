@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2001,2002 Free Software Foundation, Inc.                   *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -70,7 +70,7 @@ AUTHOR
 #include <curses.priv.h>
 #include <term.h>		/* for back_color_erase */
 
-MODULE_ID("$Id: hashmap.c,v 1.1.1.2 2002/01/03 23:53:47 jevans Exp $")
+MODULE_ID("$Id: hashmap.c,v 1.46 2002/09/07 18:13:15 tom Exp $")
 
 #ifdef HASHDEBUG
 
@@ -294,9 +294,9 @@ _nc_hash_map(void)
     } else {
 	/* re-hash all */
 	if (oldhash == 0)
-	    oldhash = typeCalloc(unsigned long, screen_lines);
+	    oldhash = typeCalloc(unsigned long, (unsigned) screen_lines);
 	if (newhash == 0)
-	    newhash = typeCalloc(unsigned long, screen_lines);
+	    newhash = typeCalloc(unsigned long, (unsigned) screen_lines);
 	if (!oldhash || !newhash)
 	    return;		/* malloc failure */
 	for (i = 0; i < screen_lines; i++) {

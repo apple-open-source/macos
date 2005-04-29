@@ -27,9 +27,9 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/struct.c,v 1.22 2002/11/23 08:26:50 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/struct.c,v 1.23 2003/04/27 18:17:34 tsi Exp $ */
 
-#include "struct.h"
+#include "lisp/struct.h"
 
 /*
  * Prototypes

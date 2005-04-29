@@ -93,6 +93,45 @@ IOReturn IOAccelFindAccelerator( io_service_t framebuffer,
     return( kr );
 }
 
+static io_connect_t idConnect;
+enum { kAlloc, kFree };
+
+IOReturn IOAccelCreateAccelID(IOOptionBits options, IOAccelID * identifier)
+{
+    IOReturn err;
+
+    if (!idConnect)
+    {
+	io_service_t
+	service = IORegistryEntryFromPath(kIOMasterPortDefault, 
+					kIOServicePlane ":/IOResources/IODisplayWrangler");
+	if (service) 
+	{
+	    err = IOServiceOpen(service, mach_task_self(), 0, &idConnect);
+	    IOObjectRelease(service);
+	}
+    }
+
+    if (!idConnect)
+	return (kIOReturnNotReady);
+
+    err = IOConnectMethodScalarIScalarO(idConnect, kAlloc, 2, 1, options, *identifier, identifier);
+
+    return (err);
+}
+
+IOReturn IOAccelDestroyAccelID(IOOptionBits options, IOAccelID identifier)
+{
+    IOReturn err;
+
+    if (!idConnect)
+	return (kIOReturnNotReady);
+
+    err = IOConnectMethodScalarIScalarO(idConnect, kFree, 2, 0, options, identifier);
+
+    return (err);
+}
+
 IOReturn IOAccelCreateSurface( io_service_t accelerator, UInt32 wid, eIOAccelSurfaceModeBits modebits,
                                 IOAccelConnect *connect )
 {
@@ -169,15 +208,53 @@ IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, I
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
 					    IOVirtualAddress backing, UInt32 rowbytes )
 {
-	int data[4];
+        IOReturn err;
+
+        err = IOAccelSetSurfaceFramebufferShapeWithBackingAndLength(connect, rgn, options, 
+			framebufferIndex, backing, rowbytes, rgn->bounds.h * rowbytes);
+
+	return (err);
+}
+
+IOReturn IOAccelSetSurfaceFramebufferShapeWithBackingAndLength( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
+                                            eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
+					    IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength )
+{
+        IOReturn err;
+	int data[5];
 
 	data[0] = options;
         data[1] = framebufferIndex;
         data[2] = backing;
         data[3] = rowbytes;
+        data[4] = backingLength;
 
-	return io_connect_method_scalarI_structureI((io_connect_t) connect, kIOAccelSurfaceSetShapeBacking,
-		data, 4, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
+	err = io_connect_method_scalarI_structureI((io_connect_t) connect, kIOAccelSurfaceSetShapeBackingAndLength,
+		data, 5, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
+
+        if ((kIOReturnUnsupported == err) || (kIOReturnBadArgument == err))
+	{
+                err = io_connect_method_scalarI_structureI((io_connect_t) connect, kIOAccelSurfaceSetShapeBacking,
+                        data, 4, (char *) rgn, IOACCEL_SIZEOF_DEVICE_REGION(rgn));
+	}
+	return (err);
+}
+
+IOReturn IOAccelSurfaceControl( IOAccelConnect connect,
+                                    UInt32 selector, UInt32 arg, UInt32 * result) 
+{
+        IOReturn err;
+
+	int countio = 1;
+	int data[2];
+
+        data[0] = selector;
+	data[1] = arg;
+
+	err = io_connect_method_scalarI_scalarO((io_connect_t) connect, kIOAccelSurfaceControl,
+		data, 2, result, &countio);
+    
+        return( err );
 }
 
 IOReturn IOAccelReadLockSurface( IOAccelConnect connect, IOAccelSurfaceInformation * info, UInt32 infoSize )

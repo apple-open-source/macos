@@ -1,6 +1,6 @@
 // Connection.java - Implementation of HttpURLConnection for http protocol.
 
-/* Copyright (C) 1999, 2000  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -12,6 +12,7 @@ package gnu.gcj.protocol.http;
 
 import java.net.*;
 import java.io.*;
+import java.util.Map;
 import java.util.Vector;
 import java.util.Hashtable;
 import java.util.Enumeration;
@@ -24,10 +25,11 @@ import java.util.Enumeration;
 /**
  * Written using on-line Java Platform 1.2 API Specification, as well
  * as "The Java Class Libraries", 2nd edition (Addison-Wesley, 1998).
- * Status:  Minimal subset of functionality.  Proxies and Redirects
- *	not yet handled.  FileNameMap handling needs to be considered.
- *	useCaches, ifModifiedSince, and allowUserInteraction need
- *	consideration as well as doInput and doOutput.
+ * Status: Minimal subset of functionality.  Proxies only partially
+ * handled; Redirects not yet handled.  FileNameMap handling needs to
+ * be considered.  useCaches, ifModifiedSince, and
+ * allowUserInteraction need consideration as well as doInput and
+ * doOutput.
  */
 
 class Connection extends HttpURLConnection
@@ -38,6 +40,33 @@ class Connection extends HttpURLConnection
   private Hashtable hdrHash = new Hashtable();
   private Vector hdrVec = new Vector();
   private BufferedInputStream bufferedIn;
+
+  private static int proxyPort = 80;
+  private static boolean proxyInUse = false;
+  private static String proxyHost = null;
+
+  static 
+  {
+    // Recognize some networking properties listed at
+    // http://java.sun.com/j2se/1.4/docs/guide/net/properties.html.
+    String port = null;
+    proxyHost = System.getProperty("http.proxyHost");
+    if (proxyHost != null)
+      {
+	proxyInUse = true;
+	if ((port = System.getProperty("http.proxyPort")) != null)
+	  {
+	    try
+	      {
+		proxyPort = Integer.parseInt(port);
+	      }
+	    catch (Throwable t)
+	      {
+		// Nothing.  
+	      }
+	  }
+      }
+  }
 
   public Connection(URL url)
   {
@@ -84,12 +113,20 @@ class Connection extends HttpURLConnection
 
     // Get address and port number.
     int port;
-    InetAddress destAddr = InetAddress.getByName(url.getHost());
-    if ((port = url.getPort()) == -1)
-      port = 80;
+    if (proxyInUse)
+      {
+	port = proxyPort;
+	sock = new Socket(proxyHost, port);
+      }
+    else
+      {
+	InetAddress destAddr = InetAddress.getByName(url.getHost());
+	if ((port = url.getPort()) == -1)
+	  port = 80;
+	// Open socket and output stream.
+	sock = new Socket(destAddr, port);
+      }
 
-    // Open socket and output stream.
-    sock = new Socket(destAddr, port);
     PrintWriter out = new PrintWriter(sock.getOutputStream());
 
     // Send request including any request properties that were set.
@@ -122,10 +159,9 @@ class Connection extends HttpURLConnection
       }
   }
 
-  // TODO: public boolean usingProxy()
   public boolean usingProxy()
   {
-    return false;
+    return proxyInUse;
   }
 
   // Override default method in URLConnection.
@@ -165,6 +201,22 @@ class Connection extends HttpURLConnection
 	}
 
     return (String) hdrHash.get(name.toLowerCase());
+  }
+
+  // Override default method in URLConnection.
+  public Map getHeaderFields()
+  {
+    if (!connected)
+      try
+        {
+	  connect();
+	}
+      catch (IOException x)
+        {
+	  return null;
+	}
+
+    return hdrHash;
   }
 
   // Override default method in URLConnection.

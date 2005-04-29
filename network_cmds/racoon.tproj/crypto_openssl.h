@@ -28,6 +28,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+ 
+#ifndef __CRYPTO_OPENSSL_H__
+#define __CRYPTO_OPENSSL_H__
 
 #ifdef HAVE_OPENSSL_EVP_H
 #include <openssl/evp.h>
@@ -35,21 +38,25 @@
 
 #ifdef HAVE_SIGNING_C
 /* X509 Certificate */
-#define GENT_OTHERNAME	0
-#define GENT_EMAIL	1
-#define GENT_DNS	2
-#define GENT_X400	3
-#define GENT_DIRNAME	4
-#define GENT_EDIPARTY	5
-#define GENT_URI	6
-#define GENT_IPADD	7
-#define GENT_RID	8
+#include <openssl/x509v3.h>
+
+#define GENT_OTHERNAME	GEN_OTHERNAME
+#define GENT_EMAIL	GEN_EMAIL
+#define GENT_DNS	GEN_DNS
+#define GENT_X400	GEN_X400
+#define GENT_DIRNAME	GEN_DIRNAME
+#define GENT_EDIPARTY	GEN_EDIPARTY
+#define GENT_URI	GEN_URI
+#define GENT_IPADD	GEN_IPADD
+#define GENT_RID	GEN_RID
+
 
 extern vchar_t *eay_str2asn1dn __P((char *, int));
 extern int eay_cmp_asn1dn __P((vchar_t *, vchar_t *));
 extern int eay_check_x509cert __P((vchar_t *, char *, int));
 extern vchar_t *eay_get_x509asn1subjectname __P((vchar_t *));
-extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int));
+extern vchar_t *eay_get_x509_common_name __P((vchar_t *));
+extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int, int *));
 extern char *eay_get_x509text __P((vchar_t *));
 extern vchar_t *eay_get_x509cert __P((char *));
 extern vchar_t *eay_get_x509sign __P((vchar_t *, vchar_t *, vchar_t *));
@@ -192,3 +199,7 @@ extern const char *eay_version __P((void));
 
 #define CBC_BLOCKLEN 8
 #define IPSEC_ENCRYPTKEYLEN 8
+
+
+#endif /* __CRYPTO_OPENSSL_H__ */
+

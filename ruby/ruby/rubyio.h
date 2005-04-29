@@ -2,11 +2,11 @@
 
   rubyio.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: matz $
+  $Date: 2004/11/22 15:29:50 $
   created at: Fri Nov 12 16:47:09 JST 1993
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
@@ -16,6 +16,10 @@
 #include <stdio.h>
 #include <errno.h>
 
+#if defined(HAVE_STDIO_EXT_H)
+#include <stdio_ext.h>
+#endif
+
 typedef struct OpenFile {
     FILE *f;			/* stdio ptr for read/write */
     FILE *f2;			/* additional ptr for rw pipes */
@@ -23,18 +27,27 @@ typedef struct OpenFile {
     int pid;			/* child's pid (for pipes) */
     int lineno;			/* number of lines read */
     char *path;			/* pathname for file */
-    void (*finalize)();		/* finalize proc */
+    void (*finalize) _((struct OpenFile*,int)); /* finalize proc */
 } OpenFile;
 
 #define FMODE_READABLE  1
 #define FMODE_WRITABLE  2
 #define FMODE_READWRITE 3
+#define FMODE_APPEND   64
+#define FMODE_CREATE  128
 #define FMODE_BINMODE   4
 #define FMODE_SYNC      8
+#define FMODE_WBUF     16
+#define FMODE_RBUF     32
 
 #define GetOpenFile(obj,fp) rb_io_check_closed((fp) = RFILE(rb_io_taint_check(obj))->fptr)
 
 #define MakeOpenFile(obj, fp) do {\
+    if (RFILE(obj)->fptr) {\
+	rb_io_close(obj);\
+	free(RFILE(obj)->fptr);\
+	RFILE(obj)->fptr = 0;\
+    }\
     fp = 0;\
     fp = RFILE(obj)->fptr = ALLOC(OpenFile);\
     fp->f = fp->f2 = NULL;\
@@ -51,12 +64,18 @@ typedef struct OpenFile {
 FILE *rb_fopen _((const char*, const char*));
 FILE *rb_fdopen _((int, const char*));
 int rb_getc _((FILE*));
+long rb_io_fread _((char *, long, FILE *));
+long rb_io_fwrite _((const char *, long, FILE *));
 int  rb_io_mode_flags _((const char*));
+int  rb_io_modenum_flags _((int));
 void rb_io_check_writable _((OpenFile*));
 void rb_io_check_readable _((OpenFile*));
 void rb_io_fptr_finalize _((OpenFile*));
 void rb_io_synchronized _((OpenFile*));
+void rb_io_check_initialized _((OpenFile*));
 void rb_io_check_closed _((OpenFile*));
+int rb_io_wait_readable _((int));
+int rb_io_wait_writable _((int));
 
 VALUE rb_io_taint_check _((VALUE));
 void rb_eof_error _((void));

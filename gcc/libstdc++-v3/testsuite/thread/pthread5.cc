@@ -2,7 +2,7 @@
 // Adpated from libstdc++/5464 submitted by jjessel@amadeus.net
 // Jean-Francois JESSEL (Amadeus SAS Development) 
 //
-// Copyright (C) 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -20,8 +20,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <vector>
@@ -31,8 +31,7 @@
 // Do not include <pthread.h> explicitly; if threads are properly
 // configured for the port, then it is picked up free from STL headers.
 
-#if __GTHREADS
-#ifdef _GLIBCPP_HAVE_UNISTD_H
+#ifdef _GLIBCXX_HAVE_UNISTD_H
 #include <unistd.h>	// To test for _POSIX_THREAD_PRIORITY_SCHEDULING
 #endif
 
@@ -50,7 +49,7 @@ struct tt_t
 void*
 thread_function (void* arg)
 {
-  int myid = *(int*) arg;
+  int myid __attribute__((unused)) = *(int*) arg;
   for (int i = 0; i < LOOPS; i++)
     {
       vector<tt_t> myvect1;
@@ -87,8 +86,14 @@ thread_function (void* arg)
   return arg;
 }
 
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<tt_t>;
+template class __gnu_cxx::__mt_alloc<std::_List_node<std::string*> >;
+#endif   
+
 int
-main (int argc, char *argv[])
+main ()
 {
   int worker;
   pthread_t threads[NTHREADS];
@@ -124,6 +129,3 @@ main (int argc, char *argv[])
 
   return (0);
 }
-#else
-int main (void) {}
-#endif

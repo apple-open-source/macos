@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/dix/events.c,v 3.46 2002/09/17 01:15:09 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/dix/events.c,v 3.52 2004/01/23 07:23:34 herrb Exp $ */
 /************************************************************
 
 Copyright 1987, 1998  The Open Group
@@ -90,11 +90,7 @@ SOFTWARE.
 
 #ifdef XKB
 #include "XKBsrv.h"
-#if NeedFunctionPrototypes
 extern Bool XkbFilterEvents(ClientPtr, int, xEvent *);
-#else
-extern Bool XkbFilterEvents();
-#endif
 #endif
 
 #ifdef XCSECURITY
@@ -204,18 +200,14 @@ static  struct {
 } sprite;			/* info about the cursor sprite */
 
 static void DoEnterLeaveEvents(
-#if NeedFunctionPrototypes
     WindowPtr /*fromWin*/,
     WindowPtr /*toWin*/,
     int /*mode*/
-#endif
 );
 
 static WindowPtr XYToWindow(
-#if NeedFunctionPrototypes
     int /*x*/,
     int /*y*/
-#endif
 );
 
 extern int lastEvent;
@@ -613,12 +605,7 @@ SetCriticalEvent(event)
 }
 
 static void
-#if NeedFunctionPrototypes
 SyntheticMotion(int x, int y)
-#else
-SyntheticMotion(x, y)
-    int x, y;
-#endif
 {
     xEvent xE;
 
@@ -643,13 +630,7 @@ SyntheticMotion(x, y)
 
 #ifdef SHAPE
 static void
-#if NeedFunctionPrototypes
 ConfineToShape(RegionPtr shape, int *px, int *py)
-#else
-ConfineToShape(shape, px, py)
-    RegionPtr shape;
-    int *px, *py;
-#endif
 {
     BoxRec box;
     int x = *px, y = *py;
@@ -686,19 +667,11 @@ ConfineToShape(shape, px, py)
 #endif
 
 static void
-#if NeedFunctionPrototypes
 CheckPhysLimits(
     CursorPtr cursor,
     Bool generateEvents,
     Bool confineToScreen,
     ScreenPtr pScreen)
-#else
-CheckPhysLimits(cursor, generateEvents, confineToScreen, pScreen)
-    CursorPtr cursor;
-    Bool generateEvents;
-    Bool confineToScreen;
-    ScreenPtr pScreen;
-#endif
 {
     HotSpot new;
 
@@ -739,15 +712,9 @@ CheckPhysLimits(cursor, generateEvents, confineToScreen, pScreen)
 }
 
 static void
-#if NeedFunctionPrototypes
 CheckVirtualMotion(
     register QdEventPtr qe,
     register WindowPtr pWin)
-#else
-CheckVirtualMotion(qe, pWin)
-    register QdEventPtr qe;
-    register WindowPtr pWin;
-#endif
 {
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
@@ -831,12 +798,7 @@ PointerConfinedToScreen()
 }
 
 static void
-#if NeedFunctionPrototypes
 ChangeToCursor(CursorPtr cursor)
-#else
-ChangeToCursor(cursor)
-    CursorPtr cursor;
-#endif
 {
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
@@ -868,11 +830,7 @@ IsParent(a, b)
 }
 
 static void
-#if NeedFunctionPrototypes
 PostNewCursor(void)
-#else
-PostNewCursor()
-#endif
 {
     register    WindowPtr win;
     register    GrabPtr grab = inputInfo.pointer->grab;
@@ -942,12 +900,7 @@ XineramaGetCursorScreen()
 #define TIMESLOP (5 * 60 * 1000) /* 5 minutes */
 
 static void
-#if NeedFunctionPrototypes
 MonthChangedOrBadTime(register xEvent *xE)
-#else
-MonthChangedOrBadTime(xE)
-    register xEvent *xE;
-#endif
 {
     /* If the ddx/OS is careless about not processing timestamped events from
      * different sources in sorted order, then it's possible for time to go
@@ -988,6 +941,14 @@ EnqueueEvent(xE, device, count)
     xEvent		*qxE;
 
     NoticeTime(xE);
+
+#ifdef XKB
+    /* Fix for key repeating bug. */
+    if (device->key != NULL && device->key->xkbInfo != NULL && 
+	xE->u.u.type == KeyRelease)
+	AccessXCancelRepeatKey(device->key->xkbInfo, xE->u.u.detail);
+#endif
+
     if (DeviceEventCallback)
     {
 	DeviceEventInfoRec eventinfo;
@@ -1048,11 +1009,7 @@ EnqueueEvent(xE, device, count)
 }
 
 static void
-#if NeedFunctionPrototypes
 PlayReleasedEvents(void)
-#else
-PlayReleasedEvents()
-#endif
 {
     register QdEventPtr *prev, qe;
     register DeviceIntPtr dev;
@@ -1099,13 +1056,7 @@ PlayReleasedEvents()
 }
 
 static void
-#if NeedFunctionPrototypes
 FreezeThaw(register DeviceIntPtr dev, Bool frozen)
-#else
-FreezeThaw(dev, frozen)
-    register DeviceIntPtr dev;
-    Bool frozen;
-#endif
 {
     dev->sync.frozen = frozen;
     if (frozen)
@@ -1697,8 +1648,11 @@ DeliverEventsToWindow(pWin, pEvents, count, filter, grab, mskidx)
 #ifdef XINPUT
     else
     {
-	if (((type == DeviceMotionNotify) || (type == DeviceButtonPress)) &&
-	    deliveries)
+	if (((type == DeviceMotionNotify)
+#ifdef XKB
+	     || (type == DeviceButtonPress)
+#endif
+	    ) && deliveries)
 	    CheckDeviceGrabAndHintWindow (pWin, type,
 					  (deviceKeyButtonPointer*) pEvents,
 					  grab, client, deliveryMask);
@@ -1774,19 +1728,11 @@ MaybeDeliverEventsToClient(pWin, pEvents, count, filter, dontClient)
 }
 
 static void
-#if NeedFunctionPrototypes
 FixUpEventFromWindow(
     xEvent *xE,
     WindowPtr pWin,
     Window child,
     Bool calcChild)
-#else
-FixUpEventFromWindow(xE, pWin, child, calcChild)
-    xEvent *xE;
-    WindowPtr pWin;
-    Window child;
-    Bool calcChild;
-#endif
 {
     if (calcChild)
     {
@@ -1970,12 +1916,7 @@ PointInBorderSize(WindowPtr pWin, int x, int y)
 }
 
 static WindowPtr 
-#if NeedFunctionPrototypes
 XYToWindow(int x, int y)
-#else
-XYToWindow(x, y)
-	int x, y;
-#endif
 {
     register WindowPtr  pWin;
 
@@ -2024,12 +1965,7 @@ XYToWindow(x, y)
 }
 
 static Bool
-#if NeedFunctionPrototypes
 CheckMotion(xEvent *xE)
-#else
-CheckMotion(xE)
-    xEvent *xE;
-#endif
 {
     WindowPtr prevSpriteWin = sprite.win;
 
@@ -2130,10 +2066,13 @@ DefineInitialRootWindow(win)
 	sprite.hotLimits.y2 = PanoramiXPixHeight - panoramiXdataPtr[0].y;
 	sprite.physLimits = sprite.hotLimits;
 	sprite.confineWin = NullWindow;
+#ifdef SHAPE
+        sprite.hotShape = NullRegion;
+#endif
 	sprite.screen = pScreen;
 	/* gotta UNINIT these someplace */
-	REGION_INIT(pScreen, &sprite.Reg1, NullBox, 1);
-	REGION_INIT(pScreen, &sprite.Reg2, NullBox, 1);
+	REGION_NULL(pScreen, &sprite.Reg1);
+	REGION_NULL(pScreen, &sprite.Reg2);
     }
 #endif
 }
@@ -2411,19 +2350,11 @@ BorderSizeNotEmpty(WindowPtr pWin)
 	passive grab set on the window to be activated. */
 
 static Bool
-#if NeedFunctionPrototypes
 CheckPassiveGrabsOnWindow(
     WindowPtr pWin,
     register DeviceIntPtr device,
     register xEvent *xE,
     int count)
-#else
-CheckPassiveGrabsOnWindow(pWin, device, xE, count)
-    WindowPtr pWin;
-    register DeviceIntPtr device;
-    register xEvent *xE;
-    int count;
-#endif
 {
     register GrabPtr grab = wPassiveGrabs(pWin);
     GrabRec tempGrab;
@@ -2447,10 +2378,10 @@ CheckPassiveGrabsOnWindow(pWin, device, xE, count)
 	xkbi= gdev->key->xkbInfo;
 #endif
 	tempGrab.modifierDevice = grab->modifierDevice;
-	if (device == grab->modifierDevice &&
-	    (xE->u.u.type == KeyPress
-#ifdef XINPUT
-	     || xE->u.u.type == DeviceKeyPress
+	if ((device == grab->modifierDevice) &&
+	    ((xE->u.u.type == KeyPress)
+#if defined(XINPUT) && defined(XKB)
+	     || (xE->u.u.type == DeviceKeyPress)
 #endif
 	     ))
 	    tempGrab.modifiersDetail.exact =
@@ -2535,11 +2466,11 @@ CheckDeviceGrabs(device, xE, checkFirst, count)
     register WindowPtr pWin = NULL;
     register FocusClassPtr focus = device->focus;
 
-    if ((xE->u.u.type == ButtonPress
-#ifdef XINPUT
-	 || xE->u.u.type == DeviceButtonPress
+    if (((xE->u.u.type == ButtonPress)
+#if defined(XINPUT) && defined(XKB)
+	 || (xE->u.u.type == DeviceButtonPress)
 #endif
-	 ) && device->button->buttonsDown != 1)
+	 ) && (device->button->buttonsDown != 1))
 	return FALSE;
 
     i = checkFirst;
@@ -3157,14 +3088,9 @@ EventSuppressForWindow(pWin, client, mask, checkOptional)
 }
 
 static WindowPtr 
-#if NeedFunctionPrototypes
 CommonAncestor(
     register WindowPtr a,
     register WindowPtr b)
-#else
-CommonAncestor(a, b)
-    register WindowPtr a, b;
-#endif
 {
     for (b = b->parent; b; b = b->parent)
 	if (IsParent(b, a)) return b;
@@ -3172,19 +3098,12 @@ CommonAncestor(a, b)
 }
 
 static void
-#if NeedFunctionPrototypes
 EnterLeaveEvent(
     int type,
     int mode,
     int detail,
     register WindowPtr pWin,
     Window child)
-#else
-EnterLeaveEvent(type, mode, detail, pWin, child)
-    int type, mode, detail;
-    register WindowPtr pWin;
-    Window child;
-#endif
 {
     xEvent		event;
     register DeviceIntPtr keybd = inputInfo.keyboard;
@@ -3265,13 +3184,7 @@ EnterLeaveEvent(type, mode, detail, pWin, child)
 }
 
 static void
-#if NeedFunctionPrototypes
 EnterNotifies(WindowPtr ancestor, WindowPtr child, int mode, int detail)
-#else
-EnterNotifies(ancestor, child, mode, detail)
-    WindowPtr ancestor, child;
-    int mode, detail;
-#endif
 {
     WindowPtr	parent = child->parent;
 
@@ -3282,13 +3195,7 @@ EnterNotifies(ancestor, child, mode, detail)
 }
 
 static void
-#if NeedFunctionPrototypes
 LeaveNotifies(WindowPtr child, WindowPtr ancestor, int mode, int detail)
-#else
-LeaveNotifies(child, ancestor, mode, detail)
-    WindowPtr child, ancestor;
-    int detail, mode;
-#endif
 {
     register WindowPtr  pWin;
 
@@ -3302,13 +3209,7 @@ LeaveNotifies(child, ancestor, mode, detail)
 }
 
 static void
-#if NeedFunctionPrototypes
 DoEnterLeaveEvents(WindowPtr fromWin, WindowPtr toWin, int mode)
-#else
-DoEnterLeaveEvents(fromWin, toWin, mode)
-    WindowPtr fromWin, toWin;
-    int mode;
-#endif
 {
     if (fromWin == toWin)
 	return;
@@ -3336,14 +3237,7 @@ DoEnterLeaveEvents(fromWin, toWin, mode)
 }
 
 static void
-#if NeedFunctionPrototypes
 FocusEvent(DeviceIntPtr dev, int type, int mode, int detail, register WindowPtr pWin)
-#else
-FocusEvent(dev, type, mode, detail, pWin)
-    DeviceIntPtr dev;
-    int type, mode, detail;
-    register WindowPtr pWin;
-#endif
 {
     xEvent event;
 
@@ -3384,19 +3278,11 @@ FocusEvent(dev, type, mode, detail, pWin)
   * no-op if child not descended from ancestor
   */
 static Bool
-#if NeedFunctionPrototypes
 FocusInEvents(
     DeviceIntPtr dev,
     WindowPtr ancestor, WindowPtr child, WindowPtr skipChild,
     int mode, int detail,
     Bool doAncestor)
-#else
-FocusInEvents(dev, ancestor, child, skipChild, mode, detail, doAncestor)
-    DeviceIntPtr dev;
-    WindowPtr ancestor, child, skipChild;
-    int mode, detail;
-    Bool doAncestor;
-#endif
 {
     if (child == NullWindow)
 	return ancestor == NullWindow;
@@ -3418,20 +3304,11 @@ FocusInEvents(dev, ancestor, child, skipChild, mode, detail, doAncestor)
 
 /* dies horribly if ancestor is not an ancestor of child */
 static void
-#if NeedFunctionPrototypes
 FocusOutEvents(
     DeviceIntPtr dev,
     WindowPtr child, WindowPtr ancestor,
     int mode, int detail,
     Bool doAncestor)
-#else
-FocusOutEvents(dev, child, ancestor, mode, detail, doAncestor)
-    DeviceIntPtr dev;
-    WindowPtr child, ancestor;
-    int mode;
-    int detail;
-    Bool doAncestor;
-#endif
 {
     register WindowPtr  pWin;
 
@@ -3571,7 +3448,6 @@ DoFocusEvents(dev, fromWin, toWin, mode)
 }
 
 int
-#if NeedFunctionPrototypes
 SetInputFocus(
     ClientPtr client,
     DeviceIntPtr dev,
@@ -3579,15 +3455,6 @@ SetInputFocus(
     CARD8 revertTo,
     Time ctime,
     Bool followOK)
-#else
-SetInputFocus(client, dev, focusID, revertTo, ctime, followOK)
-    ClientPtr client;
-    DeviceIntPtr dev;
-    Window focusID;
-    CARD8 revertTo;
-    Time ctime;
-    Bool followOK;
-#endif
 {
     register FocusClassPtr focus;
     register WindowPtr focusWin;

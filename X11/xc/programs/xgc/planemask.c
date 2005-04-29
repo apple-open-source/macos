@@ -7,7 +7,7 @@
 **       functions to create more than one of these planemask choice things
 **       will fail in a big way.
 */
-/* $XFree86: xc/programs/xgc/planemask.c,v 1.3 2000/02/17 14:00:37 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/planemask.c,v 1.4 2003/05/07 21:02:07 herrb Exp $ */
 
 #include <X11/Xos.h>
 #include <stdio.h>
@@ -19,14 +19,7 @@
 #include <X11/Xaw/Toggle.h>
 #include "xgc.h"
 
-static void choose_plane(
-#if NeedFunctionPrototypes
-     Widget, caddr_t, caddr_t
-#endif
-);
-extern void interpret();
-
-extern XStuff X;
+static void choose_plane(Widget, caddr_t, caddr_t);
 
 static unsigned long planemask;	
 static Widget *pm;
@@ -39,8 +32,7 @@ static Widget *pm;
 */
 
 void
-create_planemask_choice(w)
-     Widget w;
+create_planemask_choice(Widget w)
 {
   /* callback list for the toggle widgets */
   static XtCallbackRec callbacklist[] = {
@@ -81,7 +73,7 @@ create_planemask_choice(w)
   num_planes = PlanesOfScreen(X.scr);
 
   planemask = (1<<num_planes)-1;
-  sprintf(buf,"planemask %lu",planemask);
+  snprintf(buf, sizeof buf, "planemask %lu",planemask);
   interpret(buf);
 
   /* Allocate space for stuff that we don't know the size of yet */
@@ -115,7 +107,7 @@ create_planemask_choice(w)
     else
       pmargs[6].value = (XtArgVal) False;
 
-    sprintf(name,"planemask%d",i);
+    snprintf(name, sizeof name, "planemask%d",i);
 
     pminfo[i] = i;		/* which bit we're on; this is needed in
 				   choose_plane (the callback) */
@@ -136,10 +128,7 @@ create_planemask_choice(w)
 
 /*ARGSUSED*/
 static void
-choose_plane(w,closure,call_data)
-     Widget w;
-     caddr_t closure;
-     caddr_t call_data;
+choose_plane(Widget w, caddr_t closure, caddr_t call_data)
 {
   int num;			/* what number button it is */
   Boolean on;			/* is it currently on or off? */
@@ -163,7 +152,7 @@ choose_plane(w,closure,call_data)
   else
     planemask &= ~(1<<num);
 
-  (void) sprintf(buf,"planemask %lu\n",planemask);
+  (void) snprintf(buf, sizeof buf, "planemask %lu\n",planemask);
   interpret(buf);
 }
 
@@ -173,8 +162,7 @@ choose_plane(w,closure,call_data)
 */
 
 void
-update_planemask(mask)
-     long mask;
+update_planemask(long mask)
 {
   int i;			/* counter */
   static Arg maskargs[] = {	/* ArgList for setting toggle state */

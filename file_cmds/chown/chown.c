@@ -105,7 +105,7 @@ main(int argc, char **argv)
 			break;
 		case 'h':
 			hflag = 1;
-			break;
+	 		break;
 		case 'v':
 			vflag = 1;
 			break;
@@ -186,11 +186,7 @@ main(int argc, char **argv)
 		if ((uid == (uid_t)-1 || uid == p->fts_statp->st_uid) &&
 		    (gid == (gid_t)-1 || gid == p->fts_statp->st_gid))
 			continue;
-#ifndef __APPLE__
 		if ((hflag ? lchown : chown)(p->fts_accpath, uid, gid) == -1) {
-#else
-		if (chown(p->fts_accpath, uid, gid) == -1) {
-#endif /* __APPLE__ */
 			if (!fflag) {
 				chownerr(p->fts_path);
 				rval = 1;

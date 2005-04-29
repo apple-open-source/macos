@@ -42,7 +42,7 @@ static const char copyright[] =
 static char sccsid[] = "@(#)ifconfig.c	8.2 (Berkeley) 2/16/94";
 #endif
 static const char rcsid[] =
-	"$Id: ifconfig.c,v 1.5.28.1 2004/04/14 00:27:17 lindak Exp $";
+	"$Id: ifconfig.c,v 1.8 2004/08/26 23:55:21 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -88,7 +88,6 @@ static const char rcsid[] =
 #include <string.h>
 #include <unistd.h>
 
-struct	ether_addr *ether_aton __P((const char *));
 
 #include "ifconfig.h"
 
@@ -128,6 +127,7 @@ static	int ip6lifetime;
 
 struct	afswtch;
 
+int bond_details = 0;
 int supmedia = 0;
 int listcloners = 0;
 
@@ -232,6 +232,10 @@ struct	cmd {
 	{ "vlandev",	NEXTARG,	setvlandev },
 	{ "-vlandev",	NEXTARG,	unsetvlandev },
 #endif
+#ifdef USE_BONDS
+	{ "bonddev",	NEXTARG,	setbonddev },
+	{ "-bonddev",	NEXTARG,	unsetbonddev },
+#endif
 #if 0
 	/* XXX `create' special-cased below */
 	{"create",	0,		clone_create },
@@ -323,6 +327,9 @@ struct	afswtch {
 #ifdef USE_VLANS
 	{ "vlan", AF_UNSPEC, vlan_status, NULL, NULL, },  /* XXX not real!! */
 #endif
+#ifdef USE_BONDS
+	{ "bond", AF_UNSPEC, bond_status, NULL, NULL, },  /* XXX not real!! */
+#endif
 #ifdef USE_IEEE80211
 	{ "ieee80211", AF_UNSPEC, ieee80211_status, NULL, NULL, },  /* XXX not real!! */
 #endif
@@ -401,7 +408,7 @@ main(argc, argv)
 
 	/* Parse leading line options */
 	all = downonly = uponly = namesonly = 0;
-	while ((c = getopt(argc, argv, "adlmu"
+	while ((c = getopt(argc, argv, "abdlmu"
 #ifdef INET6
 					"L"
 #endif
@@ -409,6 +416,9 @@ main(argc, argv)
 		switch (c) {
 		case 'a':	/* scan all interfaces */
 			all++;
+			break;
+		case 'b':	/* bond detailed output */
+			bond_details++;
 			break;
 		case 'd':	/* restrict scan to "down" interfaces */
 			downonly++;
@@ -435,8 +445,8 @@ main(argc, argv)
 	argc -= optind;
 	argv += optind;
 
-	/* -l cannot be used with -a or -m */
-	if (namesonly && (all || supmedia))
+	/* -l cannot be used with -a or -m or -b */
+	if (namesonly && (all || supmedia || bond_details))
 		usage();
 
 	/* nonsense.. */
@@ -666,7 +676,7 @@ ifconfig(argc, argv, afp)
 		if (afp->af_ridreq == NULL || afp->af_difaddr == 0) {
 			warnx("interface %s cannot change %s addresses!",
 			      name, afp->af_name);
-			clearaddr = NULL;
+			clearaddr = 0;
 		}
 	}
 	if (clearaddr) {
@@ -683,7 +693,7 @@ ifconfig(argc, argv, afp)
 		if (afp->af_addreq == NULL || afp->af_aifaddr == 0) {
 			warnx("interface %s cannot change %s addresses!",
 			      name, afp->af_name);
-			newaddr = NULL;
+			newaddr = 0;
 		}
 	}
 	if (newaddr && (setaddr || setmask)) {
@@ -1113,6 +1123,10 @@ status(afp, addrcount, sdl, ifm, ifam)
 #ifdef USE_VLANS
 	if (allfamilies || afp->af_status == vlan_status)
 		vlan_status(s, NULL);
+#endif
+#ifdef USE_BONDS
+	if (allfamilies || afp->af_status == bond_status)
+		bond_status(s, NULL);
 #endif
 #ifdef USE_IEEE80211
 	if (allfamilies || afp->af_status == ieee80211_status)

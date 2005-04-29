@@ -447,6 +447,7 @@ SInt32 CompareExtentKeysPlus( const HFSPlusExtentKey *searchKey, const HFSPlusEx
 	return( result );
 }
 
+
 /*
  * Compare two attribute b-tree keys.
  *

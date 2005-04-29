@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __CFTOKEN_H__
+#define __CFTOKEN_H__
+
+
 extern int yyerrorcount;
 
 extern int yylex __P((void));
@@ -39,3 +43,7 @@ extern int yycf_switch_buffer __P((char *));
 extern int yycf_set_buffer __P((char *));
 extern void yycf_init_buffer __P((void));
 extern void yycf_clean_buffer __P((void));
+
+
+#endif /* __CFTOKEN_H__ */
+

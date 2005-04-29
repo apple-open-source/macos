@@ -1,7 +1,7 @@
 // DeclHandler.java - Optional handler for DTD declaration events.
 // http://www.saxproject.org
 // Public Domain: no warranty.
-// $Id: DeclHandler.java,v 1.4 2003/01/22 06:04:36 gkeating Exp $
+// $Id: DeclHandler.java,v 1.2.2.5 2002/01/29 21:34:14 dbrownell Exp $
 
 package org.xml.sax.ext;
 

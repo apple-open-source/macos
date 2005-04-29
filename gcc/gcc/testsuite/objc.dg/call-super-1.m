@@ -1,4 +1,3 @@
-/* APPLE LOCAL file msg send super */
 /* Check if objc_super stack variables are created correctly (and
    not clobbered by other values).  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */

@@ -30,7 +30,7 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS = -I$(SRCROOT)/bootx.tproj/include.subproj
-NEXTSTEP_PB_CFLAGS = -static
+NEXTSTEP_PB_CFLAGS = -static -msoft-float
 NEXTSTEP_PB_LDFLAGS = -nostdlib -e _StartTVector -seg1addr 05600000
 
 

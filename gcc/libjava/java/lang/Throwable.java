@@ -1,5 +1,5 @@
 /* java.lang.Throwable -- Root class for all Exceptions and Errors
-   Copyright (C) 1998, 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,13 +37,9 @@ exception statement from your version. */
 
 package java.lang;
 
-import java.io.Serializable;
-import java.io.PrintWriter;
 import java.io.PrintStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectInputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.io.Serializable;
 
 /**
  * Throwable is the superclass of all exceptions that can be raised.
@@ -392,7 +388,7 @@ public class Throwable implements Serializable
    * then a line starting with three spaces and the string "... X more" is
    * printed, where X is the number of remaining stackframes.
    *
-   * @param w the PrintWriter to write the trace to
+   * @param pw the PrintWriter to write the trace to
    * @since 1.1
    */
   public void printStackTrace (PrintWriter pw)
@@ -400,7 +396,21 @@ public class Throwable implements Serializable
     pw.print(stackTraceString());
   }
 
-  private static final String nl = System.getProperty("line.separator");
+  /*
+   * We use inner class to avoid a static initializer in this basic class.
+   */
+  private static class StaticData
+  {
+
+    final static String nl;
+
+    static
+    {
+      // Access package private properties field to prevent Security check.
+      nl = System.properties.getProperty("line.separator");
+    }
+  }
+
   // Create whole stack trace in a stringbuffer so we don't have to print
   // it line by line. This prevents printing multiple stack traces from
   // different threads to get mixed up when written to the same PrintWriter.
@@ -453,6 +463,7 @@ public class Throwable implements Serializable
   private static void stackTraceStringBuffer(StringBuffer sb, String name,
 					StackTraceElement[] stack, int equal)
   {
+    String nl = StaticData.nl;
     // (finish) first line
     sb.append(name);
     sb.append(nl);

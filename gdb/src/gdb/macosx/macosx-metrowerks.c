@@ -39,6 +39,7 @@
 #include "breakpoint.h"
 #include "gdbcore.h"
 #include "event-top.h"
+#include "objfiles.h"
 
 #define IS_BC_x(instruction) \
 ((((instruction) & 0xFC000000) >> 26) == 16)
@@ -78,39 +79,43 @@ metrowerks_step (CORE_ADDR range_start, CORE_ADDR range_stop, int step_into)
      instruction */
 
   if ((range_stop & ~0x3) != range_stop)
-      range_stop = ((range_stop + 4) & ~0x3);
+    range_stop = ((range_stop + 4) & ~0x3);
 
-  pc = read_pc();
+  pc = read_pc ();
 
   if (range_start >= range_stop)
-    error ("invalid step range (the stop address must be greater than the start address)");
+    error
+      ("invalid step range (the stop address must be greater than the start address)");
 
   if (pc < range_start)
-    error ("invalid step range ($pc is 0x%lx, less than the stop address of 0x%lx)",
-	   (unsigned long) pc, (unsigned long) range_start);
+    error
+      ("invalid step range ($pc is 0x%s, less than the stop address of 0x%s)",
+       paddr_nz (pc), paddr_nz (range_start));
   if (pc == range_stop)
-    error ("invalid step range ($pc is 0x%lx, equal to the stop address of 0x%lx)",
-	   (unsigned long) pc, (unsigned long) range_stop);
+    error
+      ("invalid step range ($pc is 0x%s, equal to the stop address of 0x%s)",
+       paddr_nz (pc), paddr_nz (range_stop));
   if (pc > range_stop)
-    error ("invalid step range ($pc is 0x%lx, greater than the stop address of 0x%lx)", 
-	   (unsigned long) pc, (unsigned long) range_stop);
+    error
+      ("invalid step range ($pc is 0x%s, greater than the stop address of 0x%s)",
+       paddr_nz (pc), paddr_nz (range_stop));
 
   clear_proceed_status ();
-  
+
   frame = get_current_frame ();
   if (frame == NULL)
     error ("No current frame");
   step_frame_id = get_frame_id (frame);
   step_sp = read_sp ();
-  
+
   step_range_start = range_start;
   step_range_end = range_stop;
   step_over_calls = step_into ? STEP_OVER_NONE : STEP_OVER_ALL;
-  
+
   step_multi = 0;
-  
+
   metrowerks_stepping = 1;
-  proceed ((CORE_ADDR) -1, TARGET_SIGNAL_DEFAULT, 1);
+  proceed ((CORE_ADDR) - 1, TARGET_SIGNAL_DEFAULT, 1);
   make_exec_cleanup (metrowerks_stepping_cleanup, NULL);
 }
 
@@ -140,20 +145,21 @@ metrowerks_step_command (char *args, int from_tty)
     }
 
   argv = buildargv (args);
-  
+
   if (argv == NULL)
     {
       num_args = 0;
-    } 
+    }
   else
     {
       num_args = 0;
       while (argv[num_args] != NULL)
-	num_args++;
+        num_args++;
     }
 
   if (num_args != 3 && num_args != 5)
-    error ("Usage: metrowerks-step <start> <stop> <step-into> ?<func_start> <func_end>?");
+    error
+      ("Usage: metrowerks-step <start> <stop> <step-into> ?<func_start> <func_end>?");
 
   range_start = strtoul (argv[0], NULL, 16);
   range_stop = strtoul (argv[1], NULL, 16);
@@ -176,59 +182,32 @@ metrowerks_step_command (char *args, int from_tty)
   metrowerks_step (range_start, range_stop, step_into);
 }
 
-bfd *FindContainingBFD (CORE_ADDR address)
-{
-  struct target_stack_item *aTarget;
-  bfd *result = NULL;
-
-  for (aTarget = target_stack; (result == NULL) && (aTarget != NULL); aTarget = aTarget->next) {
-    
-    struct section_table* sectionTable;
-
-    if ((NULL == aTarget->target_ops) || (NULL == aTarget->target_ops->to_sections)) {
-      continue;
-    }
-        
-    for (sectionTable = &aTarget->target_ops->to_sections[0];
-	 (result == NULL) && (sectionTable < aTarget->target_ops->to_sections_end);
-	 sectionTable++)
-      {
-	if ((address >= sectionTable->addr) && (address < sectionTable->endaddr)) {
-	  result = sectionTable->bfd;
-	}
-      }
-  }
-  
-  return result;
-}
-
 static void
-metrowerks_address_to_name_command (char* args, int from_tty)
+metrowerks_address_to_name_command (char *args, int from_tty)
 {
   CORE_ADDR address;
-  bfd *aBFD;
+  struct obj_section *osection;
 
+  errno = 0;
   address = strtoul (args, NULL, 16);
-
-  if (annotation_level > 1) {
-    printf("\n\032\032fragment-name ");
-  }
-
-  aBFD = FindContainingBFD (address);
-  if (aBFD != NULL) {
-    printf_unfiltered ("%s\n", aBFD->filename);
-    return;
-  }
-
+  if (errno == 0)
+    {
+      osection = find_pc_sect_section (address, NULL);
+      if (osection != NULL)
+        {
+          printf_unfiltered ("%s\n", osection->objfile->name);
+          return;
+        }
+    }
   printf_unfiltered ("[unknown]\n");
 }
 
 void
-_initialize_metrowerks(void)
+_initialize_metrowerks (void)
 {
-    add_com ("metrowerks-step", class_obscure, metrowerks_step_command,
-	     "GDB as MetroNub command");
+  add_com ("metrowerks-step", class_obscure, metrowerks_step_command,
+           "GDB as MetroNub command");
 
-    add_com ("metrowerks-address-to-name", class_obscure, metrowerks_address_to_name_command,
-	     "GDB as MetroNub command");
+  add_com ("metrowerks-address-to-name", class_obscure,
+           metrowerks_address_to_name_command, "GDB as MetroNub command");
 }

@@ -2,6 +2,7 @@
 
    last edit:	86/05/30	rms
    include config.h, since on VMS it renames some symbols.
+   Use xmalloc instead of malloc.
 
    This implementation of the PWB library alloca() function,
    which is used to allocate space off the run-time stack so
@@ -51,8 +52,13 @@ typedef char	*pointer;		/* generic pointer type */
 
 #define	NULL	0			/* null pointer constant */
 
-extern void	free();
-extern pointer	malloc();
+#ifdef RUBY_LIB
+#define xmalloc ruby_xmalloc
+#define xfree ruby_xfree
+#endif
+
+extern void	xfree();
+extern pointer	xmalloc();
 
 /*
 	Define STACK_DIRECTION if you know the direction of stack
@@ -156,7 +162,7 @@ alloca (size)			/* returns pointer to storage */
 	{
 	  register header	*np = hp->h.next;
 
-	  free ((pointer) hp);	/* collect garbage */
+	  xfree ((pointer) hp);	/* collect garbage */
 
 	  hp = np;		/* -> next header */
 	}
@@ -172,7 +178,7 @@ alloca (size)			/* returns pointer to storage */
   /* Allocate combined header + user data storage. */
 
   {
-    register pointer	new = malloc (sizeof (header) + size);
+    register pointer	new = xmalloc (sizeof (header) + size);
     /* address of header */
 
     ((header *)new)->h.next = last_alloca_header;

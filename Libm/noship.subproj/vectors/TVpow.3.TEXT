@@ -1115,7 +1115,7 @@
 3X	=d	Ep1	Q	OK	Q
 3X	=d	1u1	Q	OK	Q
 3X	=d	1u1i1	Q	OK	Q
-3X	=d	1	Q	OK	Q
+3X	=d	1	Q	OK	1
 3X	=d	1d1	Q	OK	Q
 3X	=d	1i1	Q	OK	Q
 3X	=d	2	Q	OK	Q
@@ -1161,7 +1161,7 @@
 3X	=d	Ep1	-Q	OK	-Q
 3X	=d	1u1	-Q	OK	-Q
 3X	=d	1u1i1	-Q	OK	-Q
-3X	=d	1	-Q	OK	-Q
+3X	=d	1	-Q	OK	1
 3X	=d	1d1	-Q	OK	-Q
 3X	=d	1i1	-Q	OK	-Q
 3X	=d	2	-Q	OK	-Q

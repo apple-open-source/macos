@@ -36,12 +36,12 @@
  */
 /* $XFree86: xc/programs/Xserver/GL/aqua/aquaGlx.c,v 1.2 2002/08/29 02:22:08 torrey Exp $ */
 
-#include "rootless-common.h"
-#include "dri-surface.h"
-
 #include <CoreGraphics/CoreGraphics.h>
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/CGLContext.h>
+
+#include "rootless-common.h"
+#include "dri-surface.h"
 
 // X11 and X11's glx
 #include <miscstruct.h>
@@ -134,8 +134,7 @@ __GLXextensionInfo __glDDXExtensionInfo = {
 
 static GLboolean glAquaDestroyContext(__GLcontext *gc);
 static GLboolean glAquaLoseCurrent(__GLcontext *gc);
-static GLboolean glAquaMakeCurrent(__GLcontext *gc,
-                                   __GLdrawablePrivate *oldglPriv);
+static GLboolean glAquaMakeCurrent(__GLcontext *gc);
 static GLboolean glAquaShareContext(__GLcontext *gc, __GLcontext *gcShare);
 static GLboolean glAquaCopyContext(__GLcontext *dst, const __GLcontext *src,
 			    GLuint mask);
@@ -353,8 +352,7 @@ static void attach(__GLcontext *gc, __GLdrawablePrivate *glPriv)
 }
 
 // glcore.h: "oldglPriv isn't used anymore, kept for backwards compatibility"
-static GLboolean glAquaMakeCurrent(__GLcontext *gc,
-                                   __GLdrawablePrivate *oldglPriv)
+static GLboolean glAquaMakeCurrent(__GLcontext *gc)
 {
     __GLdrawablePrivate *glPriv = gc->interface.imports.getDrawablePrivate(gc);
     CGLError gl_err;
@@ -575,7 +573,11 @@ glAquaRealizeWindow(WindowPtr pWin)
         __GLdrawablePrivate *glPriv = &glxPriv->glPriv;
         GLAQUA_DEBUG_MSG("glAquaRealizeWindow is GL drawable!\n");
 
-        for (gx = glxPriv->glxc; gx != NULL; gx = gx->next) {
+        for (gx = glxPriv->drawGlxc; gx != NULL; gx = gx->next) {
+            gc = (__GLcontext *)gx->gc;
+            attach(gc, glPriv);
+        }
+        for (gx = glxPriv->readGlxc; gx != NULL; gx = gx->next) {
             gc = (__GLcontext *)gx->gc;
             attach(gc, glPriv);
         }
@@ -605,7 +607,11 @@ glAquaUnrealizeWindow(WindowPtr pWin)
         __GLcontext *gc;
         GLAQUA_DEBUG_MSG("glAquaUnealizeWindow is GL drawable!\n");
 
-        for (gx = glxPriv->glxc; gx != NULL; gx = gx->next) {
+        for (gx = glxPriv->drawGlxc; gx != NULL; gx = gx->next) {
+            gc = (__GLcontext *)gx->gc;
+            unattach(gc);
+        }
+        for (gx = glxPriv->readGlxc; gx != NULL; gx = gx->next) {
             gc = (__GLcontext *)gx->gc;
             unattach(gc);
         }
@@ -1225,8 +1231,13 @@ static Bool glAquaScreenProbe(int screen)
 static GLboolean glAquaSwapBuffers(__GLXdrawablePrivate *glxPriv)
 {
     // swap buffers on only *one* of the contexts (e.g. the last one)
-    __GLcontext *gc = (__GLcontext *)glxPriv->glxc->gc;
+    __GLcontext *gc;
     CGLError gl_err;
+
+    if (glxPriv->drawGlxc != NULL)
+	gc = (__GLcontext *) glxPriv->drawGlxc->gc;
+    else
+	gc = (__GLcontext *) glxPriv->readGlxc->gc;
 
     if (gc != NULL && gc->ctx != NULL)
     {

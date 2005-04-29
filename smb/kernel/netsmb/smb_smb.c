@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_smb.c,v 1.23 2003/09/06 20:27:15 lindak Exp $
+ * $Id: smb_smb.c,v 1.35 2005/01/28 23:54:13 lindak Exp $
  */
 /*
  * various SMB requests. Most of the routines merely packs data into mbufs.
@@ -44,13 +44,13 @@
 #include <sys/sysctl.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <sys/random.h>
 
-#ifdef APPLE
 #include <sys/mbuf.h>
 #include <sys/smb_apple.h>
-#endif
+#include <sys/utfconv.h>
 
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 #include <netsmb/smb.h>
 #include <netsmb/smb_subr.h>
@@ -70,7 +70,7 @@ static struct smb_dialect smb_dialects[] = {
 	{SMB_DIALECT_LANMAN1_0,	"MICROSOFT NETWORKS 3.0"},
 	{SMB_DIALECT_LANMAN1_0,	"LANMAN1.0"},
 	{SMB_DIALECT_LANMAN2_0,	"LM1.2X002"},
-	{SMB_DIALECT_LANMAN2_0,	"Samba"},
+	{SMB_DIALECT_LANMAN2_1,	"LANMAN2.1"},
 	{SMB_DIALECT_NTLM0_12,	"NT LANMAN 1.0"},
 	{SMB_DIALECT_NTLM0_12,	"NT LM 0.12"},
 	{-1,			NULL}
@@ -124,26 +124,18 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 	u_int8_t wc, stime[8], sblen;
 	u_int16_t dindex, tw, tw1, swlen, bc;
 	int error, maxqsz;
-#ifdef APPLE
-	int unicode = SMB_UNICODE_STRINGS(vcp);
-	void * servercharset = vcp->vc_toserver;
-	void * localcharset = vcp->vc_tolocal;
-#endif
+	int unicode = 0;
+	char *servercs;
+	void *servercshandle = NULL;
+	void *localcshandle = NULL;
+	u_int16_t toklen;
 
 	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0)
 		return EINVAL;
-#ifdef APPLE
-	/* Disable Unicode for SMB_COM_NEGOTIATE requests */ 
-	if (unicode) {
-		/* Use NULL until ASCII -> UTF-8 works */
-		vcp->vc_toserver = NULL;
-		vcp->vc_tolocal  = NULL;
-	}
-#endif
 	vcp->vc_hflags = SMB_FLAGS_CASELESS;
-#ifndef XXX
+	/* Disable Unicode for SMB_COM_NEGOTIATE requests */ 
+	vcp->vc_hflags &= ~SMB_FLAGS2_UNICODE;
 	vcp->vc_hflags2 |= SMB_FLAGS2_ERR_STATUS;
-#endif
 	vcp->obj.co_flags &= ~(SMBV_ENCRYPT);
 	sp = &vcp->vc_sopt;
 	bzero(sp, sizeof(struct smb_sopt));
@@ -195,12 +187,14 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 			error = md_get_uint16le(mdp, &bc);
 			if (error)
 				break;
-#ifdef APPLE
+			if (sp->sv_sm & SMB_SM_SIGS_REQUIRE)
+				SMBERROR("server configuration requires packet signing, which we dont support\n");
 			if (sp->sv_caps & SMB_CAP_UNICODE) {
 				/*
 				 * They do Unicode.
 				 */
 				vcp->obj.co_flags |= SMBV_UNICODE;
+				unicode = 1;
 			}
 			if (!(sp->sv_caps & SMB_CAP_STATUS32)) {
 				/*
@@ -208,7 +202,7 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 				 *
 				 * If we send requests with
 				 * SMB_FLAGS2_ERR_STATUS set in
-				 * Flags2, Windows 98, at least
+				 * Flags2, Windows 98, at least,
 				 * appears to send replies with that
 				 * bit set even though it sends back
 				 * DOS error codes.  (They probably
@@ -221,14 +215,47 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 				 */
 				vcp->vc_hflags2 &= ~SMB_FLAGS2_ERR_STATUS;
 			}
-#endif
 			if (dp->d_id == SMB_DIALECT_NTLM0_12 &&
 			    sp->sv_maxtx < 4096 &&
 			    (sp->sv_caps & SMB_CAP_NT_SMBS) == 0) {
 				vcp->obj.co_flags |= SMBV_WIN95;
 				SMBSDEBUG("Win95 detected\n");
 			}
-			if (sblen && sblen <= SMB_MAXCHALLENGELEN &&
+
+			/*
+			 * 3 cases here:
+			 *
+			 * 1) Extended security.
+			 * Read bc bytes below for security blob.
+			 * Note that we DON'T put the Caps flag in outtok.
+			 * outtoklen = bc
+			 *
+			 * 2) No extended security, have challenge data and
+			 * possibly a domain name (which might be zero
+			 * bytes long, meaning "missing").
+			 * Copy challenge stuff to vcp->vc_ch (sblen bytes),
+			 * then copy Cap flags and domain name (bc-sblen
+			 * bytes) to outtok.
+			 * outtoklen = bc-sblen+4, where the 4 is for the
+			 * Caps flag.
+			 *
+			 * 3) No extended security, no challenge data, just
+			 * possibly a domain name.
+			 * Copy Capsflags and domain name (bc) to outtok.
+			 * outtoklen = bc+4, where 4 is for the Caps flag
+			 */
+
+			/*
+			 * Sanity check: make sure the challenge length
+			 * isn't bigger than the byte count.
+			 */
+			if (sblen > bc) {
+				error = EBADRPC;
+				break;
+			}
+			toklen = bc;
+
+			if (sblen && sblen <= SMB_MAXCHALLENGELEN && 
 			    sp->sv_sm & SMB_SM_ENCRYPT) {
 				error = md_get_mem(mdp, vcp->vc_ch, sblen,
 						   MB_MSYSTEM);
@@ -236,20 +263,62 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 					break;
 				vcp->vc_chlen = sblen;
 				vcp->obj.co_flags |= SMBV_ENCRYPT;
-				break;
-			}
-			if (!(sp->sv_caps & SMB_CAP_EXT_SECURITY))
-				break;
-			error = EBADRPC;
+				toklen -= sblen; 
+
+			}	
+
+			/* For servers that don't support unicode
+			* there are 2 things we could do:
+			* 1) Pass the server Caps flags up to the 
+			* user level so the logic up there will
+			* know whether the domain name is unicode
+			* (this is what I did).
+			* 2) Try to convert the non-unicode string
+			* to unicode. This doubles the length of
+			* the outtok buffer and would be guessing that
+			* the string was single-byte ascii, and that 
+			* might be wrong. Why ask for trouble? */
+
 			/* Warning: NetApp may omit the GUID */
-			vcp->vc_outtoklen =  bc;
-			vcp->vc_outtok = malloc(bc, M_SMBTEMP, M_WAITOK);
-			error = md_get_mem(mdp, vcp->vc_outtok, bc, MB_MSYSTEM);
+			
+			if (!(sp->sv_caps & SMB_CAP_EXT_SECURITY)) {
+				/*
+				 * No extended security.
+				 * Stick domain name, if present,
+				 * and caps in outtok.
+				 */
+				toklen = toklen + 4; /* space for Caps flags */
+				vcp->vc_outtoklen =  toklen;
+				vcp->vc_outtok = malloc(toklen, M_SMBTEMP,
+							M_WAITOK);
+				/* first store server capability bits */
+				*(u_int32_t *)(vcp->vc_outtok) = sp->sv_caps;
+
+				/*
+				 * Then store the domain name if present;
+				 * be sure to subtract 4 from the length
+				 * for the Caps flag.
+				 */
+				if (toklen > 4) {
+					error = md_get_mem(mdp,
+					    vcp->vc_outtok+4, toklen-4,
+					    MB_MSYSTEM);
+				}
+			} else {
+				/*
+				 * Extended security.
+				 * Stick the rest of the buffer in outtok.
+				 */
+				vcp->vc_outtoklen =  toklen;
+				vcp->vc_outtok = malloc(toklen, M_SMBTEMP,
+							M_WAITOK);
+				error = md_get_mem(mdp, vcp->vc_outtok, toklen,
+						   MB_MSYSTEM);
+			}
 			break;
 		}
 		vcp->vc_hflags2 &= ~(SMB_FLAGS2_EXT_SEC|SMB_FLAGS2_DFS|
 				     SMB_FLAGS2_ERR_STATUS|SMB_FLAGS2_UNICODE);
-		unicode = 0;
 		if (dp->d_id > SMB_DIALECT_CORE) {
 			md_get_uint16le(mdp, &tw);
 			sp->sv_sm = tw;
@@ -308,18 +377,175 @@ smb_smb_negotiate(struct smb_vc *vcp, struct smb_cred *scred)
 		SMBSDEBUG("MAXRAW = %d\n", sp->sv_maxraw);
 		SMBSDEBUG("MAXTX = %d\n", sp->sv_maxtx);
 	}
-bad:
-#ifdef APPLE
-	/* Restore Unicode conversion state */
-	if (unicode) {
-		vcp->vc_toserver = servercharset;
-		vcp->vc_tolocal  = localcharset;
-		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
+
+	/*
+	 * If the server supports Unicode, set up to use Unicode
+	 * when talking to them.  Othewise, use code page 437.
+	 */
+	if (unicode)
+		servercs = "ucs-2";
+	else {
+		/*
+		 * todo: if we can't determine the server's encoding, we
+		 * need to try a best-guess here.
+		 */
+		servercs = "cp437";
 	}
-#endif
+	error = iconv_open(servercs, "utf-8", &servercshandle);
+	if (error != 0)
+		goto bad;
+	error = iconv_open("utf-8", servercs, &localcshandle);
+	if (error != 0) {
+		iconv_close(servercshandle);
+		goto bad;
+	}
+	if (vcp->vc_toserver)
+		iconv_close(vcp->vc_toserver);
+	if (vcp->vc_tolocal)
+		iconv_close(vcp->vc_tolocal);
+	vcp->vc_toserver = servercshandle;
+	vcp->vc_tolocal  = localcshandle;
+	if (unicode)
+		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
+bad:
 	smb_rq_done(rqp);
 	return error;
 }
+
+static void
+get_ascii_password(struct smb_vc *vcp, int upper, char *pbuf)
+{
+	if (upper) {
+		iconv_convstr(vcp->vc_toupper, pbuf, smb_vc_getpass(vcp),
+			      SMB_MAXPASSWORDLEN);
+	} else {
+		strncpy(pbuf, smb_vc_getpass(vcp), SMB_MAXPASSWORDLEN);
+		pbuf[SMB_MAXPASSWORDLEN] = '\0';
+	}
+}
+
+static void
+get_unicode_password(struct smb_vc *vcp, char *pbuf)
+{
+	strncpy(pbuf, smb_vc_getpass(vcp), SMB_MAXPASSWORDLEN);
+	pbuf[SMB_MAXPASSWORDLEN] = '\0';
+}
+
+static u_char *
+add_name_to_blob(u_char *blobnames, struct smb_vc *vcp, const u_char *name,
+		 size_t namelen, int nametype, int uppercase)
+{
+	struct ntlmv2_namehdr namehdr;
+	char *namebuf;
+	u_int16_t *uninamebuf;
+	size_t uninamelen;
+
+	if (name != NULL) {
+		uninamebuf = malloc(2 * namelen, M_SMBTEMP, M_WAITOK);
+		if (uppercase) {
+			namebuf = malloc(namelen + 1, M_SMBTEMP, M_WAITOK);
+			iconv_convstr(vcp->vc_toupper, namebuf, name, namelen);
+			uninamelen = smb_strtouni(uninamebuf, namebuf, namelen,
+			    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+			free(namebuf, M_SMBTEMP);
+		} else {
+			uninamelen = smb_strtouni(uninamebuf, name, namelen,
+			    UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+		}
+	} else {
+		uninamelen = 0;
+		uninamebuf = NULL;
+	}
+	namehdr.type = htoles(nametype);
+	namehdr.len = htoles(uninamelen);
+	bcopy(&namehdr, blobnames, sizeof namehdr);
+	blobnames += sizeof namehdr;
+	if (uninamebuf != NULL) {
+		bcopy(uninamebuf, blobnames, uninamelen);
+		blobnames += uninamelen;
+		free(uninamebuf, M_SMBTEMP);
+	}
+	return blobnames;
+}
+
+static u_char *
+make_ntlmv2_blob(struct smb_vc *vcp, u_int64_t client_nonce, size_t *bloblen)
+{
+	u_char *blob;
+	size_t blobsize;
+	size_t domainlen, srvlen;
+	struct ntlmv2_blobhdr *blobhdr;
+	struct timespec now;
+	u_int64_t timestamp;
+	u_char *blobnames;
+
+	/*
+	 * XXX - the information at
+	 *
+	 * http://davenport.sourceforge.net/ntlm.html#theNtlmv2Response
+	 *
+	 * says that the "target information" comes from the Type 2 message,
+	 * but, as we're not doing NTLMSSP, we don't have that.
+	 *
+	 * Should we use the names from the NegProt response?  Can we trust
+	 * the NegProt response?  (I've seen captures where the primary
+	 * domain name has an extra byte in front of it.)
+	 *
+	 * For now, we don't trust it - we use vcp->vc_domain and
+	 * vcp->vc_srvname, instead.  We upper-case them and convert
+	 * them to Unicode, as that's what's supposed to be in the blob.
+	 */
+	domainlen = strlen(vcp->vc_domain);
+	srvlen = strlen(vcp->vc_srvname);
+	blobsize = sizeof(struct ntlmv2_blobhdr)
+	    + 3*sizeof (struct ntlmv2_namehdr) + 4 + 2*domainlen + 2*srvlen;
+	blob = malloc(blobsize, M_SMBTEMP, M_WAITOK);
+	bzero(blob, blobsize);
+	blobhdr = (struct ntlmv2_blobhdr *)blob;
+	blobhdr->header = htolel(0x00000101);
+	nanotime(&now);
+	smb_time_local2NT(&now, 0, &timestamp);
+	blobhdr->timestamp = htoleq(timestamp);
+	blobhdr->client_nonce = client_nonce;
+	blobnames = blob + sizeof (struct ntlmv2_blobhdr);
+	blobnames = add_name_to_blob(blobnames, vcp, vcp->vc_domain, domainlen,
+				     NAMETYPE_DOMAIN_NB, 1);
+	blobnames = add_name_to_blob(blobnames, vcp, vcp->vc_srvname, srvlen,
+				     NAMETYPE_MACHINE_NB, 1);
+	blobnames = add_name_to_blob(blobnames, vcp, NULL, 0, NAMETYPE_EOL, 0);
+	*bloblen = blobnames - blob;
+	return (blob);
+}
+
+static char *
+uppercasify_string(struct smb_vc *vcp, const char *string)
+{
+	size_t stringlen;
+	char *ucstrbuf;
+
+	stringlen = strlen(string);
+	ucstrbuf = malloc(stringlen + 1, M_SMBTEMP, M_WAITOK);
+	iconv_convstr(vcp->vc_toupper, ucstrbuf, string, stringlen);
+	return (ucstrbuf);
+}
+
+/*
+ * When not doing Kerberos, we can try, in order:
+ *
+ *	NTLMv2
+ *	NTLM with the ASCII password not upper-cased
+ *	NTLM with the ASCII password upper-cased
+ *
+ * if the server supports encrypted passwords, or
+ *
+ *	plain-text with the ASCII password not upper-cased
+ *	plain-text with the ASCII password upper-cased
+ *
+ * if it doesn't.
+ */
+#define STATE_NTLMV2	0
+#define STATE_NOUCPW	1
+#define STATE_UCPW	2
 
 int
 smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
@@ -329,23 +555,27 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 	struct mdchain *mdp;
 	u_int8_t wc;
 /*	u_int16_t tw, tw1;*/
+	int minauth;
 	smb_uniptr unipp = NULL, ntencpass = NULL;
-	char *pp = NULL, *up;
+	char *pp = NULL, *up, *ucup, *ucdp;
 	char *pbuf = NULL;
 	char *encpass = NULL;
-	int error, plen = 0, uniplen = 0, ulen;
-	int upper = 0;
+	int error, ulen;
+	size_t plen = 0, uniplen = 0;
+	int state;
+	size_t ntlmv2_bloblen;
+	u_char *ntlmv2_blob;
+	u_int64_t client_nonce;
 	u_int32_t caps = 0;
 	u_int16_t bl; /* BLOB length */
+	u_int16_t stringlen;
 
-#ifdef APPLE
 	caps |= SMB_CAP_LARGE_FILES;
 	if (vcp->obj.co_flags & SMBV_UNICODE)
 		caps |= SMB_CAP_UNICODE;
-#endif
-#ifdef XXX
-	caps |= SMB_CAP_NT_SMBS;
-#endif
+        if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS)
+                caps |= SMB_CAP_NT_SMBS; /* we do if they do */
+	minauth = vcp->obj.co_flags & SMBV_MINAUTH;
 	if (vcp->vc_intok) {
 		if (vcp->vc_intoklen > 65536 ||
 		    !(vcp->vc_hflags2 & SMB_FLAGS2_EXT_SEC) ||
@@ -355,6 +585,10 @@ smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred)
 	}
 	if (vcp->vc_hflags2 & SMB_FLAGS2_ERR_STATUS)
 		caps |= SMB_CAP_STATUS32;
+	if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT)
+		state = STATE_NTLMV2;	/* try NTLMv2 first */
+	else
+		state = STATE_NOUCPW;	/* try plain-text mixed-case first */
 again:
 
 	if (!vcp->vc_intok)
@@ -363,10 +597,53 @@ again:
 	if (smb_smb_nomux(vcp, scred, __FUNCTION__) != 0)
 		return EINVAL;
 
+	if (!vcp->vc_intok) {
+		/*
+		 * We're not doing extended security, which, for
+		 * now, means we're not doing Kerberos.
+		 * Fail if the minimum authentication level is
+		 * Kerberos.
+		 */
+		if (minauth >= SMBV_MINAUTH_KERBEROS)
+			return EAUTH;
+		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
+			/*
+			 * Encrypted passwords.
+			 * If we're going to try NTLM, fail if the minimum
+			 * authentication level is NTLMv2 or better.
+			 */
+			if (state > STATE_NTLMV2) {
+				if (minauth >= SMBV_MINAUTH_NTLMV2)
+					return EAUTH;
+			}
+		} else {
+			/*
+			 * Plain-text passwords.
+			 * Fail if the minimum authentication level is
+			 * LM or better.
+			 */
+			if (minauth >= SMBV_MINAUTH_LM)
+				return EAUTH;
+		}
+	}
+
 	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX,
 			     scred, &rqp);
 	if (error)
 		return error;
+	/*
+	 * Domain name must be upper-case, as that's what's used
+	 * when computing LMv2 and NTLMv2 responses - and, for NTLMv2,
+	 * the domain name in the request has to be upper-cased as well.
+	 * (That appears not to be the case for the user name.  Go
+	 * figure.)
+	 *
+	 * don't need to uppercase domain string. It's already uppercase UTF-8. */
+
+	stringlen = strlen(vcp->vc_domain)+1 /* strlen doesn't count null */;
+	ucdp = malloc(stringlen, M_SMBTEMP, M_WAITOK);
+	memcpy(ucdp,vcp->vc_domain,stringlen);
+
 	if (vcp->vc_intok) {
 		caps |= SMB_CAP_EXT_SECURITY;
 	} else if (!(vcp->vc_sopt.sv_sm & SMB_SM_USER)) {
@@ -380,47 +657,119 @@ again:
 		 uniplen = sizeof(smb_unieol);
 	} else {
 		pbuf = malloc(SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
-		encpass = malloc(24, M_SMBTEMP, M_WAITOK);
-		/*
-		 * We try w/o uppercasing first so Samba mixed case
-		 * passwords work.  If that fails we come back and try
-		 * uppercasing to satisfy OS/2 and Windows for Workgroups.
-		 */
-		if (upper++) {
-			iconv_convstr(vcp->vc_toupper, pbuf,
-				      smb_vc_getpass(vcp), SMB_MAXPASSWORDLEN);
-		} else {
-			strncpy(pbuf, smb_vc_getpass(vcp), SMB_MAXPASSWORDLEN);
-			pbuf[SMB_MAXPASSWORDLEN] = '\0';
-		}
-#ifdef APPLE
-		if (!SMB_UNICODE_STRINGS(vcp))
-#endif /* APPLE */
-			iconv_convstr(vcp->vc_toserver, pbuf, pbuf,
-				      SMB_MAXPASSWORDLEN);
 		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
-			uniplen = plen = 24;
-			smb_encrypt(pbuf, vcp->vc_ch, encpass);
-			ntencpass = malloc(uniplen, M_SMBTEMP, M_WAITOK);
-#ifdef APPLE
-			if (SMB_UNICODE_STRINGS(vcp)) {
-				strncpy(pbuf, smb_vc_getpass(vcp),
-					SMB_MAXPASSWORDLEN);
-				pbuf[SMB_MAXPASSWORDLEN] = '\0';
-			} else
-#endif /* APPLE */
-				iconv_convstr(vcp->vc_toserver, pbuf,
-					      smb_vc_getpass(vcp),
-					      SMB_MAXPASSWORDLEN);
-			smb_ntencrypt(pbuf, vcp->vc_ch, (u_char*)ntencpass);
-			pp = encpass;
-			unipp = ntencpass;
+			if (state == STATE_NTLMV2) {
+				/*
+				 * Compute the LMv2 and NTLMv2 responses,
+				 * derived from the challenge, the user name,
+				 * the domain/workgroup into which we're
+				 * logging, and the Unicode password.
+				 */
+				get_unicode_password(vcp, pbuf);
+
+				/*
+				 * Construct the client nonce by getting
+				 * a bunch of random data.
+				 */
+				read_random((void *) &client_nonce,
+					    sizeof(client_nonce));
+
+				/*
+				 * Convert the user name to upper-case, as
+				 * that's what's used when computing LMv2
+				 * and NTLMv2 responses.
+				 */
+				ucup = uppercasify_string(vcp, vcp->vc_username);
+
+				/*
+				 * Compute the LMv2 response, derived
+				 * from the server challenge, the
+				 * user name, the domain/workgroup
+				 * into which we're logging, the
+				 * client nonce, and the Unicode
+				 * password.
+				 */
+				smb_ntlmv2response(pbuf, ucup, ucdp, vcp->vc_ch,
+						  (u_char *)&client_nonce, 8,
+						  (u_char**)&encpass, &plen);
+				pp = encpass;
+
+				/*
+				 * Construct the blob.
+				 */
+				ntlmv2_blob = make_ntlmv2_blob(vcp,
+							       client_nonce,
+							       &ntlmv2_bloblen);
+
+				/*
+				 * Compute the NTLMv2 response, derived
+				 * from the server challenge, the
+				 * user name, the domain/workgroup
+				 * into which we're logging, the
+				 * blob, and the Unicode password.
+				 */
+				smb_ntlmv2response(pbuf, ucup, ucdp, vcp->vc_ch,
+						  ntlmv2_blob, ntlmv2_bloblen,
+						  (u_char**)&ntencpass,
+						  &uniplen);
+				free(ucup, M_SMBTEMP);
+				free(ntlmv2_blob, M_SMBTEMP);
+				unipp = ntencpass;
+			} else {
+				plen = 24;
+				encpass = malloc(plen, M_SMBTEMP, M_WAITOK);
+				if (minauth >= SMBV_MINAUTH_NTLM) {
+					/*
+					 * Don't put the LM response on
+					 * the wire - it's too easy to
+					 * crack.
+					 */
+					bzero(encpass, plen);
+				} else {
+					/*
+					 * Compute the LM response, derived
+					 * from the challenge and the ASCII
+					 * password.
+					 *
+					 * We try w/o uppercasing first so
+					 * Samba mixed case passwords work.
+					 * If that fails, we come back and
+					 * try uppercasing to satisfy OS/2
+					 * and Windows for Workgroups.
+					 */
+					get_ascii_password(vcp,
+							   (state == STATE_UCPW),
+							   pbuf);
+					smb_lmresponse(pbuf, vcp->vc_ch,
+						       encpass);
+				}
+				pp = encpass;
+
+				/*
+				 * Compute the NTLM response, derived from
+				 * the challenge and the Unicode password.
+				 */
+				get_unicode_password(vcp, pbuf);
+				uniplen = 24;
+				ntencpass = malloc(uniplen, M_SMBTEMP,
+						   M_WAITOK);
+				smb_ntlmresponse(pbuf, vcp->vc_ch,
+						(u_char*)ntencpass);
+				unipp = ntencpass;
+			}
 		} else {
+			/*
+			 * We try w/o uppercasing first so Samba mixed case
+			 * passwords work.  If that fails, we come back and
+			 * try uppercasing to satisfy OS/2 and Windows for
+			 * Workgroups.
+			 */
+			get_ascii_password(vcp, (state == STATE_UCPW), pbuf);
 			plen = strlen(pbuf) + 1;
 			pp = pbuf;
 			uniplen = plen * 2;
 			ntencpass = malloc(uniplen, M_SMBTEMP, M_WAITOK);
-			smb_strtouni(ntencpass, smb_vc_getpass(vcp));
+			(void)smb_strtouni(ntencpass, smb_vc_getpass(vcp), 0, UTF_PRECOMPOSED);
 			plen--;
 			/*
 			 * The uniplen is zeroed because Samba cannot deal
@@ -475,18 +824,17 @@ again:
 			mb_put_mem(mbp, pp, plen, MB_MSYSTEM); /* password */
 			mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
 			smb_put_dstring(mbp, vcp, up, SMB_CS_NONE); /* user */
-			smb_put_dstring(mbp, vcp, vcp->vc_domain, SMB_CS_NONE);
+			smb_put_dstring(mbp, vcp, ucdp, SMB_CS_NONE); /* domain */
 		}
-#ifdef APPLE
 		smb_put_dstring(mbp, vcp, "MacOSX", SMB_CS_NONE);
-#else
-		smb_put_dstring(mbp, vcp, "FreeBSD", SMB_CS_NONE);
-#endif /* APPLE */
 		smb_put_dstring(mbp, vcp, "NETSMB", SMB_CS_NONE); /* LAN Mgr */
 	}
 	smb_rq_bend(rqp);
-	if (ntencpass)
+	if (ntencpass) {
 		free(ntencpass, M_SMBTEMP);
+		ntencpass = NULL;
+	}
+	free(ucdp, M_SMBTEMP);
 	error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
 	SMBSDEBUG("%d\n", error);
 	if (error) {
@@ -526,13 +874,30 @@ again:
 		error = 0;
 	} while (0);
 bad:
-	if (encpass)
+	if (encpass) {
 		free(encpass, M_SMBTEMP);
-	if (pbuf)
+		encpass = NULL;
+	}
+	if (pbuf) {
 		free(pbuf, M_SMBTEMP);
+		pbuf = NULL;
+	}
 	smb_rq_done(rqp);
-	if (error && upper == 1 && vcp->vc_sopt.sv_sm & SMB_SM_USER)
-		goto again;
+	if (error && (vcp->vc_sopt.sv_sm & SMB_SM_USER) && !(vcp->vc_intok)) {
+		/*
+		 * We're doing user-level authentication (so we are actually
+		 * sending authentication stuff over the wire), and we're
+		 * not doing extended security), and the stuff we tried
+		 * failed.  Should we try the next type of authentication?
+		 */
+		if (state < STATE_UCPW) {
+			/*
+			 * Yes, we still have more to try.
+			 */
+			state++;
+			goto again;
+		}
+	}
 	return error;
 }
 
@@ -602,36 +967,11 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 	struct mbchain *mbp;
 	char *pp, *pbuf, *encpass;
 	int error, plen, caseopt;
-#ifdef APPLE
 	int upper = 0;
 
  again:
         vcp = SSTOVC(ssp);
         
-        /* Disable Unicode for SMB_COM_TREE_CONNECT_ANDX requests */
-	if (vcp->vc_hflags2 & SMB_FLAGS2_UNICODE) {
-                vcp->vc_hflags2 &= ~SMB_FLAGS2_UNICODE;
-	} 
-	
-        /* 
-         * Disable the converters during the request. With Unicode off, strings from 
-         * Windows servers will likely be encoded with their local system encoding.
-         * If we try to convert them and fail then the treeconnect will fail. In this function,
-         * we can just use the strings as they're given to us. The converters are enabled
-         * on exit.
-         */
-	if (vcp->vc_toserver) {
-		iconv_close(vcp->vc_toserver);
-		/* Use NULL until UTF-8 -> ASCII works */
-                vcp->vc_toserver = NULL;
-        }
-        if (vcp->vc_tolocal) {
-                iconv_close(vcp->vc_tolocal);
-                /* Use NULL until ASCII -> UTF-8 works*/
-                vcp->vc_tolocal = NULL;
-        }
-#endif
-	
 	ssp->ss_tid = SMB_TID_UNKNOWN;
 	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_TREE_CONNECT_ANDX, scred, &rqp);
 	if (error)
@@ -645,7 +985,6 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 	} else {
 		pbuf = malloc(SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
 		encpass = malloc(24, M_SMBTEMP, M_WAITOK);
-#ifdef APPLE
 		/*
 		 * We try w/o uppercasing first so Samba mixed case
 		 * passwords work.  If that fails we come back and try
@@ -660,14 +999,10 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 				SMB_MAXPASSWORDLEN);
 			pbuf[SMB_MAXPASSWORDLEN] = '\0';
 		}
-#else
-		iconv_convstr(vcp->vc_toupper, pbuf, smb_share_getpass(ssp),
-			      SMB_MAXPASSWORDLEN);
-#endif /* APPLE */
 		iconv_convstr(vcp->vc_toserver, pbuf, pbuf, SMB_MAXPASSWORDLEN);
 		if (vcp->vc_sopt.sv_sm & SMB_SM_ENCRYPT) {
 			plen = 24;
-			smb_encrypt(pbuf, vcp->vc_ch, encpass);
+			smb_lmresponse(pbuf, vcp->vc_ch, encpass);
 			pp = encpass;
 		} else {
 			plen = strlen(pbuf) + 1;
@@ -688,22 +1023,27 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 		SMBERROR("error %d from mb_put_mem for pp\n", error);
 		goto bad;
 	}
-	smb_put_dmem(mbp, vcp, "\\\\", 2, caseopt);
+	smb_put_dmem(mbp, vcp, "\\\\", 2, caseopt, NULL);
 	pp = vcp->vc_srvname;
-	error = smb_put_dmem(mbp, vcp, pp, strlen(pp), caseopt);
+	error = smb_put_dmem(mbp, vcp, pp, strlen(pp), caseopt, NULL);
 	if (error) {
 		SMBERROR("error %d from smb_put_dmem for srvname\n", error);
 		goto bad;
 	}
-	smb_put_dmem(mbp, vcp, "\\", 1, caseopt);
+	smb_put_dmem(mbp, vcp, "\\", 1, caseopt, NULL);
 	pp = ssp->ss_name;
 	error = smb_put_dstring(mbp, vcp, pp, caseopt);
 	if (error) {
 		SMBERROR("error %d from smb_put_dstring for ss_name\n", error);
 		goto bad;
 	}
+	/* The type name is always ASCII */
 	pp = smb_share_typename(ssp->ss_type);
-	smb_put_dstring(mbp, vcp, pp, caseopt);
+	error = mb_put_mem(mbp, pp, strlen(pp) + 1, MB_MSYSTEM);
+	if (error) {
+		SMBERROR("error %d from mb_put_mem for ss_type\n", error);
+		goto bad;
+	}
 	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
 	SMBSDEBUG("%d\n", error);
@@ -712,57 +1052,14 @@ smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred)
 	ssp->ss_tid = rqp->sr_rptid;
 	ssp->ss_vcgenid = vcp->vc_genid;
 	ssp->ss_flags |= SMBS_CONNECTED;
-#ifdef APPLE
-	/*
-	 * If the server can speak Unicode then switch
-	 * our converters to do Unicode <--> UTF-8
-	 */
-	if (vcp->obj.co_flags & SMBV_UNICODE) {
-		void *servercharset = NULL;
-		void *localcharset = NULL;
-
-		if (iconv_open("ucs-2", "utf-8", &servercharset) != 0)
-			goto bad;
-		if (iconv_open("utf-8", "ucs-2", &localcharset) != 0) {
-			iconv_close(servercharset);
-			goto bad;
-		}
-		if (vcp->vc_toserver)
-			iconv_close(vcp->vc_toserver);
-		if (vcp->vc_tolocal)
-			iconv_close(vcp->vc_tolocal);
-		vcp->vc_toserver = servercharset;
-		vcp->vc_tolocal  = localcharset;
-		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
-	} else if (vcp->vc_toserver == NULL) {
-		void *servercharset = NULL;
-		void *localcharset = NULL;
-		
-                /* todo: if we can't determine the server's encoding, we need to try a best-guess here */
-		if (iconv_open("cp437", "utf-8", &servercharset) != 0)
-			goto bad;
-		if (iconv_open("utf-8", "cp437", &localcharset) != 0) {
-			iconv_close(servercharset);
-			goto bad;
-		}
-		if (vcp->vc_toserver)
-			iconv_close(vcp->vc_toserver);
-		if (vcp->vc_tolocal)
-			iconv_close(vcp->vc_tolocal);		
-		vcp->vc_toserver = servercharset;
-		vcp->vc_tolocal  = localcharset;
-	}
-#endif /* APPLE */
 bad:
 	if (encpass)
 		free(encpass, M_SMBTEMP);
 	if (pbuf)
 		free(pbuf, M_SMBTEMP);
 	smb_rq_done(rqp);
-#ifdef APPLE
 	if (error && upper == 1)
 		goto again;
-#endif /* APPLE */
 	return error;
 }
 
@@ -792,7 +1089,7 @@ smb_smb_treedisconnect(struct smb_share *ssp, struct smb_cred *scred)
 
 static __inline int
 smb_smb_readx(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
-	      struct uio *uio, struct smb_cred *scred)
+	      uio_t uio, struct smb_cred *scred)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -811,13 +1108,13 @@ smb_smb_readx(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 	mb_put_uint8(mbp, 0);		/* MBZ */
 	mb_put_uint16le(mbp, 0);	/* offset to secondary */
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint32le(mbp, (u_int32_t)uio->uio_offset);
+	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
 	*len = min(SSTOVC(ssp)->vc_rxmax, *len);
 	mb_put_uint16le(mbp, (u_int16_t)*len);	/* MaxCount */
 	mb_put_uint16le(mbp, (u_int16_t)*len);	/* MinCount (only indicates blocking) */
 	mb_put_uint32le(mbp, (unsigned)*len >> 16);	/* MaxCountHigh */
 	mb_put_uint16le(mbp, (u_int16_t)*len);	/* Remaining ("obsolete") */
-	mb_put_uint32le(mbp, (u_int32_t)((u_int64_t)uio->uio_offset >> 32));
+	mb_put_uint32le(mbp, (u_int32_t)(uio_offset(uio) >> 32));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	smb_rq_bend(rqp);
@@ -873,7 +1170,7 @@ smb_smb_readx(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 
 static __inline int
 smb_smb_writex(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
-	struct uio *uio, struct smb_cred *scred, int timo)
+	uio_t uio, struct smb_cred *scred, int timo)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -898,7 +1195,7 @@ smb_smb_writex(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 	mb_put_uint8(mbp, 0);		/* MBZ */
 	mb_put_uint16le(mbp, 0);	/* offset to secondary */
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint32le(mbp, (u_int32_t)uio->uio_offset);
+	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
 	mb_put_uint32le(mbp, 0);	/* MBZ (timeout) */
 	mb_put_uint16le(mbp, 0);	/* !write-thru */
 	mb_put_uint16le(mbp, 0);
@@ -906,7 +1203,7 @@ smb_smb_writex(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 	mb_put_uint16le(mbp, (u_int16_t)((unsigned)*len >> 16));
 	mb_put_uint16le(mbp, (u_int16_t)*len);
 	mb_put_uint16le(mbp, 64);	/* data offset from header start */
-	mb_put_uint32le(mbp, (u_int32_t)((u_int64_t)uio->uio_offset >> 32));
+	mb_put_uint32le(mbp, (u_int32_t)(uio_offset(uio) >> 32));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	do {
@@ -946,7 +1243,7 @@ smb_smb_writex(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 
 static __inline int
 smb_smb_read(struct smb_share *ssp, u_int16_t fid,
-	int *len, int *rresid, struct uio *uio, struct smb_cred *scred)
+	int *len, int *rresid, uio_t uio, struct smb_cred *scred)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -969,8 +1266,8 @@ smb_smb_read(struct smb_share *ssp, u_int16_t fid,
 	smb_rq_wstart(rqp);
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
 	mb_put_uint16le(mbp, (u_int16_t)rlen);
-	mb_put_uint32le(mbp, (u_int32_t)uio->uio_offset);
-	mb_put_uint16le(mbp, (u_int16_t)min(uio->uio_resid, 0xffff));
+	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
+	mb_put_uint16le(mbp, (u_int16_t)min(uio_resid(uio), 0xffff));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	smb_rq_bend(rqp);
@@ -1003,13 +1300,13 @@ smb_smb_read(struct smb_share *ssp, u_int16_t fid,
 }
 
 int
-smb_read(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
+smb_read(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred)
 {
 	int tsize, len, resid;
 	int error = 0;
 
-	tsize = uio->uio_resid;
+	tsize = uio_resid(uio);
 	while (tsize > 0) {
 		len = tsize;
 		error = smb_smb_read(ssp, fid, &len, &resid, uio, scred);
@@ -1025,7 +1322,7 @@ smb_read(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
 
 static __inline int
 smb_smb_write(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
-	struct uio *uio, struct smb_cred *scred, int timo)
+	uio_t uio, struct smb_cred *scred, int timo)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
@@ -1034,7 +1331,7 @@ smb_smb_write(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 	u_int8_t wc;
 	int error;
 
-	if (uio->uio_offset + *len > UINT32_MAX &&
+	if (uio_offset(uio) + *len > UINT32_MAX &&
 	    !(SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES))
 		return (EFBIG);
 	if (*len && (SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES ||
@@ -1053,8 +1350,8 @@ smb_smb_write(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 	smb_rq_wstart(rqp);
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
 	mb_put_uint16le(mbp, resid);
-	mb_put_uint32le(mbp, (u_int32_t)uio->uio_offset);
-	mb_put_uint16le(mbp, (u_int16_t)min(uio->uio_resid, 0xffff));
+	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
+	mb_put_uint16le(mbp, (u_int16_t)min(uio_resid(uio), 0xffff));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_DATA);
@@ -1082,16 +1379,19 @@ smb_smb_write(struct smb_share *ssp, u_int16_t fid, int *len, int *rresid,
 }
 
 int
-smb_write(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
+smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred, int timo)
 {
 	int error = 0, len, tsize, resid;
-	struct uio olduio;
+	user_ssize_t  old_resid;
+	off_t  old_offset;
 
-	tsize = uio->uio_resid;
-	olduio = *uio;
+	tsize = old_resid = uio_resid(uio);
+	old_offset = uio_offset(uio);
+
 	while (tsize > 0) {
 		len = tsize;
+		// LP64todo - resid, tsize should be 64-bit values
 		error = smb_smb_write(ssp, fid, &len, &resid, uio, scred, timo);
 		timo = 0; /* only first write is special */
 		if (error)
@@ -1110,7 +1410,8 @@ smb_write(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
 		 * iovs because callers don't depend on them in error
 		 * paths - uio_resid and uio_offset are what matter.
 		 */
-		*uio = olduio;
+		uio_setresid(uio, old_resid);
+		uio_setoffset(uio, old_offset);
 	}
 	return error;
 }
@@ -1155,7 +1456,7 @@ smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, char *name, int nml
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_ASCII);
-	smbfs_fullpath(mbp, SSTOVC(ssp), dnp, name, nmlen);
+	smbfs_fullpath(mbp, SSTOVC(ssp), dnp, name, &nmlen, '\\');
 	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
 	SMBSDEBUG("%d\n", error);

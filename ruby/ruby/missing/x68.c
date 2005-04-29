@@ -1,3 +1,5 @@
+/* x68 compatibility functions -- follows Ruby's license */
+
 #include "config.h"
 
 #if !HAVE_SELECT
@@ -23,7 +25,7 @@ link(const char *src, const char *dst)
 #include <sys/time.h>
 
 struct timezone {
-    int tz_minueswest;
+    int tz_minuteswest;
     int tz_dsttime;
 };
 

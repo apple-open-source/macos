@@ -33,7 +33,7 @@
 #include "CSLPPlugin.h"
 #include "CommandLineUtilities.h"
 
-#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 static pthread_mutex_t	gSLPNotifierLock;
 static Boolean			gLockInitialized = false;
@@ -181,6 +181,9 @@ void CSLPServiceLookupThread::GetRecFavServices( Boolean recents, char* serviceT
         free ( result );
 }
 #endif
+
+#define kServiceTagLen	8
+
 SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short unsigned int sLifeTime, SLPInternalError errCode, void* pvCookie )
 {
     CSLPServiceLookupThread*		lookupObj = (CSLPServiceLookupThread*)pvCookie;
@@ -200,13 +203,16 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
 			char		stackBuf[1024];
             char*		ourURLCopy = stackBuf;
             char*		nameTagPtr = NULL;
+			const char* ptrToSrvURL = pcSrvURL;
 			
+			if ( urlLen > kServiceTagLen && memcmp( pcSrvURL, "service:", 8 ) == 0 )
+				ptrToSrvURL += kServiceTagLen;		// advance past the "service:" type portion
+            
 			if ( urlLen+1 > sizeof(stackBuf) )
 				ourURLCopy = (char*)malloc( urlLen+1 );
 				
-            strcpy( ourURLCopy, pcSrvURL );
-    
-            
+            strcpy( ourURLCopy, ptrToSrvURL );
+			
             for ( int i=0; ourURLCopy[i] != '\0' && strncmp( &ourURLCopy[i], ":/", 2 ) != 0; i++ )
                 serviceType[i] = ourURLCopy[i];
             
@@ -281,16 +287,13 @@ SLPBoolean SLPServiceLookupNotifier( SLPHandle hSLP, const char* pcSrvURL, short
 #endif            
             if ( nameTagPtr)
             {
-                // ok, this is a hack registration to include the display name
-                DBGLOG( "SLPServiceLookupNotifier, found a ?NAME= tag and will try and pull out the display name (%s)\n", namePtr );
-				
 				namePtr = strstr( nameTagPtr, "&ZONE=" );
 				
 				if ( namePtr )
 					*namePtr = '\0';		// take off this legacy tag
-					
-                namePtr = nameTagPtr + numCharsToAdvance;			// now look at whats at the end of the name tag
-                
+			
+				namePtr = nameTagPtr + numCharsToAdvance;			// now look at whats at the end of the name tag
+				
 				if ( namePtr[0] != '\0' )
 				{
 					if ( !newResult->GetAttributeRef(kDSNAttrRecordNameSAFE_CFSTR) )		// only do this if we haven't found a name attribute

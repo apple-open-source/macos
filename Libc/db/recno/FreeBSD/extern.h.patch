@@ -1,0 +1,11 @@
+--- extern.h.orig	Thu Mar 21 14:46:28 2002
++++ extern.h	Sat Oct 18 19:49:46 2003
+@@ -34,7 +34,7 @@
+  * $FreeBSD: src/lib/libc/db/recno/extern.h,v 1.2 2002/03/21 22:46:28 obrien Exp $
+  */
+ 
+-#include "../btree/extern.h"
++#include "bt_extern.h"
+ 
+ int	 __rec_close(DB *);
+ int	 __rec_delete(const DB *, const DBT *, u_int);

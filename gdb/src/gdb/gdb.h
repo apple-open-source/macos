@@ -22,6 +22,8 @@
 #ifndef GDB_H
 #define GDB_H
 
+struct ui_out;
+
 /* Return-code (RC) from a gdb library call.  (The abreviation RC is
    taken from the sim/common directory.) */
 
@@ -48,8 +50,9 @@ enum gdb_rc gdb_breakpoint_query (struct ui_out *uiout, int bnum);
 
 /* Create a breakpoint at ADDRESS (a GDB source and line). */
 enum gdb_rc gdb_breakpoint (char *address, char *condition,
-			    int hardwareflag, int tempflag,
-			    int thread, int ignore_count, int futureflag);
+			    int hardwareflag, int tempflag, int futureflag,
+			    int thread, int ignore_count, int *indices, 
+			    char *requested_shlib);
 
 /* Switch thread and print notification (if PRINT is 1). */
 enum gdb_rc gdb_thread_select (struct ui_out *uiout, char *tidstr, int print);

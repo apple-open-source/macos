@@ -50,9 +50,6 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_NETGROUP_H
 # include <netgroup.h>
 #endif
-#if defined(HAVE_NETDB_H)
-# include <netdb.h>
-#endif
 #ifdef HAVE_ENDIAN_H
 # include <endian.h>
 #endif
@@ -68,6 +65,7 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_NEXT
 #  include <libc.h>
 #endif
+#define __USE_GNU /* before unistd.h, activate extra prototypes for glibc */
 #include <unistd.h> /* For STDIN_FILENO, etc */
 #include <termios.h> /* Struct winsize */
 
@@ -133,17 +131,33 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 #ifdef HAVE_SYS_MMAN_H
 #include <sys/mman.h> /* for MAP_ANONYMOUS */
 #endif
+#ifdef HAVE_SYS_STRTIO_H
+#include <sys/strtio.h>	/* for TIOCCBRK on HP-UX */
+#endif
+#if defined(HAVE_SYS_PTMS_H) && defined(HAVE_DEV_PTMX)
+# if defined(HAVE_SYS_STREAM_H)
+#  include <sys/stream.h>	/* reqd for queue_t on Solaris 2.5.1 */
+# endif
+#include <sys/ptms.h>	/* for grantpt() and friends */
+#endif
 
 #include <netinet/in_systm.h> /* For typedefs */
 #include <netinet/in.h> /* For IPv6 macros */
 #include <netinet/ip.h> /* For IPTOS macros */
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
+#if defined(HAVE_NETDB_H)
+# include <netdb.h>
+#endif
 #ifdef HAVE_RPC_TYPES_H
 # include <rpc/types.h> /* For INADDR_LOOPBACK */
 #endif
 #ifdef USE_PAM
+#if defined(HAVE_SECURITY_PAM_APPL_H)
+# include <security/pam_appl.h>
+#elif defined (HAVE_PAM_PAM_APPL_H)
 # include <pam/pam_appl.h>
+#endif
 #endif
 #ifdef HAVE_READPASSPHRASE_H
 # include <readpassphrase.h>
@@ -161,13 +175,17 @@ static /**/const char *const rcsid[] = { (char *)rcsid, "\100(#)" msg }
 # include <libutil.h> /* Openpty on FreeBSD at least */
 #endif
 
+#if defined(KRB5) && defined(USE_AFS)
+# include <krb5.h>
+# include <kafs.h>
+#endif
+
 #include <openssl/opensslv.h> /* For OPENSSL_VERSION_NUMBER */
 
 #include "defines.h"
 
 #include "version.h"
 #include "openbsd-compat/openbsd-compat.h"
-#include "openbsd-compat/bsd-cygwin_util.h"
 #include "openbsd-compat/bsd-nextstep.h"
 
 #include "entropy.h"

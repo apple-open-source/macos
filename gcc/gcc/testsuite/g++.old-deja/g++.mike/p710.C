@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed delete
 /*
   Bug Id: 
@@ -19,7 +19,7 @@
 extern "C" 
 {
    int printf(const char*, ...);
-};
+}
 
 
 

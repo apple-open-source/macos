@@ -1,0 +1,7 @@
+# $Id: s.SecureHtmlPlace.xotcl 1.5 01/03/23 21:55:31+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::actiweb::secureHtmlPlace 0.8
+
+package require xotcl::actiweb::secureHttpPlace
+package require xotcl::actiweb::htmlPlace
+
+Class SecureHtmlPlace -superclass {SecurePlace HtmlPlace}

@@ -1,0 +1,109 @@
+.\" Copyright (c) 1999 Ottavio G. Rizzo <rizzo@pluto.linux.it>
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+.\" USA.
+.\"
+.\" Ελληνική μετάφραση Λ. Δημητρουλάκης edimitro@tee.gr Ιούλιος 2003
+.\" 
+.TH MAKEWHATIS 8 "22 Ιανουαρίου 1999" "Εγχειρίδιο Λίνουξ" "Διαχείρηση συστήματος" 
+.SH ΟΝΟΜΑ
+makewhatis \- Δημιουργία της βάσεως δεδομένων whatis.
+.SH ΣΥΝΟΨΗ
+.BI "makewhatis [-u] [-v] [-w] [-s " ενότητες " ] [-c [" catpath "]] [" manpath "]"
+.SH ΠΕΡΙΓΡΑΦΗ
+Η
+.B makewhatis
+διαβάζει όλες τις σελίδες εγχειριδίου που περιέχονται στις δεδομένες
+.IR ενότητες  " της "  manpath " , "
+ή τις προδιαμορφωμένες σελίδες που περιέχονται στις δεδομένες
+.IR ενότητες  " της "  catpath " . "
+Για κάθε σελίδα, 
+γράφει μια γραμμή στη βάση δεδομένων whatis· 
+κάθε γραμμή συνίσταται από το όνομα της σελίδας και μια σύντομη περιγραφή, 
+που χωρίζονται από μιά παύλα. 
+Η περιγραφή παράγεται, 
+χρησιμοποιώντας την παράγραφο ΟΝΟΜΑ της σελίδας εγχειριδίου.
+.LP
+Οι διάφορες γλώσσες χρησιμοποιούν διαφορετικό όρο για τη παράγραφο ΟΝΟΜΑ,
+και η
+.B makewhatis
+αναγνωρίζει τους ισοδύναμους όρους στα Τσεχικά, Ιταλικά, Φινλανδικά, Γαλλικά,
+Γερμανικά και Ισπανικά.
+.LP
+Αν δεν δίνεται το όρισμα
+.I manpath
+τότε υποτίθεται ότι είναι
+.I /usr/man  
+εκ προεπιλογής.
+.SH ΕΠΙΛΟΓΕΣ
+.TP
+.B -u
+Ενημέρωση της βάσεως δεδομένων με νέες σελίδες.
+.TP
+.B -v
+Έξοδος με αναλυτικές πληροφορίες.
+.TP
+.B -w
+Χρήση της manpath που λαμβάνεται από την « man --path ».
+.TP 
+.BI -s " ενότητες "
+Ψάχνει στις
+.I ενότητες
+της
+.IR manpath " ή "  
+της   
+.IR catpath " . "
+Αν απουσιάζει η επιλογή, 
+η τιμή της θεωρείται ότι είναι
+.I  \'1 2 3 4 5 6 7 8 9 n l\' 
+.TP 
+.BI -c " catpath"
+Σαρώνονται οι προδιαμορφωμένες σελίδες που βρίσκονται στη
+.IR catpath " . "
+Αν απουσιάζει το όρισμα, 
+τότε θεωρείται ότι είναι
+ο πρώτος από τους υφιστάμενους καταλόγους μεταξύ των
+.IR /usr/man/preformat " και " /usr/man ". "
+.SH ΠΑΡΑΔΕΙΓΜΑΤΑ
+.PP
+Για να δημιουργηθούν μόνο οι 
+.IR /usr/X11R6/man/whatis " και " /usr/local/man/whatis
+δώσε την εντολή 
+.IP 
+makewhatis /usr/X11R6/man /usr/local/man 
+.PP
+Για να δημιουργηθούν όλες οι βάσεις δεδομένων, συμπεριλαμβανομένων και των
+Φινλανδικών, Γαλλικών και Ιταλικών μεταφράσεων
+δώσε την εντολή,
+.IP
+LANGUAGE=fi:fr:it makewhatis -w
+.SH ΣΦΑΛΜΑΤΑ
+Η
+.B makewhatis
+ίσως να μην τα καταφέρνει τόσο καλά, 
+με σελίδες γραμμένες με μη τυποποιημένα troff macros, 
+όπως οι σελίδες Tcl/Tk.
+.PP
+.B makewhatis
+δεν δουλεύει με προδιαμορφωμένες μεταφράσεις.
+.SH ΒΛΕΠΕ ΕΠΙΣΗΣ
+.BR apropos (1),
+.BR man (1),
+.BR whatis (1)

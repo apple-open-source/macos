@@ -35,17 +35,22 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.awt.event.*;
-import java.io.*;
-import java.util.*;
-import javax.accessibility.*;
-import javax.swing.filechooser.*;
+import java.awt.Component;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.io.ObjectOutputStream;
+import java.util.Vector;
+import javax.accessibility.Accessible;
+import javax.accessibility.AccessibleContext;
+import javax.accessibility.AccessibleRole;
 import javax.swing.filechooser.FileFilter;
-import javax.swing.plaf.*;
+import javax.swing.filechooser.FileSystemView;
+import javax.swing.filechooser.FileView;
+import javax.swing.plaf.FileChooserUI;
 
 /**
  * JFileChooser
@@ -54,53 +59,32 @@ import javax.swing.plaf.*;
  */
 public class JFileChooser extends JComponent implements Accessible {
 
-	//-------------------------------------------------------------
-	// Classes ----------------------------------------------------
-	//-------------------------------------------------------------
+  private static final long serialVersionUID = 3162921138695327837L;
 
-	/**
-	 * AccessibleJFileChooser
-	 */
-	protected class AccessibleJFileChooser extends AccessibleJComponent {
+  /**
+   * AccessibleJFileChooser
+   */
+  protected class AccessibleJFileChooser extends AccessibleJComponent
+  {
+    private static final long serialVersionUID = 8205148454060169244L;
 
-		//-------------------------------------------------------------
-		// Variables --------------------------------------------------
-		//-------------------------------------------------------------
+    /**
+     * Constructor AccessibleJFileChooser
+     * @param component TODO
+     */
+    protected AccessibleJFileChooser()
+    {
+    }
 
-
-		//-------------------------------------------------------------
-		// Initialization ---------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * Constructor AccessibleJFileChooser
-		 * @param component TODO
-		 */
-		protected AccessibleJFileChooser(JFileChooser component) {
-			super(component);
-			// TODO
-		} // AccessibleJFileChooser()
-
-
-		//-------------------------------------------------------------
-		// Methods ----------------------------------------------------
-		//-------------------------------------------------------------
-
-		/**
-		 * getAccessibleRole
-		 * @returns AccessibleRole
-		 */
-		public AccessibleRole getAccessibleRole() {
-			return AccessibleRole.FILE_CHOOSER;
-		} // getAccessibleRole()
-
-
-	} // AccessibleJFileChooser
-
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+    /**
+     * getAccessibleRole
+     * @return AccessibleRole
+     */
+    public AccessibleRole getAccessibleRole()
+    {
+      return AccessibleRole.FILE_CHOOSER;
+    }
+  }
 
 	/**
 	 * uiClassID
@@ -901,17 +885,24 @@ public class JFileChooser extends JComponent implements Accessible {
 	 * addActionListener
 	 * @param listener TODO
 	 */
-	public void addActionListener(ActionListener listener) {
-		// TODO
-	} // addActionListener()
+	public void addActionListener(ActionListener listener)
+	{
+		listenerList.add (ActionListener.class, listener);
+	}
 
 	/**
 	 * removeActionListener
 	 * @param listener TODO
 	 */
-	public void removeActionListener(ActionListener listener) {
-		// TODO
-	} // removeActionListener()
+	public void removeActionListener(ActionListener listener)
+	{
+		listenerList.remove (ActionListener.class, listener);
+	}
+
+	public ActionListener[] getActionListeners()
+	{
+		return (ActionListener[]) listenerList.getListeners (ActionListener.class);
+	}
 
 	/**
 	 * fireActionPerformed
@@ -953,16 +944,15 @@ public class JFileChooser extends JComponent implements Accessible {
 		return null; // TODO
 	} // paramString()
 
-	/**
-	 * getAccessibleContext
-	 * @returns AccessibleContext
-	 */
-	public AccessibleContext getAccessibleContext() {
-		if (accessibleContext == null) {
-			accessibleContext = new AccessibleJFileChooser(this);
-		} // if
-		return accessibleContext;
-	} // getAccessibleContext()
+  /**
+   * getAccessibleContext
+   * @returns AccessibleContext
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    if (accessibleContext == null)
+      accessibleContext = new AccessibleJFileChooser();
 
-
-} // JFileChooser
+    return accessibleContext;
+  }
+}

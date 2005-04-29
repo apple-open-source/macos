@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimach64io.h,v 1.14 2003/01/01 19:16:32 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atimach64io.h,v 1.16 2004/01/05 16:42:03 tsi Exp $ */
 /*
- * Copyright 2000 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 2000 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -192,47 +192,82 @@ extern void ATIMach64PollEngineStatus FunctionPrototype((ATIPtr));
  * This is no longer as critical, especially for _n == 1.  However,
  * there is still a need to ensure _n <= pATI->nFIFOEntries.
  */
-#define ATIMach64WaitForFIFO(_pATI, _n)        \
-    while (pATI->nAvailableFIFOEntries < (_n)) \
-        ATIMach64PollEngineStatus(pATI)
+#define ATIMach64WaitForFIFO(_pATI, _n)           \
+    while ((_pATI)->nAvailableFIFOEntries < (_n)) \
+        ATIMach64PollEngineStatus(_pATI)
 
-#define ATIMach64WaitForIdle(_pATI)      \
-    while (pATI->EngineIsBusy)           \
-        ATIMach64PollEngineStatus(pATI)
+#define ATIMach64WaitForIdle(_pATI)         \
+    while ((_pATI)->EngineIsBusy)           \
+        ATIMach64PollEngineStatus(_pATI)
 
-extern void ATIAccessMach64PLLReg FunctionPrototype((ATIPtr, const CARD8,
+/*
+ * An outf() variant to write two registers such that the second register is
+ * is always written whenever either is to be changed.
+ */
+#define outq(_Register1, _Register2, _Value1, _Value2)                  \
+    do                                                                  \
+    {                                                                   \
+        CARD32 _IOValue1 = (_Value1),                                   \
+               _IOValue2 = (_Value2);                                   \
+                                                                        \
+        if (!RegisterIsCached(_Register1) ||                            \
+            (_IOValue1 != CacheSlot(_Register1)))                       \
+        {                                                               \
+            ATIMach64WaitForFIFO(pATI, 2);                              \
+            pATI->nAvailableFIFOEntries -= 2;                           \
+            MMIO_OUT32(pATI->pBlock[GetBits(_Register1, BLOCK_SELECT)], \
+                       (_Register1) & MM_IO_SELECT, _IOValue1);         \
+            MMIO_OUT32(pATI->pBlock[GetBits(_Register2, BLOCK_SELECT)], \
+                       (_Register2) & MM_IO_SELECT, _IOValue2);         \
+            CacheSlot(_Register1) = _IOValue1;                          \
+            CacheSlot(_Register2) = _IOValue2;                          \
+            pATI->EngineIsBusy = TRUE;                                  \
+        }                                                               \
+        else if (!RegisterIsCached(_Register2) ||                       \
+                 (_IOValue2 != CacheSlot(_Register2)))                  \
+        {                                                               \
+            while (!pATI->nAvailableFIFOEntries--)                      \
+                ATIMach64PollEngineStatus(pATI);                        \
+            MMIO_OUT32(pATI->pBlock[GetBits(_Register2, BLOCK_SELECT)], \
+                       (_Register2) & MM_IO_SELECT, _IOValue2);         \
+            CacheSlot(_Register2) = _IOValue2;                          \
+            pATI->EngineIsBusy = TRUE;                                  \
+        }                                                               \
+    } while (0)
+
+extern void ATIMach64AccessPLLReg FunctionPrototype((ATIPtr, const CARD8,
                                                      const Bool));
 
-#define ATIGetMach64PLLReg(_Index)                  \
+#define ATIMach64GetPLLReg(_Index)                  \
     (                                               \
-        ATIAccessMach64PLLReg(pATI, _Index, FALSE), \
+        ATIMach64AccessPLLReg(pATI, _Index, FALSE), \
         in8(CLOCK_CNTL + 2)                         \
     )
-#define ATIPutMach64PLLReg(_Index, _Value)          \
+#define ATIMach64PutPLLReg(_Index, _Value)          \
     do                                              \
     {                                               \
-        ATIAccessMach64PLLReg(pATI, _Index, TRUE);  \
+        ATIMach64AccessPLLReg(pATI, _Index, TRUE);  \
         out8(CLOCK_CNTL + 2, _Value);               \
     } while (0)
 
-#define ATIGetMach64LCDReg(_Index)                       \
+#define ATIMach64GetLCDReg(_Index)                       \
     (                                                    \
         out8(LCD_INDEX, SetBits(_Index, LCD_REG_INDEX)), \
         inr(LCD_DATA)                                    \
     )
-#define ATIPutMach64LCDReg(_Index, _Value)               \
+#define ATIMach64PutLCDReg(_Index, _Value)               \
     do                                                   \
     {                                                    \
         out8(LCD_INDEX, SetBits(_Index, LCD_REG_INDEX)); \
         outr(LCD_DATA, _Value);                          \
     } while (0)
 
-#define ATIGetMach64TVReg(_Index)                          \
+#define ATIMach64GetTVReg(_Index)                          \
     (                                                      \
         out8(TV_OUT_INDEX, SetBits(_Index, TV_REG_INDEX)), \
         inr(TV_OUT_DATA)                                   \
     )
-#define ATIPutMach64TVReg(_Index, _Value)                  \
+#define ATIMach64PutTVReg(_Index, _Value)                  \
     do                                                     \
     {                                                      \
         out8(TV_OUT_INDEX, SetBits(_Index, TV_REG_INDEX)); \

@@ -1,52 +1,52 @@
 /**************************************************************************
 
 Copyright 2000 Silicon Integrated Systems Corp, Inc., HsinChu, Taiwan.
+Copyright 2003 Eric Anholt
 All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sub license, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+on the rights to use, copy, modify, merge, publish, distribute, sub
+license, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice (including the
-next paragraph) shall be included in all copies or substantial portions
-of the Software.
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
-ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ERIC ANHOLT OR SILICON INTEGRATED SYSTEMS CORP BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_stencil.c,v 1.3 2000/09/26 15:56:49 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_stencil.c,v 1.5 2003/12/09 00:15:22 alanh Exp $ */
 
 /*
  * Authors:
- *    Sung-Ching Lin <sclin@sis.com.tw>
- *
+ *   Sung-Ching Lin <sclin@sis.com.tw>
+ *   Eric Anholt <anholt@FreeBSD.org>
  */
 
-#include "sis_ctx.h"
-#include "sis_mesa.h"
+#include "sis_context.h"
+#include "sis_state.h"
+#include "sis_stencil.h"
 
-void
-sis_StencilFunc (GLcontext * ctx, GLenum func, GLint ref, GLuint mask)
+static void
+sisDDStencilFunc( GLcontext * ctx, GLenum func, GLint ref, GLuint mask )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-  __GLSiSHardware *prev = &hwcx->prev;
-  __GLSiSHardware *current = &hwcx->current;
+  sisContextPtr smesa = SIS_CONTEXT(ctx);
+  __GLSiSHardware *prev = &smesa->prev;
+  __GLSiSHardware *current = &smesa->current;
 
-  /* set reference */ 
-  current->hwStSetting = ((DWORD) ref << 8) | mask;
+   /* set reference */ 
+   current->hwStSetting = STENCIL_FORMAT_8 | (ctx->Stencil.Ref[0] << 8) |
+      ctx->Stencil.ValueMask[0];
 
-  current->hwStSetting &= ~0x07000000;
   switch (func)
     {
     case GL_NEVER:
@@ -75,35 +75,33 @@ sis_StencilFunc (GLcontext * ctx, GLenum func, GLint ref, GLuint mask)
       break;
     }
 
-  if ((current->hwStSetting2 ^ prev->hwStSetting2) ||
-      (current->hwStSetting ^ prev->hwStSetting))
-    {
+   if (current->hwStSetting != prev->hwStSetting)
+   {
       prev->hwStSetting = current->hwStSetting;
-      prev->hwStSetting2 = current->hwStSetting2;
 
-      hwcx->GlobalFlag |= GFLAG_STENCILSETTING;
-    }
+      smesa->GlobalFlag |= GFLAG_STENCILSETTING;
+   }
 }
 
-void
-sis_StencilMask (GLcontext * ctx, GLuint mask)
+static void
+sisDDStencilMask( GLcontext * ctx, GLuint mask )
 {
-  if (!ctx->Visual->StencilBits)
+  if (!ctx->Visual.stencilBits)
     return;
 
   /* set Z buffer Write Enable */
-  sis_DepthMask (ctx, ctx->Depth.Mask);
+  sisDDDepthMask (ctx, ctx->Depth.Mask);
 }
 
-void
-sis_StencilOp (GLcontext * ctx, GLenum fail, GLenum zfail, GLenum zpass)
+static void
+sisDDStencilOp( GLcontext * ctx, GLenum fail, GLenum zfail, GLenum zpass )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-  __GLSiSHardware *prev = &hwcx->prev;
-  __GLSiSHardware *current = &hwcx->current;
+  sisContextPtr smesa = SIS_CONTEXT(ctx);
+  __GLSiSHardware *prev = &smesa->prev;
+  __GLSiSHardware *current = &smesa->current;
 
-  current->hwStSetting2 &= ~0x00777000;
+   current->hwStSetting2 &= ~(MASK_StencilZPassOp | MASK_StencilZFailOp |
+      MASK_StencilFailOp);
 
   switch (fail)
     {
@@ -171,13 +169,17 @@ sis_StencilOp (GLcontext * ctx, GLenum fail, GLenum zfail, GLenum zpass)
       break;
     }
 
-  if ((current->hwStSetting2 ^ prev->hwStSetting2) ||
-      (current->hwStSetting ^ prev->hwStSetting))
-    {
-      prev->hwStSetting = current->hwStSetting;
+   if (current->hwStSetting2 != prev->hwStSetting2)
+   {
       prev->hwStSetting2 = current->hwStSetting2;
+      smesa->GlobalFlag |= GFLAG_STENCILSETTING;
+   }
+}
 
-      hwcx->GlobalFlag |= GFLAG_STENCILSETTING;
-
-    }
+void
+sisDDInitStencilFuncs( GLcontext *ctx )
+{
+  ctx->Driver.StencilFunc = sisDDStencilFunc;
+  ctx->Driver.StencilMask = sisDDStencilMask;
+  ctx->Driver.StencilOp   = sisDDStencilOp;
 }

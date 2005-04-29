@@ -25,7 +25,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_texstate.c,v 1.3 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_texstate.c,v 1.5 2003/12/02 13:02:37 alanh Exp $ */
 
 /*
  * Author:
@@ -34,8 +34,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Heavily based on the I810 driver, which was written by:
  *   Keith Whitwell <keithw@tungstengraphics.com>
  */
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "glheader.h"
 #include "macros.h"
@@ -61,11 +59,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 static void i830SetTexImages( i830ContextPtr imesa, 
 			      struct gl_texture_object *tObj )
 {
-   GLuint height, width, pitch, i, textureFormat;
+   GLuint total_height, pitch, i, textureFormat;
    i830TextureObjectPtr t = (i830TextureObjectPtr) tObj->DriverData;
    const struct gl_texture_image *baseImage = tObj->Image[tObj->BaseLevel];
-   GLint firstLevel, lastLevel, numLevels;
-   GLint log2Width, log2Height;
+   GLint numLevels;
 
    switch( baseImage->TexFormat->MesaFormat ) {
    case MESA_FORMAT_L8:
@@ -103,6 +100,18 @@ static void i830SetTexImages( i830ContextPtr imesa,
       textureFormat = MAPSURF_32BIT | MT_32BIT_ARGB8888;
       break;
 
+   case MESA_FORMAT_YCBCR_REV:
+      t->texelBytes = 2;
+      textureFormat = (MAPSURF_422 | MT_422_YCRCB_NORMAL | 
+		       TM0S1_COLORSPACE_CONVERSION);
+      break;
+
+   case MESA_FORMAT_YCBCR:
+      t->texelBytes = 2;
+      textureFormat = (MAPSURF_422 | MT_422_YCRCB_SWAPY | /* ??? */
+		       TM0S1_COLORSPACE_CONVERSION);
+      break;
+
    default:
       fprintf(stderr, "%s: bad image format\n", __FUNCTION__);
       free( t );
@@ -110,77 +119,59 @@ static void i830SetTexImages( i830ContextPtr imesa,
    }
 
    /* Compute which mipmap levels we really want to send to the hardware.
-    * This depends on the base image size, GL_TEXTURE_MIN_LOD,
-    * GL_TEXTURE_MAX_LOD, GL_TEXTURE_BASE_LEVEL, and GL_TEXTURE_MAX_LEVEL.
-    * Yes, this looks overly complicated, but it's all needed.
     */
-   firstLevel = tObj->BaseLevel + (GLint) (tObj->MinLod + 0.5);
-   firstLevel = MAX2(firstLevel, tObj->BaseLevel);
-   lastLevel = tObj->BaseLevel + (GLint) (tObj->MaxLod + 0.5);
-   lastLevel = MAX2(lastLevel, tObj->BaseLevel);
-   lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
-   lastLevel = MIN2(lastLevel, tObj->MaxLevel);
-   lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
 
-   /* save these values */
-   t->firstLevel = firstLevel;
-   t->lastLevel = lastLevel;
+   driCalculateTextureFirstLastLevel( (driTextureObject *) t );
 
-   numLevels = lastLevel - firstLevel + 1;
-
-   if (0) fprintf(stderr,
-		  "%s : "
-		  "NumLevels : %d\n"
-		  "firstLevel : %d\n"
-		  "lastLevel : %d\n",
-		  __FUNCTION__,
-		  numLevels,
-		  firstLevel,
-		  lastLevel);
-
-   log2Width = tObj->Image[firstLevel]->WidthLog2;
-   log2Height = tObj->Image[firstLevel]->HeightLog2;
 
    /* Figure out the amount of memory required to hold all the mipmap
     * levels.  Choose the smallest pitch to accomodate the largest
     * mipmap:
     */
-   width = tObj->Image[firstLevel]->Width * t->texelBytes;
+   numLevels = t->base.lastLevel - t->base.firstLevel + 1;
 
-   pitch = width;
+   /* Pitch would be subject to additional rules if texture memory were
+    * tiled.  Currently it isn't. 
+    */
+   if (0) {
+      pitch = 128;
+      while (pitch < tObj->Image[t->base.firstLevel]->Width * t->texelBytes)
+	 pitch *= 2;
+   }
+   else {
+      pitch = tObj->Image[t->base.firstLevel]->Width * t->texelBytes;
+      pitch = (pitch + 3) & ~3;
+   }
+
 
    /* All images must be loaded at this pitch.  Count the number of
     * lines required:
     */
-   for ( height = i = 0 ; i < numLevels ; i++ ) {
-      t->image[i].image = tObj->Image[firstLevel + i];
-      if (!t->image[i].image) {
+   for ( total_height = i = 0 ; i < numLevels ; i++ ) {
+      t->image[0][i].image = tObj->Image[t->base.firstLevel + i];
+      if (!t->image[0][i].image) 
 	 break;
-      }
-      t->image[i].offset = height * pitch;
-      t->image[i].internalFormat = baseImage->Format;
-      height += t->image[i].image->Height;
+      
+      t->image[0][i].offset = total_height * pitch;
+      t->image[0][i].internalFormat = baseImage->Format;
+      total_height += t->image[0][i].image->Height;
    }
 
    t->Pitch = pitch;
-   t->totalSize = height*pitch;
-   t->max_level = i-1;
-
+   t->base.totalSize = total_height*pitch;
    t->Setup[I830_TEXREG_TM0S1] = 
-      ((((1 << log2Height) - 1) << TM0S1_HEIGHT_SHIFT) |
-       (((1 << log2Width) - 1) << TM0S1_WIDTH_SHIFT) |
+      (((tObj->Image[t->base.firstLevel]->Height - 1) << TM0S1_HEIGHT_SHIFT) |
+       ((tObj->Image[t->base.firstLevel]->Width - 1) << TM0S1_WIDTH_SHIFT) |
        textureFormat);
    t->Setup[I830_TEXREG_TM0S2] = 
-      ((((pitch / 4) - 1) << TM0S2_PITCH_SHIFT));
-   
+      ((((pitch / 4) - 1) << TM0S2_PITCH_SHIFT));   
    t->Setup[I830_TEXREG_TM0S3] &= ~TM0S3_MAX_MIP_MASK;
    t->Setup[I830_TEXREG_TM0S3] &= ~TM0S3_MIN_MIP_MASK;
-   t->Setup[I830_TEXREG_TM0S3] |= 
-	 ((numLevels - 1)*4) << TM0S3_MIN_MIP_SHIFT;
-
+   t->Setup[I830_TEXREG_TM0S3] |= ((numLevels - 1)*4) << TM0S3_MIN_MIP_SHIFT;
    t->dirty = I830_UPLOAD_TEX0 | I830_UPLOAD_TEX1;
+
    LOCK_HARDWARE( imesa );
-   i830UploadTexImages( imesa, t );
+   i830UploadTexImagesLocked( imesa, t );
    UNLOCK_HARDWARE( imesa );
 }
 
@@ -245,6 +236,7 @@ static void i830SetBlend_GL1_2(i830ContextPtr imesa, int curTex,
 	 break;
       case GL_LUMINANCE:
       case GL_RGB:
+      case GL_YCBCR_MESA:
 	 imesa->TexBlend[curTex][0] = (STATE3D_MAP_BLEND_OP_CMD(curTex) |
 				       TEXPIPE_COLOR |
 				       ENABLE_TEXOUTPUT_WRT_SEL |
@@ -377,6 +369,7 @@ static void i830SetBlend_GL1_2(i830ContextPtr imesa, int curTex,
 
       case GL_LUMINANCE:
       case GL_RGB:
+      case GL_YCBCR_MESA:
 	 imesa->TexBlend[curTex][0] = (STATE3D_MAP_BLEND_OP_CMD(curTex) |
 				       TEXPIPE_COLOR |
 				       ENABLE_TEXOUTPUT_WRT_SEL |
@@ -488,6 +481,7 @@ static void i830SetBlend_GL1_2(i830ContextPtr imesa, int curTex,
    case GL_DECAL:
       switch(format) {
       case GL_RGB:
+      case GL_YCBCR_MESA:
 	 imesa->TexBlend[curTex][0] = (STATE3D_MAP_BLEND_OP_CMD(curTex) |
 				       TEXPIPE_COLOR |
 				       ENABLE_TEXOUTPUT_WRT_SEL |
@@ -629,6 +623,7 @@ static void i830SetBlend_GL1_2(i830ContextPtr imesa, int curTex,
 
       case GL_LUMINANCE:
       case GL_RGB:
+      case GL_YCBCR_MESA:
 	 imesa->TexBlend[curTex][0] = (STATE3D_MAP_BLEND_OP_CMD(curTex) |
 				       TEXPIPE_COLOR |
 				       ENABLE_TEXOUTPUT_WRT_SEL |
@@ -834,6 +829,7 @@ static void i830SetBlend_GL1_2(i830ContextPtr imesa, int curTex,
 	 break;
       case GL_LUMINANCE:
       case GL_RGB:
+      case GL_YCBCR_MESA:
 	 imesa->TexBlend[curTex][0] = (STATE3D_MAP_BLEND_OP_CMD(curTex) |
 				       TEXPIPE_COLOR |
 				       ENABLE_TEXOUTPUT_WRT_SEL |
@@ -1025,6 +1021,8 @@ static void i830SetTexEnvCombine(i830ContextPtr imesa,
    GLuint args_RGB[3];
    GLuint args_A[3];
    GLuint texel_op = GetTexelOp(unit);
+   GLuint rgb_shift = texUnit->CombineScaleShiftRGB;
+   GLuint alpha_shift = texUnit->CombineScaleShiftA;
    int i;
 
    if(I830_DEBUG&DEBUG_TEXTURE)
@@ -1040,32 +1038,34 @@ static void i830SetTexEnvCombine(i830ContextPtr imesa,
    case GL_ADD: 
       blendop = TEXBLENDOP_ADD;
       break;
-   case GL_ADD_SIGNED_ARB:
+   case GL_ADD_SIGNED:
       blendop = TEXBLENDOP_ADDSIGNED; 
       break;
-   case GL_INTERPOLATE_ARB:
+   case GL_INTERPOLATE:
       blendop = TEXBLENDOP_BLEND; 
       break;
-   case GL_SUBTRACT_ARB: 
+   case GL_SUBTRACT: 
       blendop = TEXBLENDOP_SUBTRACT;
+      break;
+   case GL_DOT3_RGB_EXT:
+   case GL_DOT3_RGBA_EXT:
+      /* The EXT version of the DOT3 extension does not support the
+       * scale factor, but the ARB version (and the version in OpenGL
+       * 1.3) does.
+       */
+      rgb_shift = 0;
+      alpha_shift = 0;
+      /* FALLTHROUGH */
+
+   case GL_DOT3_RGB:
+   case GL_DOT3_RGBA:
+      blendop = TEXBLENDOP_DOT3;
       break;
    default: 
       return;
    }
 
-   switch(texUnit->CombineScaleShiftRGB) {
-   case 0: 
-      blendop |= TEXOP_SCALE_1X;
-      break;
-   case 1: 
-      blendop |= TEXOP_SCALE_2X;
-      break;
-   case 2: 
-      blendop |= TEXOP_SCALE_4X;
-      break;
-   default: 
-      return;
-   }
+   blendop |= (rgb_shift << TEXOP_SCALE_SHIFT);
 
    switch(texUnit->CombineModeA) {
    case GL_REPLACE: 
@@ -1077,32 +1077,25 @@ static void i830SetTexEnvCombine(i830ContextPtr imesa,
    case GL_ADD: 
       ablendop = TEXBLENDOP_ADD;
       break;
-   case GL_ADD_SIGNED_ARB:
+   case GL_ADD_SIGNED:
       ablendop = TEXBLENDOP_ADDSIGNED; 
       break;
-   case GL_INTERPOLATE_ARB:
+   case GL_INTERPOLATE:
       ablendop = TEXBLENDOP_BLEND; 
       break;
-   case GL_SUBTRACT_ARB: 
+   case GL_SUBTRACT: 
       ablendop = TEXBLENDOP_SUBTRACT;
       break;
    default:
       return;
    }
 
-   switch(texUnit->CombineScaleShiftA) {
-   case 0: 
-      ablendop |= TEXOP_SCALE_1X;
-      break;
-   case 1: 
-      ablendop |= TEXOP_SCALE_2X;
-      break;
-   case 2: 
-      ablendop |= TEXOP_SCALE_4X;
-      break;
-   default: 
-      return;
+   if ( (texUnit->CombineModeRGB == GL_DOT3_RGBA_EXT)
+	|| (texUnit->CombineModeRGB == GL_DOT3_RGBA) ) {
+      ablendop = TEXBLENDOP_DOT3;
    }
+
+   ablendop |= (alpha_shift << TEXOP_SCALE_SHIFT);
 
    /* Handle RGB args */
    for(i = 0; i < 3; i++) {
@@ -1110,13 +1103,13 @@ static void i830SetTexEnvCombine(i830ContextPtr imesa,
       case GL_TEXTURE: 
 	 args_RGB[i] = texel_op;
 	 break;
-      case GL_CONSTANT_ARB:
+      case GL_CONSTANT:
 	 args_RGB[i] = TEXBLENDARG_FACTOR_N; 
 	 break;
-      case GL_PRIMARY_COLOR_ARB:
+      case GL_PRIMARY_COLOR:
 	 args_RGB[i] = TEXBLENDARG_DIFFUSE;
 	 break;
-      case GL_PREVIOUS_ARB:
+      case GL_PREVIOUS:
 	 args_RGB[i] = TEXBLENDARG_CURRENT; 
 	 break;
       default: 
@@ -1149,13 +1142,13 @@ static void i830SetTexEnvCombine(i830ContextPtr imesa,
       case GL_TEXTURE: 
 	 args_A[i] = texel_op;
 	 break;
-      case GL_CONSTANT_ARB:
+      case GL_CONSTANT:
 	 args_A[i] = TEXBLENDARG_FACTOR_N; 
 	 break;
-      case GL_PRIMARY_COLOR_ARB:
+      case GL_PRIMARY_COLOR:
 	 args_A[i] = TEXBLENDARG_DIFFUSE; 
 	 break;
-      case GL_PREVIOUS_ARB:
+      case GL_PREVIOUS:
 	 args_A[i] = TEXBLENDARG_CURRENT; 
 	 break;
       default: 
@@ -1267,7 +1260,7 @@ static void i830UpdateTexEnv( GLcontext *ctx, GLuint unit )
    if (0) fprintf(stderr, "i830UpdateTexEnv called : %s\n",
 		  _mesa_lookup_enum_by_nr(texUnit->EnvMode));
 
-   if(texUnit->EnvMode == GL_COMBINE_ARB) {
+   if(texUnit->EnvMode == GL_COMBINE) {
       i830SetTexEnvCombine(imesa,
 			   texUnit,
 			   unit);
@@ -1275,7 +1268,7 @@ static void i830UpdateTexEnv( GLcontext *ctx, GLuint unit )
       i830SetBlend_GL1_2(imesa,
 			 unit,
 			 texUnit->EnvMode,
-			 t->image[0].internalFormat);
+			 t->image[0][0].internalFormat);
 
       /* add blend color */
       {
@@ -1308,151 +1301,249 @@ static void i830UpdateTexEnv( GLcontext *ctx, GLuint unit )
 }
 
 
+/* This is bogus -- can't load the same texture object on two units.
+ */
 static void i830TexSetUnit( i830TextureObjectPtr t, GLuint unit )
 {
-      if(I830_DEBUG&DEBUG_TEXTURE)
-           fprintf(stderr, "%s unit(%d)\n", __FUNCTION__, unit);
+   if(I830_DEBUG&DEBUG_TEXTURE)
+      fprintf(stderr, "%s unit(%d)\n", __FUNCTION__, unit);
    
-      t->Setup[I830_TEXREG_TM0LI] = (STATE3D_LOAD_STATE_IMMEDIATE_2 | 
-				     (LOAD_TEXTURE_MAP0 << unit) | 4);
+   t->Setup[I830_TEXREG_TM0LI] = (STATE3D_LOAD_STATE_IMMEDIATE_2 | 
+				  (LOAD_TEXTURE_MAP0 << unit) | 4);
 
-      I830_SET_FIELD(t->Setup[I830_TEXREG_MCS], MAP_UNIT_MASK, MAP_UNIT(unit));
-   
-      t->current_unit = unit;
+   I830_SET_FIELD(t->Setup[I830_TEXREG_MCS], MAP_UNIT_MASK, MAP_UNIT(unit));
+
+   t->current_unit = unit;
+   t->base.bound |= (1U << unit);
 }
 
 #define TEXCOORDTYPE_MASK	(~((1<<13)|(1<<12)|(1<<11)))
 
-static void i830UpdateTexUnit( GLcontext *ctx, GLuint unit )
+
+static GLboolean enable_tex_common( GLcontext *ctx, GLuint unit )
+{
+   i830ContextPtr imesa = I830_CONTEXT(ctx);
+   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   i830TextureObjectPtr t = (i830TextureObjectPtr)tObj->DriverData;
+   GLuint mcs = t->Setup[I830_TEXREG_MCS] & TEXCOORDTYPE_MASK;
+
+   /* Handle projective texturing */
+   if (imesa->vertex_format & (1<<31)) {
+      mcs |= TEXCOORDTYPE_HOMOGENEOUS;
+   } else {
+      mcs |= TEXCOORDTYPE_CARTESIAN;
+   }
+
+   /* Fallback if there's a texture border */
+   if ( tObj->Image[tObj->BaseLevel]->Border > 0 ) {
+      return GL_FALSE;
+   }
+
+   /* Upload teximages (not pipelined)
+    */
+   if (t->base.dirty_images[0]) {
+      i830SetTexImages( imesa, tObj );
+      if (!t->base.memBlock) {
+	 return GL_FALSE;
+      }
+   }
+
+   /* Update state if this is a different texture object to last
+    * time.
+    */
+   if (imesa->CurrentTexObj[unit] != t ||
+       mcs != t->Setup[I830_TEXREG_MCS]) {
+
+      if ( imesa->CurrentTexObj[unit] != NULL ) {
+	 /* The old texture is no longer bound to this texture unit.
+	  * Mark it as such.
+	  */
+
+	 imesa->CurrentTexObj[unit]->base.bound &= ~(1U << unit);
+      }
+
+      I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
+      t->Setup[I830_TEXREG_MCS] = mcs;
+      imesa->CurrentTexObj[unit] = t;
+      i830TexSetUnit(t, unit);
+   }
+
+   /* Update texture environment if texture object image format or 
+    * texture environment state has changed. 
+    *
+    * KW: doesn't work -- change from tex0 only to tex0+tex1 gets
+    * missed (need to update last stage flag?).  Call
+    * i830UpdateTexEnv always.
+    */
+   if (tObj->Image[tObj->BaseLevel]->Format !=
+       imesa->TexEnvImageFmt[unit]) {
+      imesa->TexEnvImageFmt[unit] = tObj->Image[tObj->BaseLevel]->Format;
+   }
+   i830UpdateTexEnv( ctx, unit );
+   imesa->TexEnabledMask |= I830_TEX_UNIT_ENABLED(unit);
+
+   return GL_TRUE;
+}
+
+static GLboolean enable_tex_rect( GLcontext *ctx, GLuint unit )
+{
+   i830ContextPtr imesa = I830_CONTEXT(ctx);
+   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   i830TextureObjectPtr t = (i830TextureObjectPtr)tObj->DriverData;
+   GLuint mcs = t->Setup[I830_TEXREG_MCS];
+
+   mcs &= ~TEXCOORDS_ARE_NORMAL;
+   mcs |= TEXCOORDS_ARE_IN_TEXELUNITS;
+
+   if (mcs != t->Setup[I830_TEXREG_MCS]) {
+      I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
+      t->Setup[I830_TEXREG_MCS] = mcs;
+   }
+
+   return GL_TRUE;
+}
+
+
+static GLboolean enable_tex_2d( GLcontext *ctx, GLuint unit )
+{
+   i830ContextPtr imesa = I830_CONTEXT(ctx);
+   struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   i830TextureObjectPtr t = (i830TextureObjectPtr)tObj->DriverData;
+   GLuint mcs = t->Setup[I830_TEXREG_MCS];
+
+   mcs &= ~TEXCOORDS_ARE_IN_TEXELUNITS;
+   mcs |= TEXCOORDS_ARE_NORMAL;
+
+   if (mcs != t->Setup[I830_TEXREG_MCS]) {
+      I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
+      t->Setup[I830_TEXREG_MCS] = mcs;
+   }
+
+   return GL_TRUE;
+}
+
+ 
+static GLboolean disable_tex0( GLcontext *ctx )
+{
+   const int unit = 0;
+   i830ContextPtr imesa = I830_CONTEXT(ctx);
+
+   /* This is happening too often.  I need to conditionally send diffuse
+    * state to the card.  Perhaps a diffuse dirty flag of some kind.
+    * Will need to change this logic if more than 2 texture units are
+    * used.  We need to only do this up to the last unit enabled, or unit
+    * one if nothing is enabled.
+    */
+
+   if ( imesa->CurrentTexObj[unit] != NULL ) {
+      /* The old texture is no longer bound to this texture unit.
+       * Mark it as such.
+       */
+
+      imesa->CurrentTexObj[unit]->base.bound &= ~(1U << unit);
+      imesa->CurrentTexObj[unit] = NULL;
+   }
+
+   imesa->TexEnvImageFmt[unit] = 0;
+   imesa->dirty &= ~(I830_UPLOAD_TEX_N(unit));
+   
+   imesa->TexBlend[unit][0] = (STATE3D_MAP_BLEND_OP_CMD(unit) |
+			       TEXPIPE_COLOR |
+			       ENABLE_TEXOUTPUT_WRT_SEL |
+			       TEXOP_OUTPUT_CURRENT |
+			       DISABLE_TEX_CNTRL_STAGE |
+			       TEXOP_SCALE_1X |
+			       TEXOP_MODIFY_PARMS |
+			       TEXBLENDOP_ARG1);
+   imesa->TexBlend[unit][1] = (STATE3D_MAP_BLEND_OP_CMD(unit) |
+			       TEXPIPE_ALPHA |
+			       ENABLE_TEXOUTPUT_WRT_SEL |
+			       TEXOP_OUTPUT_CURRENT |
+			       TEXOP_SCALE_1X |
+			       TEXOP_MODIFY_PARMS |
+			       TEXBLENDOP_ARG1);
+   imesa->TexBlend[unit][2] = (STATE3D_MAP_BLEND_ARG_CMD(unit) |
+			       TEXPIPE_COLOR |
+			       TEXBLEND_ARG1 |
+			       TEXBLENDARG_MODIFY_PARMS |
+			       TEXBLENDARG_CURRENT);
+   imesa->TexBlend[unit][3] = (STATE3D_MAP_BLEND_ARG_CMD(unit) |
+			       TEXPIPE_ALPHA |
+			       TEXBLEND_ARG1 |
+			       TEXBLENDARG_MODIFY_PARMS |
+			       TEXBLENDARG_CURRENT);
+   imesa->TexBlendColorPipeNum[unit] = 0;
+   imesa->TexBlendWordsUsed[unit] = 4;
+   I830_STATECHANGE(imesa, (I830_UPLOAD_TEXBLEND_N(unit)));
+
+   return GL_TRUE;
+}
+
+static GLboolean i830UpdateTexUnit( GLcontext *ctx, GLuint unit )
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 
    imesa->TexEnabledMask &= ~(I830_TEX_UNIT_ENABLED(unit));
 
-   if (texUnit->_ReallyEnabled == TEXTURE0_2D)
-   {
-      struct gl_texture_object *tObj = texUnit->_Current;
-      i830TextureObjectPtr t = (i830TextureObjectPtr)tObj->DriverData;
-      GLuint mcs = t->Setup[I830_TEXREG_MCS] & TEXCOORDTYPE_MASK;
-
-      /* Handle projective texturing */
-      if (imesa->vertex_format & (1<<31)) {
-	 mcs |= TEXCOORDTYPE_HOMOGENEOUS;
-      } else {
-	 mcs |= TEXCOORDTYPE_CARTESIAN;
-      }
-
-      /* Fallback if there's a texture border */
-      if ( tObj->Image[tObj->BaseLevel]->Border > 0 ) {
-	 FALLBACK( imesa, I830_FALLBACK_TEXTURE, GL_TRUE );
-	 return;
-      }
-
-      /* Upload teximages (not pipelined)
-       */
-      if (t->dirty_images) {
-/* 	 I830_FIREVERTICES(imesa); */
-	 i830SetTexImages( imesa, tObj );
-	 if (!t->MemBlock) {
-	    FALLBACK( imesa, I830_FALLBACK_TEXTURE, GL_TRUE );
-	    return;
-	 }
-      }
-
-      /* Update state if this is a different texture object to last
-       * time.
-       */
-      if (imesa->CurrentTexObj[unit] != t || 
-	  mcs != t->Setup[I830_TEXREG_MCS]) {
-	 I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
-	 t->Setup[I830_TEXREG_MCS] = mcs;
-	 imesa->CurrentTexObj[unit] = t;
-	 i830TexSetUnit(t, unit);
-      }
-
-      /* Update texture environment if texture object image format or 
-       * texture environment state has changed. 
-       *
-       * KW: doesn't work -- change from tex0 only to tex0+tex1 gets
-       * missed (need to update last stage flag?).  Call
-       * i830UpdateTexEnv always.
-       */
-      if (tObj->Image[tObj->BaseLevel]->Format !=
-	  imesa->TexEnvImageFmt[unit]) {
-	 imesa->TexEnvImageFmt[unit] = tObj->Image[tObj->BaseLevel]->Format;
-      }
-      i830UpdateTexEnv( ctx, unit );
-      imesa->TexEnabledMask |= I830_TEX_UNIT_ENABLED(unit);
+   if (texUnit->_ReallyEnabled == TEXTURE_2D_BIT) {
+      return (enable_tex_common( ctx, unit ) &&
+	      enable_tex_2d( ctx, unit ));
+   }
+   else if (texUnit->_ReallyEnabled == TEXTURE_RECT_BIT) {      
+      return (enable_tex_common( ctx, unit ) &&
+	      enable_tex_rect( ctx, unit ));
    }
    else if (texUnit->_ReallyEnabled) {
-      FALLBACK( imesa, I830_FALLBACK_TEXTURE, GL_TRUE );
+      return GL_FALSE;
    }
    else if (unit == 0) {
-      /* This is happening too often.  I need to conditionally send diffuse
-       * state to the card.  Perhaps a diffuse dirty flag of some kind.
-       * Will need to change this logic if more than 2 texture units are
-       * used.  We need to only do this up to the last unit enabled, or unit
-       * one if nothing is enabled.
-       */
-      imesa->CurrentTexObj[unit] = 0;
-      imesa->TexEnvImageFmt[unit] = 0;
-      imesa->dirty &= ~(I830_UPLOAD_TEX_N(unit));
-
-      imesa->TexBlend[unit][0] = (STATE3D_MAP_BLEND_OP_CMD(unit) |
-				    TEXPIPE_COLOR |
-				    ENABLE_TEXOUTPUT_WRT_SEL |
-				    TEXOP_OUTPUT_CURRENT |
-				    DISABLE_TEX_CNTRL_STAGE |
-				    TEXOP_SCALE_1X |
-				    TEXOP_MODIFY_PARMS |
-				    TEXBLENDOP_ARG1);
-      imesa->TexBlend[unit][1] = (STATE3D_MAP_BLEND_OP_CMD(unit) |
-				    TEXPIPE_ALPHA |
-				    ENABLE_TEXOUTPUT_WRT_SEL |
-				    TEXOP_OUTPUT_CURRENT |
-				    TEXOP_SCALE_1X |
-				    TEXOP_MODIFY_PARMS |
-				    TEXBLENDOP_ARG1);
-      imesa->TexBlend[unit][2] = (STATE3D_MAP_BLEND_ARG_CMD(unit) |
-				    TEXPIPE_COLOR |
-				    TEXBLEND_ARG1 |
-				    TEXBLENDARG_MODIFY_PARMS |
-				    TEXBLENDARG_CURRENT);
-      imesa->TexBlend[unit][3] = (STATE3D_MAP_BLEND_ARG_CMD(unit) |
-				    TEXPIPE_ALPHA |
-				    TEXBLEND_ARG1 |
-				    TEXBLENDARG_MODIFY_PARMS |
-				    TEXBLENDARG_CURRENT);
-      imesa->TexBlendColorPipeNum[unit] = 0;
-      imesa->TexBlendWordsUsed[unit] = 4;
-      I830_STATECHANGE(imesa, (I830_UPLOAD_TEXBLEND_N(unit)));
+      return disable_tex0( ctx );
+   }
+   else {
+      return GL_TRUE;
    }
 }
+
 
 /* Called from vb code to update projective texturing properly */
 void i830UpdateTexUnitProj( GLcontext *ctx, GLuint unit, GLboolean state )
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
    struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
+   struct gl_texture_object *tObj = texUnit->_Current;
+   i830TextureObjectPtr t; 
+   GLuint mcs;
 
-   if (texUnit->_ReallyEnabled == TEXTURE0_2D)
-   {
-      struct gl_texture_object *tObj = texUnit->_Current;
-      i830TextureObjectPtr t = (i830TextureObjectPtr)tObj->DriverData;
-      GLuint mcs = t->Setup[I830_TEXREG_MCS] & TEXCOORDTYPE_MASK;
+   if (!tObj) return;
 
-      /* Handle projective texturing */
-      if (state) {
-	 mcs |= TEXCOORDTYPE_HOMOGENEOUS;
-      } else {
-	 mcs |= TEXCOORDTYPE_CARTESIAN;
-      }
+   t = (i830TextureObjectPtr)tObj->DriverData;
+   mcs = (t->Setup[I830_TEXREG_MCS] & 
+		 TEXCOORDTYPE_MASK &
+		 ~TEXCOORDS_ARE_NORMAL);
 
-      if (mcs != t->Setup[I830_TEXREG_MCS]) {
-	 I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
-	 t->Setup[I830_TEXREG_MCS] = mcs;
-      }
+   /* Handle projective texturing */
+   if (state) {
+      mcs |= TEXCOORDTYPE_HOMOGENEOUS;
+   } else {
+      mcs |= TEXCOORDTYPE_CARTESIAN;
+   }
+   
+   if (texUnit->_ReallyEnabled == TEXTURE_2D_BIT) {
+      mcs |= TEXCOORDS_ARE_NORMAL;
+   }
+   else if (texUnit->_ReallyEnabled == TEXTURE_RECT_BIT) {
+      mcs |= TEXCOORDS_ARE_IN_TEXELUNITS;
+   }
+   else
+      return;
+
+   if (mcs != t->Setup[I830_TEXREG_MCS]) {
+      I830_STATECHANGE(imesa, (I830_UPLOAD_TEX0<<unit));
+      t->Setup[I830_TEXREG_MCS] = mcs;
    }
 }
 
@@ -1461,35 +1552,29 @@ void i830UpdateTextureState( GLcontext *ctx )
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
    int pipe_num = 0;
+   GLboolean ok;
 
-   if (0) fprintf(stderr, "%s\n", __FUNCTION__);
-   FALLBACK( imesa, I830_FALLBACK_TEXTURE, GL_FALSE );
+   ok = (i830UpdateTexUnit( ctx, 0 ) &&
+	 i830UpdateTexUnit( ctx, 1 ) &&
+	 i830UpdateTexUnit( ctx, 2 ) &&
+	 i830UpdateTexUnit( ctx, 3 ));
 
-   i830UpdateTexUnit( ctx, 0 );
-   i830UpdateTexUnit( ctx, 1 );
-#if 0
-   i830UpdateTexUnit( ctx, 2 );
-   i830UpdateTexUnit( ctx, 3 );
-#endif
+   FALLBACK( imesa, I830_FALLBACK_TEXTURE, !ok );
+
 
    /* Make sure last stage is set correctly */
-#if 0
    if(imesa->TexEnabledMask & I830_TEX_UNIT_ENABLED(3)) {
       pipe_num = imesa->TexBlendColorPipeNum[3];
       imesa->TexBlend[3][pipe_num] |= TEXOP_LAST_STAGE;
    } else if(imesa->TexEnabledMask & I830_TEX_UNIT_ENABLED(2)) {
       pipe_num = imesa->TexBlendColorPipeNum[2];
       imesa->TexBlend[2][pipe_num] |= TEXOP_LAST_STAGE;
-   } else
-#endif
-   if(imesa->TexEnabledMask & I830_TEX_UNIT_ENABLED(1)) {
+   } else if(imesa->TexEnabledMask & I830_TEX_UNIT_ENABLED(1)) {
       pipe_num = imesa->TexBlendColorPipeNum[1];
       imesa->TexBlend[1][pipe_num] |= TEXOP_LAST_STAGE;
-      if (0) fprintf(stderr, "Unit One is last enabled\n");
    } else {
       pipe_num = imesa->TexBlendColorPipeNum[0];
       imesa->TexBlend[0][pipe_num] |= TEXOP_LAST_STAGE;
-      if (0) fprintf(stderr, "Unit Zero is last enabled\n");
    }
 }
 

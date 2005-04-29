@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/proto-back-ldbm.h,v 1.69.2.1 2003/02/09 16:31:38 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/proto-back-ldbm.h,v 1.74.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _PROTO_BACK_LDBM
@@ -93,15 +102,14 @@ Entry * dn2entry_rw LDAP_P(( Backend *be, struct berval *dn, Entry **matched, in
 /*
  * entry.c
  */
-int ldbm_back_entry_release_rw LDAP_P(( Backend *be,
-	Connection *conn, Operation *op,
-	Entry *e, int rw ));
+BI_entry_release_rw ldbm_back_entry_release_rw;
+BI_entry_get_rw ldbm_back_entry_get;
 
 /*
  * filterindex.c
  */
 
-ID_BLOCK * filter_candidates LDAP_P(( Backend *be, Filter *f ));
+ID_BLOCK * filter_candidates LDAP_P(( Operation *op, Filter *f ));
 
 /*
  * id2children.c
@@ -158,15 +166,15 @@ index_param LDAP_P((
 
 extern int
 index_values LDAP_P((
-	Backend *be,
+	Operation *op,
 	AttributeDescription *desc,
 	BerVarray vals,
 	ID id,
-	int op ));
+	int opid ));
 
-int index_entry LDAP_P(( Backend *be, int r, Entry *e, Attribute *ap ));
-#define index_entry_add(be,e,ap) index_entry((be),SLAP_INDEX_ADD_OP,(e),(ap))
-#define index_entry_del(be,e,ap) index_entry((be),SLAP_INDEX_DELETE_OP,(e),(ap))
+int index_entry LDAP_P(( Operation *op, int r, Entry *e ));
+#define index_entry_add(be,e) index_entry((be),SLAP_INDEX_ADD_OP,(e))
+#define index_entry_del(be,e) index_entry((be),SLAP_INDEX_DELETE_OP,(e))
 
 
 /*
@@ -187,11 +195,6 @@ key_read LDAP_P((
 	ID_BLOCK **idout ));
 
 /*
- * passwd.c
- */
-extern BI_op_extended ldbm_back_exop_passwd;
-
-/*
  * modify.c
  * These prototypes are placed here because they are used by modify and
  * modify rdn which are implemented in different files. 
@@ -204,9 +207,8 @@ extern BI_op_extended ldbm_back_exop_passwd;
  */
 
 /* returns LDAP error code indicating error OR SLAPD_ABANDON */
-int ldbm_modify_internal LDAP_P((Backend *be,
-	Connection *conn, Operation *op,
-	const char *dn, Modifications *mods, Entry *e,
+int ldbm_modify_internal LDAP_P(( Operation *op,
+	Modifications *mods, Entry *e,
 	const char **text, char *textbuf, size_t textlen ));
 
 /*

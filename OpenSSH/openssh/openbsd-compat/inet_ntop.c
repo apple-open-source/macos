@@ -1,3 +1,5 @@
+/* OPENBSD ORIGINAL: lib/libc/net/inet_ntop.c */
+
 /*	$OpenBSD: inet_ntop.c,v 1.5 2002/08/23 16:27:31 itojun Exp $	*/
 
 /* Copyright (c) 1996 by Internet Software Consortium.
@@ -31,7 +33,6 @@ static char rcsid[] = "$OpenBSD: inet_ntop.c,v 1.5 2002/08/23 16:27:31 itojun Ex
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include "openbsd-compat/fake-socket.h"
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #ifndef HAVE_CYGWIN

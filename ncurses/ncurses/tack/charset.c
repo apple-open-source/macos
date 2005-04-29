@@ -21,7 +21,7 @@
 
 #include <tack.h>
 
-MODULE_ID("$Id: charset.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: charset.c,v 1.8 2001/06/18 18:44:26 tom Exp $")
 
 /*
 	Menu definitions for alternate character set and SGR tests.

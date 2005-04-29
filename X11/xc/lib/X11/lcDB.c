@@ -28,7 +28,7 @@
  *  This is source code modified by FUJITSU LIMITED under the Joint
  *  Development Agreement for the CDE/Motif PST.
  */
-/* $XFree86: xc/lib/X11/lcDB.c,v 3.15 2002/05/31 18:45:42 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcDB.c,v 3.16 2003/05/27 22:26:26 tsi Exp $ */
 
 
 
@@ -126,8 +126,7 @@ static TokenTable token_tbl[] = {
     { T_NUMERIC_HEX,	"\\x",	2,	f_numeric },
     { T_NUMERIC_DEC,	"\\d",	2,	f_numeric },
     { T_NUMERIC_OCT,	"\\o",	2,	f_numeric },
-    { T_DEFAULT,	" ",	1,	f_default },	/* any character */
-    {0} 
+    { T_DEFAULT,	" ",	1,	f_default }	/* any character */
 };
 
 #define	SYM_CR          '\r'

@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.3 2004/12/22 23:49:40 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,44 +23,42 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Variables
 
-AM_CFLAGS = $(GNUCFLAGS)
-INCLUDES = @INCLUDES@ $(LIBGIMPPRINT_CFLAGS) -I$(top_srcdir)/src/main
-LIBPRINTUT = $(top_builddir)/lib/libprintut.la
-LIBS = $(INTLLIBS) @LIBS@
+LOCAL_CPPFLAGS = -I$(top_srcdir)/src/main $(GIMPPRINT_CFLAGS)
 
-TESTS = run-testdither run-weavetest
+TESTS = curve run-testdither run-weavetest
 
 
 ## Programs
 
 if BUILD_TEST
-noinst_PROGRAMS = testdither escp2-weavetest unprint pcl-unprint bjc-unprint
+noinst_PROGRAMS = testdither escp2-weavetest unprint pcl-unprint bjc-unprint curve xml-curve
 endif
 
 escp2_weavetest_SOURCES = escp2-weavetest.c
-escp2_weavetest_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-escp2_weavetest_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+escp2_weavetest_LDADD = $(GIMPPRINT_LIBS)
 
 unprint_SOURCES = unprint.c
-unprint_LDADD = $(LIBPRINTUT)
+unprint_LDADD = $(GIMPPRINT_LIBS)
+
+curve_SOURCES = curve.c
+curve_LDADD = $(GIMPPRINT_LIBS)
 
 pcl_unprint_SOURCES = pcl-unprint.c
-pcl_unprint_LDADD = $(LIBPRINTUT)
+pcl_unprint_LDADD = $(GIMPPRINT_LIBS)
 
 bjc_unprint_SOURCES = bjc-unprint.c
-bjc_unprint_LDADD = $(LIBPRINTUT)
+bjc_unprint_LDADD = $(GIMPPRINT_LIBS)
 
 testdither_SOURCES = testdither.c
-testdither_LDADD = $(LIBPRINTUT) $(LIBGIMPPRINT_LIBS)
-testdither_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+testdither_LDADD = $(GIMPPRINT_LIBS)
 
-$(LIBGIMPPRINT_LIBS):
-	cd ../src/main ; \
-	$(MAKE)
-
+xml_curve_SOURCES = xml-curve.c
+xml_curve_LDADD = $(GIMPPRINT_LIBS)
 
 ## Rules
 

@@ -167,14 +167,13 @@ static inline void convert16to8( const UInt16 src,
     dst[1] = (0xff00 & src) >> 8;
 }
 
-
 #define super IOHIDDeviceShim
 
 OSDefineMetaClassAndStructors( IOHIDPointingDevice, super )
 
 
 IOHIDPointingDevice * 
-IOHIDPointingDevice::newPointingDevice(IOService *owner, UInt8 numButtons, UInt32 resolution, bool scroll)
+IOHIDPointingDevice::newPointingDeviceAndStart(IOService *owner, UInt8 numButtons, UInt32 resolution, bool scroll, UInt32 location)
 {
     IOService * provider = owner;
     
@@ -188,22 +187,28 @@ IOHIDPointingDevice::newPointingDevice(IOService *owner, UInt8 numButtons, UInt3
     
     if (device)
     {
-        if (!device->init()){
+        if (!device->initWithLocation(location)){
             device->release();
             return 0;
         }
         device->_numButtons = numButtons;
         device->_resolution = resolution;
         device->_isScrollPresent = scroll;
+        
+        if ((!device->attach(owner) || !device->start(owner)))
+        {
+            device->release();
+            device = 0;
+        }
     }
     
     return device;
 }
 
 
-bool IOHIDPointingDevice::init( OSDictionary * dictionary )
+bool IOHIDPointingDevice::initWithLocation( UInt32 location )
 {
-    if (!super::init(dictionary))
+    if (!super::initWithLocation(location))
         return false;
         
     _report = 0;
@@ -223,11 +228,8 @@ bool IOHIDPointingDevice::handleStart( IOService * provider )
     if (!super::handleStart(provider))
         return false;
         
-    _provider = OSDynamicCast(IOHIPointing, provider);
+    _pointing = OSDynamicCast(IOHIPointing, provider);
     
-    if (!_provider)
-        return false;
-            
     _report = IOBufferMemoryDescriptor::withCapacity(
         sizeof(GenericMouseReport), kIODirectionNone, true);
                                         
@@ -319,7 +321,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
         
     if (_resolution != 400)
     {
-        convert16to8(-32767, mouse->xyLogMinNum);
+        convert16to8((unsigned)-32767, mouse->xyLogMinNum);
         convert16to8(32767, mouse->xyLogMaxNum);
         
         UInt16 phys = 3276700 / _resolution;
@@ -380,3 +382,14 @@ void IOHIDPointingDevice::postMouseEvent(UInt8 buttons, UInt16 x, UInt16 y, UInt
     
     handleReport(_report);
 }
+
+OSString * IOHIDPointingDevice::newProductString() const
+{
+    OSString * string = 0;
+
+    if ( !(string = super::newProductString()) )
+        string = OSString::withCString("Virtual Mouse");
+        
+    return string;
+}
+

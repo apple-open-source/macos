@@ -52,6 +52,8 @@
  * SUCH DAMAGE.
  */
 
+/* temporarily comment this file out for LP64, until code can be modified */
+#ifndef __LP64__
 
 #include <stdlib.h>
 #include <sys/types.h>
@@ -333,3 +335,5 @@ __fdnlist(fd, list)
 	}
 	return (nreq);
 }
+
+#endif /* !__LP64__ */

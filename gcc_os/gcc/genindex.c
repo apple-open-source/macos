@@ -22,7 +22,6 @@
 
 #include "genindex.h"
 
-extern int flag_cpp_precomp;
 extern void warning PARAMS ((const char *, ...));
 
 enum index_language_kind index_language = PB_INDEX_LANGUAGE_INVALID;
@@ -132,7 +131,7 @@ static char * absolute_path_name          PARAMS ((char *));
 static int is_dup_name                    PARAMS ((struct idx_file_stack *, char *));
 static void free_idx_file_stack           PARAMS (( struct idx_file_stack *));
 static struct idx_file_stack * push_idx_file_stack 
-                                          PARAMS (( struct idx_file_stack *, char *));
+                                          PARAMS (( struct idx_file_stack *, const char *));
 static struct idx_file_stack * pop_idx_file_stack            
                                           PARAMS (( struct idx_file_stack *));
 
@@ -166,16 +165,34 @@ connect_to_socket (hostname, port_number)
   return socket_fd;
 }
 
+/* Disable indexing.
+   This is done, when compiler is reinvoked to process preprocessed
+   sources when -save-temps option is used.  */
+void
+disable_gen_index ()
+{
+  flag_gen_index = flag_debug_gen_index = flag_gen_index_original = 0;
+}
+
 /* Initialize socket communication channels.  */
 void
 init_gen_indexing ()
 {
-#if 0
-  /* Turn OFF indexing, until further testing with new PB is done.  */
-  flag_gen_index = 0;
-  flag_gen_index_original = 0;
-  return;
-#endif
+
+  if (flag_gen_index || flag_debug_gen_index)
+    {
+      /* See if the list of indexed header file is to be checked 
+         before generating index information for  the headers.  */
+      index_header_list_filename = getenv ("PB_INDEXED_HEADERS_FILE");
+      if (index_header_list_filename && *index_header_list_filename)
+        {       
+          read_indexed_header_list ();
+          /* Irrespective of if indexed_header file is present or not, 
+             switch ON indexed_header list.  */
+          flag_check_indexed_header_list = 1;
+        }
+
+    }
 
   if (flag_debug_gen_index)
     {
@@ -203,17 +220,6 @@ init_gen_indexing ()
 
   if (flag_gen_index)
     {
-      /* See if the list of indexed header file is to be checked 
-         before generating index information for  the headers.  */
-      index_header_list_filename = getenv ("PB_INDEXED_HEADERS_FILE");
-      if (index_header_list_filename && *index_header_list_filename)
-        {       
-          read_indexed_header_list ();
-          /* Irrespective of if indexed_header file is present or not, 
-             switch ON indexed_header list.  */
-          flag_check_indexed_header_list = 1;
-        }
-
       /* open socket for communication */
       index_socket_fd = connect_to_socket (index_host_name,
                                            index_port_number);
@@ -222,6 +228,8 @@ init_gen_indexing ()
           warning ("Indexing information is not produced.");
 	  flag_gen_index = 0;
         }
+      else
+        flag_debug_gen_index = 0;
     }
 }
 
@@ -272,7 +280,8 @@ flush_index_buffer ()
     - Allocate new buffer 
 */
 static void
-maybe_flush_index_buffer (int i)
+maybe_flush_index_buffer (i)
+     int i;
 {
   if ((index_buffer_count + i) > (INDEX_BUFFER_SIZE  - 20))
     flush_index_buffer();
@@ -305,11 +314,7 @@ gen_indexing_info (info_tag, name, number)
       strcpy (info, "+vm ");
       break;
     case INDEX_FILE_BEGIN:
-      /* If cpp-precomp is used, then it's File Resume.  */
-      if (flag_cpp_precomp)
-        strcpy (info, "<Fm ");
-      else
-        strcpy (info, "+Fm ");
+      strcpy (info, "+Fm ");
       break;
     case INDEX_FILE_INCLUDE:
       strcpy (info, "+Fi ");
@@ -437,21 +442,19 @@ gen_indexing_info (info_tag, name, number)
 
   if (info)
     {
-      strcat (index_buffer, info);
+      strcpy (index_buffer + index_buffer_count, info);
       index_buffer_count += info_length;
       if (index_language != PB_INDEX_LANGUAGE_INVALID)
         {
-          sprintf(&nbuf[0],"%d ", index_language); 
-          strcat (index_buffer,  nbuf);
-          index_buffer_count += strlen (nbuf);
+	  index_buffer_count += sprintf (index_buffer + index_buffer_count,
+					 "%d ", index_language);
         }
     }
 
   if (number != -1)
     {
-      sprintf (&nbuf[0],"%u ", number);
-      strcat (index_buffer,  nbuf);
-      index_buffer_count += strlen (nbuf);
+      index_buffer_count += sprintf (index_buffer + index_buffer_count,
+				     "%u ", number);
     }
 
   if (name)
@@ -473,7 +476,7 @@ gen_indexing_info (info_tag, name, number)
         index_buffer_count += 9;
         index_buffer [index_buffer_count] = NULL;
       }
-      strcat (index_buffer,  name);
+      strcpy (index_buffer + index_buffer_count, name);
       index_buffer_count += name_length;
     }
  
@@ -498,20 +501,16 @@ void gen_indexing_header (name)
   char *header;
   int len = strlen (name);
   int components;
+  int len_header;
 
-  /* If cpp-precomp is used as a preprocessor, then we have two
-     components.  */
-  if (flag_cpp_precomp)
-    components = 2;
-  else
-    components = 1;
+  components = 1;
 
   header = (char *) xmalloc (sizeof (char) * (40 + len));
-  sprintf (header, "pbxindex-begin v1.2 0x%08lX %02u/%02u %s\n",
+  len_header = sprintf (header, "pbxindex-begin v1.2 0x%08lX %02u/%02u %s\n",
 	   (unsigned long) getppid(), components, components, name);
-  maybe_flush_index_buffer (len);
-  strcat (index_buffer, header);
-  index_buffer_count += strlen (header);
+  maybe_flush_index_buffer (len_header);
+  strcpy (index_buffer + index_buffer_count, header);
+  index_buffer_count += len_header;
   free (header);
 }
 
@@ -521,7 +520,7 @@ void gen_indexing_footer ()
   int len = strlen (footer);
 
   maybe_flush_index_buffer (len);
-  strcat (index_buffer, footer);
+  strcpy (index_buffer + index_buffer_count, footer);
   index_buffer_count += len;
 }
 
@@ -654,7 +653,7 @@ add_index_header (str, timestamp)
    Push it on the stack.  */
 void
 push_cur_index_filename (name)
-     char *name;
+     const char *name;
 {
   cur_index_filename = push_idx_file_stack (cur_index_filename, name);
 }
@@ -669,8 +668,8 @@ pop_cur_index_filename ()
 /* Add duplicate name for index_header.  */
 void
 add_dup_header_name (orig_name, sname)
-     char *orig_name; 
-     char *sname;  /* another name */
+     const char *orig_name; 
+     const char *sname;  /* another name */
 {
   struct indexed_header *cursor;
   if (!sname || !orig_name)
@@ -870,7 +869,9 @@ update_header_status (header, when, found)
             }
         }
      if (skip_index_generation == 0 && recursion_depth == 0)
-       flag_gen_index = 1;
+       {
+         flag_gen_index = 1;
+       }
      else if (skip_index_generation < 0)
        {
          warning("Invalid skip header index count.");
@@ -937,7 +938,8 @@ push_begin_header_stack (name)
 /* Allocates memory.
    Return absolute path name for the given input filename.  */
 static char *
-absolute_path_name(char *input_name)
+absolute_path_name(input_name)
+     char *input_name;
 {
   char *name;
   if (input_name[0] != '/') 
@@ -970,18 +972,7 @@ process_header_indexing (input_name, when)
   char *name = NULL;
 
 #if 1
-  if (flag_cpp_precomp)
-    {
-      if (when == PB_INDEX_END)
-        name = pop_begin_header_stack ();
-      else
-        {
-          name = absolute_path_name (input_name);
-          push_begin_header_stack (name);
-        }
-    }
-  else
-    name = absolute_path_name (input_name);
+  name = absolute_path_name (input_name);
 #endif
  
   if (!name)
@@ -1034,15 +1025,14 @@ process_header_indexing (input_name, when)
     }
 
   update_header_status (cursor, when, found);
-  if (flag_cpp_precomp && when == PB_INDEX_END)
-    free (name);
   return found;
 }
 
+/* Set indexing language.  */
 
-/* Set indexing language */
 void
-set_index_lang (int l)
+set_index_lang (l)
+     int l;
 {
   index_language = l;
 }
@@ -1052,7 +1042,7 @@ set_index_lang (int l)
 static struct idx_file_stack *
 push_idx_file_stack (stack, name)
      struct idx_file_stack *stack;
-     char *name;
+     const char *name;
 {
   struct idx_file_stack *n;
 

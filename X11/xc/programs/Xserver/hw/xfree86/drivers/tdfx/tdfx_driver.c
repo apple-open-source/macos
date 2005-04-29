@@ -27,7 +27,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfx_driver.c,v 1.92 2002/11/25 14:05:00 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfx_driver.c,v 1.105 2003/11/03 05:11:41 tsi Exp $ */
 
 /*
  * Authors:
@@ -88,7 +88,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "tdfx.h"
 
-#include "miscstruct.h"
+#include "regionstr.h"
 #include "dixstruct.h"
 
 #include "xf86xv.h"
@@ -129,8 +129,8 @@ static Bool TDFXSaveScreen(ScreenPtr pScreen, int mode);
 static void TDFXFreeScreen(int scrnIndex, int flags);
 
 /* Check if a mode is valid on the hardware */
-static int TDFXValidMode(int scrnIndex, DisplayModePtr mode, Bool
-		       verbose, int flags);
+static ModeStatus TDFXValidMode(int scrnIndex, DisplayModePtr mode,
+				Bool verbose, int flags);
 
 static void TDFXBlockHandler(int, pointer, pointer, pointer);
 
@@ -485,8 +485,8 @@ TDFXCountRam(ScrnInfoPtr pScrn) {
 
     /* Some information about the timing register (for later debugging) */
     xf86DrvMsg(pScrn->scrnIndex, X_INFO, 
-               "DRAMINIT1 read 0x%x, programming 0x%x (not Banshee)\n",
-	       pTDFX->readLong(pTDFX, DRAMINIT1), dramInit1);
+               "DRAMINIT1 read 0x%x, programming 0x%lx (not Banshee)\n",
+	       pTDFX->readLong(pTDFX, DRAMINIT1), (unsigned long)dramInit1);
 
     /* 
      * Here we don't whack the timing register on the Banshee boards as the
@@ -513,7 +513,7 @@ TDFXCountRam(ScrnInfoPtr pScrn) {
 	} else if ( (dramInit0_strap & SST_SGRAM_TYPE) == SST_SGRAM_TYPE_16MBIT) {
 	  partSize = 16;
 	} else {
-	  ErrorF("Invalid sgram type = 0x%x",
+	  ErrorF("Invalid sgram type = 0x%lx",
 		 (dramInit0_strap & SST_SGRAM_TYPE) << SST_SGRAM_TYPE_SHIFT );
 	  return 0;
 	}
@@ -525,8 +525,10 @@ TDFXCountRam(ScrnInfoPtr pScrn) {
       banks=((dramInit0_strap&BIT(30))==0) ? 2 : 4;
       vmemSize=nChips*partSize*banks;
     }
-    TDFXTRACEREG("dramInit0 = %x dramInit1 = %x\n", dramInit0_strap, dramInit1_strap);
-    TDFXTRACEREG("MemConfig %d chips %d size %d total\n", nChips, partSize, vmemSize);
+    TDFXTRACEREG("dramInit0 = %lx dramInit1 = %lx\n",
+		(unsigned long)dramInit0_strap, (unsigned long)dramInit1_strap);
+    TDFXTRACEREG("MemConfig %d chips %ld size %ld total\n", (int)nChips,
+		(unsigned long)partSize, (unsigned long)vmemSize);
 
     /*
       disable block writes for SDRAM
@@ -598,8 +600,12 @@ static void
 TDFXInitChips(ScrnInfoPtr pScrn)
 {
   TDFXPtr pTDFX;
-  int i, v, cfgbits, initbits;
-  int mem0base, mem1base, mem0size, mem0bits, mem1size, mem1bits;
+  int i;
+#if 0
+  int v;
+#endif
+  unsigned long cfgbits, initbits;
+  unsigned long mem0base, mem1base, mem0size, mem0bits, mem1size, mem1bits;
 
   pTDFX=TDFXPTR(pScrn);
   cfgbits=pciReadLong(pTDFX->PciTag[0], CFG_PCI_DECODE);
@@ -630,8 +636,8 @@ TDFXInitChips(ScrnInfoPtr pScrn)
   for (i=0; i<pTDFX->numChips; i++) {
     initbits|=BIT(10);
     pciWriteLong(pTDFX->PciTag[i], CFG_INIT_ENABLE, initbits);
-    v=pciReadWord(pTDFX->PciTag[i], CFG_PCI_COMMAND);
 #if 0
+    v=pciReadWord(pTDFX->PciTag[i], CFG_PCI_COMMAND);
     if (!i)
       pciWriteWord(pTDFX->PciTag[i], CFG_PCI_COMMAND, v|0x3);
     else
@@ -743,38 +749,24 @@ TDFXPreInit(ScrnInfoPtr pScrn, int flags)
    * not sure if they are disabled.
    */
   xf86SetOperatingState(resVgaIo, pTDFX->pEnt->index, ResDisableOpr);
-#if 0
-  pScrn->racIoFlags = RAC_COLORMAP | RAC_CURSOR | RAC_VIEWPORT;
-  pScrn->racMemFlags = RAC_COLORMAP | RAC_CURSOR | RAC_VIEWPORT;
-#endif
-#if 0
-#if 1
 
   /* Is VGA memory disabled during OPERATING state? */
-
-  xf86SetOperatingState(resVgaMem, pTDFX->pEnt->index, ResDisableOpr);
-#else
-  pScrn->racMemFlags = RAC_FB | RAC_COLORMAP | RAC_CURSOR | RAC_VIEWPORT;
-#endif
-#endif
-
-#if 1
+  xf86SetOperatingState(resVgaMem, pTDFX->pEnt->index, ResUnusedOpr);
     /* 
      * I'm sure we don't need to set these. All resources 
      * for these operations are exclusive.
      */
   if (pTDFX->usePIO) {
-      pScrn->racMemFlags = RAC_FB;
+      pScrn->racMemFlags = 0;
       pScrn->racIoFlags = RAC_FB | RAC_COLORMAP | RAC_CURSOR | RAC_VIEWPORT;
   } else
-      pScrn->racMemFlags = RAC_FB | RAC_COLORMAP | RAC_CURSOR | RAC_VIEWPORT;
-#endif
+      pScrn->racMemFlags = 0;
 
   /* Set pScrn->monitor */
   pScrn->monitor = pScrn->confScreen->monitor;
 
   flags24=Support24bppFb | Support32bppFb | SupportConvert32to24;
-  if (!xf86SetDepthBpp(pScrn, 8, 8, 8, flags24)) {
+  if (!xf86SetDepthBpp(pScrn, 0, 0, 0, flags24)) {
     return FALSE;
   } else {
     switch (pScrn->depth) {
@@ -902,7 +894,7 @@ TDFXPreInit(ScrnInfoPtr pScrn, int flags)
 
   /* Multiple by two because tiled access requires more address space */
   pTDFX->FbMapSize = pScrn->videoRam*1024*2;
-  xf86DrvMsg(pScrn->scrnIndex, from, "VideoRAM: %d kByte Mapping %d kByte\n",
+  xf86DrvMsg(pScrn->scrnIndex, from, "VideoRAM: %d kByte Mapping %ld kByte\n",
 	     pScrn->videoRam, pTDFX->FbMapSize/1024);
 
   /* Since we can do gamma correction, we call xf86SetGamma */
@@ -961,7 +953,18 @@ TDFXPreInit(ScrnInfoPtr pScrn, int flags)
   clockRanges->minClock= 12000; /* !!! What's the min clock? !!! */
   clockRanges->maxClock=pTDFX->MaxClock;
   clockRanges->clockIndex = -1;
-  clockRanges->interlaceAllowed = FALSE;
+  switch (pTDFX->ChipType) {
+    case PCI_CHIP_BANSHEE:
+      clockRanges->interlaceAllowed = FALSE;
+      break;
+    case PCI_CHIP_VOODOO3:
+    case PCI_CHIP_VOODOO5:
+      clockRanges->interlaceAllowed = TRUE;
+      break;
+    default:
+      clockRanges->interlaceAllowed = FALSE;
+      break;
+  }    
   clockRanges->doubleScanAllowed = TRUE;
 
   /*
@@ -991,7 +994,7 @@ TDFXPreInit(ScrnInfoPtr pScrn, int flags)
     return FALSE;
   }
 
-  xf86SetCrtcForModes(pScrn, INTERLACE_HALVE_V);
+  xf86SetCrtcForModes(pScrn, 0);
 
   pScrn->currentMode = pScrn->modes;
 
@@ -1095,7 +1098,14 @@ TDFXPreInit(ScrnInfoPtr pScrn, int flags)
   pTDFX->writeLong(pTDFX, MISCINIT0, pTDFX->ModeReg.miscinit0);
 #endif
 
-
+#ifdef XF86DRI
+  /* Load the dri module if requested. */
+  if (xf86ReturnOptValBool(pTDFX->Options, OPTION_DRI, FALSE)) {
+    if (xf86LoadSubModule(pScrn, "dri")) {
+      xf86LoaderReqSymLists(driSymbols, drmSymbols, NULL);
+    }
+  }
+#endif
   return TRUE;
 }
 
@@ -1612,19 +1622,14 @@ TDFXSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode) {
   TDFXPtr pTDFX;
   TDFXRegPtr tdfxReg;
   vgaRegPtr pVga;
-  int hbs, hbe, vbs, vbe, hse, wd;
-  int hd, hss, ht, vss, vt, vd, vse;
+  int hbs, hbe, vbs, vbe, hse;
+  int hd, hss, ht, vt, vd;
 
   TDFXTRACE("TDFXSetMode start\n");
 
   pTDFX = TDFXPTR(pScrn);
   tdfxReg = &pTDFX->ModeReg;
   pVga = &VGAHWPTR(pScrn)->ModeReg;
-
-  if (pTDFX->cpp==4)
-    wd = pScrn->displayWidth>>1;
-  else
-    wd = pScrn->displayWidth>>(4-pTDFX->cpp);
 
   /* Tell the board we're using a programmable clock */
   pVga->MiscOutReg |= 0xC;
@@ -1638,8 +1643,6 @@ TDFXSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode) {
   hbe = (mode->CrtcHBlankEnd>>3)-1;
 
   vd = mode->CrtcVDisplay-1;
-  vss = mode->CrtcVSyncStart;
-  vse = mode->CrtcVSyncEnd;
   vt = mode->CrtcVTotal-2;
   vbs = mode->CrtcVBlankStart-1;
   vbe = mode->CrtcVBlankEnd-1;
@@ -1667,6 +1670,10 @@ TDFXSetMode(ScrnInfoPtr pScrn, DisplayModePtr mode) {
     tdfxReg->screensize=mode->HDisplay|(mode->VDisplay<<12);
     tdfxReg->vidcfg &= ~SST_HALF_MODE;
   }
+  if (mode->Flags&V_INTERLACE) {
+    tdfxReg->vidcfg|=SST_INTERLACE;
+  } else
+    tdfxReg->vidcfg&=~SST_INTERLACE;
 
   TDFXTRACEREG("cpp=%d Hdisplay=%d Vdisplay=%d stride=%d screensize=%x\n", 
 	     pTDFX->cpp, mode->HDisplay, mode->VDisplay, tdfxReg->stride, 
@@ -2221,6 +2228,21 @@ TDFXScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv) {
 
   xf86DPMSInit(pScreen, TDFXDisplayPowerManagementSet, 0);
 
+  /* Initialize Xv support */
+  TDFXInitVideo (pScreen);
+
+  pScreen->SaveScreen = TDFXSaveScreen;
+  pTDFX->CloseScreen = pScreen->CloseScreen;
+  pScreen->CloseScreen = TDFXCloseScreen;
+
+  pTDFX->BlockHandler = pScreen->BlockHandler;
+  pScreen->BlockHandler = TDFXBlockHandler;
+
+  /*
+   * DRICloseScreen isn't called thru a wrapper but explicitely
+   * in of TDFXCloseScreen() before the rest is unwrapped
+   */
+  
 #ifdef XF86DRI
   if (pTDFX->directRenderingEnabled) {
 	/* Now that mi, fb, drm and others have done their thing, 
@@ -2234,19 +2256,6 @@ TDFXScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv) {
 	xf86DrvMsg(pScrn->scrnIndex, driFrom, "Direct rendering disabled\n");
   }
 #endif
-
-
-#ifdef XvExtension
-  /* Initialize Xv support */
-  TDFXInitVideo (pScreen);
-#endif
-
-  pScreen->SaveScreen = TDFXSaveScreen;
-  pTDFX->CloseScreen = pScreen->CloseScreen;
-  pScreen->CloseScreen = TDFXCloseScreen;
-
-  pTDFX->BlockHandler = pScreen->BlockHandler;
-  pScreen->BlockHandler = TDFXBlockHandler;
 
   if (serverGeneration == 1)
     xf86ShowUnusedOptions(pScrn->scrnIndex, pScrn->options);
@@ -2390,14 +2399,31 @@ TDFXFreeScreen(int scrnIndex, int flags) {
     vgaHWFreeHWRec(xf86Screens[scrnIndex]);
 }
 
-static int
+static ModeStatus
 TDFXValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags) {
+  ScrnInfoPtr pScrn;
+  TDFXPtr pTDFX;
+
   TDFXTRACE("TDFXValidMode start\n");
   if ((mode->HDisplay>2048) || (mode->VDisplay>1536)) 
     return MODE_BAD;
-  /* Banshee doesn't support interlace. Does V3? */
-  if (mode->Flags&V_INTERLACE) 
-    return MODE_BAD;
+  /* Banshee doesn't support interlace, but Voodoo 3 and higher do. */
+  pScrn = xf86Screens[scrnIndex];
+  pTDFX = TDFXPTR(pScrn);
+  if (mode->Flags&V_INTERLACE) {
+    switch (pTDFX->ChipType) {
+      case PCI_CHIP_BANSHEE:
+        return MODE_BAD;
+        break;
+      case PCI_CHIP_VOODOO3:
+      case PCI_CHIP_VOODOO5:
+        return MODE_OK;
+        break;
+      default:
+        return MODE_BAD;
+        break;
+    }
+  }
   /* In clock doubled mode widths must be divisible by 16 instead of 8 */
   if ((mode->Clock>TDFX2XCUTOFF) && (mode->HDisplay%16))
     return MODE_BAD;

@@ -1,0 +1,100 @@
+hash operations, checksum generators
+------------------------------------
+
+Modes:
+	3 modes of operation:
+	a)	immediate:	read source, write result into destination.
+	b)	attached:	write results into the checked channel (last bytes) = absorbtion
+	c)	attached:	write results into additional channels
+
+Syntax:
+	ad a)
+		OP <src> <dest>
+	ad b)
+		OP -attach <dest> -mode absorb -matchflag <varname>
+	ad c)
+		OP -attach <chan> -mode write ?-write-dest <desta>? ?-read-dest <destb>?
+
+Semantic:
+	ad a)
+		read data from <src>, generate a checksum according to
+		the definition of OP, then write the result into <dest>.
+
+	ad b)
+		on writing to <dest>:	update a checksum computed according
+					to the definition of OP.  append the
+					result after the last regular data
+					written to the channel.
+		on reading from <dest>:	update a checksum computed according
+					to the definition of OP. check against
+					data contained in the last bytes read
+					from the channel. DON'T give the
+					checksum to the reader!
+		use <varname> to convey the matchresult to the reader:
+
+			"ok"	checksums matched.
+			"fail"	checksums did not match.
+	ad c)
+		on reading/writing <chan>:	update a checksum computed according
+						to the definition of OP.
+
+		write the checksums of the written bytes to <desta> after <chan> is closed
+		write the checksums of the read    bytes to <destb> after <chan> is closed
+		(if defined).
+
+		(ignore matchflag, if defined/used)
+
+------------------------------------------------------------------------------------
+Encoder possibilities
+=====================
+
+a)	encode:	update checksum
+	flush:	write checksum to destination via writefun
+
+b)	encode:	update checksum, write characters to destination via writefun
+	flush:	write checksum to destination via writefun
+
+c)	encode:	update checksum
+	flush:	write checksum directly to destination (Tcl_Write)
+
+encode:	2 possibilities:
+
+	 i)	update checksum
+	ii)	update checksum, write characters to destination via writefun
+
+	(ii)	<=>	ATTACH && TRF_ABSORB_HASH
+
+flush:	2 possibilities:
+
+	 i)	write checksum to destination via writefun
+	ii)	write checksum directly to destination (Tcl_Write)
+
+	(ii)	<=>	ATTACH && TRF_WRITE_HASH
+
+
+Decoder possibilities
+=====================
+
+a)	decode:	not used.
+	flush:	not used.
+
+b)	decode:	update checksum, write characters to destination via writefun
+		be careful not to write the last characters, as they are checksum
+		generated at write time
+	flush:	compare computed and transmitted checksums, write result to matchflag
+
+c)	decode:	update checksum
+	flush:	write checksum directly to destination (Tcl_Write)
+
+decode/flush:	2 possibilities:
+
+	(b) <=> TRF_ABSORB_HASH
+	(c) <=> TRF_WRITE_HASH
+
+
+Options
+-------
+	-mode		absorb|write
+	-matchflag	<varname>
+	-write-dest	<channel>
+	-read-dest	<channel>

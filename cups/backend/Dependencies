@@ -15,3 +15,4 @@ socket.o: ../cups/cups.h ../cups/ipp.h ../cups/http.h ../cups/md5.h
 socket.o: ../cups/ppd.h ../cups/string.h ../config.h
 usb.o: ../cups/cups.h ../cups/ipp.h ../cups/http.h ../cups/md5.h
 usb.o: ../cups/ppd.h ../cups/string.h ../config.h
+pap.o: ../cups/cups.h ../cups/ipp.h ../cups/http.h ../cups/md5.h

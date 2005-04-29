@@ -1,0 +1,3 @@
+>>> Should fail
+*** Failed: A(false) ***
+<<< done.

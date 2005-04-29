@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __SAINFO_H__
+#define __SAINFO_H__
+
 #include <sys/queue.h>
 
 /* SA info */
@@ -69,3 +72,6 @@ extern struct sainfoalg *newsainfoalg __P((void));
 extern void delsainfoalg __P((struct sainfoalg *));
 extern void inssainfoalg __P((struct sainfoalg **, struct sainfoalg *));
 extern const char * sainfo2str __P((const struct sainfo *));
+
+#endif /* __SAINFO_H__ */
+

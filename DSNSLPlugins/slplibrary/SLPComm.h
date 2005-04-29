@@ -38,7 +38,7 @@
 #pragma once
 
 #define kTCPBufferSize		1400
-#define kRAdminIPCPath		"/tmp/slpRAdmin_ipc"
+#define kRAdminIPCPath		"/var/run/slpRAdmin_ipc"
 
 const CFStringRef	kSLPRAdminNotificationSAFE_CFSTR = CFSTR("SLP RAdmin Notification");
 

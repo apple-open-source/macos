@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.32 2002/10/29 09:03:57 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.33 2004/09/22 16:56:48 stefanf Exp $");
 
 #include "namespace.h"
 #include <arpa/inet.h>
@@ -202,14 +202,14 @@ __collate_substitute(s)
 	delta += delta / 8;
 	dest_str = malloc(dest_len = delta);
 	if (dest_str == NULL)
-		__collate_err(EX_OSERR, __FUNCTION__);
+		__collate_err(EX_OSERR, __func__);
 	len = 0;
 	while (*s) {
 		nlen = len + strlen(__collate_substitute_table[*s]);
 		if (dest_len <= nlen) {
 			dest_str = reallocf(dest_str, dest_len = nlen + delta);
 			if (dest_str == NULL)
-				__collate_err(EX_OSERR, __FUNCTION__);
+				__collate_err(EX_OSERR, __func__);
 		}
 		(void)strcpy(dest_str + len, __collate_substitute_table[*s++]);
 		len = nlen;
@@ -246,7 +246,7 @@ __collate_strdup(s)
 	u_char *t = strdup(s);
 
 	if (t == NULL)
-		__collate_err(EX_OSERR, __FUNCTION__);
+		__collate_err(EX_OSERR, __func__);
 	return (t);
 }
 

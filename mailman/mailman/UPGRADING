@@ -1,62 +1,89 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 
-A NOTE ABOUT MODERATION
+UPGRADING FROM PREVIOUS VERSIONS
 
-    When you upgrade from Mailman 2.0.x to Mailman 2.1, you should
-    double check that your moderation and privacy options are still
-    set the way you want them.  The Mailman options dealing with
-    moderation and privacy have changed significantly, to make them
-    easier to understand and control.  Ever effort was taken to
-    translate the old configuration variables to the new configuration
-    variables, but because the old semantics were so complex, it is
-    possible your settings may not have been correctly translated.
+    For the most part, upgrading Mailman is as easy as just installing the
+    latest version over the existing version.  However, there are some changes
+    that need to be taken care of manually.
+
+    What you need to do depends on the version you are using and the version
+    you are upgrading to.  In all cases, you should first turn off your mail
+    and web access to your Mailman installation.  You're essentially upgrading
+    a database, and it's usually a good idea to make sure the database cannot
+    be modified in the middle of the upgrade.
+
+    My recommendations are
+
+    - Turn off your incoming mail daemon.  Most remote smtp servers will
+      simply queue up messages destined for your domain if port 25 is shut
+      off.
+
+    - Temporarily disable web access to Mailman.  You can do this by either
+      turning off your web server temporarily, or by setting up a temporary
+      redirect to a "service unavailable" page for the Mailman URLs.  Refer to
+      your web server documentation for details.
+
+    Mailman will NOT upgrade the template files for existing lists.  Chuq Von
+    Rospach gives some useful advice in this message to the users mailing
+    list:
+
+    http://mail.python.org/pipermail/mailman-users/2000-September/006826.html
+
+    [Actually, the upgrade to MM2.1a2 /will/ shuffle template files,
+     deleting any that it detects are unchanged from the original defaults
+     (calculated via md5 checksums).]
+
+
+UPGRADING FROM 2.1.4 to 2.1.5
+
+    In Mailman 2.1.5, some significant changes have been made to the file
+    formats for qfiles and the pendings database.  All care has been taken to
+    make sure the upgrades happen automatically and smoothly, but you should
+    double check and, for the ultra-paranoid, make backups of your Mailman
+    site before you upgrade.  BE SURE TO TURN OFF MAILMAN AS DESCRIBED ABOVE
+    BEFORE YOU UPGRADE.
+
+    Specifically, in MM2.1.4 every message in the queues were represented by
+    two files, a .msg or .pck file containing the email message, and a .db
+    file containing metadata about the message.  In MM2.1.5 this has been made
+    more efficient by using only one file (with a .pck extension) for both the
+    message and metadata.  This should make MM2.1.5 half as hostile to the
+    file system.
+
+    The bin/upgrade script, which is run automatically when you upgrade,
+    should convert all the old style qfiles to the new style qfiles.  Note
+    that this could take a long time if you have a lot of files in your qfiles
+    subdirectories.  Pay particular attention to files you might have in
+    qfiles/shunt; these will get upgraded too, although files in qfiles/bad
+    will not.
+
+    In MM2.1.4, the database file containing pending actions (i.e
+    subscriptions, unsubscriptions, message holds, etc.) was shared globally
+    among all mailing lists.  In MM2.1.5, each list now has its own pending
+    database file.  All care has been taken to properly split pending actions
+    from the global to the list-specific files, but it's possible there are
+    bugs here.  Best practice is to clear all pending actions before you
+    upgrade, although this is not always possible.
+
+
+UPGRADING FROM 2.0.x to 2.1
+
+    When you upgrade from Mailman 2.0.x to Mailman 2.1, you should double
+    check that your moderation and privacy options are still set the way you
+    want them.  The Mailman options dealing with moderation and privacy have
+    changed significantly, to make them easier to understand and control.
+    Ever effort was taken to translate the old configuration variables to the
+    new configuration variables, but because the old semantics were so
+    complex, it is possible your settings may not have been correctly
+    translated.
 
     Check especially the values for (in Privacy -> Sender Filters)
     default_member_moderation, generic_nonmember_action, and
     accept_these_nonmembers.  Check also the moderation flag on member
     accounts in the Membership Management screen.
-
-
-UPGRADING FROM PREVIOUS VERSIONS
-
-    For the most part, upgrading Mailman is as easy as just installing
-    the latest version over the existing version.  However, there are
-    some changes that need to be taken care of manually.
-
-    What you need to do depends on the version you are using and the
-    version you are upgrading to.  In all cases, you should first turn
-    off your mail and web access to your Mailman installation.  You're
-    essentially upgrading a database, and it's usually a good idea to
-    make sure the database cannot be modified in the middle of the
-    upgrade.
-
-    My recommendations are
-
-    - Turn off your incoming mail daemon.  Most remote smtp servers
-      will simply queue up messages destined for your domain if port
-      25 is shut off.
-
-    - Temporarily disable web access to Mailman.  You can do this by
-      either turning off your web server temporarily, or by setting up
-      a temporary redirect to a "service unavailable" page for the
-      Mailman URLs.  Refer to your web server documentation for
-      details.
-
-    Mailman will NOT upgrade the template files for existing lists.
-    Chuq Von Rospach gives some useful advice in this message to the
-    users mailing list:
-
-    http://mail.python.org/pipermail/mailman-users/2000-September/006826.html
-
-    [Actually, the upgrade to MM2.1a2 /will/ shuffle template files,
-     deleting any that it detects are unchanged from the original
-     defaults (calculated via md5 checksums).]
-
-
-UPGRADING FROM 2.0.x to 2.1
 
     In Mailman 2.1, the qrunner subsystem has been completely
     rewritten.  You no longer start qrunner from cron!  Instead, there

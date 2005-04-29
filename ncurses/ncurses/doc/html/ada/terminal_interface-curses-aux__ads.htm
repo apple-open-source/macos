@@ -38,9 +38,9 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.13 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.15 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
 <FONT COLOR=green><EM>--  curses binding.</EM></FONT>
@@ -63,9 +63,9 @@
    <b>subtype</b> <FONT COLOR=red><A NAME="59_12">C_Size_T</A></FONT>   <b>is</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.size_t;
    <b>subtype</b> <FONT COLOR=red><A NAME="60_12">C_UInt</A></FONT>     <b>is</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.unsigned;
    <b>subtype</b> <FONT COLOR=red><A NAME="61_12">C_ULong</A></FONT>    <b>is</b> <A HREF="interfac__ads.htm#23_9">Interfaces</A>.C.unsigned_long;
-   <b>subtype</b> <FONT COLOR=red><A NAME="62_12">C_Char_Ptr</A></FONT> <b>is</b> Interfaces.C.Strings.chars_ptr;
-   <b>type</b>    <FONT COLOR=red><A NAME="63_12">C_Void_Ptr</A></FONT> <b>is</b> <b>new</b> <A HREF="terminal_interface-curses-aux__ads.htm#60_12">System</A>.Address;
-   <b>type</b>    <FONT COLOR=red><A NAME="64_12">C_Chtype</A></FONT>   <b>is</b> <b>new</b> <A HREF="terminal_interface-curses-aux__ads.htm#60_12">C_ULong</A>;
+   <b>subtype</b> C_Char_Ptr <b>is</b> Interfaces.C.Strings.chars_ptr;
+   <b>type</b>    C_Void_Ptr <b>is</b> <b>new</b> <A HREF="terminal_interface-curses-aux__ads.htm#60_12">System</A>.Address;
+   <b>type</b>    C_Chtype   <b>is</b> <b>new</b> <A HREF="terminal_interface-curses-aux__ads.htm#60_12">C_ULong</A>;
    <b>type</b>    C_AttrType <b>is</b> <b>new</b> C_ULong;
 
    <FONT COLOR=green><EM>--  This is how those constants are defined in ncurses. I see them also</EM></FONT>
@@ -107,11 +107,11 @@
      Unchecked_Conversion (Source =&gt; <A HREF="terminal_interface-curses__ads.htm#351_9">C_Chtype</A>,
             <FONT COLOR=red><A NAME="104_13"> </A></FONT>              Target =&gt; Attributed_Character);
    <b>function</b> AttrChar_To_Chtype <b>is</b> <b>new</b>
-     Unchecked_Conversion (Source =&gt; <A HREF="terminal_interface-curses-aux__ads.htm#63_12">Attributed_Character</A>,
+     Unchecked_Conversion (Source =&gt; Attributed_Character,
                            Target =&gt; C_Chtype);
 
    <b>function</b> AttrChar_To_AttrType <b>is</b> <b>new</b>
-     Unchecked_Conversion (Source =&gt; <A HREF="terminal_interface-curses-aux__ads.htm#64_12">Attributed_Character</A>,
+     Unchecked_Conversion (Source =&gt; Attributed_Character,
                            Target =&gt; C_AttrType);
 
    <b>function</b> AttrType_To_AttrChar <b>is</b> <b>new</b>

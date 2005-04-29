@@ -1,5 +1,5 @@
 /* +++Date last modified: 05-Jul-1997 */
-/* $Id: stristr.c,v 1.3 2002/05/25 19:57:47 leg Exp $ */
+/* $Id: stristr.c,v 1.5 2005/03/05 00:37:19 dasenbro Exp $ */
 
 /*
 ** Designation:  StriStr

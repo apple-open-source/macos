@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_swtcl.c,v 1.4 2003/02/15 22:18:48 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_swtcl.c,v 1.7 2003/09/28 20:15:29 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,45 +6,45 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, VA LINUX SYSTEMS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
 
 #include "glheader.h"
 #include "mtypes.h"
 #include "colormac.h"
 #include "enums.h"
-#include "mem.h"
-#include "mmath.h"
+#include "imports.h"
 #include "macros.h"
 
 #include "swrast_setup/swrast_setup.h"
 #include "math/m_translate.h"
 #include "tnl/tnl.h"
 #include "tnl/t_context.h"
+#include "tnl/t_imm_exec.h"
 #include "tnl/t_pipeline.h"
 
 #include "radeon_context.h"
@@ -67,7 +67,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define RADEON_MAX_SETUP	0x40
 
 static void flush_last_swtcl_prim( radeonContextPtr rmesa  );
-static void flush_last_swtcl_prim_compat( radeonContextPtr rmesa );
 
 static struct {
    void                (*emit)( GLcontext *, GLuint, GLuint, void *, GLuint );
@@ -265,7 +264,7 @@ static void radeonRenderStart( GLcontext *ctx )
    if (!setup_tab[rmesa->swtcl.SetupIndex].check_tex_sizes(ctx)) {
       GLuint ind = rmesa->swtcl.SetupIndex |= (RADEON_PTEX_BIT|RADEON_RGBA_BIT);
 
-      /* Radeon handles projective textures nicely; just have to change
+      /* Projective textures are handled nicely; just have to change
        * up to the new vertex format.
        */
       if (setup_tab[ind].vertex_format != rmesa->swtcl.vertex_format) {
@@ -282,8 +281,7 @@ static void radeonRenderStart( GLcontext *ctx )
    }
    
    if (rmesa->dma.flush != 0 && 
-       rmesa->dma.flush != flush_last_swtcl_prim &&
-       rmesa->dma.flush != flush_last_swtcl_prim_compat)
+       rmesa->dma.flush != flush_last_swtcl_prim)
       rmesa->dma.flush( rmesa );
 }
 
@@ -317,9 +315,11 @@ void radeonChooseVertexState( GLcontext *ctx )
    if (ctx->Fog.Enabled || (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR))
       ind |= RADEON_SPEC_BIT;
 
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY)
+   if (ctx->Texture._EnabledUnits & 0x2)
+      /* unit 1 enabled */
       ind |= RADEON_TEX0_BIT|RADEON_TEX1_BIT;
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY)
+   else if (ctx->Texture._EnabledUnits & 0x1)
+      /* unit 0 enabled */
       ind |= RADEON_TEX0_BIT;
 
    rmesa->swtcl.SetupIndex = ind;
@@ -375,9 +375,11 @@ static void flush_last_swtcl_prim( radeonContextPtr rmesa  )
    if (RADEON_DEBUG & DEBUG_IOCTL)
       fprintf(stderr, "%s\n", __FUNCTION__);
 
+   rmesa->dma.flush = 0;
+
    if (rmesa->dma.current.buf) {
       struct radeon_dma_region *current = &rmesa->dma.current;
-      GLuint current_offset = (rmesa->radeonScreen->agp_buffer_offset +
+      GLuint current_offset = (rmesa->radeonScreen->gart_buffer_offset +
 			       current->buf->buf->idx * RADEON_BUFFER_SIZE + 
 			       current->start);
 
@@ -400,48 +402,7 @@ static void flush_last_swtcl_prim( radeonContextPtr rmesa  )
 
       rmesa->swtcl.numverts = 0;
       current->start = current->ptr;
-
-      rmesa->dma.flush = 0;
    }
-}
-
-
-static void flush_last_swtcl_prim_compat( radeonContextPtr rmesa )
-{
-   struct radeon_dma_region *current = &rmesa->dma.current;
-
-   if (RADEON_DEBUG & DEBUG_IOCTL)
-      fprintf(stderr, "%s buf %p start %d ptr %d\n", 
-	      __FUNCTION__,
-	      current->buf,
-	      current->start,
-	      current->ptr);
-
-   assert (!(rmesa->swtcl.hw_primitive & RADEON_CP_VC_CNTL_PRIM_WALK_IND));
-   assert (current->start + 
-	   rmesa->swtcl.numverts * rmesa->swtcl.vertex_size * 4 ==
-	   current->ptr);
-   assert (current->start == 0);
-
-   if (current->ptr && current->buf) {
-      assert (current->buf->refcount == 1);
-
-      radeonCompatEmitPrimitive( rmesa,
-				 rmesa->swtcl.vertex_format,
-				 rmesa->swtcl.hw_primitive,
-				 rmesa->swtcl.numverts);
-      
-      /* The buffer has been released:
-       */
-      FREE(current->buf);
-      current->buf = 0;
-      current->start = 0;
-      current->ptr = current->end;
-
-   }
-
-   rmesa->swtcl.numverts = 0;
-   rmesa->dma.flush = 0;
 }
 
 
@@ -456,22 +417,19 @@ static __inline void *radeonAllocDmaLowVerts( radeonContextPtr rmesa,
       radeonRefillCurrentDmaRegion( rmesa );
 
    if (!rmesa->dma.flush) {
-      if (rmesa->dri.drmMinor == 1)
-	 rmesa->dma.flush = flush_last_swtcl_prim_compat;
-      else
-	 rmesa->dma.flush = flush_last_swtcl_prim;
+      rmesa->glCtx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
+      rmesa->dma.flush = flush_last_swtcl_prim;
    }
 
    assert( vsize == rmesa->swtcl.vertex_size * 4 );
-   assert( rmesa->dma.flush == flush_last_swtcl_prim ||
-	   rmesa->dma.flush == flush_last_swtcl_prim_compat);
+   assert( rmesa->dma.flush == flush_last_swtcl_prim );
    assert (rmesa->dma.current.start + 
 	   rmesa->swtcl.numverts * rmesa->swtcl.vertex_size * 4 ==
 	   rmesa->dma.current.ptr);
 
 
    {
-      GLubyte *head = rmesa->dma.current.address + rmesa->dma.current.ptr;
+      GLubyte *head = (GLubyte *)(rmesa->dma.current.address + rmesa->dma.current.ptr);
       rmesa->dma.current.ptr += bytes;
       rmesa->swtcl.numverts += nverts;
       return head;
@@ -563,7 +521,7 @@ static void VERT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.PrimitiveNotify( ctx, flags & PRIM_MODE_MASK );
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabVerts[flags&PRIM_MODE_MASK]( ctx, start, count, flags );
-   RADEON_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_CLIP;
+   RADEON_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_BIT_CLIP;
 }
 
 static void ELT_FALLBACK( GLcontext *ctx,
@@ -575,7 +533,7 @@ static void ELT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.PrimitiveNotify( ctx, flags & PRIM_MODE_MASK );
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabElts[flags&PRIM_MODE_MASK]( ctx, start, count, flags );
-   RADEON_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_CLIP;
+   RADEON_CONTEXT(ctx)->swtcl.SetupNewInputs = VERT_BIT_CLIP;
 }
 
 
@@ -620,7 +578,7 @@ do {									\
 									\
       radeonEmitVertexAOS( rmesa,					\
 			   rmesa->swtcl.vertex_size,			\
-			   (rmesa->radeonScreen->agp_buffer_offset +		\
+			   (rmesa->radeonScreen->gart_buffer_offset +	\
 			    rmesa->swtcl.indexed_verts.buf->buf->idx * 	\
 			    RADEON_BUFFER_SIZE +			\
 			    rmesa->swtcl.indexed_verts.start));		\
@@ -679,15 +637,6 @@ static GLboolean radeon_run_render( GLcontext *ctx,
        ctx->Line.StippleFlag)        /* GH: THIS IS A HACK!!! */
       return GL_TRUE;		
 
-   if (rmesa->dri.drmMinor < 3) {
-      /* drm 1.1 doesn't support vertex primitives starting in the
-       * middle of a buffer.  It doesn't support sane indexed vertices
-       * either.  drm 1.2 fixes both of these problems, but we don't have a
-       * compatibility layer to that version yet.  
-       */
-      return GL_TRUE;
-   }
-		
    tnl->Driver.Render.Start( ctx );
 
    if (VB->Elts) {
@@ -721,20 +670,20 @@ static GLboolean radeon_run_render( GLcontext *ctx,
 static void radeon_check_render( GLcontext *ctx,
 				 struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_OBJ|VERT_CLIP|VERT_RGBA;
+   GLuint inputs = VERT_BIT_POS | VERT_BIT_CLIP | VERT_BIT_COLOR0;
 
    if (ctx->RenderMode == GL_RENDER) {
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_SPEC_RGB;
+	 inputs |= VERT_BIT_COLOR1;
 
       if (ctx->Texture.Unit[0]._ReallyEnabled)
-	 inputs |= VERT_TEX(0);
+	 inputs |= VERT_BIT_TEX0;
 
       if (ctx->Texture.Unit[1]._ReallyEnabled)
-	 inputs |= VERT_TEX(1);
+	 inputs |= VERT_BIT_TEX1;
 
       if (ctx->Fog.Enabled)
-	 inputs |= VERT_FOG_COORD;
+	 inputs |= VERT_BIT_FOG;
    }
 
    stage->inputs = inputs;
@@ -764,6 +713,132 @@ const struct gl_pipeline_stage _radeon_render_stage =
 };
 
 
+/**************************************************************************/
+
+/* Radeon texture rectangle expects coords in 0..1 range, not 0..dimension
+ * as in the extension spec.  Need to translate here.
+ *
+ * Note that swrast expects 0..dimension, so if a fallback is active,
+ * don't do anything.  (Maybe need to configure swrast to match hw)
+ */
+struct texrect_stage_data {
+   GLvector4f texcoord[MAX_TEXTURE_UNITS];
+};
+
+#define TEXRECT_STAGE_DATA(stage) ((struct texrect_stage_data *)stage->privatePtr)
+
+
+static GLboolean run_texrect_stage( GLcontext *ctx,
+				    struct gl_pipeline_stage *stage )
+{
+   struct texrect_stage_data *store = TEXRECT_STAGE_DATA(stage);
+   radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
+   TNLcontext *tnl = TNL_CONTEXT(ctx);
+   struct vertex_buffer *VB = &tnl->vb;
+   GLuint i;
+
+   if (rmesa->Fallback)
+      return GL_TRUE;
+
+   for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++) {
+      if (!(ctx->Texture.Unit[i]._ReallyEnabled & TEXTURE_RECT_BIT))
+	 continue;
+   
+      if (stage->changed_inputs & VERT_BIT_TEX(i)) {
+	 struct gl_texture_object *texObj = ctx->Texture.Unit[i].CurrentRect;
+	 struct gl_texture_image *texImage = texObj->Image[texObj->BaseLevel];
+	 const GLfloat iw = 1.0/texImage->Width;
+	 const GLfloat ih = 1.0/texImage->Height;
+	 GLfloat *in = (GLfloat *)VB->TexCoordPtr[i]->data;
+	 GLint instride = VB->TexCoordPtr[i]->stride;
+	 GLfloat (*out)[4] = store->texcoord[i].data;
+	 GLint j;
+	 
+	 for (j = 0 ; j < VB->Count ; j++) {
+	    out[j][0] = in[0] * iw;
+	    out[j][1] = in[1] * ih;
+	    in = (GLfloat *)((GLubyte *)in + instride);
+	 }
+      }
+
+      VB->TexCoordPtr[i] = &store->texcoord[i];
+   }
+
+   return GL_TRUE;
+}
+
+
+/* Called the first time stage->run() is invoked.
+ */
+static GLboolean alloc_texrect_data( GLcontext *ctx,
+				     struct gl_pipeline_stage *stage )
+{
+   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
+   struct texrect_stage_data *store;
+   GLuint i;
+
+   stage->privatePtr = CALLOC(sizeof(*store));
+   store = TEXRECT_STAGE_DATA(stage);
+   if (!store)
+      return GL_FALSE;
+
+   for (i = 0 ; i < ctx->Const.MaxTextureUnits ; i++)
+      _mesa_vector4f_alloc( &store->texcoord[i], 0, VB->Size, 32 );
+
+   /* Now run the stage.
+    */
+   stage->run = run_texrect_stage;
+   return stage->run( ctx, stage );
+}
+
+
+static void check_texrect( GLcontext *ctx,
+			   struct gl_pipeline_stage *stage )
+{
+   GLuint flags = 0;
+
+   if (ctx->Texture.Unit[0]._ReallyEnabled & TEXTURE_RECT_BIT)
+      flags |= VERT_BIT_TEX0;
+
+   if (ctx->Texture.Unit[1]._ReallyEnabled & TEXTURE_RECT_BIT)
+      flags |= VERT_BIT_TEX1;
+
+   stage->inputs = flags;
+   stage->outputs = flags;
+   stage->active = (flags != 0);
+}
+
+
+static void free_texrect_data( struct gl_pipeline_stage *stage )
+{
+   struct texrect_stage_data *store = TEXRECT_STAGE_DATA(stage);
+   GLuint i;
+
+   if (store) {
+      for (i = 0 ; i < MAX_TEXTURE_UNITS ; i++)
+	 if (store->texcoord[i].data)
+	    _mesa_vector4f_free( &store->texcoord[i] );
+      FREE( store );
+      stage->privatePtr = 0;
+   }
+}
+
+
+const struct gl_pipeline_stage _radeon_texrect_stage =
+{
+   "radeon texrect stage",			/* name */
+   _NEW_TEXTURE,	/* check_state */
+   _NEW_TEXTURE,	/* run_state */
+   GL_TRUE,				/* active? */
+   0,					/* inputs */
+   0,					/* outputs */
+   0,					/* changed_inputs */
+   NULL,				/* private data */
+   free_texrect_data,			/* destructor */
+   check_texrect,			/* check */
+   alloc_texrect_data,			/* run -- initially set to init */
+};
+
 
 /**************************************************************************/
 
@@ -790,6 +865,7 @@ static void radeonResetLineStipple( GLcontext *ctx );
  *                    Emit primitives as inline vertices               *
  ***********************************************************************/
 
+#undef LOCAL_VARS
 #define CTX_ARG radeonContextPtr rmesa
 #define CTX_ARG2 rmesa
 #define GET_VERTEX_DWORDS() rmesa->swtcl.vertex_size
@@ -821,7 +897,6 @@ static void radeonResetLineStipple( GLcontext *ctx );
 
 #define RADEON_TWOSIDE_BIT	0x01
 #define RADEON_UNFILLED_BIT	0x02
-#define RADEON_OFFSET_BIT	0x04 /* drmMinor == 1 */
 #define RADEON_MAX_TRIFUNC	0x08
 
 
@@ -834,7 +909,7 @@ static struct {
 
 
 #define DO_FALLBACK  0
-#define DO_OFFSET   (IND & RADEON_OFFSET_BIT)
+#define DO_OFFSET    0
 #define DO_UNFILLED (IND & RADEON_UNFILLED_BIT)
 #define DO_TWOSIDE  (IND & RADEON_TWOSIDE_BIT)
 #define DO_FLAT      0
@@ -877,6 +952,9 @@ static struct {
 #define VERT_RESTORE_SPEC( idx ) if (havespec) v[idx]->ui[5] = LE32_TO_CPU(spec[idx])
 
 #undef LOCAL_VARS
+#undef TAG
+#undef INIT
+
 #define LOCAL_VARS(n)							\
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);			\
    GLuint color[n], spec[n];						\
@@ -917,22 +995,6 @@ static struct {
 #define TAG(x) x##_twoside_unfilled
 #include "tnl_dd/t_dd_tritmp.h"
 
-#define IND (RADEON_OFFSET_BIT)
-#define TAG(x) x##_offset
-#include "tnl_dd/t_dd_tritmp.h"
-
-#define IND (RADEON_TWOSIDE_BIT|RADEON_OFFSET_BIT)
-#define TAG(x) x##_twoside_offset
-#include "tnl_dd/t_dd_tritmp.h"
-
-#define IND (RADEON_UNFILLED_BIT|RADEON_OFFSET_BIT)
-#define TAG(x) x##_unfilled_offset
-#include "tnl_dd/t_dd_tritmp.h"
-
-#define IND (RADEON_TWOSIDE_BIT|RADEON_UNFILLED_BIT|RADEON_OFFSET_BIT)
-#define TAG(x) x##_twoside_unfilled_offset
-#include "tnl_dd/t_dd_tritmp.h"
-
 
 static void init_rast_tab( void )
 {
@@ -940,10 +1002,6 @@ static void init_rast_tab( void )
    init_twoside();
    init_unfilled();
    init_twoside_unfilled();
-   init_offset();
-   init_twoside_offset();
-   init_unfilled_offset();
-   init_twoside_unfilled_offset();
 }
 
 /**********************************************************************/
@@ -1002,8 +1060,6 @@ void radeonChooseRenderState( GLcontext *ctx )
 
    if (flags & DD_TRI_LIGHT_TWOSIDE) index |= RADEON_TWOSIDE_BIT;
    if (flags & DD_TRI_UNFILLED)      index |= RADEON_UNFILLED_BIT;
-   if ((flags & DD_TRI_OFFSET) &&
-       rmesa->dri.drmMinor == 1)  index |= RADEON_OFFSET_BIT;
 
    if (index != rmesa->swtcl.RenderIndex) {
       tnl->Driver.Render.Points = rast_tab[index].points;
@@ -1065,18 +1121,19 @@ static void radeonResetLineStipple( GLcontext *ctx )
 /*           Transition to/from hardware rasterization.               */
 /**********************************************************************/
 
-static char *fallbackStrings[] = {
+static const char * const fallbackStrings[] = {
    "Texture mode",
    "glDrawBuffer(GL_FRONT_AND_BACK)",
    "glEnable(GL_STENCIL) without hw stencil buffer",
    "glRenderMode(selection or feedback)",
    "glBlendEquation",
-   "glBlendFunc(mode != ADD)"
-   "RADEON_NO_RAST"
+   "glBlendFunc",
+   "RADEON_NO_RAST",
+   "Mixing GL_CLAMP_TO_BORDER and GL_CLAMP (or GL_MIRROR_CLAMP_ATI)"
 };
 
 
-static char *getFallbackString(GLuint bit)
+static const char *getFallbackString(GLuint bit)
 {
    int i = 0;
    while (bit > 1) {
@@ -1134,6 +1191,14 @@ void radeonFallback( GLcontext *ctx, GLuint bit, GLboolean mode )
 }
 
 
+void radeonFlushVertices( GLcontext *ctx, GLuint flags )
+{
+   _tnl_flush_vertices( ctx, flags );
+
+   if (flags & FLUSH_STORED_VERTICES)
+      RADEON_NEWPRIM( RADEON_CONTEXT( ctx ) );
+}
+
 /**********************************************************************/
 /*                            Initialization.                         */
 /**********************************************************************/
@@ -1157,7 +1222,7 @@ void radeonInitSwtcl( GLcontext *ctx )
    tnl->Driver.Render.ResetLineStipple = radeonResetLineStipple;
    tnl->Driver.Render.BuildVertices = radeonBuildVertices;
 
-   rmesa->swtcl.verts = (char *)ALIGN_MALLOC( size * 16 * 4, 32 );
+   rmesa->swtcl.verts = (GLubyte *)ALIGN_MALLOC( size * 16 * 4, 32 );
    rmesa->swtcl.RenderIndex = ~0;
    rmesa->swtcl.render_primitive = GL_TRIANGLES;
    rmesa->swtcl.hw_primitive = 0;

@@ -1,0 +1,368 @@
+<refentry id="glib-Datasets">
+<refmeta>
+<refentrytitle>Datasets</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Datasets</refname><refpurpose>associate groups of data elements with particular memory locations.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+#define     <link linkend="g-dataset-id-set-data">g_dataset_id_set_data</link>           (l, k, d)
+<link linkend="void">void</link>        <link linkend="g-dataset-id-set-data-full">g_dataset_id_set_data_full</link>      (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> destroy_func);
+<link linkend="void">void</link>        (<link linkend="GDestroyNotify">*GDestroyNotify</link>)               (<link linkend="gpointer">gpointer</link> data);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-dataset-id-get-data">g_dataset_id_get_data</link>           (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id);
+#define     <link linkend="g-dataset-id-remove-data">g_dataset_id_remove_data</link>        (l, k)
+<link linkend="gpointer">gpointer</link>    <link linkend="g-dataset-id-remove-no-notify">g_dataset_id_remove_no_notify</link>   (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id);
+
+#define     <link linkend="g-dataset-set-data">g_dataset_set_data</link>              (l, k, d)
+#define     <link linkend="g-dataset-set-data-full">g_dataset_set_data_full</link>         (l, k, d, f)
+#define     <link linkend="g-dataset-get-data">g_dataset_get_data</link>              (l, k)
+#define     <link linkend="g-dataset-remove-data">g_dataset_remove_data</link>           (l, k)
+#define     <link linkend="g-dataset-remove-no-notify">g_dataset_remove_no_notify</link>      (l, k)
+
+<link linkend="void">void</link>        <link linkend="g-dataset-foreach">g_dataset_foreach</link>               (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GDataForeachFunc">GDataForeachFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+<link linkend="void">void</link>        (<link linkend="GDataForeachFunc">*GDataForeachFunc</link>)             (<link linkend="GQuark">GQuark</link> key_id,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+<link linkend="void">void</link>        <link linkend="g-dataset-destroy">g_dataset_destroy</link>               (<link linkend="gconstpointer">gconstpointer</link> dataset_location);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+Datasets associate groups of data elements with particular memory locations.
+These are useful if you need to associate data with a structure returned
+from an external library. Since you cannot modify the structure, you use
+its location in memory as the key into a dataset, where you can associate
+any number of data elements with it.
+</para>
+<para>
+There are two forms of most of the dataset functions.
+The first form uses strings to identify the data elements associated with
+a location. The second form uses <link linkend="GQuark"><type>GQuark</type></link> identifiers, which are created
+with a call to <link linkend="g-quark-from-string"><function>g_quark_from_string()</function></link> or <link linkend="g-quark-from-static-string"><function>g_quark_from_static_string()</function></link>.
+The second form is quicker, since it does not require looking up the string
+in the hash table of <link linkend="GQuark"><type>GQuark</type></link> identifiers.
+</para>
+<para>
+There is no function to create a dataset. It is automatically created as
+soon as you add elements to it.
+</para>
+<para>
+To add data elements to a dataset use <link linkend="g-dataset-id-set-data"><function>g_dataset_id_set_data()</function></link>,
+<link linkend="g-dataset-id-set-data-full"><function>g_dataset_id_set_data_full()</function></link>, <link linkend="g-dataset-set-data"><function>g_dataset_set_data()</function></link>
+and <link linkend="g-dataset-set-data-full"><function>g_dataset_set_data_full()</function></link>.
+</para>
+<para>
+To get data elements from a dataset use <link linkend="g-dataset-id-get-data"><function>g_dataset_id_get_data()</function></link> and
+<link linkend="g-dataset-get-data"><function>g_dataset_get_data()</function></link>.
+</para>
+<para>
+To iterate over all data elements in a dataset use <link linkend="g-dataset-foreach"><function>g_dataset_foreach()</function></link>.
+</para>
+<para>
+To remove data elements from a dataset use <link linkend="g-dataset-id-remove-data"><function>g_dataset_id_remove_data()</function></link> and
+<link linkend="g-dataset-remove-data"><function>g_dataset_remove_data()</function></link>.
+</para>
+<para>
+To destroy a dataset, use <link linkend="g-dataset-destroy"><function>g_dataset_destroy()</function></link>.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="g-dataset-id-set-data"/>g_dataset_id_set_data()</title>
+<indexterm><primary>g_dataset_id_set_data</primary></indexterm><programlisting>#define     g_dataset_id_set_data(l, k, d)</programlisting>
+<para>
+Sets the data element associated with the given <link linkend="GQuark"><type>GQuark</type></link> id.
+Any previous data with the same key is removed, and its destroy function
+is called.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> id to identify the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>d</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-id-set-data-full"/>g_dataset_id_set_data_full ()</title>
+<indexterm><primary>g_dataset_id_set_data_full</primary></indexterm><programlisting><link linkend="void">void</link>        g_dataset_id_set_data_full      (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> destroy_func);</programlisting>
+<para>
+Sets the data element associated with the given <link linkend="GQuark"><type>GQuark</type></link> id, and also the
+function to call when the data element is destroyed.
+Any previous data with the same key is removed, and its
+destroy function is called.
+</para><variablelist role="params">
+<varlistentry><term><parameter>dataset_location</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_id</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> id to identify the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>destroy_func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call when the data element is removed. This
+function will be called with the data element and can be used to free any
+memory allocated for it.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GDestroyNotify"/>GDestroyNotify ()</title>
+<indexterm><primary>GDestroyNotify</primary></indexterm><programlisting><link linkend="void">void</link>        (*GDestroyNotify)               (<link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Specifies the type of function which is called when a data element is
+destroyed. It is passed the pointer to the data element and should free
+any memory and resources allocated for it.
+</para><variablelist role="params">
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-id-get-data"/>g_dataset_id_get_data ()</title>
+<indexterm><primary>g_dataset_id_get_data</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_dataset_id_get_data           (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id);</programlisting>
+<para>
+Gets the data element corresponding to a <link linkend="GQuark"><type>GQuark</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>dataset_location</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_id</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> id to identify the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the data element corresponding to the <link linkend="GQuark"><type>GQuark</type></link>, or <literal>NULL</literal> if it is
+not found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-id-remove-data"/>g_dataset_id_remove_data()</title>
+<indexterm><primary>g_dataset_id_remove_data</primary></indexterm><programlisting>#define     g_dataset_id_remove_data(l, k)</programlisting>
+<para>
+Removes a data element from a dataset.
+The data element's destroy function is called if it has been set.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> id identifying the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-id-remove-no-notify"/>g_dataset_id_remove_no_notify ()</title>
+<indexterm><primary>g_dataset_id_remove_no_notify</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_dataset_id_remove_no_notify   (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GQuark">GQuark</link> key_id);</programlisting>
+<para>
+Removes an element, without calling its destroy notification function.
+</para><variablelist role="params">
+<varlistentry><term><parameter>dataset_location</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>key_id</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> ID identifying the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the data previously stored at <parameter>key_id</parameter>, or <literal>NULL</literal> if none.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-set-data"/>g_dataset_set_data()</title>
+<indexterm><primary>g_dataset_set_data</primary></indexterm><programlisting>#define     g_dataset_set_data(l, k, d)</programlisting>
+<para>
+Sets the data corresponding to the given string identifier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the string to identify the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>d</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-set-data-full"/>g_dataset_set_data_full()</title>
+<indexterm><primary>g_dataset_set_data_full</primary></indexterm><programlisting>#define     g_dataset_set_data_full(l, k, d, f)</programlisting>
+<para>
+Sets the data corresponding to the given string identifier, and the function
+to call when the data element is destroyed.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the string to identify the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>d</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>f</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call when the data element is removed. This
+function will be called with the data element and can be used to free any
+memory allocated for it.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-get-data"/>g_dataset_get_data()</title>
+<indexterm><primary>g_dataset_get_data</primary></indexterm><programlisting>#define     g_dataset_get_data(l, k)</programlisting>
+<para>
+Gets the data element corresponding to a string.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the string identifying the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the data element corresponding to the string, or <literal>NULL</literal> if it is not
+found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-remove-data"/>g_dataset_remove_data()</title>
+<indexterm><primary>g_dataset_remove_data</primary></indexterm><programlisting>#define     g_dataset_remove_data(l, k)</programlisting>
+<para>
+Removes a data element corresponding to a string.
+Its destroy function is called if it has been set.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the string identifying the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-remove-no-notify"/>g_dataset_remove_no_notify()</title>
+<indexterm><primary>g_dataset_remove_no_notify</primary></indexterm><programlisting>#define     g_dataset_remove_no_notify(l, k)</programlisting>
+<para>
+Removes an element, without calling its destroy notifier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>l</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>k</parameter>&nbsp;:</term>
+<listitem><simpara>the string identifying the data element.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-foreach"/>g_dataset_foreach ()</title>
+<indexterm><primary>g_dataset_foreach</primary></indexterm><programlisting><link linkend="void">void</link>        g_dataset_foreach               (<link linkend="gconstpointer">gconstpointer</link> dataset_location,
+                                             <link linkend="GDataForeachFunc">GDataForeachFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Calls the given function for each data element which is associated with the
+given location.
+</para><variablelist role="params">
+<varlistentry><term><parameter>dataset_location</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara>the function to call for each data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data to pass to the function.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GDataForeachFunc"/>GDataForeachFunc ()</title>
+<indexterm><primary>GDataForeachFunc</primary></indexterm><programlisting><link linkend="void">void</link>        (*GDataForeachFunc)             (<link linkend="GQuark">GQuark</link> key_id,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Specifies the type of function passed to <link linkend="g-dataset-foreach"><function>g_dataset_foreach()</function></link>.
+It is called with each <link linkend="GQuark"><type>GQuark</type></link> id and associated data element,
+together with the <parameter>user_data</parameter> parameter supplied to <link linkend="g-dataset-foreach"><function>g_dataset_foreach()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>key_id</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GQuark"><type>GQuark</type></link> id to identifying the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>the data element.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>user data passed to <link linkend="g-dataset-foreach"><function>g_dataset_foreach()</function></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-dataset-destroy"/>g_dataset_destroy ()</title>
+<indexterm><primary>g_dataset_destroy</primary></indexterm><programlisting><link linkend="void">void</link>        g_dataset_destroy               (<link linkend="gconstpointer">gconstpointer</link> dataset_location);</programlisting>
+<para>
+Destroys the dataset, freeing all memory allocated, and calling any
+destroy functions set for data elements.
+</para><variablelist role="params">
+<varlistentry><term><parameter>dataset_location</parameter>&nbsp;:</term>
+<listitem><simpara>the location identifying the dataset.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

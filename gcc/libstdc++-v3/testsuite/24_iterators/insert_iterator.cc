@@ -1,6 +1,6 @@
 // 2001-06-21  Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,13 +29,12 @@ void test01()
 
   // Check for required base class.
   list<int> l;
-  list<int>::iterator li;
+  list<int>::iterator li = l.begin();
 
   typedef insert_iterator<list<int> > test_iterator;
   typedef iterator<output_iterator_tag, void, void, void, void> base_iterator;
-  li = l.begin();
   test_iterator  r_it(l, li);
-  base_iterator* base = &r_it;
+  base_iterator* base __attribute__((unused)) = &r_it;
 
   // Check for required typedefs
   typedef test_iterator::value_type value_type;
@@ -56,8 +55,7 @@ void test02()
   typedef std::insert_iterator<std::list<int> > iterator_type;
 
   std::list<int> li;
-  std::list<int>::iterator liit;
-  liit = li.begin();
+  std::list<int>::iterator liit = li.begin();
   iterator_type it01(li, liit);
   iterator_type it02 = std::inserter(li, liit);
 }
@@ -65,12 +63,17 @@ void test02()
 // Check data member 'container' accessible.
 class test_dm : public std::insert_iterator<std::list<int> >
 {
+  container_type l;
+  container_type::iterator i;
   container_type* p;
 public:
-  test_dm(container_type& l, container_type::iterator i)
-  : std::insert_iterator<std::list<int> >(l, i), p(container)
-  { }
+  test_dm(): std::insert_iterator<std::list<int> >(l, i), p(container) { }
 };
+
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<std::_List_node<int> >;
+#endif
 
 int main() 
 { 

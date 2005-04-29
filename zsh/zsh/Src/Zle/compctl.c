@@ -242,7 +242,7 @@ compctlread(char *name, char **args, Options ops, char *reply)
 	if (OPT_ISSET(ops,'A') && !OPT_ISSET(ops,'e')) {
 	    /* the -A option means that one array is specified, instead of
 	    many parameters */
-	    char **p, **b = (char **)zcalloc((clwnum + 1) * sizeof(char *));
+	    char **p, **b = (char **)zshcalloc((clwnum + 1) * sizeof(char *));
 
 	    for (i = 0, p = b; i < clwnum; p++, i++)
 		*p = ztrdup(clwords[i]);
@@ -857,7 +857,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		}
 		break;
 	    default:
-		if (!first && (**argv == '-' || **argv == '+'))
+		if (!first && (**argv == '-' || **argv == '+') && !argv[0][1])
 		    (*argv)--, argv--, ready = 1;
 		else {
 		    zwarnnam(name, "bad option: -%c", NULL, **argv);
@@ -893,7 +893,7 @@ get_compctl(char *name, char ***av, Compctl cc, int first, int isdef, int cl)
 		    cc->xor = &cc_default;
 	    } else {
 		/* more flags follow:  prepare to loop again */
-		cc->xor = (Compctl) zcalloc(sizeof(*cc));
+		cc->xor = (Compctl) zshcalloc(sizeof(*cc));
 		cc = cc->xor;
 		memset((void *)&cct, 0, sizeof(cct));
 		cct.mask2 = CC_CCCONT;
@@ -930,7 +930,7 @@ get_xcompctl(char *name, char ***av, Compctl cc, int isdef)
 	/* o keeps track of or's, m remembers the starting condition,
 	 * c is the current condition being parsed
 	 */
-	o = m = c = (Compcond) zcalloc(sizeof(*c));
+	o = m = c = (Compcond) zshcalloc(sizeof(*c));
 	/* Loop over each condition:  something like 's[...][...], p[...]' */
 	for (t = *argv; *t;) {
 	    while (*t == ' ')
@@ -1021,20 +1021,20 @@ get_xcompctl(char *name, char ***av, Compctl cc, int isdef)
 	    /* Allocate space for all the arguments of the conditions */
 	    if (c->type == CCT_POS ||
 		c->type == CCT_NUMWORDS) {
-		c->u.r.a = (int *)zcalloc(n * sizeof(int));
-		c->u.r.b = (int *)zcalloc(n * sizeof(int));
+		c->u.r.a = (int *)zshcalloc(n * sizeof(int));
+		c->u.r.b = (int *)zshcalloc(n * sizeof(int));
 	    } else if (c->type == CCT_CURSUF ||
 		       c->type == CCT_CURPRE ||
 		       c->type == CCT_QUOTE)
-		c->u.s.s = (char **)zcalloc(n * sizeof(char *));
+		c->u.s.s = (char **)zshcalloc(n * sizeof(char *));
 
 	    else if (c->type == CCT_RANGESTR ||
 		     c->type == CCT_RANGEPAT) {
-		c->u.l.a = (char **)zcalloc(n * sizeof(char *));
-		c->u.l.b = (char **)zcalloc(n * sizeof(char *));
+		c->u.l.a = (char **)zshcalloc(n * sizeof(char *));
+		c->u.l.b = (char **)zshcalloc(n * sizeof(char *));
 	    } else {
-		c->u.s.p = (int *)zcalloc(n * sizeof(int));
-		c->u.s.s = (char **)zcalloc(n * sizeof(char *));
+		c->u.s.p = (int *)zshcalloc(n * sizeof(int));
+		c->u.s.s = (char **)zshcalloc(n * sizeof(char *));
 	    }
 	    /* Now loop over the actual arguments */
 	    for (l = 0; *t == '['; l++, t++) {
@@ -1137,17 +1137,17 @@ get_xcompctl(char *name, char ***av, Compctl cc, int isdef)
 		t++;
 	    if (*t == ',') {
 		/* Another condition to `or' */
-		o->or = c = (Compcond) zcalloc(sizeof(*c));
+		o->or = c = (Compcond) zshcalloc(sizeof(*c));
 		o = c;
 		t++;
 	    } else if (*t) {
 		/* Another condition to `and' */
-		c->and = (Compcond) zcalloc(sizeof(*c));
+		c->and = (Compcond) zshcalloc(sizeof(*c));
 		c = c->and;
 	    }
 	}
 	/* Assign condition to current compctl */
-	*next = (Compctl) zcalloc(sizeof(*cc));
+	*next = (Compctl) zshcalloc(sizeof(*cc));
 	(*next)->cond = m;
 	argv++;
 	/* End of the condition; get the flags that go with it. */
@@ -1271,7 +1271,7 @@ cc_reassign(Compctl cc)
      */
     Compctl c2;
 
-    c2 = (Compctl) zcalloc(sizeof *cc);
+    c2 = (Compctl) zshcalloc(sizeof *cc);
     c2->xor = cc->xor;
     c2->ext = cc->ext;
     c2->refc = 1;
@@ -1572,7 +1572,7 @@ printcompctlp(HashNode hn, int printflags)
 
 /**/
 static int
-bin_compctl(char *name, char **argv, Options ops, int func)
+bin_compctl(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     Compctl cc = NULL;
     int ret = 0;
@@ -1587,7 +1587,7 @@ bin_compctl(char *name, char **argv, Options ops, int func)
 	if ((ret = get_gmatcher(name, argv)))
 	    return ret - 1;
 
-	cc = (Compctl) zcalloc(sizeof(*cc));
+	cc = (Compctl) zshcalloc(sizeof(*cc));
 	if (get_compctl(name, &argv, cc, 1, 0, 0)) {
 	    freecompctl(cc);
 	    return 1;
@@ -1678,7 +1678,7 @@ bin_compctl(char *name, char **argv, Options ops, int func)
 #define CFN_DEFAULT 2
 
 static int
-bin_compcall(char *name, char **argv, Options ops, int func)
+bin_compcall(char *name, UNUSED(char **argv), Options ops, UNUSED(int func))
 {
     if (incompfunc != 1) {
 	zwarnnam(name, "can only be called from completion function", NULL, 0);
@@ -1755,7 +1755,7 @@ static int addwhat;
 /* Hook functions */
 
 static int
-ccmakehookfn(Hookdef dummy, struct ccmakedat *dat)
+ccmakehookfn(UNUSED(Hookdef dummy), struct ccmakedat *dat)
 {
     char *s = dat->str;
     int incmd = dat->incmd, lst = dat->lst;
@@ -1891,7 +1891,7 @@ ccmakehookfn(Hookdef dummy, struct ccmakedat *dat)
 }
 
 static int
-cccleanuphookfn(Hookdef dummy, void *dat)
+cccleanuphookfn(UNUSED(Hookdef dummy), UNUSED(void *dat))
 {
     ccused = ccstack = NULL;
     return 0;
@@ -1975,7 +1975,7 @@ addmatch(char *s, char *t)
     } else if (addwhat == CC_QUOTEFLAG || addwhat == -2  ||
 	      (addwhat == -3 && !(hn->flags & DISABLED)) ||
 	      (addwhat == -4 && (PM_TYPE(pm->flags) == PM_SCALAR) &&
-	       !pm->level && (tt = pm->gets.cfn(pm)) && *tt == '/')    ||
+	       !pm->level && (tt = pm->gsu.s->getfn(pm)) && *tt == '/') ||
 	      (addwhat == -9 && !(hn->flags & PM_UNSET) && !pm->level) ||
 	      (addwhat > 0 &&
 	       ((!(hn->flags & PM_UNSET) &&
@@ -2103,7 +2103,7 @@ dumphashtable(HashTable ht, int what)
 
 /**/
 static void
-addhnmatch(HashNode hn, int flags)
+addhnmatch(HashNode hn, UNUSED(int flags))
 {
     addmatch(hn->nam, NULL);
 }
@@ -2345,7 +2345,7 @@ makecomplistctl(int flags)
 
 /**/
 static int
-makecomplistglobal(char *os, int incmd, int lst, int flags)
+makecomplistglobal(char *os, int incmd, UNUSED(int lst), int flags)
 {
     Compctl cc = NULL;
     char *s;
@@ -2892,7 +2892,7 @@ sep_comp_string(char *ss, char *s, int noffs)
     sl = strlen(s);
     if (swe > sl) {
 	swe = sl;
-	if (strlen(ns) > swe - swb + 1)
+	if ((int)strlen(ns) > swe - swb + 1)
 	    ns[swe - swb + 1] = '\0';
     }
     qs = tricat(multiquote(s + swe, 0), qisuf, "");
@@ -3631,7 +3631,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	int i;
 	char *j;
 
-	for (i = 0; i < MAXJOB; i++)
+	for (i = 0; i <= maxjob; i++)
 	    if ((jobtab[i].stat & STAT_INUSE) &&
 		jobtab[i].procs && jobtab[i].procs->text) {
 		int stopped = jobtab[i].stat & STAT_STOPPED;
@@ -3692,7 +3692,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	/* We have a pattern to take things from the history. */
 	Patprog pprogc = NULL;
 	char *e, *h, hpatsav;
-	int i = addhistnum(curhist,-1,HIST_FOREIGN), n = cc->hnum;
+	zlong i = addhistnum(curhist,-1,HIST_FOREIGN), n = cc->hnum;
 	Histent he = gethistent(i, GETHIST_UPWARD);
 
 	/* Parse the pattern, if it isn't the null string. */
@@ -3750,7 +3750,7 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	dumphashtable(aliastab, t | (cc->mask & (CC_DISCMDS|CC_EXCMDS)));
     if (keypm && cc == &cc_dummy) {
 	/* Add the keys of the parameter in keypm. */
-	HashTable t = keypm->gets.hfn(keypm);
+	HashTable t = keypm->gsu.h->getfn(keypm);
 
 	if (t)
 	    scanhashtable(t, 0, 0, PM_UNSET, addhnmatch, 0);
@@ -3896,7 +3896,7 @@ static struct builtin bintab[] = {
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     compctlreadptr = compctlread;
     createcompctltable();
@@ -3935,7 +3935,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     deletehashtable(compctltab);
 

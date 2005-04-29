@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,20 +22,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "accum.h"
 #include "context.h"
+#include "imports.h"
 #include "macros.h"
-#include "mem.h"
 #include "state.h"
 #include "mtypes.h"
-#endif
-
-
 
 
 void
@@ -58,8 +50,7 @@ _mesa_ClearAccum( GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha )
    COPY_4FV( ctx->Accum.ClearColor, tmp );
 }
 
-/* Should really be a driver-supplied function?
- */
+
 void
 _mesa_Accum( GLenum op, GLfloat value )
 {
@@ -74,6 +65,11 @@ _mesa_Accum( GLenum op, GLfloat value )
 
    if (ctx->NewState)
       _mesa_update_state( ctx );
+
+   if (ctx->RenderMode != GL_RENDER) {
+      /* no-op */
+      return;
+   }
 
    /* Determine region to operate upon. */
    if (ctx->Scissor.Enabled) {

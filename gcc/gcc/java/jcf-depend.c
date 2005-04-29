@@ -1,19 +1,21 @@
 /* Functions for handling dependency tracking when reading .class files.
 
-   Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003 Free Software Foundation, Inc.
 
-This program is free software; you can redistribute it and/or modify
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-This program is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  
 
@@ -25,6 +27,8 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "mkdeps.h"
 
 #include <assert.h>
@@ -52,7 +56,7 @@ static int print_dummies;
    invocation.  FIXME: we should change our API or just completely use
    the one in mkdeps.h.  */
 void
-jcf_dependency_reset ()
+jcf_dependency_reset (void)
 {
   if (dep_out != NULL)
     {
@@ -69,8 +73,7 @@ jcf_dependency_reset ()
 }
 
 void
-jcf_dependency_set_target (name)
-     const char *name;
+jcf_dependency_set_target (const char *name)
 {
   /* We just handle this the same as an `add_target'.  */
   if (dependencies != NULL && name != NULL)
@@ -78,16 +81,14 @@ jcf_dependency_set_target (name)
 }
 
 void
-jcf_dependency_add_target (name)
-     const char *name;
+jcf_dependency_add_target (const char *name)
 {
   if (dependencies != NULL)
     deps_add_target (dependencies, name, 1);
 }
 
 void
-jcf_dependency_set_dep_file (name)
-     const char *name;
+jcf_dependency_set_dep_file (const char *name)
 {
   assert (dep_out != stdout);
   if (dep_out)
@@ -99,9 +100,7 @@ jcf_dependency_set_dep_file (name)
 }
 
 void
-jcf_dependency_add_file (filename, system_p)
-     const char *filename;
-     int system_p;
+jcf_dependency_add_file (const char *filename, int system_p)
 {
   if (! dependencies)
     return;
@@ -114,8 +113,7 @@ jcf_dependency_add_file (filename, system_p)
 }
 
 void
-jcf_dependency_init (system_p)
-     int system_p;
+jcf_dependency_init (int system_p)
 {
   assert (! dependencies);
   system_files = system_p;
@@ -123,13 +121,13 @@ jcf_dependency_init (system_p)
 }
 
 void
-jcf_dependency_print_dummies ()
+jcf_dependency_print_dummies (void)
 {
   print_dummies = 1;
 }
 
 void
-jcf_dependency_write ()
+jcf_dependency_write (void)
 {
   if (! dep_out)
     return;

@@ -50,7 +50,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/bdfread.c,v 1.12 2002/09/10 16:14:34 tsi Exp $ */
+/* $XFree86: xc/lib/font/bitmap/bdfread.c,v 1.13 2003/05/27 22:26:48 tsi Exp $ */
 
 #ifndef FONTMODULE
 #include <ctype.h>
@@ -82,7 +82,6 @@ bdfReadBitmap(CharInfoPtr pCI, FontFilePtr file, int bit, int byte,
     int         i,
                 inLineLen,
                 nextByte;
-    Bool        badbits;
     unsigned char *pInBits,
                *picture,
                *line = NULL;
@@ -106,7 +105,6 @@ bdfReadBitmap(CharInfoPtr pCI, FontFilePtr file, int bit, int byte,
 	for (i = 0; i < GLYPHPADOPTIONS; i++)
 	    sizes[i] += BYTES_PER_ROW(widthBits, (1 << i)) * height;
     }
-    badbits = FALSE;
     nextByte = 0;
     widthHexChars = BYTES_PER_ROW(widthBits, 1);
 
@@ -149,9 +147,7 @@ bdfReadBitmap(CharInfoPtr pCI, FontFilePtr file, int bit, int byte,
 	    mask = 0xff << (8 - (widthBits & 0x7));
 	    if (mask && picture[nextByte - 1] & ~mask) {
 		picture[nextByte - 1] &= mask;
-		badbits = TRUE;
-	    } else if (inLineLen > widthHexChars)
-		badbits = TRUE;
+	    }
 	}
 
 	if (widthBytes > widthHexChars) {

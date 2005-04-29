@@ -55,13 +55,6 @@
 #3221290: g++.dg/debug/trivial.C -gdwarf-23 (test for excess errors)
 #3221290: g++.dg/debug/trivial.C -gdwarf-23 -O2 (test for excess errors)
 #3221290: g++.dg/debug/trivial.C -gdwarf-23 -O3 (test for excess errors)
-###------------------------------------------------------------------
-# These failures are Panther only, they pass on Jaguar.
-3370619: g++.law/cvt2.C  Execution test
-3370619: g++.law/virtual3.C  Execution test
-3370619: g++.robertl/eb21.C  Execution test
-3370619: g++.robertl/eb77.C  Execution test
-###------------------------------------------------------------------
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multivv3.*0
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*VTT for Multivv3.*0
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Multiss2.*vtable for Base2
@@ -75,6 +68,7 @@
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base2.*vtable for Base1
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base1.*vtable for Base0
 #3221021: g++.dg/opt/vtgc1.C scan-assembler-dem .vtable_inherit[ 	]*vtable for Base0.*0
+###------------------------------------------------------------------
 3220746: g++.dg/compat/break/bitfield7 y_tst.o compile
 3220997: g++.dg/align-test-1.C execution test
 3221627: g++.dg/warn/Wunused-2.C  (test for warnings, line 5)
@@ -106,62 +100,4 @@
 3222264: g++.pt/repo3.C (test for excess errors)
 3222264: g++.pt/repo4.C (test for excess errors)
 3239450: g++.pt/instantiate12.C caused compiler crash
-3377311: g++.dg/altivec-3.C (test for excess errors)
-3377350: g++.dg/altivec-4.C execution test
-3377311: g++.dg/asm-function-1.C execution test
-3377311: g++.dg/asm-function-5.C execution test
-3377362: g++.dg/eh/spec6.C  (test for errors, line 6)
-3377362: g++.dg/eh/spec6.C  (test for errors, line 13)
-3377385: g++.dg/template/recurse.C excessive recursion (test for errors, line 21)
-3377385: g++.dg/template/recurse.C (test for excess errors)
-3377311: 33:is -:should be 1
-3377311: 58:is 10:should be 9
-3377311: 59:is #####:should be 3
-3377311: 102:is 2:should be 1
-3377311: 103:is #####:should be 1
-3377311: 105:is #####:should be 1
-3377311: 116:is #####:should be 1
-3377311: 118:is #####:should be 1
-3377311: 173:is 3:should be 6
-3377311: 177:is 3:should be 6
-3377311: 181:is 3:should be 6
-3377311: 183:is 1:should be 3
-3377311: 185:is 3:should be 6
-3377311: 187:is 1:should be 2
-3377311: 189:is 2:should be 4
-3377311: 192:is 2:should be 4
-3377311: 57: expected branch percentages not found: 25
-3377311: 68: expected branch percentages not found: 30
-3377311: 70: expected branch percentages not found: 32
-3377311: 72: expected branch percentages not found: 27
-3377311: 101: expected branch percentages not found: 50
-3377311: 114: expected branch percentages not found: 7
-3377311: 174: expected branch percentages not found: 17
-3377311: 182: expected branch percentages not found: 50
-3377311: 201: expected branch percentages not found: 50
-3377311: 213: expected branch percentages not found: 9 10
-3377311: g++.dg/gcov/gcov-1.C gcov: 16 failures in line counts, 10 in branch percentages, 0 in return percentages
-3377397: g++.abi/arraynew.C  Execution test
-3377405: g++.abi/ptrmem.C  Execution test
-3377311: g++.brendan/crash52.C (test for excess errors)
-3377311: g++.jason/report.C (test for excess errors)
-3372198: g++.dg/eh/registers1.C execution test
-3372232: g++.dg/eh/unexpected1.C execution test
-3381302: g++.ext/label1.C caused compiler crash
-3381302: g++.ext/label2.C caused compiler crash
-#3381342: g++.dg/altivec-6.C execution test
-3381347: g++.dg/compat/break/bitfield7 x_tst.o compile
-3381349: g++.dg/compat/eh/unexpected1 x_tst.o-y_tst.o execute
-3381351: g++.dg/compat/init/array5 x_tst.o-y_tst.o execute
-3381354: g++.dg/init/array5.C execution test
-3381354: g++.eh/ia64-1.C  Execution test
-3381354: g++.eh/spec2.C  Execution test
-3381354: g++.eh/spec3.C  Execution test
-3381354: g++.eh/spec4.C  Execution test
-3381354: g++.mike/eh33.C  Execution test
-3381354: g++.mike/eh34.C  Execution test
-3381354: g++.mike/eh50.C  Execution test
-3381354: g++.mike/eh51.C  Execution test
-3381354: g++.mike/eh55.C  Execution test
-3381354: g++.robertl/eh990323-1.C  Execution test 
-
+3458257: g++.dg/abi/rtti1.C scan-assembler-dem-not

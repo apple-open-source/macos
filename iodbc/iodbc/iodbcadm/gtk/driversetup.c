@@ -1,7 +1,7 @@
 /*
  *  driversetup.c
  *
- *  $Id: driversetup.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: driversetup.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -135,8 +135,6 @@ static void
 parse_attribute_line (TDRIVERSETUP *driversetup_t, LPCSTR driver,
     LPCSTR attrs, BOOL add)
 {
-  char *curr, *cour;
-
   if (driver)
     {
       gtk_entry_set_text (GTK_ENTRY (driversetup_t->name_entry), driver);

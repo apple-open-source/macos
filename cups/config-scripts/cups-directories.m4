@@ -1,9 +1,9 @@
 dnl
-dnl "$Id: cups-directories.m4,v 1.1.1.8 2002/12/24 00:04:58 jlovell Exp $"
+dnl "$Id: cups-directories.m4,v 1.1.1.13 2005/01/04 19:15:06 jlovell Exp $"
 dnl
 dnl   Directory stuff for the Common UNIX Printing System (CUPS).
 dnl
-dnl   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+dnl   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 dnl
 dnl   These coded instructions, statements, and computer programs are the
 dnl   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@ dnl
 dnl       Attn: CUPS Licensing Information
 dnl       Easy Software Products
 dnl       44141 Airport View Drive, Suite 204
-dnl       Hollywood, Maryland 20636-3111 USA
+dnl       Hollywood, Maryland 20636 USA
 dnl
-dnl       Voice: (301) 373-9603
+dnl       Voice: (301) 373-9600
 dnl       EMail: cups-info@cups.org
 dnl         WWW: http://www.cups.org
 dnl
@@ -115,8 +115,8 @@ if test x$rcdir = x; then
 			INITDDIR="/System/Library/StartupItems/PrintingServices"
 			;;
 
-		Linux*)
-			# Linux seems to choose an init.d directory at random...
+		Linux | GNU)
+			# Linux/HURD seems to choose an init.d directory at random...
 			if test -d /sbin/init.d; then
 				# SuSE
 				INITDIR="/sbin/init.d"
@@ -197,7 +197,7 @@ AC_SUBST(CUPS_REQUESTS)
 
 dnl Set the CUPS_LOCALE directory...
 case "$uname" in
-	Linux* | *BSD* | Darwin*)
+	Linux | GNU | *BSD* | Darwin*)
 		CUPS_LOCALEDIR="$datadir/locale"
 		AC_DEFINE_UNQUOTED(CUPS_LOCALEDIR, "$datadir/locale")
 		;;
@@ -238,5 +238,5 @@ AC_SUBST(CUPS_FONTPATH)
 AC_DEFINE_UNQUOTED(CUPS_FONTPATH, "$fontpath")
 
 dnl
-dnl End of "$Id: cups-directories.m4,v 1.1.1.8 2002/12/24 00:04:58 jlovell Exp $".
+dnl End of "$Id: cups-directories.m4,v 1.1.1.13 2005/01/04 19:15:06 jlovell Exp $".
 dnl

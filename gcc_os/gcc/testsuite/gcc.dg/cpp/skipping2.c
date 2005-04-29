@@ -6,6 +6,9 @@
 
 /* Source: Neil Booth, 25 Jul 2001.  */
 
+/* APPLE LOCAL -Wextra-tokens required in Apple's compiler to elicit req'd warnings here */
+/* { dg-options "-Wextra-tokens" } */
+
 #if 0
 #if foo
 #else foo   /* { dg-bogus "extra tokens" "extra tokens in skipped block" } */

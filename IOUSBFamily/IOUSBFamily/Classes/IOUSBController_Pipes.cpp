@@ -51,8 +51,6 @@ IOReturn IOUSBController::ClosePipe(USBDeviceAddress address,
 IOReturn IOUSBController::AbortPipe(USBDeviceAddress address,
                                     Endpoint * endpoint)
 {
-//    return UIMAbortEndpoint(address,
-//                endpoint->number, endpoint->direction);
     return _commandGate->runAction(DoAbortEP, (void *)(UInt32) address,
 			(void *)(UInt32) endpoint->number, (void *)(UInt32) endpoint->direction);
 }
@@ -60,8 +58,6 @@ IOReturn IOUSBController::AbortPipe(USBDeviceAddress address,
 IOReturn IOUSBController::ResetPipe(USBDeviceAddress address,
                                     Endpoint * endpoint)
 {
-//    return UIMClearEndpointStall(address,
-//                endpoint->number, endpoint->direction);
     return _commandGate->runAction(DoClearEPStall, (void *)(UInt32) address,
 			(void *)(UInt32) endpoint->number, (void *)(UInt32) endpoint->direction);
 }
@@ -69,8 +65,6 @@ IOReturn IOUSBController::ResetPipe(USBDeviceAddress address,
 IOReturn IOUSBController::ClearPipeStall(USBDeviceAddress address,
                                          Endpoint * endpoint)
 {
-//    return UIMClearEndpointStall(address,
-//                endpoint->number, endpoint->direction);
     return _commandGate->runAction(DoClearEPStall, (void *)(UInt32) address,
 			(void *)(UInt32) endpoint->number, (void *)(UInt32) endpoint->direction);
 }
@@ -106,8 +100,9 @@ DisjointCompletion(void *target, void *parameter, IOReturn status, UInt32 buffer
 
 // since this is a new method, I am not making it a member function, so that I don't
 // have to change the class definition
-static IOReturn
-CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize)
+OSMetaClassDefineReservedUsed(IOUSBController,  17);
+IOReturn
+IOUSBController::CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize)
 {
     IOMemoryDescriptor		*buf = command->GetBuffer();
     IOMemoryDescriptor		*newBuf = NULL;
@@ -192,6 +187,7 @@ CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize)
         length -= segLength;		// adjust our master length pointer
 	offset += segLength;
     }
+    USBLog(5, "IOUSBController: CheckForDisjointDescriptor - returning kIOReturnBadArgument(0x%x)", kIOReturnBadArgument);
     return kIOReturnBadArgument;
 }
 
@@ -214,8 +210,11 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     USBLog(7, "%s[%p]::Read #2", getName(), this);
     // Validate that there is a buffer so that we can call getLength on it
     if (!buffer)
+    {
+        USBLog(5, "%s[%p]::Read #2 - No Buffer, returning kIOReturnBadArgument(0x%x)", getName(), this, kIOReturnBadArgument);
 	return kIOReturnBadArgument;
-	
+    }
+    
     return Read(buffer, address, endpoint, completion, noDataTimeout, completionTimeout, buffer->getLength());
 }
 
@@ -226,24 +225,38 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
 {
     IOReturn	 	err = kIOReturnSuccess;
     IOUSBCommand 	*command;
+    IOUSBCompletion 	nullCompletion;
     int			i;
 
     USBLog(7, "%s[%p]::Read #3 - reqCount = %d", getName(), this, reqCount);
     // Validate its a inny pipe and that there is a buffer
     if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
+    {
+        USBLog(5, "%s[%p]::Read #3 - direction is not kUSBIn (%d), No Buffer, or buffer length < reqCount (%ld < %ld). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  buffer->getLength(), reqCount, kIOReturnBadArgument);
 	return kIOReturnBadArgument;
-
+    }
+    
     if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
-	return kIOReturnBadArgument;							// timeouts only on bulk pipes
+    {
+        USBLog(5, "%s[%p]::Read #3 - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%ld, %ld).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, noDataTimeout, completionTimeout, kIOReturnBadArgument);
+	return kIOReturnBadArgument; // timeouts only on bulk pipes
+    }
+    
 	
     // Validate the completion
     if (!completion)
+    {
+        USBLog(5, "%s[%p]::Read #3 - No Completion routine.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
 	return kIOReturnNoCompletion;
-
+    }
+    
     // Validate the command gate
     if (!_commandGate)
+    {
+        USBLog(5, "%s[%p]::Read #3 - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
 	return kIOReturnInternalError;
-
+    }
+    
     // allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
     // If we couldn't get a command, increase the allocation and try again
@@ -255,11 +268,12 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
         command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
         if ( command == NULL )
         {
-            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBCommand",getName(),this);
+            USBLog(3,"%s[%p]::Read #3 Could not get a IOUSBCommand",getName(),this);
             return kIOReturnNoResources;
         }
     }
 
+    command->SetUseTimeStamp(false);
     command->SetSelector(READ);
     command->SetRequest(0);            	// Not a device request
     command->SetAddress(address);
@@ -274,7 +288,11 @@ IOUSBController::Read(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endp
     for (i=0; i < 10; i++)
 	command->SetUIMScratch(i, 0);
 
-
+    nullCompletion.target = (void *) NULL;
+    nullCompletion.action = (IOUSBCompletionAction) NULL;
+    nullCompletion.parameter = (void *) NULL;
+    command->SetDisjointCompletion(nullCompletion);
+    
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (!err)
 	err = _commandGate->runAction(DoIOTransfer, command);
@@ -303,7 +321,10 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     USBLog(7, "%s[%p]::Write #2", getName(), this);
     // Validate that we have a buffer so that we can call getLength on it
     if(!buffer)
+    {
+        USBLog(5, "%s[%p]::Write #2 - No buffer!.  Returning kIOReturnBadArgument(0x%x)", getName(), this, kIOReturnBadArgument);
 	return kIOReturnBadArgument;
+    }
 
     return Write(buffer, address, endpoint, completion, noDataTimeout, completionTimeout, buffer->getLength());
 }
@@ -316,20 +337,30 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
 {
     IOReturn		 err = kIOReturnSuccess;
     IOUSBCommand 	*command;
+    IOUSBCompletion 	nullCompletion;
     int			i;
 
     USBLog(7, "%s[%p]::Write #3 - reqCount = %d", getName(), this, reqCount);
     
     // Validate its a outty pipe and that we have a buffer
     if((endpoint->direction != kUSBOut) || !buffer || (buffer->getLength() < reqCount))
+    {
+        USBLog(5, "%s[%p]::Write #3 - direction is not kUSBOut (%d), No Buffer, or buffer length < reqCount (%ld < %ld). Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->direction,  buffer->getLength(), reqCount, kIOReturnBadArgument);
 	return kIOReturnBadArgument;
+    }
 
     if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
+    {
+        USBLog(5, "%s[%p]::Write #3 - Pipe is NOT kUSBBulk (%d) AND specified a timeout (%ld, %ld).  Returning kIOReturnBadArgument(0x%x)", getName(), this, endpoint->transferType, noDataTimeout, completionTimeout, kIOReturnBadArgument);
 	return kIOReturnBadArgument;							// timeouts only on bulk pipes
+    }
 	
     // Validate the command gate
     if (!_commandGate)
+    {
+        USBLog(5, "%s[%p]::Wrtie #3 - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
 	return kIOReturnInternalError;
+    }
 
     // allocate the command
     command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
@@ -348,6 +379,7 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
         }
     }
 
+    command->SetUseTimeStamp(false);
     command->SetSelector(WRITE);
     command->SetRequest(0);            // Not a device request
     command->SetAddress(address);
@@ -361,6 +393,11 @@ IOUSBController::Write(IOMemoryDescriptor *buffer, USBDeviceAddress address, End
     command->SetCompletionTimeout(completionTimeout);
     for (i=0; i < 10; i++)
 	command->SetUIMScratch(i, 0);
+
+    nullCompletion.target = (void *) NULL;
+    nullCompletion.action = (IOUSBCompletionAction) NULL;
+    nullCompletion.parameter = (void *) NULL;
+    command->SetDisjointCompletion(nullCompletion);
 
     err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
     if (!err)
@@ -405,6 +442,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
         /* Validate the completion */
         if (completion == 0)
         {
+            USBLog(5, "%s[%p]::IsocIO - No completion.  Returning kIOReturnNoCompletion(0x%x)", getName(), this, kIOReturnNoCompletion);
             err = kIOReturnNoCompletion;
             break;
         }
@@ -419,10 +457,12 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
             command->SetDirection(kUSBIn);
 	}
 	else {
+            USBLog(5, "%s[%p]::IsocIO - Direction is not kUSBOut or kUSBIn (%d).  Returning kIOReturnNoCompletion(0x%x)", getName(), this, endpoint->direction, kIOReturnBadArgument);
             err = kIOReturnBadArgument;
             break;
         }
 
+        command->SetUseTimeStamp(false);
         command->SetAddress(address);
         command->SetEndpoint(endpoint->number);
         command->SetBuffer(buffer);
@@ -434,12 +474,16 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
 
         if (_commandGate == 0)
         {
+            USBLog(5, "%s[%p]::IsocIO - Could not get _commandGate.  Returning kIOReturnInternalError(0x%x)", getName(), this, kIOReturnInternalError);
             err = kIOReturnInternalError;
             break;
         }
 
         if ((err = _commandGate->runAction(DoIsocTransfer, command)))
             break;
+
+        if ( err )
+            USBLog(5, "%s[%p]::IsocIO - runAction returned: (0x%x)", getName(), this, err);
 
         return(err);
 
@@ -502,6 +546,7 @@ IOUSBController::IsocIO(IOMemoryDescriptor * buffer,
             break;
         }
 
+        command->SetUseTimeStamp(false);
         command->SetAddress(address);
         command->SetEndpoint(endpoint->number);
         command->SetBuffer(buffer);

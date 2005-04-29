@@ -86,7 +86,7 @@ typedef struct
 
 
 extern GLboolean
-i830CreateContext( Display *dpy, const __GLcontextModes *mesaVis,
+i830CreateContext( const __GLcontextModes *mesaVis,
                    __DRIcontextPrivate *driContextPriv,
                    void *sharedContextPrivate );
 
@@ -102,6 +102,6 @@ i830MakeCurrent(__DRIcontextPrivate *driContextPriv,
                 __DRIdrawablePrivate *driReadPriv);
 
 extern void
-i830SwapBuffers(Display *dpy, void *drawablePrivate);
+i830SwapBuffers(__DRIdrawablePrivate *driDrawPriv);
 
 #endif

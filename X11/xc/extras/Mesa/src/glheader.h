@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -22,7 +22,6 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/glheader.h,v 1.20 2002/11/06 17:19:39 tsi Exp $ */
 
 
 #ifndef GLHEADER_H
@@ -46,7 +45,7 @@
 
 
 
-#ifdef XFree86Module
+#if defined(XFree86LOADER) && defined(IN_MODULE)
 #include "xf86_ansic.h"
 #else
 #include <assert.h>
@@ -66,12 +65,12 @@
 #endif
 #endif
 #include <float.h>
+#include <stdarg.h>
 
 
 #ifdef HAVE_CONFIG_H
 #include "conf.h"
 #endif
-
 
 
 #if defined(_WIN32) && !defined(__WIN32__) && !defined(__CYGWIN__)
@@ -256,6 +255,17 @@ typedef struct tagPIXELFORMATDESCRIPTOR PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESC
 #endif
 
 
+/*
+ * Provide a reasonable replacement for __FUNCTION__ when using
+ * non-GNU C compilers.
+ */
+#if !defined(__GNUC__)
+#define STRINGIZE(x) #x
+#define STRINGIZE_EVAL(x) STRINGIZE(x)
+#define __FUNCTION__ STRINGIZE_EVAL(__FILE__) ", line " STRINGIZE_EVAL(__LINE__)
+#endif
+
+
 /* Some compilers don't like some of Mesa's const usage */
 #ifdef NO_CONST
 #  define CONST
@@ -282,5 +292,4 @@ typedef struct tagPIXELFORMATDESCRIPTOR PIXELFORMATDESCRIPTOR, *PPIXELFORMATDESC
 typedef union { GLfloat f; GLint i; } fi_type;
 
 
-                                                       
 #endif /* GLHEADER_H */

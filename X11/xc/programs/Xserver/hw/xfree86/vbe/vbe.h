@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/vbe/vbe.h,v 1.1 2003/02/17 17:06:45 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/vbe/vbe.h,v 1.5 2004/02/02 03:55:32 dawes Exp $ */
 
 /*
  *                   XFree86 vbe module
@@ -60,7 +60,12 @@ typedef struct vbeControllerInfoBlock {
     CARD8  OemData[256];
 } vbeControllerInfoRec, *vbeControllerInfoPtr;
 
-#pragma pack()
+#if defined(__GNUC__) || defined(SCO) || defined(__USLC__) || \
+	defined(__SUNPRO_C)
+#pragma pack()	/* All GCC versions recognise this syntax */
+#else
+#pragma pack(0)
+#endif
 
 #ifndef __GNUC__
 #define __attribute__(a)
@@ -237,8 +242,8 @@ typedef enum {
 } vbeScanwidthCommand;
 
 #define VBESetLogicalScanline(pVbe, width)	\
-	VBESetGetLogicalScanlineLength(pVbe, SCANWID_SET, \
-					width, NULL, NULL, NULL)
+	VBESetGetLogicalScanlineLength(pVbe, SCANWID_SET, width, \
+					NULL, NULL, NULL)
 #define VBESetLogicalScanlineBytes(pVbe, width)	\
 	VBESetGetLogicalScanlineLength(pVbe, SCANWID_SET_BYTES, width, \
 					NULL, NULL, NULL)
@@ -246,8 +251,8 @@ typedef enum {
 	VBESetGetLogicalScanlineLength(pVbe, SCANWID_GET, 0, \
 					pixels, bytes, max)
 #define VBEGetMaxLogicalScanline(pVbe, pixels, bytes, max)	\
-	VBESetGetLogicalScanlineLength(pVbe, SCANWID_GET_MAX, \
-					NULL, pixels, bytes, max)
+	VBESetGetLogicalScanlineLength(pVbe, SCANWID_GET_MAX, 0, \
+					pixels, bytes, max)
 Bool VBESetGetLogicalScanlineLength(vbeInfoPtr pVbe, 
 				    vbeScanwidthCommand command, int width,
 				     int *pixels, int *bytes, int *max);

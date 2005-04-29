@@ -7,6 +7,8 @@
  *
  */
 
+#ifdef __cplusplus
+
 extern "C++" {
 
 #import <CoreFoundation/CoreFoundation.h>
@@ -22,3 +24,5 @@ extern "C++" {
 #import <unistd.h>
 
 }
+
+#endif

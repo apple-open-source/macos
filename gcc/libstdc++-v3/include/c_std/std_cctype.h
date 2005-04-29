@@ -40,8 +40,8 @@
  *  contained in the namespace @c std.
  */
 
-#ifndef _CPP_CCTYPE
-#define _CPP_CCTYPE 1
+#ifndef _GLIBCXX_CCTYPE
+#define _GLIBCXX_CCTYPE 1
 
 #pragma GCC system_header
 
@@ -63,27 +63,6 @@
 #undef tolower
 #undef toupper
 
-/* APPLE LOCAL begin supply missing ctype.h decls 2001-07-11 sts */
-/* These are supposed be in ctype.h like the standard says!  We need
-   this until Darwin ctype.h gets fixed and/or GCC has a fixincludes
-   to supply these if they're missing.  */
-#if defined(__APPLE__) && defined(__MACH__)
-extern "C" {
-extern int isalnum(int c);
-extern int isalpha(int c);
-extern int iscntrl(int c);
-extern int isdigit(int c);
-extern int isgraph(int c);
-extern int islower(int c);
-extern int isprint(int c);
-extern int ispunct(int c);
-extern int isspace(int c);
-extern int isupper(int c);
-extern int isxdigit(int c);
-}
-#endif
-/* APPLE LOCAL end supply missing ctype.h decls 2001-07-11 sts */
-
 namespace std
 {
   using ::isalnum;
@@ -101,4 +80,4 @@ namespace std
   using ::toupper;
 }
 
-#endif 
+#endif

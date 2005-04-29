@@ -1,16 +1,16 @@
-// Build don't link:
+// { dg-do assemble  }
 
 template <class Type>
 class CVector {
 public:
     CVector<int> f() const
     {
-       CVector<int> v(n);
+       CVector<int> v();
        return v;
     }
     CVector<long> g() const
     {
-       CVector<long> v(n);
+       CVector<long> v();
        return v;
     }
 };

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1998-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -78,10 +77,9 @@ package body System.Shared_Storage is
    Shared_Var_Files_Open : Natural := 0;
    --  Number of shared variable access files currently open
 
-   type File_Stream_Type is new AS.Root_Stream_Type with
-      record
-         File : SIO.File_Type;
-      end record;
+   type File_Stream_Type is new AS.Root_Stream_Type with record
+      File : SIO.File_Type;
+   end record;
    type File_Stream_Access is access all File_Stream_Type'Class;
 
    procedure Read
@@ -315,6 +313,7 @@ package body System.Shared_Storage is
    ----------------------
 
    procedure Shared_Var_Close (Var : in SIO.Stream_Access) is
+      pragma Warnings (Off, Var);
    begin
       TSL.Unlock;
    end Shared_Var_Close;
@@ -324,6 +323,8 @@ package body System.Shared_Storage is
    ---------------------
 
    procedure Shared_Var_Lock (Var : in String) is
+      pragma Warnings (Off, Var);
+
    begin
       TSL.Lock;
       Initialize;
@@ -409,6 +410,8 @@ package body System.Shared_Storage is
    -----------------------
 
    procedure Shared_Var_Unlock (Var : in String) is
+      pragma Warnings (Off, Var);
+
    begin
       TSL.Lock;
       Initialize;

@@ -32,5 +32,6 @@ main (int argc, char **argv)
   args.argc = argc;
   args.argv = argv;
   args.use_windows = 1;
+  args.interpreter_p = "insight";
   return gdb_main (&args);
 }

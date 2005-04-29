@@ -36,13 +36,14 @@
  *
  *		Note that the range for L* is 0 to 1.
  */
-/* $XFree86: xc/lib/X11/Lab.c,v 1.3 2001/01/17 19:41:38 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Lab.c,v 1.4 2003/04/13 19:22:16 dawes Exp $ */
 
 
 #include <X11/Xos.h>
 #include <stdio.h> /* sscanf */
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 /*
  *	DEFINES
@@ -57,22 +58,11 @@
 #define DIV16BY116	0.137931
 
 /*
- *	EXTERNS
- */
-extern char	_XcmsCIELab_prefix[];
-
-/* CvCols.c */
-extern Status _XcmsDIConvertColors();
-
-/* XYZ.c */
-extern Status _XcmsCIEXYZ_ValidSpec();
-
-/*
  *	FORWARD DECLARATIONS
  */
 
-static int CIELab_ParseString();
-static Status XcmsCIELab_ValidSpec();
+static int CIELab_ParseString(register char *spec, XcmsColor *pColor);
+static Status XcmsCIELab_ValidSpec(XcmsColor *pColor);
 
 
 /*
@@ -127,9 +117,9 @@ XcmsColorSpace	XcmsCIELabColorSpace =
  *	SYNOPSIS
  */
 static int
-CIELab_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+CIELab_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -192,8 +182,8 @@ CIELab_ParseString(spec, pColor)
  *	SYNOPSIS
  */
 static Status
-XcmsCIELab_ValidSpec(pColor)
-    XcmsColor *pColor;
+XcmsCIELab_ValidSpec(
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Checks if color specification valid for CIE L*a*b*.

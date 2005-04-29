@@ -31,7 +31,7 @@
  * Modifier: Takanori Tateno   FUJITSU LIMITED
  *
  */
-/* $XFree86: xc/lib/X11/XlcPublic.h,v 1.9 2001/01/17 19:41:49 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XlcPublic.h,v 1.12 2003/11/17 22:20:10 dawes Exp $ */
 /*
  * Most of this API is documented in i18n/Framework.PS
  */
@@ -140,10 +140,8 @@ extern Bool _XlcAddCharSet(
    Return NULL if successful, otherwise the name of the first argument
    specifiying a nonexistent attribute. */
 extern char *_XlcGetCSValues(
-#if NeedVarargsPrototypes
     XlcCharSet		charset,
     ...
-#endif
 );
 
 _XFUNCPROTOEND
@@ -177,13 +175,10 @@ typedef XlcConv (*XlcOpenConverterProc)(
 );
 
 typedef void (*XlcCloseConverterProc)(
-#if NeedFunctionPrototypes
     XlcConv		/* conv */
-#endif
 );
 
 typedef int (*XlcConvertProc)(
-#if NeedFunctionPrototypes
     XlcConv		/* conv */,
     XPointer*		/* from */,
     int*		/* from_left */,
@@ -191,13 +186,10 @@ typedef int (*XlcConvertProc)(
     int*		/* to_left */,
     XPointer*		/* args */,
     int			/* num_args */
-#endif
 );
 
 typedef void (*XlcResetConverterProc)(
-#if NeedFunctionPrototypes
     XlcConv		/* conv */
-#endif
 );
 
 typedef struct _XlcConvMethodsRec{
@@ -230,22 +222,24 @@ typedef struct _XlcConvRec {
 _XFUNCPROTOBEGIN
 
 extern Bool _XInitOM(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */
-#endif
 );
 
 extern Bool _XInitIM(
-#if NeedFunctionPrototypes
     XLCd		/* lcd */
-#endif
+);
+
+extern XIM _XimOpenIM(
+    XLCd		/* lcd */,
+    Display *		/* dpy */,
+    XrmDatabase		/* rdb */,
+    char *		/* res_name */,
+    char *		/* res_class */
 );
 
 extern char *_XGetLCValues(
-#if NeedVarargsPrototypes
     XLCd		/* lcd */,
     ...
-#endif
 );
 
 extern XlcConv _XlcOpenConverter(
@@ -295,17 +289,17 @@ extern char *_XlcFileName(
 );
 
 extern int _Xwcslen(
-#if NeedFunctionPrototypes
     wchar_t*		/* wstr */
-#endif
 );
 
 extern wchar_t *_Xwcscpy(
-#if NeedFunctionPrototypes
     wchar_t*		/* wstr1 */,
     wchar_t*		/* wstr2 */
-#endif
 );
+
+extern wchar_t *_Xwcsncpy(wchar_t *wstr1, wchar_t *wstr2, int len);
+extern int _Xwcscmp(wchar_t *wstr1, wchar_t *wstr2);
+extern int _Xwcsncmp(wchar_t *wstr1, wchar_t *wstr2, int len);
 
 /* Compares two ISO 8859-1 strings, ignoring case of ASCII letters.
    Like strcasecmp in an ASCII locale. */
@@ -321,6 +315,11 @@ extern int _XlcNCompareISOLatin1(
     const char*		str2,
     int			len
 );
+
+extern XOM
+_XDefaultOpenOM(
+    XLCd lcd, Display *dpy, XrmDatabase rdb,
+    _Xconst char *res_name, _Xconst char *res_class);
 
 _XFUNCPROTOEND
 

@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2002-2003, International Business Machines Corporation
+*   Copyright (c) 2002-2004, International Business Machines Corporation
 *   and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -23,15 +23,15 @@ class TransliterationRuleData;
  * <code>UnicodeFunctor</code> is an abstract base class for objects
  * that perform match and/or replace operations on Unicode strings.
  * @author Alan Liu
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 class U_COMMON_API UnicodeFunctor : public UObject {
 
- public:
+public:
 
     /**
      * Destructor
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual ~UnicodeFunctor();
 
@@ -39,7 +39,7 @@ class U_COMMON_API UnicodeFunctor : public UObject {
      * Return a copy of this object.  All UnicodeFunctor objects
      * have to support cloning in order to allow classes using
      * UnicodeFunctor to implement cloning.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual UnicodeFunctor* clone() const = 0;
 
@@ -51,7 +51,7 @@ class U_COMMON_API UnicodeFunctor : public UObject {
      * cannot be cast to a pointer to a UnicodeMatcher, since
      * UnicodeMatcher is a mixin that does not derive from
      * UnicodeFunctor.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual UnicodeMatcher* toMatcher() const;
 
@@ -63,45 +63,32 @@ class U_COMMON_API UnicodeFunctor : public UObject {
      * cannot be cast to a pointer to a UnicodeReplacer, since
      * UnicodeReplacer is a mixin that does not derive from
      * UnicodeFunctor.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual UnicodeReplacer* toReplacer() const;
 
     /**
      * Return the class ID for this class.  This is useful only for
-     * comparing to a return value from getDynamicClassID().  For example:
-     * <pre>
-     * .      Base* polymorphic_pointer = createPolymorphicObject();
-     * .      if (polymorphic_pointer->getDynamicClassID() ==
-     * .          Derived::getStaticClassID()) ...
-     * </pre>
+     * comparing to a return value from getDynamicClassID().
      * @return          The class ID for all objects of this class.
      * @stable ICU 2.0
      */
-    static UClassID getStaticClassID(void) { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID(void);
 
     /**
      * Returns a unique class ID <b>polymorphically</b>.  This method
      * is to implement a simple version of RTTI, since not all C++
      * compilers support genuine RTTI.  Polymorphic operator==() and
      * clone() methods call this method.
-     * 
-     * <p>Concrete subclasses of UnicodeFunctor that wish clients to
-     * be able to identify them should implement getDynamicClassID()
-     * and also a static method and data member:
-     * 
-     * <pre>
-     * static UClassID getStaticClassID() { return (UClassID)&fgClassID; }
-     * static char fgClassID;
-     * </pre>
      *
-     * Subclasses that do not implement this method will have a
-     * dynamic class ID of UnicodeFunctor::getStatisClassID().
+     * <p>Concrete subclasses of UnicodeFunctor should use the macro
+     *    UOBJECT_DEFINE_RTTI_IMPLEMENTATION from uobject.h to
+     *    provide definitios getStaticClassID and getDynamicClassID.
      *
      * @return The class ID for this object. All objects of a given
      * class have the same class ID.  Objects of other classes have
      * different class IDs.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     virtual UClassID getDynamicClassID(void) const = 0;
 
@@ -115,24 +102,18 @@ class U_COMMON_API UnicodeFunctor : public UObject {
      */
     virtual void setData(const TransliterationRuleData*) = 0;
 
- protected:
+protected:
 
     /**
+     * Since this class has pure virtual functions,
+     * a constructor can't be used.
      * @stable ICU 2.0
      */
-    UnicodeFunctor();
+    /*UnicodeFunctor();*/
 
- private:
-
-    /**
-     * Class identifier for subclasses of UnicodeFunctor that do not
-     * define their class (anonymous subclasses).
-     */
-    static const char fgClassID;
 };
 
-inline UnicodeFunctor::UnicodeFunctor() {}
-inline UnicodeFunctor::~UnicodeFunctor() {}
+/*inline UnicodeFunctor::UnicodeFunctor() {}*/
 
 U_NAMESPACE_END
 

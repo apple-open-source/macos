@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -21,7 +20,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -30,7 +29,8 @@
 with Ada.Text_IO;
 with Ada.Exceptions;
 
-with Sdefault;
+with GNAT.Directory_Operations;
+with Osint;
 
 package body MDLL.Utl is
 
@@ -138,8 +138,8 @@ package body MDLL.Utl is
       OS_Lib.Spawn (Dlltool_Exec.all, Arguments (1 .. A), Success);
 
       if not Success then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Dlltool_Name & " execution error.");
+         Exceptions.Raise_Exception
+           (Tools_Error'Identity, Dlltool_Name & " execution error.");
       end if;
 
    end Dlltool;
@@ -155,7 +155,7 @@ package body MDLL.Utl is
       Base_File   : String := "";
       Build_Lib   : Boolean := False)
    is
-      use Sdefault;
+      use Osint;
 
       Arguments : OS_Lib.Argument_List
         (1 .. 5 + Files'Length + Options'Length);
@@ -167,7 +167,7 @@ package body MDLL.Utl is
       Out_V     : aliased String := Output_File;
       Bas_Opt   : aliased String := "-Wl,--base-file," & Base_File;
       Lib_Opt   : aliased String := "-mdll";
-      Lib_Dir   : aliased String := "-L" & Object_Dir_Default_Name.all;
+      Lib_Dir   : aliased String := "-L" & Object_Dir_Default_Prefix;
 
    begin
       A := A + 1;
@@ -218,8 +218,8 @@ package body MDLL.Utl is
       OS_Lib.Spawn (Gcc_Exec.all, Arguments (1 .. A), Success);
 
       if not Success then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gcc_Name & " execution error.");
+         Exceptions.Raise_Exception
+           (Tools_Error'Identity, Gcc_Name & " execution error.");
       end if;
    end Gcc;
 
@@ -245,9 +245,19 @@ package body MDLL.Utl is
 
       OS_Lib.Spawn (Gnatbind_Exec.all, Arguments, Success);
 
+      --  Delete binder files on failure
+
       if not Success then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gnatbind_Name & " execution error.");
+         declare
+            Base_Name : constant String :=
+              Directory_Operations.Base_Name (Alis (1).all, ".ali");
+         begin
+            OS_Lib.Delete_File ("b~" & Base_Name & ".ads", Success);
+            OS_Lib.Delete_File ("b~" & Base_Name & ".adb", Success);
+         end;
+
+         Exceptions.Raise_Exception
+           (Tools_Error'Identity, Gnatbind_Name & " execution error.");
       end if;
    end Gnatbind;
 
@@ -273,8 +283,19 @@ package body MDLL.Utl is
       OS_Lib.Spawn (Gnatlink_Exec.all, Arguments, Success);
 
       if not Success then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gnatlink_Name & " execution error.");
+         --  Delete binder files
+         declare
+            Base_Name : constant String :=
+              Directory_Operations.Base_Name (Ali, ".ali");
+         begin
+            OS_Lib.Delete_File ("b~" & Base_Name & ".ads", Success);
+            OS_Lib.Delete_File ("b~" & Base_Name & ".adb", Success);
+            OS_Lib.Delete_File ("b~" & Base_Name & ".ali", Success);
+            OS_Lib.Delete_File ("b~" & Base_Name & ".o", Success);
+         end;
+
+         Exceptions.Raise_Exception
+           (Tools_Error'Identity, Gnatlink_Name & " execution error.");
       end if;
    end Gnatlink;
 
@@ -287,49 +308,60 @@ package body MDLL.Utl is
    begin
       --  dlltool
 
-      Dlltool_Exec := OS_Lib.Locate_Exec_On_Path (Dlltool_Name);
-
       if Dlltool_Exec = null then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Dlltool_Name & " not found in path");
-      elsif Verbose then
-         Text_IO.Put_Line ("using " & Dlltool_Exec.all);
+         Dlltool_Exec := OS_Lib.Locate_Exec_On_Path (Dlltool_Name);
+
+         if Dlltool_Exec = null then
+            Exceptions.Raise_Exception
+              (Tools_Error'Identity, Dlltool_Name & " not found in path");
+
+         elsif Verbose then
+            Text_IO.Put_Line ("using " & Dlltool_Exec.all);
+         end if;
       end if;
 
       --  gcc
 
-      Gcc_Exec     := OS_Lib.Locate_Exec_On_Path (Gcc_Name);
-
       if Gcc_Exec = null then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gcc_Name & " not found in path");
-      elsif Verbose then
-         Text_IO.Put_Line ("using " & Gcc_Exec.all);
+         Gcc_Exec := OS_Lib.Locate_Exec_On_Path (Gcc_Name);
+
+         if Gcc_Exec = null then
+            Exceptions.Raise_Exception
+              (Tools_Error'Identity, Gcc_Name & " not found in path");
+
+         elsif Verbose then
+            Text_IO.Put_Line ("using " & Gcc_Exec.all);
+         end if;
       end if;
 
       --  gnatbind
 
-      Gnatbind_Exec     := OS_Lib.Locate_Exec_On_Path (Gnatbind_Name);
-
       if Gnatbind_Exec = null then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gnatbind_Name & " not found in path");
-      elsif Verbose then
-         Text_IO.Put_Line ("using " & Gnatbind_Exec.all);
+         Gnatbind_Exec := OS_Lib.Locate_Exec_On_Path (Gnatbind_Name);
+
+         if Gnatbind_Exec = null then
+            Exceptions.Raise_Exception
+              (Tools_Error'Identity, Gnatbind_Name & " not found in path");
+
+         elsif Verbose then
+            Text_IO.Put_Line ("using " & Gnatbind_Exec.all);
+         end if;
       end if;
 
       --  gnatlink
 
-      Gnatlink_Exec     := OS_Lib.Locate_Exec_On_Path (Gnatlink_Name);
-
       if Gnatlink_Exec = null then
-         Exceptions.Raise_Exception (Tools_Error'Identity,
-                                     Gnatlink_Name & " not found in path");
-      elsif Verbose then
-         Text_IO.Put_Line ("using " & Gnatlink_Exec.all);
-         Text_IO.New_Line;
-      end if;
+         Gnatlink_Exec := OS_Lib.Locate_Exec_On_Path (Gnatlink_Name);
 
+         if Gnatlink_Exec = null then
+            Exceptions.Raise_Exception
+              (Tools_Error'Identity, Gnatlink_Name & " not found in path");
+
+         elsif Verbose then
+            Text_IO.Put_Line ("using " & Gnatlink_Exec.all);
+            Text_IO.New_Line;
+         end if;
+      end if;
    end Locate;
 
 end MDLL.Utl;

@@ -1,0 +1,11 @@
+--- signbit.3.orig	Fri Oct  3 17:12:55 2003
++++ signbit.3	Fri Nov  7 15:40:35 2003
+@@ -50,8 +50,3 @@
+ .Fn signbit
+ macro conforms to
+ .St -isoC-99 .
+-.Sh HISTORY
+-The
+-.Fn signbit
+-macro was added in
+-.Fx 5.1 .

@@ -33,10 +33,10 @@
    interfaces for all the cmd_list_element bits we need here yet. */
 #include "cli/cli-decode.h"
 #include "expression.h" // parse_expression 
-#include "inferior.h"	// stop_bpstat
+#include "inferior.h"	// stop_bpstat, read_sp
 #include "symtab.h"	// struct symtab_and_line, find_pc_line
 #include "frame.h"   	// selected_frame
-#include "gdbarch.h"	// gdbarch_register_raw_size
+#include "gdbarch.h"	// gdbarch_deprecated_register_raw_size
 #include "gdbcore.h"	// memory_error
 
 #define CLASS_BASE 100
@@ -1502,18 +1502,18 @@ char *gdb_set_register(char *theRegister, void *value, int size)
     if (!target_has_registers)
     	return ("no registers available at this time");
     
-    if (get_selected_frame () == NULL)
+    if (get_selected_frame() == NULL)
       return ("no frame selected");
     
     if (*start == '$')
 	++start;
     end = start + strlen(start);
     
-    regnum = frame_map_name_to_regnum(start, end - start);
+    regnum = frame_map_name_to_regnum(get_selected_frame(), start, end - start);
     if (regnum < 0)
     	return ("bad register");
     
-    if (gdbarch_register_raw_size(current_gdbarch, regnum) != size)
+    if (gdbarch_deprecated_register_raw_size(current_gdbarch, regnum) != size)
     	return ("invalid register length");
     
     vp = expression_to_value_ptr(theRegister);
@@ -1534,38 +1534,46 @@ char *gdb_set_register(char *theRegister, void *value, int size)
  *-------------------------------------------------------------*
  
  Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
- value pointer is returned as the function result and the value is copied (size bytes)
- to the specified buffer.  If the register is invalid, or its value cannot be obtained,
- NULL is returned and the value buffer is set with a character string appropriate to the
- error.
- 
- The following errors are possible:
+ value pointer is returned as the function result and the value is copied to the
+ specified buffer (assumed large enough to hold the value and at least 4 bytes).  If
+ the register is invalid, or its value cannot be obtained, NULL is returned and the
+ value buffer (treated as a long* pointer) is set with one of the following error
+ codes:
     
-    no registers available at this time
-    no frame selected
-    bad register
-    value not available
-    
- Obviously the buffer should be large enough to hold these error messages (for safety
- make it at least 50 bytes long).
+    Gdb_GetReg_NoRegs     no registers available at this time
+    Gdb_GetReg_NoFrame    no frame selected
+    Gdb_GetReg_BadReg     bad register (gdb doesn't know this register)
+    Gdb_GetReg_NoValue    value not available
  
  Note, that it is recommended that the more general gdb_get_int() be used for 32-bit
- registers.  The gdb_get_register() routine is intended mainly for reading larger
- register data types like the AltiVec 16-byte registers.
+ registers WHEN EFFICIENCY IS NOT CRITICAL!.  The gdb_get_register() routine is
+ intended mainly for reading larger register data types like the AltiVec 16-byte
+ registers and in places where a lot of registers need to be read in a minimum 
+ amount of time.
+ 
+ The reason for the emphasis on efficiency is that it has been discovered that
+ expression evaluation (i.e., like that done by gdb_get_int()) can get relatively
+ slow on certain targets (where there are many active symbol tables) due to a large
+ amount of table searches. So if you wanted a whole set of registers at once, that
+ operation is noticably slow(er).  Using this routine doesn't involve expression
+ evaluation and is quite a bit faster.
 */
 
-void *gdb_get_register(char *theRegister, void *value, int *size)
+void *gdb_get_register(char *theRegister, void *value)
 {
     int regnum;
     char *end;
+    struct frame_info *frame;
     
     if (!target_has_registers) {
-	strcpy((char *)value, "no registers available at this time");
+	//strcpy((char *)value, "no registers available at this time");
+	*(long *)value = Gdb_GetReg_NoRegs;
 	return (NULL);
     }
     
-    if (get_selected_frame () == NULL) {
-	strcpy((char *) value, "no frame selected");
+    if ((frame = get_selected_frame()) == NULL) {
+	//strcpy((char *) value, "no frame selected");
+	*(long *)value = Gdb_GetReg_NoFrame;
 	return (NULL);
     }
     
@@ -1573,21 +1581,56 @@ void *gdb_get_register(char *theRegister, void *value, int *size)
 	++theRegister;
     end = theRegister + strlen(theRegister);
     
-    regnum = frame_map_name_to_regnum(theRegister, end - theRegister);
+    regnum = frame_map_name_to_regnum(get_selected_frame(), theRegister, end - theRegister);
     if (regnum < 0) {
-	strcpy((char *)value, "bad register");
+	//strcpy((char *)value, "bad register");
+	*(long *)value = Gdb_GetReg_BadReg;
 	return (NULL);
     }
 
-    if (frame_register_read (get_selected_frame (), regnum, (char *)value)) {
-    	strcpy((char *)value, "value not available");
+    if (!frame_register_read(frame, regnum, (char *)value)) {
+    	//strcpy((char *)value, "value not available");
+	*(long *)value = Gdb_GetReg_NoValue;
 	return (NULL);
     }
     
-    *size = gdbarch_register_raw_size(current_gdbarch, regnum);
+    //if (size)
+    //	*size = gdbarch_deprecated_register_raw_size(current_gdbarch, regnum);
     //gdb_printf("type = %d\n", TYPE_CODE(gdbarch_register_virtual_type(current_gdbarch, regnum)));
     
     return (value);
+}
+
+
+/*-------------------------------------------------*
+ | gdb_get_sp - get the value of the stack pointer |
+ *-------------------------------------------------*
+ 
+ Returns the value of the stack pointer.
+ 
+ Note, you can also use gdb_get_int("$sp") but this is provided as a more efficient
+ alternative.  See above comment.
+*/
+unsigned long gdb_get_sp(void)
+{
+    /* This is a hack.  Sometimes gdb leaves the deprecated_selected_frame null, but	*/
+    /* still uses it.  get_selected_frame will force it to get set. 			*/
+    
+    get_selected_frame ();
+   
+    /* Note, the above comment and call were done in a different context getting the	*/
+    /* sp, not the pc.  That was made unnecessary when the code to get the sp was	*/
+    /* replaced by calling gdb_get_register() above.  It does it's own call to 		*/
+    /* get_selected_frame().  The repeatable test case that illustrated the bug could 	*/
+    /* no longer be reproduced due to calling get_selected_frame() in that context.  	*/
+
+    /* Since fixing that problem, the identical problem has been seen at least once	*/
+    /* again.  At the time of the original fix this gdb_get_sp() did not exist.  So	*/
+    /* it's only a guess, but I am assuming the problem can occur calling read_sp(), 	*/
+    /* albeit more rarely.  If it isn't this, then I don't know what else it could be	*/
+    /* without a reproducible test case.						*/
+   
+    return ((CORE_ADDR)read_sp());
 }
 
 /*--------------------------------------------------------------------------------------*/
@@ -1599,17 +1642,24 @@ void *gdb_get_register(char *theRegister, void *value, int *size)
  | gdb_read_memory - copy a value from an target address to plugin memory |
  *------------------------------------------------------------------------*
  
- The n bytes in the target's memory represented by the src expression string are copied
- to the plugin memory specified by dst.  The target actual address is returned as the
- function result.
+ The abs(n) bytes in the target's memory represented by the src expression *string*
+ (n >= 0) or src *value* (n < 0) are copied to the plugin memory specified by dst.
+ The target actual address is returned as the function result.
 */
 
 unsigned long gdb_read_memory(void *dst, char *src, int n)
 {
-    CORE_ADDR memaddr = parse_and_eval_address(src);
+    CORE_ADDR memaddr;
     int       status;
     
-    status = target_read_memory(memaddr, dst, n);
+    if (n >= 0) {
+    	memaddr = parse_and_eval_address(src);
+    	status = target_read_memory(memaddr, dst, n);
+    } else {
+    	memaddr = (unsigned long)src;
+    	status = target_read_memory(memaddr, dst, -n);
+    }
+    
     if (status != 0)
 	memory_error(status, memaddr);
     
@@ -1621,16 +1671,23 @@ unsigned long gdb_read_memory(void *dst, char *src, int n)
  | gdb_write_memory - write a value from plugin memory to a target address |
  *-------------------------------------------------------------------------*
  
- The n bytes from the (plugin) src are written to the target memory represented by
- the dst expression string.
+ The abs(n) bytes from the (plugin) src are written to the target memory address 
+ represented by the dst expression *string* (n > = 0) or dst *value* (n < 0).
 */
 
 void gdb_write_memory(char *dst, void *src, int n)
 {
-    CORE_ADDR memaddr = parse_and_eval_address(dst);
-    int status;
+    CORE_ADDR memaddr;
+    int       status;
     
-    status = target_write_memory(memaddr, src, n);
+    if (n >= 0) {
+    	memaddr = parse_and_eval_address(dst);
+    	status = target_write_memory(memaddr, src, n);
+    } else {
+    	memaddr = (CORE_ADDR)dst;
+    	status = target_write_memory(memaddr, src, -n);
+    }
+    
     if (status != 0)
 	memory_error(status, memaddr);
 }

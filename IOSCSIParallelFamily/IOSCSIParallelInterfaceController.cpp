@@ -245,9 +245,7 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	else
 	{
 		
-		// Since the object did not need to create the protocol 
-		// dictionary, issue a retain to balance out the release that will be 
-		// done later.
+		// Create a copy of the dictionary.
 		dict = OSDictionary::withDictionary ( dict );
 		
 	}
@@ -570,6 +568,7 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 	require_nonzero ( value, ErrorExit );
 	
 	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	hbaDict = OSDictionary::withDictionary ( hbaDict );
 	require_nonzero ( hbaDict, ErrorExit );
 	
 	if ( strcmp ( key, kIOPropertyVendorNameKey ) == 0 )
@@ -661,6 +660,10 @@ IOSCSIParallelInterfaceController::SetHBAProperty (
 		ERROR_LOG ( ( "SetHBAProperty: Unrecognized property key = %s", key ) );
 	}
 	
+	setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
+	hbaDict->release ( );
+	hbaDict = NULL;
+	
 	
 ErrorExit:
 	
@@ -683,6 +686,7 @@ IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
 	require_nonzero ( key, ErrorExit );
 	
 	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	hbaDict = OSDictionary::withDictionary ( hbaDict );
 	require_nonzero ( hbaDict, ErrorExit );
 	
 	if ( hbaDict->getObject ( key ) != NULL )
@@ -691,6 +695,10 @@ IOSCSIParallelInterfaceController::RemoveHBAProperty ( const char * key )
 		hbaDict->removeObject ( key );
 		
 	}
+	
+	setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
+	hbaDict->release ( );
+	hbaDict = NULL;
 	
 	
 ErrorExit:
@@ -1843,6 +1851,9 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 	OSDictionary *	hbaDict = NULL;
 	
 	hbaDict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyControllerCharacteristicsKey ) );
+	hbaDict = OSDictionary::withDictionary ( hbaDict );
+	require_nonzero ( hbaDict, ErrorExit );
+	
 	if ( hbaDict != NULL )
 	{
 		
@@ -1879,7 +1890,15 @@ IOSCSIParallelInterfaceController::NotifyClientsOfPortStatusChange (
 			
 		}
 		
+		setProperty ( kIOPropertyControllerCharacteristicsKey, hbaDict );
+		hbaDict->release ( );
+		hbaDict = NULL;
+		
 	}
+	
+	
+ErrorExit:
+	
 	
 	messageClients ( kSCSIPort_NotificationStatusChange, ( void * ) newStatus );
 	

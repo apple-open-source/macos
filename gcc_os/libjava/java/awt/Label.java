@@ -40,6 +40,8 @@ package java.awt;
 
 import java.awt.peer.LabelPeer;
 import java.awt.peer.ComponentPeer;
+import java.io.Serializable;
+import javax.accessibility.Accessible;
 
 /**
   * This component is used for displaying simple text strings that cannot
@@ -48,7 +50,7 @@ import java.awt.peer.ComponentPeer;
   * @author Aaron M. Renn (arenn@urbanophile.com)
   * @author Tom Tromey <tromey@cygnus.com>
   */
-public class Label extends Component implements java.io.Serializable
+public class Label extends Component implements Serializable, Accessible
 {
 
 /*
@@ -99,6 +101,8 @@ private String text;
 
 /**
   * Initializes a new instance of <code>Label</code> with no text.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Label()
@@ -113,6 +117,8 @@ Label()
   * text that is aligned to the left.
   *
   * @param text The text of the label.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Label(String text)
@@ -130,12 +136,17 @@ Label(String text)
   * @param alignment The desired alignment for the text in this label,
   * which must be one of <code>LEFT</code>, <code>CENTER</code>, or
   * <code>RIGHT</code>.
+  *
+  * @exception HeadlessException If GraphicsEnvironment.isHeadless() is true.
   */
 public
 Label(String text, int alignment)
 {
   setAlignment (alignment);
   setText (text);
+
+  if (GraphicsEnvironment.isHeadless())
+    throw new HeadlessException ();
 }
 
 /*************************************************************************/

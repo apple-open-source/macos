@@ -1,0 +1,65 @@
+Building Snack for MacOS X
+
+In order to use Snack you will have to install Tcl/Tk 8.4.5 or later first.
+Download from
+http://www.maths.mq.edu.au/~steffen/tcltk/TclTkAqua/
+
+In order to build Snack you also need to have Apple's developer tools
+installed.
+
+Change directory to unix/ and type
+
+./configure --with-tcl=/Library/Frameworks/Tcl.framework --with-tk=/Library/Frameworks/Tk.framework
+
+Edit the Makefile and specify the Tcl include file directory as
+
+/Library/Frameworks/Tcl.framework/Headers
+
+and for the Tk include files
+
+/Library/Frameworks/Tk.framework/Headers
+
+now type
+
+make
+
+
+Install using:
+
+sudo make install
+
+
+-------------------------------------------------------------------
+
+MacOS 8.x 9.x
+In order to use Snack you will have to install Tcl/Tk 8.3.3 first.
+
+Building Snack using Metrowerks CodeWarrior
+-------------------------------------------------------------------
+Use the CodeWarrior project file: snack.mcp.sit.hqx
+
+You will have to specify the location of the Tcl/Tk include files
+which are part of the Tcl/Tk source distribution.
+This is the default compiler for the Snack Macintosh binaries.
+
+
+Building Snack using MPW
+-------------------------------------------------------------------
+Snack can be compiled using Apple's free MPW compiler which can be
+downloaded from http://developer.apple.com/tools/mpw-tools/
+
+You will have to edit the makefile in order to specify the location of the
+Tcl/Tk include files which are part of the Tcl/Tk source distribution.
+
+
+Installation
+-------------------------------------------------------------------
+You must put the file snack.shlb in the standard library location, 
+i.e. the "Tool Command Language" folder within the Extensions folder. 
+
+You have to give Tcl scripts ample memory. This is done by marking the
+wish icon and selecting Edit | Show info | Memory. 
+
+You also have to use the 'millions of colors' display setting in order
+to get spectrograms to display correctly. Failure to do this will cause
+the computer to lock up when running scripts that display spectrograms.

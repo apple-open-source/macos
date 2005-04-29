@@ -30,7 +30,7 @@
  *     Xlib DBE code
  *
  *****************************************************************************/
-/* $XFree86: xc/lib/Xext/Xdbe.c,v 3.7 2002/10/16 02:19:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/Xdbe.c,v 3.8 2003/11/17 22:20:21 dawes Exp $ */
 
 #define NEED_EVENTS
 #define NEED_REPLIES
@@ -121,17 +121,10 @@ static XEXT_GENERATE_ERROR_STRING (error_string, dbe_extension_name,
  *	may be called before this function.   If a client violates this rule,
  *	the effects of all subsequent Xdbe calls are undefined.
  */
-#if NeedFunctionPrototypes
 Status XdbeQueryExtension (
     Display *dpy,
     int *major_version_return,
     int *minor_version_return)
-#else
-Status XdbeQueryExtension (dpy, major_version_return, minor_version_return)
-    Display *dpy;
-    int *major_version_return;
-    int *minor_version_return;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     xDbeGetVersionReply rep;
@@ -174,32 +167,10 @@ Status XdbeQueryExtension (dpy, major_version_return, minor_version_return)
  *	accurate information whenever possible.
  */
 
-/*## If NeedFunctionPrototypes is defined, the swap_action parameter causes
- *## compiler failure without the #ifdef workaround below.  With
- *## NeedFunctionPrototype enabled, this function is prototyped as
- *##
- *## XdbeBackBuffer XdbeAllocateBackBufferName (dpy, window, swap_action)
- *##     Display *dpy;
- *##     Window window;
- *##     XdbeSwapAction swap_action;
- *##
- *## Without the workaround, an error occurs because swap_action is promoted to
- *## an int by the compiler when compiling this file.  However, this type does
- *## not match what is in the function prototype in Xdbe.h.  In Xdbe.h, the
- *## swap_action parameter is defined as an unsigned char, not an int.
- *##*/
-
-#if NeedFunctionPrototypes
 XdbeBackBuffer XdbeAllocateBackBufferName(
     Display *dpy,
     Window window,
     XdbeSwapAction swap_action)
-#else
-XdbeBackBuffer XdbeAllocateBackBufferName (dpy, window, swap_action)
-    Display *dpy;
-    Window window;
-    XdbeSwapAction swap_action;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     register xDbeAllocateBackBufferNameReq *req;
@@ -231,15 +202,9 @@ XdbeBackBuffer XdbeAllocateBackBufferName (dpy, window, swap_action)
  *	XdbeAllocateBackBufferName.  The buffer must refer to the back buffer
  *	of the specified window, or a protocol error results.
  */
-#if NeedFunctionPrototypes
 Status XdbeDeallocateBackBufferName (
     Display *dpy,
     XdbeBackBuffer buffer)
-#else
-Status XdbeDeallocateBackBufferName (dpy, buffer)
-    Display *dpy;
-    XdbeBackBuffer buffer;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     register xDbeDeallocateBackBufferNameReq *req;
@@ -264,17 +229,10 @@ Status XdbeDeallocateBackBufferName (dpy, buffer)
  *	The argument swap_info specifies the information needed per window
  *	to do the swap.
  */
-#if NeedFunctionPrototypes
 Status XdbeSwapBuffers (
     Display *dpy,
     XdbeSwapInfo *swap_info,
     int num_windows)
-#else
-Status XdbeSwapBuffers (dpy, swap_info, num_windows)
-    Display *dpy;
-    XdbeSwapInfo *swap_info;
-    int num_windows;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     register xDbeSwapBuffersReq *req;
@@ -312,13 +270,8 @@ Status XdbeSwapBuffers (dpy, swap_info, num_windows)
  * XdbeBeginIdiom -
  *	This function marks the beginning of an idiom sequence.
  */
-#if NeedFunctionPrototypes
 Status XdbeBeginIdiom (
     Display *dpy)
-#else
-Status XdbeBeginIdiom (dpy)
-    Display *dpy;
-#endif
 {
     XExtDisplayInfo *info = find_display(dpy);
     register xDbeBeginIdiomReq *req;
@@ -338,13 +291,8 @@ Status XdbeBeginIdiom (dpy)
  * XdbeEndIdiom -
  *	This function marks the end of an idiom sequence.
  */
-#if NeedFunctionPrototypes
 Status XdbeEndIdiom (
     Display *dpy)
-#else
-Status XdbeEndIdiom (dpy)
-    Display *dpy;
-#endif
 {
     XExtDisplayInfo *info = find_display(dpy);
     register xDbeEndIdiomReq *req;
@@ -377,17 +325,10 @@ Status XdbeEndIdiom (dpy)
  *	returned list corresponds to the nth screen of the server, starting
  *	with screen zero.
  */
-#if NeedFunctionPrototypes
 XdbeScreenVisualInfo *XdbeGetVisualInfo (
     Display        *dpy,
     Drawable       *screen_specifiers,
     int            *num_screens)  /* SEND and RETURN */
-#else
-XdbeScreenVisualInfo *XdbeGetVisualInfo (dpy, screen_specifiers, num_screens)
-    Display        *dpy;
-    Drawable       *screen_specifiers;
-    int            *num_screens;  /* SEND and RETURN */
-#endif
 {
     XExtDisplayInfo *info = find_display(dpy);
     register xDbeGetVisualInfoReq *req;
@@ -478,13 +419,8 @@ XdbeScreenVisualInfo *XdbeGetVisualInfo (dpy, screen_specifiers, num_screens)
  *	This function frees the list of XdbeScreenVisualInfo returned by the
  *	function XdbeGetVisualInfo.
  */
-#if NeedFunctionPrototypes
 void XdbeFreeVisualInfo(
     XdbeScreenVisualInfo *visual_info)
-#else
-void XdbeFreeVisualInfo(visual_info)
-    XdbeScreenVisualInfo *visual_info;
-#endif
 {
     if (visual_info == NULL) {
         return;
@@ -503,15 +439,9 @@ void XdbeFreeVisualInfo(visual_info)
  *	This function returns the attributes associated with the specified
  *	buffer.
  */
-#if NeedFunctionPrototypes
 XdbeBackBufferAttributes *XdbeGetBackBufferAttributes(
     Display *dpy,
     XdbeBackBuffer buffer)
-#else
-XdbeBackBufferAttributes *XdbeGetBackBufferAttributes(dpy, buffer)
-    Display *dpy;
-    XdbeBackBuffer buffer;
-#endif
 {
     XExtDisplayInfo *info = find_display(dpy);
     register xDbeGetBackBufferAttributesReq *req;

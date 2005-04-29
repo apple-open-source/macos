@@ -306,7 +306,7 @@ OSStatus	ExtendBTree	(BTreeControlBlockPtr	btreePtr,
 	minEOF = (UInt64)newTotalNodes * (UInt64)nodeSize;
 	if ( filePtr->fcbLogicalSize < minEOF )
 	{
-		maxEOF = ((UInt64)0xFFFFFFFFFFFFFFFF);  
+		maxEOF = 0xFFFFFFFFFFFFFFFFULL;  
 
 		err = btreePtr->setEndOfForkProc (btreePtr->fcbPtr, minEOF, maxEOF);
 		M_ExitOnError (err);

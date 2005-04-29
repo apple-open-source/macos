@@ -51,7 +51,7 @@
  *
  *	from: @(#)rpc_msg.h 1.7 86/07/16 SMI
  *	from: @(#)rpc_msg.h	2.1 88/07/29 4.0 RPCSRC
- *	$Id: rpc_msg.h,v 1.2 1999/10/14 21:56:54 wsanchez Exp $
+ *	$Id: rpc_msg.h,v 1.3 2004/10/28 21:58:24 emoy Exp $
  */
 
 /*
@@ -64,8 +64,8 @@
 #ifndef _RPC_RPCMSG_H
 #define _RPC_RPCMSG_H
 
-#define RPC_MSG_VERSION		((u_long) 2)
-#define RPC_SERVICE_PORT	((u_short) 2048)
+#define RPC_MSG_VERSION		((unsigned long) 2)
+#define RPC_SERVICE_PORT	((unsigned short) 2048)
 
 /*
  * Bottom up definition of an rpc message.
@@ -111,8 +111,8 @@ struct accepted_reply {
 	enum accept_stat	ar_stat;
 	union {
 		struct {
-			u_long	low;
-			u_long	high;
+			unsigned long	low;
+			unsigned long	high;
 		} AR_versions;
 		struct {
 			caddr_t	where;
@@ -131,8 +131,8 @@ struct rejected_reply {
 	enum reject_stat rj_stat;
 	union {
 		struct {
-			u_long low;
-			u_long high;
+			unsigned long low;
+			unsigned long high;
 		} RJ_versions;
 		enum auth_stat RJ_why;  /* why authentication did not work */
 	} ru;
@@ -157,10 +157,10 @@ struct reply_body {
  * Body of an rpc request call.
  */
 struct call_body {
-	u_long cb_rpcvers;	/* must be equal to two */
-	u_long cb_prog;
-	u_long cb_vers;
-	u_long cb_proc;
+	unsigned long cb_rpcvers;	/* must be equal to two */
+	unsigned long cb_prog;
+	unsigned long cb_vers;
+	unsigned long cb_proc;
 	struct opaque_auth cb_cred;
 	struct opaque_auth cb_verf; /* protocol specific - provided by client */
 };
@@ -169,7 +169,7 @@ struct call_body {
  * The rpc message
  */
 struct rpc_msg {
-	u_long			rm_xid;
+	unsigned long			rm_xid;
 	enum msg_type		rm_direction;
 	union {
 		struct call_body RM_cmb;

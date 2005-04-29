@@ -68,15 +68,10 @@
 #include <bits/stl_alloc.h>
 #include <bits/stl_construct.h>
 #include <bits/stl_uninitialized.h>
-#include <bits/stl_vector.h>
+#include <vector>
 #include <bits/stl_heap.h>
-#include <bits/stl_deque.h>
+#include <deque>
 #include <bits/stl_function.h>
 #include <bits/stl_queue.h>
-
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-#  include <bits/deque.tcc>
-#  include <bits/vector.tcc>
-#endif
 
 #endif /* _CPP_QUEUE */

@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile,v 1.11 2002/12/24 02:13:19 jlovell Exp $"
+# "$Id: Makefile,v 1.17 2005/01/24 20:31:01 jlovell Exp $"
 #
 #   Backend makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -26,9 +26,9 @@
 
 include ../Makedefs
 
-BACKENDS =	ipp lpd parallel serial socket
+BACKENDS =	ipp lpd parallel serial socket usb pap
 TARGETS	=	betest $(BACKENDS)
-OBJS	=	betest.o ipp.o lpd.o parallel.o scsi.o serial.o socket.o usb.o
+OBJS	=	betest.o ipp.o lpd.o parallel.o scsi.o serial.o socket.o usb.o pap.o
 
 
 #
@@ -74,6 +74,14 @@ install:	all
 
 
 #
+# pap (the AppleTalk backend) is only supported on ppc...
+#
+installppc: pap
+	$(INSTALL_DIR) $(SERVERBIN)/backend
+	$(INSTALL_BIN) pap $(SERVERBIN)/backend
+
+
+#
 # betest
 #
 
@@ -99,7 +107,7 @@ ipp:	ipp.o ../cups/$(LIBCUPS)
 
 lpd:	lpd.o ../cups/$(LIBCUPS)
 	echo Linking $@...
-	$(CC) $(LDFLAGS) -o lpd lpd.o $(LIBS)
+	$(CC) $(LDFLAGS) -o lpd lpd.o $(BACKLIBS) $(LIBS)
 
 
 #
@@ -148,6 +156,17 @@ usb:	usb.o ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o usb usb.o $(BACKLIBS) $(LIBS)
 
+usb.o:	usb.c usb-darwin.c usb-unix.c
+
+
+#
+# pap
+#
+
+pap:	pap.o ../cups/$(LIBCUPS)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o pap pap.o $(BACKLIBS) $(LIBS) -framework AppleTalk
+
 
 #
 # Dependencies...
@@ -157,5 +176,5 @@ include Dependencies
 
 
 #
-# End of "$Id: Makefile,v 1.11 2002/12/24 02:13:19 jlovell Exp $".
+# End of "$Id: Makefile,v 1.17 2005/01/24 20:31:01 jlovell Exp $".
 #

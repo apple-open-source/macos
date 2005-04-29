@@ -1,7 +1,7 @@
 // 2002-01-23  Loren J. Rittle <rittle@labs.mot.com> <ljrittle@acm.org>
 // Adpated from libstdc++/5444 submitted by markus.breuer@materna.de
 //
-// Copyright (C) 2002 Free Software Foundation, Inc.
+// Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,8 +19,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin *-*-darwin* alpha*-*-osf* } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* alpha*-*-osf* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <string>
@@ -30,15 +30,13 @@
 // Do not include <pthread.h> explicitly; if threads are properly
 // configured for the port, then it is picked up free from STL headers.
 
-#if __GTHREADS
-
 const int max_thread_count = 8;
 const int loops = 100000;
 
 const char* my_default = "Hallo Welt!";
 
-const int upper_limit = 2500;
-const int lower_limit = 1000;
+const std::size_t upper_limit = 2500;
+const std::size_t lower_limit = 1000;
 
 typedef char charT;
 
@@ -72,6 +70,11 @@ thread_main (void*)
   return 0;
 }
 
+#if !__GXX_WEAK__ && _MT_ALLOCATOR_H
+// Explicitly instantiate for systems with no COMDAT or weak support.
+template class __gnu_cxx::__mt_alloc<std::_Rb_tree_node<std::pair<unsigned int const, std::string> > >;
+#endif
+
 int
 main (void)
 {
@@ -89,6 +92,3 @@ main (void)
 
   return 0;
 }
-#else
-int main (void) {}
-#endif

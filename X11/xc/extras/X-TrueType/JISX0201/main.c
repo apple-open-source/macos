@@ -29,11 +29,14 @@
 
 Notice===
  */
+/* $XFree86: xc/extras/X-TrueType/JISX0201/main.c,v 1.3 2003/10/22 16:25:43 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -56,14 +59,14 @@ CODECONV_TEMPLATE(cc_jisx0201_to_win_ucs2);
 CODECONV_TEMPLATE(cc_jisx0201_to_std_ucs2);
 CODECONV_CALLBACK_TEMPLATE(cb_jisx0201_to_ucs2);
 static MapIDRelation const mapIDRelations[] = {
+    { JISX0201,     EPlfmMS,      EEncMSUnicode,
+                                  cc_jisx0201_to_win_ucs2,
+                                  cb_jisx0201_to_ucs2 },
     { JISX0201,     EPlfmISO,     EEncISO10646,
                                   cc_jisx0201_to_std_ucs2, 
                                   cb_jisx0201_to_ucs2 },
     { JISX0201,     EPlfmUnicode, EEncAny,
                                   cc_jisx0201_to_std_ucs2,
-                                  cb_jisx0201_to_ucs2 },
-    { JISX0201,     EPlfmMS,      EEncMSUnicode,
-                                  cc_jisx0201_to_win_ucs2,
                                   cb_jisx0201_to_ucs2 },
     /*
       To avoid the difficulty on the OS/2 Warp Japanese Fonts

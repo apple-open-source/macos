@@ -63,6 +63,14 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/support.h>
+
+#ifdef _GLIBCXX_DEBUG
+#  define multimap _Release_multimap
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   // Forward declaration of operators < and ==, needed for friend declaration.
@@ -101,8 +109,9 @@ namespace std
    *  called (*_unique versus *_equal, same as the standard).
    *  @endif
   */
+  /* APPLE LOCAL libstdc++ debug mode */
   template <typename _Key, typename _Tp, typename _Compare, typename _Alloc>
-    class multimap
+    class _GLIBCXX_RELEASE_CLASS(multimap) multimap
   {
     // concept requirements
     __glibcpp_class_requires(_Tp, _SGIAssignableConcept)
@@ -632,5 +641,12 @@ namespace std
          multimap<_Key,_Tp,_Compare,_Alloc>& __y)
     { __x.swap(__y); }
 } // namespace std
+
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG
+#  undef multimap
+#  include <debug/dbg_multimap.h>
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
 
 #endif /* __GLIBCPP_INTERNAL_MULTIMAP_H */

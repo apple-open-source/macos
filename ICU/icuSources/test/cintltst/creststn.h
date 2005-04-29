@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-1999, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /***************************************************************************
@@ -48,6 +48,8 @@ static void TestErrorConditions(void);
 
 static void TestGetVersion(void);
 
+static void TestGetVersionColl(void);
+
 static void TestEmptyBundle(void);
 
 static void TestDirectAccess(void);
@@ -55,6 +57,8 @@ static void TestDirectAccess(void);
 static void TestResourceLevelAliasing(void);
 
 static void TestErrorCodes(void);
+
+static void TestJB3763(void);
 
 /**
 * extensive subtests called by TestResourceBundles

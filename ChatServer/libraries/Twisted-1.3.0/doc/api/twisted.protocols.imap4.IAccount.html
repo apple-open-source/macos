@@ -1,0 +1,457 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.imap4.IAccount</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        <a href="twisted.protocols.imap4.html">Module&nbsp;imap4</a> ::
+        Class&nbsp;IAccount
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.imap4.IAccount.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class IAccount</h2>
+
+<pre class="base-tree">
+<a href="twisted.python.components.Interface.html"><code>Interface</code></a> --+
+            |
+           <b>IAccount</b>
+</pre><br />
+
+<hr/>
+
+<p>Interface for Account classes</p>
+Implementors of this interface must also subclass 
+<code>twisted.cred.perspective.Perspective</code> and should consider 
+implementing <code>INamespacePresenter</code>.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#addMailbox" class="summary-sig-name"><code>addMailbox</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>mbox</span>)</span></code>
+<br />
+Add a new mailbox to this account</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#create" class="summary-sig-name"><code>create</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>pathspec</span>)</span></code>
+<br />
+Create a new mailbox from the given hierarchical name.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#delete" class="summary-sig-name"><code>delete</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Delete the mailbox with the specified name.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#isSubscribed" class="summary-sig-name"><code>isSubscribed</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Check the subscription status of a mailbox</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>list</code> of <code>tuple</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#listMailboxes" class="summary-sig-name"><code>listMailboxes</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>ref</span>,
+          <span class=summary-sig-arg>wildcard</span>)</span></code>
+<br />
+List all the mailboxes that meet a certain criteria</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#rename" class="summary-sig-name"><code>rename</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>oldname</span>,
+          <span class=summary-sig-arg>newname</span>)</span></code>
+<br />
+Rename a mailbox</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        Any object implementing <code>IMailbox</code> or 
+        <code>Deferred</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#select" class="summary-sig-name"><code>select</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>rw</span>)</span></code>
+<br />
+Acquire a mailbox, given its name.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#subscribe" class="summary-sig-name"><code>subscribe</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Subscribe to a mailbox</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Deferred</code> or <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.imap4.IAccount.html#unsubscribe" class="summary-sig-name"><code>unsubscribe</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+<br />
+Unsubscribe from a mailbox</td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="addMailbox"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addMailbox</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>,
+          <span class=sig-arg>mbox</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  Add a new mailbox to this account
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The name associated with this mailbox. It may not contain 
+        multiple hierarchical parts.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>mbox</b></code> -
+         The mailbox to associate with this name. If <code>None</code>, 
+        a suitable default is created and used.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=An object implementing <code>IMailbox</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the creation succeeds, or a deferred whose 
+        callback will be invoked when the creation succeeds.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be added for some reason. This 
+        may also be raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="create"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">create</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>pathspec</span>)</span>
+  </h3>
+  Create a new mailbox from the given hierarchical name.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>pathspec</b></code> -
+         The full hierarchical name of a new mailbox to create. If any 
+        of the inferior hierarchical names to this one do not exist, they 
+        are created as well.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the creation succeeds, or a deferred whose 
+        callback will be invoked when the creation succeeds.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be added. This may also be 
+        raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="delete"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">delete</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>)</span>
+  </h3>
+  Delete the mailbox with the specified name.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The mailbox to delete.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the mailbox is successfully deleted, or a 
+        <code>Deferred</code> whose callback will be invoked when the 
+        deletion completes.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be deleted. This may also be 
+        raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="isSubscribed"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">isSubscribed</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>)</span>
+  </h3>
+  Check the subscription status of a mailbox
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The name of the mailbox to check
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the given mailbox is currently subscribed to, 
+        a false value otherwise. A <code>Deferred</code> may also be 
+        returned whose callback will be invoked with one of these 
+        values.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="listMailboxes"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">listMailboxes</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>ref</span>,
+          <span class=sig-arg>wildcard</span>)</span>
+  </h3>
+  List all the mailboxes that meet a certain criteria
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>ref</b></code> -
+         The context in which to apply the wildcard
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>wildcard</b></code> -
+         An expression against which to match mailbox names. '*' 
+        matches any number of characters in a mailbox name, and '%' 
+        matches similarly, but will not match across hierarchical 
+        boundaries.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A list of <code>(mailboxName, mailboxObject)</code> which meet 
+        the given criteria. A Deferred may also be returned.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>list</code> of <code>tuple</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="rename"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">rename</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>oldname</span>,
+          <span class=sig-arg>newname</span>)</span>
+  </h3>
+  Rename a mailbox
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>oldname</b></code> -
+         The current name of the mailbox to rename.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>newname</b></code> -
+         The new name to associate with the mailbox.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the mailbox is successfully renamed, or a 
+        <code>Deferred</code> whose callback will be invoked when the 
+        rename operation is completed.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be renamed. This may also be 
+        raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="select"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">select</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>,
+          <span class=sig-arg>rw</span>=<span class=sig-default>1</span>)</span>
+  </h3>
+  Acquire a mailbox, given its name.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The mailbox to acquire
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>rw</b></code> -
+         If a true value, request a read-write version of this mailbox. 
+        If a false value, request a read-only version.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        The mailbox object, or a <code>Deferred</code> whose callback 
+        will be invoked with the mailbox object. None may be returned if 
+        the specified mailbox may not be selected for any reason.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=Any object implementing <code>IMailbox</code> or 
+        <code>Deferred</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="subscribe"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">subscribe</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>)</span>
+  </h3>
+  Subscribe to a mailbox
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The name of the mailbox to subscribe to
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the mailbox is subscribed to successfully, or 
+        a Deferred whose callback will be invoked with this value when 
+        the subscription is successful.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be subscribed to. This may also 
+        be raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="unsubscribe"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">unsubscribe</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>name</span>)</span>
+  </h3>
+  Unsubscribe from a mailbox
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>name</b></code> -
+         The name of the mailbox to unsubscribe from
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        A true value if the mailbox is unsubscribed from successfully, 
+        or a Deferred whose callback will be invoked with this value when 
+        the unsubscription is successful.
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Deferred</code> or <code>bool</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>MailboxException</b></code> -
+        Raised if this mailbox cannot be unsubscribed from. This may 
+        also be raised asynchronously, if a <code>Deferred</code> is 
+        returned.
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:52 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

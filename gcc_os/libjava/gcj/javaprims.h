@@ -120,6 +120,7 @@ extern "Java"
       class SyncFailedException;
       class UTFDataFormatException;
       class UnsupportedEncodingException;
+      class VMObjectStreamClass;
       class ValidatorAndPriority;
       class WriteAbortedException;
       class Writer;
@@ -131,9 +132,9 @@ extern "Java"
       class ArithmeticException;
       class ArrayIndexOutOfBoundsException;
       class ArrayStoreException;
+      class AssertionError;
       class Boolean;
       class Byte;
-      class CPlusPlusDemangler;
       class CharSequence;
       class Character;
       class Character$Subset;
@@ -193,6 +194,7 @@ extern "Java"
       class SecurityManager;
       class Short;
       class StackOverflowError;
+      class StackTraceElement;
       class StrictMath;
       class String;
       class String$CaseInsensitiveComparator;
@@ -203,7 +205,6 @@ extern "Java"
       class ThreadDeath;
       class ThreadGroup;
       class ThreadLocal;
-      class ThreadLocal$Value;
       class Throwable;
       class UnknownError;
       class UnsatisfiedLinkError;
@@ -211,6 +212,7 @@ extern "Java"
       class UnsupportedOperationException;
       class VMClassLoader;
       class VMSecurityManager;
+      class VMThrowable;
       class VerifyError;
       class VirtualMachineError;
       class Void;
@@ -229,11 +231,18 @@ extern "Java"
         class Array;
         class Constructor;
         class Field;
+        class InvocationHandler;
         class InvocationTargetException;
         class Member;
         class Method;
         class Modifier;
+        class Proxy;
+        class Proxy$ClassFactory;
+        class Proxy$ProxyData;
+        class Proxy$ProxySignature;
+        class Proxy$ProxyType;
         class ReflectPermission;
+        class UndeclaredThrowableException;
       };
     };
 
@@ -241,32 +250,42 @@ extern "Java"
     {
       class AbstractCollection;
       class AbstractList;
-      class AbstractList$AbstractListItr;
       class AbstractMap;
+      class AbstractMap$BasicMapEntry;
       class AbstractSequentialList;
       class AbstractSet;
       class ArrayList;
       class Arrays;
-      class Arrays$ListImpl;
-      class BasicMapEntry;
+      class Arrays$ArrayList;
       class BitSet;
       class Calendar;
       class Collection;
       class Collections;
+      class Collections$CopiesList;
+      class Collections$EmptyList;
+      class Collections$EmptyMap;
+      class Collections$EmptySet;
       class Collections$ReverseComparator;
+      class Collections$SingletonList;
+      class Collections$SingletonMap;
+      class Collections$SingletonSet;
       class Collections$SynchronizedCollection;
       class Collections$SynchronizedIterator;
       class Collections$SynchronizedList;
       class Collections$SynchronizedListIterator;
       class Collections$SynchronizedMap;
+      class Collections$SynchronizedMapEntry;
+      class Collections$SynchronizedRandomAccessList;
       class Collections$SynchronizedSet;
       class Collections$SynchronizedSortedMap;
       class Collections$SynchronizedSortedSet;
       class Collections$UnmodifiableCollection;
+      class Collections$UnmodifiableEntrySet;
       class Collections$UnmodifiableIterator;
       class Collections$UnmodifiableList;
       class Collections$UnmodifiableListIterator;
       class Collections$UnmodifiableMap;
+      class Collections$UnmodifiableRandomAccessList;
       class Collections$UnmodifiableSet;
       class Collections$UnmodifiableSortedMap;
       class Collections$UnmodifiableSortedSet;
@@ -277,6 +296,7 @@ extern "Java"
       class EmptyStackException;
       class Enumeration;
       class EventListener;
+      class EventListenerProxy;
       class EventObject;
       class GregorianCalendar;
       class HashMap;
@@ -288,10 +308,12 @@ extern "Java"
       class Hashtable$HashEntry;
       class Hashtable$HashIterator;
       class IdentityHashMap;
+      class IdentityHashMap$IdentityEntry;
       class IdentityHashMap$IdentityIterator;
       class Iterator;
       class LinkedHashMap;
       class LinkedHashMap$LinkedHashEntry;
+      class LinkedHashSet;
       class LinkedList;
       class LinkedList$Entry;
       class LinkedList$LinkedListItr;
@@ -303,14 +325,17 @@ extern "Java"
       class Map$Entry;
       class Map$Map;
       class MissingResourceException;
+      class MyResources;
       class NoSuchElementException;
       class Observable;
       class Observer;
       class Properties;
       class PropertyPermission;
+      class PropertyPermissionCollection;
       class PropertyResourceBundle;
       class Random;
       class RandomAccess;
+      class RandomAccessSubList;
       class ResourceBundle;
       class Set;
       class SimpleTimeZone;
@@ -329,12 +354,11 @@ extern "Java"
       class TreeMap$Node;
       class TreeMap$SubMap;
       class TreeMap$TreeIterator;
-      class TreeMap$VerifyResult;
       class TreeSet;
       class Vector;
       class WeakHashMap;
-      class WeakHashMap$Entry;
       class WeakHashMap$WeakBucket;
+      class WeakHashMap$WeakEntry;
       class WeakHashMap$WeakEntrySet;
       namespace jar
       {
@@ -347,6 +371,13 @@ extern "Java"
         class JarInputStream;
         class JarOutputStream;
         class Manifest;
+      };
+
+      namespace regex
+      {
+        class Matcher;
+        class Pattern;
+        class PatternSyntaxException;
       };
 
       namespace zip
@@ -365,9 +396,10 @@ extern "Java"
         class InflaterInputStream;
         class ZipConstants;
         class ZipEntry;
-        class ZipEnumeration;
         class ZipException;
         class ZipFile;
+        class ZipFile$PartialInputStream;
+        class ZipFile$ZipEntryEnumeration;
         class ZipInputStream;
         class ZipOutputStream;
       };
@@ -418,6 +450,8 @@ jint
 _Jv_AttachCurrentThread(java::lang::Thread* thread);
 extern "C" java::lang::Thread*
 _Jv_AttachCurrentThread(jstring name, java::lang::ThreadGroup* group);
+extern "C" java::lang::Thread*
+_Jv_AttachCurrentThreadAsDaemon(jstring name, java::lang::ThreadGroup* group);
 extern "C" jint _Jv_DetachCurrentThread (void);
 
 extern "C" void _Jv_Throw (jthrowable) __attribute__ ((__noreturn__));

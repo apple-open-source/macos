@@ -1,6 +1,6 @@
 // 2001-05-21 Benjamin Kosnik  <bkoz@redhat.com>
 
-// Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,6 +21,7 @@
 // 27.8.1.4 Overridden virtual functions
 
 #include <fstream>
+#include <locale>
 #include <testsuite_hooks.h>
 
 // @require@ %-*.tst %-*.txt
@@ -70,7 +71,8 @@ const char carray_02[] = "memphis, new orleans, and savanah";
 const char name_01[] = "filebuf_virtuals-1.txt"; // file with data in it
 const char name_02[] = "filebuf_virtuals-2.txt"; // empty file, need to create
 const char name_03[] = "filebuf_virtuals-3.txt"; // empty file, need to create
-
+const char name_04[] = "filebuf_virtuals-4.txt"; // empty file, need to create
+const char name_05[] = "filebuf_virtuals-5.txt"; // empty file, need to create
 
 class derived_filebuf: public std::filebuf
 {
@@ -444,6 +446,9 @@ void test05()
   strmsz_1 = fb_03.sputn("because because because. . .", 28);  
   VERIFY( strmsz_1 == 28 );
   c1 = fb_03.sungetc();
+  // Defect?  retval of sungetc is not necessarily the character ungotten.
+  // So re-get it.
+  c1 = fb_03.sgetc();
   fb_03.pubsync(); 
   c3 = fb_03.sgetc();
   VERIFY( c1 == c3 );
@@ -511,53 +516,136 @@ void test06()
   VERIFY( buffer[0] == 'a' );
 }
 
-// test06
-// libstdc++/2020
-// should be able to use custom char_type
-class gnu_char_type
-{
-  unsigned long character;
-public:
-  // operator ==
-  bool
-  operator==(const gnu_char_type& __lhs) 
-  { return character == __lhs.character; }
-
-  // operator <
-  bool
-  operator<(const gnu_char_type& __lhs) 
-  { return character < __lhs.character; }
-
-  // default ctor
-  gnu_char_type() { }
-
-  // to_char_type
-  gnu_char_type(const unsigned long& __l) : character(__l) { } 
-
-  // to_int_type
-  operator unsigned long() const { return character; }
-};
-
+// libstdc++/9322
 void test07()
 {
+  using std::locale;
   bool test = true;
-  typedef std::basic_filebuf<gnu_char_type> gnu_filebuf;
-  
-  try
-    { gnu_filebuf obj; }
-  catch(std::exception& obj)
-    { 
-      test = false; 
-      VERIFY( test );
-    }
+
+  locale loc;
+  std::filebuf ob;
+  VERIFY( ob.getloc() == loc );
+
+  locale::global(locale("en_US"));
+  VERIFY( ob.getloc() == loc );
+
+  locale loc_de ("de_DE");
+  locale ret = ob.pubimbue(loc_de);
+  VERIFY( ob.getloc() == loc_de );
+  VERIFY( ret == loc );
+
+  locale::global(loc);
+  VERIFY( ob.getloc() == loc_de );
 }
 
-#if !__GXX_WEAK__
-// Explicitly instantiate for systems with no COMDAT or weak support.
-template 
-  std::basic_streambuf<gnu_char_type>::int_type
-  std::basic_streambuf<gnu_char_type>::_S_pback_size;
-#endif
+class MyTraits : public std::char_traits<char>
+{
+public:
+  static bool eq(char c1, char c2)
+  {
+    VERIFY( c1 != 'X' );
+    VERIFY( c2 != 'X' );
+    return std::char_traits<char>::eq(c1, c2);
+  }
+};
+
+class MyBuf : public std::basic_streambuf<char, MyTraits>
+{
+  char buffer[8];
+
+public:
+  MyBuf()
+  {
+    std::memset(buffer, 'X', sizeof(buffer));
+    std::memset(buffer + 2, 'f', 4);
+    setg(buffer + 2, buffer + 2, buffer + 6);
+  }
+};
+
+// libstdc++/9538
+void test08()
+{
+  bool test = true;
+
+  MyBuf mb;
+  mb.sputbackc('a');  
+}
+
+// libstdc++/9439, libstdc++/9425
+void test09()
+{
+  using namespace std;
+  bool test = true;
+
+  filebuf fbuf;
+  fbuf.open(name_01, ios_base::in);
+  filebuf::int_type r = fbuf.sputbackc('a');
+  fbuf.close();
+
+  VERIFY( r == filebuf::traits_type::eof() );
+}
+
+class Cvt_to_upper : public std::codecvt<char, char, mbstate_t>
+{
+  bool do_always_noconv() const throw()
+  {
+    return false;
+  }
+};
+
+// libstdc++/9169
+void test10()
+{
+  using namespace std;
+  bool test = true;
+
+  locale c_loc;
+  locale loc(c_loc, new Cvt_to_upper);
+
+  string str("abcdefghijklmnopqrstuvwxyz");
+  string tmp;
+
+  {
+    ofstream out;
+    out.imbue(loc);
+    out.open(name_04);
+    copy(str.begin(), str.end(),
+	 ostreambuf_iterator<char>(out));
+  }
+
+  {
+    ifstream in;
+    in.open(name_04);
+    copy(istreambuf_iterator<char>(in),
+	 istreambuf_iterator<char>(),
+	 back_inserter(tmp));
+  }
+
+  VERIFY( tmp.size() == str.size() );
+  VERIFY( tmp == str );
+}
+
+// libstdc++/9825
+void test11()
+{
+  using namespace std;
+  bool test = true;
+
+  filebuf fbuf;
+
+  fbuf.open(name_05, ios_base::in|ios_base::out|ios_base::trunc);
+  fbuf.sputn("crazy bees!", 11);
+  fbuf.pubseekoff(0, ios_base::beg);
+  fbuf.sbumpc();
+  fbuf.sputbackc('x');
+  filebuf::int_type c = fbuf.sbumpc();
+  VERIFY( c == 'x' );
+  c = fbuf.sbumpc();
+  VERIFY( c == 'r' );
+  c = fbuf.sbumpc();
+  VERIFY( c == 'a' );
+  fbuf.close();  
+}
 
 main() 
 {
@@ -568,7 +656,11 @@ main()
   test04();
   test05();
   test06();
-  test07();
 
+  test07();
+  test08();
+  test09();
+  test10();
+  test11();
   return 0;
 }

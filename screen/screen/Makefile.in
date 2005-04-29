@@ -79,7 +79,7 @@ install_bin: .version screen
 	-if [ -f $(DESTDIR)$(bindir)/screen ] && [ ! -f $(DESTDIR)$(bindir)/screen.old ]; then mv $(DESTDIR)$(bindir)/screen $(DESTDIR)$(bindir)/screen.old; fi
 	rm -f $(DESTDIR)$(bindir)/screen
 	(cd $(DESTDIR)$(bindir) && ln -sf $(SCREEN) screen)
-	cp $(srcdir)/utf8encodings/?? $(DESTDIR)$(SCREENENCODINGS)
+	cp $(srcdir)/utf8encodings/?? $(DSTROOT)$(SCREENENCODINGS)
 
 ###############################################################################
 install: installdirs install_bin
@@ -95,7 +95,7 @@ install: installdirs install_bin
 
 installdirs:
 # Path leading to ETCSCREENRC and Socketdirectory not checked.
-	$(srcdir)/etc/mkinstalldirs $(DESTDIR)$(bindir) $(DESTDIR)$(SCREENENCODINGS)
+	$(srcdir)/etc/mkinstalldirs $(DESTDIR)$(bindir) $(DSTROOT)$(SCREENENCODINGS)
 	cd doc ; $(MAKE) installdirs
 
 uninstall: .version
@@ -122,7 +122,7 @@ tty.c:	tty.sh
 	sh $(srcdir)/tty.sh tty.c
 
 comm.h: comm.c comm.sh config.h
-	AWK=$(AWK) CC="$(CC) $(CFLAGS)" srcdir=${srcdir} sh $(srcdir)/comm.sh
+	AWK=$(AWK) srcdir=${srcdir} sh $(srcdir)/comm.sh
 
 osdef.h: osdef.sh config.h osdef.h.in
 	CPP="$(CPP) $(CPPFLAGS)" srcdir=${srcdir} sh $(srcdir)/osdef.sh
@@ -174,7 +174,7 @@ $(SCREEN).tar: .version term.h comm.h tty.c kmapdef.c
 	mkdir dist
 	mkdir dist/$(SCREEN)
 	ln acls.h ansi.h display.h extern.h logfile.h mark.h os.h \
-	   layer.h patchlevel.h rcs.h screen.h window.h image.h \
+	   layer.h patchlevel.h screen.h window.h image.h \
 	   osdef.h.in term.sh tty.sh comm.sh osdef.sh braille.h \
 	   sched.h \
 	   $(CFILES) \
@@ -266,66 +266,66 @@ depend.in: $(CFILES) term.h
 ###############################################################################
 
 ### Dependencies:
-screen.o: screen.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+screen.o: screen.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h braille.h \
  patchlevel.h logfile.h extern.h
-ansi.o: ansi.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+ansi.o: ansi.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h braille.h extern.h \
  logfile.h
-fileio.o: fileio.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+fileio.o: fileio.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-mark.o: mark.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+mark.o: mark.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h mark.h extern.h
-misc.o: misc.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+misc.o: misc.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-resize.o: resize.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+resize.o: resize.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-socket.o: socket.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+socket.o: socket.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-search.o: search.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+search.o: search.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h mark.h extern.h
-tty.o: tty.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
+tty.o: tty.c config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
  layer.h term.h image.h display.h window.h extern.h
-term.o: term.c rcs.h term.h
-window.o: window.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+term.o: term.c term.h
+window.o: window.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h logfile.h
-utmp.o: utmp.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+utmp.o: utmp.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-loadav.o: loadav.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+loadav.o: loadav.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-putenv.o: putenv.c rcs.h config.h
-help.o: help.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+putenv.o: putenv.c config.h
+help.o: help.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-termcap.o: termcap.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+termcap.o: termcap.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-input.o: input.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+input.o: input.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-attacher.o: attacher.c rcs.h config.h screen.h os.h osdef.h ansi.h \
+attacher.o: attacher.c config.h screen.h os.h osdef.h ansi.h \
  acls.h comm.h layer.h term.h image.h display.h window.h extern.h
-pty.o: pty.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
+pty.o: pty.c config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
  layer.h term.h image.h display.h window.h extern.h
-process.o: process.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+process.o: process.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h logfile.h
-display.o: display.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+display.o: display.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h braille.h
-comm.o: comm.c rcs.h config.h acls.h comm.h
+comm.o: comm.c config.h acls.h comm.h
 kmapdef.o: kmapdef.c config.h
-acls.o: acls.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
+acls.o: acls.c config.h screen.h os.h osdef.h ansi.h acls.h comm.h \
  layer.h term.h image.h display.h window.h extern.h
-braille.o: braille.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+braille.o: braille.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h braille.h
 braille_tsi.o: braille_tsi.c config.h screen.h os.h osdef.h ansi.h \
  acls.h comm.h layer.h term.h image.h display.h window.h extern.h \
  braille.h
-logfile.o: logfile.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+logfile.o: logfile.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h logfile.h
-layer.o: layer.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+layer.o: layer.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-sched.o: sched.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+sched.o: sched.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h logfile.h
-teln.o: teln.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+teln.o: teln.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-nethack.o: nethack.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+nethack.o: nethack.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h
-encoding.o: encoding.c rcs.h config.h screen.h os.h osdef.h ansi.h acls.h \
+encoding.o: encoding.c config.h screen.h os.h osdef.h ansi.h acls.h \
  comm.h layer.h term.h image.h display.h window.h extern.h

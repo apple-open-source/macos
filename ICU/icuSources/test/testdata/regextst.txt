@@ -1,4 +1,4 @@
-# Copyright (c) 2001-2003 International Business Machines
+﻿# Copyright (c) 2001-2004 International Business Machines
 # Corporation and others. All Rights Reserved.
 #
 #  file:  
@@ -18,8 +18,13 @@
 #                                   x      free spacing and comments
 #                                   s      dot-matches-all mode
 #                                   m      multi-line mode.  $ and ^ match at embedded new-lines
+#                                   v      If icu configured without break iteration, this
+#                                          regex test pattern should not compile.
 #                                   d      dump the compiled pattern
 #                                   t      trace operation of match engine.
+#                                   2-9    a digit between 2 and 9, specifies the number of 
+#                                          times to execute find().  The expected results are
+#                                          for the last find() in the sequence.
 #                                 White space must be present between the flags and the match string.
 #
 
@@ -66,6 +71,7 @@
 ".*\Ahello"                    "stuff\nhello" # don't match after embedded new-line.
 
 # \b \B
+#
 ".*?\b(.).*"                   "<0>  $%^&*( <1>h</1>ello123%^&*()gxx</0>"
 "\ba\b"                        "-<0>a</0>"
 "\by\b"                        "xy"
@@ -78,12 +84,26 @@
 
 "(?:.*?\b(.))?(?:.*?\b(.))?(?:.*?\b(.))?(?:.*?\b(.))?(?:.*?\b(.))?.*"   "<0>   \u0301 \u0301<1>A</1>\u0302BC\u0303\u0304<2> </2>\u0305 \u0306<3>X</3>\u0307Y\u0308</0>"
 
+
+#
+#  Unicode word boundary mode
+#
+"(?w).*?\b"                      v   "<0></0>hello, world"
+"(?w).*?(\b.+?\b).*"             v   "<0><1> </1> 123.45   </0>"
+"(?w).*?(\b\d.*?\b).*"           v   "<0>  <1>123.45</1>   </0>"
+".*?(\b.+?\b).*"                     "<0>  <1>123</1>.45   </0>"
+"(?w:.*?(\b\d.*?\b).*)"          v   "<0>  <1>123.45</1>   </0>"
+"(?w:.*?(\b.+?\b).*)"            v   "<0><1>don't</1>   </0>"
+"(?w:.+?(\b\S.+?\b).*)"          v   "<0>  <1>don't</1>   </0>"
+"(?w:(\b.+?)(\b.+?)(\b.+?)(\b.+?)(\b.+?)(\b.+?)(\b.+?).*)"     v "<0><1>.</1><2> </2><3>,</3><4>:</4><5>$</5><6>37,000.50</6><7> </7>   </0>"
+
+
 # . does not match new-lines
 "."                            "\u000a\u000d\u0085\u000c\u2028\u2029<0>X</0>\u000aY"
 "A."                           "A\u000a "# no match
 
 # \d for decimal digits
-"\d*"                          "<0>0123456789\u0660\u06F9\u0969\u0A66\u1369\u17E2\uFF10\U0001D7CE\U0001D7FF</0>non-digits"
+"\d*"                          "<0>0123456789\u0660\u06F9\u0969\u0A66\u17E2\uFF10\U0001D7CE\U0001D7FF</0>non-digits"
 "\D+"                          "<0>non digits</0>"
 "\D*(\d*)(\D*)"                "<0>non-digits<1>3456666</1><2>more non digits</2></0>"
 
@@ -350,6 +370,140 @@
 "(\ud800)(\udc00)"                "\U00010000"
 
 
+#
+# Bug 3225
+
+"1|9"                             "<0>1</0>"
+"1|9"                             "<0>9</0>"
+"1*|9"                            "<0>1</0>"
+"1*|9"                            "<0></0>9"
+
+"(?:a|ac)d"                       "<0>acd</0>"
+"a|ac"                            "<0>a</0>c"
+
+#
+# Bug 3320
+#
+"(a([^ ]+)){0,} (c)"              "<0><1>a<2>b</2></1> <3>c</3></0> "
+"(a([^ ]+))* (c)"                 "<0><1>a<2>b</2></1> <3>c</3></0> "
+
+#
+# Bug 3436
+#
+"(.*?) *$"                        "<0><1>test</1>    </0>"
+
+#
+# Bug 4034
+#
+"\D"                              "<0>A</0>BC\u00ffDEF"
+"\d"                              "ABC\u00ffDEF"
+"\D"                              "<0>\u00ff</0>DEF"
+"\d"                              "\u00ffDEF"
+"\D"                              "123<0>\u00ff</0>DEF"
+"\D"                              "<0>\u0100</0>DEF"
+"\D"                              "123<0>\u0100</0>DEF"
+
+#
+#bug 4024, new line sequence handling
+#
+"(?m)^"                           "<0></0>AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+"(?m)^"                       2   "AA\u000d\u000a<0></0>BB\u000d\u000aCC\u000d\u000a"
+"(?m)^"                       3   "AA\u000d\u000aBB\u000d\u000a<0></0>CC\u000d\u000a"
+"(?m)^"                       4   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+
+"(?m)$"                           "AA<0></0>\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+"(?m)$"                       2   "AA\u000d\u000aBB<0></0>\u000d\u000aCC\u000d\u000a"
+"(?m)$"                       3   "AA\u000d\u000aBB\u000d\u000aCC<0></0>\u000d\u000a"
+"(?m)$"                       4   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a<0></0>"
+"(?m)$"                       5   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+
+"$"                               "AA\u000d\u000aBB\u000d\u000aCC<0></0>\u000d\u000a"
+"$"                           2   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a<0></0>"
+"$"                           3   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+
+"$"                               "\u000a\u0000a<0></0>\u000a"
+"$"                           2   "\u000a\u0000a\u000a<0></0>"
+"$"                           3   "\u000a\u0000a\u000a"
+
+"$"                               "<0></0>"
+"$"                           2   ""
+
+"$"                               "<0></0>\u000a"
+"$"                           2   "\u000a<0></0>"
+"$"                           3   "\u000a"
+
+"^"                               "<0></0>"
+"^"                           2   ""
+
+"\Z"				  "<0></0>"
+"\Z"                          2   ""
+"\Z"                          2   "\u000a<0></0>"
+"\Z"                              "<0></0>\u000d\u000a"
+"\Z"                          2   "\u000d\u000a<0></0>"
+
+
+# No matching ^ at interior new-lines if not in multi-line mode.
+"^"                               "<0></0>AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+"^"                           2   "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+
+#
+# Dot-matches-any mode, and stopping at new-lines if off.
+#
+"."                               "<0>1</0>23\u000aXYZ"
+"."                           2   "1<0>2</0>3\u000aXYZ"
+"."                           3   "12<0>3</0>\u000aXYZ"
+"."                           4   "123\u000a<0>X</0>YZ"    # . doesn't match newlines
+"."                           4   "123\u000c<0>X</0>YZ"
+"."                           4   "123\u000d<0>X</0>YZ"
+"."                           4   "123\u000d\u000a<0>X</0>YZ"
+"."                           4   "123\u0085<0>X</0>YZ"
+"."                           4   "123\u2028<0>X</0>YZ"
+"."                           4   "123\u2029<0>X</0>YZ"
+"."                           4s  "123<0>\u000a</0>XYZ"    # . matches any
+"."                           4s  "123<0>\u000c</0>XYZ"
+"."                           4s  "123<0>\u000d</0>XYZ"
+"."                           4s  "123<0>\u000d\u000a</0>XYZ"
+"."                           4s  "123<0>\u0085</0>XYZ"
+"."                           4s  "123<0>\u2028</0>XYZ"
+"."                           4s  "123<0>\u2029</0>XYZ"
+".{6}"                            "123\u000a\u000dXYZ"
+".{6}"                         s  "<0>123\u000a\u000dX</0>Y"
+
+#
+# Bug 4045
+#
+"A*"                              "<0>AAAA</0>"
+"A*"                           2  "AAAA<0></0>"
+"A*"                           3  "AAAA"
+"A*"                           4  "AAAA"
+"A*"                           5  "AAAA"
+"A*"                           6  "AAAA"
+"A*"                              "<0></0>"
+"A*"                           2  ""
+"A*"                           3  ""
+"A*"                           4  ""
+"A*"                           5  ""
+				  
+#
+# Bug 4046
+#
+"(?m)^"                           "<0></0>AA\u000dBB\u000dCC\u000d"
+"(?m)^"                        2  "AA\u000d<0></0>BB\u000dCC\u000d"
+"(?m)^"                        3  "AA\u000dBB\u000d<0></0>CC\u000d"
+"(?m)^"                        4  "AA\u000dBB\u000dCC\u000d"
+"(?m)^"                        5  "AA\u000dBB\u000dCC\u000d"
+"(?m)^"                        6  "AA\u000dBB\u000dCC\u000d"
+
+"(?m)^"                           "<0></0>AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+"(?m)^"                        2  "AA\u000d\u000a<0></0>BB\u000d\u000aCC\u000d\u000a"
+"(?m)^"                        3  "AA\u000d\u000aBB\u000d\u000a<0></0>CC\u000d\u000a"
+"(?m)^"                        4  "AA\u000d\u000aBB\u000d\u000aCC\u000d\u000a"
+
+#
+# Bug 4059
+#
+"\w+"				  "<0>イチロー</0>"
+"\b....\b."                       "<0>イチロー?</0>"
 
 #
 #  Random debugging, Temporary

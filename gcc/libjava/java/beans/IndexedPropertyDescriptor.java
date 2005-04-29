@@ -1,5 +1,5 @@
 /* java.beans.IndexedPropertyDescriptor
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,8 @@ exception statement from your version. */
 
 package java.beans;
 
-import java.util.*;
-import java.lang.reflect.*;
+import java.lang.reflect.Array;
+import java.lang.reflect.Method;
 
 /**
  ** IndexedPropertyDescriptor describes information about a JavaBean
@@ -216,7 +216,7 @@ public class IndexedPropertyDescriptor extends PropertyDescriptor {
 		this.getMethod = getMethod;
 		this.setMethod = setMethod;
 		this.getIndex = getIndex;
-		this.setIndex = getIndex;
+		this.setIndex = setIndex;
 		this.indexedPropertyType = getIndex != null ? getIndex.getReturnType() : setIndex.getParameterTypes()[1];
 		this.propertyType = getMethod != null ? getMethod.getReturnType() : (setMethod != null ? setMethod.getParameterTypes()[0] : Array.newInstance(this.indexedPropertyType,0).getClass());
 	}

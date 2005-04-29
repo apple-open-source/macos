@@ -1,0 +1,6 @@
+
+Please go to ../unix directory and inspect the CONFIG file.
+There you will find example on how to configure and make
+the library on Mac OSX using GNU configure/make tools.
+
+-EOF

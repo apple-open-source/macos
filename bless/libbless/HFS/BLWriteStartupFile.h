@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,17 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Mon Jun 25 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLWriteStartupFile.h,v 1.5 2003/07/22 15:58:31 ssen Exp $
+ *  $Id: BLWriteStartupFile.h,v 1.7 2005/02/03 00:42:26 ssen Exp $
  *
  *  $Log: BLWriteStartupFile.h,v $
+ *  Revision 1.7  2005/02/03 00:42:26  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.6  2004/04/20 21:40:42  ssen
+ *  Update copyrights to 2004
+ *
  *  Revision 1.5  2003/07/22 15:58:31  ssen
  *  APSL 2.0
  *

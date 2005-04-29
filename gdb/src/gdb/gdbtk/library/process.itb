@@ -36,16 +36,6 @@ itcl::body ProcessWin::constructor {args} {
 itcl::body ProcessWin::build_win {} {
   global tcl_platform
 
-  if {$tcl_platform(platform) == "windows"} {
-    set hsmode static
-    set vsmode static
-    ide_sizebox $itk_interior.sbox
-    place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
-  } else {
-    set hsmode dynamic
-    set vsmode dynamic
-  }
-
   itk_component add slbox {
     iwidgets::scrolledlistbox $itk_interior.slbox \
       -background $::Colors(bg) \
@@ -138,7 +128,6 @@ itcl::body ProcessWin::destructor {} {
 # ------------------------------------------------------------------
 itcl::body ProcessWin::reconfig {} {
   destroy $itk_interior.s
-  if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
   if {[winfo exists $itk_interior.slbox]} { destroy $itk_interior.slbox }
   build_win
 }

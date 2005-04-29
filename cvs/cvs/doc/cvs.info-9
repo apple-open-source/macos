@@ -1,0 +1,1104 @@
+This is cvs.info, produced by makeinfo version 4.5 from cvs.texinfo.
+
+INFO-DIR-SECTION GNU Packages
+START-INFO-DIR-ENTRY
+* CVS: (cvs).                   Concurrent Versions System
+END-INFO-DIR-ENTRY
+INFO-DIR-SECTION Individual utilities
+START-INFO-DIR-ENTRY
+* cvs: (cvs)CVS commands.       Concurrent Versions System
+END-INFO-DIR-ENTRY
+
+
+File: cvs.info,  Node: Keeping a checked out copy,  Prev: loginfo example,  Up: loginfo
+
+Keeping a checked out copy
+..........................
+
+   It is often useful to maintain a directory tree which contains files
+which correspond to the latest version in the repository.  For example,
+other developers might want to refer to the latest sources without
+having to check them out, or you might be maintaining a web site with
+CVS and want every checkin to cause the files used by the web server to
+be updated.
+
+   The way to do this is by having loginfo invoke `cvs update'.  Doing
+so in the naive way will cause a problem with locks, so the `cvs update'
+must be run in the background.  Here is an example for unix (this
+should all be on one line):
+
+     ^cyclic-pages		(date; cat; (sleep 2; cd /u/www/local-docs;
+      cvs -q update -d) &) >> $CVSROOT/CVSROOT/updatelog 2>&1
+
+   This will cause checkins to repository directories starting with
+`cyclic-pages' to update the checked out tree in `/u/www/local-docs'.
+
+
+File: cvs.info,  Node: rcsinfo,  Next: cvsignore,  Prev: taginfo,  Up: Administrative files
+
+Rcsinfo
+=======
+
+   The `rcsinfo' file can be used to specify a form to edit when
+filling out the commit log.  The `rcsinfo' file has a syntax similar to
+the `verifymsg', `commitinfo' and `loginfo' files.  *Note syntax::.
+Unlike the other files the second part is _not_ a command-line
+template.  Instead, the part after the regular expression should be a
+full pathname to a file containing the log message template.
+
+   If the repository name does not match any of the regular expressions
+in this file, the `DEFAULT' line is used, if it is specified.
+
+   All occurrences of the name `ALL' appearing as a regular expression
+are used in addition to the first matching regular expression or
+`DEFAULT'.
+
+   The log message template will be used as a default log message.  If
+you specify a log message with `cvs commit -m MESSAGE' or `cvs commit -f
+FILE' that log message will override the template.
+
+   *Note verifymsg::, for an example `rcsinfo' file.
+
+   When CVS is accessing a remote repository, the contents of `rcsinfo'
+at the time a directory is first checked out will specify a template
+which does not then change.  If you edit `rcsinfo' or its templates,
+you may need to check out a new working directory.
+
+
+File: cvs.info,  Node: taginfo,  Next: rcsinfo,  Prev: commit files,  Up: Administrative files
+
+Taginfo
+=======
+
+   The `taginfo' file defines programs to execute when someone executes
+a `tag' or `rtag' command.  The `taginfo' file has the standard form
+for administrative files (*note syntax::), where each line is a regular
+expression followed by a command to execute.  The arguments passed to
+the command are, in order, the TAGNAME, OPERATION (`add' for `tag',
+`mov' for `tag -F', and `del' for `tag -d'), REPOSITORY, and any
+remaining are pairs of FILENAME REVISION.  A non-zero exit of the
+filter program will cause the tag to be aborted.
+
+   Here is an example of using the `taginfo' file to log `tag' and
+`rtag' commands.  In the `taginfo' file put:
+
+     ALL /usr/local/cvsroot/CVSROOT/loggit
+
+Where `/usr/local/cvsroot/CVSROOT/loggit' contains the following script:
+
+     #!/bin/sh
+     echo "$@" >>/home/kingdon/cvsroot/CVSROOT/taglog
+
+
+File: cvs.info,  Node: cvsignore,  Next: checkoutlist,  Prev: rcsinfo,  Up: Administrative files
+
+Ignoring files via cvsignore
+============================
+
+   There are certain file names that frequently occur inside your
+working copy, but that you don't want to put under CVS control.
+Examples are all the object files that you get while you compile your
+sources.  Normally, when you run `cvs update', it prints a line for
+each file it encounters that it doesn't know about (*note update
+output::).
+
+   CVS has a list of files (or sh(1) file name patterns) that it should
+ignore while running `update', `import' and `release'.  This list is
+constructed in the following way.
+
+   * The list is initialized to include certain file name patterns:
+     names associated with CVS administration, or with other common
+     source control systems; common names for patch files, object files,
+     archive files, and editor backup files; and other names that are
+     usually artifacts of assorted utilities.  Currently, the default
+     list of ignored file name patterns is:
+
+              RCS     SCCS    CVS     CVS.adm
+              RCSLOG  cvslog.*
+              tags    TAGS
+              .make.state     .nse_depinfo
+              *~      #*      .#*     ,*      _$*     *$
+              *.old   *.bak   *.BAK   *.orig  *.rej   .del-*
+              *.a     *.olb   *.o     *.obj   *.so    *.exe
+              *.Z     *.elc   *.ln
+              core
+
+   * The per-repository list in `$CVSROOT/CVSROOT/cvsignore' is
+     appended to the list, if that file exists.
+
+   * The per-user list in `.cvsignore' in your home directory is
+     appended to the list, if it exists.
+
+   * Any entries in the environment variable `$CVSIGNORE' is appended
+     to the list.
+
+   * Any `-I' options given to CVS is appended.
+
+   * As CVS traverses through your directories, the contents of any
+     `.cvsignore' will be appended to the list.  The patterns found in
+     `.cvsignore' are only valid for the directory that contains them,
+     not for any sub-directories.
+
+   In any of the 5 places listed above, a single exclamation mark (`!')
+clears the ignore list.  This can be used if you want to store any file
+which normally is ignored by CVS.
+
+   Specifying `-I !' to `cvs import' will import everything, which is
+generally what you want to do if you are importing files from a
+pristine distribution or any other source which is known to not contain
+any extraneous files.  However, looking at the rules above you will see
+there is a fly in the ointment; if the distribution contains any
+`.cvsignore' files, then the patterns from those files will be
+processed even if `-I !' is specified.  The only workaround is to
+remove the `.cvsignore' files in order to do the import.  Because this
+is awkward, in the future `-I !' might be modified to override
+`.cvsignore' files in each directory.
+
+   Note that the syntax of the ignore files consists of a series of
+lines, each of which contains a space separated list of filenames.
+This offers no clean way to specify filenames which contain spaces, but
+you can use a workaround like `foo?bar' to match a file named `foo bar'
+(it also matches `fooxbar' and the like).  Also note that there is
+currently no way to specify comments.
+
+
+File: cvs.info,  Node: checkoutlist,  Next: history file,  Prev: cvsignore,  Up: Administrative files
+
+The checkoutlist file
+=====================
+
+   It may be helpful to use CVS to maintain your own files in the
+`CVSROOT' directory.  For example, suppose that you have a script
+`logcommit.pl' which you run by including the following line in the
+`commitinfo' administrative file:
+
+     ALL   $CVSROOT/CVSROOT/logcommit.pl
+
+   To maintain `logcommit.pl' with CVS you would add the following line
+to the `checkoutlist' administrative file:
+
+     logcommit.pl
+
+   The format of `checkoutlist' is one line for each file that you want
+to maintain using CVS, giving the name of the file, followed optionally
+by more whitespace and any error message that should print if the file
+cannot be checked out into CVSROOT after a commit:
+
+     logcommit.pl	Could not update CVSROOT/logcommit.pl.
+
+   After setting up `checkoutlist' in this fashion, the files listed
+there will function just like CVS's built-in administrative files.  For
+example, when checking in one of the files you should get a message
+such as:
+
+     cvs commit: Rebuilding administrative file database
+
+and the checked out copy in the `CVSROOT' directory should be updated.
+
+   Note that listing `passwd' (*note Password authentication server::)
+in `checkoutlist' is not recommended for security reasons.
+
+   For information about keeping a checkout out copy in a more general
+context than the one provided by `checkoutlist', see *Note Keeping a
+checked out copy::.
+
+
+File: cvs.info,  Node: history file,  Next: Variables,  Prev: checkoutlist,  Up: Administrative files
+
+The history file
+================
+
+   The file `$CVSROOT/CVSROOT/history' is used to log information for
+the `history' command (*note history::).  This file must be created to
+turn on logging.  This is done automatically if the `cvs init' command
+is used to set up the repository (*note Creating a repository::).
+
+   The file format of the `history' file is documented only in comments
+in the CVS source code, but generally programs should use the `cvs
+history' command to access it anyway, in case the format changes with
+future releases of CVS.
+
+
+File: cvs.info,  Node: Variables,  Next: config,  Prev: history file,  Up: Administrative files
+
+Expansions in administrative files
+==================================
+
+   Sometimes in writing an administrative file, you might want the file
+to be able to know various things based on environment CVS is running
+in.  There are several mechanisms to do that.
+
+   To find the home directory of the user running CVS (from the `HOME'
+environment variable), use `~' followed by `/' or the end of the line.
+Likewise for the home directory of USER, use `~USER'.  These variables
+are expanded on the server machine, and don't get any reasonable
+expansion if pserver (*note Password authenticated::) is in use;
+therefore user variables (see below) may be a better choice to
+customize behavior based on the user running CVS.
+
+   One may want to know about various pieces of information internal to
+CVS.  A CVS internal variable has the syntax `${VARIABLE}', where
+VARIABLE starts with a letter and consists of alphanumeric characters
+and `_'.  If the character following VARIABLE is a non-alphanumeric
+character other than `_', the `{' and `}' can be omitted.  The CVS
+internal variables are:
+
+`CVSROOT'
+     This is the absolute path to the current CVS root directory.
+     *Note Repository::, for a description of the various ways to
+     specify this, but note that the internal variable contains just
+     the directory and not any of the access method information.
+
+`RCSBIN'
+     In CVS 1.9.18 and older, this specified the directory where CVS
+     was looking for RCS programs.  Because CVS no longer runs RCS
+     programs, specifying this internal variable is now an error.
+
+`CVSEDITOR'
+`EDITOR'
+`VISUAL'
+     These all expand to the same value, which is the editor that CVS
+     is using.  *Note Global options::, for how to specify this.
+
+`USER'
+     Username of the user running CVS (on the CVS server machine).
+     When using pserver, this is the user specified in the repository
+     specification which need not be the same as the username the
+     server is running as (*note Password authentication server::).  Do
+     not confuse this with the environment variable of the same name.
+
+   If you want to pass a value to the administrative files which the
+user who is running CVS can specify, use a user variable.  To expand a
+user variable, the administrative file contains `${=VARIABLE}'.  To set
+a user variable, specify the global option `-s' to CVS, with argument
+`VARIABLE=VALUE'.  It may be particularly useful to specify this option
+via `.cvsrc' (*note ~/.cvsrc::).
+
+   For example, if you want the administrative file to refer to a test
+directory you might create a user variable `TESTDIR'.  Then if CVS is
+invoked as
+
+     cvs -s TESTDIR=/work/local/tests
+
+and the administrative file contains `sh ${=TESTDIR}/runtests', then
+that string is expanded to `sh /work/local/tests/runtests'.
+
+   All other strings containing `$' are reserved; there is no way to
+quote a `$' character so that `$' represents itself.
+
+   Environment variables passed to administrative files are:
+
+`CVS_USER'
+     The CVS-specific username provided by the user, if it can be
+     provided (currently just for the pserver access method), and to
+     the empty string otherwise.  (`CVS_USER' and `USER' may differ
+     when `$CVSROOT/CVSROOT/passwd' is used to map CVS usernames to
+     system usernames.)
+
+`LOGNAME'
+     The username of the system user.
+
+`USER'
+     Same as `LOGNAME'.  Do not confuse this with the internal variable
+     of the same name.
+
+
+File: cvs.info,  Node: config,  Prev: Variables,  Up: Administrative files
+
+The CVSROOT/config configuration file
+=====================================
+
+   The administrative file `config' contains various miscellaneous
+settings which affect the behavior of CVS.  The syntax is slightly
+different from the other administrative files.  Variables are not
+expanded.  Lines which start with `#' are considered comments.  Other
+lines consist of a keyword, `=', and a value.  Note that this syntax is
+very strict.  Extraneous spaces or tabs are not permitted.
+
+   Currently defined keywords are:
+
+`RCSBIN=BINDIR'
+     For CVS 1.9.12 through 1.9.18, this setting told CVS to look for
+     RCS programs in the BINDIR directory.  Current versions of CVS do
+     not run RCS programs; for compatibility this setting is accepted,
+     but it does nothing.
+
+`SystemAuth=VALUE'
+     If VALUE is `yes', then pserver should check for users in the
+     system's user database if not found in `CVSROOT/passwd'.  If it is
+     `no', then all pserver users must exist in `CVSROOT/passwd'.  The
+     default is `yes'.  For more on pserver, see *Note Password
+     authenticated::.
+
+`TopLevelAdmin=VALUE'
+     Modify the `checkout' command to create a `CVS' directory at the
+     top level of the new working directory, in addition to `CVS'
+     directories created within checked-out directories.  The default
+     value is `no'.
+
+     This option is useful if you find yourself performing many
+     commands at the top level of your working directory, rather than
+     in one of the checked out subdirectories.  The `CVS' directory
+     created there will mean you don't have to specify `CVSROOT' for
+     each command.  It also provides a place for the `CVS/Template'
+     file (*note Working directory storage::).
+
+`LockDir=DIRECTORY'
+     Put CVS lock files in DIRECTORY rather than directly in the
+     repository.  This is useful if you want to let users read from the
+     repository while giving them write access only to DIRECTORY, not
+     to the repository.  It can also be used to put the locks on a very
+     fast in-memory file system to speed up locking and unlocking the
+     repository.  You need to create DIRECTORY, but CVS will create
+     subdirectories of DIRECTORY as it needs them.  For information on
+     CVS locks, see *Note Concurrency::.
+
+     Before enabling the LockDir option, make sure that you have
+     tracked down and removed any copies of CVS 1.9 or older.  Such
+     versions neither support LockDir, nor will give an error
+     indicating that they don't support it.  The result, if this is
+     allowed to happen, is that some CVS users will put the locks one
+     place, and others will put them another place, and therefore the
+     repository could become corrupted.  CVS 1.10 does not support
+     LockDir but it will print a warning if run on a repository with
+     LockDir enabled.
+
+`LogHistory=VALUE'
+     Control what is logged to the `CVSROOT/history' file (*note
+     history::).  Default of `TOEFWUPCGMAR' (or simply `all') will log
+     all transactions.  Any subset of the default is legal.  (For
+     example, to only log transactions that modify the `*,v' files, use
+     `LogHistory=TMAR'.)
+
+`RereadLogAfterVerify=VALUE'
+     Modify the `commit' command such that CVS will reread the log
+     message after running the program specified by `verifymsg'.  VALUE
+     may be one of `yes' or `always', indicating that the log message
+     should always be reread; `no' or `never', indicating that it
+     should never be reread; or VALUE may be `stat', indicating that
+     the file should be checked with the file system `stat()' function
+     to see if it has changed (see warning below) before rereading.
+     The default value is `always'.
+
+     *Note: the `stat' mode can cause CVS to pause for up to one extra
+     second per directory committed.  This can be less IO and CPU
+     intensive but is not recommended for use with large repositories*
+
+     *Note verifymsg::, for more information on how verifymsg may be
+     used.
+
+
+File: cvs.info,  Node: Environment variables,  Next: Compatibility,  Prev: Administrative files,  Up: Top
+
+All environment variables which affect CVS
+******************************************
+
+   This is a complete list of all environment variables that affect CVS.
+
+`$CVSIGNORE'
+     A whitespace-separated list of file name patterns that CVS should
+     ignore. *Note cvsignore::.
+
+`$CVSWRAPPERS'
+     A whitespace-separated list of file name patterns that CVS should
+     treat as wrappers. *Note Wrappers::.
+
+`$CVSREAD'
+     If this is set, `checkout' and `update' will try hard to make the
+     files in your working directory read-only.  When this is not set,
+     the default behavior is to permit modification of your working
+     files.
+
+`$CVSUMASK'
+     Controls permissions of files in the repository.  See *Note File
+     permissions::.
+
+`$CVSROOT'
+     Should contain the full pathname to the root of the CVS source
+     repository (where the RCS files are kept).  This information must
+     be available to CVS for most commands to execute; if `$CVSROOT' is
+     not set, or if you wish to override it for one invocation, you can
+     supply it on the command line: `cvs -d cvsroot cvs_command...'
+     Once you have checked out a working directory, CVS stores the
+     appropriate root (in the file `CVS/Root'), so normally you only
+     need to worry about this when initially checking out a working
+     directory.
+
+`$CVSEDITOR'
+`$EDITOR'
+`$VISUAL'
+     Specifies the program to use for recording log messages during
+     commit.  `$CVSEDITOR' overrides `$EDITOR', which overrides
+     `$VISUAL'.  See *Note Committing your changes:: for more or *Note
+     Global options:: for alternative ways of specifying a log editor.
+
+`$PATH'
+     If `$RCSBIN' is not set, and no path is compiled into CVS, it will
+     use `$PATH' to try to find all programs it uses.
+
+`$HOME'
+
+`$HOMEPATH'
+
+`$HOMEDRIVE'
+     Used to locate the directory where the `.cvsrc' file, and other
+     such files, are searched.  On Unix, CVS just checks for `HOME'.
+     On Windows NT, the system will set `HOMEDRIVE', for example to
+     `d:' and `HOMEPATH', for example to `\joe'.  On Windows 95, you'll
+     probably need to set `HOMEDRIVE' and `HOMEPATH' yourself.
+
+`$CVS_RSH'
+     Specifies the external program which CVS connects with, when
+     `:ext:' access method is specified.  *note Connecting via rsh::.
+
+`$CVS_SERVER'
+     Used in client-server mode when accessing a remote repository
+     using RSH.  It specifies the name of the program to start on the
+     server side (and any necessary arguments) when accessing a remote
+     repository using the `:ext:', `:fork:', or `:server:' access
+     methods.  The default value for `:ext:' and `:server:' is `cvs';
+     the default value for `:fork:' is the name used to run the client.
+     *note Connecting via rsh::
+
+`$CVS_PASSFILE'
+     Used in client-server mode when accessing the `cvs login server'.
+     Default value is `$HOME/.cvspass'.  *note Password authentication
+     client::
+
+`$CVS_CLIENT_PORT'
+     Used in client-server mode to set the port to use when accessing
+     the server via Kerberos, GSSAPI, or CVS's password authentication
+     protocol if the port is not specified in the CVSROOT.  *note
+     Remote repositories::
+
+`$CVS_RCMD_PORT'
+     Used in client-server mode.  If set, specifies the port number to
+     be used when accessing the RCMD demon on the server side.
+     (Currently not used for Unix clients).
+
+`$CVS_CLIENT_LOG'
+     Used for debugging only in client-server mode.  If set, everything
+     sent to the server is logged into ``$CVS_CLIENT_LOG'.in' and
+     everything sent from the server is logged into
+     ``$CVS_CLIENT_LOG'.out'.
+
+`$CVS_SERVER_SLEEP'
+     Used only for debugging the server side in client-server mode.  If
+     set, delays the start of the server child process the specified
+     amount of seconds so that you can attach to it with a debugger.
+
+`$CVS_IGNORE_REMOTE_ROOT'
+     For CVS 1.10 and older, setting this variable prevents CVS from
+     overwriting the `CVS/Root' file when the `-d' global option is
+     specified.  Later versions of CVS do not rewrite `CVS/Root', so
+     `CVS_IGNORE_REMOTE_ROOT' has no effect.
+
+`$COMSPEC'
+     Used under OS/2 only.  It specifies the name of the command
+     interpreter and defaults to CMD.EXE.
+
+`$TMPDIR'
+`$TMP'
+`$TEMP'
+     Directory in which temporary files are located.  The CVS server
+     uses `TMPDIR'.  *Note Global options::, for a description of how
+     to specify this.  Some parts of CVS will always use `/tmp' (via
+     the `tmpnam' function provided by the system).
+
+     On Windows NT, `TMP' is used (via the `_tempnam' function provided
+     by the system).
+
+     The `patch' program which is used by the CVS client uses `TMPDIR',
+     and if it is not set, uses `/tmp' (at least with GNU patch 2.1).
+     Note that if your server and client are both running CVS 1.9.10 or
+     later, CVS will not invoke an external `patch' program.
+
+
+File: cvs.info,  Node: Compatibility,  Next: Troubleshooting,  Prev: Environment variables,  Up: Top
+
+Compatibility between CVS Versions
+**********************************
+
+   The repository format is compatible going back to CVS 1.3.  But see
+*Note Watches Compatibility::, if you have copies of CVS 1.6 or older
+and you want to use the optional developer communication features.
+
+   The working directory format is compatible going back to CVS 1.5.
+It did change between CVS 1.3 and CVS 1.5.  If you run CVS 1.5 or newer
+on a working directory checked out with CVS 1.3, CVS will convert it,
+but to go back to CVS 1.3 you need to check out a new working directory
+with CVS 1.3.
+
+   The remote protocol is interoperable going back to CVS 1.5, but no
+further (1.5 was the first official release with the remote protocol,
+but some older versions might still be floating around).  In many cases
+you need to upgrade both the client and the server to take advantage of
+new features and bug fixes, however.
+
+
+File: cvs.info,  Node: Troubleshooting,  Next: Credits,  Prev: Compatibility,  Up: Top
+
+Troubleshooting
+***************
+
+   If you are having trouble with CVS, this appendix may help.  If
+there is a particular error message which you are seeing, then you can
+look up the message alphabetically.  If not, you can look through the
+section on other problems to see if your problem is mentioned there.
+
+* Menu:
+
+* Error messages::              Partial list of CVS errors
+* Connection::                  Trouble making a connection to a CVS server
+* Other problems::              Problems not readily listed by error message
+
+
+File: cvs.info,  Node: Error messages,  Next: Connection,  Up: Troubleshooting
+
+Partial list of error messages
+==============================
+
+   Here is a partial list of error messages that you may see from CVS.
+It is not a complete list--CVS is capable of printing many, many error
+messages, often with parts of them supplied by the operating system,
+but the intention is to list the common and/or potentially confusing
+error messages.
+
+   The messages are alphabetical, but introductory text such as `cvs
+update: ' is not considered in ordering them.
+
+   In some cases the list includes messages printed by old versions of
+CVS (partly because users may not be sure which version of CVS they are
+using at any particular moment).
+
+`FILE:LINE: Assertion 'TEXT' failed'
+     The exact format of this message may vary depending on your
+     system.  It indicates a bug in CVS, which can be handled as
+     described in *Note BUGS::.
+
+`cvs COMMAND: authorization failed: server HOST rejected access'
+     This is a generic response when trying to connect to a pserver
+     server which chooses not to provide a specific reason for denying
+     authorization.  Check that the username and password specified are
+     correct and that the `CVSROOT' specified is allowed by
+     `--allow-root' in `inetd.conf'.  See *Note Password
+     authenticated::.
+
+`cvs COMMAND: conflict: removed FILE was modified by second party'
+     This message indicates that you removed a file, and someone else
+     modified it.  To resolve the conflict, first run `cvs add FILE'.
+     If desired, look at the other party's modification to decide
+     whether you still want to remove it.  If you don't want to remove
+     it, stop here.  If you do want to remove it, proceed with `cvs
+     remove FILE' and commit your removal.
+
+`cannot change permissions on temporary directory'
+          Operation not permitted
+     This message has been happening in a non-reproducible, occasional
+     way when we run the client/server testsuite, both on Red Hat Linux
+     3.0.3 and 4.1.  We haven't been able to figure out what causes it,
+     nor is it known whether it is specific to Linux (or even to this
+     particular machine!).  If the problem does occur on other unices,
+     `Operation not permitted' would be likely to read `Not owner' or
+     whatever the system in question uses for the unix `EPERM' error.
+     If you have any information to add, please let us know as
+     described in *Note BUGS::.  If you experience this error while
+     using CVS, retrying the operation which produced it should work
+     fine.
+
+`cvs [server aborted]: Cannot check out files into the repository itself'
+     The obvious cause for this message (especially for
+     non-client/server CVS) is that the CVS root is, for example,
+     `/usr/local/cvsroot' and you try to check out files when you are
+     in a subdirectory, such as `/usr/local/cvsroot/test'.  However,
+     there is a more subtle cause, which is that the temporary
+     directory on the server is set to a subdirectory of the root
+     (which is also not allowed).  If this is the problem, set the
+     temporary directory to somewhere else, for example `/var/tmp'; see
+     `TMPDIR' in *Note Environment variables::, for how to set the
+     temporary directory.
+
+`cannot commit files as 'root''
+     See `'root' is not allowed to commit files'.
+
+`cannot open CVS/Entries for reading: No such file or directory'
+     This generally indicates a CVS internal error, and can be handled
+     as with other CVS bugs (*note BUGS::).  Usually there is a
+     workaround--the exact nature of which would depend on the
+     situation but which hopefully could be figured out.
+
+`cvs [init aborted]: cannot open CVS/Root: No such file or directory'
+     This message is harmless.  Provided it is not accompanied by other
+     errors, the operation has completed successfully.  This message
+     should not occur with current versions of CVS, but it is documented
+     here for the benefit of CVS 1.9 and older.
+
+`cvs server: cannot open /root/.cvsignore: Permission denied'
+`cvs [server aborted]: can't chdir(/root): Permission denied'
+     See *Note Connection::.
+
+`cvs [checkout aborted]: cannot rename file FILE to CVS/,,FILE: Invalid argument'
+     This message has been reported as intermittently happening with
+     CVS 1.9 on Solaris 2.5.  The cause is unknown; if you know more
+     about what causes it, let us know as described in *Note BUGS::.
+
+`cvs [COMMAND aborted]: cannot start server via rcmd'
+     This, unfortunately, is a rather nonspecific error message which
+     CVS 1.9 will print if you are running the CVS client and it is
+     having trouble connecting to the server.  Current versions of CVS
+     should print a much more specific error message.  If you get this
+     message when you didn't mean to run the client at all, you
+     probably forgot to specify `:local:', as described in *Note
+     Repository::.
+
+`ci: FILE,v: bad diff output line: Binary files - and /tmp/T2a22651 differ'
+     CVS 1.9 and older will print this message when trying to check in
+     a binary file if RCS is not correctly installed.  Re-read the
+     instructions that came with your RCS distribution and the INSTALL
+     file in the CVS distribution.  Alternately, upgrade to a current
+     version of CVS, which checks in files itself rather than via RCS.
+
+`cvs checkout: could not check out FILE'
+     With CVS 1.9, this can mean that the `co' program (part of RCS)
+     returned a failure.  It should be preceded by another error
+     message, however it has been observed without another error
+     message and the cause is not well-understood.  With the current
+     version of CVS, which does not run `co', if this message occurs
+     without another error message, it is definitely a CVS bug (*note
+     BUGS::).
+
+`cvs [login aborted]: could not find out home directory'
+     This means that you need to set the environment variables that CVS
+     uses to locate your home directory.  See the discussion of `HOME',
+     `HOMEDRIVE', and `HOMEPATH' in *Note Environment variables::.
+
+`cvs update: could not merge revision REV of FILE: No such file or directory'
+     CVS 1.9 and older will print this message if there was a problem
+     finding the `rcsmerge' program.  Make sure that it is in your
+     `PATH', or upgrade to a current version of CVS, which does not
+     require an external `rcsmerge' program.
+
+`cvs [update aborted]: could not patch FILE: No such file or directory'
+     This means that there was a problem finding the `patch' program.
+     Make sure that it is in your `PATH'.  Note that despite
+     appearances the message is _not_ referring to whether it can find
+     FILE.  If both the client and the server are running a current
+     version of CVS, then there is no need for an external patch
+     program and you should not see this message.  But if either client
+     or server is running CVS 1.9, then you need `patch'.
+
+`cvs update: could not patch FILE; will refetch'
+     This means that for whatever reason the client was unable to apply
+     a patch that the server sent.  The message is nothing to be
+     concerned about, because inability to apply the patch only slows
+     things down and has no effect on what CVS does.
+
+`dying gasps from SERVER unexpected'
+     There is a known bug in the server for CVS 1.9.18 and older which
+     can cause this.  For me, this was reproducible if I used the `-t'
+     global option.  It was fixed by Andy Piper's 14 Nov 1997 change to
+     src/filesubr.c, if anyone is curious.  If you see the message, you
+     probably can just retry the operation which failed, or if you have
+     discovered information concerning its cause, please let us know as
+     described in *Note BUGS::.
+
+`end of file from server (consult above messages if any)'
+     The most common cause for this message is if you are using an
+     external `rsh' program and it exited with an error.  In this case
+     the `rsh' program should have printed a message, which will appear
+     before the above message.  For more information on setting up a
+     CVS client and server, see *Note Remote repositories::.
+
+`cvs [update aborted]: EOF in key in RCS file FILE,v'
+`cvs [checkout aborted]: EOF while looking for end of string in RCS file FILE,v'
+     This means that there is a syntax error in the given RCS file.
+     Note that this might be true even if RCS can read the file OK; CVS
+     does more error checking of errors in the RCS file.  That is why
+     you may see this message when upgrading from CVS 1.9 to CVS 1.10.
+     The likely cause for the original corruption is hardware, the
+     operating system, or the like.  Of course, if you find a case in
+     which CVS seems to corrupting the file, by all means report it,
+     (*note BUGS::).  There are quite a few variations of this error
+     message, depending on exactly where in the RCS file CVS finds the
+     syntax error.
+
+`cvs commit: Executing 'mkmodules''
+     This means that your repository is set up for a version of CVS
+     prior to CVS 1.8.  When using CVS 1.8 or later, the above message
+     will be preceded by
+
+          cvs commit: Rebuilding administrative file database
+
+     If you see both messages, the database is being rebuilt twice,
+     which is unnecessary but harmless.  If you wish to avoid the
+     duplication, and you have no versions of CVS 1.7 or earlier in
+     use, remove `-i mkmodules' every place it appears in your `modules'
+     file.  For more information on the `modules' file, see *Note
+     modules::.
+
+`missing author'
+     Typically this can happen if you created an RCS file with your
+     username set to empty.  CVS will, bogusly, create an illegal RCS
+     file with no value for the author field.  The solution is to make
+     sure your username is set to a non-empty value and re-create the
+     RCS file.
+
+`cvs [checkout aborted]: no such tag TAG'
+     This message means that CVS isn't familiar with the tag TAG.
+     Usually this means that you have mistyped a tag name; however
+     there are (relatively obscure) cases in which CVS will require you
+     to try a few other CVS commands involving that tag, before you
+     find one which will cause CVS to update the `val-tags' file; see
+     discussion of val-tags in *Note File permissions::.  You only need
+     to worry about this once for a given tag; when a tag is listed in
+     `val-tags', it stays there.  Note that using `-f' to not require
+     tag matches does not override this check; see *Note Common
+     options::.
+
+`*PANIC* administration files missing'
+     This typically means that there is a directory named CVS but it
+     does not contain the administrative files which CVS puts in a CVS
+     directory.  If the problem is that you created a CVS directory via
+     some mechanism other than CVS, then the answer is simple, use a
+     name other than CVS.  If not, it indicates a CVS bug (*note
+     BUGS::).
+
+`rcs error: Unknown option: -x,v/'
+     This message will be followed by a usage message for RCS.  It
+     means that you have an old version of RCS (probably supplied with
+     your operating system), as well as an old version of CVS.  CVS
+     1.9.18 and earlier only work with RCS version 5 and later; current
+     versions of CVS do not run RCS programs.
+
+`cvs [server aborted]: received broken pipe signal'
+     This message can be caused by a loginfo program that fails to read
+     all of the log information from its standard input.  If you find
+     it happening in any other circumstances, please let us know as
+     described in *Note BUGS::.
+
+`'root' is not allowed to commit files'
+     When committing a permanent change, CVS makes a log entry of who
+     committed the change.  If you are committing the change logged in
+     as "root" (not under "su" or other root-priv giving program), CVS
+     cannot determine who is actually making the change.  As such, by
+     default, CVS disallows changes to be committed by users logged in
+     as "root".  (You can disable this option by passing the
+     `--enable-rootcommit' option to `configure' and recompiling CVS.
+     On some systems this means editing the appropriate `config.h' file
+     before building CVS.)
+
+`Too many arguments!'
+     This message is typically printed by the `log.pl' script which is
+     in the `contrib' directory in the CVS source distribution.  In
+     some versions of CVS, `log.pl' has been part of the default CVS
+     installation.  The `log.pl' script gets called from the `loginfo'
+     administrative file.  Check that the arguments passed in `loginfo'
+     match what your version of `log.pl' expects.  In particular, the
+     `log.pl' from CVS 1.3 and older expects the log file as an
+     argument whereas the `log.pl' from CVS 1.5 and newer expects the
+     log file to be specified with a `-f' option.  Of course, if you
+     don't need `log.pl' you can just comment it out of `loginfo'.
+
+`cvs [update aborted]: unexpected EOF reading FILE,v'
+     See `EOF in key in RCS file'.
+
+`cvs [login aborted]: unrecognized auth response from SERVER'
+     This message typically means that the server is not set up
+     properly.  For example, if `inetd.conf' points to a nonexistent
+     cvs executable.  To debug it further, find the log file which
+     inetd writes (`/var/log/messages' or whatever inetd uses on your
+     system).  For details, see *Note Connection::, and *Note Password
+     authentication server::.
+
+`cvs commit: Up-to-date check failed for `FILE''
+     This means that someone else has committed a change to that file
+     since the last time that you did a `cvs update'.  So before
+     proceeding with your `cvs commit' you need to `cvs update'.  CVS
+     will merge the changes that you made and the changes that the
+     other person made.  If it does not detect any conflicts it will
+     report `M FILE' and you are ready to `cvs commit'.  If it detects
+     conflicts it will print a message saying so, will report `C FILE',
+     and you need to manually resolve the conflict.  For more details
+     on this process see *Note Conflicts example::.
+
+`Usage:	diff3 [-exEX3 [-i | -m] [-L label1 -L label3]] file1 file2 file3'
+          Only one of [exEX3] allowed
+     This indicates a problem with the installation of `diff3' and
+     `rcsmerge'.  Specifically `rcsmerge' was compiled to look for GNU
+     diff3, but it is finding unix diff3 instead.  The exact text of
+     the message will vary depending on the system.  The simplest
+     solution is to upgrade to a current version of CVS, which does not
+     rely on external `rcsmerge' or `diff3' programs.
+
+`warning: unrecognized response `TEXT' from cvs server'
+     If TEXT contains a valid response (such as `ok') followed by an
+     extra carriage return character (on many systems this will cause
+     the second part of the message to overwrite the first part), then
+     it probably means that you are using the `:ext:' access method
+     with a version of rsh, such as most non-unix rsh versions, which
+     does not by default provide a transparent data stream.  In such
+     cases you probably want to try `:server:' instead of `:ext:'.  If
+     TEXT is something else, this may signify a problem with your CVS
+     server.  Double-check your installation against the instructions
+     for setting up the CVS server.
+
+`cvs commit: [TIME] waiting for USER's lock in DIRECTORY'
+     This is a normal message, not an error.  See *Note Concurrency::,
+     for more details.
+
+`cvs commit: warning: editor session failed'
+     This means that the editor which CVS is using exits with a nonzero
+     exit status.  Some versions of vi will do this even when there was
+     not a problem editing the file.  If so, point the `CVSEDITOR'
+     environment variable to a small script such as:
+
+          #!/bin/sh
+          vi $*
+          exit 0
+
+
+
+File: cvs.info,  Node: Connection,  Next: Other problems,  Prev: Error messages,  Up: Troubleshooting
+
+Trouble making a connection to a CVS server
+===========================================
+
+   This section concerns what to do if you are having trouble making a
+connection to a CVS server.  If you are running the CVS command line
+client running on Windows, first upgrade the client to CVS 1.9.12 or
+later.  The error reporting in earlier versions provided much less
+information about what the problem was.  If the client is non-Windows,
+CVS 1.9 should be fine.
+
+   If the error messages are not sufficient to track down the problem,
+the next steps depend largely on which access method you are using.
+
+`:ext:'
+     Try running the rsh program from the command line.  For example:
+     "rsh servername cvs -v" should print CVS version information.  If
+     this doesn't work, you need to fix it before you can worry about
+     CVS problems.
+
+`:server:'
+     You don't need a command line rsh program to use this access
+     method, but if you have an rsh program around, it may be useful as
+     a debugging tool.  Follow the directions given for :ext:.
+
+`:pserver:'
+     Errors along the lines of "connection refused" typically indicate
+     that inetd isn't even listening for connections on port 2401
+     whereas errors like "connection reset by peer", "received broken
+     pipe signal", "recv() from server: EOF", or "end of file from
+     server" typically indicate that inetd is listening for connections
+     but is unable to start CVS (this is frequently caused by having an
+     incorrect path in `inetd.conf' or by firewall software rejecting
+     the connection).  "unrecognized auth response" errors are caused
+     by a bad command line in `inetd.conf', typically an invalid option
+     or forgetting to put the `pserver' command at the end of the line.
+     Another less common problem is invisible control characters that
+     your editor "helpfully" added without you noticing.
+
+     One good debugging tool is to "telnet servername 2401".  After
+     connecting, send any text (for example "foo" followed by return).
+     If CVS is working correctly, it will respond with
+
+          cvs [pserver aborted]: bad auth protocol start: foo
+
+     If instead you get:
+
+          Usage: cvs [cvs-options] command [command-options-and-arguments]
+          ...
+
+     then you're missing the `pserver' command at the end of the line
+     in `inetd.conf'; check to make sure that the entire command is on
+     one line and that it's complete.
+
+     Likewise, if you get something like:
+
+          Unknown command: `pserved'
+          
+          CVS commands are:
+                  add          Add a new file/directory to the repository
+          ...
+
+     then you've misspelled `pserver' in some way.  If it isn't
+     obvious, check for invisible control characters (particularly
+     carriage returns) in `inetd.conf'.
+
+     If it fails to work at all, then make sure inetd is working right.
+     Change the invocation in `inetd.conf' to run the echo program
+     instead of cvs.  For example:
+
+          2401  stream  tcp  nowait  root /bin/echo echo hello
+
+     After making that change and instructing inetd to re-read its
+     configuration file, "telnet servername 2401" should show you the
+     text hello and then the server should close the connection.  If
+     this doesn't work, you need to fix it before you can worry about
+     CVS problems.
+
+     On AIX systems, the system will often have its own program trying
+     to use port 2401.  This is AIX's problem in the sense that port
+     2401 is registered for use with CVS.  I hear that there is an AIX
+     patch available to address this problem.
+
+     Another good debugging tool is the `-d' (debugging) option to
+     inetd.  Consult your system documentation for more information.
+
+     If you seem to be connecting but get errors like:
+
+          cvs server: cannot open /root/.cvsignore: Permission denied
+          cvs [server aborted]: can't chdir(/root): Permission denied
+
+     then you probably haven't specified `-f' in `inetd.conf'.  (In
+     releases prior to CVS 1.11.1, this problem can be caused by your
+     system setting the `$HOME' environment variable for programs being
+     run by inetd.  In this case, you can either have inetd run a shell
+     script that unsets `$HOME' and then runs CVS, or you can use `env'
+     to run CVS with a pristine environment.)
+
+     If you can connect successfully for a while but then can't, you've
+     probably hit inetd's rate limit.  (If inetd receives too many
+     requests for the same service in a short period of time, it
+     assumes that something is wrong and temporarily disables the
+     service.)  Check your inetd documentation to find out how to
+     adjust the rate limit (some versions of inetd have a single rate
+     limit, others allow you to set the limit for each service
+     separately.)
+
+
+File: cvs.info,  Node: Other problems,  Prev: Connection,  Up: Troubleshooting
+
+Other common problems
+=====================
+
+   Here is a list of problems which do not fit into the above
+categories.  They are in no particular order.
+
+   * On Windows, if there is a 30 second or so delay when you run a CVS
+     command, it may mean that you have your home directory set to
+     `C:/', for example (see `HOMEDRIVE' and `HOMEPATH' in *Note
+     Environment variables::).  CVS expects the home directory to not
+     end in a slash, for example `C:' or `C:\cvs'.
+
+   * If you are running CVS 1.9.18 or older, and `cvs update' finds a
+     conflict and tries to merge, as described in *Note Conflicts
+     example::, but doesn't tell you there were conflicts, then you may
+     have an old version of RCS.  The easiest solution probably is to
+     upgrade to a current version of CVS, which does not rely on
+     external RCS programs.
+
+
+File: cvs.info,  Node: Credits,  Next: BUGS,  Prev: Troubleshooting,  Up: Top
+
+Credits
+*******
+
+   Roland Pesch, then of Cygnus Support <roland@wrs.com> wrote the
+manual pages which were distributed with CVS 1.3.  Much of their text
+was copied into this manual.  He also read an early draft of this
+manual and contributed many ideas and corrections.
+
+   The mailing-list `info-cvs' is sometimes informative. I have
+included information from postings made by the following persons: David
+G. Grubbs <dgg@think.com>.
+
+   Some text has been extracted from the man pages for RCS.
+
+   The CVS FAQ by David G. Grubbs has provided useful material.  The
+FAQ is no longer maintained, however, and this manual is about the
+closest thing there is to a successor (with respect to documenting how
+to use CVS, at least).
+
+   In addition, the following persons have helped by telling me about
+mistakes I've made:
+
+     Roxanne Brunskill <rbrunski@datap.ca>,
+     Kathy Dyer <dyer@phoenix.ocf.llnl.gov>,
+     Karl Pingle <pingle@acuson.com>,
+     Thomas A Peterson <tap@src.honeywell.com>,
+     Inge Wallin <ingwa@signum.se>,
+     Dirk Koschuetzki <koschuet@fmi.uni-passau.de>
+     and Michael Brown <brown@wi.extrel.com>.
+
+   The list of contributors here is not comprehensive; for a more
+complete list of who has contributed to this manual see the file
+`doc/ChangeLog' in the CVS source distribution.
+
+
+File: cvs.info,  Node: BUGS,  Next: Index,  Prev: Credits,  Up: Top
+
+Dealing with bugs in CVS or this manual
+***************************************
+
+   Neither CVS nor this manual is perfect, and they probably never will
+be.  If you are having trouble using CVS, or think you have found a
+bug, there are a number of things you can do about it.  Note that if
+the manual is unclear, that can be considered a bug in the manual, so
+these problems are often worth doing something about as well as
+problems with CVS itself.
+
+   * If you want someone to help you and fix bugs that you report,
+     there are companies which will do that for a fee.  One such
+     company is:
+
+          Ximbiot
+          319 S. River St.
+          Harrisburg, PA  17104-1657
+          USA
+          Email: info@ximbiot.com
+          Phone: (717) 579-6168
+          Fax:   (717) 234-3125
+          <http://ximbiot.com/>
+
+   * If you got CVS through a distributor, such as an operating system
+     vendor or a vendor of freeware CD-ROMs, you may wish to see
+     whether the distributor provides support.  Often, they will provide
+     no support or minimal support, but this may vary from distributor
+     to distributor.
+
+   * If you have the skills and time to do so, you may wish to fix the
+     bug yourself.  If you wish to submit your fix for inclusion in
+     future releases of CVS, see the file HACKING in the CVS source
+     distribution.  It contains much more information on the process of
+     submitting fixes.
+
+   * There may be resources on the net which can help.  Two good places
+     to start are:
+
+          <http://www.cvshome.org>
+          <http://www.loria.fr/~molli/cvs-index.html>
+
+     If you are so inspired, increasing the information available on
+     the net is likely to be appreciated.  For example, before the
+     standard CVS distribution worked on Windows 95, there was a web
+     page with some explanation and patches for running CVS on Windows
+     95, and various people helped out by mentioning this page on
+     mailing lists or newsgroups when the subject came up.
+
+   * It is also possible to report bugs to <bug-cvs@gnu.org>.  Note
+     that someone may or may not want to do anything with your bug
+     report--if you need a solution consider one of the options
+     mentioned above.  People probably do want to hear about bugs which
+     are particularly severe in consequences and/or easy to fix,
+     however.  You can also increase your odds by being as clear as
+     possible about the exact nature of the bug and any other relevant
+     information.  The way to report bugs is to send email to
+     <bug-cvs@gnu.org>.  Note that submissions to <bug-cvs@gnu.org> may
+     be distributed under the terms of the GNU Public License, so if
+     you don't like this, don't submit them.  There is usually no
+     justification for sending mail directly to one of the CVS
+     maintainers rather than to <bug-cvs@gnu.org>; those maintainers
+     who want to hear about such bug reports read <bug-cvs@gnu.org>.
+     Also note that sending a bug report to other mailing lists or
+     newsgroups is _not_ a substitute for sending it to
+     <bug-cvs@gnu.org>.  It is fine to discuss CVS bugs on whatever
+     forum you prefer, but there are not necessarily any maintainers
+     reading bug reports sent anywhere except <bug-cvs@gnu.org>.
+
+   People often ask if there is a list of known bugs or whether a
+particular bug is a known one.  The file BUGS in the CVS source
+distribution is one list of known bugs, but it doesn't necessarily try
+to be comprehensive.  Perhaps there will never be a comprehensive,
+detailed list of known bugs.
+

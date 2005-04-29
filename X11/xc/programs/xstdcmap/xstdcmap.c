@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
  * *
  * Author:  Donna Converse, MIT X Consortium
  */
-/* $XFree86: xc/programs/xstdcmap/xstdcmap.c,v 1.8 2001/12/14 20:02:30 dawes Exp $ */
+/* $XFree86: xc/programs/xstdcmap/xstdcmap.c,v 1.9 2003/03/26 20:44:00 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -348,6 +348,9 @@ main(int argc, char *argv[])
     if (help) {
 	usage(0);
 	Exit(0);
+
+	/* Muffle gcc */
+	return 0;
     }
 
     if (all) {

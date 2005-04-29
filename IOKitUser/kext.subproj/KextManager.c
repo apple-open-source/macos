@@ -6,8 +6,11 @@
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <servers/bootstrap.h>
+#include <syslog.h>
+#include <stdarg.h>
 
 static const char * KEXTD_SERVER_NAME = "com.apple.KernelExtensionServer";
+static kern_return_t get_kextd_port(mach_port_t *kextd_port); // internal convenience function
 
 CFURLRef KextManagerCreateURLForBundleIdentifier(
     CFAllocatorRef allocator,
@@ -18,7 +21,6 @@ CFURLRef KextManagerCreateURLForBundleIdentifier(
     kern_return_t kern_result = KERN_FAILURE;
     char bundle_id[KMOD_MAX_NAME] = "";
 
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
 
     char bundle_path[MAXPATHLEN] = "";
@@ -30,30 +32,12 @@ CFURLRef KextManagerCreateURLForBundleIdentifier(
     }
 
     if (!CFStringGetCString(bundleIdentifier,
-        bundle_id, sizeof(bundle_id) - 1, kCFStringEncodingMacRoman)) {
+        bundle_id, sizeof(bundle_id) - 1, kCFStringEncodingUTF8)) {
         goto finish;
     }
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -68,7 +52,7 @@ CFURLRef KextManagerCreateURLForBundleIdentifier(
     }
 
     bundlePath = CFStringCreateWithCString(kCFAllocatorDefault,
-        bundle_path, kCFStringEncodingMacRoman);
+        bundle_path, kCFStringEncodingUTF8);
     if (!bundlePath) {
         goto finish;
     }
@@ -93,7 +77,6 @@ CFArrayRef _KextManagerCreatePropertyValueArray(
     kern_return_t kern_result = KERN_FAILURE;
     char property_key[128] = "";  // matches prop_key_t in .defs file
 
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
 
     char * xml_data = NULL;  // must vm_deallocate()
@@ -106,30 +89,12 @@ CFArrayRef _KextManagerCreatePropertyValueArray(
     }
 
     if (!CFStringGetCString(propertyKey,
-        property_key, sizeof(property_key) - 1, kCFStringEncodingMacRoman)) {
+        property_key, sizeof(property_key) - 1, kCFStringEncodingUTF8)) {
         goto finish;
     }
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -176,29 +141,10 @@ finish:
 void _KextManagerUserDidLogIn(uid_t euid, AuthorizationExternalForm authref)
 {
     kern_return_t kern_result = KERN_FAILURE;
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -215,29 +161,10 @@ finish:
 void _KextManagerUserWillLogOut(uid_t euid)
 {
     kern_return_t kern_result = KERN_FAILURE;
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -254,30 +181,11 @@ finish:
 uid_t _KextManagerGetLoggedInUserid()
 {
     kern_return_t kern_result = KERN_FAILURE;
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
     uid_t euid = -1;
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -296,29 +204,10 @@ void _KextManagerRecordNonsecureKextload(const char * load_data,
     size_t data_length)
 {
     kern_return_t kern_result = KERN_FAILURE;
-    mach_port_t   bootstrap_port = PORT_NULL;
     mach_port_t   kextd_port = PORT_NULL;
 
-    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    kern_result = get_kextd_port (&kextd_port);
     if (kern_result != KERN_SUCCESS) {
-        goto finish;
-    }
-
-    kern_result = bootstrap_look_up(bootstrap_port,
-        (char *)KEXTD_SERVER_NAME, &kextd_port);
-    switch (kern_result) {
-      case BOOTSTRAP_SUCCESS :
-        /* service currently registered, "a good thing" (tm) */
-        break;
-      case BOOTSTRAP_UNKNOWN_SERVICE :
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s\n",
-            mach_error_string(kern_result));
-        goto finish;
-      default:
-        /* service not currently registered, try again later */
-        fprintf(stderr, "bootstrap_look_up(): %s [%d]\n",
-            mach_error_string(kern_result), kern_result);
         goto finish;
     }
 
@@ -331,3 +220,18 @@ void _KextManagerRecordNonsecureKextload(const char * load_data,
 finish:
     return;
 }
+
+static kern_return_t get_kextd_port(mach_port_t *kextd_port)
+{
+    kern_return_t kern_result = KERN_FAILURE;
+    mach_port_t   bootstrap_port = PORT_NULL;
+	
+    kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
+    if (kern_result == KERN_SUCCESS) {
+        kern_result = bootstrap_look_up(bootstrap_port,
+                (char *)KEXTD_SERVER_NAME, kextd_port);
+    }
+	
+    return kern_result;
+}
+

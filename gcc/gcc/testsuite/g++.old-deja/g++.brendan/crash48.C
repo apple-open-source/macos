@@ -1,22 +1,22 @@
-// Build don't link: 
+// { dg-do compile }
 // GROUPS passed old-abort
-class internal { // ERROR - candidates are
+class internal { // { dg-error "internal::internal" }
 	int field;
 	int anotherfield;
 };
 
-class bug { // ERROR - several errors
+class bug { // { dg-error "bug::bug" }
 	internal* numbers;
 	bug(int size);
 };
 
-bug::bug(int size)
-{ // ERROR - candidates
-	numbers = new internal(size * size);// ERROR -  no match.*
+bug::bug(int size) // { dg-error "bug::bug" }
+{
+  numbers = new internal(size * size);// { dg-error "no match" }
 }
 
 int
 main()
 {
-	bug test;// ERROR -  no match
+  bug test; // { dg-error "no match" }
 }

@@ -1,3 +1,14 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
 /*
  * scapi.c
  *
@@ -64,6 +75,7 @@
 #include <openssl/aes.h>
 #endif
 
+#ifndef DISABLE_DES
 #ifdef STRUCT_DES_KS_STRUCT_HAS_WEAK_KEY
 /* these are older names for newer structures that exist in openssl .9.7 */
 #define DES_key_schedule    des_key_schedule 
@@ -73,8 +85,13 @@
 #define DES_cbc_encrypt    des_cbc_encrypt
 #define OLD_DES
 #endif
+#endif
 
 #endif /* HAVE_OPENSSL */
+
+#ifdef USE_PKCS
+#include <security/cryptoki.h>
+#endif
 
 #ifdef QUITFUN
 #undef QUITFUN
@@ -101,12 +118,32 @@ sc_get_properlength(const oid * hashtype, u_int hashtype_len)
     /*
      * Determine transform type hash length.
      */
+#ifndef DISABLE_MD5
     if (ISTRANSFORM(hashtype, HMACMD5Auth)) {
         return BYTESIZE(SNMP_TRANS_AUTHLEN_HMACMD5);
-    } else if (ISTRANSFORM(hashtype, HMACSHA1Auth)) {
+    } else
+#endif
+        if (ISTRANSFORM(hashtype, HMACSHA1Auth)) {
         return BYTESIZE(SNMP_TRANS_AUTHLEN_HMACSHA1);
     }
     return SNMPERR_GENERR;
+}
+
+int
+sc_get_proper_priv_length(const oid * privtype, u_int privtype_len)
+{
+    int properlength = 0;
+#ifndef DISABLE_DES
+    if (ISTRANSFORM(privtype, DESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
+    }
+#endif
+#ifdef HAVE_AES
+    if (ISTRANSFORM(privtype, AESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES);
+    }
+#endif
+    return properlength;
 }
 
 
@@ -130,9 +167,12 @@ sc_init(void)
     gettimeofday(&tv, (struct timezone *) 0);
 
     srandom(tv.tv_sec ^ tv.tv_usec);
+#elif USE_PKCS
+    DEBUGTRACE;
+    rval = pkcs_init();
 #else
     rval = SNMPERR_SC_NOT_CONFIGURED;
-#endif
+#endif                           /* USE_INTERNAL_MD5 */
     /*
      * XXX ogud: The only reason to do anything here with openssl is to 
      * * XXX ogud: seed random number generator 
@@ -153,7 +193,7 @@ sc_init(void)
  */
 int
 sc_random(u_char * buf, size_t * buflen)
-#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL)
+#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL) || defined(USE_PKCS)
 {
     int             rval = SNMPERR_SUCCESS;
 #ifdef USE_INTERNAL_MD5
@@ -166,6 +206,8 @@ sc_random(u_char * buf, size_t * buflen)
 
 #ifdef USE_OPENSSL
     RAND_bytes(buf, *buflen);   /* will never fail */
+#elif USE_PKCS			/* USE_PKCS */
+    pkcs_random(buf, *buflen);
 #else                           /* USE_INTERNAL_MD5 */
     /*
      * fill the buffer with random integers.  Note that random()
@@ -223,14 +265,14 @@ sc_generate_keyed_hash(const oid * authtype, size_t authtypelen,
                        u_char * key, u_int keylen,
                        u_char * message, u_int msglen,
                        u_char * MAC, size_t * maclen)
-#if  defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL)
+#if  defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL) || defined(USE_PKCS)
 {
     int             rval = SNMPERR_SUCCESS;
     int             properlength;
 
     u_char          buf[SNMP_MAXBUF_SMALL];
-#if  defined(USE_OPENSSL)
-    int             buf_len = sizeof(buf);
+#if  defined(USE_OPENSSL) || defined(USE_PKCS)
+    size_t             buf_len = sizeof(buf);
 #endif
 
     DEBUGTRACE;
@@ -266,20 +308,50 @@ sc_generate_keyed_hash(const oid * authtype, size_t authtypelen,
     /*
      * Determine transform type.
      */
+#ifndef DISABLE_MD5
     if (ISTRANSFORM(authtype, HMACMD5Auth))
         HMAC(EVP_md5(), key, keylen, message, msglen, buf, &buf_len);
-    else if (ISTRANSFORM(authtype, HMACSHA1Auth))
+    else
+#endif
+        if (ISTRANSFORM(authtype, HMACSHA1Auth))
         HMAC(EVP_sha1(), key, keylen, message, msglen, buf, &buf_len);
     else {
         QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
     }
+    if ((int)buf_len != properlength) {
+        QUITFUN(rval, sc_generate_keyed_hash_quit);
+    }
+    if ((int)*maclen > buf_len)
+        *maclen = buf_len;
+    memcpy(MAC, buf, *maclen);
+
+#elif USE_PKCS                    /* USE_PKCS */
+
+#ifndef DISABLE_MD5
+    if (ISTRANSFORM(authtype, HMACMD5Auth)) {
+	if (pkcs_sign(CKM_MD5_HMAC,key, keylen, message,
+			msglen, buf, &buf_len) != SNMPERR_SUCCESS) {
+            QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
+        }
+    } else
+#endif
+        if (ISTRANSFORM(authtype, HMACSHA1Auth)) {
+	if (pkcs_sign(CKM_SHA_1_HMAC,key, keylen, message,
+			msglen, buf, &buf_len) != SNMPERR_SUCCESS) {
+            QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
+        }
+    } else {
+        QUITFUN(SNMPERR_GENERR, sc_generate_keyed_hash_quit);
+    }
+
     if (buf_len != properlength) {
         QUITFUN(rval, sc_generate_keyed_hash_quit);
     }
     if (*maclen > buf_len)
         *maclen = buf_len;
     memcpy(MAC, buf, *maclen);
-#else
+
+#else                            /* USE_INTERNAL_MD5 */
     if ((int) *maclen > properlength)
         *maclen = properlength;
     if (MDsign(message, msglen, MAC, *maclen, key, keylen)) {
@@ -297,7 +369,7 @@ sc_generate_keyed_hash(const oid * authtype, size_t authtypelen,
         SNMP_ZERO(s, len);
         SNMP_FREE(s);
     }
-#endif
+#endif                          /* SNMP_TESTING_CODE */
 
   sc_generate_keyed_hash_quit:
     SNMP_ZERO(buf, SNMP_MAXBUF_SMALL);
@@ -328,10 +400,13 @@ sc_generate_keyed_hash(const oid * authtype, size_t authtypelen,
 int
 sc_hash(const oid * hashtype, size_t hashtypelen, u_char * buf,
         size_t buf_len, u_char * MAC, size_t * MAC_len)
-#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL)
+#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL) || defined(USE_PKCS)
 {
-#ifdef USE_OPENSSL
+#if defined(USE_OPENSSL) || defined(USE_PKCS)
     int             rval = SNMPERR_SUCCESS;
+#endif
+
+#ifdef USE_OPENSSL
     const EVP_MD         *hashfn;
     EVP_MD_CTX     ctx, *cptr;
 #endif
@@ -347,9 +422,12 @@ sc_hash(const oid * hashtype, size_t hashtypelen, u_char * buf,
     /*
      * Determine transform type.
      */
+#ifndef DISABLE_MD5
     if (ISTRANSFORM(hashtype, HMACMD5Auth)) {
         hashfn = (const EVP_MD *) EVP_md5();
-    } else if (ISTRANSFORM(hashtype, HMACSHA1Auth)) {
+    } else
+#endif
+        if (ISTRANSFORM(hashtype, HMACSHA1Auth)) {
         hashfn = (const EVP_MD *) EVP_sha1();
     } else {
         return (SNMPERR_GENERR);
@@ -388,8 +466,23 @@ sc_hash(const oid * hashtype, size_t hashtypelen, u_char * buf,
         EVP_DigestFinal_ex(cptr, MAC, MAC_len);
         EVP_MD_CTX_cleanup(cptr);
     }
-#endif
+#endif                          /* OLD_DES */
     return (rval);
+#elif USE_PKCS                  /* USE_PKCS */
+
+#ifndef DISABLE_MD5
+    if (ISTRANSFORM(hashtype, HMACMD5Auth)) {
+	rval = pkcs_digest(CKM_MD5, buf, buf_len, MAC, MAC_len);
+    } else
+#endif
+        if (ISTRANSFORM(hashtype, HMACSHA1Auth)) {
+	rval = pkcs_digest(CKM_SHA_1, buf, buf_len, MAC, MAC_len);
+    } else {
+        return (SNMPERR_GENERR);
+    }
+
+     return (rval);
+
 #else                           /* USE_INTERNAL_MD5 */
 
     if (MDchecksum(buf, buf_len, MAC, *MAC_len)) {
@@ -432,7 +525,7 @@ sc_check_keyed_hash(const oid * authtype, size_t authtypelen,
                     u_char * key, u_int keylen,
                     u_char * message, u_int msglen,
                     u_char * MAC, u_int maclen)
-#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL)
+#if defined(USE_INTERNAL_MD5) || defined(USE_OPENSSL) || defined(USE_PKCS)
 {
     int             rval = SNMPERR_SUCCESS;
     size_t          buf_len = SNMP_MAXBUF_SMALL;
@@ -523,10 +616,12 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
 #if defined(USE_OPENSSL)
 {
     int             rval = SNMPERR_SUCCESS;
-    u_int           properlength, properlength_iv;
+    u_int           properlength = 0, properlength_iv = 0;
     u_char          pad_block[128];      /* bigger than anything I need */
     u_char          my_iv[128];  /* ditto */
-    int             pad, plast, pad_size;
+    int             pad, plast, pad_size = 0;
+    int             have_trans;
+#ifndef DISABLE_DES
 #ifdef OLD_DES
     DES_key_schedule key_sch;
 #else
@@ -534,6 +629,7 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
     DES_key_schedule *key_sch = &key_sched_store;
 #endif
     DES_cblock       key_struct;
+#endif
 #ifdef HAVE_AES
     AES_KEY aes_key;
     int new_ivlen = 0;
@@ -595,22 +691,23 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
     /*
      * Determine privacy transform.
      */
+    have_trans = 0;
+#ifndef DISABLE_DES
     if (ISTRANSFORM(privtype, DESPriv)) {
         properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
         properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
         pad_size = properlength;
-#ifdef HAVE_AES
-    } else if (ISTRANSFORM(privtype, AES128Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES128);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES128_IV);
-    } else if (ISTRANSFORM(privtype, AES192Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES192);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES192_IV);
-    } else if (ISTRANSFORM(privtype, AES256Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES256);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES256_IV);
+        have_trans = 1;
+    }
 #endif
-    } else {
+#ifdef HAVE_AES
+    if (ISTRANSFORM(privtype, AESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES);
+        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES_IV);
+        have_trans = 1;
+    }
+#endif
+    if (!have_trans) {
         QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
     }
 
@@ -620,6 +717,7 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
 
     memset(my_iv, 0, sizeof(my_iv));
 
+#ifndef DISABLE_DES
     if (ISTRANSFORM(privtype, DESPriv)) {
 
         /*
@@ -657,10 +755,9 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
             *ctlen = plast;
         }
     }
+#endif
 #ifdef HAVE_AES
-    else if (ISTRANSFORM(privtype, AES128Priv) ||
-             ISTRANSFORM(privtype, AES192Priv) ||
-             ISTRANSFORM(privtype, AES256Priv)) {
+    if (ISTRANSFORM(privtype, AESPriv)) {
         (void) AES_set_encrypt_key(key, properlength*8, &aes_key);
 
         memcpy(my_iv, iv, ivlen);
@@ -678,11 +775,13 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
      */
     memset(my_iv, 0, sizeof(my_iv));
     memset(pad_block, 0, sizeof(pad_block));
+#ifndef DISABLE_DES
     memset(key_struct, 0, sizeof(key_struct));
 #ifdef OLD_DES
     memset(&key_sch, 0, sizeof(key_sch));
 #else
     memset(&key_sched_store, 0, sizeof(key_sched_store));
+#endif
 #endif
 #ifdef HAVE_AES
     memset(&aes_key,0,sizeof(aes_key));
@@ -690,7 +789,55 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
     return rval;
 
 }                               /* end sc_encrypt() */
+#elif defined(USE_PKCS)
+{
+    int             rval = SNMPERR_SUCCESS;
+    u_int           properlength, properlength_iv;
+    u_char	    pkcs_des_key[8];
 
+    DEBUGTRACE;
+
+    /*
+     * Sanity check.
+     */
+#if	!defined(SCAPI_AUTHPRIV)
+    snmp_log(LOG_ERR, "Encryption support not enabled.\n");
+    return SNMPERR_SC_NOT_CONFIGURED;
+#endif
+
+    if (!privtype || !key || !iv || !plaintext || !ciphertext || !ctlen
+        || (keylen <= 0) || (ivlen <= 0) || (ptlen <= 0) || (*ctlen <= 0)
+        || (privtypelen != USM_LENGTH_OID_TRANSFORM)) {
+        QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
+    } else if (ptlen > *ctlen) {
+        QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
+    }
+
+    /*
+     * Determine privacy transform.
+     */
+    if (ISTRANSFORM(privtype, DESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
+        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
+    } else {
+        QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
+    }
+
+    if ((keylen < properlength) || (ivlen < properlength_iv)) {
+	QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
+    }
+
+    if (ISTRANSFORM(privtype, DESPriv)) {
+	memset(pkcs_des_key, 0, sizeof(pkcs_des_key));
+	memcpy(pkcs_des_key, key, sizeof(pkcs_des_key));
+	rval = pkcs_encrpyt(CKM_DES_CBC, pkcs_des_key,
+		sizeof(pkcs_des_key), iv, ivlen, plaintext, ptlen,
+		ciphertext, ctlen);
+    }
+
+  sc_encrypt_quit:
+    return rval;
+}
 #else
 {
 #	if USE_INTERNAL_MD5
@@ -744,6 +891,7 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
 
     int             rval = SNMPERR_SUCCESS;
     u_char          my_iv[128];
+#ifndef DISABLE_DES
 #ifdef OLD_DES
     DES_key_schedule key_sch;
 #else
@@ -751,7 +899,9 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
     DES_key_schedule *key_sch = &key_sched_store;
 #endif
     DES_cblock      key_struct;
-    u_int           properlength, properlength_iv;
+#endif
+    u_int           properlength = 0, properlength_iv = 0;
+    int             have_transform;
 #ifdef HAVE_AES
     int new_ivlen = 0;
     AES_KEY aes_key;
@@ -794,21 +944,22 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
     /*
      * Determine privacy transform.
      */
+    have_transform = 0;
+#ifndef DISABLE_DES
     if (ISTRANSFORM(privtype, DESPriv)) {
         properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
         properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
-#ifdef HAVE_AES
-    } else if (ISTRANSFORM(privtype, AES128Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES128);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES128_IV);
-    } else if (ISTRANSFORM(privtype, AES192Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES192);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES192_IV);
-    } else if (ISTRANSFORM(privtype, AES256Priv)) {
-        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES256);
-        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES256_IV);
+        have_transform = 1;
+    }
 #endif
-    } else {
+#ifdef HAVE_AES
+    if (ISTRANSFORM(privtype, AESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_AES);
+        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_AES_IV);
+        have_transform = 1;
+    }
+#endif
+    if (!have_transform) {
         QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
     }
 
@@ -817,6 +968,7 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
     }
 
     memset(my_iv, 0, sizeof(my_iv));
+#ifndef DISABLE_DES
     if (ISTRANSFORM(privtype, DESPriv)) {
         memcpy(key_struct, key, sizeof(key_struct));
         (void) DES_key_sched(&key_struct, key_sch);
@@ -826,10 +978,9 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
                         (DES_cblock *) my_iv, DES_DECRYPT);
         *ptlen = ctlen;
     }
+#endif
 #ifdef HAVE_AES
-    else if (ISTRANSFORM(privtype, AES128Priv) ||
-             ISTRANSFORM(privtype, AES192Priv) ||
-             ISTRANSFORM(privtype, AES256Priv)) {
+    if (ISTRANSFORM(privtype, AESPriv)) {
         (void) AES_set_encrypt_key(key, properlength*8, &aes_key);
 
         memcpy(my_iv, iv, ivlen);
@@ -846,16 +997,58 @@ sc_decrypt(const oid * privtype, size_t privtypelen,
      * exit cond 
      */
   sc_decrypt_quit:
+#ifndef DISABLE_DES
 #ifdef OLD_DES
     memset(&key_sch, 0, sizeof(key_sch));
 #else
     memset(&key_sched_store, 0, sizeof(key_sched_store));
 #endif
     memset(key_struct, 0, sizeof(key_struct));
+#endif
     memset(my_iv, 0, sizeof(my_iv));
     return rval;
-}
-#else                           /* USE OPEN_SSL */
+}				/* USE OPEN_SSL */
+#elif USE_PKCS                  /* USE PKCS */
+{
+    int             rval = SNMPERR_SUCCESS;
+    u_int           properlength, properlength_iv;
+    u_char	    pkcs_des_key[8];
+
+    DEBUGTRACE;
+
+    if (!privtype || !key || !iv || !plaintext || !ciphertext || !ptlen
+        || (ctlen <= 0) || (*ptlen <= 0) || (*ptlen < ctlen)
+        || (privtypelen != USM_LENGTH_OID_TRANSFORM)) {
+        QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
+    }
+
+    /*
+     * Determine privacy transform.
+     */
+    if (ISTRANSFORM(privtype, DESPriv)) {
+        properlength = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES);
+        properlength_iv = BYTESIZE(SNMP_TRANS_PRIVLEN_1DES_IV);
+    } else {
+        QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
+    }
+
+    if ((keylen < properlength) || (ivlen < properlength_iv)) {
+        QUITFUN(SNMPERR_GENERR, sc_decrypt_quit);
+    }
+
+    if (ISTRANSFORM(privtype, DESPriv)) {
+	memset(pkcs_des_key, 0, sizeof(pkcs_des_key));
+	memcpy(pkcs_des_key, key, sizeof(pkcs_des_key));
+	rval = pkcs_decrpyt(CKM_DES_CBC, pkcs_des_key, 
+		sizeof(pkcs_des_key), iv, ivlen, ciphertext,
+		ctlen, plaintext, ptlen);
+        *ptlen = ctlen;
+    }
+
+  sc_decrypt_quit:
+    return rval;
+}				/* USE PKCS */
+#else
 {
 #if	!defined(SCAPI_AUTHPRIV)
     snmp_log(LOG_ERR, "Encryption support not enabled.\n");

@@ -74,3 +74,5 @@ EXTRA_DIST = \
 	mkinstalldirs \
 	missing \
 	ltmain.sh 
+
+noinst_SCRIPTS = libiodbc.spec

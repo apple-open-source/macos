@@ -1,2 +1,7 @@
+# $FreeBSD: src/share/mk/bsd.port.mk,v 1.307 2004/07/02 20:47:18 eik Exp $
+
 PORTSDIR?=	/usr/ports
-.include	"${PORTSDIR}/Mk/bsd.port.mk"
+BSDPORTMK?=	${PORTSDIR}/Mk/bsd.port.mk
+
+.include <bsd.own.mk>
+.include "${BSDPORTMK}"

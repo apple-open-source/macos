@@ -1,8 +1,22 @@
 /*
  *  AgentX master agent
  */
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
 
 #include <net-snmp/net-snmp-config.h>
+#if HAVE_IO_H
+#include <io.h>
+#endif
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -29,6 +43,13 @@
 #include <dmalloc.h>
 #endif
 
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
 #define SNMP_NEED_REQUEST_LIST
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
@@ -43,8 +64,35 @@ real_init_master(void)
     char *agentx_sockets;
     char *cp1, *cp2;
 
+#ifdef SNMP_TRANSPORT_UNIX_DOMAIN
+    int agentx_dir_perm;
+    int agentx_sock_perm;
+    int agentx_sock_user;
+    int agentx_sock_group;
+#endif
+
     if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_ROLE) != MASTER_AGENT)
         return;
+
+    if (netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID,
+                              NETSNMP_DS_AGENT_X_SOCKET)) {
+       agentx_sockets = netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID,
+                                              NETSNMP_DS_AGENT_X_SOCKET);
+#ifdef AGENTX_DOM_SOCK_ONLY
+       if (agentx_sockets[0] != '/') {
+           /* unix:/path */
+           if (agentx_sockets[5] != '/') {
+               snmp_log(LOG_ERR,
+                    "Error: %s transport is not supported, disabling agentx/master.\n", agentx_sockets);
+               SNMP_FREE(agentx_sockets);
+               return;
+           }
+       }
+#endif
+    } else {
+        agentx_sockets = strdup(AGENTX_SOCKET);
+    }
+
 
     DEBUGMSGTL(("agentx/master", "initializing...\n"));
     snmp_sess_init(&sess);
@@ -54,15 +102,6 @@ real_init_master(void)
                                       NETSNMP_DS_AGENT_AGENTX_TIMEOUT);
     sess.retries = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID,
                                       NETSNMP_DS_AGENT_AGENTX_RETRIES);
-
-    if (netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID, 
-			      NETSNMP_DS_AGENT_X_SOCKET)) {
-	agentx_sockets = netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID, 
-					       NETSNMP_DS_AGENT_X_SOCKET);
-    } else {
-        agentx_sockets = strdup(AGENTX_SOCKET);
-    }
-
     cp1 = agentx_sockets;
     while (1) {
         /*
@@ -80,15 +119,25 @@ real_init_master(void)
 	}
     
         if (sess.peername[0] == '/') {
+#ifdef SNMP_TRANSPORT_UNIX_DOMAIN
             /*
              *  If this is a Unix pathname,
              *  try and create the directory first.
              */
-            if (mkdirhier(sess.peername, AGENT_DIRECTORY_MODE, 1)) {
+            agentx_dir_perm = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
+                                                 NETSNMP_DS_AGENT_X_DIR_PERM);
+            if (agentx_dir_perm == 0)
+                agentx_dir_perm = AGENT_DIRECTORY_MODE;
+            if (mkdirhier(sess.peername, (mode_t)agentx_dir_perm, 1)) {
                 snmp_log(LOG_ERR,
                          "Failed to create the directory for the agentX socket: %s\n",
                          sess.peername);
             }
+#else
+            netsnmp_sess_log_error(LOG_WARNING,
+                                   "unix domain support not available\n",
+                                   &sess);
+#endif
         }
     
         /*
@@ -114,9 +163,10 @@ real_init_master(void)
              * diagnose snmp_open errors with the input netsnmp_session pointer 
              */
             if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_NO_ROOT_ACCESS)) {
-                snmp_sess_perror
-                    ("Error: Couldn't open a master agentx socket to listen on",
-                     &sess);
+                char buf[1024];
+                snprintf(buf, sizeof(buf),
+                    "Error: Couldn't open a master agentx socket to listen on (%s)", sess.peername);
+                snmp_sess_perror(buf, &sess);
                 exit(1);
             } else {
                 netsnmp_sess_log_error(LOG_WARNING,
@@ -124,6 +174,32 @@ real_init_master(void)
                                        &sess);
             }
         }
+
+#ifdef SNMP_TRANSPORT_UNIX_DOMAIN
+    /*
+     * Apply any settings to the ownership/permissions of the AgentX socket
+     */
+    agentx_sock_perm = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
+                                          NETSNMP_DS_AGENT_X_SOCK_PERM);
+    agentx_sock_user = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
+                                          NETSNMP_DS_AGENT_X_SOCK_USER);
+    agentx_sock_group = netsnmp_ds_get_int(NETSNMP_DS_APPLICATION_ID, 
+                                          NETSNMP_DS_AGENT_X_SOCK_GROUP);
+
+    if (agentx_sock_perm != 0)
+        chmod(sess.peername, agentx_sock_perm);
+    if (agentx_sock_user || agentx_sock_group) {
+        /*
+         * If either of user or group haven't been set,
+         *  then leave them unchanged.
+         */
+        if (agentx_sock_user == 0 )
+            agentx_sock_user = -1;
+        if (agentx_sock_group == 0 )
+            agentx_sock_group = -1;
+        chown(sess.peername, agentx_sock_user, agentx_sock_group);
+    }
+#endif
         /*
          * If we've processed the last (or only) socket, then we're done.
          */
@@ -229,54 +305,60 @@ agentx_got_response(int operation,
                 pdu->errstat,pdu->reqid,pdu->transid, pdu->sessid));
 
     if (pdu->errstat != AGENTX_ERR_NOERROR) {
-        /*
-         *  If the request failed, locate the
-         *    original index of the variable resonsible
+        /* [RFC 2471 - 7.2.5.2.]
+         *
+         *   1) For any received AgentX response PDU, if res.error is
+         *      not `noError', the SNMP response PDU's error code is
+         *      set to this value.  If res.error contains an AgentX
+         *      specific value (e.g.  `parseError'), the SNMP response
+         *      PDU's error code is set to a value of genErr instead.
+         *      Also, the SNMP response PDU's error index is set to
+         *      the index of the variable binding corresponding to the
+         *      failed VarBind in the subagent's AgentX response PDU.
+         *
+         *      All other AgentX response PDUs received due to
+         *      processing this SNMP request are ignored.  Processing
+         *      is complete; the SNMP Response PDU is ready to be sent
+         *      (see section 7.2.6, "Sending the SNMP Response-PDU").
          */
+        int err;
+
         DEBUGMSGTL(("agentx/master",
                     "agentx_got_response() error branch\n"));
-        if (cache->reqinfo->mode == MODE_GETNEXT) {
-            /*
-             * grr...  got back an actual error for a getnext.
-             * Replace error with NULL and change the rest to retry 
-             */
-            for (request = requests, i = 1; request;
-                 request = request->next, i++) {
-                if (request->index != pdu->errindex
-                    && request->requestvb->type == ASN_NULL) {
-                    request->requestvb->type = ASN_PRIV_RETRY;
-                }
-                request->delegated = REQUEST_IS_NOT_DELEGATED;
-            }
-            netsnmp_free_delegated_cache(cache);
-            DEBUGMSGTL(("agentx/master", "end error branch\n"));
-            return 1;
-        } else {
-            DEBUGMSGTL(("agentx/master", "errindex=%d\n", pdu->errindex));
-            ret = 0;
-            for (request = requests, i = 1; request;
-                 request = request->next, i++) {
-                if (request->index == pdu->errindex) {
-                    /*
-                     * mark this one as the one generating the error 
-                     */
-                    netsnmp_set_request_error(cache->reqinfo, request,
-                                              pdu->errstat);
-                    ret = 1;
-                }
-                request->delegated = REQUEST_IS_NOT_DELEGATED;
-            }
-            if (!ret) {
+
+        switch (pdu->errstat) {
+        case AGENTX_ERR_PARSE_FAILED:
+        case AGENTX_ERR_REQUEST_DENIED:
+        case AGENTX_ERR_PROCESSING_ERROR:
+            err = SNMP_ERR_GENERR;
+            break;
+        default:
+            err = pdu->errstat;
+        }
+
+        ret = 0;
+        for (request = requests, i = 1; request;
+             request = request->next, i++) {
+            if (request->index == pdu->errindex) {
                 /*
-                 * ack, unknown, mark the first one 
+                 * mark this one as the one generating the error
                  */
                 netsnmp_set_request_error(cache->reqinfo, request,
-                                          SNMP_ERR_GENERR);
+                                          err);
+                ret = 1;
             }
-            netsnmp_free_delegated_cache(cache);
-            DEBUGMSGTL(("agentx/master", "end error branch\n"));
-            return 1;
+            request->delegated = REQUEST_IS_NOT_DELEGATED;
         }
+        if (!ret) {
+            /*
+             * ack, unknown, mark the first one
+             */
+            netsnmp_set_request_error(cache->reqinfo, requests,
+                                      SNMP_ERR_GENERR);
+        }
+        netsnmp_free_delegated_cache(cache);
+        DEBUGMSGTL(("agentx/master", "end error branch\n"));
+        return 1;
     } else if (cache->reqinfo->mode == MODE_GET ||
                cache->reqinfo->mode == MODE_GETNEXT ||
                cache->reqinfo->mode == MODE_GETBULK) {
@@ -318,7 +400,7 @@ agentx_got_response(int operation,
              * there is no way to fix the problem 
              */
             snmp_log(LOG_ERR,
-                     "response to agentx request illegal.  We're screwed.\n");
+                     "response to agentx request illegal.  bailing out.\n");
             netsnmp_set_request_error(cache->reqinfo, requests,
                                       SNMP_ERR_GENERR);
         }
@@ -422,6 +504,11 @@ agentx_master_handler(netsnmp_mib_handler *handler,
     pdu->reqid = snmp_get_next_transid();
     pdu->transid = reqinfo->asp->pdu->transid;
     pdu->sessid = ax_session->subsession->sessid;
+    if (reginfo->contextName) {
+        pdu->community = strdup(reginfo->contextName);
+        pdu->community_len = strlen(reginfo->contextName);
+        pdu->flags |= AGENTX_MSG_FLAG_NON_DEFAULT_CONTEXT;
+    }
     if (ax_session->subsession->flags & AGENTX_MSG_FLAG_NETWORK_BYTE_ORDER)
         pdu->flags |= AGENTX_MSG_FLAG_NETWORK_BYTE_ORDER;
 
@@ -431,7 +518,7 @@ agentx_master_handler(netsnmp_mib_handler *handler,
         oid   *nptr = request->requestvb->name;
         
         DEBUGMSGTL(("agentx/master","request for variable ("));
-        DEBUGMSGOID(("agent/master", nptr, nlen));
+        DEBUGMSGOID(("agentx/master", nptr, nlen));
         DEBUGMSG(("agentx/master", ")\n"));
         
         /*
@@ -443,7 +530,7 @@ agentx_master_handler(netsnmp_mib_handler *handler,
             if (snmp_oid_compare(nptr, nlen, request->subtree->start_a,
                                  request->subtree->start_len) < 0) {
                 DEBUGMSGTL(("agentx/master","inexact request preceeding region ("));
-                DEBUGMSGOID(("agent/master", request->subtree->start_a,
+                DEBUGMSGOID(("agentx/master", request->subtree->start_a,
                              request->subtree->start_len));
                 DEBUGMSG(("agentx/master", ")\n"));
                 nptr = request->subtree->start_a;
@@ -510,7 +597,7 @@ agentx_master_handler(netsnmp_mib_handler *handler,
         cb_data = NULL;
 
     /*
-     * send the requests out 
+     * send the requests out.
      */
     DEBUGMSGTL(("agentx", "sending pdu (req=0x%x,trans=0x%x,sess=0x%x)\n",
                 pdu->reqid,pdu->transid, pdu->sessid));

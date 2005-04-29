@@ -36,7 +36,7 @@
 .\"
 .\"     @(#)date.1	8.3 (Berkeley) 4/28/95
 .\"
-.Dd January 20, 1998
+.Dd September 22, 2004
 .Dt DATE 1
 .Os
 .Sh NAME
@@ -48,13 +48,13 @@
 .Op Fl r Ar seconds
 .Op Cm + Ns Ar format
 .Nm
-.Ar [[[[[cc]yy]mm]dd]hh]mm[\&.ss]
+.Op Fl u
+.Ar mmddhhmm[[cc]yy]
 .Sh DESCRIPTION
 .Nm
 displays the current date and time when invoked without arguments.
 Providing arguments will format the date and time in a user-defined
-way or set the date.
-Only the superuser may set the date.
+way or set the date.  Only the superuser may set the date.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
@@ -130,34 +130,6 @@ Everything but the minutes is optional.
 .Pp
 Time changes for Daylight Saving and Standard time and leap seconds
 and years are handled automatically.
-.Sh EXAMPLES
-The command:
-.Bd -literal -offset indent
-date "+DATE: %m/%d/%y%nTIME: %H:%M:%S"
-.Ed
-.Pp
-will display:
-.Bd -literal -offset indent
-DATE: 11/21/87
-TIME: 13:36:16
-.Ed
-.Pp
-The command:
-.Bd -literal -offset indent
-date 8506131627
-.Ed
-.Pp
-sets the date to
-.Dq Li "June 13, 1985, 4:27 PM" .
-.Pp
-The command:
-.Bd -literal -offset indent
-date 1432
-.Ed
-.Pp
-sets the time to
-.Li "2:32 PM" ,
-without modifying the date.
 .Sh ENVIRONMENT VARIABLES
 The following environment variables affect the execution of
 .Nm
@@ -176,24 +148,43 @@ A record of date resets and time changes.
 .It Pa /var/log/messages
 A record of the user setting the time.
 .El
-.Sh SEE ALSO
-.Xr gettimeofday 2 ,
-.Xr strftime 3 ,
-.Xr utmp 5 ,
-.Xr timed 8
-.Rs
-.%T "TSP: The Time Synchronization Protocol for UNIX 4.3BSD"
-.%A R. Gusella
-.%A S. Zatti
-.Re
+.Sh EXAMPLES
+The command:
+.Bd -literal -offset indent
+date "+DATE: %m/%d/%y%nTIME: %H:%M:%S"
+.Ed
+.Pp
+will display:
+.Bd -literal -offset indent
+DATE: 11/21/87
+TIME: 13:36:16
+.Ed
+.Pp
+The command:
+.Bd -literal -offset indent
+date 061316271985
+.Ed
+.Pp
+sets the date to
+.Dq Li "June 13, 1985, 4:27 PM" .
+.Pp
+The command:
+.Bd -literal -offset indent
+date 1432
+.Ed
+.Pp
+sets the time to
+.Li "2:32 PM" ,
+without modifying the date.
 .Sh DIAGNOSTICS
-Exit status is 0 on success, 1 if unable to set the date, and 2
-if able to set the local date, but unable to set it globally.
+The following exit values are returned:
+ 0    The date was written successfully (either locally or globally)
+ >0   An error occurred.
 .Pp
 Occasionally, when
 .Xr timed 8
-synchronizes the time on many hosts, the setting of a new time value may
-require more than a few seconds.
+synchronizes the time on many hosts, the setting of a new time value
+may require more than a few seconds.
 On these occasions,
 .Nm
 prints:
@@ -203,11 +194,36 @@ The message
 occurs when the communication
 between
 .Nm
-and
-timed
-fails.
+and timed fails.
+.Sh LEGACY SYNOPSIS
+.Nm
+.Op Fl nu
+.Op Fl r Ar seconds
+.Op Cm + Ns Ar format
+.Pp
+.Nm "    "
+.Ar [[[[[cc]yy]mm]dd]hh]mm[\&.ss]
+.Sh LEGACY DIAGNOSTICS
+.Pp
+When invoked in legacy mode the following exit values are returned:
+ 0    The date was written successfully
+ 1    Unable to set the date
+ 2    Able to set the local date, but unable to set it globally
+.Sh SEE ALSO
+.Xr gettimeofday 2 ,
+.Xr strftime 3 ,
+.Xr compat 5 ,
+.Xr utmp 5 ,
+.Xr timed 8
+.Rs
+.%T "TSP: The Time Synchronization Protocol for UNIX 4.3BSD"
+.%A R. Gusella
+.%A S. Zatti
+.Re
 .Sh STANDARDS
 The
 .Nm
-utility is expected to be compatible with
+utility supports the
+.St -susv3 .
+It is also expected to be compatible with
 .St -p1003.2 .

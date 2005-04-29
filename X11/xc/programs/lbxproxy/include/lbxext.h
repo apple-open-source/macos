@@ -46,49 +46,34 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/lbxext.h,v 1.3 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef _LBXEXT_H_
 #define _LBXEXT_H_
 
 typedef int (*ExtensionRequests) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*ExtensionReplies) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*ExtensionEvents) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*ExtensionErrors) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*SExtensionRequests) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*SExtensionReplies) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*SExtensionEvents) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 typedef int (*SExtensionErrors) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 typedef struct _vectors {
@@ -101,67 +86,49 @@ typedef struct _vectors {
 }           ExtensionVectors;
 
 extern int  (*ProcVector[256]) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 extern int  (*SwappedProcVector[256]) (
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 typedef struct _LbxQueryExtensionReply *xLbxQueryExtensionReplyPtr;
 
 extern void DeleteExtensions(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/
-#endif
 );
 
 typedef struct _replystuff *_ReplyStuffPtr;
 
 extern void HandleExtensionError(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xError * /*err*/,
     _ReplyStuffPtr /*nr*/
-#endif
 );
 
 extern void HandleExtensionEvent(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xEvent * /*ev*/
-#endif
 );
 
 extern Bool HandleExtensionReply(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReply * /*reply*/,
     _ReplyStuffPtr * /*nr*/
-#endif
 );
 
 extern Bool CheckExtensionForEvents(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReq * /*req*/
-#endif
 );
 
 extern Bool CheckExtensionForReplies(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReq * /*req*/
-#endif
 );
 
 extern int ProcLBXQueryExtension(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 #endif				/* _LBXEXT_H_ */

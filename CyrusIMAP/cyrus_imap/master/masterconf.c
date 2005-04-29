@@ -1,5 +1,5 @@
 /* masterconfig.c -- Configuration routines for master process
- * $Id: masterconf.c,v 1.12 2003/11/25 17:37:19 rjs3 Exp $
+ * $Id: masterconf.c,v 1.5 2005/03/05 00:37:29 dasenbro Exp $
  * 
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

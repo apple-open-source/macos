@@ -1,6 +1,6 @@
 /* lmtpd.c -- Program to deliver mail to a mailbox
  *
- * $Id: lmtpd.c,v 1.140 2004/12/17 16:32:15 ken3 Exp $
+ * $Id: lmtpd.c,v 1.9 2005/03/23 00:39:22 dasenbro Exp $
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -611,7 +611,7 @@ static int verify_user(const char *user, const char *domain, const char *mailbox
 	if ( useropts.fDiskQuota == 0 )
 	{
 		/* make sure that quotas are set so that the /quota tool works */
-		mboxlist_setquota( namebuf, INT_MAX, 0 );
+		mboxlist_setquota( namebuf, INT32_MAX, 0 );
 	} else {
 		mboxlist_setquota( namebuf, useropts.fDiskQuota * 1024, 0 );
 	}

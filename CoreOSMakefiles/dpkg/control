@@ -1,4 +1,0 @@
-Package: coreosmakefiles
-Maintainer: Darwin Developers <darwin-development@public.lists.apple.com>
-Description: Core OS Makefiles
-Build-Depends: cctools, libsystem, files, zsh, gnumake, file-cmds, shell-cmds, text-cmds

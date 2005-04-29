@@ -49,9 +49,11 @@
 *           -fschedule-insns -finline-functions -funroll-all-loops             *
 *                                                                              *
 *******************************************************************************/
-#include "math.h"
 
+#if !defined(__LP64__) /* Do not carry legacy scalb() API into the LP64 ABI */
+extern double scalbn ( double, int );
 double scalb ( double x, int n  )
 {
     return scalbn ( x, n );
 }
+#endif

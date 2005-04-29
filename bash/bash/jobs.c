@@ -986,7 +986,7 @@ describe_pid (pid)
   job = find_job (pid, 0);
 
   if (job != NO_JOB)
-    printf ("[%d] %ld\n", job + 1, (long)pid);
+    fprintf (posixly_correct ? stderr : stdout, "[%d] %ld\n", job + 1, (long)pid);
   else
     programming_error ("describe_pid: %ld: no such pid", (long)pid);
 
@@ -1601,6 +1601,7 @@ wait_for_single_pid (pid)
   sigset_t set, oset;
   int r, job;
 
+  cleanup_dead_jobs();		/* Don't let "wait $pid; wait $pid" succeed */
   BLOCK_CHILD (set, oset);
   child = find_pipeline (pid, 0, (int *)NULL);
   UNBLOCK_CHILD (oset);
@@ -2230,6 +2231,7 @@ start_job (job, foreground)
   sigset_t set, oset;
   char *wd;
   static TTYSTRUCT save_stty;
+  FILE *output = posixly_correct ? stdout : stderr;
 
   BLOCK_CHILD (set, oset);
 
@@ -2263,13 +2265,17 @@ start_job (job, foreground)
   /* Tell the outside world what we're doing. */
   p = jobs[job]->pipe;
 
-  if (foreground == 0)
-    fprintf (stderr, "[%d]%c ", job + 1,
-	   (job == current_job) ? '+': ((job == previous_job) ? '-' : ' '));
+  if (foreground == 0) {
+    if (posixly_correct) {
+      fprintf (output, "[%d] ", job + 1);
+    } else
+      fprintf (output, "[%d]%c ", job + 1,
+	       (job == current_job) ? '+': ((job == previous_job) ? '-' : ' '));
+  }
 
   do
     {
-      fprintf (stderr, "%s%s",
+      fprintf (output, "%s%s",
 	       p->command ? p->command : "",
 	       p->next != jobs[job]->pipe? " | " : "");
       p = p->next;
@@ -2277,12 +2283,12 @@ start_job (job, foreground)
   while (p != jobs[job]->pipe);
 
   if (foreground == 0)
-    fprintf (stderr, " &");
+    fprintf (output, " &");
 
   if (strcmp (wd, jobs[job]->wd) != 0)
-    fprintf (stderr, "	(wd: %s)", polite_directory_format (jobs[job]->wd));
+    fprintf (output, "	(wd: %s)", polite_directory_format (jobs[job]->wd));
 
-  fprintf (stderr, "\n");
+  fprintf (output, "\n");
 
   /* Run the job. */
   if (already_running == 0)

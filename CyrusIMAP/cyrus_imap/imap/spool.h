@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: spool.h,v 1.4 2004/03/04 16:09:35 ken3 Exp $
+ * $Id: spool.h,v 1.4 2005/03/05 00:37:06 dasenbro Exp $
  */
 
 #ifndef INCLUDED_SPOOL_H

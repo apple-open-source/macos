@@ -90,7 +90,7 @@ IOHIDQueueClass::IOHIDQueueClass()
     fIsStopped              = false;
     fEventCallback          = NULL;
     fEventTarget            = NULL;
-    fEventRefcon            = NULL;    
+    fEventRefcon            = NULL;
     fQueueRef               = NULL;
     fQueueMappedMemory      = NULL;
     fQueueMappedMemorySize  = 0;
@@ -275,6 +275,7 @@ IOReturn IOHIDQueueClass::dispose()
         fQueueMappedMemorySize = 0;
     }    
 
+
     // sent message to dispose queue
     mach_msg_type_number_t len = 0;
 
@@ -288,7 +289,8 @@ IOReturn IOHIDQueueClass::dispose()
 
     // mark it dead
     fIsCreated = false;
-    fQueueRef = 0;    
+        
+    fQueueRef = 0;
     
     return kIOReturnSuccess;
 }

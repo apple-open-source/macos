@@ -24,23 +24,16 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/StName.c,v 1.4 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/StName.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xatom.h>
 
 int
-#if NeedFunctionPrototypes
 XStoreName (
     register Display *dpy,
     Window w,
     _Xconst char *name)
-#else
-XStoreName (dpy, w, name)
-    register Display *dpy;
-    Window w;
-    char *name;
-#endif
 {
     return XChangeProperty(dpy, w, XA_WM_NAME, XA_STRING, 
 			   8, PropModeReplace, (unsigned char *)name,
@@ -48,17 +41,10 @@ XStoreName (dpy, w, name)
 }
 
 int
-#if NeedFunctionPrototypes
 XSetIconName (
     register Display *dpy,
     Window w,
     _Xconst char *icon_name)
-#else
-XSetIconName (dpy, w, icon_name)
-    register Display *dpy;
-    Window w;
-    char *icon_name;
-#endif
 {
     return XChangeProperty(dpy, w, XA_WM_ICON_NAME, XA_STRING, 
 			   8, PropModeReplace, (unsigned char *)icon_name,

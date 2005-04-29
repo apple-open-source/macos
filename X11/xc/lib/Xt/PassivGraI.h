@@ -51,7 +51,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/PassivGraI.h,v 1.3 2001/12/14 19:56:27 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/PassivGraI.h,v 1.4 2003/04/21 16:34:28 herrb Exp $ */
 
 #ifndef _PDI_h_
 #define _PDI_h_
@@ -136,26 +136,20 @@ typedef struct XtPerDisplayInputRec{
 #define IsPseudoGrab(g) ((g == XtPseudoPassiveServerGrab))
 
 extern void _XtDestroyServerGrabs(
-#if NeedFunctionPrototypes
     Widget		/* w */,
     XtPointer		/* pwi */, /*XtPerWidgetInput*/
     XtPointer		/* call_data */
-#endif
 );
 
 extern XtPerWidgetInput _XtGetPerWidgetInput(
-#if NeedFunctionPrototypes
     Widget	/* widget */,
     _XtBoolean	/* create */
-#endif
 );
 
 extern XtServerGrabPtr _XtCheckServerGrabsOnWidget(
-#if NeedFunctionPrototypes
     XEvent*		/* event */,
     Widget		/* widget */,
     _XtBoolean		/* isKeyboard */
-#endif
 );
 
 /*
@@ -165,38 +159,28 @@ extern XtGrabList* _XtGetGrabList( XtPerDisplayInput );
 #define _XtGetGrabList(pdi) (&(pdi)->grabList)
 
 extern void _XtFreePerWidgetInput(
-#if NeedFunctionPrototypes
     Widget		/* w */,
     XtPerWidgetInput	/* pwi */
-#endif
 );
 
 extern Widget _XtProcessKeyboardEvent(
-#if NeedFunctionPrototypes
     XKeyEvent*		/* event */,
     Widget		/* widget */,
     XtPerDisplayInput	/* pdi */
-#endif
 );
 
 extern Widget _XtProcessPointerEvent(
-#if NeedFunctionPrototypes
     XButtonEvent*	/* event */,
     Widget		/* widget */,
     XtPerDisplayInput	/* pdi */
-#endif
 );
 
 extern void _XtRegisterPassiveGrabs(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 extern void _XtClearAncestorCache(
-#if NeedFunctionPrototypes
     Widget		/* widget */
-#endif
 );
 
 #endif /* _PDI_h_ */

@@ -23,58 +23,195 @@
     Change History (most recent first):
 
 $Log: DNSServiceBrowser.m,v $
+Revision 1.30  2005/01/27 17:46:16  cheshire
+Added comment
+
+Revision 1.29  2004/06/04 20:58:36  cheshire
+Move DNSServiceBrowser from mDNSMacOSX directory to Clients directory
+
+Revision 1.28  2004/05/18 23:51:26  cheshire
+Tidy up all checkin comments to use consistent "<rdar://problem/xxxxxxx>" format for bug numbers
+
+Revision 1.27  2003/11/19 18:49:48  rpantos
+<rdar://problem/3282283>: couple of little tweaks to previous checkin
+
+Revision 1.26  2003/11/07 19:35:20  rpantos
+<rdar://problem/3282283>/6: Display multiple IP addresses. Connect using host rather than IP addr.
+
+Revision 1.25  2003/10/29 05:16:54  rpantos
+Checkpoint: transition from DNSServiceDiscovery.h to dns_sd.h
+
+Revision 1.24  2003/10/28 02:25:45  rpantos
+<rdar://problem/3282283>/9,10: Cancel pending resolve when focus changes or service disappears.
+
+Revision 1.23  2003/10/28 01:29:15  rpantos
+<rdar://problem/3282283>/4,5: Restructure a bit to make arrow keys work & views behave better.
+
+Revision 1.22  2003/10/28 01:23:27  rpantos
+<rdar://problem/3282283>/11: Bail if mDNS cannot be initialized at startup.
+
+Revision 1.21  2003/10/28 01:19:45  rpantos
+<rdar://problem/3282283>/3,11: Do not put a trailing '.' on service names. Handle PATH for HTTP txtRecords.
+
+Revision 1.20  2003/10/28 01:13:49  rpantos
+<rdar://problem/3282283>/2: Remove filter when displaying browse results.
+
+Revision 1.19  2003/10/28 01:10:14  rpantos
+<rdar://problem/3282283>/1: Change 'compare' to 'caseInsensitiveCompare' to fix sort order.
+
 Revision 1.18  2003/08/12 19:55:07  cheshire
 Update to APSL 2.0
 
  */
 
-#import "BrowserController.h"
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <nameser.h>
+#include <sys/select.h>
 
-#include "arpa/inet.h"
+#import <Cocoa/Cocoa.h>
+#import <DNSServiceDiscovery/DNSServiceDiscovery.h>
 
-void
-MyHandleMachMessage ( CFMachPortRef port, void * msg, CFIndex size, void * info )
+#include <netinet/in.h>
+#include "dns_sd.h"
+
+@class		ServiceController;  // holds state corresponding to outstanding DNSServiceRef
+
+@interface BrowserController : NSObject
 {
-    DNSServiceDiscovery_handleReply(msg);
+    IBOutlet id domainField;
+    IBOutlet id nameField;
+    IBOutlet id typeField;
+
+    IBOutlet id serviceDisplayTable;
+    IBOutlet id typeColumn;
+    IBOutlet id nameColumn;
+    IBOutlet id serviceTypeField;
+    IBOutlet id serviceNameField;
+
+    IBOutlet id hostField;
+    IBOutlet id ipAddressField;
+    IBOutlet id ip6AddressField;
+    IBOutlet id portField;
+    IBOutlet id textField;
+    
+    NSMutableArray *srvtypeKeys;
+    NSMutableArray *srvnameKeys;
+    NSMutableArray *domainKeys;
+    NSMutableArray *nameKeys;
+    NSString *Domain;
+    NSString *SrvType;
+    NSString *SrvName;
+    NSString *Name;
+
+	ServiceController			*fDomainBrowser;
+	ServiceController			*fServiceBrowser;
+	ServiceController			*fServiceResolver;
+	ServiceController			*fAddressResolver;
+
 }
 
-void browse_reply (
-                   DNSServiceBrowserReplyResultType 	resultType,		// One of DNSServiceBrowserReplyResultType
-                   const char  	*replyName,
-                   const char  	*replyType,
-                   const char  	*replyDomain,
-                   DNSServiceDiscoveryReplyFlags 	flags,			// DNS Service Discovery reply flags information
-                   void	*context
-                   )
+- (IBAction)handleDomainClick:(id)sender;
+- (IBAction)handleNameClick:(id)sender;
+- (IBAction)handleTypeClick:(id)sender;
+- (void)notifyTypeSelectionChange:(NSNotification*)note;
+- (void)notifyNameSelectionChange:(NSNotification*)note;
+
+- (IBAction)connect:(id)sender;
+
+- (IBAction)handleTableClick:(id)sender;
+- (IBAction)removeSelected:(id)sender;
+- (IBAction)addNewService:(id)sender;
+
+- (IBAction)update:(NSString *)Type Domain:(NSString *)Domain;
+- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication;
+- (IBAction)loadDomains:(id)sender;
+
+- (void)updateBrowseWithResult:(DNSServiceFlags)flags name:(NSString *)name type:(NSString *)resulttype domain:(NSString *)domain;
+- (void)updateEnumWithResult:(DNSServiceFlags)flags domain:(NSString *)domain;
+- (void)resolveClientWitHost:(NSString *)host port:(uint16_t)port interfaceIndex:(uint32_t)interface txtRecord:(const char*)txtRecord txtLen:(uint16_t)txtLen;
+- (void)updateAddress:(uint16_t)rrtype addr:(const void *)buff addrLen:(uint16_t)addrLen 
+						host:(const char*) host interfaceIndex:(uint32_t)interface more:(boolean_t)moreToCome;
+
+- (void)_cancelPendingResolve;
+- (void)_clearResolvedInfo;
+
+@end
+
+// The ServiceController manages cleanup of DNSServiceRef & runloop info for an outstanding request
+@interface ServiceController : NSObject
 {
-    [[NSApp delegate] updateBrowseWithResult:resultType name:[NSString stringWithUTF8String:replyName] type:[NSString stringWithUTF8String:replyType] domain:[NSString stringWithUTF8String:replyDomain] flags:flags];
-    return;
+	DNSServiceRef			fServiceRef;
+	CFSocketRef				fSocketRef;
+	CFRunLoopSourceRef		fRunloopSrc;
 }
 
-void enum_reply (
-                 DNSServiceDomainEnumerationReplyResultType 	resultType,
-                 const char  	*replyDomain,
-                 DNSServiceDiscoveryReplyFlags 	flags,
-                 void	*context
-                 )
-{
-    [[NSApp delegate] updateEnumWithResult:resultType domain:[NSString stringWithUTF8String:replyDomain] flags:flags];
+- (id) initWithServiceRef:(DNSServiceRef) ref;
+- (boolean_t) addToCurrentRunLoop;
+- (DNSServiceRef) serviceRef;
+- (void) dealloc;
 
-    return;
+@end // interface ServiceController
+
+
+static void	ProcessSockData( CFSocketRef s, CFSocketCallBackType type, CFDataRef address, const void *data, void *info)
+// CFRunloop callback that notifies dns_sd when new data appears on a DNSServiceRef's socket.
+{
+	DNSServiceRef		serviceRef = (DNSServiceRef) info;
+	DNSServiceErrorType err = DNSServiceProcessResult( serviceRef);
+	if ( err != kDNSServiceErr_NoError)
+		printf( "DNSServiceProcessResult() returned an error! %d\n", err);
 }
 
-void resolve_reply (
-                    struct sockaddr 	*interface,
-                    struct sockaddr 	*address,
-                    const char 		*txtRecord,
-                    DNSServiceDiscoveryReplyFlags 		flags,
-                    void		*context
-                    )
+static void DomainEnumReply( DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceIndex, 
+							DNSServiceErrorType errorCode, const char *replyDomain, void *context )
+// Report newly-discovered domains to the BrowserController.
 {
-    [[NSApp delegate] resolveClientWithInterface:interface address:address txtRecord:[NSString stringWithUTF8String:txtRecord]];
-
-    return;
+	if ( errorCode == kDNSServiceErr_NoError) {
+		BrowserController   *pSelf = (BrowserController*) context;
+		[pSelf updateEnumWithResult:flags domain:[NSString stringWithUTF8String:replyDomain]];
+	} else {
+		printf( "DomainEnumReply got an error! %d\n", errorCode);
+	}
 }
+
+static void	ServiceBrowseReply( DNSServiceRef sdRef, DNSServiceFlags servFlags, uint32_t interfaceIndex, DNSServiceErrorType errorCode, 
+								const char *serviceName, const char *regtype, const char *replyDomain, void *context )
+// Report newly-discovered services to the BrowserController.
+{
+	if ( errorCode == kDNSServiceErr_NoError) {
+		BrowserController   *pSelf = (BrowserController*) context;
+		[pSelf updateBrowseWithResult:servFlags name:[NSString stringWithUTF8String:serviceName] 
+								type:[NSString stringWithUTF8String:regtype] domain:[NSString stringWithUTF8String:replyDomain]];
+	} else {
+		printf( "ServiceBrowseReply got an error! %d\n", errorCode);
+	}
+}
+
+static void ServiceResolveReply( DNSServiceRef sdRef, DNSServiceFlags flags, uint32_t interfaceIndex, 
+								DNSServiceErrorType errorCode, const char *fullname, const char *hosttarget, uint16_t port, 
+								uint16_t txtLen, const char *txtRecord, void *context )
+// Pass along resolved service info to the BrowserController.
+{
+	if ( errorCode == kDNSServiceErr_NoError) {
+		BrowserController   *pSelf = (BrowserController*) context;
+		[pSelf resolveClientWitHost:[NSString stringWithUTF8String:hosttarget] port:port interfaceIndex:interfaceIndex txtRecord:txtRecord txtLen:txtLen];
+	} else {
+		printf( "ServiceResolveReply got an error! %d\n", errorCode);
+	}
+}
+
+static void	QueryRecordReply( DNSServiceRef DNSServiceRef, DNSServiceFlags flags, uint32_t interfaceIndex, 
+								DNSServiceErrorType errorCode, const char *fullname, uint16_t rrtype, uint16_t rrclass, 
+								uint16_t rdlen, const void *rdata, uint32_t ttl, void *context )
+// DNSServiceQueryRecord callback used to look up IP addresses.
+{
+	BrowserController   *pBrowser = (BrowserController*) context;
+
+	[pBrowser updateAddress:rrtype addr:rdata addrLen:rdlen host:fullname interfaceIndex:interfaceIndex 
+						more:((flags & kDNSServiceFlagsMoreComing) != 0)];
+}
+
 
 @implementation BrowserController		//Begin implementation of BrowserController methods
 
@@ -82,12 +219,12 @@ void resolve_reply (
 {
     NSMutableDictionary *regDict = [NSMutableDictionary dictionary];
 
-    NSArray *typeArray = [NSArray arrayWithObjects:@"_ftp._tcp.",          @"_tftp._tcp.",
-												   @"_ssh._tcp.",          @"_telnet._tcp.",
-												   @"_http._tcp.",
-												   @"_printer._tcp.",      @"_ipp._tcp.",
-												   @"_ichat._tcp.",        @"_eppc._tcp.",
-												   @"_afpovertcp._tcp.",   @"_afpovertcp._tcp.",   @"_MacOSXDupSuppress._tcp.", nil];
+    NSArray *typeArray = [NSArray arrayWithObjects:@"_ftp._tcp",          @"_tftp._tcp",
+												   @"_ssh._tcp",          @"_telnet._tcp",
+												   @"_http._tcp",
+												   @"_printer._tcp",      @"_ipp._tcp",
+												   @"_ichat._tcp",        @"_eppc._tcp",
+												   @"_afpovertcp._tcp",   @"_afpovertcp._tcp",   @"_MacOSXDupSuppress._tcp", nil];
     NSArray *nameArray = [NSArray arrayWithObjects:@"File Transfer (ftp)", @"Trivial File Transfer (tftp)",
 	                                               @"Secure Shell (ssh)",  @"Telnet",
 	                                               @"Web Server (http)",
@@ -106,7 +243,10 @@ void resolve_reply (
 {
     [self registerDefaults];
 
-    browse_client = nil;
+	fDomainBrowser = nil;
+    fServiceBrowser = nil;
+	fServiceResolver = nil;
+	fAddressResolver = nil;
 
     return [super init];
 }
@@ -126,27 +266,29 @@ void resolve_reply (
 
     [srvtypeKeys retain];				//Keep arrays in memory until BrowserController closes
     [srvnameKeys retain];				//Keep arrays in memory until BrowserController closes
-    [typeField setDataSource:self];		//Set application fields' data source to BrowserController
-    [typeField sizeLastColumnToFit];		//and set column sizes to use their whole table's width.
-    [nameField setDataSource:self];
+    [typeField sizeLastColumnToFit];    //Set column sizes to use their whole table's width.
     [nameField sizeLastColumnToFit];
-    [domainField setDataSource:self];
     [domainField sizeLastColumnToFit];
+//  (self is specified as the NSTableViews' data source in the nib)
 
     [nameField setDoubleAction:@selector(connect:)];
 
-    //[srvtypeKeys addObject:@"_ftp._tcp."];	//Add supported protocols and domains to their
+    // Listen for table selection changes
+    [[NSNotificationCenter defaultCenter]   addObserver:self selector:@selector(notifyTypeSelectionChange:) 
+                                            name:NSTableViewSelectionDidChangeNotification object:typeField];
+    [[NSNotificationCenter defaultCenter]   addObserver:self selector:@selector(notifyNameSelectionChange:) 
+                                            name:NSTableViewSelectionDidChangeNotification object:nameField];
+
+    //[srvtypeKeys addObject:@"_ftp._tcp"];	//Add supported protocols and domains to their
     //[srvnameKeys addObject:@"File Transfer (ftp)"];
-    //[srvtypeKeys addObject:@"_printer._tcp."];		//respective arrays
+    //[srvtypeKeys addObject:@"_printer._tcp"];		//respective arrays
     //[srvnameKeys addObject:@"Printer (lpr)"];
-    //[srvtypeKeys addObject:@"_http._tcp."];		//respective arrays
+    //[srvtypeKeys addObject:@"_http._tcp"];		//respective arrays
     //[srvnameKeys addObject:@"Web Server (http)"];
-    //[srvtypeKeys addObject:@"_afp._tcp."];		//respective arrays
+    //[srvtypeKeys addObject:@"_afp._tcp"];		//respective arrays
     //[srvnameKeys addObject:@"AppleShare Server (afp)"];
 
-    [ipAddressField setStringValue:@""];
-    [portField setStringValue:@""];
-    [textField setStringValue:@""];
+	[self _clearResolvedInfo];
 
     [srvtypeKeys addObjectsFromArray:[[NSUserDefaults standardUserDefaults] arrayForKey:@"SrvTypeKeys"]];
     [srvnameKeys addObjectsFromArray:[[NSUserDefaults standardUserDefaults] arrayForKey:@"SrvNameKeys"]];
@@ -205,7 +347,7 @@ void resolve_reply (
     }
     if (theTableView == nameField)
     {
-        return [[nameKeys sortedArrayUsingSelector:@selector(compare:)] objectAtIndex:rowIndex];
+        return [[nameKeys sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)] objectAtIndex:rowIndex];
     }
     if (theTableView == serviceDisplayTable)
     {
@@ -223,17 +365,9 @@ void resolve_reply (
 
 - (IBAction)handleTypeClick:(id)sender		//Handle clicks for Type
 {
-    int index=[sender selectedRow];				//Find index of selected row
-    if (index==-1) return;					//Error checking
-    SrvType = [srvtypeKeys objectAtIndex:index];		//Save desired Type
-    SrvName = [srvnameKeys objectAtIndex:index];		//Save desired Type
-
-    [ipAddressField setStringValue:@""];
-    [portField setStringValue:@""];
-    [textField setStringValue:@""];
-
-    [self update:SrvType Domain:Domain];		//If Type and Domain are set, update records
+    // 3282283: No longer used - update happens in notifyTypeSelectionChange
 }
+
 
 - (IBAction)handleDomainClick:(id)sender			//Handle clicks for Domain
 {
@@ -241,97 +375,71 @@ void resolve_reply (
     if (index==-1) return;					//Error checking
     Domain = [domainKeys objectAtIndex:index];			//Save desired Domain
 
-    [ipAddressField setStringValue:@""];
-    [portField setStringValue:@""];
-    [textField setStringValue:@""];
+    [self _cancelPendingResolve];
 
     if (SrvType!=NULL) [self update:SrvType Domain:Domain];	//If Type and Domain are set, update records
 }
 
 - (IBAction)handleNameClick:(id)sender				//Handle clicks for Name
 {
-    int index=[sender selectedRow];				//Find index of selected row
+    // 3282283: No longer used - update happens in notifyNameSelectionChange
+}
+
+- (void)notifyTypeSelectionChange:(NSNotification*)note
+/* Called when the selection of the Type table changes */
+{
+    int index=[[note object] selectedRow];  //Find index of selected row
     if (index==-1) return;					//Error checking
-    Name=[[nameKeys sortedArrayUsingSelector:@selector(compare:)] objectAtIndex:index];			//Save desired name
+    SrvType = [srvtypeKeys objectAtIndex:index];		//Save desired Type
+    SrvName = [srvnameKeys objectAtIndex:index];		//Save desired Type
 
-    {
-        CFMachPortRef           cfMachPort;
-        CFMachPortContext       context;
-        Boolean                 shouldFreeInfo;
-        dns_service_discovery_ref 	dns_client;
-        mach_port_t			port;
-        CFRunLoopSourceRef		rls;
+    [self _cancelPendingResolve];
 
-        context.version                 = 1;
-        context.info                    = 0;
-        context.retain                  = NULL;
-        context.release                 = NULL;
-        context.copyDescription 	    = NULL;
+    [self update:SrvType Domain:Domain];		//If Type and Domain are set, update records
+}
 
-		[ipAddressField setStringValue:@"?"];
-		[portField setStringValue:@"?"];
-		[textField setStringValue:@"?"];
-        // start an enumerator on the local server
-        dns_client = DNSServiceResolverResolve
-            (
-             (char *)[Name UTF8String],
-             (char *)[SrvType UTF8String],
-             (char *)(Domain?[Domain UTF8String]:""),
-             resolve_reply,
-             nil
-             );
+- (void)notifyNameSelectionChange:(NSNotification*)note
+/* Called when the selection of the Name table changes */
+{
+    int index=[[note object] selectedRow];  //Find index of selected row
 
-        port = DNSServiceDiscoveryMachPort(dns_client);
+    [self _cancelPendingResolve];           // Cancel any pending Resolve for any table selection change
 
-        if (port) {
-            cfMachPort = CFMachPortCreateWithPort ( kCFAllocatorDefault, port, ( CFMachPortCallBack ) MyHandleMachMessage,&context,&shouldFreeInfo );
+    if (index==-1) {
+		Name = nil;		// Name may no longer point to a list member
+		return;
+	}
+    Name=[[nameKeys sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)] objectAtIndex:index];			//Save desired name
 
-            /* Create and add a run loop source for the port */
-            rls = CFMachPortCreateRunLoopSource(NULL, cfMachPort, 0);
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-            CFRelease(rls);
-        } else {
-            printf("Could not obtain client port\n");
-            return;
-        }
-    }
+	[self _clearResolvedInfo];
+
+	DNSServiceRef		serviceRef;
+	DNSServiceErrorType err;
+	err = DNSServiceResolve ( &serviceRef, (DNSServiceFlags) 0, 0, (char *)[Name UTF8String], (char *)[SrvType UTF8String], 
+							(char *)(Domain?[Domain UTF8String]:""), ServiceResolveReply, self);
+	if ( kDNSServiceErr_NoError == err) {
+		fServiceResolver = [[ServiceController alloc] initWithServiceRef:serviceRef];
+		[fServiceResolver addToCurrentRunLoop];
+	}
 }
 
 - (IBAction)loadDomains:(id)sender
 {
-    CFMachPortRef           cfMachPort;
-    CFMachPortContext       context;
-    Boolean                 shouldFreeInfo;
-    dns_service_discovery_ref 	dns_client;
-    mach_port_t			port;
-    CFRunLoopSourceRef		rls;
+    DNSServiceErrorType err;
+	DNSServiceRef		serviceRef;
 
-    context.version                 = 1;
-    context.info                    = 0;
-    context.retain                  = NULL;
-    context.release                 = NULL;
-    context.copyDescription 	    = NULL;
-
-    // start an enumerator on the local server
-    dns_client =  DNSServiceDomainEnumerationCreate
-        (
-         0,
-         enum_reply,
-         nil
-         );
-
-    port = DNSServiceDiscoveryMachPort(dns_client);
-
-    if (port) {
-        cfMachPort = CFMachPortCreateWithPort ( kCFAllocatorDefault, port, ( CFMachPortCallBack ) MyHandleMachMessage,&context,&shouldFreeInfo );
-
-        /* Create and add a run loop source for the port */
-        rls = CFMachPortCreateRunLoopSource(NULL, cfMachPort, 0);
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-        CFRelease(rls);
-    } else {
-        printf("Could not obtain client port\n");
-        return;
+	err = DNSServiceEnumerateDomains( &serviceRef, kDNSServiceFlagsBrowseDomains, 0, DomainEnumReply, self);
+	if ( kDNSServiceErr_NoError == err) {
+		fDomainBrowser = [[ServiceController alloc] initWithServiceRef:serviceRef];
+		[fDomainBrowser addToCurrentRunLoop];
+	}
+   else {
+        NSAlert *alert = [NSAlert alertWithMessageText:@"Could not connect to mDNSResponder!"
+                        defaultButton:@"Quit" alternateButton:nil otherButton:nil informativeTextWithFormat:
+                        @"Check to see if mDNSResponder is still running."];
+        if ( alert != NULL)
+            [alert runModal];
+        exit( err);
     }
 }
 
@@ -339,6 +447,8 @@ void resolve_reply (
 {
     const char * DomainC;
     const char * TypeC=[theType UTF8String];		//Type in C string format
+
+    DNSServiceErrorType err = kDNSServiceErr_NoError;
 
     if (theDomain) {
         DomainC = [theDomain UTF8String];	//Domain in C string format
@@ -350,49 +460,18 @@ void resolve_reply (
     [nameField reloadData];		//Reload (redraw) names to show the old data is gone
 
     // get rid of the previous browser if one exists
-    if (browse_client) {
-        DNSServiceDiscoveryDeallocate(browse_client);
-        browse_client = nil;
+    if ( fServiceBrowser != nil) {
+		[fServiceBrowser release];
+        fServiceBrowser = nil;
     }
 
     // now create a browser to return the values for the nameField ...
-    {
-        CFMachPortRef           cfMachPort;
-        CFMachPortContext       context;
-        Boolean                 shouldFreeInfo;
-        mach_port_t			port;
-        CFRunLoopSourceRef		rls;
-
-        context.version                 = 1;
-        context.info                    = 0;
-        context.retain                  = NULL;
-        context.release                 = NULL;
-        context.copyDescription 	    = NULL;
-
-        // start an enumerator on the local server
-        browse_client = DNSServiceBrowserCreate
-            (
-             (char *)TypeC,
-             (char *)DomainC,
-             browse_reply,
-             nil
-             );
-
-        port = DNSServiceDiscoveryMachPort(browse_client);
-
-        if (port) {
-            cfMachPort = CFMachPortCreateWithPort ( kCFAllocatorDefault, port, ( CFMachPortCallBack ) MyHandleMachMessage,&context,&shouldFreeInfo );
-
-            /* Create and add a run loop source for the port */
-            rls = CFMachPortCreateRunLoopSource(NULL, cfMachPort, 0);
-            CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-            CFRelease(rls);
-        } else {
-            printf("Could not obtain client port\n");
-            return;
-        }
-    }
-
+	DNSServiceRef		serviceRef;
+	err = DNSServiceBrowse( &serviceRef, (DNSServiceFlags) 0, 0, TypeC, DomainC, ServiceBrowseReply, self);
+	if ( kDNSServiceErr_NoError == err) {
+		fServiceBrowser = [[ServiceController alloc] initWithServiceRef:serviceRef];
+		[fServiceBrowser addToCurrentRunLoop];
+	}
 }
 
 
@@ -407,13 +486,12 @@ void resolve_reply (
     return YES;
 }
 
-- (void)updateEnumWithResult:(int)resultType domain:(NSString *)domain flags:(int)flags
+- (void)updateEnumWithResult:(DNSServiceFlags)flags domain:(NSString *)domain
 {
-    // new domain received
-    if (DNSServiceDomainEnumerationReplyAddDomain == resultType || DNSServiceDomainEnumerationReplyAddDomainDefault == resultType) {
+    if ( ( flags & kDNSServiceFlagsAdd) != 0) {    // new domain received
         // add the domain to the list
         [domainKeys addObject:domain];
-    } else {
+    } else if (!(flags & kDNSServiceFlagsAdd)) {
         // remove the domain from the list
         NSEnumerator *dmnEnum = [domainKeys objectEnumerator];
         NSString *aDomain = nil;
@@ -427,70 +505,165 @@ void resolve_reply (
     }
     // update the domain table
     [domainField reloadData];
+
+	// Terminate the enumeration once the last domain is delivered.
+	if ( ( flags & kDNSServiceFlagsMoreComing) == 0) {
+		[fDomainBrowser release];
+		fDomainBrowser = nil;
+	}
+
+	// At some point, we may want to support a TableView for domain browsing. For now, just pick first domain that comes up.
+	if ( Domain == nil)
+		Domain = [domain retain];
+
     return;
 }
 
 
 
-- (void)updateBrowseWithResult:(int)type name:(NSString *)name type:(NSString *)resulttype domain:(NSString *)domain flags:(int)flags
+- (void)updateBrowseWithResult:(DNSServiceFlags)flags name:(NSString *)name type:(NSString *)resulttype domain:(NSString *)domain
 {
 
     //NSLog(@"Received result %@ %@ %@ %d", name, resulttype, domain, type);
 
-    if (([domain isEqualToString:Domain] || [domain isEqualToString:@"local."]) && [resulttype isEqualToString:SrvType]) {
+    if (!(flags & kDNSServiceFlagsAdd)) {
+        if ([nameKeys containsObject:name]) {
+            [nameKeys removeObject:name];
 
-        if (type == DNSServiceBrowserReplyRemoveInstance) {
-            if ([nameKeys containsObject:name]) {
-                [nameKeys removeObject:name];
-            }
+            // 3282283: Cancel pending browse if object goes away.
+            if ( [name isEqualToString:Name])
+                [nameField deselectAll:self];
         }
-        if (type == DNSServiceBrowserReplyAddInstance) {
-            if (![nameKeys containsObject:name]) {
-                [nameKeys addObject:name];
-            }
-        }
-
-		// If not expecting any more data, then reload (redraw) Name TableView with newly found data
-		if ((flags & kDNSServiceDiscoveryMoreRepliesImmediately) == 0)
-			[nameField reloadData];
     }
+	else if ( ( flags & kDNSServiceFlagsAdd) != 0) {
+        if (![nameKeys containsObject:name]) {
+            [nameKeys addObject:name];
+        }
+    }
+
+    // If not expecting any more data, then reload (redraw) Name TableView with newly found data
+    if ((flags & kDNSServiceFlagsMoreComing) == 0)
+        [nameField reloadData];
     return;
 }
 
-- (void)resolveClientWithInterface:(struct sockaddr *)interface address:(struct sockaddr *)address txtRecord:(NSString *)txtRecord
+- (void)resolveClientWitHost:(NSString *)host port:(uint16_t)port interfaceIndex:(uint32_t)interface 
+							txtRecord:(const char*)txtRecord txtLen:(uint16_t)txtLen
+/* Display resolved information about the selected service. */
 {
-	if (address->sa_family != AF_INET) return; // For now we only handle IPv4
-    //printf("interface length = %d, port = %d, family = %d, address = %s\n", ((struct sockaddr_in *)interface)->sin_len, ((struct sockaddr_in *)interface)->sin_port, ((struct sockaddr_in *)interface)->sin_family, inet_ntoa(((struct in_addr)((struct sockaddr_in *)interface)->sin_addr)));
-    //printf("address length = %d, port = %d, family = %d, address = %s\n", ((struct sockaddr_in *)address)->sin_len, ((struct sockaddr_in *)address)->sin_port, ((struct sockaddr_in *)address)->sin_family, inet_ntoa(((struct in_addr)((struct sockaddr_in *)address)->sin_addr)));
-    NSString *ipAddr = [NSString stringWithCString:inet_ntoa(((struct in_addr)((struct sockaddr_in *)address)->sin_addr))];
-    int port = ((struct sockaddr_in *)address)->sin_port;
+	DNSServiceErrorType err;
+	DNSServiceRef		serviceRef;
 
-    [ipAddressField setStringValue:ipAddr];
+	// Start an async lookup for IPv4 & IPv6 addresses
+	if ( fAddressResolver != nil) {
+		[fAddressResolver release];
+		fAddressResolver = nil;
+	}
+	err = DNSServiceQueryRecord( &serviceRef, (DNSServiceFlags) 0, interface, [host UTF8String], 
+								ns_t_a, ns_c_in, QueryRecordReply, self);
+	if ( err == kDNSServiceErr_NoError) {
+		fAddressResolver = [[ServiceController alloc] initWithServiceRef:serviceRef];
+		[fAddressResolver addToCurrentRunLoop];
+	}
+
+    [hostField setStringValue:host];
     [portField setIntValue:port];
-    [textField setStringValue:txtRecord];
 
-    return;
+	// kind of a hack: munge txtRecord so it's human-readable
+	if ( txtLen > 0) {
+		char	*readableText = (char*) malloc( txtLen);
+		if ( readableText != nil) {
+			ByteCount   index, subStrLen;
+			memcpy( readableText, txtRecord, txtLen);
+			for ( index=0; index < txtLen - 1; index += subStrLen + 1) {
+				subStrLen = readableText[ index];
+				readableText[ index] = '\n';
+			}
+			[textField setStringValue:[NSString stringWithCString:&readableText[1] length:txtLen - 1]];
+			free( readableText);
+		}
+	}
 }
+
+- (void)updateAddress:(uint16_t)rrtype  addr:(const void *)buff addrLen:(uint16_t)addrLen 
+						host:(const char*) host interfaceIndex:(uint32_t)interface more:(boolean_t)moreToCome
+/* Update address field(s) with info obtained by fAddressResolver. */
+{
+	if ( rrtype == ns_t_a) {		// IPv4
+		char	addrBuff[256];
+		inet_ntop( AF_INET, buff, addrBuff, sizeof addrBuff);
+		strcat( addrBuff, " ");
+		[ipAddressField setStringValue:[NSString stringWithFormat:@"%@%s", [ipAddressField stringValue], addrBuff]];
+
+		if ( !moreToCome) {
+			[fAddressResolver release];
+			fAddressResolver = nil;
+	
+			// After we find v4 we look for v6
+			DNSServiceRef		serviceRef;
+			DNSServiceErrorType err;
+			err = DNSServiceQueryRecord( &serviceRef, (DNSServiceFlags) 0, interface, host, 
+									ns_t_aaaa, ns_c_in, QueryRecordReply, self);
+			if ( err == kDNSServiceErr_NoError) {
+				fAddressResolver = [[ServiceController alloc] initWithServiceRef:serviceRef];
+				[fAddressResolver addToCurrentRunLoop];
+			}
+		}
+	}
+	else if ( rrtype == ns_t_aaaa)  // IPv6
+	{
+		char	addrBuff[256];
+		inet_ntop( AF_INET6, buff, addrBuff, sizeof addrBuff);
+		strcat( addrBuff, " ");
+		[ip6AddressField setStringValue:[NSString stringWithFormat:@"%@%s", [ip6AddressField stringValue], addrBuff]];
+
+		if ( !moreToCome) {
+			[fAddressResolver release];
+			fAddressResolver = nil;
+		}
+	}
+}
+
 
 - (void)connect:(id)sender
 {
-    NSString *ipAddr = [ipAddressField stringValue];
+    NSString *host = [hostField stringValue];
     int port = [portField intValue];
     NSString *txtRecord = [textField stringValue];
 
     if (!txtRecord) txtRecord = @"";
 
-    if (!ipAddr || !port) return;
+    if (!host || !port) return;
 
-    if      ([SrvType isEqualToString:@"_ftp._tcp."])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ftp://%@:%d/",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_tftp._tcp."])       [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"tftp://%@:%d/",   ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_ssh._tcp."])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ssh://%@:%d/",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_telnet._tcp."])     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"telnet://%@:%d/", ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_http._tcp."])       [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://%@:%d",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_printer._tcp."])    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"lpr://%@:%d/",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_ipp._tcp."])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ipp://%@:%d/",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_afpovertcp._tcp."]) [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"afp://%@:%d/",    ipAddr, port]]];
-    else if ([SrvType isEqualToString:@"_smb._tcp."])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"smb://%@:%d/",    ipAddr, port]]];
+    if ([SrvType isEqualToString:@"_http._tcp"])
+    {
+        NSString    *pathDelim = @"path=";
+		NSRange		where;
+
+        // If the TXT record specifies a path, extract it.
+		where = [txtRecord rangeOfString:pathDelim options:NSCaseInsensitiveSearch];
+        if ( where.length)
+        {
+			NSRange		targetRange = { where.location + where.length, [txtRecord length] - where.location - where.length };
+			NSRange		endDelim = [txtRecord rangeOfString:@"\n" options:kNilOptions range:targetRange];
+			
+			if ( endDelim.length)   // if a delimiter was found, truncate the target range
+				targetRange.length = endDelim.location - targetRange.location;
+
+            NSString    *path = [txtRecord substringWithRange:targetRange];
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://%@:%d%@", host, port, path]]];
+        }
+        else
+            [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"http://%@:%d", host, port]]];
+    }
+    else if ([SrvType isEqualToString:@"_ftp._tcp"])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ftp://%@:%d/",    host, port]]];
+    else if ([SrvType isEqualToString:@"_tftp._tcp"])       [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"tftp://%@:%d/",   host, port]]];
+    else if ([SrvType isEqualToString:@"_ssh._tcp"])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ssh://%@:%d/",    host, port]]];
+    else if ([SrvType isEqualToString:@"_telnet._tcp"])     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"telnet://%@:%d/", host, port]]];
+    else if ([SrvType isEqualToString:@"_printer._tcp"])    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"lpr://%@:%d/",    host, port]]];
+    else if ([SrvType isEqualToString:@"_ipp._tcp"])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"ipp://%@:%d/",    host, port]]];
+    else if ([SrvType isEqualToString:@"_afpovertcp._tcp"]) [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"afp://%@:%d/",    host, port]]];
+    else if ([SrvType isEqualToString:@"_smb._tcp"])        [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:[NSString stringWithFormat:@"smb://%@:%d/",    host, port]]];
 
     return;
 }
@@ -522,10 +695,16 @@ void resolve_reply (
 - (IBAction)addNewService:(id)sender
 {
     // add new entries from the edit fields to the arrays for the defaults
+    NSString  *newType = [serviceTypeField stringValue];
+    NSString  *newName = [serviceNameField stringValue];
 
-    if ([[serviceTypeField stringValue] length] && [[serviceNameField stringValue] length]) {
-        [srvtypeKeys addObject:[serviceTypeField stringValue]];
-        [srvnameKeys addObject:[serviceNameField stringValue]];
+    // 3282283: trim trailing '.' from service type field
+    if ([newType length] && [newType hasSuffix:@"."])
+        newType = [newType substringToIndex:[newType length] - 1];
+
+    if ([newType length] && [newName length]) {
+        [srvtypeKeys addObject:newType];
+        [srvnameKeys addObject:newName];
 
         [[NSUserDefaults standardUserDefaults] setObject:srvtypeKeys forKey:@"SrvTypeKeys"];
         [[NSUserDefaults standardUserDefaults] setObject:srvnameKeys forKey:@"SrvNameKeys"];
@@ -533,9 +712,94 @@ void resolve_reply (
         [typeField reloadData];
         [serviceDisplayTable reloadData];
     }
-
 }
 
+- (void)_cancelPendingResolve
+// If there a a Resolve outstanding, cancel it.
+{
+	if ( fAddressResolver != nil) {
+		[fAddressResolver release];
+		fAddressResolver = nil;
+	}
+
+	if ( fServiceResolver != nil) {
+		[fServiceResolver release];
+		fServiceResolver = nil;
+	}
+
+	[self _clearResolvedInfo];
+}
+
+- (void)_clearResolvedInfo
+// Erase the display of resolved info.
+{
+	[hostField setStringValue:@""];
+	[ipAddressField setStringValue:@""];
+	[ip6AddressField setStringValue:@""];
+	[portField setStringValue:@""];
+	[textField setStringValue:@""];
+}
+
+@end // implementation BrowserController
 
 
-@end
+@implementation ServiceController : NSObject
+{
+	DNSServiceRef			fServiceRef;
+	CFSocketRef				fSocketRef;
+	CFRunLoopSourceRef		fRunloopSrc;
+}
+
+- (id) initWithServiceRef:(DNSServiceRef) ref
+{
+	[super init];
+	fServiceRef = ref;
+	return self;
+}
+
+- (boolean_t) addToCurrentRunLoop
+/* Add the service to the current runloop. Returns non-zero on success. */
+{
+	CFSocketContext			ctx = { 1, (void*) fServiceRef, nil, nil, nil };
+
+	fSocketRef = CFSocketCreateWithNative( kCFAllocatorDefault, DNSServiceRefSockFD( fServiceRef), 
+										kCFSocketReadCallBack, ProcessSockData, &ctx);
+	if ( fSocketRef != nil)
+		fRunloopSrc = CFSocketCreateRunLoopSource( kCFAllocatorDefault, fSocketRef, 1);
+	if ( fRunloopSrc != nil)
+		CFRunLoopAddSource( CFRunLoopGetCurrent(), fRunloopSrc, kCFRunLoopDefaultMode);
+	else
+		printf("Could not listen to runloop socket\n");
+
+	return fRunloopSrc != nil;
+}
+
+- (DNSServiceRef) serviceRef
+{
+	return fServiceRef;
+}
+
+- (void) dealloc
+/* Remove service from runloop, deallocate service and associated resources */
+{
+	if ( fSocketRef != nil) {
+		CFSocketInvalidate( fSocketRef);		// Note: Also closes the underlying socket
+		CFRelease( fSocketRef);
+	}
+
+	if ( fRunloopSrc != nil) {
+		CFRunLoopRemoveSource( CFRunLoopGetCurrent(), fRunloopSrc, kCFRunLoopDefaultMode);
+		CFRelease( fRunloopSrc);
+	}
+
+	DNSServiceRefDeallocate( fServiceRef);
+
+	[super dealloc];
+}
+
+@end // implementation ServiceController
+
+int main(int argc, const char *argv[])
+{
+    return NSApplicationMain(argc, argv);
+}

@@ -31,10 +31,6 @@
 #include <math.h>
 #include "mathconf.h"
 
-/* APPLE LOCAL begin libm */
-/* Libm-39 provides it. */
-#if 0
-/* APPLE LOCAL end libm */
 int
 __signbitf (float x)
 {
@@ -43,8 +39,3 @@ __signbitf (float x)
   GET_FLOAT_WORD (hx, x);
   return hx & 0x80000000;
 }
-
-/* APPLE LOCAL begin libm */
-/* Libm-39 provides it. */
-#endif
-/* APPLE LOCAL end libm */

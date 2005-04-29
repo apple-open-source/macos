@@ -1,5 +1,0 @@
-vpath proctab.c $(SFILE_DIR)
-
-OTHER_GENERATED_OFILES = proctab.o
-
-include $(MAKEFILEPATH)/CoreOS/ProjectBuilder/Makefile.Preamble.Common

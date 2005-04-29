@@ -1,8 +1,17 @@
 /* error.c - BDB errcall routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/error.c,v 1.6.2.4 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/error.c,v 1.10.2.4 2004/11/24 05:02:18 hyc Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -13,17 +22,17 @@
 #include "slap.h"
 #include "back-bdb.h"
 
+#if DB_VERSION_FULL < 0x04030000
 void bdb_errcall( const char *pfx, char * msg )
+#else
+void bdb_errcall( const DB_ENV *env, const char *pfx, const char * msg )
+#endif
 {
 #ifdef HAVE_EBCDIC
 	if ( msg[0] > 0x7f )
 		__etoa( msg );
 #endif
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, INFO, "bdb(%s): %s\n", pfx, msg, 0 );
-#else
 	Debug( LDAP_DEBUG_ANY, "bdb(%s): %s\n", pfx, msg, 0 );
-#endif
 }
 
 #ifdef HAVE_EBCDIC

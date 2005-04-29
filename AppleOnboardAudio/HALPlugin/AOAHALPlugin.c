@@ -36,8 +36,8 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 	UInt32						theIntVal;
 	io_iterator_t				theIterator;
 	kern_return_t				theKernelError;
-	CFStringRef					theString;
-	char						cString[256];
+	//CFStringRef					theString;
+	//char						cString[256];
 	PluginInfoPtr				thePluginInfo;
 		
 	//syslog (LOG_ALERT, "+ HAL Plugin : AudioDriverPlugInOpen[%ld] ", sPluginInstance);
@@ -91,8 +91,8 @@ OSStatus AudioDriverPlugInOpen (AudioDriverPlugInHostInfo * inHostInfo) {
 		}
 	}
 
-	theString = IORegistryEntryCreateCFProperty (inHostInfo->mIOAudioEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
-	CFStringGetCString(theString, cString, 256, 0);
+	//theString = IORegistryEntryCreateCFProperty (inHostInfo->mIOAudioEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
+	//CFStringGetCString(theString, cString, 256, 0);
 	//syslog (LOG_ALERT, " IOAudioEngine[%p] guid = %s", inHostInfo->mIOAudioEngine, cString);
 
 	if (theIterator)
@@ -134,8 +134,8 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDeviceID, UInt3
 	OSStatus					theResult;
 	CFDictionaryRef				theDict;
 	CFNumberRef					theNumber;
-	CFStringRef					theString;
-	char						cString[256];
+	//CFStringRef					theString;
+	//char						cString[256];
 	io_object_t					theEngine;
 
 	convertDecTo4cc (inPropertyID, theProp);
@@ -160,9 +160,9 @@ OSStatus AudioDriverPlugInDeviceGetPropertyInfo (AudioDeviceID inDeviceID, UInt3
 			
 			theDict = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("MappingDictionary"), kCFAllocatorDefault, 0);
 			//syslog (LOG_ALERT, "   theDict %p", theDict);
-			theString = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
+			//theString = IORegistryEntryCreateCFProperty (theEngine, CFSTR ("IOAudioEngineGlobalUniqueID"), kCFAllocatorDefault, 0);
 			//syslog (LOG_ALERT, "   theString %p", theString);
-			CFStringGetCString(theString, cString, 256, 0);
+			//CFStringGetCString(theString, cString, 256, 0);
 			//syslog (LOG_ALERT, "   guid %s", cString);
 			if (theDict) {
 				CFRelease (theDict);

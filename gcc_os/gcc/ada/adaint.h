@@ -4,11 +4,10 @@
  *                                                                          *
  *                               A D A I N T                                *
  *                                                                          *
- *                            $Revision: 1.1.1.4 $
  *                                                                          *
  *                              C Header File                               *
  *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2002 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,18 +27,22 @@
  * file might be covered by the  GNU Public License.                        *
  *                                                                          *
  * GNAT was originally developed  by the GNAT team at  New York University. *
- * It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). *
+ * Extensive contributions were provided by Ada Core Technologies Inc.      *
  *                                                                          *
  ****************************************************************************/
 
+#if defined(__rtems__)
+#include <stdio.h>
+#endif
+
 #include <dirent.h>
 
+extern int    __gnat_max_path_len;
 extern void   __gnat_to_gm_time			   PARAMS ((int *, int *,
 							    int *, int *,
 							    int *, int *,
 							    int *));
 extern int    __gnat_get_maximum_file_name_length  PARAMS ((void));
-extern char   __gnat_get_switch_character          PARAMS ((void));
 extern int    __gnat_get_switches_case_sensitive   PARAMS ((void));
 extern int    __gnat_get_file_names_case_sensitive PARAMS ((void));
 extern char   __gnat_get_default_identifier_character_set PARAMS ((void));
@@ -80,6 +83,7 @@ extern int    __gnat_is_writable_file		   PARAMS ((char *));
 extern int    __gnat_portable_spawn                PARAMS ((char *[]));
 extern int    __gnat_portable_no_block_spawn       PARAMS ((char *[]));
 extern int    __gnat_portable_wait                 PARAMS ((int *));
+extern int    __gnat_waitpid			   PARAMS ((int));
 extern char  *__gnat_locate_exec                   PARAMS ((char *, char *));
 extern char  *__gnat_locate_exec_on_path		   PARAMS ((char *));
 extern char  *__gnat_locate_regular_file           PARAMS ((char *, char *));

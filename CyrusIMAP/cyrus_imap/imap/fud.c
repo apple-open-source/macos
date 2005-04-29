@@ -42,7 +42,7 @@
 
 #include <config.h>
 
-/* $Id: fud.c,v 1.52 2004/12/17 16:32:07 ken3 Exp $ */
+/* $Id: fud.c,v 1.5 2005/03/05 00:36:48 dasenbro Exp $ */
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>

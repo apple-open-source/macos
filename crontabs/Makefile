@@ -11,12 +11,15 @@ DIRS := private/etc/defaults \
 	private/etc/periodic/daily \
 	private/etc/periodic/weekly \
 	private/etc/periodic/monthly \
+	System/Library/LaunchDaemons \
 	usr/share/man/man5 \
 	usr/share/man/man8 \
 	usr/sbin
 
 # Data files.
-FILES := private/etc/crontab \
+FILES := System/Library/LaunchDaemons/com.apple.periodic-daily.plist \
+	System/Library/LaunchDaemons/com.apple.periodic-weekly.plist \
+	System/Library/LaunchDaemons/com.apple.periodic-monthly.plist \
 	private/etc/defaults/periodic.conf \
 	usr/share/man/man5/periodic.conf.5 \
 	usr/share/man/man8/periodic.8

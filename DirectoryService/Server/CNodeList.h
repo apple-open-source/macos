@@ -28,17 +28,50 @@
 #ifndef __CNodeList_h__
 #define __CNodeList_h__	1
 
+#include <map>			//STL map class
+#include <string>		//STL string class
+
 #include "DirServicesTypes.h"
 #include "PrivateTypes.h"
 #include "DSMutexSemaphore.h"
 #include "PluginData.h"
 
+class	CServerPlugin;
+
+using namespace std;
+
+typedef struct sDSNode
+{
+	tDataList		*fDataListPtr;
+	CServerPlugin	*fPlugInPtr;
+	uInt32			fPlugInToken;
+	uInt32			fDirNodeTypes;
+} sDSNode;
 
 // Typedefs --------------------------------------------------------------------
 
-class	CServerPlugin;
+typedef map<string, sDSNode*>	DSNodeMap;
+typedef DSNodeMap::iterator		DSNodeMapI;
 
 // Classes ---------------------------------------------------------------------
+
+class DSNode {
+
+public:
+					DSNode			( void );
+	virtual		   ~DSNode			( void );
+
+protected:
+
+private:
+   	char			   *fNodeName;
+	tDataList		   *fDataListPtr;
+	CServerPlugin	   *fPlugInPtr;
+	uInt32				fPlugInToken;
+	eDirNodeType		fType;
+	DSMutexSemaphore	fMutex;
+
+};
 
 class CNodeList {
 
@@ -80,12 +113,14 @@ public:
 
 	sInt32		   	BuildNodeListBuff	( sGetDirNodeList *inData );
 
-	const char*		GetDelimiter		( void ) { return( "~" ); };
+	const char*		GetDelimiter		( void ) { return( "/" ); };
 
 	void			WaitForLocalNode		( void );
 	void			WaitForConfigureNode	( void );
 	void			WaitForDHCPLDAPv3Init	( void );
 	void			WaitForAuthenticationSearchNode	( void );
+	void			Lock					( void) { fMutex.Wait(); }
+	void			Unlock					( void) { fMutex.Signal(); }
 
 protected:
 	// Protected member functions

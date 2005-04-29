@@ -15,10 +15,8 @@
 #include <sys/kernel.h>
 #include <sys/kobj.h>
 #include <sys/sysctl.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 #include "iconv_ces_if.h"
 
 PRIVSYM struct kobjop_desc iconv_ces_open_desc = {

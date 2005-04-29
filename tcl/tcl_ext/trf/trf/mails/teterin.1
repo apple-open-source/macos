@@ -1,0 +1,93 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11qMYe-00027DC; Tue, 23 Nov 1999 21:29:00 +0100 (MET)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Tue Nov 23 21:21:59 1999
+Received: from kot.ne.mediaone.net (mi@kot.ne.mediaone.net [24.218.15.190])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id UAA24684
+	for <a.kupries@westend.com>; Tue, 23 Nov 1999 20:52:58 +0100 (MET)
+Received: from misha.cisco.com (cisco.newton [10.10.0.10])
+	by kot.ne.mediaone.net (8.9.3/8.9.1) with ESMTP id OAA31322
+	for <a.kupries@westend.com>; Tue, 23 Nov 1999 14:52:53 -0500 (EST)
+X-From_: mi@misha.cisco.com  Tue Nov 23 20:52:59 1999
+X-Relay-IP: 10.10.0.10
+Sender: mi@kot.ne.mediaone.net
+Message-ID: <383AF094.32F555E@misha.cisco.com>
+Date: Tue, 23 Nov 1999 14:52:52 -0500
+From: Mikhail Teterin <mi@misha.cisco.com>
+Reply-To: mi@aldan.algebra.com
+Organization: Virtual Estates, Inc.
+X-Mailer: Mozilla 4.7 [ru] (X11; U; FreeBSD 3.3-STABLE i386)
+X-Accept-Language: uk, ru, en
+To: a.kupries@westend.com
+Subject: Trf2.0 bug report
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="us-ascii"
+
+I'm trying to unzip the file, whose md5 is also being transparently
+computed:
+
+proc openin fname {
+        set file [open $fname r]
+        fconfigure $file -translation binary
+        set file [md5 -attach $file -mode transparent \
+                -read-destination inputsum -read-type variable]
+        set file [zip -attach $file -mode compress]
+        return $file
+}
+
+This results in error later on, when I'm trying to read from the file:
+
+error reading "file6": invalid argument
+    while executing
+"gets $Input"
+    (procedure "main" line 5)
+    invoked from within
+"main"
+    (file "crunch.tcl" line 37)
+
+This is probably a pilot error -- I'm still learning. May be I need to
+fconfigure
+back? But then, the whole process crashes:
+
+Program received signal SIGSEGV, Segmentation fault.
+0x28166e09 in TrfClose (instanceData=0x0, interp=0x0) at
+./../generic/registry.c:1256
+1256      parent = trans->parent;
+(gdb) where
+#0  0x28166e09 in TrfClose (instanceData=0x0, interp=0x0) at
+./../generic/registry.c:1256
+#1  0x2809969b in Tcl_DeleteCloseHandler () from
+/usr/local/lib/libtcl80.so.1
+#2  0x280a4928 in Tcl_Finalize () from /usr/local/lib/libtcl80.so.1
+#3  0x280a48f1 in Tcl_Exit () from /usr/local/lib/libtcl80.so.1
+#4  0x280aacff in Tcl_ExitObjCmd () from /usr/local/lib/libtcl80.so.1
+#5  0x2807dd5f in TclExecuteByteCode () from
+/usr/local/lib/libtcl80.so.1
+#6  0x280af6ff in Tcl_EvalObj () from /usr/local/lib/libtcl80.so.1
+#7  0x280af4b9 in Tcl_Eval () from /usr/local/lib/libtcl80.so.1
+#8  0x2806e2fe in Tcl_Main () from /usr/local/lib/libtcl80.so.1
+#9  0x80484ef in main ()
+#10 0x8048471 in _start ()
+(gdb) p trans
+$1 = (TrfTransformationInstance *) 0x0
+(gdb) l
+1251    #ifdef USE_TCL_STUBS
+1252      parent = (trans->patchIntegrated ?
+1253                trans->self            : /* 'self' already refers to
+our parent */
+1254                trans->parent);
+1255    #else
+1256      parent = trans->parent;
+1257    #endif
+1258
+1259      /* 04/13/1999 Fileevent patch from Matt Newman
+<matt@novadigm.com>
+1260       * Remove event handler to underlying channel, this could
+
+Hope, this is helpful. Yours,
+
+	-mi

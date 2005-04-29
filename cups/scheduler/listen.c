@@ -1,10 +1,10 @@
 /*
- * "$Id: listen.c,v 1.7 2003/09/05 01:14:51 jlovell Exp $"
+ * "$Id: listen.c,v 1.13 2005/01/04 22:10:46 jlovell Exp $"
  *
  *   Server listening routines for the Common UNIX Printing System (CUPS)
  *   scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -16,9 +16,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -36,9 +36,10 @@
 
 #include "cupsd.h"
 
-#ifdef HAVE_NOTIFY_H
-#include <notify.h>
-#endif
+#ifdef HAVE_DOMAINSOCKETS
+#  include <sys/un.h>
+#endif /* HAVE_DOMAINSOCKETS */
+
 
 /*
  * 'PauseListening()' - Clear input polling on all listening sockets...
@@ -56,14 +57,6 @@ PauseListening(void)
 
   if (NumClients == MaxClients)
     LogMessage(L_WARN, "Max clients reached, holding new connections...");
-
-#ifdef HAVE_NOTIFY_POST
-  /*
-   * Pause notifications while we're not listening
-   */
-  NotifyPaused = 1;
-  LogMessage(L_DEBUG2, "PauseListening: notify paused");
-#endif        /* HAVE_NOTIFY_POST */
 
   LogMessage(L_DEBUG, "PauseListening: clearing input bits...");
 
@@ -103,21 +96,6 @@ ResumeListening(void)
 
     FD_SET(lis->fd, InputSet);
   }
-
-#ifdef HAVE_NOTIFY_POST
-  /*
-   * Resume notifications.
-   */
-  LogMessage(L_DEBUG2, "ResumeListening: notify resume");
-  if (NotifyPaused && NotifyPending)
-  {
-    LogMessage(L_DEBUG2, "ResumeListening: notify com.apple.printerListChange");
-    notify_post("com.apple.printerListChange");
-  }
-  NotifyPaused = 0;
-  NotifyPending = 0;
-#endif        /* HAVE_NOTIFY_POST */
-
 }
 
 
@@ -167,8 +145,13 @@ StartListening(void)
   * Setup socket listeners...
   */
 
-  for (i = NumListeners, lis = Listeners; i > 0; i --, lis ++)
+  for (i = NumListeners, lis = Listeners, LocalPort = 0; i > 0; i --, lis ++)
   {
+#ifdef HAVE_DOMAINSOCKETS
+    if (lis->address.sin_family == AF_LOCAL)
+      LogMessage(L_DEBUG, "StartListening: domain socket=%s", (char*)lis->address.sin_addr.s_addr);
+    else
+#endif /* HAVE_DOMAINSOCKETS */
     LogMessage(L_DEBUG, "StartListening: address=%08x port=%d",
                (unsigned)ntohl(lis->address.sin_addr.s_addr),
 	       ntohs(lis->address.sin_port));
@@ -178,18 +161,24 @@ StartListening(void)
     * "any" address...
     */
 
-    if (ntohl(lis->address.sin_addr.s_addr) == 0x7f000001 ||
-        ntohl(lis->address.sin_addr.s_addr) == 0x00000000)
-      LocalPort = ntohs(lis->address.sin_port);
+    if (!LocalPort &&
+        lis->address.sin_family == AF_INET &&
+        (ntohl(lis->address.sin_addr.s_addr) == 0x7f000001 ||
+         ntohl(lis->address.sin_addr.s_addr) == 0x00000000))
+    {
+      LocalPort       = ntohs(lis->address.sin_port);
+      LocalEncryption = lis->encryption;
+    }
 
    /*
     * Create a socket for listening...
     */
 
-    if ((lis->fd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    if ((lis->fd = socket(lis->address.sin_family, SOCK_STREAM, 0)) == -1)
     {
-      LogMessage(L_ERROR, "StartListening: Unable to open listen socket - %s.",
-                 strerror(errno));
+      LogMessage(L_ERROR, "StartListening: Unable to open listen socket for address %08x:%d - %s.",
+                 (unsigned)ntohl(lis->address.sin_addr.s_addr),
+		 ntohs(lis->address.sin_port), strerror(errno));
       exit(errno);
     }
 
@@ -210,9 +199,40 @@ StartListening(void)
     * Bind to the port we found...
     */
 
-    if (bind(lis->fd, (struct sockaddr *)&(lis->address), sizeof(lis->address)) < 0)
+    if (lis->address.sin_family == AF_INET)
     {
-      LogMessage(L_ERROR, "StartListening: Unable to bind socket - %s.", strerror(errno));
+      if (bind(lis->fd, (struct sockaddr *)&(lis->address), sizeof(lis->address)) < 0)
+      {
+	LogMessage(L_ERROR, "StartListening: Unable to bind socket for address %08x:%d - %s.",
+                   (unsigned)ntohl(lis->address.sin_addr.s_addr),
+		   ntohs(lis->address.sin_port), strerror(errno));
+	exit(errno);
+      }
+    }
+#ifdef HAVE_DOMAINSOCKETS
+    else if (lis->address.sin_family == AF_LOCAL)
+    {
+      struct sockaddr_un laddr;
+      mode_t		 mask;
+
+      bzero(&laddr, sizeof(laddr));
+      laddr.sun_family = AF_LOCAL;
+      strlcpy(laddr.sun_path, *(char **)&lis->address.sin_addr, sizeof(laddr.sun_path));
+      unlink(laddr.sun_path);
+      mask = umask(0);
+      if (bind(lis->fd, (struct sockaddr *)&laddr, SUN_LEN(&laddr)) < 0)
+      {
+	LogMessage(L_ERROR, "StartListening: Unable to bind socket for address %s - %s.",
+                   laddr.sun_path, strerror(errno));
+	exit(errno);
+      }
+      umask(mask);
+    }
+#endif /* HAVE_DOMAINSOCKETS */
+    else
+    {
+      LogMessage(L_ERROR, "StartListening: Unknown address family %d.",
+                   (int)lis->address.sin_family);
       exit(errno);
     }
 
@@ -222,10 +242,26 @@ StartListening(void)
 
     if (listen(lis->fd, ListenBackLog) < 0)
     {
-      LogMessage(L_ERROR, "StartListening: Unable to listen for clients - %s.",
-                 strerror(errno));
+      LogMessage(L_ERROR, "StartListening: Unable to listen for clients on address %08x:%d - %s.",
+                 (unsigned)ntohl(lis->address.sin_addr.s_addr),
+		 ntohs(lis->address.sin_port), strerror(errno));
       exit(errno);
     }
+  }
+
+ /*
+  * Make sure that we are listening on localhost!
+  */
+
+  if (!LocalPort)
+  {
+    LogMessage(L_EMERG, "No Listen or Port lines were found to allow access via localhost!");
+
+   /*
+    * Commit suicide...
+    */
+
+    kill(getpid(), SIGTERM);
   }
 
   ResumeListening();
@@ -248,14 +284,21 @@ StopListening(void)
   PauseListening();
 
   for (i = NumListeners, lis = Listeners; i > 0; i --, lis ++)
+  {
 #ifdef WIN32
     closesocket(lis->fd);
 #else
     close(lis->fd);
 #endif /* WIN32 */
+
+#ifdef HAVE_DOMAINSOCKETS
+    if (lis->address.sin_family == AF_LOCAL)
+      unlink(*(char **)&lis->address.sin_addr);
+#endif /* HAVE_DOMAINSOCKETS */
+  }
 }
 
 
 /*
- * End of "$Id: listen.c,v 1.7 2003/09/05 01:14:51 jlovell Exp $".
+ * End of "$Id: listen.c,v 1.13 2005/01/04 22:10:46 jlovell Exp $".
  */

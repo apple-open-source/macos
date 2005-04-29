@@ -59,30 +59,27 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
-	Revision 1.34.12.2  2005/03/08 03:48:49  collin
+	Revision 1.39  2004/06/10 20:57:37  niels
 	*** empty log message ***
 	
-	Revision 1.34.12.1  2004/09/13 21:10:12  niels
+	Revision 1.38  2004/05/04 22:52:20  niels
 	*** empty log message ***
+	
+	Revision 1.37  2004/04/19 21:51:49  niels
+	Revision 1.36  2004/03/25 00:00:24  niels
+	fix panic allocating large physical address spaces
+	
+	Revision 1.35  2004/02/27 21:02:20  calderon
+	Changed headerdoc abstract of function "GetSpeedBetweenNodes" from "Get
+	maximum transfer speed to device to which this interface is attached." to
+	"Get the maximum transfer speed between nodes 'srcNodeID' and 'destNodeID'."
 	
 	Revision 1.34  2003/11/20 19:14:08  niels
-	*** empty log message ***
-	
 	Revision 1.33  2003/11/07 21:24:28  niels
-	*** empty log message ***
-	
 	Revision 1.32  2003/11/07 21:01:19  niels
-	*** empty log message ***
-	
 	Revision 1.31  2003/09/10 23:01:48  collin
-	*** empty log message ***
-	
 	Revision 1.30  2003/09/06 01:37:24  collin
-	*** empty log message ***
-	
 	Revision 1.29  2003/08/25 08:39:17  niels
-	*** empty log message ***
-	
 	Revision 1.28  2003/08/08 21:03:47  gecko1
 	Merge max-rec clipping code into TOT
 	
@@ -90,8 +87,6 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 	merge isoch to TOT
 	
 	Revision 1.26.14.2  2003/07/18 00:17:47  niels
-	*** empty log message ***
-	
 	Revision 1.26.14.1  2003/07/01 20:54:23  niels
 	isoch merge
 	
@@ -138,6 +133,7 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 #define kIOFireWireDeviceInterfaceID_v8	CFUUIDGetConstantUUIDWithBytes( kCFAllocatorDefault,\
 											0x22, 0xA2, 0x58, 0xBB, 0xA8, 0x59, 0x11, 0xD8, \
 											0xAA, 0x56, 0x00, 0x0A, 0x95, 0x99, 0x2A, 0x78 )
+
 //
 // version 7
 //
@@ -1438,7 +1434,7 @@ public:
 	//
 	
 	IOFireWireSessionRef		(*GetSessionRef)( IOFireWireLibDeviceRef self ) ;
-
+	
 	//
 	// v8
 	//
@@ -1470,7 +1466,7 @@ public:
 			UInt32					bufferRangeCount,
 			IOFWIsochPortOptions	options,
 			REFIID 					iid) ; 
-	
+
 } IOFireWireDeviceInterface, IOFireWireUnitInterface, IOFireWireNubInterface ;
 #endif // ifdef KERNEL
 
@@ -1781,9 +1777,9 @@ enum {
 
 #ifndef KERNEL
 //
-// IOFIREWIRELIBCOMMAND_C_GUTS, IOFIREWIRELIBCOMMAND_C_GUTS_v2
-// Macros used to insert generic superclass function definitions into all subclasses of
-// IOFireWireCommand. Comments for functions contained in this macros follow below:
+// IOFIREWIRELIBCOMMAND_C_GUTS
+// Macro used to insert generic superclass function definitions into all subclass of
+// IOFireWireCommand. Comments for functions contained in this macro follow below:
 //
 #define IOFIREWIRELIBCOMMAND_C_GUTS \
 	IOReturn			(*GetStatus)(IOFireWireLibCommandRef	self) ;	\

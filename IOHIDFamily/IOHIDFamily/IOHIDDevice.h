@@ -29,15 +29,16 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/hidsystem/IOHIDDescriptorParser.h>
-#include "IOHIDKeys.h"
+#include <IOKit/hid/IOHIDKeys.h>
 
-class  IOHIDSystem;
-class  IOHIDPointing;
-class  IOHIDKeyboard;
-class  IOHIDConsumer;
-class  IOHIDElement;
-class  IOHIDEventQueue;
-struct IOHIDReportHandler;
+class   IOHIDSystem;
+class   IOHIDPointing;
+class   IOHIDKeyboard;
+class   IOHIDConsumer;
+class   IOHIDElementPrivate;
+class   IOHIDEventQueue;
+class   IOHIDInterface;
+struct  IOHIDReportHandler;
 
 /*!
     @typedef IOHIDCompletionAction
@@ -103,7 +104,7 @@ class IOHIDDevice : public IOService
 private:
     OSArray *                   _elementArray;
     UInt32                      _dataElementIndex;
-    IOLock *                    _elementLock;
+    IORecursiveLock *           _elementLock;
     IOHIDReportHandler *        _reportHandlers;
     IOBufferMemoryDescriptor *  _elementValuesDescriptor;
     bool                        _readyForInputReports;
@@ -113,16 +114,13 @@ private:
     UInt32                      _maxFeatureReportSize;
 
     struct ExpansionData { 
-        IOHIDPointing *		pointingNub;
-        IOHIDKeyboard *		keyboardNub;
-        IOHIDConsumer *		consumerNub;
-        OSSet *             clientSet;
-        IOService *         seizedClient;
-        IOHIDSystem *		hidSystem;
+        OSSet *				clientSet;
+        IOService *			seizedClient;
         AbsoluteTime		eventDeadline;
         IONotifier *		publishNotify;
-        OSArray *           inputInterruptElementArray;
-		bool				postNullEvents;
+        OSArray *			inputInterruptElementArray;
+		bool				performTickle;
+		IOHIDInterface *	interfaceNub;
     };
     /*! @var reserved
         Reserved for future use.  (Internal use only)  */
@@ -170,7 +168,7 @@ private:
     
     static bool _publishNotificationHandler( void * target, 
 				void * ref, IOService * newService );
-                                
+    
 protected:
 
 /*! @function free
@@ -407,8 +405,7 @@ public:
 /*! @function handleReport
     @abstract Handle an asynchronous report received from the HID device.
     @param report A memory descriptor that describes the report.
-    @param reportType The type of report. Currently, only
-    kIOHIDReportTypeInput report type is handled.
+    @param reportType The type of report.
     @param options Options to specify the request. No options are
     currently defined, and the default value is 0.
     @result kIOReturnSuccess on success, or an error return otherwise. */
@@ -466,7 +463,7 @@ public:
     @abstract A registration function called by a HID element to register
     itself, and also to obtain an unique cookie identifier
     (unique per device, not unique system-wide).
-    @discussion An internal data type, an IOHIDElement, is created to
+    @discussion An internal data type, an IOHIDElementPrivate, is created to
     represent each HID element discovered by parsing the HID report
     descriptor. Each element created will call this method to register
     itself with its owner (IOHIDDevice), and also to obtain an element
@@ -477,7 +474,7 @@ public:
     @param cookie Pointer to the returned cookie assigned to this element.
     @result True on success, or false otherwise. */
 
-    virtual bool registerElement( IOHIDElement *       element,
+    virtual bool registerElement( IOHIDElementPrivate * element,
                                   IOHIDElementCookie * cookie );
 
 /*! @function startEventDelivery
@@ -623,7 +620,6 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  6);
     virtual OSNumber * newVendorIDSourceNumber() const;
     
-
 /*! @function newCountryCodeNumber
     @abstract Returns a number object that describes the country code
     of the HID device.  
@@ -632,7 +628,24 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDDevice,  7);
     virtual OSNumber * newCountryCodeNumber() const;
 
-    OSMetaClassDeclareReservedUnused(IOHIDDevice,  8);
+    
+/*! @function handleReportWithTime
+    @abstract Handle an asynchronous report received from the HID device.
+	@param timeStamp The timestamp of report.
+    @param report A memory descriptor that describes the report.
+    @param reportType The type of report. Currently, only
+    kIOHIDReportTypeInput report type is handled.
+    @param options Options to specify the request. No options are
+    currently defined, and the default value is 0.
+    @result kIOReturnSuccess on success, or an error return otherwise. */
+
+    OSMetaClassDeclareReservedUsed(IOHIDDevice,  8);
+	virtual IOReturn handleReportWithTime(
+                     AbsoluteTime         timeStamp,
+                     IOMemoryDescriptor * report,
+	                 IOHIDReportType      reportType = kIOHIDReportTypeInput,
+	                 IOOptionBits         options    = 0);
+
     OSMetaClassDeclareReservedUnused(IOHIDDevice,  9);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 10);
     OSMetaClassDeclareReservedUnused(IOHIDDevice, 11);

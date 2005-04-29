@@ -1,10 +1,10 @@
-// Build don't link: 
+// { dg-do compile }
 // GROUPS passed old-abort
-      extern f(int);// ERROR -  ambiguates.*
+      extern int f(int); // { dg-error "ambiguates" }
 
-      int& f(int x)
-      {// ERROR -  new declaration.*
-          int local;// ERROR -  warning
+      int& f(int x)  // { dg-error "new declaration" }
+      {
+          int local; // { dg-error "reference to local" }
 
           local = x+2;
       

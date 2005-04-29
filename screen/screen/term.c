@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: term.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
 #include "term.h"
 
 #define KMAPDEF(s)
@@ -209,6 +206,7 @@ struct term term[T_N] =
 /* more keys for Andrew A. Chernov (ache@astral.msk.su) */
   { "kA", T_STR  },
   { "ka", T_STR  },
+/* define T_BACKTAB */
   { "kB", T_STR  },
   { "kC", T_STR  },
   { "kE", T_STR  },
@@ -219,6 +217,14 @@ struct term term[T_N] =
   { "kS", T_STR  },
   { "kT", T_STR  },
   { "kt", T_STR  },
+  { "*4", T_STR  },	/* kDC */
+  { "*7", T_STR  },	/* kEND */
+  { "#2", T_STR  },	/* kHOM */
+  { "#3", T_STR  },	/* kIC */
+  { "#4", T_STR  },	/* kLFT */
+  { "%c", T_STR  },	/* kNXT */
+  { "%e", T_STR  },	/* kPRV */
+  { "%i", T_STR  },	/* kRIT */
 
 /* keys above the cursor */
 /* define T_NAVIGATE */

@@ -1,5 +1,5 @@
 /* java.util.Calendar
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -73,13 +73,12 @@ import java.io.*;
  * and for the first line all fields are set, that line is used to
  * compute the day. <br>
  *
- * <pre>
- * month + day_of_month
- * month + week_of_month + day_of_week
- * month + day_of_week_of_month + day_of_week
- * day_of_year
- * day_of_week + week_of_year
- * </pre>
+ * 
+<pre>month + day_of_month
+month + week_of_month + day_of_week
+month + day_of_week_of_month + day_of_week
+day_of_year
+day_of_week + week_of_year</pre>
  * 
  * The hour_of_day-field takes precedence over the ampm and
  * hour_of_ampm fields. <br>
@@ -505,8 +504,9 @@ public abstract class Calendar implements Serializable, Cloneable
   /**
    * Returns the time represented by this Calendar.
    * @return the time in milliseconds since the epoch.
+   * @specnote This was made public in 1.4.
    */
-  protected long getTimeInMillis()
+  public long getTimeInMillis()
   {
     if (!isTimeSet)
       computeTime();
@@ -517,8 +517,9 @@ public abstract class Calendar implements Serializable, Cloneable
    * Sets this Calendar's time to the given Time.  All time fields
    * are invalidated by this method.
    * @param time the time in milliseconds since the epoch
+   * @specnote This was made public in 1.4.
    */
-  protected void setTimeInMillis(long time)
+  public void setTimeInMillis(long time)
   {
     this.time = time;
     isTimeSet = true;

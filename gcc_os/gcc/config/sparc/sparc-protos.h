@@ -42,7 +42,7 @@ extern int function_arg_pass_by_reference PARAMS ((const CUMULATIVE_ARGS *,
 extern struct rtx_def *sparc_builtin_saveregs PARAMS ((void));
 #ifdef RTX_CODE
 extern void init_cumulative_args PARAMS ((CUMULATIVE_ARGS *, tree, rtx, int));
-extern void sparc_va_start PARAMS ((int, tree, rtx));
+extern void sparc_va_start PARAMS ((tree, rtx));
 #endif
 extern struct rtx_def *sparc_va_arg PARAMS ((tree, tree));
 extern unsigned long sparc_type_code PARAMS ((tree));
@@ -74,6 +74,9 @@ extern enum machine_mode select_cc_mode PARAMS ((enum rtx_code, rtx, rtx));
 extern rtx gen_compare_reg PARAMS ((enum rtx_code code, rtx, rtx));
 extern void sparc_emit_float_lib_cmp PARAMS ((rtx, rtx, enum rtx_code));
 extern void sparc_emit_floatunsdi PARAMS ((rtx [2]));
+extern void emit_tfmode_binop PARAMS ((enum rtx_code, rtx *));
+extern void emit_tfmode_unop PARAMS ((enum rtx_code, rtx *));
+extern void emit_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
 /* This function handles all v9 scc insns */
 extern int gen_v9_scc PARAMS ((enum rtx_code, rtx *));
 extern void sparc_initialize_trampoline PARAMS ((rtx, rtx, rtx));
@@ -99,7 +102,6 @@ extern int fp_zero_operand PARAMS ((rtx, enum machine_mode));
 extern int reg_or_0_operand PARAMS ((rtx, enum machine_mode));
 extern int empty_delay_slot PARAMS ((rtx));
 extern int eligible_for_epilogue_delay PARAMS ((rtx, int));
-extern int eligible_for_return_delay PARAMS ((rtx));
 extern int eligible_for_sibcall_delay PARAMS ((rtx));
 extern int emit_move_sequence PARAMS ((rtx, enum machine_mode));
 extern int fp_sethi_p PARAMS ((rtx));
@@ -118,6 +120,7 @@ extern char *sparc_v8plus_shift PARAMS ((rtx *, rtx, const char *));
 extern int sparc_check_64 PARAMS ((rtx, rtx));
 extern rtx gen_df_reg PARAMS ((rtx, int));
 extern int sparc_extra_constraint_check PARAMS ((rtx, int, int));
+extern int sparc_rtx_costs PARAMS ((rtx, enum rtx_code, enum rtx_code));
 #endif /* RTX_CODE */
 
 #endif /* __SPARC_PROTOS_H__ */

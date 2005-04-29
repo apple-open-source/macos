@@ -1,11 +1,11 @@
 dnl Process this file with autoconf to produce a configure script.
 dnl
-dnl $Id: configure.in,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+dnl $Id: configure.in,v 1.18 1994/09/06 16:59:54 mlschroe Exp $ FAU
 dnl
 dnl Many thanks to David MacKenzie for writing autoconf and
 dnl providing a sample configure.in file for screen.
 dnl
-AC_REVISION($Revision: 1.1.1.2 $)dnl
+AC_REVISION($Revision: 1.18 $)dnl
 AC_INIT(screen.c)
 AC_CONFIG_HEADER(config.h)
 
@@ -1143,6 +1143,9 @@ AC_TRY_LINK([#include <shadow.h>], [getspnam("x");],AC_DEFINE(SHADOWPW))
 
 AC_CHECKING(getttyent)
 AC_TRY_LINK(,[getttyent();], AC_DEFINE(GETTTYENT))
+
+AC_CHECKING(fdwalk)
+AC_TRY_LINK([#include <stdlib.h>], [fdwalk(NULL, NULL);],AC_DEFINE(HAVE_FDWALK))
 
 AC_CHECKING(whether memcpy/memmove/bcopy handles overlapping arguments)
 AC_TRY_RUN([

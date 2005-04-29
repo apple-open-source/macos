@@ -36,7 +36,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: hostfile.c,v 1.30 2002/07/24 16:11:18 markus Exp $");
+RCSID("$OpenBSD: hostfile.c,v 1.32 2003/11/10 16:23:41 jakob Exp $");
 
 #include "packet.h"
 #include "match.h"
@@ -72,15 +72,15 @@ hostfile_read_key(char **cpp, u_int *bitsp, Key *ret)
 }
 
 static int
-hostfile_check_key(int bits, Key *key, const char *host, const char *filename, int linenum)
+hostfile_check_key(int bits, const Key *key, const char *host, const char *filename, int linenum)
 {
 	if (key == NULL || key->type != KEY_RSA1 || key->rsa == NULL)
 		return 1;
 	if (bits != BN_num_bits(key->rsa->n)) {
-		log("Warning: %s, line %d: keysize mismatch for host %s: "
+		logit("Warning: %s, line %d: keysize mismatch for host %s: "
 		    "actual %d vs. announced %d.",
 		    filename, linenum, host, BN_num_bits(key->rsa->n), bits);
-		log("Warning: replace %d with %d in %s, line %d.",
+		logit("Warning: replace %d with %d in %s, line %d.",
 		    bits, BN_num_bits(key->rsa->n), filename, linenum);
 	}
 	return 1;
@@ -98,7 +98,7 @@ hostfile_check_key(int bits, Key *key, const char *host, const char *filename, i
 
 static HostStatus
 check_host_in_hostfile_by_key_or_type(const char *filename,
-    const char *host, Key *key, int keytype, Key *found, int *numret)
+    const char *host, const Key *key, int keytype, Key *found, int *numret)
 {
 	FILE *f;
 	char line[8192];
@@ -188,7 +188,7 @@ check_host_in_hostfile_by_key_or_type(const char *filename,
 }
 
 HostStatus
-check_host_in_hostfile(const char *filename, const char *host, Key *key,
+check_host_in_hostfile(const char *filename, const char *host, const Key *key,
     Key *found, int *numret)
 {
 	if (key == NULL)
@@ -211,7 +211,7 @@ lookup_key_in_hostfile_by_type(const char *filename, const char *host,
  */
 
 int
-add_host_to_hostfile(const char *filename, const char *host, Key *key)
+add_host_to_hostfile(const char *filename, const char *host, const Key *key)
 {
 	FILE *f;
 	int success = 0;

@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = ApplePS2Keyboard ;
-export deferred SRCROOT = /Volumes/Junk/ApplePS2Keyboard ;
+export deferred SRCROOT = /remote/erase/ApplePS2Keyboard ;
 
 # User-defined project-wide settings for project
 
@@ -26,13 +26,12 @@ export deferred TARGET_NAME = ApplePS2Keyboard ;
 # User-defined build settings for target "ApplePS2Keyboard"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/ApplePS2Controller.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.ApplePS2Keyboard ;
-export deferred MODULE_VERSION = 1.0.2 ;
-export deferred OTHER_CFLAGS = -fpermissive ;
+export deferred MODULE_VERSION = 1.1.0 ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
 export deferred PRODUCT_NAME = ApplePS2Keyboard ;

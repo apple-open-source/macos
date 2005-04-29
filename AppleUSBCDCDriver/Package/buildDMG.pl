@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 #
-my $versionStr = '$Id: buildDMG.pl,v 1.1 2004/07/16 20:15:04 guyton Exp $';
+my $versionStr = '$Id: buildDMG.pl,v 1.1.1.1 2004/12/17 21:52:17 russw Exp $';
 #
 #  Created by Jšrg Westheide on Fri Feb 13 2003.
 #  Copyright (c) 2003, 2004 Jšrg Westheide. All rights reserved.

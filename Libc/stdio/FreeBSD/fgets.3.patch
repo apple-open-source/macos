@@ -1,0 +1,14 @@
+--- fgets.3.orig	Fri May 28 14:34:54 2004
++++ fgets.3	Fri May 28 14:35:03 2004
+@@ -152,11 +152,6 @@
+ .Xr ferror 3 ,
+ .Xr fgetln 3 ,
+ .Xr fgetws 3
+-.Rs
+-.%T "The FreeBSD Security Architecture"
+-.Re
+-(See
+-.Pa /usr/share/doc/{to be determined} . )
+ .Sh STANDARDS
+ The functions
+ .Fn fgets

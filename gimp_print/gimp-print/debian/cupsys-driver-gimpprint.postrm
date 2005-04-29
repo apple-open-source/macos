@@ -17,7 +17,9 @@ set -e
 # for details, see /usr/doc/packaging-manual/
 
 if [ "$1" = remove ]; then
-        /etc/init.d/cupsys reload
+	; Remove generated PPDs
+	rm -rf /usr/share/cups/model/gimp-print/5.0
+	/etc/init.d/cupsys reload
 fi
 
 if [ "$1" = purge ]; then

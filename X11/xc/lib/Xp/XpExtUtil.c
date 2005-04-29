@@ -34,7 +34,7 @@
  **
  ******************************************************************************
  *****************************************************************************/
-/* $XFree86: xc/lib/Xp/XpExtUtil.c,v 1.7 2002/10/16 00:37:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xp/XpExtUtil.c,v 1.8 2003/11/21 05:13:21 dawes Exp $ */
 
 #define NEED_EVENTS
 #define NEED_REPLIES
@@ -114,7 +114,7 @@ static XPrintLocalExtensionVersion xpprintversions[] = {{XP_ABSENT,0,0},
  * xpprintversions[version_index] shows which version *this* library is.
  */
 
-int XpCheckExtInit(dpy, version_index)
+int XpCheckExtInitUnlocked(dpy, version_index)
     register	Display *dpy;
     register	int	version_index;
 {
@@ -132,7 +132,6 @@ int XpCheckExtInit(dpy, version_index)
 	}
     }
 
-    _XLockMutex(_Xglobal_lock);
     if (info->data == NULL) {
 	/*
 	 * Hang a Xp private data struct.   Use it for version
@@ -140,14 +139,12 @@ int XpCheckExtInit(dpy, version_index)
 	 */
 	info->data = (caddr_t) Xmalloc (sizeof (xpPrintData));
 	if (!info->data) {
-	    _XUnlockMutex(_Xglobal_lock);
 	    return (-1);
 	}
 
 	((xpPrintData *) info->data)->vers =
 	    (XPrintLocalExtensionVersion *) Xmalloc(sizeof(XPrintLocalExtensionVersion));
 	if (!(((xpPrintData *) info->data)->vers)) {
-	    _XUnlockMutex(_Xglobal_lock);
 	    return (-1);
 	}
 
@@ -168,12 +165,26 @@ int XpCheckExtInit(dpy, version_index)
 		== xpprintversions[version_index].major_version) &&
 	     (((xpPrintData *) info->data)->vers->minor_version
 		< xpprintversions[version_index].minor_version))) {
-	    _XUnlockMutex(_Xglobal_lock);
 	    return (-1);
 	}
     }
-    _XUnlockMutex(_Xglobal_lock);
+    
     return (0);
+}
+
+int XpCheckExtInit(dpy, version_index)
+    register	Display *dpy;
+    register	int	version_index;
+{
+    int retval;
+    
+    _XLockMutex(_Xglobal_lock);
+    
+    retval = XpCheckExtInitUnlocked(dpy, version_index);
+    
+    _XUnlockMutex(_Xglobal_lock);
+
+    return retval;
 }
 
 /***********************************************************************

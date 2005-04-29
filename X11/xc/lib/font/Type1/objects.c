@@ -26,7 +26,7 @@
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/objects.c,v 1.10 2002/02/18 20:51:57 herrb Exp $ */
+/* $XFree86: xc/lib/font/Type1/objects.c,v 1.11 2003/05/27 22:26:45 tsi Exp $ */
  /* OBJECTS  CWEB         V0025 ********                             */
 /*
 :h1.OBJECTS Module - TYPE1IMAGER Objects Common Routines
@@ -311,8 +311,6 @@ t1_Allocate(int size,     /* number of bytes to allocate & initialize     */
  
        while (r == NULL) {
                if (!GimeSpace()) {
-                       IfTrace1(TRUE, "malloc attempted %d bytes.\n",
-                                           size + extra);
                        Abort("We have REALLY run out of memory");
                }
                r = (struct xobject *) xiMalloc(size + extra);
@@ -339,12 +337,6 @@ t1_Allocate(int size,     /* number of bytes to allocate & initialize     */
                        *p1++ = NULL;
        }
  
-       if (MemoryDebug > 1) {
-               register long *L;
-               L = (long *) r;
-               IfTrace4(TRUE, "Allocating at %x: %x %x %x\n",
-                                           L, L[-1], L[0], L[1]);
-       }
        return(r);
 }
  
@@ -368,12 +360,6 @@ Free(pointer objPtr)
        if (obj->type == INVALIDTYPE)
                Abort("Free of already freed object?");
        obj->type = INVALIDTYPE;
- 
-       if (MemoryDebug > 1) {
-               register long *L;
-               L = (long *) obj;
-               IfTrace4(TRUE,"Freeing at %x: %x %x %x\n", L, L[-1], L[0], L[1]);
-       }
  
        xiFree((long *)obj);
 }
@@ -407,8 +393,6 @@ t1_Permanent(pointer objPtr)
 {
        struct xobject *obj = (struct xobject *)objPtr;  /* object to be made permanent         */
 
-       IfTrace1((MustTraceCalls),"Permanent(%z)\n", obj);
- 
        if ( (obj != NULL) && ( !(ISPERMANENT(obj->flag)) ) )
        {
        /* there is a non-NULL, temporary object to be made permanent.
@@ -454,8 +438,6 @@ xiTemporary(pointer objPtr)
 {
        register struct xobject *obj 
 	   = (struct xobject *)objPtr;  /* object to be made permanent         */
-       IfTrace1((MustTraceCalls),"Temporary(%z)\n", obj);
- 
        if (obj != NULL) {
                /* if it's already temporary, there's nothing to do. */
                if ISPERMANENT(obj->flag)
@@ -503,8 +485,6 @@ t1_Dup(pointer objPtr)
        register struct xobject *obj
 	   = (struct xobject *)objPtr;  /* object to be duplicated             */
        register char oldflag;   /* copy of original object's flag byte */
- 
-       IfTrace1((MustTraceCalls),"Dup(%z)\n", obj);
  
        if (obj == NULL)
                return(NULL);
@@ -592,12 +572,9 @@ Destroy(pointer objPtr)
 {
        register struct xobject *obj
 	   = (struct xobject *)objPtr;  /* object to be destroyed              */
-       IfTrace1((MustTraceCalls),"Destroy(%z)\n", obj);
- 
        if (obj == NULL)
                return(NULL);
        if (ISIMMORTAL(obj->flag)) {
-               IfTrace1(TRUE,"Destroy of immortal object %z ignored\n", obj);
                return(NULL);
        }
        if (ISPATHTYPE(obj->type))
@@ -937,24 +914,6 @@ Consume(int n, ...)
 	       		Destroy(obj);
 	}
 }
-/*
-:h4.ObjectPostMortem() - Prints as Much as We Can About a Bad Object
- 
-This is a subroutine of TypeErr() and ArgErr().
-*/
- 
-/*ARGSUSED*/
-static void
-ObjectPostMortem(struct xobject *obj)
-{
- 
-       Pragmatics("Debug", 10);
-       IfTrace2(TRUE,"Bad object is of %s type %z\n", TypeFmt(obj->type), obj);
- 
-       IfTrace0((obj == (struct xobject *) USER),
-                  "Suspect that InitImager() was omitted.\n");
-       Pragmatics("Debug", 0);
-}
  
 /*
 :h3.TypeErr() - Handles "Invalid Object Type" Errors
@@ -981,9 +940,6 @@ TypeErr(char *name,          /* Name of routine (for error message)          */
  
        sprintf(typemsg, "Wrong object type in %s.  Expected %s; was %s.\n",
                   name, TypeFmt(expect), TypeFmt(obj->type));
-       IfTrace0(TRUE,typemsg);
- 
-       ObjectPostMortem(obj);
  
        if (MustCrash)
                Abort("Terminating because of CrashOnUserError...");
@@ -1055,14 +1011,11 @@ ArgErr(char *string,       /* description of error                         */
        pointer objPtr, 	   /* object, if any, that was in error            */
        pointer retPtr) 	   /* object returned to caller or NULL            */
 {
-       struct xobject *obj = (struct xobject *)objPtr;
        struct xobject *ret = (struct xobject *)retPtr;
 
        if (MustCrash)
                LineIOTrace = TRUE;
-       IfTrace1(TRUE,"ARGUMENT ERROR-- %s.\n", string);
-       if (obj != NULL)
-               ObjectPostMortem(obj);
+
        if (MustCrash)
                Abort("Terminating because of CrashOnUserError...");
        else

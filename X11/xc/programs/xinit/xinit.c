@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/programs/xinit/xinit.c,v 3.32 2002/05/31 18:46:13 dawes Exp $ */
+/* $XFree86: xc/programs/xinit/xinit.c,v 3.33 2003/06/10 17:03:56 dawes Exp $ */
 
 #include <X11/Xlib.h>
 #include <X11/Xos.h>
@@ -549,6 +549,9 @@ startServer(char *server[])
 #else
 	int old;
 #endif
+#ifdef __UNIXOS2__
+	sigset_t pendings;
+#endif
 
 #if !defined(X_NOT_POSIX)
 	sigemptyset(&mask);
@@ -637,6 +640,17 @@ startServer(char *server[])
 		alarm (15);
 
 #ifndef X_NOT_POSIX
+#ifdef __UNIXOS2__
+		/*
+		 * fg2003/05/06: work around a problem in EMX: sigsuspend()
+		 * does not deliver pending signals when called but when
+		 * returning; so if SIGUSR1 has already been sent by the
+		 * server, we would still have to await SIGALRM
+		 */
+		sigemptyset(&pendings);
+		sigpending(&pendings);
+		if (!sigismember(&pendings, SIGUSR1))
+#endif /* __UNIXOS2__ */
 		sigsuspend(&old);
 		alarm (0);
 		sigprocmask(SIG_SETMASK, &old, NULL);

@@ -1,0 +1,16 @@
+include "$(SRCROOT)/../../KerberosErrors/Scripts/compile_et.jam" ;
+
+Intermediates = "$(BUILT_PRODUCTS_DIR)/KerberosLogin.intermediates" ;
+
+compile_et  "$(Intermediates)/KerberosLoginErrors.h"
+            "$(Intermediates)/KerberosLoginErrors.c"
+            "$(Intermediates)/KerberosLoginErrors.strings" : 
+            "$(SRCROOT)/../../KerberosLogin/Resources/KerberosLoginErrors.et" ;
+                        
+DEPENDS all :           "$(Intermediates)/KerberosLoginErrors.h"
+                        "$(Intermediates)/KerberosLoginErrors.c"
+                        "$(Intermediates)/KerberosLoginErrors.strings" ;
+DEPENDS install : all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

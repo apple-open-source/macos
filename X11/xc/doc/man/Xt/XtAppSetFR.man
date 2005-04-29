@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\" 
-.\" $XFree86: xc/doc/man/Xt/XtAppSetFR.man,v 1.5 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppSetFR.man,v 1.7 2003/05/29 21:48:04 herrb Exp $
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xI Intrinsics
@@ -129,11 +129,9 @@
 .SH NAME
 XtAppSetFallbackResources \- set fallback resources
 .SH SYNTAX
-void XtAppSetFallbackResources(\fIapp_context\fP, \fIspecification_list\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      String* \fIspecification_list\fP;
+.HP
+void XtAppSetFallbackResources(XtAppContext \fIapp_context\fP, String*
+\fIspecification_list\fP); 
 .SH ARGUMENTS
 .IP \fIapp_context\fP 1i
 Specifies the application context.
@@ -160,7 +158,7 @@ is called again. The value NULL for \fIspecification_list\fP removes
 any previous fallback resource specification for the application context.
 The intended use for fallback resources is to provide a minimal number
 of resources that will make the application usable (or at least terminate
-with helful diagnostic messages) when some problem exists in finding 
+with helpful diagnostic messages) when some problem exists in finding 
 and loading the application defaults file.
 .SH "SEE ALSO"
 .br

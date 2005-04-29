@@ -1,0 +1,81 @@
+#! /bin/sh
+#
+# rpclog - Copyright (C) 2001 Pat Thoyts <pat@zsplat.freeserve.co.uk>
+#
+# Generate a page from the CGI log file.
+#
+# -------------------------------------------------------------------------
+# This software is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the accompanying file `LICENSE'
+# for more details.
+# -------------------------------------------------------------------------
+#
+# restart using tclsh \
+TCLLIBPATH="/home/pat/lib/tcl" \
+exec tclsh "$0" ${1+"$@"}
+
+#set ::auto_path [linsert $::auto_path 0 {/home/pat/lib/tcl}]
+
+# -------------------------------------------------------------------------
+# Description:
+#   Write a complete html page to stdout, setting the content length correctly.
+# Notes:
+#   The string length is incremented by the number of newlines as HTTP content
+#   assumes CR-NL line endings.
+#
+proc write {html} {
+    puts "Content-Type: text/html"
+    set len [string length $html]
+    puts "X-Content-Length: $len"
+    incr len [regexp -all "\n" $html]
+    puts "Content-Length: $len"
+
+    puts "\n$html"
+    catch {flush stdout}
+}
+
+# -------------------------------------------------------------------------
+
+if {[catch {
+
+    set f [open "../logs/rpc.log" "r"]
+    set data [read $f]
+    close $f
+
+    set html "<!doctype HTML public \"-//W3O//DTD W3 HTML 2.0//EN\">\n"
+    append html "<html>\n<head>\n<title>TclSOAP CGI Log</title>\n</head>\n"
+    append html "<body bgcolor=\"white\" text=\"black\">\n"
+    append html "<ul>\n"
+
+    foreach {timestamp protocol info result where who} $data {
+	append html "<li>"
+	set time [clock scan $timestamp]
+	append html "[clock format $time -format {%a %d %b %Y %H:%M:%S}] $protocol "
+	if {[string match {ok*} $result]} {
+	    append html "$info $where $who <br>"
+	} else {
+	    append html "<font size=\"-1\" color=\"red\">$result $info</font>"
+	}
+	append html "</li>\n"
+    }
+
+    append html "</ul>\n</body>\n</html>\n"
+    write $html
+
+} msg]} {
+
+    set html "<!doctype HTML public \"-//W3O//DTD W3 HTML 2.0//EN\">\n"
+    append html "<html>\n<head>\n<title>CGI Error</title>\n</head>"
+    append html "<h1>CGI Error</h1>\n<p>$msg</p>\n"
+    append html "<pre>$::errorInfo</pre>\n"
+    append html "</body>\n</html>"
+
+    write $html
+}
+	
+# -------------------------------------------------------------------------
+#
+# Local variables:
+# mode: tcl
+# End:

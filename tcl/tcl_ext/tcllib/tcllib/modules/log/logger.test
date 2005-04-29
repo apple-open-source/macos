@@ -1,0 +1,362 @@
+# -*- tcl -*-
+# Tests for the logger facility.
+#
+# Sourcing this file into Tcl runs the tests and generates output for errors.
+# No output means no errors were found.
+#
+# Copyright (c) 2002 by David N. Welton <davidw@dedasys.com>.
+# Copyright (c) 2004 by Michael Schlenker <mic42@users.sourceforge.net>.
+#
+# $Id: logger.test,v 1.5.2.1 2004/05/27 03:47:22 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+set auto_path "[file dirname [info script]] $auto_path"
+package require logger 0.3.1
+
+test logger-1.0 {init basic} {
+    set log [logger::init global]
+    ${log}::delete
+    set log
+} {::logger::tree::global}
+
+test logger-1.1 {init sub-system} {
+    set log [logger::init global::subsystem]
+    ${log}::delete
+    # cleanup the leftover global log
+    ::logger::tree::global::delete
+    set log
+} {::logger::tree::global::subsystem}
+
+test logger-1.2 {instantiate main logger and child} {
+    set log1 [logger::init global]
+    set log2 [logger::init global::subsystem]
+    ${log2}::delete
+    ${log1}::delete
+    list $log1 $log2
+} {::logger::tree::global ::logger::tree::global::subsystem}
+
+test logger-1.3 {instantiate logger with problematic name} {
+    set log [logger::init foo::logger::tree::bar]    
+    set services [logger::services]
+    # direct cleanup of logger namespace
+    foreach srv $services {
+        ::logger::tree::${srv}::delete
+    }
+    set services_post [logger::services]
+    list $log [lsort $services] $services_post
+} {::logger::tree::foo::logger::tree::bar {foo foo::logger foo::logger::tree foo::logger::tree::bar} {}}
+
+test logger-2.0 {delete} {
+    set log [logger::init global]
+    ${log}::delete
+    catch {set ${log}::enabled} err
+    set err
+} {can't read "::logger::tree::global::enabled": no such variable}
+
+proc dellog {ns args} {
+    lappend ::results "$ns $args"
+}
+
+test logger-2.1 {delete + callback} {
+    set ::results {}
+    set log1 [logger::init global]
+    set log2 [logger::init global::subsystem]
+    ${log1}::delproc [list dellog $log1]
+    ${log2}::delproc [list dellog $log2]
+    ${log1}::delete
+    set ::results
+} {{::logger::tree::global::subsystem } {::logger::tree::global }}
+
+test logger-2.2 {delete + complex callback} {
+    set ::results {}
+    set log1 [logger::init global]
+    set log2 [logger::init global::subsystem]
+    ${log1}::delproc [list dellog $log1 sock1]
+    ${log2}::delproc [list dellog $log2 sock2]
+    ${log1}::delete
+    set ::results
+} {{::logger::tree::global::subsystem sock2} {::logger::tree::global sock1}}
+
+test logger-3.0 {log} {
+    set log [logger::init global]
+    ${log}::error "Danger Will Robinson!"
+    ${log}::delete
+} {}
+
+test logger-3.1 {log} {
+    set log [logger::init global]
+    ${log}::warn "Danger Will Robinson!"
+    ${log}::delete
+} {}
+
+test logger-3.2 {log} {
+    set log [logger::init global]
+    ${log}::logproc info txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log}::info "Alert"
+    ${log}::delete
+    set ::INFO
+} {Danger Will Robinson!}
+
+
+test logger-3.4 {log} {
+    set log1 [logger::init global]
+    ${log1}::logproc info txt {
+	set ::INFO "LOGGED: $txt"
+    }
+    set log2 [logger::init global::subsystem]
+    ${log1}::info boo
+    lappend retval [set ::INFO]
+    ${log2}::info BOO
+    lappend retval [set ::INFO]
+    ${log2}::delete
+    ${log1}::delete
+    set retval
+} {{LOGGED: boo} {LOGGED: BOO}}
+
+test logger-4.0 {disable} {
+    set ::INFO {no change}
+    set log [logger::init global]
+    ${log}::logproc info txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log}::disable warn
+    ${log}::info "Alert"
+    ${log}::delete
+    set ::INFO
+} {no change}
+
+test logger-4.1 {disable + enable} {
+    set ::INFO {no change}
+    set log [logger::init global]
+    ${log}::logproc info txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log}::disable warn
+    ${log}::enable info
+    ${log}::info "Alert"
+    ${log}::delete
+    set ::INFO
+} {Danger Will Robinson!}
+
+test logger-4.2 {disable all} {
+    set ::INFO {no change}
+    set log [logger::init global]
+    ${log}::logproc critical txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log}::disable critical
+    ${log}::critical "Alert"
+    ${log}::delete
+    set ::INFO
+} {no change}
+
+test logger-4.3 {enable all} {
+    set ::INFO {no change}
+    set log [logger::init global]
+    ${log}::logproc debug txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log}::enable debug
+    ${log}::debug "Alert"
+    ${log}::delete
+    set ::INFO
+} {Danger Will Robinson!}
+
+test logger-4.4 {enable bad args} {
+    set log [logger::init global]
+    catch { ${log}::enable badargs } err
+    ${log}::delete
+    set err
+} {Invalid level 'badargs' - levels are debug info notice warn error critical}
+
+test logger-4.5 {test method inheritance} {
+    set log1 [logger::init global]
+    set log2 [logger::init global::child]
+    ${log1}::logproc notice txt {
+	set ::INFO "Danger Will Robinson!"
+    }
+    ${log2}::notice "alert"
+    ${log2}::delete
+    ${log1}::delete
+    set ::INFO
+} {Danger Will Robinson!}
+
+test logger-5.0 {setlevel command} {
+    set ::INFO ""
+    set log1 [logger::init global]
+    ${log1}::setlevel warn
+    ${log1}::logproc error txt {
+	lappend ::INFO "Error Message"
+    }
+    ${log1}::logproc warn txt {
+	lappend ::INFO "Warning Message"
+    }
+    ${log1}::logproc notice txt {
+	lappend ::INFO "Notice Message"
+    }
+    ${log1}::error "error"
+    ${log1}::warn "warn"
+    ${log1}::notice "notice"
+    ${log1}::delete
+    set ::INFO
+} {{Error Message} {Warning Message}}
+
+test logger-6.0 {levels command} {
+    logger::levels 
+} {debug info notice warn error critical}
+
+test logger-7.0 {currentloglevel} {
+    set log [logger::init global]
+    foreach lvl [logger::levels] {
+        ${log}::setlevel $lvl
+        lappend result [${log}::currentloglevel]
+    }
+    ${log}::delete
+    set result
+} {debug info notice warn error critical}
+
+test logger-7.1 {currentloglevel, disable all} {
+    set log [logger::init global]
+    ${log}::disable critical
+    set result [${log}::currentloglevel]
+    ${log}::delete
+    set result
+} {none}
+
+test logger-7.2 {currentloglevel, enable incremental} {
+    set results ""
+    set log [logger::init global]
+    ${log}::disable critical
+    ${log}::enable critical
+    lappend results [${log}::currentloglevel]
+    ${log}::enable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::delete
+    set results
+} {critical debug}
+
+test logger-7.3 {currentloglevel, enable incremental} {
+    set results ""
+    set log [logger::init global]
+    ${log}::disable critical
+    ${log}::enable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::enable critical
+    lappend results [${log}::currentloglevel]
+    ${log}::delete
+    set results
+} {debug debug}
+
+test logger-7.3 {currentloglevel, disable incremental} {
+    set results ""
+    set log [logger::init global]
+    ${log}::enable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::disable critical
+    lappend results [${log}::currentloglevel]
+    ${log}::disable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::delete
+    set results
+} {debug none none}
+
+test logger-7.4 {currentloglevel, disable incremental} {
+    set results ""
+    set log [logger::init global]
+    ${log}::enable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::disable debug
+    lappend results [${log}::currentloglevel]
+    ${log}::disable critical
+    lappend results [${log}::currentloglevel]
+    ${log}::delete
+    set results
+} {debug info none}
+
+test logger-8.0 {logproc with existing proc, non existing proc} {
+    set log [logger::init global]
+    catch { ${log}::logproc warn NoSuchProc } msg
+    ${log}::delete
+    set msg
+} {Invalid cmd 'NoSuchProc' - does not exist}
+
+test logger-8.1 {logproc with existing proc, no arguments} {
+    set log [logger::init global]
+    catch { ${log}::logproc warn } msg
+    ${log}::delete
+    set msg
+} "Usage: \${log}::logproc level cmd\nor \${log}::logproc level argname body"
+
+
+test logger-8.2 {logproc with existing proc} {
+    set ::INFO ""
+    set log [logger::init global]
+    proc errorlogproc {txt} {
+        lappend ::INFO "Error Message: $txt"
+    }
+    set msg [info commands errorlogproc]
+    ${log}::logproc error errorlogproc 
+    ${log}::error "error"
+    ${log}::error "second error"
+    ${log}::delete 
+    rename errorlogproc ""
+    list $msg $::INFO
+} {errorlogproc {{Error Message: error} {Error Message: second error}}}
+
+test logger-8.3 {logproc with args and body} {
+    set ::INFO ""
+    set log [logger::init global]
+    ${log}::logproc error txt {lappend ::INFO "Error Message: $txt"}
+    ${log}::error "error"
+    ${log}::error "second error"
+    ${log}::delete
+    set ::INFO
+} {{Error Message: error} {Error Message: second error}}
+
+test logger-8.4 {logproc with existing proc, survive level switching} {
+    set ::INFO ""
+    set log [logger::init global]
+    proc errorlogproc {txt} {
+        lappend ::INFO "Error Message: $txt"
+    }
+    ${log}::logproc error errorlogproc 
+    ${log}::error "error"
+    ${log}::setlevel critical
+    ${log}::error "this should not be in the logfile"
+    ${log}::setlevel notice
+    ${log}::error "second error"
+    ${log}::delete 
+    rename errorlogproc ""
+    set ::INFO
+} {{Error Message: error} {Error Message: second error}}
+
+test logger-9.0 {services subcommand} {
+    set log [logger::init global]
+    set result [logger::services]
+    ${log}::delete
+    set result
+} {global}
+
+test logger-9.1 {services subcommand, no child services} {
+    set log [logger::init global]
+    set services [${log}::services]
+    ${log}::delete
+    set services
+} {}
+
+test logger-9.2 {services subcommand, children services} {
+    set log [logger::init global]
+    set child [logger::init global::child]
+    set result [list [logger::services] [${log}::services] [${child}::services]]
+    ${log}::delete
+    set result
+} [list [list global global::child] global::child {}] 
+
+::tcltest::cleanupTests
+return

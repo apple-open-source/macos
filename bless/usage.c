@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,72 +25,71 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Nov 14 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: usage.c,v 1.18 2003/08/04 06:38:45 ssen Exp $
+ *  $Id: usage.c,v 1.27 2005/02/08 00:18:45 ssen Exp $
  *
  */
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 
 #include "bless.h"
 
 #include "enums.h"
 #include "structs.h"
 
-#define xstr(s) str(s)
-#define str(s) #s
-
-const char *modeList[] = { "Global Options", "Info Mode", "Device Mode", "Folder Mode" };
-
-void usage(struct clopt commandlineopts[]) {
-    int j;
-    size_t oldMode;
-    fprintf(stderr, "Usage: " xstr(PROGRAM) " [options]\n");
+void usage() {
+    fprintf(stderr, "Usage: %s [options]\n", getprogname());
+    fputs(
+"\t--help\t\tThis usage statement\n"
+"\n"
+"Info Mode:\n"
+"\t--info [dir]\tPrint blessing information for a specific volume, or the\n"
+"\t\t\tcurrently active boot volume if <dir> is not specified\n"
+"\t--getBoot\tSuppress normal output and print the active boot volume\n"
+"\t--version\tPrint bless version number\n"
+"\t--plist\t\tFor any output type, use a plist representation\n"
+"\t--verbose\tVerbose output\n"
+"\n"
+"Folder Mode:\n"
+"\t--folder dir\tSet <dir> as the blessed directory\n"
+"\t--bootinfo [file]\tUse <file> to create a \"BootX\" file in the\n"
+"\t\t\tblessed dir\n"
+"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--openfolder dir\tSet <dir> to be the visible Finder directory\n"
+"\t--verbose\tVerbose output\n"
+"\n"
+"Mount Mode:\n"
+"\t--mount dir\tUse this mountpoint in conjunction with --setBoot\n"
+"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--verbose\tVerbose output\n"
+"\n"
+"Device Mode:\n"
+"\t--device dev\tUse this block device in conjunction with --setBoot\n"
+"\t--setBoot\tSet OpenFirmware to boot from this volume\n"
+"\t--verbose\tVerbose output\n"
+          
+          ,
+          stderr);
     
-	for(oldMode = 0; oldMode < (sizeof(modeList)/sizeof(const char *)); oldMode++) {
-		fprintf(stderr, "%s:\n", modeList[oldMode]);
-
-		for(j=0; j < klast; j++) {
-			if(!(commandlineopts[j].modes & (1 << oldMode)) || (commandlineopts[j].modes & mHidden)) {
-				continue;
-			}
-
-			if(commandlineopts[j].takesarg == aRequired) {
-				fprintf(stderr, "   -%-9s arg ", commandlineopts[j].flag);
-			} else if(commandlineopts[j].takesarg == aOptional) {
-				fprintf(stderr, "   -%-9s[arg]", commandlineopts[j].flag);
-			} else {
-				fprintf(stderr, "   -%-12s  ", commandlineopts[j].flag);
-			}
-			fprintf(stderr, "\t%s\n", commandlineopts[j].description);
-		}
-		fprintf(stderr, "\n");
-    }
     exit(1);
 }
 
 /* Basically lifted from the man page */
 void usage_short() {
-    fprintf(stderr, "Usage: " xstr(PROGRAM) " [options]\n");
+    fprintf(stderr, "Usage: %s [options]\n", getprogname());
     fputs(
-"bless -help\n"
+"bless --help\n"
 "\n"
-"bless -folder directory [-folder9 directory] [-mount directory]\n"
-"\t[-bootinfo file] [-bootBlocks | -bootBlockFile file] [-save9]\n"
-"\t[-saveX] [-use9] [-system file] [-systemfile file]\n"
-"\t[-label name | -labelfile file] [-openfolder directory] [-setBoot]\n"
-"\t[-quiet | -verbose]\n"
+"bless --folder directory [--bootinfo [file]] [--setBoot]\n"
+"\t[--openfolder directory] [--verbose]\n"
 "\n"
-"bless -device device [-format [fstype] [-fsargs args]\n"
-"\t[-label name | -labelfile file]] [-bootBlockFile file]\n"
-"\t[-mount directory] [-wrapper file] [-system file] [-startupfile file]\n"
-"\t[-setBoot] [-quiet | -verbose]\n"
+"bless --mount directory [--setBoot] [--verbose]\n"
 "\n"
-"bless -info [directory] [-bootBlocks] [-getBoot] [-plist]\n"
-"\t[-quiet | -verbose] [-version]\n"
+"bless --device device [--setBoot] [--verbose]\n"
+"\n"
+"bless --info [directory] [--getBoot] [--plist] [--verbose] [--version]\n"
 ,
 	  stderr);
     exit(1);

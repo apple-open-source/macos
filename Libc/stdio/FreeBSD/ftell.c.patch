@@ -1,0 +1,10 @@
+--- ftell.c.orig	Tue May 20 15:22:42 2003
++++ ftell.c	Tue May 25 13:14:32 2004
+@@ -105,6 +105,7 @@
+ 	 * Find offset of underlying I/O object, then
+ 	 * adjust for buffered bytes.
+ 	 */
++	__sflush(fp);		/* may adjust seek offset on append stream */
+ 	if (fp->_flags & __SOFF)
+ 		pos = fp->_offset;
+ 	else {

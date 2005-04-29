@@ -877,6 +877,8 @@ typedef int sasl_auxprop_init_t(const sasl_utils_t *utils,
  */
 LIBSASL_API int sasl_auxprop_add_plugin(const char *plugname,
 					sasl_auxprop_init_t *auxpropfunc);
+LIBSASL_API int sasl_auxprop_add_plugin_nolog(const char *plugname,
+					sasl_auxprop_init_t *auxpropfunc);
 
 #ifdef __cplusplus
 }

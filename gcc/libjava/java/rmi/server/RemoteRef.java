@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RemoteRef.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,27 +35,45 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi.server;
 
-import java.lang.reflect.Method;
 import java.io.Externalizable;
+import java.io.ObjectOutput;
+import java.lang.reflect.Method;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
-import java.io.ObjectOutput;
 
-public interface RemoteRef
-	extends Externalizable {
+public interface RemoteRef extends Externalizable
+{
+  long serialVersionUID = 0;
+  
+  String packagePrefix = "gnu.java.rmi.server";
 
-public static final long serialVersionUID = 0;
-public static final String packagePrefix = "gnu.java.rmi.server";
+  /**
+   * @deprecated
+   */
+  void invoke (RemoteCall call) throws Exception;
+  
+  Object invoke (Remote obj, Method method, Object[] params, long opnum)
+    throws Exception;
+  
+  /**
+   * @deprecated
+   */
+  RemoteCall newCall (RemoteObject obj, Operation[] op, int opnum, long hash)
+    throws RemoteException;
 
-public void invoke(RemoteCall call) throws Exception;
-public Object invoke(Remote obj, Method method, Object[] params, long opnum) throws Exception;
-public RemoteCall newCall(RemoteObject obj, Operation[] op, int opnum, long hash) throws RemoteException;
-public void done(RemoteCall call) throws RemoteException;
-public boolean remoteEquals(RemoteRef ref);
-public int remoteHashCode();
-public String getRefClass(ObjectOutput out);
-public String remoteToString();
-
+  /**
+   * @deprecated
+   */
+  void done (RemoteCall call) throws RemoteException;
+  
+  boolean remoteEquals (RemoteRef ref);
+  
+  int remoteHashCode();
+  
+  String getRefClass (ObjectOutput out);
+  
+  String remoteToString();
 }

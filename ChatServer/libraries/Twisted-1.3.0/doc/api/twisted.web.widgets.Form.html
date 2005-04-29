@@ -1,0 +1,550 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.web.widgets.Form</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.web.html">Package&nbsp;web</a> ::
+        <a href="twisted.web.widgets.html">Module&nbsp;widgets</a> ::
+        Class&nbsp;Form
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.web.widgets.Form.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Form</h2>
+
+<pre class="base-tree">
+<a href="twisted.web.widgets.Widget.html"><code>Widget</code></a> --+
+         |
+        <b>Form</b>
+</pre><br />
+
+<dl><dt><b>Known Subclasses:</b></dt>
+<dd>
+    <a href="twisted.words.webwords.AccountCreationWidget.html"><code>AccountCreationWidget</code></a>,
+    <a href="twisted.web.guard.AuthForm.html"><code>AuthForm</code></a>,
+    <a href="twisted.enterprise.dbgadgets.ChangePasswordForm.html"><code>ChangePasswordForm</code></a>,
+    <a href="twisted.enterprise.dbgadgets.NewIdentityForm.html"><code>NewIdentityForm</code></a>,
+    <a href="twisted.enterprise.dbgadgets.NewPerspectiveForm.html"><code>NewPerspectiveForm</code></a>,
+    <a href="twisted.enterprise.dbgadgets.RemoveIdentityForm.html"><code>RemoveIdentityForm</code></a>,
+    <a href="twisted.enterprise.dbgadgets.RemovePerspectiveForm.html"><code>RemovePerspectiveForm</code></a></dd></dl>
+
+<hr/>
+
+<p>I am a web form.</p>
+In order to use me, you probably want to set self.formFields (or 
+override 'getFormFields') and override 'process'. In order to demonstrate 
+how this is done, here is a small sample Form subclass:
+<pre class="literalblock">
+ |  from twisted.web import widgets
+ |  class HelloForm(widgets.Form):
+ |      formFields = [
+ |          ['string', 'Who to greet?', 'whoToGreet', 'World',
+ |            'This is for choosing who to greet.'],
+ |          ['menu', 'How to greet?', 'how', [('cheerfully', 'with a smile'),
+ |                                            ('sullenly', 'without enthusiasm'),
+ |                                            ('spontaneously', 'on the spur of the moment')]]
+ |            'This is for choosing how to greet them.']
+ |      def process(self, write, request, submit, whoToGreet, how):
+ |          write('The web wakes up and %s says, &quot;Hello, %s!&quot;' % (how, whoToGreet))
+</pre>
+If you load this widget, you will see that it displays a form with 2 
+inputs derived from data in formFields. Note the argument names to 
+'process': after 'write' and 'request', they are the same as the 3rd 
+elements ('Input Name' parameters) of the formFields list.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_displayFormat"></a><span class="summary-sig"><span class="summary-sig-name">_displayFormat</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>form</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_displayProcess"></a><span class="summary-sig"><span class="summary-sig-name">_displayProcess</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>form</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#_doProcess" class="summary-sig-name"><code>_doProcess</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>form</span>,
+          <span class=summary-sig-arg>write</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+(internal) Prepare arguments for self.process.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#display" class="summary-sig-name"><code>display</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+Display the form.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#format" class="summary-sig-name"><code>format</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>form</span>,
+          <span class=summary-sig-arg>write</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+<br />
+I display an HTML FORM according to the result of 
+self.getFormFields.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#formatError" class="summary-sig-name"><code>formatError</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Format an error message.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#getFormFields" class="summary-sig-name"><code>getFormFields</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>fieldSet</span>)</span></code>
+<br />
+I return a list of lists describing this form, or a Deferred.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#getFormID" class="summary-sig-name"><code>getFormID</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Override me: I disambiguate between multiple forms of the same 
+type.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#process" class="summary-sig-name"><code>process</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>write</span>,
+          <span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>submit</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+Override me: I process a form.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="shouldProcess"></a><span class="summary-sig"><span class="summary-sig-name">shouldProcess</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Form.html#tryAgain" class="summary-sig-name"><code>tryAgain</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>err</span>,
+          <span class=summary-sig-arg>req</span>)</span></code>
+<br />
+Utility method for re-drawing the form with an error message.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Widget</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.widgets.Widget.html#getTitle" class="summary-sig-name"><code>getTitle</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>request</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#actionURI"><code>actionURI</code></a></b> = <span title="''"><code><span class="variable-quote">'</span><span class="variable-quote">'</span>                                           </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#formAcceptExtraArgs"><code>formAcceptExtraArgs</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#formFields"><code>formFields</code></a></b> = <span title="[]"><code>[]                                          </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#formGen"><code>formGen</code></a></b> = <span title="{'checkbox': &lt;function htmlFor_checkbox at 0x8542e54&gt;, 'string': &lt;function htmlFor_string at 0x8542d3c&gt;, 'multimenu': &lt;function htmlFor_multimenu at 0x8542e1c&gt;, 'int': &lt;function htmlFor_string at 0x8542d3c&gt;, 'menu': &lt;function htmlFor_menu at 0x8542de4&gt;, 'float': &lt;function htmlFor_string at 0x8542d3c&gt;, 'checkgroup': &lt;function htmlFor_checkgroup at 0x8542e8c&gt;, 'radio': &lt;function htmlFor_radio at 0x8542ec4&gt;, 'file': &lt;function htmlFor_file at 0x8542d04&gt;, 'text': &lt;function htmlFor_text at 0x8542dac&gt;, 'hidden': &lt;function htmlFor_hidden at 0x8542ccc&gt;, 'password': &lt;function htmlFor_password at 0x85..."><code>{'checkbox':&nbsp;&lt;function&nbsp;htmlFor_checkbox&nbsp;at&nbsp;0x8<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#formParse"><code>formParse</code></a></b> = <span title="{'int': &lt;type 'int'&gt;, 'float': &lt;type 'float'&gt;}"><code>{'int':&nbsp;&lt;type&nbsp;'int'&gt;,&nbsp;'float':&nbsp;&lt;type&nbsp;'float'<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>list</code></font></td>
+<td><b><a href="twisted.web.widgets.Form.html#submitNames"><code>submitNames</code></a></b> = <span title="['Submit']"><code>['Submit']                                 </code>
+</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Widget</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.web.widgets.Widget.html#title"><code>title</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="_doProcess"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_doProcess</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>form</span>,
+          <span class=sig-arg>write</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  (internal) Prepare arguments for self.process.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="display"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">display</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  Display the form.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.web.widgets.Widget.html#display"><code>twisted.web.widgets.Widget.display</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="format"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">format</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>form</span>,
+          <span class=sig-arg>write</span>,
+          <span class=sig-arg>request</span>)</span>
+  </h3>
+  I display an HTML FORM according to the result of 
+  self.getFormFields.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="formatError"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">formatError</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>error</span>)</span>
+  </h3>
+  <p>Format an error message.</p>
+  By default, this will make the message appear in red, bold 
+  italics.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getFormFields"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getFormFields</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>request</span>,
+          <span class=sig-arg>fieldSet</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>I return a list of lists describing this form, or a Deferred.</p>
+  This information is used both to display the form and to process it. 
+  The list is in the following format:
+<pre class="literalblock">
+ | [['Input Type',   'Display Name',   'Input Name',   'Input Value', 'Description'],
+ |  ['Input Type 2', 'Display Name 2', 'Input Name 2', 'Input Value 2', 'Description 2']
+ |  ...]
+</pre>
+  Valid values for 'Input Type' are:
+  <ul>
+    <li>
+      'hidden': a hidden field that contains a string that the user 
+      won't change
+    </li>
+    <li>
+      'string': a short string
+    </li>
+    <li>
+      'int': an integer, e.g. 1, 0, 25 or -23
+    </li>
+    <li>
+      'float': a float, e.g. 1.0, 2, -3.45, or 28.4324231
+    </li>
+    <li>
+      'text': a longer text field, suitable for entering 
+      paragraphs
+    </li>
+    <li>
+      'menu': an HTML SELECT input, a list of choices
+    </li>
+    <li>
+      'multimenu': an HTML SELECT input allowing multiple choices
+    </li>
+    <li>
+      'checkgroup': a group of checkboxes
+    </li>
+    <li>
+      'radio': a group of radio buttons
+    </li>
+    <li>
+      'password': a 'string' field where the contents are not visible 
+      as the user types
+    </li>
+    <li>
+      'file': a file-upload form (EXPERIMENTAL)
+    </li>
+  </ul>
+  <p>'Display Name' is a descriptive string that will be used to identify 
+  the field to the user.</p>
+  <p>The 'Input Name' must be a legal Python identifier that describes 
+  both the value's name on the HTML form and the name of an argument to 
+  'self.process()'.</p>
+  <p>The 'Input Value' is usually a string, but its value can depend on 
+  the 'Input Type'. 'int' it is an integer, 'menu' it is a list of pairs 
+  of strings, representing (value, name) pairs for the menu options. 
+  Input value for 'checkgroup' and 'radio' should be a list of 
+  ('inputName', 'Display Name', 'checked') triplets.</p>
+  <p>The 'Description' field is an (optional) string which describes the 
+  form item to the user.</p>
+  <p>If this result is statically determined for your Form subclass, you 
+  can assign it to FormSubclass.formFields; if you need to determine it 
+  dynamically, you can override this method.</p>
+  Note: In many cases it is desirable to use user input for defaults 
+  in the form rather than those supplied by your calculations, which is 
+  what this method will do to self.formFields. If this is the case for 
+  you, but you still need to dynamically calculate some fields, pass your 
+  results back through this method by doing:
+<pre class="literalblock">
+ |  def getFormFields(self, request):
+ |      myFormFields = [self.myFieldCalculator()]
+ |      return widgets.Form.getFormFields(self, request, myFormFields)
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getFormID"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getFormID</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  <p>Override me: I disambiguate between multiple forms of the same 
+  type.</p>
+  In order to determine which form an HTTP POST request is for, you 
+  must have some unique identifier which distinguishes your form from 
+  other forms of the same class. An example of such a unique identifier 
+  would be: on a page with multiple FrobConf forms, each FrobConf form 
+  refers to a particular Frobnitz instance, which has a unique id(). The 
+  FrobConf form's getFormID would probably look like this:
+<pre class="literalblock">
+ |  def getFormID(self):
+ |      return str(id(self.frobnitz))
+</pre>
+  By default, this method will return None, since distinct Form 
+  instances may be identical as far as the application is concerned.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="process"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">process</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>write</span>,
+          <span class=sig-arg>request</span>,
+          <span class=sig-arg>submit</span>,
+          <span class="sig-kwarg">**kw</span>)</span>
+  </h3>
+  <p>Override me: I process a form.</p>
+  <p>I will only be called when the correct form input data to process 
+  this form has been received.</p>
+  <p>I take a variable number of arguments, beginning with 'write', 
+  'request', and 'submit'. 'write' is a callable object that will append 
+  a string to the response, 'request' is a twisted.web.request.Request 
+  instance, and 'submit' is the name of the submit action taken.</p>
+  The remainder of my arguments must be correctly named. They will 
+  each be named after one of the
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="tryAgain"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">tryAgain</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>err</span>,
+          <span class=sig-arg>req</span>)</span>
+  </h3>
+  <p>Utility method for re-drawing the form with an error message.</p>
+  This is handy in forms that process Deferred results. Normally you 
+  can just raise a FormInputError() and this will happen by default.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="actionURI"></a>
+<h3>actionURI</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="''">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span><span class="variable-quote">'</span>                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="formAcceptExtraArgs"></a>
+<h3>formAcceptExtraArgs</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="formFields"></a>
+<h3>formFields</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="[]">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+[]                                                                     </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="formGen"></a>
+<h3>formGen</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'checkbox': &lt;function htmlFor_checkbox at 0x8542e54&gt;, 'string': &lt;function htmlFor_string at 0x8542d3c&gt;, 'multimenu': &lt;function htmlFor_multimenu at 0x8542e1c&gt;, 'int': &lt;function htmlFor_string at 0x8542d3c&gt;, 'menu': &lt;function htmlFor_menu at 0x8542de4&gt;, 'float': &lt;function htmlFor_string at 0x8542d3c&gt;, 'checkgroup': &lt;function htmlFor_checkgroup at 0x8542e8c&gt;, 'radio': &lt;function htmlFor_radio at 0x8542ec4&gt;, 'file': &lt;function htmlFor_file at 0x8542d04&gt;, 'text': &lt;function htmlFor_text at 0x8542dac&gt;, 'hidden': &lt;function htmlFor_hidden at 0x8542ccc&gt;, 'password': &lt;function htmlFor_password at 0x85...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'checkbox': &lt;function htmlFor_checkbox at 0x8542e54&gt;,
+ 'checkgroup': &lt;function htmlFor_checkgroup at 0x8542e8c&gt;,
+ 'file': &lt;function htmlFor_file at 0x8542d04&gt;,
+ 'float': &lt;function htmlFor_string at 0x8542d3c&gt;,
+ 'hidden': &lt;function htmlFor_hidden at 0x8542ccc&gt;,
+ 'int': &lt;function htmlFor_string at 0x8542d3c&gt;,
+ 'menu': &lt;function htmlFor_menu at 0x8542de4&gt;,
+ 'multimenu': &lt;function htmlFor_multimenu at 0x8542e1c&gt;,
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="formParse"></a>
+<h3>formParse</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'int': &lt;type 'int'&gt;, 'float': &lt;type 'float'&gt;}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'int': &lt;type 'int'&gt;, 'float': &lt;type 'float'&gt;}                         </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="submitNames"></a>
+<h3>submitNames</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>list</code>
+
+      </dd>
+<span title="['Submit']">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+['Submit']                                                             </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:48 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

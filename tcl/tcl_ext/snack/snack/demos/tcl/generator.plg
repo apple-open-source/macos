@@ -1,0 +1,145 @@
+# -*-Mode:Tcl-*-
+
+namespace eval beepgen_v1 {
+    variable generator
+
+    lappend ::v(plugins) ::beepgen_v1
+    snack::menuCommand Tools {Beep Generator} ::beepgen_v1::GenWin
+    
+    proc Describe {} {
+	return "This plug-in adds the capability to generate simple beeps."
+    }
+    
+    proc Unload {} {
+	snack::menuDelete Tools {Beep Generator}
+    }
+    
+    proc Redraw y {
+	return 0
+    }
+    
+    proc Putmark m {
+	variable generator
+	
+	set generator(sta) [Marker2Sample m1]
+	set generator(end) [Marker2Sample m2]
+    }
+    
+    proc GenWin {} {
+	global v
+	variable generator
+
+	set w .gen
+	catch {destroy $w}
+	toplevel $w
+	wm title $w {Beep generator}
+	wm geometry $w [xsGetGeometry]
+	
+	if ![info exists generator(amp)] { set generator(amp) 10000 }
+	if ![info exists generator(type)] { set generator(type) sine }
+	if ![info exists generator(frq)] { set generator(frq) 1000 }
+	set generator(sta) [Marker2Sample m1]
+	set generator(end) [Marker2Sample m2]
+
+	pack [ frame $w.f0 ]
+	pack [ label $w.f0.l -text Type] -side left
+	pack [ radiobutton $w.f0.ri -text Sine -val sine -var ::beepgen_v1::generator(type)] -side left
+	pack [ radiobutton $w.f0.rq -text Square -val square -var ::beepgen_v1::generator(type)] -side left
+	pack [ radiobutton $w.f0.rl -text Silence -val silence -var ::beepgen_v1::generator(type) -command {set ::beepgen_v1::generator(amp) 0}] -side left
+
+	if {[snd cget -channels] == 1} {
+	    set generator(chan) ""
+	    set state disabled
+	} else {
+	    set generator(chan) both
+	    set state normal
+	}
+
+	pack [ frame $w.fs ]
+	pack [ label $w.fs.lab -text Channel] -side left
+	pack [ radiobutton $w.fs.b -text Both -val both -var ::beepgen_v1::generator(chan) -state $state] -side left
+	pack [ radiobutton $w.fs.r -text Left -val left -var ::beepgen_v1::generator(chan) -state $state] -side left
+	pack [ radiobutton $w.fs.l -text Right -val right -var ::beepgen_v1::generator(chan) -state $state] -side left
+	
+	pack [ frame $w.f1 ]
+	pack [ label $w.f1.l -text Frequency -wi 12] -side left
+	pack [ entry $w.f1.e -textvar ::beepgen_v1::generator(frq) -wi 7 ] -side left
+	
+	pack [ frame $w.f2 ]
+	pack [ label $w.f2.l -text Amplitude -wi 12] -side left
+	pack [ entry $w.f2.e -textvar ::beepgen_v1::generator(amp) -wi 7 ] -side left
+	
+	pack [ frame $w.f3 ]
+	pack [ label $w.f3.l -text "Start sample" -wi 12] -side left
+	pack [ entry $w.f3.e -textvar ::beepgen_v1::generator(sta) -wi 7 ] -side left
+	
+	pack [ frame $w.f4 ]
+	pack [ label $w.f4.l -text "End sample" -wi 12] -side left
+	pack [ entry $w.f4.e -textvar ::beepgen_v1::generator(end) -wi 7 ] -side left
+	
+	pack [ button $w.genB -text Generate -command ::beepgen_v1::Generate]
+	pack [ frame $w.f] -side bottom -fill x   
+	label $w.f.lab -text "" -width 1 -relief sunken -bd 1 -anchor w
+	pack $w.f.lab -side left -expand yes -fill x
+	button $w.f.exitB -text Close -command "destroy $w"
+	pack $w.f.exitB -side left
+    }
+
+    proc SetSample { n val } {
+	variable generator
+
+	if {[snd cget -format] == "Lin8"} {
+	    set val [expr {$val + 128}]
+	}
+	
+	switch $generator(chan) {
+	    both {
+		snd sample $n $val $val
+	    }
+	    left {
+		snd sample $n $val ?
+	    }
+	    right {
+		snd sample $n ? $val
+	    }
+	    "" {
+		snd sample $n $val
+	    }
+	}
+    }
+    
+    proc Generate {} {
+	global v
+	variable generator
+
+	if {[snd length] == 0} { snd length 16000 ; ::Redraw}
+
+	#    set generator(sta) [Marker2Sample m1]
+	#    set generator(end) [Marker2Sample m2]
+	set len [expr {$generator(end) - $generator(sta)}]
+	set j $generator(sta)
+	
+	if {$generator(type) == "sine"} {
+	    for {set i 0} {$i < $len} {incr i} {
+		SetSample $j [expr {int($generator(amp) * sin($i*3.14159265358979*2*$generator(frq)/$v(rate)))}]
+		incr j
+	    }
+	} elseif {$generator(type) == "square"} {
+	    for {set i 0} {$i < $len} {incr i} {
+		if {[expr {sin($i*3.14159265358979*2*$generator(frq)/$v(rate))}] > 0.0} {
+		    SetSample $j $generator(amp)
+		} else {
+		    SetSample $j -$generator(amp)
+		}
+		incr j
+	    }	
+	} else {
+	    for {set i $generator(sta)} {$i < $generator(end)} {incr i} {
+		SetSample $i 0
+	    }
+	}
+	snd changed new
+	::Redraw
+    }
+}
+

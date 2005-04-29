@@ -1,0 +1,26 @@
+--- collcmp.c.orig	2004-11-25 11:38:16.000000000 -0800
++++ collcmp.c	2005-02-17 10:18:01.000000000 -0800
+@@ -27,6 +27,7 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.17 2003/08/03 19:28:23 ache Exp $");
+ 
++#include <xlocale.h>
+ #include <string.h>
+ #include "collate.h"
+ 
+@@ -34,12 +35,13 @@
+  * Compare two characters using collate
+  */
+ 
+-int __collate_range_cmp(c1, c2)
++int __collate_range_cmp(c1, c2, loc)
+ 	int c1, c2;
++	locale_t loc;
+ {
+ 	static char s1[2], s2[2];
+ 
+ 	s1[0] = c1;
+ 	s2[0] = c2;
+-	return (strcoll(s1, s2));
++	return (strcoll_l(s1, s2, loc));
+ }

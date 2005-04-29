@@ -1,3 +1,4 @@
+/* $XFree86: xc/programs/luit/sys.h,v 1.3 2003/10/24 20:38:12 tsi Exp $ */
 /*
 Copyright (c) 2001 by Juliusz Chroboczek
 
@@ -24,6 +25,7 @@ int waitForOutput(int fd);
 int waitForInput(int fd1, int fd2);
 int setWindowSize(int sfd, int dfd);
 int installHandler(int signum, void (*handler)(int));
+int copyTermios(int sfd, int dfd);
 int saveTermios(void);
 int restoreTermios(void);
 int setRawTermios(void);

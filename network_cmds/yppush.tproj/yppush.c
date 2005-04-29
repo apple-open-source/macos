@@ -67,6 +67,7 @@ static char rcsid[] = "$OpenBSD: yppush.c,v 1.10 1997/11/10 05:49:17 deraadt Exp
 #include <rpc/xdr.h>
 #include <rpcsvc/yp.h>
 #include <rpcsvc/ypclnt.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
 #include <sys/signal.h>

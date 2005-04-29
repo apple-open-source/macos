@@ -33,6 +33,7 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/interface/bezierEval.cc,v 1.2 2003/10/22 19:20:55 tsi Exp $ */
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/interface/bezierEval.cc#3 $
 */
@@ -55,7 +56,9 @@
 
 static void normalize(float vec[3]);
 static void crossProduct(float x[3], float y[3], float ret[3]);
+#ifdef UNUSED
 static void bezierCurveEvalfast(float u0, float u1, int order, float *ctlpoints, int stride,  int dimension, float u, float retpoint[]);
+#endif
 
 static float binomialCoefficients[8][8] = {
   {1,0,0,0,0,0,0,0},
@@ -88,11 +91,10 @@ void bezierCurveEval(float u0, float u1, int order, float *ctlpoints, int stride
   }
 }
 
-      
-
 /*order = degree +1 >=1.
  */
-void bezierCurveEvalfast(float u0, float u1, int order, float *ctlpoints, int stride,  int dimension, float u, float retpoint[])
+#ifdef UNUSED
+static void bezierCurveEvalfast(float u0, float u1, int order, float *ctlpoints, int stride,  int dimension, float u, float retpoint[])
 {
   float uprime = (u-u0)/(u1-u0);
   float buf[MAX_ORDER][MAX_ORDER][MAX_DIMENSION];
@@ -113,7 +115,7 @@ void bezierCurveEvalfast(float u0, float u1, int order, float *ctlpoints, int st
   for(j=0; j<dimension; j++)
     retpoint[j] = buf[order-1][0][j];
 }
-
+#endif
 
 
 /*order = degree +1 >=1.
@@ -171,7 +173,7 @@ void bezierCurveEvalDerGen(int der, float u0, float u1, int order, float *ctlpoi
  */
 void bezierSurfEvalDerGen(int uder, int vder, float u0, float u1, int uorder, float v0, float v1, int vorder, int dimension, float *ctlpoints, int ustride, int vstride, float u, float v, float ret[])
 {
-  int i,j,k;
+  int i;
   float newPoints[MAX_ORDER][MAX_DIMENSION];
 
   for(i=0; i<uorder; i++){

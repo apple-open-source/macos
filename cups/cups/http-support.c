@@ -1,9 +1,9 @@
 /*
- * "$Id: http-support.c,v 1.1.1.4 2003/02/10 21:57:17 jlovell Exp $"
+ * "$Id: http-support.c,v 1.9 2005/01/20 03:24:54 jlovell Exp $"
  *
  *   HTTP support routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -25,9 +25,15 @@
  *
  * Contents:
  *
- *   httpSeparate() - Separate a Universal Resource Identifier into its
- *                    components.
- *   httpStatus()   - Return a short string describing a HTTP status code.
+ *   httpSeparate()     - Separate a Universal Resource Identifier into its
+ *                        components.
+ *   httpSeparate2()    - Separate a Universal Resource Identifier into its
+ *                        components.
+ *   httpSeparateApple()- Separate a Universal Resource Identifier into its
+ *                        components while optionally decoding escape sequenceces.
+ *   httpStatus()       - Return a short string describing a HTTP status code.
+ *   cups_hstrerror()   - hstrerror() emulation function for Solaris and others...
+ *   http_copy_decode() - Copy and decode a URI.
  */
 
 /*
@@ -45,6 +51,14 @@
 
 
 /*
+ * Local functions...
+ */
+
+static const char	*http_copy_decode(char *dst, const char *src,
+				int dstsize, const char *term, int decode);
+
+
+/*
  * 'httpSeparate()' - Separate a Universal Resource Identifier into its
  *                    components.
  */
@@ -52,16 +66,59 @@
 void
 httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
              char       *method,	/* O - Method [32] (http, https, etc.) */
-	     char       *username,	/* O - Username [32] */
-	     char       *host,		/* O - Hostname [32] */
+	     char       *username,	/* O - Username [1024] */
+	     char       *host,		/* O - Hostname [1024] */
 	     int        *port,		/* O - Port number to use */
              char       *resource)	/* O - Resource/filename [1024] */
+{
+  httpSeparateApple(uri, method, 32, username, HTTP_MAX_URI, host, HTTP_MAX_URI,
+                port, resource, HTTP_MAX_URI, 1);
+}
+
+
+/*
+ * 'httpSeparate2()' - Separate a Universal Resource Identifier into its
+ *                     components.
+ */
+
+void
+httpSeparate2(const char *uri,		/* I - Universal Resource Identifier */
+              char       *method,	/* O - Method (http, https, etc.) */
+	      int        methodlen,	/* I - Size of method buffer */
+	      char       *username,	/* O - Username */
+	      int        usernamelen,	/* I - Size of username buffer */
+	      char       *host,		/* O - Hostname */
+	      int        hostlen,	/* I - Size of hostname buffer */
+	      int        *port,		/* O - Port number to use */
+              char       *resource,	/* O - Resource/filename */
+	      int        resourcelen)	/* I - Size of resource buffer */
+{
+  httpSeparateApple(uri, method, 32, username, HTTP_MAX_URI, host, HTTP_MAX_URI,
+                port, resource, HTTP_MAX_URI, 1);
+}
+
+
+/*
+ * 'httpSeparateApple()' - Separate a Universal Resource Identifier into its
+ *                     components while optionally decoding escape sequenceces.
+ */
+
+void
+httpSeparateApple(const char *uri,		/* I - Universal Resource Identifier */
+              char       *method,	/* O - Method (http, https, etc.) */
+	      int        methodlen,	/* I - Size of method buffer */
+	      char       *username,	/* O - Username */
+	      int        usernamelen,	/* I - Size of username buffer */
+	      char       *host,		/* O - Hostname */
+	      int        hostlen,	/* I - Size of hostname buffer */
+	      int        *port,		/* O - Port number to use */
+              char       *resource,	/* O - Resource/filename */
+	      int        resourcelen,	/* I - Size of resource buffer */
+	      int        decode)	/* I - Decode while copying? */
 {
   char		*ptr;			/* Pointer into string... */
   const char	*atsign,		/* @ sign */
 		*slash;			/* Separator */
-  char		safeuri[HTTP_MAX_URI];	/* "Safe" local copy of URI */
-  char		quoted;			/* Quoted character */
 
 
  /*
@@ -73,15 +130,6 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
     return;
 
  /*
-  * Copy the URL to a local string to make sure we don't have a URL
-  * longer than HTTP_MAX_URI characters long...
-  */
-
-  strlcpy(safeuri, uri, sizeof(safeuri));
-
-  uri = safeuri;
-
- /*
   * Grab the method portion of the URI...
   */
 
@@ -91,7 +139,7 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
     * Workaround for HP IPP client bug...
     */
 
-    strcpy(method, "ipp");
+    strlcpy(method, "ipp", methodlen);
   }
   else
   {
@@ -99,11 +147,8 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
     * Standard URI with method...
     */
 
-    for (ptr = host; *uri != ':' && *uri != '\0'; uri ++)
-      if (ptr < (host + HTTP_MAX_URI - 1))
-        *ptr++ = *uri;
+    uri = http_copy_decode(host, uri, hostlen, ":", decode);
 
-    *ptr = '\0';
     if (*uri == ':')
       uri ++;
 
@@ -116,13 +161,13 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
     {
       if ((ptr = strchr(host, '/')) != NULL)
       {
-	strlcpy(resource, ptr, HTTP_MAX_URI);
+	strlcpy(resource, ptr, resourcelen);
 	*ptr = '\0';
       }
       else
 	resource[0] = '\0';
 
-      if (isdigit(*uri))
+      if (isdigit(*uri & 255))
       {
        /*
 	* OK, we have "hostname:port[/resource]"...
@@ -131,17 +176,17 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
 	*port = strtol(uri, (char **)&uri, 10);
 
 	if (*uri == '/')
-          strlcpy(resource, uri, HTTP_MAX_URI);
+          strlcpy(resource, uri, resourcelen);
       }
       else
 	*port = 631;
 
-      strcpy(method, "http");
+      strlcpy(method, "http", methodlen);
       username[0] = '\0';
       return;
     }
     else
-      strlcpy(method, host, 32);
+      strlcpy(method, host, methodlen);
   }
 
  /*
@@ -150,7 +195,7 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
 
   if (strncmp(uri, "//", 2) != 0)
   {
-    strlcpy(resource, uri, HTTP_MAX_URI);
+    strlcpy(resource, uri, resourcelen);
 
     username[0] = '\0';
     host[0]     = '\0';
@@ -173,36 +218,7 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
     * Got a username:password combo...
     */
 
-    for (ptr = username; uri < atsign; uri ++)
-      if (ptr < (username + HTTP_MAX_URI - 1))
-      {
-        if (*uri == '%' && isxdigit(uri[1]) && isxdigit(uri[2]))
-	{
-	 /*
-	  * Grab a hex-encoded username and password...
-	  */
-
-          uri ++;
-	  if (isalpha(*uri))
-	    quoted = (tolower(*uri) - 'a' + 10) << 4;
-	  else
-	    quoted = (*uri - '0') << 4;
-
-          uri ++;
-	  if (isalpha(*uri))
-	    quoted |= tolower(*uri) - 'a' + 10;
-	  else
-	    quoted |= *uri - '0';
-
-          *ptr++ = quoted;
-	}
-	else
-	  *ptr++ = *uri;
-      }
-
-    *ptr = '\0';
-
-    uri = atsign + 1;
+    uri = http_copy_decode(username, uri, usernamelen, "@", decode) + 1;
   }
   else
     username[0] = '\0';
@@ -211,38 +227,30 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
   * Grab the hostname...
   */
 
-  for (ptr = host; *uri != ':' && *uri != '/' && *uri != '\0'; uri ++)
-    if (ptr < (host + HTTP_MAX_URI - 1))
-      *ptr++ = *uri;
+  uri = http_copy_decode(host, uri, hostlen, ":/", decode);
 
-  *ptr = '\0';
+  if (*uri == ':' && isdigit(*(uri+1) & 255))
+  {
+   /*
+    * Parse port number...
+    */
 
-  if (*uri != ':')
+    *port = strtol(uri + 1, (char **)&uri, 10);
+  }
+  else
   {
     if (strcasecmp(method, "http") == 0)
       *port = 80;
     else if (strcasecmp(method, "https") == 0)
       *port = 443;
     else if (strcasecmp(method, "ipp") == 0)
-      *port = ippPort();
+      *port = 631;
+    else if (strcasecmp(method, "lpd") == 0)
+      *port = 515;
     else if (strcasecmp(method, "socket") == 0)	/* Not registered yet... */
       *port = 9100;
     else
       *port = 0;
-  }
-  else
-  {
-   /*
-    * Parse port number...
-    */
-
-    *port = 0;
-    uri ++;
-    while (isdigit(*uri))
-    {
-      *port = (*port * 10) + *uri - '0';
-      uri ++;
-    }
   }
 
   if (*uri == '\0')
@@ -260,7 +268,7 @@ httpSeparate(const char *uri,		/* I - Universal Resource Identifier */
   * The remaining portion is the resource string...
   */
 
-  strlcpy(resource, uri, HTTP_MAX_URI);
+  http_copy_decode(resource, uri, resourcelen, "", decode);
 }
 
 
@@ -311,6 +319,86 @@ httpStatus(http_status_t status)	/* I - HTTP status code */
 }
 
 
+#ifndef HAVE_HSTRERROR
 /*
- * End of "$Id: http-support.c,v 1.1.1.4 2003/02/10 21:57:17 jlovell Exp $".
+ * 'cups_hstrerror()' - hstrerror() emulation function for Solaris and others...
+ */
+
+const char *				/* O - Error string */
+cups_hstrerror(int error)		/* I - Error number */
+{
+  static const char * const errors[] =	/* Error strings */
+		{
+		  "OK",
+		  "Host not found.",
+		  "Try again.",
+		  "Unrecoverable lookup error.",
+		  "No data associated with name."
+		};
+
+
+  if (error < 0 || error > 4)
+    return ("Unknown hostname lookup error.");
+  else
+    return (errors[error]);
+}
+#endif /* !HAVE_HSTRERROR */
+
+
+/*
+ * 'http_copy_decode()' - Copy and decode a URI.
+ */
+
+static const char *			/* O - New source pointer */
+http_copy_decode(char       *dst,	/* O - Destination buffer */ 
+                 const char *src,	/* I - Source pointer */
+		 int        dstsize,	/* I - Destination size */
+		 const char *term,	/* I - Terminating characters */
+		 int        decode)	/* I - Decode while copying? */
+{
+  char	*ptr,				/* Pointer into buffer */
+	*end;				/* End of buffer */
+  int	quoted;				/* Quoted character */
+
+
+ /*
+  * Copy the src to the destination until we hit a terminating character
+  * or the end of the string.
+  */
+
+  for (ptr = dst, end = dst + dstsize - 1; *src && !strchr(term, *src); src ++)
+    if (ptr < end)
+    {
+      if (decode && *src == '%' && isxdigit(src[1] & 255) && isxdigit(src[2] & 255))
+      {
+       /*
+	* Grab a hex-encoded character...
+	*/
+
+        src ++;
+	if (isalpha(*src))
+	  quoted = (tolower(*src) - 'a' + 10) << 4;
+	else
+	  quoted = (*src - '0') << 4;
+
+        src ++;
+	if (isalpha(*src))
+	  quoted |= tolower(*src) - 'a' + 10;
+	else
+	  quoted |= *src - '0';
+
+        *ptr++ = quoted;
+      }
+      else
+	*ptr++ = *src;
+    }
+
+  *ptr = '\0';
+
+  return (src);
+}
+
+
+/*
+ * End of "$Id: http-support.c,v 1.9 2005/01/20 03:24:54 jlovell Exp $".
  */

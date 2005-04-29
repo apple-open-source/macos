@@ -1,7 +1,6 @@
 /*
- * %W% %E%
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -15,6 +14,7 @@
 #include "GlyphDefinitionTables.h"
 #include "GlyphPositionAdjustments.h"
 #include "LookupProcessor.h"
+#include "LEGlyphStorage.h"
 #include "LESwaps.h"
 
 U_NAMESPACE_BEGIN
@@ -22,7 +22,7 @@ U_NAMESPACE_BEGIN
 const LETag LookupProcessor::notSelected    = 0x00000000;
 const LETag LookupProcessor::defaultFeature = 0xFFFFFFFF;
 
-const LETag emptyTag = 0x00000000;
+static const LETag emptyTag = 0x00000000;
 
 
 le_uint32 LookupProcessor::applyLookupTable(const LookupTable *lookupTable, GlyphIterator *glyphIterator,
@@ -48,13 +48,19 @@ le_uint32 LookupProcessor::applyLookupTable(const LookupTable *lookupTable, Glyp
     return 1;
 }
 
-void LookupProcessor::process(LEGlyphID *glyphs, GlyphPositionAdjustment *glyphPositionAdjustments, const LETag **glyphTags, le_int32 glyphCount,
+le_int32 LookupProcessor::process(LEGlyphStorage &glyphStorage, GlyphPositionAdjustment *glyphPositionAdjustments,
                               le_bool rightToLeft, const GlyphDefinitionTableHeader *glyphDefinitionTableHeader,
                               const LEFontInstance *fontInstance) const
 {
+    le_int32 glyphCount = glyphStorage.getGlyphCount();
+
     if (lookupSelectArray == NULL) {
-        return;
+        return glyphCount;
     }
+
+    GlyphIterator glyphIterator(glyphStorage, glyphPositionAdjustments,
+                                rightToLeft, 0, 0, glyphDefinitionTableHeader);
+    le_int32 newGlyphCount = glyphCount;
 
     for (le_uint16 order = 0; order < lookupOrderCount; order += 1) {
         le_uint16 lookup = lookupOrderArray[order];
@@ -63,9 +69,8 @@ void LookupProcessor::process(LEGlyphID *glyphs, GlyphPositionAdjustment *glyphP
         if (selectTag != notSelected) {
             const LookupTable *lookupTable = lookupListTable->getLookupTable(lookup);
             le_uint16 lookupFlags = SWAPW(lookupTable->lookupFlags);
-            GlyphIterator glyphIterator(glyphs, glyphPositionAdjustments, glyphCount,
-                                  rightToLeft, lookupFlags, selectTag, glyphTags,
-                                  glyphDefinitionTableHeader);
+            
+            glyphIterator.reset(lookupFlags, selectTag);
 
             while (glyphIterator.findFeatureTag()) {
                 le_uint32 delta = 1;
@@ -74,8 +79,12 @@ void LookupProcessor::process(LEGlyphID *glyphs, GlyphPositionAdjustment *glyphP
                     delta = applyLookupTable(lookupTable, &glyphIterator, fontInstance);
                 }
             }
+
+            newGlyphCount = glyphIterator.applyInsertions();
         }
     }
+
+    return newGlyphCount;
 }
 
 le_uint32 LookupProcessor::applySingleLookup(le_uint16 lookupTableIndex, GlyphIterator *glyphIterator,
@@ -92,15 +101,18 @@ le_uint32 LookupProcessor::applySingleLookup(le_uint16 lookupTableIndex, GlyphIt
 le_int32 LookupProcessor::selectLookups(const FeatureTable *featureTable, LETag featureTag, le_int32 order)
 {
     le_uint16 lookupCount = featureTable? SWAPW(featureTable->lookupCount) : 0;
+    le_int32  store = order;
 
     for (le_uint16 lookup = 0; lookup < lookupCount; lookup += 1) {
         le_uint16 lookupListIndex = SWAPW(featureTable->lookupListIndexArray[lookup]);
 
-        lookupSelectArray[lookupListIndex] = featureTag;
-        lookupOrderArray[order + lookup]   = lookupListIndex;
+        if (lookupSelectArray[lookupListIndex] == notSelected) { 
+            lookupSelectArray[lookupListIndex] = featureTag;
+            lookupOrderArray[store++]   = lookupListIndex;
+        }
     }
 
-    return lookupCount;
+    return store - order;
 }
 
 LookupProcessor::LookupProcessor(const char *baseAddress,
@@ -186,6 +198,11 @@ LookupProcessor::LookupProcessor(const char *baseAddress,
         for (le_uint16 feature = 0; feature < featureCount; feature += 1) {
             le_uint16 featureIndex = SWAPW(langSysTable->featureIndexArray[feature]);
  
+            // don't add the required feature to the list more than once...
+            if (featureIndex == requiredFeatureIndex) {
+                continue;
+            }
+
             featureTable = featureListTable->getFeatureTable(featureIndex, &featureTag);
             count = selectLookups(featureTable, featureTag, order);
             order += count;

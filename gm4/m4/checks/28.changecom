@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1880: Origin of test
+dnl ../doc/m4.texinfo:1881: Origin of test
 define(`comment', `COMMENT')
 dnl @result{}
 changecom

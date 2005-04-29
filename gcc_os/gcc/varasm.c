@@ -1,6 +1,6 @@
 /* Output variables, constants and external declarations, for GNU compiler.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997,
-   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -36,12 +36,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "expr.h"
 #include "hard-reg-set.h"
 #include "regs.h"
-#include "output.h"
 #include "real.h"
+#include "output.h"
 #include "toplev.h"
-#include "obstack.h"
 #include "hashtab.h"
 #include "c-pragma.h"
+#include "c-tree.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tm_p.h"
@@ -52,60 +52,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
 #endif
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/pfe-header.h"
-#include <assert.h>
-
-struct varasm_status;
-struct pool_constant;
-struct constant_descriptor;
-struct rtx_const;
-static void freeze_thaw_pool_constant PARAMS ((struct varasm_status *));
-static void freeze_thaw_constant_descriptor PARAMS ((struct constant_descriptor **, rtx));
-static void freeze_thaw_rtx_const PARAMS ((struct rtx_const *, rtx));
-
-/* A varasm_status contains pool_constant's and pool_constant's
-   contain a pointer to a constant_descriptor (both defined in this
-   file).  Both the pool_constant's and constant_descriptor's are
-   part of their respective hash tables which are also part of a
-   varasm_status.
-   
-   The hash functions for these tables are a function of an address
-   for pool_constant's and the possiblity of an address embedded in
-   an rtx in a constant_descriptor.  The addresses used during a PFE
-   dump are not the same as those done for a PFE load.  Thus the hash
-   values for a loaded set of pool_constant's and constant_descriptor's
-   would not be correct using such hash functions.
-   
-   We could rebuild the hash tables based on their new load addresses
-   using the normal hash functions when not using PFE.  But we could
-   only do this if we are walking the various trees and hit the decl's
-   for the functions.  Unfortunately (or is it fortunately?) when
-   using PFE_NO_THAW_LOAD no thawing is necessary so we don't walk the
-   various data structures.  Thus we wouldn't get the opportunity to
-   rebuild the hash tables unless we make special provisions to do so.
-   It's not worth it.  So the alternative is to use hash functions
-   which are address independent.
-   
-   With PFE we replace the SYMHASH() macro with our own macro that
-   does a call to symhash() to hash pool_constant's based on the
-   string pointed to by the label rather than basing on the string
-   address itself.  We also define a different const_hash_rtx()
-   for constant_descriptor's which bases its hash value on just the
-   non-address info in the rtx.  */ 
-
-static int symhash PARAMS ((const char *, int));
-#define SYMHASH(LABEL) symhash (LABEL, 0)
-
-/* A PFE dump operation is similar to a syntax check in that no
-   asm output is to be generated.  Rather than adding explicit
-   code to all places in here that check flag_syntax_only we
-   redefine flag_syntax_only to also test for PFE_DUMP.  */ 
-#define flag_syntax_only (flag_syntax_only || pfe_operation == PFE_DUMP)
-#endif /* PFE */
 
 #ifndef TRAMPOLINE_ALIGNMENT
 #define TRAMPOLINE_ALIGNMENT FUNCTION_BOUNDARY
@@ -119,17 +65,14 @@ static int symhash PARAMS ((const char *, int));
 const char *first_global_object_name;
 const char *weak_global_object_name;
 
-extern struct obstack permanent_obstack;
-#define obstack_chunk_alloc xmalloc
-
 struct addr_const;
-struct constant_descriptor;
+struct constant_descriptor_rtx;
 struct rtx_const;
 struct pool_constant;
 
 #define MAX_RTX_HASH_TABLE 61
 
-struct varasm_status
+struct varasm_status GTY(())
 {
   /* Hash facility for making memory-constants
      from constant rtl-expressions.  It is used on RISC machines
@@ -139,25 +82,18 @@ struct varasm_status
      This pool of constants is reinitialized for each function
      so each function gets its own constants-pool that comes right before
      it.  */
-  struct constant_descriptor **x_const_rtx_hash_table;
-  struct pool_constant **x_const_rtx_sym_hash_table;
+  struct constant_descriptor_rtx ** GTY ((length ("MAX_RTX_HASH_TABLE")))
+    x_const_rtx_hash_table;
+  struct pool_constant ** GTY ((length ("MAX_RTX_HASH_TABLE")))
+    x_const_rtx_sym_hash_table;
 
   /* Pointers to first and last constant in pool.  */
-  struct pool_constant *x_first_pool, *x_last_pool;
+  struct pool_constant *x_first_pool;
+  struct pool_constant *x_last_pool;
 
   /* Current offset in constant pool (does not include any machine-specific
      header).  */
   HOST_WIDE_INT x_pool_offset;
-
-  /* Chain of all CONST_DOUBLE rtx's constructed for the current function.
-     They are chained through the CONST_DOUBLE_CHAIN.  */
-  rtx x_const_double_chain;
-
-  /* APPLE LOCAL Altivec */
-  /* Chain of all CONST_VECTOR rtx's constructed for the current function.
-     They are chained through the CONST_VECTOR_CHAIN.  */
-  rtx x_const_vector_chain;
-  /* APPLE LOCAL end Altivec */
 };
 
 #define const_rtx_hash_table (cfun->varasm->x_const_rtx_hash_table)
@@ -165,20 +101,16 @@ struct varasm_status
 #define first_pool (cfun->varasm->x_first_pool)
 #define last_pool (cfun->varasm->x_last_pool)
 #define pool_offset (cfun->varasm->x_pool_offset)
-#define const_double_chain (cfun->varasm->x_const_double_chain)
-/* APPLE LOCAL Altivec */
-#define const_vector_chain (cfun->varasm->x_const_vector_chain)
-/* APPLE LOCAL end Altivec */
 
 /* Number for making the label on the next
    constant that is stored in memory.  */
 
-int const_labelno;
+static GTY(()) int const_labelno;  /* APPLE LOCAL - 3.4 scheduler update */
 
 /* Number for making the label on the next
    static variable internal to a function.  */
 
-int var_labelno;
+static GTY(()) int var_labelno; /* APPLE LOCAL - 3.4 scheduler update */
 
 /* Carry information from ASM_DECLARE_OBJECT_NAME
    to ASM_FINISH_DECLARE_OBJECT.  */
@@ -192,6 +124,12 @@ int size_directive_output;
 
 tree last_assemble_variable_decl;
 
+/* APPLE LOCAL begin - rarely executed bb optimization */
+
+int unexecuted_counter=0;
+
+/* APPLE LOCAL end - rarely executed bb optimization */
+
 /* RTX_UNCHANGING_P in a MEM can mean it is stored into, for initialization.
    So giving constant the alias set for the type will allow such
    initializations to appear to conflict with the load of the constant.  We
@@ -204,21 +142,18 @@ static HOST_WIDE_INT const_alias_set;
 static const char *strip_reg_name	PARAMS ((const char *));
 static int contains_pointers_p		PARAMS ((tree));
 static void decode_addr_const		PARAMS ((tree, struct addr_const *));
-static int const_hash			PARAMS ((tree));
-static int compare_constant		PARAMS ((tree,
-					       struct constant_descriptor *));
-static const unsigned char *compare_constant_1  PARAMS ((tree, const unsigned char *));
-static struct constant_descriptor *record_constant PARAMS ((tree));
-static void record_constant_1		PARAMS ((tree));
+static unsigned int const_hash		PARAMS ((tree));
+static unsigned int const_hash_1	PARAMS ((tree));
+static int compare_constant		PARAMS ((tree, tree));
 static tree copy_constant		PARAMS ((tree));
 static void output_constant_def_contents  PARAMS ((tree, int, int));
 static void decode_rtx_const		PARAMS ((enum machine_mode, rtx,
 					       struct rtx_const *));
-static int const_hash_rtx		PARAMS ((enum machine_mode, rtx));
-static int compare_constant_rtx		PARAMS ((enum machine_mode, rtx,
-					       struct constant_descriptor *));
-static struct constant_descriptor *record_constant_rtx PARAMS ((enum machine_mode,
-							      rtx));
+static unsigned int const_hash_rtx	PARAMS ((enum machine_mode, rtx));
+static int compare_constant_rtx
+  PARAMS ((enum machine_mode, rtx, struct constant_descriptor_rtx *));
+static struct constant_descriptor_rtx * record_constant_rtx
+  PARAMS ((enum machine_mode, rtx));
 static struct pool_constant *find_pool_constant PARAMS ((struct function *, rtx));
 static void mark_constant_pool		PARAMS ((void));
 static void mark_constants		PARAMS ((rtx));
@@ -230,6 +165,7 @@ static unsigned min_align		PARAMS ((unsigned, unsigned));
 static void output_constructor		PARAMS ((tree, HOST_WIDE_INT,
 						 unsigned int));
 static void globalize_decl		PARAMS ((tree));
+static void maybe_assemble_visibility	PARAMS ((tree));
 static int in_named_entry_eq		PARAMS ((const PTR, const PTR));
 static hashval_t in_named_entry_hash	PARAMS ((const PTR));
 #ifdef ASM_OUTPUT_BSS
@@ -237,21 +173,22 @@ static void asm_output_bss		PARAMS ((FILE *, tree, const char *, int, int));
 #endif
 #ifdef BSS_SECTION_ASM_OP
 #ifdef ASM_OUTPUT_ALIGNED_BSS
-static void asm_output_aligned_bss	PARAMS ((FILE *, tree, const char *,
-						 int, int));
+/* APPLE LOCAL begin - 3.4 scheduler update */
+static void asm_output_aligned_bss
+  PARAMS ((FILE *, tree, const char *, int, int)) ATTRIBUTE_UNUSED;
+/* APPLE LOCAL begin - 3.4 scheduler update */
 #endif
 #endif /* BSS_SECTION_ASM_OP */
-static void mark_pool_constant          PARAMS ((struct pool_constant *));
-static void mark_const_hash_entry	PARAMS ((void *));
-static int mark_const_str_htab_1	PARAMS ((void **, void *));
-static void mark_const_str_htab		PARAMS ((void *));
 static hashval_t const_str_htab_hash	PARAMS ((const void *x));
 static int const_str_htab_eq		PARAMS ((const void *x, const void *y));
-static void const_str_htab_del		PARAMS ((void *));
-static void asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
-static void resolve_unique_section	PARAMS ((tree, int));
+static bool asm_emit_uninitialised	PARAMS ((tree, const char*, int, int));
+static void resolve_unique_section	PARAMS ((tree, int, int));
+static void mark_weak                   PARAMS ((tree));
+/* APPLE LOCAL begin - rarely executed bb optimization */
+int in_unlikely_text_section            PARAMS ((void));
+/* APPLE LOCAL end - rarely executed bb optimization */
 
-static enum in_section { no_section, in_text, in_data, in_named
+enum in_section { no_section, in_text, in_unlikely_executed_text, in_data, in_named
 #ifdef BSS_SECTION_ASM_OP
   , in_bss
 #endif
@@ -261,12 +198,16 @@ static enum in_section { no_section, in_text, in_data, in_named
 #ifdef DTORS_SECTION_ASM_OP
   , in_dtors
 #endif
+#ifdef READONLY_DATA_SECTION_ASM_OP
+  , in_readonly_data
+#endif
 #ifdef EXTRA_SECTIONS
   , EXTRA_SECTIONS
 #endif
-} in_section = no_section;
+};
+static GTY(()) enum in_section in_section = no_section;
 
-/* Return a non-zero value if DECL has a section attribute.  */
+/* Return a nonzero value if DECL has a section attribute.  */
 #ifndef IN_NAMED_SECTION
 #define IN_NAMED_SECTION(DECL) \
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
@@ -274,18 +215,18 @@ static enum in_section { no_section, in_text, in_data, in_named
 #endif
 
 /* Text of section name when in_section == in_named.  */
-static const char *in_named_name;
+static GTY(()) const char *in_named_name;
 
 /* Hash table of flags that have been used for a particular named section.  */
 
-struct in_named_entry
+struct in_named_entry GTY(())
 {
   const char *name;
   unsigned int flags;
   bool declared;
 };
 
-static htab_t in_named_htab;
+static GTY((param_is (struct in_named_entry))) htab_t in_named_htab;
 
 /* Define functions like text_section for any extra sections.  */
 #ifdef EXTRA_SECTION_FUNCTIONS
@@ -299,14 +240,56 @@ text_section ()
 {
   if (in_section != in_text)
     {
+      in_section = in_text;
 #ifdef TEXT_SECTION
       TEXT_SECTION ();
 #else
-      fprintf (asm_out_file, "%s\n", TEXT_SECTION_ASM_OP);
+      /* APPLE LOCAL begin - rarely executed bb optimization */
+
+#ifndef SECTION_FORMAT_STRING
+#define SECTION_FORMAT_STRING "%s\n"
 #endif
-      in_section = in_text;
+#ifndef HOT_TEXT_SECTION_NAME
+#define HOT_TEXT_SECTION_NAME TEXT_SECTION_ASM_OP
+#endif
+
+      fprintf (asm_out_file, SECTION_FORMAT_STRING, HOT_TEXT_SECTION_NAME);
+      /* APPLE LOCAL end - rarely executed bb optimization */
+#endif
     }
 }
+
+/* APPLE LOCAL begin - rarely executed bb optimization */
+
+/* Tell assembler to switch to unlikely-to-be-executed text section */
+
+void
+unlikely_text_section ()
+{
+  if (in_section != in_unlikely_executed_text)
+    {
+      in_section = in_unlikely_executed_text;
+#ifdef UNLIKELY_TEXT_SECTION
+      UNLIKELY_TEXT_SECTION();
+#else
+
+#ifndef SECTION_FORMAT_STRING
+#define SECTION_FORMAT_STRING "%s\n"
+#endif
+#ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME TEXT_SECTION_ASM_OP
+#endif
+
+      fprintf (asm_out_file, SECTION_FORMAT_STRING, 
+	       UNLIKELY_EXECUTED_TEXT_SECTION_NAME);
+      if (!unexecuted_counter)
+	fprintf (asm_out_file, "_%s_unexecuted_section:\n", cfun->name);
+      unexecuted_counter++;
+#endif
+    }
+}
+
+/* APPLE LOCAL end - rarely executed bb optimization */
 
 /* Tell assembler to switch to data section.  */
 
@@ -315,6 +298,7 @@ data_section ()
 {
   if (in_section != in_data)
     {
+      in_section = in_data;
       if (flag_shared_data)
 	{
 #ifdef SHARED_SECTION_ASM_OP
@@ -325,18 +309,7 @@ data_section ()
 	}
       else
 	fprintf (asm_out_file, "%s\n", DATA_SECTION_ASM_OP);
-
-      in_section = in_data;
     }
-}
-/* Tell assembler to ALWAYS switch to data section, in case
-   it's not sure where it is.  */
-
-void
-force_data_section ()
-{
-  in_section = no_section;
-  data_section ();
 }
 
 /* Tell assembler to switch to read-only data section.  This is normally
@@ -348,7 +321,16 @@ readonly_data_section ()
 #ifdef READONLY_DATA_SECTION
   READONLY_DATA_SECTION ();  /* Note this can call data_section.  */
 #else
+#ifdef READONLY_DATA_SECTION_ASM_OP
+  if (in_section != in_readonly_data)
+    {
+      in_section = in_readonly_data;
+      fputs (READONLY_DATA_SECTION_ASM_OP, asm_out_file);
+      fputc ('\n', asm_out_file);
+    }
+#else
   text_section ();
+#endif
 #endif
 }
 
@@ -359,6 +341,15 @@ in_text_section ()
 {
   return in_section == in_text;
 }
+
+/* APPLE LOCAL begin  - rarely executed bb optimization */
+
+int
+in_unlikely_text_section ()
+{
+  return in_section == in_unlikely_executed_text;
+}
+/* APPLE LOCAL end - rarely executed bb optimization */
 
 /* Determine if we're in the data section.  */
 
@@ -400,7 +391,7 @@ get_named_section_flags (section)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), NO_INSERT);
 
@@ -408,7 +399,7 @@ get_named_section_flags (section)
 }
 
 /* Returns true if the section has been declared before.   Sets internal
-   flag on this section in in_named_hash so subsequent calls on this 
+   flag on this section in in_named_hash so subsequent calls on this
    section will return false.  */
 
 bool
@@ -417,15 +408,15 @@ named_section_first_declaration (name)
 {
   struct in_named_entry **slot;
 
-  slot = (struct in_named_entry**)
-    htab_find_slot_with_hash (in_named_htab, name, 
+  slot = (struct in_named_entry **)
+    htab_find_slot_with_hash (in_named_htab, name,
 			      htab_hash_string (name), NO_INSERT);
   if (! (*slot)->declared)
     {
       (*slot)->declared = true;
       return true;
     }
-  else 
+  else
     {
       return false;
     }
@@ -442,14 +433,14 @@ set_named_section_flags (section, flags)
 {
   struct in_named_entry **slot, *entry;
 
-  slot = (struct in_named_entry**)
+  slot = (struct in_named_entry **)
     htab_find_slot_with_hash (in_named_htab, section,
 			      htab_hash_string (section), INSERT);
   entry = *slot;
 
   if (!entry)
     {
-      entry = (struct in_named_entry *) xmalloc (sizeof (*entry));
+      entry = (struct in_named_entry *) ggc_alloc (sizeof (*entry));
       *slot = entry;
       entry->name = ggc_strdup (section);
       entry->flags = flags;
@@ -473,7 +464,7 @@ named_section_flags (name, flags)
       if (! set_named_section_flags (name, flags))
 	abort ();
 
-      (* targetm.asm_out.named_section) (name, flags);
+      (*targetm.asm_out.named_section) (name, flags);
 
       if (flags & SECTION_FORGET)
 	in_section = no_section;
@@ -516,6 +507,14 @@ named_section (decl, name, reloc)
       if ((flags & SECTION_OVERRIDE) == 0)
 	error_with_decl (decl, "%s causes a section type conflict");
     }
+  else if ((!decl) && ! set_named_section_flags (name, flags)
+	   && ((strcmp (name, HOT_TEXT_SECTION_NAME) == 0) 
+	       || (strcmp (name, UNLIKELY_EXECUTED_TEXT_SECTION_NAME) == 0)))
+    {
+      flags = get_named_section_flags (name);
+      if ((flags & SECTION_OVERRIDE) == 0)
+	error_with_decl (decl, "%s causes a section type conflict");
+    }
 
   named_section_flags (name, flags);
 }
@@ -523,15 +522,16 @@ named_section (decl, name, reloc)
 /* If required, set DECL_SECTION_NAME to a unique name.  */
 
 static void
-resolve_unique_section (decl, reloc)
+resolve_unique_section (decl, reloc, flag_function_or_data_sections)
      tree decl;
      int reloc ATTRIBUTE_UNUSED;
+     int flag_function_or_data_sections;
 {
   if (DECL_SECTION_NAME (decl) == NULL_TREE
-      && (flag_function_sections
-	  || (targetm.have_named_sections
-	      && DECL_ONE_ONLY (decl))))
-    UNIQUE_SECTION (decl, reloc);
+      && targetm.have_named_sections
+      && (flag_function_or_data_sections
+	  || DECL_ONE_ONLY (decl)))
+    (*targetm.asm_out.unique_section) (decl, reloc);
 }
 
 #ifdef BSS_SECTION_ASM_OP
@@ -568,7 +568,7 @@ asm_output_bss (file, decl, name, size, rounded)
      const char *name;
      int size ATTRIBUTE_UNUSED, rounded;
 {
-  ASM_GLOBALIZE_LABEL (file, name);
+  (*targetm.asm_out.globalize_label) (file, name);
   bss_section ();
 #ifdef ASM_DECLARE_OBJECT_NAME
   last_assemble_variable_decl = decl;
@@ -577,7 +577,7 @@ asm_output_bss (file, decl, name, size, rounded)
   /* Standard thing is just output label for the object.  */
   ASM_OUTPUT_LABEL (file, name);
 #endif /* ASM_DECLARE_OBJECT_NAME */
-  ASM_OUTPUT_SKIP (file, rounded);
+  ASM_OUTPUT_SKIP (file, rounded ? rounded : 1);
 }
 
 #endif
@@ -596,7 +596,6 @@ asm_output_aligned_bss (file, decl, name, size, align)
      const char *name;
      int size, align;
 {
-  ASM_GLOBALIZE_LABEL (file, name);
   bss_section ();
   ASM_OUTPUT_ALIGN (file, floor_log2 (align / BITS_PER_UNIT));
 #ifdef ASM_DECLARE_OBJECT_NAME
@@ -630,9 +629,8 @@ function_section (decl)
     text_section ();
 }
 
-/* Switch to section for variable DECL.
-
-   RELOC is the `reloc' argument to SELECT_SECTION.  */
+/* Switch to section for variable DECL.  RELOC is the same as the
+   argument to SELECT_SECTION.  */
 
 void
 variable_section (decl, reloc)
@@ -642,52 +640,16 @@ variable_section (decl, reloc)
   if (IN_NAMED_SECTION (decl))
     named_section (decl, NULL, reloc);
   else
-    {
-      /* C++ can have const variables that get initialized from constructors,
-	 and thus can not be in a readonly section.  We prevent this by
-	 verifying that the initial value is constant for objects put in a
-	 readonly section.
-
-	 error_mark_node is used by the C front end to indicate that the
-	 initializer has not been seen yet.  In this case, we assume that
-	 the initializer must be constant.
-
-	 C++ uses error_mark_node for variables that have complicated
-	 initializers, but these variables go in BSS so we won't be called
-	 for them.  */
-
-#ifdef SELECT_SECTION
-      SELECT_SECTION (decl, reloc, DECL_ALIGN (decl));
-#else
-      if (DECL_READONLY_SECTION (decl, reloc))
-	readonly_data_section ();
-      else
-	data_section ();
-#endif
-    }
-}
-
-/* Tell assembler to switch to the section for the exception handling
-   table.  */
-
-void
-default_exception_section ()
-{
-  if (targetm.have_named_sections)
-    named_section (NULL_TREE, ".gcc_except_table", 0);
-  else if (flag_pic)
-    data_section ();
-  else
-    readonly_data_section ();
+    (*targetm.asm_out.select_section) (decl, reloc, DECL_ALIGN (decl));
 }
 
 /* Tell assembler to switch to the section for string merging.  */
 
 void
 mergeable_string_section (decl, align, flags)
-  tree decl ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     tree decl ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   if (flag_merge_constants
@@ -718,7 +680,7 @@ mergeable_string_section (decl, align, flags)
 	  for (i = 0; i < len; i += unit)
 	    {
 	      for (j = 0; j < unit; j++)
-		if (str [i + j] != '\0')
+		if (str[i + j] != '\0')
 		  break;
 	      if (j == unit)
 		break;
@@ -754,15 +716,15 @@ mergeable_string_section (decl, align, flags)
     }
 #endif
   readonly_data_section ();
-}  
+}
 
 /* Tell assembler to switch to the section for constant merging.  */
 
 void
 mergeable_constant_section (mode, align, flags)
-  enum machine_mode mode ATTRIBUTE_UNUSED;
-  unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
-  unsigned int flags ATTRIBUTE_UNUSED;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+     unsigned int flags ATTRIBUTE_UNUSED;
 {
 #ifdef HAVE_GAS_SHF_MERGE
   unsigned int modesize = GET_MODE_BITSIZE (mode);
@@ -781,7 +743,7 @@ mergeable_constant_section (mode, align, flags)
       flags |= (align / 8) | SECTION_MERGE;
       named_section_flags (name, flags);
       return;
-    }            
+    }
 #endif
   readonly_data_section ();
 }
@@ -790,7 +752,7 @@ mergeable_constant_section (mode, align, flags)
 
 static const char *
 strip_reg_name (name)
-  const char *name;
+     const char *name;
 {
 #ifdef REGISTER_PREFIX
   if (!strncmp (name, REGISTER_PREFIX, strlen (REGISTER_PREFIX)))
@@ -811,7 +773,7 @@ strip_reg_name (name)
 
 int
 decode_reg_name (asmspec)
-  const char *asmspec;
+     const char *asmspec;
 {
   if (asmspec != 0)
     {
@@ -908,17 +870,15 @@ make_decl_rtl (decl, asmspec)
 	SET_DECL_RTL (decl, adjust_address_nv (DECL_RTL (decl),
 					       DECL_MODE (decl), 0));
 
-      /* ??? Another way to do this would be to do what halfpic.c does
-	 and maintain a hashed table of such critters.  */
-      /* ??? Another way to do this would be to pass a flag bit to
-	 ENCODE_SECTION_INFO saying whether this is a new decl or not.  */
+      /* ??? Another way to do this would be to maintain a hashed
+	 table of such critters.  Instead of adding stuff to a DECL
+	 to give certain attributes to it, we could use an external
+	 hash map from DECL to set of attributes.  */
+
       /* Let the target reassign the RTL if it wants.
 	 This is necessary, for example, when one machine specific
 	 decl attribute overrides another.  */
-#ifdef REDO_SECTION_INFO_P
-      if (REDO_SECTION_INFO_P (decl))
-	ENCODE_SECTION_INFO (decl);
-#endif
+      (* targetm.encode_section_info) (decl, false);
       return;
     }
 
@@ -1002,6 +962,10 @@ make_decl_rtl (decl, asmspec)
       && DECL_COMMON (decl))
     DECL_COMMON (decl) = 0;
 
+  /* Variables can't be both common and weak.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_WEAK (decl))
+    DECL_COMMON (decl) = 0;
+
   /* Can't use just the variable's own name for a variable
      whose scope is less than the whole file, unless it's a member
      of a local class (which will already be unambiguous).
@@ -1044,9 +1008,7 @@ make_decl_rtl (decl, asmspec)
      such as that it is a function name.
      If the name is changed, the macro ASM_OUTPUT_LABELREF
      will have to know how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
-  ENCODE_SECTION_INFO (decl);
-#endif
+  (* targetm.encode_section_info) (decl, true);
 }
 
 /* Make the rtl for variable VAR be volatile.
@@ -1062,26 +1024,6 @@ make_var_volatile (var)
   MEM_VOLATILE_P (DECL_RTL (var)) = 1;
 }
 
-/* Output alignment directive to align for constant expression EXP.  */
-
-void
-assemble_constant_align (exp)
-     tree exp;
-{
-  int align;
-
-  /* Align the location counter as required by EXP's data type.  */
-  align = TYPE_ALIGN (TREE_TYPE (exp));
-#ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (exp, align);
-#endif
-
-  if (align > BITS_PER_UNIT)
-    {
-      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (align / BITS_PER_UNIT));
-    }
-}
-
 /* Output a string of literal assembler code
    for an `asm' keyword used between functions.  */
 
@@ -1224,7 +1166,7 @@ default_ctor_section_asm_out_constructor (symbol, priority)
 #endif
 
 /* CONSTANT_POOL_BEFORE_FUNCTION may be defined as an expression with
-   a non-zero value if the constant pool should be output before the
+   a nonzero value if the constant pool should be output before the
    start of the function, or a zero value if the pool should output
    after the end of the function.  The default is to put it before the
    start.  */
@@ -1252,11 +1194,13 @@ assemble_start_function (decl, fnname)
   if (CONSTANT_POOL_BEFORE_FUNCTION)
     output_constant_pool (fnname, decl);
 
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_function_sections);
   function_section (decl);
 
   /* Tell assembler to move to target machine's alignment for functions.  */
   align = floor_log2 (FUNCTION_BOUNDARY / BITS_PER_UNIT);
+  if (align < force_align_functions_log)
+    align = force_align_functions_log;
   if (align > 0)
     {
       ASM_OUTPUT_ALIGN (asm_out_file, align);
@@ -1265,11 +1209,12 @@ assemble_start_function (decl, fnname)
   /* Handle a user-specified function alignment.
      Note that we still need to align to FUNCTION_BOUNDARY, as above,
      because ASM_OUTPUT_MAX_SKIP_ALIGN might not do any alignment at all.  */
-  if (align_functions_log > align)
+  if (align_functions_log > align
+      && cfun->function_frequency != FUNCTION_FREQUENCY_UNLIKELY_EXECUTED)
     {
 #ifdef ASM_OUTPUT_MAX_SKIP_ALIGN
       ASM_OUTPUT_MAX_SKIP_ALIGN (asm_out_file,
-				 align_functions_log, align_functions-1);
+				 align_functions_log, align_functions - 1);
 #else
       ASM_OUTPUT_ALIGN (asm_out_file, align_functions_log);
 #endif
@@ -1291,9 +1236,8 @@ assemble_start_function (decl, fnname)
 	  const char *p;
 	  char *name;
 
-	  STRIP_NAME_ENCODING (p, fnname);
-	  name = permalloc (strlen (p) + 1);
-	  strcpy (name, p);
+	  p = (* targetm.strip_name_encoding) (fnname);
+	  name = xstrdup (p);
 
 	  if (! DECL_WEAK (decl) && ! DECL_ONE_ONLY (decl))
 	    first_global_object_name = name;
@@ -1302,7 +1246,39 @@ assemble_start_function (decl, fnname)
 	}
 
       globalize_decl (decl);
+
+      maybe_assemble_visibility (decl);
     }
+
+  /* APPLE LOCAL begin - rarely executed bb optimization */
+
+#ifndef UNLIKELY_EXECUTED_TEXT_SECTION_NAME
+#define UNLIKELY_EXECUTED_TEXT_SECTION_NAME TEXT_SECTION_ASM_OP
+#endif
+
+#ifndef HOT_TEXT_SECTION_NAME
+#define HOT_TEXT_SECTION_NAME TEXT_SECTION_ASM_OP
+#endif
+
+#ifndef SECTION_FORMAT_STRING
+#define SECTION_FORMAT_STRING "%s\n"
+#endif 
+
+  unexecuted_counter = 0;
+  if (current_function_decl->decl.section_name)
+    fprintf (asm_out_file, SECTION_FORMAT_STRING,
+	     TREE_STRING_POINTER (current_function_decl->decl.section_name));
+  else
+    fprintf (asm_out_file, SECTION_FORMAT_STRING, HOT_TEXT_SECTION_NAME);
+
+  /* APPLE LOCAL end - rarely executed bb optimization */
+
+  /* APPLE LOCAL begin dead code strip.  */
+#ifdef ASM_DECL_MARK_LIVE
+  if (TREE_LIVE (decl))
+    ASM_DECL_MARK_LIVE (fnname);
+#endif
+  /* APPLE LOCAL end dead code strip.  */
 
   /* Do any machine/system dependent processing of the function name */
 #ifdef ASM_DECLARE_FUNCTION_NAME
@@ -1347,7 +1323,10 @@ assemble_zeros (size)
 #ifdef ASM_NO_SKIP_IN_TEXT
   /* The `space' pseudo in the text section outputs nop insns rather than 0s,
      so we must output 0s explicitly in the text section.  */
-  if (ASM_NO_SKIP_IN_TEXT && in_text_section ())
+  /* APPLE LOCAL begin - rarely executed bb optimization */
+  if ((ASM_NO_SKIP_IN_TEXT && in_text_section ())
+      || (ASM_NO_SKIP_IN_TEXT && in_unlikely_text_section ()))
+  /* APPLE LOCAL end - rarely executed bb optimization */
     {
       int i;
       for (i = 0; i < size; i++)
@@ -1435,10 +1414,10 @@ assemble_string (p, size)
 #endif
 #endif
 
-static void
+static bool
 asm_emit_uninitialised (decl, name, size, rounded)
      tree decl;
-     const char * name;
+     const char *name;
      int size ATTRIBUTE_UNUSED;
      int rounded ATTRIBUTE_UNUSED;
 {
@@ -1450,19 +1429,23 @@ asm_emit_uninitialised (decl, name, size, rounded)
   }
   destination = asm_dest_local;
 
+  /* ??? We should handle .bss via select_section mechanisms rather than
+     via special target hooks.  That would eliminate this special case.  */
   if (TREE_PUBLIC (decl))
     {
-#if defined ASM_EMIT_BSS
-      if (! DECL_COMMON (decl))
+      if (!DECL_COMMON (decl))
+#ifdef ASM_EMIT_BSS
 	destination = asm_dest_bss;
-      else
+#else
+	return false;
 #endif
+      else
 	destination = asm_dest_common;
     }
 
   if (destination == asm_dest_bss)
     globalize_decl (decl);
-  resolve_unique_section (decl, 0);
+  resolve_unique_section (decl, 0, flag_data_sections);
 
   if (flag_shared_data)
     {
@@ -1505,7 +1488,7 @@ asm_emit_uninitialised (decl, name, size, rounded)
       abort ();
     }
 
-  return;
+  return true;
 }
 
 /* Assemble everything that is needed for a variable or function declaration.
@@ -1579,7 +1562,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   if (TREE_ASM_WRITTEN (decl))
     return;
 
-  /* Make sure ENCODE_SECTION_INFO is invoked before we set ASM_WRITTEN.  */
+  /* Make sure targetm.encode_section_info is invoked before we set
+     ASM_WRITTEN.  */
   decl_rtl = DECL_RTL (decl);
 
   TREE_ASM_WRITTEN (decl) = 1;
@@ -1608,9 +1592,8 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       const char *p;
       char *xname;
 
-      STRIP_NAME_ENCODING (p, name);
-      xname = permalloc (strlen (p) + 1);
-      strcpy (xname, p);
+      p = (* targetm.strip_name_encoding) (name);
+      xname = xstrdup (p);
       first_global_object_name = xname;
     }
 
@@ -1634,7 +1617,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
     {
       warning_with_decl (decl,
 	"alignment of `%s' is greater than maximum object file alignment. Using %d",
-                    MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
+			 MAX_OFILE_ALIGNMENT/BITS_PER_UNIT);
       align = MAX_OFILE_ALIGNMENT;
     }
 
@@ -1646,7 +1629,7 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
 #endif
 #ifdef CONSTANT_ALIGNMENT
       if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
-        align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+	align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
 #endif
     }
 
@@ -1655,16 +1638,40 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
   DECL_ALIGN (decl) = align;
   set_mem_align (decl_rtl, align);
 
+  if (TREE_PUBLIC (decl))
+    maybe_assemble_visibility (decl);
+
+  /* APPLE LOCAL begin dead code strip.  */
+#ifdef ASM_DECL_MARK_LIVE
+  if (TREE_LIVE (decl))
+    ASM_DECL_MARK_LIVE (name);
+#endif
+  /* APPLE LOCAL end dead code strip.  */
+
+
+  /* Output any data that we will need to use the address of.  */
+  if (DECL_INITIAL (decl) == error_mark_node)
+    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
+  else if (DECL_INITIAL (decl))
+    reloc = output_addressed_constants (DECL_INITIAL (decl));
+  resolve_unique_section (decl, reloc, flag_data_sections);
+
   /* Handle uninitialized definitions.  */
 
-  if ((DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node)
-      /* If the target can't output uninitialized but not common global data
-	 in .bss, then we have to use .data.  */
-#if ! defined ASM_EMIT_BSS
-      && DECL_COMMON (decl)
-#endif
-      && DECL_SECTION_NAME (decl) == NULL_TREE
-      && ! dont_output_data)
+  /* If the decl has been given an explicit section name, then it
+     isn't common, and shouldn't be handled as such.  */
+  if (DECL_SECTION_NAME (decl) || dont_output_data)
+    ;
+  /* We don't implement common thread-local data at present.  */
+  else if (DECL_THREAD_LOCAL (decl))
+    {
+      if (DECL_COMMON (decl))
+	sorry ("thread-local COMMON data not implemented");
+    }
+  else if (DECL_INITIAL (decl) == 0
+	   || DECL_INITIAL (decl) == error_mark_node
+	   || (flag_zero_initialized_in_bss
+	       && initializer_zerop (DECL_INITIAL (decl))))
     {
       unsigned HOST_WIDE_INT size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
       unsigned HOST_WIDE_INT rounded = size;
@@ -1680,16 +1687,16 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       rounded = (rounded / (BIGGEST_ALIGNMENT / BITS_PER_UNIT)
 		 * (BIGGEST_ALIGNMENT / BITS_PER_UNIT));
 
-/* Don't continue this line--convex cc version 4.1 would lose.  */
 #if !defined(ASM_OUTPUT_ALIGNED_COMMON) && !defined(ASM_OUTPUT_ALIGNED_DECL_COMMON) && !defined(ASM_OUTPUT_ALIGNED_BSS)
       if ((unsigned HOST_WIDE_INT) DECL_ALIGN (decl) / BITS_PER_UNIT > rounded)
-         warning_with_decl
-           (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
+	warning_with_decl
+	  (decl, "requested alignment for %s is greater than implemented alignment of %d",rounded);
 #endif
 
-      asm_emit_uninitialised (decl, name, size, rounded);
-
-      return;
+      /* If the target cannot output uninitialized but not common global data
+	 in .bss, then we have to use .data, so fall through.  */
+      if (asm_emit_uninitialised (decl, name, size, rounded))
+	return;
     }
 
   /* Handle initialized definitions.
@@ -1703,23 +1710,16 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
        && DECL_NAME (decl))
     globalize_decl (decl);
 
-  /* Output any data that we will need to use the address of.  */
-  if (DECL_INITIAL (decl) == error_mark_node)
-    reloc = contains_pointers_p (TREE_TYPE (decl)) ? 3 : 0;
-  else if (DECL_INITIAL (decl))
-    reloc = output_addressed_constants (DECL_INITIAL (decl));
-
   /* Switch to the appropriate section.  */
-  resolve_unique_section (decl, reloc);
   variable_section (decl, reloc);
 
   /* APPLE LOCAL begin zerofill turly 20020218  */
 #ifdef ASM_OUTPUT_ZEROFILL
   /* We need a ZEROFILL COALESCED option!  */
-  /* APPLE LOCAL coalescing */
-  if (! DECL_COALESCED (decl))
   if (flag_no_common
       && ! dont_output_data
+      /* APPLE LOCAL coalescing */
+      && ! DECL_COALESCED (decl)
       && (DECL_INITIAL (decl) == 0 || DECL_INITIAL (decl) == error_mark_node))
     {
       ASM_OUTPUT_ZEROFILL (asm_out_file, name,
@@ -1732,11 +1732,12 @@ assemble_variable (decl, top_level, at_end, dont_output_data)
       return;
     }
 #endif
-
   /* APPLE LOCAL end zerofill turly 20020218  */
 
   /* dbxout.c needs to know this.  */
-  if (in_text_section ())
+  /* APPLE LOCAL begin - rarely executed bb optimization */
+  if (in_text_section () || in_unlikely_text_section())
+  /* APPLE LOCAL end - rarely executed bb optimization */
     DECL_IN_TEXT_SECTION (decl) = 1;
 
   /* Output the alignment of this data.  */
@@ -1820,13 +1821,6 @@ assemble_external (decl)
   if (!asm_out_file)
     abort ();
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-  /* A PFE dump implies that no .o should is created.  */
-  if (pfe_operation == PFE_DUMP)
-    return;
-#endif
-
 #ifdef ASM_OUTPUT_EXTERNAL
   if (DECL_P (decl) && DECL_EXTERNAL (decl) && TREE_PUBLIC (decl))
     {
@@ -1859,15 +1853,6 @@ assemble_external_libcall (fun)
 #endif
 }
 
-/* Declare the label NAME global.  */
-
-void
-assemble_global (name)
-     const char *name ATTRIBUTE_UNUSED;
-{
-  ASM_GLOBALIZE_LABEL (asm_out_file, name);
-}
-
 /* Assemble a label named NAME.  */
 
 void
@@ -1891,7 +1876,7 @@ assemble_name (file, name)
   const char *real_name;
   tree id;
 
-  STRIP_NAME_ENCODING (real_name, name);
+  real_name = (* targetm.strip_name_encoding) (name);
 
   id = maybe_get_identifier (real_name);
   if (id)
@@ -1974,7 +1959,9 @@ assemble_trampoline_template ()
       ASM_OUTPUT_ALIGN (asm_out_file, align);
     }
 
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LTRAMP", 0);
+  /* APPLE LOCAL begin - 3.4 scheduler update */
+  (*targetm.asm_out.internal_label) (asm_out_file, "LTRAMP", 0);
+  /* APPLE LOCAL end - 3.4 scheduler update */
   TRAMPOLINE_TEMPLATE (asm_out_file);
 
   /* Record the rtl to refer to it.  */
@@ -2058,7 +2045,7 @@ default_assemble_integer (x, size, aligned_p)
 
 /* Assemble the integer constant X into an object of SIZE bytes.  ALIGN is
    the alignment of the integer in bits.  Return 1 if we were able to output
-   the constant, otherwise 0.  If FORCE is non-zero, abort if we can't output
+   the constant, otherwise 0.  If FORCE is nonzero, abort if we can't output
    the constant.  */
 
 bool
@@ -2190,326 +2177,13 @@ assemble_real (d, mode, align)
       abort ();
     }
 }
-
-#if 0 /* APPLE FIXME we don't need this anymore, right? */
-void
-assemble_real (d, mode, align)
-     REAL_VALUE_TYPE d;
-     enum machine_mode mode;
-     unsigned int align;
-{
-  struct assemble_real_args args;
-  args.d = &d;
-  args.mode = mode;
-
-  /* We cannot emit unaligned floating point constants.  This is slightly
-     complicated in that we don't know what "unaligned" means exactly.  */
-#ifdef BIGGEST_FIELD_ALIGNMENT
-  if (align >= BIGGEST_FIELD_ALIGNMENT)
-    ;
-  else
-#endif
-  /* APPLE LOCAL POWER double fields
-     Contrary to the FSF comment above, the most restrictive POWER
-     structure alignment is 32-bits, UNLESS 1) the first field
-     requires more alignment (e.g. first field is double), OR 2) any
-     field is type vector (forces 16-byte alignment for the entire
-     struct).  Until we know better, we'll assume the FE gets this
-     correct.  GCC 2.95 has no similar check.  Disabling alignment
-     check with "0 &&".  */
-  if (0 && align < GET_MODE_ALIGNMENT (mode))
-    abort ();
-
-  if (do_float_handler (assemble_real_1, (PTR) &args))
-    return;
-
-  internal_error ("floating point trap outputting a constant");
-}
-#endif
-
-/* Here we combine duplicate floating constants to make
-   CONST_DOUBLE rtx's, and force those out to memory when necessary.  */
-
-/* Return a CONST_DOUBLE or CONST_INT for a value specified as a pair of ints.
-   For an integer, I0 is the low-order word and I1 is the high-order word.
-   For a real number, I0 is the word with the low address
-   and I1 is the word with the high address.  */
-
-rtx
-immed_double_const (i0, i1, mode)
-     HOST_WIDE_INT i0, i1;
-     enum machine_mode mode;
-{
-  rtx r;
-
-  if (GET_MODE_CLASS (mode) == MODE_INT
-      || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT)
-    {
-      /* We clear out all bits that don't belong in MODE, unless they and our
-	 sign bit are all one.  So we get either a reasonable negative value
-	 or a reasonable unsigned value for this mode.  */
-      int width = GET_MODE_BITSIZE (mode);
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && ((i0 & ((HOST_WIDE_INT) (-1) << (width - 1)))
-	      != ((HOST_WIDE_INT) (-1) << (width - 1))))
-	i0 &= ((HOST_WIDE_INT) 1 << width) - 1, i1 = 0;
-      else if (width == HOST_BITS_PER_WIDE_INT
-	       && ! (i1 == ~0 && i0 < 0))
-	i1 = 0;
-      else if (width > 2 * HOST_BITS_PER_WIDE_INT)
-	/* We cannot represent this value as a constant.  */
-	abort ();
-
-      /* If this would be an entire word for the target, but is not for
-	 the host, then sign-extend on the host so that the number will look
-	 the same way on the host that it would on the target.
-
-	 For example, when building a 64 bit alpha hosted 32 bit sparc
-	 targeted compiler, then we want the 32 bit unsigned value -1 to be
-	 represented as a 64 bit value -1, and not as 0x00000000ffffffff.
-	 The later confuses the sparc backend.  */
-
-      if (width < HOST_BITS_PER_WIDE_INT
-	  && (i0 & ((HOST_WIDE_INT) 1 << (width - 1))))
-	i0 |= ((HOST_WIDE_INT) (-1) << width);
-
-      /* If MODE fits within HOST_BITS_PER_WIDE_INT, always use a CONST_INT.
-
-	 ??? Strictly speaking, this is wrong if we create a CONST_INT
-	 for a large unsigned constant with the size of MODE being
-	 HOST_BITS_PER_WIDE_INT and later try to interpret that constant in a
-	 wider mode.  In that case we will mis-interpret it as a negative
-	 number.
-
-	 Unfortunately, the only alternative is to make a CONST_DOUBLE
-	 for any constant in any mode if it is an unsigned constant larger
-	 than the maximum signed integer in an int on the host.  However,
-	 doing this will break everyone that always expects to see a CONST_INT
-	 for SImode and smaller.
-
-	 We have always been making CONST_INTs in this case, so nothing new
-	 is being broken.  */
-
-      if (width <= HOST_BITS_PER_WIDE_INT)
-	i1 = (i0 < 0) ? ~(HOST_WIDE_INT) 0 : 0;
-
-      /* If this integer fits in one word, return a CONST_INT.  */
-      if ((i1 == 0 && i0 >= 0)
-	  || (i1 == ~0 && i0 < 0))
-	return GEN_INT (i0);
-
-      /* We use VOIDmode for integers.  */
-      mode = VOIDmode;
-    }
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (CONST_DOUBLE_LOW (r) == i0 && CONST_DOUBLE_HIGH (r) == i1
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.  */
-  r = gen_rtx_CONST_DOUBLE (mode, i0, i1);
-
-  /* Don't touch const_double_chain if not inside any function.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE for a specified `double' value
-   and machine mode.  */
-
-rtx
-immed_real_const_1 (d, mode)
-     REAL_VALUE_TYPE d;
-     enum machine_mode mode;
-{
-  union real_extract u;
-  rtx r;
-
-  /* Get the desired `double' value as a sequence of ints
-     since that is how they are stored in a CONST_DOUBLE.  */
-
-  u.d = d;
-
-  /* Detect special cases.  Check for NaN first, because some ports
-     (specifically the i386) do not emit correct ieee-fp code by default, and
-     thus will generate a core dump here if we pass a NaN to REAL_VALUES_EQUAL
-     and if REAL_VALUES_EQUAL does a floating point comparison.  */
-  if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_IDENTICAL (dconst0, d))
-    return CONST0_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst1, d))
-    return CONST1_RTX (mode);
-  else if (! REAL_VALUE_ISNAN (d) && REAL_VALUES_EQUAL (dconst2, d))
-    return CONST2_RTX (mode);
-
-  if (sizeof u == sizeof (HOST_WIDE_INT))
-    return immed_double_const (u.i[0], 0, mode);
-  if (sizeof u == 2 * sizeof (HOST_WIDE_INT))
-    return immed_double_const (u.i[0], u.i[1], mode);
-
-  /* The rest of this function handles the case where
-     a float value requires more than 2 ints of space.
-     It will be deleted as dead code on machines that don't need it.  */
-
-  /* Search the chain for an existing CONST_DOUBLE with the right value.
-     If one is found, return it.  */
-  if (cfun != 0)
-    for (r = const_double_chain; r; r = CONST_DOUBLE_CHAIN (r))
-      if (! memcmp ((char *) &CONST_DOUBLE_LOW (r), (char *) &u, sizeof u)
-	  && GET_MODE (r) == mode)
-	return r;
-
-  /* No; make a new one and add it to the chain.
-
-     We may be called by an optimizer which may be discarding any memory
-     allocated during its processing (such as combine and loop).  However,
-     we will be leaving this constant on the chain, so we cannot tolerate
-     freed memory.  */
-  r = rtx_alloc (CONST_DOUBLE);
-  PUT_MODE (r, mode);
-  memcpy ((char *) &CONST_DOUBLE_LOW (r), (char *) &u, sizeof u);
-
-  /* If we aren't inside a function, don't put r on the
-     const_double_chain.  */
-  if (current_function_decl != 0)
-    {
-      CONST_DOUBLE_CHAIN (r) = const_double_chain;
-      const_double_chain = r;
-    }
-  else
-    CONST_DOUBLE_CHAIN (r) = NULL_RTX;
-
-  return r;
-}
-
-/* Return a CONST_DOUBLE rtx for a value specified by EXP,
-   which must be a REAL_CST tree node.  */
-
-rtx
-immed_real_const (exp)
-     tree exp;
-{
-  return immed_real_const_1 (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)));
-}
-
-/* APPLE LOCAL Altivec (entire function) */
-/* Return a CONST_VECTOR rtx for a value specified by EXP,
-   which must be a VECTOR_CST tree node.  */
-
-rtx
-immed_vector_const (exp)
-     tree exp;
-{
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-  HOST_WIDE_INT u1;
-  register rtx r;
-  int i, count = 0;
-  tree t;
-  int bad = 0;
-
-  /* Count number of elements in exp. */
-  for (t = TREE_VECTOR_CST_ELTS (exp); t; t = TREE_CHAIN (t))
-    count++;
-
-  /* Search the chain for an existing CONST_VECTOR with the right value.
-     If one is found, return it.  */
-
-  for (r = const_vector_chain; r; r = CONST_VECTOR_CHAIN (r))
-    {
-      if (GET_MODE (r) == mode && count == CONST_VECTOR_NUNITS (r))
-	{
-	  bad = 0;
-	  for ( t = TREE_VECTOR_CST_ELTS (exp), i = 0;
-	        t;
-		t = TREE_CHAIN (t), i++ )
-	    {
-	      if (TREE_CODE (TREE_VALUE (t)) == INTEGER_CST )
-		  u1 = TREE_INT_CST_LOW (TREE_VALUE (t));
-	      else if (TREE_CODE (TREE_VALUE (t)) == REAL_CST )
-		  REAL_VALUE_TO_TARGET_SINGLE (TREE_REAL_CST 
-		    (TREE_VALUE (t)), u1);
-	      else
-	        abort ();
-	      if ( u1 != INTVAL (CONST_VECTOR_ELT (r, i)))
-		{
-		  bad = 1;
-		  break;
-		}
-	    }
-	  if ( !bad )
-	    return r;
-	}
-    }
-	
-  r = rtx_alloc (CONST_VECTOR);
-  PUT_MODE (r, mode);
-  XVEC (r, 0) = rtvec_alloc (count);
-  for (i = 0, t = TREE_VECTOR_CST_ELTS (exp); i < count; 
-	i++, t = TREE_CHAIN (t))
-    {
-      if (TREE_CODE (TREE_VALUE (t)) == INTEGER_CST )
-	  CONST_VECTOR_ELT (r, i) = GEN_INT (TREE_INT_CST_LOW (TREE_VALUE (t)));
-      else if (TREE_CODE (TREE_VALUE (t)) == REAL_CST )
-	{
-	  REAL_VALUE_TO_TARGET_SINGLE (TREE_REAL_CST (TREE_VALUE (t)), u1);
-	  CONST_VECTOR_ELT (r, i) = GEN_INT (u1);
-	}
-    }
-
-  /* Don't touch const_vector_chain in nested function; see force_const_mem.
-     Also, don't touch it if not inside any function.  */
-  if (current_function_decl != 0)
-    {
-      CONST_VECTOR_CHAIN (r) = const_vector_chain;
-      const_vector_chain = r;
-    }
-  else
-    CONST_VECTOR_CHAIN (r) = NULL_RTX;
-
-  return r;
-}
-
-/* At the end of a function, forget the memory-constants
-   previously made for CONST_DOUBLEs.  Mark them as not on real_constant_chain.
-   Also clear out real_constant_chain and clear out all the chain-pointers.  */
-
-void
-clear_const_double_mem ()
-{
-  rtx r, next;
-
-  for (r = const_double_chain; r; r = next)
-    {
-      next = CONST_DOUBLE_CHAIN (r);
-      CONST_DOUBLE_CHAIN (r) = 0;
-    }
-  const_double_chain = 0;
-
-  /* APPLE LOCAL begin AltiVec */
-  /* Clear the CONST_VECTORs at the same time.  */
-  for (r = const_vector_chain; r; r = next)
-    {
-      next = CONST_VECTOR_CHAIN (r);
-      CONST_VECTOR_CHAIN (r) = 0;
-    }
-  const_vector_chain = 0;
-  /* APPLE LOCAL end AltiVec */
-}
 
 /* Given an expression EXP with a constant value,
    reduce it to the sum of an assembler symbol and an integer.
    Store them both in the structure *VALUE.
    Abort if EXP does not reduce.  */
 
-struct addr_const
+struct addr_const GTY(())
 {
   rtx base;
   HOST_WIDE_INT offset;
@@ -2560,7 +2234,7 @@ decode_addr_const (exp, value)
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
-    /* APPLE LOCAL: AltiVec */
+    /* APPLE LOCAL AltiVec */
     case VECTOR_CST:
     case CONSTRUCTOR:
     case INTEGER_CST:
@@ -2582,104 +2256,71 @@ decode_addr_const (exp, value)
 }
 
 /* We do RTX_UNSPEC + XINT (blah), so nothing can go after RTX_UNSPEC.  */
-/* APPLE LOCAL Altivec, rearrange so >RTX_DOUBLE works */
+/* APPLE LOCAL AltiVec */
+/* rearrange so >RTX_DOUBLE works */
 enum kind { RTX_UNKNOWN, RTX_VECTOR, RTX_DOUBLE, RTX_INT, RTX_UNSPEC };
-struct rtx_const
+struct rtx_const GTY(())
 {
   ENUM_BITFIELD(kind) kind : 16;
   ENUM_BITFIELD(machine_mode) mode : 16;
-  union {
-    union real_extract du;
-    struct addr_const addr;
-    struct {HOST_WIDE_INT high, low;} di;
+  union rtx_const_un {
+    REAL_VALUE_TYPE GTY ((tag ("4"))) du;
+    struct addr_const GTY ((tag ("1"))) addr;
+    struct rtx_const_u_di {
+      HOST_WIDE_INT high;
+      HOST_WIDE_INT low;
+    } GTY ((tag ("0"))) di;
 
-    /* The max vector size we have is 8 wide.  This should be enough.  */
-    /* APPLE LOCAL Altivec, fix so store into vechi[] doesn't clobber veclo[] */
-    struct {HOST_WIDE_INT veclo, vechi; } vec[16];
-  } un;
+    /* The max vector size we have is 16 wide; two variants for
+       integral and floating point vectors.  */
+    struct rtx_const_int_vec {
+      HOST_WIDE_INT high;
+      HOST_WIDE_INT low;
+    } GTY ((tag ("2"))) int_vec[16];
+
+    REAL_VALUE_TYPE GTY ((tag ("3"))) fp_vec[8];
+
+  } GTY ((desc ("%1.kind >= RTX_INT"), descbits ("1"))) un;
 };
-
 /* Uniquize all constants that appear in memory.
    Each constant in memory thus far output is recorded
-   in `const_hash_table' with a `struct constant_descriptor'
-   that contains a polish representation of the value of
-   the constant.
+   in `const_hash_table'.  */
 
-   We cannot store the trees in the hash table
-   because the trees may be temporary.  */
-
-struct constant_descriptor
+struct constant_descriptor_tree GTY(())
 {
-  struct constant_descriptor *next;
+  /* More constant_descriptors with the same hash code.  */
+  struct constant_descriptor_tree *next;
+
+  /* The label of the constant.  */
   const char *label;
+
+  /* A MEM for the constant.  */
   rtx rtl;
-  /* Make sure the data is reasonably aligned.  */
-  union
-  {
-    unsigned char contents[1];
-#ifdef HAVE_LONG_DOUBLE
-    long double d;
-#else
-    double d;
-#endif
-  } u;
+
+  /* The value of the constant.  */
+  tree value;
 };
 
-#define HASHBITS 30
 #define MAX_HASH_TABLE 1009
-static struct constant_descriptor *const_hash_table[MAX_HASH_TABLE];
+static GTY(()) struct constant_descriptor_tree *
+  const_hash_table[MAX_HASH_TABLE];
 
 /* We maintain a hash table of STRING_CST values.  Unless we are asked to force
    out a string constant, we defer output of the constants until we know
    they are actually used.  This will be if something takes its address or if
    there is a usage of the string in the RTL of a function.  */
 
-#define STRHASH(x) ((hashval_t) ((long) (x) >> 3))
+/* APPLE LOCAL 3285674 */
+#define STRHASH(x) htab_hash_string (x)
 
-struct deferred_string
+struct deferred_string GTY(())
 {
   const char *label;
   tree exp;
   int labelno;
 };
 
-static htab_t const_str_htab;
-
-/* Mark a const_hash_table descriptor for GC.  */
-
-static void
-mark_const_hash_entry (ptr)
-     void *ptr;
-{
-  struct constant_descriptor *desc = * (struct constant_descriptor **) ptr;
-
-  while (desc)
-    {
-      ggc_mark_rtx (desc->rtl);
-      desc = desc->next;
-    }
-}
-
-/* Mark the hash-table element X (which is really a pointer to an
-   struct deferred_string *).  */
-
-static int
-mark_const_str_htab_1 (x, data)
-     void **x;
-     void *data ATTRIBUTE_UNUSED;
-{
-  ggc_mark_tree (((struct deferred_string *) *x)->exp);
-  return 1;
-}
-
-/* Mark a const_str_htab for GC.  */
-
-static void
-mark_const_str_htab (htab)
-     void *htab;
-{
-  htab_traverse (*((htab_t *) htab), mark_const_str_htab_1, NULL);
-}
+static GTY ((param_is (struct deferred_string))) htab_t const_str_htab;
 
 /* Returns a hash code for X (which is a really a
    struct deferred_string *).  */
@@ -2691,7 +2332,7 @@ const_str_htab_hash (x)
   return STRHASH (((const struct deferred_string *) x)->label);
 }
 
-/* Returns non-zero if the value represented by X (which is really a
+/* Returns nonzero if the value represented by X (which is really a
    struct deferred_string *) is the same as that given by Y
    (which is really a char *).  */
 
@@ -2703,23 +2344,22 @@ const_str_htab_eq (x, y)
   return (((const struct deferred_string *) x)->label == (const char *) y);
 }
 
-/* Delete the hash table entry dfsp.  */
-
-static void
-const_str_htab_del (dfsp)
-    void *dfsp;
-{
-  free (dfsp);
-}
-
 /* Compute a hash code for a constant expression.  */
 
-static int
+static unsigned int
 const_hash (exp)
      tree exp;
 {
+  return const_hash_1 (exp) % MAX_HASH_TABLE;
+}
+
+static unsigned int
+const_hash_1 (exp)
+     tree exp;
+{
   const char *p;
-  int len, hi, i;
+  unsigned int hi;
+  int len, i;
   enum tree_code code = TREE_CODE (exp);
 
   /* Either set P and LEN to the address and len of something to hash and
@@ -2733,9 +2373,7 @@ const_hash (exp)
       break;
 
     case REAL_CST:
-      p = (char *) &TREE_REAL_CST (exp);
-      len = sizeof TREE_REAL_CST (exp);
-      break;
+      return real_hash (TREE_REAL_CST_PTR (exp));
 
     case STRING_CST:
       p = TREE_STRING_POINTER (exp);
@@ -2743,10 +2381,10 @@ const_hash (exp)
       break;
 
     case COMPLEX_CST:
-      return (const_hash (TREE_REALPART (exp)) * 5
-	      + const_hash (TREE_IMAGPART (exp)));
+      return (const_hash_1 (TREE_REALPART (exp)) * 5
+	      + const_hash_1 (TREE_IMAGPART (exp)));
 
-    /* APPLE LOCAL Altivec */
+    /* APPLE LOCAL begin AltiVec */
     case VECTOR_CST:
       {
 	int hash = 0;
@@ -2755,6 +2393,7 @@ const_hash (exp)
 	  hash += const_hash (TREE_VALUE (t)) * 11;
 	return hash;
       }
+    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
       if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
@@ -2771,28 +2410,17 @@ const_hash (exp)
 	{
 	  tree link;
 
-	  /* For record type, include the type in the hashing.
-	     We do not do so for array types
-	     because (1) the sizes of the elements are sufficient
-	     and (2) distinct array types can have the same constructor.
-	     Instead, we include the array size because the constructor could
-	     be shorter.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-	    hi = ((unsigned long) TREE_TYPE (exp) & ((1 << HASHBITS) - 1))
-	      % MAX_HASH_TABLE;
-	  else
-	    hi = ((5 + int_size_in_bytes (TREE_TYPE (exp)))
-		  & ((1 << HASHBITS) - 1)) % MAX_HASH_TABLE;
+	  hi = 5 + int_size_in_bytes (TREE_TYPE (exp));
 
 	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
 	    if (TREE_VALUE (link))
-	      hi
-		= (hi * 603 + const_hash (TREE_VALUE (link))) % MAX_HASH_TABLE;
+	      hi = hi * 603 + const_hash_1 (TREE_VALUE (link));
 
 	  return hi;
 	}
 
     case ADDR_EXPR:
+    case FDESC_EXPR:
       {
 	struct addr_const value;
 
@@ -2810,25 +2438,22 @@ const_hash (exp)
 	  hi = value.offset + CODE_LABEL_NUMBER (XEXP (value.base, 0)) * 13;
 	else
 	  abort ();
-
-	hi &= (1 << HASHBITS) - 1;
-	hi %= MAX_HASH_TABLE;
       }
       return hi;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
-      return (const_hash (TREE_OPERAND (exp, 0)) * 9
-	      + const_hash (TREE_OPERAND (exp, 1)));
+      return (const_hash_1 (TREE_OPERAND (exp, 0)) * 9
+	      + const_hash_1 (TREE_OPERAND (exp, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
-      return const_hash (TREE_OPERAND (exp, 0)) * 7 + 2;
+      return const_hash_1 (TREE_OPERAND (exp, 0)) * 7 + 2;
 
     default:
       /* A language specific constant. Just hash the code.  */
-      return (int) code % MAX_HASH_TABLE;
+      return code;
     }
 
   /* Compute hashing function */
@@ -2836,483 +2461,176 @@ const_hash (exp)
   for (i = 0; i < len; i++)
     hi = ((hi * 613) + (unsigned) (p[i]));
 
-  hi &= (1 << HASHBITS) - 1;
-  hi %= MAX_HASH_TABLE;
   return hi;
 }
-
-/* Compare a constant expression EXP with a constant-descriptor DESC.
-   Return 1 if DESC describes a constant with the same value as EXP.  */
+
+/* Compare t1 and t2, and return 1 only if they are known to result in
+   the same bit pattern on output.  */
 
 static int
-compare_constant (exp, desc)
-     tree exp;
-     struct constant_descriptor *desc;
+compare_constant (t1, t2)
+     tree t1;
+     tree t2;
 {
-  return 0 != compare_constant_1 (exp, desc->u.contents);
-}
+  enum tree_code typecode;
 
-/* Compare constant expression EXP with a substring P of a constant descriptor.
-   If they match, return a pointer to the end of the substring matched.
-   If they do not match, return 0.
-
-   Since descriptors are written in polish prefix notation,
-   this function can be used recursively to test one operand of EXP
-   against a subdescriptor, and if it succeeds it returns the
-   address of the subdescriptor for the next operand.  */
-
-static const unsigned char *
-compare_constant_1 (exp, p)
-     tree exp;
-     const unsigned char *p;
-{
-  const unsigned char *strp;
-  int len;
-  enum tree_code code = TREE_CODE (exp);
-
-  if (code != (enum tree_code) *p++)
+  if (t1 == NULL_TREE)
+    return t2 == NULL_TREE;
+  if (t2 == NULL_TREE)
     return 0;
 
-  /* Either set STRP, P and LEN to pointers and length to compare and exit the
-     switch, or return the result of the comparison.  */
+  if (TREE_CODE (t1) != TREE_CODE (t2))
+    return 0;
 
-  switch (code)
+  switch (TREE_CODE (t1))
     {
     case INTEGER_CST:
       /* Integer constants are the same only if the same width of type.  */
-      if (*p++ != TYPE_PRECISION (TREE_TYPE (exp)))
+      if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
 	return 0;
-
-      strp = (unsigned char *) &TREE_INT_CST (exp);
-      len = sizeof TREE_INT_CST (exp);
-      break;
+      return tree_int_cst_equal (t1, t2);
 
     case REAL_CST:
       /* Real constants are the same only if the same width of type.  */
-      if (*p++ != TYPE_PRECISION (TREE_TYPE (exp)))
+      if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
 	return 0;
 
-      strp = (unsigned char *) &TREE_REAL_CST (exp);
-      len = sizeof TREE_REAL_CST (exp);
-      break;
+      return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
 
     case STRING_CST:
       if (flag_writable_strings)
 	return 0;
 
-      if ((enum machine_mode) *p++ != TYPE_MODE (TREE_TYPE (exp)))
+      if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2)))
 	return 0;
 
-      strp = (const unsigned char *) TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
-      if (memcmp ((char *) &TREE_STRING_LENGTH (exp), p,
-		  sizeof TREE_STRING_LENGTH (exp)))
-	return 0;
-
-      p += sizeof TREE_STRING_LENGTH (exp);
-      break;
+      return (TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
+	      && ! memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
+			 TREE_STRING_LENGTH (t1)));
 
     case COMPLEX_CST:
-      p = compare_constant_1 (TREE_REALPART (exp), p);
-      if (p == 0)
-	return 0;
+      return (compare_constant (TREE_REALPART (t1), TREE_REALPART (t2))
+	      && compare_constant (TREE_IMAGPART (t1), TREE_IMAGPART (t2)));
 
-      return compare_constant_1 (TREE_IMAGPART (exp), p);
-
-    /* APPLE LOCAL: AltiVec */
+    /* APPLE LOCAL begin AltiVec */
     case VECTOR_CST:
       {
-	tree t;
-	for ( t = TREE_VECTOR_CST_ELTS (exp); t; t = TREE_CHAIN (t))
+	tree t1e, t2e;
+	for (t1e = TREE_VECTOR_CST_ELTS (t1), t2e = TREE_VECTOR_CST_ELTS (t2);
+	     t1e && t2e;
+	     t1e = TREE_CHAIN (t1e), t2e = TREE_CHAIN (t2e))
 	  {
-	    p = compare_constant_1 (TREE_VALUE (t), p);
-	    if ( p==0 )
+	    if (!compare_constant (t1e, t2e))
 	      return 0;
 	  }
-	return p;
+	return 1;
       }
+    /* APPLE LOCAL end AltiVec */
 
     case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	{
-	  int xlen = len = int_size_in_bytes (TREE_TYPE (exp));
-	  unsigned char *tmp = (unsigned char *) alloca (len);
+      typecode = TREE_CODE (TREE_TYPE (t1));
+      if (typecode != TREE_CODE (TREE_TYPE (t2)))
+	return 0;
 
-	  get_set_constructor_bytes (exp, tmp, len);
-	  strp = (unsigned char *) tmp;
-	  if (memcmp ((char *) &xlen, p, sizeof xlen))
+      if (typecode == SET_TYPE)
+	{
+	  int len = int_size_in_bytes (TREE_TYPE (t2));
+	  unsigned char *tmp1, *tmp2;
+
+	  if (int_size_in_bytes (TREE_TYPE (t1)) != len)
 	    return 0;
 
-	  p += sizeof xlen;
-	  break;
+	  tmp1 = (unsigned char *) alloca (len);
+	  tmp2 = (unsigned char *) alloca (len);
+
+	  if (get_set_constructor_bytes (t1, tmp1, len) != NULL_TREE)
+	    return 0;
+	  if (get_set_constructor_bytes (t2, tmp2, len) != NULL_TREE)
+	    return 0;
+
+	  return memcmp (tmp1, tmp2, len) != 0;
 	}
       else
 	{
-	  tree link;
-	  int length = list_length (CONSTRUCTOR_ELTS (exp));
-	  tree type;
-	  enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-	  int have_purpose = 0;
+	  tree l1, l2;
 
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    if (TREE_PURPOSE (link))
-	      have_purpose = 1;
-
-	  if (memcmp ((char *) &length, p, sizeof length))
-	    return 0;
-
-	  p += sizeof length;
-
-	  /* For record constructors, insist that the types match.
-	     For arrays, just verify both constructors are for arrays.
-	     Then insist that either both or none have any TREE_PURPOSE
-	     values.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-	    type = TREE_TYPE (exp);
+	  if (typecode == ARRAY_TYPE)
+	    {
+	      HOST_WIDE_INT size_1 = int_size_in_bytes (TREE_TYPE (t1));
+	      /* For arrays, check that the sizes all match.  */
+	      if (TYPE_MODE (TREE_TYPE (t1)) != TYPE_MODE (TREE_TYPE (t2))
+		  || size_1 == -1
+		  || size_1 != int_size_in_bytes (TREE_TYPE (t2)))
+		return 0;
+	    }
 	  else
-	    type = 0;
-
-	  if (memcmp ((char *) &type, p, sizeof type))
-	    return 0;
-
-	  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
 	    {
-	      if (memcmp ((char *) &mode, p, sizeof mode))
+	      /* For record and union constructors, require exact type
+                 equality.  */
+	      if (TREE_TYPE (t1) != TREE_TYPE (t2))
 		return 0;
-
-	      p += sizeof mode;
 	    }
 
-	  p += sizeof type;
-
-	  if (memcmp ((char *) &have_purpose, p, sizeof have_purpose))
-	    return 0;
-
-	  p += sizeof have_purpose;
-
-	  /* For arrays, insist that the size in bytes match.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
+	  for (l1 = CONSTRUCTOR_ELTS (t1), l2 = CONSTRUCTOR_ELTS (t2);
+	       l1 && l2;
+	       l1 = TREE_CHAIN (l1), l2 = TREE_CHAIN (l2))
 	    {
-	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
-
-	      if (memcmp ((char *) &size, p, sizeof size))
+	      /* Check that each value is the same...  */
+	      if (! compare_constant (TREE_VALUE (l1), TREE_VALUE (l2)))
 		return 0;
-
-	      p += sizeof size;
-	    }
-
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    {
-	      if (TREE_VALUE (link))
+	      /* ... and that they apply to the same fields!  */
+	      if (typecode == ARRAY_TYPE)
 		{
-		  if ((p = compare_constant_1 (TREE_VALUE (link), p)) == 0)
+		  if (! compare_constant (TREE_PURPOSE (l1),
+					  TREE_PURPOSE (l2)))
 		    return 0;
 		}
 	      else
 		{
-		  tree zero = 0;
-
-		  if (memcmp ((char *) &zero, p, sizeof zero))
+		  if (TREE_PURPOSE (l1) != TREE_PURPOSE (l2))
 		    return 0;
-
-		  p += sizeof zero;
-		}
-
-	      if (TREE_PURPOSE (link)
-		  && TREE_CODE (TREE_PURPOSE (link)) == FIELD_DECL)
-		{
-		  if (memcmp ((char *) &TREE_PURPOSE (link), p,
-			    sizeof TREE_PURPOSE (link)))
-		    return 0;
-
-		  p += sizeof TREE_PURPOSE (link);
-		}
-	      else if (TREE_PURPOSE (link))
-		{
-		  if ((p = compare_constant_1 (TREE_PURPOSE (link), p)) == 0)
-		    return 0;
-		}
-	      else if (have_purpose)
-		{
-		  int zero = 0;
-
-		  if (memcmp ((char *) &zero, p, sizeof zero))
-		    return 0;
-
-		  p += sizeof zero;
 		}
 	    }
 
-	  return p;
+	  return l1 == NULL_TREE && l2 == NULL_TREE;
 	}
 
     case ADDR_EXPR:
+    case FDESC_EXPR:
       {
-	struct addr_const value;
+	struct addr_const value1, value2;
 
-	decode_addr_const (exp, &value);
-	strp = (unsigned char *) &value.offset;
-	len = sizeof value.offset;
-	/* Compare the offset.  */
-	while (--len >= 0)
-	  if (*p++ != *strp++)
-	    return 0;
-
-	/* Compare symbol name.  */
-	strp = (const unsigned char *) XSTR (value.base, 0);
-	len = strlen ((const char *) strp) + 1;
+	decode_addr_const (t1, &value1);
+	decode_addr_const (t2, &value2);
+	return (value1.offset == value2.offset
+		&& strcmp (XSTR (value1.base, 0), XSTR (value2.base, 0)) == 0);
       }
-      break;
 
     case PLUS_EXPR:
     case MINUS_EXPR:
     case RANGE_EXPR:
-      p = compare_constant_1 (TREE_OPERAND (exp, 0), p);
-      if (p == 0)
-	return 0;
-
-      return compare_constant_1 (TREE_OPERAND (exp, 1), p);
+      return (compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0))
+	      && compare_constant(TREE_OPERAND (t1, 1), TREE_OPERAND (t2, 1)));
 
     case NOP_EXPR:
     case CONVERT_EXPR:
     case NON_LVALUE_EXPR:
-      return compare_constant_1 (TREE_OPERAND (exp, 0), p);
+      return compare_constant (TREE_OPERAND (t1, 0), TREE_OPERAND (t2, 0));
 
     default:
       {
-	tree new = (*lang_hooks.expand_constant) (exp);
-
-	if (new != exp)
-          return compare_constant_1 (new, p);
+	tree nt1, nt2;
+	nt1 = (*lang_hooks.expand_constant) (t1);
+	nt2 = (*lang_hooks.expand_constant) (t2);
+	if (nt1 != t1 || nt2 != t2)
+	  return compare_constant (nt1, nt2);
 	else
 	  return 0;
       }
     }
 
-  /* Compare constant contents.  */
-  while (--len >= 0)
-    if (*p++ != *strp++)
-      return 0;
-
-  return p;
-}
-
-/* Construct a constant descriptor for the expression EXP.
-   It is up to the caller to enter the descriptor in the hash table.  */
-
-static struct constant_descriptor *
-record_constant (exp)
-     tree exp;
-{
-  struct constant_descriptor *next = 0;
-  char *label = 0;
-  rtx rtl = 0;
-  int pad;
-
-  /* Make a struct constant_descriptor.  The first three pointers will
-     be filled in later.  Here we just leave space for them.  */
-
-  obstack_grow (&permanent_obstack, (char *) &next, sizeof next);
-  obstack_grow (&permanent_obstack, (char *) &label, sizeof label);
-  obstack_grow (&permanent_obstack, (char *) &rtl, sizeof rtl);
-
-  /* Align the descriptor for the data payload.  */
-  pad = (offsetof (struct constant_descriptor, u)
-	 - offsetof(struct constant_descriptor, rtl)
-	 - sizeof(next->rtl));
-  if (pad > 0)
-    obstack_blank (&permanent_obstack, pad);
-
-  record_constant_1 (exp);
-  return (struct constant_descriptor *) obstack_finish (&permanent_obstack);
-}
-
-/* Add a description of constant expression EXP
-   to the object growing in `permanent_obstack'.
-   No need to return its address; the caller will get that
-   from the obstack when the object is complete.  */
-
-static void
-record_constant_1 (exp)
-     tree exp;
-{
-  const unsigned char *strp;
-  int len;
-  enum tree_code code = TREE_CODE (exp);
-
-  obstack_1grow (&permanent_obstack, (unsigned int) code);
-
-  switch (code)
-    {
-    case INTEGER_CST:
-      obstack_1grow (&permanent_obstack, TYPE_PRECISION (TREE_TYPE (exp)));
-      strp = (unsigned char *) &TREE_INT_CST (exp);
-      len = sizeof TREE_INT_CST (exp);
-      break;
-
-    case REAL_CST:
-      obstack_1grow (&permanent_obstack, TYPE_PRECISION (TREE_TYPE (exp)));
-      strp = (unsigned char *) &TREE_REAL_CST (exp);
-      len = sizeof TREE_REAL_CST (exp);
-      break;
-
-    case STRING_CST:
-      if (flag_writable_strings)
-	return;
-
-      obstack_1grow (&permanent_obstack, TYPE_MODE (TREE_TYPE (exp)));
-      strp = (const unsigned char *) TREE_STRING_POINTER (exp);
-      len = TREE_STRING_LENGTH (exp);
-      obstack_grow (&permanent_obstack, (char *) &TREE_STRING_LENGTH (exp),
-		    sizeof TREE_STRING_LENGTH (exp));
-      break;
-
-    case COMPLEX_CST:
-      record_constant_1 (TREE_REALPART (exp));
-      record_constant_1 (TREE_IMAGPART (exp));
-      return;
-
-    /* APPLE LOCAL: AltiVec */
-    case VECTOR_CST:
-      {
-	tree t;
-	for (t = TREE_VECTOR_CST_ELTS (exp); t; t = TREE_CHAIN (t))
-          record_constant_1 (TREE_VALUE (t));
-        return;
-      }
-
-    case CONSTRUCTOR:
-      if (TREE_CODE (TREE_TYPE (exp)) == SET_TYPE)
-	{
-	  int nbytes = int_size_in_bytes (TREE_TYPE (exp));
-	  obstack_grow (&permanent_obstack, &nbytes, sizeof (nbytes));
-	  obstack_blank (&permanent_obstack, nbytes);
-	  get_set_constructor_bytes
-	    (exp, (unsigned char *) permanent_obstack.next_free-nbytes,
-	     nbytes);
-	  return;
-	}
-      else
-	{
-	  tree link;
-	  int length = list_length (CONSTRUCTOR_ELTS (exp));
-	  enum machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
-	  tree type;
-	  int have_purpose = 0;
-
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    if (TREE_PURPOSE (link))
-	      have_purpose = 1;
-
-	  obstack_grow (&permanent_obstack, (char *) &length, sizeof length);
-
-	  /* For record constructors, insist that the types match.
-	     For arrays, just verify both constructors are for arrays
-	     of the same mode.  Then insist that either both or none
-	     have any TREE_PURPOSE values.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-	    type = TREE_TYPE (exp);
-	  else
-	    type = 0;
-
-	  obstack_grow (&permanent_obstack, (char *) &type, sizeof type);
-	  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-	    obstack_grow (&permanent_obstack, &mode, sizeof mode);
-
-	  obstack_grow (&permanent_obstack, (char *) &have_purpose,
-			sizeof have_purpose);
-
-	  /* For arrays, insist that the size in bytes match.  */
-	  if (TREE_CODE (TREE_TYPE (exp)) == ARRAY_TYPE)
-	    {
-	      HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (exp));
-	      obstack_grow (&permanent_obstack, (char *) &size, sizeof size);
-	    }
-
-	  for (link = CONSTRUCTOR_ELTS (exp); link; link = TREE_CHAIN (link))
-	    {
-	      if (TREE_VALUE (link))
-		record_constant_1 (TREE_VALUE (link));
-	      else
-		{
-		  tree zero = 0;
-
-		  obstack_grow (&permanent_obstack,
-				(char *) &zero, sizeof zero);
-		}
-
-	      if (TREE_PURPOSE (link)
-		  && TREE_CODE (TREE_PURPOSE (link)) == FIELD_DECL)
-		obstack_grow (&permanent_obstack,
-			      (char *) &TREE_PURPOSE (link),
-			      sizeof TREE_PURPOSE (link));
-	      else if (TREE_PURPOSE (link))
-		record_constant_1 (TREE_PURPOSE (link));
-	      else if (have_purpose)
-		{
-		  int zero = 0;
-
-		  obstack_grow (&permanent_obstack,
-				(char *) &zero, sizeof zero);
-		}
-	    }
-	}
-      return;
-
-    case ADDR_EXPR:
-      {
-	struct addr_const value;
-
-	decode_addr_const (exp, &value);
-	/* Record the offset.  */
-	obstack_grow (&permanent_obstack,
-		      (char *) &value.offset, sizeof value.offset);
-
-	switch (GET_CODE (value.base))
-	  {
-	  case SYMBOL_REF:
-	    /* Record the symbol name.  */
-	    obstack_grow (&permanent_obstack, XSTR (value.base, 0),
-			  strlen (XSTR (value.base, 0)) + 1);
-	    break;
-	  case LABEL_REF:
-	    /* Record the address of the CODE_LABEL.  It may not have
-	       been emitted yet, so it's UID may be zero.  But pointer
-	       identity is good enough.  */
-	    obstack_grow (&permanent_obstack, &XEXP (value.base, 0),
-			  sizeof (rtx));
-	    break;
-	  default:
-	    abort ();
-	  }
-      }
-      return;
-
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case RANGE_EXPR:
-      record_constant_1 (TREE_OPERAND (exp, 0));
-      record_constant_1 (TREE_OPERAND (exp, 1));
-      return;
-
-    case NOP_EXPR:
-    case CONVERT_EXPR:
-    case NON_LVALUE_EXPR:
-      record_constant_1 (TREE_OPERAND (exp, 0));
-      return;
-
-    default:
-      {
-	tree new = (*lang_hooks.expand_constant) (exp);
-
-	if (new != exp)
-          record_constant_1 (new);
-	return;
-      }
-    }
-
-  /* Record constant contents.  */
-  obstack_grow (&permanent_obstack, strp, len);
+  /* Should not get here.  */
+  abort ();
 }
 
 /* Record a list of constant expressions that were passed to
@@ -3384,9 +2702,8 @@ output_after_function_constants ()
   after_function_constants = 0;
 }
 
-/* Make a copy of the whole tree structure for a constant.
-   This handles the same types of nodes that compare_constant
-   and record_constant handle.  */
+/* Make a copy of the whole tree structure for a constant.  This
+   handles the same types of nodes that compare_constant handles.  */
 
 static tree
 copy_constant (exp)
@@ -3413,7 +2730,7 @@ copy_constant (exp)
 			    copy_constant (TREE_REALPART (exp)),
 			    copy_constant (TREE_IMAGPART (exp)));
 
-    /* APPLE LOCAL: AltiVec */
+    /* APPLE LOCAL AltiVec */
     case VECTOR_CST:
       {
 	tree list = copy_list (TREE_VECTOR_CST_ELTS (exp));
@@ -3453,7 +2770,14 @@ copy_constant (exp)
       }
 
     default:
-      abort ();
+      {
+	tree t;
+	t = (*lang_hooks.expand_constant) (exp);
+	if (t != exp)
+	  return copy_constant (t);
+	else
+	  abort ();
+      }
     }
 }
 
@@ -3465,7 +2789,7 @@ copy_constant (exp)
    Otherwise, output such a constant in memory (or defer it for later)
    and generate an rtx for it.
 
-   If DEFER is non-zero, the output of string constants can be deferred
+   If DEFER is nonzero, the output of string constants can be deferred
    and output only if referenced in the function after all optimizations.
 
    The TREE_CST_RTL of EXP is set up to point to that rtx.
@@ -3477,7 +2801,7 @@ output_constant_def (exp, defer)
      int defer;
 {
   int hash;
-  struct constant_descriptor *desc;
+  struct constant_descriptor_tree *desc;
   struct deferred_string **defstr;
   char label[256];
   int reloc;
@@ -3486,8 +2810,8 @@ output_constant_def (exp, defer)
   int labelno = -1;
   rtx rtl;
 
-  /* We can't just use the saved RTL if this is a defererred string constant
-     and we are not to defer anymode.  */
+  /* We can't just use the saved RTL if this is a deferred string constant
+     and we are not to defer anymore.  */
   if (TREE_CODE (exp) != INTEGER_CST && TREE_CST_RTL (exp)
       && (defer || !STRING_POOL_ADDRESS_P (XEXP (TREE_CST_RTL (exp), 0))))
     return TREE_CST_RTL (exp);
@@ -3501,10 +2825,10 @@ output_constant_def (exp, defer)
      to see if any of them describes EXP.  If yes, the descriptor records
      the label number already assigned.  */
 
-  hash = const_hash (exp) % MAX_HASH_TABLE;
+  hash = const_hash (exp);
 
   for (desc = const_hash_table[hash]; desc; desc = desc->next)
-    if (compare_constant (exp, desc))
+    if (compare_constant (exp, desc->value))
       break;
 
   if (desc == 0)
@@ -3518,10 +2842,10 @@ output_constant_def (exp, defer)
       labelno = const_labelno++;
       ASM_GENERATE_INTERNAL_LABEL (label, "LC", labelno);
 
-      desc = record_constant (exp);
+      desc = ggc_alloc (sizeof (*desc));
       desc->next = const_hash_table[hash];
-      /* APPLE LOCAL PFE - expand to pfe_ggc_strdup or ggc_strdup */
-      desc->label = GGC_STRDUP (label);
+      desc->label = ggc_strdup (label);
+      desc->value = copy_constant (exp);
       const_hash_table[hash] = desc;
 
       /* We have a symbol name; construct the SYMBOL_REF and the MEM.  */
@@ -3544,20 +2868,18 @@ output_constant_def (exp, defer)
   /* Optionally set flags or add text to the name to record information
      such as that it is a function name.  If the name is changed, the macro
      ASM_OUTPUT_LABELREF will have to know how to strip this information.  */
-#ifdef ENCODE_SECTION_INFO
   /* A previously-processed constant would already have section info
      encoded in it.  */
   if (! found)
     {
-      /* Take care not to invoque ENCODE_SECTION_INFO for constants
-	 which don't have a TREE_CST_RTL.  */
+      /* Take care not to invoke targetm.encode_section_info for
+	 constants which don't have a TREE_CST_RTL.  */
       if (TREE_CODE (exp) != INTEGER_CST)
-	ENCODE_SECTION_INFO (exp);
-      
+	(*targetm.encode_section_info) (exp, true);
+
       desc->rtl = rtl;
       desc->label = XSTR (XEXP (desc->rtl, 0), 0);
     }
-#endif
 
 #ifdef CONSTANT_AFTER_FUNCTION_P
   if (current_function_decl != 0
@@ -3593,7 +2915,7 @@ output_constant_def (exp, defer)
 	    = (struct deferred_constant *)
 	      xmalloc (sizeof (struct deferred_constant));
 
-	  p->exp = copy_constant (exp);
+	  p->exp = desc->value;
 	  p->reloc = reloc;
 	  p->labelno = labelno;
 	  if (after_function)
@@ -3626,9 +2948,9 @@ output_constant_def (exp, defer)
 		  struct deferred_string *p;
 
 		  p = (struct deferred_string *)
-		      xmalloc (sizeof (struct deferred_string));
+		      ggc_alloc (sizeof (struct deferred_string));
 
-		  p->exp = copy_constant (exp);
+		  p->exp = desc->value;
 		  p->label = desc->label;
 		  p->labelno = labelno;
 		  *defstr = p;
@@ -3661,18 +2983,7 @@ output_constant_def_contents (exp, reloc, labelno)
   if (IN_NAMED_SECTION (exp))
     named_section (exp, NULL, reloc);
   else
-    {
-      /* First switch to text section, except for writable strings.  */
-#ifdef SELECT_SECTION
-      SELECT_SECTION (exp, reloc, align);
-#else
-      if (((TREE_CODE (exp) == STRING_CST) && flag_writable_strings)
-	  || (flag_pic && reloc))
-	data_section ();
-      else
-	readonly_data_section ();
-#endif
-    }
+    (*targetm.asm_out.select_section) (exp, reloc, align);
 
   if (align > BITS_PER_UNIT)
     {
@@ -3680,7 +2991,9 @@ output_constant_def_contents (exp, reloc, labelno)
     }
 
   /* Output the label itself.  */
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", labelno);
+  /* APPLE LOCAL begin - 3.4 scheduler update */
+  (*targetm.asm_out.internal_label) (asm_out_file, "LC", labelno);
+  /* APPLE LOCAL end - 3.4 scheduler update */
 
   /* Output the value of EXP.  */
   output_constant (exp,
@@ -3692,15 +3005,33 @@ output_constant_def_contents (exp, reloc, labelno)
 
 }
 
+/* Used in the hash tables to avoid outputting the same constant
+   twice.  Unlike 'struct constant_descriptor_tree', RTX constants
+   are output once per function, not once per file; there seems
+   to be no reason for the difference.  */
+
+struct constant_descriptor_rtx GTY(())
+{
+  /* More constant_descriptors with the same hash code.  */
+  struct constant_descriptor_rtx *next;
+
+  /* A MEM for the constant.  */
+  rtx rtl;
+
+  /* The value of the constant.  */
+  struct rtx_const value;
+};
+
 /* Structure to represent sufficient information about a constant so that
    it can be output when the constant pool is output, so that function
    integration can be done, and to simplify handling on machines that reference
    constant pool as base+displacement.  */
 
-struct pool_constant
+struct pool_constant GTY(())
 {
-  struct constant_descriptor *desc;
-  struct pool_constant *next, *next_sym;
+  struct constant_descriptor_rtx *desc;
+  struct pool_constant *next;
+  struct pool_constant *next_sym;
   rtx constant;
   enum machine_mode mode;
   int labelno;
@@ -3709,17 +3040,11 @@ struct pool_constant
   int mark;
 };
 
-/* APPLE LOCAL PFE */
-#ifndef PFE
-
 /* Hash code for a SYMBOL_REF with CONSTANT_POOL_ADDRESS_P true.
    The argument is XSTR (... , 0)  */
 
-#define SYMHASH(LABEL)	\
-  ((((unsigned long) (LABEL)) & ((1 << HASHBITS) - 1))  % MAX_RTX_HASH_TABLE)
-
-/* APPLE LOCAL PFE */
-#endif /* !PFE */
+/* APPLE LOCAL PCH */
+#define SYMHASH(LABEL) (htab_hash_string (LABEL) % MAX_RTX_HASH_TABLE) 
 
 /* Initialize constant pool hashing for a new function.  */
 
@@ -3728,95 +3053,19 @@ init_varasm_status (f)
      struct function *f;
 {
   struct varasm_status *p;
-  
-  /* APPLE LOCAL PFE - expand to pfe_malloc or xmalloc  */
-  p = (struct varasm_status *) PFE_MALLOC (sizeof (struct varasm_status),
-  					   PFE_ALLOC_VARASM_STATUS);
+  p = (struct varasm_status *) ggc_alloc (sizeof (struct varasm_status));
   f->varasm = p;
-  /* APPLE LOCAL PFE - expand to pfe_calloc or xcalloc  */
   p->x_const_rtx_hash_table
-    = ((struct constant_descriptor **)
-       PFE_CALLOC (MAX_RTX_HASH_TABLE, sizeof (struct constant_descriptor *),
-       		   PFE_ALLOC_CONSTANT_DESCRIPTOR));
-  /* APPLE LOCAL PFE - expand to pfe_calloc or xcalloc  */
+    = ((struct constant_descriptor_rtx **)
+       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			  * sizeof (struct constant_descriptor_rtx *)));
   p->x_const_rtx_sym_hash_table
     = ((struct pool_constant **)
-       PFE_CALLOC (MAX_RTX_HASH_TABLE, sizeof (struct pool_constant *),
-       		   PFE_ALLOC_RTX_SYM_HASH_TABLE));
+       ggc_alloc_cleared (MAX_RTX_HASH_TABLE
+			  * sizeof (struct pool_constant *)));
 
   p->x_first_pool = p->x_last_pool = 0;
   p->x_pool_offset = 0;
-  p->x_const_double_chain = 0;
-  /* APPLE LOCAL Altivec */
-  p->x_const_vector_chain = 0;
-}
-
-/* Mark PC for GC.  */
-
-static void
-mark_pool_constant (pc)
-     struct pool_constant *pc;
-{
-  while (pc)
-    {
-      ggc_mark (pc);
-      ggc_mark_rtx (pc->constant);
-      ggc_mark_rtx (pc->desc->rtl);
-      pc = pc->next;
-    }
-}
-
-/* Mark P for GC.  */
-
-void
-mark_varasm_status (p)
-     struct varasm_status *p;
-{
-  if (p == NULL)
-    return;
-
-  mark_pool_constant (p->x_first_pool);
-  ggc_mark_rtx (p->x_const_double_chain);
-  /* APPLE LOCAL Altivec */
-  ggc_mark_rtx (p->x_const_vector_chain);
-}
-
-/* Clear out all parts of the state in F that can safely be discarded
-   after the function has been compiled, to let garbage collection
-   reclaim the memory.  */
-
-void
-free_varasm_status (f)
-     struct function *f;
-{
-  struct varasm_status *p;
-  int i;
-
-  p = f->varasm;
-
-  /* Clear out the hash tables.  */
-  for (i = 0; i < MAX_RTX_HASH_TABLE; ++i)
-    {
-      struct constant_descriptor *cd;
-
-      cd = p->x_const_rtx_hash_table[i];
-      while (cd)
-	{
-	  struct constant_descriptor *next = cd->next;
-	  /* APPLE LOCAL PFE - expand to pfe_free or free  */
-	  PFE_FREE (cd);
-	  cd = next;
-	}
-    }
-
-  /* APPLE LOCAL PFE - expand to pfe_free or free  */
-  PFE_FREE (p->x_const_rtx_hash_table);
-  /* APPLE LOCAL PFE - expand to pfe_free or free  */
-  PFE_FREE (p->x_const_rtx_sym_hash_table);
-  /* APPLE LOCAL PFE - expand to pfe_free or free  */
-  PFE_FREE (p);
-
-  f->varasm = NULL;
 }
 
 
@@ -3842,9 +3091,29 @@ decode_rtx_const (mode, x, value)
       value->kind = RTX_DOUBLE;
       if (GET_MODE (x) != VOIDmode)
 	{
+	  const REAL_VALUE_TYPE *r = CONST_DOUBLE_REAL_VALUE (x);
+
 	  value->mode = GET_MODE (x);
-	  memcpy ((char *) &value->un.du,
-		  (char *) &CONST_DOUBLE_LOW (x), sizeof value->un.du);
+
+	  /* Copy the REAL_VALUE_TYPE by members so that we don't
+	     copy garbage from the original structure into our
+	     carefully cleaned hashing structure.  */
+	  value->un.du.class = r->class;
+	  value->un.du.sign = r->sign;
+	  switch (r->class)
+	    {
+	    case rvc_zero:
+	    case rvc_inf:
+	      break;
+	    case rvc_normal:
+	      value->un.du.exp = r->exp;
+	      /* FALLTHRU */
+	    case rvc_nan:
+	      memcpy (value->un.du.sig, r->sig, sizeof (r->sig));
+	      break;
+	    default:
+	      abort ();
+	    }
 	}
       else
 	{
@@ -3856,29 +3125,59 @@ decode_rtx_const (mode, x, value)
     case CONST_VECTOR:
       {
 	int units, i;
-	rtx elt;
 
 	units = CONST_VECTOR_NUNITS (x);
 	value->kind = RTX_VECTOR;
 	value->mode = mode;
 
-	for (i = 0; i < units; ++i)
+	if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	  {
-	    elt = CONST_VECTOR_ELT (x, i);
-	    /* APPLE LOCAL Altivec data structure changed */
-	    if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+	    for (i = 0; i < units; ++i)
 	      {
-		value->un.vec[i].veclo = (HOST_WIDE_INT) INTVAL (elt);
-		value->un.vec[i].vechi = 0;
+	        rtx elt = CONST_VECTOR_ELT (x, i);
+	        if (GET_CODE (elt) == CONST_INT)
+	          {
+		    value->un.int_vec[i].low = INTVAL (elt);
+		    value->un.int_vec[i].high = 0;
+	          }
+		else
+	          {
+		    value->un.int_vec[i].low = CONST_DOUBLE_LOW (elt);
+		    value->un.int_vec[i].high = CONST_DOUBLE_HIGH (elt);
+		  }
 	      }
-	    else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
-	      {
-		value->un.vec[i].veclo = (HOST_WIDE_INT) CONST_DOUBLE_LOW (elt);
-		value->un.vec[i].vechi = (HOST_WIDE_INT) CONST_DOUBLE_HIGH (elt);
-	      }
-	    else
-	      abort ();
 	  }
+	else if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  {
+	    for (i = 0; i < units; ++i)
+	      {
+		const REAL_VALUE_TYPE *r
+		  = CONST_DOUBLE_REAL_VALUE (CONST_VECTOR_ELT (x, i));
+		REAL_VALUE_TYPE *d = &value->un.fp_vec[i];
+
+	        /* Copy the REAL_VALUE_TYPE by members so that we don't
+	           copy garbage from the original structure into our
+	           carefully cleaned hashing structure.  */
+	        d->class = r->class;
+	        d->sign = r->sign;
+	        switch (r->class)
+	          {
+	          case rvc_zero:
+	          case rvc_inf:
+	            break;
+	          case rvc_normal:
+	            d->exp = r->exp;
+	            /* FALLTHRU */
+	          case rvc_nan:
+	            memcpy (d->sig, r->sig, sizeof (r->sig));
+	            break;
+	          default:
+	            abort ();
+	          }
+	      }
+	  }
+	else
+	  abort ();
       }
       break;
 
@@ -3918,29 +3217,31 @@ decode_rtx_const (mode, x, value)
 
   if (value->kind == RTX_INT && value->un.addr.base != 0
       && GET_CODE (value->un.addr.base) == UNSPEC)
-    {      
+    {
       /* For a simple UNSPEC, the base is set to the
 	 operand, the kind field is set to the index of
-	 the unspec expression. 
+	 the unspec expression.
 	 Together with the code below, in case that
-	 the operand is a SYMBOL_REF or LABEL_REF, 
-	 the address of the string or the code_label 
+	 the operand is a SYMBOL_REF or LABEL_REF,
+	 the address of the string or the code_label
 	 is taken as base.  */
       if (XVECLEN (value->un.addr.base, 0) == 1)
-        {
+	{
 	  value->kind = RTX_UNSPEC + XINT (value->un.addr.base, 1);
 	  value->un.addr.base = XVECEXP (value->un.addr.base, 0, 0);
 	}
     }
 
-  if (value->kind > RTX_DOUBLE && value->un.addr.base != 0)
+  if (value->kind >= RTX_INT && value->un.addr.base != 0)
     switch (GET_CODE (value->un.addr.base))
       {
+#if 0
       case SYMBOL_REF:
 	/* Use the string's address, not the SYMBOL_REF's address,
 	   for the sake of addresses of library routines.  */
 	value->un.addr.base = (rtx) XSTR (value->un.addr.base, 0);
 	break;
+#endif
 
       case LABEL_REF:
 	/* For a LABEL_REF, compare labels.  */
@@ -3963,7 +3264,7 @@ simplify_subtraction (x)
   decode_rtx_const (GET_MODE (x), XEXP (x, 0), &val0);
   decode_rtx_const (GET_MODE (x), XEXP (x, 1), &val1);
 
-  if (val0.kind > RTX_DOUBLE
+  if (val0.kind >= RTX_INT
       && val0.kind == val1.kind
       && val0.un.addr.base == val1.un.addr.base)
     return GEN_INT (val0.un.addr.offset - val1.un.addr.offset);
@@ -3971,34 +3272,30 @@ simplify_subtraction (x)
   return x;
 }
 
-/* APPLE LOCAL PFE */
-#ifndef PFE
-
 /* Compute a hash code for a constant RTL expression.  */
 
-static int
+static unsigned int
 const_hash_rtx (mode, x)
      enum machine_mode mode;
      rtx x;
 {
-  int hi;
+  union {
+    struct rtx_const value;
+    unsigned int data[sizeof(struct rtx_const) / sizeof (unsigned int)];
+  } u;
+
+  unsigned int hi;
   size_t i;
 
-  struct rtx_const value;
-  decode_rtx_const (mode, x, &value);
+  decode_rtx_const (mode, x, &u.value);
 
   /* Compute hashing function */
   hi = 0;
-  for (i = 0; i < sizeof value / sizeof (int); i++)
-    hi += ((int *) &value)[i];
+  for (i = 0; i < ARRAY_SIZE (u.data); i++)
+    hi = hi * 613 + u.data[i];
 
-  hi &= (1 << HASHBITS) - 1;
-  hi %= MAX_RTX_HASH_TABLE;
-  return hi;
+  return hi % MAX_RTX_HASH_TABLE;
 }
-
-/* APPLE LOCAL PFE */
-#endif /* !PFE */
 
 /* Compare a constant rtl object X with a constant-descriptor DESC.
    Return 1 if DESC describes a constant with the same value as X.  */
@@ -4007,41 +3304,28 @@ static int
 compare_constant_rtx (mode, x, desc)
      enum machine_mode mode;
      rtx x;
-     struct constant_descriptor *desc;
+     struct constant_descriptor_rtx *desc;
 {
-  int *p = (int *) desc->u.contents;
-  int *strp;
-  int len;
   struct rtx_const value;
 
   decode_rtx_const (mode, x, &value);
-  strp = (int *) &value;
-  len = sizeof value / sizeof (int);
 
   /* Compare constant contents.  */
-  while (--len >= 0)
-    if (*p++ != *strp++)
-      return 0;
-
-  return 1;
+  return memcmp (&value, &desc->value, sizeof (struct rtx_const)) == 0;
 }
 
 /* Construct a constant descriptor for the rtl-expression X.
    It is up to the caller to enter the descriptor in the hash table.  */
 
-static struct constant_descriptor *
+static struct constant_descriptor_rtx *
 record_constant_rtx (mode, x)
      enum machine_mode mode;
      rtx x;
 {
-  struct constant_descriptor *ptr;
+  struct constant_descriptor_rtx *ptr;
 
-  /* APPLE LOCAL PFE - expand to pfe_calloc or xcalloc  */
-  ptr = ((struct constant_descriptor *) 
-	 PFE_CALLOC (1, (offsetof (struct constant_descriptor, u)
-		      + sizeof (struct rtx_const)),
-		      PFE_ALLOC_CONSTANT_DESCRIPTOR));
-  decode_rtx_const (mode, x, (struct rtx_const *) ptr->u.contents);
+  ptr = (struct constant_descriptor_rtx *) ggc_alloc (sizeof (*ptr));
+  decode_rtx_const (mode, x, &ptr->value);
 
   return ptr;
 }
@@ -4054,7 +3338,7 @@ mem_for_const_double (x)
      rtx x;
 {
   enum machine_mode mode = GET_MODE (x);
-  struct constant_descriptor *desc;
+  struct constant_descriptor_rtx *desc;
 
   for (desc = const_rtx_hash_table[const_hash_rtx (mode, x)]; desc;
        desc = desc->next)
@@ -4063,7 +3347,7 @@ mem_for_const_double (x)
 
   return 0;
 }
-  
+
 /* Given a constant rtx X, make (or find) a memory constant for its value
    and return a MEM rtx to refer to it in memory.  */
 
@@ -4073,11 +3357,15 @@ force_const_mem (mode, x)
      rtx x;
 {
   int hash;
-  struct constant_descriptor *desc;
+  struct constant_descriptor_rtx *desc;
   char label[256];
   rtx def;
   struct pool_constant *pool;
   unsigned int align;
+
+  /* If we're not allowed to drop X into the constant pool, don't.  */
+  if ((*targetm.cannot_force_const_mem) (x))
+    return NULL_RTX;
 
   /* Compute hash code of X.  Search the descriptors for that hash code
      to see if any of them describes X.  If yes, we have an rtx to use.  */
@@ -4092,11 +3380,12 @@ force_const_mem (mode, x)
   desc = record_constant_rtx (mode, x);
   desc->next = const_rtx_hash_table[hash];
   const_rtx_hash_table[hash] = desc;
-  
+
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
 #ifdef CONSTANT_ALIGNMENT
-  align = CONSTANT_ALIGNMENT (make_tree (type_for_mode (mode, 0), x), align);
+  align = CONSTANT_ALIGNMENT (make_tree ((*lang_hooks.types.type_for_mode)
+					 (mode, 0), x), align);
 #endif
 
   pool_offset += (align / BITS_PER_UNIT) - 1;
@@ -4106,9 +3395,7 @@ force_const_mem (mode, x)
     LABEL_PRESERVE_P (XEXP (x, 0)) = 1;
 
   /* Allocate a pool constant descriptor, fill it in, and chain it in.  */
-	  /* APPLE LOCAL PFE - expand to pfe_ggc_alloc or ggc_alloc */
-  pool = (struct pool_constant *) GGC_ALLOC (sizeof (struct pool_constant),
-					     PFE_ALLOC_GGC_POOL_CONSTANT);
+  pool = (struct pool_constant *) ggc_alloc (sizeof (struct pool_constant));
   pool->desc = desc;
   pool->constant = x;
   pool->mode = mode;
@@ -4122,7 +3409,7 @@ force_const_mem (mode, x)
     first_pool = pool;
   else
     last_pool->next = pool;
-  
+
   last_pool = pool;
   pool_offset += GET_MODE_SIZE (mode);
 
@@ -4131,33 +3418,12 @@ force_const_mem (mode, x)
 
   ++const_labelno;
 
-#if 0 /* probably junk now? */
-      /* APPLE LOCAL PFE - expand to pfe_ggc_strdup or ggc_strdup */
-      desc->label = found = GGC_STRDUP (label);
-      /* Add label to symbol hash table.  */
-      hash = SYMHASH (found);
-      pool->label = found;
-      pool->next_sym = const_rtx_sym_hash_table[hash];
-      const_rtx_sym_hash_table[hash] = pool;
-    }
-
-  /* We have a symbol name; construct the SYMBOL_REF and the MEM.  */
-
-  def = gen_rtx_MEM (mode, gen_rtx_SYMBOL_REF (Pmode, found));
-  /* APPLE LOCAL PFE -- the previous call results in PFE_SAVESTRING
-     being called on 'found', which is not what we want.  Point the
-     SYMBOL_REF back to the garbage collector's version of 'found'.  */
-#ifdef PFE
-  if (PFE_FREEZING)
-    XSTR (XEXP (def, 0), 0) = found;
-#endif     
-#endif /* junk */
   /* Construct the SYMBOL_REF and the MEM.  */
 
   pool->desc->rtl = def
     = gen_rtx_MEM (mode, gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (label)));
   set_mem_alias_set (def, const_alias_set);
-  set_mem_attributes (def, type_for_mode (mode, 0), 1);
+  set_mem_attributes (def, (*lang_hooks.types.type_for_mode) (mode, 0), 1);
   RTX_UNCHANGING_P (def) = 1;
 
   /* Add label to symbol hash table.  */
@@ -4261,12 +3527,12 @@ get_pool_size ()
 
 void
 output_constant_pool (fnname, fndecl)
-  const char *fnname ATTRIBUTE_UNUSED;
-  tree fndecl ATTRIBUTE_UNUSED;
+     const char *fnname ATTRIBUTE_UNUSED;
+     tree fndecl ATTRIBUTE_UNUSED;
 {
   struct pool_constant *pool;
   rtx x;
-  union real_extract u;
+  REAL_VALUE_TYPE r;
 
   /* It is possible for gcc to call force_const_mem and then to later
      discard the instructions which refer to the constant.  In such a
@@ -4321,11 +3587,7 @@ output_constant_pool (fnname, fndecl)
 	}
 
       /* First switch to correct section.  */
-#ifdef SELECT_RTX_SECTION
-      SELECT_RTX_SECTION (pool->mode, x, pool->align);
-#else
-      readonly_data_section ();
-#endif
+      (*targetm.asm_out.select_rtx_section) (pool->mode, x, pool->align);
 
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
       ASM_OUTPUT_SPECIAL_POOL_ENTRY (asm_out_file, x, pool->mode,
@@ -4335,7 +3597,9 @@ output_constant_pool (fnname, fndecl)
       assemble_align (pool->align);
 
       /* Output the label.  */
-      ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, "LC", pool->labelno);
+      /* APPLE LOCAL begin - 3.4 scheduler update */
+      (*targetm.asm_out.internal_label) (asm_out_file, "LC", pool->labelno);
+      /* APPLE LOCAL end - 3.4 scheduler update */
 
       /* Output the value of the constant itself.  */
       switch (GET_MODE_CLASS (pool->mode))
@@ -4344,8 +3608,8 @@ output_constant_pool (fnname, fndecl)
 	  if (GET_CODE (x) != CONST_DOUBLE)
 	    abort ();
 
-	  memcpy ((char *) &u, (char *) &CONST_DOUBLE_LOW (x), sizeof u);
-	  assemble_real (u.d, pool->mode, pool->align);
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  assemble_real (r, pool->mode, pool->align);
 	  break;
 
 	case MODE_INT:
@@ -4366,15 +3630,13 @@ output_constant_pool (fnname, fndecl)
 	    for (i = 0; i < units; i++)
 	      {
 		elt = CONST_VECTOR_ELT (x, i);
-		memcpy ((char *) &u,
-			(char *) &CONST_DOUBLE_LOW (elt),
-			sizeof u);
-		assemble_real (u.d, GET_MODE_INNER (pool->mode), pool->align);
+		REAL_VALUE_FROM_CONST_DOUBLE (r, elt);
+		assemble_real (r, GET_MODE_INNER (pool->mode), pool->align);
 	      }
 	  }
 	  break;
 
-        case MODE_VECTOR_INT:
+	case MODE_VECTOR_INT:
 	  {
 	    int i, units;
 	    rtx elt;
@@ -4397,6 +3659,13 @@ output_constant_pool (fnname, fndecl)
 	  abort ();
 	}
 
+      /* Make sure all constants in SECTION_MERGE and not SECTION_STRINGS
+	 sections have proper size.  */
+      if (pool->align > GET_MODE_BITSIZE (pool->mode)
+	  && in_section == in_named
+	  && get_named_section_flags (in_named_name) & SECTION_MERGE)
+	assemble_align (pool->align);
+
 #ifdef ASM_OUTPUT_SPECIAL_POOL_ENTRY
     done: ;
 #endif
@@ -4418,6 +3687,7 @@ static void
 mark_constant_pool ()
 {
   rtx insn;
+  rtx link;
   struct pool_constant *pool;
 
   if (first_pool == 0 && htab_elements (const_str_htab) == 0)
@@ -4430,11 +3700,15 @@ mark_constant_pool ()
     if (INSN_P (insn))
       mark_constants (PATTERN (insn));
 
-  for (insn = current_function_epilogue_delay_list;
-       insn;
-       insn = XEXP (insn, 1))
-    if (INSN_P (insn))
-      mark_constants (PATTERN (insn));
+  for (link = current_function_epilogue_delay_list;
+       link;
+       link = XEXP (link, 1))
+    {
+      insn = XEXP (link, 0);
+
+      if (INSN_P (insn))
+	mark_constants (PATTERN (insn));
+    }
 }
 
 /* Look through appropriate parts of X, marking all entries in the
@@ -4494,6 +3768,7 @@ mark_constants (x)
 	case 'w':
 	case 'n':
 	case 'u':
+	case 'B':
 	  break;
 
 	default:
@@ -4521,10 +3796,11 @@ mark_constant (current_rtx, data)
       if (CONSTANT_POOL_ADDRESS_P (x))
 	{
 	  struct pool_constant *pool = find_pool_constant (cfun, x);
-	  if (pool->mark == 0) {
-	    pool->mark = 1;
-	    for_each_rtx (&(pool->constant), &mark_constant, NULL);
-	  }
+	  if (pool->mark == 0)
+	    {
+	      pool->mark = 1;
+	      for_each_rtx (&(pool->constant), &mark_constant, NULL);
+	    }
 	  else
 	    return -1;
 	}
@@ -4556,7 +3832,7 @@ static int
 output_addressed_constants (exp)
      tree exp;
 {
-  int reloc = 0;
+  int reloc = 0, reloc2;
   tree tem;
 
   /* Give the front-end a chance to convert VALUE to something that
@@ -4566,6 +3842,7 @@ output_addressed_constants (exp)
   switch (TREE_CODE (exp))
     {
     case ADDR_EXPR:
+    case FDESC_EXPR:
       /* Go inside any operations that get_inner_reference can handle and see
 	 if what's inside is a constant: no need to do anything here for
 	 addresses of variables or functions.  */
@@ -4574,8 +3851,8 @@ output_addressed_constants (exp)
 	;
 
       if (TREE_CODE_CLASS (TREE_CODE (tem)) == 'c'
-	    || TREE_CODE (tem) == CONSTRUCTOR)
-	  output_constant_def (tem, 0);
+	  || TREE_CODE (tem) == CONSTRUCTOR)
+	output_constant_def (tem, 0);
 
       if (TREE_PUBLIC (tem))
 	reloc |= 2;
@@ -4584,9 +3861,18 @@ output_addressed_constants (exp)
       break;
 
     case PLUS_EXPR:
-    case MINUS_EXPR:
       reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
       reloc |= output_addressed_constants (TREE_OPERAND (exp, 1));
+      break;
+
+    case MINUS_EXPR:
+      reloc = output_addressed_constants (TREE_OPERAND (exp, 0));
+      reloc2 = output_addressed_constants (TREE_OPERAND (exp, 1));
+      /* The difference of two local labels is computable at link time.  */
+      if (reloc == 1 && reloc2 == 1)
+	reloc = 0;
+      else
+	reloc |= reloc2;
       break;
 
     case NOP_EXPR:
@@ -4598,7 +3884,7 @@ output_addressed_constants (exp)
     case CONSTRUCTOR:
       for (tem = CONSTRUCTOR_ELTS (exp); tem; tem = TREE_CHAIN (tem))
 	if (TREE_VALUE (tem) != 0)
-	    reloc |= output_addressed_constants (TREE_VALUE (tem));
+	  reloc |= output_addressed_constants (TREE_VALUE (tem));
 
       break;
 
@@ -4716,7 +4002,7 @@ initializer_constant_valid_p (value, endtype)
     case PLUS_EXPR:
       if (! INTEGRAL_TYPE_P (endtype)
 	  || TYPE_PRECISION (endtype) >= POINTER_SIZE)
-        {
+	{
 	  tree valid0 = initializer_constant_valid_p (TREE_OPERAND (value, 0),
 						      endtype);
 	  tree valid1 = initializer_constant_valid_p (TREE_OPERAND (value, 1),
@@ -4726,7 +4012,7 @@ initializer_constant_valid_p (value, endtype)
 	    return valid1;
 	  if (valid1 == null_pointer_node)
 	    return valid0;
-        }
+	}
       break;
 
     case MINUS_EXPR:
@@ -4762,7 +4048,7 @@ initializer_constant_valid_p (value, endtype)
 	  op1 = TREE_OPERAND (value, 1);
 
 	  /* Like STRIP_NOPS except allow the operand mode to widen.
-	     This works around a feature of fold that simplfies
+	     This works around a feature of fold that simplifies
 	     (int)(p1 - p2) to ((int)p1 - (int)p2) under the theory
 	     that the narrower operation is cheaper.  */
 
@@ -4836,7 +4122,7 @@ output_constant (exp, size, align)
   enum tree_code code;
   HOST_WIDE_INT thissize;
 
-  /* Some front-ends use constants other than the standard language-indepdent
+  /* Some front-ends use constants other than the standard language-independent
      varieties, but which may still be output directly.  Give the front-end a
      chance to convert EXP to a language-independent representation.  */
   exp = (*lang_hooks.expand_constant) (exp);
@@ -4917,7 +4203,7 @@ output_constant (exp, size, align)
 	  thissize = MIN (TREE_STRING_LENGTH (exp), size);
 	  assemble_string (TREE_STRING_POINTER (exp), thissize);
 	}
-      /* APPLE LOCAL Altivec */
+      /* APPLE LOCAL begin AltiVec */
       else if (TREE_CODE (exp) == VECTOR_CST )
 	{
 	  tree t;
@@ -4929,6 +4215,7 @@ output_constant (exp, size, align)
 	      output_constant (TREE_VALUE (t), eltsize, eltalign);
 	    }
         }
+      /* APPLE LOCAL end AltiVec */
       else
 	abort ();
       break;
@@ -4945,7 +4232,7 @@ output_constant (exp, size, align)
       if (TREE_CODE (exp) == INTEGER_CST)
 	assemble_integer (expand_expr (exp, NULL_RTX,
 				       VOIDmode, EXPAND_INITIALIZER),
-			 thissize, align, 1);
+			  thissize, align, 1);
       else if (TREE_CODE (exp) == CONSTRUCTOR)
 	{
 	  unsigned char *buffer = (unsigned char *) alloca (thissize);
@@ -4987,7 +4274,7 @@ array_size_for_constructor (val)
     return TREE_STRING_LENGTH (val);
 
   max_index = NULL_TREE;
-  for (i = CONSTRUCTOR_ELTS (val); i ; i = TREE_CHAIN (i))
+  for (i = CONSTRUCTOR_ELTS (val); i; i = TREE_CHAIN (i))
     {
       tree index = TREE_PURPOSE (i);
 
@@ -5027,7 +4314,7 @@ output_constructor (exp, size, align)
   /* Number of bytes output or skipped so far.
      In other words, current position within the constructor.  */
   HOST_WIDE_INT total_bytes = 0;
-  /* Non-zero means BYTE contains part of a byte, to be output.  */
+  /* Nonzero means BYTE contains part of a byte, to be output.  */
   int byte_buffer_in_use = 0;
   int byte = 0;
 
@@ -5318,10 +4605,80 @@ output_constructor (exp, size, align)
     assemble_zeros (size - total_bytes);
 }
 
-
 /* This TREE_LIST contains any weak symbol declarations waiting
    to be emitted.  */
-static tree weak_decls;
+static GTY(()) tree weak_decls;
+
+/* Mark DECL as weak.  */
+
+static void
+mark_weak (decl)
+     tree decl;
+{
+  DECL_WEAK (decl) = 1;
+
+  if (DECL_RTL_SET_P (decl)
+      && GET_CODE (DECL_RTL (decl)) == MEM
+      && XEXP (DECL_RTL (decl), 0)
+      && GET_CODE (XEXP (DECL_RTL (decl), 0)) == SYMBOL_REF)
+    SYMBOL_REF_WEAK (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* Merge weak status between NEWDECL and OLDDECL.  */
+
+void
+merge_weak (newdecl, olddecl)
+     tree newdecl;
+     tree olddecl;
+{
+  if (DECL_WEAK (newdecl) == DECL_WEAK (olddecl))
+    return;
+
+  if (DECL_WEAK (newdecl))
+    {
+      tree wd;
+
+      /* NEWDECL is weak, but OLDDECL is not.  */
+
+      /* If we already output the OLDDECL, we're in trouble; we can't
+	 go back and make it weak.  This error cannot caught in
+	 declare_weak because the NEWDECL and OLDDECL was not yet
+	 been merged; therefore, TREE_ASM_WRITTEN was not set.  */
+      if (TREE_ASM_WRITTEN (olddecl))
+	error_with_decl (newdecl,
+			 "weak declaration of `%s' must precede definition");
+
+      /* If we've already generated rtl referencing OLDDECL, we may
+	 have done so in a way that will not function properly with
+	 a weak symbol.  */
+      else if (TREE_USED (olddecl)
+	       && TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (olddecl)))
+	warning_with_decl (newdecl, "weak declaration of `%s' after first use results in unspecified behavior");
+
+      if (SUPPORTS_WEAK)
+	{
+	  /* We put the NEWDECL on the weak_decls list at some point.
+	     Replace it with the OLDDECL.  */
+	  for (wd = weak_decls; wd; wd = TREE_CHAIN (wd))
+	    if (TREE_VALUE (wd) == newdecl)
+	      {
+		TREE_VALUE (wd) = olddecl;
+		break;
+	      }
+	  /* We may not find the entry on the list.  If NEWDECL is a
+	     weak alias, then we will have already called
+	     globalize_decl to remove the entry; in that case, we do
+	     not need to do anything.  */
+	}
+
+      /* Make the OLDDECL weak; it's OLDDECL that we'll be keeping.  */
+      mark_weak (olddecl);
+    }
+  else
+    /* OLDDECL was weak, but NEWDECL was not explicitly marked as
+       weak.  Just update NEWDECL to indicate that it's weak too.  */
+    mark_weak (newdecl);
+}
 
 /* Declare DECL to be a weak symbol.  */
 
@@ -5331,7 +4688,7 @@ declare_weak (decl)
 {
   if (! TREE_PUBLIC (decl))
     error_with_decl (decl, "weak declaration of `%s' must be public");
-  else if (TREE_ASM_WRITTEN (decl))
+  else if (TREE_CODE (decl) == FUNCTION_DECL && TREE_ASM_WRITTEN (decl))
     error_with_decl (decl, "weak declaration of `%s' must precede definition");
   else if (SUPPORTS_WEAK)
     {
@@ -5341,7 +4698,7 @@ declare_weak (decl)
   else
     warning_with_decl (decl, "weak declaration of `%s' not supported");
 
-  DECL_WEAK (decl) = 1;
+  mark_weak (decl);
 }
 
 /* Emit any pending weak declarations.  */
@@ -5351,10 +4708,14 @@ weak_finish ()
 {
   tree t;
 
-  for (t = weak_decls; t ; t = TREE_CHAIN (t))
+  for (t = weak_decls; t; t = TREE_CHAIN (t))
     {
       tree decl = TREE_VALUE (t);
-      const char *name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+      /* APPLE LOCAL begin - 3.4 scheduler update */
+#if defined (ASM_WEAKEN_DECL) || defined (ASM_WEAKEN_LABEL)
+      const char *const name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+#endif
+      /* APPLE LOCAL end - 3.4 scheduler update */
 
       if (! TREE_USED (decl))
 	continue;
@@ -5381,7 +4742,7 @@ globalize_decl (decl)
      tree decl;
 {
   const char *name = XSTR (XEXP (DECL_RTL (decl), 0), 0);
-  
+
 #if defined (ASM_WEAKEN_LABEL) || defined (ASM_WEAKEN_DECL)
   if (DECL_WEAK (decl))
     {
@@ -5395,24 +4756,23 @@ globalize_decl (decl)
 
       /* Remove this function from the pending weak list so that
 	 we do not emit multiple .weak directives for it.  */
-      for (p = &weak_decls; (t = *p) ; p = &TREE_CHAIN (t))
-	if (TREE_VALUE (t) == decl)
-	  {
+      for (p = &weak_decls; (t = *p) ; )
+	{
+	  if (DECL_ASSEMBLER_NAME (decl) == DECL_ASSEMBLER_NAME (TREE_VALUE (t)))
 	    *p = TREE_CHAIN (t);
-	    break;
-	  }
+	  else
+	    p = &TREE_CHAIN (t);
+	}
       return;
     }
 #endif
 
-  /* APPLE LOCAL coalesced symbols */
+  /* APPLE LOCAL begin coalescing */
   /* Weak definitions are used for coalesced symbols.  They're not the
      same thing as weak references.  The naming is unfortunate. */
 #ifdef ASM_WEAK_DEFINITIONIZE_LABEL
   if (DECL_COALESCED (decl) && flag_weak_coalesced_definitions)
-    {
-      ASM_WEAK_DEFINITIONIZE_LABEL(asm_out_file, name);
-    }
+    ASM_WEAK_DEFINITIONIZE_LABEL (asm_out_file, name);
 #endif /* ASM_WEAK_DEFINITIONIZE_LABEL */
   
 #ifdef ASM_PRIVATE_EXTERNIZE_LABEL
@@ -5425,10 +4785,10 @@ globalize_decl (decl)
       ASM_PRIVATE_EXTERNIZE_LABEL (asm_out_file, name);
       return;
     }
-#endif
-  /* APPLE LOCAL end coalesced symbols */
+#endif /* ASM_PRIVATE_EXTERNIZE_LABEL */
+  /* APPLE LOCAL end coalescing */
 
-  ASM_GLOBALIZE_LABEL (asm_out_file, name);
+  (*targetm.asm_out.globalize_label) (asm_out_file, name);
 }
 
 /* Emit an assembler directive to make the symbol for DECL an alias to
@@ -5448,15 +4808,18 @@ assemble_alias (decl, target)
 
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
+
   if (TREE_PUBLIC (decl))
-    globalize_decl (decl);
+    {
+      globalize_decl (decl);
+      maybe_assemble_visibility (decl);
+    }
 
 #ifdef ASM_OUTPUT_DEF_FROM_DECLS
   ASM_OUTPUT_DEF_FROM_DECLS (asm_out_file, decl, target);
 #else
   ASM_OUTPUT_DEF (asm_out_file, name, IDENTIFIER_POINTER (target));
 #endif
-  TREE_ASM_WRITTEN (decl) = 1;
 #else /* !ASM_OUTPUT_DEF */
 #if defined (ASM_OUTPUT_WEAK_ALIAS) || defined (ASM_WEAKEN_DECL)
   if (! DECL_WEAK (decl))
@@ -5467,11 +4830,51 @@ assemble_alias (decl, target)
 #else
   ASM_OUTPUT_WEAK_ALIAS (asm_out_file, name, IDENTIFIER_POINTER (target));
 #endif
-  TREE_ASM_WRITTEN (decl) = 1;
 #else
   warning ("alias definitions not supported in this configuration; ignored");
 #endif
 #endif
+
+  TREE_USED (decl) = 1;
+  TREE_ASM_WRITTEN (decl) = 1;
+  TREE_ASM_WRITTEN (DECL_ASSEMBLER_NAME (decl)) = 1;
+}
+
+/* Emit an assembler directive to set symbol for DECL visibility to
+   the visibility type VIS, which must not be VISIBILITY_DEFAULT.  */
+
+void
+default_assemble_visibility (decl, vis)
+     tree decl;
+     int vis;
+{
+  static const char * const visibility_types[] = {
+    NULL, "internal", "hidden", "protected"
+  };
+
+  const char *name, *type;
+
+  name = (* targetm.strip_name_encoding)
+	 (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  type = visibility_types[vis];
+
+#ifdef HAVE_GAS_HIDDEN
+  fprintf (asm_out_file, "\t.%s\t%s\n", type, name);
+#else
+  warning ("visibility attribute not supported in this configuration; ignored");
+#endif
+}
+
+/* A helper function to call assemble_visibility when needed for a decl.  */
+
+static void
+maybe_assemble_visibility (decl)
+     tree decl;
+{
+  enum symbol_visibility vis = decl_visibility (decl);
+
+  if (vis != VISIBILITY_DEFAULT)
+    (* targetm.asm_out.visibility) (decl, vis);
 }
 
 /* Returns 1 if the target configuration supports defining public symbols
@@ -5518,18 +4921,83 @@ make_decl_one_only (decl)
 void
 init_varasm_once ()
 {
-  const_str_htab = htab_create (128, const_str_htab_hash, const_str_htab_eq,
-  				const_str_htab_del);
-  in_named_htab = htab_create (31, in_named_entry_hash,
-			       in_named_entry_eq, NULL);
-
-  ggc_add_root (const_hash_table, MAX_HASH_TABLE, sizeof const_hash_table[0],
-		mark_const_hash_entry);
-  ggc_add_root (&const_str_htab, 1, sizeof const_str_htab,
-		mark_const_str_htab);
-  ggc_add_tree_root (&weak_decls, 1);
+  const_str_htab = htab_create_ggc (128, const_str_htab_hash,
+				    const_str_htab_eq, NULL);
+  in_named_htab = htab_create_ggc (31, in_named_entry_hash,
+				   in_named_entry_eq, NULL);
 
   const_alias_set = new_alias_set ();
+}
+
+enum tls_model
+decl_tls_model (decl)
+     tree decl;
+{
+  enum tls_model kind;
+  tree attr = lookup_attribute ("tls_model", DECL_ATTRIBUTES (decl));
+  bool is_local;
+
+  if (attr)
+    {
+      attr = TREE_VALUE (TREE_VALUE (attr));
+      if (TREE_CODE (attr) != STRING_CST)
+	abort ();
+      if (!strcmp (TREE_STRING_POINTER (attr), "local-exec"))
+	kind = TLS_MODEL_LOCAL_EXEC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "initial-exec"))
+	kind = TLS_MODEL_INITIAL_EXEC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "local-dynamic"))
+	kind = optimize ? TLS_MODEL_LOCAL_DYNAMIC : TLS_MODEL_GLOBAL_DYNAMIC;
+      else if (!strcmp (TREE_STRING_POINTER (attr), "global-dynamic"))
+	kind = TLS_MODEL_GLOBAL_DYNAMIC;
+      else
+	abort ();
+      return kind;
+    }
+
+  is_local = (*targetm.binds_local_p) (decl);
+  if (!flag_pic)
+    {
+      if (is_local)
+	kind = TLS_MODEL_LOCAL_EXEC;
+      else
+	kind = TLS_MODEL_INITIAL_EXEC;
+    }
+  /* Local dynamic is inefficient when we're not combining the
+     parts of the address.  */
+  else if (optimize && is_local)
+    kind = TLS_MODEL_LOCAL_DYNAMIC;
+  else
+    kind = TLS_MODEL_GLOBAL_DYNAMIC;
+  if (kind < flag_tls_default)
+    kind = flag_tls_default;
+
+  return kind;
+}
+
+enum symbol_visibility
+decl_visibility (decl)
+     tree decl;
+{
+  tree attr = lookup_attribute ("visibility", DECL_ATTRIBUTES (decl));
+
+  if (attr)
+    {
+      const char *which = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+
+      if (strcmp (which, "default") == 0)
+	return VISIBILITY_DEFAULT;
+      if (strcmp (which, "internal") == 0)
+	return VISIBILITY_INTERNAL;
+      if (strcmp (which, "hidden") == 0)
+	return VISIBILITY_HIDDEN;
+      if (strcmp (which, "protected") == 0)
+	return VISIBILITY_PROTECTED;
+
+      abort ();
+    }
+
+  return VISIBILITY_DEFAULT;
 }
 
 /* Select a set of attributes for section NAME based on the properties
@@ -5545,11 +5013,21 @@ default_section_type_flags (decl, name, reloc)
      const char *name;
      int reloc;
 {
+  return default_section_type_flags_1 (decl, name, reloc, flag_pic);
+}
+
+unsigned int
+default_section_type_flags_1 (decl, name, reloc, shlib)
+     tree decl;
+     const char *name;
+     int reloc;
+     int shlib;
+{
   unsigned int flags;
 
   if (decl && TREE_CODE (decl) == FUNCTION_DECL)
     flags = SECTION_CODE;
-  else if (decl && DECL_READONLY_SECTION (decl, reloc))
+  else if (decl && decl_readonly_section_1 (decl, reloc, shlib))
     flags = 0;
   else
     flags = SECTION_WRITE;
@@ -5557,13 +5035,35 @@ default_section_type_flags (decl, name, reloc)
   if (decl && DECL_ONE_ONLY (decl))
     flags |= SECTION_LINKONCE;
 
+  if (decl && TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    flags |= SECTION_TLS | SECTION_WRITE;
+
   if (strcmp (name, ".bss") == 0
       || strncmp (name, ".bss.", 5) == 0
       || strncmp (name, ".gnu.linkonce.b.", 16) == 0
       || strcmp (name, ".sbss") == 0
       || strncmp (name, ".sbss.", 6) == 0
-      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0)
+      || strncmp (name, ".gnu.linkonce.sb.", 17) == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
     flags |= SECTION_BSS;
+
+  if (strcmp (name, ".tdata") == 0
+      || strcmp (name, ".tbss") == 0
+      || strncmp (name, ".gnu.linkonce.td.", 17) == 0
+      || strncmp (name, ".gnu.linkonce.tb.", 17) == 0)
+    flags |= SECTION_TLS;
+
+  /* These three sections have special ELF types.  They are neither
+     SHT_PROGBITS nor SHT_NOBITS, so when changing sections we don't
+     want to print a section type (@progbits or @nobits).  If someone
+     is silly enough to emit code or TLS variables to one of these
+     sections, then don't handle them specially.  */
+  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS))
+      && (strcmp (name, ".init_array") == 0
+	  || strcmp (name, ".fini_array") == 0
+	  || strcmp (name, ".preinit_array") == 0))
+    flags |= SECTION_NOTYPE;
 
   return flags;
 }
@@ -5587,7 +5087,6 @@ default_elf_asm_named_section (name, flags)
      unsigned int flags;
 {
   char flagchars[10], *f = flagchars;
-  const char *type;
 
   if (! named_section_first_declaration (name))
     {
@@ -5607,19 +5106,28 @@ default_elf_asm_named_section (name, flags)
     *f++ = 'M';
   if (flags & SECTION_STRINGS)
     *f++ = 'S';
+  if (flags & SECTION_TLS)
+    *f++ = 'T';
   *f = '\0';
 
-  if (flags & SECTION_BSS)
-    type = "nobits";
-  else
-    type = "progbits";
+  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
 
-  if (flags & SECTION_ENTSIZE)
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s,%d\n",
-	     name, flagchars, type, flags & SECTION_ENTSIZE);
-  else
-    fprintf (asm_out_file, "\t.section\t%s,\"%s\",@%s\n",
-	     name, flagchars, type);
+  if (!(flags & SECTION_NOTYPE))
+    {
+      const char *type;
+
+      if (flags & SECTION_BSS)
+	type = "nobits";
+      else
+	type = "progbits";
+
+      fprintf (asm_out_file, ",@%s", type);
+
+      if (flags & SECTION_ENTSIZE)
+	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
+    }
+
+  putc ('\n', asm_out_file);
 }
 
 void
@@ -5683,275 +5191,537 @@ assemble_vtable_inherit (child, parent)
   output_addr_const (asm_out_file, parent);
   fputc ('\n', asm_out_file);
 }
+
+/* The lame default section selector.  */
 
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
-
-/* Called by pfe_freeze_thaw_function() to freeze/thaw the varasm_status
-   struct (private to this file) field of a struct function.  */ 
-void 
-pfe_freeze_thaw_varasm_status (vp)
-     struct varasm_status **vp;
+void
+default_select_section (decl, reloc, align)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
 {
-  struct varasm_status *v = PFE_FREEZE_THAW_PTR (vp);
-  
-  if (!v)
-    return;
-  
-  /* The array of constant_descriptors pointed to by x_const_rtx_hash_table
-     are handled as part of free/thawing the constant pool.  So both arrays
-     and the pointers to them are handled by the one routine.  Also the
-     x_first_pool and x_last_pool are handled there as well.*/
-  freeze_thaw_pool_constant (v);
-  PFE_FREEZE_THAW_RTX (v->x_const_double_chain);
-  /* APPLE LOCAL Altivec */
-  PFE_FREEZE_THAW_RTX (v->x_const_vector_chain);
-}
+  bool readonly = false;
 
-/* Freeze/thaw the varasm_status x_const_rtx_sym_hash_table
-   pool_constant.  Note that there is a constant_descriptor generated
-   for every pool_constant and these are hashed into the table pointed
-   to by the varasm_status's x_const_rtx_hash_table.  Thus when
-   freeze/thawing the pool_constant's we will also freeze/thaw the
-   constant_descriptor's.  We need to control the freeze/thawing of the
-   constant_descriptors from here since the rtx for the constant is
-   part of the pool_constant entries and we need to know that rtx
-   in order to handle the u.contents field of their corresponding
-   constant_descriptor.  */
-static void 
-freeze_thaw_pool_constant (v)
-     struct varasm_status *v;
-{
-  int i;
-  struct pool_constant **x_const_rtx_sym_hash_table, *pool;
-  struct constant_descriptor **x_const_rtx_hash_table;
-    
-  pool = PFE_FREEZE_THAW_PTR (&v->x_first_pool);
-  pfe_freeze_thaw_ptr_fp (&v->x_last_pool);
- 
-  x_const_rtx_sym_hash_table
-    = PFE_FREEZE_THAW_PTR (&v->x_const_rtx_sym_hash_table);
-  if (!x_const_rtx_sym_hash_table)
-    return;
-    
-  x_const_rtx_hash_table = PFE_FREEZE_THAW_PTR (&v->x_const_rtx_hash_table);
-  
-  /* With PFE the hash functions are address-independent of the objects
-     hashed into their slots (as opposed to the non-PFE case).  So all
-     we need to do is simply freeze/thaw the hash table slots.  We will
-     do the objects hashed into those slots after this.  */
-  for (i = 0; i < MAX_RTX_HASH_TABLE; ++i)
+  if (DECL_P (decl))
     {
-      pfe_freeze_thaw_ptr_fp (&x_const_rtx_hash_table[i]);
-      pfe_freeze_thaw_ptr_fp (&x_const_rtx_sym_hash_table[i]);
+      if (decl_readonly_section (decl, reloc))
+	readonly = true;
     }
-  
-  /* There are two links on a pool_constant: the 'next_sym' which
-     chains all syms that hash to the same x_const_rtx_sym_hash_table
-     slot, and a 'next' which chains all the pool_constant's.  Here
-     we follow the full chain using the 'next' links and simply
-     freeze/thaw the next_sym's.  
-     
-     Note that we need to explicitly treat freeze and thaw 
-     separately because the call to freeze_thaw_constant_descriptor()
-     requires that the pool->constant rtx not be in a frozen state.  */
-  while (pool)
+  else if (TREE_CODE (decl) == CONSTRUCTOR)
     {
-      if (PFE_FREEZING)
-        {
-	  freeze_thaw_constant_descriptor (&pool->desc, pool->constant);
-	  pfe_freeze_ptr (&pool->next_sym);
-	  PFE_FREEZE_THAW_RTX (pool->constant);
-	}
-      else /* thawing */
-        {
-	  PFE_FREEZE_THAW_RTX (pool->constant);
-	  pfe_thaw_ptr (&pool->next_sym);
-	  freeze_thaw_constant_descriptor (&pool->desc, pool->constant);
-        }
-        
-      pool = PFE_FREEZE_THAW_PTR (&pool->next);
+      if (! ((flag_pic && reloc)
+	     || !TREE_READONLY (decl)
+	     || TREE_SIDE_EFFECTS (decl)
+	     || !TREE_CONSTANT (decl)))
+	readonly = true;
     }
+  else if (TREE_CODE (decl) == STRING_CST)
+    readonly = !flag_writable_strings;
+  else if (! (flag_pic && reloc))
+    readonly = true;
+
+  if (readonly)
+    readonly_data_section ();
+  else
+    data_section ();
 }
 
-/* Freeze/thaw a constant_descriptor pointed to from a pool_constant
-   entry.  We only handle the one constant_descriptor in the
-   pool_constant.  Since each constant_descriptor is created at the
-   same time a pool_constant is created (see force_const_mem() and
-   record_constant_rtx()) then we will eventually get them all after
-   we processed all the pool_constants.  
-   
-   Note, we need to know the rtx for the constant in order to properly
-   handle the corresponding constant_descriptor's u.contents field.  */
-static void 
-freeze_thaw_constant_descriptor (descp, x)
-     struct constant_descriptor **descp;
-     rtx x;
-{
-  struct constant_descriptor *desc = PFE_FREEZE_THAW_PTR (descp);
-  
-  if (!desc)
-    return;
+/* A helper function for default_elf_select_section and
+   default_elf_unique_section.  Categorizes the DECL.  */
 
-  PFE_FREEZE_THAW_PTR (&desc->next);
-  pfe_freeze_thaw_ptr_fp (&desc->label);
-  PFE_FREEZE_THAW_RTX (desc->rtl);
-  
-  /* record_constant_rtx() is the one that allocates constant_descriptors
-     (called by force_const_mem()).  record_constant_rtx() saves it's
-     information in decl->u.contents of a constant_descriptor as a struct
-     rtx_const * with decode_rtx_const().  So...  */
-  freeze_thaw_rtx_const ((struct rtx_const *)desc->u.contents, x);
-}
-
-/* Freeze/thaw a rtx_const.  This follows the code done in
-   decode_rtx_const() but here we're only interested in the
-   un.addr.base rtx field which is the only thing needing
-   freezing/thawing.  */
-static void
-freeze_thaw_rtx_const (value, x)
-     struct rtx_const *value;
-     rtx x;
+enum section_category
 {
-  switch (GET_CODE (x))
+  SECCAT_TEXT,
+
+  SECCAT_RODATA,
+  SECCAT_RODATA_MERGE_STR,
+  SECCAT_RODATA_MERGE_STR_INIT,
+  SECCAT_RODATA_MERGE_CONST,
+  SECCAT_SRODATA,
+
+  SECCAT_DATA,
+
+  /* To optimize loading of shared programs, define following subsections
+     of data section:
+	_REL	Contains data that has relocations, so they get grouped
+		together and dynamic linker will visit fewer pages in memory.
+	_RO	Contains data that is otherwise read-only.  This is useful
+		with prelinking as most relocations won't be dynamically
+		linked and thus stay read only.
+	_LOCAL	Marks data containing relocations only to local objects.
+		These relocations will get fully resolved by prelinking.  */
+  SECCAT_DATA_REL,
+  SECCAT_DATA_REL_LOCAL,
+  SECCAT_DATA_REL_RO,
+  SECCAT_DATA_REL_RO_LOCAL,
+
+  SECCAT_SDATA,
+  SECCAT_TDATA,
+
+  SECCAT_BSS,
+  SECCAT_SBSS,
+  SECCAT_TBSS
+};
+
+static enum section_category
+categorize_decl_for_section PARAMS ((tree, int, int));
+
+static enum section_category
+categorize_decl_for_section (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
+  enum section_category ret;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL)
+    return SECCAT_TEXT;
+  else if (TREE_CODE (decl) == STRING_CST)
     {
-    case CONST_DOUBLE:
-      break;
-
-    /* APPLE LOCAL: AltiVec */
-    case CONST_VECTOR:
-    case CONST_INT:
-      break;
-
-    /* SYMBOL_REF's are a little deceiving! The code in decode_rtx_const()
-       which builds these things actually stuffs a char* string pointer
-       into the un.addr.base under the condition we do here to handle
-       this case.  */
-    case SYMBOL_REF:
-      if (value->kind == RTX_INT && value->un.addr.base != 0)
-        pfe_freeze_thaw_ptr_fp (&value->un.addr.base);
+      if (flag_writable_strings)
+	return SECCAT_DATA;
       else
-        PFE_FREEZE_THAW_RTX (value->un.addr.base);
-      break;
-      
-    case LABEL_REF:
-    case PC:
-    case CONST:
-      PFE_FREEZE_THAW_RTX (value->un.addr.base);
-      break;
+	return SECCAT_RODATA_MERGE_STR;
+    }
+  else if (TREE_CODE (decl) == VAR_DECL)
+    {
+      if (DECL_INITIAL (decl) == NULL
+	  || DECL_INITIAL (decl) == error_mark_node)
+	ret = SECCAT_BSS;
+      else if (! TREE_READONLY (decl)
+	       || TREE_SIDE_EFFECTS (decl)
+	       || ! TREE_CONSTANT (DECL_INITIAL (decl)))
+	{
+	  if (shlib && (reloc & 2))
+	    ret = SECCAT_DATA_REL;
+	  else if (shlib && reloc)
+	    ret = SECCAT_DATA_REL_LOCAL;
+	  else
+	    ret = SECCAT_DATA;
+	}
+      else if (shlib && (reloc & 2))
+	ret = SECCAT_DATA_REL_RO;
+      else if (shlib && reloc)
+	ret = SECCAT_DATA_REL_RO_LOCAL;
+      else if (reloc || flag_merge_constants < 2)
+	/* C and C++ don't allow different variables to share the same
+	   location.  -fmerge-all-constants allows even that (at the
+	   expense of not conforming).  */
+	ret = SECCAT_RODATA;
+      else if (TREE_CODE (DECL_INITIAL (decl)) == STRING_CST)
+	ret = SECCAT_RODATA_MERGE_STR_INIT;
+      else
+	ret = SECCAT_RODATA_MERGE_CONST;
+    }
+  else if (TREE_CODE (decl) == CONSTRUCTOR)
+    {
+      if ((shlib && reloc)
+	  || TREE_SIDE_EFFECTS (decl)
+	  || ! TREE_CONSTANT (decl))
+	ret = SECCAT_DATA;
+      else
+	ret = SECCAT_RODATA;
+    }
+  else
+    ret = SECCAT_RODATA;
 
+  /* There are no read-only thread-local sections.  */
+  if (TREE_CODE (decl) == VAR_DECL && DECL_THREAD_LOCAL (decl))
+    {
+      if (ret == SECCAT_BSS)
+	ret = SECCAT_TBSS;
+      else
+	ret = SECCAT_TDATA;
+    }
+
+  /* If the target uses small data sections, select it.  */
+  else if ((*targetm.in_small_data_p) (decl))
+    {
+      if (ret == SECCAT_BSS)
+	ret = SECCAT_SBSS;
+      else if (targetm.have_srodata_section && ret == SECCAT_RODATA)
+	ret = SECCAT_SRODATA;
+      else
+	ret = SECCAT_SDATA;
+    }
+
+  return ret;
+}
+
+bool
+decl_readonly_section (decl, reloc)
+     tree decl;
+     int reloc;
+{
+  return decl_readonly_section_1 (decl, reloc, flag_pic);
+}
+
+bool
+decl_readonly_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
+    {
+    case SECCAT_RODATA:
+    case SECCAT_RODATA_MERGE_STR:
+    case SECCAT_RODATA_MERGE_STR_INIT:
+    case SECCAT_RODATA_MERGE_CONST:
+    case SECCAT_SRODATA:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+}
+
+/* Select a section based on the above categorization.  */
+
+void
+default_elf_select_section (decl, reloc, align)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  default_elf_select_section_1 (decl, reloc, align, flag_pic);
+}
+
+void
+default_elf_select_section_1 (decl, reloc, align, shlib)
+     tree decl;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+     int shlib;
+{
+  switch (categorize_decl_for_section (decl, reloc, shlib))
+    {
+    case SECCAT_TEXT:
+      /* We're not supposed to be called on FUNCTION_DECLs.  */
+      abort ();
+    case SECCAT_RODATA:
+      readonly_data_section ();
+      break;
+    case SECCAT_RODATA_MERGE_STR:
+      mergeable_string_section (decl, align, 0);
+      break;
+    case SECCAT_RODATA_MERGE_STR_INIT:
+      mergeable_string_section (DECL_INITIAL (decl), align, 0);
+      break;
+    case SECCAT_RODATA_MERGE_CONST:
+      mergeable_constant_section (DECL_MODE (decl), align, 0);
+      break;
+    case SECCAT_SRODATA:
+      named_section (NULL_TREE, ".sdata2", reloc);
+      break;
+    case SECCAT_DATA:
+      data_section ();
+      break;
+    case SECCAT_DATA_REL:
+      named_section (NULL_TREE, ".data.rel", reloc);
+      break;
+    case SECCAT_DATA_REL_LOCAL:
+      named_section (NULL_TREE, ".data.rel.local", reloc);
+      break;
+    case SECCAT_DATA_REL_RO:
+      named_section (NULL_TREE, ".data.rel.ro", reloc);
+      break;
+    case SECCAT_DATA_REL_RO_LOCAL:
+      named_section (NULL_TREE, ".data.rel.ro.local", reloc);
+      break;
+    case SECCAT_SDATA:
+      named_section (NULL_TREE, ".sdata", reloc);
+      break;
+    case SECCAT_TDATA:
+      named_section (NULL_TREE, ".tdata", reloc);
+      break;
+    case SECCAT_BSS:
+#ifdef BSS_SECTION_ASM_OP
+      bss_section ();
+#else
+      named_section (NULL_TREE, ".bss", reloc);
+#endif
+      break;
+    case SECCAT_SBSS:
+      named_section (NULL_TREE, ".sbss", reloc);
+      break;
+    case SECCAT_TBSS:
+      named_section (NULL_TREE, ".tbss", reloc);
+      break;
     default:
       abort ();
     }
 }
 
-/* Calculate the hash of the label string.
-   This code is basically a rip-off of calc_hash() in hashtable.c.
-   Unlike the standard SYMHASH macro, which uses the label value
-   (an address) itself as the basis for a hash value, here we use
-   the string the label points to as the basis for a hash value
-   thus making it address independent.  The SYMHASH macro is
-   defined to call this function.  It passes 0 for add_to_total.
-   But explicit calls to symhash() can pass a value to be added
-   to the computation.  */
-static int 
-symhash (label, add_to_total)
-     const char *label;
-     int add_to_total;
+/* Construct a unique section name based on the decl name and the
+   categorization performed above.  */
+
+void
+default_unique_section (decl, reloc)
+     tree decl;
+     int reloc;
 {
-  int len = 0, r = 0;
-#define HASHSTEP(r, c) ((r) * 67 + ((c) - 113));
-  
-  while (*label)
-    {
-      ++len;
-      r = HASHSTEP (r, *(char *)label++);
-    }
-  
-  r += len + add_to_total;
-  r &= (1 << HASHBITS) - 1;
-  r %= MAX_RTX_HASH_TABLE;
-  
-  return r;
+  default_unique_section_1 (decl, reloc, flag_pic);
 }
 
-/* Compute a hash code for a constant RTL expression.
-   This replaces the other const_hash_rtx() which bases it's hash value
-   on the entire contents of a struct rtx_const value which may contain
-   an address.  Here we use the address-independent parts of a struct
-   rtx_const value to generate a hash value.  Its not as "good" as
-   the other const_hash_rtx() for LABEL_REF, CONST, and PC rts'x
-   (and possibly even SYMBOL_REF).  I'm open to suggestions :-)  */
-static int
-const_hash_rtx (mode, x)
+void
+default_unique_section_1 (decl, reloc, shlib)
+     tree decl;
+     int reloc;
+     int shlib;
+{
+  bool one_only = DECL_ONE_ONLY (decl);
+  const char *prefix, *name;
+  size_t nlen, plen;
+  char *string;
+
+  switch (categorize_decl_for_section (decl, reloc, shlib))
+    {
+    case SECCAT_TEXT:
+      prefix = one_only ? ".gnu.linkonce.t." : ".text.";
+      break;
+    case SECCAT_RODATA:
+    case SECCAT_RODATA_MERGE_STR:
+    case SECCAT_RODATA_MERGE_STR_INIT:
+    case SECCAT_RODATA_MERGE_CONST:
+      prefix = one_only ? ".gnu.linkonce.r." : ".rodata.";
+      break;
+    case SECCAT_SRODATA:
+      prefix = one_only ? ".gnu.linkonce.s2." : ".sdata2.";
+      break;
+    case SECCAT_DATA:
+    case SECCAT_DATA_REL:
+    case SECCAT_DATA_REL_LOCAL:
+    case SECCAT_DATA_REL_RO:
+    case SECCAT_DATA_REL_RO_LOCAL:
+      prefix = one_only ? ".gnu.linkonce.d." : ".data.";
+      break;
+    case SECCAT_SDATA:
+      prefix = one_only ? ".gnu.linkonce.s." : ".sdata.";
+      break;
+    case SECCAT_BSS:
+      prefix = one_only ? ".gnu.linkonce.b." : ".bss.";
+      break;
+    case SECCAT_SBSS:
+      prefix = one_only ? ".gnu.linkonce.sb." : ".sbss.";
+      break;
+    case SECCAT_TDATA:
+      prefix = one_only ? ".gnu.linkonce.td." : ".tdata.";
+      break;
+    case SECCAT_TBSS:
+      prefix = one_only ? ".gnu.linkonce.tb." : ".tbss.";
+      break;
+    default:
+      abort ();
+    }
+  plen = strlen (prefix);
+
+  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+  name = (* targetm.strip_name_encoding) (name);
+  nlen = strlen (name);
+
+  string = alloca (nlen + plen + 1);
+  memcpy (string, prefix, plen);
+  memcpy (string + plen, name, nlen + 1);
+
+  DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
+}
+
+void
+default_select_rtx_section (mode, x, align)
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+     rtx x;
+     unsigned HOST_WIDE_INT align ATTRIBUTE_UNUSED;
+{
+  if (flag_pic)
+    switch (GET_CODE (x))
+      {
+      case CONST:
+      case SYMBOL_REF:
+      case LABEL_REF:
+	data_section ();
+	return;
+
+      default:
+	break;
+      }
+
+  readonly_data_section ();
+}
+
+void
+default_elf_select_rtx_section (mode, x, align)
      enum machine_mode mode;
      rtx x;
+     unsigned HOST_WIDE_INT align;
 {
-  size_t i;
-  int hi;
-  struct rtx_const value;
-  
-  decode_rtx_const (mode, x, &value);
-    
-  switch (GET_CODE (x))
-    {
-    /* APPLE LOCAL: AltiVec */
-    case CONST_VECTOR:
-    case CONST_INT:
-    case CONST_DOUBLE:
-      hi = 0;
-      for (i = 0; i < sizeof value / sizeof (int); i++)
-	hi += ((int *) &value)[i];
-      break;
+  /* ??? Handle small data here somehow.  */
 
-    case SYMBOL_REF:
-      if (value.kind == RTX_INT && value.un.addr.base != 0)
-        return SYMHASH ((const char *)value.un.addr.base);
-      else
-        return SYMHASH (XSTR (value.un.addr.base, 0));
-      
-    case LABEL_REF:
-      hi = (int)value.kind + (int)value.mode;
-      if (value.kind == RTX_INT && value.un.addr.base != 0)
-        {
-          assert (GET_CODE(value.un.addr.base) == CODE_LABEL);
-          hi += CODE_LABEL_NUMBER (value.un.addr.base);
-        }
-      else
-        {
-          assert (GET_CODE(XEXP (value.un.addr.base, 0)) == CODE_LABEL);
-          hi += CODE_LABEL_NUMBER (XEXP (value.un.addr.base, 0));
-        }
-      break;
-      
-    case PC:
-      hi = (int)value.kind + (int)value.mode;
-      break;
+  if (flag_pic)
+    switch (GET_CODE (x))
+      {
+      case CONST:
+      case SYMBOL_REF:
+	named_section (NULL_TREE, ".data.rel.ro", 3);
+	return;
 
-    case CONST:
-      hi = (int)value.kind + (int)value.mode + value.un.addr.offset;
-      if (GET_CODE (value.un.addr.base) == SYMBOL_REF)
-        return symhash ((const char *)XSTR (value.un.addr.base, 0), hi);
-      /* FIXME: what else can we do with value.un.addr.base here? */
-      break;
+      case LABEL_REF:
+	named_section (NULL_TREE, ".data.rel.ro.local", 1);
+	return;
 
-    default:
-      hi = (int)value.kind + (int)value.mode;
-      break;
-    }
+      default:
+	break;
+      }
 
-  hi &= (1 << HASHBITS) - 1;
-  hi %= MAX_RTX_HASH_TABLE;
-  
-  return hi;
+  mergeable_constant_section (mode, align, 0);
 }
 
-/*-------------------------------------------------------------------*/
+/* By default, we do nothing for encode_section_info, so we need not
+   do anything but discard the '*' marker.  */
 
-DEFINE_CHECK_STRUCT_FUNCTION (pool_constant)
-DEFINE_CHECK_STRUCT_FUNCTION (varasm_status)
-DEFINE_CHECK_STRUCT_FUNCTION (constant_descriptor)
-DEFINE_CHECK_STRUCT_FUNCTION (rtx_const)
+const char *
+default_strip_name_encoding (str)
+     const char *str;
+{
+  return str + (*str == '*');
+}
 
-#endif /* PFE */
+/* Assume ELF-ish defaults, since that's pretty much the most liberal
+   wrt cross-module name binding.  */
+
+bool
+default_binds_local_p (exp)
+     tree exp;
+{
+  return default_binds_local_p_1 (exp, flag_pic);
+}
+
+bool
+default_binds_local_p_1 (exp, shlib)
+     tree exp;
+     int shlib;
+{
+  bool local_p;
+
+  /* A non-decl is an entry in the constant pool.  */
+  if (!DECL_P (exp))
+    local_p = true;
+  /* Static variables are always local.  */
+  else if (! TREE_PUBLIC (exp))
+    local_p = true;
+  /* A variable is local if the user tells us so.  */
+  else if (decl_visibility (exp) != VISIBILITY_DEFAULT)
+    local_p = true;
+  /* Otherwise, variables defined outside this object may not be local.  */
+  else if (DECL_EXTERNAL (exp))
+    local_p = false;
+  /* Linkonce and weak data are never local.  */
+  else if (DECL_ONE_ONLY (exp) || DECL_WEAK (exp))
+    local_p = false;
+  /* If PIC, then assume that any global name can be overridden by
+     symbols resolved from other modules.  */
+  else if (shlib)
+    local_p = false;
+  /* Uninitialized COMMON variable may be unified with symbols
+     resolved from other modules.  */
+  else if (DECL_COMMON (exp)
+	   && (DECL_INITIAL (exp) == NULL
+	       || DECL_INITIAL (exp) == error_mark_node))
+    local_p = false;
+  /* Otherwise we're left with initialized (or non-common) global data
+     which is of necessity defined locally.  */
+  else
+    local_p = true;
+
+  return local_p;
+}
+
+/* APPLE LOCAL begin - 3.4 scheduler update */
+/* Determine whether or not a pointer mode is valid. Assume defaults
+   of ptr_mode or Pmode - can be overridden.  */
+bool
+default_valid_pointer_mode (mode)
+     enum machine_mode mode;
+{
+  return (mode == ptr_mode || mode == Pmode);
+}
+/* APPLE LOCAL end - 3.4 scheduler update */
+
+/* Default function to output code that will globalize a label.  A
+   target must define GLOBAL_ASM_OP or provide it's own function to
+   globalize a label.  */
+#ifdef GLOBAL_ASM_OP
+void
+default_globalize_label (stream, name)
+     FILE * stream;
+     const char *name;
+{
+  fputs (GLOBAL_ASM_OP, stream);
+  assemble_name (stream, name);
+  putc ('\n', stream);
+}
+#endif /* GLOBAL_ASM_OP */
+
+/* APPLE LOCAL begin coalescing */
+int
+darwin_named_section_is (name)
+     const char* name;
+{
+  return (in_section == in_named
+	  && strcmp (in_named_name, name) == 0);
+}
+/* APPLE LOCAL end coalescing */
+
+/* APPLE LOCAL begin - 3.4 scheduler update */
+/* This is how to output an internal numbered label where PREFIX is
+   the class of label and LABELNO is the number within the class.  */
+
+void
+default_internal_label (stream, prefix, labelno)
+     FILE *stream;
+     const char *prefix;
+     unsigned long labelno;
+{
+  char *const buf = alloca (40 + strlen (prefix));
+  ASM_GENERATE_INTERNAL_LABEL (buf, prefix, labelno);
+  ASM_OUTPUT_LABEL (stream, buf);
+}
+/* APPLE LOCAL end - 3.4 scheduler update */
+
+/* APPLE LOCAL begin deep branch prediction pic-base; copied from FSF mainline.  */
+/* This is the default behavior at the beginning of a file.  It's
+   controlled by two other target-hook toggles.  */
+void
+default_file_start (void)
+{
+#if 0	/* APPLE LOCAL begin deep branch prediction pic-base */
+  if (targetm.file_start_app_off && !flag_verbose_asm)
+    fputs (ASM_APP_OFF, asm_out_file);
+
+  if (targetm.file_start_file_directive)
+    output_file_directive (asm_out_file, main_input_filename);
+#endif	/* APPLE LOCAL end deep branch prediction pic-base */
+}
+
+/* This is a generic routine suitable for use as TARGET_ASM_FILE_END
+   which emits a special section directive used to indicate whether or
+   not this object file needs an executable stack.  This is primarily
+   a GNU extension to ELF but could be used on other targets.  */
+
+int trampolines_created;
+
+void
+file_end_indicate_exec_stack (void)
+{
+#if 0	/* APPLE LOCAL begin deep branch prediction pic-base */
+  unsigned int flags = SECTION_DEBUG;
+  if (trampolines_created)
+    flags |= SECTION_CODE;
+
+  named_section_flags (".note.GNU-stack", flags);
+#endif	/* APPLE LOCAL end deep branch prediction pic-base */
+}
+/* APPLE LOCAL end deep branch prediction pic-base; copied from FSF mainline.  */
+
+#include "gt-varasm.h"

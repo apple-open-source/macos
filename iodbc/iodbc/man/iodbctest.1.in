@@ -1,0 +1,138 @@
+.nh
+.TH iodbctest 1 "16 June 2004" "@VERSION@" "@PACKAGE_NAME@"
+
+.SH NAME
+iodbctest, iodbctestw \- iODBC Demonstration programs
+
+.SH SYNOPSIS
+.B iodbctest
+.RB [ \(dqDSN=xxxx[;UID=xxxx][;PWD=xxxx][;OPT=value]\(dq ]
+.br
+.B iodbctestw
+.RB [ \(dqDSN=xxxx[;UID=xxxx][;PWD=xxxx][;OPT=value]\(dq ]
+
+.SH DESCRIPTION
+The \fBiodbctest\fR program and \fBiodbtestw\fR programs are simple ODBC
+sample programs, showing the strength of the ODBC API to connect to any
+ODBC enabled database, issue SQL commands and retrieve the query results.
+
+The \fBiodbctest\fR program uses the standard ODBC API calls to connect
+using any DSN, but retrieves all results in ASCII mode.
+
+The \fBiodbctestw\fR program uses the ODBC Unicode API calls to connect
+using any DSN, and retrieves all results in Unicode mode.
+
+.SH OPTIONS
+The \fBiodbctest\fR program uses the SQLDriverConnect function to make
+a connection using any available ODBC compliant driver. This allows the
+user to override any ODBC connect attribute in the DSN string.
+
+Connect strings should start with either a \fIDSN=xxx\fR or a
+\fIDRIVER=xxxx\fR attribute optionally followed by other DSN attributes
+separated by a semicolon e.g:
+
+.nf
+	DSN=ora9;UID=scott;PWD=tiger;DATABASE=ora9u
+.fi
+
+Any attributes required for a proper connection that are not entered in
+the DSN connect string, must be present in the odbc.ini file.
+
+If the connect string is passed as an argument to the \fBiodbctest\fR
+program, the string should be quoted as most shells use the semicolon
+as their command separator. If the connect string is entered on the
+interactive prompt, no quotes should be used.
+
+After a successfull connection has been established, the user is prompted
+for a SQL command to be send to the database. A SQL command cannot span
+multiple lines.
+
+If the SQL command returns one or more result sets, each result set is
+fetched using character buffers and displayed in a table.
+
+Additionally, the \fBiodbctest\fR program understands a few special
+commands:
+
+.TP 8
+.B qualifiers
+.br
+Show a list of qualifiers using the SQLTables catalog call.
+
+.TP 8
+.B owners
+.br
+Show a list of owners using the SQLTables catalog call.
+
+.TP 8
+.B tables
+.br
+Show a list of tables using the SQLTables catalog call.
+
+.TP 8
+.B types
+.br
+Show a list of tables types using the SQLTables catalog call.
+
+.TP 8
+.B datatypes
+.br
+Show a list of data types using the SQLGetTypeInfo catalog call.
+
+.TP 8
+.B quit (or exit)
+.br
+Exit the program and return to the shell.
+
+.SH EXAMPLES
+Start the iodbctest program and get a list of DSNs before making a
+connection:
+
+.nf
+    $ iodbctest
+    OpenLink ODBC Demonstration program
+    This program shows an interactive SQL processor
+
+    Enter ODBC connect string (? shows list): ?
+
+    DSN                              | Driver
+    -----------------------------------------------------------------
+    ora9                             | OpenLink Generic ODBC Driver
+    mysql                            | OpenLink Generic ODBC Driver
+    mysqllite                        | OpenLink Lite for MySQL
+    myodbc                           | MyODBC Driver
+    pgsql                            | OpenLink Generic ODBC Driver
+    tds                              | OpenLink Generic ODBC Driver
+
+    Enter ODBC connect string (? shows list): DSN=ora9;PWD=tiger
+    Driver: 05.20.0316 OpenLink Generic ODBC Driver (oplodbc.so)
+
+    SQL>
+.fi
+
+Connect to an Oracle 9 instance which has been previously setup in the
+odbc.ini file:
+
+.nf
+    $ iodbctest "DSN=ora9;UID=scott;PWD=tiger"
+    iODBC Demonstration program
+    This program shows an interactive SQL processor
+    Driver: 05.20.0316 OpenLink Generic ODBC Driver (oplodbc.so)
+
+    SQL>select * from emp
+
+    ID               |NAME
+    -----------------+-------------------------------------------
+    1                |Record 1
+    2                |Record 2
+    2                |Record 3
+
+     result set 1 returned 3 rows.
+
+    SQL> quit
+.fi
+
+.SH COPYRIGHT
+Copyright \(co 1996-2004 by OpenLink Software
+
+.SH AUTHOR
+iODBC Administrator <iodbc@openlinksw.com>

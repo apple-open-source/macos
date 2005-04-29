@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_ioctl.h,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_ioctl.h,v 1.2 2003/09/28 20:15:23 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -104,15 +105,16 @@ extern void r200WaitForIdleLocked( r200ContextPtr rmesa );
 extern void r200WaitForVBlank( r200ContextPtr rmesa );
 extern void r200InitIoctlFuncs( GLcontext *ctx );
 
-extern void *r200AllocateMemoryNV( GLsizei size, GLfloat readfreq,
+extern void *r200AllocateMemoryMESA( Display *dpy, int scrn,
+				     GLsizei size, GLfloat readfreq,
 				   GLfloat writefreq, GLfloat priority );
-extern void r200FreeMemoryNV( GLvoid *pointer );
-extern GLuint r200GetAGPOffset( const GLvoid *pointer );
-extern GLboolean r200IsAgpMemory( r200ContextPtr rmesa, const GLvoid *pointer,
-				  GLint size );
+extern void r200FreeMemoryMESA( Display *dpy, int scrn, GLvoid *pointer );
+extern GLuint r200GetMemoryOffsetMESA( Display *dpy, int scrn, const GLvoid *pointer );
+extern GLboolean r200IsGartMemory( r200ContextPtr rmesa, const GLvoid *pointer,
+				   GLint size );
 
-extern GLuint r200AgpOffsetFromVirtual( r200ContextPtr rmesa, 
-					const GLvoid *pointer );
+extern GLuint r200GartOffsetFromVirtual( r200ContextPtr rmesa, 
+					 const GLvoid *pointer );
 
 /* ================================================================
  * Helper macros:
@@ -171,14 +173,15 @@ do {							\
 static __inline char *r200AllocCmdBuf( r200ContextPtr rmesa,
 					 int bytes, const char *where )
 {
+   char * head;
+
    if (rmesa->store.cmd_used + bytes > R200_CMD_BUF_SZ)
-      r200FlushCmdBuf( rmesa, __FUNCTION__ );
-   
-   {
-      char *head = rmesa->store.cmd_buf + rmesa->store.cmd_used;
-      rmesa->store.cmd_used += bytes;
-      return head;
-   }
+      r200FlushCmdBuf( rmesa, where );
+
+   head = rmesa->store.cmd_buf + rmesa->store.cmd_used;
+   rmesa->store.cmd_used += bytes;
+   assert( rmesa->store.cmd_used <= R200_CMD_BUF_SZ );
+   return head;
 }
 
 

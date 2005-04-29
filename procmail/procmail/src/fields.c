@@ -6,7 +6,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: fields.c,v 1.1.1.2 2001/07/20 19:38:15 bbraun Exp $";
+ "$Id: fields.c,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "includes.h"
 #include "formail.h"
@@ -30,7 +30,7 @@ struct field*findf(p,ah)const struct field*const p;register struct field**ah;
 }
 
 void cleanheader P((void))		  /* zorch whitespace before the ':' */
-{ struct field**pp,*p;char*cp;int idlen;
+{ struct field**pp,*p;char*cp;
   for(pp=&rdheader;p= *pp;pp= &(*pp)->fld_next)
      if((cp=p->fld_text+p->id_len-1,*cp==HEAD_DELIMITER)&&	    /* has : */
 	(*--cp==' '||*cp=='\t'))				   /* has ws */

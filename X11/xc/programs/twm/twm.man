@@ -25,7 +25,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/twm/twm.man,v 1.10 2002/10/12 16:06:46 herrb Exp $
+.\" $XFree86: xc/programs/twm/twm.man,v 1.11 2003/08/04 10:32:30 eich Exp $
 .\"
 .de EX		\"Begin example
 .ne 5
@@ -285,6 +285,7 @@ display is capable of displaying more than simple black and white.  The
 \fBMenuTitleBackground\fP,
 \fBMenuTitleForeground\fP,
 \fBMenuShadowColor\fP,
+\fBMenuBorderColor\fP,
 \fBPointerForeground\fP, and
 \fBPointerBackground\fP.
 The following
@@ -558,6 +559,13 @@ screen width.  The default height is 32767 - screen height.
 This variable specifies the background color used for menus,
 and can only be specified inside of a 
 \fBColor\fP or \fBMonochrome\fP list.  The default is "white".
+.IP "\fBMenuBorderColor\fP \fIstring\fP" 8
+This variable specifies the color of the menu border and can only be specified
+inside of a 
+\fBColor\fP, \fBGrayscale\fP or \fBMonochrome\fP list.  The default is "black".
+.IP "\fBMenuBorderWidth\fP \fIpixels\fP" 8
+This variable specifies the width in pixels of the border surrounding
+menu windows.  The default is 2.
 .IP "\fBMenuFont\fP \fIstring\fP" 8
 This variable specifies the font to use when displaying menus.  The default
 is "variable".

@@ -107,6 +107,7 @@ static struct opt {
 	{ MNT_UNION,		"union" },
 	{ MNT_AUTOMOUNTED,	"automounted" },
 	{ MNT_JOURNALED,	"journaled" },
+	{ MNT_DEFWRITE, 	"defwrite" },
 	{ NULL }
 };
 

@@ -35,6 +35,12 @@ int extern_C_braces_length = 0;
 char extern_C_braces[20];
 #define in_extern_C_brace (extern_C_braces_length>0)
 
+/* APPLE LOCAL begin CW asm blocks */
+/* Dummies needed because we use them in cpplib, yuck.  */
+int cw_asm_state;
+int cw_asm_in_operands;
+/* APPLE LOCAL CW asm blocks */
+
 /* True if the function declaration currently being scanned is
    prefixed by extern "C".  */
 int current_extern_C = 0;
@@ -72,7 +78,7 @@ skip_to_closing_brace (pfile)
 
 /* This function scans a C source file (actually, the output of cpp),
    reading from FP.  It looks for function declarations, and
-   external variable declarations.  
+   external variable declarations.
 
    The following grammar (as well as some extra stuff) is recognized:
 
@@ -155,7 +161,7 @@ scan_decls (pfile, argc, argv)
 	  /* ... fall through ...  */
 	case CPP_OPEN_BRACE:  case CPP_CLOSE_BRACE:
 	  goto new_statement;
-	  
+
 	case CPP_EOF:
 	  return 0;
 

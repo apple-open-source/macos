@@ -23,7 +23,7 @@ SUPPORT
 INSTALL.win32
 INSTALL.raven
 MANIFEST
-ToDo
+STATUS
 Makefile.PL
 README
 apache-modlist.html
@@ -35,16 +35,12 @@ cgi_to_mod_perl.pod
 mod_perl_traps.pod
 mod_perl_method_handlers.pod
 eg/makepl_args.mod_perl
-eg/perl_sections.txt
-eg/startup.pl
-eg/test.pl
-eg/registry.pl
 eg/README
 lib/mod_perl_hooks.pm.PL
 lib/mod_perl.pm
 lib/Apache/src.pm
 lib/Apache/httpd_conf.pm
-lib/Apache/test.pm
+lib/Apache/testold.pm
 lib/Apache/Debug.pm
 lib/Apache/ExtUtils.pm
 lib/Apache/FakeRequest.pm
@@ -102,12 +98,11 @@ src/modules/win32/mod_perl.def
 src/opcodes.txt
 t/report.PL
 t/README
-t/TEST
+t/TEST.PL
 t/TEST.win32
 t/conf/httpd.conf.pl
 t/conf/httpd.conf-dist
 t/conf/httpd.conf-win32
-eg/httpd.conf.pl
 t/conf/mod_perl_srm.conf
 t/net/config.pl.dist
 t/modules/actions.t
@@ -178,6 +173,8 @@ t/net/perl/request-param.pl
 t/net/perl/request-cookie.pl
 #t/net/perl/resolver.pl
 t/net/perl/io/redir.pl
+t/net/perl/io/redir1.pl
+t/net/perl/io/redir2.pl
 t/net/perl/io/perlio.pl
 t/net/perl/io/ssi1.pl
 t/net/perl/io/ssi2.pl
@@ -239,3 +236,4 @@ PerlRunXS/Makefile.PL
 PerlRunXS/PerlRunXS.pm
 src/modules/perl/PerlRunXS.xs
 
+META.yml                                Module meta-data (added by MakeMaker)

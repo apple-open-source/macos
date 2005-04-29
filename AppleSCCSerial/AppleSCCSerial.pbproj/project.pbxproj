@@ -3,13 +3,15 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		01C100A0FFD5BBED11CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleSCCModem.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100A1FFD5BBED11CE1757 = {
 			fileRef = 01C100A0FFD5BBED11CE1757;
@@ -22,8 +24,10 @@
 		01C100A2FFD5BBFE11CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = HardwareDefs.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100A3FFD5BBFE11CE1757 = {
 			fileRef = 01C100A2FFD5BBFE11CE1757;
@@ -34,8 +38,10 @@
 		01C100A4FFD5BC1611CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = PPCSerialPort.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100A5FFD5BC1611CE1757 = {
 			fileRef = 01C100A4FFD5BC1611CE1757;
@@ -48,8 +54,10 @@
 		01C100A6FFD5BC2511CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PPCSerialPort.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100A7FFD5BC2511CE1757 = {
 			fileRef = 01C100A6FFD5BC2511CE1757;
@@ -60,8 +68,10 @@
 		01C100A8FFD5BC2E11CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = SccChipPrimatives.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100A9FFD5BC2E11CE1757 = {
 			fileRef = 01C100A8FFD5BC2E11CE1757;
@@ -74,8 +84,10 @@
 		01C100AAFFD5BC3511CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SccChipPrimatives.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100ABFFD5BC3511CE1757 = {
 			fileRef = 01C100AAFFD5BC3511CE1757;
@@ -86,8 +98,10 @@
 		01C100ACFFD5BC3C11CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = SccQueuePrimatives.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100ADFFD5BC3C11CE1757 = {
 			fileRef = 01C100ACFFD5BC3C11CE1757;
@@ -100,8 +114,10 @@
 		01C100AEFFD5BC4411CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SccQueuePrimatives.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100AFFFD5BC4411CE1757 = {
 			fileRef = 01C100AEFFD5BC4411CE1757;
@@ -112,8 +128,10 @@
 		01C100B0FFD5BC4C11CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = SccTypes.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100B1FFD5BC4C11CE1757 = {
 			fileRef = 01C100B0FFD5BC4C11CE1757;
@@ -124,8 +142,10 @@
 		01C100B2FFD5BC5411CE1757 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = Z85C30.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		01C100B3FFD5BC5411CE1757 = {
 			fileRef = 01C100B2FFD5BC5411CE1757;
@@ -134,10 +154,12 @@
 			};
 		};
 		01C5059E0044665611CE156C = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 //010
 //011
@@ -153,30 +175,29 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
 		06AA1265FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		06AA1266FFB2107B11CA28AA = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -185,11 +206,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -205,6 +222,8 @@
 //083
 //084
 		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
@@ -227,6 +246,7 @@
 			isa = PBXGroup;
 			name = AppleSCCSerial;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1673FE841209C02AAC07 = {
 			buildPhases = (
@@ -246,7 +266,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleSCCSerial;
-				MODULE_VERSION = 1.2.6;
+				MODULE_VERSION = 1.3.0;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -271,7 +291,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleSCCSerial</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple SCC Serial Port Driver version 1.2.6, Copyright 2000-2003 Apple Computer, Inc.</string>
+	<string>Apple SCC Serial Port Driver version 1.2.9, Copyright 2000-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -283,11 +303,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.6</string>
+	<string>1.3.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.2.6</string>
+	<string>1.3.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleSCCModem</key>
@@ -325,6 +345,8 @@
 	<dict>
 		<key>com.apple.iokit.IOSerialFamily</key>
 		<string>1.0.4</string>
+		<key>com.apple.kernel.iokit</key>
+		<string>1.1</string>
 	</dict>
 </dict>
 </plist>
@@ -383,6 +405,7 @@
 			isa = PBXGroup;
 			name = Resources;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167DFE841241C02AAC07 = {
 			children = (
@@ -391,13 +414,16 @@
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C167EFE841241C02AAC07 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		089C1680FE841241C02AAC07 = {
 			fileRef = 089C167DFE841241C02AAC07;
@@ -416,9 +442,11 @@
 //0B3
 //0B4
 		0B81C263FFB7832611CA28AA = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = AppleSCCSerial.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 //0B0
 //0B1
@@ -437,6 +465,7 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 //190
 //191
@@ -465,6 +494,7 @@
 			name = Source;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 	};
 	rootObject = 089C1669FE841209C02AAC07;

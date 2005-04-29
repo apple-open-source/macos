@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_BASE_H__
+#define __ISAKMP_BASE_H__
+
 extern int base_i1send __P((struct ph1handle *, vchar_t *));
 extern int base_i2recv __P((struct ph1handle *, vchar_t *));
 extern int base_i2send __P((struct ph1handle *, vchar_t *));
@@ -39,3 +42,7 @@ extern int base_r1recv __P((struct ph1handle *, vchar_t *));
 extern int base_r1send __P((struct ph1handle *, vchar_t *));
 extern int base_r2recv __P((struct ph1handle *, vchar_t *));
 extern int base_r2send __P((struct ph1handle *, vchar_t *));
+
+
+#endif /* __ISAKMP_BASE_H__ */
+

@@ -1,4 +1,4 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc.man,v 1.1 2002/12/10 15:12:23 alanh Exp $ 
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc.man,v 1.2 2003/05/29 21:48:09 herrb Exp $ 
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH NSC __drivermansuffix__ __vendorversion__
@@ -80,7 +80,7 @@ Default: off.
 .BI "Option \*qOSMImageBuffers\*q \*q" integer \*q
 This sets the number of scanline buffers to be allocated in offscreen 
 memory for acceleration. This can take any value 0 will disable the 
-allocation. Disabled if cannot alocate requested scanline memory.
+allocation. Disabled if cannot allocate requested scanline memory.
 Default: 20.
 .TP
 .BI "Option \*qColorKey\*q \*q" integer \*q

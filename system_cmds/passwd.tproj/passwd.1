@@ -67,16 +67,17 @@ the authenticating host.
 This option specifies where the password update should be applied.
 Under Mac OS X 10.3, supported infosystems are:
 .Bl -tag -width flag
-.It Ar netinfo
+.It Ar opendirectory
 (default)
+A system conforming to opendirectory APIs and supporting updates (including LDAP, netinfo, etc).
+If no -l option is specified, the search node is used.
+.It Ar netinfo
 The netinfo database containing the user's password.
 If no -l option is specified, the local netinfo database is assumed.
 .It Ar file
 The local flat-files (included for legacy configurations).
 .It Ar nis
 A remote NIS server containing the user's password.
-.It Ar opendirectory
-A system conforming to opendirectory APIs and supporting updates (including LDAP, netinfo, etc).
 .El
 .It Fl l Ar location
 This option causes the password to be updated in the given location of the choosen infosystem.
@@ -92,7 +93,7 @@ location may be a file name (/etc/master.passwd is the default)
 location may be a NIS domainname
 .It for opendirectory,
 location may be a directory node name
-.Bl
+.El
 .El
 .Pp
 The super-user privilages are not required change a user's current password
@@ -111,7 +112,7 @@ Temporary copy of the password file
 .Xr login 1 ,
 .Xr passwd 5 ,
 .Xr pwd_mkdb 8 ,
-.Xr vipw 8,
+.Xr vipw 8 ,
 .Xr nicl 1
 .Rs
 .%A Robert Morris

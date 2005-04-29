@@ -1,7 +1,6 @@
 /*
- * @(#)MarkToMarkPosnSubtables.cpp	1.5 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -48,8 +47,7 @@ le_int32 MarkToMarkPositioningSubtable::process(GlyphIterator *glyphIterator, co
         return 0;
     }
 
-    // FIXME: we probably don't want to find a mark before a previous base glyph...
-    GlyphIterator mark2Iterator(*glyphIterator, (le_uint16) (lfIgnoreLigatures /*| lfIgnoreBaseGlyphs*/));
+    GlyphIterator mark2Iterator(*glyphIterator);
     LEGlyphID mark2Glyph = findMark2Glyph(&mark2Iterator);
     le_int32 mark2Coverage = getBaseCoverage((LEGlyphID) mark2Glyph);
     const Mark2Array *mark2Array = (const Mark2Array *) ((char *) this + SWAPW(baseArrayOffset));
@@ -78,14 +76,14 @@ le_int32 MarkToMarkPositioningSubtable::process(GlyphIterator *glyphIterator, co
     glyphIterator->setCurrGlyphBaseOffset(mark2Iterator.getCurrStreamPosition());
 
     if (glyphIterator->isRightToLeft()) {
-        glyphIterator->adjustCurrGlyphPositionAdjustment(anchorDiffX, anchorDiffY, -markAdvance.fX, -markAdvance.fY);
+        glyphIterator->setCurrGlyphPositionAdjustment(anchorDiffX, anchorDiffY, -markAdvance.fX, -markAdvance.fY);
     } else {
         LEPoint mark2Advance;
 
         fontInstance->getGlyphAdvance(mark2Glyph, pixels);
         fontInstance->pixelsToUnits(pixels, mark2Advance);
 
-        glyphIterator->adjustCurrGlyphPositionAdjustment(anchorDiffX - mark2Advance.fX, anchorDiffY - mark2Advance.fY, -markAdvance.fX, -markAdvance.fY);
+        glyphIterator->setCurrGlyphPositionAdjustment(anchorDiffX - mark2Advance.fX, anchorDiffY - mark2Advance.fY, -markAdvance.fX, -markAdvance.fY);
     }
 
     return 1;

@@ -37,6 +37,7 @@
 #include <rpc/xdr.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <sys/param.h>
 #include <sys/socket.h>
 #include <NetInfo/system_log.h>
 #include <NetInfo/network.h>

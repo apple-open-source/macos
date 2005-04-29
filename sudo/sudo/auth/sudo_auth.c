@@ -1,35 +1,21 @@
 /*
- * Copyright (c) 1999-2001 Todd C. Miller <Todd.Miller@courtesan.com>
- * All rights reserved.
+ * Copyright (c) 1999-2002 Todd C. Miller <Todd.Miller@courtesan.com>
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
  *
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- *
- * 3. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
- *
- * 4. Products derived from this software may not be called "Sudo" nor
- *    may "Sudo" appear in their names without specific prior written
- *    permission from the author.
- *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
- * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
- * AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL
- * THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
- * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
- * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
- * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Sponsored in part by the Defense Advanced Research Projects
+ * Agency (DARPA) and Air Force Research Laboratory, Air Force
+ * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
 #include "config.h"
@@ -67,7 +53,7 @@
 #include "insults.h"
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: sudo_auth.c,v 1.25 2001/12/14 19:52:54 millert Exp $";
+static const char rcsid[] = "$Sudo: sudo_auth.c,v 1.33 2004/02/13 21:36:47 millert Exp $";
 #endif /* lint */
 
 sudo_auth auth_switch[] = {
@@ -109,7 +95,7 @@ verify_user(pw, prompt)
     struct passwd *pw;
     char *prompt;
 {
-    int counter = def_ival(I_PASSWD_TRIES) + 1;
+    int counter = def_passwd_tries + 1;
     int success = AUTH_FAILURE;
     int status;
     int flags;
@@ -125,7 +111,7 @@ verify_user(pw, prompt)
 
     /* Make sure we have at least one auth method. */
     if (auth_switch[0].name == NULL) {
-	audit_fail(pw, "No authentication methods");
+    	audit_fail(pw, "No authentication methods");
     	log_error(0, "%s  %s %s",
 	    "There are no authentication methods compiled into sudo!",
 	    "If you want to turn off authentication, use the",
@@ -134,24 +120,24 @@ verify_user(pw, prompt)
 
     /* Set FLAG_ONEANDONLY if there is only one auth method. */
     if (auth_switch[1].name == NULL)
-	auth_switch[0].flags |= FLAG_ONEANDONLY;
+	SET(auth_switch[0].flags, FLAG_ONEANDONLY);
 
     /* Initialize auth methods and unconfigure the method if necessary. */
     for (auth = auth_switch; auth->name; auth++) {
 	if (auth->init && IS_CONFIGURED(auth)) {
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_USER, 0);
+		set_perms(PERM_USER);
 
 	    status = (auth->init)(pw, &prompt, auth);
 	    if (status == AUTH_FAILURE)
-		auth->flags &= ~FLAG_CONFIGURED;
+		CLR(auth->flags, FLAG_CONFIGURED);
 	    else if (status == AUTH_FATAL)	/* XXX log */ {
 		audit_fail(pw, "Auth Failure");
 		exit(1);		/* assume error msg already printed */
 	    }
 
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_ROOT, 0);
+		set_perms(PERM_ROOT);
 	}
     }
 
@@ -160,18 +146,18 @@ verify_user(pw, prompt)
 	for (auth = auth_switch; auth->name; auth++) {
 	    if (auth->setup && IS_CONFIGURED(auth)) {
 		if (NEEDS_USER(auth))
-		    set_perms(PERM_USER, 0);
+		    set_perms(PERM_USER);
 
 		status = (auth->setup)(pw, &prompt, auth);
 		if (status == AUTH_FAILURE)
-		    auth->flags &= ~FLAG_CONFIGURED;
+		    CLR(auth->flags, FLAG_CONFIGURED);
 		else if (status == AUTH_FATAL)	/* XXX log */ {
 		    audit_fail(pw, "Auth Failure");
 		    exit(1);		/* assume error msg already printed */
 		}
 
 		if (NEEDS_USER(auth))
-		    set_perms(PERM_ROOT, 0);
+		    set_perms(PERM_ROOT);
 	    }
 	}
 
@@ -180,7 +166,7 @@ verify_user(pw, prompt)
 #ifdef AUTH_STANDALONE
 	p = prompt;
 #else
-	p = (char *) tgetpass(prompt, def_ival(I_PASSWD_TIMEOUT) * 60,
+	p = (char *) tgetpass(prompt, def_passwd_timeout * 60,
 	    tgetpass_flags);
 	if (!p || *p == '\0')
 	    nil_pw = 1;
@@ -192,24 +178,24 @@ verify_user(pw, prompt)
 		continue;
 
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_USER, 0);
+		set_perms(PERM_USER);
 
-	    success = auth->status = (auth->verify)(pw, p, auth);
+	    success = auth->status = (auth->verify)(pw, (char *)p, auth);
 
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_ROOT, 0);
+		set_perms(PERM_ROOT);
 
 	    if (auth->status != AUTH_FAILURE)
 		goto cleanup;
 	}
 #ifndef AUTH_STANDALONE
 	if (p)
-	    (void) memset(p, 0, strlen(p));
+	    zero_bytes(p, strlen(p));
 #endif
 
 	/* Exit loop on nil password, but give it a chance to match first. */
 	if (nil_pw) {
-	    if (counter == def_ival(I_PASSWD_TRIES)) {
+	    if (counter == def_passwd_tries) {
 		audit_fail(pw, "password attempt limit reached");
 		exit(1);
 	    }
@@ -225,16 +211,16 @@ cleanup:
     for (auth = auth_switch; auth->name; auth++) {
 	if (auth->cleanup && IS_CONFIGURED(auth)) {
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_USER, 0);
+		set_perms(PERM_USER);
 
 	    status = (auth->cleanup)(pw, auth);
 	    if (status == AUTH_FATAL)	/* XXX log */ {
 		audit_fail(pw, "Auth Failure");
 		exit(1);		/* assume error msg already printed */
-  	    }
+	    }
 
 	    if (NEEDS_USER(auth))
-		set_perms(PERM_ROOT, 0);
+		set_perms(PERM_ROOT);
 	}
     }
 
@@ -243,14 +229,14 @@ cleanup:
 	    (void) sigaction(SIGTSTP, &osa, NULL);
 	    return;
 	case AUTH_FAILURE:
-	    if (def_flag(I_MAIL_BADPASS) || def_flag(I_MAIL_ALWAYS))
+	    if (def_mail_badpass || def_mail_always)
 		flags = 0;
 	    else
 		flags = NO_MAIL;
 	    audit_fail(pw, "Incorrect password");
 	    log_error(flags, "%d incorrect password attempt%s",
-		def_ival(I_PASSWD_TRIES) - counter,
-		(def_ival(I_PASSWD_TRIES) - counter == 1) ? "" : "s");
+		def_passwd_tries - counter,
+		(def_passwd_tries - counter == 1) ? "" : "s");
 	case AUTH_FATAL:
 	    audit_fail(pw, "Auth failure");
 	    exit(1);
@@ -264,11 +250,11 @@ pass_warn(fp)
 {
 
 #ifdef INSULT
-    if (def_flag(I_INSULTS))
+    if (def_insults)
 	(void) fprintf(fp, "%s\n", INSULT);
     else
 #endif
-	(void) fprintf(fp, "%s\n", def_str(I_BADPASS_MESSAGE));
+	(void) fprintf(fp, "%s\n", def_badpass_message);
 }
 
 void

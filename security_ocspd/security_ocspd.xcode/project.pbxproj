@@ -1,0 +1,549 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		05090A5506A894B800D276A7 = {
+			children = (
+				05090A5A06A894E100D276A7,
+			);
+			isa = PBXGroup;
+			path = etc;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05090A5A06A894E100D276A7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = ocspd.plist;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05090A5D06A894F500D276A7 = {
+			buildActionMask = 8;
+			dstPath = /private/etc/mach_init.d;
+			dstSubfolderSpec = 0;
+			files = (
+				05090A6906A895A000D276A7,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		05090A6906A895A000D276A7 = {
+			fileRef = 05090A5A06A894E100D276A7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		051BDB79069B377A00F9D07E = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				056FCCF9069B396200F710C4,
+			);
+			isa = PBXAggregateTarget;
+			name = World;
+			productName = World;
+		};
+		051BDB7C069B379F00F9D07E = {
+			buildActionMask = 2147483647;
+			files = (
+				051BDB89069B37F800F9D07E,
+				056FCEBE069B4E3600F710C4,
+				05296A40069F254C003D8DB7,
+				05B904E606A05DD7008F547D,
+				05E66997070B49580079A61A,
+				05E669A9070B4C6A0079A61A,
+				05B8158B070C46F400F15E01,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		051BDB7D069B379F00F9D07E = {
+			buildActionMask = 2147483647;
+			files = (
+				056FCEEB069B569900F710C4,
+				0537EEC7069B74E500EFFADD,
+				056980E4069B75B500E1A3BB,
+				056980F4069B76AE00E1A3BB,
+				0586E65A069CB9A500F6FAAA,
+				0586E65E069CB9C300F6FAAA,
+				0586E76F069CD2CD00F6FAAA,
+				05BCD7E4069F322C00A79292,
+				05E4ADE106A83EF100546A37,
+				05E6693A070B38730079A61A,
+				05DB0AA6070B560000D9000A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		051BDB7E069B379F00F9D07E = {
+			buildPhases = (
+				051BDB7C069B379F00F9D07E,
+				051BDB7D069B379F00F9D07E,
+				05090A5D06A894F500D276A7,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 7;
+				DYLIB_CURRENT_VERSION = 7;
+				FRAMEWORK_SEARCH_PATHS = "\"$(BUILT_PRODUCTS_DIR)\" /usr/local/SecurityPieces/Frameworks/ /usr/local/SecurityPieces/Frameworks";
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/common";
+				INSTALL_PATH = /usr/sbin;
+				LIBRARY_SEARCH_PATHS = /usr/lib/gcc/darwin/3.3;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ocspd;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas -Werror";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = ocspd;
+			productName = ocspc;
+			productReference = 056FCF71069B5C1000F710C4;
+			productType = "com.apple.product-type.tool";
+		};
+		051BDB83069B37AA00F9D07E = {
+			children = (
+				05576D6D0731653A009F4FDA,
+				05E669A7070B4C6A0079A61A,
+				05E66972070B445B0079A61A,
+				05E66996070B49580079A61A,
+				05B815C9070C52AB00F15E01,
+				05B8158A070C46F400F15E01,
+				056FCEBD069B4E3600F710C4,
+				05B904E506A05DC3008F547D,
+				05B904E406A05DC3008F547D,
+				05296A3E069F253F003D8DB7,
+				05296A3F069F254C003D8DB7,
+				056FCEBF069B4E8B00F710C4,
+				051BDB88069B37F800F9D07E,
+			);
+			isa = PBXGroup;
+			path = server;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		051BDB88069B37F800F9D07E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = ocspdServer.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		051BDB89069B37F800F9D07E = {
+			fileRef = 051BDB88069B37F800F9D07E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05296A3E069F253F003D8DB7 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ocspdNetwork.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05296A3F069F254C003D8DB7 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = ocspdNetwork.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05296A40069F254C003D8DB7 = {
+			fileRef = 05296A3F069F254C003D8DB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0537EEC6069B74E500EFFADD = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		0537EEC7069B74E500EFFADD = {
+			fileRef = 0537EEC6069B74E500EFFADD;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05576D6D0731653A009F4FDA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = attachCommon.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		056980E3069B75B500E1A3BB = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		056980E4069B75B500E1A3BB = {
+			fileRef = 056980E3069B75B500E1A3BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		056980F3069B76AE00E1A3BB = {
+			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
+			name = "libstdc++.a";
+			path = "/usr/lib/libstdc++.a";
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		056980F4069B76AE00E1A3BB = {
+			fileRef = 056980F3069B76AE00E1A3BB;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		056FCCF8069B396200F710C4 = {
+			containerPortal = 4CA1FEAB052A3C3800F22E42;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 051BDB7E069B379F00F9D07E;
+			remoteInfo = ocspd;
+		};
+		056FCCF9069B396200F710C4 = {
+			isa = PBXTargetDependency;
+			target = 051BDB7E069B379F00F9D07E;
+			targetProxy = 056FCCF8069B396200F710C4;
+		};
+		056FCEBD069B4E3600F710C4 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = main.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		056FCEBE069B4E3600F710C4 = {
+			fileRef = 056FCEBD069B4E3600F710C4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		056FCEBF069B4E8B00F710C4 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ocspdServer.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		056FCEE7069B566900F710C4 = {
+			children = (
+				05E66939070B38730079A61A,
+				05BCD7E3069F322C00A79292,
+				056980F3069B76AE00E1A3BB,
+				056980E3069B75B500E1A3BB,
+				0537EEC6069B74E500EFFADD,
+				056FCEEA069B569900F710C4,
+				0586E65D069CB9C300F6FAAA,
+				05E4ADE006A83EF100546A37,
+				0586E659069CB9A500F6FAAA,
+				05DB0AA5070B560000D9000A,
+				0586E76E069CD2CD00F6FAAA,
+			);
+			isa = PBXGroup;
+			name = "Libs & Frameworks";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		056FCEEA069B569900F710C4 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = security_utilities.framework;
+			path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		056FCEEB069B569900F710C4 = {
+			fileRef = 056FCEEA069B569900F710C4;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		056FCF71069B5C1000F710C4 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = ocspd;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		0586E659069CB9A500F6FAAA = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = security_cdsa_utilities.framework;
+			path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utilities.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		0586E65A069CB9A500F6FAAA = {
+			fileRef = 0586E659069CB9A500F6FAAA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0586E65D069CB9C300F6FAAA = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		0586E65E069CB9C300F6FAAA = {
+			fileRef = 0586E65D069CB9C300F6FAAA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		0586E76E069CD2CD00F6FAAA = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = security_cdsa_utils.framework;
+			path = /usr/local/SecurityPieces/Frameworks/security_cdsa_utils.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		0586E76F069CD2CD00F6FAAA = {
+			fileRef = 0586E76E069CD2CD00F6FAAA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05B8158A070C46F400F15E01 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = crlRefresh.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05B8158B070C46F400F15E01 = {
+			fileRef = 05B8158A070C46F400F15E01;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05B815C9070C52AB00F15E01 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = crlRefresh.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05B904E406A05DC3008F547D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = ocspdDb.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05B904E506A05DC3008F547D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = ocspdDb.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05B904E606A05DD7008F547D = {
+			fileRef = 05B904E406A05DC3008F547D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05BCD7E3069F322C00A79292 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreServices.framework;
+			path = /System/Library/Frameworks/CoreServices.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		05BCD7E4069F322C00A79292 = {
+			fileRef = 05BCD7E3069F322C00A79292;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05DB0AA5070B560000D9000A = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = security_cdsa_client.framework;
+			path = /usr/local/SecurityPieces/Frameworks/security_cdsa_client.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		05DB0AA6070B560000D9000A = {
+			fileRef = 05DB0AA5070B560000D9000A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E4ADE006A83EF100546A37 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			path = security_ocspd.framework;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		05E4ADE106A83EF100546A37 = {
+			fileRef = 05E4ADE006A83EF100546A37;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E66939070B38730079A61A = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = LDAP.framework;
+			path = /System/Library/Frameworks/LDAP.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		05E6693A070B38730079A61A = {
+			fileRef = 05E66939070B38730079A61A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E66972070B445B0079A61A = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = crlDb.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05E66996070B49580079A61A = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = crlDb.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05E66997070B49580079A61A = {
+			fileRef = 05E66996070B49580079A61A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		05E669A7070B4C6A0079A61A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = attachCommon.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		05E669A9070B4C6A0079A61A = {
+			fileRef = 05E669A7070B4C6A0079A61A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//050
+//051
+//052
+//053
+//054
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4CA1FEA7052A3C3800F22E42 = {
+			children = (
+				051BDB83069B37AA00F9D07E,
+				05090A5506A894B800D276A7,
+				056FCEE7069B566900F710C4,
+				4CA1FEBF052A3C8100F22E42,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEA9052A3C3800F22E42 = {
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAA052A3C3800F22E42 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEAB052A3C3800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEA9052A3C3800F22E42,
+				4CA1FEAA052A3C3800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42;
+			projectDirPath = "";
+			targets = (
+				051BDB79069B377A00F9D07E,
+				051BDB7E069B379F00F9D07E,
+			);
+		};
+		4CA1FEBF052A3C8100F22E42 = {
+			children = (
+				056FCF71069B5C1000F710C4,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42;
+}

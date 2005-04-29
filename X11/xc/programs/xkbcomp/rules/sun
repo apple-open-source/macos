@@ -1,21 +1,27 @@
-// $XFree86: xc/programs/xkbcomp/rules/sun,v 3.1 2000/05/18 23:21:43 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/rules/sun,v 3.2 2003/08/09 14:30:49 pascal Exp $
 
 ! model			=    keycodes			geometry
-  type4   		=    sun(type4)			sun(type4)
-  type5   		=    sun(type5)			sun
+  type4			=    sun(type4)			sun(type4)
+  type5			=    sun(type5)			sun
   type5_euro		=    sun(type5_euro)		sun(type5euro)
   type5_unix		=    sun(type5)			sun(type5unix)
+  type6			=    sun(type6)                 sun(type5) // no type6 yet
+  type6_euro		=    sun(type6_euro)            sun(type5)
 
 ! model		layout	=  symbols
   type4		us	=  sun/us(sun4)
   type5		us	=  sun/us(sun5)
   type5_unix	us	=  sun/us(sun5)
+  type6		us      =  sun/us(sun6)
   type4		en_US	=  sun/us(sun4)+iso9995-3(basic)
   type5		en_US	=  sun/us(sun5)+iso9995-3(basic)
   type5_unix	en_US	=  sun/us(sun5)+iso9995-3(basic)
+  type6		en_US   =  sun/us(sun6)+iso9995-3(basic)
   type4		*	=  sun/us(sun4)+%l%(v)
   type5		*	=  sun/us(sun5)+%l%(v)
   type5_euro	*	=  sun/us(sun5)+%l%(v)
+  type6		*	=  sun/us(sun6)+%l%(v)
+  type6_euro	*	=  sun/us(sun6)+%l%(v)
 
 ! model   layout   =    compat     types
   *       *        =    complete   complete

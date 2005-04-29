@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -21,6 +21,10 @@
 #define UCNV_IMP_H
 
 #include "unicode/utypes.h"
+
+#if !UCONFIG_NO_CONVERSION
+
+#include "unicode/uloc.h"
 #include "ucnv_bld.h"
 
 /* figures out if we need to go to file to read in the data tables.
@@ -55,6 +59,21 @@ ucnv_createConverterFromSharedData(UConverter *myUConverter, UConverterSharedDat
 UConverter* ucnv_createConverterFromPackage(const char *packageName, const char *converterName,  
                                             UErrorCode *err);
 
+typedef struct {
+    char cnvName[UCNV_MAX_CONVERTER_NAME_LENGTH], locale[ULOC_FULLNAME_CAPACITY];
+    const char *realName;
+    uint32_t options;
+} UConverterLookupData;
+
+/**
+ * Load a converter but do not create a UConverter object.
+ * Simply return the UConverterSharedData.
+ * Performs alias lookup etc.
+ * @internal
+ */
+UConverterSharedData *
+ucnv_loadSharedData(const char *converterName, UConverterLookupData *lookup, UErrorCode * err);
+
 /**
  * This may unload the shared data in a thread safe manner.
  * This will only unload the data if no other converters are sharing it.
@@ -68,13 +87,6 @@ ucnv_unloadSharedDataIfReady(UConverterSharedData *sharedData);
 void
 ucnv_incrementRefCount(UConverterSharedData *sharedData);
 
-
-/* returns true if "name" is in algorithmicConverterNames
- * @param name The converter name.
- * @return TRUE  if "name" is in algorithmicConverterNames.
- */
-UBool ucnv_isDataBasedConverter (const char *name);
-
 /* Copy the string that is represented by the UConverterPlatform enum
  * @param platformString An output buffer
  * @param platform An enum representing a platform
@@ -82,5 +94,6 @@ UBool ucnv_isDataBasedConverter (const char *name);
  */
 int32_t ucnv_copyPlatformString(char *platformString, UConverterPlatform platform);
 
+#endif
 
 #endif /* _UCNV_IMP */

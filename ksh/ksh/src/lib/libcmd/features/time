@@ -1,0 +1,19 @@
+lib	adjtime,settimeofday,stime
+tst	lib_2_timeofday note{ 2 arg settimeofday() }end link{
+	#include <sys/types.h>
+	#include <sys/time.h>
+	main()
+	{
+		struct timeval tv;
+		return settimeofday(&tv, (void*)0);
+	}
+}end
+tst	lib_1_timeofday note{ 1 arg settimeofday() }end link{
+	#include <sys/types.h>
+	#include <sys/time.h>
+	main()
+	{
+		struct timeval tv;
+		return settimeofday(&tv);
+	}
+}end

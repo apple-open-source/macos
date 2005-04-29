@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.35 2002/12/05 12:23:38 abe Exp $";
+static char *rcsid = "$Id: proc.c,v 1.37 2004/10/17 21:39:23 abe Exp $";
 #endif
 
 
@@ -123,11 +123,11 @@ alloc_fflbuf(bp, al, lr)
 
 void
 alloc_lfile(nm, num)
-	char *nm;
-	int num;
+	char *nm;			/* file descriptor name (may be NULL) */
+	int num;			/* file descriptor number -- -1 if
+					 * none */
 {
-	char *cp;
-	struct fd_lst *fp;
+	int fds;
 
 	if (Lf) {
 /*
@@ -159,6 +159,24 @@ alloc_lfile(nm, num)
 	Lf->li[0].af = Lf->li[1].af = 0;
 	Lf->lts.type = -1;
 	Lf->nlink = 0l;
+
+#if	defined(HASSOOPT)
+	Lf->lts.kai = Lf->lts.ltm = 0;
+	Lf->lts.opt = Lf->lts.qlen = Lf->lts.qlim = (unsigned int)0;
+	Lf->lts.rbsz = Lf->lts.sbsz = (unsigned long)0;
+	Lf->lts.qlens = Lf->lts.qlims = Lf->lts.rbszs
+		      = Lf->lts.sbszs = (unsigned char)0;
+#endif	/* defined(HASSOOPT) */
+
+#if	defined(HASSOSTATE)
+	Lf->lts.ss = 0;
+#endif	/* defined(HASSOSTATE) */
+
+#if	defined(HASTCPOPT)
+	Lf->lts.mss = (unsigned long)0;
+	Lf->lts.msss = (unsigned char)0;
+	Lf->lts.topt = (unsigned int)0;
+#endif	/* defined(HASTCPOPT) */
 
 #if	defined(HASTCPTPIQ)
 	Lf->lts.rqs = Lf->lts.sqs = (unsigned char)0;
@@ -221,41 +239,15 @@ alloc_lfile(nm, num)
  */
 	if (!Fdl || (!nm && num < 0))
 	    return;
-	if ((cp = nm)) {
-	    while (*cp && *cp == ' ')
-		cp++;
-	}
-/*
- * Check for an exclusion match.
- */
-	if (FdlTy == 1) {
-	    for (fp = Fdl; fp; fp = fp->next) {
-		if (cp) {
-		    if (fp->nm && strcmp(fp->nm, cp) == 0)
-			return;
-		    continue;
-		}
-		if (num >= fp->lo && num <= fp->hi)
-		    return;
-	    }
-	    Lf->sf |= SELFD;
-	    return;
-	}
-/*
- * If Fdl isn't an exclusion list, check an inclusion match.
- */
-	for (fp = Fdl; fp; fp = fp->next) {
-	    if (cp) {
-		if (fp->nm && strcmp(fp->nm, cp) == 0) {
-		    Lf->sf |= SELFD;
-		    return;
-		}
-		continue;
-	    }
-	    if (num >= fp->lo && num <= fp->hi) {
+	fds = ck_fd_status(nm, num);
+	switch (FdlTy) {
+	case 0:			/* inclusion list */
+	    if (fds == 2)
 		Lf->sf |= SELFD;
-		return;
-	    }
+	    break;
+	case 1:			/* exclusion list */
+	    if (fds != 1)
+		Lf->sf |= SELFD;
 	}
 }
 
@@ -314,6 +306,68 @@ alloc_lproc(pid, pgid, ppid, uid, cmd, pss, sf)
 	    safestrprt(cmd, stderr, 1);
 	    Exit(1);
 	}
+
+#if	defined(HASZONES)
+/*
+ * Clear the zone name pointer.  The dialect's own code will set it.
+ */
+	Lp->zn = (char *)NULL;
+#endif	/* defined(HASZONES) */
+
+}
+
+
+/*
+ * ck_fd_status() - check FD status
+ *
+ * return: 0 == FD is neither included nor excluded
+ *	   1 == FD is excluded
+ *	   2 == FD is included
+ */
+
+extern int
+ck_fd_status(nm, num)
+	char *nm;			/* file descriptor name (may be NULL) */
+	int num;			/* file descriptor number -- -1 if
+					 * none */
+{
+	char *cp;
+	struct fd_lst *fp;
+
+	if (!(fp = Fdl) || (!nm && num < 0))
+	    return(0);
+	if ((cp = nm)) {
+	    while (*cp && *cp == ' ')
+		cp++;
+	}
+/*
+ * Check for an exclusion match.
+ */
+	if (FdlTy == 1) {
+	    for (; fp; fp = fp->next) {
+		if (cp) {
+		    if (fp->nm && strcmp(fp->nm, cp) == 0)
+			return(1);
+		    continue;
+		}
+		if (num >= fp->lo && num <= fp->hi)
+		    return(1);
+	    }
+	    return(0);
+	}
+/*
+ * If Fdl isn't an exclusion list, check for an inclusion match.
+ */
+	for (; fp; fp = fp->next) {
+	    if (cp) {
+		if (fp->nm && strcmp(fp->nm, cp) == 0)
+		    return(2);
+		continue;
+	    }
+	    if (num >= fp->lo && num <= fp->hi)
+		return(2);
+	}
+	return(0);
 }
 
 
@@ -486,7 +540,6 @@ is_cmd_excl(cmd, pss, sf)
 	short *pss;			/* process state */
 	short *sf;			/* process select flags */
 {
-	char buf[1024];
 	int i;
 	struct str_lst *sp;
 /*
@@ -852,6 +905,12 @@ print_proc()
 		return(rv);
 	    rv = 1;
 	    (void) printf("%c%d%c", LSOF_FID_PID, Lp->pid, Terminator);
+
+#if	defined(HASZONES)
+	    if (FieldSel[LSOF_FIX_ZONE].st && Fzone && Lp->zn)
+		(void) printf("%c%s%c", LSOF_FID_ZONE, Lp->zn, Terminator);
+#endif	/* defined(HASZONES) */
+
 	    if (FieldSel[LSOF_FIX_PGID].st && Fpgid)
 		(void) printf("%c%d%c", LSOF_FID_PGID, Lp->pgid, Terminator);
 

@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: MKfallback.sh,v 1.1.1.2 2001/12/05 17:37:24 jevans Exp $
+# $Id: MKfallback.sh,v 1.11 2001/12/02 01:55:30 tom Exp $
 #
 # MKfallback.sh -- create fallback table for entry reads
 #

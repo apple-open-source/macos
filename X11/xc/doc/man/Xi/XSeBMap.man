@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XSeBMap.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XSeBMap.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,26 +17,12 @@
 .SH NAME
 XSetDeviceButtonMapping, XGetDeviceButtonMapping \- query or change device button mappings
 .SH SYNTAX
-int XSetDeviceButtonMapping\^(\^\fIdisplay\fP, \fIdevice\fP, \fImap\fP, \fInmap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      unsigned char \fImap\fP\^[]\^;
-.br
-      int \fInmap\fP\^;
-.sp
-int XGetDeviceButtonMapping\^(\^\fIdisplay\fP, \fIdevice\fP, \fImap_return\fP, 
-\fInmap\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^;
-.br
-      unsigned char \fImap_return\fP\^[]\^;
-.br
-      int \fInmap\fP\^;
+.HP
+int XSetDeviceButtonMapping\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, unsigned char \fImap\fP\^[]\^, int \fInmap\fP\^); 
+.HP
+int XGetDeviceButtonMapping\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, unsigned char \fImap_return\fP\^[]\^, int \fInmap\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

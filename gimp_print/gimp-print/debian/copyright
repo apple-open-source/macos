@@ -8,10 +8,14 @@ Upstream Authors: Michael Sweet (mike@easysw.com)
 
 Copyright:
 
-This software is copyright (c) 1997-2001 Michael Sweet and Robert Krawitz
+This software is copyright (c) 1997-2003 Michael Sweet and Robert Krawitz
 
 You are free to distribute this software under the terms of
 the GNU General Public License.
 On Debian systems, the complete text of the GNU General Public
 License can be found in /usr/share/common-licenses/GPL file.
+
+The User's Guide (in the gimpprint-doc package) is licensed under the
+terms of the GNU Free Documentation License, version 1.1.  The full
+license text is contained within the manual.
 

@@ -6,7 +6,7 @@ MAN8=	portmap.8
 SRCS=	portmap.c from_local.c pmap_check.c
 SUBDIR= pmap_set pmap_dump
 
-CFLAGS+= -DHOSTS_ACCESS 
+CFLAGS+= -DHOSTS_ACCESS -mdynamic-no-pic
 DPADD=	${LIBWRAP}
 LDADD=	-lwrap
 

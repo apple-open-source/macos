@@ -36,6 +36,8 @@
 
 OSDefineMetaClassAndStructors(AppleUSBMergeNub, IOService)
 
+static bool haveCreatedRef = false;
+
 //================================================================================================
 //
 //  probe()
@@ -94,11 +96,20 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
     OSCollectionIterator * 	iter = NULL;
     bool			result = false;
 
-    USBLog(3,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
+    USBLog(6,"+%s[%p]::MergeDictionary(%p)IntoProvider(%p)", getName(), this, dictionaryToMerge, provider);
 
     if (!provider || !dictionaryToMerge)
         return false;
 
+	//
+	// rdar://4041566 -- Trick the C++ run-time into keeping us loaded.
+	//
+	if (haveCreatedRef == false) 
+	{
+		haveCreatedRef = true;
+		getMetaClass()->instanceConstructed();
+	}
+	
     // Get the dictionary whose entries we need to merge into our provider and get
     // an iterator to it.
     //
@@ -117,7 +128,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
             // Get the symbol name for debugging
             //
             str = dictionaryEntry->getCStringNoCopy();
-            USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
+            USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  merging \"%s\"", getName(), this, str);
 
             // Check to see if our destination already has the same entry.  If it does
             // we assume that it is a dictionary.  Perhaps we should check that
@@ -125,11 +136,11 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
             providerProperty = provider->getProperty(dictionaryEntry);
             if ( providerProperty )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  provider already had property %s", getName(), this, str);
                 providerDictionary = OSDynamicCast(OSDictionary, providerProperty);
                 if ( providerDictionary )
                 {
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  provider's %s is also a dictionary (%p)", getName(), this, str, providerDictionary);
                 }
             }
 
@@ -138,7 +149,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
             sourceDictionary = OSDynamicCast(OSDictionary, dictionaryToMerge->getObject(dictionaryEntry));
             if ( sourceDictionary )
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  source dictionary had %s as a dictionary (%p)", getName(), this, str, sourceDictionary);
             }
 
             if ( providerDictionary &&  sourceDictionary )
@@ -160,12 +171,12 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                 // Get the size of our provider's dictionary so that we can check later whether it changed
                 //
                 providerSize = providerDictionary->getCapacity();
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  Created a local copy(%p) of dictionary (%p), size %d", getName(), this, localCopyOfProvidersDictionary, providerDictionary, providerSize);
 
                 // Note that our providerDictionary *might* change
                 // between the time we copied it and when we write it out again.  If so, we will obviously overwrite anychanges
                 //
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  need to merge a dictionary (%s)", getName(), this, str);
                 result = MergeDictionaryIntoDictionary(  sourceDictionary, localCopyOfProvidersDictionary);
                 if ( result )
                 {
@@ -179,7 +190,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
                         USBError(1,"%s[%p]::MergeDictionaryIntoProvider  our provider's dictionary size changed (%d,%d)",getName(), this, providerSize, providerSizeAfterMerge);
                     }
 
-                    USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
+                    USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  setting  property %s from merged dictionary (%p)", getName(), this, str, providerDictionary);
                     result = provider->setProperty( dictionaryEntry, localCopyOfProvidersDictionary );
                     if ( !result )
                     {
@@ -197,7 +208,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
             }
             else
             {
-                USBLog(3,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
+                USBLog(5,"%s[%p]::MergeDictionaryIntoProvider  setting property %s", getName(), this, str);
                 result = provider->setProperty(dictionaryEntry, dictionaryToMerge->getObject(dictionaryEntry));
                 if ( !result )
                 {
@@ -208,7 +219,7 @@ AppleUSBMergeNub::MergeDictionaryIntoProvider(IOService * provider, OSDictionary
         }
         iter->release();
     }
-    USBLog(3,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
+    USBLog(6,"-%s[%p]::MergeDictionaryIntoProvider(%p, %p)  result %d", getName(), this, provider, dictionaryToMerge, result);
 
     return result;
 }

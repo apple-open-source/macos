@@ -2,20 +2,20 @@
 ;; Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
 ;; Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
-;; This file is part of GNU CC.
+;; This file is part of GCC.
 
-;; GNU CC is free software; you can redistribute it and/or modify
+;; GCC is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
 ;; any later version.
 
-;; GNU CC is distributed in the hope that it will be useful,
+;; GCC is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU CC; see the file COPYING.  If not, write to
+;; along with GCC; see the file COPYING.  If not, write to
 ;; the Free Software Foundation, 59 Temple Place - Suite 330,
 ;; Boston, MA 02111-1307, USA.
 
@@ -36,6 +36,7 @@
 
 (define_constants
   [(MMIX_rJ_REGNUM 259)
+   (MMIX_rR_REGNUM 260)
    (MMIX_fp_rO_OFFSET -24)]
 )
 
@@ -241,8 +242,10 @@
 ;; One day we might persuade GCC to expand divisions with constants the
 ;; way MMIX does; giving the remainder the sign of the divisor.  But even
 ;; then, it might be good to have an option to divide the way "everybody
-;; else" does.  Perhaps then, this option can be on by default.  Until
-;; then, we do division and modulus in a library function.
+;; else" does.  Perhaps then, this option can be on by default.  However,
+;; it's not likely to happen because major (C, C++, Fortran) language
+;; standards in effect at 2002-04-29 reportedly demand that the sign of
+;; the remainder must follow the sign of the dividend.
 
 (define_insn "divmoddi4"
   [(set (match_operand:DI 0 "register_operand" "=r")
@@ -269,7 +272,8 @@
 	  (div:DI (match_operand:DI 1 "register_operand" "r")
 		  (match_operand:DI 2 "register_operand" "r")))
      (clobber (scratch:DI))
-     (clobber (scratch:DI))])]
+     (clobber (scratch:DI))
+     (clobber (reg:DI MMIX_rR_REGNUM))])]
   "! TARGET_KNUTH_DIVISION"
   "")
 
@@ -280,7 +284,8 @@
 	(div:DI (match_operand:DI 1 "register_operand" "r,r")
 		(match_operand:DI 2 "register_operand" "1,r")))
    (clobber (match_scratch:DI 3 "=1,1"))
-   (clobber (match_scratch:DI 4 "=2,2"))]
+   (clobber (match_scratch:DI 4 "=2,2"))
+   (clobber (reg:DI MMIX_rR_REGNUM))]
   "! TARGET_KNUTH_DIVISION"
   "@
    SETL %0,1
@@ -293,7 +298,8 @@ DIVU %0,%1,%2\;NEGU %1,0,%0\;CSN %0,$255,%1")
 	  (mod:DI (match_operand:DI 1 "register_operand" "r")
 		  (match_operand:DI 2 "register_operand" "r")))
      (clobber (scratch:DI))
-     (clobber (scratch:DI))])]
+     (clobber (scratch:DI))
+     (clobber (reg:DI MMIX_rR_REGNUM))])]
   "! TARGET_KNUTH_DIVISION"
   "")
 
@@ -304,7 +310,8 @@ DIVU %0,%1,%2\;NEGU %1,0,%0\;CSN %0,$255,%1")
 	(mod:DI (match_operand:DI 1 "register_operand" "r,r")
 		(match_operand:DI 2 "register_operand" "1,r")))
    (clobber (match_scratch:DI 3 "=1,1"))
-   (clobber (match_scratch:DI 4 "=2,2"))]
+   (clobber (match_scratch:DI 4 "=2,2"))
+   (clobber (reg:DI MMIX_rR_REGNUM))]
   "! TARGET_KNUTH_DIVISION"
   "@
    SETL %0,0
@@ -341,13 +348,22 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   ""
   "NEGU %0,0,%1")
 
-;; FIXME: GCC should be able to synthesize this by itself as "0.0 - x".
 (define_expand "negdf2"
-  [(set (match_operand:DF 0 "register_operand" "=r")
-	(minus:DF (match_dup 2)
-		(match_operand:DF 1 "register_operand" "r")))]
+  [(parallel [(set (match_operand:DF 0 "register_operand" "=r")
+                   (neg:DF (match_operand:DF 1 "register_operand" "r")))
+              (use (match_dup 2))])]
   ""
-  "operands[2] = force_reg (DFmode, CONST0_RTX (DFmode));")
+{
+  /* Emit bit-flipping sequence to be IEEE-safe wrt. -+0.  */
+  operands[2] = force_reg (DImode, GEN_INT ((HOST_WIDE_INT) 1 << 63));
+})
+
+(define_insn "*expanded_negdf2"
+  [(set (match_operand:DF 0 "register_operand" "=r")
+        (neg:DF (match_operand:DF 1 "register_operand" "r")))
+   (use (match_operand:DI 2 "register_operand" "r"))]
+  ""
+  "XOR %0,%1,%2")
 
 ;; FIXME: define_expand for absdi2?
 
@@ -567,7 +583,7 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
 (define_insn "fixuns_truncdfdi2"
   [(set (match_operand:DI 0 "register_operand" "=r")
 	(unsigned_fix:DI
-	 (unsigned_fix:DF (match_operand:DF 1 "register_operand" "r"))))]
+	 (fix:DF (match_operand:DF 1 "register_operand" "r"))))]
   ""
   ;; ROUND_OFF
   "FIXU %0,1,%1")
@@ -986,7 +1002,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
   operands[3]
-    = get_hard_reg_initial_val (Pmode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
+    = mmix_get_hard_reg_initial_val (Pmode,
+				     MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 
   /* FIXME: There's a bug in gcc which causes NULL to be passed as
      operand[2] when we get out of registers, which later confuses gcc.
@@ -1012,7 +1029,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
      in the call, and we set it back after every call (all but one setting
      will be optimized away), integrity is maintained.  */
   operands[4]
-    = get_hard_reg_initial_val (Pmode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
+    = mmix_get_hard_reg_initial_val (Pmode,
+				     MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 
   /* FIXME: See 'call'.  */
   if (operands[3] == NULL_RTX)
@@ -1063,10 +1081,31 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
    PUSHGO $%p3,%a1")
 
 ;; I hope untyped_call and untyped_return are not needed for MMIX.
-;; Users of Objective C will notice.
+;; Users of Objective-C will notice.
 
-;; FIXME:  Add "return" pattern where the epilogue is just "pop
-;; 0,0" or similar.
+; Generated by GCC.
+(define_expand "return"
+  [(return)]
+  "mmix_use_simple_return ()"
+  "")
+
+; Generated by the epilogue expander.
+(define_insn "*expanded_return"
+  [(return)]
+  ""
+  "POP %.,0")
+
+(define_expand "prologue"
+  [(const_int 0)]
+  ""
+  "mmix_expand_prologue (); DONE;")
+
+; Note that the (return) from the expander itself is always the last insn
+; in the epilogue.
+(define_expand "epilogue"
+  [(return)]
+  ""
+  "mmix_expand_epilogue ();")
 
 (define_insn "nop"
   [(const_int 0)]
@@ -1107,7 +1146,8 @@ DIVU %1,%1,%2\;GET %0,:rR\;NEGU %2,0,%0\;CSNN %0,$255,%2")
   "
 {
   operands[0]
-    = get_hard_reg_initial_val (Pmode, MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
+    = mmix_get_hard_reg_initial_val (Pmode,
+				     MMIX_INCOMING_RETURN_ADDRESS_REGNUM);
 
   /* Mark this function as containing a landing-pad.  */
   cfun->machine->has_landing_pad = 1;

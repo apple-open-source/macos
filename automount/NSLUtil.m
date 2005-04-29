@@ -188,51 +188,34 @@ int StartSearchForNeighborhoodsInNeighborhood( NSLNeighborhood ParentNeighborhoo
 
 pascal void XNeighborhoodLookupNotifyProc(void *clientContext, NSLRequestRef requestRef)
 {
-	NSLNeighborhood	theNeighborhood = NSLXGetNeighborhoodResult(requestRef);
+	NSLNeighborhood	theNeighborhood = NSLXCopyNeighborhoodResult(requestRef);
 	NSLSearchState	theSearchState = NSLXGetSearchState(requestRef);
-	NSLError		theSearchStatus = NSLXGetSearchStatus(requestRef);
 	SearchContextPtr callContext = (SearchContextPtr)clientContext;
 	struct SearchResult	*thisResult = NULL;
 
-    // if we got an empty notification, ignore it
-    if ( theSearchStatus.theErr == noErr &&					// no errors
-         theNeighborhood == NULL &&							// no items
-         theSearchState == kNSLSearchStateOnGoing			// doesn't terminate a search
-       ) {
-        return;
-    } else if (theNeighborhood) {
+    if (theNeighborhood) {
         // handle the result.  WARNING - this callback can be called on a different pthread than was started on...
-        // we'll add a new call, NSLXGetNameFromNeighborhood that returns a CFStringRef...
-        char*			name = NULL;
-        long			nameLen = 0;
-        
-        NSLGetNameFromNeighborhood( theNeighborhood, &name, &nameLen );
+        CFStringRef displayName = NSLXCopyNeighborhoodDisplayName(theNeighborhood);
 
-        if ( name && nameLen > 0 )
+        if ( displayName && CFStringGetLength(displayName) > 0 )
         {
 			thisResult = (struct SearchResult *)calloc(1, sizeof(struct SearchResult));
 			if (thisResult) {
                 INIT_SEARCHRESULT(thisResult,
                                   callContext->searchClientRef,
                                   kNetworkNeighborhood);
-				thisResult->result.neighborhood = NSLCopyNeighborhood( theNeighborhood );
-				if (thisResult->result.neighborhood == NULL) {
-					sys_msg(debug_nsl, LOG_ERR, "NULL service result from NSLCopyNeighborhood?!");
-					free(thisResult);
-					thisResult = NULL;
-				} else {
-					thisResult->resultType = NSLXGetResultType(requestRef);
-					pthread_mutex_lock(&callContext->results->resultListMutex);
-					TAILQ_INSERT_TAIL(&callContext->results->contentsFound, thisResult, sr_link);
-					(*callContext->notificationCallBack)(callContext);
-					pthread_mutex_unlock(&callContext->results->resultListMutex);
-					pthread_cond_signal(&callContext->results->searchResultsCond);
-				};
+				thisResult->result.neighborhood = theNeighborhood;
+				thisResult->resultType = NSLXGetResultType(requestRef);
+				pthread_mutex_lock(&callContext->results->resultListMutex);
+				TAILQ_INSERT_TAIL(&callContext->results->contentsFound, thisResult, sr_link);
+				(*callContext->notificationCallBack)(callContext);
+				pthread_mutex_unlock(&callContext->results->resultListMutex);
+				pthread_cond_signal(&callContext->results->searchResultsCond);
 			};
         }
-    } else {
-		sys_msg(debug_nsl, LOG_ERR, "NSL returned NULL neighborhood?!");
-	};
+		
+		if (displayName) CFRelease(displayName);
+    }
 
 	sys_msg(debug_nsl, LOG_DEBUG, "XNeighborhoodLookupNotifyProc: search context = 0x%x; thisResult = 0x%x, NSL search state = %d (currently %d internally)",
 		callContext, thisResult, theSearchState, callContext->searchState);
@@ -283,9 +266,8 @@ int StartSearchForServicesInNeighborhood( NSLNeighborhood neighborhood,
 pascal void XServicesLookupNotifyProc(void *clientContext, NSLRequestRef requestRef)
 {
 	SearchContextPtr callContext = (SearchContextPtr)clientContext;
-    NSLService theResult = NSLXGetSearchResult( requestRef );
+    NSLServiceRef theResult = NSLXCopyServiceResult( requestRef );
 	NSLSearchState theSearchState = NSLXGetSearchState(requestRef);
-	NSLError theSearchStatus = NSLXGetSearchStatus(requestRef);
     struct SearchResult	*thisResult = NULL;
     
 #if TRACE_NSL
@@ -295,15 +277,6 @@ pascal void XServicesLookupNotifyProc(void *clientContext, NSLRequestRef request
 	sys_msg(debug, LOG_DEBUG, "\ttheSearchState = %d", theSearchState);
 #endif
 	
-    // if we got an empty notification, don't queue it
-    if ( (theSearchStatus.theErr == noErr) &&				// no errors
-         (theResult == NULL) &&								// no items
-         (theSearchState == kNSLSearchStateOnGoing)			// doesn't terminate a search
-       )
-    {
-        return;
-    }
-    
     if (theResult) 
     {
         thisResult = (struct SearchResult *)calloc(1, sizeof(struct SearchResult));
@@ -318,32 +291,21 @@ pascal void XServicesLookupNotifyProc(void *clientContext, NSLRequestRef request
             INIT_SEARCHRESULT(thisResult,
                                 callContext->searchClientRef,
                                 kNetworkServer);
-			thisResult->result.service =
-					(NSLService)CFPropertyListCreateDeepCopy( kCFAllocatorDefault,
-																			(CFMutableDictionaryRef)theResult,
-																			kCFPropertyListMutableContainers);
-			if (thisResult->result.service == NULL) {
-				sys_msg(debug_nsl, LOG_ERR, "NULL service result from CFPropertyListCreateDeepCopy?!");
-				free(thisResult);
-				thisResult = NULL;
-			} else {
-				thisResult->resultType = NSLXGetResultType(requestRef);
-				
-				pthread_mutex_lock(&callContext->results->resultListMutex);
-				TAILQ_INSERT_TAIL(&callContext->results->contentsFound, thisResult, sr_link);
-	#if TRACE_NSL
-				sys_msg(debug, LOG_DEBUG, "XServicesLookupNotifyProc: Search result list at 0x%x = { 0x%x, 0x%x }.",
-									(unsigned long)&(callContext->results->contentsFound),
-									(unsigned long)callContext->results->contentsFound.tqh_first,
-									(unsigned long)callContext->results->contentsFound.tqh_last);
-	#endif
-				(*callContext->notificationCallBack)(callContext);
-				pthread_mutex_unlock(&callContext->results->resultListMutex);
-				pthread_cond_signal(&callContext->results->searchResultsCond);
-			};
+			thisResult->result.service = theResult;
+			thisResult->resultType = NSLXGetResultType(requestRef);
+			
+			pthread_mutex_lock(&callContext->results->resultListMutex);
+			TAILQ_INSERT_TAIL(&callContext->results->contentsFound, thisResult, sr_link);
+#if TRACE_NSL
+			sys_msg(debug, LOG_DEBUG, "XServicesLookupNotifyProc: Search result list at 0x%x = { 0x%x, 0x%x }.",
+								(unsigned long)&(callContext->results->contentsFound),
+								(unsigned long)callContext->results->contentsFound.tqh_first,
+								(unsigned long)callContext->results->contentsFound.tqh_last);
+#endif
+			(*callContext->notificationCallBack)(callContext);
+			pthread_mutex_unlock(&callContext->results->resultListMutex);
+			pthread_cond_signal(&callContext->results->searchResultsCond);
         };
-    } else {
-		sys_msg(debug_nsl, LOG_ERR, "NSL returned NULL service result?!");
     }
     
 	sys_msg(debug_nsl, LOG_DEBUG, "XServicesLookupNotifyProc: search context = 0x%x; thisResult = 0x%x, NSL search state = %d (currently %d internally)",
@@ -354,28 +316,28 @@ pascal void XServicesLookupNotifyProc(void *clientContext, NSLRequestRef request
 
 
 //-----------------------------------------------------------------------------------------------
-//	GetMainStringFromAttribute
+//	CopyMainStringFromAttribute
 //
-//	Returns: The value in the dictionary if it is a CFStringRef, otherwise it tries to find the 
+//	Returns: The retained value in the dictionary if it is a CFStringRef, otherwise it tries to find the 
 //			 first string in another type (CFArrayRef, CFDictionaryRef).
 //-----------------------------------------------------------------------------------------------
 
-CFStringRef GetMainStringFromAttribute( CFDictionaryRef inDict, CFStringRef inKey )
+CFStringRef CopyMainStringFromAttribute( NSLServiceRef inServiceRef, CFStringRef inKey )
 {
     CFStringRef result = NULL;
     CFTypeRef dValue;
     
-    if ( CFDictionaryGetValueIfPresent( inDict, inKey, &dValue ) && dValue )
+    if ( inServiceRef && inKey && ( dValue = NSLXCopyServiceAttributeValue( inServiceRef, inKey ) ) )
     {
-        if ( CFGetTypeID(dValue) == CFStringGetTypeID() )
-        {
+        if ( CFGetTypeID(dValue) == CFStringGetTypeID() ) {
             result = (CFStringRef)dValue;
-        }
-        else
-        if ( CFGetTypeID(dValue) == CFArrayGetTypeID() )
-        {
+        } else if ( CFGetTypeID(dValue) == CFArrayGetTypeID() ) {
             result = (CFStringRef)CFArrayGetValueAtIndex((CFArrayRef)dValue, 0);
-        }
+			CFRetain( result );
+			CFRelease( dValue );
+        } else {
+			CFRelease( dValue );
+		}
     }
     
     return result;

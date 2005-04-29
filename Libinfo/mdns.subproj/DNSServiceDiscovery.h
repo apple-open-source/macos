@@ -31,6 +31,8 @@
 
 #include <netinet/in.h>
 
+#include <AvailabilityMacros.h>
+
 __BEGIN_DECLS
 
 /* Opaque internal data type */
@@ -109,7 +111,7 @@ dns_service_discovery_ref DNSServiceRegistrationCreate
     const char 		*txtRecord,
     DNSServiceRegistrationReply callBack,
     void		*context
-);
+) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /***************************************************************************/
 /*   DNS Domain Enumeration   */
@@ -151,7 +153,7 @@ dns_service_discovery_ref DNSServiceDomainEnumerationCreate
     int 		registrationDomains,
     DNSServiceDomainEnumerationReply	callBack,
     void		*context
-);
+) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /***************************************************************************/
 /*   DNS Service Browser   */
@@ -186,7 +188,7 @@ dns_service_discovery_ref DNSServiceBrowserCreate
     const char 		*domain,
     DNSServiceBrowserReply	callBack,
     void		*context
-);
+) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /***************************************************************************/
 /* Resolver requests */
@@ -219,7 +221,7 @@ dns_service_discovery_ref DNSServiceResolverResolve
     const char 		*domain,
     DNSServiceResolverReply callBack,
     void		*context
-);
+) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /***************************************************************************/
 /* Mach port accessor and deallocation */
@@ -234,7 +236,7 @@ dns_service_discovery_ref DNSServiceResolverResolve
         specified or some other error occurred which prevented the
         resolution from being started.
 */
-mach_port_t DNSServiceDiscoveryMachPort(dns_service_discovery_ref dnsServiceDiscovery);
+mach_port_t DNSServiceDiscoveryMachPort(dns_service_discovery_ref dnsServiceDiscovery) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /*!
     @function DNSServiceDiscoveryDeallocate
@@ -242,7 +244,7 @@ mach_port_t DNSServiceDiscoveryMachPort(dns_service_discovery_ref dnsServiceDisc
     @param dnsServiceDiscovery A dns_service_discovery_ref as returned from a creation or enumeration call
     @result void
 */
-void DNSServiceDiscoveryDeallocate(dns_service_discovery_ref dnsServiceDiscovery);
+void DNSServiceDiscoveryDeallocate(dns_service_discovery_ref dnsServiceDiscovery) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /***************************************************************************/
 /* Registration updating */
@@ -258,7 +260,8 @@ void DNSServiceDiscoveryDeallocate(dns_service_discovery_ref dnsServiceDiscovery
     @param ttl time to live for the added record.
     @result DNSRecordReference An opaque reference that can be passed to the update and remove record calls.  If an error occurs, this value will be zero or negative
 */
-DNSRecordReference DNSServiceRegistrationAddRecord(dns_service_discovery_ref dnsServiceDiscovery, uint16_t rrtype, uint16_t rdlen, const char *rdata, uint32_t ttl);
+DNSRecordReference DNSServiceRegistrationAddRecord(dns_service_discovery_ref dnsServiceDiscovery, uint16_t rrtype, uint16_t rdlen, const char *rdata, uint32_t ttl)
+AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /*!
     @function DNSServiceRegistrationUpdateRecord
@@ -270,7 +273,8 @@ DNSRecordReference DNSServiceRegistrationAddRecord(dns_service_discovery_ref dns
     @param ttl time to live for the updated record.
     @result DNSServiceRegistrationReplyErrorType If an error occurs, this value will be non zero
 */
-DNSServiceRegistrationReplyErrorType DNSServiceRegistrationUpdateRecord(dns_service_discovery_ref ref, DNSRecordReference reference, uint16_t rdlen, const char *rdata, uint32_t ttl);
+DNSServiceRegistrationReplyErrorType DNSServiceRegistrationUpdateRecord(dns_service_discovery_ref ref, DNSRecordReference reference, uint16_t rdlen, const char *rdata, uint32_t ttl)
+AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 /*!
     @function DNSServiceRegistrationRemoveRecord
@@ -279,7 +283,8 @@ DNSServiceRegistrationReplyErrorType DNSServiceRegistrationUpdateRecord(dns_serv
     @param dnsRecordReference A dnsRecordReference as returned from a DNSServiceRegistrationAddRecord call
     @result DNSServiceRegistrationReplyErrorType If an error occurs, this value will be non zero
 */
-DNSServiceRegistrationReplyErrorType DNSServiceRegistrationRemoveRecord(dns_service_discovery_ref ref, DNSRecordReference reference);
+DNSServiceRegistrationReplyErrorType DNSServiceRegistrationRemoveRecord(dns_service_discovery_ref ref, DNSRecordReference reference)
+AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER_BUT_DEPRECATED;
 
 
 __END_DECLS

@@ -31,6 +31,9 @@
  * - initial revision
  */
 
+#include <unistd.h>
+#include <sys/types.h>
+
 #include "configd.h"
 #include "configd_server.h"
 #include "session.h"
@@ -42,8 +45,6 @@ __SCDynamicStoreNotifySignal(SCDynamicStoreRef store, pid_t pid, int sig)
 	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	CFStringRef			sessionKey;
 	CFDictionaryRef			info;
-
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreNotifySignal:"));
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
@@ -100,13 +101,6 @@ _notifyviasignal(mach_port_t	server,
 	mach_port_t			oldNotify;
 #endif	/* NOTYET */
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Send signal when a notification key changes."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  task   = %d"), task);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  signal = %d"), sig);
-	}
-
 	status = pid_for_task(task, &pid);
 	if (status != KERN_SUCCESS) {
 		*sc_status = kSCStatusFailed;		/* could not determine pid for task */
@@ -160,19 +154,21 @@ _notifyviasignal(mach_port_t	server,
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviasignal mach_port_request_notification() failed: %s"), mach_error_string(status));
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}
 
+#ifdef	NOTYET_DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(_configd_verbose, LOG_ERR, CFSTR("_notifyviasignal(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("_notifyviasignal(): why is oldNotify != MACH_PORT_NULL?"));
 	}
+#endif	/* NOTYET_DEBUG */
 
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("Adding task notification port %d to the server's port set"), task);
+	// add task notification port to the server's port set
 	status = mach_port_move_member(mach_task_self(), task, server_ports);
 	if (status != KERN_SUCCESS) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("mach_port_move_member(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("_notifyviasignal mach_port_move_member() failed: %s"), mach_error_string(status));
 		*sc_status = kSCStatusFailed;
 		return KERN_SUCCESS;
 	}

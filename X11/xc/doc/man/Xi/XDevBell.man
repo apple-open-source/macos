@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XDevBell.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XDevBell.man,v 1.3 2003/04/28 22:18:15 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,18 +17,9 @@
 .SH NAME
 XDeviceBell \- ring a bell on a device supported through the input extension
 .SH SYNTAX
-Status XDeviceBell\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fIfeedbackclass\fP\^, \fIfeedbackid\fP\^, \fIpercent\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      XID *\fIfeedbackclass\fP\^; 
-.br
-      XID *\fIfeedbackid\fP\^; 
-.br
-      int *\fIpercent\fP\^; 
-.br
+.HP
+Status XDeviceBell\^(\^Display *\fIdisplay\fP\^, XDevice *\fIdevice\fP\^, XID
+*\fIfeedbackclass\fP\^, XID *\fIfeedbackid\fP\^, int *\fIpercent\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

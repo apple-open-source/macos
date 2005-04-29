@@ -1,9 +1,9 @@
 /*
- * "$Id: devices.c,v 1.1.1.7 2002/12/24 00:07:28 jlovell Exp $"
+ * "$Id: devices.c,v 1.4 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   Device scanning routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,15 +15,17 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
  * Contents:
  *
- *   LoadDevices() - Load all available devices.
+ *   LoadDevices()     - Load all available devices.
+ *   compare_devs()    - Compare PPD file make and model names for sorting.
+ *   sigalrm_handler() - Handle alarm signals for backends that get hung
  */
 
 /*
@@ -68,7 +70,8 @@ static void	sigalrm_handler(int sig);
  */
 
 void
-LoadDevices(const char *d)	/* I - Directory to scan */
+LoadDevices(const char *d,	/* I - Directory to scan */
+	int exec_backends)	/* I - Load backends? */
 {
   int		i;		/* Looping var */
   int		count;		/* Number of devices from backend */
@@ -87,10 +90,23 @@ LoadDevices(const char *d)	/* I - Directory to scan */
   struct sigaction action;	/* Actions for POSIX signals */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
 
+ /*
+  * If we've already loaded the backends to discover devices don't 
+  * bother to do it again...
+  */
+
+  if (BackendsExeced)
+    return;
+
+  if (exec_backends)
+    BackendsExeced = 1;
 
  /*
   * Initialize the device list.
   */
+
+  if (Devices)
+    ippDelete(Devices);
 
   Devices = ippNew();
 
@@ -132,165 +148,168 @@ LoadDevices(const char *d)	/* I - Directory to scan */
     if (dent->d_name[0] == '.')
       continue;
 
-   /*
-    * Run the backend with no arguments and collect the output...
-    */
+    count  = 0;
+    compat = strcmp(dent->d_name, "smb") == 0;
 
-    snprintf(filename, sizeof(filename), "%s/%s", d, dent->d_name);
-    if ((fp = popen(filename, "r")) != NULL)
+    if (exec_backends)
     {
      /*
-      * Set an alarm for the first read from the backend; this avoids
-      * problems when a backend is hung getting device information.
+      * Run the backend with no arguments and collect the output...
       */
+
+      snprintf(filename, sizeof(filename), "%s/%s", d, dent->d_name);
+      if ((fp = popen(filename, "r")) != NULL)
+      {
+       /*
+	* Set an alarm for the first read from the backend; this avoids
+	* problems when a backend is hung getting device information.
+	*/
 
 #ifdef HAVE_SIGSET /* Use System V signals over POSIX to avoid bugs */
-      sigset(SIGALRM, sigalrm_handler);
+	sigset(SIGALRM, sigalrm_handler);
 #elif defined(HAVE_SIGACTION)
-      memset(&action, 0, sizeof(action));
+	memset(&action, 0, sizeof(action));
 
-      sigemptyset(&action.sa_mask);
-      sigaddset(&action.sa_mask, SIGALRM);
-      action.sa_handler = sigalrm_handler;
-      sigaction(SIGALRM, &action, NULL);
+	sigemptyset(&action.sa_mask);
+	sigaddset(&action.sa_mask, SIGALRM);
+	action.sa_handler = sigalrm_handler;
+	sigaction(SIGALRM, &action, NULL);
 #else
-      signal(SIGALRM, sigalrm_handler);
+	signal(SIGALRM, sigalrm_handler);
 #endif /* HAVE_SIGSET */
 
-      alarm(30);
-      count  = 0;
-      compat = strcmp(dent->d_name, "smb") == 0;
+	alarm(30);
 
-      while (fgets(line, sizeof(line), fp) != NULL)
-      {
-       /*
-        * Reset the alarm clock...
-	*/
-
-        alarm(30);
-
-       /*
-        * Each line is of the form:
-	*
-	*   class URI "make model" "name"
-	*/
-
-        if (strncasecmp(line, "Usage", 5) == 0)
-	  compat = 1;
-        else if (sscanf(line, "%63s%1023s%*[ \t]\"%127[^\"]\"%*[ \t]\"%255[^\"]",
-	                dclass, uri, make_model, info) != 4)
-        {
-	 /*
-	  * Bad format; strip trailing newline and write an error message.
-	  */
-
-          if (line[strlen(line) - 1] == '\n')
-	    line[strlen(line) - 1] = '\0';
-
-	  LogMessage(L_ERROR, "LoadDevices: Bad line from \"%s\": %s",
-	             dent->d_name, line);
-          compat = 1;
-	  break;
-        }
-	else
+	while (fgets(line, sizeof(line), fp) != NULL)
 	{
 	 /*
-	  * Add the device to the array of available devices...
+	  * Reset the alarm clock...
 	  */
 
-	  if (num_devs >= alloc_devs)
+	  alarm(30);
+
+	 /*
+	  * Each line is of the form:
+	  *
+	  *   class URI "make model" "name"
+	  */
+
+	  if (strncasecmp(line, "Usage", 5) == 0)
+	    compat = 1;
+	  else if (sscanf(line, "%63s%1023s%*[ \t]\"%127[^\"]\"%*[ \t]\"%255[^\"]",
+	                dclass, uri, make_model, info) != 4)
 	  {
 	   /*
-	    * Allocate (more) memory for the devices...
+	    * Bad format; strip trailing newline and write an error message.
 	    */
 
-	    if (alloc_devs == 0)
-              dev = malloc(sizeof(dev_info_t) * 16);
-	    else
-              dev = realloc(devs, sizeof(dev_info_t) * (alloc_devs + 16));
+	    if (line[strlen(line) - 1] == '\n')
+	      line[strlen(line) - 1] = '\0';
 
-	    if (dev == NULL)
+	    LogMessage(L_ERROR, "LoadDevices: Bad line from \"%s\": %s",
+			dent->d_name, line);
+	    compat = 1;
+	    break;
+	  }
+	  else
+	  {
+	   /*
+	    * Add the device to the array of available devices...
+	    */
+
+	    if (num_devs >= alloc_devs)
 	    {
-              LogMessage(L_ERROR, "LoadDevices: Ran out of memory for %d devices!",
+	     /*
+	      * Allocate (more) memory for the devices...
+	      */
+
+	      if (alloc_devs == 0)
+                dev = malloc(sizeof(dev_info_t) * 16);
+	      else
+                dev = realloc(devs, sizeof(dev_info_t) * (alloc_devs + 16));
+
+	      if (dev == NULL)
+	      {
+                LogMessage(L_ERROR, "LoadDevices: Ran out of memory for %d devices!",
 	        	 alloc_devs + 16);
-              closedir(dir);
-	      return;
+                closedir(dir);
+	        return;
+	      }
+
+	      devs = dev;
+	      alloc_devs += 16;
 	    }
 
-	    devs = dev;
-	    alloc_devs += 16;
-	  }
+	    dev = devs + num_devs;
+	    num_devs ++;
 
-	  dev = devs + num_devs;
-	  num_devs ++;
-
-	  memset(dev, 0, sizeof(dev_info_t));
-	  strlcpy(dev->device_class, dclass, sizeof(dev->device_class));
-	  strlcpy(dev->device_info, info, sizeof(dev->device_info));
-	  strlcpy(dev->device_make_and_model, make_model,
+	    memset(dev, 0, sizeof(dev_info_t));
+	    strlcpy(dev->device_class, dclass, sizeof(dev->device_class));
+	    strlcpy(dev->device_info, info, sizeof(dev->device_info));
+	    strlcpy(dev->device_make_and_model, make_model,
         	  sizeof(dev->device_make_and_model));
-	  strlcpy(dev->device_uri, uri, sizeof(dev->device_uri));
+	    strlcpy(dev->device_uri, uri, sizeof(dev->device_uri));
 
-          LogMessage(L_DEBUG, "LoadDevices: Added device \"%s\"...", uri);
-	  count ++;
-	}
-      }
-
-     /*
-      * Turn the alarm clock off and close the pipe to the command...
-      */
-
-      alarm(0);
-
-      pclose(fp);
-
-     /*
-      * Hack for backends that don't support the CUPS 1.1 calling convention:
-      * add a network device with the method == backend name.
-      */
-
-      if (count == 0 && compat)
-      {
-	if (num_devs >= alloc_devs)
-	{
-	 /*
-	  * Allocate (more) memory for the devices...
-	  */
-
-	  if (alloc_devs == 0)
-            dev = malloc(sizeof(dev_info_t) * 16);
-	  else
-            dev = realloc(devs, sizeof(dev_info_t) * (alloc_devs + 16));
-
-	  if (dev == NULL)
-	  {
-            LogMessage(L_ERROR, "LoadDevices: Ran out of memory for %d devices!",
-	               alloc_devs + 16);
-            closedir(dir);
-	    return;
+            LogMessage(L_DEBUG, "LoadDevices: Added device \"%s\"...", uri);
+	    count ++;
 	  }
+        }
 
-	  devs = dev;
-	  alloc_devs += 16;
+       /*
+        * Turn the alarm clock off and close the pipe to the command...
+        */
+
+        alarm(0);
+
+        pclose(fp);
+      }
+      else
+        LogMessage(L_WARN, "LoadDevices: Unable to execute \"%s\" backend: %s",
+                 dent->d_name, strerror(errno));
+    }
+
+   /*
+    * Hack for backends that don't support the CUPS 1.1 calling convention:
+    * add a network device with the method == backend name.
+    */
+    if (!exec_backends || (count == 0 && compat))
+    {
+      if (num_devs >= alloc_devs)
+      {
+       /*
+	* Allocate (more) memory for the devices...
+	*/
+
+	if (alloc_devs == 0)
+          dev = malloc(sizeof(dev_info_t) * 16);
+	else
+          dev = realloc(devs, sizeof(dev_info_t) * (alloc_devs + 16));
+
+	if (dev == NULL)
+	{
+          LogMessage(L_ERROR, "LoadDevices: Ran out of memory for %d devices!",
+	             alloc_devs + 16);
+          closedir(dir);
+	  return;
 	}
 
-	dev = devs + num_devs;
-	num_devs ++;
-
-	memset(dev, 0, sizeof(dev_info_t));
-	strcpy(dev->device_class, "network");
-	snprintf(dev->device_info, sizeof(dev->device_info),
-	         "Unknown Network Device (%s)", dent->d_name);
-	strcpy(dev->device_make_and_model, "Unknown");
-	strlcpy(dev->device_uri, dent->d_name, sizeof(dev->device_uri));
-
-        LogMessage(L_DEBUG, "LoadDevices: Compatibility device \"%s\"...",
-	           dent->d_name);
+	devs = dev;
+	alloc_devs += 16;
       }
+
+      dev = devs + num_devs;
+      num_devs ++;
+
+      memset(dev, 0, sizeof(dev_info_t));
+      strcpy(dev->device_class, "network");
+      snprintf(dev->device_info, sizeof(dev->device_info),
+	         "Unknown Network Device (%s)", dent->d_name);
+      strcpy(dev->device_make_and_model, "Unknown");
+      strlcpy(dev->device_uri, dent->d_name, sizeof(dev->device_uri));
+
+      LogMessage(L_DEBUG, "LoadDevices: Compatibility device \"%s\"...",
+	           dent->d_name);
     }
-    else
-      LogMessage(L_WARN, "LoadDevices: Unable to execute \"%s\" backend: %s",
-                 dent->d_name, strerror(errno));
   }
 
   closedir(dir);
@@ -342,12 +361,12 @@ LoadDevices(const char *d)	/* I - Directory to scan */
 
 
 /*
- * 'compare_devs()' - Compare PPD file make and model names for sorting.
+ * 'compare_devs()' - Compare device names for sorting.
  */
 
 static int				/* O - Result of comparison */
-compare_devs(const dev_info_t *d0,	/* I - First PPD file */
-             const dev_info_t *d1)	/* I - Second PPD file */
+compare_devs(const dev_info_t *d0,	/* I - First device */
+             const dev_info_t *d1)	/* I - Second device */
 {
   const char	*s,			/* First name */
 		*t;			/* Second name */
@@ -369,7 +388,7 @@ compare_devs(const dev_info_t *d0,	/* I - First PPD file */
 
   while (*s && *t)
   {
-    if (isdigit(*s) && isdigit(*t))
+    if (isdigit(*s & 255) && isdigit(*t & 255))
     {
      /*
       * Got a number; start by skipping leading 0's...
@@ -384,7 +403,7 @@ compare_devs(const dev_info_t *d0,	/* I - First PPD file */
       * Skip equal digits...
       */
 
-      while (isdigit(*s) && *s == *t)
+      while (isdigit(*s & 255) && *s == *t)
       {
         s ++;
 	t ++;
@@ -394,11 +413,11 @@ compare_devs(const dev_info_t *d0,	/* I - First PPD file */
       * Bounce out if *s and *t aren't both digits...
       */
 
-      if (isdigit(*s) && !isdigit(*t))
+      if (isdigit(*s & 255) && !isdigit(*t & 255))
         return (1);
-      else if (!isdigit(*s) && isdigit(*t))
+      else if (!isdigit(*s & 255) && isdigit(*t & 255))
         return (-1);
-      else if (!isdigit(*s) || !isdigit(*t))
+      else if (!isdigit(*s & 255) || !isdigit(*t & 255))
         continue;     
 
       if (*s < *t)
@@ -414,13 +433,13 @@ compare_devs(const dev_info_t *d0,	/* I - First PPD file */
       s ++;
       t ++;
 
-      while (isdigit(*s))
+      while (isdigit(*s & 255))
       {
         digits ++;
 	s ++;
       }
 
-      while (isdigit(*t))
+      while (isdigit(*t & 255))
       {
         digits --;
 	t ++;
@@ -478,5 +497,5 @@ sigalrm_handler(int sig)	/* I - Signal number */
 
 
 /*
- * End of "$Id: devices.c,v 1.1.1.7 2002/12/24 00:07:28 jlovell Exp $".
+ * End of "$Id: devices.c,v 1.4 2005/01/04 22:10:45 jlovell Exp $".
  */

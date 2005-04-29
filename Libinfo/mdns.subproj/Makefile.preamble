@@ -154,3 +154,7 @@ AFTER_INSTALLHDRS += mdns_hdrs
 PRIVATE_HEADER_DIR = /AppleInternal/Developer/Headers
 MDNS_HEADER_DIR_SUFFIX = /DNSServiceDiscovery
 
+
+# for building 64-bit
+# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
+NEXTSTEP_OBJCPLUS_COMPILER = $(CCOMPILER)

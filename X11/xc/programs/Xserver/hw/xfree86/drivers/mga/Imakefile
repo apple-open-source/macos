@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/Imakefile,v 1.46 2003/02/17 17:06:42 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/drivers/mga/Imakefile,v 1.47 2003/04/21 12:32:10 sven Exp $
 XCOMM
 XCOMM This is an Imakefile for the MGA driver.
 XCOMM
@@ -68,7 +68,7 @@ SRCS = $(MGASRCS) $(MGAHALSRCS)
 OBJS = $(MGAOBJS) $(MGAHALOBJS)
 
 #if defined(XF86DriverSDK)
-INCLUDES = -I. -I../../include
+INCLUDES = -I. -I../../include $(MGAHALINCLUDES)
 #else
 INCLUDES = -I. $(MGAHALINCLUDES) -I$(XF86COMSRC) -I$(XF86OSSRC) \
            -I$(SERVERSRC)/fb \
@@ -133,6 +133,20 @@ InstallDriverSDKNonExecFile(mga_storm.c,$(DRIVERSDKDIR)/drivers/mga)
 InstallDriverSDKNonExecFile(mga_video.c,$(DRIVERSDKDIR)/drivers/mga)
 InstallDriverSDKNonExecFile(mga_halmod.c,$(DRIVERSDKDIR)/drivers/mga)
 InstallDriverSDKNonExecFile(mga_common.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_dripriv.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_dri.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_merge.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_merge.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_g450pll.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_dh.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_esc.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_dri.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mgareg_flags.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_sarea.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(mga_ucode.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(client.h,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(clientlx.c,$(DRIVERSDKDIR)/drivers/mga)
+InstallDriverSDKNonExecFile(HALlib/binding.h,$(DRIVERSDKDIR)/drivers/mga/HALlib)
 
 InstallDriverSDKObjectModule(mga,$(DRIVERSDKMODULEDIR),drivers)
 #if BuildMatroxHal

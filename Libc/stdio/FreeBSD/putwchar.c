@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/putwchar.c,v 1.2 2002/09/28 07:43:44 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/putwchar.c,v 1.3 2004/05/25 10:42:52 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -33,6 +33,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/putwchar.c,v 1.2 2002/09/28 07:43:44 tjr 
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+
+#undef putwchar
 
 /*
  * Synonym for fputwc(wc, stdout).

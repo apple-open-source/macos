@@ -1,0 +1,23 @@
+diff -Naur /tmp/net_snmp.roots/net_snmp/net-snmp/apps/Makefile.in ./apps/Makefile.in
+--- /tmp/net_snmp.roots/net_snmp/net-snmp/apps/Makefile.in	2004-10-05 17:38:38.000000000 -0700
++++ ./apps/Makefile.in	2005-03-23 11:49:24.000000000 -0800
+@@ -36,8 +36,6 @@
+ 
+ INSTALLSBINPROGS = snmptrapd$(EXEEXT)
+ 
+-INSTALLLIBS     = libnetsnmptrapd.$(LIB_EXTENSION)$(LIB_VERSION)
+-
+ SUBDIRS		= snmpnetstat
+ 
+ #
+@@ -107,8 +105,8 @@
+ snmptest$(EXEEXT):    snmptest.$(OSUFFIX) $(USELIBS)
+ 	$(LINK) -o $@ snmptest.$(OSUFFIX) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 
+ 
+-snmptrapd$(EXEEXT):    $(TRAPD_OBJECTS) $(USETRAPLIBS) $(INSTALLLIBS)
+-	$(LINK) -o $@ $(TRAPD_OBJECTS) $(INSTALLLIBS) $(LOCAL_LIBS) ${LDFLAGS} ${TRAPLIBS}
++snmptrapd$(EXEEXT):    $(TRAPD_OBJECTS) $(USETRAPLIBS) libnetsnmptrapd.$(LIB_EXTENSION)$(LIB_VERSION) 
++	$(LINK) -o $@ $(TRAPD_OBJECTS) .libs/libnetsnmptrapd.a  $(LOCAL_LIBS) ${LDFLAGS} ${TRAPLIBS}
+ 
+ snmptrap$(EXEEXT):    snmptrap.$(OSUFFIX) $(USELIBS)
+ 	$(LINK) -o $@ snmptrap.$(OSUFFIX) $(LOCAL_LIBS) ${LDFLAGS} ${LIBS} 

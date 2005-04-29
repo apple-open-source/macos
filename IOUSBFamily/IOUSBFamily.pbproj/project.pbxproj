@@ -5,489 +5,6 @@
 	};
 	objectVersion = 39;
 	objects = {
-		012FA6BBFFBB92717F000001 = {
-			children = (
-				012FA6BCFFBB92717F000001,
-				012FA6BDFFBB92717F000001,
-				F5395F8E016D59DB01573190,
-			);
-			isa = PBXGroup;
-			name = AppleUSBKeyboard;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6BCFFBB92717F000001 = {
-			children = (
-				012FA6D3FFBB94F57F000001,
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6BDFFBB92717F000001 = {
-			children = (
-				012FA6C4FFBB946A7F000001,
-				012FA6D4FFBB94F57F000001,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6BEFFBB93AA7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = AppleUSBComposite.cpp;
-			path = AppleUSBComposite/Classes/AppleUSBComposite.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6BFFFBB93AA7F000001 = {
-			fileRef = 012FA6BEFFBB93AA7F000001;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		012FA6C0FFBB93E47F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = AppleUSBComposite.h;
-			path = AppleUSBComposite/Headers/AppleUSBComposite.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6C1FFBB93E47F000001 = {
-			fileRef = 012FA6C0FFBB93E47F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		012FA6C4FFBB946A7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = Cosmo_USB2ADB.cpp;
-			path = AppleUSBKeyboard/Classes/Cosmo_USB2ADB.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6C5FFBB946A7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = AppleUSBMouse.h;
-			path = AppleUSBMouse/Headers/AppleUSBMouse.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6C6FFBB946A7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = AppleUSBMouse.cpp;
-			path = AppleUSBMouse/Classes/AppleUSBMouse.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6C8FFBB946A7F000001 = {
-			fileRef = 012FA6C5FFBB946A7F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		012FA6C9FFBB946A7F000001 = {
-			fileRef = 012FA6C6FFBB946A7F000001;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		012FA6D3FFBB94F57F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = AppleUSBKeyboard.h;
-			path = AppleUSBKeyboard/Headers/AppleUSBKeyboard.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		012FA6D4FFBB94F57F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = AppleUSBKeyboard.cpp;
-			path = AppleUSBKeyboard/Classes/AppleUSBKeyboard.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		01348643FFBB6B687F000001 = {
-			children = (
-				01348644FFBB6B687F000001,
-				01348645FFBB6B687F000001,
-				F5395F96016D5AD101573190,
-			);
-			isa = PBXGroup;
-			name = AppleUSBMouse;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		01348644FFBB6B687F000001 = {
-			children = (
-				012FA6C5FFBB946A7F000001,
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		01348645FFBB6B687F000001 = {
-			children = (
-				012FA6C6FFBB946A7F000001,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		0134864FFFBB6E597F000001 = {
-			buildPhases = (
-				01348650FFBB6E597F000001,
-				01348652FFBB6E597F000001,
-				01348654FFBB6E597F000001,
-				01348655FFBB6E597F000001,
-			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBMouse;
-				MODULE_VERSION = 1.9;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleUSBMouse;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = AppleUSBMouse;
-			productName = AppleUSBMouse;
-			productReference = 028C8BC2FFD05B547F000001;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>AppleUSBMouse</string>
-	<key>CFBundleGetInfoString</key>
-	<string></string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleUSBMouse</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>I/O Kit Driver for USB Mice</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.9</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>1.9</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>AppleUSBMouse</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBMouse</string>
-			<key>HIDPointerAccelerationTable</key>
-			<data>
-			AACAAFVTQioABwAAAAAAAQABAAAAAQAAAAAgAAAQAABxOwAATOMA
-			BE7FAA03BAAFRAAAFIAAAAcsAAAj4AAACQAAADSwAAAK2AAARfAA
-			AA0IAABXkAAAD2AAAGkAAAASEAAAeoAAABUAAACJAAAAF8AAAJEA
-			AAAawAAAlrAAAB2QAACZsAAAIKAAAJswAAAj8AAAnDAAACewAACc
-			MAAAAIAAABIAAHE7AABWfwAESgAADqAAAAY6AAAfQAAABygAACkA
-			AAAI2AAAPGAAAAm4AABHQAAACrAAAFMwAAALwAAAYDAAAAzAAABs
-			IAAADuAAAIQgAAARYAAAnSAAABQAAAC0AAAAFsAAAMcAAAAZoAAA
-			1AAAABzgAADbAAAAIIAAAOAAAAAkQAAA4wAAACegAADjAAAAALAA
-			ABQAAHE7AABhTgAESgAAD2AAAAUyAAAXYAAABjIAACCgAAAHLAAA
-			LCAAAAgIAAA3oAAACOQAAENAAAAJwAAAUIAAAAqgAABfIgAAC5AA
-			AG1wAAAMcAAAewAAAA6AAACYoAAAEMAAALYAAAATQAAA0gAAABZg
-			AADpAAAAGiAAAPoAAAAdoAABAwAAACEgAAEHAAAAJIAAAQoAAAAn
-			oAABDAAAAADgAAARAABxOwAAbXcABBoAABHwAAAFGgAAG/AAAAXw
-			AAAmYAAABvwAADQAAAAITAAAT+AAAAlsAABt4AAACngAAI3AAAAL
-			sAAAtkAAAA1QAADZgAAAEQAAAPeAAAAVwAABEQAAABlgAAEgAAAA
-			HUAAASgAAAAhAAABLgAAACSAAAEyAAAAJ4AAATUAAAAAUAAAEgAA
-			cTsAAEuwAARMAAAOAAAABUAAABVQAAAHJAAAJiAAAAi0AAA1wAAA
-			CpAAAEmAAAAL6AAAVoAAAA0gAABiAAAADhgAAGrQAAAPGAAAdAAA
-			ABGQAACHgAAAFFAAAJoAAAAXYAAAqYAAABpgAAC0AAAAHVAAALkA
-			AAAg0AAAvIAAACQgAAC9gAAAJ7AAAL6AAAABAAAAEAAAcTsAAFZ/
-			AAO4AAASoAAABSAAACVAAAAGCAAAN4AAAAbwAABfAAAAB/AAAIoA
-			AAAJKAAAyyAAAArwAAD3gAAADSAAARyAAAAQAAABOAAAABRAAAFK
-			AAAAGQAAAVMAAAAc0AABVwAAACDgAAFbgAAAJCAAAV2AAAAnoAAB
-			XgAAAFJwAAAJlNEAWTAAAAoSaQBf8AAACpAAAGawAAAA4AAAHAAB
-			GFUAATAAAAGyKAAC8AAAAlNpAAagAAADb0oAENAAAAOteAAUWAAA
-			A+ulABfgAAAEKdMAG2gAAARoAAAe8AAABKIBACKYAAAE2VYAJiAA
-			AAUUqwApaAAABVAAACywAAAFgAEAMcgAAAW1VgA2QAAABeqrADq4
-			AAAGIAAAPzAAAAZiAABD3AAABp6rAEh4AAAG21YATRQAAAcYAABR
-			sAAAB3oBAFbcAAAH2VYAW/gAAAg4qwBhFAAACJgAAGYwAAAJFgEA
-			bAAAAAmRVgBx0AAACgyrAHegAAAKiAAAfXAAAAEAAAATAAEYVQAB
-			MAAAAbIoAAMQAAACU2kABxAAAAMvSgARgAAAA6z7AByIAAAEOqsA
-			KOAAAASBVgAwiAAABMgAADgwAAAFDVYAQJgAAAVQAABI8AAABcar
-			AFKwAAAGOAAAXHAAAAbxVgBnwAAAB0yrAG1YAAAHqAAAcvAAAAhM
-			AAB5BAAACPAAAH8YAAAJlAAAhSwAAAo4AACLQAA=
-			</data>
-			<key>IOClass</key>
-			<string>AppleUSBMouse</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>bInterfaceClass</key>
-			<integer>3</integer>
-			<key>bInterfaceProtocol</key>
-			<integer>2</integer>
-			<key>bInterfaceSubClass</key>
-			<integer>1</integer>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOHIDSystem</key>
-		<string>1.1</string>
-		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>1.8.4</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Safe Boot</string>
-</dict>
-</plist>
-";
-		};
-		01348650FFBB6E597F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				012FA6C8FFBB946A7F000001,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348652FFBB6E597F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				012FA6C9FFBB946A7F000001,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348654FFBB6E597F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348655FFBB6E597F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5476210016D5D2E01573190,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348657FFBB76127F000001 = {
-			children = (
-				01348658FFBB76127F000001,
-				0134865AFFBB76127F000001,
-				F5395F83016D58DC01573190,
-			);
-			isa = PBXGroup;
-			name = AppleUSBComposite;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		01348658FFBB76127F000001 = {
-			children = (
-				012FA6C0FFBB93E47F000001,
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		0134865AFFBB76127F000001 = {
-			children = (
-				012FA6BEFFBB93AA7F000001,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		0134865DFFBB76127F000001 = {
-			buildPhases = (
-				0134865EFFBB76127F000001,
-				01348660FFBB76127F000001,
-				01348662FFBB76127F000001,
-				01348663FFBB76127F000001,
-			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "a-w,u+w, a+rX";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBComposite;
-				MODULE_VERSION = 2.1.4;
-				OTHER_CFLAGS = "-W -Wall -Wno-unused";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleUSBComposite;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = AppleUSBComposite;
-			productName = AppleUSBComposite;
-			productReference = 028C8BBDFFD05B547F000001;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>AppleUSBComposite</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleUSBComposite</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>I/O Kit Driver for USB Composite Devices</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.1.4</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.1.4</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>AppleUSBComposite</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBComposite</string>
-			<key>IOClass</key>
-			<string>AppleUSBComposite</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>0</integer>
-		</dict>
-		<key>AppleUSBPrinterDevice0</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBComposite</string>
-			<key>IOClass</key>
-			<string>AppleUSBComposite</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>7</integer>
-			<key>bDeviceSubClass</key>
-			<integer>0</integer>
-		</dict>
-		<key>AppleUSBPrinterDevice1</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBComposite</string>
-			<key>IOClass</key>
-			<string>AppleUSBComposite</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>7</integer>
-			<key>bDeviceSubClass</key>
-			<integer>1</integer>
-		</dict>
-	</dict>
-	<key>OSBundleCompatibleVersion</key>
-	<string>1.8</string>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>1.8.4</string>
-	</dict>
-	<key>OSBundleRequired</key>
-	<string>Root</string>
-</dict>
-</plist>
-";
-		};
-		0134865EFFBB76127F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				012FA6C1FFBB93E47F000001,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348660FFBB76127F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				012FA6BFFFBB93AA7F000001,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348662FFBB76127F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348663FFBB76127F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				F547620E016D5D1201573190,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01348664FFBB76DD7F000001 = {
-			isa = PBXTargetDependency;
-			target = 0134865DFFBB76127F000001;
-			targetProxy = 3EDD8A41069B067400DC48B9;
-		};
 		015935ABFFB89EA67F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -849,7 +366,7 @@
 		0179BA6CFFBA2B817F000001 = {
 			isa = PBXTargetDependency;
 			target = 0179BA6DFFBA2B817F000001;
-			targetProxy = 3EDD8A4D069B067400DC48B9;
+			targetProxy = 3E3BD57806402EEC00E0218D;
 		};
 		0179BA6DFFBA2B817F000001 = {
 			buildPhases = (
@@ -861,16 +378,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOHCI;
-				MODULE_VERSION = 2.1.4;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOHCI;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -881,7 +399,7 @@
 			isa = PBXBundleTarget;
 			name = AppleUSBOHCI;
 			productName = AppleUSBOHCI;
-			productReference = 028C8BC1FFD05B547F000001;
+			productReference = 3EB498F10640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -891,7 +409,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -903,11 +421,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBOHCI</key>
@@ -930,6 +448,8 @@
 		<string>1.3</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>1.8.2</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -951,7 +471,7 @@
 		0179BA6FFFBA2B817F000001 = {
 			buildActionMask = 2147483647;
 			files = (
-				F590EEF2034A864601000105,
+				3E3A39C7065940A500C8D91E,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1195,10 +715,11 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBFamily;
-				MODULE_VERSION = 2.1.5;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused -fno-default-inline";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBFamily;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -1208,23 +729,22 @@
 				01AE5997FBC3293E7F000001,
 				018252B0FFB9EC537F000001,
 				018252AFFFB9EC537F000001,
-				070858B3FFD80BCD7F000001,
-				3E282B6305BD66770097C32A,
-				01348664FFBB76DD7F000001,
 				F5B09AEB03CD2F2601000164,
 				19580DD0FFBCABB17F000001,
 				19580DCDFFBCA56D7F000001,
 				0179BA6CFFBA2B817F000001,
 				F5BCFC7A04583B3C01000109,
+				3E09D4BA05F7F13C0034E661,
 				F560429D02109AD801573190,
 				0E7B26F6007E0F087F000001,
 				F5C6E0DB0300612F01000164,
+				3E1BE340064C10670051240E,
 			);
 			isa = PBXBundleTarget;
 			name = IOUSBFamily;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IOUSBFamily;
-			productReference = 028C8BC3FFD05B547F000001;
+			productReference = 3EB498F50640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -1234,7 +754,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.5, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1246,11 +766,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.5</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.5</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict/>
 	<key>OSBundleCompatibleVersion</key>
@@ -1258,11 +778,11 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
+		<string>6.0</string>
 		<key>com.apple.kernel.mach</key>
-		<string>1.1</string>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -1273,12 +793,12 @@
 		018252AFFFB9EC537F000001 = {
 			isa = PBXTargetDependency;
 			target = 01E71ED5FFB871577F000001;
-			targetProxy = 3EDD8A47069B067400DC48B9;
+			targetProxy = 3E3BD57206402EEC00E0218D;
 		};
 		018252B0FFB9EC537F000001 = {
 			isa = PBXTargetDependency;
 			target = 089C1673FE841209C02AAC07;
-			targetProxy = 3EDD8A46069B067400DC48B9;
+			targetProxy = 3E3BD57106402EEC00E0218D;
 		};
 		018252B1FFB9EC537F000001 = {
 			buildActionMask = 2147483647;
@@ -1307,7 +827,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F5395FA8016D5C9E01573190,
-				F573C3D4016D730C01573190,
+				3E12E9F807945DDE00A3FE67,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1352,18 +872,17 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				070858B9FFD80BF37F000001,
-				3E282B7905BD6A6D0097C32A,
-				028C8BC9FFD05B547F000001,
-				028C8BCBFFD05B547F000001,
-				028C8BCCFFD05B547F000001,
-				028C8BCDFFD05B547F000001,
-				F5BCFC7E04583B7101000109,
-				0817A1C00034B78F7F000001,
-				028C8BCFFFD05B547F000001,
-				0E7B26F7007E13717F000001,
-				F5A5AFB60210A17B01573190,
-				F5B09AED03CD2FFA01000164,
+				3EB498DA0640234A00F93E52,
+				3EB498DC0640234A00F93E52,
+				3EB498DE0640234A00F93E52,
+				3EB498E00640234A00F93E52,
+				3EB498E40640234A00F93E52,
+				3EB498EC0640234A00F93E52,
+				3EB498EE0640234A00F93E52,
+				3EB498F20640234A00F93E52,
+				3EB498F40640234A00F93E52,
+				3EB498F70640234A00F93E52,
+				3E1BE342064C10920051240E,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1463,17 +982,10 @@
 			settings = {
 			};
 		};
-		01AE5996FBC3293E7F000001 = {
-			explicitFileType = "compiled.mach-o.executable";
-			isa = PBXFileReference;
-			path = installhdrs;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		01AE5997FBC3293E7F000001 = {
 			isa = PBXTargetDependency;
 			target = 01AE5998FBC3293E7F000001;
-			targetProxy = 3EDD8A3E069B067400DC48B9;
+			targetProxy = 3E3BD56A06402EEC00E0218D;
 		};
 		01AE5998FBC3293E7F000001 = {
 			buildPhases = (
@@ -1501,7 +1013,7 @@
 			name = installhdrs;
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/";
 			productName = installhdrs;
-			productReference = 01AE5996FBC3293E7F000001;
+			productReference = 3EB498E50640234A00F93E52;
 		};
 		01AE5999FBC3293E7F000001 = {
 			buildActionMask = 2147483647;
@@ -1567,6 +1079,9 @@
 				01AE59AEFBC3293E7F000001,
 				F54F8BE90123023701573190,
 				F53A94800211F8B701573190,
+				3E1BE354064C10CB0051240E,
+				3E1BE400064C1FC50051240E,
+				3E1BE52D064C2F800051240E,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 1;
@@ -1649,13 +1164,6 @@
 			settings = {
 			};
 		};
-		01CBCF7C007BC49C7F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBHub.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		01CBCF7D007BC49C7F000001 = {
 			buildPhases = (
 				01CBCF7F007BC49C7F000001,
@@ -1665,16 +1173,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "a-w,u+w,a+rX";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBHub;
-				MODULE_VERSION = 2.1.5;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBHub;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -1685,7 +1194,7 @@
 			isa = PBXBundleTarget;
 			name = AppleUSBHub;
 			productName = AppleUSBHub;
-			productReference = 01CBCF7C007BC49C7F000001;
+			productReference = 3EB498ED0640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -1695,7 +1204,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBHub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.5, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1707,11 +1216,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.5</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.5</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBHub0</key>
@@ -1820,7 +1329,9 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>1.8.4</string>
+		<string>1.8</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -1833,6 +1344,7 @@
 			files = (
 				01CBCF8B007BC6867F000001,
 				01CBCF8C007BC6867F000001,
+				DD77A481058696C0006B91B5,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1842,6 +1354,7 @@
 			files = (
 				01CBCF8D007BC6867F000001,
 				01CBCF8E007BC6867F000001,
+				DD77A485058697A9006B91B5,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1863,8 +1376,8 @@
 		};
 		01CBCF84007BC6867F000001 = {
 			children = (
-				01CBCF85007BC6867F000001,
 				01CBCF88007BC6867F000001,
+				01CBCF85007BC6867F000001,
 				F5395F86016D596001573190,
 			);
 			isa = PBXGroup;
@@ -1876,6 +1389,7 @@
 			children = (
 				01CBCF86007BC6867F000001,
 				01CBCF87007BC6867F000001,
+				DD77A483058697A9006B91B5,
 			);
 			isa = PBXGroup;
 			path = Classes;
@@ -1902,6 +1416,7 @@
 			children = (
 				01CBCF89007BC6867F000001,
 				01CBCF8A007BC6867F000001,
+				DD77A480058696C0006B91B5,
 			);
 			isa = PBXGroup;
 			path = Headers;
@@ -1957,16 +1472,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "a-w,u+w,a+rX";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBUserClient;
-				MODULE_VERSION = 2.1.4;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = " ";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBUserClient;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -1977,7 +1493,7 @@
 			isa = PBXBundleTarget;
 			name = IOUSBUserClient;
 			productName = IOUSBUserClient;
-			productReference = 028C8BC6FFD05B547F000001;
+			productReference = 3EB498EB0640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -1987,7 +1503,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBUserClient</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -1999,11 +1515,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOUSBDeviceUserClientInit</key>
@@ -2050,11 +1566,13 @@
 		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.8</string>
+	<string>2.2.0a1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>1.8</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 </dict>
 </plist>
@@ -2090,7 +1608,6 @@
 			children = (
 				01E71EDAFFB873957F000001,
 				01E71EDBFFB873957F000001,
-				01E71EDCFFB873957F000001,
 				F5395F9F016D5BE901573190,
 			);
 			isa = PBXGroup;
@@ -2112,20 +1629,11 @@
 		01E71EDBFFB873957F000001 = {
 			children = (
 				01E71EE4FFB8799F7F000001,
-			);
-			isa = PBXGroup;
-			name = "Public Headers";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		01E71EDCFFB873957F000001 = {
-			children = (
 				029D485DFFC9866C7F000001,
 				3A29FAEEFFD204217F000001,
 			);
 			isa = PBXGroup;
-			name = "Private Headers";
-			path = "";
+			name = Headers;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -2192,92 +1700,6 @@
 		};
 		0264FBB1009621D87F000001 = {
 			fileRef = 0264FBB0009621D87F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		028C8BBDFFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBComposite.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BBFFFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = IOUSBLib.bundle;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC0FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = IOUSBHIDDriver.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC1FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBOHCI.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC2FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBMouse.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC3FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = IOUSBFamily.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC4FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBMergeNub.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC6FFD05B547F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = IOUSBUserClient.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		028C8BC9FFD05B547F000001 = {
-			fileRef = 028C8BBDFFD05B547F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		028C8BCBFFD05B547F000001 = {
-			fileRef = 028C8BBFFFD05B547F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		028C8BCCFFD05B547F000001 = {
-			fileRef = 028C8BC0FFD05B547F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		028C8BCDFFD05B547F000001 = {
-			fileRef = 028C8BC1FFD05B547F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		028C8BCFFFD05B547F000001 = {
-			fileRef = 028C8BC6FFD05B547F000001;
 			isa = PBXBuildFile;
 			settings = {
 			};
@@ -2508,256 +1930,11 @@
 //032
 //033
 //034
-//070
-//071
-//072
-//073
-//074
-		070858B2FFD80BCD7F000001 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBCDCDriver.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		070858B3FFD80BCD7F000001 = {
-			isa = PBXTargetDependency;
-			target = 070858B4FFD80BCD7F000001;
-			targetProxy = 3EDD8A42069B067400DC48B9;
-		};
-		070858B4FFD80BCD7F000001 = {
-			buildPhases = (
-				070858B5FFD80BCD7F000001,
-				070858B6FFD80BCD7F000001,
-				070858B7FFD80BCD7F000001,
-				070858B8FFD80BCD7F000001,
-			);
-			buildSettings = {
-				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
-				INSTALL_OWNER = root;
-				KERNEL_EXTENSION = YES;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBCDCDriver;
-				MODULE_VERSION = 2.0.5;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "\U0001";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleUSBCDCDriver;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = kext;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = AppleUSBCDCDriver;
-			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
-			productName = AppleUSBCDCDriver;
-			productReference = 070858B2FFD80BCD7F000001;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>AppleUSBCDCDriver</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.0.5, Copyright Apple Computer, Inc. 2000-2003</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleUSBCDCDriver</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>I/O Kit Driver for USB CDC Devices</string>
-	<key>CFBundlePackageType</key>
-	<string>KEXT</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
-	<key>Date</key>
-	<string>Fri Dec 01 2000</string>
-	<key>IOKitPersonalities</key>
-	<dict>
-		<key>AppleUSBCDCDriver1</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCDriver</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDCDriver</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>0</integer>
-		</dict>
-		<key>AppleUSBCDCDriver2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCDriver</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDCDriver</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>2</integer>
-		</dict>
-		<key>AppleUSBCDCDriver3</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCDriver</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDCDriver</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>1</integer>
-			<key>bDeviceSubClass</key>
-			<integer>2</integer>
-		</dict>
-	</dict>
-	<key>OSBundleLibraries</key>
-	<dict>
-		<key>com.apple.iokit.IOSerialFamily</key>
-		<string>1.0.4</string>
-		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>1.8</string>
-	</dict>
-</dict>
-</plist>
-";
-		};
-		070858B5FFD80BCD7F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				070858C0FFD831617F000001,
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		070858B6FFD80BCD7F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				070858BEFFD8312E7F000001,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		070858B7FFD80BCD7F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		070858B8FFD80BCD7F000001 = {
-			buildActionMask = 2147483647;
-			files = (
-				F5395F82016D581101573190,
-				F59E553E0199FBEF01573190,
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		070858B9FFD80BF37F000001 = {
-			fileRef = 070858B2FFD80BCD7F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		070858BAFFD82FF47F000001 = {
-			children = (
-				070858BBFFD82FF47F000001,
-				070858BCFFD82FF47F000001,
-				F5395F7E016D57AA01573190,
-			);
-			isa = PBXGroup;
-			name = AppleUSBCDCDriver;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		070858BBFFD82FF47F000001 = {
-			children = (
-				070858BFFFD831617F000001,
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		070858BCFFD82FF47F000001 = {
-			children = (
-				070858BDFFD8312E7F000001,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		070858BDFFD8312E7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = AppleUSBCDCDriver.cpp;
-			path = AppleUSBCDCDriver/Classes/AppleUSBCDCDriver.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		070858BEFFD8312E7F000001 = {
-			fileRef = 070858BDFFD8312E7F000001;
-			isa = PBXBuildFile;
-			settings = {
-				ATTRIBUTES = (
-				);
-			};
-		};
-		070858BFFFD831617F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = AppleUSBCDCDriver.h;
-			path = AppleUSBCDCDriver/Headers/AppleUSBCDCDriver.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		070858C0FFD831617F000001 = {
-			fileRef = 070858BFFFD831617F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-//070
-//071
-//072
-//073
-//074
 //080
 //081
 //082
 //083
 //084
-		0817A1C00034B78F7F000001 = {
-			fileRef = 028C8BC4FFD05B547F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		089C1669FE841209C02AAC07 = {
 			buildSettings = {
 			};
@@ -2781,18 +1958,15 @@
 				01AE5998FBC3293E7F000001,
 				0179BA6DFFBA2B817F000001,
 				F58140760457633501000109,
-				070858B4FFD80BCD7F000001,
-				3E282B6105BD666C0097C32A,
-				0134865DFFBB76127F000001,
+				3E09D38205F7EB5A0034E661,
 				01CBCF7D007BC49C7F000001,
 				F5B09AB503CD27AE01000164,
-				0134864FFFBB6E597F000001,
 				19580DD1FFBCABB17F000001,
 				F5430C690210919001573190,
+				3E1BE24A064C08E90051240E,
 				19580DB6FFBCA3597F000001,
 				01E71ED5FFB871577F000001,
 				089C1673FE841209C02AAC07,
-				F549D3720226FF5E010162FA,
 				F50D2CA90278877A010162FA,
 				3ECD209304F5D7E300E8EEF7,
 				F5366A7302E8C77501000164,
@@ -2800,21 +1974,19 @@
 		};
 		089C166AFE841209C02AAC07 = {
 			children = (
-				070858BAFFD82FF47F000001,
-				3E282B5705BD65990097C32A,
-				01348657FFBB76127F000001,
 				01CBCF84007BC6867F000001,
 				19580DDCFFBCAF317F000001,
-				0179BA73FFBA2D8A7F000001,
 				F581406C04575F6D01000109,
+				0179BA73FFBA2D8A7F000001,
+				3E09D3D705F7EC440034E661,
 				F5430C660210912501573190,
 				01840EB5FFB9FB147F000001,
+				3E1BE2A5064C0A9B0051240E,
 				19580DBBFFBCA3ED7F000001,
 				0319826DFFB38CF77F000001,
 				01E71ED9FFB873957F000001,
 				3EC65AF404F3C9B8003F7360,
 				3E033F6804F5D8C200AA223D,
-				F5430C670210912501573190,
 				19C28FB6FE9D52B211CA2CBB,
 				3E9D8265033AC7C000000164,
 				F5E6DDDD01206E6801000001,
@@ -2851,6 +2023,7 @@
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBLib;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -2861,7 +2034,7 @@
 			isa = PBXBundleTarget;
 			name = IOUSBLib;
 			productName = IOUSBFamily;
-			productReference = 028C8BBFFFD05B547F000001;
+			productReference = 3EB498F30640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -2871,7 +2044,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -2883,11 +2056,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>CFPlugInDynamicRegisterFunction</key>
 	<string></string>
 	<key>CFPlugInDynamicRegistration</key>
@@ -2927,7 +2100,7 @@
 		089C1675FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
 			files = (
-				F5D0F2AE016D27BA01573190,
+				3E97F11A073AEC1400B450D6,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2960,20 +2133,11 @@
 		};
 		089C167CFE841241C02AAC07 = {
 			children = (
-				F5D0F2AD016D27BA01573190,
+				3E97F119073AEC1400B450D6,
 			);
 			isa = PBXGroup;
 			name = Strings;
 			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		089C167EFE841241C02AAC07 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = English;
-			path = InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -3014,13 +2178,7 @@
 		0E7B26F6007E0F087F000001 = {
 			isa = PBXTargetDependency;
 			target = 01CBCF7D007BC49C7F000001;
-			targetProxy = 3EDD8A4B069B067400DC48B9;
-		};
-		0E7B26F7007E13717F000001 = {
-			fileRef = 01CBCF7C007BC49C7F000001;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			targetProxy = 3EBFC64506593A24006D8EC1;
 		};
 //0E0
 //0E1
@@ -3041,16 +2199,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "a-w,u+w,a+rX";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOUSBHIDDriver;
-				MODULE_VERSION = 2.1.4;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = IOUSBHIDDriver;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -3061,7 +2220,7 @@
 			isa = PBXBundleTarget;
 			name = IOUSBHIDDriver;
 			productName = IOUSBHIDDriver;
-			productReference = 028C8BC0FFD05B547F000001;
+			productReference = 3EB498DD0640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -3071,7 +2230,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOUSBHIDDriver</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.4, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3083,11 +2242,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.4</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Generic Keyboard</key>
@@ -3107,23 +2266,6 @@
 			<key>bInterfaceSubClass</key>
 			<integer>1</integer>
 		</dict>
-		<key>YAMAHA</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.kernel.iokit</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>bConfigurationValue</key>
-			<integer>1</integer>
-			<key>bInterfaceNumber</key>
-			<integer>2</integer>
-			<key>idProduct</key>
-			<integer>12289</integer>
-			<key>idVendor</key>
-			<integer>1177</integer>
-		</dict>
 	</dict>
 	<key>OSBundleCompatibleVersion</key>
 	<string>1.8</string>
@@ -3133,6 +2275,8 @@
 		<string>1.3</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>1.8.4</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Console</string>
@@ -3191,39 +2335,12 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		19580DBDFFBCA3ED7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = IOUSBHIDDataQueue.h;
-			path = IOUSBHIDDriver/Headers/IOUSBHIDDataQueue.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		19580DBEFFBCA3ED7F000001 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
 			lastKnownFileType = sourcecode.c.h;
 			name = IOUSBHIDDriver.h;
 			path = IOUSBHIDDriver/Headers/IOUSBHIDDriver.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		19580DBFFFBCA3ED7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = IOUSBHIDDriverUserClient.h;
-			path = IOUSBHIDDriver/Headers/IOUSBHIDDriverUserClient.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		19580DC0FFBCA3ED7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = IOUSBHIDSelector.h;
-			path = IOUSBHIDDriver/Headers/IOUSBHIDSelector.h;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -3245,15 +2362,6 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		19580DC4FFBCA3ED7F000001 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = IOUSBHIDDriverUserClient.cpp;
-			path = IOUSBHIDDriver/Classes/IOUSBHIDDriverUserClient.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		19580DC6FFBCA3ED7F000001 = {
 			fileRef = 19580DBEFFBCA3ED7F000001;
 			isa = PBXBuildFile;
@@ -3271,12 +2379,12 @@
 		19580DCDFFBCA56D7F000001 = {
 			isa = PBXTargetDependency;
 			target = 19580DB6FFBCA3597F000001;
-			targetProxy = 3EDD8A48069B067400DC48B9;
+			targetProxy = 3E3BD57306402EEC00E0218D;
 		};
 		19580DD0FFBCABB17F000001 = {
 			isa = PBXTargetDependency;
 			target = 19580DD1FFBCABB17F000001;
-			targetProxy = 3EDD8A3F069B067400DC48B9;
+			targetProxy = 3E3BD56B06402EEC00E0218D;
 		};
 		19580DD1FFBCABB17F000001 = {
 			buildPhases = (
@@ -3287,16 +2395,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBMergeNub;
-				MODULE_VERSION = 2.1.0;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBMergeNub;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -3307,7 +2416,7 @@
 			isa = PBXBundleTarget;
 			name = AppleUSBMergeNub;
 			productName = AppleUSBMergeNub;
-			productReference = 028C8BC4FFD05B547F000001;
+			productReference = 3EB498D90640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -3317,7 +2426,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBMergeNub</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.0, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -3329,11 +2438,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.0</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.0</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Apple1</key>
@@ -3346,11 +2455,16 @@
 			<string>IOUSBDevice</string>
 			<key>IOProviderMergeProperties</key>
 			<dict>
+				<key>IOCFPlugInTypes</key>
+				<dict>
+					<key>Test</key>
+					<string>Nano</string>
+				</dict>
 				<key>non-removable</key>
 				<string>Yes</string>
 			</dict>
 			<key>idProduct</key>
-			<integer>37392</integer>
+			<integer>775</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -3606,6 +2720,24 @@
 			<key>idVendor</key>
 			<integer>2284</integer>
 		</dict>
+		<key>FlashGate</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kDoNotSuspend</key>
+				<true/>
+			</dict>
+			<key>idProduct</key>
+			<integer>12</integer>
+			<key>idVendor</key>
+			<integer>1683</integer>
+		</dict>
 		<key>InternalUSBModem</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -3621,6 +2753,72 @@
 			</dict>
 			<key>idProduct</key>
 			<integer>33282</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Keyboard1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>Ignore transactions for ms after wake</key>
+				<integer>250</integer>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>523</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Keyboard2</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>Ignore transactions for ms after wake</key>
+				<integer>250</integer>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>524</integer>
+			<key>idVendor</key>
+			<integer>1452</integer>
+		</dict>
+		<key>Keyboard3</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>Ignore transactions for ms after wake</key>
+				<integer>250</integer>
+			</dict>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>525</integer>
 			<key>idVendor</key>
 			<integer>1452</integer>
 		</dict>
@@ -3678,6 +2876,24 @@
 			<key>idVendor</key>
 			<integer>1211</integer>
 		</dict>
+		<key>USBInternalModem</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>IOClass</key>
+			<string>AppleUSBMergeNub</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>kCallInterfaceOpenWithGate</key>
+				<true/>
+			</dict>
+			<key>bDeviceClass</key>
+			<integer>2</integer>
+			<key>bDeviceSubClass</key>
+			<integer>0</integer>
+		</dict>
 		<key>uConnect0</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -3703,6 +2919,8 @@
 	<dict>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>1.8</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
@@ -3806,25 +3024,22 @@
 		};
 		19C28FB6FE9D52B211CA2CBB = {
 			children = (
-				028C8BBDFFD05B547F000001,
-				028C8BBFFFD05B547F000001,
-				028C8BC0FFD05B547F000001,
-				028C8BC1FFD05B547F000001,
-				028C8BC2FFD05B547F000001,
-				028C8BC3FFD05B547F000001,
-				028C8BC4FFD05B547F000001,
-				028C8BC6FFD05B547F000001,
-				070858B2FFD80BCD7F000001,
-				01AE5996FBC3293E7F000001,
-				01CBCF7C007BC49C7F000001,
-				F5430C680210919001573190,
-				F549D3700226FF5E010162FA,
-				F50D2CAA0278877A010162FA,
-				F5366A7402E8C77501000164,
-				F5B09AB603CD27AE01000164,
-				F58140770457633501000109,
-				3ECD209404F5D7E300E8EEF7,
-				3E282B6205BD666C0097C32A,
+				3EB498D90640234A00F93E52,
+				3EB498DB0640234A00F93E52,
+				3EB498DD0640234A00F93E52,
+				3EB498DF0640234A00F93E52,
+				3EB498E30640234A00F93E52,
+				3EB498E50640234A00F93E52,
+				3EB498E70640234A00F93E52,
+				3EB498EB0640234A00F93E52,
+				3EB498ED0640234A00F93E52,
+				3EB498EF0640234A00F93E52,
+				3EB498F10640234A00F93E52,
+				3EB498F30640234A00F93E52,
+				3EB498F50640234A00F93E52,
+				3EB498F60640234A00F93E52,
+				3EB498F80640234A00F93E52,
+				3E1BE252064C08E90051240E,
 			);
 			isa = PBXGroup;
 			name = Products;
@@ -3996,113 +3211,92 @@
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
-				3E03402C04F5DA7000AA223D,
+				3EB498E80640234A00F93E52,
 			);
 			isa = PBXCopyFilesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3E03402C04F5DA7000AA223D = {
-			fileRef = 3ECD209404F5D7E300E8EEF7;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		3E03402D04F5DACF00AA223D = {
 			isa = PBXTargetDependency;
 			target = 3ECD209304F5D7E300E8EEF7;
-			targetProxy = 3EDD8A4E069B067400DC48B9;
+			targetProxy = 3E3BD57906402EEC00E0218D;
 		};
-		3E282B5705BD65990097C32A = {
-			children = (
-				3E282B5805BD65AD0097C32A,
-				3E282B5905BD65B50097C32A,
-				3E282B5A05BD65BC0097C32A,
-			);
-			isa = PBXGroup;
-			name = AppleUSBCDCEthernet;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3E282B5805BD65AD0097C32A = {
-			children = (
-				3E282B6B05BD66A90097C32A,
-			);
-			isa = PBXGroup;
-			name = Headers;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3E282B5905BD65B50097C32A = {
-			children = (
-				3E282B6A05BD66A90097C32A,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3E282B5A05BD65BC0097C32A = {
-			children = (
-				3E282B6405BD66960097C32A,
-				3E282B6605BD66960097C32A,
-			);
-			isa = PBXGroup;
-			name = Strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3E282B5C05BD666C0097C32A = {
+		3E09D37C05F7EB5A0034E661 = {
 			buildActionMask = 2147483647;
 			files = (
-				3E282B6D05BD66A90097C32A,
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		3E09D37D05F7EB5A0034E661 = {
+			buildActionMask = 2147483647;
+			files = (
+				3E09D40705F7ECFB0034E661,
+				68AB6E1A0636F43400DF2BA5,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3E282B5D05BD666C0097C32A = {
+		3E09D37E05F7EB5A0034E661 = {
 			buildActionMask = 2147483647;
 			files = (
-				3E282B6C05BD66A90097C32A,
+				68AB6E5D0636F4B500DF2BA5,
+				68AB6E5E0636F4B500DF2BA5,
+				68AB6E5F0636F4B500DF2BA5,
+				68AB6E600636F4B500DF2BA5,
+				68AB6E610636F4B500DF2BA5,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3E282B5E05BD666C0097C32A = {
+		3E09D37F05F7EB5A0034E661 = {
 			buildActionMask = 2147483647;
 			files = (
-				3E282B6805BD66960097C32A,
-				3E282B6905BD66960097C32A,
+				3E09D40805F7ECFB0034E661,
 			);
 			isa = PBXResourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3E282B5F05BD666C0097C32A = {
+		3E09D38005F7EB5A0034E661 = {
 			buildActionMask = 2147483647;
 			files = (
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		3E282B6105BD666C0097C32A = {
+		3E09D38105F7EB5A0034E661 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		3E09D38205F7EB5A0034E661 = {
 			buildPhases = (
-				3E282B5C05BD666C0097C32A,
-				3E282B5D05BD666C0097C32A,
-				3E282B5E05BD666C0097C32A,
-				3E282B5F05BD666C0097C32A,
+				3E09D37C05F7EB5A0034E661,
+				3E09D37D05F7EB5A0034E661,
+				3E09D37E05F7EB5A0034E661,
+				3E09D37F05F7EB5A0034E661,
+				3E09D38005F7EB5A0034E661,
+				3E09D38105F7EB5A0034E661,
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.driver.AppleUSBCDCEthernet;
-				MODULE_VERSION = 2.0.0;
-				OTHER_CFLAGS = "";
+				MODULE_NAME = com.apple.driver.AppleUSBUHCI;
+				MODULE_VERSION = 2.2.0;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = AppleUSBCDCEthernet;
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = AppleUSBUHCI;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
@@ -4110,9 +3304,9 @@
 			dependencies = (
 			);
 			isa = PBXBundleTarget;
-			name = AppleUSBCDCEthernet;
-			productName = AppleUSBCDCEthernet;
-			productReference = 3E282B6205BD666C0097C32A;
+			name = AppleUSBUHCI;
+			productName = AppleUSBUHCI;
+			productReference = 3EB498E30640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -4120,84 +3314,114 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleExecutable</key>
-	<string>AppleUSBCDCEthernet</string>
+	<string>AppleUSBUHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.0, Copyright Apple Computer, Inc. 2004</string>
+	<string>2.2.0, Copyright © 2004-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.driver.AppleUSBCDCEthernet</string>
+	<string>com.apple.driver.AppleUSBUHCI</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>I/O Kit Driver for USB CDC Ethernet Devices</string>
+	<string>I/O Kit Driver for USB UHCI Controllers</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.0</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.0</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>AppleUSBCDCEthernet1</key>
+		<key>AppleUSBUHCI</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCEthernet</string>
+			<string>com.apple.driver.AppleUSBUHCI</string>
 			<key>IOClass</key>
-			<string>AppleUSBCDCEthernet</string>
+			<string>AppleUSBUHCI</string>
+			<key>IOPCIClassMatch</key>
+			<string>0x0C030000</string>
 			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>0</integer>
-		</dict>
-		<key>AppleUSBCDCEthernet2</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCEthernet</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDCEthernet</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBDevice</string>
-			<key>bDeviceClass</key>
-			<integer>2</integer>
-			<key>bDeviceProtocol</key>
-			<integer>0</integer>
-			<key>bDeviceSubClass</key>
-			<integer>6</integer>
+			<string>IOPCIDevice</string>
+			<key>IOUserClientClass</key>
+			<string>IOUSBControllerUserClient</string>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.iokit.IONetworkingFamily</key>
-		<string>1.1</string>
+		<key>com.apple.iokit.IOPCIFamily</key>
+		<string>1.3</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
-		<string>1.8</string>
+		<string>1.9.5</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
 </dict>
 </plist>
 ";
 		};
-		3E282B6205BD666C0097C32A = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBCDCEthernet.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		3E282B6305BD66770097C32A = {
-			isa = PBXTargetDependency;
-			target = 3E282B6105BD666C0097C32A;
-			targetProxy = 3EDD8A45069B067400DC48B9;
-		};
-		3E282B6405BD66960097C32A = {
+		3E09D3D705F7EC440034E661 = {
 			children = (
-				3E282B6505BD66960097C32A,
+				3E09D3F705F7ECFB0034E661,
+				3E09D3FD05F7ECFB0034E661,
+				3E09D3FF05F7ECFB0034E661,
+			);
+			isa = PBXGroup;
+			name = AppleUSBUHCI;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E09D3F705F7ECFB0034E661 = {
+			children = (
+				68AB6E580636F4B500DF2BA5,
+				68AB6E590636F4B500DF2BA5,
+				68AB6E5A0636F4B500DF2BA5,
+				68AB6E5B0636F4B500DF2BA5,
+				68AB6E5C0636F4B500DF2BA5,
+			);
+			isa = PBXGroup;
+			name = Classes;
+			path = AppleUSBUHCI/Classes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E09D3FD05F7ECFB0034E661 = {
+			children = (
+				68AB6E180636F43400DF2BA5,
+				3E09D3FE05F7ECFB0034E661,
+			);
+			isa = PBXGroup;
+			name = Headers;
+			path = AppleUSBUHCI/Headers;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E09D3FE05F7ECFB0034E661 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = AppleUSBUHCI.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E09D3FF05F7ECFB0034E661 = {
+			children = (
+				3E09D40005F7ECFB0034E661,
+			);
+			isa = PBXGroup;
+			name = Strings;
+			path = AppleUSBUHCI/Strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E09D40005F7ECFB0034E661 = {
+			children = (
+				3E09D40105F7ECFB0034E661,
 			);
 			isa = PBXVariantGroup;
 			name = InfoPlist.strings;
@@ -4205,18 +3429,35 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6505BD66960097C32A = {
+		3E09D40105F7ECFB0034E661 = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.strings;
 			name = English;
-			path = AppleUSBCDCEthernet/English.lproj/InfoPlist.strings;
+			path = English.lproj/InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6605BD66960097C32A = {
+		3E09D40705F7ECFB0034E661 = {
+			fileRef = 3E09D3FE05F7ECFB0034E661;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E09D40805F7ECFB0034E661 = {
+			fileRef = 3E09D40005F7ECFB0034E661;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E09D4BA05F7F13C0034E661 = {
+			isa = PBXTargetDependency;
+			target = 3E09D38205F7EB5A0034E661;
+			targetProxy = 3E3BD57606402EEC00E0218D;
+		};
+		3E12E9F607945DDE00A3FE67 = {
 			children = (
-				3E282B6705BD66960097C32A,
+				3E12E9F707945DDE00A3FE67,
 			);
 			isa = PBXVariantGroup;
 			name = Localizable.strings;
@@ -4224,62 +3465,434 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6705BD66960097C32A = {
+		3E12E9F707945DDE00A3FE67 = {
+			explicitFileType = text.plist.strings;
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			name = English;
+			path = IOUSBFamily/Strings/English.lproj/Localizable.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E12E9F807945DDE00A3FE67 = {
+			fileRef = 3E12E9F607945DDE00A3FE67;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E1BE24A064C08E90051240E = {
+			buildPhases = (
+				3E1BE24B064C08E90051240E,
+				3E1BE24D064C08E90051240E,
+				3E1BE24F064C08E90051240E,
+				3E1BE250064C08E90051240E,
+			);
+			buildSettings = {
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				INSTALL_OWNER = root;
+				KERNEL_EXTENSION = YES;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.driver.AppleUSBComposite;
+				MODULE_VERSION = 2.2.0;
+				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
+				PRODUCT_NAME = IOUSBCompositeDriver;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = IOUSBCompositeDriver;
+			productName = AppleUSBComposite;
+			productReference = 3E1BE252064C08E90051240E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>IOUSBCompositeDriver</string>
+	<key>CFBundleGetInfoString</key>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.driver.AppleUSBComposite</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>I/O Kit Driver for USB Composite Devices</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>2.2.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>2.2.0</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>AppleUSBPrinterDevice0</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBComposite</string>
+			<key>IOClass</key>
+			<string>IOUSBCompositeDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>bDeviceClass</key>
+			<integer>7</integer>
+			<key>bDeviceSubClass</key>
+			<integer>0</integer>
+		</dict>
+		<key>AppleUSBPrinterDevice1</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBComposite</string>
+			<key>IOClass</key>
+			<string>IOUSBCompositeDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>bDeviceClass</key>
+			<integer>7</integer>
+			<key>bDeviceSubClass</key>
+			<integer>1</integer>
+		</dict>
+		<key>IOUSBComposite</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBComposite</string>
+			<key>IOClass</key>
+			<string>IOUSBCompositeDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>bDeviceClass</key>
+			<integer>0</integer>
+			<key>bDeviceSubClass</key>
+			<integer>0</integer>
+		</dict>
+		<key>InterfaceAssociationClass</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBComposite</string>
+			<key>IOClass</key>
+			<string>IOUSBCompositeDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBDevice</string>
+			<key>bDeviceClass</key>
+			<integer>239</integer>
+			<key>bDeviceProtocol</key>
+			<integer>1</integer>
+			<key>bDeviceSubClass</key>
+			<integer>2</integer>
+		</dict>
+	</dict>
+	<key>OSBundleCompatibleVersion</key>
+	<string>2.2.0a1</string>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOUSBFamily</key>
+		<string>1.8.4</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
+	</dict>
+	<key>OSBundleRequired</key>
+	<string>Root</string>
+</dict>
+</plist>
+";
+		};
+		3E1BE24B064C08E90051240E = {
+			buildActionMask = 2147483647;
+			files = (
+				3E1BE2AD064C0A9B0051240E,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E1BE24D064C08E90051240E = {
+			buildActionMask = 2147483647;
+			files = (
+				3E1BE2AC064C0A9B0051240E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E1BE24F064C08E90051240E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E1BE250064C08E90051240E = {
+			buildActionMask = 2147483647;
+			files = (
+				3E1BE2FA064C0DE00051240E,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E1BE252064C08E90051240E = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOUSBCompositeDriver.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3E1BE2A5064C0A9B0051240E = {
+			children = (
+				3E1BE2A6064C0A9B0051240E,
+				3E1BE2A8064C0A9B0051240E,
+				3E1BE2AA064C0A9B0051240E,
+			);
+			isa = PBXGroup;
+			path = IOUSBCompositeDriver;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2A6064C0A9B0051240E = {
+			children = (
+				3E1BE2A7064C0A9B0051240E,
+			);
+			isa = PBXGroup;
+			path = Classes;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2A7064C0A9B0051240E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOUSBCompositeDriver.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2A8064C0A9B0051240E = {
+			children = (
+				3E1BE2A9064C0A9B0051240E,
+			);
+			isa = PBXGroup;
+			path = Headers;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2A9064C0A9B0051240E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOUSBCompositeDriver.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2AA064C0A9B0051240E = {
+			children = (
+				3E1BE2F9064C0DE00051240E,
+			);
+			isa = PBXGroup;
+			path = Strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2AB064C0A9B0051240E = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
 			lastKnownFileType = text.plist.strings;
 			name = English;
-			path = AppleUSBCDCEthernet/English.lproj/Localizable.strings;
+			path = English.lproj/InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6805BD66960097C32A = {
-			fileRef = 3E282B6405BD66960097C32A;
+		3E1BE2AC064C0A9B0051240E = {
+			fileRef = 3E1BE2A7064C0A9B0051240E;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		3E282B6905BD66960097C32A = {
-			fileRef = 3E282B6605BD66960097C32A;
+		3E1BE2AD064C0A9B0051240E = {
+			fileRef = 3E1BE2A9064C0A9B0051240E;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		3E1BE2F9064C0DE00051240E = {
+			children = (
+				3E1BE2AB064C0A9B0051240E,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E1BE2FA064C0DE00051240E = {
+			fileRef = 3E1BE2F9064C0DE00051240E;
 			isa = PBXBuildFile;
 			settings = {
 			};
 		};
-		3E282B6A05BD66A90097C32A = {
-			fileEncoding = 30;
+		3E1BE33F064C10670051240E = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 3E1BE24A064C08E90051240E;
+			remoteInfo = IOUSBCompositeDriver;
+		};
+		3E1BE340064C10670051240E = {
+			isa = PBXTargetDependency;
+			target = 3E1BE24A064C08E90051240E;
+			targetProxy = 3E1BE33F064C10670051240E;
+		};
+		3E1BE342064C10920051240E = {
+			fileRef = 3E1BE252064C08E90051240E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E1BE354064C10CB0051240E = {
+			fileRef = 3E1BE2A9064C0A9B0051240E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E1BE400064C1FC50051240E = {
+			fileRef = 029D485DFFC9866C7F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E1BE52D064C2F800051240E = {
+			fileRef = 3A29FAEEFFD204217F000001;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E3A39C5065940A500C8D91E = {
+			children = (
+				3E3A39C6065940A500C8D91E,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E3A39C6065940A500C8D91E = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = USBCDCEthernet.cpp;
-			path = AppleUSBCDCEthernet/USBCDCEthernet.cpp;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = AppleUSBOHCI/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6B05BD66A90097C32A = {
-			fileEncoding = 30;
+		3E3A39C7065940A500C8D91E = {
+			fileRef = 3E3A39C5065940A500C8D91E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3E3A3B4A0659420800C8D91E = {
+			fileEncoding = 10;
 			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = USBCDCEthernet.h;
-			path = AppleUSBCDCEthernet/USBCDCEthernet.h;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = IOUSBLib/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3E282B6C05BD66A90097C32A = {
-			fileRef = 3E282B6A05BD66A90097C32A;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		3E3BD56A06402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01AE5998FBC3293E7F000001;
+			remoteInfo = installhdrs;
 		};
-		3E282B6D05BD66A90097C32A = {
-			fileRef = 3E282B6B05BD66A90097C32A;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		3E3BD56B06402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 19580DD1FFBCABB17F000001;
+			remoteInfo = AppleUSBMergeNub;
 		};
-		3E282B7905BD6A6D0097C32A = {
-			fileRef = 3E282B6205BD666C0097C32A;
-			isa = PBXBuildFile;
-			settings = {
-			};
+		3E3BD56F06402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5366A7302E8C77501000164;
+			remoteInfo = "USB Prober";
+		};
+		3E3BD57006402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5B09AB503CD27AE01000164;
+			remoteInfo = IOUSBHIDDriverSafeBoot;
+		};
+		3E3BD57106402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 089C1673FE841209C02AAC07;
+			remoteInfo = IOUSBLib;
+		};
+		3E3BD57206402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01E71ED5FFB871577F000001;
+			remoteInfo = IOUSBUserClient;
+		};
+		3E3BD57306402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 19580DB6FFBCA3597F000001;
+			remoteInfo = IOUSBHIDDriver;
+		};
+		3E3BD57406402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F5430C690210919001573190;
+			remoteInfo = AppleUSBOpticalMouse;
+		};
+		3E3BD57606402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 3E09D38205F7EB5A0034E661;
+			remoteInfo = AppleUSBUHCI;
+		};
+		3E3BD57706402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = F58140760457633501000109;
+			remoteInfo = AppleUSBEHCI;
+		};
+		3E3BD57806402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0179BA6DFFBA2B817F000001;
+			remoteInfo = AppleUSBOHCI;
+		};
+		3E3BD57906402EEC00E0218D = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 3ECD209304F5D7E300E8EEF7;
+			remoteInfo = KLog;
 		};
 		3E43121104587E1800000164 = {
 			fileEncoding = 10;
@@ -4363,6 +3976,21 @@
 			settings = {
 			};
 		};
+		3E97F119073AEC1400B450D6 = {
+			children = (
+				3E3A3B4A0659420800C8D91E,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		3E97F11A073AEC1400B450D6 = {
+			fileRef = 3E97F119073AEC1400B450D6;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		3E9D8265033AC7C000000164 = {
 			children = (
 				F5C2AE73032E5BA501000164,
@@ -4373,6 +4001,177 @@
 			refType = 2;
 			sourceTree = SOURCE_ROOT;
 		};
+		3EB498D90640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBMergeNub.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498DA0640234A00F93E52 = {
+			fileRef = 3EB498D90640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498DB0640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOUSBHIDDriverSafeBoot.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498DC0640234A00F93E52 = {
+			fileRef = 3EB498DB0640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498DD0640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOUSBHIDDriver.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498DE0640234A00F93E52 = {
+			fileRef = 3EB498DD0640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498DF0640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBEHCI.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498E00640234A00F93E52 = {
+			fileRef = 3EB498DF0640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498E30640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBUHCI.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498E40640234A00F93E52 = {
+			fileRef = 3EB498E30640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498E50640234A00F93E52 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = installhdrs;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498E70640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = KLog.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498E80640234A00F93E52 = {
+			fileRef = 3EB498E70640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498EB0640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOUSBUserClient.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498EC0640234A00F93E52 = {
+			fileRef = 3EB498EB0640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498ED0640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBHub.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498EE0640234A00F93E52 = {
+			fileRef = 3EB498ED0640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498EF0640234A00F93E52 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = UPSTestTool;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498F10640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBOHCI.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498F20640234A00F93E52 = {
+			fileRef = 3EB498F10640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498F30640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOUSBLib.bundle;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498F40640234A00F93E52 = {
+			fileRef = 3EB498F30640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498F50640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = IOUSBFamily.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498F60640234A00F93E52 = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = AppleUSBOpticalMouse.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		3EB498F70640234A00F93E52 = {
+			fileRef = 3EB498F60640234A00F93E52;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		3EB498F80640234A00F93E52 = {
+			explicitFileType = wrapper.application;
+			isa = PBXFileReference;
+			path = "USB Prober.app";
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
 		3EB871C4041D183100000164 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -4382,32 +4181,12 @@
 			refType = 4;
 			sourceTree = "<group>";
 		};
-		3EC2237604CC7F8800157DE1 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = DecodeVideoInterfaceDescriptor.h;
-			path = USBProber/DecodeVideoInterfaceDescriptor.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3EC2237704CC7F8800157DE1 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = DecodeVideoInterfaceDescriptor.m;
-			path = USBProber/DecodeVideoInterfaceDescriptor.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		3EC2237804CC7F8800157DE1 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			name = USBVDCList.txt;
-			path = USBProber/USBVDCList.txt;
-			refType = 4;
-			sourceTree = "<group>";
+		3EBFC64506593A24006D8EC1 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01CBCF7D007BC49C7F000001;
+			remoteInfo = AppleUSBHub;
 		};
 		3EC65AF404F3C9B8003F7360 = {
 			children = (
@@ -4659,12 +4438,12 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.KLog;
-				MODULE_VERSION = 1.0.5;
+				MODULE_VERSION = 1.0.6;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -4678,7 +4457,7 @@
 			isa = PBXBundleTarget;
 			name = KLog;
 			productName = KLog;
-			productReference = 3ECD209404F5D7E300E8EEF7;
+			productReference = 3EB498E70640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -4688,7 +4467,7 @@
 	<key>CFBundleExecutable</key>
 	<string>KLog</string>
 	<key>CFBundleGetInfoString</key>
-	<string></string>
+	<string>1.0.6, Copyright © 2000-2004 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -4696,15 +4475,15 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string></string>
+	<string>Extension to log USB events</string>
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string></string>
+	<string>1.0.6</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>KLog</key>
@@ -4735,13 +4514,6 @@
 </dict>
 </plist>
 ";
-		};
-		3ECD209404F5D7E300E8EEF7 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = KLog.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		3ECD84DD04F3CB07003312CD = {
 			fileEncoding = 30;
@@ -5816,121 +5588,138 @@
 			refType = 0;
 			sourceTree = "<absolute>";
 		};
-		3EDD8A3E069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 01AE5998FBC3293E7F000001;
-			remoteInfo = installhdrs;
-		};
-		3EDD8A3F069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 19580DD1FFBCABB17F000001;
-			remoteInfo = AppleUSBMergeNub;
-		};
-		3EDD8A41069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 0134865DFFBB76127F000001;
-			remoteInfo = AppleUSBComposite;
-		};
-		3EDD8A42069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 070858B4FFD80BCD7F000001;
-			remoteInfo = AppleUSBCDCDriver;
-		};
-		3EDD8A43069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = F5366A7302E8C77501000164;
-			remoteInfo = "USB Prober";
-		};
-		3EDD8A44069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = F5B09AB503CD27AE01000164;
-			remoteInfo = IOUSBHIDDriverSafeBoot;
-		};
-		3EDD8A45069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 3E282B6105BD666C0097C32A;
-			remoteInfo = AppleUSBCDCEthernet;
-		};
-		3EDD8A46069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 089C1673FE841209C02AAC07;
-			remoteInfo = IOUSBLib;
-		};
-		3EDD8A47069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 01E71ED5FFB871577F000001;
-			remoteInfo = IOUSBUserClient;
-		};
-		3EDD8A48069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 19580DB6FFBCA3597F000001;
-			remoteInfo = IOUSBHIDDriver;
-		};
-		3EDD8A4A069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = F5430C690210919001573190;
-			remoteInfo = AppleUSBOpticalMouse;
-		};
-		3EDD8A4B069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 01CBCF7D007BC49C7F000001;
-			remoteInfo = AppleUSBHub;
-		};
-		3EDD8A4C069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = F58140760457633501000109;
-			remoteInfo = AppleUSBEHCI;
-		};
-		3EDD8A4D069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 0179BA6DFFBA2B817F000001;
-			remoteInfo = AppleUSBOHCI;
-		};
-		3EDD8A4E069B067400DC48B9 = {
-			containerPortal = 089C1669FE841209C02AAC07;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 3ECD209304F5D7E300E8EEF7;
-			remoteInfo = KLog;
-		};
 //3E0
 //3E1
 //3E2
 //3E3
 //3E4
+//680
+//681
+//682
+//683
+//684
+		68AB6E180636F43400DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = UHCI.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E1A0636F43400DF2BA5 = {
+			fileRef = 68AB6E180636F43400DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		68AB6E580636F4B500DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBUHCI_Obsolete.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E590636F4B500DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBUHCI_PwrMgmt.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E5A0636F4B500DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBUHCI_RootHub.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E5B0636F4B500DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBUHCI_UIM.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E5C0636F4B500DF2BA5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBUHCI.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		68AB6E5D0636F4B500DF2BA5 = {
+			fileRef = 68AB6E580636F4B500DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		68AB6E5E0636F4B500DF2BA5 = {
+			fileRef = 68AB6E590636F4B500DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		68AB6E5F0636F4B500DF2BA5 = {
+			fileRef = 68AB6E5A0636F4B500DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		68AB6E600636F4B500DF2BA5 = {
+			fileRef = 68AB6E5B0636F4B500DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		68AB6E610636F4B500DF2BA5 = {
+			fileRef = 68AB6E5C0636F4B500DF2BA5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//680
+//681
+//682
+//683
+//684
 //DD0
 //DD1
 //DD2
 //DD3
 //DD4
+		DD77A480058696C0006B91B5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = AppleUSBHSHubUserClient.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		DD77A481058696C0006B91B5 = {
+			fileRef = DD77A480058696C0006B91B5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		DD77A483058697A9006B91B5 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AppleUSBHSHubUserClient.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		DD77A485058697A9006B91B5 = {
+			fileRef = DD77A483058697A9006B91B5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
 		DDBEF5050402F87500000108 = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
@@ -5972,7 +5761,6 @@
 //F53
 //F54
 		F5008DF602A6832401000164 = {
-			includeInIndex = 1;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "Deva Example";
@@ -5980,7 +5768,6 @@
 			sourceTree = "<group>";
 		};
 		F5008E1002A6833601000164 = {
-			includeInIndex = 1;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "Ezloader Example";
@@ -6027,7 +5814,6 @@
 		F50D2CA60278877A010162FA = {
 			buildActionMask = 2147483647;
 			files = (
-				F50D2CAC027887AD010162FA,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6035,9 +5821,6 @@
 		F50D2CA70278877A010162FA = {
 			buildActionMask = 2147483647;
 			files = (
-				F50D2CAD027887AE010162FA,
-				F50D2CAE027887AE010162FA,
-				F50D2CAF027887AF010162FA,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6072,72 +5855,9 @@
 			name = "UPS Test Tool";
 			productInstallPath = "";
 			productName = "UPS Test Tool";
-			productReference = F50D2CAA0278877A010162FA;
-		};
-		F50D2CAA0278877A010162FA = {
-			explicitFileType = "compiled.mach-o.executable";
-			isa = PBXFileReference;
-			path = UPSTestTool;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		F50D2CAC027887AD010162FA = {
-			fileRef = F5955CE102270501010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F50D2CAD027887AE010162FA = {
-			fileRef = F5955CE4022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F50D2CAE027887AE010162FA = {
-			fileRef = F5955CE5022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F50D2CAF027887AF010162FA = {
-			fileRef = F5955CE6022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F50D2D050278884A010162FA = {
-			children = (
-				19580DBDFFBCA3ED7F000001,
-				19580DBFFFBCA3ED7F000001,
-				19580DC0FFBCA3ED7F000001,
-				19580DC4FFBCA3ED7F000001,
-				F53A94830211FA0601573190,
-			);
-			isa = PBXGroup;
-			name = IOUSBHIDDriver;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F51191B1039D214F01000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = DecodeAudioInterfaceDescriptor.h;
-			path = USBProber/DecodeAudioInterfaceDescriptor.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F51191B2039D214F01000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = DecodeAudioInterfaceDescriptor.m;
-			path = USBProber/DecodeAudioInterfaceDescriptor.m;
-			refType = 4;
-			sourceTree = "<group>";
+			productReference = 3EB498EF0640234A00F93E52;
 		};
 		F517150D022D3AE7010162FA = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "Another USB Notification Example";
@@ -6272,7 +5992,8 @@
 				3E03402504F5DA5F00AA223D,
 			);
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 2.1.5;
+				CURRENT_PROJECT_VERSION = 2.2;
+				GCC_VERSION = 3.3;
 				INSTALL_PATH = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -6289,7 +6010,7 @@
 			name = "USB Prober";
 			productInstallPath = "$(SYSTEM_DEVELOPER_APPS_DIR)/Utilities";
 			productName = "USB Prober";
-			productReference = F5366A7402E8C77501000164;
+			productReference = 3EB498F80640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -6299,7 +6020,7 @@
 	<key>CFBundleExecutable</key>
 	<string>USB Prober</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.5, Copyright Apple Computer, Inc. 2002-2004</string>
+	<string>2.2, Copyright © 2002-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string>USBProberIcon.icns</string>
 	<key>CFBundleIdentifier</key>
@@ -6311,11 +6032,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.5</string>
+	<string>2.2</string>
 	<key>CFBundleSignature</key>
 	<string>USBP</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.5</string>
+	<string>2.2</string>
 	<key>NSMainNibFile</key>
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
@@ -6324,525 +6045,12 @@
 </plist>
 ";
 		};
-		F5366A7402E8C77501000164 = {
-			explicitFileType = wrapper.application;
-			isa = PBXFileReference;
-			path = "USB Prober.app";
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		F5366A7602E8C85401000164 = {
-			children = (
-				F5366A8202E8C88E01000164,
-				F5366A8302E8C89701000164,
-				F5366A8402E8C89A01000164,
-				F5366A8502E8C8A101000164,
-				F5366A8602E8C8A501000164,
-			);
-			isa = PBXGroup;
-			name = "USB Prober Application (Original)";
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8202E8C88E01000164 = {
-			children = (
-				F5366A9402E8C97801000164,
-				F5366A9502E8C97801000164,
-			);
-			isa = PBXGroup;
-			name = "Main Controller";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8302E8C89701000164 = {
-			children = (
-				F5366A8702E8C8E501000164,
-				F5366A8802E8C8EE01000164,
-				F5366A8902E8C8F701000164,
-				F5366A8A02E8C8FC01000164,
-			);
-			isa = PBXGroup;
-			name = Classes;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8402E8C89A01000164 = {
-			children = (
-				F5366A9302E8C97801000164,
-			);
-			isa = PBXGroup;
-			name = "Other Sources";
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8502E8C8A101000164 = {
-			children = (
-				3EC2237804CC7F8800157DE1,
-				F5366AA002E8C97801000164,
-				F5366AA102E8C97801000164,
-				F5366AB902E8CA2201000164,
-				F5366ABB02E8CA2201000164,
-				F5366ABD02E8CA2201000164,
-			);
-			isa = PBXGroup;
-			name = Resources;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8602E8C8A501000164 = {
-			children = (
-				F5366AC202E8CA5601000164,
-				F5366AC302E8CA5601000164,
-				F5366AC402E8CA5601000164,
-				F5366AC502E8CA5601000164,
-			);
-			isa = PBXGroup;
-			name = Frameworks;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8702E8C8E501000164 = {
-			children = (
-				F5366A8D02E8C97801000164,
-				F5366A8E02E8C97801000164,
-				F5366A8F02E8C97801000164,
-				F5366A9002E8C97801000164,
-				F5366A9C02E8C97801000164,
-				F5366A9D02E8C97801000164,
-				F51191B1039D214F01000164,
-				3EC2237604CC7F8800157DE1,
-				3EC2237704CC7F8800157DE1,
-				F51191B2039D214F01000164,
-			);
-			isa = PBXGroup;
-			name = "Bus Probe";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8802E8C8EE01000164 = {
-			children = (
-				F5366A9102E8C97801000164,
-				F5366A9202E8C97801000164,
-			);
-			isa = PBXGroup;
-			name = IORegistry;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8902E8C8F701000164 = {
-			children = (
-				F5366A9E02E8C97801000164,
-				F5366A9F02E8C97801000164,
-			);
-			isa = PBXGroup;
-			name = "USB Logger";
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8A02E8C8FC01000164 = {
-			children = (
-				F5366A8B02E8C97801000164,
-				F5366A8C02E8C97801000164,
-				F5366A9602E8C97801000164,
-				F5366A9702E8C97801000164,
-				F5366A9802E8C97801000164,
-				F5366A9902E8C97801000164,
-				F5366A9A02E8C97801000164,
-				F5366A9B02E8C97801000164,
-			);
-			isa = PBXGroup;
-			name = "Other Classes";
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8B02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = Authorization.h;
-			path = USBProber/Authorization.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8C02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = Authorization.m;
-			path = USBProber/Authorization.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8D02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = BusProbeClass.h;
-			path = USBProber/BusProbeClass.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8E02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = BusProbeClass.m;
-			path = USBProber/BusProbeClass.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A8F02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = DecodeHIDReport.h;
-			path = USBProber/DecodeHIDReport.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9002E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = DecodeHIDReport.m;
-			path = USBProber/DecodeHIDReport.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9102E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = IORegistryClass.h;
-			path = USBProber/IORegistryClass.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9202E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = IORegistryClass.m;
-			path = USBProber/IORegistryClass.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9302E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = Main.m;
-			path = USBProber/Main.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9402E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = MainController.h;
-			path = USBProber/MainController.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9502E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = MainController.m;
-			path = USBProber/MainController.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9602E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = Node.h;
-			path = USBProber/Node.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9702E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = Node.m;
-			path = USBProber/Node.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9802E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = NodeOutput.h;
-			path = USBProber/NodeOutput.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9902E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = NodeOutput.m;
-			path = USBProber/NodeOutput.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9A02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = SystemCommands.h;
-			path = USBProber/SystemCommands.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9B02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = SystemCommands.m;
-			path = USBProber/SystemCommands.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9C02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = USBClass.h;
-			path = USBProber/USBClass.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9D02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = USBClass.m;
-			path = USBProber/USBClass.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9E02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.h;
-			name = USBLoggerClass.h;
-			path = USBProber/USBLoggerClass.h;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366A9F02E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.objc;
-			name = USBLoggerClass.m;
-			path = USBProber/USBLoggerClass.m;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366AA002E8C97801000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = image.icns;
-			name = USBProberIcon.icns;
-			path = USBProber/USBProberIcon.icns;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366AA102E8C97801000164 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text;
-			name = USBVendors.txt;
-			path = USBProber/USBVendors.txt;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366AB902E8CA2201000164 = {
-			children = (
-				F5366ABA02E8CA2201000164,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366ABA02E8CA2201000164 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = English;
-			path = USBProber/English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366ABB02E8CA2201000164 = {
-			children = (
-				F5366ABC02E8CA2201000164,
-			);
-			isa = PBXVariantGroup;
-			name = LaunchTime.strings;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366ABC02E8CA2201000164 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = English;
-			path = USBProber/English.lproj/LaunchTime.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366ABD02E8CA2201000164 = {
-			children = (
-				F5366ABE02E8CA2201000164,
-			);
-			isa = PBXVariantGroup;
-			name = MainMenu.nib;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366ABE02E8CA2201000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.nib;
-			name = English;
-			path = USBProber/English.lproj/MainMenu.nib;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5366AC202E8CA5601000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = Cocoa.framework;
-			path = /System/Library/Frameworks/Cocoa.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5366AC302E8CA5601000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = CoreServices.framework;
-			path = /System/Library/Frameworks/CoreServices.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5366AC402E8CA5601000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = IOKit.framework;
-			path = /System/Library/Frameworks/IOKit.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5366AC502E8CA5601000164 = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = Security.framework;
-			path = /System/Library/Frameworks/Security.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5395F7E016D57AA01573190 = {
-			children = (
-				F5395F81016D581101573190,
-				F59E553D0199FBEF01573190,
-			);
-			isa = PBXGroup;
-			name = Strings;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F7F016D57E301573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = InfoPlist.strings;
-			path = AppleUSBCDCDriver/Strings/English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F81016D581101573190 = {
-			children = (
-				F5395F7F016D57E301573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F82016D581101573190 = {
-			fileRef = F5395F81016D581101573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5395F83016D58DC01573190 = {
-			children = (
-				F547620D016D5D1101573190,
-			);
-			isa = PBXGroup;
-			name = Strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F84016D58FD01573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = InfoPlist.strings;
-			path = AppleUSBComposite/Strings/English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		F5395F86016D596001573190 = {
 			children = (
 				F553A879016D5E9101573190,
 			);
 			isa = PBXGroup;
 			name = Strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F8E016D59DB01573190 = {
-			children = (
-				F5395F8F016D59DB01573190,
-			);
-			isa = PBXGroup;
-			name = Strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F8F016D59DB01573190 = {
-			children = (
-				F5395F90016D59DB01573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F90016D59DB01573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = InfoPlist.strings;
-			path = AppleUSBKeyboard/Strings/English.lproj/InfoPlist.strings;
 			refType = 4;
 			sourceTree = "<group>";
 		};
@@ -6879,41 +6087,14 @@
 			settings = {
 			};
 		};
-		F5395F96016D5AD101573190 = {
-			children = (
-				F547620F016D5D2E01573190,
-			);
-			isa = PBXGroup;
-			name = Strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5395F97016D5AF201573190 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = InfoPlist.strings;
-			path = AppleUSBMouse/Strings/English.lproj/InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		F5395F99016D5B4601573190 = {
 			children = (
-				F590EEF1034A864601000105,
+				3E3A39C5065940A500C8D91E,
 			);
 			isa = PBXGroup;
 			name = Strings;
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		F5395F9A016D5B4601573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			path = InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-			usesTabs = 1;
 		};
 		F5395F9C016D5B9001573190 = {
 			children = (
@@ -7011,15 +6192,6 @@
 			settings = {
 			};
 		};
-		F53A94830211FA0601573190 = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.cpp.cpp;
-			name = IOUSBHIDDataQueue.cpp;
-			path = IOUSBHIDDriver/Classes/IOUSBHIDDataQueue.cpp;
-			refType = 4;
-			sourceTree = "<group>";
-		};
 		F5430C660210912501573190 = {
 			children = (
 				F5A5AFB70210A22101573190,
@@ -7030,27 +6202,6 @@
 			path = "";
 			refType = 4;
 			sourceTree = "<group>";
-		};
-		F5430C670210912501573190 = {
-			children = (
-				F549D36F0226FF5E010162FA,
-				F5366A7602E8C85401000164,
-				012FA6BBFFBB92717F000001,
-				F50D2D050278884A010162FA,
-				01348643FFBB6B687F000001,
-			);
-			isa = PBXGroup;
-			name = Obsolete;
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5430C680210919001573190 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBOpticalMouse.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		F5430C690210919001573190 = {
 			buildPhases = (
@@ -7063,16 +6214,17 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.AppleUSBOpticalMouse;
-				MODULE_VERSION = 2.0.5;
+				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBOpticalMouse;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
@@ -7083,7 +6235,7 @@
 			isa = PBXBundleTarget;
 			name = AppleUSBOpticalMouse;
 			productName = AppleUSBOpticalMouse;
-			productReference = F5430C680210919001573190;
+			productReference = 3EB498F60640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -7093,7 +6245,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBOpticalMouse</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.5, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7105,11 +6257,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Apple 2000FPS Mouse</key>
@@ -7159,8 +6311,6 @@
 			<string>AppleUSBOpticalMouse</string>
 			<key>IOProviderClass</key>
 			<string>IOUSBInterface</string>
-			<key>IOUserClientClass</key>
-			<string>IOUSBHIDDriverUserClient</string>
 			<key>SwitchTo2000FPS</key>
 			<true/>
 			<key>bConfigurationValue</key>
@@ -7219,8 +6369,6 @@
 			<string>AppleUSBOpticalMouse</string>
 			<key>IOProviderClass</key>
 			<string>IOUSBInterface</string>
-			<key>IOUserClientClass</key>
-			<string>IOUSBHIDDriverUserClient</string>
 			<key>SwitchTo800DPI</key>
 			<true/>
 			<key>bConfigurationValue</key>
@@ -7243,6 +6391,8 @@
 		<string>1.8.4</string>
 		<key>com.apple.iokit.IOUSBHIDDriver</key>
 		<string>1.9</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Safe Boot</string>
@@ -7298,36 +6448,6 @@
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
 		};
-		F547620D016D5D1101573190 = {
-			children = (
-				F5395F84016D58FD01573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F547620E016D5D1201573190 = {
-			fileRef = F547620D016D5D1101573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F547620F016D5D2E01573190 = {
-			children = (
-				F5395F97016D5AF201573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5476210016D5D2E01573190 = {
-			fileRef = F547620F016D5D2E01573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		F549761B0275E06B010162FA = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
@@ -7363,118 +6483,6 @@
 			isa = PBXBuildFile;
 			settings = {
 			};
-		};
-		F549D36F0226FF5E010162FA = {
-			children = (
-				F5955CE102270501010162FA,
-				F5955CE3022705A0010162FA,
-			);
-			isa = PBXGroup;
-			name = "Configd Plugin";
-			path = "";
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F549D3700226FF5E010162FA = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = USBUPSSupport.bundle;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		F549D3720226FF5E010162FA = {
-			buildPhases = (
-				F549D3730226FF5E010162FA,
-				F549D3740226FF5E010162FA,
-				F549D3750226FF5E010162FA,
-				F549D3760226FF5E010162FA,
-				F549D3770226FF5E010162FA,
-			);
-			buildSettings = {
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				OTHER_CFLAGS = "-W -Wall -Wno-unused";
-				OTHER_LDFLAGS = "-bundle";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = USBUPSSupport;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
-				WRAPPER_EXTENSION = bundle;
-			};
-			dependencies = (
-			);
-			isa = PBXBundleTarget;
-			name = "Configd Plugin";
-			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-			productName = "Configd Plugin";
-			productReference = F549D3700226FF5E010162FA;
-			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
-<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
-<plist version=\"1.0\">
-<dict>
-	<key>CFBundleDevelopmentRegion</key>
-	<string>English</string>
-	<key>CFBundleExecutable</key>
-	<string>USBUPSSupport</string>
-	<key>CFBundleGetInfoString</key>
-	<string>2.0.5, Copyright Apple Computer, Inc. 2000-2003</string>
-	<key>CFBundleIconFile</key>
-	<string></string>
-	<key>CFBundleIdentifier</key>
-	<string>com.apple.SystemConfiguration.USBUPSSupport</string>
-	<key>CFBundleInfoDictionaryVersion</key>
-	<string>6.0</string>
-	<key>CFBundleName</key>
-	<string>USB UPS configd plugin</string>
-	<key>CFBundlePackageType</key>
-	<string>BNDL</string>
-	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
-	<key>CFBundleSignature</key>
-	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
-</dict>
-</plist>
-";
-		};
-		F549D3730226FF5E010162FA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXHeadersBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F549D3740226FF5E010162FA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXResourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F549D3750226FF5E010162FA = {
-			buildActionMask = 2147483647;
-			files = (
-				F5955CE202270501010162FA,
-			);
-			isa = PBXSourcesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F549D3760226FF5E010162FA = {
-			buildActionMask = 2147483647;
-			files = (
-				F5955CE7022705A0010162FA,
-				F5955CE8022705A0010162FA,
-				F5955CE9022705A0010162FA,
-			);
-			isa = PBXFrameworksBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		F549D3770226FF5E010162FA = {
-			buildActionMask = 2147483647;
-			files = (
-			);
-			isa = PBXRezBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		F54C711F0172214D01A80064 = {
 			fileEncoding = 30;
@@ -7545,31 +6553,7 @@
 		F560429D02109AD801573190 = {
 			isa = PBXTargetDependency;
 			target = F5430C690210919001573190;
-			targetProxy = 3EDD8A4A069B067400DC48B9;
-		};
-		F573C3D2016D730C01573190 = {
-			children = (
-				F573C3D3016D730C01573190,
-			);
-			isa = PBXVariantGroup;
-			name = Localizable.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F573C3D3016D730C01573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = Localizable.strings;
-			path = IOUSBFamily/Strings/English.lproj/Localizable.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F573C3D4016D730C01573190 = {
-			fileRef = F573C3D2016D730C01573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			targetProxy = 3E3BD57406402EEC00E0218D;
 		};
 		F581406C04575F6D01000109 = {
 			children = (
@@ -7695,7 +6679,7 @@
 			);
 			buildSettings = {
 				INSTALL_GROUP = wheel;
-				INSTALL_MODE = "\"a-w, u+w, a+rX\"";
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
 				INSTALL_OWNER = root;
 				KERNEL_EXTENSION = YES;
 				KERNEL_MODULE = YES;
@@ -7703,6 +6687,7 @@
 				MODULE_NAME = com.apple.driver.AppleUSBEHCI;
 				MODULE_VERSION = 2.2.0;
 				OTHER_CFLAGS = "-W -Wall -Wno-unused";
+				PER_ARCH_CPLUSPLUSFLAGS_ppc = "-mno-string";
 				PRODUCT_NAME = AppleUSBEHCI;
 				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
 				WRAPPER_EXTENSION = kext;
@@ -7713,7 +6698,7 @@
 			name = AppleUSBEHCI;
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
 			productName = AppleUSBEHCI;
-			productReference = F58140770457633501000109;
+			productReference = 3EB498DF0640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -7723,7 +6708,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBEHCI</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.2.0, Copyright Apple Computer, Inc. 2000-2004</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -7777,133 +6762,14 @@
 		<string>1.3</string>
 		<key>com.apple.iokit.IOUSBFamily</key>
 		<string>2.0.0a1</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>
 </dict>
 </plist>
 ";
-		};
-		F58140770457633501000109 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = AppleUSBEHCI.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
-		F590EEF1034A864601000105 = {
-			children = (
-				F5395F9A016D5B4601573190,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = AppleUSBOHCI/Strings/English.lproj;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F590EEF2034A864601000105 = {
-			fileRef = F590EEF1034A864601000105;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5955CE102270501010162FA = {
-			fileEncoding = 30;
-			isa = PBXFileReference;
-			lastKnownFileType = sourcecode.c.c;
-			name = upsconfigd.c;
-			path = Configd/upsconfigd.c;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5955CE202270501010162FA = {
-			fileRef = F5955CE102270501010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5955CE3022705A0010162FA = {
-			children = (
-				F5955CE4022705A0010162FA,
-				F5955CE5022705A0010162FA,
-				F5955CE6022705A0010162FA,
-			);
-			isa = PBXGroup;
-			name = Frameworks;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5955CE4022705A0010162FA = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = CoreFoundation.framework;
-			path = /System/Library/Frameworks/CoreFoundation.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5955CE5022705A0010162FA = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = IOKit.framework;
-			path = /System/Library/Frameworks/IOKit.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5955CE6022705A0010162FA = {
-			isa = PBXFileReference;
-			lastKnownFileType = wrapper.framework;
-			name = SystemConfiguration.framework;
-			path = /System/Library/Frameworks/SystemConfiguration.framework;
-			refType = 0;
-			sourceTree = "<absolute>";
-		};
-		F5955CE7022705A0010162FA = {
-			fileRef = F5955CE4022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5955CE8022705A0010162FA = {
-			fileRef = F5955CE5022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5955CE9022705A0010162FA = {
-			fileRef = F5955CE6022705A0010162FA;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F59E553B0199FBD801573190 = {
-			fileEncoding = 10;
-			isa = PBXFileReference;
-			lastKnownFileType = text.plist.strings;
-			name = Localizable.strings;
-			path = AppleUSBCDCDriver/Strings/English.lproj/Localizable.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F59E553D0199FBEF01573190 = {
-			children = (
-				F59E553B0199FBD801573190,
-			);
-			isa = PBXVariantGroup;
-			name = Localizable.strings;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F59E553E0199FBEF01573190 = {
-			fileRef = F59E553D0199FBEF01573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		F5A5AFB60210A17B01573190 = {
-			fileRef = F5430C680210919001573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
 		};
 		F5A5AFB70210A22101573190 = {
 			fileEncoding = 30;
@@ -7989,8 +6855,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.IOUSBHIDDriver;
-				MODULE_VERSION = 2.0.5;
-				OTHER_CFLAGS = "";
+				MODULE_VERSION = 2.2.0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOUSBHIDDriverSafeBoot;
@@ -8003,7 +6868,7 @@
 			isa = PBXBundleTarget;
 			name = IOUSBHIDDriverSafeBoot;
 			productName = AppleUSBKeyboard;
-			productReference = F5B09AB603CD27AE01000164;
+			productReference = 3EB498DB0640234A00F93E52;
 			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
 <plist version=\"1.0\">
@@ -8011,7 +6876,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.0.5 Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.2.0, Copyright © 2000-2005 Apple Computer Inc., All Rights Reserved</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -8023,11 +6888,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.0.5</string>
+	<string>2.2.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>Generic Mouse</key>
@@ -8114,11 +6979,32 @@
 			<key>bInterfaceSubClass</key>
 			<integer>1</integer>
 		</dict>
+		<key>SaitekP2500</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOUSBHIDDriver</string>
+			<key>HIDDefaultBehavior</key>
+			<string></string>
+			<key>IOClass</key>
+			<string>IOUSBHIDDriver</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>bConfigurationValue</key>
+			<integer>1</integer>
+			<key>bInterfaceNumber</key>
+			<integer>0</integer>
+			<key>idProduct</key>
+			<integer>65292</integer>
+			<key>idVendor</key>
+			<integer>1699</integer>
+		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOHIDFamily</key>
 		<string>1.3</string>
+		<key>com.apple.kernel.libkern</key>
+		<string>6.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Safe Boot</string>
@@ -8126,34 +7012,15 @@
 </plist>
 ";
 		};
-		F5B09AB603CD27AE01000164 = {
-			explicitFileType = wrapper.cfbundle;
-			isa = PBXFileReference;
-			path = IOUSBHIDDriverSafeBoot.kext;
-			refType = 3;
-			sourceTree = BUILT_PRODUCTS_DIR;
-		};
 		F5B09AEB03CD2F2601000164 = {
 			isa = PBXTargetDependency;
 			target = F5B09AB503CD27AE01000164;
-			targetProxy = 3EDD8A44069B067400DC48B9;
-		};
-		F5B09AED03CD2FFA01000164 = {
-			fileRef = F5B09AB603CD27AE01000164;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			targetProxy = 3E3BD57006402EEC00E0218D;
 		};
 		F5BCFC7A04583B3C01000109 = {
 			isa = PBXTargetDependency;
 			target = F58140760457633501000109;
-			targetProxy = 3EDD8A4C069B067400DC48B9;
-		};
-		F5BCFC7E04583B7101000109 = {
-			fileRef = F58140770457633501000109;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			targetProxy = 3E3BD57706402EEC00E0218D;
 		};
 		F5BCFC7F04583E7601000109 = {
 			fileEncoding = 30;
@@ -8481,28 +7348,12 @@
 		F5C6E0DB0300612F01000164 = {
 			isa = PBXTargetDependency;
 			target = F5366A7302E8C77501000164;
-			targetProxy = 3EDD8A43069B067400DC48B9;
-		};
-		F5D0F2AD016D27BA01573190 = {
-			children = (
-				089C167EFE841241C02AAC07,
-			);
-			isa = PBXVariantGroup;
-			name = InfoPlist.strings;
-			path = English.lproj;
-			refType = 4;
-			sourceTree = "<group>";
-		};
-		F5D0F2AE016D27BA01573190 = {
-			fileRef = F5D0F2AD016D27BA01573190;
-			isa = PBXBuildFile;
-			settings = {
-			};
+			targetProxy = 3E3BD56F06402EEC00E0218D;
 		};
 		F5D0F2AF016D294801573190 = {
 			children = (
+				3E12E9F607945DDE00A3FE67,
 				F5395FA6016D5C9E01573190,
-				F573C3D2016D730C01573190,
 			);
 			isa = PBXGroup;
 			name = Strings;
@@ -8562,7 +7413,6 @@
 			};
 		};
 		F5E6DE2501206FCF01000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "AnchorUSB Driver";
@@ -8570,7 +7420,6 @@
 			sourceTree = "<group>";
 		};
 		F5E6DE2601206FCF01000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "ClassicNotSeize Driver";
@@ -8578,7 +7427,6 @@
 			sourceTree = "<group>";
 		};
 		F5E6DE2701206FCF01000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "VendorSpecific Driver";
@@ -8586,7 +7434,6 @@
 			sourceTree = "<group>";
 		};
 		F5E6DE2801206FCF01000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "USBNotification Example";
@@ -8594,7 +7441,6 @@
 			sourceTree = "<group>";
 		};
 		F5E6DE2901206FCF01000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = folder;
 			path = "USBSimple Example";
@@ -8669,7 +7515,6 @@
 			sourceTree = "<group>";
 		};
 		F5F1995001209AE401000001 = {
-			includeInIndex = 0;
 			isa = PBXFileReference;
 			lastKnownFileType = text.html.documentation;
 			name = IOUSBLib;

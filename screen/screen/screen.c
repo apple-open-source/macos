@@ -30,10 +30,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: screen.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
-
 #include <sys/types.h>
 #include <ctype.h>
 
@@ -124,6 +120,10 @@ extern unsigned char mark_key_tab[];
 #endif
 extern char version[];
 extern char DefaultShell[];
+#ifdef ZMODEM
+extern char *zmodem_sendcmd;
+extern char *zmodem_recvcmd;
+#endif
 
 
 char *ShellProg;
@@ -144,8 +144,11 @@ static void  serv_select_fn __P((struct event *, char *));
 static void  logflush_fn __P((struct event *, char *));
 static void  backtick_filter __P((struct backtick *));
 static void  backtick_fn __P((struct event *, char *));
-static char *runbacktick __P((struct backtick *, int *, time_t, struct win *));
+static char *runbacktick __P((struct backtick *, int *, time_t));
 static int   IsSymbol __P((char *, char *));
+static char *ParseChar __P((char *, char *));
+static int   ParseEscape __P((char *));
+static char *pad_expand __P((char *, char *, int, int));
 #ifdef DEBUG
 static void  fds __P((void));
 #endif
@@ -220,9 +223,6 @@ char *screenencodings;
 
 #ifdef NETHACK
 int nethackflag = 0;
-#endif
-#ifdef MAPKEYS
-int maptimeout = 300000;
 #endif
 int maxwin = MAXWIN;
 
@@ -449,16 +449,20 @@ char **av;
 #endif
   default_startup = (ac > 1) ? 0 : 1;
   adaptflag = 0;
-  VBellWait = VBELLWAIT;
-  MsgWait = MSGWAIT;
-  MsgMinWait = MSGMINWAIT;
+  VBellWait = VBELLWAIT * 1000;
+  MsgWait = MSGWAIT * 1000;
+  MsgMinWait = MSGMINWAIT * 1000;
   SilenceWait = SILENCEWAIT;
 #ifdef HAVE_BRAILLE
   InitBraille();
 #endif
+#ifdef ZMODEM
+  zmodem_sendcmd = SaveStr("!!! sz -vv -b ");
+  zmodem_recvcmd = SaveStr("!!! rz -vv -b -E");
+#endif
 
 #ifdef COPY_PASTE
-  CompileKeys((char *)NULL, mark_key_tab);
+  CompileKeys((char *)0, 0, mark_key_tab);
 #endif
 #ifdef UTF8
   InitBuiltinTabs();
@@ -541,7 +545,7 @@ char **av;
 			exit_with_usage(myname, "Specify command characters with -e", NULL);
 		      ap = *++av;
 		    }
-		  if (ParseEscape(NULL, ap))
+		  if (ParseEscape(ap))
 		    Panic(0, "Two characters are required with -e option, not '%s'.", ap);
 		  ap = NULL;
 		  break;
@@ -847,7 +851,7 @@ char **av;
   if ((LoginName = getlogin()) && LoginName[0] != '\0')
     {
       if ((ppp = getpwnam(LoginName)) != (struct passwd *) 0)
-	if (ppp->pw_uid != real_uid)
+	if ((int)ppp->pw_uid != real_uid)
 	  ppp = (struct passwd *) 0;
     }
   if (ppp == 0)
@@ -912,7 +916,7 @@ char **av;
 #ifdef _MODE_T
   oumask = umask(0);		/* well, unsigned never fails? jw. */
 #else
-  if ((oumask = umask(0)) == -1)
+  if ((oumask = (int)umask(0)) == -1)
     Panic(errno, "Cannot change umask to zero");
 #endif
   SockDir = getenv("SCREENDIR");
@@ -983,12 +987,12 @@ char **av;
 	    {
 	      if (!S_ISDIR(st.st_mode))
 		Panic(0, "'%s' must be a directory.", SockDir);
-              if (eff_uid == 0 && real_uid && st.st_uid != eff_uid)
+              if (eff_uid == 0 && real_uid && (int)st.st_uid != eff_uid)
 		Panic(0, "Directory '%s' must be owned by root.", SockDir);
 	      n = (eff_uid == 0 && (real_uid || (st.st_mode & 0775) != 0775)) ? 0755 :
-	          (eff_gid == st.st_gid && eff_gid != real_gid) ? 0775 :
+	          (eff_gid == (int)st.st_gid && eff_gid != real_gid) ? 0775 :
 		  0777;
-	      if ((st.st_mode & 0777) != n)
+	      if (((int)st.st_mode & 0777) != n)
 		Panic(0, "Directory '%s' must have mode %03o.", SockDir, n);
 	    }
 	  sprintf(SockPath, "%s/S-%s", SockDir, LoginName);
@@ -1010,13 +1014,13 @@ char **av;
 #ifdef MULTIUSER
   if (multi)
     {
-      if (st.st_uid != multi_uid)
+      if ((int)st.st_uid != multi_uid)
 	Panic(0, "%s is not the owner of %s.", multi, SockPath);
     }
   else
 #endif
     {
-      if (st.st_uid != real_uid)
+      if ((int)st.st_uid != real_uid)
 	Panic(0, "You are not the owner of %s.", SockPath);
     }
   if ((st.st_mode & 0777) != 0700)
@@ -1305,6 +1309,7 @@ char **av;
     }
   else
     brktty(-1);		/* just try */
+  signal(SIGCHLD, SigChld);
 #ifdef ETCSCREENRC
 # ifdef ALLOW_SYSSCREENRC
   if ((ap = getenv("SYSSCREENRC")))
@@ -1334,7 +1339,6 @@ char **av;
   
   if (display && default_startup)
     display_copyright();
-  signal(SIGCHLD, SigChld);
   signal(SIGINT, SigInt);
   if (rflag && (rflag & 1) == 0)
     {
@@ -1618,7 +1622,7 @@ int i;
 {
   struct win *p, *next;
 
-  signal(SIGCHLD, SIG_IGN);
+  signal(SIGCHLD, SIG_DFL);
   signal(SIGHUP, SIG_IGN);
   debug1("Finit(%d);\n", i);
   for (p = windows; p; p = next)
@@ -1749,7 +1753,7 @@ int mode;
       AddStr("[power detached]\r\n");
       if (PowDetachString) 
 	{
-	  AddStr(expand_vars(PowDetachString, display));
+	  AddStr(PowDetachString);
 	  AddStr("\r\n");
 	}
       sign = SIG_POWER_BYE;
@@ -1759,7 +1763,7 @@ int mode;
       AddStr("[remote power detached]\r\n");
       if (PowDetachString) 
 	{
-	  AddStr(expand_vars(PowDetachString, display));
+	  AddStr(PowDetachString);
 	  AddStr("\r\n");
 	}
       sign = SIG_POWER_BYE;
@@ -2219,11 +2223,10 @@ char **cmdv;
 }
 
 static char *
-runbacktick(bt, tickp, now, win)
+runbacktick(bt, tickp, now)
 struct backtick *bt;
 int *tickp;
 time_t now;
-struct win *win;
 {
   int f, i, l, j;
   time_t now2;
@@ -2500,11 +2503,11 @@ int rec;
 	      *p = 0;
 	      strcpy(savebuf, winmsg_buf);
 	      winmsg_numrend = -winmsg_numrend;
-	      MakeWinMsgEv(*s == 'h' ? win->w_hstatus : runbacktick(bt, &oldtick, now.tv_sec, win), win, '\005', 0, (struct event *)0, rec + 1);
+	      MakeWinMsgEv(*s == 'h' ? win->w_hstatus : runbacktick(bt, &oldtick, now.tv_sec), win, '\005', 0, (struct event *)0, rec + 1);
 	      debug2("oldtick=%d tick=%d\n", oldtick, tick);
 	      if (!tick || oldtick < tick)
 		tick = oldtick;
-	      if (strlen(winmsg_buf) < l)
+	      if ((int)strlen(winmsg_buf) < l)
 		strcat(savebuf, winmsg_buf);
 	      strcpy(winmsg_buf, savebuf);
 	      while (oldnumrend < winmsg_numrend)
@@ -2553,7 +2556,7 @@ int rec;
 	  break;
 	case 't':
 	  *p = 0;
-	  if (win && strlen(win->w_title) < l)
+	  if (win && (int)strlen(win->w_title) < l)
 	    {
 	      strcpy(p, win->w_title);
 	      if (*p)
@@ -2590,7 +2593,7 @@ int rec;
 	  break;
 	case 'H':
 	  *p = 0;
-	  if (strlen(HostName) < l)
+	  if ((int)strlen(HostName) < l)
 	    {
 	      strcpy(p, HostName);
 	      if (*p)
@@ -2601,7 +2604,7 @@ int rec;
 	case 'F':
 	  p--;
 	  /* small hack */
-	  if ((ev && ev == &D_forecv->c_captev) || (!ev && win && win == D_fore))
+	  if (display && ((ev && ev == &D_forecv->c_captev) || (!ev && win && win == D_fore)))
 	    qmflag = 1;
 	  break;
 	case '>':
@@ -2846,34 +2849,6 @@ int start, max;
   return 1;
 }
 
-void
-DisplaySleep(n, eat)
-int n;
-int eat;
-{
-  char buf;
-  fd_set r;
-  struct timeval t;
-
-  if (!display)
-    {
-      debug("DisplaySleep has no display sigh\n");
-      sleep(n);
-      return;
-    }
-  t.tv_usec = 0;
-  t.tv_sec = n;
-  FD_ZERO(&r);
-  FD_SET(D_userfd, &r);
-  if (select(FD_SETSIZE, &r, (fd_set *)0, (fd_set *)0, &t) > 0)
-    {
-      debug("display activity stopped sleep\n");
-      if (eat)
-        read(D_userfd, &buf, 1);
-    }
-  debug2("DisplaySleep(%d) ending, eat was %d\n", n, eat);
-}
-
 
 #ifdef DEBUG
 static void
@@ -2977,7 +2952,7 @@ char *data;
 		    {
 		      D_status_bell = 1;
 		      debug1("using vbell timeout %d\n", VBellWait);
-		      SetTimeout(&D_statusev, VBellWait * 1000);
+		      SetTimeout(&D_statusev, VBellWait );
 		    }
 		}
 	    }
@@ -3144,5 +3119,58 @@ char *data;
       buf = MakeWinMsg(logtstamp_string, p, '%');
       logfwrite(p->w_log, buf, strlen(buf));
     }
+}
+
+/*
+ * Interprets ^?, ^@ and other ^-control-char notation.
+ * Interprets \ddd octal notation
+ * 
+ * The result is placed in *cp, p is advanced behind the parsed expression and 
+ * returned. 
+ */
+static char *
+ParseChar(p, cp)
+char *p, *cp;
+{
+  if (*p == 0)
+    return 0;
+  if (*p == '^' && p[1])
+    {
+      if (*++p == '?')
+        *cp = '\177';
+      else if (*p >= '@')
+        *cp = Ctrl(*p);
+      else
+        return 0;
+      ++p;
+    }
+  else if (*p == '\\' && *++p <= '7' && *p >= '0')
+    {
+      *cp = 0;
+      do
+        *cp = *cp * 8 + *p - '0';
+      while (*++p <= '7' && *p >= '0');
+    }
+  else
+    *cp = *p++;
+  return p;
+}
+
+static int 
+ParseEscape(p)
+char *p;
+{
+  unsigned char buf[2];
+
+  if (*p == 0)
+    SetEscape((struct acluser *)0, -1, -1);
+  else
+    {
+      if ((p = ParseChar(p, (char *)buf)) == NULL ||
+	  (p = ParseChar(p, (char *)buf+1)) == NULL || *p)
+	return -1;
+      SetEscape((struct acluser *)0, buf[0], buf[1]);
+    }
+  return 0;
 }
 

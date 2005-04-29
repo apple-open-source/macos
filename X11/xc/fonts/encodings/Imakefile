@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/fonts/encodings/Imakefile,v 1.9 2003/02/05 12:47:41 dawes Exp $
+XCOMM $XFree86: xc/fonts/encodings/Imakefile,v 1.11 2003/11/22 05:08:15 dawes Exp $
 
 #define IHaveSubdirs
 #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
@@ -7,10 +7,12 @@ SUBDIRS = large
 
 OBJS = EncObjComp(adobe-dingbats) EncObjComp(adobe-standard) \
 	EncObjComp(adobe-symbol) \
+	EncObj(ansi-1251) \
 	EncObj(armscii-8) \
 	EncObj(dec-special) \
 	EncObj(ibm-cp437) EncObj(ibm-cp850) \
 	EncObj(ibm-cp852) EncObj(ibm-cp866) \
+	EncObj(iso8859-6.16) EncObj(iso8859-6.8x) \
 	EncObj(iso8859-11) EncObj(iso8859-13) \
 	EncObj(iso8859-16) \
 	EncObj(microsoft-cp1250) EncObj(microsoft-cp1251) \

@@ -28,6 +28,9 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
+#ifndef __POLICY_H__
+#define __POLICY_H__
+
 
 #include <sys/queue.h>
 
@@ -113,3 +116,7 @@ extern void initsp __P((void));
 extern struct ipsecrequest *newipsecreq __P((void));
 
 extern const char *spidx2str __P((const struct policyindex *));
+
+
+#endif /* __POLICY_H__ */
+

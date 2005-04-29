@@ -382,7 +382,7 @@ OSStatus EXP(RegistryPropertyDelete)( const RegEntryID * entryID, const RegPrope
 void IONDRVSetNVRAMPropertyName( IORegistryEntry * regEntry,
 				    const OSSymbol * sym )
 {
-    regEntry->setProperty( "IONVRAMProperty", sym );
+    regEntry->setProperty( "IONVRAMProperty", /*(OSObject *)*/ sym );
 }
 
 static IOReturn IONDRVSetNVRAMPropertyValue( IORegistryEntry * regEntry,
@@ -1030,19 +1030,24 @@ OSErr EXP(IOCommandIsComplete)( IOCommandID commandID, OSErr result)
 
 #include <kern/clock.h>
 
+#define UnsignedWideToUInt64(x)		(*(UInt64 *)(x))
+#define UInt64ToUnsignedWide(x)		(*(UnsignedWide *)(x))
 
-AbsoluteTime EXP(UpTime)( void )
+#define UnsignedWideToAbsoluteTime(x)	(*(AbsoluteTime *)(x))
+#define AbsoluteTimeToUnsignedWide(x)	(*(UnsignedWide *)(x))
+
+UnsignedWide EXP(UpTime)( void )
 {
     AbsoluteTime    result;
 
     clock_get_uptime( &result);
 
-    return (result);
+    return (AbsoluteTimeToUnsignedWide(&result));
 }
 
-AbsoluteTime EXP(AddAbsoluteToAbsolute)(AbsoluteTime left, AbsoluteTime right)
+UnsignedWide EXP(AddAbsoluteToAbsolute)(UnsignedWide left, UnsignedWide right)
 {
-    AbsoluteTime    result = left;
+    UnsignedWide    result = left;
 
     ADD_ABSOLUTETIME( &result, &right);
 
@@ -1050,9 +1055,9 @@ AbsoluteTime EXP(AddAbsoluteToAbsolute)(AbsoluteTime left, AbsoluteTime right)
 }
 
 
-AbsoluteTime EXP(SubAbsoluteFromAbsolute)(AbsoluteTime left, AbsoluteTime right)
+UnsignedWide EXP(SubAbsoluteFromAbsolute)(UnsignedWide left, UnsignedWide right)
 {
-    AbsoluteTime    result = left;
+    UnsignedWide    result = left;
 
     // !! ATI bug fix here:
     // They expect the 64-bit result to be signed. The spec says < 0 => 0
@@ -1073,7 +1078,7 @@ AbsoluteTime EXP(SubAbsoluteFromAbsolute)(AbsoluteTime left, AbsoluteTime right)
 }
 
 
-AbsoluteTime    EXP(DurationToAbsolute)( Duration theDuration)
+UnsignedWide    EXP(DurationToAbsolute)( Duration theDuration)
 {
     AbsoluteTime    result;
 
@@ -1088,39 +1093,36 @@ AbsoluteTime    EXP(DurationToAbsolute)( Duration theDuration)
 		&result );
     }
 
-    return (result);
+    return (AbsoluteTimeToUnsignedWide(&result));
 }
 
-AbsoluteTime EXP(AddDurationToAbsolute)( Duration duration, AbsoluteTime absolute )
+UnsignedWide EXP(AddDurationToAbsolute)( Duration duration, UnsignedWide absolute )
 {
     return (EXP(AddAbsoluteToAbsolute)(EXP(DurationToAbsolute)(duration), absolute));
 }
 
-#define UnsignedWideToUInt64(x)		(*(UInt64 *)(x))
-#define UInt64ToUnsignedWide(x)		(*(UnsignedWide *)(x))
-
-AbsoluteTime    EXP(NanosecondsToAbsolute) ( UnsignedWide theNanoseconds)
+UnsignedWide    EXP(NanosecondsToAbsolute) ( UnsignedWide theNanoseconds)
 {
     AbsoluteTime result;
-    UInt64	nano = UnsignedWideToUInt64(&theNanoseconds);
+    UInt64	 nano = UnsignedWideToUInt64(&theNanoseconds);
 
     nanoseconds_to_absolutetime( nano, &result);
 
-    return (result);
+    return (AbsoluteTimeToUnsignedWide(&result));
 }
 
-UnsignedWide    EXP(AbsoluteToNanoseconds)( AbsoluteTime absolute )
+UnsignedWide    EXP(AbsoluteToNanoseconds)( UnsignedWide absolute )
 {
     UnsignedWide result;
     UInt64	nano;
 
-    absolutetime_to_nanoseconds( absolute, &nano);
+    absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&absolute), &nano);
     result = UInt64ToUnsignedWide( &nano );
 
     return (result);
 }
 
-Duration    EXP(AbsoluteDeltaToDuration)( AbsoluteTime left, AbsoluteTime right )
+Duration    EXP(AbsoluteDeltaToDuration)( UnsignedWide left, UnsignedWide right )
 {
     Duration		dur;
     AbsoluteTime	result;
@@ -1129,7 +1131,7 @@ Duration    EXP(AbsoluteDeltaToDuration)( AbsoluteTime left, AbsoluteTime right 
     if (CMP_ABSOLUTETIME(&left, &right) < 0)
 	return (0);
 
-    result = left;
+    result = UnsignedWideToAbsoluteTime(&left);
     SUB_ABSOLUTETIME( &result, &right);
     absolutetime_to_nanoseconds( result, &nano);
 
@@ -1150,12 +1152,12 @@ Duration    EXP(AbsoluteDeltaToDuration)( AbsoluteTime left, AbsoluteTime right 
     return (dur);
 }
 
-Duration    EXP(AbsoluteToDuration)( AbsoluteTime result )
+Duration    EXP(AbsoluteToDuration)( UnsignedWide result )
 {
     Duration		dur;
     UInt64		nano;
 
-    absolutetime_to_nanoseconds( result, &nano);
+    absolutetime_to_nanoseconds( UnsignedWideToAbsoluteTime(&result), &nano);
 
     if (nano >= ((1ULL << 31) * 1000ULL))
     {
@@ -1174,50 +1176,21 @@ Duration    EXP(AbsoluteToDuration)( AbsoluteTime result )
     return (dur);
 }
 
-OSStatus    EXP(DelayForHardware)( AbsoluteTime time )
+OSStatus    EXP(DelayForHardware)( UnsignedWide time )
 {
     AbsoluteTime	deadline;
 
-    clock_absolutetime_interval_to_deadline( time, &deadline );
+    clock_absolutetime_interval_to_deadline( 
+            UnsignedWideToAbsoluteTime(&time), &deadline );
 
-#ifdef __ppc__
-    if (!get_preemption_level())
-    {
-	UInt64 nano;
-	absolutetime_to_nanoseconds(time, &nano);
-	if (nano >= 999000ULL)
-	{
-	    EXP(DelayUntil)(deadline);
-	    return (noErr);
-	}
-    }
-#endif
-
-#ifdef __ppc__
     clock_delay_until( deadline );
-#else
-    {
-	AbsoluteTime now;
-	do {
-	    clock_get_uptime(&now);
-	} while (AbsoluteTime_to_scalar(&now) < AbsoluteTime_to_scalar(&deadline));
-    }
-#endif
 
     return (noErr);
 }
 
-OSStatus    EXP(DelayUntil)( AbsoluteTime time )
+OSStatus    EXP(DelayUntil)( UnsignedWide time )
 {
-    wait_result_t res;
-
-    res = assert_wait((event_t)&__FUNCTION__, THREAD_UNINT);
-    assert(res == THREAD_WAITING);
-    if (res == THREAD_WAITING)
-	thread_set_timer_deadline(time);
-    res = thread_block(THREAD_CONTINUE_NULL);
-    assert(res == THREAD_TIMED_OUT);
-
+    clock_delay_until(UnsignedWideToAbsoluteTime(&time));
     return (noErr);
 }
 
@@ -1237,7 +1210,7 @@ OSStatus    EXP(DelayFor)( Duration theDuration )
 #define NANO32_MILLI			4295
 
     UnsignedWide	nano;
-    AbsoluteTime	abs;
+    UnsignedWide	abs;
     unsigned int	ms;
 
     abs = EXP(DurationToAbsolute)( theDuration);
@@ -1246,14 +1219,7 @@ OSStatus    EXP(DelayFor)( Duration theDuration )
     ms = (nano.lo / DELAY_FOR_TICK_NANO) * DELAY_FOR_TICK_MILLI;
     ms += nano.hi * NANO32_MILLI;
     if (ms)
-    {
-#ifdef __ppc__
-	if (get_preemption_level())
-	    IODelay(ms*1000);
-	else
-#endif
-	    IOSleep(ms);
-    }
+        delay_for_interval(ms, kMillisecondScale);
 
 #else
     // Accurate, but incompatible, version
@@ -2112,7 +2078,7 @@ static void IONDRVLibrariesTest( IOService * provider )
 {
     UInt64 nano;
     UnsignedWide nano2;
-    AbsoluteTime abs1, abs2;
+    UnsignedWide abs1, abs2;
 
     nano = 1000ULL;
     abs1 = EXP(NanosecondsToAbsolute(UInt64ToUnsignedWide(&nano));

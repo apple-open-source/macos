@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeScSav.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeScSav.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,41 +144,20 @@
 .SH NAME
 XSetScreenSaver, XForceScreenSaver, XActivateScreenSaver, XResetScreenSaver, XGetScreenSaver \- manipulate the screen saver
 .SH SYNTAX
-XSetScreenSaver\^(\^\fIdisplay\fP, \fItimeout\fP\^, \fIinterval\fP\^, \fIprefer_blanking\fP\^, \fIallow_exposures\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fItimeout\fP\^, \fIinterval\fP\^;
-.br
-      int \fIprefer_blanking\fP\^; 
-.br
-      int \fIallow_exposures\fP\^;
-.LP
-XForceScreenSaver\^(\^\fIdisplay\fP\^, \fImode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fImode\fP\^;
-.LP
-XActivateScreenSaver\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.LP
-XResetScreenSaver\^(\^\fIdisplay\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.LP
-XGetScreenSaver\^(\^\fIdisplay\fP, \fItimeout_return\fP\^, \fIinterval_return\fP\^, \fIprefer_blanking_return\fP\^, 
-.br
-                  \fIallow_exposures_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fItimeout_return\fP\^, *\fIinterval_return\fP\^;
-.br
-      int *\fIprefer_blanking_return\fP\^;
-.br
-      int *\fIallow_exposures_return\fP\^;
+.HP
+int XSetScreenSaver\^(\^Display *\fIdisplay\fP\^, int \fItimeout\fP\^,
+int \fIinterval\fP\^, int \fIprefer_blanking\fP\^, int
+\fIallow_exposures\fP\^); 
+.HP
+int XForceScreenSaver\^(\^Display *\fIdisplay\fP\^, int \fImode\fP\^); 
+.HP
+int XActivateScreenSaver\^(\^Display *\fIdisplay\fP\^); 
+.HP
+int XResetScreenSaver\^(\^Display *\fIdisplay\fP\^); 
+.HP
+int XGetScreenSaver\^(\^Display *\fIdisplay\fP\^, int *\fItimeout_return\fP\^,
+int *\fIinterval_return\fP\^, int *\fIprefer_blanking_return\fP\^, int
+*\fIallow_exposures_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIallow_exposures\fP 1i
 Specifies the screen save control values.

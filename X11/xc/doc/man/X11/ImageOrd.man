@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/ImageOrd.man,v 1.2 2001/01/27 18:19:56 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/ImageOrd.man,v 1.3 2003/04/28 22:17:53 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,27 +144,24 @@
 .SH NAME
 ImageByteOrder, BitmapBitOrder, BitmapPad, BitmapUnit, DisplayHeight, DisplayHeightMM, DisplayWidth, DisplayWidthMM, XListPixmapFormats, XPixmapFormatValues \- image format functions and macros
 .SH SYNTAX
-XPixmapFormatValues *XListPixmapFormats\^(\^\fIdisplay\fP, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int *\fIcount_return\fP\^;
-.LP
-ImageByteOrder\^(\^\fIdisplay\fP\^)
-.LP
-BitmapBitOrder\^(\^\fIdisplay\fP\^)
-.LP
-BitmapPad\^(\^\fIdisplay\fP\^)
-.LP
-BitmapUnit\^(\^\fIdisplay\fP\^)
-.LP
-DisplayHeight\^(\^\fIdisplay\fP\^, \^\fIscreen_number\fP\^)
-.LP
-DisplayHeightMM\^(\^\fIdisplay\fP\^, \^\fIscreen_number\fP\^)
-.LP
-DisplayWidth\^(\^\fIdisplay\fP\^, \^\fIscreen_number\fP\^)
-.LP
-DisplayWidthMM\^(\^\fIdisplay\fP\^, \^\fIscreen_number\fP\^)
+.HP
+XPixmapFormatValues *XListPixmapFormats\^(\^Display *\fIdisplay\fP, int *\fIcount_return\fP\^);
+.HP
+int ImageByteOrder\^(\^Display *\fIdisplay\fP\^);
+.HP
+int BitmapBitOrder\^(\^Display *\fIdisplay\fP\^);
+.HP
+int BitmapPad\^(\^Display *\fIdisplay\fP\^);
+.HP
+int BitmapUnit\^(\^Display *\fIdisplay\fP\^);
+.HP
+int DisplayHeight\^(\^Display *\fIdisplay\fP\^, \^int \fIscreen_number\fP\^);
+.HP
+int DisplayHeightMM\^(\^Display *\fIdisplay\fP\^, \^int \fIscreen_number\fP\^);
+.HP
+int DisplayWidth\^(\^Display *\fIdisplay\fP\^, \^int \fIscreen_number\fP\^);
+.HP
+int DisplayWidthMM\^(\^Display *\fIdisplay\fP\^, \^int \fIscreen_number\fP\^);
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

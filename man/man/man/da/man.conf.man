@@ -1,0 +1,45 @@
+.\" @(#)man.conf
+.\"
+.\" edited and translated to danish by Bo Vagner Hoejer 1996
+.\" email bo@petshop.ping.dk - bo@image.dk
+.\"
+.TH MAN.CONF 5 "30 Marts 1994" "da" "Linux filformater" 
+.SH NAVN
+man.conf \- konfigurationsfil for manual kommandoen
+.SH BESKRIVELSE
+.LP
+Denne fil bliver læst af
+.BR man (1)
+og indeholder (a) information om hvordan søgestien for 'man' konstrueres,
+(b) den fulde sti til programmer som bruges af 'man' f.eks. nroff, eqn, tbl
+etc. og (c) en liste over udpakkeprogrammer til filer med en given endelse. 
+En alternativ version af denne fil kan specifiseres med
+.LP
+.RS
+man -C privat_manual.konfiguration ...
+.RE
+.LP
+Programnavne kan angives med parametre. Nyttige parametre til nroff er
+beskrevet på
+.BR grotty (1)
+manualsiden. Eksempelvis kan standardlinien
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+erstattes med
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+med det formål at forhindre understregning og fed skrift.
+.SH "SE OGSÅ"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) og compress(1), gzip(1).
+

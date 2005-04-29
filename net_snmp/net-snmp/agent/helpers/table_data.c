@@ -51,7 +51,8 @@ int
 netsnmp_table_data_add_row(netsnmp_table_data *table,
                            netsnmp_table_row *row)
 {
-    netsnmp_table_row *nextrow, *prevrow;
+    int rc, dup = 0;
+    netsnmp_table_row *nextrow = NULL, *prevrow;
 
     if (!row || !table)
         return SNMPERR_GENERR;
@@ -76,26 +77,48 @@ netsnmp_table_data_add_row(netsnmp_table_data *table,
     }
 
     /*
+     * check for simple append
+     */
+    if ((prevrow = table->last_row) != NULL) {
+        rc = snmp_oid_compare(prevrow->index_oid, prevrow->index_oid_len,
+                              row->index_oid, row->index_oid_len);
+        if (0 == rc)
+            dup = 1;
+    }
+    else
+        rc = 1;
+    
+    /*
+     * if no last row, or newrow < last row, search the table and
      * insert it into the table in the proper oid-lexographical order 
      */
-    for (nextrow = table->first_row, prevrow = NULL;
-         nextrow != NULL; prevrow = nextrow, nextrow = nextrow->next) {
-        if (nextrow->index_oid &&
-            snmp_oid_compare(nextrow->index_oid, nextrow->index_oid_len,
-                             row->index_oid, row->index_oid_len) > 0)
-            break;
-        if (nextrow->index_oid &&
-            snmp_oid_compare(nextrow->index_oid, nextrow->index_oid_len,
-                             row->index_oid, row->index_oid_len) == 0) {
-            /*
-             * exact match.  Duplicate entries illegal 
-             */
-            snmp_log(LOG_WARNING,
-                     "duplicate table data attempted to be entered\n");
-            return SNMPERR_GENERR;
+    if (rc > 0) {
+        for (nextrow = table->first_row, prevrow = NULL;
+             nextrow != NULL; prevrow = nextrow, nextrow = nextrow->next) {
+            if (NULL == nextrow->index_oid) {
+                DEBUGMSGT(("table_data_add_data", "row doesn't have index!\n"));
+                /** xxx-rks: remove invalid row? */
+                continue;
+            }
+            rc = snmp_oid_compare(nextrow->index_oid, nextrow->index_oid_len,
+                                  row->index_oid, row->index_oid_len);
+            if(rc > 0)
+                break;
+            if (0 == rc) {
+                dup = 1;
+                break;
+            }
         }
     }
 
+    if (dup) {
+        /*
+         * exact match.  Duplicate entries illegal 
+         */
+        snmp_log(LOG_WARNING,
+                 "duplicate table data attempted to be entered\n");
+        return SNMPERR_GENERR;
+    }
 
     /*
      * ok, we have the location of where it should go 
@@ -114,6 +137,8 @@ netsnmp_table_data_add_row(netsnmp_table_data *table,
 
     if (NULL == row->prev)      /* it's the (new) first row */
         table->first_row = row;
+    if (NULL == row->next)      /* it's the last row */
+        table->last_row = row;
 
     DEBUGMSGTL(("table_data_add_data", "added something...\n"));
 
@@ -140,6 +165,8 @@ netsnmp_table_data_remove_row(netsnmp_table_data *table,
 
     if (row->next)
         row->next->prev = row->prev;
+    else
+        table->last_row = row->prev;
 
     return row;
 }
@@ -247,6 +274,7 @@ netsnmp_get_table_data_handler(netsnmp_table_data *table)
         netsnmp_create_handler(TABLE_DATA_NAME,
                                netsnmp_table_data_helper_handler);
     if (ret) {
+        ret->flags |= MIB_HANDLER_AUTO_NEXT;
         ret->myvoid = (void *) table;
     }
     return ret;
@@ -305,6 +333,14 @@ netsnmp_table_data_helper_handler(netsnmp_mib_handler *handler,
         table_info = netsnmp_extract_table_info(request);
         if (!table_info)
             continue;           /* ack */
+        switch (reqinfo->mode) {
+        case MODE_GET:
+        case MODE_GETNEXT:
+        case MODE_SET_RESERVE1:
+            netsnmp_request_add_list_data(request,
+                                      netsnmp_create_data_list(
+                                          TABLE_DATA_TABLE, table, NULL));
+        }
 
         /*
          * find the row in question 
@@ -397,7 +433,7 @@ netsnmp_table_data_helper_handler(netsnmp_mib_handler *handler,
                 valid_request = 1;
                 netsnmp_request_add_list_data(request,
                                               netsnmp_create_data_list
-                                              (TABLE_DATA_NAME, row,
+                                              (TABLE_DATA_ROW, row,
                                                NULL));
                 /*
                  * Set the name appropriately, so we can pass this
@@ -448,7 +484,7 @@ netsnmp_table_data_helper_handler(netsnmp_mib_handler *handler,
                 valid_request = 1;
                 netsnmp_request_add_list_data(request,
                                               netsnmp_create_data_list
-                                              (TABLE_DATA_NAME, row,
+                                              (TABLE_DATA_ROW, row,
                                                NULL));
             }
             break;
@@ -466,7 +502,7 @@ netsnmp_table_data_helper_handler(netsnmp_mib_handler *handler,
                                                  2))) {
                 netsnmp_request_add_list_data(request,
                                               netsnmp_create_data_list
-                                              (TABLE_DATA_NAME, row,
+                                              (TABLE_DATA_ROW, row,
                                                NULL));
             }
             break;
@@ -481,42 +517,25 @@ netsnmp_table_data_helper_handler(netsnmp_mib_handler *handler,
         }
     }
 
-    if (valid_request) {
+    if (valid_request &&
+       (reqinfo->mode == MODE_GETNEXT || reqinfo->mode == MODE_GETBULK)) {
         /*
          * If this is a GetNext or GetBulk request, then we've identified
          *  the row that ought to include the appropriate next instance.
          *  Convert the request into a Get request, so that the lower-level
-         *  handlers don't need to worry about skipping on....
+         *  handlers don't need to worry about skipping on, and call these
+         *  handlers ourselves (so we can undo this again afterwards).
          */
         oldmode = reqinfo->mode;
-        if (reqinfo->mode == MODE_GETNEXT || reqinfo->mode == MODE_GETBULK) {
-            reqinfo->mode = MODE_GET;
-        }
+        reqinfo->mode = MODE_GET;
         result = netsnmp_call_next_handler(handler, reginfo, reqinfo,
                                          requests);
-        if (oldmode == MODE_GETNEXT || oldmode == MODE_GETBULK) {       /* XXX */
-            for (request = requests; request; request = request->next) {
-                /*
-                 *  ... but if the lower-level handlers aren't dealing with
-                 *  skipping on to the next instance, then we must handle
-                 *  this situation here.
-                 *    Mark 'holes' in the table as needing to be retried.
-                 *
-                 *    This approach is less efficient than handling such
-                 *  holes directly in the table_dataset handler, but allows
-                 *  user-provided handlers to override the dataset handler
-                 *  if this proves necessary.
-                 */
-                if (requests->requestvb->type == ASN_NULL ||
-                    requests->requestvb->type == SNMP_NOSUCHINSTANCE) {
-                    requests->requestvb->type = ASN_PRIV_RETRY;
-                }
-            }
-            reqinfo->mode = oldmode;
-        }
+        reqinfo->mode = oldmode;
+        handler->flags |= MIB_HANDLER_AUTO_NEXT_OVERRIDE_ONCE;
         return result;
     }
     else
+        /* next handler called automatically - 'AUTO_NEXT' */
         return SNMP_ERR_NOERROR;
 }
 
@@ -538,12 +557,85 @@ netsnmp_create_table_data_row(void)
     return row;
 }
 
+/** inserts a newly created table_data row into a request */
+NETSNMP_INLINE void
+netsnmp_insert_table_row(netsnmp_request_info *request,
+                         netsnmp_table_row *row)
+{
+    netsnmp_request_info       *req;
+    netsnmp_table_request_info *table_info = NULL;
+    netsnmp_variable_list      *this_index = NULL;
+    netsnmp_variable_list      *that_index = NULL;
+    oid      base_oid[] = {0, 0};	/* Make sure index OIDs are legal! */
+    oid      this_oid[MAX_OID_LEN];
+    oid      that_oid[MAX_OID_LEN];
+    size_t   this_oid_len, that_oid_len;
+
+    if (!request)
+        return;
+
+    /*
+     * We'll add the new row information to any request
+     * structure with the same index values as the request
+     * passed in (which includes that one!).
+     *
+     * So construct an OID based on these index values.
+     */
+
+    table_info = netsnmp_extract_table_info(request);
+    this_index = table_info->indexes;
+    build_oid_noalloc(this_oid, MAX_OID_LEN, &this_oid_len,
+                      base_oid, 2, this_index);
+
+    /*
+     * We need to look through the whole of the request list
+     * (as received by the current handler), as there's no
+     * guarantee that this routine will be called by the first
+     * varbind that refers to this row.
+     *   In particular, a RowStatus controlled row creation
+     * may easily occur later in the variable list.
+     *
+     * So first, we rewind to the head of the list....
+     */
+    for (req=request; req->prev; req=req->prev)
+        ;
+
+    /*
+     * ... and then start looking for matching indexes
+     * (by constructing OIDs from these index values)
+     */
+    for (; req; req=req->next) {
+        table_info = netsnmp_extract_table_info(req);
+        that_index = table_info->indexes;
+        build_oid_noalloc(that_oid, MAX_OID_LEN, &that_oid_len,
+                          base_oid, 2, that_index);
+      
+        /*
+         * This request has the same index values,
+         * so add the newly-created row information.
+         */
+        if (snmp_oid_compare(this_oid, this_oid_len,
+                             that_oid, that_oid_len) == 0) {
+            netsnmp_request_add_list_data(req,
+                netsnmp_create_data_list(TABLE_DATA_ROW, row, NULL));
+        }
+    }
+}
+
 /** extracts the row being accessed passed from the table_data helper */
 netsnmp_table_row *
 netsnmp_extract_table_row(netsnmp_request_info *request)
 {
     return (netsnmp_table_row *) netsnmp_request_get_list_data(request,
-                                                               TABLE_DATA_NAME);
+                                                               TABLE_DATA_ROW);
+}
+
+/** extracts the table being accessed passed from the table_data helper */
+netsnmp_table_data *
+netsnmp_extract_table(netsnmp_request_info *request)
+{
+    return (netsnmp_table_data *) netsnmp_request_get_list_data(request,
+                                                               TABLE_DATA_TABLE);
 }
 
 /** extracts the data from the row being accessed passed from the
@@ -623,6 +715,18 @@ netsnmp_table_data_clone_row(netsnmp_table_row *row)
     return newrow;
 }
 
+int
+netsnmp_table_data_num_rows(netsnmp_table_data *table)
+{
+    int i=0;
+    netsnmp_table_row *row;
+    if (!table)
+        return 0;
+    for (row = table->first_row; row; row = row->next) {
+        i++;
+    }
+    return i;
+}
 /*
  * @} 
  */

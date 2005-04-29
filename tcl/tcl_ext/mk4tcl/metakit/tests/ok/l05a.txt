@@ -1,0 +1,4 @@
+ VIEW     1 rows = a:V
+    0: subview 'a'
+   VIEW     1 rows = p1:I p2:S p3:S
+      0: 1747 'The wizard of Oz' 'The wizard of Oz'

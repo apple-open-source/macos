@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed enums
 class X
 {
@@ -6,8 +6,8 @@ class X
     {
        oneMask = 0x0000FFFF,
        twoMask  = 0x000F0000,
-       thiMask = 0xFFF00000,
-    }; // ERROR - comma
+       thiMask = 0xFFF00000, // { dg-error "comma at end" }
+    };
     unsigned int foo;
 
 public:

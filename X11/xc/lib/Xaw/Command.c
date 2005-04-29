@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xaw/Command.c,v 1.15 2002/07/04 17:04:20 paulo Exp $ */
+/* $XFree86: xc/lib/Xaw/Command.c,v 1.17 2003/08/04 10:32:20 eich Exp $ */
 
 /*
  * Command.c - Command button widget
@@ -249,6 +249,8 @@ XawCommandInitialize(Widget request, Widget cnew,
     CommandWidget cbw = (CommandWidget)cnew;
     int shape_event_base, shape_error_base;
 
+    if (!cbw->label.font) XtError("Aborting: no font found\n");
+    
     if (cbw->command.shape_style != XawShapeRectangle &&
 	!XShapeQueryExtension(XtDisplay(cnew), &shape_event_base,
 			      &shape_error_base))
@@ -430,7 +432,7 @@ PaintCommandWidget(Widget w, XEvent *event, Region region, Bool change)
 {
     CommandWidget cbw = (CommandWidget)w;
     Bool very_thick;
-    GC norm_gc, rev_gc;
+    GC rev_gc;
    
     very_thick = cbw->command.highlight_thickness
 		 > Min(XtWidth(cbw), XtHeight(cbw)) / 2;
@@ -445,11 +447,9 @@ PaintCommandWidget(Widget w, XEvent *event, Region region, Bool change)
      */
 
     if (cbw->command.highlighted != HighlightNone) {
-	norm_gc = cbw->command.inverse_GC;
 	rev_gc = cbw->command.normal_GC;
     }
     else {
-	norm_gc = cbw->command.normal_GC;
 	rev_gc = cbw->command.inverse_GC;
     }
 

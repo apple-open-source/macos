@@ -1,0 +1,64 @@
+# Commands covered:  ::dom::event
+#
+# This file contains a collection of tests for one or more of the 
+# TclDOM commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000-2003 Zveno Pty Ltd.
+#
+# $Id: events.test,v 1.5 2003/01/23 19:47:03 balls Exp $
+
+package require tcltest ; namespace import -force tcltest::*
+
+if {[catch {package require dom}]} {
+    catch {puts stderr "Cannot load dom 2.5 package"}
+    return
+}
+
+testConstraint Events \
+	[dom::DOMImplementation hasFeature Events 1.0]
+
+# Event listener procs
+
+proc HandleEvent evid {
+    set currNode [dom::event cget $evid -currentNode]
+    lappend ::events [list $currNode [dom::event cget $evid -type] [dom::event cget $evid -eventPhase]]
+}
+
+# Setup a simple DOM tree
+
+set d [dom::DOMImplementation create]
+set top [dom::document createElement $d Top]
+set l1 [dom::document createElement $top Node1]
+set l2 [dom::document createElement $top Node2]
+
+set l1_1 [dom::document createElement $l1 Node1_1]
+set l1_2 [dom::document createElement $l1 Node1_2]
+
+set l2_1 [dom::document createElement $l2 Node2_1]
+set l2_2 [dom::document createElement $l2 Node2_2]
+
+test event-1.1 {register UI event listeners} -constraints {Events} -body {
+    dom::node addEventListener $l1_1 click HandleEvent
+    dom::node addEventListener $l1 click HandleEvent
+    dom::node addEventListener $l1_1 mouseup HandleEvent
+} -result {}
+test event-1.2 {register UI event listener w/- options} -constraints {Events} -body {
+    dom::node addEventListener $l1 click HandleEvent -usecapture 1
+} -result {}
+
+test event-2.1 {Synthesize UI event} -constraints {Events} -body {
+    set ::events {}
+
+    set anEvent [dom::document createEvent $d click]
+    dom::event initMouseEvent $anEvent click 1 1 {} 0 100 101 10 11 0 0 0 0 0 {}
+    dom::node dispatchEvent $l1_1 $anEvent
+
+    set ::events
+} -result [list [list $l1 click capturing_phase] [list $l1_1 click at_target] [list $l1 click bubbling_phase]]
+
+# Mutation events
+
+# cleanup
+::tcltest::cleanupTests
+return

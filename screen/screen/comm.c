@@ -30,9 +30,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: comm.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include "config.h"
 #include "acls.h"
 #include "comm.h"
@@ -99,6 +96,10 @@ struct comm comms[RC_LAST + 1] =
 #ifdef MAPKEYS
   { "bindkey",		ARGS_0|ARGS_ORMORE },
 #endif
+  { "blanker",		NEED_DISPLAY|ARGS_0},
+#ifdef BLANKER_PRG
+  { "blankerprg",	ARGS_1|ARGS_ORMORE },
+#endif
   { "break",		NEED_FORE|ARGS_01 },
   { "breaktype",	NEED_FORE|ARGS_01 },
 #ifdef COPY_PASTE
@@ -148,6 +149,9 @@ struct comm comms[RC_LAST + 1] =
 #endif
   { "defmode",		ARGS_1 },
   { "defmonitor",	ARGS_1 },
+#ifdef MULTI
+  { "defnonblock",	ARGS_1 },
+#endif
   { "defobuflimit",	ARGS_1 },
 #ifdef COPY_PASTE
   { "defscrollback",	ARGS_1 },
@@ -190,6 +194,7 @@ struct comm comms[RC_LAST + 1] =
   { "history",		NEED_DISPLAY|NEED_FORE|ARGS_0 },
 #endif
   { "hstatus",		NEED_FORE|ARGS_1 },
+  { "idle",		ARGS_0|ARGS_ORMORE },
   { "ignorecase",	ARGS_01 },
   { "info",		NEED_LAYER|ARGS_0 },
 #ifdef ENCODINGS
@@ -315,5 +320,8 @@ struct comm comms[RC_LAST + 1] =
   { "writelock",	NEED_FORE|ARGS_01 },
   { "xoff",		NEED_LAYER|ARGS_0 },
   { "xon",		NEED_LAYER|ARGS_0 },
+#ifdef ZMODEM
+  { "zmodem",		ARGS_012 },
+#endif
   { "zombie",		ARGS_01 }
 };

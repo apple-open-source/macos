@@ -26,6 +26,7 @@
  * Implementation of the DSEventSemaphore (gating lock) class.
  */
 
+#include <errno.h>
 #include <limits.h>		// for LONG_MAX
 #include <sys/time.h>	// for struct timespec and gettimeofday()
 

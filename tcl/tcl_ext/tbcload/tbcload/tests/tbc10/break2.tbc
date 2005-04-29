@@ -1,0 +1,62 @@
+# break2.tcl --
+#
+#  Test file for compilation.
+#  Contains nested loops interrupted by break statements, used to check
+#  generation of the exception ranges arrays.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: break2.tbc,v 1.2 2000/05/30 22:19:07 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+16 0 116 10 2 0 72 2 3 16 16 -1 -1
+116
+w0E<!:B`W!;btt!,`yTv=|yTv-%bD!4|`W!3oYXv4Ta<!,fvpv'KA9v9`8s!/iyTv=|yTvTd
+i?!9oA9v3oYXv4Ta<!,fvpv+oXQ#.EW<!JG's!w%M<!GKuW*M/aTY'?W<!)-<<!6`8s!.i8v
+!
+16
+38Ppv?eg3w;GkpvGvqm#
+16
+3X`<<AAtpvaPtl#5)os!
+10
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+8
+x
+12
+5'WTAfW0`F1?0bE
+i
+1
+x
+6
+sT2TAIPw
+x
+12
+vCuSAfW0`F1?0bE
+x
+1
+O!
+x
+4
+HW?87
+2
+L 1 23 74 100 18 -1
+L 2 59 28 90 54 -1
+0
+}

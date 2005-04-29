@@ -5,11 +5,11 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: zip.c,v 1.1.1.1 1999/04/23 01:05:58 wsanchez Exp $";
+static char rcsid[] = "$Id: zip.c,v 0.17 1993/06/10 13:29:25 jloup Exp $";
 #endif
 
+#include <config.h>
 #include <ctype.h>
-#include <sys/types.h>
 
 #include "tailor.h"
 #include "gzip.h"
@@ -18,12 +18,12 @@ static char rcsid[] = "$Id: zip.c,v 1.1.1.1 1999/04/23 01:05:58 wsanchez Exp $";
 #ifdef HAVE_UNISTD_H
 #  include <unistd.h>
 #endif
-#ifndef NO_FCNTL_H
+#ifdef HAVE_FCNTL_H
 #  include <fcntl.h>
 #endif
 
 local ulg crc;       /* crc on uncompressed file data */
-long header_bytes;   /* number of bytes in gzip header */
+off_t header_bytes;   /* number of bytes in gzip header */
 
 /* ===========================================================================
  * Deflate in to out.
@@ -52,7 +52,8 @@ int zip(in, out)
 	flags |= ORIG_NAME;
     }
     put_byte(flags);         /* general flags */
-    put_long(time_stamp);
+    put_long(time_stamp == (time_stamp & 0xffffffff)
+	     ? (ulg)time_stamp : (ulg)0);
 
     /* Write deflated file to zip file */
     crc = updcrc(0, 0);
@@ -65,12 +66,12 @@ int zip(in, out)
     put_byte(OS_CODE);            /* OS identifier */
 
     if (save_orig_name) {
-	char *p = basename(ifname); /* Don't save the directory part. */
+	char *p = base_name(ifname); /* Don't save the directory part. */
 	do {
 	    put_char(*p);
 	} while (*p++);
     }
-    header_bytes = (long)outcnt;
+    header_bytes = (off_t)outcnt;
 
     (void)deflate();
 
@@ -78,8 +79,7 @@ int zip(in, out)
   /* Check input size (but not in VMS -- variable record lengths mess it up)
    * and not on MSDOS -- diet in TSR mode reports an incorrect file size)
    */
-    if (ifile_size != -1L && isize != (ulg)ifile_size) {
-	Trace((stderr, " actual=%ld, read=%ld ", ifile_size, isize));
+    if (ifile_size != -1L && bytes_in != ifile_size) {
 	fprintf(stderr, "%s: %s: file size changed while zipping\n",
 		progname, ifname);
     }
@@ -87,7 +87,7 @@ int zip(in, out)
 
     /* Write the crc and uncompressed size */
     put_long(crc);
-    put_long(isize);
+    put_long((ulg)bytes_in);
     header_bytes += 2*sizeof(long);
 
     flush_outbuf();
@@ -109,9 +109,13 @@ int file_read(buf, size)
     Assert(insize == 0, "inbuf not empty");
 
     len = read(ifd, buf, size);
-    if (len == (unsigned)(-1) || len == 0) return (int)len;
+    if (len == 0) return (int)len;
+    if (len == (unsigned)-1) {
+	read_error();
+	return EOF;
+    }
 
     crc = updcrc((uch*)buf, len);
-    isize += (ulg)len;
+    bytes_in += (off_t)len;
     return (int)len;
 }

@@ -24,27 +24,21 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/Synchro.c,v 1.4 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 
 
-int _XSyncFunction(dpy)
-register Display *dpy;
+static int _XSyncFunction(register Display *dpy)
 {
 	XSync(dpy,0);
 	return 0;
 }
 
-#if NeedFunctionPrototypes
-int (*XSynchronize(Display *dpy, int onoff))()
-#else
-int (*XSynchronize(dpy,onoff))()
-     register Display *dpy;
-     int onoff;
-#endif
+int (*XSynchronize(Display *dpy, int onoff))(Display *)
 {
-        int (*temp)();
-	int (*func)() = NULL;
+        int (*temp)(Display *);
+	int (*func)(Display *) = NULL;
 
 	if (onoff)
 	    func = _XSyncFunction;
@@ -61,26 +55,14 @@ int (*XSynchronize(dpy,onoff))()
 	return (temp);
 }
 
-#if NeedFunctionPrototypes
 int (*XSetAfterFunction(
      Display *dpy,
      int (*func)(
-#if NeedNestedPrototypes
 		 Display*
-#endif
 		 )
-))()
-#else
-int (*XSetAfterFunction(dpy,func))()
-     register Display *dpy;
-     int (*func)(
-#if NeedNestedPrototypes
-		 Display*
-#endif
-		 );
-#endif
+        ))(Display *)
 {
-        int (*temp)();
+        int (*temp)(Display *);
 
 	LockDisplay(dpy);
 	if (dpy->flags & XlibDisplayPrivSync) {

@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHCOMPSYS" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -218,20 +218,12 @@ Functions with the \fB#autoload\fP tag are marked for autoloading but
 are not otherwise treated specially\&.  Typically they are to be called
 from within one of the completion functions\&.  Any \fIoptions\fP supplied
 will be passed to the \fBautoload\fP builtin; a typical use is \fB+X\fP to
-force the function to be loaded immediately\&.  Note that the \fB\-U\fP flag is
-always added implicitly\&.
+force the function to be loaded immediately\&.  Note that the \fB\-U\fP and
+\fB\-z\fP flags are always added implicitly\&.
 .PP
 The \fB#\fP is part of the tag name and no white space is allowed after it\&.
 The \fB#compdef\fP tags use the \fBcompdef\fP function described below; the
 main difference is that the name of the function is supplied implicitly\&.
-.PP
-Note also that the functions for the completion system assume that the
-\fBKSH_AUTOLOAD\fP option is not set\&.  They cannot be loaded if it is
-set\&.  To avoid having to unset \fBKSH_AUTOLOAD\fP, you can instead use one or
-more \fBzwc\fP file(s) that have been created with the command \fBzcompile
-\-z\fP to load the functions for the completion system; see
-\fIzshbuiltins\fP(1)\&.  This forces the functions to be autoloaded the way zsh normally
-loads functions\&.
 .PP
 The special contexts for which completion functions can be defined are:
 .PP
@@ -978,7 +970,9 @@ words beginning with a tilde or parameter expansion should be
 expanded\&.  For example, if there are parameters
 \fBfoo\fP and \fBfoobar\fP, the string `\fB$foo\fP' will only be expanded if 
 \fBaccept\-exact\fP is set to `true'; otherwise the completion system will
-be allowed to complete \fB$foo\fP to \fB$foobar\fP\&.
+be allowed to complete \fB$foo\fP to \fB$foobar\fP\&. If the style is set to
+`continue', _expand will add the expansion as a match and the completion
+system will also be allowed to continue\&.
 .RE
 .TP
 \fBadd\-space\fP
@@ -1081,6 +1075,10 @@ command for each attempt to generate the completion list\&.  Hence
 care should be taken to specify only commands that take a short
 time to run, and in particular to avoid any that may never terminate\&.
 .RE
+.TP
+\fBcommand\-path\fP
+This is a list of directories to search for commands to complete\&.  The
+default for this style is the value of the special parameter \fBpath\fP\&.
 .TP
 \fBcommands\fP
 This is used by the function completing sub\-commands for the system
@@ -2131,6 +2129,12 @@ completing words for the dict command\&. It allows words from different
 dictionary databases to be added separately\&.
 The default for this style is `false'\&.
 .TP
+\fBshow\-completer\fP
+Tested whenever a new completer is tried\&.  If it is true, the completion
+system outputs a progress message in the listing area showing what
+completer is being tried\&.  The message will be overwritten by any output
+when completions are found and is removed after completion is finished\&.
+.TP
 \fBsingle\-ignored\fP
 This is used by the \fB_ignored\fP completer when there is only one match\&.
 If its value is `\fBshow\fP', the single match will be
@@ -2139,13 +2143,23 @@ match and the original string are both added as matches and menu completion
 is started, making it easy to select either of them\&.
 .TP
 \fBsort\fP
-If set to `true', completing words from the command
-history sorts the words alphabetically instead of
-keeping them in the order in which they appear in the history (from
-youngest to oldest)\&.
+Many completion widgets call \fB_description\fP at some point which
+decides whether the matches are added sorted or unsorted (often
+indirectly via \fB_wanted\fP or \fB_requested\fP)\&.  This style can be set
+explicitly to one of the usual true or false values as an override\&.
+If it is not set for the context, the standard behaviour of the
+calling widget is used\&.
 .RS
 .PP
-This is also used by the \fB_expand\fP completer\&. If it is set to
+The style is tested first against the full context including the tag, and
+if that fails to produce a value against the context without the tag\&.
+.PP
+If the calling widget explicitly requests unsorted matches, this is usually
+honoured\&.  However, the default (unsorted) behaviour of completion
+for the command history may be overridden by setting the style to
+\fBtrue\fP\&.
+.PP
+In the \fB_expand\fP completer, if it is set to
 `true', the expansions generated will always be sorted\&.  If it is set
 to `\fBmenu\fP', then the expansions are only sorted when they are offered 
 as single strings but not in the string containing all possible
@@ -2792,12 +2806,13 @@ not be used\&.
 .RE
 .TP
 \fB_menu\fP
-This completer is a simple example function implemented to show how
-menu completion can be done in shell code\&.  It should be used as the
-first completer and has the effect of making later completers perform
-menu completion\&.  Note that this is independent of the setting of the
-\fBMENU_COMPLETE\fP option and does not work with the other
-menu completion widgets such as \fBreverse\-menu\-complete\fP, or
+This completer was written as simple example function to show how menu
+completion can be enabled in shell code\&. However, it has the notable
+effect of disabling menu selection which can be useful with
+\fB_generic\fP based widgets\&. It should be used as the first completer in
+the list\&.  Note that this is independent of the setting of the
+\fBMENU_COMPLETE\fP option and does not work with the other menu
+completion widgets such as \fBreverse\-menu\-complete\fP, or
 \fBaccept\-and\-menu\-complete\fP\&.
 .TP
 \fB_oldlist\fP
@@ -3974,7 +3989,7 @@ same word\&.  By using:
 .PP
 .RS
 .nf
-\fB_argument '\-n\-: :_guard "[0\-9]#" "numeric value"' '\-none'\fP
+\fB_arguments '\-n\-: :_guard "[0\-9]#" "numeric value"' '\-none'\fP
 .fi
 .RE
 .PP
@@ -4331,7 +4346,7 @@ to handle the same options\&.
 \fB_retrieve_cache\fP \fIcache_identifier\fP
 This function retrieves completion information from the file given by
 \fIcache_identifier\fP, stored in a directory specified by the
-\fBcache\-path\fP style which defaults to \fB~/\&.zsh/cache\fP\&.  The return value
+\fBcache\-path\fP style which defaults to \fB~/\&.zcompcache\fP\&.  The return value
 is zero if retrieval was successful\&.  It will only attempt retrieval
 if the \fBuse\-cache\fP style is set, so you can call this function
 without worrying about whether the user wanted to use the caching
@@ -4385,7 +4400,7 @@ even in different instances of the shell\&.
 .PP
 The \fIcache_identifier\fP specifies the file which the data should be
 dumped to\&.  The file is stored in a directory specified by the
-\fBcache\-path\fP style which defaults to \fB~/\&.zsh/cache\fP\&.  The remaining
+\fBcache\-path\fP style which defaults to \fB~/\&.zcompcache\fP\&.  The remaining
 \fIparams\fP arguments are the parameters to dump to the file\&.
 .PP
 The return value is zero if storage was successful\&.  The function will

@@ -31,16 +31,9 @@
 #include <math.h>
 #include "mathconf.h"
 
-/* APPLE LOCAL begin libm */
-#if 0
-/* APPLE LOCAL end libm */
 float
 copysignf (float x, float y)
 {
   /* We use the double version.  */
   return copysign (x, y);
 }
-
-/* APPLE LOCAL begin libm */
-#endif
-/* APPLE LOCAL end libm */

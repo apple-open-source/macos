@@ -1,8 +1,8 @@
 #
 #   shell/filter.rb - 
 #   	$Release Version: 0.6.0 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Revision: 1.3.2.1 $
+#   	$Date: 2004/03/21 12:21:11 $
 #   	by Keiju ISHITSUKA(Nihon Rational Software Co.,Ltd)
 #
 # --
@@ -18,7 +18,6 @@ class Shell
   #
   class Filter
     include Enumerable
-    include Error
 
     def initialize(sh)
       @shell = sh	  # parent shell
@@ -47,7 +46,7 @@ class Shell
 	self.input = src
 	self
       else
-	Filter.Fail CanNotMethodApply, "<", to.type
+	Shell.Fail Error::CantApplyMethod, "<", to.class
       end
     end
 
@@ -63,7 +62,7 @@ class Shell
       when IO
 	each(){|l| to << l}
       else
-	Filter.Fail CanNotMethodApply, ">", to.type
+	Shell.Fail Error::CantApplyMethod, ">", to.class
       end
       self
     end
@@ -71,8 +70,8 @@ class Shell
     def >> (to)
       begin
 	Shell.cd(@shell.pwd).append(to, self)
-      rescue CanNotMethodApply
-	Shell.Fail CanNotMethodApply, ">>", to.type
+      rescue CantApplyMethod
+	Shell.Fail Error::CantApplyMethod, ">>", to.class
       end
     end
 

@@ -40,10 +40,8 @@ __private_extern__
 int
 __SCDynamicStoreLock(SCDynamicStoreRef store, Boolean recursive)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 	serverSessionRef		mySession;
-
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreLock:"));
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
 
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;		/* you must have an open session to play */
@@ -100,11 +98,6 @@ _configlock(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Lock configuration database."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
-
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
@@ -112,7 +105,6 @@ _configlock(mach_port_t server, int *sc_status)
 
 	*sc_status = __SCDynamicStoreLock(mySession->store, FALSE);
 	if (*sc_status != kSCStatusOK) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  SCDynamicStoreLock(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

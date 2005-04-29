@@ -43,9 +43,9 @@ DIRS_NEEDED = $(OBJROOT) $(SYMROOT)
 all: $(DIRS_NEEDED) $(LIBS)
 
 libsa.a: $(SA_OBJS)
-	rm -f $(SYMROOT)/libsa.a
-	ar q $(SYMROOT)/libsa.a $(SA_OBJS)
-	ranlib $(SYMROOT)/libsa.a
+	rm -f $(SYMROOT)/$(@F)
+	ar q $(SYMROOT)/$(@F) $^
+	ranlib $(SYMROOT)/$(@F)
 
 clean::
 	rm -rf $(SYMROOT)/libsa.a $(SYMROOT)/libsaio.a

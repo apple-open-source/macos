@@ -1,4 +1,5 @@
-SRCS+=  ATPgetreq.s \
+.PATH: ${.CURDIR}/i386/sys
+MDSRCS+=  ATPgetreq.s \
 	ATPgetrsp.s \
 	ATPsndreq.s \
 	ATPsndrsp.s \
@@ -7,7 +8,11 @@ SRCS+=  ATPgetreq.s \
 	ATsocket.s \
 	_exit.s \
 	_getlogin.s \
+	__mmap.s \
 	_pthread_kill.s \
+	__pthread_canceled.s \
+	__pthread_markcancel.s \
+	__semwait_signal.s \
 	_setjmp.s \
 	_setlogin.s \
 	_sysctl.s \
@@ -45,11 +50,15 @@ SRCS+=  ATPgetreq.s \
 	fchmod.s \
 	fchown.s \
 	fcntl.s \
+	fgetxattr.s  \
 	fhopen.s \
+	flistxattr.s  \
 	flock.s \
 	fork.s \
 	fpathconf.s \
+	fremovexattr.s  \
 	fsctl.s \
+	fsetxattr.s  \
 	fstat.s \
 	fstatfs.s \
 	fstatv.s \
@@ -62,6 +71,7 @@ SRCS+=  ATPgetreq.s \
 	getauid.s \
 	getdirentries.s \
 	getdirentriesattr.s \
+	getdtablesize.s \
 	getegid.s \
 	geteuid.s \
 	getfh.s \
@@ -70,17 +80,18 @@ SRCS+=  ATPgetreq.s \
 	getgroups.s \
 	getitimer.s \
 	getpeername.s \
+	getpgid.s \
 	getpgrp.s \
 	getpid.s \
 	getppid.s \
 	getpriority.s \
 	getrlimit.s \
 	getrusage.s \
-	getpgid.s \
 	getsid.s \
 	getsockname.s \
 	getsockopt.s \
 	getuid.s \
+	getxattr.s  \
 	ioctl.s \
 	issetugid.s \
 	kevent.s \
@@ -89,9 +100,11 @@ SRCS+=  ATPgetreq.s \
 	kqueue_from_portset_np.s \
 	kqueue_portset_np.s \
 	ktrace.s \
+	lchown.s \
 	link.s \
 	lio_listio.s \
 	listen.s \
+	listxattr.s  \
 	load_shared_file.s \
 	lseek.s \
 	lstat.s \
@@ -105,30 +118,27 @@ SRCS+=  ATPgetreq.s \
 	mknod.s \
 	mlock.s \
 	mlockall.s \
-	mmap.s \
 	mount.s \
-	mprotect.s \
-	msgctl.s \
 	msgget.s \
 	msgrcv.s \
 	msgsnd.s \
 	msgsys.s \
-	msync.s \
 	munlock.s \
 	munlockall.s \
-	munmap.s \
 	new_system_shared_regions.s \
 	nfsclnt.s \
 	nfssvc.s \
 	open.s \
+	OSAtomic.s \
 	pathconf.s \
 	pipe.s \
-	pread.s \
+	poll.s \
 	posix_madvise.s \
+	pread.s \
 	profil.s \
-	pwrite.s \
-	ptrace.s \
 	pthread_sigmask.s \
+	ptrace.s \
+	pwrite.s \
 	quota.s \
 	quotactl.s \
 	read.s \
@@ -137,6 +147,7 @@ SRCS+=  ATPgetreq.s \
 	reboot.s \
 	recvfrom.s \
 	recvmsg.s \
+	removexattr.s  \
 	rename.s \
 	reset_shared_file.s \
 	revoke.s \
@@ -151,7 +162,6 @@ SRCS+=  ATPgetreq.s \
 	sem_trywait.s \
 	sem_wait.s \
 	semconfig.s \
-	semctl.s \
 	semget.s \
 	semop.s \
 	semsys.s \
@@ -176,8 +186,8 @@ SRCS+=  ATPgetreq.s \
 	setsockopt.s \
 	settimeofday.s \
 	setuid.s \
+	setxattr.s  \
 	shmat.s \
-	shmctl.s \
 	shmdt.s \
 	shmget.s \
 	shmsys.s \
@@ -207,3 +217,9 @@ SRCS+=  ATPgetreq.s \
 	wait4.s \
 	write.s \
 	writev.s 
+
+.for _src in fhopen.s getfh.s nfsclnt.s
+CFLAGS-${_src} += -DNFSCLIENT
+.endfor
+
+CFLAGS-nfssvc.s += -DNFSSERVER

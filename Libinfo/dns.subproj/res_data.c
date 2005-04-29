@@ -28,19 +28,15 @@
 
 #if defined(__APPLE__)
 
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <arpa/nameser8_compat.h>
-#include <resolv8_compat.h>
-
-/* From res_init.c */
-
-struct __res_state _res = {0};
-
-/* From getnetent.c */
-
+/*
+ * _res is declared to be the same siae as struct __res_9_state
+ * This allows both the BIND-8 library in libSystem (this one)
+ * and the new BIND-9 library in libresolv to share the same
+ * structure.  We ues the __res_9_state's _pad variable to store
+ * a version number when _res have been initialized by the BIND-9
+ * library, and take precautions to make them work together.
+ */
+#define RES_9_STATE_SIZE 512
+char _res[RES_9_STATE_SIZE] = {0};
 int _net_stayopen = 0;
-
-#endif /* NeXT */
+#endif

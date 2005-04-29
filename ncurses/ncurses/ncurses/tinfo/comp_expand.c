@@ -35,7 +35,7 @@
 #include <ctype.h>
 #include <tic.h>
 
-MODULE_ID("$Id: comp_expand.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: comp_expand.c,v 1.17 2001/09/22 19:16:52 tom Exp $")
 
 static int
 trailing_spaces(const char *src)

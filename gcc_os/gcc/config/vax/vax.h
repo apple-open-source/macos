@@ -19,19 +19,27 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
+
+/* Target CPU builtins.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define ("__vax__");		\
+      builtin_assert ("cpu=vax");		\
+      builtin_assert ("machine=vax");		\
+      if (TARGET_G_FLOAT)			\
+	{					\
+	  builtin_define ("__GFLOAT");		\
+	  builtin_define ("__GFLOAT__");	\
+	}					\
+    }						\
+  while (0)
+
 #define VMS_TARGET 0
-
-/* Names to predefine in the preprocessor for this target machine.  */
-
-#define CPP_PREDEFINES "-Dvax -D__vax__ -Dunix -Asystem=unix -Asystem=bsd -Acpu=vax -Amachine=vax"
 
 /* Use -J option for long branch support with Unix assembler.  */
 
 #define ASM_SPEC "-J"
-
-/* If using g-format floating point, alter math.h.  */
-
-#define	CPP_SPEC "%{mg:%{!ansi:-DGFLOAT} -D__GFLOAT}"
 
 /* Choose proper libraries depending on float format.
    Note that there are no profiling libraries for g-format.
@@ -54,16 +62,21 @@ Boston, MA 02111-1307, USA.  */
 
 extern int target_flags;
 
+#define MASK_UNIX_ASM		1
+#define MASK_VAXC_ALIGNMENT	2
+#define MASK_G_FLOAT		4
+
+
 /* Macros used in the machine description to test the flags.  */
 
 /* Nonzero if compiling code that Unix assembler can assemble.  */
-#define TARGET_UNIX_ASM (target_flags & 1)
+#define TARGET_UNIX_ASM (target_flags & MASK_UNIX_ASM)
 
 /* Nonzero if compiling with VAX-11 "C" style structure alignment */
-#define	TARGET_VAXC_ALIGNMENT (target_flags & 2)
+#define	TARGET_VAXC_ALIGNMENT (target_flags & MASK_VAXC_ALIGNMENT)
 
 /* Nonzero if compiling with `G'-format floating point */
-#define TARGET_G_FLOAT (target_flags & 4)
+#define TARGET_G_FLOAT (target_flags & MASK_G_FLOAT)
 
 /* Macro to define tables used to set the flags.
    This is a list in braces of pairs in braces,
@@ -72,24 +85,32 @@ extern int target_flags;
    An empty string NAME is used to identify the default VALUE.  */
 
 #define TARGET_SWITCHES						\
-  { {"unix", 1, "Generate code for UNIX assembler"},  		\
-    {"gnu", -1, "Generate code for GNU assembler (gas)"},  	\
-    {"vaxc-alignment", 2, "Use VAXC structure conventions"}, 	\
-    {"g", 4, "Generate GFLOAT double precision code"},		\
-    {"g-float", 4, "Generate GFLOAT double precision code"},	\
-    {"d", -4, "Generate DFLOAT double precision code"},		\
-    {"d-float", -4, "Generate DFLOAT double precision code"},	\
+  { {"unix", MASK_UNIX_ASM,					\
+     "Generate code for UNIX assembler"},  			\
+    {"gnu", -MASK_UNIX_ASM,					\
+     "Generate code for GNU assembler (gas)"},  		\
+    {"vaxc-alignment", MASK_VAXC_ALIGNMENT,			\
+     "Use VAXC structure conventions"}, 			\
+    {"g", MASK_G_FLOAT,						\
+     "Generate GFLOAT double precision code"},			\
+    {"g-float", MASK_G_FLOAT,					\
+     "Generate GFLOAT double precision code"},			\
+    {"d", -MASK_G_FLOAT,					\
+     "Generate DFLOAT double precision code"},			\
+    {"d-float", -MASK_G_FLOAT,					\
+     "Generate DFLOAT double precision code"},			\
     { "", TARGET_DEFAULT, 0}}
 
 /* Default target_flags if no switches specified.  */
 
 #ifndef TARGET_DEFAULT
-#define TARGET_DEFAULT 1
+#define TARGET_DEFAULT (MASK_UNIX_ASM)
 #endif
+
+#define OVERRIDE_OPTIONS override_options ()
+
 
 /* Target machine storage layout */
-
-#define REAL_ARITHMETIC
 
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
@@ -105,21 +126,8 @@ extern int target_flags;
 /* This is not true on the VAX.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -133,7 +141,7 @@ extern int target_flags;
 /* Every structure's size must be a multiple of this.  */
 #define STRUCTURE_SIZE_BOUNDARY 8
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS (! TARGET_VAXC_ALIGNMENT)
 
 /* No data type wants to be aligned rounder than this.  */
@@ -280,16 +288,28 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define REG_CLASS_FROM_LETTER(C) NO_REGS
 
-/* The letters I, J, K, L and M in a register constraint string
+/* The letters I, J, K, L, M, N, and O in a register constraint string
    can be used to stand for particular ranges of immediate operands.
    This macro defines what the ranges are.
    C is the letter, and VALUE is a constant value.
    Return 1 if VALUE is in the range specified by C.
 
-   `I' is the constant zero.  */
+   `I' is the constant zero.
+   `J' is a value between 0 .. 63 (inclusive)
+   `K' is a value between -128 and 127 (inclusive)
+   'L' is a value between -32768 and 32767 (inclusive)
+   `M' is a value between 0 and 255 (inclusive)
+   'N' is a value between 0 and 65535 (inclusive)
+   `O' is a value between -63 and -1 (inclusive)  */
 
 #define CONST_OK_FOR_LETTER_P(VALUE, C) \
-  ((C) == 'I' ? (VALUE) == 0		\
+  (  (C) == 'I' ?	(VALUE) == 0				\
+   : (C) == 'J' ?	0 <= (VALUE) && (VALUE) < 64		\
+   : (C) == 'O' ?	-63 <= (VALUE) && (VALUE) < 0		\
+   : (C) == 'K' ?	-128 <= (VALUE) && (VALUE) < 128	\
+   : (C) == 'M' ?	0 <= (VALUE) && (VALUE) < 256		\
+   : (C) == 'L' ?	-32768 <= (VALUE) && (VALUE) < 32768	\
+   : (C) == 'N' ?	0 <= (VALUE) && (VALUE) < 65536		\
    : 0)
 
 /* Similar, but for floating constants, and defining letters G and H.
@@ -450,28 +470,18 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
 
-#define FUNCTION_PROFILER(FILE, LABELNO)  \
-   fprintf (FILE, "\tmovab LP%d,r0\n\tjsb mcount\n", (LABELNO));
-
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  fprintf (FILE, "\ttstl LPBX0\n\tjneq LPI%d\n\tpushal LPBX0\n\tcalls $1,__bb_init_func\nLPI%d:\n",  \
-	   LABELNO, LABELNO);
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  This is a real pain in the
-   sphincter on a VAX, since we do not want to change any of the bits in the
-   processor status word.  The way it is done here, it is pushed onto the stack
-   before any flags have changed, and then the stack is fixed up to account for
-   the fact that the instruction to restore the flags only reads a word.
-   It may seem a bit clumsy, but at least it works.
-*/
-
-#define BLOCK_PROFILER(FILE, BLOCKNO)	\
-  fprintf (FILE, "\tmovpsl -(sp)\n\tmovw (sp),2(sp)\n\taddl2 $2,sp\n\taddl2 $1,LPBX2+%d\n\tbicpsw $255\n\tbispsw (sp)+\n", \
-		4 * BLOCKNO)
+#define VAX_FUNCTION_PROFILER_NAME "mcount"
+#define FUNCTION_PROFILER(FILE, LABELNO)			\
+  do								\
+    {								\
+      char label[256];						\
+      ASM_GENERATE_INTERNAL_LABEL (label, "LP", (LABELNO));	\
+      fprintf (FILE, "\tmovab ");				\
+      assemble_name (FILE, label);				\
+      asm_fprintf (FILE, ",%Rr0\n\tjsb %s\n",			\
+		   VAX_FUNCTION_PROFILER_NAME);			\
+    }								\
+  while (0)
 
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
@@ -520,13 +530,12 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    to the start of the trampoline.  */
 #define INITIALIZE_TRAMPOLINE(TRAMP, FNADDR, CXT)			\
 {									\
-  emit_insn (gen_rtx_ASM_INPUT (VOIDmode,				\
-				"movpsl -(sp)\n\tpushal 1(pc)\n\trei")); \
   emit_move_insn (gen_rtx_MEM (HImode, TRAMP),				\
 		  gen_rtx_MEM (HImode, FNADDR));			\
-  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 4)), CXT);\
+  emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 4)), CXT);	\
   emit_move_insn (gen_rtx_MEM (SImode, plus_constant (TRAMP, 11)),	\
 		  plus_constant (FNADDR, 2));				\
+  emit_insn (gen_sync_istream ());					\
 }
 
 /* Byte offset of return address in a stack frame.  The "saved PC" field
@@ -642,7 +651,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    || GET_CODE (X) == CONST_INT)
 
 
-/* Non-zero if X is an address which can be indirected.  External symbols
+/* Nonzero if X is an address which can be indirected.  External symbols
    could be in a sharable image library, so we disallow those.  */
 
 #define INDIRECTABLE_ADDRESS_P(X)  \
@@ -657,7 +666,7 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define INDIRECTABLE_CONSTANT_ADDRESS_P(X) CONSTANT_ADDRESS_P(X)
 
-/* Non-zero if X is an address which can be indirected.  */
+/* Nonzero if X is an address which can be indirected.  */
 #define INDIRECTABLE_ADDRESS_P(X)  \
   (CONSTANT_ADDRESS_P (X)						\
    || (GET_CODE (X) == REG && REG_OK_FOR_BASE_P (X))			\
@@ -796,6 +805,10 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    jumps to the default label instead.  */
 #define CASE_DROPS_THROUGH
 
+/* Indicate that jump tables go in the text section.  This is
+   necessary when compiling PIC code.  */
+#define JUMP_TABLES_IN_TEXT_SECTION 1
+
 /* Define this as 1 if `char' should by default be signed; else as 0.  */
 #define DEFAULT_SIGNED_CHAR 1
 
@@ -897,32 +910,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define UDIVSI3_LIBCALL "*udiv"
 #define UMODSI3_LIBCALL "*urem"
-
-/* Check a `double' value for validity for a particular machine mode.  */
-
-/* note that it is very hard to accidentally create a number that fits in a
-   double but not in a float, since their ranges are almost the same */
-
-#define CHECK_FLOAT_VALUE(MODE, D, OVERFLOW) \
-  ((OVERFLOW) = check_float_value (MODE, &D, OVERFLOW))
-
-/* For future reference:
-   D Float: 9 bit, sign magnitude, excess 128 binary exponent
-            normalized 56 bit fraction, redundant bit not represented
-            approximately 16 decimal digits of precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_D_FLOAT 1.7014118346046923e+38
-#define MIN_D_FLOAT .29387358770557188e-38
-
-   G float: 12 bit, sign magnitude, excess 1024 binary exponent
-            normalized 53 bit fraction, redundant bit not represented
-            approximately 15 decimal digits precision
-
-   The values to use if we trust decimal to binary conversions:
-#define MAX_G_FLOAT .898846567431157e+308
-#define MIN_G_FLOAT .556268464626800e-308
-*/
 
 /* Tell final.c how to eliminate redundant test instructions.  */
 
@@ -1030,15 +1017,17 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 #define DATA_SECTION_ASM_OP "\t.data"
 
 /* How to refer to registers in assembler output.
-   This sequence is indexed by compiler's hard-register-number (see above).  */
+   This sequence is indexed by compiler's hard-register-number (see above).
+   The register names will be prefixed by REGISTER_PREFIX, if any.  */
 
+#define REGISTER_PREFIX ""
 #define REGISTER_NAMES \
 {"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", \
  "r9", "r10", "r11", "ap", "fp", "sp", "pc"}
 
 /* This is BSD, so it wants DBX format.  */
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 
 /* Do not break .stabs pseudos into continuations.  */
 
@@ -1061,17 +1050,11 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 
 #define ASM_DOUBLE_CHAR (TARGET_G_FLOAT ? 'g' : 'd')
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
 /* This is how to output a command to make the user-level label named NAME
    defined for reference from other files.  */
 
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs (".globl ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".globl "
 
 /* The prefix to add to user-visible assembler symbols.  */
 
@@ -1101,19 +1084,39 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE,REGNO)  \
-  fprintf (FILE, "\tmovl (sp)+,%s\n", reg_names[REGNO])
+  fprintf (FILE, "\tmovl (%s)+,%s\n", reg_names[STACK_POINTER_REGNUM], \
+	   reg_names[REGNO])
 
 /* This is how to output an element of a case-vector that is absolute.
    (The VAX does not use such vectors,
    but we must define this macro anyway.)  */
 
-#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)  \
-  fprintf (FILE, "\t.long L%d\n", VALUE)
+#define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE)		\
+  do							\
+    {							\
+      char label[256];					\
+      ASM_GENERATE_INTERNAL_LABEL (label, "L", (VALUE));\
+      fprintf (FILE, "\t.long ");			\
+      assemble_name (FILE, label);			\
+      fprintf (FILE, "\n");				\
+    }							\
+  while (0)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
-#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)  \
-  fprintf (FILE, "\t.word L%d-L%d\n", VALUE, REL)
+#define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL)	\
+  do								\
+    {								\
+      char label[256];						\
+      ASM_GENERATE_INTERNAL_LABEL (label, "L", (VALUE));	\
+      fprintf (FILE, "\t.word ");				\
+      assemble_name (FILE, label);				\
+      ASM_GENERATE_INTERNAL_LABEL (label, "L", (REL));		\
+      fprintf (FILE, "-");					\
+      assemble_name (FILE, label);				\
+      fprintf (FILE, "\n");					\
+    }								\
+  while (0)
 
 /* This is how to output an assembler line
    that says to advance the location counter
@@ -1152,21 +1155,6 @@ enum reg_class { NO_REGS, ALL_REGS, LIM_REG_CLASSES };
 ( (OUTPUT) = (char *) alloca (strlen ((NAME)) + 10),	\
   sprintf ((OUTPUT), "%s.%d", (NAME), (LABELNO)))
 
-/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
-   Used for C++ multiple inheritance.
-	.mask	^m<r2,r3,r4,r5,r6,r7,r8,r9,r10,r11>	#conservative entry mask
-	addl2	$DELTA, 4(ap)	#adjust first argument
-	jmp	FUNCTION+2	#jump beyond FUNCTION's entry mask
- */
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION) \
-do {						\
-  fprintf (FILE, "\t.word 0x0ffc\n");		\
-  fprintf (FILE, "\taddl2 $%d,4(ap)\n", DELTA);	\
-  fprintf (FILE, "\tjmp ");			\
-  assemble_name (FILE,  XSTR (XEXP (DECL_RTL (FUNCTION), 0), 0)); \
-  fprintf (FILE, "+2\n");			\
-} while (0)
-
 /* Print an instruction operand X on file FILE.
    CODE is the code from the %-spec that requested printing this operand;
    if `%z3' was used to print operand 3, then CODE is 'z'.
@@ -1184,17 +1172,20 @@ VAX operand formatting codes:
    R	32 - constant operand
    b	the low 8 bits of a negated constant operand
    h	the low 16 bits of a negated constant operand
-   #	'd' or 'g' depending on whether dfloat or gfloat is used  */
+   #	'd' or 'g' depending on whether dfloat or gfloat is used
+   |	register prefix  */
 
 /* The purpose of D is to get around a quirk or bug in VAX assembler
    whereby -1 in a 64-bit immediate operand means 0x00000000ffffffff,
    which is not a 64-bit minus one.  */
 
 #define PRINT_OPERAND_PUNCT_VALID_P(CODE)				\
-  ((CODE) == '#')
+  ((CODE) == '#' || (CODE) == '|')
 
 #define PRINT_OPERAND(FILE, X, CODE)  \
 { if (CODE == '#') fputc (ASM_DOUBLE_CHAR, FILE);			\
+  else if (CODE == '|')							\
+    fputs (REGISTER_PREFIX, FILE);					\
   else if (CODE == 'C')							\
     fputs (rev_cond_name (X), FILE);					\
   else if (CODE == 'D' && GET_CODE (X) == CONST_INT && INTVAL (X) < 0)	\
@@ -1221,14 +1212,14 @@ VAX operand formatting codes:
   else if (GET_CODE (X) == MEM)						\
     output_address (XEXP (X, 0));					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == SFmode)	\
-    { REAL_VALUE_TYPE r; char dstr[30];					\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20e", dstr);				\
+    { char dstr[30];							\
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (X),		\
+		       sizeof (dstr), 0, 1);				\
       fprintf (FILE, "$0f%s", dstr); }					\
   else if (GET_CODE (X) == CONST_DOUBLE && GET_MODE (X) == DFmode)	\
-    { REAL_VALUE_TYPE r; char dstr[30];					\
-      REAL_VALUE_FROM_CONST_DOUBLE (r, X);				\
-      REAL_VALUE_TO_DECIMAL (r, "%.20e", dstr);				\
+    { char dstr[30];							\
+      real_to_decimal (dstr, CONST_DOUBLE_REAL_VALUE (X),		\
+		       sizeof (dstr), 0, 1);				\
       fprintf (FILE, "$0%c%s", ASM_DOUBLE_CHAR, dstr); }		\
   else { putc ('$', FILE); output_addr_const (FILE, X); }}
 
@@ -1237,3 +1228,8 @@ VAX operand formatting codes:
 
 #define PRINT_OPERAND_ADDRESS(FILE, ADDR)  \
  print_operand_address (FILE, ADDR)
+
+/* This is a blatent lie.  However, it's good enough, since we don't
+   actually have any code whatsoever for which this isn't overridden
+   by the proper FDE definition.  */
+#define INCOMING_RETURN_ADDR_RTX gen_rtx_REG (Pmode, PC_REGNUM)

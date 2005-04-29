@@ -31,6 +31,10 @@
 #ifndef __FENV__
 #define __FENV__
    
+#if defined(__GNUC__) && (__GNUC__ >= 4)   
+#pragma GCC fenv
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -55,32 +59,43 @@ extern "C" {
 *                   exception flag state collectively.                          *
 *                                                                               *
 ********************************************************************************/
-
 typedef struct {
-    unsigned short int __control;
-    unsigned short int __status;
+    unsigned short __control;
+    unsigned short __status;
 } fenv_t;
 
 typedef unsigned short fexcept_t;
 
 /*    Definitions of floating-point exception macros                          */
 enum {
-  FE_INEXACT                    = 0x0020,
-  FE_DIVBYZERO                  = 0x0004,
-  FE_UNDERFLOW                  = 0x0010,
-  FE_OVERFLOW                   = 0x0008,
-  FE_INVALID                    = 0x0001,
-  FE_ALL_EXCEPT                 = 0x003D /* FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW | FE_INVALID*/
+  _FE_INEXACT                    = 0x0020,
+  _FE_DIVBYZERO                  = 0x0004,
+  _FE_UNDERFLOW                  = 0x0010,
+  _FE_OVERFLOW                   = 0x0008,
+  _FE_INVALID                    = 0x0001,
+  _FE_ALL_EXCEPT                 = 0x003D /* FE_INEXACT | FE_DIVBYZERO | FE_UNDERFLOW | FE_OVERFLOW | FE_INVALID*/
 };
+
+#define FE_INEXACT      _FE_INEXACT
+#define FE_DIVBYZERO    _FE_DIVBYZERO
+#define FE_UNDERFLOW    _FE_UNDERFLOW
+#define FE_OVERFLOW     _FE_OVERFLOW
+#define FE_INVALID      _FE_INVALID
+#define FE_ALL_EXCEPT   _FE_ALL_EXCEPT
 
 
 /*    Definitions of rounding direction macros                                */
 enum {
-  FE_TONEAREST                  = 0x0000,
-  FE_TOWARDZERO                 = 0x0C00,
-  FE_UPWARD                     = 0x0800,
-  FE_DOWNWARD                   = 0x0400
+  _FE_TONEAREST                  = 0x0000,
+  _FE_TOWARDZERO                 = 0x0C00,
+  _FE_UPWARD                     = 0x0800,
+  _FE_DOWNWARD                   = 0x0400
 };
+
+#define FE_TONEAREST    _FE_TONEAREST
+#define FE_TOWARDZERO   _FE_TOWARDZERO
+#define FE_UPWARD       _FE_UPWARD
+#define FE_DOWNWARD     _FE_DOWNWARD
 
 /* default environment object        */
 extern const fenv_t _FE_DFL_ENV;
@@ -97,7 +112,7 @@ extern const fenv_t _FE_DFL_ENV;
 *     by its argument.                                                         *
 *******************************************************************************/
 
-extern void  feclearexcept(int);
+extern int  feclearexcept(int);
 
 
 /*******************************************************************************
@@ -106,7 +121,7 @@ extern void  feclearexcept(int);
 *     argument.                                                                *
 *******************************************************************************/
 
-extern void  fegetexceptflag(fexcept_t *, int);
+extern int  fegetexceptflag(fexcept_t *, int);
 
 
 /*******************************************************************************
@@ -114,7 +129,7 @@ extern void  fegetexceptflag(fexcept_t *, int);
 *     represented by its argument.                                             *
 *******************************************************************************/
 
-extern void  feraiseexcept(int);
+extern int  feraiseexcept(int);
 
 
 /*******************************************************************************
@@ -126,7 +141,7 @@ extern void  feraiseexcept(int);
 *     the flags.                                                               *
 *******************************************************************************/
 
-extern void  fesetexceptflag(const fexcept_t *, int);
+extern int  fesetexceptflag(const fexcept_t *, int);
 
 
 /*******************************************************************************
@@ -167,10 +182,10 @@ extern int  fesetround(int);
 *    flags and dynamic modes, as one entity.                                   *
 *******************************************************************************/
 
-extern void  fegetenv(fenv_t *);
-extern int   feholdexcept(fenv_t *);
-extern void  fesetenv(const fenv_t *);
-extern void  feupdateenv(const fenv_t *);
+extern int  fegetenv(fenv_t *);
+extern int  feholdexcept(fenv_t *);
+extern int  fesetenv(const fenv_t *);
+extern int  feupdateenv(const fenv_t *);
 
 
 #ifdef __cplusplus

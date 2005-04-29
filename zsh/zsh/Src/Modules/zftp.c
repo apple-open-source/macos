@@ -195,7 +195,7 @@ static struct builtin bintab[] = {
  * currently there aren't any, which is the way I like it.
  */
 static char *zfparams[] = {
-    "ZFTP_HOST", "ZFTP_IP", "ZFTP_SYSTEM", "ZFTP_USER",
+    "ZFTP_HOST", "ZFTP_PORT", "ZFTP_IP", "ZFTP_SYSTEM", "ZFTP_USER",
     "ZFTP_ACCOUNT", "ZFTP_PWD", "ZFTP_TYPE", "ZFTP_MODE", NULL
 };
 
@@ -431,7 +431,7 @@ zfunalarm(void)
 	 * I love the way alarm() uses unsigned int while time_t
 	 * is probably something completely different.
 	 */
-	time_t tdiff = time(NULL) - oaltime;
+	unsigned int tdiff = time(NULL) - oaltime;
 	alarm(oalremain < tdiff ? 1 : oalremain - tdiff);
     } else
 	alarm(0);
@@ -513,9 +513,9 @@ zfsetparam(char *name, void *val, int flags)
 	return;
     }
     if (type == PM_INTEGER)
-	pm->sets.ifn(pm, *(off_t *)val);
+	pm->gsu.i->setfn(pm, *(off_t *)val);
     else
-	pm->sets.cfn(pm, (char *)val);
+	pm->gsu.s->setfn(pm, (char *)val);
 }
 
 /*
@@ -972,7 +972,7 @@ zfopendata(char *name, union tcp_sockaddr *zdsockp, int *is_passivep)
 #else
 	char portcmd[40];
 #endif
-	SOCKLEN_T len;
+	ZSOCKLEN_T len;
 	int ret;
 
 	if (!(zfprefs & ZFPF_SNDP)) {
@@ -1065,7 +1065,7 @@ zfclosedata(void)
 static int
 zfgetdata(char *name, char *rest, char *cmd, int getsize)
 {
-    SOCKLEN_T len;
+    ZSOCKLEN_T len;
     int newfd, is_passive;
     union tcp_sockaddr zdsock;
 
@@ -1699,9 +1699,10 @@ zftp_open(char *name, char **args, int flags)
     struct protoent *zprotop;
     struct servent *zservp;
     struct hostent *zhostp = NULL;
-    char **addrp, *fname;
-    int err, tmout;
-    SOCKLEN_T  len;
+    char **addrp, *fname, *tmpptr, *portnam = "ftp";
+    char *hostnam, *hostsuffix;
+    int err, tmout, port = -1;
+    ZSOCKLEN_T  len;
     int herrno, af, hlen;
 
     if (!*args) {
@@ -1721,12 +1722,56 @@ zftp_open(char *name, char **args, int flags)
     if (zfsess->control)
 	zfclose(0);
 
+    hostnam = dupstring(args[0]);
+    /*
+     * Check for IPv6 address in square brackets (RFC2732).
+     * We are more lenient and allow any form for the host here.
+     */
+    if (hostnam[0] == '[') {
+	hostnam++;
+	hostsuffix = strchr(hostnam, ']');
+	if (!hostsuffix || (hostsuffix[1] && hostsuffix[1] != ':')) {
+	    zwarnnam(name, "Invalid host format: %s", hostnam, 0);
+	    return 1;
+	}
+	*hostsuffix++ = '\0';
+    }
+    else
+	hostsuffix = hostnam;
+
+    if ((tmpptr = strchr(hostsuffix, ':'))) {
+	char *endptr;
+
+	*tmpptr++ = '\0';
+	port = (int)zstrtol(tmpptr, &endptr, 10);
+	/*
+	 * If the port is not numeric, look it up by name below.
+	 */
+	if (*endptr) {
+	    portnam = tmpptr;
+	    port = -1;
+	}
+#if defined(HAVE_NTOHS) && defined(HAVE_HTONS)
+	else {
+	    port = (int)htons((unsigned short)port);
+	}
+#endif
+    }
+
     /* this is going to give 0.  why bother? */
     zprotop = getprotobyname("tcp");
-    zservp = getservbyname("ftp", "tcp");
+    if (!zprotop) {
+	zwarnnam(name, "Can't find protocol TCP (is your network functional)?",
+		 NULL, 0);
+	return 1;
+    }
+    if (port < 0)
+	zservp = getservbyname(portnam, "tcp");
+    else
+	zservp = getservbyport(port, "tcp");
 
     if (!zprotop || !zservp) {
-	zwarnnam(name, "Somebody stole FTP!", NULL, 0);
+	zwarnnam(name, "Can't find port for service `%s'", portnam, 0);
 	return 1;
     }
 
@@ -1762,7 +1807,9 @@ zftp_open(char *name, char **args, int flags)
 # define FAILED() do { } while(0)
 #endif
     {
-	zhostp = zsh_getipnodebyname(args[0], af, 0, &herrno);
+	off_t tcp_port;
+
+	zhostp = zsh_getipnodebyname(hostnam, af, 0, &herrno);
 	if (!zhostp || errflag) {
 	    /* should use herror() here if available, but maybe
 	     * needs configure test. on AIX it's present but not
@@ -1771,11 +1818,18 @@ zftp_open(char *name, char **args, int flags)
 	     * on the other hand, herror() is obsolete
 	     */
 	    FAILED();
-	    zwarnnam(name, "host not found: %s", args[0], 0);
+	    zwarnnam(name, "host not found: %s", hostnam, 0);
 	    alarm(0);
 	    return 1;
 	}
 	zfsetparam("ZFTP_HOST", ztrdup(zhostp->h_name), ZFPM_READONLY);
+	/* careful with pointer types */
+#if defined(HAVE_NTOHS) && defined(HAVE_HTONS)
+	tcp_port = (off_t)ntohs((unsigned short)zservp->s_port);
+#else
+	tcp_port = (off_t)zservp->s_port;
+#endif
+	zfsetparam("ZFTP_PORT", &tcp_port, ZFPM_READONLY|ZFPM_INTEGER);
 
 #ifdef SUPPORT_IPV6
 	if(af == AF_INET6) {
@@ -1795,6 +1849,7 @@ zftp_open(char *name, char **args, int flags)
 	    }
 	    freehostent(zhostp);
 	    zfunsetparam("ZFTP_HOST");
+	    zfunsetparam("ZFTP_PORT");
 	    FAILED();
 	    zwarnnam(name, "socket failed: %e", NULL, errno);
 	    alarm(0);
@@ -1815,8 +1870,7 @@ zftp_open(char *name, char **args, int flags)
 	    if(hlen != zhostp->h_length)
 		zwarnnam(name, "address length mismatch", NULL, 0);
 	    do {
-		err = tcp_connect(zfsess->control, *addrp, zhostp, zservp->s_port);
-	    } while (err && errno == EINTR && !errflag);
+		err = tcp_connect(zfsess->control, *addrp, zhostp, zservp->s_port);	    } while (err && errno == EINTR && !errflag);
 	    /* you can check whether it's worth retrying here */
 	}
 
@@ -1917,8 +1971,7 @@ zftp_open(char *name, char **args, int flags)
      * However, it is closed whenever there are no connections open.
      */
     if (zfstatfd == -1) {
-	fname = gettempname();
-	zfstatfd = open(fname, O_RDWR|O_CREAT|O_EXCL, 0600);
+	zfstatfd = gettempfile(NULL, 1, &fname);
 	DPUTS(zfstatfd == -1, "zfstatfd not created");
 #if defined(F_SETFD) && defined(FD_CLOEXEC)
 	/* If the shell execs a program, we don't want this fd left open. */
@@ -2014,7 +2067,7 @@ zfgetinfo(char *prompt, int noecho)
 
 /**/
 static int
-zftp_params(char *name, char **args, int flags)
+zftp_params(UNUSED(char *name), char **args, UNUSED(int flags))
 {
     char *prompts[] = { "Host: ", "User: ", "Password: ", "Account: " };
     char **aptr, **newarr;
@@ -2042,7 +2095,7 @@ zftp_params(char *name, char **args, int flags)
 	return 0;
     }
     len = arrlen(args);
-    newarr = (char **)zcalloc((len+1)*sizeof(char *));
+    newarr = (char **)zshcalloc((len+1)*sizeof(char *));
     for (aptr = args, i = 0; *aptr && !errflag; aptr++, i++) {
 	char *str;
 	if (**aptr == '?')
@@ -2068,7 +2121,7 @@ zftp_params(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_login(char *name, char **args, int flags)
+zftp_login(char *name, char **args, UNUSED(int flags))
 {
     char *ucmd, *passwd = NULL, *acct = NULL;
     char *user, tbuf[2] = "X";
@@ -2201,7 +2254,7 @@ zftp_login(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_test(char *name, char **args, int flags)
+zftp_test(UNUSED(char *name), UNUSED(char **args), UNUSED(int flags))
 {
 #if defined(HAVE_POLL) || defined(HAVE_SELECT)
     int ret;
@@ -2282,7 +2335,7 @@ zftp_dir(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_cd(char *name, char **args, int flags)
+zftp_cd(UNUSED(char *name), char **args, int flags)
 {
     /* change directory --- enhance to allow 'zftp cdup' */
     int ret;
@@ -2414,7 +2467,7 @@ zftp_type(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_mode(char *name, char **args, int flags)
+zftp_mode(char *name, char **args, UNUSED(int flags))
 {
     char *str, cmd[] = "MODE X\r\n";
     int nt;
@@ -2441,7 +2494,7 @@ zftp_mode(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_local(char *name, char **args, int flags)
+zftp_local(UNUSED(char *name), char **args, int flags)
 {
     int more = !!args[1], ret = 0, dofd = !*args;
     while (*args || dofd) {
@@ -2584,7 +2637,7 @@ zftp_getput(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_delete(char *name, char **args, int flags)
+zftp_delete(UNUSED(char *name), char **args, UNUSED(int flags))
 {
     int ret = 0;
     char *cmd, **aptr;
@@ -2601,7 +2654,7 @@ zftp_delete(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_mkdir(char *name, char **args, int flags)
+zftp_mkdir(UNUSED(char *name), char **args, int flags)
 {
     int ret;
     char *cmd = tricat((flags & ZFTP_DELE) ? "RMD " : "MKD ",
@@ -2615,7 +2668,7 @@ zftp_mkdir(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_rename(char *name, char **args, int flags)
+zftp_rename(UNUSED(char *name), char **args, UNUSED(int flags))
 {
     int ret;
     char *cmd;
@@ -2639,7 +2692,7 @@ zftp_rename(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_quote(char *name, char **args, int flags)
+zftp_quote(UNUSED(char *name), char **args, int flags)
 {
     int ret = 0;
     char *cmd;
@@ -2731,7 +2784,7 @@ zfclose(int leaveparams)
 
 /**/
 static int
-zftp_close(char *name, char **args, int flags)
+zftp_close(UNUSED(char *name), UNUSED(char **args), UNUSED(int flags))
 {
     zfclose(0);
     return 0;
@@ -2764,10 +2817,10 @@ newsession(char *nm)
     }
 
     if (!nptr) {
-	zfsess = (Zftp_session) zcalloc(sizeof(struct zftp_session));
+	zfsess = (Zftp_session) zshcalloc(sizeof(struct zftp_session));
 	zfsess->name = ztrdup(nm);
 	zfsess->dfd = -1;
-	zfsess->params = (char **) zcalloc(sizeof(zfparams));
+	zfsess->params = (char **) zshcalloc(sizeof(zfparams));
 	zaddlinknode(zfsessions, zfsess);
 
 	zfsesscnt++;
@@ -2838,7 +2891,7 @@ freesession(Zftp_session sptr)
 
 /**/
 static int
-zftp_session(char *name, char **args, int flags)
+zftp_session(UNUSED(char *name), char **args, UNUSED(int flags))
 {
     if (!*args) {
 	LinkNode nptr;
@@ -2864,7 +2917,7 @@ zftp_session(char *name, char **args, int flags)
 
 /**/
 static int
-zftp_rmsession(char *name, char **args, int flags)
+zftp_rmsession(UNUSED(char *name), char **args, UNUSED(int flags))
 {
     int no;
     LinkNode nptr;
@@ -2951,7 +3004,7 @@ zftp_rmsession(char *name, char **args, int flags)
 
 /**/
 static int
-bin_zftp(char *name, char **args, Options ops, int func)
+bin_zftp(char *name, char **args, UNUSED(Options ops), UNUSED(int func))
 {
     char fullname[20] = "zftp ";
     char *cnam = *args++, *prefs, *ptr;
@@ -3103,7 +3156,7 @@ zftp_cleanup(void)
 }
 
 static int
-zftpexithook(Hookdef d, void *dummy)
+zftpexithook(UNUSED(Hookdef d), UNUSED(void *dummy))
 {
     zftp_cleanup();
     return 0;
@@ -3113,7 +3166,7 @@ zftpexithook(Hookdef d, void *dummy)
 
 /**/
 int
-setup_(Module m)
+setup_(UNUSED(Module m))
 {
     /* setup_ returns 0 for success. require_module returns 1 for success. */
     return !require_module("", "zsh/net/tcp", 0, 0);
@@ -3121,7 +3174,7 @@ setup_(Module m)
 
 /**/
 int
-boot_(Module m)
+boot_(UNUSED(Module m))
 {
     int ret;
     if ((ret = addbuiltins("zftp", bintab,
@@ -3145,7 +3198,7 @@ boot_(Module m)
 
 /**/
 int
-cleanup_(Module m)
+cleanup_(UNUSED(Module m))
 {
     deletehookfunc("exit", zftpexithook);
     zftp_cleanup();
@@ -3154,7 +3207,7 @@ cleanup_(Module m)
 
 /**/
 int
-finish_(Module m)
+finish_(UNUSED(Module m))
 {
     return 0;
 }

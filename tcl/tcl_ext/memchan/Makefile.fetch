@@ -1,0 +1,10 @@
+##
+# Makefile.fetch for memchan
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+include Makefile ../Fetch.make
+
+CvsTag               = -D '2004-06-05 00:00:00 UTC'
+UrlBase              = http://tcltkaqua.sourceforge.net/darwin/tcl_ext/$(Project)

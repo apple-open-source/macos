@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -15,6 +15,7 @@
 #if !UCONFIG_NO_TRANSLITERATION
 
 #include "unicode/translit.h"
+#include "unicode/uniset.h"
 
 U_NAMESPACE_BEGIN
 
@@ -24,14 +25,7 @@ U_NAMESPACE_BEGIN
  * @author Alan Liu
  */
 class U_I18N_API NameUnicodeTransliterator : public Transliterator {
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
-
- public:
+public:
 
     /**
      * Constructs a transliterator.
@@ -58,21 +52,21 @@ class U_I18N_API NameUnicodeTransliterator : public Transliterator {
      * Transliterator API.
      * @return    A copy of the object.
      */
-    Transliterator* clone(void) const;
+    virtual Transliterator* clone(void) const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
      * @draft ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
      * @draft ICU 2.2
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID U_EXPORT2 getStaticClassID();
 
  protected:
 
@@ -88,9 +82,10 @@ class U_I18N_API NameUnicodeTransliterator : public Transliterator {
     virtual void handleTransliterate(Replaceable& text, UTransPosition& offset,
                                      UBool isIncremental) const;
 
- private:
-
-    static const char _ID[];
+    /**
+     * Set of characters which occur in Unicode character names.
+     */
+    UnicodeSet legal;
 };
 
 U_NAMESPACE_END

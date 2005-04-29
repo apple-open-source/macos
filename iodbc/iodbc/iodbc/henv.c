@@ -1,7 +1,7 @@
 /*
  *  henv.c
  *
- *  $Id: henv.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: henv.c,v 1.4 2004/11/11 01:52:37 luesang Exp $
  *
  *  Environment object management functions
  *
@@ -76,14 +76,14 @@
 #include <sql.h>
 #include <sqlext.h>
 
+#include <iodbcinst.h>
+
 #include <dlproc.h>
 
 #include <herr.h>
 #include <henv.h>
 
 #include <itrace.h>
-
-
 
 /*
  *  Use static initializer where possible
@@ -95,14 +95,43 @@ SPINLOCK_DECLARE (iodbcdm_global_lock);
 #endif
 
 static int _iodbcdm_initialized = 0;
-static void Init_iODBC();
-static void Done_iODBC();
+static void Init_iODBC(void);
+static void Done_iODBC(void);
 
 
-SQLRETURN SQL_API
-SQLAllocEnv (SQLHENV FAR * phenv)
+static void
+_iodbcdm_env_settracing (GENV_t *genv)
 {
-  GENV_t FAR *genv;
+  char buf[1024];
+
+  genv = genv; /*UNUSED*/
+
+  /*
+   *  Check TraceFile keyword
+   */
+  SQLSetConfigMode (ODBC_BOTH_DSN);
+  if( SQLGetPrivateProfileString ("ODBC", "TraceFile", "", buf, sizeof(buf) / sizeof(SQLTCHAR), "odbc.ini") == 0 || !buf[0])
+    STRCPY (buf, SQL_OPT_TRACE_FILE_DEFAULT);
+  trace_set_filename (buf);
+
+  /*
+   *  Check Trace keyword
+   */
+  SQLSetConfigMode (ODBC_BOTH_DSN);
+  if ( SQLGetPrivateProfileString ("ODBC", "Trace", "", buf, sizeof(buf) / sizeof(SQLTCHAR), "odbc.ini") &&
+      (STRCASEEQ (buf, "on") || STRCASEEQ (buf, "yes")
+   || STRCASEEQ (buf, "1")))
+    trace_start ();
+
+  return;
+}
+
+
+SQLRETURN 
+SQLAllocEnv_Internal (SQLHENV * phenv, int odbc_ver)
+{
+  GENV (genv, NULL);
+  int retcode = SQL_SUCCESS;
 
   /* 
    *  One time initialization
@@ -128,27 +157,48 @@ SQLAllocEnv (SQLHENV FAR * phenv)
   genv->hdbc = SQL_NULL_HDBC;	/* driver's dbc list */
   genv->herr = SQL_NULL_HERR;	/* err list          */
 #if (ODBCVER >= 0x300)
-  genv->odbc_ver = SQL_OV_ODBC2;
+  genv->odbc_ver = odbc_ver;
 #endif
   genv->err_rec = 0;
 
   *phenv = (SQLHENV) genv;
 
-  return SQL_SUCCESS;
+  /*
+   * Initialize tracing 
+   */
+  _iodbcdm_env_settracing (genv);
+
+  return retcode;
 }
 
 
 SQLRETURN SQL_API
-SQLFreeEnv (SQLHENV henv)
+SQLAllocEnv (SQLHENV * phenv)
+{
+  GENV (genv, NULL);
+  int retcode = SQL_SUCCESS;
+
+  retcode = SQLAllocEnv_Internal (phenv, SQL_OV_ODBC2);
+
+  genv = (GENV_t *) *phenv;
+
+  /*
+   * Start tracing
+   */
+  TRACE (trace_SQLAllocEnv (TRACE_ENTER, phenv));
+  TRACE (trace_SQLAllocEnv (TRACE_LEAVE, phenv));
+
+  return retcode;
+}
+
+
+SQLRETURN
+SQLFreeEnv_Internal (SQLHENV henv)
 {
   GENV (genv, henv);
 
-  ODBC_LOCK();
-
   if (!IS_VALID_HENV (genv))
     {
-      ODBC_UNLOCK();
-
       return SQL_INVALID_HANDLE;
     }
   CLEAR_ERRORS (genv);
@@ -156,8 +206,6 @@ SQLFreeEnv (SQLHENV henv)
   if (genv->hdbc != SQL_NULL_HDBC)
     {
       PUSHSQLERR (genv->herr, en_S1010);
-
-      ODBC_UNLOCK();
 
       return SQL_ERROR;
     }
@@ -167,11 +215,29 @@ SQLFreeEnv (SQLHENV henv)
    */
   genv->type = 0;
 
+  return SQL_SUCCESS;
+}
+
+
+SQLRETURN SQL_API
+SQLFreeEnv (SQLHENV henv)
+{
+  GENV (genv, henv);
+  int retcode = SQL_SUCCESS;
+
+  ODBC_LOCK ();
+
+  TRACE (trace_SQLFreeEnv (TRACE_ENTER, henv));
+
+  retcode = SQLFreeEnv_Internal (henv);
+
+  TRACE (trace_SQLFreeEnv (TRACE_LEAVE, henv));
+
   MEM_FREE (genv);
 
-  ODBC_UNLOCK();
+  ODBC_UNLOCK ();
 
-  return SQL_SUCCESS;
+  return retcode;
 }
 
 
@@ -180,7 +246,7 @@ SQLFreeEnv (SQLHENV henv)
  *  properly
  */
 static void
-Init_iODBC ()
+Init_iODBC (void)
 {
 #if !defined (PTHREAD_MUTEX_INITIALIZER) || defined (WINDOWS)
   SPINLOCK_INIT (iodbcdm_global_lock);
@@ -205,7 +271,7 @@ Init_iODBC ()
 
 
 static void 
-Done_iODBC()
+Done_iODBC(void)
 {
     SPINLOCK_DONE (iodbcdm_global_lock);
 }
@@ -215,7 +281,7 @@ Done_iODBC()
  *  DLL Entry points for Windows
  */
 #if defined (WINDOWS)
-STATIC int
+static int
 DLLInit (HINSTANCE hModule)
 {
   Init_iODBC ();
@@ -224,7 +290,7 @@ DLLInit (HINSTANCE hModule)
 }
 
 
-STATIC void
+static void
 DLLExit (void)
 {
   Done_iODBC ();

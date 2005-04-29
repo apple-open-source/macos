@@ -1,7 +1,7 @@
-Mailing lista `%(listname)s' je upravo kreirana za Vas.  Navedeno 
-predstavlja neke osnovne informacije o vasoj mailing listi.
+Mailing lista `%(listname)s' je upravo kreirana.  Donji podaci 
+predstavljaju neke osnovne informacije o vasoj mailing listi.
 
-Vasa lozinka mailing liste je:
+Lozinka mailing liste je:
 
     %(password)s
 

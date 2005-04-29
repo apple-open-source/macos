@@ -41,6 +41,7 @@ public: // package
  
 };
 
+
 #endif /* #if !UCONFIG_NO_FORMATTING */
  
 #endif // __IntlCalendarTest__

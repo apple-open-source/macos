@@ -1,7 +1,7 @@
-                                  _   _ ____  _     
-                              ___| | | |  _ \| |    
-                             / __| | | | |_) | |    
-                            | (__| |_| |  _ <| |___ 
+                                  _   _ ____  _
+                              ___| | | |  _ \| |
+                             / __| | | | |_) | |
+                            | (__| |_| |  _ <| |___
                              \___|\___/|_| \_\_____|
 
                           How cURL Became Like This
@@ -23,17 +23,17 @@ the http-only days were already passed.
 
 The project slowly grew bigger. When upload capabilities were added and the
 name once again was misleading, a second name change was made and on March 20,
-1998 curl 4 was released. (The version numbering from the previous names were
+1998 curl 4 was released. (The version numbering from the previous names was
 kept.)
 
-(Unrelated to this project a company called Curl Corporation filed a US
+(Unrelated to this project a company called Curl Corporation registered a US
 trademark on the name "CURL" on May 18 1998. That company had then already
 registered the curl.com domain back in November of the previous year. All this
-was much later brought into the lights.)
+was revealed to us much later.)
 
 SSL support was added, powered by the SSLeay library.
 
-August 1998, added project curl to freshmeat.net.
+August 1998, first announcement of curl on freshmeat.net.
 
 October 1998, with the curl 4.9 release and the introduction of cookie
 support, curl was no longer released under the GPL license. Now we're at 4000
@@ -42,7 +42,7 @@ lines of code, we switched over to the MPL license to restrict the effects of
 
 November 1998, configure script and reported successful compiles on several
 major operating systems. The never-quite-understood -F option was added and
-curl could now simulate quite a lot of a browser.
+curl could now simulate quite a lot of a browser. TELNET support was added.
 
 Curl 5 was released in December 1998 and introduced the first ever curl man
 page. People started making Linux RPM packages out of it.
@@ -54,7 +54,7 @@ OpenSSL took over where SSLeay was abandoned.
 May 1999, first Debian package.
 
 August 1999, LDAP:// and FILE:// support added. The curl web site gets 1300
-visits daily.
+visits weekly.
 
 Released curl 6.0 in September. 15000 lines of code.
 
@@ -67,7 +67,7 @@ the easy interface and turned out to be the beginning of actually getting
 other software and programs to get based on and powered by libcurl. Almost
 20000 lines of code.
 
-August 2000, the curl web site gets 4000 visits daily.
+August 2000, the curl web site gets 4000 visits weekly.
 
 The PHP guys adopted libcurl already the same month, when the first ever third
 party libcurl binding showed up. CURL has been a supported module in PHP since
@@ -90,9 +90,11 @@ curl supports HTTP 1.1 starting with the release of 7.7, March 22 2001. This
 also introduced libcurl's ability to do persistent connections. 24000 lines of
 code.
 
+The first experimental ftps:// support was added in March 2001.
+
 August 2001. curl is bundled in Mac OS X, 10.1. It was already becoming more
 and more of a standard utility of Linux distributions and a regular in the BSD
-ports collections. The curl web site gets 8000 visits daily. Curl Corporation
+ports collections. The curl web site gets 8000 visits weekly. Curl Corporation
 contacted Daniel to discuss "the name issue". After Daniel's reply, they have
 never since got in touch again.
 
@@ -100,7 +102,7 @@ September 2001, libcurl 7.9 introduces cookie jar and curl_formadd(). During
 the forthcoming 7.9.x releases, we introduced the multi interface slowly and
 without much whistles.
 
-June 2002, the curl web site gets 13000 visits daily. curl and libcurl is
+June 2002, the curl web site gets 13000 visits weekly. curl and libcurl is
 35000 lines of code. Reported successful compiles on more than 40 combinations
 of CPUs and operating systems.
 
@@ -111,3 +113,29 @@ distributions and otherwise retrieved as part of other software.
 
 September 2002, with the release of curl 7.10 it is released under the MIT
 license only.
+
+February 2003, the curl site averages at 20000 visits weekly. At any given
+moment, there's an average of 3 people browsing the curl.haxx.se site.
+
+Multiple new authentication schemes are supported: Digest (May), NTLM (June)
+and Negotiate (June).
+
+November 2003: curl 7.10.8 is released. 45000 lines of code. ~55000 unique
+visitors to the curl.haxx.se site. Five official web mirrors.
+
+December 2003, full-fledged SSL for FTP is supported.
+
+January 2004: curl 7.11.0 introduced large file support.
+
+June 2004: curl 7.12.0 introduced IDN support. 10 official web mirrors.
+
+August 2004:
+ Curl and libcurl 7.12.1
+
+ Public curl release number:               82
+ Releases counted from the very beginning: 109
+ Available command line options:           96
+ Available curl_easy_setopt() options:     120
+ Number of public functions in libcurl:    36
+ Amount of public web site mirrors:        12
+ Number of known libcurl bindings:         26

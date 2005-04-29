@@ -143,13 +143,21 @@ ds_passwd(char *uname, char *locn)
 	int							wasroot				= 0;
 	char						*loginUser			= NULL;
 	int							changePassOnSelf	= 1;
+	const char					*errMsgStr			= NULL;
+	struct passwd				*userRec			= NULL;
 	
 	if (uname == NULL)
 		return -1;
 	
-	loginUser = getlogin();
-	if ( loginUser != NULL )
-		changePassOnSelf = ( strcmp( loginUser, uname ) == 0 );
+	/* getlogin() is the wrong thing to use here. Use getpwuid(getuid()); */
+	/* sns 5 Jan 2005 */
+		
+	userRec = getpwuid( getuid() );
+	if ( userRec != NULL ) {
+		loginUser = userRec->pw_name;
+		if ( loginUser != NULL )
+			changePassOnSelf = (strcmp(loginUser, uname) == 0);
+	}
 	
 	status = dsOpenDirService( &dsRef );
 	if (status != eDSNoErr)
@@ -257,6 +265,11 @@ ds_passwd(char *uname, char *locn)
 			}
 		}
 		
+		if ( pUserLocation == NULL || pUserName == NULL ) {
+			status = eDSAuthInvalidUserName;
+			break;
+		}
+		
 		pUserNode = dsBuildFromPath( dsRef, pUserLocation, "/" );
 		status = dsOpenDirNode( dsRef, pUserNode, &userNodeRef );
 		if ( status != eDSNoErr ) break;
@@ -318,6 +331,7 @@ ds_passwd(char *uname, char *locn)
 			status = dsDoDirNodeAuth( userNodeRef, pAuthType, 1, tDataBuff, pStepBuff, NULL );
 		}
 		else
+		if ( loginUser != NULL )
 		{
 			pAuthType = dsDataNodeAllocateString( dsRef, kDSStdAuthSetPasswd );
 			uiCurr = 0;
@@ -353,6 +367,10 @@ ds_passwd(char *uname, char *locn)
 			tDataBuff->fBufferLength = uiCurr;
 			
 			status = dsDoDirNodeAuth( userNodeRef, pAuthType, 1, tDataBuff, pStepBuff, NULL );
+		}
+		else
+		{
+			status = eDSAuthFailed;
 		}
 	}
 	while ( isroot == 1 && status != eDSNoErr );
@@ -404,7 +422,28 @@ ds_passwd(char *uname, char *locn)
 
 	if ( status != eDSNoErr ) {
 		errno = EACCES;
-		fprintf(stderr, "Sorry\n");
+		switch( status )
+		{
+			case eDSAuthPasswordTooShort:
+				errMsgStr = "The new password is too short.";
+				break;
+			
+			case eDSAuthPasswordTooLong:
+				errMsgStr = "The new password is too long.";
+				break;
+				
+			case eDSAuthPasswordNeedsLetter:
+				errMsgStr = "The new password must contain a letter.";
+				break;
+				
+			case eDSAuthPasswordNeedsDigit:
+				errMsgStr = "The new password must contain a number.";
+				break;
+				
+			default:
+				errMsgStr = "Sorry";
+		}
+		fprintf(stderr, "%s\n", errMsgStr);
 		exit(1);
 	}
 	

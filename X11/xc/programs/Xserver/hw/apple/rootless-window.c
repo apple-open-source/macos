@@ -266,13 +266,15 @@ RootlessDestroyWindow (WindowPtr pWin)
 static Bool
 RootlessGetShape (WindowPtr pWin, RegionPtr pShape)
 {
+    ScreenPtr pScreen = pWin->drawable.pScreen;
+
     if (wBoundingShape (pWin) == NULL)
 	return FALSE;
 
     /* wBoundingShape is relative to *inner* origin of window.
        Translate by borderWidth to get the outside-relative position. */
 
-    REGION_INIT (pScreen, pShape, NullBox, 0);
+    REGION_NULL (pScreen, pShape);
     REGION_COPY (pScreen, pShape, wBoundingShape (pWin));
     REGION_TRANSLATE (pScreen, pShape, pWin->borderWidth, pWin->borderWidth);
 
@@ -291,6 +293,7 @@ static void
 rootlessSetShape (WindowPtr pWin)
 {
     RootlessWindowRec *winRec = WINREC (pWin);
+    ScreenPtr pScreen = pWin->drawable.pScreen;
 
     RegionRec newShape;
     RegionPtr pShape;
@@ -583,7 +586,7 @@ RootlessRealizeWindow(WindowPtr pWin)
 
 	winRec = rootlessEnsureFrame (pWin);
 	if (winRec == NULL)
-	    return NULL;
+	    return FALSE;
 
 	winRec->is_reorder_pending = TRUE;
 
@@ -783,7 +786,7 @@ RootlessKnowsWindowNumber (int number)
 
     /* need to lock, since this function can be called by any thread */
 
-    if (window_hash == NULL)
+    if (number == 0 || window_hash == NULL)
 	return FALSE;
 
     pthread_mutex_lock (&window_hash_mutex);
@@ -1053,7 +1056,7 @@ RootlessResizeCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg,
     dx = ptOldOrg.x - pWin->drawable.x;
     dy = ptOldOrg.y - pWin->drawable.y;
     REGION_TRANSLATE (pScreen, prgnSrc, -dx, -dy);
-    REGION_INIT (pScreen, &rgnDst, NullBox, 0);
+    REGION_NULL (pScreen, &rgnDst);
     REGION_INTERSECT (pScreen, &rgnDst, &pWin->borderClip, prgnSrc);
 
     if (gResizeDeathCount == 1)
@@ -1075,7 +1078,7 @@ RootlessResizeCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg,
 	for (i = 0; i < gResizeDeathCount; i++)
 	{
 	    REGION_INIT (pScreen, &clip, gResizeDeathBounds + 0, 1);
-	    REGION_INIT (pScreen, &clipped, NullBox, 0);
+	    REGION_NULL (pScreen, &clipped);
 	    REGION_INTERSECT (pScreen, &rgnDst, &clip, &clipped);
 
 	    fbCopyRegion (&gResizeDeathPix[i]->drawable,
@@ -1133,7 +1136,7 @@ RootlessCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
     dy = ptOldOrg.y - pWin->drawable.y;
     REGION_TRANSLATE (pScreen, prgnSrc, -dx, -dy);
 
-    REGION_INIT (pScreen, &rgnDst, NullBox, 0);
+    REGION_NULL (pScreen, &rgnDst);
     REGION_INTERSECT (pScreen, &rgnDst, &pWin->borderClip, prgnSrc);
 
     extents = REGION_EXTENTS (pScreen, &rgnDst);

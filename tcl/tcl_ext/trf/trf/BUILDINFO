@@ -1,0 +1,6 @@
+# -*- tcl -*-
+
+depends.on tcl memchan
+testsuite  tests
+configure.with \
+	{} "--with-tcl=[file join %bld:tcl% %arch%] --enable-shared"

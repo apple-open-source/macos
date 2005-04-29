@@ -64,6 +64,7 @@
 #import <sys/resource.h>
 #import <signal.h>
 #import <notify.h>
+#import <dnsinfo.h>
 #import <mach/mig_errors.h>
 #import "_lu_types.h"
 
@@ -98,12 +99,14 @@ syslock *rpcLock = NULL;
 syslock *statsLock = NULL;
 char *portName = NULL;
 sys_port_type server_port = SYS_PORT_NULL;
+BOOL trace_enabled = NO;
+BOOL agent_debug_enabled = NO;
 BOOL debug_enabled = NO;
 BOOL statistics_enabled = NO;
 BOOL coredump_enabled = NO;
-BOOL lookup_local_interfaces = YES;
+BOOL aaaa_cutoff_enabled = YES;
 
-uint32_t gai_pref = GAI_S46;
+uint32_t gai_pref = GAI_P;
 uint32_t gai_wait = 2;
 
 /* Controller.m uses this global */
@@ -183,7 +186,7 @@ lookupd_startup()
 	char *name;
 	LUArray *config;
 	LUDictionary *cglobal;
-	int rf, nctoken;
+	int rf, nctoken, dnstoken;
 	uint32_t x;
 
 	rf = open("/dev/random", O_RDONLY, 0);
@@ -251,7 +254,10 @@ lookupd_startup()
 
 	nctoken = -1;
 	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
-
+	
+	dnstoken = -1;
+	notify_register_signal(dns_configuration_notify_key(), SIGHUP, &dnstoken);
+	
 	if (!status)
 	{
 		if (debugMode)

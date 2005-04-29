@@ -29,8 +29,7 @@
 #define __PluginData_H__	1
 
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 #include <sys/types.h>
 
 typedef enum {
@@ -272,6 +271,19 @@ typedef struct {
 
 
 //-------------------------------------------------
+// dsGetRecordAttributeValueByValue
+
+typedef struct {
+	uInt32					fType;
+	sInt32					fResult;
+	tRecordReference		fInRecRef;
+	tDataNodePtr			fInAttrType;
+	tDataNodePtr			fInAttrValue;
+	tAttributeValueEntryPtr	fOutEntryPtr;
+} sGetRecordAttributeValueByValue;
+
+
+//-------------------------------------------------
 // dsFlushRecord
 
 typedef struct {
@@ -400,6 +412,18 @@ typedef struct {
 
 
 //-------------------------------------------------
+// dsSetAttributeValues
+
+typedef struct {
+	uInt32					fType;
+	sInt32					fResult;
+	tRecordReference		fInRecRef;
+	tDataNodePtr			fInAttrType;
+	tDataListPtr			fInAttrValueList;
+} sSetAttributeValues;
+
+
+//-------------------------------------------------
 // dsDoDirNodeAuth
 
 typedef struct {
@@ -448,6 +472,23 @@ typedef struct {
 
 
 //-------------------------------------------------
+// dsDoMultipleAttributeValueSearch
+
+typedef struct {
+	uInt32					fType;
+	sInt32					fResult;
+	tDirNodeReference		fInNodeRef;
+	tDataBufferPtr			fOutDataBuff;
+	tDataListPtr			fInRecTypeList;
+	tDataNodePtr			fInAttrType;
+	tDirPatternMatch		fInPattMatchType;
+	tDataListPtr			fInPatterns2MatchList;
+	unsigned long			fOutMatchRecordCount;
+	tContextData			fIOContinueData;
+} sDoMultiAttrValueSearch;
+
+
+//-------------------------------------------------
 // dsDoAttributeValueSearchWithData
 
 typedef struct {
@@ -464,6 +505,25 @@ typedef struct {
 	tDataListPtr			fInAttrTypeRequestList;
 	bool					fInAttrInfoOnly;
 } sDoAttrValueSearchWithData;
+
+
+//-------------------------------------------------
+// dsDoMultipleAttributeValueSearchWithData
+
+typedef struct {
+	uInt32					fType;
+	sInt32					fResult;
+	tDirNodeReference		fInNodeRef;
+	tDataBufferPtr			fOutDataBuff;
+	tDataListPtr			fInRecTypeList;
+	tDataNodePtr			fInAttrType;
+	tDirPatternMatch		fInPattMatchType;
+	tDataListPtr			fInPatterns2MatchList;
+	unsigned long			fOutMatchRecordCount;
+	tContextData			fIOContinueData;
+	tDataListPtr			fInAttrTypeRequestList;
+	bool					fInAttrInfoOnly;
+} sDoMultiAttrValueSearchWithData;
 
 
 //-------------------------------------------------

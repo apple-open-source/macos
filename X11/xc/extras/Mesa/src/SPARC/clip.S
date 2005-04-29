@@ -1,5 +1,10 @@
+/* $XFree86: xc/extras/Mesa/src/SPARC/clip.S,v 1.3 2003/12/02 20:27:34 dawes Exp $ */
 
-#ifdef __sparc_v9__
+#if defined(__sparc_v9__) && !defined(__linux__)
+#define SPARC_64BIT_ADDR
+#endif
+
+#ifdef SPARC_64BIT_ADDR
 #define LDPTR		ldx
 #define V4F_DATA	0x00
 #define V4F_START	0x08

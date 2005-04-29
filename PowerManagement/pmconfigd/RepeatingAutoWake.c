@@ -20,13 +20,14 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
+#include <syslog.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CoreFoundation.h> 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <syslog.h>
 #include "RepeatingAutoWake.h"
 
 /*

@@ -16,6 +16,7 @@ CFILES = cut.c
 
 OTHERSRCS = Makefile Makefile.preamble Makefile.postamble cut.1
 
+NEXTSTEP_PB_CFLAGS = -D__FBSDID=__RCSID
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

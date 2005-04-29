@@ -35,20 +35,30 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing.tree;
 
-// Imports
-import java.beans.*;
-import java.io.*;
-import java.util.*;
-import javax.swing.*;
-import javax.swing.event.*;
+import java.beans.PropertyChangeListener;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.EventListener;
+import java.util.Vector;
+import javax.swing.DefaultListSelectionModel;
+import javax.swing.event.SwingPropertyChangeSupport;
+import javax.swing.event.EventListenerList;
+import javax.swing.event.TreeSelectionEvent;
+import javax.swing.event.TreeSelectionListener;
 
 /**
  * DefaultTreeSelectionModel
  * @author Andrew Selkirk
  */
-public class DefaultTreeSelectionModel implements Cloneable, Serializable, TreeSelectionModel {
+public class DefaultTreeSelectionModel
+  implements Cloneable, Serializable, TreeSelectionModel
+{
+  static final long serialVersionUID = 3288129636638950196L;
 
 	//-------------------------------------------------------------
 	// Variables --------------------------------------------------

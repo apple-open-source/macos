@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: misc.c,v 1.20 2002/12/13 10:03:15 markus Exp $");
+RCSID("$OpenBSD: misc.c,v 1.23 2003/10/28 09:08:06 markus Exp $");
 
 #include "misc.h"
 #include "log.h"
@@ -60,7 +60,7 @@ set_nonblock(int fd)
 		debug2("fd %d is O_NONBLOCK", fd);
 		return;
 	}
-	debug("fd %d setting O_NONBLOCK", fd);
+	debug2("fd %d setting O_NONBLOCK", fd);
 	val |= O_NONBLOCK;
 	if (fcntl(fd, F_SETFL, val) == -1)
 		debug("fcntl(%d, F_SETFL, O_NONBLOCK): %s",
@@ -97,7 +97,7 @@ set_nodelay(int fd)
 
 	optlen = sizeof opt;
 	if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, &optlen) == -1) {
-		error("getsockopt TCP_NODELAY: %.100s", strerror(errno));
+		debug("getsockopt TCP_NODELAY: %.100s", strerror(errno));
 		return;
 	}
 	if (opt == 1) {
@@ -308,44 +308,21 @@ addargs(arglist *args, char *fmt, ...)
 {
 	va_list ap;
 	char buf[1024];
+	int nalloc;
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	va_end(ap);
 
+	nalloc = args->nalloc;
 	if (args->list == NULL) {
-		args->nalloc = 32;
+		nalloc = 32;
 		args->num = 0;
-	} else if (args->num+2 >= args->nalloc)
-		args->nalloc *= 2;
+	} else if (args->num+2 >= nalloc)
+		nalloc *= 2;
 
-	args->list = xrealloc(args->list, args->nalloc * sizeof(char *));
+	args->list = xrealloc(args->list, nalloc * sizeof(char *));
+	args->nalloc = nalloc;
 	args->list[args->num++] = xstrdup(buf);
 	args->list[args->num] = NULL;
-}
-
-mysig_t
-mysignal(int sig, mysig_t act)
-{
-#ifdef HAVE_SIGACTION
-	struct sigaction sa, osa;
-
-	if (sigaction(sig, NULL, &osa) == -1)
-		return (mysig_t) -1;
-	if (osa.sa_handler != act) {
-		memset(&sa, 0, sizeof(sa));
-		sigemptyset(&sa.sa_mask);
-		sa.sa_flags = 0;
-#if defined(SA_INTERRUPT)
-		if (sig == SIGALRM)
-			sa.sa_flags |= SA_INTERRUPT;
-#endif
-		sa.sa_handler = act;
-		if (sigaction(sig, &sa, NULL) == -1)
-			return (mysig_t) -1;
-	}
-	return (osa.sa_handler);
-#else
-	return (signal(sig, act));
-#endif
 }

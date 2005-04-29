@@ -1,6 +1,7 @@
+
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -29,8 +30,6 @@
 
 /* THIS FILE ONLY INCLUDED BY mtypes.h !!!!! */
 
-#include "macros.h"
-
 struct gl_pixelstore_attrib;
 
 /* Mask bits sent to the driver Clear() function */
@@ -38,20 +37,19 @@ struct gl_pixelstore_attrib;
 #define DD_FRONT_RIGHT_BIT FRONT_RIGHT_BIT        /* 2 */
 #define DD_BACK_LEFT_BIT   BACK_LEFT_BIT          /* 4 */
 #define DD_BACK_RIGHT_BIT  BACK_RIGHT_BIT         /* 8 */
+#define DD_AUX0            AUX0_BIT               /* future use */
+#define DD_AUX1            AUX1_BIT               /* future use */
+#define DD_AUX2            AUX2_BIT               /* future use */
+#define DD_AUX3            AUX3_BIT               /* future use */
 #define DD_DEPTH_BIT       GL_DEPTH_BUFFER_BIT    /* 0x00000100 */
-#define DD_STENCIL_BIT     GL_STENCIL_BUFFER_BIT  /* 0x00000400 */
 #define DD_ACCUM_BIT       GL_ACCUM_BUFFER_BIT    /* 0x00000200 */
+#define DD_STENCIL_BIT     GL_STENCIL_BUFFER_BIT  /* 0x00000400 */
 
 
 /*
  * Device Driver function table.
  */
 struct dd_function_table {
-
-   /**********************************************************************
-    *** Mandatory functions:  these functions must be implemented by   ***
-    *** every device driver.                                           ***
-    **********************************************************************/
 
    const GLubyte * (*GetString)( GLcontext *ctx, GLenum name );
    /* Return a string as needed by glGetString().
@@ -74,26 +72,21 @@ struct dd_function_table {
     * If 'all' is true then the clear the whole buffer, else clear only the
     * region defined by (x,y,width,height).
     * This function must obey the glColorMask, glIndexMask and glStencilMask
-    * settings!  Software Mesa can do masked clears if the device driver can't.
+    * settings!
+    * Software Mesa can do masked clears if the device driver can't.
     */
 
-   void (*SetDrawBuffer)( GLcontext *ctx, GLenum buffer );
+   void (*DrawBuffer)( GLcontext *ctx, GLenum buffer );
    /*
-    * Specifies the current buffer for writing.
-    * The following values must be accepted when applicable:
-    *    GL_FRONT_LEFT - this buffer always exists
-    *    GL_BACK_LEFT - when double buffering
-    *    GL_FRONT_RIGHT - when using stereo
-    *    GL_BACK_RIGHT - when using stereo and double buffering
-    *    GL_FRONT - write to front left and front right if it exists
-    *    GL_BACK - write to back left and back right if it exists
-    *    GL_LEFT - write to front left and back left if it exists
-    *    GL_RIGHT - write to right left and back right if they exist
-    *    GL_FRONT_AND_BACK - write to all four buffers if they exist
-    *    GL_NONE - disable buffer write in device driver.
-    *
+    * Specifies the current buffer for writing.  Called via glDrawBuffer().
     * Note the driver must organize fallbacks (eg with swrast) if it
     * cannot implement the requested mode.
+    */
+
+
+   void (*ReadBuffer)( GLcontext *ctx, GLenum buffer );
+   /*
+    * Specifies the current buffer for reading.  Called via glReadBuffer().
     */
 
    void (*GetBufferSize)( GLframebuffer *buffer,
@@ -351,55 +344,6 @@ struct dd_function_table {
     * should do the job.
     */
 
-   void (*GetCompressedTexImage)( GLcontext *ctx, GLenum target,
-                                  GLint level, void *image,
-                                  const struct gl_texture_object *texObj,
-                                  struct gl_texture_image *texImage );
-   /* Called by glGetCompressedTexImageARB.
-    * <target>, <level>, <image> are specified by user.
-    * <texObj> is the source texture object.
-    * <texImage> is the source texture image.
-    */
-
-   GLint (*BaseCompressedTexFormat)(GLcontext *ctx,
-                                    GLint internalFormat);
-   /* Called to compute the base format for a specific compressed
-    * format.  Return -1 if the internalFormat is not a specific
-    * compressed format that the driver recognizes.
-    * Example: if internalFormat==GL_COMPRESSED_RGB_FXT1_3DFX, return GL_RGB.
-    */
-
-   GLint (*CompressedTextureSize)(GLcontext *ctx,
-                                  const struct gl_texture_image *texImage);
-
-#if 000
-   /* ... Note the
-    * return value differences between this function and
-    * SpecificCompressedTexFormat below.
-    */
-
-   GLint (*SpecificCompressedTexFormat)(GLcontext *ctx,
-                                        GLint      internalFormat,
-                                        GLint      numDimensions,
-                                        GLint     *levelp,
-                                        GLsizei   *widthp,
-                                        GLsizei   *heightp,
-                                        GLsizei   *depthp,
-                                        GLint     *borderp,
-                                        GLenum    *formatp,
-                                        GLenum    *typep);
-   /* Called to turn a generic texture format into a specific
-    * texture format.  For example, if a driver implements
-    * GL_3DFX_texture_compression_FXT1, this would map
-    * GL_COMPRESSED_RGBA_ARB to GL_COMPRESSED_RGBA_FXT1_3DFX.
-    *
-    * If the driver does not know how to handle the compressed
-    * format, then just return the generic format, and Mesa will
-    * do the right thing with it.
-    */
-
-#endif
-
    /***
     *** Texture object functions:
     ***/
@@ -468,16 +412,14 @@ struct dd_function_table {
     *** They're ALSO called by the gl_PopAttrib() function!!!
     *** May add more functions like these to the device driver in the future.
     ***/
-   void (*AlphaFunc)(GLcontext *ctx, GLenum func, GLchan ref);
+   void (*AlphaFunc)(GLcontext *ctx, GLenum func, GLfloat ref);
    void (*BlendColor)(GLcontext *ctx, const GLfloat color[4]);
    void (*BlendEquation)(GLcontext *ctx, GLenum mode);
    void (*BlendFunc)(GLcontext *ctx, GLenum sfactor, GLenum dfactor);
    void (*BlendFuncSeparate)(GLcontext *ctx,
                              GLenum sfactorRGB, GLenum dfactorRGB,
                              GLenum sfactorA, GLenum dfactorA);
-   void (*BlendConstColor)(GLcontext *ctx, GLfloat red, GLfloat green,
-                           GLfloat blue, GLfloat alpha);
-   void (*ClearColor)(GLcontext *ctx, const GLchan color[4]);
+   void (*ClearColor)(GLcontext *ctx, const GLfloat color[4]);
    void (*ClearDepth)(GLcontext *ctx, GLclampd d);
    void (*ClearIndex)(GLcontext *ctx, GLuint index);
    void (*ClearStencil)(GLcontext *ctx, GLint s);
@@ -512,6 +454,7 @@ struct dd_function_table {
    void (*StencilFunc)(GLcontext *ctx, GLenum func, GLint ref, GLuint mask);
    void (*StencilMask)(GLcontext *ctx, GLuint mask);
    void (*StencilOp)(GLcontext *ctx, GLenum fail, GLenum zfail, GLenum zpass);
+   void (*ActiveStencilFace)(GLcontext *ctx, GLuint face);
    void (*TexGen)(GLcontext *ctx, GLenum coord, GLenum pname,
 		  const GLfloat *params);
    void (*TexEnv)(GLcontext *ctx, GLenum target, GLenum pname,
@@ -521,7 +464,6 @@ struct dd_function_table {
                         GLenum pname, const GLfloat *params);
    void (*TextureMatrix)(GLcontext *ctx, GLuint unit, const GLmatrix *mat);
    void (*Viewport)(GLcontext *ctx, GLint x, GLint y, GLsizei w, GLsizei h);
-
 
    /***
     *** Vertex array functions
@@ -543,6 +485,8 @@ struct dd_function_table {
    void (*TexCoordPointer)(GLcontext *ctx, GLint size, GLenum type,
 			   GLsizei stride, const GLvoid *ptr);
    void (*EdgeFlagPointer)(GLcontext *ctx, GLsizei stride, const GLvoid *ptr);
+   void (*VertexAttribPointer)(GLcontext *ctx, GLuint index, GLint size,
+                               GLenum type, GLsizei stride, const GLvoid *ptr);
 
 
    /*** State-query functions
@@ -554,8 +498,6 @@ struct dd_function_table {
    GLboolean (*GetFloatv)(GLcontext *ctx, GLenum pname, GLfloat *result);
    GLboolean (*GetIntegerv)(GLcontext *ctx, GLenum pname, GLint *result);
    GLboolean (*GetPointerv)(GLcontext *ctx, GLenum pname, GLvoid **result);
-
-
 
    /***
     *** Support for multiple t&l engines
@@ -703,6 +645,9 @@ typedef struct {
    void (*CallList)( GLuint );	/* NOTE */
    void (*Begin)( GLenum );
    void (*End)( void );
+   void (*VertexAttrib4fNV)( GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w );
+   void (*VertexAttrib4fvNV)( GLuint index, const GLfloat *v );
+
    /* Drivers present a reduced set of the functions possible in
     * begin/end objects.  Core mesa provides translation stubs for the
     * remaining functions to map down to these entrypoints.

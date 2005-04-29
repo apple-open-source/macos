@@ -1,0 +1,1186 @@
+/*
+ * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+ * Modification History
+ *
+ * August 5, 2004			Allan Nathanson <ajn@apple.com>
+ * - initial revision
+ */
+
+
+#include "scutil.h"
+#include "net.h"
+
+#include <SystemConfiguration/LinkConfiguration.h>
+
+
+/* -------------------- */
+
+
+static CFArrayRef
+_copy_interfaces()
+{
+	CFMutableArrayRef	interfaces;
+	CFArrayRef		real_interfaces;
+
+	real_interfaces = SCNetworkInterfaceCopyAll();
+	if (real_interfaces == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+		return NULL;
+	}
+
+	interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+	// include real interfaces
+	CFArrayAppendArray(interfaces,
+			   real_interfaces,
+			   CFRangeMake(0, CFArrayGetCount(real_interfaces)));
+	CFRelease(real_interfaces);
+
+	// include pseudo interfaces
+	CFArrayAppendValue(interfaces, kSCNetworkInterfaceIPv4);
+
+	// include interfaces that we have created
+	if (new_interfaces != NULL) {
+		CFArrayAppendArray(interfaces,
+				   new_interfaces,
+				   CFRangeMake(0, CFArrayGetCount(new_interfaces)));
+	}
+
+	return (CFArrayRef)interfaces;
+}
+
+
+__private_extern__
+SCNetworkInterfaceRef
+_find_interface(char *match)
+{
+	Boolean			allowIndex	= TRUE;
+	CFIndex			i;
+	CFIndex			n;
+	CFStringRef		select_name	= NULL;
+	SCNetworkInterfaceRef	selected	= NULL;
+
+	if (strcasecmp(match, "$child") == 0) {
+		if (net_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+			goto done;
+		}
+
+		selected = SCNetworkInterfaceGetInterface(net_interface);
+		if(selected == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no child interface\n"));
+		}
+
+		goto done;
+	} else if (strcasecmp(match, "$service") == 0) {
+		if (net_service == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("service not selected\n"));
+			goto done;
+		}
+
+		selected = SCNetworkServiceGetInterface(net_service);
+		if(selected == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no interface for service\n"));
+		}
+
+		goto done;
+	}
+
+	if (interfaces == NULL) {
+		interfaces = _copy_interfaces();
+		if (interfaces == NULL) {
+			return NULL;
+		}
+		allowIndex = FALSE;
+	}
+
+	// try to select the interface by its display name
+
+	select_name = CFStringCreateWithCString(NULL, match, kCFStringEncodingUTF8);
+
+	n = CFArrayGetCount(interfaces);
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+		CFStringRef		interfaceName;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+		if ((interfaceName != NULL) && CFEqual(select_name, interfaceName)) {
+			if (selected == NULL) {
+				selected = interface;
+			} else {
+				// if multiple interfaces match
+				selected = NULL;
+				SCPrint(TRUE, stdout, CFSTR("multiple interfaces match\n"));
+				goto done;
+			}
+		}
+	}
+
+	if (selected != NULL) {
+		goto done;
+	}
+
+	// try to select the interface by its BSD name
+
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+		CFStringRef		bsd_name	= NULL;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+                while ((interface != NULL) && (bsd_name == NULL)) {
+                        bsd_name = SCNetworkInterfaceGetBSDName(interface);
+                        if (bsd_name == NULL) {
+                                interface = SCNetworkInterfaceGetInterface(interface);
+                        }
+                }
+
+		if ((bsd_name != NULL) && CFEqual(select_name, bsd_name)) {
+			if (selected == NULL) {
+				selected = interface;
+			} else {
+				// if multiple interfaces match
+				selected = NULL;
+				SCPrint(TRUE, stdout, CFSTR("multiple interfaces match\n"));
+				goto done;
+			}
+		}
+	}
+
+	if (selected != NULL) {
+		goto done;
+	}
+
+	// try to select the interface by its interface type
+
+	for (i = 0; i < n; i++) {
+		SCNetworkInterfaceRef	interface;
+		CFStringRef		interfaceType;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+		if (CFEqual(select_name, interfaceType)) {
+			if (selected == NULL) {
+				selected = interface;
+			} else {
+				// if multiple interfaces match
+				selected = NULL;
+				SCPrint(TRUE, stdout, CFSTR("multiple interfaces match\n"));
+				goto done;
+			}
+		}
+	}
+
+	if (selected != NULL) {
+		goto done;
+	}
+
+	if (allowIndex) {
+		char	*end;
+		char	*str	= match;
+		long	val;
+
+		// try to select the interface by its index
+
+		errno = 0;
+		val = strtol(str, &end, 10);
+		if ((*str != '\0') &&
+		    ((*end == '\0') || (*end == '.')) &&
+		    (errno == 0)) {
+			if ((val > 0) && (val <= n)) {
+				selected = CFArrayGetValueAtIndex(interfaces, val - 1);
+
+				if (*end == '.') {
+					str = end + 1;
+					val = strtol(str, &end, 10);
+					if ((*str != '\0') && (*end == '\0') && (errno == 0)) {
+						while (val-- > 0) {
+							selected = SCNetworkInterfaceGetInterface(selected);
+							if (selected == NULL) {
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if (selected != NULL) {
+		goto done;
+	}
+
+	SCPrint(TRUE, stdout, CFSTR("no match\n"));
+
+    done :
+
+	if (select_name != NULL) CFRelease(select_name);
+	return selected;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+create_interface(int argc, char **argv)
+{
+	SCNetworkInterfaceRef	interface;
+	CFStringRef		interfaceName;
+	CFStringRef		interfaceType;
+	SCNetworkInterfaceRef	new_interface;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("what interface type?\n"));
+		return;
+	}
+
+	interfaceType = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
+// xxxxx
+SCPrint(TRUE, stdout, CFSTR("vlan creation not yet supported\n"));
+goto done;
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
+// xxxxx
+SCPrint(TRUE, stdout, CFSTR("bond creation not yet supported\n"));
+goto done;
+	} else {
+		if (argc < 2) {
+			if (net_interface == NULL) {
+				SCPrint(TRUE, stdout, CFSTR("no network interface selected\n"));
+				goto done;
+			}
+
+			interface = net_interface;
+		} else {
+			interface = _find_interface(argv[1]);
+		}
+
+		if (interface == NULL) {
+			return;
+		}
+
+		new_interface = SCNetworkInterfaceCreateWithInterface(interface, interfaceType);
+		if (new_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+			goto done;
+		}
+	}
+
+	if (new_interfaces == NULL) {
+		new_interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	}
+	CFArrayAppendValue(new_interfaces, new_interface);
+
+	if (net_interface != NULL) CFRelease(net_interface);
+	net_interface = new_interface;
+
+	interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(net_interface);
+	if (interfaceName == NULL) {
+		interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
+	}
+	if (interfaceName == NULL) {
+		interfaceName = SCNetworkInterfaceGetInterfaceType(net_interface);
+	}
+	SCPrint(TRUE, stdout, CFSTR("interface \"%@\" created and selected\n"), interfaceName);
+
+    done :
+
+	CFRelease(interfaceType);
+	return;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+select_interface(int argc, char **argv)
+{
+	SCNetworkInterfaceRef	interface;
+
+	interface = _find_interface(argv[0]);
+
+	if (interface != NULL) {
+		CFStringRef	interfaceName;
+
+		if (net_interface != NULL) CFRelease(net_interface);
+		net_interface = CFRetain(interface);
+
+		interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+		if (interfaceName == NULL) {
+			interfaceName = SCNetworkInterfaceGetBSDName(interface);
+		}
+		if (interfaceName == NULL) {
+			interfaceName = SCNetworkInterfaceGetInterfaceType(interface);
+		}
+
+		SCPrint(TRUE, stdout, CFSTR("interface \"%@\" selected\n"), interfaceName);
+	}
+
+	return;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+_show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean showChild)
+{
+	CFDictionaryRef configuration;
+	CFStringRef	if_bsd_name;
+	CFStringRef	if_localized_name;
+	CFStringRef	if_mac_address;
+	CFStringRef	if_type;
+	CFArrayRef	supported;
+
+	if_localized_name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+	if (if_localized_name != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%@  name                 = %@\n"), prefix, if_localized_name);
+	}
+
+	if_bsd_name = SCNetworkInterfaceGetBSDName(interface);
+	if (if_bsd_name != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%@  interface name       = %@\n"), prefix, if_bsd_name);
+	}
+
+	if_type = SCNetworkInterfaceGetInterfaceType(interface);
+	SCPrint(TRUE, stdout, CFSTR("%@  type                 = %@\n"), prefix, if_type);
+
+	if_mac_address = SCNetworkInterfaceGetHardwareAddressString(interface);
+	if (if_mac_address != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("%@  address              = %@\n"), prefix, if_mac_address);
+	}
+
+	configuration = SCNetworkInterfaceGetConfiguration(interface);
+	if ((configuration != NULL) &&
+	    CFDictionaryContainsKey(configuration, kSCResvInactive)) {
+		configuration = NULL;
+	}
+
+	if (if_bsd_name != NULL) {
+		CFArrayRef	available;
+		CFDictionaryRef	active;
+		int		mtu_cur;
+		int		mtu_min;
+		int		mtu_max;
+
+		if (NetworkInterfaceCopyMTU(if_bsd_name, &mtu_cur, &mtu_min, &mtu_max)) {
+			char	isCurrent	= '*';
+
+			if (configuration != NULL) {
+				int		mtu_req;
+				CFNumberRef	num;
+
+				num = CFDictionaryGetValue(configuration, kSCPropNetEthernetMTU);
+				if (isA_CFNumber(num)) {
+					CFNumberGetValue(num, kCFNumberIntType, &mtu_req);
+					if (mtu_cur != mtu_req) {
+						mtu_cur = mtu_req;
+						isCurrent = ' ';
+					}
+				}
+			}
+
+			SCPrint(TRUE, stdout, CFSTR("%@  mtu                %c = %ld (%ld < n < %ld)\n"),
+				prefix,
+				isCurrent,
+				mtu_cur,
+				mtu_min,
+				mtu_max);
+		}
+
+		if (NetworkInterfaceCopyMediaOptions(if_bsd_name, NULL, &active, &available, TRUE)) {
+			char		isCurrent	= ' ';
+			CFArrayRef	options		= NULL;
+			CFArrayRef	options_req	= NULL;
+			CFStringRef	subtype		= NULL;
+			CFStringRef	subtype_req	= NULL;
+
+			if (configuration != NULL) {
+				subtype_req = CFDictionaryGetValue(configuration, kSCPropNetEthernetMediaSubType);
+				options_req = CFDictionaryGetValue(configuration, kSCPropNetEthernetMediaOptions);
+			}
+
+			if (subtype_req == NULL) {
+				subtype_req = CFSTR("autoselect");
+			}
+
+			if (active != NULL) {
+				subtype = CFDictionaryGetValue(active, kSCPropNetEthernetMediaSubType);
+				options = CFDictionaryGetValue(active, kSCPropNetEthernetMediaOptions);
+			}
+
+			if (subtype != NULL) {
+				if (((subtype_req != NULL) &&
+				     CFEqual(subtype, subtype_req)) &&
+				    ((options == options_req) ||
+				     ((options != NULL) &&
+				      (options_req != NULL) &&
+				      CFEqual(options, options_req)))
+				   ) {
+					isCurrent = '*';
+				} else if ((subtype_req == NULL) ||
+					   ((subtype_req != NULL) &&
+					    CFEqual(subtype_req, CFSTR("autoselect")))) {
+					// if requested subtype not specified or "autoselect"
+					isCurrent = '*';
+				}
+			}
+
+			if (subtype_req != NULL) {
+				SCPrint(TRUE, stdout, CFSTR("%@  media              %c = %@"),
+					prefix,
+					isCurrent,
+					subtype_req);
+
+				if ((options_req != NULL) &&
+				    (CFArrayGetCount(options_req) > 0)) {
+					CFStringRef	options_str;
+
+					options_str = CFStringCreateByCombiningStrings(NULL, options_req, CFSTR(","));
+					SCPrint(TRUE, stdout, CFSTR(" <%@>"), options_str);
+					CFRelease(options_str);
+				}
+
+				SCPrint(TRUE, stdout, CFSTR("\n"));
+			}
+
+			SCPrint(TRUE, stdout, CFSTR("\n"));
+
+			if (available != NULL) {
+				CFIndex		i;
+				CFIndex		n_subtypes;
+				CFArrayRef	subtypes;
+
+				subtypes   = NetworkInterfaceCopyMediaSubTypes(available);
+				n_subtypes = (subtypes != NULL) ? CFArrayGetCount(subtypes) : 0;
+				for (i = 0; i < n_subtypes; i++) {
+					CFIndex		j;
+					CFIndex		n_subtype_options;
+					CFStringRef	subtype;
+					CFArrayRef	subtype_options;
+
+					subtype = CFArrayGetValueAtIndex(subtypes, i);
+					subtype_options = NetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
+					n_subtype_options = (subtype_options != NULL) ? CFArrayGetCount(subtype_options) : 0;
+					for (j = 0; j < n_subtype_options; j++) {
+						char		isCurrent	= ' ';
+						CFArrayRef	options;
+
+						options = CFArrayGetValueAtIndex(subtype_options, j);
+
+						if (((subtype_req != NULL) &&
+						     CFEqual(subtype, subtype_req)) &&
+						    ((options == options_req) ||
+						     ((options != NULL) &&
+						      (options_req != NULL) &&
+						      CFEqual(options, options_req)))
+						   ) {
+							isCurrent = '*';
+						}
+
+						SCPrint(TRUE, stdout, CFSTR("%@  %s    %c = %@"),
+							prefix,
+							((i == 0) && (j == 0)) ? "supported media" : "               ",
+							isCurrent,
+							subtype);
+
+						if ((options != NULL) &&
+						    (CFArrayGetCount(options) > 0)) {
+							CFStringRef	options_str;
+
+							options_str = CFStringCreateByCombiningStrings(NULL, options, CFSTR(","));
+							SCPrint(TRUE, stdout, CFSTR(" <%@>"), options_str);
+							CFRelease(options_str);
+						}
+
+						SCPrint(TRUE, stdout, CFSTR("\n"));
+					}
+					CFRelease(subtype_options);
+				}
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("\n"));
+		}
+	}
+
+	supported = SCNetworkInterfaceGetSupportedInterfaceTypes(interface);
+	SCPrint(TRUE, stdout, CFSTR("%@  supported interfaces = "), prefix);
+	if (supported != NULL) {
+		CFIndex i;
+		CFIndex n	= CFArrayGetCount(supported);
+
+		for (i = 0; i < n; i++) {
+			SCPrint(TRUE, stdout, CFSTR("%s%@"),
+				(i == 0) ? "" : ", ",
+				CFArrayGetValueAtIndex(supported, i));
+		}
+	}
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	supported = SCNetworkInterfaceGetSupportedProtocolTypes(interface);
+	SCPrint(TRUE, stdout, CFSTR("%@  supported protocols  = "), prefix);
+	if (supported != NULL) {
+		CFIndex i;
+		CFIndex n	= CFArrayGetCount(supported);
+
+		for (i = 0; i < n; i++) {
+			SCPrint(TRUE, stdout, CFSTR("%s%@"),
+				(i == 0) ? "" : ", ",
+				CFArrayGetValueAtIndex(supported, i));
+		}
+	}
+	SCPrint(TRUE, stdout, CFSTR("\n"));
+
+	if (configuration != NULL) {
+		CFMutableDictionaryRef	effective;
+
+		effective = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
+
+		// remove known (and already reported) interface configuration keys
+		if (CFDictionaryContainsKey(effective, kSCResvInactive)) {
+			CFDictionaryRemoveAllValues(effective);
+		}
+		CFDictionaryRemoveValue(effective, kSCPropNetEthernetMTU);
+		CFDictionaryRemoveValue(effective, kSCPropNetEthernetMediaSubType);
+		CFDictionaryRemoveValue(effective, kSCPropNetEthernetMediaOptions);
+
+		if (CFDictionaryGetCount(effective) > 0) {
+			SCPrint(TRUE, stdout, CFSTR("\n%@  per-interface configuration\n"), prefix);
+			_show_entity(configuration, prefix);
+		}
+
+		CFRelease(effective);
+	}
+
+	if (_sc_debug) {
+		SCPrint(TRUE, stdout, CFSTR("\n%@\n"), interface);
+	}
+
+	interface = SCNetworkInterfaceGetInterface(interface);
+	if (interface != NULL) {
+		CFStringRef	newPrefix;
+
+		newPrefix = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@  "), prefix);
+		SCPrint(TRUE, stdout, CFSTR("\n%@child interface\n"), newPrefix);
+		_show_interface(interface, newPrefix, showChild);
+		CFRelease(newPrefix);
+	}
+
+	return;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+show_interfaces(int argc, char **argv)
+{
+	CFIndex		i;
+	CFIndex		n;
+
+	if (interfaces != NULL) CFRelease(interfaces);
+	interfaces = _copy_interfaces();
+	if (interfaces == NULL) {
+		return;
+	}
+
+	n = CFArrayGetCount(interfaces);
+	for (i = 0; i < n; i++) {
+		CFIndex			childIndex	= 0;
+		SCNetworkInterfaceRef	interface;
+
+		interface = CFArrayGetValueAtIndex(interfaces, i);
+		do {
+			CFStringRef	interfaceName;
+			char		isSelected;
+
+			interfaceName = SCNetworkInterfaceGetLocalizedDisplayName(interface);
+			if (interfaceName == NULL) {
+				interfaceName = SCNetworkInterfaceGetBSDName(interface);
+			}
+			if (interfaceName == NULL) {
+				interfaceName = SCNetworkInterfaceGetInterfaceType(interface);
+			}
+
+			isSelected = ' ';
+			if ((net_interface != NULL) && CFEqual(interface, net_interface)) {
+				isSelected = '>';
+			}
+
+			if (childIndex == 0) {
+				SCPrint(TRUE, stdout, CFSTR("%c%2d: %@\n"),
+					isSelected,
+					i + 1,
+					interfaceName);
+			} else {
+				SCPrint(TRUE, stdout, CFSTR("%c%2d.%d: %@\n"),
+					isSelected,
+					i + 1,
+					childIndex,
+					interfaceName);
+			}
+
+			interface = SCNetworkInterfaceGetInterface(interface);
+			childIndex++;
+		} while (interface != NULL);
+	}
+
+	return;
+}
+
+
+/* -------------------- */
+
+
+static Boolean
+set_interface_bond(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+// xxxxx ("+device", "-device")
+SCPrint(TRUE, stdout, CFSTR("bond interface management not yet supported\n"));
+	return FALSE;
+}
+
+
+/* -------------------- */
+
+
+static Boolean
+set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+SCPrint(TRUE, stdout, CFSTR("airport interface management not yet supported\n"));
+	return FALSE;
+}
+
+
+/* -------------------- */
+
+
+static options ethernetOptions[] = {
+	{ "mtu"       , NULL, isNumber     , &kSCPropNetEthernetMTU         , NULL, NULL },
+	{ "media"     , NULL, isString     , &kSCPropNetEthernetMediaSubType, NULL, NULL },
+	{ "mediaopt"  , NULL, isStringArray, &kSCPropNetEthernetMediaOptions, NULL, NULL },
+
+	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+	    "\nEthernet configuration commands\n\n"
+	    " set interface [mtu n] [media type] [mediaopts opts]\n"
+	}
+};
+#define	N_ETHERNET_OPTIONS	(sizeof(ethernetOptions) / sizeof(ethernetOptions[0]))
+
+
+static Boolean
+set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	CFStringRef	interfaceName;
+	Boolean		ok;
+
+	interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
+	if (interfaceName == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("no BSD interface\n"));
+		return FALSE;
+	}
+
+	ok = _process_options(ethernetOptions, N_ETHERNET_OPTIONS, argc, argv, newConfiguration);
+	if (ok) {
+		CFNumberRef	mtu;
+		CFArrayRef	options;
+		CFStringRef	subtype;
+
+		// validate configuration
+
+		mtu = CFDictionaryGetValue(newConfiguration, kSCPropNetEthernetMTU);
+		if (isA_CFNumber(mtu)) {
+			int	mtu_max;
+			int	mtu_min;
+			int	mtu_val;
+
+			if (!NetworkInterfaceCopyMTU(interfaceName, NULL, &mtu_min, &mtu_max)) {
+				SCPrint(TRUE, stdout, CFSTR("cannot set MTU\n"));
+				return FALSE;
+			}
+
+			if (!CFNumberGetValue(mtu, kCFNumberIntType, &mtu_val) ||
+			    (mtu_val < mtu_min) ||
+			    (mtu_val > mtu_max)) {
+				SCPrint(TRUE, stdout, CFSTR("mtu out of range\n"));
+				return FALSE;
+			}
+		}
+
+		subtype = CFDictionaryGetValue(newConfiguration, kSCPropNetEthernetMediaSubType);
+		options = CFDictionaryGetValue(newConfiguration, kSCPropNetEthernetMediaOptions);
+
+		if (subtype != NULL) {
+			CFArrayRef	available	= NULL;
+			CFArrayRef	config_options	= options;
+			CFArrayRef	subtypes	= NULL;
+			CFArrayRef	subtype_options	= NULL;
+
+			ok = FALSE;
+
+			if (options == NULL) {
+				config_options = CFArrayCreate(NULL, NULL, 0, &kCFTypeArrayCallBacks);
+			}
+
+			if (interfaceName == NULL) {
+				SCPrint(TRUE, stdout, CFSTR("media type / options not available\n"));
+				goto checked;
+			}
+
+			if (!NetworkInterfaceCopyMediaOptions(interfaceName, NULL, NULL, &available, FALSE)) {
+				SCPrint(TRUE, stdout, CFSTR("media type / options not available\n"));
+				goto checked;
+			}
+
+			if (available == NULL) {
+				goto checked;
+			}
+
+			subtypes = NetworkInterfaceCopyMediaSubTypes(available);
+			if ((subtypes == NULL) ||
+			    !CFArrayContainsValue(subtypes,
+						 CFRangeMake(0, CFArrayGetCount(subtypes)),
+						 subtype)) {
+				SCPrint(TRUE, stdout, CFSTR("media type not valid\n"));
+				goto checked;
+			}
+
+			subtype_options = NetworkInterfaceCopyMediaSubTypeOptions(available, subtype);
+			if ((subtype_options == NULL) ||
+			    !CFArrayContainsValue(subtype_options,
+						  CFRangeMake(0, CFArrayGetCount(subtype_options)),
+						  config_options)) {
+				SCPrint(TRUE, stdout, CFSTR("media options not valid for \"%@\"\n"), subtype);
+				goto checked;
+			}
+
+			if (options == NULL) {
+				CFDictionarySetValue(newConfiguration, kSCPropNetEthernetMediaOptions, config_options);
+			}
+
+			ok = TRUE;
+
+		    checked :
+
+			if (available       != NULL)	CFRelease(available);
+			if (subtypes        != NULL)	CFRelease(subtypes);
+			if (subtype_options != NULL)	CFRelease(subtype_options);
+			if (options         == NULL)	CFRelease(config_options);
+		} else {
+			if (options != NULL) {
+				SCPrint(TRUE, stdout, CFSTR("media type and options must both be specified\n"));
+				return FALSE;
+			}
+		}
+	}
+
+	return ok;
+}
+
+
+/* -------------------- */
+
+
+static selections modemDialSelections[] = {
+	{ CFSTR("ignore"), &kSCValNetModemDialModeIgnoreDialTone , 0 },
+	{ CFSTR("manual"), &kSCValNetModemDialModeManual         , 0 },
+	{ CFSTR("wait")  , &kSCValNetModemDialModeWaitForDialTone, 0 },
+	{ NULL           , NULL                                  , 0 }
+};
+
+static options modemOptions[] = {
+	{ "ConnectionScript"             , "script", isString   , &kSCPropNetModemConnectionScript           , NULL, NULL                        },
+	{ "DialMode"                     , "mode"  , isChooseOne, &kSCPropNetModemDialMode                   , NULL, (void *)modemDialSelections },
+	{ "CallWaiting"                  , NULL    , isBoolean  , &kSCPropNetModemHoldEnabled                , NULL, NULL                        },
+	{ "CallWaitingAlert"             , NULL    , isBoolean  , &kSCPropNetModemHoldCallWaitingAudibleAlert, NULL, NULL                        },
+	{ "CallWaitingDisconnectOnAnswer", NULL    , isBoolean  , &kSCPropNetModemHoldDisconnectOnAnswer     , NULL, NULL                        },
+	{ "DataCompression"              , NULL    , isBoolean  , &kSCPropNetModemDataCompression            , NULL, NULL                        },
+	{ "ErrorCorrection"              , NULL    , isBoolean  , &kSCPropNetModemErrorCorrection            , NULL, NULL                        },
+	{ "HoldReminder"                 , NULL    , isBoolean  , &kSCPropNetModemHoldReminder               , NULL, NULL                        },
+	{ "HoldReminderTime"             , "time"  , isNumber   , &kSCPropNetModemHoldReminderTime           , NULL, NULL                        },
+	{ "PulseDial"                    , NULL    , isBoolean  , &kSCPropNetModemPulseDial                  , NULL, NULL                        },
+	{ "Speaker"                      , NULL    , isBoolean  , &kSCPropNetModemSpeaker                    , NULL, NULL                        },
+
+	{ "?"                            , NULL    , isHelp     , NULL                                       , NULL,
+	    "\nModem configuration commands\n\n"
+	    " set interface [ConnectionScript connection-script]\n"
+	    " set interface [CallWaiting {enable|disable}]\n"
+	    " set interface [CallWaitingAlert {enable|disable}]\n"
+	    " set interface [CallWaitingDisconnectOnAnswer {enable|disable}]\n"
+	    " set interface [DialMode {ignore|wait}]\n"
+	    " set interface [DataCompression {enable|disable}]\n"
+	    " set interface [ErrorCorrection {enable|disable}]\n"
+	    " set interface [HoldReminder {enable|disable}]\n"
+	    " set interface [HoldReminderTime n]\n"
+	    " set interface [PulseDial {enable|disable}]\n"
+	    " set interface [Speaker {enable|disable}]"
+	}
+};
+#define	N_MODEM_OPTIONS	(sizeof(modemOptions) / sizeof(modemOptions[0]))
+
+
+static Boolean
+set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	ok = _process_options(modemOptions, N_MODEM_OPTIONS, argc, argv, newConfiguration);
+	return ok;
+}
+
+
+/* -------------------- */
+
+
+static int
+__doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("PPP password not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		CFStringRef	encryptionType;
+
+		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetPPPAuthPasswordEncryption);
+		if (encryptionType == NULL) {
+			CFIndex			n;
+			CFMutableDataRef	pw;
+			CFStringRef		str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			n = CFStringGetLength(str);
+			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
+			CFDataSetLength(pw, n * sizeof(UniChar));
+			CFStringGetCharacters(str,
+					      CFRangeMake(0, n),
+					      (UniChar *)CFDataGetMutableBytePtr(pw));
+			CFRelease(str);
+
+			CFDictionarySetValue(newConfiguration, key, pw);
+			CFRelease(pw);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("PPP password type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
+
+static int
+__doPPPAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("PPP password type mode not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		if (strcasecmp(argv[0], "keychain") == 0) {
+			CFDictionarySetValue(newConfiguration, key, kSCValNetPPPAuthPasswordEncryptionKeychain);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid password type\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	// encryption type changed, reset password
+	CFDictionaryRemoveValue(newConfiguration, kSCPropNetPPPAuthPassword);
+
+	return 1;
+}
+
+
+static selections authPromptSelections[] = {
+	{ CFSTR("before"), &kSCValNetPPPAuthPromptBefore, 0 },
+	{ CFSTR("after") , &kSCValNetPPPAuthPromptAfter , 0 },
+	{ NULL    , NULL                                , 0 }
+};
+
+
+static selections authProtocolSelections[] = {
+	{ CFSTR("CHAP")   , &kSCValNetPPPAuthProtocolCHAP   , 0 },
+	{ CFSTR("EAP")    , &kSCValNetPPPAuthProtocolEAP    , 0 },
+	{ CFSTR("MSCHAP1"), &kSCValNetPPPAuthProtocolMSCHAP1, 0 },
+	{ CFSTR("MSCHAP2"), &kSCValNetPPPAuthProtocolMSCHAP2, 0 },
+	{ CFSTR("PAP")    , &kSCValNetPPPAuthProtocolPAP    , 0 },
+	{ NULL            , NULL                            , 0 }
+};
+
+
+static options pppOptions[] = {
+	{ "ACSP"                      , NULL          , isBoolean        , &kSCPropNetPPPACSPEnabled               , NULL             , NULL                           },
+	{ "ConnectTime"               , "?time"       , isNumber         , &kSCPropNetPPPConnectTime               , NULL             , NULL                           },
+	{ "DialOnDemand"              , NULL          , isBoolean        , &kSCPropNetPPPDialOnDemand              , NULL             , NULL                           },
+	{ "DisconnectOnFastUserSwitch", NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnFastUserSwitch, NULL             , NULL                           },
+	{ "DisconnectOnIdle"          , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnIdle          , NULL             , NULL                           },
+	{ "DisconnectOnIdleTimer"     , "timeout"     , isNumber         , &kSCPropNetPPPDisconnectOnIdleTimer     , NULL             , NULL                           },
+	{ "DisconnectOnLogout"        , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnLogout        , NULL             , NULL                           },
+	{ "DisconnectOnSleep"         , NULL          , isBoolean        , &kSCPropNetPPPDisconnectOnSleep         , NULL             , NULL                           },
+	{ "DisconnectTime"            , "?time"       , isNumber         , &kSCPropNetPPPDisconnectTime            , NULL             , NULL                           },
+	{ "IdleReminder"              , NULL          , isBoolean        , &kSCPropNetPPPIdleReminder              , NULL             , NULL                           },
+	{ "IdleReminderTimer"         , "time"        , isNumber         , &kSCPropNetPPPIdleReminderTimer         , NULL             , NULL                           },
+	{ "Logfile"                   , "path"        , isString         , &kSCPropNetPPPLogfile                   , NULL             , NULL                           },
+	{ "Plugins"                   , "plugin"      , isStringArray    , &kSCPropNetPPPPlugins                   , NULL             , NULL                           },
+	{ "RetryConnectTime"          , "time"        , isNumber         , &kSCPropNetPPPRetryConnectTime          , NULL             , NULL                           },
+	{ "SessionTimer"              , "time"        , isNumber         , &kSCPropNetPPPSessionTimer              , NULL             , NULL                           },
+	{ "UseSessionTimer"           , NULL          , isBoolean        , &kSCPropNetPPPUseSessionTimer           , NULL             , NULL                           },
+	{ "VerboseLogging"            , NULL          , isBoolean        , &kSCPropNetPPPVerboseLogging            , NULL             , NULL                           },
+
+	// --- Auth: ---
+	{ "AuthEAPPlugins"            , "plugin"      , isStringArray    , &kSCPropNetPPPAuthEAPPlugins            , NULL             , NULL                           },
+	{ "AuthName"                  , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL             , NULL                           },
+	{   "Account"                 , "account"     , isString         , &kSCPropNetPPPAuthName                  , NULL             , NULL                           },
+	{ "AuthPassword"              , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW    , NULL                           },
+	{   "Password"                , "password"    , isOther          , &kSCPropNetPPPAuthPassword              , __doPPPAuthPW    , NULL                           },
+	{ "AuthPasswordEncryption"    , "type"        , isOther          , &kSCPropNetPPPAuthPasswordEncryption    , __doPPPAuthPWType, NULL                           },
+	{ "AuthPrompt"                , "before/after", isChooseOne      , &kSCPropNetPPPAuthPrompt                , NULL             , (void *)authPromptSelections   },
+	{ "AuthProtocol"              , "protocol"    , isChooseMultiple , &kSCPropNetPPPAuthProtocol              , NULL             , (void *)authProtocolSelections },
+
+	// --- Comm: ---
+	{ "CommRemoteAddress"         , "phone#"      , isString         , &kSCPropNetPPPCommRemoteAddress         , NULL             , NULL                           },
+	{ "CommAlternateRemoteAddress", "phone#"      , isString         , &kSCPropNetPPPCommAlternateRemoteAddress, NULL             , NULL                           },
+	{ "CommConnectDelay"          , "time"        , isNumber         , &kSCPropNetPPPCommConnectDelay          , NULL             , NULL                           },
+	{ "CommDisplayTerminalWindow" , NULL          , isBoolean        , &kSCPropNetPPPCommDisplayTerminalWindow , NULL             , NULL                           },
+	{ "CommRedialCount"           , "retry count" , isNumber         , &kSCPropNetPPPCommRedialCount           , NULL             , NULL                           },
+	{ "CommRedialEnabled"         , NULL          , isBoolean        , &kSCPropNetPPPCommRedialEnabled         , NULL             , NULL                           },
+	{ "CommRedialInterval"        , "retry delay" , isNumber         , &kSCPropNetPPPCommRedialInterval        , NULL             , NULL                           },
+	{ "CommTerminalScript"        , "script"      , isString         , &kSCPropNetPPPCommTerminalScript        , NULL             , NULL                           },
+	{ "CommUseTerminalScript"     , NULL          , isBoolean        , &kSCPropNetPPPCommUseTerminalScript     , NULL             , NULL                           },
+
+	// --- CCP: ---
+	{ "CCPEnabled"                , NULL          , isBoolean        , &kSCPropNetPPPCCPEnabled                , NULL             , NULL                           },
+	{ "CCPMPPE40Enabled"          , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE40Enabled          , NULL             , NULL                           },
+	{ "CCPMPPE128Enabled"         , NULL          , isBoolean        , &kSCPropNetPPPCCPMPPE128Enabled         , NULL             , NULL                           },
+
+	// --- IPCP: ---
+	{ "IPCPCompressionVJ"         , NULL          , isBoolean        , &kSCPropNetPPPIPCPCompressionVJ         , NULL             , NULL                           },
+	{ "IPCPUsePeerDNS"            , NULL          , isBoolean        , &kSCPropNetPPPIPCPUsePeerDNS            , NULL             , NULL                           },
+
+	// --- LCP: ---
+	{ "LCPEchoEnabled"            , NULL          , isBoolean        , &kSCPropNetPPPLCPEchoEnabled            , NULL             , NULL                           },
+	{ "LCPEchoFailure"            , NULL          , isNumber         , &kSCPropNetPPPLCPEchoFailure            , NULL             , NULL                           },
+	{ "LCPEchoInterval"           , NULL          , isNumber         , &kSCPropNetPPPLCPEchoInterval           , NULL             , NULL                           },
+	{ "LCPCompressionACField"     , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionACField     , NULL             , NULL                           },
+	{ "LCPCompressionPField"      , NULL          , isBoolean        , &kSCPropNetPPPLCPCompressionPField      , NULL             , NULL                           },
+	{ "LCPMRU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMRU                    , NULL             , NULL                           },
+	{ "LCPMTU"                    , NULL          , isNumber         , &kSCPropNetPPPLCPMTU                    , NULL             , NULL                           },
+	{ "LCPReceiveACCM"            , NULL          , isNumber         , &kSCPropNetPPPLCPReceiveACCM            , NULL             , NULL                           },
+	{ "LCPTransmitACCM"           , NULL          , isNumber         , &kSCPropNetPPPLCPTransmitACCM           , NULL             , NULL                           },
+
+	// --- Help ---
+	{ "?"                         , NULL          , isHelp           , NULL                                    , NULL             ,
+	    "\nPPP configuration commands\n\n"
+	    " set interface [Account account]\n"
+	    " set interface [Password password]\n"
+	    " set interface [Number telephone-number]\n"
+	    " set interface [AlternateNumber telephone-number]\n"
+	    " set interface [IdleReminder {enable|disable}]\n"
+	    " set interface [IdleReminderTimer time-in-seconds]\n"
+	    " set interface [DisconnectOnIdle {enable|disable}]\n"
+	    " set interface [DisconnectOnIdleTimer time-in-seconds]\n"
+	    " set interface [DisconnectOnLogout {enable|disable}]"
+	}
+};
+#define	N_PPP_OPTIONS	(sizeof(pppOptions) / sizeof(pppOptions[0]))
+
+
+static Boolean
+set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	ok = _process_options(pppOptions, N_PPP_OPTIONS, argc, argv, newConfiguration);
+	return ok;
+}
+
+
+/* -------------------- */
+
+
+static Boolean
+set_interface_vlan(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+// xxxxx ("device", "tag")
+SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
+	return FALSE;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+set_interface(int argc, char **argv)
+{
+	CFDictionaryRef		configuration;
+	CFStringRef		interfaceType;
+	CFMutableDictionaryRef	newConfiguration	= NULL;
+	Boolean			ok			= FALSE;
+
+	if (net_interface == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+		return;
+	}
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("set what?\n"));
+		return;
+	}
+
+	configuration = SCNetworkInterfaceGetConfiguration(net_interface);
+	if (configuration == NULL) {
+		newConfiguration = CFDictionaryCreateMutable(NULL,
+							     0,
+							     &kCFTypeDictionaryKeyCallBacks,
+							     &kCFTypeDictionaryValueCallBacks);
+	} else {
+		newConfiguration = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
+		CFDictionaryRemoveValue(newConfiguration, kSCResvInactive);
+	}
+
+	interfaceType = SCNetworkInterfaceGetInterfaceType(net_interface);
+
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
+		ok = set_interface_bond(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet)) {
+		ok = set_interface_ethernet(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeModem)) {
+		ok = set_interface_modem(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIEEE80211)) {
+		ok = set_interface_airport(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
+		ok = set_interface_ppp(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
+		ok = set_interface_vlan(argc, argv, newConfiguration);
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("this interfaces configuration cannot be changed\n"));
+	}
+
+	if (!ok) {
+		goto done;
+	}
+
+	if (((configuration == NULL) && (CFDictionaryGetCount(newConfiguration) > 0)) ||
+	    ((configuration != NULL) && !CFEqual(configuration, newConfiguration))) {
+		if (!SCNetworkInterfaceSetConfiguration(net_interface, newConfiguration)) {
+			if (SCError() == kSCStatusNoKey) {
+				SCPrint(TRUE, stdout, CFSTR("could not update per-service interface configuration\n"));
+			} else {
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
+			}
+			goto done;
+		}
+
+		net_changed = TRUE;
+	}
+
+    done :
+
+	if (newConfiguration != NULL) CFRelease(newConfiguration);
+	return;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+void
+show_interface(int argc, char **argv)
+{
+	SCNetworkInterfaceRef	interface;
+
+	if (argc == 1) {
+		interface = _find_interface(argv[0]);
+	} else {
+		if (net_interface != NULL) {
+			interface = net_interface;
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+			return;
+		}
+	}
+
+	if (interface != NULL) {
+		_show_interface(interface, CFSTR(""), TRUE);
+	}
+
+	return;
+}
+
+
+/* -------------------- */
+
+
+__private_extern__
+CFStringRef
+_interface_description(SCNetworkInterfaceRef interface)
+{
+	CFMutableStringRef	description;
+	CFStringRef		if_bsd_name;
+	CFStringRef		if_type;
+
+	description = CFStringCreateMutable(NULL, 0);
+
+	if_type = SCNetworkInterfaceGetInterfaceType(interface);
+	CFStringAppend(description, if_type);
+
+	if_bsd_name = SCNetworkInterfaceGetBSDName(interface);
+	if (if_bsd_name != NULL) {
+		CFStringAppendFormat(description, NULL, CFSTR(" (%@)"), if_bsd_name);
+	}
+
+	interface = SCNetworkInterfaceGetInterface(interface);
+	while ((interface != NULL) &&
+	       !CFEqual(interface, kSCNetworkInterfaceIPv4)) {
+		CFStringRef	childDescription;
+
+		childDescription = _interface_description(interface);
+		CFStringAppendFormat(description, NULL, CFSTR(" / %@"), childDescription);
+		CFRelease(childDescription);
+
+		interface = SCNetworkInterfaceGetInterface(interface);
+	}
+
+	return description;
+}

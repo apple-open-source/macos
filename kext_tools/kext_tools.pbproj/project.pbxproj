@@ -3,13 +3,15 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		03328FC704598E7303CA2A5F = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = prelink.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		03328FC804598E7303CA2A5F = {
 			fileRef = 03328FC704598E7303CA2A5F;
@@ -22,28 +24,6 @@
 //032
 //033
 //034
-//050
-//051
-//052
-//053
-//054
-		05A475DE0435062C00A64A39 = {
-			isa = PBXFrameworkReference;
-			name = Security.framework;
-			path = /System/Library/Frameworks/Security.framework;
-			refType = 0;
-		};
-		05A475DF0435062C00A64A39 = {
-			fileRef = 05A475DE0435062C00A64A39;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-//050
-//051
-//052
-//053
-//054
 //140
 //141
 //142
@@ -52,24 +32,31 @@
 		141E3CD002552F4D02CA28EB = {
 			isa = PBXTargetDependency;
 			target = 14A9DD810254012B02CA28EB;
+			targetProxy = A2900DA406C006FE0050B5D0;
 		};
 		1452E76F01F9032A02CA28EB = {
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libz.dylib;
 			path = /usr/lib/libz.1.1.3.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		1452E77001F9032A02CA28EB = {
 			isa = PBXFileReference;
+			lastKnownFileType = archive.ar;
 			name = libkld.dylib;
 			path = /usr/local/lib/libkld.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		14597B28022D521B02CA29F8 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.mig;
 			path = kextmanager.defs;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14597B29022D521B02CA29F8 = {
 			fileRef = 14597B28022D521B02CA29F8;
@@ -81,10 +68,12 @@
 			};
 		};
 		146BE2D201F7A95A02CA2A87 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		146BE2D301F7A95A02CA2A87 = {
 			fileRef = 146BE2D201F7A95A02CA2A87;
@@ -124,8 +113,11 @@
 			name = "Shared Source";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D16B01E53C3C02CA2A87 = {
+			buildSettings = {
+			};
 			buildStyles = (
 				1492D16D01E53C3C02CA2A87,
 				1492D16E01E53C3C02CA2A87,
@@ -155,21 +147,25 @@
 			);
 			isa = PBXGroup;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D16D01E53C3C02CA2A87 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		1492D16E01E53C3C02CA2A87 = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
@@ -187,21 +183,28 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D17001E53C9002CA2A87 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextload;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		1492D17101E53C9002CA2A87 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextd;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		1492D17201E53C9002CA2A87 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextunload;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		1492D17301E53C9002CA2A87 = {
 			buildPhases = (
@@ -230,6 +233,7 @@
 		1492D17401E53C9002CA2A87 = {
 			isa = PBXTargetDependency;
 			target = 1492D17501E53C9002CA2A87;
+			targetProxy = A2900DA706C006FE0050B5D0;
 		};
 		1492D17501E53C9002CA2A87 = {
 			buildPhases = (
@@ -290,6 +294,7 @@
 		1492D17A01E53C9002CA2A87 = {
 			isa = PBXTargetDependency;
 			target = 1492D17B01E53C9002CA2A87;
+			targetProxy = A2900DA806C006FE0050B5D0;
 		};
 		1492D17B01E53C9002CA2A87 = {
 			buildPhases = (
@@ -349,7 +354,6 @@
 			files = (
 				1492D20F01E541CF02CA2A87,
 				146BE2D301F7A95A02CA2A87,
-				05A475DF0435062C00A64A39,
 			);
 			isa = PBXFrameworksBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -364,6 +368,7 @@
 		1492D18001E53C9002CA2A87 = {
 			isa = PBXTargetDependency;
 			target = 1492D18101E53C9002CA2A87;
+			targetProxy = A2900DA506C006FE0050B5D0;
 		};
 		1492D18101E53C9002CA2A87 = {
 			buildPhases = (
@@ -437,12 +442,15 @@
 			isa = PBXGroup;
 			name = Source;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A001E53CC502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextload_main.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A101E53CF102CA2A87 = {
 			children = (
@@ -451,6 +459,7 @@
 			isa = PBXGroup;
 			name = kextunload;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A201E53CF102CA2A87 = {
 			children = (
@@ -471,6 +480,7 @@
 			name = kextd;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A301E53CF102CA2A87 = {
 			children = (
@@ -480,78 +490,103 @@
 			name = kextload;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A501E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = globals.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A601E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = kext_types.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A801E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = logging.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1A901E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = logging.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1AA01E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextd_main.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1AB01E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = mig_server.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1AD01E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = PTLock.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1AE01E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = PTLock.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1AF01E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = queue.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1B001E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = request.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1B101E53D0502CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = request.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1B401E53D2702CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextunload_main.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		1492D1B901E5400402CA2A87 = {
 			fileRef = 1492D1A001E53CC502CA2A87;
@@ -632,10 +667,12 @@
 			};
 		};
 		1492D20D01E541CE02CA2A87 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		1492D20E01E541CF02CA2A87 = {
 			fileRef = 1492D20D01E541CE02CA2A87;
@@ -661,12 +698,12 @@
 				1492D20D01E541CE02CA2A87,
 				1452E76F01F9032A02CA28EB,
 				1452E77001F9032A02CA28EB,
-				05A475DE0435062C00A64A39,
 			);
 			isa = PBXGroup;
 			name = "External Frameworks and Libraries";
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		149E0AAE02664E7602CA28EB = {
 			children = (
@@ -676,18 +713,23 @@
 			name = kextstat;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		149E0AB702664EC402CA28EB = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextstat_main.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		149E0ABB02665FD902CA28EB = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = kextstat.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A199C501EB7C6E02CA2A87 = {
 			children = (
@@ -699,17 +741,22 @@
 			isa = PBXGroup;
 			name = kextcache;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A199C601EB7C6E02CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextcache_main.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A199C701EB7C6E02CA2A87 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextcache;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		14A199CC01EB7C6E02CA2A87 = {
 			buildPhases = (
@@ -797,8 +844,10 @@
 		14A633FD01F7647402CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = kextcache.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A633FF01F7647402CA2A87 = {
 			buildActionMask = 8;
@@ -913,9 +962,11 @@
 			productReference = 14A9DD820254012B02CA28EB;
 		};
 		14A9DD820254012B02CA28EB = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = mkextunpack;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		14A9DD870254013C02CA28EB = {
 			fileRef = 146BE2D201F7A95A02CA2A87;
@@ -926,8 +977,10 @@
 		14A9DD8D025401E002CA28EB = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = mkextunpack_main.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		14A9DD8F025401E002CA28EB = {
 			fileRef = 14A9DD8D025401E002CA28EB;
@@ -943,12 +996,15 @@
 			name = mkextunpack;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A9DD970254F38602CA28EB = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = mkextunpack.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14A9DD980254F3AE02CA28EB = {
 			buildActionMask = 8;
@@ -979,30 +1035,39 @@
 			name = Documentation;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14D5D8AE01F5072802CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = kextd.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14D5D8AF01F5072802CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = kextload.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14D5D8B001F5072802CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			path = kextunload.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14DA20A701EE680802CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = compression.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14DA20A801EE680802CA2A87 = {
 			fileRef = 14DA20A701EE680802CA2A87;
@@ -1013,8 +1078,10 @@
 		14DA20A901EE682802CA2A87 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = arch.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14DA20AA01EE682802CA2A87 = {
 			fileRef = 14DA20A901EE682802CA2A87;
@@ -1078,13 +1145,16 @@
 			productReference = 14EB401802666D3802CA28EB;
 		};
 		14EB401802666D3802CA28EB = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextstat;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		14EB401B02666D4802CA28EB = {
 			isa = PBXTargetDependency;
 			target = 14EB401702666D3802CA28EB;
+			targetProxy = A2900DA606C006FE0050B5D0;
 		};
 		14EB401C02666D7602CA28EB = {
 			buildActionMask = 8;
@@ -1111,12 +1181,15 @@
 		14F698B50262726902CA28EB = {
 			isa = PBXTargetDependency;
 			target = 14A199CC01EB7C6E02CA2A87;
+			targetProxy = A2900DA906C006FE0050B5D0;
 		};
 		14FEF92B025BBA6E02CA28EB = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = mkext_file.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		14FEF92C025BBA6E02CA28EB = {
 			fileRef = 14FEF92B025BBA6E02CA28EB;
@@ -1129,6 +1202,65 @@
 //142
 //143
 //144
+//A20
+//A21
+//A22
+//A23
+//A24
+		A2900DA306C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = A681761D0485790F007579F1;
+			remoteInfo = kextsymboltool;
+		};
+		A2900DA406C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 14A9DD810254012B02CA28EB;
+			remoteInfo = mkextunpack;
+		};
+		A2900DA506C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 1492D18101E53C9002CA2A87;
+			remoteInfo = kextunload;
+		};
+		A2900DA606C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 14EB401702666D3802CA28EB;
+			remoteInfo = kextstat;
+		};
+		A2900DA706C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 1492D17501E53C9002CA2A87;
+			remoteInfo = kextload;
+		};
+		A2900DA806C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 1492D17B01E53C9002CA2A87;
+			remoteInfo = kextd;
+		};
+		A2900DA906C006FE0050B5D0 = {
+			containerPortal = 1492D16B01E53C3C02CA2A87;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 14A199CC01EB7C6E02CA2A87;
+			remoteInfo = kextcache;
+		};
+//A20
+//A21
+//A22
+//A23
+//A24
 //A60
 //A61
 //A62
@@ -1189,15 +1321,19 @@
 			productReference = A681761E0485790F007579F1;
 		};
 		A681761E0485790F007579F1 = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = kextsymboltool;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		A68176200485795F007579F1 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = kextsymboltool.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A68176210485795F007579F1 = {
 			fileRef = A68176200485795F007579F1;
@@ -1212,10 +1348,12 @@
 			isa = PBXGroup;
 			name = kextsymboltool;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		A681762604857A79007579F1 = {
 			isa = PBXTargetDependency;
 			target = A681761D0485790F007579F1;
+			targetProxy = A2900DA306C006FE0050B5D0;
 		};
 	};
 	rootObject = 1492D16B01E53C3C02CA2A87;

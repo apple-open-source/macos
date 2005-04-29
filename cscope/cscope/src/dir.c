@@ -39,12 +39,11 @@
 #include <stdlib.h>
 #include <sys/types.h>	/* needed by stat.h and dirent.h */
 #include <dirent.h>
-#include <stdlib.h>
 #include <sys/stat.h>	/* stat */
 #include "global.h"
 #include "vp.h"		/* vpdirs and vpndirs */
 
-static char const rcsid[] = "$Id: dir.c,v 1.3 2002/01/09 19:04:04 umeshv Exp $";
+static char const rcsid[] = "$Id: dir.c,v 1.4 2004/07/09 21:34:44 nicolai Exp $";
 
 #define	DIRSEPS	" ,:"	/* directory list separators */
 #define	DIRINC	10	/* directory list size increment */
@@ -57,13 +56,13 @@ char	**incdirs;		/* #include directories */
 char	**srcdirs;		/* source directories */
 char	**srcfiles;		/* source files */
 int	nincdirs;		/* number of #include directories */
-int	mincdirs = DIRINC;	/* maximum number of #include directories */
 int	nsrcdirs;		/* number of source directories */
-int	msrcdirs;		/* maximum number of source directories */
 int	nsrcfiles;		/* number of source files */
 int	msrcfiles = SRCINC;	/* maximum number of source files */
 
 static	char	**incnames;	/* #include directory names without view pathing */
+static	int	mincdirs = DIRINC; /* maximum number of #include directories */
+static	int	msrcdirs;	/* maximum number of source directories */
 static	int	nvpsrcdirs;	/* number of view path source directories */
 
 static	struct	listitem {	/* source file names without view pathing */
@@ -71,16 +70,17 @@ static	struct	listitem {	/* source file names without view pathing */
 	struct	listitem *next;
 } *srcnames[HASHMOD];
 
-BOOL	issrcfile(char *file);
-void	addsrcdir(char *dir);
-void	addincdir(char *name, char *path);
+/* Internal prototypes: */
+static	BOOL	issrcfile(char *file);
+static	void	addsrcdir(char *dir);
+static	void	addincdir(char *name, char *path);
+static	void	scan_dir(const char *dirfile, BOOL recurse);
+static	void	makevpsrcdirs(void);
 
-static void	scan_dir(const char *dirfile, BOOL recurse);
-				/* make the source file list */
 
 /* make the view source directory list */
 
-void
+static void
 makevpsrcdirs(void)
 {
 	int	i;
@@ -128,6 +128,8 @@ sourcedir(char *dirlist)
 	/* parse the directory list */
 	dir = strtok(dirlist, DIRSEPS);
 	while (dir != NULL) {
+		int dir_len = strlen(dir);
+
 		addsrcdir(dir);
 
 		/* if it isn't a full path name and there is a 
@@ -136,7 +138,9 @@ sourcedir(char *dirlist)
 			
 			/* compute its path from higher view path source dirs */
 			for (i = 1; i < nvpsrcdirs; ++i) {
-				(void) sprintf(path, "%s/%s", srcdirs[i], dir);
+				(void) sprintf(path, "%.*s/%s",
+					       PATHLEN - 2 - dir_len,
+					       srcdirs[i], dir);
 				addsrcdir(path);
 			}
 		}
@@ -147,14 +151,14 @@ sourcedir(char *dirlist)
 
 /* add a source directory to the list */
 
-void
+static void
 addsrcdir(char *dir)
 {
 	struct	stat	statstruct;
 
 	/* make sure it is a directory */
-	if (stat(compath(dir), &statstruct) == 0 && 
-	    (statstruct.st_mode & S_IFDIR)) {
+	if (lstat(compath(dir), &statstruct) == 0 && 
+	    S_ISDIR(statstruct.st_mode)) {
 
 		/* note: there already is a source directory list */
 		if (nsrcdirs == msrcdirs) {
@@ -192,6 +196,8 @@ includedir(char *dirlist)
 	/* parse the directory list */
 	dir = strtok(dirlist, DIRSEPS);
 	while (dir != NULL) {
+		int dir_len = strlen(dir);
+
 		addincdir(dir, dir);
 
 		/* if it isn't a full path name and there is a 
@@ -200,7 +206,9 @@ includedir(char *dirlist)
 			
 			/* compute its path from higher view path source dirs */
 			for (i = 1; i < nvpsrcdirs; ++i) {
-				(void) sprintf(path, "%s/%s", srcdirs[i], dir);
+				(void) sprintf(path, "%.*s/%s", 
+					       PATHLEN - 2 - dir_len,
+					       srcdirs[i], dir);
 				addincdir(dir, path);
 			}
 		}
@@ -211,14 +219,14 @@ includedir(char *dirlist)
 
 /* add a #include directory to the list */
 
-void
+static void
 addincdir(char *name, char *path)
 {
 	struct	stat	statstruct;
 
 	/* make sure it is a directory */
-	if (stat(compath(path), &statstruct) == 0 && 
-	    (statstruct.st_mode & S_IFDIR)) {
+	if (lstat(compath(path), &statstruct) == 0 && 
+	    S_ISDIR(statstruct.st_mode)) {
 		if (incdirs == NULL) {
 			incdirs = mymalloc(mincdirs * sizeof(char *));
 			incnames = mymalloc(mincdirs * sizeof(char *));
@@ -260,6 +268,7 @@ makefilelist(void)
 	FILE	*names;			/* name file pointer */
 	char	dir[PATHLEN + 1];
 	char	path[PATHLEN + 1];
+	char    line[PATHLEN * 10];
 	char	*file;
 	char	*s;
 	int	i;
@@ -274,7 +283,7 @@ makefilelist(void)
 			file = fileargv[i];
 			if (infilelist(file) == NO) {
 				if ((s = inviewpath(file)) != NULL) {
-					addsrcfile(file, s);
+					addsrcfile(s);
 				}
 				else {
 					(void) fprintf(stderr, "cscope: cannot find file %s\n",
@@ -298,57 +307,151 @@ makefilelist(void)
 			myexit(1);
 		}
 		/* get the names in the file */
-		while (fscanf(names, "%s", path) == 1) {
-			if (*path == '-') {	/* if an option */
-				i = path[1];
-				switch (i) {
-				case 'c':	/* ASCII characters only in crossref */
-					compress = NO;
-					break;
-				case 'k':	/* ignore DFLT_INCDIR */
-					kernelmode = YES;
-					break;
-				case 'q':	/* quick search */
-					invertedindex = YES;
-					break;
-				case 'T':	/* truncate symbols to 8 characters */
-					trun_syms = YES;
-					break;
-				case 'I':	/* #include file directory */
-				case 'p':	/* file path components to display */
-					s = path + 2;		/* for "-Ipath" */
-					if (*s == '\0') {	/* if "-I path" */
-						(void) fscanf(names, "%s", path);
-						s = path;
+		while (fgets(line, 10*PATHLEN, names) != NULL) {
+			char *point_in_line = line + (strlen(line) - 1);
+			size_t length_of_name = 0;
+			int unfinished_option = 0;
+			BOOL done = NO;
+
+			/* Kill away \n left at end of fgets()'d string: */
+			if (*point_in_line == '\n')
+				*point_in_line = '\0';
+			
+			/* Parse whitespace-terminated strings in line: */
+			point_in_line = line;
+			while (sscanf(point_in_line, "%s", path) == 1) {
+				/* Have to store this length --- inviewpath() will
+				 * modify path, later! */
+				length_of_name = strlen(path);
+			  
+				if (*path == '-') {	/* if an option */
+					if (unfinished_option) {
+						/* Can't have another option directly after an
+						 * -I or -p option with no name after it! */
+						(void) fprintf(stderr, "\
+cscope: Syntax error in namelist file %s: unfinished -I or -p option\n", 
+									   namefile);
+						unfinished_option = 0;
 					}
+						
+					i = path[1];
 					switch (i) {
+					case 'c':	/* ASCII characters only in crossref */
+						compress = NO;
+						break;
+					case 'k':	/* ignore DFLT_INCDIR */
+						kernelmode = YES;
+						break;
+					case 'q':	/* quick search */
+						invertedindex = YES;
+						break;
+					case 'T':	/* truncate symbols to 8 characters */
+						trun_syms = YES;
+						break;
 					case 'I':	/* #include file directory */
-						if (firstbuild == YES) {
-							shellpath(dir, sizeof(dir), s);	/* expand $ and ~ */
-							includedir(dir);
-						}
-						break;
 					case 'p':	/* file path components to display */
-						if (*s < '0' || *s > '9') {
-							(void) fprintf(stderr, "cscope: -p option in file %s: missing or invalid numeric value\n", 
-								namefile);
+						s = path + 2;		/* for "-Ipath" */
+						if (*s == '\0') {	/* if "-I path" */
+							unfinished_option = i;
+							break; 
+						} 
+
+						/* this code block used several times in here
+						 * --> make it a macro to avoid unnecessary
+						 * duplication */
+#define HANDLE_OPTION_ARGUMENT(i, s)																			   \
+						switch (i) {																			   \
+						case 'I':	/* #include file directory */												   \
+							if (firstbuild == YES) {															   \
+								/* expand $ and ~ */															   \
+								shellpath(dir, sizeof(dir), (s));												   \
+								includedir(dir);																   \
+							}																					   \
+							unfinished_option = 0;																   \
+							done = YES;																			   \
+							break;																				   \
+						case 'p':	/* file path components to display */										   \
+							if (*(s) < '0' || *(s) > '9') {														   \
+								(void) fprintf(stderr,															   \
+											   "cscope: -p option in file %s: missing or invalid numeric value\n", \
+											   namefile);														   \
+							}																					   \
+							dispcomponents = atoi(s);															   \
+							unfinished_option = 0;																   \
+							done = YES;																			   \
+							break;																				   \
+						default:																				   \
+							done = NO;																			   \
 						}
-						dispcomponents = atoi(s);
+
+						/* ... and now call it for the first time */
+						HANDLE_OPTION_ARGUMENT(i, s)
 						break;
+					default:
+						(void) fprintf(stderr, "cscope: only -I, -c, -k, -p, and -T options can be in file %s\n", 
+									   namefile);
 					}
-					break;
-				default:
-					(void) fprintf(stderr, "cscope: only -I, -c, -k, -p, and -T options can be in file %s\n", 
-						namefile);
+				} else if (*path == '"') {
+					/* handle quoted filenames... */
+					size_t in = 1, out = 0;
+					char *newpath = mymalloc(PATHLEN + 1);
+
+					while (in < PATHLEN && point_in_line[in] != '\0') {
+						if (point_in_line[in] == '"') {
+							newpath[out] = '\0';
+							/* Make sure we skip over the part just read */
+							point_in_line += in + 1;
+							/* ... to deactive step by strlen() path at end
+							 * of loop */
+							path[0]='\0';
+							break;	/* found end of quoted string */
+						}
+						else if (point_in_line[in] == '\\' && in < PATHLEN - 1
+								 && (point_in_line[in + 1]== '"' || point_in_line[in + 1] == '\\')) {
+							/* un-escape \" or \\ sequence */
+							newpath[out++] = point_in_line[in + 1];
+							in += 2;
+						}
+						else {
+							newpath[out++] = point_in_line[in++];
+						}
+					} /* while */ 
+					if (in >= PATHLEN) { /* safeguard against almost-overflow */
+						newpath[out]='\0';
+					}
+
+					/* If an -I or -p arguments was missing before,
+					 * treat this name as the argument: */
+					HANDLE_OPTION_ARGUMENT(unfinished_option, newpath);
+					if (! done) {
+						if ((s = inviewpath(newpath)) != NULL) {
+							addsrcfile(s);
+						} else {
+							(void) fprintf(stderr,
+										   "cscope: cannot find file %s\n",
+										   newpath);
+							errorsfound = YES;
+						}
+					}
+				} else {
+					/* ... so this is an ordinary file name, unquoted */
+
+					/* If an -I or -p arguments was missing before,
+					 * treat this name as the argument: */
+					HANDLE_OPTION_ARGUMENT(unfinished_option, path);
+					if (!done) {
+						if ((s = inviewpath(path)) != NULL) {
+							addsrcfile(s);
+						} else {
+							(void) fprintf(stderr, "cscope: cannot find file %s\n",
+										   path);
+							errorsfound = YES;
+						}
+					}
 				}
-			}
-			else if ((s = inviewpath(path)) != NULL) {
-				addsrcfile(path, s);
-			}
-			else {
-				(void) fprintf(stderr, "cscope: cannot find file %s\n",
-				    path);
-				errorsfound = YES;
+				point_in_line += length_of_name;
+				while (isspace((unsigned char) *point_in_line))
+					point_in_line ++;
 			}
 		}
 		if (names == stdin)
@@ -366,26 +469,32 @@ makefilelist(void)
 
 /* scan a directory (recursively?) for source files */
 static void
-scan_dir(const char *adir, BOOL recurse_dir) {
-	DIR	*dirfile;       
+scan_dir(const char *adir, BOOL recurse_dir)
+{
+	DIR	*dirfile;
+	int adir_len = strlen(adir);
 
-	if( (dirfile = opendir(adir)) != NULL ) {
+	/* FIXME: no guards against adir_len > PATHLEN, yet */
+
+	if ((dirfile = opendir(adir)) != NULL) {
 		struct dirent *entry;
 		char	path[PATHLEN + 1];
 		char	*file;
 
-		while( (entry = readdir(dirfile)) != NULL ) { 
-			if( (strcmp(".",entry->d_name) != 0)
-				&& (strcmp("..",entry->d_name) != 0) ) {
+		while ((entry = readdir(dirfile)) != NULL) { 
+			if ((strcmp(".",entry->d_name) != 0)
+			    && (strcmp("..",entry->d_name) != 0)) {
 				struct stat buf;
 
-				sprintf(path,"%s/%s",adir,entry->d_name);
+				sprintf(path,"%s/%.*s", adir,
+					PATHLEN - 2 - adir_len,
+					entry->d_name);
 
-				if(stat(path,&buf) == 0) {
+				if (lstat(path,&buf) == 0) {
 					file = entry->d_name;
-					if( recurse_dir 
-                                            && (buf.st_mode & S_IFDIR) ) {
-					  scan_dir(path, recurse_dir);
+					if (recurse_dir 
+                                            && S_ISDIR(buf.st_mode) ) {
+						scan_dir(path, recurse_dir);
 					}
 					else if (
 #ifdef __DJGPP__ /* FIXME: should test for feature, not platform */
@@ -393,9 +502,9 @@ scan_dir(const char *adir, BOOL recurse_dir) {
 #else
 						 entry->d_ino != 0
 #endif
-						 && issrcfile(path)
+						 && issrcfile(mybasename(path))
 						 && infilelist(path) == NO) {
-					  addsrcfile(file, path);
+					  addsrcfile(path);
 					}
 				}
 			}
@@ -407,7 +516,7 @@ scan_dir(const char *adir, BOOL recurse_dir) {
 
 /* see if this is a source file */
 
-BOOL
+static BOOL
 issrcfile(char *file)
 {
 	struct	stat	statstruct;
@@ -415,7 +524,7 @@ issrcfile(char *file)
 
 	/* if there is a file suffix */
 	if ((s = strrchr(file, '.')) != NULL && *++s != '\0') {
-		
+
 		/* if an SCCS or versioned file */
 		if (file[1] == '.' && file + 2 != s) { /* 1 character prefix */
 			switch (*file) {
@@ -447,8 +556,8 @@ issrcfile(char *file)
 			
 				/* some directories have 2 character
 				   suffixes so make sure it is a file */
-				if (stat(file, &statstruct) == 0 && 
-				    (statstruct.st_mode & S_IFREG)) {
+				if (lstat(file, &statstruct) == 0 && 
+				    S_ISREG(statstruct.st_mode)) {
 					return(YES);
 				}
 			}
@@ -459,8 +568,8 @@ issrcfile(char *file)
 						/* C++ template source */
 			   0) {
 				/* make sure it is a file */
-				if (stat(file, &statstruct) == 0 && 
-					(statstruct.st_mode & S_IFREG)) {
+				if (lstat(file, &statstruct) == 0 && 
+					S_ISREG(statstruct.st_mode)) {
 					return(YES);
 				}
 			}
@@ -485,21 +594,27 @@ incfile(char *file, char *type)
 	}
 	/* look in current directory if it was #include "file" */
 	if (type[0] == '"' && (s = inviewpath(file)) != NULL) {
-		addsrcfile(file, s);
+		addsrcfile(s);
 	}
 	else {
+		int file_len = strlen(file);
+
 		/* search for the file in the #include directory list */
 		for (i = 0; i < nincdirs; ++i) {
 			
 			/* don't include the file from two directories */
-			(void) sprintf(name, "%s/%s", incnames[i], file);
+			(void) sprintf(name, "%.*s/%s",
+				       PATHLEN - 2 - file_len, incnames[i],
+				       file);
 			if (infilelist(name) == YES) {
 				break;
 			}
 			/* make sure it exists and is readable */
-			(void) sprintf(path, "%s/%s", incdirs[i], file);
+			(void) sprintf(path, "%.*s/%s",
+				       PATHLEN - 2 - file_len, incdirs[i],
+				       file);
 			if (access(compath(path), READ) == 0) {
-				addsrcfile(name, path);
+				addsrcfile(path);
 				break;
 			}
 		}
@@ -535,10 +650,13 @@ inviewpath(char *file)
 	}
 	/* if it isn't a full path name and there is a multi-directory view path */
 	if (*file != '/' && vpndirs > 1) {
+		int file_len = strlen(file);
 
 		/* compute its path from higher view path source dirs */
 		for (i = 1; i < nvpsrcdirs; ++i) {
-			(void) sprintf(path, "%s/%s", srcdirs[i], file);
+			(void) sprintf(path, "%.*s/%s",
+				       PATHLEN - 2 - file_len, srcdirs[i],
+				       file);
 			if (access(compath(path), READ) == 0) {
 				return(path);
 			}
@@ -549,13 +667,8 @@ inviewpath(char *file)
 
 /* add a source file to the list */
 
-/* TODO:-=db=-: remove the name parameter. it is not used
- * any longer, since we're now using path to check for
- * existence of file in srcfiles[]
- */
-
 void
-addsrcfile(char *name, char *path)
+addsrcfile(char *path)
 {
 	struct	listitem *p;
 	int	i;

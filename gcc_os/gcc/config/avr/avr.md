@@ -1,7 +1,7 @@
 ;; -*- Mode: Scheme -*-
 ;;   Machine description for GNU compiler,
 ;;   for ATMEL AVR micro controllers.
-;;   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+;;   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 ;;   Contributed by Denis Chertykov (denisc@overta.ru)
 
 ;; This file is part of GNU CC.
@@ -39,7 +39,7 @@
 (define_attr "cc" "none,set_czn,set_zn,set_n,compare,clobber"
   (const_string "none"))
 
-(define_attr "type" "branch,branch1,arith"
+(define_attr "type" "branch,branch1,arith,xcall"
   (const_string "arith"))
 
 (define_attr "mcu_enhanced" "yes,no"
@@ -80,7 +80,11 @@
                                           (le (minus (pc) (match_dup 0))
                                               (const_int 2043)))
                                      (const_int 3)
-                                     (const_int 4)))]
+                                     (const_int 4)))
+	 (eq_attr "type" "xcall")
+	 (if_then_else (eq_attr "mcu_mega" "no")
+		       (const_int 1)
+		       (const_int 2))]
         (const_int 2)))
 
 (define_insn "*pop1"
@@ -352,13 +356,15 @@
   "{
   rtx addr0, addr1;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[2]) != CONST_INT)
     FAIL;
   cnt8 = byte_immediate_operand (operands[2], GET_MODE (operands[2]));
-  operands[2] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[2]);
+  mode = cnt8 ? QImode : HImode;
+  operands[2] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[2]), mode));
   operands[4] = operands[2];
-
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
   addr1 = copy_to_mode_reg (Pmode, XEXP (operands[1], 0));
 
@@ -381,7 +387,7 @@
   "ld __tmp_reg__,%a1+
 	st %a0+,__tmp_reg__
 	dec %2
-	brne _PC_-8"
+	brne .-8"
   [(set_attr "length" "4")
    (set_attr "cc" "clobber")])
 
@@ -399,13 +405,13 @@
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (sbiw,%A2,1) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
      else
        return (AS2 (ld,__tmp_reg__,%a1+) CR_TAB
 	       AS2 (st,%a0+,__tmp_reg__)  CR_TAB
 	       AS2 (subi,%A2,1) CR_TAB
 	       AS2 (sbci,%B2,0) CR_TAB
-	       AS1 (brne,_PC_-10));
+	       AS1 (brne,.-10));
 }"
   [(set_attr "length" "4,5")
    (set_attr "cc" "clobber,clobber")])
@@ -424,12 +430,15 @@
   "{
   rtx addr0;
   int cnt8;
+  enum machine_mode mode;
 
   if (GET_CODE (operands[1]) != CONST_INT)
     FAIL;
 
   cnt8 = byte_immediate_operand (operands[1], GET_MODE (operands[1]));
-  operands[1] = copy_to_mode_reg (cnt8 ? QImode : HImode, operands[1]);
+  mode = cnt8 ? QImode : HImode;
+  operands[1] = copy_to_mode_reg (mode,
+                                  gen_int_mode (INTVAL (operands[1]), mode));
   operands[3] = operands[1];
 
   addr0 = copy_to_mode_reg (Pmode, XEXP (operands[0], 0));
@@ -448,7 +457,7 @@
   ""
   "st %a0+,__zero_reg__
         dec %1
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -464,12 +473,12 @@
      if (which_alternative==0)
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (sbiw,%A1,1) CR_TAB
-	       AS1 (brne,_PC_-6));
+	       AS1 (brne,.-6));
      else
        return (AS2 (st,%a0+,__zero_reg__) CR_TAB
 	       AS2 (subi,%A1,1) CR_TAB
 	       AS2 (sbci,%B1,0) CR_TAB
-	       AS1 (brne,_PC_-8));
+	       AS1 (brne,.-8));
 }"
   [(set_attr "length" "3,4")
    (set_attr "cc" "clobber,clobber")])
@@ -503,7 +512,7 @@
   ""
   "ld __tmp_reg__,%a0+
 	tst __tmp_reg__
-	brne _PC_-6"
+	brne .-6"
   [(set_attr "length" "3")
    (set_attr "cc" "clobber")])
 
@@ -718,9 +727,7 @@
    (clobber (reg:QI 22))]
   "!AVR_ENHANCED"
   "%~call __mulqi3"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_insn "mulqihi3"
@@ -790,9 +797,7 @@
    (clobber (reg:QI 21))]
   "!AVR_ENHANCED"
   "%~call __mulhi3"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 ;; Operand 2 (reg:SI 18) not clobbered on the enhanced core.
@@ -813,9 +818,7 @@
    (clobber (reg:HI 30))]
   "AVR_ENHANCED"
   "%~call __mulsi3"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 ; / % / % / % / % / % / % / % / % / % / % / % / % / % / % / % / % / % / % / %
@@ -845,9 +848,7 @@
    (clobber (reg:QI 23))]
   ""
   "%~call __divmodqi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_expand "udivmodqi4"
@@ -867,9 +868,7 @@
    (clobber (reg:QI 23))]
   ""
   "%~call __udivmodqi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_expand "divmodhi4"
@@ -891,9 +890,7 @@
    (clobber (reg:QI 21))]
   ""
   "%~call __divmodhi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_expand "udivmodhi4"
@@ -915,9 +912,7 @@
    (clobber (reg:QI 21))]
   ""
   "%~call __udivmodhi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_expand "divmodsi4"
@@ -939,9 +934,7 @@
    (clobber (reg:HI 30))]
   ""
   "%~call __divmodsi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 (define_expand "udivmodsi4"
@@ -963,9 +956,7 @@
    (clobber (reg:HI 30))]
   ""
   "%~call __udivmodsi4"
-  [(set (attr "length") (if_then_else (eq_attr "mcu_mega" "no")
-				      (const_int 1)
-				      (const_int 2)))
+  [(set_attr "type" "xcall")
    (set_attr "cc" "clobber")])
 
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -1850,6 +1841,7 @@
   ""
   "")
 
+;; Test a single bit in a QI/HI/SImode register.
 (define_insn "*sbrx_branch"
   [(set (pc)
         (if_then_else
@@ -1857,61 +1849,12 @@
 			 [(zero_extract
 			   (match_operand:QI 1 "register_operand" "r")
 			   (const_int 1)
-			   (match_operand 2 "immediate_operand" "n"))
+			   (match_operand 2 "const_int_operand" "n"))
 			  (const_int 0)])
 	 (label_ref (match_operand 3 "" ""))
 	 (pc)))]
-  "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)"
-  "* {
-       int comp = ((get_attr_length (insn) == 4)
-                   ? reverse_condition (GET_CODE (operands[0]))
-                   : GET_CODE (operands[0]));
-       if (comp == EQ)
-         output_asm_insn (AS2 (sbrs,%1,%2), operands);
-       else
-         output_asm_insn (AS2 (sbrc,%1,%2), operands);
-       if (get_attr_length (insn) != 4)
-         return AS1 (rjmp,%3);
-       return (AS1 (rjmp,_PC_+4) CR_TAB
-               AS1 (jmp,%3));
-     }"
-  [(set (attr "length")
-	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
-			   (le (minus (pc) (match_dup 3)) (const_int 2046)))
-		      (const_int 2)
-		      (if_then_else (eq_attr "mcu_mega" "no")
-				    (const_int 2)
-				    (const_int 4))))
-   (set_attr "cc" "clobber")])
-
-(define_insn "*sbrx_and_branchsi"
-  [(set (pc)
-        (if_then_else
-	 (match_operator 0 "comparison_operator"
-			 [(and:SI
-			   (match_operand:SI 1 "register_operand" "r")
-			   (match_operand:SI 2 "immediate_operand" "n"))
-			  (const_int 0)])
-	 (label_ref (match_operand 3 "" ""))
-	 (pc)))]
-  "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
-   && mask_one_bit_p(INTVAL (operands[2]))"
-  "* {
-       int comp = ((get_attr_length (insn) == 4)
-                   ? reverse_condition (GET_CODE (operands[0]))
-                   : GET_CODE (operands[0]));
-       int bit = mask_one_bit_p(INTVAL (operands[2])) - 1;
-       static char buf[] = \"sbrc %A1,0\";
-       buf[3] = (comp == EQ ? 's' : 'c');
-       buf[6] = bit / 8 + 'A';
-       buf[9] = bit % 8 + '0';
-       output_asm_insn (buf, operands);
-
-       if (get_attr_length (insn) != 4)
-         return AS1 (rjmp,%3);
-       return (AS1 (rjmp,_PC_+4) CR_TAB
-               AS1 (jmp,%3));
-     }"
+  "GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE"
+  "* return avr_out_sbxx_branch (insn, operands);"
   [(set (attr "length")
 	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
 			   (le (minus (pc) (match_dup 3)) (const_int 2046)))
@@ -1927,28 +1870,13 @@
 	 (match_operator 0 "comparison_operator"
 			 [(and:HI
 			   (match_operand:HI 1 "register_operand" "r")
-			   (match_operand:HI 2 "immediate_operand" "n"))
+			   (match_operand:HI 2 "const_int_operand" "n"))
 			  (const_int 0)])
 	 (label_ref (match_operand 3 "" ""))
 	 (pc)))]
   "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
-   && mask_one_bit_p(INTVAL (operands[2]))"
-  "* {
-       int comp = ((get_attr_length (insn) == 4)
-                   ? reverse_condition (GET_CODE (operands[0]))
-                   : GET_CODE (operands[0]));
-       int bit = mask_one_bit_p(INTVAL (operands[2])) - 1;
-       static char buf[] = \"sbrc %A1,0\";
-       buf[3] = (comp == EQ ? 's' : 'c');
-       buf[6] = bit / 8 + 'A';
-       buf[9] = bit % 8 + '0';
-       output_asm_insn (buf, operands);
-
-       if (get_attr_length (insn) != 4)
-         return AS1 (rjmp,%3);
-       return (AS1 (rjmp,_PC_+4) CR_TAB
-               AS1 (jmp,%3));
-     }"
+   && exact_log2 (INTVAL (operands[2]) & 0xffff) >= 0"
+  "* return avr_out_sbxx_branch (insn, operands);"
   [(set (attr "length")
 	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
 			   (le (minus (pc) (match_dup 3)) (const_int 2046)))
@@ -1957,6 +1885,105 @@
 				    (const_int 2)
 				    (const_int 4))))
    (set_attr "cc" "clobber")])
+
+(define_insn "*sbrx_and_branchsi"
+  [(set (pc)
+        (if_then_else
+	 (match_operator 0 "comparison_operator"
+			 [(and:SI
+			   (match_operand:SI 1 "register_operand" "r")
+			   (match_operand:SI 2 "const_int_operand" "n"))
+			  (const_int 0)])
+	 (label_ref (match_operand 3 "" ""))
+	 (pc)))]
+  "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
+   && exact_log2 (INTVAL (operands[2]) & 0xffffffff) >= 0"
+  "* return avr_out_sbxx_branch (insn, operands);"
+  [(set (attr "length")
+	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
+			   (le (minus (pc) (match_dup 3)) (const_int 2046)))
+		      (const_int 2)
+		      (if_then_else (eq_attr "mcu_mega" "no")
+				    (const_int 2)
+				    (const_int 4))))
+   (set_attr "cc" "clobber")])
+
+;; Convert sign tests to bit 7/15/31 tests that match the above insns.
+(define_peephole2
+  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+   (set (pc) (if_then_else (ge (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (eq (zero_extract (match_dup 0)
+					     (const_int 1)
+					     (const_int 7))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "")
+
+(define_peephole2
+  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
+   (set (pc) (if_then_else (lt (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (ne (zero_extract (match_dup 0)
+					     (const_int 1)
+					     (const_int 7))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "")
+
+(define_peephole2
+  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+   (set (pc) (if_then_else (ge (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (eq (and:HI (match_dup 0) (const_int -32768))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "")
+
+(define_peephole2
+  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
+   (set (pc) (if_then_else (lt (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (ne (and:HI (match_dup 0) (const_int -32768))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "")
+
+(define_peephole2
+  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+   (set (pc) (if_then_else (ge (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (eq (and:SI (match_dup 0) (match_dup 2))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "operands[2] = GEN_INT (-2147483647 - 1);")
+
+(define_peephole2
+  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
+   (set (pc) (if_then_else (lt (cc0) (const_int 0))
+			   (label_ref (match_operand 1 "" ""))
+			   (pc)))]
+  ""
+  [(set (pc) (if_then_else (ne (and:SI (match_dup 0) (match_dup 2))
+			       (const_int 0))
+			   (label_ref (match_dup 1))
+			   (pc)))]
+  "operands[2] = GEN_INT (-2147483647 - 1);")
 
 ;; ************************************************************************
 ;; Implementation of conditional jumps here.
@@ -2121,6 +2148,13 @@
 					(const_int 2)
 					(const_int 1))])])
 
+(define_insn "return"
+  [(return)]
+  "reload_completed && avr_simple_epilogue ()"
+  "ret"
+  [(set_attr "cc" "none")
+   (set_attr "length" "1")])
+
 (define_insn "nop"
   [(const_int 0)]
   ""
@@ -2230,6 +2264,130 @@
   [(set_attr "length" "1")
    (set_attr "cc" "compare")])
 
+;; Clear/set/test a single bit in I/O address space.
+
+(define_insn "*cbi"
+  [(set (mem:QI (match_operand 0 "const_int_operand" "n"))
+	(and:QI (mem:QI (match_dup 0))
+		(match_operand 1 "const_int_operand" "n")))]
+  "avr_io_address_p (operands[0], 1 + 0x20)
+   && exact_log2 (~INTVAL (operands[1]) & 0xff) >= 0"
+{
+  operands[2] = GEN_INT (exact_log2 (~INTVAL (operands[1]) & 0xff));
+  return AS2 (cbi,%0-0x20,%2);
+}
+  [(set_attr "length" "1")
+   (set_attr "cc" "none")])
+
+(define_insn "*sbi"
+  [(set (mem:QI (match_operand 0 "const_int_operand" "n"))
+	(ior:QI (mem:QI (match_dup 0))
+		(match_operand 1 "const_int_operand" "n")))]
+  "avr_io_address_p (operands[0], 1 + 0x20)
+   && exact_log2 (INTVAL (operands[1]) & 0xff) >= 0"
+{
+  operands[2] = GEN_INT (exact_log2 (INTVAL (operands[1]) & 0xff));
+  return AS2 (sbi,%0-0x20,%2);
+}
+  [(set_attr "length" "1")
+   (set_attr "cc" "none")])
+
+;; Lower half of the I/O space - use sbic/sbis directly.
+(define_insn "*sbix_branch"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "comparison_operator"
+			 [(zero_extract
+			   (mem:QI (match_operand 1 "const_int_operand" "n"))
+			   (const_int 1)
+			   (match_operand 2 "const_int_operand" "n"))
+			  (const_int 0)])
+	 (label_ref (match_operand 3 "" ""))
+	 (pc)))]
+  "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
+   && avr_io_address_p (operands[1], 1 + 0x20)"
+  "* return avr_out_sbxx_branch (insn, operands);"
+  [(set (attr "length")
+	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
+			   (le (minus (pc) (match_dup 3)) (const_int 2046)))
+		      (const_int 2)
+		      (if_then_else (eq_attr "mcu_mega" "no")
+				    (const_int 2)
+				    (const_int 4))))
+   (set_attr "cc" "clobber")])
+
+;; Tests of bit 7 are pessimized to sign tests, so we need this too...
+(define_insn "*sbix_branch_bit7"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "comparison_operator"
+			 [(mem:QI (match_operand 1 "const_int_operand" "n"))
+			  (const_int 0)])
+	 (label_ref (match_operand 2 "" ""))
+	 (pc)))]
+  "(GET_CODE (operands[0]) == GE || GET_CODE (operands[0]) == LT)
+   && avr_io_address_p (operands[1], 1 + 0x20)"
+{
+  operands[3] = operands[2];
+  operands[2] = GEN_INT (7);
+  return avr_out_sbxx_branch (insn, operands);
+}
+  [(set (attr "length")
+	(if_then_else (and (ge (minus (pc) (match_dup 2)) (const_int -2046))
+			   (le (minus (pc) (match_dup 2)) (const_int 2046)))
+		      (const_int 2)
+		      (if_then_else (eq_attr "mcu_mega" "no")
+				    (const_int 2)
+				    (const_int 4))))
+   (set_attr "cc" "clobber")])
+
+;; Upper half of the I/O space - read port to __tmp_reg__ and use sbrc/sbrs.
+(define_insn "*sbix_branch_tmp"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "comparison_operator"
+			 [(zero_extract
+			   (mem:QI (match_operand 1 "const_int_operand" "n"))
+			   (const_int 1)
+			   (match_operand 2 "const_int_operand" "n"))
+			  (const_int 0)])
+	 (label_ref (match_operand 3 "" ""))
+	 (pc)))]
+  "(GET_CODE (operands[0]) == EQ || GET_CODE (operands[0]) == NE)
+   && avr_io_address_p (operands[1], 1) && INTVAL (operands[1]) >= 0x40"
+  "* return avr_out_sbxx_branch (insn, operands);"
+  [(set (attr "length")
+	(if_then_else (and (ge (minus (pc) (match_dup 3)) (const_int -2046))
+			   (le (minus (pc) (match_dup 3)) (const_int 2045)))
+		      (const_int 3)
+		      (if_then_else (eq_attr "mcu_mega" "no")
+				    (const_int 3)
+				    (const_int 5))))
+   (set_attr "cc" "clobber")])
+
+(define_insn "*sbix_branch_tmp_bit7"
+  [(set (pc)
+	(if_then_else
+	 (match_operator 0 "comparison_operator"
+			 [(mem:QI (match_operand 1 "const_int_operand" "n"))
+			  (const_int 0)])
+	 (label_ref (match_operand 2 "" ""))
+	 (pc)))]
+  "(GET_CODE (operands[0]) == GE || GET_CODE (operands[0]) == LT)
+   && avr_io_address_p (operands[1], 1) && INTVAL (operands[1]) >= 0x40"
+{
+  operands[3] = operands[2];
+  operands[2] = GEN_INT (7);
+  return avr_out_sbxx_branch (insn, operands);
+}
+  [(set (attr "length")
+	(if_then_else (and (ge (minus (pc) (match_dup 2)) (const_int -2046))
+			   (le (minus (pc) (match_dup 2)) (const_int 2045)))
+		      (const_int 3)
+		      (if_then_else (eq_attr "mcu_mega" "no")
+				    (const_int 3)
+				    (const_int 5))))
+   (set_attr "cc" "clobber")])
 
 ;; ************************* Peepholes ********************************
 
@@ -2250,6 +2408,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1) CR_TAB
 		     AS2 (sbc,%C0,__zero_reg__) CR_TAB
@@ -2264,10 +2423,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2288,6 +2447,7 @@
     && test_hard_reg_class (LD_REGS, operands[1]))"
   "*
 {
+  CC_STATUS_INIT;
   if (test_hard_reg_class (ADDW_REGS, operands[0]))
     output_asm_insn (AS2 (sbiw,%0,1), operands);
   else
@@ -2298,10 +2458,10 @@
     case 1:
       return AS1 (brcc,%2);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%2));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%2));
 }")
 
@@ -2319,72 +2479,21 @@
   "test_hard_reg_class (LD_REGS, operands[0])"
   "*
 {
+  CC_STATUS_INIT;
+  cc_status.value1 = operands[0];
+  cc_status.flags |= CC_OVERFLOW_UNUSABLE;
   output_asm_insn (AS2 (subi,%A0,1), operands);
   switch (avr_jump_mode (operands[1],insn))
   {
     case 1:
       return AS1 (brcc,%1);
     case 2:
-      return (AS1 (brcs,_PC_+2) CR_TAB
+      return (AS1 (brcs,.+2) CR_TAB
               AS1 (rjmp,%1));
   }
-  return (AS1 (brcs,_PC_+4) CR_TAB
+  return (AS1 (brcs,.+4) CR_TAB
           AS1 (jmp,%1));
 }")
-					
-(define_peephole
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (lt (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrs %0,7")
-
-(define_peephole
-  [(set (cc0) (match_operand:QI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (ge (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrc %0,7")
-					
-(define_peephole
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (lt (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrs %B0,7")
-
-(define_peephole
-  [(set (cc0) (match_operand:HI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (ge (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrc %B0,7")
-
-(define_peephole
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (lt (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrs %D0,7")
-
-(define_peephole
-  [(set (cc0) (match_operand:SI 0 "register_operand" ""))
-   (set (pc)
-	(if_then_else (ge (cc0) (const_int 0))
-		      (label_ref (match_operand 1 "" ""))
-		      (pc)))]
-  "jump_over_one_insn_p (insn, operands[1])"
-  "sbrc %D0,7")
 
 (define_peephole
   [(set (cc0) (match_operand:QI 0 "register_operand" ""))

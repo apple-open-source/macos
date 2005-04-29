@@ -1,0 +1,29 @@
+# Commands covered: sound flush info
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test inflush-1.1 {flush/info commands} {
+  set s [snack::sound snd -load ex1.wav]
+  $s flush
+  set res [$s info]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin16 1 WAV 44}
+
+
+# cleanup
+::tcltest::cleanupTests
+return
+
+
+
+
+
+
+

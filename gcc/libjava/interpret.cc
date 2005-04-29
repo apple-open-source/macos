@@ -1,6 +1,6 @@
 // interpret.cc - Code for the interpreter
 
-/* Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation
 
    This file is part of libgcj.
 
@@ -54,6 +54,21 @@ static void throw_null_pointer_exception ()
   __attribute__ ((__noreturn__));
 #endif
 
+#ifdef DIRECT_THREADED
+// Lock to ensure that methods are not compiled concurrently.
+// We could use a finer-grained lock here, however it is not safe to use
+// the Class monitor as user code in another thread could hold it.
+static _Jv_Mutex_t compile_mutex;
+
+void
+_Jv_InitInterpreter()
+{
+  _Jv_MutexInit (&compile_mutex);
+}
+#else
+void _Jv_InitInterpreter() {}
+#endif
+
 extern "C" double __ieee754_fmod (double,double);
 
 // This represents a single slot in the "compiled" form of the
@@ -91,7 +106,7 @@ static inline void dupx (_Jv_word *sp, int n, int x)
       sp[top-(n+x)-i] = sp[top-i];
     }
   
-};
+}
 
 // Used to convert from floating types to integral types.
 template<typename TO, typename FROM>
@@ -240,19 +255,21 @@ static jint get4(unsigned char* loc) {
     }									      \
   while (0)
 
-void _Jv_InterpMethod::run_normal (ffi_cif *,
-				   void* ret,
-				   ffi_raw * args,
-				   void* __this)
+void
+_Jv_InterpMethod::run_normal (ffi_cif *,
+			      void* ret,
+			      ffi_raw * args,
+			      void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
   _this->run (ret, args);
 }
 
-void _Jv_InterpMethod::run_synch_object (ffi_cif *,
-					 void* ret,
-					 ffi_raw * args,
-					 void* __this)
+void
+_Jv_InterpMethod::run_synch_object (ffi_cif *,
+				    void* ret,
+				    ffi_raw * args,
+				    void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
 
@@ -262,14 +279,27 @@ void _Jv_InterpMethod::run_synch_object (ffi_cif *,
   _this->run (ret, args);
 }
 
-void _Jv_InterpMethod::run_synch_class (ffi_cif *,
-					void* ret,
-					ffi_raw * args,
-					void* __this)
+void
+_Jv_InterpMethod::run_class (ffi_cif *,
+			     void* ret,
+			     ffi_raw * args,
+			     void* __this)
+{
+  _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
+  _Jv_InitClass (_this->defining_class);
+  _this->run (ret, args);
+}
+
+void
+_Jv_InterpMethod::run_synch_class (ffi_cif *,
+				   void* ret,
+				   ffi_raw * args,
+				   void* __this)
 {
   _Jv_InterpMethod *_this = (_Jv_InterpMethod *) __this;
 
   jclass sync = _this->defining_class;
+  _Jv_InitClass (sync);
   JvSynchronize mutex (sync);
 
   _this->run (ret, args);
@@ -744,17 +774,24 @@ _Jv_InterpMethod::compile (const void * const *insn_targets)
 }
 #endif /* DIRECT_THREADED */
 
-// This function exists so that the stack-tracing code can find the
-// boundaries of the interpreter.
-void
-_Jv_StartOfInterpreter (void)
-{
-}
+// These exist so that the stack-tracing code can find the boundaries
+// of the interpreter.
+void *_Jv_StartOfInterpreter;
+void *_Jv_EndOfInterpreter;
+extern "C" void *_Unwind_FindEnclosingFunction (void *pc);
 
 void
 _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 {
   using namespace java::lang::reflect;
+
+  // Record the address of the start of this member function in
+  // _Jv_StartOfInterpreter.  Such a write to a global variable
+  // without acquiring a lock is correct iff reads and writes of words
+  // in memory are atomic, but Java requires that anyway.
+ foo:
+  if (_Jv_StartOfInterpreter == NULL)
+    _Jv_StartOfInterpreter = _Unwind_FindEnclosingFunction (&&foo);
 
   // FRAME_DESC registers this particular invocation as the top-most
   // interpreter frame.  This lets the stack tracing code (for
@@ -1017,9 +1054,14 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 #define PCVAL(unionval) unionval.p
 #define AMPAMP(label) &&label
 
-  // Compile if we must.
+  // Compile if we must. NOTE: Double-check locking.
   if (prepared == NULL)
-    compile (insn_target);
+    {
+      _Jv_MutexLock (&compile_mutex);
+      if (prepared == NULL)
+	compile (insn_target);
+      _Jv_MutexUnlock (&compile_mutex);
+    }
   pc = (insn_slot *) prepared;
 
 #else
@@ -1141,7 +1183,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	ffi_cif *cif = &rmeth->cif;
 	ffi_raw *raw = (ffi_raw*) sp;
 
-	jdouble rvalue;
+	_Jv_value rvalue;
 
 #if FFI_NATIVE_RAW_API
 	/* We assume that this is only implemented if it's correct	*/
@@ -1157,11 +1199,11 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	 * so those are checked before the switch */
 	if (rtype == FFI_TYPE_POINTER)
 	  {
-	    PUSHA (*(jobject*)&rvalue);
+	    PUSHA (rvalue.object_value);
 	  }
 	else if (rtype == FFI_TYPE_SINT32)
 	  {
-	    PUSHI (*(jint*)&rvalue);
+	    PUSHI (rvalue.int_value);
 	  }
 	else if (rtype == FFI_TYPE_VOID)
 	  {
@@ -1172,36 +1214,27 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	    switch (rtype)
 	      {
 	      case FFI_TYPE_SINT8:
-		{
-		  jbyte value = (*(jint*)&rvalue) & 0xff;
-		  PUSHI (value);
-		}
+		PUSHI ((jbyte)(rvalue.int_value & 0xff));
 		break;
 
 	      case FFI_TYPE_SINT16:
-		{
-		  jshort value = (*(jint*)&rvalue) & 0xffff;
-		  PUSHI (value);
-		}
+		PUSHI ((jshort)(rvalue.int_value & 0xffff));
 		break;
 
 	      case FFI_TYPE_UINT16:
-		{
-		  jint value = (*(jint*)&rvalue) & 0xffff;
-		  PUSHI (value);
-		}
+		PUSHI (rvalue.int_value & 0xffff);
 		break;
 
 	      case FFI_TYPE_FLOAT:
-		PUSHF (*(jfloat*)&rvalue);
+	        PUSHF (rvalue.float_value);
 		break;
 
 	      case FFI_TYPE_DOUBLE:
-		PUSHD (rvalue);
+	        PUSHD (rvalue.double_value);
 		break;
 
 	      case FFI_TYPE_SINT64:
-		PUSHL (*(jlong*)&rvalue);
+	        PUSHL (rvalue.long_value);
 		break;
 
 	      default:
@@ -1883,7 +1916,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_iushr:
       {
 	jint shift = (POPI() & 0x1f);
-	UINT32 value = (UINT32) POPI();
+	_Jv_uint value = (_Jv_uint) POPI();
 	PUSHI ((jint) (value >> shift));
       }
       NEXT_INSN;
@@ -1891,8 +1924,8 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     insn_lushr:
       {
 	jint shift = (POPI() & 0x3f);
-	UINT64 value = (UINT64) POPL();
-	PUSHL ((value >> shift));
+	_Jv_ulong value = (_Jv_ulong) POPL();
+	PUSHL ((jlong) (value >> shift));
       }
       NEXT_INSN;
 
@@ -2393,37 +2426,37 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	    switch (type->size_in_bytes)
 	      {
 	      case 1:
-		PUSHI (*(jbyte*) (field->u.addr));
+		PUSHI (*field->u.byte_addr);
 		newinsn = AMPAMP (getstatic_resolved_1);
 		break;
 
 	      case 2:
 		if (type == JvPrimClass (char))
 		  {
-		    PUSHI(*(jchar*) (field->u.addr));
+		    PUSHI (*field->u.char_addr);
 		    newinsn = AMPAMP (getstatic_resolved_char);
 		  }
 		else
 		  {
-		    PUSHI(*(jshort*) (field->u.addr));
+		    PUSHI (*field->u.short_addr);
 		    newinsn = AMPAMP (getstatic_resolved_short);
 		  }
 		break;
 
 	      case 4:
-		PUSHI(*(jint*) (field->u.addr));
+	        PUSHI(*field->u.int_addr);
 		newinsn = AMPAMP (getstatic_resolved_4);
 		break;
 
 	      case 8:
-		PUSHL(*(jlong*) (field->u.addr));
+	        PUSHL(*field->u.long_addr);
 		newinsn = AMPAMP (getstatic_resolved_8);
 		break;
 	      }
 	  }
 	else
 	  {
-	    PUSHA(*(jobject*) (field->u.addr));
+	    PUSHA(*field->u.object_addr);
 	    newinsn = AMPAMP (getstatic_resolved_obj);
 	  }
 
@@ -2479,42 +2512,43 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	NULLCHECK(obj);
 
 	void *newinsn = NULL;
+	_Jv_value *val = (_Jv_value *) ((char *)obj + field_offset);
 	if (type->isPrimitive ())
 	  {
 	    switch (type->size_in_bytes)
 	      {
 	      case 1:
-		PUSHI (*(jbyte*) ((char*)obj + field_offset));
+	        PUSHI (val->byte_value);
 		newinsn = AMPAMP (getfield_resolved_1);
 		break;
 
 	      case 2:
 		if (type == JvPrimClass (char))
 		  {
-		    PUSHI (*(jchar*) ((char*)obj + field_offset));
+		    PUSHI (val->char_value);
 		    newinsn = AMPAMP (getfield_resolved_char);
 		  }
 		else
 		  {
-		    PUSHI (*(jshort*) ((char*)obj + field_offset));
+		    PUSHI (val->short_value);
 		    newinsn = AMPAMP (getfield_resolved_short);
 		  }
 		break;
 
 	      case 4:
-		PUSHI (*(jint*) ((char*)obj + field_offset));
+		PUSHI (val->int_value);
 		newinsn = AMPAMP (getfield_resolved_4);
 		break;
 
 	      case 8:
-		PUSHL(*(jlong*) ((char*)obj + field_offset));
+	        PUSHL (val->long_value);
 		newinsn = AMPAMP (getfield_resolved_8);
 		break;
 	      }
 	  }
 	else
 	  {
-	    PUSHA(*(jobject*) ((char*)obj + field_offset));
+	    PUSHA (val->object_value);
 	    newinsn = AMPAMP (getfield_resolved_obj);
 	  }
 
@@ -2596,7 +2630,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 1:
 		{
 		  jint value = POPI();
-		  *(jbyte*) (field->u.addr) = value;
+		  *field->u.byte_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_1);
 		  break;
 		}
@@ -2604,7 +2638,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 2:
 		{
 		  jint value = POPI();
-		  *(jchar*) (field->u.addr) = value;
+		  *field->u.char_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_2);
 		  break;
 		}
@@ -2612,7 +2646,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 4:
 		{
 		  jint value = POPI();
-		  *(jint*) (field->u.addr) = value;
+		  *field->u.int_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_4);
 		  break;
 		}
@@ -2620,7 +2654,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	      case 8:
 		{
 		  jlong value = POPL();
-		  *(jlong*) (field->u.addr) = value;
+		  *field->u.long_addr = value;
 		  newinsn = AMPAMP (putstatic_resolved_8);
 		  break;
 		}
@@ -2629,7 +2663,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	else
 	  {
 	    jobject value = POPA();
-	    *(jobject*) (field->u.addr) = value;
+	    *field->u.object_addr = value;
 	    newinsn = AMPAMP (putstatic_resolved_obj);
 	  }
 
@@ -2833,7 +2867,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	sp -= rmeth->stack_item_count;
 
-	_Jv_InitClass (rmeth->klass);
 	fun = (void (*)()) rmeth->method->ncode;
 
 #ifdef DIRECT_THREADED
@@ -2903,8 +2936,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       {
 	int index = GET2U ();
 	jclass klass = (_Jv_ResolvePoolEntry (defining_class, index)).clazz;
-	_Jv_InitClass (klass);
-	jobject res = _Jv_AllocObject (klass, klass->size_in_bytes);
+	jobject res = _Jv_AllocObject (klass);
 	PUSHA (res);
 
 #ifdef DIRECT_THREADED
@@ -2918,7 +2950,7 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
     new_resolved:
       {
 	jclass klass = (jclass) AVAL ();
-	jobject res = _Jv_AllocObject (klass, klass->size_in_bytes);
+	jobject res = _Jv_AllocObject (klass);
 	PUSHA (res);
       }
       NEXT_INSN;
@@ -2938,7 +2970,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 	int index = GET2U ();
 	jclass klass = (_Jv_ResolvePoolEntry (defining_class, index)).clazz;
 	int size  = POPI();
-	_Jv_InitClass (klass);
 	jobject result = _Jv_NewObjectArray (size, klass, 0);
 	PUSHA (result);
 
@@ -3072,7 +3103,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	jclass type    
 	  = (_Jv_ResolvePoolEntry (defining_class, kind_index)).clazz;
-	_Jv_InitClass (type);
 	jint *sizes    = (jint*) __builtin_alloca (sizeof (jint)*dim);
 
 	for (int i = dim - 1; i >= 0; i--)
@@ -3116,6 +3146,10 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
 
 	  case op_iload:
 	    LOADI (wide);
+	    NEXT_INSN;
+
+	  case op_fload:
+	    LOADF (wide);
 	    NEXT_INSN;
 
 	  case op_aload:
@@ -3190,13 +3224,6 @@ _Jv_InterpMethod::run (void *retp, ffi_raw *args)
       // No handler, so re-throw.
       throw ex;
     }
-}
-
-// This function exists so that the stack-tracing code can find the
-// boundaries of the interpreter.
-void
-_Jv_EndOfInterpreter (void)
-{
 }
 
 static void

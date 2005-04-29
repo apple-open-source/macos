@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -126,6 +126,12 @@ extern void _mesa_noop_Vertex2f( GLfloat a, GLfloat b );
 extern void _mesa_noop_Vertex3f( GLfloat a, GLfloat b, GLfloat c );
 
 extern void _mesa_noop_Vertex4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d );
+
+extern void _mesa_noop_VertexAttrib4fNV( GLuint index, GLfloat x,
+                                         GLfloat y, GLfloat z, GLfloat w );
+
+extern void _mesa_noop_VertexAttrib4fvNV( GLuint index, const GLfloat *v );
+
 
 
 /* Not strictly a noop -- translate Rectf down to Begin/End and

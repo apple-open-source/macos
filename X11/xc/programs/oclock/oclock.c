@@ -23,7 +23,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
-/* $XFree86: xc/programs/oclock/oclock.c,v 1.7 2001/12/14 20:01:00 dawes Exp $ */
+/* $XFree86: xc/programs/oclock/oclock.c,v 1.8 2003/05/27 22:26:57 tsi Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/Xatom.h>
@@ -108,7 +108,6 @@ main(int argc, char *argv[])
 {
     XtAppContext xtcontext;
     Widget toplevel;
-    Widget clock;
     Arg arg[2];
     int	i;
     
@@ -139,7 +138,7 @@ main(int argc, char *argv[])
     i++;
     XtSetValues (toplevel, arg, i);
 
-    clock=XtCreateManagedWidget("clock", clockWidgetClass, toplevel, NULL, 0);
+    (void) XtCreateManagedWidget("clock", clockWidgetClass, toplevel, NULL, 0);
     XtRealizeWidget (toplevel);
 
     wm_delete_window = XInternAtom(XtDisplay(toplevel), "WM_DELETE_WINDOW",

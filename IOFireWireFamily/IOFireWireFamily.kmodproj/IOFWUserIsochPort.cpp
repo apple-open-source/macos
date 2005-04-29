@@ -63,9 +63,9 @@ extern bool findOffsetInRanges ( IOVirtualAddress address, unsigned rangeCount, 
 
 static bool
 getDCLDataBuffer(
-		const DCLCommand *			dcl,
-		IOVirtualAddress &			outDataBuffer,
-		IOByteCount &				outDataLength )
+	const DCLCommand *			dcl,
+	IOVirtualAddress &			outDataBuffer,
+	IOByteCount &				outDataLength )
 {
 	Boolean	result = false ;
 
@@ -259,8 +259,10 @@ IOFWUserLocalIsochPort :: free()
 	fProgramBuffer = NULL ;
 
 	if ( fLock )
+	{
 		IORecursiveLockFree( fLock ) ;
-		
+	}
+	
 	delete[] fDCLTable ;
 	fDCLTable = NULL ;
 	
@@ -288,7 +290,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 		ErrorLog ( "Couldn't allocate recursive lock\n" ) ;
 		return false ;
 	}
-	
+
 // init easy params
 
 	fUserObj = params->userObj ;
@@ -296,9 +298,9 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 	fDCLPool = NULL ;
 	fProgramCount = 0;
 	fStarted = false ;
-	
-	IOReturn error = kIOReturnSuccess ;
 
+	IOReturn error = kIOReturnSuccess ;
+	
 // get user program ranges:
 
 	IOVirtualRange * bufferRanges = new IOVirtualRange[ params->bufferRangeCount ] ;
@@ -435,7 +437,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 				infoAux.u.v2.workloop = params->options & kFWIsochPortUseSeparateKernelThread ? createRealtimeThread() : NULL ;
 				infoAux.u.v2.options = params->options ;
 			}
-			
+						
 			IOFireWireBus::DCLTaskInfo info = { 0, 0, 0, 0, 0, 0, & infoAux } ;
 			
 			program = fUserClient->getOwner()->getController()->getLink()->createDCLProgram(	params->talking,
@@ -447,14 +449,14 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 
 			bufferMap->release() ;		// retained by DCL program
 			bufferMap = NULL ;
-
+			
 			if (  infoAux.u.v2.workloop )
 			{
 				// If we created a custom workloop, it will be retained by the program...
 				// We can release our reference...
 				infoAux.u.v2.workloop->release() ;
 			}
-						
+			
 			DebugLogCond( !program, "createDCLProgram returned nil\n" ) ;
 		}
 
@@ -488,6 +490,7 @@ IOFWUserLocalIsochPort :: initWithUserDCLProgram (
 
 	return ( ! error ) ;
 }
+
 
 IOReturn
 IOFWUserLocalIsochPort :: importUserProgram (
@@ -705,7 +708,14 @@ IOFWUserLocalIsochPort :: s_dclCallProcHandler( DCLCallProc * dcl )
 	
 	if ( dcl->procData )
 	{
+#if 0
+// DEBUG
+		DebugThing * debugThing = (DebugThing*)dcl->procData ;
+		IOFireWireUserClient::sendAsyncResult( (natural_t*)debugThing->asyncRef, kIOReturnSuccess, NULL, 0 ) ;
+		DebugLog("send callback port=%p\n", debugThing->port ) ;
+#else
 		IOFireWireUserClient::sendAsyncResult( (natural_t*)dcl->procData, kIOReturnSuccess, NULL, 0 ) ;
+#endif
 	}	
 }
 

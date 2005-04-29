@@ -42,7 +42,7 @@
  *
  */
 
-/* $Id: remotepurge.c,v 1.18 2003/02/13 20:15:47 rjs3 Exp $ */
+/* $Id: remotepurge.c,v 1.5 2005/03/05 00:37:30 dasenbro Exp $ */
 
 #include <config.h>
 

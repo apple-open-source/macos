@@ -325,11 +325,16 @@ TARGET	*t;
 		prefix_string[3] = '0' + next_cmd_slot % 10;
 		pbx_printf(prefix_string, "%s", cmd->rule->name);
 		while ((l = lol_get(&cmd->args, i++)) != NULL) {
-		    if (ASCII_OUTPUT_ANNOTATION) {
-			printf( "\036" "%s", l->string);   // The '\036' char is the record separator
-		    }
-		    else {
-			printf(UNICHAR_INVISIBLE_SEPARATOR_STRING "%s", l->string);
+		    // loop through each file of the arguments (normally outputs would only have one, but
+		    // inputs could have many
+		    LIST * l2 = l;
+		    for( ; l2; l2 = list_next(l2)) {
+			if (ASCII_OUTPUT_ANNOTATION) {
+			    printf( "\036" "%s", l2->string);   // The '\036' char is the record separator
+			}
+			else {
+			    printf(UNICHAR_INVISIBLE_SEPARATOR_STRING "%s", l2->string);
+			}
 		    }
 		}
 		unsigned cmd_buf_len = strlen(cmd->buf);

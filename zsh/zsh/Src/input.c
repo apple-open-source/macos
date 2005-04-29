@@ -222,19 +222,21 @@ ingetc(void)
 static int
 inputline(void)
 {
-    char *ingetcline, *ingetcpmptl = NULL, *ingetcpmptr = NULL;
+    char *ingetcline, **ingetcpmptl = NULL, **ingetcpmptr = NULL;
+    int context = ZLCON_LINE_START;
 
     /* If reading code interactively, work out the prompts. */
     if (interact && isset(SHINSTDIN)) {
 	if (!isfirstln) {
-	    ingetcpmptl = prompt2;
+	    ingetcpmptl = &prompt2;
 	    if (rprompt2)
-		ingetcpmptr = rprompt2;
+		ingetcpmptr = &rprompt2;
+	    context = ZLCON_LINE_CONT;
 	}
 	else {
-	    ingetcpmptl = prompt;
+	    ingetcpmptl = &prompt;
 	    if (rprompt)
-		ingetcpmptr = rprompt;
+		ingetcpmptr = &rprompt;
 	}
     }
     if (!(interact && isset(SHINSTDIN) && SHTTY != -1 && isset(USEZLE))) {
@@ -253,7 +255,8 @@ inputline(void)
 	     */
 	    char *pptbuf;
 	    int pptlen;
-	    pptbuf = unmetafy(promptexpand(ingetcpmptl, 0, NULL, NULL), &pptlen);
+	    pptbuf = unmetafy(promptexpand(ingetcpmptl ? *ingetcpmptl : NULL,
+					   0, NULL, NULL), &pptlen);
 	    write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
 	    free(pptbuf);
 	}
@@ -272,7 +275,8 @@ inputline(void)
 	int flags = ZLRF_HISTORY|ZLRF_NOSETTY;
 	if (isset(IGNOREEOF))
 	    flags |= ZLRF_IGNOREEOF;
-	ingetcline = (char *)zleread(ingetcpmptl, ingetcpmptr, flags);
+	ingetcline = (char *)zleread(ingetcpmptl, ingetcpmptr, flags,
+				     context);
 	histdone |= HISTFLAG_SETTY;
     }
     if (!ingetcline) {
@@ -380,7 +384,7 @@ inungetc(int c)
 	     * can't back up where we want to.  Instead, we just push it
 	     * onto the input stack as an extra character.
 	     */
-	    char *cback = (char *)zcalloc(2);
+	    char *cback = (char *)zshcalloc(2);
 	    cback[0] = (char) c;
 	    inpush(cback, INP_FREE|INP_CONT, NULL);
 	}
@@ -548,4 +552,18 @@ inpop(void)
 
 	inpoptop();
     } while (remcont);
+}
+
+/*
+ * Expunge any aliases from the input stack; they shouldn't appear
+ * in the history and need to be flushed explicitly when we encounter
+ * an error.
+ */
+
+/**/
+void
+inpopalias(void)
+{
+    while (inbufflags & INP_ALIAS)
+	inpoptop();
 }

@@ -1,8 +1,8 @@
-/*
- * GNU Hurd shared library template
- *
- * $XFree86: xc/config/cf/gnuLib.tmpl,v 1.3 2000/11/14 18:20:31 dawes Exp $
- */
+XCOMM
+XCOMM  GNU Hurd shared library template
+XCOMM
+XCOMM $XFree86: xc/config/cf/gnuLib.tmpl,v 1.6 2003/11/04 01:59:31 dawes Exp $
+XCOMM
 
 #ifndef FixupLibReferences
 #define FixupLibReferences()						@@\
@@ -14,17 +14,16 @@ XMULIB = $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
 #define XawClientLibs $(XAWLIB) $(XMULIBONLY) $(XTOOLLIB) $(XPMLIB) $(XLIB)
 #endif
 
-#define CplusplusLibC
-
 #define SharedX11Reqs
-#define SharedOldXReqs	$(LDPRELIB) $(XLIBONLY)
-#define SharedXtReqs	$(LDPRELIB) $(XLIBONLY) $(SMLIB) $(ICELIB)
+#define SharedXlibi18nReqs $(LDPRELIB) $(XONLYLIB)
+#define SharedOldXReqs	$(LDPRELIB) $(XONLYLIB)
+#define SharedXtReqs	$(LDPRELIB) $(XONLYLIB) $(SMLIB) $(ICELIB)
 #define SharedXaw6Reqs	$(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XLIB)
 #define SharedXawReqs	$(LDPRELIB) $(XMULIB) $(XTOOLLIB) $(XPMLIB) $(XLIB)
 #define SharedXmuReqs	$(LDPRELIB) $(XTOOLLIB) $(XLIB)
-#define SharedXextReqs	$(LDPRELIB) $(XLIBONLY)
+#define SharedXextReqs	$(LDPRELIB) $(XONLYLIB)
 #define SharedXiReqs	$(LDPRELIB) $(XLIB)
-#define SharedPexReqs	$(LDPRELIB) $(XLIBONLY) MathLibrary
+#define SharedPexReqs	$(LDPRELIB) $(XONLYLIB) MathLibrary
 #define SharedXtstReqs	$(LDPRELIB) $(XLIB)
-#define SharedXieReqs	$(LDPRELIB) $(XLIBONLY)
+#define SharedXieReqs	$(LDPRELIB) $(XONLYLIB)
 #define SharedSMReqs	$(LDPRELIB) $(ICELIB)

@@ -1,6 +1,6 @@
 // boehm.cc - interface between libjava and Boehm GC.
 
-/* Copyright (C) 1998, 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -39,7 +39,6 @@ extern "C"
   ptr_t GC_debug_generic_malloc (size_t size, int k, GC_EXTRA_PARAMS);
 };
 
-// We must check for plausibility ourselves.
 #define MAYBE_MARK(Obj, Top, Limit, Source, Exit)  \
 	Top=GC_MARK_AND_PUSH((GC_PTR)Obj, Top, Limit, (GC_PTR *)Source)
 
@@ -134,6 +133,12 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
       p = (ptr_t) c->methods;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, c6label);
 
+      // The vtable might have been set, but the rest of the class
+      // could still be uninitialized.  If this is the case, then
+      // c.isArray will SEGV.  We check for this, and if it is the
+      // case we just return.
+      if (__builtin_expect (c->name == NULL, false))
+	return mark_stack_ptr;
 
       if (! c->isArray() && ! c->isPrimitive())
 	{
@@ -147,19 +152,6 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	      p = (ptr_t) c->methods[i].signature;
 	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
 			     cm2label);
-
-	      // FIXME: `ncode' entry?
-
-#ifdef INTERPRETER
-	      // The interpreter installs a heap-allocated
-	      // trampoline here, so we'll mark it. 
-	      if (_Jv_IsInterpretedClass (c))
-		  {
-		      p = (ptr_t) c->methods[i].ncode;
-		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
-				  cm3label);
-		  }
-#endif
 	    }
 	}
 
@@ -211,11 +203,13 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cBlabel);
       p = (ptr_t) c->arrayclass;
       MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cDlabel);
+      p = (ptr_t) c->protectionDomain;
+      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c, cPlabel);
 
 #ifdef INTERPRETER
       if (_Jv_IsInterpretedClass (c))
 	{
-	  _Jv_InterpClass* ic = (_Jv_InterpClass*)c;
+	  _Jv_InterpClass* ic = (_Jv_InterpClass*) c;
 
 	  p = (ptr_t) ic->interpreted_methods;
 	  MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, cElabel);
@@ -225,6 +219,26 @@ _Jv_MarkObj (void *addr, void *msp, void *msl, void * /* env */)
 	      p = (ptr_t) ic->interpreted_methods[i];
 	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
 			  cFlabel);
+
+	      // Mark the direct-threaded code.
+	      if ((c->methods[i].accflags
+		   & java::lang::reflect::Modifier::NATIVE) == 0)
+		{
+		  _Jv_InterpMethod *im
+		    = (_Jv_InterpMethod *) ic->interpreted_methods[i];
+		  if (im)
+		    {
+		      p = (ptr_t) im->prepared;
+		      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, ic, \
+				  cFlabel);
+		    }
+		}
+
+	      // The interpreter installs a heap-allocated trampoline
+	      // here, so we'll mark it.
+	      p = (ptr_t) c->methods[i].ncode;
+	      MAYBE_MARK (p, mark_stack_ptr, mark_stack_limit, c,
+			  cm3label);
 	    }
 
 	  p = (ptr_t) ic->field_initializers;

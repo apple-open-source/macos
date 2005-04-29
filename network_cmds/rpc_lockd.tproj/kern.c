@@ -123,14 +123,7 @@ pid_t
 client_request(void)
 {
 	LOCKD_MSG msg;
-/*
- * select on FIFOs can currently hang, so we'll use
- * the nfslockdwait syscall instead for now.
- */
-#define USE_NFSLOCKDWAIT_INSTEAD_OF_SELECT 1
-#ifndef USE_NFSLOCKDWAIT_INSTEAD_OF_SELECT
 	fd_set rdset;
-#endif
 	int fd, nr, ret;
 	pid_t child;
 	mode_t old_umask;
@@ -177,7 +170,6 @@ client_request(void)
 	}
 
 	for (;;) {
-#ifndef USE_NFSLOCKDWAIT_INSTEAD_OF_SELECT
 		/* Wait for contact... fifo's return EAGAIN when read with 
 		 * no data
 		 */
@@ -185,7 +177,6 @@ client_request(void)
 		FD_ZERO(&rdset);
 		FD_SET(fd, &rdset);
 		(void)select(fd + 1, &rdset, NULL, NULL, NULL);
-#endif
 
 		/* Read the fixed length message. */
 		if ((nr = read(fd, &msg, sizeof(msg))) == sizeof(msg)) {
@@ -235,18 +226,10 @@ client_request(void)
 				syslog(LOG_ERR, "read: %s: %m", _PATH_LCKFIFO);
 				goto err;
 			}
-#ifdef USE_NFSLOCKDWAIT_INSTEAD_OF_SELECT
-			else
-				nfsclnt(NFSCLNT_LOCKDWAIT, NULL);
-#endif
 		} else if (nr != 0) {
 			syslog(LOG_ERR,
 			    "%s: discard %d bytes", _PATH_LCKFIFO, nr);
 		}
-#ifdef USE_NFSLOCKDWAIT_INSTEAD_OF_SELECT
-		else
-			nfsclnt(NFSCLNT_LOCKDWAIT, NULL);
-#endif
 	}
 
 	/* Reached only on error. */
@@ -710,15 +693,10 @@ void
 show(LOCKD_MSG *mp)
 {
 	static char hex[] = "0123456789abcdef";
-	struct fid *fidp;
-	fsid_t *fsidp;
 	size_t len;
 	u_int8_t *p, *t, buf[NFS_SMALLFH*3+1];
 
 	syslog(LOG_DEBUG, "process ID: %lu\n", (long)mp->lm_fl.l_pid);
-
-	fsidp = (fsid_t *)&mp->lm_fh;
-	fidp = (struct fid *)((u_int8_t *)&mp->lm_fh + sizeof(fsid_t));
 
 	for (t = buf, p = (u_int8_t *)mp->lm_fh,
 	    len = mp->lm_fh_len;

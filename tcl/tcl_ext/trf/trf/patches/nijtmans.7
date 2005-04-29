@@ -1,0 +1,143 @@
+*** unix/configure.in.orig   Thu Mar  6 09:22:57 1997
+--- unix/configure.in        Thu Mar  6 09:35:51 1997
+***************
+*** 357,365 ****
+      DL_OBJS=""
+  fi
+  
+! if test "x$CC" = "xgcc" -o `$CC -v 2>&1 | grep -c gcc` != "0" ; then
+!     DL_OBJS="$DL_OBJS _eprintf.o"
+  fi
+  
+  dirs="/lib/libm${TEST_SUFFIX}* /usr/lib/libm${TEST_SUFFIX}*"
+  for i in $dirs ; do
+--- 357,381 ----
+      DL_OBJS=""
+  fi
+  
+! # -----------------------------------------------------------------------
+! AC_MSG_CHECKING(if assert needs __eprintf)
+! cat > conftest.$ac_ext <<EOF
+! #include "confdefs.h"
+! #include "assert.h"
+! int main(argc)
+!     int argc;
+! {
+! assert(argc);
+! ; return 0; }
+! EOF
+! ${TCL_CC-cc} -c $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext 1>&5
+! if test "x`nm conftest.o |grep __eprintf`" != "x"; then
+!     AC_MSG_RESULT(yes)
+!     DL_OBJS="${DL_OBJS} _eprintf.o"
+! else
+!     AC_MSG_RESULT(no)
+  fi
++ rm -f conftest*
+  
+  dirs="/lib/libm${TEST_SUFFIX}* /usr/lib/libm${TEST_SUFFIX}*"
+  for i in $dirs ; do
+*** compat/tclLoadAout.c.orig   Fri Jan 10 12:03:24 1997
+--- compat/tclLoadAout.c        Thu Mar  6 09:19:07 1997
+***************
+*** 154,164 ****
+    unsigned long relocatedSize;        /* Size of the relocated text */
+    char * startAddress;                /* Starting address of the module */
+    int status;                 /* Status return from Tcl_ calls */
+!   char *p;
+!   Tcl_Interp *interp;
+  
+-   interp = NULL;
+- 
+    errno = 0;
+    if (errorMessage) {
+      ckfree(errorMessage);
+--- 154,163 ----
+    unsigned long relocatedSize;        /* Size of the relocated text */
+    char * startAddress;                /* Starting address of the module */
+    int status;                 /* Status return from Tcl_ calls */
+!   char *p, *q;
+!   Tcl_Interp *interp = NULL;
+!   Tcl_DString fullPath;
+  
+    errno = 0;
+    if (errorMessage) {
+      ckfree(errorMessage);
+***************
+*** 180,185 ****
+--- 179,205 ----
+  
+    interp = Tcl_CreateInterp();
+  
++   Tcl_DStringInit (&fullPath);
++   if (Tcl_GetPathType(path) == TCL_PATH_RELATIVE) {
++       p = getenv("LD_LIBRARY_PATH");
++       while (p) {
++           if ((q = strchr(p,':')) == NULL) {
++               q = p; while(*q) q++;
++           }
++           if (p == q) break;
++           Tcl_DStringAppend(&fullPath, p, q-p);
++           Tcl_DStringAppend(&fullPath, "/", 1);
++           Tcl_DStringAppend(&fullPath, path, -1);
++           if (access(Tcl_DStringValue(&fullPath), F_OK) != -1) {
++               break;
++           }
++           Tcl_DStringSetLength(&fullPath, 0);
++           p = q; if (*p) p++;
++       }
++   }
++   if (*Tcl_DStringValue(&fullPath) == 0) {
++     Tcl_DStringAppend(&fullPath, path, -1);
++   }
+    tmpnam (relocatedFileName);
+    Tcl_DStringInit (&linkCommandBuf);
+    Tcl_DStringAppend (&linkCommandBuf, "exec ld -o ", -1);
+***************
+*** 188,203 ****
+    Tcl_DStringAppend (&linkCommandBuf, " -G 0 ", -1);
+  #endif
+    Tcl_DStringAppend (&linkCommandBuf, " -u TclLoadDictionary_", -1);
+!   GuessPackageName(path, &linkCommandBuf);
+    Tcl_DStringAppend (&linkCommandBuf, " -A ", -1);
+    Tcl_DStringAppend (&linkCommandBuf, inputSymbolTable, -1);
+    Tcl_DStringAppend (&linkCommandBuf, " -N -T XXXXXXXX ", -1);
+!   Tcl_DStringAppend (&linkCommandBuf, (char *) path, -1);
+    Tcl_DStringAppend (&linkCommandBuf, " ", -1);
+!   if (FindLibraries (path, &linkCommandBuf) != TCL_OK) {
+      Tcl_DStringFree (&linkCommandBuf);
+      goto error;
+    }
+    linkCommand = Tcl_DStringValue (&linkCommandBuf);
+  
+    /* Determine the starting address, and plug it into the command */
+--- 208,235 ----
+    Tcl_DStringAppend (&linkCommandBuf, " -G 0 ", -1);
+  #endif
+    Tcl_DStringAppend (&linkCommandBuf, " -u TclLoadDictionary_", -1);
+!   GuessPackageName(Tcl_DStringValue(&fullPath), &linkCommandBuf);
+    Tcl_DStringAppend (&linkCommandBuf, " -A ", -1);
+    Tcl_DStringAppend (&linkCommandBuf, inputSymbolTable, -1);
+    Tcl_DStringAppend (&linkCommandBuf, " -N -T XXXXXXXX ", -1);
+!   Tcl_DStringAppend (&linkCommandBuf, Tcl_DStringValue(&fullPath), -1);
+!   p = getenv("LD_LIBRARY_PATH");
+!   while (p) {
+!     if ((q = strchr(p,':')) == NULL) {
+!       q = p; while(*q) q++;
+!     }
+!     if (p == q) break;
+!     Tcl_DStringAppend(&linkCommandBuf, " -L", 3);
+!     Tcl_DStringAppend(&linkCommandBuf, p, q-p);
+!     p = q; if (*p) p++;
+!   }
+    Tcl_DStringAppend (&linkCommandBuf, " ", -1);
+!   if (FindLibraries (Tcl_DStringValue(&fullPath), &linkCommandBuf) != TCL_OK) {
+      Tcl_DStringFree (&linkCommandBuf);
++     Tcl_DStringFree (&fullPath);
+      goto error;
+    }
++   Tcl_DStringFree (&fullPath);
+    linkCommand = Tcl_DStringValue (&linkCommandBuf);
+  
+    /* Determine the starting address, and plug it into the command */
+

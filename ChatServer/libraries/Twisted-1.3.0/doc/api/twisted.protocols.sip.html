@@ -1,0 +1,420 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.protocols.sip</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.protocols.html">Package&nbsp;protocols</a> ::
+        Module&nbsp;sip
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.protocols.sip.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.protocols.sip</h2>
+
+<p>Session Initialization Protocol.</p>
+Documented in RFC 2543. [Superceded by 3261]
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Base.html"><code>Base</code></a></b></td>
+  <td>Base class for SIP clients and servers.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.BasicAuthorizer.html"><code>BasicAuthorizer</code></a></b></td>
+  <td>Authorizer for insecure Basic (base64-encoded plaintext) 
+authentication.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.DigestAuthorizer.html"><code>DigestAuthorizer</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.DigestedCredentials.html"><code>DigestedCredentials</code></a></b></td>
+  <td>Yet Another Simple Digest-MD5 authentication scheme</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.IAuthorizer.html"><code>IAuthorizer</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.IContact.html"><code>IContact</code></a></b></td>
+  <td>A user of a registrar or proxy</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.ILocator.html"><code>ILocator</code></a></b></td>
+  <td>Allow looking up physical address for logical URL.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.InMemoryRegistry.html"><code>InMemoryRegistry</code></a></b></td>
+  <td>A simplistic registry for a specific domain.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.IRegistry.html"><code>IRegistry</code></a></b></td>
+  <td>Allows registration of logical-&gt;physical URL mapping.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Message.html"><code>Message</code></a></b></td>
+  <td>A SIP message.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.MessagesParser.html"><code>MessagesParser</code></a></b></td>
+  <td>A SIP messages parser.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Proxy.html"><code>Proxy</code></a></b></td>
+  <td>SIP proxy.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.RegisterProxy.html"><code>RegisterProxy</code></a></b></td>
+  <td>A proxy that allows registration for a specific domain.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Registration.html"><code>Registration</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Request.html"><code>Request</code></a></b></td>
+  <td>A Request for a URI</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Response.html"><code>Response</code></a></b></td>
+  <td>A Response to a URI Request</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.URL.html"><code>URL</code></a></b></td>
+  <td>A SIP URL.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.Via.html"><code>Via</code></a></b></td>
+  <td>A SIP Via header.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Exceptions</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.RegistrationError.html"><code>RegistrationError</code></a></b></td>
+  <td>Registration was not possible.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.protocols.sip.SIPError.html"><code>SIPError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.html#cleanRequestURL" class="summary-sig-name"><code>cleanRequestURL</code></a>(<span class=summary-sig-arg>url</span>)</span></code>
+<br />
+Clean a URL from a Request line.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.html#dashCapitalize" class="summary-sig-name"><code>dashCapitalize</code></a>(<span class=summary-sig-arg>s</span>)</span></code>
+<br />
+Capitalize a string, making sure to treat - as a word seperator</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="DigestCalcHA1"></a><span class="summary-sig"><span class="summary-sig-name">DigestCalcHA1</span>(<span class=summary-sig-arg>pszAlg</span>,
+          <span class=summary-sig-arg>pszUserName</span>,
+          <span class=summary-sig-arg>pszRealm</span>,
+          <span class=summary-sig-arg>pszPassword</span>,
+          <span class=summary-sig-arg>pszNonce</span>,
+          <span class=summary-sig-arg>pszCNonce</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="DigestCalcResponse"></a><span class="summary-sig"><span class="summary-sig-name">DigestCalcResponse</span>(<span class=summary-sig-arg>HA1</span>,
+          <span class=summary-sig-arg>pszNonce</span>,
+          <span class=summary-sig-arg>pszNonceCount</span>,
+          <span class=summary-sig-arg>pszCNonce</span>,
+          <span class=summary-sig-arg>pszQop</span>,
+          <span class=summary-sig-arg>pszMethod</span>,
+          <span class=summary-sig-arg>pszDigestUri</span>,
+          <span class=summary-sig-arg>pszHEntity</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.html#parseAddress" class="summary-sig-name"><code>parseAddress</code></a>(<span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>clean</span>)</span></code>
+<br />
+Return (name, uri, params) for From/To/Contact header.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.html#parseURL" class="summary-sig-name"><code>parseURL</code></a>(<span class=summary-sig-arg>url</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>)</span></code>
+<br />
+Return string into URL object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.protocols.sip.html#parseViaHeader" class="summary-sig-name"><code>parseViaHeader</code></a>(<span class=summary-sig-arg>value</span>)</span></code>
+<br />
+Parse a Via header, returning Via class instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="unq"></a><span class="summary-sig"><span class="summary-sig-name">unq</span>(<span class=summary-sig-arg>s</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.sip.html#longHeaders"><code>longHeaders</code></a></b> = <span title="{'c': 'content-type', 'e': 'content-encoding', 't': 'to', 'v': 'via', 'i': 'call-id', 's': 'subject', 'f': 'from', 'm': 'contact', 'l': 'content-length'}"><code>{'c':&nbsp;'content-type',&nbsp;'e':&nbsp;'content-encodi<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.protocols.sip.html#PORT"><code>PORT</code></a></b> = <span title="5060">5060&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.sip.html#shortHeaders"><code>shortHeaders</code></a></b> = <span title="{'to': 't', 'content-length': 'l', 'contact': 'm', 'from': 'f', 'content-encoding': 'e', 'via': 'v', 'call-id': 'i', 'content-type': 'c', 'subject': 's'}"><code>{'to':&nbsp;'t',&nbsp;'content-length':&nbsp;'l',&nbsp;'conta<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.sip.html#specialCases"><code>specialCases</code></a></b> = <span title="{'call-id': 'Call-ID', 'cseq': 'CSeq', 'www-authenticate': 'WWW-Authenticate'}"><code>{'call-id':&nbsp;'Call-ID',&nbsp;'cseq':&nbsp;'CSeq',&nbsp;'w<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.protocols.sip.html#statusCodes"><code>statusCodes</code></a></b> = <span title="{513: 'Message Too Large', 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 406: 'Not Acceptable', 407: 'Proxy Authentication Required', 408: 'Request Timeout', 409: 'Conflict', 410: 'Gone', 411: 'Length Required', 413: 'Request Entity Too Large', 414: 'Request-URI Too Large', 415: 'Unsupported Media Type', 416: 'Unsupported URI Scheme', 420: 'Bad Extension', 421: 'Extension Required', 423: 'Interval Too Brief', 300: 'Multiple Choices', 301: 'Moved Permanently', 302: 'Moved Temporarily', 303: 'See Other', 305: '..."><code>{513:&nbsp;'Message&nbsp;Too&nbsp;Large',&nbsp;400:&nbsp;'Bad&nbsp;Reque<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="cleanRequestURL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">cleanRequestURL</span>(<span class=sig-arg>url</span>)</span>
+  </h3>
+  Clean a URL from a Request line.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="dashCapitalize"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">dashCapitalize</span>(<span class=sig-arg>s</span>)</span>
+  </h3>
+  Capitalize a string, making sure to treat - as a word seperator
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="parseAddress"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">parseAddress</span>(<span class=sig-arg>address</span>,
+          <span class=sig-arg>host</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>port</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>clean</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Return (name, uri, params) for From/To/Contact header.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>clean</b></code> -
+         remove unnecessary info, usually for From and To headers.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="parseURL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">parseURL</span>(<span class=sig-arg>url</span>,
+          <span class=sig-arg>host</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>port</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Return string into URL object.</p>
+  URIs are of of form 'sip:user&#64;example.com'.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="parseViaHeader"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">parseViaHeader</span>(<span class=sig-arg>value</span>)</span>
+  </h3>
+  Parse a Via header, returning Via class instance.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="longHeaders"></a>
+<h3>longHeaders</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'c': 'content-type', 'e': 'content-encoding', 't': 'to', 'v': 'via', 'i': 'call-id', 's': 'subject', 'f': 'from', 'm': 'contact', 'l': 'content-length'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'c': 'content-type',
+ 'e': 'content-encoding',
+ 'f': 'from',
+ 'i': 'call-id',
+ 'l': 'content-length',
+ 'm': 'contact',
+ 's': 'subject',
+ 't': 'to',
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="PORT"></a>
+<h3>PORT</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="5060">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+5060&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="shortHeaders"></a>
+<h3>shortHeaders</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'to': 't', 'content-length': 'l', 'contact': 'm', 'from': 'f', 'content-encoding': 'e', 'via': 'v', 'call-id': 'i', 'content-type': 'c', 'subject': 's'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'call-id': 'i',
+ 'contact': 'm',
+ 'content-encoding': 'e',
+ 'content-length': 'l',
+ 'content-type': 'c',
+ 'from': 'f',
+ 'subject': 's',
+ 'to': 't',
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="specialCases"></a>
+<h3>specialCases</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{'call-id': 'Call-ID', 'cseq': 'CSeq', 'www-authenticate': 'WWW-Authenticate'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{'call-id': 'Call-ID', 'cseq': 'CSeq', 'www-authenticate': 'WWW-Authen<span class="variable-linewrap">\</span>
+ticate'}                                                               </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="statusCodes"></a>
+<h3>statusCodes</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{513: 'Message Too Large', 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 406: 'Not Acceptable', 407: 'Proxy Authentication Required', 408: 'Request Timeout', 409: 'Conflict', 410: 'Gone', 411: 'Length Required', 413: 'Request Entity Too Large', 414: 'Request-URI Too Large', 415: 'Unsupported Media Type', 416: 'Unsupported URI Scheme', 420: 'Bad Extension', 421: 'Extension Required', 423: 'Interval Too Brief', 300: 'Multiple Choices', 301: 'Moved Permanently', 302: 'Moved Temporarily', 303: 'See Other', 305: '...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{100: 'Trying',
+ 180: 'Ringing',
+ 181: 'Call Is Being Forwarded',
+ 182: 'Queued',
+ 183: 'Session Progress',
+ 200: 'OK',
+ 300: 'Multiple Choices',
+ 301: 'Moved Permanently',
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:25 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

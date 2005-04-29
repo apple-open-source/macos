@@ -9,7 +9,7 @@
     LANGUAGE = English; 
     LOCALIZABLE_FILES = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDDIR = /tmp/doc_cmds/Build; 
+    NEXTSTEP_BUILDDIR = /tmp/text_cmds/Build; 
     NEXTSTEP_BUILDTOOL = /bin/gnumake; 
     NEXTSTEP_INSTALLDIR = /usr/bin; 
     NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 

@@ -90,7 +90,7 @@ static int32_t utf8_compare_cb(dsdata *a, dsdata *b, u_int32_t casefold)
 	bvb.bv_val = b->data;
 	bvb.bv_len = b->length - 1;
 
-	return UTF8bvnormcmp(&bva, &bvb, casefold ? LDAP_UTF8_CASEFOLD : LDAP_UTF8_NOCASEFOLD);
+	return UTF8bvnormcmp(&bva, &bvb, casefold ? LDAP_UTF8_CASEFOLD : LDAP_UTF8_NOCASEFOLD, NULL);
 }
 
 static dsdata *utf8_normalize_cb(dsdata *d, u_int32_t casefold)
@@ -101,7 +101,7 @@ static dsdata *utf8_normalize_cb(dsdata *d, u_int32_t casefold)
 	bv.bv_val = d->data;
 	bv.bv_len = d->length - 1;
 
-	bvp = UTF8bvnormalize(&bv, &newbv, casefold ? LDAP_UTF8_CASEFOLD : LDAP_UTF8_NOCASEFOLD);
+	bvp = UTF8bvnormalize(&bv, &newbv, casefold ? LDAP_UTF8_CASEFOLD : LDAP_UTF8_NOCASEFOLD, NULL);
 	if (bvp == NULL)
 		return NULL;
 
@@ -306,8 +306,8 @@ int netinfo_back_initialize(BackendInfo *bi)
 
 	bi->bi_operational = netinfo_back_operational;
 
-	bi->bi_acl_group = netinfo_back_group;
-	bi->bi_acl_attribute = netinfo_back_attribute;
+	//bi->bi_acl_group = netinfo_back_group;
+	//bi->bi_acl_attribute = netinfo_back_attribute;
 
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;
@@ -608,7 +608,7 @@ dsstatus netinfo_back_get_ditinfo(
 	if (info->local_suffix != NULL)
 	{
 		dsdata_to_berval_no_copy(&tmp, info->local_suffix);
-		dnPrettyNormal(NULL, &tmp, psuffix, pnsuffix);
+		dnPrettyNormal(NULL, &tmp, psuffix, pnsuffix, NULL);
 	}
 	else
 	{
@@ -630,7 +630,7 @@ dsstatus netinfo_back_get_ditinfo(
 
 		*prefs = (struct netinfo_referral *)ch_malloc(sizeof(struct netinfo_referral));
 		dsdata_to_berval_no_copy(&tmp, k);
-		dnPrettyNormal(NULL, &tmp, &(*prefs)->nc, &(*prefs)->nnc);
+		dnPrettyNormal(NULL, &tmp, &(*prefs)->nc, &(*prefs)->nnc, NULL);
 		(*prefs)->refs = (BerVarray)ch_malloc((a->count + 1) * sizeof(struct berval));
 
 		for (j = 0; j < a->count; j++)
@@ -658,7 +658,7 @@ dsstatus netinfo_back_get_ditinfo(
 
 			(*crefs)[i] = (struct netinfo_referral *)ch_malloc(sizeof(struct netinfo_referral));
 			dsdata_to_berval_no_copy(&tmp, k);
-			dnPrettyNormal(NULL, &tmp, &(*crefs)[i]->nc, &(*crefs)[i]->nnc);
+			dnPrettyNormal(NULL, &tmp, &(*crefs)[i]->nc, &(*crefs)[i]->nnc, NULL);
 			(*crefs)[i]->refs = (BerVarray)ch_malloc((a->count + 1) * sizeof(struct berval));
 
 			for (j = 0; j < a->count; j++)

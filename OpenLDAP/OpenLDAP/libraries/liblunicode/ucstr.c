@@ -1,23 +1,33 @@
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation
- * COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
- * of this package for details.
+/* $OpenLDAP: pkg/ldap/libraries/liblunicode/ucstr.c,v 1.27.2.6 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
 
+#include <ac/bytes.h>
 #include <ac/ctype.h>
 #include <ac/string.h>
 #include <ac/stdlib.h>
 
-#include <lber.h>
+#include <lber_pvt.h>
 
 #include <ldap_utf8.h>
 #include <ldap_pvt_uc.h>
 
-#define	malloc(x)	ber_memalloc(x)
-#define	realloc(x,y)	ber_memrealloc(x,y)
-#define	free(x)		ber_memfree(x)
+#define	malloc(x)	ber_memalloc_x(x,ctx)
+#define	realloc(x,y)	ber_memrealloc_x(x,y,ctx)
+#define	free(x)		ber_memfree_x(x,ctx)
 
 int ucstrncmp(
 	const ldap_unicode_t *u1,
@@ -95,16 +105,18 @@ void ucstr2upper(
 struct berval * UTF8bvnormalize(
 	struct berval *bv,
 	struct berval *newbv,
-	unsigned flags )
+	unsigned flags,
+	void *ctx )
 {
 	int i, j, len, clen, outpos, ucsoutlen, outsize, last;
 	char *out, *outtmp, *s;
-	unsigned long *ucs, *p, *ucsout;
+	ac_uint4 *ucs, *p, *ucsout;
+
+	static unsigned char mask[] = {
+		0, 0x7f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 
 	unsigned casefold = flags & LDAP_UTF8_CASEFOLD;
 	unsigned approx = flags & LDAP_UTF8_APPROX;
-	static unsigned char mask[] = {
-                0, 0x7f, 0x1f, 0x0f, 0x07, 0x03, 0x01 };
 
 	if ( bv == NULL ) {
 		return NULL;
@@ -114,12 +126,12 @@ struct berval * UTF8bvnormalize(
 	len = bv->bv_len;
 
 	if ( len == 0 ) {
-		return ber_dupbv( newbv, bv );
+		return ber_dupbv_x( newbv, bv, ctx );
 	}
 	
-	/* FIXME: Should first check to see if string is already in
-	 * proper normalized form. This is almost as time consuming
-	 * as the normalization though.
+	/* Should first check to see if string is already in proper
+	 * normalized form. This is almost as time consuming as
+	 * the normalization though.
 	 */
 
 	/* finish off everything up to character before first non-ascii */
@@ -136,7 +148,7 @@ struct berval * UTF8bvnormalize(
 				out[outpos++] = TOLOWER( s[i-1] );
 			}
 			if ( i == len ) {
-				out[outpos++] = TOLOWER( s[len - 1] );
+				out[outpos++] = TOLOWER( s[len-1] );
 				out[outpos] = '\0';
 				return ber_str2bv( out, outpos, 0, newbv);
 			}
@@ -146,7 +158,7 @@ struct berval * UTF8bvnormalize(
 			}
 
 			if ( i == len ) {
-				return ber_str2bv( s, len, 1, newbv );
+				return ber_str2bv_x( s, len, 1, newbv, ctx );
 			}
 				
 			outsize = len + 7;
@@ -175,7 +187,7 @@ struct berval * UTF8bvnormalize(
 
 	/* convert character before first non-ascii to ucs-4 */
 	if ( i > 0 ) {
-		*p = casefold ? TOLOWER( s[i - 1] ) : s[i - 1];
+		*p = casefold ? TOLOWER( s[i-1] ) : s[i-1];
 		p++;
 	}
 
@@ -210,9 +222,9 @@ struct berval * UTF8bvnormalize(
 				*p = uctolower( *p );
 			}
 			p++;
-                }
+		}
 		/* normalize ucs of length p - ucs */
-		uccompatdecomp( ucs, p - ucs, &ucsout, &ucsoutlen );    
+		uccompatdecomp( ucs, p - ucs, &ucsout, &ucsoutlen, ctx );
 		if ( approx ) {
 			for ( j = 0; j < ucsoutlen; j++ ) {
 				if ( ucsout[j] < 0x80 ) {
@@ -249,20 +261,33 @@ struct berval * UTF8bvnormalize(
 
 		last = i;
 
+		/* Allocate more space in out if necessary */
+		if (len - i >= outsize - outpos) {
+			outsize += 1 + ((len - i) - (outsize - outpos));
+			outtmp = (char *) realloc(out, outsize);
+			if (outtmp == NULL) {
+				free(out);
+				free(ucs);
+				return NULL;
+			}
+			out = outtmp;
+		}
+
 		/* s[i] is ascii */
 		/* finish off everything up to char before next non-ascii */
 		for ( i++; (i < len) && LDAP_UTF8_ISASCII(s + i); i++ ) {
 			out[outpos++] = casefold ? TOLOWER( s[i-1] ) : s[i-1];
 		}
 		if ( i == len ) {
-			out[outpos++] = casefold ? TOLOWER( s[len - 1] ) : s[len - 1];
+			out[outpos++] = casefold ? TOLOWER( s[len-1] ) : s[len-1];
 			break;
 		}
 
 		/* convert character before next non-ascii to ucs-4 */
-		*ucs = casefold ? TOLOWER( s[i - 1] ) : s[i - 1];
+		*ucs = casefold ? TOLOWER( s[i-1] ) : s[i-1];
 		p = ucs + 1;
-	}		
+	}
+
 	free( ucs );
 	out[outpos] = '\0';
 	return ber_str2bv( out, outpos, 0, newbv );
@@ -273,17 +298,20 @@ struct berval * UTF8bvnormalize(
 int UTF8bvnormcmp(
 	struct berval *bv1,
 	struct berval *bv2,
-	unsigned flags )
+	unsigned flags,
+	void *ctx )
 {
 	int i, l1, l2, len, ulen, res = 0;
 	char *s1, *s2, *done;
-	unsigned long *ucs, *ucsout1, *ucsout2;
+	ac_uint4 *ucs, *ucsout1, *ucsout2;
+
 	unsigned casefold = flags & LDAP_UTF8_CASEFOLD;
 	unsigned norm1 = flags & LDAP_UTF8_ARG1NFC;
 	unsigned norm2 = flags & LDAP_UTF8_ARG2NFC;
 
 	if (bv1 == NULL) {
 		return bv2 == NULL ? 0 : -1;
+
 	} else if (bv2 == NULL) {
 		return 1;
 	}
@@ -304,7 +332,7 @@ int UTF8bvnormcmp(
 		if (casefold) {
 			char c1 = TOLOWER(*s1);
 			char c2 = TOLOWER(*s2);
-		    	res = c1 - c2;
+			res = c1 - c2;
 		} else {
 			res = *s1 - *s2;
 		}			
@@ -317,7 +345,8 @@ int UTF8bvnormcmp(
 					break;
 				}
 			} else if (((len < l1) && !LDAP_UTF8_ISASCII(s1)) ||
-				   ((len < l2) && !LDAP_UTF8_ISASCII(s2))) {
+				((len < l2) && !LDAP_UTF8_ISASCII(s2)))
+			{
 				break;
 			}
 			return res;
@@ -344,10 +373,9 @@ int UTF8bvnormcmp(
 		l2 -= i - 1;
 	}
 			
-	/* FIXME: Should first check to see if strings are already in
+	/* Should first check to see if strings are already in
 	 * proper normalized form.
 	 */
-
 	ucs = malloc( ( ( norm1 || l1 > l2 ) ? l1 : l2 ) * sizeof(*ucs) );
 	if ( ucs == NULL ) {
 		return l1 > l2 ? 1 : -1; /* what to do??? */
@@ -355,16 +383,16 @@ int UTF8bvnormcmp(
 	
 	/*
 	 * XXYYZ: we convert to ucs4 even though -llunicode
-	 * expects ucs2 in an unsigned long
+	 * expects ucs2 in an ac_uint4
 	 */
 	
 	/* convert and normalize 1st string */
 	for ( i = 0, ulen = 0; i < l1; i += len, ulen++ ) {
-                ucs[ulen] = ldap_x_utf8_to_ucs4( s1 + i );
-                if ( ucs[ulen] == LDAP_UCS4_INVALID ) {
+		ucs[ulen] = ldap_x_utf8_to_ucs4( s1 + i );
+		if ( ucs[ulen] == LDAP_UCS4_INVALID ) {
 			free( ucs );
-                        return -1; /* what to do??? */
-                }
+			return -1; /* what to do??? */
+		}
 		len = LDAP_UTF8_CHARLEN( s1 + i );
 	}
 
@@ -376,18 +404,18 @@ int UTF8bvnormcmp(
 			return l1 > l2 ? 1 : -1; /* what to do??? */
 		}
 	} else {
-		uccompatdecomp( ucs, ulen, &ucsout1, &l1 );
+		uccompatdecomp( ucs, ulen, &ucsout1, &l1, ctx );
 		l1 = uccanoncomp( ucsout1, l1 );
 	}
 
 	/* convert and normalize 2nd string */
 	for ( i = 0, ulen = 0; i < l2; i += len, ulen++ ) {
-                ucs[ulen] = ldap_x_utf8_to_ucs4( s2 + i );
-                if ( ucs[ulen] == LDAP_UCS4_INVALID ) {
+		ucs[ulen] = ldap_x_utf8_to_ucs4( s2 + i );
+		if ( ucs[ulen] == LDAP_UCS4_INVALID ) {
 			free( ucsout1 );
 			free( ucs );
-                        return 1; /* what to do??? */
-                }
+			return 1; /* what to do??? */
+		}
 		len = LDAP_UTF8_CHARLEN( s2 + i );
 	}
 
@@ -395,7 +423,7 @@ int UTF8bvnormcmp(
 		ucsout2 = ucs;
 		l2 = ulen;
 	} else {
-		uccompatdecomp( ucs, ulen, &ucsout2, &l2 );
+		uccompatdecomp( ucs, ulen, &ucsout2, &l2, ctx );
 		l2 = uccanoncomp( ucsout2, l2 );
 		free( ucs );
 	}

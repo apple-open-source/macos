@@ -192,15 +192,9 @@ enum {
 
 /*!
 @defined kCallInterfaceOpenWithGate
- @discussion If the USB Device Nub has this property, drivers for any of its interfaces will have their handleOpen method called while holding the workloop gate.
+ @discussion If the USB Device has this property, drivers for any of its interfaces will have their handleOpen method called while holding the workloop gate.
  */
 #define kCallInterfaceOpenWithGate	"kCallInterfaceOpenWithGate"
-
-/*!
-@defined kCallInterfaceCloseWithGate
- @discussion If the USB Device Nub has this property, drivers for any of its interfaces will have their handleclose method called while holding the workloop gate.
- */
-#define kCallInterfaceCloseWithGate	"kCallInterfaceCloseWithGate"
 
 // TYPES
 
@@ -239,18 +233,18 @@ struct IOUSBLowLatencyIsocFrame {
 typedef struct IOUSBLowLatencyIsocFrame IOUSBLowLatencyIsocFrame;
 
 /*!
-    @typedef IOUSBCompletionAction
-    @discussion Function called when USB I/O completes.
-    @param target The target specified in the IOUSBCompletion struct.
-    @param parameter The parameter specified in the IOUSBCompletion struct.
-    @param status Completion status.
-    @param bufferSizeRemaining Bytes left to be transferred.
-*/
+@typedef IOUSBCompletionAction
+ @discussion Function called when USB I/O completes.
+ @param target The target specified in the IOUSBCompletion struct.
+ @param parameter The parameter specified in the IOUSBCompletion struct.
+ @param status Completion status.
+ @param bufferSizeRemaining Bytes left to be transferred.
+ */
 typedef void (*IOUSBCompletionAction)(
-                void *			target,
-                void *			parameter,
-                IOReturn		status,
-                UInt32			bufferSizeRemaining);
+                                      void *			target,
+                                      void *			parameter,
+                                      IOReturn		status,
+                                      UInt32			bufferSizeRemaining);
 
 /*!
 @typedef IOUSBCompletionActionWithTimeStamp
@@ -297,12 +291,12 @@ typedef void (*IOUSBLowLatencyIsocCompletionAction)(
                 IOUSBLowLatencyIsocFrame	*pFrames);
 
 /*!
-    @typedef IOUSBCompletion
-    @discussion Struct specifying action to perform when a USB I/O completes.
-    @param target The target to pass to the action function.
-    @param action The function to call.
-    @param parameter The parameter to pass to the action function.
-*/
+@typedef IOUSBCompletion
+ @discussion Struct specifying action to perform when a USB I/O completes.
+ @param target The target to pass to the action function.
+ @param action The function to call.
+ @param parameter The parameter to pass to the action function.
+ */
 typedef struct IOUSBCompletion {
     void * 			target;
     IOUSBCompletionAction	action;
@@ -970,6 +964,7 @@ enum {
 #define kUSBDevicePropertyBusPowerAvailable     "Bus Power Available"
 #define kUSBDevicePropertyAddress               "USB Address"
 #define kUSBDevicePropertyLocationID            "locationID"
+#define kUSBProductIDMask			"idProductMask"
 
 /*!
 @enum USBReEnumerateOptions

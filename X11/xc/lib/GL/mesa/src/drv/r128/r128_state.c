@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_state.c,v 1.11 2002/10/30 12:51:39 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_state.c,v 1.12 2003/09/28 20:15:21 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -42,9 +42,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r128_tex.h"
 
 #include "context.h"
-#include "mmath.h"
 #include "enums.h"
-
+#include "colormac.h"
 #include "swrast/swrast.h"
 #include "array_cache/acache.h"
 #include "tnl/tnl.h"
@@ -64,7 +63,9 @@ static void r128UpdateAlphaMode( GLcontext *ctx )
    GLuint t = rmesa->setup.tex_cntl_c;
 
    if ( ctx->Color.AlphaEnabled ) {
-      GLubyte ref = ctx->Color.AlphaRef;
+      GLubyte ref;
+
+      CLAMPED_FLOAT_TO_UBYTE(ref, ctx->Color.AlphaRef);
 
       a &= ~(R128_ALPHA_TEST_MASK | R128_REF_ALPHA_MASK);
 
@@ -182,7 +183,7 @@ static void r128UpdateAlphaMode( GLcontext *ctx )
    }
 }
 
-static void r128DDAlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
+static void r128DDAlphaFunc( GLcontext *ctx, GLenum func, GLfloat ref )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
 
@@ -658,13 +659,18 @@ static void r128DepthRange( GLcontext *ctx,
  */
 
 static void r128DDClearColor( GLcontext *ctx,
-			      const GLchan color[4] )
+			      const GLfloat color[4] )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
+   GLubyte c[4];
+
+   CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
 
    rmesa->ClearColor = r128PackColor( rmesa->r128Screen->cpp,
-				      color[0], color[1],
-				      color[2], color[3] );
+				      c[0], c[1], c[2], c[3] );
 }
 
 static void r128DDLogicOpCode( GLcontext *ctx, GLenum opcode )
@@ -678,35 +684,41 @@ static void r128DDLogicOpCode( GLcontext *ctx, GLenum opcode )
    }
 }
 
-static void r128DDSetDrawBuffer( GLcontext *ctx, GLenum mode )
+static void r128DDDrawBuffer( GLcontext *ctx, GLenum mode )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
 
    FLUSH_BATCH( rmesa );
 
-   if ( rmesa->DrawBuffer != mode ) {
-      rmesa->DrawBuffer = mode;
-
-      switch ( mode ) {
-      case GL_FRONT_LEFT:
-	 rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->frontOffset;
-	 rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->frontPitch;
-	 FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_FALSE );
-	 break;
-      case GL_BACK_LEFT:
-	 rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->backOffset;
-	 rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->backPitch;
-	 FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_FALSE );
-	 break;
-      default:
-	 FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_TRUE );
-	 break;
-      }
-
-      rmesa->setup.dst_pitch_offset_c = (((rmesa->drawPitch/8) << 21) |
-					 (rmesa->drawOffset >> 5));
-      rmesa->new_state |= R128_NEW_WINDOW;
+   /*
+    * _DrawDestMask is easier to cope with than <mode>.
+    */
+   switch ( ctx->Color._DrawDestMask ) {
+   case FRONT_LEFT_BIT:
+      FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_FALSE );
+      break;
+   case BACK_LEFT_BIT:
+      FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_FALSE );
+      break;
+   default:
+      /* GL_NONE or GL_FRONT_AND_BACK or stereo left&right, etc */
+      FALLBACK( rmesa, R128_FALLBACK_DRAW_BUFFER, GL_TRUE );
+      break;
    }
+
+   /* We want to update the s/w rast state too so that r128DDSetBuffer()
+    * gets called.
+    */
+   _swrast_DrawBuffer(ctx, mode);
+
+   rmesa->setup.dst_pitch_offset_c = (((rmesa->drawPitch/8) << 21) |
+                                      (rmesa->drawOffset >> 5));
+   rmesa->new_state |= R128_NEW_WINDOW;
+}
+
+static void r128DDReadBuffer( GLcontext *ctx, GLenum mode )
+{
+   /* nothing, until we implement h/w glRead/CopyPixels or CopyTexImage */
 }
 
 
@@ -842,7 +854,6 @@ static void r128DDEnable( GLcontext *ctx, GLenum cap, GLboolean state )
    case GL_TEXTURE_2D:
    case GL_TEXTURE_3D:
       FLUSH_BATCH( rmesa );
-      rmesa->new_state |= R128_NEW_TEXTURE;
       break;
 
    case GL_POLYGON_STIPPLE:
@@ -874,7 +885,7 @@ static void r128DDEnable( GLcontext *ctx, GLenum cap, GLboolean state )
 static void r128DDPrintDirty( const char *msg, GLuint state )
 {
    fprintf( stderr,
-	    "%s: (0x%x) %s%s%s%s%s%s%s%s%s%s%s\n",
+	    "%s: (0x%x) %s%s%s%s%s%s%s%s%s\n",
 	    msg,
 	    state,
 	    (state & R128_UPLOAD_CORE)		? "core, " : "",
@@ -882,8 +893,6 @@ static void r128DDPrintDirty( const char *msg, GLuint state )
 	    (state & R128_UPLOAD_SETUP)		? "setup, " : "",
 	    (state & R128_UPLOAD_TEX0)		? "tex0, " : "",
 	    (state & R128_UPLOAD_TEX1)		? "tex1, " : "",
-	    (state & R128_UPLOAD_TEX0IMAGES)	? "tex0 images, " : "",
-	    (state & R128_UPLOAD_TEX1IMAGES)	? "tex1 images, " : "",
 	    (state & R128_UPLOAD_MASKS)		? "masks, " : "",
 	    (state & R128_UPLOAD_WINDOW)	? "window, " : "",
 	    (state & R128_UPLOAD_CLIPRECTS)	? "cliprects, " : "",
@@ -912,21 +921,11 @@ void r128EmitHwStateLocked( r128ContextPtr rmesa )
       r128DDPrintDirty( "r128EmitHwStateLocked", rmesa->dirty );
    }
 
-   if ( rmesa->dirty & R128_UPLOAD_TEX0IMAGES ) {
-      if ( t0 ) r128UploadTexImages( rmesa, t0 );
-      rmesa->dirty &= ~R128_UPLOAD_TEX0IMAGES;
-   }
-   if ( rmesa->dirty & R128_UPLOAD_TEX1IMAGES ) {
-      if ( t1 ) r128UploadTexImages( rmesa, t1 );
-      rmesa->dirty &= ~R128_UPLOAD_TEX1IMAGES;
-   }
-
    if ( rmesa->dirty & (R128_UPLOAD_CONTEXT |
 			R128_UPLOAD_SETUP |
 			R128_UPLOAD_MASKS |
 			R128_UPLOAD_WINDOW |
-			R128_UPLOAD_CORE |
-			R128_UPLOAD_TEX0) ) {
+			R128_UPLOAD_CORE) ) {
       memcpy( &sarea->ContextState, regs, sizeof(sarea->ContextState) );
    }
 
@@ -965,7 +964,7 @@ void r128EmitHwStateLocked( r128ContextPtr rmesa )
 static void r128DDPrintState( const char *msg, GLuint flags )
 {
    fprintf( stderr,
-	    "%s: (0x%x) %s%s%s%s%s%s%s%s%s\n",
+	    "%s: (0x%x) %s%s%s%s%s%s%s%s\n",
 	    msg,
 	    flags,
 	    (flags & R128_NEW_CONTEXT)	? "context, " : "",
@@ -973,7 +972,6 @@ static void r128DDPrintState( const char *msg, GLuint flags )
 	    (flags & R128_NEW_DEPTH)	? "depth, " : "",
 	    (flags & R128_NEW_FOG)	? "fog, " : "",
 	    (flags & R128_NEW_CLIP)	? "clip, " : "",
-	    (flags & R128_NEW_TEXTURE)	? "texture, " : "",
 	    (flags & R128_NEW_CULL)	? "cull, " : "",
 	    (flags & R128_NEW_MASKS)	? "masks, " : "",
 	    (flags & R128_NEW_WINDOW)	? "window, " : "" );
@@ -984,7 +982,7 @@ void r128DDUpdateHWState( GLcontext *ctx )
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
    int new_state = rmesa->new_state;
 
-   if ( new_state )
+   if ( new_state || rmesa->NewGLState & _NEW_TEXTURE )
    {
       FLUSH_BATCH( rmesa );
 
@@ -1016,8 +1014,9 @@ void r128DDUpdateHWState( GLcontext *ctx )
       if ( new_state & R128_NEW_WINDOW )
 	 r128UpdateWindow( ctx );
 
-      if ( new_state & R128_NEW_TEXTURE )
+      if ( rmesa->NewGLState & _NEW_TEXTURE ) {
 	 r128UpdateTextureState( ctx );
+      }
    }
 }
 
@@ -1072,12 +1071,10 @@ void r128DDInitState( r128ContextPtr rmesa )
 
    rmesa->Fallback = 0;
 
-   if ( rmesa->glCtx->Visual.doubleBufferMode ) {
-      rmesa->DrawBuffer = GL_BACK_LEFT;
+   if ( rmesa->glCtx->Visual.doubleBufferMode && rmesa->sarea->pfCurrentPage == 0 ) {
       rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->backOffset;
       rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->backPitch;
    } else {
-      rmesa->DrawBuffer = GL_FRONT_LEFT;
       rmesa->drawOffset = rmesa->readOffset = rmesa->r128Screen->frontOffset;
       rmesa->drawPitch  = rmesa->readPitch  = rmesa->r128Screen->frontPitch;
    }
@@ -1192,7 +1189,8 @@ void r128DDInitStateFuncs( GLcontext *ctx )
 
    ctx->Driver.ClearIndex		= NULL;
    ctx->Driver.ClearColor		= r128DDClearColor;
-   ctx->Driver.SetDrawBuffer		= r128DDSetDrawBuffer;
+   ctx->Driver.DrawBuffer		= r128DDDrawBuffer;
+   ctx->Driver.ReadBuffer		= r128DDReadBuffer;
 
    ctx->Driver.IndexMask		= NULL;
    ctx->Driver.ColorMask		= r128DDColorMask;

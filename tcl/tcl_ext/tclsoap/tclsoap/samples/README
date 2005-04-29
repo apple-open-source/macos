@@ -1,0 +1,28 @@
+samples/README                                           -*-text-*-
+
+This directory contains various samples of client SOAP and XMLRPC
+methods. Of particular note are the Tcl client implementations of the
+test suites in soapinterop.tcl and validator.tcl
+
+SOAP Interoperability Labs Test Suite:
+  source soapinterop.tcl
+  soapinterop::validate http://tclsoap.sourceforge.net/cgi-bin/rpc
+
+XMethods Validator Suite:
+  source validator1.tcl
+  validate_soap http://tclsoap.sourceforge.net/cgi-bin/rpc
+  validate_xmlrpc http://tclsoap.sourceforge.net/cgi-bin/rpc
+
+TclHTTPD Implementation:
+  Provide access from TclHTTPD to the methods implemented by the CGI
+  framework. The tclserver.tcl file is an example of using the CGI
+  code to export methods under this server. If this is sourced into a
+  running tclhttpd instance then the /RPC URL will delegate to the
+  SOAP::CGI code. You can then run the validation suite as above
+  against your server URL.
+
+Async.tcl - a sample demonstrating the use of asynchronous XML-RPC
+            using the O'Reilly Meerkat service.
+
+cgi-clients.tcl - some client methods for the urn:tclsoap:Test methods
+                  provided in the cgi-bin/soap directory.

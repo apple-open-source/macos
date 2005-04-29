@@ -47,6 +47,8 @@
 	<arg>--param <replaceable>name</replaceable> <replaceable>value</replaceable></arg>
 	<arg>--stringparam <replaceable>name</replaceable> <replaceable>value</replaceable></arg>
 	<arg>--nonet</arg>
+	<arg>--path <replaceable>paths</replaceable></arg>
+	<arg>--load-trace</arg>
 	<arg>--catalogs</arg>
 	<arg>--xinclude</arg>
 	<arg>--profile</arg>
@@ -236,12 +238,32 @@
 	<term>
       <option>--nonet</option></term>
 	<listitem>
-	  <simpara>Do not use the Internet to fetch DTD's or
-      entities.
+	  <simpara>Do not use the Internet to fetch DTD's,
+      entities or documents.
     </simpara>
 	</listitem>
       </varlistentry>
     
+      <varlistentry>
+	<term> <option>--path</option> <replaceable>paths</replaceable></term>
+	<listitem>
+	  <simpara>
+	    Use the list (separated by space or column) of filesystem paths 
+	specified by <replaceable>paths</replaceable> to load
+        <acronym>DTDs</acronym>, entities or documents.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
+      <varlistentry>
+	<term><option>--load-trace</option></term>
+	<listitem>
+	  <simpara>
+	    Display to stderr all the documents loaded during the processing.
+	  </simpara>
+	</listitem>
+      </varlistentry>
+
       <varlistentry>
 	<term>
       <option>--catalogs</option></term>

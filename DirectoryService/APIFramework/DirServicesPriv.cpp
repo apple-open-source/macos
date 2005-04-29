@@ -32,6 +32,7 @@
 #include "PrivateTypes.h"
 #include <stdlib.h>
 #include <string.h>
+#include <syslog.h>
 #include "CRCCalc.h"
 
 extern sInt32 gProcessPID;
@@ -112,7 +113,8 @@ tDirStatus IsStdBuffer ( tDataBufferPtr inOutDataBuff )
 		siResult = inBuff.GetBuffType( &bufTag );
 		if ( siResult != eDSNoErr ) throw( siResult );
         
-        if ( (bufTag != 'StdA') && (bufTag != 'StdB') )  //KW should make 'StdB' and 'StdA" readily available constants
+        if ( (bufTag != 'StdA') && (bufTag != 'StdB') && (bufTag != 'DbgA') && (bufTag != 'DbgB') )  
+		//KW should make 'StdB' and 'StdA" readily available constants but not 'DbgA' and 'DbgB'
         {
             outResult = eDSInvalidTag;
         }
@@ -262,6 +264,11 @@ tDirStatus ExtractRecordEntry ( tDataBufferPtr		inOutDataBuff,
         //create a reference here
         siResult = CDSRefTable::NewAttrListRef( outAttributeListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
+		
+		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
+		{
+			syslog(LOG_CRIT, "DS:dsGetRecordEntry:ExtractRecordEntry:CDSRefTable::NewAttrListRef ref = %d", *outAttributeListRef);
+		}
 		        
 		//uberOffset + offset + 4;	// context used by next calls of GetAttributeEntry
 									// include the four bytes of the buffLen
@@ -358,7 +365,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		p		+= 2;
 		offset	+= 2;
 
-		if (bufTag == 'StdB')
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
 			// Skip to the attribute that we want
 			for ( i = 1; i < uiIndex; i++ )
@@ -441,7 +448,7 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
 		p		+= 2;
 		offset	+= 2;
 			
-		if (bufTag == 'StdB')
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
 			for ( i = 0; i < usValueCnt; i++ )
 			{
@@ -487,6 +494,11 @@ tDirStatus ExtractAttributeEntry (	tDataBufferPtr			inOutDataBuff,
         //create a reference here
         siResult = CDSRefTable::NewAttrValueRef( outAttrValueListRef, 0, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
+		
+		if ( (bufTag == 'DbgA') || (bufTag == 'DbgB') )
+		{
+			syslog(LOG_CRIT, "DS:dsGetAttributeEntry:ExtractAttributeEntry:CDSRefTable::NewAttrValueRef ref = %d", *outAttrValueListRef);
+		}
 		        
 		siResult = CDSRefTable::SetOffset( *outAttrValueListRef, eAttrValueListRefType, uiOffset, gProcessPID );
 		if ( siResult != eDSNoErr ) throw( siResult );
@@ -563,7 +575,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 		p		= inOutDataBuff->fBufferData + attrValueOffset;
 		offset	= attrValueOffset;
 
-		if (bufTag == 'StdB')
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
 			// Do record check, verify that offset is not past end of buffer, etc.
 			if (2 + offset > buffSize)  throw( (sInt32)eDSInvalidBuffFormat );
@@ -618,7 +630,7 @@ tDirStatus ExtractAttributeValue (	tDataBufferPtr			 inOutDataBuff,
 
 		if (uiIndex > usValueCnt)  throw( (sInt32)eDSInvalidIndex );
 
-		if (bufTag == 'StdB')
+		if ( (bufTag == 'StdB') || (bufTag == 'DbgB') )
 		{
 			// Skip to the value that we want
 			for ( i = 1; i < uiIndex; i++ )

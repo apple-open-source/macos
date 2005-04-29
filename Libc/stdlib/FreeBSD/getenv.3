@@ -34,7 +34,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)getenv.3	8.2 (Berkeley) 12/11/93
-.\" $FreeBSD: src/lib/libc/stdlib/getenv.3,v 1.13 2002/12/18 13:33:03 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/getenv.3,v 1.16 2004/07/07 19:57:13 ru Exp $
 .\"
 .Dd December 11, 1993
 .Dt GETENV 3
@@ -75,10 +75,6 @@ The
 .Fn getenv
 function obtains the current value of the environment variable,
 .Fa name .
-If the variable
-.Fa name
-is not in the current environment,
-a null pointer is returned.
 .Pp
 The
 .Fn setenv
@@ -115,6 +111,17 @@ deletes all instances of the variable name pointed to by
 .Fa name
 from the list.
 .Sh RETURN VALUES
+The
+.Fn getenv
+function returns the value of the environment variable as a
+.Dv NUL Ns
+-terminated string.
+If the variable
+.Fa name
+is not in the current environment,
+.Dv NULL
+is returned.
+.Pp
 .Rv -std setenv putenv
 .Sh ERRORS
 .Bl -tag -width Er
@@ -144,13 +151,15 @@ assigning a differently sized
 .Fa value
 to the same
 .Fa name
-will result in a memory leak.  The
+will result in a memory leak.
+The
 .Fx
 semantics for these functions
 (namely, that the contents of
 .Fa value
 are copied and that old values remain accessible indefinitely) make this
-bug unavoidable.  Future versions may eliminate one or both of these
+bug unavoidable.
+Future versions may eliminate one or both of these
 semantic guarantees in order to fix the bug.
 .Sh HISTORY
 The functions

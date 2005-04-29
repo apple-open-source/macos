@@ -46,6 +46,7 @@
 
 #include "NSLDebugLog.h"
 #include "CNSLResult.h"
+#include "CNSLTimingUtils.h"
 
 #define kTaskInterval	2
 #define	kNodeTimerIntervalImmediate	1			// Fire ASAP
@@ -53,6 +54,7 @@
 #define	kOncePerDay					1*60*60*24
 #define kKeepTimerAroundAfterFiring	kOncePerDay	// 1 day interval on timers
 #define kMaxTimeBetweenNodeLookups	30*60		// 30 minutes
+#define kMinTimeBetweenEmptyResults 1000
 
 #define kHTTPServiceType			"http"
 #define kAFPServiceType				"afp"
@@ -105,6 +107,30 @@ typedef struct NodeData {
     uInt32					fSignature;			// signature of plugin registering this
     CFMutableDictionaryRef	fServicesRefTable;
 } NodeData;
+
+typedef struct sNSLContextData {
+//	LDAP		   *fHost;				//LDAP session handle
+//	uInt32			fConfigTableIndex;	//gConfigTable Hash index
+//	char		   *fName;				//LDAP domain name ie. ldap.apple.com
+//	int				fPort;				//LDAP port number - default is 389
+//	int				fType;				//KW type of reference entry - not used yet
+//	int				msgId;				//LDAP session call handle mainly used for searches
+//    bool			authCallActive;		//indicates if authentication was made through the API
+    									//call and if set means don't use config file auth name/password
+//    char		   *authAccountName;	//Account name used in auth
+//    char		   *authPassword;		//Password used in auth
+//    LDAPMessage	   *pResult;			//LDAP message last result
+//    uInt32			fRecNameIndex;		//index used to cycle through all requested Rec Names
+//    uInt32			fRecTypeIndex;		//index used to cycle through all requested Rec Types
+//    uInt32			fTotalRecCount;		//count of all retrieved records
+//    uInt32			fLimitRecSearch;	//client specified limit of number of records to return
+//    uInt32			fAttrIndex;			//index used to cycle through all requested Attrs
+    uInt32			offset;				//offset into the data buffer
+//    uInt32			index;
+//    uInt32			attrCnt;
+//    char		   *fOpenRecordType;	//record type used to open a record
+//    char		   *fOpenRecordName;	//record name used to open a record
+} sNSLContextData;
 
 typedef enum {
     kClearOutStaleNodes,					// check each node's timestamp and compare to last time we did a lookup
@@ -199,8 +225,8 @@ public:
 			void				HandleNetworkTransitionIfTime( void );
 			void				PeriodicNodeLookupTask		( void );
 			
-    virtual char*				CreateNSLTypeFromRecType( char *inRecType );
-    virtual char*				CreateRecTypeFromURL	( char *inNSLType );      
+    virtual char*				CreateNSLTypeFromRecType( char *inRecType, Boolean* needToFree );
+    virtual char*				CreateRecTypeFromURL	( char *inNSLType, Boolean* needToFree );      
 	virtual CFStringRef			CreateRecTypeFromNativeType ( char *inNativeType );
 	virtual CFStringRef			CreateRecTypeFromNativeType ( CFStringRef inNativeType );
     
@@ -209,7 +235,6 @@ protected:
     virtual	CFStringRef			GetBundleIdentifier		( void ) = 0;
     virtual void				NewNodeLookup			( void ) = 0;
     virtual Boolean				OKToOpenUnPublishedNode	( const char* parentNodeName ) = 0;
-			Boolean				PluginHasBeenNSLActivated( void ) { return mActivatedByNSL; }
 
     virtual void				NewServiceLookup		( char* serviceType, CNSLDirNodeRep* nodeDirRep ) = 0;
     
@@ -222,6 +247,11 @@ protected:
 	virtual	sInt32				DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
 
 	virtual sInt32				GetDirNodeInfo			( sGetDirNodeInfo *inData );
+	virtual Boolean				PluginSupportsServiceType( const char* serviceType ) {return true;}		// plugins to override if needed
+	
+			sInt32				GetAttributeEntry		( sGetAttributeEntry *inData );
+			sInt32				GetAttributeValue		( sGetAttributeValue *inData );
+
             sInt32				OpenDirNode 			( sOpenDirNode *inData );
             sInt32				CloseDirNode 			( sCloseDirNode *inData );
             sInt32				GetRecordList			( sGetRecordList *inData );
@@ -258,6 +288,8 @@ protected:
 			void				UnInstallNodeLookupTimer	( void );
 			void				ResetNodeLookupTimer		( UInt32 timeTillNewLookup );
 			
+		uInt32					GetSignature( void ) { return mSignature; }
+
         CFMutableDictionaryRef	mOpenRefTable;
         CFMutableDictionaryRef	mPublishedNodes;		// we keep track of published nodes here
         Boolean					mActivatedByNSL;
@@ -279,7 +311,8 @@ private:
         char*					mDSLocalNodeLabel;
         char*					mDSNetworkNodeLabel;
         char*					mDSTopLevelNodeLabel;
-        uInt32			mSignature;
+		double					mLastTimeEmptyResultsReturned;
+        uInt32					mSignature;
 };
 
 NodeData * AllocateNodeData();
@@ -287,7 +320,9 @@ void DeallocateNodeData( NodeData *nodeData );
 
 
 UInt32 GetCurrentTime( void );		// returns current time in seconds
-CFStringEncoding NSLGetSystemEncoding( void );	// read the contents of /var/root/.CFUserTextEncoding
-double dsTimestamp(void);
+CFStringEncoding NSLGetSystemEncoding( UInt32* outRegion=NULL );	// read the contents of /var/root/.CFUserTextEncoding
+
+#define MAX_DOMAIN_LABEL 63
+CFStringRef CreateRFC1034HostLabelFromUTF8Name( CFStringRef	UTF8NameRef, UInt32 maxNameLength = MAX_DOMAIN_LABEL );
 
 #endif		// #ifndef

@@ -41,15 +41,16 @@ AM_MAKEFLAGS = \
 	"RANLIB=$(RANLIB)" \
 	"DESTDIR=$(DESTDIR)"
 
-INCLUDES = -I. -I$(top_srcdir) $(ZINCS) -I$(top_srcdir)/../include
+AM_CPPFLAGS = -I. -I$(top_srcdir) $(ZINCS) -I$(top_srcdir)/../include
 
 LIBIBERTY = ../libiberty/libiberty.a
 
-bin_PROGRAMS = jar grepjar
-jar_SOURCES = jartool.c dostime.c compress.c pushback.c jartool.h \
-zipfile.h dostime.h compress.h pushback.h
-jar_LDADD = $(ZLIBS) $(LIBIBERTY)
-jar_DEPENDENCIES = $(ZDEPS) $(LIBIBERTY)
+bin_PROGRAMS = fastjar grepjar
+fastjar_SOURCES = jartool.c dostime.c compress.c pushback.c shift.c jartool.h \
+zipfile.h dostime.h compress.h pushback.h shift.h
+fastjar_LDADD = $(ZLIBS) $(LIBIBERTY)
+fastjar_DEPENDENCIES = $(ZDEPS) $(LIBIBERTY)
+fastjar_CPPFLAGS = $(AM_CPPFLAGS) -DWITH_SHIFT_DOWN
 
 grepjar_SOURCES = jargrep.c dostime.c compress.c pushback.c jartool.h \
 zipfile.h dostime.h compress.h pushback.h
@@ -57,42 +58,52 @@ grepjar_LDADD = $(ZLIBS) $(LIBIBERTY)
 grepjar_DEPENDENCIES = $(ZDEPS) $(LIBIBERTY)
 
 AM_CFLAGS = @fastjar_warn_cflags@
+AM_MAKEINFOFLAGS = -I $(srcdir)/../gcc/doc/include
 
 TEXINFO_TEX = ../gcc/doc/include/texinfo.tex
 info_TEXINFOS = fastjar.texi
 fastjar_TEXINFOS = \
 	../gcc/doc/include/gcc-common.texi \
-	../gcc/doc/include/fdl.texi \
 	../gcc/doc/include/gpl.texi
-man_MANS = jar.1 grepjar.1
+man_MANS = fastjar.1 grepjar.1
 EXTRA_DIST = $(man_MANS)
-
-## This is a hack.  We can't set AM_MAKEINFOFLAGS, since that isn't
-## available in 1.4.  Nor can we override or append to MAKEINFO or
-## MAKEINFOFLAGS, since these are overridden by the top-level
-## Makefile.  So, we just duplicate the rules.  FIXME: remove this
-## when we upgrade automake.  Note that we don't include $(srcdir) in
-## my_makei_flags; makeinfo is run in srcdir.
-my_makei_flags += -I ../gcc/doc/include
-fastjar.info: fastjar.texi $(fastjar_TEXINFOS)
-	@cd $(srcdir) && rm -f $@ $@-[0-9] $@-[0-9][0-9]
-	cd $(srcdir) \
-	  && $(MAKEINFO) $(my_makei_flags) `echo $< | sed 's,.*/,,'`
-
 
 TEXI2POD = perl $(srcdir)/../contrib/texi2pod.pl
 POD2MAN = pod2man --center="GNU" --release="gcc-@gcc_version@"
 
-$(srcdir)/jar.1: $(srcdir)/fastjar.texi
-	-$(TEXI2POD) -D jar < $(srcdir)/fastjar.texi > fastjar.pod
-	-($(POD2MAN) --section=1 fastjar.pod > jar.1.T$$$$ && \
-		mv -f jar.1.T$$$$ $(srcdir)/jar.1) || \
-		(rm -f jar.1.T$$$$ && exit 1)
-	-rm -f fastjar.pod
+.pod.1:
+	-($(POD2MAN) --section=1 $< > $(@).T$$$$ && \
+		mv -f $(@).T$$$$ $@) || \
+		(rm -f $(@).T$$$$ && exit 1)
 
-$(srcdir)/grepjar.1: $(srcdir)/fastjar.texi
-	-$(TEXI2POD) -D grepjar < $(srcdir)/fastjar.texi > grepjar.pod
-	-($(POD2MAN) --section=1 grepjar.pod > grepjar.1.T$$$$ && \
-		mv -f grepjar.1.T$$$$ $(srcdir)/grepjar.1) || \
-		(rm -f grepjar.1.T$$$$ && exit 1)
-	-rm -f grepjar.pod
+.INTERMEDIATE: fastjar.pod grepjar.pod
+
+fastjar.pod: $(srcdir)/fastjar.texi
+	-$(TEXI2POD) -D fastjar $< > $@
+
+grepjar.pod: $(srcdir)/fastjar.texi
+	-$(TEXI2POD) -D grepjar $< > $@
+
+# GCC LOCAL CHANGE
+# The following commands allow us to release tarballs with the man pages
+# and info documentation prebuilt.  This feature is enabled via 
+# --enable-generated-files-in-srcdir in the configure script.
+
+if GENINSRC
+STAMP_GENINSRC = stamp-geninsrc
+else
+STAMP_GENINSRC =
+endif
+
+all-local: $(STAMP_GENINSRC) 
+
+stamp-geninsrc: fastjar.1 grepjar.1 fastjar.info
+	-cp -p $(top_builddir)/fastjar.1 $(srcdir)/fastjar.1
+	-cp -p $(top_builddir)/grepjar.1 $(srcdir)/grepjar.1
+	-cp -p $(top_builddir)/fastjar.info $(srcdir)/fastjar.info
+	touch $@
+
+CLEANFILES = stamp-geninsrc fastjar.info
+MAINTAINERCLEANFILES = $(srcdir)/fastjar.1 \
+                       $(srcdir)/grepjar.1 \
+                       $(srcdir)/fastjar.info

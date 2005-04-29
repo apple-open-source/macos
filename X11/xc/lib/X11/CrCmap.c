@@ -24,14 +24,11 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/CrCmap.c,v 1.4 2001/12/14 19:53:59 dawes Exp $ */
+/* $XFree86: xc/lib/X11/CrCmap.c,v 1.5 2003/04/13 19:22:14 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
 
-/* EXTERNS */
-/* cmsCmap.c */
-extern XcmsCmapRec * _XcmsAddCmapRec();
 
 Colormap XCreateColormap(dpy, w, visual, alloc)
 register Display *dpy;

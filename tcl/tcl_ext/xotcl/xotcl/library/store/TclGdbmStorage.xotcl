@@ -1,0 +1,51 @@
+# $Id: s.TclGdbmStorage.xotcl 1.7 01/03/23 21:55:32+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::store::tclgdbm 0.84
+
+package require xotcl::store::gdbm
+package require xotcl::store
+
+#
+# a simple GNU Gdbm DB Store Access based on TclGdbm
+#
+Class Storage=TclGdbm -superclass Storage
+Storage=TclGdbm instproc open f {
+  my instvar persistenceDB
+  ::set persistenceDB [gdbm_open -wrcreat $f]
+}
+
+Storage=TclGdbm instproc set args {
+  my instvar persistenceDB
+  ::set l [llength $args]
+  if {$l == 1} {[::set persistenceDB] fetch [lindex $args 0]
+  } elseif {$l == 2} {[::set persistenceDB] -replace store \
+	   [lindex $args 0] [lindex $args 1]
+  } else { next }
+}
+
+Storage=TclGdbm instproc exists k {
+  my instvar persistenceDB
+  $persistenceDB exists $k
+}
+
+Storage=TclGdbm instproc names {} {
+  my instvar persistenceDB
+  ::set list ""
+  if {[::set key [$persistenceDB firstkey]] != ""} {
+    lappend list $key
+    while {[::set key [$persistenceDB nextkey $key]] != ""} {
+      lappend list $key
+    }
+  }
+  return $list
+}
+
+
+Storage=TclGdbm instproc close args {
+  my instvar persistenceDB
+  $persistenceDB close
+}
+
+Storage=TclGdbm instproc unset k {
+  my instvar persistenceDB
+  $persistenceDB delete $k
+}

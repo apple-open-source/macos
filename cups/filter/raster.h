@@ -1,30 +1,32 @@
 /*
- * "$Id: raster.h,v 1.1.1.9 2002/12/24 00:07:04 jlovell Exp $"
+ * "$Id: raster.h,v 1.6 2005/01/04 22:10:43 jlovell Exp $"
  *
  *   Raster file definitions for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
+ *
+ *   This file is part of the CUPS Imaging library.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
- *   copyright law.  Distribution and use rights for the CUPS Raster source
- *   files are outlined in the GNU Library General Public License, located
- *   in the "pstoraster" directory.  If this file is missing or damaged
- *   please contact Easy Software Products at:
+ *   copyright law.  Distribution and use rights are outlined in the file
+ *   "LICENSE.txt" which should have been included with this file.  If this
+ *   file is missing or damaged please contact Easy Software Products
+ *   at:
  *
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
  *   This code and any derivative of it may be used and distributed
  *   freely under the terms of the GNU General Public License when
- *   used with GNU Ghostscript or its derivatives.  Use of the code
- *   (or any derivative of it) with software other than GNU
+ *   used with GNU/GPL Ghostscript or its derivatives.  Use of the code
+ *   (or any derivative of it) with software other than GNU/GPL
  *   GhostScript (or its derivatives) is governed by the CUPS license
  *   agreement.
  *
@@ -151,6 +153,8 @@ typedef enum
   CUPS_CSPACE_CIEXYZ,			/* CIE XYZ */
   CUPS_CSPACE_CIELab,			/* CIE Lab */
 
+  CUPS_CSPACE_RGBW,			/* composite RGB with W separation */
+
   CUPS_CSPACE_ICC1 = 32,		/* ICC-based, 1 color */
   CUPS_CSPACE_ICC2,			/* ICC-based, 2 colors */
   CUPS_CSPACE_ICC3,			/* ICC-based, 3 colors */
@@ -259,5 +263,5 @@ extern unsigned		cupsRasterWritePixels(cups_raster_t *r,
 #endif /* !_CUPS_RASTER_H_ */
 
 /*
- * End of "$Id: raster.h,v 1.1.1.9 2002/12/24 00:07:04 jlovell Exp $".
+ * End of "$Id: raster.h,v 1.6 2005/01/04 22:10:43 jlovell Exp $".
  */

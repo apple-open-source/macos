@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,9 @@
 /*
  * Modification History
  *
+ * March 9, 2004		Allan Nathanson <ajn@apple.com>
+ * - add DNS configuration server
+ *
  * June 1, 2001			Allan Nathanson <ajn@apple.com>
  * - public API conversion
  *
@@ -31,18 +34,26 @@
  * - initial revision
  */
 
-#include <servers/bootstrap.h>
 #include <sysexits.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <servers/bootstrap.h>
 
 #include "configd.h"
 #include "configd_server.h"
 #include "notify_server.h"
 #include "session.h"
-#include "notify.h"
 
 /* MiG generated externals and functions */
-extern struct rpc_subsystem	_config_subsystem;
+extern struct mig_subsystem	_config_subsystem;
 extern boolean_t		config_server(mach_msg_header_t *, mach_msg_header_t *);
+
+#include "shared_dns_info_types.h"
+#include "dnsinfo_server.h"
+
+/* MiG generated externals and functions */
+extern struct mig_subsystem	_shared_dns_info_subsystem;
+extern boolean_t		shared_dns_info_server(mach_msg_header_t *, mach_msg_header_t *);
 
 /* configd server port (for new session requests) */
 static CFMachPortRef		configd_port		= NULL;
@@ -70,14 +81,11 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 		    (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
 			thisSession->callerEUID = trailer->msgh_sender.val[0];
 			thisSession->callerEGID = trailer->msgh_sender.val[1];
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("caller has eUID = %d, eGID = %d"),
-			       thisSession->callerEUID,
-			       thisSession->callerEGID);
 		} else {
 			static Boolean warned	= FALSE;
 
 			if (!warned) {
-				SCLog(_configd_verbose, LOG_WARNING, CFSTR("caller's credentials not available."));
+				SCLog(TRUE, LOG_WARNING, CFSTR("caller's credentials not available."));
 				warned = TRUE;
 			}
 			thisSession->callerEUID = 0;
@@ -86,30 +94,42 @@ config_demux(mach_msg_header_t *request, mach_msg_header_t *reply)
 	}
 
 	/*
-	 * (attemp to) process configd requests.
+	 * (attempt to) process SCDynamicStore requests.
 	 */
 	processed = config_server(request, reply);
-
-	if (!processed) {
-		/*
-		 * (attempt to) process (NO MORE SENDERS) notification messages.
-		 */
-		processed = notify_server(request, reply);
+	if (processed) {
+		return TRUE;
 	}
 
-	if (!processed) {
-		SCLog(TRUE, LOG_ERR, CFSTR("unknown message ID (%d) received"), request->msgh_id);
-
-		reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
-		reply->msgh_remote_port = request->msgh_remote_port;
-		reply->msgh_size        = sizeof(mig_reply_error_t);	/* Minimal size */
-		reply->msgh_local_port  = MACH_PORT_NULL;
-		reply->msgh_id          = request->msgh_id + 100;
-		((mig_reply_error_t *)reply)->NDR = NDR_record;
-		((mig_reply_error_t *)reply)->RetCode = MIG_BAD_ID;
+	/*
+	 * (attempt to) process DNS configuration requests.
+	 */
+	processed = shared_dns_info_server(request, reply);
+	if (processed) {
+		return TRUE;
 	}
 
-	return processed;
+	/*
+	 * (attempt to) process (NO MORE SENDERS) notification messages.
+	 */
+	processed = notify_server(request, reply);
+	if (processed) {
+		return TRUE;
+	}
+
+	/*
+	 * unknown message ID, log and return an error.
+	 */
+	SCLog(TRUE, LOG_ERR, CFSTR("config_demux(): unknown message ID (%d) received"), request->msgh_id);
+	reply->msgh_bits        = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(request->msgh_bits), 0);
+	reply->msgh_remote_port = request->msgh_remote_port;
+	reply->msgh_size        = sizeof(mig_reply_error_t);	/* Minimal size */
+	reply->msgh_local_port  = MACH_PORT_NULL;
+	reply->msgh_id          = request->msgh_id + 100;
+	((mig_reply_error_t *)reply)->NDR = NDR_record;
+	((mig_reply_error_t *)reply)->RetCode = MIG_BAD_ID;
+
+	return FALSE;
 }
 
 
@@ -123,18 +143,26 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	mig_reply_error_t *	bufRequest	= msg;
 	uint32_t		bufReply_q[MACH_MSG_BUFFER_SIZE/sizeof(uint32_t)];
 	mig_reply_error_t *	bufReply	= (mig_reply_error_t *)bufReply_q;
+	static CFIndex		bufSize		= 0;
 	mach_msg_return_t	mr;
 	int			options;
 
-	if (_config_subsystem.maxsize > sizeof(bufReply_q)) {
-		static Boolean warned = FALSE;
+	if (bufSize == 0) {
+		// get max size for MiG reply buffers
+		bufSize = _config_subsystem.maxsize;
+		if (_shared_dns_info_subsystem.maxsize > bufSize) {
+			bufSize = _shared_dns_info_subsystem.maxsize;
+		}
 
-		if (!warned) {
-			SCLog(_configd_verbose, LOG_NOTICE,
+		// check if our on-the-stack reply buffer will be big enough
+		if (bufSize > sizeof(bufReply_q)) {
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("configdCallback(): buffer size should be increased > %d"),
 			      _config_subsystem.maxsize);
-			warned = TRUE;
 		}
+	}
+
+	if (bufSize > sizeof(bufReply_q)) {
 		bufReply = CFAllocatorAllocate(NULL, _config_subsystem.maxsize, 0);
 	}
 
@@ -206,21 +234,12 @@ __private_extern__
 boolean_t
 server_active(mach_port_t *restart_service_port)
 {
-	mach_port_t		bootstrap_port;
 	char			*service_name;
 	kern_return_t 		status;
 
 	service_name = getenv("SCD_SERVER");
 	if (!service_name) {
 		service_name = SCD_SERVER;
-	}
-
-	/* Getting bootstrap server port */
-	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
-	if (status != KERN_SUCCESS) {
-		fprintf(stderr, "task_get_bootstrap_port(): %s\n",
-			mach_error_string(status));
-		exit (EX_UNAVAILABLE);
 	}
 
 	/* Check "configd" server status */
@@ -253,22 +272,15 @@ __private_extern__
 void
 server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 {
-	mach_port_t		bootstrap_port;
 	CFRunLoopSourceRef	rls;
 	char			*service_name;
 	mach_port_t		service_port	= restart_service_port;
 	kern_return_t 		status;
+	mach_port_t		unpriv_bootstrap_port;
 
 	service_name = getenv("SCD_SERVER");
 	if (!service_name) {
 		service_name = SCD_SERVER;
-	}
-
-	/* Getting bootstrap server port */
-	status = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
-	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("task_get_bootstrap_port(): %s"), mach_error_string(status));
-		exit (EX_UNAVAILABLE);
 	}
 
 	if (service_port == MACH_PORT_NULL) {
@@ -294,7 +306,7 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 									 FALSE,		/* not onDemand == restart now */
 									 &priv_bootstrap_port);
 					if (status != BOOTSTRAP_SUCCESS) {
-						SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_create_server() failed: status=%d"), status);
+						SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_create_server() failed: status=%d"), status);
 						exit (EX_UNAVAILABLE);
 					}
 				} else {
@@ -303,13 +315,13 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 
 				status = bootstrap_create_service(priv_bootstrap_port, service_name, &service_send_port);
 				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_create_service() failed: status=%d"), status);
+					SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_create_service() failed: status=%d"), status);
 					exit (EX_UNAVAILABLE);
 				}
 
 				status = bootstrap_check_in(priv_bootstrap_port, service_name, &service_port);
 				if (status != BOOTSTRAP_SUCCESS) {
-					SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_check_in() failed: status=%d"), status);
+					SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_check_in() failed: status=%d"), status);
 					exit (EX_UNAVAILABLE);
 				}
 				break;
@@ -318,22 +330,22 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 				SCLog(TRUE, LOG_ERR, CFSTR("'%s' server already active"), service_name);
 				exit (EX_UNAVAILABLE);
 			default :
-				SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_check_in() failed: status=%d"), status);
+				SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_check_in() failed: status=%d"), status);
 				exit (EX_UNAVAILABLE);
 		}
 
 	}
 
 	/* we don't want to pass our priviledged bootstrap port along to any spawned helpers so... */
-	status = bootstrap_unprivileged(priv_bootstrap_port, &bootstrap_port);
+	status = bootstrap_unprivileged(priv_bootstrap_port, &unpriv_bootstrap_port);
 	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("bootstrap_unprivileged() failed: status=%d"), status);
+		SCLog(TRUE, LOG_ERR, CFSTR("server_init bootstrap_unprivileged() failed: status=%d"), status);
 		exit (EX_UNAVAILABLE);
 	}
 
-	status = task_set_bootstrap_port(mach_task_self(), bootstrap_port);
+	status = task_set_bootstrap_port(mach_task_self(), unpriv_bootstrap_port);
 	if (status != BOOTSTRAP_SUCCESS) {
-		SCLog(TRUE, LOG_ERR, CFSTR("task_set_bootstrap_port(): %s"),
+		SCLog(TRUE, LOG_ERR, CFSTR("server_init task_set_bootstrap_port(): %s"),
 			mach_error_string(status));
 		exit (EX_UNAVAILABLE);
 	}
@@ -361,7 +373,7 @@ server_init(mach_port_t	restart_service_port, Boolean enableRestart)
 
 
 __private_extern__
-void
+int
 server_shutdown()
 {
 	char		*service_name;
@@ -373,7 +385,7 @@ server_shutdown()
 	 *       logging thread lock is held.
 	 */
 	if ((priv_bootstrap_port == MACH_PORT_NULL) || (configd_port == NULL)) {
-		return;
+		return EX_OK;
 	}
 
 	service_name = getenv("SCD_SERVER");
@@ -401,10 +413,10 @@ server_shutdown()
 				fprintf(stderr,  "bootstrap_register() failed: status=%d\n", status);
 				fflush (stderr);
 			}
-			exit (EX_UNAVAILABLE);
+			return EX_UNAVAILABLE;
 	}
 
-	exit(EX_OK);
+	return EX_OK;
 }
 
 

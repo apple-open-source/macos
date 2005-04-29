@@ -24,7 +24,7 @@
 /* portability.h - include or define things that aren't present on all systems
  * vixie@decwrl 26dec92 [new]
  *
- * $Id: portability.h,v 1.2 1999/10/14 21:56:45 wsanchez Exp $
+ * $Id: portability.h,v 1.3 2004/10/28 21:58:14 emoy Exp $
  */
 
 /*
@@ -290,11 +290,11 @@ extern long pathconf __P((const char *path, int name));
 
 #ifndef UINT_MAX
 # ifdef __STDC__
-#  define UINT_MAX	4294967295u             /* max value of an "u_int" */
+#  define UINT_MAX	4294967295u             /* max value of an "unsigned int" */
 # else
-#  define UINT_MAX	((unsigned)4294967295)  /* max value of an "u_int" */
+#  define UINT_MAX	((unsigned)4294967295)  /* max value of an "unsigned int" */
 # endif
-#  define ULONG_MAX	UINT_MAX        /* max decimal value of a "u_long" */
+#  define ULONG_MAX	UINT_MAX        /* max decimal value of a "unsigned long" */
 #endif
 
 #ifndef INT_MAX
@@ -414,8 +414,8 @@ extern int bcmp();
 
 #if !defined(ntohl) && !defined(htonl) && defined(BSD) && (BSD <= 43)
 /* if these aren't null macros in netinet/in.h, extern them here. */
-extern u_short htons(), ntohs();
-extern u_long htonl(), ntohl();
+extern unsigned short htons(), ntohs();
+extern unsigned long htonl(), ntohl();
 #endif
 
 #if defined(USE_POSIX) && !defined(sun) && !defined(__sgi) \

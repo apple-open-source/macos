@@ -1,3 +1,14 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
 #ifndef NET_SNMP_CONFIG_H
 #define NET_SNMP_CONFIG_H
 
@@ -17,11 +28,9 @@
 
 /* default location to look for mibs to load using the above tokens
    and/or those in the MIBS envrionment variable*/
-
 #undef DEFAULT_MIBDIRS
 
 /* default mib files to load, specified by path. */
-
 #undef DEFAULT_MIBFILES
 
 /* should we compile to use special opaque types: float, double,
@@ -39,6 +48,9 @@
 /* define if you are using the MD5 code ...*/
 #undef USE_INTERNAL_MD5
 
+/* define if you are using the codeS11 library ...*/
+#undef USE_PKCS
+
 /* add in recent CMU library extensions (not complete) */
 #undef CMU_COMPATIBLE
 
@@ -46,10 +58,10 @@
 #undef _REENTRANT
 
 /* debugging stuff */
-#undef SNMP_NO_DEBUGGING           /* if defined, we optimize the code
-                                      to exclude all debugging calls. */
-#define SNMP_ALWAYS_DEBUG 0        /* Always print debugging information and
-                                      ignore the -D flag passed to the cmds */
+/* if defined, we optimize the code to exclude all debugging calls. */
+#undef SNMP_NO_DEBUGGING
+/* ignore the -D flag and always print debugging information */
+#define SNMP_ALWAYS_DEBUG 0
 
 /* reverse encoding BER packets is both faster and more efficient in space. */
 #define USE_REVERSE_ASNENCODING       1
@@ -60,7 +72,7 @@
    lines: PERSISTENT_DIRECTORY/NAME.persistent.conf */
 #define PERSISTENT_DIRECTORY "/var/snmp"
 
-/* PERSISTENT_MASK: the umask permissions to set up the persistent files with */
+/* PERSISTENT_MASK: the umask permissions to set up persistent files with */
 #define PERSISTENT_MASK 077
 
 /* AGENT_DIRECTORY_MODE: the mode the agents should use to create
@@ -86,8 +98,14 @@
 /* define the machine (cpu) type include file here */
 #define MACHINE_INCLUDE_FILE <net-snmp/machine/generic.h>
 
-/* SNMPLIBDIR contains important files */
+/* define the UDP buffer defaults undefined means use the OS buffers
+ * by default */
+#undef DEFAULT_SERVER_SEND_BUF
+#undef DEFAULT_SERVER_RECV_BUF
+#undef DEFAULT_CLIENT_SEND_BUF
+#undef DEFAULT_CLIENT_RECV_BUF
 
+/* SNMPLIBDIR contains important files */
 #undef SNMPLIBPATH
 #undef SNMPSHAREPATH
 #undef SNMPCONFPATH
@@ -95,7 +113,6 @@
 
 /* LOGFILE:  If defined it closes stdout/err/in and opens this in out/err's
    place.  (stdin is closed so that sh scripts won't wait for it) */
-
 #undef LOGFILE
 
 /* default system contact */
@@ -121,11 +138,13 @@
 
 /* Command to generate ps output, the final column must be the process
    name withOUT arguments */
-
 #define PSCMD "/bin/ps"
 
 /* Where is the uname command */
 #define UNAMEPROG "/bin/uname"
+
+/* pattern for temporary file names */
+#define NETSNMP_TEMP_FILE_PATTERN "/tmp/snmpdXXXXXX"
 
 /* testing code sections. */
 #undef SNMP_TESTING_CODE 
@@ -149,8 +168,29 @@
 
 @BOTTOM@
 
+/* define if you have type int32_t */
+#undef HAVE_INT32_T
+
+/* define if you have type uint32_t */
+#undef HAVE_UINT32_T
+
+/* define if you have type u_int32_t */
+#undef HAVE_U_INT32_T
+
+/* define if you have type int64_t */
+#undef HAVE_INT64_T
+
+/* define if you have type uint64_t */
+#undef HAVE_UINT64_T
+
+/* define if you have type u_int64_t */
+#undef HAVE_U_INT64_T
+
 /* define if you have getdevs() */
 #undef HAVE_GETDEVS
+
+/* define if you have devstat_getdevs() */
+#undef HAVE_DEVSTAT_GETDEVS
 
 /* define if you have <netinet/in_pcb.h> */
 #undef HAVE_NETINET_IN_PCB_H
@@ -171,11 +211,17 @@
 /* Does struct sigaction have a sa_sigaction field? */
 #undef STRUCT_SIGACTION_HAS_SA_SIGACTION
 
+/* Does struct tm have a tm_gmtoff field? */
+#undef STRUCT_TM_HAS_TM_GMTOFFF
+
 /* Does struct sockaddr have a sa_len field? */
 #undef STRUCT_SOCKADDR_HAS_SA_LEN
 
 /* Does struct sockaddr have a sa_family2 field? */
 #undef STRUCT_SOCKADDR_HAS_SA_UNION_SA_GENERIC_SA_FAMILY2
+
+/* Does struct in6_addr have a s6_un.sa6_ladd field? */
+#undef STRUCT_IN6_ADDR_HAS_S6_UN_SA6_LADDR
 
 /* rtentry structure tests */
 #undef RTENTRY_RT_NEXT
@@ -342,7 +388,7 @@
 #ifdef solaris2
 #define OSTYPE SOLARISID
 #endif
-#if defined(osf3) || defined(osf4)
+#if defined(osf3) || defined(osf4) || defined(osf5)
 #define OSTYPE OSFID
 #endif
 #ifdef ultrix4
@@ -351,7 +397,7 @@
 #ifdef netbsd1
 #define OSTYPE NETBSD1ID
 #endif
-#ifdef freebsd2
+#if defined(__FreeBSD__)
 #define OSTYPE FREEBSDID
 #endif
 #if defined(irix6) || defined(irix5)
@@ -365,6 +411,9 @@
 #endif
 #ifdef openbsd2
 #define OSTYPE OPENBSDID
+#endif
+#ifdef WIN32
+#define OSTYPE WIN32ID
 #endif
 /* unknown */
 #ifndef OSTYPE
@@ -398,6 +447,14 @@
 #define UCDAVIS_DOT_MIB		1.3.6.1.4.1.2021
 #define UCDAVIS_DOT_MIB_LENGTH	7
 
+/* this is the location of the net-snmp mib tree.  It shouldn't be
+   changed, as the places it is used are expected to be constant
+   values or are directly tied to the UCD-SNMP-MIB. */
+#define NETSNMP_OID		8072
+#define NETSNMP_MIB		1,3,6,1,4,1,8072
+#define NETSNMP_DOT_MIB		1.3.6.1.4.1.8072
+#define NETSNMP_DOT_MIB_LENGTH	7
+
 /* how long to wait (seconds) for error querys before reseting the error trap.*/
 #define ERRORTIMELENGTH 600 
 
@@ -429,19 +486,17 @@
 
 #define DEFMAXLOADAVE 12.0      /* default maximum load average before error */
 
-#define MAXREADCOUNT 100   /* max times to loop reading output from
-                              execs.  Because of sleep(1)s, this will also
-                              be time to wait (in seconds) for exec to finish */
+/* Because of sleep(1)s, this will also be time to wait (in seconds) for exec
+   to finish */
+#define MAXREADCOUNT 100   /* max times to loop reading output from execs. */
 
-#define SNMPBLOCK 1       /* Set to 1 if you want snmpgets to block and never
-                             timeout.  Original CMU code had this
-                             hardcoded into the code as = 1 */
+/* The original CMU code had this hardcoded as = 1 */
+#define SNMPBLOCK 1       /* Set if snmpgets should block and never timeout */
 
-#define RESTARTSLEEP 5    /* How long to wait after a snmpset to
-                             EXTENSIBLEMIB.VERSIONMIBNUM.VERRESTARTAGENT
-                             before restarting the agent.  This is
-                             necessary to finish the snmpset reply
-                             before restarting. */
+/* How long to wait before restarting the agent after a snmpset to
+   EXTENSIBLEMIB.VERSIONMIBNUM.VERRESTARTAGENT.  This is
+   necessary to finish the snmpset reply before restarting. */
+#define RESTARTSLEEP 5
 
 /* Number of community strings to store */
 #define NUM_COMMUNITIES	5
@@ -462,6 +517,9 @@
 
 /* got in_addr_t? */
 #undef HAVE_IN_ADDR_T
+
+/* got ssize_t? */
+#undef HAVE_SSIZE_T
 
 #ifndef HAVE_STRCHR
 #ifdef HAVE_INDEX
@@ -551,6 +609,10 @@
     available.   */
 #undef SNMP_TRANSPORT_UDP_DOMAIN
 
+/*  This is defined if support for the "callback" transport domain is
+    available.   */
+#undef SNMP_TRANSPORT_CALLBACK_DOMAIN
+
 /*  This is defined if support for the TCP/IP transport domain is
     available.  */
 #undef SNMP_TRANSPORT_TCP_DOMAIN
@@ -584,16 +646,24 @@
 /* define this if we're using the new MIT crypto API */
 #undef MIT_NEW_CRYPTO
 
-/* define if you want to build with reentrant/threaded code */
+/* define if you want to build with reentrant/threaded code (incomplete)*/
 #undef NS_REENTRANT
+
+/* define if you want to build MFD module rewrites*/
+#undef NETSNMP_ENABLE_MFD_REWRITES
+
+/* on aix, if you have perfstat */
+#undef HAVE_PERFSTAT
 
 /* Not-to-be-compiled macros for use by configure only */
 #define config_require(x)
+#define config_exclude(x)
 #define config_arch_require(x,y)
 #define config_parse_dot_conf(w,x,y,z)
 #define config_add_mib(x)
+#define config_belongs_in(x)
   
-#ifdef WIN32
+#if defined (WIN32) || defined (mingw32) || defined (cygwin)
 #define ENV_SEPARATOR ";"
 #define ENV_SEPARATOR_CHAR ';'
 #else
@@ -601,8 +671,62 @@
 #define ENV_SEPARATOR_CHAR ':'
 #endif
 
+/*
+ * this must be before the system/machine includes, to allow them to
+ * override and turn off inlining. To do so, they should do the
+ * following:
+ *
+ *    #undef NETSNMP_ENABLE_INLINE
+ *    #define NETSNMP_ENABLE_INLINE 0
+ *
+ * A user having problems with their compiler can also turn off
+ * the use of inline by defining NETSNMP_NO_INLINE via their cflags:
+ *
+ *    -DNETSNMP_NO_INLINE
+ *
+ * Header and source files should only test against NETSNMP_USE_INLINE:
+ *
+ *   #ifdef NETSNMP_USE_INLINE
+ *   NETSNMP_INLINE function(int parm) { return parm -1; }
+ *   #endif
+ *
+ * Functions which should be static, regardless of whether or not inline
+ * is available or enabled should use the NETSNMP_STATIC_INLINE macro,
+ * like so:
+ *
+ *    NETSNMP_STATIC_INLINE function(int parm) { return parm -1; }
+ *
+ * NOT like this:
+ *
+ *    static NETSNMP_INLINE function(int parm) { return parm -1; }
+ *
+ */
+#undef NETSNMP_BROKEN_INLINE
+#ifdef NETSNMP_BROKEN_INLINE
+#   define NETSNMP_ENABLE_INLINE 0
+#else
+#   define NETSNMP_ENABLE_INLINE 1
+#endif
+
 #include SYSTEM_INCLUDE_FILE
 #include MACHINE_INCLUDE_FILE
+
+#if NETSNMP_ENABLE_INLINE && !defined(NETSNMP_NO_INLINE)
+#   define NETSNMP_USE_INLINE 1
+#   ifndef NETSNMP_INLINE
+#      define NETSNMP_INLINE inline
+#   endif
+#   ifndef NETSNMP_STATIC_INLINE
+#      define NETSNMP_STATIC_INLINE static inline
+#   endif
+#else
+#   define NETSNMP_INLINE 
+#   define NETSNMP_STATIC_INLINE static
+#endif
+
+#ifndef NETSNMP_IMPORT
+#  define NETSNMP_IMPORT extern
+#endif
 
 #if defined(HAVE_NLIST) && defined(STRUCT_NLIST_HAS_N_VALUE) && !defined(DONT_USE_NLIST) && !defined(NO_KMEM_USAGE)
 #define CAN_USE_NLIST
@@ -613,5 +737,11 @@
 #endif
 
 #undef INET6
+#undef LOCAL_SMUX
+
+/* define if agentx transport is to use domain sockets only */
+#undef AGENTX_DOM_SOCK_ONLY
+
+#undef HEIMDAL
 
 #endif /* NET_SNMP_CONFIG_H */

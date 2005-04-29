@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:57 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/xrx/helper/Imakefile,v 1.2 2001/04/23 16:17:13 tsi Exp $
+XCOMM $XFree86: xc/programs/xrx/helper/Imakefile,v 1.3 2003/07/09 15:27:41 tsi Exp $
 
 XCOMM Define UseWWW in order to use the www program to perform the GET request
 XCOMM #define UseWWW YES
@@ -22,12 +22,15 @@ GETURL_OBJS = GetUrl.o
 
    CONN_DEFINES = -DTCPCONN
   TRANS_DEFINES = -DTRANS_CLIENT
+# ifdef IPv6Flags
+     IPv6_FLAGS = IPv6Flags
+# endif
 # if HasBSD44Sockets
    SOCK_DEFINES = -DBSD44SOCKETS
 # endif
- DEPEND_DEFINES = $(TRANS_DEFINES) $(CONN_DEFINES) DependDefines
+ DEPEND_DEFINES = $(TRANS_DEFINES) $(CONN_DEFINES) $(IPv6_FLAGS) DependDefines
 
-  DEFINES = StrcasecmpDefines \
+  DEFINES = StrcasecmpDefines $(IPv6_FLAGS) \
 	$(CONN_DEFINES) $(SOCK_DEFINES) $(TRANS_DEFINES) $(POLL_DEFINES)
  INCLUDES = $(TRANS_INCLUDES) $(RX_INCLUDES)
 

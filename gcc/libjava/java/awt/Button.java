@@ -41,7 +41,6 @@ package java.awt;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.peer.ButtonPeer;
-import java.awt.peer.ComponentPeer;
 import java.lang.reflect.Array;
 import java.util.EventListener;
 
@@ -82,6 +81,11 @@ private String label;
 // List of ActionListeners for this class.
 private transient ActionListener action_listeners;
 
+  /*
+   * The number used to generate the name returned by getName.
+   */
+  private static transient long next_button_number = 0;
+
 /*************************************************************************/
 
 /*
@@ -97,7 +101,7 @@ private transient ActionListener action_listeners;
 public
 Button()
 {
-  this(null);
+  this("");
 }
 
 /*************************************************************************/
@@ -149,6 +153,7 @@ public synchronized void
 setLabel(String label)
 {
   this.label = label;
+  actionCommand = label;
   if (peer != null)
     {
       ButtonPeer bp = (ButtonPeer) peer;
@@ -305,9 +310,24 @@ dispatchEventImpl(AWTEvent e)
 protected String
 paramString()
 {
-  return ("label=" + getLabel() + ",actionCommand=" + getActionCommand()
-	  + "," + super.paramString());
+  return getName () + "," + getX () + "," + getY () + ","
+    + getWidth () + "x" + getHeight () + ",label=" + getLabel ();
 }
+
+  /**
+   * Generate a unique name for this button.
+   *
+   * @return A unique name for this button.
+   */
+  String generateName ()
+  {
+    return "button" + getUniqueLong ();
+  }
+
+  private static synchronized long getUniqueLong ()
+  {
+    return next_button_number++;
+  }
 
 } // class Button 
 

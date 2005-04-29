@@ -1,0 +1,22 @@
+2004-06-29  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: style::as is version 1.2
+	* as.tcl: much more elaborate version of style::as that is meant
+	to change style across platforms.  This auto-inits, but allows for
+	reinitialization with higher priority (needed for CDE/KDE/...).
+
+2004-03-25  David N. Welton  <davidw@dedasys.com>
+
+	* lobster.tcl: Added internal padding to Labelframe.  They look
+	better if they have some empty space in them.  Added Scrollbar
+	things from as.tcl, which make the scrollbars nicer by narrowing
+	them a bit.
+
+2004-03-18  David N. Welton  <davidw@dedasys.com>
+
+	* pkgIndex.tcl: Added package index.
+
+2004-03-17  David N. Welton  <davidw@dedasys.com>
+
+	* style.tcl: Created style package.
+

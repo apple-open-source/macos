@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)freopen.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.12 2003/01/26 11:45:54 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.13 2004/05/22 15:19:41 tjr Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -188,6 +188,7 @@ finish:
 		FREELB(fp);
 	fp->_lb._size = 0;
 	fp->_extra->orientation = 0;
+	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 
 	if (f < 0) {			/* did not get it after all */
 		fp->_flags = 0;		/* set it free */

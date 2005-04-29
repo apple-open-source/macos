@@ -1,0 +1,171 @@
+BAD_CONFIG_FILE
+	"設定ファイル %s に誤りがあります。\n"
+CONFIG_OPEN_ERROR
+	"警告: 設定ファイル %s のオープンができませんでした。\n"
+PARSE_ERROR_IN_CONFIG
+	"設定ファイルの解析中にエラーが見つかりました。\n"
+INCOMPAT
+	"%s オプションと %s オプションは同時に使用できません。\n"
+NO_ALTERNATE
+	"他のシステムでコンパイルされたものはサポートしていません。\n"
+NO_COMPRESS
+	"man コマンドはフォーマットした cat ページを自動的に圧縮するように\n\
+コンパイルされていますが、設定ファイルに COMPRESS の定義がありません。\n"
+NO_NAME_FROM_SECTION
+	"セクション %s のどのマニュアルを表示しますか?\n"
+NO_NAME_NO_SECTION
+	"どのマニュアルを表示しますか?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"セクション %2$s には %1$s のマニュアルはありません。\n"
+NO_SUCH_ENTRY
+	"%s のマニュアルはありません。\n"
+PAGER_IS
+	"\n%s をページャーとして使用します。\n"
+SYSTEM_FAILED
+	"フォーマット・コマンドか表示コマンドの実行エラーが起きました。\n\
+コマンド %s が終了ステータス %d で終了しました。\n"
+VERSION
+	"%s, バージョン %s\n\n"
+OUT_OF_MEMORY
+	"メモリが足りません。- %d バイトが確保できません。\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"ファイル %s のプリプトセッサ指示の解析中にエラーが発生しました。\n"
+MANROFFSEQ_ERROR
+	"MANROFFSEQ のプリプロセッサ指示の解析中にエラーが発生しました。\n\
+かわりにシステム・デフォルトを使用します。\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"コマンドラインのプリプロセッサ指示の解析中にエラーが発生しました。\n"
+UNRECOGNIZED_LINE
+	"設定ファイルに理解できない行があります。(無視します)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: 内部エラー: 文字列 %s が見つかりません。\n"
+FOUND_MANDIR
+	"man ディレクトリ %s を見つけました。\n"
+FOUND_MAP
+	"manpath map %s --> %s を見つけました。\n"
+FOUND_CATDIR
+	"対応する catdir は %s です。\n"
+LINE_TOO_LONG
+	"設定ファイルの行が長過ぎます。\n"
+SECTION
+	"\nセクション: %s\n"
+UNLINKED
+	"%s を削除します。\n"
+GLOBBING
+	"%s を展開します。\n"
+EXPANSION_FAILED
+	"[%s] をマニュアル・ページに展開できませんでした。\n"
+OPEN_ERROR
+	"マニュアル・ページ %s がオープンできませんでした。\n"
+READ_ERROR
+	"マニュアル・ページ %s が読めませんでした。\n"
+FOUND_EQN
+	"eqn(1) 命令を見つけました。\n"
+FOUND_GRAP
+	"grap(1) 命令を見つけました。\n"
+FOUND_PIC
+	"pic(1) 命令を見つけました。\n"
+FOUND_TBL
+	"tbl(1) 命令を見つけました。\n"
+FOUND_VGRIND
+	"vgrind(1) 命令を見つけました。\n"
+FOUND_REFER
+	"refer(1) 命令を見つけました。\n"
+ROFF_FROM_COMMAND_LINE
+	"コマンド・ラインからの命令を解析中です。\n"
+ROFF_FROM_FILE
+	"ファイル %s からの命令の解析中です。\n"
+ROFF_FROM_ENV
+	"環境変数からの命令の解析中です。\n"
+USING_DEFAULT
+	"デフォルトの前処理シーケンスを使用します。\n"
+PLEASE_WAIT
+	"ページのフォーマット中です。少しお待ちください...\n"
+CHANGED_MODE
+	"モードを %s から %o に変更します。\n"
+CAT_OPEN_ERROR
+	"%s を書き込みのためにオープンできませんでした。\n"
+PROPOSED_CATFILE
+	"必要ならば、%s に書き込みを試みます。\n"
+IS_NEWER_RESULT
+	"is_newer() = %d\n"
+TRYING_SECTION
+	"セクション %s を試みます。\n"
+SEARCHING
+	"\n%s を検索中です。\n"
+ALREADY_IN_MANPATH
+	"しかし、%s はすでに manpath に含まれています。\n"
+CANNOT_STAT
+	"警告: ファイル %s の状態(stat)が取得できません。\n"
+IS_NO_DIR
+	"警告: %s はディレクトリではありません。\n"
+ADDING_TO_MANPATH
+	"%s を manpath に加えます。\n"
+PATH_DIR
+	"\nパスのディレクトリ %s "
+IS_IN_CONFIG
+	"は設定ファイルにあります。\n"
+IS_NOT_IN_CONFIG
+	"は設定ファイルにありません。\n"
+MAN_NEARBY
+	"しかし、近くにマニュアル・ディレクトリがあります。\n"
+NO_MAN_NEARBY
+	"さらに、近くにもマニュアル・ディレクトリがありません。\n"
+ADDING_MANDIRS
+	"\nマニュアル・ディレクトリを強制的に追加します。\n\n"
+CATNAME_IS
+	"convert_to_cat() における cat_name は %s です。\n"
+NO_EXEC
+	"\nコマンドを実行しません:\n  %s\n"
+USAGE1
+	"usage: %s [-adfhktwW] [section] [-M path] [-P pager] [-S list]\n\t"
+USAGE2
+	"[-m system] "
+USAGE3
+	"[-p string] name ...\n\n"
+USAGE4
+	"  a : 全ての一致する項を見つける\n\
+  c : cat ファイルを使用しない\n\
+  d : デバッキング情報を表示する\n\
+  D : -d に加え、マニュアル・ページも表示する\n\
+  f : whatis(1) と同じ\n\
+  h : このヘルプ・メッセージを表示する\n\
+  k : apropos(1) と同じ\n\
+  K : 全てのページより文字列を検索する\n"
+USAGE5
+	"  t : ページのフォーマット troff を使用する\n"
+USAGE6
+	"\
+  w : マニュアル・ページの位置を表示する\n\
+      (名前を指定しなかった場合: 検索するディレクトリを表示する)\n\
+  W : -w と同じ, しかしファイル名しか表示しない\n\n\
+  C file   : 設定ファイルとして `file' を使用する\n\
+  M path   : `path' をマニュアル・ページの検索パスに設定する\n\
+  P pager  : `pager' をページ表示プログラムとして使用する\n\
+  S list   : セクション名のリスト(コロンで区切る)\n"
+USAGE7
+	"  m system : 他のシステム用のマニュアル・ページを検索する\n"
+USAGE8
+	"  p string : どの前処理を実行を指定する文字列\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"そして、その実ユーザーでは cat ファイルをオープンできません。\n"
+USER_CAN_OPEN_CAT
+	"しかし、その実ユーザーで cat ファイルがオープンできます。\n"
+CANNOT_FORK
+	"コマンド _%s_ のための fork ができませんでした。\n"
+WAIT_FAILED
+	"子プロセス _%s_ を wait している間にエラーが発生しました。\n"
+GOT_WRONG_PID
+	"異常です???, wait している子プロセスとは違う PID を受け取りました。\n"
+CHILD_TERMINATED_ABNORMALLY
+	"致命的エラー: コマンド _%s_ が異常終了しました。\n"
+IDENTICAL
+	"マニュアル・ページ %s は %s と全く同じです。\n"
+MAN_FOUND
+	"マニュアル・ページを見つけました:\n"
+NO_TROFF
+	"エラー: %s に指定されている TROFF コマンドが見つかりません。\n"
+NO_CAT_FOR_NONSTD_LL
+	"行の長さが標準的でないため cat ページが保存されませんでした。\n"

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                   S p e c                                --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -28,9 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies Inc. in cooperation with Florida --
--- State University (http://www.gnat.com).                                  --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 -- The GNARL files that were developed for RTEMS are maintained by  On-Line --
 -- Applications Research Corporation (http://www.oarcorp.com)  in  coopera- --
@@ -108,6 +106,7 @@ package System.OS_Interface is
    SIGTERM     : constant := 15; --  software termination signal from kill
    SIGUSR1     : constant := 16; --  user defined signal 1
    SIGUSR2     : constant := 17; --  user defined signal 2
+   SIGXCPU     : constant := 0; --  XCPU
 
    SIGADAABORT : constant := SIGABRT;
 

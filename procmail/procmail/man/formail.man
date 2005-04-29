@@ -1,15 +1,15 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: formail.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
+.Id $Id: formail.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
 .TH FORMAIL 1 \*(Dt BuGless
-.na
 .SH NAME
 formail \- mail (re)formatter
 .SH SYNOPSIS
+.na
 .B formail
 .RI [ "\fB\@FM_SKIP@\fPskip" ]
 .RI [ "\fB\@FM_TOTAL@\fPtotal" ]
-.RB [ \-@FM_VERSION@@FM_BOGUS@@FM_CONCATENATE@@FM_ZAPWHITE@@FM_FORCE@@FM_REPLY@@FM_KEEPB@@FM_TRUST@@FM_EVERY@@FM_DIGEST@@FM_QUIET@@FM_BABYL@@FM_BERKELEY@ ]
+.RB [ \-@FM_BOGUS@@FM_CONCATENATE@@FM_ZAPWHITE@@FM_FORCE@@FM_REPLY@@FM_KEEPB@@FM_TRUST@@FM_EVERY@@FM_DIGEST@@FM_QUIET@@FM_BABYL@@FM_BERKELEY@ ]
 .RB [ \-@FM_QPREFIX@
 .IR prefix ]
 .if n .ti +0.5i
@@ -52,6 +52,9 @@ formail \- mail (re)formatter
 .RI [ command
 .RI [ arg
 \&.\|.\|.\|]]]
+.br
+.B formail
+.B \-@FM_VERSION@
 .ad
 .SH DESCRIPTION
 .B formail
@@ -272,7 +275,19 @@ messages, did not specify whether Resent header fields (those that
 begin with `Resent\-', such as `Resent\-From:') should be considered
 when generating a reply.  Since then, the recommended usage of the
 Resent headers has evolved to consider them as purely informational and
-not for use when normally generating a reply.  While formail now
+not for use when generating a reply.  This has been codified in
+.BR RFC2822 ,
+the new Internet Message Format standard, which states in part:
+.IP
+Resent fields are used to identify a message as having been
+reintroduced into the transport system by a user.  The purpose of
+using resent fields is to have the message appear to the final
+recipient as if it were sent directly by the original sender, with
+all of the original fields remaining the same.\|\|.\|.\|.\|\|They
+MUST NOT be used in the normal processing of replies or other such
+automatic actions on messages.
+.PP
+While formail now
 ignores Resent headers when generating header replies, versions of
 formail prior to 3.14 gave such headers a high precedence.  If the old
 behavior is needed for established applications it can be specified by
@@ -350,6 +365,7 @@ sed \-e '1,/^$/ d'
 .BR sed (1),
 .BR sh (1),
 .BR RFC822 ,
+.BR RFC2822 ,
 .B RFC1123
 .hy
 .ad

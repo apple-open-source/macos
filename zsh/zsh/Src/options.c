@@ -92,6 +92,7 @@ static struct optname optns[] = {
 {NULL, "bgnice",	      OPT_EMULATE|OPT_NONBOURNE, BGNICE},
 {NULL, "braceccl",	      OPT_EMULATE,		 BRACECCL},
 {NULL, "bsdecho",	      OPT_EMULATE|OPT_SH,	 BSDECHO},
+{NULL, "caseglob",	      OPT_ALL,			 CASEGLOB},
 {NULL, "cbases",	      0,			 CBASES},
 {NULL, "cdablevars",	      OPT_EMULATE,		 CDABLEVARS},
 {NULL, "chasedots",	      OPT_EMULATE,		 CHASEDOTS},
@@ -114,6 +115,7 @@ static struct optname optns[] = {
 {NULL, "exec",		      OPT_ALL,			 EXECOPT},
 {NULL, "extendedglob",	      OPT_EMULATE,		 EXTENDEDGLOB},
 {NULL, "extendedhistory",     OPT_CSH,			 EXTENDEDHISTORY},
+{NULL, "evallineno",	      OPT_EMULATE|OPT_ZSH,	 EVALLINENO},
 {NULL, "flowcontrol",	      OPT_ALL,			 FLOWCONTROL},
 {NULL, "functionargzero",     OPT_EMULATE|OPT_NONBOURNE, FUNCTIONARGZERO},
 {NULL, "glob",		      OPT_EMULATE|OPT_ALL,	 GLOBOPT},
@@ -202,6 +204,7 @@ static struct optname optns[] = {
 {NULL, "singlelinezle",	      OPT_KSH,			 SINGLELINEZLE},
 {NULL, "sunkeyboardhack",     0,			 SUNKEYBOARDHACK},
 {NULL, "transientrprompt",    0,			 TRANSIENTRPROMPT},
+{NULL, "trapsasync",	      0,			 TRAPSASYNC},
 {NULL, "typesetsilent",	      OPT_EMULATE|OPT_BOURNE,	 TYPESETSILENT},
 {NULL, "unset",		      OPT_EMULATE|OPT_BSHELL,	 UNSET},
 {NULL, "verbose",	      0,			 VERBOSE},
@@ -345,7 +348,7 @@ static short kshletters[LAST_OPT - FIRST_OPT + 1] = {
     /* Q */  0,
     /* R */  0,
     /* S */  0,
-    /* T */  0,
+    /* T */  TRAPSASYNC,
     /* U */  0,
     /* V */  0,
     /* W */  0,
@@ -484,7 +487,7 @@ setoption(HashNode hn, int value)
 
 /**/
 int
-bin_setopt(char *nam, char **args, Options ops, int isun)
+bin_setopt(char *nam, char **args, UNUSED(Options ops), int isun)
 {
     int action, optno, match = 0;
 
@@ -695,7 +698,7 @@ dosetopt(int optno, int value, int force)
 
 /**/
 char *
-dashgetfn(Param pm)
+dashgetfn(UNUSED(Param pm))
 {
     static char buf[LAST_OPT - FIRST_OPT + 2];
     char *val = buf;
@@ -761,7 +764,7 @@ printoptionlist(void)
 
 /**/
 static void
-printoptionlist_printoption(HashNode hn, int ignored)
+printoptionlist_printoption(HashNode hn, UNUSED(int ignored))
 {
     Optname on = (Optname) hn;
 

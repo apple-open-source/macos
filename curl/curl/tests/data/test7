@@ -5,7 +5,7 @@ HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 Content-Type: text/html
-Funny-head: yesyes
+Funny-head: yesyes swsclose
 Set-Cookie: foobar=name; domain=127.0.0.1; path=/;
 Set-Cookie: mismatch=this; domain=127.0.0.1; path="/silly/";
 Set-Cookie: partmatch=present; domain=.0.0.1; path=/;
@@ -15,13 +15,16 @@ Set-Cookie: partmatch=present; domain=.0.0.1; path=/;
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP with cookie parser and header recording
  </name>
  <command>
-http://%HOSTIP:%HOSTPORT/we/want/7 -b none -D log/heads7.txt
+http://%HOSTIP:%HTTPPORT/we/want/7 -b none -D log/heads7.txt
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -30,9 +33,9 @@ http://%HOSTIP:%HOSTPORT/we/want/7 -b none -D log/heads7.txt
 </strip>
 <protocol>
 GET /we/want/7 HTTP/1.1
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 <file name="log/heads7.txt">
@@ -40,7 +43,7 @@ HTTP/1.1 200 OK
 Date: Thu, 09 Nov 2010 14:49:00 GMT
 Server: test-server/fake
 Content-Type: text/html
-Funny-head: yesyes
+Funny-head: yesyes swsclose
 Set-Cookie: foobar=name; domain=127.0.0.1; path=/;
 Set-Cookie: mismatch=this; domain=127.0.0.1; path="/silly/";
 Set-Cookie: partmatch=present; domain=.0.0.1; path=/;

@@ -35,6 +35,10 @@
 #include "BTreeScanner.h"
 #include "hfs_endian.h"
 
+#include <sys/xattr.h>
+#include <sys/acl.h>
+#include <sys/kauth.h>
+
 #ifdef __cplusplus
 extern	"C" {
 #endif
@@ -56,10 +60,11 @@ enum {
 // Misc constants
 //
 
+#define kMaxReScan	3	/* max times to re-scan volume on repair success */
+
 #define	kBTreeHeaderUserBytes	128
 
 #define	kBusErrorValue	0x50FF8001
-
 
 //ее Danger! This should not be hard coded
 #define	kMaxClumpSize	0x100000	/* max clump size is 1MB (2048 btree nodes) */
@@ -238,6 +243,10 @@ enum {
 	cdMemoryFullErr					= -1326			//	not enough memory to check disk
 };
 
+
+enum {
+	fsDSIntErr	= -127	/* non-hardware Internal file system error */
+};
 
 //	Repair Info - additional info returned when a repair is attempted
 enum {
@@ -430,46 +439,23 @@ union CatalogRecord {
 };
 typedef union CatalogRecord				CatalogRecord;
 
-/*------------------------------------------------------------------------------
- Extended Attributes 
-------------------------------------------------------------------------------*/
-
-/* Name of system security extended attribute (ACL) from sys/kauth.h */ 
-#ifndef KAUTH_FILESEC_XATTR
-#define KAUTH_FILESEC_XATTR "com.apple.system.Security"
-#endif
-
-/* Maximum length of extended attribute from sys/xattr.h */
-#ifndef XATTR_MAXNAMELEN
-#define XATTR_MAXNAMELEN 127
-#endif
-
-/* Catalog file record flags */
-enum {
-	kHFSHasAttributesBit	= 0x0002,	/* object has extended attributes */
-	kHFSHasAttributesMask	= 0x0004,
-
-	kHFSHasSecurityBit	= 0x0003,	/* object has security data (ACLs) */
-	kHFSHasSecurityMask	= 0x0008
-};
-
 /*
   	Key for records in the attributes file.  Fields are compared in the order:
   		cnid, attributeName, startBlock
 */
 
 struct AttributeKey {
-	UInt16 						keyLength;					/* must set kBTBigKeysMask and kBTVariableIndexKeysMask in BTree header's attributes */
-	UInt16 						pad;
+	UInt16 							keyLength;					/* must set kBTBigKeysMask and kBTVariableIndexKeysMask in BTree header's attributes */
+	UInt16 							pad;
 	HFSCatalogNodeID 				cnid;						/* file or folder ID */
-	UInt32 						startBlock;					/* block # relative to start of attribute */
-	UInt16						attrNameLen;					/* number of unicode characters */
-	UInt16						attrName[127];					/* attribute name (Unicode) */
+	UInt32 							startBlock;					/* block # relative to start of attribute */
+	UInt16     attrNameLen;     /* number of unicode characters */
+	UInt16     attrName[127];   /* attribute name (Unicode) */
 };
 typedef struct AttributeKey				AttributeKey;
 enum {
 	kAttributeKeyMaximumLength	= sizeof(AttributeKey) - sizeof(UInt16),
-	kAttributeKeyMinimumLength	= kAttributeKeyMaximumLength - (127 * sizeof(UInt16))
+	kAttributeKeyMinimumLength	= kAttributeKeyMaximumLength - 127 * sizeof(UInt16) + sizeof(UInt16)
 };
 
 struct HIOParam {
@@ -596,7 +582,7 @@ typedef pascal void (*UserMessageProcPtr)(StringPtr message, SInt16 messageType,
 
 #endif
 
-/* 3857929 Structure to detemine consistency of attribute data and 
+/* 3843779 Structure to detemine consistency of attribute data and 
  * corresponding bit in catalog record.  Based on Chinese Remainder
  * Theorem
  */
@@ -666,6 +652,7 @@ typedef struct SGlob {
 	UInt16				CBTStat;				//	scavenge status flags for catalog BTree 
 	UInt16				CatStat;				//	scavenge status flags for catalog file
 	UInt16				VeryMinorErrorsStat;	//	scavenge status flags for very minor errors
+	UInt16				JStat;					//	scavange status flags for journal errors
 	DrvQElPtr			DrvPtr;					//	pointer to driveQ element for target drive
 	UInt32				TarID;					//	target ID (CNID of data structure being verified)
 	UInt64				TarBlock;				//	target block/node number being verified
@@ -725,7 +712,6 @@ typedef struct SGlob {
 	int				logLevel;
 	int				chkLevel;
 	int             repairLevel;
-	Boolean			scanAgain;	//	used to force another scan of the volume (max of 2 scans)
 	Boolean			minorRepairErrors;	// indicates some minor repairs failed
 	int				canWrite;  	// we can safely write to the block device
 	int				lostAndFoundMode;  // used when creating lost+found directory
@@ -798,6 +784,9 @@ enum
 
 //#define S_LockedName			0x4000  // locked file name
 
+/* Journal status flag (contents of JStat) */
+#define S_BadJournal		0x8000	/* Bad journal content */
+
 /*------------------------------------------------------------------------------
  ScavCtrl Interface
 ------------------------------------------------------------------------------*/
@@ -853,8 +842,9 @@ enum {
 	M_Look		               	= 21,
 	M_OtherWriters		       	= 22,
 	M_CaseSensitive		       	= 23,
+	M_ReRepairFailed			= 24,			
 
-	M_LastMessage               = 23
+	M_LastMessage               = 24
 };
 
 /*------------------------------------------------------------------------------
@@ -949,11 +939,12 @@ enum {
 
 	E_InvalidUID		=  570,
 	E_IllegalName		=  571,
+	E_IncorrectNumThdRcd	=  572,
 	/* Init the next two errors to pre-existing messages.  Fix them in 3964748 */
 	E_IncorrectAttrCount	=  547,	/* Incorrect attributes in attr btree with attr bits in catalog btree */
 	E_IncorrectSecurityCount=  547, /* Incorrect security attributes in attr btree with security bits in catalog btree */
 
-	E_LastError		=  571
+	E_LastError		=  572
 };
 
 
@@ -1061,7 +1052,7 @@ extern Boolean 	VolumeObjectIsHFS( void );
 extern Boolean 	VolumeObjectIsEmbeddedHFSPlus( void );
 extern Boolean 	VolumeObjectIsPureHFSPlus( void );
 extern void 	RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid, UInt16 btreetype); 
-extern int 	ComparePrimeBuckets(SGlobPtr GPtr, UInt16 BitMask); 
+extern int ComparePrimeBuckets(SGlobPtr GPtr, UInt16 BitMask); 
 
 extern	void	InvalidateCalculatedVolumeBitMap( SGlobPtr GPtr );
 
@@ -1089,6 +1080,7 @@ extern	OSErr	AttrBTChk( SGlobPtr GPtr );		//	attributes btree check
 extern	OSErr	IVChk( SGlobPtr GPtr );
 
 extern	int	CheckForClean( SGlobPtr GPtr, Boolean markClean );
+
 extern  int	CheckIfJournaled(SGlobPtr GPtr);
 
 extern	OSErr	VInfoChk( SGlobPtr GPtr );
@@ -1281,8 +1273,7 @@ EXTERN_API_C( SInt32 )
 CompareExtentKeysPlus			(const HFSPlusExtentKey * searchKey,
 								 const HFSPlusExtentKey * trialKey);
 EXTERN_API_C( SInt32 )
-CompareAttributeKeys			(const AttributeKey *	searchKey,
-					 			 const AttributeKey *	trialKey);
+CompareAttributeKeys			(const AttributeKey * searchKey,  const AttributeKey * trialKey);
 EXTERN_API( SFCB* )
 ResolveFCB						(short 					fileRefNum);
 

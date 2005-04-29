@@ -37,7 +37,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_tracemse.c,v 1.1.1.2 2002/02/15 21:55:48 jevans Exp $")
+MODULE_ID("$Id: lib_tracemse.c,v 1.10 2002/01/12 22:32:25 tom Exp $")
 
 #ifdef TRACE
 

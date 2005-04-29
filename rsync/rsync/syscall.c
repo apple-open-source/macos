@@ -26,10 +26,18 @@
 
 #include "rsync.h"
 
+#ifdef HAVE_COPYFILE_H
+#include <libgen.h>
+#include <copyfile.h>
+#endif
+
 extern int dry_run;
 extern int read_only;
 extern int list_only;
 extern int preserve_perms;
+#ifdef EA_SUPPORT
+extern int extended_attributes;
+#endif
 
 #define RETURN_ERROR_IF(x,e) \
 	do { \
@@ -114,6 +122,19 @@ int do_rename(char *fname1, char *fname2)
 {
 	if (dry_run) return 0;
 	RETURN_ERROR_IF_RO_OR_LO;
+#ifdef HAVE_COPYFILE
+	if(extended_attributes)
+	{
+	    char dst_fname[MAXPATHLEN];
+	    if(!strncmp(basename(fname1), ".._", 3))
+	    {
+		snprintf(dst_fname, MAXPATHLEN, "%s/%s", dirname(fname2), basename(fname2) + 2);
+		if(copyfile(fname1, dst_fname, 0,
+		    COPYFILE_UNPACK | COPYFILE_METADATA) == 0)
+		return unlink(fname1);
+	    }
+	}
+#endif
 	return rename(fname1, fname2);
 }
 
@@ -152,7 +173,7 @@ int do_mkstemp(char *template, mode_t perms)
 	RETURN_ERROR_IF(dry_run, 0);
 	RETURN_ERROR_IF(read_only, EROFS);
 
-#if defined(HAVE_SECURE_MKSTEMP) && defined(HAVE_FCHMOD)
+#if HAVE_SECURE_MKSTEMP && HAVE_FCHMOD && (!HAVE_OPEN64 || HAVE_MKSTEMP64)
 	{
 		int fd = mkstemp(template);
 		if (fd == -1)

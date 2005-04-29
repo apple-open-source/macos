@@ -1,0 +1,28 @@
+# AbsolutePathMig <file>.h <file>User.c : <file>.defs OR
+# AbsolutePathMig <file>Server.h <file>Server.c : <file>.defs OR
+# AbsolutePathMig <file>.h <file>User.c <file>Server.h <file>Server.c : <file>.defs
+# Runs mig to create client and server files from a definition file.
+rule AbsolutePathMig
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    if $(MACH_SERVER) = YES || $(MACH_CLIENT_AND_SERVER) = YES {
+        AbsolutePathMig.server "$(1)" : "$(2)" ;
+    } else {
+        AbsolutePathMig.client "$(1)" : "$(2)" ;
+    }
+    Clean.Remove clean : "$(1)" ;
+}
+actions AbsolutePathMig.client
+{
+    defsFile=`echo -n "$(2)" | perl -pe 'if (/^\.(\/.+)$/) { $_ = $ENV{PWD} . $1; }'`
+    defsFilePath=`echo -n "$(2:D)" | perl -pe 'if (/^\.(\/.+)$/) { $_ = $ENV{PWD} . $1; }'`
+    mkdir -p "$(1[1]:D)"
+    cd "$(1[1]:D)" && mig $(OTHER_MIGFLAGS) "-I${defsFilePath}" "${defsFile}"
+}
+actions AbsolutePathMig.server
+{
+    defsFile=`echo -n "$(2)" | perl -pe 'if (/^\.(\/.+)$/) { $_ = $ENV{PWD} . $1; }'`
+    defsFilePath=`echo -n "$(2:D)" | perl -pe 'if (/^\.(\/.+)$/) { $_ = $ENV{PWD} . $1; }'`
+    mkdir -p "$(1[1]:D)"
+    cd "$(1[1]:D)" && mig $(OTHER_MIGFLAGS) -sheader "$(2:B)Server.h" "-I${defsFilePath}" "${defsFile}"
+}

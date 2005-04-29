@@ -22,7 +22,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyMouse.c,v 3.3 2001/01/17 22:36:53 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sunLynx/sunLyMouse.c,v 3.4 2003/11/17 22:20:37 dawes Exp $ */
 
 /*-
  * Copyright 1987 by the Regents of the University of California
@@ -108,15 +108,9 @@ miPointerScreenFuncRec sunPointerScreenFuncs = {
  */
 /*ARGSUSED*/
 static 
-#if NeedFunctionPrototypes
 void sunMouseCtrl (
     DeviceIntPtr    device,
     PtrCtrl*	    ctrl)
-#else
-void sunMouseCtrl (device, ctrl)
-    DeviceIntPtr    device;
-    PtrCtrl*	    ctrl;
-#endif
 {
 }
 
@@ -139,15 +133,9 @@ void sunMouseCtrl (device, ctrl)
  *
  *-----------------------------------------------------------------------
  */
-#if NeedFunctionPrototypes
 int sunMouseProc (
     DeviceIntPtr  device,
     int	    	  what)
-#else
-int sunMouseProc (device, what)
-    DeviceIntPtr  device;   	/* Mouse to play with */
-    int	    	  what;	    	/* What to do with it */
-#endif
 {
     struct termio tty;
     DevicePtr	  pMouse = (DevicePtr) device;
@@ -443,19 +431,11 @@ xf86MouseProtocol(rBuf, nBytes, evBuf)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 Firm_event* sunMouseGetEvents (
     int		fd,
     Bool	on,
     int*	pNumEvents,
     Bool*	pAgain)
-#else
-Firm_event* sunMouseGetEvents (fd, on, pNumEvents, pAgain)
-    int		fd;
-    Bool	on;
-    int*	pNumEvents;
-    Bool*	pAgain;
-#endif
 {
     static Firm_event	evBuf[MAXEVENTS];   /* Buffer for Firm_events */
     int	 nBytes;	    /* number of bytes available. */
@@ -543,15 +523,9 @@ MouseAccelerate (device, delta)
  *-----------------------------------------------------------------------
  */
 
-#if NeedFunctionPrototypes
 void sunMouseEnqueueEvent (
     DeviceIntPtr  device,
     Firm_event	  *fe)
-#else
-void sunMouseEnqueueEvent (device, fe)
-    DeviceIntPtr  device;   	/* Mouse from which the event came */
-    Firm_event	  *fe;	    	/* Event to process */
-#endif
 {
     xEvent		xE;
     sunPtrPrivPtr	pPriv;	/* Private data for pointer */

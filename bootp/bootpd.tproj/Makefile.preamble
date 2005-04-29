@@ -123,4 +123,3 @@ OTHER_GENERATED_OFILES = $(VERS_OFILE)
 # is installed.  By default it is YES.
 # STRIP_ON_INSTALL = NO
 AFTER_INSTALL = install_extra
-OTHER_CFLAGS += -DMOSX

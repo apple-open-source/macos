@@ -1,0 +1,33 @@
+diff -rup orig/tclapplescript/TclAppleScript.pbproj/project.pbxproj tclapplescript/TclAppleScript.pbproj/project.pbxproj
+--- TclAppleScript.pbproj/project.pbxproj	Thu May  6 16:34:06 2004
++++ TclAppleScript.pbproj/project.pbxproj	Tue Jul 20 01:02:40 2004
+@@ -138,7 +138,6 @@
+ 			buildActionMask = 2147483647;
+ 			files = (
+ 				F5509190036C35B40130931B,
+-				F5A272830377DE8E01FEA954,
+ 			);
+ 			isa = PBXFrameworksBuildPhase;
+ 			runOnlyForDeploymentPostprocessing = 0;
+@@ -167,7 +166,7 @@
+ 				MANDIR = /Library/Tcl/man;
+ 				OPTIMIZATION_CFLAGS = "-O0";
+ 				OTHER_CFLAGS = "";
+-				OTHER_LDFLAGS = "";
++				OTHER_LDFLAGS = "-ltclstub8.4";
+ 				OTHER_LIBTOOL_FLAGS = "";
+ 				OTHER_REZFLAGS = "";
+ 				PRECOMPILE_PREFIX_HEADER = NO;
+@@ -201,12 +200,6 @@
+ 			name = libtclstub8.4.a;
+ 			path = /Library/Frameworks/Tcl.framework/libtclstub8.4.a;
+ 			refType = 0;
+-		};
+-		F5A272830377DE8E01FEA954 = {
+-			fileRef = F5A272820377DE8D01FEA954;
+-			isa = PBXBuildFile;
+-			settings = {
+-			};
+ 		};
+ //F50
+ //F51

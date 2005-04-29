@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* RemoteCall.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,22 +35,52 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi.server;
 
-import java.lang.Exception;
 import java.io.IOException;
-import java.io.ObjectOutput;
 import java.io.ObjectInput;
+import java.io.ObjectOutput;
 import java.io.StreamCorruptedException;
 
-public interface RemoteCall {
+/**
+ * @deprecated
+ */
+public interface RemoteCall
+{
+  /**
+   * @deprecated
+   */
+  ObjectOutput getOutputStream () throws IOException;
 
-public ObjectOutput getOutputStream() throws IOException;
-public void releaseOutputStream() throws IOException;
-public ObjectInput getInputStream() throws IOException;
-public void releaseInputStream() throws IOException;
-public ObjectOutput getResultStream(boolean success) throws IOException, StreamCorruptedException;
-public void executeCall() throws Exception;
-public void done() throws IOException;
+  /**
+   * @deprecated
+   */
+  void releaseOutputStream () throws IOException;
 
+  /**
+   * @deprecated
+   */
+  ObjectInput getInputStream () throws IOException;
+
+  /**
+   * @deprecated
+   */
+  void releaseInputStream () throws IOException;
+
+  /**
+   * @deprecated
+   */
+  ObjectOutput getResultStream (boolean success)
+    throws IOException, StreamCorruptedException;
+
+  /**
+   * @deprecated
+   */
+  void executeCall () throws Exception;
+
+  /**
+   * @deprecated
+   */
+  void done () throws IOException;
 }

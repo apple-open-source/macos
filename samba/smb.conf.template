@@ -32,10 +32,12 @@
   unix charset = UTF-8-MAC
   display charset = UTF-8-MAC
   dos charset = 437
-  use spnego = no
+  use spnego = yes
   client ntlmv2 auth = no
+  os level = 8
   defer sharing violations = no
-
+  vfs objects = darwin_acls
+  brlm = yes
 [homes]
    comment = User Home Directories
    browseable = no

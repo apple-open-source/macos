@@ -33,6 +33,7 @@ extern "C" {
 ** not been independently verified as being compliant with the OpenGL(R)
 ** version 1.2.1 Specification.
 */
+/* $XFree86: xc/extras/Mesa/include/GL/glxext.h,v 1.6 2004/01/13 02:42:51 tsi Exp $ */
 
 #if defined(_WIN32) && !defined(APIENTRY) && !defined(__CYGWIN__)
 #define WIN32_LEAN_AND_MEAN 1
@@ -315,6 +316,15 @@ typedef struct {
 } GLXBufferClobberEventSGIX;
 #endif
 
+#if defined(__UNIXOS2__) || defined(__SOL64__)
+typedef long int int32_t;
+typedef long long int int64_t;
+#endif
+
+#if defined(SCO) || defined(__USLC__)
+#include <stdint.h>
+#endif
+
 #ifndef GLX_VERSION_1_3
 #define GLX_VERSION_1_3 1
 #ifdef GLX_GLXEXT_PROTOTYPES
@@ -579,6 +589,16 @@ extern GLuint glXGetAGPOffsetMESA (const GLvoid *);
 typedef GLuint ( * PFNGLXGETAGPOFFSETMESAPROC) (const GLvoid *);
 #endif
 
+#ifndef GLX_MESA_swap_control
+#define GLX_MESA_swap_control 1
+#ifdef GLX_GLXEXT_PROTOTYPES
+extern GLint glXSwapIntervalMESA(unsigned interval);
+extern GLint glXGetSwapIntervalMESA( void );
+#endif /* GLX_GLXEXT_PROTOTYPES */
+typedef GLint ( * PFNGLXSWAPINTERVALMESAPROC) (unsigned interval);
+typedef GLint ( * PFNGLXGETSWAPINTERVALMESAPROC) ( void );
+#endif
+
 #ifndef GLX_SGIX_visual_select_group
 #define GLX_SGIX_visual_select_group 1
 #endif
@@ -586,11 +606,6 @@ typedef GLuint ( * PFNGLXGETAGPOFFSETMESAPROC) (const GLvoid *);
 #ifndef GLX_OML_swap_method
 #define GLX_OML_swap_method 1
 #endif
-
-#if defined(__STDC_VERSION__)
-#if __STDC_VERSION__ >= 199901L
-/* Include ISO C99 integer types for OML_sync_control; need a better test */
-#include <inttypes.h>
 
 #ifndef GLX_OML_sync_control
 #define GLX_OML_sync_control 1
@@ -608,8 +623,19 @@ typedef Bool ( * PFNGLXWAITFORMSCOMLPROC) (Display *dpy, GLXDrawable drawable, i
 typedef Bool ( * PFNGLXWAITFORSBCOMLPROC) (Display *dpy, GLXDrawable drawable, int64_t target_sbc, int64_t *ust, int64_t *msc, int64_t *sbc);
 #endif
 
-#endif /* C99 version test */
-#endif /* STDC test */
+#ifndef GLX_MESA_swap_frame_usage
+#define GLX_MESA_swap_frame_usage 1
+#ifdef GLX_GLXEXT_PROTOTYPES
+extern GLint glXBeginFrameTrackingMESA(Display *dpy, GLXDrawable drawable);
+extern GLint glXEndFrameTrackingMESA(Display *dpy, GLXDrawable drawable);
+extern GLint glXGetFrameUsageMESA(Display *dpy, GLXDrawable drawable, GLfloat *usage);
+extern GLint glXQueryFrameTrackingMESA(Display *dpy, GLXDrawable drawable, int64_t *sbc, int64_t *missedFrames, GLfloat *lastMissedUsage);
+#endif /* GLX_GLXEXT_PROTOTYPES */
+typedef GLint ( * PFNGLXBEGINFRAMETRACKINGMESAPROC) (Display *dpy, GLXDrawable drawable);
+typedef GLint ( * PFNGLXENDFRAMETRACKINGMESAPROC) (Display *dpy, GLXDrawable drawable);
+typedef GLint ( * PFNGLXGETFRAMEUSAGEMESAPROC) (Display *dpy, GLXDrawable drawable, GLfloat *usage);
+typedef GLint ( * PFNGLXQUERYFRAMETRACKINGMESAPROC) (Display *dpy, GLXDrawable drawable, int64_t *sbc, int64_t *missedFrames, GLfloat *lastMissedUsage);
+#endif
 
 #ifdef __cplusplus
 }

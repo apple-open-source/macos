@@ -27,7 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/util/fontxlfd.c,v 3.15 2002/05/31 18:45:50 dawes Exp $ */
+/* $XFree86: xc/lib/font/util/fontxlfd.c,v 3.17 2003/10/24 16:11:52 tsi Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -197,7 +197,8 @@ xlfd_round_double(double x)
     defined(ia64) || defined(__ia64__) || \
     defined(__alpha__) || defined(__alpha) || \
     defined(__hppa__) || \
-    defined(__x86_64__) || defined(__x86_64)
+    defined(__AMD64__) || defined(__AMD64) || \
+    defined(sgi)
 #if !defined(__UNIXOS2__)
 #include <float.h>
 
@@ -214,27 +215,27 @@ xlfd_round_double(double x)
 
 /* convert # of decimal digits to # of binary digits */
 #define XLFD_NDIGITS_2 ((int)(XLFD_NDIGITS * M_LN10 / M_LN2 + 0.5))
-   
+
    union conv_d {
       double d;
       unsigned char b[8];
    } d;
    int i,j,k,d_exp;
-   
-   if (x == 0) 
+
+   if (x == 0)
       return x;
 
    /* do minor sanity check for IEEE 754 fp and correct byte order */
    d.d = 1.0;
    if (sizeof(double) == 8 && d.b[7] == 0x3f && d.b[6] == 0xf0) {
-      
-      /* 
+
+      /*
        * this code will round IEEE 754 double to XLFD_NDIGITS_2 binary digits
        */
-      
+
       d.d = x;
       d_exp = (d.b[7] << 4) | (d.b[6] >> 4);
-      
+
       i = (DBL_MANT_DIG-XLFD_NDIGITS_2) >> 3;
       j = 1 << ((DBL_MANT_DIG-XLFD_NDIGITS_2) & 0x07);
       for (; i<7; i++) {
@@ -249,25 +250,25 @@ xlfd_round_double(double x)
 	 d.b[7] = d_exp >> 4;
 	 d.b[6] = (d.b[6] & 0x0f) | (d_exp << 4);
       }
-      
+
       i = (DBL_MANT_DIG-XLFD_NDIGITS_2) >> 3;
-      j = 1 << ((DBL_MANT_DIG-XLFD_NDIGITS_2) & 0x07);      
+      j = 1 << ((DBL_MANT_DIG-XLFD_NDIGITS_2) & 0x07);
       d.b[i] &= ~(j-1);
       for (;--i>=0;) d.b[i] = 0;
 
       return d.d;
    }
-   else 
+   else
 #endif
 #endif /* !__UNIXOS2__ */
 #endif /* i386 || __i386__ */
     {
 	/*
-	 * If not IEEE 754:  Let printf() do it for you.  
+	 * If not IEEE 754:  Let printf() do it for you.
 	 */
-	 
+
 	char formatbuf[40], buffer[40];
-	 
+
 	sprintf(formatbuf, "%%.%dlg", XLFD_NDIGITS);
 	sprintf(buffer, formatbuf, x);
 	return atof(buffer);
@@ -352,7 +353,7 @@ GetMatrix(char *ptr, FontScalablePtr vals, int which)
 }
 
 
-static void 
+static void
 append_ranges(char *fname, int nranges, fsRange *ranges)
 {
     if (nranges)
@@ -366,9 +367,9 @@ append_ranges(char *fname, int nranges, fsRange *ranges)
 	    sprintf(fname + strlen(fname), "%d",
 		    minchar(ranges[i]));
 	    if (ranges[i].min_char_low ==
-	        ranges[i].max_char_low &&
-	        ranges[i].min_char_high ==
-	        ranges[i].max_char_high) continue;
+		ranges[i].max_char_low &&
+		ranges[i].min_char_high ==
+		ranges[i].max_char_high) continue;
 	    sprintf(fname + strlen(fname), "_%d",
 		    maxchar(ranges[i]));
         }

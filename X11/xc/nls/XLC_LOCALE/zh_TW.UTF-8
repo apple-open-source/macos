@@ -1,4 +1,4 @@
-XCOMM  $XFree86: xc/nls/XLC_LOCALE/zh_TW.UTF-8,v 1.1 2003/01/15 03:59:47 dawes Exp $
+XCOMM  $XFree86: xc/nls/XLC_LOCALE/zh_TW.UTF-8,v 1.2 2003/08/06 14:04:00 eich Exp $
 XCOMM  XLocale Database Sample for zh_TW.UTF-8
 XCOMM 
 
@@ -11,19 +11,10 @@ on_demand_loading	True
 
 object_name		generic
 
-XCOMM	fs0 class
-fs0	{
-	charset	{
-		name	ISO10646-1
-	}
-	font	{
-		primary	ISO10646-1
-	}
-}
 XCOMM	We leave the legacy encodings in for the moment, because we don't
 XCOMM	have that many ISO10646 fonts yet.
-XCOMM 	fs1 class (7 bit ASCII)
-fs1	{
+XCOMM 	fs0 class (7 bit ASCII)
+fs0	{
 	charset	{
 		name	ISO8859-1:GL
 	}
@@ -32,8 +23,8 @@ fs1	{
 		vertical_rotate	all
 	}
 }
-XCOMM	fs2 class (ISO8859 families)
-fs2	{
+XCOMM	fs1 class (ISO8859 families)
+fs1	{
 	charset	{
 		name	ISO8859-1:GR
 	}
@@ -41,8 +32,8 @@ fs2	{
 		primary	ISO8859-1:GR
 	}
 }
-XCOMM 	fs3 class (Chinese Han Character (Traditional))
-fs3	{
+XCOMM 	fs2 class (Chinese Han Character (Traditional))
+fs2	{
         charset {
                 name    BIG5-0:GLGR
         }
@@ -51,8 +42,8 @@ fs3	{
 				substitute BIG5-0:GLGR
         }
 }
-XCOMM 	fs4 class (Kanji)
-fs4	{
+XCOMM 	fs3 class (Kanji)
+fs3	{
 	charset	{
 		name	JISX0208.1983-0:GL
 	}
@@ -60,8 +51,8 @@ fs4	{
 		primary	JISX0208.1983-0:GL
 	}
 }
-XCOMM   fs5 class (Korean Character)
-fs5	{
+XCOMM   fs4 class (Korean Character)
+fs4	{
 	charset	{
 		name	KSC5601.1987-0:GL
 	}
@@ -69,8 +60,8 @@ fs5	{
 		primary	KSC5601.1987-0:GL
 	}
 }
-XCOMM   fs6 class (Chinese Han Character)
-fs6	{
+XCOMM   fs5 class (Chinese Han Character)
+fs5	{
 	charset	{
 		name	GB2312.1980-0:GL
 	}
@@ -78,14 +69,23 @@ fs6	{
 		primary	GB2312.1980-0:GL
 	}
 }
-XCOMM	fs7 class (Half Kana)
-fs7	{
+XCOMM	fs6 class (Half Kana)
+fs6	{
 	charset	{
 		name	JISX0201.1976-0:GR
 	}
 	font	{
 		primary		JISX0201.1976-0:GR
 		vertical_rotate	all
+	}
+}
+XCOMM	fs7 class
+fs7	{
+	charset	{
+		name	ISO10646-1
+	}
+	font	{
+		primary	ISO10646-1
 	}
 }
 END XLC_FONTSET

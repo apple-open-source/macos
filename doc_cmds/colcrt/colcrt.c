@@ -1,5 +1,3 @@
-/*	$NetBSD: colcrt.c,v 1.4 1997/10/18 12:59:10 lukem Exp $	*/
-
 /*
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,24 +31,28 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)colcrt.c	8.1 (Berkeley) 6/6/93";
-#else
-__RCSID("$NetBSD: colcrt.c,v 1.4 1997/10/18 12:59:10 lukem Exp $");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-#endif /* not lint */
 
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)colcrt.c	8.1 (Berkeley) 6/6/93";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/colcrt/colcrt.c,v 1.18 2004/07/31 06:22:57 tjr Exp $");
+
+#include <err.h>
+#include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <stdlib.h>
+#include <wchar.h>
 
 /*
  * colcrt - replaces col for crts with new nroff esp. when using tbl.
@@ -66,7 +68,7 @@ __RCSID("$NetBSD: colcrt.c,v 1.4 1997/10/18 12:59:10 lukem Exp $");
  * Option -2 forces printing of all half lines.
  */
 
-char	page[267][132];
+wchar_t	page[267][132];
 
 int	outline = 1;
 int	outcol;
@@ -74,146 +76,155 @@ int	outcol;
 char	suppresul;
 char	printall;
 
-char	*progname;
-FILE	*f;
-
-int	main __P((int, char **));
-void	move __P((int, int));
-void	pflush __P((int));
-int	plus __P((char, char));
+static void	move(int, int);
+static void	pflush(int);
+static int	plus(wchar_t, wchar_t);
+static void	usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	int c;
-	char *cp, *dp;
+	wint_t c;
+	wchar_t *cp, *dp;
+	int ch, i, w;
 
-	argc--;
-	progname = *argv++;
-	while (argc > 0 && argv[0][0] == '-') {
-		switch (argv[0][1]) {
-			case 0:
-				suppresul = 1;
-				break;
-			case '2':
-				printall = 1;
-				break;
-			default:
-				printf("usage: %s [ - ] [ -2 ] [ file ... ]\n", progname);
-				fflush(stdout);
-				exit(1);
+	setlocale(LC_ALL, "");
+
+	while ((ch = getopt(argc, argv, "-2")) != -1)
+		switch (ch) {
+		case '-':
+			suppresul = 1;
+			break;
+		case '2':
+			printall = 1;
+			break;
+		default:
+			usage();
 		}
-		argc--;
-		argv++;
-	}
+	argc -= optind;
+	argv += optind;
+
 	do {
 		if (argc > 0) {
-			close(0);
-			if (!(f = fopen(argv[0], "r"))) {
+			if (freopen(argv[0], "r", stdin) == NULL) {
 				fflush(stdout);
-				perror(argv[0]);
-				exit (1);
+				err(1, "%s", argv[0]);
 			}
 			argc--;
 			argv++;
 		}
 		for (;;) {
-			c = getc(stdin);
-			if (c == -1) {
+			c = getwc(stdin);
+			if (c == WEOF) {
 				pflush(outline);
 				fflush(stdout);
 				break;
 			}
 			switch (c) {
-				case '\n':
-					if (outline >= 265)
+			case '\n':
+				if (outline >= 265)
+					pflush(62);
+				outline += 2;
+				outcol = 0;
+				continue;
+			case '\016':
+			case '\017':
+				continue;
+			case 033:
+				c = getwc(stdin);
+				switch (c) {
+				case '9':
+					if (outline >= 266)
 						pflush(62);
-					outline += 2;
-					outcol = 0;
+					outline++;
 					continue;
-				case '\016':
-					case '\017':
+				case '8':
+					if (outline >= 1)
+						outline--;
 					continue;
-				case 033:
-					c = getc(stdin);
-					switch (c) {
-						case '9':
-							if (outline >= 266)
-								pflush(62);
-							outline++;
-							continue;
-						case '8':
-							if (outline >= 1)
-								outline--;
-							continue;
-						case '7':
-							outline -= 2;
-							if (outline < 0)
-								outline = 0;
-							continue;
-						default:
-							continue;
-					}
-				case '\b':
-					if (outcol)
-						outcol--;
+				case '7':
+					outline -= 2;
+					if (outline < 0)
+						outline = 0;
 					continue;
-				case '\t':
-					outcol += 8;
-					outcol &= ~7;
-					outcol--;
-					c = ' ';
 				default:
-					if (outcol >= 132) {
-						outcol++;
-						continue;
-					}
-					cp = &page[outline][outcol];
-					outcol++;
-					if (c == '_') {
-						if (suppresul)
-							continue;
-						cp += 132;
-						c = '-';
-					}
-					if (*cp == 0) {
-						*cp = c;
-						dp = cp - outcol;
-						for (cp--; cp >= dp && *cp == 0; cp--)
-							*cp = ' ';
-					} else
-						if (plus(c, *cp) || plus(*cp, c))
-							*cp = '+';
-						else if (*cp == ' ' || *cp == 0)
-							*cp = c;
 					continue;
+				}
+			case '\b':
+				if (outcol)
+					outcol--;
+				continue;
+			case '\t':
+				outcol += 8;
+				outcol &= ~7;
+				outcol--;
+				c = ' ';
+			default:
+				if ((w = wcwidth(c)) <= 0)
+					w = 1;	/* XXX */
+				if (outcol + w > 132) {
+					outcol += w;
+					continue;
+				}
+				cp = &page[outline][outcol];
+				outcol += w;
+				if (c == '_') {
+					if (suppresul)
+						continue;
+					cp += 132;
+					c = '-';
+				}
+				if (*cp == 0) {
+					for (i = 0; i < w; i++)
+						cp[i] = c;
+					dp = cp - (outcol - w);
+					for (cp--; cp >= dp && *cp == 0; cp--)
+						*cp = ' ';
+				} else {
+					if (plus(c, *cp) || plus(*cp, c))
+						*cp = '+';
+					else if (*cp == ' ' || *cp == 0) {
+						for (i = 1; i < w; i++)
+							if (cp[i] != ' ' &&
+							    cp[i] != 0)
+								goto cont;
+						for (i = 0; i < w; i++)
+							cp[i] = c;
+					}
+				}
+cont:
+				continue;
 			}
 		}
+		if (ferror(stdin))
+			err(1, NULL);
 	} while (argc > 0);
 	fflush(stdout);
 	exit(0);
 }
 
-int
-plus(c, d)
-	char c, d;
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: colcrt [-] [-2] [file ...]\n");
+	exit(1);
+}
+
+static int
+plus(wchar_t c, wchar_t d)
 {
 
 	return ((c == '|' && d == '-') || d == '_');
 }
 
-int first;
-
-void
-pflush(ol)
-	int ol;
+static void
+pflush(int ol)
 {
+	static int first;
 	int i;
-	char *cp;
+	wchar_t *cp;
 	char lastomit;
-	int l;
+	int l, w;
 
 	l = ol;
 	lastomit = 0;
@@ -232,20 +243,26 @@ pflush(ol)
 			continue;
 		}
 		lastomit = 0;
-		printf("%s\n", cp);
+		while (*cp != L'\0') {
+			if ((w = wcwidth(*cp)) > 0) {
+				putwchar(*cp);
+				cp += w;
+			} else
+				cp++;
+		}
+		putwchar(L'\n');
 	}
-	memmove(page, page[ol], (267 - ol) * 132);
-	memset(page[267- ol], 0, ol * 132);
+	wmemcpy(page[0], page[ol], (267 - ol) * 132);
+	wmemset(page[267- ol], L'\0', ol * 132);
 	outline -= ol;
 	outcol = 0;
 	first = 1;
 }
 
-void
-move(l, m)
-	int l, m;
+static void
+move(int l, int m)
 {
-	char *cp, *dp;
+	wchar_t *cp, *dp;
 
 	for (cp = page[l], dp = page[m]; *cp; cp++, dp++) {
 		switch (*cp) {

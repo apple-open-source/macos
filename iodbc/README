@@ -117,3 +117,21 @@ open source driver for MySQL.  In my initial tests, it failed to build
 correctly.  I eventually got something to build but it failed at
 runtime.  There are likely more configuration issues between MyODBC,
 MySQL and iODBC that I need to figure out.
+
+Tiger Update: 8/9/2004
+Ron Lue-Sang
+
+Most of the changes Steve needed to make aren't necessary or are already integrated with the latest version of the iodbc.org release src... 
+
+Made some changes to the Makefile to play better in ~rc and make prebinding work again
+
+sqltypes.h needed a change for working with stdlib radar#3779905
+
+henv.h and henv.c needed some changes to the declaration of the mutex - compilation was choking because of "multiple declarations of iodbcdm_global_lock... 
+
+<rdar://problem/3830418> Cannot launch app: libiodbc dylib
+some apps (and linkers?) resolve the symlink we used to have (which was libiodbc.2.dylib was a softlink to libiodbc.2.1.6.dylib) to the real dylib... now that we reversed that for future binary compatibility safety, we run into another bincompat problem - existing apps that link against libiodbc.2.1.6.dylib instead of libiodbc.2.dylib so I changed iodbc/configure to add a 2.1.6 version of libiodbc and libiodbcinst to the built project
+
+aclocal
+glibtoolize -f -c
+autoconf -f

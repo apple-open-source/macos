@@ -1,13 +1,19 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.85.2.9 2003/04/28 23:41:55 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1995 Regents of the University of Michigan.
- *  All rights reserved.
+/* $OpenLDAP: pkg/ldap/libraries/libldap/open.c,v 1.102.2.2 2004/01/01 18:16:30 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  open.c
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
  */
 
 #include "portable.h"
@@ -160,6 +166,10 @@ ldap_create( LDAP **ldp )
 		return LDAP_NO_MEMORY;
 	}
 
+#ifdef LDAP_R_COMPILE
+	ldap_pvt_thread_mutex_init( &ld->ld_req_mutex );
+	ldap_pvt_thread_mutex_init( &ld->ld_res_mutex );
+#endif
 	*ldp = ld;
 	return LDAP_SUCCESS;
 }
@@ -233,10 +243,7 @@ ldap_int_open_connection(
 	int async )
 {
 	int rc = -1;
-#ifdef HAVE_CYRUS_SASL
-	char *sasl_host = NULL;
-#endif
-	char *host = NULL;
+	char *host;
 	int port, proto;
 
 #ifdef NEW_LOGGING
@@ -275,9 +282,6 @@ ldap_int_open_connection(
 			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_tcp,
 				LBER_SBIOD_LEVEL_PROVIDER, NULL );
 
-#ifdef HAVE_CYRUS_SASL
-			sasl_host = ldap_host_connected_to( conn->lconn_sb );
-#endif
 			break;
 
 #ifdef LDAP_CONNECTIONLESS
@@ -322,9 +326,6 @@ ldap_int_open_connection(
 			ber_sockbuf_add_io( conn->lconn_sb, &ber_sockbuf_io_fd,
 				LBER_SBIOD_LEVEL_PROVIDER, NULL );
 
-#ifdef HAVE_CYRUS_SASL
-			sasl_host = ldap_host_connected_to( conn->lconn_sb );
-#endif
 			break;
 #endif /* LDAP_PF_LOCAL */
 		default:
@@ -339,27 +340,6 @@ ldap_int_open_connection(
 
 #ifdef LDAP_CONNECTIONLESS
 	if( proto == LDAP_PROTO_UDP ) return 0;
-#endif
-
-#ifdef HAVE_CYRUS_SASL
-	/* establish Cyrus SASL context prior to starting TLS so
-		that SASL EXTERNAL might be used */
-	if( sasl_host != NULL ) {
-		ldap_int_sasl_open( ld, conn, sasl_host );
-		LDAP_FREE( sasl_host );
-	} else if ( host != NULL) {
-		ldap_int_sasl_open( ld, conn, host );		
-	}
-#ifdef LDAP_PF_LOCAL
-	if( proto == LDAP_PROTO_IPC ) {
-		char authid[sizeof("uidNumber=4294967295+gidNumber=4294967295,"
-			"cn=peercred,cn=external,cn=auth")];
-		sprintf( authid, "uidNumber=%d+gidNumber=%d,"
-			"cn=peercred,cn=external,cn=auth",
-			(int) geteuid(), (int) getegid() );
-		ldap_int_sasl_external( ld, conn, authid, LDAP_PVT_SASL_LOCAL_SSF );
-	}
-#endif
 #endif
 
 #ifdef HAVE_TLS
@@ -381,7 +361,8 @@ ldap_int_open_connection(
 #ifdef LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND
 	if ( conn->lconn_krbinstance == NULL ) {
 		char *c;
-		conn->lconn_krbinstance = ldap_host_connected_to( conn->lconn_sb );
+		conn->lconn_krbinstance = ldap_host_connected_to(
+			conn->lconn_sb, host );
 
 		if( conn->lconn_krbinstance != NULL && 
 		    ( c = strchr( conn->lconn_krbinstance, '.' )) != NULL ) {
@@ -417,6 +398,7 @@ int ldap_open_internal_connection( LDAP **ldp, ber_socket_t *fdp )
 	lr->lr_msgid = 0;
 	lr->lr_status = LDAP_REQST_INPROGRESS;
 	lr->lr_res_errno = LDAP_SUCCESS;
+	/* no mutex lock needed, we just created this ld here */
 	(*ldp)->ld_requests = lr;
 
 	/* Attach the passed socket as the *LDAP's connection */

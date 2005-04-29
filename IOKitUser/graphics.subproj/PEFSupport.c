@@ -30,7 +30,6 @@
 */
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <CoreServices/CoreServices.h>
 #include <IOKit/IOKitLib.h>
 #include <stdlib.h>
 #include <err.h>
@@ -50,6 +49,16 @@
 #include "GetSymbolFromPEF.h"
 #include <IOKit/graphics/IOGraphicsLib.h>
 #include "IOGraphicsLibPrivate.h"
+
+enum 
+{
+    kIOPEFparamErr		  = 1001,
+    kIOPEFmemFullErr		  = 1002,
+    kIOPEFcfragFragmentFormatErr  = 1003,
+    kIOPEFcfragNoSectionErr       = 1004,
+    kIOPEFcfragNoSymbolErr        = 1005,
+    kIOPEFcfragFragmentCorruptErr = 1006
+};
 
 /*******************************************************************************
 *
@@ -125,13 +134,13 @@ static OSErr UnpackPiData(
     
     // Verify incoming section is packed.
     if (sectionHeaderPtr->regionKind != kPIDataSection) {
-        return paramErr;
+        return kIOPEFparamErr;
     }
     
     // Allocate memory to unpack into
     originalUnpackBuffer = (unsigned char*)NewPtrSys(sectionHeaderPtr->initSize);
     if (originalUnpackBuffer == nil) {
-        return memFullErr;
+        return kIOPEFmemFullErr;
     }
 
     unpackBuffer = originalUnpackBuffer;
@@ -292,7 +301,7 @@ Error:
     
     *theData = nil;
 
-    return paramErr;
+    return kIOPEFparamErr;
 }
 
 
@@ -326,16 +335,16 @@ static OSStatus GetSymbolFromPEF(
     
     // Does the magic cookie match?
     if (containerHeaderPtr->magicCookie != 'Joy!') {
-        return cfragFragmentFormatErr;
+        return kIOPEFcfragFragmentFormatErr;
     }
     // Is this a known PEF container format?
     if (containerHeaderPtr->containerID != 'peff') {
-        return cfragFragmentFormatErr;
+        return kIOPEFcfragFragmentFormatErr;
     }
 
     // Validate parameters
     if (theSymbolPtr == nil) {
-        return paramErr;
+        return kIOPEFparamErr;
     }
     
     // Find the loader section.
@@ -355,7 +364,7 @@ static OSStatus GetSymbolFromPEF(
     }
 
     if (foundSection == false) {
-        return cfragNoSectionErr;
+        return kIOPEFcfragNoSectionErr;
     }
 
     // Get the number of export symbols.
@@ -392,7 +401,7 @@ static OSStatus GetSymbolFromPEF(
     }
 
     if (foundSymbol == false) {
-        return cfragNoSymbolErr;
+        return kIOPEFcfragNoSymbolErr;
     }
     
     // Found the symbol, so... let's go get the data!
@@ -406,7 +415,7 @@ static OSStatus GetSymbolFromPEF(
       case kPIDataSection:
         // Expand the data!  (Not yet... :)
         if (UnpackPiData(thePEFPtr, exportSectionPtr, &expandedDataPtr) != noErr) {
-            return cfragFragmentCorruptErr;
+            return kIOPEFcfragFragmentCorruptErr;
         }
 
         sourceDataPtr = (unsigned char*)((unsigned long)expandedDataPtr +
@@ -523,7 +532,7 @@ struct DriverDescription {
     unsigned long driverDescSignature; // Signature field of this structure
     unsigned long driverDescVersion;   // Version of this data structure
     DriverType    driverType;          // Type of Driver
-    char          otherStuff[512];
+    // other data follows...
 };
 typedef struct DriverDescription DriverDescription;
 
@@ -539,7 +548,6 @@ static void ExaminePEF(
     char                   descripName[] = "\pTheDriverDescription";
     long                   err;
     DriverDescription      descrip;
-    DriverDescription      curDesc;
     char                   matchName[40];
     unsigned long          newVersion;
     unsigned long          curVersion;
@@ -622,17 +630,28 @@ static void ExaminePEF(
 
         if (ndrv)
 	{
-            err = GetSymbolFromPEF(descripName,
-                (const LogicalAddress)CFDataGetBytePtr(ndrv),
-                &curDesc, sizeof(curDesc));
-            if (err != noErr)
-                printf("GetSymbolFromPEF returns %ld\n",err);
+	    DriverDescription   _curDesc;
+	    DriverDescription * curDesc;
+
+	    curDesc = (DriverDescription *) CFDataGetBytePtr(ndrv);
+	    err = noErr;
+
+	    if ((sizeof(DriverDescription) > CFDataGetLength(ndrv))
+	     || (curDesc->driverDescSignature != kTheDescriptionSignature))
+	    {
+		curDesc = &_curDesc;
+		err = GetSymbolFromPEF(descripName,
+		    (const LogicalAddress)CFDataGetBytePtr(ndrv),
+		    curDesc, sizeof(DriverDescription));
+	    }
+	    if (err != noErr)
+		printf("GetSymbolFromPEF returns %ld\n",err);
             else
 	    {
-                if ((curDesc.driverDescSignature == kTheDescriptionSignature) &&
-                    (curDesc.driverDescVersion == kInitialDriverDescriptor)) {
-
-                    curVersion = curDesc.driverType.version;
+                if ((curDesc->driverDescSignature == kTheDescriptionSignature) &&
+                    (curDesc->driverDescVersion == kInitialDriverDescriptor))
+		{
+                    curVersion = curDesc->driverType.version;
                     printf("new version %08lx, current version %08lx\n",
                         newVersion, curVersion);
 

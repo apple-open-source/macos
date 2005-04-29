@@ -28,6 +28,16 @@ Environment     = CFLAG="$(CFLAGS) -DOPENSSL_NO_IDEA -DFAR="									\
 
 Install_Target  = install
 
+ORDERFILE_CRYPTO=/AppleInternal/OrderFiles/libcrypto.order
+ifeq "$(shell test -f $(ORDERFILE_CRYPTO) && echo YES )" "YES"
+       ORDERFLAGS_CRYPTO=-sectorder __TEXT __text $(ORDERFILE_CRYPTO)
+endif
+
+ORDERFILE_SSL=/AppleInternal/OrderFiles/libssl.order
+ifeq "$(shell test -f $(ORDERFILE_SSL) && echo YES )" "YES"
+        ORDERFLAGS_SSL=-sectorder __TEXT __text $(ORDERFILE_SSL)
+endif
+
 
 # Shadow the source tree
 lazy_install_source:: shadow_source
@@ -52,12 +62,12 @@ shlibs:
 	@echo "Building shared libraries..."
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libcrypto.a"						\
 		-install_name "$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"				\
-		-sectorder __TEXT __text /AppleInternal/OrderFiles/libcrypto.order			\
+		$(ORDERFLAGS_CRYPTO)									\
 		-o "$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libssl.a"						\
 		"$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"					\
 		-install_name "$(USRLIBDIR)/libssl.$(FileVersion).dylib"				\
-		-sectorder __TEXT __text /AppleInternal/OrderFiles/libssl.order				\
+		$(ORDERFLAGS_SSL)									\
 		-o "$(DSTROOT)$(USRLIBDIR)/libssl.$(FileVersion).dylib"
 	$(_v) for lib in crypto ssl; do								\
 		$(LN) -fs "lib$${lib}.$(FileVersion).dylib" "$(DSTROOT)$(USRLIBDIR)/lib$${lib}.dylib";	\

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE book PUBLIC "-//APACHE//DTD Cocoon Documentation Book V1.0//EN" "book-cocoon-v10.dtd">
+
+<!-- Sample book.xml file.  If this file is renamed to 'book.xml', it will be
+used to define the menu in this subdirectory, instead of that generated from
+site.xml. -->
+
+<book software="blojsom"
+    title="blojsom"
+    copyright="@year@ David A. Czarnecki"
+    xmlns:xlink="http://www.w3.org/1999/xlink">
+
+    <menu label="Plugins">
+        <menu-item label="Overview" href="site:plugins/index"/>
+        <menu-item label="Associated Categories" href="associated-categories.html"/>
+        <menu-item label="Calendar" href="calendar.html"/>
+        <menu-item label="Chronological" href="chronological.html"/>
+        <menu-item label="Conditional GET" href="conditional-get.html"/>  
+        <menu-item label="Date Format" href="date.html"/>
+        <menu-item label="Emoticons" href="emoticons.html"/>
+        <menu-item label="Entries Limiter" href="entries-limiter.html"/>
+        <menu-item label="Google Highlight" href="google-highlight.html"/>
+        <menu-item label="Hyperlink URL " href="hyperlink-URL.html"/>
+        <menu-item label="Macro Expansion" href="macro-expansion.html"/>
+        <menu-item label="Markdown" href="markdown.html"/> 
+        <menu-item label="Meta Data" href="meta.html"/>
+        <menu-item label="Obfuscation" href="obfuscation.html"/>
+        <menu-item label="Preview" href="preview.html"/>
+        <menu-item label="Referer" href="referer.html"/>
+        <menu-item label="Simple Search" href="simple-search.html"/>
+        <menu-item label="Send Email" href="send-email.html"/>
+        <menu-item label="Show Me More" href="show-me-more.html"/>
+        <menu-item label="Textile" href="textile.html"/>
+        <menu-item label="Trackback Auto-discovery" href="trackback-autodiscovery.html"/>
+        <menu-item label="Weblogs Ping" href="weblogs-ping.html"/>
+        <menu-item label="XPath and XPath Search" href="xpath.html"/>
+    </menu>
+
+</book>

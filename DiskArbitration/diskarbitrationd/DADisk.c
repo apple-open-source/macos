@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,8 +30,8 @@
 #include <grp.h>
 #include <paths.h>
 #include <pwd.h>
-#include <sys/mount.h>
 #include <CoreFoundation/CFRuntime.h>
+#include <DiskArbitration/DiskArbitrationPrivate.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
@@ -117,7 +117,7 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         CFDataRef data;
 
         disk->_busy             = 0;
-        disk->_busyNotification = NULL;
+        disk->_busyNotification = IO_OBJECT_NULL;
         disk->_bypath           = NULL;
         disk->_claim            = NULL;
         disk->_context          = NULL;
@@ -132,7 +132,7 @@ static DADiskRef __DADiskCreate( CFAllocatorRef allocator, const char * id )
         disk->_deviceUnit       = -1;
         disk->_filesystem       = NULL;
         disk->_id               = strdup( id );
-        disk->_media            = NULL;
+        disk->_media            = IO_OBJECT_NULL;
         disk->_mode             = 0;
         disk->_options          = 0;
         disk->_serialization    = NULL;
@@ -163,20 +163,20 @@ static void __DADiskDeallocate( CFTypeRef object )
     DADiskRef disk = ( DADiskRef ) object;
 
     if ( disk->_busyNotification )  IOObjectRelease( disk->_busyNotification );
-    if ( disk->_bypath        )  CFRelease( disk->_bypath );
-    if ( disk->_claim         )  CFRelease( disk->_claim );
-    if ( disk->_context       )  CFRelease( disk->_context );
-    if ( disk->_contextRe     )  CFRelease( disk->_contextRe );
-    if ( disk->_description   )  CFRelease( disk->_description );
-    if ( disk->_device        )  CFRelease( disk->_device );
-    if ( disk->_deviceLink[0] )  free( disk->_deviceLink[0] );
-    if ( disk->_deviceLink[1] )  free( disk->_deviceLink[1] );
-    if ( disk->_devicePath[0] )  free( disk->_devicePath[0] );
-    if ( disk->_devicePath[1] )  free( disk->_devicePath[1] );
-    if ( disk->_filesystem    )  CFRelease( disk->_filesystem );
-    if ( disk->_id            )  free( disk->_id );
-    if ( disk->_media         )  IOObjectRelease( disk->_media );
-    if ( disk->_serialization )  CFRelease( disk->_serialization );
+    if ( disk->_bypath           )  CFRelease( disk->_bypath );
+    if ( disk->_claim            )  CFRelease( disk->_claim );
+    if ( disk->_context          )  CFRelease( disk->_context );
+    if ( disk->_contextRe        )  CFRelease( disk->_contextRe );
+    if ( disk->_description      )  CFRelease( disk->_description );
+    if ( disk->_device           )  CFRelease( disk->_device );
+    if ( disk->_deviceLink[0]    )  free( disk->_deviceLink[0] );
+    if ( disk->_deviceLink[1]    )  free( disk->_deviceLink[1] );
+    if ( disk->_devicePath[0]    )  free( disk->_devicePath[0] );
+    if ( disk->_devicePath[1]    )  free( disk->_devicePath[1] );
+    if ( disk->_filesystem       )  CFRelease( disk->_filesystem );
+    if ( disk->_id               )  free( disk->_id );
+    if ( disk->_media            )  IOObjectRelease( disk->_media );
+    if ( disk->_serialization    )  CFRelease( disk->_serialization );
 }
 
 static Boolean __DADiskEqual( CFTypeRef object1, CFTypeRef object2 )
@@ -239,8 +239,8 @@ CFComparisonResult DADiskCompareDescription( DADiskRef disk, CFStringRef descrip
 
 DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media )
 {
-    io_service_t           bus        = NULL;
-    io_service_t           device     = NULL;
+    io_service_t           bus        = IO_OBJECT_NULL;
+    io_service_t           device     = IO_OBJECT_NULL;
     DADiskRef              disk       = NULL;
     UInt32                 major;
     UInt32                 minor;
@@ -510,7 +510,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     IOObjectRelease( services );
 
-    if ( device == NULL )  goto DADiskCreateFromIOMediaErr;
+    if ( device == IO_OBJECT_NULL )  goto DADiskCreateFromIOMediaErr;
 
     /*
      * Obtain the device properties.
@@ -708,7 +708,7 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         CFRelease( object );
 
         IOObjectRelease( bus );
-        bus = NULL;
+        bus = IO_OBJECT_NULL;
     }
 
     /*
@@ -797,17 +797,6 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
             disk->_userEUID = value;
             disk->_userRUID = value;
-///w:start
-            struct passwd * user;
-
-            user = getpwuid( value );
-
-            if ( user )
-            {
-                disk->_userEGID = user->pw_gid;
-                disk->_userRGID = user->pw_gid;
-            }
-///w:stop
         }
 
         CFRelease( object );
@@ -905,23 +894,27 @@ DADiskCreateFromIOMediaErr:
     return NULL;
 }
 
-DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path )
+DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct statfs * fs )
 {
-    DADiskRef disk = NULL;
+    DADiskRef disk;
 
-    if ( path )
+    disk = NULL;
+
+    if ( fs )
     {
-        char * _path;
+        CFURLRef path;
 
-        _path = ___CFURLCopyFileSystemRepresentation( path );
+        path = CFURLCreateFromFileSystemRepresentation( kCFAllocatorDefault, fs->f_mntonname, strlen( fs->f_mntonname ), TRUE );
 
-        if ( _path )
+        if ( path )
         {
-            struct statfs fs;
+            char * id;
 
-            if ( ___statfs( _path, &fs, MNT_NOWAIT ) == 0 )
+            id = _DAVolumeCopyID( fs );
+
+            if ( id )
             {
-                disk = __DADiskCreate( allocator, fs.f_mntonname );
+                disk = __DADiskCreate( allocator, id );
 
                 if ( disk )
                 {
@@ -933,7 +926,7 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path )
 
                     CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeMountableKey, kCFBooleanTrue );
 
-                    if ( ( fs.f_flags & MNT_LOCAL ) )
+                    if ( ( fs->f_flags & MNT_LOCAL ) )
                     {
                         CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeNetworkKey, kCFBooleanFalse );
                     }
@@ -949,7 +942,7 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path )
                     disk->_state |= kDADiskStateStagedAuthorize;
                     disk->_state |= kDADiskStateStagedMount;
 
-                    user = getpwuid( fs.f_owner );
+                    user = getpwuid( fs->f_owner );
 
                     if ( user )
                     {
@@ -959,9 +952,11 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path )
                         disk->_userRUID = user->pw_uid;
                     }
                 }
+
+                free( id );
             }
 
-            free( _path );
+            CFRelease( path );
         }
     }
 
@@ -1114,20 +1109,20 @@ void DADiskInitialize( void )
 
 void DADiskLog( DADiskRef disk )
 {
-    if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaRemovableKey ) == kCFBooleanFalse )
     {
-        CFMutableStringRef string;
-
-        string = CFStringCreateMutable( kCFAllocatorDefault, 0 );
-
-        if ( string )
+        if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
         {
-            CFTypeRef component;
+            CFMutableStringRef string;
 
-            component = DADiskGetDescription( disk, kDADiskDescriptionMediaBSDNameKey );
+            string = CFStringCreateMutable( kCFAllocatorDefault, 0 );
 
-            if ( component )
+            if ( string )
             {
+                CFTypeRef component;
+
+                component = DADiskGetDescription( disk, kDADiskDescriptionMediaBSDNameKey );
+
                 CFStringAppend( string, component );
 
                 ___CFStringPad( string, CFSTR( " " ), 10, 0 );
@@ -1220,7 +1215,7 @@ void DADiskSetBusyNotification( DADiskRef disk, io_object_t notification )
     {
         IOObjectRelease( disk->_busyNotification );
 
-        disk->_busyNotification = NULL;
+        disk->_busyNotification = IO_OBJECT_NULL;
     }
 
     if ( notification )

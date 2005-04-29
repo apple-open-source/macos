@@ -1,8 +1,17 @@
 /* dn2entry.c - routines to deal with the dn2id / id2entry glue */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dn2entry.c,v 1.11.2.5 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/dn2entry.c,v 1.19.2.5 2004/06/29 21:45:51 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -12,51 +21,63 @@
 
 #include "back-bdb.h"
 
-
 /*
  * dn2entry - look up dn in the cache/indexes and return the corresponding
- * entry.
+ * entry. If the requested DN is not found and matched is TRUE, return info
+ * for the closest ancestor of the DN. Otherwise e is NULL.
  */
 
 int
-bdb_dn2entry_rw(
-	BackendDB	*be,
+bdb_dn2entry(
+	Operation *op,
 	DB_TXN *tid,
 	struct berval *dn,
-	Entry **e,
-	Entry **matched,
-	int flags,
-	int rw,
+	EntryInfo **e,
+	int matched,
 	u_int32_t locker,
 	DB_LOCK *lock )
 {
-	int rc;
-	ID		id, id2 = 0;
+	EntryInfo *ei = NULL;
+	int rc, rc2;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG ( CACHE, ARGS, "bdb_dn2entry_rw(\"%s\")\n", dn->bv_val, 0, 0 );
+	LDAP_LOG ( CACHE, ARGS, "bdb_dn2entry(\"%s\")\n", dn->bv_val, 0, 0 );
 #else
-	Debug(LDAP_DEBUG_TRACE, "bdb_dn2entry_rw(\"%s\")\n",
+	Debug(LDAP_DEBUG_TRACE, "bdb_dn2entry(\"%s\")\n",
 		dn->bv_val, 0, 0 );
 #endif
 
 	*e = NULL;
 
-	if( matched != NULL ) {
-		*matched = NULL;
-		rc = bdb_dn2id_matched( be, tid, dn, &id, &id2, flags );
+	rc = bdb_cache_find_ndn( op, tid, dn, &ei );
+	if ( rc ) {
+		if ( matched && rc == DB_NOTFOUND ) {
+			/* Set the return value, whether we have its entry
+			 * or not.
+			 */
+			*e = ei;
+			if ( ei && ei->bei_id ) {
+				rc2 = bdb_cache_find_id( op, tid, ei->bei_id,
+					&ei, 1, locker, lock );
+				if ( rc2 ) rc = rc2;
+			} else if ( ei )
+				bdb_cache_entryinfo_unlock( ei );
+		} else if ( ei ) {
+			bdb_cache_entryinfo_unlock( ei );
+		}
 	} else {
-		rc = bdb_dn2id( be, tid, dn, &id, flags );
-	}
-
-	if( rc != 0 ) {
-		return rc;
-	}
-
-	if( id2 == 0 ) {
-		rc = bdb_id2entry_rw( be, tid, id, e, rw, locker, lock );
-	} else {
-		rc = bdb_id2entry_r( be, tid, id2, matched, locker, lock );
+		rc = bdb_cache_find_id( op, tid, ei->bei_id, &ei, 1,
+			locker, lock );
+		if ( rc == 0 ) {
+			*e = ei;
+		} else if ( matched && rc == DB_NOTFOUND ) {
+			/* always return EntryInfo */
+			ei = ei->bei_parent;
+			rc2 = bdb_cache_find_id( op, tid, ei->bei_id, &ei, 1,
+				locker, lock );
+			if ( rc2 ) rc = rc2;
+			*e = ei;
+		}
 	}
 
 	return rc;

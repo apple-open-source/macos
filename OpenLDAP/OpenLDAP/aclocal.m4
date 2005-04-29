@@ -10,18 +10,16 @@ dnl but WITHOUT ANY WARRANTY, to the extent permitted by law; without
 dnl even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 dnl PARTICULAR PURPOSE.
 
-dnl
-dnl Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+dnl Copyright 1998-2004 The OpenLDAP Foundation.
 dnl All rights reserved.
-dnl 
+dnl
 dnl Redistribution and use in source and binary forms, with or without
 dnl modification, are permitted only as authorized by the OpenLDAP
-dnl Public License.  A copy of this license is available at
-dnl http://www.OpenLDAP.org/license.html or in file LICENSE in the
-dnl top-level directory of the distribution.
+dnl Public License.
 dnl
-dnl OpenLDAP Autoconf Macros
-dnl
+dnl A copy of this license is available in the file LICENSE in the
+dnl top-level directory of the distribution or, alternatively, at
+dnl <http://www.OpenLDAP.org/license.html>.
 divert(-1)
 builtin(include, build/openldap.m4)dnl
 
@@ -768,7 +766,9 @@ else
    ;;
 
   *)
-    AC_CHECK_FUNC([shl_load],
+    AC_CHECK_FUNC([dllload],
+    	[lt_cv_dlopen="dllload"],
+    [AC_CHECK_FUNC([shl_load],
           [lt_cv_dlopen="shl_load"],
       [AC_CHECK_LIB([dld], [shl_load],
             [lt_cv_dlopen="shl_load" lt_cv_dlopen_libs="-dld"],
@@ -785,6 +785,7 @@ else
 	  ])
 	])
       ])
+    ])
     ;;
   esac
 
@@ -933,8 +934,6 @@ fi
 set dummy $CC
 compiler="[$]2"
 
-## FIXME: this should be a separate macro
-##
 AC_MSG_CHECKING([for objdir])
 rm -f .libs 2>/dev/null
 mkdir .libs 2>/dev/null
@@ -946,12 +945,8 @@ else
 fi
 rmdir .libs 2>/dev/null
 AC_MSG_RESULT($objdir)
-##
-## END FIXME
 
 
-## FIXME: this should be a separate macro
-##
 AC_ARG_WITH(pic,
 [  --with-pic              try to use only PIC/non-PIC objects [default=use both]],
 pic_mode="$withval", pic_mode=default)
@@ -1048,6 +1043,10 @@ AC_CACHE_VAL(lt_cv_prog_cc_pic,
       lt_cv_prog_cc_pic='-KPIC'
       lt_cv_prog_cc_static='-Bstatic'
       ;;
+    
+    openedition)
+      # XPLINK code is PIC by default
+      ;;
 
     osf3* | osf4* | osf5*)
       # All OSF/1 code is PIC.
@@ -1138,8 +1137,6 @@ else
 
   AC_MSG_RESULT([$lt_cv_prog_cc_pic_works])
 fi
-##
-## END FIXME
 
 # Check for any special shared library compilation flags.
 if test -n "$lt_cv_prog_cc_shlib"; then
@@ -1151,8 +1148,6 @@ if test -n "$lt_cv_prog_cc_shlib"; then
   fi
 fi
 
-## FIXME: this should be a separate macro
-##
 AC_MSG_CHECKING([if $compiler static flag $lt_cv_prog_cc_static works])
 AC_CACHE_VAL([lt_cv_prog_cc_static_works], [dnl
   lt_cv_prog_cc_static_works=no
@@ -1172,12 +1167,8 @@ wl="$lt_cv_prog_cc_wl"
 link_static_flag="$lt_cv_prog_cc_static"
 no_builtin_flag="$lt_cv_prog_cc_no_builtin"
 can_build_shared="$lt_cv_prog_cc_can_build_shared"
-##
-## END FIXME
 
 
-## FIXME: this should be a separate macro
-##
 # Check to see if options -o and -c are simultaneously supported by compiler
 AC_MSG_CHECKING([if $compiler supports -c -o file.$ac_objext])
 AC_CACHE_VAL([lt_cv_compiler_c_o], [
@@ -1245,11 +1236,7 @@ if test x"$compiler_c_o" = x"yes"; then
 else
   compiler_o_lo=no
 fi
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 # Check to see if we can do hard links to lock some files if needed
 hard_links="nottested"
 if test "$compiler_c_o" = no && test "$need_locks" != no; then
@@ -1269,11 +1256,7 @@ if test "$compiler_c_o" = no && test "$need_locks" != no; then
 else
   need_locks=no
 fi
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 if test "$GCC" = yes; then
   # Check to see if options -fno-rtti -fno-exceptions are supported by compiler
   AC_MSG_CHECKING([if $compiler supports -fno-rtti -fno-exceptions])
@@ -1299,11 +1282,7 @@ if test "$GCC" = yes; then
     no_builtin_flag=' -fno-builtin'
   fi
 fi
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 # See if the linker supports building shared libraries.
 AC_MSG_CHECKING([whether the linker ($LD) supports shared libraries])
 
@@ -1808,6 +1787,12 @@ else
     fi
     ;;
 
+  openedition*)
+    archive_cmds="\$CC -Wl,DLL \$libobjs \$deplibs \$compiler_flags -o \$lib &&
+	cp \$linknames \$output_objdir && linknames=''"
+    export_dynamic_flag_spec="-Wl,DLL"
+    ;;
+
   os2*)
     hardcode_libdir_flag_spec='-L$libdir'
     hardcode_minus_L=yes
@@ -2001,11 +1986,7 @@ EOF
 fi
 AC_MSG_RESULT([$ld_shlibs])
 test "$ld_shlibs" = no && can_build_shared=no
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 # Check hardcoding attributes.
 AC_MSG_CHECKING([how to hardcode library paths into programs])
 hardcode_action=
@@ -2031,11 +2012,7 @@ else
   hardcode_action=unsupported
 fi
 AC_MSG_RESULT([$hardcode_action])
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 striplib=
 old_striplib=
 AC_MSG_CHECKING([whether stripping libraries is possible])
@@ -2046,14 +2023,10 @@ if test -n "$STRIP" && $STRIP -V 2>&1 | grep "GNU strip" >/dev/null; then
 else
   AC_MSG_RESULT([no])
 fi
-##
-## END FIXME
 
 reload_cmds='$LD$reload_flag -o $output$reload_objs'
 test -z "$deplibs_check_method" && deplibs_check_method=unknown
 
-## FIXME: this should be a separate macro
-##
 # PORTME Fill in your ld.so characteristics
 AC_MSG_CHECKING([dynamic linker characteristics])
 library_names_spec=
@@ -2357,6 +2330,17 @@ openbsd*)
   shlibpath_var=LD_LIBRARY_PATH
   ;;
 
+openedition*)
+  need_lib_prefix=no
+  need_version=no
+  shlibpath_overrides_runpath=yes
+  shlibpath_var=LIBPATH
+  postinstall_cmds="rm \$destdir/\$linkname; cp \$linkname \$destdir; chmod a+x \$lib"
+  # the library's exports are in libname.x; this is the file that must
+  # actually be linked with to use a DLL.
+  library_names_spec="\${libname}\${release}.so\$versuffix \${libname}.x"
+  ;;
+
 os2*)
   libname_spec='$name'
   need_lib_prefix=no
@@ -2463,19 +2447,11 @@ sysv4*MP*)
 esac
 AC_MSG_RESULT([$dynamic_linker])
 test "$dynamic_linker" = no && can_build_shared=no
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 # Report the final consequences.
 AC_MSG_CHECKING([if libtool supports shared libraries])
 AC_MSG_RESULT([$can_build_shared])
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 AC_MSG_CHECKING([whether to build shared libraries])
 test "$can_build_shared" = "no" && enable_shared=no
 
@@ -2497,17 +2473,11 @@ aix4*)
   ;;
 esac
 AC_MSG_RESULT([$enable_shared])
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 AC_MSG_CHECKING([whether to build static libraries])
 # Make sure either enable_shared or enable_static is yes.
 test "$enable_shared" = yes || enable_static=yes
 AC_MSG_RESULT([$enable_static])
-##
-## END FIXME
 
 if test "$hardcode_action" = relink; then
   # Fast installation is not supported
@@ -2525,8 +2495,6 @@ fi
 
 AC_LIBTOOL_DLOPEN_SELF
 
-## FIXME: this should be a separate macro
-##
 if test "$enable_shared" = yes && test "$GCC" = yes; then
   case $archive_cmds in
   *'~'*)
@@ -2569,11 +2537,7 @@ if test "$enable_shared" = yes && test "$GCC" = yes; then
   esac
 fi
 need_lc=${lt_cv_archive_cmds_need_lc-yes}
-##
-## END FIXME
 
-## FIXME: this should be a separate macro
-##
 # The second clause should only fire when bootstrapping the
 # libtool distribution, otherwise you forgot to ship ltmain.sh
 # with your package, and you will get complaints that there are
@@ -3126,8 +3090,6 @@ EOF
     (rm -f "$ofile" && cp "${ofile}T" "$ofile" && rm -f "${ofile}T")
   chmod +x "$ofile"
 fi
-##
-## END FIXME
 
 ])# _LT_AC_LTCONFIG_HACK
 
@@ -3557,6 +3519,10 @@ openbsd*)
   fi
   ;;
 
+openedition*)
+  lt_cv_deplibs_check_method=pass_all
+  ;;
+
 osf3* | osf4* | osf5*)
   # this will be overridden with pass_all, but let us keep it just in case
   lt_cv_deplibs_check_method='file_magic COFF format alpha shared library'
@@ -3731,12 +3697,10 @@ AC_DEFUN([AM_PROG_NM],        [AC_PROG_NM])
 # This is just to silence aclocal about the macro not being used
 ifelse([AC_DISABLE_FAST_INSTALL])
 
-############################################################
 # NOTE: This macro has been submitted for inclusion into   #
 #  GNU Autoconf as AC_PROG_SED.  When it is available in   #
 #  a released version of Autoconf we should remove this    #
 #  macro and use it instead.                               #
-############################################################
 # LT_AC_PROG_SED
 # --------------
 # Check for a fully-functional sed program, that truncates
@@ -3821,6 +3785,7 @@ else
 fi
 AC_MSG_RESULT([$SED])
 ])
+
 
 # serial 1
 

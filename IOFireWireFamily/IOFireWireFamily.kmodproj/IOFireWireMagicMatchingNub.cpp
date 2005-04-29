@@ -21,6 +21,7 @@
  */
  
 #include "IOFireWireMagicMatchingNub.h"
+#include <IOKit/firewire/IOFireWireFamilyCommon.h>
 
 OSDefineMetaClassAndStructors(IOFireWireMagicMatchingNub, IOService)
 
@@ -32,4 +33,37 @@ bool IOFireWireMagicMatchingNub::matchPropertyTable( OSDictionary * table )
         return false;
         
     return clientClass->isEqualTo( getProperty( "IODesiredChild" ) );
+}
+
+// message
+//
+//
+
+IOReturn IOFireWireMagicMatchingNub::message( 	UInt32 		mess, 
+												IOService *	provider,
+												void * 		argument )
+{
+    // Propagate bus reset start/end messages
+    if( kIOMessageServiceIsResumed == mess ||
+        kIOMessageServiceIsSuspended == mess ||
+        kIOMessageServiceIsRequestingClose == mess ||
+        kIOFWMessageServiceIsRequestingClose == mess ) 
+	{
+ 		messageClients( mess );
+        return kIOReturnSuccess;
+    }
+	
+	if( kIOFWMessagePowerStateChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+
+	if( kIOFWMessageTopologyChanged == mess )
+	{
+		messageClients( mess );
+		return kIOReturnSuccess;
+	}
+	
+    return IOService::message(mess, provider, argument );
 }

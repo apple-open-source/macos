@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 
 fetch "/dirty-perl/dirty-script.cgi";
 

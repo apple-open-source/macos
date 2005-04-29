@@ -1,4 +1,4 @@
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -178,22 +178,30 @@ typedef void *jmethodID;
 
 #define JNIIMPORT        __declspec(dllimport)
 #define JNIEXPORT        __declspec(dllexport)
+
 #define JNICALL          __stdcall
 
-#else
+/* These defines apply to symbols in libgcj */
+#ifdef __GCJ_DLL__
+# ifdef __GCJ_JNI_IMPL__
+#  define __GCJ_JNIIMPEXP__ JNIEXPORT
+# else
+#  define __GCJ_JNIIMPEXP__ JNIIMPORT
+# endif /* ! __GCJ_JNI_IMPL__ */
+#else /* ! __GCJ_DLL__ */
+# define __GCJ_JNIIMPEXP__
+#endif /*  __GCJ_DLL__ */
+
+#else /* !( _WIN32 || __WIN32__ || WIN32) */
 
 #define JNIIMPORT
 #define JNIEXPORT
 #define JNICALL
+#define __GCJ_JNIIMPEXP__
 
 #endif /* !( _WIN32 || __WIN32__ || WIN32) */
 
-#ifdef __GCJ_JNI_IMPL__
-#define JNIIMPEXP JNIEXPORT
-#else
-#define JNIIMPEXP JNIIMPORT
-#endif /* ! __GCJ_JNI_IMPL__ */
-
+ 
 #ifdef __cplusplus
 extern "C"
 {
@@ -206,12 +214,17 @@ extern JNIEXPORT void JNICALL JNI_OnUnload (JavaVM *, void *);
 
 /* These functions are called by user code to start using the
    invocation API.  */
-extern JNIIMPEXP jint JNICALL JNI_GetDefaultJavaVMInitArgs (void *);
-extern JNIIMPEXP jint JNICALL JNI_CreateJavaVM (JavaVM **, void **, void *);
-extern JNIIMPEXP jint JNICALL JNI_GetCreatedJavaVMs(JavaVM **, jsize, jsize *);
+extern __GCJ_JNIIMPEXP__ jint JNICALL
+JNI_GetDefaultJavaVMInitArgs (void *);
+
+extern __GCJ_JNIIMPEXP__ jint JNICALL
+JNI_CreateJavaVM (JavaVM **, void **, void *);
+
+extern __GCJ_JNIIMPEXP__ jint JNICALL
+JNI_GetCreatedJavaVMs(JavaVM **, jsize, jsize *);
 
 #ifdef __cplusplus
-};
+}
 #endif /* __cplusplus */
 
 typedef union jvalue
@@ -227,12 +240,6 @@ typedef union jvalue
   jobject  l;
 } jvalue;
 
-#ifdef __cplusplus
-typedef void * (*_Jv_func) (...);
-#else
-typedef void * (*_Jv_func) ();
-#endif
-
 /* This structure is used when registering native methods.  */
 typedef struct
 {
@@ -243,10 +250,10 @@ typedef struct
 
 struct JNINativeInterface
 {
-  _Jv_func reserved0;
-  _Jv_func reserved1;
-  _Jv_func reserved2;
-  _Jv_func reserved3;
+  void *reserved0;
+  void *reserved1;
+  void *reserved2;
+  void *reserved3;
 
   jint     (JNICALL *GetVersion)                   (JNIEnv *);
   jclass   (JNICALL *DefineClass)                  (JNIEnv *, const char *,
@@ -1561,9 +1568,9 @@ public:
 
 struct JNIInvokeInterface
 {
-  _Jv_func reserved0;
-  _Jv_func reserved1;
-  _Jv_func reserved2;
+  void *reserved0;
+  void *reserved1;
+  void *reserved2;
 
   jint (JNICALL *DestroyJavaVM)         (JavaVM *);
   jint (JNICALL *AttachCurrentThread)   (JavaVM *, void **, void *);

@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: layer.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>
 
 #include "config.h"
@@ -101,6 +98,8 @@ int x, y;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       if (cv != D_forecv)
 	continue;
       x2 = x + cv->c_xoff;
@@ -154,6 +153,8 @@ struct mline *ol;
 	if (xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+	if (D_blocked)
+	  continue;
 	ScrollH(y2, xs2, xe2, n, bce, ol ? mloff(ol, -vp->v_xoff) : 0);
 	if (xe2 - xs2 == xe - xs)
 	  continue;
@@ -206,6 +207,8 @@ int bce;
 	if (ys2 > ye2 || xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+	if (D_blocked)
+	  continue;
 #if 0
 	ScrollV(xs2, ys2, xe2, ye2, n, bce);
 #else
@@ -281,6 +284,8 @@ struct mline *ol;
 	if (xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+	if (D_blocked)
+	  continue;
         rol = RECODE_MLINE(ol);
 	InsChar(RECODE_MCHAR(c2), xs2, xe2, y2, mloff(rol, -vp->v_xoff));
 	if (f)
@@ -307,6 +312,8 @@ int x, y;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       for (vp = cv->c_vplist; vp; vp = vp->v_next)
 	{
 	  y2 = y + vp->v_yoff;
@@ -358,6 +365,8 @@ int x, y;
 	if (xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+        if (D_blocked)
+	  continue;
 	GotoPos(xs2, y2);
 	SetRendition(r);
 	s2 = s + xs2 - x - vp->v_xoff;
@@ -420,6 +429,8 @@ int x, y;
 	if (xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+        if (D_blocked)
+	  continue;
 	GotoPos(xs2, y2);
 	SetRendition(r);
 	len2 = xe2 - (x + vp->v_xoff) + 1;
@@ -476,6 +487,8 @@ struct mline *ol;
 	if (xs2 > xe2)
 	  continue;
 	display = cv->c_display;
+        if (D_blocked)
+	  continue;
 	ClearLine(ol ? mloff(RECODE_MLINE(ol), -vp->v_xoff) : (struct mline *)0, y2, xs2, xe2, bce);
       }
 }
@@ -500,50 +513,55 @@ int uself;
   if (xe >= l->l_width)
     xe = l->l_width - 1;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
-    for (vp = cv->c_vplist; vp; vp = vp->v_next)
-      {
-	xs2 = xs + vp->v_xoff;
-	xe2 = xe + vp->v_xoff;
-	ys2 = ys + vp->v_yoff;
-	ye2 = ye + vp->v_yoff;
-	if (xs2 < vp->v_xs)
-	  xs2 = vp->v_xs;
-	if (xe2 > vp->v_xe)
-	  xe2 = vp->v_xe;
-	if (xs2 > vp->v_xe)
-	  ys2++;
-	if (xe2 < vp->v_xs)
-	  ye2--;
-	if (ys2 < vp->v_ys)
-	  ys2 = vp->v_ys;
-	if (ye2 > vp->v_ye)
-	  ye2 = vp->v_ye;
-	if (ys2 > ye2)
-	  continue;
+    {
+      display = cv->c_display;
+      if (D_blocked)
+	continue;
+      for (vp = cv->c_vplist; vp; vp = vp->v_next)
+	{
+	  xs2 = xs + vp->v_xoff;
+	  xe2 = xe + vp->v_xoff;
+	  ys2 = ys + vp->v_yoff;
+	  ye2 = ye + vp->v_yoff;
+	  if (xs2 < vp->v_xs)
+	    xs2 = vp->v_xs;
+	  if (xe2 > vp->v_xe)
+	    xe2 = vp->v_xe;
+	  if (xs2 > vp->v_xe)
+	    ys2++;
+	  if (xe2 < vp->v_xs)
+	    ye2--;
+	  if (ys2 < vp->v_ys)
+	    ys2 = vp->v_ys;
+	  if (ye2 > vp->v_ye)
+	    ye2 = vp->v_ye;
+	  if (ys2 > ye2)
+	    continue;
 #if 0
-	xcs = vp->v_xoff;
-	xce = l->l_width - 1 + vp->v_xoff;
-	if (xcs < vp->v_xs)
-	  xcs = vp->v_xs;
-	if (xce > vp->v_xe)
-	  xce = vp->v_xe;
-	if (xcs > xce)
-	  continue;
-	if (ys2 != ys + vp->v_yoff)
-	  xs2 = xcs;
-	if (ye2 != ye + vp->v_yoff)
-	  xe2 = xce;
-	display = cv->c_display;
-	ClearArea(xs2, ys2, xcs, xce, xe2, ye2, bce, uself);
+	  xcs = vp->v_xoff;
+	  xce = l->l_width - 1 + vp->v_xoff;
+	  if (xcs < vp->v_xs)
+	    xcs = vp->v_xs;
+	  if (xce > vp->v_xe)
+	    xce = vp->v_xe;
+	  if (xcs > xce)
+	    continue;
+	  if (ys2 != ys + vp->v_yoff)
+	    xs2 = xcs;
+	  if (ye2 != ye + vp->v_yoff)
+	    xe2 = xce;
+	  display = cv->c_display;
+	  ClearArea(xs2, ys2, xcs, xce, xe2, ye2, bce, uself);
 #else
-	if (xs == 0 || ys2 != ys + vp->v_yoff)
-	  xs2 = vp->v_xs;
-	if (xe == l->l_width - 1 || ye2 != ye + vp->v_yoff)
-	  xe2 = vp->v_xe;
-	display = cv->c_display;
-	ClearArea(xs2, ys2, vp->v_xs, vp->v_xe, xe2, ye2, bce, uself);
+	  if (xs == 0 || ys2 != ys + vp->v_yoff)
+	    xs2 = vp->v_xs;
+	  if (xe == l->l_width - 1 || ye2 != ye + vp->v_yoff)
+	    xe2 = vp->v_xe;
+	  display = cv->c_display;
+	  ClearArea(xs2, ys2, vp->v_xs, vp->v_xe, xe2, ye2, bce, uself);
 #endif
-      }
+	}
+    }
 }
 
 void
@@ -564,24 +582,29 @@ int isblank;
     }
 #endif
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
-    for (vp = cv->c_vplist; vp; vp = vp->v_next)
-      {
-	xs2 = xs + vp->v_xoff;
-	xe2 = xe + vp->v_xoff;
-	y2  = y + vp->v_yoff;
-	if (y2 < vp->v_ys || y2 > vp->v_ye)
-	  continue;
-	if (xs2 < vp->v_xs)
-	  xs2 = vp->v_xs;
-	if (xe2 > vp->v_xe)
-	  xe2 = vp->v_xe;
-	if (xs2 > xe2)
-	  continue;
-	display = cv->c_display;
-	debug3("LCDisplayLine: DisplayLine %d, %d-%d", y2, xs2, xe2);
-	debug1("  mloff = %d\n", -vp->v_xoff);
-	DisplayLine(isblank ? &mline_blank : &mline_null, mloff(RECODE_MLINE(ml), -vp->v_xoff), y2, xs2, xe2);
-      }
+    {
+      display = cv->c_display;
+      if (D_blocked)
+	continue;
+      for (vp = cv->c_vplist; vp; vp = vp->v_next)
+	{
+	  xs2 = xs + vp->v_xoff;
+	  xe2 = xe + vp->v_xoff;
+	  y2  = y + vp->v_yoff;
+	  if (y2 < vp->v_ys || y2 > vp->v_ye)
+	    continue;
+	  if (xs2 < vp->v_xs)
+	    xs2 = vp->v_xs;
+	  if (xe2 > vp->v_xe)
+	    xe2 = vp->v_xe;
+	  if (xs2 > xe2)
+	    continue;
+	  display = cv->c_display;
+	  debug3("LCDisplayLine: DisplayLine %d, %d-%d", y2, xs2, xe2);
+	  debug1("  mloff = %d\n", -vp->v_xoff);
+	  DisplayLine(isblank ? &mline_blank : &mline_null, mloff(RECODE_MLINE(ml), -vp->v_xoff), y2, xs2, xe2);
+	}
+    }
 }
 
 void
@@ -612,14 +635,14 @@ struct layer *l;
 struct mchar *r;
 {
   struct canvas *cv;
-  struct viewport *vp;
 
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
-    for (vp = cv->c_vplist; vp; vp = vp->v_next)
-      {
-	display = cv->c_display;
-	SetRendition(r);
-      }
+    {
+      display = cv->c_display;
+      if (D_blocked)
+	continue;
+      SetRendition(r);
+    }
 }
 
 void
@@ -650,6 +673,8 @@ int ins;
 	{
 	  y2 = 0;       /* gcc -Wall */
 	  display = cv->c_display;
+	  if (D_blocked)
+	    continue;
 	  /* find the viewport of the wrapped character */
 	  for (vp = cv->c_vplist; vp; vp = vp->v_next)
 	    {
@@ -692,6 +717,8 @@ int ins;
       for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
 	{
 	  display = cv->c_display;
+	  if (D_blocked)
+	    continue;
 	  /* search for wrap viewport */
 	  for (vpp = &cv->c_vplist; (vp = *vpp); vpp = &vp->v_next)
 	    {
@@ -748,6 +775,8 @@ int vis;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       if (cv != D_forecv)
 	continue;
       CursorVisibility(vis);
@@ -778,6 +807,8 @@ int on;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       if (cv != D_forecv)
 	continue;
       KeypadMode(on);
@@ -793,6 +824,8 @@ int on;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       if (cv != D_forecv)
 	continue;
       CursorkeysMode(on);
@@ -808,6 +841,8 @@ int on;
   for (cv = l->l_cvlist; cv; cv = cv->c_lnext)
     {
       display = cv->c_display;
+      if (D_blocked)
+	continue;
       if (cv != D_forecv)
 	continue;
       MouseMode(on);

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = client.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble ipconfig.8
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
@@ -30,6 +30,7 @@ PROF_LIBS = $(LIBS)
 
 HEADER_PATHS = -I../bootplib
 FRAMEWORK_PATHS = -F$(NEXT_ROOT)/System/Library/PrivateFrameworks
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings -mdynamic-no-pic
 FRAMEWORKS = -framework CoreFoundation -framework IOKit\
              -framework SystemConfiguration
 

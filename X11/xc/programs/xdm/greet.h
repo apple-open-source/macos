@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/greet.h,v 1.8 2001/12/14 20:01:22 dawes Exp $ */
+/* $XFree86: xc/programs/xdm/greet.h,v 1.10 2003/09/21 13:03:03 herrb Exp $ */
 
 /*
  * greet.h - interface to xdm's dynamically-loadable modular greeter
@@ -37,7 +37,7 @@ from The Open Group.
 /*
  * Do this rather than break a build over a const-mismatch
  */
-#if defined(__linux__) || defined(CSRG_BASED)
+#if defined(__linux__) || defined(CSRG_BASED) || (defined(sun) && defined(SVR4))
 #define CRYPT_ARGS    const char *s1, const char *s2
 #define GETSPNAM_ARGS const char *name
 #define GETPWNAM_ARGS const char *name
@@ -120,25 +120,11 @@ typedef enum {
  * option such as SECURE_RPC or K5AUTH.
  */
 
-extern greet_user_rtn GreetUser(
-#if NeedFunctionPrototypes
-    struct display *d,
-    Display **dpy,
-    struct verify_info *verify,
-    struct greet_info *greet,
-    struct dlfuncs *dlfcns
-#endif
-);
+extern greet_user_rtn GreetUser(struct display *, Display **,
+    struct verify_info *, struct greet_info *, struct dlfuncs *);
 
-typedef greet_user_rtn (*GreetUserProc)(
-#if NeedFunctionPrototypes
-    struct display *,
-    Display **,
-    struct verify_info *,
-    struct greet_info *,
-    struct dlfuncs *dlfcns
-#endif
-);
+typedef greet_user_rtn (*GreetUserProc)(struct display *, Display **,
+    struct verify_info *, struct greet_info *, struct dlfuncs *dlfcns);
 
 #ifdef GREET_LIB
 /*

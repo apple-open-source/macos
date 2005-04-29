@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2001, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -25,6 +25,7 @@
 #include "cstring.h"
 #include "filestrm.h"
 #include "toolutil.h"
+#include "unicode/uclean.h"
 #include "unewdata.h"
 #include "uoptions.h"
 
@@ -33,6 +34,42 @@
 
 #define COMMON_DATA_NAME U_ICUDATA_NAME
 #define DATA_TYPE "dat"
+
+/* ICU package data file format (.dat files) ------------------------------- ***
+
+Description of the data format after the usual ICU data file header
+(UDataInfo etc.).
+
+Format version 1
+
+A .dat package file contains a simple Table of Contents of item names,
+followed by the items themselves:
+
+1. ToC table
+
+uint32_t count; - number of items
+UDataOffsetTOCEntry entry[count]; - pair of uint32_t values per item:
+    uint32_t nameOffset; - offset of the item name
+    uint32_t dataOffset; - offset of the item data
+both are byte offsets from the beginning of the data
+
+2. item name strings
+
+All item names are stored as char * strings in one block between the ToC table
+and the data items.
+
+3. data items
+
+The data items are stored following the item names block.
+Each data item is 16-aligned.
+The data items are stored in the sorted order of their names.
+
+Therefore, the top of the name strings block is the offset of the first item,
+the length of the last item is the difference between its offset and
+the .dat file length, and the length of all previous items is the difference
+between its offset and the next one.
+
+----------------------------------------------------------------------------- */
 
 /* UDataInfo cf. udata.h */
 static const UDataInfo dataInfo={
@@ -61,6 +98,7 @@ typedef struct {
 
 static File files[MAX_FILE_COUNT];
 static uint32_t fileCount=0;
+static UBool embed = FALSE;
 
 /* prototypes --------------------------------------------------------------- */
 
@@ -73,6 +111,12 @@ allocString(uint32_t length);
 static int
 compareFiles(const void *file1, const void *file2);
 
+static char * 
+pathToFullPath(const char *path);
+
+/* map non-tree separator (such as '\') to tree separator ('/') inplace. */
+static void
+fixDirToTreePath(char *s);
 /* -------------------------------------------------------------------------- */
 
 static UOption options[]={
@@ -85,7 +129,9 @@ static UOption options[]={
 /*6*/ UOPTION_DEF( "name", 'n', UOPT_REQUIRES_ARG),
 /*7*/ UOPTION_DEF( "type", 't', UOPT_REQUIRES_ARG),
 /*8*/ UOPTION_DEF( "source", 'S', UOPT_NO_ARG),
-/*9*/ UOPTION_DEF( "entrypoint", 'e', UOPT_REQUIRES_ARG)
+/*9*/ UOPTION_DEF( "entrypoint", 'e', UOPT_REQUIRES_ARG),
+/*10*/UOPTION_SOURCEDIR,
+/*11*/UOPTION_DEF( "embed", 'E', UOPT_NO_ARG)
 };
 
 static char *symPrefix = NULL;
@@ -107,6 +153,7 @@ main(int argc, char* argv[]) {
     options[4].value=u_getDataDirectory();
     options[6].value=COMMON_DATA_NAME;
     options[7].value=DATA_TYPE;
+    options[10].value=".";
     argc=u_parseArgs(argc, argv, sizeof(options)/sizeof(options[0]), options);
 
     /* error handling, printing usage message */
@@ -117,6 +164,11 @@ main(int argc, char* argv[]) {
     } else if(argc<2) {
         argc=-1;
     }
+
+    if(options[11].doesOccur) {
+      embed = TRUE;
+    }
+
     if(argc<0 || options[0].doesOccur || options[1].doesOccur) {
         FILE *where = argc < 0 ? stderr : stdout;
         
@@ -125,11 +177,11 @@ main(int argc, char* argv[]) {
          * required supported string length is 509 bytes.
          */
         fprintf(where,
-                "%csage: %s [ -h, -?, --help ] [ -v, --verbose ] [ -c, --copyright ] [ -C, --comment comment ] [ -d, --destdir dir ] [ -n, --name filename ] [ -t, --type filetype ] [ -S, --source tocfile ] [ -e, --entrypoint name ] [ maxsize ] [ [ -f ] filename ]\n", argc < 0 ? 'u' : 'U', *argv);
+                "%csage: %s [ -h, -?, --help ] [ -v, --verbose ] [ -c, --copyright ] [ -C, --comment comment ] [ -d, --destdir dir ] [ -n, --name filename ] [ -t, --type filetype ] [ -S, --source tocfile ] [ -e, --entrypoint name ] maxsize listfile\n", argc < 0 ? 'u' : 'U', *argv);
         if (options[0].doesOccur || options[1].doesOccur) {
             fprintf(where, "\n"
-            "Read the list file (default: standard input) and create a common data\n"
-                    "file from specified files; omit any larger than maxsize.\n");
+                "Read the list file (default: standard input) and create a common data\n"
+                "file from specified files. Omit any files larger than maxsize, if maxsize > 0.\n");
             fprintf(where, "\n"
             "Options:\n"
             "\t-h, -?, --help              this usage text\n"
@@ -193,7 +245,14 @@ main(int argc, char* argv[]) {
         }
 
         /* add the file */
-
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+        {
+          char *t;
+          while((t = uprv_strchr(line,U_FILE_ALT_SEP_CHAR))) {
+            *t = U_FILE_SEP_CHAR;
+          }
+        }
+#endif
         addFile(getLongPathname(line), sourceTOC, verbose);
     }
 
@@ -277,9 +336,15 @@ main(int argc, char* argv[]) {
             length=files[i].fileSize;
 
             if (nread != files[i].fileSize) {
-                fprintf(stderr, "gencmn: unable to read %s properly (got %ld/%ld byte%s)\n", files[i].pathname, (long)nread, (long)files[i].fileSize, files[i].fileSize == 1 ? "" : "s");
+              fprintf(stderr, "gencmn: unable to read %s properly (got %ld/%ld byte%s)\n", files[i].pathname,  (long)nread, (long)files[i].fileSize, files[i].fileSize == 1 ? "" : "s");
                 exit(U_FILE_ACCESS_ERROR);
             }
+        }
+
+        /* pad to 16-align the last file (cleaner, avoids growing .dat files in icuswap) */
+        length&=0xf;
+        if(length!=0) {
+            udata_writePadding(out, 16-length);
         }
 
         /* finish */
@@ -325,16 +390,18 @@ main(int argc, char* argv[]) {
 
 
 #if 0
-        symPrefix = (char *) uprv_malloc(uprv_strlen(entrypointName) + 2);
-
-        /* test for NULL */
-	if (symPrefix == NULL) {
-	    sprintf(buffer, "U_MEMORY_ALLOCATION_ERROR");
-	    exit(U_MEMORY_ALLOCATION_ERROR);
-	}
-
-        uprv_strcpy(symPrefix, entrypointName);
-        uprv_strcat(symPrefix, "_");
+        if(!embed) {
+          symPrefix = (char *) uprv_malloc(uprv_strlen(entrypointName) + 2);
+          
+          /* test for NULL */
+          if (symPrefix == NULL) {
+            sprintf(buffer, "U_MEMORY_ALLOCATION_ERROR");
+            exit(U_MEMORY_ALLOCATION_ERROR);
+          }
+          
+          uprv_strcpy(symPrefix, entrypointName);
+          uprv_strcat(symPrefix, "_");
+        }
 #endif
 
         /* write the source file */
@@ -360,7 +427,7 @@ main(int argc, char* argv[]) {
 
         sprintf(
             buffer,
-            "U_EXPORT const struct {\n"
+            "U_EXPORT struct {\n"
             "    uint16_t headerSize;\n"
             "    uint8_t magic1, magic2;\n"
             "    UDataInfo info;\n"
@@ -410,6 +477,7 @@ static void
 addFile(const char *filename, UBool sourceTOC, UBool verbose) {
     char *s;
     uint32_t length;
+    char *fullPath = NULL;
 
     if(fileCount==MAX_FILE_COUNT) {
         fprintf(stderr, "gencmn: too many files, maximum is %d\n", MAX_FILE_COUNT);
@@ -419,38 +487,53 @@ addFile(const char *filename, UBool sourceTOC, UBool verbose) {
     if(!sourceTOC) {
         FileStream *file;
 
+        fullPath = pathToFullPath(filename);
+
         /* store the pathname */
-        length = (uint32_t)(uprv_strlen(filename) + 1);
-        s=allocString(length);
-        uprv_memcpy(s, filename, length);
-        files[fileCount].pathname=s;
+        if(!embed) {
+            length = (uint32_t)(uprv_strlen(filename) + 1 + uprv_strlen(options[6].value) + 1);
+            s=allocString(length);
+            uprv_strcpy(s, options[6].value);
+            uprv_strcat(s, U_TREE_ENTRY_SEP_STRING);
+            uprv_strcat(s, filename);
+        } else {
+            /* compatibility mode */
+            const char *base;
+            base = findBasename(filename);
+            length = (uint32_t)(uprv_strlen(base) + 1);
+            s=allocString(length);
+            uprv_memcpy(s, base, length);
+        }
 
         /* get the basename */
-        s=(char *)findBasename(s);
+        fixDirToTreePath(s);
         files[fileCount].basename=s;
-        length = (uint32_t)(uprv_strlen(s) + 1);
         files[fileCount].basenameLength=length;
+
+        files[fileCount].pathname=fullPath;
+
         basenameTotal+=length;
 
         /* try to open the file */
-        file=T_FileStream_open(filename, "rb");
+        file=T_FileStream_open(fullPath, "rb");
         if(file==NULL) {
-            fprintf(stderr, "gencmn: unable to open listed file %s\n", filename);
+            fprintf(stderr, "gencmn: unable to open listed file %s\n", fullPath);
             exit(U_FILE_ACCESS_ERROR);
         }
 
         /* get the file length */
         length=T_FileStream_size(file);
         if(T_FileStream_error(file) || length<=20) {
-            fprintf(stderr, "gencmn: unable to get length of listed file %s\n", filename);
+            fprintf(stderr, "gencmn: unable to get length of listed file %s\n", fullPath);
             exit(U_FILE_ACCESS_ERROR);
         }
+        
         T_FileStream_close(file);
 
         /* do not add files that are longer than maxSize */
         if(maxSize && length>maxSize) {
             if (verbose) {
-                printf("%s ignored (size %ld > %ld)\n", filename, (long)length, (long)maxSize);
+                printf("%s ignored (size %ld > %ld)\n", fullPath, (long)length, (long)maxSize);
             }
             return;
         }
@@ -458,17 +541,30 @@ addFile(const char *filename, UBool sourceTOC, UBool verbose) {
     } else {
         char *t;
 
+        if(embed) {
+            filename = findBasename(filename);
+        }
         /* get and store the basename */
-        filename=findBasename(filename);
-        length = (uint32_t)(uprv_strlen(filename) + 1);
-        s=allocString(length);
-        uprv_memcpy(s, filename, length);
+        if(!embed) {
+            /* need to include the package name */
+            length = (uint32_t)(uprv_strlen(filename) + 1 + uprv_strlen(options[6].value) + 1);
+            s=allocString(length);
+            uprv_strcpy(s, options[6].value);
+            uprv_strcat(s, U_TREE_ENTRY_SEP_STRING);
+            uprv_strcat(s, filename);
+        } else {
+            length = (uint32_t)(uprv_strlen(filename) + 1);
+            s=allocString(length);
+            uprv_memcpy(s, filename, length);
+        }
+        fixDirToTreePath(s);
         files[fileCount].basename=s;
+
 
         /* turn the basename into an entry point name and store in the pathname field */
         t=files[fileCount].pathname=allocString(length);
         while(--length>0) {
-            if(*s=='.' || *s=='-') {
+            if(*s=='.' || *s=='-' || *s=='/') {
                 *t='_';
             } else {
                 *t=*s;
@@ -478,7 +574,6 @@ addFile(const char *filename, UBool sourceTOC, UBool verbose) {
         }
         *t=0;
     }
-
     ++fileCount;
 }
 
@@ -496,12 +591,71 @@ allocString(uint32_t length) {
     return p;
 }
 
+static char * 
+pathToFullPath(const char *path) {
+    int32_t length;
+    int32_t newLength;
+    char *fullPath;
+    int32_t n;
+
+    length = (uint32_t)(uprv_strlen(path) + 1);
+    newLength = (length + 1 + (int32_t)uprv_strlen(options[10].value));
+    fullPath = uprv_malloc(newLength);
+    if(options[10].doesOccur) {
+        uprv_strcpy(fullPath, options[10].value);
+        uprv_strcat(fullPath, U_FILE_SEP_STRING);
+    } else {
+        fullPath[0] = 0;
+    }
+    n = (int32_t)uprv_strlen(fullPath);
+    uprv_strcat(fullPath, path);
+
+    if(!embed) {
+#if (U_FILE_ALT_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR)
+#if (U_FILE_ALT_SEP_CHAR != U_FILE_SEP_CHAR)
+        /* replace tree separator (such as '/') with file sep char (such as ':' or '\\') */
+        for(;fullPath[n];n++) {
+            if(fullPath[n] == U_FILE_ALT_SEP_CHAR) {
+                fullPath[n] = U_FILE_SEP_CHAR;
+            }
+        }
+#endif
+#endif
+#if (U_FILE_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR)
+        /* replace tree separator (such as '/') with file sep char (such as ':' or '\\') */
+        for(;fullPath[n];n++) {
+            if(fullPath[n] == U_TREE_ENTRY_SEP_CHAR) {
+                fullPath[n] = U_FILE_SEP_CHAR;
+            }
+        }
+#endif
+    }
+    return fullPath;
+}
+
 static int
 compareFiles(const void *file1, const void *file2) {
     /* sort by basename */
     return uprv_strcmp(((File *)file1)->basename, ((File *)file2)->basename);
 }
 
+static void
+fixDirToTreePath(char *s)
+{
+#if (U_FILE_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR) || ((U_FILE_ALT_SEP_CHAR != U_FILE_SEP_CHAR) && (U_FILE_ALT_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR))
+    char *t;
+#endif
+#if (U_FILE_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR)
+    for(t=s;t=uprv_strchr(t,U_FILE_SEP_CHAR);) {
+        *t = U_TREE_ENTRY_SEP_CHAR;
+    }
+#endif
+#if (U_FILE_ALT_SEP_CHAR != U_FILE_SEP_CHAR) && (U_FILE_ALT_SEP_CHAR != U_TREE_ENTRY_SEP_CHAR)
+    for(t=s;t=uprv_strchr(t,U_FILE_ALT_SEP_CHAR);) {
+        *t = U_TREE_ENTRY_SEP_CHAR;
+    }
+#endif
+}
 /*
  * Hey, Emacs, please set the following:
  *

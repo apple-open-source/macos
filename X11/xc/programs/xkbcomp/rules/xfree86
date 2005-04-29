@@ -5,11 +5,11 @@
 //  Copyright 1996 by Joseph Moss
 //
 //  2002 Modifier: Ivan Pascal      The XFree86 Project
-//  $XFree86: xc/programs/xkbcomp/rules/xfree86,v 3.61 2003/02/20 04:36:09 dawes Exp $
+//  $XFree86: xc/programs/xkbcomp/rules/xfree86,v 3.80 2004/01/17 14:59:36 pascal Exp $
 //
 
 // Layouts that still need be composed by old rules
-! $oldlayouts = az bs ca ca_enhanced de_CH fr_CH hu hu_qwerty lt_std mn vn
+! $oldlayouts = az bs ca ca_enhanced de_CH fr_CH hu hu_qwerty lt_std mn vn hr_US
 
 // If you want non-latin layouts implicitly include the en_US layout
 // uncomment lines below
@@ -18,17 +18,19 @@
 //              tj tml ua
 
 ! $pcmodels = pc101 pc102 pc104 pc105
-! $mac = macintosh macintosh_old
+! $maclaptop = ibook powerbook
+! $mac = macintosh macintosh_old ibook powerbook
 
 ! model 	=	keycodes
   macintosh_old	=	macintosh
   powerpcps2	=	powerpcps2
   pc98		=	xfree98(pc98)
   abnt2		=	xfree86(abnt2)
+  jp106		=	xfree86(jp106)
   *		=	xfree86
 
 ! $azerty = be fr fr-latin9
-! $qwertz = al cz de hr pl2 si sk
+! $qwertz = al cz de hr pl2 ro si sk 
 
 ! layout[1]	=	keycodes
   $azerty       =       +aliases(azerty)
@@ -46,26 +48,30 @@
   microsoftprose =	microsoft(natural)
   dell101	=	dell(dell101)
   flexpro	=	keytronic(FlexPro)
+  hp6000	=	hp(omnibook)
   omnikey101	=	northgate(omnikey101)
+  thinkpad	=	ibm/thinkpad(common)
  $pcmodels	=	pc(%m)
   jp106		=	pc(jp106)
   everex	=	everex(STEPnote)
   winbook	=	winbook(XP5)
   pc98		=	nec(pc98)
-  abnt2		=	pc
-  macintosh	=	macintosh(macintosh)
-  macintosh_old	=	macintosh(macintosh)
+  abnt2		=	pc(abnt2)
+ $mac		=	macintosh(macintosh)
   *		=       pc(pc104)
 
 ! model		variant		layout	=	symbols
-  macintosh	nodeadkeys	*	=	macintosh/us(extended)+macintosh/%l%(v)
+ $maclaptop	nodeadkeys	*	=	macintosh/us(extended)+macintosh/%l%(v)+apple(laptop_bad_switch)
+ $mac		nodeadkeys	*	=	macintosh/us(extended)+macintosh/%l%(v)
  $pcmodels	nodeadkeys  $oldlayouts	=	en_US(%m%_v)+%l%(v)
   *		nodeadkeys  $oldlayouts	=	en_US(pc105%_v)+%l%(v)
 
 ! model		layout	=	symbols
   pc98		nec/jp	=	nec/jp(pc98)
-  abnt2		br	=	us(pc101)+br
- $pcmodels	us_intl	=	us(%m)+us_intl
+  abnt2		br	=	pc/pc(pc104)+pc/br
+ $maclaptop	us	=	macintosh/us(extended)+apple(laptop_bad_switch)
+ $maclaptop	en_US	=	macintosh/us(extended)+apple(laptop_bad_switch)
+ $maclaptop	*	=	macintosh/us(extended)+apple(laptop_bad_switch)+macintosh/%l%(v)
  $mac		us	=	macintosh/us(extended)
  $mac		en_US	=	macintosh/us(extended)
  $mac		*	=	macintosh/us(extended)+macintosh/%l%(v)
@@ -92,23 +98,24 @@
 ! layout[4]	=	symbols
   *		=	+pc/%l[4]%(v[4]):4
  
-! $inetkbds = airkey acpi scorpius \
+! $inetkbds = airkey acpi scorpius azonaRF2300 \
               brother \
-              btc5113rf btc5126t btc9000 btc9000a \
+              btc5113rf btc5126t btc9000 btc9000a btc9001ah btc5090\
               cherryblue cherrybluea \
               chicony chicony9885 \
               compaqeak8 compaqik7 compaqik13 compaqik18 armada presario ipaq \
-              dell inspiron \
-              dexxa diamond genius \
+              dell inspiron dtk2000 \
+              dexxa diamond genius geniuscomfy2 \
               ennyah_dkb1008 \
               hpi6 hp2501 hp2505 hp5181 hpxe3gc hpxe3gf hpxe4xxx hpzt11xx \
-              hp500fa hp5xx \
+              hp500fa hp5xx hp5185 \
               honeywell_euroboard \
               rapidaccess rapidaccess2 rapidaccess2a \
-              ltcd logicdit logicdp logicdpa logicdpa2 logicdo logicfn \
-              logicdn logidak logiik itouch logiitc logiik logiink itouchin \
+              ltcd logiaccess logicdp logicdpa logicink logiciink \
+              logiinkse logiinkseusb logiik itouch \
               mx1998 mx2500 mx2750 \
-              microsoftinet microsoftpro microsoftprose microsoftoffice \
+              microsoftinet microsoftpro microsoftprooem microsoftprose \
+              microsoftoffice microsoftmult \
               oretec \
               propeller \
               qtronix \
@@ -141,6 +148,7 @@
   grp:alts_toggle	=	+group(alts_toggle)
   grp:ctrl_shift_toggle	=	+group(ctrl_shift_toggle)
   grp:caps_toggle	=	+group(caps_toggle)
+  grp:shift_caps_toggle	=	+group(shift_caps_toggle)
   grp:ctrl_alt_toggle	=	+group(ctrl_alt_toggle)
   grp:alt_shift_toggle	=	+group(alt_shift_toggle)
   grp:menu_toggle	=	+group(menu_toggle)
@@ -152,6 +160,9 @@
   grp:rctrl_toggle	=	+group(rctrl_toggle)
   grp:lalt_toggle	=	+group(lalt_toggle)
   lv3:switch		=	+level3(switch)
+  lv3:ralt_switch	=	+level3(ralt_switch)
+  lv3:lalt_switch	=	+level3(lalt_switch)
+  lv3:alt_switch	=	+level3(alt_switch)
   lv3:menu_switch	=	+level3(menu_switch)
   lv3:win_switch	=	+level3(win_switch)
   lv3:lwin_switch	=	+level3(lwin_switch)
@@ -160,6 +171,7 @@
   ctrl:swapcaps		=	+ctrl(swapcaps)
   ctrl:ctrl_ac		=	+ctrl(ctrl_ac)
   ctrl:ctrl_aa		=	+ctrl(ctrl_aa)
+  ctrl:ctrl_ra		=	+ctrl(ctrl_ra)
   altwin:menu		=	+altwin(menu)
   altwin:meta_alt	=	+altwin(meta_alt)
   altwin:meta_win	=	+altwin(meta_win)
@@ -169,6 +181,7 @@
   compose:ralt		=	+compose(ralt)
   compose:rwin		=	+compose(rwin)
   compose:menu		=	+compose(menu)
+  srvrkeys:none		=	+srvr_ctrl(no_srvr_keys)
 
 ! option		=	compat
   grp_led:num		=	+leds(num)
@@ -180,3 +193,4 @@
   caps:internal_nocancel	=	+caps(internal_nocancel)
   caps:shift			=	+caps(shift)
   caps:shift_nocancel		=	+caps(shift_nocancel)
+  numpad:microsoft		=	+numpad(microsoft)

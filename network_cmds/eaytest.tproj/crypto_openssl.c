@@ -1,4 +1,4 @@
-/*	$KAME: crypto_openssl.c,v 1.69 2001/09/11 13:25:00 sakane Exp $	*/
+/*	$KAME: crypto_openssl.c,v 1.73 2003/04/24 02:21:22 itojun Exp $	*/
 
 /*
  * Copyright (C) 1995, 1996, 1997, and 1998 WIDE Project.
@@ -56,6 +56,7 @@
 #endif
 #ifdef HAVE_OPENSSL_X509_H
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 #include <openssl/x509_vfy.h>
 #endif
 #include <openssl/bn.h>
@@ -99,7 +100,8 @@
  */
 
 #ifdef HAVE_SIGNING_C
-static int cb_check_cert __P((int, X509_STORE_CTX *));
+static int cb_check_cert_local __P((int, X509_STORE_CTX *));
+static int cb_check_cert_remote __P((int, X509_STORE_CTX *));
 static void eay_setgentype __P((char *, int *));
 static X509 *mem2x509 __P((vchar_t *));
 #endif
@@ -209,7 +211,7 @@ eay_cmp_asn1dn(n1, n2)
 
 	i = X509_NAME_cmp(a, b);
 
-    end:
+ end:
 	if (a)
 		X509_NAME_free(a);
 	if (b)
@@ -221,9 +223,10 @@ eay_cmp_asn1dn(n1, n2)
  * this functions is derived from apps/verify.c in OpenSSL0.9.5
  */
 int
-eay_check_x509cert(cert, CApath)
+eay_check_x509cert(cert, CApath, local)
 	vchar_t *cert;
 	char *CApath;
+	int local;
 {
 	X509_STORE *cert_ctx = NULL;
 	X509_LOOKUP *lookup = NULL;
@@ -245,7 +248,11 @@ eay_check_x509cert(cert, CApath)
 	cert_ctx = X509_STORE_new();
 	if (cert_ctx == NULL)
 		goto end;
-	X509_STORE_set_verify_cb_func(cert_ctx, cb_check_cert);
+	
+	if (local)
+		X509_STORE_set_verify_cb_func(cert_ctx, cb_check_cert_local);
+	else
+		X509_STORE_set_verify_cb_func(cert_ctx, cb_check_cert_remote);
 
 	lookup = X509_STORE_add_lookup(cert_ctx, X509_LOOKUP_file());
 	if (lookup == NULL)
@@ -272,6 +279,12 @@ eay_check_x509cert(cert, CApath)
 	if (csc == NULL)
 		goto end;
 	X509_STORE_CTX_init(csc, cert_ctx, x509, NULL);
+
+#if OPENSSL_VERSION_NUMBER >= 0x00907000L
+	X509_STORE_CTX_set_flags(csc, X509_V_FLAG_CRL_CHECK);
+	X509_STORE_CTX_set_flags(csc, X509_V_FLAG_CRL_CHECK_ALL);
+#endif
+
 	error = X509_verify_cert(csc);
 	X509_STORE_CTX_cleanup(csc);
 #else
@@ -286,7 +299,7 @@ eay_check_x509cert(cert, CApath)
 	 */
 	error = error ? 0 : -1;
 
-end:
+ end:
 	if (error)
 		printf("%s\n", eay_strerror());
 	if (cert_ctx != NULL)
@@ -299,10 +312,13 @@ end:
 
 /*
  * callback function for verifing certificate.
- * this function is derived from cb() in openssl/apps/s_server.c
+ * Derived from cb() in openssl/apps/s_server.c
+ *
+ * This one is called for certificates obtained from
+ * 'peers_certfile' directive.
  */
 static int
-cb_check_cert(ok, ctx)
+cb_check_cert_local(ok, ctx)
 	int ok;
 	X509_STORE_CTX *ctx;
 {
@@ -311,42 +327,90 @@ cb_check_cert(ok, ctx)
 
 	if (!ok) {
 		X509_NAME_oneline(
-				X509_get_subject_name(ctx->current_cert),
+			X509_get_subject_name(ctx->current_cert),
 				buf,
 				256);
-		/*
-		 * since we are just checking the certificates, it is
-		 * ok if they are self signed. But we should still warn
-		 * the user.
- 		 */
-		switch (ctx->error) {
-		case X509_V_ERR_CERT_HAS_EXPIRED:
-		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+			/*
+			 * since we are just checking the certificates, it is
+			 * ok if they are self signed. But we should still warn
+			 * the user.
+			 */
+			switch (ctx->error) {
+			case X509_V_ERR_CERT_HAS_EXPIRED:
+			case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
 #if OPENSSL_VERSION_NUMBER >= 0x00905100L
-		case X509_V_ERR_INVALID_CA:
-		case X509_V_ERR_PATH_LENGTH_EXCEEDED:
-		case X509_V_ERR_INVALID_PURPOSE:
+			case X509_V_ERR_INVALID_PURPOSE:
+	       	case X509_V_ERR_UNABLE_TO_GET_CRL:
 #endif
-			ok = 1;
-			log_tag = LLV_WARNING;
-			break;
-		default:
-			log_tag = LLV_ERROR;
-		}
+         			ok = 1;
+		        	log_tag = LLV_WARNING;
+			        break;
+			
+			default:
+			        log_tag = LLV_ERROR;
+		    }
+		        
+		        
 #ifndef EAYDEBUG
-		plog(log_tag, LOCATION, NULL,
-			"%s(%d) at depth:%d SubjectName:%s\n",
-			X509_verify_cert_error_string(ctx->error),
-			ctx->error,
-			ctx->error_depth,
-			buf);
+			plog(log_tag, LOCATION, NULL, 
+			     "%s(%d) at depth:%d SubjectName:%s\n",
+			     X509_verify_cert_error_string(ctx->error),
+			     ctx->error,
+			     ctx->error_depth,
+			     buf);
 #else
-		printf("%d: %s(%d) at depth:%d SubjectName:%s\n",
-			log_tag,
-			X509_verify_cert_error_string(ctx->error),
-			ctx->error,
-			ctx->error_depth,
-			buf);
+			printf("%d: %s(%d) at depth:%d SubjectName:%s\n",
+				log_tag,
+				X509_verify_cert_error_string(ctx->error),
+				ctx->error,
+				ctx->error_depth,
+				buf);
+#endif
+ 	    }	    
+	    ERR_clear_error();
+
+	    return ok;
+}
+
+/*
+ * Similar to cb_check_cert_local() but this one is called
+ * for certificates obtained from the IKE payload.
+ */
+static int
+cb_check_cert_remote(ok, ctx)
+	int ok;
+    X509_STORE_CTX *ctx; 
+{
+	char buf[256];
+	int log_tag;
+
+	if (!ok) {
+		X509_NAME_oneline(
+			X509_get_subject_name(ctx->current_cert),
+			buf,
+			256);
+		switch (ctx->error) {
+			case X509_V_ERR_UNABLE_TO_GET_CRL:
+			        ok = 1;
+				log_tag = LLV_WARNING;
+				break;
+			default:
+				log_tag = LLV_ERROR;
+			}
+#ifndef EAYDEBUG
+			plog(log_tag, LOCATION, NULL,
+			     "%s(%d) at depth:%d SubjectName:%s\n",
+			     X509_verify_cert_error_string(ctx->error),
+			     ctx->error,
+			     ctx->error_depth,
+			     buf);
+#else
+			printf("%d: %s(%d) at depth:%d SubjectName:%s\n",
+			       log_tag,
+			       X509_verify_cert_error_string(ctx->error),
+			       ctx->error,
+			       ctx->error_depth,
+			       buf);
 #endif
 	}
 	ERR_clear_error();
@@ -463,7 +527,7 @@ eay_get_x509subjectaltname(cert, altname, type, pos)
 			sk_CONF_VALUE_pop_free(nval, X509V3_conf_free);
 			goto end;
 		}
-		strcpy(*altname, cval->value);
+		strlcpy(*altname, cval->value, len);
 
 		/* set type of the name */
 		eay_setgentype(cval->name, type);
@@ -686,7 +750,7 @@ eay_check_x509sign(source, sig, cert)
 {
 	X509 *x509;
 	u_char *bp;
-	vchar_t pubkey;
+	EVP_PKEY *evp;
 
 	bp = cert->v;
 
@@ -698,10 +762,15 @@ eay_check_x509sign(source, sig, cert)
 		return -1;
 	}
 
-	pubkey.v = x509->cert_info->key->public_key->data;
-	pubkey.l = x509->cert_info->key->public_key->length;
-	
-	return eay_rsa_verify(source, sig, &pubkey);
+	evp = X509_get_pubkey(x509);
+	if (!evp) {
+#ifndef EAYDEBUG
+	  plog(LLV_ERROR, LOCATION, NULL, "X509_get_pubkey: %s\n", eay_strerror());
+#endif
+	  return -1;
+	}
+
+	return eay_rsa_verify(source, sig, evp);
 }
 
 /*
@@ -902,21 +971,14 @@ eay_rsa_sign(src, privkey)
 }
 
 int
-eay_rsa_verify(src, sig, pubkey)
-	vchar_t *src, *sig, *pubkey;
-{
+eay_rsa_verify(src, sig, evp)
+        vchar_t *src, *sig;
 	EVP_PKEY *evp;
-	u_char *bp = pubkey->v;
+{
 	vchar_t *xbuf = NULL;
 	int pad = RSA_PKCS1_PADDING;
 	int len = 0;
 	int error;
-
-	evp = d2i_PUBKEY(NULL, &bp, pubkey->l);
-	if (evp == NULL)
-#ifndef EAYDEBUG
-		return NULL;
-#endif
 
 	len = RSA_size(evp->pkey.rsa);
 
@@ -1171,7 +1233,7 @@ eay_bf_keylen(len)
 		return 448;
 	if (len < 40 || len > 448)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 
 #ifdef HAVE_OPENSSL_RC5_H
@@ -1236,7 +1298,7 @@ eay_rc5_keylen(len)
 		return 128;
 	if (len < 40 || len > 2040)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 #endif
 
@@ -1378,7 +1440,7 @@ eay_cast_keylen(len)
 		return 128;
 	if (len < 40 || len > 128)
 		return -1;
-	return len + 7 / 8;
+	return (len + 7) / 8;
 }
 
 /*
@@ -1476,6 +1538,13 @@ eay_twofish_keylen(len)
 	return len;
 }
 
+int
+eay_null_keylen(len)
+	int len;
+{
+	return 0;
+}
+
 /*
  * HMAC functions
  */
@@ -1486,6 +1555,7 @@ eay_hmac_init(key, md)
 {
 	HMAC_CTX *c = racoon_malloc(sizeof(*c));
 
+	HMAC_CTX_init(c);
 	HMAC_Init(c, key->v, key->l, md);
 
 	return (caddr_t)c;
@@ -1535,6 +1605,7 @@ eay_hmacsha2_512_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA512_DIGEST_LENGTH != res->l) {
@@ -1595,6 +1666,7 @@ eay_hmacsha2_384_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA384_DIGEST_LENGTH != res->l) {
@@ -1655,6 +1727,7 @@ eay_hmacsha2_256_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA256_DIGEST_LENGTH != res->l) {
@@ -1715,6 +1788,7 @@ eay_hmacsha1_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (SHA_DIGEST_LENGTH != res->l) {
@@ -1775,6 +1849,7 @@ eay_hmacmd5_final(c)
 
 	HMAC_Final((HMAC_CTX *)c, res->v, &l);
 	res->l = l;
+	HMAC_CTX_cleanup(c);
 	(void)racoon_free(c);
 
 	if (MD5_DIGEST_LENGTH != res->l) {

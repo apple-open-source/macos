@@ -78,6 +78,7 @@
 #include <IOKit/usb/IOUSBLib.h>
 
 #include <mach/mach.h>
+#include <unistd.h>
 
 //================================================================================================
 //   Typedefs and Defines
@@ -210,7 +211,8 @@ void DeviceAdded(void *refCon, io_iterator_t iterator)
         // I have the device plugin, I need the device interface
         //
         res = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOUSBDeviceInterfaceID), (LPVOID)&privateDataRef->deviceInterface);
-        (*plugInInterface)->Release(plugInInterface);			// done with this
+        IODestroyPlugInInterface(plugInInterface);			// done with this
+		
         if (res || !privateDataRef->deviceInterface)
         {
             printf("couldn't create a device interface (%08x)\n", (int) res);

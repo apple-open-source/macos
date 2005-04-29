@@ -115,7 +115,7 @@ int des_check_key_parity(const_des_cblock *key)
  * (and actual cblock values).
  */
 #define NUM_WEAK_KEY	16
-static const des_cblock weak_keys[NUM_WEAK_KEY]={
+static des_cblock weak_keys[NUM_WEAK_KEY]={
 	/* weak keys */
 	{0x01,0x01,0x01,0x01,0x01,0x01,0x01,0x01},
 	{0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE,0xFE},
@@ -336,7 +336,7 @@ int des_set_key_checked(const_des_cblock *key, des_key_schedule schedule)
 
 void des_set_key_unchecked(const_des_cblock *key, des_key_schedule schedule)
 	{
-	static const int shifts2[16]={0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0};
+	static int shifts2[16]={0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0};
 	register DES_LONG c,d,t,s,t2;
 	register const unsigned char *in;
 	register DES_LONG *k;

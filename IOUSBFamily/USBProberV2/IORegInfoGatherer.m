@@ -36,7 +36,7 @@ void scanUSBDevices(io_iterator_t intfIterator, OutlineViewNode * rootNode, char
 
 static void DeviceAdded(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=NULL;
+    io_service_t ioDeviceObj=nil;
     
     while( ioDeviceObj = IOIteratorNext( iterator) )
     {
@@ -47,7 +47,7 @@ static void DeviceAdded(void *refCon, io_iterator_t iterator)
 
 static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 {
-    io_service_t ioDeviceObj=NULL;
+    io_service_t ioDeviceObj=nil;
     
     while( (ioDeviceObj = IOIteratorNext( iterator)))
     {

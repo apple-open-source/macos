@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/gencnval
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Steven R. Loomi
 
@@ -16,23 +16,19 @@ subdir = tools/gencnval
 
 ##
 
+TARGET_STUB_NAME = gencnval
+
 SECTION = 1
 
-MANX_FILES = $(TARGET:$(EXEEXT)=).$(SECTION)
-MAN5_FILES = convrtrs.txt.5 $(srcdir)/cnvalias.dat.5
+MANX_FILES = $(TARGET_STUB_NAME).$(SECTION)
 
-GENERATED_MAN_FILES = $(TARGET).$(SECTION) convrtrs.txt.5
-
-ALL_MAN_FILES = $(MANX_FILES) $(MAN5_FILES)
-
-ICUDATADIR=$(top_builddir)/data/
-CONVRTRSFILE=$(top_srcdir)/../data/convrtrs.txt
+ALL_MAN_FILES = $(MANX_FILES)
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(GENERATED_MAN_FILES) $(DEPS) $(RES_FILES) $(TEST_FILES)
+CLEANFILES = *~ $(ALL_MAN_FILES) $(DEPS)
 
 ## Target information
-TARGET = gencnval$(EXEEXT)
+TARGET = $(BINDIR)/$(TARGET_STUB_NAME)$(EXEEXT)
 
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
@@ -43,9 +39,9 @@ DEPS = $(OBJECTS:.o=.d)
 
 
 ## List of phony targets
-.PHONY : all all-local install install-local clean clean-local		\
+.PHONY : all all-local install install-local clean clean-local	\
 distclean distclean-local dist dist-local check	\
-check-local build-data install-man install-man5 install-manx
+check-local install-man install-manx
 
 ## Clear suffix list
 .SUFFIXES :
@@ -58,11 +54,11 @@ distclean : distclean-local
 dist: dist-local
 check: all check-local
 
-all-local: $(TARGET) $(ALL_MAN_FILES) build-data
+all-local: $(TARGET) $(ALL_MAN_FILES)
 
-install-local: all-local build-data install-man
+install-local: all-local install-man
 	$(MKINSTALLDIRS) $(DESTDIR)$(bindir)
-	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)/$(TARGET)
+	$(INSTALL) $(TARGET) $(DESTDIR)$(bindir)
 
 
 dist-local:
@@ -84,18 +80,12 @@ $(TARGET) : $(OBJECTS)
 	$(LINK.cc) $(OUTOPT)$@ $^ $(LIBS) 
 
 # man page
-install-man: install-man5 install-manx
-install-man5: $(MAN5_FILES)
-	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man5
-	$(INSTALL_DATA) $? $(DESTDIR)$(mandir)/man5
+install-man: install-manx
 install-manx: $(MANX_FILES)
 	$(MKINSTALLDIRS) $(DESTDIR)$(mandir)/man$(SECTION)
 	$(INSTALL_DATA) $? $(DESTDIR)$(mandir)/man$(SECTION)
 
 %.$(SECTION): $(srcdir)/%.$(SECTION).in
-	cd $(top_builddir) \
-	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
-%.5: $(srcdir)/%.5.in
 	cd $(top_builddir) \
 	 && CONFIG_FILES=$(subdir)/$@ CONFIG_HEADERS= $(SHELL) ./config.status
 

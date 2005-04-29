@@ -23,12 +23,6 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #ifndef GCC_SYSTEM_H
 #define GCC_SYSTEM_H
 
-/* This is the location of the online document giving information how
-   to report bugs. If you change this string, also check for strings
-   not under control of the preprocessor.  */
-/* APPLE LOCAL report bugs to Apple 2001-09-14 sts */
-#define GCCBUGURL "<URL:http://developer.apple.com/bugreporter>"
-
 /* We must include stdarg.h/varargs.h before stdio.h.  */
 #ifdef ANSI_PROTOTYPES
 #include <stdarg.h>
@@ -580,11 +574,19 @@ typedef char _Bool;
    compiling gcc, so that the autoconf declaration tests for malloc
    etc don't spuriously fail.  */
 #ifdef IN_GCC
-#undef malloc
-#undef realloc
 #undef calloc
 #undef strdup
- #pragma GCC poison malloc realloc calloc strdup
+ #pragma GCC poison calloc strdup
+
+#if defined(FLEX_SCANNER) || defined (YYBISON)
+/* Flex and bison use malloc and realloc.  Yuk.  */
+#define malloc xmalloc
+#define realloc xrealloc
+#else
+#undef malloc
+#undef realloc
+ #pragma GCC poison malloc realloc
+#endif
 
 /* Old target macros that have moved to the target hooks structure.  */
  #pragma GCC poison ASM_OPEN_PAREN ASM_CLOSE_PAREN			\
@@ -595,9 +597,12 @@ typedef char _Bool;
 	SET_DEFAULT_TYPE_ATTRIBUTES SET_DEFAULT_DECL_ATTRIBUTES		\
 	MERGE_MACHINE_TYPE_ATTRIBUTES MERGE_MACHINE_DECL_ATTRIBUTES	\
 	MD_INIT_BUILTINS MD_EXPAND_BUILTIN ASM_OUTPUT_CONSTRUCTOR	\
-	ASM_OUTPUT_DESTRUCTOR SIGNED_CHAR_SPEC
+	ASM_OUTPUT_DESTRUCTOR SIGNED_CHAR_SPEC MAX_CHAR_TYPE_SIZE	\
+	WCHAR_UNSIGNED UNIQUE_SECTION SELECT_SECTION SELECT_RTX_SECTION	\
+	ENCODE_SECTION_INFO STRIP_NAME_ENCODING ASM_GLOBALIZE_LABEL	\
+	ASM_OUTPUT_MI_THUNK
 
-/* And other obsolete target macros, or macros that used to be in target
+/* Other obsolete target macros, or macros that used to be in target
    headers and were not used, and may be obsolete or may never have
    been used.  */
  #pragma GCC poison INT_ASM_OP ASM_OUTPUT_EH_REGION_BEG			   \
@@ -606,7 +611,17 @@ typedef char _Bool;
 	OMIT_EH_TABLE EASY_DIV_EXPR IMPLICIT_FIX_EXPR			   \
 	LONGJMP_RESTORE_FROM_STACK MAX_INT_TYPE_SIZE ASM_IDENTIFY_GCC	   \
 	STDC_VALUE TRAMPOLINE_ALIGN ASM_IDENTIFY_GCC_AFTER_SOURCE	   \
-	SLOW_ZERO_EXTEND SUBREG_REGNO_OFFSET DWARF_LINE_MIN_INSTR_LENGTH
+	SLOW_ZERO_EXTEND SUBREG_REGNO_OFFSET DWARF_LINE_MIN_INSTR_LENGTH   \
+	TRADITIONAL_RETURN_FLOAT NO_BUILTIN_SIZE_TYPE			   \
+	NO_BUILTIN_PTRDIFF_TYPE NO_BUILTIN_WCHAR_TYPE NO_BUILTIN_WINT_TYPE \
+	BLOCK_PROFILER BLOCK_PROFILER_CODE FUNCTION_BLOCK_PROFILER	   \
+	FUNCTION_BLOCK_PROFILER_EXIT MACHINE_STATE_SAVE			   \
+	MACHINE_STATE_RESTORE SCCS_DIRECTIVE SECTION_ASM_OP		   \
+	ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
+
+/* Hooks that are no longer used.  */
+ #pragma GCC poison LANG_HOOKS_FUNCTION_MARK LANG_HOOKS_FUNCTION_FREE	\
+	LANG_HOOKS_MARK_TREE
 
 #endif /* IN_GCC */
 

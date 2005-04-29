@@ -19,7 +19,7 @@
 .\" REGARDLESS OF WHETHER IN AN ACTION IN CONTRACT, TORT OR NEGLIGENCE, ARISING
 .\" OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.\" $XFree86: xc/programs/rstart/rstart.man,v 1.6 2001/01/27 18:21:05 dawes Exp $
+.\" $XFree86: xc/programs/rstart/rstart.man,v 1.7 2003/05/29 21:48:11 herrb Exp $
 .\"
 .hy 0		\" I hate hyphenation.
 .de EX		\"Begin example
@@ -85,7 +85,7 @@ program is not detached from the connection.
 This is a trivial implementation.  Far more sophisticated implementations
 are possible and should be developed.
 .PP
-Error handling is nonexistant.  Without \fB\-v\fP, error reports from
+Error handling is nonexistent.  Without \fB\-v\fP, error reports from
 the remote are discarded silently.  With \fB\-v\fP, error reports are
 displayed.
 .PP

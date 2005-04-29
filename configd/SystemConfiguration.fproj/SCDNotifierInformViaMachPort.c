@@ -47,9 +47,7 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 	mach_port_t			oldNotify;
 	int				sc_status;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort:"));
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return FALSE;
@@ -70,18 +68,17 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 	/* Allocating port (for server response) */
 	status = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, port);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_allocate(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_allocate(): %s"), mach_error_string(status));
 		_SCErrorSet(status);
 		return FALSE;
 	}
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  port = %d"), *port);
 
 	status = mach_port_insert_right(mach_task_self(),
 					*port,
 					*port,
 					MACH_MSG_TYPE_MAKE_SEND);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_insert_right(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_insert_right(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
 		_SCErrorSet(status);
@@ -97,16 +94,18 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 						MACH_MSG_TYPE_MAKE_SEND_ONCE,
 						&oldNotify);
 	if (status != KERN_SUCCESS) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("mach_port_request_notification(): %s"), mach_error_string(status));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort mach_port_request_notification(): %s"), mach_error_string(status));
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
 		_SCErrorSet(status);
 		return FALSE;
 	}
 
+#ifdef	DEBUG
 	if (oldNotify != MACH_PORT_NULL) {
-		SCLog(_sc_verbose, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort(): why is oldNotify != MACH_PORT_NULL?"));
+		SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyMachPort(): why is oldNotify != MACH_PORT_NULL?"));
 	}
+#endif	/* DEBUG */
 
 	status = notifyviaport(storePrivate->server,
 			       *port,
@@ -114,8 +113,10 @@ SCDynamicStoreNotifyMachPort(SCDynamicStoreRef store, mach_msg_id_t identifier, 
 			       (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("notifyviaport(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreNotifyMachPort notifyviaport(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), *port);
 		*port = MACH_PORT_NULL;
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);

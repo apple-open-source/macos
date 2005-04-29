@@ -26,6 +26,10 @@
 #include "cli/cli-decode.h"
 #include "gdbcmd.h"
 
+static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type,
+		       void *value_ptr, int for_set_and_show, char *enumlist[],
+		       char *helpInfo);
+
 /*--------------------------------------------------------------------------------------*/
 
 static void (*gdb_set_hook)(struct cmd_list_element *c) = NULL; /* gdb's set_hook	*/
@@ -247,6 +251,9 @@ void gdb_define_set_generic(Gdb_Set_Funct sfunct)
  gdb struct cmd_list_element to save our data.
 */
 
+static void my_set(char *ignore, int from_tty, struct cmd_list_element *c);
+static void my_set_hook(struct cmd_list_element *c);    
+
 static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type,
 		       void *value_ptr, int for_set_and_show, char *enumlist[],
 		       char *helpInfo)
@@ -256,9 +263,6 @@ static void define_set(char *theSetting, Gdb_Set_Funct sfunct, Gdb_Set_Type type
     int			    i;
     Set_Info		    *si, *prev, *next;
     char		    **p, help[1024];
-    
-    static void my_set(char *ignore, int from_tty, struct cmd_list_element *c);
-    static void my_set_hook(struct cmd_list_element *c);
     
     /* Map our Gdb_Set_Type to gdb's var_types...					*/
     

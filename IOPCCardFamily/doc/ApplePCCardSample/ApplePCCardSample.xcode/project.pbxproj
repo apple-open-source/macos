@@ -1,0 +1,490 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		06AA1265FFB2107B11CA28AA = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				EE10FD0307A72DA500D0F5F9,
+				EE10FD0607A72DA500D0F5F9,
+				EE10FD1207A72DA500D0F5F9,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				247142CAFF3F8F9811CA285C,
+				595E0E2B049D77D40091C909,
+				089C167CFE841241C02AAC07,
+				595E1000049EE41C0091C909,
+				19C28FB6FE9D52B211CA2CBB,
+				EE10FD1007A72DA500D0F5F9,
+			);
+			isa = PBXGroup;
+			name = ApplePCCardSample;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+				089C167DFE841241C02AAC07,
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		089C167DFE841241C02AAC07 = {
+			children = (
+				089C167EFE841241C02AAC07,
+			);
+			isa = PBXVariantGroup;
+			name = InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		089C167EFE841241C02AAC07 = {
+			fileEncoding = 10;
+			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
+			name = English;
+			path = English.lproj/InfoPlist.strings;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//080
+//081
+//082
+//083
+//084
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				EE10FD1107A72DA500D0F5F9,
+				EE10FD1B07A72DA500D0F5F9,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = ApplePCCardSample.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				1A224C3FFF42367911CA2CB7,
+			);
+			isa = PBXGroup;
+			name = SampleDriver;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//240
+//241
+//242
+//243
+//244
+//590
+//591
+//592
+//593
+//594
+		595E0E29049D77670091C909 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = dump_cisreg.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		595E0E2B049D77D40091C909 = {
+			children = (
+				595E0E29049D77670091C909,
+			);
+			isa = PBXGroup;
+			name = dump_cisreg;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		595E0E2E049D78BE0091C909 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = System.framework;
+			path = /System/Library/Frameworks/System.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		595E0E30049D78DA0091C909 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		595E0F9C049D86DA0091C909 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		595E1000049EE41C0091C909 = {
+			children = (
+				595E0E30049D78DA0091C909,
+				595E0F9C049D86DA0091C909,
+				595E0E2E049D78BE0091C909,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//590
+//591
+//592
+//593
+//594
+//EE0
+//EE1
+//EE2
+//EE3
+//EE4
+		EE10FD0307A72DA500D0F5F9 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = Everything;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				EE10FD1E07A72DA500D0F5F9,
+				EE10FD2007A72DA500D0F5F9,
+			);
+			isa = PBXAggregateTarget;
+			name = "Everything (Copied)";
+			productName = Everything;
+		};
+		EE10FD0607A72DA500D0F5F9 = {
+			buildPhases = (
+				EE10FD0707A72DA500D0F5F9,
+				EE10FD0807A72DA500D0F5F9,
+				EE10FD0907A72DA500D0F5F9,
+				EE10FD0B07A72DA500D0F5F9,
+				EE10FD0D07A72DA500D0F5F9,
+				EE10FD0E07A72DA500D0F5F9,
+				EE10FD0F07A72DA500D0F5F9,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_TREAT_NONCONFORMANT_CODE_ERRORS_AS_WARNINGS = YES;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-ApplePCCardSample__Upgraded_.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.ApplePCCardSample;
+				MODULE_VERSION = 1.0.0d1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = ApplePCCardSample;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = "ApplePCCardSample (Upgraded)";
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = ApplePCCardSample;
+			productReference = EE10FD1107A72DA500D0F5F9;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		EE10FD0707A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		EE10FD0807A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD0907A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE10FD0A07A72DA500D0F5F9,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD0A07A72DA500D0F5F9 = {
+			fileRef = 089C167DFE841241C02AAC07;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE10FD0B07A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE10FD0C07A72DA500D0F5F9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD0C07A72DA500D0F5F9 = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		EE10FD0D07A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD0E07A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD0F07A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		EE10FD1007A72DA500D0F5F9 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "Info-ApplePCCardSample__Upgraded_.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		EE10FD1107A72DA500D0F5F9 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = ApplePCCardSample.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		EE10FD1207A72DA500D0F5F9 = {
+			buildPhases = (
+				EE10FD1307A72DA500D0F5F9,
+				EE10FD1407A72DA500D0F5F9,
+				EE10FD1607A72DA500D0F5F9,
+				EE10FD1A07A72DA500D0F5F9,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				HEADER_SEARCH_PATHS = "";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = dump_cisreg;
+				REZ_EXECUTABLE = YES;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = "dump_cisreg (Upgraded)";
+			productInstallPath = /usr/local/bin;
+			productName = dump_cisreg;
+			productReference = EE10FD1B07A72DA500D0F5F9;
+			productType = "com.apple.product-type.tool";
+		};
+		EE10FD1307A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD1407A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE10FD1507A72DA500D0F5F9,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD1507A72DA500D0F5F9 = {
+			fileRef = 595E0E29049D77670091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE10FD1607A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+				EE10FD1707A72DA500D0F5F9,
+				EE10FD1807A72DA500D0F5F9,
+				EE10FD1907A72DA500D0F5F9,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD1707A72DA500D0F5F9 = {
+			fileRef = 595E0E2E049D78BE0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE10FD1807A72DA500D0F5F9 = {
+			fileRef = 595E0E30049D78DA0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE10FD1907A72DA500D0F5F9 = {
+			fileRef = 595E0F9C049D86DA0091C909;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		EE10FD1A07A72DA500D0F5F9 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EE10FD1B07A72DA500D0F5F9 = {
+			explicitFileType = "compiled.mach-o.executable";
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = dump_cisreg;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		EE10FD1D07A72DA500D0F5F9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = EE10FD0607A72DA500D0F5F9;
+			remoteInfo = "ApplePCCardSample (Upgraded)";
+		};
+		EE10FD1E07A72DA500D0F5F9 = {
+			isa = PBXTargetDependency;
+			target = EE10FD0607A72DA500D0F5F9;
+			targetProxy = EE10FD1D07A72DA500D0F5F9;
+		};
+		EE10FD1F07A72DA500D0F5F9 = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = EE10FD1207A72DA500D0F5F9;
+			remoteInfo = "dump_cisreg (Upgraded)";
+		};
+		EE10FD2007A72DA500D0F5F9 = {
+			isa = PBXTargetDependency;
+			target = EE10FD1207A72DA500D0F5F9;
+			targetProxy = EE10FD1F07A72DA500D0F5F9;
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

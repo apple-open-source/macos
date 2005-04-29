@@ -1,0 +1,90 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from mailhost.kisters.de (root@[193.23.163.143]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id NAA01077 for <a.kupries@westend.com>; Tue, 17 Dec 1996 13:13:09 +0100 (MET)
+Received: from ramazotti by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0vZzDm-000BsQC; Tue, 17 Dec 96 14:06 MET
+Date: Tue, 17 Dec 1996 13:05:58 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+X-Sender: aku@ramazotti
+To: nijtmans@ergolab4.psych.kun.nl
+cc: Andreas Kupries <a.kupries@westend.com>
+Subject: Re: Trf, loading on demand
+In-Reply-To: <199612171036.LAA09564@ergolab4.psych.kun.nl>
+Message-ID: <Pine.ULT.3.91.961217123346.1348H-100000@ramazotti>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+On Tue, 17 Dec 1996 nijtmans@ergolab4.psych.kun.nl wrote:
+
+> 
+> Hi, again
+> 
+> I downloaded your new package, and built it successfully on Solaris.
+> Below are the bugs I encountered (all only small ones). Probably you
+> found some of them already.
+
+I'll see.
+
+> 
+> Two new files are also added in the compat/ directory: _eprintf.c
+> and tclLoadNone.c, just for completeness. The first one is needed
+> to used the assert() function in dynamical libraries when gcc
+> is used (you didn't notice this up to now because the plus-patch
+
+Not quite. It's because my tclsh is patched slightly, see
+
+	http://www.sunlabs.com/cgi-bin/tcl/info.4.1
+
+and look for a Linux entry (or my name).
+Maybe I should place this note into
+
+	http://www.sunlabs.com/cgi-bin/tcl/info.4.2
+
+as well.
+
+
+> contains this fix as well). The second one could be used when a
+> system doens't support dynamical loading.
+> 
+> I didn't try it on Ultrix, yet.
+> 
+> 3 other things:
+> - "make" only builds libz.so, because the "all" target is
+>   not the first one.
+
+Oops, added to notes
+
+> - zlib.h is missing in the compat directory.
+
+I don't know why, its parts of the distribution:
+
+tar tvfz trf1.0a3rc.tar.gz | grep zlib =>
+
+-rw-r--r-- aku/users      5544 Dec 16 23:42 1996 ./trf1.0/crc_zlib.c
+-rw-r--r-- aku/users      2834 Dec 16 23:42 1996 ./trf1.0/zlib.c
+-rw-r--r-- aku/users     36671 Dec 16 23:42 1996 ./trf1.0/compat/zlib.h   <==
+-rw-r--r-- aku/users      4675 Dec 16 23:43 1996 ./trf1.0/doc/README.zlib
+-rw-r--r-- aku/users      1121 Oct 15 22:49 1996 ./trf1.0/tests/crc_zlib.test
+-rw------- aku/users      2549 Dec 17 00:07 1996 ./trf1.0/digests.crc-zlib
+
+> - if zlib.h or des.h are not installed "make depend" fails.
+Hmm, not on Ultrix. configure said 'no', not installed and make depend is 
+quiet, except for 'cannot open "0"'. This is caused by '-G 0' being part 
+of the arglist.
+
+> Further on, it looks good :-)
+:-))
+
+Unfortunately my workload here is going up, I have to postpone 
+compilation on Ultrix. My work at home will continue!
+
+Have fun,
+	Andreas Kupries <aku@kisters.de>
+                        <a.kupries@westend.com> (private)
+----------------------------------------+--------------------------------------
+Don't believe that I'm speaking		| pgp-key:	via keyserver
+for my employer, not even if the	| finger print: 3E C8 C9 6B 2A EC 05 B1
+contrary is stated in message above	|		EE 49 15 0B 62 DC 23 06
+----------------------------------------+--------------------------------------
+

@@ -30,7 +30,7 @@
  * used in advertising or publicity pertaining to distribution of the software
  * without specific, written prior permission.
  */
-/* $XFree86: xc/programs/xrdb/xrdb.c,v 3.16 2002/05/31 18:46:14 dawes Exp $ */
+/* $XFree86: xc/programs/xrdb/xrdb.c,v 3.17 2003/07/20 16:12:20 tsi Exp $ */
 
 /*
  * this program is used to load, or dump the resource manager database
@@ -51,6 +51,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdarg.h>
+
+#if defined(sun) && defined(SVR4)
+#include <netdb.h> /* MAXHOSTNAMELEN */
+#endif
 
 #define SCREEN_RESOURCES "SCREEN_RESOURCES"
 
@@ -498,19 +502,28 @@ Resolution(int pixels, int mm)
 static void
 DoDisplayDefines(Display *display, String *defs, char *host)
 {
-#define MAXHOSTNAME 255
-    char client[MAXHOSTNAME], server[MAXHOSTNAME], *colon;
+#ifndef MAXHOSTNAMELEN
+#define MAXHOSTNAMELEN 255
+#endif
+    char client[MAXHOSTNAMELEN], server[MAXHOSTNAMELEN], *colon;
     char **extnames;
     int n;
     
-    XmuGetHostname(client, MAXHOSTNAME);
-    strcpy(server, XDisplayName(host));
-    colon = strchr(server, ':');
+    XmuGetHostname(client, MAXHOSTNAMELEN);
+    strncpy(server, XDisplayName(host), sizeof(server));
+    server[sizeof(server) - 1] = '\0';
+    /* search for final colon to skip over any embedded colons in IPv6
+       numeric address forms */
+    colon = strrchr(server, ':');
     n = 0;
     if (colon) {
+	/* remove extra colon if there are exactly two, since it indicates 
+	   DECnet.  Three colons is an IPv6 address ending in :: though. */
+	if ((colon > server) && (*(colon-1) == ':') &&
+	  ( ((colon - 1) == server) || (*(colon-2) != ':') ) ) {
+	    *(colon-1) = ':';
+	}
 	*colon++ = '\0';
-	if (*colon == ':')
-	    colon++;
 	sscanf(colon, "%d", &n);
     }
     if (!*server || !strcmp(server, "unix") || !strcmp(server, "localhost"))

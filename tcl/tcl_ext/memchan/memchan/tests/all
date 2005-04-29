@@ -1,0 +1,11 @@
+# -*- tcl -*-
+# This file contains a top-level script to run all of the Tcl
+# tests.  Execute it by invoking "source all" when running tclTest
+# in this directory.
+#
+# CVS: $Id: all,v 1.1 1999/05/11 18:08:07 aku Exp $
+
+foreach i [lsort [glob *.test]] {
+    puts stdout $i
+    source $i
+}

@@ -1,6 +1,6 @@
 // defineclass.cc - defining a class from .class format.
 
-/* Copyright (C) 1999, 2000, 2001  Free Software Foundation
+/* Copyright (C) 1999, 2000, 2001, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -35,7 +35,6 @@ details.  */
 #include <java/lang/ClassFormatError.h>
 #include <java/lang/NoClassDefFoundError.h>
 #include <java/lang/ClassCircularityError.h>
-#include <java/lang/ClassNotFoundException.h>
 #include <java/lang/IncompatibleClassChangeError.h>
 #include <java/lang/reflect/Modifier.h>
 
@@ -891,24 +890,15 @@ _Jv_ClassReader::handleClassBegin
       throw_no_class_def_found_error (msg);
     }
 
-  def->accflags = access_flags;
+  def->accflags = access_flags | java::lang::reflect::Modifier::INTERPRETED;
   pool_data[this_class].clazz = def;
   pool_tags[this_class] = JV_CONSTANT_ResolvedClass;
 
-  if (super_class == 0)
+  if (super_class == 0 && ! (access_flags & Modifier::INTERFACE))
     {
-      // interfaces have java.lang.Object as super.
-      if (access_flags & Modifier::INTERFACE)
-	{
-	  def->superclass = (jclass)&java::lang::Object::class$;
-	}
-
       // FIXME: Consider this carefully!  
-      else if (!_Jv_equalUtf8Consts (def->name,
-				     java::lang::Object::class$.name))
-	{
-	  throw_no_class_def_found_error ("loading java.lang.Object");
-	}
+      if (! _Jv_equalUtf8Consts (def->name, java::lang::Object::class$.name))
+	throw_no_class_def_found_error ("loading java.lang.Object");
     }
 
   // In the pre-loading state, it can be looked up in the
@@ -924,25 +914,30 @@ _Jv_ClassReader::handleClassBegin
 
   if (super_class != 0)
     {
-      // load the super class
+      // Load the superclass.
       check_tag (super_class, JV_CONSTANT_Class);
       _Jv_Utf8Const* super_name = pool_data[super_class].utf8; 
 
-      // load the super class using our defining loader
+      // Load the superclass using our defining loader.
       jclass the_super = _Jv_FindClass (super_name,
 					def->loader);
 
       // This will establish that we are allowed to be a subclass,
-      // and check for class circularity error
+      // and check for class circularity error.
       checkExtends (def, the_super);
 
-      def->superclass = the_super;
+      // Note: for an interface we will find Object as the
+      // superclass.  We still check it above to ensure class file
+      // validity, but we simply assign `null' to the actual field in
+      // this case.
+      def->superclass = (((access_flags & Modifier::INTERFACE))
+			 ? NULL : the_super);
       pool_data[super_class].clazz = the_super;
       pool_tags[super_class] = JV_CONSTANT_ResolvedClass;
     }
 
-  // now we've come past the circularity problem, we can 
-  // now say that we're loading...
+  // Now we've come past the circularity problem, we can 
+  // now say that we're loading.
 
   def->state = JV_STATE_LOADING;
   def->notifyAll ();
@@ -1189,15 +1184,17 @@ void _Jv_ClassReader::handleFieldsEnd ()
 void
 _Jv_ClassReader::handleMethodsBegin (int count)
 {
-  def->methods = (_Jv_Method*)
-    _Jv_AllocBytes (sizeof (_Jv_Method)*count);
+  def->methods = (_Jv_Method *) _Jv_AllocBytes (sizeof (_Jv_Method) * count);
 
   def->interpreted_methods
     = (_Jv_MethodBase **) _Jv_AllocBytes (sizeof (_Jv_MethodBase *)
 					  * count);
 
   for (int i = 0; i < count; i++)
-    def->interpreted_methods[i] = 0;
+    {
+      def->interpreted_methods[i] = 0;
+      def->methods[i].index = (_Jv_ushort) -1;
+    }
 
   def->method_count = count;
 }
@@ -1262,6 +1259,7 @@ void _Jv_ClassReader::handleCodeAttribute
   method->exc_count      = exc_table_length;
   method->defining_class = def;
   method->self           = &def->methods[method_index];
+  method->prepared       = NULL;
 
   // grab the byte code!
   memcpy ((void*) method->bytecode (),
@@ -1271,7 +1269,7 @@ void _Jv_ClassReader::handleCodeAttribute
   def->interpreted_methods[method_index] = method;
 }
 
-void _Jv_ClassReader::handleExceptionTableEntry 
+void _Jv_ClassReader::handleExceptionTableEntry
   (int method_index, int exc_index, 
    int start_pc, int end_pc, int handler_pc, int catch_type)
 {
@@ -1279,10 +1277,10 @@ void _Jv_ClassReader::handleExceptionTableEntry
     (def->interpreted_methods[method_index]);
   _Jv_InterpException *exc = method->exceptions ();
 
-  exc[exc_index].start_pc     = start_pc;
-  exc[exc_index].end_pc       = end_pc;
-  exc[exc_index].handler_pc   = handler_pc;
-  exc[exc_index].handler_type = catch_type;
+  exc[exc_index].start_pc.i     = start_pc;
+  exc[exc_index].end_pc.i       = end_pc;
+  exc[exc_index].handler_pc.i   = handler_pc;
+  exc[exc_index].handler_type.i = catch_type;
 }
 
 void _Jv_ClassReader::handleMethodsEnd ()
@@ -1380,12 +1378,14 @@ throw_internal_error (char *msg)
   throw new java::lang::InternalError (JvNewStringLatin1 (msg));
 }
 
-static void throw_incompatible_class_change_error (jstring msg)
+static void
+throw_incompatible_class_change_error (jstring msg)
 {
   throw new java::lang::IncompatibleClassChangeError (msg);
 }
 
-static void throw_class_circularity_error (jstring msg)
+static void
+throw_class_circularity_error (jstring msg)
 {
   throw new java::lang::ClassCircularityError (msg);
 }

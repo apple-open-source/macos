@@ -31,7 +31,7 @@ in this Software without prior written authorization from The Open Group.
  * protocol extensions.  THESE INTERFACES ARE NOT PART OF THE X STANDARD AND
  * ARE SUBJECT TO CHANGE!
  */
-/* $XFree86: xc/include/extensions/extutil.h,v 1.9 2001/12/14 19:53:28 dawes Exp $ */
+/* $XFree86: xc/include/extensions/extutil.h,v 1.10 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _EXTUTIL_H_
 #define _EXTUTIL_H_
@@ -58,117 +58,85 @@ typedef struct _XExtensionInfo {
 
 typedef struct _XExtensionHooks {
     int (*create_gc)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
 	      GC			/* gc */,
 	      XExtCodes*		/* codes */
-#endif
 );
     int (*copy_gc)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               GC			/* gc */,
               XExtCodes*		/* codes */
-#endif
 );
     int (*flush_gc)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               GC			/* gc */,
               XExtCodes*		/* codes */
-#endif
 );
     int (*free_gc)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               GC			/* gc */,
               XExtCodes*		/* codes */
-#endif
 );
     int (*create_font)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               XFontStruct*		/* fs */,
               XExtCodes*		/* codes */
-#endif
 );
     int (*free_font)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               XFontStruct*		/* fs */,
               XExtCodes*		/* codes */
-#endif
 );
     int (*close_display)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               XExtCodes*		/* codes */
-#endif
 );
     Bool (*wire_to_event)(
-#if NeedNestedPrototypes
 	       Display*			/* display */,
                XEvent*			/* re */,
                xEvent*			/* event */
-#endif
 );
     Status (*event_to_wire)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               XEvent*			/* re */,
               xEvent*			/* event */
-#endif
 );
     int (*error)(
-#if NeedNestedPrototypes
 	      Display*			/* display */,
               xError*			/* err */,
               XExtCodes*		/* codes */,
               int*			/* ret_code */
-#endif
 );
     char *(*error_string)(
-#if NeedNestedPrototypes
 	        Display*		/* display */,
                 int			/* code */,
                 XExtCodes*		/* codes */,
                 char*			/* buffer */,
                 int			/* nbytes */
-#endif
 );
 } XExtensionHooks;
 
 extern XExtensionInfo *XextCreateExtension(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 extern void XextDestroyExtension(
-#if NeedFunctionPrototypes
     XExtensionInfo*	/* info */
-#endif
 );
 extern XExtDisplayInfo *XextAddDisplay(
-#if NeedFunctionPrototypes
     XExtensionInfo*	/* extinfo */,
     Display*		/* dpy */,
     char*		/* ext_name */,
     XExtensionHooks*	/* hooks */,
     int			/* nevents */,
     XPointer		/* data */
-#endif
 );
 extern int XextRemoveDisplay(
-#if NeedFunctionPrototypes
     XExtensionInfo*	/* extinfo */,
     Display*		/* dpy */
-#endif
 );
 extern XExtDisplayInfo *XextFindDisplay(
-#if NeedFunctionPrototypes
     XExtensionInfo*	/* extinfo */,
     Display*		/* dpy */
-#endif
 );
 
 #define XextHasExtension(i) ((i) && ((i)->codes))

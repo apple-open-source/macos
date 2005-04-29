@@ -1,0 +1,114 @@
+#!/bin/bash
+
+# Wrapper script to build a DLL with gcc.
+
+# In addition to just build the DLL with gcc -shared, it also links in
+# a resource file containing an autoincremented build number, if
+# available. See the compile-resource script.
+
+# If version info (in the sense as used by libtool) is passed to this
+# script, the generated DLL's name is suffixed with the number of the
+# earliest implemented interface. Note that this suffix only is used
+# in forming the name of the DLL, it is not related (from Windows's
+# point of view) with the version resource inside the DLL. Also, note
+# that this suffix is *not* related to the release number of the
+# software package the library belongs to. (The version resource
+# inside the DLL usually *does* refer to the software package's
+# release number.) The DLL name also starts with "lib" in this case.
+
+# If no version info is passed, no "lib" prefix is used for the DLL name.
+
+# In addition to the DLL, also an import library is generated. The
+# import library name does not contain the interface number
+# suffix. This is intended to be similar in spirit to symlinking
+# libfoo.so to libfoo.so.2.0.1 on Unix, and then when building some
+# app, just specifying -lfoo.
+
+# In addition to the gcc import library, if a .def file is passed on
+# the command line, and the Microsoft linker is available, also a
+# Microsoft import library (foo.lib) is generated.
+
+# This script is usable at least with Cygwin 1.3.2 (the Cygwin bash is
+# used to interpret this script, plus it calls at least m4), and
+# gcc-2.95.3 and binutils-2.11.90 for Mingw (see www.mingw.org). For
+# other combinations, no idea.
+
+# The command line arguments are:
+# $1: library base name, for instance foo
+# $2: version info, like libtool's -version-info parameter. Consists of
+#	one to three numbers, separated by a colon. See libtool documentation
+#	for info. (Summary: The numbers are "current", "revision" and "age".)
+#	The DLL name is suffixed with the value of current - age (age is always
+#	less that or equal to current).
+#	If you don't want any version suffix, pass - for this argument.
+# rest: def file (if used), object files, libraries and other switches
+
+# If called as 
+#	build-dll foo 5:4:3 foo.def foobar.o tem.o zap.o ...
+# this script would then generate libfoo-2.dll, libfoo.a, and foo.lib.
+# (The last one only if the Microsoft linker is available). The lib prefix 
+# is used in order to be libtool compatible.
+
+library=$1; shift
+version=$1; shift;
+ldargs="$*"
+
+[ -z "$CC" ] && CC=gcc
+
+case "$CC" in
+    gcc*)
+	;;
+    *)
+	echo build-dll only works with gcc
+	exit 1
+	;;
+esac
+
+deffile=
+for F in $ldargs; do
+    case $F in
+	*.def)	deffile=$F
+    esac
+done
+
+dllfile=$library
+if [ $version != '-' ]; then
+    saved_IFS="$IFS"
+    IFS=": "
+    set $version 0 0
+    IFS="$saved_IFS"
+    if [ $# -gt 6 ]; then
+	echo version info should be one to three numbers separated by colon
+	exit 1
+    fi
+    current=$1
+    age=$2
+    dllfile=lib$library-$[current-age]
+fi
+dllfile=$dllfile.dll
+
+# Check if we have a resource file for this DLL.
+
+# The Cygwin dirname fails on Windows-style path syntax, which $0
+# might be in some cases.
+uname |grep CYGWIN > /dev/null
+if [ "$?" = 0 ]; then
+    t=`cygpath -au $0`
+    d=`dirname $t`
+else
+    d=`dirname $0`
+fi
+resfile=$library-win32res.o
+$d/compile-resource $library.rc $resfile && ldargs="$ldargs $resfile"
+
+# Build the DLL.
+
+$CC -shared -o $dllfile $ldargs -Wl,--out-implib,lib$library.a
+
+# Finally, also build import libraries for the Microsoft linker.
+
+if type -p lib.exe && [ -n "$deffile" ]; then
+    lib -name:$dllfile -def:$deffile -out:$library.lib
+fi
+
+exit 0

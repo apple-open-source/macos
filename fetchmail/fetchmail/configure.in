@@ -471,13 +471,20 @@ else
                 AC_CHECK_LIB(k5crypto,
                    des_string_to_key,
                    libk5crypto=-lk5crypto,
+                      AC_CHECK_LIB(k5crypto,
+                         krb5_c_string_to_key,
+                         libk5crypto=-lk5crypto,
                       AC_ERROR([Kerberos 5 DES libraries not found]),
+                   ${LDEFLAGS} ${ac_krblibs}),
                    ${LDEFLAGS} ${ac_krblibs}),
                  ${LDEFLAGS} ${ac_krblibs})
         fi
         AC_CHECK_LIB(krb5, krb5_init_context,[],
            continue,
            ${LDEFLAGS} ${ac_krblibs})
+        AC_CHECK_LIB(krb5, krb5_init_ets,
+           AC_DEFINE(HAVE_KRB5_INIT_ETS),
+           AC_MSG_RESULT([Kerberos V library loads its own error tables]))
         AC_DEFINE(KERBEROS_V5)
         test "$dir" != "/usr" && CEFLAGS="$CEFLAGS -I$dir/include"
         LDEFLAGS="$LDEFLAGS -L$dir/lib"

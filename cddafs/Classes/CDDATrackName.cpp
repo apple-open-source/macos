@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -28,7 +26,9 @@
 //	Includes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#include <CoreServices/CoreServices.h>
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING 					"CDDATrackName"
+#include <AssertMacros.h>
+
 #include <CoreFoundation/CoreFoundation.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -48,9 +48,6 @@
 #else
 #define PRINT(x)
 #endif
-
-#define DEBUG_ASSERT_COMPONENT_NAME_STRING "CDDATrackName"
-#include <AssertMacros.h>
 
 
 #define kCDDAFSUtilBundlePath	"/System/Library/Filesystems/cddafs.fs"

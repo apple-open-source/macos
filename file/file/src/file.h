@@ -32,17 +32,11 @@
  */
 /*
  * file.h - definitions for file(1) program
- * @(#)$Id: file.h,v 1.2 2003/07/02 19:22:59 eseidel Exp $
+ * @(#)$Id: file.h,v 1.61 2004/05/12 14:53:01 christos Exp $
  */
 
 #ifndef __file_h__
 #define __file_h__
-
-#ifndef __linux__
-#define _LARGEFILE_SOURCE
-#define _LARGEFILE64_SOURCE 
-#define _FILE_OFFSET_BITS 64
-#endif
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -59,6 +53,15 @@
 /* Do this here and now, because struct stat gets re-defined on solaris */
 #include <sys/stat.h>
 
+#ifndef MAGIC
+#define MAGIC "/etc/magic"
+#endif
+
+#ifdef __EMX__
+#define PATHSEP	';'
+#else
+#define PATHSEP	':'
+#endif
 
 #define private static
 #ifndef protected
@@ -71,12 +74,13 @@
 #endif
 #define MAXMAGIS 4096		/* max entries in /etc/magic */
 #define MAXDESC	64		/* max leng of text description */
-#define MAXstring 32		/* max leng of "string" types */
+#define MAXstring 256		/* max leng of "string" types */
 
 #define MAGICNO		0xF11E041C
 #define VERSIONNO	2
-#define FILE_MAGICSIZE	(32 * 4)
+#define FILE_MAGICSIZE	(32 * 11)
 
+#define	FILE_LOAD	0
 #define FILE_CHECK	1
 #define FILE_COMPILE	2
 
@@ -109,12 +113,56 @@ struct magic {
 #define				FILE_BELDATE	15
 #define				FILE_LELDATE	16
 #define				FILE_REGEX	17
+
+#define				FILE_FORMAT_NAME	\
+/* 0 */ 			"invalid 0",		\
+/* 1 */				"byte",			\
+/* 2 */ 			"short",		\
+/* 3 */ 			"invalid 3",		\
+/* 4 */ 			"long",			\
+/* 5 */ 			"string",		\
+/* 6 */ 			"date",			\
+/* 7 */ 			"beshort",		\
+/* 8 */ 			"belong",		\
+/* 9 */ 			"bedate"		\
+/* 10 */ 			"leshort",		\
+/* 11 */ 			"lelong",		\
+/* 12 */ 			"ledate",		\
+/* 13 */ 			"pstring",		\
+/* 14 */ 			"ldate",		\
+/* 15 */ 			"beldate",		\
+/* 16 */ 			"leldate",		\
+/* 17 */ 			"regex",
+
+#define	FILE_FMT_NUM	"cduxXi"
+#define FILE_FMT_STR	"s"	
+
+#define				FILE_FORMAT_STRING	\
+/* 0 */ 			NULL,			\
+/* 1 */				FILE_FMT_NUM,		\
+/* 2 */ 			FILE_FMT_NUM,		\
+/* 3 */ 			NULL,			\
+/* 4 */ 			FILE_FMT_NUM,		\
+/* 5 */ 			FILE_FMT_STR,		\
+/* 6 */ 			FILE_FMT_STR,		\
+/* 7 */ 			FILE_FMT_NUM,		\
+/* 8 */ 			FILE_FMT_NUM,		\
+/* 9 */ 			FILE_FMT_STR,		\
+/* 10 */ 			FILE_FMT_NUM,		\
+/* 11 */ 			FILE_FMT_NUM,		\
+/* 12 */ 			FILE_FMT_STR,		\
+/* 13 */ 			FILE_FMT_STR,		\
+/* 14 */ 			FILE_FMT_STR,		\
+/* 15 */ 			FILE_FMT_STR,		\
+/* 16 */ 			FILE_FMT_STR,		\
+/* 17 */ 			FILE_FMT_STR,
+
 	/* Word 3 */
 	uint8_t in_op;		/* operator for indirection */
 	uint8_t mask_op;	/* operator for mask */
 	uint8_t dummy1;	
 	uint8_t dummy2;	
-#define				FILE_OPS	"&|^+-*%/"
+#define				FILE_OPS	"&|^+-*/%"
 #define				FILE_OPAND	0
 #define				FILE_OPOR	1
 #define				FILE_OPXOR	2
@@ -125,9 +173,9 @@ struct magic {
 #define				FILE_OPMODULO	7
 #define				FILE_OPINVERSE	0x80
 	/* Word 4 */
-	int32_t offset;		/* offset to magic number */
+	uint32_t offset;	/* offset to magic number */
 	/* Word 5 */
-	int32_t in_offset;	/* offset from indirection */
+	uint32_t in_offset;	/* offset from indirection */
 	/* Word 6 */
 	uint32_t mask;	/* mask before comparison with value */
 	/* Word 7 */
@@ -174,11 +222,16 @@ struct magic_set {
 	int32_t *off;
     } c;
     struct out {
+	/* Accumulation buffer */
 	char *buf;
 	char *ptr;
 	size_t len;
 	size_t size;
+	/* Printable buffer */
+	char *pbuf;
+	size_t psize;
     } o;
+    int error;
     int flags;
     int haderr;
 };
@@ -191,20 +244,23 @@ protected int file_pipe2file(struct magic_set *, int, const void *, size_t);
 protected int file_printf(struct magic_set *, const char *, ...);
 protected int file_reset(struct magic_set *);
 protected int file_tryelf(struct magic_set *, int, const unsigned char *, size_t);
-protected int file_tryfat(struct magic_set *, const char *, int, const unsigned char *, size_t);
+protected int file_tryfat(struct magic_set *, int, const unsigned char *, size_t, const char *);
 protected int file_zmagic(struct magic_set *, const unsigned char *, size_t);
 protected int file_ascmagic(struct magic_set *, const unsigned char *, size_t);
 protected int file_is_tar(struct magic_set *, const unsigned char *, size_t);
 protected int file_softmagic(struct magic_set *, const unsigned char *, size_t);
 protected struct mlist *file_apprentice(struct magic_set *, const char *, int);
 protected uint32_t file_signextend(struct magic_set *, struct magic *, uint32_t);
+protected void file_delmagic(struct magic *, int type, size_t entries);
 protected void file_badread(struct magic_set *);
 protected void file_badseek(struct magic_set *);
 protected void file_oomem(struct magic_set *);
-protected void file_error(struct magic_set *, const char *, ...);
+protected void file_error(struct magic_set *, int, const char *, ...);
 protected void file_magwarn(const char *, ...);
 protected void file_mdump(struct magic *);
 protected void file_showstr(FILE *, const char *, size_t);
+protected size_t file_mbswidth(const char *);
+protected const char *file_getbuffer(struct magic_set *);
 
 #ifndef HAVE_STRERROR
 extern int sys_nerr;

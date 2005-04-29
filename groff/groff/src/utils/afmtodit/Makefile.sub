@@ -7,10 +7,12 @@ afmtodit: afmtodit.pl
 	if test -n "$(PERLPATH)"; then \
 	  sed -e "s|/usr/bin/perl|$(PERLPATH)|" \
               -e "s|@VERSION@|$(version)$(revision)|" \
+              -e "s|@FONTDIR@|$(fontdir)|" \
               $(srcdir)/afmtodit.pl >afmtodit; \
 	else \
 	  sed -e "s|@VERSION@|$(version)$(revision)|" \
-              $(srcdir)/afmtodit.pl afmtodit; \
+              -e "s|@FONTDIR@|$(fontdir)|" \
+              $(srcdir)/afmtodit.pl >afmtodit; \
 	fi
 	chmod +x afmtodit
 

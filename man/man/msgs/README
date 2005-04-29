@@ -1,0 +1,25 @@
+The English messages are compiled into man, and are used
+when it cannot find a message catalog.
+
+Before printing a message, man does a  catopen("man_messages", 0);
+which means that it tries to open the file obtained from the environment
+variable NLSPATH by substituting "man_messages" for %N, and $LC_MESSAGES
+for %L (older implementations use $LANG instead)
+When NLSPATH is not set, the value
+  "/usr/lib/locale/%L/%N.cat:/usr/lib/locale/%N/%L"
+is used. If no information about the language is available, "C" is used.
+
+Because the catalog routines are not generally available, I have enclosed
+a copy of the gencat source.
+
+If you add a new message catalog, say for language da, then verify that
+the labels are used correctly by doing
+	../src/makemsg mess.en x.en.h x.en.c
+	../src/makemsg mess.da x.da.h x.da.c
+	diff x.en.h x.da.h
+	rm x*
+The files x.en.h and x.da.h should be identical.
+
+
+Recent gencat wants to know what codeset the messages are in.
+Please report incorrect codesets to aeb@cwi.nl.

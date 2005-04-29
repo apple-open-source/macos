@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp $
+XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.187 2003/09/06 23:38:04 dawes Exp $
 /******************************************************************************/
 /*
  * This file is to provide a quick method for most people to change the
@@ -111,7 +111,7 @@ XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp 
 #define XInputDrivers		mouse keyboard acecad calcomp citron \
 				digitaledge dmc dynapro elographics \
 				microtouch mutouch penmount spaceorb summa \
-				wacom void magictouch
+				wacom void magictouch aiptek
  */
 
 /*
@@ -185,6 +185,32 @@ XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp 
  *
 #define BuildFreeType		NO
 #define BuildXTrueType		NO
+ */
+
+/*
+ * To set non-default build options for the underlying FreeType libraries,
+ * add them here and uncomment.
+ *
+#define Freetype2BuildDefines	-DFREETYPE_BUILD_DEFINES
+ */
+
+/*
+ * If you want to use FreeType 1.x build options that differ from the FreeType2
+ * build options, set them here and uncomment.  Otherwise the Freetype2 build
+ * options will be used for both FreeType 2.x and 1.x.  Note: FreeType 1.x
+ * is currently only used for the X-TrueType (xtt) module.
+ *
+#define Freetype1BuildDefines	-DFREETYPE1_BUILD_DEFINES
+ */
+
+/*
+ * To build the FreeType libraries with the TrueType byte code interpreter
+ * enabled, uncomment this.  Note that there are patent issues related to the
+ * TrueType byte code interpreter, and we only recommend you enabling this
+ * if you are sure that there are no legal impediments to you doing so.  See
+ * <http://www.freetype.org/patents.html> for further information.
+ *
+#define Freetype2BuildDefines -DTT_CONFIG_OPTION_BYTECODE_INTERPRETER
  */
 
 /*
@@ -407,67 +433,6 @@ XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp 
  */
 
 /*
- * If you have Tk (which is required to build XF86Setup), uncomment this
- * Notes:
- *   - version 4.0 or 4.1 is required, and XF86Setup links it statically by
- *     default.
- *   - XF86Setup is not built or supported with XFree86 4.x
- *
-#define HasTk			YES
- */
-
-/*
- * Set the paths and names for your Tk library if they don't match the
- * defaults (check your OS .cf file or Imake.tmpl for the defaults).
- *
- * Common values for TkLibName are tk4.0, tk4.1, etc.
- *
- * Some Linux releases need TkIncDir set to /usr/include/tcl, and some
- * need it set to /usr/X11R6/include.
- *
- * Some Linux releases need TkLibDir set to /usr/X11R6/lib
- *
-#define TkLibDir		/usr/local/lib
-#define TkIncDir		/usr/local/include
-#define TkLibName		tk
- */
-
-/*
- * By default, XF86Setup is linked with a static Tk library.  To change
- * that, uncomment the following line.
- *
-#define XF86SetupUsesStaticTk	NO
- */
-
-/*
- * If you have Tcl (which is required to build XF86Setup), uncomment this
- * Note: version 7.4 or 7.5 is required, and XF86Setup links it statically by
- * default.
- *
-#define HasTcl			YES
- */
-
-/*
- * Set the paths and names for your Tcl library if they don't match the
- * defaults (check your OS .cf file or Imake.tmpl for the defaults).
- *
- * Common values for TclLibName are tcl7.4, tcl7.5, etc.
- *
- * Some Linux releases need TclIncDir set to /usr/include/tcl.
- *
-#define TclLibDir		/usr/local/lib
-#define TclIncDir		/usr/local/include
-#define TclLibName		tcl
- */
-
-/*
- * By default, XF86Setup is linked with a static Tcl library.  To change
- * that, uncomment the following line.
- *
-#define XF86SetupUsesStaticTcl	NO
- */
-
-/*
  * Build a server that dynamically loads the modules by setting
  * this to YES.  This defaults to YES on most platforms.  A static server
  * can be built by setting this to NO.
@@ -558,12 +523,6 @@ XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp 
 #define BuildScreenSaverExt	NO
  */
 
-/*
- * If you want to build PEX, uncomment this.
- *
-#define BuildPexExt		YES
- */
-
 /* 
  * If you don't want to build Xinerama support, uncomment this.
  *
@@ -571,40 +530,9 @@ XCOMM $XFree86: xc/config/cf/xf86site.def,v 3.182 2002/10/11 01:40:22 dawes Exp 
  */
 
 /*
- * If you don't want to build support for an external GLX server module or
- * library, uncomment this.
+ * If you don't want to build support for the GLX extension, uncomment this.
  *
 #define BuildGlxExt             NO
- */
-
-/*
- * If you want to build support for the old dlopen style external GLX
- * server module or library, uncomment this.
- *
-#define GlxStubLib              YES
- */
-
-/*
- * If you aren't building with support for loadable modules and wish
- * to statically link external GLX server libs instead of the default
- * non-functional stub library, uncomment the following define and
- * specify the space-seperated pathnames of those libraries here.
- *
-#define GlxStaticServerLib	/full/path/name/to/glx/servGL/libServerGlx.a \
-				/full/path/name/to/glx/servGL/libMesaGlx.a
- */
-
-/*
- * If you want to build XIE, uncomment this.
- *
-#define BuildXIE		YES
- */
-
-/*
- * If you want to build only the DIS (Document Imaging Subset of XIE)
- * uncomment this line.  This option is only relevant when XIE is built.
- *
-#define BuildDIS		YES
  */
 
 /*

@@ -203,7 +203,7 @@ Xedit(cmd, disk, mbr, tt, offset)
 	/* Unused, so just zero out */
 	if (pp->id == DOSPTYP_UNUSED) {
 		memset(pp, 0, sizeof(*pp));
-		printf("Partition %d is disabled.\n", pn);
+		printf("Partition %d is disabled.\n", pn + 1);
 		return (ret);
 	}
 
@@ -324,7 +324,7 @@ Xselect(cmd, disk, mbr, tt, offset)
 	/* Sanity checks */
 	if ((mbr->part[pn].id != DOSPTYP_EXTEND) &&
 	    (mbr->part[pn].id != DOSPTYP_EXTENDL)) {
-		printf("Partition %d is not an extended partition.\n", pn);
+		printf("Partition %d is not an extended partition.\n", pn + 1);
 		return (CMD_CONT);
 	}
 
@@ -335,7 +335,7 @@ Xselect(cmd, disk, mbr, tt, offset)
 		printf("Loop to offset 0!  Not selected.\n");
 		return (CMD_CONT);
 	} else {
-		printf("Selected extended partition %d\n", pn);
+		printf("Selected extended partition %d\n", pn + 1);
 		printf("New MBR at offset %d.\n", off);
 	}
 

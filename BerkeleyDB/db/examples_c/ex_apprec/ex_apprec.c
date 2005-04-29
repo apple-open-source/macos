@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: ex_apprec.c,v 1.1.1.1 2003/02/15 04:56:05 zarzycki Exp $
+ * $Id: ex_apprec.c,v 1.2 2004/03/30 01:23:17 jtownsen Exp $
  */
 
 #include <sys/types.h>
@@ -32,7 +32,6 @@ main(argc, argv)
 	char *argv[];
 {
 	extern char *optarg;
-	extern int optind;
 	DB_ENV *dbenv;
 	DB_LSN lsn;
 	DB_TXN *txn;

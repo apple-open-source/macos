@@ -58,11 +58,18 @@
 #ifndef _VIS_H_
 #define	_VIS_H_
 
+#include <_types.h>
+
+#ifndef	_SIZE_T
+#define	_SIZE_T
+typedef	__darwin_size_t		size_t;
+#endif
+
 /*
  * to select alternate encoding format
  */
 #define	VIS_OCTAL	0x01	/* use octal \ddd format */
-#define	VIS_CSTYLE	0x02	/* use \[nrft0..] where appropiate */
+#define	VIS_CSTYLE	0x02	/* use \[nrft0..] where appropriate */
 
 /*
  * to alter set of characters encoded (default is to encode all
@@ -79,6 +86,7 @@
  */
 #define	VIS_NOSLASH	0x40	/* inhibit printing '\' */
 #define	VIS_HTTPSTYLE	0x80	/* http-style escape % HEX HEX */
+#define	VIS_GLOB	0x100	/* encode glob(3) magics */
 
 /*
  * unvis return codes

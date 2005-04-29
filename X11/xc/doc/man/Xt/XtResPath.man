@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtResPath.man,v 1.4 2002/10/12 16:06:41 herrb Exp $
+.\" $XFree86: xc/doc/man/Xt/XtResPath.man,v 1.5 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,18 +130,11 @@
 .SH NAME
 XtResolvePathname \- search for a file using standard substitution
 .SH SYNTAX
-String XtResolvePathname(\fIdisplay\fP, \fItype\fP, \fIfilename\fP, \fIsuffix\fP,
-\fIpath\fP, \fIsubstitutions\fP, \fInum_substitutions\fP, \fIpredicate\fP)
-.br
-      Display *\fIdisplay\fP;
-.br
-      String \fItype\fP, \fIfilename\fP, \fIsuffix\fP, \fIpath\fP;
-.br
-      Substitution \fIsubstitutions\fP;
-.br
-      Cardinal \fInum_substitutions\fP;
-.br
-      XtFilePredicate \fIpredicate\fP;
+.HP
+String XtResolvePathname(Display *\fIdisplay\fP, String \fItype\fP, String
+\fIfilename\fP, String \fIsuffix\fP, String \fIpath\fP, Substitution
+\fIsubstitutions\fP, Cardinal \fInum_substitutions\fP, XtFilePredicate
+\fIpredicate\fP); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1.2i
 Specifies the display to use to find the language for language substitutions.

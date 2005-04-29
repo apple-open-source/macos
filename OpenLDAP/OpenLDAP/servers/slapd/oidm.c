@@ -1,8 +1,17 @@
-/* schemaparse.c - routines to parse config file objectclass definitions */
-/* $OpenLDAP: pkg/ldap/servers/slapd/oidm.c,v 1.1.2.4 2003/03/29 15:45:43 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* oidm.c - object identifier macro routines */
+/* $OpenLDAP: pkg/ldap/servers/slapd/oidm.c,v 1.8.2.2 2004/01/01 18:16:34 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -89,8 +98,7 @@ parse_oidm(
     const char	*fname,
     int		lineno,
     int		argc,
-    char 	**argv
-)
+    char 	**argv )
 {
 	char *oid;
 	OidMacro *om;
@@ -121,6 +129,7 @@ usage:	fprintf( stderr, "\tObjectIdentifier <name> <oid>\n");
 		return 1;
 	}
 
+	LDAP_SLIST_NEXT( om, som_next ) = NULL;
 	om->som_names = NULL;
 	ldap_charray_add( &om->som_names, argv[1] );
 	om->som_oid.bv_val = oidm_find( argv[2] );
@@ -138,6 +147,5 @@ usage:	fprintf( stderr, "\tObjectIdentifier <name> <oid>\n");
 	om->som_oid.bv_len = strlen( om->som_oid.bv_val );
 
 	LDAP_SLIST_INSERT_HEAD( &om_list, om, som_next );
-
 	return 0;
 }

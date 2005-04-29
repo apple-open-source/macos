@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.2
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -36,14 +36,10 @@ extern GLvoid *
 _mesa_zbuffer_address(GLcontext *ctx, GLint x, GLint y);
 
 
-extern GLuint
-_mesa_depth_test_span( GLcontext *ctx, GLuint n, GLint x, GLint y,
-                       const GLdepth z[], GLubyte mask[] );
 
-extern void
-_mesa_depth_test_pixels( GLcontext *ctx,
-                         GLuint n, const GLint x[], const GLint y[],
-                         const GLdepth z[], GLubyte mask[] );
+extern GLuint
+_mesa_depth_test_span( GLcontext *ctx, struct sw_span *span);
+
 
 
 extern void

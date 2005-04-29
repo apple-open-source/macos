@@ -1,6 +1,6 @@
 .TH LDAPSEARCH 1 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapsearch.1,v 1.37.2.6 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man1/ldapsearch.1,v 1.43.2.5 2004/06/29 21:55:44 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ldapsearch \- LDAP search tool
@@ -118,8 +118,9 @@ when connecting to a slapd and there is no x500dsa.hostname principal
 registered with your Kerberos Domain Controller(s).
 .TP
 .B \-t
-Write retrieved values to a set of temporary files.  This is useful for
-dealing with non-ASCII values such as jpegPhoto or audio.
+Write retrieved non-printable values to a set of temporary files.  This
+is useful for dealing with values containing non-character data such as
+jpegPhoto or audio.
 .TP
 .B \-A
 Retrieve attributes only (no values).  This is useful when you just want to
@@ -220,22 +221,22 @@ base object for the search.  The default is to never dereference aliases.
 Specify the LDAP protocol version to use.
 .TP
 .BI \-l \ timelimit
-wait at most \fItimelimit\fP seconds for a search to complete.  A
-timelimit of
+wait at most \fItimelimit\fP seconds for a search to complete.
+A timelimit of
 .I 0
-(zero) removes the
-.B ldap.conf
-limit.
+(zero) or
+.I none
+means no limit.
 A server may impose a maximal timelimit which only
 the root user may override.
 .TP
 .BI \-z \ sizelimit
-retrieve at most \fIsizelimit\fP entries for a search.  A sizelimit
-of 
+retrieve at most \fIsizelimit\fP entries for a search.
+A sizelimit of
 .I 0
-(zero) removes the 
-.B ldap.conf
-limit.
+(zero) or
+.I none
+means no limit.
 A server may impose a maximal sizelimit which only
 the root user may override.
 .TP
@@ -258,7 +259,7 @@ Specify the realm of authentication ID for SASL bind. The form of the realm
 depends on the actual SASL mechanism used.
 .TP
 .BI \-X \ authzid
-Specify the proxy authorization ID for SASL bind.
+Specify the requested authorization ID for SASL bind.
 .I authzid
 must be one of the following formats:
 .B dn:\c
@@ -281,15 +282,15 @@ output in LDAP Data Interchange Format or
 .BR ldif (5):
 .LP
 .nf
-	version: 1
+    version: 1
 
-	# bjensen, example, net
-	dn: uid=bjensen,dc=example,dc=net
-	objectClass: person
-	objectClass: dcObject
-	uid: bjensen
-	cn: Barbara Jensen
-	sn: Jensen
+    # bjensen, example, net
+    dn: uid=bjensen,dc=example,dc=net
+    objectClass: person
+    objectClass: dcObject
+    uid: bjensen
+    cn: Barbara Jensen
+    sn: Jensen
     ...
 .fi
 .LP
@@ -303,8 +304,8 @@ The following command:
     ldapsearch -LLL "(sn=smith)" cn sn telephoneNumber
 .fi
 .LP
-will perform a subtree search (using the default search base defined
-in
+will perform a subtree search (using the default search base and
+other parameters defined in
 .BR ldap.conf (5))
 for entries with a surname (sn) of smith.  The common name (cn), surname
 (sn) and telephoneNumber values will be retrieved and printed to
@@ -313,20 +314,20 @@ The output might look something like this if two entries are found:
 .LP
 .nf
     dn: uid=jts,dc=example,dc=com
-	cn: John Smith
-	cn: John T. Smith
-	sn: Smith
-	sn;lang-en: Smith
-	sn;lang-de: Schmidt
-	telephoneNumber: 1 555 123-4567
+    cn: John Smith
+    cn: John T. Smith
+    sn: Smith
+    sn;lang-en: Smith
+    sn;lang-de: Schmidt
+    telephoneNumber: 1 555 123-4567
 
-	dn: uid=sss,dc=example,dc=com
-	cn: Steve Smith
-	cn: Steve S. Smith
-	sn: Smith
-	sn;lang-en: Smith
-	sn;lang-de: Schmidt
-	telephoneNumber: 1 555 765-4321
+    dn: uid=sss,dc=example,dc=com
+    cn: Steve Smith
+    cn: Steve S. Smith
+    sn: Smith
+    sn;lang-en: Smith
+    sn;lang-de: Schmidt
+    telephoneNumber: 1 555 765-4321
 .fi
 .LP
 The command:
@@ -345,8 +346,8 @@ requested attributes is found:
 .nf
     dn: uid=xyz,dc=example,dc=com
     ufn: xyz, example, com
-    audio:< file::/tmp/ldapsearch-audio-a19924
-    jpegPhoto:< file::=/tmp/ldapsearch-jpegPhoto-a19924
+    audio:< file:///tmp/ldapsearch-audio-a19924
+    jpegPhoto:< file:///tmp/ldapsearch-jpegPhoto-a19924
 .fi
 .LP
 This command:
@@ -401,7 +402,7 @@ a diagnostic message being written to standard error.
 .SH AUTHOR
 The OpenLDAP Project <http://www.openldap.org/>
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

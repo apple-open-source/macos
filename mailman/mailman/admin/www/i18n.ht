@@ -60,11 +60,10 @@ Project</a> for future language support.
     <td><a href="mailto:robert@cataloniahosting.com">Robert Garrigos</td>
     <td>Supported</td>
 </tr>
-<tr><td>Chinese</td><td>Big5, gb</td>
-    <td><a href="mailto:max.yu@turbolinux.com.cn">Max Yu</a>
-    <td>Both Simplified Chinese (GB), and Big5 have been submitted but
-        support may be incomplete.  Assistance would be greatly
-        appreciated!</td>
+<tr><td>Chinese</td><td>(various)</td>
+    <td>Orphaned
+    <td>The Chinese support is quite out of date and not currently supported
+        by anyone.  Volunteers wanted!</td>
 </tr>
 <tr><td>Croatian</td><td>hr</td>
     <td><a href="mailto:nkatic@public.srce.hr">Nino Katic</a></td>
@@ -194,8 +193,9 @@ Project</a> for future language support.
     <td>Supported</td>
 </tr>
 <tr><td>Turkish</td><td>tr</td>
-    <td><a href="mailto:eguler@aegee.metu.edu.tr">Erdinc Guler</a></td>
-    <td>Not yet submitted</td>
+    <td><a href="mailto:kerem.erkan@hacettepe.edu.tr">Kerem Erkan</a>,
+        <a href="mailto:eguler@aegee.metu.edu.tr">Erdinc Guler</a></td>
+    <td>Supported</td>
 </tr>
 <tr><td>Ukrainian</td><td>uk</td>
     <td><a href="mailto:mvd@mylinux.com.ua">Maxim Dzumanenko</a></td>

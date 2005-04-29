@@ -1,4 +1,4 @@
-# Copyright 2000, 2001 Free Software Foundation, Inc.
+# Copyright 2000, 2001, 2004 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -100,7 +100,7 @@ proc return_void { } {
 proc return2_tests { } {
     global gdb_prompt
 
-    if { ! [ runto main ] } then {
+    if { ! [ runto_main ] } then {
 	gdb_suppress_entire_file "Run to main failed, so all tests in this file will automatically fail."
     }
 
@@ -109,7 +109,7 @@ proc return2_tests { } {
     return_1 "short"
     return_1 "int"
     return_1 "long"
-    if { ! [istarget "m6811-*-*"] } then {
+    if { ! [istarget "m6811-*-*"] && ![istarget "h8300*-*"] } then {
         return_1 "long_long"
     }
     return_1 "float"

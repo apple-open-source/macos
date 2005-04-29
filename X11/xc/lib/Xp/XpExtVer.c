@@ -34,7 +34,7 @@
  **
  ******************************************************************************
  *****************************************************************************/
-/* $XFree86: xc/lib/Xp/XpExtVer.c,v 1.5 2002/10/16 00:37:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xp/XpExtVer.c,v 1.6 2003/11/21 05:13:21 dawes Exp $ */
 
 #define NEED_REPLIES
 
@@ -61,7 +61,13 @@ XpQueryExtension (
     }
 }
 
-
+/* Prototype for |XpCheckExtInitUnlocked()|
+ * See XpExtUtil.c - same as |XpCheckExtInit()| but does not obtain the Xlib global lock */
+extern int XpCheckExtInitUnlocked(
+    register	Display *dpy,
+    register	int	version_index
+);
+    
 Status
 XpQueryVersion (
     Display  *dpy,
@@ -91,7 +97,7 @@ XpQueryVersion (
     }
 #endif /* Would_Need_xpPrintData_Struct_Def */
 
-    if (XpCheckExtInit(dpy, XP_DONT_CHECK) == -1)
+    if (XpCheckExtInitUnlocked(dpy, XP_DONT_CHECK) == -1)
         return (/* No such extension */ False);
 
     LockDisplay (dpy);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -243,14 +243,21 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
 
     string = DADiskGetDescription( disk, kDADiskDescriptionVolumeNameKey );
 
-    if ( string == NULL )
+    if ( string )
     {
-        string = CFSTR( "Untitled" );
+        if ( CFStringGetLength( string ) )
+        {
+            CFRetain( string );
+        }
+        else
+        {
+            string = NULL;
+        }
     }
 
-    if ( CFStringGetLength( string ) == 0 )
+    if ( string == NULL )
     {
-        string = CFSTR( "Untitled" );
+        string = ___CFBundleCopyLocalizedStringInDirectory( gDABundlePath, CFSTR( "Untitled" ), CFSTR( "Untitled" ), NULL );
     }
 
     if ( ___CFStringGetCString( string, name, MNAMELEN - 20 ) )
@@ -384,6 +391,8 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
         }
     }
 
+    CFRelease( string );
+
     return mountpoint;
 }
 
@@ -486,22 +495,33 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
 
     if ( CFURLGetFileSystemRepresentation( mountpoint, TRUE, path, sizeof( path ) ) )
     {
-        struct stat status;
-
-        /*
-         * Determine whether the mount point cookie file exists.
-         */
-
-        strcat( path, "/" );
-        strcat( path, kDAMainMountPointFolderCookieFile );
-
-        if ( stat( path, &status ) == 0 )
+        if ( ___isautofs( path ) == 0 )
         {
+            struct stat status;
+
             /*
-             * Remove the mount point cookie file.
+             * Determine whether the mount point cookie file exists.
              */
 
-            if ( unlink( path ) == 0 )
+            strcat( path, "/" );
+            strcat( path, kDAMainMountPointFolderCookieFile );
+
+            if ( stat( path, &status ) == 0 )
+            {
+                /*
+                 * Remove the mount point cookie file.
+                 */
+
+                if ( unlink( path ) == 0 )
+                {
+                    /*
+                     * Remove the mount point.
+                     */
+
+                    rmdir( dirname( path ) );
+                }
+            }
+            else if ( strncmp( path, kDAMainMountPointFolder, sizeof( kDAMainMountPointFolder ) ) == 0 )
             {
                 /*
                  * Remove the mount point.
@@ -509,14 +529,6 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
 
                 rmdir( dirname( path ) );
             }
-        }
-        else if ( strncmp( path, kDAMainMountPointFolder, sizeof( kDAMainMountPointFolder ) ) == 0 )
-        {
-            /*
-             * Remove the mount point.
-             */
-
-            rmdir( dirname( path ) );
         }
     }
 }
@@ -531,7 +543,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     CFStringRef                argument   = NULL;
     va_list                    arguments  = { 0 };
-    Boolean                    automatic  = FALSE;
+    CFBooleanRef               automatic  = kCFBooleanTrue;
     __DAMountCallbackContext * context    = NULL;
     CFIndex                    count      = 0;
     DAFileSystemRef            filesystem = DADiskGetFileSystem( disk );
@@ -589,7 +601,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     if ( CFEqual( options, CFSTR( "automatic" ) ) )
     {
-        automatic = TRUE;
+        automatic = NULL;
 
         CFStringReplaceAll( options, CFSTR( "" ) );
     }
@@ -673,26 +685,14 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
          * Determine whether the volume is to be mounted.
          */
 
-        if ( automatic )
+        if ( automatic == NULL )
         {
-            if ( CFDictionaryGetValue( map, kDAMountMapMountAutomaticKey ) == kCFBooleanFalse )
+            automatic = CFDictionaryGetValue( map, kDAMountMapMountAutomaticKey );
+
+            if ( automatic == kCFBooleanTrue )
             {
-                status = ECANCELED;
-
-                goto DAMountWithArgumentsErr;
-            }
-
-            if ( CFDictionaryGetValue( map, kDAMountMapMountAutomaticKey ) == NULL )
-            {
-                if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
-                {
-                    if ( gDAConsoleUser == NULL )
-                    {
-                        status = ECANCELED;
-
-                        goto DAMountWithArgumentsErr;
-                    }
-                }
+                DADiskSetOption( disk, kDADiskOptionMountAutomatic,        TRUE );
+                DADiskSetOption( disk, kDADiskOptionMountAutomaticNoDefer, TRUE );
             }
         }
 
@@ -777,27 +777,37 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
      * Determine whether the volume is to be mounted.
      */
 
-    if ( automatic )
+    if ( automatic == NULL )
     {
-        if ( DADiskGetOption( disk, kDADiskOptionMountAutomatic ) == FALSE )
+        if ( DADiskGetOption( disk, kDADiskOptionMountAutomatic ) )
         {
-            status = ECANCELED;
-
-            goto DAMountWithArgumentsErr;
+            if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) )
+            {
+                automatic = kCFBooleanTrue;
+            }
+        }
+        else
+        {
+            automatic = kCFBooleanFalse;
         }
 
-        if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) == FALSE )
+        if ( automatic == NULL )
         {
-            if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+            if ( gDAConsoleUser == NULL )
             {
-                if ( gDAConsoleUser == NULL )
+                if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
-                    status = ECANCELED;
-
-                    goto DAMountWithArgumentsErr;
+                    automatic = kCFBooleanFalse;
                 }
             }
         }
+    }
+
+    if ( automatic == kCFBooleanFalse )
+    {
+        status = ECANCELED;
+
+        goto DAMountWithArgumentsErr;
     }
 
     /*

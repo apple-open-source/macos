@@ -3,8 +3,8 @@ and hosts deny.
 
 This patch still needs autoconf support for portability.
 
---- access.c	30 Jul 2003 06:12:27 -0000	1.13
-+++ access.c	25 Apr 2004 17:20:47 -0000
+--- orig/access.c	2004-09-25 16:57:35
++++ access.c	2004-04-25 17:20:47
 @@ -22,11 +22,14 @@
    */
  

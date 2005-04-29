@@ -161,7 +161,17 @@ typedef unsigned long long      uintmax_t;
 
 #define SIZE_MAX          UINT32_MAX
 
-#define WCHAR_MAX         INT32_MAX
+#ifndef WCHAR_MIN
+#  define WCHAR_MIN       0
+#endif
+
+#ifndef WCHAR_MAX
+#  ifdef __WCHAR_MAX__
+#    define WCHAR_MAX     __WCHAR_MAX__
+#  else
+#    define WCHAR_MAX     0x7fffffff
+#  endif
+#endif
 
 /* We have no wint_t yet, so no WINT_{MIN,MAX}.
    Should end up being {U}INT32_{MIN,MAX}, depending.  */

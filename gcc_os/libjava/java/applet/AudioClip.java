@@ -1,23 +1,23 @@
-/* AudioClip.java -- Play an audio clip.
-   Copyright (C) 1999 Free Software Foundation, Inc.
- 
+/* AudioClip.java -- play an audio clip in an applet
+   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+
 This file is part of GNU Classpath.
- 
+
 GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
- 
+
 You should have received a copy of the GNU General Public License
 along with GNU Classpath; see the file COPYING.  If not, write to the
 Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 02111-1307 USA.
- 
+
 Linking this library statically or dynamically with other modules is
 making a combined work based on this library.  Thus, the terms and
 conditions of the GNU General Public License cover the whole
@@ -39,26 +39,29 @@ exception statement from your version. */
 package java.applet;
 
 /**
-  * This interface provides a simple mechanism for playing audio clips.
-  *
-  * @author Aaron M. Renn (arenn@urbanophile.com)
-  */
+ * This interface provides a simple mechanism for playing audio clips.
+ * If multiple clips are played at once, the browser combines them into a
+ * composite clip.
+ *
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @since 1.0
+ * @status updated to 1.4
+ */
 public interface AudioClip
 {
   /**
-    * Plays the audio clip starting from the beginning.
-    */
+   * Plays the audio clip starting from the beginning.
+   */
   void play();
 
   /**
-    * Stops playing this audio clip.  There is no mechanism for restarting
-    * at the point where the clip is stopped.
-    */
+   * Stops playing this audio clip.  There is no mechanism for restarting
+   * at the point where the clip is stopped.
+   */
   void stop();
 
   /**
-    * Plays this audio clip in a continuous loop.
-    */
+   * Plays this audio clip in a continuous loop.
+   */
   void loop();
-
 } // interface AudioClip

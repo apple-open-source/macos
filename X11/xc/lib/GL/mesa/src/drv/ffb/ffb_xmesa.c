@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_xmesa.c,v 1.4 2002/02/22 21:32:59 dawes Exp $
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_xmesa.c,v 1.5 2003/09/28 20:15:08 alanh Exp $
  *
  * GLX Hardware Device Driver for Sun Creator/Creator3D
  * Copyright (C) 2000, 2001 David S. Miller
@@ -27,24 +27,17 @@
 
 #ifdef GLX_DIRECT_RENDERING
 
-#include <X11/Xlibint.h>
-#include <stdio.h>
-
 #include "ffb_xmesa.h"
 #include "context.h"
 #include "matrix.h"
 #include "simple_list.h"
-#include "mmath.h"
-#include "mem.h"
+#include "imports.h"
 
 #include "swrast/swrast.h"
 #include "swrast_setup/swrast_setup.h"
 #include "tnl/tnl.h"
 #include "tnl/t_pipeline.h"
 #include "array_cache/acache.h"
-
-
-#include "xf86dri.h"
 
 #include "ffb_context.h"
 #include "ffb_dd.h"
@@ -176,7 +169,7 @@ static const struct gl_pipeline_stage *ffb_pipeline[] = {
 
 /* Create and initialize the Mesa and driver specific context data */
 static GLboolean
-ffbCreateContext(Display *dpy, const __GLcontextModes *mesaVis,
+ffbCreateContext(const __GLcontextModes *mesaVis,
                  __DRIcontextPrivate *driContextPriv,
                  void *sharedContextPrivate)
 {
@@ -208,7 +201,6 @@ ffbCreateContext(Display *dpy, const __GLcontextModes *mesaVis,
 	ffbScreen = (ffbScreenPrivate *) sPriv->private;
 
 	/* Dri stuff. */
-	fmesa->display = dpy;
 	fmesa->hHWContext = driContextPriv->hHWContext;
 	fmesa->driFd = sPriv->fd;
 	fmesa->driHwLock = &sPriv->pSAREA->lock;
@@ -315,8 +307,7 @@ ffbDestroyContext(__DRIcontextPrivate *driContextPriv)
 
 /* Create and initialize the Mesa and driver specific pixmap buffer data */
 static GLboolean
-ffbCreateBuffer(Display *dpy,
-                __DRIscreenPrivate *driScrnPriv,
+ffbCreateBuffer(__DRIscreenPrivate *driScrnPriv,
                 __DRIdrawablePrivate *driDrawPriv,
                 const __GLcontextModes *mesaVis,
                 GLboolean isPixmap )
@@ -346,9 +337,8 @@ ffbDestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 #define USE_FAST_SWAP
 
 static void
-ffbSwapBuffers(Display *dpy, void *drawablePrivate)
+ffbSwapBuffers( __DRIdrawablePrivate *dPriv )
 {
-	__DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
 	ffbContextPtr fmesa = (ffbContextPtr) dPriv->driContextPriv->driverPrivate;
 	unsigned int fbc, wid, wid_reg_val, dac_db_bit;
 	unsigned int shadow_dac_addr, active_dac_addr;
@@ -360,7 +350,7 @@ ffbSwapBuffers(Display *dpy, void *drawablePrivate)
 		return;
 
 	/* Flush pending rendering commands */
-	_mesa_swapbuffers(fmesa->glCtx);
+	_mesa_notifySwapBuffers(fmesa->glCtx);
 
 	ffb = fmesa->regs;
 	dac = fmesa->ffbScreen->dac;
@@ -557,7 +547,7 @@ void ffbXMesaUpdateState(ffbContextPtr fmesa)
 	__DRIscreenPrivate *sPriv = fmesa->driScreen;
 	int stamp = dPriv->lastStamp;
 
-	DRI_VALIDATE_DRAWABLE_INFO(fmesa->display, sPriv, dPriv);
+	DRI_VALIDATE_DRAWABLE_INFO(sPriv, dPriv);
 
 	if (dPriv->lastStamp != stamp) {
 		GLcontext *ctx = fmesa->glCtx;
@@ -567,13 +557,6 @@ void ffbXMesaUpdateState(ffbContextPtr fmesa)
 			ffbXformAreaPattern(fmesa,
 					    (const GLubyte *)ctx->PolygonStipple);
 	}
-}
-
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the dispatcher.
- */
-void __driRegisterExtensions(void)
-{
 }
 
 

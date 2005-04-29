@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_ioctl.c,v 1.10 2002/12/16 16:18:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_ioctl.c,v 1.13 2004/01/23 03:57:05 dawes Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -32,14 +32,17 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
+#define STANDALONE_MMIO
 #include "r128_context.h"
 #include "r128_state.h"
 #include "r128_ioctl.h"
 
-#include "mem.h"
+#include "imports.h"
 #include "macros.h"
 
 #include "swrast/swrast.h"
+
+#include "vblank.h"
 
 #define R128_TIMEOUT        2048
 #define R128_IDLE_RETRY       32
@@ -247,6 +250,7 @@ void r128CopyBuffer( const __DRIdrawablePrivate *dPriv )
 {
    r128ContextPtr rmesa;
    GLint nbox, i, ret;
+   GLboolean missed_target;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -257,15 +261,13 @@ void r128CopyBuffer( const __DRIdrawablePrivate *dPriv )
    if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
       fprintf( stderr, "\n********************************\n" );
       fprintf( stderr, "\n%s( %p )\n\n",
-	       __FUNCTION__, rmesa->glCtx );
+	       __FUNCTION__, (void *)rmesa->glCtx );
       fflush( stderr );
    }
 
    FLUSH_BATCH( rmesa );
 
    LOCK_HARDWARE( rmesa );
-
-   nbox = rmesa->numClipRects;	/* must be in locked region */
 
    /* Throttle the frame rate -- only allow one pending swap buffers
     * request at a time.
@@ -276,13 +278,15 @@ void r128CopyBuffer( const __DRIdrawablePrivate *dPriv )
       rmesa->hardwareWentIdle = 0;
    }
 
-   r128WaitForVBlank( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, &rmesa->vbl_seq, rmesa->vblank_flags, &missed_target );
+   LOCK_HARDWARE( rmesa );
 
-   nbox = dPriv->numClipRects;
+   nbox = dPriv->numClipRects;	/* must be in locked region */
 
    for ( i = 0 ; i < nbox ; ) {
       GLint nr = MIN2( i + R128_NR_SAREA_CLIPRECTS , nbox );
-      XF86DRIClipRectPtr box = rmesa->pClipRects;
+      XF86DRIClipRectPtr box = dPriv->pClipRects;
       XF86DRIClipRectPtr b = rmesa->sarea->boxes;
       GLint n = 0;
 
@@ -325,6 +329,7 @@ void r128PageFlip( const __DRIdrawablePrivate *dPriv )
 {
    r128ContextPtr rmesa;
    GLint ret;
+   GLboolean missed_target;
 
    assert(dPriv);
    assert(dPriv->driContextPriv);
@@ -334,7 +339,7 @@ void r128PageFlip( const __DRIdrawablePrivate *dPriv )
 
    if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
       fprintf( stderr, "\n%s( %p ): page=%d\n\n",
-	       __FUNCTION__, rmesa->glCtx, rmesa->currentPage );
+	       __FUNCTION__, (void *)rmesa->glCtx, rmesa->sarea->pfCurrentPage );
    }
 
    FLUSH_BATCH( rmesa );
@@ -350,28 +355,28 @@ void r128PageFlip( const __DRIdrawablePrivate *dPriv )
       rmesa->hardwareWentIdle = 0;
    }
 
-   r128WaitForVBlank( rmesa );
+   UNLOCK_HARDWARE( rmesa );
+   driWaitForVBlank( dPriv, &rmesa->vbl_seq, rmesa->vblank_flags, &missed_target );
+   LOCK_HARDWARE( rmesa );
 
    /* The kernel will have been initialized to perform page flipping
     * on a swapbuffers ioctl.
     */
-   ret = drmCommandNone( rmesa->driFd, DRM_R128_SWAP );
+   ret = drmCommandNone( rmesa->driFd, DRM_R128_FLIP );
 
    UNLOCK_HARDWARE( rmesa );
 
    if ( ret ) {
-      fprintf( stderr, "DRM_R128_SWAP: return = %d\n", ret );
+      fprintf( stderr, "DRM_R128_FLIP: return = %d\n", ret );
       exit( 1 );
    }
 
-   if ( rmesa->currentPage == 0 ) {
+   if ( rmesa->sarea->pfCurrentPage == 1 ) {
 	 rmesa->drawOffset = rmesa->r128Screen->frontOffset;
 	 rmesa->drawPitch  = rmesa->r128Screen->frontPitch;
-	 rmesa->currentPage = 1;
    } else {
 	 rmesa->drawOffset = rmesa->r128Screen->backOffset;
 	 rmesa->drawPitch  = rmesa->r128Screen->backPitch;
-	 rmesa->currentPage = 0;
    }
 
    rmesa->setup.dst_pitch_offset_c = (((rmesa->drawPitch/8) << 21) |
@@ -798,40 +803,6 @@ void r128WaitForIdleLocked( r128ContextPtr rmesa )
 	fprintf( stderr, "Error: Rage 128 timed out... exiting\n" );
 	exit( -1 );
     }
-}
-
-void r128WaitForVBlank( r128ContextPtr rmesa )
-{
-    drmVBlank vbl;
-    int ret;
-
-    if ( !rmesa->r128Screen->irq )
-	return;
-
-    if ( getenv("LIBGL_SYNC_REFRESH") ) {
-	/* Wait for until the next vertical blank */
-	vbl.request.type = DRM_VBLANK_RELATIVE;
-	vbl.request.sequence = 1;
-    } else if ( getenv("LIBGL_THROTTLE_REFRESH") ) {
-	/* Wait for at least one vertical blank since the last call */
-	vbl.request.type = DRM_VBLANK_ABSOLUTE;
-	vbl.request.sequence = rmesa->vbl_seq + 1;
-    } else {
-	return;
-    }
-
-    UNLOCK_HARDWARE( rmesa );
-
-    if ((ret = drmWaitVBlank( rmesa->driFd, &vbl ))) {
-	fprintf(stderr, "%s: drmWaitVBlank returned %d, IRQs don't seem to be"
-		" working correctly.\nTry running with LIBGL_THROTTLE_REFRESH"
-		" and LIBL_SYNC_REFRESH unset.\n", __FUNCTION__, ret);
-	exit(1);
-    }
-
-    rmesa->vbl_seq = vbl.reply.sequence;
-
-    LOCK_HARDWARE( rmesa );
 }
 
 void r128DDInitIoctlFuncs( GLcontext *ctx )

@@ -33,6 +33,8 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/sampledLine.cc,v 1.2 2003/10/22 19:20:58 tsi Exp $ */
+
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/nurbtess/sampledLine.cc#4 $
 */
@@ -96,7 +98,6 @@ sampledLine::sampledLine(Int n_points, Real2 pts[])
 
 sampledLine::sampledLine(Real pt1[2], Real pt2[2])
 {
-  int i;
   npoints = 2;
   points = (Real2*) malloc(sizeof(Real2) * 2);
   assert(points);

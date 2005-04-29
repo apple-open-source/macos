@@ -96,6 +96,7 @@ mount_ufs(argc, argv)
 {
 	extern int optreset;
 	struct ufs_args args;
+	struct statfs fsinfo;
 	int ch, mntflags, noasync;
 	char *fs_name;
 
@@ -124,12 +125,16 @@ mount_ufs(argc, argv)
         args.fspec = argv[0];		/* The name of the device file. */
 	fs_name = argv[1];		/* The mount point. */
 
-#define DEFAULT_ROOTUID	-2
-	args.export.ex_root = DEFAULT_ROOTUID;
-	if (mntflags & MNT_RDONLY)
-		args.export.ex_flags = MNT_EXRDONLY;
-	else
-		args.export.ex_flags = 0;
+	/*
+	 * In the case of a mount point update, the mount system call below
+	 * will used, and it will succeed even if the volume is not UFS. Thus,
+	 * the noasync flag should be forced unless the volume actually is UFS.
+	 */
+	if (statfs(fs_name, &fsinfo) == 0)
+		if (strncmp(fsinfo.f_mntonname, fs_name, MFSNAMELEN) == 0)
+			if (strncmp(fsinfo.f_fstypename, "ufs", MFSNAMELEN)
+			    != 0)
+				noasync = 1;
 
 	/* default to async by setting the flag unless noasync was specified */
 	if (mount("ufs", fs_name, (mntflags | (noasync ? 0 : MNT_ASYNC)), &args)

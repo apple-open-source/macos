@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -46,6 +46,8 @@
 #define FDISK_DOS16S    0x04    /* 16-bit fat < 32MB dos partition */
 #define FDISK_DOSEXT    0x05    /* extended dos partition */
 #define FDISK_DOS16B    0x06    /* 16-bit fat >= 32MB dos partition */
+#define FDISK_NTFS      0x07    /* NTFS partition */
+#define FDISK_FAT32     0x0c    /* FAT32 partition */
 #define FDISK_UFS       0xa8    /* Apple UFS partition */
 #define FDISK_HFS       0xaf    /* Apple HFS partition */
 #define FDISK_BOOTER    0xab    /* Apple booter partition */

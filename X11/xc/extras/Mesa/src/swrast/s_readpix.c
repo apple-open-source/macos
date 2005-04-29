@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
- * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,7 +30,7 @@
 #include "feedback.h"
 #include "image.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "pixel.h"
 
 #include "s_alphabuf.h"
@@ -61,11 +60,9 @@ read_index_pixels( GLcontext *ctx,
       return;
    }
 
-   ASSERT(swrast->Driver.SetReadBuffer);
-   (*swrast->Driver.SetReadBuffer)(ctx, ctx->ReadBuffer,
-                                ctx->Pixel.DriverReadBuffer);
+   _swrast_use_read_buffer(ctx);
 
-   readWidth = (width > MAX_WIDTH) ? MAX_WIDTH : width;
+   readWidth = MIN2(width, MAX_WIDTH);
 
    /* process image row by row */
    for (i = 0; i < height; i++) {
@@ -81,8 +78,7 @@ read_index_pixels( GLcontext *ctx,
                             &ctx->Pack, ctx->_ImageTransferState);
    }
 
-   (*swrast->Driver.SetReadBuffer)(ctx, ctx->DrawBuffer,
-                                ctx->Color.DriverDrawBuffer);
+   _swrast_use_draw_buffer(ctx);
 }
 
 
@@ -324,17 +320,17 @@ read_rgba_pixels( GLcontext *ctx,
    SWcontext *swrast = SWRAST_CONTEXT(ctx);
    GLint readWidth;
 
-   (*swrast->Driver.SetReadBuffer)(ctx, ctx->ReadBuffer, ctx->Pixel.DriverReadBuffer);
+   _swrast_use_read_buffer(ctx);
 
    /* Try optimized path first */
    if (read_fast_rgba_pixels( ctx, x, y, width, height,
                               format, type, pixels, packing )) {
 
-      (*swrast->Driver.SetReadBuffer)(ctx, ctx->DrawBuffer, ctx->Color.DriverDrawBuffer);
+      _swrast_use_draw_buffer(ctx);
       return; /* done! */
    }
 
-   readWidth = (width > MAX_WIDTH) ? MAX_WIDTH : width;
+   readWidth = MIN2(width, MAX_WIDTH);
 
    /* do error checking on pixel type, format was already checked by caller */
    switch (type) {
@@ -476,7 +472,7 @@ read_rgba_pixels( GLcontext *ctx,
       }
    }
 
-   (*swrast->Driver.SetReadBuffer)(ctx, ctx->DrawBuffer, ctx->Color.DriverDrawBuffer);
+   _swrast_use_draw_buffer(ctx);
 }
 
 

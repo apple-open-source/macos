@@ -1,0 +1,47 @@
+--- mbrlen.3.orig	Fri Mar 11 19:44:47 2005
++++ mbrlen.3	Fri Mar 11 19:56:39 2005
+@@ -28,7 +28,8 @@
+ .Dt MBRLEN 3
+ .Os
+ .Sh NAME
+-.Nm mbrlen
++.Nm mbrlen ,
++.Nm mbrlen_l
+ .Nd "get number of bytes in a character (restartable)"
+ .Sh LIBRARY
+ .Lb libc
+@@ -36,6 +37,9 @@
+ .In wchar.h
+ .Ft size_t
+ .Fn mbrlen "const char * restrict s" "size_t n" "mbstate_t * restrict ps"
++.In xlocale.h
++.Ft size_t
++.Fn mbrlen_l "const char * restrict s" "size_t n" "mbstate_t * restrict ps" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn mbrlen
+@@ -72,6 +76,14 @@
+ uses its own static, internal
+ .Vt mbstate_t
+ object to keep track of the shift state.
++.Pp
++While the
++.Fn mbrlen
++function uses the current locale, the
++.Fn mbrlen_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn mbrlen
+@@ -137,7 +149,8 @@
+ .Sh SEE ALSO
+ .Xr mblen 3 ,
+ .Xr mbrtowc 3 ,
+-.Xr multibyte 3
++.Xr multibyte 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn mbrlen

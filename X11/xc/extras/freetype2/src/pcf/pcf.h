@@ -31,6 +31,7 @@ THE SOFTWARE.
 
 #include <ft2build.h>
 #include FT_INTERNAL_DRIVER_H
+#include FT_INTERNAL_STREAM_H
 
 
 FT_BEGIN_HEADER
@@ -135,6 +136,9 @@ FT_BEGIN_HEADER
   {
     FT_FaceRec     root;
 
+    FT_StreamRec   gzip_stream;
+    FT_Stream      gzip_source;
+
     char*          charset_encoding;
     char*          charset_registry;
 
@@ -224,7 +228,6 @@ FT_BEGIN_HEADER
   FT_LOCAL( FT_Error )
   pcf_load_font( FT_Stream,
                  PCF_Face );
-
 
 FT_END_HEADER
 

@@ -1,21 +1,23 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 """MailList mixin class managing the general options.
 """
+
+import re
 
 from Mailman import mm_cfg
 from Mailman import Utils
@@ -174,7 +176,7 @@ class General(GUIBase):
              messages, overriding the header in the original message if
              necessary (<em>Explicit address</em> inserts the value of <a
              href="?VARHELP=general/reply_to_address">reply_to_address</a>).
- 
+
              <p>There are many reasons not to introduce or override the
              <tt>Reply-To:</tt> header.  One is that some posters depend on
              their own <tt>Reply-To:</tt> settings to convey their valid
@@ -283,7 +285,7 @@ class General(GUIBase):
                  <li>A blank line separates paragraphs.
              </ul>""")),
 
-            ('send_welcome_msg', mm_cfg.Radio, (_('No'), _('Yes')), 0, 
+            ('send_welcome_msg', mm_cfg.Radio, (_('No'), _('Yes')), 0,
              _('Send welcome message to newly subscribed members?'),
              _("""Turn this off only if you plan on subscribing people manually
              and don't want them to know that you did so.  This option is most
@@ -310,7 +312,7 @@ class General(GUIBase):
             ('admin_notify_mchanges', mm_cfg.Radio, (_('No'), _('Yes')), 0,
              _('''Should administrator get notices of subscribes and
              unsubscribes?''')),
-            
+
             ('respond_to_post_requests', mm_cfg.Radio,
              (_('No'), _('Yes')), 0,
              _('Send mail to poster when their posting is held for approval?'),
@@ -338,7 +340,7 @@ class General(GUIBase):
              # to tell if all were deselected!
              0, _('''Default options for new members joining this list.<input
              type="hidden" name="new_member_options" value="ignore">'''),
-             
+
              _("""When a new member is subscribed to this list, their initial
              set of options is taken from the this variable's setting.""")),
 
@@ -429,6 +431,15 @@ class General(GUIBase):
                 val, mlist.preferred_language)
         else:
             GUIBase._setValue(self, mlist, property, val, doc)
+
+    def _escape(self, property, value):
+        # The 'info' property allows HTML, but lets sanitize it to avoid XSS
+        # exploits.  Everything else should be fully escaped.
+        if property <> 'info':
+            return GUIBase._escape(self, property, value)
+        # Sanitize <script> and </script> tags but nothing else.  Not the best
+        # solution, but expedient.
+        return re.sub(r'<([/]?script.*?)>', r'&lt;\1&gt;', value)
 
     def _postValidate(self, mlist, doc):
         if not mlist.reply_to_address.strip() and \

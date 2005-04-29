@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)getc.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/getc.c,v 1.11 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/getc.c,v 1.13 2004/03/19 09:04:56 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -46,12 +46,15 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/getc.c,v 1.11 2002/08/13 09:30:41 tjr Exp
 #include "libc_private.h"
 #include "local.h"
 
+#undef getc
+
 int
 getc(FILE *fp)
 {
 	int retval;
 	FLOCKFILE(fp);
-	ORIENT(fp, -1);
+	/* Orientation set by __sgetc() when buffer is empty. */
+	/* ORIENT(fp, -1); */
 	retval = __sgetc(fp);
 	FUNLOCKFILE(fp);
 	return (retval);

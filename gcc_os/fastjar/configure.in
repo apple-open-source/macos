@@ -24,21 +24,24 @@ dnl Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_STRUCT_TM
-AC_CHECK_HEADERS(fcntl.h unistd.h sys/param.h stdlib.h)
+AC_CHECK_HEADERS(fcntl.h unistd.h sys/param.h stdlib.h limits.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_OFF_T
 AC_STRUCT_TM
 
+# mkdir takes a single argument on some systems.
+gcc_AC_FUNC_MKDIR_TAKES_ONE_ARG
+
 dnl Check for type-widths
-AC_CHECK_SIZEOF(char)
-AC_CHECK_SIZEOF(short)
-AC_CHECK_SIZEOF(int)
-AC_CHECK_SIZEOF(long)
-AC_CHECK_SIZEOF(long long)
+gcc_AC_COMPILE_CHECK_SIZEOF(char)
+gcc_AC_COMPILE_CHECK_SIZEOF(short)
+gcc_AC_COMPILE_CHECK_SIZEOF(int)
+gcc_AC_COMPILE_CHECK_SIZEOF(long)
+gcc_AC_COMPILE_CHECK_SIZEOF(long long)
 
 dnl Check byte order
-AC_C_BIGENDIAN
+fastjar_AC_COMPILE_C_BIGENDIAN
 
 AC_ARG_WITH(system-zlib,
 [  --with-system-zlib      use installed libz])
@@ -62,5 +65,17 @@ fi
 AC_SUBST(ZLIBS)
 AC_SUBST(ZDEPS)
 AC_SUBST(ZINCS)
+
+# Get the version trigger filename from the toplevel
+if test "${with_gcc_version_trigger+set}" = set; then
+   gcc_version_trigger=$with_gcc_version_trigger
+else
+   gcc_version_trigger=${srcdir}/version.c
+fi
+changequote(,)dnl
+gcc_version_full=`grep version_string ${gcc_version_trigger} | sed -e 's/.*"\([^"]*\)".*/\1/'`
+gcc_version=`echo ${gcc_version_full} | sed -e 's/\([^ ]*\) .*/\1/'`
+changequote([,])dnl
+AC_SUBST(gcc_version)
 
 AC_OUTPUT(Makefile install-defs.sh)

@@ -19,9 +19,9 @@ union foo2
 };
 
 void
-testfunc (void)
+testfunc ()
 {
-  /* Note we only warn for non-zero initializers.  */
+  /* Note we only warn for nonzero initializers.  */
   static union foo1 f1 = {0};
   static union foo2 f2 = {0};
   static union foo1 f3 = {1}; /* { dg-warning "traditional C rejects initialization of unions" "initialization of unions" } */

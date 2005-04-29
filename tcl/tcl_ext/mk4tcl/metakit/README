@@ -1,0 +1,153 @@
+The Metakit Library 2.4.9.3                                           Jan 2004
+==============================================================================
+
+
+WHAT IT IS - Metakit is an embeddable database which runs on Unix, Windows,
+    Macintosh, and other platforms.  It lets you build applications which
+    store their data efficiently, in a portable way, and which will not need a
+    complex runtime installation.  In terms of the data model, Metakit takes
+    the middle ground between RDBMS, OODBMS, and flat-file databases - yet it
+    is quite different from each of them.
+
+TECHNOLOGY - Everything is stored variable-sized yet with efficient positional
+    row access.  Changing an existing datafile structure is as simple as re-
+    opening it with that new structure.  All changes are transacted, including
+    restructuring.  You can mix and match software written in C++, Python,
+    and Tcl.  Things can't get much more flexible...
+
+CORE - The Metakit core library is written in C++.  It has a code footprint of
+    just over 100 Kb on Windows.  It can be used as DLL, or linked statically.
+    Debug builds include extensive assertion checks to catch problems early.
+
+PYTHON - The binding for Python is called "Mk4py".  It uses SCXX by Gordon
+    McMillan as C++ glue interface.  The source is in directory "python/".
+
+TCL/TK - The MK extension for Tcl is called "Mk4tcl".  It is being used in a
+    number of commercial projects.  The source is in directory "tcl/".
+
+LICENSE AND SUPPORT - Metakit is now distributed as open source software (the
+    X/MIT-style license is at the end of this document).  Commercial support
+    is available through an Enterprise License, see the URL mentioned below.
+
+DOCUMENTATION - All documentation uses HTML.  The main page is "Metakit.html",
+    which leads to the rest of the documentation in the "doc/" directory.
+    The C++ API Reference is extracted from the source code using Doxygen.
+
+WEBSITE URLS - The main pages on the world wide web, for news and downloads:
+    Homepage:       http://www.equi4.com/metakit.html
+    Python news:    http://www.equi4.com/metakit/python.html
+    Tcl/Tk news:    http://www.equi4.com/metakit/tcl.html
+    License info:   http://www.equi4.com/mklicense.html
+    Contact info:   http://www.equi4.com/contact.html
+
+ACKNOWLEDGEMENTS - Thanks to everyone who has helped shape and extend Metakit,
+    including Kyrill Denisenko, Mark Roseman, Gordon McMillan, Matt Newman,
+    Christian Tismer, John Bushakra, Steve Landers, Jacob Levy, John Barnard,
+    Nicholas Riley, Brian Kelley, and many more people who have reported bugs
+    and helped fix them.  Last but not least, many thanks to all enterprise
+    license customers and all my clients for funding Metakit work.
+
+
+INSTALLATION
+============
+
+(NOTE to Python users: ignore this and do "cd python; python setup.py ...")
+
+All platform builds and language bindings are designed to work from a single
+common "builds/" directory.  Where possible, that is - it turns out to be
+impossible to keep build side-effects limited to *just* this directory
+(CodeWarrior can't be told where to place its temp data, and Visual C++ still
+alters a few files next to the project ".dsw" file, to name two offenders).
+
+UNIX
+
+    It is no longer advised to build the Unix code in the "unix/" directory.
+    Instead, you should perform the following steps:
+        % cd builds
+        % ../unix/configure
+        % make
+        % make test
+    And optionally (this only installs the core lib, not script extensions):
+        % make install
+
+    By switching to the "builds/" directory, you will keep the distribution
+    directory tree 100% unaltered.  All changes are made in this subdir, and
+    all final build results are left behind in this same subdir.
+
+    To build with STL containers and strings, you can do the following:
+        make CXXFLAGS='-Dq4_STD' test   # add -O3 etc, as needed
+
+    To build the Mk4tcl extension on Unix, change the configure to:
+        % ../unix/configure --with-tcl=<dir-where-tclConfig.sh-is>
+
+    Use "../unix/configure --help" to find out about all the other settings.
+
+WINDOWS
+
+    There is a "win/" directory which contains subdirectories for a number of
+    compiler systems.  Metakit has been built with many different compilers
+    in the past (Microsoft, Borland, Watcom, Symantec, Metrowerks, Optima),
+    only a few are maintained (there are 12 configurations for MSVC6 alone!).
+
+    The MS Visual C++ 6.0 project is "win/msvc60/mksrc.dsw", with subprojects
+    for the C++ demo (mkdemo), building dll's (mkdll), static libs (mklib),
+    regression tests (mktest), as well as Tcl (mktcl) and Python (mkpython).
+    It has been set up to place all intermediate files and final results in
+    the "builds/" subdirectory, even though you'll launch it from "win/".
+
+    To build with STL containers and strings under MSVC, define "q4_STD".
+    To build with MFC containers and strings under MSVC, define "q4_MFC".
+
+    The Metrowerks Codewarrior project is in the "mac/" directory, and can be
+    used to build both Mac and Windows versions (on either Mac *or* Windows).
+    The core libraries are built with "mac/cw5.mcp", demos / tests are built
+    with "cw5apps.mcp", Tcl is "cw5tcl.mcp", and Python is "cw5python.mcp".
+
+    The Borland C++ Builder projects have not yet been incorporated in this
+    release, but the "KitViewer" application is an example of how to use BCB.
+
+    The Cygwin build (B20.1 / gcc 2.95.2) is different, because it uses the
+    unix autoconf system, and must be launched as described above for UNIX.
+    I have upgraded to the latest development of libtool to be able to build
+    DLL's with Cygwin.  You can build the "-mno-cygwin" version by editing
+    the Makefile by hand and adding that option to CXXFLAGS.
+
+    Rob Bloodgood adds that the following GCC options are for maximum code
+    efficiency on x86 hardware: "-O2 -m486 -malign-loops=2 -malign-jumps=2".
+    I have not yet tried this myself, but am passing on the tip.
+
+MACINTOSH CLASSIC
+
+    The Mac version requires Metrowerks CodeWarrior 6.  See the info above
+    in the Windows section (MWCW is multi-platform).  The projects are all
+    located in the "mac/" folder, which is also where MWCW will place its own
+    "... Data" folders with intermediate results.  As with all other setups,
+    final results are made to end up in the "builds/" directory.
+
+
+LICENSE AND COPYRIGHT STATEMENT
+===============================
+
+Copyright (c) 1996-2004 Jean-Claude Wippler
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+
+
+==============================================================================
+-- Jean-Claude Wippler <jcw@equi4.com>

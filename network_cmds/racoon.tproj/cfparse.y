@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <errno.h>
 #include <netdb.h>
 #if !defined(HAVE_GETADDRINFO) || !defined(HAVE_GETNAMEINFO)
@@ -47,6 +48,7 @@
 #include "gssapi.h"
 #endif
 #include "vendorid.h"
+#include <CoreFoundation/CFData.h>
 
 struct proposalspec {
 	time_t lifetime;		/* for isakmp/ipsec */
@@ -103,6 +105,8 @@ static int set_isakmp_proposal
 static void clean_tmpalgtype __P((void));
 static int expand_isakmpspec __P((int, int, int *,
 	int, int, time_t, int, int, int, char *, struct remoteconf *));
+	
+static int base64toCFData(vchar_t *, CFDataRef*);
 
 #if 0
 static int fix_lifebyte __P((u_long));
@@ -142,6 +146,8 @@ static int fix_lifebyte __P((u_long));
 %token CERTIFICATE_TYPE CERTTYPE PEERS_CERTFILE VERIFY_CERT SEND_CERT SEND_CR
 %token IDENTIFIERTYPE MY_IDENTIFIER PEERS_IDENTIFIER VERIFY_IDENTIFIER
 %token SHARED_SECRET SECRETTYPE
+%token OPEN_DIR_AUTH_GROUP IN_KEYCHAIN
+%token CERTIFICATE_VERIFICATION VERIFICATION_MODULE VERIFICATION_OPTION
 %token DNSSEC CERT_X509
 %token NONCE_SIZE DH_GROUP KEEPALIVE PASSIVE INITIAL_CONTACT
 %token PROPOSAL_CHECK PROPOSAL_CHECK_LEVEL
@@ -169,6 +175,7 @@ static int fix_lifebyte __P((u_long));
 %type <num> ul_proto UL_PROTO
 %type <num> EXCHANGETYPE DOITYPE SITUATIONTYPE
 %type <num> CERTTYPE CERT_X509 PROPOSAL_CHECK_LEVEL
+%type <num> VERIFICATION_MODULE VERIFICATION_OPTION
 %type <num> unittype_time unittype_byte
 %type <val> QUOTEDSTRING HEXSTRING ADDRSTRING sainfo_id
 %type <val> identifierstring
@@ -322,7 +329,9 @@ listen_stmt
 				delmyaddr(p);
 				return -1;
 			}
-
+			p->sock = -1;
+			p->nattsock = -1;
+			p->addrcount = 1;
 			insmyaddr(p, &lcconf->myaddrs);
 
 			lcconf->autograbaddr = 0;
@@ -648,7 +657,7 @@ remote_statement
 		{
 			struct remoteconf *new;
 			struct proposalspec *prspec;
-
+			
 			new = newrmconf();
 			if (new == NULL) {
 				yyerror("failed to get new remoteconf.");
@@ -673,10 +682,18 @@ remote_statement
 			}
 
 			if (cur_rmconf->idvtype == IDTYPE_ASN1DN
-			 && cur_rmconf->mycertfile == NULL) {
+			 && cur_rmconf->mycertfile == NULL
+			 && cur_rmconf->identity_in_keychain == 0) {
 				yyerror("id type mismatched due to "
 					"no CERT defined.\n");
 				return -1;
+			}
+			
+			if (cur_rmconf->cert_verification_option == VERIFICATION_OPTION_PEERS_IDENTIFIER
+				&& cur_rmconf->idv_p == NULL) {
+				yyerror("peers_identifier required for specified certificate "
+					"verification option.\n");
+					return -1;
 			}
 
 			if (set_isakmp_proposal(cur_rmconf, prhead) != 0)
@@ -771,6 +788,14 @@ remote_spec
 	|	VERIFY_CERT SWITCH { cur_rmconf->verify_cert = $2; } EOS
 	|	SEND_CERT SWITCH { cur_rmconf->send_cert = $2; } EOS
 	|	SEND_CR SWITCH { cur_rmconf->send_cr = $2; } EOS
+	|	CERTIFICATE_VERIFICATION VERIFICATION_MODULE { cur_rmconf->cert_verification = $2; } EOS
+	|	CERTIFICATE_VERIFICATION VERIFICATION_MODULE VERIFICATION_OPTION
+		{
+			cur_rmconf->cert_verification = $2;
+			cur_rmconf->cert_verification_option = $3;
+		}
+		EOS
+	|	OPEN_DIR_AUTH_GROUP QUOTEDSTRING { cur_rmconf->open_dir_auth_group = $2; } EOS
 	|	IDENTIFIER IDENTIFIERTYPE
 		{
 			/*XXX to be deleted */
@@ -781,6 +806,7 @@ remote_spec
 		{
 			if (set_identifier(&cur_rmconf->idv, $2, $3) != 0) {
 				yyerror("failed to set identifer.\n");
+				vfree($3);
 				return -1;
 			}
 			vfree($3);
@@ -791,6 +817,7 @@ remote_spec
 		{
 			if (set_identifier(&cur_rmconf->idv_p, $2, $3) != 0) {
 				yyerror("failed to set identifer.\n");
+				vfree($3);
 				return -1;
 			}
 			vfree($3);
@@ -881,7 +908,28 @@ cert_spec
 #endif
 		}
 		EOS
+	|	CERT_X509 IN_KEYCHAIN
+		{
+			cur_rmconf->certtype = $1;
+			cur_rmconf->identity_in_keychain = 1;
+			cur_rmconf->keychainCertRef = 0;
+		}
+		EOS
 	;
+	|	CERT_X509 IN_KEYCHAIN QUOTEDSTRING
+		{
+			int result;
+			
+			cur_rmconf->certtype = $1;
+			cur_rmconf->identity_in_keychain = 1;
+			result = base64toCFData($3, &cur_rmconf->keychainCertRef);
+			vfree($3);
+			if (result)
+				return -1;			
+		}
+		EOS
+	;
+
 dh_group_num
 	:	ALGORITHMTYPE
 		{
@@ -1378,5 +1426,81 @@ cfreparse()
 	clean_tmpalgtype();
 
 	return(cfparse());
+}
+
+
+/* -----------------------------------------------------------------------------
+The base-64 encoding packs three 8-bit bytes into four 7-bit ASCII
+characters.  If the number of bytes in the original data isn't divisable
+by three, "=" characters are used to pad the encoded data.  The complete
+set of characters used in base-64 are:
+     'A'..'Z' => 00..25
+     'a'..'z' => 26..51
+     '0'..'9' => 52..61
+     '+'      => 62
+     '/'      => 63
+     '='      => pad
+
+----------------------------------------------------------------------------- */
+static const signed char base64_DecodeTable[128] = {
+    /* 000 */ -1, -1, -1, -1, -1, -1, -1, -1,
+    /* 010 */ -1, -1, -1, -1, -1, -1, -1, -1,
+    /* 020 */ -1, -1, -1, -1, -1, -1, -1, -1,
+    /* 030 */ -1, -1, -1, -1, -1, -1, -1, -1,
+    /* ' ' */ -1, -1, -1, -1, -1, -1, -1, -1,
+    /* '(' */ -1, -1, -1, 62, -1, -1, -1, 63,
+    /* '0' */ 52, 53, 54, 55, 56, 57, 58, 59,
+    /* '8' */ 60, 61, -1, -1, -1,  0, -1, -1,
+    /* '@' */ -1,  0,  1,  2,  3,  4,  5,  6,
+    /* 'H' */  7,  8,  9, 10, 11, 12, 13, 14,
+    /* 'P' */ 15, 16, 17, 18, 19, 20, 21, 22,
+    /* 'X' */ 23, 24, 25, -1, -1, -1, -1, -1,
+    /* '`' */ -1, 26, 27, 28, 29, 30, 31, 32,
+    /* 'h' */ 33, 34, 35, 36, 37, 38, 39, 40,
+    /* 'p' */ 41, 42, 43, 44, 45, 46, 47, 48,
+    /* 'x' */ 49, 50, 51, -1, -1, -1, -1, -1
+};
+
+static int base64toCFData(vchar_t *textin, CFDataRef *dataRef)
+{
+    uint8_t 	*tmpbuf;
+    uint8_t		c;
+    int 		tmpbufpos = 0;
+    int 		numeq = 0;
+    int 		acc = 0;
+    int 		cntr = 0;
+    uint8_t		*textcur = textin->v;
+    int			len = textin->l;
+    int 		i;
+
+    tmpbuf = malloc(len);		// len of result will be less than encoded len
+    if (tmpbuf == NULL) {
+    	yyerror("memory error - could not allocate buffer for certificate reference conversion from base-64.");
+    	return -1;
+    }
+    	
+    for (i = 0; i < len; i++) {
+        c = *(textcur++);
+        if (c == '=')
+            numeq++;
+        else if (!isspace(c))
+            numeq = 0;
+        if (base64_DecodeTable[c] < 0)
+            continue;
+        cntr++;
+        acc <<= 6;
+        acc += base64_DecodeTable[c];
+        if (0 == (cntr & 0x3)) {
+            tmpbuf[tmpbufpos++] = (acc >> 16) & 0xff;
+            if (numeq < 2)
+                tmpbuf[tmpbufpos++] = (acc >> 8) & 0xff;
+            if (numeq < 1)
+                tmpbuf[tmpbufpos++] = acc & 0xff;
+        }
+    }
+    *dataRef = CFDataCreate(NULL, tmpbuf, tmpbufpos);
+    free(tmpbuf);
+    return 0;
+  
 }
 

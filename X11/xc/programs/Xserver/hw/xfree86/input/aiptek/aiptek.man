@@ -1,0 +1,159 @@
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/input/aiptek/aiptek.man,v 1.1 2003/06/30 16:52:57 eich Exp $ 
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH AIPTEK __drivermansuffix__ __vendorversion__
+.SH NAME
+aiptek \- Aiptek USB Digital Tablet Input Driver for Linux
+.SH SYNOPSIS
+.nf
+.B "Section \*qInputDevice\*q"
+.BI "  Identifier \*q" idevname \*q
+.B  "  Driver \*qaiptek\*q"
+.BI "  Option \*qDevice\*q   \*q" devpath \*q
+\ \ ...
+.B EndSection
+.fi
+.SH DESCRIPTION
+.B aiptek 
+is an XFree86 input driver for Aiptek HyperPen USB-based tablet devices.
+This driver only supports the USB protocol, and only under Linux; for 
+RS-232C-based HyperPens, please see the \fI"hyperpen"\fP driver.
+.PP
+The
+.B aiptek
+driver functions as a pointer input device, and may be used as the
+X server's core pointer.
+.SH SUPPORTED HARDWARE
+This driver supports the Aiptek HyperPen 4000U, 5000U, 6000U, 8000U
+and 12000U USB-based input tablet on some Linux platforms.
+.SH CONFIGURATION DETAILS
+Please refer to XF86Config(__filemansuffix__) for general configuration
+details and for options that can be used with all input drivers.  This
+section only covers configuration details specific to this driver.
+.PP
+Multiple instances of the Aiptek devices can cohabit. It can be useful
+to define multiple devices with different active zones. Each device
+supports the following entries:
+.RS 8
+.TP 4
+.B Option \fI"Type"\fP \fI"stylus"|"eraser"|"cursor"\fP
+sets the type of tool the device represent. This option is mandatory.
+.TP 4
+.B Option \fI"Device"\fP \fI"path"\fP
+sets the path to the special file which represents serial line where
+the tablet is plugged.  You have to specify it for each subsection with
+the same value if you want to have multiple devices with the same tablet.
+This option is mandatory.
+.TP 4
+.B Option \fI"USB"\fP \fI"on"\fP
+specifies that you are using the USB bus to communicate with your tablet.
+This setting is mandatory, as USB is the only protocol supported by this driver.
+.TP 4
+.B Option \fI"DeviceName"\fP \fI"name"\fP
+sets the name of the X device.
+.TP 4
+.B Option \fI"Mode"\fP \fI"Relative"|"Absolute"\fP
+sets the mode of the device.
+.TP 4
+.B Option \fI"HistorySize"\fP \fI"number"\fP
+sets the motion history size. By default the value is zero.
+.TP 4
+.B Option \fI"AlwaysCore"\fP \fI"on"\fP
+enables the sharing of the core pointer. When this feature is enabled, the
+device will take control of the core pointer (and thus will emit core events)
+and at the same time will be able, when asked so, to report extended events.
+You can use the last available integer feedback to control this feature. When
+the value of the feedback is zero, the feature is disabled. The feature is
+enabled for any other value.
+.TP 4
+.B Option \fI"XTop"\fP \fI"number"\fP
+First of three sets of parameters to set the active zone. This sets the X coordinate of the top corner of the active zone. \fI"TopX"\fP is a synonym.
+.TP 4
+.B Option \fI"YTop"\fP \fI"number"\fP
+First of three sets of parameters to set the active zone. This sets the Y coordinate of the top corner of the active zone. \fI"TopY"\fP is a synonym.
+.TP 4
+.B Option \fI"XBottom"\fP \fI"Inumber"\fP
+First of three sets of parameters to set the active zone. This sets the X coordinate of the bottom corner of the active zone. \fI"BottomX"\fP is a synonym.
+.TP 4
+.B Option \fI"YBottom"\fP \fI"number"\fP
+First of three sets of parameters to set the active zone. This sets the Y coordinate of the bottom corner of the active zone. \fI"BottomY"\fP is a synonym.
+.TP 4
+.B Option \fI"XMax"\fP \fI"number"\fP
+Second of three sets of parameters to set the active zone. This sets the the X
+coordinate of the bottom corner of the active zone. The Top X corner's
+coordinate is fixed at 0. \fI"MaxX"\fP is a synomyn.
+.TP 4
+.B Option \fI"YMax"\fP \fI"number"\fP
+Second of three sets of parameters to set the active zone. This sets the the Y
+coordinate of the bottom corner of the active zone. The Top Y corner's
+coordinate is fixed at 0. \fI"MaxY"\fP is a synomyn.
+.TP 4
+.B Option \fI"XOffset"\fP \fI"number"\fP
+Third of three sets of parameters to set the active zone. This sets the X
+coordinate of the top corner of the active zone. \fI"OffsetX"\fP is a synomyn.
+.TP 4
+.B Option \fI"YOffset"\fP \fI"number"\fP
+Third of three sets of parameters to set the active zone. This sets the Y
+coordinate of the top corner of the active zone. \fI"OffsetY"\fP is a synomyn.
+.TP 4
+.B Option \fI"XSize"\fP \fI"number"\fP
+Third of three sets of parameters to set the active zone. This sets the X
+coordinate of the bottom corner of the active zone. Unlike others,
+this parameter is expressed in \fIrelative\fP coordinates from the
+\fI"XOffset"\fP parameter. \fI"XSize"\fP is a synomyn.
+.TP 4
+.B Option \fI"YSize"\fP \fI"number"\fP
+Third of three sets of parameters to set the active zone. This sets the Y
+coordinate of the bottom corner of the active zone. Unlike others,
+this parameter is expressed in \fIrelative\fP coordinates from the
+\fI"YOffset"\fP parameter. \fI"YSize"\fP is a synomyn.
+.TP 4
+.B Option \fI"ZMin"\fP \fI"number"\fP
+Minimum pressure reading that will be accepted from the Stylus tool. \fI"MinZ\fP" is a synomyn.
+.TP 4
+.B Option \fI"ZMax"\fP \fI"number"\fP
+Maximum pressure reading that will be accepted from the Stylus tool. \fI"MaxZ\fP" is a synomyn.
+.TP 4
+.B Option \fI"XThreshold"\fP \fI"number"\fP
+Minimal change in X coordinate position that will be accepted as data input.
+\fI"ThresholdX"\fP is a synomyn.
+.TP 4
+.B Option \fI"YThreshold"\fP \fI"number"\fP
+Minimal change in Y coordinate position that will be accepted as data input.
+\fI"ThresholdY"\fP is a synomyn.
+.TP 4
+.B Option \fI"ZThreshold"\fP \fI"number"\fP
+Minimal change in pressure reading that will be accepted as data input.
+\fI"ThresholdZ"\fP is a synomyn.
+.TP 4
+.B Option \fI"InvX"\fP \fI"on"\fP
+Inverts X coordinate reports. \fI"XInv"\fP is a synomyn.
+.TP 4
+.B Option \fI"InvY"\fP \fI"on"\fP
+Inverts Y coordinate reports. \fI"YInv"\fP is a synomyn.
+.TP 4
+.B Option \fI"Pressure"\fP \fI"soft"|"hard"|"linear"\fP
+Pressure reports either delivered in linearly incremental values (default),
+or perturbed by one of two log-linear algorithms (\fI"soft"\fP or \fI"hard"\fP.)
+.TP 4
+.B Option \fI"KeepShape"\fP \fI"on"\fP
+When this option is enabled, the active zone  begins according to TopX
+and TopY.  The bottom corner is adjusted to keep the ratio width/height
+of the active zone the same as the screen while maximizing the area
+described by the active area set of parameters, XTop/YTop/XBottom/YBottom,
+XMax/YMax, or XOffset/YOffset/XSize/YSize.
+.TP 4
+.B Option \fI"DebugLevel"\fP \fInumber \fP
+sets the level of debugging info reported.
+.RE
+.PP
+This driver is currently Linux specific.
+.PP
+.SH "SEE ALSO"
+XFree86(1), XF86Config(__filemansuffix__), xf86config(1), Xserver(1), X(__miscmansuffix__), hyperpen(__drivermansuffix__).
+.SH AUTHORS
+Bryan W. Headley <bheadley@earthlink.net>
+.SH PROJECT PAGE
+http://aiptektablet.sourceforge.net tracks ongoing development of this driver,
+the Linux kernel driver, and a GUI front-end application that works in
+concert with the above.

@@ -42,7 +42,36 @@ details.  */
 
 // Prefix and suffix for shared libraries.
 #define _Jv_platform_solib_prefix "lib"
+#if defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+#define _Jv_platform_solib_suffix ".dylib"
+#else
 #define _Jv_platform_solib_suffix ".so"
+#endif
+
+// Some POSIX systems don't have O_SYNC and O_DYSNC so we define them here.
+// Needed in java/io/natFileDescriptorPosix.cc.
+#if !defined (O_SYNC) && defined (O_FSYNC)
+#define O_SYNC O_FSYNC
+#endif
+#if !defined (O_DSYNC) && defined (O_FSYNC)
+#define O_DSYNC O_FSYNC
+#endif
+// If O_DSYNC is still not defined, use O_SYNC (needed for newlib)
+#if !defined (O_DSYNC) 
+#define O_DSYNC O_SYNC
+#endif
+
+// Separator for file name components.
+#define _Jv_platform_file_separator ((jchar) '/')
+// Separator for path components.
+#define _Jv_platform_path_separator ((jchar) ':')
+
+// List of names for `JNI_OnLoad'.
+#define _Jv_platform_onload_names { "JNI_OnLoad", NULL }
+
+// Type of libffi ABI used by JNICALL methods.  NOTE: This must agree
+// with the JNICALL definition in jni.h
+#define _Jv_platform_ffi_abi FFI_DEFAULT_ABI
 
 #ifndef DISABLE_JAVA_NET
 #include <java/net/InetAddress.h>
@@ -63,6 +92,10 @@ _Jv_platform_close_on_exec (jint fd)
 #undef fcntl
 
 #ifdef JV_HASH_SYNCHRONIZATION
+#ifndef HAVE_USLEEP_DECL
+extern "C" int usleep (useconds_t useconds);
+#endif /* not HAVE_USLEEP_DECL */
+
 inline void
 _Jv_platform_usleep (unsigned long usecs)
 {
@@ -144,5 +177,12 @@ _Jv_read(int s, void *buf, int len)
 #undef read
 
 #endif /* DISABLE_JAVA_NET */
+
+// Wraps ::pipe
+static inline int
+_Jv_pipe (int filedes[2])
+{
+  return ::pipe (filedes);
+}
 
 #endif /* __JV_POSIX_H__ */

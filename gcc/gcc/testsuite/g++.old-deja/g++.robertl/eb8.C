@@ -1,12 +1,13 @@
+// { dg-do assemble  }
 
 class foo {
 public:
-  operator <<(const void *);  //ERROR - no return type
-  operator <<(char *);        //ERROR - no return type
+  operator <<(const void *);  //{ dg-error "" } no return type
+  operator <<(char *);        //{ dg-error "" } no return type
 };
 
-void main()
-{                             //ERROR - wrong return type for main
+void main()		      // { dg-error "must return .int" }
+{
   foo f;
   f << (void*)0;
 }

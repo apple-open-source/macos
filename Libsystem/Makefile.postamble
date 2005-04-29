@@ -1,8 +1,20 @@
 include $(CoreOSMakefiles)/ProjectBuilder/Makefile.Postamble.Common
 
-ifeq ($(BUILD_TYPE),normal)
-OPTIMIZE_BUILD_LIBS := $(LIBSYSTEM_LIBS) $(GCCLIBS)
+CC = $(GCC) # override
+# gcc-3.5 doesn't support -precomp-trustfile (3689986), which
+# pb_makefiles/flags.make sets, so we overwrite PRECOMP_CFLAGS
+PRECOMP_CFLAGS =
+
+ifeq "$(BUILD_TYPE)" "normal"
+LIBS += $(GCCLIBS)
+else
+LIBS = 
 endif
+
+LIBS := $(foreach LIB,							\
+		  $(filter $(BSD_LIBS), $(subst -l,,$(LIBS))),		\
+		  $(LIBSYS)/lib$(LIB).a)	\
+	$(filter-out $(addprefix -l, $(BSD_LIBS)), $(LIBS))
 
 # pb_makefiles erroneously omits $(BUILD_TYPE_SUFFIX) from the install name
 DYLIB_INSTALL_NAME = $(LIBRARY_PREFIX)$(NAME).$(VERSION_NAME)$(BUILD_TYPE_SUFFIX)$(LIBRARY_EXT)
@@ -48,51 +60,21 @@ comm-page-symbols: spinlock_stub.o spinlocktry_stub.o spinunlock_stub.o CommPage
 
 .SUFFIXES: .st
 
+SEG1ADDR_i386 = 0xffff0000
+SEG1ADDR_ppc = 0xffff8000
+SEG1ADDR_ppc64 = 0xffffffffffff8000
 SLFS_F_PH = /System/Library/Frameworks/System.framework/PrivateHeaders
 
-$(OFILE_DIR)/%.ppc.o %.ppc.o: %.st
+$(OFILE_DIR)/%.ppc.o %.ppc.o $(OFILE_DIR)/%.ppc64.o %.ppc64.o $(OFILE_DIR)/%.i386.o %.i386.o: %.st
 	$(CC) -arch $(CURRENT_ARCH) -x assembler-with-cpp \
 	    -I$(SLFS_F_PH)/$(CURRENT_ARCH) \
 	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
-	ld -arch $(CURRENT_ARCH) -r -seg1addr 0xffff8000 \
+	ld -arch $(CURRENT_ARCH) -r -seg1addr $(SEG1ADDR_$(CURRENT_ARCH)) \
 	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)
 
-$(OFILE_DIR)/%.i386.o %.i386.o: %.st
-	$(CC) -arch $(CURRENT_ARCH) -x assembler-with-cpp \
-	    -I$(SLFS_F_PH)/$(CURRENT_ARCH) \
-	    $(ALL_CFLAGS) -c -o $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o $<
-	ld -arch $(CURRENT_ARCH) -r -seg1addr 0xBFFF8000 \
-	    $(OFILE_DIR)/commsym.$(CURRENT_ARCH).o -o $(OFILE_DIR)/$(notdir $@)
+#-------------------------------------------------------------------------
 
-#----------------------------------------------------------------------------
-
-ifeq ($(RC_ARCHS),ppc)
-ifeq ($(BUILD_TYPE),normal)
-LIBSUFFIX = .a
-REMOVESUFFIX = .So
-else
-ifeq ($(BUILD_TYPE),debug)
-LIBSUFFIX = _debug.a
-REMOVESUFFIX = .do
-else
-LIBSUFFIX = _profile.a
-REMOVESUFFIX = .po
-endif
-endif
-CNAME = libc$(LIBSUFFIX)
-MNAME = libm$(LIBSUFFIX)
-REMOVELIBC = _ldtoa err hexfloat syslog vfprintf vfwprintf
-REMOVELIBCOBJS = $(addsuffix $(REMOVESUFFIX),$(REMOVELIBC))
-REMOVELIBM = fpmacros
-REMOVELIBMOBJS = $(addsuffix .o,$(REMOVELIBM))
-LIBGCC = $(LIBSYS)/libgcc-ppc.a
+LIBGCC = $(shell $(CC) -arch $(RC_ARCHS) -print-file-name=libgcc.a)
 
 $(OFILE_DIR)/libgcc.unexport:
 	nm -g -arch $(RC_ARCHS) $(LIBGCC) | grep ' [A-TV-Z] ' | sed 's/^.* [A-Z] //' > $(OFILE_DIR)/libgcc.unexport
-	lipo -thin ppc -output $(OFILE_DIR)/$(CNAME) $(LIBSYS)/$(CNAME)
-	ar -d $(OFILE_DIR)/$(CNAME) $(REMOVELIBCOBJS)
-	ranlib $(OFILE_DIR)/$(CNAME)
-	lipo -thin ppc -output $(OFILE_DIR)/$(MNAME) $(LIBSYS)/$(MNAME)
-	ar -d $(OFILE_DIR)/$(MNAME) $(REMOVELIBMOBJS)
-	ranlib $(OFILE_DIR)/$(MNAME)
-endif

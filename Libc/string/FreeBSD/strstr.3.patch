@@ -1,0 +1,46 @@
+--- strstr.3.orig	Fri Mar 11 08:33:31 2005
++++ strstr.3	Fri Mar 11 08:35:28 2005
+@@ -41,7 +41,7 @@
+ .Dt STRSTR 3
+ .Os
+ .Sh NAME
+-.Nm strstr , strcasestr , strnstr
++.Nm strstr , strcasestr , strnstr , strcasestr_l
+ .Nd locate a substring in a string
+ .Sh LIBRARY
+ .Lb libc
+@@ -53,6 +53,9 @@
+ .Fn strcasestr "const char *big" "const char *little"
+ .Ft char *
+ .Fn strnstr "const char *big" "const char *little" "size_t len"
++.In xlocale.h
++.Ft char *
++.Fn strcasestr_l "const char *big" "const char *little" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn strstr
+@@ -86,6 +89,14 @@
+ function is a
+ .Fx
+ specific API, it should only be used when portability is not a concern.
++.Pp
++While the
++.Fn strcasestr
++function uses the current locale, the
++.Fn strcasestr_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ If
+ .Fa little
+@@ -138,7 +149,8 @@
+ .Xr strrchr 3 ,
+ .Xr strsep 3 ,
+ .Xr strspn 3 ,
+-.Xr strtok 3
++.Xr strtok 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn strstr

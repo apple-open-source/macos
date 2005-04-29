@@ -1,34 +1,30 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  leaks.c
- *  security
  *
- *  Created by Michael Brouwer on Tue May 07 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * leaks.c
  */
 
 #include "leaks.h"
+#include "security.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -49,7 +45,7 @@ leaks(int argc, char *const *argv)
 	{
 	case -1:
 		/* Fork failed we're hosed. */
-		fprintf(stderr, "fork failed: %s\n", strerror(errno));
+		sec_error("fork: %s", strerror(errno));
 		break;
 	case 0:
 	{
@@ -66,8 +62,8 @@ leaks(int argc, char *const *argv)
 		argvec[ix + 1] = NULL;
 
 		execv(argvec[0], argvec);
-		fprintf(stderr, "exec failed: %s\n", strerror(errno));
-		exit(1);
+		sec_error("exec: %s", strerror(errno));
+		_exit(1);
 		break;
 	}
 	default:
@@ -86,7 +82,7 @@ leaks(int argc, char *const *argv)
 				if (error == EINTR)
 					continue;
 
-				fprintf(stderr, "waitpid(%d) failed: %s\n", status, strerror(errno));
+				sec_error("waitpid %d: %s", status, strerror(errno));
 				break;
 			}
 
@@ -96,13 +92,13 @@ leaks(int argc, char *const *argv)
 				{
 					/* Force usage message. */
 					result = 2;
-					fprintf(stderr, "leaks exited %d\n", result);
+					sec_error("leaks exited: %d", result);
 				}
 				break;
 			}
 			else if (WIFSIGNALED(status))
 			{
-				fprintf(stderr, "leaks terminated by signal %d\n", WTERMSIG(status));
+				sec_error("leaks terminated by signal: %d", WTERMSIG(status));
 				break;
 			}
 		}

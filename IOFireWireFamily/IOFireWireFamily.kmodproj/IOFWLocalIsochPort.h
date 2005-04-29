@@ -30,13 +30,7 @@
  * HISTORY
  *
  * $Log: IOFWLocalIsochPort.h,v $
- * Revision 1.9.14.2  2004/09/13 21:40:38  niels
- * *** empty log message ***
- *
- * Revision 1.9.14.1  2004/09/13 21:10:10  niels
- * *** empty log message ***
- *
- * Revision 1.9.10.1  2004/08/09 19:57:12  niels
+ * Revision 1.10  2004/06/10 20:57:36  niels
  * *** empty log message ***
  *
  * Revision 1.9  2003/08/30 00:16:44  collin
@@ -128,13 +122,6 @@ class IOFWLocalIsochPort : public IOFWIsochPort
 		IOReturn				setIsochResourceFlags (
 										IOFWIsochResourceFlags	flags ) ;
 		IODCLProgram *			getProgramRef() const ;
-
-		/*! @function synchronizeWithIO
-			@abstract Complete any work needed to be done on this local isoch port.
-			@discussion Immediately completes any pending callbacks, updates, &c.
-				on the caller's thread. Call this function to to give FireWire a chance
-				to process completed DCLs on a high priority thread.
-			@result IOKit error code. */
 
 		IOReturn				synchronizeWithIO() ;
 

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/pixelstore.c,v 1.3 2001/03/21 16:04:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/pixelstore.c,v 1.5 2004/01/28 21:18:48 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -34,7 +34,9 @@
 **
 */
 
-#include "packsingle.h"
+#include "glxclient.h"
+#include "indirect.h"
+#include "indirect_wrap.h"
 
 /*
 ** Specify parameters that control the storage format of pixel arrays.
@@ -42,6 +44,7 @@
 void glPixelStoref(GLenum pname, GLfloat param)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = gc->client_state_private;
     Display *dpy = gc->currentDpy;
     GLuint a;
 
@@ -54,7 +57,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.rowLength = a;
+	state->storePack.rowLength = a;
 	break;
       case GL_PACK_IMAGE_HEIGHT:
         a = (GLuint) (param + 0.5);
@@ -62,7 +65,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storePack.imageHeight = a;
+        state->storePack.imageHeight = a;
         break;
       case GL_PACK_SKIP_ROWS:
 	a = (GLuint) (param + 0.5);
@@ -70,7 +73,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.skipRows = a;
+	state->storePack.skipRows = a;
 	break;
       case GL_PACK_SKIP_PIXELS:
 	a = (GLuint) (param + 0.5);
@@ -78,7 +81,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.skipPixels = a;
+	state->storePack.skipPixels = a;
 	break;
       case GL_PACK_SKIP_IMAGES:
         a = (GLuint) (param + 0.5);
@@ -86,13 +89,13 @@ void glPixelStoref(GLenum pname, GLfloat param)
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storePack.skipImages = a;
+        state->storePack.skipImages = a;
         break;
       case GL_PACK_ALIGNMENT:
 	a = (GLint) (param + 0.5);
 	switch (a) {
 	  case 1: case 2: case 4: case 8:
-	    gc->state.storePack.alignment = a;
+	    state->storePack.alignment = a;
 	    break;
 	  default:
 	    __glXSetError(gc, GL_INVALID_VALUE);
@@ -100,10 +103,10 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	}
 	break;
       case GL_PACK_SWAP_BYTES:
-	gc->state.storePack.swapEndian = (param != 0);
+	state->storePack.swapEndian = (param != 0);
 	break;
       case GL_PACK_LSB_FIRST:
-	gc->state.storePack.lsbFirst = (param != 0);
+	state->storePack.lsbFirst = (param != 0);
 	break;
 
       case GL_UNPACK_ROW_LENGTH:
@@ -112,7 +115,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.rowLength = a;
+	state->storeUnpack.rowLength = a;
 	break;
       case GL_UNPACK_IMAGE_HEIGHT:
         a = (GLuint) (param + 0.5);
@@ -120,7 +123,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storeUnpack.imageHeight = a;
+        state->storeUnpack.imageHeight = a;
         break;
       case GL_UNPACK_SKIP_ROWS:
 	a = (GLuint) (param + 0.5);
@@ -128,7 +131,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.skipRows = a;
+	state->storeUnpack.skipRows = a;
 	break;
       case GL_UNPACK_SKIP_PIXELS:
 	a = (GLuint) (param + 0.5);
@@ -136,7 +139,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.skipPixels = a;
+	state->storeUnpack.skipPixels = a;
 	break;
       case GL_UNPACK_SKIP_IMAGES:
         a = (GLuint) (param + 0.5);
@@ -144,13 +147,13 @@ void glPixelStoref(GLenum pname, GLfloat param)
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storeUnpack.skipImages = a;
+        state->storeUnpack.skipImages = a;
         break;
       case GL_UNPACK_ALIGNMENT:
 	a = (GLint) (param + 0.5);
 	switch (a) {
 	  case 1: case 2: case 4: case 8:
-	    gc->state.storeUnpack.alignment = a;
+	    state->storeUnpack.alignment = a;
 	    break;
 	  default:
 	    __glXSetError(gc, GL_INVALID_VALUE);
@@ -158,10 +161,10 @@ void glPixelStoref(GLenum pname, GLfloat param)
 	}
 	break;
       case GL_UNPACK_SWAP_BYTES:
-	gc->state.storeUnpack.swapEndian = (param != 0);
+	state->storeUnpack.swapEndian = (param != 0);
 	break;
       case GL_UNPACK_LSB_FIRST:
-	gc->state.storeUnpack.lsbFirst = (param != 0);
+	state->storeUnpack.lsbFirst = (param != 0);
 	break;
       default:
 	/*
@@ -177,6 +180,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 void glPixelStorei(GLenum pname, GLint param)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = gc->client_state_private;
     Display *dpy = gc->currentDpy;
 
     if (!dpy) return;
@@ -187,40 +191,40 @@ void glPixelStorei(GLenum pname, GLint param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.rowLength = param;
+	state->storePack.rowLength = param;
 	break;
       case GL_PACK_IMAGE_HEIGHT:
         if (param < 0) {
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storePack.imageHeight = param;
+        state->storePack.imageHeight = param;
         break;
       case GL_PACK_SKIP_ROWS:
 	if (param < 0) {
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.skipRows = param;
+	state->storePack.skipRows = param;
 	break;
       case GL_PACK_SKIP_PIXELS:
 	if (param < 0) {
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storePack.skipPixels = param;
+	state->storePack.skipPixels = param;
 	break;
       case GL_PACK_SKIP_IMAGES:
         if (param < 0) {
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storePack.skipImages = param;
+        state->storePack.skipImages = param;
         break;
       case GL_PACK_ALIGNMENT:
 	switch (param) {
 	  case 1: case 2: case 4: case 8:
-	    gc->state.storePack.alignment = param;
+	    state->storePack.alignment = param;
 	    break;
 	  default:
 	    __glXSetError(gc, GL_INVALID_VALUE);
@@ -228,10 +232,10 @@ void glPixelStorei(GLenum pname, GLint param)
 	}
 	break;
       case GL_PACK_SWAP_BYTES:
-	gc->state.storePack.swapEndian = (param != 0);
+	state->storePack.swapEndian = (param != 0);
 	break;
       case GL_PACK_LSB_FIRST:
-	gc->state.storePack.lsbFirst = (param != 0);
+	state->storePack.lsbFirst = (param != 0);
 	break;
 
       case GL_UNPACK_ROW_LENGTH:
@@ -239,40 +243,40 @@ void glPixelStorei(GLenum pname, GLint param)
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.rowLength = param;
+	state->storeUnpack.rowLength = param;
 	break;
       case GL_UNPACK_IMAGE_HEIGHT:
         if (param < 0) {
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storeUnpack.imageHeight = param;
+        state->storeUnpack.imageHeight = param;
         break;
       case GL_UNPACK_SKIP_ROWS:
 	if (param < 0) {
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.skipRows = param;
+	state->storeUnpack.skipRows = param;
 	break;
       case GL_UNPACK_SKIP_PIXELS:
 	if (param < 0) {
 	    __glXSetError(gc, GL_INVALID_VALUE);
 	    return;
 	}
-	gc->state.storeUnpack.skipPixels = param;
+	state->storeUnpack.skipPixels = param;
 	break;
       case GL_UNPACK_SKIP_IMAGES:
         if (param < 0) {
             __glXSetError(gc, GL_INVALID_VALUE);
             return;
         }
-        gc->state.storeUnpack.skipImages = param;
+        state->storeUnpack.skipImages = param;
         break;
       case GL_UNPACK_ALIGNMENT:
 	switch (param) {
 	  case 1: case 2: case 4: case 8:
-	    gc->state.storeUnpack.alignment = param;
+	    state->storeUnpack.alignment = param;
 	    break;
 	  default:
 	    __glXSetError(gc, GL_INVALID_VALUE);
@@ -280,10 +284,10 @@ void glPixelStorei(GLenum pname, GLint param)
 	}
 	break;
       case GL_UNPACK_SWAP_BYTES:
-	gc->state.storeUnpack.swapEndian = (param != 0);
+	state->storeUnpack.swapEndian = (param != 0);
 	break;
       case GL_UNPACK_LSB_FIRST:
-	gc->state.storeUnpack.lsbFirst = (param != 0);
+	state->storeUnpack.lsbFirst = (param != 0);
 	break;
       default:
 	/*

@@ -1,0 +1,39 @@
+.\" @(#)man.conf
+.\" Translated into Finnish by Raimo Koski <rkoski@pp.weppi.fi>
+.TH MAN.CONF 5 "30 Maaliskuu 1994"
+.SH NIMI
+man.conf \- man-ohjelman konfigurointitiedot
+.SH KUVAUS
+.LP
+Tämän tiedoston lukee
+.BR man (1)
+ja siinä on (a) tiedot, miten man:n hakupolku muodostetaan,
+(b) täydet nimet polkuineen ohjelmielle, kuten nroff, eqn, tbl jne. joita man käyttää
+ja (c) lista purkuohjelmista, joilla annetun tiedostopäätteen tiedostot voidaan purkaa.
+Vaihtoehtoinen versio tästä tiedostosta voidaan ottaa käyttöön komennolla
+.LP
+.RS
+man -C private_man.conf ...
+.RE
+.LP
+Komentojen nimille voidaan antaa optioita. Käyttökelpoiset optiot nroff-ohjelmalle löytyvät sivulta  grotty(1).
+Esimerkiksi oletusrivin 
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+sijasta voidaan määritellä
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+jotta alle- ja yliviivaus estetään.
+.SH "KATSO MYÖS"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) and compress(1), gzip(1).

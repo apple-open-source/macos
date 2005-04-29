@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XAllColor.man,v 1.3 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XAllColor.man,v 1.4 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -146,74 +146,27 @@
 .SH NAME
 XAllocColor, XAllocNamedColor, XAllocColorCells, XAllocColorPlanes, XFreeColors \- allocate and free colors
 .SH SYNTAX
-Status XAllocColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIscreen_in_out\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      XColor *\fIscreen_in_out\fP\^;
-.LP
-Status XAllocNamedColor\^(\^\fIdisplay\fP, \fIcolormap\fP\^,
-\fIcolor_name\fP\^, \fIscreen_def_return\fP\^, \fIexact_def_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      char *\fIcolor_name\fP\^;
-.br
-      XColor *\fIscreen_def_return\fP\^, *\fIexact_def_return\fP\^;
-.LP
-Status XAllocColorCells\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIcontig\fP\^,
-\fIplane_masks_return\fP\^, \fInplanes\fP\^, 
-.br
-                          \fIpixels_return\fP\^, \fInpixels\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      Bool \fIcontig\fP\^;
-.br
-      unsigned long \fIplane_masks_return\fP[\^]\^;
-.br
-      unsigned int \fInplanes\fP\^;
-.br
-      unsigned long \fIpixels_return\fP[\^]\^;
-.br
-      unsigned int \fInpixels\fP\^;
-.LP
-Status XAllocColorPlanes\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIcontig\fP\^, \fIpixels_return\fP\^, \fIncolors\fP\^, \fInreds\fP\^, \fIngreens\fP\^, 
-.br
-                           \fInblues\fP\^, \fIrmask_return\fP\^, \fIgmask_return\fP\^, \fIbmask_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      Bool \fIcontig\fP\^;
-.br
-      unsigned long \fIpixels_return\fP[\^]\^;
-.br
-      int \fIncolors\fP\^;
-.br
-      int \fInreds\fP\^, \fIngreens\fP\^, \fInblues\fP\^;
-.br
-      unsigned long *\fIrmask_return\fP\^, *\fIgmask_return\fP\^, *\fIbmask_return\fP\^;
-.LP
-XFreeColors\^(\^\fIdisplay\fP, \fIcolormap\fP\^, \fIpixels\fP\^, \fInpixels\fP\^, \fIplanes\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Colormap \fIcolormap\fP\^;
-.br
-      unsigned long \fIpixels\fP\^[\^];
-.br
-      int \fInpixels\fP\^;
-.br
-      unsigned long \fIplanes\fP\^;
-.SH ARGUMENTS
+.HP
+Status XAllocColor\^(\^Display *\fIdisplay\fP, Colormap \fIcolormap\fP\^,
+XColor *\fIscreen_in_out\fP\^);
+.HP
+Status XAllocNamedColor\^(\^Display *\fIdisplay\fP, Colormap \fIcolormap\fP\^,
+char *\fIcolor_name\fP\^, XColor *\fIscreen_def_return\fP\^, XColor
+*\fIexact_def_return\fP\^);
+.HP
+Status XAllocColorCells\^(\^Display *\fIdisplay\fP, Colormap \fIcolormap\fP\^,
+Bool \fIcontig\fP\^, unsigned long\fIplane_masks_return\fP[\^]\^, unsigned int
+\fInplanes\fP\^, unsigned long \fIpixels_return\fP[\^]\^, unsigned int
+\fInpixels\fP\^);
+.HP
+Status XAllocColorPlanes\^(\^Display *\fIdisplay\fP, Colormap
+\fIcolormap\fP\^, Bool \fIcontig\fP\^, unsigned long
+\fIpixels_return\fP[\^]\^, int \fIncolors\fP\^, int \fInreds\fP\^, int
+\fIngreens\fP\^, int \fInblues\fP\^, unsigned long *\fIrmask_return\fP\^,
+unsigned long *\fIgmask_return\fP\^, unsigned long *\fIbmask_return\fP\^);
+.HP
+int XFreeColors\^(\^Display *\fIdisplay\fP, Colormap \fIcolormap\fP\^, unsigned
+long \fIpixels\fP\^[\^], int \fInpixels\fP\^, unsigned long \fIplanes\fP\^);
 .IP \fIcolor_name\fP 1i
 Specifies the color name string (for example, red) whose color 
 definition structure you want returned.

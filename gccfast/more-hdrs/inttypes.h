@@ -2,24 +2,21 @@
  * Copyright (c) 2000,2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -33,6 +30,8 @@
 #if !defined(_INTTYPES_H_)
 #define _INTTYPES_H_
 
+#include <sys/cdefs.h>		/* For __BEGIN_DECLS and __END_DECLS */
+#include <machine/ansi.h>	/* For _BSD_WCHAR_T_ */
 #include <stdint.h>
 
 #if !defined(__STDC_VERSION__) || (__STDC_VERSION__ < 199901L)
@@ -77,12 +76,12 @@
   #define PRIx16        "hx"
   #define PRIX16        "hX"
 
-  #define PRId32        "ld"
-  #define PRIi32        "li"
-  #define PRIo32        "lo"
-  #define PRIu32        "lu"
-  #define PRIx32        "lx"
-  #define PRIX32        "lX"
+  #define PRId32        "d"
+  #define PRIi32        "i"
+  #define PRIo32        "o"
+  #define PRIu32        "u"
+  #define PRIx32        "x"
+  #define PRIX32        "X"
 
   #define PRId64        __PRI_64_LENGTH_MODIFIER__ "d"
   #define PRIi64        __PRI_64_LENGTH_MODIFIER__ "i"
@@ -259,7 +258,7 @@
 
 #endif /* if C++, then __STDC_FORMAT_MACROS enables the above macros */
 
-#if defined(__STDC_LIBRARY_SUPPORTED__)
+__BEGIN_DECLS
 
   /* 7.8.2.1 */
   extern intmax_t imaxabs(intmax_t j);
@@ -276,11 +275,18 @@
   extern intmax_t strtoimax(const char * restrict nptr, char ** restrict endptr, int base);
   extern uintmax_t strtoumax(const char * restrict nptr, char ** restrict endptr, int base);
 
+#ifndef __cplusplus /* wchar_t is a built-in type in C++ */
+#  ifndef	_BSD_WCHAR_T_DEFINED_
+#    define	_BSD_WCHAR_T_DEFINED_
+     typedef	_BSD_WCHAR_T_	wchar_t;
+#  endif
+#endif
+
   /* 7.8.2.4 */
   extern intmax_t wcstoimax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);
   extern uintmax_t wcstoumax(const wchar_t * restrict nptr, wchar_t ** restrict endptr, int base);
 
-#endif
+__END_DECLS
 
 /*
    No need to #undef the __*_{8,64}_LENGTH_MODIFIER__ macros;

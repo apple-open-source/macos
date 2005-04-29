@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>File Upload Administation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The File Upload Administration plugin allows you to upload files to your blog as well as delete files
+                that you have uploaded to your blog. This means you can add images or sound files to your blog that
+                can be displayed in entries.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                file-upload=org.blojsom.plugin.admin.FileUploadPlugin
+            </source>
+            <p>
+                The File Upload plugin has its own configuration file, <code>plugin-admin-upload.properties</code>, that
+                is referenced from an initialization parameter in the <code>/WEB-INF/web.xml</code> file.
+                <source>
+                    &lt;init-param&gt;
+                        &lt;param-name&gt;plugin-admin-upload&lt;/param-name&gt;
+                        &lt;param-value&gt;/WEB-INF/plugin-admin-upload.properties&lt;/param-value&gt;
+                    &lt;/init-param&gt;
+                </source>
+            </p>
+            <p>
+                The contents of this file will be similar to the following:
+                <source>
+                    temporary-directory=/tmp
+                    maximum-upload-size=100000
+                    maximum-memory-size=50000
+                    accepted-file-types=image/jpeg, image/gif, image/png
+                    resources-directory=/resources/
+                </source>
+            </p>
+            <p>
+                <em>temporary-directory</em> should be set to a temporary directory. It is used when an upload file
+                is too large to fit into memory. <br/>
+                <em>maximum-upload-size</em> is the maximum allowable size in bytes for files that are uploaded to
+                any blog.<br/>
+                <em>maximum-memory-size</em> is the maximum allowable size of files that should be kept in memory.
+                Files exceeding this size will be written to the temporary directory before being written to the proper
+                resources directory for the individual user.<br/>
+                <em>accepted-file-types</em> is a comma-separated list of allowed MIME types for file uploads.<br/>
+                <em>resources-directory</em> is the name of a directory that <b>must</b> be created in the directory
+                where blojsom is installed. Individual user directories will be created underneath this directory for
+                each individual blog user.
+            </p>
+        </section>
+        <section>
+            <title>Usage</title>
+            <p>
+                After logging into the administration console, you may click on the link to "Upload Files"
+                and you will be able upload and delete existing files from your blog.
+            </p>
+        </section>
+    </body>
+</document>
+

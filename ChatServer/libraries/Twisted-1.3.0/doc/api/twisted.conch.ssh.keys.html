@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.conch.ssh.keys</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.conch.html">Package&nbsp;conch</a> ::
+        <a href="twisted.conch.ssh.html">Package&nbsp;ssh</a> ::
+        Module&nbsp;keys
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.conch.ssh.keys.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.conch.ssh.keys</h2>
+
+<p>Handling of RSA and DSA keys.</p>
+<p>This module is unstable.</p>
+Maintainer: <a href="mailto:z3p&#64;twistedmatrix.com">Paul 
+Swartz</a>
+<hr/>
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Exceptions</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.conch.ssh.keys.BadKeyError.html"><code>BadKeyError</code></a></b></td>
+  <td>raised when a key isn't what we expected from it.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#getPrivateKeyObject" class="summary-sig-name"><code>getPrivateKeyObject</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>passphrase</span>)</span></code>
+<br />
+Return a <code>Crypto.PublicKey.pubkey.pubkey</code> object 
+corresponding to the private key file/data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getPrivateKeyObject_lsh"></a><span class="summary-sig"><span class="summary-sig-name">getPrivateKeyObject_lsh</span>(<span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>passphrase</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getPrivateKeyObject_openssh"></a><span class="summary-sig"><span class="summary-sig-name">getPrivateKeyObject_openssh</span>(<span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>passphrase</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>Crypto.PublicKey.pubkey.pubkey</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#getPublicKeyObject" class="summary-sig-name"><code>getPublicKeyObject</code></a>(<span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Return a <code>Crypto.PublicKey.pubkey.pubkey</code> corresponding to 
+the SSHv2 public key data.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>str</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#getPublicKeyString" class="summary-sig-name"><code>getPublicKeyString</code></a>(<span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>line</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Return a public key string given a filename or data of a public 
+key.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getPublicKeyString_lsh"></a><span class="summary-sig"><span class="summary-sig-name">getPublicKeyString_lsh</span>(<span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getPublicKeyString_openssh"></a><span class="summary-sig"><span class="summary-sig-name">getPublicKeyString_openssh</span>(<span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="lenSig"></a><span class="summary-sig"><span class="summary-sig-name">lenSig</span>(<span class=summary-sig-arg>obj</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePrivateKeyBlob"></a><span class="summary-sig"><span class="summary-sig-name">makePrivateKeyBlob</span>(<span class=summary-sig-arg>obj</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>str</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#makePrivateKeyString" class="summary-sig-name"><code>makePrivateKeyString</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>passphrase</span>,
+          <span class=summary-sig-arg>kind</span>)</span></code>
+<br />
+Return an OpenSSH-style private key for a 
+<code>Crypto.PublicKey.pubkey.pubkey</code> object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePrivateKeyString_lsh"></a><span class="summary-sig"><span class="summary-sig-name">makePrivateKeyString_lsh</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>passphrase</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePrivateKeyString_openssh"></a><span class="summary-sig"><span class="summary-sig-name">makePrivateKeyString_openssh</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>passphrase</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePublicKeyBlob"></a><span class="summary-sig"><span class="summary-sig-name">makePublicKeyBlob</span>(<span class=summary-sig-arg>obj</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>str</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#makePublicKeyString" class="summary-sig-name"><code>makePublicKeyString</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>comment</span>,
+          <span class=summary-sig-arg>kind</span>)</span></code>
+<br />
+Return an public key given a 
+<code>Crypto.PublicKey.pubkey.pubkey</code> object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePublicKeyString_lsh"></a><span class="summary-sig"><span class="summary-sig-name">makePublicKeyString_lsh</span>(<span class=summary-sig-arg>obj</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="makePublicKeyString_openssh"></a><span class="summary-sig"><span class="summary-sig-name">makePublicKeyString_openssh</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>comment</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>str</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#objectType" class="summary-sig-name"><code>objectType</code></a>(<span class=summary-sig-arg>obj</span>)</span></code>
+<br />
+Return the SSH key type corresponding to a 
+<code>Crypto.PublicKey.pubkey.pubkey</code> object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="pkcs1Digest"></a><span class="summary-sig"><span class="summary-sig-name">pkcs1Digest</span>(<span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>lMod</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="pkcs1Pad"></a><span class="summary-sig"><span class="summary-sig-name">pkcs1Pad</span>(<span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>lMod</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#printKey" class="summary-sig-name"><code>printKey</code></a>(<span class=summary-sig-arg>obj</span>)</span></code>
+<br />
+Pretty print a <code>Crypto.PublicKey.pubkey.pubkey</code> object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>str</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#signData" class="summary-sig-name"><code>signData</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Sign the data with the given 
+<code>Crypto.PublicKey.pubkey.pubkey</code> object.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="signData_dsa"></a><span class="summary-sig"><span class="summary-sig-name">signData_dsa</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="signData_rsa"></a><span class="summary-sig"><span class="summary-sig-name">signData_rsa</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        <code>bool</code>
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.conch.ssh.keys.html#verifySignature" class="summary-sig-name"><code>verifySignature</code></a>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>sig</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+<br />
+Verify that the signature for the data is valid.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="verifySignature_dsa"></a><span class="summary-sig"><span class="summary-sig-name">verifySignature_dsa</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>sig</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="verifySignature_rsa"></a><span class="summary-sig"><span class="summary-sig-name">verifySignature_rsa</span>(<span class=summary-sig-arg>obj</span>,
+          <span class=summary-sig-arg>sig</span>,
+          <span class=summary-sig-arg>data</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.conch.ssh.keys.html#ID_SHA1"><code>ID_SHA1</code></a></b> = <span title="'0!0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14'"><code><span class="variable-quote">'</span>0!0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x1<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="getPrivateKeyObject"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getPrivateKeyObject</span>(<span class=sig-arg>filename</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>data</span>=<span class=sig-default>''</span>,
+          <span class=sig-arg>passphrase</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  Return a <code>Crypto.PublicKey.pubkey.pubkey</code> object 
+  corresponding to the private key file/data. If the private key is 
+  encrypted, passphrase <b>must</b> be specified, other wise a 
+  <code>BadKeyError</code> will be raised.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>filename</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>passphrase</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Raises:</b></dt>
+      <dd><code><b>BadKeyError</b></code> -
+        if the key is invalid or a passphrase is not specified
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getPublicKeyObject"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getPublicKeyObject</span>(<span class=sig-arg>data</span>)</span>
+  </h3>
+  Return a <code>Crypto.PublicKey.pubkey.pubkey</code> corresponding 
+  to the SSHv2 public key data. data is in the over-the-wire public key 
+  format.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>Crypto.PublicKey.pubkey.pubkey</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getPublicKeyString"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getPublicKeyString</span>(<span class=sig-arg>filename</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>line</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>data</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  Return a public key string given a filename or data of a public key. 
+  Currently handles OpenSSH and LSH keys.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>filename</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>line</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>int</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="makePrivateKeyString"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">makePrivateKeyString</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>passphrase</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>kind</span>=<span class=sig-default>'openssh'</span>)</span>
+  </h3>
+  Return an OpenSSH-style private key for a 
+  <code>Crypto.PublicKey.pubkey.pubkey</code> object. If passphrase is 
+  given, encrypt the private key with it. kind is one of ('openssh', 
+  'lsh')
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      <dd><code><b>passphrase</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>/<code>None</code>)</i>
+      <dd><code><b>kind</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="makePublicKeyString"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">makePublicKeyString</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>comment</span>=<span class=sig-default>''</span>,
+          <span class=sig-arg>kind</span>=<span class=sig-default>'openssh'</span>)</span>
+  </h3>
+  Return an public key given a 
+  <code>Crypto.PublicKey.pubkey.pubkey</code> object. kind is one of 
+  ('openssh', 'lsh')
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      <dd><code><b>comment</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>kind</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="objectType"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">objectType</span>(<span class=sig-arg>obj</span>)</span>
+  </h3>
+  Return the SSH key type corresponding to a 
+  <code>Crypto.PublicKey.pubkey.pubkey</code> object.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="printKey"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">printKey</span>(<span class=sig-arg>obj</span>)</span>
+  </h3>
+  Pretty print a <code>Crypto.PublicKey.pubkey.pubkey</code> 
+  object.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="signData"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">signData</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Sign the data with the given 
+  <code>Crypto.PublicKey.pubkey.pubkey</code> object.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="verifySignature"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">verifySignature</span>(<span class=sig-arg>obj</span>,
+          <span class=sig-arg>sig</span>,
+          <span class=sig-arg>data</span>)</span>
+  </h3>
+  Verify that the signature for the data is valid.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>obj</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>Crypto.PublicKey.pubkey.pubkey</code>)</i>
+      <dd><code><b>sig</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      <dd><code><b>data</b></code>
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=<code>str</code>)</i>
+      </dd>
+    </dl>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>bool</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="ID_SHA1"></a>
+<h3>ID_SHA1</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'0!0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>0!0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14<span class="variable-quote">'</span>                       </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:11 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

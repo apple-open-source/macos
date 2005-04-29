@@ -1,4 +1,4 @@
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999, 2000 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 # and extensively modified by Bob Manson. (manson@cygnus.com)
 
 # a hairy pattern to recognize text
@@ -225,8 +225,8 @@ proc prune_warnings { text } {
     regsub -all "(^|\n)(cc1plus: warning: -g is only supported when using GAS on this processor\[^\n\]*\ncc1plus: warning:\[^\n\]*\n?)+" $text "\\1" text
 
     # This happens when testing across NFS.
-    regsub -all "(^|\n)(NFS server \[^\n\]* not responding still trying\[^\n\]*\n?)+" $text "\\1" text
-    regsub -all "(^|\n)(NFS server \[^\n\]* ok\[^\n\]*\n?)+" $text "\\1" text
+    regsub -all "(^|\n)((NFS|nfs) server \[^\n\]* not responding\[^\n\]*\n?)+" $text "\\1" text
+    regsub -all "(^|\n)((NFS|nfs) server \[^\n\]* (ok|is alive again)\[^\n\]*\n?)+" $text "\\1" text
 
     # This happens when testing across NFS on osf4.
     regsub -all "(^|\n)(NFS3 server \[^\n\]* not responding still trying\[^\n\]*\n?)+" $text "\\1" text
@@ -261,11 +261,21 @@ proc prune_warnings { text } {
     regsub -all "(^|\n)(ld(|32|64): WARNING \[^\n\]*\n?)+" $text "\\1" text
     regsub -all "(^|\n)(ld(|32|64): Giving up.*Use -wall\[^\n\]*\n?)+" $text "\\1" text
 
+    # Or the NetBSD ones.
+    regsub -all "(^|\n)(\[^\n\]*:\[0-9\]+: warning: \[^\n\]* possibly used unsafely, use \[^\n\]*\n?)" $text "\\1" text
+    regsub -all "(^|\n)(\[^\n\]*: warning: reference to compatibility glob\[^\n\]*\n?)" $text "\\1" text
+
     # GNU ld warns about functions marked as dangerous in GNU libc.
     regsub -all "(^|\n)\[^\n\]*: In function\[^\n\]*\n\[^\n\]\[^\n\]*function is dangerous\[^\n\]*" $text "" text
 
-    # Libgloss libnosys defines functions that warn when linked in
+     # GNU ld warns about functions marked as dangerous in GNU libc.   
+     regsub -all "(^|\n)\[^\n\]*: In function\[^\n\]*\n\[^\n\]\[^\n\]*the use of \[^\n\]* is dangerous, better use \[^\n\]*" $text "" text
+
+     # Libgloss libnosys defines functions that warn when linked in
     regsub -all "(^|\n)\[^\n\]*: In function\[^\n\]*\n\[^\n\]\[^\n\]*is not implemented and will always fail\[^\n\]*" $text "" text
+
+    # Cygwin cc1 warns about -fpic and -fPIC
+    regsub -all ".*: warning: -f(pic|PIC) ignored for target .*" $text "" text
 
     # It might be tempting to get carried away and delete blank lines, etc.
     # Just delete *exactly* what we're ask to, and that's it.
@@ -490,6 +500,7 @@ proc default_target_compile {source destfile type options} {
     }
 
     if { $type == "executable" } {
+	append add_flags " $ldflags"
 	foreach x $libs {
 	    if [file exists $x] {
 		append source " $x"
@@ -497,7 +508,6 @@ proc default_target_compile {source destfile type options} {
 		append add_flags " $x";
 	    }
 	}
-	append add_flags " $ldflags"
 
 	if [board_info $dest exists libs] {
 	    append add_flags " [board_info $dest libs]"
@@ -511,8 +521,7 @@ proc default_target_compile {source destfile type options} {
 	if [board_info $dest exists mathlib] {
 	    append add_flags " [board_info $dest mathlib]"
 	} else {
-# not desirable for OS X
-#	    append add_flags " -lm"
+	    append add_flags " -lm"
 	}
 
 	# This must be added here.

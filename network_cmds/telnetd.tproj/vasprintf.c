@@ -33,13 +33,14 @@ static char rcsid[] = "$FreeBSD: src/lib/libc/stdio/vasprintf.c,v 1.12 2001/01/2
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <errno.h>
 
 int
 vasprintf(str, fmt, ap)
 	char **str;
 	const char *fmt;
-	_BSD_VA_LIST_ ap;
+	va_list ap;
 {
 	int ret;
 	FILE f;

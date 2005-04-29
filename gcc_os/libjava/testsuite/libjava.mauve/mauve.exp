@@ -1,4 +1,4 @@
-# Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation.
+# Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation.
 # Written by Tom Tromey <tromey@cygnus.com>.
 # Incorporate Mauve into libjava's DejaGNU test suite framework.
 
@@ -46,10 +46,32 @@ proc mauve_compute_uses {aName} {
     foreach file $ufiles {
       set file [file rootname $file].o
       lappend uses($item) $file
+      # Now add all inner classes
+      foreach inner [glob -nocomplain [file rootname $file]$*.class] {
+	# Prevent excessive escaping by replacing $ with a ^ in the .o name
+	set inner [file rootname $inner].o
+	regsub -all "\\$" $inner "\^" inner
+	lappend uses($item) $inner
+      }
     }
   }
 
   return [lsort [array names uses]]
+}
+
+# Find Mauve sources.  At end, env(MAUVEDIR) points to sources.
+# Returns 0 if sources not found, 1 otherwise.
+proc find_mauve_sources {} {
+  global env srcdir
+
+  if {[info exists env(MAUVEDIR)]} {
+    return 1
+  } elseif {[file isdirectory $srcdir/libjava.mauve/mauve]} {
+    set env(MAUVEDIR) $srcdir/libjava.mauve/mauve
+    return 1
+  }
+
+  return 0
 }
 
 # Run all the Mauve tests.  Return 1 on success, 0 on any failure.  If
@@ -57,7 +79,7 @@ proc mauve_compute_uses {aName} {
 proc test_mauve {} {
   global srcdir objdir subdir env
 
-  if {! [info exists env(MAUVEDIR)]} then {
+  if {! [find_mauve_sources]} then {
     verbose "MAUVEDIR not set; not running Mauve tests"
     return 1
   }
@@ -71,25 +93,25 @@ proc test_mauve {} {
   set full_srcdir [pwd]
   cd $here/mauve-build
 
-    global env
-    global GCJ_UNDER_TEST
-    global TOOL_EXECUTABLE
+  global env libgcj_jar
+  global GCJ_UNDER_TEST
+  global TOOL_EXECUTABLE
 
-    if ![info exists GCJ_UNDER_TEST] {
-	if [info exists TOOL_EXECUTABLE] {
-	    set GCJ_UNDER_TEST $TOOL_EXECUTABLE;
-	} else {
-	    if [info exists env(GCJ)] {
-		set GCJ_UNDER_TEST env(GCJ)
-	    } else {
-		set GCJ_UNDER_TEST "[find_gcj]"
-	    }
-	}
+  if ![info exists GCJ_UNDER_TEST] {
+    if [info exists TOOL_EXECUTABLE] {
+      set GCJ_UNDER_TEST $TOOL_EXECUTABLE;
+    } else {
+      if [info exists env(GCJ)] {
+	set GCJ_UNDER_TEST env(GCJ)
+      } else {
+	set GCJ_UNDER_TEST "[find_gcj]"
+      }
     }
+  }
 
-    # Append -B and -I so that libgcj.spec and libgcj.zip are found
-    # before they're installed.
-    set env(GCJ) "$GCJ_UNDER_TEST -B$objdir/../ -I$objdir/../libgcj.jar"
+  # Append -B and -I so that libgcj.spec and libgcj.jar are found
+  # before they're installed.
+  set env(GCJ) "$GCJ_UNDER_TEST -B$objdir/../ -I$libgcj_jar"
 
   if {[catch {
     system "$env(MAUVEDIR)/configure --with-gcj 2>&1"
@@ -139,7 +161,7 @@ proc test_mauve {} {
   foreach base {DejaGNUTestHarness gnu/testlet/SimpleTestHarness gnu/testlet/TestHarness gnu/testlet/Testlet gnu/testlet/ResourceNotFoundException gnu/testlet/config} {
     set file $base.class
     set obj $base.o
-    set x [prune_warnings \
+    set x [libjava_prune_warnings \
 	     [target_compile [pwd]/$file $obj object $compile_args]]
     if {$x != ""} then {
       fail "Compile $obj"
@@ -164,9 +186,11 @@ proc test_mauve {} {
     foreach obj $uses($file) {
       if {! [file exists $obj]} then {
 	verbose "compiling $obj for test of $class"
+	# The .class file does contain a $, but we can quote it between "'"s.
 	set srcfile [file rootname $obj].class
-	set x [prune_warnings \
-		 [target_compile [pwd]/$srcfile $obj object $compile_args]]
+	regsub -all "\\^" $srcfile "\$" srcfile
+	set x [libjava_prune_warnings \
+		 [libjava_tcompile '[pwd]/$srcfile' $obj object $compile_args]]
 	if {$x != ""} then {
 	  fail "Compile $obj for $class"
 	  set ok 0
@@ -180,8 +204,9 @@ proc test_mauve {} {
       continue
     }
 
-    set x [prune_warnings [target_compile [concat $uses($file) $objlist] \
-			     $Executable executable $link_args]]
+    set x [libjava_prune_warnings \
+	     [libjava_tcompile [concat $uses($file) $objlist] \
+		$Executable executable $link_args]]
     if {$x != ""} then {
       set proc_ok 0
       fail "Link for $class"
@@ -220,7 +245,7 @@ proc test_mauve {} {
 proc test_mauve_sim {} {
   global srcdir subdir env
 
-  if {! [info exists env(MAUVEDIR)]} then {
+  if {! [find_mauve_sources]} then {
     verbose "MAUVEDIR not set; not running Mauve tests"
     return 1
   }
@@ -277,7 +302,7 @@ proc test_mauve_sim {} {
 		  gnu/testlet/config} {
     set file $base.class
     set obj $base.o
-    set x [prune_warnings \
+    set x [libjava_prune_warnings \
 	     [target_compile [pwd]/$file $obj object $compile_args]]
     if {$x != ""} then {
       fail "Compile $obj"
@@ -306,7 +331,7 @@ proc test_mauve_sim {} {
       if {! [file exists $obj]} then {
 	verbose "compiling $obj for test of $class"
 	set srcfile [file rootname $obj].class
-	set x [prune_warnings \
+	set x [libjava_prune_warnings \
 		 [target_compile [pwd]/$srcfile $obj object $compile_args]]
 	if {$x != ""} then {
 	  fail "Compile $obj for $class"
@@ -342,7 +367,7 @@ proc test_mauve_sim {} {
 	return 0
     }
 
-    set x [prune_warnings \
+    set x [libjava_prune_warnings \
 	     [target_compile gnu/testlet/DejaGNUTestHarness.class \
 		gnu/testlet/DejaGNUTestHarness.o object $compile_args]]
     if {$x != ""} then {
@@ -351,8 +376,9 @@ proc test_mauve_sim {} {
 	continue
     }
 
-    set x [prune_warnings [target_compile [concat $uses($file) $objlist] \
-			     $Executable executable $link_args]]
+    set x [libjava_prune_warnings \
+	     [target_compile [concat $uses($file) $objlist] \
+		$Executable executable $link_args]]
     if {$x != ""} then {
       set proc_ok 0
       fail "Link for $class"

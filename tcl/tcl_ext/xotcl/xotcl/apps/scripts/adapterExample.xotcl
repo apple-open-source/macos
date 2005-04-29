@@ -1,0 +1,36 @@
+# $Id: s.adapterExample.xotcl 1.3 01/03/23 22:24:35+01:00 neumann@somewhere.wu-wien.ac.at $
+# include the adapter pattern
+source adapter.xotcl
+
+@ @File {
+  description {
+    Simple adapter pattern example class (FTP requests) taken from the paper 
+    'Filters as a Language Support for Design Patterns in
+    Object-Oriented Scripting Languages'.
+  }
+}
+
+Class FTPLIB 
+FTPLIB instproc FTPLIB_connect args {
+  puts "in ftplib connect"  
+}
+
+Class Connection
+Connection instproc connect args  {
+  puts "in Connection connect"
+}
+Connection instproc discard args  {
+  puts "in Connection discard"
+}
+
+Adapter FTP -superclass Connection
+
+FTP instproc init args {
+  FTPLIB ftpAdaptee
+  my setRequest connect FTPLIB_connect
+  my setAdaptee ftpAdaptee
+}
+FTP f
+
+f connect
+f discard

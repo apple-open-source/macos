@@ -39,6 +39,12 @@
 
 #include "i386-macosx-tdep.h"
 
+/* Unused on the x86 side of things -- this is only needed to
+   help distinguish between ppc32 and ppc64 binaries on the PPC side. */
+
+enum gdb_osabi osabi_seen_in_attached_dyld = GDB_OSABI_UNKNOWN;
+
+
 #define supply_unsigned_int(regnum, val)\
 store_unsigned_integer (buf, 4, val); \
 supply_register(regnum, buf);
@@ -47,7 +53,8 @@ supply_register(regnum, buf);
 regcache_collect (regnum, buf); \
 (* (addr)) = extract_unsigned_integer (buf, 4);
 
-void i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
+void
+i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
 {
   char buf[4];
   supply_unsigned_int (0, sp_regs->eax);
@@ -68,7 +75,8 @@ void i386_macosx_fetch_gp_registers (gdb_i386_thread_state_t *sp_regs)
   supply_unsigned_int (15, sp_regs->gs);
 }
 
-void i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
+void
+i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
 {
   unsigned char buf[4];
   collect_unsigned_int (0, &sp_regs->eax);
@@ -89,17 +97,21 @@ void i386_macosx_store_gp_registers (gdb_i386_thread_state_t *sp_regs)
   collect_unsigned_int (15, &sp_regs->gs);
 }
 
-void i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
+void
+i386_macosx_fetch_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
+#if 0                           /* FIXME FIXME FIXME */
   if ((fp_regs->fpkind == GDB_i386_FP_387) && (fp_regs->initialized))
     i387_supply_fsave ((unsigned char *) &fp_regs->hw_state);
   else if ((fp_regs->fpkind == GDB_i386_FP_SSE2) && (fp_regs->initialized))
     i387_supply_fxsave ((unsigned char *) &fp_regs->hw_state);
   else
     i387_supply_fxsave (NULL);
+#endif
 }
 
-void i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
+void
+i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 {
 #if 0
   fp_regs->fpkind = GDB_i386_FP_SSE2;
@@ -116,54 +128,59 @@ void i386_macosx_store_fp_registers (gdb_i386_thread_fpstate_t *fp_regs)
 
 /* mread -- read memory (unsigned) and apply a bitmask */
 
-static unsigned long mread (addr, len, mask)
-     CORE_ADDR addr;
-     unsigned long len, mask;
+static unsigned long
+mread (CORE_ADDR addr, unsigned long len, unsigned long mask)
 {
   long ret = read_memory_unsigned_integer (addr, len);
-  if (mask) { ret &= mask; }
+  if (mask)
+    {
+      ret &= mask;
+    }
   return ret;
 }
 
 CORE_ADDR
-i386_macosx_skip_trampoline_code (pc)
-     CORE_ADDR pc;
+i386_macosx_skip_trampoline_code (CORE_ADDR pc)
 {
   unsigned char opcode1 = (unsigned char) mread (pc, 1, 0);
   CORE_ADDR new_pc = pc;
 
   /* first test:  static shlib jumptable */
-  if (opcode1 == 0xe9)				/* jmpl xxxx */
-    return (pc + mread (pc+1, 4, 0) + 5);
+  if (opcode1 == 0xe9)          /* jmpl xxxx */
+    return (pc + mread (pc + 1, 4, 0) + 5);
 
   /* second test: dynamic shlib jumptable (1st entry point) */
-  if (opcode1             == 0xe8   &&
-      mread (pc+1,  4, 0) == 0      &&		/* calll pc+5 */
-      mread (pc+5,  1, 0) == 0x58   &&		/* popl  %eax */
-      mread (pc+6,  2, 0) == 0x908b &&		/* movl y(%eax),%edx */
-      mread (pc+12, 2, 0) == 0xe2ff)		/* jmpl  %edx */
-    pc = new_pc = mread (pc + mread (pc+8, 4, 0) + 5, 4, 0);
+  if (opcode1 == 0xe8 && mread (pc + 1, 4, 0) == 0 &&   /* calll pc+5 */
+      mread (pc + 5, 1, 0) == 0x58 &&   /* popl  %eax */
+      mread (pc + 6, 2, 0) == 0x908b && /* movl y(%eax),%edx */
+      mread (pc + 12, 2, 0) == 0xe2ff)  /* jmpl  %edx */
+    pc = new_pc = mread (pc + mread (pc + 8, 4, 0) + 5, 4, 0);
   /* and fall thru to do next test (both might succeed) */
 
 #if 0
   /* third test: dynamic shlib table (as yet unresolved entry) */
-  if (mread (pc,   2, 0) == 0x808d &&		/* leal y(%eax),%eax */
-      mread (pc+6, 1, 0) == 0x50   &&		/* pushl %eax */
-      mread (pc+7, 1, 0) == 0xe9)		/* jmpl dyld */
+  if (mread (pc, 2, 0) == 0x808d &&     /* leal y(%eax),%eax */
+      mread (pc + 6, 1, 0) == 0x50 &&   /* pushl %eax */
+      mread (pc + 7, 1, 0) == 0xe9)     /* jmpl dyld */
     pc = new_pc = (CORE_ADDR) get_symbol_stub_real_address (pc, NULL);
 #endif
 
   return new_pc;
 }
 
-int i386_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
+int
+i386_macosx_in_solib_return_trampoline (CORE_ADDR pc, char *name)
 {
   return 0;
 }
 
-int i386_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
+int
+i386_macosx_in_solib_call_trampoline (CORE_ADDR pc, char *name)
 {
-  if (i386_macosx_skip_trampoline_code (pc) != pc) { return 1; }
+  if (i386_macosx_skip_trampoline_code (pc) != pc)
+    {
+      return 1;
+    }
   return 0;
 }
 
@@ -172,7 +189,8 @@ i386_macosx_sigcontext_addr (struct frame_info *frame)
 {
   int sigcontext_offset = 24;
 
-  return read_memory_unsigned_integer (frame->frame + sigcontext_offset, 4);
+  return read_memory_unsigned_integer (get_frame_base (frame) +
+                                       sigcontext_offset, 4);
 }
 
 static void
@@ -196,8 +214,7 @@ i386_macosx_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
 static enum gdb_osabi
 i386_mach_o_osabi_sniffer (bfd *abfd)
 {
-  if (strcmp (bfd_get_target (abfd), "mach-o-be") == 0
-      || strcmp (bfd_get_target (abfd), "mach-o-le") == 0
+  if (strcmp (bfd_get_target (abfd), "mach-o-le") == 0
       || strcmp (bfd_get_target (abfd), "mach-o-fat") == 0)
     return GDB_OSABI_DARWIN;
 
@@ -207,9 +224,9 @@ i386_mach_o_osabi_sniffer (bfd *abfd)
 void
 _initialize_i386_macosx_tdep (void)
 {
-  gdbarch_register_osabi_sniffer (bfd_arch_i386, bfd_target_mach_o_flavour,
-				  i386_mach_o_osabi_sniffer);
+  gdbarch_register_osabi_sniffer (bfd_arch_unknown, bfd_target_mach_o_flavour,
+                                  i386_mach_o_osabi_sniffer);
 
   gdbarch_register_osabi (bfd_arch_i386, 0, GDB_OSABI_DARWIN,
-			  i386_macosx_init_abi);
+                          i386_macosx_init_abi);
 }

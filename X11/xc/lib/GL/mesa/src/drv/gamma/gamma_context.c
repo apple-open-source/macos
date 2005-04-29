@@ -35,14 +35,13 @@
 
 #include "context.h"
 #include "simple_list.h"
-#include "mem.h"
+#include "imports.h"
 #include "matrix.h"
 #include "extensions.h"
 #if defined(USE_X86_ASM)
 #include "X86/common_x86_asm.h"
 #endif
 #include "simple_list.h"
-#include "mem.h"
 #include "mm.h"
 
 
@@ -66,7 +65,7 @@ static const struct gl_pipeline_stage *gamma_pipeline[] = {
    0,
 };
 
-GLboolean gammaCreateContext( Display *dpy, const __GLcontextModes *glVisual,
+GLboolean gammaCreateContext( const __GLcontextModes *glVisual,
 			     __DRIcontextPrivate *driContextPriv,
                      	     void *sharedContextPrivate)
 {
@@ -86,13 +85,11 @@ GLboolean gammaCreateContext( Display *dpy, const __GLcontextModes *glVisual,
    else
       shareCtx = NULL;
 
-   gmesa->glCtx = _mesa_create_context(glVisual, shareCtx, gmesa, GL_TRUE);
+   gmesa->glCtx = _mesa_create_context(glVisual, shareCtx, (void *) gmesa, GL_TRUE);
    if (!gmesa->glCtx) {
       FREE(gmesa);
       return GL_FALSE;
    }
-
-   gmesa->display = dpy;
 
    gmesa->driContext = driContextPriv;
    gmesa->driScreen = sPriv;

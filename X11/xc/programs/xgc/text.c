@@ -6,7 +6,7 @@
 ** How to make a text widget that returns a string when the cursor
 ** leaves its window.
 */
-/* $XFree86: xc/programs/xgc/text.c,v 1.3 2000/02/17 14:00:37 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/text.c,v 1.4 2003/05/07 21:02:07 herrb Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,11 +17,7 @@
 #include <X11/Xaw/AsciiText.h>
 #include "xgc.h"
 
-static void WriteText();
-extern void interpret();
-
-extern XStuff X;
-extern XtAppContext appcontext;
+static void WriteText(Widget, XEvent *, String *, Cardinal *);
 
 /* the strings which are displayed on the screen, edited, and sent
    to interpret() */
@@ -51,10 +47,7 @@ static const char *names[NUMTEXTWIDGETS] = {"linewidth ","font ","foreground ",
 */
 
 Widget
-create_text_choice(w,type,length,width)
-     Widget w;
-     int type;
-     int length, width;
+create_text_choice(Widget w, int type, int length, int width)
 {
   char translationtable[600];	/* for adding the new action (calling
 				   WriteText() when the pointer leaves) */
@@ -88,7 +81,7 @@ create_text_choice(w,type,length,width)
   ** update the GC accordingly.  The integer passed to WriteText is
   ** so it knows what type of widget was just updated. */
 
-  sprintf(translationtable,
+  snprintf(translationtable,sizeof translationtable,
      "<Leave>:      WriteText(%d)\n\
      Ctrl<Key>J:    Nothing()\n\
      Ctrl<Key>M:    Nothing()\n\
@@ -110,12 +103,16 @@ create_text_choice(w,type,length,width)
   /* text uses type to find out what its string is */
   switch (type) {
   case TForeground:
-    sprintf(textstrings[type],"%d",(int) X.gcv.foreground);
-    sprintf(oldtextstrings[type],"%d",(int) X.gcv.foreground);
+    snprintf(textstrings[type],sizeof textstrings[type], 
+	"%d",(int) X.gcv.foreground);
+    snprintf(oldtextstrings[type],sizeof oldtextstrings[type],
+	"%d",(int) X.gcv.foreground);
     break;
   case TBackground:
-    sprintf(textstrings[type],"%d",(int) X.gcv.background);
-    sprintf(oldtextstrings[type],"%d",(int) X.gcv.background);
+    snprintf(textstrings[type],sizeof textstrings[type],
+	"%d",(int) X.gcv.background);
+    snprintf(oldtextstrings[type],sizeof oldtextstrings[type],
+	"%d",(int) X.gcv.background);
     break;
   default:
     strcpy(textstrings[type],defaultstrings[type]);
@@ -146,11 +143,7 @@ create_text_choice(w,type,length,width)
 
 /*ARGSUSED*/
 static void
-WriteText(w,event,params,num_params)
-     Widget w;
-     XEvent *event;
-     String *params;		/* the type is in here */
-     Cardinal *num_params;
+WriteText(Widget w, XEvent *event, String *params, Cardinal *num_params)
 {
   char mbuf[80];
   int type;			/* which string # to send */
@@ -158,9 +151,9 @@ WriteText(w,event,params,num_params)
   type = atoi(params[0]);
   if (strcmp(textstrings[type],oldtextstrings[type])) {
     strcpy(oldtextstrings[type],textstrings[type]);
-    sprintf(mbuf,names[type]);	/* the right first half */
-    strcat(mbuf,textstrings[type]); /* the right second half */
-    strcat(mbuf,"\n");		/* the right newline */
+    snprintf(mbuf,sizeof mbuf,"%s%s\n", 
+	names[type],		/* the right first half */
+	textstrings[type]);	/* the right second half */
     interpret(mbuf);		/* send it off */
   }
 }
@@ -171,9 +164,7 @@ WriteText(w,event,params,num_params)
 */
 
 void
-change_text(w,newtext)
-     Widget w;
-     String newtext;
+change_text(Widget w, String newtext)
 {
   XawTextBlock text;		/* the new text */
   XawTextPosition first, last;	/* boundaries of the old text */

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2002-2003, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -84,8 +84,8 @@
  * accordingly. UTF-16 was the default.</p>
  *
  * <p>This concept has been abandoned.
- * A lot of the ICU source code &mdash; especially low-level code like
- * conversion, normalization, and collation &mdash; assumes UTF-16,
+ * A lot of the ICU source code &#8212; especially low-level code like
+ * conversion, normalization, and collation &#8212; assumes UTF-16,
  * utf.h enforces the default of UTF-16.
  * The UTF-8 and UTF-32 macros remain for now for completeness and backward compatibility.</p>
  *
@@ -137,13 +137,15 @@
  * @deprecated ICU 2.4. Use the macros in utf.h, utf16.h, utf8.h instead.
  */
 
+#ifndef __UTF_OLD_H__
+#define __UTF_OLD_H__
+
+#ifndef U_HIDE_DEPRECATED_API
+
 /* utf.h must be included first. */
 #ifndef __UTF_H__
 #   include "unicode/utf.h"
 #endif
-
-#ifndef __UTF_OLD_H__
-#define __UTF_OLD_H__
 
 /* Formerly utf.h, part 1 --------------------------------------------------- */
 
@@ -324,16 +326,16 @@ typedef int32_t UTextOffset;
 
 /** @deprecated ICU 2.4. Renamed to U8_GET_UNSAFE, see utf_old.h. */
 #define UTF8_GET_CHAR_UNSAFE(s, i, c) { \
-    int32_t __I=(int32_t)(i); \
-    UTF8_SET_CHAR_START_UNSAFE(s, __I); \
-    UTF8_NEXT_CHAR_UNSAFE(s, __I, c); \
+    int32_t _utf8_get_char_unsafe_index=(int32_t)(i); \
+    UTF8_SET_CHAR_START_UNSAFE(s, _utf8_get_char_unsafe_index); \
+    UTF8_NEXT_CHAR_UNSAFE(s, _utf8_get_char_unsafe_index, c); \
 }
 
 /** @deprecated ICU 2.4. Use U8_GET instead, see utf_old.h. */
 #define UTF8_GET_CHAR_SAFE(s, start, i, length, c, strict) { \
-    int32_t __I=(int32_t)(i); \
-    UTF8_SET_CHAR_START_SAFE(s, start, __I); \
-    UTF8_NEXT_CHAR_SAFE(s, __I, length, c, strict); \
+    int32_t _utf8_get_char_safe_index=(int32_t)(i); \
+    UTF8_SET_CHAR_START_SAFE(s, start, _utf8_get_char_safe_index); \
+    UTF8_NEXT_CHAR_SAFE(s, _utf8_get_char_safe_index, length, c, strict); \
 }
 
 /** @deprecated ICU 2.4. Renamed to U8_NEXT_UNSAFE, see utf_old.h. */
@@ -1157,4 +1159,7 @@ typedef int32_t UTextOffset;
  */
 #define UTF_SET_CHAR_LIMIT(s, start, i, length) U16_SET_CP_LIMIT(s, start, i, length)
 
+#endif /* U_HIDE_DEPRECATED_API */
+
 #endif
+

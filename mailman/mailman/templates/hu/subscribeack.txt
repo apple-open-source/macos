@@ -29,6 +29,6 @@ vagy a leiratkozást elvégezni. A jelszavad:
 A Mailman alapesetben minden hónapban elküldi a(z) %(host_name)s gépen
 található levelezõlistához tartozó jelszavadat, ha ezt az emlékeztetõt
 nem kéred, akkor a beállítások oldalon kikapcsolhatod a havi küldést.
-Az üzenet a leiratkozásról és beállításiad megváltoztatásának módjára
+Az üzenet a leiratkozásról és beállításaid megváltoztatásának módjára
 emlékeztet. A listatagok oldalán található gomb megnyomásával e-mailben
 is kikérheted a jelszavadat.

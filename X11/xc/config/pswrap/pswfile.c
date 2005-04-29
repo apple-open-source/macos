@@ -35,7 +35,7 @@
  * 
  * Author:  Adobe Systems Incorporated
  */
-/* $XFree86: xc/config/pswrap/pswfile.c,v 1.5 2001/03/01 01:23:55 dawes Exp $ */
+/* $XFree86: xc/config/pswrap/pswfile.c,v 1.6 2003/05/27 22:26:20 tsi Exp $ */
 
 #include <stdio.h>
 #include "pswversion.h"
@@ -45,12 +45,8 @@
 extern char *shlibInclude;
 #endif /* __MACH__ */
 
-static int dpsops = 0;
-
 static int EmitVersion(FILE *f, char *infname, char *outfname)
 {
-    dpsops = (*infname == 'd') || (*infname == 'd');
-
     fprintf(f,"/* %s generated from %s\n",outfname,infname);
     fprintf(f,"   by %s %s %s\n */\n\n",PSW_OS,prog,PSW_VERSION);
     return 4;  /* number of output lines */

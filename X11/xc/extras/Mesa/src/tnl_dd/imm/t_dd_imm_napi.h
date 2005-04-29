@@ -1,4 +1,3 @@
-/* $Id: t_dd_imm_napi.h,v 1.1.1.1 2003/03/13 23:56:56 jharper Exp $ */
 
 /*
  * Mesa 3-D graphics library
@@ -213,8 +212,6 @@ static void TAG(init_norm)( void )
    norm_tab[IND].normal3f_multi = TAG(Normal3f_multi);
    norm_tab[IND].normal3fv_multi = TAG(Normal3fv_multi);
 }
-
-#endif
 
 
 

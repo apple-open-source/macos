@@ -4,7 +4,7 @@
  * @APPLE_LICENSE_HEADER_START@
  * 
  * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
+ * are subject to the Apple Public Source License Version 2.0 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
@@ -22,6 +22,10 @@
 
 extern long UFSInitPartition(CICell ih);
 extern long UFSLoadFile(CICell ih, char * filePath);
+extern long UFSReadFile( CICell ih, char * filePath, void * base, unsigned long offset, unsigned long length );
 extern long UFSGetDirEntry(CICell ih, char * dirPath, long * dirIndex,
-                           char ** name, long * flags, long * time);
+                           char ** name, long * flags, long * time,
+                           FinderInfo * finderInfo, long * infoValid);
+extern void UFSGetDescription(CICell ih, char *str, long strMaxLen);
+extern long UFSGetFileBlock(CICell ih, char *str, unsigned long long *firstBlock);
 

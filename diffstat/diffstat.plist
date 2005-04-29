@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>diffstat</string>
+	<key>OpenSourceVersion</key>
+	<string>1.3.4</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://invisible-island.net/diffstat/</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://invisible-island.net/diffstat/diffstat-1.34.tgz</string>
+	<key>OpenSourceMD5</key>
+	<string>8cf39406d471722499b4d9dacdf367f5</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-29</string>
+	<key>OpenSourceLicense</key>
+	<string>Other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>diffstat.txt</string>
+</dict>
+</array>
+</plist>

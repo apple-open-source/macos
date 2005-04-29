@@ -1,0 +1,205 @@
+.\" Hey, EMACS: -*- nroff -*-
+.\" nano.1 is copyright (C) 1999, 2000, 2001, 2002, 2003 by
+.\" Chris Allegretta <chrisa@asty.org>
+.\"
+.\" This is free documentation, see the latest version of the GNU General
+.\" Public License for copying conditions. There is NO warranty.
+.\"
+.\" $Id: nano.1,v 1.41 2003/06/29 02:25:46 dolorous Exp $
+.TH NANO 1 "June 19, 2003"
+.\" Please adjust this date whenever revising the manpage.
+.\"
+
+.SH NAME
+nano \- Nano's ANOther editor, an enhanced free Pico clone
+
+.SH SYNOPSIS
+.B nano
+.I [\+LINE]\ [options]\ [file]
+.br
+
+.SH DESCRIPTION
+This manual page documents briefly the \fBnano\fP command.
+.PP
+.\" TeX users may be more comfortable with the \fB<whatever>\fP and
+.\" \fI<whatever>\fP escape sequences to invoke bold face and italics, 
+.\" respectively.
+\fBnano\fP is a small, free and friendly editor which aims to replace
+Pico, the default editor included in the non-free Pine package. Rather
+than just copying Pico's look and feel, \fBnano\fP also implements some
+missing (or disabled by default) features in Pico, such as "search and
+replace" and "go to line number".
+
+.SH OPTIONS
+.TP
+.B \+\fILINE\fP
+Places cursor at \fILINE\fP on startup.
+.TP
+.B \-B (\-\-backup)
+When saving a file, back up the previous version of it to the current
+filename suffixed with a ~.
+.TP
+.B \-D (\-\-dos)
+Write file in DOS format.
+.TP
+.B \-F (\-\-multibuffer)
+Enable multiple file buffers, if available.
+.TP
+.B \-H (\-\-historylog)
+Log search and replace strings to
+.I ~/.nano_history
+so they may be stored for later editing, if nanorc support is 
+configured.
+.TP
+.B \-I (\-\-ignorercfiles)
+Don't look at
+.I $SYSCONFDIR/nanorc
+or
+.IR ~/.nanorc ,
+if nanorc support is available.
+.TP
+.B \-K (\-\-keypad)
+Do not use the ncurses keypad() call unless necessary.  Try this flag if
+you find that the arrow keys on the numeric keypad do not work for you
+under nano.
+.TP
+.B \-M (\-\-mac)
+Write file in Mac format.
+.TP
+.B \-N (\-\-noconvert)
+Disable automatic conversion of files from DOS/Mac format.
+.TP
+.B \-Q \fIstr\fP (\-\-quotestr=\fIstr\fP)
+Set the quoting string for justifying.  The default is
+"^([\ \\t]*[|>:}#])+" if regular expression support is available, or
+">\ " otherwise.
+.TP
+.B \-R (\-\-regexp)
+Enable regular expression matching for search strings, as well as
+\\n subexpression replacement for replace strings, if available.
+.TP
+.B \-S (\-\-smooth)
+Enable smooth scrolling. Text will scroll line-by-line, instead of the
+usual chunk-by-chunk behavior.
+.TP
+.B \-T \fInum\fP (\-\-tabsize=\fInum\fP)
+Set the size (width) of a tab.
+.TP
+.B \-V (\-\-version)
+Show the current version number and author.
+.TP
+.B \-Y \fIstr\fP (\-\-syntax=\fIstr\fP)
+Specify a specific syntax highlighting from the
+.I .nanorc
+to use, if available.
+.TP
+.B \-c (\-\-const)
+Constantly show the cursor position.
+.TP
+.B \-h (\-\-help)
+Display a summary of command line options.
+.TP
+.B \-i (\-\-autoindent)
+Indent new lines to the previous line's indentation. Useful when editing
+source code.
+.TP
+.B \-k (\-\-cut)
+Enable cut from cursor to end of line with ^K.
+.TP
+.B \-l (\-\-nofollow)
+If the file being edited is a symbolic link, replace the link with
+a new file, do not follow it.  Good for editing files in
+.IR /tmp ,
+perhaps?
+.TP
+.B \-m (\-\-mouse)
+Enable mouse support (if available for your system).
+.TP
+.B \-o \fIdir\fP (\-\-operatingdir=\fIdir\fP)
+Set operating directory. Makes nano set up something similar to a
+chroot.
+.TP
+.B \-p (\-\-preserve)
+Preserve the XON and XOFF sequences (^Q and ^S) so they will be 
+caught by the terminal.
+.TP
+.B \-r \fIcols\fP (\-\-fill=\fIcols\fP)
+Wrap lines at column \fIcols\fP.  By default, this is the width of the
+screen, less eight.  If this value is negative, wrapping will occur at
+\fIcols\fP columns from the right of the screen, allowing the wrap point 
+to vary along with the screen width if resized.
+.TP
+.B \-s \fIprog\fP (\-\-speller=\fIprog\fP)
+Enable alternative spell checker command.
+.TP
+.B \-t (\-\-tempfile)
+Always save changed buffer without prompting.  Same as Pico -t option.
+.TP
+.B \-v (\-\-view)
+View file (read only) mode.
+.TP
+.B \-w (\-\-nowrap)
+Disable wrapping of long lines.
+.TP
+.B \-x (\-\-nohelp)
+Disable help screen at bottom of editor.
+.TP
+.B \-z (\-\-suspend)
+Enable suspend ability.
+.TP
+.B \-a, \-b, \-e, \-f, \-g, \-j
+Ignored, for compatibility with Pico.
+
+.SH INITIALIZATION FILE
+\fBnano\fP will read initialization files in the following 
+order:
+.IR $SYSCONFDIR/nanorc ,
+then
+.IR ~/.nanorc .
+Please see
+.BR nanorc (5)
+and the example file \fBnanorc.sample\fP which should be provided with 
+\fBnano\fP. 
+
+.SH NOTES
+\fBnano\fP will try to dump the buffer into an emergency file in some
+cases.  Mainly, this will happen if \fBnano\fP receives a SIGHUP or
+SIGTERM or runs out of memory, when it will write the buffer into a file
+named
+.I nano.save
+if the buffer didn't have a name already, or will add a ".save" suffix 
+to the current filename. If an emergency file with that name already 
+exists in the current directory, ".save" and a number (e.g. ".save.1") 
+will be suffixed to the current filename in order to make it unique. In 
+multibuffer mode, \fBnano\fP will write all the open buffers to the 
+respective emergency files.
+
+.SH BUGS
+Please send any comments or bug reports to
+.BR nano@nano-editor.org .
+
+The \fBnano\fP mailing list is available from
+.BR nano-devel@gnu.org .
+
+To subscribe, email to
+.B nano-devel-request@gnu.org
+with a subject of "subscribe".
+
+.SH HOMEPAGE
+http://www.nano-editor.org/
+
+.SH SEE ALSO
+.PD 0
+.TP
+\fBnanorc\fP(5)
+.PP
+\fI/usr/share/doc/nano/\fP (or equivalent on your system)
+
+.SH AUTHOR
+Chris Allegretta <chrisa@asty.org>, et al (see
+.I AUTHORS
+and
+.I THANKS
+for details). This manual page was originally written by Jordi Mallach
+<jordi@sindominio.net>, for the Debian GNU system (but may be
+used by others).

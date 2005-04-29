@@ -55,7 +55,9 @@ int InitializeUDPListener( SAState* psa )
 	
 	if ( !gUDPL )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "creating a new UDP listener" );
+#endif
         gUDPL = new SLPUDPListener( psa, &status );
         
         if ( !gUDPL )
@@ -100,7 +102,9 @@ SLPUDPListener::SLPUDPListener( SAState* psa, OSStatus *status )
 SLPUDPListener::~SLPUDPListener()
 {
 	mSelfPtr = NULL;
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "UDP listener has been killed" );
+#endif
 }
 
 void SLPUDPListener::Cancel( void )
@@ -111,7 +115,8 @@ void SLPUDPListener::Cancel( void )
 void* SLPUDPListener::Run()
 {
     struct sockaddr_in	sinIn;
-    int					err = 0,iSinInSz = sizeof(sinIn);    
+    int					err = 0;
+	socklen_t			iSinInSz = sizeof(sinIn);    
 	char* 				pcInBuf  = safe_malloc( RECVMTU, 0, 0 );
 
     assert( pcInBuf );
@@ -122,21 +127,27 @@ void* SLPUDPListener::Run()
     if ( handler )
         handler->Resume();		// go off and handle this request
 
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "UDP listener is running" );
+#endif
     while (!mCanceled)
     {
 // handle the connection from outside this function
         bzero( (char*)&sinIn, sizeof(sinIn) );
     
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "SLPUDPListener:  calling recvfrom");
+#endif
         if ( ( err = recvfrom( mServerState->sdUDP, pcInBuf, RECVMTU, 0, (struct sockaddr*)&sinIn, &iSinInSz ) ) < 0 )  
         {
             if ( mCanceled )
             {
                 break;
             }
+#ifdef ENABLE_SLP_LOGGING
             else if ( errno == EINTR )		// other wise just ignore and fall out
                 SLP_LOG( SLP_LOG_DROP, "SLPUDPListener: recvfrom received EINTR");
+#endif
             else if ( errno == EBADF )
 			{
 				mNumBadDescriptors++;
@@ -158,33 +169,42 @@ void* SLPUDPListener::Run()
 				
 				if (err < 0)
 				{
+#ifdef ENABLE_SLP_LOGGING
 					mslplog(SLP_LOG_DEBUG,"SLPUDPListener: Could not set multicast TTL, %s",strerror(errno));
+#endif
 				}
 				else
 				{
 					err = setsockopt( mServerState->sdUDP, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop) );
 
+#ifdef ENABLE_SLP_LOGGING
 					if (err < 0)
 						mslplog(SLP_LOG_DEBUG,"SLPUDPListener: Could not set setsockopt, %s",strerror(errno));
+#endif
 				}
 			}
+#ifdef ENABLE_SLP_LOGGING
 			else
             {
                 SLP_LOG( SLP_LOG_DROP, "SLPUDPListener recvfrom: %s", strerror(errno) );
             }
+#endif
         } 
         else if ( !mCanceled )
         {
             if ( err >= MINHDRLEN ) 
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_MSG, "SLPUDPListener recvfrom, received %d bytes from: %s (%s)", err, inet_ntoa(sinIn.sin_addr), get_fun_str(GETFUN(pcInBuf)));
-                
+#endif                
                 handler->AddUDPMessageToQueue( mServerState, pcInBuf, err, sinIn );
             }
+#ifdef ENABLE_SLP_LOGGING
             else
             {
                 SLP_LOG( SLP_LOG_DROP, "SLPUDPListener recvfrom, received %d bytes from: %s, ignoring as header is too small", err, inet_ntoa(sinIn.sin_addr) );
             }
+#endif
         }
 	}
 
@@ -245,13 +265,14 @@ void SLPUDPHandler::AddUDPMessageToQueue( SAState *psa, char* pcInBuf, int bufSi
     QueueLock();
     if ( !mCanceled && mUDPQueue && udpMessage )
     {
+#ifdef ENABLE_SLP_LOGGING
         long	queueCount = CFArrayGetCount(mUDPQueue);
         
         if ( queueCount < kQueueAlertThreshold )
             SLP_LOG( SLP_LOG_DEBUG, "AddUDPMessageToQueue, adding element #%d", queueCount );
         else
             SLP_LOG( SLP_LOG_DEBUG, "AddUDPMessageToQueue, adding element #%d to a Queue that is exceeding large!  (Requests may not be handled in a timely fashion)", queueCount );
-        
+#endif        
         ::CFArrayAppendValue( mUDPQueue, udpMessage );
     }
     QueueUnlock();
@@ -308,13 +329,17 @@ void SLPUDPHandler::DoPeriodicTasks(void)
     
     if (lastprop == 0)
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_MSG, "DoPeriodicTasks first time, noting current time" );
+#endif
         lastprop = time(NULL);
     }
     else if ( modifiedRefreshInterval + lastprop < time(NULL))
     {
         lastprop = time(NULL);
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_MSG, "DoPeriodicTasks, time to reregister our services" );
+#endif
         RegisterAllServicesWithKnownDAs(mServerState);
     }
 }
@@ -325,8 +350,10 @@ void SLPUDPHandler::HandleMessage( UDPMessageObject* udpMessage )
 	{
 		int err = handle_udp(udpMessage->mServerState, udpMessage->mInBuf, udpMessage->mBufSize, udpMessage->mSinIn );
 		
+#ifdef ENABLE_SLP_LOGGING
 		if ( err )
 			SLP_LOG( SLP_LOG_MSG, "SLPUDPHandler received error from handle_udp: %d", err );
+#endif
 	}
 }
 

@@ -32,6 +32,6 @@ int NXIsAlNum(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_U|_L|_D)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_U|_CTYPE_L|_CTYPE_D)));
 	return 0;
 }

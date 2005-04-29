@@ -1,5 +1,12 @@
 XCOMM $XConsortium: Imakefile,v 1.9 93/08/17 21:17:38 rws Exp $
-#if defined(MacIIArchitecture) || defined(MotoR4Architecture)
+
+
+
+
+XCOMM $XFree86: xc/programs/xcalc/Imakefile,v 1.3 2003/10/24 20:38:14 tsi Exp $
+
+#if defined(MacIIArchitecture) || defined(MotoR4Architecture) \
+	|| defined(OpenBSDArchitecture)
       IEEE_DEFS = -DIEEE
 #endif
 

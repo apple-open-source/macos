@@ -42,7 +42,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\"
-.\" $XFree86: xc/doc/man/X11/XmbLStr.man,v 1.3 2001/01/27 18:20:08 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XmbLStr.man,v 1.4 2003/04/28 22:17:58 herrb Exp $
 .\" 
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -147,47 +147,18 @@
 .SH NAME
 XmbLookupString, XwcLookupString, Xutf8LookupString \- obtain composed input from an input method
 .SH SYNTAX
-int XmbLookupString\^(\^\fIic\fP\^, \fIevent\fP\^, \fIbuffer_return\fP\^, \fIbytes_buffer\fP\^, \fIkeysym_return\fP\^, \fIstatus_return\fP\^)
-.br
-      XIC \fIic\fP\^;
-.br
-      XKeyPressedEvent *\fIevent\fP;
-.br
-      char *\fIbuffer_return\fP\^;
-.br
-      int \fIbytes_buffer\fP\^;
-.br
-      KeySym *\fIkeysym_return\fP\^;
-.br
-      Status *\fIstatus_return\fP\^;
-.LP
-int XwcLookupString\^(\^\fIic\fP\^, \fIevent\fP\^, \fIbuffer_return\fP\^, \fIbytes_buffer\fP\^, \fIkeysym_return\fP\^, \fIstatus_return\fP\^)
-.br
-      XIC \fIic\fP\^;
-.br
-      XKeyPressedEvent *\fIevent\fP\^;
-.br
-      wchar_t *\fIbuffer_return\fP\^;
-.br
-      int \fIwchars_buffer\fP\^;
-.br
-      KeySym *\fIkeysym_return\fP\^;
-.br
-      Status *\fIstatus_return\fP\^;
-.LP
-int Xutf8LookupString\^(\^\fIic\fP\^, \fIevent\fP\^, \fIbuffer_return\fP\^, \fIbytes_buffer\fP\^, \fIkeysym_return\fP\^, \fIstatus_return\fP\^)
-.br
-      XIC \fIic\fP\^;
-.br
-      XKeyPressedEvent *\fIevent\fP;
-.br
-      char *\fIbuffer_return\fP\^;
-.br
-      int \fIbytes_buffer\fP\^;
-.br
-      KeySym *\fIkeysym_return\fP\^;
-.br
-      Status *\fIstatus_return\fP\^;
+.HP
+int XmbLookupString\^(\^XIC \fIic\fP\^, XKeyPressedEvent *\fIevent\fP, char
+*\fIbuffer_return\fP\^, int \fIbytes_buffer\fP\^, KeySym
+*\fIkeysym_return\fP\^, Status *\fIstatus_return\fP\^); 
+.HP
+int XwcLookupString\^(\^XIC \fIic\fP\^, XKeyPressedEvent *\fIevent\fP\^,
+wchar_t *\fIbuffer_return\fP\^, int \fIwchars_buffer\fP\^, KeySym
+*\fIkeysym_return\fP\^, Status *\fIstatus_return\fP\^); 
+.HP
+int Xutf8LookupString\^(\^XIC \fIic\fP\^, XKeyPressedEvent *\fIevent\fP, char
+*\fIbuffer_return\fP\^, int \fIbytes_buffer\fP\^, KeySym
+*\fIkeysym_return\fP\^, Status *\fIstatus_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIbuffer_return\fP 1i
 Returns a multibyte string or wide character string (if any)

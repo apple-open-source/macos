@@ -30,7 +30,7 @@
  *  Author: Thomas E. Dickey <dickey@clark.net> 1997,1998                   *
  ****************************************************************************/
 /*
- * $Id: progs.priv.h,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $
+ * $Id: progs.priv.h,v 1.27 2001/06/18 18:43:52 tom Exp $
  *
  *	progs.priv.h
  *

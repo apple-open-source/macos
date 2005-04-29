@@ -66,7 +66,10 @@ build_gcc_main()
     # Name (and install_name!) of libstdc++.dylib to build (if any.)
     LIBSTDCPP_DYLIB=libstdc++.dylib
     LIBSTDCPP_DYLIB_VERSION=A
-    LIBRARIES="libgcc.a libcc_kext.a libgcc_static.a libsupc++.a $LIBSTDCPP_DYLIB libstdc++.a libcc_noc++.a"
+    # Name of libstdc++ with public instead of private extern symbols.
+    LIBSTDCPP_CLEAN=libstdc++_ZeroLink.a
+    # List of all libraries.
+    LIBRARIES="libgcc.a libcc_kext.a libgcc_static.a libsupc++.a $LIBSTDCPP_DYLIB $LIBSTDCPP_CLEAN libstdc++.a libcc_noc++.a"
     TOOLS="gcc$SUFFIX g++$SUFFIX c++$SUFFIX gcov$SUFFIX cpp$SUFFIX" # c++3 must be after g++3 in the list
     CRTS="crt2.o"
     RANLIB_FOR_TARGET=`whereis ranlib`
@@ -514,6 +517,7 @@ check_for_cross_compilers()
 #
 configure_gcc() 
 {
+    export CONFIG_SITE=$SRCROOT/config.apple
     for target in $TARGETS; do
 	for host in $HOSTS; do
 	    $n mkdir -p $OBJROOT/cc-$target-on-$host
@@ -545,6 +549,7 @@ configure_gcc()
 			     "Default cc      = `\cc -v 2>&1 | fgrep 'gcc version' | \
 						 sed -e 's/.*version \([^ ,]*\),.*version \([^ ]*\).*/version \2, \1/'`" \
 			     "Curr. hdrs      = `\ls -l /usr/include/gcc/darwin/default | sed -e 's,.*-> \(.*\),\1,'`" \
+			     "CONFIG_SITE     = $CONFIG_SITE" \
 			     "ENABLE_CHECKING = ${ENABLE_CHECKING:---enable-checking}"
 		$n rm -f make.id
 		$n echo $SRCROOT/gcc:$arch > make.id
@@ -568,11 +573,13 @@ configure_gcc()
 					  --enable-languages=$q"$ENABLE_LANGUAGES"$q \
 					  ${ENABLE_CHECKING:---enable-checking} \
 					  --prefix=$PREFIX \
+					  --with-headers \
 					  --enable-build-gcc
 		$SET +x
 	    fi
 	done
     done
+    unset CONFIG_SITE
 }
 
 #---------------------------------------------------------------------------#
@@ -1181,7 +1188,7 @@ build_libgcc()
 	    libname=libcc_kext.a
     	    extra_args="-static $extra_args"
     	    if [ "$target" = "ppc" ]; then
-    	    	extra_args="$extra_args -mlong-branch"
+    	    	extra_args="$extra_args -mlongcall"
     	    fi
     	    ;;
     	static)
@@ -1504,6 +1511,10 @@ install_fat()
 		    # Keep a "clean" (non-nmedited) copy of libstdc++.a.
 		    thin_files="$thin_files $sym/$host/lib/$target/libstdc++.clean.a"
 		    fat_file="$fat/$privatelib/$file"
+                elif [ "$file" = "$LIBSTDCPP_CLEAN" ]; then
+                    # Create a "clean" fat libstdc++.a, for ZeroLink.
+                    thin_files="$thin_files $sym/$host/lib/$target/libstdc++.clean.a"
+                    fat_file="$fat/$lib/$file"
 		else
 		    thin_files="$thin_files $sym/$host/lib/$target/$file"
 		    # Change all global public data into private externs.
@@ -1717,9 +1728,25 @@ clean_gcc()
 # Install the HTML documentation
 install_html()
 {
+    HTMLDIR="$DSTROOT/Developer/ADC Reference Library/documentation/DeveloperTools"
     if [ -d $OBJROOT/cc-$buildhost-on-$buildhost/HTML ]; then
-	mkdir -p $DSTROOT/Developer/Documentation/DeveloperTools
-	cp -r $OBJROOT/cc-$buildhost-on-$buildhost/HTML/* $DSTROOT/Developer/Documentation/DeveloperTools
+	mkdir -p "$HTMLDIR"
+	cp -r $OBJROOT/cc-$buildhost-on-$buildhost/HTML/* "$HTMLDIR"
+    fi
+    # Install the libstdc++ documentation
+    if [ -d $SRCROOT/libstdc++-v3/docs/html/ ]; then
+	mkdir -p "$HTMLDIR/gcc-3.3/libstdc++"
+	libstdcxx_html_subdirs="17_intro 18_support 19_diagnostics 20_util 21_strings 22_locale 23_containers 24_iterators 25_algorithms 26_numerics 27_io ext faq"
+	cp $SRCROOT/libstdc++-v3/docs/html/*.html "$HTMLDIR/gcc-3.3/libstdc++"
+	if [ -r $SRCROOT/libstdc++-v3/docs/html/lib3styles.css ]; then
+	    cp $SRCROOT/libstdc++-v3/docs/html/lib3styles.css "$HTMLDIR/gcc-3.3/libstdc++"
+	fi
+	for libstdcxx_html_subdir in $libstdcxx_html_subdirs; do
+	    if [ -d $SRCROOT/libstdc++-v3/docs/html/$libstdcxx_html_subdir ]; then
+		mkdir -p "$HTMLDIR/gcc-3.3/libstdc++/$libstdcxx_html_subdir"
+		cp $SRCROOT/libstdc++-v3/docs/html/$libstdcxx_html_subdir/*.html "$HTMLDIR/gcc-3.3/libstdc++/$libstdcxx_html_subdir"
+	    fi
+	done
     fi
 }
 

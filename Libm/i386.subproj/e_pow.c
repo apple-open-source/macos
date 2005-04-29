@@ -70,7 +70,7 @@ dp_l[] = { 0.0, 1.35003920212974897128e-08,}, /* 0x3E4CFDEB, 0x43CFD006 */
 zero    =  0.0,
 one	=  1.0,
 two	=  2.0,
-two53	=  9007199254740992.0,	/* 0x43400000, 0x00000000 */
+two53	=  0x1.0p+53, /* 9007199254740992.0 0x43400000, 0x00000000 */
 huge	=  1.0e300,
 tiny    =  1.0e-300,
 	/* poly coefs for (3/2)*(log(x)-2s-2/3*s**3 */
@@ -130,7 +130,7 @@ double pow(double x, double y)
 		k = (iy>>20)-0x3ff;	   /* exponent */
 		if(k>20) {
 		    j = ly>>(52-k);
-		    if((unsigned long)(j<<(52-k))==ly) yisint = 2-(j&1);
+		    if((uint32_t)(j<<(52-k))==ly) yisint = 2-(j&1);
 		} else if(ly==0) {
 		    j = iy>>(20-k);
 		    if((j<<(20-k))==iy) yisint = 2-(j&1);

@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: store.c,v 1.30 2003/03/21 17:25:46 abe Exp $";
+static char *rcsid = "$Id: store.c,v 1.33 2004/07/06 19:09:32 abe Exp $";
 #endif
 
 
@@ -98,7 +98,7 @@ int DCunsafe = 0;		/* device cache file is potentially unsafe,
 int DChelp = 0;			/* -D? status */
 
 int DevColW;			/* DEVICE column width */
-dev_t DevDev;			/* devce number of /dev or its equivalent */
+dev_t DevDev;			/* device number of /dev or its equivalent */
 struct l_dev *Devtp = (struct l_dev *)NULL;
 				/* device table pointer */
 
@@ -112,6 +112,7 @@ int Dstkx = 0;			/* Dstk[] index */
 int Dstkn = 0;			/* Dstk[] entries allocated */
 
 int ErrStat = 0;		/* path stat() error count */
+uid_t Euid;			/* effective UID of this lsof process */
 int Fand = 0;			/* -a option status */
 int Fblock = 0;			/* -b option status */
 int FdColW;			/* FD column width */
@@ -173,6 +174,9 @@ int Fwarn = 0;			/* +|-w option status */
 int Fxopt = HASXOPT_VALUE;	/* -X option status */
 #endif	/* defined(HASXOPT_VALUE) */
 
+int Fxover = 0;			/* -x option value */
+int Fzone = 0;			/* -z option status */
+
 struct fd_lst *Fdl = (struct fd_lst *)NULL;
 				/* file descriptors selected with -d */
 int FdlTy = -1;			/* Fdl[] type: -1 == none
@@ -206,7 +210,8 @@ struct fieldsel FieldSel[] = {
     { LSOF_FID_TYPE,   0,  LSOF_FNM_TYPE,   NULL,     0		 }, /* 23 */
     { LSOF_FID_TCPTPI, 0,  LSOF_FNM_TCPTPI, &Ftcptpi, TCPTPI_ALL }, /* 24 */
     { LSOF_FID_UID,    0,  LSOF_FNM_UID,    NULL,     0		 }, /* 25 */
-    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 26 */
+    { LSOF_FID_ZONE,   0,  LSOF_FNM_ZONE,   &Fzone,   1		 }, /* 26 */
+    { LSOF_FID_TERM,   0,  LSOF_FNM_TERM,   NULL,     0		 }, /* 27 */
 
 #if	defined(HASFIELDAP1)
     { '1',	       0,  HASFIELDAP1,     NULL,     0		 }, /* TERM+1 */
@@ -255,6 +260,10 @@ struct lproc *Lp = (struct lproc *)NULL;
 struct lproc *Lproc = (struct lproc *)NULL;
 				/* local process table */
 char *Memory = (char *)NULL;	/* core file path */
+int MntSup = 0;			/* mount supplement state: 0 == none
+				 *			   1 == create
+				 *			   2 == read */
+char *MntSupP = (char *)NULL;	/* mount supplement path -- if MntSup == 2 */
 
 #if	defined(HASPROCFS)
 struct mounts *Mtprocfs = (struct mounts *)NULL;
@@ -345,3 +354,10 @@ char Terminator = '\n';		/* output field terminator */
 int TmLimit = TMLIMIT;		/* Readlink() and stat() timeout (seconds) */
 int TypeColW;			/* TYPE column width */
 int UserColW;			/* USER column width */
+
+#if	defined(HASZONES)
+znhash_t **ZoneArg = (znhash_t **)NULL;
+				/* zone arguments supplied with -z */
+#endif	/* defined(HASZONES) */
+
+int ZoneColW;			/* ZONE column width */

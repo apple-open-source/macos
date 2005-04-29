@@ -1,3 +1,83 @@
+// $XFree86: xc/programs/xkbcomp/symbols/ro,v 3.9 2003/09/27 13:31:59 pascal Exp $
+
+
+default partial alphanumeric_keys
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple US/ASCII
+    // keyboard and a very simple Romanian keybaord
+    // Created by Manfred Pohler, <Manfred.Pohler@t-online.de> (C) 2003
+
+    name[Group1]="Romanian";
+
+    // Alphanumeric section
+    key <TLDE> {	[ bracketright,	bracketleft	]	};
+    key <AE01> {        [         1,    exclam          ],
+			[ asciitilde			]       };
+    key <AE02> {	[	  2,	quotedbl	],
+			[ at				]	};
+    key <AE03> {	[	  3,	numbersign	],
+			[ asciicircum			]	};
+    key <AE04> {	[	  4,	currency	]	};
+    key <AE05> {	[	  5,	percent		],
+			[   degree			]	};
+    key <AE06> {	[	  6,	ampersand	]	};
+    key <AE07> {	[	  7,	slash		],
+			[ grave				]	};
+    key <AE08> {	[	  8,	parenleft	]	};
+    key <AE09> {	[	  9,	parenright	]	};
+    key <AE10> {	[	  0,	equal		]	};
+    key <AE11> {	[    plus,	question	]	};
+    key <AE12> {	[ apostrophe,	asterisk	]	};
+    key <AD01> {	[	  q,	Q 		],
+			[ backslash			]	};
+    key <AD02> {        [         w,    W               ],
+			[ bar				]       };
+    key <AD03> {	[	  e,	E		],
+			[  EuroSign			]	};
+    key <AD05> {	[	  t,	T		]	};
+    key <AD06> {	[	  z,	Z		]	};
+    key <AD07> {	[	  u,	U		]	};
+    key <AD08> {	[	  i,	I		]	};
+    key <AD11> {	[ abreve,	Abreve		],
+			[ division	 		]	};
+    key <AD12> {	[ icircumflex,	Icircumflex	],
+			[ multiply			]	};
+    key <AC04> {	[	  f,	F		]	};
+    key <AC05> {	[	  g,	G		]	};
+    key <AC10> {	[ scedilla,	Scedilla	],
+			[ dollar			]	};
+    key <AC11> {	[ tcedilla,	Tcedilla	],
+			[ ssharp			]	};
+
+    key <LSGT> {	[      less,	greater		],
+			[       bar			]	};
+    key <AB01> {	[	  y,	Y 		]	};
+    key <AB05> {        [         b,    B               ],
+			[ braceleft			]       };
+    key <AB06> {        [         n,    N               ],
+			[ braceright			]       };
+    key <AB07> {	[	  m,	M		],
+			[ section			]	};
+    key <AB08> {	[     comma,	semicolon	],
+			[ less				]	};
+    key <AB09> {	[    period,	colon		],
+			[ greater			]	};
+    key <AB10> {	[     minus,	underscore	]	};
+    key <BKSL> {	[ acircumflex,	Acircumflex	]	};
+    key <RALT> {	[ Mode_switch,	Multi_key	]	};
+
+    // End alphanumeric section, begin "Keypad"
+    key <KPDL> {	[  KP_Delete,	KP_Separator	]	};
+    // End "Keypad" section
+
+    // begin modifier mappings
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3	{ Mode_switch };
+};
+
 // symbols definition for a very simple Romanian Keyboard layout.
 //
 // We basically override some modifier_keys so that using the Right Alt
@@ -7,24 +87,21 @@
 // Modified by Miºu Moldovan, <dumol@go.ro> (C) 2001
 // Modified by Marius Andreiana, <mandreiana@yahoo.com> (C) 2001
 // 
-// $XFree86: xc/programs/xkbcomp/symbols/ro,v 3.5 2002/06/04 22:50:58 dawes Exp $
 // Diacriticele se scriu cu ALT-ul din dreapta si q,t,i,a,s (+shift eventual)
-// 
 
+partial alphanumeric_keys
+xkb_symbols "us_ro" {
 
-default partial alphanumeric_keys
-xkb_symbols "basic" {
-
-    name[Group1]= "Romanian";
+    name[Group1]="Romanian for us-keyboard";
 
     // Alphanumeric section
     key <AD01> { [], [ acircumflex,     Acircumflex	] };
-    key <AC01> { [], [ abreve,		Abreve		] };   
+    key <AC01> { [], [ abreve,		Abreve		] };
     key <AC02> { [], [ scedilla,	Scedilla	] };
     key <AD05> { [], [ tcedilla,	Tcedilla	] };
     key <AD08> { [], [ icircumflex,	Icircumflex	] };
 
-    key <RALT> {	[ Mode_switch,  Multi_key	]	};
+    key <RALT> {	[ Mode_switch,  Multi_key	] };
     // End alphanumeric section
 
     // begin modifier mappings
@@ -36,9 +113,29 @@ xkb_symbols "basic" {
 };
 
 xkb_symbols "comma" {
-    include "ro(basic)"
+    include "ro(us_ro)"
 
     key <AC02> { [], [ 0x1000219,	0x1000218	] };
     key <AD05> { [], [ 0x100021b,	0x100021a	] };
 };
 
+// Romanian keyboard with access to German umlauts";
+// Created by Manfred Pohler, <Manfred.Pohler@t-online.de> (C) 2003
+// German umlauts are accessible with <AltGr> and a, o , u, s (+shift for capital letters)
+//
+partial alphanumeric_keys
+xkb_symbols "ro_de" {
+
+    include "ro(basic)"
+
+    name[Group1]="German for Romanian keyboard";
+
+    key <AD07> {        [          u,   U               ],
+                        [ udiaeresis,   Udiaeresis      ]       };
+    key <AD09> {        [          o,   O               ],
+                        [ odiaeresis,   Odiaeresis      ]       };
+    key <AC01> {        [          a,   A               ],
+                        [ adiaeresis,   Adiaeresis      ]       };
+    key <AC02> {        [          s,   S               ],
+                        [     ssharp                    ]       };
+};

@@ -1,0 +1,372 @@
+
+
+/*
+  Template based on the great http://www.cocoadevcentral.com/ template. I could not find exact authorship to quote
+*/
+
+
+body
+{
+	margin:0px 0px 20px 0px;
+	background:#eee;
+}
+
+A, A:link
+{	color:#ff6501; text-decoration:none;	}
+A:visited
+{	color:#ff6501; text-decoration:none;	}
+A:active
+{	color: #ff6501;	}
+A:hover
+{
+	color: #000;
+	text-decoration:none;
+	/*background-color: #ff6501;*/
+}
+
+
+h1, h2, h3
+{
+	margin: 0px;
+	padding: 0px;
+	color: #ff6501;
+	font-family: 'Lucida Grande', Verdana;
+}
+
+h4
+{margin-bottom: 0px;}
+
+/* <div id="banner"> */
+#banner
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#ff6501;
+	font-size:x-large;
+	font-weight:normal;
+	padding:15px;
+	border-bottom: 2px #ccc solid;
+	background-color: #ff6501;
+}
+
+/* <div id="banner"> links */
+#banner a,
+#banner a:link,
+#banner a:visited,
+#banner a:active,
+#banner a:hover
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	font-size: xx-large;
+	color: #fff;
+	text-decoration: none;
+	background-color: transparent;
+}
+
+
+.blogbox
+{
+	padding: 5px;
+	border:1px solid #ccc;
+}
+
+.description
+{
+	font-family: 'Lucida Grande', palatino,georgia, times new roman, serif;
+	color:#fff;
+	font-size:small;
+	text-transform:none;
+}
+
+/* <div id="content"> */
+#content
+{
+	float:left;
+	width: 65%;
+	margin-bottom:20px;
+}
+
+/* <div id="container"> */
+#container
+{
+/*	background:#fff;	
+	border:1px solid #fff;	*/
+}
+
+/* <div id="links"> */
+#links
+{
+	float:right;
+	padding-bottom:15px;
+	padding-top:15px;
+	padding-left:7px;
+	padding-right:7px;
+	width: 225px;	
+	background-color:#fff;
+	border-left:1px solid #999;
+	border-bottom:1px solid #999;
+}
+
+#leftimage
+{
+	float:left;
+	padding-bottom:5px;
+	padding-top:5px;
+	padding-left:5px;
+	padding-right:5px;
+	border:0px;
+}
+
+
+.blog
+{
+	padding:10px;
+}
+
+.blogbody
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#333;
+	padding:10px;
+	font-size:small;
+	font-weight:normal;
+	line-height:140%;
+}
+
+
+/* blog body links */
+.blogbody a, .blogbody a:link
+{
+	color:#000;
+	text-decoration:underline;
+}
+.blogbody a:visited
+{
+	color:#600;
+}
+.blogbody a:active
+{
+	color: #600;
+}
+.blogbody a:hover
+{
+	color: #ff6501;
+	text-decoration:none;
+	/*background-color: #600;*/
+}
+
+
+/* <div class="title"> */
+.title
+{
+	font-family: 'Lucida Grande', palatino, georgia, times new roman, serif;
+	font-size: medium;
+	color: #000;
+	padding:0px;
+	margin-bottom:2px;
+}
+
+/* <div id="menu"> */
+#menu
+{
+	margin-bottom:15px;
+/*	background:#fff;	*/
+	text-align:center;
+}
+
+
+.date
+{
+	font-family: 'Lucida Grande', palatino, georgia, times new roman, serif;
+	font-size: large;
+	text-align:right;
+	color: #000;
+	margin-bottom:10px;
+	font-weight:bold;
+	padding:5px;
+}
+
+
+
+.posted
+{
+	font-family:verdana, arial, sans-serif;
+	font-size: x-small;
+	color: #000000;
+	margin-bottom:15px;
+	margin-top:5px;
+	padding:0px;
+}
+
+
+.side
+{
+	font-family:verdana, arial, sans-serif;
+	color:#333;
+	font-size:x-small;
+	font-weight:normal;
+	line-height:140%;
+	padding:2px;
+}
+
+.sidetitle
+{
+	border-top:1px solid #999;
+	font-family: 'Lucida Grande', palatino, georgia, times new roman, serif;
+	color:#ff6501;
+	font-size:small;
+	font-weight:normal;
+	padding:2px;
+	margin-top:30px;
+	letter-spacing: .3em;
+	text-transform:lowercase;
+}
+
+.syndicate
+{
+	font-family:verdana, arial, sans-serif;
+	font-size:xx-small;
+	line-height:140%;
+	padding:2px;
+	margin-top:15px;
+}
+
+.powered
+{
+	font-family: 'Lucida Grande', palatino, georgia, times new roman, serif;
+	font-size:x-small;
+	line-height:140%;
+	text-transform:lowercase;
+	padding:2px;
+	margin-top:50px;
+	letter-spacing: .2em;
+}
+
+
+.comments-body
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#666;
+	font-size:small;
+	font-weight:normal;
+	background:#eee;
+	line-height:140%;
+	padding-bottom:10px;
+	padding-top:10px;
+	border-bottom:1px dotted #999;
+}
+
+.comments-post
+{
+	font-family:verdana, arial, sans-serif;
+	color:#666;
+	font-size:x-small;
+	font-weight:normal;
+	background:#eee;
+}
+
+
+.trackback-url
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#666;
+	font-size:small;
+	font-weight:normal;
+	background:#eee;
+	line-height:140%;
+	padding:5px;
+	border:1px dotted #999;
+}
+
+
+.trackback-body
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#666;
+	font-size:small;
+	font-weight:normal;
+	background:#eee;
+	line-height:140%;
+	padding-bottom:10px;
+	padding-top:10px;
+	border-bottom:1px dotted #999;
+}
+
+.trackback-post
+{
+	font-family:verdana, arial, sans-serif;
+	color:#666;
+	font-size:x-small;
+	font-weight:normal;
+	background:#eee;
+}
+
+
+.comments-head
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	font-size:small;
+	color: #666;
+	border-bottom:1px solid #999;
+	margin-top:20px;
+	font-weight:bold;
+	background:#eee;
+}
+
+/* <div id="banner-commentspop"> */
+#banner-commentspop
+{
+	font-family: 'Lucida Grande', palatino, georgia, verdana, arial, sans-serif;
+	color:#fff;
+	font-size:large;
+	font-weight:bold;
+	border-left:1px solid #fff;
+	border-right:1px solid #fff;
+	border-top:1px solid #fff;
+	background:#ff6501;
+	padding-left:15px;
+	padding-right:15px;
+	padding-top:5px;
+	padding-bottom:5px;	
+}
+
+
+
+p.img
+{color: #ff6501;
+font-family: "Lucida Grande", Verdana, Geneva;
+font-size:  x-small;
+text-align: center}
+
+
+
+span.code
+{color: #600;
+font-family: ProFont, Monaco;
+font-size: x-small}
+
+
+pre
+{
+	background-color: #fff;
+	padding: 10px;
+	border: 1px #ccc double;
+	color: #600;
+	font-family: profont, monaco, mono-space;
+	font-size: 9px;
+}
+
+span.comm /* Use only inside PRE to have commented code show up a diferent color */
+{color: #666;}
+
+b.em
+{color: #600;
+font-weight: bold}
+
+blockquote /* used to space text in from the left-hand side alone (the edge of the browser) */
+{margin-left: +25px}
+
+li /* used to space out lists without manual insertion of <br><br><br><br> ad nauseum... */
+{margin-bottom: +10pt}
+
+li.tight /* used to over-ride the thing above in case you want a tight grouping */
+{margin-bottom: +0pt}

@@ -1,0 +1,4 @@
+#define IHaveModules
+#define LinkDirectory ..
+
+#include "../Imakefile"

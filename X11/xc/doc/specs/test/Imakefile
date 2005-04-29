@@ -1,0 +1,13 @@
+XCOMM $XFree86: xc/doc/specs/test/Imakefile,v 1.1 2003/12/06 19:11:52 dawes Exp $
+
+MSMACROS = -mm
+
+MakeTblDoc(xtest-userguide,userguide.mm)
+MakeTblDoc(xtest-progguide,progguide.mm)
+MakeTblDoc(xtest-paper,paper.mm)
+MakeTblDoc(xtest-relnotes,relnotes.mm)
+
+InstallRoffDoc(xtest-userguide)
+InstallRoffDoc(xtest-progguide)
+InstallRoffDoc(xtest-paper)
+InstallRoffDoc(xtest-relnotes)

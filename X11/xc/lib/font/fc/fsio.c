@@ -23,7 +23,7 @@
  *
  * Author:  	Dave Lemke, Network Computing Devices, Inc
  */
-/* $XFree86: xc/lib/font/fc/fsio.c,v 3.16 2002/05/31 18:45:49 dawes Exp $ */
+/* $XFree86: xc/lib/font/fc/fsio.c,v 3.17 2003/05/27 22:26:49 tsi Exp $ */
 /*
  * font server i/o routines
  */
@@ -146,7 +146,7 @@ _fs_connect(char *servername, int *err)
 int
 _fs_fill (FSFpePtr conn)
 {
-    long    avail, need;
+    long    avail;
     long    bytes_read;
     Bool    waited = FALSE;
     
@@ -156,8 +156,7 @@ _fs_fill (FSFpePtr conn)
      * Don't go overboard here; stop reading when we've
      * got enough to satisfy the pending request
      */
-    while ((need = conn->inNeed - (conn->inBuf.insert - 
-				   conn->inBuf.remove)) > 0)
+    while ((conn->inNeed - (conn->inBuf.insert - conn->inBuf.remove)) > 0)
     {
 	avail = conn->inBuf.size - conn->inBuf.insert;
 	/*

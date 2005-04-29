@@ -1,0 +1,235 @@
+\section{The Evolution of Finger: building a simple finger service\label{doc/howto/tutorial/intro.xhtml}}
+
+
+\subsection{Introduction}
+
+
+ This is the first part of the Twisted tutorial \textit{Twisted from Scratch, or The Evolution of Finger}\loreref{doc/howto/tutorial/index.xhtml}.
+
+By the end of this section of the tutorial, our finger server will answer TCP finger requests on port 1079, and will read data from the web.
+
+\subsection{Refuse Connections}
+\begin{verbatim}
+from twisted.internet import reactor
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger01.py\end{em}\end{center}}
+
+This example only runs the reactor. Nothing at all will happen until we interrupt the program.  It will consume almost no CPU resources. Not very useful, perhaps -- but this is the skeleton inside which the Twisted program will grow. 
+
+\subsubsection{The Reactor}
+
+
+ You don't call Twisted, Twisted calls you. The \texttt{reactor} is Twisted's main event loop. There is exactly one reactor in any running Twisted application. Once started it loops over and over again, responding to network events, and making scheduled calls to code. 
+
+\subsection{Do Nothing}
+\begin{verbatim}
+from twisted.internet import protocol, reactor
+class FingerProtocol(protocol.Protocol):
+    pass
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger02.py\end{em}\end{center}}
+
+Here, we start listening on port 1079. The 1079 is a reminder that eventually, we want to run on port 79, the standard port for finger servers. We define a protocol which does not respond to any events. Thus, connections to 1079 will be accepted, but the input ignored.
+
+\subsection{Drop Connections}
+\begin{verbatim}
+from twisted.internet import protocol, reactor
+class FingerProtocol(protocol.Protocol):
+    def connectionMade(self):
+        self.transport.loseConnection()
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger03.py\end{em}\end{center}}
+
+Here we add to the protocol the ability to respond to the event of beginning a connection -- by terminating it.  Perhaps not an interesting behavior, but it is already close to behaving according to the letter of the protocol. After all, there is no requirement to send any data to the remote connection in the standard.  The only problem, as far as the standard is concerned, is that we terminate the connection too soon. A client which is slow enough will see his send() of the username result in an error.
+
+\subsection{Read Username, Drop Connections}
+\begin{verbatim}
+from twisted.internet import protocol, reactor
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.transport.loseConnection()
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger04.py\end{em}\end{center}}
+
+Here we make \texttt{Finger\linebreak[1]Protocol} inherit from \texttt{Line\linebreak[1]Receiver}, so that we get data-based events on a line-by-line basis. We respond to the event of receiving the line with shutting down the connection. 
+
+Congratulations, this is the first standard-compliant version of the code. However, usually people actually expect some data about users to be transmitted.
+
+\subsection{Read Username, Output Error, Drop Connections}
+\begin{verbatim}
+from twisted.internet import protocol, reactor
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.transport.write("No such user\r\n")
+        self.transport.loseConnection()
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger05.py\end{em}\end{center}}
+
+Finally, a useful version. Granted, the usefulness is somewhat limited by the fact that this version only prints out a ``No such user'' message. It could be used for devastating effect in honey-pots, of course.
+
+\subsection{Output From Empty Factory}
+\begin{verbatim}
+# Read username, output from empty factory, drop connections
+from twisted.internet import protocol, reactor
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.transport.write(self.factory.getUser(user)+"\r\n")
+        self.transport.loseConnection()
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def getUser(self, user): return "No such user"
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger06.py\end{em}\end{center}}
+
+The same behavior, but finally we see what usefulness the factory has: as something that does not get constructed for every connection, it can be in charge of the user database. In particular, we won't have to change the protocol if the user database back-end changes.
+
+\subsection{Output from Non-empty Factory}
+\begin{verbatim}
+# Read username, output from non-empty factory, drop connections
+from twisted.internet import protocol, reactor
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.transport.write(self.factory.getUser(user)+"\r\n")
+        self.transport.loseConnection()
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def __init__(self, **kwargs): self.users = kwargs
+    def getUser(self, user):
+        return self.users.get(user, "No such user")
+reactor.listenTCP(1079, FingerFactory(moshez='Happy and well'))
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger07.py\end{em}\end{center}}
+
+Finally, a really useful finger database. While it does not supply information about logged in users, it could be used to distribute things like office locations and internal office numbers. As hinted above, the factory is in charge of keeping the user database: note that the protocol instance has not changed. This is starting to look good: we really won't have to keep tweaking our protocol.
+
+\subsection{Use Deferreds}
+\begin{verbatim}
+# Read username, output from non-empty factory, drop connections
+# Use deferreds, to minimize synchronicity assumptions
+from twisted.internet import protocol, reactor, defer
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.factory.getUser(user
+        ).addErrback(lambda _: "Internal error in server"
+        ).addCallback(lambda m:
+                      (self.transport.write(m+"\r\n"),
+                       self.transport.loseConnection()))
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def __init__(self, **kwargs): self.users = kwargs
+    def getUser(self, user):
+        return defer.succeed(self.users.get(user, "No such user"))
+reactor.listenTCP(1079, FingerFactory(moshez='Happy and well'))
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger08.py\end{em}\end{center}}
+
+But, here we tweak it just for the hell of it. Yes, while the previous version worked, it did assume the result of getUser is always immediately available. But what if instead of an in memory database, we would have to fetch result from a remote Oracle? Or from the web? Or, or...
+
+\subsection{Run 'finger' Locally}
+\begin{verbatim}
+# Read username, output from factory interfacing to OS, drop connections
+from twisted.internet import protocol, reactor, defer, utils
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.factory.getUser(user
+        ).addErrback(lambda _: "Internal error in server"
+        ).addCallback(lambda m:
+                      (self.transport.write(m+"\r\n"),
+                       self.transport.loseConnection()))
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def getUser(self, user):
+        return utils.getProcessOutput("finger", [user])
+reactor.listenTCP(1079, FingerFactory())
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger09.py\end{em}\end{center}}
+
+...from running a local command? Yes, this version runs finger locally with whatever arguments it is given, and returns the standard output. This is probably insecure, so you probably don't want a real server to do this without a lot more validation of the user input. This will do exactly what the standard version of the finger server does.
+
+\subsection{Read Status from the Web}
+
+
+The web. That invention which has infiltrated homes around the world finally gets through to our invention. Here we use the built-in Twisted web client, which also returns a deferred. Finally, we manage to have examples of three different database back-ends, which do not change the protocol class. In fact, we will not have to change the protocol again until the end of this tutorial: we have achieved, here, one truly usable class.\begin{verbatim}
+# Read username, output from factory interfacing to web, drop connections
+from twisted.internet import protocol, reactor, defer, utils
+from twisted.protocols import basic
+from twisted.web import client
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.factory.getUser(user
+        ).addErrback(lambda _: "Internal error in server"
+        ).addCallback(lambda m:
+                      (self.transport.write(m+"\r\n"),
+                       self.transport.loseConnection()))
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def __init__(self, prefix): self.prefix=prefix
+    def getUser(self, user):
+        return client.getPage(self.prefix+user)
+reactor.listenTCP(1079, FingerFactory(prefix='http://livejournal.com/~'))
+reactor.run()
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger10.py\end{em}\end{center}}
+
+\subsection{Use Application}
+
+
+Up until now, we faked. We kept using port 1079, because really, who wants to run a finger server with root privileges? Well, the common solution is ``privilege shedding'': after binding to the network, become a different, less privileged user. We could have done it ourselves, but Twisted has a built-in way to do it. We will create a snippet as above, but now we will define an application object. That object will have uid and gid attributes. When running it (later we will see how) it will bind to ports, shed privileges and then run.
+
+After saving the next example (finger11.py) as ``finger.tac'', read on to find out how to run this code using the twistd utility.\begin{verbatim}
+# Read username, output from non-empty factory, drop connections
+# Use deferreds, to minimize synchronicity assumptions
+# Write application. Save in 'finger.tpy'
+from twisted.application import internet, service
+from twisted.internet import protocol, reactor, defer
+from twisted.protocols import basic
+class FingerProtocol(basic.LineReceiver):
+    def lineReceived(self, user):
+        self.factory.getUser(user
+        ).addErrback(lambda _: "Internal error in server"
+        ).addCallback(lambda m:
+                      (self.transport.write(m+"\r\n"),
+                       self.transport.loseConnection()))
+class FingerFactory(protocol.ServerFactory):
+    protocol = FingerProtocol
+    def __init__(self, **kwargs): self.users = kwargs
+    def getUser(self, user):
+        return defer.succeed(self.users.get(user, "No such user"))
+
+application = service.Application('finger', uid=1, gid=1)
+factory = FingerFactory(moshez='Happy and well')
+internet.TCPServer(79, factory).setServiceParent(
+    service.IServiceCollection(application))
+\end{verbatim}\parbox[b]{\linewidth}{\begin{center}Source listing --- \begin{em}finger11.py\end{em}\end{center}}
+
+\subsection{twistd}
+
+
+This is how to run ``Twisted Applications'' -- files which define an 'application'. twistd (TWISTed Daemonizer) does everything a daemon can be expected to -- shuts down stdin/stdout/stderr, disconnects from the terminal and can even change runtime directory, or even the root filesystems. In short, it does everything so the Twisted application developer can concentrate on writing his networking code. \begin{verbatim}
+root% twistd -ny finger.tac # just like before
+root% twistd -y finger.tac # daemonize, keep pid in twistd.pid
+root% twistd -y finger.tac --pidfile=finger.pid
+root% twistd -y finger.tac --rundir=/
+root% twistd -y finger.tac --chroot=/var
+root% twistd -y finger.tac -l /var/log/finger.log
+root% twistd -y finger.tac --syslog # just log to syslog
+root% twistd -y finger.tac --syslog --prefix=twistedfinger # use given prefix
+\end{verbatim}

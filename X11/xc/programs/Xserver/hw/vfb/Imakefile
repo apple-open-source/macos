@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.5 2000/08/17 19:48:38 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/vfb/Imakefile,v 3.30 2001/05/31 16:11:10 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/vfb/Imakefile,v 3.31 2003/07/16 03:24:36 dawes Exp $
 
 #include <Server.tmpl>
 
@@ -32,8 +32,9 @@ SRCSA =	InitInput.c InitOutput.c stubs.c $(SRCS1) miinitext.c $(SRCS2)
 OBJSA =	InitInput.o InitOutput.o stubs.o $(OBJS1) miinitext.o $(OBJS2)
 
 INCLUDES = -I. -I$(XBUILDINCDIR) -I$(FONTINCSRC) \
-	   -I../../fb -I../../mfb -I../../mi -I../../include -I../../os  \
-           -I$(EXTINCSRC) -I$(XINCLUDESRC)  -I$(SERVERSRC)/render
+	   -I$(SERVERSRC)/fb -I$(SERVERSRC)/mfb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I../../os  \
+	   -I$(SERVERSRC)/Xext -I$(EXTINCSRC) -I$(XINCLUDESRC) \
+	   -I$(SERVERSRC)/render
 
 DEFINES = $(OS_DEFINES) $(SHMDEF) $(MMAPDEF) -UXFree86LOADER
 

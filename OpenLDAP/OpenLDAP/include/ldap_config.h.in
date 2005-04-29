@@ -1,13 +1,16 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_config.h.in,v 1.9.2.2 2003/02/09 17:02:17 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ldap_config.h.in,v 1.13.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 /*
@@ -67,5 +70,9 @@
 #ifndef LDAP_SENDMAIL
 #define LDAP_SENDMAIL		"%SENDMAIL%"
 #endif
+#ifndef LDAP_LOCALEDIR
+#define LDAP_LOCALEDIR		"%LOCALEDIR%"
+#endif
+
 
 #endif /* _LDAP_CONFIG_H */

@@ -448,6 +448,8 @@ Value	Name					Reference
 0	Internet				[23]
 1	DECnet					[23]
 2	Chaos					[23]
+6	InternetV6				[23]
+33	Amoeba					[8]
 252	LocalHost				[105]
 253	Kerberos5Principal			[94]
 254	Netname					[57]
@@ -1686,4 +1688,4 @@ REFERENCES
         property type and selection target.  The ICCCM spec will be updated
         in a future release to fully specify UTF8_STRING.
 
-/* $XFree86: xc/registry,v 1.7 2002/07/01 02:25:51 tsi Exp $ */
+/* $XFree86: xc/registry,v 1.8 2003/07/09 15:27:23 tsi Exp $ */

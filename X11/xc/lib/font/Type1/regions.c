@@ -26,7 +26,7 @@
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/regions.c,v 3.8 2002/02/18 20:51:57 herrb Exp $ */
+/* $XFree86: xc/lib/font/Type1/regions.c,v 3.9 2003/05/27 22:26:46 tsi Exp $ */
  /* REGIONS  CWEB         V0023 LOTS                                 */
 /*
 :h1 id=regions.REGIONS Module - Regions Operator Handler
@@ -297,8 +297,6 @@ NewEdge(pel xmin, pel xmax,  /* X extent of edge                             */
        register struct edgelist *r;  /* returned structure                   */
        register int iy;      /* ymin adjusted for 'long' alignment purposes  */
  
-       IfTrace2((RegionDebug),"....new edge: ymin=%d, ymax=%d ",
-                                              (long)ymin, (long) ymax);
        if (ymin >= ymax)
                Abort("newedge: height not positive");
 /*
@@ -332,7 +330,6 @@ Allocate() makes everything it allocates be in multiples of longs.
 */
        LONGCOPY(&r[1], xvalues, (ymax - iy) * sizeof(pel) + sizeof(long) - 1);
  
-       IfTrace1((RegionDebug),"result=%x\n", r);
        return(r);
 }
 
@@ -358,8 +355,6 @@ discard(struct edgelist *left,  /* all edges between here exclusive          */
 {
        register struct edgelist *beg,*end,*p;
  
-       IfTrace2((RegionDebug > 0),"discard:  l=%x, r=%x\n", left, right);
- 
        beg = left->link;
        if (beg == right)
                return;
@@ -367,7 +362,6 @@ discard(struct edgelist *left,  /* all edges between here exclusive          */
        for (p = beg; p != right; p = p->link) {
                if (p->link == NULL && right != NULL)
                        Abort("discard():  ran off end");
-               IfTrace1((RegionDebug > 0),"discarding %x\n", p);
                p->ymin = p->ymax = 32767;
                end = p;
        }
@@ -399,8 +393,6 @@ Unwind(struct edgelist *area)   /* input area modified in place              */
        register struct edgelist *last = NULL,*next;  /* struct before and after current one */
        register int y;       /* ymin of current swath                        */
        register int count,newcount;  /* winding count registers              */
- 
-       IfTrace1((RegionDebug>0),"...Unwind(%z)\n", area);
  
        while (VALIDEDGE(area)) {
  
@@ -468,8 +460,6 @@ Interior(struct segment *p,  /* take interior of this path          */
        struct fractpoint hint; /* accumulated hint value */
        char tempflag;        /* flag; is path temporary?                     */
        char Cflag;           /* flag; should we apply continuity?            */
- 
-       IfTrace2((MustTraceCalls),".  INTERIOR(%z, %d)\n", p, (long) fillrule);
  
        if (p == NULL)
                return(NULL);
@@ -547,8 +537,6 @@ The hints data structure must be initialized once for each path.
                x = lastx + p->dest.x;
                y = lasty + p->dest.y;
  
-               IfTrace2((HintDebug > 0),"Ending point = (%p,%p)\n", x, y);
- 
                nextP = p->link;
  
 /*
@@ -567,8 +555,6 @@ the first on the path), we need to close (reverse) any open hints.
                if (ProcessHints)
                        if ((p->type == MOVETYPE) && (p->last == NULL)) {
                                CloseHints(&hint);
-                               IfTrace2((HintDebug>0),"Closed point= (%p,%p)\n",
-                                               x+hint.x, y+hint.y);
                        }
  
 /*
@@ -598,8 +584,6 @@ We now apply the full hint value to the ending point of the path segment.
  
                x += hint.x;
                y += hint.y;
- 
-               IfTrace2((HintDebug>0),"Hinted ending point = (%p,%p)\n", x, y);
  
                switch(p->type) {
  
@@ -706,27 +690,19 @@ ChangeDirection(int type,    /* CD_FIRST, CD_CONTINUE, or CD_LAST            */
 		fractpel dy) /* direction and magnitude of change in y       */
 {
        register fractpel ymin,ymax;  /* minimum and maximum Y since last call */
-       register fractpel x_at_ymin,x_at_ymax;  /* their respective X's       */
        register pel iy;      /* nearest integer pel to 'y'                   */
        register pel idy;     /* nearest integer pel to 'dy'                  */
        register int ydiff;   /* allowed Y difference in 'currentworkarea'    */
- 
-       IfTrace4((RegionDebug>0),"Change Y direction (%d) from (%p,%p), dy=%p\n",
-                                         (long) type, x, y, dy);
  
        if (type != CD_FIRST) {
  
                if (R->lastdy > 0) {
                        ymin = R->firsty;
-                       x_at_ymin = R->firstx;
                        ymax = y;
-                       x_at_ymax = x;
                }
                else {
                        ymin = y;
-                       x_at_ymin = x;
                        ymax = R->firsty;
-                       x_at_ymax = R->firstx;
                }
  
                if (ymax < ymin)
@@ -850,16 +826,6 @@ SortSwath(struct edgelist *anchor,   /* list being built                     */
        register struct edgelist *before,*after;
        struct edgelist base;
  
-       if (RegionDebug > 0) {
-               if (RegionDebug > 2)  {
-                       IfTrace3(TRUE,"SortSwath(anchor=%z, edge=%z, fcn=%x)\n",
-                            anchor, edge, swathfcn);
-               }
-               else  {
-                       IfTrace3(TRUE,"SortSwath(anchor=%x, edge=%x, fcn=%x)\n",
-                            anchor, edge, swathfcn);
-               }
-       }
        if (anchor == NULL)
                return(edge);
  
@@ -904,8 +870,6 @@ If the bottom of 'after' is above the bottom of the swath,
                        break;
                }
                else if (TOP(after) > TOP(edge)) {
-                       IfTrace0((BOTTOM(edge) < TOP(after) && RegionDebug > 0),
-                                                "SortSwath:  disjoint edges\n");
                        if (BOTTOM(edge) > TOP(after)) {
                                after = SortSwath(after,
                                          splitedge(edge, TOP(after)), swathfcn);
@@ -934,13 +898,9 @@ contains all the edges before.  Whew!  A simple matter now of adding
 */
        before->link = edge;
        if (RegionDebug > 1) {
-               IfTrace3(TRUE,"SortSwath:  in between %x and %x are %x",
-                                                before, after, edge);
                while (edge->link != NULL) {
                        edge = edge->link;
-                       IfTrace1(TRUE," and %x", edge);
                }
-               IfTrace0(TRUE,"\n");
        }
        else
                for (; edge->link != NULL; edge = edge->link) { ; }
@@ -965,8 +925,6 @@ splitedge(struct edgelist *list, /* area to split                            */
        register struct edgelist *last = NULL;  /* end of newly built list    */
        register struct edgelist *r;  /* temp pointer to new structure        */
        register struct edgelist *lastlist;  /* temp pointer to last 'list' value */
- 
-       IfTrace2((RegionDebug > 1),"splitedge of %x at %d ", list, (long) y);
  
        lastlist = new = NULL;
  
@@ -1019,7 +977,6 @@ Then, we return the caller a pointer to 'new':
                Abort("null splitedge");
        lastlist->link = NULL;
        last->link = list;
-       IfTrace1((RegionDebug > 1),"yields %x\n", new);
        return(new);
 }
  
@@ -1099,7 +1056,6 @@ recursively with the part of the edge that is below the crossing point:
        y -= TOP(edge);
  
        if (h0 <= 0) {
-               IfTrace0((RegionDebug>0),"swathxsort: exactly equal edges\n");
                return(before);
        }
  
@@ -1135,9 +1091,6 @@ SwathUnion(struct edgelist *before0,   /* edge before the swath              */
        register struct edgelist *rightedge;  /* saves right edge of 'edge'   */
        register struct edgelist *before,*after;  /* edge before and after    */
        int h0;               /* saves initial height                         */
- 
-       IfTrace2((RegionDebug > 1),"SwathUnion entered, before=%x, edge=%x\n",
-                      before0, edge);
  
        h0 = h = edge->ymax - edge->ymin;
        if (h <= 0)
@@ -1176,9 +1129,6 @@ the height by that amount.
  
        if (after == NULL || TOP(after) != TOP(edge) ||
                    after->xvalues[0] > rightedge->xvalues[0]) {
-              IfTrace2((RegionDebug > 1),
-                       "SwathUnion starts disjoint: before=%x after=%x\n",
-                                     before, after);
 /*
 On this side of the the above 'if', the new edge is disjoint from the
 existing edges in the swath.  This is the picture:
@@ -1243,9 +1193,6 @@ out the new situation:
  
                        h -= touches(h, rightedge->xvalues, after->xvalues);
  
-               IfTrace3((RegionDebug > 1),
-                      "SwathUnion is overlapped until %d: before=%x after=%x\n",
-                                          (long) TOP(edge) + h, before, after);
 /*
 OK, if we touched either of our neighbors we need to split at that point
 and recursively sort the split edge onto the list.  One tricky part
@@ -1520,7 +1467,6 @@ MoreWorkArea(struct region *R, /* region we are generating                   */
        * need to store:
        */
        if (++idy > currentsize) {
-               IfTrace1((RegionDebug > 0),"Allocating edge of %d pels\n", idy);
                if (currentworkarea != workedge)
                        NonObjectFree(currentworkarea);
                currentworkarea = (pel *)Allocate(0, NULL, idy * sizeof(pel));
@@ -1545,29 +1491,19 @@ BoxClip(struct region *R,       /* region to clip                            */
        struct edgelist anchor;  /* pretend edgelist to facilitate discards   */
        register struct edgelist *e,*laste;
  
-       IfTrace1((OffPageDebug),"BoxClip of %z:\n", R);
- 
        R = UniqueRegion(R);
  
        if (xmin > R->xmin) {
-               IfTrace2((OffPageDebug),"BoxClip:  left clip old %d new %d\n",
-                                            (long) R->xmin, (long) xmin);
                R->xmin = xmin;
        }
        if (xmax < R->xmax) {
-               IfTrace2((OffPageDebug),"BoxClip:  right clip old %d new %d\n",
-                                            (long) R->xmax, (long) xmax);
                R->xmax = xmax;
        }
  
        if (ymin > R->ymin) {
-               IfTrace2((OffPageDebug),"BoxClip:  top clip old %d new %d\n",
-                                            (long) R->ymin, (long) ymin);
                R->ymin = ymin;
        }
        if (ymax < R->ymax) {
-               IfTrace2((OffPageDebug),"BoxClip:  bottom clip old %d new %d\n",
-                                            (long) R->ymax, (long) ymax);
                R->ymax = ymax;
        }
  
@@ -1653,11 +1589,6 @@ RegionBounds(struct region *R)
 void 
 DumpArea(struct region *area)
 {
-       IfTrace1(TRUE,"Dumping area %x,", area);
-       IfTrace4(TRUE," X %d:%d Y %d:%d;", (long) area->xmin,
-                      (long) area->xmax, (long) area->ymin,(long) area->ymax);
-       IfTrace4(TRUE," origin=(%p,%p), ending=(%p,%p)\n",
-               area->origin.x, area->origin.y, area->ending.x, area->ending.y);
        DumpEdges(area->anchor);
 }
  
@@ -1684,30 +1615,20 @@ out:
                Abort("EDGE ERROR: overlapping swaths"); */
 }
  
-static pel RegionDebugYMin = MINPEL;
-static pel RegionDebugYMax = MAXPEL;
- 
 void 
 DumpEdges(struct edgelist *edges)
 {
        register struct edgelist *p,*p2;
        register pel ymin = MINPEL;
        register pel ymax = MINPEL;
-       register int y;
  
        if (edges == NULL) {
-               IfTrace0(TRUE,"    NULL area.\n");
                return;
        }
        if (RegionDebug <= 1) {
                for (p=edges; p != NULL; p = p->link) {
                        edgecheck(p, ymin, ymax);
                        ymin = p->ymin;  ymax = p->ymax;
-                       IfTrace3(TRUE,". at %x type=%d flag=%x",
-                                        p, (long) p->type,(long) p->flag);
-                       IfTrace4(TRUE," bounding box HxW is %dx%d at (%d,%d)\n",
-                               (long) ymax - ymin, (long) p->xmax - p->xmin,
-                               (long) p->xmin, (long) ymin);
                }
        }
        else {
@@ -1718,27 +1639,8 @@ DumpEdges(struct edgelist *edges)
                        ymin = p2->ymin;
                        ymax = p2->ymax;
  
-                       if (RegionDebug > 3 || (ymax > RegionDebugYMin
-                                   && ymin < RegionDebugYMax)) {
-                               IfTrace2 (TRUE,". Swath from %d to %d:\n",
-                                                              ymin, ymax);
-                               for (p=p2; INSWATH(p,ymin,ymax); p = p->link) {
-                                       IfTrace4(TRUE,". . at %x[%x] range %d:%d, ",
-                                                 p, (long) p->flag,
-                                                 (long) p->xmin, (long)p->xmax);
-                                       IfTrace1(TRUE, "subpath=%x,\n", p->subpath);
-                               }
-                       }
-                       for (y=MAX(ymin,RegionDebugYMin); y < MIN(ymax, RegionDebugYMax); y++) {
-                               IfTrace1(TRUE,". . . Y[%5d] ", (long) y);
-                               for (p=p2; INSWATH(p,ymin,ymax); p = p->link)
-                                       IfTrace1(TRUE,"%5d ",
-                                                (long) p->xvalues[y - ymin]);
-                               IfTrace0(TRUE,"\n");
-                       }
                        while (INSWATH(p2, ymin, ymax))
                                p2 = p2->link;
                }
        }
 }
- 

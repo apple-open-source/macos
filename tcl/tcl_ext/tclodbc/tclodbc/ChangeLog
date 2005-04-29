@@ -1,0 +1,46 @@
+2004-03-20  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure, configure.in, setup.tcl: update to v2.5
+	* database.cxx, statemnt.cxx, strings.cxx, tclodbc.hxx:
+	* doc/reference.htm (id): add optional list of lists result sets
+	with 'db set multisets true' and '$stmt moreresults'. (riesterer)
+
+2004-03-19  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* encoding.cxx, statemnt.cxx, database.cxx, tclodbc.hxx:
+	correct assignment warning, casts and whitespace.
+
+	* tclodbc.cxx, strings.cxx: TCLODBC_VERSION -> PACKAGE_VERSION
+	* ODBC.m4, configure.in, configure, Makefile.in, tclconfig/tcl.m4:
+	updated to the latest TEA base
+
+2003-03-13  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* configure:
+	* tclconfig/tcl.m4: updated to latest TEA sample
+
+2002-05-01  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tclodbc.hxx (new):
+	* tclodbc.hxx.in (removed): removed need for input file.  Moved
+	tcl.h to being included near the beginning.
+
+	* setup.tcl: code cleanup
+
+	* README:
+	* README.cygwin: updated notes about new TEA setup
+
+	* Makefile.in:      Replaced old configure setup with TEA 2002
+	* ODBC.m4:          specification.  Full update of configure.in,
+	* aclocal.m4:       ODBC.m4 and Makefile.in.  Verified on Win2K
+	* configure (new):  and Linux-2.4 with UnixODBC.
+	* configure.in:
+	* config/install-sh (removed):
+	* config/mkinstalldirs (removed):
+	* config/tcl.m4 (removed):
+	* mkIndex.tcl.in (removed):
+	* tclconfig/README.txt (new):
+	* tclconfig/install-sh (new):
+	* tclconfig/tcl.m4 (new):
+
+	Created ChangeLog file post-2.3 tclodbc release

@@ -1,13 +1,24 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/os-ip.c,v 1.72.2.12 2003/04/28 23:41:55 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
-/*  Portions
- *  Copyright (c) 1995 Regents of the University of Michigan.
- *  All rights reserved.
+/* os-ip.c -- platform-specific TCP & UDP related code */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/os-ip.c,v 1.90.2.7 2004/08/28 13:35:43 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *  os-ip.c -- platform-specific TCP & UDP related code
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 Lars Uffmann.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ */
+/* Significant additional contributors include:
+ *    Lars Uffman
  */
 
 #include "portable.h"
@@ -38,24 +49,18 @@ int ldap_int_inet4or6 = AF_INET;
 #  endif
 #endif
 
-/*
- * nonblock connect code
- * written by Lars Uffmann, <lars.uffmann@mediaway.net>.
- *
- * Copyright 1999, Lars Uffmann, All rights reserved.
- * This software is not subject to any license of my employer
- * mediaWays GmbH.
- *
- * OpenLDAP COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- *
- * Read about the rationale in ldap_connect_timeout: 
- * ftp://koobera.math.uic.edu/www/docs/connect.html.
- */
+#ifdef LDAP_DEBUG
 
 #define osip_debug(ld,fmt,arg1,arg2,arg3) \
 do { \
 	ldap_log_printf(NULL, LDAP_DEBUG_TRACE, fmt, arg1, arg2, arg3); \
 } while(0)
+
+#else
+
+#define osip_debug(ld,fmt,arg1,arg2,arg3) ((void)0)
+
+#endif /* LDAP_DEBUG */
 
 static void
 ldap_pvt_set_errno(int err)
@@ -363,6 +368,10 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 
 #if defined( HAVE_GETADDRINFO ) && defined( HAVE_INET_NTOP )
 	memset( &hints, '\0', sizeof(hints) );
+#ifdef USE_AI_ATTRCONFIG /* FIXME: configure test needed */
+	/* Use AI_ATTRCONFIG only on systems where its known to be needed. */
+	hints.ai_flags = AI_ATTRCONFIG;
+#endif
 	hints.ai_family = ldap_int_inet4or6;
 	hints.ai_socktype = socktype;
 	snprintf(serv, sizeof serv, "%d", port );
@@ -506,7 +515,7 @@ ldap_connect_to_host(LDAP *ld, Sockbuf *sb,
 #if defined( LDAP_API_FEATURE_X_OPENLDAP_V2_KBIND ) || \
 	defined( HAVE_CYRUS_SASL )
 char *
-ldap_host_connected_to( Sockbuf *sb )
+ldap_host_connected_to( Sockbuf *sb, const char *host )
 {
 	socklen_t		len;
 #ifdef LDAP_PF_INET6
@@ -515,8 +524,6 @@ ldap_host_connected_to( Sockbuf *sb )
 	struct sockaddr sabuf;
 #endif
 	struct sockaddr	*sa = (struct sockaddr *) &sabuf;
-	char			*host = NULL, *herr;
-	char hbuf[NI_MAXHOST];
 	ber_socket_t	sd;
 
 	(void)memset( (char *)sa, '\0', sizeof sabuf );
@@ -578,14 +585,25 @@ ldap_host_connected_to( Sockbuf *sb )
 		break;
 	}
 
-	hbuf[0] = 0;
-	if (ldap_pvt_get_hname( sa, len, hbuf, sizeof(hbuf), &herr ) == 0 &&
-		hbuf[0] ) 
 	{
-		host = LDAP_STRDUP( hbuf );   
+		char *herr;
+#ifdef NI_MAXHOST
+		char hbuf[NI_MAXHOST];
+#elif defined( MAXHOSTNAMELEN
+		char hbuf[MAXHOSTNAMELEN];
+#else
+		char hbuf[256];
+#endif
+		hbuf[0] = 0;
+
+		if (ldap_pvt_get_hname( sa, len, hbuf, sizeof(hbuf), &herr ) == 0
+			&& hbuf[0] ) 
+		{
+			return LDAP_STRDUP( hbuf );   
+		}
 	}
 
-	return host;
+	return host ? LDAP_STRDUP( host ) : NULL;
 }
 #endif
 

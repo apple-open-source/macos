@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: logfile.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: logfile.h,v 1.11 1994/05/31 12:33:27 jnweiger Exp $ FAU
  */
 
 struct logfile

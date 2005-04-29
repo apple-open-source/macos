@@ -58,44 +58,56 @@
 #ifndef _USER_SIGNAL_H
 #define _USER_SIGNAL_H
 
-#include <sys/types.h>
+#include <_types.h>
 #include <sys/cdefs.h>
 #include <sys/signal.h>
 
-#if !defined(_ANSI_SOURCE) && !defined(_POSIX_SOURCE)
+#ifndef _PTHREAD_T
+typedef __darwin_pthread_t	pthread_t;
+#define _PTHREAD_T
+#endif
+
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
 extern __const char *__const sys_signame[NSIG];
 extern __const char *__const sys_siglist[NSIG];
 #endif
 
 __BEGIN_DECLS
 int	raise(int);
+__END_DECLS
+
 #ifndef	_ANSI_SOURCE
+__BEGIN_DECLS
+void	(*bsd_signal(int, void (*)(int)))(int);
 int	kill(pid_t, int);
-int	sigaction(int, const struct sigaction *, struct sigaction *);
+int	killpg(pid_t, int);
+int	pthread_kill(pthread_t, int);
+int	pthread_sigmask(int, const sigset_t *, sigset_t *);
+int	sigaction(int, const struct sigaction * __restrict,
+	    struct sigaction * __restrict);
 int	sigaddset(sigset_t *, int);
-int	sigaltstack(const struct sigaltstack *, struct sigaltstack *);
+int	sigaltstack(const stack_t * __restrict, stack_t * __restrict);
 int	sigdelset(sigset_t *, int);
 int	sigemptyset(sigset_t *);
 int	sigfillset(sigset_t *);
-int	sigismember(const sigset_t *, int);
-int	sigpending(sigset_t *);
-int	sigprocmask(int, const sigset_t *, sigset_t *);
-int	sigsuspend(const sigset_t *);
-int	sigwait(const sigset_t *, int *);
-#ifndef _POSIX_SOURCE
-int	killpg(pid_t, int);
-int	sigblock(int);
-int	siginterrupt(int, int);
 int	sighold(int);
-int	sigrelse(int);
+int	sigignore(int);
+int	siginterrupt(int, int);
+int	sigismember(const sigset_t *, int);
 int	sigpause(int);
+int	sigpending(sigset_t *);
+int	sigprocmask(int, const sigset_t * __restrict, sigset_t * __restrict);
+int	sigrelse(int);
+void    (*sigset(int, void (*)(int)))(int); 
+int	sigsuspend(const sigset_t *);
+int	sigwait(const sigset_t * __restrict, int * __restrict);
+#ifndef _POSIX_C_SOURCE
+void	psignal(unsigned int, const char *);
+int	sigblock(int);
 int	sigreturn(struct sigcontext *);
 int	sigsetmask(int);
 int	sigvec(int, struct sigvec *, struct sigvec *);
-void	psignal(unsigned int, const char *);
-
-#endif	/* !_POSIX_SOURCE */
-#endif	/* !_ANSI_SOURCE */
+#endif	/* !_POSIX_C_SOURCE */
 __END_DECLS
 
 /* List definitions after function declarations, or Reiser cpp gets upset. */
@@ -104,5 +116,6 @@ __END_DECLS
 #define	sigemptyset(set)	(*(set) = 0, 0)
 #define	sigfillset(set)		(*(set) = ~(sigset_t)0, 0)
 #define	sigismember(set, signo)	((*(set) & (1 << ((signo) - 1))) != 0)
+#endif	/* !_ANSI_SOURCE */
 
 #endif	/* !_USER_SIGNAL_H */

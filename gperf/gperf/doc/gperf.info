@@ -1,4 +1,5 @@
-This is gperf.info, produced by makeinfo version 4.0 from gperf.texi.
+Dies ist gperf.info, hergestellt von Makeinfo Version 4.3 aus
+gperf.texi.
 
 INFO-DIR-SECTION Programming Tools
 START-INFO-DIR-ENTRY
@@ -6,9 +7,9 @@ START-INFO-DIR-ENTRY
 END-INFO-DIR-ENTRY
 
    This file documents the features of the GNU Perfect Hash Function
-Generator 2.7.2.
+Generator 3.0.1.
 
-   Copyright (C) 1989-2000 Free Software Foundation, Inc.
+   Copyright (C) 1989-2003 Free Software Foundation, Inc.
 
    Permission is granted to make and distribute verbatim copies of this
 manual provided the copyright notice and this permission notice are
@@ -42,13 +43,12 @@ bugs.
 * Copying::                     GNU `gperf' General Public License says
                                 how you can copy and share `gperf'.
 * Contributors::                People who have contributed to `gperf'.
-* Motivation::                  Static search structures and GNU GPERF.
+* Motivation::                  The purpose of `gperf'.
 * Search Structures::           Static search structures and GNU `gperf'
 * Description::                 High-level discussion of how GPERF functions.
 * Options::                     A description of options to the program.
 * Bugs::                        Known bugs and limitations with GPERF.
 * Projects::                    Things still left to do.
-* Implementation::              Implementation Details for GNU GPERF.
 * Bibliography::                Material Referenced in this Report.
 
 * Concept Index::
@@ -58,13 +58,20 @@ High-Level Description of GNU `gperf'
 
 * Input Format::                Input Format to `gperf'
 * Output Format::               Output Format for Generated C Code with `gperf'
-* Binary Strings::              Use of NUL characters
+* Binary Strings::              Use of NUL bytes
 
 Input Format to `gperf'
 
-* Declarations::                `struct' Declarations and C Code Inclusion.
+* Declarations::                Declarations.
 * Keywords::                    Format for Keyword Entries.
 * Functions::                   Including Additional C Functions.
+* Controls for GNU indent::     Where to place directives for GNU `indent'.
+
+Declarations
+
+* User-supplied Struct::        Specifying keywords with attributes.
+* Gperf Declarations::          Embedding command line options in the input.
+* C Code Inclusion::            Including C declarations and definitions.
 
 Invoking `gperf'
 
@@ -81,7 +88,6 @@ GNU GENERAL PUBLIC LICENSE
 **************************
 
                          Version 2, June 1991
-
      Copyright (C) 1989, 1991 Free Software Foundation, Inc.,
      59 Temple Place, Suite 330, Boston, MA 02111-1307, USA.
      
@@ -140,7 +146,6 @@ patent must be licensed for everyone's free use or not licensed at all.
 modification follow.
 
     TERMS AND CONDITIONS FOR COPYING, DISTRIBUTION AND MODIFICATION
-
   0. This License applies to any program or other work which contains a
      notice placed by the copyright holder saying it may be distributed
      under the terms of this General Public License.  The "Program",
@@ -445,15 +450,13 @@ Contributors to GNU `gperf' Utility
 ***********************************
 
    * The GNU `gperf' perfect hash function generator utility was
-     originally written in GNU C++ by Douglas C. Schmidt.  It is now
-     also available in a highly-portable "old-style" C version.  The
-     general idea for the perfect hash function generator was inspired
-     by Keith Bostic's algorithm written in C, and distributed to
-     net.sources around 1984.  The current program is a heavily
-     modified, enhanced, and extended implementation of Keith's basic
-     idea, created at the University of California, Irvine.  Bugs,
-     patches, and suggestions should be reported to both
-     `<bug-gnu-utils@gnu.org>' and `<gperf-bugs@lists.sourceforge.net>'.
+     written in GNU C++ by Douglas C. Schmidt.  The general idea for
+     the perfect hash function generator was inspired by Keith Bostic's
+     algorithm written in C, and distributed to net.sources around
+     1984.  The current program is a heavily modified, enhanced, and
+     extended implementation of Keith's basic idea, created at the
+     University of California, Irvine.  Bugs, patches, and suggestions
+     should be reported to `<bug-gnu-gperf@gnu.org>'.
 
    * Special thanks is extended to Michael Tiemann and Doug Lea, for
      providing a useful compiler, and for giving me a forum to exhibit
@@ -463,8 +466,9 @@ Contributors to GNU `gperf' Utility
      insights that greatly helped improve the quality and functionality
      of `gperf'.
 
-   * A testsuite was added by Bruno Haible. He also rewrote the output
-     routines for better reliability.
+   * Bruno Haible enhanced and optimized the search algorithm.  He also
+     rewrote the input routines and the output routines for better
+     reliability, and added a testsuite.
 
 
 File: gperf.info,  Node: Motivation,  Next: Search Structures,  Prev: Contributors,  Up: Top
@@ -475,18 +479,19 @@ Introduction
    `gperf' is a perfect hash function generator written in C++.  It
 transforms an N element user-specified keyword set W into a perfect
 hash function F.  F uniquely maps keywords in W onto the range 0..K,
-where K >= N.  If K = N then F is a _minimal_ perfect hash function.
+where K >= N-1.  If K = N-1 then F is a _minimal_ perfect hash function.
 `gperf' generates a 0..K element static lookup table and a pair of C
 functions.  These functions determine whether a given character string
 S occurs in W, using at most one probe into the lookup table.
 
    `gperf' currently generates the reserved keyword recognizer for
 lexical analyzers in several production and research compilers and
-language processing tools, including GNU C, GNU C++, GNU Pascal, GNU
-Modula 3, and GNU indent.  Complete C++ source code for `gperf' is
-available via anonymous ftp from `ftp://ftp.gnu.org/pub/gnu/gperf/'.  A
-paper describing `gperf''s design and implementation in greater detail
-is available in the Second USENIX C++ Conference proceedings.
+language processing tools, including GNU C, GNU C++, GNU Java, GNU
+Pascal, GNU Modula 3, and GNU indent.  Complete C++ source code for
+`gperf' is available from `http://ftp.gnu.org/pub/gnu/gperf/'.  A paper
+describing `gperf''s design and implementation in greater detail is
+available in the Second USENIX C++ Conference proceedings or from
+`http://www.cs.wustl.edu/~schmidt/resume.html'.
 
 
 File: gperf.info,  Node: Search Structures,  Next: Description,  Prev: Motivation,  Up: Top
@@ -497,7 +502,7 @@ Static search structures and GNU `gperf'
    A "static search structure" is an Abstract Data Type with certain
 fundamental operations, e.g., _initialize_, _insert_, and _retrieve_.
 Conceptually, all insertions occur before any retrievals.  In practice,
-`gperf' generates a `static' array containing search set keywords and
+`gperf' generates a _static_ array containing search set keywords and
 any associated attributes specified by the user.  Thus, there is
 essentially no execution-time cost for the insertions.  It is a useful
 data structure for representing _static search sets_.  Static search
@@ -549,10 +554,10 @@ associated with constructing time- and space-efficient search
 structures by hand.  It has proven a useful and practical tool for
 serious programming projects.  Output from `gperf' is currently used in
 several production and research compilers, including GNU C, GNU C++,
-GNU Pascal, and GNU Modula 3.  The latter two compilers are not yet
-part of the official GNU distribution.  Each compiler utilizes `gperf'
-to automatically generate static search structures that efficiently
-identify their respective reserved keywords.
+GNU Java, GNU Pascal, and GNU Modula 3.  The latter two compilers are
+not yet part of the official GNU distribution.  Each compiler utilizes
+`gperf' to automatically generate static search structures that
+efficiently identify their respective reserved keywords.
 
 
 File: gperf.info,  Node: Description,  Next: Options,  Prev: Search Structures,  Up: Top
@@ -564,10 +569,10 @@ High-Level Description of GNU `gperf'
 
 * Input Format::                Input Format to `gperf'
 * Output Format::               Output Format for Generated C Code with `gperf'
-* Binary Strings::              Use of NUL characters
+* Binary Strings::              Use of NUL bytes
 
    The perfect hash function generator `gperf' reads a set of
-"keywords" from a "keyfile" (or from the standard input by default).
+"keywords" from an input file (or from the standard input by default).
 It attempts to derive a perfect hashing function that recognizes a
 member of the "static keyword set" with at most a single probe into the
 lookup table.  If `gperf' succeeds in generating such a function it
@@ -586,7 +591,7 @@ scheme that minimizes data space storage size.  Furthermore, using a C
 `switch' may actually speed up the keyword retrieval time somewhat.
 Actual results depend on your C compiler, of course.
 
-   In general, `gperf' assigns values to the characters it is using for
+   In general, `gperf' assigns values to the bytes it is using for
 hashing until some set of values gives each keyword a unique value.  A
 helpful heuristic is that the larger the hash value range, the easier
 it is for `gperf' to find and generate a perfect hash function.
@@ -598,10 +603,10 @@ File: gperf.info,  Node: Input Format,  Next: Output Format,  Prev: Description,
 Input Format to `gperf'
 =======================
 
-   You can control the input keyfile format by varying certain
-command-line arguments, in particular the `-t' option.  The input's
-appearance is similar to GNU utilities `flex' and `bison' (or UNIX
-utilities `lex' and `yacc').  Here's an outline of the general format:
+   You can control the input file format by varying certain command-line
+arguments, in particular the `-t' option.  The input's appearance is
+similar to GNU utilities `flex' and `bison' (or UNIX utilities `lex'
+and `yacc').  Here's an outline of the general format:
 
      declarations
      %%
@@ -609,35 +614,63 @@ utilities `lex' and `yacc').  Here's an outline of the general format:
      %%
      functions
 
-   _Unlike_ `flex' or `bison', all sections of `gperf''s input are
-optional.  The following sections describe the input format for each
-section.
+   _Unlike_ `flex' or `bison', the declarations section and the
+functions section are optional.  The following sections describe the
+input format for each section.
 
 * Menu:
 
-* Declarations::                `struct' Declarations and C Code Inclusion.
+* Declarations::                Declarations.
 * Keywords::                    Format for Keyword Entries.
 * Functions::                   Including Additional C Functions.
+* Controls for GNU indent::     Where to place directives for GNU `indent'.
+
+   It is possible to omit the declaration section entirely, if the `-t'
+option is not given.  In this case the input file begins directly with
+the first keyword line, e.g.:
+
+     january
+     february
+     march
+     april
+     ...
 
 
 File: gperf.info,  Node: Declarations,  Next: Keywords,  Prev: Input Format,  Up: Input Format
 
-`struct' Declarations and C Code Inclusion
-------------------------------------------
+Declarations
+------------
 
    The keyword input file optionally contains a section for including
-arbitrary C declarations and definitions, as well as provisions for
-providing a user-supplied `struct'.  If the `-t' option _is_ enabled,
-you _must_ provide a C `struct' as the last component in the
-declaration section from the keyfile file.  The first field in this
-struct must be a `char *' or `const char *' identifier called `name',
-although it is possible to modify this field's name with the `-K'
-option described below.
+arbitrary C declarations and definitions, `gperf' declarations that act
+like command-line options, as well as for providing a user-supplied
+`struct'.
+
+* Menu:
+
+* User-supplied Struct::        Specifying keywords with attributes.
+* Gperf Declarations::          Embedding command line options in the input.
+* C Code Inclusion::            Including C declarations and definitions.
+
+
+File: gperf.info,  Node: User-supplied Struct,  Next: Gperf Declarations,  Prev: Declarations,  Up: Declarations
+
+User-supplied `struct'
+......................
+
+   If the `-t' option (or, equivalently, the `%struct-type' declaration)
+_is_ enabled, you _must_ provide a C `struct' as the last component in
+the declaration section from the input file.  The first field in this
+struct must be of type `char *' or `const char *' if the `-P' option is
+not given, or of type `int' if the option `-P' (or, equivalently, the
+`%pic' declaration) is enabled.  This first field must be called
+`name', although it is possible to modify its name with the `-K' option
+(or, equivalently, the `%define slot-name' declaration) described below.
 
    Here is a simple example, using months of the year and their
 attributes as input:
 
-     struct months { char *name; int number; int days; int leap_days; };
+     struct month { char *name; int number; int days; int leap_days; };
      %%
      january,   1, 31, 31
      february,  2, 28, 29
@@ -656,6 +689,208 @@ attributes as input:
 other fields are a pair of consecutive percent signs, `%%', appearing
 left justified in the first column, as in the UNIX utility `lex'.
 
+   If the `struct' has already been declared in an include file, it can
+be mentioned in an abbreviated form, like this:
+
+     struct month;
+     %%
+     january,   1, 31, 31
+     ...
+
+
+File: gperf.info,  Node: Gperf Declarations,  Next: C Code Inclusion,  Prev: User-supplied Struct,  Up: Declarations
+
+Gperf Declarations
+..................
+
+   The declaration section can contain `gperf' declarations.  They
+influence the way `gperf' works, like command line options do.  In
+fact, every such declaration is equivalent to a command line option.
+There are three forms of declarations:
+
+  1. Declarations without argument, like `%compare-lengths'.
+
+  2. Declarations with an argument, like `%switch=COUNT'.
+
+  3. Declarations of names of entities in the output file, like
+     `%define lookup-function-name NAME'.
+
+   When a declaration is given both in the input file and as a command
+line option, the command-line option's value prevails.
+
+   The following `gperf' declarations are available.
+
+`%delimiters=DELIMITER-LIST'
+     Allows you to provide a string containing delimiters used to
+     separate keywords from their attributes.  The default is ",".  This
+     option is essential if you want to use keywords that have embedded
+     commas or newlines.
+
+`%struct-type'
+     Allows you to include a `struct' type declaration for generated
+     code; see above for an example.
+
+`%ignore-case'
+     Consider upper and lower case ASCII characters as equivalent.  The
+     string comparison will use a case insignificant character
+     comparison.  Note that locale dependent case mappings are ignored.
+
+`%language=LANGUAGE-NAME'
+     Instructs `gperf' to generate code in the language specified by the
+     option's argument.  Languages handled are currently:
+
+    `KR-C'
+          Old-style K&R C.  This language is understood by old-style C
+          compilers and ANSI C compilers, but ANSI C compilers may flag
+          warnings (or even errors) because of lacking `const'.
+
+    `C'
+          Common C.  This language is understood by ANSI C compilers,
+          and also by old-style C compilers, provided that you `#define
+          const' to empty for compilers which don't know about this
+          keyword.
+
+    `ANSI-C'
+          ANSI C.  This language is understood by ANSI C compilers and
+          C++ compilers.
+
+    `C++'
+          C++.  This language is understood by C++ compilers.
+
+     The default is C.
+
+`%define slot-name NAME'
+     This declaration is only useful when option `-t' (or,
+     equivalently, the `%struct-type' declaration) has been given.  By
+     default, the program assumes the structure component identifier for
+     the keyword is `name'.  This option allows an arbitrary choice of
+     identifier for this component, although it still must occur as the
+     first field in your supplied `struct'.
+
+`%define initializer-suffix INITIALIZERS'
+     This declaration is only useful when option `-t' (or,
+     equivalently, the `%struct-type' declaration) has been given.  It
+     permits to specify initializers for the structure members following
+     SLOT-NAME in empty hash table entries.  The list of initializers
+     should start with a comma.  By default, the emitted code will
+     zero-initialize structure members following SLOT-NAME.
+
+`%define hash-function-name NAME'
+     Allows you to specify the name for the generated hash function.
+     Default name is `hash'.  This option permits the use of two hash
+     tables in the same file.
+
+`%define lookup-function-name NAME'
+     Allows you to specify the name for the generated lookup function.
+     Default name is `in_word_set'.  This option permits multiple
+     generated hash functions to be used in the same application.
+
+`%define class-name NAME'
+     This option is only useful when option `-L C++' (or, equivalently,
+     the `%language=C++' declaration) has been given.  It allows you to
+     specify the name of generated C++ class.  Default name is
+     `Perfect_Hash'.
+
+`%7bit'
+     This option specifies that all strings that will be passed as
+     arguments to the generated hash function and the generated lookup
+     function will solely consist of 7-bit ASCII characters (bytes in
+     the range 0..127).  (Note that the ANSI C functions `isalnum' and
+     `isgraph' do _not_ guarantee that a byte is in this range.  Only
+     an explicit test like `c >= 'A' && c <= 'Z'' guarantees this.)
+
+`%compare-lengths'
+     Compare keyword lengths before trying a string comparison.  This
+     option is mandatory for binary comparisons (*note Binary
+     Strings::).  It also might cut down on the number of string
+     comparisons made during the lookup, since keywords with different
+     lengths are never compared via `strcmp'.  However, using
+     `%compare-lengths' might greatly increase the size of the
+     generated C code if the lookup table range is large (which implies
+     that the switch option `-S' or `%switch' is not enabled), since
+     the length table contains as many elements as there are entries in
+     the lookup table.
+
+`%compare-strncmp'
+     Generates C code that uses the `strncmp' function to perform
+     string comparisons.  The default action is to use `strcmp'.
+
+`%readonly-tables'
+     Makes the contents of all generated lookup tables constant, i.e.,
+     "readonly".  Many compilers can generate more efficient code for
+     this by putting the tables in readonly memory.
+
+`%enum'
+     Define constant values using an enum local to the lookup function
+     rather than with #defines.  This also means that different lookup
+     functions can reside in the same file.  Thanks to James Clark
+     `<jjc@ai.mit.edu>'.
+
+`%includes'
+     Include the necessary system include file, `<string.h>', at the
+     beginning of the code.  By default, this is not done; the user must
+     include this header file himself to allow compilation of the code.
+
+`%global-table'
+     Generate the static table of keywords as a static global variable,
+     rather than hiding it inside of the lookup function (which is the
+     default behavior).
+
+`%pic'
+     Optimize the generated table for inclusion in shared libraries.
+     This reduces the startup time of programs using a shared library
+     containing the generated code.  If the `%struct-type' declaration
+     (or, equivalently, the option `-t') is also given, the first field
+     of the user-defined struct must be of type `int', not `char *',
+     because it will contain offsets into the string pool instead of
+     actual strings.  To convert such an offset to a string, you can
+     use the expression `stringpool + O', where O is the offset.  The
+     string pool name can be changed through the `%define
+     string-pool-name' declaration.
+
+`%define string-pool-name NAME'
+     Allows you to specify the name of the generated string pool
+     created by the declaration `%pic' (or, equivalently, the option
+     `-P').  The default name is `stringpool'.  This declaration
+     permits the use of two hash tables in the same file, with `%pic'
+     and even when the `%global-table' declaration (or, equivalently,
+     the option `-G') is given.
+
+`%null-strings'
+     Use NULL strings instead of empty strings for empty keyword table
+     entries.  This reduces the startup time of programs using a shared
+     library containing the generated code (but not as much as the
+     declaration `%pic'), at the expense of one more test-and-branch
+     instruction at run time.
+
+`%define word-array-name NAME'
+     Allows you to specify the name for the generated array containing
+     the hash table.  Default name is `wordlist'.  This option permits
+     the use of two hash tables in the same file, even when the option
+     `-G' (or, equivalently, the `%global-table' declaration) is given.
+
+`%switch=COUNT'
+     Causes the generated C code to use a `switch' statement scheme,
+     rather than an array lookup table.  This can lead to a reduction
+     in both time and space requirements for some input files.  The
+     argument to this option determines how many `switch' statements
+     are generated.  A value of 1 generates 1 `switch' containing all
+     the elements, a value of 2 generates 2 tables with 1/2 the
+     elements in each `switch', etc.  This is useful since many C
+     compilers cannot correctly generate code for large `switch'
+     statements.  This option was inspired in part by Keith Bostic's
+     original C program.
+
+`%omit-struct-type'
+     Prevents the transfer of the type declaration to the output file.
+     Use this option if the type is already defined elsewhere.
+
+
+File: gperf.info,  Node: C Code Inclusion,  Prev: Gperf Declarations,  Up: Declarations
+
+C Code Inclusion
+................
+
    Using a syntax similar to GNU utilities `flex' and `bison', it is
 possible to directly include C source text and comments verbatim into
 the generated output file.  This is accomplished by enclosing the region
@@ -665,22 +900,13 @@ fragment based on the previous example that illustrates this feature:
      %{
      #include <assert.h>
      /* This section of code is inserted directly into the output. */
-     int return_month_days (struct months *months, int is_leap_year);
+     int return_month_days (struct month *months, int is_leap_year);
      %}
-     struct months { char *name; int number; int days; int leap_days; };
+     struct month { char *name; int number; int days; int leap_days; };
      %%
      january,   1, 31, 31
      february,  2, 28, 29
      march,     3, 31, 31
-     ...
-
-   It is possible to omit the declaration section entirely.  In this
-case the keyfile begins directly with the first keyword line, e.g.:
-
-     january,   1, 31, 31
-     february,  2, 28, 29
-     march,     3, 31, 31
-     april,     4, 30, 30
      ...
 
 
@@ -689,19 +915,22 @@ File: gperf.info,  Node: Keywords,  Next: Functions,  Prev: Declarations,  Up: I
 Format for Keyword Entries
 --------------------------
 
-   The second keyfile format section contains lines of keywords and any
-associated attributes you might supply.  A line beginning with `#' in
-the first column is considered a comment.  Everything following the `#'
-is ignored, up to and including the following newline.
+   The second input file format section contains lines of keywords and
+any associated attributes you might supply.  A line beginning with `#'
+in the first column is considered a comment.  Everything following the
+`#' is ignored, up to and including the following newline.  A line
+beginning with `%' in the first column is an option declaration and
+must not occur within the keywords section.
 
-   The first field of each non-comment line is always the key itself.
-It can be given in two ways: as a simple name, i.e., without surrounding
-string quotation marks, or as a string enclosed in double-quotes, in C
-syntax, possibly with backslash escapes like `\"' or `\234' or `\xa8'.
-In either case, it must start right at the beginning of the line,
-without leading whitespace.  In this context, a "field" is considered
-to extend up to, but not include, the first blank, comma, or newline.
-Here is a simple example taken from a partial list of C reserved words:
+   The first field of each non-comment line is always the keyword
+itself.  It can be given in two ways: as a simple name, i.e., without
+surrounding string quotation marks, or as a string enclosed in
+double-quotes, in C syntax, possibly with backslash escapes like `\"'
+or `\234' or `\xa8'.  In either case, it must start right at the
+beginning of the line, without leading whitespace.  In this context, a
+"field" is considered to extend up to, but not include, the first
+blank, comma, or newline.  Here is a simple example taken from a
+partial list of C reserved words:
 
      # These are a few C reserved words, see the c.gperf file
      # for a complete list of ANSI C reserved words.
@@ -722,12 +951,13 @@ elided if the declaration section is empty.
 should be separated by commas, and terminate at the end of line.  What
 these fields mean is entirely up to you; they are used to initialize the
 elements of the user-defined `struct' provided by you in the
-declaration section.  If the `-t' option is _not_ enabled these fields
-are simply ignored.  All previous examples except the last one contain
-keyword attributes.
+declaration section.  If the `-t' option (or, equivalently, the
+`%struct-type' declaration) is _not_ enabled these fields are simply
+ignored.  All previous examples except the last one contain keyword
+attributes.
 
 
-File: gperf.info,  Node: Functions,  Prev: Keywords,  Up: Input Format
+File: gperf.info,  Node: Functions,  Next: Controls for GNU indent,  Prev: Keywords,  Up: Input Format
 
 Including Additional C Functions
 --------------------------------
@@ -738,6 +968,44 @@ final `%%' and extending to the end of the input file, is included
 verbatim into the generated output file.  Naturally, it is your
 responsibility to ensure that the code contained in this section is
 valid C.
+
+
+File: gperf.info,  Node: Controls for GNU indent,  Prev: Functions,  Up: Input Format
+
+Where to place directives for GNU `indent'.
+-------------------------------------------
+
+   If you want to invoke GNU `indent' on a `gperf' input file, you will
+see that GNU `indent' doesn't understand the `%%', `%{' and `%}'
+directives that control `gperf''s interpretation of the input file.
+Therefore you have to insert some directives for GNU `indent'.  More
+precisely, assuming the most general input file structure
+
+     declarations part 1
+     %{
+     verbatim code
+     %}
+     declarations part 2
+     %%
+     keywords
+     %%
+     functions
+
+you would insert `*INDENT-OFF*' and `*INDENT-ON*' comments as follows:
+
+     /* *INDENT-OFF* */
+     declarations part 1
+     %{
+     /* *INDENT-ON* */
+     verbatim code
+     /* *INDENT-OFF* */
+     %}
+     declarations part 2
+     %%
+     keywords
+     %%
+     /* *INDENT-ON* */
+     functions
 
 
 File: gperf.info,  Node: Output Format,  Next: Binary Strings,  Prev: Input Format,  Up: Description
@@ -752,25 +1020,27 @@ command-line option.  Both functions require two arguments, a string,
 `char *' STR, and a length parameter, `int' LEN.  Their default
 function prototypes are as follows:
 
- - Function: unsigned int hash (const char * STR, unsigned int LEN)
+ - Funktion: unsigned int hash (const char * STR, unsigned int LEN)
      By default, the generated `hash' function returns an integer value
-     created by adding LEN to several user-specified STR key positions
+     created by adding LEN to several user-specified STR byte positions
      indexed into an "associated values" table stored in a local static
      array.  The associated values table is constructed internally by
      `gperf' and later output as a static local C array called
-     `hash_table'; its meaning and properties are described below
-     (*note Implementation::). The relevant key positions are specified
-     via the `-k' option when running `gperf', as detailed in the
-     _Options_ section below(*note Options::).
+     `hash_table'.  The relevant selected positions (i.e. indices into
+     STR) are specified via the `-k' option when running `gperf', as
+     detailed in the _Options_ section below (*note Options::).
 
- - Function:  in_word_set (const char * STR, unsigned int LEN)
+ - Funktion:  in_word_set (const char * STR, unsigned int LEN)
      If STR is in the keyword set, returns a pointer to that keyword.
-     More exactly, if the option `-t' was given, it returns a pointer
-     to the matching keyword's structure. Otherwise it returns `NULL'.
+     More exactly, if the option `-t' (or, equivalently, the
+     `%struct-type' declaration) was given, it returns a pointer to the
+     matching keyword's structure.  Otherwise it returns `NULL'.
 
-   If the option `-c' is not used, STR must be a NUL terminated string
-of exactly length LEN. If `-c' is used, STR must simply be an array of
-LEN characters and does not need to be NUL terminated.
+   If the option `-c' (or, equivalently, the `%compare-strncmp'
+declaration) is not used, STR must be a NUL terminated string of
+exactly length LEN.  If `-c' (or, equivalently, the `%compare-strncmp'
+declaration) is used, STR must simply be an array of LEN bytes and does
+not need to be NUL terminated.
 
    The code generated for these two functions is affected by the
 following options:
@@ -787,35 +1057,38 @@ following options:
      degree of optimization, this method often results in smaller and
      faster code.
 
-   If the `-t' and `-S' options are omitted, the default action is to
-generate a `char *' array containing the keys, together with additional
-null strings used for padding the array.  By experimenting with the
-various input and output options, and timing the resulting C code, you
-can determine the best option choices for different keyword set
-characteristics.
+   If the `-t' and `-S' options (or, equivalently, the `%struct-type'
+and `%switch' declarations) are omitted, the default action is to
+generate a `char *' array containing the keywords, together with
+additional empty strings used for padding the array.  By experimenting
+with the various input and output options, and timing the resulting C
+code, you can determine the best option choices for different keyword
+set characteristics.
 
 
 File: gperf.info,  Node: Binary Strings,  Prev: Output Format,  Up: Description
 
-Use of NUL characters
-=====================
+Use of NUL bytes
+================
 
    By default, the code generated by `gperf' operates on zero
-terminated strings, the usual representation of strings in C. This means
-that the keywords in the input file must not contain NUL characters,
+terminated strings, the usual representation of strings in C.  This
+means that the keywords in the input file must not contain NUL bytes,
 and the STR argument passed to `hash' or `in_word_set' must be NUL
 terminated and have exactly length LEN.
 
-   If option `-c' is used, then the STR argument does not need to be
-NUL terminated. The code generated by `gperf' will only access the
-first LEN, not LEN+1, bytes starting at STR.  However, the keywords in
-the input file still must not contain NUL characters.
+   If option `-c' (or, equivalently, the `%compare-strncmp'
+declaration) is used, then the STR argument does not need to be NUL
+terminated.  The code generated by `gperf' will only access the first
+LEN, not LEN+1, bytes starting at STR.  However, the keywords in the
+input file still must not contain NUL bytes.
 
-   If option `-l' is used, then the hash table performs binary
-comparison. The keywords in the input file may contain NUL characters,
-written in string syntax as `\000' or `\x00', and the code generated by
-`gperf' will treat NUL like any other character.  Also, in this case
-the `-c' option is ignored.
+   If option `-l' (or, equivalently, the `%compare-lengths'
+declaration) is used, then the hash table performs binary comparison.
+The keywords in the input file may contain NUL bytes, written in string
+syntax as `\000' or `\x00', and the code generated by `gperf' will
+treat NUL like any other byte.  Also, in this case the `-c' option (or,
+equivalently, the `%compare-strncmp' declaration) is ignored.
 
 
 File: gperf.info,  Node: Options,  Next: Bugs,  Prev: Description,  Up: Top
@@ -825,11 +1098,12 @@ Invoking `gperf'
 
    There are _many_ options to `gperf'.  They were added to make the
 program more convenient for use with real applications.  "On-line" help
-is readily available via the `-h' option.  Here is the complete list of
-options.
+is readily available via the `--help' option.  Here is the complete
+list of options.
 
 * Menu:
 
+* Output File::                 Specifying the Location of the Output File
 * Input Details::               Options that affect Interpretation of the Input File
 * Output Language::             Specifying the Language for the Output Code
 * Output Details::              Fine tuning Details in the Output Code
@@ -837,18 +1111,34 @@ options.
 * Verbosity::                   Informative Output
 
 
-File: gperf.info,  Node: Input Details,  Next: Output Language,  Prev: Options,  Up: Options
+File: gperf.info,  Node: Output File,  Next: Input Details,  Prev: Options,  Up: Options
+
+Specifying the Location of the Output File
+==========================================
+
+`--output-file=FILE'
+     Allows you to specify the name of the file to which the output is
+     written to.
+
+   The results are written to standard output if no output file is
+specified or if it is `-'.
+
+
+File: gperf.info,  Node: Input Details,  Next: Output Language,  Prev: Output File,  Up: Options
 
 Options that affect Interpretation of the Input File
 ====================================================
 
+   These options are also available as declarations in the input file
+(*note Gperf Declarations::).
+
 `-e KEYWORD-DELIMITER-LIST'
 `--delimiters=KEYWORD-DELIMITER-LIST'
-     Allows the user to provide a string containing delimiters used to
-     separate keywords from their attributes.  The default is ",\n".
-     This option is essential if you want to use keywords that have
-     embedded commas or newlines.  One useful trick is to use -e'TAB',
-     where TAB is the literal tab character.
+     Allows you to provide a string containing delimiters used to
+     separate keywords from their attributes.  The default is ",".  This
+     option is essential if you want to use keywords that have embedded
+     commas or newlines.  One useful trick is to use -e'TAB', where TAB
+     is the literal tab character.
 
 `-t'
 `--struct-type'
@@ -860,11 +1150,26 @@ Options that affect Interpretation of the Input File
      Pascal, Modula 2, Modula 3 and JavaScript reserved words are
      distributed with this release.
 
+`--ignore-case'
+     Consider upper and lower case ASCII characters as equivalent.  The
+     string comparison will use a case insignificant character
+     comparison.  Note that locale dependent case mappings are ignored.
+     This option is therefore not suitable if a properly
+     internationalized or locale aware case mapping should be used.
+     (For example, in a Turkish locale, the upper case equivalent of
+     the lowercase ASCII letter `i' is the non-ASCII character `capital
+     i with dot above'.)  For this case, it is better to apply an
+     uppercase or lowercase conversion on the string before passing it
+     to the `gperf' generated function.
+
 
 File: gperf.info,  Node: Output Language,  Next: Output Details,  Prev: Input Details,  Up: Options
 
 Options to specify the Language for the Output Code
 ===================================================
+
+   These options are also available as declarations in the input file
+(*note Gperf Declarations::).
 
 `-L GENERATED-LANGUAGE-NAME'
 `--language=GENERATED-LANGUAGE-NAME'
@@ -872,32 +1177,32 @@ Options to specify the Language for the Output Code
      option's argument.  Languages handled are currently:
 
     `KR-C'
-          Old-style K&R C. This language is understood by old-style C
+          Old-style K&R C.  This language is understood by old-style C
           compilers and ANSI C compilers, but ANSI C compilers may flag
           warnings (or even errors) because of lacking `const'.
 
     `C'
-          Common C. This language is understood by ANSI C compilers,
+          Common C.  This language is understood by ANSI C compilers,
           and also by old-style C compilers, provided that you `#define
           const' to empty for compilers which don't know about this
           keyword.
 
     `ANSI-C'
-          ANSI C. This language is understood by ANSI C compilers and
+          ANSI C.  This language is understood by ANSI C compilers and
           C++ compilers.
 
     `C++'
-          C++. This language is understood by C++ compilers.
+          C++.  This language is understood by C++ compilers.
 
      The default is C.
 
 `-a'
      This option is supported for compatibility with previous releases
-     of `gperf'. It does not do anything.
+     of `gperf'.  It does not do anything.
 
 `-g'
      This option is supported for compatibility with previous releases
-     of `gperf'. It does not do anything.
+     of `gperf'.  It does not do anything.
 
 
 File: gperf.info,  Node: Output Details,  Next: Algorithmic Details,  Prev: Output Language,  Up: Options
@@ -905,51 +1210,68 @@ File: gperf.info,  Node: Output Details,  Next: Algorithmic Details,  Prev: Outp
 Options for fine tuning Details in the Output Code
 ==================================================
 
-`-K KEY-NAME'
-`--slot-name=KEY-NAME'
-     This option is only useful when option `-t' has been given.  By
-     default, the program assumes the structure component identifier for
-     the keyword is `name'.  This option allows an arbitrary choice of
-     identifier for this component, although it still must occur as the
-     first field in your supplied `struct'.
+   Most of these options are also available as declarations in the
+input file (*note Gperf Declarations::).
+
+`-K SLOT-NAME'
+`--slot-name=SLOT-NAME'
+     This option is only useful when option `-t' (or, equivalently, the
+     `%struct-type' declaration) has been given.  By default, the
+     program assumes the structure component identifier for the keyword
+     is `name'.  This option allows an arbitrary choice of identifier
+     for this component, although it still must occur as the first
+     field in your supplied `struct'.
 
 `-F INITIALIZERS'
 `--initializer-suffix=INITIALIZERS'
-     This option is only useful when option `-t' has been given.  It
-     permits to specify initializers for the structure members following
-     KEY NAME in empty hash table entries.  The list of initializers
-     should start with a comma.  By default, the emitted code will
-     zero-initialize structure members following KEY NAME.
+     This option is only useful when option `-t' (or, equivalently, the
+     `%struct-type' declaration) has been given.  It permits to specify
+     initializers for the structure members following SLOT-NAME in
+     empty hash table entries.  The list of initializers should start
+     with a comma.  By default, the emitted code will zero-initialize
+     structure members following SLOT-NAME.
 
 `-H HASH-FUNCTION-NAME'
-`--hash-fn-name=HASH-FUNCTION-NAME'
+`--hash-function-name=HASH-FUNCTION-NAME'
      Allows you to specify the name for the generated hash function.
      Default name is `hash'.  This option permits the use of two hash
      tables in the same file.
 
 `-N LOOKUP-FUNCTION-NAME'
-`--lookup-fn-name=LOOKUP-FUNCTION-NAME'
+`--lookup-function-name=LOOKUP-FUNCTION-NAME'
      Allows you to specify the name for the generated lookup function.
-     Default name is `in_word_set'.  This option permits completely
-     automatic generation of perfect hash functions, especially when
-     multiple generated hash functions are used in the same application.
+     Default name is `in_word_set'.  This option permits multiple
+     generated hash functions to be used in the same application.
 
 `-Z CLASS-NAME'
 `--class-name=CLASS-NAME'
-     This option is only useful when option `-L C++' has been given.  It
-     allows you to specify the name of generated C++ class.  Default
-     name is `Perfect_Hash'.
+     This option is only useful when option `-L C++' (or, equivalently,
+     the `%language=C++' declaration) has been given.  It allows you to
+     specify the name of generated C++ class.  Default name is
+     `Perfect_Hash'.
 
 `-7'
 `--seven-bit'
      This option specifies that all strings that will be passed as
      arguments to the generated hash function and the generated lookup
-     function will solely consist of 7-bit ASCII characters (characters
-     in the range 0..127).  (Note that the ANSI C functions `isalnum'
-     and `isgraph' do _not_ guarantee that a character is in this
-     range. Only an explicit test like `c >= 'A' && c <= 'Z''
-     guarantees this.) This was the default in versions of `gperf'
-     earlier than 2.7; now the default is to assume 8-bit characters.
+     function will solely consist of 7-bit ASCII characters (bytes in
+     the range 0..127).  (Note that the ANSI C functions `isalnum' and
+     `isgraph' do _not_ guarantee that a byte is in this range.  Only
+     an explicit test like `c >= 'A' && c <= 'Z'' guarantees this.)
+     This was the default in versions of `gperf' earlier than 2.7; now
+     the default is to support 8-bit and multibyte characters.
+
+`-l'
+`--compare-lengths'
+     Compare keyword lengths before trying a string comparison.  This
+     option is mandatory for binary comparisons (*note Binary
+     Strings::).  It also might cut down on the number of string
+     comparisons made during the lookup, since keywords with different
+     lengths are never compared via `strcmp'.  However, using `-l'
+     might greatly increase the size of the generated C code if the
+     lookup table range is large (which implies that the switch option
+     `-S' or `%switch' is not enabled), since the length table contains
+     as many elements as there are entries in the lookup table.
 
 `-c'
 `--compare-strncmp'
@@ -976,29 +1298,57 @@ Options for fine tuning Details in the Output Code
      include this header file himself to allow compilation of the code.
 
 `-G'
-`--global'
+`--global-table'
      Generate the static table of keywords as a static global variable,
      rather than hiding it inside of the lookup function (which is the
      default behavior).
+
+`-P'
+`--pic'
+     Optimize the generated table for inclusion in shared libraries.
+     This reduces the startup time of programs using a shared library
+     containing the generated code.  If the option `-t' (or,
+     equivalently, the `%struct-type' declaration) is also given, the
+     first field of the user-defined struct must be of type `int', not
+     `char *', because it will contain offsets into the string pool
+     instead of actual strings.  To convert such an offset to a string,
+     you can use the expression `stringpool + O', where O is the
+     offset.  The string pool name can be changed through the option
+     `--string-pool-name'.
+
+`-Q STRING-POOL-NAME'
+`--string-pool-name=STRING-POOL-NAME'
+     Allows you to specify the name of the generated string pool
+     created by option `-P'.  The default name is `stringpool'.  This
+     option permits the use of two hash tables in the same file, with
+     `-P' and even when the option `-G' (or, equivalently, the
+     `%global-table' declaration) is given.
+
+`--null-strings'
+     Use NULL strings instead of empty strings for empty keyword table
+     entries.  This reduces the startup time of programs using a shared
+     library containing the generated code (but not as much as option
+     `-P'), at the expense of one more test-and-branch instruction at
+     run time.
 
 `-W HASH-TABLE-ARRAY-NAME'
 `--word-array-name=HASH-TABLE-ARRAY-NAME'
      Allows you to specify the name for the generated array containing
      the hash table.  Default name is `wordlist'.  This option permits
      the use of two hash tables in the same file, even when the option
-     `-G' is given.
+     `-G' (or, equivalently, the `%global-table' declaration) is given.
 
 `-S TOTAL-SWITCH-STATEMENTS'
 `--switch=TOTAL-SWITCH-STATEMENTS'
      Causes the generated C code to use a `switch' statement scheme,
      rather than an array lookup table.  This can lead to a reduction
-     in both time and space requirements for some keyfiles.  The
+     in both time and space requirements for some input files.  The
      argument to this option determines how many `switch' statements
-     are generated. A value of 1 generates 1 `switch' containing all
+     are generated.  A value of 1 generates 1 `switch' containing all
      the elements, a value of 2 generates 2 tables with 1/2 the
      elements in each `switch', etc.  This is useful since many C
      compilers cannot correctly generate code for large `switch'
-     statements. This option was inspired in part by Keith Bostic's
+     statements.  This option was inspired in part by Keith Bostic's
      original C program.
 
 `-T'
@@ -1008,7 +1358,7 @@ Options for fine tuning Details in the Output Code
 
 `-p'
      This option is supported for compatibility with previous releases
-     of `gperf'. It does not do anything.
+     of `gperf'.  It does not do anything.
 
 
 File: gperf.info,  Node: Algorithmic Details,  Next: Verbosity,  Prev: Output Details,  Up: Options
@@ -1016,86 +1366,67 @@ File: gperf.info,  Node: Algorithmic Details,  Next: Verbosity,  Prev: Output De
 Options for changing the Algorithms employed by `gperf'
 =======================================================
 
-`-k KEYS'
-`--key-positions=KEYS'
-     Allows selection of the character key positions used in the
-     keywords' hash function. The allowable choices range between
-     1-126, inclusive.  The positions are separated by commas, e.g.,
-     `-k 9,4,13,14'; ranges may be used, e.g., `-k 2-7'; and positions
-     may occur in any order.  Furthermore, the meta-character '*'
-     causes the generated hash function to consider *all* character
-     positions in each key, whereas '$' instructs the hash function to
-     use the "final character" of a key (this is the only way to use a
-     character position greater than 126, incidentally).
+`-k SELECTED-BYTE-POSITIONS'
+`--key-positions=SELECTED-BYTE-POSITIONS'
+     Allows selection of the byte positions used in the keywords' hash
+     function.  The allowable choices range between 1-255, inclusive.
+     The positions are separated by commas, e.g., `-k 9,4,13,14';
+     ranges may be used, e.g., `-k 2-7'; and positions may occur in any
+     order.  Furthermore, the wildcard '*' causes the generated hash
+     function to consider *all* byte positions in each keyword, whereas
+     '$' instructs the hash function to use the "final byte" of a
+     keyword (this is the only way to use a byte position greater than
+     255, incidentally).
 
      For instance, the option `-k 1,2,4,6-10,'$'' generates a hash
      function that considers positions 1,2,4,6,7,8,9,10, plus the last
-     character in each key (which may differ for each key, obviously).
-     Keys with length less than the indicated key positions work
-     properly, since selected key positions exceeding the key length
-     are simply not referenced in the hash function.
+     byte in each keyword (which may be at a different position for each
+     keyword, obviously).  Keywords with length less than the indicated
+     byte positions work properly, since selected byte positions
+     exceeding the keyword length are simply not referenced in the hash
+     function.
 
-`-l'
-`--compare-strlen'
-     Compare key lengths before trying a string comparison.  This might
-     cut down on the number of string comparisons made during the
-     lookup, since keys with different lengths are never compared via
-     `strcmp'.  However, using `-l' might greatly increase the size of
-     the generated C code if the lookup table range is large (which
-     implies that the switch option `-S' is not enabled), since the
-     length table contains as many elements as there are entries in the
-     lookup table.  This option is mandatory for binary comparisons
-     (*note Binary Strings::).
+     This option is not normally needed since version 2.8 of `gperf';
+     the default byte positions are computed depending on the keyword
+     set, through a search that minimizes the number of byte positions.
 
 `-D'
 `--duplicates'
-     Handle keywords whose key position sets hash to duplicate values.
-     Duplicate hash values occur for two reasons:
+     Handle keywords whose selected byte sets hash to duplicate values.
+     Duplicate hash values can occur if a set of keywords has the same
+     names, but possesses different attributes, or if the selected byte
+     positions are not well chosen.  With the -D option `gperf' treats
+     all these keywords as part of an equivalence class and generates a
+     perfect hash function with multiple comparisons for duplicate
+     keywords.  It is up to you to completely disambiguate the keywords
+     by modifying the generated C code.  However, `gperf' helps you out
+     by organizing the output.
 
-        * Since `gperf' does not backtrack it is possible for it to
-          process all your input keywords without finding a unique
-          mapping for each word.  However, frequently only a very small
-          number of duplicates occur, and the majority of keys still
-          require one probe into the table.
-
-        * Sometimes a set of keys may have the same names, but possess
-          different attributes.  With the -D option `gperf' treats all
-          these keys as part of an equivalence class and generates a
-          perfect hash function with multiple comparisons for duplicate
-          keys.  It is up to you to completely disambiguate the
-          keywords by modifying the generated C code.  However, `gperf'
-          helps you out by organizing the output.
-
-     Option `-D' is extremely useful for certain large or highly
-     redundant keyword sets, e.g., assembler instruction opcodes.
      Using this option usually means that the generated hash function
      is no longer perfect.  On the other hand, it permits `gperf' to
      work on keyword sets that it otherwise could not handle.
 
-`-f ITERATION-AMOUNT'
-`--fast=ITERATION-AMOUNT'
-     Generate the perfect hash function "fast".  This decreases
-     `gperf''s running time at the cost of minimizing generated
-     table-size.  The iteration amount represents the number of times to
-     iterate when resolving a collision.  `0' means iterate by the
-     number of keywords.  This option is probably most useful when used
-     in conjunction with options `-D' and/or `-S' for _large_ keyword
-     sets.
+`-m ITERATIONS'
+`--multiple-iterations=ITERATIONS'
+     Perform multiple choices of the `-i' and `-j' values, and choose
+     the best results.  This increases the running time by a factor of
+     ITERATIONS but does a good job minimizing the generated table size.
 
 `-i INITIAL-VALUE'
 `--initial-asso=INITIAL-VALUE'
      Provides an initial VALUE for the associate values array.  Default
      is 0.  Increasing the initial value helps inflate the final table
      size, possibly leading to more time efficient keyword lookups.
-     Note that this option is not particularly useful when `-S' is
-     used.  Also, `-i' is overridden when the `-r' option is used.
+     Note that this option is not particularly useful when `-S' (or,
+     equivalently, `%switch') is used.  Also, `-i' is overridden when
+     the `-r' option is used.
 
 `-j JUMP-VALUE'
 `--jump=JUMP-VALUE'
      Affects the "jump value", i.e., how far to advance the associated
-     character value upon collisions.  JUMP-VALUE is rounded up to an
-     odd number, the default is 5.  If the JUMP-VALUE is 0 `gperf'
-     jumps by random amounts.
+     byte value upon collisions.  JUMP-VALUE is rounded up to an odd
+     number, the default is 5.  If the JUMP-VALUE is 0 `gperf' jumps by
+     random amounts.
 
 `-n'
 `--no-strlen'
@@ -1103,61 +1434,40 @@ Options for changing the Algorithms employed by `gperf'
      computing its hash value.  This may save a few assembly
      instructions in the generated lookup table.
 
-`-o'
-`--occurrence-sort'
-     Reorders the keywords by sorting the keywords so that frequently
-     occuring key position set components appear first.  A second
-     reordering pass follows so that keys with "already determined
-     values" are placed towards the front of the keylist.  This may
-     decrease the time required to generate a perfect hash function for
-     many keyword sets, and also produce more minimal perfect hash
-     functions.  The reason for this is that the reordering helps prune
-     the search time by handling inevitable collisions early in the
-     search process.  On the other hand, if the number of keywords is
-     _very_ large using `-o' may _increase_ `gperf''s execution time,
-     since collisions will begin earlier and continue throughout the
-     remainder of keyword processing.  See Cichelli's paper from the
-     January 1980 Communications of the ACM for details.
-
 `-r'
 `--random'
      Utilizes randomness to initialize the associated values table.
      This frequently generates solutions faster than using deterministic
      initialization (which starts all associated values at 0).
      Furthermore, using the randomization option generally increases
-     the size of the table.  If `gperf' has difficultly with a certain
-     keyword set try using `-r' or `-D'.
+     the size of the table.
 
 `-s SIZE-MULTIPLE'
 `--size-multiple=SIZE-MULTIPLE'
      Affects the size of the generated hash table.  The numeric
      argument for this option indicates "how many times larger or
      smaller" the maximum associated value range should be, in
-     relationship to the number of keys.  If the SIZE-MULTIPLE is
-     negative the maximum associated value is calculated by _dividing_
-     it into the total number of keys.  For example, a value of 3 means
-     "allow the maximum associated value to be about 3 times larger
-     than the number of input keys".
+     relationship to the number of keywords.  It can be written as an
+     integer, a floating-point number or a fraction.  For example, a
+     value of 3 means "allow the maximum associated value to be about 3
+     times larger than the number of input keywords".  Conversely, a
+     value of 1/3 means "allow the maximum associated value to be about
+     3 times smaller than the number of input keywords".  Values
+     smaller than 1 are useful for limiting the overall size of the
+     generated hash table, though the option `-m' is better at this
+     purpose.
 
-     Conversely, a value of -3 means "allow the maximum associated
-     value to be about 3 times smaller than the number of input keys".
-     Negative values are useful for limiting the overall size of the
-     generated hash table, though this usually increases the number of
-     duplicate hash values.
-
-     If `generate switch' option `-S' is _not_ enabled, the maximum
-     associated value influences the static array table size, and a
-     larger table should decrease the time required for an unsuccessful
-     search, at the expense of extra table space.
+     If `generate switch' option `-S' (or, equivalently, `%switch') is
+     _not_ enabled, the maximum associated value influences the static
+     array table size, and a larger table should decrease the time
+     required for an unsuccessful search, at the expense of extra table
+     space.
 
      The default value is 1, thus the default maximum associated value
-     about the same size as the number of keys (for efficiency, the
+     about the same size as the number of keywords (for efficiency, the
      maximum associated value is always rounded up to a power of 2).
      The actual table size may vary somewhat, since this technique is
-     essentially a heuristic.  In particular, setting this value too
-     high slows down `gperf''s runtime, since it must search through a
-     much larger range of values.  Judicious use of the `-f' option
-     helps alleviate this overhead, however.
+     essentially a heuristic.
 
 
 File: gperf.info,  Node: Verbosity,  Prev: Algorithmic Details,  Up: Options
@@ -1200,17 +1510,6 @@ Known Bugs and Limitations with `gperf'
      15,000 keywords).  When processing large keyword sets it helps
      greatly to have over 8 megs of RAM.
 
-     However, since `gperf' does not backtrack no guaranteed solution
-     occurs on every run.  On the other hand, it is usually easy to
-     obtain a solution by varying the option parameters.  In
-     particular, try the `-r' option, and also try changing the default
-     arguments to the `-s' and `-j' options.  To _guarantee_ a
-     solution, use the `-D' and `-S' options, although the final
-     results are not likely to be a _perfect_ hash function anymore!
-     Finally, use the `-f' option if you want `gperf' to generate the
-     perfect hash function _fast_, with less emphasis on making it
-     minimal.
-
    * The size of the generate static keyword array can get _extremely_
      large if the input keyword file is large or if the keywords are
      quite similar.  This tends to slow down the compilation of the
@@ -1218,17 +1517,17 @@ Known Bugs and Limitations with `gperf'
      this situation occurs, consider using the `-S' option to reduce
      data size, potentially increasing keyword recognition time a
      negligible amount.  Since many C compilers cannot correctly
-     generated code for large switch statements it is important to
+     generate code for large switch statements it is important to
      qualify the -S option with an appropriate numerical argument that
      controls the number of switch statements generated.
 
-   * The maximum number of key positions selected for a given key has an
-     arbitrary limit of 126.  This restriction should be removed, and if
-     anyone considers this a problem write me and let me know so I can
-     remove the constraint.
+   * The maximum number of selected byte positions has an arbitrary
+     limit of 255.  This restriction should be removed, and if anyone
+     considers this a problem write me and let me know so I can remove
+     the constraint.
 
 
-File: gperf.info,  Node: Projects,  Next: Implementation,  Prev: Bugs,  Up: Top
+File: gperf.info,  Node: Projects,  Next: Bibliography,  Prev: Bugs,  Up: Top
 
 Things Still Left to Do
 ***********************
@@ -1238,45 +1537,22 @@ function algorithm with a more exhaustive approach; the perfect hash
 module is essential independent from other program modules.  Additional
 worthwhile improvements include:
 
-   * Make the algorithm more robust.  At present, the program halts
-     with an error diagnostic if it can't find a direct solution and
-     the `-D' option is not enabled.  A more comprehensive, albeit
-     computationally expensive, approach would employ backtracking or
-     enable alternative options and retry.  It's not clear how helpful
-     this would be, in general, since most search sets are rather small
-     in practice.
-
    * Another useful extension involves modifying the program to generate
      "minimal" perfect hash functions (under certain circumstances, the
      current version can be rather extravagant in the generated table
-     size).  Again, this is mostly of theoretical interest, since a
-     sparse table often produces faster lookups, and use of the `-S'
-     `switch' option can minimize the data size, at the expense of
-     slightly longer lookups (note that the gcc compiler generally
-     produces good code for `switch' statements, reducing the need for
-     more complex schemes).
+     size).  This is mostly of theoretical interest, since a sparse
+     table often produces faster lookups, and use of the `-S' `switch'
+     option can minimize the data size, at the expense of slightly
+     longer lookups (note that the gcc compiler generally produces good
+     code for `switch' statements, reducing the need for more complex
+     schemes).
 
    * In addition to improving the algorithm, it would also be useful to
-     generate a C++ class or Ada package as the code output, in
-     addition to the current C routines.
+     generate an Ada package as the code output, in addition to the
+     current C and C++ routines.
 
 
-File: gperf.info,  Node: Implementation,  Next: Bibliography,  Prev: Projects,  Up: Top
-
-Implementation Details of GNU `gperf'
-*************************************
-
-   A paper describing the high-level description of the data structures
-and algorithms used to implement `gperf' will soon be available.  This
-paper is useful not only from a maintenance and enhancement perspective,
-but also because they demonstrate several clever and useful programming
-techniques, e.g., `Iteration Number' boolean arrays, double hashing, a
-"safe" and efficient method for reading arbitrarily long input from a
-file, and a provably optimal algorithm for simultaneously determining
-both the minimum and maximum elements in a list.
-
-
-File: gperf.info,  Node: Bibliography,  Next: Concept Index,  Prev: Implementation,  Up: Top
+File: gperf.info,  Node: Bibliography,  Next: Concept Index,  Prev: Projects,  Up: Top
 
 Bibliography
 ************
@@ -1311,20 +1587,23 @@ Hash Functions Communications of the ACM, 28, 5(December 1985), 523-532
    [9] Schmidt, Douglas C. GPERF: A Perfect Hash Function Generator
 Second USENIX C++ Conference Proceedings, April 1990.
 
-   [10] Sebesta, R.W. and Taylor, M.A. Minimal Perfect Hash Functions
+   [10] Schmidt, Douglas C. GPERF: A Perfect Hash Function Generator
+C++ Report, SIGS 10 10 (November/December 1998).
+
+   [11] Sebesta, R.W. and Taylor, M.A. Minimal Perfect Hash Functions
 for Reserved Word Lists  SIGPLAN Notices, 20, 12(September 1985), 47-53.
 
-   [11] Sprugnoli, R. Perfect Hashing Functions: A Single Probe
+   [12] Sprugnoli, R. Perfect Hashing Functions: A Single Probe
 Retrieving Method for Static Sets Communications of the ACM, 20
 11(November 1977), 841-850.
 
-   [12] Stallman, Richard M. Using and Porting GNU CC Free Software
+   [13] Stallman, Richard M. Using and Porting GNU CC Free Software
 Foundation, 1988.
 
-   [13] Stroustrup, Bjarne The C++ Programming Language.
+   [14] Stroustrup, Bjarne The C++ Programming Language.
 Addison-Wesley, 1986.
 
-   [14] Tiemann, Michael D. User's Guide to GNU C++ Free Software
+   [15] Tiemann, Michael D. User's Guide to GNU C++ Free Software
 Foundation, 1989.
 
 
@@ -1335,9 +1614,31 @@ Concept Index
 
 * Menu:
 
-* %%:                                    Declarations.
-* %{:                                    Declarations.
-* %}:                                    Declarations.
+* %%:                                    User-supplied Struct.
+* %7bit:                                 Gperf Declarations.
+* %compare-lengths:                      Gperf Declarations.
+* %compare-strncmp:                      Gperf Declarations.
+* %define class-name:                    Gperf Declarations.
+* %define hash-function-name:            Gperf Declarations.
+* %define initializer-suffix:            Gperf Declarations.
+* %define lookup-function-name:          Gperf Declarations.
+* %define slot-name:                     Gperf Declarations.
+* %define string-pool-name:              Gperf Declarations.
+* %define word-array-name:               Gperf Declarations.
+* %delimiters:                           Gperf Declarations.
+* %enum:                                 Gperf Declarations.
+* %global-table:                         Gperf Declarations.
+* %ignore-case:                          Gperf Declarations.
+* %includes:                             Gperf Declarations.
+* %language:                             Gperf Declarations.
+* %null-strings:                         Gperf Declarations.
+* %omit-struct-type:                     Gperf Declarations.
+* %pic:                                  Gperf Declarations.
+* %readonly-tables:                      Gperf Declarations.
+* %struct-type:                          Gperf Declarations.
+* %switch:                               Gperf Declarations.
+* %{:                                    C Code Inclusion.
+* %}:                                    C Code Inclusion.
 * Array name:                            Output Details.
 * Bugs:                                  Contributors.
 * Class name:                            Output Details.
@@ -1362,28 +1663,32 @@ Concept Index
 
 
 Tag Table:
-Node: Top1236
-Node: Copying3130
-Node: Contributors22321
-Node: Motivation23580
-Node: Search Structures24656
-Node: Description28201
-Node: Input Format30102
-Node: Declarations30944
-Node: Keywords33268
-Node: Functions35023
-Node: Output Format35517
-Node: Binary Strings38113
-Node: Options39119
-Node: Input Details39825
-Node: Output Language40890
-Node: Output Details42194
-Node: Algorithmic Details46842
-Node: Verbosity54284
-Node: Bugs54987
-Node: Projects57215
-Node: Implementation58792
-Node: Bibliography59509
-Node: Concept Index61452
+Node: Top1240
+Node: Copying3324
+Node: Contributors22513
+Node: Motivation23706
+Node: Search Structures24834
+Node: Description28389
+Node: Input Format30282
+Node: Declarations31419
+Node: User-supplied Struct31995
+Node: Gperf Declarations33594
+Node: C Code Inclusion42004
+Node: Keywords42831
+Node: Functions44767
+Node: Controls for GNU indent45293
+Node: Output Format46232
+Node: Binary Strings49016
+Node: Options50159
+Node: Output File50944
+Node: Input Details51328
+Node: Output Language53159
+Node: Output Details54570
+Node: Algorithmic Details61485
+Node: Verbosity66734
+Node: Bugs67437
+Node: Projects69029
+Node: Bibliography70157
+Node: Concept Index72213
 
 End Tag Table

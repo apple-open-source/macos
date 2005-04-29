@@ -1,0 +1,12 @@
+--- islower.3.orig	Fri Mar 11 19:25:22 2005
++++ islower.3	Fri Mar 11 19:26:51 2005
+@@ -92,7 +92,8 @@
+ .Xr iswlower 3 ,
+ .Xr multibyte 3 ,
+ .Xr tolower 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr isalnum_l
+ .Sh STANDARDS
+ The
+ .Fn islower

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCreIC.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCreIC.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,17 +144,12 @@
 .SH NAME
 XCreateIC, XDestroyIC, XIMOfIC \- create, destroy, and obtain the input method of an input context
 .SH SYNTAX
-XIC XCreateIC\^(\^\fIim\fP\^, ...)
-.br
-      XIM \fIim\fP\^;
-.LP
-void XDestroyIC\^(\^\fIic\fP\^)
-.br
-      XIC \fIic\fP\^;
-.LP
-XIM XIMOfIC\^(\^\fIic\fP\^)
-.br
-      XIC \fIic\fP\^; 
+.HP
+XIC XCreateIC\^(\^XIM \fIim\fP\^, ...\^); 
+.HP
+void XDestroyIC\^(\^XIC \fIic\fP\^); 
+.HP
+XIM XIMOfIC\^(\^XIC \fIic\fP\^);
 .SH ARGUMENTS
 .IP \fIic\fP 1i
 Specifies the input context.

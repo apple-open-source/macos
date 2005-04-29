@@ -28,7 +28,7 @@
  * Authors: Paulo César Pereira de Andrade <pcpa@conectiva.com.br>
  *          David Dawes <dawes@xfree86.org>
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vesa/vesa.c,v 1.36 2003/01/23 17:20:46 tsi Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/drivers/vesa/vesa.c,v 1.41 2003/11/07 22:50:57 dawes Exp $
  */
 
 #include "vesa.h"
@@ -148,6 +148,7 @@ static const OptionInfoRec VESAOptions[] = {
  * xf86LoaderReqSymLists().  The purpose is this is to avoid warnings about
  * unresolved symbols that are not required.
  */
+#ifdef XFree86LOADER
 static const char *miscfbSymbols[] = {
     "xf1bppScreenInit",
     "xf4bppScreenInit",
@@ -155,6 +156,7 @@ static const char *miscfbSymbols[] = {
     "mfbScreenInit",
     NULL
 };
+#endif
 
 static const char *fbSymbols[] = {
     "fbPictureInit",
@@ -193,13 +195,13 @@ static const char *vbeSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *ddcSymbols[] = {
     "xf86PrintEDID",
     "xf86SetDDCproperties",
     NULL
 };
 
-#ifdef XFree86LOADER
 
 /* Module loader interface */
 static MODULESETUPPROTO(vesaSetup);
@@ -437,7 +439,7 @@ VESAPreInit(ScrnInfoPtr pScrn, int flags)
     const char *reqSym = NULL;
     Gamma gzeros = {0.0, 0.0, 0.0};
     rgb rzeros = {0, 0, 0};
-    pointer pVbeModule, pDDCModule;
+    pointer pDDCModule;
     int i;
     int flags24 = 0;
     int defaultDepth = 0;
@@ -460,7 +462,7 @@ VESAPreInit(ScrnInfoPtr pScrn, int flags)
 #endif
 
     /* Load vbe module */
-    if ((pVbeModule = xf86LoadSubModule(pScrn, "vbe")) == NULL)
+    if (!xf86LoadSubModule(pScrn, "vbe"))
         return (FALSE);
 
     xf86LoaderReqSymLists(vbeSymbols, NULL);
@@ -582,85 +584,6 @@ VESAPreInit(ScrnInfoPtr pScrn, int flags)
     }
 
     VBESetModeNames(pScrn->modePool);
-
-    /*
-     * If DDC information is available, use it to try to set the monitor
-     * parameters if they're not already set.
-     *
-     * The common layer will already do this, but doesn't try as hard.  If
-     * this proves useful, it should probably be moved into the common layer.
-     */
-    if (pVesa->monitor != NULL) {
-	MonPtr pMon;
-
-	pMon = pScrn->monitor;
-	if (pMon->nHsync == 0 || pMon->nVrefresh == 0) {
-	    struct monitor_ranges *mRange;
-	    float hmin = 1e6, hmax = 0.0, vmin = 1e6, vmax = 0.0;
-	    float h;
-	    struct std_timings *t;
-	    int j, k;
-
-	    j = 0;
-	    for (i = 0; i < DET_TIMINGS; i++) {
-		if (pVesa->monitor->det_mon[i].type == DS_RANGES) {
-		    mRange = &pVesa->monitor->det_mon[i].section.ranges;
-		    pMon->hsync[j].lo = mRange->min_h;
-		    pMon->hsync[j].hi = mRange->max_h;
-		    pMon->vrefresh[j].lo = mRange->min_v;
-		    pMon->vrefresh[j].hi = mRange->max_v;
-		    j++;
-		} else if (pVesa->monitor->det_mon[i].type == DS_STD_TIMINGS) {
-		    t = pVesa->monitor->det_mon[i].section.std_t;
-		    for (k = 0; k < 5; k++) {
-			if (t[k].hsize > 256) { /* sanity check */
-			    if (t[k].refresh < vmin)
-				vmin = t[i].refresh;
-			    if (t[k].refresh > vmax)
-				vmax = t[i].refresh;
-			    h = t[k].refresh * 1.07 * t[k].vsize / 1000.0;
-			    if (h < hmin)
-				hmin = h;
-			    if (h > hmax)
-				hmax = h;
-			}
-		    }
-		}
-		
-		if (j > MAX_HSYNC)
-		    break;
-	    }
-
-	    if (j == 0) {
-		t = pVesa->monitor->timings2;
-		for (i = 0; i < STD_TIMINGS; i++) {
-		    if (t[i].hsize > 256) { /* sanity check */
-			if (t[i].refresh < vmin)
-			    vmin = t[i].refresh;
-			if (t[i].refresh > vmax)
-			    vmax = t[i].refresh;
-			h = t[i].refresh * 1.07 * t[i].vsize / 1000.0;
-			if (h < hmin)
-			    hmin = h;
-			if (h > hmax)
-			    hmax = h;
-		    }
-		}
-		if (hmax > 0.0) {
-		    pMon->hsync[j].lo = hmin;
-		    pMon->hsync[j].hi = hmax;
-		    pMon->vrefresh[j].lo = vmin;
-		    pMon->vrefresh[j].hi = vmax;
-		    j++;
-		}
-	    }
-	    if (j > 0) {
-		pMon->nHsync = pMon->nVrefresh = j;
-		xf86DrvMsg(pScrn->scrnIndex, X_PROBED,
-			   "Monitor parameters set to DDC-probed values\n");
-	    }
-	}
-    }
 
     i = VBEValidateModes(pScrn, NULL, pScrn->display->modes, 
 			  NULL, NULL, 0, 2048, 1, 0, 2048,
@@ -860,6 +783,12 @@ VESAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if (!VESASetMode(pScrn, pScrn->currentMode))
 	return (FALSE);
 
+    /* set the viewport */
+    VESAAdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
+
+    /* Blank the screen for aesthetic reasons. */
+    VESASaveScreen(pScreen, SCREEN_SAVER_ON);
+
     /* mi layer */
     miClearVisualTypes();
     if (!xf86SetDefaultVisual(pScrn, -1))
@@ -1052,8 +981,12 @@ VESAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
 static Bool
 VESAEnterVT(int scrnIndex, int flags)
 {
-    return (VESASetMode(xf86Screens[scrnIndex],
-			xf86Screens[scrnIndex]->currentMode));
+    ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+
+    if (!VESASetMode(pScrn, pScrn->currentMode))
+	return FALSE;
+    VESAAdjustFrame(scrnIndex, pScrn->frameX0, pScrn->frameY0, 0);
+    return TRUE;
 }
 
 static void
@@ -1192,7 +1125,7 @@ VESAMapVidMem(ScrnInfoPtr pScrn)
 
     xf86DrvMsgVerb(pScrn->scrnIndex, X_INFO, DEBUG_VERB,
 		   "virtual address = %p,\n"
-		   "\tphysical address = %p, size = %d\n",
+		   "\tphysical address = 0x%lx, size = %ld\n",
 		   pVesa->base, pScrn->memPhysBase, pVesa->mapSize);
 
     return (pVesa->base != NULL);
@@ -1327,9 +1260,7 @@ VESALoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices,
 static void
 WriteAttr(VESAPtr pVesa, int index, int value)
 {
-    CARD8 tmp;
-
-    tmp = inb(pVesa->ioBase + VGA_IOBASE_COLOR + VGA_IN_STAT_1_OFFSET);
+    (void) inb(pVesa->ioBase + VGA_IOBASE_COLOR + VGA_IN_STAT_1_OFFSET);
 
     index |= 0x20;
     outb(pVesa->ioBase + VGA_ATTR_INDEX, index);
@@ -1339,9 +1270,7 @@ WriteAttr(VESAPtr pVesa, int index, int value)
 static int
 ReadAttr(VESAPtr pVesa, int index)
 {
-    CARD8 tmp;
-
-    tmp = inb(pVesa->ioBase + VGA_IOBASE_COLOR + VGA_IN_STAT_1_OFFSET);
+    (void) inb(pVesa->ioBase + VGA_IOBASE_COLOR + VGA_IN_STAT_1_OFFSET);
 
     index |= 0x20;
     outb(pVesa->ioBase + VGA_ATTR_INDEX, index);

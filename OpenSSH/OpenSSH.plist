@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>OpenSSH</string>
+	<key>OpenSourceVersion</key>
+	<string>3.8.1p1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://openssh.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://gulus.usherbrooke.ca/pub/appl/ssh/OpenSSH/portable/openssh-3.8.1p1.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>1dbfd40ae683f822ae917eebf171ca42</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-08-03</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>BSM patches from http://bugzilla.mindrot.org/show_bug.cgi?id=125</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>OpenSSH.txt</string>
+</dict>
+</plist>

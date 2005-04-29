@@ -898,7 +898,7 @@ Mesa Version History
 	- fixed 3DNow! code to not read past end of arrays (Andrew Lewycky)
 
 
-4.0.1  December 17, 2001
+4.0.1 December 17, 2001
     New:
 	- better sub-pixel sample positions for AA triangles (Ray Tice)
 	- slightly faster blending for (GL_ZERO, GL_ONE) and (GL_ONE, GL_ZERO)
@@ -1009,3 +1009,139 @@ Mesa Version History
     Changes:
 	- max texture units reduced to six to accomodate texture rectangles
 	- removed unfinished GL_MESA_sprite_point extension code
+
+
+4.1  October 29, 2002
+    New:
+	- GL_NV_vertex_program extension
+	- GL_NV_vertex_program1_1 extension
+	- GL_ARB_window_pos extension
+	- GL_ARB_depth_texture extension
+	- GL_ARB_shadow extension
+	- GL_ARB_shadow_ambient extension
+	- GL_EXT_shadow_funcs extension
+	- GL_ARB_point_parameters extension
+	- GL_ARB_texture_env_crossbar
+	- GL_NV_point_sprite extension
+	- GL_NV_texture_rectangle extension
+	- GL_EXT_multi_draw_arrays extension
+	- GL_EXT_stencil_two_side extension
+	- GLX_SGIX_fbconfig and GLX_SGIX_pbuffer extensions
+	- GL_ATI_texture_mirror_once extension (Ian Romanick)
+	- massive overhaul/simplification of software rasterizer module,
+	  many contributions from Klaus Niederkrueger
+	- faster software texturing in some cases (i.e. trilinear filtering)
+	- new OSMesaGetProcAddress() function
+	- more blend modes implemented with MMX code (Jose Fonseca)
+	- added glutGetProcAddress() to GLUT
+	- added GLUT_FPS env var to compute frames/second in glutSwapBuffers()
+	- pbinfo and pbdemo PBuffer programs
+	- glxinfo -v prints transprent pixel info (Gerd Sussner)
+    Bug fixes:
+	- better mipmap LOD computation (prevents excessive blurriness)
+	- OSMesaMakeCurrent() didn't recognize buffer size changes
+	- assorted conformance fixes for 16-bit/channel rendering
+	- texcombine alpha subtraction mode was broken
+	- fixed some blend problems when GLchan==GLfloat (Gerk Huisma)
+	- clamp colors to [0,inf] in OSMesa if GLchan==GLfloat (Gerk Huisma)
+	- fixed divide by zero error in NURBS tessellator (Jon Perry)
+	- fixed GL_LINEAR fog bug by adding clamping
+	- fixed FP exceptions found using Alpha CPU
+	- 3dfx/glide driver render-to-window feature was broken
+	- added missing GLX_TRANSPARENT_RGB token to glx.h
+	- fixed error checking related to paletted textures
+	- fixed reference count error in glDeleteTextures (Randy Fayan)
+    Changes:
+	- New spec file and Python code to generate some GL dispatch files
+	- Glide driver defaults to "no" with autoconf/automake
+	- updated demos/stex3d with new options
+
+
+5.0  November 13, 2002
+    New:
+	- OpenGL 1.4 support (glGetString(GL_VERSION) returns "1.4")
+	- removed some overlooked debugging code
+	- glxinfo updated to support GLX_ARB_multisample
+	- GLUT now support GLX_ARB_multisample
+	- updated DOS driver (Daniel Borca)
+    Bug fixes:
+	- GL_POINT and GL_LINE-mode polygons didn't obey cull state
+	- fixed potential bug in _mesa_align_malloc/calloc()
+	- fixed missing triangle bug when running vertex programs
+	- fixed a few HPUX compilation problems
+	- FX (Glide) driver didn't compile
+	- setting GL_TEXTURE_BORDER_COLOR with glTexParameteriv() didn't work
+	- a few EXT functions, like glGenTexturesEXT, were no-ops
+	- a few OpenGL 1.4 functions like glFogCoord*, glBlendFuncSeparate,
+	  glMultiDrawArrays and glMultiDrawElements were missing
+	- glGet*(GL_ACTIVE_STENCIL_FACE_EXT) was broken
+	- Pentium 4 Mobile was mistakenly identified as having 3DNow!
+	- fixed one-bit error in point/line fragment Z calculation
+	- fixed potential segfault in fakeglx code
+	- fixed color overflow problem in DOT3 texture env mode
+
+
+5.0.1  March 30, 2003
+    New:
+	- DOS driver updates from Daniel Borca
+	- updated GL/gl_mangle.h file (Bill Hoffman)
+    Bug fixes:
+	- auto mipmap generation for cube maps was broken (bug 641363)
+	- writing/clearing software alpha channels was unreliable
+	- minor compilation fixes for OS/2 (Evgeny Kotsuba)
+	- fixed some bad assertions found with shadowtex demo
+	- fixed error checking bug in glCopyTexSubImage2D (bug 659020)
+	- glRotate(angle, -x, 0, 0) was incorrect (bug 659677)
+	- fixed potential segfault in texture object validation (bug 659012)
+	- fixed some bogus code in _mesa_test_os_sse_exception_support (Linus)
+	- fix fog stride bug in tnl code for h/w drivers (Michel Danzer)
+	- fixed glActiveTexture / glMatrixMode(GL_TEXTURE) bug (#669080)
+	- glGet(GL_CURRENT_SECONDARY_COLOR) should return 4 values, not 3
+	- fixed compilation problem on Solaris7/x86 (bug 536406)
+	- fixed prefetch bug in 3DNow! code (Felix Kuhling)
+	- fixed NeXT build problem (FABSF macro)
+	- glDrawPixels Z values when glPixelZoom!=1 were invalid (bug 687811)
+	- zoomed glDraw/CopyPixels with clipping sometimes failed (bug 689964)
+	- AA line and triangle Z values are now rounded, not truncated
+	- fixed color interpolation bug when GLchan==GLfloat (bug 694461)
+	- glArePrograms/TexturesResident() wasn't 100% correct (Jose Fonseca)
+	- fixed a minor GL_COLOR_MATERIAL bug
+	- NV vertex program EXP instruction was broken
+	- glColorMask misbehaved with X window / pixmap rendering
+	- fix autoconf/libtool GLU C++ linker problem on Linux (a total hack)
+	- attempt to fix GGI compilation problem when MesaDemos not present
+	- NV vertex program ARL-relative fetches didn't work
+    Changes:
+	- use glPolygonOffset in gloss demo to avoid z-fighting artifacts
+	- updated winpos and pointblast demos to use ARB extensions
+	- disable SPARC normal transformation code (bug 673938)
+	- GLU fixes for OS/2 (Evgeny Kotsuba)
+
+
+5.0.2  September 5, 2003
+    Bug fixes:
+	- fixed texgen problem causing texcoord's Q to be zero (stex3d)
+	- default GL_TEXTURE_COMPARE_MODE_ARB was wrong
+	- GL_CURRENT_MATRIX_NV query was wrong
+	- GL_CURRENT_MATRIX_STACK_DEPTH_NV query was off by one
+	- GL_LIST_MODE query wasn't correct
+	- GL_FOG_COORDINATE_SOURCE_EXT query wasn't supported
+	- GL_SECONDARY_COLOR_ARRAY_SIZE_EXT query returned wrong value
+	- blended, wide lines didn't always work correctly (bug 711595)
+	- glVertexAttrib4svNV w component was always 1
+	- fixed bug in GL_IBM_rasterpos_clip (missing return)
+	- GL_DEPTH_TEXTURE_MODE = GL_ALPHA didn't work correctly
+	- a few Solaris compilation fixes
+	- fixed glClear() problem for DRI drivers (non-existant stencil, etc)
+	- fixed int/REAL mixup in GLU NURBS curve evaluator (Eric Cazeaux)
+	- fixed delete [] bug in SI GLU (bug 721765) (Diego Santa Cruz)
+	- glFog() didn't clamp fog colors
+	- fixed bad float/int conversion for GL_TEXTURE_PRIORITY in the
+	  gl[Get]TexParameteri[v] functions
+	- fixed invalid memory references in glTexGen functions (bug 781602)
+	- integer-valued color arrays weren't handled correctly
+	- glDrawPixels(GL_DEPTH_COMPONENT) with glPixelZoom didn't work
+	- GL_EXT_texture_lod_bias is part of 1.4, overlooked in 5.0.1
+    Changes:
+	- build GLUT with -fexceptions so C++ apps propogate exceptions
+

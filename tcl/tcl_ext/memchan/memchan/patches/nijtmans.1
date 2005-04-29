@@ -1,0 +1,52 @@
+*** Makefile.in.orig	Thu Dec  5 13:08:40 1996
+--- Makefile.in	Thu Dec  5 13:09:55 1996
+***************
+*** 46,53 ****
+  INSTALL_ROOT =
+  
+  
+  # Directory in which to install the archive libMEMCHAN.a:
+! LIB_INSTALL_DIR =	$(INSTALL_ROOT)$(exec_prefix)/lib/$(EXTENSION)$(VERSION)
+  
+  
+  # Directory in which to install the extended shell tclsh:
+--- 46,57 ----
+  INSTALL_ROOT =
+  
+  
++ # Directory in which libMEMCHAN.a is at runtime:
++ LIB_RUNTIME_DIR =	$(exec_prefix)/lib/$(EXTENSION)$(VERSION)
++ 
++ 
+  # Directory in which to install the archive libMEMCHAN.a:
+! LIB_INSTALL_DIR =	$(INSTALL_ROOT)$(LIB_RUNTIME_DIR)
+  
+  
+  # Directory in which to install the extended shell tclsh:
+*** configure.in.orig	Thu Dec  5 13:11:10 1996
+--- configure.in	Thu Dec  5 13:13:48 1996
+***************
+*** 286,290 ****
+  
+  
+  dnl
+! AC_OUTPUT(Makefile pkgIndex)
+  
+--- 286,290 ----
+  
+  
+  dnl
+! AC_OUTPUT(Makefile pkgIndex.tcl)
+  
+*** pkgIndex.tcl.in.orig	Thu Dec  5 13:12:16 1996
+--- pkgIndex.tcl.in	Thu Dec  5 13:13:21 1996
+***************
+*** 0 ****
+--- 1,6 ----
++ # Tcl package index file, manually generated
++ #
++ # @configure_input@
++ #
++ 
++ package ifneeded Memchan @MEMCHAN_VERSION@ [list tclPkgSetup $dir Memchan @MEMCHAN_VERSION@ {{@MEMCHAN_LIB_FILE@ load memchan}}]
+

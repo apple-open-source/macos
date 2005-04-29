@@ -107,7 +107,7 @@ namespace IOFireWireLib {
 		}
 		else
 		{
-			result = IOVirtualRangeMake( NULL, 0 ) ;
+			result = IOVirtualRangeMake( 0, 0 ) ;
 		}
 		
 		return kIOReturnSuccess ;

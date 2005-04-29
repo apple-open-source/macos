@@ -9,6 +9,8 @@
 #include <mach-o/arch.h>
 #include <mach-o/fat.h>
 
+#include <mach/mach.h>
+#include <mach/mach_types.h>
 #include <mach/kmod.h>
 
 static const char * progname = "mkextunpack";
@@ -195,6 +197,19 @@ finish:
     exit(exit_code);
     return exit_code;
 }
+/*******************************************************************************
+*
+*******************************************************************************/
+
+static Boolean CaseInsensitiveEqual(CFTypeRef left, CFTypeRef right)
+{
+    return (kCFCompareEqualTo == CFStringCompare(left, right, kCFCompareCaseInsensitive));
+}
+
+static CFHashCode CaseInsensitiveHash(const void *key)
+{
+    return (CFStringGetLength(key));
+}
 
 /*******************************************************************************
 *
@@ -221,9 +236,14 @@ CFDictionaryRef extractEntriesFromMkext(char * mkextFileData, char * arch)
     CFDictionaryRef kextPlist = 0;        // must release
     CFStringRef     errorString = NULL;   // must release
     CFDataRef       kextExecutable = 0;   // must release
+    CFDictionaryKeyCallBacks keyCallBacks;
 
+
+    keyCallBacks = kCFTypeDictionaryKeyCallBacks;
+    keyCallBacks.equal = &CaseInsensitiveEqual;
+    keyCallBacks.hash = &CaseInsensitiveHash;
     entries = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-        &kCFTypeDictionaryKeyCallBacks,
+        &keyCallBacks,
         &kCFTypeDictionaryValueCallBacks);
     if (!entries) {
         goto finish;
@@ -530,8 +550,12 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
     for (i = 0; i < count; i++) {
         CFStringRef kextName = kextNames[i];
         char kext_name[MAXPATHLEN];  // overkill but hey
+        char executable_name[MAXPATHLEN];  // overkill but hey
         CFDictionaryRef kextEntry = entries[i];
         CFDataRef fileData = NULL;
+	CFDictionaryRef plist;
+	CFStringRef executableString;
+
         const char * file_data = NULL;
         int fd;
         CFIndex bytesWritten;
@@ -620,8 +644,21 @@ Boolean writeEntriesToDirectory(CFDictionaryRef entryDict,
             goto finish;
         }
 
+        plist = CFDictionaryGetValue(kextEntry, CFSTR("plist"));
+	executableString = CFDictionaryGetValue(plist, CFSTR("CFBundleExecutable"));
+        if (!executableString) {
+            fprintf(stderr, "kext %s has executable but no CFBundleExecutable property\n", kext_name);
+            continue;
+        }
+        if (!CFStringGetCString(executableString, executable_name, sizeof(executable_name) -1,
+            kCFStringEncodingMacRoman)) {
+            fprintf(stderr, "memory or string conversion error\n");
+            result = false;
+            goto finish;
+        }
+
         strcat(path, "/");
-        strcat(path, kext_name);
+        strcat(path, executable_name);
 
         fd = open(path, O_WRONLY | O_CREAT, 0777);
         if (fd < 0) {

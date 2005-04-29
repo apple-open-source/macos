@@ -65,12 +65,12 @@ case $machine in
     armel-semi-aout | \
     arm-semi-aof | \
     armel-semi-aof | \
-    c*-convex-* | \
     hppa1.1-*-osf* | \
     hppa1.0-*-osf* | \
     hppa1.1-*-bsd* | \
     hppa1.0-*-bsd* | \
     hppa*-*-lites* | \
+    i370-*-openedition | \
     i?86-moss-msdos* | \
     i?86-*-moss* | \
     i?86-*-osf1* | \
@@ -79,7 +79,6 @@ case $machine in
     i?86-*-cygwin* | \
     i?86-*-mingw32* | \
     i?86-*-uwin* | \
-    mips-sgi-irix5cross64 | \
     powerpc-*-eabiaix* | \
     powerpc-*-eabisim* | \
     powerpc-*-eabi*    | \

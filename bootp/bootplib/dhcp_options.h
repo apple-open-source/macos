@@ -6,19 +6,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -35,6 +36,7 @@
  * November 23, 1999	Dieter Siegmund (dieter@apple)
  * - created
  */
+#include <stdio.h>
 #include <mach/boolean.h>
 #include "ptrlist.h"
 #include "dhcp.h"
@@ -103,7 +105,7 @@ void
 dhcpoa_init_no_end(dhcpoa_t * opt, void * buffer, int size);
 
 dhcpoa_ret_t
-dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, void * option);
+dhcpoa_add(dhcpoa_t * oa_p, dhcptag_t tag, int len, const void * option);
 
 dhcpoa_ret_t
 dhcpoa_add_from_strlist(dhcpoa_t * oa_p, dhcptag_t tag, 
@@ -165,6 +167,7 @@ boolean_t		dhcpol_parse_vendor(dhcpol_t * vendor,
 					    dhcpol_t * options,
 					    unsigned char * err);
 void			dhcpol_print(dhcpol_t * list);
+void			dhcpol_fprint(FILE * f, dhcpol_t * list);
 
 /*
  * Functions: dhcptype_*, dhcptag_*
@@ -173,7 +176,7 @@ void			dhcpol_print(dhcpol_t * list);
  *   Get tag and type information as well as do conversions.
  */
 
-dhcptype_info_t *	dhcptype_info(dhcptype_t type);
+const dhcptype_info_t *	dhcptype_info(dhcptype_t type);
 boolean_t		dhcptype_from_str(unsigned char * str, 
 					  int type, void * buf, int * len_p,
 					  unsigned char * err);
@@ -185,9 +188,9 @@ void			dhcptype_print_simple(dhcptype_t type,
 void			dhcptype_print(dhcptype_t type, void * option, 
 				       int option_len);
 
-dhcptag_info_t *	dhcptag_info(dhcptag_t tag);
+const dhcptag_info_t *	dhcptag_info(dhcptag_t tag);
 dhcptag_t		dhcptag_with_name(unsigned char * name);
-unsigned char *		dhcptag_name(int tag);
+const char *		dhcptag_name(int tag);
 boolean_t		dhcptag_from_strlist(unsigned char * * slist, 
 					     int num, int tag, void * buf, 
 					     int * len_p, 

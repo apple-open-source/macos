@@ -16,7 +16,7 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static const char rcsid[] = "$Id: res_data.c,v 1.3 2003/02/25 19:03:07 majka Exp $";
+static const char rcsid[] = "$Id: res_data.c,v 1.5 2005/01/27 00:25:32 majka Exp $";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/types.h>
@@ -38,6 +38,14 @@ static const char rcsid[] = "$Id: res_data.c,v 1.3 2003/02/25 19:03:07 majka Exp
 #include <unistd.h>
 
 #include "res_private.h"
+
+static struct __res_state *_res_static;
+
+#ifdef USE__RES_9
+struct __res_9_state _res_9;
+#endif
+
+extern int __res_vinit(res_state, int);
 
 const char *__res_opcodes[] = {
 	"QUERY",
@@ -73,29 +81,24 @@ res_client_close(res_state res)
 	free(res);
 }
 
-/*
- * Open a resolver client, reading configuration from the
- * given file rather than the default (/etc/resolv.conf).
- */
 res_state
-res_client_open(char *path)
+res_state_new()
 {
-	extern int res_vinit_from_file(res_state, int, char *);
 	res_state x;
-	int status;
 
 	x = (res_state)calloc(1, sizeof(struct __res_state));
 	if (x == NULL) return NULL;
+	
+	/*
+	 * We use _pad (normally unused) to hold a version number.
+	 * We use it provide limited compatibility between versions.
+	 */
+	x->_pad = 9;
 
-	x->retrans = RES_TIMEOUT;
-	x->retry = 4;
-	x->options = RES_DEFAULT;
-	x->id = res_randomid();
-
-	status = res_vinit_from_file(x, 1, path);
-	if (status != 0)
+	x->_u._ext.ext = (struct __res_state_ext *)calloc(1, sizeof(struct __res_state_ext));
+	if (x->_u._ext.ext == NULL)
 	{
-		res_client_close(x);
+		free(x);
 		return NULL;
 	}
 
@@ -106,32 +109,74 @@ int
 res_init(void)
 {
 	extern int __res_vinit(res_state, int);
+	unsigned int save_retrans, save_retry, save_options, save_id;
+	struct __res_state_ext *save_ext;
 
-	if (!_res.retrans) _res.retrans = RES_TIMEOUT;
-	if (!_res.retry) _res.retry = 4;
-	if (!(_res.options & RES_INIT)) _res.options = RES_DEFAULT;
-	if (!_res.id) _res.id = res_randomid();
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
 
-	return (__res_vinit(&_res, 1));
+	save_retrans = RES_TIMEOUT;
+	save_retry = RES_DFLRETRY;
+	save_options = RES_DEFAULT;
+	save_id = res_randomid();
+	save_ext = _res_static->_u._ext.ext;
+
+	if (_res_static->options & RES_INIT)
+	{
+		/* Caller wants to override default options */
+		save_options = _res_static->options;
+		if (_res_static->retrans != 0) save_retrans = _res_static->retrans;
+		if (_res_static->retry != 0) save_retry = _res_static->retry;
+		if (_res_static->id != 0) save_id = _res_static->id;
+	}
+
+	memset(_res_static, 0, sizeof(struct __res_state));
+
+	_res_static->retrans = save_retrans;
+	_res_static->retry = save_retry;
+	_res_static->id = save_id;
+	_res_static->options = save_options;
+	_res_static->_u._ext.ext = save_ext;
+
+	_res_static->_pad = 9;
+	
+	if (_res_static->_u._ext.ext == NULL) _res_static->_u._ext.ext = (struct __res_state_ext *)calloc(1, sizeof(struct __res_state_ext));
+
+	return (__res_vinit(_res_static, 1));
 }
 
 int
 res_query(const char *name, int class, int type, u_char *answer, int anslen)	
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
-		RES_SET_H_ERRNO(&_res, NETDB_INTERNAL);
+		RES_SET_H_ERRNO(_res_static, NETDB_INTERNAL);
 		return -1;
 	}
-	return (res_nquery(&_res, name, class, type, answer, anslen));
+	return (res_nquery(_res_static, name, class, type, answer, anslen));
 }
 
 void
 fp_nquery(const u_char *msg, int len, FILE *file)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1)) return;
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1)) return;
 
-	res_pquery(&_res, msg, len, file);
+	res_pquery(_res_static, msg, len, file);
 }
 
 void
@@ -151,19 +196,37 @@ hostalias(const char *name)
 {
 	static char abuf[NS_MAXDNAME];
 
-	return (res_hostalias(&_res, name, abuf, sizeof abuf));
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	return (res_hostalias(_res_static, name, abuf, sizeof abuf));
 }
 
 void
 res_close(void)
 {
-	res_nclose(&_res);
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	res_nclose(_res_static);
 }
 
 int
 res_isourserver(const struct sockaddr_in *inp)
 {
-	return (res_ourserver_p(&_res, (const struct sockaddr *)inp));
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	return (res_ourserver_p(_res_static, (const struct sockaddr *)inp));
 }
 
 int
@@ -175,59 +238,89 @@ res_nisourserver(const res_state res, const struct sockaddr_in *inp)
 int
 res_mkquery(int op, const char *dname, int class, int type, const u_char *data, int datalen, const u_char *newrr_in, u_char *buf, int buflen)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
-		RES_SET_H_ERRNO(&_res, NETDB_INTERNAL);
+		RES_SET_H_ERRNO(_res_static, NETDB_INTERNAL);
 		return -1;
 	}
 
-	return res_nmkquery(&_res, op, dname, class, type, data, datalen, newrr_in, buf, buflen);
+	return res_nmkquery(_res_static, op, dname, class, type, data, datalen, newrr_in, buf, buflen);
 }
 
 int
 res_querydomain(const char *name, const char *domain, int class, int type, u_char *answer, int anslen)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
-		RES_SET_H_ERRNO(&_res, NETDB_INTERNAL);
+		RES_SET_H_ERRNO(_res_static, NETDB_INTERNAL);
 		return -1;
 	}
 
-	return res_nquerydomain(&_res, name, domain, class, type, answer, anslen);
+	return res_nquerydomain(_res_static, name, domain, class, type, answer, anslen);
 }
 
 int
 res_search(const char *name, int class, int type, u_char *answer, int anslen)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
-		RES_SET_H_ERRNO(&_res, NETDB_INTERNAL);
+		RES_SET_H_ERRNO(_res_static, NETDB_INTERNAL);
 		return -1;
 	}
 
-	return res_nsearch(&_res, name, class, type, answer, anslen);
+	return res_nsearch(_res_static, name, class, type, answer, anslen);
 }
 
 int
 res_send(const u_char *buf, int buflen, u_char *ans, int anssiz)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
 		/* errno should have been set by res_init() in this case. */
 		return -1;
 	}
 
-	return res_nsend(&_res, buf, buflen, ans, anssiz);
+	return res_nsend(_res_static, buf, buflen, ans, anssiz);
 }
 
 int
 res_sendsigned(const u_char *buf, int buflen, ns_tsig_key *key, u_char *ans, int anssiz)
 {
-	if (((_res.options & RES_INIT) == 0) && (res_init() == -1))
+#ifdef USE__RES_9
+	_res_static = &_res_9;
+#else
+	_res_static = &_res;
+#endif
+	
+	if (((_res_static->options & RES_INIT) == 0) && (res_init() == -1))
 	{
 		/* errno should have been set by res_init() in this case. */
 		return -1;
 	}
 
-	return res_nsendsigned(&_res, buf, buflen, key, ans, anssiz);
+	return res_nsendsigned(_res_static, buf, buflen, key, ans, anssiz);
 }

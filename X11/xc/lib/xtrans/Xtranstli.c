@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/xtrans/Xtranstli.c,v 3.11 2002/12/15 01:28:33 dawes Exp $ */
+/* $XFree86: xc/lib/xtrans/Xtranstli.c,v 3.13 2003/08/26 15:38:39 tsi Exp $ */
 
 /* Copyright 1993, 1994 NCR Corporation - Dayton, Ohio, USA
  *
@@ -751,7 +751,7 @@ TRANS(TLICreateListener)(XtransConnInfo ciptr, struct t_bind *req)
 
 
 static int
-TRANS(TLIINETCreateListener)(XtransConnInfo ciptr, char *port)
+TRANS(TLIINETCreateListener)(XtransConnInfo ciptr, char *port, unsigned int flags)
 
 {
     char    portbuf[PORTBUFSIZE];
@@ -813,7 +813,7 @@ TRANS(TLIINETCreateListener)(XtransConnInfo ciptr, char *port)
 
 
 static int
-TRANS(TLITLICreateListener)(XtransConnInfo ciptr, char *port)
+TRANS(TLITLICreateListener)(XtransConnInfo ciptr, char *port, unsigned int flags)
 
 {
     struct t_bind	*req;
@@ -1306,6 +1306,7 @@ Xtransport	TRANS(TLITCPFuncs) = {
 	TRANS(TLIOpenCOTSClient),
 #endif /* TRANS_CLIENT */
 #ifdef TRANS_SERVER
+	NULL,
 	TRANS(TLIOpenCOTSServer),
 #endif /* TRANS_SERVER */
 #ifdef TRANS_CLIENT
@@ -1337,6 +1338,9 @@ Xtransport	TRANS(TLITCPFuncs) = {
 	TRANS(TLICloseForCloning),
 };
 
+#ifdef TRANS_SERVER
+static char * inet_aliases[] = { "tcp", NULL };
+#endif
 Xtransport	TRANS(TLIINETFuncs) = {
 	/* TLI Interface */
 	"inet",
@@ -1345,6 +1349,7 @@ Xtransport	TRANS(TLIINETFuncs) = {
 	TRANS(TLIOpenCOTSClient),
 #endif /* TRANS_CLIENT */
 #ifdef TRANS_SERVER
+	inet_aliases,
 	TRANS(TLIOpenCOTSServer),
 #endif /* TRANS_SERVER */
 #ifdef TRANS_CLIENT
@@ -1384,6 +1389,7 @@ Xtransport	TRANS(TLITLIFuncs) = {
 	TRANS(TLIOpenCOTSClient),
 #endif /* TRANS_CLIENT */
 #ifdef TRANS_SERVER
+	NULL,
 	TRANS(TLIOpenCOTSServer),
 #endif /* TRANS_SERVER */
 #ifdef TRANS_CLIENT

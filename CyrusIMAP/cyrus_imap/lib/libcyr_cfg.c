@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: libcyr_cfg.c,v 1.10 2004/03/09 15:05:58 ken3 Exp $
+ * $Id: libcyr_cfg.c,v 1.4 2005/03/05 00:37:15 dasenbro Exp $
  */
 
 #include <config.h>

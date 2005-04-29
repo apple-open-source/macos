@@ -1,3 +1,4 @@
+// { dg-do compile }
 template<template<class> class D,class E> class C
 {
 	public:
@@ -12,8 +13,8 @@ template<class T> class D
 
 template<class T> int D<T>::f()
 {
-	C<D,D> c;
-	return c.g();
+	C<D,D> c;	// { dg-error "" }
+	return c.g();	// { dg-error "" }
 }
 
 int main()

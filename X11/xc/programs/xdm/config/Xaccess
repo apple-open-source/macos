@@ -1,6 +1,5 @@
 # $Xorg: Xaccess,v 1.3 2000/08/17 19:54:17 cpqbld Exp $
-#
-# $XFree86: xc/programs/xdm/config/Xaccess,v 1.3 2001/01/17 23:45:24 dawes Exp $
+# $XFree86: xc/programs/xdm/config/Xaccess,v 1.5 2003/11/22 04:51:03 dawes Exp $
 #
 # Access control file for XDMCP connections
 #
@@ -24,6 +23,10 @@
 #
 #       %name		list of hosts ...
 #
+# To control which addresses xdm listens for requests on:
+#
+#	LISTEN		address [list of multicast groups ... ]
+#
 # The first form tells xdm which displays to respond to itself.
 # The second form tells xdm to forward indirect queries from hosts matching
 # the specified pattern to the indicated list of hosts.
@@ -32,6 +35,9 @@
 # address and display the results on the terminal.
 # The fourth form is similar to the third, except instead of using the
 # broadcast address, it sends DirectQuerys to each of the hosts in the list
+# The fifth form tells xdm which addresses to listen for incoming connections
+# on.  If present, xdm will only listen for connections on the specified 
+# interfaces and/or multicast groups.
 #
 # In all cases, xdm uses the first entry which matches the terminal;
 # for IndirectQuery messages only entries with right hand sides can
@@ -68,3 +74,27 @@
 #%hostlist	host-a host-b
 
 #*		CHOOSER %hostlist	#
+
+#
+# If you have a machine with multiple network interfaces or IP addresses
+# you can control which interfaces accept XDMCP packets by listing a LISTEN
+# line for each interface you want to listen on.  You can additionally list
+# one or more multicast groups after each address to listen on those groups
+# on that address.
+#
+# If no LISTEN is specified, the default is the same as "LISTEN *" - listen on
+# all unicast interfaces, but not for multicast packets.  If any LISTEN lines
+# are specified, then only the listed interfaces will be listened on.
+#
+# IANA has assigned FF0X:0:0:0:0:0:0:12B as the permanently assigned 
+# multicast addresses for XDMCP, where X in the prefix may be replaced
+# by any valid scope identifier, such as 1 for Node-Local, 2 for Link-Local,
+# 5 for Site-Local, and so on.  The default is equivalent to the example shown
+# here using the Link-Local version to most closely match the old IPv4 subnet
+# broadcast behavior.
+#
+# LISTEN		* ff02:0:0:0:0:0:0:12b
+
+# This example shows listening for multicast on all scopes up to site-local
+#
+# LISTEN	* ff01:0:0:0:0:0:0:12b ff02:0:0:0:0:0:0:12b ff03:0:0:0:0:0:0:12b ff04:0:0:0:0:0:0:12b ff05:0:0:0:0:0:0:12b

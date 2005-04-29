@@ -1,3 +1,5 @@
+.\"	$NetBSD: tftpd.8,v 1.21 2003/08/07 09:46:53 agc Exp $
+.\"
 .\" Copyright (c) 1983, 1991, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -9,11 +11,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -29,34 +27,36 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"	@(#)tftpd.8	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/libexec/tftpd/tftpd.8,v 1.15 2001/07/15 07:53:42 dd Exp $
+.\"	from: @(#)tftpd.8	8.1 (Berkeley) 6/4/93
 .\"
-.Dd September 14, 2000
+.Dd June 11, 2003
 .Dt TFTPD 8
 .Os
 .Sh NAME
 .Nm tftpd
-.Nd Internet Trivial File Transfer Protocol server
+.Nd
+.Tn DARPA
+Internet Trivial File Transfer Protocol server
 .Sh SYNOPSIS
-.Nm /usr/libexec/tftpd
-.Op Fl cCln
+.Nm
+.Op Fl d
+.Op Fl g Ar group
+.Op Fl i
+.Op Fl l
+.Op Fl n
 .Op Fl s Ar directory
 .Op Fl u Ar user
 .Op Ar directory ...
 .Sh DESCRIPTION
-.Nm Tftpd
+.Nm
 is a server which supports the
-Internet Trivial File Transfer
-Protocol
-.Pq Tn RFC 1350 .
+.Tn DARPA
+Trivial File Transfer Protocol.
 The
 .Tn TFTP
-server operates
-at the port indicated in the
+server operates at the port indicated in the
 .Ql tftp
-service description;
-see
+service description; see
 .Xr services 5 .
 The server is normally started by
 .Xr inetd 8 .
@@ -66,13 +66,13 @@ The use of
 does not require an account or password on the remote system.
 Due to the lack of authentication information,
 .Nm
-will allow only publicly readable files to be
-accessed.
-Files containing the string ``/\|\fB.\|.\fP\|/'' or starting with
-``\|\fB.\|.\fP\|/'' are not allowed.
-Files may be written only if they already exist and are publicly writable.
+will allow only publicly readable files to be accessed.
+Filenames beginning in ``\|\fB.\|.\fP\|/'' or
+containing ``/\|\fB.\|.\fP\|/'' are not allowed.
+Files may be written to only if they already exist and are publicly writable.
+.Pp
 Note that this extends the concept of
-.Dq public
+.Qq public
 to include
 all users on all hosts that can be reached through the network;
 this may not be appropriate on all systems, and its implications
@@ -89,110 +89,138 @@ names are prefixed by the one of the given directories.
 The given directories are also treated as a search path for
 relative filename requests.
 .Pp
-The
-.Fl s
-option provides additional security by changing
-.Nm Ns No 's
-root directory, thereby prohibiting accesses outside of the specified
-.Ar directory .
-Because
-.Xr chroot 2
-requires super-user privileges,
-.Nm
-must be run as root.
-However, after performing the
-.Fn chroot ,
-.Nm
-will set its user id to that of the specified
-.Ar user ,
-or
-.Dq nobody
-if no
-.Fl u
-option is specified.
-.Pp
 The options are:
-.Bl -tag -width Ds
-.It Fl c
-Changes the default root directory of a connecting host via chroot based on the
-connecting IP address.
-This prevents multiple clients from writing to the same file at the same time.
-If the directory does not exist, the client connection is refused.
-The
-.Fl s
-option is required for
-.Fl c
-and the specified
-.Ar directory
-is used as a base.
-.It Fl C
-Operates the same as
-.Fl c
-except it falls back to
-.Fl s Ns No 's
-.Ar directory
-if a directory does not exist for the client's IP.
+.Bl -tag -width "directory"
+.It Fl d
+Enable verbose debugging messages to
+.Xr syslogd 8 .
+.It Fl g Ar group
+Change gid to that of
+.Ar group
+on startup.
+If this isn't specified, the gid is set to that of the
+.Ar user
+specified with
+.Fl u .
+.It Fl i
+Enable insecure mode, no
+.Xr realpath 3 .
 .It Fl l
-Log all requests using
-.Xr syslog 3
-with the facility of
-.Dv LOG_FTP .
-Note: Logging of
-.Dv LOG_FTP
-messages
-must also be enabled in the syslog configuration file,
-.Xr syslog.conf 5 .
+Logs all requests using
+.Xr syslog 3 .
 .It Fl n
-Suppress negative acknowledgement of requests for nonexistent
+Suppresses negative acknowledgement of requests for nonexistent
 relative filenames.
 .It Fl s Ar directory
-Cause
 .Nm
-to change its root directory to
-.Pa directory .
-After changing roots but before accepting commands,
-.Nm
-will switch credentials to an unprivileged user.
+will
+.Xr chroot 2
+to
+.Ar directory
+on startup.
+This is recommended for security reasons (so that files other than
+those in the
+.Pa /tftpboot
+directory aren't accessible).
+If the remote host passes the directory name as part of the
+file name to transfer, you may have to create a symbolic link
+from
+.Sq tftpboot
+to
+.Sq \&.
+under
+.Pa /tftpboot .
 .It Fl u Ar user
-Switch credentials to
+Change uid to that of
 .Ar user
-(default
-.Dq nobody )
-when the
-.Fl s
-option is used.
-The user must be specified by name, not a numeric UID.
+on startup.
+If
+.Fl u
+isn't given,
+.Ar user
+defaults to
+.Dq nobody .
+If
+.Fl g
+isn't also given, change the gid to that of
+.Ar user
+as well.
 .El
 .Sh SEE ALSO
 .Xr tftp 1 ,
-.Xr chroot 2 ,
-.Xr inetd 8 ,
-.Xr syslogd 8
+.Xr inetd 8
 .Rs
-.%A K. R. Sollins
-.%T The TFTP Protocol (Revision 2)
+.%R RFC
+.%N 1350
 .%D July 1992
-.%O RFC 1350, STD 33
+.%T "The TFTP Protocol (Revision 2)"
+.Re
+.Rs
+.%R RFC
+.%N 2347
+.%D May 1998
+.%T "TFTP Option Extension"
+.Re
+.Rs
+.%R RFC
+.%N 2348
+.%D May 1998
+.%T "TFTP Blocksize Option"
+.Re
+.Rs
+.%R RFC
+.%N 2349
+.%D May 1998
+.%T "TFTP Timeout Interval and Transfer Size Options"
 .Re
 .Sh HISTORY
 The
 .Nm
 command appeared in
-.Bx 4.2 ;
-the
+.Bx 4.2 .
+.Pp
+The
 .Fl s
-option was introduced in
-.Fx 2.2 ,
-the
+flag appeared in
+.Nx 1.0 .
+.Pp
+The
+.Fl g
+and
 .Fl u
-option was introduced in
-.Fx 4.2 ,
-and the
-.Fl c
-option was introduced in
-.Fx 4.3 .
+flags appeared in
+.Nx 1.4 .
+.Pp
+IPv6 support was implemented by WIDE/KAME project in 1999.
+.Pp
+TFTP options were implemented by Wasabi Systems, Inc., in 2003,
+and first appeared in
+NetBSD 2.0 .
 .Sh BUGS
 Files larger than 33488896 octets (65535 blocks) cannot be transferred
-without client and server supporting blocksize negotiation (RFC1783).
+without client and server supporting blocksize negotiation (RFCs
+2347 and 2348).
 .Pp
 Many tftp clients will not transfer files over 16744448 octets (32767 blocks).
+.Sh SECURITY CONSIDERATIONS
+You are
+.Em strongly
+advised to set up
+.Nm
+using the
+.Fl s
+flag in conjunction with the name of the directory that
+contains the files that
+.Nm
+will serve to remote hosts (e.g.,
+.Pa /tftpboot ) .
+This ensures that only the files that should be served
+to remote hosts can be accessed by them.
+.Pp
+Because there is no user-login or validation within
+the
+.Tn TFTP
+protocol, the remote site will probably have some
+sort of file-access restrictions in place.
+The exact methods are specific to each site and therefore
+difficult to document here.

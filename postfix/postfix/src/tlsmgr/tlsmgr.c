@@ -119,7 +119,7 @@
 #include <sys/time.h>			/* gettimeofday, not POSIX */
 
 /* OpenSSL library. */
-#ifdef HAS_SSL
+#ifdef USE_SSL
 #include <openssl/rand.h>		/* For the PRNG */
 #endif
 
@@ -146,6 +146,7 @@
 
 /* Application-specific. */
 
+#ifdef USE_SSL
  /*
   * Tunables.
   */
@@ -168,7 +169,6 @@ static void tlsmgr_prng_upd_event(int unused_event, char *dummy)
     unsigned char buffer[1024];
     int next_period;
 
-#ifdef HAS_SSL
     /*
      * It is time to update the PRNG exchange file. Since other processes might
      * have added entropy, we do this in a read_stir-back_write cycle.
@@ -200,7 +200,6 @@ static void tlsmgr_prng_upd_event(int unused_event, char *dummy)
      */
     next_period = (var_tls_prng_upd_period * buffer[0]) / 255;
     event_request_timer(tlsmgr_prng_upd_event, dummy, next_period);
-#endif
 }
 
 
@@ -213,7 +212,6 @@ static void tlsmgr_reseed_event(int unused_event, char *dummy)
     struct timeval tv;
     unsigned char randbyte;
 
-#ifdef HAS_SSL
     /*
      * It is time to reseed the PRNG.
      */
@@ -260,14 +258,12 @@ static void tlsmgr_reseed_event(int unused_event, char *dummy)
     RAND_bytes(&randbyte, 1);
     next_period = (var_tls_reseed_period * randbyte) / 255;
     event_request_timer(tlsmgr_reseed_event, dummy, next_period);
-#endif
 }
 
 
 static int tlsmgr_do_scache_check(DICT *scache_db, int scache_timeout,
 				  int start)
 {
-#ifdef HAS_SSL
     int func;
     int len;
     int n;
@@ -334,9 +330,6 @@ static int tlsmgr_do_scache_check(DICT *scache_db, int scache_timeout,
 	msg_info("Could not delete %s", member);
     return 1;
 
-#else
-    return 0;
-#endif
 }
 
 static void tlsmgr_clnt_cache_run_event(int unused_event, char *dummy)
@@ -457,7 +450,6 @@ static void tlsmgr_pre_init(char *unused_name, char **unused_argv)
     int rand_bytes;
     unsigned char buffer[255];
 
-#ifdef HAS_SSL
     /*
      * Access the external sources for random seed. We may not be able to
      * access them again if we are sent to chroot jail, so we must leave
@@ -501,7 +493,6 @@ static void tlsmgr_pre_init(char *unused_name, char **unused_argv)
 					var_tls_rand_bytes);
 	}
     }
-#endif
 
     /*
      * Now open the PRNG exchange file
@@ -535,7 +526,6 @@ static void tlsmgr_post_init(char *unused_name, char **unused_argv)
     var_use_limit = 0;
     var_idle_limit = 0;
 
-#ifdef HAS_SSL
     /*
      * Complete thie initialization by reading the additional seed from the
      * PRNG exchange file. Don't care how many bytes were actually read, just
@@ -553,7 +543,6 @@ static void tlsmgr_post_init(char *unused_name, char **unused_argv)
 	tlsmgr_prng_upd_event(0, (char *) 0);
 	tlsmgr_reseed_event(0, (char *) 0);
     }
-#endif
 
     clnt_scache_db_active = 0;
     srvr_scache_db_active = 0;
@@ -562,6 +551,7 @@ static void tlsmgr_post_init(char *unused_name, char **unused_argv)
     if (srvr_scache_db)
 	tlsmgr_srvr_cache_run_event(0, (char *) 0);
 }
+
 
 /* main - the main program */
 
@@ -595,4 +585,14 @@ int     main(int argc, char **argv)
 			MAIL_SERVER_LOOP, tlsmgr_loop,
 			MAIL_SERVER_PRE_ACCEPT, pre_accept,
 			0);
+    trigger_server_main(argc, argv, tlsmgr_trigger_event,
+			MAIL_SERVER_PRE_INIT, tlsmgr_pre_init,
+			0);
 }
+
+#else
+int     main(int argc, char **argv)
+{
+    msg_fatal("Do not run tlsmgr with TLS support compiled in\n");
+}
+#endif

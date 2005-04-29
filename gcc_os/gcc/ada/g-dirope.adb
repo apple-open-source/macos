@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
 --            Copyright (C) 1998-2001 Ada Core Technologies, Inc.           --
 --                                                                          --
@@ -460,11 +459,50 @@ package body GNAT.Directory_Operations is
    end File_Name;
 
    ---------------------
+   -- Format_Pathname --
+   ---------------------
+
+   function Format_Pathname
+     (Path  : Path_Name;
+      Style : Path_Style := System_Default)
+      return  String
+   is
+      N_Path      : String   := Path;
+      K           : Positive := N_Path'First;
+      Prev_Dirsep : Boolean  := False;
+
+   begin
+      for J in Path'Range loop
+
+         if Strings.Maps.Is_In (Path (J), Dir_Seps) then
+            if not Prev_Dirsep then
+               case Style is
+                  when UNIX           => N_Path (K) := '/';
+                  when DOS            => N_Path (K) := '\';
+                  when System_Default => N_Path (K) := Dir_Separator;
+               end case;
+
+               K := K + 1;
+            end if;
+
+            Prev_Dirsep := True;
+
+         else
+            N_Path (K) := Path (J);
+            K := K + 1;
+            Prev_Dirsep := False;
+         end if;
+      end loop;
+
+      return N_Path (N_Path'First .. K - 1);
+   end Format_Pathname;
+
+   ---------------------
    -- Get_Current_Dir --
    ---------------------
 
    Max_Path : Integer;
-   pragma Import (C, Max_Path, "max_path_len");
+   pragma Import (C, Max_Path, "__gnat_max_path_len");
 
    function Get_Current_Dir return Dir_Name_Str is
       Current_Dir : String (1 .. Max_Path + 1);
@@ -521,46 +559,6 @@ package body GNAT.Directory_Operations is
          raise Directory_Error;
       end if;
    end Make_Dir;
-
-   ------------------------
-   -- Normalize_Pathname --
-   ------------------------
-
-   function Normalize_Pathname
-     (Path  : Path_Name;
-      Style : Path_Style := System_Default)
-      return  String
-   is
-      N_Path      : String := Path;
-      K           : Positive := N_Path'First;
-      Prev_Dirsep : Boolean := False;
-
-   begin
-      for J in Path'Range loop
-
-         if Strings.Maps.Is_In (Path (J), Dir_Seps) then
-            if not Prev_Dirsep then
-
-               case Style is
-                  when UNIX           => N_Path (K) := '/';
-                  when DOS            => N_Path (K) := '\';
-                  when System_Default => N_Path (K) := Dir_Separator;
-               end case;
-
-               K := K + 1;
-            end if;
-
-            Prev_Dirsep := True;
-
-         else
-            N_Path (K) := Path (J);
-            K := K + 1;
-            Prev_Dirsep := False;
-         end if;
-      end loop;
-
-      return N_Path (N_Path'First .. K - 1);
-   end Normalize_Pathname;
 
    ----------
    -- Open --

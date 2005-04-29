@@ -30,17 +30,13 @@
 #include <sys/queue.h>
 #include <sys/malloc.h>
 #include <sys/kernel.h>
-#ifndef APPLE
-#include <sys/module.h>
-#endif
 #include <sys/errno.h>
 #ifndef TEST
 #include <sys/systm.h>
 #endif
-#ifdef APPLE
 #include <sys/syslog.h>
 #include <sys/smb_apple.h>
-#endif
+#include <netsmb/smb_subr.h>
 #include <sys/kobj.h>
 
 #ifdef TEST
@@ -102,29 +98,11 @@ kobj_class_compile(kobj_class_t cls)
 	 */
 	for (i = 0, m = cls->methods; m->desc; i++, m++)
 		kobj_register_method(m->desc);
-
 	/*
 	 * Then allocate the compiled op table.
 	 */
-	ops = malloc(sizeof(struct kobj_ops), M_KOBJ, M_NOWAIT);
-	if (!ops)
-#ifdef APPLE
-	{
-		extern int vm_page_free_count;
-		/*
-		 * At present callers are not dependant upon M_NOWAIT:
-		 * kobj_init callers all explicitly allow sleeping and
-		 * sleeping is ok at MOD_LOAD (the iconv_register_* callers).
-		 */
-		log(LOG_NOTICE,
-		    "smb: kobj_class_compile waiting (vm_page_free_count=%d)\n",
-		    vm_page_free_count);
+	ops = malloc(sizeof(struct kobj_ops), M_KOBJ, M_WAITOK);
 
-		ops = malloc(sizeof(struct kobj_ops), M_KOBJ, M_WAITOK);
-	}
-#else
-		panic("kobj_compile_methods: out of memory");
-#endif /* APPLE */
 	bzero(ops, sizeof(struct kobj_ops));
 	ops->cls = cls;
 	cls->ops = ops;
@@ -169,20 +147,14 @@ kobj_class_free(kobj_class_t cls)
 }
 
 PRIVSYM kobj_t
-kobj_create(kobj_class_t cls,
-#ifdef APPLE
-	    int mtype,
-#else
-	    struct malloc_type *mtype,
-#endif
-	    int mflags)
+kobj_create(kobj_class_t cls, int mtype)
 {
 	kobj_t obj;
 
 	/*
 	 * Allocate and initialise the new object.
 	 */
-	obj = malloc(cls->size, mtype, mflags);
+	obj = malloc(cls->size, mtype, M_WAITOK);
 	if (!obj)
 		return 0;
 	bzero(obj, cls->size);
@@ -205,11 +177,7 @@ kobj_init(kobj_t obj, kobj_class_t cls)
 }
 
 PRIVSYM void
-#ifdef APPLE
 kobj_delete(kobj_t obj, int mtype)
-#else
-kobj_delete(kobj_t obj, struct malloc_type *mtype)
-#endif
 {
 	kobj_class_t cls = obj->ops->cls;
 

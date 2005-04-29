@@ -1,0 +1,23 @@
+[include common/trf_version.inc]
+[manpage_begin crypt n [vset trf_version]]
+[titledesc "Password hashing based on \"crypt\""]
+[include common/trf_header.inc]
+[description]
+
+The command [cmd crypt] is an interface to the [syscmd crypt(3)]
+function for the encryption of passwords. An alternative command for
+the same, but based on [term md5] is [cmd md5crypt].
+
+[para]
+
+[list_begin definitions]
+[call [cmd crypt] [arg password] [arg salt]]
+
+Encrypts the [arg password] using the specified [arg salt] and returns
+the generated hash value as the result of the command.
+
+[list_end]
+
+[see_also trf-intro md5crypt]
+[keywords crypt password md5 {message digest} mac hashing hash authentication]
+[manpage_end]

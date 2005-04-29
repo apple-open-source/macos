@@ -78,7 +78,7 @@
 
 /*
  *	@(#)resolv.h	8.1 (Berkeley) 6/2/93
- *	$Id: resolv8_compat.h,v 1.2 2003/02/18 17:29:25 majka Exp $
+ *	$Id: resolv8_compat.h,v 1.3 2004/10/28 21:58:14 emoy Exp $
  */
 
 #ifndef _RESOLV_H_
@@ -128,15 +128,15 @@
 struct __res_state {
 	int	retrans;	 	/* retransmition time interval */
 	int	retry;			/* number of times to retransmit */
-	u_long	options;		/* option flags - see below. */
+	unsigned long	options;		/* option flags - see below. */
 	int	nscount;		/* number of name servers */
 	struct sockaddr_in
 		nsaddr_list[MAXNS];	/* address of name server */
 #define	nsaddr	nsaddr_list[0]		/* for backward compatibility */
-	u_short	id;			/* current packet id */
+	unsigned short	id;			/* current packet id */
 	char	*dnsrch[MAXDNSRCH+1];	/* components of domain to search */
 	char	defdname[MAXDNAME];	/* default domain */
-	u_long	pfcode;			/* RES_PRF_ flags - see below. */
+	unsigned long	pfcode;			/* RES_PRF_ flags - see below. */
 	unsigned ndots:4;		/* threshold for initial abs. query */
 	unsigned nsort:4;		/* number of elements in sort_list[] */
 	char	unused[3];
@@ -190,16 +190,16 @@ typedef enum { res_goahead, res_nextns, res_modified, res_done, res_error }
 	res_sendhookact;
 
 typedef res_sendhookact (*res_send_qhook)__P((struct sockaddr_in * const *ns,
-					      const u_char **query,
+					      const unsigned char **query,
 					      int *querylen,
-					      u_char *ans,
+					      unsigned char *ans,
 					      int anssiz,
 					      int *resplen));
 
 typedef res_sendhookact (*res_send_rhook)__P((const struct sockaddr_in *ns,
-					      const u_char *query,
+					      const unsigned char *query,
 					      int querylen,
-					      u_char *ans,
+					      unsigned char *ans,
 					      int anssiz,
 					      int *resplen));
 
@@ -225,39 +225,39 @@ extern struct __res_state _res;
 #define	res_nameinquery	__res_nameinquery
 #define	res_queriesmatch __res_queriesmatch
 __BEGIN_DECLS
-int	 __dn_skipname __P((const u_char *, const u_char *));
+int	 __dn_skipname __P((const unsigned char *, const unsigned char *));
 void	 __fp_resstat __P((struct __res_state *, FILE *));
-void	 __fp_query __P((const u_char *, FILE *));
-void	 __fp_nquery __P((const u_char *, int, FILE *));
+void	 __fp_query __P((const unsigned char *, FILE *));
+void	 __fp_nquery __P((const unsigned char *, int, FILE *));
 char	*__hostalias __P((const char *));
-void	 __putlong __P((u_int32_t, u_char *));
-void	 __putshort __P((u_int16_t, u_char *));
+void	 __putlong __P((u_int32_t, unsigned char *));
+void	 __putshort __P((u_int16_t, unsigned char *));
 char	*__p_time __P((u_int32_t));
-void	 __p_query __P((const u_char *));
-const u_char *__p_cdnname __P((const u_char *, const u_char *, int, FILE *));
-const u_char *__p_cdname __P((const u_char *, const u_char *, FILE *));
-const u_char *__p_fqname __P((const u_char *, const u_char *, FILE *));
-const u_char *__p_rr __P((const u_char *, const u_char *, FILE *));
+void	 __p_query __P((const unsigned char *));
+const unsigned char *__p_cdnname __P((const unsigned char *, const unsigned char *, int, FILE *));
+const unsigned char *__p_cdname __P((const unsigned char *, const unsigned char *, FILE *));
+const unsigned char *__p_fqname __P((const unsigned char *, const unsigned char *, FILE *));
+const unsigned char *__p_rr __P((const unsigned char *, const unsigned char *, FILE *));
 const char *__p_type __P((int));
 const char *__p_class __P((int));
-const char *__p_option __P((u_long option));
-int	 dn_comp __P((const char *, u_char *, int, u_char **, u_char **));
-int	 dn_expand __P((const u_char *, const u_char *, const u_char *,
+const char *__p_option __P((unsigned long option));
+int	 dn_comp __P((const char *, unsigned char *, int, unsigned char **, unsigned char **));
+int	 dn_expand __P((const unsigned char *, const unsigned char *, const unsigned char *,
 			char *, int));
 int	 res_init __P((void));
 u_int16_t res_randomid __P((void));
-int	 res_query __P((const char *, int, int, u_char *, int));
-int	 res_search __P((const char *, int, int, u_char *, int));
+int	 res_query __P((const char *, int, int, unsigned char *, int));
+int	 res_search __P((const char *, int, int, unsigned char *, int));
 int	 res_querydomain __P((const char *, const char *, int, int,
-			      u_char *, int));
-int	 res_mkquery __P((int, const char *, int, int, const u_char *, int,
-			  const u_char *, u_char *, int));
-int	 res_send __P((const u_char *, int, u_char *, int));
+			      unsigned char *, int));
+int	 res_mkquery __P((int, const char *, int, int, const unsigned char *, int,
+			  const unsigned char *, unsigned char *, int));
+int	 res_send __P((const unsigned char *, int, unsigned char *, int));
 int	 res_isourserver __P((const struct sockaddr_in *));
 int	 res_nameinquery __P((const char *, int, int,
-			      const u_char *, const u_char *));
-int	 res_queriesmatch __P((const u_char *, const u_char *,
-			       const u_char *, const u_char *));
+			      const unsigned char *, const unsigned char *));
+int	 res_queriesmatch __P((const unsigned char *, const unsigned char *,
+			       const unsigned char *, const unsigned char *));
 __END_DECLS
 
 #endif /* !_RESOLV_H_ */

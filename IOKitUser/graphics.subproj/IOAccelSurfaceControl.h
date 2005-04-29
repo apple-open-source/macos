@@ -25,7 +25,7 @@
 
 #include <IOKit/graphics/IOAccelSurfaceConnect.h>
 
-#define IOACCEL_SURFACE_CONTROL_REV	6
+#define IOACCEL_SURFACE_CONTROL_REV	8
 
 typedef struct IOAccelConnectStruct *IOAccelConnect;
 
@@ -44,6 +44,10 @@ IOReturn IOAccelDestroySurface( IOAccelConnect connect );
 IOReturn IOAccelSetSurfaceFramebufferShapeWithBacking( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
 					    IOVirtualAddress backing, UInt32 rowbytes );
+
+IOReturn IOAccelSetSurfaceFramebufferShapeWithBackingAndLength( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
+                                            eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex,
+					    IOVirtualAddress backing, UInt32 rowbytes, UInt32 backingLength );
 
 IOReturn IOAccelSetSurfaceFramebufferShape( IOAccelConnect connect, IOAccelDeviceRegion *rgn,
                                             eIOAccelSurfaceShapeBits options, UInt32 framebufferIndex );
@@ -72,6 +76,12 @@ IOReturn IOAccelFlushSurfaceOnFramebuffers( IOAccelConnect connect, IOOptionBits
 
 /* Read surface back buffer */
 IOReturn IOAccelReadSurface( IOAccelConnect connect, IOAccelSurfaceReadData * parameters );
+
+IOReturn IOAccelCreateAccelID(IOOptionBits options, IOAccelID * identifier);
+IOReturn IOAccelDestroyAccelID(IOOptionBits options, IOAccelID identifier);
+
+IOReturn IOAccelSurfaceControl( IOAccelConnect connect,
+                                    UInt32 selector, UInt32 arg, UInt32 * result);
 
 #endif /* _IOACCEL_SURFACE_CONTROL_H */
 

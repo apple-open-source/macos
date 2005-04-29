@@ -1,7 +1,16 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/sasl.c,v 1.10.2.4 2003/04/26 14:56:37 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/sasl.c,v 1.18.2.2 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -20,6 +29,7 @@
 #endif
 
 #include <ldap.h>
+#include "ldap_pvt.h"
 #include "lutil_ldap.h"
 
 
@@ -138,16 +148,16 @@ static int interaction(
 
 	if( challenge ) {
 		if( interact->challenge ) {
-			fprintf( stderr, "Challenge: %s\n", interact->challenge );
+			fprintf( stderr, _("Challenge: %s\n"), interact->challenge );
 		}
 	}
 
 	if( dflt ) {
-		fprintf( stderr, "Default: %s\n", dflt );
+		fprintf( stderr, _("Default: %s\n"), dflt );
 	}
 
 	snprintf( input, sizeof input, "%s: ",
-		interact->prompt ? interact->prompt : "Interact" );
+		interact->prompt ? interact->prompt : _("Interact") );
 
 	if( noecho ) {
 		interact->result = (char *) getpassphrase( input );
@@ -207,7 +217,7 @@ int lutil_sasl_interact(
 	if( ld == NULL ) return LDAP_PARAM_ERROR;
 
 	if( flags == LDAP_SASL_INTERACTIVE ) {
-		fputs( "SASL Interaction\n", stderr );
+		fputs( _("SASL Interaction\n"), stderr );
 	}
 
 	while( interact->id != SASL_CB_LIST_END ) {

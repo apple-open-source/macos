@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -43,19 +44,20 @@ char copyright_string[] =
 " *\n"
 " * @APPLE_LICENSE_HEADER_START@\n"
 " * \n"
-" * The contents of this file constitute Original Code as defined in and\n"
-" * are subject to the Apple Public Source License Version 1.1 (the\n"
-" * \"License\").  You may not use this file except in compliance with the\n"
-" * License.  Please obtain a copy of the License at\n"
-" * http://www.apple.com/publicsource and read it before using this file.\n"
+" * This file contains Original Code and/or Modifications of Original Code\n"
+" * as defined in and that are subject to the Apple Public Source License\n"
+" * Version 2.0 (the 'License'). You may not use this file except in\n"
+" * compliance with the License. Please obtain a copy of the License at\n"
+" * http://www.opensource.apple.com/apsl/ and read it before using this\n"
+" * file.\n"
 " * \n"
-" * This Original Code and all software distributed under the License are\n"
-" * distributed on an \"AS IS\" basis, WITHOUT WARRANTY OF ANY KIND, EITHER\n"
+" * The Original Code and all software distributed under the License are\n"
+" * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER\n"
 " * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,\n"
 " * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,\n"
-" * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the\n"
-" * License for the specific language governing rights and limitations\n"
-" * under the License.\n"
+" * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.\n"
+" * Please see the License for the specific language governing rights and\n"
+" * limitations under the License.\n"
 " * \n"
 " * @APPLE_LICENSE_HEADER_END@\n"
 " */\n";
@@ -358,12 +360,12 @@ main(int argc, char * argv[])
 	printf("} dhcptype_t;\n\n");
 	printf("typedef struct {\n"
 	       "    dhcptype_t	type;\n"
-	       "    unsigned char *	name;\n"
+	       "    const char *	name;\n"
 	       "} dhcptag_info_t;\n\n");
 	printf("typedef struct {\n"
 	       "    int		size;  /* in bytes */\n"
 	       "    int		multiple_of; /* type of element */\n"
-	       "    unsigned char * name;\n"
+	       "    const char * name;\n"
 	       "} dhcptype_info_t;\n\n");
 	printf("#endif _S_DHCP_TYPE\n");
 	break;
@@ -372,7 +374,7 @@ main(int argc, char * argv[])
 	print_copyright_header(argv[0], argv[1]);
 	printf("#ifndef _S_DHCP_PARSE_TABLE\n"
 	       "#define _S_DHCP_PARSE_TABLE\n");
-	printf("static dhcptag_info_t dhcptag_info_table[] = {\n");
+	printf("static const dhcptag_info_t dhcptag_info_table[] = {\n");
 	for (i = 0; i <= LAST_TAG; i++) {
 	    int 	opt;
 	    int 	type;
@@ -391,7 +393,7 @@ main(int argc, char * argv[])
 	}
 	printf("};\n\n");
 	
-	printf("static dhcptype_info_t dhcptype_info_table[] = {\n");
+	printf("static const dhcptype_info_t dhcptype_info_table[] = {\n");
 	for (i = 0; types[i].name; i++) {
 	    char * type = types[i].multiple_of;
 	    

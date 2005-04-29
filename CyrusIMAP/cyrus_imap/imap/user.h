@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: user.h,v 1.6 2003/10/22 18:50:09 rjs3 Exp $
+ * $Id: user.h,v 1.5 2005/03/05 00:37:08 dasenbro Exp $
  */
 
 #ifndef INCLUDED_USER_H

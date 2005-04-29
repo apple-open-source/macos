@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-*   Copyright (C) 2002, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -18,6 +18,7 @@
 */
 
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "unicode/uloc.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -96,15 +97,15 @@ void pkg_sttc_writeReadme(struct UPKGOptions_ *o, const char *libName, UErrorCod
                "\n\n"
                "4. Now, you may access this data with a 'path' of \"%s\" as in the following example:\n"
                "\n"
-               "     ... ures_open( \"%s\", \"%s\", &err ); \n",
-               libName, o->shortName, o->shortName, uloc_getDefault());
+               "     ... ures_open( \"%s\", NULL /* Get the default locale */, &err ); \n",
+               libName, o->shortName, o->shortName);
   T_FileStream_writeLine(out, tmp);
 
   T_FileStream_close(out);
 }
 
 
-#ifndef WIN32
+#ifndef U_MAKE_IS_NMAKE
 
 
 #include "makefile.h"
@@ -120,13 +121,15 @@ void pkg_mode_static(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
         return;
     }
 
-    uprv_strcpy(tmp, LIB_PREFIX);
-    uprv_strcat(tmp, o->cShortName);
+    uprv_strcpy(tmp, LIB_STATIC_PREFIX);
+    uprv_strcat(tmp, o->libName);
     uprv_strcat(tmp, UDATA_LIB_SUFFIX);
 
     o->outFiles = pkg_appendToList(o->outFiles, &tail, uprv_strdup(tmp));
 
-    pkg_sttc_writeReadme(o, tmp, status);
+    if (!o->quiet) {
+        pkg_sttc_writeReadme(o, tmp, status);
+    }
     if(U_FAILURE(*status)) {
         return;
     }
@@ -165,6 +168,13 @@ void pkg_mode_static(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
     uprv_strcat(tmp, "\n\n");
     T_FileStream_writeLine(makefile, tmp);
 
+#ifdef OS400
+    /* New for iSeries: All packaged data in one .c */
+    sprintf(tmp, "# Create a file which contains all .c data files/structures\n"
+                 "$(TEMP_DIR)/$(NAME)all.c: $(CMNLIST)\n\n");
+    T_FileStream_writeLine(makefile, tmp);
+#endif
+
     /* Write compile rules */
     pkg_mak_writeObjRules(o, makefile, &objects, ".$(STATIC_O)"); /* use special .o suffix */
 
@@ -186,24 +196,50 @@ void pkg_mode_static(UPKGOptions *o, FileStream *makefile, UErrorCode *status)
             "\tdone;\n\n");
     }
 
+    pkg_mak_writeAssemblyHeader(makefile, o);
+
     sprintf(tmp,"$(TEMP_PATH)$(NAME)_dat.$(STATIC_O) : $(TEMP_PATH)$(NAME)_dat.c\n"
         "\t$(COMPILE.c) -o $@ $<\n\n");
     T_FileStream_writeLine(makefile, tmp);
 
     T_FileStream_writeLine(makefile, "# 'TOCOBJ' contains C Table of Contents objects [if any]\n");
 
+    if(!o->embed) {
     sprintf(tmp, "$(TEMP_PATH)$(NAME)_dat.c: $(CMNLIST)\n"
-            "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
+            "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -s $(SRCDIR) -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
+    } else {
+      sprintf(tmp, "$(TEMP_PATH)$(NAME)_dat.c: $(CMNLIST)\n"
+            "\t$(INVOKE) $(GENCMN) -e $(ENTRYPOINT) -n $(NAME) -S -E -d $(TEMP_DIR) 0 $(CMNLIST)\n\n");
+    }
     T_FileStream_writeLine(makefile, tmp);
 
-    sprintf(tmp, "TOCOBJ= $(NAME)_dat%s \n\n", OBJ_SUFFIX);
+    sprintf(tmp, "TOCOBJ= $(NAME)_dat.$(STATIC_O)\n\n");
     T_FileStream_writeLine(makefile, tmp);
+
+#ifdef OS400
+    /* New for iSeries: All packaged data in one .c */
+    sprintf(tmp,"$(TEMP_PATH)$(NAME)all.$(STATIC_O) : $(TEMP_PATH)$(NAME)all.c\n"
+        "\t$(COMPILE.c) -o $@ $<\n\n");
+    T_FileStream_writeLine(makefile, tmp);
+
+    T_FileStream_writeLine(makefile, "# 'ALLDATAOBJ' contains all .c data structures\n");
+
+    sprintf(tmp, "ALLDATAOBJ= $(NAME)all%s \n\n", OBJ_SUFFIX);
+    T_FileStream_writeLine(makefile, tmp);
+#endif
+
     sprintf(tmp, "TOCSYM= $(ENTRYPOINT)_dat \n\n"); /* entrypoint not always shortname! */
     T_FileStream_writeLine(makefile, tmp);
 
     T_FileStream_writeLine(makefile, "BASE_OBJECTS= $(TOCOBJ) ");
 
+#ifdef OS400
+    T_FileStream_writeLine(makefile, "$(ALLDATAOBJ) ");
+#else
     pkg_writeCharListWrap(makefile, objects, " ", " \\\n",0);
+#endif
+    pkg_mak_writeAssemblyFooter(makefile, o);
+
     T_FileStream_writeLine(makefile, "\n\n");
     T_FileStream_writeLine(makefile, "OBJECTS=$(BASE_OBJECTS:%=$(TEMP_PATH)%)\n\n");
 

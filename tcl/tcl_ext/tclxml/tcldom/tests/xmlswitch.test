@@ -1,0 +1,91 @@
+# Commands covered:  ::xmlswitch::xmlswitch
+#
+# This file contains a collection of tests for one or more of the 
+# xmlswitch commands.  It also tests the XPath parsing package.
+# Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2000-2002 Zveno Pty Ltd.
+#
+# $Id: xmlswitch.test,v 1.2 2002/08/11 11:22:48 balls Exp $
+
+package require tcltest ; namespace import -force tcltest::*
+
+if {[catch {package require xmlswitch}]} {
+    catch {puts stderr "Cannot load xmlswitch package"}
+    return
+}
+
+catch {namespace import ::xmlswitch::xmlswitch}
+
+test xmlswitch-1.1 {Empty statement} -body {
+    xmlswitch {<test></test>} {
+    }
+} -result {}
+
+test xmlswitch-1.1 {Parse options} -body {
+    xmlswitch {<test></test>} -parser tcl {
+    }
+} -result {}
+
+test xmlswitch-2.1 {Simple template in single argument} -body {
+    set result {}
+    xmlswitch {<test></test>} {
+	test {
+	    append result test
+	}
+	* {
+	    append result *
+	}
+    }
+    set result
+} -result {test*}
+
+test xmlswitch-2.2 {Match absolute path} -body {
+    set result {}
+    xmlswitch {<test><test/></test>} {
+	/test {
+	    append result absolute
+	}
+	test {
+	    append result relative
+	}
+	* {
+	    append result *
+	}
+    }
+    set result
+} -result {absoluterelative}
+
+test xmlswitch-2.3 {Match predicate} -body {
+    set result {}
+    xmlswitch {<test><test/><test/></test>} {
+	test[2] {
+	    append result second
+	}
+	test[1] {
+	    append result first
+	}
+    }
+    set result
+} -result {firstsecond}
+
+test xmlswitch-3.1 {Simple template in multiple arguments} -body {
+    set result {}
+    xmlswitch {<test></test>} \
+	test {
+	    append result test
+	} \
+	* {
+	    append result *
+	}
+    set result
+} -result {test}
+
+# Test break return code
+
+# Test continue return code
+
+# cleanup
+::tcltest::cleanupTests
+return

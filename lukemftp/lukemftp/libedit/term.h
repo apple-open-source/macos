@@ -1,4 +1,4 @@
-/*	$NetBSD: term.h,v 1.10 2000/09/04 22:06:33 lukem Exp $	*/
+/*	$NetBSD: term.h,v 1.13 2002/03/18 16:01:00 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -47,7 +47,7 @@
 #include "histedit.h"
 
 typedef struct {		/* Symbolic function key bindings	*/
-	char		*name;	/* name of the key			*/
+	const char	*name;	/* name of the key			*/
 	int		 key;	/* Index in termcap table		*/
 	key_value_t	 fun;	/* Function bound to it			*/
 	int		 type;	/* Type of function			*/
@@ -80,28 +80,30 @@ typedef struct {
 #define	A_K_UP		1
 #define	A_K_LT		2
 #define	A_K_RT		3
-#define	A_K_NKEYS	4
+#define	A_K_HO		4
+#define	A_K_EN		5
+#define	A_K_NKEYS	6
 
 protected void	term_move_to_line(EditLine *, int);
 protected void	term_move_to_char(EditLine *, int);
 protected void	term_clear_EOL(EditLine *, int);
-protected void	term_overwrite(EditLine *, char *, int);
+protected void	term_overwrite(EditLine *, const char *, int);
 protected void	term_insertwrite(EditLine *, char *, int);
 protected void	term_deletechars(EditLine *, int);
 protected void	term_clear_screen(EditLine *);
 protected void	term_beep(EditLine *);
-protected void	term_change_size(EditLine *, int, int);
+protected int	term_change_size(EditLine *, int, int);
 protected int	term_get_size(EditLine *, int *, int *);
 protected int	term_init(EditLine *);
 protected void	term_bind_arrow(EditLine *);
-protected void	term_print_arrow(EditLine *, char *);
-protected int	term_clear_arrow(EditLine *, char *);
-protected int	term_set_arrow(EditLine *, char *, key_value_t *, int);
+protected void	term_print_arrow(EditLine *, const char *);
+protected int	term_clear_arrow(EditLine *, const char *);
+protected int	term_set_arrow(EditLine *, const char *, key_value_t *, int);
 protected void	term_end(EditLine *);
-protected int	term_set(EditLine *, char *);
-protected int	term_settc(EditLine *, int, char **);
-protected int	term_telltc(EditLine *, int, char **);
-protected int	term_echotc(EditLine *, int, char **);
+protected int	term_set(EditLine *, const char *);
+protected int	term_settc(EditLine *, int, const char **);
+protected int	term_telltc(EditLine *, int, const char **);
+protected int	term_echotc(EditLine *, int, const char **);
 protected int	term__putc(int);
 protected void	term__flush(void);
 

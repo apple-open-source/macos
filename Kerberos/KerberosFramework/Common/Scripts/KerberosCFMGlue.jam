@@ -1,0 +1,73 @@
+# CFMVectorGlue <file>.s <file>.c <file>.exp : <file>.pbexp
+# Runs CFMVectorGlue to create CFM glue files from a PB export file
+KERBEROSCFMGLUE = "$(SRCROOT)/../../Common/Scripts/KerberosCFMGlue.pl" ;
+
+rule KerberosCFMGlue
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    DEPENDS "$(1)" : "$(KERBEROSCFMGLUE)" ;
+    
+    Clean.Remove clean : "$(1)" ;
+}
+
+actions KerberosCFMGlue
+{
+    mkdir -p  "$(1[1]:D)" ;
+    mkdir -p  "$(1[2]:D)" ;
+    mkdir -p  "$(1[3]:D)" ;
+    perl "$(KERBEROSCFMGLUE)"  --out-assembly "$(1[1])" --out-source "$(1[2])" --out-export "$(1[3])" "$(2[1])"
+}
+
+# VerifyExportsAreSupersetOfKfM4 <target> : <superset> <subset>
+rule VerifyExportsAreSupersetOfKfM4
+{
+    ALWAYS "$(1)" ;
+}
+actions VerifyExportsAreSupersetOfKfM4
+{
+    Sort1="$(2[1]:D=$(Intermediates)).sort1" 
+    Sort2="$(2[1]:D=$(Intermediates)).sort2" 
+
+    sort "$(2[1])" | uniq > "${Sort1}"
+    sort "$(2[2])" | uniq > "${Sort2}"
+    
+    RemovedSymbols=`diff "${Sort1}" "${Sort2}" | grep -e '^> [^#].*$'`
+    if [ -z "${RemovedSymbols}" ]; then 
+        exit 0
+    else
+        echo "ERROR!  The following symbols are needed by CFM bridges and are not exported:"
+        echo "${RemovedSymbols}"
+        exit 1
+    fi
+}
+
+# SafeCopy <destination> : <source>
+# where the leaf names of <destination> and <source> are the same
+# and ditto is to be used to insure resources are preserved.
+rule SafeCopy
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean clean "$(1)" ;
+}
+actions together piecemeal SafeCopy
+{
+    mkdir -p "$(1:D)"
+    /usr/bin/ditto -rsrcFork "$(2)" "$(1)"
+}
+
+Intermediates = "$(BUILT_PRODUCTS_DIR)/Kerberos.intermediates" ;
+KerberosCFMGlueSources = "$(SRCROOT)/../../KerberosCFMGlue/Sources" ;
+KerberosCFMGlueBinaries = "$(SRCROOT)/../../KerberosCFMGlue/Binaries" ;
+InstallDir = "$(DSTROOT)/System/Library/CFMSupport" ;
+
+# Check to make sure that we haven't removed any symbols used by CFM Bridges
+VerifyExportsAreSupersetOfKfM4 all : "$(Intermediates)/Kerberos.exp" "$(KerberosCFMGlueSources)/KerberosCFMGlue.exp" ;
+
+# Install the CFM Glue:
+SafeCopy "$(InstallDir)/Kerberos" : "$(KerberosCFMGlueBinaries)/Kerberos" ;
+
+DEPENDS install : all "$(InstallDir)/Kerberos" ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;
+

@@ -1,59 +1,37 @@
 ﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/gl.xml
 // *
 // ***************************************************************************
-
-gl {
-    Version { "2.0" }
-    DayAbbreviations { 
-        "Dom",
-        "Lun",
-        "Mar",
-        "Mér",
-        "Xov",
-        "Ven",
-        "Sáb",
+/**
+ *  ICU <specials> source: ../../../locale/icu/main/gl.xml
+ */
+gl{
+    Countries{
+        ES{"España"}
     }
-    DayNames { 
-        "Domingo",
-        "Luns",
-        "Martes",
-        "Mércores",
-        "Xoves",
-        "Venres",
-        "Sábado",
+    Currencies{
+        ESP{
+            "₧",
+            "ESP",
+            {
+                "¤ #,##0;-¤ #,##0",
+                ",",
+                ".",
+            }
+        }
     }
-    MonthAbbreviations { 
-        "Xan",
-        "Feb",
-        "Mar",
-        "Abr",
-        "Mai",
-        "Xuñ",
-        "Xul",
-        "Ago",
-        "Set",
-        "Out",
-        "Nov",
-        "Dec",
+    ExemplarCharacters{"[a-záéíóúüñ]"}
+    Languages{
+        gl{"galego"}
     }
-    MonthNames { 
-        "Xaneiro",
-        "Febreiro",
-        "Marzo",
-        "Abril",
-        "Maio",
-        "Xuño",
-        "Xullo",
-        "Agosto",
-        "Setembro",
-        "Outubro",
-        "Novembro",
-        "Decembro",
+    LocaleScript{
+        "Latn",
     }
-    NumberElements { 
+    NumberElements{
         ",",
         ".",
         ";",
@@ -65,26 +43,65 @@ gl {
         "‰",
         "∞",
         "�",
-        ",",
+        "+",
     }
-    LocaleID:int { 0x56 }
-//    LocaleScript{ 
-//        "Latn",  // ISO 15924 Name 
-//    }
-    ExemplarCharacters { "[a-z \u00e1 \u00e9 \u00ed \u00f3 \u00fa \u00fc \u00f1]" }
-    
-    // /**************** Info Below is needed ****************/
-    // CollationElements{}
-    // Countries{}
-    // Eras{}
-    // Languages{}
-    // ShortLanguage { }
-    // localPatternChars{}
-    //
-
-
-    // Currency display names
-    Currencies {
-        ESP { "\u20A7", "ESP" } // Spanish Peseta
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            dayNames{
+                format{
+                    abbreviated{
+                        "Dom",
+                        "Lun",
+                        "Mar",
+                        "Mér",
+                        "Xov",
+                        "Ven",
+                        "Sáb",
+                    }
+                    wide{
+                        "Domingo",
+                        "Luns",
+                        "Martes",
+                        "Mércores",
+                        "Xoves",
+                        "Venres",
+                        "Sábado",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "Xan",
+                        "Feb",
+                        "Mar",
+                        "Abr",
+                        "Mai",
+                        "Xuñ",
+                        "Xul",
+                        "Ago",
+                        "Set",
+                        "Out",
+                        "Nov",
+                        "Dec",
+                    }
+                    wide{
+                        "Xaneiro",
+                        "Febreiro",
+                        "Marzo",
+                        "Abril",
+                        "Maio",
+                        "Xuño",
+                        "Xullo",
+                        "Agosto",
+                        "Setembro",
+                        "Outubro",
+                        "Novembro",
+                        "Decembro",
+                    }
+                }
+            }
+        }
     }
 }

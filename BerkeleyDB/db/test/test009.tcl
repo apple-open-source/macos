@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2002
+# Copyright (c) 1996-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: test009.tcl,v 1.1.1.1 2003/02/15 04:56:16 zarzycki Exp $
+# $Id: test009.tcl,v 1.2 2004/03/30 01:24:08 jtownsen Exp $
 #
 # TEST	test009
 # TEST	Small keys/large data
@@ -14,5 +14,5 @@
 # TEST	randomly.  Then close the DB and make sure that we have everything
 # TEST	we think we should.
 proc test009 { method args} {
-	eval {test008 $method 9 0} $args
+	eval {test008 $method "009" 0} $args
 }

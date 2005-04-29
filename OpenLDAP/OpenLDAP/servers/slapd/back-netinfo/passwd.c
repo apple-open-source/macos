@@ -35,20 +35,12 @@
 #include "back-netinfo.h"
 
 int netinfo_back_exop_passwd(
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	const char *reqoid,
-	struct berval *reqdata,
-	char **rspoid,
-	struct berval **rspdata,
-	LDAPControl ***rspctrls,
-	const char **text,
-	BerVarray *refs)
+	struct slap_op *op, 
+	struct slap_rep *rs)
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	char *hashMechanism;
-	struct berval *ndn, *hash = NULL;
+	struct berval *ndn, hash = { 0, NULL };
 	struct berval new = { 0, NULL };
 	struct berval ndn_buf = { 0, NULL };
 	struct berval id = { 0, NULL };
@@ -60,11 +52,11 @@ int netinfo_back_exop_passwd(
 	struct atmap map;
 	int rc;
 
-	assert(reqoid != NULL);
-	assert(strcmp(LDAP_EXOP_MODIFY_PASSWD, reqoid) == 0);
+	assert(op->ore_reqoid.bv_val != NULL);
+	assert(strcmp(LDAP_EXOP_MODIFY_PASSWD, op->ore_reqoid.bv_val) == 0);
 
 	/* Parse the password. */
-	rc = slap_passwd_parse(reqdata, &id, NULL, &new, text);
+	rc = slap_passwd_parse(op->ore_reqdata, &id, NULL, &new, &rs->sr_text);
 	if (rc != LDAP_SUCCESS)
 		return rc;
 
@@ -76,7 +68,7 @@ int netinfo_back_exop_passwd(
 		id.bv_val ? id.bv_val : "(null)", 0, 0);
 #endif
 
-	*text = NULL;
+	rs->sr_text = NULL;
 
 	/* If no password is specified, generate one. */
 	if (new.bv_len == 0)
@@ -84,16 +76,16 @@ int netinfo_back_exop_passwd(
 		slap_passwd_generate(&new);
 		if (new.bv_val == NULL || new.bv_len == 0)
 		{
-			*text = "Password generation failed";
+			rs->sr_text = "Password generation failed";
 			return LDAP_OTHER;
 		}
-		*rspdata = slap_passwd_return(&new);
+		rs->sr_rspdata = slap_passwd_return(&new);
 	}
 
 	if (id.bv_val != NULL)
 	{
 		ndn = &ndn_buf;
-		dnNormalize2(NULL, &id, &ndn_buf);
+		dnNormalize(0, NULL, NULL, &id, &ndn_buf, NULL);
 	}
 	else
 	{
@@ -104,13 +96,13 @@ int netinfo_back_exop_passwd(
 	{
 		if (ndn_buf.bv_val != NULL)
 			ch_free(ndn_buf.bv_val);
-		*text = "No password is associated with the Root DSE";
+		rs->sr_text = "No password is associated with the Root DSE";
 		return LDAP_OPERATIONS_ERROR;
 	}
 
 	ENGINE_LOCK(di);
 
-	status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, ndn, &dsid);
 	if (status != DSStatusOK)
 	{
 		goto out;
@@ -124,7 +116,7 @@ int netinfo_back_exop_passwd(
 	}
 
 	/* Retrieve the mapping for the userPassword attribute. */
-	status = schemamap_x500_to_ni_at(be, SUPER(user),
+	status = schemamap_x500_to_ni_at(op->o_bd, SUPER(user),
 		slap_schema.si_ad_userPassword, &map);
 	if (status != DSStatusOK)
 	{
@@ -141,29 +133,29 @@ int netinfo_back_exop_passwd(
 	{
 		/* use slapd password hash mechanism default */
 #ifdef LUTIL_SHA1_BYTES
-		hashMechanism = (default_passwd_hash != NULL) ? default_passwd_hash : "{SSHA}";
+		hashMechanism = (default_passwd_hash != NULL && *default_passwd_hash != NULL) ? *default_passwd_hash : "{SSHA}";
 #else
-		hashMechanism = (default_passwd_hash != NULL) ? default_passwd_hash : "{SMD5}";
+		hashMechanism = (default_passwd_hash != NULL && *default_passwd_hash != NULL) ? *default_passwd_hash : "{SMD5}";
 #endif
 	}
 
 #if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 	ldap_pvt_thread_mutex_lock(&passwd_mutex);
 #endif
-	hash = lutil_passwd_hash(&new, hashMechanism);
+	status = lutil_passwd_hash(&new, hashMechanism, &hash, &rs->sr_text);
 #if defined( SLAPD_CRYPT ) || defined( SLAPD_SPASSWD )
 	ldap_pvt_thread_mutex_unlock(&passwd_mutex);
 #endif
 
 	/* Check we got back something sensible. */
-	if (hash->bv_len == 0)
+	if (hash.bv_len == 0)
 	{
 		status = DSStatusFailed;
 		goto out;
 	}
 	
 	/* Check mapped userPassword can be written to. */
-	status = netinfo_back_access_allowed(be, conn, op, dsid,
+	status = netinfo_back_access_allowed(op, dsid,
 		slap_schema.si_ad_userPassword, NULL, ACL_WRITE);
 	if (status != DSStatusOK)
 	{
@@ -182,7 +174,7 @@ int netinfo_back_exop_passwd(
 	}
 
 	/* Map userPassword value, e.g. strip {CRYPT} */
-	status = (map.x500ToNiTransform)(be, &value, hash, map.type, map.x500ToNiArg);
+	status = (map.x500ToNiTransform)(op->o_bd, &value, &hash, map.type, map.x500ToNiArg);
 	if (status != DSStatusOK)
 	{
 		goto out;
@@ -201,8 +193,8 @@ out:
 	if (ndn_buf.bv_val != NULL)
 		ch_free(ndn_buf.bv_val);
 
-	if (hash != NULL)
-		ber_bvfree(hash);
+	if (hash.bv_val != NULL)
+		ch_free(hash.bv_val);
 
 	if (user != NULL)
 		dsrecord_release(user);
@@ -215,7 +207,7 @@ out:
 	if (value != NULL)
 		dsdata_release(value);
 
-	*text = dsstatus_message(status);
+	rs->sr_text = dsstatus_message(status);
 
 	return dsstatus_to_ldap_err(status);
 }

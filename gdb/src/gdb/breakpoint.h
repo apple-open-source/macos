@@ -1,5 +1,6 @@
 /* Data structures associated with breakpoints in GDB.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
+   2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -28,6 +29,7 @@
 #include "gdb-events.h"
 
 struct value;
+struct block;
 
 /* This is the maximum number of bytes a breakpoint instruction can take.
    Feel free to increase it.  It's just used in a few places to size
@@ -137,6 +139,12 @@ enum bptype
        commands for C++ exception handling. */
     bp_catch_catch,
     bp_catch_throw,
+
+    /* APPLE LOCAL: These are gnu_v3_catch & throw catchpoints.  We would like
+       to print that these are catchpoints, not ordinary breakpoints, but gdb
+       has to manage them like ordinary breakpoints.  */
+    bp_gnu_v3_catch_catch,
+    bp_gnu_v3_catch_throw,
   };
 
 /* States of enablement of breakpoint. */
@@ -181,6 +189,116 @@ enum target_hw_bp_type
     hw_execute = 3		/* Execute HW breakpoint */
   };
 
+/* GDB maintains two types of information about each breakpoint (or
+   watchpoint, or other related event).  The first type corresponds
+   to struct breakpoint; this is a relatively high-level structure
+   which contains the source location(s), stopping conditions, user
+   commands to execute when the breakpoint is hit, and so forth.
+
+   The second type of information corresponds to struct bp_location.
+   Each breakpoint has one or (eventually) more locations associated
+   with it, which represent target-specific and machine-specific
+   mechanisms for stopping the program.  For instance, a watchpoint
+   expression may require multiple hardware watchpoints in order to
+   catch all changes in the value of the expression being watched.  */
+
+enum bp_loc_type
+{
+  bp_loc_software_breakpoint,
+  bp_loc_hardware_breakpoint,
+  bp_loc_hardware_watchpoint,
+  bp_loc_other			/* Miscellaneous...  */
+};
+
+struct bp_location
+{
+  /* Chain pointer to the next breakpoint location.  */
+  struct bp_location *next;
+
+  /* Type of this breakpoint location.  */
+  enum bp_loc_type loc_type;
+
+  /* Each breakpoint location must belong to exactly one higher-level
+     breakpoint.  This and the DUPLICATE flag are more straightforward
+     than reference counting.  */
+  struct breakpoint *owner;
+
+  /* Nonzero if this breakpoint is now inserted.  */
+  char inserted;
+
+  /* Nonzero if this is not the first breakpoint in the list
+     for the given address.  */
+  char duplicate;
+
+  /* If we someday support real thread-specific breakpoints, then
+     the breakpoint location will need a thread identifier.  */
+
+  /* Data for specific breakpoint types.  These could be a union, but
+     simplicity is more important than memory usage for breakpoints.  */
+
+  /* Note that zero is a perfectly valid code address on some platforms
+     (for example, the mn10200 (OBSOLETE) and mn10300 simulators).  NULL
+     is not a special value for this field.  Valid for all types except
+     bp_loc_other.  */
+  CORE_ADDR address;
+
+  /* For any breakpoint type with an address, this is the BFD section
+     associated with the address.  Used primarily for overlay debugging.  */
+  asection *section;
+
+  /* "Real" contents of byte where breakpoint has been inserted.
+     Valid only when breakpoints are in the program.  Under the complete
+     control of the target insert_breakpoint and remove_breakpoint routines.
+     No other code should assume anything about the value(s) here.
+     Valid only for bp_loc_software_breakpoint.  */
+  char shadow_contents[BREAKPOINT_MAX];
+
+  /* Address at which breakpoint was requested, either by the user or
+     by GDB for internal breakpoints.  This will usually be the same
+     as ``address'' (above) except for cases in which
+     ADJUST_BREAKPOINT_ADDRESS has computed a different address at
+     which to place the breakpoint in order to comply with a
+     processor's architectual constraints.  */
+  CORE_ADDR requested_address;
+};
+
+/* This structure is a collection of function pointers that, if available,
+   will be called instead of the performing the default action for this
+   bptype.  */
+
+struct breakpoint_ops 
+{
+  /* The normal print routine for this breakpoint, called when we
+     hit it.  */
+  enum print_stop_action (*print_it) (struct breakpoint *);
+
+  /* Display information about this breakpoint, for "info breakpoints".  */
+  void (*print_one) (struct breakpoint *, CORE_ADDR *);
+
+  /* Display information about this breakpoint after setting it (roughly
+     speaking; this is called from "mention").  */
+  void (*print_mention) (struct breakpoint *);
+};
+
+/* APPLE LOCAL: the set states for bp_set_state. */
+enum bp_set_state
+  {
+    bp_state_unset, /* Breakpoint hasn't been set yet. */
+    bp_state_set,   /* Breakpoint is all ready to be 
+		       inserted into the target.  */
+    bp_state_waiting_load /* We were able to find the breakpoint 
+			     in an objfile, but that objfile wasn't
+			     loaded into the target yet.  We need
+			     this extra state because breakpoint 
+			     resetting can happen between restarting
+			     the target and loading the objfile,
+			     at which point we can't read program text
+			     and so can't do things like move the
+			     breakpoint over the prologue.  So we want
+			     to make sure we try the breakpoint again
+			     when the target's text is loaded into memory.  */
+  };
+
 /* Note that the ->silent field is not currently used by any commands
    (though the code is in there if it was to be, and set_raw_breakpoint
    does set it to 0).  I implemented it because I thought it would be
@@ -201,11 +319,8 @@ struct breakpoint
     /* Number assigned to distinguish breakpoints.  */
     int number;
 
-    /* Address to break at.
-       Note that zero is a perfectly valid code address on some
-       platforms (for example, the mn10200 and mn10300 simulators).
-       NULL is not a special value for this field.  */
-    CORE_ADDR address;
+    /* Location(s) associated with this high-level breakpoint.  */
+    struct bp_location *loc;
 
     /* Line number of this address.  */
 
@@ -221,16 +336,6 @@ struct breakpoint
     /* Number of stops at this breakpoint that should
        be continued automatically before really stopping.  */
     int ignore_count;
-    /* "Real" contents of byte where breakpoint has been inserted.
-       Valid only when breakpoints are in the program.  Under the complete
-       control of the target insert_breakpoint and remove_breakpoint routines.
-       No other code should assume anything about the value(s) here.  */
-    char shadow_contents[BREAKPOINT_MAX];
-    /* Nonzero if this breakpoint is now inserted.  */
-    char inserted;
-    /* Nonzero if this is not the first breakpoint in the list
-       for the given address.  */
-    char duplicate;
     /* Chain of command lines to execute when this breakpoint is hit.  */
     struct command_line *commands;
     /* Stack depth (address of frame).  If nonzero, break only if fp
@@ -302,13 +407,39 @@ struct breakpoint
        triggered.  */
     char *exec_pathname;
 
-    asection *section;
+    /* Methods associated with this breakpoint.  */
+    struct breakpoint_ops *ops;
     
+    /* Was breakpoint issued from a tty?  Saved for the use of pending breakpoints.  */
+    int from_tty;
+
+    /* Flag value for pending breakpoint.
+       first bit  : 0 non-temporary, 1 temporary.
+       second bit : 0 normal breakpoint, 1 hardware breakpoint. */
+    int flag;
+
+    /* Is breakpoint pending on shlib loads?  */
+    int pending;
+
+    /* Record the shared library name that this breakpoint is
+       to be set for.  If NULL, then don't bother with this.
+       N.B. this is not the sharedlibrary it is actually set in,
+       and will be null unless the breakpoint's creator specifically
+       limited the breakpoint to a particular shlib.  */
+
+    char *requested_shlib;
+
+    /* This is the objfile that the breakpoint is currently set
+       in.  Need this for "tell_breakpoint_objfile_changed" since
+       you may have many objfiles overlapping the same address
+       range...  */
+    struct objfile *bp_objfile;
+
     /* Used for save-breakpoints.  */ 
     int original_flags;
 
     /* Has this breakpoint been successfully set yet? */
-    int bp_set_p;
+    enum bp_set_state bp_set_state;
   };
 
 /* The following stuff is an abstract data type "bpstat" ("breakpoint
@@ -326,7 +457,7 @@ extern void bpstat_clear (bpstat *);
    is part of the bpstat is copied as well.  */
 extern bpstat bpstat_copy (bpstat);
 
-extern bpstat bpstat_stop_status (CORE_ADDR *pc, int not_a_sw_breakpoint);
+extern bpstat bpstat_stop_status (CORE_ADDR pc, ptid_t ptid);
 
 /* This bpstat_what stuff tells wait_for_inferior what to do with a
    breakpoint (a challenging task).  */
@@ -527,11 +658,15 @@ enum breakpoint_here
 
 extern void set_breakpoint_count (int);
 
-extern int get_breakpoint_count (void);
-
 extern enum breakpoint_here breakpoint_here_p (CORE_ADDR);
 
 extern int breakpoint_inserted_here_p (CORE_ADDR);
+
+extern int software_breakpoint_inserted_here_p (CORE_ADDR);
+
+extern struct breakpoint *find_breakpoint (int);
+extern void breakpoint_print_commands (struct ui_out *, struct breakpoint *);
+extern void breakpoint_add_commands (struct breakpoint *, struct command_line *);
 
 /* FIXME: cagney/2002-11-10: The current [generic] dummy-frame code
    implements a functional superset of this function.  The only reason
@@ -632,7 +767,7 @@ extern void set_longjmp_resume_breakpoint (CORE_ADDR, struct frame_id);
    enabled watchpoints.  When disabled, the watchpoints are marked
    call_disabled.  When reenabled, they are marked enabled.
 
-   The intended client of these functions is infcmd.c\run_stack_dummy.
+   The intended client of these functions is call_function_by_hand.
 
    The inferior must be stopped, and all breakpoints removed, when
    these functions are used.
@@ -722,9 +857,9 @@ extern struct breakpoint *find_finish_breakpoint (void);
 
 extern int exception_catchpoints_enabled (enum exception_event_kind ex_event);
 extern void disable_exception_catch (enum exception_event_kind ex_event);
-int  update_exception_catchpoints (enum exception_event_kind ex_event,
-				   int tempflag, char *cond_string,
-				   int delete, struct objfile *objfile);
+void gnu_v3_update_exception_catchpoints (enum exception_event_kind ex_event,
+				     int tempflag, char *cond_string);
+int handle_gnu_v3_exceptions (enum exception_event_kind ex_event);
 
 void tell_breakpoints_objfile_changed (struct objfile *objfile);
 #endif /* !defined (BREAKPOINT_H) */

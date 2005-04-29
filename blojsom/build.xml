@@ -1,0 +1,528 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE project [
+    <!ENTITY forrest-targets SYSTEM "file:./forrest-targets.ent">
+]>
+
+<!-- ======================================================================= -->
+<!-- blojsom                                                                 -->
+<!-- ======================================================================= -->
+<project name="blojsom" default="compile" basedir=".">
+
+    <property name="name" value="blojsom"/>
+    <property name="version" value="2.14"/>
+
+    <property name="distro.dir" value="${OBJROOT}/${PRODUCT_NAME}.build/${PRODUCT_NAME}.build"/>
+    <property name="war.file" value="${distro.dir}/${name}.war"/>
+    <property name="compile.dir" value="${distro.dir}/JavaClasses"/>
+    <property name="lib.dir" value="${basedir}/lib"/>
+    <property name="src.dir" value="${basedir}/src"/>
+    <property name="plugins.src.dir" value="${basedir}/plugins/src"/>
+    <property name="extensions.src.dir" value="${basedir}/extensions/src"/>
+    <property name="testing.src.dir" value="${basedir}/testing/src"/>
+    <property name="war.dir" value="${basedir}/war"/>
+    <property name="webinf.dir" value="${war.dir}/WEB-INF"/>
+    <property name="webinf.lib.dir" value="${OBJROOT}/WEB-INF/lib"/>
+    <property name="build.dir" value="${OBJROOT}/WEB-INF/classes"/>
+    <property name="javadoc.dir" value="${basedir}/docs/content/javadoc"/>
+    <property name="javadoc.zip" value="${distro.dir}/${name}-javadocs.zip"/>
+    <property name="properties.dir" value="${basedir}/properties"/>
+    <property name="templates.dir" value="${basedir}/war/WEB-INF/default/templates"/>
+    <property name="themes.dir" value="${basedir}/themes"/>
+    <property name="core.jar" value="${webinf.lib.dir}/${name}-core-${version}.jar"/>
+    <property name="resources.jar" value="${webinf.lib.dir}/${name}-resources-${version}.jar"/>
+    <property name="plugins.jar" value="${webinf.lib.dir}/${name}-plugins-${version}.jar"/>
+    <property name="plugins-templates.jar" value="${webinf.lib.dir}/${name}-plugins-templates-${version}.jar"/>
+    <property name="extensions.jar" value="${webinf.lib.dir}/${name}-extensions-${version}.jar"/>
+    <property name="templates.jar" value="${webinf.lib.dir}/${name}-templates-${version}.jar"/>
+    <property name="website.zip" value="${distro.dir}/${name}-website.zip"/>
+    <property name="forrest.home" value="/Applications/Development/apache-forrest-0.5.1-src/build/dist/shbat"/>
+
+    <!-- Add-on properties -->
+    <property name="addon.lib.dir" value="${OBJROOT}/addon-lib"/>
+	<property name="tomcat.dir" value="/Library/Tomcat/common/lib"/>
+
+    <property name="addon.extensions.src.dir" value="${basedir}/addon/extensions/src"/>
+    <property name="addon.plugins.src.dir" value="${basedir}/addon/plugins/src"/>
+    <property name="addon.core.src.dir" value="${basedir}/addon/core/src"/>
+
+    <property name="addon.core.jar" value="${webinf.lib.dir}/${name}-addon-core-${version}.jar"/>
+    <property name="addon.plugins.jar" value="${webinf.lib.dir}/${name}-addon-plugins-${version}.jar"/>
+    <property name="addon.extensions.jar" value="${webinf.lib.dir}/${name}-addon-extensions-${version}.jar"/>
+    <property name="addon.resources.jar" value="${webinf.lib.dir}/${name}-addon-resources-${version}.jar"/>
+
+    <property name="debug" value="on"/>
+    <property name="deprecation" value="on"/>
+    <property name="optimize" value="on"/>
+
+    <!-- Forrest properties -->
+    <property name="forrest.build.dir" value="${basedir}/build"/>
+    <property name="forrest.build.tmp.dir" value="${build.dir}/tmp"/>
+    <property name="forrest.build.worksite.dir" value="${build.dir}/work-site"/>
+    <property name="forrest.site.dir" location="${forrest.build.dir}/site"/>
+
+    <!-- =================================================================== -->
+    <!-- Classpath                                                           -->
+    <!-- =================================================================== -->
+    <path id="build.classpath">
+        <fileset dir="${webinf.lib.dir}">
+            <include name="*.jar"/>
+        </fileset>
+        <fileset dir="${addon.lib.dir}">
+            <include name="*.jar"/>
+        </fileset>
+		<fileset dir="${tomcat.dir}">
+			<include name="*.jar"/>
+		</fileset>
+    </path>
+
+    <!-- =================================================================== -->
+    <!-- Sourcepath (for javadoc)                                            -->
+    <!-- =================================================================== -->
+    <path id="source.path">
+        <pathelement path="${src.dir}"/>
+        <pathelement path="${plugins.src.dir}"/>
+        <pathelement path="${extensions.src.dir}"/>
+    </path>
+
+    <!-- =================================================================== -->
+    <!-- Prepares the build process                                          -->
+    <!-- =================================================================== -->
+    <target name="prepare">
+        <tstamp/>
+        <mkdir dir="${compile.dir}"/>
+        <mkdir dir="${build.dir}"/>
+        <mkdir dir="${distro.dir}"/>
+		<mkdir dir="${webinf.lib.dir}"/>
+        <copy todir="${build.dir}">
+            <fileset dir="${properties.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+		
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Cleans up generated stuff                                           -->
+    <!-- =================================================================== -->
+    <target name="clean" description="Removes generated files">
+        <delete dir="${compile.dir}"/>
+        <delete dir="${build.dir}"/>
+        <delete dir="${javadoc.dir}"/>
+        <delete dir="${distro.dir}"/>
+        <delete dir="${build.dir}"/>
+        <!--
+<delete>
+            <fileset dir="${webinf.lib.dir}" includes="${name}-*.jar"/>
+        </delete>
+-->
+        <delete file="${war.file}"/>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Compiles the source code                                            -->
+    <!-- =================================================================== -->
+    <target name="compile" depends="prepare" description="Compiles the class files">
+        <!-- Core -->
+        <javac srcdir="${src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${core.jar}" basedir="${compile.dir}"/>
+
+        <!-- Plugins -->
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <javac srcdir="${plugins.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${plugins.jar}" basedir="${compile.dir}"/>
+
+        <!-- Plugins templates -->
+        <jar file="${plugins-templates.jar}" basedir="${plugins.src.dir}" includes="**/*.vm"/>
+
+        <!-- Extensions -->
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <javac srcdir="${extensions.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            excludes="**/Test*"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${extensions.jar}" basedir="${compile.dir}"/>
+
+        <!-- Resources -->
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <copy todir="${compile.dir}">
+            <fileset dir="${src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <copy todir="${compile.dir}">
+            <fileset dir="${extensions.src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <copy todir="${compile.dir}">
+            <fileset dir="${plugins.src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <jar file="${resources.jar}" basedir="${compile.dir}"/>
+
+        <delete dir="${compile.dir}"/>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Compiles and installs (mostly for SCM)								 -->
+    <!-- =================================================================== -->
+	<target name="install" depends="compile" description="Compiles and installs (mostly for SCM)">
+		<copy todir="${DSTROOT}/Library/Tomcat/blojsom_root">
+			<fileset dir="blojsom_root">
+				<include name="**/*"/>
+			</fileset>
+		</copy>
+		<copy todir="${DSTROOT}/Library/Tomcat/blojsom_root/webapps/ROOT">
+			<fileset dir="war">
+				<include name="**/*"/>
+			</fileset>
+		</copy>
+		<copy todir="${DSTROOT}/Library/Tomcat/blojsom_root/webapps/ROOT/WEB-INF/lib">
+			<fileset dir="${webinf.lib.dir}">
+				<include name="*.jar"/>
+			</fileset>
+		</copy>
+		<copy todir="${DSTROOT}/System/Library/LaunchDaemons">
+			<fileset dir="LaunchDaemons">
+				<include name="**/*"/>
+			</fileset>
+		</copy>
+	</target>
+	
+	<target name="installhdrs"/>
+	
+    <!-- =================================================================== -->
+    <!-- Compiles the source code and does not delete nor jar. For Testing   -->
+    <!-- =================================================================== -->
+    <target name="compile-for-testing" depends="prepare" description="Compiles the class files">
+        <!-- Core -->
+        <javac srcdir="${src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <javac srcdir="${plugins.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <javac srcdir="${extensions.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <javac srcdir="${testing.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Compiles the add-on source code                                     -->
+    <!-- =================================================================== -->
+    <target name="compile-addon" depends="compile" description="Compiles the add-on core, extensions, and plugins">
+        <!-- Add-on core -->
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <javac srcdir="${addon.core.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${addon.core.jar}" basedir="${compile.dir}"/>
+        <delete dir="${compile.dir}"/>
+
+        <!-- Add-on plugins -->
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <javac srcdir="${addon.plugins.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${addon.plugins.jar}" basedir="${compile.dir}"/>
+        <delete dir="${compile.dir}"/>
+
+        <!-- Add-on extensions -->
+        <!--
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <javac srcdir="${addon.extensions.src.dir}"
+            destdir="${compile.dir}"
+            debug="${debug}"
+            deprecation="${deprecation}"
+            optimize="${optimize}">
+            <classpath refid="build.classpath"/>
+        </javac>
+        <jar file="${addon.extensions.jar}" basedir="${compile.dir}"/>
+        <delete dir="${compile.dir}"/>
+        -->
+
+        <!-- Resources -->
+        <!--
+        <delete dir="${compile.dir}"/>
+        <mkdir dir="${compile.dir}"/>
+        <copy todir="${compile.dir}">
+            <fileset dir="${addon.src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <copy todir="${compile.dir}">
+            <fileset dir="${addon.extensions.src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <copy todir="${compile.dir}">
+            <fileset dir="${addon.plugins.src.dir}">
+                <include name="**/*.properties"/>
+            </fileset>
+        </copy>
+        <jar file="${addon.resources.jar}" basedir="${compile.dir}"/>
+        <delete dir="${compile.dir}"/>
+        -->
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Create the war file                                                 -->
+    <!-- =================================================================== -->
+    <target name="war" depends="clean, prepare, compile">
+        <copydir src="${templates.dir}" dest="${war.dir}/WEB-INF/default/templates"/>
+        <copydir src="${themes.dir}" dest="${war.dir}/themes"/>
+
+        <!-- Uncomment this if you want to JAR up the templates for running blojsom from a WAR file (i.e. a packed WAR) -->
+        <!-- <jar jarfile="${templates.jar}" basedir="${templates.dir}"/> -->
+
+        <jar jarfile="${war.file}" basedir="${war.dir}"/>
+        <delete dir="${war.dir}/WEB-INF/default/templates"/>
+        <delete dir="${war.dir}/themes"/>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Create the add-on bundle                                            -->
+    <!-- =================================================================== -->
+    <target name="create-addon-bundle" depends="compile-addon">
+        <tstamp/>
+        <zip zipfile="${distro.dir}/${name}-${version}-addons.zip">
+            <fileset dir="${webinf.lib.dir}">
+                <include name="${name}-addon-*.jar"/>
+            </fileset>
+            <fileset dir="${addon.lib.dir}">
+                <include name="*.jar"/>
+            </fileset>
+            <fileset dir="${properties.dir}">
+                <include name="oscache.properties"/>
+            </fileset>
+        </zip>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Creates the API documentation                                       -->
+    <!-- =================================================================== -->
+    <target name="javadoc" description="Creates the API documentation">
+        <mkdir dir="${javadoc.dir}"/>
+        <javadoc packagenames="org.*"
+            destdir="${javadoc.dir}"
+            author="true"
+            version="true"
+            use="true"
+            windowtitle="${name} ${version} API"
+            doctitle="${name} ${version} API">
+            <classpath refid="build.classpath"/>
+            <sourcepath refid="source.path"/>
+        </javadoc>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Creates a ZIP of the documentation for the website                  -->
+    <!-- =================================================================== -->
+    <target name="website-docs" depends="javadoc" description="Creates a ZIP for the blojsom website">
+        <zip zipfile="${website.zip}" basedir="${basedir}/docs"/>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Copies the shrubbery theme                                          -->
+    <!-- =================================================================== -->
+    <!--
+    <target name="copy-shrubbery-theme">
+        <tstamp/>
+        <copy todir="${build.dir}">
+            <fileset dir="${themes.dir}/shrubbery">
+                <include name="**/*.vm"/>
+            </fileset>
+        </copy>
+        <copy todir="${war.dir}">
+            <fileset dir="${themes.dir}/shrubbery">
+                <include name="**/*.css"/>
+                <include name="**/*.jpg"/>
+                <include name="**/*.gif"/>
+            </fileset>
+        </copy>
+    </target>
+    -->
+
+    <!-- =================================================================== -->
+    <!-- Copies the secondwave theme                                         -->
+    <!-- =================================================================== -->
+    <!--
+    <target name="copy-green-lantern-theme">
+        <tstamp/>
+        <copy todir="${war.dir}">
+            <fileset dir="${themes.dir}/green-lantern">
+                <include name="**/*.css"/>
+            </fileset>
+        </copy>
+    </target>
+    -->
+
+    <!-- =================================================================== -->
+    <!-- Copies the eclipse theme                                            -->
+    <!-- =================================================================== -->
+    <!--
+    <target name="copy-eclipse-theme">
+        <tstamp/>
+        <copy todir="${build.dir}">
+            <fileset dir="${themes.dir}/eclipse">
+                <include name="**/*.vm"/>
+            </fileset>
+        </copy>
+        <copy todir="${war.dir}">
+            <fileset dir="${themes.dir}/eclipse">
+                <include name="**/*.css"/>
+            </fileset>
+        </copy>
+    </target>
+    -->
+
+    <!-- =================================================================== -->
+    <!-- Copies the secondwave theme                                         -->
+    <!-- =================================================================== -->
+    <!--
+    <target name="copy-secondwave-theme">
+        <tstamp/>
+        <copy todir="${build.dir}">
+            <fileset dir="${themes.dir}/secondwave">
+                <include name="**/*.vm"/>
+            </fileset>
+        </copy>
+        <copy todir="${war.dir}">
+            <fileset dir="${themes.dir}/secondwave">
+                <include name="**/*.css"/>
+            </fileset>
+        </copy>
+    </target>
+    -->
+
+    <!-- =================================================================== -->
+    <!-- Create a source distribution                                        -->
+    <!-- =================================================================== -->
+    <target name="create-source-distribution" depends="clean, prepare">
+        <tstamp/>
+        <zip zipfile="${distro.dir}/${name}-${version}-source.zip">
+            <zipfileset dir="${basedir}">
+                <!-- Base files -->
+                <include name="build.xml"/>
+                <include name="LICENSE"/>
+                <include name="README"/>
+                <include name="forrest-targets.ent"/>
+                <include name="forrest.properties"/>
+
+                <!-- Source directories -->
+                <include name="addon/**"/>
+                <include name="extensions/**"/>
+                <include name="plugins/**"/>
+                <include name="src/**"/>
+
+                <!-- Library directory -->
+                <include name="lib/"/>
+                <include name="addon-lib/"/>
+
+                <!-- Properties directory -->
+                <include name="properties/"/>
+
+                <!-- Templates and themes -->
+                <include name="templates/"/>
+                <include name="themes/**"/>
+
+                <!-- WAR directory -->
+                <include name="war/"/>
+                <include name="war/WEB-INF"/>
+                <include name="war/WEB-INF/lib"/>
+            </zipfileset>
+        </zip>
+    </target>
+
+    <!-- =================================================================== -->
+    <!-- Deploys the Forrest site to Source                                  -->
+    <!-- =================================================================== -->
+    <target name="deploysite" depends="javadoc">
+
+        <!-- property to build and deploy the forrest site -->
+        <property name="forrest.deployer.username" value="czarneckid"/>
+        <property name="forrest.deployer.name" value="${user.name}"/>
+
+        <property name="forrest.site.hostname" value="blojsom.sf.net"/>
+        <property name="forrest.site.remotedir" value="/home/groups/b/bl/blojsom/htdocs/"/>
+
+        <property name="forrest.site.work.dir" value="${forrest.site.dir}"/>
+        <property name="forrest.site.tar.path.and.name" value="${forrest.site.work.dir}/${name}-site"/>
+
+        <mkdir dir="${forrest.site.dir}/javadoc"/>
+        <copy todir="${forrest.site.dir}/javadoc">
+            <fileset dir="${javadoc.dir}"/>
+        </copy>
+
+        <tar tarfile="${forrest.site.tar.path.and.name}.tar" basedir="${forrest.site.dir}"/>
+        <gzip zipfile="${forrest.site.tar.path.and.name}.tar.gz" src="${forrest.site.tar.path.and.name}.tar"/>
+        <delete file="${forrest.site.tar.path.and.name}.tar"/>
+
+        <exec dir="${forrest.site.work.dir}" executable="scp">
+            <arg value="${name}-site.tar.gz"/>
+            <arg value="${forrest.deployer.username}@${forrest.site.hostname}:${forrest.site.remotedir}"/>
+        </exec>
+
+        <exec dir="." executable="ssh">
+            <arg line="-n ${forrest.site.hostname} -l ${forrest.deployer.username} 'cd ${forrest.site.remotedir};gunzip ${name}-site.tar.gz;tar xUvf ${name}-site.tar;chgrp -R ${name} *;chmod -R g+rwX *;rm ${name}-site.tar'"/>
+        </exec>
+
+        <delete file="${forrest.site.tar.path.and.name}.tar.gz"/>
+
+    </target>
+
+    &forrest-targets;
+
+</project>
+

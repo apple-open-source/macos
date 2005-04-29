@@ -1,0 +1,268 @@
+*** example.c.orig	Sun Aug 13 07:13:57 2000
+--- example.c	Sun Aug 13 07:15:02 2000
+***************
+*** 16,32 ****
+   * see also the programs in the contrib directory.
+   */
+  
+  #include "png.h"
+  
+!  /* The png_jmpbuf() macro, used in error handling, became available in
+!   * libpng version 1.0.6.  If you want to be able to run your code with older
+!   * versions of libpng, you must define the macro yourself (but only if it
+!   * is not already defined by libpng!).
+!   */
+  
+! #ifndef png_jmpbuf
+! #  define png_jmpbuf(png_ptr) ((png_ptr)->jmpbuf)
+  #endif
+  
+  /* Check to see if a file is a PNG file using png_sig_cmp().  png_sig_cmp()
+   * returns zero if the image is a PNG and nonzero if it isn't a PNG.
+--- 16,66 ----
+   * see also the programs in the contrib directory.
+   */
+  
++ #ifdef PNG_SETJMP_SUPPORTED
++ #include <setjmp.h>
++ #endif
++ #include <stdlib.h>
+  #include "png.h"
+  
+! /* 
+!  * It is recommended always to supply your own error and warning
+!  * handlers, and not to use the jmpbuf field in png_ptr.
+! */
+! 
+! struct error_data {
+! #ifdef PNG_SETJMP_SUPPORTED
+!    jmp_buf jmpbuf;
+! #endif
+!    /* Here you can define any any additional fields you like */
+! };
+! 
+! static void
+! user_warning_fn(png_structp png_ptr, png_const_charp message)
+! {
+!    (void) png_ptr;	/* avoid compiler warning "unreferenced parameter" */
+! #ifdef PNG_NO_CONSOLE_IO
+!    (void) message;	/* avoid compiler warning "unreferenced parameter" */
+! #else
+!    fprintf(stderr, "libpng warning: %s\n", message);
+! #endif
+! }
+! 
+! static void
+! user_error_fn(png_structp png_ptr, png_const_charp message)
+! {
+! #ifdef PNG_NO_CONSOLE_IO
+!    (void) message;	/* avoid compiler warning "unreferenced parameter" */
+! #else
+!    fprintf(stderr, "libpng error: %s\n", message);
+! #endif
+  
+! #ifdef PNG_SETJMP_SUPPORTED
+!    longjmp(((struct error_data *)png_get_error_ptr(png_ptr))->jmpbuf, 1);
+! #else
+!    (void) png_ptr;	/* avoid compiler warning "unreferenced parameter" */
+!    PNG_ABORT();
+  #endif
++ }
+  
+  /* Check to see if a file is a PNG file using png_sig_cmp().  png_sig_cmp()
+   * returns zero if the image is a PNG and nonzero if it isn't a PNG.
+***************
+*** 93,107 ****
+     png_uint_32 width, height;
+     int bit_depth, color_type, interlace_type;
+  #endif no_open_file /* only use one prototype! */
+  
+     /* Create and initialize the png_struct with the desired error handler
+!     * functions.  If you want to use the default stderr and longjump method,
+!     * you can supply NULL for the last three parameters.  We also supply the
+!     * the compiler header file version, so that we know if the application
+!     * was compiled with a compatible version of the library.  REQUIRED
+      */
+     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+!       png_voidp user_error_ptr, user_error_fn, user_warning_fn);
+  
+     if (png_ptr == NULL)
+     {
+--- 127,141 ----
+     png_uint_32 width, height;
+     int bit_depth, color_type, interlace_type;
+  #endif no_open_file /* only use one prototype! */
++    struct error_data errordata;
+  
+     /* Create and initialize the png_struct with the desired error handler
+!     * functions.  We also supply the the compiler header file version, so
+!     * that we know if the application was compiled with a compatible
+!     *  version of the library.  REQUIRED
+      */
+     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+!       (png_voidp) &errordata, user_error_fn, user_warning_fn);
+  
+     if (png_ptr == NULL)
+     {
+***************
+*** 123,129 ****
+      * set up your own error handlers in the png_create_read_struct() earlier.
+      */
+  
+!    if (setjmp(png_jmpbuf(png_ptr)))
+     {
+        /* Free all of the memory associated with the png_ptr and info_ptr */
+        png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+--- 157,163 ----
+      * set up your own error handlers in the png_create_read_struct() earlier.
+      */
+  
+!    if (setjmp(errordata.jmpbuf))
+     {
+        /* Free all of the memory associated with the png_ptr and info_ptr */
+        png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)NULL);
+***************
+*** 396,412 ****
+  initialize_png_reader(png_structp *png_ptr, png_infop *info_ptr)
+  {
+     /* Create and initialize the png_struct with the desired error handler
+!     * functions.  If you want to use the default stderr and longjump method,
+!     * you can supply NULL for the last three parameters.  We also check that
+!     * the library version is compatible in case we are using dynamically
+!     * linked libraries.
+      */
+     *png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+!        png_voidp user_error_ptr, user_error_fn, user_warning_fn);
+  
+     if (*png_ptr == NULL)
+     {
+        *info_ptr = NULL;
+        return (ERROR);
+     }
+  
+--- 430,447 ----
+  initialize_png_reader(png_structp *png_ptr, png_infop *info_ptr)
+  {
+     /* Create and initialize the png_struct with the desired error handler
+!     * functions.  We also check that the library version is compatible
+!     * in case we are using dynamically linked libraries.
+      */
++    struct error_data *errordata = malloc(sizeof(struct error_data));
++ 
+     *png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
+!        (png_voidp) errordata, user_error_fn, user_warning_fn);
+  
+     if (*png_ptr == NULL)
+     {
+        *info_ptr = NULL;
++       free(errordata);
+        return (ERROR);
+     }
+  
+***************
+*** 414,425 ****
+  
+     if (*info_ptr == NULL)
+     {
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+  
+!    if (setjmp(png_jmpbuf((*png_ptr))))
+     {
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+--- 449,462 ----
+  
+     if (*info_ptr == NULL)
+     {
++       free(errordata);
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+  
+!    if (setjmp(errordata->jmpbuf))
+     {
++       free(errordata);
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+***************
+*** 446,454 ****
+  process_data(png_structp *png_ptr, png_infop *info_ptr,
+     png_bytep buffer, png_uint_32 length)
+  {
+!    if (setjmp(png_jmpbuf((*png_ptr))))
+     {
+        /* Free the png_ptr and info_ptr memory on error */
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+--- 483,494 ----
+  process_data(png_structp *png_ptr, png_infop *info_ptr,
+     png_bytep buffer, png_uint_32 length)
+  {
+!    struct error_data *errordata = (struct error_data *) png_get_error_ptr(png_ptr);
+! 
+!    if (setjmp(errordata->jmpbuf))
+     {
+        /* Free the png_ptr and info_ptr memory on error */
++       free(png_get_error_ptr(png_ptr));
+        png_destroy_read_struct(png_ptr, info_ptr, (png_infopp)NULL);
+        return (ERROR);
+     }
+***************
+*** 520,525 ****
+--- 560,566 ----
+   * Most people won't do much here, perhaps setting a flag that
+   * marks the image as finished.
+   */
++    free(png_get_error_ptr(png_ptr));
+  }
+  
+  /* write a png file */
+***************
+*** 529,534 ****
+--- 570,576 ----
+     png_structp png_ptr;
+     png_infop info_ptr;
+     png_colorp palette;
++    struct error_data errordata;
+  
+     /* open the file */
+     fp = fopen(file_name, "wb");
+***************
+*** 542,548 ****
+      * in case we are using dynamically linked libraries.  REQUIRED.
+      */
+     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+!       png_voidp user_error_ptr, user_error_fn, user_warning_fn);
+  
+     if (png_ptr == NULL)
+     {
+--- 584,590 ----
+      * in case we are using dynamically linked libraries.  REQUIRED.
+      */
+     png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
+!       (png_voidp) &errordata, user_error_fn, user_warning_fn);
+  
+     if (png_ptr == NULL)
+     {
+***************
+*** 562,568 ****
+     /* Set error handling.  REQUIRED if you aren't supplying your own
+      * error handling functions in the png_create_write_struct() call.
+      */
+!    if (setjmp(png_jmpbuf(png_ptr)))
+     {
+        /* If we get here, we had a problem reading the file */
+        fclose(fp);
+--- 604,610 ----
+     /* Set error handling.  REQUIRED if you aren't supplying your own
+      * error handling functions in the png_create_write_struct() call.
+      */
+!    if (setjmp(errordata.jmpbuf))
+     {
+        /* If we get here, we had a problem reading the file */
+        fclose(fp);

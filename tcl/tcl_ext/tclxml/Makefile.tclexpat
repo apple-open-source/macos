@@ -1,0 +1,23 @@
+##
+# Makefile for tclxml-expat
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = expat
+ProjectName           = TclExpat
+
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_LD_Flags        = -L$(TclFramework)
+Extra_Environment     = $(TEA_Environment)
+Extra_Install_Flags   = GENERIC_HDRS=
+
+GnuAfterInstall       = strip -f Makefile.tclexpat
+
+# include TEA Tcl extension build support
+include ../TEA.make
+
+TclExtDir             = Tclexpat
+
+Sources               = $(SRCROOT)/tclxml/$(Project)

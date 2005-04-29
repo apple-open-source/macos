@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/GL/glx/render2.c,v 1.5 2001/03/21 16:29:37 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/GL/glx/render2.c,v 1.9 2004/02/12 02:25:01 torrey Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -82,18 +82,25 @@ void __glXDisp_Map2f(GLbyte *pc)
 
 void __glXDisp_Map1d(GLbyte *pc)
 {
-    GLint order, k, compsize;
+    GLint order, k;
+#ifdef __GLX_ALIGN64
+    GLint compsize;
+#endif
     GLenum target;
     GLdouble u1, u2, *points;
 
     target = *(GLenum*) (pc + 16);
     order = *(GLint*) (pc + 20);
     k = __glEvalComputeK(target);
+
+#ifdef __GLX_ALIGN64
     if (order < 0 || k < 0) {
 	compsize = 0;
     } else {
 	compsize = order * k;
     }
+#endif
+
     __GLX_GET_DOUBLE(u1,pc);
     __GLX_GET_DOUBLE(u2,pc+8);
     pc += 24;
@@ -118,18 +125,25 @@ void __glXDisp_Map1d(GLbyte *pc)
 void __glXDisp_Map2d(GLbyte *pc)
 {
     GLdouble u1, u2, v1, v2, *points;
-    GLint uorder, vorder, ustride, vstride, k, compsize;
+    GLint uorder, vorder, ustride, vstride, k;
+#ifdef __GLX_ALIGN64
+    GLint compsize;
+#endif
     GLenum target;
 
     target = *(GLenum *)(pc + 32);
     uorder = *(GLint *)(pc + 36);
     vorder = *(GLint *)(pc + 40);
     k = __glEvalComputeK(target);
+
+#ifdef __GLX_ALIGN64
     if (vorder < 0 || uorder < 0 || k < 0) {
 	compsize = 0;
     } else {
 	compsize = uorder * vorder * k;
     }
+#endif
+
     __GLX_GET_DOUBLE(u1,pc);
     __GLX_GET_DOUBLE(u2,pc+8);
     __GLX_GET_DOUBLE(v1,pc+16);
@@ -220,6 +234,16 @@ void __glXDisp_DrawArrays(GLbyte *pc)
 	    glEnableClientState(GL_EDGE_FLAG_ARRAY);
 	    glEdgeFlagPointer(stride, (const GLboolean *)pc);
 	    break;
+#ifndef MISSING_GL_EXTS
+	  case GL_SECONDARY_COLOR_ARRAY:
+	    glEnableClientState(GL_SECONDARY_COLOR_ARRAY);
+	    glSecondaryColorPointer(numVals, datatype, stride, pc);
+	    break;
+	  case GL_FOG_COORDINATE_ARRAY:
+	    glEnableClientState(GL_FOG_COORDINATE_ARRAY);
+	    glFogCoordPointer(datatype, stride, pc);
+	    break;
+#endif
 	  default:
 	    break;
 	}
@@ -236,10 +260,11 @@ void __glXDisp_DrawArrays(GLbyte *pc)
     glDisableClientState(GL_INDEX_ARRAY);
     glDisableClientState(GL_TEXTURE_COORD_ARRAY);
     glDisableClientState(GL_EDGE_FLAG_ARRAY);
+    glDisableClientState(GL_SECONDARY_COLOR_ARRAY);
+    glDisableClientState(GL_FOG_COORDINATE_ARRAY);
 }
 
 void __glXDisp_DrawArraysEXT(GLbyte *pc)
 {
-#ifdef XXX_STUB
-#endif /*XXX_STUB*/
+   __glXDisp_DrawArrays(pc);
 }

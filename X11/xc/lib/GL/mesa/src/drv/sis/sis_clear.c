@@ -1,425 +1,414 @@
 /**************************************************************************
 
 Copyright 2000 Silicon Integrated Systems Corp, Inc., HsinChu, Taiwan.
+Copyright 2003 Eric Anholt
 All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sub license, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+on the rights to use, copy, modify, merge, publish, distribute, sub
+license, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice (including the
-next paragraph) shall be included in all copies or substantial portions
-of the Software.
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
-ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ERIC ANHOLT OR SILICON INTEGRATED SYSTEMS CORP BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_clear.c,v 1.5 2000/09/26 15:56:48 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_clear.c,v 1.8 2003/12/09 00:15:21 alanh Exp $ */
 
 /*
  * Authors:
- *    Sung-Ching Lin <sclin@sis.com.tw>
- *
+ *   Sung-Ching Lin <sclin@sis.com.tw>
+ *   Eric Anholt <anholt@FreeBSD.org>
  */
 
-#include "sis_ctx.h"
-#include "sis_mesa.h"
+#include "sis_context.h"
+#include "sis_state.h"
 #include "sis_lock.h"
 
-__inline__ static GLbitfield sis_3D_Clear (GLcontext * ctx, GLbitfield mask,
-					   GLint x, GLint y, GLint width,
-					   GLint height);
-__inline__ static void sis_clear_color_buffer (GLcontext * ctx, GLint x,
-					       GLint y, GLint width,
-					       GLint height);
-__inline__ static void sis_clear_z_stencil_buffer (GLcontext * ctx,
-						   GLbitfield mask, GLint x,
-						   GLint y, GLint width,
-						   GLint height);
+#include "swrast/swrast.h"
+#include "mmath.h"
 
-GLbitfield
-sis_Clear (GLcontext * ctx, GLbitfield mask, GLboolean all,
-	   GLint x, GLint y, GLint width, GLint height)
+static GLbitfield sis_3D_Clear( GLcontext * ctx, GLbitfield mask,
+				GLint x, GLint y, GLint width,
+				GLint height );
+static void sis_clear_color_buffer( GLcontext *ctx, GLenum mask, GLint x,
+				    GLint y, GLint width, GLint height );
+static void sis_clear_z_stencil_buffer( GLcontext * ctx,
+					GLbitfield mask, GLint x,
+					GLint y, GLint width,
+					GLint height );
+
+static void
+set_color_pattern( sisContextPtr smesa, GLubyte red, GLubyte green,
+		   GLubyte blue, GLubyte alpha )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   /* XXX only RGB565 and ARGB8888 */
+   switch (smesa->colorFormat)
+   {
+   case DST_FORMAT_ARGB_8888:
+      smesa->clearColorPattern = (alpha << 24) +
+	 (red << 16) + (green << 8) + (blue);
+      break;
+   case DST_FORMAT_RGB_565:
+      smesa->clearColorPattern = ((red >> 3) << 11) +
+	 ((green >> 2) << 5) + (blue >> 3);
+      smesa->clearColorPattern |= smesa->clearColorPattern << 16;
+      break;
+   default:
+      assert(0);
+   }
+}
 
-  XMesaBuffer xm_buffer = xmesa->xm_buffer;
+void
+sisUpdateZStencilPattern( sisContextPtr smesa, GLclampd z, GLint stencil )
+{
+   GLuint zPattern;
+
+   switch (smesa->zFormat)
+   {
+   case SiS_ZFORMAT_Z16:
+      zPattern = FLOAT_TO_USHORT(z);
+      zPattern |= zPattern << 16;
+      break;
+   case SiS_ZFORMAT_S8Z24:
+      zPattern = FLOAT_TO_UINT(z) >> 8;
+      zPattern |= stencil << 24;
+      break;
+   case SiS_ZFORMAT_Z32:
+      zPattern = FLOAT_TO_UINT(z);
+      break;
+   default:
+      assert(0);
+   }
+   smesa->clearZStencilPattern = zPattern;
+}
+
+void
+sisDDClear( GLcontext * ctx, GLbitfield mask, GLboolean all,
+	    GLint x, GLint y, GLint width, GLint height )
+{
+  sisContextPtr smesa = SIS_CONTEXT(ctx);
+
   GLint x1, y1, width1, height1;
 
-  if (all)
-    {
+   if (all) {
       GLframebuffer *buffer = ctx->DrawBuffer;
 
       x1 = 0;
       y1 = 0;
       width1 = buffer->Width;
       height1 = buffer->Height;
-    }
-  else
-    {
+   } else {
       x1 = x;
       y1 = Y_FLIP(y+height-1);
       width1 = width;            
       height1 = height;
-    }
+   }
+   /* XXX: Scissoring */
 
-  LOCK_HARDWARE ();
+   LOCK_HARDWARE();
 
-  /* 
-   * TODO: no considering multiple-buffer and clear buffer
-   * differs from current draw buffer 
-   */
+   /* Mask out any non-existent buffers */
+   if (ctx->Visual.depthBits == 0 || !ctx->Depth.Mask)
+      mask &= ~DD_DEPTH_BIT;
+   if (ctx->Visual.stencilBits == 0)
+      mask &= ~DD_STENCIL_BIT;
 
-  if ((ctx->Visual->StencilBits &&
-       ((mask | GL_DEPTH_BUFFER_BIT) ^ (mask | GL_STENCIL_BUFFER_BIT))) 
-      || (*(DWORD *) (ctx->Color.ColorMask) != 0xffffffff)
-    )
-    {
-      /* only Clear either depth or stencil buffer */ 
-      mask = sis_3D_Clear (ctx, mask, x1, y1, width1, height1);
-    }
+   /* The 3d clear code is use for masked clears because I don't know how to do
+    * masked clears with the 2d functions.  3d isn't used in general because
+    * it's slower, even in the case of clearing multiple buffers
+    */
+   if ((smesa->current.hwDstMask != 0xffffffff &&
+      (mask & (DD_BACK_LEFT_BIT | DD_FRONT_LEFT_BIT)) != 0) ||
+      (ctx->Stencil.WriteMask[0] < 0xff && (mask & DD_STENCIL_BIT) != 0) )
+   {
+      mask = sis_3D_Clear( ctx, mask, x1, y1, width1, height1 );
+   }
 
-  if (mask & ctx->Color.DrawDestMask)
-    {
-      sis_clear_color_buffer (ctx, x1, y1, width1, height1);
-      mask &= ~ctx->Color.DrawDestMask;
-    }
-  if (mask & (GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT))
-    {
-      if (xm_buffer->depthbuffer)
-	sis_clear_z_stencil_buffer (ctx, mask, x1, y1, width1, height1);
-      mask &= ~(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-    }
-  if (mask & GL_ACCUM_BUFFER_BIT)
-    {
-    }
+   if ( mask & DD_FRONT_LEFT_BIT || mask & DD_BACK_LEFT_BIT) {
+      sis_clear_color_buffer( ctx, mask, x1, y1, width1, height1 );
+      mask &= ~(DD_FRONT_LEFT_BIT | DD_BACK_LEFT_BIT);
+   }
 
-  UNLOCK_HARDWARE ();
+   if (mask & (DD_DEPTH_BIT | DD_STENCIL_BIT)) {
+      if (smesa->depthbuffer != NULL)
+         sis_clear_z_stencil_buffer( ctx, mask, x1, y1, width1, height1 );
+      mask &= ~(DD_DEPTH_BIT | DD_STENCIL_BIT);
+   }
 
-  return mask;
+   UNLOCK_HARDWARE();
+
+   if (mask != 0)
+      _swrast_Clear( ctx, mask, all, x1, y1, width, height );
+}
+
+
+void
+sisDDClearColor( GLcontext * ctx, const GLfloat color[4] )
+{
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
+   GLubyte c[4];
+
+   CLAMPED_FLOAT_TO_UBYTE(c[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(c[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(c[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(c[3], color[3]);
+
+   set_color_pattern( smesa, c[0], c[1], c[2], c[3] );
 }
 
 void
-sis_ClearDepth (GLcontext * ctx, GLclampd d)
+sisDDClearDepth( GLcontext * ctx, GLclampd d )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-  set_z_stencil_pattern (hwcx, d, ctx->Stencil.Clear);
+   sisUpdateZStencilPattern( smesa, d, ctx->Stencil.Clear );
 }
 
 void
-sis_ClearStencil (GLcontext * ctx, GLint s)
+sisDDClearStencil( GLcontext * ctx, GLint s )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-  set_z_stencil_pattern (hwcx, ctx->Depth.Clear, s);
-
+   sisUpdateZStencilPattern( smesa, ctx->Depth.Clear, s );
 }
 
-#define MAKE_CLEAR_COLOR_8888(cc)   \
-            ( (((DWORD)(((GLubyte *)(cc))[3] * 255.0 + 0.5))<<24) | \
-              (((DWORD)(((GLubyte *)(cc))[0] * 255.0 + 0.5))<<16) | \
-              (((DWORD)(((GLubyte *)(cc))[1] * 255.0 + 0.5))<<8) | \
-               ((DWORD)(((GLubyte *)(cc))[2] * 255.0 + 0.5)) )
-
-__inline__ static GLbitfield
-sis_3D_Clear (GLcontext * ctx, GLbitfield mask,
-	      GLint x, GLint y, GLint width, GLint height)
+static GLbitfield
+sis_3D_Clear( GLcontext * ctx, GLbitfield mask,
+	      GLint x, GLint y, GLint width, GLint height )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-  __GLSiSHardware *current = &hwcx->current;
+   __GLSiSHardware *current = &smesa->current;
 
-#define RESETSTATE (GFLAG_ENABLESETTING | GFLAG_ENABLESETTING2 | \
-                    GFLAG_ZSETTING | GFLAG_DESTSETTING | \
-                    GFLAG_STENCILSETTING | GFLAG_CLIPPING)
-#define STEN_OP (SiS_SFAIL_REPLACE | SiS_SPASS_ZFAIL_REPLACE | \
-                 SiS_SPASS_ZPASS_REPLACE)
+   float left, top, right, bottom, zClearVal;
+   GLboolean bClrColor, bClrDepth, bClrStencil;
+   GLint dwPrimitiveSet;
+   GLint dwEnable1 = 0, dwEnable2 = MASK_ColorMaskWriteEnable;
+   GLint dwDepthMask = 0, dwSten1 = 0, dwSten2 = 0;
+   GLint dirtyflags = GFLAG_ENABLESETTING | GFLAG_ENABLESETTING2 |
+      GFLAG_CLIPPING | GFLAG_DESTSETTING;
+   int count;
+   XF86DRIClipRectPtr pExtents;
 
-  float left, top, right, bottom, zClearVal;
-  DWORD dwColor=0;
-  DWORD bClrColor, bClrDepth, bClrStencil;
-  DWORD dwPrimitiveSet;
-  DWORD dwEnable1, dwEnable2, dwDepthMask=0, dwSten1=0, dwSten2=0;
+   bClrColor = (mask & (DD_BACK_LEFT_BIT | DD_FRONT_LEFT_BIT)) != 0;
+   bClrDepth = (mask & DD_DEPTH_BIT) != 0;
+   bClrStencil = (mask & DD_STENCIL_BIT) != 0;
 
-  int count;
-  BoxPtr pExtents;
+   if (smesa->GlobalFlag & GFLAG_RENDER_STATES)
+      sis_update_render_state( smesa );
 
-  bClrColor = 0;
-  bClrDepth = (mask & GL_DEPTH_BUFFER_BIT) && 
-              (ctx->Visual->DepthBits);
-  bClrStencil = (mask & GL_STENCIL_BUFFER_BIT) && 
-                (ctx->Visual->StencilBits);
-
-  /* update HW state */
-  /* TODO: if enclosing sis_Clear by sis_RenderStart and sis_RenderEnd is
-   * uniform, but it seems needless to do so
-   */
-  if (hwcx->GlobalFlag)
-    {
-      sis_update_render_state (hwcx, 0);
-    }
-
-  dwEnable2 = 0;
-  if (bClrColor)
-    {
-      dwColor = MAKE_CLEAR_COLOR_8888 (ctx->Color.ClearColor);
-    }
-  else
-    {
-      dwEnable2 |= 0x8000;
-    }
-
-  if (bClrDepth && bClrStencil)
-    {
-      DWORD wmask, smask;
-      GLstencil sten;
-
-      zClearVal = ctx->Depth.Clear;
-      sten = ctx->Stencil.Clear;
-      wmask = (DWORD) ctx->Stencil.WriteMask;
-      smask = 0xff;
-
+   if (bClrStencil) {
+      dwSten1 = STENCIL_FORMAT_8 | SiS_STENCIL_ALWAYS |
+         (ctx->Stencil.Clear << 8) | 0xff;
+      dwSten2 = SiS_SFAIL_REPLACE | SiS_SPASS_ZFAIL_REPLACE |
+         SiS_SPASS_ZPASS_REPLACE;
       dwEnable1 = MASK_ZWriteEnable | MASK_StencilTestEnable;
       dwEnable2 |= MASK_ZMaskWriteEnable;
-      dwDepthMask = ((wmask << 24) | 0x00ffffff);
-      dwSten1 = S_8 | (((DWORD) sten << 8) | smask) | SiS_STENCIL_ALWAYS;
-      dwSten2 = STEN_OP;
-    }
-  else if (bClrDepth)
-    {
-      zClearVal = ctx->Depth.Clear;
+      dwDepthMask |= ctx->Stencil.WriteMask[0] << 24;
+   } else if (bClrDepth) {
       dwEnable1 = MASK_ZWriteEnable;
       dwEnable2 |= MASK_ZMaskWriteEnable;
-      dwDepthMask = 0xffffff;
-    }
-  else if (bClrStencil)
-    {
-      DWORD wmask, smask;
-      GLstencil sten;
+   }
 
-      sten = (GLstencil) ctx->Stencil.Clear;
-      wmask = (DWORD) ctx->Stencil.WriteMask;
-      smask = 0xff;
+   if (bClrDepth) {
+      zClearVal = ctx->Depth.Clear;
+      if (ctx->Visual.depthBits != 32)
+         dwDepthMask |= 0x00ffffff;
+      else
+         dwDepthMask = 0xffffffff;
+   } else
+      zClearVal = 0.0;
 
-      zClearVal = 0;
-      dwEnable1 = MASK_ZWriteEnable | MASK_StencilTestEnable;
-      dwEnable2 |= MASK_ZMaskWriteEnable;
-      dwDepthMask = (wmask << 24) & 0xff000000;
-      dwSten1 = S_8 | (((DWORD) sten << 8) | smask) | SiS_STENCIL_ALWAYS;
-      dwSten2 = STEN_OP;
-    }
-  else
-    {
-      dwEnable2 &= ~MASK_ZMaskWriteEnable;
-      dwEnable1 = 0L;
-      zClearVal = 1;
-    }
+   mWait3DCmdQueue(9);
+   MMIO(REG_3D_TEnable, dwEnable1);
+   MMIO(REG_3D_TEnable2, dwEnable2);
+   if (bClrDepth || bClrStencil) {
+      MMIO(REG_3D_ZSet, (current->hwZ & ~MASK_ZTestMode) | SiS_Z_COMP_ALWAYS);
+      dirtyflags |= GFLAG_ZSETTING;
+   }
+   if (bClrColor) {
+      MMIO(REG_3D_DstSet, (current->hwDstSet & ~MASK_ROP2) | LOP_COPY);
+   } else {
+      MMIO(REG_3D_DstAlphaWriteMask, 0L);
+   }
+   if (bClrStencil) {
+      MMIO(REG_3D_StencilSet, dwSten1);
+      MMIO(REG_3D_StencilSet2, dwSten2);
+      dirtyflags |= GFLAG_STENCILSETTING;
+   }
 
-  mWait3DCmdQueue (35);
-  MMIO (REG_3D_TEnable, dwEnable1);
-  MMIO (REG_3D_TEnable2, dwEnable2);
-  if (bClrDepth | bClrStencil)
-    {
-      MMIO (REG_3D_ZSet, current->hwZ);
-      MMIO (REG_3D_ZStWriteMask, dwDepthMask);
-      MMIO (REG_3D_ZAddress, current->hwOffsetZ);
-    }
-  if (bClrColor)
-    {
-      MMIO (REG_3D_DstSet, (current->hwDstSet & 0x00ffffff) | 0xc000000);
-      MMIO (REG_3D_DstAddress, current->hwOffsetDest);
-    }
-  else
-    {
-      MMIO (REG_3D_DstAlphaWriteMask, 0L);
-    }
-  if (bClrStencil)
-    {
-      MMIO (REG_3D_StencilSet, dwSten1);
-      MMIO (REG_3D_StencilSet2, dwSten2);
-    }
-
-  if (ctx->Color.DriverDrawBuffer == GL_FRONT_LEFT)
-    {
-      sis_get_clip_rects (xmesa, &pExtents, &count);
-    }
-  else
-    {
+   if (mask & DD_FRONT_LEFT_BIT) {
+      pExtents = smesa->driDrawable->pClipRects;
+      count = smesa->driDrawable->numClipRects;
+   } else {
       pExtents = NULL;
       count = 1;
-    }
+   }
 
-  while(count--)
-    {
+   while(count--) {
       left = x;
-      right = x + width - 1;
+      right = x + width;
       top = y;
-      bottom = y + height - 1;
+      bottom = y + height;
 
-      if (pExtents)
-	{
-	  GLuint origin_x, origin_y;
-	  GLuint x1, y1, x2, y2;
+      if (pExtents != NULL) {
+         GLuint x1, y1, x2, y2;
 
-	  sis_get_drawable_origin (xmesa, &origin_x, &origin_y);
+         x1 = pExtents->x1 - smesa->driDrawable->x;
+         y1 = pExtents->y1 - smesa->driDrawable->y;
+         x2 = pExtents->x2 - smesa->driDrawable->x - 1;
+         y2 = pExtents->y2 - smesa->driDrawable->y - 1;
 
-	  x1 = pExtents->x1 - origin_x;
-	  y1 = pExtents->y1 - origin_y;
-	  x2 = pExtents->x2 - origin_x - 1;
-	  y2 = pExtents->y2 - origin_y - 1;
+         left = (left > x1) ? left : x1;
+         right = (right > x2) ? x2 : right;
+         top = (top > y1) ? top : y1;
+         bottom = (bottom > y2) ? y2 : bottom;
+         pExtents++;
+         if (left > right || top > bottom)
+            continue;
+      }
 
-	  left = (left > x1) ? left : x1;
-	  right = (right > x2) ? x2 : right;
-	  top = (top > y1) ? top : y1;
-	  bottom = (bottom > y2) ? y2 : bottom;
-	  if (left > right || top > bottom)
-	    continue;
-	  pExtents++;
-	}
+      mWait3DCmdQueue(20);
 
-      MMIO (REG_3D_ClipTopBottom, ((DWORD) top << 13) | (DWORD) bottom);
-      MMIO (REG_3D_ClipLeftRight, ((DWORD) left << 13) | (DWORD) right);
+      MMIO(REG_3D_ClipTopBottom, ((GLint)top << 13) | (GLint)bottom);
+      MMIO(REG_3D_ClipLeftRight, ((GLint)left << 13) | (GLint)right);
 
       /* the first triangle */
-      dwPrimitiveSet = (OP_3D_TRIANGLE_DRAW | OP_3D_FIRE_TSARGBc | 
-                        SHADE_FLAT_VertexC);
-      MMIO (REG_3D_PrimitiveSet, dwPrimitiveSet);
+      dwPrimitiveSet = OP_3D_TRIANGLE_DRAW | OP_3D_FIRE_TSARGBc | 
+                        SHADE_FLAT_VertexC;
+      MMIO(REG_3D_PrimitiveSet, dwPrimitiveSet);
 
-      MMIO (REG_3D_TSZa, *(DWORD *) & zClearVal);
-      MMIO (REG_3D_TSXa, *(DWORD *) & right);
-      MMIO (REG_3D_TSYa, *(DWORD *) & top);
-      MMIO (REG_3D_TSARGBa, dwColor);
+      MMIO(REG_3D_TSZa, *(GLint *) &zClearVal);
+      MMIO(REG_3D_TSXa, *(GLint *) &right);
+      MMIO(REG_3D_TSYa, *(GLint *) &top);
+      MMIO(REG_3D_TSARGBa, smesa->clearColorPattern);
 
-      MMIO (REG_3D_TSZb, *(DWORD *) & zClearVal);
-      MMIO (REG_3D_TSXb, *(DWORD *) & left);
-      MMIO (REG_3D_TSYb, *(DWORD *) & top);
-      MMIO (REG_3D_TSARGBb, dwColor);
+      MMIO(REG_3D_TSZb, *(GLint *) &zClearVal);
+      MMIO(REG_3D_TSXb, *(GLint *) &left);
+      MMIO(REG_3D_TSYb, *(GLint *) &top);
+      MMIO(REG_3D_TSARGBb, smesa->clearColorPattern);
 
-      MMIO (REG_3D_TSZc, *(DWORD *) & zClearVal);
-      MMIO (REG_3D_TSXc, *(DWORD *) & left);
-      MMIO (REG_3D_TSYc, *(DWORD *) & bottom);
-      MMIO (REG_3D_TSARGBc, dwColor);
+      MMIO(REG_3D_TSZc, *(GLint *) &zClearVal);
+      MMIO(REG_3D_TSXc, *(GLint *) &left);
+      MMIO(REG_3D_TSYc, *(GLint *) &bottom);
+      MMIO(REG_3D_TSARGBc, smesa->clearColorPattern);
 
       /* second triangle */
-      dwPrimitiveSet = (OP_3D_TRIANGLE_DRAW | OP_3D_FIRE_TSARGBb |
-                        SHADE_FLAT_VertexB);
-      MMIO (REG_3D_PrimitiveSet, dwPrimitiveSet);
+      dwPrimitiveSet = OP_3D_TRIANGLE_DRAW | OP_3D_FIRE_TSARGBb |
+                        SHADE_FLAT_VertexB;
+      MMIO(REG_3D_PrimitiveSet, dwPrimitiveSet);
 
-      MMIO (REG_3D_TSZb, *(DWORD *) & zClearVal);
-      MMIO (REG_3D_TSXb, *(DWORD *) & right);
-      MMIO (REG_3D_TSYb, *(DWORD *) & bottom);
-      MMIO (REG_3D_TSARGBb, dwColor);
-    }
+      MMIO(REG_3D_TSZb, *(GLint *) &zClearVal);
+      MMIO(REG_3D_TSXb, *(GLint *) &right);
+      MMIO(REG_3D_TSYb, *(GLint *) &bottom);
+      MMIO(REG_3D_TSARGBb, smesa->clearColorPattern);
+   }
 
-  mEndPrimitive ();
+   mEndPrimitive();
 
-  hwcx->GlobalFlag |= RESETSTATE;
+   /* If DD_FRONT_LEFT_BIT is set, we've only cleared the front buffer so far */
+   if ((mask & DD_FRONT_LEFT_BIT) != 0 && (mask & DD_BACK_LEFT_BIT) != 0)
+      sis_3D_Clear( ctx, DD_BACK_LEFT_BIT, x, y, width, height );
 
-#undef RESETSTATE
-#undef STEN_OP
-  
-  /* 
-   * TODO: will mesa call several times if multiple draw buffer
-   */
-  return (mask & ~(GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT));
+   smesa->GlobalFlag |= dirtyflags;
+
+   return mask & ~(DD_DEPTH_BIT | DD_STENCIL_BIT | DD_BACK_LEFT_BIT |
+      DD_FRONT_LEFT_BIT);
 }
 
-__inline__ static void
-sis_bitblt_clear_cmd (__GLSiScontext * hwcx, ENGPACKET * pkt)
+static void
+sis_bitblt_clear_cmd( sisContextPtr smesa, ENGPACKET * pkt )
 {
-  LPDWORD lpdwDest, lpdwSrc;
-  int i;
+   GLint *lpdwDest, *lpdwSrc;
+   int i;
 
-  lpdwSrc = (DWORD *) pkt + 1;
-  lpdwDest = (DWORD *) (GET_IOBase (hwcx) + REG_SRC_ADDR) + 1;
+   lpdwSrc = (GLint *) pkt + 1;
+   lpdwDest = (GLint *) (GET_IOBase (smesa) + REG_SRC_ADDR) + 1;
 
-  mWait3DCmdQueue (10);
+   mWait3DCmdQueue (10);
 
-  *lpdwDest++ = *lpdwSrc++;
-  lpdwSrc++;
-  lpdwDest++;
-  for (i = 3; i < 8; i++)
-    {
+   *lpdwDest++ = *lpdwSrc++;
+   lpdwSrc++;
+   lpdwDest++;
+   for (i = 3; i < 8; i++) {
       *lpdwDest++ = *lpdwSrc++;
-    }
+   }
 
-  MMIO (REG_CMD0, *(DWORD *) & pkt->stdwCmd);
-  MMIO (0x8240, -1);
-
+   MMIO(REG_CMD0, *(GLint *) & pkt->stdwCmd);
+   MMIO(REG_CommandQueue, -1);
 }
 
-__inline__ static void
-sis_clear_color_buffer (GLcontext * ctx,
-			GLint x, GLint y, GLint width, GLint height)
+static void
+sis_clear_color_buffer( GLcontext *ctx, GLenum mask, GLint x, GLint y,
+			GLint width, GLint height )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-  XMesaBuffer xm_buffer = xmesa->xm_buffer;
-  sisBufferInfo *priv = (sisBufferInfo *) xm_buffer->private;
+   int count;
+   GLuint depth = smesa->bytesPerPixel;
+   XF86DRIClipRectPtr pExtents = NULL;
+   GLint xx, yy;
+   GLint x0, y0, width0, height0;
 
-  int count;
-  GLuint origin_x, origin_y;
-  GLuint depth = GET_DEPTH (hwcx);
-  BoxPtr pExtents = NULL;
-  GLint xx, yy;
-  GLint x0, y0, width0, height0;
+   ENGPACKET stEngPacket;
 
-  ENGPACKET stEngPacket;
+   /* Clear back buffer */
+   if (mask & DD_BACK_LEFT_BIT) {
+      smesa->cbClearPacket.stdwDestPos.wY = y;
+      smesa->cbClearPacket.stdwDestPos.wX = x;
+      smesa->cbClearPacket.stdwDim.wWidth = (GLshort) width;
+      smesa->cbClearPacket.stdwDim.wHeight = (GLshort) height;
+      smesa->cbClearPacket.dwFgRopColor = smesa->clearColorPattern;
 
-  GLuint pitch;
-
-  switch (ctx->Color.DriverDrawBuffer)
-    {
-    case GL_BACK_LEFT:
-      priv->pCbClearPacket->stdwDestPos.wY = y;
-      priv->pCbClearPacket->stdwDestPos.wX = x;
-      priv->pCbClearPacket->stdwDim.wWidth = (WORD) width;
-      priv->pCbClearPacket->stdwDim.wHeight = (WORD) height;
-      priv->pCbClearPacket->dwFgRopColor = hwcx->clearColorPattern;
-
-      sis_bitblt_clear_cmd (hwcx, priv->pCbClearPacket);
+      sis_bitblt_clear_cmd( smesa, &smesa->cbClearPacket );
+   }
+  
+   if ((mask & DD_FRONT_LEFT_BIT) == 0)
       return;
-    case GL_FRONT_LEFT:
-      x0 = x;
-      y0 = y;
-      width0 = width;
-      height0 = height;
 
-      pitch = GET_PITCH (hwcx);
-      sis_get_drawable_origin (xmesa, &origin_x, &origin_y);
-      sis_get_clip_rects (xmesa, &pExtents, &count);
-      break;
-    case GL_BACK_RIGHT:
-    case GL_FRONT_RIGHT:
-    default:
-      assert (0);
-      return;
-    }
+   /* Clear front buffer */
+   x0 = x;
+   y0 = y;
+   width0 = width;
+   height0 = height;
 
-  memset (&stEngPacket, 0, sizeof (ENGPACKET));
+   pExtents = smesa->driDrawable->pClipRects;
+   count = smesa->driDrawable->numClipRects;
 
-  while (count--)
-    {
-      GLint x2 = pExtents->x1 - origin_x;
-      GLint y2 = pExtents->y1 - origin_y;
-      GLint xx2 = pExtents->x2 - origin_x;
-      GLint yy2 = pExtents->y2 - origin_y;
+   memset( &stEngPacket, 0, sizeof (ENGPACKET) );
+
+   stEngPacket.dwSrcPitch = (depth == 2) ? 0x80000000 : 0xc0000000;
+   stEngPacket.dwDestBaseAddr = smesa->frontOffset;
+   stEngPacket.wDestPitch = smesa->frontPitch;
+   /* TODO: set maximum value? */
+   stEngPacket.wDestHeight = smesa->virtualY;
+   stEngPacket.stdwCmd.cRop = 0xf0;
+   stEngPacket.dwFgRopColor = smesa->clearColorPattern;
+
+   /* for SGRAM Block Write Enable */
+   if (smesa->blockWrite)
+      stEngPacket.stdwCmd.cCmd0 = CMD0_PAT_FG_COLOR;
+   else
+      stEngPacket.stdwCmd.cCmd0 = 0;
+   stEngPacket.stdwCmd.cCmd1 = CMD1_DIR_X_INC | CMD1_DIR_Y_INC;
+
+   while (count--) {
+      GLint x2 = pExtents->x1 - smesa->driDrawable->x;
+      GLint y2 = pExtents->y1 - smesa->driDrawable->y;
+      GLint xx2 = pExtents->x2 - smesa->driDrawable->x;
+      GLint yy2 = pExtents->y2 - smesa->driDrawable->y;
 
       x = (x0 > x2) ? x0 : x2;
       y = (y0 > y2) ? y0 : y2;
@@ -432,178 +421,28 @@ sis_clear_color_buffer (GLcontext * ctx,
       if (width <= 0 || height <= 0)
 	continue;
 
-      stEngPacket.dwSrcPitch = (depth == 2) ? 0x80000000 : 0xc0000000;
-      stEngPacket.stdwDestPos.wY = y + origin_y;
-      stEngPacket.stdwDestPos.wX = x + origin_x;
-      stEngPacket.dwDestBaseAddr = (DWORD) 0;
-      stEngPacket.wDestPitch = pitch;
-      /* TODO: set maximum value? */
-      stEngPacket.wDestHeight = hwcx->virtualY;
-      stEngPacket.stdwDim.wWidth = (WORD) width;
-      stEngPacket.stdwDim.wHeight = (WORD) height;
-      stEngPacket.stdwCmd.cRop = 0xf0;
-      stEngPacket.dwFgRopColor = hwcx->clearColorPattern;
+      stEngPacket.stdwDestPos.wY = y;
+      stEngPacket.stdwDestPos.wX = x;
+      stEngPacket.stdwDim.wWidth = (GLshort)width;
+      stEngPacket.stdwDim.wHeight = (GLshort)height;
 
-      /* for SGRAM Block Write Enable */
-      if (hwcx->blockWrite)
-	{
-	  stEngPacket.stdwCmd.cCmd0 = (BYTE) (CMD0_PAT_FG_COLOR);
-	  stEngPacket.stdwCmd.cCmd1 =
-	    (BYTE) (CMD1_DIR_X_INC | CMD1_DIR_Y_INC);
-	}
-      else
-	{
-	  stEngPacket.stdwCmd.cCmd0 = 0;
-	  stEngPacket.stdwCmd.cCmd1 =
-	    (BYTE) (CMD1_DIR_X_INC | CMD1_DIR_Y_INC);
-	}
-
-      sis_bitblt_clear_cmd (hwcx, &stEngPacket);
-    }
+      sis_bitblt_clear_cmd( smesa, &stEngPacket );
+   }
 }
 
-__inline__ static void
-sis_clear_z_stencil_buffer (GLcontext * ctx, GLbitfield mask,
-			    GLint x, GLint y, GLint width, GLint height)
+static void
+sis_clear_z_stencil_buffer( GLcontext * ctx, GLbitfield mask,
+			    GLint x, GLint y, GLint width, GLint height )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
 
-  XMesaBuffer xm_buffer = xmesa->xm_buffer;
-  sisBufferInfo *priv = (sisBufferInfo *) xmesa->xm_buffer->private;
+   /* TODO: consider alignment of width, height? */
+   smesa->zClearPacket.stdwDestPos.wY = y;
+   smesa->zClearPacket.stdwDestPos.wX = x;
+   smesa->zClearPacket.stdwDim.wWidth = (GLshort) width;
+   smesa->zClearPacket.stdwDim.wHeight = (GLshort) height;
+   smesa->zClearPacket.dwFgRopColor = smesa->clearZStencilPattern;
 
-  /* TODO: check write mask */
-
-  if (!xm_buffer->depthbuffer)
-    return;
-
-  /* TODO: consider alignment of width, height? */
-  priv->pZClearPacket->stdwDestPos.wY = y;
-  priv->pZClearPacket->stdwDestPos.wX = x;
-  priv->pZClearPacket->stdwDim.wWidth = (WORD) width;
-  priv->pZClearPacket->stdwDim.wHeight = (WORD) height;
-  priv->pZClearPacket->dwFgRopColor = hwcx->clearZStencilPattern;
-
-  sis_bitblt_clear_cmd (hwcx, priv->pZClearPacket);
+   sis_bitblt_clear_cmd( smesa, &smesa->zClearPacket );
 }
 
-__inline__ static void
-sis_bitblt_copy_cmd (__GLSiScontext * hwcx, ENGPACKET * pkt)
-{
-  LPDWORD lpdwDest, lpdwSrc;
-  int i;
-
-  lpdwSrc = (DWORD *) pkt;
-  lpdwDest = (DWORD *) (GET_IOBase (hwcx) + REG_SRC_ADDR);
-
-  mWait3DCmdQueue (10);
-
-  for (i = 0; i < 7; i++)
-    {
-      *lpdwDest++ = *lpdwSrc++;
-    }
-
-  MMIO (REG_CMD0, *(DWORD *) & pkt->stdwCmd);
-  MMIO (0x8240, -1);
-}
-
-__inline__ static void
-sis_swap_image (XMesaBuffer b, XMesaDrawable d, XMesaImage * image)
-{
-  XMesaContext xmesa = b->xm_context;
-  __GLSiScontext *hwcx = (__GLSiScontext *) b->xm_context->private;
-
-  GLuint depth = GET_DEPTH (hwcx);
-  ENGPACKET stEngPacket;
-  DWORD src;
-  GLuint srcPitch, dstPitch;
-
-  BoxPtr pExtents;
-  BoxRec box;
-  int count;
-  GLuint origin_x, origin_y;
-
-  memset (&stEngPacket, 0, sizeof (ENGPACKET));
-
-  if (!sis_get_clip_rects (xmesa, &pExtents, &count))
-    {
-      sis_get_drawable_box (xmesa, &box);
-      pExtents = &box;
-      count = 1;
-    }
-
-  src = (DWORD) image->data - (DWORD) GET_FbBase (hwcx);
-  srcPitch = image->bytes_per_line;
-  dstPitch = GET_PITCH (hwcx);
-  sis_get_drawable_origin (xmesa, &origin_x, &origin_y);
-
-  while(count --)
-    {
-      stEngPacket.dwSrcPitch = (depth == 2) ? 0x80000000 : 0xc0000000;
-
-      stEngPacket.dwSrcBaseAddr = src;
-      stEngPacket.dwSrcPitch |= srcPitch;
-
-      stEngPacket.stdwSrcPos.wY = pExtents->y1 - origin_y;
-      stEngPacket.stdwSrcPos.wX = pExtents->x1 - origin_x;
-      stEngPacket.stdwDestPos.wY = pExtents->y1;
-      stEngPacket.stdwDestPos.wX = pExtents->x1;
-      stEngPacket.dwDestBaseAddr = (DWORD) 0;
-      stEngPacket.wDestPitch = dstPitch;
-
-      /* TODO: set maximum value? */
-      stEngPacket.wDestHeight = hwcx->virtualY;
-      stEngPacket.stdwDim.wWidth = (WORD) pExtents->x2 - pExtents->x1;
-      stEngPacket.stdwDim.wHeight = (WORD) pExtents->y2 - pExtents->y1;
-      stEngPacket.stdwCmd.cRop = 0xcc;
-
-      if (hwcx->blockWrite)
-	{
-	  stEngPacket.stdwCmd.cCmd0 = (BYTE) (CMD0_PAT_FG_COLOR);
-	  stEngPacket.stdwCmd.cCmd1 =
-	    (BYTE) (CMD1_DIR_X_INC | CMD1_DIR_Y_INC);
-	}
-      else
-	{
-	  stEngPacket.stdwCmd.cCmd0 = 0;
-	  stEngPacket.stdwCmd.cCmd1 =
-	    (BYTE) (CMD1_DIR_X_INC | CMD1_DIR_Y_INC);
-	}
-
-      sis_bitblt_copy_cmd (hwcx, &stEngPacket);
-
-      pExtents++;
-    }
-}
-
-void
-sis_swap_buffers (XMesaBuffer b)
-{
-  XMesaContext xmesa = b->xm_context;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-  GLcontext *ctx = hwcx->gc;
-
-  /* debug */
-  /* return; */
-
-  /* frame control */
-  /* TODO: need lock? */
-  
-#if 1
-  {
-    int repeat = 0;
-    
-    while(((*hwcx->FrameCountPtr) - *(DWORD volatile *)(hwcx->IOBase+0x8a2c) 
-          > SIS_MAX_FRAME_LENGTH) && 
-          (repeat++ < 10));
-  }
-#endif
-
-  LOCK_HARDWARE ();
-
-  sis_swap_image (b, b->frontbuffer, b->backimage);
-  *(DWORD *)(hwcx->IOBase+0x8a2c) = *hwcx->FrameCountPtr;
-  (*hwcx->FrameCountPtr)++;  
-   
-  UNLOCK_HARDWARE ();
-}

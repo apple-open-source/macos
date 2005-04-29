@@ -1,24 +1,13 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/es_PY.xml
 // *
 // ***************************************************************************
-
-es_PY {
-    Version{ "2.0" }
-    DateTimePatterns { 
-        "hh:mm:ss a z",
-        "hh:mm:ss a z",
-        "hh:mm:ss a",
-        "hh:mm a",
-        "EEEE d' de 'MMMM' de 'yyyy",
-        "d' de 'MMMM' de 'yyyy",
-        "dd/MM/yyyy",
-        "dd/MM/yy",
-        "{1} {0}",
-    }
-    NumberElements {
+es_PY{
+    NumberElements{
         ",",
         ".",
         ";",
@@ -27,18 +16,31 @@ es_PY {
         "#",
         "-",
         "E",
-        "\u2030",
-        "\u221E",
-        "\uFFFD",
-        ",",
+        "‰",
+        "∞",
+        "�",
+        "+",
     }
-    NumberPatterns { 
+    NumberPatterns{
         "#,##0.###;-#,##0.###",
-        "\u00A4 #,##0;\u00A4 -#,##0",
+        "¤ #,##0;¤ -#,##0",
         "#,##0%",
         "#E0",
     }
-    LocaleID:int { 0x3c0a }
-//    LocaleString { "es_PY" }
-//    ShortCountry { "PRY" }
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "hh:mm:ss a z",
+                "hh:mm:ss a z",
+                "hh:mm:ss a",
+                "hh:mm a",
+                "EEEE d' de 'MMMM' de 'yyyy",
+                "d' de 'MMMM' de 'yyyy",
+                "dd/MM/yyyy",
+                "dd/MM/yy",
+                "{1} {0}",
+            }
+        }
+    }
 }

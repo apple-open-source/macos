@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <calls.h>
 
-jint
+JNIEXPORT jint JNICALL
 Java_calls_docall (JNIEnv *env, jobject _this)
 {
   jmethodID method;
@@ -45,6 +45,12 @@ Java_calls_docall (JNIEnv *env, jobject _this)
   method = (*env)->GetStaticMethodID (env, klass, "long_f", "(J)J");
   l = (*env)->CallStaticLongMethod (env, klass, method, (jlong) 10);
   if (l != 2033)
+    ++fails;
+
+  method = (*env)->GetStaticMethodID (env, klass, "longpb_f", "(BJBJBJ)J");
+  l = (*env)->CallStaticLongMethod (env, klass, method, (jbyte) 13, (jlong) 3,
+		  		   (jbyte) 13, (jlong) 3, (jbyte) 13, (jlong) 4);
+  if (l != 3033)
     ++fails;
 
   method = (*env)->GetMethodID (env, klass, "void_f", "()V");

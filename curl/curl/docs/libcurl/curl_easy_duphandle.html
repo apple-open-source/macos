@@ -1,74 +1,59 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       curl_easy_duphandle - Clone a libcurl session handle
+<html><head>
+<title>curl_easy_duphandle man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>SYNOPSIS</H2><PRE>
-       <B>#include</B> <B>&lt;curl/curl.h&gt;</B>
+P.level2 {
+ padding-left: 6em;
+}
 
-       <B>CURL</B> <B>*curl_easy_duphandle(CURL</B> <B>*</B><I>handle</I><B>);</B>
+span.emphasis {
+ font-style: italic;
+}
 
+span.bold {
+ font-weight: bold;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       This  function will return a new curl handle, a duplicate,
-       using all the options previously set  in  the  input  curl
-       <I>handle</I>.  Both  handles  can  subsequently be used indepen-
-       dently   and   they    must    both    be    freed    with
-       <I>curl</I><B>_</B><I>easy</I><B>_</B><I>cleanup()</I>.
+span.manpage {
+ font-weight: bold;
+}
 
-       All  strings  that the input handle has been told to point
-       to  (as  opposed  to  copy)   with   previous   calls   to
-       <I>curl</I><B>_</B><I>easy</I><B>_</B><I>setopt</I>  using  char * inputs, will be pointed to
-       by the new handle as well. You must therefore make sure to
-       keep  the data around until both handles have been cleaned
-       up.
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-       The new handle will <B>not</B> inherit any state information,  no
-       connections, no SSL sessions and no cookies.
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
-       <B>Note</B>  that  even in multi-threaded programs, this function
-       must be called in a synchronous way, the input handle  may
-       not be in use when cloned.
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-       This function was added in libcurl 7.9.
-
-
-</PRE>
-<H2>RETURN VALUE</H2><PRE>
-       If this function returns NULL, something went wrong and no
-       valid handle was returned.
-
-
-</PRE>
-<H2>SEE ALSO</H2><PRE>
-       <B>curl_easy_init(3)</B>,<B>curl_easy_cleanup(3)</B>,<B>curl_global_init(3)</B>
-
-
-</PRE>
-<H2>BUGS</H2><PRE>
-       Surely there are some, you tell me!
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">curl_easy_duphandle - Clone a libcurl session handle <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0"><span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<p class="level0"><span Class="bold">CURL *curl_easy_duphandle(CURL *handle );</span> 
+<p class="level0"><a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">This function will return a new curl handle, a duplicate, using all the options previously set in the input curl <span Class="emphasis">handle</span>. Both handles can subsequently be used independently and they must both be freed with <a class="emphasis" href="./curl_easy_cleanup.html">curl_easy_cleanup(3)</a>. 
+<p class="level0">All strings that the input handle has been told to point to (as opposed to copy) with previous calls to <a class="emphasis" href="./curl_easy_setopt.html">curl_easy_setopt(3)</a> using char * inputs, will be pointed to by the new handle as well. You must therefore make sure to keep the data around until both handles have been cleaned up. 
+<p class="level0">The new handle will <span Class="bold">not</span> inherit any state information, no connections, no SSL sessions and no cookies. 
+<p class="level0"><span Class="bold">Note</span> that even in multi-threaded programs, this function must be called in a synchronous way, the input handle may not be in use when cloned. <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level0">If this function returns NULL, something went wrong and no valid handle was returned. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><a class="manpage" href="./curl_easy_init.html">curl_easy_init (3)</a> <a class="manpage" href="./curl_easy_cleanup.html"> curl_easy_cleanup (3)</a> <a class="manpage" href="./curl_global_init.html"> curl_global_init (3)</a> 
+<p class="level0"><p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

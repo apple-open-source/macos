@@ -38,10 +38,9 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.awt.peer.ScrollPanePeer;
-import java.awt.peer.ContainerPeer;
+import java.awt.event.MouseEvent;
 import java.awt.peer.ComponentPeer;
-import java.io.Serializable;
+import java.awt.peer.ScrollPanePeer;
 import javax.accessibility.Accessible;
 
 /**
@@ -50,7 +49,7 @@ import javax.accessibility.Accessible;
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class ScrollPane extends Container implements Accessible, Serializable
+public class ScrollPane extends Container implements Accessible
 {
 
 /*
@@ -106,6 +105,8 @@ private int scrollbarDisplayPolicy;
 // Current scroll position
 private Point scrollPosition = new Point(0, 0);
 
+private boolean wheelScrollingEnabled;
+
 /*************************************************************************/
 
 /*
@@ -151,9 +152,14 @@ ScrollPane(int scrollbarDisplayPolicy)
 
   if (scrollbarDisplayPolicy != SCROLLBARS_NEVER)
     {
-      hAdjustable = new ScrollPaneAdjustable(Scrollbar.HORIZONTAL);
-      vAdjustable = new ScrollPaneAdjustable(Scrollbar.VERTICAL);
+      hAdjustable = new ScrollPaneAdjustable (this, Scrollbar.HORIZONTAL);
+      vAdjustable = new ScrollPaneAdjustable (this, Scrollbar.VERTICAL);
     }
+
+  wheelScrollingEnabled = true;
+
+  // Default size.
+  setSize(100,100);
 }
 
 /*************************************************************************/
@@ -211,23 +217,76 @@ getVAdjustable()
   *
   * @return The viewport size.
   */
-public Dimension
-getViewportSize()
+public Dimension getViewportSize ()
 {
-  Dimension viewsize = getSize();
-  Insets insets = getInsets();
-  viewsize.width = viewsize.width - (insets.left + insets.right);
-  viewsize.height = viewsize.height - (insets.top + insets.bottom);
+  Dimension viewsize = getSize ();
+  Insets insets = getInsets ();
 
-  ScrollPaneAdjustable v = (ScrollPaneAdjustable)getVAdjustable();
-  ScrollPaneAdjustable h = (ScrollPaneAdjustable)getHAdjustable();
+  viewsize.width -= (insets.left + insets.right);
+  viewsize.height -= (insets.top + insets.bottom);
 
-  if ((v != null) && v.isVisible())
-    viewsize.width = viewsize.width - v.getSize().width;
-  if ((h != null) && h.isVisible())
-    viewsize.height = viewsize.height - v.getSize().height;
+  Component[] list = getComponents();
+  if ((list == null) || (list.length <= 0))
+    return viewsize;
 
-  return(viewsize);
+  Dimension dim = list[0].getPreferredSize();
+
+  if (dim.width <= 0 && dim.height <= 0)
+    return viewsize;
+
+  int vScrollbarWidth = getVScrollbarWidth ();
+  int hScrollbarHeight = getHScrollbarHeight ();
+
+  if (scrollbarDisplayPolicy == SCROLLBARS_ALWAYS)
+    {
+      viewsize.width -= vScrollbarWidth;
+      viewsize.height -= hScrollbarHeight;
+      return viewsize;
+    }
+
+  if (scrollbarDisplayPolicy == SCROLLBARS_NEVER)
+    return viewsize;
+
+  // The scroll policy is SCROLLBARS_AS_NEEDED, so we need to see if
+  // either scrollbar is needed.
+
+  // Assume we don't need either scrollbar.
+  boolean mayNeedVertical = false;
+  boolean mayNeedHorizontal = false;
+
+  boolean needVertical = false;
+  boolean needHorizontal = false;
+
+  // Check if we need vertical scrollbars.  If we do, then we need to
+  // subtract the width of the vertical scrollbar from the viewport's
+  // width.
+  if (dim.height > viewsize.height)
+    needVertical = true;
+  else if (dim.height > (viewsize.height - hScrollbarHeight))
+    // This is tricky.  In this case the child is tall enough that its
+    // bottom edge would be covered by a horizontal scrollbar, if one
+    // were present.  This means that if there's a horizontal
+    // scrollbar then we need a vertical scrollbar.
+    mayNeedVertical = true;
+
+  if (dim.width > viewsize.width)
+    needHorizontal = true;
+  else if (dim.width > (viewsize.width - vScrollbarWidth))
+    mayNeedHorizontal = true;
+
+  if (needVertical && mayNeedHorizontal)
+    needHorizontal = true;
+
+  if (needHorizontal && mayNeedVertical)
+    needVertical = true;
+
+  if (needHorizontal)
+    viewsize.height -= hScrollbarHeight;
+
+  if (needVertical)
+    viewsize.width -= vScrollbarWidth;
+
+  return viewsize;
 }
 
 /*************************************************************************/
@@ -339,15 +398,20 @@ setScrollPosition(int x, int y)
 public void
 addNotify()
 {
-  if (getPeer() == null)
+  if (!isDisplayable ())
     return;
 
   setPeer((ComponentPeer)getToolkit().createScrollPane(this));
+  super.addNotify();
 
-  if (hAdjustable != null)
-    hAdjustable.addNotify();
-  if (vAdjustable != null)
-    vAdjustable.removeNotify();
+  Component[] list = getComponents();
+  if (list != null && list.length > 0 && ! (list[0] instanceof Panel))
+  {
+    Panel panel = new Panel();
+    panel.setLayout(new BorderLayout());
+    panel.add(list[0], BorderLayout.CENTER);
+    add(panel);
+  }
 }
 
 /*************************************************************************/
@@ -358,11 +422,6 @@ addNotify()
 public void
 removeNotify()
 {
-  if (hAdjustable != null)
-    hAdjustable.removeNotify();
-  if (vAdjustable != null)
-    vAdjustable.removeNotify();
-
   super.removeNotify();
 }
 
@@ -378,8 +437,8 @@ removeNotify()
   * @param index The index at which to add the child, which is ignored
   * in this implementation.
   */
-public final void
-addImpl(Component component, Object constraints, int index)
+  protected final void addImpl (Component component, Object constraints,
+				int index)
 {
   Component[] list = getComponents();
   if ((list != null) && (list.length > 0))
@@ -399,20 +458,7 @@ addImpl(Component component, Object constraints, int index)
 public void
 doLayout()
 {
-  Component[] list = getComponents();
-  if ((list != null) && (list.length > 0))
-    {
-      Dimension dim = list[0].getPreferredSize();
-      list[0].resize(dim);
-
-      Point p = getScrollPosition();
-      if (p.x > dim.width)
-        p.x = dim.width;
-      if (p.y > dim.height)
-        p.y = dim.height;
-
-      setScrollPosition(p);
-    }
+  layout ();
 }
 
 /*************************************************************************/
@@ -427,7 +473,32 @@ doLayout()
 public void
 layout()
 {
-  doLayout();
+  Component[] list = getComponents ();
+  if ((list != null) && (list.length > 0))
+    {
+      Dimension dim = list[0].getPreferredSize ();
+      Dimension vp = getViewportSize ();
+
+      if (dim.width < vp.width)
+	dim.width = vp.width;
+
+      if (dim.height < vp.height)
+	dim.height = vp.height;
+
+      ScrollPanePeer peer = (ScrollPanePeer) getPeer ();
+      if (peer != null)
+	peer.childResized (dim.width, dim.height);
+
+      list[0].setSize (dim);
+
+      Point p = getScrollPosition ();
+      if (p.x > dim.width)
+        p.x = dim.width;
+      if (p.y > dim.height)
+        p.y = dim.height;
+
+      setScrollPosition (p);
+    }
 }
 
 /*************************************************************************/
@@ -468,8 +539,52 @@ printComponents(Graphics graphics)
 public String
 paramString()
 {
-  return(getClass().getName());
+  Insets insets = getInsets();
+  return getName() + ","
+         + getX() + ","
+         + getY() + ","
+         + getWidth() + "x" + getHeight() + ","
+         + "ScrollPosition=(" + scrollPosition.getX() + "," 
+                              + scrollPosition.getY() + "),"
+         + "Insets=(" + insets.top + ","
+                      + insets.left + ","
+                      + insets.bottom + ","
+                      + insets.right + "),"
+         + "ScrollbarDisplayPolicy=" + getScrollbarDisplayPolicy() + ","
+         + "wheelScrollingEnabled=" + isWheelScrollingEnabled();
 }
 
+  /**
+   * Tells whether or not an event is enabled.
+   *
+   * @since 1.4
+   */
+  protected boolean eventTypeEnabled (int type)
+  {
+    if (type == MouseEvent.MOUSE_WHEEL)
+      return wheelScrollingEnabled;
+
+    return super.eventTypeEnabled (type);
+  }
+
+  /**
+   * Tells whether or not wheel scrolling is enabled.
+   *
+   * @since 1.4
+   */
+  public boolean isWheelScrollingEnabled ()
+  {
+    return wheelScrollingEnabled;
+  }
+
+  /**
+   * Enables/disables wheel scrolling.
+   *
+   * @since 1.4
+   */
+  public void setWheelScrollingEnabled (boolean enable)
+  {
+    wheelScrollingEnabled = enable;
+  }
 } // class ScrollPane 
 

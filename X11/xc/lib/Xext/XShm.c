@@ -25,7 +25,7 @@ in this Software without prior written authorization from The Open Group.
  *
  * Author:  Bob Scheifler and Keith Packard, MIT X Consortium
  */
-/* $XFree86: xc/lib/Xext/XShm.c,v 1.6 2002/10/16 02:19:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/XShm.c,v 1.7 2003/04/15 22:33:55 paulo Exp $ */
 
 /* THIS IS NOT AN X CONSORTIUM STANDARD OR AN X PROJECT TEAM SPECIFICATION */
 
@@ -37,6 +37,7 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/extensions/shmstr.h>
 #include <X11/extensions/Xext.h>
 #include <X11/extensions/extutil.h>
+#include "ImUtil.h"
 
 static XExtensionInfo _shm_info_data;
 static XExtensionInfo *shm_info = &_shm_info_data;
@@ -50,11 +51,6 @@ static /* const */ char *shm_extension_name = SHMNAME;
  *			   private utility routines                          *
  *                                                                           *
  *****************************************************************************/
-
-/* in X11/ImUtil.c */
-extern int _XGetScanlinePad();
-extern int _XGetBitsPerPixel();
-extern void _XInitImageFuncPtrs();
 
 static int close_display(Display *dpy, XExtCodes *codes);
 static char *error_string(Display *dpy, int code, XExtCodes *codes,

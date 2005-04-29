@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHBUILTINS" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -32,7 +32,7 @@ The exit status is the exit status of the last command executed\&.
 This command does nothing, although normal argument expansions is performed
 which may have effects on shell parameters\&.  A zero exit code is returned\&.
 .TP
-\fBalias\fP [ {\fB+|\fB\-\fP\fP}\fBgmrL\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBalias\fP [ {\fB+|\fB\-\fP\fP}\fBgmrsL\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 For each \fIname\fP with a corresponding \fIvalue\fP, define an alias
 with that value\&.  A trailing space in \fIvalue\fP causes the next word
 to be checked for alias expansion\&.  If the \fB\-g\fP flag is present,
@@ -40,16 +40,37 @@ define a global alias; global aliases are expanded even if they do not
 occur in command position\&.
 .RS
 .PP
+If the \fB\-s\fP flags is present, define a suffix alias: if the command
+word on a command line is in the form `\fItext\fP\fB\&.\fP\fIname\fP', where
+\fItext\fP is any non\-empty string, it is replaced by the text
+`\fIvalue\fP \fItext\fP\fB\&.\fP\fIname\fP'\&.  Note that \fIname\fP is treated as
+a literal string, not a pattern\&.  A trailing space in \fIvalue\fP is not
+special in this case\&.  For example,
+.PP
+.RS
+.nf
+\fBalias \-s ps=gv\fP
+.fi
+.RE
+.PP
+will cause the command `\fB*\&.ps\fP' to be expanded to `\fBgv *\&.ps\fP'\&.  As
+alias expansion is carried out earlier than globbing, the `\fB*\&.ps\fP' will
+then be expanded\&.  Suffix aliases constitute a different name space from
+other aliases (so in the above example it is still possible
+to create an alias for the command \fBps\fP) and the two sets are never
+listed together\&.
+.PP
 For each \fIname\fP with no \fIvalue\fP,
 print the value of \fIname\fP, if any\&.  With no arguments, print all
-currently defined aliases\&.  If the \fB\-m\fP flag is given the arguments
-are taken as patterns (they should be quoted to preserve them from being
-interpreted as glob patterns), and the aliases matching these patterns
-are printed\&.  When printing aliases and the \fB\-g\fP or \fB\-r\fP flags
-are present, then restrict the printing to global or regular
-aliases, respectively\&.  Using `\fB+\fP' instead of `\fB\-\fP', or ending
-the option list with a single `\fB+\fP', prevents the values of the
-aliases from being printed\&.
+currently defined aliases other than suffix aliases\&.  If the \fB\-m\fP flag
+is given the arguments are taken as patterns (they should be quoted to
+preserve them from being interpreted as glob patterns), and the aliases
+matching these patterns are printed\&.  When printing aliases and one of
+the \fB\-g\fP, \fB\-r\fP or \fB\-s\fP flags is present, restrict the printing to
+global, regular or suffix aliases, respectively; a regular alias is one
+which is neither a global nor a suffix alias\&.   Using `\fB+\fP'
+instead of `\fB\-\fP', or ending the option list with a single
+`\fB+\fP', prevents the values of the aliases from being printed\&.
 .PP
 If the \fB\-L\fP flag is present, then print each
 alias in a manner suitable for putting in a startup script\&.  The exit
@@ -57,9 +78,9 @@ status is nonzero if a \fIname\fP (with no \fIvalue\fP) is given for
 which no alias has been defined\&.
 .RE
 .TP
-\fBautoload\fP [ {\fB+\fP|\fB\-\fP}\fBUXmt\fP ] [ \fB\-wkz\fP ] [ \fIname\fP \&.\&.\&. ]
-Equivalent to \fBfunctions \-u\fP, with the exception of \fB\-X\fP/\fB+X\fP,
-\fB\-w\fP, \fB\-k\fP and \fB\-z\fP\&.
+\fBautoload\fP [ {\fB+\fP|\fB\-\fP}\fBUXktz\fP ] [ \fB\-w\fP ] [ \fIname\fP \&.\&.\&. ]
+Equivalent to \fBfunctions \-u\fP, with the exception of \fB\-X\fP/\fB+X\fP and
+\fB\-w\fP\&.
 .RS
 .PP
 The flag \fB\-X\fP may be used only inside a shell function, and may not be
@@ -75,16 +96,10 @@ function was not previously defined \fIand\fP a definition for it was found\&.
 This does \fInot\fP replace any existing definition of the function\&.  The
 exit status is nonzero (failure) if the function was already defined or
 when no definition was found\&.  In the latter case the function remains
-undefined and marked for autoloading\&.
-.PP
-The flag \fB+X\fP may be combined with either \fB\-k\fP or \fB\-z\fP to make
-the function be loaded using ksh\-style or zsh\-style autoloading,
-respectively\&. If neither is given, the current setting of the
-\fBKSH_AUTOLOAD\fP options determines how the function is loaded\&. With
-ksh\-style autoloading, the contents of the file will not be executed
-immediately\&. Instead, the function created will contain the contents of 
-the file plus a call to the function itself appended to it, thus given 
-normal ksh autoloading behaviour on the first call to the function\&.
+undefined and marked for autoloading\&.  If ksh\-style autoloading is
+enabled, the function created will contain the contents of the file
+plus a call to the function itself appended to it, thus giving normal
+ksh autoloading behaviour on the first call to the function\&.
 .PP
 With the \fB\-w\fP flag, the \fIname\fPs are taken as names of files compiled
 with the \fBzcompile\fP builtin, and all functions defined in them are
@@ -162,8 +177,18 @@ Same as \fBcd\fP\&.
 \fBclone\fP
 See the section `The zsh/clone Module' in \fIzshmodules\fP(1)\&.
 .TP
-\fBcommand\fP \fIsimple command\fP
-See the section `Precommand Modifiers'\&.
+\fBcommand\fP [ \fB\-pvV\fP ] \fIsimple command\fP
+The simple command argument is taken as an external command instead of
+a function or builtin and is executed\&. If the \fBPOSIX_BUILTINS\fP option
+is set, builtins will also be executed but certain special properties
+of them are suppressed\&. The \fB\-p\fP flag causes a default path to be
+searched instead of that in \fB$path\fP\&. With the \fB\-v\fP flag, \fBcommand\fP
+is similar to \fBwhence\fP and with \fB\-V\fP, it is equivalent to \fBwhence
+\-v\fP\&.
+.RS
+.PP
+See also the section `Precommand Modifiers'\&.
+.RE
 .TP
 \fBcomparguments\fP
 See the section `The zsh/computil Module' in \fIzshmodules\fP(1)\&.
@@ -234,11 +259,12 @@ number the directories in the stack when printing\&.
 .PP
 .RE
 .TP
-\fBdisable\fP [ \fB\-afmr\fP ] \fIname\fP \&.\&.\&.
+\fBdisable\fP [ \fB\-afmrs\fP ] \fIname\fP \&.\&.\&.
 Temporarily disable the \fIname\fPd hash table elements\&.  The default
 is to disable builtin commands\&.  This allows you to use an external
 command with the same name as a builtin command\&.  The \fB\-a\fP option
-causes \fBdisable\fP to act on aliases\&.  The \fB\-f\fP option causes
+causes \fBdisable\fP to act on regular or global aliases\&.  The \fB\-s\fP
+option causes \fBdisable\fP to act on suffix aliases\&.  The \fB\-f\fP option causes
 \fBdisable\fP to act on shell functions\&.  The \fB\-r\fP options causes
 \fBdisable\fP to act on reserved words\&.  Without arguments all disabled
 hash table elements from the corresponding hash table are printed\&.
@@ -351,11 +377,12 @@ well, causing the effects of the \fBemulate\fP command and any \fBsetopt\fP and
 function, if any; normally these options are turned off in all emulation
 modes except \fBksh\fP\&.
 .TP
-\fBenable\fP [ \fB\-afmr\fP ] \fIname\fP \&.\&.\&.
+\fBenable\fP [ \fB\-afmrs\fP ] \fIname\fP \&.\&.\&.
 Enable the \fIname\fPd hash table elements, presumably disabled
 earlier with \fBdisable\fP\&.  The default is to enable builtin commands\&.
-The \fB\-a\fP option causes \fBenable\fP to act on aliases\&.  The \fB\-f\fP
-option causes \fBenable\fP to act on shell functions\&.  The \fB\-r\fP
+The \fB\-a\fP option causes \fBenable\fP to act on regular or global aliases\&.
+The \fB\-s\fP option causes \fBenable\fP to act on suffix aliases\&.
+The \fB\-f\fP option causes \fBenable\fP to act on shell functions\&.  The \fB\-r\fP
 option causes \fBenable\fP to act on reserved words\&.  Without arguments
 all enabled hash table elements from the corresponding hash table are
 printed\&.  With the \fB\-m\fP flag the arguments are taken as patterns
@@ -388,6 +415,12 @@ Do nothing and return an exit code of 1\&.
 .TP
 .PD 0
 \fBfc\fP [ \fB\-e\fP \fIename\fP ] [ \fB\-nlrdDfEim\fP ] [ \fIold\fP\fB=\fP\fInew\fP \&.\&.\&. ] [ \fIfirst\fP [ \fIlast\fP ] ]
+.TP
+.PD 0
+\fBfc\fP \fB\-p\fP [ \fB\-a\fP ] [ \fIfilename\fP [ \fIhistsize\fP [ \fIsavehistsize\fP ] ] ]
+.TP
+.PD 0
+\fBfc\fP \fB\-P\fP
 .TP
 .PD
 \fBfc\fP \fB\-ARWI\fP [ \fIfilename\fP ]
@@ -427,6 +460,35 @@ Adding the \fB\-i\fP flag causes the dates to be printed in ISO8601
 `\fIyyyy\fP\fB\-\fP\fImm\fP\fB\-\fP\fIdd\fP' format\&.
 With the \fB\-D\fP flag, \fBfc\fP prints elapsed times\&.
 .PP
+.PP
+`\fBfc \-p\fP' pushes the current history list onto a stack and switches to a
+new history list\&.  If the \fB\-a\fP option is also specified, this history list
+will be automatically popped when the current function scope is exited, which
+is a much better solution than creating a trap function to call `\fBfc \-P\fP'
+manually\&.  If no arguments are specified, the history list is left empty,
+\fB$HISTFILE\fP is unset, and \fB$HISTSIZE\fP & \fB$SAVEHIST\fP are set to their
+default values\&.  If one argument is given, \fB$HISTFILE\fP is set to that
+filename, \fB$HISTSIZE\fP & \fB$SAVEHIST\fP are left unchanged, and the history
+file is read in (if it exists) to initialize the new list\&.  If a second
+argument is specified, \fB$HISTSIZE\fP & \fB$SAVEHIST\fP are instead set to the
+single specified numeric value\&.  Finally, if a third argument is specified,
+\fB$SAVEHIST\fP is set to a separate value from \fB$HISTSIZE\fP\&.  You are free to
+change these environment values for the new history list however you desire
+in order to manipulate the new history list\&.
+.PP
+`\fBfc \-P\fP' pops the history list back to an older list saved by `\fBfc \-p\fP'\&.
+The current list is saved to its \fB$HISTFILE\fP before it is destroyed
+(assuming that \fB$HISTFILE\fP and \fB$SAVEHIST\fP are set appropriately, of
+course)\&.  The values of \fB$HISTFILE\fP, \fB$HISTSIZE\fP, and \fB$SAVEHIST\fP are
+restored to the values they had when `\fBfc \-p\fP' was called\&.  Note that this
+restoration can conflict with making these variables "local", so your best
+bet is to avoid local declarations for these variables in functions that use
+`\fBfc \-p\fP'\&.  The one other guaranteed\-safe combination is declaring these
+variables to be local at the top of your function and using the automatic
+option (\fB\-a\fP) with `\fBfc \-p\fP'\&.  Finally, note that it is legal to manually
+pop a push marked for automatic popping if you need to do so before the
+function exits\&.
+.PP
 `\fBfc \-R\fP' reads the history from the given file,
 `\fBfc \-W\fP' writes the history out to the given file,
 and `\fBfc \-A\fP' appends the history out to the given file\&.
@@ -448,11 +510,11 @@ entries\&.
 Bring each specified \fIjob\fP in turn to the foreground\&.
 If no \fIjob\fP is specified, resume the current job\&.
 .TP
-\fBfloat\fP [ {\fB+\fP|\fB\-\fP}\fBEFHghlprtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBfloat\fP [ {\fB+\fP|\fB\-\fP}\fBEFHghlprtux\fP ] [ \fB\-LRZ\fP [ \fIn\fP ]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 Equivalent to \fBtypeset \-E\fP, except that options irrelevant to floating
 point numbers are not permitted\&.
 .TP
-\fBfunctions\fP [ {\fB+\fP|\fB\-\fP}\fBUXmtu\fP ] [ \fIname\fP \&.\&.\&. ]
+\fBfunctions\fP [ {\fB+\fP|\fB\-\fP}\fBUXkmtuz\fP ] [ \fIname\fP \&.\&.\&. ]
 Equivalent to \fBtypeset \-f\fP\&.
 .TP
 \fBgetcap\fP
@@ -548,7 +610,7 @@ the form of a call to hash\&.
 \fBhistory\fP
 Same as \fBfc \-l\fP\&.
 .TP
-\fBinteger\fP [ {\fB+\fP|\fB\-\fP}\fBHghilprtux\fP ] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBinteger\fP [ {\fB+\fP|\fB\-\fP}\fBHghilprtux\fP ] [ \fB\-LRZ\fP [ \fIn\fP ]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 Equivalent to \fBtypeset \-i\fP, except that options irrelevant to
 integers are not permitted\&.
 .TP
@@ -592,6 +654,16 @@ specified the signal names are listed\&.  Otherwise, for each
 listed\&.  For each \fIsig\fP that is a signal number or a number
 representing the exit status of a process which was terminated or
 stopped by a signal the name of the signal is printed\&.
+.RS
+.PP
+On some systems, alternative signal names are allowed for a few signals\&.
+Typical examples are \fBSIGCHLD\fP and \fBSIGCLD\fP or \fBSIGPOLL\fP and
+\fBSIGIO\fP, assuming they correspond to the same signal number\&.  \fBkill
+\-l\fP will only list the preferred form, however \fBkill \-l\fP \fIalt\fP will
+show if the alternative form corresponds to a signal number\&.  For example,
+under Linux \fBkill \-l IO\fP and \fBkill \-l POLL\fP both output 29, hence
+\fBkill \-IO\fP and \fBkill \-POLL\fP have the same effect\&.
+.RE
 .TP
 \fBlet\fP \fIarg\fP \&.\&.\&.
 Evaluate each \fIarg\fP as an arithmetic expression\&.
@@ -611,6 +683,10 @@ on \fIresource\fP, otherwise
 set the limit to the specified value\&.  If the \fB\-h\fP flag
 is given, use hard limits instead of soft limits\&.
 If no \fIresource\fP is given, print all limits\&.
+.PP
+When looping over multiple resources, the shell will abort immediately if
+it detects a badly formed argument\&.  However, if it fails to set a limit
+for some other reason it will continue trying to set the remaining limits\&.
 .PP
 \fIresource\fP can be one of:
 .PP
@@ -669,7 +745,15 @@ Maximum amount of virtual memory\&.
 .PD
 .PP
 Which of these resource limits are available depends on the system\&.
-\fIresource\fP can be abbreviated to any unambiguous prefix\&.
+\fIresource\fP can be abbreviated to any unambiguous prefix\&.  It
+can also be an integer, which corresponds to the integer defined
+for the resource by the operating system\&.
+.PP
+If argument corresponds to a number which is out of the range of the
+resources configured into the shell, the shell will try to read or write
+the limit anyway, and will report an error if this fails\&.  As the shell
+does not store such resources internally, an attempt to set the limit will
+fail unless the \fB\-s\fP option is present\&.
 .PP
 \fIlimit\fP is a number, with an optional scaling factor, as follows:
 .PP
@@ -689,7 +773,7 @@ minutes and seconds
 .PD
 .RE
 .TP
-\fBlocal\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHLRUZahilprtux\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] ] \&.\&.\&.
+\fBlocal\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHUahlprtux\fP ] [ \fB\-LRZi\fP [ \fIn\fP ]] [ \fIname\fP[\fB=\fP\fIvalue\fP] ] \&.\&.\&.
 Same as \fBtypeset\fP, except that the options \fB\-g\fP, and
 \fB\-f\fP are not permitted\&.  In this case the \fB\-x\fP option does not force
 the use of \fB\-g\fP, i\&.e\&. exported variables will be local to functions\&.
@@ -714,7 +798,7 @@ If the \fBPUSHD_MINUS\fP option is set, the meanings of `\fB+\fP' and
 `\fB\-\fP' in this context are swapped\&.
 .TP
 .PD 0
-\fBprint\fP [ \fB\-abcDilmnNoOpPrsz\fP ] [ \fB\-u\fP\fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
+\fBprint\fP [ \fB\-abcDilmnNoOpPrsz\fP ] [ \fB\-u\fP \fIn\fP ] [ \fB\-f\fP \fIformat\fP ] [ \fB\-C\fP \fIcols\fP ]
 .TP
 .PD
   [ \fB\-R\fP [ \fB\-en\fP ]] [ \fIarg\fP \&.\&.\&. ]
@@ -796,7 +880,7 @@ newline\&.  Only the \fB\-e\fP and \fB\-n\fP flags are recognized after
 \fB\-s\fP
 Place the results in the history list instead of on the standard output\&.
 .TP
-\fB\-u\fP\fIn\fP
+\fB\-u\fP \fIn\fP
 Print the arguments to file descriptor \fIn\fP\&.
 .TP
 \fB\-z\fP
@@ -887,7 +971,7 @@ Same as \fBfc \-e \-\fP\&.
 \fBread\fP [ \fB\-rszpqAclneE\fP ] [ \fB\-t\fP [ \fInum\fP ] ] [ \fB\-k\fP [ \fInum\fP ] ] [ \fB\-d\fP \fIdelim\fP ]
 .TP
 .PD
- [ \fB\-u\fP\fIn\fP ] [ \fIname\fP[\fB?\fP\fIprompt\fP] ] [ \fIname\fP \&.\&.\&.  ]
+ [ \fB\-u\fP \fIn\fP ] [ \fIname\fP[\fB?\fP\fIprompt\fP] ] [ \fIname\fP \&.\&.\&.  ]
 Read one line and break it into fields using the characters
 in \fB$IFS\fP as separators, except as noted below\&.
 The first field is assigned to the first \fIname\fP, the second field
@@ -960,7 +1044,7 @@ read\&.  Note that the command name is word number 1, not word 0,
 and that when the cursor is at the end of the line, its character
 index is the length of the line plus one\&.
 .TP
-\fB\-u\fP\fIn\fP
+\fB\-u\fP \fIn\fP
 Input is read from file descriptor \fIn\fP\&.
 .TP
 \fB\-p\fP
@@ -1119,6 +1203,12 @@ Unless the \fB\-f\fP option is given, this will refuse to suspend a login shell\
 \fB[\fP [ \fIarg\fP \&.\&.\&. ] \fB]\fP
 Like the system version of \fBtest\fP\&.  Added for compatibility;
 use conditional expressions instead (see the section `Conditional Expressions')\&.
+The main differences between the conditional expression syntax and the
+\fBtest\fP and \fB[\fP builtins are:  these commands are not handled
+syntactically, so for example an empty variable expansion may cause an
+argument to be omitted; syntax errors cause status 2 to be returned instead
+of a shell error; and arithmetic operators expect integer arguments rather
+than arithemetic expressions\&.
 .TP
 \fBtimes\fP
 Print the accumulated user and system times for the shell
@@ -1145,6 +1235,8 @@ If \fIsig\fP is \fB0\fP or \fBEXIT\fP
 and the \fBtrap\fP statement is not executed inside the body of a function,
 then the command \fIarg\fP is executed when the shell terminates\&.
 .PP
+\fBZERR\fP, \fBDEBUG\fP and \fBEXIT\fP traps are not executed inside other traps\&.
+.PP
 The \fBtrap\fP command with no arguments prints a list of commands
 associated with each signal\&.
 .PP
@@ -1169,6 +1261,11 @@ will print the line number of a command executed after it has run, while
 .RE
 .PP
 will always print the number zero\&.
+.PP
+Alternative signal names are allowed as described under \fBkill\fP above\&.
+Defining a trap under either name causes any trap under an alternative
+name to be removed\&.  However, it is recommended that for consistency
+users stick exclusively to one name or another\&.
 .RE
 .TP
 \fBtrue\fP [ \fIarg\fP \&.\&.\&. ]
@@ -1188,10 +1285,10 @@ terminal is frozen or not\&.
 Equivalent to \fBwhence \-v\fP\&.
 .TP
 .PD 0
-\fBtypeset\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHLRUZafghilprtuxm\fP [\fIn\fP]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
+\fBtypeset\fP [ {\fB+\fP|\fB\-\fP}\fBAEFHUafghklprtuxmz\fP ] [ \fB\-LRZi\fP [ \fIn\fP ]] [ \fIname\fP[\fB=\fP\fIvalue\fP] \&.\&.\&. ]
 .TP
 .PD
-\fBtypeset\fP \-T [ {\fB+|\fB\-\fP\fP}\fBLRUZrux\fP ] \fISCALAR\fP[\fB=\fP\fIvalue\fP] \fIarray\fP
+\fBtypeset\fP \-T [ {\fB+|\fB\-\fP\fP}\fBUrux\fP ] [ \fB\-LRZ\fP [ \fIn\fP ]] \fISCALAR\fP[\fB=\fP\fIvalue\fP] \fIarray\fP \fB[\fP \fIsep\fP \fB]\fP
 Set or display attributes and values for shell parameters\&.
 .RS
 .PP
@@ -1219,20 +1316,24 @@ separately for arrays and associative arrays), regardless of other flags
 and options\&.  Note that the \fB\-h\fP flag on parameters is respected; no
 value will be shown for these parameters\&.
 .PP
-If the \fB\-T\fP option is given, exactly two (or zero) \fIname\fP
-arguments must be present\&.  They represent a scalar and an array (in
-that order) that will be tied together in the manner of \fB$PATH\fP and
-\fB$path\fP\&.  In other words, an array present in the latter variable
-appears as a scalar with the elements of the array joined by colons in
-the former\&.  Only the scalar may have an initial value\&.  Both the
-scalar and the array may otherwise be manipulated as normal\&.  If one
-is unset, the other will automatically be unset too\&.  There is no way
-of untying the variables without unsetting them, or converting the
-type of one of them with another \fBtypeset\fP command; \fB+T\fP does not
-work, assigning an array to \fISCALAR\fP is an error, and assigning a
-scalar to \fIarray\fP sets it to be a single\-element array\&.  Note that
-both `\fBtypeset \-xT \&.\&.\&.\fP' and `\fBexport \-T \&.\&.\&.\fP' work, but only the
-scalar will be marked for export\&.
+If the \fB\-T\fP option is given, two or three arguments must be present (an
+exception is that zero arguments are allowed to show the list of parameters
+created in this fashion)\&.  The first two are the name of a scalar and an
+array parameter (in that order) that will be tied together in the manner of
+\fB$PATH\fP and \fB$path\fP\&.  The optional third argument is a single\-character
+separator which will be used to join the elements of the array to form the
+scalar; if absent, a colon is used, as with \fB$PATH\fP\&.  Only the first
+character of the separator is significant; any remaining characters are
+ignored\&.  Only the scalar parameter may be assigned an initial value\&.  Both
+the scalar and the array may otherwise be manipulated as normal\&.  If one is
+unset, the other will automatically be unset too\&.  There is no way of
+untying the variables without unsetting them, or converting the type of one
+of them with another \fBtypeset\fP command; \fB+T\fP does not work, assigning
+an array to \fISCALAR\fP is an error, and assigning a scalar to \fIarray\fP
+sets it to be a single\-element array\&.  Note that both `\fBtypeset \-xT \&.\&.\&.\fP'
+and `\fBexport \-T \&.\&.\&.\fP' work, but only the scalar will be marked for
+export\&.  Setting the value using the scalar version causes a split on all
+separators (which cannot be quoted)\&.
 .PP
 The \fB\-g\fP (global) flag is treated specially: it means that any
 resulting parameter will not be restricted to local scope\&.  Note that this
@@ -1278,20 +1379,21 @@ The names refer to associative array parameters; see
 .TP
 \fB\-L\fP
 Left justify and remove leading blanks from \fIvalue\fP\&.
-If \fIn\fP is nonzero, it defines the width of the field;
-otherwise it is determined by the width of the value of the first
-assignment\&.
+If \fIn\fP is nonzero, it defines the width of the field\&.
+If \fIn\fP is zero, the width is determined by the width of the value of
+the first assignment\&.  In the case of numeric parameters, the length of the
+complete value assigned to the parameter is used to determine the width,
+not the value that would be output\&.
 When the parameter is expanded, it is filled on the right with
 blanks or truncated if necessary to fit the field\&.
+Note truncation can lead to unexpected results with numeric parameters\&.
 Leading zeros are removed if the \fB\-Z\fP flag is also set\&.
 .TP
 \fB\-R\fP
-Right justify and fill with leading blanks\&.  If \fIn\fP is nonzero
-if defines the width of the field;
-otherwise it is determined by the width of the value of the first
-assignment\&.
-When the parameter is expanded, the field is left filled with
-blanks or truncated from the end\&.
+Similar to \fB\-L\fP, except that right justification is used;
+when the parameter is expanded, the field is left filled with
+blanks or truncated from the end\&.  May not be combined with the \fB\-Z\fP
+flag\&.
 .TP
 \fB\-U\fP
 For arrays (but not for associative arrays), keep only the first
@@ -1300,11 +1402,12 @@ colon\-separated special parameters like \fBPATH\fP or \fBFIGNORE\fP, etc\&.
 This flag has a different meaning when used with \fB\-f\fP; see below\&.
 .TP
 \fB\-Z\fP
-Right justify and fill with leading zeros if the first non\-blank
-character is a digit and the \fB\-L\fP flag has not been set\&.
-If \fIn\fP is nonzero it defines the width of the field;
-otherwise it is determined by the width of the value of the
-first assignment\&.
+Specially handled if set along with the \fB\-L\fP flag\&.
+Otherwise, similar to \fB\-R\fP, except that leading zeros are used for
+padding instead of blanks if the first non\-blank character is a digit\&.
+Numeric parameters are specially handled: they are always eligible
+for padding with zeroes, and the zeroes are inserted at an appropriate
+place in the output\&.
 .TP
 \fB\-a\fP
 The names refer to array parameters\&.  An array parameter may be
@@ -1314,13 +1417,16 @@ shown\&.
 .TP
 \fB\-f\fP
 The names refer to functions rather than parameters\&.  No assignments
-can be made, and the only other valid flags are \fB\-t\fP, \fB\-u\fP and
-\fB\-U\fP\&.  The flag \fB\-t\fP turns on execution tracing for this
+can be made, and the only other valid flags are \fB\-t\fP, \fB\-k\fP, \fB\-u\fP,
+\fB\-U\fP and \fB\-z\fP\&.  The flag \fB\-t\fP turns on execution tracing for this
 function\&.  The \fB\-u\fP and \fB\-U\fP flags cause the function to be
 marked for autoloading; \fB\-U\fP also causes alias expansion to be
 suppressed when the function is loaded\&.  The \fBfpath\fP parameter
 will be searched to find the function definition when the function
-is first referenced; see the section `Functions'\&.
+is first referenced; see the section `Functions'\&. The \fB\-k\fP and \fB\-z\fP flags
+make the function be loaded using ksh\-style or zsh\-style autoloading
+respectively\&. If neither is given, the setting of the KSH_AUTOLOAD option
+determines how the function is loaded\&.
 .TP
 \fB\-h\fP
 Hide: only useful for special parameters (those marked `<S>' in the table in
@@ -1391,7 +1497,7 @@ the parameter is not made local to the enclosing function\&.  This is for
 compatibility with previous versions of zsh\&.
 .RE
 .TP
-\fBulimit\fP [ \fB\-SHacdflmnpstv\fP [ \fIlimit\fP ] \&.\&.\&. ]
+\fBulimit\fP [ [ \fB\-SHacdflmnpstv\fP | \fB\-N\fP \fIresource\fP [ \fIlimit\fP ] \&.\&.\&. ]
 Set or display resource limits of the shell and the processes started by
 the shell\&.  The value of \fIlimit\fP can be a number in the unit specified
 below or the value `\fBunlimited\fP'\&.  By default, only soft limits are
@@ -1403,6 +1509,10 @@ options are used, the file size limit (\fB\-f\fP) is assumed\&.  If
 printed\&.  When more than one resource values are printed the limit name and
 unit is printed before each value\&.
 .RS
+.PP
+When looping over multiple resources, the shell will abort immediately if
+it detects a badly formed argument\&.  However, if it fails to set a limit
+for some other reson it will continue trying to set the remaining limits\&.
 .PP
 .PD 0
 .TP
@@ -1440,6 +1550,16 @@ processes available to the user\&.
 K\-bytes on the size of virtual memory\&.  On some systems this
 refers to the limit called `address space'\&.
 .PD
+.PP
+A resource may also be specified by integer in the form `\fB\-N\fP
+\fIresource\fP', where \fIresource\fP corresponds to the integer defined for
+the resource by the operating system\&.  This may be used to set the limits
+for resources known to the shell which do not correspond to option letters\&.
+Such limits will be shown by number in the output of `\fBulimit \-a\fP'\&.
+.PP
+The number may alternatively be out of the range of limits compiled into
+the shell\&.  The shell will try to read or write the limit anyway, and
+will report an error if this fails\&.
 .RE
 .TP
 \fBumask\fP [ \fB\-S\fP ] [ \fImask\fP ]
@@ -1457,10 +1577,12 @@ Same as \fBunhash \-a\fP\&.
 \fBunfunction\fP
 Same as \fBunhash \-f\fP\&.
 .TP
-\fBunhash\fP [ \fB\-adfm\fP ] \fIname\fP \&.\&.\&.
+\fBunhash\fP [ \fB\-adfms\fP ] \fIname\fP \&.\&.\&.
 Remove the element named \fIname\fP from an internal hash table\&.  The
 default is remove elements from the command hash table\&.  The \fB\-a\fP
-option causes \fBunhash\fP to remove aliases\&.  The \fB\-f\fP option causes
+option causes \fBunhash\fP to remove regular or global aliases\&.
+The \fB\-s\fP option causes \fBunhash\fP to remove suffix aliases\&.
+The \fB\-f\fP option causes
 \fBunhash\fP to remove shell functions\&.  The \fB\-d\fP options causes
 \fBunhash\fP to remove named directories\&.  If the \fB\-m\fP flag is given
 the arguments are taken as patterns (should be quoted) and all elements
@@ -1670,9 +1792,11 @@ are to be autoloaded\&. If \fB\-z\fP is given, the
 function will be autoloaded as if the \fBKSH_AUTOLOAD\fP option is
 \fInot\fP set, even if it is set at the time the compiled file is
 read, while if the \fB\-k\fP is given, the function will be loaded as if
-\fBKSH_AUTOLOAD\fP \fIis\fP set\&.  If neither of these options is given, the
-function will be loaded as determined by the setting of the
-\fBKSH_AUTOLOAD\fP option at the time the compiled file is read\&.
+\fBKSH_AUTOLOAD\fP \fIis\fP set\&.  These options also take precedence over
+any \fB\-k\fP or \fB\-z\fP options specified to the \fBautoload\fP builtin\&. If
+neither of these options is given, the function will be loaded as
+determined by the setting of the \fBKSH_AUTOLOAD\fP option at the time
+the compiled file is read\&.
  
 These options may also appear as many times as necessary between the listed
 \fIname\fPs to specify the loading style of all following functions, up to

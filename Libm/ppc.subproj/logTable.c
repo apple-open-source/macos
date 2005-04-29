@@ -22,7 +22,7 @@
 /*******************************************************************************
 *                                                                              *
 *     File logTable.c,                                                         *
-*     This file contains the unsigned long array logTable[] used in the        *
+*     This file contains the uint32_t array logTable[] used in the        *
 *     approximation for log, log2, log10, log1p and Power functions.           *
 *                                                                              *
 *     Copyright © 1997-2001 Apple Computer, Inc.  All rights reserved.         *
@@ -55,12 +55,10 @@
 *           -fschedule-insns -finline-functions -funroll-all-loops             *
 *                                                                              *
 *******************************************************************************/
-
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
+#include "stdint.h"
 
 __private_extern__
-const unsigned long int logTable[] = 
+const uint32_t logTable[] = 
       { 
 /*i = 0*/                                                                       
       0x3FE81000, 0x0029D0FA, 0x3FF54725, 0xE69688D3, 0xBFD23EC5, 0x98AF81D4, 
@@ -266,8 +264,3 @@ const unsigned long int logTable[] =
 /*i = 192*/                                                                     
       0x3FF80800, 0x000F4240, 0x3FE54E3B, 0x41874733, 0x3FDA0875, 0xB4CEC036  
       };
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

@@ -1,0 +1,54 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m0yn7aF-000275C; Fri, 19 Jun 1998 22:16:27 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Fri Jun 19 22:12:27 1998
+X-From_: davidh@crl.com  Fri Jun 19 21:38:57 1998
+Received: from pm02sm.pmm.mci.net (pm02sm.pmm.mci.net [208.159.126.151])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id VAA29111
+	for <a.kupries@westend.com>; Fri, 19 Jun 1998 21:38:55 +0200 (MET DST)
+Received: from ozzy (usr19-dialup17.mix1.Sacramento.mci.net)
+ by PM02SM.PMM.MCI.NET (PMDF V5.1-10 #27034)
+ with SMTP id <0EUT000RRD7N5A@PM02SM.PMM.MCI.NET> for a.kupries@westend.com;
+ Fri, 19 Jun 1998 19:38:15 +0000 (GMT)
+Date: Fri, 19 Jun 1998 12:38:09 -0700
+From: David Herron <davidh@crl.com>
+Subject: Bug in memchan configuration
+X-Sender: davidh@mail.crl.com
+To: a.kupries@westend.com
+Message-id: <0EUT000S0D7P5A@PM02SM.PMM.MCI.NET>
+MIME-version: 1.0
+X-Mailer: QUALCOMM Windows Eudora Pro Version 4.0.1
+Content-type: text/plain; charset="us-ascii"
+
+
+Hi,
+
+I found a bug in the configure script in memchan1.3.
+In the section that checks for the TCL library there
+is a loop looking for different library extensions.
+In my case it needs to match the ".so.*" case of
+the loop, but it doesn't.
+
+Changing the test to read as follows fixes the problem.
+
+                if test -f $dir/libtcl$version$libsuff; then
+                    memchan_cv_lib_TCL_LIB="-L$dir -ltcl$version"
+                    TCL_LIB_DIR="$dir"
+                fi
+
+The difference is removal of the quote marks around
+the file name.  This allows the "*" to be evaluated
+by the shell & find the file name.
+
+Another change that would be convenient is, in
+the 'for version in ...' part, to add "80" to
+the list of choices.  With (at least) tcl8.0pl2
+on FreeBSD the library is "libtcl80.so.1.0" and 
+since the configure script only looks for "libtcl8.0"
+it is not found again because of that.
+
+Thank you for providing this software ...
+
+	David

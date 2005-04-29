@@ -1,0 +1,1 @@
+#define MACOS_CLASSIC

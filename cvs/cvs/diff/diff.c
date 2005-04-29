@@ -13,9 +13,7 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with GNU DIFF; see the file COPYING.  If not, write to
-the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
+*/
 
 /* GNU DIFF was written by Mike Haertel, David Hayes,
    Richard Stallman, Len Tower, and Paul Eggert.  */
@@ -24,7 +22,12 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include "diff.h"
 #include <signal.h>
 #include "getopt.h"
-#include "fnmatch.h"
+
+#ifdef HAVE_FNMATCH
+# include <fnmatch.h> /* This is supposed to be available on Posix systems */
+#else /* HAVE_FNMATCH */
+# include "fnmatch.h" /* Our substitute */
+#endif /* HAVE_FNMATCH */
 
 #ifndef DEFAULT_WIDTH
 #define DEFAULT_WIDTH 130
@@ -230,11 +233,13 @@ static struct option const longopts[] =
   {0, 0, 0, 0}
 };
 
+
+
 int
 diff_run (argc, argv, out, callbacks_arg)
      int argc;
      char *argv[];
-     char *out;
+     const char *out;
      const struct diff_callbacks *callbacks_arg;
 {
   int val;
@@ -249,11 +254,21 @@ diff_run (argc, argv, out, callbacks_arg)
 
   /* Do our initializations.  */
   initialize_main (&argc, &argv);
-
-  /* Decode the options.  */
-
   optind_old = optind;
   optind = 0;
+
+  /* Set the jump buffer, so that diff may abort execution without
+     terminating the process. */
+  val = setjmp (diff_abort_buf);
+  if (val != 0)
+    {
+      optind = optind_old;
+      if (opened_file)
+	fclose (outfile);
+      return val;
+    }
+
+  /* Decode the options.  */
   while ((c = getopt_long (argc, argv,
 			   "0123456789abBcC:dD:efF:hHiI:lL:nNpPqrsS:tTuU:vwW:x:X:y",
 			   longopts, 0)) != EOF)
@@ -688,16 +703,6 @@ diff_run (argc, argv, out, callbacks_arg)
 	}
     }
 
-  /* Set the jump buffer, so that diff may abort execution without
-     terminating the process. */
-  if ((val = setjmp (diff_abort_buf)) != 0)
-    {
-      optind = optind_old;
-      if (opened_file)
-	fclose (outfile);
-      return val;
-    }
-
   val = compare_files (0, argv[optind], 0, argv[optind + 1], 0);
 
   /* Print any messages that were saved up for last.  */
@@ -777,7 +782,7 @@ static char const * const option_help[] = {
 "-e  --ed  Output an ed script.",
 "-n  --rcs  Output an RCS format diff.",
 "-y  --side-by-side  Output in two columns.",
-"  -w NUM  --width=NUM  Output at most NUM (default 130) characters per line.",
+"  -W NUM  --width=NUM  Output at most NUM (default 130) characters per line.",
 "  --left-column  Output only the left column of common lines.",
 "  --suppress-common-lines  Do not output common lines.",
 "-DNAME  --ifdef=NAME  Output merged file to show `#ifdef NAME' diffs.",
@@ -1148,13 +1153,15 @@ compare_files (dir0, name0, dir1, name1, depth)
 	    failed = 1;
 	  }
       if (inf[1].desc == -2)
-	if (same_files)
-	  inf[1].desc = inf[0].desc;
-	else if ((inf[1].desc = open (inf[1].name, O_RDONLY, 0)) < 0)
-	  {
-	    perror_with_name (inf[1].name);
-	    failed = 1;
-	  }
+	{
+	  if (same_files)
+	    inf[1].desc = inf[0].desc;
+	  else if ((inf[1].desc = open (inf[1].name, O_RDONLY, 0)) < 0)
+	    {
+	      perror_with_name (inf[1].name);
+	      failed = 1;
+	    }
+	}
 
 #if HAVE_SETMODE
       if (binary_I_O)

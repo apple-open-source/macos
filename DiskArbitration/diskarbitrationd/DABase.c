@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <unistd.h>
 #include <openssl/md5.h>
 #include <sys/attr.h>
+#include <CoreFoundation/CFBundlePriv.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 
@@ -73,47 +74,30 @@ __private_extern__ int ___chattr( const char * path, ___attr_t attr, ___attr_t n
     return status;
 }
 
-__private_extern__ pid_t ___daemon( int nochdir, int noclose )
+__private_extern__ int ___isautofs( const char * path )
 {
     /*
-     * Run in the background.  Same as daemon(), but returns the value from the fork() call.
+     * Test for the autofs file system.
      */
 
-    pid_t pid = fork( );
+    struct statfs * mountList;
+    int             mountListCount;
+    int             mountListIndex;
 
-    if ( pid == 0 )
+    mountListCount = getmntinfo( &mountList, MNT_NOWAIT );
+
+    for ( mountListIndex = 0; mountListIndex < mountListCount; mountListIndex++ )
     {
-        if ( setsid( ) == -1 )
+        if ( strcmp( mountList[mountListIndex].f_fstypename, "autofs" ) == 0 )
         {
-            _exit( EX_NOPERM );
-        }
-
-        if ( nochdir == 0 )
-        {
-            chdir( "/" );
-        }
-
-        if ( noclose == 0 )
-        {
-            int fd;
-
-            fd = open( _PATH_DEVNULL, O_RDWR, 0 );
-
-            if ( fd != -1 )
+            if ( strncmp( mountList[mountListIndex].f_mntonname, path, strlen( mountList[mountListIndex].f_mntonname ) ) == 0 )
             {
-                dup2( fd, STDIN_FILENO );
-                dup2( fd, STDOUT_FILENO );
-                dup2( fd, STDERR_FILENO );
-
-                if ( fd > 2 )
-                {
-                    close( fd );
-                }
+                return 1;
             }
         }
     }
 
-    return pid;
+    return 0;
 }
 
 __private_extern__ void ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRef array2 )
@@ -138,6 +122,30 @@ __private_extern__ void ___CFArrayIntersect( CFMutableArrayRef array1, CFArrayRe
             CFArrayRemoveValueAtIndex( array1, index );
         }
     }
+}
+
+__private_extern__ CFStringRef ___CFBundleCopyLocalizedStringInDirectory( CFURLRef bundleURL, CFStringRef key, CFStringRef value, CFStringRef table )
+{
+    /*
+     * Returns a localized string from a bundle's strings file without needing to create a
+     * CFBundle object.
+     */
+
+    CFBundleRef bundle;
+    CFStringRef string = NULL;
+
+    bundle = CFBundleCreate( kCFAllocatorDefault, bundleURL );
+
+    if ( bundle )
+    {
+        _CFBundleSetStringsFilesShared( bundle, FALSE );
+
+        string = CFBundleCopyLocalizedString( bundle, key, value, table );
+
+        CFRelease( bundle );
+    }
+
+    return string;
 }
 
 __private_extern__ CFURLRef ___CFBundleCopyResourceURLInDirectory( CFURLRef bundleURL, CFStringRef resourcePath )
@@ -532,7 +540,7 @@ __private_extern__ void ___DADisplayUpdateActivity( void )
     static io_connect_t   port = MACH_PORT_NULL;
     static struct timeval time = { 0 };
 
-    if ( port == NULL )
+    if ( port == MACH_PORT_NULL )
     {
         io_service_t service;
 

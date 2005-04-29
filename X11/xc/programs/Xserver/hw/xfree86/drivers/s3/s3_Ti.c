@@ -24,7 +24,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_Ti.c,v 1.5 2003/02/17 16:45:24 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_Ti.c,v 1.6 2003/07/17 08:19:36 eich Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -721,7 +721,9 @@ static void S3TiLoadCursorImage(ScrnInfoPtr pScrn, unsigned char *image)
 
 static Bool S3TiUseHWCursor(ScreenPtr pScreen, CursorPtr pCurs)
 {
-        return TRUE;
+	ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+	S3Ptr pS3 = S3PTR(pScrn);
+	return (pS3->hwCursor);
 }       
 
 

@@ -1,0 +1,125 @@
+# -*- tcl -*-
+#
+# $Id: idx.html,v 1.2 2004/01/15 06:36:12 andreas_kupries Exp $
+#
+# Engine to convert a docidx document into HTML.
+#
+# Copyright (c) 2003 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Freely redistributable.
+#
+######################################################################
+
+dt_source _idx_common.tcl
+dt_source _html.tcl
+
+######################################################################
+# Conversion specification.
+#
+# One-pass processing.
+
+rename idx_postprocess {}
+rename fmt_postprocess idx_postprocess
+
+proc fmt_plain_text {text} {return {}}
+
+################################################################
+## Backend for HTML markup
+
+global firstkey   ; set firstkey   1
+global even       ; set even        1
+global reflist    ; set reflist [list]
+global cnt        ; set cnt 0
+
+proc fmt_index_begin     {label title}      {
+    set     hdr ""
+    append  hdr "[markup <html><head>]\n"
+    append  hdr "[markup <title>] $label [markup </title>]\n"
+
+    # Engine parameter - insert 'meta'
+    if {[set meta [Get meta]] != {}} {append hdr [markup $meta]\n}
+
+    append  hdr "[markup </head>]\n"
+    append  hdr [ht_comment [c_provenance]]\n
+    append  hdr [ht_comment "CVS: \$Id\$ $label"]\n
+    append  hdr \n
+    append  hdr [markup <body>]\n
+
+    # Engine parameter - insert 'header'
+    if {[set header [Get header]] != {}} {append hdr [markup $header]\n}
+
+    if {($label != {}) && ($title != {})} {
+	append  hdr "[markup <h3>] $label -- $title [markup </h3>]\n"
+    } elseif {$label != {}} {
+	append  hdr "[markup <h3>] $label [markup </h3>]\n"
+    } elseif {$title != {}} {
+	append  hdr "[markup <h3>] $title [markup </h3>]\n"
+    }
+    append  hdr "[markup "<hr><table class=\"#idx\">"]\n"
+    return $hdr
+}
+proc fmt_index_end {} {
+    set    text [FlushReferences]
+    append text [tag/ table]\n
+
+    # Engine parameter - insert 'footer'
+    set  footer [Get footer]
+    if {$footer != {}} {set footer \n[markup $footer]\n}
+
+    return $text[tag hr]${footer}[tag/ body][tag/ html]\n
+}
+proc fmt_key {text} {
+    global firstkey even reflist cnt
+
+    set res [FlushReferences]
+    set firstkey 0
+
+    if {$even} {
+	append res [markup "<tr class=\"#idxeven\" >"]\n
+    } else {
+	append res [markup "<tr class=\"#idxodd\"  >"]\n
+    }
+    set even [expr {1-$even}]
+
+    append  res "    [markup "<td class=\"#idxleft\" >"][markup "<a name=\"key$cnt\">"] ${text} [markup </a>][tag/ td]\n"
+    append  res "    [markup "<td class=\"#idxright\">"]\n"
+    incr cnt
+    return $res
+}
+
+proc FlushReferences {} {
+    global firstkey reflist
+
+    set res ""
+    if {!$firstkey} {
+	set lines [list]
+	foreach {ref label} $reflist {
+	    lappend lines "\t[markup "<a href=\"$ref\">"] ${label} [tag/ a]"
+	}
+	append res "[join $lines ,\n]\n    [tag /td]\n[tag/ tr]\n"
+    }
+    set reflist [list]
+    return $res
+}
+
+proc fmt_manpage {file label} {global reflist ; lappend reflist [dt_fmap $file] $label ; return}
+proc fmt_url     {url label}  {global reflist ; lappend reflist $url            $label ; return}
+proc fmt_comment {text}       {ht_comment $text}
+
+################################################################
+
+global    __var
+array set __var {
+    meta   {}
+    header {}
+    footer {}
+}
+proc Get               {varname}      {global __var ; return $__var($varname)}
+proc idx_listvariables {}             {global __var ; return [array names __var]}
+proc idx_varset        {varname text} {
+    global __var
+    if {![info exists __var($varname)]} {return -code error "Unknown engine variable \"$varname\""}
+    set __var($varname) $text
+    return
+}
+
+################################################################

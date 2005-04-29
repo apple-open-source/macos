@@ -1,0 +1,53 @@
+/*
+ * MW_vfs.pch --
+ *
+ *  This file is the source for a pre-compilied header that gets used
+ *  for a standard Tcl extension on the Mac.  This make compilies go a bit
+ *  faster.  This file is only intended to be used in the MetroWerks
+ *  CodeWarrior environment.  It essentially acts as a place to set 
+ *  compiler flags.  See MetroWerks documention for more details.
+ *
+ * Copyright (c) 1995-1997 Sun Microsystems, Inc.
+ *
+ * See the file "license.terms" for information on usage and redistribution
+ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ */
+
+/*
+ * To use the compilied header you need to set the "Prefix file" in
+ * the "C/C++ Language" preference panel to point to the created
+ * compilied header.  The name of the header depends on the
+ * architecture we are compiling for (see the code below).  For
+ * example, for a PPC app the prefix file should be: MW_TclHeaderPPC.
+ */
+
+#if __POWERPC__
+#pragma precompile_target "MW_vfsHeaderPPC"
+#elif __CFM68K__
+#pragma precompile_target "MW_vfsHeaderCFM68K"
+#endif
+
+#include "tclMacCommonPch.h"
+
+#define USE_TCL_STUBS
+
+// uncomment the following #define if you use tk in your extension:
+// (and don't forget to add TkStub.lib and TkStubCFM68.lib to your project)
+
+// #define USE_TK_STUBS
+
+
+#define BUILD_Vfs 1
+
+/*
+ * Place any includes below that will be needed by the majority of the
+ * and are OK to be included in any file in the system.
+ */
+
+#include <tcl.h>
+
+// uncomment the following #include if you use tk in your extension:
+
+//#include <tk.h>
+

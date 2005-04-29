@@ -1,0 +1,34 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Japanese Version Copyright (c) 1996 Tanoshima Hidetohsi
+.\"         all rights reserved.
+.\" Dec 31, 1996   Tanoshima Hidetoshi <tano@sainet.or.jp> 
+.\"
+.\" Modified Thu Jan 29 01:53:11 JST 1998
+.\"         by HANATAKA Shinya <hanataka@abyss.rim.or.jp>
+.\"
+.TH apropos 1 "Jan 15, 1991"
+.LO 1
+.SH 名前
+apropos \- whatis データベースより文字列を検索する。
+.SH 書式
+.BI apropos
+keyword ...
+.SH 説明
+apropos コマンドは、システム・コマンドの簡単な解説がある
+データベース・ファイルからキーワードを検索し、
+その結果を標準出力に表示する。
+.SH "関連項目"
+whatis(1), man(1).

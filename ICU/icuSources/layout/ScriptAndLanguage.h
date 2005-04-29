@@ -1,7 +1,6 @@
 /*
- * @(#)ScriptAndLanguage.h	1.5 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -34,7 +33,7 @@ struct ScriptTable
     le_uint16           langSysCount;
     LangSysRecord       langSysRecordArray[ANY_NUMBER];
 
-    const LangSysTable  *findLanguage(LETag languageTag, le_bool exactMatch = false) const;
+    const LangSysTable  *findLanguage(LETag languageTag, le_bool exactMatch = FALSE) const;
 };
 
 typedef TagAndOffsetRecord ScriptRecord;
@@ -45,7 +44,7 @@ struct ScriptListTable
     ScriptRecord        scriptRecordArray[ANY_NUMBER];
 
     const ScriptTable   *findScript(LETag scriptTag) const;
-    const LangSysTable  *findLanguage(LETag scriptTag, LETag languageTag, le_bool exactMatch = false) const;
+    const LangSysTable  *findLanguage(LETag scriptTag, LETag languageTag, le_bool exactMatch = FALSE) const;
 };
 
 U_NAMESPACE_END

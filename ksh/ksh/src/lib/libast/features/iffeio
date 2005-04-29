@@ -1,0 +1,5 @@
+iff	SFSTDIO
+cat{
+	#include "FEATURE/common"
+}end
+lcl	stdio

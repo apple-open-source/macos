@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Events.c,v 3.146 2003/02/20 04:20:52 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86Events.c,v 3.160 2004/02/13 23:58:36 dawes Exp $ */
 /*
  * Copyright 1990,91 by Thomas Roell, Dinkelscherben, Germany.
  *
@@ -21,9 +21,60 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/*
+ * Copyright (c) 1994-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 /* $XConsortium: xf86Events.c /main/46 1996/10/25 11:36:30 kaleb $ */
 
 /* [JCH-96/01/21] Extended std reverse map to four buttons. */
+
+#ifdef __UNIXOS2__
+#define I_NEED_OS2_H
+#endif
 
 #include "X.h"
 #include "Xpoll.h"
@@ -315,10 +366,14 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
 	    CloseDownClient(server);
 	}
 	break;
-#if !defined(__SOL8__) && (!defined(sun) || defined(i386))
+#if !defined(__SOL8__) && !defined(__UNIXOS2__) && !defined(sgi) && \
+    (!defined(sun) || defined(i386)) && defined(VT_ACTIVATE)
     case ACTION_SWITCHSCREEN:
 	if (VTSwitchEnabled && !xf86Info.dontVTSwitch && arg) {
 	    int vtno = *((int *) arg);
+#ifdef SCO
+	    vtno--;
+#endif
 #if defined(QNX4)
 	    xf86Info.vtRequestsPending = vtno;
 #else
@@ -329,8 +384,12 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
 	break;
     case ACTION_SWITCHSCREEN_NEXT:
 	if (VTSwitchEnabled && !xf86Info.dontVTSwitch) {
+#if defined(SCO) /* Shouldn't this be true for (sun) && (i386) && (SVR4) ? */
+	    if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, xf86Info.vtno) < 0)
+#else
 	    if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, xf86Info.vtno + 1) < 0)
-#if defined(SCO) || (defined(sun) && defined (i386) && defined (SVR4))
+#endif
+#if defined (SCO) || (defined(sun) && defined (i386) && defined (SVR4))
 		if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, 0) < 0)
 #else
 		if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, 1) < 0)
@@ -339,12 +398,36 @@ xf86ProcessActionEvent(ActionEvent action, void *arg)
 	}
 	break;
     case ACTION_SWITCHSCREEN_PREV:
-	if (VTSwitchEnabled && !xf86Info.dontVTSwitch) {
+	if (VTSwitchEnabled && !xf86Info.dontVTSwitch && xf86Info.vtno > 0) {
 	    if (ioctl(xf86Info.consoleFd, VT_ACTIVATE, xf86Info.vtno - 1) < 0)
 		ErrorF("Failed to switch consoles (%s)\n", strerror(errno));
 	}
 	break;
 #endif
+    case ACTION_MESSAGE:
+        {
+            char *retstr, *message = (char *) arg;
+	    ScrnInfoPtr pScr = XF86SCRNINFO(xf86Info.currentScreen);
+
+#ifdef DEBUG
+            ErrorF("ActionMessage: '%s'\n", message);
+#endif
+	    /* Okay the message made it to the ddx.  The common layer */
+	    /* can check for relevant messages here and react to any  */
+	    /* that have a global effect.  For example:               */ 
+	    /*                                                        */
+	    /* if (!strcmp(message, "foo") {                          */
+	    /*      do_foo(); break                                   */
+	    /* }                                                      */
+	    /*                                                        */
+	    /* otherwise fallback to sending a key event message to   */
+	    /* the current screen's driver:                           */
+	    if (*pScr->HandleMessage) {
+		(void) (*pScr->HandleMessage)(pScr->scrnIndex,
+			"KeyEventMessage", message, &retstr);
+	    }
+        }
+	break;
     default:
 	break;
     }
@@ -384,7 +467,7 @@ xf86PostKbdEvent(unsigned key)
 #if defined(SYSCONS_SUPPORT) || defined(PCVT_SUPPORT) || defined(WSCONS_SUPPORT)
   static Bool first_time = TRUE;
 #endif
-#if defined(__sparc__)
+#if defined(__sparc__) && defined(__linux__)
   static int  kbdSun = -1;
 #endif
   /* Disable any keyboard processing while in suspend */
@@ -400,7 +483,7 @@ xf86PostKbdEvent(unsigned key)
   }
 #endif
 
-#if defined (__sparc__)
+#if defined (__sparc__) && defined(__linux__)
   if (kbdSun == -1) {
     if ((xf86Info.xkbmodel && !strcmp(xf86Info.xkbmodel, "sun"))
 	|| (xf86Info.xkbrules && !strcmp(xf86Info.xkbrules, "sun")))
@@ -410,26 +493,7 @@ xf86PostKbdEvent(unsigned key)
   }
   if (kbdSun)
     goto special;
-#endif /* __sparc__ */
-
-#if defined (i386) && defined (SVR4)
-    /* 
-     * PANIX returns DICOP standards based keycodes in using 106jp 
-     * keyboard. We need to remap some keys. 
-     */
-  if(xf86Info.panix106 == TRUE){
-    switch (scanCode) {
-    case 0x56:        scanCode = KEY_BSlash2;	break;  /* Backslash */
-    case 0x5A:        scanCode = KEY_NFER;	break;  /* No Kanji Transfer*/
-    case 0x5B:        scanCode = KEY_XFER;	break;  /* Kanji Tranfer */
-    case 0x5C:        scanCode = KEY_Yen;	break;  /* Yen curs pgup */
-    case 0x6B:        scanCode = KEY_Left;	break;  /* Cur Left */
-    case 0x6F:        scanCode = KEY_PgUp;	break;  /* Cur PageUp */
-    case 0x72:        scanCode = KEY_AltLang;  break;  /* AltLang(right) */
-    case 0x73:        scanCode = KEY_RCtrl;    break;  /* not needed */
-    }
-  }
-#endif  /* i386 && SVR4 */
+#endif /* __sparc__ && __linux__ */
 
 #ifdef __linux__
   if (xf86Info.kbdCustomKeycodes) {
@@ -460,6 +524,56 @@ xf86PostKbdEvent(unsigned key)
       }
       break;
 #endif
+    }
+#if defined (i386) && defined (SVR4)
+    /* 
+     * PANIX returns DICOP standards based keycodes in using 106jp 
+     * keyboard. We need to remap some keys. 
+     */
+    if(xf86Info.panix106 == TRUE){
+      switch (scanCode) {
+      case 0x56:        scanCode = KEY_BSlash2;	break;  /* Backslash */
+      case 0x5A:        scanCode = KEY_NFER;	break;  /* No Kanji Transfer*/
+      case 0x5B:        scanCode = KEY_XFER;	break;  /* Kanji Tranfer */
+      case 0x5C:        scanCode = KEY_Yen;	break;  /* Yen curs pgup */
+      case 0x6B:        scanCode = KEY_Left;	break;  /* Cur Left */
+      case 0x6F:        scanCode = KEY_PgUp;	break;  /* Cur PageUp */
+      case 0x72:        scanCode = KEY_AltLang;	break;  /* AltLang(right) */
+      case 0x73:        scanCode = KEY_RCtrl;	break;  /* not needed */
+      }
+    } else
+#endif /* i386 && SVR4 */
+    {
+      switch (scanCode) {
+      case 0x59:        scanCode = KEY_0x59; break;
+      case 0x5a:        scanCode = KEY_0x5A; break;
+      case 0x5b:        scanCode = KEY_0x5B; break;
+      case 0x5c:        scanCode = KEY_KP_Equal; break; /* Keypad Equal */
+      case 0x5d:        scanCode = KEY_0x5D; break;
+      case 0x5e:        scanCode = KEY_0x5E; break;
+      case 0x5f:        scanCode = KEY_0x5F; break;
+      case 0x62:        scanCode = KEY_0x62; break;
+      case 0x63:        scanCode = KEY_0x63; break;
+      case 0x64:        scanCode = KEY_0x64; break;
+      case 0x65:        scanCode = KEY_0x65; break;
+      case 0x66:        scanCode = KEY_0x66; break;
+      case 0x67:        scanCode = KEY_0x67; break;
+      case 0x68:        scanCode = KEY_0x68; break;
+      case 0x69:        scanCode = KEY_0x69; break;
+      case 0x6a:        scanCode = KEY_0x6A; break;
+      case 0x6b:        scanCode = KEY_0x6B; break;
+      case 0x6c:        scanCode = KEY_0x6C; break;
+      case 0x6d:        scanCode = KEY_0x6D; break;
+      case 0x6e:        scanCode = KEY_0x6E; break;
+      case 0x6f:        scanCode = KEY_0x6F; break;
+      case 0x70:        scanCode = KEY_0x70; break;
+      case 0x71:        scanCode = KEY_0x71; break;
+      case 0x72:        scanCode = KEY_0x72; break;
+      case 0x73:        scanCode = KEY_0x73; break;
+      case 0x74:        scanCode = KEY_0x74; break;
+      case 0x75:        scanCode = KEY_0x75; break;
+      case 0x76:        scanCode = KEY_0x76; break;
+      }
     }
   }
 
@@ -534,6 +648,19 @@ xf86PostKbdEvent(unsigned key)
       scanCode = KEY_Pause;       /* pause */
     }
 
+#ifndef __sparc64__
+  /*
+   * PC keyboards generate separate key codes for
+   * Alt+Print and Control+Pause but in the X keyboard model
+   * they need to get the same key code as the base key on the same
+   * physical keyboard key.
+   */
+  if (scanCode == KEY_SysReqest)
+    scanCode = KEY_Print;
+  else if (scanCode == KEY_Break)
+    scanCode = KEY_Pause;
+#endif
+  
   /*
    * and now get some special keysequences
    */
@@ -568,7 +695,7 @@ customkeycodes:
     }
   }
 #endif
-#if defined (__sparc__)
+#if defined (__sparc__) && defined(__linux__)
 special:
   if (kbdSun) {
     switch (scanCode) {
@@ -602,7 +729,7 @@ special:
      */
     scanCode--;
   }
-#endif /* defined (__sparc__) */
+#endif /* defined (__sparc__) && defined(__linux__) */
 
 #ifdef XKB
   if ((xf86Info.ddxSpecialKeys == SKWhenNeeded &&
@@ -692,9 +819,6 @@ special:
 	    int vtno = specialkey - KEY_F1 + 1;
 	    if (specialkey == KEY_F11 || specialkey == KEY_F12)
 		vtno = specialkey - KEY_F11 + 11;
-#ifdef SCO325
-	    vtno--;
-#endif
 	    if (down)
 		xf86ProcessActionEvent(ACTION_SWITCHSCREEN, (void *) &vtno);
 	    return;
@@ -828,17 +952,6 @@ special:
     }
 #endif
 
-  /*
-   * PC keyboards generate separate key codes for
-   * Alt+Print and Control+Pause but in the X keyboard model
-   * they need to get the same key code as the base key on the same
-   * physical keyboard key.
-   */
-  if (scanCode == KEY_SysReqest)
-    scanCode = KEY_Print;
-  else if (scanCode == KEY_Break)
-    scanCode = KEY_Pause;
-  
   /*
    * Now map the scancodes to real X-keycodes ...
    */
@@ -1060,16 +1173,16 @@ xf86Wakeup(pointer blockData, int err, pointer pReadmask)
 	    pInfo = xf86InputDevs;
 	    while (pInfo) {
 		if (pInfo->read_input && pInfo->fd >= 0 &&
-		    (FD_ISSET(pInfo->fd, ((fd_set *)pReadmask)) != 0)) {
+		    (FD_ISSET(pInfo->fd, &devicesWithInput) != 0)) {
 		    int sigstate = xf86BlockSIGIO();
 		    
 		    pInfo->read_input(pInfo);
 		    xf86UnblockSIGIO(sigstate);		    
 		    /*
-		     * Must break here because more than one device may share
-		     * the same file descriptor.
+		     * Remove the descriptior from the set because more than one
+		     * device may share the same file descriptor.
 		     */
-		    break;
+		    FD_CLR(pInfo->fd, &devicesWithInput);
 		}
 		pInfo = pInfo->next;
 	    }

@@ -6,6 +6,12 @@
  *  Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
  * $Log: IOFWBufferFillIsochPort.cpp,v $
+ * Revision 1.5  2004/05/04 22:52:19  niels
+ * *** empty log message ***
+ *
+ * Revision 1.4  2004/03/16 02:34:16  collin
+ * unit termination code
+ *
  * Revision 1.3  2004/01/22 01:49:59  niels
  * fix user space physical address space getPhysicalSegments
  *
@@ -32,33 +38,32 @@ IOFWBufferFillIsochPort :: init(
 	IOFireWireBus &			bus, 
 	IOByteCount				expectedBytesPerSecond, 
 	UInt32					interruptMicroseconds,
+	UInt64					channelMask,
+	PacketProc				packetProc,
+	OSObject *				target )
+{
+//	IOByteCount bytesNeeded = expectedBytesPerSecond * interruptMicroseconds * 2 / 1000000 ;
+//	
+//	return initWithBufferSize( bus, bytesNeeded, interruptMicroseconds, channels, packetProc, target ) ;
+	return super::init() ;
+}
+
+#if 0
+bool
+IOFWBufferFillIsochPort :: initWithBufferSize( 
+	IOFireWireBus &			bus, 
+	IOByteCount				bufferSize, 
+	UInt32					interruptMicroseconds, 
+	UInt64					channels,
 	PacketProc				packetProc,
 	OSObject *				target )
 {
 	if ( ! super::init() )
 	{
 		return false ;
-	}
-	
-	fBytesPerSecond = expectedBytesPerSecond ;
-	fIntUSec = interruptMicroseconds ;
-	fPacketProc = packetProc ;
-	fTarget = target ;
-	
-	IOByteCount bytesNeeded = expectedBytesPerSecond * interruptMicroseconds * 2 / 1000000 ;
-	
-	fBackingStore = new UInt8[ bytesNeeded ] ;
-	
-	if ( !fBackingStore )
-	{
-		return false ;
-	}
-	
-	unsigned bytesPerDescriptor = expectedBytesPerSecond * interruptMicroseconds / 2000000 ;
-	unsigned descriptorsNeeded = bytesNeeded / bytesPerDescriptor ;
-	
-	return true ;
+	}	
 }
+#endif
 
 void
 IOFWBufferFillIsochPort :: free()
@@ -97,6 +102,40 @@ IOFWBufferFillIsochPort :: gotIsochAll( IOVirtualRange packets[], unsigned int m
 void
 IOFWBufferFillIsochPort :: pushIsoch()
 {
+}
+
+IOReturn
+IOFWBufferFillIsochPort :: setIsochResourceFlags( IOFWIsochResourceFlags flags )
+{
+	fIsochResourceFlags = flags ;
+	
+	return kIOReturnSuccess ;
+}
+
+IOFWIsochResourceFlags
+IOFWBufferFillIsochPort :: getIsochResourceFlags() const
+{
+	return fIsochResourceFlags ; 
+}
+
+IOReturn
+IOFWBufferFillIsochPort :: setFlags( UInt32 flags )
+{
+	fFlags = flags ; 
+	return kIOReturnSuccess ;
+}
+
+UInt32
+IOFWBufferFillIsochPort :: getFlags()
+{
+	return fFlags ; 
+}
+
+IOReturn
+IOFWBufferFillIsochPort :: setChannels( UInt64 channelMask )
+{
+	fChannels = channelMask ;
+	return kIOReturnSuccess ;
 }
 
 AbsoluteTime

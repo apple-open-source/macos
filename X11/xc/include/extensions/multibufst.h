@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
 
-/* $XFree86: xc/include/extensions/multibufst.h,v 3.8 2001/12/19 21:37:29 dawes Exp $ */
+/* $XFree86: xc/include/extensions/multibufst.h,v 3.9 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _MULTIBUFST_H_
 #define _MULTIBUFST_H_
@@ -435,21 +435,15 @@ extern int		MultibufferWindowIndex;
 extern RESTYPE		MultibufferDrawableResType;
 
 extern void		MultibufferUpdate(	/* pMbuffer, time */
-#if NeedFunctionPrototypes
 				MultibufferPtr /* pMultibuffer */,
 				CARD32 /* time */
-#endif
 				);
 extern void		MultibufferExpose(	/* pMbuffer, pRegion */
-#if NeedFunctionPrototypes
 				MultibufferPtr /* pMultibuffer */,
 				RegionPtr /* pRegion */
-#endif
 				);
 extern void		MultibufferClobber(	/* pMbuffer */
-#if NeedFunctionPrototypes
 				MultibufferPtr /* pMultibuffer */
-#endif
 				);
 
 typedef struct _mbufWindow	*mbufWindowPtr;
@@ -515,61 +509,43 @@ typedef struct _mbufScreen {
     xMbufBufferInfo *pInfo;		/* buffer info (for Normal buffers) */
 
     int  (* CreateImageBuffers)(
-#if NeedNestedPrototypes
 		WindowPtr		/* pWin */,
 		int			/* nbuf */,
 		XID *			/* ids */,
 		int			/* action */,
 		int			/* hint */
-#endif
     		);
     void (* DestroyImageBuffers)(
-#if NeedNestedPrototypes
 		WindowPtr		/* pWin */
-#endif
     		);
     void (* DisplayImageBuffers)(
-#if NeedNestedPrototypes
 		ScreenPtr		/* pScreen */,
 		mbufBufferPtr *		/* ppMBBuffer */,
 		mbufWindowPtr *		/* ppMBWindow */,
 		int			/* nbuf */
-#endif
     		);
     void (* ClearImageBufferArea)(
-#if NeedNestedPrototypes
 		mbufBufferPtr		/* pMBBuffer */,
 		short			/* x */,
 		short			/* y */,
 		unsigned short		/* width */,
 		unsigned short		/* height */,
 		Bool			/* exposures */
-#endif
     		);
     Bool (* ChangeMBufferAttributes)(	/* pMBWindow, vmask */ 
-#if NeedNestedPrototypes
     		/* FIXME */
-#endif
     		);
     Bool (* ChangeBufferAttributes)(	/* pMBBuffer, vmask */
-#if NeedNestedPrototypes
     		/* FIXME */
-#endif
     		);
     void (* DeleteBufferDrawable)(
-#if NeedNestedPrototypes
 		DrawablePtr		/* pDrawable */
-#endif
     		);
     void (* WrapScreenFuncs)(
-#if NeedNestedPrototypes
 		ScreenPtr		/* pScreen */
-#endif
     		);
     void (* ResetProc)(
-#if NeedNestedPrototypes
 		ScreenPtr		/* pScreen */
-#endif
     		);
     DevUnion	devPrivate;
 } mbufScreenRec, *mbufScreenPtr;

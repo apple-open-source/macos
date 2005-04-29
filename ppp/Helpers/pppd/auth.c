@@ -23,38 +23,79 @@
 /*
  * auth.c - PPP authentication and phase control.
  *
- * Copyright (c) 1993 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1993-2002 Paul Mackerras. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by the Australian National University.  The name of the University
- * may not be used to endorse or promote products derived from this
- * software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Derived from main.c, which is:
+ *
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: auth.c,v 1.11 2003/08/14 00:00:29 callie Exp $"
+#define RCSID	"$Id: auth.c,v 1.19 2005/01/25 00:20:57 lindak Exp $"
 
 #include <stdio.h>
 #include <stddef.h>
@@ -68,7 +109,7 @@
 #include <sys/socket.h>
 #include <utmp.h>
 #include <fcntl.h>
-#if defined(_PATH_LASTLOG) && defined(_linux_)
+#if defined(_PATH_LASTLOG) && defined(__linux__)
 #include <lastlog.h>
 #endif
 
@@ -95,16 +136,16 @@
 #include "ecp.h"
 #include "ipcp.h"
 #include "upap.h"
-#include "chap.h"
-#ifdef EAP
+#include "chap-new.h"
 #include "eap.h"
-#endif
 #ifdef CBCP_SUPPORT
 #include "cbcp.h"
 #endif
 #include "pathnames.h"
 
+#ifndef lint
 static const char rcsid[] = RCSID;
+#endif
 
 /* Bits in scan_authfile return value */
 #define NONWILD_SERVER	1
@@ -130,6 +171,12 @@ static struct permitted_ip *addresses[NUM_PPP];
 /* Wordlist giving addresses which the peer may use
    without authenticating itself. */
 static struct wordlist *noauth_addrs;
+
+/* Remote telephone number, if available */
+char remote_number[MAXNAMELEN];
+
+/* Wordlist giving remote telephone numbers which may connect. */
+static struct wordlist *permitted_numbers;
 
 /* Extra options to apply, from the secrets file entry for the peer. */
 static struct wordlist *extra_options;
@@ -163,9 +210,19 @@ void (*pap_logout_hook) __P((void)) = NULL;
 /* Hook for a plugin to get the PAP password for authenticating us */
 int (*pap_passwd_hook) __P((char *user, char *passwd)) = NULL;
 
+/* Hook for a plugin to say if we can possibly authenticate a peer using CHAP */
+int (*chap_check_hook) __P((void)) = NULL;
+
+/* Hook for a plugin to get the CHAP password for authenticating us */
+int (*chap_passwd_hook) __P((char *user, char *passwd)) = NULL;
+
 #ifdef __APPLE__
 /* Hook for access control list to verify if user should have access */
 int (*acl_hook) __P((char *user, int len)) = NULL;
+/* Hook to change password, for authentication methods that support it */
+int (*change_password_hook) __P((char *msg))		= NULL;
+/* Hook to retry password, for authentication methods that support it */
+int (*retry_password_hook) __P((char *msg))		= NULL;
 #endif
 
 #ifdef __APPLE__
@@ -211,6 +268,7 @@ bool uselogin = 0;		/* Use /etc/passwd for checking PAP */
 bool cryptpap = 0;		/* Passwords in pap-secrets are encrypted */
 bool refuse_pap = 0;		/* Don't wanna auth. ourselves with PAP */
 bool refuse_chap = 0;		/* Don't wanna auth. ourselves with CHAP */
+bool refuse_eap = 0;		/* Don't wanna auth. ourselves with EAP */
 #ifdef CHAPMS
 bool refuse_mschap = 0;		/* Don't wanna auth. ourselves with MS-CHAP */
 bool refuse_mschap_v2 = 0;	/* Don't wanna auth. ourselves with MS-CHAPv2 */
@@ -218,14 +276,15 @@ bool refuse_mschap_v2 = 0;	/* Don't wanna auth. ourselves with MS-CHAPv2 */
 bool refuse_mschap = 1;		/* Don't wanna auth. ourselves with MS-CHAP */
 bool refuse_mschap_v2 = 1;	/* Don't wanna auth. ourselves with MS-CHAPv2 */
 #endif
-#ifdef EAP
-bool refuse_eap = 0;		/* Don't wanna auth. ourselves with EAP */
-#endif
 bool usehostname = 0;		/* Use hostname for our_name */
 bool auth_required = 0;		/* Always require authentication from peer */
 bool allow_any_ip = 0;		/* Allow peer to use any IP address */
 bool explicit_remote = 0;	/* User specified explicit remote name */
 char remote_name[MAXNAMELEN];	/* Peer's name for authentication */
+
+#ifdef __APPLE__
+int	tokencard = 0;		/* Token card authentication. default is just name/password */
+#endif
 
 static char *uafname;		/* name of most recent +ua file */
 
@@ -247,17 +306,23 @@ static int  null_login __P((int));
 static int  get_pap_passwd __P((char *));
 static int  have_pap_secret __P((int *));
 static int  have_chap_secret __P((char *, char *, int, int *));
+#ifndef __APPLE__
+static int  have_srp_secret __P((char *client, char *server, int need_ip,
+    int *lacks_ipp));
+#endif
 static int  ip_addr_check __P((u_int32_t, struct permitted_ip *));
 static int  scan_authfile __P((FILE *, char *, char *, char *,
 			       struct wordlist **, struct wordlist **,
-			       char *));
+			       char *, int));
 static void free_wordlist __P((struct wordlist *));
 static void auth_script __P((char *));
 static void auth_script_done __P((void *));
 static void set_allowed_addrs __P((int, struct wordlist *, struct wordlist *));
+static int  some_ip_ok __P((struct wordlist *));
 static int  setupapfile __P((char **));
 static int  privgroup __P((char **));
 static int  set_noauth_addr __P((char **));
+static int  set_permitted_number __P((char **));
 static void check_access __P((FILE *, char *));
 static int  wordlist_count __P((struct wordlist *));
 
@@ -387,16 +452,11 @@ option_t auth_options[] = {
 #endif
 #endif
 
-#ifdef EAP
-    { "require-eap", o_special_noarg, reqeap,
-      "Require EAP authentication from peer" },
-    { "+eap", o_special_noarg, reqeap,
-      "Require EAP authentication from peer" },
+    { "require-eap", o_bool, &lcp_wantoptions[0].neg_eap,
+      "Require EAP authentication from peer", OPT_PRIOSUB | 1,
+      &auth_required },
     { "refuse-eap", o_bool, &refuse_eap,
-      "Don't agree to auth to peer with EAP", 1 },
-    { "-eap", o_bool, &refuse_eap,
-      "Don't allow EAP authentication with peer", 1 },
-#endif
+      "Don't agree to authenticate to peer with EAP", 1 },
 
     { "name", o_string, our_name,
       "Set local name for authentication",
@@ -420,6 +480,9 @@ option_t auth_options[] = {
 #ifdef __APPLE__
     { "keychainpassword", o_special, (void *)keychainpassword,
       "Get password from keychain", OPT_PRIV },
+
+    { "tokencard", o_int, &tokencard,
+      "Token card type for authentication instead of name/password" },
 #endif
 
     { "usehostname", o_bool, &usehostname,
@@ -440,6 +503,14 @@ option_t auth_options[] = {
 
     { "allow-ip", o_special, (void *)set_noauth_addr,
       "Set IP address(es) which can be used without authentication",
+      OPT_PRIV | OPT_A2LIST },
+
+    { "remotenumber", o_string, remote_number,
+      "Set remote telephone number for authentication", OPT_PRIO | OPT_STATIC,
+      NULL, MAXNAMELEN },
+
+    { "allow-number", o_special, (void *)set_permitted_number,
+      "Set telephone number(s) which are allowed to connect",
       OPT_PRIV | OPT_A2LIST },
 
     { NULL }
@@ -475,7 +546,8 @@ setupapfile(argv)
 
     /* get username */
     if (fgets(u, MAXNAMELEN - 1, ufile) == NULL
-	|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL){
+	|| fgets(p, MAXSECRETLEN - 1, ufile) == NULL) {
+	fclose(ufile);
 	option_error("unable to read user login data file %s", fname);
 	return 0;
     }
@@ -542,6 +614,28 @@ set_noauth_addr(argv)
     wp->next = noauth_addrs;
     BCOPY(addr, wp->word, l);
     noauth_addrs = wp;
+    return 1;
+}
+
+
+/*
+ * set_permitted_number - set remote telephone number(s) that may connect.
+ */
+static int
+set_permitted_number(argv)
+    char **argv;
+{
+    char *number = *argv;
+    int l = strlen(number) + 1;
+    struct wordlist *wp;
+
+    wp = (struct wordlist *) malloc(sizeof(struct wordlist) + l);
+    if (wp == NULL)
+	novm("allow-number argument");
+    wp->word = (char *) (wp + 1);
+    wp->next = permitted_numbers;
+    BCOPY(number, wp->word, l);
+    permitted_numbers = wp;
     return 1;
 }
 
@@ -635,11 +729,10 @@ link_established(unit)
 	    && protp->lowerup != NULL)
 	    (*protp->lowerup)(unit);
 
-    if (auth_required && !(go->neg_upap || go->neg_chap
-#ifdef EAP
-        || go->neg_eap
-#endif
-    )) {
+    if (!auth_required && noauth_addrs != NULL)
+	set_allowed_addrs(unit, NULL, NULL);
+
+    if (auth_required && !(go->neg_upap || go->neg_chap || go->neg_eap)) {
 	/*
 	 * We wanted the peer to authenticate itself, and it refused:
 	 * if we have some address(es) it can use without auth, fine,
@@ -660,26 +753,22 @@ link_established(unit)
     new_phase(PHASE_AUTHENTICATE);
     used_login = 0;
     auth = 0;
-    if (go->neg_chap) {
-	ChapAuthPeer(unit, our_name, CHAP_DIGEST(go->chap_mdtype));
-	auth |= CHAP_PEER;
-#ifdef EAP
-    } else if (go->neg_eap) {
+    if (go->neg_eap) {
 	EapAuthPeer(unit, our_name);
 	auth |= EAP_PEER;
-#endif
+    } else if (go->neg_chap) {
+	chap_auth_peer(unit, our_name, CHAP_DIGEST(go->chap_mdtype));
+	auth |= CHAP_PEER;
     } else if (go->neg_upap) {
 	upap_authpeer(unit);
 	auth |= PAP_PEER;
     }
-    if (ho->neg_chap) {
-	ChapAuthWithPeer(unit, user, CHAP_DIGEST(ho->chap_mdtype));
-	auth |= CHAP_WITHPEER;
-#ifdef EAP
-    } else if (ho->neg_eap) {
+    if (ho->neg_eap) {
 	EapAuthWithPeer(unit, user);
 	auth |= EAP_WITHPEER;
-#endif
+    } else if (ho->neg_chap) {
+	chap_auth_with_peer(unit, user, CHAP_DIGEST(ho->chap_mdtype));
+	auth |= CHAP_WITHPEER;
     } else if (ho->neg_upap) {
 	if (passwd[0] == 0) {
 	    passwd_from_file = 1;
@@ -701,6 +790,31 @@ link_established(unit)
 	network_phase(unit);
 }
 
+#ifdef __APPLE__
+/*
+ * Received an unexpected network packet while in authentication phase.
+	return 1 if packet is really unexpected, 
+	return 0 if it is ok to process the packet
+ */
+int
+unexpected_network_packet(unit, protocol)
+    int unit, protocol;
+{
+	
+	if ((phase == PHASE_AUTHENTICATE)
+		&& (lcp_hisoptions[unit].neg_eap)
+		&& (protocol & 0x8000)) {
+		/* 
+			we receive a NCP while still authenticating 
+			we lost the EAP Success message
+		*/
+		EapLostSuccess(unit);
+	}
+
+	return (phase <= PHASE_AUTHENTICATE);
+}
+#endif
+
 /*
  * Proceed to the network phase.
  */
@@ -710,14 +824,14 @@ network_phase(unit)
 {
     lcp_options *go = &lcp_gotoptions[unit];
 
+    /* Log calling number. */
+    if (*remote_number)
+	notice("peer from calling number %q authorized", remote_number);
+
     /*
      * If the peer had to authenticate, run the auth-up script now.
      */
-    if (go->neg_chap || go->neg_upap
-#ifdef EAP
-        || go->neg_eap
-#endif
-    ) {
+    if (go->neg_chap || go->neg_upap || go->neg_eap) {
 	notify(auth_up_notifier, 0);
 	auth_state = s_up;
 	if (auth_script_state == s_down && auth_script_pid == 0) {
@@ -850,14 +964,14 @@ auth_peer_success(unit, protocol, prot_flavor, name, namelen)
     note.protocol_flavor = prot_flavor;
     note.name = name;
     note.namelen = namelen;
-    notify(auth_peer_success_notify, &note);
+    notify(auth_peer_success_notify, (int)&note);
 #endif
             
     switch (protocol) {
     case PPP_CHAP:
 	bit = CHAP_PEER;
 	switch (prot_flavor) {
-	case CHAP_DIGEST_MD5:
+	case CHAP_MD5:
 	    bit |= CHAP_MD5_PEER;
 	    break;
 #ifdef CHAPMS
@@ -873,11 +987,9 @@ auth_peer_success(unit, protocol, prot_flavor, name, namelen)
     case PPP_PAP:
 	bit = PAP_PEER;
 	break;
-#ifdef EAP
     case PPP_EAP:
 	bit = EAP_PEER;
 	break;
-#endif
     default:
 	warning("auth_peer_success: unknown protocol %x", protocol);
 	return;
@@ -961,7 +1073,7 @@ auth_withpeer_success(unit, protocol, prot_flavor)
     case PPP_CHAP:
 	bit = CHAP_WITHPEER;
 	switch (prot_flavor) {
-	case CHAP_DIGEST_MD5:
+	case CHAP_MD5:
 	    bit |= CHAP_MD5_WITHPEER;
 	    break;
 #ifdef CHAPMS
@@ -974,15 +1086,13 @@ auth_withpeer_success(unit, protocol, prot_flavor)
 #endif
 	}
 	break;
-#ifdef EAP
-    case PPP_EAP:
-	bit = EAP_WITHPEER;
-	break;
-#endif
     case PPP_PAP:
 	if (passwd_from_file)
 	    BZERO(passwd, MAXSECRETLEN);
 	bit = PAP_WITHPEER;
+	break;
+    case PPP_EAP:
+	bit = EAP_WITHPEER;
 	break;
     default:
 	warning("auth_withpeer_success: unknown protocol %x", protocol);
@@ -1000,6 +1110,25 @@ auth_withpeer_success(unit, protocol, prot_flavor)
 	network_phase(unit);
 }
 
+#ifdef __APPLE__
+/*
+ * option_change_idle - change idle parameter.
+ */
+void option_change_idle()
+{
+    int tlim;
+
+    UNTIMEOUT(check_idle, 0);
+    if (phase == PHASE_RUNNING) {
+		if (idle_time_hook != 0)
+			tlim = (*idle_time_hook)(NULL);
+		else
+			tlim = idle_time_limit;
+		if (tlim > 0)
+			TIMEOUT(check_idle, NULL, tlim);
+	}
+}
+#endif
 
 /*
  * np_up - a network protocol has come up.
@@ -1059,6 +1188,10 @@ np_down(unit, proto)
 #ifdef MAXOCTETS
 	UNTIMEOUT(check_maxoctets, NULL);
 #endif	
+#ifdef __APPLE__
+	// stay in terminate, no need to go to network phase.
+	if (phase != PHASE_TERMINATE)
+#endif
 	new_phase(PHASE_NETWORK);
     }
 }
@@ -1136,6 +1269,8 @@ check_idle(arg)
     } else {
         if (noidlerecv)
             itime = idle.xmit_idle;
+        else if (noidlesend)
+            itime = idle.recv_idle;
         else
             itime = MIN(idle.xmit_idle, idle.recv_idle);
 	tlim = idle_time_limit - itime;
@@ -1191,6 +1326,7 @@ void auth_cont(int unit)
     if (maxconnect > 0)
         TIMEOUT(connect_time_expired, 0, maxconnect);
 }
+
 #endif
 
 /*
@@ -1222,48 +1358,41 @@ auth_check_options()
     if (wo->chap_mdtype)
 	wo->neg_chap = 1;
 
-    /* If authentication is required, ask peer for CHAP or PAP. */
+    /* If authentication is required, ask peer for CHAP, PAP, or EAP. */
     if (auth_required) {
 	allow_any_ip = 0;
-	if (!wo->neg_chap && !wo->neg_upap
-#ifdef EAP
-            && !wo->neg_eap
-#endif
-        ) {
+	if (!wo->neg_chap && !wo->neg_upap && !wo->neg_eap) {
 	    wo->neg_chap = 1; wo->chap_mdtype = MDTYPE_ALL;
 	    wo->neg_upap = 1;
-#ifdef EAP
 	    wo->neg_eap = 1;
-#endif
 	}
     } else {
 	wo->neg_chap = 0; wo->chap_mdtype = MDTYPE_NONE;
 	wo->neg_upap = 0;
-#ifdef EAP
-        wo->neg_eap = 0;
-#endif
+	wo->neg_eap = 0;
     }
 
     /*
      * Check whether we have appropriate secrets to use
-     * to authenticate the peer.
+     * to authenticate the peer.  Note that EAP can authenticate by way
+     * of a CHAP-like exchanges as well as SRP.
      */
     lacks_ip = 0;
     can_auth = wo->neg_upap && (uselogin || have_pap_secret(&lacks_ip));
-    if (!can_auth && (wo->neg_chap
-#ifdef EAP
-            || wo->neg_eap
-#endif
-    )) {
+    if (!can_auth && (wo->neg_chap || wo->neg_eap)) {
 	can_auth = have_chap_secret((explicit_remote? remote_name: NULL),
 				    our_name, 1, &lacks_ip);
     }
-#ifdef EAP
-    if (wo->neg_eap) {
-        can_auth = 1;
-        // check EAP plugins ???
-    }
+    if (!can_auth && wo->neg_eap) {
+#ifdef __APPLE__
+      // check EAP plugins ???
+      can_auth = 1;
+#else
+	can_auth = have_srp_secret((explicit_remote? remote_name: NULL),
+				    our_name, 1, &lacks_ip);
 #endif
+    }
+
     if (auth_required && !can_auth && noauth_addrs == NULL) {
 	if (default_auth) {
 	    option_error(
@@ -1285,6 +1414,14 @@ auth_check_options()
 
 	exit(1);
     }
+
+    /*
+     * Early check for remote number authorization.
+     */
+    if (!auth_number()) {
+	warning("calling number %q is not authorized", remote_number);
+	exit(EXIT_CNID_AUTH_FAILED);
+    }
 }
 
 /*
@@ -1297,30 +1434,48 @@ auth_reset(unit)
     int unit;
 {
     lcp_options *go = &lcp_gotoptions[unit];
-    lcp_options *ao = &lcp_allowoptions[0];
+    lcp_options *ao = &lcp_allowoptions[unit];
+    int hadchap;
 
+    hadchap = -1;
     ao->neg_upap = !refuse_pap && (passwd[0] != 0 || get_pap_passwd(NULL));
     ao->neg_chap = (!refuse_chap || !refuse_mschap || !refuse_mschap_v2)
-	&& (passwd[0] != 0
-	    || have_chap_secret(user, (explicit_remote? remote_name: NULL),
-				0, NULL));
-#ifdef EAP
+	&& (passwd[0] != 0 ||
+	    (hadchap = have_chap_secret(user, (explicit_remote? remote_name:
+					       NULL), 0, NULL)));
+#ifdef __APPLE__
     // check eap plugins for pasword ???
     ao->neg_eap = !refuse_eap;
+#else
+    ao->neg_eap = !refuse_eap && (
+	passwd[0] != 0 ||
+	(hadchap == 1 || (hadchap == -1 && have_chap_secret(user,
+	    (explicit_remote? remote_name: NULL), 0, NULL))) ||
+	have_srp_secret(user, (explicit_remote? remote_name: NULL), 0, NULL));
 #endif
 
+    hadchap = -1;
     if (go->neg_upap && !uselogin && !have_pap_secret(NULL))
 	go->neg_upap = 0;
     if (go->neg_chap) {
-	if (!have_chap_secret((explicit_remote? remote_name: NULL),
-			      our_name, 1, NULL))
+	if (!(hadchap = have_chap_secret((explicit_remote? remote_name: NULL),
+			      our_name, 1, NULL)))
 	    go->neg_chap = 0;
     }
-#ifdef EAP
+
+#ifdef __APPLE__
+    // check eap plugins ?
     if (go->neg_eap) {
-        // check eap plugins ?
-        // go->neg_eap;
+      // go->neg_eap;
     }
+#else
+    if (go->neg_eap &&
+	(hadchap == 0 || (hadchap == -1 &&
+	    !have_chap_secret((explicit_remote? remote_name: NULL), our_name,
+		1, NULL))) &&
+	!have_srp_secret((explicit_remote? remote_name: NULL), our_name, 1,
+	    NULL))
+	go->neg_eap = 0;
 #endif
 }
 
@@ -1392,7 +1547,7 @@ check_passwd(unit, auser, userlen, apasswd, passwdlen, msg)
 
     } else {
 	check_access(f, filename);
-	if (scan_authfile(f, user, our_name, secret, &addrs, &opts, filename) < 0) {
+	if (scan_authfile(f, user, our_name, secret, &addrs, &opts, filename, 0) < 0) {
 	    warning("no PAP secret found for %s", user);
 	} else {
 	    /*
@@ -1403,19 +1558,14 @@ check_passwd(unit, auser, userlen, apasswd, passwdlen, msg)
 	    ret = UPAP_AUTHACK;
 	    if (uselogin || login_secret) {
 		/* login option or secret is @login */
-		ret = plogin(user, passwd, msg);
-		if (ret == UPAP_AUTHNAK)
-		    warning("PAP login failure for %s", user);
-		else
+		if ((ret = plogin(user, passwd, msg)) == UPAP_AUTHACK)
 		    used_login = 1;
 	    }
 	    if (secret[0] != 0 && !login_secret) {
 		/* password given in pap-secrets - must match */
 		if ((cryptpap || strcmp(passwd, secret) != 0)
-		    && strcmp(crypt(passwd, secret), secret) != 0) {
+		    && strcmp(crypt(passwd, secret), secret) != 0)
 		    ret = UPAP_AUTHNAK;
-		    warning("PAP authentication failure for %s", user);
-		}
 	    }
 	}
 	fclose(f);
@@ -1472,8 +1622,12 @@ static pam_handle_t *pamh = NULL;
  * echo off means password.
  */
 
-static int PAM_conv (int num_msg, const struct pam_message **msg,
-                    struct pam_response **resp, void *appdata_ptr)
+static int PAM_conv (int num_msg,
+#ifndef SOL2
+    const
+#endif
+    struct pam_message **msg,
+    struct pam_response **resp, void *appdata_ptr)
 {
     int replies = 0;
     struct pam_response *reply = NULL;
@@ -1710,7 +1864,7 @@ null_login(unit)
 	    return 0;
 	check_access(f, filename);
 
-	i = scan_authfile(f, "", our_name, secret, &addrs, &opts, filename);
+	i = scan_authfile(f, "", our_name, secret, &addrs, &opts, filename, 0);
 	ret = i >= 0 && secret[0] == 0;
 	BZERO(secret, sizeof(secret));
 	fclose(f);
@@ -1758,7 +1912,7 @@ get_pap_passwd(passwd)
     check_access(f, filename);
     ret = scan_authfile(f, user,
 			(remote_name[0]? remote_name: NULL),
-			secret, NULL, NULL, filename);
+			secret, NULL, NULL, filename, 0);
     fclose(f);
     if (ret < 0)
 	return 0;
@@ -1795,7 +1949,7 @@ have_pap_secret(lacks_ipp)
 	return 0;
 
     ret = scan_authfile(f, (explicit_remote? remote_name: NULL), our_name,
-			NULL, &addrs, NULL, filename);
+			NULL, &addrs, NULL, filename, 0);
     fclose(f);
     if (ret >= 0 && !some_ip_ok(addrs)) {
 	if (lacks_ipp != 0)
@@ -1844,7 +1998,7 @@ have_chap_secret(client, server, need_ip, lacks_ipp)
     else if (server != NULL && server[0] == 0)
 	server = NULL;
 
-    ret = scan_authfile(f, client, server, NULL, &addrs, NULL, filename);
+    ret = scan_authfile(f, client, server, NULL, &addrs, NULL, filename, 0);
     fclose(f);
     if (ret >= 0 && need_ip && !some_ip_ok(addrs)) {
 	if (lacks_ipp != 0)
@@ -1857,6 +2011,48 @@ have_chap_secret(client, server, need_ip, lacks_ipp)
     return ret >= 0;
 }
 
+#ifndef __APPLE__
+/*
+ * have_srp_secret - check whether we have a SRP file with a
+ * secret that we could possibly use for authenticating `client'
+ * on `server'.  Either can be the null string, meaning we don't
+ * know the identity yet.
+ */
+static int
+have_srp_secret(client, server, need_ip, lacks_ipp)
+    char *client;
+    char *server;
+    int need_ip;
+    int *lacks_ipp;
+{
+    FILE *f;
+    int ret;
+    char *filename;
+    struct wordlist *addrs;
+
+    filename = _PATH_SRPFILE;
+    f = fopen(filename, "r");
+    if (f == NULL)
+	return 0;
+
+    if (client != NULL && client[0] == 0)
+	client = NULL;
+    else if (server != NULL && server[0] == 0)
+	server = NULL;
+
+    ret = scan_authfile(f, client, server, NULL, &addrs, NULL, filename, 0);
+    fclose(f);
+    if (ret >= 0 && need_ip && !some_ip_ok(addrs)) {
+	if (lacks_ipp != 0)
+	    *lacks_ipp = 1;
+	ret = -1;
+    }
+    if (addrs != 0)
+	free_wordlist(addrs);
+
+    return ret >= 0;
+}
+#endif
 
 /*
  * get_secret - open the CHAP secret file and return the secret
@@ -1898,7 +2094,7 @@ get_secret(unit, client, server, secret, secret_len, am_server)
 	}
 	check_access(f, filename);
 
-	ret = scan_authfile(f, client, server, secbuf, &addrs, &opts, filename);
+	ret = scan_authfile(f, client, server, secbuf, &addrs, &opts, filename, 0);
 	fclose(f);
 	if (ret < 0)
 	    return 0;
@@ -1919,6 +2115,56 @@ get_secret(unit, client, server, secret, secret_len, am_server)
     BCOPY(secbuf, secret, len);
     BZERO(secbuf, sizeof(secbuf));
     *secret_len = len;
+
+    return 1;
+}
+
+
+/*
+ * get_srp_secret - open the SRP secret file and return the secret
+ * for authenticating the given client on the given server.
+ * (We could be either client or server).
+ */
+int
+get_srp_secret(unit, client, server, secret, am_server)
+    int unit;
+    char *client;
+    char *server;
+    char *secret;
+    int am_server;
+{
+    FILE *fp;
+    int ret;
+    char *filename;
+    struct wordlist *addrs, *opts;
+
+    if (!am_server && passwd[0] != '\0') {
+	strlcpy(secret, passwd, MAXWORDLEN);
+    } else {
+	filename = _PATH_SRPFILE;
+	addrs = NULL;
+
+	fp = fopen(filename, "r");
+	if (fp == NULL) {
+	    error("Can't open srp secret file %s: %m", filename);
+	    return 0;
+	}
+	check_access(fp, filename);
+
+	secret[0] = '\0';
+	ret = scan_authfile(fp, client, server, secret, &addrs, &opts,
+	    filename, am_server);
+	fclose(fp);
+	if (ret < 0)
+	    return 0;
+
+	if (am_server)
+	    set_allowed_addrs(unit, addrs, opts);
+	else if (opts != NULL)
+	    free_wordlist(opts);
+	if (addrs != NULL)
+	    free_wordlist(addrs);
+    }
 
     return 1;
 }
@@ -2017,7 +2263,7 @@ set_allowed_addrs(unit, addrs, opts)
 	} else {
 	    np = getnetbyname (ptr_word);
 	    if (np != NULL && np->n_addrtype == AF_INET) {
-		a = htonl (*(u_int32_t *)np->n_net);
+		a = htonl ((u_int32_t)np->n_net);
 		if (ptr_mask == NULL) {
 		    /* calculate appropriate mask for net */
 		    ah = ntohl(a);
@@ -2100,7 +2346,7 @@ auth_ip_addr(unit, addr)
 	if (ok >= 0) return ok;
     }
 
-#ifdef EAP
+#ifdef __APPLE__
     // check with the EAP plugin...
     if (auth_done[unit] & EAP_PEER) {
 	ok = EAPAllowedAddr(unit, addr);
@@ -2161,6 +2407,34 @@ some_ip_ok(addrs)
 }
 
 /*
+ * auth_number - check whether the remote number is allowed to connect.
+ * Returns 1 if authorized, 0 otherwise.
+ */
+int
+auth_number()
+{
+    struct wordlist *wp = permitted_numbers;
+    int l;
+
+    /* Allow all if no authorization list. */
+    if (!wp)
+	return 1;
+
+    /* Allow if we have a match in the authorization list. */
+    while (wp) {
+	/* trailing '*' wildcard */
+	l = strlen(wp->word);
+	if ((wp->word)[l - 1] == '*')
+	    l--;
+	if (!strncasecmp(wp->word, remote_number, l))
+	    return 1;
+	wp = wp->next;
+    }
+
+    return 0;
+}
+
+/*
  * check_access - complain if a secret file has too-liberal permissions.
  */
 static void
@@ -2190,9 +2464,11 @@ check_access(f, filename)
  * following words (extra options) are placed in a wordlist and
  * returned in *opts.
  * We assume secret is NULL or points to MAXWORDLEN bytes of space.
- */
+  * Flags are non-zero if we need two colons in the secret in order to
+ * match.
+*/
 static int
-scan_authfile(f, client, server, secret, addrs, opts, filename)
+scan_authfile(f, client, server, secret, addrs, opts, filename, flags)
     FILE *f;
     char *client;
     char *server;
@@ -2200,6 +2476,7 @@ scan_authfile(f, client, server, secret, addrs, opts, filename)
     struct wordlist **addrs;
     struct wordlist **opts;
     char *filename;
+    int flags;
 {
     int newline, xxx;
     int got_flag, best_flag;
@@ -2208,6 +2485,7 @@ scan_authfile(f, client, server, secret, addrs, opts, filename)
     char word[MAXWORDLEN];
     char atfile[MAXWORDLEN];
     char lsecret[MAXWORDLEN];
+    char *cp;
 
     if (addrs != NULL)
 	*addrs = NULL;
@@ -2264,6 +2542,14 @@ scan_authfile(f, client, server, secret, addrs, opts, filename)
 	if (!getword(f, word, &newline, filename))
 	    break;
 	if (newline)
+	    continue;
+
+	/*
+	 * SRP-SHA1 authenticator should never be reading secrets from
+	 * a file.  (Authenticatee may, though.)
+	 */
+	if (flags && ((cp = strchr(word, ':')) == NULL ||
+	    strchr(cp + 1, ':') == NULL))
 	    continue;
 
 	if (secret != NULL) {

@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xditview/parse.c,v 1.5 2001/08/27 23:35:12 dawes Exp $ */
+/* $XFree86: xc/programs/xditview/parse.c,v 1.6 2003/05/27 22:27:00 tsi Exp $ */
 
 /*
  * parse.c
@@ -43,7 +43,6 @@ from the X Consortium.
 #include <ctype.h>
 #include "DviP.h"
 
-static int StopSeen = 0;
 static void ParseDrawFunction(DviWidget dw, char *buf);
 static void ParseDeviceControl(DviWidget dw);
 static void PutCharacters(DviWidget dw, unsigned char *src, int len);
@@ -82,8 +81,6 @@ ParseInput(dw)
 	int		prevFont;
 	int		otherc;
 	unsigned char	tc;
-
-	StopSeen = 0;
 
 	/*
 	 * make sure some state exists
@@ -457,7 +454,6 @@ ParseDeviceControl(dw)				/* Parse the x commands */
     case 'p':				/* pause -- can restart */
 	break;
     case 's':				/* stop */
-	StopSeen = 1;
 	return;
     case 'r':				/* resolution when prepared */
 	SetDeviceResolution (dw, GetNumber (dw));

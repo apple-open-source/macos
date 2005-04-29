@@ -1,0 +1,36 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* javascript.tcl:
+	* javascript.man:
+	* pkgIndex.tcl: Fixed bug #614591. Set version of the package to
+	  to 1.0.1.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* javascript.man: More semantic markup, less visual one.
+
+2002-04-12  Andreas Kupries  <andreas_kupries@user.sourceforge.net>
+
+	* javascript.man: Added doctools manpage.
+
+2000-11-01  Melissa Chawla  <hershey@ajubasolutions.com>
+
+	* javascript.tcl: created this package.

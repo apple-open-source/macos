@@ -5,15 +5,18 @@
    on MacOS X 10.1.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
+/* { dg-do run { target *-*-darwin* } } */
 /* { dg-options "-fconstant-cfstrings -framework Cocoa" } */
-/* { dg-do run } */
 
 #import <Foundation/NSString.h>
 #import <CoreFoundation/CFString.h>
+extern void abort(void);
 
 #ifdef __CONSTANT_CFSTRINGS__
 #undef CFSTR
 #define CFSTR(STR)  ((CFStringRef) __builtin___CFStringMakeConstantString (STR))
+#else
+#error The -fconstant-cfstrings option is not functioning properly
 #endif
 
 void printOut(NSString *str) {
@@ -37,8 +40,10 @@ void checkCFRange(CFRange r) {
 int main(void) {
   NSString *s1 = @"Compile-time string literal";
   CFStringRef s2 = CFSTR("Compile-time string literal");
+  NSString *s3 = @"Compile-time string literal";
+  CFStringRef s4 = CFSTR("Compile-time string literal");
 
-  if (s1 != (id)s2) {
+  if (!(s1 == (id)s2 && (id)s2 == s3 && s3 == (id)s4)) {
     NSLog(@"String comparison failed");
     abort ();
   }

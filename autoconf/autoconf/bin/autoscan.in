@@ -1,7 +1,8 @@
 #! @PERL@ -w
 # -*- perl -*-
 # autoscan - Create configure.scan (a preliminary configure.ac) for a package.
-# Copyright (C) 1994, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 1994, 1999, 2000, 2001, 2002, 2003
+#  Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -25,11 +26,20 @@ eval 'case $# in 0) exec @PERL@ -S "$0";; *) exec @PERL@ -S "$0" "$@";; esac'
 
 BEGIN
 {
-  my $perllibdir = $ENV{'autom4te_perllibdir'} || "@datadir@";
-  unshift @INC, "$perllibdir";
+  my $datadir = $ENV{'autom4te_perllibdir'} || '@datadir@';
+  unshift @INC, $datadir;
+
+  # Override SHELL.  On DJGPP SHELL may not be set to a shell
+  # that can handle redirection and quote arguments correctly,
+  # e.g.: COMMAND.COM.  For DJGPP always use the shell that configure
+  # has detected.
+  $ENV{'SHELL'} = '@SHELL@' if ($^O eq 'dos');
 }
 
+use Autom4te::ChannelDefs;
+use Autom4te::Configure_ac;
 use Autom4te::General;
+use Autom4te::FileUtils;
 use Autom4te::XFile;
 use File::Basename;
 use File::Find;
@@ -39,7 +49,7 @@ use vars qw(@cfiles @makefiles @shfiles %printed);
 
 # The kind of the words we are looking for.
 my @kinds = qw (function header identifier program
-                makevar librarie);
+		makevar librarie);
 
 # For each kind, the default macro.
 my %generic_macro =
@@ -113,7 +123,7 @@ Report bugs to <bug-autoconf\@gnu.org>.\n";
 $version = "autoscan (@PACKAGE_NAME@) @VERSION@
 Written by David J. MacKenzie and Akim Demaille.
 
-Copyright 2002 Free Software Foundation, Inc.
+Copyright (C) 2003 Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n";
 
@@ -138,7 +148,7 @@ Try `$me --help' for more information.\n"
 
   my $srcdir = $ARGV[0] || ".";
 
-  verbose "srcdir = $srcdir";
+  verb "srcdir = $srcdir";
   chdir $srcdir || error "cannot cd to $srcdir: $!";
 }
 
@@ -557,7 +567,7 @@ sub check_configure_ac ($)
     join (' --trace=', '',
 	  uniq (sort (map { s/\(.*//; $_ } keys %needed_macros)));
 
-  verbose "running: $autoconf $trace_option $configure_ac";
+  verb "running: $autoconf $trace_option $configure_ac";
   my $traces =
     new Autom4te::XFile "$autoconf $trace_option $configure_ac|";
 
@@ -596,9 +606,9 @@ sub check_configure_ac ($)
 	    . "\n");
       print $log "$me: warning: missing $macro wanted by: \n";
       foreach my $need (@{$needed_macros{$macro}})
-        {
-          print $log "\t$need\n";
-        }
+	{
+	  print $log "\t$need\n";
+	}
     }
 }
 

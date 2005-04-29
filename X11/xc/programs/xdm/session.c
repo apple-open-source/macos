@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/session.c,v 3.33 2001/12/14 20:01:23 dawes Exp $ */
+/* $XFree86: xc/programs/xdm/session.c,v 3.37 2004/01/07 04:28:06 dawes Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -54,23 +54,24 @@ from The Open Group.
 #ifdef SECURE_RPC
 # include <rpc/rpc.h>
 # include <rpc/key_prot.h>
+extern int key_setnet(struct key_netstarg *arg);
 #endif
 #ifdef K5AUTH
 # include <krb5/krb5.h>
 #endif
 
 #ifndef GREET_USER_STATIC
-#include <dlfcn.h>
-#ifndef RTLD_NOW
-#define RTLD_NOW 1
-#endif
+# include <dlfcn.h>
+# ifndef RTLD_NOW
+#  define RTLD_NOW 1
+# endif
 #endif
 
 static	int	runAndWait (char **args, char **environ);
 
-#if defined(CSRG_BASED) || defined(__osf__) || defined(__DARWIN__) || defined(__QNXNTO__)
-#include <sys/types.h>
-#include <grp.h>
+#if defined(CSRG_BASED) || defined(__osf__) || defined(__DARWIN__) || defined(__QNXNTO__) || defined(sun) || defined(__GLIBC__)
+# include <sys/types.h>
+# include <grp.h>
 #else
 /* should be in <grp.h> */
 extern	void	setgrent(void);
@@ -79,27 +80,34 @@ extern	void	endgrent(void);
 #endif
 
 #ifdef USESHADOW
+# if defined(SVR4)
+#  include <shadow.h>
+# else
 extern	struct spwd	*getspnam(GETSPNAM_ARGS);
 extern	void	endspent(void);
+# endif
 #endif
-#if defined(CSRG_BASED)
-#include <pwd.h>
-#include <unistd.h>
+#if defined(CSRG_BASED) || defined(__GLIBC__) || defined(USL)
+# include <pwd.h>
+# include <unistd.h>
 #else
 extern	struct passwd	*getpwnam(GETPWNAM_ARGS);
-#ifdef linux
+# ifdef linux
 extern  void	endpwent(void);
-#endif
+# endif
 extern	char	*crypt(CRYPT_ARGS);
 #endif
+
 #ifdef USE_PAM
-pam_handle_t **thepamhp()
+pam_handle_t **
+thepamhp(void)
 {
 	static pam_handle_t *pamh = NULL;
 	return &pamh;
 }
 
-pam_handle_t *thepamh()
+pam_handle_t *
+thepamh(void)
 {
 	pam_handle_t **pamhp;
 
@@ -136,12 +144,12 @@ static	struct dlfuncs	dlfuncs = {
 	endgrent,
 #ifdef USESHADOW
 	getspnam,
-#ifndef QNX4
+# ifndef QNX4
 	endspent,
-#endif /* QNX4 doesn't use endspent */
+# endif /* QNX4 doesn't use endspent */
 #endif
 	getpwnam,
-#ifdef linux
+#if defined(linux) || defined(__GLIBC__)
 	endpwent,
 #endif
 	crypt,
@@ -189,7 +197,7 @@ waitAbort (int n)
 }
 
 #if defined(_POSIX_SOURCE) || defined(SYSV) || defined(SVR4)
-#define killpg(pgrp, sig) kill(-(pgrp), sig)
+# define killpg(pgrp, sig) kill(-(pgrp), sig)
 #endif
 
 static void
@@ -226,8 +234,7 @@ AbortClient (int pid)
 void
 SessionPingFailed (struct display *d)
 {
-    if (clientPid > 1)
-    {
+    if (clientPid > 1) {
     	AbortClient (clientPid);
 	source (verify.systemEnviron, d->reset);
     }
@@ -246,7 +253,7 @@ SessionPingFailed (struct display *d)
 static int
 IOErrorHandler (Display *dpy)
 {
-    LogError("fatal IO error %d (%s)\n", errno, _SysErrorMsg(errno));
+    LogError ("fatal IO error %d (%s)\n", errno, _SysErrorMsg(errno));
     exit(RESERVER_DISPLAY);
     /*NOTREACHED*/
     return 0;
@@ -255,7 +262,7 @@ IOErrorHandler (Display *dpy)
 static int
 ErrorHandler(Display *dpy, XErrorEvent *event)
 {
-    LogError("X error\n");
+    LogError ("X error\n");
     if (XmuPrintDefaultErrorMessage (dpy, event, stderr) == 0) return 0;
     exit(UNMANAGE_DISPLAY);
     /*NOTREACHED*/
@@ -266,7 +273,7 @@ ManageSession (struct display *d)
 {
     static int		pid = 0;
     Display		*dpy;
-    greet_user_rtn	greet_stat; 
+    greet_user_rtn	greet_stat;
     static GreetUserProc greet_user_proc = NULL;
 #ifndef GREET_USER_STATIC
     void		*greet_lib_handle;
@@ -288,13 +295,12 @@ ManageSession (struct display *d)
 #ifdef GREET_USER_STATIC
     greet_user_proc = GreetUser;
 #else
-    Debug("ManageSession: loading greeter library %s\n", greeterLib);
+    Debug ("ManageSession: loading greeter library %s\n", greeterLib);
     greet_lib_handle = dlopen(greeterLib, RTLD_NOW);
     if (greet_lib_handle != NULL)
 	greet_user_proc = (GreetUserProc)dlsym(greet_lib_handle, "GreetUser");
-    if (greet_user_proc == NULL)
-	{
-	LogError("%s while loading %s\n", dlerror(), greeterLib);
+    if (greet_user_proc == NULL) {
+	LogError ("%s while loading %s\n", dlerror(), greeterLib);
 	exit(UNMANAGE_DISPLAY);
 	}
 #endif
@@ -306,8 +312,7 @@ ManageSession (struct display *d)
     greet.version = 1;
     greet_stat = (*greet_user_proc)(d, &dpy, &verify, &greet, &dlfuncs);
 
-    if (greet_stat == Greet_Success)
-    {
+    if (greet_stat == Greet_Success) {
 	clientPid = 0;
 	if (!Setjmp (abortSession)) {
 	    (void) Signal (SIGTERM, catchTerm);
@@ -322,29 +327,23 @@ ManageSession (struct display *d)
                 /* Save memory; close library */
                 dlclose(greet_lib_handle);
 #endif
- 
+
 		/*
 		 * Wait for session to end,
 		 */
 		for (;;) {
-		    if (d->pingInterval)
-		    {
-			if (!Setjmp (pingTime))
-			{
+		    if (d->pingInterval) {
+			if (!Setjmp (pingTime)) {
 			    (void) Signal (SIGALRM, catchAlrm);
 			    (void) alarm (d->pingInterval * 60);
 			    pid = wait ((waitType *) 0);
 			    (void) alarm (0);
-			}
-			else
-			{
+			} else {
 			    (void) alarm (0);
 			    if (!PingServer (d, (Display *) NULL))
 				SessionPingFailed (d);
 			}
-		    }
-		    else
-		    {
+		    } else {
 			pid = wait ((waitType *) 0);
 		    }
 		    if (pid == clientPid)
@@ -391,8 +390,7 @@ SetupDisplay (struct display *d)
 {
     char	**env = 0;
 
-    if (d->setup && d->setup[0])
-    {
+    if (d->setup && d->setup[0]) {
     	env = systemEnv (d, (char *) 0, (char *) 0);
     	(void) source (env, d->setup);
     	freeEnv (env);
@@ -436,8 +434,7 @@ SecureDisplay (struct display *d, Display *dpy)
     Debug ("Before XGrabServer %s\n", d->name);
     XGrabServer (dpy);
     if (XGrabKeyboard (dpy, DefaultRootWindow (dpy), True, GrabModeAsync,
-		       GrabModeAsync, CurrentTime) != GrabSuccess)
-    {
+		       GrabModeAsync, CurrentTime) != GrabSuccess) {
 	(void) alarm (0);
 	(void) Signal (SIGALRM, SIG_DFL);
 	LogError ("WARNING: keyboard on display %s could not be secured\n",
@@ -448,8 +445,7 @@ SecureDisplay (struct display *d, Display *dpy)
     (void) alarm (0);
     (void) Signal (SIGALRM, SIG_DFL);
     pseudoReset (dpy);
-    if (!d->grabServer)
-    {
+    if (!d->grabServer) {
 	XUngrabServer (dpy);
 	XSync (dpy, 0);
     }
@@ -460,8 +456,7 @@ void
 UnsecureDisplay (struct display *d, Display *dpy)
 {
     Debug ("Unsecure display %s\n", d->name);
-    if (d->grabServer)
-    {
+    if (d->grabServer) {
 	XUngrabServer (dpy);
 	XSync (dpy, 0);
     }
@@ -487,8 +482,7 @@ SessionExit (struct display *d, int status, int removeAuth)
 	kill (d->serverPid, d->resetSignal);
     else
 	ResetServer (d);
-    if (removeAuth)
-    {
+    if (removeAuth) {
 	setgid (verify.gid);
 	setuid (verify.uid);
 	RemoveUserAuthorization (d, &verify);
@@ -500,7 +494,7 @@ SessionExit (struct display *d, int status, int removeAuth)
 
 	    code = Krb5DisplayCCache(d->name, &ccache);
 	    if (code)
-		LogError("%s while getting Krb5 ccache to destroy\n",
+		LogError ("%s while getting Krb5 ccache to destroy\n",
 			 error_message(code));
 	    else {
 		code = krb5_cc_destroy(ccache);
@@ -508,7 +502,7 @@ SessionExit (struct display *d, int status, int removeAuth)
 		    if (code == KRB5_FCC_NOFILE) {
 			Debug ("No Kerberos ccache file found to destroy\n");
 		    } else
-			LogError("%s while destroying Krb5 credentials cache\n",
+			LogError ("%s while destroying Krb5 credentials cache\n",
 				 error_message(code));
 		} else
 		    Debug ("Kerberos ccache destroyed\n");
@@ -535,8 +529,9 @@ StartClient (
 #ifdef HAS_SETUSERCONTEXT
     struct passwd* pwd;
 #endif
-#ifdef USE_PAM 
-    pam_handle_t *pamh = thepamh();
+#ifdef USE_PAM
+    pam_handle_t *pamh = thepamh ();
+    int	pam_error;
 #endif
 
     if (verify->argv) {
@@ -552,7 +547,7 @@ StartClient (
     }
 #ifdef USE_PAM
     if (pamh) pam_open_session(pamh, 0);
-#endif    
+#endif
     switch (pid = fork ()) {
     case 0:
 	CleanUpChild ();
@@ -577,34 +572,35 @@ StartClient (
 
 #ifndef AIXV3
 #ifndef HAS_SETUSERCONTEXT
-	if (setgid(verify->gid) < 0)
-	{
-	    LogError("setgid %d (user \"%s\") failed, errno=%d\n",
+	if (setgid(verify->gid) < 0) {
+	    LogError ("setgid %d (user \"%s\") failed, errno=%d\n",
 		     verify->gid, name, errno);
 	    return (0);
 	}
 #if defined(BSD) && (BSD >= 199103)
-	if (setlogin(name) < 0)
-	{
-	    LogError("setlogin for \"%s\" failed, errno=%d", name, errno);
+	if (setlogin(name) < 0) {
+	    LogError ("setlogin for \"%s\" failed, errno=%d", name, errno);
 	    return(0);
 	}
 #endif
 #ifndef QNX4
-	if (initgroups(name, verify->gid) < 0)
-	{
-	    LogError("initgroups for \"%s\" failed, errno=%d\n", name, errno);
+	if (initgroups(name, verify->gid) < 0) {
+	    LogError ("initgroups for \"%s\" failed, errno=%d\n", name, errno);
 	    return (0);
 	}
 #endif   /* QNX4 doesn't support multi-groups, no initgroups() */
 #ifdef USE_PAM
-	if (thepamh()) {
-	    pam_setcred(thepamh(), PAM_ESTABLISH_CRED);
+	if (pamh) {
+	    pam_error = pam_setcred (pamh, PAM_ESTABLISH_CRED);
+	    if (pam_error != PAM_SUCCESS) {
+		LogError ("pam_setcred for \"%s\" failed: %s\n",
+			 name, pam_strerror(pamh, pam_error));
+		return(0);
+	    }
 	}
 #endif
-	if (setuid(verify->uid) < 0)
-	{
-	    LogError("setuid %d (user \"%s\") failed, errno=%d\n",
+	if (setuid(verify->uid) < 0) {
+	    LogError ("setuid %d (user \"%s\") failed, errno=%d\n",
 		     verify->uid, name, errno);
 	    return (0);
 	}
@@ -614,19 +610,15 @@ StartClient (
 	 * environment variables, resource limits, and umask.
 	 */
 	pwd = getpwnam(name);
-	if (pwd)
-	{
-	    if (setusercontext(NULL, pwd, pwd->pw_uid, LOGIN_SETALL) < 0)
-	    {
-		LogError("setusercontext for \"%s\" failed, errno=%d\n", name,
+	if (pwd) {
+	    if (setusercontext(NULL, pwd, pwd->pw_uid, LOGIN_SETALL) < 0) {
+		LogError ("setusercontext for \"%s\" failed, errno=%d\n", name,
 		    errno);
 		return (0);
 	    }
 	    endpwent();
-	}
-	else
-	{
-	    LogError("getpwnam for \"%s\" failed, errno=%d\n", name, errno);
+	} else {
+	    LogError ("getpwnam for \"%s\" failed, errno=%d\n", name, errno);
 	    return (0);
 	}
 #endif /* HAS_SETUSERCONTEXT */
@@ -635,9 +627,8 @@ StartClient (
 	 * Set the user's credentials: uid, gid, groups,
 	 * audit classes, user limits, and umask.
 	 */
-	if (setpcred(name, NULL) == -1)
-	{
-	    LogError("setpcred for \"%s\" failed, errno=%d\n", name, errno);
+	if (setpcred(name, NULL) == -1) {
+	    LogError ("setpcred for \"%s\" failed, errno=%d\n", name, errno);
 	    return (0);
 	}
 #endif /* AIXV3 */
@@ -652,6 +643,7 @@ StartClient (
 	    char    netname[MAXNETNAMELEN+1], secretkey[HEXKEYBYTES+1];
 	    int	    nameret, keyret;
 	    int	    len;
+	    struct  key_netstarg netst;
 	    int     key_set_ok = 0;
 
 	    nameret = getnetname (netname);
@@ -662,34 +654,34 @@ StartClient (
 	    keyret = getsecretkey(netname,secretkey,passwd);
 	    Debug ("getsecretkey returns %d, key length %d\n",
 		    keyret, strlen (secretkey));
+	    memcpy(&(netst.st_priv_key), secretkey, HEXKEYBYTES);
+	    netst.st_netname = strdup(netname);
+	    memset(netst.st_pub_key, 0, HEXKEYBYTES);
+            if (key_setnet(&netst) < 0) {
+		Debug ("Could not set secret key.\n");
+            }
+	    free(netst.st_netname);	
 	    /* is there a key, and do we have the right password? */
-	    if (keyret == 1)
-	    {
-		if (*secretkey)
-		{
+	    if (keyret == 1) {
+		if (*secretkey) {
 		    keyret = key_setsecret(secretkey);
 		    Debug ("key_setsecret returns %d\n", keyret);
 		    if (keyret == -1)
 			LogError ("failed to set NIS secret key\n");
 		    else
 			key_set_ok = 1;
-		}
-		else
-		{
+		} else {
 		    /* found a key, but couldn't interpret it */
 		    LogError ("password incorrect for NIS principal \"%s\"\n",
 			      nameret ? netname : name);
 		}
 	    }
-	    if (!key_set_ok)
-	    {
+	    if (!key_set_ok) {
 		/* remove SUN-DES-1 from authorizations list */
 		int i, j;
-		for (i = 0; i < d->authNum; i++)
-		{
+		for (i = 0; i < d->authNum; i++) {
 		    if (d->authorizations[i]->name_length == 9 &&
-			memcmp(d->authorizations[i]->name, "SUN-DES-1", 9) == 0)
-		    {
+			memcmp(d->authorizations[i]->name, "SUN-DES-1", 9) == 0) {
 			for (j = i+1; j < d->authNum; j++)
 			    d->authorizations[j-1] = d->authorizations[j];
 			d->authNum--;
@@ -714,11 +706,9 @@ StartClient (
 		    setEnv(verify->userEnviron,
 			   "KRB5CCNAME", Krb5CCacheName(d->name));
 	    } else {
-		for (i = 0; i < d->authNum; i++)
-		{
+		for (i = 0; i < d->authNum; i++) {
 		    if (d->authorizations[i]->name_length == 14 &&
-			memcmp(d->authorizations[i]->name, "MIT-KERBEROS-5", 14) == 0)
-		    {
+			memcmp(d->authorizations[i]->name, "MIT-KERBEROS-5", 14) == 0) {
 			/* remove Kerberos from authorizations list */
 			for (j = i+1; j < d->authNum; j++)
 			    d->authorizations[j-1] = d->authorizations[j];
@@ -773,8 +763,7 @@ source (char **environ, char *file)
     if (file && file[0]) {
 	Debug ("source %s\n", file);
 	args = parseArgs ((char **) 0, file);
-	if (!args)
-	{
+	if (!args) {
 	    args = args_safe;
 	    args[0] = file;
 	    args[1] = NULL;
@@ -841,8 +830,7 @@ execute (char **argv, char **environ)
 	f = fopen (argv[0], "r");
 	if (!f)
 	    return;
-	if (fgets (program, sizeof (program) - 1, f) == NULL)
- 	{
+	if (fgets (program, sizeof (program) - 1, f) == NULL) {
 	    fclose (f);
 	    return;
 	}
@@ -894,8 +882,7 @@ defaultEnv (void)
     char    **env, **exp, *value;
 
     env = 0;
-    for (exp = exportList; exp && *exp; ++exp)
-    {
+    for (exp = exportList; exp && *exp; ++exp) {
 	value = getenv (*exp);
 	if (value)
 	    env = setEnv (env, *exp, value);
@@ -907,13 +894,12 @@ char **
 systemEnv (struct display *d, char *user, char *home)
 {
     char	**env;
-    
+
     env = defaultEnv ();
     env = setEnv (env, "DISPLAY", d->name);
     if (home)
 	env = setEnv (env, "HOME", home);
-    if (user)
-    {
+    if (user) {
 	env = setEnv (env, "USER", user);
 	env = setEnv (env, "LOGNAME", user);
     }

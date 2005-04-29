@@ -1,5 +1,3 @@
-/*	$NetBSD: compress.c,v 1.16 1998/03/10 12:45:44 kleink Exp $	*/
-
 /*-
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,77 +31,69 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
-#endif /* not lint */
-
-#ifndef lint
-#if 0
-static char sccsid[] = "@(#)compress.c	8.2 (Berkeley) 1/7/94";
-#else
-__RCSID("$NetBSD: compress.c,v 1.16 1998/03/10 12:45:44 kleink Exp $");
+static const char copyright[] =
+"@(#) Copyright (c) 1992, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif
-#endif /* not lint */
+
+#if 0
+#ifndef lint
+static char sccsid[] = "@(#)compress.c	8.2 (Berkeley) 1/7/94";
+#endif
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/compress/compress.c,v 1.21 2003/06/14 13:41:31 trhodes Exp $");
 
 #include <sys/param.h>
-#include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <err.h>
 #include <errno.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#ifdef __STDC__
-#include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
+#include "zopen.h"
 
-void	compress __P((char *, char *, int));
-void	cwarn __P((const char *, ...));
-void	cwarnx __P((const char *, ...));
-void	decompress __P((char *, char *, int));
-int	permission __P((char *));
-void	setfile __P((char *, struct stat *));
-void	usage __P((int));
+void	compress(const char *, const char *, int);
+void	cwarn(const char *, ...) __printflike(1, 2);
+void	cwarnx(const char *, ...) __printflike(1, 2);
+void	decompress(const char *, const char *, int);
+int	permission(const char *);
+void	setfile(const char *, struct stat *);
+void	usage(int);
 
-int	main __P((int, char *[]));
-extern FILE *zopen __P((const char *fname, const char *mode, int bits));
-
-int eval, force, verbose;
-int isstdout, isstdin;
+int eval, force, verbose, cat;
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-        enum {COMPRESS, DECOMPRESS} style = COMPRESS;
+	enum {COMPRESS, DECOMPRESS} style;
 	size_t len;
-	int bits, cat, ch;
+	int bits, ch;
 	char *p, newname[MAXPATHLEN];
 
-	if ((p = strrchr(argv[0], '/')) == NULL)
+	cat = 0;
+	if ((p = rindex(argv[0], '/')) == NULL)
 		p = argv[0];
 	else
 		++p;
 	if (!strcmp(p, "uncompress"))
 		style = DECOMPRESS;
-        else if (!strcmp(p, "compress"))
-                style = COMPRESS;
-        else if (!strcmp(p, "zcat")) {
-                style = DECOMPRESS;
-                cat = 1;
-        }
-	else
+	else if (!strcmp(p, "compress"))
+		style = COMPRESS;
+	else if (!strcmp(p, "zcat")) {
+		cat = 1;
+		style = DECOMPRESS;
+	} else
 		errx(1, "unknown program name");
 
-	bits = cat = 0;
+	bits = 0;
 	while ((ch = getopt(argc, argv, "b:cdfv")) != -1)
 		switch(ch) {
 		case 'b':
@@ -131,15 +121,12 @@ main(argc, argv)
 	argv += optind;
 
 	if (argc == 0) {
+		cat = 1;
 		switch(style) {
 		case COMPRESS:
-			isstdout = 1;
-			isstdin = 1;
 			(void)compress("/dev/stdin", "/dev/stdout", bits);
 			break;
 		case DECOMPRESS:
-			isstdout = 1;
-			isstdin = 1;
 			(void)decompress("/dev/stdin", "/dev/stdout", bits);
 			break;
 		}
@@ -149,16 +136,18 @@ main(argc, argv)
 	if (cat == 1 && argc > 1)
 		errx(1, "the -c option permits only a single file argument");
 
-	for (; *argv; ++argv) {
-		isstdout = 0;
+	for (; *argv; ++argv)
 		switch(style) {
 		case COMPRESS:
-			if (cat) {
-				isstdout = 1;
+			if (strcmp(*argv, "-") == 0) {
+				cat = 1;
+				compress("/dev/stdin", "/dev/stdout", bits);
+				break;
+			} else if (cat) {
 				compress(*argv, "/dev/stdout", bits);
 				break;
 			}
-			if ((p = strrchr(*argv, '.')) != NULL &&
+			if ((p = rindex(*argv, '.')) != NULL &&
 			    !strcmp(p, ".Z")) {
 				cwarnx("%s: name already has trailing .Z",
 				    *argv);
@@ -176,8 +165,13 @@ main(argc, argv)
 			compress(*argv, newname, bits);
 			break;
 		case DECOMPRESS:
+			if (strcmp(*argv, "-") == 0) {
+				cat = 1;
+				decompress("/dev/stdin", "/dev/stdout", bits);
+				break;
+			}
 			len = strlen(*argv);
-			if ((p = strrchr(*argv, '.')) == NULL ||
+			if ((p = rindex(*argv, '.')) == NULL ||
 			    strcmp(p, ".Z")) {
 				if (len > sizeof(newname) - 3) {
 					cwarnx("%s: name too long", *argv);
@@ -189,8 +183,6 @@ main(argc, argv)
 				newname[len + 2] = '\0';
 				decompress(newname,
 				    cat ? "/dev/stdout" : *argv, bits);
-				if (cat)
-					isstdout = 1;
 			} else {
 				if (len - 2 > sizeof(newname) - 1) {
 					cwarnx("%s: name too long", *argv);
@@ -200,50 +192,38 @@ main(argc, argv)
 				newname[len - 2] = '\0';
 				decompress(*argv,
 				    cat ? "/dev/stdout" : newname, bits);
-				if (cat)
-					isstdout = 1;
 			}
 			break;
 		}
-	}
 	exit (eval);
 }
 
 void
-compress(in, out, bits)
-	char *in, *out;
-	int bits;
+compress(const char *in, const char *out, int bits)
 {
-	int nr;
+	size_t nr;
 	struct stat isb, sb;
 	FILE *ifp, *ofp;
 	int exists, isreg, oreg;
-	u_char buf[BUFSIZ];
+	u_char buf[1024];
 
-	if (!isstdout) {
-		exists = !stat(out, &sb);
-		if (!force && exists && S_ISREG(sb.st_mode) && !permission(out))
-			return;
-		oreg = !exists || S_ISREG(sb.st_mode);
-	} else
-		oreg = 0;
+	exists = !stat(out, &sb);
+	if (!force && exists && S_ISREG(sb.st_mode) && !cat && !permission(out)) {
+		cwarnx("%s already exists", out);
+		return;
+	}
+	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
 	ifp = ofp = NULL;
 	if ((ifp = fopen(in, "r")) == NULL) {
 		cwarn("%s", in);
 		return;
 	}
-
-	if (!isstdin) {
-		if (stat(in, &isb)) {		/* DON'T FSTAT! */
-			cwarn("%s", in);
-			goto err;
-		}
-		if (!S_ISREG(isb.st_mode))
-			isreg = 0;
-		else
-			isreg = 1;
-	} else
+	if (stat(in, &isb)) {		/* DON'T FSTAT! */
+		cwarn("%s", in);
+		goto err;
+	}
+	if (!S_ISREG(isb.st_mode))
 		isreg = 0;
 
 	if ((ofp = zopen(out, "w", bits)) == NULL) {
@@ -268,7 +248,7 @@ compress(in, out, bits)
 	}
 	ofp = NULL;
 
-	if (isreg && oreg) {
+	if (!cat && isreg) {
 		if (stat(out, &sb)) {
 			cwarn("%s", out);
 			goto err;
@@ -276,7 +256,9 @@ compress(in, out, bits)
 
 		if (!force && sb.st_size >= isb.st_size) {
 			if (verbose)
-		(void)printf("%s: file would grow; left unmodified\n", in);
+		(void)fprintf(stderr, "%s: file would grow; left unmodified\n",
+		    in);
+			eval = 2;
 			if (unlink(out))
 				cwarn("%s", out);
 			goto err;
@@ -288,19 +270,19 @@ compress(in, out, bits)
 			cwarn("%s", in);
 
 		if (verbose) {
-			(void)printf("%s: ", out);
+			(void)fprintf(stderr, "%s: ", out);
 			if (isb.st_size > sb.st_size)
-				(void)printf("%.0f%% compression\n",
-				    ((double)sb.st_size / isb.st_size) * 100.0);
+				(void)fprintf(stderr, "%.0f%% compression\n",
+				    ((float)sb.st_size / isb.st_size) * 100.0);
 			else
-				(void)printf("%.0f%% expansion\n",
-				    ((double)isb.st_size / sb.st_size) * 100.0);
+				(void)fprintf(stderr, "%.0f%% expansion\n",
+				    ((float)isb.st_size / sb.st_size) * 100.0);
 		}
 	}
 	return;
 
 err:	if (ofp) {
-		if (oreg)
+		if (!cat && oreg)
 			(void)unlink(out);
 		(void)fclose(ofp);
 	}
@@ -309,45 +291,48 @@ err:	if (ofp) {
 }
 
 void
-decompress(in, out, bits)
-	char *in, *out;
-	int bits;
+decompress(const char *in, const char *out, int bits)
 {
-	int nr;
+	size_t nr;
 	struct stat sb;
 	FILE *ifp, *ofp;
 	int exists, isreg, oreg;
-	u_char buf[BUFSIZ];
+	u_char buf[1024];
 
-	if (!isstdout) {
-		exists = !stat(out, &sb);
-		if (!force && exists && S_ISREG(sb.st_mode) && !permission(out))
-			return;
-		oreg = !exists || S_ISREG(sb.st_mode);
-	} else
-		oreg = 0;
-
-	ifp = ofp = NULL;
-	if ((ofp = fopen(out, "w")) == NULL) {
-		cwarn("%s", out);
+	exists = !stat(out, &sb);
+	if (!force && exists && S_ISREG(sb.st_mode) && !cat && !permission(out)) {
+		cwarnx("%s already exists", out);
 		return;
 	}
+	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
+	ifp = ofp = NULL;
 	if ((ifp = zopen(in, "r", bits)) == NULL) {
+		cwarn("%s", in);
+		return;
+	}
+	if (stat(in, &sb)) {
 		cwarn("%s", in);
 		goto err;
 	}
-	if (!isstdin) {
-		if (stat(in, &sb)) {
-			cwarn("%s", in);
-			goto err;
-		}
-		if (!S_ISREG(sb.st_mode))
-			isreg = 0;
-		else
-			isreg = 1;
-	} else
+	if (!S_ISREG(sb.st_mode))
 		isreg = 0;
+
+	/*
+	 * Try to read the first few uncompressed bytes from the input file
+	 * before blindly truncating the output file.
+	 */
+	if ((nr = fread(buf, 1, sizeof(buf), ifp)) == 0) {
+		cwarn("%s", in);
+		(void)fclose(ifp);
+		return;
+	}
+	if ((ofp = fopen(out, "w")) == NULL ||
+	    (nr != 0 && fwrite(buf, 1, nr, ofp) != nr)) {
+		cwarn("%s", out);
+		(void)fclose(ifp);
+		return;
+	}
 
 	while ((nr = fread(buf, 1, sizeof(buf), ifp)) != 0)
 		if (fwrite(buf, 1, nr, ofp) != nr) {
@@ -366,16 +351,27 @@ decompress(in, out, bits)
 		goto err;
 	}
 
-	if (isreg && oreg) {
+	if (!cat && isreg) {
 		setfile(out, &sb);
 
 		if (unlink(in))
 			cwarn("%s", in);
+		if (verbose) {
+			struct stat isb = sb;
+			stat(out, &sb);
+			(void)fprintf(stderr, "%s: ", out);
+			if (isb.st_size > sb.st_size)
+				(void)fprintf(stderr, "%.0f%% compression\n",
+				    ((float)sb.st_size / isb.st_size) * 100.0);
+			else
+				(void)fprintf(stderr, "%.0f%% expansion\n",
+				    ((float)isb.st_size / sb.st_size) * 100.0);
+		}
 	}
 	return;
 
 err:	if (ofp) {
-		if (oreg)
+		if (!cat && oreg)
 			(void)unlink(out);
 		(void)fclose(ofp);
 	}
@@ -384,9 +380,7 @@ err:	if (ofp) {
 }
 
 void
-setfile(name, fs)
-	char *name;
-	struct stat *fs;
+setfile(const char *name, struct stat *fs)
 {
 	static struct timeval tv[2];
 
@@ -408,21 +402,15 @@ setfile(name, fs)
 			cwarn("chown: %s", name);
 		fs->st_mode &= ~(S_ISUID|S_ISGID);
 	}
-	if (chmod(name, fs->st_mode))
-		cwarn("chown: %s", name);
+	if (chmod(name, fs->st_mode) && errno != EOPNOTSUPP)
+		cwarn("chmod: %s", name);
 
-	/*
-	 * Restore the file's flags.  However, do this only if the original
-	 * file had any flags set; this avoids a warning on file-systems that
-	 * do not support flags.
-	 */
-	if (fs->st_flags != 0 && chflags(name, fs->st_flags))
+	if (chflags(name, fs->st_flags) && errno != EOPNOTSUPP)
 		cwarn("chflags: %s", name);
 }
 
 int
-permission(fname)
-	char *fname;
+permission(const char *fname)
 {
 	int ch, first;
 
@@ -436,55 +424,34 @@ permission(fname)
 }
 
 void
-usage(iscompress)
-	int iscompress;
+usage(int iscompress)
 {
 	if (iscompress)
 		(void)fprintf(stderr,
 		    "usage: compress [-cfv] [-b bits] [file ...]\n");
 	else
 		(void)fprintf(stderr,
-		    "usage: uncompress [-c] [-b bits] [file ...]\n");
+		    "usage: uncompress [-cfv] [-b bits] [file ...]\n");
 	exit(1);
 }
 
 void
-#if __STDC__
 cwarnx(const char *fmt, ...)
-#else
-cwarnx(fmt, va_alist)
-	int eval;
-	const char *fmt;
-	va_dcl
-#endif
 {
 	va_list ap;
-#if __STDC__
+
 	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
 	vwarnx(fmt, ap);
 	va_end(ap);
 	eval = 1;
 }
 
 void
-#if __STDC__
 cwarn(const char *fmt, ...)
-#else
-cwarn(fmt, va_alist)
-	int eval;
-	const char *fmt;
-	va_dcl
-#endif
 {
 	va_list ap;
-#if __STDC__
+
 	va_start(ap, fmt);
-#else
-	va_start(ap);
-#endif
 	vwarn(fmt, ap);
 	va_end(ap);
 	eval = 1;

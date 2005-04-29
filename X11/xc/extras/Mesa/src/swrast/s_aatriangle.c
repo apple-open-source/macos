@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.1
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -29,7 +29,9 @@
  */
 
 
-#include "mem.h"
+#include "glheader.h"
+#include "macros.h"
+#include "imports.h"
 #include "mmath.h"
 #include "s_aatriangle.h"
 #include "s_context.h"
@@ -39,6 +41,7 @@
 /*
  * Compute coefficients of a plane using the X,Y coords of the v0, v1, v2
  * vertices and the given Z values.
+ * A point (x,y,z) lies on plane iff a*x+b*y+c*z+d = 0.
  */
 static INLINE void
 compute_plane(const GLfloat v0[], const GLfloat v1[], const GLfloat v2[],
@@ -52,9 +55,15 @@ compute_plane(const GLfloat v0[], const GLfloat v1[], const GLfloat v2[],
    const GLfloat qy = v2[1] - v0[1];
    const GLfloat qz = z2 - z0;
 
+   /* Crossproduct "(a,b,c):= dv1 x dv2" is orthogonal to plane. */
    const GLfloat a = py * qz - pz * qy;
    const GLfloat b = pz * qx - px * qz;
    const GLfloat c = px * qy - py * qx;
+   /* Point on the plane = "r*(a,b,c) + w", with fixed "r" depending
+      on the distance of plane from origin and arbitrary "w" parallel
+      to the plane. */
+   /* The scalar product "(r*(a,b,c)+w)*(a,b,c)" is "r*(a^2+b^2+c^2)",
+      which is equal to "-d" below. */
    const GLfloat d = -(a * v0[0] + b * v0[1] + c * z0);
 
    plane[0] = a;
@@ -92,8 +101,8 @@ do {					\
 static INLINE GLfloat
 solve_plane(GLfloat x, GLfloat y, const GLfloat plane[4])
 {
-   const GLfloat z = (plane[3] + plane[0] * x + plane[1] * y) / -plane[2];
-   return z;
+   ASSERT(plane[2] != 0.0F);
+   return (plane[3] + plane[0] * x + plane[1] * y) / -plane[2];
 }
 
 
@@ -115,19 +124,22 @@ solve_plane_recip(GLfloat x, GLfloat y, const GLfloat plane[4])
 }
 
 
-
 /*
  * Solve plane and return clamped GLchan value.
  */
 static INLINE GLchan
 solve_plane_chan(GLfloat x, GLfloat y, const GLfloat plane[4])
 {
-   GLfloat z = (plane[3] + plane[0] * x + plane[1] * y) / -plane[2] + 0.5F;
-   if (z < 0.0F)
+   const GLfloat z = (plane[3] + plane[0] * x + plane[1] * y) / -plane[2];
+#if CHAN_TYPE == GL_FLOAT
+   return CLAMP(z, 0.0F, CHAN_MAXF);
+#else
+   if (z < 0)
       return 0;
-   else if (z > CHAN_MAXF)
-      return (GLchan) CHAN_MAXF;
-   return (GLchan) (GLint) z;
+   else if (z > CHAN_MAX)
+      return CHAN_MAX;
+   return (GLchan) IROUND_POS(z);
+#endif
 }
 
 
@@ -192,7 +204,7 @@ compute_coveragef(const GLfloat v0[3], const GLfloat v1[3],
 #ifdef DEBUG
    {
       const GLfloat area = dx0 * dy1 - dx1 * dy0;
-      assert(area >= 0.0);
+      ASSERT(area >= 0.0);
    }
 #endif
 
@@ -275,7 +287,7 @@ compute_coveragei(const GLfloat v0[3], const GLfloat v1[3],
 #ifdef DEBUG
    {
       const GLfloat area = dx0 * dy1 - dx1 * dy0;
-      assert(area >= 0.0);
+      ASSERT(area >= 0.0);
    }
 #endif
 
@@ -343,23 +355,36 @@ index_aa_tri(GLcontext *ctx,
 
 /*
  * Compute mipmap level of detail.
+ * XXX we should really include the R coordinate in this computation
+ * in order to do 3-D texture mipmapping.
  */
 static INLINE GLfloat
 compute_lambda(const GLfloat sPlane[4], const GLfloat tPlane[4],
-               GLfloat invQ, GLfloat width, GLfloat height)
+               const GLfloat qPlane[4], GLfloat cx, GLfloat cy,
+               GLfloat invQ, GLfloat texWidth, GLfloat texHeight)
 {
-   GLfloat dudx = sPlane[0] / sPlane[2] * invQ * width;
-   GLfloat dudy = sPlane[1] / sPlane[2] * invQ * width;
-   GLfloat dvdx = tPlane[0] / tPlane[2] * invQ * height;
-   GLfloat dvdy = tPlane[1] / tPlane[2] * invQ * height;
-   GLfloat r1 = dudx * dudx + dudy * dudy;
-   GLfloat r2 = dvdx * dvdx + dvdy * dvdy;
-   GLfloat rho2 = r1 + r2;
-   /* return log base 2 of rho */
-   if (rho2 == 0.0F)
-      return 0.0;
-   else
-      return (GLfloat) (log(rho2) * 1.442695 * 0.5); /* 1.442695 = 1/log(2) */
+   const GLfloat s = solve_plane(cx, cy, sPlane);
+   const GLfloat t = solve_plane(cx, cy, tPlane);
+   const GLfloat invQ_x1 = solve_plane_recip(cx+1.0F, cy, qPlane);
+   const GLfloat invQ_y1 = solve_plane_recip(cx, cy+1.0F, qPlane);
+   const GLfloat s_x1 = s - sPlane[0] / sPlane[2];
+   const GLfloat s_y1 = s - sPlane[1] / sPlane[2];
+   const GLfloat t_x1 = t - tPlane[0] / tPlane[2];
+   const GLfloat t_y1 = t - tPlane[1] / tPlane[2];
+   GLfloat dsdx = s_x1 * invQ_x1 - s * invQ;
+   GLfloat dsdy = s_y1 * invQ_y1 - s * invQ;
+   GLfloat dtdx = t_x1 * invQ_x1 - t * invQ;
+   GLfloat dtdy = t_y1 * invQ_y1 - t * invQ;
+   GLfloat maxU, maxV, rho, lambda;
+   dsdx = FABSF(dsdx);
+   dsdy = FABSF(dsdy);
+   dtdx = FABSF(dtdx);
+   dtdy = FABSF(dtdy);
+   maxU = MAX2(dsdx, dsdy) * texWidth;
+   maxV = MAX2(dtdx, dtdy) * texHeight;
+   rho = MAX2(maxU, maxV);
+   lambda = LOG2(rho);
+   return lambda;
 }
 
 
@@ -429,9 +454,9 @@ _mesa_set_aa_triangle_function(GLcontext *ctx)
 {
    ASSERT(ctx->Polygon.SmoothFlag);
 
-   if (ctx->Texture._ReallyEnabled) {
+   if (ctx->Texture._EnabledUnits != 0) {
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR) {
-         if (ctx->Texture._ReallyEnabled > TEXTURE0_ANY) {
+         if (ctx->Texture._EnabledUnits > 1) {
             SWRAST_CONTEXT(ctx)->Triangle = spec_multitex_aa_tri;
          }
          else {
@@ -439,7 +464,7 @@ _mesa_set_aa_triangle_function(GLcontext *ctx)
          }
       }
       else {
-         if (ctx->Texture._ReallyEnabled > TEXTURE0_ANY) {
+         if (ctx->Texture._EnabledUnits > 1) {
             SWRAST_CONTEXT(ctx)->Triangle = multitex_aa_tri;
          }
          else {

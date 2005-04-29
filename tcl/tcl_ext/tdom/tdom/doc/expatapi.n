@@ -1,0 +1,382 @@
+'\"
+'\" Generated from expatapi.xml
+'\"
+'\" BEGIN man.macros
+.if t .wh -1.3i ^B
+.nr ^l \n(.l
+.ad b
+.de AP
+.ie !"\\$4"" .TP \\$4
+.el \{\
+.   ie !"\\$2"" .TP \\n()Cu
+.   el          .TP 15
+.\}
+.ta \\n()Au \\n()Bu
+.ie !"\\$3"" \{\
+\&\\$1	\\fI\\$2\\fP	(\\$3)
+.\".b
+.\}
+.el \{\
+.br
+.ie !"\\$2"" \{\
+\&\\$1	\\fI\\$2\\fP
+.\}
+.el \{\
+\&\\fI\\$1\\fP
+.\}
+.\}
+..
+.de AS
+.nr )A 10n
+.if !"\\$1"" .nr )A \\w'\\$1'u+3n
+.nr )B \\n()Au+15n
+.\"
+.if !"\\$2"" .nr )B \\w'\\$2'u+\\n()Au+3n
+.nr )C \\n()Bu+\\w'(in/out)'u+2n
+..
+.AS Tcl_Interp Tcl_CreateInterp in/out
+.de BS
+.br
+.mk ^y
+.nr ^b 1u
+.if n .nf
+.if n .ti 0
+.if n \l'\\n(.lu\(ul'
+.if n .fi
+..
+.de BE
+.nf
+.ti 0
+.mk ^t
+.ie n \l'\\n(^lu\(ul'
+.el \{\
+.\"	Draw four-sided box normally, but don't draw top of
+.\"	box if the box started on an earlier page.
+.ie !\\n(^b-1 \{\
+\h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.el \}\
+\h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\l'|0u-1.5n\(ul'
+.\}
+.\}
+.fi
+.br
+.nr ^b 0
+..
+.de VS
+.if !"\\$2"" .br
+.mk ^Y
+.ie n 'mc \s12\(br\s0
+.el .nr ^v 1u
+..
+.de VE
+.ie n 'mc
+.el \{\
+.ev 2
+.nf
+.ti 0
+.mk ^t
+\h'|\\n(^lu+3n'\L'|\\n(^Yu-1v\(bv'\v'\\n(^tu+1v-\\n(^Yu'\h'-|\\n(^lu+3n'
+.sp -1
+.fi
+.ev
+.\}
+.nr ^v 0
+..
+.de ^B
+.ev 2
+'ti 0
+'nf
+.mk ^t
+.if \\n(^b \{\
+.\"	Draw three-sided box if this is the box's first page,
+.\"	draw two sides but no top otherwise.
+.ie !\\n(^b-1 \h'-1.5n'\L'|\\n(^yu-1v'\l'\\n(^lu+3n\(ul'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.el \h'-1.5n'\L'|\\n(^yu-1v'\h'\\n(^lu+3n'\L'\\n(^tu+1v-\\n(^yu'\h'|0u'\c
+.\}
+.if \\n(^v \{\
+.nr ^x \\n(^tu+1v-\\n(^Yu
+\kx\h'-\\nxu'\h'|\\n(^lu+3n'\ky\L'-\\n(^xu'\v'\\n(^xu'\h'|0u'\c
+.\}
+.bp
+'fi
+.ev
+.if \\n(^b \{\
+.mk ^y
+.nr ^b 2
+.\}
+.if \\n(^v \{\
+.mk ^Y
+.\}
+..
+.de DS
+.RS
+.nf
+.sp
+..
+.de DE
+.fi
+.RE
+.sp
+..
+.de SO
+.SH "STANDARD OPTIONS"
+.LP
+.nf
+.ta 5.5c 11c
+.ft B
+..
+.de SE
+.fi
+.ft R
+.LP
+See the \\fBoptions\\fR manual entry for details on the standard options.
+..
+.de OP
+.LP
+.nf
+.ta 4c
+Command-Line Name:	\\fB\\$1\\fR
+Database Name:	\\fB\\$2\\fR
+Database Class:	\\fB\\$3\\fR
+.fi
+.IP
+..
+.de CS
+.RS
+.nf
+.ta .25i .5i .75i 1i
+.if t .ft C
+..
+.de CE
+.fi
+.if t .ft R
+.RE
+..
+.de UL
+\\$1\l'|0\(ul'\\$2
+..
+'\" END man.macros
+.TH expatapi 3 "" Tcl ""
+.BS
+.SH NAME
+CheckExpatParserObj, CHandlerSetInstall, CHandlerSetRemove,
+CHandlerSetCreate, CHandlerSetGetUserData, GetExpatInfo \- Functions to create, install and remove expat parser object
+extensions.
+.SH SYNOPSIS
+.nf
+#include <tclexpat.h>
+
+int 
+\&\fBCheckExpatParserObj\fP (\fIinterp\fR, \fInameObj\fR)  
+
+int
+\&\fBCHandlerSetInstall\fP (\fIinterp\fR, \fIexpatObj\fR, \fIhandlerSet\fR)
+
+int 
+\&\fBCHandlerSetRemove\fP (\fIinterp\fR, \fIexpatObj\fR, \fIhandlerSetName\fR)
+
+CHandlerSet*
+\&\fBCHandlerSetCreate\fP (\fIhandlerSetName\fR)
+
+CHandlerSet*
+\&\fBCHandlerSetGet\fP (\fIinterp\fR, \fIexpatObj\fR, \fIhandlerSetName\fR)
+
+void*
+\&\fBCHandlerSetGetUserData\fP (\fIinterp\fR, \fIexpatObj\fR, \fIhandlerSetName\fR)
+
+TclGenExpatInfo*
+\&\fBGetExpatInfo\fP (\fIinterp\fR, \fIexpatObj\fR)
+
+.fi
+.SH ARGUMENTS
+.AS "unsigned long" clientData
+.AP Tcl_Interp "*interp" in
+Interpreter with the expat parser object.
+.AP Tcl_Obj "*expatObj" in
+A Tcl Object containing the command name of the expat parser object to be queried or modified.
+.AP char "*handlerSetName" in
+Identifier of the handler set.
+.AP CHandlerSet "*handlerSet" in
+Pointer to a C handler set.
+.AP Tcl_Obj "*nameObj" ""
+A Tcl Object containing the name of a expat parser object
+.BE
+.SH DESCRIPTION
+.PP
+The functions described in this manual allows to add C level coded event
+handler to an tDOM Tcl expat parser objects. A tDOM Tcl expat parser object is
+able to have several Tcl scripts and C functions associated with an specific
+event. If the event occurs, first the Tcl scripts then the C functions
+associated with the event are called in turn.
+.PP
+A tDOM Tcl expat parser extension is an ordinary Tcl extension and loaded
+like every other Tcl extension. It must install at least one new Tcl Level
+command, that manipulates a tDOM Tcl expat parser object.
+.PP
+A C level handler set is a data structure like this:
+.CS
+
+typedef struct CHandlerSet {
+    struct CHandlerSet *nextHandlerSet;
+    char *name;                     /* refname of the handler set */
+    int ignoreWhiteCDATAs;          /* ignore 'white' CDATA sections */
+
+    void *userData;                 /* Handler set specific Data Structure;
+                                       the C handler set extention has to
+                                       malloc the needed structure in his
+                                       init func and has to provide a
+                                       cleanup func (to free it). */
+
+    CHandlerSet_userDataReset        resetProc;
+    CHandlerSet_userDataFree         freeProc;
+
+    /* C func for element start */
+    XML_StartElementHandler          elementstartcommand;
+    /* C func for element end */
+    XML_EndElementHandler            elementendcommand;
+    /* C func for character data */
+    XML_CharacterDataHandler         datacommand;
+    /* C func for namespace decl start */
+    XML_StartNamespaceDeclHandler    startnsdeclcommand;
+    /* C func for namespace decl end */
+    XML_EndNamespaceDeclHandler      endnsdeclcommand;
+    /* C func for processing instruction */
+    XML_ProcessingInstructionHandler picommand;
+    /* C func for default data */
+    XML_DefaultHandler               defaultcommand;
+    /* C func for unparsed entity declaration */
+    XML_NotationDeclHandler          notationcommand;
+    /* C func for external entity */
+    XML_ExternalEntityRefHandler     externalentitycommand;
+    /* C func for unknown encoding */
+    XML_UnknownEncodingHandler       unknownencodingcommand;
+    /* C func for comments */
+    XML_CommentHandler               commentCommand;
+    /* C func for "not standalone" docs */
+    XML_NotStandaloneHandler         notStandaloneCommand;
+    /* C func for CDATA section start */
+    XML_StartCdataSectionHandler     startCdataSectionCommand;
+    /* C func for CDATA section end */
+    XML_EndCdataSectionHandler       endCdataSectionCommand;
+    /* C func for !ELEMENT decl's */
+    XML_ElementDeclHandler           elementDeclCommand;
+    /* C func for !ATTLIST decl's */
+    XML_AttlistDeclHandler           attlistDeclCommand;
+    /* C func for !DOCTYPE decl's */
+    XML_StartDoctypeDeclHandler      startDoctypeDeclCommand;
+    /* C func for !DOCTYPE decl ends */
+    XML_EndDoctypeDeclHandler        endDoctypeDeclCommand;
+    /* C func for !ENTITY decls's */
+    XML_EntityDeclHandler            entityDeclCommand;
+} CHandlerSet;
+
+.CE
+.PP
+The types and the arguments of the event functions (XML_*) are exactly
+the same like the expat lib handler functions and described in detail in
+expat.h, see there. The extension has only to provided the handler functions
+needed; it's perfectly OK to leave unused handler slots as the are (they are
+initialized to NULL by CHandlerSetCreate).
+.PP
+The \fIname\fR of this structure is used to identify the handler set.
+.PP
+If the flag \fIignoreWhiteCDATAs\fR is set, element content which
+contain only whitespace isn't reported with the datacommand.
+.PP
+The \fIuserData\fR element points to the handler set specific data. The
+event handler functions are called with this pointer as userData argument.
+.PP
+\&\fIresetProc\fR and \fIfreeProc\fR must have arguments that match the
+type
+.CS
+void (Tcl_Interp *interp, void *userData)
+.CE
+.PP
+\&\fIresetProc\fR is called in case the parser is reseted with
+\&\fB<parserObj> reset\fR and should do any necessary cleanup and
+reinitializing to prepare the C handler set for a new XML document. The
+\&\fIfreeProc\fR is called, if the parser is deleted and should do memory
+cleanup etc.
+.PP
+\&\fICHandlerSetCreate\fR create a C handler set, gives it the name
+\&\fIname\fR and initializes any other element with NULL.
+.PP
+\&\fICHandlerSetInstall\fR adds the \fIhandlerSet\fR to the parser
+\&\fIexpatObj\fR. The parser has to be a tDOM Tcl expat parser object in the
+interpreter \fIinterp\fR. The name of the C handler set has to be unique for
+the parser. Returns 0 in case of success. Returns 1 if \fIexpatObj\fR isn't a
+parser object in the interpreter \fIinterp\fR. Returns 2 if this parser has
+already a C handler set with the handlerSet name.
+.PP
+\&\fICHandlerSetRemove\fR removes the C handler set referenced by the
+\&\fIhandlerSetName\fR from the parser \fIexpatObj\fR. The parser has to be a
+tDOM Tcl expat parser object in the interpreter
+\&\fIinterp\fR. \fICHandlerSetRemove\fR calls the freeProc function of the C
+handler set structure, removes the handler set from the C handler set list and
+frees the handler structure. Returns 0 in case of success. Returns 1 if
+\&\fIexpatObj\fR isn't a parser object in the interpreter \fIinterp\fR. Returns
+2 if this parser hasn't a C handler set named \fIhandlerSetName\fR.
+.PP
+\&\fICheckExpatParserObj\fR returns 1, if \fInameObj\fR is a tDOM Tcl expat
+parser object in the interpreter \fIinterp\fR, otherwise it returns
+0. Example:
+.CS
+
+int
+TclExampleObjCmd(dummy, interp, objc, objv)
+     ClientData dummy;
+     Tcl_Interp *interp;
+     int objc;
+     Tcl_Obj *CONST objv[];
+{
+    char          *method;
+    CHandlerSet   *handlerSet;
+    int            methodIndex, result;
+    simpleCounter *counter;
+    
+
+    static char *exampleMethods[] = {
+        "enable", "getresult", "remove",
+        NULL
+    };
+    enum exampleMethod {
+        m_enable, m_getresult, m_remove
+    };
+
+    if (objc != 3) {
+        Tcl_WrongNumArgs (interp, 1, objv, example_usage);
+        return TCL_ERROR;
+    }
+
+    if (!CheckExpatParserObj (interp, objv[1])) {
+        Tcl_SetResult (interp, "First argument has to be a expat parser object", NULL);
+        return TCL_ERROR;
+    }
+    /* ... */
+
+.CE
+.PP
+\&\fICHandlerSetGet\fR returns a pointer to the C handler Set referenced
+by the name \fIhandlerSetName\fR of the parser object
+\&\fIexpatObj\fR. \fIexpatObj\fR has to be an expat parser object in the
+interpreter \fIinterp\fR. Returns NULL in case of error.
+.PP
+\&\fICHandlerSetGetUserData\fR returns a pointer to the userData of the C
+handler set referenced by the name \fIhandlerSetName\fR of the parser object
+\&\fIexpatObj\fR. \fIexpatObj\fR has to be an expat parser object in the
+interpreter \fIinterp\fR. Returns NULL in case of error.
+.PP
+\&\fIGetExpatInfo\fR Is a helper function that returns a pointer to the
+TclGenExpatInfo structure of the tDOM Tcl expat parser object
+\&\fIexpatObj\fR. The \fIexpatObj\fR has to be a tDOM Tcl expat parser object
+in the interpreter \fIinterp\fR. This is most useful, to set the application
+status of the parser object.
+.PP
+See the simple but full functionally example in the extensions/example
+dir or the more complex example tnc in the extensions/tnc dir (a simple DTD
+validation extension).
+.SH "SEE ALSO"
+expat
+.SH KEYWORDS
+C handler set

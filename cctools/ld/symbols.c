@@ -2534,6 +2534,24 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 		    }
 		}
 		if(resolve_flat == TRUE){
+		    /*
+		     * The new linking architecture model when building a
+		     * two-level namespace image states "with two level
+		     * namespace, there is no need to resolve undefines in
+		     * dependent dylibs".  So if we are building a two-level
+		     * namespace image even when linking against a
+		     * flat-namespace dylib, that dylib's undefined references
+		     * are not to be resolved.
+		     *
+		     * This of course has the architectural flaw that error
+		     * checking is lost and we could be building a broken
+		     * binary.
+		     */
+		    if(twolevel_namespace == TRUE &&
+		       (((struct mach_header *)(cur_obj->obj_addr))->
+			  flags & MH_TWOLEVEL) != MH_TWOLEVEL){
+			continue; /* with for loop */
+		    }
 		    /* lookup the symbol and see if it has already been seen */
 		    hash_pointer = lookup_symbol(symbol_name);
 		    if(*hash_pointer == NULL){
@@ -2560,18 +2578,35 @@ printf("merging in coalesced symbol %s\n", merged_symbol->nlist.n_un.n_name);
 		     * dylib module is being referenced and load it.
 		     */
 		    /* 
-		     * With two level namespace, there is no need to resolve undefines in dependent dylibs.
-		     * Their location was fixed when that dylib was built.
-		     * The check here is that any undefine which already has an ordinal and the ordinal
-		     * refers to a library that can't be accessed by the being-linked image, then ignore it
+		     * With two level namespace, there is no need to resolve
+		     * undefines in dependent dylibs.  Their location was fixed 
+		     * when that dylib was built.  The check here is that any
+		     * undefine which already has an ordinal and the ordinal
+		     * refers to a library that can't be accessed by the
+		     * being-linked image, then ignore it
+		     *
+		     * The comment above, from the original change, does not
+		     * consider the architectural need to resolve undefines in
+		     * dependent dylibs for error checking, and to avoid
+		     * building broken programs that could be detected at build
+		     * time instead of letting that happen at runtime.  Which
+		     * could be very late do to lazy binding.
+		     *
+		     * The logic below also seems flawed in that undefined
+		     * references that are marked to be looked up dynamically
+		     * are still searched. But may not be found as the
+		     * indirectly referenced dylibs are now removed from the
+		     * list of dylibs to be searched.
 		     */
-		    library_ordinal = GET_LIBRARY_ORDINAL(symbols[refs[j].isym].n_desc);
-		    if((library_ordinal != SELF_LIBRARY_ORDINAL) && (library_ordinal != DYNAMIC_LOOKUP_ORDINAL)){
-			dep = dynamic_library->dependent_images[library_ordinal - 1];
-			if (dep->definition_obj->library_ordinal == 0)
+		    library_ordinal = GET_LIBRARY_ORDINAL(
+						symbols[refs[j].isym].n_desc);
+		    if((library_ordinal != SELF_LIBRARY_ORDINAL) &&
+		       (library_ordinal != DYNAMIC_LOOKUP_ORDINAL)){
+			dep = dynamic_library->dependent_images[
+							library_ordinal - 1];
+			if(dep->definition_obj->library_ordinal == 0)
 			    continue; /* with for loop */
 		    }
-			    
 		    merged_symbol = allocate(sizeof(struct merged_symbol));
 		    memset(merged_symbol, '\0', sizeof(struct merged_symbol));
 

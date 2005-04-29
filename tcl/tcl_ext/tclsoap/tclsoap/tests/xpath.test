@@ -1,0 +1,160 @@
+# xpath.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the SOAP::xpath package.
+#
+# @(#)$Id: xpath.test,v 1.4 2001/10/07 22:28:08 patthoyts Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require SOAP::xpath}]} {
+    catch {puts stderr "Cannot load the SOAP::xpath package"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+# Create a SOAP reply as a test XML document.
+
+proc get_soap_time_doc {} {
+    set doc [dom::DOMImplementation create]
+    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
+    dom::element setAttribute $env \
+	    "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
+    dom::element setAttribute $env \
+	    "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
+    dom::element setAttribute $env \
+	    "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
+    set bod [dom::document createElement $env "SOAP-ENV:Body"]
+    set cmd [dom::document createElement $bod "ns1:time"]
+    dom::element setAttribute $cmd "xmlns:ns1" "urn:zsplat-Time"
+    dom::element setAttribute $cmd \
+	    "SOAP-ENV:encodingStyle" "http://schemas.xmlsoap.org/soap/encoding/"
+    set par [dom::document createElement $cmd "return"]
+    dom::element setAttribute $par "xsi:type" "xsd:string"
+    dom::document createTextNode $par [clock format [clock seconds]]
+    return $doc
+}
+
+proc get_soap_request_doc {} {
+    set doc [dom::DOMImplementation create]
+    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
+    dom::element setAttribute $env \
+	    "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
+    dom::element setAttribute $env \
+	    "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
+    dom::element setAttribute $env \
+	    "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
+    set bod [dom::document createElement $env "SOAP-ENV:Body"]
+
+    set cmd [dom::document createElement $bod "ns1:test"]
+    dom::element setAttribute $cmd "xmlns:ns1" "urn:zsplat-Test"
+    dom::element setAttribute $cmd \
+	    "SOAP-ENV:encodingStyle" "http://schemas.xmlsoap.org/soap/encoding/"
+
+    set par [dom::document createElement $cmd "name"]
+    dom::element setAttribute $par "xsi:type" "xsd:string"
+    dom::document createTextNode $par "A Name"
+
+    set par [dom::document createElement $cmd "number"]
+    dom::element setAttribute $par "xsi:type" "xsd:integer"
+    dom::document createTextNode $par 10
+    return $doc
+}
+
+# -------------------------------------------------------------------------
+
+# XPath querying
+
+if { [catch {set doc [get_soap_time_doc]} msg] } {
+    error "failed to create test document: $msg"
+}
+
+test xpath-1.1 {Simple element name} {
+    global doc
+    catch {SOAP::xpath::xpath $doc "/Envelope"}
+} {0}
+
+test xpath-1.2 {Qualified element name} {
+    global doc
+    catch {SOAP::xpath::xpath $doc "/SOAP-ENV:Envelope"} msg
+} {0}
+
+test xpath-1.3 {Fully qualified element name} {
+    global doc
+    catch {SOAP::xpath::xpath $doc "/Envelope/Body/urn:zsplat-Time:time"}
+} {0}
+
+catch {unset doc}
+
+test xpath-2.1 {Evil element finding tests} {
+    global doc
+    set doc [dom::DOMImplementation parse {<?xml version="1.0" ?>
+<a>
+  <b>
+    <c>
+      <d>
+        <e>Hello</e>
+      </d>
+      <d>
+        <e>World</e>
+      </d>
+    </c>
+  </b>
+</a>}]
+    if {![catch {SOAP::xpath::xpath -node $doc "/a/b/c"} result]} {
+        set result [llength $result]
+    }
+    set result
+} {1}
+
+test xpath-2.2 {Test finding multiple matching sub-elements} {
+    global doc
+    if {![catch {SOAP::xpath::xpath -node $doc "/a/b/c/d"} result]} {
+        set result [llength $result]
+    }
+    set result
+} {2}
+
+test xpath-2.3 {Test finding multiple matching sub-sub-elements} {
+    global doc
+    if {![catch {SOAP::xpath::xpath -node $doc "/a/b/c/d/e"} result]} {
+        set result [llength $result]
+    }
+    set result
+} {2}
+
+catch {unset doc}
+
+# -------------------------------------------------------------------------
+
+# xmlnsSplit
+
+test xmlnsSplit-1.1 {xmlnsSplit with a fully qualified element name} {
+    SOAP::xpath::xmlnsSplit urn:zsplat-Time:time
+} {urn:zsplat-Time time}
+
+test xmlnsSplit-1.2 {xmlnsSplit with a qualified element name} {
+    SOAP::xpath::xmlnsSplit ns1:time
+} {ns1 time}
+
+test xmlnsSplit-1.3 {xmlnsSplit with an unqualified element name} {
+    SOAP::xpath::xmlnsSplit time
+} {{} time}
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

@@ -1,0 +1,1059 @@
+# Process this file with autoconf to produce a configure script
+AC_INIT()
+AC_CONFIG_SRCDIR([configure.in])
+AC_CONFIG_AUX_DIR(config)
+
+# Checks for system type
+AC_CANONICAL_TARGET
+
+CYGWIN=no
+MINGW32=no
+DARWIN=no
+case "${target_os}" in
+  *cygwin* )
+	CYGWIN=yes
+	DEFAULT_FONTPATH="C:/WINDOWS/FONTS;C:/WINNT/Fonts;C:/winnt/fonts"
+	PATHSEPARATOR=";"
+	;;
+  *mingw32* )
+	MINGW32=yes
+	DEFAULT_FONTPATH="C:/WINDOWS/FONTS;C:/WINNT/Fonts;C:/winnt/fonts"
+	PATHSEPARATOR=";"
+	;;
+  *darwin* )
+	DEFAULT_FONTPATH="~/Library/Fonts:/Library/Fonts:/Network/Library/Fonts:/System/Library/Fonts"
+	PATHSEPARATOR=":"
+	;;
+  * ) # This sucks!  Whatever happened to standards for file system layout?
+	DEFAULT_FONTPATH="/usr/X11R6/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/truetype:/usr/X11R6/lib/X11/fonts/TTF:/usr/share/fonts/TrueType:/usr/share/fonts/truetype:/usr/openwin/lib/X11/fonts/TrueType:/usr/X11R6/lib/X11/fonts/Type1:/usr/common/share/fonts/ttf";
+	PATHSEPARATOR=":"
+	;;
+esac
+AC_SUBST(CYGWIN)
+AC_SUBST(MINGW32)
+AC_SUBST(DARWIN)
+AC_DEFINE_UNQUOTED(DEFAULT_FONTPATH,"$DEFAULT_FONTPATH",Path to TrueType fonts.)
+AC_DEFINE_UNQUOTED(PATHSEPARATOR,"$PATHSEPARATOR",Path separator character.)
+
+# AM_CONFIG_HEADER must precede AM_INIT_AUTOMAKE !! Why???
+AM_CONFIG_HEADER(config.h)
+
+AM_INIT_AUTOMAKE(graphviz, 1.12)
+
+AC_DEFINE_UNQUOTED(BUILDDATE,"`date -u`",[Date (usually date of extraction from CVS).])
+BUILDDATE="`date -u`"
+AC_SUBST(BUILDDATE)
+
+AC_PREFIX_DEFAULT([/usr/local])
+if test "x${prefix}" = "xNONE"; then
+	prefix=${ac_default_prefix}
+	AC_SUBST(prefix)
+fi
+if test "x${prefix}" != "x/usr"; then
+	CPPFLAGS="$CPPFLAGS -I${prefix}/include"
+	LDFLAGS="$LDFLAGS -L${prefix}/lib"
+fi
+
+# Set of all available languages
+# ALL_LINGUAS=""
+
+# Build shared libs only
+AC_DISABLE_STATIC
+
+# checks for programs
+AC_PROG_CC
+AC_PROG_CXX
+AC_ISC_POSIX
+AM_PROG_LEX
+AC_PROG_YACC
+AC_PROG_AWK
+# AM_PROG_LIBTOOL includes check for ranlib and supercedes AC_CHECK_RANLIB
+# AC_PROG_RANLIB
+AM_PROG_LIBTOOL
+AC_PROG_INSTALL
+AC_PROG_LN_S
+AC_CHECK_PROG(SED,sed,sed,false)
+AC_CHECK_PROG(SORT,sort,sort,false)
+AC_CHECK_PROG(KSH,ksh,ksh,sh)
+
+# are we building for windows?
+# (these tests must follow AC_ISC_POSIX)
+#AC_CYGWIN
+#AC_MINGW32
+
+BUILD_DIR=`pwd`
+cd ${srcdir}
+TOP_DIR=`pwd`
+cd ${BUILD_DIR}
+
+AC_SUBST(TOP_DIR)
+AC_SUBST(BUILD_DIR)
+
+dnl -----------------------------------
+dnl Check for various typedefs and provide substitutes if they don't exist.
+                                                                                
+AC_TYPE_MODE_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_TYPE_UID_T
+
+dnl -----------------------------------
+dnl dynagraph requires C++ support beyond RedHat 7.2
+AC_ARG_ENABLE(dynagraph,
+  [AC_HELP_STRING([--enable-dynagraph],
+                  [build dynagraph code])])
+AM_CONDITIONAL([ENABLE_DYNAGRAPH], [test "x$enable_dynagraph" = "xyes"])
+
+dnl -----------------------------------
+dnl gvre plugins
+AC_ARG_ENABLE(gvrender,
+  [AC_HELP_STRING([--enable-gvrender],
+                  [build gvrender plugins])])
+AM_CONDITIONAL([ENABLE_GVRENDER], [test "x$enable_gvrender" = "xyes"])
+
+dnl -----------------------------------
+dnl old codegens
+AC_ARG_ENABLE(codegens,
+  [AC_HELP_STRING([--disable-codegens],
+                  [don't build old codegens])])
+if test "x$enable_codegens" = "xno"; then
+  AC_DEFINE(ENABLE_CODEGENS,0,[Set to 0 if you don't want the old codegens])
+else
+  AC_DEFINE(ENABLE_CODEGENS,1,[Set to 0 if you don't want the old codegens])
+fi
+AM_CONDITIONAL([ENABLE_CODEGENS], [test "x$enable_codegens" != "xno"])
+
+dnl -----------------------------------
+dnl DMALLOC support for debugging
+AC_ARG_WITH(dmalloc,
+	 [  --with-dmalloc          use dmalloc for debugging memory use],
+	DMALLOC=true,)
+
+if test "x${DMALLOC}" != "x"; then
+	LIBS="$LIBS -ldmalloc"
+	CFLAGS="$CFLAGS -DDMALLOC -g -O0"
+fi
+
+dnl -----------------------------------
+dnl ElectricFence support for debugging
+AC_ARG_WITH(efence,
+	 [  --with-efence           use efence for debugging memory use],
+	EFENCE=true,)
+
+if test "x${EFENCE}" != "x"; then
+	LIBS="$LIBS -lefence"
+fi
+
+dnl -----------------------------------
+dnl Workaround for native compilers
+dnl  HP  : http://bugs.gnome.org/db/31/3163.html
+dnl  DEC : Enable NaN/Inf
+dnl
+if test "${GCC}" != "yes" ; then
+    case "${build_os}" in
+        *-*-hpux* )
+	    CFLAGS="${CFLAGS} -Wp,-H30000"
+            ;;
+        *-dec-osf* )
+            CFLAGS="${CFLAGS} -ieee"
+            ;;
+	*-apple-darwin* )
+	    CFLAGS="${CFLAGS} -fno-common"
+	    ;;
+	*-sgi-irix* )
+	    CFLAGS="${CFLAGS} -woff 1155"
+	    ;;
+    esac
+else
+    case "${build_os}" in
+	*-dec-osf* )
+	    CFLAGS="${CFLAGS} -mieee"
+	    ;;
+        alpha*-*-linux* )
+            CFLAGS="${CFLAGS} -mieee"
+            ;;
+	*-apple-darwin* )
+	    CFLAGS="${CFLAGS} -fno-common"
+	    ;;
+    esac
+    AC_MSG_CHECKING(if gcc supports -Wno-unknown-pragmas)
+    AC_TRY_COMPILE(
+        #include <stdio.h>
+        ,
+	fprintf(stdout,"Hello,World!\n");
+        ,
+	AC_MSG_RESULT(yes)
+        CFLAGS="${CFLAGS} -Wall -Wno-unknown-pragmas"
+        CXXFLAGS="${CXXFLAGS} -Wall -Wno-unknown-pragmas"
+        ,
+	AC_MSG_RESULT(no)
+        )
+fi
+
+# AC_MSG_CHECKING(if cc supports -fno-common)
+# AC_TRY_COMPILE(
+#     #include <stdio.h>
+#     ,
+#     fprintf(stdout,"Hello,World!\n");
+#     ,
+#     AC_MSG_RESULT(yes)
+#     CFLAGS="${CFLAGS} -fno-common"
+#     ,
+#     AC_MSG_RESULT(no)
+# )
+
+dnl -----------------------------------
+dnl INCLUDES and LIBS for TCL
+AC_ARG_WITH(tclsh,
+	 [  --with-tclsh=PROG       build graphviz for specific tclsh],
+	TCLSH=$withval,)
+if test "x$TCLSH" = "x"; then
+	AC_PATH_PROG(TCLSH,tclsh8.4)
+	if test "x$TCLSH" = "x"; then
+		AC_PATH_PROG(TCLSH,tclsh8.3)
+		if test "x$TCLSH" = "x"; then
+			AC_PATH_PROG(TCLSH,tclsh)
+		fi
+	fi
+fi
+TCL_VERSION_FOUND=`echo 'puts [[info tclversion]]' | $TCLSH`
+
+# can't assume ksh on all architectures
+# TCLSH_EXEC_PREFIX=${TCLSH%%/bin/tclsh.*}
+TCLSH_EXEC_PREFIX=`echo $TCLSH|sed -e 's%/bin/tclsh.*$%%'`
+
+if test -f ${TCLSH_EXEC_PREFIX}/include/tcl${TCL_VERSION_FOUND}/tcl.h; then
+	TCL_INCLUDES="-I${TCLSH_EXEC_PREFIX}/include/tcl${TCL_VERSION_FOUND} -I${TCLSH_EXEC_PREFIX}/include/tcl${TCL_VERSION_FOUND}/generic"
+else
+if test "x${TCLSH_EXEC_PREFIX}" != "x/usr" -a -f ${TCLSH_EXEC_PREFIX}/include/tcl.h; then
+	TCL_INCLUDES=-I${TCLSH_EXEC_PREFIX}/include
+fi
+fi
+if test "x$TCL_INCLUDES" != "x" ; then
+	AC_MSG_RESULT([using tcl headers from $TCL_INCLUDES])
+fi
+AC_SUBST(TCL_INCLUDES)
+
+# Some systems don't have Tcl.  Don't build
+# the Tcl products if we don't have the library.
+if test -f ${TCLSH_EXEC_PREFIX}/lib/tcl${TCL_VERSION_FOUND}/tclConfig.sh; then
+	TCLCONFIG=${TCLSH_EXEC_PREFIX}/lib/tcl${TCL_VERSION_FOUND}/tclConfig.sh
+else
+if test -f ${TCLSH_EXEC_PREFIX}/lib/tclConfig.sh; then
+	TCLCONFIG=${TCLSH_EXEC_PREFIX}/lib/tclConfig.sh
+fi
+fi
+
+if test "x$TCLCONFIG" != "x"; then
+    AC_MSG_RESULT([using $TCLCONFIG])
+    file=${TCLCONFIG}
+    . $file
+    # TCL STUBS support is required
+    if test "${TCL_SUPPORTS_STUBS}" = "1"; then
+#        TCL_SUBDIRS="tclstubs tclhandle gdtclft tcldot tcldgr tcldgl tclpathplan"
+#        TCL_PKGINDEX="gdtclft/pkgIndex.tcl tcldot/pkgIndex.tcl tcldgr/pkgIndex.tcl tcldgl/pkgIndex.tcl tclpathplan/pkgIndex.tcl"
+        TCL_SUBDIRS="tclstubs tclhandle gdtclft tcldot tclpathplan"
+        TCL_PKGINDEX="gdtclft/pkgIndex.tcl tcldot/pkgIndex.tcl tclpathplan/pkgIndex.tcl"
+    else
+#        AC_MSG_WARN([Tcl does not have STUBs support, perhaps it is too old? The packages: "gdtclft tcldot tcldgr tcldgl tclpathplan" will not be built])
+        AC_MSG_WARN([Tcl does not have STUBs support, perhaps it is too old? The packages: "gdtclft tcldot tclpathplan" will not be built])
+        TCL_SUBDIRS=""
+        TCL_PKGINDEX=""
+    fi
+else
+#    AC_MSG_WARN([Unable to find tclConfig.sh. The packages: "gdtclft tcldot tcldgr tcldgl tclpathplan" will not be built])
+    AC_MSG_WARN([Unable to find tclConfig.sh. The packages: "gdtclft tcldot tclpathplan" will not be built])
+    TCL_SUBDIRS=""
+    TCL_PKGINDEX=""
+fi
+AM_CONDITIONAL([WITH_TCL], [test "X${TCL_SUPPORTS_STUBS}" = "X1"])
+AC_SUBST(TCL_PKGINDEX)
+
+if test "${TCL_SUPPORTS_STUBS}" = "1"; then
+    TCL_CFLAGS="${TCL_CFLAGS} -DUSE_TCL_STUBS"
+fi
+AC_SUBST(TCLSH_EXEC_PREFIX)
+AC_SUBST(TCL_VERSION)
+AC_SUBST(TCL_MAJOR_VERSION)
+AC_SUBST(TCL_MINOR_VERSION)
+AC_SUBST(TCL_PATCH_LEVEL)
+AC_SUBST(TCL_CC)
+AC_SUBST(TCL_CXX)
+AC_SUBST(TCL_CFLAGS)
+AC_SUBST(TCL_CXXFLAGS)
+AC_SUBST(TCL_DEFS)
+AC_SUBST(TCL_DBGX)
+AC_SUBST(TCL_CFLAGS_DEBUG)
+AC_SUBST(TCL_CFLAGS_OPTIMIZE)
+AC_SUBST(TCL_SHARED_BUILD)
+AC_SUBST(TCL_LIB_FILE)
+AC_SUBST(TCL_NEEDS_EXP_FILE)
+AC_SUBST(TCL_EXPORT_FILE_SUFFIX)
+AC_SUBST(TCL_NEEDS_EXP_FILE)
+AC_SUBST(TCL_EXPORT_FILE_SUFFIX)
+AC_SUBST(TCL_LIBS)
+AC_SUBST(TCL_PREFIX)
+AC_SUBST(TCL_EXEC_PREFIX)
+AC_SUBST(TCL_SHLIB_CFLAGS)
+AC_SUBST(TCL_SHLIB_CXXFLAGS)
+AC_SUBST(TCL_EXTRA_CFLAGS)
+AC_SUBST(TCL_SHLIB_LD)
+AC_SUBST(TCL_SHLIB_LD_LIBS)
+AC_SUBST(TCL_SHLIB_SUFFIX)
+AC_SUBST(TCL_DL_LIBS)
+AC_SUBST(TCL_LD_FLAGS)
+AC_SUBST(TCL_LD_SEARCH_FLAGS)
+AC_SUBST(TCL_COMPAT_OBJS)
+AC_SUBST(TCL_RANLIB)
+AC_SUBST(TCL_LIB_FLAG)
+AC_SUBST(TCL_BUILD_LIB_SPEC)
+AC_SUBST(TCL_LIB_SPEC)
+AC_SUBST(TCL_LIB_VERSIONS_OK)
+AC_SUBST(TCL_SHARED_LIB_SUFFIX)
+AC_SUBST(TCL_UNSHARED_LIB_SUFFIX)
+AC_SUBST(TCL_SRC_DIR)
+AC_SUBST(TCL_PACKAGE_PATH)
+AC_SUBST(TCL_SUPPORTS_STUBS)
+AC_SUBST(TCL_STUB_LIB_FILE)
+AC_SUBST(TCL_STUB_LIB_FLAG)
+AC_SUBST(TCL_BUILD_STUB_LIB_SPEC)
+AC_SUBST(TCL_STUB_LIB_SPEC)
+AC_SUBST(TCL_BUILD_STUB_LIB_PATH)
+AC_SUBST(TCL_STUB_LIB_PATH)
+
+dnl -----------------------------------
+dnl INCLUDES and LIBS for TK
+AC_ARG_WITH(wish,
+	 [  --with-wish=PROG        build graphviz for specific wish],
+	WISH=$withval,)
+if test "x$WISH" = "x"; then
+	AC_PATH_PROG(WISH,wish8.4)
+	if test "x$WISH" = "x"; then
+		AC_PATH_PROG(WISH,wish8.3)
+		if test "x$WISH" = "x"; then
+			AC_PATH_PROG(WISH,wish)
+		fi
+	fi
+fi
+
+
+#TK_VERSION_FOUND=`echo 'puts [[info tkversion]]' | $WISH`
+#
+# No such var as tkversion.  Use tclversion instead.
+TK_VERSION_FOUND=${TCL_VERSION_FOUND}
+
+# can't assume ksh on all architectures
+# WISH_EXEC_PREFIX=${WISH%%/bin/tclsh.*}
+WISH_EXEC_PREFIX=`echo $WISH|sed -e 's%/bin/wish.*$%%'`
+
+if test -f ${WISH_EXEC_PREFIX}/include/tk${TK_VERSION_FOUND}/tk.h; then
+	TK_INCLUDES="-I${WISH_EXEC_PREFIX}/include/tk${TK_VERSION_FOUND} -I${WISH_EXEC_PREFIX}/include/tk${TK_VERSION_FOUND}/generic"
+else
+if test "x${WISH_EXEC_PREFIX}" != "x/usr" -a -f ${WISH_EXEC_PREFIX}/include/tk.h; then
+	TK_INCLUDES=-I${WISH_EXEC_PREFIX}/include
+fi
+fi
+if test "x$TK_INCLUDES" != "x" ; then
+	AC_MSG_RESULT([using tk headers from $TK_INCLUDES])
+fi
+AC_SUBST(TK_INCLUDES)
+
+# Some systems don't have Tcl.  Don't build
+# Some systems have Tcl, but not TK.  Don't build
+# the Tk products if we don't have the library.
+if test -f ${WISH_EXEC_PREFIX}/lib/tk${TK_VERSION_FOUND}/tkConfig.sh; then
+	TKCONFIG=${WISH_EXEC_PREFIX}/lib/tk${TK_VERSION_FOUND}/tkConfig.sh
+else
+if test -f ${WISH_EXEC_PREFIX}/lib/tkConfig.sh; then
+	TKCONFIG=${WISH_EXEC_PREFIX}/lib/tkConfig.sh
+fi
+fi
+
+if test "x$TKCONFIG" != "x"; then
+    AC_MSG_RESULT([using $TKCONFIG])
+    file=${TKCONFIG}
+    . $file
+    if test "${TCL_SUPPORTS_STUBS}" = "1"; then
+        TK_PKGINDEX="tkspline/pkgIndex.tcl"
+    else
+        AC_MSG_WARN([Tcl does not have STUBs support, so neither does Tk. The packages: "tkspline" will not be built])
+        TK_PKGINDEX=""
+    fi
+else
+    AC_MSG_WARN([Unable to find tkConfig.sh. The package "tkspline" will not be built])
+    TK_PKGINDEX=""
+fi
+AM_CONDITIONAL([WITH_TK], [test "X${TCL_SUPPORTS_STUBS}" = "X1"])
+AC_SUBST(TK_PKGINDEX)
+
+# NB. No TK_SUPPORTS_STUBS set by tkConfig.sh
+if test "${TCL_SUPPORTS_STUBS}" = "1"; then
+    TK_CFLAGS="${TK_CFLAGS} -DUSE_TK_STUBS"
+fi
+
+AC_SUBST(TK_VERSION)
+AC_SUBST(TK_MAJOR_VERSION)
+AC_SUBST(TK_MINOR_VERSION)
+AC_SUBST(TK_PATCH_LEVEL)
+AC_SUBST(TK_DEFS)
+AC_SUBST(TK_SHARED_BUILD)
+AC_SUBST(TK_LIB_FILE)
+AC_SUBST(TK_LIBS)
+AC_SUBST(TK_PREFIX)
+AC_SUBST(TK_EXEC_PREFIX)
+AC_SUBST(TK_XINCLUDES)
+AC_SUBST(TK_XLIBSW)
+AC_SUBST(TK_BUILD_LIB_SPEC)
+AC_SUBST(TK_LIB_SPEC)
+AC_SUBST(TK_SRC_DIR)
+AC_SUBST(TK_CFLAGS)
+AC_SUBST(TK_SUPPORTS_STUBS)
+AC_SUBST(TK_STUB_LIB_FILE)
+AC_SUBST(TK_STUB_LIB_FLAG)
+AC_SUBST(TK_BUILD_STUB_LIB_SPEC)
+AC_SUBST(TK_STUB_LIB_SPEC)
+AC_SUBST(TK_BUILD_STUB_LIB_PATH)
+AC_SUBST(TK_STUB_LIB_PATH)
+
+dnl -----------------------------------
+dnl Support for generic "extra" search paths for includes and libraries
+AC_ARG_WITH(extraincludedir,
+  [  --with-extraincludedir=DIR use extra includes from DIR],
+  [EXTRAINCLUDEDIR=$withval
+   CPPFLAGS="$CPPFLAGS -I$withval"],)
+
+AC_ARG_WITH(extralibdir,
+  [  --with-extralibdir=DIR  use extra libraries from DIR],
+  LDFLAGS="$LDFLAGS -L$withval",)
+
+dnl -----------------------------------
+dnl Checks for -lm library
+AC_CHECK_LIB(m,main)
+
+dnl -----------------------------------
+dnl ...borrow test for -lsocket -lnsl from tk8.3.3/unix/configure.in
+save_LIBS=$LIBS
+LIBS=
+tk_checkBoth=0
+AC_CHECK_FUNC(connect, tk_checkSocket=0, tk_checkSocket=1)
+if test "$tk_checkSocket" = 1; then
+  AC_CHECK_LIB(socket, main, LIBS="$LIBS -lsocket", tk_checkBoth=1)
+fi
+if test "$tk_checkBoth" = 1; then
+  tk_oldLibs=$LIBS
+  LIBS="$LIBS -lsocket -lnsl"
+  AC_CHECK_FUNC(accept, tk_checkNsl=0, [LIBS=$tk_oldLibs])
+fi  
+AC_CHECK_FUNC(gethostbyname, , [AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"])])
+SOCKET_LIBS=$LIBS
+AC_SUBST(SOCKET_LIBS)
+LIBS=$save_LIBS
+dnl -----------------------------------
+dnl Don't compile X programs (and emit a warning message)
+dnl if X isn't available.
+dnl Checks for X header files.
+AC_PATH_XTRA
+if test "X$no_x" = Xyes; then
+  AC_MSG_WARN([X11 not available.])
+  X_SUBDIRS=""
+fi
+AM_CONDITIONAL([WITH_X], [test "X$no_x" != "Xyes"])
+dnl -----------------------------------
+dnl INCLUDES and LIBS for XPM
+XPM_LIBS=
+XPM_INCLUDES=
+#
+# gd only inputs from xbm files, no output is provided.
+# lefty builds apparently need -lXpm on CygWin
+#
+save_INCLUDES=$INCLUDES
+save_LIBS=$LIBS
+if test -f "${x_includes}/xpm.h"; then
+XPM_INCLUDES="-I${x_includes}"
+else
+if test -f "${x_includes}/X11/xpm.h"; then
+XPM_INCLUDES="-I${x_includes}/X11"
+fi
+fi
+XPM_LIBS=$X_LIBS
+if test "$no_x" = yes; then
+  AC_MSG_WARN(No X, so no XPM support.)
+  XPM_INCLUDES=""
+  XPM_LIBS=""
+else
+  AC_ARG_WITH(Xpmincludedir,
+    [  --with-Xpmincludedir=DIR use Xpm includes from DIR],
+    XPM_INCLUDES="-I$withval",)
+  AC_ARG_WITH(Xpmlibdir,
+    [  --with-Xpmlibdir=DIR    use Xpm libraries from DIR],
+    XPM_LIBS="-L$withval",)
+  INCLUDES="$INCLUDES $XPM_INCLUDES"
+    LIBS="$LIBS $XPM_LIBS -lXpm -lX11 $SOCKET_LIBS"
+  AC_CHECK_LIB(Xpm,main,HAVE_LIBXPMFORLEFTY=1,AC_MSG_WARN(XPM library not available. Only required by lefty on CygWin platforms.))
+  if test "$ac_cv_lib_Xpm_main" = yes; then
+    XPM_LIBS="$XPM_LIBS -lXpm"
+  else
+    XPM_INCLUDES=""
+    XPM_LIBS=""
+  fi
+fi
+AC_SUBST(XPM_INCLUDES)
+AC_SUBST(XPM_LIBS)
+INCLUDES=$save_INCLUDES
+LIBS=$save_LIBS
+dnl ----------------------------------
+dnl INCLUDES and LIBS for FREETYPE
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_PATH_PROG(FREETYPE_CONFIG,freetype-config)
+if [ test -n "$FREETYPE_CONFIG" ]; then
+        FT_INCLUDES=`$FREETYPE_CONFIG --cflags`
+        FT_EXEC_PREFIX=`$FREETYPE_CONFIG --exec-prefix`
+	if test "${FT_EXEC_PREFIX}/lib" != "/usr/lib" ; then
+  		FT_LIBS="-L${FT_EXEC_PREFIX}/lib"
+ 	fi
+else
+	if test -f "/usr/include/freetype2/freetype/freetype.h"; then
+		FT_INCLUDES="-I/usr/include/freetype2"
+	else
+	if test -f "$EXTRAINCLUDEDIR/freetype2/freetype/freetype.h"; then
+		FT_INCLUDES="-I$EXTRAINCLUDEDIR/freetype2"
+	else
+	if test -f "/usr/include/freetype1/freetype/freetype.h"; then
+		FT_INCLUDES="-I/usr/include/freetype1"
+	else
+	if test -f "$EXTRAINCLUDEDIR/freetype1/freetype/freetype.h"; then
+		FT_INCLUDES="-I$EXTRAINCLUDEDIR/freetype1"
+	else
+               	FT_INCLUDES=""
+	fi
+	fi
+	fi
+	fi
+	
+fi
+AC_ARG_WITH(freetypeincludedir,
+	[  --with-freetypeincludedir=DIR use FREETYPE includes from DIR],
+	FT_INCLUDES="-I$withval")
+CPPFLAGS="$CPPFLAGS $FT_INCLUDES"
+AC_ARG_WITH(freetypelibdir,
+	[  --with-freetypelibdir=DIR use FREETYPE libraries from DIR],
+	[FT_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $FT_LIBS"
+AC_CHECK_HEADERS(ft2build.h)
+if test `eval echo '${'$as_ac_Header'}'` = yes; then
+	ft_header_ok="OK"
+else
+	AC_CHECK_HEADER(freetype/freetype.h, [ft_header_ok="OK"],
+		AC_MSG_WARN(Optional freetype library not available - no ft2build.h or freetype.h))
+fi
+if [ test -n "$ft_header_ok" ]; then
+	AC_CHECK_LIB(freetype,main,
+		[FT_LIBS="$FT_LIBS -lfreetype"
+		AC_DEFINE_UNQUOTED(HAVE_LIBFREETYPE,1,[Define if you have the FREETYPE library])],
+		[AC_MSG_WARN(FreeType library not available. Will try for older TTF library instead.)
+		AC_CHECK_LIB(ttf,main,
+			[FT_LIBS="$FT_LIBS -lttf"
+			AC_DEFINE_UNQUOTED(HAVE_LIBTTF,1,[Define if you have the TTF library])],
+				AC_MSG_WARN(Required TTF library not available (need freetype + freetype-devel rpms).))])
+fi
+CPPFLAGS=$save_CPPFLAGS
+LDFLAGS=$save_LDFLAGS
+AC_SUBST(FT_INCLUDES)
+AC_SUBST(FT_LIBS)
+dnl -----------------------------------
+dnl INCLUDES and LIBS for ICONV
+#save_CPPFLAGS=$CPPFLAGS
+#save_LDFLAGS=$LDFLAGS
+#AC_ARG_WITH(iconvincludedir,
+#	[  --with-iconvincludedir=DIR use ICONV includes from DIR],
+#	[ICONV_INCLUDES="-I$withval"])
+#CPPFLAGS="$CPPFLAGS $ICONV_INCLUDES"
+#AC_ARG_WITH(iconvlibdir,
+#	[  --with-iconvlibdir=DIR  use ICONV libraries from DIR],
+#	[ICONV_LIBS="-L$withval"])
+#LDFLAGS="$LDFLAGS $ICONV_LIBS"
+#
+## Some systems have iconv in a separate library (e.g. Tru64 UNIX)
+#AM_ICONV
+#if test -n "$LIBICONV" ; then
+#  ICONV_LIBS="$LIBICONV"
+#else
+#  ICONV_LIBS=""
+#fi
+#
+#AC_CHECK_HEADERS(iconv.h,
+#  [AC_MSG_CHECKING(whether iconv.h defines iconv_t)
+#   AC_EGREP_HEADER([typedef.*iconv_t],iconv.h,
+#     [AC_MSG_RESULT(yes)
+#      AC_DEFINE(HAVE_ICONV_T_DEF, 1,
+#                [Define if <iconv.h> defines iconv_t.])],
+#      AC_MSG_RESULT(no))])
+#
+#LDFLAGS=$save_LDFLAGS
+#CPPFLAGS=$save_CPPFLAGS
+#AC_SUBST(ICONV_INCLUDES)
+#AC_SUBST(ICONV_LIBS)
+dnl -----------------------------------
+dnl INCLUDES and LIBS for Z
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_ARG_WITH(zincludedir,
+	[  --with-zincludedir=DIR  use Z includes from DIR],
+	[Z_INCLUDES="-I$withval"])
+CPPFLAGS="$CPPFLAGS $Z_INCLUDES"
+AC_ARG_WITH(zlibdir,
+	[  --with-zlibdir=DIR      use Z libraries from DIR],
+	[Z_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $Z_LIBS"
+AC_CHECK_HEADER(zlib.h,
+	AC_CHECK_LIB(z,main,
+		[Z_LIBS="$Z_LIBS -lz"
+		AC_DEFINE_UNQUOTED(HAVE_LIBZ,1,[Define if you have the Z library])],
+			AC_MSG_WARN(Optional z library not available)),
+	AC_MSG_WARN(Optional z library not available - no zlib.h))
+LDFLAGS=$save_LDFLAGS
+CPPFLAGS=$save_CPPFLAGS
+AC_SUBST(Z_INCLUDES)
+AC_SUBST(Z_LIBS)
+dnl -----------------------------------
+dnl Preparing for external libgd
+dnl    For now, just define WITH_GIF
+AC_DEFINE_UNQUOTED(WITH_GIF,1,[Define if you are using gif from internal libgd.])
+dnl -----------------------------------
+dnl INCLUDES and LIBS for PNG
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_PATH_PROG(LIBPNG_CONFIG,libpng-config)
+if [ test -n "$LIBPNG_CONFIG" ]; then
+        PNG_INCLUDES=`$LIBPNG_CONFIG --cflags`
+        PNG_PREFIX=`$LIBPNG_CONFIG --prefix`
+	if test "${PNG_PREFIX}/lib" != "/usr/lib" ; then
+  		PNG_LIBS="-L${PNG_PREFIX}/lib"
+ 	fi
+else
+	PNG_INCLUDES=""
+fi
+AC_ARG_WITH(pngincludedir,
+	[  --with-pngincludedir=DIR use PNG includes from DIR],
+	PNG_INCLUDES="-I$withval")
+CPPFLAGS="$CPPFLAGS $PNG_INCLUDES $Z_INCLUDES"
+AC_ARG_WITH(pnglibdir,
+	[  --with-pnglibdir=DIR    use PNG libraries from DIR],
+	[PNG_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $PNG_LIBS $Z_LIBS"
+AC_CHECK_HEADER(png.h,
+	AC_CHECK_LIB(png,main,
+		[PNG_LIBS="$PNG_LIBS -lpng"
+		AC_DEFINE_UNQUOTED(HAVE_LIBPNG,1,[Define if you have the PNG library])],
+		AC_MSG_WARN(Optional png library not available),
+		$Z_LIBS),
+	AC_MSG_WARN(Optional png library not available - no png.h))
+LDFLAGS=$save_LDFLAGS
+CPPFLAGS=$save_CPPFLAGS
+AC_SUBST(PNG_INCLUDES)
+AC_SUBST(PNG_LIBS)
+dnl -----------------------------------
+dnl INCLUDES and LIBS for JPEG
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_ARG_WITH(jpegincludedir,
+	[  --with-jpegincludedir=DIR use JPEG includes from DIR],
+	[JPEG_INCLUDES="-I$withval"])
+CPPFLAGS="$CPPFLAGS $JPEG_INCLUDES"
+AC_ARG_WITH(jpeglibdir,
+	[  --with-jpeglibdir=DIR   use JPEG libraries from DIR],
+	[JPEG_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $JPEG_LIBS"
+AC_CHECK_HEADER(jpeglib.h,
+	AC_CHECK_LIB(jpeg,main,
+		[JPEG_LIBS="$JPEG_LIBS -ljpeg"
+		AC_DEFINE_UNQUOTED(HAVE_LIBJPEG,1,[Define if you have the JPEG library])],
+			AC_MSG_WARN(Optional jpeg library not available)),
+	AC_MSG_WARN(Optional jpeg library not available - no jpeglib.h))
+LDFLAGS=$save_LDFLAGS
+CPPFLAGS=$save_CPPFLAGS
+AC_SUBST(JPEG_INCLUDES)
+AC_SUBST(JPEG_LIBS)
+dnl -----------------------------------
+dnl INCLUDES and LIBS for XAW
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_ARG_WITH(Xawincludedir,
+	[  --with-Xawincludedir=DIR use XAW includes from DIR],
+	[XAW_INCLUDES="-I$withval"])
+CPPFLAGS="$CPPFLAGS $XAW_INCLUDES $X_CFLAGS"
+AC_ARG_WITH(Xawlibdir,
+	[  --with-Xawlibdir=DIR    use XAW libraries from DIR],
+	[XAW_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $XAW_LIBS $X_LIBS $SOCKET_LIBS"
+AC_CHECK_HEADERS([X11/Intrinsic.h])
+AC_CHECK_HEADERS([X11/Xaw/Text.h], [], [],
+   [#if HAVE_X11_INTRINSIC_H
+   # include <X11/Intrinsic.h>
+   # endif
+   ])
+AC_CHECK_LIB(Xaw,main,
+	[XAW_LIBS="$XAW_LIBS -lXaw"
+	AC_DEFINE_UNQUOTED(HAVE_LIBXAW,1,[Define if you have the XAW library])],
+		AC_MSG_WARN(Optional Xaw library not available), [-lXmu -lXt -lX11 -lXext $SOCKET_LIBS])
+LDFLAGS=$save_LDFLAGS
+CPPFLAGS=$save_CPPFLAGS
+AC_SUBST(XAW_INCLUDES)
+AC_SUBST(XAW_LIBS)
+dnl -----------------------------------
+dnl INCLUDES and LIBS for EXPAT
+save_CPPFLAGS=$CPPFLAGS
+save_LDFLAGS=$LDFLAGS
+AC_PATH_PROG(EXPAT_CONFIG,expat-config)
+if [ test -n "$EXPAT_CONFIG" ]; then
+	EXPAT_INCLUDES=`$EXPAT_CONFIG --cflags`
+	EXPAT_PREFIX=`$EXPAT_CONFIG --prefix`
+	if test "${EXPAT_PREFIX}/lib" != "/usr/lib" ; then
+		EXPAT_LIBS="-L${EXPAT_PREFIX}/lib"
+	fi
+else         
+	EXPAT_INCLUDES=""
+	EXPAT_LIBS=""
+fi
+AC_ARG_WITH(expatincludedir,
+	[  --with-expatincludedir=DIR use EXPAT includes from DIR],
+	[EXPAT_INCLUDES="-I$withval"])
+CPPFLAGS="$CPPFLAGS $EXPAT_INCLUDES"
+AC_ARG_WITH(expatlibdir,
+	[  --with-expatlibdir=DIR  use EXPAT libraries from DIR],
+	[EXPAT_LIBS="-L$withval"])
+LDFLAGS="$LDFLAGS $EXPAT_LIBS"
+AC_CHECK_HEADER(expat.h,
+	[AC_CHECK_LIB(expat,main,
+		[EXPAT_LIBS="$EXPAT_LIBS -lexpat"
+		AC_DEFINE_UNQUOTED(HAVE_LIBEXPAT,1,
+			[Define if you have the EXPAT library])],
+		[AC_MSG_WARN(Optional expat library not available)
+		EXPAT_INCLUDES="" EXPAT_LIBS=""])],
+	[AC_MSG_WARN(Optional expat library not available - no expat.h)])
+LDFLAGS=$save_LDFLAGS
+CPPFLAGS=$save_CPPFLAGS
+AC_SUBST(EXPAT_INCLUDES)
+AC_SUBST(EXPAT_LIBS)
+# -----------------------------------
+
+# Checks for library functions
+AC_FUNC_ALLOCA
+
+AC_CHECK_FUNCS(lrand48 drand48 srand48 setmode setenv getenv \
+	__freadable _sysconf getrusage strerror strcasecmp strncasecmp \
+	cbrt lsqrt vsnprintf strtoul strtoll strtoull feenableexcept)
+
+# Check for st_blksize in struct stat
+# AC_ST_BLKSIZE
+
+# Internationalization macros
+# AM_GNU_GETTEXT
+
+# Checks for header files
+# AC_STDC_HEADERS
+# AC_HAVE_HEADERS(string.h)
+AC_CHECK_HEADERS(stdarg.h stddef.h stddef.h stdlib.h stdint.h malloc.h \
+	search.h getopt.h pthread.h values.h termios.h errno.h time.h \
+	sys/time.h sys/times.h sys/types.h unistd.h fenv.h \
+	fpu_control.h sys/fpu.h strings.h sys/socket.h sys/stat.h)
+AC_HEADER_TIME
+AC_HEADER_DIRENT
+
+# Test for direct I/O
+AC_MSG_CHECKING([for struct dioattr])
+AC_TRY_COMPILE([#include <sys/types.h>
+#include <fcntl.h>
+#include <stdio.h>],[
+struct dioattr dio;],[
+AC_MSG_RESULT(yes)
+AC_DEFINE(HAVE_STRUCT_DIOATTR, 1,
+[Define to 1 if you have struct dioattr])],[
+AC_MSG_RESULT(no)])
+
+# -----------------------------------
+# tclInt.h
+if test -f "$TCL_SRC_DIR/generic/tclInt.h"; then
+TCLINT_INCLUDES="-I$TCL_SRC_DIR/generic"
+else
+if test -f "/usr/include/tclInt.h"; then
+TCLINT_INCLUDES=""
+else
+if test -f "/usr/local/include/tclInt.h"; then
+TCLINT_INCLUDES="-I/usr/local/include"
+else
+TCLINT_INCLUDES="-I$TOP_DIR/tclstubs"
+fi
+fi
+fi
+AC_SUBST(TCLINT_INCLUDES)
+
+# -----------------------------------
+# tkInt.h
+if test -f "$TK_SRC_DIR/generic/tkInt.h"; then
+TKINT_INCLUDES="-I$TK_SRC_DIR/generic"
+else
+if test -f "/usr/include/tkInt.h"; then
+TKINT_INCLUDES=""
+else
+if test -f "/usr/local/include/tkInt.h"; then
+TKINT_INCLUDES="-I/usr/local/include"
+else
+TKINT_INCLUDES="-I$TOP_DIR/tkstubs"
+fi
+fi
+fi
+AC_SUBST(TKINT_INCLUDES)
+
+# -----------------------------------
+# Special checks
+
+AC_MSG_CHECKING(if have working sincos())
+AC_TRY_RUN([
+	#include <stdio.h>
+	#include <assert.h>
+	#define PI 3.14159265358979323846
+	extern void sincos(double x, double *s, double *c);
+	int main () {
+		double sinx=0.0, cosx=1.0;
+		sincos(PI/2.0,&sinx,&cosx);
+		assert(sinx>0.9999999);
+		assert(sinx<1.0000001);
+		assert(cosx<0.0000001);
+		assert(cosx>(-0.0000001));
+		return 0;
+	}]
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_SINCOS,1,[Define if libm provides a *working* sincos function])
+	,
+	AC_MSG_RESULT(no)
+	,
+	AC_MSG_RESULT(no - assumed because cross-compiling)
+	)
+
+# -----------------------------------
+AC_MSG_CHECKING(if FILE struct contains _cnt)
+AC_TRY_COMPILE(
+	#include <stdio.h>
+	,
+	FILE *f;
+	int i;
+	i = f->_cnt;
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_FILE_CNT,1,[Define if FILE structure provides _cnt])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if FILE struct contains _r)
+AC_TRY_COMPILE(
+	#include <stdio.h>
+	,
+	FILE *f;
+	int i;
+	i = f->_r;
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_FILE_R,1,[Define if FILE structure provides _r])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if FILE struct contains _next)
+AC_TRY_COMPILE(
+	#include <stdio.h>
+	,
+	FILE *f;
+	int i;
+	i = f->_next;
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_FILE_NEXT,1,[Define if FILE structure provides _next])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if FILE struct contains _IO_read_end)
+AC_TRY_COMPILE(
+	#include <stdio.h>
+	,
+	FILE *f;
+	int i;
+	i = f->_IO_read_end;
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_FILE_IO_READ_END,1,[Define if FILE structure provides _IO_read_end])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if errno externs are declared)
+AC_TRY_LINK(
+	#include <stdio.h>
+	#include <errno.h>
+	,
+	if ( errno < sys_nerr ) return sys_errlist[[errno]];
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_ERRNO_DECL,1,[Define if errno externs are declared])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if getopt externs are declared)
+AC_TRY_LINK(
+	#include <stdlib.h>
+	#include <stdio.h>
+	#if HAVE_UNISTD_H
+	#include <unistd.h>
+	#endif
+	,
+	if ( optopt ) exit(0); else exit(1);
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_GETOPT_DECL,1,[Define if getopt externs are declared])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if intptr_t is declared)
+AC_TRY_LINK(
+	#include <stdlib.h>
+	#if HAVE_STDINT_H
+	#include <stdint.h>
+	#endif
+	#if HAVE_INTTYPES_H
+	#include <inttypes.h>
+	#endif
+	#if HAVE_UNISTD_H
+	#include <unistd.h>
+	#endif
+	,
+	intptr_t  abc;
+	,
+	AC_MSG_RESULT(yes)
+	AC_DEFINE_UNQUOTED(HAVE_INTPTR_T,1,[Define if intptr_t is declared])
+	,
+	AC_MSG_RESULT(no)
+	)
+
+# -----------------------------------
+
+AC_MSG_CHECKING(if assert needs __eprintf)
+cat > conftest.$ac_ext <<EOF
+#include "confdefs.h"
+#include "assert.h"
+int main(argc)
+    int argc;
+{
+assert(argc);
+; return 0; }
+EOF
+${CC-cc} -c $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext 1>&5
+if test "x`nm conftest.o |grep __eprintf`" != "x"; then
+    AC_MSG_RESULT(yes)
+    CFLAGS="$CFLAGS -DNDEBUG"
+else
+    AC_MSG_RESULT(no)
+fi
+rm -f conftest*
+
+# -----------------------------------------------------------------------
+
+# Generate Makefiles
+AC_OUTPUT(Makefile
+	doc/Makefile
+	doc/info/Makefile
+	contrib/Makefile
+	contrib/prune/Makefile
+	graphs/Makefile
+	graphs/directed/Makefile
+	graphs/undirected/Makefile
+	gd/Makefile
+	cdt/Makefile
+	agraph/Makefile
+	graph/Makefile
+	pathplan/Makefile
+	dotneato/dotgen/Makefile
+	dotneato/neatogen/Makefile
+	dotneato/twopigen/Makefile
+	dotneato/fdpgen/Makefile
+	dotneato/circogen/Makefile
+	dotneato/common/Makefile
+	dotneato/gvrender/Makefile
+	dotneato/gvre_svg/Makefile
+	dotneato/pack/Makefile
+	dotneato/Makefile
+	dotneato/dotneato-config
+	ns/Makefile
+	agutil/Makefile
+	tclhandle/Makefile
+	tclstubs/Makefile
+	tkstubs/Makefile
+	tcldot/Makefile
+	tcldot/demo/Makefile
+	tclpathplan/Makefile
+	tclpathplan/demo/Makefile
+	tclpathplan/demo/pathplan_data/Makefile
+	tkspline/Makefile
+	tkspline/demo/Makefile
+	gdtclft/Makefile
+	gdtclft/demo/Makefile
+	lefty/ws/x11/libfilereq/Makefile
+	lefty/ws/x11/Makefile
+	lefty/ws/Makefile
+	lefty/os/unix/Makefile
+	lefty/os/Makefile
+	lefty/dot2l/Makefile
+	lefty/cs2l/Makefile
+	lefty/examples/Makefile
+	lefty/Makefile
+	lneato/Makefile
+	dotty/Makefile
+	tools/Makefile
+	tools/vmalloc/Makefile
+	tools/sfio/Makefile
+	tools/sfio/Sfio_dc/Makefile
+	tools/sfio/Sfio_f/Makefile
+	tools/ast/Makefile
+	tools/expr/Makefile
+	tools/gpr/Makefile
+	tools/src/Makefile
+	dynagraph/Makefile
+	dynagraph/common/Makefile
+	dynagraph/dynadag/Makefile
+	dynagraph/incrface/Makefile
+	dynagraph/fdp/Makefile
+	dynagraph/shortspline/Makefile
+	dynagraph/graphsearch/Makefile
+	dynagraph/voronoi/Makefile
+	windows/Makefile
+	graphviz.spec
+	ast_common.h
+	)
+
+#	dag/Makefile
+#	fdp/Makefile
+#	geo/Makefile
+#	grid/Makefile
+#	incr/Makefile
+#	shape/Makefile
+#	tcldgr/Makefile
+#	tcldgr/demo/Makefile
+#	tcldgl/Makefile
+#	tcldgl/demo/Makefile

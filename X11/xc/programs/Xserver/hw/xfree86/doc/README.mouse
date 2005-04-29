@@ -6,7 +6,7 @@
 
 1.  Introduction
 
-This document describes mouse support in XFree86 4.3.0.
+This document describes mouse support in XFree86 4.4.0.
 
 Mouse configuration has often been mysterious task for novice users.  How-
 ever, once you learn several basics, it is straightforward to write the mouse
@@ -985,7 +985,7 @@ time. They may prefer the following InputDevice section which defines button
           Option      "DragLockButtons" "4"
      EndSection
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/mouse.sgml,v 1.13 2002/12/17 20:55:22 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/mouse.sgml,v 1.13 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.mouse,v 1.20 2003/02/24 04:03:24 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.mouse,v 1.27 2004/02/24 03:49:42 dawes Exp $

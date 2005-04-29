@@ -1,11 +1,13 @@
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/us,v 1.3 2003/02/15 22:21:24 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/us,v 1.7 2003/12/18 14:14:39 pascal Exp $
 
 default
 partial hidden alphanumeric_keys modifier_keys 
 xkb_symbols "basic" {
 
     name[Group1]= "US/ASCII";
+
+    include "pc/pc(common)"
 
     // Alphanumeric section
     key <TLDE> {	[     grave,	asciitilde	]	};
@@ -58,5 +60,62 @@ xkb_symbols "basic" {
     key <AB09> {	[    period,	greater		]	};
     key <AB10> {	[     slash,	question	]	};
 
+    key <BKSL> {	[ backslash,         bar	]	};
     // End alphanumeric section
+};
+
+
+partial alphanumeric_keys
+xkb_symbols "intl" {
+
+    name[Group1]= "US International";
+
+    include "pc/us(basic)"
+
+    // Alphanumeric section
+    key <TLDE> { [dead_grave, dead_tilde,         grave,       asciitilde ] };
+    key <AE01> { [	   1,     exclam,    exclamdown,      onesuperior ] };
+    key <AE02> { [	   2,         at,   twosuperior, dead_doubleacute ] };
+    key <AE03> { [	   3, numbersign, threesuperior,      dead_macron ] };
+    key <AE04> { [	   4,     dollar,      currency,         sterling ] };
+    key <AE05> { [	   5,    percent,      EuroSign                   ] };
+    key <AE06> { [    6, dead_circumflex,    onequarter,      asciicircum ] };
+    key <AE07> { [	   7,  ampersand,       onehalf,	dead_horn ] };
+    key <AE08> { [	   8,   asterisk, threequarters,      dead_ogonek ] };
+    key <AE09> { [	   9,  parenleft, leftsinglequotemark, dead_breve ] };
+    key <AE10> { [	   0, parenright, rightsinglequotemark, dead_abovering ] };
+    key <AE11> { [     minus, underscore,           yen,    dead_belowdot ] };
+    key <AE12> { [     equal,       plus,      multiply,         division ] };
+
+    key <AD01> { [	   q,          Q,    adiaeresis,       Adiaeresis ] };
+    key <AD02> { [	   w,          W,         aring,            Aring ] };
+    key <AD03> { [	   e,          E,        eacute,           Eacute ] };
+    key <AD04> { [	   r,          R,    registered,       registered ] };
+    key <AD05> { [	   t,          T,         thorn,            THORN ] };
+    key <AD06> { [	   y,          Y,    udiaeresis,       Udiaeresis ] };
+    key <AD07> { [	   u,          U,        uacute,           Uacute ] };
+    key <AD08> { [	   i,          I,        iacute,           Iacute ] };
+    key <AD09> { [	   o,          O,        oacute,           Oacute ] };
+    key <AD10> { [	   p,          P,    odiaeresis,       Odiaeresis ] };
+    key <AD11> { [ bracketleft,  braceleft,  guillemotleft, guillemotleft ] };
+    key <AD12> { [bracketright, braceright, guillemotright,guillemotright ] };
+
+    key <AC01> { [	   a,          A,        aacute,           Aacute ] };
+    key <AC02> { [	   s,          S,        ssharp,          section ] };
+    key <AC03> { [	   d,          D,           eth,              ETH ] };
+
+    key <AC09> { [	   l,          L,        oslash,         Ooblique ] };
+    key <AC10> { [ semicolon,      colon,     paragraph,           degree ] };
+    key <AC11> { [dead_acute, dead_diaeresis, apostrophe,        quotedbl ] };
+
+    key <AB01> { [	   z,          Z,            ae,               AE ] };
+    key <AB03> { [	   c,          C,     copyright,             cent ] };
+    key <AB06> { [	   n,          N,        ntilde,           Ntilde ] };
+    key <AB07> { [	   m,          M,            mu,               mu ] };
+    key <AB08> { [     comma,       less,      ccedilla,         Ccedilla ] };
+    key <AB09> { [    period,    greater, dead_abovedot,       dead_caron ] };
+    key <AB10> { [     slash,   question,  questiondown,        dead_hook ] };
+    key <BKSL> { [ backslash,        bar,       notsign,        brokenbar ] };
+
+    include "level3(ralt_switch_multikey)"
 };

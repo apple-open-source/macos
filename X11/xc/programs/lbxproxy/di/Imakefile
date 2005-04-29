@@ -3,7 +3,7 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:53:54 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/programs/lbxproxy/di/Imakefile,v 1.2 2001/04/23 16:17:12 tsi Exp $
+XCOMM $XFree86: xc/programs/lbxproxy/di/Imakefile,v 1.3 2003/07/09 15:27:36 tsi Exp $
 
 #include <Server.tmpl>
 
@@ -32,6 +32,10 @@ DEFAULTRGBDATABASE = DefaultRGBDatabase
 
 UTIL_DEFINES = '-DDEF_ATOMS_FILE="$(LBXPROXYDIR)/AtomControl"' $(SITE_RGB_DB)
 
+#ifdef IPv6Flags
+  IPv6_FLAGS = IPv6Flags
+#endif
+
 DEPEND_DEFINES = $(PROXYMNGR_INCLUDES) $(UTIL_DEFINES) DependDefines
 
 NormalLibraryObjectRule()
@@ -41,5 +45,6 @@ NormalLintTarget($(SRCS))
 
 SpecialCObjectRule(dispatch,$(ICONFIGFILES),$(EXT_DEFINES))
 SpecialCObjectRule(utils,$(ICONFIGFILES),$(UTIL_DEFINES))
+SpecialCObjectRule(pm,$(ICONFIGFILES),$(IPv6_FLAGS))
 
 DependTarget()

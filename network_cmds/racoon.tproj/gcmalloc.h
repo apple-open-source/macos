@@ -33,8 +33,8 @@
  * Debugging malloc glue for Racoon.
  */
 
-#ifndef _GCMALLOC_H_DEFINED
-#define _GCMALLOC_H_DEFINED
+#ifndef __GCMALLOC_H__
+#define __GCMALLOC_H__
 
 /* ElectricFence needs no special handling. */
 
@@ -111,4 +111,5 @@ free(void *ptr)
 #endif
 #endif /* DEBUG_RECORD_MALLOCATION */
 
-#endif /* _GCMALLOC_H_DEFINED */
+#endif /* __GCMALLOC_H__ */
+

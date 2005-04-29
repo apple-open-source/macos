@@ -15,7 +15,13 @@ compaudit() {                           # Define and then call
 emulate -L zsh
 setopt extendedglob
 
-[[ -x /usr/bin/getent ]] || getent() { cat /etc/$1 }
+[[ -x /usr/bin/getent ]] || getent() {
+  if [[ $2 = <-> ]]; then
+    grep ":$2:[^:]*$" /etc/$1
+  else
+    grep "^$2:" /etc/$1
+  fi
+}
 
 # The positional parameters are the directories to check, else fpath.
 if (( $# )); then
@@ -64,7 +70,7 @@ if [[ -n $_compdir ]]; then
       # Likewise (installation-layout)
       _i_addfiles=(${_compdir}/*(/))
     fi
-    for _i_line in {1..$#i_addfiles}; do
+    for _i_line in {1..$#_i_addfiles}; do
       _i_file=${_i_addfiles[$_i_line]}
       [[ -d $_i_file && -z ${fpath[(r)$_i_file]} ]] ||
         _i_addfiles[$_i_line]=
@@ -83,13 +89,11 @@ fi
 # that this has not happened, and pick the best group.
 
 local GROUP GROUPMEM _i_pw _i_gid _i_ulwdirs
-while IFS=: read GROUP _i_pw _i_gid GROUPMEM; do
-  if (( UID == EUID )); then
-    [[ $GROUP == $LOGNAME ]] && break
-  else
-    (( _i_gid == EGID )) && break       # Somewhat arbitrary
-  fi
-done <<(getent group)
+if ((UID == EUID )); then
+  getent group $LOGNAME | IFS=: read GROUP _i_pw _i_gid GROUPMEM
+else
+  getent group $EGID | IFS=: read GROUP _i_pw _i_gid GROUPMEM
+fi
 
 # We search for:
 # - world/group-writable directories in fpath not owned by root and the user
@@ -102,11 +106,11 @@ done <<(getent group)
 #   (including zwc files)
 
 if [[ $GROUP == $LOGNAME && ( -z $GROUPMEM || $GROUPMEM == $LOGNAME ) ]]; then
-  _i_wdirs=( ${^fpath}(Nf:g+w:^g:${GROUP}:,f:o+w:,^u0u${EUID})
-             ${^fpath}/..(Nf:g+w:^g:${GROUP}:,f:o+w:,^u0u${EUID}) )
+  _i_wdirs=( ${^fpath}(N-f:g+w:^g:${GROUP}:,-f:o+w:,-^u0u${EUID})
+             ${^fpath:h}(N-f:g+w:^g:${GROUP}:,-f:o+w:,-^u0u${EUID}) )
 else
-  _i_wdirs=( ${^fpath}(Nf:g+w:,f:o+w:,^u0u${EUID})
-             ${^fpath}/..(Nf:g+w:,f:o+w:,^u0u${EUID}) )
+  _i_wdirs=( ${^fpath}(N-f:g+w:,-f:o+w:,-^u0u${EUID})
+             ${^fpath:h}(N-f:g+w:,-f:o+w:,-^u0u${EUID}) )
 fi
 
 if [[ -f /etc/debian_version ]]
@@ -115,8 +119,8 @@ _i_ulwdirs=( ${(M)_i_wdirs:#/usr/local/*} )
 _i_wdirs=( ${_i_wdirs:#/usr/local/*} ${^_i_ulwdir}(Nf:g+ws:^g:staff:,f:o+w:,^u0) )
 fi
 
-_i_wdirs=( $_i_wdirs ${^fpath}.zwc^([^_]*|*~)(N^u0u${EUID}) )
-_i_wfiles=( ${^fpath}/^([^_]*|*~)(N^u0u${EUID}) )
+_i_wdirs=( $_i_wdirs ${^fpath}.zwc^([^_]*|*~)(N-^u0u${EUID}) )
+_i_wfiles=( ${^fpath}/^([^_]*|*~)(N-^u0u${EUID}) )
 
 case "${#_i_wdirs}:${#_i_wfiles}" in
 (0:0) _i_q= ;;

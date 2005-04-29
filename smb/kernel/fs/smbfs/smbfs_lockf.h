@@ -65,7 +65,7 @@
  * structures are linked into the smbnode structure.  Locks are sorted
  * by the starting byte of the lock for efficiency.
  */
-TAILQ_HEAD(locklist, smbfs_lockf);
+TAILQ_HEAD(smblocklist, smbfs_lockf);
 
 struct smbfs_lockf {
 	short	lf_flags;	    /* Semantics: F_POSIX, F_FLOCK, F_WAIT */
@@ -75,7 +75,7 @@ struct smbfs_lockf {
 	caddr_t	lf_id;		    /* Id of the resource holding the lock */
 	struct	smbnode *lf_smbnode;  /* Back pointer to the smbnode */
 	struct	smbfs_lockf *lf_next;  /* Pointer to the next lock on this fork */
-	struct	locklist lf_blkhd;  /* List of requests blocked on this lock */
+	struct	smblocklist lf_blkhd;  /* List of requests blocked on this lock */
 	TAILQ_ENTRY(smbfs_lockf) lf_block;/* A request waiting for a lock */
 };
 

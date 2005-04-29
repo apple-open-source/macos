@@ -4,9 +4,6 @@ EXTRA_DIST = magic2mime Localstuff Header magic.mime $(magic_FRAGMENTS)
 
 CLEANFILES =  magic magic.mgc magic.mime.mgc
 
-# builit hack!
-top_builddir = $(OBJROOT)
-
 magic: Header Localstuff $(magic_FRAGMENTS)
 	cat $(srcdir)/Header $(srcdir)/Localstuff > $@
 	for frag in $(magic_FRAGMENTS); do \
@@ -19,7 +16,7 @@ magic: Header Localstuff $(magic_FRAGMENTS)
 	done >> $@
 
 magic.mgc: magic
-	$(top_builddir)/src/file -C -m $(top_builddir)/magic
+	$(top_builddir)/src/file -C -m magic
 
 magic.mime.mgc: magic.mime
 	$(top_builddir)/src/file -C -m $(srcdir)/magic.mime
@@ -46,7 +43,9 @@ Magdir/blender \
 Magdir/blit \
 Magdir/bout \
 Magdir/bsdi \
+Magdir/cad \
 Magdir/c-lang \
+Magdir/c64 \
 Magdir/cddb \
 Magdir/chi \
 Magdir/chord \
@@ -54,12 +53,14 @@ Magdir/cisco \
 Magdir/citrus \
 Magdir/claris \
 Magdir/clipper \
+Magdir/spec \
 Magdir/commands \
+Magdir/communications \
 Magdir/compress \
 Magdir/console \
 Magdir/convex \
 Magdir/ctags \
-Magdir/cvs-magic \
+Magdir/dact \
 Magdir/database \
 Magdir/diamond \
 Magdir/diff \
@@ -71,12 +72,16 @@ Magdir/editors \
 Magdir/elf \
 Magdir/encore \
 Magdir/epoc \
+Magdir/fcs \
 Magdir/filesystems \
 Magdir/flash \
 Magdir/fonts \
 Magdir/frame \
 Magdir/freebsd \
 Magdir/fsav \
+Magdir/games \
+Magdir/geos \
+Magdir/gcc \
 Magdir/gimp \
 Magdir/gnu \
 Magdir/grace \
@@ -107,10 +112,12 @@ Magdir/magic \
 Magdir/mail.news \
 Magdir/maple \
 Magdir/mathematica \
+Magdir/matroska \
 Magdir/mcrypt \
 Magdir/mime \
 Magdir/mips \
 Magdir/mirage \
+Magdir/misctools \
 Magdir/mkid \
 Magdir/mlssa \
 Magdir/mmdf \
@@ -124,6 +131,7 @@ Magdir/netbsd \
 Magdir/netscape \
 Magdir/news \
 Magdir/nitpicker \
+Magdir/ocaml \
 Magdir/octave \
 Magdir/olf \
 Magdir/os2 \
@@ -137,13 +145,16 @@ Magdir/pdp \
 Magdir/perl \
 Magdir/pgp \
 Magdir/pkgadd \
+Magdir/plan9 \
 Magdir/plus5 \
 Magdir/printer \
 Magdir/project \
 Magdir/psdbms \
+Magdir/psion \
 Magdir/pulsar \
 Magdir/pyramid \
 Magdir/python \
+Magdir/revision \
 Magdir/riff \
 Magdir/rpm \
 Magdir/rtf \
@@ -151,8 +162,10 @@ Magdir/sc \
 Magdir/sccs \
 Magdir/sendmail \
 Magdir/sequent \
+Magdir/sgi \
 Magdir/sgml \
 Magdir/sharc \
+Magdir/sinclair \
 Magdir/sketch \
 Magdir/smalltalk \
 Magdir/sniffer \
@@ -173,6 +186,7 @@ Magdir/typeset \
 Magdir/unknown \
 Magdir/uuencode \
 Magdir/varied.out \
+Magdir/varied.script \
 Magdir/vax \
 Magdir/vicar \
 Magdir/visx \
@@ -180,8 +194,9 @@ Magdir/vms \
 Magdir/vmware \
 Magdir/vorbis \
 Magdir/vxl \
-Magdir/wordperfect \
+Magdir/wordprocessors \
 Magdir/xdelta \
 Magdir/xenix \
+Magdir/xwindows \
 Magdir/zilog \
 Magdir/zyxel

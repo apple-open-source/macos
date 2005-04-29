@@ -1,6 +1,6 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/build/missing,v 1.3 2002/02/11 05:45:59 kurt Exp $
-# This file is distributed with OpenLDAP Software, but is an an 
+# $OpenLDAP: pkg/ldap/build/missing,v 1.4.2.1 2003/12/01 00:58:22 kurt Exp $
+# This file is distributed with OpenLDAP Software but is an an 
 # independently licensed program.
 
 # Common stub for a few missing GNU programs while installing.

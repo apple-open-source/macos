@@ -49,9 +49,11 @@ typedef struct {
 } Input, *InputRef;
 
 
+extern InputRef			currentInput;
 extern int			nesting;
 extern CFRunLoopRef		notifyRl;
 extern CFRunLoopSourceRef	notifyRls;
+extern SCPreferencesRef		prefs;
 extern SCDynamicStoreRef	store;
 extern CFPropertyListRef	value;
 extern CFMutableArrayRef	watchedKeys;

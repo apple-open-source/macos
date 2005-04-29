@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,29 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Tue Apr 17 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.9 2003/07/22 15:58:36 ssen Exp $
+ *  $Id: BLSetOpenFirmwareBootDevice.c,v 1.14 2005/02/03 00:42:29 ssen Exp $
  *
  *  $Log: BLSetOpenFirmwareBootDevice.c,v $
+ *  Revision 1.14  2005/02/03 00:42:29  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.13  2005/01/08 13:05:34  ssen
+ *  <rdar://problem/3942261> need a way to avoid hard-coding clean boot-arg keys
+ *  Use new code to not hardcode boot-args to preserve
+ *
+ *  Revision 1.12  2004/06/16 00:34:46  ssen
+ *  <rdar://problem/2950473> ER: Installer carry over bootargs debug values
+ *  Treat debug= as a special value, and preserve it
+ *  Bug #: 2950473
+ *
+ *  Revision 1.11  2004/04/20 21:40:45  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.10  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.9  2003/07/22 15:58:36  ssen
  *  APSL 2.0
  *
@@ -81,8 +97,9 @@
 
 #define NVRAM "/usr/sbin/nvram"
 
+#include "preserve_bootargs.h"
 
-int BLSetOpenFirmwareBootDevice(BLContextPtr context, unsigned char mntfrm[]) {
+int BLSetOpenFirmwareBootDevice(BLContextPtr context, const unsigned char mntfrm[]) {
   char ofString[1024];
   int err;
   
@@ -106,13 +123,76 @@ int BLSetOpenFirmwareBootDevice(BLContextPtr context, unsigned char mntfrm[]) {
     contextprintf(context, kBLLogLevelVerbose,  "Got OF string %s\n", ofString );
   }
 
+  sprintf(bootargs, "boot-args=");
   
   if (isNewWorld) {
-    // set them up
+      char oldbootargs[1024];
+      char *token, *restargs;
+	  int firstarg=1;
+      FILE *pop;
+      
+      oldbootargs[0] = '\0';
+      
+      pop = popen("/usr/sbin/nvram boot-args", "r");
+      if(pop) {
+          
+          if(NULL == fgets(oldbootargs, sizeof(oldbootargs), pop)) {
+              contextprintf(context, kBLLogLevelVerbose,  "Could not parse output from /usr/sbin/nvram\n" );
+          }
+          pclose(pop);
+
+          restargs = oldbootargs;
+          if(NULL != strsep(&restargs, "\t")) { // nvram must separate the name from the value with a tab
+              restargs[strlen(restargs)-1] = '\0'; // remove \n
+              memmove(oldbootargs, restargs, strlen(restargs)+1);
+              
+              contextprintf(context, kBLLogLevelVerbose,  "Old boot-args: %s\n", oldbootargs);
+              
+			  restargs = oldbootargs;
+			  while((token = strsep(&restargs, " ")) != NULL) {
+				  int shouldbesaved = 0, i;
+				  contextprintf(context, kBLLogLevelVerbose, "\tGot token: %s\n", token);
+				  for(i=0; i < sizeof(preserve_boot_args)/sizeof(preserve_boot_args[0]); i++) {
+					// see if it's something we want
+					  if(preserve_boot_args[i][0] == '-') {
+						  // -v style
+						  if(strcmp(preserve_boot_args[i], token) == 0) {
+							  shouldbesaved = 1;
+							  break;
+						  }
+					  } else {
+						// debug= style
+						  int keylen = strlen(preserve_boot_args[i]);
+						  if(strlen(token) >= keylen+1
+							 && strncmp(preserve_boot_args[i], token, keylen) == 0
+							 && token[keylen] == '=') {
+							  shouldbesaved = 1;
+							  break;
+						  }
+					  }
+				  }
+				  
+				  if(shouldbesaved) {
+					// append to bootargs if it should be preserved
+					  if(firstarg) {
+						  firstarg = 0;
+					  } else {
+						  strcat(bootargs, " ");
+					  }
+					  
+					  contextprintf(context, kBLLogLevelVerbose,  "\tPreserving: %s\n", token);
+					  strcat(bootargs, token);
+				  }
+			  }
+			  
+          }
+    }
+      
+      // set them up
     sprintf(bootdevice, "boot-device=%s", ofString);
     sprintf(bootfile, "boot-file=");
     sprintf(bootcommand, "boot-command=mac-boot");
-    sprintf(bootargs, "boot-args=");    
+	// bootargs initialized above, and append-to later
   } else {
     // set them up
     sprintf(bootdevice, "boot-device=%s", ofString);

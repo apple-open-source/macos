@@ -1,4 +1,4 @@
-/* $XFree86: xc/include/extensions/xf86misc.h,v 3.16 2002/11/20 04:04:56 dawes Exp $ */
+/* $XFree86: xc/include/extensions/xf86misc.h,v 3.17 2003/04/03 16:15:46 dawes Exp $ */
 
 /*
  * Copyright (c) 1995, 1996  The XFree86 Project, Inc
@@ -23,6 +23,7 @@
 #define X_XF86MiscSetGrabKeysState	7
 #define X_XF86MiscSetClientVersion      8
 #define X_XF86MiscGetFilePaths		9
+#define X_XF86MiscPassMessage		10
 
 #define XF86MiscNumberEvents		0
 
@@ -154,6 +155,14 @@ int XF86MiscSetGrabKeysState(
 Status XF86MiscGetFilePaths(
     Display*			/* dpy */,
     XF86MiscFilePaths*		/* file paths/locations */
+);
+
+Status XF86MiscPassMessage(
+    Display*			/* dpy */,
+    int				/* screen */,
+    const char*			/* message name/type */,
+    const char*			/* message contents/value */,
+    char **			/* returned message */
 );
 
 _XFUNCPROTOEND

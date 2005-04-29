@@ -1,5 +1,5 @@
 ## Makefile.in for ICU tests
-## Copyright (c) 1999, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Source directory information
@@ -10,16 +10,15 @@ top_builddir = ..
 
 include $(top_builddir)/icudefs.mk
 
-## Platform-specific setup
-include @platform_make_fragment@
-
 ## Build directory information
 subdir = test
+
+@ICUIO_TRUE@IOTEST = iotest
 
 ## Files to remove for 'make clean'
 CLEANFILES = *~
 
-SUBDIRS = testdata intltest cintltst ieeetest
+SUBDIRS = testdata intltest $(IOTEST) cintltst
 
 ## List of phony targets
 .PHONY : everything all all-local all-recursive install install-local		\
@@ -40,8 +39,11 @@ endif
 install: install-recursive install-local
 clean: clean-recursive clean-local
 distclean : distclean-recursive distclean-local
+	$(RMV) hdrtst/Makefile
+
 dist: dist-recursive dist-local
 check: everything check-recursive check-local
+check-recursive: all-recursive
 
 ## Recursive targets
 all-recursive install-recursive clean-recursive distclean-recursive dist-recursive check-recursive:

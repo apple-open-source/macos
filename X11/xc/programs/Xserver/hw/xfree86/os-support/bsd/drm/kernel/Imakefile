@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/drm/kernel/Imakefile,v 1.11 2002/12/16 16:19:20 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bsd/drm/kernel/Imakefile,v 1.15 2003/12/05 18:43:05 dawes Exp $
 
 XCOMM This is a kludge until we determine how best to build the
 XCOMM kernel-specific device driver.  This allows us to continue
@@ -11,14 +11,126 @@ all::
 
 install::
 	$(MAKE) -f Makefile.bsd install
+
+clean::
+	$(MAKE) -f Makefile.bsd clean
 #else
 all::
 	@echo 'Use "make -f Makefile.bsd" to manually build the modules'
 #endif
 
-clean::
-	$(MAKE) -f Makefile.bsd clean
+SRCS_DRM = \
+	drm.h \
+	drmP.h \
+	drm_agpsupport.h \
+	drm_auth.h \
+	drm_bufs.h \
+	drm_context.h \
+	drm_dma.h \
+	drm_drawable.h \
+	drm_drv.h \
+	drm_fops.h \
+	drm_ioctl.h \
+	drm_irq.h \
+	drm_lock.h \
+	drm_memory.h \
+	drm_memory_debug.h \
+	drm_os_freebsd.h \
+	drm_os_netbsd.h \
+	drm_pci.h \
+	drm_sarea.h \
+	drm_scatter.h \
+	drm_sysctl.h \
+	drm_vm.h
 
+#if 0
+SRCS_GAMMA = \
+	gamma.h \
+	gamma_context.h \
+	gamma_drm.h \
+	gamma_drv.h \
+	gamma_lists.h \
+	gamma_lock.h \
+	gamma_old_dma.h \
+	gamma_dma.c \
+	gamma_drv.c
+
+SRCS_I810 = \
+	i810.h \
+	i810_drm.h \
+	i810_drv.h \
+	i810_dma.c \
+	i810_drv.c
+
+SRCS_I830 = \
+	i830.h \
+	i830_drm.h \
+	i830_drv.h \
+	i830_dma.c \
+	i830_drv.c \
+	i830_irq.c
+#endif
+
+SRCS_R128 = \
+	ati_pcigart.h \
+	r128.h \
+	r128_drm.h \
+	r128_drv.h \
+	r128_cce.c \
+	r128_drv.c \
+	r128_irq.c \
+	r128_state.c
+
+SRCS_RADEON = \
+	ati_pcigart.h \
+	radeon.h \
+	radeon_drm.h \
+	radeon_drv.h \
+	radeon_cp.c \
+	radeon_drv.c \
+	radeon_irq.c \
+	radeon_mem.c \
+	radeon_state.c \
+
+SRCS_SIS = \
+	sis.h \
+	sis_drm.h \
+	sis_drv.h \
+	sis_ds.h \
+	sis_drv.c \
+	sis_ds.c \
+	sis_mm.c
+
+SRCS_MGA = \
+	mga.h \
+	mga_drm.h \
+	mga_drv.h \
+	mga_ucode.h \
+	mga_dma.c \
+	mga_drv.c \
+	mga_irq.c \
+	mga_state.c \
+	mga_warp.c
+
+SRCS_TDFX = \
+	tdfx.h \
+	tdfx_drv.c
+
+DRMSRCDIR = $(INSTSRCDIR)/bsd/drm/kernel
+
+SRCS = $(SRCS_DRM) $(SRCS_GAMMA) $(SRCS_I810) $(SRCS_I830) $(SRCS_R128) \
+	$(SRCS_RADEON) $(SRCS_SIS) $(SRCS_MGA) $(SRCS_TDFX) $(SRCS_BUILD)
+
+InstallMultiple($(SRCS),$(DRMSRCDIR))
+InstallNamedNonExec(Makefile.bsd,Makefile,$(DRMSRCDIR))
+
+InstallNamedNonExec(mga/Makefile,Makefile,$(DRMSRCDIR)/mga)
+InstallNamedNonExec(r128/Makefile,Makefile,$(DRMSRCDIR)/r128)
+InstallNamedNonExec(radeon/Makefile,Makefile,$(DRMSRCDIR)/radeon)
+InstallNamedNonExec(sis/Makefile,Makefile,$(DRMSRCDIR)/sis)
+InstallNamedNonExec(tdfx/Makefile,Makefile,$(DRMSRCDIR)/tdfx)
+
+LinkSourceFile(drm.h,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(drm_sarea.h,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(mga.h,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(mga_dma.c,$(XF86OSSRC)/shared/drm/kernel)
@@ -41,3 +153,10 @@ LinkSourceFile(radeon_drv.h,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(radeon_irq.c,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(radeon_mem.c,$(XF86OSSRC)/shared/drm/kernel)
 LinkSourceFile(radeon_state.c,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis.h,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis_drm.h,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis_drv.h,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis_ds.c,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis_ds.h,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(sis_mm.c,$(XF86OSSRC)/shared/drm/kernel)
+LinkSourceFile(tdfx.h,$(XF86OSSRC)/shared/drm/kernel)

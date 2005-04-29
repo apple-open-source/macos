@@ -12,8 +12,8 @@ NAME = file_cmds
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Aggregate
 
-TOOLS = chflags chmod chown compress cp dd df du install ln ls\
-        mkdir mkfifo mknod mtree mv pax rm rmdir rmt shar tcopy\
+TOOLS = chflags chmod chown compress cp dd df du install ipcrm ipcs ln ls\
+        mkdir mkfifo mknod mtree mv pathchk pax rm rmdir rmt shar stat tcopy\
         touch
 
 OTHERSRCS = PROJECT Makefile.preamble Makefile Makefile.postamble
@@ -26,7 +26,7 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -no-cpp-precomp
+NEXTSTEP_PB_CFLAGS = -mdynamic-no-pic -no-cpp-precomp -I/System/Library/Frameworks/System.framework/PrivateHeaders
 
 
 NEXTSTEP_BUILD_OUTPUT_DIR = /tmp/$(NAME)/Build

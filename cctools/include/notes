@@ -1,3 +1,7 @@
+Changes for the 5.17 release (the cctools-574 release):
+- Added the new force_cpusubtype_ALL_for_cputype() function to "stuff/arch.h" .
+  Radar bug #4002758.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Changed __private_extern__'s in <mach-o/kld.h> to just extern so that libkld
   will build with gcc-4.0. Radar bug #4008570.

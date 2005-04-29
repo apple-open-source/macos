@@ -1,0 +1,103 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+	<!-- $appleBlojsomRevision -->
+	<title>$BLOJSOM_BLOG.getBlogName()</title>
+	<link rel="stylesheet" href="${BLOJSOM_SITE_URL}blojsom_resources/includes/base_layout.css" />
+	#set($blogCustomStylesheet = $BLOJSOM_BLOG.getBlogProperty("blog-stylesheet"))
+	#if(!$blogCustomStylesheet.equals(""))
+	<link rel="stylesheet" href="${BLOJSOM_SITE_URL}blojsom_resources/stylesheets/${blogCustomStylesheet}.css" />
+	#end
+	<link rel="SHORTCUT ICON" href="${BLOJSOM_SITE_URL}favicon.ico" />
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/includes/base_scripts.js"></script>
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/includes/win32ImageWorkaround.js"></script>
+	#if(!$blogCustomStylesheet.equals(""))
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/stylesheets/${blogCustomStylesheet}.js"></script>
+	#else
+	<script type="text/javascript" src="${BLOJSOM_SITE_URL}blojsom_resources/includes/emptyStartup.js"></script>
+	#end
+	<script type="text/javascript">
+		
+		function createBlog(theForm)
+		{
+			regexp = new RegExp("blog/*$", "i");
+			
+			if ( location.href.match(regexp) ) {
+				theForm.action = theForm.elements[0].value+'/';
+			}
+			else {
+				theForm.action='../'+theForm.elements[0].value+'/';
+			}
+		}
+		
+	</script>
+</head>
+<body onload="showConfirmMessage();customStartup()">
+
+#if ( $BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT )
+	#set ($opResultString = $BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT.substring(1))
+	#if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT.startsWith("$"))
+<div id="blojsom_system_message">$locStrings.getProperty($opResultString)</div>
+	#else
+		#if ($BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT.startsWith(" "))
+<div id="blojsom_system_message"> $locStrings.getProperty($opResultString)</div>
+		#else
+<div id="blojsom_system_message">$BLOJSOM_ADMIN_PLUGIN_OPERATION_RESULT</div>
+		#end
+	#end
+#end
+
+<div class="span_header" id="header_span_header"></div>
+<div class="span_body" id="header_span_body">
+	<table id="header_table">
+		<tr>
+			<td id="header_description_cell">
+				<h2 id="title"><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></h2>
+				<p id="subtitle">$BLOJSOM_BLOG.getBlogDescription()</p>
+				#set( $totalEntries = 0 )
+			</td>
+			<td id="header_logo_cell"><img src="${BLOJSOM_SITE_URL}blojsom_resources/images/grayx.jpg" width="56" height="71" alt="" /></td>
+		</tr>
+	</table>
+</div>
+<div class="span_footer" id="header_span_footer"></div>
+
+<div id="column_container">
+
+	<div class="main_column">
+		<div class="main_box_header" id="blogs_box_header"></div>
+		<div class="main_box_body" id="blogs_box_body">
+			<div class="main_box_contents" id="blog_listing_container">
+				#foreach ($blogUser in $ALL_BLOG_USERS)
+					#set( $totalEntries = $totalEntries + 1 )
+					#set($currentBlog = $blogUser.getBlog())
+					<div class="blog_listing_ref">
+						<div class="blog_listing_title"><a href="/weblog/$blogUser.getId()/">$currentBlog.getEscapedBlogName()</a></div>
+						<div class="blog_listing_description">$currentBlog.getEscapedBlogDescription()</div>
+					</div>
+				#end
+				#if($totalEntries == 0)
+				<div class="blog_listing_ref">$locStrings.getProperty("defaultpage.noweblogs")</div>
+				#end
+			</div>
+		</div>
+		<div class="main_box_footer" id="blogs_box_footer"></div>
+	</div>
+	
+	<div class="side_column">
+		<div class="side_box_header" id="calendar_box_header"></div>
+		<div class="side_box_body" id="create_blog_body">
+			<div class="side_box_contents" id="create_blog_contents">
+				$locStrings.getProperty("defaultpage.createblog")<br/>&nbsp;<br/>
+				$locStrings.getProperty("defaultpage.createplog")<br/>&nbsp;<br/>
+				<form id="user_id_form" method="get" action="./" onsubmit="createBlog(this);return true">
+					<input size="20" type="text" name="createUserID" id="createUserID" />
+				</form>
+			</div>
+		</div>
+		<div class="side_box_footer" id="links_box_footer"></div>
+	</div>
+	
+</body>
+</html>

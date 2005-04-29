@@ -59,11 +59,11 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <sys/ioctl.h>
-#include <net/dlil.h>
 #include <net/if.h>
 #include <net/route.h>
 #include <pthread.h>
 #include <sys/kern_event.h>
+#include <sys/sysctl.h>
 #include <netinet/in_var.h>
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFBundle.h>
@@ -72,10 +72,11 @@
 #define APPLE 1
 
 //#include "../L2TP-extension/l2tpk.h"
-#include "../L2TP-plugin/ipsec_utils.h"
+#include "../../../Helpers/vpnd/ipsec_utils.h"
 #include "../../../Helpers/vpnd/vpnplugins.h"
 #include "../../../Helpers/vpnd/vpnd.h"
 #include "../../../Helpers/vpnd/RASSchemaDefinitions.h"
+#include "../../../Helpers/vpnd/cf_utils.h"
 #include "l2tp.h"
 
 
@@ -92,20 +93,18 @@ static int 			key_preference = -1;
 static struct sockaddr_in 	listen_address;
 static struct sockaddr_in 	our_address;
 static struct sockaddr_in 	any_address;
-static int			secure_transport = 0;
-static int			need_stop_racoon = 0;
 static int			debug = 0;
-static char			opt_ipsecsharedsecret[MAXSECRETLEN];
-static char    			*opt_ipsecsharedsecrettype = "use";	 /* use, key, keychain */
-int l2tpvpn_get_pppd_args(struct vpn_params *params);
+
+static CFMutableDictionaryRef	ipsec_dict = NULL;
+static CFMutableDictionaryRef	ipsec_settings = NULL;
+
+int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload);
 int l2tpvpn_listen(void);
 int l2tpvpn_accept(void);
 int l2tpvpn_refuse(void);
 void l2tpvpn_close(void);
 
 static u_long load_kext(char *kext);
-static int set_key_preference(int *oldval, int newval);
-
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by vpnd
@@ -119,7 +118,7 @@ if a simple vpn bundle was used, pppref will be NULL.
 if a ppp bundle was used, the vpn plugin will be able to get access to the 
 Plugins directory and load the vpn kext.
 ----------------------------------------------------------------------------- */
-int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug_mode)
+int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug_mode, int log_verbose)
 {
     char 	name[MAXPATHLEN]; 
     CFURLRef	url;
@@ -132,7 +131,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
             if (errno != EINTR)
                 break;
         if (listen_sockfd < 0) {
-            vpnlog(LOG_DEBUG, "first call to socket failed - attempting to load kext\n");
+            vpnlog(LOG_DEBUG, "L2TP plugin: first call to socket failed - attempting to load kext\n");
             if (url = CFBundleCopyBundleURL(pppref)) {
                 name[0] = 0;
                 CFURLGetFileSystemRepresentation(url, 0, name, MAXPATHLEN - 1);
@@ -151,7 +150,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                 }	
             }
             if (listen_sockfd < 0) {
-                vpnlog(LOG_ERR, "VPND L2TP plugin: Unable to load L2TP kernel extension\n");
+                vpnlog(LOG_ERR, "L2TP plugin: Unable to load L2TP kernel extension\n");
                 return -1;
             }
         }
@@ -179,10 +178,16 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
 /* ----------------------------------------------------------------------------- 
     l2tpvpn_get_pppd_args
 ----------------------------------------------------------------------------- */
-int l2tpvpn_get_pppd_args(struct vpn_params *params)
+int l2tpvpn_get_pppd_args(struct vpn_params *params, int reload)
 {
 
     CFStringRef	string;
+    int		noipsec = 0;
+    CFMutableDictionaryRef	dict = NULL;
+	
+    if (reload) {
+        noipsec = opt_noipsec;
+    }
     
     if (params->serverRef) {			
         /* arguments from the preferences file */
@@ -194,25 +199,43 @@ int l2tpvpn_get_pppd_args(struct vpn_params *params)
             opt_noipsec = 1;
         }
 
-        string = get_cfstr_option(params->serverRef, kRASEntL2TP, kRASPropL2TPIPSecSharedSecret);
-        if (string) {
-            CFStringGetCString(string, opt_ipsecsharedsecret, sizeof(opt_ipsecsharedsecret), kCFStringEncodingUTF8);
-        }
+		dict = (CFMutableDictionaryRef)CFDictionaryGetValue(params->serverRef, kRASEntIPSec);
+		if (isDictionary(dict)) {
+			/* get the parameters from the IPSec dictionary */
+			dict = CFDictionaryCreateMutableCopy(0, 0, dict);
+		}
+		else {
+			/* get the parameters from the L2TP dictionary */
+			dict = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+			
+			string = get_cfstr_option(params->serverRef, kRASEntL2TP, kRASPropL2TPIPSecSharedSecretEncryption);
+			if (isString(string))
+				CFDictionarySetValue(dict, kRASPropIPSecSharedSecretEncryption, string);
 
-        string = get_cfstr_option(params->serverRef, kRASEntL2TP, kRASPropL2TPIPSecSharedSecretEncryption);
-        if (string) {
-            if (CFEqual(string, kRASValL2TPIPSecSharedSecretEncryptionKey))
-                opt_ipsecsharedsecrettype = "key";
-            else if (CFEqual(string, kRASValL2TPIPSecSharedSecretEncryptionKeychain))
-                opt_ipsecsharedsecrettype = "keychain";
-        }
+			string = get_cfstr_option(params->serverRef, kRASEntL2TP, kRASPropL2TPIPSecSharedSecret);
+			if (isString(string))
+				CFDictionarySetValue(dict, kRASPropIPSecSharedSecret, string);
+		}
 
     } else {
         /* arguments from command line */
         if (opt_noipsec)
             addparam(params->exec_args, &params->next_arg_index, "l2tpnoipsec");
     }
+    
+    if (reload) {
+        if (noipsec != opt_noipsec ||
+            !CFEqual(dict, ipsec_settings)) {
+				vpnlog(LOG_ERR, "reload prefs - IPSec shared secret cannot be changed\n");
+				CFRelease(dict);
+				return -1;
+		}
+    }
 
+	if (ipsec_settings) 
+		CFRelease(ipsec_settings);
+	ipsec_settings = dict;
+	
     return 0;
 }
 
@@ -224,7 +247,7 @@ int l2tp_sys_getsockopt(int sockfd, int level, int optname, void *optval, int *o
 {
     while (getsockopt(sockfd, level, optname, optval, optlen) < 0)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: error calling getsockopt for option %d (%s)\n", optname, strerror(errno));
+            vpnlog(LOG_ERR, "L2TP plugin: error calling getsockopt for option %d (%s)\n", optname, strerror(errno));
             return -1;
         }
     return 0;
@@ -234,7 +257,7 @@ int l2tp_sys_setsockopt(int sockfd, int level, int optname, const void *optval, 
 {
     while (setsockopt(sockfd, level, optname, optval, optlen) < 0)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: error calling setsockopt for option %d (%s)\n", optname, strerror(errno));
+            vpnlog(LOG_ERR, "L2TP plugin: error calling setsockopt for option %d (%s)\n", optname, strerror(errno));
             return -1;
         }
     return 0;
@@ -245,7 +268,7 @@ int l2tp_sys_recvfrom(int sockfd, void *buff, size_t nbytes, int flags,
 {
     while (recvfrom(sockfd, buff, nbytes, flags, from, addrlen) < 0)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: error calling recvfrom = %s\n", strerror(errno));
+            vpnlog(LOG_ERR, "L2TP plugin: error calling recvfrom = %s\n", strerror(errno));
             return -1;
         }
     return 0;
@@ -311,19 +334,6 @@ static u_long load_kext(char *kext)
 }
 
 /* ----------------------------------------------------------------------------- 
-    change the preference for security associations
------------------------------------------------------------------------------ */
-static int set_key_preference(int *oldval, int newval)
-{
-    size_t len = sizeof(int); 
-    
-    if (newval != 0 && newval != 1)
-        return 0;	// ignore the command
-    
-    return sysctlbyname("net.key.prefered_oldsa", oldval, &len, &newval, sizeof(int));
-}
-
-/* ----------------------------------------------------------------------------- 
 ----------------------------------------------------------------------------- */
 int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 {
@@ -341,23 +351,12 @@ int l2tp_set_ouraddress(int fd, struct sockaddr *addr)
 ----------------------------------------------------------------------------- */
 int l2tpvpn_listen(void)
 {
+	char *errstr;
         
     if (listen_sockfd <= 0)
         return -1;
     
-    if (!opt_noipsec) {
-        vpnlog(LOG_INFO, "VPND L2TP plugin:  start racoon...\n");
-        /* start racoon */
-        if (start_racoon(0 /*pppbundle*/, 0 /*"racoon.l2tp"*/) < 0) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: cannot start racoon...\n");
-            return -1;
-        }
-        /* XXX if we started racoon, we will need to stop it */
-        /* racoon should probably provide a control API */
-        need_stop_racoon = 1;
-    }
-
-    set_flag(listen_sockfd, debug, L2TP_FLAG_DEBUG);
+    //set_flag(listen_sockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
     set_flag(listen_sockfd, 1, L2TP_FLAG_CONTROL);
 
     /* unknown src and dst addresses */
@@ -369,23 +368,55 @@ int l2tpvpn_listen(void)
     /* bind the socket in the kernel with L2TP port */
     listen_address.sin_len = sizeof(listen_address);
     listen_address.sin_family = AF_INET;
-    listen_address.sin_port = L2TP_UDP_PORT;
+    listen_address.sin_port = htons(L2TP_UDP_PORT);
     listen_address.sin_addr.s_addr = INADDR_ANY;
     l2tp_set_ouraddress(listen_sockfd, (struct sockaddr *)&listen_address);
     our_address = listen_address;
 
     /* add security policies */
     if (!opt_noipsec) { 
-        if (configure_racoon(&our_address, &any_address, 0, IPPROTO_UDP, opt_ipsecsharedsecret, opt_ipsecsharedsecrettype)
-            || require_secure_transport((struct sockaddr *)&any_address, (struct sockaddr *)&listen_address, IPPROTO_UDP, "in"))  {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: cannot configure secure transport...\n");
-            return -1;
-        }
-        /* set IPSec Key management to prefer most recent key */
-        if (set_key_preference(&key_preference, 0))
-            vpnlog(LOG_ERR, "VPND L2TP plugin: cannot set IPSec Key management preference (error %d)\n", errno);
 
-        secure_transport = 1;
+		CFStringRef				auth_method;
+		CFStringRef				string;
+		CFDataRef				data;
+
+		/* get authentication method from the IPSec dict */
+		auth_method = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecProposalAuthenticationMethod);
+		if (!isString(auth_method))
+			auth_method = kRASValIPSecProposalAuthenticationMethodSharedSecret;
+			
+		ipsec_dict = IPSecCreateL2TPDefaultConfiguration(
+			(struct sockaddr *)&our_address, (struct sockaddr *)&any_address, NULL, 
+			auth_method, 0); 
+
+		/* set the authentication information */
+		if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodSharedSecret)) {
+			string = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecSharedSecret);
+			if (isString(string)) 
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecret, string);
+			string = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecSharedSecretEncryption);
+			if (isString(string)) 
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecSharedSecretEncryption, string);
+		}
+		else if (CFEqual(auth_method, kRASValIPSecProposalAuthenticationMethodCertificate)) {
+			data = CFDictionaryGetValue(ipsec_settings, kRASPropIPSecLocalCertificate);
+			if (isData(data)) 
+				CFDictionarySetValue(ipsec_dict, kRASPropIPSecLocalCertificate, data);
+		}
+
+		if (IPSecApplyConfiguration(ipsec_dict, &errstr)
+			|| IPSecInstallPolicies(ipsec_dict, -1, &errstr)) {
+			vpnlog(LOG_ERR, "L2TP plugin: cannot configure secure transport (%s).\n", errstr);
+			IPSecRemoveConfiguration(ipsec_dict, &errstr);
+			CFRelease(ipsec_dict);
+			ipsec_dict = 0;
+			return -1;
+		}
+
+        /* set IPSec Key management to prefer most recent key */
+        if (IPSecSetSecurityAssociationsPreference(&key_preference, 0))
+            vpnlog(LOG_ERR, "L2TP plugin: cannot set IPSec Key management preference (error %d)\n", errno);
+
     }
 
     return listen_sockfd;
@@ -408,12 +439,12 @@ int l2tpvpn_accept(void)
 
     while((newSockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP)) < 0)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: Unable to open L2TP socket during accept\n");
+            vpnlog(LOG_ERR, "L2TP plugin: Unable to open L2TP socket during accept\n");
             return -1;
         }
     
     /* accept the call. it will copy the data to the new socket */
-    //set_flag(newSockfd, 1, L2TP_FLAG_DEBUG);
+    //set_flag(newSockfd, kerneldebug & 1, L2TP_FLAG_DEBUG);
     setsockopt(newSockfd, PPPPROTO_L2TP, L2TP_OPT_ACCEPT, 0, 0);
     
     /* read the duplicated SCCRQ from the listen socket and ignore for now */
@@ -444,7 +475,7 @@ int l2tpvpn_refuse(void)
     /* need t read the packet to empty the socket buffer */
     while((newSockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP)) < 0)
         if (errno != EINTR) {
-            vpnlog(LOG_ERR, "VPND L2TP plugin: Unable to open L2TP socket during refuse\n");
+            vpnlog(LOG_ERR, "L2TP plugin: Unable to open L2TP socket during refuse\n");
             return -1;
         }
     
@@ -466,6 +497,8 @@ int l2tpvpn_refuse(void)
 void l2tpvpn_close(void)
 {
 
+	char *errstr;
+	
     if (listen_sockfd != -1) {
         while (close(listen_sockfd) < 0)
             if (errno == EINTR)
@@ -474,19 +507,20 @@ void l2tpvpn_close(void)
     }
 
     /* remove security policies */
-    if (secure_transport) {            
-        cleanup_racoon(&our_address, &any_address);
-        remove_secure_transport((struct sockaddr *)&any_address, (struct sockaddr *)&listen_address, IPPROTO_UDP, "in");            
+    if (ipsec_dict) {            
+        IPSecRemoveConfiguration(ipsec_dict, &errstr);
+        IPSecRemovePolicies(ipsec_dict, -1, &errstr);     
         /* restore IPSec Key management preference */
-        if (set_key_preference(0, key_preference))
-            vpnlog(LOG_ERR, "VPND L2TP plugin: cannot reset IPSec Key management preference (error %d)\n", errno);
+        if (IPSecSetSecurityAssociationsPreference(0, key_preference))
+            vpnlog(LOG_ERR, "L2TP plugin: cannot reset IPSec Key management preference (error %d)\n", errno);
+		CFRelease(ipsec_dict);
+		ipsec_dict = NULL;
     }
 
-    if (need_stop_racoon) {
-        need_stop_racoon = 0;
-        // let racoon running
-        //stop_racoon();
-    }
+	if (ipsec_settings) {
+		CFRelease(ipsec_settings);
+		ipsec_settings = NULL;
+	}
 
 }
 

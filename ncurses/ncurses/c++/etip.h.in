@@ -28,10 +28,10 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1997                 *
+ *   Author: Juergen Pfeifer, 1997                                          *
  ****************************************************************************/
 
-// $Id: etip.h.in,v 1.1.1.2 2002/01/03 23:53:04 jevans Exp $
+// $Id: etip.h.in,v 1.25 2003/10/25 15:05:58 tom Exp $
 
 #ifndef NCURSES_ETIP_H_incl
 #define NCURSES_ETIP_H_incl 1
@@ -261,13 +261,13 @@ public:
 
 };
 
-#if !(defined(__GNUG__)||defined(__SUNPRO_CC))
+#if !((defined(__GNUG__) && defined(__EXCEPTIONS)) || defined(__SUNPRO_CC))
 #  include <iostream.h>
    extern "C" void exit(int);
 #endif
 
 inline void THROW(const NCursesException *e) {
-#if defined(__GNUG__)
+#if defined(__GNUG__) && defined(__EXCEPTIONS)
 #  if ((__GNUG__ <= 2) && (__GNUC_MINOR__ < 8))
       (*lib_error_handler)(e?e->classname():"",e?e->message:"");
 #else

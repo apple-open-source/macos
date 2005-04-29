@@ -24,6 +24,17 @@
 #include <mach/ppc/asm.h>
 #undef	ASSEMBLER
 
+#define	__APPLE_API_PRIVATE
+#include <machine/cpu_capabilities.h>
+#undef	__APPLE_API_PRIVATE
+
+/* We use mode-independent "g" opcodes such as "srgi".  These expand
+ * into word operations when targeting __ppc__, and into doubleword
+ * operations when targeting __ppc64__.
+ */
+#include <architecture/ppc/mode_independent_asm.h>
+
+
 // ***************
 // * S T R C P Y *
 // ***************
@@ -47,22 +58,27 @@
 //
 // We align the _source_, which allows us to avoid all worries about
 // spurious page faults.  Doing so is faster than aligning the dest.
+//
+// In 64-bit mode, the algorithm is doubleword parallel.
 
         .text
         .globl	EXT(strcpy)
 
         .align 	5
-LEXT(strcpy)					// char*	strcpy(const char *dst, const char *src);
-        andi.	r0,r4,3				// is source aligned?
-        dcbt	0,r4				// touch in source
-        lis		r6,hi16(0xFEFEFEFF)	// start to load magic constants
+LEXT(strcpy)                        // char* strcpy(const char *dst, const char *src);
+        andi.	r0,r4,GPR_BYTES-1   // is source aligned?
+#if defined(__ppc__)
+        lis		r6,hi16(0xFEFEFEFF)	// start to generate 32-bit magic constants
         lis		r7,hi16(0x80808080)
-        dcbtst	0,r3				// touch in dst
         ori		r6,r6,lo16(0xFEFEFEFF)
         ori		r7,r7,lo16(0x80808080)
+#else
+        ld		r6,_COMM_PAGE_MAGIC_FE(0)	// get 0xFEFEFEFE FEFEFEFF from commpage
+        ld		r7,_COMM_PAGE_MAGIC_80(0)	// get 0x80808080 80808080 from commpage
+#endif
         mr		r9,r3				// use r9 for dest ptr (must return r3 intact)
         beq		LwordloopEnter		// source is aligned
-        subfic	r0,r0,4				// r0 <- #bytes to word align source
+        subfic	r0,r0,GPR_BYTES     // r0 <- #bytes to align source
         mtctr	r0
         
 // Loop over bytes.
@@ -83,31 +99,31 @@ Lbyteloop:
         bne		LwordloopEnter		// 0-byte not found, so enter word loop
         blr							// 0-byte found, done
         
-// Word loop: move a word at a time until 0-byte found.
-//		r4 = source ptr (word aligned)
+// Word loop: move a word or doubleword at a time until 0-byte found.
+//		r4 = source ptr (aligned)
 //		r6 = 0xFEFEFEFF
 //		r7 = 0x80808080
 //		r9 = dest ptr (unaligned)
 
         .align	5					// align inner loop, which is 8 words ling
 Lwordloop:
-        stw		r8,0(r9)			// pack word into destination
-        addi	r9,r9,4
+        stg		r8,0(r9)			// pack word or doubleword into destination
+        addi	r9,r9,GPR_BYTES
 LwordloopEnter:
-        lwz		r8,0(r4)			// r8 <- next 4 source bytes
-        addi	r4,r4,4
+        lg		r8,0(r4)			// r8 <- next source word or doubleword
+        addi	r4,r4,GPR_BYTES
         add		r10,r8,r6			// r10 <-  word + 0xFEFEFEFF
         andc	r12,r7,r8			// r12 <- ~word & 0x80808080
         and.	r0,r10,r12			// r0 <- nonzero iff word has a 0-byte
-        beq		Lwordloop			// loop if ctr!=0 and cr0_eq
+        beq		Lwordloop			// loop if no 0-byte
         
 // Found a 0-byte.  Store last word up to and including the 0, a byte at a time.
-//		r8 = last word, known to have a 0-byte
+//		r8 = last word or doubleword, known to have a 0-byte
 //		r9 = dest ptr
 
 Lstorelastbytes:
-        srwi.	r0,r8,24			// right justify next byte and test for 0
-        slwi	r8,r8,8				// shift next byte into position
+        srgi.   r0,r8,GPR_BYTES*8-8 // shift leftmost byte into bottom so we can "stb"
+        slgi    r8,r8,8             // move on to next
         stb		r0,0(r9)			// pack into dest
         addi	r9,r9,1
         bne		Lstorelastbytes		// loop until 0 stored

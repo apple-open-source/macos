@@ -99,5 +99,5 @@
 # derived files should go.
 #
 arptest: arp_session.c arp_session.h
-	cc -g -o arptest  -I../bootplib -DMOSX -DTEST_ARP_SESSION arp_session.c timer.c FDSet.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/util.c ../bootplib/bpflib.c ../bootplib/interfaces.c ../bootplib/ioregpath.c -framework CoreFoundation -framework IOKit -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
+	cc -g -o arptest  -I../bootplib -DTEST_ARP_SESSION arp_session.c timer.c FDSet.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/util.c ../bootplib/bpflib.c ../bootplib/interfaces.c ../bootplib/ioregpath.c -framework CoreFoundation -framework IOKit -I$(NEXT_ROOT)$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders
 

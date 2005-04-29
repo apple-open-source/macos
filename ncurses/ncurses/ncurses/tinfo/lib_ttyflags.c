@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -38,7 +38,7 @@
 #include <curses.priv.h>
 #include <term.h>		/* cur_term */
 
-MODULE_ID("$Id: lib_ttyflags.c,v 1.1.1.2 2002/01/03 23:53:45 jevans Exp $")
+MODULE_ID("$Id: lib_ttyflags.c,v 1.11 2003/05/17 23:50:37 tom Exp $")
 
 #undef tabs
 
@@ -60,9 +60,12 @@ NCURSES_EXPORT(int)
 _nc_get_tty_mode(TTY * buf)
 {
     if (cur_term == 0
-	|| GET_TTY(cur_term->Filedes, buf) != 0)
+	|| GET_TTY(cur_term->Filedes, buf) != 0) {
+	memset(buf, 0, sizeof(*buf));
 	return (ERR);
-    TR(TRACE_BITS, ("_nc_get_tty_mode: %s", _nc_tracebits()));
+    }
+    TR(TRACE_BITS, ("_nc_get_tty_mode(%d): %s",
+		    cur_term->Filedes, _nc_trace_ttymode(buf)));
     return (OK);
 }
 
@@ -70,9 +73,13 @@ NCURSES_EXPORT(int)
 _nc_set_tty_mode(TTY * buf)
 {
     if (cur_term == 0
-	|| SET_TTY(cur_term->Filedes, buf) != 0)
+	|| SET_TTY(cur_term->Filedes, buf) != 0) {
+	if ((errno == ENOTTY) && (SP != 0))
+	    SP->_notty = TRUE;
 	return (ERR);
-    TR(TRACE_BITS, ("_nc_set_tty_mode: %s", _nc_tracebits()));
+    }
+    TR(TRACE_BITS, ("_nc_set_tty_mode(%d): %s",
+		    cur_term->Filedes, _nc_trace_ttymode(buf)));
     return (OK);
 }
 
@@ -119,13 +126,14 @@ reset_prog_mode(void)
     T((T_CALLED("reset_prog_mode()")));
 
     if (cur_term != 0) {
-	_nc_set_tty_mode(&cur_term->Nttyb);
-	if (SP) {
-	    if (SP->_keypad_on)
-		_nc_keypad(TRUE);
-	    NC_BUFFERED(TRUE);
+	if (_nc_set_tty_mode(&cur_term->Nttyb) == OK) {
+	    if (SP) {
+		if (SP->_keypad_on)
+		    _nc_keypad(TRUE);
+		NC_BUFFERED(TRUE);
+	    }
+	    returnCode(OK);
 	}
-	returnCode(OK);
     }
     returnCode(ERR);
 }

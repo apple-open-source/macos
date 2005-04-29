@@ -50,6 +50,7 @@
 #define DNS_PRIVATE_HANDLE_TYPE_SUPER 0
 #define DNS_PRIVATE_HANDLE_TYPE_PLAIN 1
 #define DNS_DEFAULT_RECEIVE_SIZE 8192
+#define DNS_MAX_RECEIVE_SIZE 65536
 
 #define SDNS_DEFAULT_STAT_LATENCY 10
 
@@ -73,7 +74,6 @@
 #define INET_NTOP_AF_INET6_OFFSET 8
 
 extern void res_client_close(res_state res);
-extern res_state res_client_open(char *path);
 extern int __res_nquery(res_state statp, const char *name, int class, int type, u_char *answer, int anslen);
 static pthread_mutex_t _dnsPrintLock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -191,6 +191,7 @@ _dns_parse_string(const char *p, char **x, int32_t *remaining)
 	memmove(str, *x, len);
 	str[len] = '\0';
 	*x += len;
+	
 	return str;
 }
 
@@ -317,9 +318,9 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 	uint8_t byte, i;
 	dns_resource_record_t *r;
 	char *eor;
-
+	
 	if (*remaining < 1) return NULL;
-
+	
 	r = (dns_resource_record_t *)calloc(1, sizeof(dns_resource_record_t));
 
 	r->name = _dns_parse_domain_name(p, x, remaining);
@@ -1211,6 +1212,9 @@ dns_set_buffer_size(dns_handle_t d, uint32_t len)
 	}
 
 	dns->recvsize = len;
+	if (dns->recvsize > DNS_MAX_RECEIVE_SIZE) dns->recvsize = DNS_MAX_RECEIVE_SIZE;
+
+	if (dns->recvsize > 0) dns->recvbuf = malloc(dns->recvsize);
 }
 	
 uint32_t
@@ -1228,9 +1232,7 @@ dns_lookup(dns_handle_t d, const char *name, uint32_t class, uint32_t type)
 {
 	dns_private_handle_t *dns;
 	dns_reply_t *r;
-	int status, mymem;
-	char *buf;
-	uint32_t len;
+	int len;
 	struct sockaddr_storage *from;
 	uint32_t fromlen;
 
@@ -1238,36 +1240,25 @@ dns_lookup(dns_handle_t d, const char *name, uint32_t class, uint32_t type)
 	if (name == NULL) return NULL;
 	dns = (dns_private_handle_t *)d;
 
-	mymem = 0;
-	buf = dns->recvbuf;
-	len = dns->recvsize;
-	fromlen = sizeof(struct sockaddr_storage);
-
-	if (buf == NULL)
+	if (dns->recvbuf == NULL)
 	{
-		if (len == 0)
-		{
-			len = DNS_DEFAULT_RECEIVE_SIZE;
-			mymem = 1;
-		}
+		if (dns->recvsize == 0) dns->recvsize = DNS_DEFAULT_RECEIVE_SIZE;
 
-		buf = malloc(len);
-		if (buf == NULL) return NULL;
-
-		if (mymem == 0) dns->recvbuf = buf;
+		dns->recvbuf = malloc(dns->recvsize);
+		if (dns->recvbuf == NULL) return NULL;
 	}
-
+	
+	fromlen = sizeof(struct sockaddr_storage);
 	from = (struct sockaddr_storage *)calloc(1, sizeof(struct sockaddr_storage));
-	status = dns_search(dns, name, class, type, buf, len, (struct sockaddr *)from, &fromlen);
-	if (status <= 0)
+
+	len = dns_search(dns, name, class, type, dns->recvbuf, dns->recvsize, (struct sockaddr *)from, &fromlen);
+	if (len <= 0)
 	{
-		if (mymem != 0) free(buf);
 		free(from);
 		return NULL;
 	}
 
-	r = dns_parse_packet(buf, len);
-	if (mymem != 0) free(buf);
+	r = dns_parse_packet(dns->recvbuf, len);
 
 	if (r == NULL) free(from);
 	else r->server = (struct sockaddr *)from;
@@ -1912,8 +1903,11 @@ _pdns_print_handle(pdns_handle_t *pdns, FILE *f)
 	r = pdns->res;
 	if (r == NULL) return;
 
-	if (r->defdname[0] == '\0') fprintf(f, "Domain: -no default name-\n");
-	else fprintf(f, "Domain: %s\n", r->defdname);
+	if (r->defdname[0] != '\0') fprintf(f, "Domain: %s\n", r->defdname);
+	fprintf(f, "Search Order: %d\n", pdns->search_order);
+	fprintf(f, "Total Timeout: %d\n", pdns->total_timeout);
+	fprintf(f, "Retry Timeout: %d\n", pdns->res->retrans);
+	fprintf(f, "Retry Attempts: %d\n", pdns->res->retry);
 
 	fprintf(f, "Server%s:\n", (r->nscount == 1) ? "" : "s");
 	for (i = 0; i < r->nscount; i++)
@@ -1925,11 +1919,11 @@ _pdns_print_handle(pdns_handle_t *pdns, FILE *f)
 		fprintf(f, "\n");
 	}
 
-	if ((r->dnsrch[0] != NULL) && (r->dnsrch[0][0] != '\0'))
+	if (pdns->search_count > 0)
 	{
 		fprintf(f, "Search List:\n");
-		for (i = 0; r->dnsrch[i] != NULL; i++)
-			fprintf(f, "  %u: %s\n", i, r->dnsrch[i]);
+		for (i = 0; i < pdns->search_count; i++)
+			fprintf(f, "  %u: %s\n", i, pdns->search_list[i]);
 	}
 
 	if (r->sort_list[0].addr.s_addr != 0)
@@ -1957,7 +1951,7 @@ _sdns_print_handle(sdns_handle_t *sdns, FILE *f)
 		return;
 	}
 
-	fprintf(f, "DNS default (/etc/resolv.conf)\n");
+	fprintf(f, "DNS default\n");
 	_pdns_print_handle(sdns->dns_default, f);
 	fprintf(f, "\n");
 	

@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_mvwin.c,v 1.1.1.2 2002/01/03 23:53:40 jevans Exp $")
+MODULE_ID("$Id: lib_mvwin.c,v 1.12 2001/12/19 01:06:22 tom Exp $")
 
 NCURSES_EXPORT(int)
 mvwin(WINDOW *win, int by, int bx)

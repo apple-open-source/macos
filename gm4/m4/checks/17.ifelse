@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1381: Origin of test
+dnl ../doc/m4.texinfo:1382: Origin of test
 ifelse(foo, bar, `true')
 dnl @result{}
 ifelse(foo, foo, `true')

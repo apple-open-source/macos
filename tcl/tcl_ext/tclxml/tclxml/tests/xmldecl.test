@@ -1,0 +1,120 @@
+# Features covered:  XML Declaration
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on XML Declarations.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 Zveno Pty Ltd.
+#
+# $Id: xmldecl.test,v 1.2 2002/09/01 14:41:10 balls Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+set auto_path [linsert $auto_path 0 ..]
+if {[catch {package require xml 2.0}]} {
+    catch {puts stderr "Cannot load xml 2.0 package"}
+    return
+}
+
+catch {unset result}
+proc xmldecl {version encoding standalone} {
+    lappend ::result $version $encoding $standalone
+}
+
+test xmldecl-1.1 {No XML Declaration} {
+    catch {unset ::result}
+
+    catch {rename xml::xmldecl-1.1 {}}
+    set parser [xml::parser xmldecl-1.1 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<Test/>}
+
+    info exists ::result
+} 0
+
+test xmldecl-1.2 {Simple XML Declaration} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-1.1 {}}
+    set parser [xml::parser xmldecl-1.1 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<?xml version='1.0'?>
+<Test/>
+}
+
+    set ::result
+} [list 1.0 {} {}]
+
+test xmldecl-1.3 {XML Declaration w/- encoding} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-1.2 {}}
+    set parser [xml::parser xmldecl-1.2 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<?xml version="1.0" encoding='utf-8'?>
+<Test/>
+}
+
+    set ::result
+} [list 1.0 utf-8 {}]
+
+test xmldecl-1.4 {XML Declaration w/- standalone} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-1.3 {}}
+    set parser [xml::parser xmldecl-1.3 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<?xml version="1.0" standalone='yes'?>
+<Test/>
+}
+
+    set ::result
+} [list 1.0 {} yes]
+
+test xmldecl-1.5 {XML Declaration w/- the lot} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-1.4 {}}
+    set parser [xml::parser xmldecl-1.4 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<?xml version='1.0' encoding="utf-8" standalone='yes'?>
+<Test/>
+}
+
+    set ::result
+} [list 1.0 utf-8 yes]
+
+# Test case from bug #434304 submitted by Cameron Laird
+
+test xmldecl-2.1 {XML Declaration w/- whitespace} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-2.1 {}}
+    set parser [xml::parser xmldecl-2.1 \
+	-xmldeclcommand xmldecl]
+    $parser parse {<?xml version = '1.0'?>
+<Test/>
+}
+
+    set ::result
+} [list 1.0 {} {}]
+
+test xmldecl-3.1 {XML Declaration w/- error} {
+    set ::result {}
+
+    catch {rename xml::xmldecl-3.1 {}}
+    set parser [xml::parser xmldecl-3.1 \
+	-xmldeclcommand xmldecl]
+    set code [catch {$parser parse {<?xml version = "1.0" foobar standalone='no'?>
+<Test/>
+}} msg]
+
+    list $code
+} [list 1]
+
+# cleanup
+::tcltest::cleanupTests
+return

@@ -32,7 +32,7 @@
 .Ar special ...
 .Nm fsck_hfs
 .Op Fl n | y | r
-.Op Fl dfg
+.Op Fl dfgl
 .Op Fl m Ar mode
 .Ar special ...
 .Sh DESCRIPTION
@@ -57,7 +57,8 @@ during automatic reboot, when a HFS file system is detected.
 When preening file systems,
 .Nm
 will fix common inconsistencies for file systems that were not
-unmounted cleanly.  If more serious problems are found,
+unmounted cleanly.
+If more serious problems are found,
 .Nm
 does not try to fix them, indicates that it was not
 successful, and exits.
@@ -74,8 +75,8 @@ will always check and attempt to fix the specified file systems.
 The options are as follows:
 .Bl -hang -offset indent
 .It Fl d
-Display debugging information.  This option may provide useful 
-information when 
+Display debugging information.
+This option may provide useful information when 
 .Nm
 cannot repair a damaged file system.
 .It Fl f
@@ -89,16 +90,20 @@ to check and repair journaled HFS+ file systems.
 .It Fl g
 Causes
 .Nm
-to generate it's output strings in GUI format.  This option is used
-when another application with a graphical user interface
+to generate it's output strings in GUI format.
+This option is used when another application with a graphical user interface
 (like Mac OS X Disk Utility) is envoking the
 .Nm
 tool.
+.It Fl l
+Lock down the file system and perform a test-only check.
+This makes it possible to check a file system that is currently mounted,
+although no repairs can be made.
 .It Fl m Ar mode
 Mode is an octal number that will be used to set the permissions for the
-lost+found directory when it is created.   The lost+found directory is
-only created when a volume is repaired and orphaned files or directories are
-detected.
+lost+found directory when it is created.
+The lost+found directory is only created when a volume is repaired and orphaned
+files or directories are detected.
 .Nm
 places orphaned files and directories into the lost+found directory (located
 at the root of the volume).
@@ -110,16 +115,16 @@ Causes
 .Nm
 to quickly check whether the volume was unmounted cleanly.
 If the volume was unmounted cleanly, then the exit status is 0.
-If the volume was not unmounted cleanly, then the exit status
-will be non-zero.  In either case, a message is printed to
-standard output describing whether the volume was clean or dirty.
+If the volume was not unmounted cleanly, then the exit status will be non-zero.
+In either case, a message is printed to standard output describing whether the
+volume was clean or dirty.
 .It Fl y
 Always attempt to repair any damage that is found.
 .It Fl n
 Never attempt to repair any damage that is found.
 .It Fl r
-Rebuild the catalog file on the specified file system.  This option 
-currently will only work if there is enough contiguous space on the 
+Rebuild the catalog file on the specified file system.
+This option currently will only work if there is enough contiguous space on the
 specified file system for a new catalog file and if there is no damage 
 to the leaf nodes in the existing catalog file.
 .El

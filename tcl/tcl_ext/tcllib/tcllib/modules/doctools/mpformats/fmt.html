@@ -1,0 +1,408 @@
+# -*- tcl -*-
+#
+# fmt.html
+#
+# Copyright (c) 2001-2003 Andreas Kupries <andreas_kupries@sourceforge.net>
+#
+# Definitions to convert a tcl based manpage definition into
+# a manpage based upon HTML markup.
+#
+################################################################
+################################################################
+
+dt_source _common.tcl   ; # Shared code
+dt_source _html.tcl     ; # HTML basic formatting
+
+proc c_copyrightsymbol {} {markup "&copy;"}
+
+proc bgcolor {} {return ""}
+proc border  {} {return 0}
+proc Year    {} {clock format [clock seconds] -format %Y}
+
+# possibleReference text gi --
+#	Check if $text is a potential cross-reference;
+#	if so, format as a reference;
+#	otherwise format as a $gi element.
+#
+proc c_possibleReference {text gi} {
+    global SectionNames
+    if {[info exists SectionNames($text)]} {
+	return [taga a [list href #$SectionNames($text)]]$text[tag/ a]
+    } else {
+	return [tag $gi]$text[tag/ $gi]
+    }
+}
+
+c_holdBuffers require
+
+################################################################
+## Backend for HTML markup
+
+# --------------------------------------------------------------
+# Handling of lists. Simplified, the global check of nesting and
+# legality of list commands allows us to throw away most of the
+# existing checks.
+
+global liststack ; # stack of list tags to use in list_end
+global hintstack ; # stack of hint information.
+global chint     ; # current hint settings
+global lmark     ; # boolean flag, 1 = list item command was last
+#                ; #               0 = something other than a list item command
+
+set    liststack [list]
+set    hintstack [list]
+set    chint     ""
+set    lmark     0
+
+proc llevel {} {global liststack ; return [llength $liststack]}
+
+proc lpush {t hint} {
+    global  liststack hintstack chint
+    lappend liststack [tag/ $t]
+    lappend hintstack $chint
+    set     chint $hint
+    return [tag $t]
+}
+
+proc lpop {} {
+    global liststack hintstack chint
+    set t         [lindex   $liststack end]
+    set liststack [lreplace $liststack end end]
+    set chint     [lindex   $hintstack end]
+    set hintstack [lreplace $hintstack end end]
+    return $t
+}
+
+proc lsmark {value} {
+    global lmark ; set lmark $value ; return
+}
+
+proc limark {} {
+    # hint and mark processing.
+    # hint: compact list, do not create additional whitespace
+    if {[lcompact]} {return ""}
+
+    # hint: wide list, create additional whitespace.
+    # mark: exception: two list items following each other have no whitespace.
+    global lmark ; if {$lmark} {return ""}
+    return [tag br][tag br]\n
+}
+
+proc lcompact {} {global chint ; string equal $chint compact}
+
+proc fmt_plain_text {text} {
+    # Control list state
+    set redux [string map [list " " "" "\t" "" "\n" ""] $text]
+    if {$redux != {}} {lsmark 0}
+    return $text
+}
+
+################################################################
+# Formatting commands.
+
+c_pass 1 fmt_manpage_begin {title section version} {c_cinit ; return}
+c_pass 2 fmt_manpage_begin {title section version} {
+    c_cinit
+    set module      [dt_module]
+    set shortdesc   [c_get_module]
+    set description [c_get_title]
+    set copyright   [c_get_copyright]
+
+    set     hdr ""
+    append  hdr "[markup <html><head>]\n"
+    append  hdr "[markup <title>]$title - $shortdesc [markup </title>]\n"
+
+    # Engine parameter - insert 'meta'
+    if {[set meta [Get meta]] != {}} {append hdr [markup $meta]\n}
+
+    append  hdr "[markup </head>]\n"
+    append  hdr [ht_comment [c_provenance]]\n
+    if {$copyright != {}} {
+	append  hdr [ht_comment $copyright]\n
+    }
+    append  hdr [ht_comment "CVS: \$Id\$ $title.$section"]\n
+    append  hdr \n
+    append  hdr [markup <body>]\n
+
+    # Engine parameter - insert 'header'
+    if {[set header [Get header]] != {}} {append hdr [markup $header]\n}
+
+    append  hdr "[markup <h1>] [string trimleft $title :]($section) $version $module \"$shortdesc\"[markup </h1>]\n"
+    append  hdr [fmt_section NAME]\n
+    append  hdr "[fmt_para] $title - $description"
+    return $hdr
+}
+
+c_pass 1 fmt_moddesc   {desc} {c_set_module $desc}
+c_pass 2 fmt_moddesc   {desc} NOP
+
+c_pass 1 fmt_titledesc {desc} {c_set_title $desc}
+c_pass 2 fmt_titledesc {desc} NOP
+
+c_pass 1 fmt_copyright {desc} {c_set_copyright $desc}
+c_pass 2 fmt_copyright {desc} NOP
+
+c_pass 1 fmt_manpage_end {} {c_creset ; return}
+c_pass 2 fmt_manpage_end {} {
+    c_creset
+    set res ""
+
+    set sa [c_xref_seealso]
+    set kw [c_xref_keywords]
+    set ct [c_get_copyright]
+
+    if {[llength $sa] > 0} {
+	append res [fmt_section {SEE ALSO}] \n
+	append res [join [XrefList [lsort $sa] sa] ", "] \n
+    }
+    if {[llength $kw] > 0} {
+	append res [fmt_section KEYWORDS] \n
+	append res [join [XrefList [lsort $kw] kw] ", "] \n
+    }
+    if {$ct != {}} {
+	append res [fmt_section COPYRIGHT] \n
+	append res [join [split $ct \n] [tag br]\n] [tag br]\n
+    }
+
+    # Engine parameter - insert 'footer'
+    if {[set footer [Get footer]] != {}} {append res [markup $footer]\n}
+
+    append res [markup </body></html>]
+    return $res
+}
+
+c_pass 1 fmt_section     {name} { set ::SectionNames($name) [c_sectionId $name] }
+c_pass 2 fmt_section     {name} {
+    set id [c_sectionId $name]
+    return "[markup <h2><]a name=[markup \"]$id[markup \">]$name[markup </a></h2>\n<p>]"
+}
+
+proc fmt_para {} {return [markup <p>]}
+
+c_pass 2 fmt_require {pkg {version {}}} NOP
+c_pass 1 fmt_require {pkg {version {}}} {
+    set result "package require [markup <b>]$pkg"
+    if {$version != {}} {
+	append result " $version"
+    }
+    append result [markup "</b><br>"]
+    c_hold require $result
+    return
+}
+
+c_pass 2 fmt_usage {cmd args} NOP
+c_pass 1 fmt_usage {cmd args} {c_hold synopsis "[trtop][td]$cmd [join $args " "][markup </td></tr>]"}
+
+c_pass 1 fmt_call {cmd args} {
+    c_hold synopsis "[trtop][td][markup "<a href=\"#[c_cnext]\">"]$cmd [join $args " "][markup </a></td></tr>]"
+}
+c_pass 2 fmt_call {cmd args} {
+    return "[fmt_lst_item "[markup "<a name=\"[c_cnext]\">"]$cmd [join $args " "][markup </a>]"]\n"
+}
+
+c_pass 1 fmt_description {} NOP
+c_pass 2 fmt_description {} {
+    set result ""
+    set syn [c_held synopsis]
+    set req [c_held require]
+    if {$syn != {} || $req != {}} {
+	append result [fmt_section SYNOPSIS]\n
+    }
+    if {$req != {}} {
+	append result $req \n
+	append result [markup <br>]
+    }
+    if {$syn != {}} {
+	proc bgcolor {} {return lightyellow}
+
+	append result [btable][tr][td][table]${syn}\n[markup </table></td></tr></table>]\n
+
+	proc bgcolor {} {return ""}
+    }
+    append result [fmt_section DESCRIPTION]
+    return $result
+}
+
+################################################################
+
+proc fmt_list_begin  {what {hint {}}} {
+    switch -exact -- $what {
+	enum        {set tag ol}
+	bullet      {set tag ul}
+	arg - cmd - opt - tkoption -
+	definitions {set tag dl}
+    }
+    return [if {[llevel]} {limark} else {}][lpush $tag $hint][lsmark 1]
+}
+
+proc fmt_list_end {}        {return [lpop][lsmark 1]}
+proc fmt_lst_item {text}    {return [limark][tag dt]$text[tag dd][lsmark 1]}
+proc fmt_bullet   {}        {return [limark][tag li][lsmark 1]}
+proc fmt_enum     {}        {return [limark][tag li][lsmark 1]}
+proc fmt_cmd_def  {command} {fmt_lst_item [cmd $command]}
+
+proc fmt_arg_def {type name {mode {}}} {
+    set    text ""
+    append text "$type [fmt_arg $name]"
+    if {$mode != {}} {
+	append text " ($mode)"
+    }
+    fmt_lst_item $text
+}
+proc fmt_opt_def {name {arg {}}} {
+    set text [fmt_option $name]
+    if {$arg != {}} {append text " $arg"}
+    fmt_lst_item $text
+}
+proc fmt_tkoption_def {name dbname dbclass} {
+    set    text ""
+    append text "Command-Line Switch:\t[fmt_option $name][markup <br>]\n"
+    append text "Database Name:\t[strong $dbname][markup <br>]\n"
+    append text "Database Class:\t[strong $dbclass][markup <br>]\n"
+    fmt_lst_item $text
+}
+
+
+################################################################
+
+proc fmt_example_begin {} {
+    lsmark 0
+    return [markup "<p><table><tr><td bgcolor=black>&nbsp;</td><td><pre class='sample'>"]
+}
+proc fmt_example_end   {} {
+    return [markup "</pre></td></tr></table></p>"]
+}
+proc fmt_example {code} {
+    return "[fmt_example_begin][fmt_plain_text $code][fmt_example_end]"
+}
+
+proc fmt_nl {} {
+    if {[lcompact]} {return [tag br]}
+    return [tag br][tag br]
+}
+proc fmt_arg    {text} {return "[markup "<i class='arg'>"]$text[markup </i>]" }
+proc fmt_cmd    {text} {return "[markup "<b class='cmd'>"][XrefMatch $text sa][markup </b>]" }
+
+proc fmt_emph	{text}	{ em $text }
+
+proc strong {text} {return "[markup <strong>]$text[markup </strong>]"}
+proc em     {text} {return "[markup <em>]$text[markup </em>]"}
+
+
+proc fmt_opt     {text} {return "?$text?" }
+proc fmt_comment {text} {ht_comment $text}
+proc fmt_sectref {text} {
+    global SectionNames
+    if {[info exists SectionNames($text)]} {
+    	return "[markup <]a href=[markup \"]#$SectionNames($text)[markup \">]$text[markup </a>]"
+    } else {
+    	return "[markup <b>]$text[markup </b>]"
+    }
+}
+proc fmt_syscmd  {text} {strong [XrefMatch $text sa]}
+proc fmt_method  {text} {strong $text}
+proc fmt_option  {text} {strong $text}
+proc fmt_widget  {text} {strong $text}
+proc fmt_fun     {text} {strong $text}
+proc fmt_type    {text} {strong $text}
+proc fmt_package {text} {strong $text}
+proc fmt_class   {text} {strong $text}
+proc fmt_var     {text} {strong $text}
+proc fmt_file    {text} {return "\"[strong $text]\""}
+proc fmt_uri     {text} {return "[markup <]a href=[markup \"]$text[markup \">]$text[markup </a>]"}
+proc fmt_term    {text} {em [XrefMatch $text kw]}
+proc fmt_const   {text} {strong $text}
+
+################################################################
+
+global xref ; array set xref {}
+
+global    __var
+array set __var {
+    meta   {}
+    header {}
+    footer {}
+    xref   {}
+}
+proc Get               {varname}      {global __var ; return $__var($varname)}
+proc fmt_listvariables {}             {global __var ; return [array names __var]}
+proc fmt_varset        {varname text} {
+    global __var
+    if {![info exists __var($varname)]} {return -code error "Unknown engine variable \"$varname\""}
+    set __var($varname) $text
+    return
+}
+
+################################################################
+
+proc XrefInit {} {
+    global xref __var
+    foreach item $__var(xref) {
+	foreach {pattern fname fragment} $item break
+	set fname_ref [dt_fmap $fname]
+	if {$fragment != {}} {append fname_ref #$fragment}
+	set xref($pattern) $fname_ref
+    }
+    proc XrefInit {} {}
+    return
+}
+
+proc XrefMatch {word ext} {
+    global xref
+
+    #puts_stderr "$word $ext"
+    #foreach {k v} [array get xref] {puts_stderr "$k\t $v"}
+
+    if {$ext != {}} {
+	if {[info exists xref($ext,$word)]} {
+	    return [XrefLink $xref($ext,$word) $word]
+	}
+    }
+    if {[info exists xref($word)]} {
+	return [XrefLink $xref($word) $word]
+    }
+    return $word
+}
+
+proc XrefList {list {ext {}}} {
+    XrefInit
+    set res [list]
+    foreach w $list {lappend res [XrefMatch $w $ext]}
+    return $res
+}
+
+proc XrefLink {dest label} {
+    # Ensure that the link is properly done relative to this file!
+
+    set save $dest
+
+    #puts_stderr "XrefLink $dest $label"
+
+    set here [file split [dt_fmap [dt_file]]]
+    set dest [file split $dest]
+
+    #puts_stderr "XrefLink < $here"
+    #puts_stderr "XrefLink > $dest"
+
+    while {[string equal [lindex $dest 0] [lindex $here 0]]} {
+	set dest [lrange $dest 1 end]
+	set here [lrange $here 1 end]
+	if {[llength $dest] == 0} {break}
+    }
+    set ul [llength $dest]
+    set hl [llength $here]
+
+    if {$ul == 0} {
+	set dest [lindex [file split $save] end]
+    } else {
+	while {$hl > 1} {
+	    set dest [linsert $dest 0 ..]
+	    incr hl -1
+	}
+	set dest [eval file join $dest]
+    }
+
+    #puts_stderr "XrefLink --> $dest"
+
+    return "[markup "<a href=\"$dest\">"] $label [markup </a>]" ; # "
+}

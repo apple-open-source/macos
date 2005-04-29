@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -201,7 +200,15 @@ package body Ch12 is
          Set_Specification (Gen_Decl, P_Package (Pf_Spcn));
       else
          Gen_Decl := New_Node (N_Generic_Subprogram_Declaration, Gen_Sloc);
+
          Set_Specification (Gen_Decl, P_Subprogram_Specification);
+
+         if Nkind (Defining_Unit_Name (Specification (Gen_Decl))) =
+                                             N_Defining_Program_Unit_Name
+           and then Scope.Last > 0
+         then
+            Error_Msg_SP ("child unit allowed only at library level");
+         end if;
          TF_Semicolon;
       end if;
 
@@ -368,12 +375,12 @@ package body Ch12 is
       --  bother to check for it being exceeded.
 
    begin
-      Idents (1) := P_Defining_Identifier;
+      Idents (1) := P_Defining_Identifier (C_Comma_Colon);
       Num_Idents := 1;
 
       while Comma_Present loop
          Num_Idents := Num_Idents + 1;
-         Idents (Num_Idents) := P_Defining_Identifier;
+         Idents (Num_Idents) := P_Defining_Identifier (C_Comma_Colon);
       end loop;
 
       T_Colon;
@@ -874,7 +881,7 @@ package body Ch12 is
    begin
       Def_Node := New_Node (N_Formal_Package_Declaration, Prev_Token_Ptr);
       Scan; -- past PACKAGE
-      Set_Defining_Identifier (Def_Node, P_Defining_Identifier);
+      Set_Defining_Identifier (Def_Node, P_Defining_Identifier (C_Is));
       T_Is;
       T_New;
       Set_Name (Def_Node, P_Qualified_Simple_Name);

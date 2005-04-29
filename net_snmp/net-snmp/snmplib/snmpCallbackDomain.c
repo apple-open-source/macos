@@ -5,6 +5,9 @@
 #include <ctype.h>
 #include <errno.h>
 
+#ifdef WIN32
+#include <net-snmp/library/winpipe.h>
+#endif
 #if HAVE_STRING_H
 #include <string.h>
 #else
@@ -47,6 +50,8 @@
 #ifndef NETSNMP_STREAM_QUEUE_LEN
 #define NETSNMP_STREAM_QUEUE_LEN  5
 #endif
+
+#ifdef SNMP_TRANSPORT_CALLBACK_DOMAIN
 
 static netsnmp_transport_list *trlist = NULL;
 
@@ -129,7 +134,7 @@ callback_pop_queue(int num)
                 ptr->next->prev = ptr->prev;
             }
             cp = ptr->item;
-            free(ptr);
+            SNMP_FREE(ptr);
             DEBUGIF("dump_recv_callback_transport") {
                 callback_debug_pdu("dump_recv_callback_transport",
                                    cp->pdu);
@@ -183,7 +188,11 @@ netsnmp_callback_recv(netsnmp_transport *t, void *buf, int size,
     DEBUGMSGTL(("transport_callback", "hook_recv enter\n"));
 
     while (rc < 0) {
+#ifdef WIN32
+	rc = recv(mystuff->pipefds[0], newbuf, 1, 0);
+#else
 	rc = read(mystuff->pipefds[0], newbuf, 1);
+#endif
 	if (rc < 0 && errno != EINTR) {
 	    break;
 	}
@@ -223,7 +232,7 @@ netsnmp_callback_send(netsnmp_transport *t, void *buf, int size,
     callback_hack  *ch = (callback_hack *) * opaque;
     netsnmp_pdu    *pdu = ch->pdu;
     *opaque = ch->orig_transport_data;
-    free(ch);
+    SNMP_FREE(ch);
 
     DEBUGMSGTL(("transport_callback", "hook_send enter\n"));
 
@@ -259,8 +268,12 @@ netsnmp_callback_send(netsnmp_transport *t, void *buf, int size,
             return -1;
 
 	while (rc < 0) {
+#ifdef WIN32
+	    rc = send(((netsnmp_callback_info*) other_side->data)->pipefds[1], " ", 1, 0);
+#else
 	    rc = write(((netsnmp_callback_info *)other_side->data)->pipefds[1],
 		       " ", 1);
+#endif
 	    if (rc < 0 && errno != EINTR) {
 		break;
 	    }
@@ -270,7 +283,7 @@ netsnmp_callback_send(netsnmp_transport *t, void *buf, int size,
          * we don't need the transport data any more 
          */
         if (*opaque) {
-            free(*opaque);
+            SNMP_FREE(*opaque);
             *opaque = NULL;
         }
     } else {
@@ -282,15 +295,19 @@ netsnmp_callback_send(netsnmp_transport *t, void *buf, int size,
          * we don't need the transport data any more 
          */
         if (*opaque) {
-            free(*opaque);
+            SNMP_FREE(*opaque);
             *opaque = NULL;
         }
         other_side = find_transport_from_callback_num(from);
         if (!other_side)
             return -1;
 	while (rc < 0) {
+#ifdef WIN32
+	    rc = send(((netsnmp_callback_info*) other_side->data)->pipefds[1], " ", 1, 0);
+#else
 	    rc = write(((netsnmp_callback_info *)other_side->data)->pipefds[1],
 		       " ", 1);
+#endif
 	    if (rc < 0 && errno != EINTR) {
 		break;
 	    }
@@ -311,10 +328,15 @@ netsnmp_callback_close(netsnmp_transport *t)
     netsnmp_callback_info *mystuff = (netsnmp_callback_info *) t->data;
     DEBUGMSGTL(("transport_callback", "hook_close enter\n"));
 
-    rc = close(mystuff->pipefds[0]);
-    rc = close(mystuff->pipefds[1]);
+#ifdef WIN32
+    rc  = closesocket(mystuff->pipefds[0]);
+    rc |= closesocket(mystuff->pipefds[1]);
+#else
+    rc  = close(mystuff->pipefds[0]);
+    rc |= close(mystuff->pipefds[1]);
+#endif
 
-    netsnmp_transport_remove_from_list(&trlist, t);
+    rc |= netsnmp_transport_remove_from_list(&trlist, t);
 
     DEBUGMSGTL(("transport_callback", "hook_close exit\n"));
     return rc;
@@ -365,15 +387,15 @@ netsnmp_callback_transport(int to)
     t->data = mydata;
 
 #ifdef WIN32
-    rc = _pipe(mydata->pipefds, 1024, O_BINARY);
+    rc = create_winpipe_transport(mydata->pipefds);
 #else
     rc = pipe(mydata->pipefds);
 #endif
     t->sock = mydata->pipefds[0];
 
     if (rc) {
-        free(mydata);
-        free(t);
+        SNMP_FREE(mydata);
+        SNMP_FREE(t);
         return NULL;
     }
 
@@ -455,7 +477,7 @@ netsnmp_callback_create_pdu(netsnmp_transport *transport,
     pdu->transport_data_length = olength;
     if (opaque)                 /* if created, we're the server */
         *((int *) opaque) = cp->return_transport_num;
-    free(cp);
+    SNMP_FREE(cp);
     return pdu;
 }
 
@@ -503,3 +525,30 @@ netsnmp_callback_open(int attach_to,
             ((netsnmp_callback_info *) callback_tr->data)->callback_num;
     return callback_ss;
 }
+
+
+
+void
+netsnmp_clear_callback_list(void)
+{
+
+    netsnmp_transport_list *list = trlist, *next = NULL;
+    netsnmp_transport *tr = NULL;
+
+    DEBUGMSGTL(("callback_clear", "called netsnmp_callback_clear_list()\n"));
+    while (list != NULL) {
+	next = list->next;
+	tr = list->transport;
+
+	if (tr != NULL) {
+	    tr->f_close(tr);
+  	    netsnmp_transport_remove_from_list(&trlist, list->transport);
+	    netsnmp_transport_free(list->transport);
+	}
+	list = next;
+    }
+    trlist = NULL;
+
+}
+
+#endif /* SNMP_TRANSPORT_CALLBACK_DOMAIN */

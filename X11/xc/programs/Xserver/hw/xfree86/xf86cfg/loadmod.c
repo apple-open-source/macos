@@ -26,15 +26,16 @@
  *
  * Author: Paulo César Pereira de Andrade <pcpa@conectiva.com.br>
  *
- * $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/loadmod.c,v 1.14 2003/02/26 20:08:03 dawes Exp $
+ * $XFree86: xc/programs/Xserver/hw/xfree86/xf86cfg/loadmod.c,v 1.18 2003/06/12 14:12:38 eich Exp $
  */
 
 #ifdef USE_MODULES
 #include <setjmp.h>
 
 #ifndef HAS_GLIBC_SIGSETJMP
-#if defined(setjmp) && \
-    defined(__GLIBC__) && __GLIBC__ == 2 && __GLIBC_MINOR__ < 2
+#if defined(setjmp) && defined(__GNU_LIBRARY__) && \
+    (!defined(__GLIBC__) || (__GLIBC__ < 2) || \
+     ((__GLIBC__ == 2) && (__GLIBC_MINOR__ < 3)))
 #define HAS_GLIBC_SIGSETJMP 1
 #endif
 #endif
@@ -66,6 +67,7 @@ Bool xf86LoaderCheckSymbol(const char*);
 void xf86LoaderRefSymLists(const char **, ...);
 void xf86LoaderReqSymLists(const char **, ...);
 void xf86Msg(int, const char*, ...);
+void xf86MsgVerb(int, int, const char*, ...);
 void xf86PrintChipsets(const char*, const char*, SymTabPtr);
 void xf86ErrorFVerb(int verb, const char *format, ...);
 pciVideoPtr *xf86GetPciVideoInfo(void);
@@ -76,6 +78,7 @@ void *xf86LoadDrvSubModule(DriverPtr drv, const char*);
 void xf86DrvMsg(int, int, const char*, ...);
 pciConfigPtr *xf86GetPciConfigInfo(void);
 Bool xf86IsPrimaryPci(pcVideoPtr*);
+Bool xf86CheckPciSlot(int bus, int device, int func);
 #endif
 
 extern char *loaderPath, **loaderList, **ploaderList;
@@ -179,7 +182,7 @@ LOOKUP xfree86LookupTab[] = {
    SYMFUNC(xf86memchr)
    SYMFUNC(xf86memcmp)
    SYMFUNC(xf86memcpy)
-#if (defined(__powerpc__) && (defined(Lynx) || defined(linux))) || defined(__sparc__) || defined(__ia64__) || defined (__x86_64__)
+#if (defined(__powerpc__) && (defined(Lynx) || defined(linux))) || defined(__sparc__) || defined(__ia64__) || defined (__AMD64__)
    /*
     * Some PPC, SPARC, and IA64 compilers generate calls to memcpy to handle
     * structure copies.  This causes a problem both here and in shared
@@ -275,9 +278,15 @@ LOOKUP xfree86LookupTab[] = {
    SYMFUNC(xf86shmctl)
 #ifdef HAS_GLIBC_SIGSETJMP
    SYMFUNC(xf86setjmp)
+   SYMFUNC(xf86setjmp0)
+#if defined(__GLIBC__) && (__GLIBC__ >= 2)
    SYMFUNCALIAS("xf86setjmp1",__sigsetjmp)
 #else
+   SYMFUNC(xf86setjmp1)
+#endif
+#else
    SYMFUNCALIAS("xf86setjmp",setjmp)
+   SYMFUNCALIAS("xf86setjmp0",setjmp)
    SYMFUNC(xf86setjmp1)
 #endif
    SYMFUNCALIAS("xf86longjmp",longjmp)
@@ -294,6 +303,7 @@ LOOKUP xfree86LookupTab[] = {
     SYMFUNC(xf86LoaderRefSymLists)
     SYMFUNC(xf86LoaderReqSymLists)
     SYMFUNC(xf86Msg)
+    SYMFUNC(xf86MsgVerb)
     SYMFUNC(ErrorF)
     SYMFUNC(xf86PrintChipsets)
     SYMFUNC(xf86ErrorFVerb)
@@ -306,6 +316,10 @@ LOOKUP xfree86LookupTab[] = {
     SYMFUNC(xf86DrvMsg)
     SYMFUNC(xf86GetPciConfigInfo)
     SYMFUNC(xf86IsPrimaryPci)
+    SYMFUNC(xf86CheckPciSlot)
+    SYMFUNC(XNFalloc)
+    SYMFUNC(XNFrealloc)
+    SYMFUNC(XNFcalloc)
     {0,0}
 };
 
@@ -495,9 +509,20 @@ xf86cfgCheckModule(void)
     numFontModules = 0;
     fonts = FontModuleList;
     if (fonts) {
+	Bool dup = FALSE;
 	while (fonts->name) {
-	    if (strcmp(fonts->name, *ploaderList) == 0)
+	    if (strcasecmp(fonts->name, *ploaderList) == 0) {
 		pfont_module = fonts;
+		/* HACK:
+		 * fonts->names points into modules.
+		 * Duplicate string of all remaining names to survive
+		 * unloading. Since new fonts are appended to list
+		 * this will only happen once per renderer.
+		 */
+		dup = TRUE;
+	    }
+	    if (dup)
+		fonts->name = strdup(fonts->name);
 	    ++numFontModules;
 	    ++fonts;
 	}
@@ -647,5 +672,11 @@ Bool
 xf86IsPrimaryPci(pciVideoPtr pPci)
 {
     return (True);
+}
+
+Bool 
+xf86CheckPciSlot(int bus, int device, int func)
+{
+    return (False);
 }
 #endif

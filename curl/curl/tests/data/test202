@@ -6,6 +6,9 @@
 
 # Client-side
 <client>
+<server>
+none
+</server>
  <name>
 two file:// URLs to stdout
  </name>
@@ -15,7 +18,7 @@ file://localhost/%PWD/log/test202.txt file://localhost/%PWD/log/test202.txt
 <file name="log/test202.txt">
 contents in a single file
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>

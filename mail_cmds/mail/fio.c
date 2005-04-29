@@ -36,8 +36,10 @@
 static char sccsid[] = "@(#)fio.c	8.2 (Berkeley) 4/20/95";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/fio.c,v 1.11 2001/12/19 21:50:22 ache Exp $";
+  "$FreeBSD: src/usr.bin/mail/fio.c,v 1.12 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 #include "rcv.h"
 #include <sys/file.h>

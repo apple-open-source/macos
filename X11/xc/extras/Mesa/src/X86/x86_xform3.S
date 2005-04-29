@@ -22,7 +22,6 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/X86/x86_xform3.S,v 1.4 2002/12/16 16:18:33 dawes Exp $ */
 
 /*
  * NOTE: Avoid using spaces in between '(' ')' and arguments, especially

@@ -1,0 +1,156 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.TH man 1 "15/3/1994"
+.LO 1
+.SH NOME
+man \- formatar e mostrar as páginas do manual on-line
+.br
+manpath \- determinar o manpath inicial para o utilizador
+.SH SINOPSE
+man [\-acdfhktw] [\-m sistema] [\-p string] [\-C fich_config] [\-M path]
+[\-P paginador] [\-S lista_sec] [secção] nome ...
+.SH DESCRIÇÃO
+.B man
+formata e mostra as páginas do manual `on-line'. Esta versão reconhece
+as variáveis de ambiente (environment)
+.B MANPATH
+e
+.B (MAN)PAGER
+(vêr a seguir).
+Se a
+.I secção
+for indicada,
+.B man
+apenas procura nessa secção de manuais.
+Pode também indicar por que ordem das secções deve procurar 
+e que preprocessamento efectuar nos manuais, por meio de opções na
+linha de comando ou variáveis de ambiente.
+Se
+.I nome
+contiver uma / tentará primeiro o ficheiro com esse nome, permitindo
+fazer
+.B "man ./foo.5"
+ou mesmo
+.B "man /cd/foo/bar.1.gz"
+para formatar e vêr um ficheiro em particular.
+.SH OPÇÕES
+.TP
+.B \-\^C " fich_config"
+Indica o ficheiro de configuração a usar; por omissão será usado
+@man_config_file@. (Veja man.conf(5).)
+.TP
+.B \-\^M " path"
+Indica a lista de directórios onde procurar manuais.
+Sem esta opção, será consultada a variável
+.B MANPATH.
+Se também esta variável estiver definida, uma lista será obtida
+por consulta de @man_config_file@. Um directório vazio em MANPATH
+representa a lista anterior.
+.TP
+.B \-\^P " paginador"
+Indica qual o paginador/visualisador a usar. Sem esta opção tentará
+consultar a variável
+.B PAGER.
+Normalmente, man usará
+.B @pager@.
+.TP
+.B \-\^S " lista_sec"
+Fornece a lista de secções (separadas por ,) onde procurar e por que
+ordem. Esta opção substitui o que é indicado pela variável
+.B MANSECT
+quando esta está definida.
+.TP
+.B \-\^a
+Normalmente man mostra o primeiro manual que encontrar. Esta opção
+faz com que mostre todas as páginas de manuais encontradas para a entrada
+.B nome. 
+.TP
+.B \-\^d
+Não mostra o manual, imprimindo vária informação para `debug'.
+.TP
+.B \-\^f
+Equivalente a
+.B whatis.
+.TP
+.B \-\^h
+Imprime apenas uma mensagem de ajuda.
+.TP
+.B \-\^k
+Equivalente a
+.B apropos.
+.TP
+.B \-\^m " sistema"
+Indica um conjunto de manuais diferente aplicáveis ao sistema indicado.
+.TP
+.B \-\^p " string"
+Especifica uma sequência de preprocessadores a usar antes de nroff ou
+troff (os formatadores). Algumas instalações podem não ter todos os
+preprocessadores. Alguns preprocessadores e as letras a usar para os
+indicar são:
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Esta opção sobrepõe-se à variável
+.B MANROFFSEQ.
+.TP
+.B \-\^t
+Usar
+.B @troff@
+para formatar as páginas do manual. A saída deste comando
+pode ter ainda de ser processada por outro antes de a poder
+imprimir.
+.TP
+.B \-\^w \fRor\fP \-\-path
+Não imprime as páginas do manual, mas mostra a(s) localização(ões) dos
+ficheiros a formatar e mostrar, para a entrada de
+.B nome
+indicado. Se não fornecer mais nenhuma opção mostra a lista de
+directórios que serão percorridos por
+.B man
+nas suas buscas. Se
+.B manpath
+é um `link' para man, então "manpath" é equivalente a "man --path".
+
+.SH AMBIENTE
+.TP \w'MANROFFSEQ\ \ 'u
+.B MANPATH
+Se
+.B MANPATH
+estiver definido, o seu valor será usado como a lista de directórios
+(manpath) onde podem estar entradas do manual.
+.TP
+.B MANROFFSEQ
+Se
+.B MANROFFSEQ
+está definido, o seu valor determina os preprocessamentos a aplicar
+antes de nroff ou troff. Normalmente, as páginas de manual, são
+preprocessadas pelo tbl antes de nroff.
+.TP
+.B MANSECT
+Se
+.B MANSECT
+existir, o seu valor indica as secções a percorrer.
+.TP
+.B PAGER
+Se
+.B PAGER
+está definido, indicará o programa a usar para mostrar o manual.
+Normalmente usará
+.B @pager@.
+.SH "VEJA TAMBÉM"
+apropos(1), whatis(1), less(1), groff(1).
+.SH BUGS
+.B \-t
+só funciona se existir o programa troff ou equivalente.

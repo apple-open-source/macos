@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __VMBUF_H__
+#define __VMBUF_H__
+
 /*
  *	bp      v
  *	v       v
@@ -61,3 +64,7 @@ extern vchar_t *vmalloc __P((size_t));
 extern vchar_t *vrealloc __P((vchar_t *, size_t));
 extern void vfree __P((vchar_t *));
 extern vchar_t *vdup __P((vchar_t *));
+
+
+#endif /* __VMBUF_H__ */
+

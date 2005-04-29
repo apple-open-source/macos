@@ -16,21 +16,20 @@ LDAP_LIBDIR= ../../../libraries
 
 BUILD_OPT = "--enable-netinfo"
 BUILD_MOD = @BUILD_NETINFO@
-BUILD_MOD_DYNAMIC = @BUILD_NETINFO_DYNAMIC@
 
 mod_DEFS = -DSLAPD_IMPORT
 MOD_DEFS = $(@BUILD_NETINFO@_DEFS)
 
-shared_LDAP_LIBS = $(LDAP_LIBPATH) -lldap_r -llber
+shared_LDAP_LIBS = $(LDAP_LIBLDAP_R_LA) $(LDAP_LIBLBER_LA)
 NT_LINK_LIBS = -L.. -lslapd $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
+UNIX_LINK_LIBS = $(@BUILD_LIBS_DYNAMIC@_LDAP_LIBS)
 
 LIBBASE = back_netinfo
 
-XINCPATH = -I.. -I$(srcdir)/..
+XINCPATH = -I.. -I$(srcdir)/.. -I$(srcdir)/../slapi
 XDEFS = $(MODULES_CPPFLAGS)
 
 all-local-lib:	../.backend
 
 ../.backend: lib$(LIBBASE).a
 	@touch $@
-

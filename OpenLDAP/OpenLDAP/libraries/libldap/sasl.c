@@ -1,7 +1,19 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/sasl.c,v 1.41.2.7 2003/05/22 22:22:41 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/libldap/sasl.c,v 1.50.2.5 2004/07/25 21:58:52 hyc Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (C) The Internet Society (1997)
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /*
@@ -60,6 +72,7 @@ ldap_sasl_bind(
 {
 	BerElement	*ber;
 	int rc;
+	ber_int_t id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( TRANSPORT, ENTRY, "ldap_sasl_bind\n", 0, 0, 0 );
@@ -98,24 +111,25 @@ ldap_sasl_bind(
 
 	assert( LBER_VALID( ber ) );
 
+	LDAP_NEXT_MSGID( ld, id );
 	if( mechanism == LDAP_SASL_SIMPLE ) {
 		/* simple bind */
 		rc = ber_printf( ber, "{it{istON}" /*}*/,
-			++ld->ld_msgid, LDAP_REQ_BIND,
+			id, LDAP_REQ_BIND,
 			ld->ld_version, dn, LDAP_AUTH_SIMPLE,
 			cred );
 		
 	} else if ( cred == NULL || cred->bv_val == NULL ) {
-		/* SASL bind w/o creditials */
+		/* SASL bind w/o credentials */
 		rc = ber_printf( ber, "{it{ist{sN}N}" /*}*/,
-			++ld->ld_msgid, LDAP_REQ_BIND,
+			id, LDAP_REQ_BIND,
 			ld->ld_version, dn, LDAP_AUTH_SASL,
 			mechanism );
 
 	} else {
-		/* SASL bind w/ creditials */
+		/* SASL bind w/ credentials */
 		rc = ber_printf( ber, "{it{ist{sON}N}" /*}*/,
-			++ld->ld_msgid, LDAP_REQ_BIND,
+			id, LDAP_REQ_BIND,
 			ld->ld_version, dn, LDAP_AUTH_SASL,
 			mechanism, cred );
 	}
@@ -140,7 +154,7 @@ ldap_sasl_bind(
 
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_BIND, dn, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_BIND, dn, ber, id );
 
 	if(*msgidp < 0)
 		return ld->ld_errno;
@@ -427,6 +441,7 @@ ldap_sasl_interactive_bind_s(
 	void *defaults )
 {
 	int rc;
+	char *smechs = NULL;
 
 #if defined( LDAP_R_COMPILE ) && defined( HAVE_CYRUS_SASL )
 	ldap_pvt_thread_mutex_lock( &ldap_int_sasl_mutex );
@@ -437,26 +452,31 @@ ldap_sasl_interactive_bind_s(
 		 * ask all the time. No, we don't ever actually bind, but I'll
 		 * let the final bind handler take care of saving the cdn.
 		 */
-		rc = ldap_simple_bind(ld, dn, NULL);
-		return rc < 0 ? rc : 0;
+		rc = ldap_simple_bind( ld, dn, NULL );
+		rc = rc < 0 ? rc : 0;
+		goto done;
 	} else
 #endif
+
+#ifdef HAVE_CYRUS_SASL
 	if( mechs == NULL || *mechs == '\0' ) {
-		char *smechs;
-
+		mechs = ld->ld_options.ldo_def_sasl_mech;
+	}
+#endif
+		
+	if( mechs == NULL || *mechs == '\0' ) {
 		rc = ldap_pvt_sasl_getmechs( ld, &smechs );
-
 		if( rc != LDAP_SUCCESS ) {
 			goto done;
 		}
 
 #ifdef NEW_LOGGING
 		LDAP_LOG ( TRANSPORT, DETAIL1, 
-			"ldap_interactive_sasl_bind_s: server supports: %s\n", 
+			"ldap_sasl_interactive_bind_s: server supports: %s\n", 
 			smechs, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE,
-			"ldap_interactive_sasl_bind_s: server supports: %s\n",
+			"ldap_sasl_interactive_bind_s: server supports: %s\n",
 			smechs, 0, 0 );
 #endif
 
@@ -465,10 +485,11 @@ ldap_sasl_interactive_bind_s(
 	} else {
 #ifdef NEW_LOGGING
 		LDAP_LOG ( TRANSPORT, DETAIL1, 
-			"ldap_interactive_sasl_bind_s: user selected: %s\n", mechs, 0, 0 );
+			"ldap_sasl_interactive_bind_s: user selected: %s\n",
+			mechs, 0, 0 );
 #else
 		Debug( LDAP_DEBUG_TRACE,
-			"ldap_interactive_sasl_bind_s: user selected: %s\n",
+			"ldap_sasl_interactive_bind_s: user selected: %s\n",
 			mechs, 0, 0 );
 #endif
 	}
@@ -481,6 +502,7 @@ done:
 #if defined( LDAP_R_COMPILE ) && defined( HAVE_CYRUS_SASL )
 	ldap_pvt_thread_mutex_unlock( &ldap_int_sasl_mutex );
 #endif
+	if ( smechs ) LDAP_FREE( smechs );
 
 	return rc;
 }

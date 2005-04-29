@@ -1,7 +1,22 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/entropy.c,v 1.21.2.3 2003/03/03 17:10:06 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* entropy.c -- routines for providing pseudo-random data */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/entropy.c,v 1.25.2.2 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999-2003 Kurt D. Zeilenga.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* This work was initially developed by Kurt D. Zeilenga for
+ * inclusion in OpenLDAP Software based, in part, on publically
+ * available works (as noted below).
  */
 
 #include "portable.h"
@@ -122,7 +137,7 @@ int lutil_entropy( unsigned char *buf, ber_len_t nbytes )
 
 		for( n = 0; n < nbytes; n += 16 ) {
 			struct lutil_MD5Context ctx;
-			char digest[16];
+			unsigned char digest[16];
 
 			/* poor resolution */
 #ifdef HAVE_GETTIMEOFDAY

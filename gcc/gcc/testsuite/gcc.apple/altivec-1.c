@@ -1,6 +1,6 @@
 /* APPLE LOCAL file AltiVec */
-/* { dg-do run { target powerpc-*-darwin* } } */
-/* { dg-options "-faltivec -Wno-long-double" } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-options "-faltivec" } */
 
 /* Test for correct handling of AltiVec constants passed
    through '...' (va_arg).  */

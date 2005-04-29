@@ -1,0 +1,37 @@
+--- inet_addr.c.orig	2003-05-20 15:22:14.000000000 -0700
++++ inet_addr.c	2005-02-24 17:08:54.000000000 -0800
+@@ -61,6 +61,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/net/inet_addr.c,v 1.16 2002/04/19 04:46:20 suz Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/param.h>
+ 
+ #include <netinet/in.h>
+@@ -103,6 +105,7 @@
+ 	char *c;
+ 	char *endptr;
+ 	int gotend, n;
++	locale_t loc = __current_locale();
+ 
+ 	c = (char *)cp;
+ 	n = 0;
+@@ -113,7 +116,7 @@
+ 	gotend = 0;
+ 	while (!gotend) {
+ 		errno = 0;
+-		val = strtoul(c, &endptr, 0);
++		val = strtoul_l(c, &endptr, 0, loc);
+ 
+ 		if (errno == ERANGE)	/* Fail completely if it overflowed. */
+ 			return (0);
+@@ -144,7 +147,7 @@
+ 			break;
+ 
+ 		default:
+-			if (isspace((unsigned char)*c)) {
++			if (isspace_l((unsigned char)*c, loc)) {
+ 				gotend = 1;
+ 				break;
+ 			} else

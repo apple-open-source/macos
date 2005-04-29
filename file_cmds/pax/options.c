@@ -376,6 +376,9 @@ pax_options(argc, argv)
 			 * specify an archive format on write
 			 */
 			tmp.name = optarg;
+			if (0 == strcmp("pax", optarg)) { /* alias for ustar */
+				tmp.name = "ustar";
+			}
 			if ((frmt = (FSUB *)bsearch((void *)&tmp, (void *)fsub,
 			    sizeof(fsub)/sizeof(FSUB), sizeof(FSUB), c_frmt)) != NULL) {
 				flg |= XF;

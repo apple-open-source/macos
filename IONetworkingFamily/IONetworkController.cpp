@@ -45,7 +45,6 @@ extern "C" {
 #include <sys/mbuf.h>
 #include <sys/kdebug.h>
 #include <machine/machine_routines.h>
-struct mbuf * m_getpackets(int num_needed, int num_with_pkthdrs, int how);
 }
 
 //-------------------------------------------------------------------------
@@ -319,8 +318,11 @@ bool IONetworkController::start(IOService * provider)
     }
     _workLoop->retain();
 
-    ml_thread_policy( _workLoop->getThread(), MACHINE_GROUP, 
-                      (MACHINE_NETWORK_GROUP|MACHINE_NETWORK_WORKLOOP) );
+    if (_workLoop != provider->getWorkLoop())
+    {
+        ml_thread_policy( _workLoop->getThread(), MACHINE_GROUP, 
+                          (MACHINE_NETWORK_GROUP|MACHINE_NETWORK_WORKLOOP) );
+    }
 
     // Create a 'private' IOCommandGate object and attach it to
     // our workloop created above. This is used by executeCommand().
@@ -645,7 +647,12 @@ void IONetworkController::free()
     if (_clientSet) assert(_clientSet->getCount() == 0);
 
     RELEASE( _outputQueue   );
-    RELEASE( _cmdGate       );
+    if( _cmdGate )
+	{
+		if(_workLoop) _workLoop->removeEventSource(_cmdGate);
+		_cmdGate->release();
+		_cmdGate = 0;
+	}
     RELEASE( _workLoop      );
     RELEASE( _clientSetIter );
     RELEASE( _clientSet     );
@@ -825,7 +832,7 @@ IOReturn IONetworkController::setMaxPacketSize(UInt32 maxSize)
 //---------------------------------------------------------------------------
 // Transmit a packet mbuf.
 
-UInt32 IONetworkController::outputPacket(struct mbuf * m, void * param)
+UInt32 IONetworkController::outputPacket(mbuf_t m, void * param)
 {
     // The implementation here is simply a sink-hole, all packets are
     // dropped.
@@ -975,157 +982,44 @@ void IONetworkController::getPacketBufferConstraints(
     constraintsP->alignLength = kIOPacketBufferAlign1;
 }
 
-//---------------------------------------------------------------------------
-// Allocates a mbuf chain. Each mbuf in the chain is aligned according to
-// the constraints from IONetworkController::getPacketBufferConstraints().
-// The last mbuf in the chain will be guaranteed to be length aligned if 
-// the 'size' argument is a multiple of the length alignment.
-//
-// The m->m_len and m->pkthdr.len fields are updated by this function.
-// This allows the driver to pass the mbuf chain obtained through this
-// function to the IOMbufMemoryCursor object directly.
-//
-// If (size + alignments) is smaller than MCLBYTES, then this function
-// will always return a single mbuf header or cluster.
-//
-// The allocation is guaranteed not to block. If a packet cannot be
-// allocated, this function will return NULL.
-
-#define IO_APPEND_MBUF(head, tail, m) {   \
-    if (tail) {                           \
-        (tail)->m_next = (m);             \
-        (tail) = (m);                     \
-    }                                     \
-    else {                                \
-        (head) = (tail) = (m);            \
-        (head)->m_pkthdr.len = 0;         \
-    }                                     \
-}
-
-#define IO_ALIGN_MBUF_START(m, mask) {                                 \
-    if ( (mask) & mtod((m), vm_address_t) ) {                          \
-        (m)->m_data = (caddr_t) (( mtod((m), vm_address_t) + (mask) )  \
-                                 & ~(mask));                           \
-    }                                                                  \
-}
-
-#define IO_ALIGN_MBUF(m, size, smask, lmask) {   \
-    IO_ALIGN_MBUF_START((m), (smask));           \
-    (m)->m_len = ((size) - (smask)) & ~(lmask);  \
-}
-
-static struct mbuf * allocateMbuf( UInt32 size,
-                                   UInt32 how,
-                                   UInt32 smask,
-                                   UInt32 lmask )
-{
-    struct mbuf * m;
-    struct mbuf * head = 0;
-    struct mbuf * tail = 0;
-    UInt32        capacity;
-
-    while ( size )
-    {
-        // Allocate a mbuf. For the initial mbuf segment, allocate a
-        // mbuf header.
-
-        if ( head == 0 )
-        {
-            MGETHDR( m, how, MT_DATA );
-            capacity = MHLEN;
-        }
-        else
-        {
-            MGET( m, how, MT_DATA );
-            capacity = MLEN;
-        }
-
-        if ( m == 0 ) goto error;  // mbuf allocation error
-
-        // Append the new mbuf to the tail of the mbuf chain.
-
-        IO_APPEND_MBUF( head, tail, m );
-
-        // If the remaining size exceed the buffer size of a normal mbuf,
-        // then promote it to a cluster. Currently, the cluster size is
-        // fixed to MCLBYTES bytes.
-
-        if ( ( size + smask + lmask ) > capacity )
-        {
-            MCLGET( m, how );
-            if ( (m->m_flags & M_EXT) == 0 ) goto error;
-            capacity = MCLBYTES;
-        }
-
-        // Align the mbuf per driver's specifications.
-
-        IO_ALIGN_MBUF( m, capacity, smask, lmask );
-
-        // Compute the number of bytes needed after accounting for the
-        // current mbuf allocation.
-
-        if ( (UInt) m->m_len > size )
-            m->m_len = size;
-
-        size -= m->m_len;
-
-        // Update the total length in the packet header.
-
-        head->m_pkthdr.len += m->m_len;
-    }
-
-    return head;
-
-error:
-    if ( head ) m_freem(head);
-    return 0;
-}
-
-static struct mbuf * getPacket( UInt32 size,
+static mbuf_t getPacket( UInt32 size,
                                 UInt32 how,
                                 UInt32 smask,
                                 UInt32 lmask )
 {
-    struct mbuf * m;
+    mbuf_t packet;
+	UInt32 reqSize =  size + smask + lmask; 	// we over-request so we can fulfill alignment needs.
+	
+	if(reqSize > MHLEN && reqSize <= MINCLSIZE)	//as protection from drivers that incorrectly assume they always get a single-mbuf packet
+		reqSize = MINCLSIZE + 1;				//we force kernel to give us a cluster instead of chained small mbufs.
 
-    do {
-        // Handle the simple case where the requested size is small
-        // enough for a single mbuf. Otherwise, go to the more costly
-        // route and call the generic mbuf allocation routine.
+	if( 0 == mbuf_allocpacket(how, reqSize, NULL, &packet))
+	{
+		mbuf_t m = packet;
+		mbuf_pkthdr_setlen(packet, size);
+		//run the chain and apply alignment
+		
+		while(size && m)
+		{
+			vm_address_t alignedStart, originalStart;
+			
+			originalStart = (vm_address_t)mbuf_data(m);
+			alignedStart = (originalStart + smask) & ~smask;
+			mbuf_setdata(m,  (caddr_t)alignedStart, (mbuf_maxlen(m) - (alignedStart - originalStart)) & ~lmask);
+			
+			if(mbuf_len(m) > size)
+				mbuf_setlen(m, size); //truncate to remaining portion of packet
 
-        if ( ( size + smask ) <= MCLBYTES )
-        {
-            if ( ( size + smask ) > MHLEN )
-            {
-                /* MGETHDR+MCLGET under one single lock */
-                m = m_getpackets( 1, 1, how );
-            }
-            else
-            {
-                MGETHDR( m, how, MT_DATA );
-            }
-            if ( m == 0 ) break;
-
-            // Align start of mbuf buffer.
-
-            IO_ALIGN_MBUF_START( m, smask );
-
-            // No length adjustment for single mbuf.
-            // Driver gets what it asked for.
-
-            m->m_pkthdr.len = m->m_len = size;
-        }
-        else
-        {
-            m = allocateMbuf( size, how, smask, lmask );
-        }
-    }
-    while ( false );
-
-    return m;
+			size -= mbuf_len(m);
+			m = mbuf_next(m);
+		}
+		return packet;
+	}
+	else
+		return NULL;
 }
 
-struct mbuf * IONetworkController::allocatePacket( UInt32 size )
+mbuf_t IONetworkController::allocatePacket( UInt32 size )
 {
     return getPacket( size, M_WAIT, _alignStart, _alignLength );
 }
@@ -1133,36 +1027,43 @@ struct mbuf * IONetworkController::allocatePacket( UInt32 size )
 //---------------------------------------------------------------------------
 // Release the mbuf back to the free pool.
 
-void IONetworkController::freePacket(struct mbuf * m, IOOptionBits options)
+void IONetworkController::freePacket(mbuf_t m, IOOptionBits options)
 {
     assert(m);
 
     if ( options & kDelayFree )
     {
-        m->m_nextpkt = _freeList;
+        mbuf_setnextpkt(m, _freeList);
         _freeList = m;
     }
     else
     {
-        m_freem_list(m);
+        mbuf_freem_list(m);
     }
 }
 
 UInt32 IONetworkController::releaseFreePackets()
 {
     UInt32 count = 0;
+	mbuf_t tempmb = _freeList;
 
-    if ( _freeList )
+	// FIXME if 3730918 is implemented, mbuf_freem_list() will return the free count for us.
+	while(tempmb)
+	{
+		tempmb = mbuf_nextpkt(tempmb);
+		count++;
+	}
+    if ( count )
     {
-        count = m_freem_list( _freeList );
+		mbuf_freem_list( _freeList );
         _freeList = 0;
     }
     return count;
 }
 
 static inline bool IO_COPY_MBUF(
-    const struct mbuf * src,
-    struct mbuf *       dst,
+    mbuf_t src,
+    mbuf_t       dst,
     int                 length)
 {
     caddr_t src_dat, dst_dat;
@@ -1170,13 +1071,13 @@ static inline bool IO_COPY_MBUF(
 
     assert(src && dst);
 
-    dst_len = dst->m_len;
-    dst_dat = dst->m_data;
+    dst_len = mbuf_len(dst);
+    dst_dat = (caddr_t)mbuf_data(dst);
 
     while (src) {
 
-        src_len = src->m_len;
-        src_dat = src->m_data;
+        src_len = mbuf_len( src );
+        src_dat = (caddr_t)mbuf_data( src );
 
         if (src_len > length)
             src_len = length;
@@ -1205,15 +1106,15 @@ static inline bool IO_COPY_MBUF(
             // Go to the next destination mbuf segment.
             
             if (dst_len == 0) {
-                if (!(dst = dst->m_next))
+                if (!(dst = mbuf_next(dst)))
                     return (length == 0);
-                dst_len = dst->m_len;
-                dst_dat = dst->m_data;
+                dst_len = mbuf_len(dst);
+                dst_dat = (caddr_t)mbuf_data(dst);
             }
 
         } /* while (src_len) */
 
-        src = src->m_next;
+        src = mbuf_next(src);
 
     } /* while (src) */
     
@@ -1235,16 +1136,16 @@ static inline bool IO_COPY_MBUF(
 // take place and the original mbuf will be returned. Otherwise,
 // a NULL is returned.
 
-struct mbuf * IONetworkController::replacePacket(struct mbuf ** mp,
+mbuf_t IONetworkController::replacePacket(mbuf_t * mp,
                                                  UInt32 size)
 {   
     assert((mp != NULL) && (*mp != NULL));
 
-    struct mbuf * m = *mp;
+    mbuf_t  m = *mp;
 
     // If size is zero, then size is taken from the source mbuf.
 
-    if (size == 0) size = m->m_pkthdr.len;
+    if (size == 0) size = mbuf_pkthdr_len(m);
     
     // Allocate a new packet to replace the current packet.
 
@@ -1265,17 +1166,17 @@ struct mbuf * IONetworkController::replacePacket(struct mbuf ** mp,
 //
 // Returns a new mbuf created from the source packet.
 
-struct mbuf * IONetworkController::copyPacket(const struct mbuf * m,
+mbuf_t IONetworkController::copyPacket(mbuf_t m,
                                               UInt32 size)
 {
-    struct mbuf * mn;
+	mbuf_t mn;
 
     assert(m != NULL);
 
     // If size is zero, then size is taken from the source mbuf.
 
-    if (size == 0) size = m->m_pkthdr.len;
-
+    if (size == 0) size = mbuf_pkthdr_len(m);
+	
     // Copy the current mbuf to the new mbuf, and return the new mbuf.
     // The input mbuf is left intact.
 
@@ -1308,11 +1209,11 @@ struct mbuf * IONetworkController::copyPacket(const struct mbuf * m,
 // Returns a replacement or a copy of the source mbuf, 0 if mbuf
 // allocation failed.
 
-struct mbuf * IONetworkController::replaceOrCopyPacket(struct mbuf ** mp,
+mbuf_t IONetworkController::replaceOrCopyPacket(mbuf_t *mp,
                                                        UInt32 rcvlen,
                                                        bool * replacedP)
 {
-    struct mbuf * m;
+    mbuf_t m;
 
     assert((mp != NULL) && (*mp != NULL));
         
@@ -1325,7 +1226,7 @@ struct mbuf * IONetworkController::replaceOrCopyPacket(struct mbuf ** mp,
 
         m = *mp;
 
-        if ( (*mp = getPacket( m->m_pkthdr.len, M_DONTWAIT,
+        if ( (*mp = getPacket( mbuf_pkthdr_len(m), M_DONTWAIT,
                                _alignStart, _alignLength)) == 0 )
         {
             *mp = m; m = 0;  // error recovery
@@ -1375,46 +1276,92 @@ IONetworkController::getChecksumSupport( UInt32 * checksumMask,
 #define kTransportLayerFullChecksums    \
         ( kChecksumTCP | kChecksumUDP )
 
+//PWC add kpi version when 3731343 is ready
+void
+IONetworkController::getChecksumDemand( const mbuf_t mt,
+                                        UInt32              checksumFamily,
+                                        UInt32 *            demandMask,
+                                        void *              param0,
+                                        void *              param1 )
+{
+    mbuf_csum_request_flags_t request;
+	u_int32_t value;
+	
+	*demandMask = 0; 
+	
+	
+	if ( checksumFamily != kChecksumFamilyTCPIP )
+    {
+        return;
+    }
+	
+	mbuf_get_csum_requested(mt, &request, &value);
+	
+	// In theory we should be converting bits here from BSD->IOKit, however
+	// the IONetworkingFamily definitions of checksum bits are the same as BSD's but do not
+	// have to be.  Previously the family used them interchangeably, although it was not
+	// technically correct to do so.  Now with KPIs it seems pretty safe to do it since the
+	// bits have been defined as part of the KPI and can't change- but it's still not
+	// "correct". (but it avoids a bunch of conversion logic)
+	
+    *demandMask = request & ( kChecksumIP       |
+							  kChecksumTCP      |
+							  kChecksumUDP      |
+							  kChecksumTCPSum16 );
+	
+    if ( request & kChecksumTCPSum16 )
+    {
+        // param0 is start offset  (XXX - range?)
+        // param1 is stuff offset  (XXX - range?)
+		
+        if (param0)
+            *((UInt16 *) param0) = (UInt16) (value);
+        if (param1)
+            *((UInt16 *) param1) = (UInt16) (value >> 16);  
+    }
+}
+
 bool
-IONetworkController::setChecksumResult( struct mbuf * m,
+IONetworkController::setChecksumResult( mbuf_t mt,
                                         UInt32        family,
                                         UInt32        result,
                                         UInt32        valid,
                                         UInt32        param0,
                                         UInt32        param1 )
 {
-    // Reporting something that is valid without checking for it
+    mbuf_csum_performed_flags_t performed;
+	u_int32_t value;
+	// Reporting something that is valid without checking for it
     // is forbidden.
-
     valid &= result;
-
+	
     // Initialize checksum result fields in the packet.
-
-    m->m_pkthdr.csum_flags &= ~CSUM_CHECKSUM_MASK;  //set flags to 0 but preserve upper bits
-
+	
+	performed = value = 0;
+	
     if ( family != kChecksumFamilyTCPIP )
     {
         return false;
     }
-
+	
     // Set the result for the network layer (IP) checksum.
-
+	
     if ( result & kChecksumIP )
     {
-        m->m_pkthdr.csum_flags |= CSUM_IP_CHECKED;
+        performed |= MBUF_CSUM_DID_IP;
         if ( valid & kChecksumIP )
-            m->m_pkthdr.csum_flags |= CSUM_IP_VALID;
+            performed |= MBUF_CSUM_IP_GOOD;
     }
-
+	
     // Now examine the transport layer checksum flags.
-
+	
 	if ( valid & kTransportLayerFullChecksums )
 	{
         // Excellent, hardware did account for the pseudo-header
         // and no "partial" checksum value is required.
-
-        m->m_pkthdr.csum_flags |= ( CSUM_DATA_VALID | CSUM_PSEUDO_HDR );
-        m->m_pkthdr.csum_data = 0xffff; // fake a valid checksum value
+		
+		performed |= ( MBUF_CSUM_DID_DATA | MBUF_CSUM_PSEUDO_HDR );
+        value = 0xffff; // fake a valid checksum value
 	}
 	else if ( result & kTransportLayerPartialChecksums )
     {
@@ -1422,10 +1369,10 @@ IONetworkController::setChecksumResult( struct mbuf * m,
         // Driver must pass up the partial TCP/UDP checksum,
         // and the transport layer must adjust for the missing
         // 12-byte pseudo-header.
-
-        m->m_pkthdr.csum_flags |= CSUM_DATA_VALID;
-        m->m_pkthdr.csum_data   = (UInt16) param0;
-
+		
+        performed |= MBUF_CSUM_DID_DATA;
+        value   = (UInt16) param0;
+		
         if ( result & kChecksumTCPSum16 )
         {
             // A very simple engine that only computes a ones complement
@@ -1433,45 +1380,12 @@ IONetworkController::setChecksumResult( struct mbuf * m,
             // offset, without the ability to scan for the IP or UDP/TCP
             // headers. Must pass up the offset to the packet data where
             // the checksum computation started from.
-    
-            m->m_pkthdr.csum_flags |= CSUM_TCP_SUM16;
-            m->m_pkthdr.csum_data  |= (((UInt16) param1) << 16);
+            performed |= MBUF_CSUM_TCP_SUM16;
+			value  |= (((UInt16) param1) << 16);
         }
     }
+	mbuf_set_csum_performed(mt, performed, value);
     return true;
-}
-
-//---------------------------------------------------------------------------
-// Get the checksums that must be performed by the hardware for the
-// given packet, before it is sent on the network.
-
-void
-IONetworkController::getChecksumDemand( const struct mbuf * m,
-                                        UInt32              checksumFamily,
-                                        UInt32 *            demandMask,
-                                        void *              param0,
-                                        void *              param1 )
-{
-    if ( checksumFamily != kChecksumFamilyTCPIP )
-    {
-        *demandMask = 0; return;
-    }
-
-    *demandMask = m->m_pkthdr.csum_flags & ( kChecksumIP       |
-                                             kChecksumTCP      |
-                                             kChecksumUDP      |
-                                             kChecksumTCPSum16 );
-
-    if ( m->m_pkthdr.csum_flags & kChecksumTCPSum16 )
-    {
-        // param0 is start offset  (XXX - range?)
-        // param1 is stuff offset  (XXX - range?)
-
-        if (param0)
-            *((UInt16 *) param0) = (UInt16) (m->m_pkthdr.csum_data);
-        if (param1)
-            *((UInt16 *) param1) = (UInt16) (m->m_pkthdr.csum_data >> 16);  
-    }
 }
 
 #if 0

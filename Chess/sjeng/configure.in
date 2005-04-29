@@ -1,0 +1,29 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(sjeng.c)
+
+AM_INIT_AUTOMAKE(Sjeng-Free, 11.2)
+AM_CONFIG_HEADER(config.h)
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_CXX
+
+dnl Checks for libraries.
+AC_CHECK_LIB(gdbm, gdbm_open)
+
+dnl Check for floor() in the math library
+AC_CHECK_LIB(m, floor)
+
+dnl Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS(sys/time.h sys/timeb.h unistd.h)
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_HEADER_TIME
+
+dnl Checks for library functions.
+AC_TYPE_SIGNAL
+AC_CHECK_FUNCS(ftime select strstr gettimeofday)
+
+AC_OUTPUT(Makefile tests/Makefile books/Makefile)

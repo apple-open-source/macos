@@ -1,0 +1,51 @@
+.TH postfix-watch 1 
+.ad
+.fi
+.SH NAME
+postfix-watch
+\-
+Queue watcher for postfix.
+.SH SYNOPSIS
+.na
+.nf
+\fBpostfix-watch\fR
+.SH DESCRIPTION
+.ad
+.fi
+The \fBpostfix-watch\fR program is essentially a helper daemon which
+does nothing more than watch the postfix mail drop directory and, if
+new mail is placed there and postfix is not running, starts postfix
+automatically.  If postfix is automatically started by \fBpostfix-watch\fR,
+a timer is also set so that postfix will also be automatically shut down
+one hour after the queue empties.
+The essential purpose of \fBpostfix-watch\fR is to avoid extra overhead
+in running postfix on machines which rarely, if ever, need to send mail.
+.SH DIAGNOSTICS
+.ad
+.fi
+Problems are logged to \fBsyslogd\fR(8).
+.SH FILES
+.na
+.nf
+/var/spool/postfix/maildrop, mail drop to watch
+/etc/hostconfig, controls the launching of \fBpostfix-watch\fR
+.SH SEE ALSO
+.na
+.nf
+pickup(8) mail pickup daemon
+postsuper(1) queue maintenance
+postalias(1) maintain alias database
+postdrop(1) mail posting utility
+postfix(1) mail system control
+postqueue(1) mail queue control
+qmgr(8) queue manager
+smtpd(8) SMTP server
+flush(8) fast flush service
+syslogd(8) system logging
+.SH AUTHOR(S)
+.na
+.nf
+Jordan Hubbard
+Apple Computer
+1 Infinite Loop
+Cupertino, CA 95014

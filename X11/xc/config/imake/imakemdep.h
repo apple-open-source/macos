@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/config/imake/imakemdep.h,v 3.68 2002/12/24 17:42:58 tsi Exp $ */
+/* $XFree86: xc/config/imake/imakemdep.h,v 3.72 2003/12/30 01:53:52 tsi Exp $ */
 
 
 /* 
@@ -32,6 +32,10 @@ in this Software without prior written authorization from The Open Group.
  * When porting imake, read each of the steps below and add in any necessary
  * definitions.  In general you should *not* edit ccimake.c or imake.c!
  */
+
+#ifdef __UNIXOS2__
+#define lstat stat
+#endif
 
 #ifdef CCIMAKE
 /*
@@ -367,8 +371,11 @@ char *cpp_argv[ARGUMENTS] = {
 # ifdef __ia64__
 	"-D__ia64__",
 # endif
+# ifdef __AMD64__
+	"-D__AMD64__",
+# endif
 # ifdef __x86_64__
-	"-D__x86_64__",
+	"-D__AMD64__",
 # endif
 # ifdef __s390__
 	"-D__s390__",
@@ -970,6 +977,10 @@ void (*defaultOsTeenyRevFrob)(char *buf, int size) = NULL;
  *     them to the the following table.  The definition of struct symtab is
  *     in util/makedepend/def.h.
  */
+#undef DEF_EVALUATE
+#undef DEF_STRINGIFY
+#define DEF_EVALUATE(__x) #__x
+#define DEF_STRINGIFY(_x) DEF_EVALUATE(_x)
 struct symtab	predefs[] = {
 #ifdef apollo
 	{"apollo", "1"},
@@ -1004,8 +1015,17 @@ struct symtab	predefs[] = {
 #ifdef sparc
 	{"sparc", "1"},
 #endif
+#ifdef __sparc
+	{"__sparc", "1"},
+#endif
+#ifdef __sparcv9
+	{"__sparcv9", "1"},
+#endif
 #ifdef __sparc__
 	{"__sparc__", "1"},
+#endif
+#ifdef __sparcv9__
+	{"__sparcv9__", "1"},
 #endif
 #ifdef hpux
 	{"hpux", "1"},
@@ -1056,25 +1076,13 @@ struct symtab	predefs[] = {
 	{"mc68020", "1"},
 #endif
 #ifdef __GNUC__
-# if __GNUC__ == 1
-	{"__GNUC__", "1"},
-# elif __GNUC__ == 2
-	{"__GNUC__", "2"},
-# elif __GNUC__ == 3
-	{"__GNUC__", "3"},
-# endif
+	{"__GNUC__", DEF_STRINGIFY(__GNUC__)},
 #endif
 #ifdef __STRICT_ANSI__
 	{"__STRICT_ANSI__", "1"},
 #endif
 #ifdef __STDC__
-# if __STDC__ == 0
-	{"__STDC__", "0"},
-# elif __STDC__ == 1
-	{"__STDC__", "1"},
-# elif __STDC__ == 2
-	{"__STDC__", "2"},
-# endif
+	{"__STDC__", DEF_STRINGIFY(__STDC__)},
 #endif
 #ifdef __HIGHC__
 	{"__HIGHC__", "1"},
@@ -1203,6 +1211,24 @@ struct symtab	predefs[] = {
 #ifdef __sgi
 	{"__sgi", "1"},
 #endif
+#ifdef _MIPS_FPSET
+	{"_MIPS_FPSET", DEF_STRINGIFY(_MIPS_FPSET)},
+#endif
+#ifdef _MIPS_ISA
+	{"_MIPS_ISA", DEF_STRINGIFY(_MIPS_ISA)},
+#endif
+#ifdef _MIPS_SIM
+	{"_MIPS_SIM", DEF_STRINGIFY(_MIPS_SIM)},
+#endif
+#ifdef _MIPS_SZINT
+	{"_MIPS_SZINT", DEF_STRINGIFY(_MIPS_SZINT)},
+#endif
+#ifdef _MIPS_SZLONG
+	{"_MIPS_SZLONG", DEF_STRINGIFY(_MIPS_SZLONG)},
+#endif
+#ifdef _MIPS_SZPTR
+	{"_MIPS_SZPTR", DEF_STRINGIFY(_MIPS_SZPTR)},
+#endif
 #ifdef __FreeBSD__
 	{"__FreeBSD__", "1"},
 #endif
@@ -1239,11 +1265,16 @@ struct symtab	predefs[] = {
 # ifdef __ia64__
 	{"__ia64__", "1"},
 # endif
-# ifdef x86_64
+# if defined (AMD64) || defined (x86_64)
+	{"AMD64", "1"},
 	{"x86_64", "1"},
 # endif
-# ifdef __x86_64__
+# if defined (__AMD64__) || defined (__x86_64__)
+	{"__AMD64__", "1"},
 	{"__x86_64__", "1"},
+# endif
+# ifdef __i386
+	{"__i386", "1"},
 # endif
 # ifdef __i386__
 	{"__i386__", "1"},
@@ -1308,11 +1339,11 @@ struct symtab	predefs[] = {
 #if defined(__LITTLE_ENDIAN__)
       {"__LITTLE_ENDIAN__", "1"},
 #endif
-
-
 	/* add any additional symbols before this line */
 	{NULL, NULL}
 };
+#undef DEF_EVALUATE
+#undef DEF_STRINGIFY
 #endif /* CROSSCOMPILE */
 #endif /* MAKEDEPEND */
 

@@ -27,14 +27,12 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ClDisplay.c,v 1.4 2001/12/14 19:53:58 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ClDisplay.c,v 1.5 2003/04/13 19:22:14 dawes Exp $ */
 
+#include <X11/Xtrans.h>
+#include "Xlib.h"
 #include "Xlibint.h"
-
-extern void _XFreeDisplayStructure();
-
-/* ConnDis.c */
-extern int _XDisconnectDisplay();
+#include "Xintconn.h"
 
 /* 
  * XCloseDisplay - XSync the connection to the X Server, close the connection,
@@ -43,8 +41,8 @@ extern int _XDisconnectDisplay();
  */
 
 int
-XCloseDisplay (dpy)
-	register Display *dpy;
+XCloseDisplay (
+	register Display *dpy)
 {
 	register _XExtension *ext;
 	register int i;

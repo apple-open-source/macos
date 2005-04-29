@@ -1,10 +1,11 @@
-// *******************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2000, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: deprecatedList.xml
 // *
-// *******************************************************************************
-
-no_NO_NY {
-   "%%ALIAS" { "nn_NO" }
+// ***************************************************************************
+no_NO_NY{
+    "%%ALIAS"{"nn_NO"}
 }

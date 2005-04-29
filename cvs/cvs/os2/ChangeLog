@@ -1,3 +1,84 @@
+2004-04-04  Derek Price  <derek@ximbiot.com>
+
+	* filesubr.c (isabsolute): Remove this function.
+	* config.h (ISABSOLUTE): Define.
+
+2003-11-10  Mark D. Baushke  <mdb@cvshome.org>
+
+	* filesubr.c (xresolvepath): New function.
+
+2003-08-07  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in (pdf ps): New recursive targets to be ignored for
+	Automake's benefit.
+
+2002-03-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Remove unecessary dependence on $(srcdir) to
+	fix the dist target.
+	(distdir): Use new automake generated target (copied from src).
+
+2002-12-19  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Remove reference to options.h.
+	* options.h: Remove file and move relevant content...
+	* config.h: ...here.
+
+2002-12-06  Derek Price  <derek@ximbiot.com>
+
+	* dirent.c: Replace call to realloc with a call to xrealloc and calls
+	to malloc with calls to xmalloc.
+	* popen.c: Ditto.
+	* pwd.c: Ditto.
+	* run.c: Ditto.
+	(Reported by Dan Peterson <dbpete@aol.com>.)
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove prototype of STDC exit().  Move prototype of
+	getpass()...
+	* config.h: here.
+
+2002-08-24  Larry Jones  <lawrence.jones@eds.com>
+
+	* options.h: Remove PATCH_PROGRAM.
+
+2002-08-16  Derek Price  <derek@ximbiot.com>
+
+	* options.h: Remove RELATIVE_REPOS & move CVS_BADROOT...
+	* config.h: ...here.
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in (installcheck): New target.
+
+2001-02-14  Larry Jones  <larry.jones@sdrc.com>
+
+	* Makefile.in: Remove references to rtag.c & rtag.obj.
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.in: Added support for Automake targets
+
+1999-02-26  Jim Kingdon  <http://www.cyclic.com>
+
+	* options.h: Make RELATIVE_REPOS the default, as in
+	../src/options.h.in.
+	Remove CVS_DIFFDATE; removed from CVS on 27 Jun 1996.
+
+1998-12-29  Jim Kingdon  <http://www.cyclic.com>
+
+	* Makefile.in: Use the getdate.c in ../lib rather than the one
+	here.  I don't know whether it compiles with Watcom and/or IBM's
+	compiler, but having a copy of getdate.c in this directory has
+	proven to be unworkable (the version I am removing still had Y2K
+	bugs which were fixed in lib/getdate.c, for example).
+	* getdate.c: Removed.
+
 1998-04-09  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* filesubr.c (link_file): Remove; no longer used.

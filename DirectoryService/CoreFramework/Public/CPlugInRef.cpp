@@ -26,11 +26,9 @@
  */
 
 #include "CPlugInRef.h"
-#include "DirServicesTypes.h"
 
 #include <stdlib.h>
 #include <string.h>
-
 
 //------------------------------------------------------------------------------------
 //	* CPlugInRef
@@ -38,7 +36,18 @@
 
 CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr )
 {
-	::memset( fLookupTable, 0, sizeof( fLookupTable ) );
+	fHashArrayLength = 128;
+	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
+
+	fDeallocProcPtr = inProcPtr;
+
+} // CPlugInRef
+
+
+CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr, uInt32 inHashArrayLength )
+{
+	fHashArrayLength = inHashArrayLength;
+	fLookupTable = (sDSTableEntry**)calloc(fHashArrayLength, sizeof(sDSTableEntry*));
 
 	fDeallocProcPtr = inProcPtr;
 
@@ -62,18 +71,17 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 {
 	sInt32			siResult	= eDSNoErr;
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pNewEntry	= nil;
-	sTableEntry	   *pCurrEntry	= nil;
+	sDSTableEntry	   *pNewEntry	= nil;
+	sDSTableEntry	   *pCurrEntry	= nil;
 
 	fMutex.Wait();
 
 	// Create the new entry object
-	pNewEntry = (sTableEntry *)::calloc( 1, sizeof( sTableEntry ) );
+	pNewEntry = (sDSTableEntry *)::calloc( 1, sizeof( sDSTableEntry ) );
 	if ( pNewEntry != nil )
 	{
 		pNewEntry->fRefNum		= inRefNum;
 		pNewEntry->fData		= inData;
-		pNewEntry->fTimeStamp	= ::time( nil );
 	}
 	else
 	{
@@ -83,7 +91,7 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 	if ( siResult == eDSNoErr )
 	{
 		// Calculate where we are going to put this entry
-		uiSlot = inRefNum % kTableSize;
+		uiSlot = inRefNum % fHashArrayLength;
 
 		if ( fLookupTable[ uiSlot ] == nil )
 		{
@@ -99,7 +107,7 @@ sInt32 CPlugInRef::AddItem ( uInt32 inRefNum, void *inData )
 				if ( pCurrEntry->fRefNum == inRefNum )
 				{
 					// We found a duplicate.
-					siResult = kErrDuplicateFound;
+					siResult = eDSInvalidIndex;
 					free( pNewEntry );
 					pNewEntry = nil;
 					break;
@@ -134,12 +142,12 @@ void *CPlugInRef::GetItemData ( uInt32 inRefNum )
 {
 	void		   *pvResult	= nil;
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pEntry		= nil;
+	sDSTableEntry	   *pEntry		= nil;
 
 	fMutex.Wait();
 
 	// Calculate where we thought we put it last
-	uiSlot = inRefNum % kTableSize;
+	uiSlot = inRefNum % fHashArrayLength;
 
 	// Look across all entries at this position
 	pEntry = fLookupTable[ uiSlot ];
@@ -173,15 +181,15 @@ void *CPlugInRef::GetItemData ( uInt32 inRefNum )
 
 sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
 {
-	sInt32			siResult	= kErrItemNotFound;
+	sInt32			siResult	= eDSIndexNotFound;
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pCurrEntry	= nil;
-	sTableEntry	   *pPrevEntry	= nil;
+	sDSTableEntry	   *pCurrEntry	= nil;
+	sDSTableEntry	   *pPrevEntry	= nil;
 
 	fMutex.Wait();
 
 	// Calculate where we thought we put it last
-	uiSlot = inRefNum % kTableSize;
+	uiSlot = inRefNum % fHashArrayLength;
 
 	// Look across all entries at this position
 	pCurrEntry = fLookupTable[ uiSlot ];
@@ -237,7 +245,7 @@ sInt32 CPlugInRef::RemoveItem ( uInt32 inRefNum )
 void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 {
 	uInt32			uiSlot		= 0;
-	sTableEntry	   *pEntry		= nil;
+	sDSTableEntry	   *pEntry		= nil;
 
 	if (inProcPtr == nil)
 	{
@@ -245,7 +253,7 @@ void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 	}
 	fMutex.Wait();
 
-	for (uiSlot = 0; uiSlot < kTableSize; uiSlot++)
+	for (uiSlot = 0; uiSlot < fHashArrayLength; uiSlot++)
 	{
 		// Look across all entries at this position
 		pEntry = fLookupTable[ uiSlot ];
@@ -257,7 +265,7 @@ void CPlugInRef:: DoOnAllItems ( OperationProc *inProcPtr )
 			}
 			pEntry = pEntry->fNext;
 		}
-	} // for (uiSlot = 0; uiSlot < kTableSize; uiSlot++)
+	}
 
 	fMutex.Signal();
 

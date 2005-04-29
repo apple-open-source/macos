@@ -106,8 +106,10 @@ INCLUDES 			= 	\
 					-I$(GDB_FRAMEWORKS)/gdb.framework/Headers/machine \
 					-I.
 
+OPT				=	-O2
+
 CFLAGS 				= 	-g 			\
-					-O2			\
+					$(OPT)			\
 					-c			\
 					-w			\
 					-Wall			\
@@ -121,6 +123,8 @@ INSTALLSRC_FILES		=	$(CFILES)		\
 					gdb_testing.i		\
 					$(HFILES)		\
 					Makefile
+OPT				=	-O2
+
 
 #--------------------------------------------------------------------------------------#
 #                       *----------------*

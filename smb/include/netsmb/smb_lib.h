@@ -29,15 +29,21 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_lib.h,v 1.11 2003/09/08 23:45:25 lindak Exp $
+ * $Id: smb_lib.h,v 1.21 2005/02/24 02:04:37 lindak Exp $
  */
 #ifndef _NETSMB_SMB_LIB_H_
 #define _NETSMB_SMB_LIB_H_
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <netsmb/smb.h>
 #include <netsmb/smb_dev.h>
 
-#define	SMB_CFG_FILE	"/usr/local/etc/nsmb.conf"
+#define	SMB_CFG_FILE	"/etc/nsmb.conf"
+#define	OLD_SMB_CFG_FILE	"/usr/local/etc/nsmb.conf"
 
 #define	STDPARAM_ARGS	'A':case 'B':case 'C':case 'E':case 'I': \
 		   case 'L':case 'M': \
@@ -77,7 +83,6 @@
 #define setdbe(buf,ofs,val) getdle(buf,ofs)=htonl(val)
 
 #else	/* (BYTE_ORDER == LITTLE_ENDIAN) */
-#ifdef APPLE
 #define getwbe(buf,ofs) (*((u_int16_t*)(&((u_int8_t*)(buf))[ofs])))
 #define getdbe(buf,ofs) (*((u_int32_t*)(&((u_int8_t*)(buf))[ofs])))
 #define getwle(buf,ofs) (NXSwapShort(getwbe(buf,ofs)))
@@ -88,24 +93,6 @@
 #define setdbe(buf,ofs,val) getdbe(buf,ofs)=val
 #define setdle(buf,ofs,val) getdbe(buf,ofs)=NXSwapLong(val)
 
-#else
-
-#error "Macros for Big-Endians are incomplete"
-#define getwle(buf,ofs) ((u_int16_t)(getb(buf, ofs) | (getb(buf, ofs + 1) << 8)))
-#define getdle(buf,ofs) ((u_int32_t)(getb(buf, ofs) | \
-				    (getb(buf, ofs + 1) << 8) | \
-				    (getb(buf, ofs + 2) << 16) | \
-				    (getb(buf, ofs + 3) << 24)))
-#define getwbe(buf,ofs) (*((u_int16_t*)(&((u_int8_t*)(buf))[ofs])))
-#define getdbe(buf,ofs) (*((u_int32_t*)(&((u_int8_t*)(buf))[ofs])))
-/*
-#define setwle(buf,ofs,val) getwle(buf,ofs)=val
-#define setdle(buf,ofs,val) getdle(buf,ofs)=val
-*/
-#define setwbe(buf,ofs,val) getwle(buf,ofs)=val
-#define setdbe(buf,ofs,val) getdle(buf,ofs)=val
-
-#endif	/* APPLE */
 #endif	/* (BYTE_ORDER == LITTLE_ENDIAN) */
 
 /*
@@ -118,21 +105,17 @@ struct smb_ctx {
 	int		ct_parsedlevel;
 	int		ct_minlevel;
 	int		ct_maxlevel;
-#ifdef APPLE
 	char *		ct_fullsrvaddr; /* full [DNS or NetBIOS] server name */
-#endif
 	char *		ct_srvaddr;	/* hostname or IP address of server */
+	struct sockaddr_in ct_srvinaddr;/* IP address of server */
 	char		ct_locname[SMB_MAXUSERNAMELEN + 1];
-	const char *	ct_uncnext;
 	struct nb_ctx *	ct_nb;
 	struct smbioc_ossn	ct_ssn;
 	struct smbioc_oshare	ct_sh;
         char *		ct_origshare;
-#ifdef APPLE
 	/* temporary automount hack */
 	char	**ct_xxx;
 	int	ct_maxxxx;	/* max # to mount (-x arg) */
-#endif
 	size_t *	ct_secblob;
 };
 
@@ -140,13 +123,11 @@ struct smb_ctx {
 #define	SMBCF_SRIGHTS		0x0002	/* share access rights was supplied */
 #define	SMBCF_LOCALE		0x0004	/* use current locale */
 #define	SMBCF_RESOLVED		0x8000	/* structure has been verified */
-#ifdef APPLE
 #define	SMBCF_KCFOUND		0x00100000 /* password is from keychain */
 #define	SMBCF_BROWSEOK		0x00200000 /* browser dialogue may be used */
 #define	SMBCF_AUTHREQ		0x00400000 /* authentication dialog requested */
 #define	SMBCF_KCSAVE		0x00800000 /* add to keychain requested */
 #define	SMBCF_XXX		0x01000000 /* mount-all, a very bad thing */
-#endif
 #define SMBCF_SSNACTIVE		0x02000000 /* session setup succeeded */
 
 /*
@@ -198,7 +179,6 @@ int  smb_lib_init(void);
 int  smb_open_rcfile(void);
 void smb_error(const char *, int,...);
 char *smb_printb(char *, int, const struct smb_bitname *);
-void *smb_dumptree(void);
 
 /*
  * Context management
@@ -207,9 +187,7 @@ int  smb_ctx_init(struct smb_ctx *, int, char *[], int, int, int);
 void smb_ctx_done(struct smb_ctx *);
 int  smb_ctx_parseunc(struct smb_ctx *, const char *, int, const char **);
 int  smb_ctx_setcharset(struct smb_ctx *, const char *);
-#ifdef APPLE
 int  smb_ctx_setfullsrvraddr(struct smb_ctx *, const char *);
-#endif
 int  smb_ctx_setserver(struct smb_ctx *, const char *);
 int  smb_ctx_setuser(struct smb_ctx *, const char *);
 int  smb_ctx_setshare(struct smb_ctx *, const char *, int);
@@ -218,13 +196,14 @@ int  smb_ctx_setworkgroup(struct smb_ctx *, const char *);
 int  smb_ctx_setpassword(struct smb_ctx *, const char *);
 int  smb_ctx_setsrvaddr(struct smb_ctx *, const char *);
 int  smb_ctx_opt(struct smb_ctx *, int, const char *);
-int  smb_ctx_negotiate(struct smb_ctx *, int, int);
+int  smb_ctx_negotiate(struct smb_ctx *, int, int, char *);
 int smb_ctx_tdis(struct smb_ctx *ctx);
 int  smb_ctx_lookup(struct smb_ctx *, int, int);
 int  smb_ctx_login(struct smb_ctx *);
 int  smb_ctx_readrc(struct smb_ctx *);
 int  smb_ctx_resolve(struct smb_ctx *);
 int  smb_ctx_setflags(struct smb_ctx *, int, int, int);
+u_int16_t smb_ctx_flags2(struct smb_ctx *);
 
 int  smb_smb_open_print_file(struct smb_ctx *, int, int, const char *, smbfh*);
 int  smb_smb_close_print_file(struct smb_ctx *, smbfh);
@@ -242,8 +221,8 @@ int  smb_rq_simple(struct smb_rq *);
 int  smb_rq_dmem(struct mbdata *, const char *, size_t);
 int  smb_rq_dstring(struct mbdata *, const char *);
 
-int  smb_t2_request(struct smb_ctx *, int, int, const char *,
-	int, void *, int, void *, int *, void *, int *, void *);
+int  smb_t2_request(struct smb_ctx *, int, u_int16_t *, const char *,
+	int, void *, int, void *, int *, void *, int *, void *, int *);
 
 void smb_simplecrypt(char *dst, const char *src);
 int  smb_simpledecrypt(char *dst, const char *src);
@@ -259,8 +238,8 @@ int  mb_put_uint16be(struct mbdata *, u_int16_t);
 int  mb_put_uint16le(struct mbdata *, u_int16_t);
 int  mb_put_uint32be(struct mbdata *, u_int32_t);
 int  mb_put_uint32le(struct mbdata *, u_int32_t);
-int  mb_put_int64be(struct mbdata *, int64_t);
-int  mb_put_int64le(struct mbdata *, int64_t);
+int  mb_put_uint64be(struct mbdata *, u_int64_t);
+int  mb_put_uint64le(struct mbdata *, u_int64_t);
 int  mb_put_mem(struct mbdata *, const char *, size_t);
 int  mb_put_pstring(struct mbdata *mbp, const char *s);
 int  mb_put_mbuf(struct mbdata *, struct mbuf *);
@@ -272,9 +251,9 @@ int  mb_get_uint16be(struct mbdata *, u_int16_t *);
 int  mb_get_uint32(struct mbdata *, u_int32_t *);
 int  mb_get_uint32be(struct mbdata *, u_int32_t *);
 int  mb_get_uint32le(struct mbdata *, u_int32_t *);
-int  mb_get_int64(struct mbdata *, int64_t *);
-int  mb_get_int64be(struct mbdata *, int64_t *);
-int  mb_get_int64le(struct mbdata *, int64_t *);
+int  mb_get_uint64(struct mbdata *, u_int64_t *);
+int  mb_get_uint64be(struct mbdata *, u_int64_t *);
+int  mb_get_uint64le(struct mbdata *, u_int64_t *);
 int  mb_get_mem(struct mbdata *, char *, size_t);
 
 extern u_char nls_lower[256], nls_upper[256];
@@ -288,13 +267,11 @@ void* nls_mem_toloc(void *, const void *, int);
 char* nls_str_upper(char *, const char *);
 char* nls_str_lower(char *, const char *);
 
-#ifdef APPLE
 int smb_get_authentication(char *, size_t, char *, size_t, char *, size_t,
 			   const char *, struct smb_ctx *);
 int smb_browse(struct smb_ctx *, int);
 void smb_save2keychain(struct smb_ctx *);
 #define smb_autherr(e) ((e) == EAUTH || (e) == EACCES || (e) == EPERM)
-#endif /* APPLE */
 
 __END_DECLS
 

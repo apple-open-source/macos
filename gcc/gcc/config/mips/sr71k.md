@@ -2,7 +2,7 @@
 ;;
 ;; DFA-based pipeline description for Sandcraft SR3 (MIPS64 based)
 ;;
-;; The SR3 is describeds as:
+;; The SR3 is described as:
 ;;     - nine-stage pipeline, insn buffering with out-of-order issue to
 ;;       multiple function units, with an average dispatch rate of 2
 ;;       insn.s per cycle (max 6 insns: 2 fpu, 4 cpu).
@@ -17,13 +17,13 @@
 ;;  contrived to support published timings.
 ;;
 ;; Reference:
-;;   "SR3 Microporocessor Specification, System development information,"
+;;   "SR3 Microprocessor Specification, System development information,"
 ;;   Revision 1.0, 13 December 2000.
 ;;
 ;;
 ;; Reservation model is based on:
-;;   1) Figure 6-1, from the 1.0 specicification.
-;;   2) Chapter 19, from the 1.0 specificication.
+;;   1) Figure 6-1, from the 1.0 specification.
+;;   2) Chapter 19, from the 1.0 specification.
 ;;   3) following questions(Red Hat)/answers(Sandcraft):
 ;;     RH> From Section 19.1
 ;;     RH>      1) In terms of figure 6-1, are all the instructions in
@@ -141,15 +141,13 @@
 (define_insn_reservation "ir_sr70_load"
                                2
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "load")
-                                    (eq_attr "mode" "!SF,DF,FPSW")))
+                               (eq_attr "type" "load"))
                          "ri_mem")
 
 (define_insn_reservation "ir_sr70_store"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "store")
-                                    (eq_attr "mode" "!SF,DF,FPSW")))
+                               (eq_attr "type" "store"))
                          "ri_mem")
 
 
@@ -159,25 +157,22 @@
 (define_insn_reservation "ir_sr70_fload"
                                9
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "load")
-                                    (eq_attr "mode" "SF,DF")))
+                               (eq_attr "type" "fpload,fpidxload"))
                          "(cpu_iss+cp1_iss),(ri_mem+rf_ldmem)")
 
 (define_insn_reservation "ir_sr70_fstore"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "store")
-                                    (eq_attr "mode" "SF,DF")))
+                               (eq_attr "type" "fpstore,fpidxstore"))
                          "(cpu_iss+cp1_iss),(fpu_mov+ri_mem)")
 
 
 ;; This reservation is for conditional move based on integer
-;; or floating point CC.  This could probably use some refinement
-;; as "move" type attr seems to be overloaded in rtl.
-(define_insn_reservation "ir_sr70_move"
+;; or floating point CC.
+(define_insn_reservation "ir_sr70_condmove"
                                4
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "move"))
+                               (eq_attr "type" "condmove"))
                          "ri_insns")
 
 ;; Try to discriminate move-from-cp1 versus move-to-cp1 as latencies
@@ -200,13 +195,13 @@
 (define_insn_reservation "ir_sr70_hilo"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "hilo"))
+                               (eq_attr "type" "mthilo,mfhilo"))
                          "ri_insns")
 
 (define_insn_reservation "ir_sr70_arith"
                                1
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "arith,darith"))
+                               (eq_attr "type" "arith,shift,slt,clz,const,trap"))
                          "ri_insns")
 
 ;; emulate repeat (dispatch stall) by spending extra cycle(s) in
@@ -240,12 +235,6 @@
                                (and (eq_attr "type" "idiv")
                                     (eq_attr "mode" "DI")))
                          "ri_alux,ipu_alux,(ipu_macc_iter*70)")
-
-(define_insn_reservation "ir_sr70_icmp"
-                               1
-                          (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "icmp"))
-                         "ri_insns")
 
 ;; extra reservations of fpu_fpu are for repeat latency
 (define_insn_reservation "ir_sr70_fadd_sf"
@@ -289,21 +278,21 @@
 (define_insn_reservation "ir_sr70_fdiv_sf"
                                 60
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "fdiv")
+                               (and (eq_attr "type" "fdiv,frdiv")
                                     (eq_attr "mode" "SF")))
                          "rf_multi1+(fpu_iter*51)")
 
 (define_insn_reservation "ir_sr70_fdiv_df"
                                 120
                           (and (eq_attr "cpu" "sr71000")
-                               (and (eq_attr "type" "fdiv")
+                               (and (eq_attr "type" "fdiv,frdiv")
                                     (eq_attr "mode" "DF")))
                          "rf_multi1+(fpu_iter*109)")
 
 (define_insn_reservation "ir_sr70_fabs"
                                4
                           (and (eq_attr "cpu" "sr71000")
-                               (eq_attr "type" "fabs,fneg"))
+                               (eq_attr "type" "fabs,fneg,fmove"))
                          "rf_insn,fpu_fpu")
 
 (define_insn_reservation "ir_sr70_fcmp"

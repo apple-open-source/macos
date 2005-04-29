@@ -1,8 +1,22 @@
-/* $OpenLDAP: pkg/ldap/tests/progs/slapd-tester.c,v 1.15.2.5 2003/03/03 17:10:12 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/tests/progs/slapd-tester.c,v 1.22.2.4 2004/01/01 18:16:43 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Kurt Spanier for inclusion
+ * in OpenLDAP Software.
+ */
+
 #include "portable.h"
 
 #include <stdio.h>
@@ -35,7 +49,7 @@
 #define TMODRDNFILE		"do_modrdn.0"
 
 static char *get_file_name( char *dirname, char *filename );
-static int  get_search_filters( char *filename, char *filters[] );
+static int  get_search_filters( char *filename, char *filters[], char *bases[] );
 static int  get_read_entries( char *filename, char *entries[] );
 static void fork_child( char *prog, char **args );
 static void	wait4kids( int nkidval );
@@ -54,7 +68,7 @@ static char argbuf[BUFSIZ];
 static void
 usage( char *name )
 {
-	fprintf( stderr, "usage: %s [-h <host>] -p <port> -D <manager> -w <passwd> -d <datadir> -b <baseDN> [-j <maxchild>] [-l <loops>] -P <progdir>\n", name );
+	fprintf( stderr, "usage: %s -H <uri> | ([-h <host>] -p <port>) -D <manager> -w <passwd> -d <datadir> [-j <maxchild>] [-l <loops>] -P <progdir>\n", name );
 	exit( EXIT_FAILURE );
 }
 
@@ -68,13 +82,13 @@ main( int argc, char **argv )
 	char		*manager = NULL;
 	char		*passwd = NULL;
 	char		*dirname = NULL;
-	char        *sbase = NULL;
 	char		*progdir = NULL;
 	char		*loops = LOOPS;
 	DIR			*datadir;
 	struct dirent	*file;
 	char		*sfile = NULL;
 	char		*sreqs[MAXREQS];
+	char		*sbase[MAXREQS];
 	int         snum = 0;
 	char		*rfile = NULL;
 	char		*rreqs[MAXREQS];
@@ -119,10 +133,6 @@ main( int argc, char **argv )
 				passwd = ArgDup( optarg );
 				break;
 
-			case 'b':		/* the base DN */
-				sbase = ArgDup( optarg );
-				break;
-
 			case 'd':		/* data directory */
 				dirname = strdup( optarg );
 			break;
@@ -145,7 +155,7 @@ main( int argc, char **argv )
 		}
 	}
 
-	if (( dirname == NULL ) || ( sbase == NULL ) || ( port == NULL && uri == NULL ) ||
+	if (( dirname == NULL ) || ( port == NULL && uri == NULL ) ||
 			( manager == NULL ) || ( passwd == NULL ) || ( progdir == NULL ))
 		usage( argv[0] );
 
@@ -184,7 +194,7 @@ main( int argc, char **argv )
 
 	/* look for search requests */
 	if ( sfile ) {
-		snum = get_search_filters( sfile, sreqs );
+		snum = get_search_filters( sfile, sreqs, sbase );
 	}
 
 	/* look for read requests */
@@ -214,10 +224,10 @@ main( int argc, char **argv )
 		sargs[sanum++] = "-p";
 		sargs[sanum++] = port;
 	}
-	sargs[sanum++] = "-b";
-	sargs[sanum++] = sbase;
 	sargs[sanum++] = "-l";
 	sargs[sanum++] = loops;
+	sargs[sanum++] = "-b";
+	sargs[sanum++] = NULL;		/* will hold the search base */
 	sargs[sanum++] = "-f";
 	sargs[sanum++] = NULL;		/* will hold the search request */
 	sargs[sanum++] = NULL;
@@ -304,6 +314,7 @@ main( int argc, char **argv )
 		if ( j < snum ) {
 
 			sargs[sanum - 2] = sreqs[j];
+			sargs[sanum - 4] = sbase[j];
 			fork_child( scmd, sargs );
 
 		}
@@ -348,7 +359,7 @@ get_file_name( char *dirname, char *filename )
 
 
 static int
-get_search_filters( char *filename, char *filters[] )
+get_search_filters( char *filename, char *filters[], char *bases[] )
 {
 	FILE    *fp;
 	int     filter = 0;
@@ -361,6 +372,11 @@ get_search_filters( char *filename, char *filters[] )
 
 			if (( nl = strchr( line, '\r' )) || ( nl = strchr( line, '\n' )))
 				*nl = '\0';
+			bases[filter] = ArgDup( line );
+			fgets( line, BUFSIZ, fp );
+			if (( nl = strchr( line, '\r' )) || ( nl = strchr( line, '\n' )))
+				*nl = '\0';
+
 			filters[filter++] = ArgDup( line );
 
 		}

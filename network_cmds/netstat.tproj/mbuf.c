@@ -56,9 +56,9 @@
 
 
 #include <sys/param.h>
-#include <sys/protosw.h>
 #include <sys/socket.h>
 #include <sys/mbuf.h>
+#include <sys/sysctl.h>
 
 #include <stdio.h>
 #include "netstat.h"
@@ -105,23 +105,20 @@ bool seen[256];			/* "have we seen this type yet?" */
  * Print mbuf statistics.
  */
 void
-mbpr(mbaddr)
-	u_long mbaddr;
+mbpr(void)
 {
-	register int totmem, totfree, totmbufs;
-	register int i;
-	register struct mbtypes *mp;
+	int totmem, totfree, totmbufs;
+	int i;
+	struct mbtypes *mp;
+	size_t len;
 
 	if (nmbtypes != 256) {
 		fprintf(stderr,
 		    "netstat: unexpected change to mbstat; check source\n");
 		return;
 	}
-	if (mbaddr == 0) {
-		fprintf(stderr, "netstat: mbstat: symbol not in namelist\n");
-		return;
-	}
-	if (kread(mbaddr, (char *)&mbstat, sizeof (mbstat)))
+	len = sizeof(mbstat);
+	if (sysctlbyname("kern.ipc.mbstat", &mbstat, &len, 0, 0) == -1)
 		return;
 
 	totmbufs = 0;
@@ -143,8 +140,11 @@ mbpr(mbaddr)
 	printf("%u/%u mbuf clusters in use\n",
 	       (unsigned int)(mbstat.m_clusters - mbstat.m_clfree),
 	       (unsigned int)mbstat.m_clusters);
-	totmem = totmbufs * MSIZE + mbstat.m_clusters * MCLBYTES;
-	totfree = mbstat.m_clfree * MCLBYTES;
+	printf("%u/%u mbuf 4KB clusters in use\n",
+	       (unsigned int)(mbstat.m_bigclusters - mbstat.m_bigclfree),
+	       (unsigned int)mbstat.m_bigclusters);
+	totmem = totmbufs * MSIZE + mbstat.m_clusters * MCLBYTES + mbstat.m_bigclusters * mbstat.m_bigmclbytes;
+	totfree = mbstat.m_clfree * MCLBYTES + mbstat.m_bigclfree * mbstat.m_bigmclbytes;
 	printf("%u Kbytes allocated to network (%d%% in use)\n",
 		totmem / 1024, (totmem - totfree) * 100 / totmem);
 	printf("%u requests for memory denied\n",

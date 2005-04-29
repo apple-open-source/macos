@@ -1,0 +1,271 @@
+--- utmpx.c.orig	2004-07-13 13:02:37.000000000 -0700
++++ utmpx.c	2004-08-05 15:25:10.000000000 -0700
+@@ -50,7 +50,6 @@
+ #include <sys/wait.h>
+ 
+ #include <assert.h>
+-#include <db.h>
+ #include <errno.h>
+ #include <fcntl.h>
+ #include <stdio.h>
+@@ -63,6 +62,13 @@
+ #include <utmpx.h>
+ #include <vis.h>
+ 
++#ifdef UTMP_COMPAT
++#include <utmp.h>
++#include <ttyent.h>
++
++static void _utmp_compat(const struct utmpx *);
++#endif /* UTMP_COMPAT */
++
+ __warn_references(getlastlogx,
+     "warning: reference to compatibility getlastlogx(); include <utmpx.h> for correct reference")
+ __warn_references(lastlogxname,
+@@ -72,7 +78,6 @@
+ static int readonly = 0;
+ static struct utmpx ut;
+ static char utfile[MAXPATHLEN] = _PATH_UTMPX;
+-static char llfile[MAXPATHLEN] = _PATH_LASTLOGX;
+ 
+ static struct utmpx *utmp_update(const struct utmpx *);
+ 
+@@ -270,6 +275,9 @@
+ 		goto fail;
+ 
+ 	u = memcpy(&ut, &temp, sizeof(ut));
++#ifdef UTMP_COMPAT
++	_utmp_compat(u);
++#endif /* UTMP_COMPAT */
+ fail:
+ 	if (gotlock) {
+ 		if (lockf(fileno(fp), F_ULOCK, (off_t)0) == -1)
+@@ -308,185 +316,50 @@
+ 
+ }
+ 
+-/*
+- * The following are extensions and not part of the X/Open spec.
+- */
+-int
+-updwtmpx(const char *file, const struct utmpx *utx)
+-{
+-	int fd;
+-	int saved_errno;
+-
+-	_DIAGASSERT(file != NULL);
+-	_DIAGASSERT(utx != NULL);
+-
+-	fd = open(file, O_WRONLY|O_APPEND|O_SHLOCK);
+-
+-	if (fd == -1) {
+-		if ((fd = open(file, O_CREAT|O_WRONLY|O_EXLOCK, 0644)) == -1)
+-			return -1;
+-		(void)memset(&ut, 0, sizeof(ut));
+-		ut.ut_type = SIGNATURE;
+-		(void)memcpy(ut.ut_user, vers, sizeof(vers));
+-		if (write(fd, &ut, sizeof(ut)) == -1)
+-			goto failed;
++#ifdef UTMP_COMPAT
++static void
++_utmp_compat(const struct utmpx *ux)
++{
++	struct utmp u;
++	int fd, slot;
++	struct ttyent *ttyp;
++
++	switch (ux->ut_type) {
++	case INIT_PROCESS:
++	case LOGIN_PROCESS:
++	case USER_PROCESS:
++		break;
++	case DEAD_PROCESS:
++		logout(ux->ut_line);
++		return;
++	default:
++		return;
+ 	}
+-	if (write(fd, utx, sizeof(*utx)) == -1)
+-		goto failed;
+-	if (close(fd) == -1)
+-		return -1;
+-	return 0;
+-
+-  failed:
+-	saved_errno = errno;
+-	(void) close(fd);
+-	errno = saved_errno;
+-	return -1;
+-}
+-
+-
+-int
+-utmpxname(const char *fname)
+-{
+-	size_t len;
+-
+-	_DIAGASSERT(fname != NULL);
+-
+-	len = strlen(fname);
+-
+-	if (len >= sizeof(utfile))
+-		return 0;
+-
+-	/* must end in x! */
+-	if (fname[len - 1] != 'x')
+-		return 0;
+-
+-	(void)strlcpy(utfile, fname, sizeof(utfile));
+-	endutxent();
+-	return 1;
+-}
+-
+-
+-void
+-getutmp(const struct utmpx *ux, struct utmp *u)
+-{
+-
+-	_DIAGASSERT(ux != NULL);
+-	_DIAGASSERT(u != NULL);
+-
+-	(void)memcpy(u->ut_name, ux->ut_name, sizeof(u->ut_name));
+-	(void)memcpy(u->ut_line, ux->ut_line, sizeof(u->ut_line));
+-	(void)memcpy(u->ut_host, ux->ut_host, sizeof(u->ut_host));
+-	u->ut_time = ux->ut_tv.tv_sec;
+-}
+-
+-void
+-getutmpx(const struct utmp *u, struct utmpx *ux)
+-{
+-
+-	_DIAGASSERT(ux != NULL);
+-	_DIAGASSERT(u != NULL);
+-
+-	(void)memcpy(ux->ut_name, u->ut_name, sizeof(u->ut_name));
+-	(void)memcpy(ux->ut_line, u->ut_line, sizeof(u->ut_line));
+-	(void)memcpy(ux->ut_host, u->ut_host, sizeof(u->ut_host));
+-	ux->ut_tv.tv_sec = u->ut_time;
+-	ux->ut_tv.tv_usec = 0;
+-	(void)memset(&ux->ut_ss, 0, sizeof(ux->ut_ss));
+-	ux->ut_pid = 0;
+-	ux->ut_type = USER_PROCESS;
+-	ux->ut_session = 0;
+-	ux->ut_exit.e_termination = 0;
+-	ux->ut_exit.e_exit = 0;
+-}
+-
+-int
+-lastlogxname(const char *fname)
+-{
+-	size_t len;
+-
+-	_DIAGASSERT(fname != NULL);
+-
+-	len = strlen(fname);
+-
+-	if (len >= sizeof(llfile))
+-		return 0;
+-
+-	/* must end in x! */
+-	if (fname[len - 1] != 'x')
+-		return 0;
+-
+-	(void)strlcpy(llfile, fname, sizeof(llfile));
+-	return 1;
+-}
+-
+-struct lastlogx *
+-getlastlogx(uid_t uid, struct lastlogx *ll)
+-{
+-
+-	return __getlastlogx13(_PATH_LASTLOGX, uid, ll);
+-}
+-
+-struct lastlogx *
+-__getlastlogx13(const char *fname, uid_t uid, struct lastlogx *ll)
+-{
+-	DBT key, data;
+-	DB *db;
+-
+-	_DIAGASSERT(fname != NULL);
+-	_DIAGASSERT(ll != NULL);
+-
+-	db = dbopen(fname, O_RDONLY|O_SHLOCK, 0, DB_HASH, NULL);
+-
+-	if (db == NULL)
+-		return NULL;
+-
+-	key.data = &uid;
+-	key.size = sizeof(uid);
+-
+-	if ((db->get)(db, &key, &data, 0) != 0)
+-		goto error;
+-
+-	if (data.size != sizeof(*ll)) {
+-		errno = EFTYPE;
+-		goto error;
++	/* do equivalent of ttyslot(), but using ux->ut_slot */
++	setttyent();
++	slot = 1;
++	for(;;) {
++		if ((ttyp = getttyent()) == NULL) {
++			endttyent();
++			return;
++		}
++		if (!strcmp(ttyp->ty_name, ux->ut_line)) {
++			endttyent();
++			break;
++		}
++		slot++;
+ 	}
+ 
+-	if (ll == NULL)
+-		if ((ll = malloc(sizeof(*ll))) == NULL)
+-			goto done;
+-
+-	(void)memcpy(ll, data.data, sizeof(*ll));
+-	goto done;
+-error:
+-	ll = NULL;
+-done:
+-	(db->close)(db);
+-	return ll;
+-}
+-
+-int
+-updlastlogx(const char *fname, uid_t uid, struct lastlogx *ll)
+-{
+-	DBT key, data;
+-	int error = 0;
+-	DB *db;
+-
+-	_DIAGASSERT(fname != NULL);
+-	_DIAGASSERT(ll != NULL);
+-
+-	db = dbopen(fname, O_RDWR|O_CREAT|O_EXLOCK, 0, DB_HASH, NULL);
+-
+-	if (db == NULL)
+-		return -1;
+-
+-	key.data = &uid;
+-	key.size = sizeof(uid);
+-	data.data = ll;
+-	data.size = sizeof(*ll);
+-	if ((db->put)(db, &key, &data, 0) != 0)
+-		error = -1;
+-
+-	(db->close)(db);
+-	return error;
++	/* now write utmp */
++	(void)memset(&u, 0, sizeof(u));
++	strncpy(u.ut_line, ux->ut_line, UT_LINESIZE);
++	strncpy(u.ut_name, ux->ut_user, UT_NAMESIZE);
++	strncpy(u.ut_host, ux->ut_host, UT_HOSTSIZE);
++	u.ut_time = ux->ut_tv.tv_sec;
++	if ((fd = open(_PATH_UTMP, O_WRONLY|O_CREAT, 0644)) >= 0) {
++		(void)lseek(fd, (off_t)(slot * sizeof(struct utmp)), L_SET);
++		(void)write(fd, &u, sizeof(struct utmp));
++		(void)close(fd);
++	}
+ }
++#endif /* UTMP_COMPAT */

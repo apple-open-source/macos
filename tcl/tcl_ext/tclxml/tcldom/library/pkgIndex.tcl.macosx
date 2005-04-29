@@ -1,0 +1,36 @@
+# TclDOM package index - hand crafted
+#
+# $Id: pkgIndex.tcl.macosx,v 1.4 2002/10/14 13:07:45 balls Exp $
+
+package ifneeded dom::generic 2.4 [list load [file join $dir .. .. .. libtcldom.framework libtcldom]]
+package ifneeded dom::c 2.0 [list load [file join $dir .. libtcldom2.0.dylib]]
+package ifneeded dom::libxml2 2.4 [list load [file join $dir .. .. .. tcldom-libxml2.framework tcldom-libxml2] Tcldomxml]
+package ifneeded dom::tclgeneric 2.4 [list source [file join $dir dom.tcl]]
+package ifneeded dom::tcl 2.4 [list source [file join $dir domimpl.tcl]]
+package ifneeded dommap 1.0 [list source [file join $dir dommap.tcl]]
+package ifneeded xmlswitch 1.0 [list source [file join $dir xmlswitch.tcl]]
+
+package ifneeded cgi2dom 1.1 [list source [file join $dir cgi2dom.tcl]]
+
+namespace eval ::dom {}
+
+# Requesting the generic dom package loads the C package 
+# if available, otherwise falls back to the generic Tcl package.
+# The application can tell which it got by examining the
+# list of packages loaded (and looking for dom::c or dom::tclgeneric).
+
+package ifneeded dom 2.4 {
+    if {[catch {package require dom::generic 2.4}]} {
+	package require dom::tclgeneric
+    } else {
+	catch {package require dom::c}
+	catch {package require dom::libxml2 2.4}
+    }
+    package provide dom 2.4
+
+    # Both the C and pure Tcl versions of the generic layer
+    # make use of the Tcl implementation.
+
+    package require dom::tcl
+}
+

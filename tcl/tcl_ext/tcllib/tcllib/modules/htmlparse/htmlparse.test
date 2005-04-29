@@ -1,0 +1,276 @@
+# -*- tcl -*-
+# Tests for the HTML parser
+#
+# Sourcing this file into Tcl runs the tests and generates output for errors.
+# No output means no errors were found.
+#
+# Copyright (c) 2001 by ActiveState Tool Corp.
+# All rights reserved.
+#
+# RCS: @(#) $Id: htmlparse.test,v 1.6 2004/02/10 06:44:21 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+if { [lsearch $auto_path [file dirname [info script]]] == -1 } {
+    set auto_path [linsert $auto_path 0 [file dirname [info script]]]
+}
+
+package require htmlparse
+puts "htmlparse [package present htmlparse]"
+
+
+set html1 {<html><head><title>foo</title><meta name="..."></head><body><h2>Header<p>burble</body></html>}
+set html2 {<html><head><title>foo</title><meta name="..."></head><body><h2>Header<p>burble</b}
+set html3 {<html><head><title>foo</title><meta name="..."></head><body><h2>Header<p><b>burble</b><p><form><input type="..."></form></body></html>}
+
+# Simple remembering callback ...
+proc cb {args} {global tags ; lappend tags $args}
+
+test htmlparse-1.0 {basic errors} {
+    catch {htmlparse::parse} msg
+    set msg
+} {::htmlparse::parse : html string missing}
+
+test htmlparse-1.2 {basic errors} {
+    catch {htmlparse::parse -cmd "" -split -1 -incvar "" -vroot "" -queue "" a b} msg
+    set msg
+} {::htmlparse::parse : -cmd illegal argument (empty)}
+
+test htmlparse-1.3 {basic errors} {
+    catch {htmlparse::parse -split -1 -incvar "" -vroot "" -queue "" a b} msg
+    set msg
+} {::htmlparse::parse : -split illegal argument (<= 0)}
+
+test htmlparse-1.4 {basic errors} {
+    catch {htmlparse::parse -incvar "" -vroot "" -queue "" a b} msg
+    set msg
+} {::htmlparse::parse : -incvar illegal argument (empty)}
+
+test htmlparse-1.5 {basic errors} {
+    catch {htmlparse::parse -vroot "" -queue "" a b} msg
+    set msg
+} {::htmlparse::parse : -vroot illegal argument (empty)}
+
+test htmlparse-1.6 {basic errors} {
+    catch {htmlparse::parse -queue "" a b} msg
+    set msg
+} {::htmlparse::parse : -queue illegal argument (empty)}
+
+test htmlparse-1.7 {basic errors} {
+    catch {htmlparse::parse a b} msg
+    set msg
+} {::htmlparse::parse : to many arguments behind the options, expected one}
+
+test htmlparse-1.8 {basic errors} {
+    catch {htmlparse::parse -foo a} msg
+    set msg
+} {::htmlparse::parse : Illegal option "foo"}
+
+test htmlparse-1.9 {parsing errors} {
+    catch {htmlparse::parse -cmd cb $html2} msg
+    set msg
+} {::htmlparse::parse : HTML is incomplete, option -incvar is missing}
+
+
+test htmlparse-2.0 {normal parsing} {
+    set tags [list]
+    htmlparse::parse -cmd cb -vroot foo $html1
+    set tags
+} [list \
+	[list foo   {} {} {}] \
+	[list html  {} {} {}] \
+	[list head  {} {} {}] \
+	[list title {} {} foo] \
+	[list title /  {} {}] \
+	[list meta  {} {name="..."} {}] \
+	[list head  /  {} {}] \
+	[list body  {} {} {}] \
+	[list h2    {} {} Header] \
+	[list p     {} {} burble] \
+	[list body  /  {} {}] \
+	[list html  /  {} {}] \
+	[list foo   /  {} {}] \
+	]
+
+test htmlparse-2.1 {normal parsing} {
+    set tags [list]
+    htmlparse::parse -cmd {cb @} -vroot foo $html1
+    set tags
+} [list \
+	[list @ foo   {} {} {}] \
+	[list @ html  {} {} {}] \
+	[list @ head  {} {} {}] \
+	[list @ title {} {} foo] \
+	[list @ title /  {} {}] \
+	[list @ meta  {} {name="..."} {}] \
+	[list @ head  /  {} {}] \
+	[list @ body  {} {} {}] \
+	[list @ h2    {} {} Header] \
+	[list @ p     {} {} burble] \
+	[list @ body  /  {} {}] \
+	[list @ html  /  {} {}] \
+	[list @ foo   /  {} {}] \
+	]
+
+test htmlparse-2.2 {normal parsing} {
+    set tags [list]
+    set incomplete ""
+    htmlparse::parse -cmd cb -incvar incomplete -vroot foo $html2
+    list $tags $incomplete
+} [list [list \
+	[list foo   {} {} {}] \
+	[list html  {} {} {}] \
+	[list head  {} {} {}] \
+	[list title {} {} foo] \
+	[list title /  {} {}] \
+	[list meta  {} {name="..."} {}] \
+	[list head  /  {} {}] \
+	[list body  {} {} {}] \
+	[list h2    {} {} Header] \
+	[list p     {} {} burble] \
+	[list foo   /  {} {}] \
+	] "</b"]
+
+test htmlparse-3.0 {incremental parsing} {
+    set tags [list]
+    catch {q destroy}
+    struct::queue q
+    htmlparse::parse -cmd cb -vroot foo -queue q -split 1 $html1
+
+    list $tags [q size] [q peek [q size]]
+} {{} 12 {{{cb} \win\ {foo} {} {} {}} {{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}} {{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}} {{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}} {{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}} {{cb} \win\ {p} {} {} {burble}} {{cb} \win\ {body} {/} {} {}} {{cb} \win\ {html} {/} {} {}}}}
+
+test htmlparse-3.1 {incremental parsing} {
+    set tags [list]
+    catch {q destroy}
+    struct::queue q
+    htmlparse::parse -cmd cb -vroot foo -queue q -split 2 $html1
+
+    list $tags [q size] [q peek [q size]]
+} {{} 6 {{{cb} \win\ {foo} {} {} {}
+{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}
+{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}
+{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}
+{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}
+{cb} \win\ {p} {} {} {burble}} {{cb} \win\ {body} {/} {} {}
+{cb} \win\ {html} {/} {} {}}}}
+
+test htmlparse-3.2 {incremental parsing} {
+    set tags [list]
+    set incomplete ""
+    catch {q destroy}
+    struct::queue q
+
+    htmlparse::parse -cmd cb -incvar incomplete -vroot foo -queue q -split 1 $html2
+    list $tags [q size] [q peek [q size]] $incomplete
+} {{} 10 {{{cb} \win\ {foo} {} {} {}} {{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}} {{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}} {{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}} {{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}} {{cb} \win\ {p} {} {} {burble}}} </b}
+
+test htmlparse-3.3 {incremental parsing} {
+    set tags [list]
+    set incomplete ""
+    catch {q destroy}
+    struct::queue q
+
+    htmlparse::parse -cmd {cb @} -incvar incomplete -vroot foo -queue q -split 1 $html2
+    list $tags [q size] [q peek [q size]] $incomplete
+} {{} 10 {{{cb} {@} \win\ {foo} {} {} {}} {{cb} {@} \win\ {html} {} {} {}} {{cb} {@} \win\ {head} {} {} {}} {{cb} {@} \win\ {title} {} {} {foo}} {{cb} {@} \win\ {title} {/} {} {}} {{cb} {@} \win\ {meta} {} {name="..."} {}} {{cb} {@} \win\ {head} {/} {} {}} {{cb} {@} \win\ {body} {} {} {}} {{cb} {@} \win\ {h2} {} {} {Header}} {{cb} {@} \win\ {p} {} {} {burble}}} </b}
+
+
+proc cb_foo {args} {
+    if {[string equal [lindex $args 1] FOO]} {return }
+    global tags ; lappend tags $args
+}
+
+test htmlparse-3.4 {incremental parsing} {
+    set tags [list]
+    set incomplete ""
+    catch {q destroy}
+    struct::queue q
+
+    set lines [list]
+    lappend lines {<root>} 
+    lappend lines {<tag>Hi there</tag>} 
+    lappend lines {<tag} 
+    lappend lines {>Hi there<} 
+    lappend lines {/tag></root>} 
+
+    foreach l $lines {
+	htmlparse::parse -cmd {cb_foo @} -incvar incomplete -vroot FOO $l
+    }
+    list $tags $incomplete
+} {{{@ root {} {} {}} {@ tag {} {} {Hi there}} {@ tag / {} {}} {@ tag {} {} {Hi there}} {@ tag / {} {}} {@ root / {} {}}} {}}
+
+
+# Don't test: ::htmlparse::debugCallback
+
+test htmlparse-4.0 {predefined entities} {
+    ::htmlparse::mapEscapes "&gt;&lt;&amp;"
+} {><&}
+
+
+proc tlist {t n} {
+    set tt [list]
+    foreach c [$t children $n] {
+	lappend tt [$t get $c synth]
+    }
+    $t set $n -key synth [list [$t get $n type] $tt]
+}
+
+test htmlparse-5.0 {conversion to tree} {
+    struct::tree t
+    ::htmlparse::2tree $html3 t
+
+    set tx [list]
+    t walk root n {
+	lappend tx [list [t depth $n] [t get $n type]]
+    }
+    t destroy
+    set tx
+} {{0 root} {1 hmstart} {2 html} {3 head} {4 title} {5 PCDATA} {4 meta} {3 body} {4 h2} {5 PCDATA} {5 p} {6 b} {7 PCDATA} {5 p} {6 form} {7 input}}
+
+test htmlparse-5.1 {conversion to tree} {
+    struct::tree t
+    ::htmlparse::2tree $html3 t
+    ::htmlparse::removeVisualFluff t
+
+    set tx [list]
+    t walk root n {
+	lappend tx [list [t depth $n] [t get $n type]]
+    }
+    t destroy
+    set tx
+} {{0 root} {1 head} {2 title} {3 PCDATA} {1 body} {2 h2} {3 PCDATA} {3 p} {4 PCDATA} {3 p} {4 form} {5 input}}
+
+test htmlparse-5.2 {conversion to tree} {
+    struct::tree t
+    ::htmlparse::2tree $html3      t
+    ::htmlparse::removeVisualFluff t
+    ::htmlparse::removeFormDefs    t
+
+    set tx [list]
+    t walk root n {
+	lappend tx [list [t depth $n] [t get $n type]]
+    }
+    t destroy
+    set tx
+} {{0 root} {1 head} {2 title} {3 PCDATA} {1 body} {2 h2} {3 PCDATA} {3 p} {4 PCDATA} {3 p}}
+
+# Bug #861277
+test htmlparse-6.1 {Backslashes in content} {
+    set tags [list]
+    htmlparse::parse -cmd cb -vroot html "<p>\\</p>"
+    set tags
+} [list \
+    [list html  {} {} {}] \
+    [list p     {} {} {&bsl;}] \
+    [list p     /  {} {}] \
+    [list html  /  {} {}] ]
+
+
+# Take a look at the cache.
+#parray ::htmlparse::splitdata
+::tcltest::cleanupTests
+return

@@ -1,0 +1,227 @@
+# -*- tcl -*-
+# Commands covered:  all, common behaviour of seeking
+#
+# This file contains a collection of tests for one or more of the trf
+# commands of the TRF extension. Sourcing this file into Tcl runs the
+# tests and generates output for errors.  No output means no errors were
+# found.
+#
+# Copyright (c) 1999 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: common_seek.test,v 1.2 1999/10/11 20:07:38 aku Exp $
+
+makeFile {hex test data} seektests
+
+# A server socket for the tests, actually doing nothing.
+
+proc null {args} {}
+set echo  [socket -server null 0]
+set eport [lindex [fconfigure $echo -sockname] 2]
+
+# ----------------------------------------------------------------------
+# check computation of chosen and used policy, which is based upon
+# transforms below it, and of the base channel.
+
+test seek-1.0 {chosen policy, seekable transform, seekable base} {
+    set f [open seektests r]
+    hex -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {1 2} overideAllowed 1 identityForced 0}
+
+test seek-1.1 {chosen policy, seekable transform, unseekable base} {
+    set f [socket localhost $eport]
+    hex -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {0 0} overideAllowed 0 identityForced 0}
+
+test seek-1.2 {chosen policy, unseekable transform, seekable base} {
+    set f [open seektests r]
+    ascii85 -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {0 0} ratioChosen {0 0} overideAllowed 1 identityForced 0}
+
+test seek-1.4 {chosen policy, unseekable transform, unseekable base} {
+    set f [socket localhost $eport]
+    ascii85 -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {0 0} ratioChosen {0 0} overideAllowed 0 identityForced 0}
+
+test seek-1.5 {chosen policy, seekable transforms, seekable base} {
+    set f [open seektests r]
+    base64 -attach $f -mode encode
+    hex    -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {1 2} overideAllowed 1 identityForced 0}
+
+test seek-1.6 {chosen policy, transform mixture, seekable base} {
+    set f [open seektests r]
+    ascii85 -attach $f -mode encode
+    hex     -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {0 0} overideAllowed 0 identityForced 0}
+
+test seek-1.7 {chosen policy, seekable transforms, unseekable base} {
+    set f [socket localhost $eport]
+    base64 -attach $f -mode encode
+    hex    -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {0 0} overideAllowed 0 identityForced 0}
+
+test seek-1.8 {chosen policy, transform mixture, unseekable base} {
+    set f [socket localhost $eport]
+    ascii85 -attach $f -mode encode
+    hex     -attach $f -mode encode
+    set res [fconfigure $f -seekcfg]
+    close $f
+    set res
+} {ratioNatural {1 2} ratioChosen {0 0} overideAllowed 0 identityForced 0}
+
+test seek-1.9 {chosen policy, all seekable, force identity} {
+    set f [open seektests r]
+    hex -attach $f -mode encode -seekpolicy identity
+    set res [fconfigure $f -seekstate]
+    close $f
+    set res
+} {seekable 1 ratio {1 1} up 0 upBufStart 0 upBufEnd 0 down 0 downBase 0 downAhead 0 changed 0}
+
+test seek-1.10 {chosen policy, all seekable, force unseekable} {
+    set f [open seektests r]
+    hex -attach $f -mode encode -seekpolicy unseekable
+    set res [fconfigure $f -seekstate]
+    close $f
+    set res
+} {seekable 0 ratio {0 0} up 0 upBufStart 0 upBufEnd 0 down 0 downBase 0 downAhead 0 changed 0}
+
+test seek-1.11 {chosen policy, all seekable, force error} {
+    set f [open seektests r]
+    catch {hex -attach $f -mode encode -seekpolicy unseek} res
+    close $f
+    set res
+} {Invalid value "unseek", must be one of 'unseekable', 'identity' or ''.}
+
+test seek-1.12 {chosen policy, unseekables, force error} {
+    set f [open seektests r]
+    ascii85 -attach $f -mode encode
+    catch {hex -attach $f -mode encode -seekpolicy identity} res
+    close $f
+    set res
+} {It is not allowed to overide the seek policy used by this channel.}
+
+
+
+# ----------------------------------------------------------------------
+# check seek restrictions set upon transforming and unseekable transforms.
+
+test seek-2.0 {seeking behind start of stream} {
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f -1} res
+    close $f
+    regsub $f $res XXXX res
+    set res
+} {error during seek on "XXXX": invalid argument}
+
+test seek-2.1 {seeking relative to the end} {
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f 0 end} res
+    close $f
+    regsub $f $res XXXX res
+    set res
+} {error during seek on "XXXX": invalid argument}
+
+test seek-2.2 {seeking modulo numBytesTransform} {
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+
+    catch {seek $f 1 cur} res
+    close $f
+    regsub $f $res XXXX res
+    set res
+} {error during seek on "XXXX": invalid argument}
+
+test seek-2.3 {seeking modulo numBytesTransform} {
+
+    set f [open seektests r]
+    hex -attach $f -mode decode
+    read $f 1
+    set fail [catch {seek $f 2 cur} res]
+    close $f
+    regsub $f $res XXXX res
+    set res
+} {error during seek on "XXXX": invalid argument}
+
+test seek-2.4 {seeking the unseekable} {
+
+    set f [socket localhost $eport]
+    hex -attach $f -mode decode
+
+    catch {seek $f 1} res
+    close $f
+    regsub $f $res XXXX res
+    set res
+} {error during seek on "XXXX": invalid argument}
+
+
+# ----------------------------------------------------------------------
+# check seek behaviour (discarding buffers, et. al).
+
+test seek-3.0 {picking up the base} {
+
+    set f [open seektests r]
+    read $f 3
+    hex -attach $f -mode decode
+    set res [fconfigure $f -seekstate]
+    close $f
+    set res
+} {seekable 1 ratio {2 1} up 0 upBufStart 0 upBufEnd 0 down 3 downBase 3 downAhead 0 changed 0}
+
+test seek-3.1 {picking up the base, read ahead} {
+
+    set f [open seektests r]
+    read $f 3
+    hex -attach $f -mode decode
+    read $f 2
+    set res [list [tell $f] [fconfigure $f -seekstate]]
+    close $f
+    set res
+} {2 {seekable 1 ratio {2 1} up 22 upBufStart 22 upBufEnd 22 down 14 downBase 3 downAhead 0 changed 0}}
+
+test seek-3.2 {resync, discard buffers} {
+
+    set f [open seektests r]
+    read $f 3
+    hex -attach $f -mode decode
+    read $f 2
+    seek $f 2 cur
+    set res [list [tell $f] [fconfigure $f -seekstate]]
+    close $f
+    set res
+} {4 {seekable 1 ratio {2 1} up 4 upBufStart 4 upBufEnd 4 down 5 downBase 3 downAhead 0 changed 0}}
+
+
+# ----------------------------------------------------------------------
+close $echo
+::tcltest::cleanupTests

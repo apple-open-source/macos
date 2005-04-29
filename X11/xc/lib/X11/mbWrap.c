@@ -50,12 +50,11 @@ from The Open Group.
  * 
  *		 M. Collins		OSF  
  */				
-/* $XFree86: xc/lib/X11/mbWrap.c,v 1.6 2001/12/14 19:54:10 dawes Exp $ */
+/* $XFree86: xc/lib/X11/mbWrap.c,v 1.7 2003/11/17 22:20:12 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
 
-#if NeedFunctionPrototypes
 void
 XmbDrawText(
     Display            *dpy,
@@ -65,16 +64,6 @@ XmbDrawText(
     int                 y,
     XmbTextItem        *text_items,
     int                 nitems)
-#else
-void
-XmbDrawText(dpy, d, gc, x, y, text_items, nitems)
-    Display            *dpy;
-    Drawable            d;
-    GC                  gc;
-    int                 x, y;
-    XmbTextItem        *text_items;
-    int                 nitems;
-#endif
 {
     register XFontSet fs = NULL;
     register XmbTextItem *p = text_items;
@@ -99,7 +88,6 @@ XmbDrawText(dpy, d, gc, x, y, text_items, nitems)
     }
 }
 
-#if NeedFunctionPrototypes
 void
 XmbDrawString(
     Display            *dpy,
@@ -110,24 +98,12 @@ XmbDrawString(
     int                 y,
     _Xconst char       *text,
     int                 text_len)
-#else
-void
-XmbDrawString(dpy, d, font_set, gc, x, y, text, text_len)
-    Display            *dpy;
-    Drawable            d;
-    XFontSet            font_set;
-    GC                  gc;
-    int                 x, y;
-    _Xconst char       *text;
-    int                 text_len;
-#endif
 {
     (void)(*font_set->methods->mb_draw_string) (dpy, d, font_set, gc, x, y,
 						(char *)text, text_len);
 }
 
 
-#if NeedFunctionPrototypes
 void
 XmbDrawImageString(
     Display            *dpy,
@@ -138,41 +114,21 @@ XmbDrawImageString(
     int                 y,
     _Xconst char       *text,
     int                 text_len)
-#else
-void
-XmbDrawImageString(dpy, d, font_set, gc, x, y, text, text_len)
-    Display            *dpy;
-    Drawable            d;
-    XFontSet            font_set;
-    GC                  gc;
-    int                 x, y;
-    _Xconst char       *text;
-    int                 text_len;
-#endif
 {
     (*font_set->methods->mb_draw_image_string) (dpy, d, font_set, gc, x, y,
 						(char *)text, text_len);
 }
 
-#if NeedFunctionPrototypes
 int 
 XmbTextEscapement(
     XFontSet        font_set,
     _Xconst char   *text,
     int             text_len)
-#else
-int 
-XmbTextEscapement(font_set, text, text_len)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-#endif
 {
     return (*font_set->methods->mb_escapement) (font_set,
 						(char *)text, text_len);
 }
 
-#if NeedFunctionPrototypes
 int
 XmbTextExtents(
     XFontSet        font_set,
@@ -180,16 +136,6 @@ XmbTextExtents(
     int             text_len,
     XRectangle     *overall_ink_extents,
     XRectangle     *overall_logical_extents)
-#else
-int
-XmbTextExtents(font_set, text, text_len,
-	       overall_ink_extents, overall_logical_extents)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-    XRectangle     *overall_ink_extents;
-    XRectangle     *overall_logical_extents;
-#endif
 {
     return (*font_set->methods->mb_extents) (font_set,
 					     (char *)text, text_len,
@@ -197,7 +143,6 @@ XmbTextExtents(font_set, text, text_len,
 					     overall_logical_extents);
 }
 
-#if NeedFunctionPrototypes
 Status
 XmbTextPerCharExtents(
     XFontSet        font_set,
@@ -209,22 +154,6 @@ XmbTextPerCharExtents(
     int            *num_chars,
     XRectangle     *max_ink_extents,
     XRectangle     *max_logical_extents)
-#else
-Status
-XmbTextPerCharExtents(font_set, text, text_len,
-		      ink_extents_buffer, logical_extents_buffer,
-		      buffer_size, num_chars,
-		      max_ink_extents, max_logical_extents)
-    XFontSet        font_set;
-    _Xconst char   *text;
-    int             text_len;
-    XRectangle     *ink_extents_buffer;
-    XRectangle     *logical_extents_buffer;
-    int             buffer_size;
-    int            *num_chars;
-    XRectangle     *max_ink_extents;
-    XRectangle     *max_logical_extents;
-#endif
 {
     return (*font_set->methods->mb_extents_per_char)
 	     (font_set, (char *)text, text_len, 

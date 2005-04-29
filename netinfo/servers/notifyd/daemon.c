@@ -26,6 +26,7 @@
 #include <sys/stat.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/ipc.h>
@@ -34,11 +35,12 @@
 #include <sys/signal.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
-#include <syslog.h>
 #include <errno.h>
 #include <netinet/in.h>
 #include <sys/event.h>
 #include <servers/bootstrap.h>
+#include <asl.h>
+#include <asl_private.h>
 #include "common.h"
 #include "daemon.h"
 #include "watcher.h"
@@ -74,6 +76,8 @@ uint32_t debug = V_DEBUG;
 uint32_t restart = V_RESTART;
 FILE *debug_log_file = NULL;
 uint32_t debug_log = V_DEBUG_LOG;
+aslmsg aslm = NULL;
+char *syslog_filter_name = NULL;
 uint32_t shm_enabled = 1;
 uint32_t nslots = 1024;
 int32_t shmfd = -1;
@@ -81,6 +85,8 @@ uint32_t *shm_base = NULL;
 uint32_t *shm_refcount = NULL;
 uint32_t slot_id = (uint32_t)-1;
 notify_state_t *ns = NULL;
+aslclient asl = NULL;
+uint32_t asl_filter = ASL_FILTER_MASK_UPTO(ASL_LEVEL_NOTICE);
 
 static pthread_mutex_t daemon_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -271,10 +277,23 @@ log_message(int priority, char *str, ...)
 	va_list ap;
 	char now[32];
 	time_t t;
+	name_info_t *n;
+	int filter, pmask;
 
 	va_start(ap, str);
 
-	vsyslog(priority, str, ap);
+	filter = asl_filter;
+	if (syslog_filter_name != NULL)
+	{
+		n = (name_info_t *)_nc_table_find(ns->name_table, syslog_filter_name);
+		if (n != NULL)
+		{
+			if (n->state != 0) filter = n->state;
+		}
+	}
+
+	pmask = ASL_FILTER_MASK(priority);
+	if ((pmask & filter) != 0) asl_vlog(asl, aslm, priority, str, ap);
 
 	if (debug_log_file != NULL)
 	{
@@ -336,7 +355,7 @@ server_run_loop()
 
 		kid = (uint32_t)event.udata;
 #ifdef DEBUG
-		log_message(LOG_ERR, "kevent %u fflags 0x%08x", kid, event.fflags);
+		log_message(ASL_LEVEL_ERR, "kevent %u fflags 0x%08x", kid, event.fflags);
 #endif
 		pthread_mutex_lock(&daemon_lock);
 		watcher_trigger(kid, event.fflags, 0); 
@@ -564,13 +583,13 @@ read_config()
 	
 	if (sb.st_uid != 0)
 	{
-		log_message(LOG_ERR, "config file %s not owned by root: ignored", CONFIG_FILE_PATH);
+		log_message(ASL_LEVEL_ERR, "config file %s not owned by root: ignored", CONFIG_FILE_PATH);
 		return;
 	}
 
 	if (sb.st_mode & 02)
 	{
-		log_message(LOG_ERR, "config file %s is world-writable: ignored", CONFIG_FILE_PATH);
+		log_message(ASL_LEVEL_ERR, "config file %s is world-writable: ignored", CONFIG_FILE_PATH);
 		return;
 	}
 
@@ -599,7 +618,18 @@ read_config()
 			_notify_lib_register_plain(ns, args[1], 0, -1, 0, 0, &cid);
 			service_open_file(cid, args[1], args[2], 0, 0, 0);
 		}
-
+		
+		else if (!strcasecmp(args[0], "set"))
+		{
+			if (argslen < 3)
+			{
+				string_list_free(args);
+				continue;
+			}
+			_notify_lib_register_plain(ns, args[1], 0, -1, 0, 0, &cid);
+			_notify_lib_set_state(ns, cid, atoi(args[2]), 0, 0);
+		}
+		
 		else if (!strcasecmp(args[0], "reserve"))
 		{
 			if (argslen == 1)
@@ -634,8 +664,6 @@ read_config()
 static void
 daemon_startup()
 {
-	ns = _notify_lib_notify_state_new(0);
-
 	/* create kqueue */
 	kq = kqueue();
 
@@ -754,7 +782,7 @@ main(int argc, char *argv[])
 	pthread_attr_t attr;
 	kern_return_t kstatus;
 	pthread_t t;
-	int32_t i, status, first_start, do_startup;
+	int32_t i, status, first_start, do_startup, cid;
 	int kid;
 	char line[1024], *sname;
 	watcher_t *w;
@@ -780,6 +808,10 @@ main(int argc, char *argv[])
 		{
 			debug_log = 1;
 		}
+		else if (!strcmp(argv[i], "-l"))
+		{
+			asl_filter = ASL_FILTER_MASK_UPTO(atoi(argv[++i]));
+		}
 		else if (!strcmp(argv[i], "-no_startup"))
 		{
 			do_startup = 0;
@@ -795,16 +827,30 @@ main(int argc, char *argv[])
 		}
 	}
 
+	/* Create state table early */
+	ns = _notify_lib_notify_state_new(0);
+
 	if (debug == 0)
 	{
-		daemon(0, 0);
-		openlog("notifyd", (LOG_NOWAIT | LOG_PID), LOG_DAEMON);
-		log_message(LOG_DEBUG, "notifyd started");
+		/*
+		 * To avoid deadlock in the asl library, we open an asl connection
+		 * with ASL_OPT_NO_NOTIFY so that the library won't call notifyd
+		 * to get a cutoff priority.  We "hand crank" the cutoff priority
+		 * in log_message().
+		 */
+		asprintf(&syslog_filter_name, "%s.%d", NOTIFY_PREFIX_SYSTEM, getpid());
+		_notify_lib_register_plain(ns, syslog_filter_name, 0, -1, 0, 0, &cid);
+		asl = asl_open("notifyd", "daemon", ASL_OPT_NO_DELAY | ASL_OPT_NO_REMOTE);
+		/* ASL filter is wide open - we do our own filtering */
+		asl_set_filter(asl, ASL_FILTER_MASK_UPTO(ASL_LEVEL_DEBUG));
+		aslm = asl_new(ASL_TYPE_MSG);
+
+		log_message(ASL_LEVEL_DEBUG, "notifyd started");
 	}
 
 	if (geteuid() != 0)
 	{
-		log_message(LOG_ERR, "not root: disabled shared memory");
+		log_message(ASL_LEVEL_ERR, "not root: disabled shared memory");
 		shm_enabled = 0;
 	}
 
@@ -813,7 +859,7 @@ main(int argc, char *argv[])
 		i = open_shared_memory();
 		if (i == -1)
 		{
-			log_message(LOG_ERR, "open_shared_memory failed: %s\n", strerror(errno));
+			log_message(ASL_LEVEL_ERR, "open_shared_memory failed: %s\n", strerror(errno));
 			exit(1);
 		}
 	}
@@ -822,7 +868,7 @@ main(int argc, char *argv[])
 	kstatus = bootstrap_status(bootstrap_port, sname, &status);
 	if (status == SERVER_STATUS_ACTIVE)
 	{
-		log_message(LOG_ERR, "%s is already active", sname);
+		log_message(ASL_LEVEL_ERR, "%s is already active", sname);
 		exit(1);
 	}
 
@@ -831,7 +877,7 @@ main(int argc, char *argv[])
 	kstatus = create_service(sname, &server_port);
 	if (kstatus != KERN_SUCCESS)
 	{
-		log_message(LOG_ERR, "create_service failed (%u)", kstatus);
+		log_message(ASL_LEVEL_ERR, "create_service failed (%u)", kstatus);
 		exit(1);
 	}
 
@@ -907,7 +953,13 @@ main(int argc, char *argv[])
 
 	daemon_shutdown();
 
-	log_message(LOG_DEBUG, "notifyd exiting");
+	log_message(ASL_LEVEL_DEBUG, "notifyd exiting");
+	if (debug == 0)
+	{
+		asl_close(asl);
+		asl_free(aslm);
+		if (syslog_filter_name != NULL) free(syslog_filter_name);
+	}
 
 	exit(0);
 }

@@ -58,27 +58,27 @@ doinsert(char *str)
 
 /**/
 mod_export int
-selfinsert(char **args)
+selfinsert(UNUSED(char **args))
 {
     char s[3], *p = s;
 
-    if(imeta(c)) {
+    if(imeta(lastchar)) {
 	*p++ = Meta;
-	c ^= 32;
+	lastchar ^= 32;
     }
-    *p++ = c;
+    *p++ = lastchar;
     *p = 0;
     doinsert(s);
     return 0;
 }
 
 /**/
-int
+mod_export int
 selfinsertunmeta(char **args)
 {
-    c &= 0x7f;
-    if (c == '\r')
-	c = '\n';
+    lastchar &= 0x7f;
+    if (lastchar == '\r')
+	lastchar = '\n';
     return selfinsert(args);
 }
 
@@ -118,7 +118,7 @@ backwarddeletechar(char **args)
 
 /**/
 int
-killwholeline(char **args)
+killwholeline(UNUSED(char **args))
 {
     int i, fg, n = zmult;
 
@@ -138,7 +138,7 @@ killwholeline(char **args)
 
 /**/
 int
-killbuffer(char **args)
+killbuffer(UNUSED(char **args))
 {
     cs = 0;
     forekill(ll, 0);
@@ -173,7 +173,7 @@ backwardkillline(char **args)
 
 /**/
 int
-gosmacstransposechars(char **args)
+gosmacstransposechars(UNUSED(char **args))
 {
     int cc;
 
@@ -193,7 +193,7 @@ gosmacstransposechars(char **args)
 
 /**/
 int
-transposechars(char **args)
+transposechars(UNUSED(char **args))
 {
     int cc, ct;
     int n = zmult;
@@ -232,7 +232,7 @@ transposechars(char **args)
 
 /**/
 int
-poundinsert(char **args)
+poundinsert(UNUSED(char **args))
 {
     cs = 0;
     vifirstnonblank(zlenoargs);
@@ -264,7 +264,7 @@ poundinsert(char **args)
 
 /**/
 int
-acceptline(char **args)
+acceptline(UNUSED(char **args))
 {
     done = 1;
     return 0;
@@ -272,7 +272,7 @@ acceptline(char **args)
 
 /**/
 int
-acceptandhold(char **args)
+acceptandhold(UNUSED(char **args))
 {
     zpushnode(bufstack, metafy((char *)line, ll, META_DUP));
     stackcs = cs;
@@ -307,7 +307,7 @@ killline(char **args)
 
 /**/
 int
-killregion(char **args)
+killregion(UNUSED(char **args))
 {
     if (mark > ll)
 	mark = ll;
@@ -320,7 +320,7 @@ killregion(char **args)
 
 /**/
 int
-copyregionaskill(char **args)
+copyregionaskill(UNUSED(char **args))
 {
     if (mark > ll)
 	mark = ll;
@@ -341,7 +341,7 @@ static Cutbuffer kctbuf;
 
 /**/
 int
-yank(char **args)
+yank(UNUSED(char **args))
 {
     int n = zmult;
 
@@ -367,13 +367,15 @@ yank(char **args)
 
 /**/
 int
-yankpop(char **args)
+yankpop(UNUSED(char **args))
 {
     int cc, kctstart = kct;
     Cutbuffer buf;
 
-    if (!(lastcmd & ZLE_YANK) || !kring)
+    if (!(lastcmd & ZLE_YANK) || !kring || !kctbuf) {
+	kctbuf = NULL;
 	return 1;
+    }
     do {
 	/*
 	 * This is supposed to make the yankpop loop
@@ -424,7 +426,7 @@ yankpop(char **args)
 
 /**/
 int
-overwritemode(char **args)
+overwritemode(UNUSED(char **args))
 {
     insmode ^= 1;
     return 0;
@@ -432,7 +434,7 @@ overwritemode(char **args)
 
 /**/
 int
-whatcursorposition(char **args)
+whatcursorposition(UNUSED(char **args))
 {
     char msg[100];
     char *s = msg;
@@ -471,7 +473,7 @@ whatcursorposition(char **args)
 
 /**/
 int
-undefinedkey(char **args)
+undefinedkey(UNUSED(char **args))
 {
     return 1;
 }
@@ -487,11 +489,11 @@ quotedinsert(char **args)
     sob.sg_flags = (sob.sg_flags | RAW) & ~ECHO;
     ioctl(SHTTY, TIOCSETN, &sob);
 #endif
-    c = getkey(0);
+    lastchar = getkey(0);
 #ifndef HAS_TIO
     zsetterm();
 #endif
-    if (c < 0)
+    if (lastchar < 0)
 	return 1;
     else
 	return selfinsert(args);
@@ -499,12 +501,12 @@ quotedinsert(char **args)
 
 /**/
 int
-digitargument(char **args)
+digitargument(UNUSED(char **args))
 {
     int sign = (zmult < 0) ? -1 : 1;
 
     /* allow metafied as well as ordinary digits */
-    if ((c & 0x7f) < '0' || (c & 0x7f) > '9')
+    if ((lastchar & 0x7f) < '0' || (lastchar & 0x7f) > '9')
 	return 1;
 
     if (!(zmod.flags & MOD_TMULT))
@@ -512,10 +514,10 @@ digitargument(char **args)
     if (zmod.flags & MOD_NEG) {
 	/* If we just had a negative argument, this is the digit, *
 	 * rather than the -1 assumed by negargument()            */
-	zmod.tmult = sign * (c & 0xf);
+	zmod.tmult = sign * (lastchar & 0xf);
 	zmod.flags &= ~MOD_NEG;
     } else
-	zmod.tmult = zmod.tmult * 10 + sign * (c & 0xf);
+	zmod.tmult = zmod.tmult * 10 + sign * (lastchar & 0xf);
     zmod.flags |= MOD_TMULT;
     prefixflag = 1;
     return 0;
@@ -523,7 +525,7 @@ digitargument(char **args)
 
 /**/
 int
-negargument(char **args)
+negargument(UNUSED(char **args))
 {
     if (zmod.flags & MOD_TMULT)
 	return 1;
@@ -566,7 +568,7 @@ universalargument(char **args)
 
 /**/
 int
-copyprevword(char **args)
+copyprevword(UNUSED(char **args))
 {
     int len, t0;
 
@@ -587,7 +589,7 @@ copyprevword(char **args)
 
 /**/
 int
-copyprevshellword(char **args)
+copyprevshellword(UNUSED(char **args))
 {
     LinkList l;
     LinkNode n;
@@ -613,7 +615,7 @@ copyprevshellword(char **args)
 
 /**/
 int
-sendbreak(char **args)
+sendbreak(UNUSED(char **args))
 {
     errflag = 1;
     return 1;
@@ -621,7 +623,7 @@ sendbreak(char **args)
 
 /**/
 int
-quoteregion(char **args)
+quoteregion(UNUSED(char **args))
 {
     char *str;
     size_t len;
@@ -646,7 +648,7 @@ quoteregion(char **args)
 
 /**/
 int
-quoteline(char **args)
+quoteline(UNUSED(char **args))
 {
     char *str;
     size_t len = ll;
@@ -690,7 +692,7 @@ static int cmdambig;
 
 /**/
 static void
-scancompcmd(HashNode hn, int flags)
+scancompcmd(HashNode hn, UNUSED(int flags))
 {
     int l;
     Thingy t = (Thingy) hn;
@@ -762,16 +764,16 @@ executenamedcommand(char *prmt)
 	} else if(cmd == Th(z_viquotedinsert)) {
 	    *ptr = '^';
 	    zrefresh();
-	    c = getkey(0);
-	    if(c == EOF || !c || len == NAMLEN)
+	    lastchar = getkey(0);
+	    if(lastchar == EOF || !lastchar || len == NAMLEN)
 		feep = 1;
 	    else
-		*ptr++ = c, len++, curlist = 0;
+		*ptr++ = lastchar, len++, curlist = 0;
 	} else if(cmd == Th(z_quotedinsert)) {
-	    if((c = getkey(0)) == EOF || !c || len == NAMLEN)
+	    if((lastchar = getkey(0)) == EOF || !lastchar || len == NAMLEN)
 		feep = 1;
 	    else
-		*ptr++ = c, len++, curlist = 0;
+		*ptr++ = lastchar, len++, curlist = 0;
 	} else if(cmd == Th(z_backwarddeletechar) ||
 	    	cmd == Th(z_vibackwarddeletechar)) {
 	    if (len)
@@ -809,15 +811,15 @@ executenamedcommand(char *prmt)
 		unrefthingy(r);
 	    }
 	    if(cmd == Th(z_selfinsertunmeta)) {
-		c &= 0x7f;
-		if(c == '\r')
-		    c = '\n';
+		lastchar &= 0x7f;
+		if(lastchar == '\r')
+		    lastchar = '\n';
 		cmd = Th(z_selfinsert);
 	    }
 	    if (cmd == Th(z_listchoices) || cmd == Th(z_deletecharorlist) ||
 		cmd == Th(z_expandorcomplete) || cmd == Th(z_completeword) ||
 		cmd == Th(z_expandorcompleteprefix) || cmd == Th(z_vicmdmode) ||
-		cmd == Th(z_acceptline) || c == ' ' || c == '\t') {
+		cmd == Th(z_acceptline) || lastchar == ' ' || lastchar == '\t') {
 		cmdambig = 100;
 
 		cmdll = newlinklist();
@@ -864,10 +866,11 @@ executenamedcommand(char *prmt)
 		    len = cmdambig;
 		}
 	    } else {
-		if (len == NAMLEN || icntrl(c) || cmd != Th(z_selfinsert))
+		if (len == NAMLEN || icntrl(lastchar) ||
+		    cmd != Th(z_selfinsert))
 		    feep = 1;
 		else
-		    *ptr++ = c, len++, curlist = 0;
+		    *ptr++ = lastchar, len++, curlist = 0;
 	    }
 	}
 	if (feep)

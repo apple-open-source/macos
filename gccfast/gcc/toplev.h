@@ -109,6 +109,11 @@ extern void check_global_declarations   PARAMS ((union tree_node **, int));
 extern void write_global_declarations PARAMS ((void));
 /* END APPLE LOCAL IMI */
 
+/* APPLE LOCAL begin jet */
+/* A hash code computed from all options in argv. */
+extern unsigned int toplev_argv_hash;
+/* APPLE LOCAL end jet */
+
 extern const char *progname;
 extern const char *dump_base_name;
 extern const char *aux_base_name;

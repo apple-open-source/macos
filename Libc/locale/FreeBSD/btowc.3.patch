@@ -1,0 +1,50 @@
+--- btowc.3.orig	Fri Mar 11 18:06:40 2005
++++ btowc.3	Fri Mar 11 18:08:08 2005
+@@ -29,7 +29,9 @@
+ .Os
+ .Sh NAME
+ .Nm btowc ,
+-.Nm wctob
++.Nm wctob ,
++.Nm btowc_l ,
++.Nm wctob_l
+ .Nd "convert between wide and single-byte characters"
+ .Sh LIBRARY
+ .Lb libc
+@@ -39,6 +41,11 @@
+ .Fn btowc "int c"
+ .Ft int
+ .Fn wctob "wint_t c"
++.In xlocale.h
++.Ft wint_t
++.Fn btowc_l "int c" "locale_t loc"
++.Ft int
++.Fn wctob_l "wint_t c" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn btowc
+@@ -59,10 +66,23 @@
+ .Fn wctob
+ returns
+ .Dv WEOF .
++.Pp
++While the
++.Fn btowc
++and
++.Fn wctob
++functions use the current locale, the
++.Fn btowc_l
++and
++.Fn wctob_l
++functions may be passed locales directly. See
++.Xr xlocale 3
++for more information.
+ .Sh SEE ALSO
+ .Xr mbrtowc 3 ,
+ .Xr multibyte 3 ,
+-.Xr wcrtomb 3
++.Xr wcrtomb 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn btowc

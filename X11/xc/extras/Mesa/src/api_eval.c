@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +22,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #include "glheader.h"
@@ -210,10 +209,13 @@ static void do_EvalCoord2f( GLcontext* ctx, GLfloat u, GLfloat v )
 
          CROSS_PROD(normal, du, dv);
          NORMALIZE_3FV(normal);
+	 glNormal3fv( normal );
+	 glVertex4fv( vertex );
       }
       else {
          _math_horner_bezier_surf(map->Points, vertex, uu, vv, 4,
                             map->Uorder, map->Vorder);
+	 glVertex4fv( vertex );
       }
    }
    else if (ctx->Eval.Map2Vertex3) {
@@ -280,16 +282,16 @@ void _mesa_EvalCoord1f( GLfloat u )
    GLfloat normal[3], texcoord[4], color[4];
    GLuint index;
 
-   COPY_3FV( normal, ctx->Current.Normal );
-   COPY_4FV( texcoord, ctx->Current.Texcoord[0] );
-   COPY_4FV( color, ctx->Current.Color );
+   COPY_3FV( normal, ctx->Current.Attrib[VERT_ATTRIB_NORMAL] );
+   COPY_4FV( texcoord, ctx->Current.Attrib[VERT_ATTRIB_TEX0] );
+   COPY_4FV( color, ctx->Current.Attrib[VERT_ATTRIB_COLOR0] );
    index = ctx->Current.Index;
 
    do_EvalCoord1f( ctx, u );
 
-   COPY_3FV( ctx->Current.Normal, normal );
-   COPY_4FV( ctx->Current.Texcoord[0], texcoord );
-   COPY_4FV( ctx->Current.Color, color );
+   COPY_3FV( ctx->Current.Attrib[VERT_ATTRIB_NORMAL], normal );
+   COPY_4FV( ctx->Current.Attrib[VERT_ATTRIB_TEX0], texcoord );
+   COPY_4FV( ctx->Current.Attrib[VERT_ATTRIB_COLOR0], color );
    ctx->Current.Index = index;
 }
 
@@ -299,16 +301,16 @@ void _mesa_EvalCoord2f( GLfloat u, GLfloat v )
    GLfloat normal[3], texcoord[4], color[4];
    GLuint index;
 
-   COPY_3FV( normal, ctx->Current.Normal );
-   COPY_4FV( texcoord, ctx->Current.Texcoord[0] );
-   COPY_4FV( color, ctx->Current.Color );
+   COPY_3FV( normal, ctx->Current.Attrib[VERT_ATTRIB_NORMAL] );
+   COPY_4FV( texcoord, ctx->Current.Attrib[VERT_ATTRIB_TEX0] );
+   COPY_4FV( color, ctx->Current.Attrib[VERT_ATTRIB_COLOR0] );
    index = ctx->Current.Index;
 
    do_EvalCoord2f( ctx, u, v );
 
-   COPY_3FV( ctx->Current.Normal, normal );
-   COPY_4FV( ctx->Current.Texcoord[0], texcoord );
-   COPY_4FV( ctx->Current.Color, color );
+   COPY_3FV( ctx->Current.Attrib[VERT_ATTRIB_NORMAL], normal );
+   COPY_4FV( ctx->Current.Attrib[VERT_ATTRIB_TEX0], texcoord );
+   COPY_4FV( ctx->Current.Attrib[VERT_ATTRIB_COLOR0], color );
    ctx->Current.Index = index;
 }
 

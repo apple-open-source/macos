@@ -1,8 +1,7 @@
 
 /*
- * @(#)GXLayoutEngine.h	1.4 00/03/15
  *
- * (C) Copyright IBM Corp. 1998, 1999, 2000, 2001, 2002 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -10,13 +9,14 @@
 #define __GXLAYOUTENGINE_H
 
 #include "LETypes.h"
-#include "LEFontInstance.h"
-#include "LEGlyphFilter.h"
 #include "LayoutEngine.h"
 
 #include "MorphTables.h"
 
 U_NAMESPACE_BEGIN
+
+class LEFontInstance;
+class LEGlyphStorage;
 
 /**
  * This class implements layout for QuickDraw GX or Apple Advanced Typograyph (AAT)
@@ -60,16 +60,16 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    virtual inline UClassID getDynamicClassID() const { return getStaticClassID(); }
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.8
      */
-    static inline UClassID getStaticClassID() { return (UClassID)&fgClassID; }
+    static UClassID getStaticClassID();
 
 protected:
 
@@ -90,11 +90,10 @@ protected:
      * @param offset - the index of the first character to process
      * @param count - the number of characters to process
      * @param max - the number of characters in the input context
-     * @param rightToLeft - true if the text is in a right to left directional run
+     * @param rightToLeft - <code>TRUE</code> if the text is in a right to left directional run
+     * @param glyphStorage - the glyph storage object. The glyph and char index arrays will be set.
      *
      * Output parameters:
-     * @param glyphs - the glyph index array
-     * @param charIndices - the character index array
      * @param success - set to an error code if the operation fails
      *
      * @return the number of glyphs in the glyph index array
@@ -102,34 +101,23 @@ protected:
      * @internal
      */
     virtual le_int32 computeGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-        LEGlyphID *&glyphs, le_int32 *&charIndices, LEErrorCode &success);
+        LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
     /**
      * This method adjusts the glyph positions using the font's
      * 'kern', 'trak', 'bsln', 'opbd' and 'just' tables.
      *
      * Input parameters:
-     * @param glyphs - the input glyph array
-     * @param glyphCount - the number of glyphs in the glyph array
-     * @param x - the starting X position
-     * @param y - the starting Y position
+     * @param glyphStorage - the object holding the glyph storage. The positions will be updated as needed.
      *
      * Output parameters:
-     * @param positions - the output X and Y positions (two entries per glyph)
      * @param success - set to an error code if the operation fails
      *
      * @internal
      */
-    virtual void adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, LEGlyphID glyphs[],
-        le_int32 glyphCount, float positions[], LEErrorCode &success);
+    virtual void adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse,
+                                      LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
-private:
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
 };
 
 U_NAMESPACE_END

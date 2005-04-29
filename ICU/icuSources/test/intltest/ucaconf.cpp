@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2003, International Business Machines Corporation and
+ * Copyright (c) 2002-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -15,6 +15,10 @@
 #if !UCONFIG_NO_COLLATION
 
 #include "ucaconf.h"
+#include "unicode/ustring.h"
+#include "cstring.h"
+#include "uparse.h"
+
 UCAConformanceTest::UCAConformanceTest() :
 rbUCA(NULL),
 testFile(NULL),
@@ -25,19 +29,12 @@ status(U_ZERO_ERROR)
     errln("ERROR - UCAConformanceTest: Unable to open UCA collator!");
   }
 
-  uprv_strcpy(testDataPath, IntlTest::loadTestData(status));
+  const char *srcDir = IntlTest::getSourceTestData(status);
   if (U_FAILURE(status)) {
     errln("ERROR: could not open test data %s", u_errorName(status));
     return;
   }
-  char* index = 0;
- 
-  index=strrchr(testDataPath,(char)U_FILE_SEP_CHAR);
-
-  if((unsigned int)(index-testDataPath) != (strlen(testDataPath)-1)){
-          *(index+1)=0;
-  }
-  uprv_strcat(testDataPath,".."U_FILE_SEP_STRING);
+  uprv_strcpy(testDataPath, srcDir);
   uprv_strcat(testDataPath, "CollationTest_");
 }
 
@@ -85,7 +82,7 @@ void UCAConformanceTest::initRbUCA()
     rbUCA = ucol_openRules(ucarules, size, UCOL_DEFAULT, UCOL_TERTIARY, 
                           &parseError, &status);
     if (U_FAILURE(status)) {
-        errln("Failure creating UCA rule-based collator.");
+        errln("Failure creating UCA rule-based collator: %s", u_errorName(status));
         return;
     }
   }
@@ -118,7 +115,7 @@ void UCAConformanceTest::openTestFile(const char *type)
   char buffer[1024];
   uprv_strcpy(buffer, testDataPath);
   uprv_strcat(buffer, type);
-  int32_t bufLen = uprv_strlen(buffer);
+  int32_t bufLen = (int32_t)uprv_strlen(buffer);
 
   // we try to open 3 files:
   // path/CollationTest_type.txt

@@ -60,9 +60,6 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include    "fp_private.h"
 #define     NULL       0
 
@@ -123,9 +120,3 @@ float nanf ( const char *string )
       {
       return ( ( float ) nan ( string ) );
       }
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
-

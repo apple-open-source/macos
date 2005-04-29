@@ -29,6 +29,9 @@
 
 int dry_run, read_only, list_only, verbose;
 int preserve_perms = 0;
+#ifdef EA_SUPPORT
+int extended_attributes = 0;
+#endif
 
 
 int

@@ -1,0 +1,244 @@
+img
+{
+	border-width: 0px;
+}
+
+.weblogtitle
+{
+	word-wrap: break-word;
+}
+
+.weblogbody
+{
+	word-wrap: break-word;
+	overflow: auto;
+}
+
+#blojsom_system_message
+{
+	position: absolute;
+	top: 0px;
+	left: 0px;
+	z-index: 4;
+	background: url(/blojsom_resources/images/message_background.png) repeat;
+	color: white;
+	padding: 3px 5px 3px 5px;
+	visibility: hidden;
+}
+
+#blojsom_system_message a
+{
+	color: red;
+}
+
+.entryoptions
+{
+	text-align: left;
+	vertical-align: middle;
+	height: 17px;
+}
+
+.commentstyle
+{
+	border: 1px dotted gray;
+	padding: 4px;
+	margin-top: 10px;
+	margin-right: 30px;
+	margin-left: 30px;
+}
+
+.comment_meta_info {
+	font-size: 11px;
+	margin-bottom: 15px;
+}
+
+.comment_meta_info th {
+	color: gray;
+	text-align: right;
+}
+
+.weblogdateline
+{
+	font-size: 11px;
+	color: #4E4E4E;
+}
+
+.blog_listing_ref
+{
+	width: 580px;
+	margin-left: auto;
+	margin-right: auto;
+	padding-top: 5px;
+	padding-bottom: 9px;
+}
+
+#include_listing_title
+{
+	font-weight: bold;
+	font-size: 14px;
+}
+
+.include_listing_ref
+{
+	margin-left: 30px;
+	margin-right: 30px;
+	margin-top: 20px;
+	margin-bottom: 20px;
+	border-color: #DEDEDE;
+	border-width: 1px;
+	border-style: solid;
+	padding: 6px;
+	background-color: #F2F2F2;
+}
+
+.blog_listing_title
+{
+	font-size: 14px;
+}
+
+.blog_listing_description
+{
+	font-size: 11px;
+}
+
+#create_blog_contents
+{
+	width: 184px;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+#user_id_form
+{
+	margin-left: auto;
+	margin-right: auto;
+}
+
+#createUserID
+{
+	margin-left: auto;
+	margin-right: auto;
+}
+
+.entryinfo
+{
+	text-align: right;
+}
+
+.dialog_600_header
+{
+	width: 600px;
+	height: 8px;
+}
+
+.dialog_600_body
+{
+	width: 600px;
+	background: white;
+	border: 1px solid gray;
+}
+
+.dialog_600_footer
+{
+	width: 600px;
+	height: 20px;
+}
+
+.dialog_500_header
+{
+	width: 500px;
+	height: 8px;
+}
+
+.dialog_500_body
+{
+	width: 500px;
+	background: white;
+	border: 1px solid gray;
+}
+
+.dialog_500_footer
+{
+	width: 500px;
+	height: 20px;
+}
+
+.dialog_400_header
+{
+	width: 400px;
+	height: 8px;
+}
+
+.dialog_400_body
+{
+	width: 400px;
+	border: 1px solid gray;
+	background: white;
+}
+
+.dialog_400_footer
+{
+	width: 400px;
+	height: 20px;
+}
+
+.dialog_content
+{
+	padding: 6px 15px 6px 15px;
+	border: 0px  transparent;
+	position: relative;
+	top: 0px;
+	left: 0px;
+	z-index: 1;
+}
+
+.dialog_title
+{
+	font-size: 14px;
+	font-weight: bold;
+}
+
+.form_table
+{
+	margin: 8px auto 8px auto;
+}
+
+.form_table th
+{
+	text-align: right;
+	vertical-align: middle;
+	color: #424242;
+}
+
+.form_table td
+{
+	vertical-align: middle;
+	text-align: left;
+}
+
+.form_buttons
+{
+	text-align: right;
+	margin-right: 30px;
+	margin-left: 0px;
+}
+
+.setting_label
+{
+	font-size: 10px;
+}
+
+#acltitle
+{
+	vertical-align: top;
+	padding-top: 3px;
+}
+
+#acldescription
+{
+	font-size: 10px;
+	vertical-align: top;
+	padding-top: 2px;
+	padding-left: 3px;
+	width: 172px;
+}

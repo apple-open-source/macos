@@ -87,11 +87,13 @@ class IOFireWireBusAux : public OSObject
 	public :
 	
 		virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const = 0 ;
+		virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort() const = 0 ;
+		virtual UInt8 getMaxRec( void ) = 0;
 
 	private:
 		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 0);
-		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 1);
-		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 2);
+		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 1);
+		OSMetaClassDeclareReservedUsed(IOFireWireBusAux, 2);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 3);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 4);
 		OSMetaClassDeclareReservedUnused(IOFireWireBusAux, 5);
@@ -126,6 +128,12 @@ class IOFireWireBusAux : public OSObject
 
 #pragma mark -
 
+/*! 
+	@class IOFireWireBus
+	@abstract IOFireWireBus is a public class the provides access to
+		general FireWire functionality...
+*/
+
 class IOFireWireBus : public IOService
 {
     OSDeclareAbstractStructors(IOFireWireBus)
@@ -139,11 +147,11 @@ public:
 		{
 			struct	// v0
 			{
-				IOMemoryMap * bufferMemoryMap ;		// This field required to get physical addresses to program DMA.
-													// If NULL, we try to make the map ourselves.
-													// If you created a buffer memory descriptor
-													// for your program's buffers, just call map() on it
-													// and pass the returned object here...
+				IOMemoryMap * bufferMemoryMap ;				// This field required to get physical addresses to program DMA.
+															// If NULL, we try to make the map ourselves.
+															// If you created a buffer memory descriptor
+															// for your program's buffers, just call map() on it
+															// and pass the returned object here...
 			} v0 ;
 			
 			struct  // v1
@@ -173,7 +181,6 @@ public:
 	// To use DCLTaskInfo (see createLocalIsochPort) make sure all 'unused' fields are set to 0 or NULL
 	// and that auxInfo points to a valid DCLTaskInfoAux struct, defined above.
 	
-//    typedef void (CallUserProc)(void *refcon, void * userProc, void * dclCommand);
 	struct DCLTaskInfo
 	{
 		task_t 				unused0 ;
@@ -184,15 +191,6 @@ public:
 		void				(*unused5)(void) ;
 		DCLTaskInfoAux *	auxInfo ;	// Refcon for user call
 	} ;
-//	struct DCLTaskInfo {
-//		task_t fTask;	// Task DCL addresses are valid in
-//		vm_address_t fDCLBaseAddr;
-//		UInt32 fDCLSize;	// In bytes
-//		vm_address_t fDataBaseAddr;
-//		UInt32 fDataSize;
-//		CallUserProc *fCallUser; // Routine to handle DCLCallCommandProcs
-//		void *fCallRefCon;	// Refcon for user call
-//	} ;
 
 	static const IORegistryPlane * gIOFireWirePlane;
 
@@ -204,7 +202,34 @@ public:
         IOFWIsochChannel::ForceStopNotificationProc stopProc=NULL,
         void *stopRefCon=NULL) = 0;
  
-   // Create a local isochronous port to run the given DCL program
+	/*!	@function createLocalIsochPort
+		@abstract Create a local isochronous port to run the given DCL program
+		@param talking Pass true to create a talker port; pass false to create a listener port.
+		@param opcodes A pointer to your DCL program (linked list of DCLCommand structs)
+			To use an IOFWDCL/IOFWDCLPool program, pass the DCLCommand returned by
+			IOFWDCLPool::getProgram().
+		@param info (Optional) Pointer to DCLTaskInfo struct containing additional
+			configuration information. If you have an IOMemoryMap for your DCL program data buffers,
+			pass it here. You can also pass an IOWorkLoop if you want to use your own
+			workloop to handle callbacks for the created port object.
+		@param startEvent Specifies a bus condition on which the port should start receiving/sending packets
+			Must be kFWDCLImmediateEvent, kFWDCLCycleEvent, or kFWDCLSyBitsEvent.
+			Pass kFWDCLImmediateEvent to start without waiting when start() is called. Pass kFWDCLCycleEvent
+			to start() transmitting at a specified bus cycle time. Pass kFWDCLSyBitsEvent (receive only)
+			to start receiving packets once an isochronous packet with a specified sync field arrives.
+		@param startState Pass the value for the desired start condition, as specified by 'startEvent'
+			kFWDCLImmediateEvent: set to 0
+			kFWDCLCycleEvent: the cycle timer value on which to start processing packets. For talker
+				ports, This value will be masked by 'startMask' and packet processing will be begin on the 
+				next cycle whose lowest bits match the masked value. For listener ports, pass a 15-bit value
+				containg to the low order two bits of cycleSeconds and the 13-bit cycleCount on which to start
+				processing packets.
+			kFWDCLSyBitsEvent: The value of the sync field on which to start receive packets. The value will be masked
+				by 'startMask'. For DCLCommand based isoch ports, processing will begin on the first received packet 
+				that has an isochronous header sync field matching 'startState'. For IOFWDCL/IOFWDCLPool based
+				ports, processing will pause on each IOFWDCL that has wait set to true until a packet that has
+				an isochronous header sync field matching 'startState' is received.
+		@result Returns an IOFWLocalIsochPort on success.*/
     virtual IOFWLocalIsochPort *createLocalIsochPort(bool talking,
         DCLCommand *opcodes, DCLTaskInfo *info = 0,
         UInt32 startEvent = 0, UInt32 startState = 0, UInt32 startMask = 0) = 0;
@@ -237,40 +262,45 @@ public:
     virtual UInt32 getExtendedTCode(IOFWRequestRefCon refcon) = 0;
 
     // How big (as a power of two) can packets sent to/received from the node be?
-    virtual int maxPackLog(bool forSend, UInt16 nodeAddress) const = 0;
+    virtual int maxPackLog ( bool forSend, UInt16 nodeAddress) const = 0;
 
     // How big (as a power of two) can packets sent from A to B be?
-    virtual int maxPackLog(UInt16 nodeA, UInt16 nodeB) const = 0;
+    virtual int maxPackLog ( UInt16 nodeA, UInt16 nodeB) const = 0;
 
     // Force given node to be root (via root holdoff Phy packet)
-    virtual IOReturn makeRoot(UInt32 generation, UInt16 nodeID) = 0;
+    virtual IOReturn makeRoot ( UInt32 generation, UInt16 nodeID) = 0;
 
     // Create address space at fixed address in initial register space
-    virtual IOFWPseudoAddressSpace *createInitialAddressSpace(UInt32 addressLo, UInt32 len,
-                                FWReadCallback reader, FWWriteCallback writer, void *refcon) = 0;
+    virtual IOFWPseudoAddressSpace * createInitialAddressSpace (	UInt32 addressLo, UInt32 len,
+																	FWReadCallback reader, FWWriteCallback writer, void *refcon) = 0;
 
     // Get address space object for given address, if any
-    virtual IOFWAddressSpace *getAddressSpace(FWAddress address) = 0;
+    virtual IOFWAddressSpace *						getAddressSpace(FWAddress address) = 0;
 
     // Extract info about the async request - was the request ack'ed complete already?
-    virtual bool isCompleteRequest(IOFWRequestRefCon refcon) = 0;
+    virtual bool									isCompleteRequest(IOFWRequestRefCon refcon) = 0;
     
-    virtual IOFWAsyncStreamCommand *createAsyncStreamCommand( UInt32 generation,
-    			UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
-				UInt32 size, int speed,FWAsyncStreamCallback completion=NULL, void *refcon=NULL) = 0;
-
-	virtual UInt32 hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress ) = 0;
-	virtual UInt32 hopCount(UInt16 nodeAAddress ) = 0;
-	virtual IOFireWirePowerManager * getBusPowerManager( void ) = 0;
+    virtual IOFWAsyncStreamCommand *				createAsyncStreamCommand( UInt32 generation,
+															UInt32 channel, UInt32 sync, UInt32 tag, IOMemoryDescriptor *hostMem,
+															UInt32 size, int speed,FWAsyncStreamCallback completion=NULL, void *refcon=NULL) = 0;
+	virtual UInt32									hopCount(UInt16 nodeAAddress, UInt16 nodeBAddress ) = 0;
+	virtual UInt32									hopCount(UInt16 nodeAAddress ) = 0;
+	virtual IOFireWirePowerManager *				getBusPowerManager( void ) = 0;
 
 protected:
 
-	virtual IOFireWireBusAux * 			createAuxiliary( void ) = 0;
+	virtual IOFireWireBusAux *						createAuxiliary( void ) = 0;
 
 	public :
 	
-		inline IOFWDCLPool *			createDCLPool ( UInt32 capacity = 0 )			{ return fAuxiliary->createDCLPool ( capacity ) ; }
-	
+		inline IOFWDCLPool *						createDCLPool ( UInt32 capacity = 0 )			{ return fAuxiliary->createDCLPool ( capacity ) ; }
+		inline UInt8								getMaxRec( void )								{ return fAuxiliary->getMaxRec(); }
+
+		// Create a buffer-fill isoch port
+		// note: The returned port must have one of the init() functions 
+		// called on it before it can be used!
+		IOFWBufferFillIsochPort *					createBufferFillIsochPort() ;
+
 	private:
 	
 		OSMetaClassDeclareReservedUsed(IOFireWireBus, 0);

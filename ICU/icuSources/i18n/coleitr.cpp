@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1996-2001, International Business Machines Corporation and    *
+* Copyright (C) 1996-2003, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -38,7 +38,7 @@
 
 U_NAMESPACE_BEGIN
 
-const char CollationElementIterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(CollationElementIterator)
 
 /* synwee : public can't remove */
 int32_t const CollationElementIterator::NULLORDER = 0xffffffff;
@@ -98,8 +98,7 @@ UBool CollationElementIterator::operator==(
     }
 
     // option comparison
-    if (!(m_data_->reset_ == that.m_data_->reset_ 
-          && m_data_->iteratordata_.coll == that.m_data_->iteratordata_.coll))
+    if (m_data_->iteratordata_.coll != that.m_data_->iteratordata_.coll)
     {
         return FALSE;
     }
@@ -340,7 +339,7 @@ CollationElementIterator::CollationElementIterator(
   {
     // A CollationElementIterator is really a two-layered beast.
     // Internally it uses a Normalizer to munge the source text into a form 
-    // where all "composed" Unicode characters (such as ü) are split into a 
+    // where all "composed" Unicode characters (such as \u00FC) are split into a 
     // normal character and a combining accent character.  
     // Afterward, CollationElementIterator does its own processing to handle
     // expanding and contracting collation sequences, ignorables, and so on.

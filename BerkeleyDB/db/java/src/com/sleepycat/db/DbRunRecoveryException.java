@@ -1,32 +1,32 @@
-/*-
- * See the file LICENSE for redistribution information.
+/*
+ *  -
+ *  See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1997-2002
- *      Sleepycat Software.  All rights reserved.
+ *  Copyright (c) 1997-2003
+ *  Sleepycat Software.  All rights reserved.
  *
- * $Id: DbRunRecoveryException.java,v 1.1.1.1 2003/02/15 04:56:07 zarzycki Exp $
+ *  $Id: DbRunRecoveryException.java,v 1.2 2004/03/30 01:23:37 jtownsen Exp $
  */
-
 package com.sleepycat.db;
 
 /**
+ *  This information describes the DbRunRecoveryException class and
+ *  how it is used by the various Berkeley DB classes.</p> <p>
  *
- * @author Donald D. Anderson
+ *  Errors can occur in the Berkeley DB library where the only
+ *  solution is to shut down the application and run recovery (for
+ *  example, if Berkeley DB is unable to allocate heap memory). When a
+ *  fatal error occurs in Berkeley DB, methods will throw a
+ *  DbRunRecoveryException, at which point all subsequent database
+ *  calls will also fail in the same way. When this occurs, recovery
+ *  should be performed.</p>
  */
-public class DbRunRecoveryException extends DbException
-{
-    // methods
-    //
-
-    public DbRunRecoveryException(String s)
-    {
-        super(s);
-    }
-
-    public DbRunRecoveryException(String s, int errno)
-    {
-        super(s, errno);
+public class DbRunRecoveryException extends DbException {
+    /**
+     *  Constructor for the DbRunRecoveryException object
+     *
+     */
+    protected DbRunRecoveryException(String s, int errno, DbEnv dbenv) {
+        super(s, errno, dbenv);
     }
 }
-
-// end of DbRunRecoveryException.java

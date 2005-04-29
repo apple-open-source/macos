@@ -157,13 +157,16 @@ main(argc, argv)
 	memf = _PATH_MEM;
 	while ((ch = getopt(argc, argv,
 #if defined(LAZY_PS)
-	    "aCcefghjLlM:mN:O:o:p:rSTt:U:uvW:wx")) != -1)
+	    "aACcefghjLlM:mN:O:o:p:rSTt:U:uvW:wx")) != -1)
 #else
-	    "aCceghjLlMmO:o:p:rSTt:U:uvwx")) != -1)
+	    "aACceghjLlMmO:o:p:rSTt:U:uvwx")) != -1)
 #endif
 		switch((char)ch) {
 		case 'a':
 			all = 1;
+			break;
+                case 'A':
+			all = xflg = 1;
 			break;
 		case 'C':
 			rawcpu = 1;
@@ -742,9 +745,15 @@ static void
 usage()
 {
 
+#if defined(LAZY_PS)
 	(void)fprintf(stderr, "%s\n%s\n%s\n",
-	    "usage: ps [-aChjlmMrSTuvwx] [-O|o fmt] [-p pid] [-t tty] [-U user]",
+#else
+	(void)fprintf(stderr, "%s\n%s\n",
+#endif
+	    "usage: ps [-aACcehjlmMrSTuvwx] [-O|o fmt] [-p pid] [-t tty] [-U user]",
+#if defined(LAZY_PS)
 	    "          [-N system] [-W swap]",
+#endif
 	    "       ps [-L]");
 	exit(1);
 }

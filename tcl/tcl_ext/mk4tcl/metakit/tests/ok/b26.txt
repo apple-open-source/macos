@@ -1,0 +1,2 @@
+>>> Partial memo field access
+<<< done.

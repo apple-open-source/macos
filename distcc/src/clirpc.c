@@ -42,6 +42,7 @@
 #include "clinet.h"
 #include "bulk.h"
 #include "clirpc.h"
+#include "cpp_dialect.h"
 
 
 /**
@@ -59,6 +60,22 @@ static int dcc_x_req_header(int fd)
 }
 
 
+static void fix_opt_x(char **argv)
+{
+    int i;
+    for(i = 0; NULL != argv[i]; i++)
+    {
+        if(!strcmp(argv[i], "-x"))
+        {
+            char *dialect;
+            if(dialect = dialect_lookup(argv[i + 1]))
+            {
+                argv[i + 1] = dialect;
+            }
+        }
+    }
+    return;
+}
 
 /**
  * Transmit an argv array.
@@ -69,6 +86,7 @@ static int dcc_x_argv(int fd, char **argv)
     int ret;
     int argc;
     
+    fix_opt_x(argv);
     argc = dcc_argv_len(argv);
     
     if (dcc_x_token_int(fd, "ARGC", argc))

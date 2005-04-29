@@ -28,7 +28,9 @@
 #include <CoreFoundation/CFString.h>
 
 /*!
-	@header DHCPClientPreferences.h
+	@header DHCPClientPreferences
+	@discussion The DHCPClientPreferences API allows applications to get and update DHCP preferences.
+		DHCP preferences are in the form of DHCP option codes, which are defined in RFC 2132.
  */
 
 __BEGIN_DECLS
@@ -36,15 +38,15 @@ __BEGIN_DECLS
 /*!
 	@function DHCPClientPreferencesSetApplicationOptions
 	@discussion Updates the DHCP client preferences to include the
-		given list of options for the given "applicationID".
+		given list of options for the given application ID.
 	@param applicationID The application's preference ID, for example:
 		"com.apple.SystemPreferences".
 	@param options An array of 8-bit values containing the
-		DHCP option codes (see RFC 2132) for this applicationID.
+		DHCP option codes (see RFC 2132) for this application ID.
 		A NULL value will clear the list of options for this
 		application ID.
-	@param count The number of elements in "options".
-	@result TRUE if the operation succeeded, FALSE otherwise.
+	@param count The number of elements in the options parameter.
+	@result Returns TRUE if the operation succeeded, FALSE otherwise.
  */
 
 Boolean
@@ -55,14 +57,14 @@ DHCPClientPreferencesSetApplicationOptions(CFStringRef applicationID,
 /*!
 	@function DHCPClientPreferencesCopyApplicationOptions
 	@discussion Copies the requested DHCP options for the
-		given "applicationID".
+		given application ID.
 	@param applicationID The application's preference ID, for example
 		"com.apple.SystemPreferences".
 	@param count The number of elements in the returned array.
-	@result The list of options for the given "applicationID", or
+	@result Returns the list of options for the given application ID, or
 		NULL if no options are defined or an error occurred.
 
-		When done, use free() to release a non-NULL return value.
+		When you are finished, use free() to release a non-NULL return value.
  */
 
 UInt8 *

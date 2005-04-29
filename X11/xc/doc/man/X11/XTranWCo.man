@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XTranWCo.man,v 1.2 2001/01/27 18:20:06 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XTranWCo.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,19 +144,11 @@
 .SH NAME
 XTranslateCoordinates \- translate window coordinates
 .SH SYNTAX
-Bool XTranslateCoordinates\^(\^\fIdisplay\fP, \fIsrc_w\fP\^, \fIdest_w\fP\^, \fIsrc_x\fP\^, \fIsrc_y\fP\^, \fIdest_x_return\fP\^, 
-.br
-                            \fIdest_y_return\fP\^, \fIchild_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIsrc_w\fP\^, \fIdest_w\fP\^;
-.br
-      int \fIsrc_x\fP\^, \fIsrc_y\fP\^;
-.br
-      int *\fIdest_x_return\fP\^, *\fIdest_y_return\fP\^;
-.br
-      Window *\fIchild_return\fP\^;
+.HP
+Bool XTranslateCoordinates\^(\^Display *\fIdisplay\fP\^, Window \fIsrc_w\fP\^,
+\fIdest_w\fP\^, int \fIsrc_x\fP\^, int \fIsrc_y\fP\^, int
+*\fIdest_x_return\fP\^, int *\fIdest_y_return\fP\^, Window
+*\fIchild_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIchild_return\fP 1i
 Returns the child if the coordinates are contained in a mapped child of the

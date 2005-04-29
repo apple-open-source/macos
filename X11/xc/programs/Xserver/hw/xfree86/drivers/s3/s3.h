@@ -24,7 +24,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3.h,v 1.16 2002/12/11 17:30:47 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3.h,v 1.18 2003/07/17 08:19:35 eich Exp $ */
 
 
 #ifndef _S3_H
@@ -165,6 +165,7 @@ typedef struct _S3Rec {
 	unsigned char		*imageBuffer;
 	int			imageWidth;
 	int			imageHeight;
+    Bool			hwCursor;
 } S3Rec, *S3Ptr;
 
 #define S3PTR(p)		((S3Ptr)((p)->driverPrivate))
@@ -240,6 +241,8 @@ Bool S3_CursorInit(ScreenPtr pScreen);
 #define S3_964_SERIES()		((pS3->Chipset == PCI_CHIP_964_0) ||	\
 			 	 (pS3->Chipset == PCI_CHIP_964_1))
 #define	S3_TRIO_SERIES()	((pS3->Chipset == PCI_CHIP_TRIO) ||	\
-			 	 (pS3->Chipset == PCI_CHIP_AURORA64VP))
+			 	 (pS3->Chipset == PCI_CHIP_AURORA64VP) || \
+				 (pS3->Chipset == PCI_CHIP_TRIO64UVP) || \
+				 (pS3->Chipset == PCI_CHIP_TRIO64V2_DXGX))
 
 #endif /* _S3_H */

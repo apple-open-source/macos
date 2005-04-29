@@ -41,6 +41,10 @@ shared.perl5		Perl 5 script that uses +ffn output to produce
 			a list of file descriptors or files shared by
 			processes.
 
+sort_res.perl5		Perl 5 script, contributed by Fabian Frederick
+			<fabian.frederick@gmx.fr>, to display top resource
+			usage.
+
 watch_a_file.perl	Perl 4 or 5 script that watches the use of a
 			named file
 

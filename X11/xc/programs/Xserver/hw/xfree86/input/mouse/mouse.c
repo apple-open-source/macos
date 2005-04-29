@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/mouse.c,v 1.69 2003/02/11 03:33:06 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/mouse.c,v 1.80 2003/12/08 23:49:42 dawes Exp $ */
 /*
  *
  * Copyright 1990,91 by Thomas Roell, Dinkelscherben, Germany.
@@ -201,6 +201,7 @@ typedef enum {
     OPTION_DRAGLOCKBUTTONS
 } MouseOpts;
 
+#ifdef XFree86LOADER
 static const OptionInfoRec mouseOptions[] = {
     { OPTION_ALWAYS_CORE,	"AlwaysCore",	  OPTV_BOOLEAN,	{0}, FALSE },
     { OPTION_SEND_CORE_EVENTS,	"SendCoreEvents", OPTV_BOOLEAN,	{0}, FALSE },
@@ -240,6 +241,9 @@ static const OptionInfoRec mouseOptions[] = {
     /* end serial options */
     { -1,			NULL,		  OPTV_NONE,	{0}, FALSE }
 };
+#endif
+
+#define RETRY_COUNT 4
 
 /*
  * Microsoft (all serial models), Logitech MouseMan, First Mouse, etc,
@@ -326,6 +330,7 @@ static MouseProtocolRec mouseProtocols[] = {
     { "IntelliMouse",		MSE_SERIAL,	msDefaults,	PROT_IMSERIAL },
     { "ThinkingMouse",		MSE_SERIAL,	msDefaults,	PROT_THINKING },
     { "AceCad",			MSE_SERIAL,	acecadDefaults,	PROT_ACECAD },
+    { "ValuMouseScroll",	MSE_SERIAL,	msDefaults,	PROT_VALUMOUSESCROLL },
 
     /* Standard PS/2 */
     { "PS/2",			MSE_PS2,	NULL,		PROT_PS2 },
@@ -471,7 +476,7 @@ MouseCommonOptions(InputInfoPtr pInfo)
 		lock--;
 
 		/* initialize table that maps drag lock mask to target mask */
-		pLock->nib_table[lock / NIB_SIZE][1 << (lock % NIB_BITS)] = 
+		pLock->nib_table[lock / NIB_BITS][1 << (lock % NIB_BITS)] = 
 			targetM;
 
 		/* add new drag lock to mask of drag locks */
@@ -874,8 +879,9 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
     InputInfoPtr pInfo;
     MouseDevPtr pMse;
     mousePrivPtr mPriv;
-    MessageType from = X_DEFAULT;
+    MessageType protocolFrom = X_DEFAULT, deviceFrom = X_CONFIG;
     const char *protocol, *osProt = NULL;
+    const char *device;
     MouseProtocolID protocolID;
     MouseProtocolPtr pProto;
     Bool detected;
@@ -905,6 +911,11 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
     pInfo->always_core_feedback = 0;
     pInfo->conf_idev = dev;
 
+    /* Check if SendDragEvents has been disabled. */
+    if (!xf86SetBoolOption(dev->commonOptions, "SendDragEvents", TRUE)) {
+	pInfo->flags &= ~XI86_SEND_DRAG_EVENTS;
+    }
+
     /* Allocate the MouseDevRec and initialise it. */
     /*
      * XXX This should be done by a function in the core server since the
@@ -920,10 +931,10 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
     /* Find the protocol type. */
     protocol = xf86SetStrOption(dev->commonOptions, "Protocol", NULL);
     if (protocol) {
-	from = X_CONFIG;
+	protocolFrom = X_CONFIG;
     } else if (osInfo->DefaultProtocol) {
 	protocol = osInfo->DefaultProtocol();
-	from = X_DEFAULT;
+	protocolFrom = X_DEFAULT;
     }
     if (!protocol) {
 	xf86Msg(X_ERROR, "%s: No Protocol specified\n", pInfo->name);
@@ -937,7 +948,7 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	case PROT_AUTO:
 	    if (osInfo->SetupAuto) {
 		if ((osProt = osInfo->SetupAuto(pInfo,NULL))) {
-		    int id = ProtocolNameToID(osProt);
+		    MouseProtocolID id = ProtocolNameToID(osProt);
 		    if (id == PROT_UNKNOWN || id == PROT_UNSUP) {
 			protocolID = id;
 			protocol = osProt;
@@ -951,6 +962,16 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	     * and call its PreInit. */
 	    if (osInfo->CheckProtocol
 		&& osInfo->CheckProtocol(protocol)) {
+		if (!xf86CheckStrOption(dev->commonOptions, "Device", NULL) &&
+		    HAVE_FIND_DEVICE && osInfo->FindDevice) {
+		    xf86Msg(X_WARNING, "%s: No Device specified, "
+			    "looking for one...\n", pInfo->name);
+		    if (!osInfo->FindDevice(pInfo, protocol, 0)) {
+			xf86Msg(X_ERROR, "%s: Cannot find which device "
+				"to use.\n", pInfo->name);
+		    } else
+			deviceFrom = X_PROBED;
+		}
 		if (osInfo->PreInit) {
 		    osInfo->PreInit(pInfo, protocol, 0);
 		}
@@ -972,8 +993,24 @@ MousePreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	}
     } while (!detected);
     
-    
-    xf86Msg(from, "%s: Protocol: \"%s\"\n", pInfo->name, protocol);
+    if (!xf86CheckStrOption(dev->commonOptions, "Device", NULL) &&
+	HAVE_FIND_DEVICE && osInfo->FindDevice) {
+	xf86Msg(X_WARNING, "%s: No Device specified, looking for one...\n",
+		pInfo->name);
+	if (!osInfo->FindDevice(pInfo, protocol, 0)) {
+	    xf86Msg(X_ERROR, "%s: Cannot find which device to use.\n",
+		    pInfo->name);
+	} else {
+	    deviceFrom = X_PROBED;
+	    xf86MarkOptionUsedByName(dev->commonOptions, "Device");
+	}
+    }
+
+    device = xf86CheckStrOption(dev->commonOptions, "Device", NULL);
+    if (device)
+	xf86Msg(deviceFrom, "%s: Device: \"%s\"\n", pInfo->name, device);
+	
+    xf86Msg(protocolFrom, "%s: Protocol: \"%s\"\n", pInfo->name, protocol);
     if (!(pProto = GetProtocol(protocolID)))
 	return pInfo;
 
@@ -1049,6 +1086,11 @@ MouseReadInput(InputInfoPtr pInfo)
 
     while ((c = XisbRead(pMse->buffer)) >= 0) {
 	u = (unsigned char)c;
+
+#if defined (EXTMOUSEDEBUG) || defined (MOUSEDATADEBUG)
+	ErrorF("mouse byte: %2.2x\n",u);
+#endif
+
 #if 1
 	/* if we do autoprobing collect the data */
 	if (pMse->collectData && pMse->autoProbe)
@@ -1346,14 +1388,18 @@ MouseReadInput(InputInfoPtr pInfo)
 		      (pBuf[0] & 0x80) >> 3;        /* button 5 */
 	    dx = (pBuf[0] & 0x10) ?    pBuf[1]-256  :  pBuf[1];
 	    dy = (pBuf[0] & 0x20) ?  -(pBuf[2]-256) : -pBuf[2];
-	    dz = (char)pBuf[3];
-	    if ((dz >= 7) || (dz <= -8)) {
-		if (pMse->autoProbe && !(pBuf[3] & 0xC0)) {
+	    /*
+	     * The next cast must be 'signed char' for platforms (like PPC)
+	     * where char defaults to unsigned.
+	     */
+	    dz = (signed char)(pBuf[3] | ((pBuf[3] & 0x08) ? 0xf8 : 0));
+	    if ((pBuf[3] & 0xf8) && ((pBuf[3] & 0xf8) != 0xf8)) {
+		if (pMse->autoProbe) {
 		    SetMouseProto(pMse, PROT_EXPPS2);
 		    xf86Msg(X_INFO,
 			    "Mouse autoprobe: Changing protocol to %s\n",
 			    pMse->protocol); 
-
+		    
 		    goto REDO_INTERPRET; 
 		} else  
 		    dz = 0;
@@ -1456,10 +1502,24 @@ MouseReadInput(InputInfoPtr pInfo)
 	    dy = - ((char)(pBuf[2]) + (char)(pBuf[4]));
 	    /* FreeBSD sysmouse sends additional data bytes */
 	    if (pMse->protoPara[4] >= 8) {
+		/*
+		 * These casts must be 'signed char' for platforms (like PPC)
+		 * where char defaults to unsigned.
+		 */
 		dz = ((signed char)(pBuf[5] << 1) +
 		      (signed char)(pBuf[6] << 1)) >> 1;
 		buttons |= (int)(~pBuf[7] & 0x7f) << 3;
 	    }
+	    break;
+
+	case PROT_VALUMOUSESCROLL:	/* Kensington ValuMouseScroll */
+            buttons = ((int)(pBuf[0] & 0x20) >> 3)
+                      | ((int)(pBuf[0] & 0x10) >> 4)
+                      | ((int)(pBuf[3] & 0x10) >> 3);
+            dx = (char)(((pBuf[0] & 0x03) << 6) | (pBuf[1] & 0x3F));
+            dy = (char)(((pBuf[0] & 0x0C) << 4) | (pBuf[2] & 0x3F));
+	    dz = (pBuf[3] & 0x08) ? ((int)(pBuf[3] & 0x0F) - 0x10) : 
+                                    ((int)(pBuf[3] & 0x0F));
 	    break;
 
 	default: /* There's a table error */
@@ -1537,7 +1597,6 @@ MouseProc(DeviceIntPtr device, int what)
     pInfo = device->public.devicePrivate;
     pMse = pInfo->private;
     pMse->device = device;
-    mPriv = (mousePrivPtr)pMse->mousePriv;    
 
     switch (what)
     {
@@ -1585,7 +1644,7 @@ MouseProc(DeviceIntPtr device, int what)
 		    XisbFree(pMse->buffer);
 		    pMse->buffer = NULL;
 		} else {
-		    mousePrivPtr mPriv = (mousePrivPtr)pMse->mousePriv;
+		    mPriv = (mousePrivPtr)pMse->mousePriv;
 		    if (mPriv != NULL) {
 			if ( pMse->protocolID != PROT_AUTO) {
 			    pMse->inSync = TRUE; /* @@@ */
@@ -2193,8 +2252,8 @@ MousePostEvent(InputInfoPtr pInfo, int buttons, int dx, int dy, int dz, int dw)
  *
  ******************************************************************/
 /*
- * This array is indexed by the MouseProtocolID values, so the order of the entries
- * must match that of the MouseProtocolID enum in mouse.h.
+ * This array is indexed by the MouseProtocolID values, so the order of the
+ * entries must match that of the MouseProtocolID enum in xf86OSmouse.h.
  */
 static unsigned char proto[PROT_NUMPROTOS][8] = {
   /* --header--  ---data--- packet -4th-byte-  mouse   */
@@ -2210,6 +2269,7 @@ static unsigned char proto[PROT_NUMPROTOS][8] = {
   {  0x40, 0x40, 0x40, 0x00,  3,  ~0x3f, 0x00, MPF_NONE },  /* IntelliMouse */
   {  0x40, 0x40, 0x40, 0x00,  3,  ~0x33, 0x00, MPF_NONE },  /* ThinkingMouse */
   {  0x80, 0x80, 0x80, 0x00,  3,   0x00, 0xff, MPF_NONE },  /* ACECAD */
+  {  0x40, 0x40, 0x40, 0x00,  4,   0x00, 0xff, MPF_NONE },  /* ValuMouseScroll */
 							    /* PS/2 variants */
   {  0xc0, 0x00, 0x00, 0x00,  3,   0x00, 0xff, MPF_NONE },  /* PS/2 mouse */
   {  0xc8, 0x08, 0x00, 0x00,  3,   0x00, 0x00, MPF_NONE },  /* genericPS/2 mouse*/
@@ -2235,14 +2295,12 @@ static Bool
 SetupMouse(InputInfoPtr pInfo)
 {
     MouseDevPtr pMse;
-    mousePrivPtr mPriv;
     int i;
     int protoPara[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
     const char *name = NULL;
     Bool automatic = FALSE;
 
     pMse = pInfo->private;
-    mPriv = (mousePrivPtr)pMse->mousePriv;
     
     /* Handle the "Auto" protocol. */
     if (pMse->protocolID == PROT_AUTO) {
@@ -2370,7 +2428,7 @@ SetupMouse(InputInfoPtr pInfo)
  * Do a reset wrap mode before reset.
  */
 #define do_ps2Reset(x)  { \
-    int i = 10;\
+    int i = RETRY_COUNT;\
      while (i-- > 0) { \
        xf86FlushInput(x->fd); \
        if (ps2Reset(x)) break; \
@@ -2388,7 +2446,7 @@ initMouseHW(InputInfoPtr pInfo)
     pointer options;
     unsigned char *param = NULL;
     int paramlen = 0;
-    int count = 10;
+    int count = RETRY_COUNT;
     Bool ps2Init = TRUE;
     
     switch (pMse->protocolID) {
@@ -2553,7 +2611,7 @@ initMouseHW(InputInfoPtr pInfo)
 	
 	case PROT_IMPS2:		/* IntelliMouse */
 	{
-	    static unsigned char seq[] = { 243, 200, 243, 100, 243, 80, 242 };
+	    static unsigned char seq[] = { 243, 200, 243, 100, 243, 80 };
 	    param = seq;
 	    paramlen = sizeof(seq);
 	}
@@ -2562,7 +2620,7 @@ initMouseHW(InputInfoPtr pInfo)
 	case PROT_EXPPS2:		/* IntelliMouse Explorer */
 	{
 	    static unsigned char seq[] = { 243, 200, 243, 100, 243, 80,
-					   243, 200, 243, 200, 243, 80, 242 };
+					   243, 200, 243, 200, 243, 80 };
 	
 	    param = seq;
 	    paramlen = sizeof(seq);
@@ -2572,7 +2630,7 @@ initMouseHW(InputInfoPtr pInfo)
 	case PROT_NETPS2:		/* NetMouse, NetMouse Pro, Mie Mouse */
 	case PROT_NETSCPS2:		/* NetScroll */
 	{
-	    static unsigned char seq[] = { 232, 3, 230, 230, 230, };
+	    static unsigned char seq[] = { 232, 3, 230, 230, 230 };
 	
 	    param = seq;
 	    paramlen = sizeof(seq);
@@ -2582,7 +2640,7 @@ initMouseHW(InputInfoPtr pInfo)
 	case PROT_MMPS2:		/* MouseMan+, FirstMouse+ */
 	{
 	    static unsigned char seq[] = { 230, 232, 0, 232, 3, 232, 2, 232, 1,
-					   230, 232, 3, 232, 1, 232, 2, 232, 3, };
+					   230, 232, 3, 232, 1, 232, 2, 232, 3 };
 	    param = seq;
 	    paramlen = sizeof(seq);
 	}
@@ -2592,7 +2650,7 @@ initMouseHW(InputInfoPtr pInfo)
 	{
 	    static unsigned char seq[] = { 243, 10, 232,  0, 243, 20, 243, 60,
 					   243, 40, 243, 20, 243, 20, 243, 60,
-					   243, 40, 243, 20, 243, 20, };
+					   243, 40, 243, 20, 243, 20 };
 	    param = seq;
 	    paramlen = sizeof(seq);
 	}
@@ -2625,7 +2683,8 @@ initMouseHW(InputInfoPtr pInfo)
 		    if (!count--)
 			return TRUE;
 		    goto REDO;
-		} 
+		}
+		ps2GetDeviceID(pInfo);
 		usleep(30000);
 		xf86FlushInput(pInfo->fd);
 	    }
@@ -2675,7 +2734,7 @@ initMouseHW(InputInfoPtr pInfo)
 		    else
 			c2[1] = 0;
 		} else {
-		    c2[1] = 2;
+		    c2[1] = 3; /* used to be 2, W. uses 3 */
 		}
 		if (!ps2SendPacket(pInfo,c2,2)) {
 		    if (!count--)
@@ -2923,6 +2982,12 @@ autoOSProtocol(InputInfoPtr pInfo, int *protoPara)
 	}
     }
 #endif
+    if (!name && HAVE_GUESS_PROTOCOL && osInfo->GuessProtocol) {
+	name = osInfo->GuessProtocol(pInfo, 0);
+	if (name)
+	    protocolID = ProtocolNameToID(name);
+    }
+
     if (name) {
 	pMse->protocolID = protocolID;
     }

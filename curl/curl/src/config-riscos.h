@@ -11,6 +11,9 @@
 /* Define cpu-machine-OS */
 #define OS "ARM-RISC OS"
 
+/* Define to 1 if you want the built-in manual */
+#define USE_MANUAL 1
+
 /* Define if you have the gethostbyaddr_r() function with 5 arguments */
 #undef HAVE_GETHOSTBYADDR_R_5
 
@@ -36,7 +39,7 @@
 #undef NEED_REENTRANT
 
 /* Define if you have the Kerberos4 libraries (including -ldes) */
-#undef KRB4
+#undef HAVE_KRB4
 
 /* Define if you want to enable IPv6 support */
 #undef ENABLE_IPV6
@@ -52,9 +55,6 @@
 
 /* Define this to your Entropy Gathering Daemon socket pathname */
 #undef EGD_SOCKET
-
-/* Define if you have a working OpenSSL installation */
-#undef OPENSSL_ENABLED
 
 /* Set to explicitly specify we don't want to use thread-safe functions */
 #define DISABLED_THREADSAFE

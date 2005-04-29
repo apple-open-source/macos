@@ -32,11 +32,14 @@ Notice===
    This table data derived from Unicode, Inc.
    (ftp://ftp.unicode.org/Public/MAPPING/EASTASIA/JIS/JIS0208.TXT)
  */
+/* $XFree86: xc/extras/X-TrueType/JISX0208/JISX0208toUCS2.c,v 1.2 2003/10/22 16:25:43 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

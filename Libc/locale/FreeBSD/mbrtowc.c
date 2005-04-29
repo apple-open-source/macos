@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,51 +25,18 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mbrtowc.c,v 1.3 2002/11/10 10:49:14 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mbrtowc.c,v 1.7 2004/05/12 14:09:04 tjr Exp $");
 
-#include <errno.h>
-#include <rune.h>
-#include <stdlib.h>
 #include <wchar.h>
+#include "mblocal.h"
 
 size_t
-mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
-    mbstate_t * __restrict ps __unused)
+mbrtowc(wchar_t * __restrict pwc, const char * __restrict s,
+    size_t n, mbstate_t * __restrict ps)
 {
-        const char *e;
-        rune_t r;
+	static mbstate_t mbs;
 
-	if (s == NULL) {
-		pwc = NULL;
-		s = "";
-		n = 1;
-	}
-
-	if ((r = sgetrune(s, n, &e)) == _INVALID_RUNE) {
-		/*
-		 * The design of sgetrune() doesn't give us any way to tell
-		 * between incomplete and invalid multibyte sequences.
-		 */
-
-		if (n >= (size_t)MB_CUR_MAX) {
-			/*
-			 * If we have been supplied with at least MB_CUR_MAX
-			 * bytes and still cannot find a valid character, the
-			 * data must be invalid.
-			 */
-			errno = EILSEQ;
-			return ((size_t)-1);
-		}
-
-		/*
-		 * .. otherwise, it's an incomplete character or an invalid
-		 * character we cannot detect yet.
-		 */
-		return ((size_t)-2);
-	}
-
-	if (pwc != NULL)
-		*pwc = (wchar_t)r;
-
-	return (r != 0 ? (size_t)(e - s) : 0);
+	if (ps == NULL)
+		ps = &mbs;
+	return (__mbrtowc(pwc, s, n, ps));
 }

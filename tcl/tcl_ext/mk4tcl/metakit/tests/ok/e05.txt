@@ -1,0 +1,2 @@
+>>> Test memory mapping
+<<< done.

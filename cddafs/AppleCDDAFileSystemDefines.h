@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -38,7 +36,6 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/param.h>
-#include <sys/queue.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/attr.h>
@@ -92,14 +89,10 @@ enum
 // Flags
 enum
 {
-	kAppleCDDAAccessedBit 			= 0
-};
-
-
-// Masks for flags parameter in AppleCDDANode structure
-enum
-{
-	kAppleCDDAAccessedMask 			= ( 1 << kAppleCDDAAccessedBit )
+	kAppleCDDANodeBusyBit 			= 0,
+	kAppleCDDANodeWantedBit			= 1,
+	kAppleCDDANodeBusyMask 			= ( 1 << kAppleCDDANodeBusyBit ),
+	kAppleCDDANodeWantedMask		= ( 1 << kAppleCDDANodeWantedBit )
 };
 
 
@@ -177,26 +170,6 @@ typedef struct FinderInfo FinderInfo;
 
 
 // For pre-Panther systems
-#ifndef VOL_CAP_FMT_JOURNAL
-#define VOL_CAP_FMT_JOURNAL			0x00000008
-#define VOL_CAP_FMT_JOURNAL_ACTIVE	0x00000010
-#define VOL_CAP_FMT_NO_ROOT_TIMES	0x00000020
-#define VOL_CAP_FMT_SPARSE_FILES	0x00000040
-#define VOL_CAP_FMT_ZERO_RUNS		0x00000080
-#define VOL_CAP_FMT_CASE_SENSITIVE	0x00000100
-#define VOL_CAP_FMT_CASE_PRESERVING 0x00000200
-#define VOL_CAP_FMT_FAST_STATFS		0x00000400
-#endif
-
-#ifndef VOL_CAP_INT_EXCHANGEDATA
-#define VOL_CAP_INT_EXCHANGEDATA	0x00000010
-#define VOL_CAP_INT_COPYFILE		0x00000020
-#define VOL_CAP_INT_ALLOCATE		0x00000040
-#define VOL_CAP_INT_VOL_RENAME		0x00000080
-#define VOL_CAP_INT_ADVLOCK			0x00000100
-#define VOL_CAP_INT_FLOCK			0x00000200
-#endif
-
 #ifndef	ATTR_VOL_VCBFSID
 #define ATTR_VOL_VCBFSID			0x00040000
 #endif
@@ -322,10 +295,11 @@ typedef struct QTOCDataFormat10 * QTOCDataFormat10Ptr;
 //							at mount time
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-
 struct AppleCDDAArguments
 {
-    char *		device;			// Name of special device mounted from (/dev/disk#)
+#ifndef KERNEL
+	char *		device;			// Name of special device mounted from (/dev/disk#)
+#endif
     UInt8		numTracks;		// Number of audio tracks
 	UInt32		nameDataSize;	// Size of buffer
 	char *		nameData;		// Buffer for track names and album name
@@ -335,10 +309,24 @@ struct AppleCDDAArguments
 	UInt32		fileCreator;	// Creator in FOUR_CHAR_CODE
 };
 typedef struct AppleCDDAArguments AppleCDDAArguments;
-typedef struct AppleCDDAArguments * AppleCDDAArgumentsPtr;
-
 
 #if KERNEL
+
+// LP64 version of AppleCDDAArguments.  Pointers and longs are variant sizes
+// in an LP64 environment.
+// WARNING - keep in sync with AppleCDDAArguments.
+struct UserAppleCDDAArguments
+{
+    UInt8		numTracks;		// Number of audio tracks
+	UInt32		nameDataSize;	// Size of buffer
+	user_addr_t	nameData;		// Buffer for track names and album name
+	UInt32		xmlFileSize;	// Size of XML plist-style buffer/file
+	user_addr_t	xmlData;		// Pointer to XML data
+	UInt32		fileType;		// Type in FOUR_CHAR_CODE
+	UInt32		fileCreator;	// Creator in FOUR_CHAR_CODE
+};
+typedef struct UserAppleCDDAArguments UserAppleCDDAArguments;
+typedef struct UserAppleCDDAArguments * UserAppleCDDAArgumentsPtr;
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -348,12 +336,13 @@ typedef struct AppleCDDAArguments * AppleCDDAArgumentsPtr;
 
 struct AppleCDDANodeInfo
 {
-	struct vnode *			vNodePtr;			// Ptr to vnode
-	UInt8					nameSize;			// size of the name
-	char *					name;				// the name
+	vnode_t					vNodePtr;			// Ptr to vnode
+	UInt8					nameSize;			// Size of the name
+	char *					name;				// The name
 	SubQTOCInfo				trackDescriptor;	// TOC info for a node
 	UInt32					LBA;				// Logical Block Address on disc
-	UInt32					numBytes;			// file size in number of bytes
+	UInt32					numBytes;			// File size in number of bytes
+	UInt32					flags;				// Flags
 };
 typedef struct AppleCDDANodeInfo AppleCDDANodeInfo;
 typedef struct AppleCDDANodeInfo * AppleCDDANodeInfoPtr;
@@ -366,16 +355,23 @@ typedef struct AppleCDDANodeInfo * AppleCDDANodeInfoPtr;
 
 struct AppleCDDAMount
 {
-	struct vnode *			root;				// Root VNode
-	struct vnode *			xmlFileVNodePtr;	// XMLFile VNode
-	UInt32					nameDataSize;		// Size of buffer
-	UInt8 *					nameData;			// Buffer for track names and album name
-	AppleCDDANodeInfoPtr	nodeInfoArrayPtr;	// Ptr to NodeInfo array
-	struct lock__bsd__		nodeInfoLock;		// nodeInfo lock
-	UInt8					numTracks;			// Number of audio tracks
-	struct timespec			mountTime;			// The time we were mounted
-	UInt32					fileType;			// Type in FOUR_CHAR_CODE
-	UInt32					fileCreator;		// Creator in FOUR_CHAR_CODE
+	vnode_t					root;					// Root VNode
+	UInt32					rootVID;				// Root VNode ID
+	vnode_t					xmlFileVNodePtr;		// XMLFile VNode
+	UInt32					xmlFileFlags;			// Flags
+	UInt32					nameDataSize;			// Size of buffer
+	UInt8 *					nameData;				// Buffer for track names and album name
+	AppleCDDANodeInfoPtr	nodeInfoArrayPtr;		// Ptr to NodeInfo array
+	lck_grp_t *				cddaMountLockGroup;		// Lock group
+	lck_grp_attr_t *		cddaMountLockGroupAttr;	// Lock group attributes
+	lck_mtx_t *				cddaMountLock;			// Locks access to AppleCDDAMount structures and NodeInfo array
+	lck_attr_t *			cddaMountLockAttr;		// Lock attributes
+	UInt8					numTracks;				// Number of audio tracks
+	struct timespec			mountTime;				// The time we were mounted
+	UInt32 					xmlDataSize;			// XML data size
+	UInt8 * 				xmlData;				// XML data ptr
+	UInt32					fileType;				// Type in FOUR_CHAR_CODE
+	UInt32					fileCreator;			// Creator in FOUR_CHAR_CODE
 };
 typedef struct AppleCDDAMount AppleCDDAMount;
 typedef struct AppleCDDAMount * AppleCDDAMountPtr;
@@ -391,7 +387,6 @@ struct AppleCDDADirectoryNode
 {
 	UInt32 				entryCount;		// Number of directory entries
 	UInt64				directorySize;	// Size of the directory
-	char *				name;			// Name of the directory
 };
 typedef struct AppleCDDADirectoryNode AppleCDDADirectoryNode;
 typedef struct AppleCDDADirectoryNode * AppleCDDADirectoryNodePtr;
@@ -435,13 +430,9 @@ typedef struct AppleCDDAXMLFileNode * AppleCDDAXMLFileNodePtr;
 struct AppleCDDANode
 {
 	enum cddaNodeType				nodeType;				// Node type: directory or track
-	UInt32							flags;					// Flags
-	struct vnode *					vNodePtr;				// Pointer to vnode this node is "hung-off"
-	struct vnode *					blockDeviceVNodePtr;	// block device vnode pointer
-	struct lock__bsd__				lock;					// node lock
+	vnode_t							vNodePtr;				// Pointer to vnode this node is "hung-off"
+	vnode_t							blockDeviceVNodePtr;	// block device vnode pointer
 	UInt32							nodeID;					// Node ID
-	struct timespec					accessTime;				// Time last accessed
-	struct timespec					lastModTime;			// Time last modified
 	union
 	{
 		AppleCDDADirectoryNode	directory;
@@ -457,17 +448,19 @@ typedef struct AppleCDDANode * AppleCDDANodePtr;
 //	Conversion Macros
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define VFSTOCDDA(mp)				((AppleCDDAMountPtr)((mp)->mnt_data))
-#define	VTOCDDA(vp) 				((AppleCDDANodePtr)(vp)->v_data)
+#define VFSTOCDDA(mp)				((AppleCDDAMountPtr)(vfs_fsprivate(mp)))
+#define	VTOCDDA(vp) 				((AppleCDDANodePtr)(vnode_fsnode(vp)))
 #define CDDATOV(cddaNodePtr) 		((cddaNodePtr)->vNodePtr)
-#define CDDATONODEINFO(cddaNodePtr)	((cddaNodePtr)->nodeInfoPtr)
-#define VFSTONODEINFO(mp)			((AppleCDDANodeInfoPtr)((AppleCDDAMountPtr)((mp)->mnt_data))->nodeInfoArrayPtr)
-#define VFSTONAMEINFO(mp)			((UInt8 *)((AppleCDDAMountPtr)((mp)->mnt_data))->nameData)
+#define CDDATONODEINFO(cddaNodePtr)	((cddaNodePtr)->u.file.nodeInfoPtr)
+#define VFSTONODEINFO(mp)			((AppleCDDANodeInfoPtr)((AppleCDDAMountPtr)(vfs_fsprivate(mp)))->nodeInfoArrayPtr)
+#define VFSTONAMEINFO(mp)			((UInt8 *)((AppleCDDAMountPtr)(vfs_fsprivate(mp)))->nameData)
+#define VFSTOXMLDATA(mp)			((UInt8 *)((AppleCDDAMountPtr)(vfs_fsprivate(mp)))->xmlData)
 
 #endif	/* KERNEL */
 
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif // __APPLE_CDDA_FS_DEFINES_H__

@@ -1,5 +1,5 @@
 /* acl.c -- routines for access control lists
- $Id: acl.c,v 1.10 2003/02/13 20:15:38 rjs3 Exp $
+ $Id: acl.c,v 1.6 2005/03/05 00:37:10 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

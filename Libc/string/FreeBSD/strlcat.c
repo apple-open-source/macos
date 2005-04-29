@@ -28,10 +28,10 @@
  */
 
 #if defined(LIBC_SCCS) && !defined(lint)
-static char *rcsid = "$OpenBSD: strlcat.c,v 1.2 1999/06/17 16:28:58 millert Exp $");
+static char *rcsid = "$OpenBSD: strlcat.c,v 1.2 1999/06/17 16:28:58 millert Exp $";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strlcat.c,v 1.7 2002/03/21 18:44:54 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strlcat.c,v 1.10 2004/10/16 06:32:43 obrien Exp $");
 
 #include <sys/types.h>
 #include <string.h>

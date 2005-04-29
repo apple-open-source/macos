@@ -26,32 +26,33 @@
 #define __DSCACHE_H__
 
 #include <NetInfo/dsrecord.h>
+#include <stdint.h>
 
-typedef struct
+typedef struct dscache_node_s
 {
-	u_int32_t merit;
+	uint32_t merit;
 	dsrecord *record;
-} dscache_record;
+	struct dscache_node_s *next;
+} dscache_node;
 
 typedef struct
 {
-	dscache_record *cache;
-	u_int32_t cache_size;
-	u_int32_t cache_count;
-	u_int32_t prune_count;
-	u_int32_t save_count;
-	u_int32_t remove_count;
-	u_int32_t fetch_count;
+	dscache_node *cache_head;
+	uint32_t cache_size;
+	uint32_t cache_max;
+	uint32_t prune_count;
+	uint32_t save_count;
+	uint32_t remove_count;
+	uint32_t fetch_count;
 } dscache;
 
-dscache *dscache_new(u_int32_t);
+dscache *dscache_new(uint32_t);
 void dscache_free(dscache *);
 void dscache_flush(dscache *);
 
-u_int32_t dscache_index(dscache *, u_int32_t);
 void dscache_save(dscache *, dsrecord *);
-void dscache_remove(dscache *, u_int32_t);
-dsrecord *dscache_fetch(dscache *, u_int32_t);
+void dscache_remove(dscache *, uint32_t);
+dsrecord *dscache_fetch(dscache *, uint32_t);
 
 void dscache_print_statistics(dscache *, FILE *);
 

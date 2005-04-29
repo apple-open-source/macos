@@ -1,6 +1,7 @@
 /* PR bootstrap/6315 */
 /* { dg-do compile } */
-/* { dg-options "-O2" } */
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-O2 -Wno-long-double" } */
 /* { dg-options "-O2 -mhard-quad-float" { target sparc*-*-* } } */
 /* { dg-options "-O2" { target sparclet*-*-* sparclite*-*-* sparc86x-*-* } } */
 

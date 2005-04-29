@@ -31,6 +31,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <unistd.h>			// getpid
 #include <syslog.h>			// syslog
 #include <pthread.h>	// for pthread_*_t
@@ -38,21 +39,39 @@
 // Set compile flag BUILDING_NSLDEBUG=1 to enable debug logging
 // Set environment variable NSLDEBUG at run time to see messages
 
+//#define TRACK_FUNCTION_TIMES 1
+#ifdef TRACK_FUNCTION_TIMES
+	#warning "TRACK_FUNCTION_TIMES defined, DO NOT SUBMIT!!!!"
+#endif
+
+int IsNSLDebuggingEnabled( void );
+
+#define DEBUGGING_NSL IsNSLDebuggingEnabled()
+
+#ifndef LOG_ALWAYS
+	#define LOG_ALWAYS			0
+#endif
+
 #ifndef BUILDING_NSLDEBUG
-#define BUILDING_NSLDEBUG	0
+	#define BUILDING_NSLDEBUG	1
 #endif
 
 #if BUILDING_NSLDEBUG
-#warning "BUILDING_NSLDEBUG is defined, DO NOT SUBMIT THIS WAY!"	
-	#define DBGLOG(format, args...) \
-		if (true) \
-		{ \
-			syslog( LOG_ERR, format , ## args); \
-			fflush(NULL); \
-		} \
-            else
+	#define MAXLINE 4096
+	void ourLog(const char* format, ...);
+	void newlog(const char* format, va_list ap );
+	
+	#if LOG_ALWAYS
+		#define DBGLOG(format, args...) \
+				ourLog (format , ## args)
+	#else
+		#define DBGLOG(format, args...) \
+			if (DEBUGGING_NSL) \
+				ourLog (format , ## args); \
+			else
+	#endif
 #else
-    #define DBGLOG(format, args...)
+	#define DBGLOG(format, args...)
 #endif
 
 #endif

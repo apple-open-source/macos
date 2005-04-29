@@ -1,34 +1,22 @@
 /* listener.c - deals with listener subsystem */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/listener.c,v 1.16.2.5 2004/07/25 21:01:50 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2001-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This work has beed deveolped for the OpenLDAP Foundation 
- * in the hope that it may be useful to the Open Source community, 
- * but WITHOUT ANY WARRANTY.
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from
- *    flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- * 
- * 4. This notice may not be removed or altered.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by Pierangelo Masarati for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -50,7 +38,23 @@ monitor_subsys_listener_init(
 	Listener		**l;
 
 	assert( be != NULL );
-	assert( monitor_ad_desc != NULL );
+
+	if ( ( l = slapd_get_listeners() ) == NULL ) {
+		if ( slapMode & SLAP_TOOL_MODE ) {
+			return 0;
+		}
+
+#ifdef NEW_LOGGING
+		LDAP_LOG( OPERATION, CRIT,
+			"monitor_subsys_listener_init: "
+			"unable to get listeners\n", 0, 0, 0 );
+#else
+		Debug( LDAP_DEBUG_ANY,
+			"monitor_subsys_listener_init: "
+			"unable to get listeners\n", 0, 0, 0 );
+#endif
+		return( -1 );
+	}
 
 	mi = ( struct monitorinfo * )be->be_private;
 
@@ -72,35 +76,30 @@ monitor_subsys_listener_init(
 		return( -1 );
 	}
 
-	if ( ( l = slapd_get_listeners() ) == NULL ) {
-#ifdef NEW_LOGGING
-		LDAP_LOG( OPERATION, CRIT,
-			"monitor_subsys_listener_init: "
-			"unable to get listeners\n", 0, 0, 0 );
-#else
-		Debug( LDAP_DEBUG_ANY,
-			"monitor_subsys_listener_init: "
-			"unable to get listeners\n", 0, 0, 0 );
-#endif
-		return( -1 );
-	}
-
 	e_tmp = NULL;
 	for ( i = 0; l[i]; i++ );
 	for ( ; i--; ) {
-		char 		buf[1024];
+		char 		buf[ BACKMONITOR_BUFSIZE ];
 
 		snprintf( buf, sizeof( buf ),
 				"dn: cn=Listener %d,%s\n"
-				SLAPD_MONITOR_OBJECTCLASSES
+				"objectClass: %s\n"
+				"structuralObjectClass: %s\n"
 				"cn: Listener %d\n"
-				"description: %s\n"
-				"labeledURI: %s",
+				"%s: %s\n"
+				"labeledURI: %s\n"
+				"createTimestamp: %s\n"
+				"modifyTimestamp: %s\n",
 				i,
 				monitor_subsys[SLAPD_MONITOR_LISTENER].mss_dn.bv_val,
+				mi->mi_oc_monitoredObject->soc_cname.bv_val,
+				mi->mi_oc_monitoredObject->soc_cname.bv_val,
 				i,
+				mi->mi_ad_monitorConnectionLocalAddress->ad_cname.bv_val,
 				l[i]->sl_name.bv_val,
-				l[i]->sl_url.bv_val );
+				l[i]->sl_url.bv_val,
+				mi->mi_startTime.bv_val,
+				mi->mi_startTime.bv_val );
 		
 		e = str2entry( buf );
 		if ( e == NULL ) {
@@ -122,20 +121,24 @@ monitor_subsys_listener_init(
 
 #ifdef HAVE_TLS
 		if ( l[i]->sl_is_tls ) {
-			struct berval bv[2];
-			bv[1].bv_val = NULL;
-			bv[0].bv_val = "TLS";
-			bv[0].bv_len = sizeof("TLS")-1;
-			attr_merge( e, monitor_ad_desc, bv );
+			struct berval bv;
+
+			bv.bv_val = "TLS";
+			bv.bv_len = sizeof("TLS")-1;
+
+			attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
+					&bv, NULL );
 		}
 #endif /* HAVE_TLS */
 #ifdef LDAP_CONNECTIONLESS
 		if ( l[i]->sl_is_udp ) {
-			struct berval bv[2];
-			bv[1].bv_val = NULL;
-			bv[0].bv_val = "UDP";
-			bv[0].bv_len = sizeof("UDP")-1;
-			attr_merge( e, monitor_ad_desc, bv );
+			struct berval bv;
+
+			bv.bv_val = "UDP";
+			bv.bv_len = sizeof("UDP")-1;
+
+			attr_merge_normalize_one( e, mi->mi_ad_monitoredInfo,
+					&bv, NULL );
 		}
 #endif /* HAVE_TLS */
 

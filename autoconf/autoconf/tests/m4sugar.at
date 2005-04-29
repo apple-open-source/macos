@@ -42,29 +42,38 @@ AT_SETUP([[m4@&t@_warn]])
 # warnings.  But maybe autom4te should handle that by itself?
 
 AT_DATA_M4SUGAR([script.4s],
-[[m4_warn([foo],  [foo])
-m4_warn([bar],    [bar])
-m4_warn([syntax], [syntax])
+[[m4_init
+m4_defun([cross_warning],
+[m4_warn([cross],  [cross])])
+
+m4_divert_push([0])m4_wrap([m4_divert_pop([0])[]])dnl
+m4_warn([obsolete],  [obsolete])dnl
+cross_warning[]dnl
+m4_warn([syntax], [syntax])dnl
 ]])
 
 AT_CHECK_M4SUGAR([-o-], 0, [],
-[script.4s:3: warning: syntax
+[script.4s:8: warning: syntax
 ])
 
 AT_CHECK_M4SUGAR([-o- -Wall -f], 0, [],
-[script.4s:1: warning: foo
-script.4s:2: warning: bar
-script.4s:3: warning: syntax
+[script.4s:6: warning: obsolete
+script.4s:7: warning: cross
+script.4s:3: cross_warning is expanded from...
+script.4s:7: the top level
+script.4s:8: warning: syntax
 ])
 
-AT_CHECK_M4SUGAR([-o- -Wnone,bar -f], 0, [],
-[script.4s:2: warning: bar
+AT_CHECK_M4SUGAR([-o- -Wnone,cross -f], 0, [],
+[script.4s:7: warning: cross
+script.4s:3: cross_warning is expanded from...
+script.4s:7: the top level
 ])
 
-AT_CHECK_M4SUGAR([-o- -Wnone,bar,error -f], 1, [],
-[[script.4s:2: error: bar
-script.4s:2: the top level
-autom4te: m4 failed with exit status: 1
+AT_CHECK_M4SUGAR([-o- -Wnone,cross,error -f], 1, [],
+[[script.4s:7: warning: cross
+script.4s:3: cross_warning is expanded from...
+script.4s:7: the top level
 ]])
 
 AT_CLEANUP
@@ -91,18 +100,19 @@ m4_defun([baz],
 [m4_require([foo])])
 
 m4_init
+m4_divert_push([0])m4_wrap([m4_divert_pop([0])[]])dnl
 baz
 ]])
 
 AT_CHECK_M4SUGAR([], 1, [],
-[[script.4s:11: error: m4@&t@_require: circular dependency of foo
-script.4s:11: foo is required by...
+[[script.4s:12: error: m4@&t@_require: circular dependency of foo
+script.4s:12: foo is required by...
 script.4s:5: bar is expanded from...
-script.4s:11: bar is required by...
+script.4s:12: bar is required by...
 script.4s:2: foo is expanded from...
-script.4s:11: foo is required by...
+script.4s:12: foo is required by...
 script.4s:8: baz is expanded from...
-script.4s:11: the top level
+script.4s:12: the top level
 autom4te: m4 failed with exit status: 1
 ]])
 AT_CLEANUP

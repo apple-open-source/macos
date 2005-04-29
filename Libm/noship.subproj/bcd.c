@@ -102,7 +102,7 @@
 #define	SIGDIVQOUT	SIGSIZE+SIGSIZEDIV
 
 struct parts {			// parts of an double
-	long highsig, lowsig;
+	int32_t highsig, lowsig;
 };
 
 typedef struct parts parts;
@@ -113,13 +113,13 @@ typedef union	{
 			} eparts;
 			
 typedef union	{
-		unsigned long along;
+		uint32_t along;
 		float flt;
 			} fparts;
 			
 struct prod {			// useful struct for big arithmetic
-	unsigned long high;
-	unsigned long low;
+	uint32_t high;
+	uint32_t low;
 };
 
 typedef struct prod prod;
@@ -127,9 +127,9 @@ typedef struct prod prod;
 
 
 
-static void excessDigits (decimal *d, char rndChar, int excess, long *expadjust);
-long apml ( double x );
-double tenpower (const long n);
+static void excessDigits (decimal *d, char rndChar, int excess, int32_t *expadjust);
+int32_t apml ( double x );
+double tenpower (const int32_t n);
 double dec2d ( const decimal *d );
 double big2d ( int sgn, big *b );
 float big2float ( int sgn, big *b );
@@ -138,9 +138,9 @@ short big2short ( int sgn, big *b );
 void dec2big ( const decimal *d, big *b );
 
 void getnan ( double x, decimal *d );
-void bigb2d ( double x, long scale, decimal *d );
+void bigb2d ( double x, int32_t scale, decimal *d );
 void ext2big ( double x, big *b );
-unsigned long bigshifter ( big *a, big *d, int n);
+uint32_t bigshifter ( big *a, big *d, int n);
 void addbigs ( big *a, big *b, big *c );
 void subbigs ( big *a, big *b, big *c );
 
@@ -149,12 +149,12 @@ void getsig ( double x, decimal *d );	// not used in debugger version
 
 
 // support functions for adivb2c
-int divuL (unsigned long dvsr, unsigned long *dvdnd);
-struct prod muluL (unsigned long a, unsigned long b);
-int subDL (prod a, unsigned long *b);
-void subL (unsigned long *a, unsigned long *b, int length);		// b -= a
-int addL (unsigned long *a, unsigned long *b, int length);		// b += a
-int firstdiff (unsigned long *a, unsigned long *b, int length);
+int divuL (uint32_t dvsr, uint32_t *dvdnd);
+struct prod muluL (uint32_t a, uint32_t b);
+int subDL (prod a, uint32_t *b);
+void subL (uint32_t *a, uint32_t *b, int length);		// b -= a
+int addL (uint32_t *a, uint32_t *b, int length);		// b += a
+int firstdiff (uint32_t *a, uint32_t *b, int length);
 
 
 /////////////////////////////////////////////////////////////////////////
@@ -164,9 +164,9 @@ int firstdiff (unsigned long *a, unsigned long *b, int length);
 
 void num2dec( const decform *f, double x, decimal *d ) {	//	<5/23/94 klh>
 decform df;
-long logx, len, scale;
+int32_t logx, len, scale;
 
-long int rnd;
+int32_t rnd;
 fenv_t env;
 double y, tens;
 int dummy;
@@ -351,7 +351,7 @@ big b;
 
 void dec2big ( const decimal *d, big *b ) {
 big a;
-long i, i2, j, j2;
+int32_t i, i2, j, j2;
 int sticky;
 
 	j2 = 0;						// initialize big digit string length
@@ -612,8 +612,8 @@ int iok;	// all characters up to this pointer have been used to build the number
 int j;
 int expsign, i1, i2, n1, n2;
 int excess = 0;				// number of excessive digits that don't fit in sig.text
-unsigned long nancode;
-long expadjust, expdigits;
+uint32_t nancode;
+int32_t expadjust, expdigits;
 
 	*vp = d->sgn = d->exp = 0;	// initialize default return values
 	d->sig.length = strlen (strcpy ((char*) d->sig.text, "N0011"));	// NaNAsciiBinary
@@ -783,7 +783,7 @@ long expadjust, expdigits;
 /////////////////////////////////////////////////////////////////////////
 
 
-void excessDigits (decimal *d, char rndChar, int excess, long *expadjust) {
+void excessDigits (decimal *d, char rndChar, int excess, int32_t *expadjust) {
 int i;
 
 // Inexact operation, information lost, i.e., excessive digits.
@@ -833,10 +833,10 @@ int i;
 // see Jerome Coonen's PhD thesis
 /////////////////////////////////////////////////////////////////////////
 
-long apml ( double x )
+int32_t apml ( double x )
 {
 eparts s;
-register long e, g = 0x4D10;
+register int32_t e, g = 0x4D10;
 
 	s.extval = x;
 	if ((e = ((s.intval.highsig & 0x7FF00000) >> 20))) {	// strip sign & shift
@@ -865,7 +865,7 @@ register long e, g = 0x4D10;
 //
 /////////////////////////////////////////////////////////////////////////
 
-double tenpower (const long n)
+double tenpower (const int32_t n)
 {
 ldiv_t qr;
 double x, y;
@@ -874,7 +874,7 @@ const double tens [] = {
 					 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
 					 1e20, 1e21, 1e22};
 
-	unsigned long i = labs (n);
+	uint32_t i = labs (n);
 	if (i <= MAXTEN) return tens [i];
 	
 	qr = ldiv (i, MAXTEN);
@@ -898,7 +898,7 @@ const double tens [] = {
 //  operation will correctly set inexact.
 /////////////////////////////////////////////////////////////////////////
 
-void bigtenpower (const long n, big *y )
+void bigtenpower (const int32_t n, big *y )
 {
 big xtable [] = {
  { 0x00000049, {{ 0x87867832, 0x6EAC9000, 0, 0, 0, 0, 0, 0 }} },
@@ -917,7 +917,7 @@ big xtable [] = {
      0x10E980A1, 0xC0CCFD83 }} } };
 int j;
 ldiv_t qr;
-unsigned long i;
+uint32_t i;
 
 fenv_t e;
 int dummy;
@@ -1137,10 +1137,10 @@ unsigned char length, c[128];
 
 double dec2d ( const decimal *d)  {
 big a, b;
-long i, i2, j, j2;
+int32_t i, i2, j, j2;
 eparts s;
 int sticky;
-long bias =  1023;
+int32_t bias =  1023;
 
 	j2 = 0;						// initialize big digit string length
 	a.sig.lng [j2] = 0;			// initialize big digit string	
@@ -1215,12 +1215,12 @@ long bias =  1023;
 
 double big2d ( int sgn, big *b )
 {
-long i, j;
+int32_t i, j;
 eparts s;
 int carry, round, sticky, bump;
-long maxexp =  1023;
-long bias =  maxexp;
-long minexp = -1022;
+int32_t maxexp =  1023;
+int32_t bias =  maxexp;
+int32_t minexp = -1022;
 int numbits = 54;		// maximum number of denormal shifts
 
 //	UNNORMALIZE BIG SO THAT WE CAN DO ROUNDING AND BOUNDS CHECK
@@ -1310,12 +1310,12 @@ int numbits = 54;		// maximum number of denormal shifts
 /////////////////////////////////////////////////////////////////////////
 
 float big2float ( int sgn, big *b ) {
-long i, j;
+int32_t i, j;
 fparts y;
 int carry, round, sticky, bump;
-long maxexp =  127;
-long bias =  maxexp;
-long minexp = -126;
+int32_t maxexp =  127;
+int32_t bias =  maxexp;
+int32_t minexp = -126;
 int numbits = 25;		// maximum number of denormal shifts
 
 //	UNNORMALIZE BIG SO THAT WE CAN DO ROUNDING AND BOUNDS CHECK
@@ -1399,10 +1399,10 @@ int numbits = 25;		// maximum number of denormal shifts
 /////////////////////////////////////////////////////////////////////////
 
 long big2long ( int sgn, big *b ) {
-long i, j;
+int32_t i, j;
 int carry, round, sticky, bump;
-long maxexp =  31;
-long minexp = 31;
+int32_t maxexp =  31;
+int32_t minexp = 31;
 int numbits = 33;		// maximum number of unnormal shifts
 
 	if (b->exp < minexp) {		// denormalizing code
@@ -1481,10 +1481,10 @@ int numbits = 33;		// maximum number of unnormal shifts
 /////////////////////////////////////////////////////////////////////////
 
 short big2short ( int sgn, big *b ) {
-long i, j;
+int32_t i, j;
 int carry, round, sticky, bump;
-long maxexp =  31;
-long minexp = 31;
+int32_t maxexp =  31;
+int32_t minexp = 31;
 int numbits = 33;		// maximum number of unnormal shifts
 
 	if (b->exp < minexp) {		// denormalizing code
@@ -1564,7 +1564,7 @@ int numbits = 33;		// maximum number of unnormal shifts
 
 int big2twobigs ( big *b, big *c ) {
 int i, j, j1, j2, kleft, kright, sgn, carry;
-long mask0; 
+int32_t mask0; 
 
 	c->exp = b->exp;
 	if ((sgn = (b->sig.lng [1] & 0x00000400) != 0)) {	//	determine sign of second part
@@ -1636,7 +1636,7 @@ long mask0;
 void getnan ( double x, decimal *d )
 {
 eparts s;
-register long n;
+register int32_t n;
 
 	s.extval = x;
 	d->sig.length = 5;			// pascal type length
@@ -1659,7 +1659,7 @@ register long n;
 //
 /////////////////////////////////////////////////////////////////////////
 
-void bigb2d ( double x, long scale, decimal *d ) {
+void bigb2d ( double x, int32_t scale, decimal *d ) {
 big y, z;
 
 	ext2big (x, &y);
@@ -1683,7 +1683,7 @@ void ext2big ( double x, big *b )
 {
 eparts s;
 register int i, j;
-unsigned long carry;
+uint32_t carry;
 
 
 	s.extval = x;
@@ -1737,7 +1737,7 @@ unsigned long carry;
 void axb2c ( big *a, big *b, big *c, int finishRounding )
 {
 int i, j, k, i2, j2, k2, carry, round, sticky;
-unsigned long temp, product [SIGSIZE4M];
+uint32_t temp, product [SIGSIZE4M];
 
 	c->exp = a->exp + b->exp + 1;
 	i2 = SIGSIZE2M;
@@ -1751,32 +1751,32 @@ unsigned long temp, product [SIGSIZE4M];
 			k = i + j;
 			temp = a->sig.shrt [i] * b->sig.shrt [j];
 			if (k != 0) {
-				product [k - 1] += ((temp >> 16) & 0x0000FFFFUL);
-				product [k] += (temp & 0x0000FFFFUL);
+				product [k - 1] += ((temp >> 16) & 0x0000FFFFu);
+				product [k] += (temp & 0x0000FFFFu);
 			}
 			else product [k] = temp; // this is the first iteration of both loops
 		}
 	}	
 	for (k = k2; k > 0; k--) {	// clean up all dangling products
 		product [k - 1] += (product [k] >> 16);
-		product [k] &= 0x0000FFFFUL;
+		product [k] &= 0x0000FFFFu;
 	}
-	while ((product [0] & 0x80000000UL) == 0) {		// normalizing loop
+	while ((product [0] & 0x80000000u) == 0) {		// normalizing loop
 		c->exp--;
 		for (k = 0; k < k2; k++) {
 			product [k] <<= 1;
-			if ((product [k + 1] & 0x00008000UL) != 0)
+			if ((product [k + 1] & 0x00008000u) != 0)
 				product [k]++;
 		}
 		product [k2] <<= 1;
 	}
 	c->sig.lng [0] = product [0];
-	carry = (product [SIGSIZE2M2] & 0x00000001UL) != 0;
-	round = (product [SIGSIZE2M ] & 0x00008000UL) != 0;
-	sticky = (product [SIGSIZE2M] & 0x00007FFFUL) != 0;
+	carry = (product [SIGSIZE2M2] & 0x00000001u) != 0;
+	round = (product [SIGSIZE2M ] & 0x00008000u) != 0;
+	sticky = (product [SIGSIZE2M] & 0x00007FFFu) != 0;
 	k = SIGSIZE2;
 	while ((!sticky) && (k <= k2)) {	// look for occurrence of sticky bit
-		sticky = (product [k] & 0x00007FFFUL) != 0;
+		sticky = (product [k] & 0x00007FFFu) != 0;
 		k++;
 	}
 	if (finishRounding) {
@@ -1784,12 +1784,12 @@ unsigned long temp, product [SIGSIZE4M];
 		if ((round != 0) && ((carry != 0) || (sticky != 0))) { // klh 8/27/92
 			k = SIGSIZE2M2;
 			product [k]++;
-			while (((product [k] & 0x0000FFFFUL) == 0) && (k > 0)) { // carry has occurred
+			while (((product [k] & 0x0000FFFFu) == 0) && (k > 0)) { // carry has occurred
 				k--;
 				product [k]++;
 			}
 			if ((k == 0) && (product [0] == 0))	{ // carry has propagated off the left
-				product [0] = 0x80000000UL;		// put leading bit back in significand
+				product [0] = 0x80000000u;		// put leading bit back in significand
 				c->exp++;						// adjust exponent
 			}
 		}
@@ -1801,7 +1801,7 @@ unsigned long temp, product [SIGSIZE4M];
 	}										// later to a narrower precision
 	c->sig.lng [0] = product [0];			// copy significand to c
 	for (k = 2; k <= SIGSIZE2M; k++)
-		c->sig.shrt [k] = (short) product [k - 1] & 0x0000FFFFUL;
+		c->sig.shrt [k] = (short) product [k - 1] & 0x0000FFFFu;
 }
 	
 /////////////////////////////////////////////////////////////////////////
@@ -1813,7 +1813,7 @@ void adivb2c ( big *a, big *b, big *c )
 {
 int i, j, k, carry, sticky, excess = FALSE;
 int asize = SIGSIZEM, bsize = SIGSIZEM, csize, dqsize;
-unsigned long dq [SIGDIVQOUT];
+uint32_t dq [SIGDIVQOUT];
 struct prod prodresult;
 
 	c->exp = a->exp - b->exp - 1;
@@ -1830,11 +1830,11 @@ struct prod prodresult;
 		carry = FALSE;
 		for (i = dqsize; i > 0; i--) {
 			dq [i] >>= 1;
-			if ((dq [i - 1] & 0x00000001UL) != 0)  dq [i] |= 0x80000000UL;
-			else dq [i] &= 0x7fffffffUL;
+			if ((dq [i - 1] & 0x00000001u) != 0)  dq [i] |= 0x80000000u;
+			else dq [i] &= 0x7fffffffu;
 		}
 		dq [0] >>= 1;
-		dq [0] &= 0x7fffffffUL;
+		dq [0] &= 0x7fffffffu;
 	}
 	
 	for (i = 0; i < SIGSIZEDIV; i++) {
@@ -1857,7 +1857,7 @@ struct prod prodresult;
 						if (--k > i) dq [k]--;
 						else excess = TRUE;
 					}
-					while ((k > i) && (dq [k] == 0xffffffffUL));
+					while ((k > i) && (dq [k] == 0xffffffffu));
 				}
 			}
 			if (excess)	{
@@ -1880,9 +1880,9 @@ struct prod prodresult;
 //					info with sticky bit set .
 //////////////////////////////////////////////////////////////////////////
 
-unsigned long bigshifter ( big *a, big *d, int n) {
+uint32_t bigshifter ( big *a, big *d, int n) {
 ldiv_t qr;
-unsigned long buf [SIGSIZE + 2];
+uint32_t buf [SIGSIZE + 2];
 int j, j1, j2, kleft;
 
 	for (j = 0; j < SIGSIZEP2; j++) buf [j] = 0;		//	initialize with zeros
@@ -1913,7 +1913,7 @@ int j, j1, j2, kleft;
 
 void addbigs ( big *a, big *b, big *c ) {
 big tbig;
-unsigned long temp, ovrflw, round, carry, sticky;
+uint32_t temp, ovrflw, round, carry, sticky;
 int i;
 
 	if (a->exp >= b->exp) {
@@ -1958,7 +1958,7 @@ int i;
 
 void subbigs ( big *a, big *b, big *c ) {
 big tbig;
-unsigned long temp, round, carry, sticky;
+uint32_t temp, round, carry, sticky;
 int i, j;
 
 	c->exp = a->exp;
@@ -1995,24 +1995,24 @@ int i, j;
 // returns 1 if overflow is set, 0 otherwise
 /////////////////////////////////////////////////////////////////////////
 
-int divuL (unsigned long dvsr, unsigned long *dvdnd)
+int divuL (uint32_t dvsr, uint32_t *dvdnd)
 {
-register unsigned long quo = 0;
+register uint32_t quo = 0;
 register int i;
 
 	if (dvsr <= dvdnd [0]) return 1;		// overflow will occur
 	else {
 		for (i = 1; i <= 32; i++) {
 			quo <<= 1;
-			if ((dvdnd [0] & 0x80000000UL) != 0) {
+			if ((dvdnd [0] & 0x80000000u) != 0) {
 				quo += 1;
 				dvdnd [0] <<= 1;
-				if ((dvdnd [1] & 0x80000000UL) != 0) dvdnd [0]++;
+				if ((dvdnd [1] & 0x80000000u) != 0) dvdnd [0]++;
 				dvdnd [0] -= dvsr;
 			}
 			else {
 				dvdnd [0] <<= 1;
-				if ((dvdnd [1] & 0x80000000UL) != 0) dvdnd [0]++;
+				if ((dvdnd [1] & 0x80000000u) != 0) dvdnd [0]++;
 				if (dvsr <= dvdnd [0]) {
 					quo += 1;
 					dvdnd [0] -= dvsr;
@@ -2031,33 +2031,33 @@ register int i;
 //
 /////////////////////////////////////////////////////////////////////////
 
-struct prod muluL (unsigned long a, unsigned long b)
+struct prod muluL (uint32_t a, uint32_t b)
 {
 union {
-	unsigned long along;
-	unsigned short ashort [2];
+	uint32_t along;
+	uint16_t ashort [2];
 	} u1, u2, p00, p01, p10, p11, r;
 struct prod temp;
 
 	u1.along = a;
 	u2.along = b;
 	
-	p00.along = (unsigned long) u1.ashort [0] * (unsigned long) u2.ashort [0];
-	p01.along = (unsigned long) u1.ashort [0] * (unsigned long) u2.ashort [1];
-	p10.along = (unsigned long) u1.ashort [1] * (unsigned long) u2.ashort [0];
-	p11.along = (unsigned long) u1.ashort [1] * (unsigned long) u2.ashort [1];
+	p00.along = (uint32_t) u1.ashort [0] * (uint32_t) u2.ashort [0];
+	p01.along = (uint32_t) u1.ashort [0] * (uint32_t) u2.ashort [1];
+	p10.along = (uint32_t) u1.ashort [1] * (uint32_t) u2.ashort [0];
+	p11.along = (uint32_t) u1.ashort [1] * (uint32_t) u2.ashort [1];
 	
 	r.ashort [1] = p11.ashort [1];
-	u1.along = 	(unsigned long) p11.ashort [0]
-			 +  (unsigned long) p01.ashort [1]
-			 + 	(unsigned long) p10.ashort [1];
+	u1.along = 	(uint32_t) p11.ashort [0]
+			 +  (uint32_t) p01.ashort [1]
+			 + 	(uint32_t) p10.ashort [1];
 	r.ashort [0] = u1.ashort [1];
 	temp.low = r.along;
 	
-	u2.along =  (unsigned long) p00.ashort [1] 
-			 + 	(unsigned long) p01.ashort [0]
-			 + 	(unsigned long) p10.ashort [0]
-			 + 	(unsigned long) u1.ashort [0];	
+	u2.along =  (uint32_t) p00.ashort [1] 
+			 + 	(uint32_t) p01.ashort [0]
+			 + 	(uint32_t) p10.ashort [0]
+			 + 	(uint32_t) u1.ashort [0];	
 	r.ashort [1] = u2.ashort [1];
 	r.ashort [0] = p00.ashort [0] + u2.ashort [0];
 	temp.high = r.along;
@@ -2072,14 +2072,14 @@ struct prod temp;
 //
 /////////////////////////////////////////////////////////////////////////
 
-int subDL (prod a, unsigned long *b)
+int subDL (prod a, uint32_t *b)
 {
 register int borrow, carry;
 	
 	borrow = a.low > b [1];
 	b [1] -= a.low;
 	carry = (a.high > b [0]) || ((a.high == b [0]) && borrow);
-	b [0] -= (a.high + (unsigned long) borrow);
+	b [0] -= (a.high + (uint32_t) borrow);
 	return carry;
 }
 
@@ -2088,13 +2088,13 @@ register int borrow, carry;
 //
 /////////////////////////////////////////////////////////////////////////
 
-void subL (unsigned long *a, unsigned long *b, int length)		// b -= a
+void subL (uint32_t *a, uint32_t *b, int length)		// b -= a
 {
 register int k, borrow = FALSE, carry;
 
 	for (k = length; k >= 0; k--) {
 		carry = (a [k] > b [k]) || ((a [k] == b [k]) && borrow);
-		b [k] -= (a [k] + (unsigned long) borrow);
+		b [k] -= (a [k] + (uint32_t) borrow);
 		borrow = carry;
 	}
 }
@@ -2104,16 +2104,16 @@ register int k, borrow = FALSE, carry;
 //
 /////////////////////////////////////////////////////////////////////////
 
-int addL (unsigned long *a, unsigned long *b, int length)		// b += a
+int addL (uint32_t *a, uint32_t *b, int length)		// b += a
 {
 register int k, carry = FALSE;
-register unsigned long c;
+register uint32_t c;
 
 	for (k = length; k >= 0; k--) {
-		c = b [k] + a [k] + (unsigned long) carry;
-		carry = 	(((0x80000000UL & a [k]) != 0) && ((0x80000000UL & b [k]) != 0))
-			  	||  (((0x80000000UL & a [k]) != 0) && ((0x80000000UL & c) == 0))
-			  	||  (((0x80000000UL & b [k]) != 0) && ((0x80000000UL & c) == 0));
+		c = b [k] + a [k] + (uint32_t) carry;
+		carry = 	(((0x80000000u & a [k]) != 0) && ((0x80000000u & b [k]) != 0))
+			  	||  (((0x80000000u & a [k]) != 0) && ((0x80000000u & c) == 0))
+			  	||  (((0x80000000u & b [k]) != 0) && ((0x80000000u & c) == 0));
 		b [k] = c;
 	}
 	return carry;
@@ -2124,7 +2124,7 @@ register unsigned long c;
 //
 /////////////////////////////////////////////////////////////////////////
 
-int firstdiff (unsigned long *a, unsigned long *b, int length)
+int firstdiff (uint32_t *a, uint32_t *b, int length)
 {				// find first differnce or last word, whichever occurs first
 register int i = 0;
 	while ((a [i] == b [i]) && (i < length)) i++;

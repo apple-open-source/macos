@@ -1,0 +1,272 @@
+<html>
+<head>
+<title>Metakit Tips and Tricks</title>
+<meta name="generator" content="Frontier 5.0.1 Win95"></head>
+<body  bgcolor="#FFFFFF" alink="#008000" vlink="#800080" link="#0000FF" text="#000000">
+
+<table cellspacing=0 cellpadding=0 border=0 width="100%"><tr valign=top>
+	<td width=100><a href="http://www.equi4.com/">
+		<img src=e4w.gif alt="E q u i 4" align=left width=97 height=35 hspace=0 border=0></a>
+	</td><td align=center>
+	<font size=+2>Metakit Tips and Tricks</font><br>
+	<i>December 1999</i>
+	</td><td width=100></td></tr></table>
+<p>
+
+
+<i>This page list some ideas and background information
+related to the use of Metakit.
+If you have suggestions, please send them to <a href="mailto:jcw@equi4.com">jcw@equi4.com</a> ...</i>
+<br><br>
+
+<table border=0>
+	<tr>
+	  <td valign=top align=center><a href="#streaming"><b>Streaming</b></a></td>
+	  <td width=10></td>
+	  <td>Some details about streaming and on-demand loading</td>
+	</tr>
+	<tr>
+	  <td valign=top align=center><a href="#faster"><b>Faster</b></a></td>
+	  <td width=10></td>
+	  <td>What to do and what to avoid for maximum speed</td>
+	</tr>
+	<tr>
+	  <td valign=top align=center><a href="#smaller"><b>Smaller</b></a></td>
+	  <td width=10></td>
+	  <td>How to manage data in the most compact format</td>
+	</tr>
+</table>
+</center>
+
+
+<dl>
+<dt><br><hr size=1><br><a name=streaming></a><b>Streaming</b> - 
+Some details about streaming and on-demand loading<p><dd><font face=Times>
+
+When saving data, Metakit uses different formats, depending on whether
+the data was saved with c4_Storage::Commit or with c4_Storage::SaveToStream.
+This has a number of consequences on how and when data is loaded back in:
+
+<blockquote><table cellpadding=5 cellspacing=0 border=1>
+	<tr>
+	  <th>&nbsp; Saved using &nbsp;</th>
+	  <th>&nbsp; Loaded as &nbsp;</th>
+	  <th align=left>&nbsp; Comments &nbsp;</th>
+	</tr>
+	<tr>
+	  <td align=center>
+		Commit<br>
+		Commit<br>
+		SaveToStream<br>
+		SaveToStream</td>
+	  <td align=center>
+		File<br>
+		Stream<br>
+		File<br>
+		Stream</td>
+	  <td>
+		The normal case, loads data on-demand<br>
+		This combination is <b>not</b> allowed!<br>
+		Ok, will load all data during open<br>
+		Loads all data serially right away</td>
+	</tr>
+</table></blockquote>
+
+As you can see in this overview, random-access and streaming can be mixed
+in three out of four ways.  Once loaded, you can again save using either
+c4_Storage::Commit or c4_Storage::SaveToStream.
+<p>
+When random-access and streaming are mixed on a storage object, the
+following will happen:<p>
+<ul><li>Files are only modified (conceptually) during a call to c4_Storage::Commit.
+<li>c4_Storage::SaveToStream makes a snapshot of the current (uncommitted) state.
+</ul><p>
+It is therefore possible to open a file, apply a few changes, save the
+changed contents to a stream, and then close the file without committing
+those changes.  Streaming does not interfere with the commit/rollback mechanism.
+
+</font><br>
+<dt><br><hr size=1><br><a name=faster></a><b>Faster</b> - 
+What to do and what to avoid for maximum speed<p><dd><font face=Times>
+
+The data structures used in Metakit can have surprising effects on performance,
+both positively and negatively.
+Here are a few suggestions which should help in most cases:
+<p>
+<li><b>Preallocate rows</b> - if the number or rows to add is known in advance,
+use c4_View::SetSize to set the view size accordingly.  Fixed-size properties
+will need to do fewer internal reallocations if pre-allocated.
+<p>
+When inserting several rows, consider inserting them all with a dummy value
+first, and then using a loop to adjust each of the inserted values.
+<p>
+<li><b>Limit the use of c4_Row objects</b> - The construction of c4_Row objects is
+relatively slow, and can often easily be avoided.  Here are three ways to
+accomplish the same thing:
+
+<blockquote><table cellpadding=5 cellspacing=0 border=1>
+	<tr>
+	  <th>Slow</th>
+	  <td>
+		for (int i = 0; i < n; ++i)<br>
+		{<br>
+		&nbsp; &nbsp; c4_Row temp;<br>
+		&nbsp; &nbsp; property (temp) = ...;<br>
+		&nbsp; &nbsp; view[i] = temp;<br>
+		}
+	  </td>
+	</tr>
+	<tr>
+	  <th>Faster</th>
+	  <td>
+		c4_Row temp;<br>
+		for (int i = 0; i < n; ++i)<br>
+		{<br>
+		&nbsp; &nbsp; property (temp) = ...;<br>
+		&nbsp; &nbsp; view[i] = temp;<br>
+		}
+	  </td>
+	</tr>
+	<tr>
+	  <th>Fastest</th>
+	  <td>
+		for (int i = 0; i < n; ++i)<br>
+		{<br>
+		&nbsp; &nbsp; c4_RowRef row = view[i];<br>
+		&nbsp; &nbsp; property (row) = ...;<br>
+		}
+	  </td>
+	</tr>
+</table></blockquote>
+
+The last two statements could also have been combined as "property (view[i]) = ...;"
+<p>
+Note that "prop1 [value1] + prop2 [value2]" also creates several temporary
+c4_Row objects, and should be avoided when top performance is critical.
+<p>
+<li><b>Remove views before storage objects are destroyed</b> - If a view
+still exists when its underlying storage object is destroyed, Metakit has to 
+create a full copy of the data in memory before releasing the storage object,
+to avoid even more confusing side-effects.
+
+The following example illustrates a common source of suprises in Metakit:
+
+<blockquote><table cellpadding=5 cellspacing=0 border=1>
+	<tr>
+	  <th>Very slow<br>(on close)</th>
+	  <td>
+		{<br>
+		&nbsp; &nbsp; c4_View view;<br>
+		&nbsp; &nbsp; c4_Storage storage (...);<br>
+		&nbsp; &nbsp; view = storage.View(...);<br>
+		&nbsp; &nbsp; ...<br>
+		}
+	  </td>
+	</tr>
+	<tr>
+	  <th>Instant</th>
+	  <td>
+		{<br>
+		&nbsp; &nbsp; c4_Storage storage (...);<br>
+		&nbsp; &nbsp; c4_View view = storage.View(...);<br>
+		&nbsp; &nbsp; ...<br>
+		}
+	  </td>
+	</tr>
+</table></blockquote>
+
+In the first case, the view still exists as the storage object goes out of scope.
+There is a simple way to detach views from their storage objects, since they
+act merely as (reference-counted) pointers: just set "view = c4_View ();"
+<b>before</b> the storage object is destroyed.
+
+</font><br>
+<dt><br><hr size=1><br><a name=smaller></a><b>Smaller</b> - 
+How to manage data in the most compact format<p><dd><font face=Times>
+
+Metakit implements automatic "adaptive integer sizing" and will often create
+very compact data files as a result.  Strings and binary properties also use a
+variable format, and require no "field width" setting.  Some tips to
+allow you to make optimal use of these features:
+<p>
+<li><b>Attached views are more compact</b> - You can trade off size versus
+speed by selecting either views attached to a storage object (smallest), or
+unattached views (fastest).  Note that "storage" does not imply the need to
+store data on file in this context.  It is perfectly valid to use the following
+code to manage temporary data in memory without ever saving it to file:
+
+<blockquote><table cellpadding=5 cellspacing=0 border=1>
+	<tr>
+	  <td>
+		c4_Storage storage;<br>
+		c4_View view = storage.GetAt("temp[prop1:I,prop2:I]");<br>
+		...<br>
+		prop1 (view[i]) = ...;<br>
+		...
+	  </td>
+	</tr>
+</table></blockquote>
+
+In this example, the view would use "adaptive integer sizing" even though
+its data is valid only for the duration of each run.
+Unattached views always use 32 bits to store integers.
+<p>
+<li><b>Integer formats only increase in size</b> - The representation used to
+store integers in attached views (and on file)
+ is based on the largest value (in magnitude) ever stored in
+each property and view.  Storing large values in one subview will not affect
+the storage used by that same property in another subview.
+<p>
+For integers, the number of bits used to store values is determined as follows:
+
+<blockquote><table cellpadding=5 cellspacing=0 border=1>
+	<tr>
+	  <th>&nbsp; Value range &nbsp;</th>
+	  <th>&nbsp; Bits used &nbsp;</th>
+	  <th align=left>&nbsp; Comments &nbsp;</th>
+	</tr>
+	<tr>
+	  <td align=center>
+		0<br>
+		0 .. 1<br>
+		0 .. 3<br>
+		0 .. 15<br>
+		-128 .. 127<br>
+		-32768 .. 32727<br>
+		all others</td>
+	  <td align=center>
+		0<br>
+		1<br>
+		2<br>
+		4<br>
+		8<br>
+		16<br>
+		32</td>
+	  <td>
+		If all rows are 0, <b>no</b> storage space is used<br>
+		Booleans are stored as 8 rows per byte<br>
+		Tiny positive codes<br>
+		A hex nibble<br>
+		One byte<br>
+		A short integer<br>
+		A long integer</td>
+	</tr>
+</table></blockquote>
+
+</font><br>
+</dl>
+
+<hr size=1>
+<center>
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+</center>
+
+
+<hr size=1>
+<font color="#000099" size=-1>&copy; 1998 Equi4 Software. All rights reserved.</font>
+
+</body>
+</html>

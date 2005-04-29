@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfx_dri.c,v 1.25 2003/02/08 21:26:59 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfx_dri.c,v 1.26 2003/09/28 20:16:01 alanh Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -116,10 +116,10 @@ TDFXInitVisualConfigs(ScreenPtr pScreen)
 	    pConfigs[i].auxBuffers = 0;
 	    pConfigs[i].level = 0;
 	    if (stencil || accum)
-	      pConfigs[i].visualRating = GLX_SLOW_VISUAL_EXT;
+	      pConfigs[i].visualRating = GLX_SLOW_CONFIG;
 	    else
-	      pConfigs[i].visualRating = GLX_NONE_EXT;
-	    pConfigs[i].transparentPixel = 0;
+	      pConfigs[i].visualRating = GLX_NONE;
+	    pConfigs[i].transparentPixel = GLX_NONE;
 	    pConfigs[i].transparentRed = 0;
 	    pConfigs[i].transparentGreen = 0;
 	    pConfigs[i].transparentBlue = 0;
@@ -211,10 +211,10 @@ TDFXInitVisualConfigs(ScreenPtr pScreen)
 	    pConfigs[i].auxBuffers = 0;
 	    pConfigs[i].level = 0;
 	    if (accum)
-	      pConfigs[i].visualRating = GLX_SLOW_VISUAL_EXT;
+	      pConfigs[i].visualRating = GLX_SLOW_CONFIG;
 	    else
-	      pConfigs[i].visualRating = GLX_NONE_EXT;
-	    pConfigs[i].transparentPixel = 0;
+	      pConfigs[i].visualRating = GLX_NONE;
+	    pConfigs[i].transparentPixel = GLX_NONE;
 	    pConfigs[i].transparentRed = 0;
 	    pConfigs[i].transparentGreen = 0;
 	    pConfigs[i].transparentBlue = 0;

@@ -1,0 +1,37 @@
+# soapmap.dat - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# This file maps SOAPAction values to Tcl implementations.
+#
+# If the CGI package receives a SOAPAction header with a non-empty value
+# it will load this map and try to identify a corresponding filename. This
+# file is then sourced from the SOAP::CGI::soapdir directory.
+# If the SOAPAction is not present or is empty then _all_ the scripts in the
+# soapdir directory are sourced before handling the request.
+#
+# Comments and blank lines are ignored.
+
+# The file format is:
+# `SOAPAction' `filename' `interpreter'
+# Where `filename' is relative to the SOAP::CGI::soapdir value and is the
+# tcl script file that implements this Action.
+# `interpreter' is the optional name of a safe slave interpreter to use
+# when evaluating the script. The default empty value causes the script to 
+# be evaluated in the main interpreter.
+
+# TclSOAP sample implementations.
+urn:soapinterop         soapinterop.tcl
+urn:tclsoap-Test	tclsoap-Test.tcl
+urn:tclsoap-SafeTest	tclsoap-Test.tcl	SafeTest
+urn:tclsoap:webservices	webservice.tcl
+
+# Some soapinterop clients would prefer one of these actions
+http://soapinterop.org/	soapinterop.tcl
+/soapinterop		soapinterop.tcl
+
+# This entry returns an empty value for /cgi-bin/rpc. This is quite
+# frequently used as the SOAPAction instead of "" or nothing and is the
+# CGI script path. Mapping to an empty value causes the CGI framework to
+# treat this value as if "" was provided.
+cgi-bin/rpc		""
+/cgi-bin/rpc		""
+

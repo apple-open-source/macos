@@ -3,7 +3,7 @@
 #
 #   French man page makefile for the Common UNIX Printing System (CUPS).
 #
-#   Copyright 1993-2003 by Easy Software Products.
+#   Copyright 1993-2004 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636-3142 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
@@ -37,7 +37,7 @@ LANGUAGE =	fr
 # Make everything...
 #
 
-all:	$(CAT1) $(CAT3) $(CAT5) $(CAT8)
+all:	$(CAT1) $(CAT5) $(CAT8)
 
 
 #
@@ -45,7 +45,7 @@ all:	$(CAT1) $(CAT3) $(CAT5) $(CAT8)
 #
 
 clean:
-	$(RM) $(CAT1) $(CAT3) $(CAT5) $(CAT8)
+	$(RM) $(CAT1) $(CAT5) $(CAT8)
 
 
 #
@@ -66,10 +66,6 @@ install:	all
 	done
 	$(RM) $(MANDIR)/$(LANGUAGE)/man1/cancel.1
 	$(LN) lp.1 $(MANDIR)/$(LANGUAGE)/man1/cancel.1
-	$(INSTALL_DIR) $(PMANDIR)/fr/man3
-	for file in $(MAN3); do \
-		$(INSTALL_MAN) $$file $(PMANDIR)/fr/man3/`basename $$file man`3; \
-	done
 	$(INSTALL_DIR) $(MANDIR)/$(LANGUAGE)/man5
 	for file in $(MAN5); do \
 		$(INSTALL_MAN) $$file $(MANDIR)/$(LANGUAGE)/man5/`basename $$file man`5; \
@@ -88,10 +84,6 @@ install:	all
 	done
 	$(RM) $(MANDIR)/$(LANGUAGE)/cat1/cancel.$(CAT1EXT)
 	$(LN) lp.$(CAT1EXT) $(MANDIR)/$(LANGUAGE)/cat1/cancel.$(CAT1EXT)
-	$(INSTALL_DIR) $(PMANDIR)/fr/cat3
-	for file in $(CAT3); do \
-		$(INSTALL_MAN) $$file $(PMANDIR)/fr/cat3; \
-	done
 	$(INSTALL_DIR) $(MANDIR)/$(LANGUAGE)/cat5
 	for file in $(CAT5); do \
 		$(INSTALL_MAN) $$file $(MANDIR)/$(LANGUAGE)/cat5; \

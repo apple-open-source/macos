@@ -1,0 +1,29 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" T³umaczenie: 950322 Rafa³ Maszkowski <rzm@pdi.net>
+.\"
+.TH apropos 1 "15 stycznia 1991"
+.LO 1
+.SH NAZWA
+apropos \- szuka ³añcuchów znakow w bazie whatis
+.SH SK£ADNIA
+.BI apropos
+s³owo_kluczowe ...
+.SH OPIS
+apropos szuka s³ów kluczowych w plikach bazy danych, które
+zawieraj± krótkie opisy komend systemowych i wy¶wietla wynik
+u¿ywaj±c standardowego wyj¶cia.
+.SH "ZOBACZ TAK¯E"
+whatis(1), man(1).

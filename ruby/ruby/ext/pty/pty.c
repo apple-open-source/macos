@@ -1,12 +1,19 @@
 #include	"config.h"
 #include	<stdio.h>
 #include	<sys/types.h>
+#include	<sys/stat.h>
 #include	<sys/file.h>
 #include	<fcntl.h>
 #include	<errno.h>
 #include	<pwd.h>
-#if !defined(HAVE_OPENPTY) && !defined(HAVE__GETPTY)
+#ifdef HAVE_SYS_IOCTL_H
 #include	<sys/ioctl.h>
+#endif
+#ifdef HAVE_LIBUTIL_H
+#include	<libutil.h>
+#endif
+#ifdef HAVE_PTY_H
+#include	<pty.h>
 #endif
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
@@ -17,6 +24,7 @@
 
 #include "ruby.h"
 #include "rubyio.h"
+#include "util.h"
 
 #include <signal.h>
 #ifdef HAVE_SYS_STROPTS_H
@@ -30,7 +38,8 @@
 #define	DEVICELEN	16
 
 #if !defined(HAVE_OPENPTY)
-#ifdef __hpux
+#if defined(__hpux)
+static
 char	*MasterDevice = "/dev/ptym/pty%s",
 	*SlaveDevice =  "/dev/pty/tty%s",
 	*deviceNo[] = {
@@ -52,8 +61,8 @@ char	*MasterDevice = "/dev/ptym/pty%s",
 		"w8","w9","wa","wb","wc","wd","we","wf",
 		0,
 	};
-#else  /* NOT HPUX */
-#ifdef _IBMESA  /* AIX/ESA */
+#elif defined(_IBMESA)  /* AIX/ESA */
+static 
 char	*MasterDevice = "/dev/ptyp%s",
   	*SlaveDevice = "/dev/ttyp%s",
 	*deviceNo[] = {
@@ -74,7 +83,8 @@ char	*MasterDevice = "/dev/ptyp%s",
 "e0","e1","e2","e3","e4","e5","e6","e7","e8","e9","ea","eb","ec","ed","ee","ef",
 "f0","f1","f2","f3","f4","f5","f6","f7","f8","f9","fa","fb","fc","fd","fe","ff",
 		};
-#else
+#elif !defined(HAVE_PTSNAME)
+static 
 char	*MasterDevice = "/dev/pty%s",
 	*SlaveDevice = "/dev/tty%s",
 	*deviceNo[] = {
@@ -84,19 +94,16 @@ char	*MasterDevice = "/dev/pty%s",
 		"q8","q9","qa","qb","qc","qd","qe","qf",
 		"r0","r1","r2","r3","r4","r5","r6","r7",
 		"r8","r9","ra","rb","rc","rd","re","rf",
+		"s0","s1","s2","s3","s4","s5","s6","s7",
+		"s8","s9","sa","sb","sc","sd","se","sf",
 		0,
 	};
-#endif /* _IBMESA */
-#endif /* HPUX */
+#endif
 #endif /* !defined(HAVE_OPENPTY) */
 
-char	SlaveName[DEVICELEN];
+static char SlaveName[DEVICELEN];
 
 extern int errno;
-
-#define MAX_PTY 16
-static int n_pty,last_pty;
-static int chld_pid[MAX_PTY];
 
 #ifndef HAVE_SETEUID
 # ifdef HAVE_SETREUID
@@ -110,109 +117,97 @@ static int chld_pid[MAX_PTY];
 # endif /* HAVE_SETREUID */
 #endif /* NO_SETEUID */
 
+static VALUE eChildExited;
+
+static VALUE
+echild_status(self)
+    VALUE self;
+{
+    return rb_ivar_get(self, rb_intern("status"));
+}
+
 struct pty_info {
-  int fd;
-  pid_t child_pid;
+    int fd;
+    pid_t child_pid;
+    VALUE thread;
 };
 
 static void
-set_signal_action(action)
-    RETSIGTYPE (*action)();
+raise_from_wait(state, info)
+    struct pty_info *info;
+    char *state;
 {
-#ifdef __hpux
-    struct sigvec sv;
-    /*
-     * signal SIGCHLD should be delivered on stop of the child
-     */
-    sv.sv_handler = action;
-    sv.sv_mask = sigmask(SIGCHLD);
-    sv.sv_flags = SV_BSDSIG;
-    sigvector(SIGCHLD, &sv, (struct sigvec *) 0);
-#else	/* not HPUX */
-#if defined(SA_NOCLDSTOP)
-    struct sigaction sa;
-    /*
-     * signal SIGCHLD should be delivered on stop of the child
-     * (for SVR4)
-     */
-    sa.sa_handler = action;
-    sigemptyset(&sa.sa_mask);
-    sigaddset(&sa.sa_mask, SIGCHLD);
-    sa.sa_flags = 0;	/* SA_NOCLDSTOP flag is removed */
-    sigaction(SIGCHLD, &sa, (struct sigaction *) 0);
-#else
-    signal(SIGCHLD,action);
-#endif
-#endif /* not HPUX */
+    extern VALUE rb_last_status;
+    char buf[1024];
+    VALUE exc;
 
+    snprintf(buf, sizeof(buf), "pty - %s: %d", state, info->child_pid);
+    exc = rb_exc_new2(eChildExited, buf);
+    rb_iv_set(exc, "status", rb_last_status);
+    rb_funcall(info->thread, rb_intern("raise"), 1, exc);
 }
 
-static void
-reset_signal_action()
+static VALUE
+pty_syswait(info)
+    struct pty_info *info;
 {
-    set_signal_action(SIG_DFL);
-}
-
-static RETSIGTYPE
-chld_changed()
-{
-    int cpid;
-    int i,n = -1;
-    int statusp;
+    int cpid, status;
 
     for (;;) {
-#ifdef HAVE_WAITPID
-	cpid = waitpid(-1, &statusp, WUNTRACED|WNOHANG);
-#else
-	cpid = wait3(&statusp, WUNTRACED|WNOHANG, 0);
-#endif
-	if (cpid == 0 || cpid == -1)
-	    return;
-        for (i = 0; i < last_pty; i++) {
-	    if (chld_pid[i] == cpid) {
-		n = i;
-		goto catched;
-	    }
-	}
-        rb_raise(rb_eRuntimeError, "fork: %d", cpid);
-    }
-  catched:
+	cpid = rb_waitpid(info->child_pid, &status, WUNTRACED);
+	if (cpid == -1) return Qnil;
 
-#ifdef IF_STOPPED
-    if (IF_STOPPED(statusp)) { /* suspend */
-	rb_raise(rb_eRuntimeError, "Stopped: %d",cpid);
-    }
-#else
-#ifdef WIFSTOPPED
-    if (WIFSTOPPED(statusp)) { /* suspend */
-	rb_raise(rb_eRuntimeError, "Stopped: %d",cpid);
-    }
+#if defined(IF_STOPPED)
+	if (IF_STOPPED(status)) { /* suspend */
+	    raise_from_wait("stopped", info);
+	}
+#elif defined(WIFSTOPPED)
+	if (WIFSTOPPED(status)) { /* suspend */
+	    raise_from_wait("stopped", info);
+	}
 #else
 ---->> Either IF_STOPPED or WIFSTOPPED is needed <<----
-#endif /* WIFSTOPPED */
-#endif /* IF_STOPPED */
-    if (n >= 0) {
-	chld_pid[n] = 0;
-	n_pty--;
-	if (n_pty == 0)
-	    reset_signal_action();
+#endif /* WIFSTOPPED | IF_STOPPED */
+	else if (kill(info->child_pid, 0) == 0) {
+	    raise_from_wait("changed", info);
+	}
+	else {
+	    raise_from_wait("exited", info);
+	    return Qnil;
+	}
     }
-    rb_raise(rb_eRuntimeError, "Child_changed: %d",cpid);
 }
 
 static void getDevice _((int*, int*));
 
+struct exec_info {
+    int argc;
+    VALUE *argv;
+};
+
+static VALUE
+pty_exec(arg)
+    struct exec_info *arg;
+{
+    return rb_f_exec(arg->argc, arg->argv);
+}
+
 static void
-establishShell(shellname, info)
-    char *shellname;
+establishShell(argc, argv, info)
+    int argc;
+    VALUE *argv;
     struct pty_info *info;
 {	
-    static int		i,j,master,slave,currentPid;
+    static int		i,master,slave,currentPid;
     char		*p,*getenv();
     struct passwd	*pwent;
-    RETSIGTYPE		chld_changed();
-    
-    if (shellname[0] == '\0') {
+    VALUE		v;
+    struct exec_info	arg;
+    int			status;
+
+    if (argc == 0) {
+	char *shellname;
+
 	if ((p = getenv("SHELL")) != NULL) {
 	    shellname = p;
 	}
@@ -223,18 +218,21 @@ establishShell(shellname, info)
 	    else
 		shellname = "/bin/sh";
 	}
+	v = rb_str_new2(shellname);
+	argc = 1;
+	argv = &v;
     }
     getDevice(&master,&slave);
 
+    info->thread = rb_thread_current();
     currentPid = getpid();
-    set_signal_action(chld_changed);
-    if((i = vfork()) < 0) {
+    if((i = fork()) < 0) {
+	close(master);
+	close(slave);
 	rb_sys_fail("fork failed");
     }
 
     if(i == 0) {	/* child */
-	int argc;
-	char *argv[1024];
 	currentPid = getpid();	
 
 	/*
@@ -281,44 +279,31 @@ establishShell(shellname, info)
 	dup2(slave,1);
 	dup2(slave,2);
 	close(slave);
-
 #if defined(HAVE_SETEUID) || defined(HAVE_SETREUID) || defined(HAVE_SETRESUID)
 	seteuid(getuid());
 #endif
 
-	argc = 0;
-	for (i = 0; shellname[i];) {
-	    while (isspace(shellname[i])) i++;
-	    for (j = i; shellname[j] && !isspace(shellname[j]); j++);
-	    argv[argc] = (char*)xmalloc(j-i+1);
-	    strncpy(argv[argc],&shellname[i],j-i);
-	    argv[argc][j-i] = 0;
-	    i = j;
-	    argc++;
-	}
-	argv[argc] = NULL;
-	execvp(argv[0],argv);
+	arg.argc = argc;
+	arg.argv = argv;
+	rb_protect(pty_exec, (VALUE)&arg, &status);
 	sleep(1);
 	_exit(1);
     }
 
     close(slave);
 
-    if (n_pty == last_pty) {
-	chld_pid[n_pty] = i;
-	n_pty++;
-	last_pty++;
-    }
-    else {
-	for (j = 0; j < last_pty; j++) {
-	    if (chld_pid[j] == 0) {
-		chld_pid[j] = i;
-		n_pty++;
-	    }
-	}
-    }
     info->child_pid = i;
     info->fd = master;
+}
+
+static VALUE
+pty_finalize_syswait(info)
+    struct pty_info *info;
+{
+    rb_thread_kill(info->thread);
+    rb_funcall(info->thread, rb_intern("value"), 0);
+    rb_detach_process(info->child_pid);
+    return Qnil;
 }
 
 #ifdef HAVE_OPENPTY
@@ -355,11 +340,9 @@ static void
 getDevice(master,slave)
     int	*master,*slave;
 {
-    char **p;
     int	 i,j;
-    char MasterName[DEVICELEN];
 
-#ifdef HAVE_DEV_PTMX
+#ifdef HAVE_PTSNAME
     char *pn;
     void (*s)();
 
@@ -394,11 +377,14 @@ getDevice(master,slave)
     }
     rb_raise(rb_eRuntimeError, "Cannot get Master/Slave device");
 #else
+    char **p;
+    char MasterName[DEVICELEN];
+
     for (p = deviceNo; *p != NULL; p++) {
-	sprintf(MasterName ,MasterDevice,*p);
+	sprintf(MasterName,MasterDevice,*p);
 	if ((i = open(MasterName,O_RDWR,0)) >= 0) {
 	    *master = i;
-	    sprintf(SlaveName ,SlaveDevice,*p);
+	    sprintf(SlaveName,SlaveDevice,*p);
 	    if ((j = open(SlaveName,O_RDWR,0)) >= 0) {
 		*slave = j;
 		chown(SlaveName, getuid(), getgid());
@@ -408,7 +394,7 @@ getDevice(master,slave)
 	    close(i);
 	}
     }
-    rb_raise(rb_eRuntimeError, "Cannot get %s\n", SlaveDevice);
+    rb_raise(rb_eRuntimeError, "Cannot get %s", SlaveName);
 #endif
 }
 #endif /* HAVE__GETPTY */
@@ -423,70 +409,63 @@ freeDevice()
 
 /* ruby function: getpty */
 static VALUE
-pty_getpty(self, command)
-    VALUE self, command;
+pty_getpty(argc, argv, self)
+    int argc;
+    VALUE *argv;
+    VALUE self;
 {
     VALUE res;
     struct pty_info info;
+    struct pty_info thinfo;
     OpenFile *wfptr,*rfptr;
-    NEWOBJ(rport, struct RFile);
-    NEWOBJ(wport, struct RFile);
+    VALUE rport = rb_obj_alloc(rb_cFile);
+    VALUE wport = rb_obj_alloc(rb_cFile);
   
-    if (n_pty == MAX_PTY+1) {
-	rb_raise(rb_eRuntimeError, "Too many ptys are open");
-    }
-
-    OBJSETUP(rport, rb_cFile, T_FILE);
     MakeOpenFile(rport, rfptr);
-
-    OBJSETUP(wport, rb_cFile, T_FILE);
     MakeOpenFile(wport, wfptr);
 
-    if (TYPE(command) == T_ARRAY)
-	command = rb_ary_join(command,rb_str_new2(" "));
-    Check_SafeStr(command);
-
-    establishShell(RSTRING(command)->ptr,&info);
+    establishShell(argc, argv, &info);
 
     rfptr->mode = rb_io_mode_flags("r");
     rfptr->f = fdopen(info.fd, "r");
-    rfptr->path = strdup(RSTRING(command)->ptr);
+    rfptr->path = strdup(SlaveName);
 
     wfptr->mode = rb_io_mode_flags("w") | FMODE_SYNC;
     wfptr->f = fdopen(dup(info.fd), "w");
-    wfptr->path = strdup(RSTRING(command)->ptr);
+    wfptr->path = strdup(SlaveName);
 
-    res = rb_ary_new2(4);
+    res = rb_ary_new2(3);
     rb_ary_store(res,0,(VALUE)rport);
     rb_ary_store(res,1,(VALUE)wport);
     rb_ary_store(res,2,INT2FIX(info.child_pid));
-    rb_ary_store(res,3,rb_str_new2(SlaveName));
+
+    thinfo.thread = rb_thread_create(pty_syswait, (void*)&info);
+    thinfo.child_pid = info.child_pid;
+    rb_thread_schedule();
 
     if (rb_block_given_p()) {
-	rb_ensure(rb_yield, (VALUE)res, (VALUE (*)())reset_signal_action, Qnil);
+	rb_ensure(rb_yield, res, pty_finalize_syswait, (VALUE)&thinfo);
 	return Qnil;
     }
-    else {
-	return (VALUE)res;
-    }
+    return res;
 }
 
-/* ruby function: protect_signal */
+/* ruby function: protect_signal - obsolete */
 static VALUE
 pty_protect(self)
     VALUE self;
 {
-    reset_signal_action();
+    rb_warn("PTY::protect_signal is no longer needed");
     rb_yield(Qnil);
-    set_signal_action(chld_changed);
     return self;
 }
 
+/* ruby function: reset_signal - obsolete */
 static VALUE
 pty_reset_signal(self)
     VALUE self;
 {
-    reset_signal_action();
+    rb_warn("PTY::reset_signal is no longer needed");
     return self;
 }
 
@@ -496,8 +475,11 @@ void
 Init_pty()
 {
     cPTY = rb_define_module("PTY");
-    rb_define_module_function(cPTY,"getpty",pty_getpty,1);
-    rb_define_module_function(cPTY,"spawn",pty_getpty,1);
+    rb_define_module_function(cPTY,"getpty",pty_getpty,-1);
+    rb_define_module_function(cPTY,"spawn",pty_getpty,-1);
     rb_define_module_function(cPTY,"protect_signal",pty_protect,0);
     rb_define_module_function(cPTY,"reset_signal",pty_reset_signal,0);
+
+    eChildExited = rb_define_class_under(cPTY,"ChildExited",rb_eRuntimeError);
+    rb_define_method(eChildExited,"status",echild_status,0);
 }

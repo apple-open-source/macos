@@ -29,10 +29,17 @@
 extern "C" {
 #endif
 
+#define kLDAPDefaultOpenCloseTimeoutInSeconds			15
+#define kLDAPDefaultRebindTryTimeoutInSeconds			120
+#define kLDAPDefaultSearchTimeoutInSeconds				120
+
+#define kLDAPDefaultNetworkTimeoutInSeconds				10
+
 
 void DSSearchCleanUp (	LDAP		   *inHost,
 						int				inMsgId );
 
+void SetNetworkTimeoutsForHost( LDAP* host, int numSeconds );
 
 #ifdef __cplusplus
 }

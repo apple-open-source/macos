@@ -46,9 +46,9 @@ typedef struct
 	interface_t *interface;
 } interface_list_t;
 
-interface_list_t *sys_interfaces(void);
-void sys_interfaces_release(interface_list_t *l);
-int sys_is_my_address(interface_list_t *l, struct in_addr *a);
-int sys_is_my_network(interface_list_t *l, struct in_addr *a);
+interface_list_t *_libinfo_ni_sys_interfaces(void);
+void _libinfo_ni_sys_interfaces_release(interface_list_t *l);
+int _libinfo_ni_sys_is_my_address(interface_list_t *l, struct in_addr *a);
+int _libinfo_ni_sys_is_my_network(interface_list_t *l, struct in_addr *a);
 
 #endif	/* __SYS_INTERFACES__ */

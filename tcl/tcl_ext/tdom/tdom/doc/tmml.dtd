@@ -1,0 +1,396 @@
+<!--
+    $Id: tmml.dtd,v 1.3 2002/07/11 23:06:56 rolf Exp $
+
+    Author:	Joe English, <jenglish@users.sourceforge.net>
+    Created:	8 Feb 1999
+    Revised:	24 Jul 1999
+    Usage:
+
+    <!DOCTYPE  (manpage | manual)  PUBLIC "-//jenglish//DTD TMML 0.6//EN" >
+
+    XML DTD for TMML, Tcl Manual Markup language.
+
+    See  <URL: http://tmml.sourceforge.net/ > for more information
+-->
+
+<!-- ============================================================
+
+    Information pool parameter entities:
+
+    e.syntax 	Phrase-level elements that refer to Tcl syntactic entities.
+    e.phrase	Other phrase-level elements
+    e.block	Block-level elements
+    e.struct	Structural elements that can appear directly in a section
+
+    x.block
+    x.inline	Used for customization
+-->
+
+<!ENTITY % e.syntax
+    " m | l | o | i | b
+    | br
+    | term
+    | cmd | variable | method | option | file
+    | syscmd | fun | widget | package | type | class
+    ">
+
+<!ENTITY % e.phrase
+    " emph | ref | url | samp | command | new">
+
+<!ENTITY % e.block
+    " p | ul | ol | dl | sl | xl
+    | example | syntax
+    | commandlist | optlist
+    " >
+
+<!ENTITY % e.struct
+    "arglist | optionlist" >
+
+<!ENTITY % x.inline	"" >
+<!ENTITY % x.block 	"" >
+
+<!-- ============================================================
+    Content models:
+
+    m.code	(computer) text
+    m.inline	inline text
+    m.mixed	mixed inline and block elements
+    m.top	top-level elements (inside sections)
+-->
+
+<!ENTITY % m.inline
+	"(#PCDATA | %e.phrase; | %e.syntax;		%x.inline; )*">
+<!ENTITY % m.code
+	"(#PCDATA | new        | %e.syntax;             %x.inline; )*">
+<!ENTITY % m.mixed
+	"(#PCDATA | %e.phrase; | %e.syntax; | %e.block;	%x.block; %x.inline;)*">
+<!ENTITY % m.top
+	"(%e.block; | %e.struct; 			%x.block;)*">
+
+<!-- ============================================================
+	Common attributes:
+-->
+
+<!ENTITY % a.version	"version CDATA #IMPLIED" >
+<!ENTITY % ad.scope	"scope (local|global)" >
+
+<!-- ============================================================
+	Top-level element: manual
+-->
+
+<!ENTITY % m.division
+	"(title, (division* | (manpage|subdoc|extref)* ))" >
+
+<!ENTITY % m.manual
+	"(title, head?, (division* | (manpage|subdoc|extref)* ))" >
+
+<!ELEMENT manual 	%m.manual;	>
+<!ELEMENT division 	%m.division;	>
+<!ELEMENT subdoc	EMPTY		>
+<!ELEMENT extref	EMPTY		>
+
+<!ATTLIST manual
+	package		CDATA	#REQUIRED
+	version		CDATA	#IMPLIED
+>
+<!ATTLIST extref
+	href		CDATA	#REQUIRED
+	title		CDATA	#REQUIRED
+	type		CDATA	#REQUIRED
+>
+<!ATTLIST subdoc
+	href		CDATA	#REQUIRED
+>
+
+<!-- ============================================================
+	Top-level element: manpage
+-->
+
+<!ELEMENT manpage
+	(head?,
+	 namesection, synopsis?,
+	 section*,
+	 seealso?, keywords?)
+>
+
+<!ATTLIST manpage
+	id  		ID	#REQUIRED
+	cat  		CDATA	#REQUIRED
+	title 		CDATA	#REQUIRED
+	package 	CDATA	#IMPLIED
+	%a.version;
+>
+
+<!ELEMENT section  (title, %m.top;, (subsection*)) >
+<!ATTLIST section
+	id	ID	#IMPLIED
+	%a.version;
+>
+<!ELEMENT subsection  (title, %m.top;) >
+<!ATTLIST subsection
+	id	ID	#IMPLIED
+	%a.version;
+>
+
+<!-- ============================================================
+	Standard sections:
+-->
+
+<!ELEMENT namesection 	((name+ | (title,name*)), desc)	>
+<!ELEMENT synopsis	(syntax|example)+ 		>
+<!ELEMENT keywords	(keyword+)			>
+<!ELEMENT keyword	(#PCDATA)			>
+<!ELEMENT seealso	(ref|url)+			>
+
+<!-- ============================================================
+	Common Constructs
+-->
+
+<!ELEMENT title   	(#PCDATA) 	>
+<!ELEMENT name 		(#PCDATA)	>
+<!ELEMENT desc		%m.mixed;	>
+<!-- OR: desc: %m.inline;  description:  %m.mixed; -->
+
+<!ATTLIST name
+	name	CDATA	#IMPLIED
+	cat	CDATA	#IMPLIED
+>
+
+<!-- ============================================================
+	Block-level elements:
+-->
+
+<!ELEMENT ul	(li+)		>
+<!ELEMENT ol	(li+)		>
+<!ELEMENT li	%m.mixed;	>
+<!ATTLIST li	%a.version;	>
+
+<!ELEMENT sl	(li+)		>
+<!ATTLIST sl
+	cols	CDATA	#IMPLIED
+	cat 	CDATA	#IMPLIED
+>
+
+<!ELEMENT dl	(dle | (dt,dd))+ >
+<!ELEMENT dle	(dt+, dd)	>
+<!ATTLIST dle	%a.version; 	>
+<!ELEMENT dt	%m.inline;	>
+<!ELEMENT dd	%m.mixed; 	>
+<!ATTLIST dl
+	scope	(local|global)	"local"
+	cat	CDATA		#IMPLIED
+>
+
+<!-- Extended lists:  
+     Similar to DocBook SegmentedLists
+-->
+
+<!ELEMENT xl	(xlh?, xle+)	>
+<!ELEMENT xlh	(xh+) 		>
+<!ELEMENT xh	%m.inline;	>
+<!ELEMENT xle	(xt+, desc?)	>
+<!ELEMENT xt	%m.inline;	>
+
+<!ELEMENT p	%m.inline; 	>
+<!ATTLIST p	%a.version;	>
+
+<!ELEMENT example	%m.code;			>
+<!ELEMENT syntax	%m.code;			>
+<!ATTLIST syntax
+	%ad.scope;	#IMPLIED
+	cat	CDATA	#IMPLIED
+	name    CDATA	#IMPLIED
+>
+
+<!-- ============================================================
+	Inline elements:
+-->
+
+<!ELEMENT i	%m.inline;	>
+<!ATTLIST i	cat CDATA #IMPLIED >
+<!ELEMENT b	%m.inline;	>
+<!ATTLIST b	cat CDATA #IMPLIED >
+<!ELEMENT emph	%m.inline;	>
+<!ELEMENT samp	%m.code;	>
+<!ELEMENT o	%m.code;	>
+
+<!ELEMENT url	(#PCDATA)	>
+
+<!ELEMENT ref	%m.inline;	>
+<!ATTLIST ref
+	refid	CDATA	#IMPLIED
+	href	CDATA	#IMPLIED
+
+	cat	CDATA	#IMPLIED
+>
+<!-- @@ ALSO:
+	package	CDATA	#IMPLIED
+	manpage	CDATA	#IMPLIED
+	cat	CDATA	#IMPLIED
+	name	CDATA	#IMPLIED
+Legal combinations: (package? & ((manpage? & refid?) | (name? & cat?)))
+-->
+
+<!ELEMENT new	%m.inline;>
+<!ATTLIST new
+    version	CDATA	#REQUIRED
+>
+
+<!ELEMENT br	EMPTY	>
+
+<!-- ============================================================
+	Syntax elements:
+-->
+
+<!ELEMENT m (#PCDATA) >
+<!ELEMENT l (#PCDATA) >
+
+<!ELEMENT term (#PCDATA) >
+<!ATTLIST term
+	cat 	CDATA 	#IMPLIED
+>
+<!ELEMENT cmd   	(#PCDATA)	>
+<!ELEMENT method 	(#PCDATA) 	>
+<!ELEMENT option	(#PCDATA) 	>
+<!ELEMENT syscmd 	(#PCDATA)	>
+<!ELEMENT widget 	(#PCDATA)	>
+<!ELEMENT fun   	(#PCDATA)	>
+<!ELEMENT variable 	(#PCDATA)	>
+<!ELEMENT package 	(#PCDATA)	>
+<!ELEMENT type  	(#PCDATA)	>
+<!ELEMENT class  	(#PCDATA)	>
+<!ELEMENT file  	(#PCDATA)	>
+
+<!-- ============================================================
+	Tcl entity definition elements:
+-->
+
+<!ELEMENT arglist (argdef+) 		>
+<!ELEMENT argdef (argtype, name, argmode?, desc)	>
+<!ATTLIST argdef
+	%a.version;
+>
+<!ELEMENT argtype 	(#PCDATA)>
+<!ELEMENT argmode 	(#PCDATA)>
+
+<!ELEMENT commandlist	(commanddef+) >
+<!ELEMENT commanddef	(command,desc) >
+<!ATTLIST commanddef	%a.version; >
+<!ELEMENT command 	%m.code; >
+
+<!ELEMENT optlist	(optdef+) >
+<!ELEMENT optdef	(optname,optarg?,desc) >
+<!ELEMENT optname 	(#PCDATA) >
+<!ELEMENT optarg 	(#PCDATA) >
+
+<!ELEMENT optionlist	(optiondef+) >
+<!ELEMENT optiondef	(name, dbname, dbclass, desc) >
+<!ATTLIST optiondef	%a.version; >
+<!ELEMENT dbname	(#PCDATA) >
+<!ELEMENT dbclass	(#PCDATA) >
+<!ATTLIST optionlist
+	%ad.scope; "local"
+	cat 	CDATA		#IMPLIED
+>
+
+<!-- ============================================================
+	#FIXED attributes:
+	A DTD-aware processor may take advantage of these
+	if it simplifies processing.
+-->
+<![IGNORE[
+<!ENTITY % lineSpecific	"xml:space (default|preserve) 'preserve'" >
+<!ENTITY % tmmlform	"tmml CDATA #FIXED" >
+<!ENTITY % tmmlcat	"cat  CDATA #FIXED" >
+
+<!ATTLIST namesection	%tmmlform; "section"	title CDATA #FIXED "NAME" >
+<!ATTLIST synopsis	%tmmlform; "section"	title CDATA #FIXED "SYNOPSIS" >
+<!ATTLIST keywords	%tmmlform; "section"	title CDATA #FIXED "KEYWORDS" >
+<!ATTLIST seealso	%tmmlform; "section"	title CDATA #FIXED "SEE ALSO" >
+<!ATTLIST optionlist	%tmmlform; "xl" >
+<!ATTLIST arglist	%tmmlform; "xl" >
+<!ATTLIST example 	%lineSpecific; >
+<!ATTLIST syntax	%lineSpecific; >
+<!ATTLIST cmd   	%tmmlform; "term"	%tmmlcat; "cmd" >
+<!ATTLIST method  	%tmmlform; "term"	%tmmlcat; "method " >
+<!ATTLIST option 	%tmmlform; "term"	%tmmlcat; "option" >
+<!ATTLIST syscmd 	%tmmlform; "term"	%tmmlcat; "syscmd" >
+<!ATTLIST widget 	%tmmlform; "term"	%tmmlcat; "widget" >
+<!ATTLIST fun   	%tmmlform; "term"	%tmmlcat; "fun" >
+<!ATTLIST variable 	%tmmlform; "term"	%tmmlcat; "variable" >
+<!ATTLIST package 	%tmmlform; "term"	%tmmlcat; "package" >
+<!ATTLIST type    	%tmmlform; "term"	%tmmlcat; "type" >
+<!ATTLIST class    	%tmmlform; "term"	%tmmlcat; "class" >
+<!ATTLIST file    	%tmmlform; "term"	%tmmlcat; "file" >
+]]>
+
+<!-- ============================================================
+	Metainformation:
+	Note that these elements do not normally appear
+	inside TMML documents; they're for administrative
+	purposes only.
+-->
+
+<!ELEMENT head 		((extensions | info | link | category)*) >
+<!ELEMENT extensions	((extension|xlh)*) >
+<!ELEMENT extension	EMPTY >
+<!ATTLIST extension
+    gi		CDATA	#REQUIRED
+    tmml	CDATA	#REQUIRED
+>
+<!ATTLIST xlh
+	gi	CDATA	#IMPLIED
+>
+
+<!ELEMENT info EMPTY>
+<!ATTLIST info
+    key 	CDATA	#REQUIRED
+    value	CDATA	#REQUIRED
+>
+<!ELEMENT link EMPTY>
+<!ATTLIST link
+    rel 	CDATA	#REQUIRED
+    href	CDATA	#REQUIRED
+>
+
+<![INCLUDE[
+<!ELEMENT categories 	(category+) >
+<!ELEMENT category	EMPTY >
+<!ATTLIST category
+	id  	ID	#REQUIRED
+	title	CDATA	#IMPLIED
+>
+
+<!ENTITY categories
+    PUBLIC "-//jenglish//DOCUMENT Default TMML Categories" "categories.xml"
+>
+
+<!ELEMENT INDEX (head?, (MAN|DEF|KWD)*) >
+<!ATTLIST INDEX
+    title	CDATA	#REQUIRED
+    standalone	CDATA	#IMPLIED
+    package	CDATA	#IMPLIED
+>
+
+<!ELEMENT DEF	EMPTY  >
+<!ATTLIST DEF
+	name	CDATA	#REQUIRED
+	cat	CDATA	#IMPLIED
+	package	CDATA	#IMPLIED
+	manpage	CDATA	#IMPLIED
+	subpart	CDATA	#IMPLIED
+>
+<!ELEMENT KWD	EMPTY  >
+<!ATTLIST KWD
+	name	CDATA	#REQUIRED
+	manpage	CDATA	#IMPLIED
+>
+
+<!ELEMENT MAN	EMPTY  >
+<!ATTLIST MAN
+	id	CDATA	#REQUIRED
+	title	CDATA	#REQUIRED
+>
+
+]]>
+<!-- EOF -->

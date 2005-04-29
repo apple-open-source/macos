@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,13 +21,82 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <machine/limits.h>                  // (ULONG_MAX, ...)
-#include <IOKit/IODeviceTreeSupport.h>       // (gIODTPlane, ...)
-#include <IOKit/IOLib.h>                     // (IONew, ...)
+#include <IOKit/IODeviceTreeSupport.h> // (gIODTPlane, ...)
+#include <IOKit/IOLib.h>               // (IONew, ...)
+#include <IOKit/IOMessage.h>           // (kIOMessageServicePropertyChange, ...)
 #include <IOKit/storage/IOMedia.h>
 
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOMedia, IOStorage)
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+enum
+{
+    kIOStorageAccessWriter       = 0x00000002,
+    kIOStorageAccessInvalid      = 0x0000000C,
+    kIOStorageAccessReservedMask = 0xFFFFFFF0
+};
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+class IOMediaAccess
+{
+protected:
+
+    IOStorageAccess _access;
+
+public:
+
+    inline void operator=( IOStorageAccess access )
+    {
+        _access = access;
+    }
+
+    inline void operator=( OSObject * access )
+    {
+        if ( access )
+        {
+            operator=( ( ( OSNumber * ) access )->unsigned32BitValue( ) );
+        }
+        else
+        {
+            operator=( kIOStorageAccessNone );
+        }
+    }
+
+    inline void operator+=( IOStorageAccess access )
+    {
+        static UInt8 table[8][8] =
+        {            /* Rea, Wri, R|S, W|S, R|E, W|E, Inv, Non */
+            /* Rea */ { 000, 001, 002, 003, 006, 006, 006, 000 },
+            /* Wri */ { 011, 006, 011, 006, 006, 006, 006, 011 },
+            /* R|S */ { 002, 001, 002, 003, 006, 006, 006, 002 },
+            /* W|S */ { 003, 006, 003, 003, 006, 006, 006, 003 },
+            /* R|E */ { 006, 006, 006, 006, 006, 006, 006, 004 },
+            /* W|E */ { 006, 006, 006, 006, 006, 006, 006, 015 },
+            /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 },
+            /* Inv */ { 006, 006, 006, 006, 006, 006, 006, 006 }
+        };
+
+        _access = ( ( _access - 1 ) >> 1 ) & 7;
+        _access = table[ ( ( access - 1 ) >> 1 ) & 7 ][ _access ];
+        _access = ( ( _access & 7 ) << 1 ) + 1;
+    }
+
+    inline void operator+=( OSObject * access )
+    {
+        if ( access )
+        {
+            operator+=( ( ( OSNumber * ) access )->unsigned32BitValue( ) );
+        }
+    }
+
+    inline operator IOStorageAccess( )
+    {
+        return _access;
+    }
+};
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -80,7 +149,7 @@ void IOMedia::free(void)
     // Free all of this object's outstanding resources.
     //
 
-    if (_openReaders)  _openReaders->release();
+    if (_openClients)  _openClients->release();
 
     super::free();
 }
@@ -197,62 +266,103 @@ bool IOMedia::handleOpen(IOService *  client,
     // we make our decision, change our state, and return from this method.
     //
 
-    IOStorageAccess access = (IOStorageAccess) argument;
-    IOService *     driver = 0;
-    IOStorageAccess level  = kIOStorageAccessNone;
+    IOMediaAccess   access;
+    IOStorageAccess accessIn;
+    IOService *     driver;
+    IOMediaAccess   level;
+    OSObject *      object;
+    OSIterator *    objects;
+    bool            rebuild;
+    bool            teardown;
 
-    assert(client);
+    //
+    // State our assumptions.
+    //
+
+    assert( client );
+
+    //
+    // Initialize our minimal state.
+    //
+
+    access   = _openClients->getObject( ( OSSymbol * ) client );
+    accessIn = ( IOStorageAccess ) argument;
+
+    rebuild  = false;
+    teardown = false;
 
     //
     // Determine whether one of our clients is a storage driver.
     //
 
-    const OSSymbol * s = OSSymbol::withCString(kIOStorageCategory);
+    object = ( OSObject * ) OSSymbol::withCString( kIOStorageCategory );
 
-    if (s)
+    if ( object == 0 )
     {
-        driver = getClientWithCategory(s);
-        s->release();
+        return false;
     }
 
+    driver = getClientWithCategory( ( OSSymbol * ) object );
+
+    object->release( );
+
     //
-    // Chart our course of action.
+    // Reevaluate the open we have on the level below us.
     //
 
-    switch (access)
+    objects = OSCollectionIterator::withCollection( _openClients );
+
+    if ( objects == 0 )
     {
-        case kIOStorageAccessReader:
+        return false;
+    }
+
+    level = kIOStorageAccessNone;
+
+    while ( ( object = objects->getNextObject( ) ) )
+    {
+        if ( object != client )
         {
-            if (_openReaders->containsObject(client))     // (access: no change)
-                return true;
-            else if (_openReaderWriter == client)         // (access: downgrade)
-                level = kIOStorageAccessReader;
-            else                                         // (access: new reader)
-                level = _openReaderWriter ? kIOStorageAccessReaderWriter
-                                          : kIOStorageAccessReader;
-            break;
+            level += _openClients->getObject( ( OSSymbol * ) object );
         }
-        case kIOStorageAccessReaderWriter:
+    }
+
+    objects->release( );
+
+    //
+    // Evaluate the open we have from the level above us.
+    //
+
+    level += accessIn;
+
+    if ( level == kIOStorageAccessInvalid )
+    {
+        return false;
+    }
+
+    if ( ( accessIn & kIOStorageAccessWriter ) )
+    {
+        if ( _isWritable == false )
         {
-            if (_openReaders->containsObject(client))       // (access: upgrade)
-                level = kIOStorageAccessReaderWriter; 
-            else if (_openReaderWriter == client)         // (access: no change)
-                return true;
-            else                                         // (access: new writer)
-                level = kIOStorageAccessReaderWriter; 
-
-            if (_isWritable == false)        // (is this media object writable?)
-                return false;
-
-            if (_openReaderWriter)      // (does a reader-writer already exist?)
-                return false;
-
-            break;
-        }
-        default:
-        {
-            assert(0);
             return false;
+        }
+
+        if ( ( accessIn & kIOStorageAccessSharedLock ) == false )
+        {
+            if ( driver )
+            {
+                if ( driver != client )
+                {
+                    teardown = true;
+                }
+            }
+        }
+    }
+    else
+    {
+        if ( ( access & kIOStorageAccessWriter ) )
+        {
+            rebuild = true;
         }
     }
 
@@ -260,54 +370,75 @@ bool IOMedia::handleOpen(IOService *  client,
     // If we are in the terminated state, we only accept downgrades.
     //
 
-    if (isInactive() && _openReaderWriter != client) // (dead? not a downgrade?)
-        return false;
-
-    //
-    // Determine whether the storage driver above us can be torn down, if
-    // this is a new reader-writer open, or an upgrade to a reader-writer
-    // (if the client issuing the open is not the storage driver itself).
-    //
-
-    if (access == kIOStorageAccessReaderWriter)  // (new reader-writer/upgrade?)
+    if ( isInactive( ) )
     {
-        if (driver && driver != client)             // (is tear down necessary?)
+        if ( access == kIOStorageAccessNone )
         {
-            if (_openReaders->containsObject(driver))  // (no opens via driver?)
-                return false;
+            return false;
+        }
 
-            if (driver->terminate(kIOServiceSynchronous) == false)
-                return false;
+        if ( ( accessIn & kIOStorageAccessWriter ) )
+        {
+            return false;
         }
     }
 
     //
-    // Determine whether the storage objects below us accept this open at this
-    // multiplexed level of access -- new opens, upgrades, and downgrades (and
-    // no changes in access) all enter through the same open api.
+    // Determine whether the storage driver above us can be torn down, if
+    // this is a new exclusive writer open, or an upgrade to an exclusive
+    // writer open (and if the client issuing the open is not the storage
+    // driver itself).
     //
 
-    if (_openLevel != level)                        // (has open level changed?)
+    if ( teardown )
     {
-        IOStorage * provider = OSDynamicCast(IOStorage, getProvider());
-
-        if (provider && provider->open(this, options, level) == false)
+        if ( _openClients->getObject( ( OSSymbol * ) driver ) )
         {
-            //
-            // We were unable to open the storage objects below us.   We must
-            // recover from the terminate we issued above before bailing out,
-            // if applicable, by re-registering the media object for matching.
-            //
-
-            if (access == kIOStorageAccessReaderWriter)
-            {
-                if (driver && driver != client)    // (was tear down necessary?)
-                {
-                    registerService(kIOServiceAsynchronous);
-                }
-            }
-
             return false;
+        }
+
+        if ( driver->terminate( kIOServiceSynchronous ) == false )
+        {
+            return false;
+        }
+    }
+
+    //
+    // Determine whether the storage object below us accepts the open at this
+    // multiplexed level of access -- new opens, upgrades and downgrades (and
+    // no changes in access) all enter through the same method.
+    //
+
+    level = ( level & kIOStorageAccessReaderWriter );
+
+    if ( _openLevel != level )
+    {
+        IOStorage * provider;
+
+        provider = OSDynamicCast( IOStorage, getProvider( ) );
+
+        if ( provider )
+        {
+            bool success;
+
+            success = provider->open( this, options, level );
+
+            if ( success == false )
+            {
+                //
+                // We were unable to open the storage object below us.  We
+                // must recover from the terminate we invoked above before
+                // bailing out, if applicable, by re-registering the media
+                // object for matching.
+                //
+
+                if ( teardown )
+                {
+                    registerService( kIOServiceAsynchronous );
+                }
+
+                return false;
+            }
         }
     }
 
@@ -315,27 +446,38 @@ bool IOMedia::handleOpen(IOService *  client,
     // Process the open.
     //
 
+    object = OSNumber::withNumber( level, 32 );
+
+    assert( object );
+
+    _openClients->setObject( ( OSSymbol * ) client, object );
+
     _openLevel = level;
 
-    if (access == kIOStorageAccessReader)
+    object->release( );
+
+    //
+    // If a writer just closed, re-register the media so that I/O Kit will
+    // attempt to match storage drivers that may now be interested in this
+    // media.
+    //
+
+    if ( rebuild )
     {
-        _openReaders->setObject(client);
-
-        if (_openReaderWriter == client)                    // (for a downgrade)
+        if ( isInactive( ) == false )
         {
-            _openReaderWriter = 0;
-
-            if (driver == 0 && isInactive() == false)
+            if ( driver )
             {
-                registerService(kIOServiceAsynchronous);  // (re-register media)
+                if ( driver != client )
+                {
+                    driver->requestProbe( 0 );
+                }
+            }
+            else
+            {
+                registerService( kIOServiceAsynchronous );
             }
         }
-    }
-    else // (access == kIOStorageAccessReaderWriter)
-    {
-        _openReaderWriter = client;
-
-        _openReaders->removeObject(client);                  // (for an upgrade)
     }
 
     return true;
@@ -355,10 +497,14 @@ bool IOMedia::handleIsOpen(const IOService * client) const
     // we return from this method.
     //
 
-    if (client == 0)  return (_openLevel != kIOStorageAccessNone);
-
-    return ( _openReaderWriter == client          ||
-             _openReaders->containsObject(client) );
+    if ( client )
+    {
+        return _openClients->getObject( ( OSSymbol * ) client ) ? true : false;
+    }
+    else
+    {
+        return _openClients->getCount( ) ? true : false;
+    }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -374,87 +520,125 @@ void IOMedia::handleClose(IOService * client, IOOptionBits options)
     // we change our state and return from this method.
     //
 
-    IOService *     driver     = 0;
-    IOStorageAccess level      = kIOStorageAccessNone;
-    bool            reregister = false;
+    IOMediaAccess access;
+    IOService *   driver;
+    IOMediaAccess level;
+    OSObject *    object;
+    OSIterator *  objects;
 
-    assert(client);
+    //
+    // State our assumptions.
+    //
+
+    assert( client );
+
+    assert( _openClients->getObject( ( OSSymbol * ) client ) );
+
+    //
+    // Initialize our minimal state.
+    //
+
+    access = _openClients->getObject( ( OSSymbol * ) client );
 
     //
     // Determine whether one of our clients is a storage driver.
     //
 
-    const OSSymbol * s = OSSymbol::withCString(kIOStorageCategory);
+    object = ( OSObject * ) OSSymbol::withCString( kIOStorageCategory );
 
-    if (s)
+    if ( object == 0 )
     {
-        driver = getClientWithCategory(s);
-        s->release();
+        return;
+    }
+
+    driver = getClientWithCategory( ( OSSymbol * ) object );
+
+    object->release( );
+
+    //
+    // Reevaluate the open we have on the level below us.
+    //
+
+    objects = OSCollectionIterator::withCollection( _openClients );
+
+    if ( objects == 0 )
+    {
+        return;
+    }
+
+    level = kIOStorageAccessNone;
+
+    while ( ( object = objects->getNextObject( ) ) )
+    {
+        if ( object != client )
+        {
+            level += _openClients->getObject( ( OSSymbol * ) object );
+        }
+    }
+
+    objects->release( );
+
+    //
+    // If no opens remain, we close, or if no writers remain, but readers do,
+    // we downgrade.
+    //
+
+    level = ( level & kIOStorageAccessReaderWriter );
+
+    if ( _openLevel != level )
+    {
+        IOStorage * provider;
+
+        provider = OSDynamicCast( IOStorage, getProvider( ) );
+
+        if ( provider )
+        {
+            if ( level == kIOStorageAccessNone )
+            {
+                provider->close( this, options );
+            }
+            else
+            {
+                bool success;
+
+                success = provider->open( this, 0, level );
+
+                assert( success );
+            }
+        }
     }
 
     //
     // Process the close.
     //
 
-    if (_openReaderWriter == client)         // (is the client a reader-writer?)
-    {
-        _openReaderWriter = 0;
+    _openClients->removeObject( ( OSSymbol * ) client );
 
-        if (driver == 0 && isInactive() == false)
-        {
-            reregister = true;
-        }
-    }
-    else if (_openReaders->containsObject(client))  // (is the client a reader?)
-    {
-        _openReaders->removeObject(client);
-    }
-    else                                      // (is the client is an imposter?)
-    {
-        assert(0);
-        return;
-    }
+    _openLevel = level;
 
     //
-    // Reevaluate the open we have on the level below us.  If no opens remain,
-    // we close, or if no reader-writer remains, but readers do, we downgrade.
-    //
-
-    if      (_openReaderWriter)         level = kIOStorageAccessReaderWriter;
-    else if (_openReaders->getCount())  level = kIOStorageAccessReader;
-    else                                level = kIOStorageAccessNone;
-
-    if (_openLevel != level)                        // (has open level changed?)
-    {
-        IOStorage * provider = OSDynamicCast(IOStorage, getProvider());
-
-        assert(level != kIOStorageAccessReaderWriter);
-
-        if (provider)
-        {
-            if (level == kIOStorageAccessNone)         // (is a close in order?)
-            {
-                provider->close(this, options);
-            }
-            else                                   // (is a downgrade in order?)
-            {
-                bool success;
-                success = provider->open(this, 0, level);
-                assert(success); // (should never fail, unless avoided deadlock)
-            }
-         }
-
-         _openLevel = level;                             // (set new open level)
-    }
-
-    //
-    // If the reader-writer just closed,  re-register the media so that I/O Kit
-    // will attempt to match storage drivers that may now be interested in this
+    // If a writer just closed, re-register the media so that I/O Kit will
+    // attempt to match storage drivers that may now be interested in this
     // media.
     //
 
-    if (reregister)
-        registerService(kIOServiceAsynchronous);          // (re-register media)
+    if ( ( access & kIOStorageAccessWriter ) )
+    {
+        if ( isInactive( ) == false )
+        {
+            if ( driver )
+            {
+                if ( driver != client )
+                {
+                    driver->requestProbe( 0 );
+                }
+            }
+            else
+            {
+                registerService( kIOServiceAsynchronous );
+            }
+        }
+    }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -537,7 +721,7 @@ void IOMedia::write(IOService *          client,
         return;
     }
 
-    if (_openReaderWriter != client)           // (instantaneous value, no lock)
+    if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
 ///m:2425148:workaround:commented:start
 //        complete(completion, kIOReturnNotPrivileged);
@@ -591,7 +775,7 @@ IOReturn IOMedia::synchronizeCache(IOService * client)
         return kIOReturnNotOpen;
     }
 
-    if (_openReaderWriter != client)           // (instantaneous value, no lock)
+    if (_openLevel == kIOStorageAccessReader)  // (instantaneous value, no lock)
     {
 ///m:2425148:workaround:commented:start
 //        return kIOReturnNotPrivileged;
@@ -700,7 +884,7 @@ const char * IOMedia::getContent() const
     // possible that the description be overrided by a client (which has probed
     // the media and identified the content correctly) of the media object.  It
     // is more accurate than the hint for this reason.  The string is formed in
-    // the likeness of Apple's "Apple_HFS" strings.
+    // the likeness of Apple's "Apple_HFS" strings or in the likeness of a UUID.
     //
     // The content description can be overrided by any client that matches onto
     // this media object with a match category of kIOStorageCategory.  The media
@@ -723,7 +907,8 @@ const char * IOMedia::getContentHint() const
     // Ask the media object for a hint of its contents.  The hint is set at the
     // time of the object's creation, should the creator have a clue as to what
     // it may contain.  The hint string does not change for the lifetime of the
-    // object and is also formed in the likeness of Apple's "Apple_HFS" strings.
+    // object and is also formed in the likeness of Apple's "Apple_HFS" strings
+    // or in the likeness of a UUID.
     //
 
     OSString * string;
@@ -807,7 +992,10 @@ bool IOMedia::init(UInt64               base,
 
     // Ask our superclass' opinion.
 
-    if (super::init(properties) == false)  return false;
+    if (_openClients == 0)
+    {
+        if (super::init(properties) == false)  return false;
+    }
 
     // Initialize our state.
 
@@ -822,15 +1010,29 @@ bool IOMedia::init(UInt64               base,
 
     _attributes         = attributes;
     _mediaBase          = base;
-    _mediaSize          = size;
     _isWhole            = isWhole;
     _isWritable         = isWritable;
-    _openLevel          = kIOStorageAccessNone;
-    _openReaders        = OSSet::withCapacity(1);
-    _openReaderWriter   = 0;
     _preferredBlockSize = preferredBlockSize;
 
-    if (_openReaders == 0)  return false;
+///m:3879984:workaround:added:start
+    if (size > _mediaSize)
+    {
+        (volatile UInt64) _mediaSize = (size & (UINT64_MAX ^ UINT32_MAX)) | (_mediaSize & UINT32_MAX);
+    }
+    else
+    {
+        (volatile UInt64) _mediaSize = (size & UINT32_MAX) | (_mediaSize & (UINT64_MAX ^ UINT32_MAX));
+    }
+///m:3879984:workaround:added:stop
+    (volatile UInt64) _mediaSize = size;
+
+    if (_openClients == 0)
+    {
+        _openClients = OSDictionary::withCapacity(2);
+        _openLevel   = kIOStorageAccessNone;
+    }
+
+    if (_openClients == 0)  return false;
 
     // Create our registry properties.
 
@@ -843,6 +1045,8 @@ bool IOMedia::init(UInt64               base,
     setProperty(kIOMediaSizeKey,               size, 64);
     setProperty(kIOMediaWholeKey,              isWhole);
     setProperty(kIOMediaWritableKey,           isWritable);
+
+    messageClients(kIOMessageServicePropertyChange);
 
     return true;
 }

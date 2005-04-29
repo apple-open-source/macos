@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/singlepix.c,v 1.3 2001/03/21 16:04:39 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/singlepix.c,v 1.4 2004/01/28 18:11:43 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -40,11 +40,13 @@ void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
 		  GLenum format, GLenum type, GLvoid *pixels)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXReadPixelsReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_ReadPixels,__GLX_PAD(26));
@@ -54,7 +56,7 @@ void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height,
     __GLX_SINGLE_PUT_LONG(12,height);
     __GLX_SINGLE_PUT_LONG(16,format);
     __GLX_SINGLE_PUT_LONG(20,type);
-    __GLX_SINGLE_PUT_CHAR(24,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(24,state->storePack.swapEndian);
     __GLX_SINGLE_PUT_CHAR(25,GL_FALSE);
     __GLX_SINGLE_READ_XREPLY();
     compsize = reply.length << 2;
@@ -87,11 +89,13 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type,
 		   GLvoid *texels)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetTexImageReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetTexImage,__GLX_PAD(17));
@@ -99,7 +103,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type,
     __GLX_SINGLE_PUT_LONG(4,level);
     __GLX_SINGLE_PUT_LONG(8,format);
     __GLX_SINGLE_PUT_LONG(12,type);
-    __GLX_SINGLE_PUT_CHAR(16,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(16,state->storePack.swapEndian);
     __GLX_SINGLE_READ_XREPLY();
     compsize = reply.length << 2;
 
@@ -155,18 +159,20 @@ void glGetPolygonStipple(GLubyte *mask)
 void glGetColorTable(GLenum target, GLenum format, GLenum type, GLvoid *table)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetColorTableReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetColorTable,__GLX_PAD(13));
     __GLX_SINGLE_PUT_LONG(0,(long)target);
     __GLX_SINGLE_PUT_LONG(4,(long)format);
     __GLX_SINGLE_PUT_LONG(8,(long)type);
-    __GLX_SINGLE_PUT_CHAR(12,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(12,state->storePack.swapEndian);
     __GLX_SINGLE_READ_XREPLY();
     compsize = (long)reply.length << 2;
 
@@ -201,18 +207,20 @@ void glGetConvolutionFilter(GLenum target, GLenum format, GLenum type,
 			    GLvoid *image)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetConvolutionFilterReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetConvolutionFilter, __GLX_PAD(13));
     __GLX_SINGLE_PUT_LONG(0,target);
     __GLX_SINGLE_PUT_LONG(4,format);
     __GLX_SINGLE_PUT_LONG(8,type);
-    __GLX_SINGLE_PUT_CHAR(12,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(12,state->storePack.swapEndian);
     __GLX_SINGLE_READ_XREPLY();
     compsize = reply.length << 2;
 
@@ -248,18 +256,20 @@ void glGetSeparableFilter(GLenum target, GLenum format, GLenum type,
 			  GLvoid *row, GLvoid *column, GLvoid *span)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetSeparableFilterReply reply;
     GLubyte *rowBuf, *colBuf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetSeparableFilter, __GLX_PAD(13));
     __GLX_SINGLE_PUT_LONG(0,target);
     __GLX_SINGLE_PUT_LONG(4,format);
     __GLX_SINGLE_PUT_LONG(8,type);
-    __GLX_SINGLE_PUT_CHAR(12,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(12,state->storePack.swapEndian);
     __GLX_SINGLE_READ_XREPLY();
     compsize = reply.length << 2;
 
@@ -313,18 +323,20 @@ void glGetHistogram(GLenum target, GLboolean reset, GLenum format,
 		    GLenum type, GLvoid *values)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetHistogramReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetHistogram,__GLX_PAD(14));
     __GLX_SINGLE_PUT_LONG(0,(long)target);
     __GLX_SINGLE_PUT_LONG(4,(long)format);
     __GLX_SINGLE_PUT_LONG(8,(long)type);
-    __GLX_SINGLE_PUT_CHAR(12,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(12,state->storePack.swapEndian);
     __GLX_SINGLE_PUT_CHAR(13,reset);
     __GLX_SINGLE_READ_XREPLY();
     compsize = (long)reply.length << 2;
@@ -360,18 +372,20 @@ void glGetMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type,
 		 GLvoid *values)
 {
     __GLX_SINGLE_DECLARE_VARIABLES();
+    const __GLXattribute * state;
     xGLXGetMinmaxReply reply;
     GLubyte *buf;
 
     if (!dpy) return;
     __GLX_SINGLE_LOAD_VARIABLES();
+    state = gc->client_state_private;
 
     /* Send request */
     __GLX_SINGLE_BEGIN(X_GLsop_GetMinmax,__GLX_PAD(14));
     __GLX_SINGLE_PUT_LONG(0,(long)target);
     __GLX_SINGLE_PUT_LONG(4,(long)format);
     __GLX_SINGLE_PUT_LONG(8,(long)type);
-    __GLX_SINGLE_PUT_CHAR(12,gc->state.storePack.swapEndian);
+    __GLX_SINGLE_PUT_CHAR(12,state->storePack.swapEndian);
     __GLX_SINGLE_PUT_CHAR(13,reset);
     __GLX_SINGLE_READ_XREPLY();
     compsize = (long)reply.length << 2;

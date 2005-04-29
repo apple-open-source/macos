@@ -28,21 +28,18 @@ OR PERFORMANCE OF THIS SOFTWARE.
 			       fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
+/* $XFree86: xc/lib/X11/XimTrInt.h,v 1.2 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XIMTRINT_H
 #define _XIMTRINT_H
 
-#if NeedFunctionPrototypes
 #include "Ximint.h"
-#endif
 
 typedef struct {
     char	*transportname;
     Bool	 (*config)(
-#if NeedFunctionPrototypes
 			Xim,
 			char *
-#endif
     );
 } TransportSW;
 
@@ -53,19 +50,15 @@ extern TransportSW _XimTransportRec[];
  */
 
 extern Bool	_XimXConf(
-#if NeedFunctionPrototypes
     Xim		 im,
     char	*address
-#endif
 );
 
 #if defined(TCPCONN) || defined(UNIXCONN) || defined(DNETCONN) || defined(STREAMSCONN)
 
 extern Bool	_XimTransConf(
-#if NeedFunctionPrototypes
     Xim		 im,
     char	*address
-#endif
 );
 
 #endif

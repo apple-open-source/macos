@@ -29,6 +29,8 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/hidsystem/IOHIDLib.h>
 #include <IOKit/iokitmig.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 kern_return_t
 IOFramebufferServerStart( void );
@@ -95,14 +97,24 @@ IOHIDPostEvent( io_connect_t        connect,
 {
     kern_return_t       err;
     unsigned int        len;
-    struct evioLLEvent  event;
+    int *               eventPid = 0;
+    int                 dataSize = sizeof(struct evioLLEvent) + sizeof(int);
+    char                data[dataSize];
+    struct evioLLEvent* event;
     UInt32              eventDataSize = sizeof(NXEventData);
 
-    event.type      = eventType;
-    event.location  = location;
-    event.flags     = eventFlags;
-    event.setFlags  = options & kIOHIDSetGlobalEventFlags;
-    event.setCursor = options & (kIOHIDSetCursorPosition | kIOHIDSetRelativeCursorPosition);
+    bzero(data, dataSize);
+    
+    event = (struct evioLLEvent*)data;
+    
+    event->type      = eventType;
+    event->location  = location;
+    event->flags     = eventFlags;
+    event->setFlags  = options;
+    event->setCursor = options & (kIOHIDSetCursorPosition | kIOHIDSetRelativeCursorPosition);
+    
+    eventPid = (int *)(event + 1);
+    *eventPid = getpid();
 
     if ( eventDataVersion < 2 )
     {
@@ -110,27 +122,27 @@ IOHIDPostEvent( io_connect_t        connect,
         // 1. NXEventData was 32 bytes long.
         // 2. eventDataVersion was (boolean_t) setCursor
         eventDataSize   = 32;
-        event.setCursor = eventDataVersion; // 0 or 1
+        event->setCursor = eventDataVersion; // 0 or 1
     }
 
-    if ( eventDataSize < sizeof(event.data) )
+    if ( eventDataSize < sizeof(event->data) )
     {
-        bcopy( eventData, &event.data, eventDataSize );
-        bzero( ((UInt8 *)(&event.data)) + eventDataSize,
-               sizeof(event.data) - eventDataSize );
+        bcopy( eventData, &(event->data), eventDataSize );
+        bzero( ((UInt8 *)(&(event->data))) + eventDataSize,
+               sizeof(event->data) - eventDataSize );
     }
     else
-        bcopy( eventData, &event.data, sizeof(event.data) );
+        bcopy( eventData, &event->data, sizeof(event->data) );
 
     len = 0;
     err = io_connect_method_structureI_structureO(
              connect,
              3,                /* index       */
-             (void *) &event,  /* input       */
-             sizeof(event),    /* inputCount  */
+             data,             /* input       */
+             dataSize,         /* inputCount  */
              NULL,             /* output      */
              &len);            /* outputCount */
-
+             
     return (err);
 }
 
@@ -150,14 +162,24 @@ IOHIDSetMouseLocation( mach_port_t connect,
 {
     kern_return_t	err;
     unsigned int	len;
-    IOGPoint		loc;
+    IOGPoint *		loc;
+    int             dataSize = sizeof(IOGPoint) + sizeof(int);
+    char            data[dataSize];
+    int *           eventPid = 0;
+        
+    bzero(data, dataSize);
+    
+    loc = (IOGPoint *)data;
+    
+    loc->x = x;
+    loc->y = y;
 
-    loc.x = x;
-    loc.y = y;
+    eventPid = (int *)(loc + 1);
+    *eventPid = getpid();
 
     len = 0;
     err = io_connect_method_structureI_structureO( connect, 4, /*index*/
-                    (void *)&loc, sizeof( loc), NULL, &len);
+                    data, dataSize, NULL, &len);
 
     return( err);
 }

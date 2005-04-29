@@ -40,22 +40,23 @@
 #include "SCPreferencesInternal.h"
 
 CFPropertyListRef
-SCPreferencesGetValue(SCPreferencesRef session, CFStringRef key)
+SCPreferencesGetValue(SCPreferencesRef prefs, CFStringRef key)
 {
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	CFPropertyListRef	value;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesGetValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  key   = %@"), key);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return NULL;
 	}
 
-	sessionPrivate->accessed = TRUE;
-	value = CFDictionaryGetValue(sessionPrivate->prefs, key);
-	if (!value) {
+	__SCPreferencesAccess(prefs);
+
+	value = CFDictionaryGetValue(prefsPrivate->prefs, key);
+	if (value == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 	}
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), value);
 	return value;
 }

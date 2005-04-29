@@ -2,67 +2,83 @@
 
                          David Dawes, Matthieu Herrb
 
-                              26 February 2003
+                              23 February 2004
 
                                   Abstract
 
      This document describes how to build XFree86 from the source dis-
-     tribution.  It is designed to be used in conjunction with the OS-
-     specific README files.
+     tribution and is designed to be used in conjunction with the oper-
+     ating system (OS) specific README files.
 
      NOTE:  Refer to the appropriate OS-specific README file before
-     attempting to build XFree86.  These files contain additional infor-
-     mation that you may need to successfully build under your OS.
+     attempting to build XFree86.  These files often contain additional
+     information that you need to successfully build for your OS.
 
-We highly recommend using gcc to build XFree86, but it generally also builds
-with the native compiler for each platform;
+We highly recommend using gcc to build XFree86, but XFree86 also generally
+builds with the native compiler for each OS platform;
 
-1.  How to get the XFree86 4.3.0 source
+1.  How to get the XFree86 4.4.0 source
 
-The recommended way of getting the XFree86 4.3.0 source is to get it directly
-from the XFree86 CVS repository.  There are several ways of doing that, and
-they are described at our CVS web page <URL:http://www.xfree86.org/cvs/>  The
-CVS tag for this release is "xf-4_3_0", and the tag for the maintenance
-branch for this release is "xf-4_3-branch".
+The recommended way of getting the XFree86 4.4.0 source is to obtain it
+directly from the XFree86 CVS repository.  There are several ways of doing
+that, and they are described at our CVS web page
+<URL:http://www.xfree86.org/cvs/>  The CVS tag for this release is
+"xf-4_4_0".   The tag for the maintenance branch for this release is
+"xf-4_4-branch".
 
-Another method of getting the XFree86 4.3.0 source is to either download the
-4.3.0 source tarballs from the XFree86 ftp site.  The procedure for this is
+Another method of getting the XFree86 4.4.0 source is to either download the
+4.4.0 source tarballs from the XFree86 ftp site.  The procedure for this is
 as follows:
 
-   o The XFree86 4.3.0 source is contained in the files X430src-1.tgz,
-     X430src-2.tgz, X430src-3.tgz, X430src-4.tgz, X430src-5.tgz,
-     X430src-6.tgz and X430src-7.tgz.  These can be found at
-     ftp://ftp.xfree86.org/pub/XFree86/4.3.0/source/ and similar locations on
-     XFree86 mirror sites.  X430src-4.tgz and X430src-5.tgz contains the
-     fonts.  X430src-6.tgz contains the documentation source.  X430src-7.tgz
-     contains the hardcopy documentation.  X430src-1.tgz, X430src-2.tgz and
-     X430src-3.tgz contains everything else.  If you don't need the docs or
-     fonts you can get by with only X430src-1.tgz, X430src-2.tgz and
-     X430src-3.tgz.
+   o The XFree86 4.4.0 source is contained in the files:
+
+          XFree86-4.4.0-src-1.tgz
+
+          XFree86-4.4.0-src-2.tgz
+
+          XFree86-4.4.0-src-3.tgz
+
+          XFree86-4.4.0-src-4.tgz
+
+          XFree86-4.4.0-src-5.tgz
+
+          XFree86-4.4.0-src-6.tgz
+
+          XFree86-4.4.0-src-7.tgz
+
+     These can be found at ftp://ftp.xfree86.org/pub/XFree86/4.4.0/source/
+     and similar locations on XFree86 mirror sites.  XFree86-4.4.0-src-4.tgz
+     and XFree86-4.4.0-src-5.tgz contains the fonts.  XFree86-4.4.0-src-6.tgz
+     contains the documentation source.  XFree86-4.4.0-src-7.tgz contains the
+     hardcopy documentation.  XFree86-4.4.0-src-1.tgz,
+     XFree86-4.4.0-src-2.tgz and XFree86-4.4.0-src-3.tgz contains everything
+     else.  If you don't need the docs or fonts you can get by with only
+     XFree86-4.4.0-src-1.tgz, XFree86-4.4.0-src-2.tgz and
+     XFree86-4.4.0-src-3.tgz.
 
    o Extract each of these files by running the following from a directory on
      a filesystem containing enough space (the full source requires around
      305MB, and a similar amount is required in addition to this for the com-
      piled binaries):
 
-          gzip -d < X430src-1.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-1.tgz | tar vxf -
 
-          gzip -d < X430src-2.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-2.tgz | tar vxf -
 
-          gzip -d < X430src-3.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-3.tgz | tar vxf -
 
-          gzip -d < X430src-4.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-4.tgz | tar vxf -
 
-          gzip -d < X430src-5.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-5.tgz | tar vxf -
 
-          gzip -d < X430src-6.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-6.tgz | tar vxf -
 
-          gzip -d < X430src-7.tgz | tar vxf -
+          gzip -d < XFree86-4.4.0-src-7.tgz | tar vxf -
 
-Alternatively, if you already have a pristine copy of the XFree86 4.2.0
+Alternatively, if you already have a pristine copy of the XFree86 4.3.0
 source, you can download patches from
-ftp://ftp.xfree86.org/pub/XFree86/4.3.0/patches/ that will allow you to con-
-vert it to 4.3.0.  Information about which patch files to download and how to
+ftp://ftp.xfree86.org/pub/XFree86/4.4.0/patches/ that will allow you to con-
+vert it to 4.4.0.  Information about which patch files to download and how to
 apply them can be found in the "How to get XFree86" section of the README for
 this release.
 
@@ -76,34 +92,32 @@ ing.
 If you do want to make configuration changes, it is recommended that you
 start by going to the xc/config/cf directory, and copying the file
 xf86site.def to host.def.  Then read through the host.def file (which is
-heavily commented), and set any parameters that you want for your configura-
-tion.  You can usually find out what the default settings are by checking the
-.cf file(s) relevant to your OS.
+heavily commented), and set your configuration parameters. Usually you can
+find the default settings by checking the .cf file(s) relevant to your OS.
 
-A general rule to follow is to only change things that you understand and
-have a good reason to change.  It is easy to create build problems by chang-
-ing the default configuration.  Many of the configuration parameters are doc-
-umented in xc/config/cf/README.
+A good rule to follow is only to change things that you understand as it's
+easy to create build problems by changing the default configuration.  Check
+the configuration parameters specified in the xc/config/cf/README.
 
-If you are using just the X430src-1.tgz, X430src-2.tgz and X430src-3.tgz
-parts of the source dist, you will need to define BuildFonts to NO.
+If you are using just the XFree86-4.4.0-src-1.tgz, XFree86-4.4.0-src-2.tgz
+and XFree86-4.4.0-src-3.tgz parts of the source dist, you will need to define
+BuildFonts to NO.
 
 3.  Using a shadow directory of symbolic links for the build
 
 A recommended practice is to use a shadow directory of symbolic links to do
-the build of XFree86. This permits to keep the source directory unmodified
-during the build, which has the following benefits:
+the build of XFree86 as this allows you to keep the source directory unmodi-
+fied during the build.  It has the following benefits:
 
-   o In the case where CVS is used to maintain the source tree up to date,
-     the update process is not disturbed by foreign files not under the con-
-     trol of CVS.
+   o When you are using CVS to maintain your source tree, the update process
+     is not disturbed by foreign files not under CVS's control.
 
    o It is possible to build XFree86 for several different Operating System
      or architectures from the same sources, shared by read-only NFS mounts.
 
-   o It is possible to build XFree86 with different configuration options,
-     just by putting a real copy of the host.def file in each build tree and
-     by customizing it separately in each build tree.
+   o It is possible to build XFree86 with different configuration options, by
+     putting a real copy of the host.def file in each build tree and by cus-
+     tomizing it separately in each build tree.
 
 To make a shadow directory of symbolic links, use the following steps:
 
@@ -132,20 +146,20 @@ from the XFree86 sources by running the following commands:
 
      cp lndir some directory in your PATH
 
-From time to time there may be some stale links in the build tree, for exam-
-ple, when files in the source tree are removed or renamed.  These can be
-cleaned up by running the "cleanlinks" script from the build directory (see
-the cleanlinks(1) manual page).  Rarely there will be changes that will
-require the build tree to be re-created from scratch.  A symptom of this can
-be mysterious build problems.  The best solution for this is to remove the
-build tree, and then re-create it using the steps outlined above.
+Occasionally there may be stale links in the build tree, like when files in
+the source tree are removed or renamed.  These can be cleaned up by running
+the "cleanlinks" script from the build directory (see the cleanlinks(1) man-
+ual page).  Rarely there will be changes that will require the build tree to
+be re-created from scratch.  A symptom of this can be mysterious build prob-
+lems.  The best solution for this is to remove the build tree, and then re-
+create it using the steps outlined above.
 
 4.  Building and installing the distribution
 
 Before building the distribution, read through the OS-specific README file in
-xc/programs/Xserver/hw/xfree86/doc that is relevant to you.  Once those OS-
-specific details have been taken care of, go your build directory (either the
-xc directory or the shadow tree created before) and run "make World" with the
+xc/programs/Xserver/hw/xfree86/doc that is relevant to you.  Once you have
+addressed the OS-specific details, go your build directory (either the xc
+directory or the shadow tree created before) and run "make World" with the
 BOOTSTRAPCFLAGS set as described in the OS-specific README (if necessary, but
 most systems supported by XFree86 don't need BOOTSTRAPCFLAGS).  It is advis-
 able to redirect stdout and stderr to World.Log so that you can track down
@@ -213,7 +227,7 @@ drivers installed:
 
 6.  Other useful make targets
 
-There are some other useful targets defined in the top level Makefileof
+There are some other useful targets defined in the top level Makefile of
 XFree86:
 
    o Everything after a make World, make Everything does everything a make
@@ -248,7 +262,7 @@ XFree86:
      shown do not match your system, you probably need to set them manually
      in host.def and report the problem to <XFree86@XFree86.org>.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/BUILD.sgml,v 3.11 2003/02/27 01:17:36 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/BUILD.sgml,v 3.14 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/BUILD,v 3.16 2003/02/27 01:44:03 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/BUILD,v 3.25 2004/02/24 03:49:40 dawes Exp $

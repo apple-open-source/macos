@@ -69,6 +69,15 @@ next(s)
 	case EOS:
 		return (0);
 	case INFINITE:
+		switch (ch = (u_char)*s->str) {
+		case '\0':
+			/*
+			 * force at least one postive return so setup() will
+			 * process lastch of a sequence like [a*]; but change
+			 * state so it won't get stuck in a while(next(s)) loop
+			 */
+			s->state = NORMAL;
+		} 
 		return (1);
 	case NORMAL:
 		switch (ch = (u_char)*s->str) {
@@ -291,9 +300,6 @@ genseq(s)
 {
 	char *ep;
 
-	if (s->which == STRING1)
-		errx(1, "sequences only valid in string2");
-
 	if (*s->str == '\\')
 		s->lastch = backslash(s);
 	else
@@ -336,7 +342,7 @@ backslash(s)
 
 	for (cnt = val = 0;;) {
 		ch = (u_char)*++s->str;
-		if (!isascii(ch) || !isdigit(ch))
+		if (!isascii(ch) || !isdigit(ch) || ch > '7')
 			break;
 		val = val * 8 + ch - '0';
 		if (++cnt == 3) {

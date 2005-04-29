@@ -1,8 +1,8 @@
 ;;; -*-Emacs-Lisp-*-
 ;;;
-;;;  $Id: inf-ruby.el,v 1.1.1.2 2003/05/14 13:58:50 melville Exp $
-;;;  $Author: melville $
-;;;  $Date: 2003/05/14 13:58:50 $
+;;;  $Id: inf-ruby.el,v 1.6.2.1 2004/07/27 07:51:28 matz Exp $
+;;;  $Author: matz $
+;;;  $Date: 2004/07/27 07:51:28 $
 ;;;
 ;;; Inferior Ruby Mode - ruby process in a buffer.
 ;;;                      adapted from cmuscheme.el
@@ -21,7 +21,7 @@
 ;;;    (setq interpreter-mode-alist (append '(("ruby" . ruby-mode))
 ;;;    				     interpreter-mode-alist))
 ;;;    
-;;; (2) set to road inf-ruby and set inf-ruby key definition in ruby-mode.
+;;; (2) set to load inf-ruby and set inf-ruby key definition in ruby-mode.
 ;;;
 ;;;    (autoload 'run-ruby "inf-ruby"
 ;;;      "Run an inferior Ruby process")
@@ -35,10 +35,11 @@
 ;;; HISTORY
 ;;; senda -  8 Apr 1998: Created.
 ;;;	 $Log: inf-ruby.el,v $
-;;;	 Revision 1.1.1.2  2003/05/14 13:58:50  melville
-;;;	 Import of ruby 1.6.8
+;;;	 Revision 1.6.2.1  2004/07/27 07:51:28  matz
+;;;	 * object.c (Init_Object): "===" calls rb_obj_equal() directly.
+;;;	   [ruby-list:39937]
 ;;;	
-;;;	 Revision 1.3.2.3  2002/09/07 14:37:26  nobu
+;;;	 Revision 1.6  2002/09/07 14:35:46  nobu
 ;;;	 * misc/inf-ruby.el (inferior-ruby-error-regexp-alist): regexp
 ;;;	   alist for error message from ruby.
 ;;;	
@@ -48,7 +49,7 @@
 ;;;	   doesn't parse first line, so insert separators before each
 ;;;	   evaluations.
 ;;;	
-;;;	 Revision 1.3.2.2  2002/08/19 10:06:20  nobu
+;;;	 Revision 1.5  2002/08/19 10:05:47  nobu
 ;;;	 * misc/inf-ruby.el (inf-ruby-keys): ruby-send-definition
 ;;;	   conflicted with ruby-insert-end.
 ;;;	
@@ -60,8 +61,12 @@
 ;;;	 * misc/inf-ruby.el (ruby-send-terminator): added to make unique
 ;;;	   terminator.
 ;;;	
-;;;	 Revision 1.3.2.1  2002/02/01 06:01:51  matz
-;;;	 * re.c (rb_reg_search): should set regs.allocated.
+;;;	 Revision 1.4  2002/01/29 07:16:09  matz
+;;;	 * file.c (rb_stat_rdev_major): added. [new]
+;;;	
+;;;	 * file.c (rb_stat_rdev_minor): added. [new]
+;;;	
+;;;	 * file.c (rb_stat_inspect): print mode in octal.
 ;;;	
 ;;;	 Revision 1.3  1999/12/01 09:24:18  matz
 ;;;	 19991201

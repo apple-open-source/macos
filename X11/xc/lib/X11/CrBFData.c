@@ -24,6 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/X11/CrBFData.c,v 1.3 2003/11/17 22:20:06 dawes Exp $ */
 
 #include "Xlib.h"
 
@@ -44,20 +45,12 @@ in this Software without prior written authorization from The Open Group.
  *    xoffset=0
  *    no extra bytes per line
  */  
-#if NeedFunctionPrototypes
 Pixmap XCreateBitmapFromData(
      Display *display,
      Drawable d,
      _Xconst char *data,
      unsigned int width,
      unsigned int height)
-#else
-Pixmap XCreateBitmapFromData(display, d, data, width, height)
-     Display *display;
-     Drawable d;
-     char *data;
-     unsigned int width, height;
-#endif
 {
     XImage ximage;
     GC gc;

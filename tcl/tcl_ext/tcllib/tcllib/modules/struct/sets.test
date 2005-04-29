@@ -1,0 +1,369 @@
+# Tests for the 'set' module in the 'struct' library. -*- tcl -*-
+#
+# This file contains a collection of tests for one or more of the Tcllib
+# procedures.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2004 by Andreas Kupries
+#
+# RCS: @(#) $Id: sets.test,v 1.3 2004/02/14 05:59:22 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+source [file join [file dirname [info script]] sets.tcl]
+
+#----------------------------------------------------------------------
+
+set sempty {}
+set smultiples {a b c a d f a f c h j}
+set sa {a b c d}
+set sb {e f g h}
+set sc {c d e f}
+set sd {a b c d e f}
+set se {c d e f g h}
+set sf {a b c d e f g h}
+
+interp alias {} setop {} ::struct::set::set
+
+#----------------------------------------------------------------------
+
+test set-1.0 {nothing} {
+    catch {setop} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::set} {cmd args} 0]
+
+test set-1.1 {bogus} {
+    catch {setop foo} msg
+    set msg
+} {bad option "foo": must be empty, contains, equal, intersect, symdiff, size, difference, intersect3, or union}
+
+
+test set-2.0 {emptiness} {
+    catch {setop empty} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sempty} {set} 0]
+
+test set-2.1 {emptiness} {
+    catch {setop empty a b} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Sempty} {set}]
+
+test set-2.2 {emptiness} {
+    setop empty $sempty
+} 1
+
+test set-2.3 {emptiness} {
+    setop empty $smultiples
+} 0
+
+test set-2.4 {emptiness} {
+    setop empty $sa
+} 0
+
+
+test set-3.0 {size} {
+    catch {setop size} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Ssize} {set} 0]
+
+test set-3.1 {size} {
+    catch {setop size a b} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Ssize} {set}]
+
+test set-3.2 {size} {
+    setop size $sempty
+} 0
+
+test set-3.3 {size} {
+    setop size $smultiples
+} 7
+
+test set-3.4 {size} {
+    setop size $sa
+} 4
+
+
+test set-4.0 {union} {
+    setop union
+} {}
+
+test set-4.1 {union} {
+    setop union $sempty
+} $sempty
+
+test set-4.2 {union} {
+    setop union $smultiples
+} $smultiples
+
+test set-4.3 {union} {
+    setop union $sa
+} $sa
+
+test set-4.4 {union} {
+    lsort [setop union $sa $sb]
+} $sf
+
+test set-4.5 {union} {
+    lsort [setop union $sa $sc]
+} $sd
+
+test set-4.6 {union} {
+    lsort [setop union $sa $sd]
+} {a b c d e f}
+
+test set-4.7 {union} {
+    lsort [setop union $sa $sempty]
+} $sa
+
+test set-4.8 {union} {
+    lsort [setop union $sempty $sa]
+} $sa
+
+test set-4.9 {union} {
+    lsort [setop union $sempty $sempty]
+} $sempty
+
+test set-4.10 {union} {
+    lsort [setop union $sa $sempty $smultiples]
+} {a b c d f h j}
+
+
+test set-5.0 {intersect} {
+    setop intersect
+} {}
+
+test set-5.1 {intersect} {
+    setop intersect $sempty
+} $sempty
+
+test set-5.2 {intersect} {
+    setop intersect $smultiples
+} $smultiples
+
+test set-5.3 {intersect} {
+    setop intersect $sa
+} $sa
+
+test set-5.4 {intersect} {
+    lsort [setop intersect $sa $sb]
+} $sempty
+
+test set-5.5 {intersect} {
+    lsort [setop intersect $sa $sc]
+} {c d}
+
+test set-5.6 {intersect} {
+    lsort [setop intersect $sa $sd]
+} $sa
+
+test set-5.7 {intersect} {
+    lsort [setop intersect $sa $sempty]
+} $sempty
+
+test set-5.8 {intersect} {
+    lsort [setop intersect $sempty $sa]
+} $sempty
+
+test set-5.9 {intersect} {
+    lsort [setop intersect $sempty $sempty]
+} $sempty
+
+test set-5.10 {intersect} {
+    lsort [setop intersect $sa $sempty $smultiples]
+} $sempty
+
+test set-5.11 {intersect} {
+    lsort [setop intersect $sa $sa]
+} $sa
+
+test set-5.12 {intersect} {
+    lsort [setop intersect $sa $sc $sd]
+} {c d}
+
+test set-5.13 {intersect} {
+    lsort [setop intersect $sa $sc {x y}]
+} $sempty
+
+
+test set-6.0 {difference} {
+    catch {setop difference} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sdifference} {A B} 0]
+
+test set-6.1 {difference} {
+    catch {setop difference a} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sdifference} {A B} 1]
+
+test set-6.2 {difference} {
+    catch {setop difference a b c} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Sdifference} {A B}]
+
+test set-6.3 {difference} {
+    setop difference $sa $sempty
+} $sa
+
+test set-6.4 {difference} {
+    setop difference $sempty $sa
+} $sempty
+
+test set-6.5 {difference} {
+    lsort [setop difference $sa $sb]
+} $sa
+
+test set-6.6 {difference} {
+    lsort [setop difference $sa $sc]
+} {a b}
+
+test set-6.7 {difference} {
+    lsort [setop difference $sa $sd]
+} $sempty
+
+test set-6.8 {difference} {
+    lsort [setop difference $sd $sa]
+} {e f}
+
+
+test set-7.0 {symdiff} {
+    catch {setop symdiff} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Ssymdiff} {A B} 0]
+
+test set-7.1 {symdiff} {
+    catch {setop symdiff a} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Ssymdiff} {A B} 1]
+
+test set-7.2 {symdiff} {
+    catch {setop symdiff a b c} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Ssymdiff} {A B}]
+
+test set-7.3 {symdiff} {
+    lsort [setop symdiff $sa $sempty]
+} $sa
+
+test set-7.4 {symdiff} {
+    lsort [setop symdiff $sempty $sa]
+} $sa
+
+test set-7.5 {symdiff} {
+    lsort [setop symdiff $sa $sb]
+} $sf
+
+test set-7.6 {symdiff} {
+    lsort [setop symdiff $sa $sc]
+} {a b e f}
+
+test set-7.7 {symdiff} {
+    lsort [setop symdiff $sa $sd]
+} {e f}
+
+test set-7.8 {symdiff} {
+    lsort [setop symdiff $sd $sa]
+} {e f}
+
+
+test set-8.0 {intersect3} {
+    catch {setop intersect3} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sintersect3} {A B} 0]
+
+test set-8.1 {intersect3} {
+    catch {setop intersect3 a} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sintersect3} {A B} 1]
+
+test set-8.2 {intersect3} {
+    catch {setop intersect3 a b c} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Sintersect3} {A B}]
+
+test set-8.3 {intersect3} {
+    foreach {i da db} [setop intersect3 $sa $sempty] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sempty $sa $sempty]
+
+test set-8.4 {intersect3} {
+    foreach {i da db} [setop intersect3 $sempty $sa] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sempty $sempty $sa]
+
+test set-8.5 {intersect3} {
+    foreach {i da db} [setop intersect3 $sa $sb] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sempty $sa $sb]
+
+test set-8.6 {intersect3} {
+    foreach {i da db} [setop intersect3 $sa $sc] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} {{c d} {a b} {e f}}
+
+test set-8.7 {intersect3} {
+    foreach {i da db} [setop intersect3 $sa $sd] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sa $sempty {e f}]
+
+test set-8.8 {intersect3} {
+    foreach {i da db} [setop intersect3 $sempty $sempty] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sempty $sempty $sempty]
+
+test set-8.9 {intersect3} {
+    foreach {i da db} [setop intersect3 $sa $sa] break
+    list [lsort $i] [lsort $da] [lsort $db]
+} [list $sa $sempty $sempty]
+
+
+test set-9.0 {equal} {
+    catch {setop equal} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sequal} {A B} 0]
+
+test set-9.1 {equal} {
+    catch {setop equal a} msg
+    set msg
+} [tcltest::wrongNumArgs {::struct::set::Sequal} {A B} 1]
+
+test set-9.2 {equal} {
+    catch {setop equal a b c} msg
+    set msg
+} [tcltest::tooManyArgs {::struct::set::Sequal} {A B}]
+
+test set-9.3 {equal} {
+    setop equal $sempty $sempty
+} 1
+
+test set-9.4 {equal} {
+    setop equal $sempty $sa
+} 0
+
+test set-9.5 {equal} {
+    setop equal $sa $sempty
+} 0
+
+test set-9.6 {equal} {
+    setop equal $sa $sb
+} 0
+
+test set-9.7 {equal} {
+    setop equal $sa $sa
+} 1
+
+test set-9.8 {equal} {
+    setop equal $sa $sd
+} 0
+
+test set-9.9 {equal} {
+    setop equal $smultiples {a b c d f h j}
+} 1
+
+
+#----------------------------------------------------------------------
+::tcltest::cleanupTests
+

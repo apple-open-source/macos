@@ -1,0 +1,101 @@
+%{
+#pragma prototyped
+#include "incrface/incrcmds.h"
+%}
+
+%token <i> T_graph T_node T_edge T_view
+%token <i> T_open T_close T_insert T_delete T_modify T_lock T_unlock T_segue T_message
+%token <str> T_id
+%token <i> T_edgeop T_subgraph
+%type <str> viewid
+
+%union	{
+			int				i;
+			char			*str;
+}
+
+%%
+
+session		:  commands 
+//			|  /* empty */
+			;
+
+commands	:	commands command '\n'
+			|	/* empty */
+			;
+
+command		:
+			ins_node | ins_edge
+			| mod_node | mod_edge
+			| del_node | del_edge
+			| open_view | close_view | mod_view
+			| lock_view | unlock_view
+			| segue
+                        | message
+			| nop
+			|  error	{incr_abort(IF_ERR_SYNTAX);}
+			;
+
+nop			:	/* empty */
+			;
+
+message : T_message T_id {incr_message($2);}
+			;
+
+open_view	:	T_open T_view open_view2 {}
+			;
+
+open_view2 : viewid attrlist	{incr_open_view($1);}
+			;
+
+close_view	:	T_close T_view viewid		{incr_close_view($3);}
+			;
+
+mod_view	:	T_modify T_view viewid attrlist {incr_mod_view($3);}
+			;
+
+lock_view : T_lock T_view viewid {incr_lock($3);}
+			;
+
+unlock_view : T_unlock T_view viewid {incr_unlock($3);}
+			;
+
+segue : T_segue T_view viewid {incr_segue($3);}
+                        ; 
+
+ins_node	:	T_insert viewid T_node T_id attrlist	{incr_ins_node($2,$4);}
+			;
+
+mod_node	:	T_modify viewid T_node T_id attrlist	{incr_mod_node($2,$4);}
+			;
+
+del_node	:	T_delete viewid T_node T_id	{incr_del_node($2,$4);}
+			;
+
+ins_edge	:	T_insert viewid T_edge T_id T_id T_id attrlist {incr_ins_edge($2,$4,$5,$6);}
+			;
+
+mod_edge	:	T_modify viewid T_edge T_id attrlist {incr_mod_edge($2,$4);}
+			;
+
+del_edge	:	T_delete viewid T_edge T_id	{incr_del_edge($2,$4);}
+			;
+
+attrlist	: 	'[' {incr_reset_attrs();} optattrdefs ']'
+			|	{incr_reset_attrs();} /* empty */
+			;
+
+optattrdefs	: 	attrdefs
+			| /* empty */
+			;
+
+attrdefs	:  attritem
+			|  attrdefs optsep attritem
+			;
+
+attritem	:  T_id '=' T_id			{incr_append_attr($1,$3);}
+			;
+
+optsep 		:  ';' | ',' | /*empty*/ ;
+ 
+viewid		:	T_id {$$ = $1; } ;

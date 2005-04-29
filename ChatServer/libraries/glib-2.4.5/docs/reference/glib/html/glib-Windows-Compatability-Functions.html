@@ -1,0 +1,123 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Windows Compatibility Functions</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"><link rel="home" href="index.html" title="GLib Reference Manual"><link rel="up" href="glib-utilities.html" title="GLib Utilities"><link rel="previous" href="glib-Simple-XML-Subset-Parser.html" title="Simple XML Subset Parser"><link rel="next" href="glib-data-types.html" title="GLib Data Types"><link rel="chapter" href="glib.html" title="GLib Overview"><link rel="refentry" href="glib-building.html" title="Compiling the GLib package"><link rel="refentry" href="glib-cross-compiling.html" title="Cross-compiling the GLib package"><link rel="refentry" href="glib-compiling.html" title="Compiling GLib Applications"><link rel="refentry" href="glib-running.html" title="Running GLib Applications"><link rel="refentry" href="glib-changes.html" title="Changes to GLib"><link rel="refentry" href="glib-resources.html" title="Mailing lists and bug reports"><link rel="chapter" href="glib-fundamentals.html" title="GLib Fundamentals"><link rel="refentry" href="glib-Basic-Types.html" title="Basic Types"><link rel="refentry" href="glib-Limits-of-Basic-Types.html" title="Limits of Basic Types"><link rel="refentry" href="glib-Standard-Macros.html" title="Standard Macros"><link rel="refentry" href="glib-Type-Conversion-Macros.html" title="Type Conversion Macros"><link rel="refentry" href="glib-Byte-Order-Macros.html" title="Byte Order Macros"><link rel="refentry" href="glib-Numerical-Definitions.html" title="Numerical Definitions"><link rel="refentry" href="glib-Miscellaneous-Macros.html" title="Miscellaneous Macros"><link rel="refentry" href="glib-Atomic-Operations.html" title="Atomic Operations"><link rel="chapter" href="glib-core.html" title="GLib Core Application Support"><link rel="refentry" href="glib-The-Main-Event-Loop.html" title="The Main Event Loop"><link rel="refentry" href="glib-Threads.html" title="
+Threads"><link rel="refentry" href="glib-Thread-Pools.html" title="Thread Pools"><link rel="refentry" href="glib-Asynchronous-Queues.html" title="Asynchronous Queues"><link rel="refentry" href="glib-Dynamic-Loading-of-Modules.html" title="Dynamic Loading of Modules"><link rel="refentry" href="glib-Memory-Allocation.html" title="Memory Allocation"><link rel="refentry" href="glib-IO-Channels.html" title="IO Channels"><link rel="refentry" href="glib-Error-Reporting.html" title="Error Reporting"><link rel="refentry" href="glib-Warnings-and-Assertions.html" title="Message Output and Debugging Functions"><link rel="refentry" href="glib-Message-Logging.html" title="Message Logging"><link rel="chapter" href="glib-utilities.html" title="GLib Utilities"><link rel="refentry" href="glib-String-Utility-Functions.html" title="String Utility Functions"><link rel="refentry" href="glib-Character-Set-Conversion.html" title="Character Set Conversion"><link rel="refentry" href="glib-Unicode-Manipulation.html" title="Unicode Manipulation"><link rel="refentry" href="glib-I18N.html" title="Internationalization"><link rel="refentry" href="glib-Date-and-Time-Functions.html" title="Date and Time Functions"><link rel="refentry" href="glib-Random-Numbers.html" title="Random Numbers"><link rel="refentry" href="glib-Hook-Functions.html" title="Hook Functions"><link rel="refentry" href="glib-Miscellaneous-Utility-Functions.html" title="Miscellaneous Utility Functions"><link rel="refentry" href="glib-Lexical-Scanner.html" title="Lexical Scanner"><link rel="refentry" href="glib-Automatic-String-Completion.html" title="Automatic String Completion"><link rel="refentry" href="glib-Timers.html" title="Timers"><link rel="refentry" href="glib-Spawning-Processes.html" title="Spawning Processes"><link rel="refentry" href="glib-File-Utilities.html" title="File Utilities"><link rel="refentry" href="glib-Shell-related-Utilities.html" title="Shell-related Utilities"><link rel="refentry" href="glib-Glob-style-pattern-matching.html" title="Glob-style pattern matching"><link rel="refentry" href="glib-Simple-XML-Subset-Parser.html" title="Simple XML Subset Parser"><link rel="refentry" href="glib-Windows-Compatability-Functions.html" title="Windows Compatibility Functions"><link rel="chapter" href="glib-data-types.html" title="GLib Data Types"><link rel="refentry" href="glib-Memory-Chunks.html" title="Memory Chunks"><link rel="refentry" href="glib-Doubly-Linked-Lists.html" title="Doubly-Linked Lists"><link rel="refentry" href="glib-Singly-Linked-Lists.html" title="Singly-Linked Lists"><link rel="refentry" href="glib-Double-ended-Queues.html" title="Double-ended Queues"><link rel="refentry" href="glib-Trash-Stacks.html" title="Trash Stacks"><link rel="refentry" href="glib-Hash-Tables.html" title="Hash Tables"><link rel="refentry" href="glib-Strings.html" title="Strings"><link rel="refentry" href="glib-String-Chunks.html" title="String Chunks"><link rel="refentry" href="glib-Arrays.html" title="Arrays"><link rel="refentry" href="glib-Pointer-Arrays.html" title="Pointer Arrays"><link rel="refentry" href="glib-Byte-Arrays.html" title="Byte Arrays"><link rel="refentry" href="glib-Balanced-Binary-Trees.html" title="Balanced Binary Trees"><link rel="refentry" href="glib-N-ary-Trees.html" title="N-ary Trees"><link rel="refentry" href="glib-Quarks.html" title="Quarks"><link rel="refentry" href="glib-Keyed-Data-Lists.html" title="Keyed Data Lists"><link rel="refentry" href="glib-Datasets.html" title="Datasets"><link rel="refentry" href="glib-Relations-and-Tuples.html" title="Relations and Tuples"><link rel="refentry" href="glib-Caches.html" title="Caches"><link rel="refentry" href="glib-Memory-Allocators.html" title="Memory Allocators"><link rel="chapter" href="tools.html" title="GLib Tools"><link rel="refentry" href="glib-gettextize.html" title="glib-gettextize"><link rel="index" href="ix01.html" title="Index"><link rel="section" href="glib-Windows-Compatability-Functions.html#id3227726" title="Description"><link rel="section" href="glib-Windows-Compatability-Functions.html#id3227736" title="Details"><meta name="generator" content="GTK-Doc V1.2 (XML mode)"><link rel="stylesheet" href="style.css" type="text/css"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle"><td><a accesskey="p" href="glib-Simple-XML-Subset-Parser.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td><td><a accesskey="u" href="glib-utilities.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td><td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td><th width="100%" align="center">GLib Reference Manual</th><td><a accesskey="n" href="glib-data-types.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td></tr></table><div class="refentry" lang="en"><a name="glib-Windows-Compatability-Functions"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2><span class="refentrytitle">Windows Compatibility Functions</span></h2><p>Windows Compatibility Functions &#8212; UNIX emulation on Windows.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><pre class="synopsis">
+
+#include &lt;glib.h&gt;
+
+
+#define     <a href="glib-Windows-Compatability-Functions.html#MAXPATHLEN-CAPS">MAXPATHLEN</a>
+typedef     <a href="glib-Windows-Compatability-Functions.html#pid-t">pid_t</a>;
+#define     <a href="glib-Windows-Compatability-Functions.html#pipe">pipe</a>                            (phandles)
+#define     <a href="glib-Windows-Compatability-Functions.html#ftruncate">ftruncate</a>                       (fd, size)
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-Windows-Compatability-Functions.html#g-win32-error-message">g_win32_error_message</a>           (<a href="glib-Basic-Types.html#gint">gint</a> error);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-Windows-Compatability-Functions.html#g-win32-getlocale">g_win32_getlocale</a>               (void);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-Windows-Compatability-Functions.html#g-win32-get-package-installation-directory">g_win32_get_package_installation_directory</a>
+                                            (<a href="glib-Basic-Types.html#gchar">gchar</a> *package,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *dll_name);
+<a href="glib-Basic-Types.html#gchar">gchar</a>*      <a href="glib-Windows-Compatability-Functions.html#g-win32-get-package-installation-subdirectory">g_win32_get_package_installation_subdirectory</a>
+                                            (<a href="glib-Basic-Types.html#gchar">gchar</a> *package,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *dll_name,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *subdir);
+#define     <a href="glib-Windows-Compatability-Functions.html#G-WIN32-DLLMAIN-FOR-DLL-NAME-CAPS">G_WIN32_DLLMAIN_FOR_DLL_NAME</a>    (static, dll_name)
+
+</pre></div><div class="refsect1" lang="en"><a name="id3227726"></a><h2>Description</h2><p>
+
+</p></div><div class="refsect1" lang="en"><a name="id3227736"></a><h2>Details</h2><div class="refsect2" lang="en"><a name="id3227742"></a><h3><a name="MAXPATHLEN-CAPS"></a>MAXPATHLEN</h3><a class="indexterm" name="id3227753"></a><pre class="programlisting">#define MAXPATHLEN 1024
+</pre><p>
+Provided for UNIX emulation on Windows; equivalent to UNIX 
+macro <tt class="literal">MAXPATHLEN</tt>, which is the maximum length of a filename
+(including full path).
+</p></div><hr><div class="refsect2" lang="en"><a name="id3227776"></a><h3><a name="pid-t"></a>pid_t</h3><a class="indexterm" name="id3227786"></a><pre class="programlisting">typedef int pid_t;
+</pre><p>
+Provided for UNIX emulation on Windows; process ID type.
+</p></div><hr><div class="refsect2" lang="en"><a name="id3227802"></a><h3><a name="pipe"></a>pipe()</h3><a class="indexterm" name="id3227813"></a><pre class="programlisting">#define pipe(phandles)	_pipe (phandles, 4096, _O_BINARY)
+</pre><p>
+Provided for UNIX emulation on Windows; see documentation for <tt class="function"><a href="glib-Windows-Compatability-Functions.html#pipe"><tt class="function">pipe()</tt></a></tt>
+in any UNIX manual.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>phandles</tt></i> :</span></td><td>
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3227861"></a><h3><a name="ftruncate"></a>ftruncate()</h3><a class="indexterm" name="id3227872"></a><pre class="programlisting">#    define ftruncate(fd, size)	g_win32_ftruncate (fd, size)
+</pre><p>
+Provided for UNIX emulation on Windows; see documentation for <tt class="function"><a href="glib-Windows-Compatability-Functions.html#ftruncate"><tt class="function">ftruncate()</tt></a></tt>
+in any UNIX manual.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>fd</tt></i> :</span></td><td>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>size</tt></i> :</span></td><td>
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3227934"></a><h3><a name="g-win32-error-message"></a>g_win32_error_message ()</h3><a class="indexterm" name="id3227945"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_win32_error_message           (<a href="glib-Basic-Types.html#gint">gint</a> error);</pre><p>
+Translate a Win32 error code (as returned by <tt class="function">GetLastError()</tt>) into
+the corresponding message. The message is either language neutral,
+or in the thread's language, or the user's language, the system's
+language, or US English (see docs for <tt class="function">FormatMessage()</tt>). *
+The returned string should be deallocated with <a href="glib-Memory-Allocation.html#g-free"><tt class="function">g_free()</tt></a>.</p><p>
+
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>error</tt></i> :</span></td><td> error code.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td> newly-allocated error message
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3228044"></a><h3><a name="g-win32-getlocale"></a>g_win32_getlocale ()</h3><a class="indexterm" name="id3228056"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_win32_getlocale               (void);</pre><p>
+The setlocale in the Microsoft C library uses locale names of the
+form "English_United States.1252" etc. We want the UNIXish standard
+form "en_US", "zh_TW" etc. This function gets the current thread
+locale from Windows - without any encoding info - and returns it as
+a string of the above form for use in forming file names etc. The
+returned string should be deallocated with <a href="glib-Memory-Allocation.html#g-free"><tt class="function">g_free()</tt></a>.</p><p>
+
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td> newly-allocated locale name.
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3228111"></a><h3><a name="g-win32-get-package-installation-directory"></a>g_win32_get_package_installation_directory ()</h3><a class="indexterm" name="id3228125"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_win32_get_package_installation_directory
+                                            (<a href="glib-Basic-Types.html#gchar">gchar</a> *package,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *dll_name);</pre><p>
+Try to determine the installation directory for a software package.
+Typically used by GNU software packages.
+</p><p>
+<i class="parameter"><tt>package</tt></i> should be a short identifier for the package. Typically it
+is the same identifier as used for
+<tt class="literal">GETTEXT_PACKAGE</tt> in software configured according
+to GNU standards. The function first looks in the Windows Registry
+for the value <tt class="literal">#InstallationDirectory</tt> in the key
+<tt class="literal">#HKLM\Software\<i class="parameter"><tt>package</tt></i></tt>, and if that value
+exists and is a string, returns that.
+</p><p>
+If <i class="parameter"><tt>package</tt></i> is <tt class="literal">NULL</tt>, or the above value isn't found in the
+Registry, but <i class="parameter"><tt>dll_name</tt></i> is non-<tt class="literal">NULL</tt>, it should name a DLL loaded
+into the current process. Typically that would be the name of the
+DLL calling this function, looking for its installation
+directory. The function then asks Windows what directory that DLL
+was loaded from. If that directory's last component is "bin" or
+"lib", the parent directory is returned, otherwise the directory
+itself. If that DLL isn't loaded, the function proceeds as if
+<i class="parameter"><tt>dll_name</tt></i> was <tt class="literal">NULL</tt>.
+</p><p>
+If both <i class="parameter"><tt>package</tt></i> and <i class="parameter"><tt>dll_name</tt></i> are <tt class="literal">NULL</tt>, the directory from where
+the main executable of the process was loaded is uses instead in
+the same way as above.</p><p>
+
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>package</tt></i> :</span></td><td> An identifier for a software package, or <tt class="literal">NULL</tt>
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>dll_name</tt></i> :</span></td><td> The name of a DLL that a package provides, or <tt class="literal">NULL</tt>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td> a string containing the installation directory for <i class="parameter"><tt>package</tt></i>.
+The return value should be freed with <a href="glib-Memory-Allocation.html#g-free"><tt class="function">g_free()</tt></a> when not needed any longer.
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3228346"></a><h3><a name="g-win32-get-package-installation-subdirectory"></a>g_win32_get_package_installation_subdirectory ()</h3><a class="indexterm" name="id3228359"></a><pre class="programlisting"><a href="glib-Basic-Types.html#gchar">gchar</a>*      g_win32_get_package_installation_subdirectory
+                                            (<a href="glib-Basic-Types.html#gchar">gchar</a> *package,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *dll_name,
+                                             <a href="glib-Basic-Types.html#gchar">gchar</a> *subdir);</pre><p>
+Returns a newly-allocated string containing the path of the
+subdirectory <i class="parameter"><tt>subdir</tt></i> in the return value from calling
+<a href="glib-Windows-Compatability-Functions.html#g-win32-get-package-installation-directory"><tt class="function">g_win32_get_package_installation_directory()</tt></a> with the <i class="parameter"><tt>package</tt></i> and
+<i class="parameter"><tt>dll_name</tt></i> parameters.</p><p>
+
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>package</tt></i> :</span></td><td> An identifier for a software package, or <tt class="literal">NULL</tt>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>dll_name</tt></i> :</span></td><td> The name of a DLL that a package provides, or <tt class="literal">NULL</tt>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>subdir</tt></i> :</span></td><td> A subdirectory of the package installation directory.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td> a string containing the complete path to <i class="parameter"><tt>subdir</tt></i> inside the 
+installation directory of <i class="parameter"><tt>package</tt></i>. The return value should be freed with
+<a href="glib-Memory-Allocation.html#g-free"><tt class="function">g_free()</tt></a> when no longer needed.
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3228532"></a><h3><a name="G-WIN32-DLLMAIN-FOR-DLL-NAME-CAPS"></a>G_WIN32_DLLMAIN_FOR_DLL_NAME()</h3><a class="indexterm" name="id3228544"></a><pre class="programlisting">#define     G_WIN32_DLLMAIN_FOR_DLL_NAME(static, dll_name)</pre><p>
+On Windows, this macro defines a <tt class="function"><tt class="function">DllMain()</tt></tt> function 
+that stores the actual DLL name that the code being compiled will be 
+included in.
+</p><p>
+On non-Windows platforms, expands to nothing.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>static</tt></i> :</span></td><td>empty or "static".
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>dll_name</tt></i> :</span></td><td>the name of the (pointer to the) char array where the DLL name 
+   will be stored. If this is used, you must also include 
+   <tt class="filename">windows.h</tt>. If you need a more complex DLL entry 
+   point function, you cannot use this.
+</td></tr></tbody></table></div></div></div></div><table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle"><td align="left"><a accesskey="p" href="glib-Simple-XML-Subset-Parser.html"><b>&lt;&lt; Simple XML Subset Parser</b></a></td><td align="right"><a accesskey="n" href="glib-data-types.html"><b>GLib Data Types &gt;&gt;</b></a></td></tr></table></body></html>

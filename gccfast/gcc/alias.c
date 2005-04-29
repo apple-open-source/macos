@@ -1789,17 +1789,92 @@ read_dependence (mem, x)
   return MEM_VOLATILE_P (x) && MEM_VOLATILE_P (mem);
 }
 
+/* APPLE LOCAL begin -frelax-aliasing */
+static int struct_field_array_alias PARAMS ((tree, tree));
+static int struct_field_field_alias PARAMS ((tree, tree));
+static int struct_pointer_pointer_alias PARAMS ((rtx, rtx, rtx, rtx));
+
+/* Y is a FIELD_DECL with an array type, X a COMPONENT_REF.  If the 
+   field which is the rhs of X occurs within the component type of
+   Y's type, recursively, return true, else false.  */
+static int
+struct_field_array_alias (x, y)
+    tree x, y;
+{
+  tree componenttype = TREE_TYPE (y);
+  while (TREE_CODE (componenttype) == ARRAY_TYPE)
+    componenttype = TREE_TYPE (componenttype);
+  if (TREE_CODE (componenttype) == RECORD_TYPE
+      || TREE_CODE (componenttype) == UNION_TYPE
+      || TREE_CODE (componenttype) == QUAL_UNION_TYPE)
+    {
+      tree fld, ref;
+      for (fld = TYPE_FIELDS (componenttype); fld; fld = TREE_CHAIN (fld))
+	{
+	  ref = build (COMPONENT_REF, TREE_TYPE (fld), 0, fld);
+	  if (struct_field_field_alias (x, ref))
+	    return 1;
+	}
+    }
+  return 0;
+}
+
+
+/* Return 1, if two field references may alias each other. They alias 
+   each other if one is nested in the other; directly or indirectly.
+*/
+static int 
+struct_field_field_alias(x, y)
+     tree x, y;
+
+{
+  tree xtree, ytree;
+  tree fieldx = TREE_OPERAND (x, 1);
+  tree fieldy = TREE_OPERAND (y, 1);
+  tree typex = DECL_FIELD_CONTEXT (fieldx);
+  tree typey = DECL_FIELD_CONTEXT (fieldy);
+  if (TYPE_MAIN_VARIANT(typex) == TYPE_MAIN_VARIANT(typey))
+    return 1;
+  xtree = TREE_OPERAND (x, 0);
+  if (xtree != NULL_TREE && TREE_CODE (xtree) == COMPONENT_REF 
+      && struct_field_field_alias(xtree, y))
+    return 1;
+
+  ytree = TREE_OPERAND (y, 0);
+  if (ytree != NULL_TREE && TREE_CODE (ytree) == COMPONENT_REF 
+      && struct_field_field_alias(x, ytree))
+    return 1;
+
+  /* References to fields within an array of structs within another struct
+     have lost the outer struct by this time, like this:
+     struct x { fld1; }
+     struct y { struct x fld2[3]; }
+     struct y Y;
+     A reference to y.fld2[2].fld1 will have only a field of fld1 at this
+     point.  Nevertheless it interferes with a reference to y.fld2 and
+     we must detect this.  (Longterm, possibly the place where the MEM_EXPR
+     is built is a better place to fix this.)  */
+  if (TREE_CODE (TREE_TYPE (fieldx)) == ARRAY_TYPE
+      && struct_field_array_alias (y, fieldx))
+    return 1;
+  if (TREE_CODE (TREE_TYPE (fieldy)) ==  ARRAY_TYPE
+      && struct_field_array_alias (x, fieldy))
+    return 1;
+
+  return 0;
+}
+
 static int 
 struct_pointer_pointer_alias (mem1, mem2, mem1_addr, mem2_addr)
      rtx mem1, mem2;
-     rtx mem1_addr, mem2_addr;
+     rtx mem1_addr ATTRIBUTE_UNUSED, mem2_addr;
 {
   if (!flag_strict_aliasing)
     return 1;
   if (flag_relax_aliasing && MEM_IN_STRUCT_P (mem1))
   {
     tree x = MEM_EXPR(mem1);
-    if (x == NULL_RTX || TREE_CODE (x) != COMPONENT_REF)
+    if (x == NULL_TREE || TREE_CODE (x) != COMPONENT_REF)
       return 1;
     if (!MEM_IN_STRUCT_P (mem2) && !MEM_SCALAR_P (mem2))
     {
@@ -1816,19 +1891,16 @@ struct_pointer_pointer_alias (mem1, mem2, mem1_addr, mem2_addr)
     else if (MEM_IN_STRUCT_P (mem2))
     {
       tree y = MEM_EXPR(mem2);
-      if (y != NULL_RTX && TREE_CODE (y) == COMPONENT_REF)
+      if (y != NULL_TREE && TREE_CODE (y) == COMPONENT_REF)
       {
-        tree fieldx = TREE_OPERAND (x, 1);
-        tree fieldy = TREE_OPERAND (y, 1);
-        tree typex = DECL_FIELD_CONTEXT (fieldx);
-        tree typey = DECL_FIELD_CONTEXT (fieldy);
-	if (TYPE_MAIN_VARIANT(typex) != TYPE_MAIN_VARIANT(typey))
+	if (!struct_field_field_alias(x, y))
 	  return 0;
       }
     }
   }
   return 1;
 }
+/* APPLE LOCAL end -frelax-aliasing */
 
 /* Returns MEM1 if and only if MEM1 is a scalar at a fixed address and
    MEM2 is a reference to a structure at a varying address, or returns
@@ -2223,7 +2295,7 @@ true_dependence (mem, mem_mode, x, varies)
 
   /* APPLE LOCAL */
   if (overlapping_memrefs_p (mem, x))
-       return 1;
+    return 1;
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;
@@ -2250,7 +2322,9 @@ true_dependence (mem, mem_mode, x, varies)
 
   if(! fixed_scalar_and_varying_struct_p (mem, x, mem_addr, x_addr, varies))
   {
+/* APPLE LOCAL begin -frelax-aliasing */
     return struct_pointer_pointer_alias(mem, x, mem_addr, x_addr);
+/* APPLE LOCAL end -frelax-aliasing */
   }
   return 0;
 }
@@ -2299,7 +2373,7 @@ canon_true_dependence (mem, mem_mode, mem_addr, x, varies)
 
   /* APPLE LOCAL */
   if (overlapping_memrefs_p (mem, x))
-       return 1;
+    return 1;
 
   if (! base_alias_check (x_addr, mem_addr, GET_MODE (x), mem_mode))
     return 0;

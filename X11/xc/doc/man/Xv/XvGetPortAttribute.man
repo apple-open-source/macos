@@ -1,5 +1,5 @@
 .TH XvGetPortAttribute 3X __vendorversion__
-.\" $XFree86: xc/doc/man/Xv/XvGetPortAttribute.man,v 1.6 2001/01/27 18:20:35 dawes Exp $
+.\" $XFree86: xc/doc/man/Xv/XvGetPortAttribute.man,v 1.7 2003/05/29 21:48:05 herrb Exp $
 .SH Name
 XvGetPortAttribute \- return current port attribute value
 .\"
@@ -14,7 +14,7 @@ XvGetPortAttribute \- return current port attribute value
 .br
 \fBAtom \fIattribute\fR;
 .br
-\fBint \fI*p_vlaue\fR;
+\fBint \fI*p_value\fR;
 .sp 1l
 .\"
 .SH Arguments

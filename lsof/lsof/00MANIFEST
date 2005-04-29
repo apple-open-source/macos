@@ -1,3 +1,4 @@
+.:
 00.README.FIRST
 00CREDITS
 00DCACHE
@@ -35,7 +36,7 @@ tests/
 usage.c
 version
 
-dialects:
+./dialects:
 aix/
 bsdi/
 darwin/
@@ -50,7 +51,7 @@ ou/
 sun/
 uw/
 
-dialects/aix:
+./dialects/aix:
 Makefile
 Mksrc*
 aix5/
@@ -67,15 +68,15 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/aix/aix5:
+./dialects/aix/aix5:
 README
 j2/
 
-dialects/aix/aix5/j2:
+./dialects/aix/aix5/j2:
 j2_lock.h
 j2_snapshot.h
 
-dialects/bsdi:
+./dialects/bsdi:
 Makefile
 Mksrc*
 dfile.c
@@ -88,7 +89,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/darwin:
+./dialects/darwin:
 Makefile
 Mksrc*
 ddev.c
@@ -100,10 +101,10 @@ dproc.c
 dproto.h
 dsock.c
 dstore.c
-get-xnu-headers.sh*
+get-hdr-loc.sh*
 machine.h
 
-dialects/du:
+./dialects/du:
 Makefile
 Mksrc*
 ddev.c
@@ -117,7 +118,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/freebsd:
+./dialects/freebsd:
 Makefile
 Mksrc*
 dlsof.h
@@ -131,17 +132,17 @@ dstore.c
 include/
 machine.h
 
-dialects/freebsd/include:
+./dialects/freebsd/include:
 procfs/
 
-dialects/freebsd/include/procfs:
+./dialects/freebsd/include/procfs:
 pfsnode.h
 
-dialects/hpux:
+./dialects/hpux:
 kmem/
 pstat/
 
-dialects/hpux/kmem:
+./dialects/hpux/kmem:
 Makefile
 Mksrc*
 dfile.c
@@ -157,7 +158,7 @@ dstore.c
 hpux11/
 machine.h
 
-dialects/hpux/kmem/hpux11:
+./dialects/hpux/kmem/hpux11:
 ipc_s.h
 kernbits.h
 lla.h
@@ -170,7 +171,7 @@ udp_s.h
 vnode.h
 vx_inode.h
 
-dialects/hpux/pstat:
+./dialects/hpux/pstat:
 Makefile
 Mksrc*
 dfile.c
@@ -181,7 +182,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/linux:
+./dialects/linux:
 Makefile
 Mksrc*
 dfile.c
@@ -194,7 +195,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/n+obsd:
+./dialects/n+obsd:
 Makefile
 Mksrc*
 dlsof.h
@@ -207,7 +208,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/n+os:
+./dialects/n+os:
 Makefile
 Mksrc*
 dlsof.h
@@ -219,7 +220,7 @@ dsock.c
 dstore.c
 machine.h
 
-dialects/osr:
+./dialects/osr:
 Makefile
 Mksrc*
 dfile.c
@@ -233,14 +234,14 @@ dstore.c
 include/
 machine.h
 
-dialects/osr/include:
+./dialects/osr/include:
 netdb.h
 sys/
 
-dialects/osr/include/sys:
+./dialects/osr/include/sys:
 cdefs.h
 
-dialects/ou:
+./dialects/ou:
 Makefile
 Mksrc*
 dfile.c
@@ -257,26 +258,26 @@ dstore.c
 machine.h
 ou8/
 
-dialects/ou/ou8:
+./dialects/ou/ou8:
 README
 sys/
 vm/
 
-dialects/ou/ou8/sys:
+./dialects/ou/ou8/sys:
 fs/
 
-dialects/ou/ou8/sys/fs:
+./dialects/ou/ou8/sys/fs:
 README
 fifonode.h
 memfs_mnode.h
 namenode.h
 prdata.h
 
-dialects/ou/ou8/vm:
+./dialects/ou/ou8/vm:
 README
 page_f.h
 
-dialects/sun:
+./dialects/sun:
 Makefile
 Mksrc*
 ddev.c
@@ -294,13 +295,13 @@ include/
 machine.h
 solaris_kaddr_filters
 
-dialects/sun/include:
+./dialects/sun/include:
 sys/
 
-dialects/sun/include/sys:
+./dialects/sun/include/sys:
 auxv.h
 
-dialects/uw:
+./dialects/uw:
 Makefile
 Mksrc*
 dfile.c
@@ -318,58 +319,58 @@ machine.h
 uw21/
 uw7/
 
-dialects/uw/uw21:
+./dialects/uw/uw21:
 fs/
 sys/
 vm/
 
-dialects/uw/uw21/fs:
+./dialects/uw/uw21/fs:
 proc/
 procfs/
 
-dialects/uw/uw21/fs/proc:
+./dialects/uw/uw21/fs/proc:
 README
 prdata.h
 
-dialects/uw/uw21/fs/procfs:
+./dialects/uw/uw21/fs/procfs:
 README
 prdata.h
 
-dialects/uw/uw21/sys:
+./dialects/uw/uw21/sys:
 fs/
 
-dialects/uw/uw21/sys/fs:
+./dialects/uw/uw21/sys/fs:
 fifonode.h
 namenode.h
 
-dialects/uw/uw21/vm:
+./dialects/uw/uw21/vm:
 
-dialects/uw/uw7:
+./dialects/uw/uw7:
 fs/
 sys/
 vm/
 
-dialects/uw/uw7/fs:
+./dialects/uw/uw7/fs:
 nsc_cfs/
 procfs/
 
-dialects/uw/uw7/fs/nsc_cfs:
+./dialects/uw/uw7/fs/nsc_cfs:
 cnode.h
 
-dialects/uw/uw7/fs/procfs:
+./dialects/uw/uw7/fs/procfs:
 README
 prdata.h
 
-dialects/uw/uw7/sys:
+./dialects/uw/uw7/sys:
 fs/
 
-dialects/uw/uw7/sys/fs:
+./dialects/uw/uw7/sys/fs:
 fifonode.h
 namenode.h
 
-dialects/uw/uw7/vm:
+./dialects/uw/uw7/vm:
 
-lib:
+./lib:
 Makefile.skel
 ckkv.c
 cvfs.c
@@ -388,7 +389,7 @@ rnch.c
 rnmh.c
 snpf.c
 
-scripts:
+./scripts:
 00MANIFEST
 00README
 big_brother.perl5*
@@ -401,10 +402,11 @@ list_NULf.perl5*
 list_fields.awk
 list_fields.perl*
 shared.perl5*
+sort_res.perl5*
 watch_a_file.perl*
 xusers.awk*
 
-tests:
+./tests:
 00README
 Add2TestDB*
 CkTestDB*

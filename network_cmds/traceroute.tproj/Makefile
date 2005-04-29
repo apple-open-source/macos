@@ -12,10 +12,11 @@ NAME = traceroute
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = traceroute.c
+CFILES = traceroute.c ifaddrlist.c findsaddr-socket.c version.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble mean.awk\
-            median.awk README traceroute.8
+            median.awk README traceroute.8 traceroute.h findsaddr.h\
+	    ifaddrlist.h gnuc.h
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

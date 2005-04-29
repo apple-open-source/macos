@@ -29,11 +29,22 @@
 #ifndef _IOKIT_NETWORK_IOMBUFMEMORYCURSOR_H
 #define _IOKIT_NETWORK_IOMBUFMEMORYCURSOR_H
 
+#ifndef __MBUF_TRANSITION_STRIP
+#ifdef __MBUF_TRANSITION_
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO mbuf_t
+# endif
+#else
+# ifndef __MBUF_PROTO
+#  define __MBUF_PROTO struct mbuf *
+# endif
+#endif
+#endif
+
 #include <IOKit/IOMemoryCursor.h>
 
-struct mbuf;
 
-/*! @class IOMbufMemoryCursor : public IOMemoryCursor
+/*! @class IOMbufMemoryCursor
     @abstract A mechanism to convert mbuf chains to physical addresses.
     @discussion The IOMbufMemoryCursor defines the super class that all
     specific mbuf cursors must inherit from, but a mbuf cursor can be created   
@@ -86,15 +97,16 @@ public:
     @param outSeg Function to call to output one physical segment.
     @param maxSegmentSize Maximum allowable size for one segment.
     @param maxNumSegments Maximum number of segments.
-    @result true if the inherited classes and this instance initialized
-    successfully. */
+    @result Returns true if the inherited classes and this instance initialized
+    successfully.
+*/
 
     virtual bool initWithSpecification(OutputSegmentFunc outSeg,
                                        UInt32 maxSegmentSize,
                                        UInt32 maxNumSegments);
 
 /*! @function genPhysicalSegments
-    @abstract Generate a physical scatter/gather list given a mbuf packet.
+    @abstract Generates a physical scatter/gather list given a mbuf packet.
     @discussion Generates a list of physical segments from the given mbuf.
     @param packet The mbuf packet.
     @param vector Void pointer to base of output physical scatter/gather list.
@@ -105,16 +117,20 @@ public:
     @param doCoalesce Set to true to perform coalescing when the required 
     number of segments exceeds the specified limit, otherwise abort and
     return 0.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    virtual UInt32 genPhysicalSegments(struct mbuf * packet, void * vector,
+    virtual UInt32 genPhysicalSegments(__MBUF_PROTO packet, void * vector,
                                        UInt32 maxSegs, bool doCoalesce);
 
 /*! @function getAndResetCoalesceCount
     @abstract Returns a count of the total number of mbuf chains coalesced
+    by genPhysicalSegments().
+    @discussion This method returns a count of the total number of mbuf chains coalesced
     by genPhysicalSegments(). The counter is then reset to 0.
-    @result The coalesce count. */
+    @result Returns the coalesce count. 
+*/
 
     UInt32 getAndResetCoalesceCount();
 
@@ -126,12 +142,13 @@ public:
 };
 
 
-/*! @class IOMbufNaturalMemoryCursor : public IOMbufMemoryCursor
-    @abstract A IOMbufMemoryCursor subclass that outputs a vector of
+/*! @class IOMbufNaturalMemoryCursor
+    @abstract An IOMbufMemoryCursor subclass that outputs a vector of
     IOPhysicalSegments in the natural byte orientation for the cpu.  
     @discussion The IOMbufNaturalMemoryCursor would be used when it is too
     difficult to implement an OutputSegmentFunc that is more appropriate for
-    your hardware.  This cursor just outputs an array of IOPhysicalSegments. */
+    your hardware.  This cursor just outputs an array of IOPhysicalSegments. 
+*/
 
 class IOMbufNaturalMemoryCursor : public IOMbufMemoryCursor
 {
@@ -140,33 +157,35 @@ class IOMbufNaturalMemoryCursor : public IOMbufMemoryCursor
 public:
 
 /*! @function withSpecification
-    @abstract Factory function to create and initialize an 
-    IOMbufNaturalMemoryCursor in one operation, see
-    IOMbufMemoryCursor::initWithSpecification.
+    @abstract Factory function that creates and initializes an 
+    IOMbufNaturalMemoryCursor in one operation. 
+    @discussion See also IOMbufMemoryCursor::initWithSpecification.
     @param maxSegmentSize Maximum allowable size for one segment.
     @param maxNumSegments Maximum number of segments.
-    @result A new mbuf cursor if successfully created and initialized,
-    0 otherwise. */
+    @result Returns a new mbuf cursor if successfully created and initialized,
+    0 otherwise. 
+*/
 
     static IOMbufNaturalMemoryCursor * withSpecification(UInt32 maxSegmentSize, 
                                                          UInt32 maxNumSegments);
 
 /*! @function getPhysicalSegments
-    @abstract Generate a cpu natural physical scatter/gather list from a given
+    @abstract Generates a cpu natural physical scatter/gather list from a given
     mbuf.
     @param packet The mbuf packet.
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegments(struct mbuf * packet,
+    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
 /*! @function getPhysicalSegmentsWithCoalesce
-    @abstract Generate a cpu natural physical scatter/gather list from a given
+    @abstract Generates a cpu natural physical scatter/gather list from a given
     mbuf.
     @discussion Generate a cpu natural physical scatter/gather list from a 
     given mbuf. Coalesce mbuf chain when the number of segments in the 
@@ -175,10 +194,11 @@ public:
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegmentsWithCoalesce(struct mbuf * packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -186,12 +206,13 @@ public:
 //===========================================================================
 //===========================================================================
 
-/*! @class IOMbufBigMemoryCursor : public IOMbufMemoryCursor
-    @abstract A IOMbufMemoryCursor subclass that outputs a vector of 
+/*! @class IOMbufBigMemoryCursor
+    @abstract An IOMbufMemoryCursor subclass that outputs a vector of 
     IOPhysicalSegments in the big endian byte order.  
     @discussion The IOMbufBigMemoryCursor would be used when the DMA hardware 
     requires a big endian address and length pair.  This cursor outputs an 
-    array of IOPhysicalSegments that are encoded in big-endian format. */
+    array of IOPhysicalSegments that are encoded in big-endian format. 
+*/
 
 class IOMbufBigMemoryCursor : public IOMbufMemoryCursor
 {
@@ -200,33 +221,35 @@ class IOMbufBigMemoryCursor : public IOMbufMemoryCursor
 public:
 
 /*! @function withSpecification
-    @abstract Factory function to create and initialize an 
-    IOMbufBigMemoryCursor in one operation, see
-    IOMbufMemoryCursor::initWithSpecification.
+    @abstract Factory function that creates and initializes an 
+    IOMbufBigMemoryCursor in one operation.
+    @discussion See also IOMbufMemoryCursor::initWithSpecification.
     @param maxSegmentSize Maximum allowable size for one segment.
     @param maxNumSegments Maximum number of segments.
-    @result A new mbuf cursor if successfully created and initialized,
-    0 otherwise. */
+    @result Returns a new mbuf cursor if successfully created and initialized,
+    0 otherwise. 
+*/
 
     static IOMbufBigMemoryCursor * withSpecification(UInt32 maxSegmentSize,
                                                      UInt32 maxNumSegments);
 
 /*! @function getPhysicalSegments
-    @abstract Generate a big endian physical scatter/gather list from a given
+    @abstract Generates a big endian physical scatter/gather list from a given
     mbuf.
     @param packet The mbuf packet.
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegments(struct mbuf * packet,
+    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
 /*! @function getPhysicalSegmentsWithCoalesce
-    @abstract Generate a big endian physical scatter/gather list from a given
+    @abstract Generates a big endian physical scatter/gather list from a given
     mbuf.
     @discussion Generate a big endian physical scatter/gather list from a 
     given mbuf. Coalesce mbuf chain when the number of segments in the 
@@ -235,10 +258,11 @@ public:
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegmentsWithCoalesce(struct mbuf * packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -246,13 +270,14 @@ public:
 //===========================================================================
 //===========================================================================
 
-/*! @class IOMbufLittleMemoryCursor : public IOMbufMemoryCursor
-    @abstract A IOMbufMemoryCursor subclass that outputs a vector of 
+/*! @class IOMbufLittleMemoryCursor
+    @abstract An IOMbufMemoryCursor subclass that outputs a vector of 
     IOPhysicalSegments in the little endian byte order.  
     @discussion The IOMbufLittleMemoryCursor would be used when the DMA 
     hardware requires a little endian address and length pair.  This cursor 
     outputs an array of IOPhysicalSegments that are encoded in little endian 
-    format. */
+    format. 
+*/
 
 class IOMbufLittleMemoryCursor : public IOMbufMemoryCursor
 {
@@ -261,33 +286,35 @@ class IOMbufLittleMemoryCursor : public IOMbufMemoryCursor
 public:
 
 /*! @function withSpecification
-    @abstract Factory function to create and initialize an 
-    IOMbufLittleMemoryCursor in one operation, see
-    IOMbufMemoryCursor::initWithSpecification.
+    @abstract Factory function that creates and initializes an 
+    IOMbufLittleMemoryCursor in one operation.
+    @discussion See also IOMbufMemoryCursor::initWithSpecification.
     @param maxSegmentSize Maximum allowable size for one segment.
     @param maxNumSegments Maximum number of segments.
-    @result A new mbuf cursor if successfully created and initialized,
-    0 otherwise. */
+    @result Returns a new mbuf cursor if successfully created and initialized,
+    0 otherwise. 
+*/
 
     static IOMbufLittleMemoryCursor * withSpecification(UInt32 maxSegmentSize, 
                                                         UInt32 maxNumSegments);
 
 /*! @function getPhysicalSegments
-    @abstract Generate a little endian physical scatter/gather list from a 
+    @abstract Generates a little endian physical scatter/gather list from a 
     given mbuf.
     @param packet The mbuf packet.
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegments(struct mbuf * packet,
+    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
                                struct IOPhysicalSegment * vector,
                                UInt32 numVectorSegments = 0);
 
 /*! @function getPhysicalSegmentsWithCoalesce
-    @abstract Generate a little endian physical scatter/gather list from a 
+    @abstract Generates a little endian physical scatter/gather list from a 
     given mbuf.
     @discussion Generate a little endian physical scatter/gather list from a 
     given mbuf. Coalesce mbuf chain when the number of segments in the 
@@ -296,10 +323,11 @@ public:
     @param vector Pointer to an array of IOPhysicalSegments for the output 
     physical scatter/gather list.
     @param numVectorSegments Maximum number of IOPhysicalSegments accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegmentsWithCoalesce(struct mbuf * packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
@@ -311,9 +339,10 @@ struct IODBDMADescriptor;
 //===========================================================================
 //===========================================================================
 
-/*! @class IOMbufDBDMAMemoryCursor : public IOMbufMemoryCursor
-    @abstract A IOMbufMemoryCursor subclass that outputs a vector of 
-    IODBDMADescriptors. */
+/*! @class IOMbufDBDMAMemoryCursor
+    @abstract An IOMbufMemoryCursor subclass that outputs a vector of 
+    IODBDMADescriptors. 
+*/
 
 class IOMbufDBDMAMemoryCursor : public IOMbufMemoryCursor
 {
@@ -322,41 +351,44 @@ class IOMbufDBDMAMemoryCursor : public IOMbufMemoryCursor
 public:
 
 /*! @function withSpecification
-    @abstract Factory function to create and initialize an 
-    IOMbufDBDMAMemoryCursor in one operation, see
-    IOMbufMemoryCursor::initWithSpecification.
+    @abstract Factory function that creates and initializes an 
+    IOMbufDBDMAMemoryCursor in one operation.
+    @discussion See also IOMbufMemoryCursor::initWithSpecification.
     @param maxSegmentSize Maximum allowable size for one segment.
     @param maxNumSegments Maximum number of segments.
-    @result A new mbuf cursor if successfully created and initialized,
-    0 otherwise. */
+    @result Returns a new mbuf cursor if successfully created and initialized,
+    0 otherwise. 
+*/
 
     static IOMbufDBDMAMemoryCursor * withSpecification(UInt32 maxSegmentSize, 
                                                        UInt32 maxNumSegments);
 
 /*! @function getPhysicalSegments
-    @abstract Generate a DBDMA descriptor list from a given mbuf.
+    @abstract Generates a DBDMA descriptor list from a given mbuf.
     @param packet The mbuf packet.
     @param vector Pointer to an array of IODBDMADescriptor for the output list.
     @param numVectorSegments Maximum number of IODBDMADescriptors accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegments(struct mbuf * packet,
+    UInt32 getPhysicalSegments(__MBUF_PROTO packet,
                                struct IODBDMADescriptor *vector,
                                UInt32 numVectorSegments = 0);
 
 /*! @function getPhysicalSegmentsWithCoalesce
-    @abstract Generate a DBDMA descriptor list from a given mbuf.
+    @abstract Generates a DBDMA descriptor list from a given mbuf.
     @discussion Generate a DBDMA descriptor list from a given mbuf.
     Coalesce mbuf chain when the number of elements in the list exceeds
     numVectorSegments.
     @param packet The mbuf packet.
     @param vector Pointer to an array of IODBDMADescriptor for the output list.
     @param numVectorSegments Maximum number of IODBDMADescriptors accepted.
-    @result The number of segments that were filled in is returned, or
-    0 if an error occurred. */
+    @result Returns the number of segments that were filled in, or
+    0 if an error occurred. 
+*/
 
-    UInt32 getPhysicalSegmentsWithCoalesce(struct mbuf * packet,
+    UInt32 getPhysicalSegmentsWithCoalesce(__MBUF_PROTO packet,
                                            struct IODBDMADescriptor * vector,
                                            UInt32 numVectorSegments = 0);
 };

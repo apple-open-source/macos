@@ -378,7 +378,7 @@ else
       allow_undefined_flag='-flat_namespace -undefined suppress'
       ;;
     esac
-    archive_cmds='$CC $(if test .$module = .yes; then echo -bundle; else echo -dynamiclib; fi) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts -install_name $rpath/$soname $verstring'
+    archive_cmds='$CC $RC_CFLAGS $(if test .$module = .yes; then echo -bundle; else echo -dynamiclib; fi) $allow_undefined_flag -o $lib $libobjs $deplibs $linkopts -install_name $rpath/$soname $verstring'
     # We need to add '_' to the symbols in $export_symbols first
     #archive_expsym_cmds="$archive_cmds"' && strip -s $export_symbols $lib'
     hardcode_direct=yes

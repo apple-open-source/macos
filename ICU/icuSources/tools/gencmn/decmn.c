@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2003, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "unicode/udata.h"
 #include "uoptions.h"
 #include "cstring.h"

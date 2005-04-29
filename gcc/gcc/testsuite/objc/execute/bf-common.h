@@ -1,9 +1,7 @@
-/* APPLE LOCAL begin objc test suite */
 #ifndef __NEXT_RUNTIME__
 #include <objc/encoding.h>
 #endif
 #include "next_mapping.h"
-/* APPLE LOCAL end objc test suite */
 
 void print_ivars (Class class)
 {
@@ -63,7 +61,6 @@ int main ()
       @defs (MyObject);
     };
   int size1, size2;
-  /* APPLE LOCAL objc test suite */
   Class class = objc_get_class ("MyObject");
 
   printf ("type = %s\n", @encode (struct class_vars));

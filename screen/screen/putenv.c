@@ -54,8 +54,6 @@
  *    copying the entire environment onto the heap the first time you
  *    call putenv(), then doing realloc() uniformly later on.
  */
-#include "rcs.h"
-RCS_ID("$Id: putenv.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
 
 #include "config.h"
 

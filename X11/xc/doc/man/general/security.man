@@ -26,7 +26,7 @@
 .\" from the X Consortium.
 .\"
 .\"
-.\" $XFree86: xc/doc/man/general/security.man,v 1.4 2001/01/27 18:20:38 dawes Exp $
+.\" $XFree86: xc/doc/man/general/security.man,v 1.5 2003/07/09 15:27:25 tsi Exp $
 .\"
 .nr )S 12
 .TH XSECURITY __miscmansuffix__ __xorgversion__
@@ -83,7 +83,7 @@ control is only as good as the access control to the physical network.
 In environments where network-level snooping is difficult, this system
 can work reasonably well.
 .IP "XDM-AUTHORIZATION-1"
-Sites in the United States can use a DES-based access control
+Sites who compile with DES support can use a DES-based access control
 mechanism called XDM-AUTHORIZATION-1.
 It is similar in usage to MIT-MAGIC-COOKIE-1 in that a key is
 stored in the \fI.Xauthority\fP file and is shared with the X server.
@@ -93,7 +93,7 @@ random data used as the authenticator.
 .IP
 When connecting to the X server, the application generates 192 bits of data
 by combining the current time in seconds (since 00:00 1/1/1970 GMT) along
-with 48 bits of "identifier".  For TCP/IP connections, the identifier is
+with 48 bits of "identifier".  For TCP/IPv4 connections, the identifier is
 the address plus port number; for local connections it is the process ID
 and 32 bits to form a unique id (in case multiple connections to the same
 server are made from a single process).  This 192 bit packet is then

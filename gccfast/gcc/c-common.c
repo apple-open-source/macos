@@ -229,14 +229,6 @@ bool x_statement_code_p[MAX_TREE_CODES];
 /* APPLE LOCAL end callgraph inlining */
 
 /* APPLE LOCAL begin PCH */
-/* Nonzero if we can read a PCH file now.  */
-int allow_pch = 1;
-
-/* Switches common to the C front ends.  */
-
-/* Nonzero if prepreprocessing only.  */
-int flag_preprocess_only;
-
 /* The file name to which we should write a precompiled header, or
    NULL if no header will be written in this compile.  */
 const char *pch_file;
@@ -412,6 +404,22 @@ int flag_objc_exceptions = 0;
    affect other languages in the future.  */
 int flag_zero_link = 0;
 /* APPLE LOCAL end Panther ObjC enhancements */
+
+/* APPLE LOCAL begin XJR */
+/* Warn whenever an ObjC assignment is being handled by an interceptor
+   routine in the garbage collector.  */
+int warn_assign_intercept = 0;
+
+/* Nonzero means jump to entry points provided in high memory comm page.
+   This is solely a performance improvement, so this option may be a no-op
+   for some targets.  */
+int flag_objc_fast = 0;
+
+/* Nonzero means include ObjC classes in the garbage collection scheme
+   by default, unless the class is marked `static'.  When zero, only
+   classes marked `auto' are included.  */
+int flag_objc_gc = 0;
+/* APPLE LOCAL end XJR */
 
 /* APPLE LOCAL begin fix and continue */
 /* Nonzero means emit an '__OBJC, __image_info' for the current translation
@@ -638,6 +646,33 @@ int flag_new_for_scope = 1;
    Otherwise, emit them as local symbols.  */
 
 int flag_weak = 1;
+
+/* APPLE LOCAL begin jet */
+/* Nonzero if the user permits us to skip declarations that are not
+   actually referenced in the rest of the program (possibly meaning
+   that error messages for those declarations are not output).  */
+
+int flag_jet;
+
+/*  Debugging: print extra information for jet debugging.
+     1 - dump token stream before jet runs
+     2 - dump token stream after jet runs
+     4 - dump region array
+     8 - dump jet's identifier hashtable
+    16 - print timing for jet processing
+    32 - print hashing information.
+    Values may be orred together.
+*/
+
+int flag_debug_jet;
+
+/* A hash code provided on the command line.  If it is nonzero, and if
+   we are using jet, then calculate a hash of unstripped tokens, compare
+   it to this value, and don't do the compilation if the two are equal.
+ */
+
+unsigned int flag_jet_hash_code;
+/* APPLE LOCAL end jet */
 
 /* Nonzero to use __cxa_atexit, rather than atexit, to register
    destructors for local statics and global objects.  */
@@ -5864,10 +5899,11 @@ handle_used_attribute (pnode, name, args, flags, no_add_attrs)
 {
   tree node = *pnode;
 
+  /* APPLE LOCAL dead code strip */
   if (TREE_CODE (node) == FUNCTION_DECL
       || (TREE_CODE (node) == VAR_DECL && TREE_STATIC (node)))
     TREE_SYMBOL_REFERENCED (DECL_ASSEMBLER_NAME (node))
-      = TREE_USED (node) = 1;
+      = TREE_USED (node) = TREE_LIVE (node) = 1;
   else
     {
       warning ("`%s' attribute ignored", IDENTIFIER_POINTER (name));
@@ -7380,7 +7416,6 @@ cw_asm_stmt (expr, args)
   tree str, one;
   unsigned int n;
   const char *opcodename;
-  char matchbuf[20];
 
   cw_asm_in_operands = 0;
   VARRAY_TREE_INIT (cw_asm_operands, 20, "cw_asm_operands");
@@ -7396,7 +7431,9 @@ cw_asm_stmt (expr, args)
   opcodename = IDENTIFIER_POINTER (expr);
 
   /* Handle special directives specially.  */
-  if (strcmp (opcodename, "fralloc") == 0)
+  if (strcmp (opcodename, "entry") == 0)
+    return cw_asm_entry (expr, NULL_TREE, TREE_VALUE (args));
+  else if (strcmp (opcodename, "fralloc") == 0)
     {
       /* The correct default size is target-specific, so leave this as
 	 a cookie for the backend.  */
@@ -7458,7 +7495,8 @@ cw_asm_stmt (expr, args)
 
   sexpr = build_string (strlen (cw_asm_buffer), cw_asm_buffer);
 
-  /* Treat each C variable seen as a input, and locals as outputs also.  */
+  /* Treat each C function seen as a input, and all parms/locals as
+     both inputs and outputs.  */
   for (n = 0; n < VARRAY_ACTIVE_SIZE (cw_asm_operands); ++n)
     {
       tree var = VARRAY_TREE (cw_asm_operands, n);
@@ -7469,19 +7507,10 @@ cw_asm_stmt (expr, args)
 	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
 	  inputs = chainon (inputs, one);
 	}
-      else if (TREE_CODE (var) == PARM_DECL)
-	{
-	  str = build_string (1, "b");
-	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
-	  inputs = chainon (inputs, one);
-	}
       else
 	{
-	  sprintf (matchbuf, "%d", n);
-	  str = build_string (1, matchbuf);
-	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
-	  inputs = chainon (inputs, one);
-	  str = build_string (2, "=b");
+	  /* This is PowerPC-specific.  */
+	  str = build_string (2, "+b");
 	  one = build_tree_list (build_tree_list (NULL_TREE, str), var);
 	  outputs = chainon (outputs, one);
 	}
@@ -7501,6 +7530,18 @@ cw_asm_stmt (expr, args)
   return stmt;
 }
 
+/* Compute the offset of a field, in bytes.  Round down for bit
+   offsets, but that's OK for use in asm code.  */
+
+static int
+cw_asm_field_offset (tree arg)
+{
+  return (tree_low_cst (DECL_FIELD_OFFSET (arg), 0)
+	  + tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / BITS_PER_UNIT);
+}
+
+/* Print an operand according to its tree type.  */
+
 static void
 print_cw_asm_operand (buf, arg)
      char *buf;
@@ -7511,6 +7552,8 @@ print_cw_asm_operand (buf, arg)
   tree offset;
   enum machine_mode mode;
   int unsignedp, volatilep;
+  tree op0, op1;
+  int off0, off1;
 
   STRIP_NOPS (arg);
 
@@ -7549,19 +7592,45 @@ print_cw_asm_operand (buf, arg)
       strcat (buf, ")");
       break;
 
+    case PLUS_EXPR:
+      op0 = TREE_OPERAND (arg, 0);
+      if (TREE_CODE (op0) == FIELD_DECL)
+	off0 = cw_asm_field_offset (op0);
+      else if (TREE_CODE (op0) == INTEGER_CST)
+	off0 = tree_low_cst (op0, 0);
+      else
+	error ("invalid operand for arithmetic in assembly block");
+      op1 = TREE_OPERAND (arg, 1);
+      if (TREE_CODE (op1) == FIELD_DECL)
+	off1 = cw_asm_field_offset (op1);
+      else if (TREE_CODE (op1) == INTEGER_CST)
+	off1 = tree_low_cst (op1, 0);
+      else
+	error ("invalid operand for arithmetic in assembly block");
+      sprintf (buf + strlen (buf), "%d", off0 + off1);
+      break;
+
     case FIELD_DECL:
-      sprintf (buf + strlen (buf), "%d",
-	       tree_low_cst (DECL_FIELD_BIT_OFFSET (arg), 0)  / 8);
+      sprintf (buf + strlen (buf), "%d", cw_asm_field_offset (arg));
       break;
 
     case COMPONENT_REF:
       get_inner_reference (arg, &bitsize, &bitpos, &offset, &mode, &unsignedp, &volatilep);
       /* Convert bit pos to byte pos, rounding down (this is asm,
 	 after all). */
-      sprintf (buf + strlen (buf), "%d", bitpos / 8);
+      sprintf (buf + strlen (buf), "%d", bitpos / BITS_PER_UNIT);
       strcat (buf, "(");
-      print_cw_asm_operand (buf, TREE_OPERAND (TREE_OPERAND (arg, 0), 0));
+      op0 = TREE_OPERAND (arg, 0);
+      /* Catch a couple different flavors of component refs.  */
+      if (TREE_CODE (op0) == VAR_DECL)
+	print_cw_asm_operand (buf, op0);
+      else
+	print_cw_asm_operand (buf, TREE_OPERAND (op0, 0));
       strcat (buf, ")");
+      break;
+
+    case ARRAY_REF:
+      error ("array references not supported");
       break;
 
     default:
@@ -7708,6 +7777,59 @@ cw_asm_build_register_offset (offset, regname)
   TREE_OPERAND (t, 0) = offset;
   TREE_OPERAND (t, 1) = regname;
   return t;
+}
+
+/* Given some bits of info from the parser, determine if this is a
+   valid entry statement, and then generate traditional asm statements
+   to create the label. The entry may be either static or extern.  */
+tree
+cw_asm_entry (keyword, scspec, fn)
+     tree keyword, scspec, fn;
+{
+  int externify = 0;
+  tree stmt, inputs, str, one, strlab;
+
+  /* Validate all the arguments.  The keyword arg should be "entry",
+     but we don't make it a reserved word and parse as a plain old
+     identifier, so need to check it here.  */
+  if (strcmp (IDENTIFIER_POINTER (keyword), "entry") != 0)
+    {
+      error ("invalid asm entry statement syntax");
+      return error_mark_node;
+    }
+  if (scspec == NULL || strcmp (IDENTIFIER_POINTER (scspec), "extern") == 0)
+    externify = 1;
+  else if (strcmp (IDENTIFIER_POINTER (scspec), "static") == 0)
+    /* accept, but do nothing special */ ;
+  else
+    {
+      error ("entry point storage class much be `static' or `extern'");
+      return error_mark_node;
+    }
+  if (fn == NULL_TREE || TREE_CODE (fn) != FUNCTION_DECL)
+    {
+      error ("entry point not recognized as a function");
+      return error_mark_node;
+    }
+
+  fn = cw_asm_default_function_conversion (fn);
+  str = build_string (1, "s");
+  one = build_tree_list (build_tree_list (NULL_TREE, str), fn);
+  inputs = chainon (NULL_TREE, one);
+
+  if (externify)
+    {
+      strlab = build_string (9, ".globl %0");
+      /* Treat as volatile always.  */
+      stmt = add_stmt (build_stmt (ASM_STMT, ridpointers[(int) RID_VOLATILE],
+				   strlab, NULL_TREE, inputs, NULL_TREE));
+    }
+
+  strlab = build_string (3, "%0:");
+  /* Treat as volatile always.  */
+  stmt = add_stmt (build_stmt (ASM_STMT, ridpointers[(int) RID_VOLATILE],
+			       strlab, NULL_TREE, inputs, NULL_TREE));
+  return stmt;
 }
 /* APPLE LOCAL end CW asm blocks */
 

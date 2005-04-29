@@ -31,4 +31,4 @@
 #define __APPLE_API_PRIVATE
 #define __COMM_PAGE_SYMBOLS
 
-#include "cpu_capabilities.h"
+#include "machine/cpu_capabilities.h"

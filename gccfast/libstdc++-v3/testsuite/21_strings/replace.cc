@@ -173,7 +173,7 @@ test04()
 
   str02 = "boards";
   char* ptr1 = &*str01.begin();
-  char* ptr2 = &*str01.end();
+  char* ptr2 = ptr1 + str01.size();
   str02.replace(str02.begin(), str02.end(), ptr1, ptr2);
   VERIFY(str02 == "geogaddi");
 }

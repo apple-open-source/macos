@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -85,7 +84,6 @@ typedef struct
 	uint32_t state;
 	void *private;
 	list_t *client_list;
-	pthread_mutex_t *lock;
 } name_info_t;
 
 typedef struct
@@ -117,8 +115,7 @@ typedef struct
 	name_info_t **controlled_name;
 	uint32_t controlled_name_count;
 	uint32_t client_id;
-	pthread_mutex_t *name_lock;
-	pthread_mutex_t *client_lock;
+	pthread_mutex_t *lock;
 	uint32_t session_count;
 	task_t *session;
 	int sock;
@@ -131,6 +128,8 @@ uint32_t _notify_lib_post(notify_state_t *ns, const char *name, uint32_t uid, ui
 uint32_t _notify_lib_check(notify_state_t *ns, uint32_t cid, int *check);
 uint32_t _notify_lib_get_state(notify_state_t *ns, uint32_t cid, int *state);
 uint32_t _notify_lib_set_state(notify_state_t *ns, uint32_t cid, int state, uint32_t uid, uint32_t gid);
+uint32_t _notify_lib_get_val(notify_state_t *ns, uint32_t cid, int *val);
+uint32_t _notify_lib_set_val(notify_state_t *ns, uint32_t cid, int val, uint32_t uid, uint32_t gid);
 
 uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, task_t session, uint32_t slot, uint32_t uid, uint32_t gid, uint32_t *out_token);
 uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, task_t session, uint32_t sig, uint32_t uid, uint32_t gid, uint32_t *out_token);

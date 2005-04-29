@@ -2,7 +2,7 @@ XCOMM $Xorg: svr4.cf,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/config/cf/svr4.cf,v 3.49 2002/08/19 03:16:31 tsi Exp $
+XCOMM $XFree86: xc/config/cf/svr4.cf,v 3.51 2004/01/07 04:28:01 dawes Exp $
 /*
  * A default OS name
  */
@@ -45,7 +45,9 @@ XCOMM $XFree86: xc/config/cf/svr4.cf,v 3.49 2002/08/19 03:16:31 tsi Exp $
 
 /* Some stuff that all SVR4s should have */
 
+#ifndef SystemV4
 #define SystemV4		YES
+#endif
 #ifndef HasLdRunPath
 #define HasLdRunPath		YES
 #endif
@@ -277,6 +279,12 @@ XCOMM $XFree86: xc/config/cf/svr4.cf,v 3.49 2002/08/19 03:16:31 tsi Exp $
 #endif
 #ifndef XFree86ServerOSDefines
 # define XFree86ServerOSDefines -DDDXOSINIT
+#endif
+
+#if HasGcc2ForCplusplus
+# ifndef CplusplusLibCDir
+#  define CplusplusLibCDir	/usr/local/lib
+# endif
 #endif
 
 #include <sv4Lib.rules>

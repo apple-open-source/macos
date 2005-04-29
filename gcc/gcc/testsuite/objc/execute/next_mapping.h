@@ -1,12 +1,16 @@
-/* APPLE LOCAL file objc test suite */
 /* This file "renames" various ObjC GNU runtime entry points
    (and fakes the existence of several others)
    if the NeXT runtime is being used.  */
-/* Author: Ziemowit Laski <zlaski@apple.com>  */
+
+/* Authors: Ziemowit Laski <zlaski@apple.com>  */
+/*	    David Ayers <d.ayers@inode.at>  */
 
 #ifdef __NEXT_RUNTIME__
 #include <objc/objc-class.h>
+#include <objc/Object.h>
 #include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define objc_get_class(C)			objc_getClass(C)
 #define objc_get_meta_class(C)			objc_getMetaClass(C)
@@ -44,22 +48,15 @@
 /* The following is necessary to "cover" the bf*.m test cases on NeXT.  */
 
 #undef  MAX
-#define MAX(X, Y)                    \
-  ({ typeof (X) __x = (X), __y = (Y); \
-     (__x > __y ? __x : __y); })
-
+#define MAX(X, Y) ((X > Y) ? X : Y)
 #undef  MIN
-#define MIN(X, Y)                    \
-  ({ typeof (X) __x = (X), __y = (Y); \
-     (__x < __y ? __x : __y); })
-  
+#define MIN(X, Y) ((X < Y) ? X : Y)
 #undef  ROUND
-#define ROUND(V, A) \
-  ({ typeof (V) __v = (V); typeof (A) __a = (A); \
-     __a * ((__v+__a - 1)/__a); })
+#define ROUND(V, A) (A * ((V + A - 1) / A))
 
 #define BITS_PER_UNIT __CHAR_BIT__
-#define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (struct{char a;}))
+typedef struct{char a; } __small_struct;
+#define STRUCTURE_SIZE_BOUNDARY (BITS_PER_UNIT * sizeof (__small_struct))
 
 /* Not sure why the following are missing from NeXT objc headers... */
 
@@ -103,7 +100,7 @@ struct objc_struct_layout
   unsigned int record_align;
 };
 
-typedef union {
+typedef union arglist {
   char *arg_ptr;
   char arg_regs[sizeof (char*)];
 } *arglist_t;                   /* argument frame */
@@ -116,6 +113,7 @@ void objc_layout_structure (const char *type,
 BOOL objc_layout_structure_next_member (struct objc_struct_layout *layout);
 void objc_layout_finish_structure (struct objc_struct_layout *layout,
     unsigned int *size, unsigned int *align);
+int objc_aligned_size (const char *type);
 
 /*
   return the size of an object specified by type
@@ -134,73 +132,53 @@ objc_sizeof_type (const char *type)
   switch (*type) {
   case _C_ID:
     return sizeof (id);
-    break;
 
   case _C_CLASS:
     return sizeof (Class);
-    break;
 
   case _C_SEL:
     return sizeof (SEL);
-    break;
 
   case _C_CHR:
     return sizeof (char);
-    break;
 
   case _C_UCHR:
     return sizeof (unsigned char);
-    break;
 
   case _C_SHT:
     return sizeof (short);
-    break;
 
   case _C_USHT:
     return sizeof (unsigned short);
-    break;
 
   case _C_INT:
     return sizeof (int);
-    break;
 
   case _C_UINT:
     return sizeof (unsigned int);
-    break;
 
   case _C_LNG:
     return sizeof (long);
-    break;
 
   case _C_ULNG:
     return sizeof (unsigned long);
-    break;
 
   case _C_LNG_LNG:
     return sizeof (long long);
-    break;
 
   case _C_ULNG_LNG:
     return sizeof (unsigned long long);
-    break;
 
   case _C_FLT:
     return sizeof (float);
-    break;
 
   case _C_DBL:
     return sizeof (double);
-    break;
-
-  case _C_VOID:
-    return sizeof (void);
-    break;
 
   case _C_PTR:
   case _C_ATOM:
   case _C_CHARPTR:
     return sizeof (char *);
-    break;
 
   case _C_ARY_B:
     {
@@ -209,7 +187,6 @@ objc_sizeof_type (const char *type)
 	;
       return len * objc_aligned_size (type);
     }
-    break;
 
   case _C_BFLD:
     {
@@ -251,6 +228,7 @@ objc_sizeof_type (const char *type)
       return max_size;
     }
   }
+
   return 0; /* error */
 }
 
@@ -268,63 +246,50 @@ objc_alignof_type (const char *type)
       for (type++; *type++ != '"';)
 	/* do nothing */;
     }
+
   switch (*type) {
   case _C_ID:
     return __alignof__ (id);
-    break;
 
   case _C_CLASS:
     return __alignof__ (Class);
-    break;
 
   case _C_SEL:
     return __alignof__ (SEL);
-    break;
 
   case _C_CHR:
     return __alignof__ (char);
-    break;
 
   case _C_UCHR:
     return __alignof__ (unsigned char);
-    break;
 
   case _C_SHT:
     return __alignof__ (short);
-    break;
 
   case _C_USHT:
     return __alignof__ (unsigned short);
-    break;
 
   case _C_INT:
   case _C_BFLD: /* This is for the NeXT only */
     return __alignof__ (int);
-    break;
 
   case _C_UINT:
     return __alignof__ (unsigned int);
-    break;
 
   case _C_LNG:
     return __alignof__ (long);
-    break;
 
   case _C_ULNG:
     return __alignof__ (unsigned long);
-    break;
 
   case _C_LNG_LNG:
     return __alignof__ (long long);
-    break;
 
   case _C_ULNG_LNG:
     return __alignof__ (unsigned long long);
-    break;
 
   case _C_FLT:
     return __alignof__ (float);
-    break;
 
   case _C_DBL:
     return __alignof__ (double);
@@ -373,6 +338,7 @@ objc_alignof_type (const char *type)
       return maxalign;
     }
   }
+
   return 0; /* error */
 }
 
@@ -496,7 +462,6 @@ objc_skip_typespec (const char *type)
   case _C_VOID:
   case _C_UNDEF:
     return ++type;
-    break;
 
   case _C_ARY_B:
     /* skip digits, typespec and closing ']' */
@@ -542,6 +507,7 @@ objc_skip_typespec (const char *type)
 
     return objc_skip_typespec (++type);
   }
+
   return 0; /* error */
 }
 
@@ -847,6 +813,54 @@ void objc_layout_structure_get_info (struct objc_struct_layout *layout,
     *align = layout->record_align / BITS_PER_UNIT;
   if (type)
     *type = layout->prev_type;
+}
+
+/* A small, portable NSConstantString implementation for use with the NeXT
+   runtime.
+   
+   On full-fledged Mac OS X systems, NSConstantString is provided
+   as part of the Foundation framework.  However, on bare Darwin systems,
+   Foundation is not included, and hence there is no NSConstantString 
+   implementation to link against.
+
+   This code is derived from the GNU runtime's NXConstantString implementation.
+*/
+
+struct objc_class _NSConstantStringClassReference;
+
+@interface NSConstantString : Object
+{
+  char *c_string;
+  unsigned int len;
+}
+
+-(const char *) cString;
+-(unsigned int) length;
+
+@end
+
+@implementation NSConstantString
+
+-(const char *) cString
+{
+  return (c_string);
+}
+
+-(unsigned int) length
+{
+  return (len);
+}
+
+@end
+
+/* The NSConstantString metaclass will need to be initialized before we can
+   send messages to strings.  */
+
+void objc_constant_string_init (void) __attribute__((constructor));
+void objc_constant_string_init (void) {
+  memcpy (&_NSConstantStringClassReference,
+	  objc_getClass ("NSConstantString"),
+	  sizeof (_NSConstantStringClassReference));
 }
 
 #endif  /* #ifdef __NEXT_RUNTIME__ */

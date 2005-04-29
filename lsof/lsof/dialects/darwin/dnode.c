@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dnode.c,v 1.6 2002/10/08 20:16:56 abe Exp $";
+static char *rcsid = "$Id: dnode.c,v 1.8 2004/03/10 23:50:16 abe Exp $";
 #endif
 
 
@@ -75,6 +75,231 @@ lkup_dev_tty(dr, rdr, ir)
 #endif	/* DARWINV<600 */
 
 
+#if	DARWINV>=800
+static int
+readname(KA_T addr, char *buf, int buflen)
+{
+	int n = 0;
+
+	/*
+	 * Read the name, 32 characters at a time, until a NUL character
+	 * has been read or the buffer has been filled.
+	 */
+	while (n < buflen) {
+	    int	rl;
+
+	    rl = buflen - n;
+	    if (rl > 32) {
+		rl = 32;
+		buf[n + rl] = '\0';
+	    }
+
+	    if (kread(addr, &buf[n], rl)) {
+		return 1;
+	    }
+
+	    rl = (int)strlen(&buf[n]);
+	    if (rl < 32)
+		return 0;
+
+	    addr += rl;
+	    n += rl;
+	}
+
+	return 0;
+}
+
+/*
+ * vnode_getpath() - get file path from vnode
+ *	adapted from build_path() (.../bsd/vfs/vfs_subr.c)
+ */
+
+static int
+vnode_getpath(struct vnode *first_vp, char *buff, int buflen)
+{
+    struct vnode *vp = first_vp;
+    struct vnode vb, *VP=&vb;
+    struct mount mb, *MP=&mb;
+    char *end;
+    char *path = buff;
+    int pathlen = buflen;
+
+    end = &path[pathlen-1];
+    *end = '\0';
+
+    if (!vp
+    ||  readvnode((KA_T)vp, VP)) {
+//	fprintf(stderr, "vnode_getpath: no vnode address\n");
+	return 0;
+    }
+
+    // if this is the root dir of a file system and there is no parent
+    if (vp && (VP->v_flag & VROOT) && VP->v_mount) {
+	// then if it's the root fs, just put in a '/' and get out of here
+	if (kread((KA_T)VP->v_mount, (char *)&mb, sizeof(mb))) {
+//	    fprintf(stderr, "vnode_getpath: no vnode mount\n");
+	    return 0;
+	}
+	if (MP->mnt_flag & MNT_ROOTFS) {
+	    *--end = '/';
+	    goto out;
+	} else {
+	    // else just use the covered vnode to get the mount path
+	    vp = MP->mnt_vnodecovered;
+	    if (vp) {
+		if (readvnode((KA_T)vp, VP)) {
+//		    fprintf(stderr, "vnode_getpath: bad vnode address\n");
+		    return 0;
+		}
+	    }
+	}
+    }
+
+    while(vp && VP->v_parent != vp) {
+	char v_name[MAXPATHLEN+1];
+	char *str;
+	int len;
+
+	if (VP->v_name == NULL) {
+	    if (VP->v_parent != NULL) {
+		goto err;
+	    }
+	    break;
+	}
+	
+	if (readname((KA_T)VP->v_name, v_name, MAXPATHLEN)) {
+//	    fprintf(stderr, "vnode_getpath: bad v_name address\n");
+	    goto err;
+	}
+
+	v_name[MAXPATHLEN] = '\0';
+	str = &v_name[0];
+
+	// count how long the string is
+	for(len=0; *str; str++, len++)
+	    /* nothing */;
+
+	// check that there's enough space
+	if ((end - path - 1) < len) {
+	    if (path == buff) {
+		char *oend = end;
+
+		/*
+		 * expand the size of the path buffer to see if we can
+		 * get a path relative to the current working directory.
+		 */
+		pathlen += MAXPATHLEN;
+		path = malloc(pathlen);
+		end = &path[oend - buff + MAXPATHLEN];
+		memmove(end, oend, &buff[buflen] - oend);
+	    } else {
+		// if the path won't fit in the buffer
+		goto err;
+	    }
+	}
+
+	// copy it backwards
+	for(; len > 0; len--) {
+	    *--end = *--str;
+	}
+
+	// put in the path separator
+	*--end = '/';
+
+	// walk up the chain (as long as we're not the root)  
+	if (vp == first_vp && (VP->v_flag & VROOT)) {
+	    if (VP->v_mount) {
+		if (kread((KA_T)VP->v_mount, (char *)&mb, sizeof(mb))) {
+//		    fprintf(stderr, "vnode_getpath: no vnode mount\n");
+		    goto err;
+		}
+		if (MP->mnt_vnodecovered) {
+		    vp = MP->mnt_vnodecovered;
+		    if (vp) {
+			if (readvnode((KA_T)vp, VP)) {
+//			    fprintf(stderr, "vnode_getpath: bad vnode address\n");
+			    goto err;
+			}
+			vp = VP->v_parent;
+		    }
+		} else {
+		    vp = NULL;
+		}
+	    } else {
+		vp = NULL;
+	    }
+	} else {
+	    vp = VP->v_parent;
+	}
+	if (vp && readvnode((KA_T)vp, VP)) {
+//	    fprintf(stderr, "vnode_getpath: bad vnode address\n");
+	    goto err;
+	}
+
+	// check if we're crossing a mount point and
+	// switch the vp if we are.
+	if (vp && (VP->v_flag & VROOT) && VP->v_mount) {
+	    if (kread((KA_T)VP->v_mount, (char *)&mb, sizeof(mb))) {
+//		fprintf(stderr, "vnode_getpath: no vnode mount\n");
+		goto err;
+	    }
+	    vp = MP->mnt_vnodecovered;
+	    if (vp) {
+		if (readvnode((KA_T)vp, VP)) {
+//		    fprintf(stderr, "vnode_getpath: bad vnode address\n");
+		    goto err;
+		}
+	    }
+	}
+    }
+
+  out:
+    /*
+     * attempt to reduce long paths which are relative to the current
+     * working directory.
+     */
+    if (path != buff) {
+	static char cwd[MAXPATHLEN];
+	static int cwdlen = 0;
+
+	if (cwdlen == 0) {
+	    if (!getcwd(cwd, sizeof(cwd))) {
+		// if we could not get current working directory
+//		fprintf(stderr, "vnode_getpath: getcwd failed\n");
+		goto err;
+	    }
+	    cwdlen = strlen(cwd);
+	    if ((cwd[cwdlen-1] != '/') && cwdlen < sizeof(cwd)) {
+		cwd[cwdlen++] = '/';
+	    }
+	}
+
+	if (strncmp(end, cwd, cwdlen) != 0) {
+		// if the path is not relative to the current working directory
+		goto err;
+	}
+
+	end += cwdlen;		// skip past cwd
+	if ((&path[pathlen] - end) > buflen) {
+		// if the relative path won't fit in the provided buffer
+		goto err;
+	}
+    }
+
+    // slide it down to the beginning of the buffer
+    memmove(buff, end, &path[pathlen] - end);
+    return 1;
+
+  err:
+    if (path != buff) {
+	free(path);
+    }
+    buff[0] = '\0';
+    return 0;
+}
+#endif	/* DARWINV>=800 */
+
+
 /*
  * process_node() - process vnode
  */
@@ -83,15 +308,19 @@ void
 process_node(va)
 	KA_T va;			/* vnode kernel space address */
 {
-	struct devnode *d = (struct devnode *)NULL;
-	struct devnode db;
 	dev_t dev, rdev;
 	unsigned char devs = 0;
 	unsigned char rdevs = 0;
+
+#if	DARWINV<800
+	struct devnode *d = (struct devnode *)NULL;
+	struct devnode db;
 	unsigned char lt;
 	char dev_ch[32];
+# if	defined(HASFDESCFS)
 	struct fdescnode *f = (struct fdescnode *)NULL;
 	struct fdescnode fb;
+# endif	/* defined(HASFDESCFS) */
 	static unsigned long fi;
 	static dev_t fdev, frdev;
 	static int fs = 0;
@@ -100,6 +329,8 @@ process_node(va)
 	struct lockf lf, *lff, *lfp;
 	struct nfsnode *n = (struct nfsnode *)NULL;
 	struct nfsnode nb;
+#endif	/* DARWINV<800 */
+
 	char *ty;
 	enum vtype type;
 	struct vnode *v, vb;
@@ -110,12 +341,12 @@ process_node(va)
 	struct hfsnode hb;
 	struct hfsfilemeta *hm = (struct hfsfilemeta *)NULL;
 	struct hfsfilemeta hmb;
-#else	/* DARWINV>=600 */
+#elif	DARWINV<800
 	struct cnode *h = (struct cnode *)NULL;
 	struct cnode hb;
 	struct filefork *hf = (struct filefork *)NULL;
 	struct filefork hfb;
-#endif	/* DARWINV<600 */
+#endif	/* DARWINV<800 */
 
 #if	defined(HAS9660FS)
 	dev_t iso_dev;
@@ -129,20 +360,21 @@ process_node(va)
  * Read the vnode.
  */
 	if ( ! va) {
-		enter_nm("no vnode address");
-		return;
+	    enter_nm("no vnode address");
+	    return;
 	}
 	v = &vb;
 	if (readvnode(va, v)) {
-		enter_nm(Namech);
-		return;
+	    enter_nm(Namech);
+	    return;
 	}
+	type = v->v_type;
 
 #if	defined(HASNCACHE)
 	Lf->na = va;
-# if	defined(HASNCAPID)
+# if	defined(HASNCVPID)
 	Lf->id = v->v_id;
-# endif	/* defined(HASNCAPID) */
+# endif	/* defined(HASNCVPID) */
 #endif	/* defined(HASNCACHE) */
 
 #if	defined(HASFSTRUCT)
@@ -173,27 +405,31 @@ process_node(va)
 	    case VFIFO:
 		Ntype = N_FIFO;
 		break;
+	    default:
+		break;
 	    }
 	}
+
+#if	DARWINV<800
 /*
  * Define the specific node pointer.
  */
 	switch (v->v_tag) {
 
-#if	DARWINV>120
+# if	DARWINV>120
 	case VT_AFP:
  	    break;
-#endif	/* DARWINV>120 */
+# endif	/* DARWINV>120 */
 
-#if	DARWINV>120
+# if	DARWINV>120
 	case VT_CDDA:
 	    break;
-#endif	/* DARWINV>120 */
+# endif	/* DARWINV>120 */
 
-#if	DARWINV>120
+# if	DARWINV>120
 	case VT_CIFS:
 	    break;
-#endif	/* DARWINV>120 */
+# endif	/* DARWINV>120 */
 
 	case VT_DEVFS:
 	    if (!v->v_data
@@ -204,6 +440,8 @@ process_node(va)
 	    }
 	    d = &db;
 	    break;
+
+# if	defined(HASFDESCFS)
 	case VT_FDESC:
 	    if (!v->v_data
 	    ||  kread((KA_T)v->v_data, (char *)&fb, sizeof(fb))) {
@@ -214,11 +452,13 @@ process_node(va)
 	    }
 	    f = &fb;
 	    break;
+# endif	/* defined(HASFDESCFS) */
+
 	case VT_HFS:
 
-#if	DARWINV<130
+# if	DARWINV<130
 	    if (Ntype != N_AFPFS) {
-#endif	/* DARWINV<130 */
+# endif	/* DARWINV<130 */
 
 		if (!v->v_data
 		||  kread((KA_T)v->v_data, (char *)&hb, sizeof(hb))) {
@@ -229,7 +469,7 @@ process_node(va)
 		}
 		h = &hb;
 
-#if	DARWINV<600
+# if	DARWINV<600
 		if (!h->h_meta
 		||  kread((KA_T)h->h_meta, (char *)&hmb, sizeof(hmb))) {
 		    (void) snpf(Namech, Namechl, "no hfs node metadata: %s",
@@ -238,7 +478,7 @@ process_node(va)
 		    return;
 		}
 		hm = &hmb;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 		if (v->v_type == VDIR)
 		    break;
 		if (h->c_rsrc_vp == v)
@@ -253,15 +493,15 @@ process_node(va)
 		    return;
 		}
 		hf = &hfb;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV<600 */
 
-#if	DARWINV<130
+# if	DARWINV<130
 	    }
-#endif	/* DARWINV<130 */
+# endif	/* DARWINV<130 */
 
 	    break;
 
-#if	defined(HAS9660FS)
+# if	defined(HAS9660FS)
 	case VT_ISOFS:
 	    if (read_iso_node(v, &iso_dev, &iso_dev_def, &iso_ino, &iso_links,
 			      &iso_sz))
@@ -273,7 +513,7 @@ process_node(va)
 	    }
 	    iso_stat = 1;
 	    break;
-#endif	/* defined(HAS9660FS) */
+# endif	/* defined(HAS9660FS) */
 
 	case VT_NFS:
 	    if (!v->v_data
@@ -286,10 +526,10 @@ process_node(va)
 	    n = &nb;
 	    break;
 
-#if	DARWINV>120
+# if	DARWINV>120
 	case VT_UDF:
 	    break;
-#endif	/* DARWINV>120 */
+# endif	/* DARWINV>120 */
 
 	case VT_UFS:
 	    if (!v->v_data
@@ -316,12 +556,8 @@ process_node(va)
 			    lt = 1;
 			break;
 		    case F_POSIX:
-
-#if	defined(P_ADDR)
 			if ((KA_T)lf.lf_id == Kpa)
 			    lt = 1;
-#endif	/* defined(P_ADDR) */
-
 			break;
 		    }
 		    if (!lt)
@@ -342,10 +578,10 @@ process_node(va)
 	    }
 	    break;
 
-#if	DARWINV>120
+# if	DARWINV>120
 	case VT_WEBDAV:
    	    break;
-#endif	/* DARWINV>120 */
+# endif	/* DARWINV>120 */
 
 	default:
 	    if (v->v_type == VBAD || v->v_type == VNON)
@@ -358,7 +594,6 @@ process_node(va)
 /*
  * Get device and type for printing.
  */
-	type = v->v_type;
 	if (n) {
 	    dev = n->n_vattr.va_fsid;
 	    devs = 1;
@@ -369,12 +604,14 @@ process_node(va)
 		rdev = i->i_rdev ;
 		rdevs = 1;
 	    }
+
+# if	defined(HASFDESCFS)
 	} else if (f) {
 	    if (f->fd_link
 	    &&  !kread((KA_T)f->fd_link, Namech, Namechl -1))
 		Namech[Namechl - 1] = '\0';
 
-#if	DARWINV<600
+#  if	DARWINV<600
 	    else if (f->fd_type == Fctty) {
 		if (fs == 0)
 		    fs = lkup_dev_tty(&fdev, &frdev, &fi);
@@ -385,24 +622,25 @@ process_node(va)
 		    Lf->inode = fi;
 		}
 	    }
-#endif	/* DARWINV<600 */
+#  endif	/* DARWINV<600 */
+# endif	defined(HASFDESCFS)
 
 	} else if (h) {
 
-#if	DARWINV<600
+# if	DARWINV<600
 	    dev = hm->h_dev;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 	    dev = h->c_dev;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV<600 */
 
 	    devs = 1;
 	    if ((type == VCHR) || (type == VBLK)) {
 
-#if	DARWINV<600
+# if	DARWINV<600
 		rdev = hm->h_rdev;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 		rdev = h->c_rdev;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV<600 */
 
 		rdevs = 1;
 	    }
@@ -413,12 +651,12 @@ process_node(va)
 	    rdevs = 1;
 	}
 
-#if	defined(HAS9660FS)
+# if	defined(HAS9660FS)
 	else if (iso_stat && iso_dev_def) {
 	    dev = iso_dev;
 	    devs = Lf->inp_ty = 1;
 	}
-#endif	/* defined(HAS9660FS) */
+# endif	/* defined(HAS9660FS) */
 
 
 /*
@@ -432,21 +670,21 @@ process_node(va)
 	    Lf->inp_ty = 1;
 	} else if (h) {
 
-#if	DARWINV<600
+# if	DARWINV<600
 	    Lf->inode = (unsigned long)hm->h_nodeID;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 	    Lf->inode = (unsigned long)h->c_fileid;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV<600 */
 
 	    Lf->inp_ty = 1;
 	}
 
-#if	defined(HAS9660FS)
+# if	defined(HAS9660FS)
 	else if (iso_stat) {
 	    Lf->inode = iso_ino;
 	    Lf->inp_ty = 1;
 	}
-#endif	/* defined(HAS9660FS) */
+# endif	/* defined(HAS9660FS) */
 
 /*
  * Obtain the file size.
@@ -466,10 +704,10 @@ process_node(va)
 		}
 		break;
 
-#if	DARWINV<130
+# if	DARWINV<130
 	    case N_AFPFS:
 		break;
-#endif	/* DARWINV<130 */
+# endif	/* DARWINV<130 */
 
 	    case N_REGLR:
 		if (type == VREG || type == VDIR) {
@@ -478,25 +716,25 @@ process_node(va)
 			Lf->sz_def = 1;
 		    } else if (h) {
 
-#if	DARWINV<600
+# if	DARWINV<600
 			Lf->sz = (type == VDIR) ? (SZOFFTYPE)hm->h_size
 						: (SZOFFTYPE)h->fcbEOF;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 			if (type == VDIR)
 			    Lf->sz = (SZOFFTYPE)h->c_nlink * 128;
 			else
 			    Lf->sz = (SZOFFTYPE)hf->ff_size;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV<600 */
 
 			Lf->sz_def = 1;
 		    }
 
-#if	defined(HAS9660FS)
+# if	defined(HAS9660FS)
 		    else if (iso_stat) {
 			Lf->sz = (SZOFFTYPE)iso_sz;
 			Lf->sz_def = 1;
 		    }
-#endif	/* defined(HAS9660FS) */
+# endif	/* defined(HAS9660FS) */
 
 		}
 		else if ((type == VCHR || type == VBLK) && !Fsize)
@@ -516,10 +754,10 @@ process_node(va)
 		}
 		break;
 
-#if	DARWINV<130
+# if	DARWINV<130
 	    case N_AFPFS:
 		break;
-#endif	/* DARWINV<130 */
+# endif	/* DARWINV<130 */
 
 	    case N_REGLR:
 		if (i) {
@@ -527,27 +765,92 @@ process_node(va)
 		    Lf->nlink_def = 1;
 		} else if (h) {
 
-#if	DARWINV<600
+# if	DARWINV<600
 		    Lf->nlink = (long)hm->h_nlink;
-#else	/* DARWINV>=600 */
+# else	/* DARWINV>=600 */
 		    Lf->nlink = (long)h->c_nlink;
-#endif	/* DARWINV<600 */
+# endif	/* DARWINV>=600 */
 
 		    Lf->nlink_def = 1;
 		}
 
-#if	defined(HAS9660FS)
+# if	defined(HAS9660FS)
 		else if (iso_stat) {
 		    Lf->nlink = iso_links;
 		    Lf->nlink_def = 1;
 		}
-#endif	/* defined(HAS9660FS) */
+# endif	/* defined(HAS9660FS) */
 
 		break;
 	    }
 	    if (Lf->nlink_def && Nlink && (Lf->nlink < Nlink))
 		Lf->sf |= SELNLINK;
 	}
+
+#else	/* DARWINV>=800 */
+
+	if (vnode_getpath((struct vnode *)va, Lf->path, MAXPATHLEN)) {
+	    struct stat	sb;
+
+	    if (stat(Lf->path, &sb) == 0) {
+		if (Foffset) {
+		    Lf->off_def = 1;	/* show file offset */
+		} else {
+		    switch (Ntype) {
+		    case N_FIFO:
+			if (!Fsize)
+			    /* show file offset */
+			    Lf->off_def = 1;
+			break;
+		    case N_NFS:
+		    case N_REGLR:
+			if (type == VREG || type == VDIR) {
+			    /* file size, in bytes */
+			    Lf->sz = sb.st_size;
+			    Lf->sz_def = 1;
+			}
+			else if ((type == VCHR || type == VBLK) && !Fsize) {
+			    /* show file offset */
+			    Lf->off_def = 1;
+			}
+			break;
+		    }
+		}
+
+		/* inode's number */
+		Lf->inode = sb.st_ino;
+		Lf->inp_ty = 1; 
+
+		if (Fnlink) {
+		    /* number or hard links to the file */
+		    Lf->nlink = sb.st_nlink;
+		    Lf->nlink_def = 1;
+		}
+
+		/* device inode resides on */
+		switch (v->v_tag) {
+		case VT_DEVFS:
+		    Lf->hasPath = 0;
+		    dev = DevDev;
+		    devs = 1;
+		    break;
+		default :
+		    Lf->hasPath = 1;
+		    dev = sb.st_dev;
+		    devs = 1;
+		    break;
+		}
+
+		/* device type, for special file inode */
+		if ((type == VCHR) || (type == VBLK)) {
+		    rdev = sb.st_rdev;
+		    rdevs = 1;
+		}
+	    }
+	}
+
+#endif	/* DARWINV>=800 */
+
 /*
  * Record an NFS file selection.
  */
@@ -652,3 +955,44 @@ process_node(va)
 	if (Namech[0])
 	    enter_nm(Namech);
 }
+
+
+#if	DARWINV>=800
+
+/*      
+ * print_vnode_path() - print a vnode file path
+ *
+ * return: 1 if path printed
+ *
+ * This function is called by the name HASPRIVNMCACHE from printname().
+ */
+
+int
+print_vnode_path(lf)
+        struct lfile *lf;               /* file whose name is to be printed */
+{
+	if (lf->hasPath) {
+	    safestrprt(lf->path, stdout, 0);
+	    return(1);
+	}
+	return (0);
+
+}
+
+/*
+ * process_pipe() - process a file structure whose type is DTYPE_PIPE
+ */
+
+void
+process_pipe(pa)
+	KA_T pa;			/* pipe structure address */
+{
+	char dev_ch[32];
+
+	(void) snpf(Lf->type, sizeof(Lf->type), "PIPE");
+	(void) snpf(dev_ch, sizeof(dev_ch), "%#x", pa);
+	enter_dev_ch(dev_ch);
+	Namech[0] = '\0';
+}
+
+#endif	/* DARWINV>=800 */

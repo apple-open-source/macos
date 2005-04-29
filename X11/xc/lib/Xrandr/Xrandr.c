@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xrandr/Xrandr.c,v 1.13 2003/02/07 11:21:07 eich Exp $
+ * $XFree86: xc/lib/Xrandr/Xrandr.c,v 1.14 2003/05/27 22:26:42 tsi Exp $
  *
  * Copyright © 2000 Compaq Computer Corporation, Inc.
  * Copyright © 2002 Hewlett Packard Company, Inc.
@@ -437,7 +437,6 @@ static XRRScreenConfiguration *_XRRGetScreenInfo (Display *dpy, Window window)
     _XRRVersionState	    async_state;
     int			    nbytes, nbytesRead, rbytes;
     int			    i;
-    int			    snum;
     xScreenSizes	    size;
     struct _XRRScreenConfiguration  *scp;
     XRRScreenSize	    *ssp;
@@ -530,7 +529,7 @@ static XRRScreenConfiguration *_XRRGetScreenInfo (Display *dpy, Window window)
 
     /* set up the screen configuration structure */
     scp->screen = 
-      ScreenOfDisplay (dpy, (snum = XRRRootToScreen(dpy, rep.root)));
+      ScreenOfDisplay (dpy, XRRRootToScreen(dpy, rep.root));
 
     scp->sizes = ssp;
     scp->rates = rates;

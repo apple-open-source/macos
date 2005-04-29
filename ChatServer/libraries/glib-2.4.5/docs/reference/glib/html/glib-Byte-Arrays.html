@@ -1,0 +1,174 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1"><title>Byte Arrays</title><meta name="generator" content="DocBook XSL Stylesheets V1.65.1"><link rel="home" href="index.html" title="GLib Reference Manual"><link rel="up" href="glib-data-types.html" title="GLib Data Types"><link rel="previous" href="glib-Pointer-Arrays.html" title="Pointer Arrays"><link rel="next" href="glib-Balanced-Binary-Trees.html" title="Balanced Binary Trees"><link rel="chapter" href="glib.html" title="GLib Overview"><link rel="refentry" href="glib-building.html" title="Compiling the GLib package"><link rel="refentry" href="glib-cross-compiling.html" title="Cross-compiling the GLib package"><link rel="refentry" href="glib-compiling.html" title="Compiling GLib Applications"><link rel="refentry" href="glib-running.html" title="Running GLib Applications"><link rel="refentry" href="glib-changes.html" title="Changes to GLib"><link rel="refentry" href="glib-resources.html" title="Mailing lists and bug reports"><link rel="chapter" href="glib-fundamentals.html" title="GLib Fundamentals"><link rel="refentry" href="glib-Basic-Types.html" title="Basic Types"><link rel="refentry" href="glib-Limits-of-Basic-Types.html" title="Limits of Basic Types"><link rel="refentry" href="glib-Standard-Macros.html" title="Standard Macros"><link rel="refentry" href="glib-Type-Conversion-Macros.html" title="Type Conversion Macros"><link rel="refentry" href="glib-Byte-Order-Macros.html" title="Byte Order Macros"><link rel="refentry" href="glib-Numerical-Definitions.html" title="Numerical Definitions"><link rel="refentry" href="glib-Miscellaneous-Macros.html" title="Miscellaneous Macros"><link rel="refentry" href="glib-Atomic-Operations.html" title="Atomic Operations"><link rel="chapter" href="glib-core.html" title="GLib Core Application Support"><link rel="refentry" href="glib-The-Main-Event-Loop.html" title="The Main Event Loop"><link rel="refentry" href="glib-Threads.html" title="
+Threads"><link rel="refentry" href="glib-Thread-Pools.html" title="Thread Pools"><link rel="refentry" href="glib-Asynchronous-Queues.html" title="Asynchronous Queues"><link rel="refentry" href="glib-Dynamic-Loading-of-Modules.html" title="Dynamic Loading of Modules"><link rel="refentry" href="glib-Memory-Allocation.html" title="Memory Allocation"><link rel="refentry" href="glib-IO-Channels.html" title="IO Channels"><link rel="refentry" href="glib-Error-Reporting.html" title="Error Reporting"><link rel="refentry" href="glib-Warnings-and-Assertions.html" title="Message Output and Debugging Functions"><link rel="refentry" href="glib-Message-Logging.html" title="Message Logging"><link rel="chapter" href="glib-utilities.html" title="GLib Utilities"><link rel="refentry" href="glib-String-Utility-Functions.html" title="String Utility Functions"><link rel="refentry" href="glib-Character-Set-Conversion.html" title="Character Set Conversion"><link rel="refentry" href="glib-Unicode-Manipulation.html" title="Unicode Manipulation"><link rel="refentry" href="glib-I18N.html" title="Internationalization"><link rel="refentry" href="glib-Date-and-Time-Functions.html" title="Date and Time Functions"><link rel="refentry" href="glib-Random-Numbers.html" title="Random Numbers"><link rel="refentry" href="glib-Hook-Functions.html" title="Hook Functions"><link rel="refentry" href="glib-Miscellaneous-Utility-Functions.html" title="Miscellaneous Utility Functions"><link rel="refentry" href="glib-Lexical-Scanner.html" title="Lexical Scanner"><link rel="refentry" href="glib-Automatic-String-Completion.html" title="Automatic String Completion"><link rel="refentry" href="glib-Timers.html" title="Timers"><link rel="refentry" href="glib-Spawning-Processes.html" title="Spawning Processes"><link rel="refentry" href="glib-File-Utilities.html" title="File Utilities"><link rel="refentry" href="glib-Shell-related-Utilities.html" title="Shell-related Utilities"><link rel="refentry" href="glib-Glob-style-pattern-matching.html" title="Glob-style pattern matching"><link rel="refentry" href="glib-Simple-XML-Subset-Parser.html" title="Simple XML Subset Parser"><link rel="refentry" href="glib-Windows-Compatability-Functions.html" title="Windows Compatibility Functions"><link rel="chapter" href="glib-data-types.html" title="GLib Data Types"><link rel="refentry" href="glib-Memory-Chunks.html" title="Memory Chunks"><link rel="refentry" href="glib-Doubly-Linked-Lists.html" title="Doubly-Linked Lists"><link rel="refentry" href="glib-Singly-Linked-Lists.html" title="Singly-Linked Lists"><link rel="refentry" href="glib-Double-ended-Queues.html" title="Double-ended Queues"><link rel="refentry" href="glib-Trash-Stacks.html" title="Trash Stacks"><link rel="refentry" href="glib-Hash-Tables.html" title="Hash Tables"><link rel="refentry" href="glib-Strings.html" title="Strings"><link rel="refentry" href="glib-String-Chunks.html" title="String Chunks"><link rel="refentry" href="glib-Arrays.html" title="Arrays"><link rel="refentry" href="glib-Pointer-Arrays.html" title="Pointer Arrays"><link rel="refentry" href="glib-Byte-Arrays.html" title="Byte Arrays"><link rel="refentry" href="glib-Balanced-Binary-Trees.html" title="Balanced Binary Trees"><link rel="refentry" href="glib-N-ary-Trees.html" title="N-ary Trees"><link rel="refentry" href="glib-Quarks.html" title="Quarks"><link rel="refentry" href="glib-Keyed-Data-Lists.html" title="Keyed Data Lists"><link rel="refentry" href="glib-Datasets.html" title="Datasets"><link rel="refentry" href="glib-Relations-and-Tuples.html" title="Relations and Tuples"><link rel="refentry" href="glib-Caches.html" title="Caches"><link rel="refentry" href="glib-Memory-Allocators.html" title="Memory Allocators"><link rel="chapter" href="tools.html" title="GLib Tools"><link rel="refentry" href="glib-gettextize.html" title="glib-gettextize"><link rel="index" href="ix01.html" title="Index"><link rel="section" href="glib-Byte-Arrays.html#id3300733" title="Description"><link rel="section" href="glib-Byte-Arrays.html#id3300894" title="Details"><meta name="generator" content="GTK-Doc V1.2 (XML mode)"><link rel="stylesheet" href="style.css" type="text/css"></head><body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF"><table class="navigation" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle"><td><a accesskey="p" href="glib-Pointer-Arrays.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td><td><a accesskey="u" href="glib-data-types.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td><td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td><th width="100%" align="center">GLib Reference Manual</th><td><a accesskey="n" href="glib-Balanced-Binary-Trees.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td></tr></table><div class="refentry" lang="en"><a name="glib-Byte-Arrays"></a><div class="titlepage"><div></div><div></div></div><div class="refnamediv"><h2><span class="refentrytitle">Byte Arrays</span></h2><p>Byte Arrays &#8212; arrays of bytes, which grow automatically as elements are added.</p></div><div class="refsynopsisdiv"><h2>Synopsis</h2><pre class="synopsis">
+
+#include &lt;glib.h&gt;
+
+
+struct      <a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>;
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-new">g_byte_array_new</a>                (void);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-sized-new">g_byte_array_sized_new</a>          (<a href="glib-Basic-Types.html#guint">guint</a> reserved_size);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-append">g_byte_array_append</a>             (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             const <a href="glib-Basic-Types.html#guint8">guint8</a> *data,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> len);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-prepend">g_byte_array_prepend</a>            (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             const <a href="glib-Basic-Types.html#guint8">guint8</a> *data,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> len);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-remove-index">g_byte_array_remove_index</a>       (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-remove-index-fast">g_byte_array_remove_index_fast</a>  (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-remove-range">g_byte_array_remove_range</a>       (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> length);
+void        <a href="glib-Byte-Arrays.html#g-byte-array-sort">g_byte_array_sort</a>               (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Doubly-Linked-Lists.html#GCompareFunc">GCompareFunc</a> compare_func);
+void        <a href="glib-Byte-Arrays.html#g-byte-array-sort-with-data">g_byte_array_sort_with_data</a>     (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Doubly-Linked-Lists.html#GCompareDataFunc">GCompareDataFunc</a> compare_func,
+                                             <a href="glib-Basic-Types.html#gpointer">gpointer</a> user_data);
+<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* <a href="glib-Byte-Arrays.html#g-byte-array-set-size">g_byte_array_set_size</a>           (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> length);
+<a href="glib-Basic-Types.html#guint8">guint8</a>*     <a href="glib-Byte-Arrays.html#g-byte-array-free">g_byte_array_free</a>               (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#gboolean">gboolean</a> free_segment);
+</pre></div><div class="refsect1" lang="en"><a name="id3300733"></a><h2>Description</h2><p>
+<a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a> is based on <a href="glib-Arrays.html#GArray"><span class="type">GArray</span></a>, to provide arrays of bytes which grow
+automatically as elements are added.
+</p><p>
+To create a new <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a> use <a href="glib-Byte-Arrays.html#g-byte-array-new"><tt class="function">g_byte_array_new()</tt></a>.
+</p><p>
+To add elements to a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>, use <a href="glib-Byte-Arrays.html#g-byte-array-append"><tt class="function">g_byte_array_append()</tt></a>, and
+<a href="glib-Byte-Arrays.html#g-byte-array-prepend"><tt class="function">g_byte_array_prepend()</tt></a>.
+</p><p>
+To set the size of a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>, use <a href="glib-Byte-Arrays.html#g-byte-array-set-size"><tt class="function">g_byte_array_set_size()</tt></a>.
+</p><p>
+To free a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>, use <a href="glib-Byte-Arrays.html#g-byte-array-free"><tt class="function">g_byte_array_free()</tt></a>.
+</p><div class="example"><a name="id3300859"></a><p class="title"><b>Example 6. Using a <span class="structname">GByteArray</span></b></p><pre class="programlisting">
+  GByteArray *gbarray;
+  gint i;
+
+  gbarray = g_byte_array_new ();
+  for (i = 0; i &lt; 10000; i++)
+    g_byte_array_append (gbarray, (guint8*) "abcd", 4);
+
+  for (i = 0; i &lt; 10000; i++)
+    {
+      g_assert (gbarray-&gt;data[4*i] == 'a');
+      g_assert (gbarray-&gt;data[4*i+1] == 'b');
+      g_assert (gbarray-&gt;data[4*i+2] == 'c');
+      g_assert (gbarray-&gt;data[4*i+3] == 'd');
+    }
+
+  g_byte_array_free (gbarray, TRUE);
+</pre></div></div><div class="refsect1" lang="en"><a name="id3300894"></a><h2>Details</h2><div class="refsect2" lang="en"><a name="id3300900"></a><h3><a name="GByteArray"></a>struct GByteArray</h3><a class="indexterm" name="id3300910"></a><pre class="programlisting">struct GByteArray {
+
+  guint8 *data;
+  guint	  len;
+};
+</pre><p>
+The <span class="structname">GByteArray</span> struct allows access to the public fields of a <span class="structname">GByteArray</span>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><a href="glib-Basic-Types.html#guint8">guint8</a> *<i class="structfield"><tt>data</tt></i></span></td><td>a pointer to the element data. The data may be moved as elements are
+added to the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><a href="glib-Basic-Types.html#guint">guint</a> <i class="structfield"><tt>len</tt></i></span></td><td>the number of elements in the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3300993"></a><h3><a name="g-byte-array-new"></a>g_byte_array_new ()</h3><a class="indexterm" name="id3301003"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_new                (void);</pre><p>
+Creates a new <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the new <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301055"></a><h3><a name="g-byte-array-sized-new"></a>g_byte_array_sized_new ()</h3><a class="indexterm" name="id3301067"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_sized_new          (<a href="glib-Basic-Types.html#guint">guint</a> reserved_size);</pre><p>
+Creates a new <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a> with <i class="parameter"><tt>reserved_size</tt></i> bytes preallocated. This
+avoids frequent reallocation, if you are going to add many bytes to
+the array. Note however that the size of the array is still 0.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>reserved_size</tt></i> :</span></td><td>number of bytes preallocated.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the new <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301149"></a><h3><a name="g-byte-array-append"></a>g_byte_array_append ()</h3><a class="indexterm" name="id3301160"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_append             (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             const <a href="glib-Basic-Types.html#guint8">guint8</a> *data,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> len);</pre><p>
+Adds the given bytes to the end of the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+The array will grow in size automatically if necessary.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>data</tt></i> :</span></td><td>the byte data to be added.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>len</tt></i> :</span></td><td>the number of bytes to add.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301284"></a><h3><a name="g-byte-array-prepend"></a>g_byte_array_prepend ()</h3><a class="indexterm" name="id3301295"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_prepend            (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             const <a href="glib-Basic-Types.html#guint8">guint8</a> *data,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> len);</pre><p>
+Adds the given data to the start of the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+The array will grow in size automatically if necessary.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>data</tt></i> :</span></td><td>the byte data to be added.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>len</tt></i> :</span></td><td>the number of bytes to add.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301420"></a><h3><a name="g-byte-array-remove-index"></a>g_byte_array_remove_index ()</h3><a class="indexterm" name="id3301432"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_remove_index       (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_);</pre><p>
+Removes the byte at the given index from a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+The following bytes are moved down one place.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>index_</tt></i> :</span></td><td>the index of the byte to remove.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301535"></a><h3><a name="g-byte-array-remove-index-fast"></a>g_byte_array_remove_index_fast ()</h3><a class="indexterm" name="id3301546"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_remove_index_fast  (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_);</pre><p>
+Removes the byte at the given index from a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+The last element in the array is used to fill in the space, so this function
+does not preserve the order of the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>. But it is faster than
+<a href="glib-Byte-Arrays.html#g-byte-array-remove-index"><tt class="function">g_byte_array_remove_index()</tt></a>.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>index_</tt></i> :</span></td><td>the index of the byte to remove.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301670"></a><h3><a name="g-byte-array-remove-range"></a>g_byte_array_remove_range ()</h3><a class="indexterm" name="id3301682"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_remove_range       (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> index_,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> length);</pre><p>
+Removes the given number of bytes starting at the given index from a
+<a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.  The following elements are moved to close the gap.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <i class="parameter"><tt>GByteArray</tt></i>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>index_</tt></i> :</span></td><td>the index of the first byte to remove.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>length</tt></i> :</span></td><td>the number of bytes to remove.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr></tbody></table></div><p>Since 2.4
+
+
+</p></div><hr><div class="refsect2" lang="en"><a name="id3301809"></a><h3><a name="g-byte-array-sort"></a>g_byte_array_sort ()</h3><a class="indexterm" name="id3301820"></a><pre class="programlisting">void        g_byte_array_sort               (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Doubly-Linked-Lists.html#GCompareFunc">GCompareFunc</a> compare_func);</pre><p>
+Sorts a byte array, using <i class="parameter"><tt>compare_func</tt></i> which should be a <tt class="function">qsort()</tt>-style
+comparison function (returns -1 for first arg is less than second arg, 0 for
+equal, 1 if first arg is greater than second arg).
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>compare_func</tt></i> :</span></td><td>comparison function.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3301915"></a><h3><a name="g-byte-array-sort-with-data"></a>g_byte_array_sort_with_data ()</h3><a class="indexterm" name="id3301927"></a><pre class="programlisting">void        g_byte_array_sort_with_data     (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Doubly-Linked-Lists.html#GCompareDataFunc">GCompareDataFunc</a> compare_func,
+                                             <a href="glib-Basic-Types.html#gpointer">gpointer</a> user_data);</pre><p>
+Like <a href="glib-Byte-Arrays.html#g-byte-array-sort"><tt class="function">g_byte_array_sort()</tt></a>, but the comparison function takes a user data argument.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>compare_func</tt></i> :</span></td><td>comparison function.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>user_data</tt></i> :</span></td><td>data to pass to <i class="parameter"><tt>compare_func</tt></i>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3302042"></a><h3><a name="g-byte-array-set-size"></a>g_byte_array_set_size ()</h3><a class="indexterm" name="id3302054"></a><pre class="programlisting"><a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a>* g_byte_array_set_size           (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#guint">guint</a> length);</pre><p>
+Sets the size of the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>, expanding it if necessary.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>length</tt></i> :</span></td><td>the new size of the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+
+
+</td></tr></tbody></table></div></div><hr><div class="refsect2" lang="en"><a name="id3302164"></a><h3><a name="g-byte-array-free"></a>g_byte_array_free ()</h3><a class="indexterm" name="id3302176"></a><pre class="programlisting"><a href="glib-Basic-Types.html#guint8">guint8</a>*     g_byte_array_free               (<a href="glib-Byte-Arrays.html#GByteArray">GByteArray</a> *array,
+                                             <a href="glib-Basic-Types.html#gboolean">gboolean</a> free_segment);</pre><p>
+Frees the memory allocated by the <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+If <i class="parameter"><tt>free_segment</tt></i> is <tt class="literal">TRUE</tt> it frees the actual byte data.
+</p><div class="variablelist"><table border="0"><col align="left" valign="top"><tbody><tr><td><span class="term"><i class="parameter"><tt>array</tt></i> :</span></td><td>a <a href="glib-Byte-Arrays.html#GByteArray"><span class="type">GByteArray</span></a>.
+</td></tr><tr><td><span class="term"><i class="parameter"><tt>free_segment</tt></i> :</span></td><td>if <tt class="literal">TRUE</tt> the actual byte data is freed as well.
+</td></tr><tr><td><span class="term"><span class="emphasis"><em>Returns</em></span> :</span></td><td>
+
+
+</td></tr></tbody></table></div></div></div></div><table class="navigation" width="100%" summary="Navigation footer" cellpadding="2" cellspacing="0"><tr valign="middle"><td align="left"><a accesskey="p" href="glib-Pointer-Arrays.html"><b>&lt;&lt; Pointer Arrays</b></a></td><td align="right"><a accesskey="n" href="glib-Balanced-Binary-Trees.html"><b>Balanced Binary Trees &gt;&gt;</b></a></td></tr></table></body></html>

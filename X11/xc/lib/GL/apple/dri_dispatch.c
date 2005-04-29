@@ -1,5 +1,5 @@
 /* dri_dispatch.c
-   $Id: dri_dispatch.c,v 1.13 2003/07/23 17:58:02 jharper Exp $
+   $Id: dri_dispatch.c,v 1.14 2004/07/16 19:09:24 jharper Exp $
 
    Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
 
@@ -27,6 +27,7 @@
    copyright holders shall not be used in advertising or otherwise to
    promote the sale, use or other dealings in this Software without
    prior written authorization. */
+/* $XFree86: xc/lib/GL/apple/dri_dispatch.c,v 1.3 2003/10/31 02:22:12 torrey Exp $ */
 
 #include <OpenGL/OpenGL.h>
 #include <OpenGL/CGLContext.h>
@@ -117,24 +118,23 @@ __private_extern__ const CGLContextObj
 XAppleDRIGetIndirectContext (void)
 {
     static CGLContextObj ctx;
-
     void **t;
     int i;
 
     if (ctx != NULL)
-	return ctx;
+        return ctx;
 
     /* initialize gl */
     CGLSetOption (kCGLGOResetLibrary, 0);
 
-    /* create an empty "context" for dispatching purposes. add some slop
+    /* Create an empty "context" for dispatching purposes. Add some slop
        in case the dispatch table grows in future updates. */
     ctx = Xcalloc (1, sizeof (struct _CGLContextObject) + 1024);
 
     /* fill it with no-op vectors */
     t = (void **) &ctx->disp;
     for (i = 0; i < (int) (sizeof (ctx->disp) / sizeof (t[0])); i++)
-	t[i] = &indirect_noop;
+        t[i] = &indirect_noop;
 
     /* then install the functions we actually support */
     INDIRECT_DISPATCH_INIT (((void **) (&ctx->disp)), indirect__);

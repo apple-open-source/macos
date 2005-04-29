@@ -224,20 +224,20 @@ gdbtk_test srcwin-1.13 "assembly->source mode change" {
 # Desc: check contents of filename combobox
 gdbtk_test srcwin-2.1 "check contents of filename combobox" {
   set statbar [$srcwin test_get _statbar]
-  set names [$statbar.name listget 0 end]
+  set names [$statbar.name list get 0 end]
   set r 0
-  foreach f {list0.c list1.c list0.h} {
+  foreach f {list0.c list1.c} {
     if {[lsearch $names $f] != -1} {
       incr r
     }
   }
   set r
-} {3}
+} {2}
 
 # Test: srcwin-2.2
 # Desc: check contents of function combobox
 gdbtk_test srcwin-2.2 "check contents of function combobox" {
-  set names [$statbar.func listget 0 end]
+  set names [$statbar.func list get 0 end]
   set r 0
   foreach f {main foo unused} {
     if {[lsearch $names $f] != -1} {
@@ -260,7 +260,7 @@ gdbtk_test srcwin-2.3 "goto filename" {
 # Test: srcwin-2.4
 # Desc: check contents of function combobox
 gdbtk_test srcwin-2.4 "check contents of function combobox" {
-  set names [$statbar.func listget 0 end]
+  set names [$statbar.func list get 0 end]
   set r 0
   foreach f {bar long_line oof unused} {
     if {[lsearch $names $f] != -1} {
@@ -1164,8 +1164,9 @@ gdbtk_test srcwin-5.1 "variable balloon test" {
 # 6.1 mixed mode disassembly of include file
 # Test: srcwin-6.1
 # Desc: Some versions of GDBtk can't do mixed-mode disassembly of a function
-# that is in an include file.
-gdbtk_test srcwin-6.1 "mixed mode disassembly of include file" {
+# that is in an include file. PR# mi/1101
+
+gdbtk_test srcwin-6.1 "mixed mode disassembly of include file (mi/1101)" {
   set r 0
   $srcwin mode "" MIXED
 

@@ -1,11 +1,11 @@
 #!/bin/sh -
-#	$Id: s_symlink,v 1.1.1.1 2003/02/15 04:55:44 zarzycki Exp $
+#	$Id: s_symlink,v 1.2 2004/03/30 01:21:34 jtownsen Exp $
 
 echo 'Creating Berkeley DB source tree symbolic links...'
 
 build()
 {
-	echo "	$1 -> $2"
+	#echo "	$1 -> $2"
 	(cd ../`dirname $1` && rm -f `basename $1` && ln -s $2 `basename $1`)
 }
 
@@ -35,7 +35,6 @@ build dbreg/tags ../dist/tags
 build env/tags ../dist/tags
 build examples_c/tags ../dist/tags
 build examples_cxx/tags ../dist/tags
-build examples_java java/src/com/sleepycat/examples
 build fileops/tags ../dist/tags
 build hash/tags ../dist/tags
 build hmac/tags ../dist/tags
@@ -53,6 +52,5 @@ build rep/tags ../dist/tags
 build rpc_client/tags ../dist/tags
 build rpc_server/tags ../dist/tags
 build tcl/tags ../dist/tags
-build test_server/tags ../dist/tags
 build txn/tags ../dist/tags
 build xa/tags ../dist/tags

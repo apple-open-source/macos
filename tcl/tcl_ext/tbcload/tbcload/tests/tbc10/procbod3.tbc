@@ -1,0 +1,87 @@
+# procbod3.tcl --
+#
+#  Test file for compilation.
+#  Defines a proc which will be compiled, then does an info body on it and
+#  uses it as a string, then calls the procedure again.
+#  Checks that the internal representation of the compiled procedure is
+#  not flushed.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procbod3.tbc,v 1.2 2000/05/30 22:19:09 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+9 0 59 12 0 0 40 0 5 9 9 -1 -1
+59
+/QE<!(H&s!/HW<!(3E<!A@8*',Qr<!?uW<!1Qr<!6iA=!1&5pv0#YQ#(<E<!/f8X!.EW<!1E
+!!
+9
+6AbQ#:>G:v*!
+9
+BDPpvKh:qvw!
+12
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+6
+7,V`FW+%
+x
+4
+b4Z)<
+x
+1
+m!
+x
+0
+
+x
+7
+%6|,EYt|+
+x
+4
+wm<eD
+x
+4
+&i:vH
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 2001-2002
+# Copyright (c) 2001-2003
 #	Sleepycat Software.  All rights reserved.
 #
-# $Id: bigfile001.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: bigfile001.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 # TEST	bigfile001
 # TEST	Create a database greater than 4 GB in size.  Close, verify.

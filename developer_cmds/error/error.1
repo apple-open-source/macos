@@ -130,7 +130,7 @@ connected via a pipe to the error message source.
 Some language processors put error messages on their standard error file;
 others put their messages on the standard output.
 Hence, both error sources should be piped together into
-.Nm "" .
+.Nm .
 For example, when using the
 .Xr csh 1
 syntax,
@@ -179,7 +179,7 @@ which file it is processing.
 uses these to determine the file name for languages that
 don't include the file name in each error message.
 These synchronization messages are consumed entirely by
-.Nm "" .
+.Nm .
 .It Em discard
 Error messages from
 .Xr lint 1
@@ -192,7 +192,7 @@ and
 are discarded,
 to prevent accidently touching these libraries.
 Again, these error messages are consumed entirely by
-.Nm "" .
+.Nm .
 .It Em nullify
 Error messages from
 .Xr lint 1
@@ -287,7 +287,7 @@ may cause
 .Nm
 to not understand the error message.
 .Pp
-.Nm "" ,
+.Nm ,
 since it is purely mechanical,
 will not filter out subsequent errors caused by `floodgating'
 initiated by one syntactically trivial error.
@@ -296,7 +296,7 @@ Humans are still much better at discarding these related errors.
 Pascal error messages belong after the lines affected
 (error puts them before).  The alignment of the `\\' marking
 the point of error is also disturbed by
-.Nm "" .
+.Nm .
 .Pp
 .Nm
 was designed for work on

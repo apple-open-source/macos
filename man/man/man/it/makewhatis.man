@@ -1,0 +1,96 @@
+.\" $Id: makewhatis.8,v 1.2 1999/05/24 14:40:26 otto Exp $
+.\" Copyright (c) 1999 Ottavio G. Rizzo <rizzo@pluto.linux.it>
+.\" Traduzione italiana del medesimo
+.\"
+.\" This is free documentation; you can redistribute it and/or
+.\" modify it under the terms of the GNU General Public License as
+.\" published by the Free Software Foundation; either version 2 of
+.\" the License, or (at your option) any later version.
+.\"
+.\" The GNU General Public License's references to "object code"
+.\" and "executables" are to be interpreted as the output of any
+.\" document formatting or typesetting system, including
+.\" intermediate and printed output.
+.\"
+.\" This manual is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public
+.\" License along with this manual; if not, write to the Free
+.\" Software Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139,
+.\" USA.
+.\" 
+.TH MAKEWHATIS 8 "22 gennaio 1999" 
+.SH NOME
+makewhatis \- Crea il database di whatis
+.SH SINTASSI
+.BI "makewhatis [-u] [-v] [-w] [-s " sezioni " ] [-c [" percorso_cat "]] [" percorso_man "]"
+.SH DESCRIZIONE
+.B makewhatis
+legge tutte le pagine di manuale contenute nelle date
+.IR sezioni " in " percorso_man
+o nelle corrispondenti
+.IR sezioni " in " percorso_cat .
+Scrive, per ogni pagina, una riga nel database di whatis: ognuna
+consiste nel nome della pagina e in una breve descrizione separata da
+un trattino. La descrizione viene estratta basandosi sul contenuto
+della sezione NOME della pagina di manuale.
+.LP
+Poiché lingue diverse usano nomi diversi per indicare la sezione NOME,
+.B makewhatis
+riconosce il termine equivalente in ceco, finlandese, francese,
+inglese, italiano, spagnolo e tedesco.
+.LP
+Se non viene passato nessun argomento
+.IR percorso_man ,
+viene usato
+.IR /usr/man .
+.SH OPZIONI
+.TP
+.B -u
+Aggiorna il database con le nuove pagine.
+.TP
+.B -v
+Output più dettagliato.
+.TP
+.B -w
+Ottiene il percorso da `man --path`
+.TP 
+.BI -s " sezioni"
+Guarda nelle
+.I sezioni
+di
+.IR manpath " or " catpath .
+Se l'opzione manca, il suo valore posto a
+.I  \'1 2 3 4 5 6 7 8 9 n l\'
+.TP 
+.BI -c " percorso_cat"
+Vengono considerate le pagine preformattate che si trovano in
+.IR catpath .
+Se l'argomento è assente, viene usata la prima directory esistente fra
+.IR /usr/man/preformat " e " /usr/man .
+.SH ESEMPI
+.PP
+Per ricostruire solo
+.IR /usr/X11R6/man/whatis " e " /usr/local/man/whatis :
+.IP
+makewhatis /usr/X11R6/man /usr/local/man
+.PP
+Per ricostruire tutti i database, inclusi quelli con le traduzioni
+finlandesi, francesi e italiane:
+.IP
+LANGUAGE=fi:fr:it makewhatis -w
+.SH BACHI
+.B makewhatis
+potrebbe non aprezzare molto le pagine scritte con macro Troff non
+standard, come quelle di Tcl/Tk.
+.PP
+.B makewhatis
+non funziona con le traduzione preformattate.
+.SH VEDERE ANCHE
+.BR apropos (1),
+.BR man (1),
+.BR whatis (1)
+

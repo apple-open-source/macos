@@ -1,5 +1,22 @@
 #include <net-snmp/net-snmp-config.h>
 
+#ifdef SNMP_TRANSPORT_TCPIPV6_DOMAIN
+
+/*
+ * hack-o-matic for Cygwin to use winsock2
+*/
+#if defined(cygwin)
+#undef HAVE_UNISTD_H
+#undef HAVE_NETINET_IN_H
+#undef HAVE_ARPA_INET_H
+#undef HAVE_NET_IF_H
+#undef HAVE_NETDB_H
+#undef HAVE_SYS_PARAM_H
+#undef HAVE_SYS_SELECT_H
+#undef HAVE_SYS_SOCKET_H
+#undef HAVE_IN_ADDR_T
+#endif
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <errno.h>
@@ -18,6 +35,18 @@
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
+
+#if defined(HAVE_WINSOCK_H) || defined(cygwin)
+    /*
+     * Windows IPv6 support is part of WinSock2 only
+     */
+#include <winsock2.h>
+#include <ws2tcpip.h>
+
+extern const char *inet_ntop(int, const void*, char*, size_t);
+
+#endif
+
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -43,7 +72,7 @@
 #include <net-snmp/library/snmpUDPIPv6Domain.h>
 #include <net-snmp/library/snmpTCPIPv6Domain.h>
 
-oid netsnmp_TCPIPv6Domain[] = { ENTERPRISE_MIB, 3, 3, 5 };
+oid netsnmp_TCPIPv6Domain[] = { TRANSPORT_DOMAIN_TCP_IPV6 };
 static netsnmp_tdomain tcp6Domain;
 
 /*
@@ -69,7 +98,7 @@ netsnmp_tcp6_fmtaddr(netsnmp_transport *t, void *data, int len)
         char addr[INET6_ADDRSTRLEN];
         char tmp[INET6_ADDRSTRLEN + 8];
 
-        sprintf(tmp, "[%s]:%hd",
+        sprintf(tmp, "TCP/IPv6: [%s]:%hd",
                 inet_ntop(AF_INET6, (void *) &(to->sin6_addr), addr,
                           INET6_ADDRSTRLEN), ntohs(to->sin6_port));
         return strdup(tmp);
@@ -204,6 +233,15 @@ netsnmp_tcp6_accept(netsnmp_transport *t)
                         newsock));
         }
 #endif
+
+        /*
+         * Allow user to override the send and receive buffers. Default is
+         * to use os default.  Don't worry too much about errors --
+         * just plough on regardless.  
+         */
+        netsnmp_sock_buffer_set(newsock, SO_SNDBUF, 1, 0);
+        netsnmp_sock_buffer_set(newsock, SO_RCVBUF, 1, 0);
+
         return newsock;
     } else {
         free(farend);
@@ -288,7 +326,7 @@ netsnmp_tcp6_transport(struct sockaddr_in6 *addr, int local)
          * We should set SO_REUSEADDR too.  
          */
 
-        setsockopt(t->sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+        setsockopt(t->sock, SOL_SOCKET, SO_REUSEADDR, (void *)&opt, sizeof(opt));
 
         rc = bind(t->sock, (struct sockaddr *) addr,
 		  sizeof(struct sockaddr_in6));
@@ -324,6 +362,11 @@ netsnmp_tcp6_transport(struct sockaddr_in6 *addr, int local)
             netsnmp_transport_free(t);
             return NULL;
         }
+        
+        /*
+         * no buffer size on listen socket - doesn't make sense
+         */
+
     } else {
         t->remote = malloc(18);
         if (t->remote == NULL) {
@@ -353,6 +396,14 @@ netsnmp_tcp6_transport(struct sockaddr_in6 *addr, int local)
             netsnmp_transport_free(t);
             return NULL;
         }
+
+        /*
+         * Allow user to override the send and receive buffers. Default is
+         * to use os default.  Don't worry too much about errors --
+         * just plough on regardless.  
+         */
+        netsnmp_sock_buffer_set(t->sock, SO_SNDBUF, local, 0);
+        netsnmp_sock_buffer_set(t->sock, SO_RCVBUF, local, 0);
     }
 
     /*
@@ -424,3 +475,6 @@ netsnmp_tcp6_ctor(void)
 
     netsnmp_tdomain_register(&tcp6Domain);
 }
+
+#endif /* SNMP_TRANSPORT_TCPIPV6_DOMAIN */
+

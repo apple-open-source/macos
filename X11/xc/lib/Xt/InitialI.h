@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/InitialI.h,v 3.10 2001/12/14 19:56:18 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/InitialI.h,v 3.11 2003/04/21 16:34:27 herrb Exp $ */
 
 #ifndef _XtinitialI_h
 #define _XtinitialI_h
@@ -208,12 +208,10 @@ extern void _XtHeapFree(Heap* heap);
 
 
 extern char *_XtHeapMalloc(
-#if NeedFunctionPrototypes
     Heap*	/* heap */,
     Cardinal	/* size */,
     char *	/* file */,
     int		/* line */
-#endif
 );
 
 #define _XtHeapAlloc(heap,bytes) _XtHeapMalloc(heap, bytes, __FILE__, __LINE__)
@@ -221,44 +219,33 @@ extern char *_XtHeapMalloc(
 #else /* XTTRACEMEMORY */
 
 extern char* _XtHeapAlloc(
-#if NeedFunctionPrototypes
     Heap*	/* heap */,
     Cardinal	/* size */
-#endif
 );
 
 #endif /* XTTRACEMEMORY */
 
 extern void _XtSetDefaultErrorHandlers(
-#if NeedFunctionPrototypes
     XtErrorMsgHandler*	/* errMsg */,
     XtErrorMsgHandler*	/* warnMsg */,
     XtErrorHandler*	/* err */,
     XtErrorHandler*	/* warn */
-#endif
 );
 
 extern void _XtSetDefaultSelectionTimeout(
-#if NeedFunctionPrototypes
     unsigned long* /* timeout */
-#endif
 );
 
 extern XtAppContext _XtDefaultAppContext(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern ProcessContext _XtGetProcessContext(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 Display *
 _XtAppInit(
-#if NeedFunctionPrototypes
     XtAppContext*	/* app_context_return */,
     String		/* application_class */,
     XrmOptionDescRec*	/* options */,
@@ -266,25 +253,19 @@ _XtAppInit(
     int*		/* argc_in_out */,
     String**		/* argv_in_out */,
     String*		/* fallback_resources */
-#endif
 );
 
 extern void _XtDestroyAppContexts(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void _XtCloseDisplays(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */
-#endif
 );
 
 extern int _XtAppDestroyCount;
 
 extern int _XtWaitForSomething(
-#if NeedFunctionPrototypes
     XtAppContext	/* app */,
     _XtBoolean 		/* ignoreEvents */,
     _XtBoolean 		/* ignoreTimers */,
@@ -295,7 +276,6 @@ extern int _XtWaitForSomething(
     _XtBoolean		/* drop_lock */,
 #endif
     unsigned long*	/* howlong */
-#endif
 );
 
 typedef struct _CaseConverterRec *CaseConverterPtr;
@@ -365,21 +345,15 @@ typedef struct _PerDisplayTable {
 extern PerDisplayTablePtr _XtperDisplayList;
 
 extern XtPerDisplay _XtSortPerDisplayList(
-#if NeedFunctionPrototypes
     Display* /* dpy */
-#endif
 );
 
 extern XtPerDisplay _XtGetPerDisplay(
-#if NeedFunctionPrototypes
     Display*		/* dpy */
-#endif
 );
 
 extern XtPerDisplayInputRec* _XtGetPerDisplayInput(
-#if NeedFunctionPrototypes
     Display* 		/* dpy */
-#endif
 );
 
 #if 0
@@ -405,7 +379,6 @@ extern XtPerDisplayInputRec* _XtGetPerDisplayInput(
 #endif
 
 extern void _XtDisplayInitialize(
-#if NeedFunctionPrototypes
     Display*		/* dpy */,
     XtPerDisplay	/* pd */,
     _Xconst char*	/* name */,
@@ -413,53 +386,38 @@ extern void _XtDisplayInitialize(
     Cardinal 		/* num_urs */,
     int*		/* argc */,
     char** 		/* argv */
-#endif
 );
 
 extern void _XtCacheFlushTag(
-#if NeedFunctionPrototypes
     XtAppContext /* app */,
     XtPointer	 /* tag */
-#endif
 );
 
 extern void _XtFreeActions(
-#if NeedFunctionPrototypes
     struct _ActionListRec* /* action_table */
-#endif
 );
 
 extern void _XtDoPhase2Destroy(
-#if NeedFunctionPrototypes
     XtAppContext /* app */,
     int		 /* dispatch_level */
-#endif
 );
 
 extern void _XtDoFreeBindings(
-#if NeedFunctionPrototypes
     XtAppContext /* app */
-#endif
 );
 
 extern void _XtExtensionSelect(
-#if NeedFunctionPrototypes
     Widget /* widget */
-#endif
 );
 
 #define _XtSafeToDestroy(app) ((app)->dispatch_level == 0)
 
 extern void _XtAllocWWTable(
-#if NeedFunctionPrototypes
     XtPerDisplay pd
-#endif
 );
 
 extern void _XtFreeWWTable(
-#if NeedFunctionPrototypes
     XtPerDisplay pd
-#endif
 );
 
 extern String _XtGetUserName(String dest, int len);

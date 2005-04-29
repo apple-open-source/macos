@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = rarpd.c
 
-OTHERSRCS = Makefile.dist Makefile.preamble rarpd.8
+OTHERSRCS = Makefile.dist Makefile.preamble rarpd.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

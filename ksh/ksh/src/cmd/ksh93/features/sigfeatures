@@ -1,0 +1,43 @@
+lib	sigblock,sigrelse,sigsetmask,sigprocmask,sigvec
+typ	sigset_t	ast.h signal.h
+mem	sigvec.sv_mask	signal.h
+cat{
+	#ifndef _mem_sigvec_sv_mask
+	#   undef _lib_sigvec
+	#endif
+	#ifdef _lib_sigsetmask
+	#   define sigrelease(s)  sigsetmask(0)
+	#   define sig_begin()    sigsetmask(0)
+	#else
+	#   ifdef _lib_sigrelse
+	#	define sigrelease	sigrelse
+	#	define sig_begin()
+	#   else
+	#	ifdef _lib_sigprocmask
+	#	    define sigrelease(s) do { sigset_t ss;\
+					sigemptyset(&ss);\
+					sigprocmask(SIG_SETMASK,&ss,0); \
+					}while(0)
+	#	    define sig_begin()	sigrelease(0)
+	#	else
+	#	    define sig_begin()		(0)
+	#	    define sigrelease(s)	(0)
+	#	endif /* _lib_sigrelse */
+	#    endif /* _lib_sigprocmask */
+	#endif /* _lib_sigsetmask */
+}end
+tst	output{
+	#include <signal.h>
+	main()
+	{
+	#ifdef SIGRTMIN
+		printf("#undef	_SIGRTMIN\n");
+		printf("#define _SIGRTMIN	%d\n", SIGRTMIN);
+	#endif
+	#ifdef SIGRTMAX
+		printf("#undef	_SIGRTMAX\n");
+		printf("#define _SIGRTMAX	%d\n", SIGRTMAX);
+	#endif
+		return 0;
+	}
+}end

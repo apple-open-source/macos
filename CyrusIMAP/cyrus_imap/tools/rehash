@@ -45,7 +45,7 @@ exec perl -x -S $0 ${1+"$@"} # -*-perl-*-
 #
 # Written by Gary Mills <mills@cc.UManitoba.CA>
 #
-# $Id: rehash,v 1.7 2003/10/22 18:50:32 rjs3 Exp $
+# $Id: rehash,v 1.4 2005/03/05 00:37:40 dasenbro Exp $
 
 if ($] !~ /^5\..*/) {
   # uh-oh. this isn't perl 5.

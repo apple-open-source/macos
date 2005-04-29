@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -230,7 +230,7 @@ def hold_for_approval(mlist, msg, msgdata, exc):
     #
     # This message should appear to come from <list>-admin so as to handle any
     # bounce processing that might be needed.
-    cookie = Pending.new(Pending.HELD_MESSAGE, id)
+    cookie = mlist.pend_new(Pending.HELD_MESSAGE, id)
     if not fromusenet and ackp(msg) and mlist.respond_to_post_requests and \
            mlist.autorespondToSender(sender):
         # Get a confirmation cookie

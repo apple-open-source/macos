@@ -29,7 +29,7 @@
 #
 # Author: Thomas E. Dickey <dickey@clark.net> 1996
 #
-# $Id: tdlint,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $
+# $Id: tdlint,v 1.5 2000/10/28 20:53:36 tom Exp $
 #
 # Lint-script that allows user's own lint libraries, in addition to the ones
 # installed in the system.

@@ -34,14 +34,14 @@ configure:: $(ConfigStamp2)
 
 $(ConfigStamp2): $(ConfigStamp)
 	$(_v) ed - ${OBJROOT}/Makefile < $(FIX)/Makefile.ed
-	$(_v) ed - ${OBJROOT}/Mac/OSX/Makefile < $(FIX)/OSXMakefile.ed
-	$(_v) ed - ${OBJROOT}/pyconfig.h < $(FIX)/endian.ed
+	$(_v) ed - ${OBJROOT}/pyconfig.h < $(FIX)/pyconfig.ed
+	$(_v) patch ${OBJROOT}/Lib/plat-mac/applesingle.py \
+		$(FIX)/applesingle.py.patch
 	$(_v) $(TOUCH) $(ConfigStamp2)
 
 ##---------------------------------------------------------------------
 # Fixup a lot of problems after the install
 ##---------------------------------------------------------------------
-VERS = 2.3
 APPS = /Applications
 DEVAPPS = /Developer/Applications/Utilities
 USRBIN = /usr/bin
@@ -75,9 +75,10 @@ UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
 fixup-after-install: delete-stuff \
 		     move-things-around \
 		     strip-installed-files \
-		     make-utf16 \
 		     fix-empty-file \
 		     fix-BAInfo \
+		     fix-PAInfo \
+		     fix-PLInfo \
 		     fix-CFBundleIdentifier \
 		     fix-CFBundleShortVersionString \
 		     fix-paths \
@@ -85,7 +86,8 @@ fixup-after-install: delete-stuff \
 		     fix-usr-local-bin \
 		     make-usr-bin \
 		     make-Library-Python \
-		     fix-permissions
+		     fix-permissions \
+		     macpython-examples
 
 delete-stuff:
 	rm -rf $(DSTROOT)/usr/local
@@ -102,21 +104,17 @@ strip-installed-files:
 	strip -x $(DSTROOT)$(LIBPYTHONVERS)/config/python.o
 	strip -x $(DSTROOT)$(LIBPYTHONVERS)/lib-dynload/*.so
 
-make-utf16:
-	@for i in $(DSTROOT)$(ENGLISHLPROJVERS) $(DSTROOT)$(PAENGLISHLPROJ); do \
-	    echo mv $$i/InfoPlist.strings $$i/temp-ip.strings; \
-	    mv $$i/InfoPlist.strings $$i/temp-ip.strings; \
-	    echo $(BYTE2UTF16) $$i/temp-ip.strings $$i/InfoPlist.strings; \
-	    $(BYTE2UTF16) $$i/temp-ip.strings $$i/InfoPlist.strings; \
-	    echo rm -f $$i/temp-ip.strings; \
-	    rm -f $$i/temp-ip.strings; \
-	done
-
 fix-empty-file:
 	echo '#' > $(DSTROOT)$(LIBPYTHONVERS)/bsddb/test/__init__.py
 
 fix-BAInfo:
 	ed - $(DSTROOT)$(BACONTENTS)/Info.plist < $(FIX)/bainfo.ed
+
+fix-PAInfo:
+	ed - $(DSTROOT)$(PACONTENTS)/Info.plist < $(FIX)/painfo.ed
+
+fix-PLInfo:
+	ed - $(DSTROOT)$(PLCONTENTS)/Info.plist < $(FIX)/plinfo.ed
 
 fix-CFBundleIdentifier:
 	ed - $(DSTROOT)$(RESOURCESVERS)/Info.plist < $(FIX)/pfinfo.ed
@@ -137,6 +135,7 @@ fix-CFBundleShortVersionString:
 
 PYDOC = $(USRBIN)/pydoc
 PYDOCORIG = $(PYFRAMEWORK)/Versions/$(VERS)/bin/pydoc
+EXAMPLES = $(DSTROOT)/Developer/Examples/Python/MacPython
 
 ##---------------------------------------------------------------------
 # adjustSLF.ed removes -arch xxx flags.  fixusrbin.ed makes the exec
@@ -161,17 +160,18 @@ make-usr-bin:
 	ln -sf python$(VERS) $(DSTROOT)$(USRBIN)/python
 	ln -sf ../../System/Library/Frameworks/Python.framework/Versions/$(VERS)/bin/python $(DSTROOT)$(USRBIN)/python$(VERS)
 	ln -sf pythonw$(VERS) $(DSTROOT)$(USRBIN)/pythonw
-	install -p $(FIX)/pythonw$(VERS) $(DSTROOT)$(USRBIN)
+	cc $(RC_CFLAGS) -Os -Wl,-x $(FIX)/pythonw.c -o $(DSTROOT)$(USRBIN)/pythonw$(VERS)
 	install -p $(DSTROOT)$(PYDOCORIG) $(DSTROOT)$(PYDOC)
 
 LIBRARYPYTHON = /Library/Python
 LIBRARYPYTHONVERS = $(LIBRARYPYTHON)/$(VERS)
+ORIGSITEPACKAGES = $(LIBRARYPYTHONVERS)/site-packages
 SITEPACKAGES = $(LIBPYTHONVERS)/site-packages
 
 make-Library-Python:
-	install -d $(DSTROOT)$(LIBRARYPYTHON)
+	install -d $(DSTROOT)$(LIBRARYPYTHONVERS)
 	mv -f $(DSTROOT)$(SITEPACKAGES) $(DSTROOT)$(LIBRARYPYTHONVERS)
-	ln -sf ../../../../../../../..$(LIBRARYPYTHONVERS) $(DSTROOT)$(SITEPACKAGES)
+	ln -sf ../../../../../../../..$(ORIGSITEPACKAGES) $(DSTROOT)$(SITEPACKAGES)
 
 fix-permissions:
 	@for i in Applications Developer Library; do \
@@ -180,3 +180,9 @@ fix-permissions:
 	    echo chmod -Rf g+w $(DSTROOT)/$$i; \
 	    chmod -Rf g+w $(DSTROOT)/$$i; \
 	done
+
+macpython-examples:
+	install -d -g admin -m 0775 $(EXAMPLES)
+	rsync -rlt $(OBJROOT)/Mac/Demo/ $(EXAMPLES)
+	-chown -R root:admin $(EXAMPLES)
+	-chmod -R g+w $(EXAMPLES)

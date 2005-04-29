@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/gfx_defs.h,v 1.2 2002/12/11 22:51:01 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/gfx_defs.h,v 1.3 2003/11/03 05:11:23 tsi Exp $ */
 /*
  * $Workfile: gfx_defs.h $
  *
@@ -144,13 +144,13 @@
 	(*(volatile unsigned short *)(gfx_virt_regptr + (offset))) = (value)
 
 #define WRITE_REG32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_regptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_regptr + (offset))) = (value)
 
 #define READ_REG16(offset) \
     (*(volatile unsigned short *)(gfx_virt_regptr + (offset)))
 
 #define READ_REG32(offset) \
-    (*(volatile unsigned long *)(gfx_virt_regptr + (offset)))
+    (*(volatile unsigned int *)(gfx_virt_regptr + (offset)))
 
 /* ACCESS TO THE ACCELERATOR REGISTERS (REDCLOUD ONLY) */
 
@@ -161,18 +161,18 @@
 	(*(volatile unsigned short *)(gfx_virt_gpptr + (offset))) = (value)
 
 #define WRITE_GP32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_gpptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_gpptr + (offset))) = (value)
 
 #define READ_GP16(offset) \
     (*(volatile unsigned short *)(gfx_virt_gpptr + (offset)))
 
 #define READ_GP32(offset) \
-    (*(volatile unsigned long *)(gfx_virt_gpptr + (offset)))
+    (*(volatile unsigned int *)(gfx_virt_gpptr + (offset)))
 
 /* ACCESS TO THE FRAME BUFFER */
 
 #define WRITE_FB32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_fbptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_fbptr + (offset))) = (value)
 
 #define WRITE_FB16(offset, value) \
 	(*(volatile unsigned short *)(gfx_virt_fbptr + (offset))) = (value)
@@ -183,23 +183,23 @@
 /* ACCESS TO THE VIDEO HARDWARE */
 
 #define READ_VID32(offset) \
-	(*(volatile unsigned long *)(gfx_virt_vidptr + (offset)))
+	(*(volatile unsigned int *)(gfx_virt_vidptr + (offset)))
 
 #define WRITE_VID32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_vidptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_vidptr + (offset))) = (value)
 
 /* ACCESS TO THE VIP HARDWARE */
 
 #define READ_VIP32(offset) \
-	(*(volatile unsigned long *)(gfx_virt_vipptr + (offset)))
+	(*(volatile unsigned int *)(gfx_virt_vipptr + (offset)))
 
 #define WRITE_VIP32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_vipptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_vipptr + (offset))) = (value)
 
 /* ACCESS TO THE SCRATCHPAD RAM */
 
 #define WRITE_SCRATCH32(offset, value) \
-	(*(volatile unsigned long *)(gfx_virt_spptr + (offset))) = (value)
+	(*(volatile unsigned int *)(gfx_virt_spptr + (offset))) = (value)
 
 #define WRITE_SCRATCH16(offset, value) \
 	(*(volatile unsigned short *)(gfx_virt_spptr + (offset))) = (value)
@@ -211,7 +211,7 @@
     (*(volatile unsigned short *)(gfx_virt_spptr + (offset)))
 
 #define READ_SCRATCH32(offset) \
-    (*(volatile unsigned long *)(gfx_virt_spptr + (offset)))
+    (*(volatile unsigned int *)(gfx_virt_spptr + (offset)))
 
 /* ACCESS TO MSRS */
 
@@ -318,7 +318,7 @@ void gfx_msr_asm_read(unsigned short msrReg, unsigned long msrAddr,
 	/* WRITE DWORDS */                                                                                  \
 	                                                                                                    \
 	for (i = 0; i < dword_bytes; i += 4)                                                                \
-		*((volatile unsigned long *)(gfx_gx1_scratch_base + i)) = *((unsigned long *)(aroffset + i));   \
+		*((volatile unsigned int *)(gfx_gx1_scratch_base + i)) = *((unsigned int *)(aroffset + i));   \
 	                                                                                                    \
 	/* WRITE BYTES */                                                                                   \
 	                                                                                                    \
@@ -348,7 +348,7 @@ void gfx_msr_asm_read(unsigned short msrReg, unsigned long msrAddr,
 	unsigned long i;                                                                         \
 	unsigned long aroffset = (unsigned long)array + (array_offset);                          \
 	for (i = 0; i < bytes; i += 4)                                                           \
-		WRITE_FB32 ((fboffset) + i, *((unsigned long *)(aroffset + i)));                \
+		WRITE_FB32 ((fboffset) + i, *((unsigned int *)(aroffset + i)));                \
 }
 
 #endif
@@ -393,7 +393,7 @@ void gfx_msr_asm_read(unsigned short msrReg, unsigned long msrAddr,
 {                                                                                            \
 	temp = (unsigned long)array + (array_offset);                                            \
 	for (counter = 0; counter < dwords; counter++)                                         \
-		WRITE_GP32 (regoffset, *((unsigned long *)temp + counter));                        \
+		WRITE_GP32 (regoffset, *((unsigned int *)temp + counter));                        \
 }
 
 /************************************************************************************

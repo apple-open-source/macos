@@ -1,5 +1,3 @@
-.\"	$NetBSD: sed.1,v 1.12 1998/01/10 08:29:55 enami Exp $
-.\"
 .\" Copyright (c) 1992, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -14,10 +12,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -35,8 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)sed.1	8.2 (Berkeley) 12/30/93
+.\" $FreeBSD: src/usr.bin/sed/sed.1,v 1.38 2004/08/09 15:29:41 dds Exp $
 .\"
-.Dd December 30, 1993
+.Dd July 17, 2004
 .Dt SED 1
 .Os
 .Sh NAME
@@ -44,14 +39,15 @@
 .Nd stream editor
 .Sh SYNOPSIS
 .Nm
-.Op Fl an
+.Op Fl Ean
 .Ar command
-.Op Ar file ...
-.Nm ""
-.Op Fl an
+.Op Ar
+.Nm
+.Op Fl Ean
 .Op Fl e Ar command
 .Op Fl f Ar command_file
-.Op Ar file ...
+.Op Fl i Ar extension
+.Op Ar
 .Sh DESCRIPTION
 The
 .Nm
@@ -60,7 +56,7 @@ are specified, modifying the input as specified by a list of commands.
 The input is then written to the standard output.
 .Pp
 A single command may be specified as the first argument to
-.Nm "" .
+.Nm .
 Multiple commands may be specified by using the
 .Fl e
 or
@@ -71,6 +67,12 @@ regardless of their origin.
 .Pp
 The following options are available:
 .Bl -tag -width indent
+.It Fl E
+Interpret regular expressions as extended (modern) regular expressions
+rather than basic regular expressions (BRE's).
+The
+.Xr re_format 7
+manual page fully describes both formats.
 .It Fl a
 The files listed as parameters for the
 .Dq w
@@ -93,6 +95,16 @@ Append the editing commands found in the file
 .Ar command_file
 to the list of commands.
 The editing commands should each be listed on a separate line.
+.It Fl i Ar extension
+Edit files in-place, saving backups with the specified
+.Ar extension .
+If a zero-length
+.Ar extension
+is given, no backup will be saved.
+It is not recommended to give a zero-length
+.Ar extension
+when in-place editing files, as you risk corruption or partial content
+in situations where disk space is exhausted, etc.
 .It Fl n
 By default, each line of input is echoed to the standard output after
 all of the commands have been applied to it.
@@ -104,9 +116,9 @@ option suppresses this behavior.
 The form of a
 .Nm
 command is as follows:
-.sp
+.Pp
 .Dl [address[,address]]function[arguments]
-.sp
+.Pp
 Whitespace may be inserted before the first address and the function
 portions of the command.
 .Pp
@@ -129,9 +141,7 @@ to save all or part of the pattern space for subsequent retrieval.
 An address is not required, but if specified must be a number (that counts
 input lines
 cumulatively across input files), a dollar
-.Po
-.Dq $
-.Pc
+.Pq Dq $
 character that addresses the last line of input, or a context address
 (which consists of a regular expression preceded and followed by a
 delimiter).
@@ -141,39 +151,47 @@ A command line with no addresses selects every pattern space.
 A command line with one address selects all of the pattern spaces
 that match the address.
 .Pp
-A command line with two addresses selects the inclusive range from
-the first pattern space that matches the first address through the next
-pattern space that matches the second.
-(If the second address is a number less than or equal to the line number
-first selected, only that line is selected.)
-Starting at the first line following the selected range,
+A command line with two addresses selects an inclusive range.
+This
+range starts with the first pattern space that matches the first
+address.
+The end of the range is the next following pattern space
+that matches the second address.
+If the second address is a number
+less than or equal to the line number first selected, only that
+line is selected.
+In the case when the second address is a context
+address,
+.Nm
+does not re-match the second address against the
+pattern space that matched the first address.
+Starting at the
+first line following the selected range,
 .Nm
 starts looking again for the first address.
 .Pp
 Editing commands can be applied to non-selected pattern spaces by use
 of the exclamation character
-.Po
-.Dq !
-.Pc
+.Pq Dq \&!
 function.
 .Sh "Sed Regular Expressions"
-The
-.Nm
-regular expressions are basic regular expressions (BRE's, see
-.Xr regex 3
-for more information).
+The regular expressions used in
+.Nm ,
+by default, are basic regular expressions (BREs, see
+.Xr re_format 7
+for more information), but extended (modern) regular expressions can be used
+instead if the
+.Fl E
+flag is given.
 In addition,
 .Nm
-has the following two additions to BRE's:
-.sp
+has the following two additions to regular expressions:
+.Pp
 .Bl -enum -compact
 .It
 In a context address, any character other than a backslash
-.Po
-.Dq \e
-.Pc
-or newline character may be used to delimit the regular expression
-by prefixing the first use of that delimiter with a backslash.
+.Pq Dq \e
+or newline character may be used to delimit the regular expression.
 Also, putting a backslash character before the delimiting character
 causes the character to be treated literally.
 For example, in the context address \exabc\exdefx, the RE delimiter
@@ -183,7 +201,7 @@ and the second
 .Dq x
 stands for itself, so that the regular expression is
 .Dq abcxdef .
-.sp
+.Pp
 .It
 The escape sequence \en matches a newline character embedded in the
 pattern space.
@@ -195,7 +213,7 @@ One special feature of
 .Nm
 regular expressions is that they can default to the last regular
 expression used.
-If a regular expression is empty, i.e. just the delimiter characters
+If a regular expression is empty, i.e., just the delimiter characters
 are specified, the last regular expression encountered is used instead.
 The last regular expression is defined as the last regular expression
 used as part of an address or substitute command, and at run-time, not
@@ -235,7 +253,7 @@ The
 .Dq t ,
 .Dq w ,
 .Dq y ,
-.Dq ! ,
+.Dq \&! ,
 and
 .Dq \&:
 functions all accept additional arguments.
@@ -261,71 +279,68 @@ The function can be preceded by white space.
 The terminating
 .Dq }
 must be preceded by a newline or optional white space.
-.sp
+.Pp
 .Bl -tag -width "XXXXXX" -compact
 .It [2addr] function-list
 Execute function-list only when the pattern space is selected.
-.sp
+.Pp
 .It [1addr]a\e
 .It text
-.br
 Write
 .Em text
 to standard output immediately before each attempt to read a line of input,
 whether by executing the
 .Dq N
 function or by beginning a new cycle.
-.sp
+.Pp
 .It [2addr]b[label]
 Branch to the
 .Dq \&:
 function with the specified label.
 If the label is not specified, branch to the end of the script.
-.sp
+.Pp
 .It [2addr]c\e
 .It text
-.br
 Delete the pattern space.
 With 0 or 1 address or at the end of a 2-address range,
 .Em text
 is written to the standard output.
-.sp
+.Pp
 .It [2addr]d
 Delete the pattern space and start the next cycle.
-.sp
+.Pp
 .It [2addr]D
 Delete the initial segment of the pattern space through the first
 newline character and start the next cycle.
-.sp
+.Pp
 .It [2addr]g
 Replace the contents of the pattern space with the contents of the
 hold space.
-.sp
+.Pp
 .It [2addr]G
 Append a newline character followed by the contents of the hold space
 to the pattern space.
-.sp
+.Pp
 .It [2addr]h
 Replace the contents of the hold space with the contents of the
 pattern space.
-.sp
+.Pp
 .It [2addr]H
 Append a newline character followed by the contents of the pattern space
 to the hold space.
-.sp
+.Pp
 .It [1addr]i\e
 .It text
-.br
 Write
 .Em text
 to the standard output.
-.sp
+.Pp
 .It [2addr]l
 (The letter ell.)
 Write the pattern space to the standard output in a visually unambiguous
 form.
 This form is as follows:
-.sp
+.Pp
 .Bl -tag -width "carriage-returnXX" -offset indent -compact
 .It backslash
 \e\e
@@ -333,8 +348,6 @@ This form is as follows:
 \ea
 .It form-feed
 \ef
-.It newline
-\en
 .It carriage-return
 \er
 .It tab
@@ -350,28 +363,28 @@ Long lines are folded, with the point of folding indicated by displaying
 a backslash followed by a newline.
 The end of each line is marked with a
 .Dq $ .
-.sp
+.Pp
 .It [2addr]n
 Write the pattern space to the standard output if the default output has
 not been suppressed, and replace the pattern space with the next line of
 input.
-.sp
+.Pp
 .It [2addr]N
 Append the next line of input to the pattern space, using an embedded
 newline character to separate the appended material from the original
 contents.
 Note that the current line number changes.
-.sp
+.Pp
 .It [2addr]p
 Write the pattern space to standard output.
-.sp
+.Pp
 .It [2addr]P
 Write the pattern space, up to the first newline character to the
 standard output.
-.sp
+.Pp
 .It [1addr]q
 Branch to the end of the script and quit without starting a new cycle.
-.sp
+.Pp
 .It [1addr]r file
 Copy the contents of
 .Em file
@@ -381,7 +394,7 @@ If
 .Em file
 cannot be read for any reason, it is silently ignored and no error
 condition is set.
-.sp
+.Pp
 .It [2addr]s/regular expression/replacement/flags
 Substitute the replacement string for the first instance of the regular
 expression in the pattern space.
@@ -391,9 +404,7 @@ Within the RE and the replacement, the RE delimiter itself can be used as
 a literal character if it is preceded by a backslash.
 .Pp
 An ampersand
-.Po
-.Dq &
-.Pc
+.Pq Dq &
 appearing in the replacement is replaced by the string matching the RE.
 The special meaning of
 .Dq &
@@ -404,7 +415,7 @@ where
 .Dq #
 is a digit, is replaced by the text matched
 by the corresponding backreference expression (see
-.Xr re_format 7 ).
+.Xr re_format 7 ) .
 .Pp
 A line can be split by substituting a newline character into it.
 To specify a newline character in the replacement string, precede it with
@@ -414,9 +425,10 @@ The value of
 .Em flags
 in the substitute function is zero or more of the following:
 .Bl -tag -width "XXXXXX" -offset indent
-.It "0 ... 9"
-Make the substitution only for the N'th occurrence of the regular
-expression in the pattern space.
+.It Ar N
+Make the substitution only for the
+.Ar N Ns 'th
+occurrence of the regular expression in the pattern space.
 .It g
 Make the substitution for all non-overlapping matches of the
 regular expression, not just the first one.
@@ -431,23 +443,23 @@ if a replacement was made.
 If the replacement string is identical to that which it replaces, it
 is still considered to have been a replacement.
 .El
-.sp
+.Pp
 .It [2addr]t [label]
 Branch to the
-.Dq :
+.Dq \&:
 function bearing the label if any substitutions have been made since the
 most recent reading of an input line or execution of a
 .Dq t
 function.
 If no label is specified, branch to the end of the script.
-.sp
+.Pp
 .It [2addr]w Em file
 Append the pattern space to the
 .Em file .
-.sp
+.Pp
 .It [2addr]x
 Swap the contents of the pattern and hold spaces.
-.sp
+.Pp
 .It [2addr]y/string1/string2/
 Replace all occurrences of characters in
 .Em string1
@@ -462,27 +474,27 @@ and
 a backslash followed by any character other than a newline is that literal
 character, and a backslash followed by an ``n'' is replaced by a newline
 character.
-.sp
+.Pp
 .It [2addr]!function
 .It [2addr]!function-list
 Apply the function or function-list only to the lines that are
 .Em not
 selected by the address(es).
-.sp
+.Pp
 .It [0addr]:label
 This function does nothing; it bears a label to which the
 .Dq b
 and
 .Dq t
 commands may branch.
-.sp
+.Pp
 .It [1addr]=
 Write the line number to the standard output followed by a newline
 character.
-.sp
+.Pp
 .It [0addr]
 Empty lines are ignored.
-.sp
+.Pp
 .It [0addr]#
 The
 .Dq #
@@ -494,10 +506,17 @@ This is the same as specifying the
 .Fl n
 option on the command line.
 .El
-.Pp
+.Sh ENVIRONMENT
 The
+.Ev COLUMNS , LANG , LC_ALL , LC_CTYPE
+and
+.Ev LC_COLLATE
+environment variables affect the execution of
 .Nm
-utility exits 0 on success and >0 if an error occurs.
+as described in
+.Xr environ 7 .
+.Sh DIAGNOSTICS
+.Ex -std
 .Sh SEE ALSO
 .Xr awk 1 ,
 .Xr ed 1 ,
@@ -507,11 +526,24 @@ utility exits 0 on success and >0 if an error occurs.
 .Sh STANDARDS
 The
 .Nm
-function is expected to be a superset of the
+utility is expected to be a superset of the
 .St -p1003.2
 specification.
+.Pp
+The
+.Fl E ,
+.Fl a
+and
+.Fl i
+options are non-standard
+.Fx
+extensions and may not be available on other operating systems.
 .Sh HISTORY
 A
 .Nm
-command appeared in
+command, written by
+.An L. E. McMahon ,
+appeared in
 .At v7 .
+.Sh AUTHORS
+.An "Diomidis D. Spinellis" Aq dds@FreeBSD.org

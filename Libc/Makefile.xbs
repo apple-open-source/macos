@@ -23,89 +23,277 @@
 .MAIN: all
 all: libc.a libc_static.a libc_debug.a libc_profile.a
 install: installhdrs install_libc.a install_libc_static.a \
-	 install_libc_profile.a install_libc_debug.a fbsdman maninstall
+	 install_libc_profile.a install_libc_debug.a autopatchman maninstall
 
 .SUFFIXES:
-.SUFFIXES: .o .po .So .do .S .s -fbsd.c .c .cc .cpp .cxx .m .C .f .y .l .defs .h
+.SUFFIXES: .o .po .So .do
+.SUFFIXES: .S .s .c .cc .cpp .cxx .m .C
+.SUFFIXES: -fbsd.c -nbsd.c -obsd.c -uuid.c .3-uuid.in .3
+.SUFFIXES: .f .y .l .defs .h
 .SUFFIXES: User.c User.o User.po User.So User.do
 .SUFFIXES: Server.c Server.o Server.po Server.So Server.do
 
 OBJS+=  ${SRCS:N*.h:R:S/$/.o/g}
+DOBJS+= ${OBJS:.o=.do}
 POBJS+= ${OBJS:.o=.po} ${STATICOBJS:.o=.po}
 SOBJS+= ${OBJS:.o=.So}
+
+#### 128-bit Long Double libc-ldbl128 for Panther  ####################
+.if (${MACHINE_ARCH} == ppc)
+LIB128= ${LIB}-ldbl128
+LDBL_128_SRCS= _hdtoa.c _ldbl_util.c _ldtoa.c asprintf.c err.c fprintf.c \
+	fscanf.c fwprintf.c fwscanf.c gdtoa-strtopdd.c machdep_ldisdd.c \
+	printf.c scanf.c snprintf.c sprintf.c sscanf.c swprintf.c swscanf.c \
+	vasprintf.c vfprintf.c vfscanf.c vfwprintf.c vfwscanf.c vprintf.c \
+	vscanf.c vsnprintf.c vsprintf.c vsscanf.c vswprintf.c vswscanf.c \
+	vwprintf.c vwscanf.c wcstold.c wprintf.c wscanf.c \
+	oldldbl64.s oldsyslog.c LDBL/oldsyslog-LDBL.c \
+	LDBL/err-LDBL.c LDBL/vfprintf-LDBL.c LDBL/vfwprintf-LDBL.c
+LDBL_128_OBJS= ${LDBL_128_SRCS:R:S/$/.o/g}
+LDBL_128_DOBJS= ${LDBL_128_OBJS:.o=.do}
+LDBL_128_POBJS= ${LDBL_128_OBJS:.o=.po}
+LDBL_128_SOBJS= ${LDBL_128_OBJS:.o=.So}
+
+LDBLSRCS2+= oldsyslog.c
+SRCS2+= oldldbl64.s oldsyslog.c
+OBJS2+=  ${SRCS2:N*.h:R:S/$/.o/g}
+DOBJS2+= ${OBJS2:.o=.do}
+POBJS2+= ${OBJS2:.o=.po}
+SOBJS2+= ${OBJS2:.o=.So}
+.endif
+
+#### Variant Rules ####################################################
+# The following magic is used for variants to avoid the exponental explosion
+# of suffix rules.  To add a variant, select a name (typically all-caps).
+# Add that name to the VARIANTS variable.  Create a CFLAGS_XXX variable
+# (XXX is the variant name) that contains the extra flags to pass to the
+# compiler (currently, no slashes are permitted in the flags).  Then, just
+# define a XXXSRCS variable with the names of the files to recompile with the
+# additional flags.  For auto-patched files, don't use the auto-patched file
+# name.  Just use the original file name.
+#
+# Note that this magic also deals with combinations of variants; e.g.,
+# for two variants XXX and YYY, there are three variant combinations,
+# XXX, XXX-YYY and YYY.  In this example, you can use XXX-YYYSRCS to
+# specify sources that will build with both the CFLAGS_XXX and CFLAGS_YYY
+# flags set.  The variants are always in alphabetic order.
+#
+VARIANTS=
+# Append the 64-bit long double sources (ppc only)
+.if (${MACHINE_ARCH} == ppc)
+VARIANTS+= LDBL
+MDSRCS += ldbl64.s
+.endif
+# build UNIX03 variant except on ppc64
+.if (${MACHINE_ARCH} != ppc64)
+VARIANTS+= UNIX03
+.endif
+CFLAGS+= ${VARIANTCFLAGS}
+
+CFLAGS_UNIX03= -U__DARWIN_UNIX03 -D__DARWIN_UNIX03=1
+CFLAGS_LDBL= -mlong-double-64 -DLDBL_COMPAT
+
+.for _v in ${VARIANTS}
+COMBOARGS+= ${_v}/${CFLAGS_${_v}}
+.endfor
+.ifdef COMBOARGS
+# makeCombos is a perl script that creates all the variant combinations
+# and all the combinations of flags
+VARIANTCOMBOCFLAGS != ${.CURDIR}/makeCombos ${COMBOARGS}
+.endif
+# For each of the variant combinations as target (and possibly suffixed with
+# _D, _P, and _S for the four kinds on compile styles, we create a subdirectory
+# to do the compiling in, and then call bsdmake with the new directory, and
+# setting VARIANTCFLAGS, which are the extra flags to be added to CFLAGS.
+.for _v in ${VARIANTCOMBOCFLAGS}
+VARIANTCOMBOS+= ${_v:H:S,/,,}
+${_v:H:S,/,,}:
+.ifdef ${_v:H:S,/,,}SRCS
+	mkdir -p ${MAKEOBJDIR}/${_v:H:S,/,,}; \
+	MAKEOBJDIR="$(MAKEOBJDIR)/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" bsdmake -C "${.CURDIR}" build_${_v:H:S,/,,}
+.endif
+${_v:H:S,/,,}_D:
+.ifdef ${_v:H:S,/,,}SRCS
+	mkdir -p ${MAKEOBJDIR}/${_v:H:S,/,,}; \
+	MAKEOBJDIR="$(MAKEOBJDIR)/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" bsdmake -C "${.CURDIR}" build_${_v:H:S,/,,}_D
+.endif
+${_v:H:S,/,,}_P:
+.ifdef ${_v:H:S,/,,}SRCS
+	mkdir -p ${MAKEOBJDIR}/${_v:H:S,/,,}; \
+	MAKEOBJDIR="$(MAKEOBJDIR)/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" bsdmake -C "${.CURDIR}" build_${_v:H:S,/,,}_P
+.endif
+${_v:H:S,/,,}_S:
+.ifdef ${_v:H:S,/,,}SRCS
+	mkdir -p ${MAKEOBJDIR}/${_v:H:S,/,,}; \
+	MAKEOBJDIR="$(MAKEOBJDIR)/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" bsdmake -C "${.CURDIR}" build_${_v:H:S,/,,}_S
+.endif
+.endfor
+
+.for _v in ${VARIANTCOMBOS}
+# Variant suffix rules so the filenames are unique and Libsystem won't complain
+# because of ambiguities with -sectorder
+.SUFFIXES: -${_v}.o -${_v}.do -${_v}.po -${_v}.So
+.o-${_v}.o .do-${_v}.do .po-${_v}.po .So-${_v}.So:
+	mv ${.IMPSRC} ${.TARGET}
+
+# These are the build targets of the above bsdmake calls, which just builds
+# using the standard rules, but with the additional flags.
+VARIANTOBJS+=  ${${_v}SRCS:N*.h:R:S/$/-${_v}.o/g:S,^,${_v}/,g}
+build_${_v}:   ${${_v}SRCS:N*.h:R:S/$/-${_v}.o/g}
+build_${_v}_D: ${${_v}SRCS:N*.h:R:S/$/-${_v}.do/g} ${${_v}SRCS2:N*.h:R:S/$/-${_v}.do/g}
+build_${_v}_P: ${${_v}SRCS:N*.h:R:S/$/-${_v}.po/g} ${${_v}SRCS2:N*.h:R:S/$/-${_v}.po/g}
+build_${_v}_S: ${${_v}SRCS:N*.h:R:S/$/-${_v}.So/g} ${${_v}SRCS2:N*.h:R:S/$/-${_v}.So/g}
+.endfor
+# These variables, plus VARIANTOBJS above, are the extra binaries that get
+# added to the .a files.  Note that these objects are in subdirectories
+# of the main build directory.
+VARIANTDOBJS+= ${VARIANTOBJS:.o=.do}
+VARIANTPOBJS+= ${VARIANTOBJS:.o=.po}
+VARIANTSOBJS+= ${VARIANTOBJS:.o=.So}
+#### FreeBSD Rules ##################################################
 FBSDFLAGS= -I${.CURDIR}/fbsdcompat -include _fbsd_compat_.h
 
 -fbsd.c.o:
-	${CC} -static ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
-.c.o User.cUser.o Server.cServer.o:
-	${CC} -static ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -static ${FBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -fbsd.c.po:
-	${CC} -pg -DPROFILE ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} \
-	    -o ${.TARGET}
-.c.po User.cUser.po Server.cServer.po:
-	${CC} -pg -DPROFILE ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -pg -DPROFILE ${FBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -fbsd.c.So: 
-	${CC} ${FBSDFLAGS} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
-.c.So User.cUser.So Server.cServer.So: 
-	${CC} ${CFLAGS} -Os -c ${.IMPSRC} -o ${.TARGET}
+	${CC} ${FBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 -fbsd.c.do:
-	${CC} -g -DDEBUG ${FBSDFLAGS} ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -g -DDEBUG ${FBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+
+#### NetBSD Rules ##################################################
+NBSDFLAGS= -I${.CURDIR}/nbsdcompat -include _nbsd_compat_.h
+
+-nbsd.c.o:
+	${CC} -static ${NBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-nbsd.c.po:
+	${CC} -pg -DPROFILE ${NBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-nbsd.c.So: 
+	${CC} ${NBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-nbsd.c.do:
+	${CC} -g -DDEBUG ${NBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+
+#### OpenBSD Rules ##################################################
+OBSDFLAGS=
+
+-obsd.c.o:
+	${CC} -static ${OBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-obsd.c.po:
+	${CC} -pg -DPROFILE ${OBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-obsd.c.So: 
+	${CC} ${OBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-obsd.c.do:
+	${CC} -g -DDEBUG ${OBSDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+
+#### UUID Rules ######################################################
+UUIDFLAGS= -I${.CURDIR}/uuid -include uuid-config.h
+
+-uuid.c.o:
+	${CC} -static ${UUIDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-uuid.c.po:
+	${CC} -pg -DPROFILE ${UUIDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-uuid.c.So: 
+	${CC} ${UUIDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+-uuid.c.do:
+	${CC} -g -DDEBUG ${UUIDFLAGS} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+.3-uuid.in.3:
+	sed -f ${.CURDIR}/uuid/uuidman.sed ${.IMPSRC} > ${.TARGET}
+
+#### Standard C Rules #################################################
+.c.o User.cUser.o Server.cServer.o:
+	${CC} -static ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+.c.po User.cUser.po Server.cServer.po:
+	${CC} -pg -DPROFILE ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+.c.So User.cUser.So Server.cServer.So: 
+	${CC} ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .c.do User.cUser.do Server.cServer.do:
-	${CC} -g -DDEBUG ${CFLAGS} -c ${.IMPSRC} -o ${.TARGET}
--fbsd.s.o:
-	${CC} -x assembler-with-cpp ${FBSDFLAGS} ${CFLAGS:M-[BID]*} \
-	    -static ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -g -DDEBUG ${CFLAGS} ${CFLAGS-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+
+#### Standard Assembler Rules #########################################
 .s.o:
-	${CC} -x assembler-with-cpp ${CFLAGS:M-[BID]*} -static ${AINC} -c \
-	    ${.IMPSRC} -o ${.TARGET}
--fbsd.s.po:
-	${CC} -pg -DPROFILE -x assembler-with-cpp ${FBSDFLAGS} \
-	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -static -x assembler-with-cpp ${CFLAGS:M-[BIDF]*} \
+	    ${CFLAGS-${.IMPSRC:T}:M-[BIDF]*} ${AINC} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .s.po:
-	${CC} -pg -DPROFILE -x assembler-with-cpp ${CFLAGS:M-[BID]*} -Os \
-	    ${AINC} -c ${.IMPSRC} -o ${.TARGET}
--fbsd.s.So:
-	${CC} -x assembler-with-cpp ${FBSDFLAGS} \
-	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -pg -DPROFILE -x assembler-with-cpp ${CFLAGS:M-[BIDF]*} \
+	    ${CFLAGS-${.IMPSRC:T}:M-[BIDF]*} ${AINC} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .s.So:
-	${CC} -x assembler-with-cpp \
-	    ${CFLAGS:M-[BID]*} -Os ${AINC} -c ${.IMPSRC} -o ${.TARGET}
--fbsd.s.do:
-	${CC} -DDEBUG -g -x assembler-with-cpp ${FBSDFLAGS} ${CFLAGS:M-[BID]*} \
-	    ${AINC} -c ${.IMPSRC} -o ${.TARGET}
+	${CC} -x assembler-with-cpp ${CFLAGS:M-[BIDF]*} \
+	    ${CFLAGS-${.IMPSRC:T}:M-[BIDF]*} ${AINC} \
+	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
 .s.do:
-	${CC} -DDEBUG -g -x assembler-with-cpp ${CFLAGS:M-[BID]*} ${AINC} -c \
-	    ${.IMPSRC} -o ${.TARGET}
+	${CC} -g -DDEBUG -x assembler-with-cpp ${CFLAGS:M-[BIDF]*} \
+	    ${CFLAGS-${.IMPSRC:T}:M-[BIDF]*} ${AINC} \
+	    -c ${.IMPSRC} -o ${.TARGET}
+
+#### mig Rules ########################################################
 .defs.h .defsUser.c .defsServer.c:
-	mig -arch ${MACHINE_ARCH} -user ${.PREFIX}User.c -server ${.PREFIX}Server.c -header ${.PREFIX}.h ${.IMPSRC}
+	mig -arch ${MACHINE_ARCH} -cc ${CC} -user ${.PREFIX}User.c -server ${.PREFIX}Server.c -header ${.PREFIX}.h ${.IMPSRC}
 
 gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS}
 gen_md_mig_defs: ${MD_MIGHDRS}
 
-lib${LIB}_static.a:: ${FBSDHDRS} ${OBJS} ${STATICOBJS} 
+#### Library Rules ####################################################
+lib${LIB}_static.a:: ${VARIANTCOMBOS} ${OBJS} ${STATICOBJS} 
 	@${ECHO} building static ${LIB} library
 	@rm -f lib${LIB}_static.a
-	@${AR} cq lib${LIB}_static.a `lorder ${OBJS} ${STATICOBJS} | tsort -q` ${ARADD}
+	@${AR} cq lib${LIB}_static.a `lorder ${OBJS} ${STATICOBJS} ${VARIANTOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_static.a
 
-lib${LIB}_profile.a:: ${FBSDHDRS} ${POBJS} 
+lib${LIB}_profile.a:: ${VARIANTCOMBOS:S/$/_P/g} ${POBJS} ${POBJS2}
 	@${ECHO} building profiled ${LIB} library
 	@rm -f lib${LIB}_profile.a
-	@${AR} cq lib${LIB}_profile.a `lorder ${POBJS} | tsort -q` ${ARADD}
+	@${AR} cq lib${LIB}_profile.a `lorder ${POBJS} ${VARIANTPOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_profile.a
+.if (${MACHINE_ARCH} == ppc)
+	@${ECHO} building profiled ${LIB128} library
+	@rm -f lib${LIB128}_profile.a
+	@${AR} cq lib${LIB128}_profile.a ${LDBL_128_POBJS}
+.endif
 
-DOBJS+= ${OBJS:.o=.do}
-lib${LIB}_debug.a:: ${FBSDHDRS} ${DOBJS}
+lib${LIB}_debug.a:: ${VARIANTCOMBOS:S/$/_D/g} ${DOBJS} ${DOBJS2}
 	@${ECHO} building debug ${LIB} library
 	@rm -f lib${LIB}_debug.a
-	@${AR} cq lib${LIB}_debug.a `lorder ${DOBJS} | tsort -q` ${ARADD}
+	@${AR} cq lib${LIB}_debug.a `lorder ${DOBJS} ${VARIANTDOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}_debug.a
+.if (${MACHINE_ARCH} == ppc)
+	@${ECHO} building debug ${LIB128} library
+	@rm -f lib${LIB128}_debug.a
+	@${AR} cq lib${LIB128}_debug.a ${LDBL_128_DOBJS}
+.endif
 
-lib${LIB}.a:: ${FBSDHDRS} ${SOBJS}
+lib${LIB}.a:: ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS} ${SOBJS2}
 	@${ECHO} building standard ${LIB} library
 	@rm -f lib${LIB}.a
-	@${AR} cq lib${LIB}.a `lorder ${SOBJS} | tsort -q` ${ARADD}
+	@${AR} cq lib${LIB}.a `lorder ${SOBJS} ${VARIANTSOBJS} | tsort -q` ${ARADD}
 	${RANLIB} lib${LIB}.a
+.if (${MACHINE_ARCH} == ppc)
+	@${ECHO} building standard ${LIB128} library
+	@rm -f lib${LIB128}.a
+	@${AR} cq lib${LIB128}.a ${LDBL_128_SOBJS}
+.endif
 
 CLEANFILES += ${DOBJS} libc_static.a libc_profile.a libc_debug.a
 
@@ -113,38 +301,67 @@ INCDIR = ${DESTDIR}/usr/include
 LOCINCDIR = ${DESTDIR}/usr/local/include
 SYSTEMFRAMEWORK = ${DESTDIR}/System/Library/Frameworks/System.framework
 PRIVHDRS = ${SYSTEMFRAMEWORK}/Versions/B/PrivateHeaders
+KERNELFRAMEWORK = ${DESTDIR}/System/Library/Frameworks/Kernel.framework
+PRIVKERNELHDRS = ${KERNELFRAMEWORK}/Versions/A/PrivateHeaders
 
 installhdrs-md: gen_md_mig_defs
 	mkdir -p ${INCDIR}/mach/${MACHINE_ARCH}
 	${INSTALL} -c -m 444 ${MD_MIGHDRS} ${INCDIR}/mach/${MACHINE_ARCH}
 
-installhdrs: ${FBSDHDRS} gen_mig_defs
+installhdrs: autopatchhdrs gen_mig_defs
 	mkdir -p ${INCDIR}/arpa
+	mkdir -p ${INCDIR}/libkern
 	mkdir -p ${INCDIR}/mach
+	mkdir -p ${INCDIR}/machine
 	mkdir -p ${INCDIR}/malloc
 	mkdir -p ${INCDIR}/objc
 	mkdir -p ${INCDIR}/protocols
 	mkdir -p ${INCDIR}/servers
+	mkdir -p ${INCDIR}/sys
+	mkdir -p ${INCDIR}/xlocale
 	${INSTALL} -c -m 444 ${INSTHDRS} ${INCDIR}
 	${INSTALL} -c -m 444 ${ARPA_INSTHDRS} ${INCDIR}/arpa
+	${INSTALL} -c -m 444 ${LIBKERN_INSTHDRS} ${INCDIR}/libkern
 	${INSTALL} -c -m 444 ${MACH_INSTHDRS} ${INCDIR}/mach
+	${INSTALL} -c -m 444 ${MACHINE_INSTHDRS} ${INCDIR}/machine
 	${INSTALL} -c -m 444 ${MALLOC_INSTHDRS} ${INCDIR}/malloc
 	${INSTALL} -c -m 444 ${OBJC_INSTHDRS} ${INCDIR}/objc
 	${INSTALL} -c -m 444 ${PROTO_INSTHDRS} ${INCDIR}/protocols
 	${INSTALL} -c -m 444 ${SRVHDRS} ${INCDIR}/servers
+	${INSTALL} -c -m 444 ${SYS_INSTHDRS} ${INCDIR}/sys
+	${INSTALL} -c -m 444 ${XLOCALE_INSTHDRS} ${INCDIR}/xlocale
 	mkdir -p ${LOCINCDIR}
 	${INSTALL} -c -m 444 ${LOCALHDRS} ${LOCINCDIR}
 	mkdir -p ${PRIVHDRS}/architecture/ppc
 	mkdir -p ${PRIVHDRS}/btree
 	mkdir -p ${PRIVHDRS}/machine
 	mkdir -p ${PRIVHDRS}/objc
+	mkdir -p ${PRIVHDRS}/uuid
+	mkdir -p ${PRIVHDRS}/sys
+	mkdir -p ${PRIVKERNELHDRS}/uuid
+	${INSTALL} -c -m 444 ${PRIV_INSTHDRS} ${PRIVHDRS}
 	${INSTALL} -c -m 444 ${SRCROOT}/ppc/sys/processor_facilities.h ${PRIVHDRS}/architecture/ppc
-	${INSTALL} -c -m 444 ${SRCROOT}/db/btree/btree.h ${PRIVHDRS}/btree
-	${INSTALL} -c -m 444 ${SRCROOT}/db/btree/bt_extern.h ${PRIVHDRS}/btree
+	${INSTALL} -c -m 444 ${SYMROOT}/btree.h ${PRIVHDRS}/btree
+	${INSTALL} -c -m 444 ${SYMROOT}/bt_extern.h ${PRIVHDRS}/btree
 	${INSTALL} -c -m 444 ${SRCROOT}/internat/NXCType.h ${PRIVHDRS}/objc
-	${INSTALL} -c -m 444 ${SRCROOT}/gen/stack_logging.h ${PRIVHDRS}
 	mv ${DESTDIR}/usr/include/asm.h ${PRIVHDRS}/machine
 	mv ${INCDIR}/servers/srvbootstrap.h ${INCDIR}/servers/bootstrap.h
+	@for i in `find ${DESTDIR}/usr/include/mach ${DESTDIR}/usr/include/servers -name \*.h`; do \
+	    x=`fgrep '<mach/mig.h>' $$i | uniq -d`; \
+	    if [ -n "$$x" ]; then \
+		echo patching $$i; \
+		ed - $$i < ${SRCROOT}/fixdups.ed; \
+	    fi; \
+	done
+	${INSTALL} -c -m 444 ${SYS_INSTHDRS} ${PRIVHDRS}/sys
+	${INSTALL} -c -m 444 ${PRIVUUID_INSTHDRS} ${PRIVHDRS}/uuid
+	${INSTALL} -c -m 444 ${PRIVUUID_INSTHDRS} ${PRIVKERNELHDRS}/uuid
+	${INSTALL} -c -m 444 ${INSTHDRS_AUTOPATCH:S,^,${SYMROOT}/,} ${INCDIR}
+.for _h in ${STRIP_HDRS}
+	chmod u+w ${INCDIR}/${_h}
+	ed - ${INCDIR}/${_h} < ${.CURDIR}/strip-header.ed
+	chmod u-w ${INCDIR}/${_h}
+.endfor
 
 install_lib${LIB}_static.a:
 	${INSTALL} -c -m 444 lib${LIB}_static.a ${DESTDIR}/usr/local/lib/system/
@@ -155,7 +372,9 @@ install_lib${LIB}_debug.a:
 install_lib${LIB}.a:
 	${INSTALL} -c -m 444 lib${LIB}.a ${DESTDIR}/usr/local/lib/system/
 
-fbsdman: ${FBSDPATCHMAN}
+autopatch: autopatchhdrs ${AUTOPATCHSRCS}
+autopatchhdrs: ${AUTOPATCHHDRS}
+autopatchman: ${AUTOPATCHMAN}
 
 clean:
 	rm -f ${OBJS} ${POBJS} ${DOBJS} ${SOBJS} ${CLEANFILES}

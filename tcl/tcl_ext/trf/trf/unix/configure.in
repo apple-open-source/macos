@@ -1,0 +1,1009 @@
+dnl
+dnl Process this file with autoconf to produce a configure script.
+dnl
+AC_REVISION($Id: configure.in,v 1.49 2002/08/27 03:51:54 tcl Exp $)
+dnl
+AC_INIT(../generic/transform.h)
+
+TRF_DEFS=""
+TRF_TESTS=""
+TRF_VERSION=2.1
+TRF_MAJOR_VERSION=2
+TRF_MINOR_VERSION=1
+#TRF_VERSION=2.0
+#TRF_MAJOR_VERSION=2
+#TRF_MINOR_VERSION=0
+VERSION=${TRF_VERSION}
+
+TCL_REQ_MAJOR_VERSION=7
+TCL_REQ_MINOR_VERSION=6
+
+if test "${prefix}" = "NONE"; then
+    prefix=/usr/local
+fi
+if test "${exec_prefix}" = "NONE"; then
+    exec_prefix=$prefix
+fi
+
+AC_PROG_CC
+dnl AC_PATH_PROG(MAKEDEPEND,makedepend,:)
+AC_HAVE_HEADERS(dlfcn.h stdlib.h features.h)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long int)
+
+AC_CHECK_LIB(crypt, main,         HAS_LIBCRYPT=1,     HAS_LIBCRYPT=0)
+AC_CHECK_LIB(crypt, md5_init_ctx, HAS_LIBCRYPT_MD5=1, HAS_LIBCRYPT_MD5=0)
+
+dnl
+dnl use location of tclsh (wish?) as default for prefix, exec-prefix
+dnl
+AC_PREFIX_PROGRAM(tclsh)
+dnl
+dnl ----------------------------------------------------------------
+dnl let configure understand more options.  they allow the caller to
+dnl specify library- and include-directory for Tcl more explicitly.
+dnl
+dnl '--with-tcl=DIR' is a shorthand to
+dnl '-with-tcl-include-dir=DIR/include --with-tcl-lib-dir=DIR/lib'
+dnl
+AC_ARG_WITH(tcl,
+	[  --with-tcl=DIR		tcl.h resides in DIR/include, libtcl resides in DIR/lib],
+	[TCL_LIB_DIR=$withval/lib; TCL_INCLUDE_DIR=$withval/include],
+	[])
+dnl
+AC_ARG_WITH(tcl-include-dir,
+	[  --with-tcl-include-dir=DIR	tcl.h resides in DIR],
+	[TCL_INCLUDE_DIR=$withval],
+	[])
+dnl
+AC_ARG_WITH(tcl-lib-dir,
+	[  --with-tcl-lib-dir=DIR	libtcl resides in DIR],
+	[TCL_LIB_DIR=$withval],
+	[])
+
+AC_ARG_ENABLE(shared,
+	[  --disable-shared		dont build libtrf as a shared library],
+	[ok=$enableval], [ok=yes])
+
+AC_ARG_ENABLE(binio,
+	[  --enable-binio              use 'binio' command],
+	[binio=$enableval], [binio=no])
+
+AC_ARG_ENABLE(trf_debug,
+	[  --enable-trf-debug           enable debugging output],
+	[trf_debug=$enableval], [trf_debug=no])
+
+AC_ARG_ENABLE(stream_debug,
+	[  --enable-stream-debug        enable debugging of IO streams],
+	[stream_debug=$enableval], [stream_debug=no])
+
+AC_ARG_WITH(zlib,
+	[  --with-zlib=DIR		zlib.h resides in DIR/include, libz resides in DIR/lib],
+	[ZLIB_LIB_DIR=$withval/lib; ZLIB_INCLUDE_DIR=$withval/include],
+	[])
+dnl
+AC_ARG_WITH(zlib-include-dir,
+	[  --with-zlib-include-dir=DIR	zlib.h resides in DIR],
+	[ZLIB_INCLUDE_DIR=$withval],
+	[])
+dnl
+AC_ARG_WITH(zlib-lib-dir,
+	[  --with-zlib-lib-dir=DIR	libz resides in DIR],
+	[ZLIB_LIB_DIR=$withval],
+	[])
+
+AC_ARG_WITH(ssl,
+	[  --with-ssl=DIR		md2.h/sha1.h reside in DIR/include, libcrypto resides in DIR/lib],
+	[SSL_LIB_DIR=$withval/lib; SSL_INCLUDE_DIR=$withval/include],
+	[])
+dnl
+AC_ARG_WITH(ssl-include-dir,
+	[  --with-ssl-include-dir=DIR	md2.h/sha1.h reside in DIR],
+	[SSL_INCLUDE_DIR=$withval],
+	[])
+dnl
+AC_ARG_WITH(ssl-lib-dir,
+	[  --with-ssl-lib-dir=DIR	libcrypto resides in DIR],
+	[SSL_LIB_DIR=$withval],
+	[])
+
+AC_ARG_WITH(bz2-lib-dir,
+	[  --with-bz2-lib-dir=DIR	libbz2 resides in DIR],
+	[BZ2_LIB_DIR=$withval],
+	[])
+
+AC_ARG_ENABLE(static-zlib,
+	[  --enable-static-zlib         link 'zlib' statically],
+	[STATIC_ZLIB=$enableval], [STATIC_ZLIB=no])
+
+AC_ARG_ENABLE(static-bzlib,
+	[  --enable-static-bzlib         link 'bzlib' statically],
+	[STATIC_BZLIB=$enableval], [STATIC_BZLIB=no])
+
+AC_ARG_ENABLE(static-md5,
+	[  --enable-static-md5         link 'md5' statically],
+	[STATIC_MD5=$enableval], [STATIC_MD5=no])
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Crossover between --with-tcl-include-dir and --with-tcl-lib-dir
+dnl Setting one, but not the other will cause automatic definition
+dnl of the missing part.
+
+if test "X" = "X$TCL_LIB_DIR" -a "X" != "X$TCL_INCLUDE_DIR" 
+then
+    TCL_LIB_DIR="$TCL_INCLUDE_DIR/../lib"
+fi
+
+if test "X" = "X$TCL_INCLUDE_DIR" -a "X" != "X$TCL_LIB_DIR" 
+then
+    TCL_INCLUDE_DIR="$TCL_LIB_DIR/../include"
+fi
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Crossover between --with-zlib-include-dir and --with-zlib-lib-dir
+dnl Setting one, but not the other will cause automatic definition
+dnl of the missing part.
+
+if test "X" = "X$ZLIB_LIB_DIR" -a "X" != "X$ZLIB_INCLUDE_DIR" 
+then
+    ZLIB_LIB_DIR="$ZLIB_INCLUDE_DIR/../lib"
+fi
+
+if test "X" = "X$ZLIB_INCLUDE_DIR" -a "X" != "X$ZLIB_LIB_DIR" 
+then
+    ZLIB_INCLUDE_DIR="$ZLIB_LIB_DIR/../include"
+fi
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Crossover between --with-ssl-include-dir and --with-ssl-lib-dir
+dnl Setting one, but not the other will cause automatic definition
+dnl of the missing part.
+
+if test "X" = "X$SSL_LIB_DIR" -a "X" != "X$SSL_INCLUDE_DIR"
+then
+    SSL_LIB_DIR="$SSL_INCLUDE_DIR/../lib"
+fi
+
+if test "X" = "X$SSL_INCLUDE_DIR" -a "X" != "X$SSL_LIB_DIR"
+then
+    SSL_INCLUDE_DIR="$SSL_LIB_DIR/../include"
+fi
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl	checks for alternative programs:
+dnl		GNU cc, cpp, install, ranlib, makeinfo
+dnl
+AC_PROG_CPP
+AC_PROG_RANLIB
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl	checks for typedefs
+dnl	checks for library functions
+dnl	checks for compiler characteristics
+dnl		ANSI 'const' available, correct ?
+AC_C_BIGENDIAN
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate tcl.h
+dnl Searches:
+dnl	TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+dnl	../../tcl8.2*/generic	(assume tcl source in sibling directory)
+dnl	../../tcl8.1*/generic	(assume tcl source in sibling directory)
+dnl	../../tcl8.0*/generic	(assume tcl source in sibling directory)
+dnl	../../tcl7.6/generic	(assume tcl source in sibling directory)
+dnl	../../tcl/generic		(see above)
+dnl	../../tcl			(should be old version)
+dnl	$prefix/include		(--prefix)
+dnl	/usr/local/include
+dnl	/usr/include
+dnl
+AC_CACHE_CHECK(for directory with tcl.h,
+	trf_cv_path_TCL_INCLUDE_DIR,
+	[trf_cv_path_TCL_INCLUDE_DIR=""
+	 places="$TCL_INCLUDE_DIR \
+		../../tcl8.3.*/generic \
+		../../tcl8.3/generic \
+		../../tcl8.2.*/generic \
+		../../tcl8.2/generic \
+		../../tcl8.2b*/generic \
+		../../tcl8.2a*/generic \
+		../../tcl8.1.*/generic \
+		../../tcl8.1/generic \
+		../../tcl8.1b*/generic \
+		../../tcl8.1a*/generic \
+		../../tcl8.0.*/generic \
+		../../tcl8.0/generic \
+		../../tcl7.6/generic \
+		../../tcl/generic \
+		../../tcl \
+		$prefix/include \
+		/usr/local/include \
+		/usr/include"
+     for dir in $places; do
+         if test -r $dir/tcl.h ; then
+            trf_cv_path_TCL_INCLUDE_DIR=$dir
+            break
+         fi
+     done])
+dnl
+dnl verify success of search
+dnl
+TCL_INCLUDE_DIR=$trf_cv_path_TCL_INCLUDE_DIR
+if test -z "$TCL_INCLUDE_DIR" ; then
+    AC_MSG_ERROR(not found; use --with-tcl=DIR or --with-tcl-include-dir=DIR)
+fi
+dnl
+dnl tcl.h found, now check for acceptable version of Tcl
+dnl
+AC_CACHE_CHECK(for up-to-date version of Tcl,
+    trf_cv_vers_good_tcl_version,
+[AC_REQUIRE_CPP()
+    ac_save_cppflags="$CPPFLAGS"
+    CPPFLAGS="-I$TCL_INCLUDE_DIR $CPPFLAGS"
+    AC_EGREP_CPP(good_tcl_version,
+[#include <tcl.h>
+#if ((TCL_MAJOR_VERSION == 7) && (TCL_MINOR_VERSION >= 6))
+    good_tcl_version
+#endif
+#if (TCL_MAJOR_VERSION > 7)
+    good_tcl_version
+#endif],trf_cv_vers_good_tcl_version=yes,trf_cv_vers_good_tcl_version=no)
+    CPPFLAGS=$ac_save_cppflags])
+
+if test "$trf_cv_vers_good_tcl_version" = "no"; then
+    AC_MSG_ERROR(Your Tcl must be at least version 7.6)
+fi
+
+AC_SUBST(TCL_INCLUDE_DIR)
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate tcl library
+dnl Searches:
+dnl	TCL_LIB_DIR		(--with-tcl, --with-tcl-lib-dir)
+dnl	../../tcl8.2*/unix	(assume tcl source in sibling directory)
+dnl	../../tcl8.1*/unix	(assume tcl source in sibling directory)
+dnl	../../tcl8.0*/unix	(assume tcl source in sibling directory)
+dnl	../../tcl7.6/unix	(assume tcl source in sibling directory)
+dnl	../../tcl/unix		(see above)
+dnl	../../tcl			(should be old version)
+dnl	$exec_prefix/lib		(--exec-prefix)
+dnl	$prefix/lib			(--prefix)
+dnl	/usr/local/lib
+dnl	/usr/lib
+dnl
+AC_CACHE_CHECK(for tcl library,
+	trf_cv_lib_TCL_LIB,
+	[trf_cv_lib_TCL_LIB=""
+	 places="$TCL_LIB_DIR \
+	../../tcl8.3.*/unix \
+	../../tcl8.3/unix \
+	../../tcl8.2.*/unix \
+	../../tcl8.2/unix \
+	../../tcl8.2b*/unix \
+	../../tcl8.2a*/unix \
+	../../tcl8.1.*/unix \
+	../../tcl8.1/unix \
+	../../tcl8.1b*/unix \
+	../../tcl8.1a*/unix \
+	../../tcl8.0.*/unix \
+	../../tcl8.0/unix \
+	../../tcl7.6/unix \
+	../../tcl/unix \
+	../../tcl \
+	 $exec_prefix/lib \
+	 $prefix/lib \
+	 /usr/local/lib \
+	 /usr/lib"
+    for dir in $places; do
+        if test -n "$trf_cv_lib_TCL_LIB"; then
+            break
+        fi
+        for version in 8.3 8.2 8.1.1 8.1 8.0.6 8.0.5 8.0.4 8.0.3 8.0 7.6 83 82 811 81 806 805 804 803 80 76 ""; do
+            if test -n "$trf_cv_lib_TCL_LIB"; then
+                break
+            fi
+            for libsuff in .so ".so.*" .sl .a; do
+                if test -n "$trf_cv_lib_TCL_LIB"; then
+                    break
+                fi
+                if test -f $dir/libtcl$version$libsuff; then
+                    trf_cv_lib_TCL_LIB="-L$dir -ltcl$version"
+		    TCL_LIB_DIR="$dir"
+                fi
+            done
+        done
+    done])
+
+TCL_LIB="$trf_cv_lib_TCL_LIB"
+if test -z "$TCL_LIB" ; then
+    AC_MSG_ERROR(not found; use --with-tcl-lib-dir=path)
+fi
+
+AC_SUBST(TCL_LIB)
+
+AC_CACHE_VAL(trf_cv_TCL_LIB_DIR, [trf_cv_TCL_LIB_DIR="$TCL_LIB_DIR"])
+TCL_LIB_DIR="$trf_cv_TCL_LIB_DIR"
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate zlib.h
+dnl
+dnl Searches:
+dnl	ZLIB_INCLUDE_DIR	(--with-zlib, --with-zlib-include-dir)
+dnl     TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+dnl	$prefix/include		(--prefix)
+dnl	/usr/local/include
+dnl	/usr/include
+dnl
+AC_CACHE_CHECK(for directory with zlib.h,
+	trf_cv_path_ZLIB_INCLUDE_DIR,
+	[trf_cv_path_ZLIB_INCLUDE_DIR=""
+	 places="$ZLIB_INCLUDE_DIR \
+		$TCL_INCLUDE_DIR \
+		$prefix/include \
+		/usr/local/include \
+		/usr/include"
+     for dir in $places; do
+         if test -r $dir/zlib.h ; then
+            trf_cv_path_ZLIB_INCLUDE_DIR=$dir
+            break
+         fi
+     done])
+dnl
+dnl verify success of search
+dnl
+
+ZLIB_INCLUDE_DIR=$trf_cv_path_ZLIB_INCLUDE_DIR
+
+if test -z "$ZLIB_INCLUDE_DIR" ; then
+    AC_MSG_ERROR(not found; falling back to compat/ headers; use --with-zlib=DIR or --with-zlib-include-dir=DIR)
+else
+    TRF_DEFS="$TRF_DEFS -DHAVE_ZLIB_H"
+    TRF_TESTS="$TRF_TESTS hasZlib"
+fi
+dnl
+
+AC_SUBST(ZLIB_INCLUDE_DIR)
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate zlib library
+dnl Searches:
+dnl	ZLIB_LIB_DIR		(--with-zlib, --with-zlib-lib-dir)
+dnl	TCL_LIB_DIR		(--with-tcl, --with-tcl-lib-dir)
+dnl	$exec_prefix/lib	(--exec-prefix)
+dnl	$prefix/lib		(--prefix)
+dnl	/usr/local/lib
+dnl	/usr/lib
+dnl
+AC_CACHE_CHECK(for libz library,
+	trf_cv_lib_ZLIB_LIB_DIR,
+	[trf_cv_lib_ZLIB_LIB_DIR=""
+	 places="$ZLIB_LIB_DIR \
+	$TCL_LIB_DIR \
+	 $exec_prefix/lib \
+	 $prefix/lib \
+	 /usr/local/lib \
+	 /usr/lib"
+    for dir in $places; do
+        if test -n "$trf_cv_lib_ZLIB_LIB_DIR"; then
+            break
+        fi
+
+        for libsuff in .so ".so.*" .sl .a; do
+	    if test -n "$trf_cv_lib_ZLIB_LIB_DIR"; then
+                    break
+            fi
+            if test -f $dir/libz$libsuff; then
+                trf_cv_lib_ZLIB_LIB_DIR="$dir"
+		    ZLIB_LIB_DIR="$dir"
+            fi
+        done
+    done])
+
+ZLIB_LIB_DIR="$trf_cv_lib_ZLIB_LIB_DIR"
+if test -z "$ZLIB_LIB_DIR" ; then
+    AC_MSG_WARN(not found; use --with-zlib-lib-dir=path)
+fi
+
+AC_SUBST(ZLIB_LIB_DIR)
+AC_CACHE_VAL(trf_cv_ZLIB_LIB_DIR, [trf_cv_ZLIB_LIB_DIR="$ZLIB_LIB_DIR"])
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate md2.h / sha1.h
+dnl
+dnl Searches:
+dnl	SSL_INCLUDE_DIR		(--with-ssl, --with-ssl-include-dir)
+dnl     TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+dnl	$prefix/include		(--prefix)
+dnl	/usr/local/ssl/include
+dnl	/usr/local/include
+dnl	/usr/include
+dnl
+AC_CACHE_CHECK(for directory with ssl.h,
+	trf_cv_path_SSL_INCLUDE_DIR,
+	[trf_cv_path_SSL_INCLUDE_DIR=""
+	 places="$SSL_INCLUDE_DIR \
+		$TCL_INCLUDE_DIR \
+		$prefix/include \
+		/usr/local/ssl/include \
+		/usr/local/include \
+		/usr/include"
+     for dir in $places; do
+         if test -r $dir/openssl/md2.h ; then
+            trf_cv_path_SSL_INCLUDE_DIR=$dir
+	    TRF_DEFS="$TRF_DEFS -DOPENSSL_SUB"
+            break
+         fi
+         if test -r $dir/openssl/sha1.h ; then
+            trf_cv_path_SSL_INCLUDE_DIR=$dir
+	    TRF_DEFS="$TRF_DEFS -DOPENSSL_SUB"
+            break
+         fi
+         if test -r $dir/md2.h ; then
+            trf_cv_path_SSL_INCLUDE_DIR=$dir
+            break
+         fi
+         if test -r $dir/sha1.h ; then
+            trf_cv_path_SSL_INCLUDE_DIR=$dir
+            break
+         fi
+     done])
+dnl
+dnl verify success of search
+dnl
+
+SSL_INCLUDE_DIR=$trf_cv_path_SSL_INCLUDE_DIR
+
+if test -z "$SSL_INCLUDE_DIR" ; then
+    AC_MSG_WARN(not found; falling back compat/ headers; use --with-ssl=DIR or --with-ssl-include-dir=DIR)
+else
+    TRF_DEFS="$TRF_DEFS -DHAVE_SSL_H -DHAVE_MD2_H -DHAVE_SHA_H"
+    TRF_TESTS="$TRF_TESTS hasSSL"
+fi
+dnl
+
+AC_SUBST(SSL_INCLUDE_DIR)
+
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate ssl library
+dnl Searches:
+dnl	SSL_LIB_DIR		(--with-ssl, --with-ssl-lib-dir)
+dnl	TCL_LIB_DIR		(--with-tcl, --with-tcl-lib-dir)
+dnl	$exec_prefix/lib	(--exec-prefix)
+dnl	$prefix/lib		(--prefix)
+dnl	/usr/local/ssl/lib
+dnl	/usr/local/lib
+dnl	/usr/lib
+dnl
+AC_CACHE_CHECK(for ssl libcrypto library (for message digests),
+	trf_cv_lib_SSL_LIB_DIR,
+	[trf_cv_lib_SSL_LIB_DIR=""
+	 places="$SSL_LIB_DIR \
+	$TCL_LIB_DIR \
+	$exec_prefix/lib \
+	$prefix/lib \
+	/usr/local/ssl/lib \
+	/usr/local/lib \
+	/usr/lib"
+    for dir in $places; do
+        if test -n "$trf_cv_lib_SSL_LIB_DIR"; then
+            break
+        fi
+
+        for libsuff in .so ".so.*" .sl .a; do
+	    if test -n "$trf_cv_lib_SSL_LIB_DIR"; then
+                    break
+            fi
+            if test -f $dir/libcrypto$libsuff; then
+                trf_cv_lib_SSL_LIB_DIR="$dir"
+		    SSL_LIB_DIR="$dir"
+            fi
+        done
+    done])
+
+SSL_LIB_DIR="$trf_cv_lib_SSL_LIB_DIR"
+if test -z "$SSL_LIB_DIR" ; then
+    AC_MSG_WARN(not found; use --with-ssl-lib-dir=path)
+fi
+
+AC_SUBST(SSL_LIB_DIR)
+
+AC_CACHE_VAL(trf_cv_SSL_LIB_DIR, [trf_cv_SSL_LIB_DIR="$SSL_LIB_DIR"])
+
+dnl ----------------------------------------------------------------
+dnl
+dnl Locate bz2 library
+dnl Searches:
+dnl	BZ2_LIB_DIR		(--with-bz2, --with-bz2-lib-dir)
+dnl	TCL_LIB_DIR		(--with-tcl, --with-tcl-lib-dir)
+dnl	$exec_prefix/lib	(--exec-prefix)
+dnl	$prefix/lib		(--prefix)
+dnl	/usr/local/bz2/lib
+dnl	/usr/local/lib
+dnl	/usr/lib
+dnl
+AC_CACHE_CHECK(for bz2 compressor library,
+	trf_cv_lib_BZ2_LIB_DIR,
+	[trf_cv_lib_BZ2_LIB_DIR=""
+	 places="$BZ2_LIB_DIR \
+	$TCL_LIB_DIR \
+	$exec_prefix/lib \
+	$prefix/lib \
+	/usr/local/bz2/lib \
+	/usr/local/lib \
+	/usr/lib \
+	/lib"
+    for dir in $places; do
+        if test -n "$trf_cv_lib_BZ2_LIB_DIR"; then
+            break
+        fi
+
+        for libsuff in .so ".so.*" .sl .a; do
+	    if test -n "$trf_cv_lib_BZ2_LIB_DIR"; then
+                    break
+            fi
+            if test -f $dir/libbz2$libsuff; then
+                trf_cv_lib_BZ2_LIB_DIR="$dir"
+		    BZ2_LIB_DIR="$dir"
+            fi
+        done
+    done])
+
+BZ2_LIB_DIR="$trf_cv_lib_BZ2_LIB_DIR"
+if test -z "$BZ2_LIB_DIR" ; then
+    AC_MSG_WARN(not found; use --with-bz2-lib-dir=path)
+else
+    TRF_TESTS="$TRF_TESTS hasBz"
+fi
+
+
+AC_SUBST(BZ2_LIB_DIR)
+AC_CACHE_VAL(trf_cv_BZ2_LIB_DIR, [trf_cv_BZ2_LIB_DIR="$BZ2_LIB_DIR"])
+
+
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl The makefile uses 'makedepend' to generate the dependency rules
+dnl this tool know about all standard include directories, but as it
+dnl is not of GNU, standard means 'standard', NOT 'standard + gnu paths'
+dnl 
+dnl AC_CACHE_CHECK(wether 'makedepend' must be told about GCC include paths,
+dnl	trf_cv_conf_makedepend_iext,
+dnl	[if test ! -z "$GCC"; then
+dnl		trf_cv_conf_makedepend_iext=yes
+dnl	else
+dnl		trf_cv_conf_makedepend_iext=no
+dnl	fi])
+dnl
+dnl AC_CACHE_VAL(trf_cv_conf_makedepend_flags, [
+dnl	aku_i=`$CC -v 2>&1 | grep specs | awk '{print $4}'`
+dnl	aku_i=`expr "$aku_i" : '\(.*\)/specs'`
+dnl	trf_cv_conf_makedepend_flags="-I$aku_i/include"])
+dnl
+dnl MKDEP_FLAGS="$trf_cv_conf_makedepend_flags"
+dnl AC_SUBST(MKDEP_FLAGS)
+dnl
+dnl ----------------------------------------------------------------
+dnl
+dnl load 'tclConfig.sh' and integrate its information
+dnl
+
+#--------------------------------------------------------------------
+#	Read in configuration information generated by Tcl for shared
+#	libraries, and arrange for it to be substituted into our
+#	Makefile.
+#--------------------------------------------------------------------
+
+file=$TCL_LIB_DIR/tclConfig.sh
+. $file
+CC=$TCL_CC
+SHLIB_CFLAGS=$TCL_SHLIB_CFLAGS
+SHLIB_LD=$TCL_SHLIB_LD
+SHLIB_LD_LIBS=$TCL_SHLIB_LD_LIBS
+SHLIB_SUFFIX=$TCL_SHLIB_SUFFIX
+SHLIB_VERSION=$TCL_SHLIB_VERSION
+DL_LIBS=$TCL_DL_LIBS
+LD_FLAGS=$TCL_LD_FLAGS
+LIB_RUNTIME_DIR='${LIB_RUNTIME_DIR}:${TCL_LIB_DIR}'
+if test "${TCL_LD_SEARCH_FLAGS}" = '-L${LIB_RUNTIME_DIR}'; then
+    LIB_RUNTIME_DIR=`echo ${LIB_RUNTIME_DIR} |sed -e 's/:/ -L/g'`
+fi
+eval "TRF_CC_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
+
+# The following case handles the differences between linking with "ld"
+# and the compiler
+
+case $SHLIB_LD in
+*ld*)
+      TRF_LD_SEARCH_FLAGS=`echo ${TRF_CC_SEARCH_FLAGS} |sed -e "s|-Wl,||g" -e "s|,| |g"`
+      ;;
+*)
+      TRF_LD_SEARCH_FLAGS="${TRF_CC_SEARCH_FLAGS}"
+      ;;
+esac
+
+TCL_BASE=`echo ${TCL_LIB_SPEC} |sed -e "s|^.*-l||"`
+TCL_STUB_BASE=`echo ${TCL_STUB_LIB_SPEC} |sed -e "s|^.*-l||"`
+
+
+TCL_LIB_SPEC="-L${TCL_LIB_DIR} -l${TCL_BASE}"
+TCL_STUB_LIB_SPEC="-L${TCL_LIB_DIR} -l${TCL_STUB_BASE}"
+VERSION=""
+eval "TCL_UNSHARED_LIB_FILE=lib${TCL_BASE}${TCL_UNSHARED_LIB_SUFFIX}"
+eval "TCL_SHARED_LIB_FILE=lib${TCL_BASE}${TCL_SHARED_LIB_SUFFIX}"
+
+
+# binio allowed <=> (major < 8)
+
+if test $TCL_MAJOR_VERSION -gt 7
+then
+	# 8.x and beyond, have 'binary' in core, disallow 'binio'.
+	if test "x$binio" = "xyes"
+	then
+		AC_MSG_CHECKING(binio allowed)
+		AC_MSG_RESULT(no. Use 'binary' command in core instead!)
+		binio="no"
+	fi
+else
+	# 7.6 and below, allow 'binio'.
+	if test "x$binio" = "xyes"
+	then
+		cat >> confdefs.h <<\EOF
+#define ENABLE_BINIO
+EOF
+	fi
+fi
+
+if test "x$ZLIB_STATIC" = "xyes"
+then
+	cat >> confdefs.h <<\EOF
+#define ZLIB_STATIC_BUILD
+EOF
+fi
+
+if test "x$BZLIB_STATIC" = "xyes"
+then
+	cat >> confdefs.h <<\EOF
+#define BZLIB_STATIC_BUILD
+EOF
+fi
+
+if test "x$MD5_STATIC" = "xyes"
+then
+	cat >> confdefs.h <<\EOF
+#define MD5_STATIC_BUILD
+EOF
+fi
+
+if test "x$trf_debug" = "xyes"
+then
+	cat >> confdefs.h <<\EOF
+#define TRF_DEBUG
+EOF
+fi
+
+if test "x$stream_debug" = "xyes"
+then
+	cat >> confdefs.h <<\EOF
+#define TRF_STREAM_DEBUG
+EOF
+fi
+
+#--------------------------------------------------------------------
+#	The statements below define a collection of symbols related to
+#	building libtrf as a shared library instead of a static library.
+#--------------------------------------------------------------------
+
+TCL_SHARED_LIBS=""
+#--------------------------------------------------------------------
+
+# Use stubs <=> (((major == 8) && (minor > 0)) || (major > 8)) && 'trf as shared library'
+
+# no stubs => don't try to export stubs.
+
+AC_MSG_CHECKING(for stubs)
+
+if test \( $TCL_MAJOR_VERSION -eq 8 -a $TCL_MINOR_VERSION -gt 0 \) -o $TCL_MAJOR_VERSION -gt 8
+then
+    AC_MSG_RESULT(yes)
+    TRF_USING_STUBS=1
+    STUB_OBJS=trfStubInit.o
+    STUB_LIBOBJS=trfStubLib.o
+    # Stubs
+    TCL_DEFS="$TCL_DEFS -DUSE_TCL_STUBS"
+    TCL_SHARED_LIBS="${TCL_STUB_LIB_SPEC}"
+else
+    AC_MSG_RESULT(no)
+    TRF_USING_STUBS=0
+    STUB_OBJS=
+    STUB_LIBOBJS=
+    # No stubs
+    case "$SHLIB_LD" in
+	*ldAix*)
+	TCL_SHARED_LIBS='${TCL_LIB_SPEC}'
+	;;
+    esac
+fi
+
+case "$SHLIB_LD" in
+    *ldAix*)
+    TCL_SHARED_LIBS="${TCL_SHARED_LIBS}"
+    ;;
+esac
+
+if test "x$ok" = "xyes" -a "x${SHLIB_SUFFIX}" != "x"; then
+    TRF_SHLIB_CFLAGS="${SHLIB_CFLAGS}"
+    eval "TRF_LIB_FILE=libtrf${TCL_SHARED_LIB_SUFFIX}"
+    eval "ZLIB_LIB_FILE=libz${SHLIB_SUFFIX}"
+    eval "LIBDES_LIB_FILE=libdes${SHLIB_SUFFIX}"
+    MAKE_LIB="\${SHLIB_LD} -o \${TRF_LIB_FILE} \${OBJECTS} ${TCL_SHARED_LIBS} ${SHLIB_LD_LIBS}"
+    MAKE_MD5_LIB="\${SHLIB_LD} -o \${MD5_LIB_FILE} \${MD5_OBJECTS} ${SHLIB_LD_LIBS}"
+    RANLIB=":"
+
+	# force usage of special link code for external libraries
+    case "$SHLIB_LD" in
+	*tclLdAout*)
+	echo "$SHLIB_LD" > /tmp/$$
+	SHLIB_LD_ALL="`sed -e 's|tclLdAout|source \$(tool)/ldAout.tcl \\\\; tclLdAout|' < /tmp/$$`"
+	ZLIB_LIB_FILE=libz.a
+	LIBDES_LIB_FILE=libdes.a
+	;;
+	*)
+	SHLIB_LD_ALL="$SHLIB_LD"
+	;;
+    esac
+
+    MAKE_ZLIB="${SHLIB_LD_ALL} -o \${ZLIB_LIB_FILE} \${ZLIB_OBJ} ${SHLIB_LD_LIBS}"
+    MAKE_LIBDES="${SHLIB_LD_ALL} -o \${LIBDES_LIB_FILE} \${LIBDES_OBJ} ${SHLIB_LD_LIBS}"
+
+    install_other=''
+else
+    TRF_SHLIB_CFLAGS=""
+    eval "TRF_LIB_FILE=libtrf${TCL_UNSHARED_LIB_SUFFIX}"
+    eval "ZLIB_LIB_FILE=libz.a"
+    eval "LIBDES_LIB_FILE=libdes.a"
+    MAKE_LIB="ar cr \${TRF_LIB_FILE} \${OBJECTS}"
+    MAKE_MD5_LIB="ar cr \${MD5_LIB_FILE} \${MD5_OBJECTS}"
+    MAKE_ZLIB="ar cr \${ZLIB_LIB_FILE} \${ZLIB_OBJ}"
+    MAKE_LIBDES="ar cr \${LIBDES_LIB_FILE} \${LIBDES_OBJ}"
+
+    install_other='install-bin'
+fi
+
+if test $TRF_USING_STUBS -gt 0
+then
+    eval "TRF_STUB_LIB_FILE=libtrfstub${TCL_UNSHARED_LIB_SUFFIX}"
+else
+    TRF_STUB_LIB_FILE=
+fi
+
+
+# Note:  in the following variable, it's important to use the absolute
+# path name of the Tcl directory rather than "..":  this is because
+# AIX remembers this path and will attempt to use it at run-time to look
+# up the Tcl library.
+
+if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
+    TRF_BUILD_LIB_SPEC="-L`pwd` -ltrf${VERSION}"
+    TRF_LIB_SPEC="-L${exec_prefix}/lib -ltrf${VERSION}"
+else
+    TRF_BUILD_LIB_SPEC="-L`pwd` -ltrf`echo ${VERSION} | tr -d .`"
+    TRF_LIB_SPEC="-L${exec_prefix}/lib -ltrf`echo ${VERSION} | tr -d .`"
+fi
+
+if test "x$exec_prefix" = "xNONE" ; then
+	TRF_LIB_DIR=${prefix}/lib
+else
+	TRF_LIB_DIR=${exec_prefix}/lib
+fi
+
+dnl
+dnl
+dnl  Check for some libraries we need for the tclsh application
+dnl
+dnl AC_CHECK_LIB(socket, main, [LIBS="$LIBS -lsocket"])
+dnl AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"])
+dnl AC_SUBST(LIBS)
+
+dnl ----------------------------------------------------------------
+dnl non-standard substitutions
+dnl
+
+SHARED_LIBS=""
+TEST_SUFFIX="${SHLIB_SUFFIX}"
+if test "$DL_LIBS" = "-ldl"; then
+    DL_OBJS=""
+    dirs="/lib/libdl${TEST_SUFFIX}* /usr/lib/libdl${TEST_SUFFIX}*"
+    for i in $dirs ; do
+	if test -f $i; then
+	    SHARED_LIBS="${SHARED_LIBS} -ldl"
+	    break;
+	fi
+    done
+elif test "$DL_LIBS" = "-ldld"; then
+    if test "$SHLIB_SUFFIX" = ".sl"; then
+	DL_OBJS="tclLoadShl.o"
+    else
+	DL_OBJS="tclLoadDld.o"
+    fi
+    dirs="/lib/libdld${TEST_SUFFIX}* /usr/lib/libdld${TEST_SUFFIX}*"
+    for i in $dirs ; do
+	if test -f $i; then
+	    SHARED_LIBS="${SHARED_LIBS} -ldld"
+	    break;
+	fi
+    done
+elif test "$DL_LIBS" = "-lld"; then
+    DL_OBJS="tclLoadAix.o"
+    SHARED_LIBS="${TCL_LIB_SPEC} -lld"
+    TEST_SUFFIX=".a"
+elif test "$SHLIB_SUFFIX" = "..o" -o "$SHLIB_SUFFIX" = ".a"; then
+    DL_OBJS="tclLoadAout.o"
+    if test "x${SHLIB_CFLAGS}" = "x-G 0"; then
+	TEST_SUFFIX="_G0.a"
+    else
+	TEST_SUFFIX=".a"
+    fi
+else
+    DL_OBJS=""
+fi
+
+# -----------------------------------------------------------------------
+AC_MSG_CHECKING(if assert needs __eprintf)
+cat > conftest.$ac_ext <<EOF
+#include "confdefs.h"
+#include "assert.h"
+int main(argc)
+    int argc;
+{
+assert(argc);
+; return 0; }
+EOF
+${TCL_CC-cc} -c $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext 1>&5
+if test "x`nm conftest.o |grep __eprintf`" != "x"; then
+    AC_MSG_RESULT(yes)
+    DL_OBJS="${DL_OBJS} _eprintf.o"
+else
+    AC_MSG_RESULT(no)
+fi
+rm -f conftest*
+
+dirs="/lib/libm${TEST_SUFFIX}* /usr/lib/libm${TEST_SUFFIX}*"
+for i in $dirs ; do
+    if test -f $i; then
+	SHARED_LIBS="${SHARED_LIBS} -lm"
+	break;
+    fi
+done
+dirs="/lib/libc${TEST_SUFFIX}* /usr/lib/libc${TEST_SUFFIX}*"
+for i in $dirs ; do
+    if test -f $i; then
+	SHARED_LIBS="${SHARED_LIBS} -lc"
+	break;
+    fi
+done
+
+dnl don't bother with -ltclX.Y if not running under AIX
+if test "x${TCL_SHARED_LIB_SUFFIX}" != 'x${VERSION}.a' -o "x${SHLIB_SUFFIX}" != "x.so"; then
+	TCL_LIB_SPEC=""
+fi
+
+#--------------------------------------------------------------------
+# MD5 handling...
+# Cases:
+#	(1) libcrypt not present		=> compile, use that name.
+#	(2) libcrypt present, contains Md5	=> nothing to do
+#	(3) libcrypt present, no Md5		=> compile, name = libmd5crypt
+#						   use -lcrypt to link the
+#						   existing one too.
+#--------------------------------------------------------------------
+
+MD5_LIB_FILE=""
+if test \( $HAS_LIBCRYPT -eq 0 \)
+then
+	# (1)
+	MD5_LIB_FILE=libcrypt$SHLIB_SUFFIX
+	TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"libcrypt$SHLIB_SUFFIX\\\""
+else
+	# (2,3)
+	if test \( $HAS_LIBCRYPT_MD5 -eq 0 \)
+	then
+		# (3)
+		MD5_LIB_FILE=libmd5crypt$SHLIB_SUFFIX
+		TRF_DEFS="$TRF_DEFS -DCRYPT_LIB_NAME=\\\"libmd5crypt$SHLIB_SUFFIX\\\""
+
+		# Sun Solaris is special, we may not use -lcrypt !
+		# Verified for: SunOS 5.5.1 (Solaris 2.5.1)
+		#		SunOS 5.6   (Solaris 2.6)
+
+		case "`uname -s`" in
+		SunOS*)	;;
+		*)	SHARED_LIBS="-lcrypt $SHARED_LIBS"
+			;;
+		esac
+	fi
+fi
+
+AC_SUBST(MD5_LIB_FILE)
+
+
+
+AC_PATH_PROGS(TCLSH_PROG,
+	tclsh8.4${EXEEXT} tclsh84${EXEEXT} tclsh8.3${EXEEXT} tclsh83${EXEEXT} tclsh8.2${EXEEXT} tclsh82${EXEEXT} tclsh${EXEEXT},
+	:,
+	${exec_prefix}/bin:${prefix}/bin:${PATH})
+
+if test "x${TCLSH_PROG}" = "x:" ; then
+    AC_MSG_WARN(No tclsh executable found.  You will have to build the pkgIndex.tcl file manually.)
+fi
+AC_SUBST(TCLSH_PROG)
+
+AC_SUBST(STUB_OBJS)
+AC_SUBST(STUB_LIBOBJS)
+AC_SUBST(SHARED_LIBS)
+AC_SUBST(CC)
+AC_SUBST(DL_LIBS)
+AC_SUBST(DL_OBJS)
+AC_SUBST(LD_FLAGS)
+AC_SUBST(TCL_LIBS)
+AC_SUBST(MAKE_LIB)
+AC_SUBST(MAKE_MD5_LIB)
+AC_SUBST(SHLIB_CFLAGS)
+AC_SUBST(SHLIB_LD)
+AC_SUBST(SHLIB_LD_LIBS)
+AC_SUBST(SHLIB_SUFFIX)
+AC_SUBST(SHLIB_VERSION)
+AC_SUBST(TCL_BUILD_LIB_SPEC)
+AC_SUBST(TCL_LIB_SPEC)
+AC_SUBST(TCL_DEFS)
+AC_SUBST(TCL_SRC_DIR)
+AC_SUBST(TCL_LIB_DIR)
+AC_SUBST(TCL_INCLUDE_DIR)
+AC_SUBST(TCL_VERSION)
+AC_SUBST(TRF_USING_STUBS)
+AC_SUBST(TRF_BUILD_LIB_SPEC)
+AC_SUBST(TRF_LD_SEARCH_FLAGS)
+AC_SUBST(TRF_CC_SEARCH_FLAGS)
+AC_SUBST(TRF_LIB_FILE)
+AC_SUBST(TRF_LIB_SPEC)
+AC_SUBST(TRF_LIB_DIR)
+AC_SUBST(TRF_SHLIB_CFLAGS)
+AC_SUBST(TRF_VERSION)
+AC_SUBST(TRF_MAJOR_VERSION)
+AC_SUBST(TRF_MINOR_VERSION)
+AC_SUBST(TRF_TESTS)
+AC_SUBST(TRF_DEFS)
+AC_SUBST(install_other)
+
+AC_SUBST(MAKE_ZLIB)
+AC_SUBST(ZLIB_LIB_FILE)
+
+AC_SUBST(MAKE_LIBDES)
+AC_SUBST(LIBDES_LIB_FILE)
+AC_SUBST(TRF_STUB_LIB_FILE)
+
+dnl for GCC activate -Wall
+if test ! -z "$GCC"; then
+	CC="$CC -Wall"
+fi
+
+
+dnl
+AC_OUTPUT(Makefile pkgIndex.tcl)

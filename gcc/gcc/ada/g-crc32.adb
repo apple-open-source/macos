@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---              Copyright (C) 2001 Ada Core Technologies, Inc.              --
+--            Copyright (C) 2001-2002 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,7 +26,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT is maintained by Ada Core Technologies Inc (http://www.gnat.com).   --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -74,7 +74,7 @@ package body GNAT.CRC32 is
       subtype S2 is String (1 .. 2);
       function To_S2 is new Unchecked_Conversion (Wide_Character, S2);
 
-      VS : S2 := To_S2 (Value);
+      VS : constant S2 := To_S2 (Value);
 
    begin
       Update (C, VS (1));

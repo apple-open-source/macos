@@ -2589,10 +2589,6 @@ case $host_alias in
     CPPFLAGS="$CPPFLAGS -D_BSD_TIMEOFDAY_FLAVOR";;
 *darwin*|*rhapsody*)
     CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
-    cat >> confdefs.h <<\EOF
-#define BIND_8_COMPAT 1
-EOF
-
     php_multiple_shlib_versions_ok=yes;;
 *beos*)
     beos_threads=1

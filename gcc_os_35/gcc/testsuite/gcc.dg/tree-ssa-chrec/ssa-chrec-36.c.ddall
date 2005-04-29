@@ -1,0 +1,59 @@
+;; APPLE LOCAL file lno
+;; Function main (main)
+
+(Data Dep (A = 0, B = 0):
+ (subscript 0:
+  access_fn_A: {1, +, 1}_1
+  access_fn_B: {1, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+
+ (subscript 1:
+  access_fn_A: {2, +, 1}_1
+  access_fn_B: {2, +, 1}_1
+  iterations_that_access_an_element_twice_in_A: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: {0, +, 1}_1
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(0
+)
+(0
+)
+ )
+)
+(Data Dep (A = 0, B = 1):    (no dependence)
+)
+(Data Dep (A = 0, B = 2):
+ (subscript 0:
+  access_fn_A: {1, +, 1}_1
+  access_fn_B: 13
+  iterations_that_access_an_element_twice_in_A: 12
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: 0
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+
+ (subscript 1:
+  access_fn_A: {2, +, 1}_1
+  access_fn_B: 12
+  iterations_that_access_an_element_twice_in_A: 10
+  last_iteration_that_access_an_element_twice_in_A: [-oo, +oo]
+  iterations_that_access_an_element_twice_in_B: 0
+  last_iteration_that_access_an_element_twice_in_B: [-oo, +oo]
+ )
+ (Distance Vector: 
+(-12
+)
+(-10
+)
+ )
+)
+(Data Dep (A = 0, B = 3):    (don't know)
+)
+
+

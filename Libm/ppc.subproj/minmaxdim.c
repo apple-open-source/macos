@@ -50,16 +50,13 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include "fp_private.h"
 
 #if defined(BUILDING_FOR_CARBONCORE_LEGACY)
 
 double fdim ( double x, double y )
 {
-    if ((x != x) || (y != y))
+    if (unlikely((x != x) || (y != y)))
         return ( x + y );
     else if (x > y)
         return ( x - y );
@@ -87,10 +84,27 @@ double fdim ( double x, double y )
     __value; \
 })  
 
+#if 0
+//
+// N.B. max/min (-0, 0) allows implementation dependent result
+//
+double fmax ( double x, double y )
+{
+    if (x != x)
+        return y;
+    else if (y != y)
+        return x;
+    else if (x < y)
+        return y;
+    else
+        return x;
+}
+#else
 double fmax ( double x, double y )
 {
     return __fmax( x, y );
 }
+#endif
 
 #define __fmin(x, y) \
 ({ \
@@ -109,16 +123,30 @@ double fmax ( double x, double y )
     __value; \
 })  
 
+#if 0
+double fmin ( double x, double y )
+{
+    if (x != x)
+        return y;
+    else if (y != y)
+        return x;
+    else if (x > y)
+        return y;
+    else
+        return x;
+}
+#else
 double fmin ( double x, double y )
 {
     return __fmin( x, y );
 }
+#endif
 
 #else /* !BUILDING_FOR_CARBONCORE_LEGACY */
 
 float fdimf ( float x, float y )
 {
-    if ((x != x) || (y != y))
+    if (unlikely((x != x) || (y != y)))
         return ( x + y );
     else if (x > y)
         return ( x - y );
@@ -144,10 +172,24 @@ float fdimf ( float x, float y )
     __value; \
 })  
 
+#if 0
+float fmaxf ( float x, float y )
+{
+    if (x != x)
+        return y;
+    else if (y != y)
+        return x;
+    else if (x < y)
+        return y;
+    else
+        return x;
+}
+#else
 float fmaxf ( float x, float y )
 {
     return __fmaxf( x, y );
 }
+#endif
 
 #define __fminf(x, y) \
 ({ \
@@ -166,10 +208,24 @@ float fmaxf ( float x, float y )
     __value; \
 })  
 
+#if 0
+float fminf ( float x, float y )
+{
+    if (x != x)
+        return y;
+    else if (y != y)
+        return x;
+    else if (x > y)
+        return y;
+    else
+        return x; 
+}
+#else
 float fminf ( float x, float y )
 {
     return __fminf( x, y );
 }
+#endif
 
 double fma ( double x, double y, double z )
 {
@@ -181,9 +237,3 @@ float fmaf ( float x, float y, float z )
     return __FMADDS(x, y, z);
 }
 #endif /* !BUILDING_FOR_CARBONCORE_LEGACY */
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */
-

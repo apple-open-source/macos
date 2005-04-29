@@ -74,9 +74,6 @@ jobs_builtin (list)
   int form, execute, state, opt, any_failed, job;
   sigset_t set, oset;
 
-  if (job_control == 0 && interactive_shell == 0)
-    return (EXECUTION_SUCCESS);
-
   execute = any_failed = 0;
   form = JLIST_STANDARD;
   state = JSTATE_ANY;

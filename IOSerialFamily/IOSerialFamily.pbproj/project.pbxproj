@@ -116,7 +116,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
-				MODULE_VERSION = 6.0.1d20;
+				MODULE_VERSION = 8.0.0d28;
 				OPTIMIZATION_CFLAGS = "-Os";
 				OTHER_CFLAGS = "-Wno-format -fpermissive";
 				OTHER_LDFLAGS = "";
@@ -143,7 +143,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSerialFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Apple Computer, Inc 2001-07-30 IOKit Serial Port Family</string>
+	<string>Apple Computer, Inc 2005-01-12 IOKit Serial Port Family</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -155,11 +155,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>6.0</string>
+	<string>8.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>6.0.1d20</string>
+	<string>8.0.0d28</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>
@@ -193,12 +193,16 @@
 	<string>1.0.4</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.1</string>
-		<key>com.apple.kernel.libkern</key>
-		<string>1.1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b2</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b2</string>
 	</dict>
 </dict>
 </plist>

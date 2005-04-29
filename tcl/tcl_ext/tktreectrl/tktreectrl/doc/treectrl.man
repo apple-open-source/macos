@@ -1,0 +1,2281 @@
+[comment {Copyright (c) 2002-2003 Christian Krone.
+
+  See the file "license.terms" for information on usage and redistribution
+  of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+
+  $Id: treectrl.man,v 1.4 2003/01/06 23:03:18 krischan Exp $}
+][manpage_begin treectrl n 1.0]
+[moddesc {Tk Commands}]
+[titledesc {Create and manipulate hierarchical multicolumn widgets}]
+[require treectrl 1.0]
+
+[description]
+[list_begin definitions] 
+[call [cmd treectrl] [arg pathName] [opt [arg options]]]
+[list_end]
+
+[para]
+The [cmd treectrl] command creates a new window (given by the
+[arg pathName] argument) and makes it into a treectrl widget.
+Additional options, described above, may be specified on the
+command line or in the option database
+to configure aspects of the treectrl such as its background color
+and relief.  The [cmd treectrl] command returns the
+path name of the new window.
+At the time this command is invoked, there must not
+exist a window named [arg pathName], but [arg pathName]'s parent must exist.
+
+[para]
+A treectrl is a widget which displays items one per line.
+Every item has a set of states, which are boolean properties.
+The item may be spread about one or more columns.
+For each column of an item there is a style associated,
+which determines how to display the item's column
+respecting the item's current state set.
+One column can be defined to display the data in a hierarchical structure.
+
+[para]
+Normally the origin of the coordinate system is at the
+upper-left corner of the window containing the treectrl.
+It is possible to adjust the origin of the coordinate system
+relative to the origin of the window using the
+[cmd xview] and [cmd yview] widget commands;
+this is typically used for scrolling.
+
+[para]
+A treectrl widget can be horizontal or vertical oriented
+like many other Tk widgets.
+For displaying hierarchical data only vertical orientation is useful,
+since only then the children of an item
+are displayed directly below their parent.
+If the treectrl widget is used only
+to display data in a multicolumn listbox,
+the specification of an orientation will give useful results.
+
+[section {STANDARD OPTIONS}]
+[list_begin opt]
+[opt_def [option -background]]
+[opt_def [option -borderwidth]]
+[opt_def [option -cursor]]
+[opt_def [option -font]]
+[opt_def [option -highlightbackground]]
+[opt_def [option -highlightcolor]]
+[opt_def [option -highlightthickness]]
+[opt_def [option -orient]]
+[opt_def [option -relief]]
+[opt_def [option -takefocus]]
+[opt_def [option -xscrollcommand]]
+[opt_def [option -yscrollcommand]]
+[opt_def [option -foreground]]
+[list_end]
+See the [cmd option] manual entry for details on the standard options.
+
+[section {WIDGET SPECIFIC OPTIONS}]
+[list_begin tkoption]
+[tkoption_def -backgroundmode backgroundMode BackgroundMode]
+Specifies the desired mode for changing the background of individual items.
+The value should be one of [strong row], [strong column], [strong index],
+or [strong visindex]. The default is [strong row].
+This option has only an effect
+for columns which have [option -itembackground] defined as list of two or more
+colors (see section [sectref COLUMNS] below for more on this). The color
+of items is changed for any row or column, if [strong row] or [strong column]
+is specified respectively. When [strong index] is specified, collapsed
+items are counted also for evaluating the background color,
+for [strong visindex] only the visible items are counted.
+
+[tkoption_def -buttoncolor buttonColor ButtonColor]
+Specifies the foreground color which should be used for drawing the outline
+and the plus or minus sign of the button to the left of an item.
+
+[tkoption_def -buttonsize buttonSize ButtonSize]
+Specifies the diameter of the button drawn to the left of an item
+in any of the forms acceptable to [fun Tk_GetPixels].
+
+[tkoption_def -buttonthickness buttonThickness ButtonThickness]
+Specifies the width of the outline and the plus or minus sign
+of the button to the left of an item
+in any of the forms acceptable to [fun Tk_GetPixels].
+
+[tkoption_def -closedbuttonbitmap closedButtonBitmap ClosedButtonBitmap]
+Specifies the bitmap to be used as the button to the left of an closed item
+in any of the forms acceptable to [fun Tk_GetPixels].
+
+[tkoption_def -closedbuttonimage closedButtonImage ClosedButtonImage]
+Specifies the image to be used as the button to the left of an closed item
+in any of the forms acceptable to [fun Tk_GetImage].
+
+[tkoption_def -columnproxy columnProxy ColumnProxy]
+If this option specifies a non empty value,
+it should be a screen distance
+in any of the forms acceptable to [fun Tk_GetPixels].
+Then a 1 pixel thick vertical line will be drawn
+at the specified screen distance from the left edge of the treectrl widget,
+which reaches from top to bottom of the treectrl widget
+and uses an inverting color
+(i.e black on lighter background, white on darker background).
+This line can be used to give the user a visual feedback
+during column resizing.
+
+[tkoption_def -doublebuffer doubleBuffer DoubleBuffer]
+Specifies if double-buffering should be used to improve displaying.
+The value should be one of [strong none], [strong window], or [strong item].
+For [strong none] no double-buffering is used at all, which may be most memory
+efficient, but will probably generate some flickering on the screen.
+For [strong window] the complete tree is double-buffered, which requires
+a buffer big enough to contain the complete widget.
+For [strong item], which is the default, every item is separately
+double-buffered, so it works with a buffer size as big as the biggest item.
+
+[tkoption_def -height height Height]
+Specifies the desired height for the window
+in any of the forms acceptable to [fun Tk_GetPixels].
+The default is 200 pixel.
+If this option is less than or equal to zero then the window will
+not request any size at all.
+
+[tkoption_def -indent indent Indent]
+Specifies the amount of indentation
+in any of the forms acceptable to [fun Tk_GetPixels].
+The default is 19 pixel.
+Indentation is the screen distance an item is displayed more to
+the right than its father.
+
+[tkoption_def -itemheight itemHeight ItemHeight]
+Specifies the minimal height of an item
+in any of the forms acceptable to [fun Tk_GetPixels].
+The default is 0, which means that
+every item has exactly the height of it stallest element.
+
+[tkoption_def -linecolor lineColor LineColor]
+Specifies the color which should be used for drawing
+the connecting lines between related items.
+
+[tkoption_def -linestyle lineStyle LineStyle]
+Specifies the style of the connecting lines between related items,
+should be [strong dot] which is the default, or [strong solid].
+
+[tkoption_def -linethickness lineThickness LineThickness]
+Specifies the thickness of the connecting lines between related items
+in any of the forms acceptable to [fun Tk_GetPixels].
+
+[tkoption_def -openbuttonbitmap openButtonBitmap OpenButtonBitmap]
+Specifies the bitmap to be used as the button to the left of an opened item
+in any of the forms acceptable to [fun Tk_GetBitmap].
+
+[tkoption_def -openbuttonimage openButtonImage OpenButtonImage]
+Specifies the image to be used as the button to the left of an opened item
+in any of the forms acceptable to [fun Tk_GetImage].
+
+[tkoption_def -scrollmargin scrollMargin ScrollMargin]
+The interpretation of this option is left to Tcl scripts
+that implement scrolling:
+the  widget implementation ignores this option entirely.
+Defaults to 0.
+
+[tkoption_def -selectmode selectMode SelectMode]
+Specifies one of several styles for manipulating the selection.
+The value of the option may be arbitrary, but the default bindings
+expect it to be either [strong single], [strong browse], [strong multiple],
+or [strong extended];  the default value is [strong browse].
+
+[tkoption_def -showbuttons showButtons ShowButtons]
+Specifies a boolean value that determines whether this widget
+displays a button to the left of any item.
+If the button is actually drawn can be configured for every item
+with the [cmd {item hasbutton}] widget command, but if this option is
+set to false, the configuration of an item has no effect.
+The default value is true.
+
+[tkoption_def -showheader showHeader ShowHeader]
+Specifies a boolean value that determines whether this widget
+should display the header line with the column names at the top of the widget.
+The default value is true.
+
+[tkoption_def -showlines showLines ShowLines]
+Specifies a boolean value that determines whether this widget
+should draw the connecting lines between related items.
+The default value is true.
+
+[tkoption_def -showroot showRoot ShowRoot]
+Specifies a boolean value that determines whether this widget
+should draw the root item.
+By suppressing the drawing of the root item the widget can have
+multiple items that appear as [emph toplevel] items.
+The default value is true.
+
+[tkoption_def -showrootbutton showRootButton ShowRootButton]
+Specifies a boolean value that determines whether this widget
+should draw a button before the root item.
+The default value is false.
+
+[tkoption_def -treecolumn treeColumn TreeColumn]
+Specifies an integer value that determines which
+column displays the data in an hierarchical fashion.
+Default is 0 meaning that the first column displays the tree.
+
+[tkoption_def -width width Width]
+Specifies the desired width for the window
+in any of the forms acceptable to [fun Tk_GetPixels].
+The default is 200 pixel.
+If this option is less than or equal to zero then the window will
+not request any size at all.
+
+[tkoption_def -wrap wrap Wrap]
+Specifies how to arrange items inside treectrl's window.
+The value must be an emtyp string, [strong window],
+or a list with an integer as first element
+and either [strong items] or [strong pixels] as second element.
+The empty string as wrap mode means that each item appears on
+exactly one line on the screen.
+In the other modes multiple items may be displayed in one screen line.
+In [strong window] mode a screen line break may occur after any element;
+in [strong items] mode a line break will only be made after the specified
+number of items;
+in [strong pixels] mode a line break will only be made after the
+specified screen distance is reached.
+
+[tkoption_def -xscrolldelay xScrollDelay ScrollDelay]
+Specifies the amount of time before the default binding should handle
+repeating mouse motion events in horizontal direction with button 1 pressed.
+The value should be a list of upto 2 integers.
+The first integer specifies the timespan in microseconds
+before the active item should be changed to get nearer to the
+current mouse position. If there are two integers specified, the first is only
+used for the first motion event, any repeating motion events are handled
+after the seconds amount of miliseconds is elapsed.
+
+[tkoption_def -xscrollincrement xScrollIncrement ScrollIncrement]
+Specifies an increment for horizontal scrolling, in any of the usual forms
+permitted for screen distances.  If the value of this option is greater
+than zero, the horizontal view in the window will be constrained so that
+the x coordinate at the left edge of the window is always an even
+multiple of [option -xscrollincrement];  furthermore, the units for scrolling
+(e.g., the change in view when the left and right arrows of a scrollbar
+are selected) will also be [option -xscrollincrement].  If the value of
+this option is less than or equal to zero, then horizontal scrolling
+is unconstrained.
+
+[tkoption_def -yscrolldelay yScrollDelay ScrollDelay]
+Specifies the amount of time before the default binding should handle
+repeating mouse motion events in vertical direction with button 1 pressed.
+The value should be a list of upto 2 integers.
+The first integer specifies the timespan in microseconds
+before the active item should be changed to get nearer to the
+current mouse position. If there are two integers specified, the first is only
+used for the first motion event, any repeating motion events are handled
+after the seconds amount of miliseconds is elapsed.
+
+[tkoption_def -yscrollincrement yScrollIncrement ScrollIncrement]
+Specifies an increment for vertical scrolling, in any of the usual forms
+permitted for screen distances.  If the value of this option is greater
+than zero, the vertical view in the window will be constrained so that
+the y coordinate at the top edge of the window is always an even
+multiple of [option -yscrollincrement];  furthermore, the units for scrolling
+(e.g., the change in view when the top and bottom arrows of a scrollbar
+are selected) will also be [option -yscrollincrement].  If the value of
+this option is less than or equal to zero, then vertical scrolling
+is unconstrained.
+[list_end]
+
+[section {WIDGET COMMAND}]
+The [cmd treectrl] command creates a new Tcl command whose
+name is the same as the path name of the treectrl's window.
+This command may be used to invoke various
+operations on the widget.  It has the following general form:
+
+[para]
+[arg pathName] [arg option] [opt [arg {arg arg ...}]]
+
+[para]
+[arg PathName] is the name of the command, which is the same as
+the treectrl widget's path name.  [arg Option] and the [arg arg]s
+determine the exact behavior of the command.  The following
+commands are possible for treectrl widgets:
+
+[list_begin definitions]
+
+[call [arg pathName] [cmd activate] [arg itemDesc]]
+Sets the active item to the one described by [arg itemDesc],
+and switches on the state [strong active] for this item.
+From now on the item can be retrieved with the item description [strong active].
+An [strong <ActiveItem>] event is generated.
+
+[call [arg pathName] [cmd canvasx] [arg screenx]]
+Given a window x-coordinate in the treectrl [arg screenx],
+this command returns the treectrl x-coordinate
+that is displayed at that location.
+
+[call [arg pathName] [cmd canvasy] [arg screeny]]
+Given a window y-coordinate in the treectrl [arg screeny],
+this command returns the treectrl y-coordinate
+that is displayed at that location.
+
+[call [arg pathName] [cmd cget] [arg option]]
+Returns the current value of the configuration option given
+by [arg option].
+[arg Option] may have any of the values accepted by the [cmd tree]
+command.
+
+[call [arg pathName] [cmd collapse] [opt [option -recurse]] \
+     [opt [arg {itemDesc ...}]]]
+Switches off the [strong open] state of the item(s)
+described by [arg itemDesc].
+If the item has descendants, they are no longer displayed.
+If the item is configured to have a button,
+the button will now display the image or bitmap configured with the
+widget options [option -closedbuttonimage] or [option -closedbuttonbitmap],
+or a [strong +] sign if no image or bitmap is configured.
+If the item is already closed, this command has no effect.
+[arg ItemDesc] may also be the string [strong all],
+in which case all items of the treectrl widget are collapsed.
+If [option -recurse] is specified, all descendants of [arg itemDesc]
+will also be collapsed.
+For every item, that actually will be collapsed,
+two events are generated:
+a [strong <Collapse-before>] event before the item state is changed,
+and a [strong <Collapse-after>] event after the item state was changed.
+
+[call [arg pathName] [cmd column] [arg option] [arg column] \
+     [opt [arg {arg ...}]]]
+This command is used to manipulate the columns of the treectrl widget
+(see section [sectref COLUMNS] below).
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd column] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {column bbox}] [arg column]]
+Returns a list with four elements giving an approximate bounding box
+for the column header specified by [arg column].
+If the treectrl is configured to don't display the column headers
+by means of the [option -showheader] option,
+an empty list is returned instead.
+
+[call [arg pathName] [cmd {column cget}] [arg column] [arg option]]
+This command returns the current value of the option named [arg option]
+for the column specified by [arg column],
+[arg Column] may also be the string [strong tail] to specify the tail column.
+[arg Option] may have any of the values accepted by the
+[cmd {column configure}] widget command.
+
+[call [arg pathName] [cmd {column configure}] [arg column] \
+     [opt [arg option]] [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies options associated with the column specified by [arg column]
+instead of modifying options for the overall treectrl widget.
+[arg Column] may also be the string [strong tail] to specify the tail column.
+If no [arg option] is specified, the command returns a list describing
+all of the available options for [arg column] (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) for [arg column];
+in this case the command returns an empty string.
+[nl]
+
+The specified column is created, if it not already exists
+and if at least one [arg option]-[arg value] pair is specified.
+See [sectref COLUMNS] below for details on the options available for columns.
+
+[call [arg pathName] [cmd {column delete}] [arg column]]
+Deletes the specified [arg column] from the treectrl widget.
+All remaining columns of the treectrl widget will get new column numbers:
+in an unchanged order, but with succesive numbers.
+
+[call [arg pathName] [cmd {column index}] [arg column]]
+This command returns a decimal string giving the column number
+of the column specified by [arg column],
+which may also be the string [strong tail] to specify the tail column.
+
+[call [arg pathName] [cmd {column move}] [arg column] [arg before]]
+Moves the specified [arg column] to the left of the column
+specified by [arg before].
+If [arg before] is the string [strong tail],
+the column [arg column] will become the last column.
+
+[call [arg pathName] [cmd {column neededwidth}] [arg column]]
+This command returns a decimal string giving the needed width
+of the column specified by [arg column].
+The needed width is the maximum of the width of the column header
+and the width of the [emph widest] currently visible item.
+
+[call [arg pathName] [cmd {column width}] [arg column]]
+This command returns a decimal string giving the width
+of the column specified by [arg column],
+even if the treectrl is configured to don't display the column headers
+by means of the [option -showheader] option.
+[list_end]
+
+[call [arg pathName] [cmd compare] [arg itemDesc1] [arg op] [arg itemDesc2]]
+From both items described by the [arg itemDesc]s the index is retrieved
+(as returned from the [cmd {item index}] widget command).
+Then these indexes are compared using the operator [arg op], which must
+be either [strong <],  [strong <=],  [strong ==], [strong >=], [strong >],
+or [strong !=].
+The return value of this command is 1 if the comparison evaulated to true,
+0 otherwise.
+
+[call [arg pathName] [cmd configure] [opt [arg option]] \
+     [opt [arg {value option value ...}]]]
+Query or modify the configuration options of the widget.
+If no [arg option] is specified, returns a list describing all of
+the available options for [arg pathName] (see [fun Tk_ConfigureInfo] for
+information on the format of this list).  If [arg option] is specified
+with no [arg value], then the command returns a list describing the
+one named option (this list will be identical to the corresponding
+sublist of the value returned if no [arg option] is specified).  If
+one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given widget option(s) to have the given value(s);  in
+this case the command returns an empty string.
+[arg Option] may have any of the values accepted by the [cmd treectrl]
+command.
+
+[call [arg pathName] [cmd contentbox]]
+Returns a list with four elements giving an approximate bounding box
+for the space used to display the items inside the columns,
+i.e. the space of the treectrl widget without
+the surrounding borders and the column headers.
+
+[call [arg pathName] [cmd debug] [arg option] [opt [arg {arg arg ...}]]]
+This command is used to facilitate debugging of the treectrl widget.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd debug] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {debug cget}] [arg element] [arg option]]
+This command returns the current value of the debugging option
+named [arg option].
+[arg Option] may have any of the values accepted by the
+[cmd {debug configure}] widget command.
+
+[call [arg pathName] [cmd {debug configure}] [arg element] \
+     [opt [arg option]] [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies debugging options
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available debugging options (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given debugging option(s) to have the given value(s);
+in this case the command returns an empty string.
+[nl]
+
+The following debugging options are supported:
+[list_begin opt]
+[opt_def [option -displaydelay] [arg millis]]
+Specifies a time duration in milliseconds, which should be waited
+after something has been drawn to the screen.
+Setting this option has only an effect, if the
+debugging options [option -enable] and [option -display] are switched on.
+
+[opt_def [option -data] [arg boolean]]
+If this option is switched on
+(together with the debugging option [option -enable]),
+at various places a consistence check
+on the internal data structure is made
+(e.g. for every item is checked,
+if the registered number of children is equal to the number of child items).
+If an inconsistency was found, a Tcl background error is raised.
+
+[opt_def [option -display] [arg boolean]]
+If this option is switched on
+(together with the debugging option [option -enable]),
+at varios places additional debugging output is printed to stdout.
+
+[opt_def [option -enable] [arg boolean]]
+All other debugging options only take effect,
+if this option is also switched on.
+
+[opt_def [option -erasecolor] [arg color]]
+Use this color, when parts of the treectrl widget should be deleted.
+If you use an unusual color for this option (like [strong pink]),
+superflous screen redraws can be spotted more easily.
+Setting this option has only an effect, if the
+debugging options [option -enable] and [option -display] are switched on.
+[list_end]
+
+[call [arg pathName] [cmd {debug dinfo}]]
+For every of the treectrl widget
+a line with some internal valuess info about all items
+is printed to stdout.
+The command returns the empty string.
+
+[call [arg pathName] [cmd {debug scroll}]]
+Returns a string useful for debugging vertical scrolling.
+[list_end]
+
+[call [arg pathName] [cmd depth] [opt [arg itemDesc]]]
+If the additional argument [arg itemDesc] is specified,
+returns a decimal string giving the depth of
+the item describing by [arg itemDesc], whereas depth is defined as
+the number of steps you must go upward to reach to root item.
+If no [arg itemDesc] is specified, the maximum depth of all
+items in the treectrl widget is returned instead.
+
+[call [arg pathName] [cmd dragimage] [arg option] [opt [arg {arg ...}]]]
+This command is used to manipulate the dragimage,
+one or more dotted lines around rectangular regions of the treectrl widget.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd dragimage] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {dragimage add}] [arg itemDesc] \
+     [opt [arg column]] [opt [arg element]]]
+Adds the shapes of the item described by [arg itemDesc]
+to the shapes of the dragimage.
+Specifying additional arguments reduces
+the number of rectangles that are added to the dragimage.
+If no additional arguments is specified,
+for every element of the item in every column a dotted rectangles is added.
+If [arg column] is specified, all elements in other columns are ignored.
+If also [arg element] is specified, only a rectangle for this one element
+of the specified item in the given column is added.
+
+[call [arg pathName] [cmd {dragimage cget}] [arg option]]
+This command returns the current value of the dragimage option
+named [arg option].
+[arg Option] may have any of the values accepted by the
+[cmd {dragimage configure}] widget command.
+
+[call [arg pathName] [cmd {dragimage clear}]]
+Removes all shapes (if there are any) from the dragimage.
+This command does not modify the dragimage offset.
+
+[call [arg pathName] [cmd {dragimage configure}] [opt [arg option]] \
+     [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies the dragimage options
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available dragimage options (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named dragimage option (this list will be identical
+to the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given dragimage option(s) to have the given value(s);
+in this case the command returns an empty string.
+[nl]
+
+The following dragimage options are supported:
+
+[list_begin opt]
+[opt_def [option -visible] [arg boolean]]
+Specifies a boolean value which determines
+whether the dragimage should currently be visible.
+This option should not be modified by means of the
+[cmd {dragimage configure}] widget command;
+instead use the [cmd {dragimage visible}] widget command.
+[list_end]
+
+[call [arg pathName] [cmd {dragimage offset}] [opt [arg {x y}]]]
+Returns a list containing the x and y offsets of the dragimage,
+if no additional arguments are specified.
+The dragimage offset is the screen distance, the image is displayed
+relative to the item its shape is derived from.
+If two coordinates are specified,
+sets the dragimage offset to the given coordinates [arg x] and [arg y].
+
+[call [arg pathName] [cmd {dragimage visible}] [opt [arg boolean]]]
+If the additional argument specifies true, the dotted lines will become
+visible and the dragimage option [option -visible] becomes 1;
+if it specifies false, the dotted lines will be hidden
+and the dragimage option [option -visible] becomes 0.
+Returns 1 if the dragimage is currently visible,
+0 otherwise.
+[list_end]
+
+[call [arg pathName] [cmd element] [arg option] [opt [arg element]] \
+     [opt [arg {arg arg ...}]]]
+This command is used to manipulate elements (see [sectref ELEMENTS] below).
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd element] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {element cget}] [arg element] [arg option]]
+This command returns the current value of the option named [arg option]
+associated with the element given by [arg element].
+[arg Option] may have any of the values accepted by the
+[cmd {element configure}] widget command.
+
+[call [arg pathName] [cmd {element configure}] [arg element] \
+     [opt [arg option]] [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies options associated with the element given by [arg element]
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available options for [arg element] (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) in [arg element];
+in this case the command returns an empty string.
+See [sectref ELEMENTS] below for details on the options available for elements.
+
+[call [arg pathName] [cmd {element create}] [arg element] [arg type] \
+     [opt [arg {option value ...}]]]
+Create a new elememt in [arg pathName] of type [arg type]
+with name [arg element].
+The exact format of the arguments after [arg type] depends on [arg type],
+but generally consist of specifications for zero or more element options.
+See the subsections on individual element types below for more
+on the syntax of this command.
+This command returns the name for the new element.
+
+[call [arg pathName] [cmd {element delete}] [opt [arg {element ...}]]]
+Deletes each of the named elements and returns an empty string.
+If an element is deleted while it is still configured
+as an element of one or more styles
+by means of the [cmd {style elements}] widget command,
+it is also removed from the element lists of these styles.
+
+[call [arg pathName] [cmd {element names}]]
+Returns a list containing the names of all existing elements.
+
+[call [arg pathName] [cmd {element type}] [arg element]]
+Returns the type of the elements given by [arg element],
+such as [strong rect] or [strong text].
+[list_end]
+
+[call [arg pathName] [cmd expand] [opt [option -recurse]] \
+     [opt [arg {itemDesc ...}]]]
+Switches on the [strong open] state of the item(s) described by [arg itemDesc].
+If the item has descendants, they are now displayed.
+If the item is configured to have a button,
+the button will now display the image or bitmap configured with the
+widget options [option -openbuttonimage] or [option -openbuttonbitmap],
+or a [strong -] sign if no image or bitmap is configured.
+If the item is already open, this command has no effect.
+[arg ItemDesc] may also be the string [strong all],
+in which case all items of the treectrl widget are expanded.
+If [option -recurse] is specified, all descendants of [arg itemDesc]
+will also be expanded.
+For every item, that actually will be expanded,
+two events are generated:
+an [strong <Expand-before>] event before the item state is changed,
+and an [strong <Expand-after>] event after the item state was changed.
+
+[call [arg pathName] [cmd identify] [arg x] [arg y]]
+Returns a list containing some diagnostics about what
+is displayed at the given windows coordinates [strong x] and [strong y].
+The resulting list may be empty,
+if nothing is displayed at the given coordinates,
+otherwise the first list element is [strong header] or [strong item].
+[nl]
+
+If the coordinates are in the header area
+and thus the first element of the result is [strong header],
+the number of the column or the string [strong tail]
+is the second element in the resulting list;
+if the x coordinate is near the left or right end of the header,
+a third element [strong left] or [strong right] is added respectively.
+[nl]
+
+If the coordinates are below the header area
+and thus the first element of the result is [strong item],
+the numerical id of the item
+is the second element in the resulting list.
+If the x coordinate doesn't fall into the column
+displaying the hierarchical structure,
+the elements [strong column] and the column number are added.
+If the x coordinate if above the column
+displaying the hierarchical structure,
+the following elements are added to the resulting list:
+[strong line] and the numerical id of the item the line comes from,
+if the x coordinate is above an item connecting line;
+[strong button], if the x coordinate is above a button;
+[strong column], the column number, [strong elem], and the element name,
+if the x coordinate is above an element of the item;
+[strong column] and the column number,
+if the x coordinate is to the right of the elements;
+nothing otherwise.
+
+[call [arg pathName] [cmd index] [arg itemDesc]]
+This command returns a decimal string giving the numerical id
+of the item specified by [arg itemDesc]
+(see [sectref {ITEM DESCRIPTION}] below).
+
+[call [arg pathName] [cmd item] [arg option] [opt [arg {arg ...}]]]
+This command is used to manipulate items.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd item] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {item ancestors}] [arg itemDesc]]
+Returns a list containing the numerical indexes of all ancestors
+of the item specified by [arg itemDesc] from its parent upto the
+root item.
+
+[call [arg pathName] [cmd {item bbox}] [arg itemDesc] [opt [arg column]] \
+     [opt [arg element]]]
+Returns a list with four elements giving an approximate bounding box
+for the item described by [arg itemDesc].
+If no further argument is specified, the bbox spans the area of the item
+over all columns. If a [arg column] is specified, only the area of the item
+in this column is considered, if an additional [arg element] is specified,
+the area of this [arg element] in [arg column] of the specified item is
+returned.
+
+[call [arg pathName] [cmd {item children}] [arg itemDesc]]
+Returns a list containing the numerical indexes of all children
+of the item specified by [arg itemDesc] in the correct order from
+the first child to the last child.
+
+[call [arg pathName] [cmd {item complex}] [arg itemDesc] [arg list] [arg ...]]
+Modifies the elements of the item described by [arg itemDesc].
+For every column of the treectrl there may be specified one [arg list],
+which in turn is an odd elemented list with at least three elements:
+the name of an element followed by [arg option]-[arg value] pairs.
+Every [arg option] must be known by the element's type
+(see [sectref ELEMENTS] below).
+The corresponding [arg value] will overwrite the value of the element for this
+one column in this item.
+
+[call [arg pathName] [cmd {item create}]]
+Creates a new item and returns its numerical indexes.
+The new item has set the states [strong open] and [strong enabled].
+If the treectrl widget has currently the focus,
+also the state [strong focus] is set.
+
+[call [arg pathName] [cmd {item delete}] [arg first] [opt [arg last]]]
+Deletes the specified item(s).
+[arg First] must be the string [strong all] or an [arg itemDesc],
+[arg last] must be an [arg itemDesc] if specified.
+If [arg first] is specified as [strong all], all items are deleted;
+if [arg first] is specified as [arg itemDesc] and [arg last] isn't specified,
+the item described by [arg first] is delete.
+If both [arg first] and [arg last] are specified,
+the must decribe items with the same root item;
+then the range of items between [arg first] and [arg last] is deleted.
+There is no way to delete the root item of the treectrl widget;
+in all cases the specification of the root item is ignored;
+
+[call [arg pathName] [cmd {item dump}] [arg itemDesc]]
+Returns a list with six elements in the form
+[strong index] [emph index] [strong indexVis] [emph indexVis]
+[strong neededHeight] [emph neededHeight].
+
+[call [arg pathName] [cmd {item element}] [arg command] [arg itemDesc] \
+     [arg column] [arg element] [opt [arg {arg ...}]]]
+This command is used to manipulate elements of the item.
+The exact behavior of the command depends on the [arg command] argument
+that follows the [cmd element] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {item element actual}] [arg itemDesc] [arg column] \
+     [arg element] [arg option]]
+This command returns the current value of the option named [arg option]
+associated with [arg element] inside [arg column] of the item described by
+[arg itemDesc]; if it was already configured for the actual item, the
+return value is the same as if the [cmd {item element actual}] widget command
+was used; otherwise the option value of the underlynig element is returned.
+[arg Option] may have any of the values accepted by the type of the
+specified element (see [sectref ELEMENTS] below)
+
+[call [arg pathName] [cmd {item element cget}] [arg itemDesc] [arg column] \
+     [arg element] [arg option]]
+This command returns the value of the option named [arg option]
+associated with [arg element] inside [arg column] of the item described by
+[arg itemDesc], if it was already configured for the actual item.
+[arg Option] may have any of the values accepted by the type of the
+specified element (see [sectref ELEMENTS] below)
+
+[call [arg pathName] [cmd {item element configure}] [arg itemDesc] \
+     [arg column] [arg element] [opt [arg option]] [opt [arg value]] \
+     [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies options associated with
+[arg element] inside [arg column] of the item described by [arg itemDesc]
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available options for the element (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) in the
+[arg element] inside [arg column] of the item described by [arg itemDesc];
+in this case the command returns an empty string.
+[list_end]
+
+[call [arg pathName] [cmd {item firstchild}] [arg parent] [opt [arg child]]]
+If [arg child] is not specified, returns the numerical index of the first
+child of the item described by [arg parent].
+If [arg child] is specified, it must described an item
+that is not an ancestor of [arg parent].
+Then it will become the new first child of [arg parent].
+
+[call [arg pathName] [cmd {item hasbutton}] [arg itemDesc] [opt [arg boolean]]]
+If [arg boolean] is not specified, returns 1 if to the left of
+the item described by [arg itemDesc] a button should be drawn, 0 otherwise.
+If [arg boolean] is specified, it must be a valid boolean value
+specifying if a button should be displayed to the left of this item. 
+
+[call [arg pathName] [cmd {item index}] [arg itemDesc]]
+Returns a list of two integers, which corresponds to the row 
+of the item described by [arg itemDesc],
+if all items above are counted and if only the displayed items are counted.
+This command should not be confused with the [cmd index] widget command,
+which return the invariable item id.
+The index here is basically the row of the item.
+
+[call [arg pathName] [cmd {item isancestor}] [arg itemDesc] [arg descendant]]
+Returns 1 if the item described by [arg itemDesc] is a direct or indirect
+parent of the item decribed by [arg descendant], 0 otherwise.
+
+[call [arg pathName] [cmd {item isopen}] [arg itemDesc]]
+Returns 1, if the item described by [arg itemDesc] has cuurently the
+state [strong open] switched on, 0 otherwise.
+
+[call [arg pathName] [cmd {item lastchild}] [arg parent] [opt [arg child]]]
+If [arg child] is not specified, returns the numerical index of the last
+child of the item described by [arg parent].
+If [arg child] is specified, it must described an item
+that is not an ancestor of [arg parent].
+Then it will become the new last child of [arg parent].
+
+[call [arg pathName] [cmd {item nextsibling}] [arg sibling] [opt [arg next]]]
+If [arg next] is not specified, returns the numerical index of the next
+sibling of the item described by [arg sibling].
+If [arg next] is specified, it must described an item
+that is not an ancestor of [arg sibling].
+Then it will become the new next sibling of [arg sibling].
+
+[call [arg pathName] [cmd {item numchildren}] [arg itemDesc]]
+Returns the number of children of the item described by [arg itemDesc].
+
+[call [arg pathName] [cmd {item parent}] [arg itemDesc]]
+Returns the numerical index of the parent of the item
+described by [arg itemDesc].
+
+[call [arg pathName] [cmd {item prevsibling}] [arg sibling] [opt [arg prev]]]
+If [arg prev] is not specified, returns the numerical index of the previous
+sibling of the item described by [arg sibling].
+If [arg prev] is specified, it must described an item
+that is not an ancestor of [arg sibling].
+Then it will become the new previous sibling of [arg sibling].
+
+[call [arg pathName] [cmd {item remove}] [arg itemDesc]]
+Removes the item described by [arg itemDesc]
+from the children list of its father, so that it will become an orphan.
+
+[call [arg pathName] [cmd {item rnc}] [arg itemDesc]]
+Returns a list of two integers, which corresponds to the row and column
+of the item described by [arg itemDesc].
+
+[call [arg pathName] [cmd {item sort}] [arg itemDesc] [opt [arg {option ...}]]]
+Sorts the children of the item described by [arg itemDesc],
+and redisplays the tree with the items in the new order.
+[nl]
+
+The range of items which should be sorted can be restricted
+by means of the [option -first] and/or [option -last] options,
+which should be children of the item described by [arg itemDesc];
+the order between these two limiting items doesn't matter.
+[nl]
+
+The sort column can be specified by means of the [option -column] option;
+this option can be used repeatedly to define a multi column sort.
+The sorting is done by looking at the [arg text]
+of the element specified by the [option -element] option,
+which must be a text element defined in the style of the sorting column,
+by default the first text element is used.
+[nl]
+
+If the [option -notreally] option is specified,
+no rearranging of the items is done;
+instead the sorted items are returned as result of the command.
+[nl]
+
+By default ASCII sorting is used with the result returned in increasing order.
+The order can be modified by means of the [option -increasing] (the default)
+or [option -decreasing] flag.
+Any of the following options may be specified to control
+the sorting process of the previously specified column
+(unique abbreviations are accepted):
+
+[list_begin opt]
+[opt_def [option -ascii]]
+Use string comparison with ASCII collation order. This is the default.
+
+[opt_def [option -command] [arg command]]
+Use [arg command] as a comparison command.
+To compare two items, evaluate a Tcl script consisting of
+[arg command] with the numerical ids of the two items appended as additional
+arguments.  The script should return an integer less than,
+equal to, or greater than zero if the first item is to
+be considered less than, equal to, or greater than the second,
+respectively.
+
+[opt_def [option -dictionary]]
+Use dictionary-style comparison. This is the same as [option -ascii]
+except (a) case is ignored except as a tie-breaker and (b) if two
+strings contain embedded numbers, the numbers compare as integers,
+not characters.  For example, in [option -dictionary] mode, [strong bigBoy]
+sorts between [strong bigbang] and [strong bigboy], and [strong x10y]
+sorts between [strong x9y] and [strong x11y].
+
+[opt_def [option -integer]]
+Convert to integers and use integer comparison.
+
+[opt_def [option -real]]
+Convert to floating-point values and use floating comparison.
+[list_end]
+
+[call [arg pathName] [cmd {item state get}] [arg itemDesc] \
+     [opt [arg {stateName ...}]]]
+If no [arg stateName] is specified, returns a list containing
+the names of all (predefined and user defined) states
+which are currently switched on for the item described by [arg itemDesc].
+If a [arg stateName] is specified,
+1 is returned if the specified state is currently switched on for the item,
+0 otherwise.
+
+[call [arg pathName] [cmd {item state set}] [arg itemDesc] \
+     [opt [arg lastItem]] [opt [arg stateDescList]]]
+Every element of [arg stateDescList]
+must describe a user defined state (see [sectref STATES] below),
+with the particularity that the state name may have also a leading [strong ~].
+Every state with a leading [strong !] will be switched off for the
+item described by [arg itemDesc],
+every state with a leading [strong ~] will be toggled, and
+every state without leading [strong !] or [strong ~] will be switched on.
+If [arg lastItem] is specified, the state changes will be made for all items
+in the range betwen [arg itemDesc] and [arg lastItem].
+[arg ItemDesc] may be the string [strong all],
+then the state changes are made for all items of the treectrl widget.
+
+[call [arg pathName] [cmd {item style}] [arg command] [arg itemDesc] \
+     [opt [arg {arg ...}]]]
+This command is used to manipulate the style of the item.
+The exact behavior of the command depends on the [arg command] argument
+that follows the [cmd style] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {item style elements}] [arg itemDesc] [arg column]]
+A list is returned
+containing the currently defined elements of the style,
+which is set for the item described by [arg itemDesc] in [arg column].
+
+[call [arg pathName] [cmd {item style map}] [arg itemDesc] [arg column] \
+     [arg style] [arg map]]
+[arg Map] must be a list with an even number of elements,
+and each element must be the name of an element created by the
+[cmd {element create}] widget command.
+Replaces elements in the style of the item described by [arg itemDesc]
+in [arg column] based on the from-to pairs in [arg map].
+
+[call [arg pathName] [cmd {item style set}] [arg itemDesc] [opt [arg column]] \
+     [opt [arg style]] [opt [arg {column style ...}]]]
+If no [arg column] is specified, returns a list containing the names of the
+styles set for all columns of the item described by [arg itemDesc].
+If no [arg style] argument is specified,
+returns the name of the style set for the item described by
+[arg itemDesc] in [arg column].
+If there are one or more [arg style] arguments specified,
+it must be [arg column]-[arg style] pairs;
+then the style(s) of item in [arg column] will be set to [arg style].
+[list_end]
+
+[call [arg pathName] [cmd {item text}] [arg itemDesc] [arg column] \
+     [opt [arg text]] [opt [arg {column text ...}]]]
+If no [arg text] argument is specified,
+returns the text of the item described by [arg itemDesc] in [arg column].
+If there are one or more [arg text] arguments specified,
+it must be [arg column]-[arg text] pairs;
+then the text(s) of item in [arg column] will be set to [arg text].
+
+[call [arg pathName] [cmd {item visible}] [arg itemDesc] [opt [arg boolean]]]
+If [arg boolean] is not specified, returns 1 if the item
+described by [arg itemDesc] is currently visible, 0 otherwise.
+If [arg boolean] is specified, it must be a valid boolean value
+specifying if the item should be visible.
+The visibility of an item is independend from the state of its ancestors.
+So if the state of one of the ancestors is currently not opened,
+the item may be considered visible although it is not displayed on the screen.
+[list_end]
+
+[call [arg pathName] [cmd marquee] [arg option] [opt [arg {arg ...}]]]
+This command is used to manipulate the marquee,
+a rectangular region of the treectrl widget
+optionally marked with a surrounding dotted line.
+One corner point of the marquee is fixed as long as the marquee is visible
+and called the anchor; the diagonally opposite corner is dragged with the
+mouse while resizing the marquee and simply called the corner.
+All coordinates handled by this widget command are treectrl coordinates,
+i.e. the [cmd canvasx] or [cmd canvasy] widget command should be
+used before any window coordinates can be used.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd marquee] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {marquee anchor}] [opt [arg {x y}]]]
+Returns a list containing the x and y coordinates of the anchor,
+if no additional arguments are specified.
+If two coordinates are specified,
+sets the anchor to the given coordinates [arg x] and [arg y].
+
+[call [arg pathName] [cmd {marquee cget}] [arg option]]
+This command returns the current value of the marquee option
+named [arg option].
+[arg Option] may have any of the values accepted by the
+[cmd {marquee configure}] widget command.
+
+[call [arg pathName] [cmd {marquee configure}] [opt [arg option]] \
+     [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies the marquee options
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available marquee options (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named marquee option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given marquee option(s) to have the given value(s);
+in this case the command returns an empty string.
+[nl]
+
+The following marquee options are supported:
+
+[list_begin opt]
+[opt_def [option -visible] [arg boolean]]
+Specifies a boolean value which determines
+whether the dotted line surrounding the region of the marquee
+should currently be visible.
+This option should not be modified by means of the
+[cmd {marquee configure}] widget command;
+instead use the [cmd {marquee visible}] widget command.
+[list_end]
+
+[call [arg pathName] [cmd {marquee coords}] [opt [arg {x1 y1 x2 y2}]]]
+Returns a list containing the x and y coordinates of the anchor
+followed by the x and y coordinates of the corner,
+if no additional arguments are specified.
+If four coordinates are specified,
+sets the anchor to the given coordinates [arg x1] and [arg y1]
+and the corner to the coordinates [arg x2] and [arg y2].
+
+[call [arg pathName] [cmd {marquee corner}] [opt [arg {x y}]]]
+Returns a list containing the x and y coordinates of the corner,
+if no additional arguments are specified.
+If two coordinates are specified,
+sets the corner to the given coordinates [arg x] and [arg y].
+
+[call [arg pathName] [cmd {marquee identify}]]
+Returns a list with information about the items inside the marquee.
+The list has as elements a list itself
+for every item which is displayed inside the marquee.
+The first element of these lists is the numerical item id,
+followed by another list with information about every column of the
+item inside the marque.
+These lists start with the column number,
+followed by the elements of the style defined for the item in this column
+if there are any.
+
+[call [arg pathName] [cmd {marquee visible}] [opt [arg boolean]]]
+If the additional argument specifies true, the dotted line will become
+visible and the marquee option [option -visible] becomes 1;
+if it specifies false, the dotted line will be hidden
+and the marquee option [option -visible] becomes 0.
+Returns 1 if the dotted line surrounding the marquee is currently visible,
+0 otherwise.
+[list_end]
+
+[call [arg pathName] [cmd notify] [arg option] [opt [arg {arg ...}]]]
+This command is used to manipulate the event mechanism of a treectrl widget,
+which stands in parallel to Tk's event mechanism.
+It has two major advantages:
+arbitrary new events can be defined
+together with arbitrary details,
+and before the event is triggered
+the called Tcl command underlys a customizable percent substitution.
+[nl]
+
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd notify] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {notify bind}] [opt [arg object]] \
+     [opt [arg pattern]] [opt [arg script]]]
+This command associates [arg script] with the object given by
+[arg object] such that whenever the event sequence given by
+[arg pattern] occurs for the object
+the command will be invoked.
+This widget command is similar to the [cmd bind] command except that
+it operates on any object in a treectl rather than entire widgets,
+and it works also for non X11 event pattern.
+If all arguments are specified then a new binding is created, replacing
+any existing binding for the same [arg pattern] and [arg object]
+(if the first character of [arg script] is [strong +] then [arg script]
+augments an existing binding rather than replacing it).
+In this case the return value is an empty string.
+If [arg script] is omitted then the command returns the [arg script]
+associated with [arg object] and [arg pattern] (an error occurs
+if there is no such binding).
+If both [arg script] and [arg pattern] are omitted then the command
+returns a list of all the sequences for which bindings have been
+defined for [arg object].
+If no optional argument is specified, a list of all [arg object]s
+to which a pattern-script combination is bound yet, is returned.
+
+[call [arg pathName] [cmd {notify configure}] [arg window] \
+     [arg pattern] [opt [arg option]] [opt [arg value]] \
+     [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies event options defined for [arg pattern] in [arg window]
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list with
+[arg option]-[arg value] pairs describing all
+the available event options for [arg pattern] in [arg window].
+If [arg option] is specified with no [arg value],
+then the command does nothing.
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) for the layout;
+in this case the command returns an empty string.
+[nl]
+
+The following event options are supported:
+[list_begin opt]
+[opt_def [option -active] [arg boolean]]
+Specifies if the event should be active.
+As long as this option is specified as false,
+the event will not trigger.
+[list_end]
+
+[call [arg pathName] [cmd {notify detailnames}] [arg eventName]]
+Returns a list containing the names of all details,
+which are installed for the event with the name [arg eventName]
+by means of the [cmd {notify install detail}] widget command
+or by the treectrl widget itself.
+
+[call [arg pathName] [cmd {notify eventnames}]]
+Returns a list containing the names of all events,
+which are installed by means of the [cmd {notify install event}] widget command
+or by the treectrl widget itself.
+
+[call [arg pathName] [cmd {notify generate}] [arg pattern] [opt [arg charMap]]]
+The event with the pattern [arg pattern] is generated,
+if it is configured as active.
+If there are details defined for the event,
+[arg pattern] must describe an [arg eventName]-[arg detail] pair,
+otherwise pattern should be a simple event name.
+[nl]
+
+The optional [arg charMap] is a list of [arg key]-[arg value] pairs
+as in the form returned by [cmd {array get}];
+each key has to be exactly one character.
+If this argument is specified,
+the following substitution will be done in the script
+registered for the generated event
+before it will be evaluated:
+every occurence of a percent character ([strong %]) followed by a [arg key]
+will be replaced with its corresponding [arg value].
+
+[call [arg pathName] [cmd {notify install detail}] [arg eventName] \
+     [arg detail] [opt [arg percentsCommand]]]
+Installs a new detail [arg detail] 
+for the event with the name [arg eventName].
+A detail create by this command is called dynamic,
+whereas details created by the treectrl widget itself are called static.
+[nl]
+
+The optional [arg percentsCommand] will be called
+before the event is triggered
+for every two character sequence
+starting with a percent character ([strong %]).
+The script is called with at least four additional arguments:
+the second character of the sequence,
+the window for which the event is triggered,
+[arg eventName] and [arg detail],
+and finally the [arg field]-[arg value] pairs specified
+as arguments in the [cmd {notify generate}] call to generate the event
+(the leading dash is dropped from the [arg field]s).
+The two character sequence of the command will be replaced by
+the returning string, or by an empty string
+if the command returns with a returnCode other than 0.
+
+[call [arg pathName] [cmd {notify install event}] [arg eventName] \
+     [opt [arg percentsCommand]]]
+Installs a new event with the name [arg eventName].
+An event create by this command is called dynamic,
+whereas events created by the treectrl widget itself are called static.
+For the optional [arg percentsCommand] argument
+see the description of the [cmd {notify install detail}] widget command above;
+the value for the argument [arg detail] is the empty string.
+
+[call [arg pathName] [cmd {notify linkage}] [arg eventName] [opt [arg detail]]]
+Returns a string indicating
+whether the specified event or detail is created
+by means of the [cmd {notify install}] widget command ([strong dynamic])
+or by the treectrl widget itself ([strong static]).
+
+[call [arg pathName] [cmd {notify uninstall detail}] \
+     [arg eventName] [arg detail]]
+If the specified detail [arg detail] 
+of the event with the name [arg eventName] is static
+(i.e. created by the treectrl widget itself), an error is generated.
+Otherwise the dynamic detail is removed from the event.
+
+[call [arg pathName] [cmd {notify uninstall event}] [arg eventName]]
+If the specified event with the name [arg eventName] is static
+(i.e. created by the treectrl widget itself), an error is generated.
+Otherwise the dynamic event is removed.
+[list_end]
+
+[call [arg pathName] [cmd numcolumns]]
+Returns a decimal string giving the number of
+columns configured in the treectrl widget.
+Since the always existant tail column is ignored by this command,
+the number can be 0 if no column is configured yet.
+
+[call [arg pathName] [cmd numitems]]
+Returns a decimal string giving the number of
+items created in the treectrl widget.
+This number is always positive,
+since a newly created treectrl widget has already the root item,
+which cannot be deleted.
+
+[call [arg pathName] [cmd orphans]]
+Returns a list containing the numerical ids of all items
+which has no parent item.
+An item is created without having a parent,
+and can later become an orphan again
+by means of the [cmd {item remove}] widget command.
+
+[call [arg pathName] [cmd range] [arg first] [arg last]]
+[arg First] and [arg last] must be an [arg itemDesc].
+Returns a list containing the numerical ids of all items
+in the range between [arg first] and [arg last], inclusive.
+The order between [arg first] and [arg last] doesn't matter,
+and the result is always ordered by the increasing index of the items.
+
+[call [arg pathName] [cmd state] [arg option] [opt [arg stateName]]]
+This command is used to manipulate the list of user defined states,
+see section [sectref STATES] below.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd state] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {state define}] [arg stateName]]
+Defines a new state with the name [arg stateName],
+which must not be the name of a predefined or already user defined state.
+
+[call [arg pathName] [cmd {state linkage}] [arg stateName]]
+Returns a string indicating
+whether the specified state is user defined
+by means of the [cmd {state define}] widget command ([strong dynamic])
+or predefined by the treectrl widget itself ([strong static]).
+
+[call [arg pathName] [cmd {state names}]]
+Returns a list containing the names of all user defined states.
+
+[call [arg pathName] [cmd {state undefine}] [opt [arg {stateName ...}]]]
+Every [arg stateName] must be the name of a user defined state.
+Removes this state from the list of user defined states.
+[list_end]
+
+[call [arg pathName] [cmd see] [arg itemDesc]]
+Adjust the view in the treectrl so that the item
+described by [arg itemDesc] is visible.
+If the item is already visible then the command has no effect;
+otherwise the treectrl scrolls to bring the item into view,
+and the corresponding [strong <Scroll-x>] and/or [strong <Scroll-y>]
+events are generated.
+
+[call [arg pathName] [cmd selection] [arg option] [arg arg]]
+This command is used to adjust the selection within a treectrl.
+It has several forms, depending on [arg option]:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {selection add}] [arg first] [opt [arg last]]]
+[arg First] and [arg last] (if specified)
+must be the string [strong all] or an [arg itemDesc].
+Selects all of the items in the range between
+[arg first] and [arg last], inclusive,
+without affecting the selection state of items outside that range.
+If one of the arguments is the string [strong all],
+all items of the treectrl widget are added to the selection instead.
+A [strong <Selection>] event is generated.
+
+[call [arg pathName] [cmd {selection anchor}] [opt [arg itemDesc]]]
+If [arg itemDesc] is specified,
+the selection anchor is set to the described item.
+The selection anchor is the end of the selection that is fixed
+while dragging out a selection with the mouse.
+The item description [strong anchor] may be used to refer to the anchor item.
+This command doesn't modify the selection state of any item.
+Returns the numerical id of the selection anchor item.
+
+[call [arg pathName] [cmd {selection clear}] \
+     [opt [arg first]] [opt [arg last]]]
+[arg First] and [arg last] (if specified)
+must be the string [strong all] or an [arg itemDesc].
+If any of the items between [arg first] and [arg last]
+(inclusive) are selected, they are deselected.
+The selection state is not changed for items outside this range.
+If no additional arguments is given
+or one of the arguments is the string [strong all],
+the selection is completely cleared instead.
+A [strong <Selection>] event is generated.
+
+[call [arg pathName] [cmd {selection count}]]
+Returns an integer indicating the number
+of items in the treectrl that are currently selected.
+
+[call [arg pathName] [cmd {selection get}]]
+Returns a list containing the numerical ids of
+all of the items in the treectrl that are currently selected.
+If there are no items selected in the treectrl then an empty
+string is returned.
+
+[call [arg pathName] [cmd {selection includes}] [arg itemDesc]]
+Returns 1 if the item indicated by [arg itemDesc] is currently
+selected, 0 if it isn't.
+
+[call [arg pathName] [cmd {selection modify}] [arg select] [arg deselect]]
+Both arguments [arg select] and [arg deselect] must be
+the string [strong all] or a possibly empty list of [arg itemDesc]s.
+Selects all of the items described by [arg select],
+then deselects all items described by [arg deselect],
+without affecting the selection state of any item
+not mentioned in both arguments.
+If one item is described in both arguments [arg select] and [arg deselect],
+it is added to the selection.
+A [strong <Selection>] event is generated.
+[list_end]
+
+[call [arg pathName] [cmd style] [arg option] [opt [arg element]] \
+     [opt [arg {arg arg ...}]]]
+This command is used to manipulate styles, which could be considered
+as a geometry manager for the elements of one item.
+The exact behavior of the command depends on the [arg option] argument
+that follows the [cmd style] argument.
+The following forms of the command are supported:
+
+[list_begin definitions]
+[call [arg pathName] [cmd {style cget}] [arg style] [arg option]]
+This command returns the current value of the option named [arg option]
+associated with the style given by [arg style].
+[arg Option] may have any of the values accepted by the
+[cmd {style configure}] widget command.
+
+[call [arg pathName] [cmd {style configure}] [arg style] [opt [arg option]] \
+     [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies options associated with the style given by [arg style]
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list describing
+all of the available options for [arg style] (see [fun Tk_ConfigureInfo]
+for information on the format of this list).
+If [arg option] is specified with no [arg value], then the command returns
+a list describing the one named option (this list will be identical to
+the corresponding sublist of the value returned if no [arg option]
+is specified).
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) in [arg style];
+in this case the command returns an empty string.
+[nl]
+
+The options of a style have effect on all elements managed by the style.
+The following options are supported:
+
+[list_begin opt]
+[opt_def [option -orient] [arg varName]]
+This option specifies which orientation should be used
+when laying out the elements associated with this style.
+Must be either [strong horizontal] (the default)
+or [strong vertical] or an abbreviation of one of these.
+[list_end]
+
+[call [arg pathName] [cmd {style create}] [arg style] \
+     [opt [arg {option value ...}]]]
+Create a new style in [arg pathName] with name [arg style].
+After [arg style] there may be any number of [arg option]-[arg value]
+pairs, each of which sets one of the configuration options
+for the style.  These same [arg option]-[arg value] pairs may be
+used in [cmd {style configure}] widget commands to change the styles's
+configuration.
+Returns the name of the new style.
+
+[call [arg pathName] [cmd {style delete}] [opt [arg {style ...}]]]
+Deletes each of the named styles and returns an empty string.
+If a style is deleted while it is still used to display
+one or more items,
+it is also removed from the style list of these items.
+
+[call [arg pathName] [cmd {style elements}] [arg style] \
+     [opt [arg elementList]]]
+Specifies the elements which should be layed out by this style.
+Each element of [arg elementList] must be the name of an element
+created by the widget command [cmd {element create}].
+Duplicate names in [arg elementList] are ignored.
+An element which was specified in a former call of this command
+for [arg style] but is not included in [arg elementList],
+will be deleted from the elements layed out by [arg style].
+[nl]
+
+If the [arg elementList] argument is not specified, a list is returned
+containing the currently defined elements of [arg style].
+
+[call [arg pathName] [cmd {style layout}] [arg style] [arg element] \
+     [opt [arg option]] [opt [arg value]] [opt [arg {option value ...}]]]
+This command is similar to the [cmd configure] widget command except
+that it modifies options used by [arg style] for laying out [arg element]
+instead of modifying options for the overall treectrl widget.
+If no [arg option] is specified, the command returns a list with
+[arg option]-[arg value] pairs describing
+all of the available options for the layout.
+If [arg option] is specified with no [arg value], then the command returns
+the value of the named option.
+If one or more [arg option]-[arg value] pairs are specified, then the command
+modifies the given option(s) to have the given value(s) for the layout;
+in this case the command returns an empty string.
+[nl]
+
+The options of a layout have effect on exactly the one element [arg element]
+managed by [arg style].
+The following options are supported:
+
+[list_begin opt]
+[opt_def [option -padx] [arg amount]]
+[opt_def [option -pady] [arg amount]]
+[arg Amount] specifies how much external padding to
+leave on the left and right (for [option -padx])
+or top and bottom (for [option -pady]) side of the element.
+[arg Amount] may be a list
+of two values to specify padding for the two sides separately,
+it defaults to 0.
+
+[opt_def [option -ipadx] [arg amount]]
+[opt_def [option -ipady] [arg amount]]
+[arg Amount] specifies how much internal padding to
+leave on the left and right (for [option -ipadx])
+or top and bottom (for [option -ipady]) side of the element.
+[arg Amount] may be a list
+of two values to specify padding for the two sides separately,
+it defaults to 0.
+
+[opt_def [option -expand] [arg style]]
+[opt_def [option -iexpand] [arg style]]
+It can happen that the element's space is larger than its requested dimensions.
+These options may be used to position (or stretch) the slave within its cell.
+[arg Style]  is a string that contains zero or more of the characters
+[strong n], [strong s], [strong e] or [strong w].
+The string can contain other characters, but they are ignored.
+Each letter refers to a side (north, south,
+east, or west) in which direction the element will grow to.
+
+[opt_def [option -squeeze] [arg style]]
+If an elements's area is smaller than its requested dimensions, this
+option may be used to allow shrinking of the element.
+[arg Style]  is a string that contains zero or more of the characters
+[strong x] or [strong y].
+The string can contain other characters, but they are ignored.
+[strong x] shrinks the element horizontally,
+[strong y] shrinks it vertically.
+
+[opt_def [option -union] [arg elementList]]
+Specifies a list of other [arg element]s, which should be layed out
+inside the space of this element.
+
+[opt_def [option -detach] [arg boolean]]
+Specifies whether the element should be positioned by themselves,
+i.e. independent from the other elements.
+[list_end]
+
+[call [arg pathName] [cmd {style names}]]
+Returns a list containing the names of all existing styles.
+[list_end]
+
+[call [arg pathName] [cmd toggle] [opt [option -recurse]] \
+     [opt [arg {itemDesc ...}]]]
+Changes the [strong open] state of the item(s) described by [arg itemDesc].
+If the state is currently switched off,
+this command does the same as the [cmd expand] widget command,
+otherwise the same as the [cmd collapse] widget command.
+[arg ItemDesc] may also be the string [strong all],
+in which case the state of all items of the treectrl widget are toggled.
+If [option -recurse] is specified, the state of all descendants of
+[arg itemDesc] will also be toggles.
+
+[call [arg pathName] [cmd xview] [opt [arg args]]]
+This command is used to query and change the horizontal position of the
+information displayed in the treectrl's window.
+It can take any of the following forms:
+
+[list_begin definitions]
+[call [arg pathName] [cmd xview]]
+Returns a list containing two elements.
+Each element is a real fraction between 0 and 1;  together they describe
+the horizontal span that is visible in the window.
+For example, if the first element is .2 and the second element is .6,
+20% of the tree's area
+is off-screen to the left, the middle 40% is visible
+in the window, and 40% of the tree is off-screen to the right.
+These are the same values passed to scrollbars via the [option -xscrollcommand]
+option.
+
+[call [arg pathName] [cmd {xview moveto}] [arg  fraction]]
+Adjusts the view in the window so that [arg fraction] of the
+total width of the tree is off-screen to the left.
+[arg Fraction] must be a fraction between 0 and 1.
+A [strong <Scroll-x>] event is generated.
+
+[call [arg pathName] [cmd {xview scroll}] [arg number] [arg what]]
+This command shifts the view in the window left or right according to
+[arg number] and [arg what].
+[arg Number] must be an integer.
+[arg What] must be either [strong units] or [strong pages] or an abbreviation
+of one of these.
+If [arg what] is [strong units], the view adjusts left or right in units
+of the [option -xscrollincrement] option, if it is greater than zero,
+or in units of one-tenth the window's width otherwise.
+If [arg what] is [strong pages] then the view
+adjusts in units of nine-tenths the window's width.
+If [arg number] is negative then information farther to the left
+becomes visible;  if it is positive then information farther to the right
+becomes visible.
+A [strong <Scroll-x>] event is generated.
+[list_end]
+
+[call [arg pathName] [cmd yview] [opt [arg args]]]
+This command is used to query and change the vertical position of the
+information displayed in the treectrl's window.
+It can take any of the following forms:
+
+[list_begin definitions]
+[call [arg pathName] [cmd yview]]
+Returns a list containing two elements.
+Each element is a real fraction between 0 and 1;  together they describe
+the vertical span that is visible in the window.
+For example, if the first element is .6 and the second element is 1.0,
+the lowest 40% of the tree's area is visible in the window.
+These are the same values passed to scrollbars via the [option -yscrollcommand]
+option.
+
+[call [arg pathName] [cmd {yview moveto}] [arg fraction]]
+Adjusts the view in the window so that [arg fraction] of the tree's
+area is off-screen to the top.
+[arg Fraction] is a fraction between 0 and 1.
+A [strong <Scroll-y>] event is generated.
+
+[call [arg pathName] [cmd {yview scroll}] [arg number] [arg what]]
+This command adjusts the view in the window up or down according to
+[arg number] and [arg what].
+[arg Number] must be an integer.
+[arg What] must be either [strong units] or [strong pages].
+If [arg what] is [strong units], the view adjusts up or down in units
+of the [option -yscrollincrement] option, if it is greater than zero,
+or in units of one-tenth the window's height otherwise.
+If [arg what] is [strong pages] then
+the view adjusts in units of nine-tenths the window's height.
+If [arg number] is negative then higher information becomes
+visible;  if it is positive then lower information
+becomes visible.
+A [strong <Scroll-y>] event is generated.
+[list_end]
+[list_end]
+
+[section COLUMNS]
+A treectrl widget is capable of displaying multiple columns next to each
+other.
+An item can be considered as a row, which reaches over all columns.
+
+[para]
+Many of the widget commands for a treectrl take as one argument an
+indicator of which column of the treectrl to operate on.  These
+indicators are called [arg column]s and may be specified
+as numerical index as given by the first [cmd {column configure}]
+widget command which created the column or by its name,
+which can be configured my means of the [option -tag] column option.
+
+[para]
+There is always one special column, the tail column, which fills
+all space to the right of the last ordinary column.
+This column has no number;
+it can only be specified by its tag [strong tail], which cannot be modified.
+It is explicitely mentioned for a widget command,
+if its [arg column] argument can also specify the tail column.
+
+[para]
+The following options are supported for columns:
+
+[list_begin opt]
+[opt_def [option -arrow] [arg direction]]
+Indicates whether or not an arrow should be drawn in the column header
+to the right of the column title.
+[arg Direction] must have one of the values
+[strong none] (the default), [strong up], or [strong down].
+
+[opt_def [option -arrowside] [arg side]]
+Indicates on which side an arrow should be drawn, if at all.
+[arg Side] must be either [strong left] or [strong right] (the default).
+
+[opt_def [option -arrowgravity] [arg side]]
+Indicates onto which side an arrow should be packed,
+if there is more space available for drawing the arrow then needed.
+[arg Side] must be either [strong left] (the default) or [strong right].
+
+[opt_def [option -arrowpad] [arg amount]]
+[arg Amount] specifies how much padding to
+leave on the left and right side of the arrow.
+[arg Amount] may be a list
+of two values to specify padding for left and right separately,
+it defaults to 0.
+
+[opt_def [option -bitmap] [arg bitmap]]
+Specifies the bitmap to display in the element
+to the left of the column title.
+
+[opt_def [option -background] [arg color]]
+Specifies the color to use for the background of the column header.
+
+[opt_def [option -borderwidth] [arg size]]
+Specifies a non-negative value indicating the width
+of the 3-D border to draw around the outside of the column header
+ (if such a border is being drawn;  the [option -relief] column option
+determines this).
+The value may have any of the forms acceptable to [fun Tk_GetPixels].
+
+[opt_def [option -button] [arg boolean]]
+Indicates whether or not a mouse click on the column header should
+change the sorting order of the tree.
+
+[opt_def [option -expand] [arg boolean]]
+Indicates whether or not any extra spaces should be distributed
+to this column.
+This option will actually only work, if the column has no fix width defined
+by means of the [option -width] column option.
+
+[opt_def [option -font] [arg fontName]]
+Specifies the font to use for the column title inside the column header.
+
+[opt_def [option -image] [arg image]]
+Specifies the image to display in the element
+to the left of the column title.
+This option overrides the [option -bitmap] column option.
+
+[opt_def [option -imagepadx] [arg amount]]
+[opt_def [option -imagepady] [arg amount]]
+[arg Amount] specifies how much padding to
+leave on the left and right (for [option -imagepadx])
+or top and bottom (for [option -imagepady]) side of the image.
+[arg Amount] may be a list
+of two values to specify padding for the two sides separately,
+it defaults to 0.
+
+[opt_def [option -itembackground] [arg colorList]]
+Specifies a list of colors, which should be used as
+alternating background color for the items of this column.
+See also the [option -backgroundmode] widget option for more on this.
+
+[opt_def [option -justify] [arg justification]]
+This option determines how the items (and the title) line up with each other.
+Must be one of [strong left] (the default), [strong center], or [strong right].
+
+[opt_def [option -minwidth] [arg size]]
+Specifies the minimum size, in screen units,
+that will be permitted for this column.
+
+[opt_def [option -relief] [arg relief]]
+Specifies the 3-D effect desired for the column header containing the title.
+Acceptable values are the typical relief values,
+but the value seems to be ignored anyway;
+better use the [option -sunken] column option instead.
+
+[opt_def [option -stepwidth] [arg size]]
+Specifies a sort of tabbed alignment for columns that displays
+more than one item next to each other
+(typically in a treectrl widget with horizontal orientation).
+Every item will get an x-coordinate which is a multiple of [arg size].
+
+[opt_def [option -sunken] [arg boolean]]
+Indicates whether or not the column header containing the column title
+will be displayed with a sunken relief.
+
+[opt_def [option -tag] [arg tag]]
+Defines a unique name for the columns which can be used in subsequent calls
+of the treectrl widget commands, wherever a column must be specified.
+
+[opt_def [option -text] [arg text]]
+Specifies a text to be displayed inside the column title.
+
+[opt_def [option -textcolor] [arg color]]
+Specifies a color, which should be used as foreground color
+to display the column title.
+
+[opt_def [option -textpadx] [arg amount]]
+[opt_def [option -textpady] [arg amount]]
+[arg Amount] specifies how much padding to
+leave on the left and right (for [option -textpadx])
+or top and bottom (for [option -textpady]) side of the text.
+[arg Amount] may be a list
+of two values to specify padding for the two sides separately,
+it defaults to 0.
+
+[opt_def [option -width] [arg size]]
+Specifies the width of the column.
+
+[opt_def [option -visible] [arg boolean]]
+Indicates whether or not the column should be displayed.
+
+[opt_def [option -widthhack] [arg boolean]]
+Indicates whether or not all items inside the column
+should have the same width
+(typically in a treectrl widget with horizontal orientation).
+[list_end]
+
+[section STATES]
+A state consists basically of just a string: its [arg stateName].
+For every item a set of these states is managed,
+which means that every item can have every state switched on or off.
+The following states are predefined for every item:
+
+[list_begin definitions]
+[lst_item [strong active]]
+At every time this state is set for exactly one item,
+which therefore is called the active item.
+When the treectrl widget is created or when the active item is deleted,
+the root item will become the active element.
+This state can be modified by means of the widget command [cmd activate].
+
+[lst_item [strong enabled]]
+This state is set for every item, when it is created.
+It cannot be modified.
+
+[lst_item [strong focus]]
+This state is set for every item,
+if the treectrl widget has currently the focus.
+It cannot be modified by means of a widget command,
+but is maintained as reaction of a <FocusIn> or <FocusOut> event.
+
+[lst_item [strong open]]
+If this state is switched on,
+the descendants of the item are displayed
+- the item is expanded.
+If this state is switched off,
+the descendants of the item are not displayed
+- the item is collapsed.
+For a new item this state is switched on.
+It can be modified by means of the widget commands
+[cmd expand], [cmd collapse], or [cmd toggle].
+
+[lst_item [strong selected]]
+This state is set for every item, which is included in the selection.
+It can be modified by means of the widget command [cmd selection].
+[list_end]
+
+[para]
+By means of the [cmd {state define}] widget command
+upto 27 additional [arg stateName]s can be defined.
+
+[para]
+Some widget commands expect a [arg stateDesc] argument,
+which is a [arg stateName]
+optionally preceded by an exclamation mark ([strong !]).
+If the [arg stateName] has no leading [strong !]
+it describes a currently switched on state,
+if it has a leading [strong !] it describes a currently switched off state.
+
+[para]
+Some widget commands expect a [arg statePattern] argument,
+which should be a non empty list of [arg stateDesc]s.
+The pattern matches, if for every element of the list
+the [arg stateDesc] describes the same state as the item currently has.
+
+[section ELEMENTS]
+Elements are the smallest building block
+which are handled by a treectrl widget.
+One or more elements together can be combined to a style,
+which can be considered as a blueprint for an item.
+They can also be used to create an item directly
+by means of the [cmd {item complex}] widget command.
+An element can be of type [strong bitmap], [strong border], [strong image],
+[strong rect], or [strong text].
+For each element type there is a section below describing all options
+which can modify the behaviour of an element of this type.
+
+[para]
+There are some options which can be configured to get different values
+dependent on the state of the item in which their element is included.
+The values of these options are basically a list.
+If the list has one element, the value is valid regardless of the item state.
+A list with an even number of elements ([arg value]-[arg statePattern] pairs)
+specifies different values for different states.
+For acceptable values of [arg statePattern]
+see the section [sectref STATES] above.
+The last [arg statePattern] can be empty,
+implementing a sort of [emph {otherwise clause}].
+The options with this behaviour are called [emph {per state options}].
+
+[section {BITMAP ELEMENT}]
+An element of type [strong bitmap] can be used to display a bitmap in an item.
+The following options are supported for bitmap elements:
+
+[list_begin opt]
+[opt_def [option -background] [arg color]]
+Specifies as a per state option
+the color to use for each of the bitmap's '0' valued pixels.
+
+[opt_def [option -bitmap] [arg bitmap]]
+Specifies as a per state option
+the bitmap to display in the element.
+
+[opt_def [option -foreground] [arg color]]
+Specifies as a per state option
+the color to use for each of the bitmap's '1' valued pixels.
+[list_end]
+
+[section {BORDER ELEMENT}]
+An element of type [strong border] can be used to add a border to an item.
+The following options are supported for border elements:
+
+[list_begin opt]
+[opt_def [option -background] [arg color]]
+Specifies as a per state option
+the color to use for the background of the border.
+
+[opt_def [option -filled] [arg boolean]]
+Specifies whether the interior of the border should also be filled with
+the specified background color. Default to false, which means that the
+background color of the tree is visible between the borders.
+
+[opt_def [option -height] [arg size]]
+Specifies the height of the area of the border.
+
+[opt_def [option -relief] [arg reliefList]]
+Specifies as a per state option
+relief of the border.
+For acceptable values see the description of the
+[option -relief] option in the [cmd options] manual page.
+
+[opt_def [option -thickness] [arg thickness]]
+Specifies the thickness of the border.
+
+[opt_def [option -width] [arg size]]
+Specifies the width of the area of the border.
+[list_end]
+
+[section {IMAGE ELEMENT}]
+An element of type [strong image] can be used to display an image in an item.
+The following options are supported for image elements:
+
+[list_begin opt]
+[opt_def [option -height] [arg size]]
+Specifies the height of the image.
+
+[opt_def [option -image] [arg image]]
+Specifies as a per state option
+the image to display in the element.
+
+[opt_def [option -width] [arg size]]
+Specifies the width of the image.
+[list_end]
+
+[section {RECTANGLE ELEMENT}]
+An element of type [strong rect] can be used to display a rectangle in an item.
+The following options are supported for rectangle elements:
+
+[list_begin opt]
+[opt_def [option -fill] [arg fillColor]]
+Specifies as a per state option
+the color to be used to fill rectangle's area.
+[arg Color] may have any of the forms accepted by [fun Tk_GetColor].
+If [arg color] is an empty string (the default), then
+the rectangle will not be filled.
+
+[opt_def [option -height] [arg size]]
+Specifies the height of the rectangle.
+
+[opt_def [option -open] [arg open]]
+This option may be used to get an incomplete drawing of the outline.
+[arg Open] is a string that contains zero or more of the characters
+[strong n], [strong s], [strong e] or [strong w].
+Each letter refers to a side (north, south, east, or west) that the outline
+will not be drawn. 
+The default is [strong {}], which causes the outline to be drawn completely.
+
+[opt_def [option -outline] [arg outlineColor]]
+Specifies as a per state option
+the color that should be used to draw the outline of the rectangle.
+[arg Color] may have any of the forms accepted by [fun Tk_GetColor].
+If [arg color] is specified as an empty string (the default),
+then no outline is drawn for the rectangle.
+
+[opt_def [option -outlinewidth] [arg outlineWidth]]
+Specifies the width of the outline to be drawn around the rectangle's region.
+[arg outlineWidth] may be in any of the forms acceptable to [fun Tk_GetPixels].
+If the [option -outline] option has been specified as an empty string
+(the default), then no outline is drawn.
+
+[opt_def [option -showfocus] [arg boolean]]
+Specifies a boolean value indicating whether
+a "focus ring" should be drawn around the rectangle,
+if the item containing the rectangle is the active item
+and the treectrl widget has currently the focus.
+
+[opt_def [option -width] [arg size]]
+Specifies the width of the rectangle.
+[list_end]
+
+[section {TEXT ELEMENT}]
+An element of type [strong text] can be used to display a text in an item.
+The following options are supported for text elements:
+
+[list_begin opt]
+[opt_def [option -data] [arg data]]
+Specifies raw data to be printed as text.
+
+[opt_def [option -datatype] [arg dataType]]
+Specifies the datatype which should be used to convert the value of the
+[option -data] option to the text to be printed. Acceptable values are
+[strong double], [strong integer], [strong long], [strong string], or [strong time].
+
+[opt_def [option -fill] [arg color]]
+Specifies as a per state option
+the color to be used as foreground color of the text.
+[arg Color] may have any of the forms accepted by [fun Tk_GetColor].
+If [arg color] is an empty string (the default), then
+the text will be displayed with the color specified as foreground color
+of the treectrl widget.
+
+[opt_def [option -format] [arg format]]
+This option overwrites the default format choosen
+by means of the [option -datatype] option.
+For a datatype [strong time] [arg format] should be
+a valid format string for the [cmd clock] command,
+for all other datatypes it should be
+a valid format element of the [cmd format] command.
+
+[opt_def [option -font] [arg fontName]]
+Specifies as a per state option
+the font to use for the text.
+[arg FontName] may be any string acceptable to [fun Tk_GetFont].
+If this option isn't specified, it defaults to the font configured for
+the treectrl widget.
+
+[opt_def [option -justify] [arg how]]
+Specifies how to justify the text within its bounding region.
+[arg How] must be one of the values [strong left], [strong right], or [strong center].
+This option will only matter if the text is displayed as multiple lines.
+If the option is omitted, it defaults to [strong left].
+
+[opt_def [option -lines] [arg lineCount]]
+Specifies the maximal number of lines the text should be printed.
+If the doesn't fit into the area of [arg lineCount] lines with the
+configured width, it will be truncated at the right end and filled up with
+an ellipsis.
+
+[opt_def [option -text] [arg string]]
+[arg String] specifies the characters to be displayed in the text.
+Non printable characters are displayed in their escaped form
+(e.g. a new line character is displayed as the two characters [strong \\n]).
+If this option is specified, any values of [option -data], [option -datatype],
+and [option -format] are ignored.
+[option -width] [arg size]
+Specifies the width of the area of the text.
+
+[opt_def [option -wrap] [arg mode]]
+[arg Mode] specifies how to handle lines that are wider than the
+text's area.
+Acceptable values are [strong char] or [strong word].
+[list_end]
+
+[section {ITEM DESCRIPTION}]
+Many of the widget commands for a treectrl take as one argument an
+indicator of which item of the treectrl to operate on.  These
+indicators are called [arg itemDesc]s and may be specified in
+any of the following forms:
+
+[list_begin definitions]
+[lst_item [arg number]]
+Specifies the item numerically, where [arg number] should be
+the return value of a prior call of the [cmd {item create}] widget command,
+or [strong 0] to specify the root item.
+
+[lst_item [strong active]]
+Indicates the item that is currently active, i.e. normally
+the item specified as argument of the last successful [cmd activate]
+widget command, or the root item if no such call happened yet.
+
+[lst_item [strong anchor]]
+Indicates the anchor item of the selection, i.e. normally
+the item specified as argument of the last successful [cmd {selection anchor}]
+widget command, or the root item if no such call happened yet.
+
+[lst_item "[strong first] [opt [strong visible]]"]
+Indicates the first item of the treectrl, i.e. the root item.
+If [strong visible] is specified and the widget is configured with
+[option -showroot] [strong no], the first visible child of the root node
+is specified instead.
+
+[lst_item "[strong last] [opt [strong visible]]"]
+Indicates the last item of the treectrl.
+If [strong visible] is specified and the last item is currently not visible,
+i.e. one of its father nodes is collapsed,
+the last visible item is specified instead.
+
+[lst_item "[strong nearest] [arg {x y}]"]
+Indicates the item nearest to the point given by [arg x] and [arg y].
+
+[lst_item "[strong rnc] [arg {row column}]"]
+Indicates the item in the given [arg row] and [arg column].
+You can memorize [strong rnc] as abbreviation of "row 'n' column".
+
+[lst_item [strong root]]
+Indicates the root item of the treectrl.
+[list_end]
+
+[para]
+The [arg itemDesc] may be followed by one or more [arg modifier]s.
+A modifier changes the item described by the [arg itemDesc] relative to
+the description upto this point.
+It may be specified in any of the following forms,
+all optionally followed by [strong visible]:
+
+[list_begin definitions]
+[lst_item [strong above]]
+Use the item one row above in this column.
+
+[lst_item [strong below]]
+Use the item one row below in this column.
+
+[lst_item [strong bottom]]
+Use the item in the last row of this column.
+
+[lst_item "[strong child] [arg n]"]
+Use the [arg n]th child of the item.
+
+[lst_item [strong firstchild]]
+Use the first child of the item.
+
+[lst_item [strong lastchild]]
+Use the last child of the item.
+
+[lst_item [strong left]]
+Use the item one column to the left in the same row.
+
+[lst_item [strong leftmost]]
+Use the item of the first column in the same row.
+
+[lst_item [strong next]]
+Use the next item, which is the first existant (or visible) item of the
+following list: the first child, the next sibling or the next sibling of
+the nearest parent which has one.
+
+[lst_item [strong nextsibling]]
+Use the next sibling of the item.
+
+[lst_item [strong parent]]
+Use the parent of the item.
+
+[lst_item [strong prev]]
+Use the last child of the previous sibling,
+or the parent if there is no previos sibling.
+
+[lst_item [strong prevsibling]]
+Use the previous sibling of the item.
+
+[lst_item [strong right]]
+Use the item one column to the right in the same row.
+
+[lst_item [strong rightmost]]
+Use the item of the last column in the same row.
+
+[lst_item "[strong sibling] [arg n]"]
+Use the [arg n]th child of the item's parent.
+
+[lst_item [strong top]]
+Use the item in the first row of this column.
+[list_end]
+
+[section {EVENTS AND SCRIPT SUBSTITUTIONS}]
+Beside of all the normal Tk events, which are generated as reaction
+of e.g. mouse movements or key presses, 
+the treectrl widget generates at various places
+events created by treectrl widget:
+
+[list_begin definitions]
+[lst_item [strong <ActiveItem>]]
+Generated without detail
+whenever the active item changes.
+
+[lst_item [strong <Collapse>]]
+Generated with the detail [strong after] or [strong before],
+whenever an item is collapsed.
+
+[lst_item [strong <Expand>]]
+Generated with the detail [strong after] or [strong before],
+whenever an item is expanded.
+
+[lst_item [strong <Scroll>]]
+Generated with the detail [strong x] or [strong y],
+whenever the origin of the window changes.
+
+[lst_item [strong <Selection>]]
+Generated without detail
+whenever the selection changes.
+[list_end]
+
+[para]
+By means of the [cmd {notify bind}] widget command Tcl scripts can
+be specified,
+which will be executed whenever the event triggers.
+The command will be executed in the same interpreter that the
+[cmd {notify bind}] command was executed in, and it will run at global
+level (only global variables will be accessible).
+If the script contains any [strong %] characters,
+then the script will not be executed directly.
+Instead, a new script will be
+generated by replacing each [strong %],
+and the character following it,
+with information from the current event.
+The replacement depends on the character following the [strong %],
+as defined in the list below.
+Unless otherwise indicated,
+Some of the substitutions are only valid for certain types of events;
+if they are used for other types of events
+the value substituted is undefined.
+
+[list_begin definitions]
+[lst_item [strong %%]]
+Replaced with a single percent.
+[lst_item [strong %c]]
+Replaced with the number of items that are currently selected
+for a selection event,
+or with the numerical id of the item, which will become the active item
+for an activation event,
+invalid for other event types.
+[lst_item [strong %d]]
+Replaced with the detail of the event,
+or with the empty string if the event has no detail.
+Valid for all event types.
+[lst_item [strong %D]]
+Replaced with a (possibly empty) list of item ids;
+all mentioned items will be removed from the selection.
+Valid only for selection events.
+[lst_item [strong %e]]
+Replaced with the name of the event.
+Valid for all event types.
+[lst_item [strong %I]]
+Replaced with the numerical id of the item,
+which is to be collapsed or expanded.
+Valid only for collapse or expand events.
+[lst_item [strong %l]]
+Replaced with the lower bound, i.e. the first fraction
+as returned by the widget command [cmd xview] for horizontal scrolling
+or [cmd yview] for vertical scrolling.
+Valid only for scrolling events.
+[lst_item [strong %p]]
+Replaced with the numerical id of the item,
+which was  the active item upto now.
+Valid only for activation events.
+[lst_item [strong %S]]
+Replaced with a (possibly empty) list of item ids;
+all mentioned items will be added to the selection.
+Valid only for selection events.
+[lst_item [strong %T]]
+Replaced with the path name of the treectrl widget.
+Valid for all event types.
+[lst_item [strong %u]]
+Replaced with the upper bound, i.e. the second fraction
+returned by the widget command [cmd xview] for horizontal scrolling
+or [cmd yview] for vertical scrolling.
+Valid only for scrolling events.
+[lst_item [strong %W]]
+Replaced with the name of the object the event is bound for.
+This can be a widget path (then the string starts with [strong .]),
+or a generic tag.
+Valid for all event types.
+[list_end]
+
+[section {DEFAULT BINDINGS}]
+Tk automatically creates class bindings for treectrls that give them
+the following default behavior.
+[list_begin enum]
+[enum]
+Clicking mouse button 1 over an item positions the active cursor
+on the item, sets the input focus to this widget,
+and resets the selection of the widget to this item, if it is not
+already in the selection.
+[enum]
+Clicking mouse button 1 with the Control key down will reposition the
+active cursor and add the item to the selection
+without ever removing any items from the selection.
+[enum]
+If the mouse is dragged out of the widget
+while button 1 is pressed, the treectrl will automatically scroll to
+make more items visible (if there are more items off-screen on the side
+where the mouse left the window).
+[enum]
+The Left and Right keys move the active cursor one item to the left or right;
+for an hierarchical tree with vertical orientation nothing will happen,
+since it has no two items in the same row.
+The selection is set to include only the active item.
+If Left or Right is typed with the Shift key down, then the active
+cursor moves and the selection is extended to include the new item.
+[enum]
+The Up and Down keys move the active cursor one item up or down.
+The selection is set to include only the active item.
+If Up or Down is typed with the Shift key down, then the active
+cursor moves and the selection is extended to include the new item.
+[enum]
+The Next and Prior keys move the active cursor forward or backwards
+by one screenful, without affecting the selection.
+[enum]
+Control-Next and Control-Prior scroll the view right or left by one page
+without moving the active cursor or affecting the selection.
+Control-Left and Control-Right behave the same.
+[enum]
+The Home and End keys scroll to the left or right end of the widget
+without moving the active cursor or affecting the selection.
+[enum]
+The Control-Home and Control-End keys scroll to the top or bottom
+of the widget, they also activate and select the first or last item.
+If also the Shift key is down, then the active
+cursor moves and the selection is extended to include the new item.
+[enum]
+The Space and Select keys set the selection to the active item.
+[enum]
+Control-/ selects the entire contents of the widget.
+[enum]
+Control-\\ clears any selection in the widget.
+[enum]
+The + and - keys expand or collapse the active item,
+the Return key toggles the active item.
+[enum]
+The mousewheel scrolls the view of the widget four lines up or down
+depending on the direction, the wheel was turned.
+The active cursor or the selection is not affected.
+[list_end]
+
+[see_also listbox(n) image(n) bitmap(n) bind(n) options(n)]
+[keywords tree widget]
+[manpage_end]

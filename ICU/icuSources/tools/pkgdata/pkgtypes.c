@@ -1,6 +1,6 @@
 /**************************************************************************
 *
-*   Copyright (C) 2000, International Business Machines
+*   Copyright (C) 2000-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ***************************************************************************
@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "unicode/utypes.h"
+#include "unicode/putil.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "pkgtypes.h"
@@ -27,7 +28,7 @@ const char *pkg_writeCharListWrap(FileStream *s, CharList *l, const char *delim,
 {
     int32_t ln = 0;
     char buffer[1024];
-	const CharList *ol = NULL;
+    const CharList *ol = NULL;
     while(l != NULL)
     {
         if(l->str)
@@ -51,20 +52,20 @@ const char *pkg_writeCharListWrap(FileStream *s, CharList *l, const char *delim,
                     uprv_strcat(buffer, "\"");
                 }
             }
-            T_FileStream_write(s, buffer, uprv_strlen(buffer));
+            T_FileStream_write(s, buffer, (int32_t)uprv_strlen(buffer));
         }
 
-        ln  += uprv_strlen(l->str);
+        ln += (int32_t)uprv_strlen(l->str);
 
-		ol = l;
+        ol = l;
 
         if(l->next && delim)
         {
             if(ln > 60 && brk) {
                 ln  = 0;
-                T_FileStream_write(s, brk, uprv_strlen(brk));
+                T_FileStream_write(s, brk, (int32_t)uprv_strlen(brk));
             }
-            T_FileStream_write(s, delim, uprv_strlen(delim));
+            T_FileStream_write(s, delim, (int32_t)uprv_strlen(delim));
         }
         l = l->next;
     }
@@ -103,12 +104,12 @@ const char *pkg_writeCharList(FileStream *s, CharList *l, const char *delim, int
                     uprv_strcat(buffer, "\"");
                 }
             }
-            T_FileStream_write(s, buffer, uprv_strlen(buffer));
+            T_FileStream_write(s, buffer, (int32_t)uprv_strlen(buffer));
         }
         
         if(l->next && delim)
         {
-            T_FileStream_write(s, delim, uprv_strlen(delim));
+            T_FileStream_write(s, delim, (int32_t)uprv_strlen(delim));
         }
         l = l->next;
     }
@@ -197,6 +198,72 @@ CharList *pkg_appendToList(CharList *l, CharList** end, const char *str)
 
   return l;
 }
+
+CharList *pkg_appendUniqueDirToList(CharList *l, CharList** end, const char *strAlias) {
+    char aBuf[1024];
+    char *rPtr; 
+    rPtr = uprv_strrchr(strAlias, U_FILE_SEP_CHAR);
+#if defined(U_FILE_ALT_SEP_CHAR) && (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+    {
+        char *aPtr = uprv_strrchr(strAlias, U_FILE_ALT_SEP_CHAR);
+        if(!rPtr || /* regular char wasn't found or.. */
+            (aPtr && (aPtr > rPtr)))
+        { /* alt ptr exists and is to the right of r ptr */
+            rPtr = aPtr; /* may copy NULL which is OK */
+        }
+    }
+#endif
+    if(!rPtr) {
+        return l; /* no dir path */
+    }
+    if((rPtr-strAlias) > (sizeof(aBuf)/sizeof(aBuf[0]))) {
+        fprintf(stderr, "## ERR: Path too long [%d chars]: %s\n", sizeof(aBuf), strAlias);
+        return l;
+    }
+    strncpy(aBuf, strAlias,(rPtr-strAlias));
+    aBuf[rPtr-strAlias]=0;  /* no trailing slash */
+
+    if(!pkg_listContains(l, aBuf)) {
+        return pkg_appendToList(l, end, uprv_strdup(aBuf));
+    } else {
+        return l; /* already found */
+    }
+}
+
+#if 0
+static CharList *
+pkg_appendFromStrings(CharList *l, CharList** end, const char *s, int32_t len)
+{
+  CharList *endptr = NULL;
+  const char *p;
+  char *t;
+  const char *targ;
+  if(end == NULL) {
+    end = &endptr;
+  }
+
+  if(len==-1) {
+    len = uprv_strlen(s);
+  }
+  targ = s+len;
+  
+  while(*s && s<targ) {
+    while(s<targ&&isspace(*s)) s++;
+    for(p=s;s<targ&&!isspace(*p);p++);
+    if(p!=s) {
+      t = uprv_malloc(p-s+1);
+      uprv_strncpy(t,s,p-s);
+      t[p-s]=0;
+      l=pkg_appendToList(l,end,t);
+      fprintf(stderr, " P %s\n", t);
+    }
+    s=p;
+  }
+  
+  return l;
+}
+#endif
+
 
 /*
  * Delete list 

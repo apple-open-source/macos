@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: service.h,v 1.16 2003/10/22 18:50:14 rjs3 Exp $ */
+/* $Id: service.h,v 1.5 2005/03/05 00:37:29 dasenbro Exp $ */
 
 #ifndef SERVICE_H
 #define SERVICE_H

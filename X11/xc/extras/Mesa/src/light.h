@@ -85,7 +85,7 @@ do {									\
    float f = (dp * (SHINE_TABLE_SIZE-1));				\
    int k = (int) f;							\
    if (k > SHINE_TABLE_SIZE-2) 						\
-      result = (GLfloat) pow( dp, _tab->shininess );			\
+      result = (GLfloat) _mesa_pow( dp, _tab->shininess );		\
    else									\
       result = _tab->tab[k] + (f-k)*(_tab->tab[k+1]-_tab->tab[k]);	\
 } while (0)

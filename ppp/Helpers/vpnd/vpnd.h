@@ -22,6 +22,9 @@
  */
 
 
+#include <sys/syslog.h>
+
+
 /*
  * Procedures exported from sys-*.c
  */
@@ -43,3 +46,5 @@ CFStringRef CopyDefaultIPAddress(); 	/* Copy the IPAddress of the default interf
 #define	PLUGINS_DIR 	"/System/Library/Extensions/"
 
 void vpnlog(int nSyslogPriority, char *format_str, ...);
+int update_prefs(void);
+void toggle_debug(void);

@@ -23,8 +23,6 @@ Boston, MA 02111-1307, USA.  */
 #ifndef GCC_DMP_TREE_H
 #define GCC_DMP_TREE_H
 
-#ifdef ENABLE_DMP_TREE
-
 /* Language-specific initialization  */
 typedef int (*lang_dump_tree_p_t)  PARAMS ((FILE *, const char *, tree, int));
 extern lang_dump_tree_p_t set_dump_tree_p PARAMS ((lang_dump_tree_p_t));
@@ -114,6 +112,5 @@ extern int dmp_tree_fputs	   PARAMS((const char *, FILE *));
 
 #endif /* DMP_TREE */
 
-#endif /* ENABLE_DMP_TREE */
 
 #endif /* GCC_DMP_TREE_H */

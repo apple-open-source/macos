@@ -1,6 +1,6 @@
 /* IdentityHashMap.java -- a class providing a hashtable data structure,
    mapping Object --> Object, which uses object identity for hashing.
-   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +38,10 @@ exception statement from your version. */
 
 package java.util;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 
 /**
  * This class provides a hashtable-backed implementation of the
@@ -676,7 +679,7 @@ public class IdentityHashMap extends AbstractMap
    * @author Tom Tromey <tromey@redhat.com>
    * @author Eric Blake <ebb9@email.byu.edu>
    */
-  private final class IdentityIterator implements Iterator
+  private class IdentityIterator implements Iterator
   {
     /**
      * The type of this Iterator: {@link #KEYS}, {@link #VALUES},
@@ -875,7 +878,7 @@ public class IdentityHashMap extends AbstractMap
      * @throws ConcurrentModificationException if the entry was invalidated
      *         by modifying the Map or calling Iterator.remove()
      */
-    public final String toString()
+    public String toString()
     {
       if (knownMod != modCount || table[loc] == tombstone)
         throw new ConcurrentModificationException();

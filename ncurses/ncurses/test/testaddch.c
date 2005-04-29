@@ -2,7 +2,7 @@
  * This is an example written by Alexander V. Lukyanov <lav@yars.free.net>,
  * to demonstrate an inconsistency between ncurses and SVr4 curses.
  *
- * $Id: testaddch.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: testaddch.c,v 1.5 2002/06/29 23:32:18 tom Exp $
  */
 #include <test.priv.h>
 
@@ -20,6 +20,8 @@ main(
 {
     unsigned i;
     chtype back, set, attr;
+
+    setlocale(LC_ALL, "");
 
     initscr();
     start_color();

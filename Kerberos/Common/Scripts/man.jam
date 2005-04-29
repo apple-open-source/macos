@@ -1,0 +1,39 @@
+rule CopyMan
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean clean "$(1)" ;    
+}
+actions CopyMan
+{
+    mkdir -p "$(1:D)"
+    cp -fRP "$(2)" "$(1)"
+}
+
+rule NroffMan
+{
+    DEPENDS "$(1)" : "$(2)" ;
+    Clean clean "$(1)" ;
+}
+actions NroffMan
+{
+    mkdir -p "$(1:D)"
+    nroff -man "$(2)" > "$(1)"
+}
+
+# Man <target> : <section> <.M file>
+rule Man
+{
+    NOTFILE "$(2[1])" ;
+    NOTFILE "$(1)" ;
+    
+    local MANDIR = "$(DSTROOT)/usr/share/man/man$(2[1])" ;
+    local MANFILE = "$(MANDIR)/$(2[2]:B).$(2[1])" ;
+    
+    local CATDIR = "$(DSTROOT)/usr/share/man/cat$(2[1])" ;
+    local CATFILE = "$(CATDIR)/$(2[2]:B).0" ; # for some reason they're always 0
+    
+    CopyMan "$(MANFILE)" : "$(2[2])" ;    
+    NroffMan "$(CATFILE)" : "$(2[2])" ;
+
+    DEPENDS "$(1)" : "$(MANFILE)" "$(CATFILE)" ;
+}

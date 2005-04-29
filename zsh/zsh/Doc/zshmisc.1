@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHMISC" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -203,6 +203,65 @@ are reset to their default values while executing \fIlist\fP\&.
 .TP
 \fB{\fP \fIlist\fP \fB}\fP
 Execute \fIlist\fP\&.
+.TP
+\fB{\fP \fItry\-list\fP \fB} always {\fP \fIalways\-list\fP \fB}\fP
+First execute \fItry\-list\fP\&.  Regardless of errors, or \fBbreak\fP,
+\fBcontinue\fP, or \fBreturn\fP commands encountered within \fItry\-list\fP,
+execute \fIalways\-list\fP\&.  Execution then continues from the
+result of the execution of \fItry\-list\fP; in other words, any error,
+or \fBbreak\fP, \fBcontinue\fP, or \fBreturn\fP command is treated in the
+normal way, as if \fIalways\-list\fP were not present\&.  The two
+chunks of code are referred to as the `try block' and the `always block'\&.
+.RS
+.PP
+Optional newlines or semicolons may appear after the \fBalways\fP;
+note, however, that they may \fInot\fP appear between the preceeding
+closing brace and the \fBalways\fP\&.
+.PP
+An `error' in this context is a condition such as a syntax error which
+causes the shell to abort execution of the current function, script, or
+list\&.  Syntax errors encountered while the shell is parsing the
+code do not cause the \fIalways\-list\fP to be executed\&.  For example,
+an erroneously constructed \fBif\fP block in \fBtry\-list\fP would cause the
+shell to abort during parsing, so that \fBalways\-list\fP would not be
+executed, while an erroneous substitution such as \fB${*foo*}\fP would
+cause a run\-time error, after which \fBalways\-list\fP would be executed\&.
+.PP
+An error condition can be tested and reset with the special integer
+variable \fBTRY_BLOCK_ERROR\fP\&.  Outside an \fBalways\-list\fP the value is
+irrelevant, but it is initialised to \fB\-1\fP\&.  Inside \fBalways\-list\fP, the
+value is 1 if an error occurred in the \fBtry\-list\fP, else 0\&.  If
+\fBTRY_BLOCK_ERROR\fP is set to 0 during the \fBalways\-list\fP, the error
+condition caused by the \fBtry\-list\fP is reset, and shell execution
+continues normally after the end of \fBalways\-list\fP\&.  Altering the value
+during the \fBtry\-list\fP is not useful (unless this forms part of an
+enclosing \fBalways\fP block)\&.
+.PP
+Regardless of \fBTRY_BLOCK_ERROR\fP, after the end of \fBalways\-list\fP the
+normal shell status \fB$?\fP is the value returned from \fBalways\-list\fP\&.
+This will be non\-zero if there was an error, even if \fBTRY_BLOCK_ERROR\fP
+was set to zero\&.
+.PP
+The following executes the given code, ignoring any errors it causes\&.
+This is an alternative to the usual convention of protecting code by
+executing it in a subshell\&.
+.PP
+.RS
+.nf
+\fB{
+    # code which may cause an error
+  } always {
+    # This code is executed regardless of the error\&.
+    (( TRY_BLOCK_ERROR = 0 ))
+}
+# The error condition has been reset\&.\fP
+.fi
+.RE
+.PP
+An \fBexit\fP command encountered in \fBtry\-list\fP does \fInot\fP cause the
+execution of \fIalways\-list\fP\&.  Instead, the shell exits immediately
+after any \fBEXIT\fP trap has been executed\&.
+.RE
 .TP
 .PD 0
 \fBfunction\fP \fIword\fP \&.\&.\&. [ \fB()\fP ] [ \fIterm\fP ] \fB{\fP \fIlist\fP \fB}\fP
@@ -453,6 +512,14 @@ occurs, `\fB\e\fP' followed by a newline is removed,
 and `\fB\e\fP' must be used to quote the characters
 `\fB\e\fP', `\fB$\fP', `\fB`\fP' and the first character of \fIword\fP\&.
 .PP
+Note that \fIword\fP itself does not undergo shell expansion\&.  Backquotes
+in \fIword\fP do not have their usual effect; instead they behave
+similarly to double quotes, except that the backquotes themselves are
+passed through unchanged\&.  (This information is given for completeness
+and it is not recommended that backquotes be used\&.)  Quotes in the form
+\fB$'\fP\fI\&.\&.\&.\fP\fB'\fP have their standard effect of expanding backslashed
+references to special characters\&.
+.PP
 If \fB<<\-\fP is used, then all leading
 tabs are stripped from \fIword\fP and from the document\&.
 .RE
@@ -460,6 +527,8 @@ tabs are stripped from \fIword\fP and from the document\&.
 \fB<<<\fP \fIword\fP
 Perform shell expansion on \fIword\fP and pass the result
 to standard input\&.  This is known as a \fIhere\-string\fP\&.
+Compare the use of \fIword\fP in here\-documents above, where \fIword\fP
+does not undergo shell expansion\&.
 .TP
 .PD 0
 \fB<&\fP \fInumber\fP
@@ -930,6 +999,28 @@ The signal number will be passed as the first parameter to the function\&.
 .PP
 If a function of this form is defined and null,
 the shell and processes spawned by it will ignore \fBSIG\fP\fINAL\fP\&.
+.PP
+The return value from the function is handled specially\&.  If it is
+zero, the signal is assumed to have been handled, and execution continues
+normally\&.  Otherwise, the normal effect of the signal is produced;
+if this causes execution to terminate, the status returned to the shell is
+the status returned from the function\&.
+.PP
+Programs terminated by uncaught signals typically return the status 128
+plus the signal number\&.  Hence the following causes the handler for
+\fBSIGINT\fP to print a message, then mimic the usual effect of the signal\&.
+.PP
+.RS
+.nf
+\fBTRAPINT() {
+  print "Caught SIGINT, aborting\&."
+  return $(( 128 + $1 ))
+}\fP
+.fi
+.RE
+.PP
+The functions \fBTRAPZERR\fP, \fBTRAPDEBUG\fP and \fBTRAPEXIT\fP are never
+executed inside other traps\&.
 .RE
 .TP
 \fBTRAPDEBUG\fP
@@ -977,7 +1068,7 @@ an interactive shell associates a \fIjob\fP with each pipeline\&.
 It keeps a table of current jobs, printed by the \fBjobs\fP
 command, and assigns them small integer numbers\&.
 When a job is started asynchronously with `\fB&\fP',
-the shell prints a line which looks like:
+the shell prints a line to standard error which looks like:
 .PP
 .RS
 .nf
@@ -1046,6 +1137,8 @@ The shell learns immediately whenever a process changes state\&.
 It normally informs you whenever a job becomes blocked so that
 no further progress is possible\&.  If the \fBNOTIFY\fP option is not set,
 it waits until just before it prints a prompt before it informs you\&.
+All such notifications are sent directly to the terminal, not to
+the standard output or standard error\&.
 .PP
 When the monitor mode is on, each background job that completes
 triggers any trap set for \fBCHLD\fP\&.
@@ -1699,7 +1792,8 @@ True if at least \fIn\fP shell constructs were started\&.
 \fBC\fP
 .TP
 \fB/\fP
-True if the current absolute path has at least \fIn\fP elements\&.
+True if the current absolute path has at least \fIn\fP elements
+relative to the root directory, hence \fB/\fP is counted as 0 elements\&.
 .TP
 \fBc\fP
 .TP
@@ -1707,7 +1801,8 @@ True if the current absolute path has at least \fIn\fP elements\&.
 .TP
 \fB~\fP
 True if the current path, with prefix replacement, has at
-least \fIn\fP elements\&.
+least \fIn\fP elements relative to the root directory, hence \fB/\fP is
+counted as 0 elements\&.
 .TP
 \fBD\fP
 True if the month is equal to \fIn\fP (January = 0)\&.

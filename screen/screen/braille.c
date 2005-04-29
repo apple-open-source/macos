@@ -24,8 +24,6 @@
  *
  ****************************************************************
  */
-#include "rcs.h"
-RCS_ID("$Id: braille.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $")
 
 #include <stdio.h>
 #include <fcntl.h>

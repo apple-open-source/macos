@@ -1,3 +1,92 @@
+---------------------------------
+  After X-TT Project
+---------------------------------
+
+* Changes from 1.4.2rc1 to 1.4.2
+  - Added minor improvements.
+
+* Changes from 1.4.1 to 1.4.2rc1
+  - Fixed several bugs of make_up_italic_bitmap() function.
+  - Changed the order of priority of mapIDRelations in JISX0208 and JISX0201
+    code converter. The windows ucs2 is given the highest priority for kochi-substitute
+    Japanese fonts.
+  - Fixed code relation in cc_jisx0208_to_std_ucs2() function.
+    (not 0x215d -> 0x00b1 but 0x215d -> 0x2212)
+  - Added minor improvements.
+
+* Changes from 1.4.1rc1 to 1.4.1
+  - Added minor improvements.
+
+* Changes from 1.4.0 to 1.4.1rc1
+  - Fixed an X server crash because of an inconsistency problem between XFree86
+    and X-TT(reported by Koike Kazuhiko).
+  - Improved fix to prevent NULL dereference when the font cache becomes full;
+    solution by allocation of a dummy area for bitmap.
+
+* Changes from 1.4.0rc1 to 1.4.0
+  - Fixed an X server crash when using LucidaSansRegular.ttf
+    (reported by Koike Kazuhiko).
+  - Added U+20AC and U+00AE characters to KSCJOHABtoUCS2.c and 
+    KSC5601toUCS2.c(Jungshik Shin).
+  - Added ksc5601.*-3 and ksx1001.*-3 to KSCJOHAB/main.c(Jungshik Shin).
+
+* Changes from 1.4.0beta1 to 1.4.0rc1
+  - Improved fix for server crash that appears on Linux/PPC.
+  - Support for reverse `fc' specification. `fc=0xaa00-0xa0ff' means
+    specifying the ranges 0x0000-0xa0ff and 0xaa00-0xffff. This is 
+    useful for GB18030 proportional fonts.
+  - Preparation for extending the encoding field of XLFD. The X-TT permits the
+    following additional XLFD format:
+    "-foo-foo-medium-r-normal--0-0-0-0-c-0-foo.2000-0.0"
+    "-foo-foo-medium-r-normal--0-0-0-0-c-0-foo.2000-0.1"
+    The last number can be used to indicate the plane number of a huge character set.
+  - Added patch for mktcapdir-0.5.4 and some ttfconf files suitable for X-TT
+    1.4.0.
+  - Other minor improvements.
+
+* Changes from 1.3.0 on XF86-4.3.0 to 1.4.0beta1
+  - Improved fix to crashs caused when certain fonts (e.g. verdana.ttf)
+    are used; solution based on investigating the true nature of the problem.
+  - Improved performance based on the solution to the buffer overflow problem,
+    caused by exceeding the range of maxbounds.ascent/maxbounds.descent. 
+    This problem occurred only when `-m-' spacing was used.
+  - Performance improvement of FreeTypeGetMetrics() function.
+  - New options for TTCap, `fc' and `fm': they enable the *extremely*
+    fast loading of big Japanese or unicode fonts with `-p-' in the
+    XLFD.
+  - Enhancements for `ds', `eb' and `bw' options.
+  - Using Embedded Bitmap with the option `eb=y' when Auto Italic is set.
+  - Trying to use TT_Load_Glyph_Bitmap() in get_metrics() when `bs'
+    option is not set.
+  - Extension of code converter modules for ARABIC, ARMSCII8,
+    BIG5HKSCS, GB18030, ISO8859.*, etc. (Pablo Saratxaga, James Su)
+  - Some other minor improvements.
+
+* Changes from 1.3.0 to 1.3.0 on XF86-4.3.0
+  - Fixed an X server crash that appears on Linux/PPC, related to 
+    invalid code converter module being loaded because of a broken
+    string comparison in xttcconv.c (Chisato Yamauchi, Daisuke 
+    MASATSUNA).
+  - Fixed an X server crash caused by a NULL dereference when the font
+    cache becomes full (Chisato Yamauchi, tokeijikakenoringo).
+  - Increased the default font cache size so that it works better for
+    iso10646 (Hidetoshi Yamano-uchi, Chisato Yamauchi).
+  - Fixed an X-TT garbage-display problem when glyphs are
+    undefined for fixed width fonts (Hidetoshi Yamano-uchi,
+    Chisato Yamauchi).
+  - Fixed an X server crash caused by returning a NULL pointer for the
+    bitmap, even when the height was non-zero. The problem occurred
+    when using some specific fonts (eg. verdana.ttf) and loading huge
+    fonts. (Chisato Yamauchi).
+  - Fixed an X server crash caused by buffer overflow. The problem was
+    caused by glyph ascent/descent exceeding the range of 
+    maxbounds.ascent/maxbounds.descent (Chisato Yamauchi, Masanori
+    Shimada).
+
+---------------------------------
+  X-TrueType Server Project
+---------------------------------
+
 * Changes between 1.2.92 and 1.3.0
   - fix the ttcno (uninitialized variable was used).
   - add TTCap "bs" by Hidetoshi Yamano-uchi.

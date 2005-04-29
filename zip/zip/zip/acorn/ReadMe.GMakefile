@@ -1,0 +1,11 @@
+GMakefile is for use with Acorn RISC OS and the forthcoming
+post-Acorn RISC OS for the compilation of both the current release and
+development versions of zip.
+
+They require that you have gcc 2.7.2.1, a suitable 'make' utility and the gcc
+patches and the shared C library stubs available from
+<URL:http://www.btinternet.com/~nick.burrett/>.
+
+You *will* also need <URL:http://www.youmustbejoking.demon.co.uk/progs/AS.zip>;
+'standard' AS (as supplied with gcc) will fall over on the switches specified
+in $(ASMFLAGS) in the above makefile.

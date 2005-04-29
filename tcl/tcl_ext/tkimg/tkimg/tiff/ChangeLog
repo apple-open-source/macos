@@ -1,0 +1,10 @@
+2002-11-26  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* tiff.c: Now compiles, with extended tifftcl (see there).
+	* tiffZip.c: Compiles.
+	* tiffJpeg.c: Compiles.
+	* tiffPixar.c: Compiles.
+	* Compiles ok, library loads ok.
+
+	* Start of logging.
+	* tkimg/tiff: TIFF photo image type.

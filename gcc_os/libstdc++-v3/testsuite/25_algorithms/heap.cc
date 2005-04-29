@@ -95,13 +95,21 @@ test02()
 
     for (int i = 2; i <= N; ++i) {
         std::push_heap(s1, s1 + i, gt);
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifndef _GLIBCXX_DEBUG
         VERIFY(gt.count() <= logN);
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
         gt.reset();
     }
 
     for (int i = N; i >= 2; --i) {
         std::pop_heap(s1, s1 + i, gt);
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifndef _GLIBCXX_DEBUG
         VERIFY(gt.count() <= 2 * logN);
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
         gt.reset();
     }
 
@@ -117,8 +125,9 @@ test02()
     gt.reset();
 
     std::sort_heap(s2, s2 + N, gt);
+#ifndef _GLIBCXX_DEBUG
     VERIFY(gt.count() <= N * logN);
-
+#endif
     VERIFY(std::equal(s2, s2 + N, C));
 }
 

@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   11/17/99    aliu        Creation.
-**********************************************************************
-*/
+ **********************************************************************
+ *   Copyright (C) 1999-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *   Date        Name        Description
+ *   11/17/99    aliu        Creation.
+ **********************************************************************
+ */
 
 #include "unicode/utypes.h"
 
@@ -29,12 +29,13 @@
 #include "rbt_rule.h"
 #include "strmatch.h"
 #include "strrepl.h"
-#include "symtable.h"
+#include "unicode/symtable.h"
 #include "tridpars.h"
 #include "uvector.h"
 #include "util.h"
 #include "cmemory.h"
 #include "uprops.h"
+#include "putilimp.h"
 
 // Operators
 #define VARIABLE_DEF_OP ((UChar)0x003D) /*=*/
@@ -953,7 +954,7 @@ void TransliteratorParser::parseRules(const UnicodeString& rule,
             int32_t p = pos;
             
             TransliteratorIDParser::SingleID* id =
-                TransliteratorIDParser::parseSingleID(rule, p, direction);
+                TransliteratorIDParser::parseSingleID(rule, p, direction, status);
             if (p != pos && ICU_Utility::parseChar(rule, p, END_OF_RULE)) {
                 // Successful ::ID parse.
                 
@@ -1093,7 +1094,7 @@ UBool TransliteratorParser::checkVariableRange(UChar32 ch) const {
  * Set the maximum backup to 'backup', in response to a pragma
  * statement.
  */
-void TransliteratorParser::pragmaMaximumBackup(int32_t backup) {
+void TransliteratorParser::pragmaMaximumBackup(int32_t /*backup*/) {
     //TODO Finish
 }
 
@@ -1101,7 +1102,7 @@ void TransliteratorParser::pragmaMaximumBackup(int32_t backup) {
  * Begin normalizing all rules using the given mode, in response
  * to a pragma statement.
  */
-void TransliteratorParser::pragmaNormalizeRules(UNormalizationMode mode) {
+void TransliteratorParser::pragmaNormalizeRules(UNormalizationMode /*mode*/) {
     //TODO Finish
 }
 
@@ -1417,7 +1418,7 @@ int32_t TransliteratorParser::syntaxError(UErrorCode parseErrorCode,
  */
 UChar TransliteratorParser::parseSet(const UnicodeString& rule,
                                           ParsePosition& pos) {
-    UnicodeSet* set = new UnicodeSet(rule, pos, *parseData, status);
+    UnicodeSet* set = new UnicodeSet(rule, pos, USET_IGNORE_SPACE, parseData, status);
     set->compact();
     return generateStandInFor(set);
 }

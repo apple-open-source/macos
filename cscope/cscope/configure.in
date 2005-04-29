@@ -1,152 +1,24 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(src/basename.c)
-AM_INIT_AUTOMAKE(cscope, 15.3)
+AC_INIT
+AC_CONFIG_SRCDIR([src/basename.c])
+AM_INIT_AUTOMAKE(cscope, 15.5)
 AM_CONFIG_HEADER(config.h:config.h.in)
+AC_PREREQ(2.57)
 AC_CANONICAL_HOST
 
-dnl check if user specified lexer as arg and set LEX accordingly
-AC_DEFUN(AC_CHECK_LEXER,[
-        AC_MSG_CHECKING(user specification of lexer)
-	AC_ARG_WITH(flex,
-	  [  --with-flex             Use this to specify explicit use of flex],[
-	  if test x$withval = xyes; then
-		LEX=flex
-	  fi
-        ])
-
-	AC_ARG_WITH(lex,
-	  [  --with-lex              Use this to specify explicit use of lex],[
-	  if test x$withval = xyes; then
-		LEX=lex
-	  fi
-	])
-        AC_MSG_RESULT($LEX)
-])
-
-dnl check if user specified yacc program  as arg and set YACC accordingly
-AC_DEFUN(AC_CHECK_YACC,[
-    AC_MSG_CHECKING(user specification of yacc)
-    AC_ARG_WITH(yacc,
-	  [  --with-yacc             Use this to specify explicit use of yacc],[
-	  if test x$withval = xyes; then
-		YACC=yacc
-	  fi
-        ])
-    AC_ARG_WITH(byacc,
-	  [  --with-byacc            Use this to specify explicit use of byacc],[
-	  if test x$withval = xyes; then
-		YACC=byacc
-	  fi
-        ])
-    AC_ARG_WITH(bison,
-	  [  --with-bison            Use this to specify explicit use of bison],[
-	  if test x$withval = xyes; then
-		YACC='bison -y'
-	  fi
-        ])
-    AC_MSG_RESULT($YACC)
-])
-
-
-dnl === BEGIN aclocal REPLACEMENT MACROS
-dnl 
-# ACNU_PROG_LEX fm AC_PROG_LEX 
-# -----------  
-dnl chg: probes for lib in /usr/local/lib
-dnl sheesh you'd have thought that this was obvious enough to be done anyway
-AC_DEFUN(ACNU_PROG_LEX,[
-dnl   autoconf-2.14a
-dnl    AH_CHECK_LIB(fl)dnl
-dnl    AH_CHECK_LIB(l)dnl
-    AC_CHECK_PROG(LEX, flex, flex, lex)
-    if test -z "$LEXLIB"
-    then
-      case "$LEX" in
-      flex*) ac_lib=fl ;;
-      *) ac_lib=l ;;
-      esac
-      LDFLAGS='-L/usr/local/lib'
-      AC_CHECK_LIB($ac_lib, yywrap, LEXLIB="-L/usr/local/lib -l$ac_lib")
-      LDFLAGS=
-    fi
-    AC_SUBST(LEXLIB)
-])
-
-dnl ACNU_DECL_YYTEXT fm AC_DECL_YYTEXT
-# --------------  
-# chg: has requirement on ACNU_PROG_LEX instead of  AC_PROG_LEX
-# Check if lex declares yytext as a char * by default, not a char[].
-AC_DEFUN([ACNU_DECL_YYTEXT],[
-    AC_REQUIRE_CPP()dnl
-    AC_REQUIRE([ACNU_PROG_LEX])dnl
-    AC_CACHE_CHECK(lex output file root, ac_cv_prog_lex_root,
-    [# The minimal lex program is just a single line: %%.  But some broken lexes
-    # (Solaris, I think it was) want two %% lines, so accommodate them.
-    echo '%%
-    %%' | $LEX
-    if test -f lex.yy.c; then
-      ac_cv_prog_lex_root=lex.yy
-    elif test -f lexyy.c; then
-      ac_cv_prog_lex_root=lexyy
-    else
-      AC_MSG_ERROR(cannot find output from $LEX; giving up)
-    fi])
-    LEX_OUTPUT_ROOT=$ac_cv_prog_lex_root
-    AC_SUBST(LEX_OUTPUT_ROOT)dnl
-
-    AC_CACHE_CHECK(whether yytext is a pointer, ac_cv_prog_lex_yytext_pointer,
-    [# POSIX says lex can declare yytext either as a pointer or an array; the 
-      # default is implementation-dependent. Figure out which it is, since
-      # not all implementations provide the %pointer and %array declarations.
-      ac_cv_prog_lex_yytext_pointer=no
-      echo 'extern char *yytext;' >>$LEX_OUTPUT_ROOT.c
-      ac_save_LIBS=$LIBS
-      LIBS="$LIBS $LEXLIB"
-      AC_TRY_LINK(`cat $LEX_OUTPUT_ROOT.c`, , ac_cv_prog_lex_yytext_pointer=yes)
-dnl autoconf 2.14
-dnl      AC_LINK_IFELSE([`cat $LEX_OUTPUT_ROOT.c`], ac_cv_prog_lex_yytext_pointer=yes)
-      LIBS=$ac_save_LIBS
-      rm -f "${LEX_OUTPUT_ROOT}.c"
-    ])
-    dnl
-    if test $ac_cv_prog_lex_yytext_pointer = yes; then
-      AC_DEFINE(YYTEXT_POINTER, 1,
-            [Define if lex declares yytext as a char * by default,
-             not a char[].])
-    fi
-])# AC_DECL_YYTEXT1
-
-
-dnl AMNU_PROG_LEX fm  AM_PROG_LEX
-dnl --------------
-dnl chg: uses submacros (above) that look in /usr/local/lib
-dnl Look for flex, lex or missing, then run ACNU_PROG_LEX and ACNU_DECL_YYTEXT
-AC_DEFUN(AMNU_PROG_LEX,[
-    missing_dir=ifelse([$1],,`cd $ac_aux_dir && pwd`,$1)
-    AC_CHECK_PROGS(LEX, flex lex, "$missing_dir/missing flex")
-    ACNU_PROG_LEX
-    ACNU_DECL_YYTEXT
-dnl set up variable used to choose between the two lexer sources...
-    if test "x$LEX" = "xlex" ; then
-	AC_DEFINE(USING_LEX)
-    fi
-])
-dnl === END aclocal REPLACEMENT MACROS
-
-
 dnl User specification of lexer
-AC_CHECK_LEXER
+dnl AC_CHECK_LEXER
 dnl User specification of yacc
-AC_CHECK_YACC
+dnl AC_CHECK_YACC
 
 dnl Checks for programs.
 AC_PROG_INSTALL
 AC_PROG_CC
-AMNU_PROG_LEX
+AC_EXEEXT
+AC_PROG_LEX
 AM_CONDITIONAL(USING_LEX, test "x$LEX" = "xlex")
-dnl below is hack to shut automake up about things it shouldn't be checking
-if false; then
-    AM_PROG_LEX
+if test "x$LEX" = "xlex" ; then AC_DEFINE(USING_LEX, 1, 
+   [Define this if the scanner is run through lex, not flex])
 fi
 AC_PROG_YACC
 
@@ -252,7 +124,7 @@ AC_DEFUN(AC_CHECK_CURSES,[
 	AC_ARG_WITH(sco,
 	  [  --with-sco              Use this to turn on SCO-specific code],[
 	  if test x$withval = xyes; then
-		AC_DEFINE(SCO_FLAVOR)
+		AC_DEFINE(SCO_FLAVOR, 1, [Define if you want to turn on SCO-specific code])
 		CFLAGS="$CFLAGS -D_SVID3"
 	  fi
 	])
@@ -288,8 +160,8 @@ AC_DEFUN(AC_CHECK_CURSES,[
 		CURSES_INCLUDEDIR="-I$withval/include"
 		search_ncurses=false
 		screen_manager="ncurses"
-		AC_DEFINE(USE_NCURSES)
-		AC_DEFINE(HAS_CURSES)
+		AC_DEFINE(USE_NCURSES, 1, [Use Ncurses?])
+		AC_DEFINE(HAS_CURSES, 1, [Found some version of curses that we're going to use])
 		has_curses=true
 	  fi
 	)
@@ -307,11 +179,11 @@ AC_DEFUN(AC_USE_SUNOS_CURSES, [
 	search_ncurses=false
 	screen_manager="SunOS 4.x /usr/5include curses"
 	AC_MSG_RESULT(Using SunOS 4.x /usr/5include curses)
-	AC_DEFINE(USE_SUNOS_CURSES)
+	AC_DEFINE(USE_SUNOS_CURSES, 1, [Use SunOS SysV curses?])
 	AC_DEFINE(HAS_CURSES)
 	has_curses=true
-	AC_DEFINE(NO_COLOR_CURSES)
-	AC_DEFINE(USE_SYSV_CURSES)
+	AC_DEFINE(NO_COLOR_CURSES, 1, [If your Curses does not have color define this one])
+	AC_DEFINE(USE_SYSV_CURSES, 1, [Use SystemV curses?])
 	CURSES_INCLUDEDIR="-I/usr/5include"
 	CURSES_LIBS="/usr/5lib/libcurses.a /usr/5lib/libtermcap.a"
 	AC_MSG_RESULT(Please note that some screen refreshs may fail)
@@ -354,9 +226,9 @@ dnl	AC_DEFINE(HAS_CURSES)
 dnl	has_curses=true
 dnl	AC_DEFINE(USE_BSD_CURSES)
 dnl	AC_MSG_RESULT(Please note that some screen refreshs may fail)
-dnl	AC_WARN(Use of the bsdcurses extension has some)
-dnl	AC_WARN(display/input problems.)
-dnl	AC_WARN(Reconsider using xcurses)
+dnl	AC_MSG_WARN([Use of the bsdcurses extension has some])
+dnl	AC_MSG_WARN([display/input problems.])
+dnl	AC_MSG_WARN([Reconsider using xcurses])
 dnl)
 
 	
@@ -381,7 +253,7 @@ AC_DEFUN(AC_NCURSES, [
 ])
 
 AC_DEFUN(AC_SEARCH_NCURSES, [
-    AC_CHECKING("location of ncurses.h file")
+    AS_MESSAGE(checking "location of ncurses.h file"...)
 
     AC_NCURSES(/usr/include, ncurses.h, -lncurses,, "ncurses on /usr/include")
     AC_NCURSES(/usr/include/ncurses, ncurses.h, -lncurses, -I/usr/include/ncurses, "ncurses on /usr/include/ncurses")
@@ -441,7 +313,7 @@ cat > conftest.$ac_ext <<EOF
 #undef VERSION
 VERSION:NCURSES_VERSION
 EOF
-        if (eval "$ac_cpp conftest.$ac_ext") 2>&AC_FD_CC |
+        if (eval "$ac_cpp conftest.$ac_ext") 2>&AS_MESSAGE_LOG_FD() |
   egrep "VERSION:" >conftest.out 2>&1; then
 changequote(,)dnl
             ncurses_version=`cat conftest.out|sed -e 's/^[^"]*"//' -e 's/".*//'`
@@ -453,7 +325,11 @@ changequote([,])dnl
 changequote(,)dnl
 	4.[01])
 changequote([,])dnl
-            AC_DEFINE(NCURSES_970530,2)
+            AC_DEFINE(NCURSES_970530,2,
+	[Set to reflect version of ncurses: 
+	0 = version 1.*
+	1 = version 1.9.9g
+	2 = version 4.0/4.1])
             ;;
 	1.9.9g)
             AC_DEFINE(NCURSES_970530,1)
@@ -473,6 +349,35 @@ dnl Checks for libraries.
 dnl Replace `main' with a function in -lcurses:
 dnl AC_CHECK_LIB(curses, main)
 
+AC_CHECK_HEADER(regex.h, [], [
+  AC_MSG_ERROR([necessary header <regex.h> not found])
+])
+
+dnl Cygwin is a bit peculiar: it has the regcomp() functions, but in a
+dnl separate library, so we have to check for that:
+AC_CHECK_LIB(regex, regcomp)
+
+dnl Check for a GNOME installation
+
+AC_DEFUN(AC_CHECK_GNOME,[
+	has_gnome=false
+	AC_CHECK_PROG(gnome1, gnome-config, true)	
+	AC_CHECK_PROG(gnome2, pkg-config, true)
+
+	if test x$gnome1 = xtrue; then
+	  has_gnome=true
+	fi
+
+	if test x$gnome2 = xtrue; then
+	  has_gnome=true
+	fi
+	
+	AM_CONDITIONAL(USING_GNOME2, pkg-config --exists gtk+-2.0)
+	AM_CONDITIONAL(HAS_GNOME, test "$has_gnome" = true)
+	AM_CONDITIONAL(GNOME_LINUX, test "$host_os" = Linux)
+])
+
+AC_CHECK_GNOME
 dnl Checks for header files.
 AC_HEADER_DIRENT
 AC_HEADER_STDC
@@ -486,19 +391,19 @@ AC_TYPE_SIZE_T
 
 dnl Checks for library functions.
 AC_TYPE_SIGNAL
-AC_CHECK_FUNCS(getcwd regcmp regcomp strerror vsnprintf snprintf)
+AC_CHECK_FUNCS(strchr memcpy memset setmode _setmode)
+AC_CHECK_FUNCS(getcwd regcmp regcomp strerror vsnprintf snprintf lstat)
+AC_CHECK_FUNCS(fixkeypad)
+AC_FUNC_LSTAT
 
 case "$host_os" in
 	linux*)
-		AC_DEFINE(Linux)
+		AC_DEFINE(Linux, 1, [We're using some variant of Linux])
 	;;
-	netbsd*|freebsd*)
-		AC_DEFINE(BSD)
-	;;
-	darwin*)
-		AC_DEFINE(BSD)
-		AC_DEFINE(Darwin)
+	netbsd*|freebsd*|darwin*)
+		AC_DEFINE(BSD, 1, [We're using a BSD-flavoured Unix])
 	;;
 esac
 
-AC_OUTPUT([Makefile doc/Makefile src/Makefile contrib/Makefile])
+AC_CONFIG_FILES([Makefile doc/Makefile src/Makefile contrib/Makefile])
+AC_OUTPUT

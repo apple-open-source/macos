@@ -29,8 +29,8 @@
 #ifndef __DSCThread_h__
 #define __DSCThread_h__	1
 
-#include "DSLThread.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/DSLThread.h>
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 const sInt32 kEventPeriod			= 60;		// ticks
 const sInt32 kLongPeriod			= 10;		// ticks
@@ -55,11 +55,8 @@ public:
 		kTSUndefinedThread			= '----',
 		kTSMainThread				= 'main',
 		kTSAppThread				= 'appt', 
-		kTSHandlerThread			= 'hndl',
-		kTSInternalHandlerThread	= 'ihdl',
-		kTSCheckpwHandlerThread		= 'cpht',
+		kTSMigHandlerThread			= 'mhdl',
 		kTSPlugInHndlrThread		= 'pihn',
-		kTSListenerThread			= 'lstn',
 		kTSLauncherThread			= 'lnch',
 		kTSNodeRegisterThread		= 'ndrg',
 		kTSTCPListenerThread		= 'tcpl',

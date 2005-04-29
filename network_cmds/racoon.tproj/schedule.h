@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __SCHEDULE_H__
+#define __SCHEDULE_H__
+
 #include <sys/queue.h>
 
 /* scheduling table */
@@ -73,3 +76,6 @@ void sched_kill __P((struct sched *));
 int sched_dump __P((caddr_t *, int *));
 void sched_init __P((void));
 void sched_scrub_param __P((void *));
+
+#endif /* __SCHEDULE_H__ */
+

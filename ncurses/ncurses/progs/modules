@@ -1,4 +1,4 @@
-# $Id: modules,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $
+# $Id: modules,v 1.10 2000/01/02 01:30:45 tom Exp $
 # Program modules (some are in ncurses lib!)
 ##############################################################################
 # Copyright (c) 1998-2000 Free Software Foundation, Inc.                     #

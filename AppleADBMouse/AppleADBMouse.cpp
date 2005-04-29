@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -46,6 +43,13 @@ my_abs(int x)
 
 static bool add_usb_mouse(OSObject *, void *, IOService * );
 static bool remove_usb_mouse(OSObject *, void *, IOService * );
+
+enum {
+    kIgnoreTrackpadState_USBMouse           = 0x1,
+    kIgnoreTrackpadState_MouseKeys          = 0x2,
+    kIgnoreTrackpadState_MouseKeys_State_On = 0x4
+    
+};
 
 
 // ****************************************************************************
@@ -282,7 +286,6 @@ bool AppleADBMouseType4::start(IOService * provider)
     _resolution = deviceResolution << 16;
   }
 
-  _buttonCount = deviceNumButtons;
   _notifierA = _notifierT = NULL;  //Only used by trackpad, but inspected by all type 4 mice
   _gettime = OSSymbol::withCString("get_last_keydown");
   _mouseLock = IOLockAlloc(); 
@@ -323,10 +326,8 @@ bool AppleADBMouseType4::start(IOService * provider)
     setProperty(kIOHIDPointerAccelerationTypeKey, kIOHIDTrackpadAccelerationType); 
     
     //This is the only way to find out if we have new trackpad with W info passed in relative mode
-    if (_buttonCount == 4)
+    if ( deviceNumButtons == 4 )
     {
-	_buttonCount = 2;	//Assume Apple trackpads will always have 
-				//only 1 button and 1 gesture click
         setProperty("W Enhanced Trackpad", (unsigned long long)true, sizeof(Clicking)*8);
 	_isWEnhanced = true;
 	_usePantherSettings = false;
@@ -346,7 +347,9 @@ bool AppleADBMouseType4::start(IOService * provider)
         _notifierT = addNotification( gIOTerminatedNotification, serviceMatching( "IOHIPointing" ), 
             (IOServiceNotificationHandler)remove_usb_mouse, this, 0 ); 
     //The same C function can handle both firstmatch and termination notifications
-  
+
+	_buttonCount = 1;	//All Apple trackpads have 1 button - [3770193]
+
   return super::start(provider);
 }
 
@@ -363,7 +366,7 @@ void AppleADBMouseType4::free( void )
 	_notifierT->remove();
 	_notifierT = NULL;
     }
-    _ignoreTrackpad = false;
+    _ignoreTrackpadState = 0;
     _sticky2finger = false;
     _zonepeckingtimeAB = _keyboardTimeAB;  //unsticks trackpad when sleeping
     
@@ -454,7 +457,8 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
   AbsoluteTime	  now;
   
   IOLockLock(_mouseLock);
-  bool shouldIgnore = (_ignoreTrackpad && (_externalMice && (_externalMice->getCount() > 0 )));  
+  bool shouldIgnore = (((_ignoreTrackpadState & kIgnoreTrackpadState_USBMouse) && (_externalMice && (_externalMice->getCount() > 0 )))
+                        || ((_ignoreTrackpadState & kIgnoreTrackpadState_MouseKeys) && (_ignoreTrackpadState & kIgnoreTrackpadState_MouseKeys_State_On)));  
   IOLockUnlock(_mouseLock);
 
   
@@ -486,8 +490,6 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
 	    AbsoluteTime	keyboardtime; 
 	    UInt64		nowtime64, keytime64;
 
-	    keyboardtime.hi = 0;
-	    keyboardtime.lo = 0;
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, 
 		(void *)&keyboardtime, 0, 0, 0);
 	    clock_get_uptime(&now);
@@ -523,39 +525,34 @@ void AppleADBMouseType4::packet(UInt8 /*adbCommand*/, IOByteCount length, UInt8 
     dx |= (0xffffffc0 << (numExtraBytes * 3));
   
   clock_get_uptime(&now);
-  if(typeTrackpad)
-  {
-	if (_jittermove)
+	if( typeTrackpad && _jittermove && _pADBKeyboard )
 	{
-	    if (_pADBKeyboard)
-	    {
 		AbsoluteTime	keyboardtime; 
 		UInt64		nowtime64, keytime64;
 
-		keyboardtime.hi = 0;
-		keyboardtime.lo = 0;
 		_pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&keyboardtime, 0, 0, 0);
 		absolutetime_to_nanoseconds(now, &nowtime64);
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
 		if (nowtime64 - keytime64 < _jitterclicktime64)
 		{
-		    if ((my_abs(dx) < _jitterdelta) && (my_abs(dy) < _jitterdelta))
-		    {
-			if (!buttonState)
+			if ((my_abs(dx) < _jitterdelta) && (my_abs(dy) < _jitterdelta))
 			{
-			    //simulate no mouse move.  Keeps cursor invisible.
-			    return;
+				if (!buttonState && !_oldButtonState)
+				{
+					//simulate no mouse move.  Keeps cursor invisible.
+					return;
+				}
+				else
+				{
+					dx = 0;
+					dy = 0;
+				}
 			}
-			else
-			{
-			    dx = 0;
-			    dy = 0;
-			}
-		    }
 		}
-	    }
-	} //jittermove
-  }
+	}
+
+  _oldButtonState = buttonState;
+  
   dispatchRelativePointerEvent(dx, dy, buttonState, now);
 }
 
@@ -647,8 +644,6 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
     {
 	if ((_jitterclick) && (_pADBKeyboard))
 	{
-	    _keyboardTimeAB.hi = 0;
-	    _keyboardTimeAB.lo = 0;
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, 
 		(void *)&_keyboardTimeAB, 0, 0, 0);
 	    clock_get_uptime(&now);
@@ -702,19 +697,24 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
     {
 	if ((has2fingers) || (outzone && palm))
 	{
-	    if (!buttonState)
-	    {
-		//simulate no mouse move.  Keeps cursor invisible.
-		return;
+
+        //If current button state is empty and the prior button state was empty too, then
+        //simulate no mouse move to keep cursor invisible.  However, if the previous button
+        //state had a click, then a single button UP state should be sent to Window Server so that
+        //it does not keep buffering up typed text even though the user is not holding down
+        //the trackpad button in any way.
+	    if ( !buttonState && !_oldButtonState)
+	    { 
+            return;
 	    }
 	    else if ((data[1] & 0x80) == 0) //filter out gesture clicks
 	    {
-		return;
+            return;
 	    }
-	    else
+	    else //If a button is logicaly down, it needs to go to the Window Server but not dx, dy
 	    {
-		dx = 0;
-		dy = 0;
+            dx = 0;
+            dy = 0;
 	    }
 	}
     
@@ -723,17 +723,13 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
 	// input is rejected above ONLY if the palm is along the edge.  Palm contact in
 	// center of pad will always be allowed.
 	if (( !outzone) && (_pADBKeyboard))
-	{	    
-	    _keyboardTimeAB.hi = 0;
-	    _keyboardTimeAB.lo = 0;
+	{
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&_zonepeckingtimeAB, 0, 0, 0);
-	} else
-	if (_pADBKeyboard)
+	} 
+	else if (_pADBKeyboard)
 	{
 	    AbsoluteTime	  sub_now;
 
-	    _keyboardTimeAB.hi = 0;
-	    _keyboardTimeAB.lo = 0;
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&_keyboardTimeAB, 0, 0, 0);
 	    nanoseconds_to_absolutetime( (unsigned long long)( (unsigned long long)(5 * 60 * 1000) * (unsigned long long)(1000 * 1000) ), &_fake5minAB);
 	    sub_now = now;
@@ -747,7 +743,7 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
 		//if  (_zonepeckingtime64 != keytime64)
 		if ( CMP_ABSOLUTETIME ( &_zonepeckingtimeAB, &_keyboardTimeAB) != 0)
 		{
-		    if (!buttonState)
+		    if (!buttonState && !_oldButtonState)
 		    {
 			//simulate no mouse move.  Keeps cursor invisible.
 			return;
@@ -766,6 +762,7 @@ void AppleADBMouseType4::packetW(UInt8 /*adbCommand*/, IOByteCount length, UInt8
 	}
     } //jittermove
 
+  _oldButtonState = buttonState;
   dispatchRelativePointerEvent(dx, dy, buttonState, now);
 }
 
@@ -852,8 +849,6 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 	    AbsoluteTime	keyboardtime; 
 	    UInt64		nowtime64, keytime64;
 
-	    keyboardtime.hi = 0;
-	    keyboardtime.lo = 0;
 	    _pADBKeyboard->callPlatformFunction(_gettime, false, 
 		(void *)&keyboardtime, 0, 0, 0);
 	    clock_get_uptime(&now);
@@ -893,7 +888,7 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 	if ((_2fingernoaction && has2fingers) || (_palmnoaction && palm) || 
 	    (_zonenoaction && outzone))
 	{
-	    if (!buttonState)
+	    if (!buttonState && !_oldButtonState)
 	    {
 		//simulate no mouse move.  Keeps cursor invisible.
 		return;
@@ -905,15 +900,11 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 	    }
 	}
 
-	if (_jittermove)
+	if ( _jittermove && _pADBKeyboard )
 	{
-	    if (_pADBKeyboard)
-	    {
 		AbsoluteTime	keyboardtime; 
 		UInt64		nowtime64, keytime64;
 
-		keyboardtime.hi = 0;
-		keyboardtime.lo = 0;
 		_pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&keyboardtime, 0, 0, 0);
 		absolutetime_to_nanoseconds(now, &nowtime64);
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
@@ -921,19 +912,22 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 		{
 		    if ((my_abs(dx) < _jitterdelta) && (my_abs(dy) < _jitterdelta))
 		    {
-			if (!buttonState)
-			{
-			    //simulate no mouse move.  Keeps cursor invisible.
-			    return;
-			}
-			else
-			{
-			    dx = 0;
-			    dy = 0;
-			}
+                //If current button state is empty and the prior button state was empty too, then
+                //simulate no mouse move to keep cursor invisible.  However, if the previous button
+                //state had a click, then a single button UP state should be sent to Window Server so that
+                //it does not keep buffering up typed text even though the user is not holding down
+                //the trackpad button in any way.
+				if ( !buttonState && !_oldButtonState )
+				{
+                    return;
+				}
+				else
+				{
+					dx = 0;
+					dy = 0;
+				}
 		    }
 		}
-	    }
 	} //jittermove
 	
 	//I am assuming the UI eventually will make _zonenomove and _jittermove mutually
@@ -948,8 +942,6 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 		AbsoluteTime	keyboardtime; 
 		UInt64		nowtime64, keytime64;
 
-		keyboardtime.hi = 0;
-		keyboardtime.lo = 0;
 		_pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&keyboardtime, 0, 0, 0);
 		absolutetime_to_nanoseconds(now, &nowtime64);
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
@@ -975,7 +967,7 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 			// _ignorezone is set to false initially in ::enableEnhancedMode()
 			if (!_ignorezone)
 			{
-			    if (!buttonState)
+			    if (!buttonState && !_oldButtonState)
 			    {
 				return;
 			    }
@@ -1018,8 +1010,6 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 		AbsoluteTime	keyboardtime; 
 		UInt64		keytime64;
 
-		keyboardtime.hi = 0;
-		keyboardtime.lo = 0;
 		_pADBKeyboard->callPlatformFunction(_gettime, false, (void *)&keyboardtime, 0, 0, 0);
 		absolutetime_to_nanoseconds(keyboardtime, &keytime64);
 		if (outzone)
@@ -1030,7 +1020,7 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 		    //  not touch the center zone of the trackpad
 		    if  (_zonepeckingtime64 != keytime64)
 		    {
-			if (!buttonState)
+			if (!buttonState && !_oldButtonState)
 			{
 			    return;
 			}
@@ -1055,6 +1045,7 @@ void AppleADBMouseType4::packetWP(UInt8 /*adbCommand*/, IOByteCount length, UInt
 	} // _zonepecknomove
 
   }
+  _oldButtonState = buttonState;
   dispatchRelativePointerEvent(dx, dy, buttonState, now);
 }
 
@@ -1436,14 +1427,46 @@ IOReturn AppleADBMouseType4::setParamProperties( OSDictionary * dict )
 	    setProperty("USBMouseStopsTrackpad", (unsigned long long)(mode), sizeof(mode)*8);
 	    if (mode)
 	    {                
-                _ignoreTrackpad = true;
+                _ignoreTrackpadState |= kIgnoreTrackpadState_USBMouse;
 	    }
 	    else
 	    {
-		_ignoreTrackpad = false;
+                _ignoreTrackpadState &= ~kIgnoreTrackpadState_USBMouse;
 	    }
     
 	}
+	if (datan = OSDynamicCast(OSNumber, dict->getObject("MouseKeysStopsTrackpad"))) 
+	{
+	    UInt8		mode;
+    
+	    mode = datan->unsigned32BitValue();	
+	    setProperty("MouseKeysStopsTrackpad", (unsigned long long)(mode), sizeof(mode)*8);
+	    if (mode)
+	    {                
+                _ignoreTrackpadState |= kIgnoreTrackpadState_MouseKeys;
+	    }
+	    else
+	    {
+                _ignoreTrackpadState &= ~kIgnoreTrackpadState_MouseKeys;
+	    }
+    
+	}
+	if (datan = OSDynamicCast(OSNumber, dict->getObject(kIOHIDMouseKeysOnKey))) 
+	{
+	    UInt8		mode;
+    
+	    mode = datan->unsigned32BitValue();	
+	    if (mode)
+	    {                
+                _ignoreTrackpadState |= kIgnoreTrackpadState_MouseKeys_State_On;
+	    }
+	    else
+	    {
+                _ignoreTrackpadState &= ~kIgnoreTrackpadState_MouseKeys_State_On;
+	    }
+    
+	}
+    
 	IOLockUnlock( _mouseLock);
     }  // end of typeTrackpad
 #if 0

@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed conversions
 // cvt file
 // Message-Id: <93Aug2.163542pdt.26892@franklin.parc.xerox.com>
@@ -11,4 +11,4 @@ typedef int A[10];
 int main()
 {
    int* a1 = new A;
-};
+}

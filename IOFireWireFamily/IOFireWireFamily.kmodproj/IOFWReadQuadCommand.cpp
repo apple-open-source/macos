@@ -195,7 +195,7 @@ IOReturn IOFWReadQuadCommand::execute()
                         fAddressLo, fSpeed, fTrans->fTCode, transfer, this);
     }
     else {
-		IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
+	//	IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
         result = kIOFireWireOutOfTLabels;
     }
 

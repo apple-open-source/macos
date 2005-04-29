@@ -1,0 +1,114 @@
+<?xml version="1.0"?>
+<SOAP-ENV:Envelope SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/1999/XMLSchema" xmlns:xsi="http://www.w3.org/1999/XMLSchema-instance">
+	<SOAP-ENV:Body>
+		<moderateSizeArrayCheck>
+			<myArray SOAP-ENC:arrayType="xsd:string[105]" xsi:type="SOAP-ENC:Array">
+				<item>Iowa</item>
+				<item>Maine</item>
+				<item>Nevada</item>
+				<item>North Dakota</item>
+				<item>Connecticut</item>
+				<item>South Carolina</item>
+				<item>Indiana</item>
+				<item>Nevada</item>
+				<item>Georgia</item>
+				<item>Indiana</item>
+				<item>Georgia</item>
+				<item>Indiana</item>
+				<item>Utah</item>
+				<item>Connecticut</item>
+				<item>New York</item>
+				<item>Massachusetts</item>
+				<item>Nebraska</item>
+				<item>South Carolina</item>
+				<item>Iowa</item>
+				<item>Wisconsin</item>
+				<item>Nevada</item>
+				<item>West Virginia</item>
+				<item>Indiana</item>
+				<item>South Dakota</item>
+				<item>Rhode Island</item>
+				<item>Kentucky</item>
+				<item>Arizona</item>
+				<item>Alabama</item>
+				<item>South Carolina</item>
+				<item>Maine</item>
+				<item>Texas</item>
+				<item>Nebraska</item>
+				<item>Maryland</item>
+				<item>New Mexico</item>
+				<item>South Dakota</item>
+				<item>Alabama</item>
+				<item>Nebraska</item>
+				<item>Maine</item>
+				<item>Vermont</item>
+				<item>Wisconsin</item>
+				<item>Iowa</item>
+				<item>North Carolina</item>
+				<item>New Hampshire</item>
+				<item>South Carolina</item>
+				<item>Delaware</item>
+				<item>California</item>
+				<item>Virginia</item>
+				<item>New Hampshire</item>
+				<item>Vermont</item>
+				<item>Kentucky</item>
+				<item>Kansas</item>
+				<item>Washington</item>
+				<item>Vermont</item>
+				<item>Pennsylvania</item>
+				<item>Mississippi</item>
+				<item>Oregon</item>
+				<item>North Carolina</item>
+				<item>Illinois</item>
+				<item>Iowa</item>
+				<item>Pennsylvania</item>
+				<item>Pennsylvania</item>
+				<item>New Hampshire</item>
+				<item>Vermont</item>
+				<item>Ohio</item>
+				<item>Minnesota</item>
+				<item>Wyoming</item>
+				<item>South Carolina</item>
+				<item>Oregon</item>
+				<item>Kansas</item>
+				<item>West Virginia</item>
+				<item>Massachusetts</item>
+				<item>New Hampshire</item>
+				<item>Oklahoma</item>
+				<item>Nebraska</item>
+				<item>Kansas</item>
+				<item>Delaware</item>
+				<item>Connecticut</item>
+				<item>Oklahoma</item>
+				<item>Mississippi</item>
+				<item>Mississippi</item>
+				<item>New Jersey</item>
+				<item>South Carolina</item>
+				<item>Utah</item>
+				<item>Oklahoma</item>
+				<item>New York</item>
+				<item>Delaware</item>
+				<item>Wisconsin</item>
+				<item>North Carolina</item>
+				<item>Idaho</item>
+				<item>Maryland</item>
+				<item>Nebraska</item>
+				<item>Alabama</item>
+				<item>Louisiana</item>
+				<item>West Virginia</item>
+				<item>Mississippi</item>
+				<item>Florida</item>
+				<item>Texas</item>
+				<item>New Mexico</item>
+				<item>Alabama</item>
+				<item>Wyoming</item>
+				<item>California</item>
+				<item>Michigan</item>
+				<item>Michigan</item>
+				<item>Georgia</item>
+				<item>Maryland</item>
+				</myArray>
+			</moderateSizeArrayCheck>
+		</SOAP-ENV:Body>
+	</SOAP-ENV:Envelope>

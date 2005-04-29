@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.sim,v 1.1.1.2 2002/11/06 23:21:40 jevans Exp $
+# $Id: Makefile.sim,v 2.3 2002/05/22 06:26:12 jhaegg Exp $
 #
 # To install mgm separately as gm.tmac:
 # make -f Makefile.sub tmacdir=/usr/local/lib/groff/tmac srcdir=. \

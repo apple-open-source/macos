@@ -23,6 +23,7 @@
 
 #include "macosx-nat-inferior.h"
 #include "macosx-nat-mutils.h"
+#include "macosx-nat-dyld-io.h"
 
 #include "defs.h"
 #include "inferior.h"
@@ -33,89 +34,112 @@
 
 #include <string.h>
 
-#if 0
-pef_load_library (const struct dyld_path_info *d, struct dyld_objfile_entry *e)
+
+void
+pef_load_library (const struct dyld_path_info *d,
+                  struct dyld_objfile_entry *e)
 {
   bfd *pbfd = NULL;
   bfd *sbfd = NULL;
   char *symname = NULL;
   asection *csection = NULL;
   asection *dsection = NULL;
-  struct section_addr_info addrs;
+  struct section_addr_info *addrs;
   unsigned int i = 0;
 
-  if (strcmp (bfd_get_target (pbfd), "pef-xlib") == 0) {
-    return pbfd;
-  }
+  pbfd =
+    inferior_bfd (e->dyld_name, e->dyld_addr, e->dyld_slide, e->dyld_length);
 
-  if (strcmp (bfd_get_target (pbfd), "pef") != 0) {
-    warning ("Unable to read symbols from %s: invalid file format \"%s\".",
-	     bfd_get_filename (pbfd), bfd_get_target (pbfd));
-    return pbfd;
-  }
-  
+  if (strcmp (bfd_get_target (pbfd), "pef-xlib") == 0)
+    {
+      return;
+    }
+
+  if (strcmp (bfd_get_target (pbfd), "pef") != 0)
+    {
+      warning ("Unable to read symbols from %s: invalid file format \"%s\".",
+               bfd_get_filename (pbfd), bfd_get_target (pbfd));
+      return;
+    }
+
   csection = bfd_get_section_by_name (pbfd, "code");
-  if (csection == NULL) {
-    warning ("Unable to find 'code' section in pef container \"%s\" at address 0x%lx for 0x%lx",
-	     name, (unsigned long) address, (unsigned long) length);
-    return pbfd;
-  }
+  if (csection == NULL)
+    {
+      warning
+        ("Unable to find 'code' section in pef container \"%s\" at address 0x%s for 0x%lx",
+         e->dyld_name, paddr_nz (e->dyld_addr),
+         (unsigned long) e->dyld_length);
+      return;
+    }
 
   dsection = bfd_get_section_by_name (pbfd, "packed-data");
-  if (dsection == NULL) {
-    warning ("Unable to find 'packed-data' section in pef container \"%s\" at address 0x%lx for 0x%lx",
-	     name, (unsigned long) address, (unsigned long) length);
-    return pbfd;
-  }
+  if (dsection == NULL)
+    {
+      warning
+        ("Unable to find 'packed-data' section in pef container \"%s\" at address 0x%s for 0x%lx",
+         e->dyld_name, paddr_nz (e->dyld_addr),
+         (unsigned long) e->dyld_length);
+      return;
+    }
 
-  symname = xmalloc (strlen (name) + strlen (".xSYM") + 1);
-  sprintf (symname, "%s%s", name, ".xSYM");
+  symname = xmalloc (strlen (e->dyld_name) + strlen (".xSYM") + 1);
+  sprintf (symname, "%s%s", e->dyld_name, ".xSYM");
   sbfd = bfd_openr (symname, "sym");
-#if 0
-  if (sbfd == NULL) {
-    warning ("unable to open \"%s\": %s", symname, bfd_errmsg (bfd_get_error ()));
-  }
-#endif
-
-  for (i = 0; i < MAX_SECTIONS; i++) {
-    addrs.other[i].name = NULL;
-    addrs.other[i].addr = address;
-    addrs.other[i].sectindex = 0;
-  }
-  addrs.addrs_are_offsets = 1;
-
-  if (pbfd != NULL) {
-    if (! bfd_check_format (pbfd, bfd_object)) {
-      warning ("file \"%s\" is not a valid symbol file", pbfd->filename);
-    } else {
-      symbol_file_add_bfd_safe (pbfd, 0, &addrs, 0, 0, 0, 0);
+  if (sbfd == NULL)
+    {
+      warning ("unable to open \"%s\": %s", symname,
+               bfd_errmsg (bfd_get_error ()));
     }
-  }
 
-  addrs.other[0].name = "code";
-  addrs.other[0].addr = address + csection->vma;
-  addrs.other[0].sectindex = 0;
+  addrs = alloc_section_addr_info (bfd_count_sections (pbfd));
 
-  addrs.other[1].name = "packed-data";
-  addrs.other[1].addr = address + dsection->vma;
-  addrs.other[1].sectindex = 1;
-  
-  for (i = 2; i < MAX_SECTIONS; i++) {
-    addrs.other[i].name = NULL;
-    addrs.other[i].addr = address + csection->vma;
-    addrs.other[i].sectindex = 0;
-  }
-
-  addrs.addrs_are_offsets = 1;
-
-  if (sbfd != NULL) {
-    if (! bfd_check_format (sbfd, bfd_object)) {
-      warning ("file \"%s\" is not a valid symbol file", sbfd->filename);
-    } else {
-      symbol_file_add_bfd_safe (sbfd, 0, &addrs, 0, 0, 0, 0);
+  for (i = 0; i < addrs->num_sections; i++)
+    {
+      addrs->other[i].name = NULL;
+      addrs->other[i].addr = e->dyld_addr;
+      addrs->other[i].sectindex = 0;
     }
-  }
 
-  return pbfd;
+  addrs->addrs_are_offsets = 1;
+
+  if (pbfd != NULL)
+    {
+      if (!bfd_check_format (pbfd, bfd_object))
+        {
+          warning ("file \"%s\" is not a valid symbol file", pbfd->filename);
+        }
+      else
+        {
+          symbol_file_add_bfd_safe (pbfd, 0, addrs, 0, 0, e->load_flag, 0, 0);
+        }
+    }
+
+  addrs->other[0].name = "code";
+  addrs->other[0].addr = e->dyld_addr + csection->vma;
+  addrs->other[0].sectindex = 0;
+
+  addrs->other[1].name = "packed-data";
+  addrs->other[1].addr = e->dyld_addr + dsection->vma;
+  addrs->other[1].sectindex = 1;
+
+  for (i = 2; i < addrs->num_sections; i++)
+    {
+      addrs->other[i].name = NULL;
+      addrs->other[i].addr = e->dyld_addr + csection->vma;
+      addrs->other[i].sectindex = 0;
+    }
+
+  addrs->addrs_are_offsets = 1;
+
+  if (sbfd != NULL)
+    {
+      if (!bfd_check_format (sbfd, bfd_object))
+        {
+          warning ("file \"%s\" is not a valid symbol file", sbfd->filename);
+        }
+      else
+        {
+          symbol_file_add_bfd_safe (sbfd, 0, addrs, 0, 0, e->load_flag, 0, 0);
+        }
+    }
 }
-#endif

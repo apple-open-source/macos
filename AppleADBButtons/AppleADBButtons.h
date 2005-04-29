@@ -2,26 +2,23 @@
 #define _APPLEADBBUTTONS_H
 
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -57,17 +54,24 @@ class AppleADBButtons :  public IOHIKeyboard
 private:
 
     unsigned int	keycodes[kMax_registrations];
-    void *		registrants[kMax_registrations];
-    button_handler	downHandlers[kMax_registrations];
+    thread_call_t	downHandlerThreadCalls[kMax_registrations];
 
     void dispatchButtonEvent (unsigned int, bool );
     UInt32		_initial_handler_id;
-    const OSSymbol 	*register_for_button;
+    const OSSymbol 	*_register_for_button;
+    UInt32              _cachedKeyboardFlags;
     UInt32		_eject_delay;
     thread_call_t	_peject_timer;
     bool		_eject_released;
-    IOService 		*_pADBKeyboard;
-    const OSSymbol 	*_get_handler_id, *_get_device_flags;
+	IONotifier			*_publishNotify;
+	IONotifier			*_terminateNotify;
+	IOHIKeyboard		*_pADBKeyboard;
+    
+    static bool _publishNotificationHandler( void *target, 
+                                void *ref, IOService *newService );
+    
+    static bool _terminateNotificationHandler( void *target, 
+								void *ref, IOService *service );
 
 public:
 
@@ -79,12 +83,15 @@ public:
 
 public:
 
-    IOService * displayManager;			// points to display manager
     IOADBDevice *	adbDevice;
 
+    bool init(OSDictionary * properties);
     bool start ( IOService * theNub );
+    void free();
     IOReturn packet (UInt8 * data, IOByteCount length, UInt8 adbCommand );
     IOReturn registerForButton ( unsigned int, IOService *, button_handler, bool );
+    bool doesKeyLock( unsigned key );
+    void setDeviceFlags(unsigned flags); // Set device event flags
 
     IOReturn setParamProperties(OSDictionary *dict);
     virtual IOReturn callPlatformFunction(const OSSymbol *functionName,

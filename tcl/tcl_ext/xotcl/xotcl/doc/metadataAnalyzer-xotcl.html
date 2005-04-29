@@ -1,0 +1,599 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/lib/metadataAnalyzer.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/lib/metadataAnalyzer.xotcl" ALIGN="MIDDLE">
+  ./../library/lib/metadataAnalyzer.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::metadataAnalyzer 0.84
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#@">
+          <em>@</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#AnalyzerCmd">
+          <em>AnalyzerCmd</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#ClassToken">
+          <em>ClassToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#ConstraintToken">
+          <em>ConstraintToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#FileToken">
+          <em>FileToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#InstprocToken">
+          <em>InstprocToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MetaClassToken">
+          <em>MetaClassToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MetadataAnalyzer">
+          <em>MetadataAnalyzer</em>:
+        </A>
+        <a href="#MetadataAnalyzer-print">print</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MetadataToken">
+          <em>MetadataToken</em>:
+        </A>
+        <a href="#MetadataToken-print">print</a>, <a href="#MetadataToken-printProperties">printProperties</a>, <a href="#MetadataToken-sortTokenList">sortTokenList</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#MethodToken">
+          <em>MethodToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#ObjToken">
+          <em>ObjToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#PackageToken">
+          <em>PackageToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#ProcToken">
+          <em>ProcToken</em>:
+        </A>
+        
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/lib/metadataAnalyzer.xotcl">
+      ./../library/lib/metadataAnalyzer.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+    XOTcl file analyzer for @ metadata. E.g.\ used for 
+    doumentation with xoDoc (but in the static variant 
+    StaticMetadataAnalyzer which uses the dynamic 
+    variant in this file).
+    <p>
+    Sample sample usage:
+    <pre>
+    package require xotcl::metadataAnalyzer
+
+    # instantiate metadata analyzer object
+    MetadataAnalyzer @::m
+    # make this object be known to @ and turn @ metadata processing on
+    @ analyzerObj @::m
+    @ onOff 1
+
+    # read in some metadata tags (in sample file) & execute the file
+    source lib/testx.xotcl
+
+    # turn @ metadata processing off again
+    @ onOff 0
+
+    # print out all collected metadata
+    puts [@::m print]
+    </pre>
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="@">
+        
+      </A>
+      <h2> Object: <em> @ </em> </h2>
+      <b>Class</b>: AnalyzerCmd
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Recreate @ with metadata analyis funtionality.
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="AnalyzerCmd">
+        
+      </A>
+      <h2> Class: <em> AnalyzerCmd </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Class that overload the unknown mechanism of @ to provide metadata analysis.
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="ClassToken">
+        
+      </A>
+      <h2> Class: <em> ClassToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: ObjToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Class metadata. Contains additional parameters:
+    "instprocList" = list of all instproc token.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="ConstraintToken">
+        
+      </A>
+      <h2> Class: <em> ConstraintToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for @Constraint Metadata.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="FileToken">
+        
+      </A>
+      <h2> Class: <em> FileToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for @File Metadata.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="InstprocToken">
+        
+      </A>
+      <h2> Class: <em> InstprocToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MethodToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Instproc metadata.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MetaClassToken">
+        
+      </A>
+      <h2> Class: <em> MetaClassToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: ClassToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Meta-Class metadata.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MetadataAnalyzer">
+        
+      </A>
+      <h2> Class: <em> MetadataAnalyzer </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#MetadataAnalyzer-print">print</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Handler class for building a metadata runtime structure
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="MetadataAnalyzer-print">
+            
+          </A>
+          <b>print </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Print all collected token information to stdout. 
+   This method is also an exmaple how the tokens can be used.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MetadataToken">
+        
+      </A>
+      <h2> Class: <em> MetadataToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#MetadataToken-print">print</a>, <a href="#MetadataToken-printProperties">printProperties</a>, <a href="#MetadataToken-sortTokenList">sortTokenList</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Each collected metadata element is stored in a token object.
+    MetadataToken is superclass of token object classes. Each metadata token
+    has two interesting parameters: 
+    <p>
+    "properties" contains list of all described metadata properties. E.g. can
+    be printed with
+    <pre>
+    foreach p [my set properties] { 
+      if {[my exists $p]} {
+        append c "    $p=[my set $p]\n"
+      }
+    }
+    </pre>
+    "name" contains the method, object, ... name of the metadata element.
+    <p>
+    All metadata token are aggregated by @. Therefore, 
+     <pre>
+    foreach mdt [@ info children] { 
+      if {[$mdt istype MetadataToken]} {$mdt print}
+    }
+    </pre>
+    prints all token.
+
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="MetadataToken-printProperties">
+            
+          </A>
+          <b>printProperties </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Print metadata properties to stdout.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="MetadataToken-print">
+            
+          </A>
+          <b><em>abstract</em></b>
+          <b>print </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Abstract method for printing a token to stdout.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="MetadataToken-sortTokenList">
+            
+          </A>
+          <b>sortTokenList </b>
+          <em>l</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>l</b>: token list
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Sort a token list with names. Since names are autonames, 
+    this means order of appearance in the program.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="MethodToken">
+        
+      </A>
+      <h2> Class: <em> MethodToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Method metadata. Contains additional parameters:
+    "arguments" of the method, "returnValue"  of the method, 
+    "obj" name, "abstract" = 0 or 1 (whether its an abstract method or not).
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="ObjToken">
+        
+      </A>
+      <h2> Class: <em> ObjToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Object metadata. Contains additional parameters:
+    "procList" = list of all proc token and "cl"= class name.
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="PackageToken">
+        
+      </A>
+      <h2> Class: <em> PackageToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MetadataToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Package metadata. Contains additional parameters:
+    "version" of the package and "type"= either "require" or "provide".
+
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="ProcToken">
+        
+      </A>
+      <h2> Class: <em> ProcToken </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b>Heritage</b>: MethodToken
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Token for Proc metadata
+  
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

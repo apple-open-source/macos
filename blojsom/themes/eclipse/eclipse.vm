@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>$BLOJSOM_BLOG.getBlogName()</title>
+<link rel="stylesheet" href="$BLOJSOM_SITE_URL/blojsom-eclipse.css" />
+<link rel="SHORTCUT ICON" href="$BLOJSOM_SITE_URL/favicon.ico" />
+<link rel="alternate" type="application/rss+xml" title="RSS" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rss" />
+<link rel="EditURL" type="application/rsd+xml" title="RSD" href="$BLOJSOM_BLOG.getBlogURL()?flavor=rsd" />
+
+
+
+</head>
+
+<body>
+
+<div id="searchbox">
+<form class="searchform" method="post" action=".">
+<p class="searchtext">
+Search:&nbsp;&nbsp;<input size="14" type="text" name="query" value=""/>&nbsp;
+<input class="searchimage" type="image" src="$BLOJSOM_SITE_URL/search.png" value="submit"alt="Search"/>
+</p>
+</form>
+</div>
+
+
+<h1><a href="$BLOJSOM_BLOG.getBlogURL()">$BLOJSOM_BLOG.getBlogName()</a></h1>
+<h3>$BLOJSOM_BLOG.getBlogDescription()</h3>
+
+<p>Available categories:
+#foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+    [<i><a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></i>]
+#end</p>
+#set( $totalEntries = 0)
+<table class="mastertable">
+<tr>
+<td class="tablemaxwidth">
+#foreach ($entry in $BLOJSOM_ENTRIES)
+    <div class="entrystyle">
+    <p class="weblogtitle">$entry.getTitle() <span class="smalltext">[<a href="$entry.getLink()" title="Permalink to this blojsom entry">Permalink</a>]</span> </p>
+    <p class="weblogdateline">$entry.getDate()<br />
+    Category [<a href="$entry.getBlogCategory().getCategoryURL()">#if ($entry.getBlogCategory().getName())$entry.getBlogCategory().getName()#else$entry.getBlogCategory().getCategory()#end</a>]</p>
+    <p>$entry.getDescription()</p>
+    </div>
+    <p class="weblogbottomline">
+    #if ($BLOJSOM_COMMENTS_ENABLED.booleanValue() && $entry.supportsComments())
+    Comments [<a href="$entry.getLink()&amp;page=comments">$entry.getNumComments()</a>] |
+    #end
+    Trackbacks [<a href="$entry.getLink()&amp;page=trackback">$entry.getNumTrackbacks()</a>]
+    </p>
+    #set( $totalEntries = $totalEntries + 1)
+    #if ($BLOJSOM_PERMALINK)
+      <!-- Trackback Auto Discovery -->
+      #set( $blogDescription = $entry.getEscapedDescription() )
+      #if ($blogDescription.length() > 255 )
+          #set( $ellipses = "..." )
+          #set( $blogDescription = "$blogDescription.substring(0,252)$ellipses" )
+      #end
+<!--
+    <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+             xmlns:dc="http://purl.org/dc/elements/1.1/"
+             xmlns:trackback="http://madskills.com/public/xml/rss/module/trackback/">
+        <rdf:Description
+             rdf:about="$entry.getLink()"
+             dc:identifier="$entry.getLink()"
+             dc:title="$entry.getTitle()"
+             dc:subject="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()"
+             dc:description="$blogDescription"
+             dc:creator="$BLOJSOM_BLOG.getBlogOwner()"
+             dc:date="$entry.getISO8601Date()"
+             trackback:ping="$entry.getLink()&tb=y" />
+     </rdf:RDF>
+-->
+    #end
+#end
+</td>
+<td class="tablemaxpxwidth">&nbsp;</td>
+
+<td valign="top" align="center" width="200">
+
+<div class="calendarbox">
+<table class="calendartable"><tr><td colspan="7" class="calendarcaption"><b>$BLOJSOM_CALENDAR.getCaption()</b></td></tr>
+
+<!-- DOW Name Row -->
+<tr>
+#foreach( $downame in $BLOJSOM_CALENDAR.getShortDayOfWeekNames())
+        #if($downame)
+		<td width="19" class="calendarcolumn">$downame&nbsp;</td>
+		#end
+#end
+</tr>
+
+## Dear Velocity Authors, give us a real for loop!!!!!!
+
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(1,"calendarcolumn")
+</tr>
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(2,"calendarcolumn")
+</tr>
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(3,"calendarcolumn")
+</tr>
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(4,"calendarcolumn")
+</tr>
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(5,"calendarcolumn")
+</tr>
+<tr>
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow(6,"calendarcolumn")
+</tr>
+
+<tr>
+<td colspan="7" class="calendarcolumn">$BLOJSOM_CALENDAR_VTLHELPER.getPreviousMonth()&nbsp;&nbsp;&nbsp;$BLOJSOM_CALENDAR_VTLHELPER.getToday()&nbsp;&nbsp;&nbsp;$BLOJSOM_CALENDAR_VTLHELPER.getNextMonth()</td>
+</tr>
+</table>
+</div>
+</td>
+</tr>
+</table >
+
+#if ($totalEntries > 0)
+    <p>Available categories:
+    #foreach ($blogCategory in $BLOJSOM_CATEGORIES)
+        [<i><a href="$blogCategory.getCategoryURL()">#if ($blogCategory.getName())$blogCategory.getName()#else$blogCategory.getCategory()#end</a></i>]
+    #end</p>
+#end
+
+<p>
+<a href="http://blojsom.sf.net"><img src="$BLOJSOM_SITE_URL/powered-by-blojsom.gif" border="0" alt="Powered By blojsom" /></a>&nbsp;&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss"><img src="$BLOJSOM_SITE_URL/xml.gif" border="0" alt="RSS Feed" /></a>&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rss2"><img src="$BLOJSOM_SITE_URL/rss.gif" border="0" alt="RSS2 Feed" /></a>&nbsp;
+<a href="$BLOJSOM_REQUESTED_CATEGORY.getCategoryURL()?flavor=rdf"><img src="$BLOJSOM_SITE_URL/rdf.gif" border="0" alt="RDF Feed"/></a>
+</p>
+
+<!-- Optional Code if you are using the referer plugin -->
+#if($REFERER_HISTORY)
+  #foreach( $flavorgroup in $REFERER_HISTORY.keySet())
+     #set ($group = $REFERER_HISTORY.get($flavorgroup))
+     #if ($group.isHitCounter())
+         <p class="weblogtitle2">$flavorgroup hits:&nbsp;<a href="$BLOJSOM_BLOG.getBlogURL()?&amp;page=referers" title="Referer History">$group.getReferralCount()</a></p><p/>
+     #else
+         <p class="weblogtitle2">$flavorgroup referers today&nbsp;<span class="refererhistory">(<a href="$BLOJSOM_BLOG.getBlogURL()?&amp;page=referers" title="Referer History">$group.getReferralCount() overall</a>)</span></p>
+         <p class="weblogdateline">
+         #foreach( $refererurl in $group.keySet())
+             #if ( $group.get($refererurl).isToday() )
+               #if ($refererurl.length() < $REFERER_MAX_LENGTH.intValue())
+                    <a href="$refererurl">$refererurl</a>&nbsp;($group.get($refererurl).getCount())<br/>
+               #else
+                    <a href="$refererurl">$refererurl.substring(0,$REFERER_MAX_LENGTH.intValue())</a>&nbsp;($group.get($refererurl).getCount())<br/>
+               #end
+             #end
+         #end
+         </p>
+     #end
+  #end
+#end
+
+</body>
+
+</html>

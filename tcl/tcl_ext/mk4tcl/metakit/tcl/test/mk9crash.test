@@ -1,0 +1,7 @@
+# things that crash, these are really bad
+
+source defs_mk.tcl
+
+# put tests here
+
+Q 1

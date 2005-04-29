@@ -39,3 +39,12 @@
 #define ALL_POINTS (DEF_POINTS | KTRFAC_CSW)
 
 #define DEF_TRACEFILE	"ktrace.out"
+
+/*
+ * External function declarations
+ */
+/* subr.c */
+int	getpoints(char *s);
+void	timevaladd(struct timeval *t1, struct timeval *t2);
+void	timevalsub(struct timeval *t1, struct timeval *t2);
+void	timevalfix(struct timeval *t1);

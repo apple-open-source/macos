@@ -35,13 +35,10 @@ strip:
 
 mode:
 	$(_v) $(CHMOD) -R ugo-w "$(DSTROOT)"
-	$(_v) $(CHMOD) 444 $(DSTROOT)/usr/lib/php/build/*.m4
-	$(_v) $(CHMOD) 444 $(DSTROOT)/usr/lib/php/build/*.awk
-	$(_v) $(CHMOD) 444 $(DSTROOT)/usr/lib/php/build/Makefile.global
 
 install-ini:
 	$(MKDIR) $(DSTROOT)/private/etc
-	$(INSTALL_FILE) -m 644 $(SRCROOT)/php/php.ini-dist $(DSTROOT)/private/etc/php.ini.default
+	$(INSTALL_FILE) $(SRCROOT)/php/php.ini-dist $(DSTROOT)/private/etc/php.ini.default
 
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
@@ -62,7 +59,8 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = TSRM__build.mk.diff TSRM__buildconf.diff \
                  Zend__build.mk.diff Zend__buildconf.diff \
                  ext__mbstring__libmbfl__buildconf.diff \
-                 ext__mbstring__libmbfl__config.h.diff
+                 ext__mbstring__libmbfl__config.h.diff \
+		 NLS_remove_BIND8.patch
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

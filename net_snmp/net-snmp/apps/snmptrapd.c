@@ -96,11 +96,25 @@ SOFTWARE.
 #include "snmptrapd_log.h"
 #include "notification_log.h"
 
+/*
+ * Include winservice.h to support Windows Service
+ */
+#ifdef WIN32
+#include <windows.h>
+#include <tchar.h>
+#include <net-snmp/library/winservice.h>
+
+#define WIN32SERVICE
+
+#endif
+
 #if USE_LIBWRAP
 #include <tcpd.h>
 
+/* fix 706903 - these are defined in agent/snmp_agent.c *-
 int             allow_severity = LOG_INFO;
 int             deny_severity = LOG_WARNING;
+ */
 #endif
 
 /*
@@ -123,20 +137,23 @@ typedef long    fd_mask;
 #endif
 
 char           *logfile = 0;
+int             Log = 0;
 int             Print = 0;
 int             Syslog = 0;
+int             SyslogTrap = 0;
 int             Event = 0;
 int             dropauth = 0;
 int             running = 1;
 int             reconfig = 0;
 u_long          num_received = 0;
-char            default_port[] = "udp:162";
-
-const char     *trap1_std_str = "%.4y-%.2m-%.2l %.2h:%.2j:%.2k %B [%b] (via %A [%a]): %N\n\t%W Trap (%q) Uptime: %#T\n%v\n";
-const char     *trap2_std_str = "%.4y-%.2m-%.2l %.2h:%.2j:%.2k %B [%b]:\n%v\n";
-
-/* how to format logging to stderr */
-char           *trap1_fmt_str = NULL, *trap2_fmt_str = NULL;
+char            ddefault_port[] = "udp:162";	/* Default default port */
+char           *default_port = ddefault_port;
+#if HAVE_GETPID
+    FILE           *PID;
+    char           *pid_file = NULL;
+#endif
+char           *trap1_fmt_str_remember = NULL;
+int             dofork = 1;
 
 /*
  * These definitions handle 4.2 systems without additional syslog facilities.
@@ -181,583 +198,115 @@ char           *trap1_fmt_str = NULL, *trap2_fmt_str = NULL;
  */
 int Facility = LOG_DAEMON;
 
+#ifdef WIN32SERVICE
+/*
+ * SNMP Trap Receiver Status 
+ */
+#define SNMPTRAPD_RUNNING 1
+#define SNMPTRAPD_STOPPED 0
+int             trapd_status = SNMPTRAPD_STOPPED;
+LPTSTR          app_name = _T("Net-SNMP Trap Handler");     /* Application Name */
+#else
+char           *app_name = "snmptrapd";
+#endif
+
 struct timeval  Now;
 
 void            trapd_update_config(void);
-
-const char *
-trap_description(int trap)
-{
-    switch (trap) {
-    case SNMP_TRAP_COLDSTART:
-        return "Cold Start";
-    case SNMP_TRAP_WARMSTART:
-        return "Warm Start";
-    case SNMP_TRAP_LINKDOWN:
-        return "Link Down";
-    case SNMP_TRAP_LINKUP:
-        return "Link Up";
-    case SNMP_TRAP_AUTHFAIL:
-        return "Authentication Failure";
-    case SNMP_TRAP_EGPNEIGHBORLOSS:
-        return "EGP Neighbor Loss";
-    case SNMP_TRAP_ENTERPRISESPECIFIC:
-        return "Enterprise Specific";
-    default:
-        return "Unknown Type";
-    }
-}
-
-
-netsnmp_pdu *
-snmp_clone_pdu2(netsnmp_pdu *pdu, int command)
-{
-    netsnmp_pdu *newpdu = snmp_clone_pdu(pdu);
-    if (newpdu) {
-        newpdu->command = command;
-    }
-    return newpdu;
-}
 
 static oid      risingAlarm[] = { 1, 3, 6, 1, 6, 3, 2, 1, 1, 3, 1 };
 static oid      fallingAlarm[] = { 1, 3, 6, 1, 6, 3, 2, 1, 1, 3, 2 };
 static oid      unavailableAlarm[] = { 1, 3, 6, 1, 6, 3, 2, 1, 1, 3, 3 };
 
+#ifdef WIN32SERVICE
+void            StopSnmpTrapd(void);
+int             SnmpTrapdMain(int argc, TCHAR * argv[]);
+int __cdecl     _tmain(int argc, TCHAR * argv[]);
+#else
+int             main(int, char **);
+#endif
+
 void
 event_input(netsnmp_variable_list * vp)
 {
-    int             eventid;
+    int             eventid = 0;
     oid             variable[MAX_OID_LEN];
-    int             variablelen;
-    u_long          destip;
-    int             sampletype;
-    int             value;
-    int             threshold;
+    int             variablelen = 0;
+    u_long          destip = 0;
+    int             sampletype = 0;
+    int             value = 0;
+    int             threshold = 0;
+    int             i;
+    int             nvars = 0;
 
-    oid            *op;
+    netsnmp_variable_list	*vp2 = vp;
+    
+    oid            *op = NULL;
 
-    vp = vp->next_variable;     /* skip sysUptime */
-    if (vp->val_len != sizeof(risingAlarm) ||
-	!memcmp(vp->val.objid, risingAlarm, sizeof(risingAlarm)))
-        eventid = 1;
-    else if (vp->val_len != sizeof(risingAlarm) ||
-	     !memcmp(vp->val.objid, fallingAlarm, sizeof(fallingAlarm)))
-        eventid = 2;
-    else if (vp->val_len != sizeof(risingAlarm) ||
-	    !memcmp(vp->val.objid, unavailableAlarm, sizeof(unavailableAlarm)))
-        eventid = 3;
-    else {
-        fprintf(stderr, "unknown event\n");
-        eventid = 0;
+    /* Make sure there are 5 variables.  Otherwise, don't bother */
+    for (i=1; i <= 5; i++) {
+      vp2 = vp2->next_variable;
+      if (!vp2) {
+	nvars = -1;
+	break;
+      }
     }
-
-    vp = vp->next_variable;
-    memmove(variable, vp->val.objid, vp->val_len * sizeof(oid));
-    variablelen = vp->val_len;
-    op = vp->name + 22;
-    destip = 0;
-    destip |= (*op++) << 24;
-    destip |= (*op++) << 16;
-    destip |= (*op++) << 8;
-    destip |= *op++;
-
-    vp = vp->next_variable;
-    sampletype = *vp->val.integer;
-
-    vp = vp->next_variable;
-    value = *vp->val.integer;
-
-    vp = vp->next_variable;
-    threshold = *vp->val.integer;
-
+    
+    if (nvars != -1)
+    {
+      vp = vp->next_variable;     /* skip sysUptime */
+      if (vp->val_len != sizeof(risingAlarm) ||
+	  !memcmp(vp->val.objid, risingAlarm, sizeof(risingAlarm)))
+	eventid = 1;
+      else if (vp->val_len != sizeof(risingAlarm) ||
+	  !memcmp(vp->val.objid, fallingAlarm, sizeof(fallingAlarm)))
+	eventid = 2;
+      else if (vp->val_len != sizeof(risingAlarm) ||
+	  !memcmp(vp->val.objid, unavailableAlarm, sizeof(unavailableAlarm)))
+	eventid = 3;
+      else {
+	fprintf(stderr, "unknown event\n");
+	eventid = 0;
+      }
+      
+      vp = vp->next_variable;
+      memmove(variable, vp->val.objid, vp->val_len * sizeof(oid));
+      variablelen = vp->val_len;
+      op = vp->name + 22;
+      destip = 0;
+      destip |= (*op++) << 24;
+      destip |= (*op++) << 16;
+      destip |= (*op++) << 8;
+      destip |= *op++;
+      
+      vp = vp->next_variable;
+      sampletype = *vp->val.integer;
+      
+      vp = vp->next_variable;
+      value = *vp->val.integer;
+      
+      vp = vp->next_variable;
+      threshold = *vp->val.integer;
+    }
     printf("%d: 0x%02lX %d %d %d\n", eventid, destip, sampletype, value,
-           threshold);
-
-}
-
-void
-send_handler_data(FILE * file, struct hostent *host,
-                  netsnmp_pdu *pdu, netsnmp_transport *transport)
-{
-    netsnmp_variable_list tmpvar, *vars;
-    static oid      trapoids[] = { 1, 3, 6, 1, 6, 3, 1, 1, 5, 0 };
-    static oid      snmpsysuptime[] = { 1, 3, 6, 1, 2, 1, 1, 3, 0 };
-    static oid      snmptrapoid[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
-    static oid      snmptrapent[] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 3, 0 };
-    static oid      snmptrapaddr[] = { 1, 3, 6, 1, 6, 3, 18, 1, 3, 0 };
-    static oid      snmptrapcom[] = { 1, 3, 6, 1, 6, 3, 18, 1, 4, 0 };
-    oid             enttrapoid[MAX_OID_LEN];
-    int             enttraplen = pdu->enterprise_length;
-    char           *tstr = NULL;
-
-    if (transport != NULL && transport->f_fmtaddr != NULL) {
-        tstr = transport->f_fmtaddr(transport, pdu->transport_data,
-                                    pdu->transport_data_length);
-        fprintf(file, "%s\n%s\n", host ? host->h_name : tstr, tstr);
-        free(tstr);
-    } else {
-        fprintf(file, "%s\n<UNKNOWN>\n", host ? host->h_name : "<UNKNOWN>");
-    }
-    if (pdu->command == SNMP_MSG_TRAP) {
-        /*
-         * convert a v1 trap to a v2 variable binding list:
-         * The uptime and trapOID go first in the list. 
-         */
-        tmpvar.val.integer = (long *) &pdu->time;
-        tmpvar.val_len = sizeof(pdu->time);
-        tmpvar.type = ASN_TIMETICKS;
-        fprint_variable(file, snmpsysuptime,
-                        sizeof(snmpsysuptime) / sizeof(oid), &tmpvar);
-        tmpvar.type = ASN_OBJECT_ID;
-        if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
-            memcpy(enttrapoid, pdu->enterprise, sizeof(oid) * enttraplen);
-            if (enttrapoid[enttraplen - 1] != 0)
-                enttrapoid[enttraplen++] = 0;
-            enttrapoid[enttraplen++] = pdu->specific_type;
-            tmpvar.val.objid = enttrapoid;
-            tmpvar.val_len = enttraplen * sizeof(oid);
-        } else {
-            trapoids[9] = pdu->trap_type + 1;
-            tmpvar.val.objid = trapoids;
-            tmpvar.val_len = 10 * sizeof(oid);
-        }
-        fprint_variable(file, snmptrapoid,
-                        sizeof(snmptrapoid) / sizeof(oid), &tmpvar);
-    }
-    /*
-     * do the variables in the pdu 
-     */
-    for (vars = pdu->variables; vars; vars = vars->next_variable) {
-        fprint_variable(file, vars->name, vars->name_length, vars);
-    }
-    if (pdu->command == SNMP_MSG_TRAP) {
-        /*
-         * convert a v1 trap to a v2 variable binding list:
-         * The enterprise goes last. 
-         */
-        tmpvar.val.string = pdu->agent_addr;
-        tmpvar.val_len = 4;
-        tmpvar.type = ASN_IPADDRESS;
-        fprint_variable(file, snmptrapaddr,
-                        sizeof(snmptrapaddr) / sizeof(oid), &tmpvar);
-        tmpvar.val.string = pdu->community;
-        tmpvar.val_len = pdu->community_len;
-        tmpvar.type = ASN_OCTET_STR;
-        fprint_variable(file, snmptrapcom,
-                        sizeof(snmptrapcom) / sizeof(oid), &tmpvar);
-        tmpvar.val.objid = pdu->enterprise;
-        tmpvar.val_len = pdu->enterprise_length * sizeof(oid);
-        tmpvar.type = ASN_OBJECT_ID;
-        fprint_variable(file, snmptrapent,
-                        sizeof(snmptrapent) / sizeof(oid), &tmpvar);
-    }
-}
-
-void
-do_external(char *cmd, struct hostent *host,
-            netsnmp_pdu *pdu, netsnmp_transport *transport)
-{
-    FILE           *file;
-    int             oldquick, result;
-
-    DEBUGMSGTL(("snmptrapd", "Running: %s\n", cmd));
-    oldquick = snmp_get_quick_print();
-    snmp_set_quick_print(1);
-    if (cmd) {
-#ifndef WIN32
-        int             fd[2];
-        int             pid;
-
-        if (pipe(fd)) {
-            snmp_log_perror("pipe");
-        }
-        if ((pid = fork()) == 0) {
-            /*
-             * child 
-             */
-            close(0);
-            if (dup(fd[0]) != 0) {
-                snmp_log_perror("dup");
-            }
-            close(fd[1]);
-            close(fd[0]);
-            system(cmd);
-            exit(0);
-        } else if (pid > 0) {
-            file = fdopen(fd[1], "w");
-            send_handler_data(file, host, pdu, transport);
-            fclose(file);
-            close(fd[0]);
-            close(fd[1]);
-            if (waitpid(pid, &result, 0) < 0) {
-                snmp_log_perror("waitpid");
-            }
-        } else {
-            snmp_log_perror("fork");
-        }
-#else
-        char            command_buf[128];
-        char            file_buf[L_tmpnam];
-
-        tmpnam(file_buf);
-        file = fopen(file_buf, "w");
-        if (!file) {
-            fprintf(stderr, "fopen: %s: %s\n", file_buf, strerror(errno));
-        } else {
-            send_handler_data(file, host, pdu, transport);
-            fclose(file);
-            snprintf(command_buf, sizeof(command_buf),
-                     "%s < %s", cmd, file_buf);
-            command_buf[ sizeof(command_buf)-1 ] = 0;
-            result = system(command_buf);
-            if (result == -1)
-                fprintf(stderr, "system: %s: %s\n", command_buf,
-                        strerror(errno));
-            else if (result)
-                fprintf(stderr, "system: %s: %d\n", command_buf, result);
-            remove(file_buf);
-        }
-#endif                          /* WIN32 */
-    }
-    snmp_set_quick_print(oldquick);
-}
-
-int
-snmp_input(int op,
-           netsnmp_session * session,
-           int reqid, netsnmp_pdu *pdu, void *magic)
-{
-    netsnmp_variable_list *vars = NULL;
-    netsnmp_transport *transport = (netsnmp_transport *) magic;
-    char            buf[64], *cp;
-    netsnmp_pdu    *reply;
-    struct hostent *host = NULL;
-    static oid      trapoids[10] = { 1, 3, 6, 1, 6, 3, 1, 1, 5 };
-    static oid      snmptrapoid2[11] = { 1, 3, 6, 1, 6, 3, 1, 1, 4, 1, 0 };
-    netsnmp_variable_list tmpvar;
-    char           *Command = NULL, *tstr = NULL;
-    u_char         *rbuf = NULL;
-    size_t          r_len = 64, o_len = 0;
-    int             trunc = 0;
-
-    tmpvar.type = ASN_OBJECT_ID;
-
-    if (op == NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE) {
-        if ((rbuf = (u_char *) calloc(r_len, 1)) == NULL) {
-            snmp_log(LOG_ERR, "couldn't display trap -- malloc failed\n");
-            return 1;
-        }
-
-        if (pdu->command == SNMP_MSG_TRAP) {
-            oid trapOid[MAX_OID_LEN + 2] = { 0 };
-            int trapOidLen = pdu->enterprise_length;
-
-            num_received++;
-
-            if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
-					NETSNMP_DS_APP_NUMERIC_IP)) {
-                host = gethostbyaddr((char *) pdu->agent_addr, 4, AF_INET);
-            }
-
-            if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
-                memcpy(trapOid, pdu->enterprise, sizeof(oid) * trapOidLen);
-                if (trapOid[trapOidLen - 1] != 0) {
-                    trapOid[trapOidLen++] = 0;
-                }
-                trapOid[trapOidLen++] = pdu->specific_type;
-            }
-
-            if (Print && (pdu->trap_type != SNMP_TRAP_AUTHFAIL ||
-			  dropauth == 0)) {
-                if ((trap1_fmt_str == NULL) || (trap1_fmt_str[0] == '\0')) {
-                    trunc = !realloc_format_plain_trap(&rbuf, &r_len, &o_len,
-						       1, pdu, transport);
-                } else {
-                    trunc = !realloc_format_trap(&rbuf, &r_len, &o_len, 1,
-                                                 trap1_fmt_str, pdu,
-                                                 transport);
-                }
-                snmp_log(LOG_INFO, "%s%s", rbuf, (trunc?" [TRUNCATED]\n":""));
-            }
-
-            if (Syslog && (pdu->trap_type != SNMP_TRAP_AUTHFAIL ||
-			   dropauth == 0)) {
-                memset(rbuf, 0, o_len);
-                o_len = 0;
-                rbuf[o_len++] = ',';
-                rbuf[o_len++] = ' ';
-
-                for (vars = pdu->variables; vars;
-                     vars = vars->next_variable) {
-                    trunc = !sprint_realloc_variable(&rbuf, &r_len, &o_len, 1,
-						     vars->name,
-						     vars->name_length, vars);
-                    if (!trunc) {
-                        /*
-                         * Add a trailing , ...  
-                         */
-                        trunc = !snmp_strcat(&rbuf, &r_len, &o_len, 1, ", ");
-                    }
-                    if (trunc) {
-                        break;
-                    }
-                }
-
-                if (o_len > 0 && !trunc) {
-                    o_len -= 2;
-                    rbuf[o_len] = '\0';
-                }
-
-                if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
-                    u_char *oidbuf = NULL;
-                    size_t ob_len = 64, oo_len = 0;
-                    int otrunc = 0;
-
-                    if ((oidbuf = (u_char *) calloc(ob_len, 1)) == NULL) {
-                        snmp_log(LOG_ERR,
-                                 "couldn't display trap -- malloc failed\n");
-                        free(rbuf);
-                        return 1;
-                    }
-
-                    otrunc = !sprint_realloc_objid(&oidbuf, &ob_len, &oo_len,
-						   1, trapOid, trapOidLen);
-                    if (!otrunc) {
-                        cp = strrchr((char *) oidbuf, '.');
-                        if (cp != NULL) {
-                            cp++;
-                        } else {
-                            cp = (char *) oidbuf;
-                        }
-                    } else {
-                        cp = (char *) oidbuf;
-                    }
-                    snmp_log(LOG_WARNING, "%s: %s Trap (%s%s) Uptime: %s%s%s",
-                             inet_ntoa(*((struct in_addr *) pdu-> agent_addr)),
-                             trap_description(pdu->trap_type), cp,
-                             (otrunc ? " [TRUNCATED]" : ""),
-                             uptime_string(pdu->time, buf), rbuf,
-                             (trunc ? " [TRUNCATED]\n" : ""));
-                    free(oidbuf);
-                } else {
-                    snmp_log(LOG_WARNING, "%s: %s Trap (%ld) Uptime: %s%s%s",
-                             inet_ntoa(*((struct in_addr *) pdu->agent_addr)),
-                             trap_description(pdu->trap_type),
-                             pdu->specific_type, 
-			     uptime_string(pdu->time, buf), rbuf,
-                             (trunc ? " [TRUNCATED]\n" : ""));
-                }
-            }
-            if (pdu->trap_type == SNMP_TRAP_ENTERPRISESPECIFIC) {
-                Command = snmptrapd_get_traphandler(trapOid, trapOidLen);
-            } else {
-                trapoids[9] = pdu->trap_type + 1;
-                Command = snmptrapd_get_traphandler(trapoids, 10);
-            }
-            if (Command) {
-                do_external(Command, host, pdu, transport);
-            }
-            log_notification(host, pdu, transport);
-        } else if (pdu->command == SNMP_MSG_TRAP2 ||
-                   pdu->command == SNMP_MSG_INFORM) {
-            num_received++;
-            if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
-					NETSNMP_DS_APP_NUMERIC_IP)) {
-                /*
-                 * Right, apparently a name lookup is wanted.  This is only
-                 * reasonable for the UDP and TCP transport domains (we
-                 * don't want to try to be too clever here).  
-                 */
-#ifdef SNMP_TRANSPORT_TCP_DOMAIN
-                if (transport != NULL
-                    && (transport->domain == netsnmpUDPDomain
-                        || transport->domain == netsnmp_snmpTCPDomain)) {
-#else
-                if (transport != NULL
-                    && transport->domain == netsnmpUDPDomain) {
-#endif
-                    /*
-                     * This is kind of bletcherous -- it breaks the opacity of
-                     * transport_data but never mind -- the alternative is a
-                     * lot of munging strings from f_fmtaddr.
-                     */
-                    struct sockaddr_in *addr =
-                        (struct sockaddr_in *) pdu->transport_data;
-                    if (addr != NULL && 
-		    pdu->transport_data_length == sizeof(struct sockaddr_in)) {
-                        host = gethostbyaddr((char *) &(addr->sin_addr),
-					     sizeof(struct in_addr), AF_INET);
-                    }
-                }
-            }
-
-            if (Print) {
-                if (trap2_fmt_str == NULL || trap2_fmt_str[0] == '\0') {
-                    trunc = !realloc_format_trap(&rbuf, &r_len, &o_len, 1,
-                                                 trap2_std_str, pdu,
-                                                 transport);
-                } else {
-                    trunc = !realloc_format_trap(&rbuf, &r_len, &o_len, 1,
-                                                 trap2_fmt_str, pdu,
-                                                 transport);
-                }
-                snmp_log(LOG_INFO, "%s%s", rbuf, (trunc?" [TRUNCATED]":""));
-            }
-
-            if (Syslog) {
-                memset(rbuf, 0, o_len);
-                o_len = 0;
-                for (vars = pdu->variables; vars;
-                     vars = vars->next_variable) {
-                    trunc =  !sprint_realloc_variable(&rbuf, &r_len, &o_len, 1,
-						      vars->name,
-						      vars->name_length, vars);
-                    if (!trunc) {
-                        trunc = !snmp_strcat(&rbuf, &r_len, &o_len, 1, ", ");
-                    }
-                    if (trunc) {
-                        break;
-                    }
-                }
-
-                if (o_len > 0 && !trunc) {
-                    o_len -= 2;
-                    rbuf[o_len] = '\0';
-                }
-
-                if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
-					    NETSNMP_DS_APP_NUMERIC_IP)) {
-                    /*
-                     * Right, apparently a name lookup is wanted.  This is only
-                     * reasonable for the UDP and TCP transport domains (we
-                     * don't want to try to be too clever here).  
-                     */
-#ifdef SNMP_TRANSPORT_TCP_DOMAIN
-                    if (transport != NULL
-                        && (transport->domain == netsnmpUDPDomain
-                            || transport->domain ==
-                            netsnmp_snmpTCPDomain)) {
-#else
-                    if (transport != NULL
-                        && transport->domain == netsnmpUDPDomain) {
-#endif
-                        /*
-                         * This is kind of bletcherous -- it breaks the
-                         * opacity of transport_data but never mind -- the
-                         * alternative is a lot of munging strings from
-                         * f_fmtaddr.
-                         */
-                        struct sockaddr_in *addr =
-                            (struct sockaddr_in *) pdu->transport_data;
-                        if (addr != NULL && pdu->transport_data_length ==
-                            sizeof(struct sockaddr_in)) {
-                            host = gethostbyaddr((char *)&(addr->sin_addr),
-					      sizeof(struct in_addr), AF_INET);
-                        }
-                    }
-                }
-
-                if (transport != NULL && transport->f_fmtaddr != NULL) {
-                    tstr = transport->f_fmtaddr(transport,
-                                             pdu->transport_data,
-                                             pdu->transport_data_length);
-                    snmp_log(LOG_WARNING, "%s [%s]: Trap %s%s\n",
-                             host ? host->h_name : tstr, tstr, rbuf,
-                             (trunc ? "[TRUNCATED]" : ""));
-                    free(tstr);
-                } else {
-                    snmp_log(LOG_WARNING, "<UNKNOWN>: Trap %s%s", rbuf,
-                             (trunc ? "[TRUNCATED]\n" : ""));
-                }
-            }
-
-            if (Event) {
-                event_input(pdu->variables);
-            }
-
-            for (vars = pdu->variables; (vars != NULL) &&
-                 snmp_oid_compare(vars->name, vars->name_length,
-                                  snmptrapoid2, 
-				  sizeof(snmptrapoid2)/sizeof(oid));
-                 vars = vars->next_variable);
-
-            if (vars && vars->type == ASN_OBJECT_ID) {
-                Command = snmptrapd_get_traphandler(vars->val.objid,
-                                                    vars->val_len/sizeof(oid));
-                if (Command) {
-                    do_external(Command, host, pdu, transport);
-                }
-            }
-
-            log_notification(host, pdu, transport);
-
-            if (pdu->command == SNMP_MSG_INFORM) {
-                if ((reply = snmp_clone_pdu2(pdu, SNMP_MSG_RESPONSE)) == NULL){
-                    snmp_log(LOG_ERR,
-			     "couldn't clone PDU for INFORM response\n");
-                } else {
-                    reply->errstat = 0;
-                    reply->errindex = 0;
-                    if (!snmp_send(session, reply)) {
-                        snmp_sess_perror("snmptrapd: Couldn't respond to inform pdu",
-					 session);
-                        snmp_free_pdu(reply);
-                    }
-                }
-            }
-        }
-
-        if (rbuf != NULL) {
-            free(rbuf);
-        }
-    } else if (op == NETSNMP_CALLBACK_OP_TIMED_OUT) {
-        fprintf(stderr, "Timeout: This shouldn't happen!\n");
-    }
-    return 1;
-}
-
-
-static void
-parse_trap1_fmt(const char *token, char *line)
-{
-    trap1_fmt_str = strdup(line);
-}
-
-
-static void
-free_trap1_fmt(void)
-{
-    if (trap1_fmt_str && trap1_fmt_str != trap1_std_str)
-        free((char *) trap1_fmt_str);
-    trap1_fmt_str = NULL;
-}
-
-
-static void
-parse_trap2_fmt(const char *token, char *line)
-{
-    trap2_fmt_str = strdup(line);
-}
-
-
-static void
-free_trap2_fmt(void)
-{
-    if (trap2_fmt_str && trap2_fmt_str != trap2_std_str)
-        free((char *) trap2_fmt_str);
-    trap2_fmt_str = NULL;
+	threshold);
 }
 
 
 void
 usage(void)
 {
+#ifdef WIN32SERVICE
+    fprintf(stderr, "\nUsage:  snmptrapd [-register] [-quiet] [OPTIONS] [LISTENING ADDRESSES]");
+    fprintf(stderr, "\n        snmptrapd [-unregister] [-quiet]");
+#else
     fprintf(stderr, "Usage: snmptrapd [OPTIONS] [LISTENING ADDRESSES]\n");
+#endif
     fprintf(stderr, "\n\tNET-SNMP Version:  %s\n", netsnmp_get_version());
     fprintf(stderr, "\tWeb:      http://www.net-snmp.org/\n");
     fprintf(stderr, "\tEmail:    net-snmp-coders@lists.sourceforge.net\n");
     fprintf(stderr, "\n");
-    fprintf(stderr, "  -a\t\t\tignore authentication failture traps\n");
+    fprintf(stderr, "  -a\t\t\tignore authentication failure traps\n");
     fprintf(stderr, "  -c FILE\t\tread FILE as a configuration file\n");
     fprintf(stderr,
             "  -C\t\t\tdo not read the default configuration files\n");
@@ -777,18 +326,33 @@ usage(void)
             "  -M DIRLIST\t\tuse DIRLIST as the list of locations\n\t\t\t  to look for MIBs\n");
     fprintf(stderr,
             "  -n\t\t\tuse numeric addresses instead of attempting\n\t\t\t  hostname lookups (no DNS)\n");
-    fprintf(stderr, "  -o FILE\t\toutput to FILE\n");
-    fprintf(stderr, "  -P\t\t\tprint to standard error\n");
-    fprintf(stderr, "  -s\t\t\tlog to syslog\n");
-    fprintf(stderr,
-            "  -S d|i|0-7\t\tset syslog facility to LOG_DAEMON (d), LOG_INFO (i)\n\t\t\t  or LOG_LOCAL[0-7] (default LOG_DAEMON)\n");
 #if HAVE_GETPID
-    fprintf(stderr, "  -u FILE\t\tstore process id in FILE\n");
+    fprintf(stderr, "  -p FILE\t\tstore process id in FILE\n");
+#endif
+#ifdef WIN32SERVICE
+    fprintf(stderr, "  -register\t\tregister as a Windows service\n");
+    fprintf(stderr, "  \t\t\t  (followed by -quiet to prevent message popups)\n");
+    fprintf(stderr, "  \t\t\t  (followed by the startup parameter list)\n");
+    fprintf(stderr, "  \t\t\t  Note that some parameters are not relevant when running as a service\n");
+#endif
+    fprintf(stderr, "  -t\t\t\tPrevent traps from being logged to syslog\n");
+#ifdef WIN32SERVICE
+    fprintf(stderr, "  -unregister\t\tunregister as a Windows service\n");
+    fprintf(stderr, "  \t\t\t  (followed -quiet to prevent message popups)\n");
 #endif
     fprintf(stderr, "  -v, --version\t\tdisplay version information\n");
     fprintf(stderr,
             "  -O <OUTOPTS>\t\ttoggle options controlling output display\n");
     snmp_out_toggle_options_usage("\t\t\t", stderr);
+    fprintf(stderr,
+            "  -L <LOGOPTS>\t\ttoggle options controlling where to log to\n");
+    snmp_log_options_usage("\t\t\t", stderr);
+    fprintf(stderr, "\n  Deprecated options:\n");
+    fprintf(stderr, "  -o FILE\t\tuse -Lf <FILE> instead\n");
+    fprintf(stderr, "  -P\t\t\tuse -Le  instead\n");
+    fprintf(stderr, "  -s\t\t\tuse -Lsd instead\n");
+    fprintf(stderr, "  -S d|i|0-7\t\tuse -Ls <facility> instead\n");
+    fprintf(stderr, "  -u FILE\t\tuse -p <FILE> instead\n");
 }
 
 static void
@@ -803,7 +367,18 @@ version(void)
 RETSIGTYPE
 term_handler(int sig)
 {
+#ifdef WIN32SERVICE
+    extern netsnmp_session *main_session;
+#endif
     running = 0;
+#ifdef WIN32SERVICE
+    /*
+     * In case of windows, select() in receive() function will not return 
+     * on signal. Thats why following function is called, which closes the 
+     * socket descriptors and causes the select() to return
+     */
+    snmp_close(main_session);
+#endif
 }
 
 #ifdef SIGHUP
@@ -834,12 +409,24 @@ pre_parse(netsnmp_session * session, netsnmp_transport *transport,
     }
 
     if (addr_string != NULL) {
+      /* Catch udp,udp6,tcp,tcp6 transports using "[" */
+      char *tcpudpaddr = strstr(addr_string, "[");
+      if ( tcpudpaddr != 0 ) {
+	char sbuf[64];
+	char *xp;
+	strncpy(sbuf, tcpudpaddr + 1, sizeof(sbuf));
+        sbuf[sizeof(sbuf)-1] = '\0';
+        xp = strstr(sbuf, "]");
+        if (xp)
+            *xp = '\0';
+
         if (hosts_ctl("snmptrapd", STRING_UNKNOWN, 
-		      addr_string, STRING_UNKNOWN) == 0) {
-            free(addr_string);
+		      sbuf, STRING_UNKNOWN) == 0) {
+            SNMP_FREE(addr_string);
             return 0;
         }
-        free(addr_string);
+      }
+      SNMP_FREE(addr_string);
     } else {
         if (hosts_ctl("snmptrapd", STRING_UNKNOWN,
                       STRING_UNKNOWN, STRING_UNKNOWN) == 0) {
@@ -884,47 +471,160 @@ snmptrapd_close_sessions(netsnmp_session * sess_list)
     }
 }
 
-int
-main(int argc, char *argv[])
+void
+parse_trapd_address(const char *token, char *cptr)
 {
-    char            options[128] = "ac:CdD::efF:hHl:m:M:no:PqsS:vO:-:";
+    char buf[BUFSIZ];
+    cptr = copy_nword(cptr, buf, sizeof(buf));
+
+    if (default_port == ddefault_port) {
+        default_port = strdup(buf);
+    } else {
+        strcat( buf, "," );
+        strcat( buf, default_port );
+        free(default_port);
+        default_port = strdup(buf);
+    }
+}
+
+void
+free_trapd_address(void)
+{
+    if (default_port != ddefault_port) {
+        free(default_port);
+    }
+}
+
+void
+parse_config_doNotLogTraps(const char *token, char *cptr)
+{
+  if (atoi(cptr) > 0)
+    SyslogTrap++;
+}
+
+void
+free_config_pidFile(void)
+{
+  if (pid_file)
+    free(pid_file);
+  pid_file = NULL;
+}
+
+void
+parse_config_pidFile(const char *token, char *cptr)
+{
+  free_config_pidFile();
+  pid_file = strdup (cptr);
+}
+
+void
+parse_config_logOption(const char *token, char *cptr)
+{
+  int my_argc = 0 ;
+  char **my_argv = NULL;
+
+  if  (snmp_log_options( cptr, my_argc, my_argv ) >= 0 ) {
+    Log++;
+  }
+}
+
+void
+parse_config_doNotFork(const char *token, char *cptr)
+{
+  if (atoi(cptr) == 1)
+    dofork = 0;
+}
+
+void
+parse_config_printEventNumbers(const char *token, char *cptr)
+{
+  if (atoi(cptr) == 1)
+    Event++;
+}
+
+void
+parse_config_ignoreAuthFailure(const char *token, char *cptr)
+{
+  if (atoi(cptr) == 1)
+    dropauth = 1;
+}
+
+void
+parse_config_outputOption(const char *token, char *cptr)
+{
+  char *cp;
+
+  cp = snmp_out_toggle_options(cptr);
+  if (cp != NULL) {
+    fprintf(stderr, "Unknown output option passed to -O: %c\n",
+        *cp);
+  }
+}
+
+
+/*******************************************************************-o-******
+ * main - Non Windows
+ * SnmpTrapdMain - Windows to support windows service
+ *
+ * Parameters:
+ *	 argc
+ *	*argv[]
+ *      
+ * Returns:
+ *	0	Always succeeds.  (?)
+ *
+ *
+ * Setup and start the trap receiver daemon.
+ *
+ * Also successfully EXITs with zero for some options.
+ */
+int
+#ifdef WIN32SERVICE
+SnmpTrapdMain(int argc, TCHAR * argv[])
+#else
+main(int argc, char *argv[])
+#endif
+{
+    char            options[128] = "ac:CdD::efF:hHl:L:m:M:no:PqsS:tvO:-:";
     netsnmp_session *sess_list = NULL, *ss = NULL;
     netsnmp_transport *transport = NULL;
     int             arg, i = 0;
     int             count, numfds, block;
     fd_set          fdset;
     struct timeval  timeout, *tvp;
-    int             dofork = 1;
     char           *cp, *listen_ports = NULL;
-    char           *trap1_fmt_str_remember = NULL;
     int             agentx_subagent = 1, depmsg = 0;
-#if HAVE_GETPID
-    FILE           *PID;
-    char           *pid_file = NULL;
-#endif
 
     /*
      * register our configuration handlers now so -H properly displays them 
      */
-    register_config_handler("snmptrapd", "traphandle",
-                            snmptrapd_traphandle, NULL,
-                            "oid|\"default\" program [args ...] ");
-    register_config_handler("snmptrapd", "createUser",
-                            usm_parse_create_usmUser, NULL,
-                           "username (MD5|SHA) passphrase [DES [passphrase]]");
-    register_config_handler("snmptrapd", "usmUser",
-                            usm_parse_config_usmUser, NULL, NULL);
-    register_config_handler("snmptrapd", "format1",
-                            parse_trap1_fmt, free_trap1_fmt, "format");
-    register_config_handler("snmptrapd", "format2",
-                            parse_trap2_fmt, free_trap2_fmt, "format");
+    snmptrapd_register_configs( );
+    init_usm_conf( "snmptrapd" );
+    register_config_handler("snmptrapd", "snmptrapdaddr",
+                            parse_trapd_address, free_trapd_address, "string");
 
-    /*
-     * we need to be called back later 
-     */
-    snmp_register_callback(SNMP_CALLBACK_LIBRARY, SNMP_CALLBACK_STORE_DATA,
-                           usm_store_users, NULL);
+    register_config_handler("snmptrapd", "doNotLogTraps",
+                            parse_config_doNotLogTraps, NULL, "(1|yes|true|0|no|false)");
+#if HAVE_GETPID
+    register_config_handler("snmptrapd", "pidFile",
+                            parse_config_pidFile, NULL, "string");
+#endif
+    
+    register_config_handler("snmptrapd", "logOption",
+                            parse_config_logOption, NULL, "string");
 
+    register_config_handler("snmptrapd", "doNotFork",
+                            parse_config_doNotFork, NULL, "(1|yes|true|0|no|false)");
+
+    register_config_handler("snmptrapd", "printEventNumbers",
+                            parse_config_printEventNumbers, NULL, "(1|yes|true|0|no|false)");
+
+    register_config_handler("snmptrapd", "ignoreAuthFailure",
+                            parse_config_ignoreAuthFailure, NULL, "(1|yes|true|0|no|false)");
+
+    register_config_handler("snmptrapd", "outputOption",
+                            parse_config_outputOption, NULL, "string");
+    
 #ifdef WIN32
     setvbuf(stdout, NULL, _IONBF, BUFSIZ);
 #else
@@ -935,8 +635,10 @@ main(int argc, char *argv[])
      * Add some options if they are available.  
      */
 #if HAVE_GETPID
-    strcat(options, "u:");
+    strcat(options, "p:u:");
 #endif
+
+    snmp_log_syslogname(app_name);
 
     /*
      * Now process options normally.  
@@ -1013,11 +715,10 @@ main(int argc, char *argv[])
             read_config_print_usage("  ");
             exit(0);
 
-        case 'l':
-	    fprintf(stderr,
-		    "Warning: -l option is deprecated; use -S instead\n");
-	    depmsg = 1;
 	case 'S':
+            fprintf(stderr,
+                    "Warning: -S option is deprecated; use -Ls <facility> instead\n");
+            depmsg = 1;
             if (optarg != NULL) {
                 switch (*optarg) {
                 case 'd':
@@ -1088,6 +789,8 @@ main(int argc, char *argv[])
             break;
 
         case 'o':
+            fprintf(stderr,
+                    "Warning: -o option is deprecated; use -Lf <file> instead\n");
             Print++;
             if (optarg != NULL) {
                 logfile = optarg;
@@ -1107,27 +810,48 @@ main(int argc, char *argv[])
                 exit(1);
             }
             break;
+
+        case 'L':
+	    if  (snmp_log_options( optarg, argc, argv ) < 0 ) {
+                usage();
+                exit(1);
+            }
+            Log++;
+            break;
+
         case 'P':
+            fprintf(stderr,
+                    "Warning: -P option is deprecated; use -f -Le instead\n");
             dofork = 0;
             snmp_enable_stderrlog();
             Print++;
             break;
 
         case 's':
+            fprintf(stderr,
+                    "Warning: -s option is deprecated; use -Lsd instead\n");
+            depmsg = 1;
             Syslog++;
             break;
 
+        case 't':
+            SyslogTrap++;
+            break;
+
+
 #if HAVE_GETPID
         case 'u':
+            fprintf(stderr,
+                    "Warning: -u option is deprecated; use -p instead\n");
+        case 'p':
             if (optarg != NULL) {
-                pid_file = optarg;
+                parse_config_pidFile(NULL, optarg);
             } else {
                 usage();
                 exit(1);
             }
             break;
 #endif
-            break;
 
         case 'v':
             version();
@@ -1165,13 +889,34 @@ main(int argc, char *argv[])
                 }
             }
         }
-    } else {
-        listen_ports = default_port;
     }
 
-    if (!Print) {
+    /*
+     * I'm being lazy here, and not checking the
+     * return value from these registration calls.
+     * Don't try this at home, children!
+     */
+    if (!Log && !Print) {
         Syslog = 1;
+        netsnmp_add_global_traphandler(NETSNMPTRAPD_PRE_HANDLER, syslog_handler);
+    } else {
+        netsnmp_add_global_traphandler(NETSNMPTRAPD_PRE_HANDLER, print_handler);
     }
+    netsnmp_add_global_traphandler(NETSNMPTRAPD_POST_HANDLER, notification_handler);
+
+    if (Event) {
+        netsnmp_add_traphandler(event_handler, risingAlarm,
+                                    OID_LENGTH(risingAlarm));
+        netsnmp_add_traphandler(event_handler, fallingAlarm,
+                                    OID_LENGTH(fallingAlarm));
+        netsnmp_add_traphandler(event_handler, unavailableAlarm,
+                                    OID_LENGTH(unavailableAlarm));
+	/* XXX - might be worth setting some "magic data"
+	 * in the traphandler structure that 'event_handler'
+	 * can use to avoid checking the trap OID values.
+	 */
+    }
+
 #ifdef USING_AGENTX_SUBAGENT_MODULE
     /*
      * we're an agentx subagent? 
@@ -1205,21 +950,41 @@ main(int argc, char *argv[])
      * initialize local modules 
      */
     if (agentx_subagent) {
+        extern void init_register_usmUser_context(const char *);
 #ifdef USING_AGENTX_SUBAGENT_MODULE
+	void  init_subagent(void);
         init_subagent();
 #endif
+        /* register the notification log table */
         init_notification_log();
+
+        /* register ourselves as having a USM user database */
+        init_register_usmUser_context("snmptrapd");
     }
 
+#ifdef NETSNMP_EMBEDDED_PERL
+    init_perl();
+    {
+        /* set the default path to load */
+        char            init_file[SNMP_MAXBUF];
+        snprintf(init_file, sizeof(init_file) - 1,
+                 "%s/%s", SNMPSHAREPATH, "snmp_perl_trapd.pl");
+        netsnmp_ds_set_string(NETSNMP_DS_APPLICATION_ID,
+                              NETSNMP_DS_AGENT_PERL_INIT_FILE,
+                              init_file);
+    }
+#endif
+
     /*
-     * Initialize the world. Create initial user 
+     * Initialize the world.
      */
     init_snmp("snmptrapd");
+
     if (trap1_fmt_str_remember) {
         free_trap1_fmt();
         free_trap2_fmt();
-        trap1_fmt_str = strdup(trap1_fmt_str_remember);
-        trap2_fmt_str = strdup(trap1_fmt_str_remember);
+        print_format1 = strdup(trap1_fmt_str_remember);
+        print_format2 = strdup(trap1_fmt_str_remember);
     }
 
     if (netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
@@ -1269,22 +1034,23 @@ main(int argc, char *argv[])
 #if HAVE_GETPID
     if (pid_file != NULL) {
         if ((PID = fopen(pid_file, "w")) == NULL) {
-            snmp_log_perror(pid_file);
+            snmp_log_perror("fopen");
             exit(1);
         }
         fprintf(PID, "%d\n", (int) getpid());
         fclose(PID);
+        free_config_pidFile();
     }
 #endif
 
     if (Syslog) {
-        snmp_enable_syslog_ident("snmptrapd", Facility);
+        snmp_enable_syslog_ident(app_name, Facility);
         snmp_log(LOG_INFO, "Starting snmptrapd %s\n", netsnmp_get_version());
 	if (depmsg) {
-	    snmp_log(LOG_WARNING, "-l option is deprecated; use -S instead\n");
+	    snmp_log(LOG_WARNING, "-s and -S options are deprecated; use -Ls <facility> instead\n");
 	}
     }
-    if (Print) {
+    if (Print || Log) {
         struct tm      *tm;
         time_t          timer;
         time(&timer);
@@ -1298,18 +1064,33 @@ main(int argc, char *argv[])
 
     SOCK_STARTUP;
 
-    cp = listen_ports;
+    if (listen_ports)
+        cp = listen_ports;
+    else
+        cp = default_port;
 
     while (cp != NULL) {
         char *sep = strchr(cp, ',');
+        char  listen_name[128];
+        char *cp2 = strchr(cp, ':');
+
         if (sep != NULL) {
             *sep = 0;
         }
 
-        transport = netsnmp_tdomain_transport(cp, 1, "udp");
+           /*
+            * Make sure this defaults to listening on port 162
+            */
+        if (!cp2) {
+            snprintf(listen_name, sizeof(listen_name), "%s:162", cp);
+            cp2 = listen_name;
+        } else {
+            cp2 = cp;
+        }
+        transport = netsnmp_tdomain_transport(cp2, 1, "udp");
         if (transport == NULL) {
             snmp_log(LOG_ERR, "couldn't open %s -- errno %d (\"%s\")\n",
-                     cp, errno, strerror(errno));
+                     cp2, errno, strerror(errno));
             snmptrapd_close_sessions(sess_list);
             SOCK_CLEANUP;
             exit(1);
@@ -1351,9 +1132,12 @@ main(int argc, char *argv[])
 #endif
     signal(SIGINT, term_handler);
 
+#ifdef WIN32SERVICE
+    trapd_status = SNMPTRAPD_RUNNING;
+#endif
     while (running) {
         if (reconfig) {
-            if (Print) {
+            if (Print || Log) {
                 struct tm      *tm;
                 time_t          timer;
                 time(&timer);
@@ -1361,26 +1145,25 @@ main(int argc, char *argv[])
 
                 /*
                  * If we are logging to a file, receipt of SIGHUP also
-                 * indicates the the log file should be closed and re-opened.
-                 * This is useful for users that want to rotate logs in a more
-                 * predictable manner.
+                 * indicates the the log file should be closed and
+                 * re-opened.  This is useful for users that want to
+                 * rotate logs in a more predictable manner.
                  */
-                if (logfile) {
+                if (logfile)
                     snmp_enable_filelog(logfile, 1);
-                }
-                snmp_log(LOG_INFO,"%.4d-%.2d-%.2d %.2d:%.2d:%.2d "
-                         "NET-SNMP version %s Reconfigured.\n",
+
+                snmp_log(LOG_INFO,
+                         "%.4d-%.2d-%.2d %.2d:%.2d:%.2d NET-SNMP version %s Reconfigured.\n",
                          tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
                          tm->tm_hour, tm->tm_min, tm->tm_sec,
                          netsnmp_get_version());
             }
-
             if (Syslog)
                 snmp_log(LOG_INFO, "Snmptrapd reconfiguring");
             trapd_update_config();
             if (trap1_fmt_str_remember) {
                 free_trap1_fmt();
-                trap1_fmt_str = strdup(trap1_fmt_str_remember);
+                print_format1 = strdup(trap1_fmt_str_remember);
             }
             reconfig = 0;
         }
@@ -1412,9 +1195,10 @@ main(int argc, char *argv[])
                 fprintf(stderr, "select returned %d\n", count);
                 running = 0;
             }
+	run_alarms();
     }
 
-    if (Print) {
+    if (Print || Log) {
         struct tm      *tm;
         time_t          timer;
         time(&timer);
@@ -1430,6 +1214,9 @@ main(int argc, char *argv[])
 
     snmptrapd_close_sessions(sess_list);
     snmp_shutdown("snmptrapd");
+#ifdef WIN32SERVICE
+    trapd_status = SNMPTRAPD_STOPPED;
+#endif
     snmp_disable_log();
     SOCK_CLEANUP;
     return 0;
@@ -1438,7 +1225,7 @@ main(int argc, char *argv[])
 /*
  * Read the configuration files. Implemented as a signal handler so that
  * receipt of SIGHUP will cause configuration to be re-read when the
- * trap deamon is running detatched from the console.
+ * trap daemon is running detatched from the console.
  *
  */
 void
@@ -1459,3 +1246,96 @@ getdtablesize(void)
     return (rl.rlim_cur);
 }
 #endif
+
+/*
+ * Windows Service Related functions 
+ */
+#ifdef WIN32SERVICE
+/************************************************************
+* main function for Windows
+* Parse command line arguments for startup options,
+* to start as service or console mode application in windows.
+* Invokes appropriate startup functions depending on the 
+* parameters passed
+*************************************************************/
+int
+    __cdecl
+_tmain(int argc, TCHAR * argv[])
+{
+    /*
+     * Define Service Name and Description, which appears in windows SCM 
+     */
+    LPCTSTR         lpszServiceName = app_name;      /* Service Registry Name */
+    LPCTSTR         lpszServiceDisplayName = _T("Net-SNMP Trap Handler");       /* Display Name */
+    LPCTSTR         lpszServiceDescription =
+#ifdef IFDESCR
+        _T("SNMPv2c / SNMPv3 trap/inform receiver from Net-SNMP. Supports MIB objects for IP,ICMP,TCP,UDP, and network interface sub-layers.");
+#else
+        _T("SNMPv2c / SNMPv3 trap/inform receiver from Net-SNMP");
+#endif
+    InputParams     InputOptions;
+
+    int             nRunType = RUN_AS_CONSOLE;
+    int             quiet = 0;
+
+    nRunType = ParseCmdLineForServiceOption(argc, argv, &quiet);
+
+    switch (nRunType) {
+    case REGISTER_SERVICE:
+        /*
+         * Register As service 
+         */
+        InputOptions.Argc = argc;
+        InputOptions.Argv = argv;
+        exit (RegisterService(lpszServiceName,
+                        lpszServiceDisplayName,
+                        lpszServiceDescription, &InputOptions, quiet));
+        break;
+    case UN_REGISTER_SERVICE:
+        /*
+         * Unregister service 
+         */
+        exit (UnregisterService(lpszServiceName, quiet));
+        exit(0);
+        break;
+    case RUN_AS_SERVICE:
+        /*
+         * Run as service 
+         */
+        /*
+         * Register Stop Function 
+         */
+        RegisterStopFunction(StopSnmpTrapd);
+        return RunAsService(SnmpTrapdMain);
+        break;
+    default:
+        /*
+         * Run in console mode 
+         */
+        return SnmpTrapdMain(argc, argv);
+        break;
+    }
+}
+
+/*
+ * To stop Snmp Trap Receiver daemon
+ * This portion is still not working
+ */
+void
+StopSnmpTrapd(void)
+{
+    /*
+     * Shut Down Service
+     */
+    term_handler(1);
+
+    /*
+     * Wait till trap receiver is completely stopped 
+     */
+
+    while (trapd_status != SNMPTRAPD_STOPPED) {
+        Sleep(100);
+    }
+}
+
+#endif /*WIN32SERVICE*/

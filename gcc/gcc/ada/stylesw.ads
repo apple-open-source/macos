@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -137,10 +136,14 @@ package Stylesw is
    --  an attribute name.
 
    Style_Check_Max_Line_Length : Boolean := False;
-   --  This can be set True by using the -gnatg or -gnatym switches. If
-   --  it is True, it activates checking for a maximum line length of 79
-   --  characters (chosen to fit in standard 80 column displays that don't
-   --  handle the limiting case of 80 characters cleanly).
+   --  This can be set True by using the -gnatg or -gnatym/M switches.
+   --  If it is True, it activates checking for a maximum line length of
+   --  Style_Max_Line_Length characters.
+
+   Style_Check_Max_Nesting_Level : Boolean := False;
+   --  This can be set True by using -gnatyLnnn with a value other than
+   --  zero (a value of zero resets it to False). If True, it activates
+   --  checking the maximum nesting level against Style_Max_Nesting_Level.
 
    Style_Check_Pragma_Casing : Boolean := False;
    --  This can be set True by using the -gnatg or -gnatyp switches. If
@@ -218,9 +221,15 @@ package Stylesw is
    --  is True, then names of subprogram bodies must be in alphabetical
    --  order (not taking casing into account).
 
-   Style_Max_Line_Length : Int := 79;
-   --  Value used to check maximum line length. Can be reset by a call to
-   --  Set_Max_Line_Length. The value here is the default if no such call.
+   Style_Max_Line_Length : Int := 0;
+   --  Value used to check maximum line length. Gets reset as a result of
+   --  use of -gnatym or -gnatyMnnn switches (or by use of -gnatg). This
+   --  value is only read if Style_Check_Max_Line_Length is True.
+
+   Style_Max_Nesting_Level : Int := 0;
+   --  Value used to check maximum nesting level. Gets reset as a result
+   --  of use of the -gnatyLnnn switch. This value is only read if
+   --  Style_Check_Max_Nesting_Level is True.
 
    -----------------
    -- Subprograms --
@@ -252,7 +261,7 @@ package Stylesw is
    procedure Reset_Style_Check_Options;
    --  Sets all style check options to off
 
-   subtype Style_Check_Options is String (1 .. 32);
+   subtype Style_Check_Options is String (1 .. 64);
    --  Long enough string to hold all options from Save call below
 
    procedure Save_Style_Check_Options (Options : out Style_Check_Options);

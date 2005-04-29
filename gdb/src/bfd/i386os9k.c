@@ -327,6 +327,8 @@ os9k_sizeof_headers (ignore_abfd, ignore)
 
 #define aout_32_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
+#define aout_32_get_section_contents_in_window_with_mode \
+  _bfd_generic_get_section_contents_in_window_with_mode
 
 #define os9k_bfd_get_relocated_section_contents \
   bfd_generic_get_relocated_section_contents

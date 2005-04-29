@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.2 2004/07/23 06:26:27 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,7 +23,9 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
-SUBDIRS = gimp-print
+SUBDIRS = gimp-print gimp-print-ui gimp-print-ui2
+
+include $(top_srcdir)/scripts/global.mk
 
 
 ## Clean

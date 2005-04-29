@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.4 2004/12/22 23:49:37 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,78 +23,175 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Variables
 
-AM_CFLAGS = $(GNUCFLAGS)
-INCLUDES = @INCLUDES@
+pkgconfigdatadir = $(prefix)/lib/pkgconfig
+pkgxmldatadir = $(pkgdatadir)/$(VERSION)/xml
+pkgmoduledir = $(pkglibdir)/$(VERSION)/modules
 
 
 ## Programs
 
-MAIN_BIN = libgimpprint.la
-MAIN_SCR = gimpprint-config
+if BUILD_MODULES
+pkgmodule_LTLIBRARIES = \
+	color-traditional.la \
+	print-canon.la \
+	print-escp2.la \
+	print-lexmark.la \
+	print-pcl.la \
+	print-ps.la \
+	print-olympus.la \
+	print-raw.la
+endif
 
-bin_SCRIPTS = @MAIN_SCR@
-EXTRA_SCRIPTS = gimpprint-config
+color_traditional_la_SOURCES = \
+	print-color.c \
+	color-conversion.h \
+	color-conversions.c
 
-lib_LTLIBRARIES = @MAIN_BIN@
-EXTRA_LTLIBRARIES = libgimpprint.la
+color_traditional_la_LDFLAGS = -module -avoid-version
 
-libgimpprint_la_SOURCES = \
-	gimp-print-internal.h \
-	print-lexmark.c \
-	print-canon.c \
-	print-dither.c \
+print_canon_la_SOURCES = print-canon.c
+print_canon_la_LDFLAGS = -module -avoid-version
+
+print_escp2_la_SOURCES = \
 	print-escp2.c \
+	escp2-driver.c \
 	print-escp2.h \
 	print-escp2-data.c \
-	print-pcl.c \
-	print-ps.c \
-	print-util.c \
-	print-color.c \
-	print-weave.c \
-	print-version.c \
-	print-dither-matrices.c \
-	print-dither.h \
-	quickmatrix257.h \
-	ran.367.179.h \
-	ran.509.131.h
-libgimpprint_la_LIBADD = $(GIMPPRINT_DEPLIBS)
+	escp2-channels.c \
+	escp2-inks.c \
+	escp2-papers.c \
+	escp2-resolutions.c
+print_escp2_la_LDFLAGS = -module -avoid-version
+
+print_lexmark_la_SOURCES = print-lexmark.c
+print_lexmark_la_LDFLAGS = -module -avoid-version
+
+print_pcl_la_SOURCES = print-pcl.c
+print_pcl_la_LDFLAGS = -module -avoid-version
+
+print_ps_la_SOURCES = print-ps.c
+print_ps_la_LDFLAGS = -module -avoid-version
+
+print_olympus_la_SOURCES = print-olympus.c
+print_olympus_la_LDFLAGS = -module -avoid-version
+
+print_raw_la_SOURCES = print-raw.c
+print_raw_la_LDFLAGS = -module -avoid-version
+
+lib_LTLIBRARIES = libgimpprint.la
+
+module_SOURCES =				\
+	$(color_traditional_la_SOURCES)		\
+	$(print_canon_la_SOURCES)		\
+	$(print_escp2_la_SOURCES)		\
+	$(print_lexmark_la_SOURCES)		\
+	$(print_pcl_la_SOURCES)			\
+	$(print_ps_la_SOURCES)			\
+	$(print_olympus_la_SOURCES)		\
+	$(print_raw_la_SOURCES)
+
+if !BUILD_MODULES
+libgimpprint_modules = $(module_SOURCES)
+endif
+
+mxml_SOURCES =					\
+	mxml-attr.c				\
+	mxml-file.c				\
+	mxml-node.c				\
+	mxml-search.c
+
+libgimpprint_headers =				\
+	dither-impl.h				\
+	dither-inlined-functions.h		\
+	generic-options.h			\
+	gimp-print-internal.h			\
+	util.h
+
+libgimpprint_la_SOURCES =			\
+	array.c					\
+	bit-ops.c				\
+	channel.c				\
+	color.c					\
+	curve.c					\
+	curve-cache.c				\
+	dither-ed.c				\
+	dither-eventone.c			\
+	dither-inks.c				\
+	dither-main.c				\
+	dither-ordered.c			\
+	dither-very-fast.c			\
+	dither-predithered.c			\
+	generic-options.c			\
+	image.c					\
+	module.c				\
+	path.c					\
+	print-dither-matrices.c			\
+	print-list.c				\
+	print-papers.c				\
+	print-util.c				\
+	print-vars.c				\
+	print-version.c				\
+	print-weave.c				\
+	printers.c				\
+	sequence.c				\
+	string-list.c				\
+	xml.c					\
+	$(mxml_SOURCES)				\
+	$(libgimpprint_headers)			\
+	$(libgimpprint_modules)
+
+libgimpprint_la_LIBADD = $(GIMPPRINT_LIBDEPS)
 # Uncommment to build an unversioned library (version in soname)
-#libgimpprint_la_LDFLAGS = -release $(GIMPPRINT_VERSION) -rpath $(libdir)
+libgimpprint_version = -release $(GIMPPRINT_VERSION)
 # Uncomment to build a versioned library
-libgimpprint_la_LDFLAGS = \
- -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
- -rpath $(libdir)
+#libgimpprint_version = -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE)
+libgimpprint_la_LDFLAGS = $(libgimpprint_version) \
+	-rpath $(libdir)
+# libtool currently needs a patch for symbol export to work correctly
+# using a linker version script.
+#	-export-symbols $(srcdir)/libgimpprint.sym
 
 
 ## Data
 
-MAIN_DAT = gimpprint.m4
+pkgconfigdata_DATA = gimpprint.pc
 
-m4datadir = $(datadir)/aclocal
-m4data_DATA = @MAIN_DAT@
+pkgxmldata_DATA = \
+	dither-matrix-1x1.xml \
+	dither-matrix-2x1.xml \
+	dither-matrix-4x1.xml \
+	papers.xml \
+	printers.xml
+
 
 
 ## Rules
 
-print-util.lo: print-printers.c $(srcdir)/print-util.c
+all-local: xmli18n-tmp.h
 
-print-printers.c: ../printdef/printdef $(srcdir)/printers.xml
-	../printdef/printdef < $(srcdir)/printers.xml > print-printers.c
 
-printdefl.o: printdefy.o
+xmli18n-tmp.h:  $(srcdir)/papers.xml $(srcdir)/printers.xml
+# Pull out translatable strings from XML files.  This is crude, but
+# works for now.
+	sed -e '/description.*value/!d' \
+	  -e 's/.*description.*value="\([^"]*\)".*/N_("\1");/' \
+	  < $(srcdir)/papers.xml > $@;
+	sed -e '/printer.*name/!d' \
+	  -e 's/.*printer.*name="\([^"]*\)".*/N_("\1");/' \
+	  < $(srcdir)/printers.xml >> $@;
 
-../printdef/printdef: $(addprefix ../printdef/, printdefl.l printdefy.y printdef.h)
-	cd ../printdef ; \
-	$(MAKE)
+dist-hook: xmli18n-tmp.h
+# xmli18n-tmp.h is needed by po/POTFILES.in at dist time
 
 
 ## Clean
 
-CLEANFILES = print-printers.c
-DISTCLEANFILES = gimpprint-config
+CLEANFILES = xmli18n-tmp.h
 MAINTAINERCLEANFILES = Makefile.in
 
-EXTRA_DIST = gimpprint.m4 gimpprint-config.in printers.xml
+EXTRA_DIST = $(pkgxmldata_DATA) libgimpprint.sym

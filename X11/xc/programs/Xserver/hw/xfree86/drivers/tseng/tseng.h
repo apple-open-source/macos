@@ -1,5 +1,5 @@
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng.h,v 1.37 2002/04/04 14:05:49 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tseng/tseng.h,v 1.38 2003/11/03 05:11:44 tsi Exp $ */
 
 
 
@@ -112,6 +112,7 @@ typedef enum {
 } t_ramdactype;
 
 typedef enum {
+    CLOCKCHIP_DEFAULT = -1,
     CLOCKCHIP_ICD2061A,
     CLOCKCHIP_ET6000,
     CLOCKCHIP_ICS5341,

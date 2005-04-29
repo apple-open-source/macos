@@ -56,7 +56,7 @@ from The Open Group.
  * Author:  Jim Fulton, MIT X Consortium; derived from parts of the
  * original xmodmap, written by David Rosenthal, of Sun Microsystems.
  */
-/* $XFree86: xc/programs/xmodmap/exec.c,v 1.5 2001/12/14 20:02:13 dawes Exp $ */
+/* $XFree86: xc/programs/xmodmap/exec.c,v 1.6 2003/12/02 13:13:57 pascal Exp $ */
 
 #include <X11/Xos.h>
 #include <X11/Xlib.h>
@@ -212,8 +212,13 @@ void
 PrintModifierMapping(XModifierKeymap *map, FILE *fp)
 {
     int i, k = 0;
+    int min_keycode, max_keycode, keysyms_per_keycode = 0;
 
-    fprintf (fp, 
+    XDisplayKeycodes (dpy, &min_keycode, &max_keycode);
+    XGetKeyboardMapping (dpy, min_keycode, (max_keycode - min_keycode + 1),
+			 &keysyms_per_keycode);
+
+    fprintf (fp,
     	     "%s:  up to %d keys per modifier, (keycodes in parentheses):\n\n", 
     	     ProgramName, map->max_keypermod);
     for (i = 0; i < 8; i++) {
@@ -222,8 +227,14 @@ PrintModifierMapping(XModifierKeymap *map, FILE *fp)
 	fprintf(fp, "%-10s", modifier_table[i].name);
 	for (j = 0; j < map->max_keypermod; j++) {
 	    if (map->modifiermap[k]) {
-		KeySym ks = XKeycodeToKeysym(dpy, map->modifiermap[k], 0);
-		char *nm = XKeysymToString(ks);
+		KeySym ks;
+		int index = 0;
+		char *nm;
+		do {
+		    ks = XKeycodeToKeysym(dpy, map->modifiermap[k], index);
+		    index++;
+		} while ( !ks && index < keysyms_per_keycode);
+		nm = XKeysymToString(ks);
 
 		fprintf (fp, "%s  %s (0x%0x)", (j > 0 ? "," : ""), 
 			 (nm ? nm : "BadKey"), map->modifiermap[k]);

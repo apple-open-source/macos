@@ -1,3 +1,4 @@
+// { dg-do run  }
 // PRMS Id: 5286
 // Bug: g++ forgets side-effects of object in call to nonexistent destructor.
 
@@ -18,7 +19,8 @@ int main()
 
   int* p = (int*) new char[sizeof (int)];
   new (p + r++) int;
-  p[--r].~int();
+  typedef int I;
+  p[--r].~I();
   
   return r;
 }

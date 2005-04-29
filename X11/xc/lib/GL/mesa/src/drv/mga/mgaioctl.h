@@ -25,7 +25,7 @@
  *    Keith Whitwell <keith@tungstengraphics.com>
  *    Gareth Hughes <gareth@valinux.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgaioctl.h,v 1.11 2002/10/30 12:51:36 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgaioctl.h,v 1.13 2003/12/02 13:02:38 alanh Exp $ */
 
 #ifndef MGA_IOCTL_H
 #define MGA_IOCTL_H
@@ -33,7 +33,8 @@
 #include "mgacontext.h"
 #include "mga_xmesa.h"
 
-void mgaSwapBuffers( Display *dpy, void *drawablePrivate );
+void mgaCopyBuffer( const __DRIdrawablePrivate *dPriv );
+void mgaWaitForVBlank( mgaContextPtr mmesa );
 
 GLuint *mgaAllocVertexDwords( mgaContextPtr mmesa, int dwords );
 
@@ -103,8 +104,9 @@ do {									\
    if ( ret < 0 ) {							\
       drmCommandNone( mmesa->driFd, DRM_MGA_RESET );			\
       UNLOCK_HARDWARE( mmesa );						\
-      fprintf( stderr, "%s: flush ret=%d\n", __FUNCTION__, ret );	\
-      /*fprintf( stderr, "drmMGAFlushDMA: return = %d\n", ret );*/	\
+      fprintf( stderr, "%s: flush return = %s (%d), flags = 0x%08x\n",	\
+	       __FUNCTION__, strerror( -ret ), -ret,			\
+	       (unsigned)(flags) );					\
       exit( 1 );							\
    }									\
 } while (0)

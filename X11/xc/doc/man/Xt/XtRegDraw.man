@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtRegDraw.man,v 1.2 2001/01/27 18:20:29 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtRegDraw.man,v 1.3 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,19 +130,11 @@
 .SH NAME
 XtRegisterDrawable \- register a drawable with the Intrisics event dispatcher
 .SH SYNTAX
-void XtRegisterDrawable(\fIdisplay\fP, \fIdrawable\fP, \fIwidget\fP)
-.br
-      Display* \fIdisplay\fP;
-.br
-      Drawable \fIdrawable\fP;
-.br
-      Widget \fIwidget\fP;
-.LP
-void XtUnregisterDrawable(\fIdisplay\fP, \fIdrawable\fP)
-.br
-      Display* \fIdisplay\fP;
-.br
-      Drawable \fIdrawable\fP;
+.HP
+void XtRegisterDrawable(Display* \fIdisplay\fP, Drawable \fIdrawable\fP,
+Widget \fIwidget\fP); 
+.HP
+void XtUnregisterDrawable(Display* \fIdisplay\fP, Drawable \fIdrawable\fP); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the drawable's display.

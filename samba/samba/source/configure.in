@@ -3003,13 +3003,11 @@ if test x"$with_ads_support" != x"no"; then
   {
     krb5_context context;
     krb5_keytab keytab;
-/* B&I SystemVersion plist is incomplete on Panther builds which causes this test to hang
-   assume API is available
+
     krb5_init_context(&context);
     if (krb5_kt_resolve(context, "WRFILE:api", &keytab))
       exit(0);
-*/ 
-   exit(1);
+    exit(1);
   }],
   samba_cv_HAVE_WRFILE_KEYTAB=no,
   samba_cv_HAVE_WRFILE_KEYTAB=yes)])

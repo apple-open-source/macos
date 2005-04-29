@@ -1,0 +1,9 @@
+# These are the commands to manually build the library
+# and execuctable
+
+gcc -g -o cachedsym.o -c cachedsym.c
+libtool -dynamic -o libcachedsym.dylib -lc cachedsym.o
+
+gcc -g -o cachedsymtest.o -c cachedsymtest.c
+gcc cachedsymtest.o -L./ -lcachedsym -o cachedsymtest
+

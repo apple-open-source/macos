@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1995,1997            *
+ *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
 /***************************************************************************
@@ -37,13 +37,13 @@
 
 #include "menu.priv.h"
 
-MODULE_ID("$Id: m_item_val.c,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $")
+MODULE_ID("$Id: m_item_val.c,v 1.12 2003/11/08 20:51:29 tom Exp $")
 
 /*---------------------------------------------------------------------------
 |   Facility      :  libnmenu  
 |   Function      :  int set_item_value(ITEM *item, int value)
 |   
-|   Description   :  Programmatically set the items selection value. This is
+|   Description   :  Programmatically set the item's selection value. This is
 |                    only allowed if the item is selectable at all and if
 |                    it is not connected to a single-valued menu.
 |                    If the item is connected to a posted menu, the menu

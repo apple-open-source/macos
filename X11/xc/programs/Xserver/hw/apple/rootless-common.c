@@ -303,6 +303,7 @@ RootlessStopDrawing (WindowPtr pWindow, Bool flush)
 void
 RootlessDamageRegion (WindowPtr pWindow, RegionPtr pRegion)
 {
+    ScreenPtr pScreen = pWindow->drawable.pScreen;
     RootlessWindowRec *winRec;
     RegionRec clipped;
     WindowPtr pTop;
@@ -368,7 +369,7 @@ RootlessDamageRegion (WindowPtr pWindow, RegionPtr pRegion)
 
 	/* clip overlaps pRegion, need to intersect */
 
-	REGION_INIT (pScreen, &clipped, NullBox, 0);
+	REGION_NULL (pScreen, &clipped);
 	REGION_INTERSECT (pScreen, &clipped, &pWindow->borderClip, pRegion);
 
 	xp_mark_window (winRec->wid, REGION_NUM_RECTS (&clipped),

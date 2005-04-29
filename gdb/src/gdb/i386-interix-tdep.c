@@ -90,7 +90,7 @@ pei_adjust_objfile_offsets (struct objfile *objfile,
       return;
     }
 
-  for (i = 0; i < SECT_OFF_MAX; i++)
+  for (i = 0; i < objfile->num_sections; i++)
     {
       (objfile->section_offsets)->offsets[i] += symbols_offset;
     }
@@ -100,7 +100,8 @@ static int
 i386_interix_pc_in_sigtramp (CORE_ADDR pc, char *name)
 {
   /* This is sufficient, where used, but is NOT a complete test; There
-     is more in INIT_EXTRA_FRAME_INFO (a.k.a. interix_back_one_frame).  */
+     is more in DEPRECATED_INIT_EXTRA_FRAME_INFO
+     (a.k.a. interix_back_one_frame).  */
   return ((pc >= tramp_start && pc < tramp_end)
           || (pc >= null_start && pc < null_end));
 }
@@ -127,8 +128,8 @@ i386_interix_frame_chain_valid (CORE_ADDR chain, struct frame_info *thisframe)
      it'll make the correct test.  */
   return ((get_frame_type (thisframe) == SIGTRAMP_FRAME)
           || (chain != 0
-              && !inside_entry_file (read_memory_integer
-                                     (thisframe->frame + 4, 4))));
+              && !deprecated_inside_entry_file (read_memory_integer
+						(thisframe->frame + 4, 4))));
 }
 
 /* We want to find the previous frame, which on Interix is tricky when
@@ -148,7 +149,7 @@ i386_interix_back_one_frame (int fromleaf, struct frame_info *frame)
 
   if (fromleaf)
     {
-      frame->pc = SAVED_PC_AFTER_CALL (frame->next);
+      frame->pc = DEPRECATED_SAVED_PC_AFTER_CALL (frame->next);
       return;
     }
 
@@ -161,7 +162,7 @@ i386_interix_back_one_frame (int fromleaf, struct frame_info *frame)
         {
           /* We know we're in a system call mini-frame; was it
              NullApi or something else?  */
-          ra = SAVED_PC_AFTER_CALL (frame);
+          ra = DEPRECATED_SAVED_PC_AFTER_CALL (frame);
           if (ra >= null_start && ra < null_end)
 	    deprecated_set_frame_type (frame, SIGTRAMP_FRAME);
           /* There might also be an indirect call to the mini-frame,
@@ -223,10 +224,10 @@ i386_interix_back_one_frame (int fromleaf, struct frame_info *frame)
       /* No...  We must be pointing at the frame that was called
          by PdxSignalDeliverer; back up across the whole mess.  */
 
-      /* Extract the frame for PdxSignalDeliverer.
-         Note: FRAME_CHAIN used the "old" frame pointer because we were
-         a deliverer.  Get the address of the context record that's on
-         here frameless.  */
+      /* Extract the frame for PdxSignalDeliverer.  Note:
+         DEPRECATED_FRAME_CHAIN used the "old" frame pointer because
+         we were a deliverer.  Get the address of the context record
+         that's on here frameless.  */
       context = read_memory_integer (frame->frame, 4);  /* an Arg */
 
       /* Now extract the frame pointer contained in the context.  */
@@ -324,16 +325,14 @@ i386_interix_init_abi (struct gdbarch_info info, struct gdbarch *gdbarch)
   tdep->struct_return = reg_struct_return;
   tdep->jb_pc_offset = jump_buffer_Eip_offset;
 
-  set_gdbarch_decr_pc_after_break (gdbarch, 0);
   set_gdbarch_pc_in_sigtramp (gdbarch, i386_interix_pc_in_sigtramp);
   set_gdbarch_in_solib_call_trampoline (gdbarch,
                                         i386_interix_in_solib_call_trampoline);
   set_gdbarch_skip_trampoline_code (gdbarch,
                                     i386_interix_skip_trampoline_code);
-  set_gdbarch_init_extra_frame_info (gdbarch, i386_interix_back_one_frame);
-  set_gdbarch_deprecated_init_frame_pc (gdbarch, init_frame_pc_noop);
-  set_gdbarch_frame_chain_valid (gdbarch, i386_interix_frame_chain_valid);
-  set_gdbarch_frame_saved_pc (gdbarch, i386_interix_frame_saved_pc);
+  set_gdbarch_deprecated_init_extra_frame_info (gdbarch, i386_interix_back_one_frame);
+  set_gdbarch_deprecated_frame_chain_valid (gdbarch, i386_interix_frame_chain_valid);
+  set_gdbarch_deprecated_frame_saved_pc (gdbarch, i386_interix_frame_saved_pc);
   set_gdbarch_name_of_malloc (gdbarch, "_malloc");
 }
 

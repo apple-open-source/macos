@@ -19,7 +19,6 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * RCS_ID("$Id: acls.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
  */
 
 #ifdef MULTIUSER

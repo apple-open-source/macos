@@ -1,4 +1,4 @@
-#! /usr/local/bin/ruby
+#!/usr/bin/env ruby
 require "tk"
 
 root = TkFrame.new
@@ -54,7 +54,6 @@ bot.pack
 root.pack('side'=>'top', 'fill'=>'both', 'expand'=>'yes')
 
 def quit(button)
-  print "aaa\n"
   print "You pressed the \"#{button}\" button;  bye-bye!\n"
   exit
 end

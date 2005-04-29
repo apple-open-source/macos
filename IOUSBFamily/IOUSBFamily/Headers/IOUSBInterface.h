@@ -69,11 +69,12 @@ protected:
     virtual void 	ClosePipes(void);	// close all pipes (except pipe zero)
     virtual IOReturn	CreatePipes(void);	// open all pipes in the current interface/alt interface
     virtual void	SetProperties(void);	// update my property table with the correct properties		
-
+	
 public:
     static IOUSBInterface *withDescriptors(const IOUSBConfigurationDescriptor *cfDesc, const IOUSBInterfaceDescriptor *ifDesc);
     static IOReturn	CallSuperOpen(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
     static IOReturn     CallSuperClose(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3);
+	static UInt8 hex2char( UInt8 digit );
     
     virtual bool 	init(	const IOUSBConfigurationDescriptor *cfDesc,
                                 const IOUSBInterfaceDescriptor *ifDesc);
@@ -131,9 +132,9 @@ public:
                                 void *		   arg = 0 );
 
     virtual bool open( 	IOService *	   forClient,
-			IOOptionBits	   options = 0,
-			void *		   arg = 0 );
-    
+                                IOOptionBits	   options = 0,
+                                void *		   arg = 0 );
+
     virtual void close( 	IOService *	   forClient,
 			IOOptionBits	   options = 0  );
     

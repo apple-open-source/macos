@@ -1,0 +1,243 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_Strategy</b>
+<br><br>
+
+<dd><font face=Times size=3>
+A strategy encapsulates code dealing with the I/O system interface.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_Strategy</b> ();
+	  
+	  
+		
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual 
+    </td>
+	<td>
+	  <nobr>
+	  <b>~c4_Strategy</b> ();
+	  
+	  
+		
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>IsValid</b> () <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			True if we can do I/O with this object</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DataSeek</b> (t4_i32 position_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Set file position</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DataRead</b> (void* buffer_, int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Read a number of bytes</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DataLoad</b> (void* buffer_, int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Read an exact number of bytes</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DataWrite</b> (const void* buffer_, int length_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Write a number of bytes, return true if successful</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>DataCommit</b> (t4_i32 newSize_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Flush and truncate file</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  virtual void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>ResetFileMapping</b> ();
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Override to support memory-mapped files</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_keepAfterCommit</b>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Keep data in memory after each commit (default is false)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  bool 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_bytesFlipped</b>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			True if the storage format is not native (default is false)</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  int 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_failure</b>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Error code of last failed I/O operation, zero if I/O was ok</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const t4_byte* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_mapStart</b>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			First byte in file mapping, zero if not active</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const t4_byte* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>_mapLimit</b>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Past last byte in file mapping, zero if not active</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

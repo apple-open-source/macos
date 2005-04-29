@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiscreen.c,v 1.29 2003/01/01 19:16:34 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiscreen.c,v 1.31 2004/01/05 16:42:04 tsi Exp $ */
 /*
- * Copyright 1999 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1999 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -63,10 +63,9 @@ ATIRefreshArea
 
     while (nBox-- > 0)
     {
-        w = (pBox->x2 - pBox->x1) * pATI->FBBytesPerPixel;
+        w = (pBox->x2 - pBox->x1) * pATI->AdjustDepth;
         h = pBox->y2 - pBox->y1;
-        offset =
-            (pBox->y1 * pATI->FBPitch) + (pBox->x1 * pATI->FBBytesPerPixel);
+        offset = (pBox->y1 * pATI->FBPitch) + (pBox->x1 * pATI->AdjustDepth);
         pSrc = (char *)pATI->pShadow + offset;
         pDst = (char *)pATI->pMemory + offset;
 
@@ -120,12 +119,13 @@ ATIScreenInit
         return FALSE;
 
     pFB = pATI->pMemory;
+    pATI->FBPitch = PixmapBytePad(pATI->displayWidth, pATI->depth);
     if (pATI->OptionShadowFB)
     {
-        pATI->FBBytesPerPixel = pATI->bitsPerPixel >> 3;
-        pATI->FBPitch = PixmapBytePad(pATI->displayWidth, pATI->depth);
         if ((pATI->pShadow = xalloc(pATI->FBPitch * pScreenInfo->virtualY)))
+        {
             pFB = pATI->pShadow;
+        }
         else
         {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
@@ -216,8 +216,10 @@ ATIScreenInit
 
         else if (!fbPictureInit(pScreen, NULL, 0) &&
                  (serverGeneration == 1))
+        {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                 "RENDER extension initialisation failed.\n");
+        }
     }
 
     xf86SetBlackWhitePixels(pScreen);
@@ -239,7 +241,7 @@ ATIScreenInit
 #ifndef AVOID_DGA
 
     /* Initialise DGA support */
-    (void)ATIDGAInit(pScreenInfo, pScreen, pATI);
+    (void)ATIDGAInit(pScreen, pScreenInfo, pATI);
 
 #endif /* AVOID_DGA */
 
@@ -310,6 +312,8 @@ ATICloseScreen
     ScrnInfoPtr pScreenInfo = xf86Screens[iScreen];
     ATIPtr      pATI        = ATIPTR(pScreenInfo);
     Bool        Closed      = TRUE;
+
+    ATICloseXVideo(pScreen, pScreenInfo, pATI);
 
     if (pATI->pXAAInfo)
     {

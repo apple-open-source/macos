@@ -92,10 +92,8 @@
 /******************************************************************************/
 
 /*
- * $Id: xmas.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: xmas.c,v 1.19 2002/06/29 23:32:18 tom Exp $
  */
-#include <signal.h>
-
 #include <test.priv.h>
 
 #define FROMWHO "Mark Hessling - (M.Hessling@gu.edu.au)"
@@ -189,6 +187,8 @@ int
 main(int argc GCC_UNUSED, char **argv GCC_UNUSED)
 {
     int loopy;
+
+    setlocale(LC_ALL, "");
 
     initscr();
     noecho();

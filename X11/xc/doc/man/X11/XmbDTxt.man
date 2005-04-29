@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\"
-.\" $XFree86: xc/doc/man/X11/XmbDTxt.man,v 1.3 2001/01/27 18:20:07 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XmbDTxt.man,v 1.5 2003/11/23 05:40:33 dawes Exp $
 .\" 
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -145,47 +145,17 @@
 .SH NAME
 XmbDrawText, XwcDrawText, Xutf8DrawText \- draw text using multiple font sets 
 .SH SYNTAX
-void XmbDrawText\^(\^\fIdisplay\fP\^, \fId\fP\^, \fIgc\fP\^, \fIx\fP\^, \fIy\fP\^, \fIitems\fP\^, \fInitems\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.br
-      XmbTextItem *\fIitems\fP\^;
-.br
-      int \fInitems\fP\^;
-.LP
-void XwcDrawText\^(\^\fIdisplay\fP\^, \fId\fP\^, \fIgc\fP\^, \fIx\fP\^, \fIy\fP\^, \fIitems\fP\^, \fInitems\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.br
-      XwcTextItem *\fIitems\fP\^;
-.br
-      int \fInitems\fP\^;
-.LP
-void Xutf8DrawText\^(\^\fIdisplay\fP\^, \fId\fP\^, \fIgc\fP\^, \fIx\fP\^, \fIy\fP\^, \fIitems\fP\^, \fInitems\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.br
-      XmbTextItem *\fIitems\fP\^;
-.br
-      int \fInitems\fP\^;
+.HP
+void XmbDrawText\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, int \fIx\fP\^, int \fIy\fP\^, XmbTextItem *\fIitems\fP\^, int
+\fInitems\fP\^); 
+.HP
+void XwcDrawText\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, int \fIx\fP\^, int \fIy\fP\^, XwcTextItem *\fIitems\fP\^, int
+\fInitems\fP\^); 
+.HP
+void Xutf8DrawText\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, int \fIx\fP\^, int \fIy\fP\^, XmbTextItem *\fIitems\fP\^, int \fInitems\fP\^);
 .SH ARGUMENTS
 .IP \fId\fP 1i
 Specifies the drawable. 
@@ -256,10 +226,10 @@ structure contains:
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	char *chars;	/* pointer to string */
-	int nchars;	/* number of bytes */
-	int delta;	/* pixel delta between strings */
-	XFontSet font_set; 	/* fonts, None means don't change */
+	char *chars;	/\(** pointer to string */
+	int nchars;	/\(** number of bytes */
+	int delta;	/\(** pixel delta between strings */
+	XFontSet font_set; 	/\(** fonts, None means don't change */
 } XmbTextItem;
 .De
 The
@@ -269,10 +239,10 @@ structure contains:
 .TA .5i 2.5i
 .ta .5i 2.5i
 typedef struct {
-	wchar_t *chars;	/* pointer to wide char string */
-	int nchars;	/* number of wide characters */
-	int delta;	/* pixel delta between strings */
-	XFontSet font_set;	/* fonts, None means don't change */
+	wchar_t *chars;	/\(** pointer to wide char string */
+	int nchars;	/\(** number of wide characters */
+	int delta;	/\(** pixel delta between strings */
+	XFontSet font_set;	/\(** fonts, None means don't change */
 } XwcTextItem;
 .De
 .SH "SEE ALSO"

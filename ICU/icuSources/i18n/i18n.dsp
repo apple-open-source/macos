@@ -55,7 +55,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 icuuc.lib /nologo /base:"0x4a900000" /dll /machine:I386 /out:"..\..\bin\icuin26.dll" /implib:"..\..\lib\icuin.lib" /libpath:"..\..\lib"
+# ADD LINK32 icuuc.lib /nologo /base:"0x4a900000" /dll /machine:I386 /out:"..\..\bin\icuin32.dll" /implib:"..\..\lib\icuin.lib" /libpath:"..\..\lib"
 # SUBTRACT LINK32 /pdb:none /debug
 
 !ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
@@ -82,7 +82,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 icuucd.lib /nologo /base:"0x4a900000" /dll /debug /machine:I386 /out:"..\..\bin\icuin26d.dll" /implib:"..\..\lib\icuind.lib" /pdbtype:sept /libpath:"..\..\lib"
+# ADD LINK32 icuucd.lib /nologo /base:"0x4a900000" /dll /debug /machine:I386 /out:"..\..\bin\icuin32d.dll" /implib:"..\..\lib\icuind.lib" /pdbtype:sept /libpath:"..\..\lib"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "i18n - Win64 Release"
@@ -99,7 +99,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "I18N_EXPORTS" /FD /c
-# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /I "..\..\include" /I "..\..\source\common" /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "I18N_EXPORTS" /D "U_I18N_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GF /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MD /Za /W3 /GX /Zi /O2 /Ob2 /I "..\..\include" /I "..\..\source\common" /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "I18N_EXPORTS" /D "U_I18N_IMPLEMENTATION" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GF /Zm600 /c
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win64
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -109,7 +109,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:IX86 /machine:IA64
-# ADD LINK32 icuuc.lib /nologo /base:"0x4a900000" /dll /machine:IX86 /out:"..\..\bin\icuin26.dll" /implib:"..\..\lib\icuin.lib" /libpath:"..\..\lib" /machine:IA64
+# ADD LINK32 icuuc.lib /nologo /base:"0x4a900000" /dll /machine:IX86 /out:"..\..\bin\icuin32.dll" /implib:"..\..\lib\icuin.lib" /libpath:"..\..\lib" /machine:IA64
 # SUBTRACT LINK32 /debug
 
 !ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
@@ -126,7 +126,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN64" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "I18N_EXPORTS" /FD /GZ /c
-# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\include" /I "..\..\source\common" /D "_WINDOWS" /D "_USRDLL" /D "I18N_EXPORTS" /D "U_I18N_IMPLEMENTATION" /D "WIN64" /D "_DEBUG" /D "_MBCS" /D "UDATA_MAP" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GF /GZ /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MDd /Za /W3 /Gm /GX /Zi /Od /I "..\..\include" /I "..\..\source\common" /D "_WINDOWS" /D "_USRDLL" /D "I18N_EXPORTS" /D "U_I18N_IMPLEMENTATION" /D "WIN64" /D "_DEBUG" /D "_MBCS" /D "UDATA_MAP" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FR /FD /GF /GZ /Zm600 /c
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win64
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -136,7 +136,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:IX86 /pdbtype:sept /machine:IA64
-# ADD LINK32 icuucd.lib /nologo /base:"0x4a900000" /dll /incremental:no /debug /machine:IX86 /out:"..\..\bin\icuin26d.dll" /implib:"..\..\lib\icuind.lib" /pdbtype:sept /libpath:"..\..\lib" /machine:IA64
+# ADD LINK32 icuucd.lib /nologo /base:"0x4a900000" /dll /incremental:no /debug /machine:IX86 /out:"..\..\bin\icuin32d.dll" /implib:"..\..\lib\icuind.lib" /pdbtype:sept /libpath:"..\..\lib" /machine:IA64
 
 !ENDIF 
 
@@ -544,6 +544,10 @@ SOURCE=.\ucol_imp.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\ucol_sit.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\ucol_tok.cpp
 # End Source File
 # Begin Source File
@@ -670,6 +674,14 @@ SOURCE=.\usrchimp.h
 # PROP Default_Filter ""
 # Begin Source File
 
+SOURCE=.\astro.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\astro.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\buddhcal.cpp
 # End Source File
 # Begin Source File
@@ -729,6 +741,14 @@ InputPath=.\unicode\calendar.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\chnsecal.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\chnsecal.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\choicfmt.cpp
 # End Source File
 # Begin Source File
@@ -771,6 +791,116 @@ InputPath=.\unicode\choicfmt.h
 InputPath=.\unicode\choicfmt.h
 
 "..\..\include\unicode\choicfmt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\curramt.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\curramt.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\curramt.h
+
+"..\..\include\unicode\curramt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\curramt.h
+
+"..\..\include\unicode\curramt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\curramt.h
+
+"..\..\include\unicode\curramt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\curramt.h
+
+"..\..\include\unicode\curramt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\currfmt.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\currfmt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\currunit.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\currunit.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\currunit.h
+
+"..\..\include\unicode\currunit.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\currunit.h
+
+"..\..\include\unicode\currunit.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\currunit.h
+
+"..\..\include\unicode\currunit.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\currunit.h
+
+"..\..\include\unicode\currunit.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
 	copy    $(InputPath)    ..\..\include\unicode
 
 # End Custom Build
@@ -930,6 +1060,14 @@ InputPath=.\unicode\decimfmt.h
 
 !ENDIF 
 
+# End Source File
+# Begin Source File
+
+SOURCE=.\digitlst.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\digitlst.h
 # End Source File
 # Begin Source File
 
@@ -1184,11 +1322,137 @@ InputPath=.\unicode\gregocal.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\gregoimp.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\gregoimp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\hebrwcal.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\hebrwcal.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\islamcal.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\islamcal.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\japancal.cpp
 # End Source File
 # Begin Source File
 
 SOURCE=.\japancal.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\measfmt.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\measfmt.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\measfmt.h
+
+"..\..\include\unicode\measfmt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\measfmt.h
+
+"..\..\include\unicode\measfmt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\measfmt.h
+
+"..\..\include\unicode\measfmt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\measfmt.h
+
+"..\..\include\unicode\measfmt.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\measure.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\measure.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\measure.h
+
+"..\..\include\unicode\measure.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\measure.h
+
+"..\..\include\unicode\measure.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\measure.h
+
+"..\..\include\unicode\measure.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\measure.h
+
+"..\..\include\unicode\measure.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
 # End Source File
 # Begin Source File
 
@@ -1319,6 +1583,14 @@ InputPath=.\unicode\numfmt.h
 
 !ENDIF 
 
+# End Source File
+# Begin Source File
+
+SOURCE=.\olsontz.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\olsontz.h
 # End Source File
 # Begin Source File
 
@@ -1526,10 +1798,6 @@ InputPath=.\unicode\timezone.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\tzdat.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\ucal.cpp
 # End Source File
 # Begin Source File
@@ -1629,6 +1897,10 @@ InputPath=.\unicode\ucurr.h
 
 !ENDIF 
 
+# End Source File
+# Begin Source File
+
+SOURCE=.\ucurrimp.h
 # End Source File
 # Begin Source File
 
@@ -1787,6 +2059,70 @@ InputPath=.\unicode\unum.h
 !ENDIF 
 
 # End Source File
+# Begin Source File
+
+SOURCE=.\utmscale.c
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# ADD CPP /Od
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+!ENDIF 
+
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\utmscale.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\utmscale.h
+
+"..\..\include\unicode\utmscale.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\utmscale.h
+
+"..\..\include\unicode\utmscale.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\utmscale.h
+
+"..\..\include\unicode\utmscale.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\utmscale.h
+
+"..\..\include\unicode\utmscale.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
 # End Group
 # Begin Group "misc"
 
@@ -1886,11 +2222,58 @@ SOURCE=.\rematch.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\remtrans.cpp
+SOURCE=.\repattrn.cpp
 # End Source File
 # Begin Source File
 
-SOURCE=.\repattrn.cpp
+SOURCE=.\uregex.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\uregex.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\uregex.h
+
+"..\..\include\unicode\uregex.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\uregex.h
+
+"..\..\include\unicode\uregex.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\uregex.h
+
+"..\..\include\unicode\uregex.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\uregex.h
+
+"..\..\include\unicode\uregex.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
 # End Source File
 # End Group
 # Begin Group "transforms"
@@ -1903,6 +2286,14 @@ SOURCE=.\anytrans.cpp
 # Begin Source File
 
 SOURCE=.\anytrans.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\casetrn.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\casetrn.h
 # End Source File
 # Begin Source File
 
@@ -1927,14 +2318,6 @@ SOURCE=.\funcrepl.cpp
 # Begin Source File
 
 SOURCE=.\funcrepl.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\hextouni.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\hextouni.h
 # End Source File
 # Begin Source File
 
@@ -2007,6 +2390,10 @@ SOURCE=.\rbt_set.cpp
 # Begin Source File
 
 SOURCE=.\rbt_set.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\remtrans.cpp
 # End Source File
 # Begin Source File
 
@@ -2133,57 +2520,6 @@ SOURCE=.\uni2name.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\unifltlg.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\unicode\unifltlg.h
-
-!IF  "$(CFG)" == "i18n - Win32 Release"
-
-# Begin Custom Build
-InputPath=.\unicode\unifltlg.h
-
-"..\..\include\unicode\unifltlg.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	copy    $(InputPath)    ..\..\include\unicode
-
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
-
-# Begin Custom Build
-InputPath=.\unicode\unifltlg.h
-
-"..\..\include\unicode\unifltlg.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	copy    $(InputPath)    ..\..\include\unicode
-
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
-
-# Begin Custom Build
-InputPath=.\unicode\unifltlg.h
-
-"..\..\include\unicode\unifltlg.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	copy    $(InputPath)    ..\..\include\unicode
-
-# End Custom Build
-
-!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
-
-# Begin Custom Build
-InputPath=.\unicode\unifltlg.h
-
-"..\..\include\unicode\unifltlg.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
-	copy    $(InputPath)    ..\..\include\unicode
-
-# End Custom Build
-
-!ENDIF 
-
-# End Source File
-# Begin Source File
-
 SOURCE=.\unicode\unirepl.h
 
 !IF  "$(CFG)" == "i18n - Win32 Release"
@@ -2231,14 +2567,6 @@ InputPath=.\unicode\unirepl.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\unitohex.cpp
-# End Source File
-# Begin Source File
-
-SOURCE=.\unitohex.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\utrans.cpp
 # End Source File
 # Begin Source File
@@ -2281,6 +2609,61 @@ InputPath=.\unicode\utrans.h
 InputPath=.\unicode\utrans.h
 
 "..\..\include\unicode\utrans.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ENDIF 
+
+# End Source File
+# End Group
+# Begin Group "locale"
+
+# PROP Default_Filter ""
+# Begin Source File
+
+SOURCE=.\ulocdata.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\unicode\ulocdata.h
+
+!IF  "$(CFG)" == "i18n - Win32 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\ulocdata.h
+
+"..\..\include\unicode\ulocdata.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win32 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\ulocdata.h
+
+"..\..\include\unicode\ulocdata.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Release"
+
+# Begin Custom Build
+InputPath=.\unicode\ulocdata.h
+
+"..\..\include\unicode\ulocdata.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
+	copy    $(InputPath)    ..\..\include\unicode
+
+# End Custom Build
+
+!ELSEIF  "$(CFG)" == "i18n - Win64 Debug"
+
+# Begin Custom Build
+InputPath=.\unicode\ulocdata.h
+
+"..\..\include\unicode\ulocdata.h" : $(SOURCE) "$(INTDIR)" "$(OUTDIR)"
 	copy    $(InputPath)    ..\..\include\unicode
 
 # End Custom Build

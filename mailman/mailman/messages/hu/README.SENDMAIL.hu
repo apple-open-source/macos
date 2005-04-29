@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 BIZTONSÁGI FIGYELMEZTETÉSEK
@@ -21,25 +21,35 @@ SENDMAIL `smrsh' KOMPATIBILITÁS
     A legtöbb újabb verziójú Sendmail egy úgynevezett korlátozott
     végrehajtású eszközzel az "smrsh"-val rendelkezik. Ennek a
     használatával lehet korlátozni, hogy a Sendmail milyen levélszûrõ
-    programokat hívhat meg mûködésekor. Külön meg kell adnunk a Mailman
-    wrapper programját, hogy használhassa az smrsh. Ha a levél nem jut
-    el a Mailman wrapper programjához, vagy egy "operating system error"
-    üzenetet látunk a mail naplóállományba, akkor a problémát ez okozza.
+    programokat hívhat meg mûködésekor. Külön meg kell adnunk az smrsh
+    -nak a Mailman wrapper programját, különben a Mailman nem fog
+    mûködni. Ha a levél nem jut el a Mailman wrapper programjához, vagy
+    egy "operating system error" üzenetet látunk a mail naplóállományba,
+    akkor a problémát ez okozza.
     
     A probléma elhárításához tegyük a következõt:
 
-        - lépjünk be az /etc/smrsh (vagy hasonló a rendszerünktõl függõen
-          pl. lehet /var/smrsh vagy /usr/local/smrsh) könyvtárba
+        - keressük meg a rendszerünkön a Sendmailhez tartozó smrsh
+          wrapper programot
 
-        - hozzunk letre egy szimbolikus hivatkozást a Mailman wrapper
- 	  programjára
+	   % grep smrsh /etc/mail/sendmail.cf
 
-    Például, ha a Mailman-t az alapértelmezett helyre telepítettük,
-    akkor a következõ parancsokat kell (valószínûleg root-ként)
-    használni:
+	- derítsük ki, hogy az smrsh mely könyvtárakban keresi az
+	  engedélyezett szûrõ programokat. A következõ parancs 
+          kimenetének legelején találhatóak meg teljes hivatkozással
+          a lehetséges könyvtárak, pl. /var/admin/sm.bin
 
-        % cd /etc/smrsh
-        % ln -s /usr/local/mailman/mail/mailman mailman
+	   % strings $path_to_smrsh | less
+ 
+        - lépjünk be az így megtalált könyvtárba, pl. /var/adm/sm.bin
+
+           % cd /var/adm/sm.bin
+
+        - hozzunk létre egy szimbolikus hivatkozást a Mailman wrapper
+ 	  programjára. Példánkban a Mailman az alapértelmezett könyv-
+	  tárba telepítettük (/usr/local/mailman)
+
+           % ln -s /usr/local/mailman/mail/mailman mailman
 
 
 SENDMAIL ÉS MAILMAN ÖSSZEKAPCSOLÁSA

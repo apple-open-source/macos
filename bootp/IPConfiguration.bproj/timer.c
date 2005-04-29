@@ -1,21 +1,22 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -32,17 +33,29 @@
  * - created
  */
 
-#import <stdlib.h>
-#import <unistd.h>
-#import <string.h>
-#import <stdio.h>
-#import <sys/types.h>
-#import <sys/time.h>
-#import <math.h>
-#import <syslog.h>
-#import "globals.h"
-#import "util.h"
-#import "timer.h"
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <math.h>
+#include <syslog.h>
+#include "globals.h"
+#include "util.h"
+#include "timer.h"
+
+#include <CoreFoundation/CFRunLoop.h>
+#include <CoreFoundation/CFDate.h>
+
+struct timer_callout {
+    timer_func_t *	func;
+    void *		arg1;
+    void *		arg2;
+    void *		arg3;
+    CFRunLoopTimerRef	timer_source;
+    boolean_t		enabled;
+};
 
 #ifdef TEST_ARP_SESSION
 #define my_log	syslog
@@ -111,9 +124,9 @@ timer_set_relative(timer_callout_t * callout,
     callout->arg2 = arg2;
     callout->arg3 = arg3;
     callout->enabled = 1;
-    if (rel_time.tv_sec <= 0 && rel_time.tv_usec < 1000) {
+    if (rel_time.tv_sec < 0) {
 	rel_time.tv_sec = 0;
-	rel_time.tv_usec = 1000; /* force millisecond resolution */
+	rel_time.tv_usec = 1;
     }
     wakeup_time = CFAbsoluteTimeGetCurrent() + rel_time.tv_sec 
 	  + ((double)rel_time.tv_usec / USECS_PER_SEC);
@@ -123,7 +136,7 @@ timer_set_relative(timer_callout_t * callout,
 			       0.0, 0, 0,
 			       timer_callout_process,
 			       &context);
-    my_log(LOG_DEBUG, "timer: wakeup time is (%d.%d) %g", 
+    my_log(LOG_DEBUG, "timer: wakeup time is (%d.%06d) %0.09g", 
 	   rel_time.tv_sec, rel_time.tv_usec, wakeup_time);
     my_log(LOG_DEBUG, "timer: adding timer source");
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), callout->timer_source,

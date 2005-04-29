@@ -25,6 +25,5 @@
  */
 #include "SYS.h"
 
-PSEUDO(getppid, getpid, 0)
-	movl	%edx, %eax
-	ret		// ppid = getppid();
+UNIX_SYSCALL(getppid,0)
+	ret

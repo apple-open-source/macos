@@ -1,4 +1,4 @@
-/* BoundedRangeModel.java --
+/* DefaultColorSelectionModel.java --
    Copyright (C) 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
@@ -37,101 +37,126 @@ exception statement from your version. */
 
 package javax.swing.colorchooser;
 
-// Imports
-import java.awt.*;
-import java.io.*;
-import javax.swing.event.*;
+import java.awt.Color;
+import java.io.Serializable;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
+import javax.swing.event.EventListenerList;
+
 
 /**
- * DefaultColorSelectionModel
- * @author	Andrew Selkirk
- * @version	1.0
+ * This is the default implementation of the ColorSelectionModel interface
+ * that JColorChoosers use.
+ *
+ * @author Andrew Selkirk
+ * @version 1.0
  */
-public class DefaultColorSelectionModel 
-		implements ColorSelectionModel, Serializable {
+public class DefaultColorSelectionModel implements ColorSelectionModel,
+                                                   Serializable
+{
+  /** DOCUMENT ME! */
+  private static final long serialVersionUID = -8117143602864778804L;
 
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+  /** The currently selected color. */
+  private Color selectedColor;
 
-	/**
-	 * changeEvent
-	 */
-	protected transient ChangeEvent changeEvent;
+  /** The ChangeEvent fired to all ChangeListeners. */
+  protected transient ChangeEvent changeEvent = new ChangeEvent(this);
 
-	/**
-	 * listenerList
-	 */
-	protected EventListenerList listenerList;
+  /** The list of listeners. */
+  protected EventListenerList listenerList = new EventListenerList();
 
-	/**
-	 * selectedColor
-	 */
-	private Color selectedColor;
+  /**
+   * Creates a new color selection model with the default white color.
+   */
+  public DefaultColorSelectionModel()
+  {
+    this(Color.white);
+  }
 
+  /**
+   * Creates a new color selection model with a given selected color.
+   *
+   * @param color The initial color.
+   *
+   * @throws Error If the color is null.
+   */
+  public DefaultColorSelectionModel(Color color)
+  {
+    super();
+    if (color == null)
+      throw new Error("ColorSelectionModel cannot be set to have null color.");
+    this.selectedColor = color;
+  }
 
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Returns the selected color.
+   *
+   * @return The selected color.
+   */
+  public Color getSelectedColor()
+  {
+    return selectedColor;
+  }
 
-	/**
-	 * Constructor DefaultColorSelectionModel
-	 */
-	public DefaultColorSelectionModel() {
-		// TODO
-	} // DefaultColorSelectionModel()
+  /**
+   * This method sets the color.
+   *
+   * @param color The color to set.
+   *
+   * @throws Error If the color is set.
+   */
+  public void setSelectedColor(Color color)
+  {
+    if (color == null)
+      throw new Error("ColorSelectionModel cannot be set to have null color.");
+    if (color != selectedColor)
+      {
+	this.selectedColor = color;
+	fireStateChanged();
+      }
+  }
 
-	/**
-	 * Constructor DefaultColorSelectionModel
-	 * @param color TODO
-	 */
-	public DefaultColorSelectionModel(Color color) {
-		// TODO
-	} // DefaultColorSelectionModel()
+  /**
+   * Adds a listener to this model.
+   *
+   * @param listener The listener to add.
+   */
+  public void addChangeListener(ChangeListener listener)
+  {
+    listenerList.add(ChangeListener.class, listener);
+  }
 
+  /**
+   * Removes a listener from this model.
+   *
+   * @param listener The listener to remove.
+   */
+  public void removeChangeListener(ChangeListener listener)
+  {
+    listenerList.remove(ChangeListener.class, listener);
+  }
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Returns all currently added <code>ChangeListener</code> objects.
+   *
+   * @return Array of <code>ChangeListener</code> objects.
+   */
+  public ChangeListener[] getChangeListeners()
+  {
+    return (ChangeListener[]) listenerList.getListeners(ChangeListener.class);
+  }
 
-	/**
-	 * getSelectedColor
-	 * @returns Color
-	 */
-	public Color getSelectedColor() {
-		return null; // TODO
-	} // getSelectedColor()
+  /**
+   * Calls all the <code>stateChanged()</code> method of all added
+   * <code>ChangeListener</code> objects with <code>changeEvent</code> as
+   * argument.
+   */
+  protected void fireStateChanged()
+  {
+    ChangeListener[] listeners = getChangeListeners();
 
-	/**
-	 * setSelectedColor
-	 * @param color TODO
-	 */
-	public void setSelectedColor(Color color) {
-		// TODO
-	} // setSelectedColor()
-
-	/**
-	 * addChangeListener
-	 * @param listener TODO
-	 */
-	public void addChangeListener(ChangeListener listener) {
-		// TODO
-	} // addChangeListener()
-
-	/**
-	 * removeChangeListener
-	 * @param listener TODO
-	 */
-	public void removeChangeListener(ChangeListener listener) {
-		// TODO
-	} // removeChangeListener()
-
-	/**
-	 * fireStateChanged
-	 */
-	protected void fireStateChanged() {
-		// TODO
-	} // fireStateChanged()
-
-
-} // DefaultColorSelectionModel
+    for (int i = 0; i < listeners.length; i++)
+      listeners[i].stateChanged(changeEvent);
+  }
+}

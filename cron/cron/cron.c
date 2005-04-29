@@ -68,7 +68,11 @@ main(argc, argv)
 	int	argc;
 	char	*argv[];
 {
+	int running_via_launchd = 0;
 	cron_db	database;
+
+	if (getppid() == 1)
+		running_via_launchd = 1;
 
 	ProgramName = argv[0];
 
@@ -103,7 +107,7 @@ main(argc, argv)
 # endif
 		(void) fprintf(stderr, "[%d] cron started\n", getpid());
 	} else {
-		if (daemon(1, 0) == -1) {
+		if (running_via_launchd == 0 && daemon(1, 0) == -1) {
 			log_it("CRON",getpid(),"DEATH","can't become daemon");
 			exit(0);
 		}
@@ -117,6 +121,14 @@ main(argc, argv)
 	run_reboot_jobs(&database);
 	cron_sync();
 	while (TRUE) {
+		if (running_via_launchd) {
+			user *hu = database.head;
+
+			if (hu == NULL)
+				exit(0);
+			if (hu == database.tail && !strcmp(hu->name, "*system*") && hu->crontab == NULL)
+				exit(0);
+		}
 # if DEBUGGING
 	    /* if (!(DebugFlags & DTEST)) */
 # endif /*DEBUGGING*/
@@ -245,9 +257,9 @@ cron_tick(db)
 	 */
 	for (u = db->head;  u != NULL;  u = u->next) {
 		for (e = u->crontab;  e != NULL;  e = e->next) {
-			Debug(DSCH|DEXT, ("user [%s:%d:%d:...] cmd=\"%s\"\n",
+			Debug(DSCH|DEXT, ("user [%s:%s:%s:...] cmd=\"%s\"\n",
 					  env_get("LOGNAME", e->envp),
-					  e->uid, e->gid, e->cmd))
+					  e->uname, e->gname, e->cmd))
 
 			if ( diff != 0 && (e->flags & (RUN_AT|NOT_UNTIL)) ) {
 				if (bit_test(e->minute, otzminute)
@@ -415,7 +427,7 @@ parse_args(argc, argv)
 {
 	int	argch;
 
-	while ((argch = getopt(argc, argv, "osx:")) != -1) {
+	while ((argch = getopt(argc, argv, "losx:")) != -1) {
 		switch (argch) {
 		case 'o':
 			dst_enabled = 0;

@@ -4,7 +4,7 @@
    argument.  This will only work on MacOS X 10.1.2 and later.  */
 /* Developed by Ziemowit Laski <zlaski@apple.com>.  */
 
-/* { dg-do compile { target powerpc-apple-darwin* } } */
+/* { dg-do compile { target *-*-darwin* } } */
 /* { dg-options "-fconstant-cfstrings" } */
 
 #import <CoreFoundation/CFString.h>
@@ -19,8 +19,8 @@ extern const char *func(void);
 
 int main(void) {
   CFStringRef s1 = CFSTR("Str1");
-  CFStringRef s2 = CFSTR(cond? "Str2": "Str3"); /* { dg-error "CFString literal expression not constant" } */
-  CFStringRef s3 = CFSTR(func());  /* { dg-error "CFString literal expression not constant" } */
+  CFStringRef s2 = CFSTR(cond? "Str2": "Str3"); /* { dg-error "CFString literal expression is not constant" } */
+  CFStringRef s3 = CFSTR(func());  /* { dg-error "CFString literal expression is not constant" } */
 
   return 0;
 }

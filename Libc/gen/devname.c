@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,37 +68,47 @@
 #include <stdlib.h>
 
 char *
-devname(dev, type)
-	dev_t dev;
-	mode_t type;
+devname_r(dev_t dev, mode_t type, char *buf, int len)
 {
 	register DIR *dp;
 	register struct dirent *dirp;
 	struct stat sb;
-	static char *buf = NULL;
+	char _buf[sizeof(_PATH_DEV) + MAXNAMLEN];
 
-	if( buf == NULL ) {
-		buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN);
-		if( buf == NULL )
-			return NULL;
-		strcpy(buf, _PATH_DEV);
-	}
+	strcpy(_buf, _PATH_DEV);
 
 	if ((dp = opendir(_PATH_DEV)) == NULL) 
 		return (NULL);
 
 	while ( (dirp = readdir(dp)) ) {
-		bcopy(dirp->d_name, buf + sizeof(_PATH_DEV) - 1,
+		bcopy(dirp->d_name, _buf + sizeof(_PATH_DEV) - 1,
 		    dirp->d_namlen + 1);
-		if (stat(buf, &sb))
+		if (lstat(_buf, &sb))
 			continue;
 		if (dev != sb.st_rdev)
 			continue;
 		if (type != (sb.st_mode & S_IFMT))
 			continue;
+		if (dirp->d_namlen + 1 > len)
+			break;
+		strcpy(buf, dirp->d_name);
 		(void)closedir(dp);
-		return (buf + sizeof(_PATH_DEV) - 1);
+		return (buf);
 	}
 	(void)closedir(dp);
 	return (NULL);
+}
+
+char *
+devname(dev_t dev, mode_t type)
+{
+	static char *buf = NULL;
+
+	if( buf == NULL ) {
+		buf = malloc(MAXNAMLEN);
+		if( buf == NULL )
+			return NULL;
+	}
+
+	return (devname_r(dev, type, buf, MAXNAMLEN));
 }

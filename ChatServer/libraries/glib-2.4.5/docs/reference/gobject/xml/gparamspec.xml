@@ -1,0 +1,1022 @@
+<refentry id="gobject-GParamSpec">
+<refmeta>
+<refentrytitle>GParamSpec</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GOBJECT Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>GParamSpec</refname><refpurpose>Metadata for parameter specifications</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib-object.h&gt;
+
+
+#define     <link linkend="G-TYPE-IS-PARAM-CAPS">G_TYPE_IS_PARAM</link>                 (type)
+#define     <link linkend="G-PARAM-SPEC-CAPS">G_PARAM_SPEC</link>                    (pspec)
+#define     <link linkend="G-IS-PARAM-SPEC-CAPS">G_IS_PARAM_SPEC</link>                 (pspec)
+#define     <link linkend="G-PARAM-SPEC-CLASS-CAPS">G_PARAM_SPEC_CLASS</link>              (pclass)
+#define     <link linkend="G-IS-PARAM-SPEC-CLASS-CAPS">G_IS_PARAM_SPEC_CLASS</link>           (pclass)
+#define     <link linkend="G-PARAM-SPEC-GET-CLASS-CAPS">G_PARAM_SPEC_GET_CLASS</link>          (pspec)
+#define     <link linkend="G-PARAM-SPEC-TYPE-CAPS">G_PARAM_SPEC_TYPE</link>               (pspec)
+#define     <link linkend="G-PARAM-SPEC-TYPE-NAME-CAPS">G_PARAM_SPEC_TYPE_NAME</link>          (pspec)
+#define     <link linkend="G-PARAM-SPEC-VALUE-TYPE-CAPS">G_PARAM_SPEC_VALUE_TYPE</link>         (pspec)
+struct      <link linkend="GParamSpec">GParamSpec</link>;
+struct      <link linkend="GParamSpecClass">GParamSpecClass</link>;
+enum        <link linkend="GParamFlags">GParamFlags</link>;
+#define     <link linkend="G-PARAM-READWRITE-CAPS">G_PARAM_READWRITE</link>
+#define     <link linkend="G-PARAM-MASK-CAPS">G_PARAM_MASK</link>
+#define     <link linkend="G-PARAM-USER-SHIFT-CAPS">G_PARAM_USER_SHIFT</link>
+<link linkend="GParamSpec">GParamSpec</link>* <link linkend="g-param-spec-ref">g_param_spec_ref</link>                (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="void">void</link>        <link linkend="g-param-spec-unref">g_param_spec_unref</link>              (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="void">void</link>        <link linkend="g-param-spec-sink">g_param_spec_sink</link>               (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="void">void</link>        <link linkend="g-param-value-set-default">g_param_value_set_default</link>       (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-param-value-defaults">g_param_value_defaults</link>          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-param-value-validate">g_param_value_validate</link>          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-param-value-convert">g_param_value_convert</link>           (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             const <link linkend="GValue">GValue</link> *src_value,
+                                             <link linkend="GValue">GValue</link> *dest_value,
+                                             <link linkend="gboolean">gboolean</link> strict_validation);
+<link linkend="gint">gint</link>        <link linkend="g-param-values-cmp">g_param_values_cmp</link>              (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             const <link linkend="GValue">GValue</link> *value1,
+                                             const <link linkend="GValue">GValue</link> *value2);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-param-spec-get-name">g_param_spec_get_name</link> (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-param-spec-get-nick">g_param_spec_get_nick</link> (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-param-spec-get-blurb">g_param_spec_get_blurb</link>
+                                            (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-param-spec-get-qdata">g_param_spec_get_qdata</link>          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark);
+<link linkend="void">void</link>        <link linkend="g-param-spec-set-qdata">g_param_spec_set_qdata</link>          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark,
+                                             <link linkend="gpointer">gpointer</link> data);
+<link linkend="void">void</link>        <link linkend="g-param-spec-set-qdata-full">g_param_spec_set_qdata_full</link>     (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> destroy);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-param-spec-steal-qdata">g_param_spec_steal_qdata</link>        (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark);
+<link linkend="GParamSpec">GParamSpec</link>* <link linkend="g-param-spec-get-redirect-target">g_param_spec_get_redirect_target</link>
+                                            (<link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="gpointer">gpointer</link>    <link linkend="g-param-spec-internal">g_param_spec_internal</link>           (<link linkend="GType">GType</link> param_type,
+                                             const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="gchar">gchar</link> *nick,
+                                             const <link linkend="gchar">gchar</link> *blurb,
+                                             <link linkend="GParamFlags">GParamFlags</link> flags);
+struct      <link linkend="GParamSpecTypeInfo">GParamSpecTypeInfo</link>;
+<link linkend="GType">GType</link>       <link linkend="g-param-type-register-static">g_param_type_register_static</link>    (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GParamSpecTypeInfo">GParamSpecTypeInfo</link> *pspec_info);
+struct      <link linkend="GParamSpecPool">GParamSpecPool</link>;
+<link linkend="GParamSpecPool">GParamSpecPool</link>* <link linkend="g-param-spec-pool-new">g_param_spec_pool_new</link>       (<link linkend="gboolean">gboolean</link> type_prefixing);
+<link linkend="void">void</link>        <link linkend="g-param-spec-pool-insert">g_param_spec_pool_insert</link>        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GType">GType</link> owner_type);
+<link linkend="void">void</link>        <link linkend="g-param-spec-pool-remove">g_param_spec_pool_remove</link>        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GParamSpec">GParamSpec</link> *pspec);
+<link linkend="GParamSpec">GParamSpec</link>* <link linkend="g-param-spec-pool-lookup">g_param_spec_pool_lookup</link>        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             const <link linkend="gchar">gchar</link> *param_name,
+                                             <link linkend="GType">GType</link> owner_type,
+                                             <link linkend="gboolean">gboolean</link> walk_ancestors);
+<link linkend="GParamSpec">GParamSpec</link>** <link linkend="g-param-spec-pool-list">g_param_spec_pool_list</link>         (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GType">GType</link> owner_type,
+                                             <link linkend="guint">guint</link> *n_pspecs_p);
+<link linkend="GList">GList</link>*      <link linkend="g-param-spec-pool-list-owned">g_param_spec_pool_list_owned</link>    (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GType">GType</link> owner_type);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+<link linkend="GParamSpec"><type>GParamSpec</type></link> is an object structure that encapsulates the metadata
+required to specify parameters, such as e.g. <link linkend="GObject"><type>GObject</type></link> properties.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="G-TYPE-IS-PARAM-CAPS"/>G_TYPE_IS_PARAM()</title>
+<indexterm><primary>G_TYPE_IS_PARAM</primary></indexterm><programlisting>#define G_TYPE_IS_PARAM(type)		(G_TYPE_FUNDAMENTAL (type) == G_TYPE_PARAM)
+</programlisting>
+<para>
+Returns whether <parameter>type</parameter> "is a" <literal>G_TYPE_PARAM</literal>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GType"><type>GType</type></link> ID
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-CAPS"/>G_PARAM_SPEC()</title>
+<indexterm><primary>G_PARAM_SPEC</primary></indexterm><programlisting>#define G_PARAM_SPEC(pspec)		(G_TYPE_CHECK_INSTANCE_CAST ((pspec), G_TYPE_PARAM, GParamSpec))
+</programlisting>
+<para>
+Casts a derived <link linkend="GParamSpec"><type>GParamSpec</type></link> object (e.g. of type <link linkend="GParamSpecInt"><type>GParamSpecInt</type></link>) into
+a <link linkend="GParamSpec"><type>GParamSpec</type></link> object.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-IS-PARAM-SPEC-CAPS"/>G_IS_PARAM_SPEC()</title>
+<indexterm><primary>G_IS_PARAM_SPEC</primary></indexterm><programlisting>#define G_IS_PARAM_SPEC(pspec)		(G_TYPE_CHECK_INSTANCE_TYPE ((pspec), G_TYPE_PARAM))
+</programlisting>
+<para>
+Checks whether <parameter>pspec</parameter> "is a" valid <link linkend="GParamSpec"><type>GParamSpec</type></link> structure of type <literal>G_TYPE_PARAM</literal>
+or derived.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-CLASS-CAPS"/>G_PARAM_SPEC_CLASS()</title>
+<indexterm><primary>G_PARAM_SPEC_CLASS</primary></indexterm><programlisting>#define G_PARAM_SPEC_CLASS(pclass)      (G_TYPE_CHECK_CLASS_CAST ((pclass), G_TYPE_PARAM, GParamSpecClass))
+</programlisting>
+<para>
+Casts a derived <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link> structure into a <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link> structure.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pclass</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-IS-PARAM-SPEC-CLASS-CAPS"/>G_IS_PARAM_SPEC_CLASS()</title>
+<indexterm><primary>G_IS_PARAM_SPEC_CLASS</primary></indexterm><programlisting>#define G_IS_PARAM_SPEC_CLASS(pclass)   (G_TYPE_CHECK_CLASS_TYPE ((pclass), G_TYPE_PARAM))
+</programlisting>
+<para>
+Checks whether <parameter>pclass</parameter> "is a" valid <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link> structure of type 
+<literal>G_TYPE_PARAM</literal> or derived.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pclass</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-GET-CLASS-CAPS"/>G_PARAM_SPEC_GET_CLASS()</title>
+<indexterm><primary>G_PARAM_SPEC_GET_CLASS</primary></indexterm><programlisting>#define G_PARAM_SPEC_GET_CLASS(pspec)	(G_TYPE_INSTANCE_GET_CLASS ((pspec), G_TYPE_PARAM, GParamSpecClass))
+</programlisting>
+<para>
+Retrieves the <link linkend="GParamSpecClass"><type>GParamSpecClass</type></link> of a <link linkend="GParamSpec"><type>GParamSpec</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-TYPE-CAPS"/>G_PARAM_SPEC_TYPE()</title>
+<indexterm><primary>G_PARAM_SPEC_TYPE</primary></indexterm><programlisting>#define G_PARAM_SPEC_TYPE(pspec)	(G_TYPE_FROM_INSTANCE (pspec))
+</programlisting>
+<para>
+Retrieves the <link linkend="GType"><type>GType</type></link> of this <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-TYPE-NAME-CAPS"/>G_PARAM_SPEC_TYPE_NAME()</title>
+<indexterm><primary>G_PARAM_SPEC_TYPE_NAME</primary></indexterm><programlisting>#define G_PARAM_SPEC_TYPE_NAME(pspec)	(g_type_name (G_PARAM_SPEC_TYPE (pspec)))
+</programlisting>
+<para>
+Retrieves the <link linkend="GType"><type>GType</type></link> name of this <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-SPEC-VALUE-TYPE-CAPS"/>G_PARAM_SPEC_VALUE_TYPE()</title>
+<indexterm><primary>G_PARAM_SPEC_VALUE_TYPE</primary></indexterm><programlisting>#define	G_PARAM_SPEC_VALUE_TYPE(pspec)	(G_PARAM_SPEC (pspec)-&gt;value_type)
+</programlisting>
+<para>
+Retrieves the <link linkend="GType"><type>GType</type></link> to initialize a <link linkend="GValue"><type>GValue</type></link> for this parameter.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GParamSpec"/>struct GParamSpec</title>
+<indexterm><primary>GParamSpec</primary></indexterm><programlisting>struct GParamSpec {
+
+  GTypeInstance  g_type_instance;
+
+  gchar         *name;
+  GParamFlags    flags;
+  GType		 value_type;
+  GType		 owner_type;	/* class or interface using this property */
+
+};
+</programlisting>
+<para>
+All fields of the <structname>GParamSpec</structname> struct are private and
+should not be used directly, except for the following:
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTypeInstance">GTypeInstance</link> <structfield>g_type_instance</structfield></term>
+<listitem><simpara>private <link linkend="GTypeInstance"><type>GTypeInstance</type></link> portion
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>name</structfield></term>
+<listitem><simpara>           name of this parameter
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GParamFlags">GParamFlags</link> <structfield>flags</structfield></term>
+<listitem><simpara>          <link linkend="GParamFlags"><type>GParamFlags</type></link> flags for this parameter
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>value_type</structfield></term>
+<listitem><simpara>     the <link linkend="GValue"><type>GValue</type></link> type for this parameter
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>owner_type</structfield></term>
+<listitem><simpara>     <link linkend="GType"><type>GType</type></link> type that uses (introduces) this paremeter
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GParamSpecClass"/>struct GParamSpecClass</title>
+<indexterm><primary>GParamSpecClass</primary></indexterm><programlisting>struct GParamSpecClass {
+
+  GTypeClass      g_type_class;
+
+  GType		  value_type;
+
+  void	        (*finalize)		(GParamSpec   *pspec);
+
+  /* GParam methods */
+  void          (*value_set_default)    (GParamSpec   *pspec,
+					 GValue       *value);
+  gboolean      (*value_validate)       (GParamSpec   *pspec,
+					 GValue       *value);
+  gint          (*values_cmp)           (GParamSpec   *pspec,
+					 const GValue *value1,
+					 const GValue *value2);
+};
+</programlisting>
+<para>
+The class structure for the <structname>GParamSpec</structname> type.
+Normally, <structname>GParamSpec</structname> classes are filled by
+<link linkend="g-param-type-register-static"><function>g_param_type_register_static()</function></link>.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTypeClass">GTypeClass</link> <structfield>g_type_class</structfield></term>
+<listitem><simpara>the parent class
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>value_type</structfield></term>
+<listitem><simpara>the <link linkend="GValue"><type>GValue</type></link> type for this parameter
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>finalize</structfield>) (GParamSpec   *pspec)</term>
+<listitem><simpara>The instance finalization function (optional), should chain 
+  up to the finalize method of the parent class.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>value_set_default</structfield>) (GParamSpec   *pspec,
+					 GValue       *value)</term>
+<listitem><simpara>Resets a <parameter>value</parameter> to the default value for this type
+  (recommended, the default is <link linkend="g-value-reset"><function>g_value_reset()</function></link>), see 
+  <link linkend="g-param-value-set-default"><function>g_param_value_set_default()</function></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gboolean">gboolean</link> (*<structfield>value_validate</structfield>) (GParamSpec   *pspec,
+					 GValue       *value)</term>
+<listitem><simpara>Ensures that the contents of <parameter>value</parameter> comply with the 
+  specifications set out by this type (optional), see 
+  <link linkend="g-param-value-set-validate"><function>g_param_value_set_validate()</function></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gint">gint</link> (*<structfield>values_cmp</structfield>) (GParamSpec   *pspec,
+					 const GValue *value1,
+					 const GValue *value2)</term>
+<listitem><simpara>Compares <parameter>value1</parameter> with <parameter>value2</parameter> according to this type
+  (recommended, the default is <link linkend="memcmp"><function>memcmp()</function></link>), see <link linkend="g-param-values-cmp"><function>g_param_values_cmp()</function></link>.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GParamFlags"/>enum GParamFlags</title>
+<indexterm><primary>GParamFlags</primary></indexterm><programlisting>typedef enum
+{
+  G_PARAM_READABLE            = 1 &lt;&lt; 0,
+  G_PARAM_WRITABLE            = 1 &lt;&lt; 1,
+  G_PARAM_CONSTRUCT	      = 1 &lt;&lt; 2,
+  G_PARAM_CONSTRUCT_ONLY      = 1 &lt;&lt; 3,
+  G_PARAM_LAX_VALIDATION      = 1 &lt;&lt; 4,
+  G_PARAM_PRIVATE	      = 1 &lt;&lt; 5
+} GParamFlags;
+</programlisting>
+<para>
+Through the <link linkend="GParamFlags"><type>GParamFlags</type></link> flag values, certain aspects of parameters
+can be configured.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_PARAM_READABLE</literal></term>
+<listitem><simpara>      the parameter is readable
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_PARAM_WRITABLE</literal></term>
+<listitem><simpara>      the parameter is writable
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_PARAM_CONSTRUCT</literal></term>
+<listitem><simpara>     the parameter will be set upon object construction
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_PARAM_CONSTRUCT_ONLY</literal></term>
+<listitem><simpara>the parameter will only be set upon object construction
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_PARAM_LAX_VALIDATION</literal></term>
+<listitem><simpara>upon parameter conversion (see <link linkend="g-param-value-convert"><function>g_param_value_convert()</function></link>)
+                         strict validation is not required
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_PARAM_PRIVATE</literal></term>
+<listitem><simpara>
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-READWRITE-CAPS"/>G_PARAM_READWRITE</title>
+<indexterm><primary>G_PARAM_READWRITE</primary></indexterm><programlisting>#define	G_PARAM_READWRITE	(G_PARAM_READABLE | G_PARAM_WRITABLE)
+</programlisting>
+<para>
+<link linkend="GParamFlags"><type>GParamFlags</type></link> value alias for <literal>G_PARAM_READABLE</literal> | <literal>G_PARAM_WRITABLE</literal>.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-MASK-CAPS"/>G_PARAM_MASK</title>
+<indexterm><primary>G_PARAM_MASK</primary></indexterm><programlisting>#define	G_PARAM_MASK		(0x000000ff)
+</programlisting>
+<para>
+Mask containing the bits of <link linkend="GParamSpec"><type>GParamSpec</type></link>.flags which are reserved for GLib.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-PARAM-USER-SHIFT-CAPS"/>G_PARAM_USER_SHIFT</title>
+<indexterm><primary>G_PARAM_USER_SHIFT</primary></indexterm><programlisting>#define	G_PARAM_USER_SHIFT	(8)
+</programlisting>
+<para>
+Minimum shift count to be used for user defined flags, to be stored in
+<link linkend="GParamSpec"><type>GParamSpec</type></link>.flags.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-ref"/>g_param_spec_ref ()</title>
+<indexterm><primary>g_param_spec_ref</primary></indexterm><programlisting><link linkend="GParamSpec">GParamSpec</link>* g_param_spec_ref                (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Increments the reference count of <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>  a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GParamSpec"><type>GParamSpec</type></link> that was passed into this function
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-unref"/>g_param_spec_unref ()</title>
+<indexterm><primary>g_param_spec_unref</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_unref              (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Decrements the reference count of a <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-sink"/>g_param_spec_sink ()</title>
+<indexterm><primary>g_param_spec_sink</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_sink               (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+The initial reference count of a newly created <link linkend="GParamSpec"><type>GParamSpec</type></link> is 1, even 
+though no one has explicitly called <link linkend="g-param-spec-ref"><function>g_param_spec_ref()</function></link> on it yet. So the 
+initial reference count is flagged as "floating", until someone calls 
+<literal>g_param_spec_ref (<parameter>pspec</parameter>); g_param_spec_sink (<parameter>pspec</parameter>);</literal>
+in sequence on it, taking over the initial reference count (thus
+ending up with a <parameter>pspec</parameter> that has a reference count of 1 still, but is
+not flagged "floating" anymore).
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-value-set-default"/>g_param_value_set_default ()</title>
+<indexterm><primary>g_param_value_set_default</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_value_set_default       (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);</programlisting>
+<para>
+Sets <parameter>value</parameter> to its default value as specified in <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-value-defaults"/>g_param_value_defaults ()</title>
+<indexterm><primary>g_param_value_defaults</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_param_value_defaults          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);</programlisting>
+<para>
+Checks whether <parameter>value</parameter> contains the default value as specified in <parameter>pspec</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>  a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>  a <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>whether <parameter>value</parameter> contains the canonical defualt for this <parameter>pspec</parameter>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-value-validate"/>g_param_value_validate ()</title>
+<indexterm><primary>g_param_value_validate</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_param_value_validate          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GValue">GValue</link> *value);</programlisting>
+<para>
+Ensures that the contents of <parameter>value</parameter> comply with the specifications
+set out by <parameter>pspec</parameter>. For example, a <link linkend="GParamSpecInt"><type>GParamSpecInt</type></link> might require
+that integers stored in <parameter>value</parameter> may not be smaller than -42 and not be
+greater than +42. If <parameter>value</parameter> contains an integer outside of this range,
+it is modified accordingly, so the resulting value will fit into the
+range -42 .. +42.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>  a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value</parameter>&nbsp;:</term>
+<listitem><simpara>  a <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>whether modifying <parameter>value</parameter> was necessary to ensure validity
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-value-convert"/>g_param_value_convert ()</title>
+<indexterm><primary>g_param_value_convert</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_param_value_convert           (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             const <link linkend="GValue">GValue</link> *src_value,
+                                             <link linkend="GValue">GValue</link> *dest_value,
+                                             <link linkend="gboolean">gboolean</link> strict_validation);</programlisting>
+<para>
+Transforms <parameter>src_value</parameter> into <parameter>dest_value</parameter> if possible, and then validates 
+<parameter>dest_value</parameter>, in order for it to conform to <parameter>pspec</parameter>.
+If <parameter>strict_validation</parameter> is <literal>TRUE</literal> this function will only succeed if
+the transformed <parameter>dest_value</parameter> complied to <parameter>pspec</parameter> without modifications.
+
+See also <link linkend="g-value-type-transformable"><function>g_value_type_transformable()</function></link>, <link linkend="g-value-transform"><function>g_value_transform()</function></link> and
+<link linkend="g-param-value-validate"><function>g_param_value_validate()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>            a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>src_value</parameter>&nbsp;:</term>
+<listitem><simpara>        souce <link linkend="GValue"><type>GValue</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>dest_value</parameter>&nbsp;:</term>
+<listitem><simpara>       destination <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>strict_validation</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> requires <parameter>dest_value</parameter> to conform to <parameter>pspec</parameter> without modifications
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>          <literal>TRUE</literal> if transformation and validation were successfull,
+                    <literal>FALSE</literal> otherwise and <parameter>dest_value</parameter> is left untouched.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-values-cmp"/>g_param_values_cmp ()</title>
+<indexterm><primary>g_param_values_cmp</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_param_values_cmp              (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             const <link linkend="GValue">GValue</link> *value1,
+                                             const <link linkend="GValue">GValue</link> *value2);</programlisting>
+<para>
+Compares <parameter>value1</parameter> with <parameter>value2</parameter> according to <parameter>pspec</parameter>, and return -1, 0 or +1,
+if <parameter>value1</parameter> is found to be less than, equal to or greater than <parameter>value2</parameter>, 
+respectively.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>  a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value1</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value2</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GValue"><type>GValue</type></link> of correct type for <parameter>pspec</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>-1, 0 or +1, for a less than, equal to or greater than result
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-get-name"/>g_param_spec_get_name ()</title>
+<indexterm><primary>g_param_spec_get_name</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_param_spec_get_name (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Returns the name of a <link linkend="GParamSpec"><type>GParamSpec</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the name of <parameter>pspec</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-get-nick"/>g_param_spec_get_nick ()</title>
+<indexterm><primary>g_param_spec_get_nick</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_param_spec_get_nick (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Returns the nickname of a <link linkend="GParamSpec"><type>GParamSpec</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the nickname of <parameter>pspec</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-get-blurb"/>g_param_spec_get_blurb ()</title>
+<indexterm><primary>g_param_spec_get_blurb</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_param_spec_get_blurb
+                                            (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Returns the short description of a <link linkend="GParamSpec"><type>GParamSpec</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the short description of <parameter>pspec</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-get-qdata"/>g_param_spec_get_qdata ()</title>
+<indexterm><primary>g_param_spec_get_qdata</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_param_spec_get_qdata          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark);</programlisting>
+<para>
+Gets back user data pointers stored via <link linkend="g-param-spec-set-qdata"><function>g_param_spec_set_qdata()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a valid <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>quark</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GQuark"><type>GQuark</type></link>, naming the user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the user data pointer set, or <literal>NULL</literal>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-set-qdata"/>g_param_spec_set_qdata ()</title>
+<indexterm><primary>g_param_spec_set_qdata</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_set_qdata          (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark,
+                                             <link linkend="gpointer">gpointer</link> data);</programlisting>
+<para>
+Sets an opaque, named pointer on a <link linkend="GParamSpec"><type>GParamSpec</type></link>. The name is specified 
+through a <link linkend="GQuark"><type>GQuark</type></link> (retrieved e.g. via <link linkend="g-quark-from-static-string"><function>g_quark_from_static_string()</function></link>), and 
+the pointer can be gotten back from the <parameter>pspec</parameter> with <link linkend="g-param-spec-get-qdata"><function>g_param_spec_get_qdata()</function></link>.
+Setting a previously set user data pointer, overrides (frees)
+the old pointer set, using <link linkend="NULL-CAPS"><type>NULL</type></link> as pointer essentially
+removes the data stored.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GParamSpec"><type>GParamSpec</type></link> to set store a user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>quark</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GQuark"><type>GQuark</type></link>, naming the user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>an opaque user data pointer
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-set-qdata-full"/>g_param_spec_set_qdata_full ()</title>
+<indexterm><primary>g_param_spec_set_qdata_full</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_set_qdata_full     (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> destroy);</programlisting>
+<para>
+This function works like <link linkend="g-param-spec-set-qdata"><function>g_param_spec_set_qdata()</function></link>, but in addition, 
+a <literal>void (*destroy) (gpointer)</literal> function may be 
+specified which is called with <parameter>data</parameter> as argument when the <parameter>pspec</parameter> is 
+finalized, or the data is being overwritten by a call to 
+<link linkend="g-param-spec-set-qdata"><function>g_param_spec_set_qdata()</function></link> with the same <parameter>quark</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>  the <link linkend="GParamSpec"><type>GParamSpec</type></link> to set store a user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>quark</parameter>&nbsp;:</term>
+<listitem><simpara>  a <link linkend="GQuark"><type>GQuark</type></link>, naming the user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>   an opaque user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>destroy</parameter>&nbsp;:</term>
+<listitem><simpara>function to invoke with <parameter>data</parameter> as argument, when <parameter>data</parameter> needs to
+          be freed
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-steal-qdata"/>g_param_spec_steal_qdata ()</title>
+<indexterm><primary>g_param_spec_steal_qdata</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_param_spec_steal_qdata        (<link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GQuark">GQuark</link> quark);</programlisting>
+<para>
+Gets back user data pointers stored via <link linkend="g-param-spec-set-qdata"><function>g_param_spec_set_qdata()</function></link> and 
+removes the <parameter>data</parameter> from <parameter>pspec</parameter> without invoking it's <link linkend="destroy"><function>destroy()</function></link> function 
+(if any was set).
+Usually, calling this function is only required to update
+user data pointers with a destroy notifier.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GParamSpec"><type>GParamSpec</type></link> to get a stored user data pointer from
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>quark</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GQuark"><type>GQuark</type></link>, naming the user data pointer
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the user data pointer set, or <literal>NULL</literal>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-get-redirect-target"/>g_param_spec_get_redirect_target ()</title>
+<indexterm role="2.4"><primary>g_param_spec_get_redirect_target</primary></indexterm><programlisting><link linkend="GParamSpec">GParamSpec</link>* g_param_spec_get_redirect_target
+                                            (<link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+If the paramspec redirects operations to another paramspec,
+returns that paramspec. Redirect is used typically for
+providing a new implementation of a property in a derived
+type while perserving all the properties from the parent
+type. Redirection is established by creating a property
+of type <link linkend="GParamSpecOverride"><type>GParamSpecOverride</type></link>. See <link linkend="g-object-override-property"><function>g_object_override_property()</function></link>
+for an example of the use of this capability.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>paramspec to which requests on this paramspec should
+  be redirected, or <literal>NULL</literal> if none.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-internal"/>g_param_spec_internal ()</title>
+<indexterm><primary>g_param_spec_internal</primary></indexterm><programlisting><link linkend="gpointer">gpointer</link>    g_param_spec_internal           (<link linkend="GType">GType</link> param_type,
+                                             const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="gchar">gchar</link> *nick,
+                                             const <link linkend="gchar">gchar</link> *blurb,
+                                             <link linkend="GParamFlags">GParamFlags</link> flags);</programlisting>
+<para>
+Creates a new <link linkend="GParamSpec"><type>GParamSpec</type></link> instance.
+</para>
+<para>
+A property name consists of segments consisting of ASCII letters and
+digits, separated by either the '-' or '_' character. The first
+character of a property name must be a letter. Names which violate these
+rules lead to undefined behaviour. 
+</para>
+<para>
+When creating and looking up a <link linkend="GParamSpec"><type>GParamSpec</type></link>, either separator can be used, 
+but they cannot be mixed. Using '-' is considerably more efficient and in 
+fact required when using property names as detail strings for signals.
+</para><variablelist role="params">
+<varlistentry><term><parameter>param_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> for the property; must be derived from <link linkend="G-TYPE-PARAM-CAPS"><type>G_TYPE_PARAM</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>the canonical name of the property
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>nick</parameter>&nbsp;:</term>
+<listitem><simpara>the nickname of the property
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>blurb</parameter>&nbsp;:</term>
+<listitem><simpara>a short description of the property
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara>a combination of <link linkend="GParamFlags"><type>GParamFlags</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a newly allocated <link linkend="GParamSpec"><type>GParamSpec</type></link> instance
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GParamSpecTypeInfo"/>struct GParamSpecTypeInfo</title>
+<indexterm><primary>GParamSpecTypeInfo</primary></indexterm><programlisting>struct GParamSpecTypeInfo {
+
+  /* type system portion */
+  guint16         instance_size;                               /* obligatory */
+  guint16         n_preallocs;                                 /* optional */
+  void		(*instance_init)	(GParamSpec   *pspec); /* optional */
+
+  /* class portion */
+  GType           value_type;				       /* obligatory */
+  void          (*finalize)             (GParamSpec   *pspec); /* optional */
+  void          (*value_set_default)    (GParamSpec   *pspec,  /* recommended */
+					 GValue       *value);
+  gboolean      (*value_validate)       (GParamSpec   *pspec,  /* optional */
+					 GValue       *value);
+  gint          (*values_cmp)           (GParamSpec   *pspec,  /* recommended */
+					 const GValue *value1,
+					 const GValue *value2);
+};
+</programlisting>
+<para>
+This structure is used to provide the type system with the information
+required to initialize and destruct (finalize) a parameter's class and
+instances thereof.
+The initialized structure is passed to the <link linkend="g-param-type-register-static"><function>g_param_type_register_static()</function></link> 
+The type system will perform a deep copy of this structure, so it's memory 
+does not need to be persistent across invocation of 
+<link linkend="g-param-type-register-static"><function>g_param_type_register_static()</function></link>.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="guint16">guint16</link> <structfield>instance_size</structfield></term>
+<listitem><simpara>Size of the instance (object) structure.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint16">guint16</link> <structfield>n_preallocs</structfield></term>
+<listitem><simpara>Number of pre-allocated (cached) instances to reserve memory for (0 indicates no caching).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>instance_init</structfield>) (GParamSpec   *pspec)</term>
+<listitem><simpara>Location of the instance initialization function (optional).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GType">GType</link> <structfield>value_type</structfield></term>
+<listitem><simpara>The <link linkend="GType"><type>GType</type></link> of values conforming to this <link linkend="GParamSpec"><type>GParamSpec</type></link>
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>finalize</structfield>) (GParamSpec   *pspec)</term>
+<listitem><simpara>The instance finalization function (optional).
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>value_set_default</structfield>) (GParamSpec   *pspec,   
+					 GValue       *value)</term>
+<listitem><simpara>Resets a <parameter>value</parameter> to the default value for <parameter>pspec</parameter> 
+  (recommended, the default is <link linkend="g-value-reset"><function>g_value_reset()</function></link>), see 
+  <link linkend="g-param-value-set-default"><function>g_param_value_set_default()</function></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gboolean">gboolean</link> (*<structfield>value_validate</structfield>) (GParamSpec   *pspec,   
+					 GValue       *value)</term>
+<listitem><simpara>Ensures that the contents of <parameter>value</parameter> comply with the 
+  specifications set out by <parameter>pspec</parameter> (optional), see 
+  <link linkend="g-param-value-set-validate"><function>g_param_value_set_validate()</function></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gint">gint</link> (*<structfield>values_cmp</structfield>) (GParamSpec   *pspec,   
+					 const GValue *value1,
+					 const GValue *value2)</term>
+<listitem><simpara>Compares <parameter>value1</parameter> with <parameter>value2</parameter> according to <parameter>pspec</parameter> 
+  (recommended, the default is <link linkend="memcmp"><function>memcmp()</function></link>), see <link linkend="g-param-values-cmp"><function>g_param_values_cmp()</function></link>.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-type-register-static"/>g_param_type_register_static ()</title>
+<indexterm><primary>g_param_type_register_static</primary></indexterm><programlisting><link linkend="GType">GType</link>       g_param_type_register_static    (const <link linkend="gchar">gchar</link> *name,
+                                             const <link linkend="GParamSpecTypeInfo">GParamSpecTypeInfo</link> *pspec_info);</programlisting>
+<para>
+Registers <parameter>name</parameter> as the name of a new static type derived from
+<link linkend="G-TYPE-PARAM-CAPS"><type>G_TYPE_PARAM</type></link>. The type system uses the information contained in the
+<link linkend="GParamSpecTypeInfo"><type>GParamSpecTypeInfo</type></link> structure pointed to by <parameter>info</parameter> to manage the <link linkend="GParamSpec"><type>GParamSpec</type></link> 
+type and its instances. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>name</parameter>&nbsp;:</term>
+<listitem><simpara>0-terminated string used as the name of the new <link linkend="GParamSpec"><type>GParamSpec</type></link> type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>pspec_info</parameter>&nbsp;:</term>
+<listitem><simpara>The <link linkend="GParamSpecTypeInfo"><type>GParamSpecTypeInfo</type></link> for this <link linkend="GParamSpec"><type>GParamSpec</type></link> type.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The new type identifier.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GParamSpecPool"/>struct GParamSpecPool</title>
+<indexterm><primary>GParamSpecPool</primary></indexterm><programlisting>struct GParamSpecPool;</programlisting>
+<para>
+A <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link> maintains a collection of <link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s which can be
+quickly accessed by owner and name. The implementation of the <link linkend="GObject"><type>GObject</type></link> property
+system uses such a pool to store the <link linkend="GParamSpecs"><type>GParamSpecs</type></link> of the properties all object
+types. 
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-new"/>g_param_spec_pool_new ()</title>
+<indexterm><primary>g_param_spec_pool_new</primary></indexterm><programlisting><link linkend="GParamSpecPool">GParamSpecPool</link>* g_param_spec_pool_new       (<link linkend="gboolean">gboolean</link> type_prefixing);</programlisting>
+<para>
+Creates a new <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>.
+</para>
+<para>
+If <parameter>type_prefixing</parameter> is <literal>TRUE</literal>, lookups in the newly created pool will
+allow to specify the owner as a colon-separated prefix of the property name, 
+like "GtkContainer:border-width". This feature is deprecated, so you should 
+always set <parameter>type_prefixing</parameter> to <literal>FALSE</literal>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>type_prefixing</parameter>&nbsp;:</term>
+<listitem><simpara>Whether the pool will support type-prefixed property names.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a newly allocated <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-insert"/>g_param_spec_pool_insert ()</title>
+<indexterm><primary>g_param_spec_pool_insert</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_pool_insert        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GParamSpec">GParamSpec</link> *pspec,
+                                             <link linkend="GType">GType</link> owner_type);</programlisting>
+<para>
+Inserts a <link linkend="GParamSpec"><type>GParamSpec</type></link> in the pool.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GParamSpec"><type>GParamSpec</type></link> to insert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>owner_type</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GType"><type>GType</type></link> identifying the owner of <parameter>pspec</parameter>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-remove"/>g_param_spec_pool_remove ()</title>
+<indexterm><primary>g_param_spec_pool_remove</primary></indexterm><programlisting><link linkend="void">void</link>        g_param_spec_pool_remove        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GParamSpec">GParamSpec</link> *pspec);</programlisting>
+<para>
+Removes a <link linkend="GParamSpec"><type>GParamSpec</type></link> from the pool.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>pspec</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GParamSpec"><type>GParamSpec</type></link> to remove
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-lookup"/>g_param_spec_pool_lookup ()</title>
+<indexterm><primary>g_param_spec_pool_lookup</primary></indexterm><programlisting><link linkend="GParamSpec">GParamSpec</link>* g_param_spec_pool_lookup        (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             const <link linkend="gchar">gchar</link> *param_name,
+                                             <link linkend="GType">GType</link> owner_type,
+                                             <link linkend="gboolean">gboolean</link> walk_ancestors);</programlisting>
+<para>
+Looks up a <link linkend="GParamSpec"><type>GParamSpec</type></link> in the pool.
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>param_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name to look for
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>owner_type</parameter>&nbsp;:</term>
+<listitem><simpara>the owner to look for
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>walk_ancestors</parameter>&nbsp;:</term>
+<listitem><simpara>If <literal>TRUE</literal>, also try to find a <link linkend="GParamSpec"><type>GParamSpec</type></link> with <parameter>param_name</parameter> 
+  owned by an ancestor of <parameter>owner_type</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>The found <link linkend="GParamSpec"><type>GParamSpec</type></link>, or <literal>NULL</literal> if no matching <link linkend="GParamSpec"><type>GParamSpec</type></link> was found.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-list"/>g_param_spec_pool_list ()</title>
+<indexterm><primary>g_param_spec_pool_list</primary></indexterm><programlisting><link linkend="GParamSpec">GParamSpec</link>** g_param_spec_pool_list         (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GType">GType</link> owner_type,
+                                             <link linkend="guint">guint</link> *n_pspecs_p);</programlisting>
+<para>
+Gets an array of all <link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s owned by <parameter>owner_type</parameter> in the pool. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>owner_type</parameter>&nbsp;:</term>
+<listitem><simpara>the owner to look for
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>n_pspecs_p</parameter>&nbsp;:</term>
+<listitem><simpara>return location for the length of the returned array
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a newly allocated array containing pointers to all 
+  <link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s owned by <parameter>owner_type</parameter> in the pool
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-param-spec-pool-list-owned"/>g_param_spec_pool_list_owned ()</title>
+<indexterm><primary>g_param_spec_pool_list_owned</primary></indexterm><programlisting><link linkend="GList">GList</link>*      g_param_spec_pool_list_owned    (<link linkend="GParamSpecPool">GParamSpecPool</link> *pool,
+                                             <link linkend="GType">GType</link> owner_type);</programlisting>
+<para>
+Gets an <link linkend="GList"><type>GList</type></link> of all <link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s owned by <parameter>owner_type</parameter> in the pool. 
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GParamSpecPool"><type>GParamSpecPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>owner_type</parameter>&nbsp;:</term>
+<listitem><simpara>the owner to look for
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a <link linkend="GList"><type>GList</type></link> of all <link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s owned by <parameter>owner_type</parameter> in 
+  the pool<link linkend="GParamSpec"><type>GParamSpec</type></link><!-- -->s.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+<refsect1>
+<title>See Also</title>
+<para>
+<link linkend="g-object-class-install-property"><function>g_object_class_install_property()</function></link>, <link linkend="g-object-set"><function>g_object_set()</function></link>, <link linkend="g-object-get"><function>g_object_get()</function></link>,
+<link linkend="g-object-set-property"><function>g_object_set_property()</function></link>, <link linkend="g-object-get-property"><function>g_object_get_property()</function></link>, <link linkend="g-value-register-transform-func"><function>g_value_register_transform_func()</function></link>
+</para>
+</refsect1>
+
+</refentry>

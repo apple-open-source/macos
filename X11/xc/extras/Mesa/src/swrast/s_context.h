@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
+ */
+
+/**
+ * \file swrast/s_context.h
+ * \brief fill in description
+ * \author Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #ifndef S_CONTEXT_H
@@ -37,10 +43,8 @@
  */
 typedef void (*TextureSampleFunc)( GLcontext *ctx, GLuint texUnit,
 				   const struct gl_texture_object *tObj,
-                                   GLuint n,
-                                   const GLfloat s[], const GLfloat t[],
-                                   const GLfloat u[], const GLfloat lambda[],
-                                   GLchan rgba[][4] );
+                                   GLuint n, GLfloat texcoords[][4],
+                                   const GLfloat lambda[], GLchan rgba[][4] );
 
 
 
@@ -65,25 +69,25 @@ typedef void (*swrast_tri_func)( GLcontext *ctx, const SWvertex *,
                                  const SWvertex *, const SWvertex *);
 
 
-
-/*
- * Bitmasks to indicate which rasterization options are enabled (RasterMask)
+/** \defgroup Bitmasks
+ * Bitmasks to indicate which rasterization options are enabled
+ * (RasterMask)
  */
-#define ALPHATEST_BIT		0x001	/* Alpha-test pixels */
-#define BLEND_BIT		0x002	/* Blend pixels */
-#define DEPTH_BIT		0x004	/* Depth-test pixels */
-#define FOG_BIT			0x008	/* Fog pixels */
-#define LOGIC_OP_BIT		0x010	/* Apply logic op in software */
-#define SCISSOR_BIT		0x020	/* Scissor pixels */
-#define STENCIL_BIT		0x040	/* Stencil pixels */
-#define MASKING_BIT		0x080	/* Do glColorMask or glIndexMask */
-#define ALPHABUF_BIT		0x100	/* Using software alpha buffer */
-#define WINCLIP_BIT		0x200	/* Clip pixels/primitives to window */
-#define MULTI_DRAW_BIT		0x400	/* Write to more than one color- */
-                                        /* buffer or no buffers. */
-#define OCCLUSION_BIT           0x800   /* GL_HP_occlusion_test enabled */
-#define TEXTURE_BIT		0x1000	/* Texturing really enabled */
-
+/*@{*/
+#define ALPHATEST_BIT		0x001	/**< Alpha-test pixels */
+#define BLEND_BIT		0x002	/**< Blend pixels */
+#define DEPTH_BIT		0x004	/**< Depth-test pixels */
+#define FOG_BIT			0x008	/**< Fog pixels */
+#define LOGIC_OP_BIT		0x010	/**< Apply logic op in software */
+#define CLIP_BIT		0x020	/**< Scissor or window clip pixels */
+#define STENCIL_BIT		0x040	/**< Stencil pixels */
+#define MASKING_BIT		0x080	/**< Do glColorMask or glIndexMask */
+#define ALPHABUF_BIT		0x100	/**< Using software alpha buffer */
+#define MULTI_DRAW_BIT		0x400	/**< Write to more than one color- */
+                                        /**< buffer or no buffers. */
+#define OCCLUSION_BIT           0x800   /**< GL_HP_occlusion_test enabled */
+#define TEXTURE_BIT		0x1000	/**< Texturing really enabled */
+/*@}*/
 
 #define _SWRAST_NEW_RASTERMASK (_NEW_BUFFERS|	\
 			        _NEW_SCISSOR|	\
@@ -96,43 +100,49 @@ typedef void (*swrast_tri_func)( GLcontext *ctx, const SWvertex *,
 			        _NEW_DEPTH)
 
 
-
+/**
+ * \struct SWcontext
+ * \brief SWContext?
+ */
 typedef struct
 {
-   /* Driver interface:
+   /** Driver interface:
     */
    struct swrast_device_driver Driver;
 
-   /* Configuration mechanisms to make software rasterizer match
+   /** Configuration mechanisms to make software rasterizer match
     * characteristics of the hardware rasterizer (if present):
     */
    GLboolean AllowVertexFog;
    GLboolean AllowPixelFog;
 
-   /* Derived values, invalidated on statechanges, updated from
+   /** Derived values, invalidated on statechanges, updated from
     * _swrast_validate_derived():
     */
    GLuint _RasterMask;
    GLfloat _MinMagThresh[MAX_TEXTURE_UNITS];
    GLfloat _backface_sign;
    GLboolean _PreferPixelFog;
+   GLboolean _AnyTextureCombine;
 
    /* Accum buffer temporaries.
     */
-   GLboolean _IntegerAccumMode;	/* Storing unscaled integers? */
-   GLfloat _IntegerAccumScaler;	/* Implicit scale factor */
+   GLboolean _IntegerAccumMode;	/**< Storing unscaled integers? */
+   GLfloat _IntegerAccumScaler;	/**< Implicit scale factor */
 
 
    /* Working values:
     */
-   struct pixel_buffer* PB;
-   GLuint StippleCounter;    /* Line stipple counter */
+   GLuint StippleCounter;    /**< Line stipple counter */
    GLuint NewState;
    GLuint StateChanges;
+   GLenum Primitive;    /* current primitive being drawn (ala glBegin) */
+   GLuint CurrentBuffer; /* exactly one of FRONT_LEFT_BIT, BACK_LEFT_BIT, etc*/
 
-   /* Mechanism to allow driver (like X11) to register further
+   /** Mechanism to allow driver (like X11) to register further
     * software rasterization routines.
     */
+   /*@{*/
    void (*choose_point)( GLcontext * );
    void (*choose_line)( GLcontext * );
    void (*choose_triangle)( GLcontext * );
@@ -140,28 +150,49 @@ typedef struct
    GLuint invalidate_point;
    GLuint invalidate_line;
    GLuint invalidate_triangle;
+   /*@}*/
 
-
-   /* Function pointers for dispatch behind public entrypoints.
-    */
+   /** Function pointers for dispatch behind public entrypoints. */
+   /*@{*/
    void (*InvalidateState)( GLcontext *ctx, GLuint new_state );
 
    swrast_point_func Point;
    swrast_line_func Line;
    swrast_tri_func Triangle;
+   /*@}*/
 
-   /* Placeholders for when separate specular (or secondary color) is
+   /**
+    * Placeholders for when separate specular (or secondary color) is
     * enabled but texturing is not.
     */
+   /*@{*/
    swrast_point_func SpecPoint;
    swrast_line_func SpecLine;
    swrast_tri_func SpecTriangle;
+   /*@}*/
 
+   /**
+    * Typically, we'll allocate a sw_span structure as a local variable
+    * and set its 'array' pointer to point to this object.  The reason is
+    * this object is big and causes problems when allocated on the stack
+    * on some systems.
+    */
+   struct span_arrays *SpanArrays;
 
-   /* Internal hooks, kept uptodate by the same mechanism as above.
+   /**
+    * Used to buffer N GL_POINTS, instead of rendering one by one.
+    */
+   struct sw_span PointSpan;
+
+   /** Internal hooks, kept uptodate by the same mechanism as above.
     */
    blend_func BlendFunc;
    TextureSampleFunc TextureSample[MAX_TEXTURE_UNITS];
+
+   /** Buffer for saving the sampled texture colors.
+    * Needed for GL_ARB_texture_env_crossbar implementation.
+    */
+   GLchan *TexelBuffer;
 
 } SWcontext;
 

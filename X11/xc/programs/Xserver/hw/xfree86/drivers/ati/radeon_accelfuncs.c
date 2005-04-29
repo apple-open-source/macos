@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_accelfuncs.c,v 1.6 2003/01/29 18:06:06 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_accelfuncs.c,v 1.8 2003/11/03 05:11:05 tsi Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario, and
  *                VA Linux Systems Inc., Fremont, California.
@@ -178,21 +178,10 @@ FUNC_NAME(RADEONRestoreAccelState)(ScrnInfoPtr pScrn)
 #ifdef ACCEL_MMIO
 
     CARD32         pitch64;
-    RADEONEntPtr   pRADEONEnt;
-    DevUnion      *pPriv;
 
-    pPriv = xf86GetEntityPrivate(pScrn->entityList[0], gRADEONEntityIndex);
-    pRADEONEnt = pPriv->ptr;
-#if 0
-    /* Not working yet */
-    if (pRADEONEnt->IsDRIEnabled) {
-	RADEONInfoPtr info0 = RADEONPTR(pRADEONEnt->pPrimaryScrn);
-	RADEONCP_TO_MMIO(pRADEONEnt->pPrimaryScrn, info0);
-    }
-#endif
     pitch64 = ((pScrn->displayWidth * (pScrn->bitsPerPixel / 8) + 0x3f)) >> 6;
 
-    OUTREG(RADEON_DEFAULT_OFFSET, ((pScrn->fbOffset>>10) |
+    OUTREG(RADEON_DEFAULT_OFFSET, (((INREG(RADEON_DISPLAY_BASE_ADDR) + pScrn->fbOffset) >> 10) |
 				   (pitch64 << 22)));
 
     /* FIXME: May need to restore other things, like BKGD_CLK FG_CLK... */
@@ -1315,22 +1304,12 @@ FUNC_NAME(RADEONAccelInit)(ScreenPtr pScreen, XAAInfoRecPtr a)
 	   | HARDWARE_CLIP_MONO_8x8_FILL
 	   | HARDWARE_CLIP_SCREEN_TO_SCREEN_COPY);
 
-    if (xf86IsEntityShared(pScrn->entityList[0])) {
-	DevUnion     *pPriv;
-	RADEONEntPtr  pRADEONEnt;
-
-	pPriv = xf86GetEntityPrivate(pScrn->entityList[0], gRADEONEntityIndex);
-	pRADEONEnt = pPriv->ptr;
-
+    if (xf86IsEntityShared(info->pEnt->index)) {
 	/* If there are more than one devices sharing this entity, we
 	 * have to assign this call back, otherwise the XAA will be
 	 * disabled
 	 */
-#ifdef ACCEL_MMIO
-	if (pRADEONEnt->HasSecondary || pRADEONEnt->BypassSecondary)
-#else /* ACCEL_CP */
-	if (!info->IsSecondary && xf86IsEntityShared(pScrn->entityList[0]))
-#endif
+	if (xf86GetNumEntityInstances(info->pEnt->index) > 1)
 	    a->RestoreAccelState        = FUNC_NAME(RADEONRestoreAccelState);
     }
 

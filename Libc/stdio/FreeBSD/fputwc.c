@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fputwc.c,v 1.5 2002/10/16 12:09:43 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fputwc.c,v 1.10 2004/07/20 08:27:27 tjr Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -36,6 +36,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fputwc.c,v 1.5 2002/10/16 12:09:43 tjr Ex
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "mblocal.h"
 
 /*
  * Non-MT-safe version.
@@ -44,10 +45,9 @@ wint_t
 __fputwc(wchar_t wc, FILE *fp)
 {
 	char buf[MB_LEN_MAX];
-	mbstate_t mbs;
 	size_t i, len;
 
-	if (MB_LEN_MAX == 1 && wc > 0 && wc <= UCHAR_MAX) {
+	if (MB_CUR_MAX == 1 && wc > 0 && wc <= UCHAR_MAX) {
 		/*
 		 * Assume single-byte locale with no special encoding.
 		 * A more careful test would be to check
@@ -56,8 +56,8 @@ __fputwc(wchar_t wc, FILE *fp)
 		*buf = (unsigned char)wc;
 		len = 1;
 	} else {
-		memset(&mbs, 0, sizeof(mbs));
-		if ((len = wcrtomb(buf, wc, &mbs)) == (size_t)-1) {
+		if ((len = __wcrtomb(buf, wc, &fp->_extra->mbstate)) ==
+		    (size_t)-1) {
 			fp->_flags |= __SERR;
 			return (WEOF);
 		}

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/panel/cen9211.c,v 1.1 2002/12/10 15:12:28 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/panel/cen9211.c,v 1.2 2003/11/03 05:11:24 tsi Exp $ */
 /*
  * $Workfile: cen9211.c $
  *
@@ -832,11 +832,9 @@ CentaurusProgramFRMload(void)
    };
 
    unsigned char i;
-   unsigned short index;
    unsigned long data;
 
    Centaurus_write_gpio(FOUR_BYTES, CS92xx_FRM_MEMORY_INDEX, 0);
-   index = CS92xx_FRM_MEMORY_DATA;
    for (i = 0; i < 64; i += 2) {
       data = CentaurusFRMtable[i];
       Centaurus_write_gpio(FOUR_BYTES, CS92xx_FRM_MEMORY_DATA, data);

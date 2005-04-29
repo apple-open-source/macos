@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2002, International Business Machines
+*   Copyright (C) 2002-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -15,12 +15,11 @@
 */
 
 #include "unicode/uobject.h"
-
-#if U_OVERRIDE_CXX_ALLOCATION
-
 #include "cmemory.h"
 
 U_NAMESPACE_BEGIN
+
+#if U_OVERRIDE_CXX_ALLOCATION
 
 /*
  * Default implementation of UMemory::new/delete
@@ -57,27 +56,48 @@ U_NAMESPACE_BEGIN
  * and replace with uprv_malloc/uprv_free.
  */
 
-void *UMemory::operator new(size_t size) {
+void * U_EXPORT2 UMemory::operator new(size_t size) {
     return uprv_malloc(size);
 }
 
-void UMemory::operator delete(void *p) {
+void U_EXPORT2 UMemory::operator delete(void *p) {
     if(p!=NULL) {
         uprv_free(p);
     }
 }
 
-void *UMemory::operator new[](size_t size) {
+void * U_EXPORT2 UMemory::operator new[](size_t size) {
     return uprv_malloc(size);
 }
 
-void UMemory::operator delete[](void *p) {
+void U_EXPORT2 UMemory::operator delete[](void *p) {
     if(p!=NULL) {
         uprv_free(p);
     }
 }
+
+#endif
+
+UObject::~UObject() {}
+
+// Future implementation for RTTI that support subtyping. [alan]
+// 
+// UClassID UObject::getStaticClassID() {
+//     return (UClassID) NULL;
+// }
+// 
+// UBool UObject::instanceOf(UClassID type) const {
+//     UClassID c = getDynamicClassID();
+//     for (;;) {
+//         if (c == type) {
+//             return TRUE;
+//         } else if (c == (UClassID) NULL) {
+//             return FALSE;
+//         }
+//         c = * (UClassID*) c;
+//     }
+// }
 
 U_NAMESPACE_END
 
-#endif
 

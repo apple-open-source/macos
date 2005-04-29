@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCreFSet.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCreFSet.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,25 +144,12 @@
 .SH NAME
 XCreateFontSet, XFreeFontSet \- create and free an international text drawing font set
 .SH SYNTAX
-XFontSet XCreateFontSet\^(\^\fIdisplay\fP\^, \fIbase_font_name_list\fP\^, \fImissing_charset_list_return\fP\^,
-.br
-               \fImissing_charset_count_return\fP\^, \fIdef_string_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      char *\fIbase_font_name_list\fP\^;
-.br
-      char ***\fImissing_charset_list_return\fP\^;
-.br
-      int *\fImissing_charset_count_return\fP\^;
-.br
-      char **\fIdef_string_return\fP\^;
-.LP
-void XFreeFontSet\^(\^\fIdisplay\fP\^, \fIfont_set\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XFontSet \fIfont_set\fP\^;
+.HP
+XFontSet XCreateFontSet\^(\^Display *\fIdisplay\fP\^, char
+*\fIbase_font_name_list\fP\^, char ***\fImissing_charset_list_return\fP\^, int
+*\fImissing_charset_count_return\fP\^, char **\fIdef_string_return\fP\^);
+.HP
+void XFreeFontSet\^(\^Display *\fIdisplay\fP\^, XFontSet \fIfont_set\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

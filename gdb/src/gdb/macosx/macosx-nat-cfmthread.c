@@ -29,17 +29,20 @@
 #include "breakpoint.h"
 #include "annotate.h"
 
-static CORE_ADDR lookup_address (const char *s)
+static CORE_ADDR
+lookup_address (const char *s)
 {
   struct minimal_symbol *msym;
   msym = lookup_minimal_symbol (s, NULL, NULL);
-  if (msym == NULL) {
-    error ("unable to locate symbol \"%s\"", s);
-  }
+  if (msym == NULL)
+    {
+      error ("unable to locate symbol \"%s\"", s);
+    }
   return SYMBOL_VALUE_ADDRESS (msym);
 }
 
-void macosx_cfm_thread_init (macosx_cfm_thread_status *s)
+void
+macosx_cfm_thread_init (macosx_cfm_thread_status *s)
 {
   s->notify_debugger = 0;
   s->info_api_cookie = 0;
@@ -47,17 +50,21 @@ void macosx_cfm_thread_init (macosx_cfm_thread_status *s)
   s->cfm_breakpoint = NULL;
 }
 
-void macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task)
+void
+macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task)
 {
   struct symtab_and_line sal;
   char buf[64];
 
-  snprintf (buf, 64, "PrepareClosure + %s", core_addr_to_string (s->breakpoint_offset));
-  s->notify_debugger = lookup_address ("PrepareClosure") + s->breakpoint_offset;
+  snprintf (buf, 64, "PrepareClosure + %s",
+            core_addr_to_string (s->breakpoint_offset));
+  s->notify_debugger =
+    lookup_address ("PrepareClosure") + s->breakpoint_offset;
 
   init_sal (&sal);
   sal.pc = s->notify_debugger;
-  s->cfm_breakpoint = set_momentary_breakpoint (sal, null_frame_id, bp_shlib_event);
+  s->cfm_breakpoint =
+    set_momentary_breakpoint (sal, null_frame_id, bp_shlib_event);
   s->cfm_breakpoint->disposition = disp_donttouch;
   s->cfm_breakpoint->thread = -1;
   s->cfm_breakpoint->addr_string = savestring (buf, strlen (buf));
@@ -65,7 +72,8 @@ void macosx_cfm_thread_create (macosx_cfm_thread_status *s, task_t task)
   breakpoints_changed ();
 }
 
-void macosx_cfm_thread_destroy (macosx_cfm_thread_status *s)
+void
+macosx_cfm_thread_destroy (macosx_cfm_thread_status *s)
 {
   if (s->cfm_breakpoint != NULL)
     delete_breakpoint (s->cfm_breakpoint);
@@ -74,6 +82,6 @@ void macosx_cfm_thread_destroy (macosx_cfm_thread_status *s)
 }
 
 void
-_initialize_macosx_nat_cfmthread ()
+_initialize_macosx_nat_cfmthread (void)
 {
 }

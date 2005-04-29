@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCroEvent.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCroEvent.man,v 1.3 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -154,25 +154,25 @@ events contains:
 .TA .5i 3i
 .ta .5i 3i
 typedef struct {
-	int type;	/* EnterNotify or LeaveNotify */
-	unsigned long serial;	/* # of last request processed by server */
-	Bool send_event;	/* true if this came from a SendEvent request */
-	Display *display;	/* Display the event was read from */
-	Window window;	/* ``event'' window reported relative to */
-	Window root;	/* root window that the event occurred on */
-	Window subwindow;	/* child window */
-	Time time;	/* milliseconds */
-	int x, y;	/* pointer x, y coordinates in event window */
-	int x_root, y_root;	/* coordinates relative to root */
-	int mode;	/* NotifyNormal, NotifyGrab, NotifyUngrab */
+	int type;	/\(** EnterNotify or LeaveNotify */
+	unsigned long serial;	/\(** # of last request processed by server */
+	Bool send_event;	/\(** true if this came from a SendEvent request */
+	Display *display;	/\(** Display the event was read from */
+	Window window;	/\(** ``event'' window reported relative to */
+	Window root;	/\(** root window that the event occurred on */
+	Window subwindow;	/\(** child window */
+	Time time;	/\(** milliseconds */
+	int x, y;	/\(** pointer x, y coordinates in event window */
+	int x_root, y_root;	/\(** coordinates relative to root */
+	int mode;	/\(** NotifyNormal, NotifyGrab, NotifyUngrab */
 	int detail;
-		/*
+		/\(**
 	 	* NotifyAncestor, NotifyVirtual, NotifyInferior, 
 	 	* NotifyNonlinear,NotifyNonlinearVirtual
 	 	*/
-	Bool same_screen;	/* same screen flag */
-	Bool focus;	/* boolean focus */
-	unsigned int state;	/* key or button mask */
+	Bool same_screen;	/\(** same screen flag */
+	Bool focus;	/\(** boolean focus */
+	unsigned int state;	/\(** key or button mask */
 } XCrossingEvent;
 typedef XCrossingEvent XEnterWindowEvent;
 typedef XCrossingEvent XLeaveWindowEvent;

@@ -1063,7 +1063,8 @@ implicitly_declare_fn (kind, type, const_p)
   DECL_NOT_REALLY_EXTERN (fn) = 1;
   DECL_DECLARED_INLINE_P (fn) = 1;
   DECL_INLINE (fn) = 1;
-  defer_fn (fn);
+  if (TREE_USED (fn))
+    abort ();
   
   return fn;
 }

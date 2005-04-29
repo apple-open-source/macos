@@ -41,8 +41,8 @@ typedef int __gthread_mutex_t;
 #define __gthread_mutex_lock(x)  (void)(x)
 #define __gthread_mutex_unlock(x) (void)(x)
 
-static fde * _Unwind_Find_registered_FDE (void *pc, 
-					  struct dwarf_eh_bases *bases);
+static const fde * _Unwind_Find_registered_FDE (void *pc,
+						struct dwarf_eh_bases *bases);
 
 #define _Unwind_Find_FDE _Unwind_Find_registered_FDE
 #include "unwind-dw2-fde.c"
@@ -57,7 +57,11 @@ extern void _keymgr_set_and_unlock_processwide_ptr (int, void *);
 extern void _keymgr_unlock_processwide_ptr (int);
 
 struct mach_header;
+/* APPLE LOCAL 64-bit mainline */
+struct mach_header_64;
 extern char *getsectdatafromheader (struct mach_header*, const char*,
+			const char *, unsigned long *);
+extern char *getsectdatafromheader_64 (struct mach_header*, const char*,
 			const char *, unsigned long *);
 
 /* This is referenced from KEYMGR_GCC3_DW2_OBJ_LIST.  */
@@ -99,7 +103,7 @@ enum {
    because this object might be about to be unloaded.  Called by
    KeyMgr.  */
 
-static void 
+static void
 live_image_destructor (struct live_images *image)
 {
   if (image->object_info)
@@ -136,11 +140,11 @@ live_image_destructor (struct live_images *image)
    give each unseen image a new `struct object'.  Even if we can't,
    check whether the PC is inside the FDE of each unseen image.
  */
- 
-static inline fde *
+
+static inline const fde *
 examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 {
-  fde *result = NULL;
+  const fde *result = NULL;
   struct live_images *image;
 
   image = _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
@@ -150,29 +154,41 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
       {
 	char *fde;
 	unsigned long sz;
-	
+
+/* APPLE LOCAL 64-bit mainline */
+#ifdef __ppc64__
+	fde = getsectdatafromheader_64 ((struct mach_header_64 *) image->mh,
+				     "__DATA", "__eh_frame", &sz);
+#else
 	fde = getsectdatafromheader (image->mh, "__DATA", "__eh_frame", &sz);
+#endif
 	if (fde == NULL)
 	  {
+/* APPLE LOCAL 64-bit mainline */
+#ifdef __ppc64__
+	    fde = getsectdatafromheader_64 ((struct mach_header_64 *) image->mh,
+					 "__TEXT", "__eh_frame", &sz);
+#else
 	    fde = getsectdatafromheader (image->mh, "__TEXT",
 					 "__eh_frame", &sz);
+#endif
 	    if (fde != NULL)
 	      image->examined_p |= IMAGE_IS_TEXT_MASK;
 	  }
-	
+
 	/* If .eh_frame is empty, don't register at all.  */
 	if (fde != NULL && sz > 0)
 	  {
 	    char *real_fde = (fde + image->vm_slide);
 	    struct object *ob = NULL;
 	    struct object panicob;
-	    
+
 	    if (! dont_alloc)
 	      ob = calloc (1, sizeof (struct object));
 	    dont_alloc |= ob == NULL;
 	    if (dont_alloc)
 	      ob = &panicob;
-	    
+
 	    ob->pc_begin = (void *)-1;
 	    ob->tbase = 0;
 	    ob->dbase = 0;
@@ -180,19 +196,19 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	    ob->s.i = 0;
 	    ob->s.b.encoding = DW_EH_PE_omit;
 	    ob->fde_end = real_fde + sz;
-	    
+
 	    image->fde = real_fde;
-	    
+
 	    result = search_object (ob, pc);
-	    
+
 	    if (! dont_alloc)
 	      {
 		struct object **p;
 
 		image->destructor = live_image_destructor;
 		image->object_info = ob;
-		
-		image->examined_p |= (EXAMINED_IMAGE_MASK 
+
+		image->examined_p |= (EXAMINED_IMAGE_MASK
 				      | DESTRUCTOR_MAY_BE_CALLED_LIVE);
 
 		/* Insert the object into the classified list.  */
@@ -206,16 +222,16 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
 	    if (result)
 	      {
 		int encoding;
-		
+
 		bases->tbase = ob->tbase;
 		bases->dbase = ob->dbase;
-		
+
 		encoding = ob->s.b.encoding;
 		if (ob->s.b.mixed_encoding)
 		  encoding = get_fde_encoding (result);
-		read_encoded_value_with_base (encoding, 
+		read_encoded_value_with_base (encoding,
 					      base_from_object (encoding, ob),
-					      result->pc_begin, 
+					      result->pc_begin,
 					      (_Unwind_Ptr *)&bases->func);
 		break;
 	      }
@@ -229,25 +245,25 @@ examine_objects (void *pc, struct dwarf_eh_bases *bases, int dont_alloc)
   return result;
 }
 
-fde *
+const fde *
 _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 {
   struct km_object_info *the_obj_info;
-  fde *ret = NULL;
+  const fde *ret = NULL;
 
-  the_obj_info = 
+  the_obj_info =
     _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST);
   if (! the_obj_info)
     the_obj_info = calloc (1, sizeof (*the_obj_info));
-  
+
   if (the_obj_info != NULL)
     {
       seen_objects = the_obj_info->seen_objects;
       unseen_objects = the_obj_info->unseen_objects;
-  
+
       ret = _Unwind_Find_registered_FDE (pc, bases);
     }
-  
+
   /* OK, didn't find it in the list of FDEs we've seen before,
      so go through and look at the new ones.  */
   if (ret == NULL)

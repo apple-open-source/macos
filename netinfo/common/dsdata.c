@@ -672,7 +672,7 @@ dsdata *utf8string_to_dsdata(char *s)
 	x->type = DataTypeCStr;
 
 	/* Do we need UTF-8 encoding? */
-	for (p = s; *p != '\0'; DSUTIL_UTF8_INCR(p))
+	for (p = s; (*p) != '\0'; DSUTIL_UTF8_INCR(p))
 	{
 		if (!DSUTIL_UTF8_ISASCII(p))
 		{

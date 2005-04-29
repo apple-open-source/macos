@@ -1,0 +1,69 @@
+# Commands covered: sound cget
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test cget-1.1 {cget command, bad args} {
+  set s [snack::sound snd]
+  set res [list [catch {$s cget -junk} msg] $msg]
+  $s destroy
+  set res
+} {1 {bad option "-junk": must be -load, -file, -channel, -rate, -frequency, -channels, -encoding, -format, -byteorder, -buffersize, -skiphead, -guessproperties, -precision, -changecommand, -fileformat, or -debug}}
+
+test cget-1.2 {cget command, option -load} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s cget -load]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test cget-1.3 {cget command, option -file} {
+  set s [snack::sound snd -file ex1.wav]
+  set res [$s cget -file]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test cget-1.4 {cget command, option -rate} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s cget -rate]
+  $s destroy
+  set res
+} 16000
+
+test cget-1.5 {cget command, option -encoding} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s cget -encoding]
+  $s destroy
+  set res
+} Lin16
+
+test cget-1.6 {cget command, option -channels} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s cget -channels]
+  $s destroy
+  set res
+} 1
+
+test cget-1.7 {cget command, option -byteorder} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s cget -byteorder]
+  $s destroy
+  set res
+} littleEndian
+
+test cget-1.7 {cget command, option -precision} {
+  set s [snack::sound snd]
+  set res [$s cget -precision]
+  $s destroy
+  set res
+} single
+
+# cleanup
+::tcltest::cleanupTests
+return

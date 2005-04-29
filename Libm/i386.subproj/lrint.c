@@ -43,13 +43,85 @@
 *                                                                              *
 *******************************************************************************/
 #include "math.h"
+#include "fenv.h"
+#include "limits.h"
+#include "fp_private.h"
 
+// These work just as well for the LP64 ABI
 long int lrint ( double x )
 {
-    return (long int)rint( x );
+	double t;
+	long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MIN;
+	}
+	
+	(void)fegetenv(&env);
+	t = rint ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (double)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (double)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
 }
 
 long int lrintf (float x)
 {
-    return (long int)rintf ( x );
+	float t;
+	long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MIN;
+	}
+	
+	(void)fegetenv(&env);
+	t = rintf ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (float)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (float)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
 }

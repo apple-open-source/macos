@@ -39,14 +39,14 @@
 static char sccsid[] = "@(#)setlocale.c	8.1 (Berkeley) 7/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.41 2002/08/08 05:51:54 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/setlocale.c,v 1.50 2004/01/31 19:15:32 ache Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
 #include <locale.h>
-#include <rune.h>
+#include <paths.h>	/* for _PATH_LOCALE */
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -85,6 +85,11 @@ static char current_categories[_LC_LAST][ENCODING_LEN + 1] = {
 };
 
 /*
+ * Path to locale storage directory
+ */
+char	*_PathLocale;
+
+/*
  * The locales we are going to try and load
  */
 static char new_categories[_LC_LAST][ENCODING_LEN + 1];
@@ -93,8 +98,8 @@ static char saved_categories[_LC_LAST][ENCODING_LEN + 1];
 static char current_locale_string[_LC_LAST * (ENCODING_LEN + 1/*"/"*/ + 1)];
 
 static char	*currentlocale(void);
-static int	wrap_setrunelocale(const char *);
 static char	*loadlocale(int);
+static const char *__get_locale_env(int);
 
 char *
 setlocale(category, locale)
@@ -102,7 +107,7 @@ setlocale(category, locale)
 	const char *locale;
 {
 	int i, j, len, saverr;
-	char *env, *r;
+        const char *env, *r;
 
 	if (category < LC_ALL || category >= _LC_LAST) {
 		errno = EINVAL;
@@ -123,34 +128,22 @@ setlocale(category, locale)
 	 * Now go fill up new_categories from the locale argument
 	 */
 	if (!*locale) {
-		env = getenv("LC_ALL");
-
-		if (category != LC_ALL && (env == NULL || !*env))
-			env = getenv(categories[category]);
-
-		if (env == NULL || !*env)
-			env = getenv("LANG");
-
-		if (env == NULL || !*env)
-			env = "C";
-
-		if (strlen(env) > ENCODING_LEN) {
-			errno = EINVAL;
-			return (NULL);
-		}
-		(void)strcpy(new_categories[category], env);
-
 		if (category == LC_ALL) {
 			for (i = 1; i < _LC_LAST; ++i) {
-				if ((env = getenv(categories[i])) == NULL ||
-				    !*env)
-					env = new_categories[LC_ALL];
-				else if (strlen(env) > ENCODING_LEN) {
+				env = __get_locale_env(i);
+				if (strlen(env) > ENCODING_LEN) {
 					errno = EINVAL;
 					return (NULL);
 				}
 				(void)strcpy(new_categories[i], env);
 			}
+		} else {
+			env = __get_locale_env(category);
+			if (strlen(env) > ENCODING_LEN) {
+				errno = EINVAL;
+				return (NULL);
+			}
+			(void)strcpy(new_categories[category], env);
 		}
 	} else if (category != LC_ALL) {
 		if (strlen(locale) > ENCODING_LEN) {
@@ -183,11 +176,11 @@ setlocale(category, locale)
 				(void)strlcpy(new_categories[i], locale,
 					      len + 1);
 				i++;
+				while (*r == '/')
+					r++;
 				locale = r;
-				while (*locale == '/')
-					++locale;
-				while (*++r && *r != '/')
-					;
+				while (*r && *r != '/')
+					r++;
 			} while (*locale);
 			while (i < _LC_LAST) {
 				(void)strcpy(new_categories[i],
@@ -238,18 +231,6 @@ currentlocale()
 	return (current_locale_string);
 }
 
-static int
-wrap_setrunelocale(const char *locale)
-{
-	int ret = setrunelocale((char *)locale);
-
-	if (ret != 0) {
-		errno = ret;
-		return (_LDP_ERROR);
-	}
-	return (_LDP_LOADED);
-}
-
 static char *
 loadlocale(category)
 	int category;
@@ -257,6 +238,7 @@ loadlocale(category)
 	char *new = new_categories[category];
 	char *old = current_categories[category];
 	int (*func)(const char *);
+	int saved_errno;
 
 	if ((new[0] == '.' &&
 	     (new[1] == '\0' || (new[1] == '.' && new[2] == '\0'))) ||
@@ -265,31 +247,15 @@ loadlocale(category)
 		return (NULL);
 	}
 
-	if (_PathLocale == NULL) {
-		char *p = getenv("PATH_LOCALE");
-
-		if (p != NULL
-#ifndef __NETBSD_SYSCALLS
-			&& !issetugid()
-#endif
-			) {
-			if (strlen(p) + 1/*"/"*/ + ENCODING_LEN +
-			    1/*"/"*/ + CATEGORY_LEN >= PATH_MAX) {
-				errno = ENAMETOOLONG;
-				return (NULL);
-			}
-			_PathLocale = strdup(p);
-			if (_PathLocale == NULL) {
-				errno = ENOMEM;
-				return (NULL);
-			}
-		} else
-			_PathLocale = _PATH_LOCALE;
-	}
+	saved_errno = errno;
+	errno = __detect_path_locale();
+	if (errno != 0)
+		return (NULL);
+	errno = saved_errno;
 
 	switch (category) {
 	case LC_CTYPE:
-		func = wrap_setrunelocale;
+		func = __wrap_setrunelocale;
 		break;
 	case LC_COLLATE:
 		func = __collate_load_tables;
@@ -320,5 +286,51 @@ loadlocale(category)
 	}
 
 	return (NULL);
+}
+
+static const char *
+__get_locale_env(category)
+        int category;
+{
+        const char *env;
+
+        /* 1. check LC_ALL. */
+        env = getenv(categories[0]);
+
+        /* 2. check LC_* */
+	if (env == NULL || !*env)
+                env = getenv(categories[category]);
+
+        /* 3. check LANG */
+	if (env == NULL || !*env)
+                env = getenv("LANG");
+
+        /* 4. if none is set, fall to "C" */
+	if (env == NULL || !*env)
+                env = "C";
+
+	return (env);
+}
+
+/*
+ * Detect locale storage location and store its value to _PathLocale variable
+ */
+int
+__detect_path_locale(void)
+{
+	if (_PathLocale == NULL) {
+		char *p = getenv("PATH_LOCALE");
+
+		if (p != NULL && !issetugid()) {
+			if (strlen(p) + 1/*"/"*/ + ENCODING_LEN +
+			    1/*"/"*/ + CATEGORY_LEN >= PATH_MAX)
+				return (ENAMETOOLONG);
+			_PathLocale = strdup(p);
+			if (_PathLocale == NULL)
+				return (errno == 0 ? ENOMEM : errno);
+		} else
+			_PathLocale = _PATH_LOCALE;
+	}
+	return (0);
 }
 

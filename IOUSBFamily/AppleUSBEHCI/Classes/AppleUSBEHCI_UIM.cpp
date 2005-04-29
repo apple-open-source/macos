@@ -460,31 +460,25 @@ AppleUSBEHCI::FindControlBulkEndpoint (
 
 
 IOReturn 
-AppleUSBEHCI::allocateTDs(
-						  AppleEHCIQueueHead *		pEDQueue,
-						  IOUSBCommand 			*command,
-						  IOMemoryDescriptor 			*CBP,
-						  UInt32				bufferSize,
-						  UInt16				direction,
-						  Boolean				controlTransaction)
+AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, IOMemoryDescriptor* CBP, UInt32 bufferSize, UInt16 direction, Boolean controlTransaction)
 {
 	
     EHCIGeneralTransferDescriptorPtr	pTD1, pTD, pTDnew, pTDLast;
-    UInt32				myToggle = 0;
-    UInt32				myDirection = 0;
-    IOByteCount				transferOffset;
-    UInt32				pageCount;
-    UInt32				flags;
-    IOReturn				status = kIOReturnSuccess;
-    UInt32				maxPacket;
-    UInt32  				bytesThisTD, segment;
-    UInt32				curTDsegment;
-    UInt32				totalPhysLength;
-    IOPhysicalAddress			dmaStartAddr;
-    UInt32				dmaStartOffset;
-    UInt32				bytesToSchedule;
-    bool				needNewTD = false;
-    UInt32				maxTDLength;
+    UInt32								myToggle = 0;
+    UInt32								myDirection = 0;
+    IOByteCount							transferOffset;
+    UInt32								pageCount;
+    UInt32								flags;
+    IOReturn							status = kIOReturnSuccess;
+    UInt32								maxPacket;
+    UInt32								bytesThisTD, segment;
+    UInt32								curTDsegment;
+    UInt32								totalPhysLength;
+    IOPhysicalAddress					dmaStartAddr;
+    UInt32								dmaStartOffset;
+    UInt32								bytesToSchedule;
+    bool								needNewTD = false;
+    UInt32								maxTDLength;
 	
 	/* *********** Note: Always put the flags in the TD last. ************** */
 	/* *********** This is what kicks off the transaction if  ************** */
@@ -550,7 +544,7 @@ AppleUSBEHCI::allocateTDs(
                 
 				if (totalPhysLength > bufferSize)
 				{
-					USBLog(1, "%s[%p]::allocateTDs - segment physical length > buffer size - very strange", getName(), this);
+					USBLog(4, "%s[%p]::allocateTDs - segment physical length > buffer size - truncating", getName(), this);
 					totalPhysLength = bufferSize;
 				}
 				// each TD can transfer at most four full pages plus from the initial offset to the end of the first page
@@ -625,7 +619,7 @@ AppleUSBEHCI::allocateTDs(
             // only supply a callback when the entire buffer has been
             // transfered.
 			
-			USBLog(6, "%s[%p]::allocateTDs - putting command into TD (%p) on ED (%p)", getName(), this, pTD, pEDQueue);
+			USBLog(7, "%s[%p]::allocateTDs - putting command into TD (%p) on ED (%p)", getName(), this, pTD, pEDQueue);
 			pTD->command = command;				// Do like OHCI, link to command from each TD
             if (transferOffset >= bufferSize)
             {
@@ -663,7 +657,7 @@ AppleUSBEHCI::allocateTDs(
     {
 		// no buffer to transfer
 		pTD->pShared->altTD = HostToUSBLong(pTD1->pPhysical);	// point alt to first TD, will be fixed up later
-		USBLog(6, "%s[%p]::allocateTDs - (no buffer)- putting command into TD (%p) on ED (%p)", getName(), this, pTD, pEDQueue);
+		USBLog(7, "%s[%p]::allocateTDs - (no buffer)- putting command into TD (%p) on ED (%p)", getName(), this, pTD, pEDQueue);
 		pTD->command = command;
 		pTD->lastTDofTransaction = true;
 		pTD->logicalBuffer = CBP;
@@ -1528,7 +1522,7 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     short				direction = command->GetDirection();
 	
     USBLog(7, "%s[%p]::UIMCreateBulkTransfer - adr=%d:%d cbp=%lx:%x cback=[%lx:%lx:%lx] dir=%d)", getName(), this,
-		   command->GetAddress(), command->GetEndpoint(), (UInt32)buffer, (int)buffer->getLength(), 
+		   command->GetAddress(), command->GetEndpoint(), (UInt32)buffer, (int)command->GetReqCount(), 
 		   (UInt32)command->GetUSLCompletion().action, (UInt32)command->GetUSLCompletion().target, (UInt32)command->GetUSLCompletion().parameter, direction);
     
     pEDQueue = FindControlBulkEndpoint(command->GetAddress(), command->GetEndpoint(), &pEDDummy, direction);
@@ -1540,7 +1534,7 @@ AppleUSBEHCI::UIMCreateBulkTransfer(IOUSBCommand* command)
     }
 	
 	
-    status = allocateTDs(pEDQueue, command, buffer, buffer->getLength(), direction, false );
+    status = allocateTDs(pEDQueue, command, buffer, command->GetReqCount(), direction, false );
     if(status == kIOReturnSuccess)
 		EnableAsyncSchedule();
     else
@@ -2718,7 +2712,7 @@ AppleUSBEHCI::UIMDeleteEndpoint(
 		DeallocateTD(pED->_qTD);
 		pED->_qTD = NULL;
     }
-	    
+	
     USBLog(5, "%s[%p] AppleUSBEHCI::UIMDeleteEndpoint: Deallocating %p", getName(), this, pED);
     DeallocateED(pED);
     

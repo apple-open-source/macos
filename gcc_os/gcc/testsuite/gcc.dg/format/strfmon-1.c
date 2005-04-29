@@ -1,7 +1,8 @@
 /* Test for strfmon format checking.  */
 /* Origin: Joseph Myers <jsm28@cam.ac.uk> */
 /* { dg-do compile } */
-/* { dg-options "-std=gnu99 -Wformat" } */
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-std=gnu99 -Wformat -Wno-long-double" } */
 
 #include "format.h"
 

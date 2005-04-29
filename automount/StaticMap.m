@@ -37,132 +37,144 @@
 
 @implementation StaticMap
 
-- (void)setupLink:(Vnode *)v
+int setupLink(const char *target, const char *source)
 {
-	String *x;
-	char *s;
-	int len;
+	struct stat sb;
+	int status;
+	char linkContents[PATH_MAX];
+	int link_length;
+	BOOL targetDirPotential = YES;
 
-	if (v == nil) return;
-
-	if ([[v server] isLocalHost])
+	sys_msg(debug, LOG_DEBUG, "setupLink('%s', '%s'):", target, source);
+	
+	/* Calling symlink(2) on an NFS filesystem will inevitably generate a lookup RPC,
+	   triggering an NSL populate if inside /Network.  The best to be hoped for here
+	   is that the proper symlink (right target string) already exists (e.g. on a resync),
+	   in which case this routine is entirely redundant:
+	 */
+	status = lstat(source, &sb);
+	if (status || !S_ISLNK(sb.st_mode)) {
+		sys_msg(debug, LOG_DEBUG, "setupLink: lstat('%s') failed: errno = %d (%s)", source, errno, strerror(errno));
+		goto Try_link;
+	}
+	
+	link_length = readlink(source, linkContents, sizeof(linkContents) - 1);
+	if (link_length == 0) {
+		sys_msg(debug, LOG_DEBUG, "setupLink: readlink('%s', ...) failed: errno = %d (%s)", source, errno, strerror(errno));
+		goto Try_link;
+	}
+	linkContents[link_length] = (char)0;
+	sys_msg(debug, LOG_DEBUG, "setupLink: comparing existing link contents '%s' to target '%s'...", linkContents, target);
+	if (strcmp(linkContents, target) == 0) {
+		sys_msg(debug, LOG_DEBUG, "setupLink: existing link '%s' -> '%s' needs no alteration.", source, linkContents);
+		status = 0;
+		goto Std_Exit;
+	};
+	
+Try_link:
+	sys_msg(debug, LOG_DEBUG, "setupLink: symlink(%s', '%s')...", target, source);
+	status = symlink(target, source);
+	if (status != 0)
 	{
-		[v setLink:[v source]];
-		[v setMode:00755 | NFSMODE_LNK];
-		[v setMounted:YES];
-		[v setFakeMount:YES];
-		return;
+		if (errno != EEXIST) sys_msg(debug, LOG_NOTICE, "Error symlinking %s to %s: %s", source, target, strerror(errno));
+		if (targetDirPotential) {
+			targetDirPotential = NO;		/* This will be our one and only shot at successfully retrying! */
+			
+			if (errno != EEXIST) sys_msg(debug, LOG_NOTICE, "Attempting to unlink %s...", source);
+			status = lstat(source, &sb);
+			if (status == 0)
+			{
+				if (S_ISDIR(sb.st_mode)) status = rmdir(source);
+				else status = unlink(source);
+				
+				if (status == 0) goto Try_link;
+
+				sys_msg(debug, LOG_ERR, "Cannot unlink existing %s: %s", source, strerror(errno));
+				goto Error_Exit;
+			}
+		}
+		
+		sys_msg(debug, LOG_ERR, "Cannot symlink %s to %s: %s", source, target, strerror(errno));
+		goto Error_Exit;
 	}
 
-	len = [mountPoint length] + [[v relativepath] length] + 1;
-	s = malloc(len);
-	sprintf(s, "%s%s", [mountPoint value], [[v relativepath] value]);
-
-	x = [String uniqueString:s];
-	free(s);
-	[v setLink:x];
-	[x release];
+	if (targetDirPotential) {
+		sys_msg(debug, LOG_DEBUG, "Symlinked %s to %s", source, target);
+	} else {
+		sys_msg(debug, LOG_NOTICE, "Replaced existing %s with %s...", source, target);
+	}
+	
+Error_Exit:
+	/* No cleanup necessary */ ;
+	
+Std_Exit:
+	return status;
 }
 
 - (void)newMount:(String *)src dir:(String *)dst opts:(Array *)opts vfsType:(String *)type
 {
-	String *servername, *serversrc, *link;
+	String *servername = NULL;
+	String *serversrc = NULL;
+	String *link = NULL;
 	Vnode *v;
 	Server *server;
-	int status;
-	struct stat sb;
-	BOOL targetDirPotential;
+	int status = 0;
 
 	serversrc = [src postfix:':'];
-	if (serversrc == nil) return;
+	if (serversrc == nil)
+	{
+		status = EINVAL;
+		goto Error_Exit;
+	}
 
 	servername = [src prefix:':'];
 	if (servername == nil)
 	{
-		[serversrc release];
-		return;
+		status = EINVAL;
+		goto Error_Exit;
 	}
 
 	server = [controller serverWithName:servername];
 	if (server == nil)
 	{
-		[servername release];
-		return;
-	}
-
-	if ([server isLocalHost])
-	{
-		[serversrc release];
-		serversrc = [String uniqueString:"/"];
+		status = EINVAL;
+		goto Error_Exit;
 	}
 
 	if (![self acceptOptions:opts])
 	{
-		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (StaticMap)",
-			[src value], [dst value]);
-		[servername release];
-		[serversrc release];
-		return;
+		sys_msg(debug, LOG_DEBUG, "Rejected options for %s on %s (StaticMap)", [src value], [dst value]);
+		status = EINVAL;
+		goto Error_Exit;
 	}
 
-	/* It's important to try to blindly create the symlink first; peeking at the target of a static link
-	   may trigger the /Network automounter, for instance, to populate its top-level directory looking
-	   for the target directory name:
-	 */
 	link = [String concatStrings:[root path] :dst];
-	targetDirPotential = YES;			/* Hope springs eternal (or twice, in any case) */
-
-Try_link:
-	status = symlink([link value], [dst value]);
-	if (status != 0)
-	{
-		sys_msg(debug, LOG_ERR, "Error symlinking %s to %s: %s", [dst value], [link value], strerror(errno));
-		if (targetDirPotential) {
-			targetDirPotential = NO;		/* This will be our one and only shot at successfully retrying! */
-			
-			sys_msg(debug, LOG_ERR, "Attempting to unlink %s...", [dst value]);
-			status = lstat([dst value], &sb);
-			if (status == 0)
-			{
-				if (sb.st_mode & S_IFDIR) status = rmdir([dst value]);
-				else status = unlink([dst value]);
-				
-				if (status == 0) goto Try_link;
-
-				sys_msg(debug, LOG_ERR, "Cannot unlink %s: %s", [dst value], strerror(errno));
-				[link release];
-				[servername release];
-				[serversrc release];
-				return;
-			}
-		}
-		
-		sys_msg(debug, LOG_ERR, "Cannot symlink %s to %s: %s", [dst value], [link value], strerror(errno));
-		[servername release];
-		[serversrc release];
-		[link release];
-		return;
-	}
-	[link release];
+	
+	status = setupLink([link value], [dst value]);
+	if (status) goto Error_Exit;
 
 	v = [self createVnodePath:dst from:root];
 	if ([v type] == NFLNK)
 	{
 		/* mount already exists - do not override! */
-		[servername release];
-		[serversrc release];
-		return;
+		status = EEXIST;
+		goto Error_Exit;
 	}
 
 	[v setType:NFLNK];
+	[v setVfsType:type];	/* Must come before setServer:, which looks at vfsType */
 	[v setServer:server];
 	[v setSource:serversrc];
-	[v setVfsType:type];
 	[v setupOptions:opts];
+	[v setServerDepth:0];
 	[v addMntArg:MNT_DONTBROWSE];
+
+Error_Exit:
+	[link release];
 	[servername release];
 	[serversrc release];
-	[self setupLink:v];
+	
+	if ((status == 0) && ([self mountStyle] == kMountStyleParallel)) [self setupLink:v];
 }
 
 - (void)loadMounts
@@ -209,8 +221,11 @@ Try_link:
 
 - (void)reInit
 {
-	[self removeLinksRecursively: root];
+	sys_msg(debug, LOG_DEBUG, "[StaticMap reInit]: calling [super reInit]...");
 	[super reInit];
+	sys_msg(debug, LOG_DEBUG, "[StaticMap reInit]: removing symlinks for marked nodes...");
+	[self removeLinksRecursivelyFrom:root fromMarkedNodesOnly:YES];
+	sys_msg(debug, LOG_DEBUG, "[StaticMap reInit]: done.");
 }
 
 /*
@@ -218,7 +233,7 @@ Try_link:
  */
 - (void)cleanup
 {
-	[self removeLinksRecursively: root];
+	[self removeLinksRecursivelyFrom:root fromMarkedNodesOnly:NO];
 }
 
 
@@ -235,13 +250,16 @@ Try_link:
  * path is /automount/static/Network/Applications.  We need to remove the
  * /automount/static from the beginning and end up with /Network/Applications.
  */
-- (void)removeLinksRecursively:(Vnode*)v
+- (void)removeLinksRecursivelyFrom:(Vnode*)v fromMarkedNodesOnly:(BOOL)markedNodesOnly
 {
 	int status, i, len;
 	char *path;
 	Array *kids;
 	
-	if ([v type] == NFLNK)
+	sys_msg(debug, LOG_DEBUG, "[StaticMap removeLinksRecursivelyFrom:markedNodesOnly:%d] at '%s'...",
+									markedNodesOnly, (v && [v path]) ? [[v path] value] : "[void]");
+
+	if (([v type] == NFLNK) && (!markedNodesOnly || [v marked]))
 	{
 		path = [[v path] value] + [[root path] length];
 		sys_msg(debug, LOG_DEBUG, "unlinking %s", path);
@@ -258,9 +276,43 @@ Try_link:
 		len = [kids count];
 	for (i=0; i<len; ++i)
 	{
-		[self removeLinksRecursively: [kids objectAtIndex: i]];
+		[self removeLinksRecursivelyFrom:[kids objectAtIndex:i] fromMarkedNodesOnly:markedNodesOnly];
 	}
 }
 
+/* findTriggerPath takes root Vnode from map table and a possible 
+   path created in Controller.m and checks if the path exists 
+   in automount.  It returns triggerPath based on map type
+ */
+- (String *)findTriggerPath:(Vnode *)curRoot findPath:(String *)findPath
+{
+	int pathlen;
+	char pathbuf[PATH_MAX];
+	Vnode *newVnode = nil;
+
+	pathlen = [[curRoot path] length];
+	if (pathlen > [findPath length]) {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: Invalid pathlength");
+		goto out;
+	}
+	
+	/* findPath is already NULL-terminated from parent function */
+	strcpy(pathbuf, &([findPath value][pathlen]));
+	/* if string is NULL or just "/" */
+	if (!strlen(pathbuf) || !strcmp(pathbuf,"/")) {
+		goto out;
+	}
+	sys_msg (debug, LOG_DEBUG, "findTriggerPath: Finding %s for %s.", pathbuf, [findPath value]);
+	newVnode = [self lookupVnodePath:[String uniqueString:pathbuf] from:curRoot];
+
+out:
+	if (newVnode) {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: Returning %s.", [[newVnode relativepath] value]);
+		return [newVnode relativepath];
+	} else {
+		sys_msg (debug, LOG_DEBUG, "findTriggerPath: String not found.  Returning nil."); 
+		return nil;
+	}
+}
 
 @end

@@ -1,0 +1,13 @@
+#!/bin/sh
+# copy current state of some files into the designated directory
+
+files='tcl.decls tclDecls.h tclIO.c tclStubInit.c tclStubs.c'
+
+rm    $1/standard.patch
+touch $1/standard.patch
+
+for f in $files
+do
+    diff -c $1/$f.orig $1/$f >> standard.patch
+done
+exit

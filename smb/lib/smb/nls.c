@@ -29,16 +29,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nls.c,v 1.8 2003/05/06 21:54:48 lindak Exp $
+ * $Id: nls.c,v 1.10 2004/12/13 00:25:22 lindak Exp $
  */
 
 #include <sys/types.h>
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 #include <sys/sysctl.h>
 #include <ctype.h>
-#ifndef APPLE
-#include <dlfcn.h>
-#endif
 #include <errno.h>
 #include <stdio.h>
 #include <strings.h>
@@ -53,19 +50,12 @@
 typedef void *iconv_t;
 
 static size_t(*my_iconv)(iconv_t, const char **, size_t *, char **, size_t *);
-#ifndef APPLE
-static iconv_t (*my_iconv_open)(const char *, const char *);
-static int(*my_iconv_close)(iconv_t);
-#endif
 
 u_char nls_lower[256];
 u_char nls_upper[256];
 
 static iconv_t nls_toext, nls_toloc;
 static int iconv_loaded;
-#ifndef APPLE
-static void *iconv_lib;
-#endif
 
 int
 nls_setlocale(const char *name)
@@ -74,10 +64,6 @@ nls_setlocale(const char *name)
 
 	if (setlocale(LC_CTYPE, name) == NULL) {
 		warnx("can't set locale '%s'\n", name);
-#ifndef APPLE
-		/* XXX setlocale broken - Radar 2705694 */
-		return EINVAL;
-#endif
 	}
 	for (i = 0; i < 256; i++) {
 		nls_lower[i] = tolower(i);
@@ -89,44 +75,8 @@ nls_setlocale(const char *name)
 int
 nls_setrecode(const char *local, const char *external)
 {
-#ifdef APPLE
 	#pragma unused(local, external)
 	return ENOENT;
-#else
-	iconv_t icd;
-
-	if (iconv_loaded == 2)
-		return ENOENT;
-	else if (iconv_loaded == 0) {
-		iconv_loaded++;
-		iconv_lib = dlopen("libiconv.so", RTLD_LAZY | RTLD_GLOBAL);
-		if (iconv_lib == NULL) {
-			warn("Unable to load iconv library: %s\n", dlerror());
-			iconv_loaded++;
-			return ENOENT;
-		}
-		my_iconv_open = dlsym(iconv_lib, "iconv_open");
-		my_iconv = dlsym(iconv_lib, "iconv");
-		my_iconv_close = dlsym(iconv_lib, "iconv_close");
-	}
-	if (nls_toext)
-		my_iconv_close(nls_toext);
-	if (nls_toloc)
-		my_iconv_close(nls_toloc);
-	nls_toext = nls_toloc = (iconv_t)0;
-	icd = my_iconv_open(external, local);
-	if (icd == (iconv_t)-1)
-		return errno;
-	nls_toext = icd;
-	icd = my_iconv_open(local, external);
-	if (icd == (iconv_t)-1) {
-		my_iconv_close(nls_toext);
-		nls_toext = (iconv_t)0;
-		return errno;
-	}
-	nls_toloc = icd;
-	return 0;
-#endif /* APPLE */
 }
 
 char *

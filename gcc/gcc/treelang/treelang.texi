@@ -2,7 +2,6 @@
 
 @c NOTE THIS IS NOT A GOOD EXAMPLE OF HOW TO DO A MANUAL. FIXME!!!
 @c NOTE THIS IS NOT A GOOD EXAMPLE OF HOW TO DO A MANUAL. FIXME!!!
-@c NOTE THIS IS NOT A GOOD EXAMPLE OF HOW TO DO A MANUAL. FIXME!!!
 
 
 @c %**start of header
@@ -10,10 +9,10 @@
 
 @include gcc-common.texi
 
-@set version-treelang 1.0
+@set version-treelang 2.0
 
-@set last-update 2001-07-30
-@set copyrights-treelang 1995,1996,1997,1998,1999,2000,2001,2002
+@set last-update 2004-09-28
+@set copyrights-treelang 1995,1996,1997,1998,1999,2000,2001,2002,2003,2004
 
 @set email-general gcc@@gcc.gnu.org
 @set email-bugs gcc-bugs@@gcc.gnu.org or bug-gcc@@gnu.org
@@ -203,11 +202,6 @@ corresponds to the @value{which-treelang} version of @code{treelang}.
 
 @end ifnottex
 
-@ifset DEVELOPMENT
-@emph{Warning:} This document is still under development, and might not
-accurately reflect the @code{treelang} code base of which it is a part.
-@end ifset
-
 @menu
 * Copying::                     
 * Contributors::                
@@ -272,7 +266,8 @@ Reporting Bugs
 Treelang was based on 'toy' by Richard Kenner, and also uses code from
 the GCC core code tree. Tim Josling first created the language and
 documentation, based on the GCC Fortran compiler's documentation
-framework.
+framework.  Treelang was updated to use the TreeSSA infrastructure by James A.
+Morrison.
 
 @itemize @bullet
 @item
@@ -290,7 +285,7 @@ It would have been difficult to build treelang without access to Joachim
 Nadler's guide to writing a front end to GCC (written in German). A
 translation of this document into English is available via the
 CobolForGCC project or via the documentation links from the GCC home
-page @uref{http://GCC.gnu.org}.
+page @uref{http://gcc.gnu.org}.
 @end itemize
 
 @include funding.texi
@@ -309,10 +304,13 @@ language. Therefore only language developers are likely to have an
 interest in it.
 
 This manual assumes familiarity with GCC, which you can obtain by using
-it and by reading the manual @samp{Using and Porting GCC}.
+it and by reading the manuals @samp{Using the GNU Compiler Collection (GCC)}
+and @samp{GNU Compiler Collection (GCC) Internals}.
 
 To install treelang, follow the GCC installation instructions, 
-taking care to ensure you specify treelang in the configure step.
+taking care to ensure you specify treelang in the configure step by adding
+treelang to the list of languages specified by @option{--enable-langauges}, 
+e.g.@: @samp{--enable-languages=all,treelang}.
 
 If you're generally curious about the future of
 @code{treelang}, see @ref{Projects}.
@@ -345,18 +343,18 @@ The main features missing are structures, arrays and pointers.
 
 A sample program follows:
 
-@example
-// function prototypes
-// function 'add' taking two ints and returning an int
+@smallexample
+// @r{function prototypes}
+// @r{function 'add' taking two ints and returning an int}
 external_definition int add(int arg1, int arg2);
 external_definition int subtract(int arg3, int arg4);
 external_definition int first_nonzero(int arg5, int arg6);
 external_definition int double_plus_one(int arg7);
 
-// function definition
+// @r{function definition}
 add 
 @{
-// return the sum of arg1 and arg2
+  // @r{return the sum of arg1 and arg2}
   return arg1 + arg2;
 @}
 
@@ -368,9 +366,11 @@ subtract
 
 double_plus_one
 @{
-// aaa is a variable, of type integer and allocated at the start of the function
+  // @r{aaa is a variable, of type integer and allocated at the start of}
+  // @r{the function}
   automatic int aaa;
-// set aaa to the value returned from aaa, when passed arg7 and arg7 as the two parameters
+  // @r{set aaa to the value returned from add, when passed arg7 and arg7 as}
+  // @r{the two parameters}
   aaa=add(arg7, arg7);
   aaa=add(aaa, aaa);
   aaa=subtract(subtract(aaa, arg7), arg7) + 1;
@@ -379,7 +379,7 @@ double_plus_one
 
 first_nonzero
 @{
-// C-like if statement
+  // @r{C-like if statement}
   if (arg5)
     @{
       return arg5;
@@ -389,7 +389,7 @@ first_nonzero
     @}
   return arg6;
 @}
-@end example
+@end smallexample
 
 @node Lexical Syntax, Parsing Syntax, What is GNU Treelang?, Top
 @chapter Lexical Syntax
@@ -399,8 +399,8 @@ Treelang programs consist of whitespace, comments, keywords and names.
 @itemize @bullet
 
 @item
-Whitespace consists of the space character and the end of line
-character. Tabs are not allowed. Line terminations are as defined by the
+Whitespace consists of the space character, a tab, and the end of line
+character.  Line terminations are as defined by the
 standard C library. Whitespace is ignored except within comments,
 and where it separates parts of the program. In the example below, A and
 B are two separate names separated by whitespace. 
@@ -415,43 +415,64 @@ of the line. C style comments (/* */) are not supported. For example,
 the assignment below is followed by a not very helpful comment.
 
 @smallexample
-x=1; // Set X to 1
+x = 1; // @r{Set X to 1}
 @end smallexample
 
 @item
-Keywords consist of any reserved words or symbols as described
-later. The list of keywords follows:
+Keywords consist of any of the following reserved words or symbols:
 
-@smallexample
-@{ - used to start the statements in a function
-@} - used to end the statements in a function
-( - start list of function arguments, or to change the precedence of operators in an expression
-) - end list or prioritized operators in expression
-, - used to separate parameters in a function prototype or in a function call 
-; - used to end a statement
-+ - addition
-- - subtraction
-= - assignment
-== - equality test
-if - begin IF statement
-else - begin 'else' portion of IF statement
-static - indicate variable is permanent, or function has file scope only
-automatic - indicate that variable is allocated for the life of the function
-external_reference - indicate that variable or function is defined in another file
-external_definition - indicate that variable or function is to be accessible from other files
-int - variable is an integer (same as C int) 
-char - variable is a character (same as C char)
-unsigned - variable is unsigned. If this is not present, the variable is signed
-return - start function return statement
-void - used as function type to indicate function returns nothing
-@end smallexample
+@itemize @bullet
+@item @{
+used to start the statements in a function
+@item @}
+used to end the statements in a function
+@item (
+start list of function arguments, or to change the precedence of operators in
+an expression
+@item )
+end list or prioritized operators in expression
+@item ,
+used to separate parameters in a function prototype or in a function call 
+@item ;
+used to end a statement
+@item +
+addition
+@item - 
+subtraction
+@item = 
+assignment
+@item ==
+equality test
+@item if
+begin IF statement
+@item else
+begin 'else' portion of IF statement
+@item static
+indicate variable is permanent, or function has file scope only
+@item automatic
+indicate that variable is allocated for the life of the function
+@item external_reference
+indicate that variable or function is defined in another file
+@item external_definition
+indicate that variable or function is to be accessible from other files
+@item int
+variable is an integer (same as C int) 
+@item char
+variable is a character (same as C char)
+@item unsigned
+variable is unsigned. If this is not present, the variable is signed
+@item return
+start function return statement
+@item void
+used as function type to indicate function returns nothing
+@end itemize
 
 
 @item
-Names consist of any letter or "_" followed by any number of letters or
-numbers or "_". "$" is not allowed in a name. All names must be globally
-unique - the same name may not be used twice in any context - and must
-not be a keyword. Names and keywords are case sensitive. For example:
+Names consist of any letter or "_" followed by any number of letters,
+numbers, or "_".  "$" is not allowed in a name. All names must be globally
+unique, i.e. may not be used twice in any context, and must
+not be a keyword.  Names and keywords are case sensitive. For example:
 
 @smallexample
 a A _a a_ IF_X
@@ -474,7 +495,7 @@ file may contain one of more declarations.
 declaration: variable declaration OR function prototype OR function declaration
 
 @item
-Function Prototype: storage type NAME ( parameter_list )
+Function Prototype: storage type NAME ( optional_parameter_list )
 
 @smallexample
 static int add (int a, int b)
@@ -486,10 +507,11 @@ variable_declaration: storage type NAME initial;
 Example:
 
 @smallexample
-int temp1=1;
+int temp1 = 1;
 @end smallexample
 
-A variable declaration can be outside a function, or at the start of a function.
+A variable declaration can be outside a function, or at the start of a
+function.
 
 @item
 storage: automatic OR static OR external_reference OR external_definition
@@ -582,7 +604,7 @@ list of statements may be empty, but both sets of braces and the else must be pr
 @smallexample
 if (a==b) 
 @{
-// nothing
+// @r{nothing}
 @}
 else
 @{
@@ -603,8 +625,9 @@ be absent, and if the function is not void the expression must be
 present.
 
 @item
-expression: variable OR integer_constant OR expression+expression OR expression-expression
- OR expression==expression OR (expression) OR variable=expression OR function_call
+expression: variable OR integer_constant OR expression+expression
+OR expression-expression OR expression==expression OR (expression)
+OR variable=expression OR function_call
 
 An expression can be a constant or a variable reference or a
 function_call. Expressions can be combined as a sum of two expressions
@@ -865,11 +888,12 @@ files and accepts Treelang-specific command-line options, plus some
 command-line options that are designed to cater to Treelang users
 but apply to other languages as well.
 
-@xref{G++ and GCC,,Compile C; C++; or Objective-C,GCC,Using and Porting GCC},
+@xref{G++ and GCC,,Programming Languages Supported by GCC,GCC,Using
+the GNU Compiler Collection (GCC)},
 for information on the way different languages are handled
 by the GCC compiler (@code{gcc}).
 
-You can use this, combined with the output of the @samp{GCC -v x.tree}
+You can use this, combined with the output of the @samp{gcc -v x.tree}
 command to get the options applicable to treelang. Treelang programs
 must end with the suffix @samp{.tree}.
 

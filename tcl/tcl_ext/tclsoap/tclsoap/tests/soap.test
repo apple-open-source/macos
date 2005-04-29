@@ -1,0 +1,209 @@
+# soap.test - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+#
+# Provide a set of tests to excercise the SOAP package.
+#
+# @(#)$Id: soap.test,v 1.9 2003/01/26 01:57:33 patthoyts Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require SOAP}]} {
+    catch {puts stderr "Cannot load the SOAP package"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+# Test transport method returns the query. Should result in SOAP::invoke
+# returning the parameters to the method.
+
+proc ::SOAP::transport_test { procName url soap } {
+    set ::SOAP::testXML $soap
+    return $soap
+}
+
+# -------------------------------------------------------------------------
+
+# SOAP method creation and configuration test.
+
+test soap-1.1 {SOAP Method creation} {
+    SOAP::create soapTest \
+	    -uri urn:soap-Test \
+	    -proxy http://localhost:8015/soap/test \
+	    -params { "arg" "string" } \
+	    -name mySoapTest \
+	    -action soap-Test \
+	    -transport ::SOAP::transport_test
+} {::soapTest}
+
+test soap-1.2 {SOAP cget URI value} {
+    catch {SOAP::cget ::soapTest -uri} result
+    set result
+} {urn:soap-Test}
+
+test soap-1.3 {Reset the URI value} {
+    catch {SOAP::configure ::soapTest -uri urn:new-soap-Test} result
+    set result
+} {::soapTest}
+
+test cget-1.4 {SOAP cget the new value} {
+    catch {SOAP::cget ::soapTest -uri} result
+    set result
+} {urn:new-soap-Test}
+
+# -------------------------------------------------------------------------
+
+test soap-2.1 {XML generation with no arguments} {
+    catch {::soapTest} result
+    set result
+} {wrong # args: should be "soapTest arg"}
+
+test soap-2.2 {XML generation with one argument} {
+    if { ! [catch {::soapTest testParameter} result] } {
+        set result $::SOAP::testXML
+        if {[regexp {Envelope.+Body.+mySoapTest[^>]+urn:new-soap-Test.+arg.+testParameter} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+test soap-2.3 {XML generation with two arguments} {
+    set failed [catch {::SOAP::configure ::soapTest \
+            -params { "text" "string" "number" "double" }} result]
+    if { ! $failed } {
+        set failed [catch {::soapTest textParam 1.3} result]
+    }
+    if { ! $failed } {
+        set result $::SOAP::testXML
+        if {[regexp {number[^>]+:double} $result] && \
+                [regexp {text[^>]+string} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+test soap-2.4 {XML generation with header element} {
+    catch {::soapTest -header [list Transaction 1] textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<SOAP-ENV:Header><Transaction} $result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test soap-2.5 {XML generation with multiple header elements (a)} {
+    catch {::soapTest -header {Transaction 1 Name 2} textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<SOAP-ENV:Header>.*<Transaction} $result]} {
+        if {[regexp {<SOAP-ENV:Header>.*<Name} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+test soap-2.6 {XML generation with multiple header elements (b)} {
+    catch {::soapTest -header {Transaction 1} -header {Name 2} textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<SOAP-ENV:Header>.*<Transaction} $result]} {
+        if {[regexp {<SOAP-ENV:Header>.*<Name} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+test soap-2.7 {XML generation with header attributes} {
+    catch {::soapTest -header [list Transaction \
+                                   [rpcvar::rpcvar -attributes \
+                                    {SOAP-ENV:actor http://next/} int 1] \
+                              ] textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<SOAP-ENV:Header><Transaction [^>]*SOAP-ENV:actor} $result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test soap-2.8 {XML generation with user specified attributes} {
+    catch {::soapTest -attribute {generic 1.0} textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
+        set result ok
+    }
+    set result
+} {ok}
+
+test soap-2.9 {XML generation with multiple user specified attributes (a)} {
+    catch {::soapTest -attribute {generic 1.0 id ID1} textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
+        if {[regexp {<[^>]*mySoapTest[^>]* id=.ID1.[^>]*>} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+test soap-2.10 {XML generation with multiple user specified attributes (b)} {
+    catch {::soapTest -attribute {generic 1.0} -attribute {id ID1} textParam 1.3} result
+    set result $::SOAP::testXML
+    if {[regexp {<[^>]*mySoapTest[^>]* generic=.1\.0.[^>]*>} $result]} {
+        if {[regexp {<[^>]*mySoapTest[^>]* id=.ID1.[^>]*>} $result]} {
+            set result ok
+        }
+    }
+    set result
+} {ok}
+
+# -------------------------------------------------------------------------
+
+test soap-3.1 {XML post processing via -replyProc} {
+    
+    proc replyProc { methodVarName xml } {
+        return {<Envelope><Body><response><result>FIXED</result></response></Body></Envelope>}
+    }
+    set failed [catch {::SOAP::configure ::soapTest \
+                           -replyProc [namespace current]::replyProc} result]
+    if { ! $failed } {
+        set failed [catch {::soapTest textParam 1.3} result]
+    }
+    set result
+} {FIXED}
+
+test soap-3.2 {SOAP reply post processing via -postProc} {
+    
+    proc postProc { methodVarName reply } {
+        return [lindex $reply 1]
+    }
+    set failed [catch {::SOAP::configure ::soapTest \
+                           -replyProc {} \
+                           -postProc [namespace current]::postProc} result]
+    if { ! $failed } {
+        set failed [catch {::soapTest textParam 1.3} result]
+    }
+    set result
+} {1.3}
+
+
+catch {rename replyProc {}}
+catch {rename postProc {}}
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

@@ -39,7 +39,7 @@
  *
  * derived from chris newman's code */
 
-/* $Id: imapurl.c,v 1.11 2004/05/05 22:34:18 rjs3 Exp $ */
+/* $Id: imapurl.c,v 1.5 2005/03/05 00:37:14 dasenbro Exp $ */
 
 #include <stdio.h>
 #include <string.h>

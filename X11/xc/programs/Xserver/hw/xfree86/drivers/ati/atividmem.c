@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atividmem.c,v 1.14 2003/01/01 19:16:34 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atividmem.c,v 1.16 2004/01/05 16:42:05 tsi Exp $ */
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -115,9 +115,17 @@ ATIUnmapLinear
 
     {
         xf86UnMapVidMem(iScreen, pATI->pMemory, pATI->LinearSize);
+
+#if X_BYTE_ORDER != X_LITTLE_ENDIAN
+
+        if (pATI->pMemoryLE)
+            xf86UnMapVidMem(iScreen, pATI->pMemoryLE, pATI->LinearSize);
+
+#endif /* X_BYTE_ORDER */
+
     }
 
-    pATI->pMemory = NULL;
+    pATI->pMemory = pATI->pMemoryLE = NULL;
 }
 
 /*
@@ -251,6 +259,34 @@ ATIMapApertures
         if ((pATI->CursorBase >= pATI->LinearBase) &&
             ((pATI->CursorOffset + 0x00000400UL) <= (CARD32)pATI->LinearSize))
             pATI->pCursorImage = (char *)pATI->pMemory + pATI->CursorOffset;
+
+        pATI->pMemoryLE = pATI->pMemory;
+
+#else /* if X_BYTE_ORDER != X_LITTLE_ENDIAN */
+
+        /*
+         * Map the little-endian aperture (used for video, etc.).  Note that
+         * caching of this area is _not_ wanted.
+         */
+        if (pVideo)
+        {
+            pATI->pMemoryLE = xf86MapPciMem(iScreen, VIDMEM_MMIO, Tag,
+                pATI->LinearBase - 0x00800000U, pATI->LinearSize);
+
+            if (!pATI->pMemoryLE)
+            {
+                ATIUnmapLinear(iScreen, pATI);
+
+#ifndef AVOID_CPIO
+
+                ATIUnmapVGA(iScreen, pATI);
+
+#endif /* AVOID_CPIO */
+
+                pATI->Mapped = FALSE;
+                return FALSE;
+            }
+        }
 
 #endif /* X_BYTE_ORDER */
 

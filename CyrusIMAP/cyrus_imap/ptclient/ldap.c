@@ -41,7 +41,7 @@
  */
 
 static char rcsid[] __attribute__((unused)) = 
-      "$Id: ldap.c,v 1.7 2004/06/24 19:28:39 rjs3 Exp $";
+      "$Id: ldap.c,v 1.4 2005/03/05 00:37:35 dasenbro Exp $";
 
 #include <config.h>
 

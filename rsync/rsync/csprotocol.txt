@@ -3,7 +3,7 @@ basically a summary of clientserver.c and authenticate.c.
 
  -- Martin Pool <mbp@samba.org>
 
-$Id: csprotocol.txt,v 1.1.1.1 2002/01/09 07:48:21 wsanchez Exp $
+$Id: csprotocol.txt,v 1.4 2001/08/23 06:14:54 mbp Exp $
 
 
 

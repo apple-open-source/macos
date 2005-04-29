@@ -1,19 +1,19 @@
 /* -*- c-file-style: "linux" -*-
- * 
- * Copyright (C) 1996-2001 by Andrew Tridgell 
+ *
+ * Copyright (C) 1996-2001 by Andrew Tridgell
  * Copyright (C) Paul Mackerras 1996
  * Copyright (C) 2001, 2002 by Martin Pool <mbp@samba.org>
- * 
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
@@ -22,7 +22,7 @@
 /**
  * @file io.c
  *
- * Socket and pipe IO utilities used in rsync.
+ * Socket and pipe I/O utilities used in rsync.
  *
  * rsync provides its own multiplexing system, which is used to send
  * stderr and stdout over a single socket.  We need this because
@@ -39,23 +39,23 @@
 /** If no timeout is specified then use a 60 second select timeout */
 #define SELECT_TIMEOUT 60
 
-static int io_multiplexing_out;
-static int io_multiplexing_in;
-static int multiplex_in_fd = -1;
-static int multiplex_out_fd = -1;
-static time_t last_io;
-static int no_flush;
-
 extern int bwlimit;
+extern size_t bwlimit_writemax;
 extern int verbose;
 extern int io_timeout;
 extern int am_server;
 extern int am_daemon;
 extern int am_sender;
+extern int eol_nulls;
+extern int checksum_seed;
+extern int protocol_version;
+extern char *remote_filesfrom_file;
 extern struct stats stats;
 
-
 const char phase_unknown[] = "unknown";
+int select_timeout = SELECT_TIMEOUT;
+int batch_fd = -1;
+int batch_gen_fd = -1;
 
 /**
  * The connection might be dropped at some point; perhaps because the
@@ -63,9 +63,9 @@ const char phase_unknown[] = "unknown";
  * not very helpful.  So instead we try to make io_phase_name point to
  * something useful.
  *
- * For buffered/multiplexed IO these names will be somewhat
+ * For buffered/multiplexed I/O these names will be somewhat
  * approximate; perhaps for ease of support we would rather make the
- * buffer always flush when a single application-level IO finishes.
+ * buffer always flush when a single application-level I/O finishes.
  *
  * @todo Perhaps we want some simple stack functionality, but there's
  * no need to overdo it.
@@ -79,6 +79,16 @@ int kludge_around_eof = False;
 
 int msg_fd_in = -1;
 int msg_fd_out = -1;
+
+static int io_multiplexing_out;
+static int io_multiplexing_in;
+static int sock_f_in = -1;
+static int sock_f_out = -1;
+static time_t last_io;
+static int no_flush;
+
+static int write_batch_monitor_in = -1;
+static int write_batch_monitor_out = -1;
 
 static int io_filesfrom_f_in = -1;
 static int io_filesfrom_f_out = -1;
@@ -135,18 +145,26 @@ static void check_timeout(void)
 
 	t = time(NULL);
 
-	if (last_io && io_timeout && (t-last_io) >= io_timeout) {
+	if (t - last_io >= io_timeout) {
 		if (!am_server && !am_daemon) {
-			rprintf(FERROR,"io timeout after %d seconds - exiting\n", 
+			rprintf(FERROR, "io timeout after %d seconds - exiting\n",
 				(int)(t-last_io));
 		}
 		exit_cleanup(RERR_TIMEOUT);
 	}
 }
 
+/* Note the fds used for the main socket (which might really be a pipe
+ * for a local transfer, but we can ignore that). */
+void io_set_sock_fds(int f_in, int f_out)
+{
+	sock_f_in = f_in;
+	sock_f_out = f_out;
+}
+
 /** Setup the fd used to receive MSG_* messages.  Only needed when
  * we're the generator because the sender and receiver both use the
- * multiplexed IO setup. */
+ * multiplexed I/O setup. */
 void set_msg_fd_in(int fd)
 {
 	msg_fd_in = fd;
@@ -154,7 +172,7 @@ void set_msg_fd_in(int fd)
 
 /** Setup the fd used to send our MSG_* messages.  Only needed when
  * we're the receiver because the generator and the sender both use
- * the multiplexed IO setup. */
+ * the multiplexed I/O setup. */
 void set_msg_fd_out(int fd)
 {
 	msg_fd_out = fd;
@@ -191,13 +209,13 @@ void send_msg(enum msgcode code, char *buf, int len)
  * called by the generator. */
 static void read_msg_fd(void)
 {
-	char buf[200];
+	char buf[2048];
 	size_t n;
 	int fd = msg_fd_in;
 	int tag, len;
 
-	/* Temporarily disable msg_fd_in.  This is needed because we
-	 * may call a write routine that could try to call us back. */
+	/* Temporarily disable msg_fd_in.  This is needed to avoid looping back
+	 * to this routine from read_timeout() and writefd_unbuffered(). */
 	msg_fd_in = -1;
 
 	read_loop(fd, buf, 4);
@@ -244,7 +262,7 @@ static void read_msg_fd(void)
 
 /* Try to push messages off the list onto the wire.  If we leave with more
  * to do, return 0.  On error, return -1.  If everything flushed, return 1.
- * This is only called by the receiver. */
+ * This is only active in the receiver. */
 int msg_list_push(int flush_it_all)
 {
 	static int written = 0;
@@ -266,7 +284,7 @@ int msg_list_push(int flush_it_all)
 				return 0;
 			FD_ZERO(&fds);
 			FD_SET(msg_fd_out, &fds);
-			tv.tv_sec = io_timeout ? io_timeout : SELECT_TIMEOUT;
+			tv.tv_sec = select_timeout;
 			tv.tv_usec = 0;
 			if (!select(msg_fd_out+1, NULL, &fds, NULL, &tv))
 				check_timeout();
@@ -329,34 +347,21 @@ void io_set_filesfrom_fds(int f_in, int f_out)
  * program where that is a problem (start_socket_client),
  * kludge_around_eof is True and we just exit.
  */
-static void whine_about_eof(void)
+static void whine_about_eof(int fd)
 {
-	if (kludge_around_eof)
+	if (kludge_around_eof && fd == sock_f_in)
 		exit_cleanup(0);
-	else {
-		rprintf(FERROR,
-			"%s: connection unexpectedly closed "
-			"(%.0f bytes read so far)\n",
-			RSYNC_NAME, (double)stats.total_read);
 
-		exit_cleanup(RERR_STREAMIO);
-	}
-}
+	rprintf(FERROR, RSYNC_NAME ": connection unexpectedly closed "
+		"(%.0f bytes received so far) [%s]\n",
+		(double)stats.total_read, who_am_i());
 
-
-static void die_from_readerr(int err)
-{
-	/* this prevents us trying to write errors on a dead socket */
-	io_multiplexing_close();
-
-	rprintf(FERROR, "%s: read error: %s\n",
-		RSYNC_NAME, strerror(err));
 	exit_cleanup(RERR_STREAMIO);
 }
 
 
 /**
- * Read from a socket with IO timeout. return the number of bytes
+ * Read from a socket with I/O timeout. return the number of bytes
  * read. If no bytes can be read then exit, never return a number <= 0.
  *
  * TODO: If the remote shell connection fails, then current versions
@@ -368,7 +373,7 @@ static void die_from_readerr(int err)
  */
 static int read_timeout(int fd, char *buf, size_t len)
 {
-	int n, ret=0;
+	int n, ret = 0;
 
 	io_flush(NORMAL_FLUSH);
 
@@ -376,15 +381,20 @@ static int read_timeout(int fd, char *buf, size_t len)
 		/* until we manage to read *something* */
 		fd_set r_fds, w_fds;
 		struct timeval tv;
-		int fd_count = fd+1;
+		int maxfd = fd;
 		int count;
 
 		FD_ZERO(&r_fds);
+		FD_ZERO(&w_fds);
 		FD_SET(fd, &r_fds);
 		if (msg_fd_in >= 0) {
 			FD_SET(msg_fd_in, &r_fds);
-			if (msg_fd_in >= fd_count)
-				fd_count = msg_fd_in+1;
+			if (msg_fd_in > maxfd)
+				maxfd = msg_fd_in;
+		} else if (msg_list_head) {
+			FD_SET(msg_fd_out, &w_fds);
+			if (msg_fd_out > maxfd)
+				maxfd = msg_fd_out;
 		}
 		if (io_filesfrom_f_out >= 0) {
 			int new_fd;
@@ -397,37 +407,31 @@ static int read_timeout(int fd, char *buf, size_t len)
 					new_fd = -1;
 				}
 			} else {
-				FD_ZERO(&w_fds);
 				FD_SET(io_filesfrom_f_out, &w_fds);
 				new_fd = io_filesfrom_f_out;
 			}
-			if (new_fd >= fd_count)
-				fd_count = new_fd+1;
+			if (new_fd > maxfd)
+				maxfd = new_fd;
 		}
 
-		tv.tv_sec = io_timeout?io_timeout:SELECT_TIMEOUT;
+		tv.tv_sec = select_timeout;
 		tv.tv_usec = 0;
 
 		errno = 0;
 
-		count = select(fd_count, &r_fds,
-			       io_filesfrom_buflen? &w_fds : NULL,
-			       NULL, &tv);
-
-		if (count == 0) {
-			msg_list_push(NORMAL_FLUSH);
-			check_timeout();
-		}
+		count = select(maxfd + 1, &r_fds, &w_fds, NULL, &tv);
 
 		if (count <= 0) {
-			if (errno == EBADF) {
+			if (errno == EBADF)
 				exit_cleanup(RERR_SOCKETIO);
-			}
+			check_timeout();
 			continue;
 		}
 
 		if (msg_fd_in >= 0 && FD_ISSET(msg_fd_in, &r_fds))
 			read_msg_fd();
+		else if (msg_list_head && FD_ISSET(msg_fd_out, &w_fds))
+			msg_list_push(NORMAL_FLUSH);
 
 		if (io_filesfrom_f_out >= 0) {
 			if (io_filesfrom_buflen) {
@@ -457,7 +461,6 @@ static int read_timeout(int fd, char *buf, size_t len)
 						io_filesfrom_buflen = io_filesfrom_lastchar? 2 : 1;
 						io_filesfrom_f_in = -1;
 					} else {
-						extern int eol_nulls;
 						if (!eol_nulls) {
 							char *s = io_filesfrom_buf + l;
 							/* Transform CR and/or LF into '\0' */
@@ -493,26 +496,31 @@ static int read_timeout(int fd, char *buf, size_t len)
 			}
 		}
 
-		if (!FD_ISSET(fd, &r_fds)) continue;
+		if (!FD_ISSET(fd, &r_fds))
+			continue;
 
 		n = read(fd, buf, len);
 
-		if (n > 0) {
-			buf += n;
-			len -= n;
-			ret += n;
-			if (io_timeout)
-				last_io = time(NULL);
-			continue;
-		} else if (n == 0) {
-			whine_about_eof();
-			return -1; /* doesn't return */
-		} else if (n < 0) {
-			if (errno == EINTR || errno == EWOULDBLOCK ||
-			    errno == EAGAIN) 
+		if (n <= 0) {
+			if (n == 0)
+				whine_about_eof(fd); /* Doesn't return. */
+			if (errno == EINTR || errno == EWOULDBLOCK
+			    || errno == EAGAIN)
 				continue;
-			die_from_readerr(errno);
+
+			/* Don't write errors on a dead socket. */
+			if (fd == sock_f_in)
+				close_multiplexing_out();
+			rsyserr(FERROR, errno, "read error");
+			exit_cleanup(RERR_STREAMIO);
 		}
+
+		buf += n;
+		len -= n;
+		ret += n;
+
+		if (io_timeout && fd == sock_f_in)
+			last_io = time(NULL);
 	}
 
 	return ret;
@@ -526,9 +534,6 @@ int read_filesfrom_line(int fd, char *fname)
 {
 	char ch, *s, *eob = fname + MAXPATHLEN - 1;
 	int cnt;
-	extern int io_timeout;
-	extern int eol_nulls;
-	extern char *remote_filesfrom_file;
 	int reading_remotely = remote_filesfrom_file != NULL;
 	int nulls = eol_nulls || reading_remotely;
 
@@ -542,7 +547,7 @@ int read_filesfrom_line(int fd, char *fname)
 			fd_set fds;
 			FD_ZERO(&fds);
 			FD_SET(fd, &fds);
-			tv.tv_sec = io_timeout? io_timeout : SELECT_TIMEOUT;
+			tv.tv_sec = select_timeout;
 			tv.tv_usec = 0;
 			if (!select(fd+1, &fds, NULL, NULL, &tv))
 				check_timeout();
@@ -569,6 +574,42 @@ int read_filesfrom_line(int fd, char *fname)
 }
 
 
+static char *iobuf_out;
+static int iobuf_out_cnt;
+
+void io_start_buffering_out(void)
+{
+	if (iobuf_out)
+		return;
+	if (!(iobuf_out = new_array(char, IO_BUFFER_SIZE)))
+		out_of_memory("io_start_buffering_out");
+	iobuf_out_cnt = 0;
+}
+
+
+static char *iobuf_in;
+static size_t iobuf_in_siz;
+
+void io_start_buffering_in(void)
+{
+	if (iobuf_in)
+		return;
+	iobuf_in_siz = 2 * IO_BUFFER_SIZE;
+	if (!(iobuf_in = new_array(char, iobuf_in_siz)))
+		out_of_memory("io_start_buffering_in");
+}
+
+
+void io_end_buffering(void)
+{
+	io_flush(NORMAL_FLUSH);
+	if (!io_multiplexing_out) {
+		free(iobuf_out);
+		iobuf_out = NULL;
+	}
+}
+
+
 /**
  * Continue trying to read len bytes - don't return until len has been
  * read.
@@ -587,36 +628,29 @@ static void read_loop(int fd, char *buf, size_t len)
 /**
  * Read from the file descriptor handling multiplexing - return number
  * of bytes read.
- * 
- * Never returns <= 0. 
+ *
+ * Never returns <= 0.
  */
-static int read_unbuffered(int fd, char *buf, size_t len)
+static int readfd_unbuffered(int fd, char *buf, size_t len)
 {
 	static size_t remaining;
+	static size_t iobuf_in_ndx;
 	int tag, ret = 0;
 	char line[1024];
-	static char *buffer;
-	static size_t bufferIdx = 0;
-	static size_t bufferSz;
 
-	if (fd != multiplex_in_fd)
+	if (!iobuf_in || fd != sock_f_in)
 		return read_timeout(fd, buf, len);
 
 	if (!io_multiplexing_in && remaining == 0) {
-		if (!buffer) {
-			bufferSz = 2 * IO_BUFFER_SIZE;
-			buffer   = new_array(char, bufferSz);
-			if (!buffer) out_of_memory("read_unbuffered");
-		}
-		remaining = read_timeout(fd, buffer, bufferSz);
-		bufferIdx = 0;
+		remaining = read_timeout(fd, iobuf_in, iobuf_in_siz);
+		iobuf_in_ndx = 0;
 	}
 
 	while (ret == 0) {
 		if (remaining) {
 			len = MIN(len, remaining);
-			memcpy(buf, buffer + bufferIdx, len);
-			bufferIdx += len;
+			memcpy(buf, iobuf_in + iobuf_in_ndx, len);
+			iobuf_in_ndx += len;
 			remaining -= len;
 			ret = len;
 			break;
@@ -630,13 +664,14 @@ static int read_unbuffered(int fd, char *buf, size_t len)
 
 		switch (tag) {
 		case MSG_DATA:
-			if (!buffer || remaining > bufferSz) {
-				buffer = realloc_array(buffer, char, remaining);
-				if (!buffer) out_of_memory("read_unbuffered");
-				bufferSz = remaining;
+			if (remaining > iobuf_in_siz) {
+				if (!(iobuf_in = realloc_array(iobuf_in, char,
+							       remaining)))
+					out_of_memory("readfd_unbuffered");
+				iobuf_in_siz = remaining;
 			}
-			read_loop(fd, buffer, remaining);
-			bufferIdx = 0;
+			read_loop(fd, iobuf_in, remaining);
+			iobuf_in_ndx = 0;
 			break;
 		case MSG_INFO:
 		case MSG_ERROR:
@@ -671,14 +706,20 @@ static int read_unbuffered(int fd, char *buf, size_t len)
 static void readfd(int fd, char *buffer, size_t N)
 {
 	int  ret;
-	size_t total=0;  
+	size_t total = 0;
 
 	while (total < N) {
-		ret = read_unbuffered(fd, buffer + total, N-total);
+		ret = readfd_unbuffered(fd, buffer + total, N-total);
 		total += ret;
 	}
 
-	stats.total_read += total;
+	if (fd == write_batch_monitor_in) {
+		if ((size_t)write(batch_fd, buffer, total) != total)
+			exit_cleanup(RERR_FILEIO);
+	}
+
+	if (fd == sock_f_in)
+		stats.total_read += total;
 }
 
 
@@ -689,7 +730,8 @@ int32 read_int(int f)
 
 	readfd(f,b,4);
 	ret = IVAL(b,0);
-	if (ret == (int32)0xffffffff) return -1;
+	if (ret == (int32)0xffffffff)
+		return -1;
 	return ret;
 }
 
@@ -699,17 +741,17 @@ int64 read_longint(int f)
 	char b[8];
 	ret = read_int(f);
 
-	if ((int32)ret != (int32)0xffffffff) {
+	if ((int32)ret != (int32)0xffffffff)
 		return ret;
-	}
 
-#ifdef NO_INT64
-	rprintf(FERROR,"Integer overflow - attempted 64 bit offset\n");
-	exit_cleanup(RERR_UNSUPPORTED);
-#else
+#ifdef INT64_IS_OFF_T
+	if (sizeof (int64) < 8) {
+		rprintf(FERROR, "Integer overflow: attempted 64-bit offset\n");
+		exit_cleanup(RERR_UNSUPPORTED);
+	}
+#endif
 	readfd(f,b,8);
 	ret = IVAL(b,0) | (((int64)IVAL(b,4))<<32);
-#endif
 
 	return ret;
 }
@@ -721,14 +763,14 @@ void read_buf(int f,char *buf,size_t len)
 
 void read_sbuf(int f,char *buf,size_t len)
 {
-	read_buf(f,buf,len);
+	readfd(f, buf, len);
 	buf[len] = 0;
 }
 
 unsigned char read_byte(int f)
 {
 	unsigned char c;
-	read_buf(f, (char *)&c, 1);
+	readfd(f, (char *)&c, 1);
 	return c;
 }
 
@@ -741,81 +783,107 @@ unsigned char read_byte(int f)
  * use a bit less bandwidth than specified, because it doesn't make up
  * for slow periods.  But arguably this is a feature.  In addition, we
  * ought to take the time used to write the data into account.
+ *
+ * During some phases of big transfers (file FOO is uptodate) this is
+ * called with a small bytes_written every time.  As the kernel has to
+ * round small waits up to guarantee that we actually wait at least the
+ * requested number of microseconds, this can become grossly inaccurate.
+ * We therefore keep track of the bytes we've written over time and only
+ * sleep when the accumulated delay is at least 1 tenth of a second.
  **/
 static void sleep_for_bwlimit(int bytes_written)
 {
-	struct timeval tv;
+	static struct timeval prior_tv;
+	static long total_written = 0; 
+	struct timeval tv, start_tv;
+	long elapsed_usec, sleep_usec;
+
+#define ONE_SEC	1000000L /* # of microseconds in a second */
 
 	if (!bwlimit)
 		return;
 
-	assert(bytes_written > 0);
-	assert(bwlimit > 0);
+	total_written += bytes_written; 
 
-	tv.tv_usec = bytes_written * 1000 / bwlimit;
-	tv.tv_sec  = tv.tv_usec / 1000000;
-	tv.tv_usec = tv.tv_usec % 1000000;
+	gettimeofday(&start_tv, NULL);
+	if (prior_tv.tv_sec) {
+		elapsed_usec = (start_tv.tv_sec - prior_tv.tv_sec) * ONE_SEC
+			     + (start_tv.tv_usec - prior_tv.tv_usec);
+		total_written -= elapsed_usec * bwlimit / (ONE_SEC/1024);
+		if (total_written < 0)
+			total_written = 0;
+	}
 
+	sleep_usec = total_written * (ONE_SEC/1024) / bwlimit;
+	if (sleep_usec < ONE_SEC / 10) {
+		prior_tv = start_tv;
+		return;
+	}
+
+	tv.tv_sec  = sleep_usec / ONE_SEC;
+	tv.tv_usec = sleep_usec % ONE_SEC;
 	select(0, NULL, NULL, NULL, &tv);
+
+	gettimeofday(&prior_tv, NULL);
+	elapsed_usec = (prior_tv.tv_sec - start_tv.tv_sec) * ONE_SEC
+		     + (prior_tv.tv_usec - start_tv.tv_usec);
+	total_written = (sleep_usec - elapsed_usec) * bwlimit / (ONE_SEC/1024);
 }
 
 
-/**
- * Write len bytes to the file descriptor @p fd.
+/* Write len bytes to the file descriptor fd, looping as necessary to get
+ * the job done and also (in the generator) reading any data on msg_fd_in
+ * (to avoid deadlock).
  *
  * This function underlies the multiplexing system.  The body of the
- * application never calls this function directly.
- **/
+ * application never calls this function directly. */
 static void writefd_unbuffered(int fd,char *buf,size_t len)
 {
-	size_t total = 0;
+	size_t n, total = 0;
 	fd_set w_fds, r_fds;
-	int fd_count, count;
+	int maxfd, count, ret;
 	struct timeval tv;
-
-	msg_list_push(NORMAL_FLUSH);
 
 	no_flush++;
 
 	while (total < len) {
 		FD_ZERO(&w_fds);
 		FD_SET(fd,&w_fds);
-		fd_count = fd;
+		maxfd = fd;
 
 		if (msg_fd_in >= 0) {
 			FD_ZERO(&r_fds);
 			FD_SET(msg_fd_in,&r_fds);
-			if (msg_fd_in > fd_count) 
-				fd_count = msg_fd_in;
+			if (msg_fd_in > maxfd)
+				maxfd = msg_fd_in;
 		}
 
-		tv.tv_sec = io_timeout?io_timeout:SELECT_TIMEOUT;
+		tv.tv_sec = select_timeout;
 		tv.tv_usec = 0;
 
 		errno = 0;
-		count = select(fd_count+1, msg_fd_in >= 0 ? &r_fds : NULL,
+		count = select(maxfd + 1, msg_fd_in >= 0 ? &r_fds : NULL,
 			       &w_fds, NULL, &tv);
 
-		if (count == 0) {
-			msg_list_push(NORMAL_FLUSH);
-			check_timeout();
-		}
-
 		if (count <= 0) {
-			if (errno == EBADF) {
+			if (count < 0 && errno == EBADF)
 				exit_cleanup(RERR_SOCKETIO);
-			}
+			check_timeout();
 			continue;
 		}
 
 		if (msg_fd_in >= 0 && FD_ISSET(msg_fd_in, &r_fds))
 			read_msg_fd();
 
-		if (FD_ISSET(fd, &w_fds)) {
-			int ret;
-			size_t n = len-total;
-			ret = write(fd,buf+total,n);
+		if (!FD_ISSET(fd, &w_fds))
+			continue;
 
+		n = len - total;
+		if (bwlimit && n > bwlimit_writemax)
+			n = bwlimit_writemax;
+		ret = write(fd, buf + total, n);
+
+		if (ret <= 0) {
 			if (ret < 0) {
 				if (errno == EINTR)
 					continue;
@@ -825,23 +893,28 @@ static void writefd_unbuffered(int fd,char *buf,size_t len)
 				}
 			}
 
-			if (ret <= 0) {
-				/* Don't try to write errors back
-				 * across the stream */
-				io_multiplexing_close();
-				rprintf(FERROR, RSYNC_NAME
-					": writefd_unbuffered failed to write %ld bytes: phase \"%s\": %s\n",
-					(long) len, io_write_phase, 
-					strerror(errno));
-				exit_cleanup(RERR_STREAMIO);
+			/* Don't try to write errors back across the stream. */
+			if (fd == sock_f_out)
+				close_multiplexing_out();
+			rsyserr(FERROR, errno,
+				"writefd_unbuffered failed to write %ld bytes: phase \"%s\" [%s]",
+				(long)len, io_write_phase, who_am_i());
+			/* If the other side is sending us error messages, try
+			 * to grab any messages they sent before they died. */
+			while (fd == sock_f_out && io_multiplexing_in) {
+				io_timeout = 30;
+				readfd_unbuffered(sock_f_in, io_filesfrom_buf,
+						  sizeof io_filesfrom_buf);
 			}
+			exit_cleanup(RERR_STREAMIO);
+		}
 
-			sleep_for_bwlimit(ret);
- 
-			total += ret;
+		total += ret;
 
+		if (fd == sock_f_out) {
 			if (io_timeout)
 				last_io = time(NULL);
+			sleep_for_bwlimit(ret);
 		}
 	}
 
@@ -849,97 +922,76 @@ static void writefd_unbuffered(int fd,char *buf,size_t len)
 }
 
 
-static char *io_buffer;
-static int io_buffer_count;
-
-void io_start_buffering_out(int fd)
-{
-	if (io_buffer) return;
-	multiplex_out_fd = fd;
-	io_buffer = new_array(char, IO_BUFFER_SIZE);
-	if (!io_buffer) out_of_memory("writefd");
-	io_buffer_count = 0;
-}
-
-void io_start_buffering_in(int fd)
-{
-	multiplex_in_fd = fd;
-}
-
 /**
  * Write an message to a multiplexed stream. If this fails then rsync
  * exits.
  **/
-static void mplex_write(int fd, enum msgcode code, char *buf, size_t len)
+static void mplex_write(enum msgcode code, char *buf, size_t len)
 {
 	char buffer[4096];
 	size_t n = len;
 
 	SIVAL(buffer, 0, ((MPLEX_BASE + (int)code)<<24) + len);
 
-	if (n > (sizeof buffer - 4)) {
+	if (n > sizeof buffer - 4)
 		n = sizeof buffer - 4;
-	}
 
 	memcpy(&buffer[4], buf, n);
-	writefd_unbuffered(fd, buffer, n+4);
+	writefd_unbuffered(sock_f_out, buffer, n+4);
 
 	len -= n;
 	buf += n;
 
-	if (len) {
-		writefd_unbuffered(fd, buf, len);
-	}
+	if (len)
+		writefd_unbuffered(sock_f_out, buf, len);
 }
 
 
 void io_flush(int flush_it_all)
 {
-	int fd = multiplex_out_fd;
-	
 	msg_list_push(flush_it_all);
 
-	if (!io_buffer_count || no_flush)
+	if (!iobuf_out_cnt || no_flush)
 		return;
 
 	if (io_multiplexing_out)
-		mplex_write(fd, MSG_DATA, io_buffer, io_buffer_count);
+		mplex_write(MSG_DATA, iobuf_out, iobuf_out_cnt);
 	else
-		writefd_unbuffered(fd, io_buffer, io_buffer_count);
-	io_buffer_count = 0;
+		writefd_unbuffered(sock_f_out, iobuf_out, iobuf_out_cnt);
+	iobuf_out_cnt = 0;
 }
 
-
-void io_end_buffering(void)
-{
-	io_flush(NORMAL_FLUSH);
-	if (!io_multiplexing_out) {
-		free(io_buffer);
-		io_buffer = NULL;
-	}
-}
 
 static void writefd(int fd,char *buf,size_t len)
 {
-	stats.total_written += len;
+	if (fd == msg_fd_out) {
+		rprintf(FERROR, "Internal error: wrong write used in receiver.\n");
+		exit_cleanup(RERR_PROTOCOL);
+	}
 
-	msg_list_push(NORMAL_FLUSH);
+	if (fd == sock_f_out)
+		stats.total_written += len;
 
-	if (!io_buffer || fd != multiplex_out_fd) {
+	if (fd == write_batch_monitor_out) {
+		if ((size_t)write(batch_fd, buf, len) != len)
+			exit_cleanup(RERR_FILEIO);
+	}
+
+	if (!iobuf_out || fd != sock_f_out) {
 		writefd_unbuffered(fd, buf, len);
 		return;
 	}
 
 	while (len) {
-		int n = MIN((int) len, IO_BUFFER_SIZE-io_buffer_count);
+		int n = MIN((int)len, IO_BUFFER_SIZE - iobuf_out_cnt);
 		if (n > 0) {
-			memcpy(io_buffer+io_buffer_count, buf, n);
+			memcpy(iobuf_out+iobuf_out_cnt, buf, n);
 			buf += n;
 			len -= n;
-			io_buffer_count += n;
+			iobuf_out_cnt += n;
 		}
 
-		if (io_buffer_count == IO_BUFFER_SIZE)
+		if (iobuf_out_cnt == IO_BUFFER_SIZE)
 			io_flush(NORMAL_FLUSH);
 	}
 }
@@ -974,16 +1026,18 @@ void write_longint(int f, int64 x)
 		return;
 	}
 
-#ifdef NO_INT64
-	rprintf(FERROR,"Integer overflow - attempted 64 bit offset\n");
-	exit_cleanup(RERR_UNSUPPORTED);
-#else
+#ifdef INT64_IS_OFF_T
+	if (sizeof (int64) < 8) {
+		rprintf(FERROR, "Integer overflow: attempted 64-bit offset\n");
+		exit_cleanup(RERR_UNSUPPORTED);
+	}
+#endif
+
 	write_int(f, (int32)0xFFFFFFFF);
 	SIVAL(b,0,(x&0xFFFFFFFF));
 	SIVAL(b,4,((x>>32)&0xFFFFFFFF));
 
 	writefd(f,b,8);
-#endif
 }
 
 void write_buf(int f,char *buf,size_t len)
@@ -992,24 +1046,24 @@ void write_buf(int f,char *buf,size_t len)
 }
 
 /** Write a string to the connection */
-static void write_sbuf(int f,char *buf)
+void write_sbuf(int f, char *buf)
 {
-	write_buf(f, buf, strlen(buf));
+	writefd(f, buf, strlen(buf));
 }
-
 
 void write_byte(int f,unsigned char c)
 {
-	write_buf(f,(char *)&c,1);
+	writefd(f, (char *)&c, 1);
 }
 
 
 
 /**
- * Read a line of up to @p maxlen characters into @p buf.  Does not
- * contain a trailing newline or carriage return.
+ * Read a line of up to @p maxlen characters into @p buf (not counting
+ * the trailing null).  Strips the (required) trailing newline and all
+ * carriage returns.
  *
- * @return 1 for success; 0 for io error or truncation.
+ * @return 1 for success; 0 for I/O error or truncation.
  **/
 int read_line(int f, char *buf, size_t maxlen)
 {
@@ -1018,27 +1072,21 @@ int read_line(int f, char *buf, size_t maxlen)
 		read_buf(f, buf, 1);
 		if (buf[0] == 0)
 			return 0;
-		if (buf[0] == '\n') {
-			buf[0] = 0;
+		if (buf[0] == '\n')
 			break;
-		}
 		if (buf[0] != '\r') {
 			buf++;
 			maxlen--;
 		}
 	}
-	if (maxlen == 0) {
-		*buf = 0;
-		return 0;
-	}
-
-	return 1;
+	*buf = '\0';
+	return maxlen > 0;
 }
 
 
 void io_printf(int fd, const char *format, ...)
 {
-	va_list ap;  
+	va_list ap;
 	char buf[1024];
 	int len;
 
@@ -1046,43 +1094,72 @@ void io_printf(int fd, const char *format, ...)
 	len = vsnprintf(buf, sizeof buf, format, ap);
 	va_end(ap);
 
-	if (len < 0) exit_cleanup(RERR_STREAMIO);
+	if (len < 0)
+		exit_cleanup(RERR_STREAMIO);
 
 	write_sbuf(fd, buf);
 }
 
 
 /** Setup for multiplexing a MSG_* stream with the data stream. */
-void io_start_multiplex_out(int fd)
+void io_start_multiplex_out(void)
 {
-	multiplex_out_fd = fd;
 	io_flush(NORMAL_FLUSH);
-	io_start_buffering_out(fd);
+	io_start_buffering_out();
 	io_multiplexing_out = 1;
 }
 
 /** Setup for multiplexing a MSG_* stream with the data stream. */
-void io_start_multiplex_in(int fd)
+void io_start_multiplex_in(void)
 {
-	multiplex_in_fd = fd;
 	io_flush(NORMAL_FLUSH);
+	io_start_buffering_in();
 	io_multiplexing_in = 1;
 }
 
 /** Write an message to the multiplexed data stream. */
 int io_multiplex_write(enum msgcode code, char *buf, size_t len)
 {
-	if (!io_multiplexing_out) return 0;
+	if (!io_multiplexing_out)
+		return 0;
 
 	io_flush(NORMAL_FLUSH);
 	stats.total_written += (len+4);
-	mplex_write(multiplex_out_fd, code, buf, len);
+	mplex_write(code, buf, len);
 	return 1;
 }
 
+void close_multiplexing_in(void)
+{
+	io_multiplexing_in = 0;
+}
+
 /** Stop output multiplexing. */
-void io_multiplexing_close(void)
+void close_multiplexing_out(void)
 {
 	io_multiplexing_out = 0;
 }
 
+void start_write_batch(int fd)
+{
+	write_stream_flags(batch_fd);
+
+	/* Some communication has already taken place, but we don't
+	 * enable batch writing until here so that we can write a
+	 * canonical record of the communication even though the
+	 * actual communication so far depends on whether a daemon
+	 * is involved. */
+	write_int(batch_fd, protocol_version);
+	write_int(batch_fd, checksum_seed);
+
+	if (am_sender)
+		write_batch_monitor_out = fd;
+	else
+		write_batch_monitor_in = fd;
+}
+
+void stop_write_batch(void)
+{
+	write_batch_monitor_out = -1;
+	write_batch_monitor_in = -1;
+}

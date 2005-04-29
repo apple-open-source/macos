@@ -39,11 +39,93 @@
 #include <net-snmp/library/snmp-tc.h>   /* for "internal" definitions */
 #include <net-snmp/library/snmp_api.h>
 
+/*
+  DateAndTime ::= TEXTUAL-CONVENTION
+    DISPLAY-HINT "2d-1d-1d,1d:1d:1d.1d,1a1d:1d"
+    STATUS       current
+    DESCRIPTION
+            "A date-time specification.
+
+            field  octets  contents                  range
+            -----  ------  --------                  -----
+              1      1-2   year*                     0..65536
+              2       3    month                     1..12
+              3       4    day                       1..31
+              4       5    hour                      0..23
+              5       6    minutes                   0..59
+              6       7    seconds                   0..60
+                           (use 60 for leap-second)
+              7       8    deci-seconds              0..9
+              8       9    direction from UTC        '+' / '-'
+              9      10    hours from UTC*           0..13
+             10      11    minutes from UTC          0..59
+
+            * Notes:
+            - the value of year is in network-byte order
+            - daylight saving time in New Zealand is +13
+
+            For example, Tuesday May 26, 1992 at 1:30:15 PM EDT would be
+            displayed as:
+
+                             1992-5-26,13:30:15.0,-4:0
+
+            Note that if only local time is known, then timezone
+            information (fields 8-10) is not present."
+    SYNTAX       OCTET STRING (SIZE (8 | 11))
+*/
+
+int
+netsnmp_dateandtime_set_buf_from_vars(u_char *buf, size_t *bufsize,
+                                      u_short year, u_char month, u_char day,
+                                      u_char hour, u_char minutes,
+                                      u_char seconds, u_char deci_seconds,
+                                      int utc_offset_direction,
+                                      u_char utc_offset_hours,
+                                      u_char utc_offset_minutes)
+{
+    u_short tmp_year = htons(year);
+
+    /*
+     * if we have a utc offset, need 11 bytes. Otherwise we
+     * just need 8 bytes.
+     */
+    if(utc_offset_direction) {
+        if(*bufsize < 11)
+            return SNMPERR_RANGE;
+
+        /*
+         * set utc offset data
+         */
+        buf[8] = (utc_offset_direction < 0) ? '-' : '+';
+        buf[9] = utc_offset_hours;
+        buf[10] = utc_offset_minutes;
+        *bufsize = 11;
+    }
+    else if(*bufsize < 8)
+        return SNMPERR_RANGE;
+    else
+        *bufsize = 8;
+
+    /*
+     * set basic date/time data
+     */
+    memcpy(buf, &tmp_year, sizeof(tmp_year));
+    buf[2] = month;
+    buf[3] = day;
+    buf[4] = hour;
+    buf[5] = minutes;
+    buf[6] = seconds;
+    buf[7] = deci_seconds;
+
+    return SNMPERR_SUCCESS;
+}
+
 u_char         *
 date_n_time(time_t * when, size_t * length)
 {
     struct tm      *tm_p;
     static u_char   string[11];
+    unsigned short yauron;
 
     /*
      * Null time
@@ -66,7 +148,9 @@ date_n_time(time_t * when, size_t * length)
      * Basic 'local' time handling
      */
     tm_p = localtime(when);
-    *(short *) string = htons(tm_p->tm_year + 1900);
+    yauron = tm_p->tm_year + 1900;
+    string[0] = (u_char)(yauron >> 8);
+    string[1] = (u_char)yauron;
     string[2] = tm_p->tm_mon + 1;
     string[3] = tm_p->tm_mday;
     string[4] = tm_p->tm_hour;
@@ -79,16 +163,20 @@ date_n_time(time_t * when, size_t * length)
     /*
      * Timezone offset
      */
-#if !defined(SYSV) && !defined(aix4) && !defined(aix5) && !defined(WIN32) && !defined(irix6)
-#define timezone tm_p->tm_gmtoff
+    {
+#ifdef STRUCT_TM_HAS_TM_GMTOFF
+    const int tzoffset = tm_p->tm_gmtoff;
+#else
+    const int tzoffset = timezone;
 #endif
-    if (timezone > 0)
+    if (tzoffset > 0)
         string[8] = '-';
     else
         string[8] = '+';
-    string[9] = abs(timezone) / 3600;
-    string[10] = (abs(timezone) - string[9] * 3600) / 60;
+    string[9] = abs(tzoffset) / 3600;
+    string[10] = (abs(tzoffset) - string[9] * 3600) / 60;
     *length = 11;
+    }
 #endif
 
 #ifdef SYSV

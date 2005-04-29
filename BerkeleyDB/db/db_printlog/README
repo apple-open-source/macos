@@ -1,4 +1,4 @@
-# $Id: README,v 1.1.1.1 2003/02/15 04:55:41 zarzycki Exp $
+# $Id: README,v 1.2 2004/03/30 01:21:27 jtownsen Exp $
 
 Berkeley DB log dump utility.  This utility dumps out a DB log in human
 readable form, a record at a time, to assist in recovery and transaction

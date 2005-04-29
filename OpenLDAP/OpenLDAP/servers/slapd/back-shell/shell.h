@@ -1,8 +1,31 @@
 /* shell.h - shell backend header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/shell.h,v 1.13.2.4 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/shell.h,v 1.18.2.3 2004/01/01 18:16:39 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 #ifndef SLAPD_SHELL_H
@@ -21,7 +44,6 @@ struct shellinfo {
 	char	**si_modrdn;	/* cmd + args to exec for modrdn  */
 	char	**si_add;		/* cmd + args to exec for add	  */
 	char	**si_delete;	/* cmd + args to exec for delete  */
-	char	**si_abandon;	/* cmd + args to exec for abandon */
 };
 
 struct slap_backend_db;
@@ -38,12 +60,9 @@ extern void print_suffixes LDAP_P((
 	struct slap_backend_db *bd));
 
 extern int read_and_send_results LDAP_P((
-	struct slap_backend_db *bd,
-	struct slap_conn *conn,
 	struct slap_op *op,
-	FILE *fp,
-	AttributeName *attrs,
-	int attrsonly));
+	struct slap_rep *rs,
+	FILE *fp));
 
 LDAP_END_DECL
 

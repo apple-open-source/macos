@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/i2c_acc.c,v 1.1 2002/12/10 15:12:26 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/i2c_acc.c,v 1.2 2003/11/03 05:11:23 tsi Exp $ */
 /*
  * $Workfile: i2c_acc.c $
  *
@@ -937,7 +937,7 @@ acc_i2c_set_freq(unsigned char busnum, char freq)
 
    OUTB((unsigned short)(bus_base_address + ACBCTL2), 0x0);
 
-   if (freq == -1)
+   if (freq == (char)(-1))
       freq = 0x71;
    else {
       freq = freq << 1;

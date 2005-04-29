@@ -1,5 +1,7 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
+
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2000, 2004 Free
+   Software Foundation, Inc.
   
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -765,6 +767,7 @@ m4_esyscmd (struct obstack *obs, int argc, token_data **argv)
     return;
 
   debug_flush_files ();
+  errno = 0;
   pin = popen (ARG (1), "r");
   if (pin == NULL)
     {
@@ -1076,9 +1079,16 @@ m4_sinclude (struct obstack *obs, int argc, token_data **argv)
 static void
 m4_maketemp (struct obstack *obs, int argc, token_data **argv)
 {
+  int fd;
   if (bad_argc (argv[0], argc, 2, 2))
     return;
-  mktemp (ARG (1));
+  errno = 0;
+  if ((fd = mkstemp (ARG (1))) < 0)
+    {
+      M4ERROR ((warning_status, errno, "Cannot create tempfile %s", ARG (1)));
+      return;
+    }
+  close(fd);
   obstack_grow (obs, ARG (1), strlen (ARG (1)));
 }
 
@@ -1380,7 +1390,11 @@ expand_ranges (const char *s, struct obstack *obs)
 	{
 	  to = *++s;
 	  if (to == '\0')
-	    obstack_1grow (obs, '-'); /* trailing dash */
+	    {
+              /* trailing dash */
+              obstack_1grow (obs, '-');
+              break;
+	    }
 	  else if (from <= to)
 	    {
 	      while (from++ < to)

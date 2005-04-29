@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---           Copyright (C) 2000-2002 Free Software Foundation, Inc.         --
+--           Copyright (C) 2000-2004 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,7 +40,7 @@ package body Impunit is
    --  Note that this list should match the list of units documented in
    --  the "GNAT Library" section of the GNAT Reference Manual.
 
-   Non_Imp_File_Names : File_List := (
+   Non_Imp_File_Names : constant File_List := (
 
    -----------------------------------------------
    -- Ada Hierarchy Units from Reference Manual --
@@ -54,6 +53,7 @@ package body Impunit is
      "a-chlat1",    -- Ada.Characters.Latin_1
      "a-comlin",    -- Ada.Command_Line
      "a-decima",    -- Ada.Decimal
+     "a-direct",    -- Ada.Directories
      "a-direio",    -- Ada.Direct_IO
      "a-dynpri",    -- Ada.Dynamic_Priorities
      "a-except",    -- Ada.Exceptions
@@ -122,7 +122,7 @@ package body Impunit is
      "a-nlelfu",    -- Ada.Numerics.Long_Elementary_Functions
      "a-nllcef",    -- Ada.Long_Long_Complex_Elementary_Functions
      "a-nllefu",    -- Ada.Numerics.Long_Long_Elementary_Functions
-     "a-nltcty",    -- Ada.Numerics.Long_Long_Complex_Types
+     "a-nllcty",    -- Ada.Numerics.Long_Long_Complex_Types
      "a-nscefu",    -- Ada.Short_Complex_Elementary_Functions
      "a-nscoty",    -- Ada.Numerics.Short_Complex_Types
      "a-nselfu",    -- Ada.Numerics.Short_Elementary_Functions
@@ -138,11 +138,13 @@ package body Impunit is
    -----------------------------------
 
      "a-chlat9",    -- Ada.Characters.Latin_9
+     "a-colien",    -- Ada.Command_Line.Environment
      "a-colire",    -- Ada.Command_Line.Remove
      "a-cwila1",    -- Ada.Characters.Wide_Latin_1
      "a-cwila9",    -- Ada.Characters.Wide_Latin_9
      "a-diocst",    -- Ada.Direct_IO.C_Streams
      "a-einuoc",    -- Ada.Exceptions.Is_Null_Occurrence
+     "a-exctra",    -- Ada.Exceptions.Traceback
      "a-siocst",    -- Ada.Sequential_IO.C_Streams
      "a-ssicst",    -- Ada.Streams.Stream_IO.C_Streams
      "a-suteio",    -- Ada.Strings.Unbounded.Text_IO
@@ -182,51 +184,69 @@ package body Impunit is
    -- GNAT Library Units --
    ------------------------
 
+     "g-arrspl",    -- GNAT.Array_Split
      "g-awk   ",    -- GNAT.AWK
+     "g-boubuf",    -- GNAT.Bounded_Buffers
+     "g-boumai",    -- GNAT.Bounded_Mailboxes
+     "g-bubsor",    -- GNAT.Bubble_Sort
      "g-busora",    -- GNAT.Bubble_Sort_A
      "g-busorg",    -- GNAT.Bubble_Sort_G
      "g-calend",    -- GNAT.Calendar
-     "g-catiio",    -- GNAT.Calendar.Time_IO
      "g-casuti",    -- GNAT.Case_Util
+     "g-catiio",    -- GNAT.Calendar.Time_IO
      "g-cgi   ",    -- GNAT.CGI
      "g-cgicoo",    -- GNAT.CGI.Cookie
      "g-cgideb",    -- GNAT.CGI.Debug
      "g-comlin",    -- GNAT.Command_Line
+     "g-comver",    -- GNAT.Compiler_Version
      "g-crc32 ",    -- GNAT.CRC32
+     "g-ctrl_c",    -- GNAT.Ctrl_C
      "g-curexc",    -- GNAT.Current_Exception
      "g-debpoo",    -- GNAT.Debug_Pools
      "g-debuti",    -- GNAT.Debug_Utilities
      "g-diopit",    -- GNAT.Directory_Operations.Iteration
      "g-dirope",    -- GNAT.Directory_Operations
+     "g-dynhta",    -- GNAT.Dynamic_HTables
      "g-dyntab",    -- GNAT.Dynamic_Tables
+     "g-excact",    -- GNAT.Exception_Actions
+     "g-except",    -- GNAT.Exceptions
      "g-exctra",    -- GNAT.Exception_Traces
      "g-expect",    -- GNAT.Expect
      "g-flocon",    -- GNAT.Float_Control
-     "g-htable",    -- GNAT.Htable
+     "g-heasor",    -- GNAT.Heap_Sort
      "g-hesora",    -- GNAT.Heap_Sort_A
      "g-hesorg",    -- GNAT.Heap_Sort_G
+     "g-htable",    -- GNAT.Htable
      "g-io    ",    -- GNAT.IO
      "g-io_aux",    -- GNAT.IO_Aux
      "g-locfil",    -- GNAT.Lock_Files
      "g-md5   ",    -- GNAT.MD5
+     "g-memdum",    -- GNAT.Memory_Dump
      "g-moreex",    -- GNAT.Most_Recent_Exception
      "g-os_lib",    -- GNAT.Os_Lib
+     "g-pehage",    -- GNAT.Perfect_Hash_Generators
      "g-regexp",    -- GNAT.Regexp
      "g-regist",    -- GNAT.Registry
      "g-regpat",    -- GNAT.Regpat
+     "g-semaph",    -- GNAT.Semaphores
+     "g-sestin",    -- GNAT.Secondary_Stack_Info
+     "g-signal",    -- GNAT.Signals
      "g-socket",    -- GNAT.Sockets
+     "g-souinf",    -- GNAT.Source_Info
+     "g-speche",    -- GNAT.Spell_Checker
+     "g-spipat",    -- GNAT.Spitbol.Patterns
+     "g-spitbo",    -- GNAT.Spitbol
      "g-sptabo",    -- GNAT.Spitbol.Table_Boolean
      "g-sptain",    -- GNAT.Spitbol.Table_Integer
      "g-sptavs",    -- GNAT.Spitbol.Table_Vstring
-     "g-souinf",    -- GNAT.Source_Info
-     "g-speche",    -- GNAT.Spell_Checker
-     "g-spitbo",    -- GNAT.Spitbol
-     "g-spipat",    -- GNAT.Spitbol.Patterns
+     "g-string",    -- GNAT.Strings
+     "g-strspl",    -- GNAT.String_Split
      "g-table ",    -- GNAT.Table
      "g-tasloc",    -- GNAT.Task_Lock
      "g-thread",    -- GNAT.Threads
      "g-traceb",    -- GNAT.Traceback
      "g-trasym",    -- GNAT.Traceback.Symbolic
+     "g-wistsp",    -- GNAT.Wide_String_Split
 
    -----------------------------------------------------
    -- Interface Hierarchy Units from Reference Manual --
@@ -243,21 +263,21 @@ package body Impunit is
    ------------------------------------------
 
      "i-cexten",    -- Interfaces.C.Extensions
-     "i-csthre",    -- Interfaces.C.Sthreads
-     "i-cstrea",    -- Interfaces.C.Streams
      "i-cpp   ",    -- Interfaces.CPP
-     "i-java  ",    -- Interfaces.Java
-     "i-javlan",    -- Interfaces.Java.Lang
+     "i-cstrea",    -- Interfaces.C.Streams
      "i-jalaob",    -- Interfaces.Java.Lang.Object
      "i-jalasy",    -- Interfaces.Java.Lang.System
      "i-jalath",    -- Interfaces.Java.Lang.Thread
+     "i-java  ",    -- Interfaces.Java
+     "i-javlan",    -- Interfaces.Java.Lang
      "i-os2err",    -- Interfaces.Os2lib.Errors
      "i-os2lib",    -- Interfaces.Os2lib
      "i-os2syn",    -- Interfaces.Os2lib.Synchronization
      "i-os2thr",    -- Interfaces.Os2lib.Threads
      "i-pacdec",    -- Interfaces.Packed_Decimal
-     "i-vxwork",    -- Interfaces.VxWorks
+     "i-vthrea",    -- Interfaces.Vthreads
      "i-vxwoio",    -- Interfaces.VxWorks.IO
+     "i-vxwork",    -- Interfaces.VxWorks
 
    --------------------------------------------------
    -- System Hierarchy Units from Reference Manual --
@@ -275,7 +295,10 @@ package body Impunit is
 
      "s-addima",    -- System.Address_Image
      "s-assert",    -- System.Assertions
+     "s-memory",    -- System.Memory
      "s-parint",    -- System.Partition_Interface
+     "s-restri",    -- System.Restrictions
+     "s-rident",    -- System.Rident
      "s-tasinf",    -- System.Task_Info
      "s-wchcnv",    -- System.Wch_Cnv
      "s-wchcon");   -- System.Wch_Con

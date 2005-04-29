@@ -9517,7 +9517,9 @@ dpcp		4099/tcp    # DPCP
 igo-incognito   4100/udp    # IGo Incognito Data Port
 igo-incognito   4100/tcp    # IGo Incognito Data Port
 #                          Paul Reddy <support@igo-incognito.com> February 2002
-#               4101-4113  Unassigned
+#               4101-4110  Unassigned
+xgrid          4111/tcp    # Xgrid
+xgrid          4111/udp    # Xgrid
 jomamqmonitor   4114/udp    # JomaMQMonitor
 jomamqmonitor   4114/tcp    # JomaMQMonitor
 #                          Marcel Hofstetter <marcel.hofstetter@jomasoft.ch> January 2003       

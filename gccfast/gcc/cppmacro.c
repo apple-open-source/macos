@@ -1491,8 +1491,16 @@ create_iso_definition (pfile, macro)
       if (!ok)
 	return false;
 
-      /* Success.  Commit the parameter array.  */
-      BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
+      /* Success.  Commit or allocate the parameter array.  */
+      if (pfile->hash_table->alloc_subobject)
+	{
+	  cpp_token *tokns = pfile->hash_table->alloc_subobject
+	    (sizeof (cpp_token) * macro->paramc);
+	  memcpy (tokns, macro->params, sizeof (cpp_token) * macro->paramc);
+	  macro->params = tokns;
+	}
+      else
+	BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->params[macro->paramc];
       macro->fun_like = 1;
     }
   else if (ctoken->type != CPP_EOF && !(ctoken->flags & PREV_WHITE))
@@ -1555,6 +1563,7 @@ create_iso_definition (pfile, macro)
     }
 
   macro->exp.tokens = (cpp_token *) BUFF_FRONT (pfile->a_buff);
+  macro->traditional = 0;
 
   /* Don't count the CPP_EOF.  */
   macro->count--;
@@ -1563,8 +1572,16 @@ create_iso_definition (pfile, macro)
   if (macro->count)
     macro->exp.tokens[0].flags &= ~PREV_WHITE;
 
-  /* Commit the memory.  */
-  BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->exp.tokens[macro->count];
+  /* Commit or allocate the memory.  */
+  if (pfile->hash_table->alloc_subobject)
+    {
+      cpp_token *tokns = pfile->hash_table->alloc_subobject (sizeof (cpp_token)
+							     * macro->count);
+      memcpy (tokns, macro->exp.tokens, sizeof (cpp_token) * macro->count);
+      macro->exp.tokens = tokns;
+    }
+  else
+    BUFF_FRONT (pfile->a_buff) = (uchar *) &macro->exp.tokens[macro->count];
 
   return true;
 }
@@ -1579,7 +1596,10 @@ _cpp_create_definition (pfile, node)
   unsigned int i;
   bool ok;
 
-  macro = (cpp_macro *) _cpp_aligned_alloc (pfile, sizeof (cpp_macro));
+  if (pfile->hash_table->alloc_subobject)
+    macro = pfile->hash_table->alloc_subobject (sizeof (cpp_macro));
+  else
+    macro = (cpp_macro *) _cpp_aligned_alloc (pfile, sizeof (cpp_macro));
   macro->line = pfile->directive_line;
   macro->params = 0;
   macro->paramc = 0;

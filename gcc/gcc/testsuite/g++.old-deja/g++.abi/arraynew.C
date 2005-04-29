@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 #if defined (__GXX_ABI_VERSION) && __GXX_ABI_VERSION >= 100
@@ -35,11 +36,16 @@ template <typename T>
 void check_cookie (int i)
 {
   void* a = new T[11];
+  size_t x;
   
   // Compute the cookie location manually.
-  size_t x = __alignof__ (T);
+#ifdef __ARM_EABI__
+  x = 8;
+#else
+  x = __alignof__ (T);
   if (x < sizeof (size_t))
     x = sizeof (size_t);
+#endif
   if ((char *) a - x != (char *) p)
     exit (i);
 
@@ -47,6 +53,12 @@ void check_cookie (int i)
   size_t *sp = ((size_t *) a) - 1;
   if (*sp != 11)
     exit (i);
+
+#ifdef __ARM_EABI__
+  sp = ((size_t *) a) - 2;
+  if (*sp != sizeof (T))
+    exit (i);
+#endif
 }
 
 template <typename T>
@@ -54,11 +66,16 @@ void check_placement_cookie (int i)
 {
   p = malloc (sizeof (T) * 11 + 100);
   void* a = new (p) T[11];
+  size_t x;
   
   // Compute the cookie location manually.
-  size_t x = __alignof__ (T);
+#ifdef __ARM_EABI__
+  x = 8;
+#else
+  x = __alignof__ (T);
   if (x < sizeof (size_t))
     x = sizeof (size_t);
+#endif
   if ((char *) a - x != (char *) p)
     exit (i);
 
@@ -66,6 +83,12 @@ void check_placement_cookie (int i)
   size_t *sp = ((size_t *) a) - 1;
   if (*sp != 11)
     exit (i);
+
+#ifdef __ARM_EABI__
+  sp = ((size_t *) a) - 2;
+  if (*sp != sizeof (T))
+    exit (i);
+#endif
 }
 
 struct X {};

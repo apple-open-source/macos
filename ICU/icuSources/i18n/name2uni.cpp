@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -22,21 +22,49 @@
 
 U_NAMESPACE_BEGIN
 
-const char NameUnicodeTransliterator::fgClassID=0;
-
-const char NameUnicodeTransliterator::_ID[] = "Name-Any";
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(NameUnicodeTransliterator)
 
 static const UChar OPEN[] = {92,78,126,123,126,0}; // "\N~{~"
 static const UChar OPEN_DELIM  = 92;  // '\\' first char of OPEN
 static const UChar CLOSE_DELIM = 125; // '}'
 static const UChar SPACE       = 32;  // ' '
 
+U_CDECL_BEGIN
+
+// USetAdder implementation
+// Does not use uset.h to reduce code dependencies
+static void U_CALLCONV
+_set_add(USet *set, UChar32 c) {
+    ((UnicodeSet *)set)->add(c);
+}
+
+static void U_CALLCONV
+_set_addRange(USet *set, UChar32 start, UChar32 end) {
+    ((UnicodeSet *)set)->add(start, end);
+}
+
+static void U_CALLCONV
+_set_addString(USet *set, const UChar *str, int32_t length) {
+    ((UnicodeSet *)set)->add(UnicodeString((UBool)(length<0), str, length));
+}
+
+U_CDECL_END
+
 /**
  * Constructs a transliterator with the default delimiters '{' and
  * '}'.
  */
 NameUnicodeTransliterator::NameUnicodeTransliterator(UnicodeFilter* adoptedFilter) :
-    Transliterator(_ID, adoptedFilter) {
+    Transliterator(UNICODE_STRING("Name-Any", 8), adoptedFilter) {
+
+    // Get the legal character set
+    USetAdder sa = {
+        (USet *)&legal, // USet* == UnicodeSet*
+        _set_add,
+        _set_addRange,
+        _set_addString
+    };
+    uprv_getCharNameCharacters(&sa);
 }
 
 /**
@@ -48,7 +76,7 @@ NameUnicodeTransliterator::~NameUnicodeTransliterator() {}
  * Copy constructor.
  */
 NameUnicodeTransliterator::NameUnicodeTransliterator(const NameUnicodeTransliterator& o) :
-    Transliterator(o) {}
+    Transliterator(o), legal(o.legal) {}
 
 /**
  * Assignment operator.
@@ -56,6 +84,7 @@ NameUnicodeTransliterator::NameUnicodeTransliterator(const NameUnicodeTransliter
 NameUnicodeTransliterator& NameUnicodeTransliterator::operator=(
                              const NameUnicodeTransliterator& o) {
     Transliterator::operator=(o);
+    // not necessary: the legal sets should all be the same -- legal=o.legal;
     return *this;
 }
 
@@ -92,10 +121,6 @@ void NameUnicodeTransliterator::handleTransliterate(Replaceable& text, UTransPos
     UnicodeString openPat(TRUE, OPEN, -1);
     UnicodeString str, name;
 
-    // Get the legal character set
-    UnicodeSet legal;
-    uprv_getCharNameCharacters((USet*) &legal); // USet* == UnicodeSet*
-    
     int32_t cursor = offsets.start;
     int32_t limit = offsets.limit;
 

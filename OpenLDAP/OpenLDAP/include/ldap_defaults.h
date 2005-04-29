@@ -1,16 +1,18 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_defaults.h,v 1.22.2.2 2003/03/03 17:10:03 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/include/ldap_defaults.h,v 1.24.2.4 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ * 
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* Portions
- * Copyright (c) 1994 Regents of the University of Michigan.
+/* Portions Copyright (c) 1994 Regents of the University of Michigan.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted
@@ -37,42 +39,14 @@
 #define LDAP_ENV_PREFIX "LDAP"
 
 /* default ldapi:// socket */
-#define LDAPI_SOCK LDAP_RUNDIR LDAP_DIRSEP "ldapi"
-
-/*
- * MAIL500 MAILER DEFINITIONS
- */
-	/* max number of ambiguous matches reported */
-#define MAIL500_MAXAMBIGUOUS	10
-	/* max subscribers allowed (size limit when searching for them ) */
-#define MAIL500_MAXGROUPMEMBERS	LDAP_NO_LIMIT
-	/* timeout for all searches */
-#define MAIL500_TIMEOUT		180
-	/* sendmail location - mail500 needs to exec this */
-#define MAIL500_SENDMAIL	LDAP_SENDMAIL
-
-/*
- * UD DEFINITIONS
- */
-	/* default config file locations */
-#define FILTERFILE	LDAP_SYSCONFDIR LDAP_DIRSEP "ldapfilter.conf"
-	/* ud configuration file */
-#define UD_CONFIG_FILE		LDAP_SYSCONFDIR LDAP_DIRSEP "ud.conf"
-	/* default editor */
-#define UD_DEFAULT_EDITOR	LDAP_EDITOR
-	/* default bbasename of user config file */
-#define UD_USER_CONFIG_FILE	".udrc"
-	/* default base where groups are created */
-#define UD_WHERE_GROUPS_ARE_CREATED	""
-	/* default base below which all groups live */
-#define UD_WHERE_ALL_GROUPS_LIVE	""
+#define LDAPI_SOCK LDAP_RUNDIR LDAP_DIRSEP "run" LDAP_DIRSEP "ldapi"
 
 /*
  * SLAPD DEFINITIONS
  */
 	/* location of the default slapd config file */
 #define SLAPD_DEFAULT_CONFIGFILE	LDAP_SYSCONFDIR LDAP_DIRSEP "slapd.conf"
-#define SLAPD_DEFAULT_DB_DIR		LDAP_DATADIR LDAP_DIRSEP "openldap-data"
+#define SLAPD_DEFAULT_DB_DIR		LDAP_RUNDIR LDAP_DIRSEP "openldap-data"
 #define SLAPD_DEFAULT_DB_MODE		0600
 #define SLAPD_DEFAULT_UCDATA		LDAP_DATADIR LDAP_DIRSEP "ucdata"
 	/* default max deref depth for aliases */

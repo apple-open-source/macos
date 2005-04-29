@@ -51,7 +51,7 @@ and Apache::PerlRun scripts.
 =item *
 
 Your script *will not* run from the command line if your script makes
-any direct calls to Apache->methods.  See Apache::FakeRequest.
+any direct calls to Apache-E<gt>methods.  See Apache::FakeRequest.
 
 =back
 
@@ -91,7 +91,7 @@ earlier versions will not work under mod_perl.
 =item *
 
 If you use the C<SendHeaders()> function, be sure to call
-$req_obj->cgi->done when you are done with a request, just as you
+$req_obj-E<gt>cgi-E<gt>done when you are done with a request, just as you
 would under I<CGI::MiniSrv>. 
 
 =back
@@ -104,8 +104,8 @@ would under I<CGI::MiniSrv>.
 =item *
 
 Files pulled in via C<use> or C<require> statements are not
-automatically reloaded when changed on disk.  See the Apache::StatINC 
-module to add this functionality.
+automatically reloaded when changed on disk.  See the Apache::StatINC
+or the Apache::Reload module to add this functionality.
 
 =item Undefined subroutines
 
@@ -145,6 +145,9 @@ Now, have your scripts say:
 
  Test::some_function();
 
+=item Undefined subroutine &Foo::Bar::handler called at PerlHandler subroutine `Foo::Bar' line 1.
+
+You mistyped the module name in the 'package' line in your module.
 
 =item "Use of uninitialized value"
 
@@ -177,7 +180,7 @@ If PERL_EMERGENCY_SBRK is defined, running out of memory need not be a
 fatal error: a memory pool can allocated by assigning to the special
 variable $^M.  See perlvar(1) for more details.
 
-If you compile with that option and add 'use Apache::Debug level => 4;'
+If you compile with that option and add 'use Apache::Debug level =E<gt> 4;'
 to your PerlScript, it will allocate the $^M emergency pool and the
 $SIG{__DIE__} handler will call Carp::confess, giving you a stack
 trace which should reveal where the problem is.
@@ -363,8 +366,9 @@ follows:
 =head1 AUTHORS
 
 Doug MacEachern, with contributions from
-Jens Heunemann <heunemann2@janet.de>,
-David Landgren <david@landgren.net>,
-Mark Mills <mark@ntr.net> and 
-Randal Schwartz <merlyn@stonehenge.com>
+Jens Heunemann E<lt>heunemann2@janet.deE<gt>,
+David Landgren E<lt>david@landgren.netE<gt>,
+Mark Mills E<lt>mark@ntr.netE<gt>,
+Randal Schwartz E<lt>merlyn@stonehenge.comE<gt> and
+Ask Bjoern Hansen E<lt>ask@develooper.comE<gt>
 

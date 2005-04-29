@@ -34,3 +34,6 @@ install-rc:
 install-links:
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)$(BINDIR)
 	$(_v) $(LN) -f $(DSTROOT)$(BINDIR)/tcsh $(DSTROOT)$(BINDIR)/csh
+	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/usr/share/man/man1
+	$(_v) $(LN) -f $(DSTROOT)/usr/share/man/man1/tcsh.1 \
+		$(DSTROOT)/usr/share/man/man1/csh.1

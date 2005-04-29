@@ -1,9 +1,18 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/charray.c,v 1.9.2.2 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
 /* charray.c - routines for dealing with char * arrays */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/charray.c,v 1.12.2.2 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
 
 #include "portable.h"
 
@@ -17,7 +26,7 @@
 int
 ldap_charray_add(
     char	***a,
-    char	*s
+    const char *s
 )
 {
 	int	n;
@@ -120,7 +129,7 @@ ldap_charray_free( char **a )
 int
 ldap_charray_inlist(
     char	**a,
-    char	*s
+    const char *s
 )
 {
 	int	i;

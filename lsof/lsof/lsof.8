@@ -1,4 +1,4 @@
-.ds VN 4.68
+.ds VN 4.73
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -30,7 +30,7 @@ lsof \- list open files
 ] [
 .BI +|\-L " [l]"
 ] [
-.BI \-m " m"
+.BI +|\-m " m"
 ] [
 .B +|\-M
 ] [
@@ -48,6 +48,10 @@ lsof \- list open files
 ] [
 .B +|\-w
 ] [
+.BI \-x " [fl]"
+] [
+.BI \-z " [z]"
+] [
 .B --
 ] [\fInames\fP]
 .SH DESCRIPTION
@@ -56,22 +60,22 @@ revision \*(VN lists information about files opened by processes for the
 following UNIX dialects:
 .PP
 .nf
-	AIX 4.3.[23], 5L, and 5.[12]
-	Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	AIX 5.[123]
+	Apple Darwin 6.x and 7.x for Power Macintosh systems
 	BSDI BSD/OS 4.3.1 for x86-based systems
-	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	FreeBSD 4.[2345678] and 5.[01] for x86-based systems
-	FreeBSD 5.[01] for Alpha and Sparc64 based systems
+	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
+	FreeBSD 4.[2-9], 4.10, 5.[012] and 6.0 for x86-based systems
+	FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
 	HP-UX 11.00 and 11.11
 	Linux 2.1.72 and above for x86-based systems
-	NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
+	NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.[0123] for x86-based systems
+	OpenBSD 2.[89] and 3.[0123456] for x86-based systems
 	OPENSTEP 4.x
 	Caldera OpenUNIX 8
-	SCO OpenServer Release 5.0.[46] for x86-based systems
-	SCO|Caldera UnixWare 7.1.[13] for x86-based systems
-	Solaris 2.6, 7, 8, and 9
+	SCO OpenServer Release 5.0.6 for x86-based systems
+	SCO|Caldera UnixWare 7.1.4 for x86-based systems
+	Solaris 2.6, 8, 9 and 10
 .fi
 .PP
 (See the
@@ -155,9 +159,9 @@ Wherever
 is placed, it causes the ANDing of all selection options.
 .PP
 Items of the same selection set \- command names, file descriptors,
-network addresses, process identifiers, user identifiers \- are joined
-in a single ORed set and applied before the result participates in
-ANDing.
+network addresses, process identifiers, user identifiers, zone names \-
+are joined in a single ORed set and applied before the result participates
+in ANDing.
 Thus, for example, specifying \fB\-i\fP@aaa.bbb, \fB\-i\fP@ccc.ddd,
 .BR \-a ,
 and \fB\-u\fPfff,ggg will select the listing of files that belong to
@@ -176,8 +180,10 @@ However, since values are optional following
 .BR \-o ,
 .BR +|\-r ,
 .BR \-S ,
-and
 .BR \-T ,
+.B \-x
+and
+.BR \-z .
 when you have no values for them be careful that the
 following character isn't ambiguous.
 For example,
@@ -213,11 +219,11 @@ displays a shortened form of this output when it detects an error
 in the options supplied to it, after it has displayed messages
 explaining each error.
 (Escape the `?' character as your shell requires.)
-.TP
+.TP \w'names'u+4
 .B \-a
 This option causes list selection options to be ANDed, as described
 above.
-.TP
+.TP \w'names'u+4
 .BI \-A " A"
 This option is available on systems configured for AFS whose AFS
 kernel code is implemented via dynamic modules.
@@ -233,7 +239,7 @@ FAQ (The \fBFAQ\fP section gives its location.)
 for more information about dynamic modules, their
 symbols, and how they affect
 .IR lsof .
-.TP
+.TP \w'names'u+4
 .B \-b
 This option causes
 .I lsof
@@ -248,7 +254,7 @@ See the
 and
 .B "AVOIDING KERNEL BLOCKS"
 sections for information on using this option.
-.TP
+.TP \w'names'u+4
 .BI \-c " c"
 This option selects the listing of files for processes executing the
 command that begins with the characters of
@@ -291,7 +297,7 @@ This may result in ``no command found for regex:'' messages
 when lsof's
 .B \-V
 option is specified.
-.TP
+.TP \w'names'u+4
 .BI +c " w"
 This option defines the maximum number of initial characters of the name
 of the UNIX command associated with a process to be printed in the COMMAND
@@ -306,14 +312,14 @@ If
 .I w
 is less than the length of the column title, ``COMMAND'', it will
 be raised to that length.
-.TP
+.TP \w'names'u+4
 .B \-C
 This option disables the reporting of any path name
 components from the kernel's name cache.
 See the
 .B "KERNEL NAME CACHE"
 section for more information.
-.TP
+.TP \w'names'u+4
 .BI +d " s"
 This option causes
 .I lsof
@@ -321,19 +327,36 @@ to search for all open instances of directory
 .I s
 and the files and directories it contains at its top level.
 This option does NOT descend the directory tree, rooted at
-.IR s ,
-nor does it follow symbolic links within it.
+.IR s .
 The
 .BI +D " D"
 option may be used to request a full\-descent directory tree search,
 rooted at directory
 .IR D .
 .IP
+Processing of the
+.B +d
+option does not follow symbolic links within
+.I s
+unless the
+.B \-x
+or
+.B \-x " l"
+option is also specified.
+Nor does it
+search for open files on file system mount points on subdirectories of
+.I s
+unless the
+.B \-x
+or
+.B \-x " f"
+option is also specified.
+.IP
 Note: the authority of the user of this option limits it to searching for
 files that the user has permission to examine with the system
 .IR stat (2)
 function.
-.TP
+.TP \w'names'u+4
 .BI \-d " s"
 This option specifies a list of file descriptors (FDs) to exclude from
 or include in the output listing.
@@ -350,7 +373,7 @@ A file descriptor number range may be in the set as long as
 neither member is empty, both members are numbers, and the ending
 member is larger than the starting one \- e.g., ``0-7'' or ``3-10''.
 Ranges may be specified for exclusion if they have the '^' prefix \-
-e.g., ``^0-7'' excludes all file descritors 0 through 7.
+e.g., ``^0-7'' excludes all file descriptors 0 through 7.
 .IP
 Multiple file descriptor numbers are joined in a single ORed set before
 participating in AND option selection.
@@ -362,16 +385,31 @@ reports them as errors and exits with a non\-zero return code.
 See the description of File Descriptor (FD) output values in the
 .B OUTPUT
 section for more information on file descriptor names.
-.TP
+.TP \w'names'u+4
 .BI +D " D"
 This option causes
 .I lsof
 to search for all open instances of directory
 .I D
 and all the files and directories it contains to its complete depth.
-Symbolic links within directory
+.IP
+Processing of the
+.B +D
+option does not follow symbolic links within
 .I D
-are ignored \- i.e, not followed.
+unless the
+.B \-x
+or
+.B \-x " l"
+option is also specified.
+Nor does it
+search for open files on file system mount points on subdirectories of
+.I D
+unless the
+.B \-x
+or
+.B \-x " f"
+option is also specified.
 .IP
 Note: the authority of the user of this option limits it to searching for
 files that the user has permission to examine with the system
@@ -391,7 +429,7 @@ searching that list for a match with every open file.
 When directory
 .I D
 is large, these steps can take a long time, so use this option prudently.
-.TP
+.TP \w'names'u+4
 .BI \-D " D"
 This option directs
 .I lsof's
@@ -510,7 +548,7 @@ if possible, and to rebuild it, if necessary.
 This is the default device cache file function when no
 .B \-D
 option has been specified.
-.TP
+.TP \w'names'u+4
 .B +|\-f [cfgGn]
 .B f
 by itself clarifies how path name arguments are to be interpreted.
@@ -543,21 +581,27 @@ This happens for some CD-ROM file systems.
 .IP
 When
 .B \-f
-is specified, all path name arguments will be taken to be simple files.
-Thus, for example, the ``\fB\-f\fP\ /'' arguments direct lsof to search
+is specified by itself, all path name arguments will be taken to be
+simple files.
+Thus, for example, the ``\fB\-f\fP\ -- /'' arguments direct lsof to search
 for open files with a `/' path name, not all open files in the `/'
 (root) file system.
 .IP
 Be careful to make sure
 .B +f
-is properly terminated and isn't followed by a character (e.g., of
+and
+.B \-f
+are properly terminated and aren't followed by a character (e.g., of
 the file or file system name) that might be taken as a parameter.
 For example, use ``--'' after
 .B +f
-as in this example.
+and
+.B \-f
+as in these examples.
 .IP
 .nf
 	$ lsof +f -- /file/system/name
+	$ lsof -f -- /file/name
 .fi
 .IP
 The listing of information from kernel file structures, requested with the
@@ -589,7 +633,7 @@ and listed to identify identical file use, or
 .I lsof
 field output can be parsed by an AWK or Perl post\-filter script,
 or by a C program.
-.TP
+.TP \w'names'u+4
 .BI \-F " f"
 This option specifies a character list,
 .IR f ,
@@ -603,8 +647,8 @@ See the
 section for a description of the field identification characters and
 the field output process.
 .IP
-When the field selection character list is empty, all fields are
-selected (except the raw device field for compatibility reasons)
+When the field selection character list is empty, all standard fields are
+selected (except the raw device field and zone field for compatibility reasons)
 and the NL field terminator is used.
 .IP
 When the field selection character list contains only a zero (`0'),
@@ -630,7 +674,7 @@ character `?',
 .I lsof
 will display a help list of the field identification characters.
 (Escape the `?' character as your shell requires.)
-.TP
+.TP \w'names'u+4
 .BI \-g " [s]"
 This option selects the listing of files for the processes whose optional
 process group IDentification (PGID) numbers are in the comma\-separated
@@ -646,7 +690,7 @@ The
 .B \-g
 option also enables the output display of PGID numbers.
 When specified without a PGID set that's all it does.
-.TP
+.TP \w'names'u+4
 .BI \-i " [i]"
 This option selects the listing of files any of whose Internet address
 matches the address specified in \fIi\fP.
@@ -827,17 +871,17 @@ Here are some sample addresses:
 .br
 	:time \- either TCP or UDP time service port
 .fi
-.TP
+.TP \w'names'u+4
 .BI \-k " k"
 This option specifies a kernel name list file,
 .IR k ,
 in place of /vmunix, /mach, etc.
 This option is not available under AIX on the IBM RISC/System 6000.
-.TP
+.TP \w'names'u+4
 .B \-l
 This option inhibits the conversion of user ID numbers to login names.
 It is also useful when login name lookup is working improperly or slowly.
-.TP
+.TP \w'names'u+4
 .BI +|\-L " [l]"
 This option enables (`+') or disables (`-') the listing of file link
 counts, where they are available \- e.g., they aren't available
@@ -863,16 +907,64 @@ unlinked open files on the specified file system.
 .IP
 For other link count comparisons, use field output (\fB\-F\fP)
 and a post\-processing script or program.
-.TP
+.TP \w'names'u+4
+.BI +|\-m " m"
+This option specifies an alternate kernel memory file or activates
+mount table supplement processing.
+.IP
+The option form
 .BI \-m " m"
-This option specifies a kernel memory file,
-.IR c ,
+specifies a kernel memory file,
+.IR m ,
 in place of
 .I /dev/kmem
 or
 .I /dev/mem
 \&\- e.g., a crash dump file.
-.TP
+.IP
+The option form
+.B +m
+requests that a mount supplement file be written to the standard output
+file.
+All other options are silently ignored.
+.IP
+There will be a line in the mount supplement file for each mounted file
+system, containing the mounted file system directory, followed by a single
+space, followed by the device number in hexadecimal "0x" format \- e.g.,
+.IP
+.nf
+	/ 0x801
+.fi
+.IP
+.I Lsof
+can use the mount supplement file to get device numbers for file systems
+when it can't get them via
+.IR stat (2)
+or
+.IR lstat (2).
+.IP
+The option form
+.BI +m " m"
+identifies
+.I m
+as a mount supplement file.
+.IP
+Note: the
+.B +m
+and
+.BI +m " m"
+options are not available for all supported dialects.
+Check the output of
+.I lsof's
+.B \-h
+or
+.B \-?
+options to see if the
+.B +m
+and
+.BI +m " m"
+options are available.
+.TP \w'names'u+4
 .B +|\-M
 Enables (\fB+\fP) or disables (\fB-\fP) the
 reporting of portmapper registrations for local TCP and UDP ports.
@@ -931,7 +1023,7 @@ See the
 FAQ (The \fBFAQ\fP section gives its location.)
 for further discussion of portmapper registration
 reporting issues.
-.TP
+.TP \w'names'u+4
 .B \-n
 This option inhibits the conversion of network numbers to 
 host names for network files.
@@ -939,10 +1031,10 @@ Inhibiting conversion may make
 .I lsof
 run faster.
 It is also useful when host name lookup is not working properly.
-.TP
+.TP \w'names'u+4
 .B \-N
 This option selects the listing of NFS files.
-.TP
+.TP \w'names'u+4
 .BI \-o
 This option directs
 .I lsof
@@ -967,7 +1059,7 @@ When neither is specified,
 .I lsof
 displays whatever value \- size or offset \- is appropriate and
 available for the type of the file.
-.TP
+.TP \w'names'u+4
 .BI \-o " o"
 This option defines the number of decimal digits (\fIo\fP) to be
 printed after the ``0t'' for a file offset before the form is switched
@@ -1004,7 +1096,7 @@ option in the output of the
 or
 .B \-?
 option to determine the default that is in effect.
-.TP
+.TP \w'names'u+4
 .B \-O
 This option directs
 .I lsof
@@ -1023,7 +1115,7 @@ startup overhead, it may also cause
 .I lsof
 to hang when the kernel doesn't respond to a function.
 Use this option cautiously.
-.TP
+.TP \w'names'u+4
 .BI \-p " s"
 This option selects the listing of files for the processes whose ID numbers
 are in the comma\-separated set
@@ -1033,7 +1125,7 @@ are in the comma\-separated set
 .IP
 Multiple process ID numbers are joined in a single ORed set before
 participating in AND option selection.
-.TP
+.TP \w'names'u+4
 .B \-P
 This option inhibits the conversion of port numbers to port
 names for network files.
@@ -1041,7 +1133,7 @@ Inhibiting the conversion may make
 .I lsof
 run a little faster.
 It is also useful when host name lookup is not working properly.
-.TP
+.TP \w'names'u+4
 .BI +|\-r " [t]"
 This option puts
 .I lsof
@@ -1102,11 +1194,11 @@ option description) and a supervising
 or
 .I Perl
 script, or a C program.
-.TP
+.TP \w'names'u+4
 .B \-R
 This option directs lsof to list the Parent Process IDentification
 number in the PPID column.
-.TP
+.TP \w'names'u+4
 .B \-s
 This option directs
 .I lsof
@@ -1127,7 +1219,7 @@ available for the type of file.
 Since some types of files don't have true sizes \- sockets, FIFOs,
 pipes, etc. \- lsof displays for their sizes the content amounts in
 their associated kernel buffers, if possible.
-.TP
+.TP \w'names'u+4
 .BI \-S " [t]"
 This option specifies an optional time-out seconds value for kernel functions \-
 .IR lstat (2),
@@ -1143,7 +1235,7 @@ the default, fifteen; when no value is specified, the default is used.
 See the
 .B "BLOCKS AND TIMEOUTS"
 section for more information.
-.TP
+.TP \w'names'u+4
 .BI \-T " [t]"
 This option controls the reporting of some TCP/TPI information, also
 reported by
@@ -1157,14 +1249,19 @@ others by a single space:
 	<TCP or TPI state name>
 	QR=<read queue length>
 	QS=<send queue length>
-	WR=<window read length>  (not all dialects)
-	WW=<window write length> (not all dialects)
+	SO=<socket options and values>
+	SS=<socket states>
+	TF=<TCP flags and values>
+	WR=<window read length>
+	WW=<window write length>
 .fi
+.IP
+Not all values are reported for all UNIX dialects.
+Items values (when available) are reported after the item name and '='.
 .IP
 When the field output mode is in effect (See
 .BR "OUTPUT FOR OTHER PROGRAMS" .)
-each item appears as a field with a `T' leading character, and the
-TCP or TPI state name has the prefix ``ST=''.
+each item appears as a field with a `T' leading character.
 .IP
 .B \-T
 with no following key characters disables TCP/TPI information reporting.
@@ -1174,20 +1271,23 @@ with following characters selects the reporting of specific TCP/TPI
 information:
 .IP
 .nf
+	\fBf\fP	selects reporting of socket options,
+		states and values, and TCP flags and
+		values.
 	\fBq\fP	selects queue length reporting.
-	\fBs\fP	selects state reporting.
-	\fBw\fP	selects window size reporting (not
-		all dialects).
+	\fBs\fP	selects connection state reporting.
+	\fBw\fP	selects window size reporting.
 .fi
 .IP
-State is reported by default.
+Not all selections are enabled for some UNIX dialects.
+State may be selected for all dialects and is reported by default.
 The
 .B \-h
 or
 .B \-?
 help output for the
 .B \-T
-option will show whether window size reporting can be requested.
+option will show what selections may be used with the UNIX dialect.
 .IP
 When
 .B \-T
@@ -1199,7 +1299,43 @@ and it must be explicitly selected again in the characters following
 .BR -Ts .)
 For example, if queue lengths and state are desired, use
 .BR \-Tqs .
-.TP
+.IP
+Socket options, socket states, some socket values, TCP flags and
+one TCP value may be reported (when available in the UNIX dialect)
+in the form of the names that commonly appear after SO_, so_, SS_,
+TCP_  and TF_ in the dialect's header files \-
+most often <sys/socket.h>, <sys/socketvar.h> and <netinet/tcp_var.h>.
+Consult those header files for the meaning of the flags, options,
+states and values.
+.IP
+``SO='' precedes socket options and values; ``SS='', socket states;
+and ``TF='', TCP flags and values.
+.IP
+If a flag or option has a value, the value will follow an '=' and
+the name -- e.g., ``SO=LINGER=5'', ``SO=QLIM=5'', ``TF=MSS=512''.
+The following seven values may be reported:
+.IP
+.nf
+	Name
+	Reported	Description (Common Symbol)
+
+	KEEPALIVE	keep alive time (SO_KEEPALIVE)
+	LINGER	linger time (SO_LINGER)
+	MSS		maximum segment size (TCP_MAXSEG)
+	QLEN		listen queue length
+	QLIM		listen queue limit
+	RCVBUF	receive buffer length (SO_RCVBUF)
+	SNDBUF	send buffer length (SO_SNDBUF)
+.fi
+.IP
+Details on what socket options and values, socket states, and TCP flags
+and values may be displayed for particular UNIX dialects may be found in
+the answer to the ``Why doesn't lsof report socket options, socket states,
+and TCP flags and values for my dialect?''
+question in the
+.I lsof
+FAQ (The \fBFAQ\fP section gives its location.)
+.TP \w'names'u+4
 .B \-t 
 This option specifies that
 .I lsof
@@ -1209,7 +1345,7 @@ e.g., so that the output may be piped to
 This option selects the
 .B \-w
 option.
-.TP
+.TP \w'names'u+4
 .BI \-u " s"
 This option selects the listing of files for the user whose login names
 or user ID numbers are in the comma\-separated set
@@ -1231,10 +1367,10 @@ For example, to direct
 .I lsof
 to exclude the listing of files belonging to root processes,
 specify ``\-u^root'' or ``\-u^0''.
-.TP
+.TP \w'names'u+4
 .B \-U
 This option selects the listing of UNIX domain socket files.
-.TP
+.TP \w'names'u+4
 .B \-v
 This option selects the listing of
 .I lsof
@@ -1253,7 +1389,7 @@ and system information, typically the output of
 .IR uname 's
 .B \-a
 option.
-.TP
+.TP \w'names'u+4
 .B \-V
 This option directs
 .I lsof
@@ -1273,7 +1409,7 @@ failure to locate open files at ``TCP@foobar'' and may not list
 any, if none have a file descriptor number of 999.
 A similar situtation arises when HASSECURITY and HASNOSOCKSECURITY are
 defined at compile time and they prevent the listing of open files.
-.TP
+.TP \w'names'u+4
 .B +|\-w
 Enables (\fB+\fP) or disables (\fB-\fP) the suppression of warning messages.
 .IP
@@ -1294,24 +1430,53 @@ The
 option selects the
 .B \-w
 option.
-.TP
+.TP \w'names'u+4
+.B \-x " [fl]"
+This option may accompany the
+.B +d
+and
+.B +D
+options to direct their processing to cross over symbolic links
+and|or file system mount points encountered when scanning the
+directory (\fB+d\fP) or directory tree (\fB+D\fP).
+.IP
+If
+.B -x
+is specified by itself without a following parameter, cross\-over
+processing of both symbolic links and file system mount points is
+enabled.
+Note that when
+.B \-x
+is specified without a parameter, the next argument must begin with '-'
+or '+'.
+.IP
+The optional 'f' parameter enables file system mount point cross\-over
+processing; 'l', symbolic link cross\-over processing.
+.IP
+The
+.B \-x
+option may not be supplied without also supplying a
+.B +d
+or
+.B +D
+option.
+.TP \w'names'u+4
 .B \-X
 This is a dialect\-specific option.
 .HP \w'names'u+4
 \ \ \ \ AIX:
 .br
-.B WARNING:
-use of this option on a busy AIX system might cause an application
-process to hang so completely that it can neither be killed nor stopped.
-I have never seen this happen or had a report of it, but I think the
-possibility exists.
+This IBM AIX RISC/System 6000 option requests the reporting
+of executed text file and shared library references.
 .IP
-This IBM AIX RISC/System 6000
-.B \-X
-option directs
-.I lsof
-to use the kernel readx() function.
-(By default use of readx() is disabled.)
+.B WARNING:
+because this option uses the kernel readx() function, its use on
+a busy AIX system might cause an application process to hang so
+completely that it can neither be killed nor stopped.
+I have never seen this happen or had a report of its happening,
+but I think there is a remote possibility it could happen.
+.IP
+By default use of readx() is disabled.
 On AIX 5L and above
 .I lsof
 may need setuid\-root permission to perform the actions this
@@ -1345,16 +1510,11 @@ references, but it may also avoid exacerbating an AIX
 kernel directory search kernel error, known as the Stale Segment
 ID bug.
 .IP
-When readx() is enabled,
-.I lsof
-will attempt to report information on the text file being executed
-by each process and the shared libraries it uses.
-.IP
 The readx() function, used by
 .I lsof
-or any other program, to access some sections of kernel virtual
+or any other program to access some sections of kernel virtual
 memory, can trigger the Stale Segment ID bug.
-It can cause the kernel's dir_search() function erroneously to believe
+It can cause the kernel's dir_search() function to believe erroneously
 that part of an in\-memory copy of a file system directory has been
 zeroed.
 Another application process, distinct from
@@ -1374,6 +1534,25 @@ distribution for a more complete description of the Stale Segment ID bug,
 its APAR, and methods for defining readx() use when compiling
 .IR lsof .
 .TP \w'names'u+4
+.BI \-z " [z]"
+specifies how Solaris 10 and higher zone information is to be handled.
+.IP
+Without a following argument \- e.g., NO
+.IR z " \-"
+the option specifies that zone names are to be listed in the ZONE
+output column.
+.IP
+The
+.B \-z
+option may be followed by a zone name,
+.BI z .
+That causes lsof to list only open files for processes in that zone.
+Multiple
+.BI \-z " z"
+option and argument pairs may be specified to form a list of named zones.
+Any open file of any process in any of the zones will be listed, subject
+to other conditions specified by other options and arguments.
+.TP \w'names'u+4
 .B --
 The double minus sign option is a marker that signals the end of
 the keyed options.
@@ -1382,7 +1561,7 @@ a minus sign.
 It may also be used when the absence of a value for the last keyed
 option must be signified by the presence of a minus sign in the following
 option and before the start of the file names.
-.TP
+.TP \w'names'u+4
 .I names
 These are path names of specific files to list.
 Symbolic links are resolved before use.
@@ -1439,8 +1618,9 @@ If a
 .I name
 is a UNIX domain socket name,
 .I lsof
-will search for it by the characters of the name alone \- exactly as
+will usually search for it by the characters of the name alone \- exactly as
 it is specified and is recorded in the kernel socket structure.
+(See the next paragraph for an exception to that rule for Linux.)
 Specifying a relative path \- e.g.,
 .I ./file
 \&\- in place of the
@@ -1450,6 +1630,42 @@ file's absolute path \- e.g.,
 .I lsof
 must match the characters you specify with what it finds in the
 kernel UNIX domain socket structures.
+.IP
+If a
+.I name
+is a Linux UNIX domain socket name, in one case
+.I lsof
+is able to search for it by its device and inode number, allowing
+.I name
+to be a relative path.
+The case requires that the absolute path -- i.e., one beginning with a
+slash ('/') be used by the process that created the socket, and hence be
+stored in the
+.I /proc/net/unix
+file; and it requires that
+.I lsof
+be able to obtain the device and node numbers of both the absolute path in
+.I /proc/net/unix
+and
+.I name
+via successful
+.IR stat (2)
+system calls.
+When those conditions are met,
+.I lsof
+will be able to search for the UNIX domain socket when some path to it is
+is specified in
+.IR name .
+Thus, for example, if the path is
+.IR /dev/log ,
+and an
+.I lsof
+search is initiated when the working directory is
+.IR /dev ,
+then
+.I name
+could be
+.IR ./log .
 .IP
 If a
 .I name
@@ -1664,13 +1880,53 @@ by another program.
 .I Lsof
 only outputs printable (declared so by
 .IR isprint (3))
-ASCII characters.
+8 bit characters.
 Non\-printable characters are printed in one of three forms:
 the C ``\\[bfrnt]'' form;
 the control character `^' form (e.g., ``^@'');
 or hexadecimal leading ``\\x'' form (e.g., ``\\xab'').
 Space is non\-printable in the COMMAND column (``\\x20'')
 and printable elsewhere.
+.PP
+For some dialects \- if HASSETLOCALE is defined in the dialect's
+machine.h header file \-
+.I lsof
+will print the extended 8 bit characters of a language locale.
+The
+.I lsof
+process must be supplied a language locale environment variable
+(e.g., LANG) whose value represents a known language locale
+in which the extended characters are considered printable by
+.IR isprint (3).
+Otherwise
+.I lsof
+considers the extended characters non\-printable and prints them according
+to its rules for non\-printable characters, stated above.
+Consult your dialect's
+.IR setlocale (3)
+man page for the names of other environment variables that may
+be used in place of LANG \- e.g., LC_ALL, LC_CTYPE, etc.
+.PP
+.I Lsof's
+language locale support for a dialect also covers wide characters \- e.g.,
+UTF-8 \- when HASSETLOCALE and HASWIDECHAR are defined in the dialect's
+machine.h header file, and when a suitable language locale has been defined
+in the appropriate environment variable for the
+.I lsof
+process.
+Wide characters are printable under those conditions if
+.IR iswprint (3)
+reports them to be.
+If HASSETLOCALE, HASWIDECHAR and a suitable language locale aren't defined,
+or if
+.IR iswprint (3)
+reports wide characters that aren't printable,
+.I lsof
+considers the wide characters non\-printable and prints each of their
+8 bits according to its rules for non\-printable characters, stated above.
+.PP
+Consult the answers to the "Language locale support" questions in the
+lsof FAQ (The \fBFAQ\fP section gives its location.) for more information.
 .PP
 .I Lsof
 dynamically sizes the output columns each time it runs, guaranteeing
@@ -1711,6 +1967,12 @@ command name descriptor.
 .TP
 PID
 is the Process IDentification number of the process.
+.TP
+ZONE
+is the Solaris 10 and higher zone name.
+This column must be selected with the
+.B \-z
+option.
 .TP
 PPID
 is the Parent Process IDentification number of the process.
@@ -1863,6 +2125,10 @@ or ``LINK'' for a symbolic link file;
 or ``MPB'' for a multiplexed block file;
 .IP
 or ``MPC'' for a multiplexed character file;
+.IP
+or ``NOFD'' for a Linux /proc/<PID>/fd directory that can't be opened \--
+the directory path appears in the NAME column, followed by an error
+message;
 .IP
 or ``PAS'' for a
 .I /proc/as
@@ -2024,6 +2290,10 @@ or ``PSTA'' for a
 .I /proc
 status file;
 .IP
+or ``PSXSEM'' for a POSIX sempahore file;
+.IP
+or ``PSXSHM'' for a POSIX shared memory file;
+.IP
 or ``PUSG'' for a
 .I /proc/usage
 file;
@@ -2128,7 +2398,6 @@ the following table:
 	PAIO		POSIX asynchronous I/O
 	PP		POSIX pipe
 	R		read
-	RAIO		Reliant UNIX RAIO request
 	RC		file and record locking cache
 	REV		revoked
 	RSH		shared read
@@ -2154,7 +2423,7 @@ the following table:
 .fi
 .IP
 this list of names was derived from F* #define's in dialect header files
-<fcntl.h>, <linux</fs.h>, sys/fcntl.c>, <sys/fcntlcom.h>, and <sys/file.h>;
+<fcntl.h>, <linux</fs.h>, <sys/fcntl.c>, <sys/fcntlcom.h>, and <sys/file.h>;
 see the lsof.h header file for a list showing the correspondence
 between the above short\-hand names and the header file definitions;
 .IP
@@ -2330,7 +2599,8 @@ or the local and remote mount point names of an NFS file;
 .IP
 or ``STR'', followed by the stream name;
 .IP
-or a stream character device name, followed by ``->'' and the stream name;
+or a stream character device name, followed by ``->'' and the stream name
+or a list of stream module names, separated by ``->'';
 .IP
 or ``STR:'' followed by the SCO OpenServer stream device and module
 names, separated by ``->'';
@@ -2367,7 +2637,7 @@ device, where
 .I n
 is the minor device number of the file;
 .IP
-or ``(socketpair: n)'' for a Solaris 2.6, 7, 8, or 9
+or ``(socketpair: n)'' for a Solaris 2.6, 8, 9  or 10
 UNIX domain socket, created by the
 .IR socketpair (3N)
 network function;
@@ -2516,6 +2786,7 @@ The single character listed first is the field identifier.
 	F	file structure address (0x<hexadecimal>)
 	G	file flaGs (0x<hexadecimal>; names if \fB+fg\fP follows)
 	i	file's inode number
+	k	link count
 	l	file's lock status
 	L	process login name
 	m	marker between repeated output
@@ -2532,17 +2803,20 @@ The single character listed first is the field identifier.
 	t	file's type
 	T	TCP/TPI information, identified by prefixes (the
 		`=' is part of the prefix):
-		    ST=<state>
 		    QR=<read queue size>
-		    QS=<write queue size>
+		    QS=<send queue size>
+		    SO=<socket options and values> (not all dialects)
+		    SS=<socket states> (not all dialects)
+		    ST=<connection state>
+		    TF=<TCP flags and values> (not all dialects)
 		    WR=<window read size>  (not all dialects)
 		    WW=<window write size>  (not all dialects)
-		(TPI state information and window sizes aren't
-		  reported for all supported UNIX dialects. The
-		  \fB\-h\fP or \fB\-?\fP help output for the \fB\-T\fP option will
-		  show whether window size reporting can be
+		(TCP/TPI information isn't reported for all supported
+		  UNIX dialects. The \fB\-h\fP or \fB\-?\fP help output for the
+		  \fB\-T\fP option will show what TCP/TPI reporting can be
 		  requested.)
 	u	process user ID
+	z	Solaris 10 and higher zone name
 	0	use NUL field terminator character in place of NL
 	1-\9	dialect\-specific field identifiers (The output
 		of \fB\-F?\fP identifies the information to be found
@@ -2781,6 +3055,25 @@ or
 .I /etc/mnttab
 file that contains an options field by adding a ``dev=xxxx'' field for
 mount points that do not have one in their options strings.
+Note: you must be able to edit the file \- i.e., some mount tables
+like recent Solaris /etc/mnttab or Linux /proc/mounts are read\-only
+and can't be modified.
+.PP
+You may also be able to supply device numbers using the
+.B +m
+and
+.BI +m " m"
+options, provided they are supported by your dialect.
+Check the output of
+.I lsof's
+.B \-h
+or
+.B \-?
+options to see if the
+.B +m
+and
+.BI +m " m"
+options are available.
 .PP
 The ``xxxx'' portion of the field is the hexadecimal value
 of the file system's device number.
@@ -2887,7 +3180,6 @@ can report path name components for these dialects:
 .PP
 .nf
 	BSDI BSD/OS
-	DC/OSx
 	DEC OSF/1, Digital UNIX, Tru64 UNIX
 	FreeBSD
 	HP\-UX
@@ -2895,7 +3187,7 @@ can report path name components for these dialects:
 	NetBSD
 	NEXTSTEP
 	OpenBSD
-	Reliant UNIX
+	OPENSTEP
 	Caldera OpenUNIX
 	SCO OpenServer
 	SCO|Caldera UnixWare
@@ -3028,8 +3320,8 @@ The
 distribution recommends that versions for these dialects run setuid\-root.
 .PP
 .nf
-	DC/OSx 1.1 for Pyramid systems
-	Reliant UNIX 5.4[34] for Pyramid systems
+	HP-UX 11.11
+	Linux
 .fi
 .PP
 The second and more common permission is setgid.
@@ -3052,21 +3344,21 @@ distribution recommends that versions for these dialects run setgid
 and be allowed to surrender setgid permission.
 .PP
 .nf
-	AIX 4.3.[23], 5L, and 5.[12]
-	Apple Darwin 1.[2-5], 5.x and 6.x for Power Macintosh systems
+	AIX 5.[123]
+	Apple Darwin 6.x and 7.x for Power Macintosh systems
 	BSDI BSD/OS 4.3.1 for x86-based systems
-	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.[01]
-	FreeBSD 4.[2345678] and 5.[01] for x86-based systems
-	FreeBSD 5.[01] for Alpha and Sparc64 based systems
+	DEC OSF/1, Digital UNIX, Tru64 UNIX 4.0, and 5.1
+	FreeBSD 4.[1-9], 4.10, 5.[012] and 6.0 for x86-based systems
+	FreeBSD 5.[012] and 6.0 for Alpha, AMD64 and Sparc64 based systems
 	HP\-UX 11.00 
-	NetBSD 1.[456] for Alpha, x86, and SPARC-based systems
+	NetBSD 1.[456] and 2.0 for Alpha, x86, and SPARC-based systems
 	NEXTSTEP 3.[13] for NEXTSTEP architectures
-	OpenBSD 2.[89] and 3.[0123] for x86-based systems
-	OpenStep 4.x
+	OpenBSD 2.[89] and 3.[0123456] for x86-based systems
+	OPENSTEP 4.x
 	Caldera OpenUNIX 8
-	SCO OpenServer Release 5.0.[46] for x86-based systems
-	SCO|Caldera UnixWare 7.1.[13] for x86-based systems
-	Solaris 2.6, 7, 8, and 9
+	SCO OpenServer Release 5.0.6 for x86-based systems
+	SCO|Caldera UnixWare 7.1.4 for x86-based systems
+	Solaris 2.6, 8, 9 and 10
 .fi
 .PP
 (Note:
@@ -3080,7 +3372,7 @@ for these dialects does not support a device cache, so the permissions
 given to the executable don't apply to the device cache file.
 .PP
 .nf
-	Linux 2.1.72 and above (/proc\-based \fIlsof\fP)
+	Linux
 .fi
 .SH "DEVICE CACHE FILE PATH FROM THE \-D OPTION"
 .PP
@@ -3619,6 +3911,13 @@ because it doesn't read kernel structures from kernel memory.
 .I Lsof
 may access these environment variables.
 .TP \w'LSOFPERSDCPATH'u+4
+LANG
+defines a language locale.
+See
+.IR setlocale (3)
+for the names of other variables that can be used in place
+of LANG \- e.g., LC_ALL, LC_TYPE, etc.
+.TP
 LSOFDEVCACHE
 defines the path to a device cache file.
 See the
@@ -3729,13 +4028,10 @@ and the other 00* files of the distribution before sending questions
 to the author.
 .SH SEE ALSO
 .PP
-.I Lsof
-versions 2 and 3 have been tested under older UNIX dialects.
-They are available via anonymous ftp from
-.IR lsof.itap.purdue.edu
-in the
-.I pub/tools/unix/lsof/OLD
-directory.
+Not all the following manual pages may exist in every UNIX
+dialect to which
+.I lsof
+has been ported.
 .PP
 access(2),
 awk(1),
@@ -3755,5 +4051,6 @@ ofiles(8L),
 perl(1),
 ps(1),
 readlink(2),
+setlocale(3),
 stat(2),
 uname(1).

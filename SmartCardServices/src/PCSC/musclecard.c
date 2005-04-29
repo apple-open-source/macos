@@ -198,6 +198,7 @@ MSC_RV MSCListTokens(MSCULong32 listScope, MSCLPTokenInfo tokenArray,
 					currentToken = &tokenArray[tokensFound - 1];
 					currentToken->addParams     = 0;
 					currentToken->addParamsSize = 0;
+                                        currentToken->tokenType     = 0;  /* Vinnie 1693 */
 
 					if (rgReaderStates.dwEventState & SCARD_STATE_EMPTY)
 					{
@@ -224,10 +225,22 @@ MSC_RV MSCListTokens(MSCULong32 listScope, MSCLPTokenInfo tokenArray,
 						memcpy(currentToken->tokenId,
 							rgReaderStates.rgbAtr, rgReaderStates.cbAtr);
 						currentToken->tokenIdLength = rgReaderStates.cbAtr;
+
+                                                memcpy(currentToken->tokenApp,
+                                                        tokenInfo.tokenApp, tokenInfo.tokenAppLen);
+                                                        currentToken->tokenAppLen = tokenInfo.tokenAppLen;
+
+                                                strncpy(currentToken->svProvider,
+                                                        tokenInfo.svProvider, MSC_MAXSIZE_SVCPROV);
 					} else
 					{
 						memset(currentToken->tokenId, 0x00, MAX_ATR_SIZE);
 						currentToken->tokenIdLength = 0x00;
+
+                                                memset(currentToken->tokenApp, 0x00, MSC_MAXSIZE_AID);
+                                                currentToken->tokenAppLen = 0x00;
+
+                                                memset(currentToken->svProvider, 0x00, MSC_MAXSIZE_SVCPROV);
 					}
 
 					currentToken->tokenState = rgReaderStates.dwEventState;
@@ -1912,36 +1925,48 @@ MSC_RV MSCReadAllocateObject(MSCLPTokenConnection pConnection,
 			     LPRWEventCallback rwCallback, 
 			     MSCPVoid32 addParams)
 {
-	MSC_RV rv;
-	MSCObjectInfo objInfo;
-	MSCULong32 objectSize;
+    MSC_RV rv;
+    MSCObjectInfo objInfo;
+    MSCULong32 objectSize;
+    MSCPUChar8  data = NULL;
+    
+    if (pConnection == NULL)
+        return MSC_INVALID_PARAMETER;
+     if (localHContext == 0)
+         return MSC_INTERNAL_ERROR;
 
-	if (pConnection == NULL)
-		return MSC_INVALID_PARAMETER;
-	if (localHContext == 0)
-		return MSC_INTERNAL_ERROR;
+    if (pOutputData == 0)
+    {
+        return MSC_INVALID_PARAMETER;
+    }
 
-	if (pOutputData == 0)
-	{
-		return MSC_INVALID_PARAMETER;
-	}
+    *dataSize = 0;
+    *pOutputData = 0;
 
-	rv = MSCGetObjectAttributes(pConnection, objectID, &objInfo);
+    rv = MSCGetObjectAttributes(pConnection, objectID, &objInfo);
+    if (rv == MSC_SUCCESS) 
+    {
+        objectSize = objInfo.objectSize;
+        data = (MSCPUChar8) malloc(sizeof(MSCUChar8) * objectSize);
+        if(data)
+        {
+            rv =  MSCReadObject(pConnection, objectID, 0, data,
+                     objectSize, rwCallback, addParams);
+            
+            if (rv == MSC_SUCCESS)
+            {
+                *dataSize = objectSize;
+                *pOutputData = data;
+            }
+            else
+            {
+                rv = MSC_INTERNAL_ERROR;
+                free(data);
+            }
+        }
+    }
 
-	if (rv != MSC_SUCCESS)
-	{
-		*dataSize = 0;
-		*pOutputData = 0;
-		return rv;
-	}
-
-	objectSize = objInfo.objectSize;
-	*dataSize = objectSize;
-	*pOutputData = (MSCPUChar8) malloc(sizeof(MSCUChar8) * objectSize);
-
-	return MSCReadObject(pConnection, objectID, 0, *pOutputData,
-			     objectSize, rwCallback, addParams);
-
+    return rv;
 }
 
 

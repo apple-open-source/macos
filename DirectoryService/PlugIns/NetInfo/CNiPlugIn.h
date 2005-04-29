@@ -29,8 +29,10 @@
 #define __CNiPlugIn_h__		1
 
 #include <map>			//STL map class
+#include <set>			//STL set class
 #include <string>		//STL string class
 #include <netinfo/ni.h>
+#include <openssl/aes.h>
 
 #include <PasswordServer/AuthFile.h>
 
@@ -41,6 +43,7 @@
 #include "DSMutexSemaphore.h"
 
 #include "libCdsaCrypt.h"
+#include "digestmd5.h"
 
 using namespace std;
 
@@ -72,12 +75,33 @@ class	CString;
 #define		kHashShadowOneLength				16
 #define		kHashShadowBothLength				32
 #define		kHashSecureLength					20
-#define		kHashCramLength						16
-#define		kHashTotalLength					68
+#define		kHashCramLength						32
+#define		kHashSaltedSHA1Length				24
+#define		kHashRecoverableLength				512
+
+#define		kHashOffsetToNT						(0)
+#define		kHashOffsetToLM						(kHashShadowOneLength)
+#define		kHashOffsetToSHA1					(kHashOffsetToLM + kHashShadowOneLength)
+#define		kHashOffsetToCramMD5				(kHashShadowBothLength + kHashSecureLength)
+#define		kHashOffsetToSaltedSHA1				(kHashOffsetToCramMD5 + kHashCramLength)
+#define		kHashOffsetToRecoverable			(kHashOffsetToSaltedSHA1 + kHashSaltedSHA1Length)
+
+#define		kHashTotalLength					(kHashShadowBothLength + kHashSecureLength + \
+												 kHashCramLength + kHashSaltedSHA1Length + \
+												 kHashRecoverableLength)
 #define		kHashShadowBothHexLength			64
 #define		kHashOldHexLength					104
-#define		kHashTotalHexLength					136
+#define		kHashTotalHexLength					(kHashTotalLength * 2)
 
+// --------------------------------------------------------------------------------
+//	More Hash Defines
+#define		kAESVector							"qawe ptajilja;sdqawe ptajilja;sd"
+#define		kShadowHashDirPath					"/var/db/shadow/hash/"
+#define		kShadowHashOldDirPath				"/var/db/samba/hash/"
+#define		kShadowHashStateFileSuffix			".state"
+#define		kShadowHashRecordName				"shadowhash"
+#define		kShadowHashNTLMv2Length				16
+#define		kLocalCachedUserHashList			"HASHLIST:<SALTED-SHA1>"
 
 // -- enum's -------------------------------------
 
@@ -86,28 +110,46 @@ enum eNipThreadSig {
 };
 
 enum eBuffType {
-	kRecrodListType		=	'RecL'
+	kRecordListType		=	'RecL'
 };
 
+enum {
+	kNiPluginHashLM							= 0x0001,
+	kNiPluginHashNT							= 0x0002,
+	kNiPluginHashSHA1						= 0x0004,		/* deprecated */
+	kNiPluginHashCRAM_MD5					= 0x0008,
+	kNiPluginHashSaltedSHA1					= 0x0010,
+	kNiPluginHashRecoverable				= 0x0020,
+	kNiPluginHashSecurityTeamFavorite		= 0x0040,
+	
+	kNiPluginHashDefaultSet					= kNiPluginHashSaltedSHA1,
+	kNiPluginHashWindowsSet					= kNiPluginHashNT | kNiPluginHashSaltedSHA1 | kNiPluginHashLM,
+	kNiPluginHashDefaultServerSet			= kNiPluginHashNT | kNiPluginHashSaltedSHA1 | kNiPluginHashLM | kNiPluginHashCRAM_MD5 | kNiPluginHashRecoverable,
+	kNiPluginHashHasReadConfig				= 0x8000
+};
 
 extern uInt32		gNodeRefID;
 
 typedef struct {
-	void	   *fDomain;
-	char	   *fDomainName;
-	char	   *fRecType;
-	char	   *fRecName;
-	ni_id		dirID;
-	uInt32		offset;
-	uInt32		index;
-	bool		fDontUseSafeClose;
+	void	   *fDomain;					//netinfo domain handle ONLY used for authenticated open
+	char	   *fDomainName;				//nodename coming back from SafeOpen and used for MetaNodeLocation
+	char	   *fDomainPath;				//domain path that is built used by SafeOpen and RetrieveNIDomain
+	char	   *fRecType;					//record type
+	char	   *fRecName;					//record name
+	ni_id		dirID;						//used for an open record
+	uInt32		offset;						//buffer parsing offset
+	bool		fDontUseSafeClose;			//clean up authenticated ni domains separately
 	uid_t		fUID;
 	uid_t		fEffectiveUID;
-	char*		fAuthenticatedUserName;
-	bool		bIsLocal;
+	char*		fAuthenticatedUserName;		//record name used for authenticated connection
+	bool		bIsLocal;					//defining a local domain
+	bool		bDidWriteOperation;			//defining a write operation was carried out
     
     tDirReference fPWSRef;
     tDirNodeReference fPWSNodeRef;
+	
+    tDirReference fLocalCacheRef;
+    tDataList *fLocalCacheNetNode;
 } sNIContextData;
 
 typedef struct {
@@ -119,8 +161,6 @@ typedef struct {
 	uInt32				fAllRecIndex;
 	uInt32				fTotalRecCount;
 	uInt32				fAttrIndex;
-	tDataList		   *fAliasList;
-	tDataList		   *fAliasAttribute;
 	ni_entrylist		fNIEntryList;
 	tDataBuffer		   *fDataBuff;
 	void			   *fAuthHndl;
@@ -137,8 +177,8 @@ typedef sInt32 (*NetInfoAuthAuthorityHandlerProc) (	tDirNodeReference inNodeRef,
                                                     tDataBufferPtr outAuthData,
                                                     bool inAuthOnly,
 													bool isSecondary,
-                                                    char* inAuthAuthorityData,
-													char* inGUIDString,
+                                                    const char* inAuthAuthorityData,
+													const char* inGUIDString,
 													const char* inNativeRecType );
 
 class	CBuff;
@@ -163,8 +203,8 @@ public:
 											  tDataBufferPtr outAuthData, 
 											  bool inAuthOnly,
 											  bool isSecondary,
-											  char* inAuthAuthorityData = NULL,
-											  char* inGUIDString = NULL,
+											  const char* inAuthAuthorityData = NULL,
+											  const char* inGUIDString = NULL,
 											  const char* inNativeRecType = "users" );
 											  
 	static sInt32 DoShadowHashAuth			( tDirNodeReference inNodeRef,
@@ -175,10 +215,9 @@ public:
 											  tDataBufferPtr outAuthData, 
 											  bool inAuthOnly,
 											  bool isSecondary, 
-											  char* inAuthAuthorityData,
-											  char* inGUIDString,
-											  const char* inNativeRecType = "users",
-											  bool inEnforcePolicy = true );
+											  const char* inAuthAuthorityData,
+											  const char* inGUIDString,
+											  const char* inNativeRecType = "users" );
 											  
 	static sInt32 DoPasswordServerAuth		( tDirNodeReference inNodeRef,
 											  tDataNodePtr inAuthMethod, 
@@ -188,8 +227,8 @@ public:
 											  tDataBufferPtr outAuthData, 
 											  bool inAuthOnly,
 											  bool isSecondary,
-											  char* inAuthAuthorityData,
-											  char* inGUIDString = NULL,
+											  const char* inAuthAuthorityData,
+											  const char* inGUIDString = NULL,
 											  const char* inNativeRecType = "users" );
 											  
 	static sInt32 DoLocalCachedUserAuth		( tDirNodeReference inNodeRef,
@@ -200,8 +239,8 @@ public:
 											  tDataBufferPtr outAuthData, 
 											  bool inAuthOnly,
 											  bool isSecondary,
-											  char* inAuthAuthorityData,
-											  char* inGUIDString = NULL,
+											  const char* inAuthAuthorityData,
+											  const char* inGUIDString = NULL,
 											  const char* inNativeRecType = "users" );
 											  
 	static sInt32 DoDisabledAuth			( tDirNodeReference inNodeRef,
@@ -212,65 +251,61 @@ public:
 											  tDataBufferPtr outAuthData, 
 											  bool inAuthOnly,
 											  bool isSecondary,
-											  char* inAuthAuthorityData,
-											  char* inGUIDString = NULL,
+											  const char* inAuthAuthorityData,
+											  const char* inGUIDString = NULL,
 											  const char* inNativeRecType = "users" );
 
 protected:
-	sInt32		OpenDirNode						( sOpenDirNode *inData );
-	sInt32		CloseDirNode					( sCloseDirNode *inData );
+	sInt32		OpenDirNode					( sOpenDirNode *inData );
+	sInt32		CloseDirNode				( sCloseDirNode *inData );
 
-	sInt32		GetDirNodeInfo					( sGetDirNodeInfo *inData );
-	sInt32		GetAttributeEntry				( sGetAttributeEntry *inData );
-	sInt32		GetRecordList					( sGetRecordList *inData );
-	sInt32		GetRecordEntry					( sGetRecordEntry *inData );
-	sInt32		CreateRecord					( sCreateRecord *inData );
-	sInt32		OpenRecord						( sOpenRecord *inData );
-	sInt32		GetRecRefInfo					( sGetRecRefInfo *inData );
-	sInt32		CloseRecord						( sCloseRecord *inData );
-	sInt32		SetRecordName					( sSetRecordName *inData );
-	sInt32		SetRecordType					( sSetRecordType *inData );
-	sInt32		DeleteRecord					( sDeleteRecord *inData );
-	sInt32		AddAttribute					( sAddAttribute *inData );
-	sInt32		GetAttributeValue				( sGetAttributeValue *inData );
-	sInt32		GetRecAttribInfo				( sGetRecAttribInfo *inData );
-	sInt32		GetRecordAttributeValueByID		( sGetRecordAttributeValueByID *inData );
-	sInt32		GetRecAttrValueByIndex			( sGetRecordAttributeValueByIndex *inData );
-	sInt32		DoAuthentication				( sDoDirNodeAuth *inData );
+	sInt32		GetDirNodeInfo				( sGetDirNodeInfo *inData );
+	sInt32		GetAttributeEntry			( sGetAttributeEntry *inData );
+	sInt32		GetRecordList				( sGetRecordList *inData );
+	sInt32		GetRecordEntry				( sGetRecordEntry *inData );
+	sInt32		CreateRecord				( sCreateRecord *inData );
+	sInt32		OpenRecord					( sOpenRecord *inData );
+	sInt32		GetRecRefInfo				( sGetRecRefInfo *inData );
+	sInt32		CloseRecord					( sCloseRecord *inData );
+	sInt32		SetRecordName				( sSetRecordName *inData );
+	sInt32		SetRecordType				( sSetRecordType *inData );
+	sInt32		DeleteRecord				( sDeleteRecord *inData );
+	sInt32		AddAttribute				( sAddAttribute *inData );
+	sInt32		GetAttributeValue			( sGetAttributeValue *inData );
+	sInt32		GetRecAttribInfo			( sGetRecAttribInfo *inData );
+	sInt32		GetRecordAttributeValueByID	( sGetRecordAttributeValueByID *inData );
+	sInt32		GetRecAttrValueByIndex		( sGetRecordAttributeValueByIndex *inData );
+	sInt32		GetRecAttrValueByValue		( sGetRecordAttributeValueByValue *inData );
+	sInt32		DoAuthentication			( sDoDirNodeAuth *inData );
 	sInt32		DoAuthenticationOnRecordType	( sDoDirNodeAuthOnRecordType *inData );
-	static sInt32		PasswordOkForPolicies   ( const char *inSpaceDelimitedPolicies, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword );
-	static sInt32		TestPolicies			( const char *inSpaceDelimitedPolicies, PWGlobalAccessFeatures *inGAccess, sHashState *inOutHashState, struct timespec *inModDateOfPassword, const char *inHashPath );
-	static sInt32		GetShadowHashGlobalPolicies( sNIContextData *inContext, PWGlobalAccessFeatures *inOutGAccess );
-	static sInt32		SetShadowHashGlobalPolicies( sNIContextData *inContext, PWGlobalAccessFeatures *inGAccess );
-	static sInt32		GetStateFilePath		( const char *inHashPath, char **outStateFilePath );
-	static int			ReadHashStateFile		( const char *inFilePath, sHashState *inOutHashState );
-	static int			WriteHashStateFile		( const char *inFilePath, sHashState *inHashState );
-	static sInt32		TestDisabledStatus		( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, UInt32 inFailedLoginAttempts, struct tm *inCreationDate, struct tm *inLastLoginTime );
-	sInt32		DoAttributeValueSearch			( sDoAttrValueSearchWithData *inData );
-	sInt32		DoPlugInCustomCall				( sDoPlugInCustomCall *inData );
-	sInt32		ReleaseContinueData				( sReleaseContinueData *inData );
-	sInt32		RemoveAttribute					( sRemoveAttribute *inData );
-	sInt32		AddAttributeValue				( sAddAttributeValue *inData );
-	sInt32		RemoveAttributeValue			( sRemoveAttributeValue *inData );
-	sInt32		SetAttributeValue				( sSetAttributeValue *inData );
-	sInt32		CloseAttributeList				( sCloseAttributeList *inData );
-	sInt32		CloseAttributeValueList			( sCloseAttributeValueList *inData );
+	sInt32		RecordHasAuthAuthority		( const char *inRecordName, const char *inRecType, sNIContextData *inContext, const char *inTag, ni_id *outDirID );
+	
+	sInt32		DoAttributeValueSearch		( sDoAttrValueSearchWithData *inData );
+	sInt32		DoMultipleAttributeValueSearch		( sDoMultiAttrValueSearchWithData *inData );
+	sInt32		DoPlugInCustomCall			( sDoPlugInCustomCall *inData );
+	sInt32		ReleaseContinueData			( sReleaseContinueData *inData );
+	sInt32		RemoveAttribute				( sRemoveAttribute *inData );
+	sInt32		AddAttributeValue			( sAddAttributeValue *inData );
+	sInt32		RemoveAttributeValue		( sRemoveAttributeValue *inData );
+	sInt32		SetAttributeValue			( sSetAttributeValue *inData );
+	sInt32		SetAttributeValues			( sSetAttributeValues *inData );
+	sInt32		CloseAttributeList			( sCloseAttributeList *inData );
+	sInt32		CloseAttributeValueList		( sCloseAttributeValueList *inData );
 
-	sInt32		GetAllRecords				(	char *inNativeRecType,
+	sInt32		GetAllRecords				(	const char *inRecType,
+												char *inNativeRecType,
 												CAttributeList *inAttrTypeList,
 												sNIContinueData *inContinue,
-												void *inDomain,
-												char *inDomainName,
+												sNIContextData *inContext,
 												bool inAttrOnly,
 												CBuff *inBuff,
 												uInt32 &outRecCount );
 	sInt32		GetTheseRecords				(	char *inConstRecName,
-												char *inConstRecType,
+												const char *inConstRecType,
 												char *inNativeRecType,
 												tDirPatternMatch inPattMatch,
 												CAttributeList *inAttrTypeList,
-												void *inDomain,
-												char *inDomainName,
+												sNIContextData *inContext,
 												bool inAttrOnly,
 												CBuff *inBuff,
 												sNIContinueData *inContinue,
@@ -280,76 +315,119 @@ protected:
 												bool inAttrOnly,
 												void *inDomain,
 												char *inDomainName,
+												const char *inRecType,
 												sInt32 &outCnt );
 	sInt32		FindAllRecords				(	const char *inNI_RecType,
 												const char *inDS_RecType,
-												const char *inPatt2Match,
+												CAttributeList *inPattMatchList,
 												tDirPatternMatch inHow,
 												CAttributeList *inAttrTypeList,
 												bool inAttrInfoOnly,
 												sNIContinueData *inContext,
-												void *inDomain,
-												char *inDomainName,
+												sNIContextData *inContext,
 												CBuff *inBuff,
 												uInt32 &outRecCount );
 	sInt32		FindTheseRecords   			(	const char *inNI_RecType,
 												const char *inDS_RecType,
 												const char *inAttrType,
-												const char *inPatt2Match,
+												CAttributeList *inPattMatchList,
 												tDirPatternMatch inHow,
 												CAttributeList *inAttrTypeList,
 												bool inAttrInfoOnly,
 												sNIContinueData *inContext,
-												void *inDomain,
-												char *inDomainName,
+												sNIContextData *inContext,
 												CBuff *inBuff,
 												uInt32 &outRecCount );
 	tDataList*  FindNodeForSearchPolicyAuthUser
 											(   const char *userName );
 
 private:
-	sInt32		DoCreateRecord				( void *inDomain, ni_id *inDir, char *inPathName );
-	ni_status	DoCreateChild				( void *inDomain, ni_id *inDir, const ni_name inDirName );
-	static sInt32   DoAddAttribute			( void *domain, ni_id *dir, const ni_name key, ni_namelist values );
-	static sInt32	MigrateToShadowHash		( void *inDomain, ni_id *inNIDirID, ni_proplist *inNIPropList, const char *inUserName, const char *inPassword );
+	sInt32			DoCreateRecord				( void *inDomain, ni_id *inDir, char *inPathName );
+	ni_status		DoCreateChild				( void *inDomain, ni_id *inDir, const ni_name inDirName );
+	static sInt32   DoAddAttribute				( void *domain, ni_id *dir, const ni_name key, ni_namelist values );
+	static sInt32	MigrateToShadowHash			( void *inDomain, ni_id *inNIDirID, ni_proplist *inNIPropList, const char *inUserName, const char *inPassword, bool &outResetCache );
 	
-	static bool		IsWriteAuthRequest		(   uInt32 uiAuthMethod );
-	static void		GenerateShadowHashes	(   const char *inPassword,
-												long inPasswordLen,
-												bool inUseBothHashes,
-												unsigned char *outHashes,
-												unsigned long *outHashTotalLength );
+	static bool		IsWriteAuthRequest			(   uInt32 uiAuthMethod );
+	
+	static sInt32	LocalCachedUserReachable	( tDirNodeReference inNodeRef,
+												  tDataNodePtr inAuthMethod, 
+												  sNIContextData* inContext, 
+												  sNIContinueData** inOutContinueData, 
+												  tDataBufferPtr inAuthData, 
+												  tDataBufferPtr outAuthData,
+												  const char* inAuthAuthorityData,
+												  const char* inGUIDString,
+												  const char* inNativeRecType,
+												  bool *inOutNodeReachable );
+	
+	static sInt32 DoLocalCachedUserAuthPhase2	( tDirNodeReference inNodeRef,
+												  tDataNodePtr inAuthMethod, 
+												  sNIContextData* inContext, 
+												  sNIContinueData** inOutContinueData, 
+												  tDataBufferPtr inAuthData, 
+												  tDataBufferPtr outAuthData, 
+												  bool inAuthOnly,
+												  bool isSecondary,
+												  const char* inAuthAuthorityData,
+												  const char* inGUIDString,
+												  const char* inNativeRecType,
+												  bool inNetNodeReachable );
+											  
 	static sInt32	GetUserPolicies			(   sNIContextData *inContext,
 												const char *inNativeRecType,
 												const char *inUsername,
+												sHashState *inState,
 												char **outPolicyStr );
 	
 	static sInt32   SetUserPolicies			(   sNIContextData *inContext,
 												const char *inNativeRecType,
 												const char *inUsername,
-												const char *inPolicyStr );
+												const char *inPolicyStr,
+												sHashState *inOutHashState );
 	
 	static sInt32   SetUserAAtoDisabled		(   sNIContextData *inContext,
 												const char *inNativeRecType,
 												const char *inUsername );
 	
-	static sInt32	ReadShadowHash			( const char *inUserName, char *inGUIDString, unsigned char outHashes[kHashTotalLength], struct timespec *outModTime = NULL, char **outUserHashPath = NULL );
-	static sInt32	WriteShadowHash			( const char *inUserName, char *inGUIDString, unsigned char inHashes[kHashTotalLength] );
-	static void		RemoveShadowHash		( const char *inUserName, char *inGUIDString, bool bShadowToo );
-	static sInt32   ReadShadowHashAndStateFiles( const char *inUserName, char *inGUIDString, unsigned char outHashes[kHashTotalLength], struct timespec *outModTime, char **outUserHashPath, char **outStateFilePath, sHashState *inOutHashState );
+	static sInt32	SetUserAuthAuthorityAsRoot
+											(	sNIContextData *inContext,
+												const char *inNativeRecType,
+												const char *inUsername,
+												const char *inAuthAuthority );
+												
+	static sInt32	ReadShadowHash			(	const char *inUserName,
+												const char *inGUIDString,
+												unsigned char outHashes[kHashTotalLength],
+												struct timespec *outModTime,
+												char **outUserHashPath,
+												sInt32 *outHashDataLen,
+												bool readHashes = true );
+											
+	static sInt32	WriteShadowHash			( const char *inUserName, const char *inGUIDString, unsigned char inHashes[kHashTotalLength] );
+	static void		RemoveShadowHash		( const char *inUserName, const char *inGUIDString, bool bShadowToo );
 	
-    static sInt32	RepackBufferForPWServer	(	tDataBufferPtr inBuff,
-                                                const char *inUserID,
-                                                unsigned long inUserIDNodeNum,
-                                                tDataBufferPtr *outBuff );
-    
-    static sInt32	PWOpenDirNode			( tDirNodeReference fDSRef, char *inNodeName, tDirNodeReference *outNodeRef );
+	static sInt32   ReadShadowHashAndStateFiles(	const char *inUserName,
+													const char *inGUIDString,
+													unsigned char outHashes[kHashTotalLength],
+													struct timespec *outModTime,
+													char **outUserHashPath,
+													char **outStateFilePath,
+													sHashState *inOutHashState,
+													sInt32 *outHashDataLen = NULL );
+	
+	static sInt32	ReadStateFile			(	const char *inUserName,
+												const char *inGUIDString,
+												struct timespec *outModTime,
+												char **outUserHashPath,
+												char **outStateFilePath,
+												sHashState *inOutHashState,
+												sInt32 *outHashDataLen );
+
     static sInt32	PWSetReplicaData		( sNIContextData *inContext, const char *inAuthorityData );
 	
 	static sInt32	DoSetPassword			( sNIContextData *inContext, tDataBuffer *inAuthData, const char *inNativeRecType );
 	static sInt32	DoSetPasswordAsRoot		( sNIContextData *inContext, tDataBuffer *inAuthData, const char *inNativeRecType );
 	static sInt32	DoChangePassword		( sNIContextData *inContext, tDataBuffer *inAuthData, bool isSecondary, const char *inNativeRecType );
-	static sInt32   Get2FromBuffer			( tDataBufferPtr inAuthData, tDataList **inOutDataList, char **inOutItemOne, char **inOutItemTwo, unsigned int *outItemCount );
 	static sInt32	DoNodeNativeAuth		( sNIContextData *inContext, tDataBuffer *inAuthData, bool inAuthOnly, const char *inNativeRecType );
 	static sInt32	DoUnixCryptAuth			( sNIContextData *inContext, tDataBuffer *inAuthData, bool inAuthOnly, const char *inNativeRecType );
 	static sInt32	DoTimSMBAuth			( sNIContextData *inContext, tDataBuffer *inAuthData, uInt32 inWhichOne );
@@ -361,44 +439,28 @@ private:
 	static sInt32	ValidateDigest			( sNIContextData *inContext, tDataBuffer *inAuthData, uInt32 inAuthMethod );
 	static sInt32	AuthOpen				( sNIContextData *inContext, const char * inUserName, 
 											  const char * inPassword, bool bIsEffectiveRoot = false );
-	sInt32		VerifyPatternMatch			( const tDirPatternMatch inPatternMatch );
-
-	static sInt32	IsValidRecordName		( const char *inRecName, const char *inRecType, 
-											  void *inDomain, ni_id &outDirID );
+	sInt32			VerifyPatternMatch		( const tDirPatternMatch inPatternMatch );
+	
 	static sInt32	IsValidRealname			( char *inRealname, void *inDomain, char **outRecName );
-	static bool		UserIsAdmin				( const char *inUserName, void *inDomain );
 	static char*	GetUserNameForUID 		( uid_t inUserID, void *inDomain );
-	static sInt32	GetUserNameFromAuthBuffer	( tDataBufferPtr inAuthData, unsigned long inUserNameIndex, char **outUserName );
-	static sInt32	ParseLocalCacheUserData (	const char *inAuthData,
-												char **outNodeName,
-												char **outRecordName,
-												char **outGUID );
 
 	NetInfoAuthAuthorityHandlerProc GetNetInfoAuthAuthorityHandler ( const char* inTag );
-	static char*	BuildRecordNamePath		( const char *inRecName, const char *inRecType );
-	static sInt32	GetAuthMethod			( tDataNode *inData, uInt32 *outAuthMethod );
-
-	static char*	MapRecToNetInfoType		( const char *inRecType );
-	char*		MapNetInfoRecToDSType		( const char *inRecType );
-	static char*	MapAttrToNetInfoType	( const char *inAttrType );
-	static char*	MapNetInfoAttrToDSType	( const char *inAttrType );
-
+	
 	static CString*	GetAuthTypeStr			( const char *inNativeAuthStr );
 	static CString*	GetAuthString			( tDataNode *inData );
 
 	static bool		IsTimRunning			( void );
-	static sInt32	MapNetInfoErrors		( sInt32 inNiError );
 	static sInt32	MapAuthResult			( sInt32 inAuthResult );
-	uInt32		CalcCRC						( const char *inStr );
 
-	static bool		DoesThisMatch			( const char *inString, const char *inPatt, tDirPatternMatch inHow );
+	static bool		DoAnyMatch				( const char *inString, CAttributeList *inPattMatchList, tDirPatternMatch inHow );
 	static char*	BuildRegExp				( const char *inString );
+	static char*	BuildMultiRegExp		( CAttributeList *inPattMatchList );
 
-	void		MakeGood					( char *inStr, char *outStr );
+	void			MakeGood				( char *inStr, char *outStr );
 
 	sNIContextData*	MakeContextData			( void );
     static sInt32	CleanContextData		( sNIContextData *inContext );
-	static char* 	BuildDomainPathFromName	( char* inDomainName );
+	sInt32			GetSubNodes				( sNIContextData *inContext, set<string> & nodeNames );
 
 private:
 	//KW have been extremely lucky up until now using these member vars in thread capable class
@@ -406,7 +468,7 @@ private:
 	CDataBuff	   *fRecData;
 	CDataBuff	   *fAttrData;
 	CDataBuff	   *fTmpData;
-	
+	unsigned int	fHashList;
 };
 
 #endif

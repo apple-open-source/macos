@@ -210,7 +210,7 @@ const char *canonical;  /* server name */
     krb5_auth_context auth_context = NULL;
 
     krb5_init_context(&context);
-#ifndef __APPLE__
+#ifdef HAVE_KRB5_INIT_ETS
     krb5_init_ets(context);
 #endif
     krb5_auth_con_init(context, &auth_context);

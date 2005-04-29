@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_probe.h,v 1.8 2002/04/24 16:20:40 martin Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_probe.h,v 1.14 2003/11/10 18:41:23 tsi Exp $ */
 /*
  * Copyright 2000 ATI Technologies Inc., Markham, Ontario, and
  *                VA Linux Systems Inc., Fremont, California.
@@ -40,13 +40,14 @@
 #include "atiproto.h"
 
 #include "xf86str.h"
+#include "xf86DDC.h"
+
+#define _XF86MISC_SERVER_
+#include "xf86misc.h"
 
 typedef struct
 {
-    Bool IsDRIEnabled;
-
     Bool HasSecondary;
-    Bool BypassSecondary;
 
     /*
      * The next two are used to make sure CRTC2 is restored before CRTC_EXT,
@@ -57,6 +58,13 @@ typedef struct
 
     ScrnInfoPtr pSecondaryScrn;
     ScrnInfoPtr pPrimaryScrn;
+
+    int MonType1;
+    int MonType2;
+    xf86MonPtr MonInfo1;
+    xf86MonPtr MonInfo2;
+    Bool ReversedDAC;	  /* TVDAC used as primary dac */
+    Bool ReversedTMDS;    /* DDC_DVI is used for external TMDS */
 } RADEONEntRec, *RADEONEntPtr;
 
 /* radeon_probe.c */
@@ -79,6 +87,11 @@ extern Bool                 RADEONScreenInit
 			    FunctionPrototype((int, ScreenPtr, int, char **));
 extern Bool                 RADEONSwitchMode
 			    FunctionPrototype((int, DisplayModePtr, int));
+#ifdef X_XF86MiscPassMessage
+extern Bool                 RADEONHandleMessage
+			    FunctionPrototype((int, const char*, const char*,
+					       char**));
+#endif
 extern void                 RADEONAdjustFrame
 			    FunctionPrototype((int, int, int, int));
 extern Bool                 RADEONEnterVT
@@ -87,7 +100,7 @@ extern void                 RADEONLeaveVT
 			    FunctionPrototype((int, int));
 extern void                 RADEONFreeScreen
 			    FunctionPrototype((int, int));
-extern int                  RADEONValidMode
+extern ModeStatus           RADEONValidMode
 			    FunctionPrototype((int, DisplayModePtr, Bool,
 					       int));
 

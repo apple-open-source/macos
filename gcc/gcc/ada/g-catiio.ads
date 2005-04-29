@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                                                                          --
---            Copyright (C) 1999-2001 Ada Core Technologies, Inc.           --
+--            Copyright (C) 1999-2003 Ada Core Technologies, Inc.           --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -32,7 +31,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -42,9 +41,9 @@
 package GNAT.Calendar.Time_IO is
 
    Picture_Error : exception;
+   --  Exception raised for incorrect picture
 
    type Picture_String is new String;
-
    --  This is a string to describe date and time output format. The string is
    --  a set of standard character and special tag that are replaced by the
    --  corresponding values. It follows the GNU Date specification. Here are
@@ -96,12 +95,18 @@ package GNAT.Calendar.Time_IO is
    --
    --          -    (hyphen) do not pad the field
    --          _    (underscore) pad the field with spaces
+   --
+   --  Here are some GNAT extensions to the GNU Date specification:
+   --
+   --          %i   milliseconds (3 digits)
+   --          %e   microseconds (6 digits)
+   --          %o   nanoseconds  (9 digits)
 
-   ISO_Date      : constant Picture_String;
+   ISO_Date : constant Picture_String;
    --  This format follow the ISO 8601 standard. The format is "YYYY-MM-DD",
    --  four digits year, month and day number separated by minus.
 
-   US_Date       : constant Picture_String;
+   US_Date : constant Picture_String;
    --  This format is the common US date format: "MM/DD/YY",
    --  month and day number, two digits year separated by slashes.
 

@@ -7,8 +7,6 @@
 #ifndef _DATEFORMATROUNDTRIPTEST_
 #define _DATEFORMATROUNDTRIPTEST_
  
-#include <stdlib.h>
-
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
@@ -28,12 +26,16 @@ class DateFormatRoundTripTest : public IntlTest {
     void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par );
 
 public:
+    DateFormatRoundTripTest();
+    virtual ~DateFormatRoundTripTest();
+    
     void TestDateFormatRoundTrip(void);
     void test(const Locale& loc);
     void test(DateFormat *fmt, const Locale &origLocale, UBool timeOnly = FALSE );
     int32_t getField(UDate d, int32_t f);
     UnicodeString& escape(const UnicodeString& src, UnicodeString& dst);
     UDate generateDate(void); 
+    UDate generateDate(UDate minDate); 
 
 
 //============================================================
@@ -43,22 +45,15 @@ public:
 /**
  * Return a random uint32_t
  **/
-static uint32_t randLong()
-{
-    // Assume 8-bit (or larger) rand values.  Also assume
-    // that the system rand() function is very poor, which it always is.
-    uint32_t d;
-    uint32_t i;
-    char* poke = (char*)&d;
-    for (i=0; i < sizeof(uint32_t); ++i)
-    {
-        poke[i] = (char)(rand() & 0xFF);
-    }
-    return d;
+static uint32_t randLong() {
+    // The portable IntlTest::random() function has sufficient
+    // resolution for a 16-bit value, but not for 32 bits.
+    return ((uint32_t) (IntlTest::random() * (1<<16))) |
+          (((uint32_t) (IntlTest::random() * (1<<16))) << 16);
 }
 
 /**
- * Return a random double 0 <= x < 1.0
+ * Return a random double 0 <= x <= 1.0
  **/
 static double randFraction()
 {
@@ -66,7 +61,7 @@ static double randFraction()
 }
 
 /**
- * Return a random value from -range..+range.
+ * Return a random value from -range..+range (closed).
  **/
 static double randDouble(double range)
 {
@@ -80,13 +75,17 @@ protected:
     UBool failure(UErrorCode status, const char* msg);
     UBool failure(UErrorCode status, const char* msg, const UnicodeString& str);
 
+    const UnicodeString& fullFormat(UDate d);
+
 private:
 
     static int32_t SPARSENESS;
     static int32_t TRIALS;
     static int32_t DEPTH;
 
+    UBool optionv; // TRUE if @v option is given on command line
     SimpleDateFormat *dateFormat;
+    UnicodeString fgStr;
     Calendar *getFieldCal;
 };
 

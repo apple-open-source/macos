@@ -1,17 +1,23 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/fr_LU.xml
 // *
 // ***************************************************************************
-
-fr_LU {
-    Version{"2.0"}
-    DateTimeElements:intvector {
-        2,
-        1,
+fr_LU{
+    Currencies{
+        FRF{
+            "FRF",
+            "franc français",
+        }
+        LUF{
+            "F",
+            "franc luxembourgeois",
+        }
     }
-    NumberElements {
+    NumberElements{
         ",",
         ".",
         ";",
@@ -20,18 +26,10 @@ fr_LU {
         "#",
         "-",
         "E",
-        "\u2030",
-        "\u221E",
-        "\uFFFD",
-        ",",
+        "‰",
+        "∞",
+        "�",
+        "+",
     }
-//    LocaleString { "fr_LU" }
-//    ShortCountry { "LUX" }
-    LocaleID:int { 0x140c }
-
-    // Currency display names
-    Currencies {
-        FRF { "FRF", "franc fran\u00E7ais" } // French Franc
-        LUF { "F", "franc luxembourgeois" }
-    }
+    Version{"1.2"}
 }

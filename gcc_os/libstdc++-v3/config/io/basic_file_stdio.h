@@ -70,13 +70,16 @@ namespace std
       open(const char* __name, ios_base::openmode __mode, int __prot = 0664);
 
       __basic_file*
-      sys_open(__c_file* __file, ios_base::openmode __mode);
+      sys_open(__c_file* __file, ios_base::openmode);
 
-      char
+      __basic_file*
+      sys_open(int __fd, ios_base::openmode __mode, bool __del);
+
+      int
       sys_getc();
 
-      char
-      sys_ungetc(char);
+      int
+      sys_ungetc(int);
 
       __basic_file* 
       close(); 

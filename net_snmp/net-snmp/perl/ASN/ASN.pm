@@ -65,7 +65,7 @@ use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION $AUTOLOAD);
 	ASN_UNSIGNED
 	ASN_UNSIGNED64
 );
-$VERSION = '0.01';
+$VERSION = '5.2';
 
 sub AUTOLOAD {
     # This AUTOLOAD is used to 'autoload' constants from the constant()
@@ -106,7 +106,6 @@ bootstrap NetSNMP::ASN $VERSION;
 
 1;
 __END__
-# Below is stub documentation for your module. You better edit it!
 
 =head1 NAME
 

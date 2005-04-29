@@ -35,7 +35,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: dsock.c,v 1.6 2002/10/08 20:16:56 abe Exp $";
+static char *rcsid = "$Id: dsock.c,v 1.9 2004/03/10 23:50:16 abe Exp $";
 #endif
 
 
@@ -69,6 +69,7 @@ process_socket(sa)
 	struct protosw p;
 	struct socket s;
 	struct tcpcb t;
+	KA_T ta = (KA_T)NULL;
 	struct unpcb uc, unp;
 	struct sockaddr_un *ua = NULL;
 	struct sockaddr_un un;
@@ -141,6 +142,21 @@ process_socket(sa)
 	Lf->lts.rqs = Lf->lts.sqs = 1;
 #endif	/* defined(HASTCPTPIQ) */
 
+#if	defined(HASSOOPT)
+	Lf->lts.ltm = (unsigned int)(s.so_linger & 0xffff);
+	Lf->lts.opt = (unsigned int)(s.so_options & 0xffff);
+	Lf->lts.qlen = (unsigned int)s.so_qlen;
+	Lf->lts.qlim = (unsigned int)s.so_qlimit;
+	Lf->lts.rbsz = (unsigned long)s.so_rcv.sb_mbmax;
+	Lf->lts.sbsz = (unsigned long)s.so_snd.sb_mbmax;
+	Lf->lts.qlens = Lf->lts.qlims = Lf->lts.rbszs
+		      = Lf->lts.sbszs = (unsigned char)1;
+#endif	/* defined(HASSOOPT) */
+
+#if	defined(HASSOSTATE)
+	Lf->lts.ss = (unsigned int)s.so_state;
+#endif	/* defined(HASSOSTATE) */
+
 /*
  * Process socket by the associated domain family.
  */
@@ -194,6 +210,8 @@ process_socket(sa)
 		enter_dev_ch(print_kptr((KA_T)(in6p.in6p_ppcb ? in6p.in6p_ppcb
 							      : s.so_pcb),
 					       (char *)NULL, 0));
+		if (p.pr_protocol == IPPROTO_TCP)
+		    ta = (KA_T)in6p.in6p_ppcb;
 		la = (unsigned char *)&in6p.in6p_laddr;
 		lp = (int)ntohs(in6p.in6p_lport);
 		if (!IN6_IS_ADDR_UNSPECIFIED(&in6p.in6p_faddr)
@@ -231,13 +249,16 @@ process_socket(sa)
 		enter_dev_ch(print_kptr((KA_T)(inp.inp_ppcb ? inp.inp_ppcb
 							    : s.so_pcb),
 					(char *)NULL, 0));
-		if (fam == AF_INET) {
-		    la = (unsigned char *)&inp.inp_laddr;
-		    lp = (int)ntohs(inp.inp_lport);
-		    if (inp.inp_faddr.s_addr != INADDR_ANY || inp.inp_fport) {
-			fa = (unsigned char *)&inp.inp_faddr;
-			fp = (int)ntohs(inp.inp_fport);
-		    }
+	    /*
+	     * Save IPv4 address information.
+	     */
+		if (p.pr_protocol == IPPROTO_TCP)
+		    ta = (KA_T)inp.inp_ppcb;
+		la = (unsigned char *)&inp.inp_laddr;
+		lp = (int)ntohs(inp.inp_lport);
+		if (inp.inp_faddr.s_addr != INADDR_ANY || inp.inp_fport) {
+		    fa = (unsigned char *)&inp.inp_faddr;
+		    fp = (int)ntohs(inp.inp_fport);
 		}
 	    }
 
@@ -262,10 +283,20 @@ process_socket(sa)
 	 */
 	    if (fa || la)
 		(void) ent_inaddr(la, lp, fa, fp, fam);
-	    if (p.pr_protocol == IPPROTO_TCP && inp.inp_ppcb
-	    &&  !kread((KA_T)inp.inp_ppcb, (char *)&t, sizeof(t))) {
+	    if (ta && !kread(ta, (char *)&t, sizeof(t))) {
 		Lf->lts.type = 0;
 		Lf->lts.state.i = (int)t.t_state;
+
+#if	defined(HASSOOPT)
+		Lf->lts.kai = (unsigned int)t.t_timer[TCPT_KEEP];
+#endif	/* defined(HASSOOPT) */
+
+#if	defined(HASTCPOPT)
+		Lf->lts.mss = (unsigned long)t.t_maxseg;
+		Lf->lts.msss = (unsigned char)1;
+		Lf->lts.topt = (unsigned int)t.t_flags;
+#endif	/* defined(HASTCPOPT) */
+
 	    }
 	    break;
 
@@ -307,11 +338,19 @@ process_socket(sa)
 		enter_nm(Namech);
 		return;
 	    }
-	    (void) snpf(Namech, Namechl, "-> %s%d", buf, ifnet.if_unit,
-			(char *)NULL, 0);
+	    (void) snpf(Namech, Namechl, "-> %s%d", buf, ifnet.if_unit);
 	}
 	break;
 #endif	/* defined(AF_NDRV) */
+
+#if	defined(pseudo_AF_KEY)
+/*
+ * Process an [internal] key-management function socket
+ */
+	case pseudo_AF_KEY:
+	    (void) snpf(Lf->type, sizeof(Lf->type), "key");
+	    break;
+#endif	/* defined(pseudo_AF_KEY) */
 
 #if	defined(AF_SYSTEM)
 /*
@@ -343,13 +382,22 @@ process_socket(sa)
 		enter_nm(Namech);
 		return;
 	    }
-	    (void) snpf(Namech, Namechl, "[%x:%x:%x]",
+	    (void) snpf(Namech, Namechl, "[%lx:%lx:%lx]",
 			kev_cb.vendor_code_filter,
-			kev_cb.class_filter, kev_cb.subclass_filter,
-			(char *)NULL, 0);
+			kev_cb.class_filter,
+			kev_cb.subclass_filter);
 	}
 	break;
 #endif	/* defined(AF_SYSTEM) */
+
+#if	defined(AF_PPP)
+/*
+ * Process a PPP domain socket
+ */
+	case AF_PPP:
+	    (void) snpf(Lf->type, sizeof(Lf->type), "ppp");
+	    break;
+#endif	/* defined(AF_PPP) */
 
 /*
  * Process a ROUTE domain socket.
@@ -386,8 +434,7 @@ process_socket(sa)
 		break;
 	    }
 	    if (unp.unp_addr) {
-		if (kread((KA_T)unp.unp_addr, (char *)&un, sizeof(un)))
-		{
+		if (kread((KA_T)unp.unp_addr, (char *)&un, sizeof(un))) {
 		    (void) snpf(Namech, Namechl, "can't read unp_addr at %s",
 			print_kptr((KA_T)unp.unp_addr, (char *)NULL, 0));
 		    break;

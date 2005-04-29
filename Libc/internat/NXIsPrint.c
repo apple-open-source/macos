@@ -32,7 +32,7 @@ int NXIsPrint(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_P|_U|_L|_D|_B)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_P|_CTYPE_U|_CTYPE_L|_CTYPE_D|_CTYPE_B)));
 	return 1;
 		/* NOTE: for 3.0, everything > 255 is probably Kanji, so say printable... */
 }

@@ -3,7 +3,7 @@
 #define get_set_PVp(thing,p) \
     RETVAL = (char*)thing; \
     if(items > 1) \
-        thing = (char*)((ST(1) == &sv_undef) ? NULL : pstrdup(p, SvPV(ST(1),na)))
+        thing = (char*)(SvOK(ST(1)) ? pstrdup(p, SvPV(ST(1),na)) : NULL)
 
 #define get_set_PV(thing) \
     get_set_PVp(thing,r->pool)

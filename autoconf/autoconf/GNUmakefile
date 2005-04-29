@@ -4,7 +4,7 @@
 # It is necessary if you want to build targets usually of interest
 # only to the maintainer.
 
-# Copyright 2001 Free Software Foundation, Inc.
+# Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,13 @@
 
 # Systems where /bin/sh is not the default shell need this.  The $(shell)
 # command below won't work with e.g. stock DOS/Windows shells.
+ifeq ($(wildcard /bin/s[h]),/bin/sh)
 SHELL = /bin/sh
+else
+# will be used only with the next shell-test line, then overwritten
+# by a configured-in value
+SHELL = sh
+endif
 
 have-Makefile := $(shell test -f Makefile && echo yes)
 
@@ -30,7 +36,11 @@ have-Makefile := $(shell test -f Makefile && echo yes)
 # give them a diagnostic.
 ifeq ($(have-Makefile),yes)
 
+# Make tar archive easier to reproduce.
+export TAR_OPTIONS = --owner=0 --group=0 --numeric-owner
+
 include Makefile
+include $(srcdir)/Makefile.cfg
 include $(srcdir)/Makefile.maint
 
 else

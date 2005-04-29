@@ -57,6 +57,11 @@ static char rcsid[] __attribute__((__unused__)) = "$OpenBSD: ar_subs.c,v 1.13 19
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
+#ifdef __APPLE__
+#include <copyfile.h>
+#include <libgen.h>
+#include <sys/queue.h>
+#endif
 #include "pax.h"
 #include "extern.h"
 
@@ -178,6 +183,18 @@ extract()
 	struct stat sb;
 	int fd;
 	time_t now;
+#ifdef __APPLE__
+	int copyfile_disable = (getenv(COPYFILE_DISABLE_VAR) != NULL);
+	LIST_HEAD(copyfile_list_t, copyfile_list_entry_t) copyfile_list;
+	struct copyfile_list_entry_t {
+	    char *src;
+	    char *dst;
+	    char *tmp;
+	    LIST_ENTRY(copyfile_list_entry_t) link;
+	} *cle;
+
+	LIST_INIT(&copyfile_list);
+#endif
 
 	arcn = &archd;
 	/*
@@ -347,6 +364,24 @@ extract()
 		if (!res)
 			(void)rd_skip(cnt + arcn->pad);
 
+#ifdef __APPLE__
+		if (!strncmp(basename(arcn->name), "._", 2))
+		{
+			cle = alloca(sizeof(struct copyfile_list_entry_t));
+			cle->src = strdup(arcn->name);
+
+			if (asprintf(&cle->tmp, "%s.XXX", cle->src) > MAXPATHLEN)
+			    continue;
+			if (mktemp(cle->tmp) == NULL)
+			    continue;
+			if (rename(cle->src, cle->tmp))
+			    continue;
+
+			if (asprintf(&cle->dst, "%s/%s",
+				dirname(arcn->name), basename(arcn->name) + 2) != -1)
+				LIST_INSERT_HEAD(&copyfile_list, cle, link);
+		}
+#endif
 		/*
 		 * if required, chdir around.
 		 */
@@ -355,6 +390,20 @@ extract()
 				syswarn(1, errno,
 				    "Can't fchdir to starting directory");
 	}
+
+#ifdef __APPLE__
+	LIST_FOREACH(cle, &copyfile_list, link)
+	{
+	    if(copyfile_disable || copyfile(cle->tmp, cle->dst, 0,
+		COPYFILE_UNPACK | COPYFILE_XATTR | COPYFILE_ACL))
+		rename(cle->tmp, cle->src);
+	    else
+		unlink(cle->tmp);
+	    free(cle->dst);
+	    free(cle->src);
+	    free(cle->tmp);
+	}
+#endif
 
 	/*
 	 * all done, restore directory modes and times as required; make sure
@@ -391,6 +440,12 @@ wr_archive(arcn, is_app)
 	int (*wrf)();
 	int fd = -1;
 	time_t now;
+#ifdef __APPLE__
+	int metadata = 0;
+	char *md_fname = NULL;
+	ARCHD arcn_copy;
+	char arcn_copy_name[PAXPATHLEN+1];
+#endif
 
 	/*
 	 * if this format supports hard link storage, start up the database
@@ -429,6 +484,64 @@ wr_archive(arcn, is_app)
 		 */
 		if (sel_chk(arcn) != 0)
 			continue;
+#ifdef __APPLE__
+		/*
+		 * synthesize ._ files for each node we encounter 
+		 */
+		if (getenv(COPYFILE_DISABLE_VAR) == NULL
+		    && copyfile(arcn->name, NULL, NULL,
+			COPYFILE_CHECK | COPYFILE_XATTR | COPYFILE_ACL)
+		    && arcn->nlen + 2 < sizeof(arcn->name))
+		{
+		    int size;
+		    char *new;
+
+		    md_fname = strdup("/tmp/pax.md.XXXX");
+		    memcpy(&arcn_copy, arcn, sizeof(ARCHD));
+		    strncpy(arcn_copy_name, arcn->name, PAXPATHLEN+1);
+
+		    arcn->skip = 0;
+		    arcn->pad = 0;
+		    arcn->ln_nlen = 0;
+		    arcn->ln_name[0] = '\0';
+		    arcn->type = PAX_REG;
+
+		    if(md_fname && mktemp(md_fname))
+			    if(copyfile(arcn->name, md_fname, NULL,
+				COPYFILE_PACK | COPYFILE_XATTR | COPYFILE_ACL) < 0)
+			    {
+				syswarn(1,EPERM,
+					"Unable to preserve metadata on %s", arcn->name);
+				goto next;
+			    }
+
+		    stat(md_fname, &arcn->sb);
+		    arcn->skip = arcn->sb.st_size;
+
+		    if (!strncmp(dirname(arcn->name), ".", 2))
+			size = asprintf(&new, "._%s",
+				basename(arcn->name));
+		    else
+			size = asprintf(&new, "%s/._%s",
+				dirname(arcn->name), basename(arcn->name));
+
+		    if (size != -1 && size < sizeof arcn->name)
+		    {
+			strncpy(arcn->name, new, PAXPATHLEN+1);
+		    } else {
+			goto next;
+		    }
+		    arcn->nlen = strlen(arcn->name);
+		    arcn->org_name = arcn->name;
+		    free(new);
+		    metadata = 1;
+		} else if (metadata) {
+next:
+		    metadata = 0;
+		    memcpy(arcn, &arcn_copy, sizeof(ARCHD));
+		    strncpy(arcn->name, arcn_copy_name, PAXPATHLEN+1);
+		}
+#endif
 		fd = -1;
 		if (uflag) {
 			/*
@@ -457,7 +570,18 @@ wr_archive(arcn, is_app)
 			 * we were later unable to read (we also purge it from
 			 * the link table).
 			 */
+#ifdef __APPLE__
+			if (metadata)
+			{
+			    fd = open(md_fname, O_RDONLY, 0);
+			    unlink(md_fname);
+			    free(md_fname);
+			} else
+			    fd = open(arcn->org_name, O_RDONLY, 0);
+			if (fd < 0) {
+#else
 			if ((fd = open(arcn->org_name, O_RDONLY, 0)) < 0) {
+#endif
 				syswarn(1,errno, "Unable to open %s to read",
 					arcn->org_name);
 				purg_lnk(arcn);
@@ -543,6 +667,10 @@ wr_archive(arcn, is_app)
 		if (((cnt > 0) && (wr_skip(cnt) < 0)) ||
 		    ((arcn->pad > 0) && (wr_skip(arcn->pad) < 0)))
 			break;
+#if __APPLE__
+		if (metadata)
+		    goto next;
+#endif
 	}
 
 	/*
@@ -976,6 +1104,12 @@ copy()
 			(void)putc('\n', stderr);
 			vfpart = 0;
 		}
+#ifdef __APPLE__
+	    if (getenv(COPYFILE_DISABLE_VAR) == NULL) {
+		    if (copyfile(arcn->org_name, arcn->name, 0, COPYFILE_ACL | COPYFILE_XATTR) < 0)
+			paxwarn(1, "File %s had metadata that could not be copied", arcn->org_name);
+	    }
+#endif
 	}
 
 	/*

@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2004 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -38,8 +38,6 @@ enum {
     kMenuMaxItems  = 6,
     kScreenLastRow = 24
 };
-
-static BVRef gBootVolume = 0;
 
 static void showHelp();
 
@@ -76,9 +74,18 @@ static void restoreCursor( const CursorState * cs )
 
 //==========================================================================
 
-static void flushKeyboardBuffer()
+/* Flush keyboard buffer; returns TRUE if any of the flushed
+ * characters was F8.
+ */
+
+static BOOL flushKeyboardBuffer()
 {
-    while ( readKeyboardStatus() ) getc();
+    BOOL status = FALSE;
+
+    while ( readKeyboardStatus() ) {
+        if (bgetc() == 0x4200) status = TRUE;
+    }
+    return status;
 }
 
 //==========================================================================
@@ -98,6 +105,13 @@ static int countdown( const char * msg, int row, int timeout )
     {
         if (ch = readKeyboardStatus())
             break;
+
+        // Count can be interrupted by holding down shift,
+        // control or alt key
+        if ( ( readKeyboardShiftFlags() & 0x0F ) != 0 ) {
+            ch = 1;
+            break;
+        }
 
         if ( time18() >= time )
         {
@@ -141,7 +155,7 @@ static void showBootPrompt( int row, BOOL visible )
     }
     else
     {
-        printf("Press Return to start up the foreign OS. ");
+        printf("Press Enter to start up the foreign OS. ");
     }
 }
 
@@ -376,23 +390,92 @@ static const char * extractKernelName( char ** cpp )
 
 //==========================================================================
 
-void getBootOptions()
+static void
+printMemoryInfo(void)
+{
+    int line;
+    int i;
+    MemoryRange *mp = bootArgs->memoryMap;
+
+    // Activate and clear page 1
+    setActiveDisplayPage(1);
+    clearScreenRows(0, 24);
+    setCursorPosition( 0, 0, 1 );
+
+    printf("BIOS reported memory ranges:\n");
+    line = 1;
+    for (i=0; i<bootArgs->memoryMapCount; i++) {
+        printf("Base 0x%08x%08x, ",
+               (unsigned long)(mp->base >> 32),
+               (unsigned long)(mp->base));
+        printf("length 0x%08x%08x, type %d\n",
+               (unsigned long)(mp->length >> 32),
+               (unsigned long)(mp->length),
+               mp->type);
+        if (line++ > 20) {
+            printf("(Press a key to continue...)");
+            getc();
+            line = 0;
+        }
+        mp++;
+    }
+    if (line > 0) {
+        printf("(Press a key to continue...)");
+        getc();
+    }
+    
+    setActiveDisplayPage(0);
+}
+
+//==========================================================================
+
+int
+getBootOptions(BOOL firstRun)
 {
     int     i;
     int     key;
     int     selectIndex = 0;
     int     bvCount;
     int     nextRow;
+    int     timeout;
     BVRef   bvr;
     BVRef   bvChain;
     BVRef   menuBVR;
     BOOL    showPrompt, newShowPrompt;
     MenuItem *  menuItems = NULL;
-    static BOOL firstRun  = YES;
+
+    // Allow user to override default timeout.
+
+    if ( getIntForKey(kTimeoutKey, &timeout) == NO )
+    {
+        timeout = kBootTimeout;
+    }
+
+    // If the user is holding down a shift key,
+    // abort quiet mode.
+    if ( ( readKeyboardShiftFlags() & 0x0F ) != 0 ) {
+        gBootMode &= ~kBootModeQuiet;
+    }
+
+    // If user typed F8, abort quiet mode,
+    // and display the menu.
+    if (flushKeyboardBuffer()) {
+        gBootMode &= ~kBootModeQuiet;
+        timeout = 0;
+    }
 
     clearBootArgs();
-    clearScreenRows( kMenuTopRow, kScreenLastRow );
+
+    setCursorPosition( 0, 0, 0 );
+    clearScreenRows( 0, kScreenLastRow );
+    if ( ! ( gBootMode & kBootModeQuiet ) ) {
+        // Display banner and show hardware info. 
+        printf( bootBanner, (bootArgs->convmem + bootArgs->extmem) / 1024 );
+        printVBEInfo();
+    }
+
     changeCursor( 0, kMenuTopRow, kCursorTypeUnderline, 0 );
+
     verbose("Scanning device %x...", gBIOSDev);
 
     // Get a list of bootable volumes on the device.
@@ -427,11 +510,15 @@ void getBootOptions()
     }
 #endif
 
-    // Allow user to override default setting.
+    if ( gBootMode & kBootModeQuiet )
+    {
+        // No input allowed from user.
+        goto done;
+    }
 
-    if ( firstRun &&
-         countdown("Press any key to enter startup options.",
-                   kMenuTopRow, 3) == 0 )
+    if ( firstRun && ( timeout > 0 ) &&
+         ( countdown("Press any key to enter startup options.",
+                     kMenuTopRow, timeout) == 0 ) )
     {
         goto done;
     }
@@ -448,7 +535,7 @@ void getBootOptions()
         for ( bvr = bvChain, i = bvCount - 1, selectIndex = 0;
               bvr; bvr = bvr->next, i-- )
         {
-            getBootVolumeDescription( bvr, menuItems[i].name, 80 );
+            getBootVolumeDescription( bvr, menuItems[i].name, 80, YES );
             menuItems[i].param = (void *) bvr;
             if ( bvr == menuBVR ) selectIndex = i;
         }
@@ -495,7 +582,14 @@ void getBootOptions()
             case kReturnKey:
                 if ( *gBootArgs == '?' )
                 {
-                    showHelp(); key = 0;
+                    if ( strcmp( gBootArgs, "?video" ) == 0 ) {
+                        printVBEModeInfo();
+                    } else if ( strcmp( gBootArgs, "?memory" ) == 0 ) {
+                        printMemoryInfo();
+                    } else {
+                        showHelp();
+                    }
+                    key = 0;
                     showBootPrompt( nextRow, showPrompt );
                     break;
                 }
@@ -519,6 +613,8 @@ done:
     changeCursor( 0, kMenuTopRow, kCursorTypeUnderline, 0 );
 
     if ( menuItems ) free(menuItems);
+
+    return 0;
 }
 
 //==========================================================================
@@ -534,6 +630,7 @@ int processBootOptions()
     int              cnt;
     int		     userCnt;
     int              cntRemaining;
+    char *           argP;
 
     skipblanks( &cp );
 
@@ -575,20 +672,48 @@ int processBootOptions()
     if ( !sysConfigValid ) return -1;
 
     // Use the kernel name specified by the user, or fetch the name
-    // in the config table.
+    // in the config table, or use the default if not specified.
+    // Specifying a kernel name on the command line, or specifying
+    // a non-default kernel name in the config file counts as
+    // overriding the kernel, which causes the kernelcache not
+    // to be used.
 
-    if (( kernel = extractKernelName((char **)&cp) ))
-    {
+    gOverrideKernel = NO;
+    if (( kernel = extractKernelName((char **)&cp) )) {
         strcpy( bootArgs->bootFile, kernel );
-    }
-    else
-    {
-        if ( getValueForKey( kKernelNameKey, &val, &cnt ) )
+        gOverrideKernel = YES;
+    } else {
+        if ( getValueForKey( kKernelNameKey, &val, &cnt ) ) {
             strlcpy( bootArgs->bootFile, val, cnt+1 );
+            if (strcmp( bootArgs->bootFile, kDefaultKernel ) != 0) {
+                gOverrideKernel = YES;
+            }
+        } else {
+            strcpy( bootArgs->bootFile, kDefaultKernel );
+        }
+    }
+
+    cntRemaining = BOOT_STRING_LEN - 2;  // save 1 for NULL, 1 for space
+
+    // Check to see if we need to specify root device.
+    // If user types "rd=.." on the boot line, it overrides
+    // the boot device key in the boot arguments file.
+    //
+    argP = bootArgs->bootString;
+    if ( getValueForBootKey( cp, kRootDeviceKey, &val, &cnt ) == FALSE &&
+         getValueForKey( kRootDeviceKey, &val, &cnt ) == FALSE ) {
+        if ( getValueForKey( kBootDeviceKey, &val, &cnt ) ) {
+            strcpy( argP, "rd=*" );
+            argP += 4;
+            strlcpy( argP, val, cnt+1);
+            cntRemaining -= cnt;
+            argP += cnt;
+            *argP++ = ' ';
+        }
     }
 
     // Check to see if we should ignore saved kernel flags.
-    if (getValueForBootKey(cp, "-F", &val, &cnt) == FALSE) {
+    if (getValueForBootKey(cp, kIgnoreBootFileFlag, &val, &cnt) == FALSE) {
         if (getValueForKey( kKernelFlagsKey, &val, &cnt ) == FALSE) {
 	    val = 0;
 	    cnt = 0;
@@ -597,14 +722,13 @@ int processBootOptions()
 
     // Store the merged kernel flags and boot args.
 
-    cntRemaining = BOOT_STRING_LEN - 2;  // save 1 for NULL, 1 for space
     if (cnt > cntRemaining) {
 	error("Warning: boot arguments too long, truncated\n");
 	cnt = cntRemaining;
     }
     if (cnt) {
-      strncpy(bootArgs->bootString, val, cnt);
-      bootArgs->bootString[cnt++] = ' ';
+      strncpy(argP, val, cnt);
+      argP[cnt++] = ' ';
     }
     cntRemaining = cntRemaining - cnt;
     userCnt = strlen(cp);
@@ -612,21 +736,24 @@ int processBootOptions()
 	error("Warning: boot arguments too long, truncated\n");
 	userCnt = cntRemaining;
     }
-    strncpy(&bootArgs->bootString[cnt], cp, userCnt);
-    bootArgs->bootString[cnt+userCnt] = '\0';
+    strncpy(&argP[cnt], cp, userCnt);
+    argP[cnt+userCnt] = '\0';
 
-    gVerboseMode = getValueForKey( "-v", &val, &cnt ) ||
-                   getValueForKey( "-s", &val, &cnt );
+    gVerboseMode = getValueForKey( kVerboseModeFlag, &val, &cnt ) ||
+                   getValueForKey( kSingleUserModeFlag, &val, &cnt );
 
-    gBootGraphics = getBoolForKey( kBootGraphicsKey );
-
-    gBootGraphics = YES;
-    if ( getValueForKey(kBootGraphicsKey, &val, &cnt) && cnt &&
-         (val[0] == 'N' || val[0] == 'n') )
-        gBootGraphics = NO;
-
-    gBootMode = ( getValueForKey( "-f", &val, &cnt ) ) ?
+    gBootMode = ( getValueForKey( kSafeModeFlag, &val, &cnt ) ) ?
                 kBootModeSafe : kBootModeNormal;
+
+    if ( getValueForKey( kPlatformKey, &val, &cnt ) ) {
+        strlcpy(gPlatformName, val, cnt + 1);
+    } else {
+        strcpy(gPlatformName, "ACPI");
+    }
+
+    if ( getValueForKey( kMKextCacheKey, &val, &cnt ) ) {
+        strlcpy(gMKextName, val, cnt + 1);
+    }
 
     return 0;
 }
@@ -639,27 +766,77 @@ static void showHelp()
 #define BOOT_HELP_PATH  "/usr/standalone/i386/BootHelp.txt"
 
     int  fd;
+    int  size;
+    int  line;
+    int  line_offset;
+    int  c;
 
     if ( (fd = open(BOOT_HELP_PATH, 0)) >= 0 )
     {
         char * buffer;
+        char * bp;
 
-        // Activate and clear page 1
-        // Perhaps this should be loaded only once?
+        size = file_size(fd);
+        buffer = malloc( size + 1 );
+        read(fd, buffer, size);
+        close(fd);
+
+        bp = buffer;
+        while (size > 0) {
+            while (*bp != '\n') {
+            bp++;
+            size--;
+          }
+          *bp++ = '\0';
+          size--;
+        }
+        *bp = '\1';
+        line_offset = 0;
 
         setActiveDisplayPage(1);
-        clearScreenRows(0, 24);
-        setCursorPosition( 0, 0, 1 );
-        
-        buffer = malloc( file_size(fd) );
-        read(fd, buffer, file_size(fd) - 1);
-        close(fd);
-        printf("%s", buffer);
-        free(buffer);
-        
-        // Wait for a keystroke and return to page 0.
 
-        getc();
+        while (1) {
+            clearScreenRows(0, 24);
+            setCursorPosition(0, 0, 1);
+            bp = buffer;
+            for (line = 0; *bp != '\1' && line < line_offset; line++) {
+                while (*bp != '\0') bp++;
+                bp++;
+            }
+            for (line = 0; *bp != '\1' && line < 23; line++) {
+                setCursorPosition(0, line, 1);
+                printf("%s\n", bp);
+                while (*bp != '\0') bp++;
+                bp++;
+            }
+
+            setCursorPosition(0, 23, 1);
+            if (*bp == '\1') {
+                printf("[Type %sq or space to quit help]",
+                       (line_offset > 0) ? "p for previous page, " : "");
+            } else {
+                printf("[Type %s%sq to quit help]",
+                       (line_offset > 0) ? "p for previous page, " : "",
+                       (*bp != '\1') ? "space for next page, " : "");
+            }
+
+            c = getc();
+            if (c == 'q' || c == 'Q') {
+                break;
+            }
+            if ((c == 'p' || c == 'P') && line_offset > 0) {
+                line_offset -= 23;
+            }
+            if (c == ' ') {
+                if (*bp == '\1') {
+                    break;
+                } else {
+                    line_offset += 23;
+                }
+            }
+        }
+
+        free(buffer);
         setActiveDisplayPage(0);
     }
 }

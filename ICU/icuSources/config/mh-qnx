@@ -1,11 +1,9 @@
 ## -*-makefile-*-
 ## QNX-specific setup
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ##
 ## Provided By: Chris McKillop <cdm@qnx.com>
-##
-## $Id: mh-qnx,v 1.1.1.1 2003/07/03 18:13:33 avery Exp $
 
 
 #
@@ -35,7 +33,7 @@ LD_RPATH=
 LD_RPATH_PRE = -Wl,-rpath,
 
 ## Compiler switch to embed a library name
-LD_SONAME = -Wl,-soname -Wl,$(MIDDLE_SO_TARGET)
+LD_SONAME = -Wl,-soname -Wl,$(notdir $(MIDDLE_SO_TARGET))
 
 ## Shared object suffix
 SO = so
@@ -53,8 +51,6 @@ STATIC_O = ao
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d: $(srcdir)/%.c

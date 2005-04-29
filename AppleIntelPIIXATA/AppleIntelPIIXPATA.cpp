@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,6 +23,7 @@
 #include <sys/systm.h>    // snprintf
 #include <IOKit/assert.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/IOKitKeys.h>
 #include "AppleIntelPIIXPATA.h"
 
 #define super IOPCIATA
@@ -48,13 +46,29 @@ OSDefineMetaClassAndStructors( AppleIntelPIIXPATA, IOPCIATA )
 #define UDMAModes  \
     (_provider->getUltraDMAModeMask() & ((1 << piixUDMATimingCount) - 1))
 
-//---------------------------------------------------------------------------
-//
-// Start the single-channel PIIX ATA controller driver.
-//
+// Increase the PRD table size to one full page or 4096 descriptors to allow
+// for large transfers via dma engine. 2048 are required for 1 megabyte of
+// transfer assuming no fragmentation and no alignment  issues on the buffer.
+// We allocate twice that since there are more issues than simple alignment
+// for this DMA engine.
+
+#define kATAXferDMADesc  512
+#define kATAMaxDMADesc   kATAXferDMADesc
+
+// up to 2048 ATA sectors per transfer
+
+#define kMaxATAXfer      512 * 2048
+
+/*---------------------------------------------------------------------------
+ *
+ * Start the single-channel PIIX ATA controller driver.
+ *
+ ---------------------------------------------------------------------------*/
 
 bool AppleIntelPIIXPATA::start( IOService * provider )
 {
+    bool superStarted = false;
+
     DLOG("%s::%s( %p )\n", getName(), __FUNCTION__, provider);
 
     // Our provider is a 'nub' that represents a single channel
@@ -123,6 +137,7 @@ bool AppleIntelPIIXPATA::start( IOService * provider )
     {
         goto fail;
     }
+    superStarted = true;
 
     // This driver will handle interrupts using a work loop.
     // Create interrupt event source that will signal the
@@ -152,6 +167,10 @@ bool AppleIntelPIIXPATA::start( IOService * provider )
     }
     _intSrc->enable();
 
+    // Attach to power management.
+
+    initForPM( provider );
+
     // For each device discovered on the ATA bus (by super),
     // create a nub for that device and call registerService() to
     // trigger matching against that device.
@@ -168,6 +187,21 @@ bool AppleIntelPIIXPATA::start( IOService * provider )
 
             if ( nub )
             {
+                if ( _devInfo[i].type == kATAPIDeviceType )
+                {
+                    nub->setProperty( kIOMaximumSegmentCountReadKey,
+                                      kATAMaxDMADesc / 2, 64 );
+
+                    nub->setProperty( kIOMaximumSegmentCountWriteKey,
+                                      kATAMaxDMADesc / 2, 64 );
+
+                    nub->setProperty( kIOMaximumSegmentByteCountReadKey,
+                                      0x10000, 64 );
+
+                    nub->setProperty( kIOMaximumSegmentByteCountWriteKey,
+                                      0x10000, 64 );
+                }
+
                 if ( nub->attach( this ) )
                 {
                     _nub[i] = (IOATADevice *) nub;
@@ -194,7 +228,22 @@ fail:
         _provider->close( this );
     }
     
+    if (superStarted)
+        super::stop( provider );
+
     return false;
+}
+
+/*---------------------------------------------------------------------------
+ *
+ * Stop the single-channel PIIX ATA controller driver.
+ *
+ ---------------------------------------------------------------------------*/
+
+void AppleIntelPIIXPATA::stop( IOService * provider )
+{
+    PMstop();
+    super::stop( provider );
 }
 
 /*---------------------------------------------------------------------------
@@ -472,7 +521,7 @@ void AppleIntelPIIXPATA::interruptOccurred( OSObject *               owner,
 
     // Let our superclass handle the interrupt to advance to the next state
     // in its internal state machine.
-    
+
     self->handleDeviceInterrupt();
 }
 
@@ -570,6 +619,7 @@ IOReturn AppleIntelPIIXPATA::provideBusInfo( IOATABusInfo * infoOut )
     infoOut->setDMAModes( DMAModes );
     infoOut->setUltraModes( UDMAModes );
     infoOut->setExtendedLBA( true );
+    infoOut->setMaxBlocksExtended( 0x0800 );  // 2048 sectors for ext LBA
 
     UInt8 units = 0;
     if ( _devInfo[0].type != kUnknownATADeviceType ) units++;
@@ -757,7 +807,8 @@ IOReturn AppleIntelPIIXPATA::selectConfig( IOATADevConfig * config,
         // For Ultra DMA mode 3 or higher, a 80-conductor cable must
         // be present. Otherwise, the drive will be limited to mode 2.
 
-        if ( udmaModeNumber > 2 )
+        if ( udmaModeNumber > 2 &&
+             _provider->getChannelMode() == kChannelModePATA )
         {
             UInt16 cableMask = kPIIX_PCI_IDECONFIG_PCR0;
             if ( unit == kATADevice1DeviceID )         cableMask <<= 1;
@@ -765,7 +816,9 @@ IOReturn AppleIntelPIIXPATA::selectConfig( IOATADevConfig * config,
 
             if ( ( cableMask & _ideConfig ) == 0 )
             {
-                DLOG("%s: 80-conductor cable not detected\n", getName());
+                IOLog("%s: 80-conductor cable not detected on %s channel\n",
+                      getName(), (_channel == kPIIX_CHANNEL_PRIMARY) ?
+                      "primary" : "secondary" );
                 udmaModeNumber = 2;   // limited to mode 2
             }
         }
@@ -1075,4 +1128,226 @@ bool AppleIntelPIIXPATA::setDriveProperty( UInt32       driveUnit,
     snprintf(keyString, 40, "Drive %ld %s", driveUnit, key);
     
     return super::setProperty( keyString, value, numberOfBits );
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn AppleIntelPIIXPATA::createChannelCommands( void )
+{
+    IOMemoryDescriptor* descriptor = _currentCommand->getBuffer();
+    IOMemoryCursor::PhysicalSegment physSegment;
+    UInt32 index = 0;
+    UInt8  *xferDataPtr, *ptr2EndData, *next64KBlock, *starting64KBlock;
+    UInt32 xferCount, count2Next64KBlock;
+
+    if ( !descriptor )
+    {
+        return -1;
+    }
+
+    // This form of DMA engine can only do 1 pass.
+    // It cannot execute multiple chains.
+
+    IOByteCount bytesRemaining = _currentCommand->getByteCount() ;
+    IOByteCount xfrPosition    = _currentCommand->getPosition() ;
+    IOByteCount  transferSize  = 0; 
+
+    // There's a unique problem with pci-style controllers, in that each
+    // dma transaction is not allowed to cross a 64K boundary. This leaves
+    // us with the yucky task of picking apart any descriptor segments that
+    // cross such a boundary ourselves.  
+
+    while ( _DMACursor->getPhysicalSegments(
+                           /* descriptor */ descriptor,
+                           /* position   */ xfrPosition,
+                           /* segments   */ &physSegment,
+                           /* max segs   */ 1,
+                           /* max xfer   */ bytesRemaining,
+                           /* xfer size  */ &transferSize) )
+    {
+        xferDataPtr = (UInt8 *) physSegment.location;
+        xferCount   = physSegment.length;
+
+        if ( (UInt32) xferDataPtr & 0x01 )
+        {
+            IOLog("%s: DMA buffer %p not 2 byte aligned\n",
+                  getName(), xferDataPtr);
+            return kIOReturnNotAligned;        
+        }
+
+        if ( xferCount & 0x01 )
+        {
+            IOLog("%s: DMA buffer length %ld is odd\n",
+                  getName(), xferCount);
+        }
+
+        // Update bytes remaining count after this pass.
+        bytesRemaining -= xferCount;
+        xfrPosition += xferCount;
+            
+        // Examine the segment to see whether it crosses (a) 64k boundary(s)
+        starting64KBlock = (UInt8*) ( (UInt32) xferDataPtr & 0xffff0000);
+        ptr2EndData  = xferDataPtr + xferCount;
+        next64KBlock = starting64KBlock + 0x10000;
+
+        // Loop until this physical segment is fully accounted for.
+        // It is possible to have a memory descriptor which crosses more
+        // than one 64K boundary in a single span.
+        
+        while ( xferCount > 0 )
+        {
+            if (ptr2EndData > next64KBlock)
+            {
+                count2Next64KBlock = next64KBlock - xferDataPtr;
+                if ( index < kATAMaxDMADesc )
+                {
+                    setPRD( xferDataPtr, (UInt16)count2Next64KBlock,
+                            &_prdTable[index], kContinue_PRD);
+                    
+                    xferDataPtr = next64KBlock;
+                    next64KBlock += 0x10000;
+                    xferCount -= count2Next64KBlock;
+                    index++;
+                }
+                else
+                {
+                    IOLog("%s: PRD table exhausted error 1\n", getName());
+                    _dmaState = kATADMAError;
+                    return -1;
+                }
+            }
+            else
+            {
+                if (index < kATAMaxDMADesc)
+                {
+                    setPRD( xferDataPtr, (UInt16) xferCount,
+                            &_prdTable[index],
+                            (bytesRemaining == 0) ? kLast_PRD : kContinue_PRD);
+                    xferCount = 0;
+                    index++;
+                }
+                else
+                {
+                    IOLog("%s: PRD table exhausted error 2\n", getName());
+                    _dmaState = kATADMAError;
+                    return -1;
+                }
+            }
+        }
+    } // end of segment counting loop.
+
+    if (index == 0)
+    {
+        IOLog("%s: rejected command with zero PRD count (0x%lx bytes)\n",
+              getName(), _currentCommand->getByteCount());
+        return kATADeviceError;
+    }
+
+    // Transfer is satisfied and only need to check status on interrupt.
+    _dmaState = kATADMAStatus;
+    
+    // Chain is now ready for execution.
+    return kATANoErr;
+}
+
+//---------------------------------------------------------------------------
+
+bool AppleIntelPIIXPATA::allocDMAChannel( void )
+{
+    _prdTable = (PRD *) IOMallocContiguous(
+                        /* size  */ sizeof(PRD) * kATAMaxDMADesc, 
+                        /* align */ 0x10000, 
+                        /* phys  */ &_prdTablePhysical );
+
+    if ( !_prdTable )
+    {
+        IOLog("%s: PRD table allocation failed\n", getName());
+        return false;
+    }
+
+    _DMACursor = IONaturalMemoryCursor::withSpecification(
+                          /* max segment size  */ 0x10000,
+                          /* max transfer size */ kMaxATAXfer );
+    
+    if ( !_DMACursor )
+    {
+        freeDMAChannel();
+        IOLog("%s: Memory cursor allocation failed\n", getName());
+        return false;
+    }
+
+    // fill the chain with stop commands to initialize it.    
+    initATADMAChains( _prdTable );
+
+    return true;
+}
+
+//---------------------------------------------------------------------------
+
+bool AppleIntelPIIXPATA::freeDMAChannel( void )
+{
+    if ( _prdTable )
+    {
+        // make sure the engine is stopped.
+        stopDMA();
+
+        // free the descriptor table.
+        IOFreeContiguous(_prdTable, sizeof(PRD) * kATAMaxDMADesc);
+    }
+
+    return true;
+}
+
+//---------------------------------------------------------------------------
+
+void AppleIntelPIIXPATA::initATADMAChains( PRD * descPtr )
+{
+    UInt32 i;
+
+    /* Initialize the data-transfer PRD channel command descriptors. */
+
+    for (i = 0; i < kATAMaxDMADesc; i++)
+    {
+        descPtr->bufferPtr = 0;
+        descPtr->byteCount = 1;
+        descPtr->flags = OSSwapHostToLittleConstInt16( kLast_PRD );
+        descPtr++;
+    }
+}
+
+//---------------------------------------------------------------------------
+
+void AppleIntelPIIXPATA::initForPM( IOService * provider )
+{
+    static const IOPMPowerState powerStates[ kPIIXPowerStateCount ] =
+    {
+        { 1, 0, 0,             0,             0, 0, 0, 0, 0, 0, 0, 0 },
+        { 1, 0, IOPMSoftSleep, IOPMSoftSleep, 0, 0, 0, 0, 0, 0, 0, 0 },
+        { 1, 0, IOPMPowerOn,   IOPMPowerOn,   0, 0, 0, 0, 0, 0, 0, 0 }
+    };
+
+    PMinit();
+
+    registerPowerDriver( this, (IOPMPowerState *) powerStates,
+                         kPIIXPowerStateCount );
+
+    provider->joinPMtree( this );
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn AppleIntelPIIXPATA::setPowerState( unsigned long stateIndex,
+                                            IOService *   whatDevice )
+{
+    if ( stateIndex == kPIIXPowerStateOff )
+    {
+        _initTimingRegisters = true;
+    }
+    else if ( _initTimingRegisters )
+    {
+        writeTimingRegisters();
+        _initTimingRegisters = false;
+    }
+
+    return IOPMAckImplied;
 }

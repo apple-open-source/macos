@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/dri/drm/Imakefile,v 1.20 2002/10/30 12:51:25 alanh Exp $
+XCOMM $XFree86: xc/lib/GL/dri/drm/Imakefile,v 1.23 2003/12/02 13:02:37 alanh Exp $
 
 #if GlxUseBuiltInDRIDriver
 #define DoNormalLib (NormalLibGlx || SharedLibGlxWithoutPIC)
@@ -30,10 +30,13 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
 #if defined(LinuxArchitecture)
 OS_SUBDIR = linux
 OS_SUBDIR2 = linux
+OS_SUBDIR3 = shared
 #endif
-#if defined(FreeBSDArchitecture) || defined(BSDOSArchitecture)
+#if defined(FreeBSDArchitecture) || defined(BSDOSArchitecture) || \
+    defined(NetBSDArchitecture) || defined(OpenBSDArchitecture)
 OS_SUBDIR = bsd
 OS_SUBDIR2 = linux
+OS_SUBDIR3 = shared
 #endif
 
 LinkSourceFile(xf86drm.c,$(XF86OSSRC)/$(OS_SUBDIR2)/drm)
@@ -42,7 +45,7 @@ LinkSourceFile(xf86drmHash.c,$(XF86OSSRC)/$(OS_SUBDIR2)/drm)
 LinkSourceFile(xf86drmRandom.c,$(XF86OSSRC)/$(OS_SUBDIR2)/drm)
 LinkSourceFile(xf86drmSL.c,$(XF86OSSRC)/$(OS_SUBDIR2)/drm)
 
-LinkSourceFile(drm.h,$(XF86OSSRC)/$(OS_SUBDIR2)/drm/kernel)
+LinkSourceFile(drm.h,$(XF86OSSRC)/$(OS_SUBDIR3)/drm/kernel)
 
 #include <Library.tmpl>
 

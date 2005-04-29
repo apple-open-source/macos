@@ -24,9 +24,16 @@
 
 #include "AppleRS232Serial.h"
 
-#include <kern/cpu_data.h>
-#include <sys/kdebug.h>
-#include <kern/thread.h>
+//#include <kern/cpu_data.h>
+//#include <sys/kdebug.h>
+//#include <kern/thread.h>
+
+
+#if USE_ELG
+extern com_apple_iokit_XTrace	*gXTrace;
+extern UInt32			gTraceID;
+#endif
+
 
 /****************************************************************************************************/
 //
@@ -46,12 +53,14 @@
 
 QueueStatus AddBytetoQueue(CirQueue *Queue, char Value)
 {
-
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "AddBytetoQueue - InQueue, inGate");
+    
 //    mutex_lock(Queue->InUse);
     
     if ((Queue->NextChar == Queue->LastChar) && Queue->InQueue)
     {
 //        mutex_unlock(Queue->InUse);
+		ELG(Queue->NextChar, Queue->LastChar, "AddBytetoQueue - but queue is full!");
         return queueFull;
     }
 
@@ -83,6 +92,7 @@ QueueStatus AddBytetoQueue(CirQueue *Queue, char Value)
 
 QueueStatus GetBytetoQueue(CirQueue *Queue, UInt8 *Value)
 {
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "GetBytetoQueue - InQueue, inGate");
 	
 //    mutex_lock(Queue->InUse);
     
@@ -120,8 +130,10 @@ QueueStatus GetBytetoQueue(CirQueue *Queue, UInt8 *Value)
 //
 /****************************************************************************************************/
 
-QueueStatus InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
+QueueStatus InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size, IOWorkLoop *workloop)
 {
+    ELG(0, 0, "InitQueue");
+    
     Queue->Start	= Buffer;
     Queue->End		= (UInt8*)((size_t)Buffer + Size);
     Queue->Size		= Size;
@@ -129,8 +141,9 @@ QueueStatus InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
     Queue->LastChar	= Buffer;
     Queue->InQueue	= 0;
 //    Queue->InUse	= mutex_alloc(ETAP_IO_AHA);
+    Queue->Workloop	= workloop;
 
-    IOSleep(1);
+    IOSleep(1);		// JDG: what is this doing here??
 	
     return queueNoError;
 	
@@ -150,7 +163,8 @@ QueueStatus InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
 
 QueueStatus CloseQueue(CirQueue *Queue)
 {
-
+    ELG(0, 0, "CloseQueue");
+    
     Queue->Start	= 0;
     Queue->End		= 0;
     Queue->NextChar	= 0;
@@ -177,6 +191,7 @@ QueueStatus CloseQueue(CirQueue *Queue)
 
 void ResetQueue(CirQueue *Queue)
 {
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "ResetQueue - InQueue, inGate");
 
     Queue->NextChar	= Queue->Start;
     Queue->LastChar	= Queue->Start;
@@ -202,12 +217,14 @@ size_t AddtoQueue(CirQueue *Queue, UInt8 *Buffer, size_t Size)
 {
     size_t	BytesWritten = 0;
 
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "AddtoQueue - InQueue, inGate");
+
     while (FreeSpaceinQueue(Queue) && (Size > BytesWritten))
     {
         AddBytetoQueue(Queue, *Buffer++);
         BytesWritten++;
     }
-
+    LogData(kSerialIn, BytesWritten, Buffer - BytesWritten);
     return BytesWritten;
 	
 }/* end AddtoQueue */
@@ -230,6 +247,8 @@ size_t RemovefromQueue(CirQueue *Queue, UInt8 *Buffer, size_t MaxSize)
 {
     size_t	BytesReceived = 0;
     UInt8	Value;
+
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "RemovefromQueue - InQueue, inGate");
 
     //  while((GetBytetoQueue(Queue, &Value) == queueNoError) && (MaxSize >= BytesReceived))
     while((MaxSize > BytesReceived) && (GetBytetoQueue(Queue, &Value) == queueNoError)) 
@@ -258,6 +277,8 @@ size_t FreeSpaceinQueue(CirQueue *Queue)
 {
     size_t	retVal = 0;
 
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "FreeSpaceinQueue - InQueue, inGate");
+    
 //    mutex_lock(Queue->InUse);
     
     retVal = Queue->Size - Queue->InQueue;
@@ -283,7 +304,9 @@ size_t FreeSpaceinQueue(CirQueue *Queue)
 size_t UsedSpaceinQueue(CirQueue *Queue)
 {
     size_t	returnVal;
-    
+
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "UsedSpaceinQueue - InQueue, inGate");
+
 //    mutex_lock(Queue->InUse);
     
     returnVal = Queue->InQueue;
@@ -308,6 +331,8 @@ size_t UsedSpaceinQueue(CirQueue *Queue)
 
 size_t GetQueueSize(CirQueue *Queue)
 {
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "GetQueueSize - InQueue, inGate");
+
     return Queue->Size;
 	
 }/* end GetQueueSize */
@@ -328,7 +353,9 @@ QueueStatus GetQueueStatus(CirQueue *Queue)
 {
     QueueStatus	returnVal = queueNoError;
     
-//    mutex_lock(Queue->InUse);
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "GetQueueStatus - InQueue, inGate");
+
+    //    mutex_lock(Queue->InUse);
     
     if ((Queue->NextChar == Queue->LastChar) && Queue->InQueue)
     {
@@ -363,7 +390,9 @@ UInt8* BeginDirectReadFromQueue(CirQueue *Queue, size_t *size, bool *queueWrappe
 {
     UInt8	*queuePtr = NULL;
 
-//    mutex_lock(Queue->InUse);
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "BeginDirectReadFromQueue - InQueue, inGate");
+
+    //    mutex_lock(Queue->InUse);
 	
     *queueWrapped = false;
 
@@ -399,7 +428,9 @@ UInt8* BeginDirectReadFromQueue(CirQueue *Queue, size_t *size, bool *queueWrappe
 void EndDirectReadFromQueue(CirQueue *Queue, size_t size)
 {
 
-//    mutex_lock(Queue->InUse);
+    ELG(Queue->InQueue, Queue->Workloop->inGate(), "EndDirectReadFromQueue - InQueue, inGate");
+
+    //    mutex_lock(Queue->InUse);
 	
     Queue->LastChar += size;
     Queue->InQueue -= size;

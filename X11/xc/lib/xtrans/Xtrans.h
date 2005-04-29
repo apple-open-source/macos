@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/xtrans/Xtrans.h,v 3.18 2001/12/14 19:57:04 dawes Exp $ */
+/* $XFree86: xc/lib/xtrans/Xtrans.h,v 3.22 2003/07/24 13:50:19 eich Exp $ */
 
 /* Copyright 1993, 1994 NCR Corporation - Dayton, Ohio, USA
  *
@@ -57,6 +57,14 @@ from The Open Group.
 #include <X11/Xfuncproto.h>
 #include <X11/Xos.h>
 
+#ifndef WIN32
+#ifndef Lynx
+#include <sys/socket.h>
+#else
+#include <socket.h>
+#endif
+#endif
+
 
 /*
  * Set the functions names according to where this code is being compiled.
@@ -83,7 +91,7 @@ static char* __xtransname = "_X11Trans";
 static char* __xtransname = "_XSERVTrans";
 #endif
 #define X11_t
-#endif /* X11_t */
+#endif /* XSERV_t */
 
 #ifdef XIM_t
 #if !defined(UNIXCPP) || defined(ANSICPP)
@@ -173,12 +181,15 @@ static char* __xtransname = "_XTrans";
  * This structure needs to be independent of the socket/TLI interface used.
  */
 
+#if defined(IPv6) && defined(AF_INET6)
+typedef struct sockaddr_storage Xtransaddr;
+#else
 #define XTRANS_MAX_ADDR_LEN	128	/* large enough to hold sun_path */
 
 typedef	struct {
     unsigned char	addr[XTRANS_MAX_ADDR_LEN];
 } Xtransaddr;
-
+#endif
 
 #ifdef LONG64
 typedef int BytesReadable_t;
@@ -328,7 +339,8 @@ int TRANS(SetOption)(
 
 int TRANS(CreateListener)(
     XtransConnInfo,	/* ciptr */
-    char *		/* port */
+    char *,		/* port */
+    unsigned int	/* flags */
 );
 
 int TRANS(NoListen) (

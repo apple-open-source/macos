@@ -1,6 +1,6 @@
 /*
  * table_array.c
- * $Id: table_array.c,v 1.1.1.1 2003/05/29 00:03:05 rbraun Exp $
+ * $Id: table_array.c,v 5.23 2004/10/19 10:13:34 dts12 Exp $
  */
 
 #include <net-snmp/net-snmp-config.h>
@@ -360,49 +360,7 @@ release_netsnmp_request_groups(void *vp)
     CONTAINER_FREE(c);
 }
 
-NETSNMP_INLINE netsnmp_index *
-find_next_row(netsnmp_table_request_info *tblreq_info,
-              table_container_data * tad)
-{
-    netsnmp_index *row = NULL;
-    netsnmp_index index;
-
-    if (!tblreq_info || !tad)
-        return NULL;
-
-    /*
-     * below our minimum column?
-     */
-    if (tblreq_info->colnum < tad->tblreg_info->min_column) {
-        tblreq_info->colnum = tad->tblreg_info->min_column;
-        row = CONTAINER_FIRST(tad->table);
-    } else {
-        index.oids = tblreq_info->index_oid;
-        index.len = tblreq_info->index_oid_len;
-
-        row = CONTAINER_NEXT(tad->table, &index);
-
-        /*
-         * we don't have a row, but we might be at the end of a
-         * column, so try the next one.
-         */
-        if (!row) {
-            ++tblreq_info->colnum;
-            if (tad->tblreg_info->valid_columns) {
-                tblreq_info->colnum = netsnmp_closest_column
-                    (tblreq_info->colnum, tad->tblreg_info->valid_columns);
-            } else if (tblreq_info->colnum > tad->tblreg_info->max_column)
-                tblreq_info->colnum = 0;
-
-            if (tblreq_info->colnum != 0)
-                row = CONTAINER_FIRST(tad->table);
-        }
-    }
-
-    return row;
-}
-
-NETSNMP_INLINE void
+void
 build_new_oid(netsnmp_handler_registration *reginfo,
               netsnmp_table_request_info *tblreq_info,
               netsnmp_index *row, netsnmp_request_info *current)
@@ -439,7 +397,7 @@ build_new_oid(netsnmp_handler_registration *reginfo,
  *                                                                    *
  **********************************************************************
  **********************************************************************/
-NETSNMP_INLINE int
+int
 process_get_requests(netsnmp_handler_registration *reginfo,
                      netsnmp_agent_request_info *agtreq_info,
                      netsnmp_request_info *requests,
@@ -486,7 +444,7 @@ process_get_requests(netsnmp_handler_registration *reginfo,
             /*
              * find the row
              */
-            row = find_next_row(tblreq_info, tad);
+            row = netsnmp_table_index_find_next_row(tad->table, tblreq_info);
             if (!row) {
                 /*
                  * no results found.
@@ -495,6 +453,8 @@ process_get_requests(netsnmp_handler_registration *reginfo,
                  * but still allow it a chance to hit another handler?
                  */
                 DEBUGMSGTL(("table_array:get", "no row found\n"));
+                netsnmp_set_request_error(agtreq_info, current,
+                                          SNMP_ENDOFMIBVIEW);
                 continue;
             }
 
@@ -543,7 +503,7 @@ process_get_requests(netsnmp_handler_registration *reginfo,
  **********************************************************************
  **********************************************************************/
 
-NETSNMP_INLINE void
+void
 group_requests(netsnmp_agent_request_info *agtreq_info,
                netsnmp_request_info *requests,
                netsnmp_container *request_group, table_container_data * tad)
@@ -654,7 +614,7 @@ group_requests(netsnmp_agent_request_info *agtreq_info,
     } /** for( current ... ) */
 }
 
-static NETSNMP_INLINE void
+static void
 process_set_group(netsnmp_index *o, void *c)
 {
     /* xxx-rks: should we continue processing after an error?? */
@@ -670,7 +630,10 @@ process_set_group(netsnmp_index *o, void *c)
          * if not a new row, save undo info
          */
         if (ag->row_created == 0) {
-            ag->undo_info = context->tad->cb->duplicate_row(ag->existing_row);
+            if (context->tad->cb->duplicate_row)
+                ag->undo_info = context->tad->cb->duplicate_row(ag->existing_row);
+            else
+                ag->undo_info = NULL;
             if (NULL == ag->undo_info) {
                 rc = SNMP_ERR_RESOURCEUNAVAILABLE;
                 break;
@@ -746,8 +709,14 @@ process_set_group(netsnmp_index *o, void *c)
             context->tad->cb->set_free(ag);
 
         /** no more use for undo_info, so free it */
-        if (ag->undo_info) {
-            context->tad->cb->delete_row(ag->undo_info);
+        if (ag->row_created == 1) {
+            if (context->tad->cb->delete_row)
+                context->tad->cb->delete_row(ag->existing_row);
+            ag->existing_row = NULL;
+        }
+        else {
+            if (context->tad->cb->delete_row)
+                context->tad->cb->delete_row(ag->undo_info);
             ag->undo_info = NULL;
         }
         break;
@@ -910,7 +879,7 @@ netsnmp_table_array_helper_handler(netsnmp_mib_handler *handler,
     }
     
     /*
-     * Now we've done out processing. If there is another handler below us,
+     * Now we've done our processing. If there is another handler below us,
      * call them.
      */
     if (handler->next) {

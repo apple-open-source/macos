@@ -50,7 +50,7 @@ from The Open Group.
 /*
  * By Stephen Gildea, X Consortium, and Martha Zimet, NCD.
  */
-/* $XFree86: xc/lib/Xtst/XRecord.c,v 1.6 2002/10/16 00:37:33 dawes Exp $ */
+/* $XFree86: xc/lib/Xtst/XRecord.c,v 1.7 2003/09/13 21:33:00 dawes Exp $ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -61,8 +61,6 @@ from The Open Group.
 #include <X11/Xtrans.h>
 #include <X11/extensions/extutil.h>
 #include <X11/extensions/recordstr.h>
-
-extern unsigned long _XSetLastRequestRead();
 
 static XExtensionInfo _xrecord_info_data;
 static XExtensionInfo *xrecord_info = &_xrecord_info_data;

@@ -49,7 +49,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/snfread.c,v 1.11 2003/01/12 03:55:46 tsi Exp $ */
+/* $XFree86: xc/lib/font/bitmap/snfread.c,v 1.13 2003/11/18 01:17:04 dawes Exp $ */
 
 #ifndef FONTMODULE
 #include <ctype.h>
@@ -59,28 +59,14 @@ from The Open Group.
 #include "bitmap.h"
 #include "snfstr.h"
 
-#if NeedVarargsPrototypes
 #include <stdarg.h>
-#else
-#include <varargs.h>
-#endif
 
 void
-#if NeedVarargsPrototypes
-snfError(char* message, ...)
-#else
-snfError (message, va_alist)
-    char* message;
-    va_dcl
-#endif
+snfError(const char* message, ...)
 {
     va_list args;
 
-#if NeedVarargsPrototypes
     va_start(args, message);
-#else
-    va_start(args);
-#endif
 
     fprintf(stderr, "SNF Error: ");
     vfprintf(stderr, message, args);

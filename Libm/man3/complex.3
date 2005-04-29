@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)floor.3	6.5 (Berkeley) 4/19/91
-.\"	$Id: complex.3,v 1.2 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: complex.3,v 1.5 2004/12/20 21:35:44 scp Exp $
 .\"
 .Dd August 15, 2003
 .Dt COMPLEX 3
@@ -38,14 +38,15 @@
 .Sh NAME
 .Nm complex
 .Nd complex floating-point functions
+.Sh SYNOPSIS
+.Fd #include <complex.h>
 .Sh DESCRIPTION
-The following functions are complex floating-point values, as arguments and return values.
-Some use single-precision complex values and some use double-precision complex values, as
+The following functions operate on complex floating-point values, as arguments and return values.
+Some use single-precision complex values,
+some use double-precision complex values, 
+and some use long double-precision complex values, as
 indicated. The functions conform to the ISO/IEC 9899:1999(E) standard. The function
 prototypes can be found in the header file complex.h.
-.Pp
-To use these functions you must add an additional flag to the link step that produces the
-executable binary. Specify "-lmx".
 .Pp
 These are the functions that use single-precision complex values:
 .Pp
@@ -138,3 +139,48 @@ These are the functions that use double-precision complex values:
 .Fn ctan
 .Pp
 .Fn ctanh
+These are the functions that use long double-precision complex values:
+.Pp
+.Fn cabsl
+.Pp
+.Fn cacosl
+.Pp
+.Fn cacoshl
+.Pp
+.Fn cargl
+.Pp
+.Fn casinl
+.Pp
+.Fn casinhl
+.Pp
+.Fn catanl
+.Pp
+.Fn catanhl
+.Pp
+.Fn ccosl
+.Pp
+.Fn ccoshl
+.Pp
+.Fn cexpl
+.Pp
+.Fn cimagl
+.Pp
+.Fn clogl
+.Pp
+.Fn conjl
+.Pp
+.Fn cpowl
+.Pp
+.Fn cprojl
+.Pp
+.Fn creall
+.Pp
+.Fn csinl
+.Pp
+.Fn csinhl
+.Pp
+.Fn csqrtl
+.Pp
+.Fn ctanl
+.Pp
+.Fn ctanhl

@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.2 2004/07/23 06:26:31 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,37 +23,30 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Variables
 
-AM_CFLAGS = $(GNUCFLAGS)
-INCLUDES = @INCLUDES@ $(GIMP_CFLAGS) $(LIBGIMPPRINT_CFLAGS)
-LIBS = $(INTLLIBS) @LIBS@
-LIBPRINTUT = $(top_builddir)/lib/libprintut.la
-
-libexecdir = $(gimptool_prefix)/plug-ins
+LOCAL_CPPFLAGS = $(GIMPPRINT_CFLAGS) $(GIMP_CFLAGS)
 
 
 ## Programs
 
-GIMP_BIN = print
-
-gimp_plug_in_PROGRAMS = @GIMP_BIN@
-
-EXTRA_PROGRAMS = print
+if BUILD_GIMP
+gimp_plug_in_PROGRAMS = print
+endif
 
 print_SOURCES = \
 	print-image-gimp.c \
 	print-intl.h \
 	print.c \
-	gimp_color_window.c \
-	gimp_main_window.c \
 	print_gimp.h
-print_LDADD = $(LIBPRINTUT) $(GIMP_LIBS) $(LIBGIMPPRINT_LIBS)
-print_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+
+print_LDADD = $(GIMP_LIBS) $(GIMPPRINTUI_LIBS)
+print_DEPENDENCIES = $(GIMPPRINTUI_LIBS) $(GIMPPRINT_LIBS)
 
 
 ## Clean
 
-CLEANFILES = $(EXTRA_PROGRAMS)
 MAINTAINERCLEANFILES = Makefile.in

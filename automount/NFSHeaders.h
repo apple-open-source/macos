@@ -67,7 +67,6 @@
 #define MNT_UNION 0
 #define MNT_SYNCHRONOUS 0
 #define NFSMNT_NOCONN 0
-#define NFSMNT_NQNFS 0
 #define NFSMNT_NFSV3 0
 #define NFSMNT_KERB 0
 #define NFSMNT_DUMBTIMR 0

@@ -339,9 +339,9 @@ def makedirs(dir):
         os.makedirs(dir, 02775)
         # Unfortunately, FreeBSD seems to be broken in that it doesn't honor
         # the mode arg of mkdir().
-        def twiddle(arg, dirname, names):
-            os.chmod(dirname, 02775)
-        os.path.walk(dir, twiddle, None)
+        # def twiddle(arg, dirname, names):
+        #     os.chmod(dirname, 02775)
+        # os.path.walk(dir, twiddle, None)
     except OSError, e:
         if e.errno <> errno.EEXIST: raise
 

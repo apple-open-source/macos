@@ -1,0 +1,6 @@
+ VIEW     1 rows = a:V
+    0: subview 'a'
+   VIEW     3 rows = p1:S
+      0: 'one'
+      1: 'three'
+      2: 'two'

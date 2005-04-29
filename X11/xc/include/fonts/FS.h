@@ -50,7 +50,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/include/fonts/FS.h,v 1.8 2001/12/14 19:53:31 dawes Exp $ */
+/* $XFree86: xc/include/fonts/FS.h,v 1.10 2003/07/18 15:53:24 tsi Exp $ */
 
 #ifndef _FS_H_
 #define	_FS_H_
@@ -66,6 +66,7 @@ in this Software without prior written authorization from The Open Group.
 #define FamilyInternet          0
 #define FamilyDECnet            1
 #define FamilyChaos             2
+#define FamilyInternet6         6
 
 
 typedef unsigned int    FSDrawDirection;

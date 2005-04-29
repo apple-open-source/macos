@@ -46,7 +46,9 @@ provided test systems where I was able to do development work.
 	Dave Bianchi
 	Mark Bixby
 	Allan Black
+	Jan Blunck
 	Achim Bohnet
+	Steve Bonds
 	Mark Bonsack
 	Volker Borchert
 	Bill Bormann
@@ -84,6 +86,7 @@ provided test systems where I was able to do development work.
 	Jim Cooper
 	Doug Crabill
 	Eric Cronin
+	Kim Culhan
 	Dave Curry
 	Robert Dahlem
 	Guy Dallaire
@@ -99,6 +102,7 @@ provided test systems where I was able to do development work.
 	John DiMarco
 	Don Draper
 	Eric Dumazet
+	Dick Dunbar
 	Marc Duponcheel
 	Jan Dvorak
 	Calle Dybedahl
@@ -124,14 +128,18 @@ provided test systems where I was able to do development work.
 	Bob Foertsch
 	Pierre-Yves Fontaniere
 	Ralph Forsythe
+	Jason Fortezzo
 	Mike Fraser
 	Curt Freeland
 	Terry Friedrichsen
+	Harvey Garner
 	Stuart D. Gathman
 	Brian L. Gentry
 	Dave Gilbert
+	Jin Guojun
 	Kurt Gollhardt
 	Roman Gollent
+	Steve Gonczi
 	Julian Gordon
 	Henry Grebler
 	Richard Green
@@ -145,6 +153,7 @@ provided test systems where I was able to do development work.
 	Michael Haro
 	Steinar Haug
 	Sheldon Hearn
+	John Heasley
 	Wolfgang Hecht
 	Janet Hempstead
 	Michael Hennecke
@@ -171,6 +180,8 @@ provided test systems where I was able to do development work.
 	John Jackson
 	Kurt Jaeger
 	Marian Jancar
+	Paul Jarc
+	Jakub Jelinek
 	Bruce Jerrick
 	Carl Johnson
 	Dion Johnson
@@ -221,15 +232,18 @@ provided test systems where I was able to do development work.
 	Tin Le
 	Diane Lebel
 	Francis Le Bourse
+	Kyungjoon Lee
 	Marty Leisner
 	Maciej Lesniewski
 	Stuart Levy
+	Ben Lewis
 	Michael Lewis
 	Angel Li
 	Ambrose Li
 	Wendy Lin
 	Carl E. Lindberg
 	Onno van der Linden
+	Johan Lindquist
 	Jason Lingohr
 	Robert Lipe
 	Gabor Liptak
@@ -268,6 +282,7 @@ provided test systems where I was able to do development work.
 	Davin Milun
 	Yuliy Minchev
 	Jim Mintha
+	Mike Miscevic
 	Arkadiusz Miskiewicz
 	Nasser Momtaheni
 	Laurent Montaron
@@ -278,6 +293,7 @@ provided test systems where I was able to do development work.
 	Dave Morrison
 	Pat Myrto
 	Toshiya Nakamura
+	Filippo Natali
 	Allan Nathanson
 	Chance Neale
 	Dan Nelson
@@ -289,6 +305,7 @@ provided test systems where I was able to do development work.
 	Craig B. Olofson
 	Dave Olson
 	Rainer Orth
+	Sergey A. Osokin
 	Keith Parks
 	Will Partain
 	Vasco Pedro
@@ -304,11 +321,13 @@ provided test systems where I was able to do development work.
 	Ray Phillips
 	Francois Pinard
 	Alex Podlecki
+	Lutz Poetschulat,
 	John Polstra
 	Scott Presnell
 	Mark Price
 	Philippe-Andre Prindeville
 	David Putz
+	Tom Qin
 	Kurtis Rader
 	Peter Radig
 	Jean-Pierre Radley
@@ -368,6 +387,7 @@ provided test systems where I was able to do development work.
 	Patrick D. Sullivan
 	Peter Svensson
 	Chris Sylvain
+	Paul Szabo
 	Dale Talcott
 	Jon A. Tankersley
 	Jan Tax
@@ -397,12 +417,15 @@ provided test systems where I was able to do development work.
 	Marc Winkler
 	Mark Vasoll
 	Robert Vernon
+	Joep Vesseur
 	Larry Virden
 	Jos Vos
 	Jun Biao Wang
 	Bill Watson
+	Florian M. Weps
 	Joel White
 	Paul Wickman
+	Eric Williams
 	Steve Williams
 	Steve Wilson
 	Erich Wimmer
@@ -423,4 +446,4 @@ and I apologize for the error.
 
 
 Vic Abell <abe@purdue.edu>
-June 12, 2003
+Octover 17, 2004

@@ -1,8 +1,8 @@
 #
 #   irb/slex.rb - symple lex analizer
-#   	$Release Version: 0.7.3$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.6.2.1 $
+#   	$Date: 2004/03/28 14:10:39 $
 #   	by Keiju ISHITSUKA(keiju@ishituska.com)
 #
 # --
@@ -13,7 +13,7 @@
 require "e2mmap"
 
 class SLex
-  @RCS_ID='-$Id: slex.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $-'
+  @RCS_ID='-$Id: slex.rb,v 1.6.2.1 2004/03/28 14:10:39 akr Exp $-'
 
   extend Exception2MessageMapper
   def_exception :ErrNodeNothing, "node nothing"
@@ -31,22 +31,22 @@ class SLex
     @head = Node.new("")
   end
   
-  def def_rule(token, preproc = nil, postproc = nil)
+  def def_rule(token, preproc = nil, postproc = nil, &block)
     #      print node.inspect, "\n" if SLex.debug?
-    postproc = proc if iterator?
+    postproc = block if block_given?
     node = create(token, preproc, postproc)
   end
   
-  def def_rules(*tokens)
-    if iterator?
-      p = proc
+  def def_rules(*tokens, &block)
+    if block_given?
+      p = block
     end
     for token in tokens
       def_rule(token, nil, p)
     end
   end
   
-  def preporc(token, proc)
+  def preproc(token, proc)
     node = search(token)
     node.preproc=proc
   end
@@ -68,8 +68,7 @@ class SLex
     case token
     when Array
     when String
-      token = token.split(//)
-      match(token.split(//))
+      return match(token.split(//))
     else
       return @head.match_io(token)
     end
@@ -120,7 +119,7 @@ class SLex
 	  p node
 	  SLex.fail ErrNodeAlreadyExists
 	else
-	  print "Warn: change abstruct node to real node\n" if SLex.debug?
+	  print "Warn: change abstract node to real node\n" if SLex.debug?
 	  @preproc = preproc
 	  @postproc = postproc
 	end
@@ -137,7 +136,7 @@ class SLex
 	    p chrs
 	    SLex.fail ErrNodeAlreadyExists
 	  else
-	    print "Warn: change abstruct node to real node\n" if SLex.debug?
+	    print "Warn: change abstract node to real node\n" if SLex.debug?
 	    node.preproc = preproc
 	    node.postproc = postproc
 	  end

@@ -40,6 +40,10 @@
 
 #include <streambuf>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 // NB: Should specialize copy, find algorithms for streambuf iterators.
 
 namespace std
@@ -64,8 +68,6 @@ namespace std
       // If the end of stream is reached (streambuf_type::sgetc()
       // returns traits_type::eof()), the iterator becomes equal to
       // the "end of stream" iterator value.
-      // NB: This implementation assumes the "end of stream" value
-      // is EOF, or -1.
       mutable streambuf_type* 	_M_sbuf;  
       int_type 			_M_c;
 
@@ -79,14 +81,29 @@ namespace std
       istreambuf_iterator(streambuf_type* __s) throw()
       : _M_sbuf(__s), _M_c(traits_type::eof()) { }
        
-      // NB: The result of operator*() on an end of stream is undefined.
       char_type 
       operator*() const
-      { return traits_type::to_char_type(_M_get()); }
+      { 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#ifdef _GLIBCXX_DEBUG_PEDANTIC
+	// Dereferencing a past-the-end istreambuf_iterator is a
+	// libstdc++ extension
+	__glibcxx_requires_cond(!_M_at_eof(),
+				_M_message(__debug::__dbg_msg_deref_istreambuf)
+				._M_iterator(*this)); 
+#endif
+/* APPLE LOCAL end libstdc++ debug mode */
+	return traits_type::to_char_type(_M_get()); 
+      }
 	
       istreambuf_iterator& 
       operator++()
       { 
+/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(!_M_at_eof(),
+				_M_message(__debug::__dbg_msg_inc_istreambuf)
+				._M_iterator(*this)); 
+/* APPLE LOCAL end libstdc++ debug mode */
 	const int_type __eof = traits_type::eof();
 	if (_M_sbuf && traits_type::eq_int_type(_M_sbuf->sbumpc(), __eof))
 	  _M_sbuf = 0;
@@ -98,6 +115,11 @@ namespace std
       istreambuf_iterator
       operator++(int)
       {
+/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(!_M_at_eof(),
+				_M_message(__debug::__dbg_msg_inc_istreambuf)
+				._M_iterator(*this)); 
+/* APPLE LOCAL end libstdc++ debug mode */
 	const int_type __eof = traits_type::eof();
 	istreambuf_iterator __old = *this;
 	if (_M_sbuf
@@ -116,8 +138,8 @@ namespace std
       equal(const istreambuf_iterator& __b) const
       {
 	const int_type __eof = traits_type::eof();
-	bool __thiseof = traits_type::eq_int_type(_M_get(), __eof);
-	bool __beof = traits_type::eq_int_type(__b._M_get(), __eof);
+	bool __thiseof = _M_at_eof();
+	bool __beof = __b._M_at_eof();
 	return (__thiseof && __beof || (!__thiseof && !__beof));
       }
 #endif
@@ -137,6 +159,13 @@ namespace std
 		_M_sbuf = 0;
 	  }
 	return __ret;
+      }
+
+      bool 
+      _M_at_eof() const
+      {
+	const int_type __eof = traits_type::eof();
+	return traits_type::eq_int_type(_M_get(), __eof);
       }
     };
 

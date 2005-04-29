@@ -1,11 +1,15 @@
 XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:49 cpqbld Exp $
 
+
+
+XCOMM $XFree86: xc/programs/xkbevd/Imakefile,v 3.3 2003/05/27 17:58:24 tsi Exp $
+
           SRCS = xkbevd.c cfgscan.c cfgparse.c \
 		 evargs.c printev.c utils.c
           OBJS = xkbevd.o cfgscan.o cfgparse.o \
 		 evargs.o printev.o utils.o
-        DEPLIBS = $(DEPXKBFILELIB) $(DEPXLIBONLY)
-LOCAL_LIBRARIES = $(XKBFILELIB) $(XLIB)
+        DEPLIBS = $(DEPXKBFILELIB) $(DEPXONLYLIB)
+LOCAL_LIBRARIES = $(XKBFILELIB) $(XONLYLIB)
 
 ROOT_DEFINES = -DDFLT_XKB_CONFIG_ROOT=\"$(LIBDIR)/xkb\"
 

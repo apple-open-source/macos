@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Copyright (C) 2000 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 13 Feb 2001 <nathan@codesourcery.com>
 
@@ -7,7 +8,7 @@
 
 template <typename T> int Foo (T const *ptr)
 {
-  static int count = 0;
+  static int count;
   
   printf ("%s\n", __PRETTY_FUNCTION__);
   count++;

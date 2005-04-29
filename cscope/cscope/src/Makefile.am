@@ -9,7 +9,7 @@ LEXER_SOURCE=fscanner.l
 endif
 
 cscope_SOURCES = $(LEXER_SOURCE) egrep.y \
-	alloc.c basename.c command.c compath.c constants.h crossref.c dir.c \
+	alloc.c basename.c build.c build.h command.c compath.c constants.h crossref.c dir.c \
 	display.c edit.c exec.c find.c global.h help.c history.c input.c \
 	invlib.c invlib.h library.h logdir.c lookup.c lookup.h main.c mouse.c \
 	mygetenv.c mypopen.c scanner.h version.h vp.h vpaccess.c vpfopen.c \

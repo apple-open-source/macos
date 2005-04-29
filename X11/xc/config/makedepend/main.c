@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/config/makedepend/main.c,v 3.31 2003/01/17 17:09:49 tsi Exp $ */
+/* $XFree86: xc/config/makedepend/main.c,v 3.32 2003/03/26 20:43:48 tsi Exp $ */
 
 #include "def.h"
 #ifdef hpux
@@ -57,9 +57,9 @@ int	_debugmask;
 
 /* #define DEBUG_DUMP */
 #ifdef DEBUG_DUMP
-#define DBG_PRINT(args...)   fprintf(args)
+#define DBG_PRINT(file, fmt, args)   fprintf(file, fmt, args)
 #else
-#define DBG_PRINT(args...)   /* empty */
+#define DBG_PRINT(file, fmt, args)   /* empty */
 #endif
 
 #define DASH_INC_PRE    "#include \""

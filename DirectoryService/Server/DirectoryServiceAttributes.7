@@ -56,11 +56,7 @@ kDSNativeRecordTypePrefix			"dsRecTypeNative:"
 .Pp
 kDSStdRecordTypeUsers				"dsRecTypeStandard:Users"
 .Pp
-kDSStdRecordTypeUserAliases			"dsRecTypeStandard:UserAliases"
-.Pp
 kDSStdRecordTypeGroups				"dsRecTypeStandard:Groups"
-.Pp
-kDSStdRecordTypeGroupAliases			"dsRecTypeStandard:GroupAliases"
 .Pp
 kDSStdRecordTypeMachines				"dsRecTypeStandard:Machines"
 .Pp
@@ -126,7 +122,7 @@ kDSStdRecordTypeAutoServerSetup		"dsRecTypeStandard:AutoServerSetup"
 .Pp
 .Nm kDSStdRecordTypePasswordServer Discussion:
 .Pp
-Used to discover password servers via Rendezvous.
+Used to discover password servers via Bonjour.
 .Pp
 kDSStdRecordTypePasswordServer		"dsRecTypeStandard:PasswordServer"
 .Pp
@@ -189,6 +185,26 @@ kDSStdRecordTypeMeta				"dsRecTypeStandard:AppleMetaRecord"
 Location record type.
 .Pp
 kDSStdRecordTypeLocations			"dsRecTypeStandard:Locations"
+.Pp
+.Nm kDSStdRecordTypeNeighborhoods Discussion:
+Neighborhood record type. Describes a list of computers and other neighborhoods, used for network browsing.
+.Pp
+kDSStdRecordTypeNeighborhoods   "dsRecTypeStandard:Neighborhoods"
+.Pp
+.Nm kDSStdRecordTypeCertificateAuthorities Discussion:
+.Pp
+Record type that contains certificate authority information.
+.Pp
+kDSStdRecordTypeCertificateAuthorities		"dsRecTypeStandard:CertificateAuthorities"
+.Pp
+.Nm kDSStdRecordTypeAccessControls Discussion:
+Record type that contains directory access control directives.
+.Pp
+kDSStdRecordTypeAccessControls		"dsRecTypeStandard:AccessControls"
+.Pp
+FileMaker servers record type. Describes available FileMaker servers used for service discovery.
+.Pp
+kDSStdRecordTypeFileMakerServers   "dsRecTypeStandard:FileMakerServers"
 .Pp
 .Nm Well Known Attribute Types...
 .Pp
@@ -322,6 +338,47 @@ kDSStdAuthCRAM_MD5					"dsAuthMethodStandard:dsAuthNodeCRAM-MD5"
 .Pp
 kDSStdAuthDIGEST_MD5				"dsAuthMethodStandard:dsAuthNodeDIGEST-MD5"
 .Pp
+.Nm kDSStdAuthNTLMv2 Discussion:
+.Pp
+If the NTLMv2 session key is supported, it is returned in the step buffer. The input buffer is packed as follows:
+.Pp
+	4 byte length of username,
+.Pp
+	username in UTF8 encoding,
+.Pp
+	4 byte length of samba server challenge,
+.Pp
+	samba server challenge
+.Pp
+	4 byte length of the NTLMv2 client "blob"
+.Pp
+	the client "blob" which includes 16 bytes of client digest prefixed to the the blob data
+.Pp
+	4 byte length of the user name used to calculate the digest,
+.Pp
+	the user name used to calculate the digest in UTF8 encoding
+.Pp
+	4 byte length of the samba domain,
+.Pp
+	the samba domain in UTF8 encoding
+.Pp
+kDSStdAuthNTLMv2					"dsAuthMethodStandard:dsAuthNodeNTLMv2"
+.Pp
+.Nm Kerberized SMB Server services Discussion:
+.Pp
+Related constants for supporting Kerberized SMB Server services.  These are only used for dsGetDirNodeInfo requests.  They are not attributes that are used otherwise.
+.Pp
+kDS1AttrKerberosRealm              "dsAttrTypeStandard:KerberosRealm"
+.Pp
+kDS1AttrPrimaryNTDomain          "dsAttrTypeStandard:PrimaryNTDomain"
+.Pp
+kDS1AttrNTDomainComputerAccount
+                         "dsAttrTypeStandard:NTDomainComputerAccount"
+.Pp
+Attribute type for the owner of a record. Typically the value is a LDAP distinguished name.
+.Pp
+kDS1AttrOwner		"dsAttrTypeStandard:Owner"
+.Pp
 .Nm PDC_SMB_Constants Discussion:
 .Pp
 Related constants for supporting PDC SMB interaction with DS.
@@ -341,45 +398,61 @@ kDS1AttrSMBGroupRID								"dsAttrTypeStandard:smb_group_rid"
 .Pp
 Drive letter for homedirectory mount point.
 .Pp
-kDS1AttrSMBHomeDrive			"dsAttrTypeStandard:smb_home_drive"
+kDS1AttrSMBHomeDrive			"dsAttrTypeStandard:SMBHomeDrive"
 .Pp
 .Nm kDS1AttrSMBHome Discussion:
 .Pp
 UNC address of Windows homedirectory mount point (\\server\\sharepoint).
 .Pp
-kDS1AttrSMBHome					"dsAttrTypeStandard:smb_home"
+kDS1AttrSMBHome					"dsAttrTypeStandard:SMBHome"
 .Pp
 .Nm kDS1AttrSMBScriptPath Discussion:
 .Pp
 Login script path.
 .Pp
-kDS1AttrSMBScriptPath			"dsAttrTypeStandard:smb_script_path"
+kDS1AttrSMBScriptPath			"dsAttrTypeStandard:SMBScriptPath"
 .Pp
 .Nm kDS1AttrSMBProfilePath Discussion:
 .Pp
 Desktop management info (dock, desktop links, etc).
 .Pp
-kDS1AttrSMBProfilePath			"dsAttrTypeStandard:smb_profile_path"
+kDS1AttrSMBProfilePath			"dsAttrTypeStandard:SMBProfilePath"
 .Pp
 .Nm kDS1AttrSMBUserWorkstations Discussion:
 .Pp
 List of workstations user can login from (machine account names).
 .Pp
-kDS1AttrSMBUserWorkstations 	"dsAttrTypeStandard:smb_user_workstations"
+kDS1AttrSMBUserWorkstations 	"dsAttrTypeStandard:SMBUserWorkstations"
 .Pp
 .Nm Account_Control_Flags Discussion:
 .Pp
 Set of account control flags.
 .Pp
-kDS1AttrSMBAcctFlags			"dsAttrTypeStandard:smb_acctFlags"
+kDS1AttrSMBAcctFlags			"dsAttrTypeStandard:SMBAccountFlags"
 .Pp
-kDS1AttrSMBPWDLastSet			"dsAttrTypeStandard:smb_pwd_last_set"
+kDS1AttrSMBPWDLastSet			"dsAttrTypeStandard:SMBPasswordLastSet"
 .Pp
-kDS1AttrSMBLogonTime			"dsAttrTypeStandard:smb_logon_time"
+kDS1AttrSMBLogonTime			"dsAttrTypeStandard:SMBLogonTime"
 .Pp
-kDS1AttrSMBLogoffTime			"dsAttrTypeStandard:smb_logoff_time"
+kDS1AttrSMBLogoffTime			"dsAttrTypeStandard:SMBLogoffTime"
 .Pp
-kDS1AttrSMBKickoffTime 			"dsAttrTypeStandard:smb_kickoff_time"
+kDS1AttrSMBKickoffTime 			"dsAttrTypeStandard:SMBKickoffTime"
+.Pp
+.Nm kDS1AttrSMBSID Discussion:
+.Pp
+SMB Security ID, stored as a string attribute of up to 64 bytes.
+Found in user, group, and computer records (kDSStdRecordTypeUsers, 
+kDSStdRecordTypeGroups, kDSStdRecordTypeComputers).
+.Pp
+kDS1AttrSMBSID					"dsAttrTypeStandard:SMBSID"
+.Pp
+.Nm kDS1AttrSMBPrimaryGroupSID Discussion:
+.Pp
+SMB Primary Group Security ID, stored as a string attribute of
+up to 64 bytes. Found in user, group, and computer records
+(kDSStdRecordTypeUsers, kDSStdRecordTypeGroups, kDSStdRecordTypeComputers).
+.Pp
+kDS1AttrSMBPrimaryGroupSID		"dsAttrTypeStandard:SMBPrimaryGroupSID"
 .Pp
 .Nm kDS1AttrPasswordServerList Discussion:
 .Pp
@@ -627,9 +700,6 @@ kDS1AttrChange					"dsAttrTypeStandard:Change"
 .Pp
 kDS1AttrExpire					"dsAttrTypeStandard:Expire"
 .Pp
-.Pp
-kDSNAttrRecordAlias				"dsAttrTypeStandard:RecordAlias"
-.Pp
 kDSNAttrGroupMembership			"dsAttrTypeStandard:GroupMembership"
 .Pp
 kDSNAttrHomeDirectory			"dsAttrTypeStandard:HomeDirectory"
@@ -640,6 +710,29 @@ kDSNAttrKeywords				"dsAttrTypeStandard:Keywords"
 SA config settings plist.
 .Pp
 kDS1AttrXMLPlist				"dsAttrTypeStandard:XMLPlist"
+.Pp
+.Nm kDS1AttrDateRecordCreated Discussion:
+Date of record creation.
+.Pp
+kDS1AttrDateRecordCreated      "dsAttrTypeStandard:DateRecordCreated"
+.Pp
+.Nm kDS1AttrCreationTimestamp Discussion:
+Attribute showing date/time of record creation.
+Format is x.208 standard YYYYMMDDHHMMSSZ which we will require as GMT time.
+.Pp
+kDS1AttrCreationTimestamp		"dsAttrTypeStandard:CreationTimestamp"
+.Pp
+.Nm kDS1AttrModificationTimestamp Discussion:
+Attribute showing date/time of record modification.
+Format is x.208 standard YYYYMMDDHHMMSSZ which we will require as GMT time.
+.Pp
+kDS1AttrModificationTimestamp   "dsAttrTypeStandard:ModificationTimestamp"
+.Pp
+.Nm kDS1AttrTimeToLive Discussion:
+Attribute recommending how long to cache the record's attribute values.
+Format is an unsigned 32 bit representing seconds. ie. 300 is 5 minutes.
+.Pp
+kDS1AttrTimeToLive				"dsAttrTypeStandard:TimeToLive"
 .Pp
 .Nm kDS1AttrHomeDirectoryQuota Discussion:
 .Pp
@@ -709,11 +802,6 @@ kDS1AttrPicture					"dsAttrTypeStandard:Picture"
 .Pp
 kDSNAttrMetaNodeLocation		"dsAttrTypeStandard:AppleMetaNodeLocation"
 .Pp
-kStandardTargetAlias		"dsAttrTypeStandard:AppleMetaAliasTarget"
-.Pp
-kStandardSourceAlias		"dsAttrTypeStandard:AppleMetaAliasSource"
-.Pp
-.Pp
 kDS1AttrAliasData			"dsAttrTypeStandard:AppleAliasData"
 .Pp
 Single Valued - checksum/meta data
@@ -780,7 +868,58 @@ kDS1AttrKDCConfigData		"dsAttrTypeStandard:KDCConfigData"
 .Pp
 .Nm Used with directory nodes so that clients can "discover" the API capabilities for this Directory Node.
 .Pp
+.Nm kDS1AttrUserCertificate Discussion:
+Attribute containing the binary of the user's certificate. Usually found in user records. The certificate is data which identifies a user. This data is attested to by a known party, and can be independently verified by a third party.
+.Pp
+kDS1AttrUserCertificate		"dsAttrTypeStandard:UserCertificate"
+.Pp
+.Nm kDS1AttrUserSMIMECertificate Discussion:
+Attribute containing the binary of the user's SMIME certificate.
+Usually found in user records. The certificate is data which identifies a user.
+This data is attested to by a known party, and can be independently verified 
+by a third party. SMIME certificates are often used for signed or encrypted
+emails.
+.Pp
+kDS1AttrUserSMIMECertificate		"dsAttrTypeStandard:UserSMIMECertificate"
+.Pp
+.Nm kDS1AttrUserPKCS12Data Discussion:
+Attribute containing binary data in PKCS #12 format. 
+Usually found in user records. The value can contain keys, certificates,
+and other related information and is encrypted with a passphrase.
+.Pp
+kDS1AttrUserPKCS12Data		"dsAttrTypeStandard:UserPKCS12Data"
+.Pp
+.Nm kDS1AttrCACertificate Discussion:
+Attribute containing the binary of the certificate of a certificate authority. Its corresponding private key is used to sign certificates. Usually found in kDSStdRecordTypeCertificateAuthority records.
+.Pp
+kDS1AttrCACertificate		"dsAttrTypeStandard:CACertificate"
+.Pp
+.Nm kDS1AttrAuthorityRevocationList Discussion:
+Attribute containing the binary of the authority revocation list. A certificate revocation list that defines certificate authority certificates which are no longer trusted.  No user certificates are included in this list.Usually found in kDSStdRecordTypeCertificateAuthority records.
+.Pp
+kDS1AttrAuthorityRevocationList		"dsAttrTypeStandard:AuthorityRevocationList"
+.Pp
+.Nm kDS1AttrCertificateRevocationList Discussion:
+Attribute containing the binary of the certificate revocation list. This is a list of certificates which are no longer trusted. Usually found in kDSStdRecordTypeCertificateAuthority records.
+.Pp
+kDS1AttrCertificateRevocationList   "dsAttrTypeStandard:CertificateRevocationList"
+.Pp
+.Nm kDS1AttrCrossCertificatePair Discussion:
+Attribute containing the binary of a pair of certificates which verify each other.  Both certificates have the same level of authority. Usually found in kDSStdRecordTypeCertificateAuthority records.
+.Pp
+kDS1AttrCrossCertificatePair				"dsAttrTypeStandard:CrossCertificatePair"
+.Pp
+.Nm kDSNAttrAccessControlEntry Discussion:
+Attribute type which stores directory access control directives.
+.Pp
+kDSNAttrAccessControlEntry			"dsAttrTypeStandard:AccessControlsEntry"
+.Pp
 kDS1AttrCapabilities		"dsAttrTypeStandard:Capabilities"
+.Pp
+.Nm kDS1AttrCategory Discussion:
+The category of an item used for browsing.
+.Pp
+kDS1AttrCategory			"dsAttrTypeStandard:Category"
 .Pp
 can be found using dsGetDirNodeInfo and will return one of ReadOnly, ReadWrite, or WriteOnly strings note that ReadWrite does not imply fully readable or writable
 .Pp
@@ -844,6 +983,16 @@ Multivalued - list of member records
 .Pp
 kDSNAttrMember				"dsAttrTypeStandard:Member"
 .Pp
+.Nm kDSNAttrNestedGroups Discussion:
+Attribute type in group records for the list of GUID values for nested groups.
+.Pp
+kDSNAttrNestedGroups		"dsAttrTypeStandard:NestedGroups"
+.Pp
+.Nm kDSNAttrGroupMembers Discussion:
+Attribute type in group records containing lists of GUID values for members other than groups.
+.Pp
+kDSNAttrGroupMembers		"dsAttrTypeStandard:GroupMembers"
+.Pp
 kDSNAttrURL					"dsAttrTypeStandard:URL"
 .Pp
 data contained in this attribute type is a fully qualified MIME Type.
@@ -865,17 +1014,35 @@ Single-valued attribute for hardware Ethernet address (MAC address). Found in ma
 .Pp
 kDS1AttrENetAddress			"dsAttrTypeStandard:ENetAddress"
 .Pp
+.Nm kDS1AttrBootFile Discussion:
+.Pp
+Attribute type in host or machine records for the name of the kernel that this machine will use by default when NetBooting.
+.Pp
+kDS1AttrBootFile			"dsAttrTypeStandard:BootFile"
+.Pp
 .Nm kDSNAttrBootParams Discussion:
 .Pp
 Attribute type in host or machine records for storing boot params.
 .Pp
 kDSNAttrBootParams			"dsAttrTypeStandard:BootParams"
 .Pp
+.Nm kDS1AttrContactPerson Discussion:
+.Pp
+Attribute type for the contact person of the machine. Found in host or machine records.
+.Pp
+kDS1AttrContactPerson		"dsAttrTypeStandard:ContactPerson"
+.Pp
+.Nm kDSNAttrMachineServes Discussion
+.Pp
+Attribute type in host or machine records for storing NetInfo domains served.
+.Pp
+kDSNAttrMachineServes		"dsAttrTypeStandard:MachineServes"
+.Pp
 .Nm kDSNAttrNetGroups Discussion:
 .Pp
 Attribute type that indicates which netgroups its record is a member of. Found in user, host, and netdomain records.
 .Pp
-kDSNAttrNetGroups			"dsAttrTypeStandard:NetGroups".Pp
+kDSNAttrNetGroups			"dsAttrTypeStandard:NetGroups"
 .Pp
 kDSNAttrPGPPublicKey		"dsAttrTypeStandard:PGPPublicKey"
 .Pp
@@ -933,6 +1100,60 @@ kDS1AttrPrintServiceInfoText	"dsAttrTypeStandard:PrintServiceInfoText"
 Single-valued attribute for print quota configuration or statistics (XML data). Found in user records (kDSStdRecordTypeUsers) or print service statistics records (kDSStdRecordTypePrintServiceUser).
 .Pp
 kDS1AttrPrintServiceUserData	"dsAttrTypeStandard:PrintServiceUserData"
+.Pp
+.Nm kDS1AttrNeighborhoodType Discussion:
+Attribute type in Neighborhood records describing their function.
+.Pp
+kDS1AttrNeighborhoodType		"dsAttrTypeStandard:NeighborhoodType"
+.Pp
+.Nm kDS1AttrNetworkView Discussion:
+The name of the managed network view a computer should use for browsing.
+.Pp
+kDS1AttrNetworkView				"dsAttrTypeStandard:NetworkView"
+.Pp
+.Nm kDSNAttrNeighborhoodAlias Discussion:
+Attribute type in Neighborhood records describing sub-neighborhood records.
+.Pp
+kDSNAttrNeighborhoodAlias		"dsAttrTypeStandard:NeighborhoodAlias"
+.Pp
+.Nm kDSNAttrComputerAlias Discussion:
+Attribute type in Neighborhood records describing computer records pointed to by
+this neighborhood.
+.Pp
+kDSNAttrComputerAlias			"dsAttrTypeStandard:ComputerAlias"
+.Pp
+.Nm kDS1AttrWeblogURI Discussion:
+Single-valued attribute that defines the URI of a user's weblog.
+Usually found in user or person records (kDSStdRecordTypeUsers, kDSStdRecordTypePeople). 
+Example: http://example.com/blog/jsmith
+.Pp
+kDS1AttrWeblogURI				"dsAttrTypeStandard:WeblogURI"
+.Pp
+.Nm kDSNAttrNodePathXMLPlist Discussion:
+Attribute type in Neighborhood records describing the DS Node to search while
+looking up aliases in this neighborhood.
+.Pp
+kDSNAttrNodePathXMLPlist		"dsAttrTypeStandard:NodePathXMLPlist"
+.Pp
+.Nm kDSValueNSLTopLevelNeighborhoodType Discussion:
+Value type of Neighborhood record
+.Pp
+kDSValueNSLTopLevelNeighborhoodType		"NSLTopLevelNeighborhoodType"
+.Pp
+.Nm kDSValueNSLStaticNeighborhoodType Discussion:
+Value type of Neighborhood record
+.Pp
+kDSValueNSLStaticNeighborhoodType		"NSLStaticNeighborhoodType"
+.Pp
+.Nm kDSValueNSLDynamicNeighborhoodType Discussion:
+Value type of Neighborhood record
+.Pp
+kDSValueNSLDynamicNeighborhoodType		"NSLDynamicNeighborhoodType"
+.Pp
+.Nm kDSValueNSLLocalNeighborhoodType Discussion:
+Value type of Neighborhood record
+.Pp
+kDSValueNSLLocalNeighborhoodType		"NSLLocalNeighborhoodType"
 .Pp
 .Nm kDSStdNotifyxxxxx Discussion:
 Notification tags that can be registered for with SystemConfiguration

@@ -1,5 +1,5 @@
 # Makefile for GNU F77 compiler runtime.
-#   Copyright (C) 1995-1998, 2001, 2002 Free Software Foundation, Inc.
+#   Copyright (C) 1995-1998, 2001, 2002, 2003 Free Software Foundation, Inc.
 #   Contributed by Dave Love (d.love@dl.ac.uk).
 #
 #This file is part of GNU Fortran.
@@ -19,8 +19,10 @@
 #the Free Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #02111-1307, USA.
 
-SHELL = /bin/sh
+SHELL = @SHELL@
+PWD = $${PWDCMD-pwd}
 MAKEOVERRIDES=
+.NOEXPORTS:
 
 #### Start of system configuration section. ####
 
@@ -65,6 +67,7 @@ INSTALL_DATA = @INSTALL_DATA@
 
 LIBTOOL = @LIBTOOL@
 CC = @CC@
+WARN_CFLAGS = -W -Wall
 CFLAGS = @CFLAGS@
 AR = @AR@
 RANLIB = @RANLIB@
@@ -73,9 +76,12 @@ RANLIB = @RANLIB@
 # Quote this way so that it can be used to set shell variables too.
 FLAGS_TO_PASS= \
 	CC='$(CC)' \
+	LD='$(LD)' \
 	LIBTOOL='$(LIBTOOL)' \
+	WARN_CFLAGS='$(WARN_CFLAGS)' \
 	CFLAGS='$(CFLAGS)' \
 	CPPFLAGS='$(CPPFLAGS)' \
+	DESTDIR='$(DESTDIR)' \
 	AR='$(AR)' \
 	RANLIB='$(RANLIB)' \
 	prefix='$(prefix)' \
@@ -119,7 +125,7 @@ F2CEXT = abort derf derfc ef1asc ef1cmc erf erfc exit getarg getenv iargc \
 # the dependency) and then (perhaps) builds multilibs.
 
 all: all-unilib
-	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="all-unilib"
+	: $(MAKE) ; exec $(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="all-unilib"
 
 # `all-unilib' is the overall target in the absence of multilibs,
 # meant to be invoked via multi-do for multilibs.
@@ -147,7 +153,7 @@ i77 f77 u77: g2c.h
 $(LIBG2C): s-libi77 s-libf77 s-libu77 s-libe77
 	$(LIBTOOL) --mode=link $(CC) -o $@ \
 	  -version-info $(VERSION_MAJOR):$(VERSION_MINOR):$(VERSION_SUB) \
-	  -rpath $(libdir)$(MULTISUBDIR) \
+	  -rpath $(glibcpp_toolexeclibdir) \
 	  -objectlist s-libe77 \
 	  -objectlist s-libf77 \
 	  -objectlist s-libi77 \
@@ -170,7 +176,7 @@ s-libe77: f2cext.c
 	do \
 	  echo $${name}; \
 	  $(LIBTOOL) --mode=compile $(CC) -c -I. -I$(srcdir) -I../../include \
-	    $(CPPFLAGS) $(CFLAGS) -DL$${name} $(srcdir)/f2cext.c \
+	    $(CPPFLAGS) $(WARN_CFLAGS) $(CFLAGS) -DL$${name} $(srcdir)/f2cext.c \
 	    -o libE77/L$${name}.lo ; \
 	  if [ $$? -eq 0 ] ; then true; else exit 1; fi; \
 	  echo libE77/L$${name}.lo >> $@.T; \
@@ -209,21 +215,21 @@ check:
 	cd libU77; $(MAKE) G77DIR=../../../gcc/ check
 
 install: all
-	$(SHELL) $(toplevel_srcdir)/mkinstalldirs $(glibcpp_toolexeclibdir)
-	$(LIBTOOL) --mode=install $(INSTALL) $(LIBG2C) $(glibcpp_toolexeclibdir)
-	$(INSTALL_DATA) libfrtbegin.a $(glibcpp_toolexeclibdir)
-	$(RANLIB) $(glibcpp_toolexeclibdir)/libfrtbegin.a
-	$(INSTALL_DATA) g2c.h $(libsubdir)/include/g2c.h
+	$(SHELL) $(toplevel_srcdir)/mkinstalldirs $(DESTDIR)$(glibcpp_toolexeclibdir)
+	$(LIBTOOL) --mode=install $(INSTALL) $(LIBG2C) $(DESTDIR)$(glibcpp_toolexeclibdir)
+	$(INSTALL_DATA) libfrtbegin.a $(DESTDIR)$(glibcpp_toolexeclibdir)
+	$(RANLIB) $(DESTDIR)$(glibcpp_toolexeclibdir)/libfrtbegin.a
+	$(INSTALL_DATA) g2c.h $(DESTDIR)$(libsubdir)/include/g2c.h
 	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="$@"
-	@-$(LIBTOOL) --mode=finish $(glibcpp_toolexeclibdir)
+	@-$(LIBTOOL) --mode=finish $(DESTDIR)$(glibcpp_toolexeclibdir)
 
 install-strip:
 	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
 
 uninstall:
-	rm -f $(libsubdir)/include/g2c.h
-	rm -f $(glibcpp_toolexeclibdir)/libfrtbegin.a
-	$(LIBTOOL) --mode=uninstall rm -f $(glibcpp_toolexeclibdir)$(LIBG2C_BASE).la
+	rm -f $(DESTDIR)$(libsubdir)/include/g2c.h
+	rm -f $(DESTDIR)$(glibcpp_toolexeclibdir)/libfrtbegin.a
+	$(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(glibcpp_toolexeclibdir)$(LIBG2C_BASE).la
 	$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO="$@"
 
 mostlyclean:
@@ -253,8 +259,8 @@ rebuilt: configure
         installcheck installdirs all-unilib
 
 subdir_do:
-	@rootpre=`pwd`/; export rootpre; \
-	srcrootpre=`cd $(srcdir); pwd`/; export srcrootpre; \
+	@rootpre=`${PWD}`/; export rootpre; \
+	srcrootpre=`cd $(srcdir); ${PWD}`/; export srcrootpre; \
 	for i in .. $(DODIRS); do \
 	  if [ x$$i != x.. ]; then \
 	    if [ -f ./$$i/Makefile ]; then \

@@ -40,10 +40,10 @@ Includes
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/sockio.h>
+#include <kern/locks.h>
 
 #include <net/if.h>
-#include <net/dlil.h>
-#include <net/netisr.h>
+#include <net/kpi_protocol.h>
 #include <machine/spl.h>
 
 #include <netinet/in.h>
@@ -52,11 +52,10 @@ Includes
 #include <netinet/ip.h>
 
 #include "ppp_defs.h"		// public ppp values
-#include "ppp_fam.h"
 #include "ppp_ip.h"
+#include "ppp_domain.h"
 #include "ppp_if.h"
 #include "if_ppplink.h"
-#include "ppp_domain.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -67,28 +66,26 @@ Definitions
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int ppp_ip_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                        u_long dl_tag, int sync_ok);
-static int ppp_ip_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                            caddr_t route, char *type, char *edst, u_long dl_tag );
-static int ppp_ip_ioctl(u_long dl_tag, struct ifnet *ifp, u_long cmd, caddr_t data);
-
+static errno_t ppp_ip_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header);
+static errno_t ppp_ip_preoutput(ifnet_t ifp, protocol_family_t protocol,
+									mbuf_t *packet, const struct sockaddr *dest, 
+									void *route, char *frame_type, char *link_layer_dest);
+static errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument);
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
+extern lck_mtx_t   *ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 init function
 ----------------------------------------------------------------------------- */
 int ppp_ip_init(int init_arg)
 {
-    struct dlil_protomod_reg_str  reg;
-
-    bzero(&reg, sizeof(struct dlil_protomod_reg_str));
-    reg.attach_proto = ppp_ip_attach;
-    reg.detach_proto = ppp_ip_detach;
-    return dlil_reg_proto_module(PF_INET, APPLE_IF_FAM_PPP, &reg);
+    return proto_register_plumber(PF_INET, APPLE_IF_FAM_PPP,
+							   ppp_ip_attach, ppp_ip_detach);
 }
 
 /* -----------------------------------------------------------------------------
@@ -96,46 +93,37 @@ terminate function
 ----------------------------------------------------------------------------- */
 int ppp_ip_dispose(int term_arg)
 {
-    return dlil_dereg_proto_module(PF_INET, APPLE_IF_FAM_PPP);
+    proto_unregister_plumber(PF_INET, APPLE_IF_FAM_PPP);
+    return 0;
 }
 
 /* -----------------------------------------------------------------------------
 attach the PPPx interface ifp to the network protocol IP,
 called when the ppp interface is ready for ppp traffic
 ----------------------------------------------------------------------------- */
-int ppp_ip_attach(struct ifnet *ifp, u_long *dl_tag)
+errno_t ppp_ip_attach(ifnet_t ifp, protocol_family_t protocol)
 {
-    int 			ret;
-    struct dlil_proto_reg_str   reg;
-    struct dlil_demux_desc      desc;
-    u_short	      		ipproto = PPP_IP;
-    struct ppp_fam		*fam = (struct ppp_fam *)ifp->family_cookie;
+    int					ret;
+    struct ifnet_attach_proto_param   reg;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
     
-    LOGDBG(ifp, (LOGVAL, "ppp_ip_attach: name = %s, unit = %d\n", ifp->if_name, ifp->if_unit));
+    LOGDBG(ifp, (LOGVAL, "ppp_ip_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
 
-    if (fam->ip_tag) {
-        *dl_tag = fam->ip_tag;
+    if (wan->ip_attached) 
         return 0;	// already attached
-    }
 
-    bzero(&reg, sizeof(struct dlil_proto_reg_str));
-    // register demux structure for ppp protocols
-    TAILQ_INIT(&reg.demux_desc_head);
-    bzero(&desc, sizeof(struct dlil_demux_desc));
-    desc.type = DLIL_DESC_RAW;
-    desc.native_type = (char *) &ipproto;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc, next);
-
-    reg.protocol_family  = PF_INET;
-    reg.interface_family = ifp->if_family;
-    reg.unit_number      = ifp->if_unit;
-    reg.input            = ppp_ip_input;
-    reg.ioctl            = ppp_ip_ioctl;
-    reg.pre_output       = ppp_ip_preoutput;
-    ret = dlil_attach_protocol(&reg, dl_tag);
-    LOGRETURN(ret, ret, "ppp_attach_ip: dlil_attach_protocol error = 0x%x\n");
-     
-    LOGDBG(ifp, (LOGVAL, "ppp_attach_ip: dlil_attach_protocol tag = 0x%x\n", *dl_tag));
+    bzero(&reg, sizeof(struct ifnet_attach_proto_param));
+	
+	reg.input = ppp_ip_input;
+	reg.pre_output = ppp_ip_preoutput;
+	reg.ioctl = ppp_ip_ioctl;
+	ret = ifnet_attach_protocol(ifp, PF_INET, &reg);
+    LOGRETURN(ret, ret, "ppp_ip_attach: ifnet_attach_protocol error = 0x%x\n");
+	
+    LOGDBG(ifp, (LOGVAL, "ppp_i6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
+	ifnet_find_by_name("lo0", &wan->lo_ifp);
+	wan->ip_attached = 1;
+	
     return 0;
 }
 
@@ -143,35 +131,39 @@ int ppp_ip_attach(struct ifnet *ifp, u_long *dl_tag)
 detach the PPPx interface ifp from the network protocol IP,
 called when the ppp interface stops ip traffic
 ----------------------------------------------------------------------------- */
-int ppp_ip_detach(struct ifnet *ifp, u_long dl_tag)
+void ppp_ip_detach(ifnet_t ifp, protocol_family_t protocol)
 {
     int 		ret;
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
 
     LOGDBG(ifp, (LOGVAL, "ppp_ip_detach\n"));
 
-    if (!fam->ip_tag)
-        return 0;	// already detached
+    if (!wan->ip_attached)
+        return;	// already detached
 
-    ret = dlil_detach_protocol(fam->ip_tag);
-    LOGRETURN(ret, ret, "ppp_ip_detach: dlil_detach_protocol error = 0x%x\n");
+	ifnet_release(wan->lo_ifp);
+	wan->lo_ifp = 0;
 
-    fam->ip_tag = 0;
-    return 0;
+    ret = ifnet_detach_protocol(ifp, PF_INET);
+	if (ret)
+        log(LOGVAL, "ppp_ip_detach: ifnet_detach_protocol error = 0x%x\n", ret);
+
+    wan->ip_attached = 0;
 }
 
 /* -----------------------------------------------------------------------------
 called from dlil when an ioctl is sent to the interface
 ----------------------------------------------------------------------------- */
-int ppp_ip_ioctl(u_long dl_tag, struct ifnet *ifp, u_long cmd, caddr_t data)
+errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument)
 {
-    struct ifaddr 	*ifa = (struct ifaddr *)data;
+    struct ifaddr 	*ifa = (struct ifaddr *)argument;
     //struct in_ifaddr 	*ia = (struct in_ifaddr *)data;
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct sockaddr_in  *addr = (struct sockaddr_in *)ifa->ifa_addr;
     int 		error = 0;
     
-    switch (cmd) {
+    switch (command) {
 
         case SIOCSIFADDR:
         case SIOCAIFADDR:
@@ -183,16 +175,14 @@ int ppp_ip_ioctl(u_long dl_tag, struct ifnet *ifp, u_long cmd, caddr_t data)
                 break;
             }
                             
-            fam->ip_src.s_addr = addr->sin_addr.s_addr;
+            wan->ip_src.s_addr = addr->sin_addr.s_addr;
             /* 
                 XXX very dirty...
                 in.c doesn't pass the destination address to dlil
                 but it happens to be the next address in the in_aliasreq
             */
             addr++;
-            fam->ip_dst.s_addr = addr->sin_addr.s_addr;
-
-            dlil_find_dltag(APPLE_IF_FAM_LOOPBACK, 0, PF_INET, &fam->ip_lotag);
+            wan->ip_dst.s_addr = addr->sin_addr.s_addr;
             break;
 
         default :
@@ -209,88 +199,79 @@ the network protocol has been determined earlier by the demux function.
 the packet is in the mbuf chain m without
 the frame header, which is provided separately. (not used)
 ----------------------------------------------------------------------------- */
-int ppp_ip_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                 u_long dl_tag, int sync_ok)
+errno_t ppp_ip_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header)
 {
-    int  s;
     
-    LOGMBUF("ppp_ip_input", m);
+    LOGMBUF("ppp_ip_input", packet);
 
-    if (ipflow_fastforward(m)) {
+    if (ipflow_fastforward((struct mbuf *)packet)) {
         return 0;
     }
 
-    schednetisr(NETISR_IP);
-
-    /* Put the packet on the ip input queue */
-    s = splimp();
-    if (IF_QFULL(&ipintrq)) {
-        IF_DROP(&ipintrq);
-        splx(s);
-        LOGDBG(ifp, (LOGVAL, "ppp%d: input queue full\n", ifp->if_unit));
-        ifp->if_iqdrops++;
-        return 1;
-    }
-    IF_ENQUEUE(&ipintrq, m);
-    splx(s);
-
+	proto_input(PF_INET, packet);
+	
     return 0;
 }
 
 /* -----------------------------------------------------------------------------
 pre_output function
 ----------------------------------------------------------------------------- */
-int ppp_ip_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                     caddr_t route, char *type, char *edst, u_long dl_tag)
+errno_t ppp_ip_preoutput(ifnet_t ifp, protocol_family_t protocol,
+									mbuf_t *packet, const struct sockaddr *dest, 
+									void *route, char *frame_type, char *link_layer_dest)
 {
-    int 		err;
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
-    struct ppp_if      *wan = (struct ppp_if *)ifp->if_softc;
+    errno_t				err;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
 
-    LOGMBUF("ppp_ip_preoutput", *m0);
+    LOGMBUF("ppp_ip_preoutput", *packet);
+	
+	lck_mtx_lock(ppp_domain_mutex);
 
 #if 0
-    (*m0)->m_flags &= ~M_HIGHPRI;
+    (*packet)->m_flags &= ~M_HIGHPRI;
 
     /* If this packet has the "low delay" bit set in the IP header,
      set priority bit for the packet. */
-    ip = mtod(*m0, struct ip *);
+    ip = mtod(*packet, struct ip *);
     if (ip->ip_tos & IPTOS_LOWDELAY)
-        (*m0)->m_flags |= M_HIGHPRI;
+        (*packet)->m_flags |= M_HIGHPRI;
 #endif
 
     if ((wan->sc_flags & SC_LOOP_LOCAL)
-        && (((struct sockaddr_in *)dst_netaddr)->sin_addr.s_addr == fam->ip_src.s_addr)) {
-        err = dlil_output(fam->ip_lotag, *m0, 0, dst_netaddr, 0);
+        && (((struct sockaddr_in *)dest)->sin_addr.s_addr == wan->ip_src.s_addr)
+		&& wan->lo_ifp) {
+        err = ifnet_output(wan->lo_ifp, PF_INET, *packet, 0, (struct sockaddr *)dest);
+		lck_mtx_unlock(ppp_domain_mutex);
         return (err ? err : EJUSTRETURN);
     }
-
-    *(u_int16_t *)type = PPP_IP;
+	lck_mtx_unlock(ppp_domain_mutex);
+    *(u_int16_t *)frame_type = PPP_IP;
     return 0;
 }
 
 /* -----------------------------------------------------------------------------
 Compare the source address of the packet with the source address of the interface
 ----------------------------------------------------------------------------- */
-int ppp_ip_af_src_out(struct ifnet *ifp, char *pkt)
+int ppp_ip_af_src_out(ifnet_t ifp, char *pkt)
 {
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
         
     ip = (struct ip *)pkt;
-    return (ip->ip_src.s_addr != fam->ip_src.s_addr);
+    return (ip->ip_src.s_addr != wan->ip_src.s_addr);
 }
 
 /* -----------------------------------------------------------------------------
 Compare the source address of the packet with the dst address of the interface
 ----------------------------------------------------------------------------- */
-int ppp_ip_af_src_in(struct ifnet *ifp, char *pkt)
+int ppp_ip_af_src_in(ifnet_t ifp, char *pkt)
 {
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if	*wan = (struct ppp_if *)ifnet_softc(ifp);
     struct ip 		*ip;
         
     ip = (struct ip *)pkt;
-    return (ip->ip_src.s_addr != fam->ip_dst.s_addr);
+    return (ip->ip_src.s_addr != wan->ip_dst.s_addr);
 }
 
 

@@ -61,9 +61,6 @@ all install uninstall: config.h
 	  (cd $$subdir && $(MAKE) $(MDEFINES) $@) || exit 1; \
 	done
 
-install-strip:
-	$(MAKE) INSTALL_PROGRAM='$(INSTALL_PROGRAM) -s' install
-
 info dvi:
 	cd doc && $(MAKE) $@
 

@@ -1,43 +1,55 @@
 /*
- * Copyright (c) 2000,2001 Apple Computer, Inc. All rights reserved.
- *
- * We build on <machine/types.h> rather than <sys/types.h> in order to
- * minimize the global namespace pollution (i.e., we'd like to define
- * *only* those identifiers that the C standard mandates should be
- * defined by <stdint.h>).   Using <machine/types.h> means that (at
- * least as of January 2001) all of the extra macros that do get
- * #defined by #include'ing <stdint.h> are in the implementor's
- * namespace ("_[A-Z].*" or "__.*").
- *
- * The reason that we do #include the relevant ...types.h instead of
- * creating several "competing" typedefs is to make header collisions
- * less likely during the transition to C99.
- *
- * Caveat:  There are still five extra typedef's defined by doing it
- * this way:  "u_int{8,16,32,64}_t" and "register_t".  Might be
- * fixable via pre- and post- #defines, but probably not worth it.
+ * Copyright (c) 2000, 2001, 2003, 2004 Apple Computer, Inc.
+ * All rights reserved.
  */
 
 #ifndef _STDINT_H_
 #define _STDINT_H_
 
-#include <machine/types.h>
-
-
 /* from ISO/IEC 988:1999 spec */
 
 /* 7.18.1.1 Exact-width integer types */
-                                         /* int8_t is defined in <machine/types.h> */
-                                         /* int16_t is defined in <machine/types.h> */
-                                         /* int32_t is defined in <machine/types.h> */
-                                         /* int64_t is defined in <machine/types.h> */
-typedef u_int8_t              uint8_t;   /* u_int8_t is defined in <machine/types.h> */
-typedef u_int16_t            uint16_t;   /* u_int16_t is defined in <machine/types.h> */
-typedef u_int32_t            uint32_t;   /* u_int32_t is defined in <machine/types.h> */
-typedef u_int64_t            uint64_t;   /* u_int64_t is defined in <machine/types.h> */
+#ifndef _INT8_T
+#define _INT8_T
+typedef signed char           int8_t;
+#endif /*_INT8_T */
 
+#ifndef _INT16_T
+#define _INT16_T
+typedef short                int16_t;
+#endif /* _INT16_T */
 
-/* 7.18.1.2 Minumun-width integer types */
+#ifndef _INT32_T
+#define _INT32_T
+typedef int                  int32_t;
+#endif /* _INT32_T */
+
+#ifndef _INT64_T
+#define _INT64_T
+typedef long long            int64_t;
+#endif /* _INT64_T */
+
+#ifndef _UINT8_T
+#define _UINT8_T
+typedef unsigned char         uint8_t;
+#endif /*_UINT8_T */
+
+#ifndef _UINT16_T
+#define _UINT16_T
+typedef unsigned short       uint16_t;
+#endif /* _UINT16_T */
+
+#ifndef _UINT32_T
+#define _UINT32_T
+typedef unsigned int         uint32_t;
+#endif /* _UINT32_T */
+
+#ifndef _UINT64_T
+#define _UINT64_T
+typedef unsigned long long   uint64_t;
+#endif /* _UINT64_T */
+
+/* 7.18.1.2 Minimum-width integer types */
 typedef int8_t           int_least8_t;
 typedef int16_t         int_least16_t;
 typedef int32_t         int_least32_t;
@@ -59,15 +71,37 @@ typedef uint32_t        uint_fast32_t;
 typedef uint64_t        uint_fast64_t;
 
 
-/* 7.18.1.4 Integer types capable of hgolding object pointers */
-                                        /* intptr_t is defined in <machine/types.h> */
-                                        /* uintptr_t is defined in <machine/types.h> */
+/* 7.18.1.4 Integer types capable of holding object pointers */
+
+#ifndef _INTPTR_T
+#define _INTPTR_T
+typedef long   intptr_t;
+#endif /* _INTPTR_T */
+
+#ifndef _UINTPTR_T
+#define _UINTPTR_T
+typedef unsigned long   uintptr_t;
+#endif /* _UINTPTR_T */
 
 
 /* 7.18.1.5 Greatest-width integer types */
+#ifndef _INTMAX_T
+#define _INTMAX_T
+#ifdef __INTMAX_TYPE__
+typedef __INTMAX_TYPE__             intmax_t;
+#else /* __INTMAX_TYPE__ */
 typedef long long                intmax_t;
-typedef unsigned long long      uintmax_t;
+#endif /* __INTMAX_TYPE__ */
+#endif /* _INTMAX_T */
 
+#ifndef _UINTMAX_T
+#define _UINTMAX_T
+#ifdef __UINTMAX_TYPE__
+typedef __UINTMAX_TYPE__             uintmax_t;
+#else /* __UINTMAX_TYPE__ */
+typedef unsigned long long      uintmax_t;
+#endif /* __UINTMAX_TYPE__ */
+#endif /* _UINTMAX_T */
 
 /* "C++ implementations should define these macros only when
  *  __STDC_LIMIT_MACROS is defined before <stdint.h> is included."
@@ -161,10 +195,6 @@ typedef unsigned long long      uintmax_t;
 
 #define SIZE_MAX          UINT32_MAX
 
-#ifndef WCHAR_MIN
-#  define WCHAR_MIN       0
-#endif
-
 #ifndef WCHAR_MAX
 #  ifdef __WCHAR_MAX__
 #    define WCHAR_MAX     __WCHAR_MAX__
@@ -173,9 +203,21 @@ typedef unsigned long long      uintmax_t;
 #  endif
 #endif
 
-/* We have no wint_t yet, so no WINT_{MIN,MAX}.
-   Should end up being {U}INT32_{MIN,MAX}, depending.  */
+/* WCHAR_MIN should be 0 if wchar_t is an unsigned type and
+   (-WCHAR_MAX-1) if wchar_t is a signed type.  Unfortunately,
+   it turns out that -fshort-wchar changes the signedness of
+   the type. */
+#if WCHAR_MAX == 0xffff
+#  define WCHAR_MIN       0
+#else
+#  define WCHAR_MIN       (-WCHAR_MAX-1)
+#endif
 
+#define WINT_MIN	  INT32_MIN
+#define WINT_MAX	  INT32_MAX
+
+#define SIG_ATOMIC_MIN	  INT32_MIN
+#define SIG_ATOMIC_MAX	  INT32_MAX
 
 #endif /* if C++, then __STDC_LIMIT_MACROS enables the above macros */
 
@@ -185,13 +227,13 @@ typedef unsigned long long      uintmax_t;
 #if (! defined(__cplusplus)) || defined(__STDC_CONSTANT_MACROS)
 
 /* 7.18.4 Macros for integer constants */
-#define INT8_C(v)    ((int8_t)v)
-#define INT16_C(v)   ((int16_t)v)
+#define INT8_C(v)    (v)
+#define INT16_C(v)   (v)
 #define INT32_C(v)   (v ## L)
 #define INT64_C(v)   (v ## LL)
 
-#define UINT8_C(v)   ((uint8_t)v)
-#define UINT16_C(v)  ((uint16_t)v)
+#define UINT8_C(v)   (v ## U)
+#define UINT16_C(v)  (v ## U)
 #define UINT32_C(v)  (v ## UL)
 #define UINT64_C(v)  (v ## ULL)
 

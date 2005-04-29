@@ -1,9 +1,9 @@
 # See the file LICENSE for redistribution information.
 #
-# Copyright (c) 1996-2001
+# Copyright (c) 1996-2003
 # Sleepycat Software. All rights reserved.
 #
-# $Id: lock005.tcl,v 1.1.1.1 2003/02/15 04:56:15 zarzycki Exp $
+# $Id: lock005.tcl,v 1.2 2004/03/30 01:24:07 jtownsen Exp $
 #
 # TEST lock005
 # TEST Check that page locks are being released properly.
@@ -41,7 +41,7 @@ proc lock005 { } {
 	# ... and try to get a record from the first txn (should fail)
 	set ret [catch {$db get -txn $txn2 $recno1} res]
 	error_check_good dbget_wrong_record \
-	    [is_substr $res "Lock not granted"] 1
+	    [is_substr $res "deadlock"] 1
 
 	# End transactions
 	error_check_good txn1commit [$txn1 commit] 0

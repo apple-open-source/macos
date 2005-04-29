@@ -40,9 +40,11 @@
  * IF IBM IS APPRISED OF THE POSSIBILITY OF SUCH DAMAGES.
  */
 
+#ifndef __APPLE__
 #if !defined(LINT) && !defined(CODECENTER)
-static const char rcsid[] = "$Id: base64.c,v 1.2 2003/02/18 16:52:02 majka Exp $";
+static const char rcsid[] = "$Id: base64.c,v 1.3 2003/10/16 22:13:09 majka Exp $";
 #endif /* not lint */
+#endif
 
 #ifndef __APPLE__
 #include "port_before.h"

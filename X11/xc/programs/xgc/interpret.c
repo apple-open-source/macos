@@ -3,7 +3,7 @@
 **
 ** interprets and executes lines in the Xgc syntax.
 */
-/* $XFree86: xc/programs/xgc/interpret.c,v 1.4 2002/01/07 20:38:30 dawes Exp $ */
+/* $XFree86: xc/programs/xgc/interpret.c,v 1.5 2003/05/07 21:02:07 herrb Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,55 +12,6 @@
 #include "xgc.h"
 #include "tile"
 
-void change_text();
-void GC_change_function();
-void GC_change_foreground();
-void GC_change_background();
-void GC_change_linewidth();
-void GC_change_linestyle();
-void GC_change_capstyle();
-void GC_change_joinstyle();
-void GC_change_fillstyle();
-void GC_change_fillrule();
-void GC_change_arcmode();
-void GC_change_dashlist();
-void GC_change_planemask();
-void GC_change_font();
-void change_test();
-void change_percent();
-
-extern void update_dashlist();
-extern void update_planemask();
-extern void update_slider();
-extern void select_button();
-extern void run_test();
-extern void print_if_recording();
-
-extern XgcStuff TestStuff;
-extern XgcStuff FunctionStuff;
-extern XgcStuff LinestyleStuff;
-extern XgcStuff CapstyleStuff;
-extern XgcStuff JoinstyleStuff;
-extern XgcStuff FillstyleStuff;
-extern XgcStuff FillruleStuff;
-extern XgcStuff ArcmodeStuff;
-
-extern XStuff X;
-extern ChoiceDesc *GCdescs[];
-extern ChoiceDesc *testchoicedesc;
-extern Widget test;
-extern Widget GCform;
-extern Widget foregroundtext;
-extern Widget backgroundtext;
-extern Widget linewidthtext;
-extern Widget fonttext;
-extern Widget dashlistchoice;
-extern Widget planemaskchoice;
-extern Widget testchoiceform;
-
-extern int fildes[2];
-extern FILE *outend;
-extern FILE *yyin;
 
 /* interpret(string)
 ** -----------------
@@ -74,8 +25,7 @@ extern FILE *yyin;
 */
 
 void
-interpret(string)
-     const char *string;
+interpret(const char *string)
 {
   char word1[20], word2[80];
   int i;
@@ -174,8 +124,7 @@ interpret(string)
 
 #ifdef notdef
 void
-interpret(instring)
-     const char *instring;
+interpret(const char *instring)
 {
   FILE *inend;
   
@@ -199,9 +148,7 @@ interpret(instring)
 */
 
 void
-GC_change_function(function,feedback)
-     int function;
-     Boolean feedback;
+GC_change_function(int function, Boolean feedback)
 {
   XSetFunction(X.dpy,X.gc,function);
   X.gcv.function = function;
@@ -209,9 +156,7 @@ GC_change_function(function,feedback)
 }
 
 void
-GC_change_foreground(foreground,feedback)
-     unsigned long foreground;
-     Boolean feedback;
+GC_change_foreground(unsigned long foreground, Boolean feedback)
 {
   char text[40];
 
@@ -222,15 +167,13 @@ GC_change_foreground(foreground,feedback)
   XSetTile(X.dpy,X.gc,X.tile);
   XSetTile(X.dpy,X.miscgc,X.tile);
   if (feedback) {
-    sprintf(text,"%lu",foreground);
+    snprintf(text, sizeof text, "%lu",foreground);
     change_text(foregroundtext,text);
   }
 }
 
 void
-GC_change_background(background,feedback)
-     unsigned long background;
-     Boolean feedback;
+GC_change_background(unsigned long background, Boolean feedback)
 {
   char text[40];
 
@@ -247,30 +190,26 @@ GC_change_background(background,feedback)
   XClearWindow(X.dpy,XtWindow(test));
 
   if (feedback) {
-    sprintf(text,"%lu",background);
+    snprintf(text, sizeof text, "%lu",background);
     change_text(backgroundtext,text);
   }
 }
 
 void
-GC_change_linewidth(linewidth,feedback)
-     int linewidth;
-     Boolean feedback;
+GC_change_linewidth(int linewidth, Boolean feedback)
 {
   char text[40];
 
   X.gcv.line_width = linewidth;
   XChangeGC(X.dpy,X.gc,GCLineWidth,&X.gcv);
   if (feedback) {
-    sprintf(text,"%d",linewidth);
+    snprintf(text, sizeof text, "%d",linewidth);
     change_text(linewidthtext,text);
   }
 }
 
 void
-GC_change_linestyle(linestyle,feedback)
-     int linestyle;
-     Boolean feedback;
+GC_change_linestyle(int linestyle, Boolean feedback)
 {
   X.gcv.line_style = linestyle;
   XChangeGC(X.dpy,X.gc,GCLineStyle,&X.gcv);
@@ -278,9 +217,7 @@ GC_change_linestyle(linestyle,feedback)
 }
 
 void
-GC_change_capstyle(capstyle,feedback)
-     int capstyle;
-     Boolean feedback;
+GC_change_capstyle(int capstyle, Boolean feedback)
 {
   X.gcv.cap_style = capstyle;
   XChangeGC(X.dpy,X.gc,GCCapStyle,&X.gcv);
@@ -288,9 +225,7 @@ GC_change_capstyle(capstyle,feedback)
 }
 
 void
-GC_change_joinstyle(joinstyle,feedback)
-     int joinstyle;
-     Boolean feedback;
+GC_change_joinstyle(int joinstyle, Boolean feedback)
 {
   X.gcv.join_style = joinstyle;
   XChangeGC(X.dpy,X.gc,GCJoinStyle,&X.gcv);
@@ -298,9 +233,7 @@ GC_change_joinstyle(joinstyle,feedback)
 }
 
 void
-GC_change_fillstyle(fillstyle,feedback)
-     int fillstyle;
-     Boolean feedback;
+GC_change_fillstyle(int fillstyle, Boolean feedback)
 {
   XSetFillStyle(X.dpy,X.gc,fillstyle);
   X.gcv.fill_style = fillstyle;
@@ -308,9 +241,7 @@ GC_change_fillstyle(fillstyle,feedback)
 }
 
 void
-GC_change_fillrule(fillrule,feedback)
-     int fillrule;
-     Boolean feedback;
+GC_change_fillrule(int fillrule, Boolean feedback)
 {
   XSetFillRule(X.dpy,X.gc,fillrule);
   X.gcv.fill_rule = fillrule;
@@ -318,9 +249,7 @@ GC_change_fillrule(fillrule,feedback)
 }
 
 void
-GC_change_arcmode(arcmode,feedback)
-     int arcmode;
-     Boolean feedback;
+GC_change_arcmode(int arcmode, Boolean feedback)
 {
   XSetArcMode(X.dpy,X.gc,arcmode);
   X.gcv.arc_mode = arcmode;
@@ -336,9 +265,7 @@ GC_change_arcmode(arcmode,feedback)
 */
 
 void
-GC_change_dashlist(dashlist,feedback) 
-     int dashlist;
-     Boolean feedback;
+GC_change_dashlist(int dashlist, Boolean feedback) 
 {
   char dasharray[DASHLENGTH];	/* what we're gonna pass to XSetDashes */
   int dashnumber = 0;		/* which element of dasharray we're currently
@@ -381,9 +308,7 @@ GC_change_dashlist(dashlist,feedback)
 }
 
 void
-GC_change_planemask(planemask,feedback)
-     unsigned long planemask;
-     Boolean feedback;
+GC_change_planemask(unsigned long planemask, Boolean feedback)
 {
   XSetPlaneMask(X.dpy,X.gc,planemask);
   X.gcv.plane_mask = planemask;
@@ -391,18 +316,14 @@ GC_change_planemask(planemask,feedback)
 }
 
 void
-change_test(test,feedback) 
-     int test;
-     Boolean feedback;
+change_test(int test, Boolean feedback) 
 {
   X.test = test;
   if (feedback) select_button(testchoicedesc,test);
 }
 
 void
-GC_change_font(str,feedback)
-     const char *str;
-     Boolean feedback;
+GC_change_font(char *str, Boolean feedback)
 {
   int num_fonts;		/* number of fonts that match the string */
 
@@ -415,9 +336,7 @@ GC_change_font(str,feedback)
 }
 
 void
-change_percent(percent,feedback)
-     int percent;
-     Boolean feedback;
+change_percent(int percent, Boolean feedback)
 {
   /* Make sure that percent is valid */
 

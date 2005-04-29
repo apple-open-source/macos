@@ -1,9 +1,9 @@
 /*
- * "$Id: textcommon.c,v 1.1.1.10 2003/04/29 00:15:16 jlovell Exp $"
+ * "$Id: textcommon.c,v 1.1.1.15 2005/01/04 19:16:03 jlovell Exp $"
  *
  *   Common text filter routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -110,6 +110,7 @@ static char *code_keywords[] =	/* List of known C/C++ keywords... */
 	  "protected",
 	  "public",
 	  "register",
+	  "reinterpret_cast",
 	  "return",
 	  "short",
 	  "signed",
@@ -555,8 +556,8 @@ TextMain(const char *name,	/* I - Name of filter */
   num_options = cupsParseOptions(argv[5], 0, &options);
 
   if ((val = cupsGetOption("prettyprint", num_options, options)) != NULL &&
-      strcasecmp(val, "no") != 0 && strcasecmp(val, "off") != 0 &&
-      strcasecmp(val, "false") != 0)
+      strcasecmp(val, "no") && strcasecmp(val, "off") &&
+      strcasecmp(val, "false"))
   {
     PageLeft     = 72.0f;
     PageRight    = PageWidth - 36.0f;
@@ -602,7 +603,8 @@ TextMain(const char *name,	/* I - Name of filter */
   if ((val = cupsGetOption("wrap", num_options, options)) == NULL)
     WrapLines = 1;
   else
-    WrapLines = strcasecmp(val, "true") == 0;
+    WrapLines = !strcasecmp(val, "true") || !strcasecmp(val, "on") ||
+                !strcasecmp(val, "yes");
 
   if ((val = cupsGetOption("columns", num_options, options)) != NULL)
     PageColumns = atoi(val);
@@ -887,7 +889,7 @@ TextMain(const char *name,	/* I - Name of filter */
 
 	      attr &= ~ATTR_BOLD;
 	    }
-	    else if (!(isalnum(ch) || ch == '_') && keyptr > keyword)
+	    else if (!(isalnum(ch & 255) || ch == '_') && keyptr > keyword)
 	    {
 	     /*
 	      * Look for a keyword...
@@ -913,7 +915,7 @@ TextMain(const char *name,	/* I - Name of filter */
 		}
 	      }
 	    }
-	    else if ((isalnum(ch) || ch == '_') && !ccomment && !cstring)
+	    else if ((isalnum(ch & 255) || ch == '_') && !ccomment && !cstring)
 	    {
 	     /*
 	      * Add characters to the current keyword (if they'll fit).
@@ -1181,5 +1183,5 @@ getutf8(FILE *fp)	/* I - File to read from */
 
 
 /*
- * End of "$Id: textcommon.c,v 1.1.1.10 2003/04/29 00:15:16 jlovell Exp $".
+ * End of "$Id: textcommon.c,v 1.1.1.15 2005/01/04 19:16:03 jlovell Exp $".
  */

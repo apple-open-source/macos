@@ -1,4 +1,23 @@
-/* inflate.c -- Not copyrighted 1992 by Mark Adler
+/* Inflate deflated data
+
+   Copyright (C) 1997, 1998, 1999, 2002 Free Software Foundation, Inc.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+   See the GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with this program; see the file COPYING.
+   If not, write to the Free Software Foundation,
+   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+
+/* Not copyrighted 1992 by Mark Adler
    version c10p1, 10 January 1993 */
 
 /* You can do whatever you like with this source file, though I would
@@ -97,14 +116,13 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: inflate.c,v 1.1.1.1 1999/04/23 01:05:57 wsanchez Exp $";
+static char rcsid[] = "$Id: inflate.c,v 0.14 1993/06/10 13:27:04 jloup Exp $";
 #endif
 
-#include <sys/types.h>
-
+#include <config.h>
 #include "tailor.h"
 
-#if defined(STDC_HEADERS) || !defined(NO_STDLIB_H)
+#if defined STDC_HEADERS || defined HAVE_STDLIB_H
 #  include <stdlib.h>
 #endif
 
@@ -185,6 +203,7 @@ static ush cpdext[] = {         /* Extra bits for distance codes */
    for the number of bits in b.  Normally, b and k are register
    variables for speed, and are initialized at the beginning of a
    routine that uses these macros from a global bit buffer and count.
+   The macros also use the variable w, which is a cached copy of wp.
 
    If we assume that EOB will be the longest code, then we will never
    ask for bits with NEEDBITS that are beyond the end of the stream.
@@ -212,12 +231,14 @@ ush mask_bits[] = {
     0x01ff, 0x03ff, 0x07ff, 0x0fff, 0x1fff, 0x3fff, 0x7fff, 0xffff
 };
 
+#define GETBYTE() (inptr < insize ? inbuf[inptr++] : (wp = w, fill_inbuf(0)))
+
 #ifdef CRYPT
   uch cc;
 #  define NEXTBYTE() \
-     (decrypt ? (cc = get_byte(), zdecode(cc), cc) : get_byte())
+     (decrypt ? (cc = GETBYTE(), zdecode(cc), cc) : GETBYTE())
 #else
-#  define NEXTBYTE()  (uch)get_byte()
+#  define NEXTBYTE()  (uch)GETBYTE()
 #endif
 #define NEEDBITS(n) {while(k<(n)){b|=((ulg)NEXTBYTE())<<k;k+=8;}}
 #define DUMPBITS(n) {b>>=(n);k-=(n);}
@@ -360,6 +381,7 @@ int *m;                 /* maximum lookup bits, returns actual */
     if ((j = *p++) != 0)
       v[x[j]++] = i;
   } while (++i < n);
+  n = x[g];                   /* set n to length of v */
 
 
   /* Generate the Huffman codes and for each, make the table entries */
@@ -390,12 +412,13 @@ int *m;                 /* maximum lookup bits, returns actual */
         {                       /* too few codes for k-w bit table */
           f -= a + 1;           /* deduct codes from patterns left */
           xp = c + k;
-          while (++j < z)       /* try smaller tables up to z bits */
-          {
-            if ((f <<= 1) <= *++xp)
-              break;            /* enough codes to use up j bits */
-            f -= *xp;           /* else deduct codes from patterns */
-          }
+	  if (j < z)
+	    while (++j < z)       /* try smaller tables up to z bits */
+	    {
+	      if ((f <<= 1) <= *++xp)
+		break;            /* enough codes to use up j bits */
+	      f -= *xp;           /* else deduct codes from patterns */
+	    }
         }
         z = 1 << j;             /* table entries for j-bit table */
 
@@ -708,6 +731,7 @@ int inflate_dynamic()
   unsigned l;           /* last length */
   unsigned m;           /* mask for bit lengths table */
   unsigned n;           /* number of lengths to get */
+  unsigned w;           /* current window position */
   struct huft *tl;      /* literal/length code table */
   struct huft *td;      /* distance code table */
   int bl;               /* lookup bits for tl */
@@ -727,6 +751,7 @@ int inflate_dynamic()
   /* make local bit buffer */
   b = bb;
   k = bk;
+  w = wp;
 
 
   /* read in table lengths */
@@ -767,6 +792,8 @@ int inflate_dynamic()
     return i;                   /* incomplete code set */
   }
 
+  if (tl == NULL)		/* Grrrhhh */
+	return 2;
 
   /* read in literal and distance code lengths */
   n = nl + nd;
@@ -869,6 +896,7 @@ int *e;                 /* last block flag */
 /* decompress an inflated block */
 {
   unsigned t;           /* block type */
+  unsigned w;           /* current window position */
   register ulg b;       /* bit buffer */
   register unsigned k;  /* number of bits in bit buffer */
 
@@ -876,6 +904,7 @@ int *e;                 /* last block flag */
   /* make local bit buffer */
   b = bb;
   k = bk;
+  w = wp;
 
 
   /* read in last block bit */

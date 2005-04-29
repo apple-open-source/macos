@@ -1,5 +1,5 @@
-/* JLabel.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* JLabel.java --
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,204 +37,660 @@ exception statement from your version. */
 
 package javax.swing;
 
-import java.awt.*;
-import javax.swing.plaf.*;
-
-
+import java.awt.Component;
+import java.awt.Font;
+import java.awt.Image;
+import java.awt.event.KeyEvent;
+import javax.accessibility.Accessible;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleRole;
-import javax.accessibility.AccessibleState;
-import javax.accessibility.AccessibleStateSet;
+import javax.swing.Icon;
+import javax.swing.plaf.LabelUI;
 
 
-public class JLabel extends JComponent implements SwingConstants
+/**
+ * <p>
+ * A swing widget that displays a text message and/or an icon.
+ * </p>
+ */
+public class JLabel extends JComponent implements Accessible, SwingConstants
 {
-    String text;
-    Icon icon;
-    int gap;
-    int align;
+  /** DOCUMENT ME! */
+  private static final long serialVersionUID = 5496508283662221534L;
 
-    int hor_align;
-    int hor_text_pos;
+  /**
+   * The Component the label will give focus to when its mnemonic is
+   * activated.
+   */
+  protected Component labelFor;
 
-    int vert_align;
-    int vert_text_pos;
+  /** The label's text. */
+  private transient String text;
 
-    public JLabel()
-    {
-	this("", null, 0);
-    }
+  /** Where the label will be positioned horizontally. */
+  private transient int horizontalAlignment = LEADING;
 
-    public JLabel(Icon image)
-    {
-	this("", image, 0);
-    }
+  /** Where the label text will be placed horizontally relative to the icon. */
+  private transient int horizontalTextPosition = TRAILING;
 
-    public JLabel(Icon image, int horizontalAlignment)
-    {
-	this("", image, horizontalAlignment);
-    }
+  /** Where the label will be positioned vertically. */
+  private transient int verticalAlignment = CENTER;
 
-    public JLabel(String text)
-    {
-	this(text, null, 0);
-    }
+  /** Where the label text will be place vertically relative to the icon. */
+  private transient int verticalTextPosition = CENTER;
 
-    public JLabel(String text, int horizontalAlignment)
-    {
-	this(text, null, horizontalAlignment);
-    }
+  /** The icon painted when the label is enabled. */
+  private transient Icon icon;
 
-    public JLabel(String text, Icon icon, int horizontalAlignment)
-    {
-	// do the work.....
-	this.text = text;
-	setIcon(icon);
-	this.align     = horizontalAlignment;
+  /** The icon painted when the label is disabled. */
+  private transient Icon disabledIcon;
 
-	updateUI(); // get a proper ui
-    } 
+  /** The label's mnemnonic key. */
+  private transient int displayedMnemonic = KeyEvent.VK_UNDEFINED;
 
+  /** The index of the menemonic character in the text. */
+  private transient int displayedMnemonicIndex = -1;
 
-    protected  int checkHorizontalKey(int key, String message)
-    {
-	//    Verify that key is a legal value for the horizontalAlignment properties. 
-	return 0;
-    }
-    protected  int checkVerticalKey(int key, String message)
-    {
-	//      Verify that key is a legal value for the verticalAlignment or verticalTextPosition properties.  
-	return 0;
-    }
-    public AccessibleContext getAccessibleContext()
-    {
-	//          Get the AccessibleContext of this object 
-	return null;
-    }
-    public Icon getDisabledIcon()
-    {
-	//          Returns the value of the disabledIcon property if it's been set, If it hasn't been set and the value of the icon property is an ImageIcon, we compute a "grayed out" version of the icon and update the disabledIcon property with that.  
-	return null;
-    }
-    public int getDisplayedMnemonic()
-    {
-	//          Return the keycode that indicates a mnemonic key.   
-	return 0;
-    }
-    public int getHorizontalAlignment()
-    {
-	//          Returns the alignment of the label's contents along the X axis.   
-	return hor_align;
-    }
-    public int getHorizontalTextPosition()
-    {
-	//          Returns the horizontal position of the label's text, relative to its image.    
-	return hor_text_pos;
-    }
+  /** The gap between the icon and the text. */
+  private transient int iconTextGap = 4;
 
-    public Icon getIcon()
-    {	return icon;    }
+  /**
+   * Fired in a PropertyChangeEvent when the "disabledIcon" property changes.
+   */
+  public static final String DISABLED_ICON_CHANGED_PROPERTY = "disabledIcon";
 
-    public int getIconTextGap()
-    {
-	//          Returns the amount of space between the text and the icon displayed in this label.   
-	return 0;
-    }
-    public Component getLabelFor()
-    {
-	//          Get the component this is labelling.  
-	return null;
-    }
-    public String getText()
-    {	return text;    }
+  /**
+   * Fired in a PropertyChangeEvent when the "displayedMnemonic" property
+   * changes.
+   */
+  public static final String DISPLAYED_MNEMONIC_CHANGED_PROPERTY = "displayedMnemonic";
 
-    public String getUIClassID()
-    {	return "JLabel";    }
+  /**
+   * Fired in a PropertyChangeEvent when the "displayedMnemonicIndex" property
+   * changes.
+   */
+  public static final String DISPLAYED_MNEMONIC_INDEX_CHANGED_PROPERTY = "displayedMnemonicIndex";
 
-    public int getVerticalAlignment()
-    {
-	//          Returns the alignment of the label's contents along the Y axis. 
-	return vert_align;
-    }
-    public int getVerticalTextPosition()
-    {
-	//          Returns the vertical position of the label's text, relative to its image. 
-	return vert_text_pos;
-    }
+  /**
+   * Fired in a PropertyChangeEvent when the "horizontalAlignment" property
+   * changes.
+   */
+  public static final String HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY = "horizontalAlignment";
 
-    public boolean imageUpdate(Image img, int infoflags, int x, int y, int w, int h)
-    {
-	//          This is overriden to return false if the current Icon's Image is not equal to the passed in Image img. 
-	return (img == icon);
-    }
-    protected  String paramString()
-    {
-	//          Returns a string representation of this JLabel.  
-	return "JLabel";
-    }
-    public void setDisabledIcon(Icon disabledIcon)
-    {
-	//          Set the icon to be displayed if this JLabel is "disabled" (JLabel.setEnabled(false)).  
-    }
-    public void setDisplayedMnemonic(char aChar)
-    {
-	//          Specifies the displayedMnemonic as a char value.  
-    }
-    public void setDisplayedMnemonic(int key)
-    {
-	//          Specify a keycode that indicates a mnemonic key.  
-    }
-    public void setHorizontalAlignment(int alignment)
-    {
-	//          Sets the alignment of the label's contents along the X axis.  
-	hor_align = alignment;
-    }
-    public void setHorizontalTextPosition(int textPosition)
-    {
-	//          Sets the horizontal position of the label's text, relative to its image.  
-	hor_text_pos = textPosition;
-    }
-    public void setIcon(Icon icon)
-    {
-	this.icon = icon;
-	if (icon != null)
-	    {
-                  // XXX FIXME - icons do not know their parent
-//  		icon.setParent(this);
-	    }
-	revalidate();
-	repaint();
-    }
+  /**
+   * Fired in a PropertyChangeEvent when the "horizontalTextPosition" property
+   * changes.
+   */
+  public static final String HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY = "horizontalTextPosition";
 
-    public void setIconTextGap(int iconTextGap)
-    {
-	gap = iconTextGap;
-    }
-  
-    public void setLabelFor(Component c)
-    {
-	//          Set the component this is labelling.  
-    }
-    public void setText(String text)
-    {
-	this.text = text;
-	revalidate();
-	repaint();
-    }
-  
-    public void setVerticalAlignment(int alignment)
-    {
-	//          Sets the alignment of the label's contents along the Y axis.  
-	vert_align = alignment;
-    }
-    public void setVerticalTextPosition(int textPosition)
-    {
-	//          Sets the vertical position of the label's text, relative to its image.  
-	vert_text_pos = textPosition;
-    }
-    public void updateUI()
-    {	
-	LabelUI b = (LabelUI)UIManager.getUI(this);
-	setUI(b);
-    }
+  /** Fired in a PropertyChangeEvent when the "icon" property changes. */
+  public static final String ICON_CHANGED_PROPERTY = "icon";
+
+  /** Fired in a PropertyChangeEvent when the "iconTextGap" property changes. */
+  public static final String ICON_TEXT_GAP_CHANGED_PROPERTY = "iconTextGap";
+
+  /** Fired in a PropertyChangeEvent when the "labelFor" property changes. */
+  public static final String LABEL_FOR_CHANGED_PROPERTY = "labelFor";
+
+  /** Fired in a PropertyChangeEvent when the "text" property changes. */
+  public static final String TEXT_CHANGED_PROPERTY = "text";
+
+  /**
+   * Fired in a PropertyChangeEvent when the "verticalAlignment" property
+   * changes.
+   */
+  public static final String VERTICAL_ALIGNMENT_CHANGED_PROPERTY = "verticalAlignment";
+
+  /**
+   * Fired in a PropertyChangeEvent when the "verticalTextPosition" property
+   * changes.
+   */
+  public static final String VERTICAL_TEXT_POSITION_CHANGED_PROPERTY = "verticalTextPosition";
+
+  /**
+   * Creates a new horizontally and vertically centered JLabel object with no
+   * text and no icon.
+   */
+  public JLabel()
+  {
+    this(null, null, CENTER);
+  }
+
+  /**
+   * Creates a new horizontally and vertically centered JLabel object with no
+   * text and the given icon.
+   *
+   * @param image The icon to use with the label.
+   */
+  public JLabel(Icon image)
+  {
+    this(null, image, CENTER);
+  }
+
+  /**
+   * Creates a new vertically centered JLabel object with no text and the
+   * given icon and horizontal alignment. By default, the text is TRAILING
+   * the image.
+   *
+   * @param image The icon to use with the label.
+   * @param horizontalAlignment The horizontal alignment of the label.
+   */
+  public JLabel(Icon image, int horizontalAlignment)
+  {
+    this(null, image, horizontalAlignment);
+  }
+
+  /**
+   * Creates a new horizontally and vertically centered JLabel object with no
+   * icon and the given text.
+   *
+   * @param text The text to use with the label.
+   */
+  public JLabel(String text)
+  {
+    this(text, null, CENTER);
+  }
+
+  /**
+   * Creates a new vertically centered JLabel object with no icon and the
+   * given text and horizontal alignment.
+   *
+   * @param text The text to use with the label.
+   * @param horizontalAlignment The horizontal alignment of the label.
+   */
+  public JLabel(String text, int horizontalAlignment)
+  {
+    this(text, null, horizontalAlignment);
+  }
+
+  /**
+   * Creates a new vertically centered JLabel object with the given text,
+   * icon, and horizontal alignment.
+   *
+   * @param text The text to use with the label.
+   * @param icon The icon to use with the label.
+   * @param horizontalAlignment The horizontal alignment of the label.
+   */
+  public JLabel(String text, Icon icon, int horizontalAlignment)
+  {
+    this.text = text;
+    this.icon = icon;
+    this.horizontalAlignment = horizontalAlignment;
+    updateUI();
+  }
+
+  /**
+   * This method returns the label's UI delegate.
+   *
+   * @return The label's UI delegate.
+   */
+  public LabelUI getUI()
+  {
+    return (LabelUI) ui;
+  }
+
+  /**
+   * This method sets the label's UI delegate.
+   *
+   * @param ui The label's UI delegate.
+   */
+  public void setUI(LabelUI ui)
+  {
+    super.setUI(ui);
+  }
+
+  /**
+   * This method resets the label's UI delegate to the default UI for the
+   * current look and feel.
+   */
+  public void updateUI()
+  {
+    setUI((LabelUI) UIManager.getUI(this));
+  }
+
+  /**
+   * This method returns a name to identify which look and feel class will be
+   * the UI delegate for this label.
+   *
+   * @return The UIClass identifier. "LabelUI"
+   */
+  public String getUIClassID()
+  {
+    return "LabelUI";
+  }
+
+  /**
+   * This method is used primarily for debugging purposes and returns a string
+   * that can be used to represent this label.
+   *
+   * @return A string to represent this label.
+   */
+  protected String paramString()
+  {
+    return "JLabel";
+  }
+
+  /**
+   * This method returns the label text.
+   *
+   * @return The label text.
+   */
+  public String getText()
+  {
+    return text;
+  }
+
+  /**
+   * This method changes the "text" property. The given text will be painted
+   * in the label.
+   *
+   * @param newText The label's text.
+   */
+  public void setText(String newText)
+  {
+    if (text != newText)
+      {
+	String oldText = text;
+	text = newText;
+	firePropertyChange(TEXT_CHANGED_PROPERTY, oldText, newText);
+
+	if (text != null && text.length() <= displayedMnemonicIndex)
+	  setDisplayedMnemonicIndex(text.length() - 1);
+      }
+  }
+
+  /**
+   * This method returns the active icon. The active icon is painted when the
+   * label is enabled.
+   *
+   * @return The active icon.
+   */
+  public Icon getIcon()
+  {
+    return icon;
+  }
+
+  /**
+   * This method changes the "icon" property. This icon (the active icon) will
+   * be the one displayed when the label is enabled.
+   *
+   * @param newIcon The active icon.
+   */
+  public void setIcon(Icon newIcon)
+  {
+    if (icon != newIcon)
+      {
+	Icon oldIcon = icon;
+	icon = newIcon;
+	firePropertyChange(ICON_CHANGED_PROPERTY, oldIcon, newIcon);
+      }
+  }
+
+  /**
+   * This method returns the disabled icon. The disabled icon is painted when
+   * the label is disabled. If the disabled icon is null and the active icon
+   * is an ImageIcon, this method returns a grayed version of the icon. The
+   * grayed  version of the icon becomes the disabledIcon.
+   *
+   * @return The disabled icon.
+   */
+  public Icon getDisabledIcon()
+  {
+    if (disabledIcon == null && icon instanceof ImageIcon)
+      disabledIcon = new ImageIcon(GrayFilter.createDisabledImage(((ImageIcon) icon)
+                                                                  .getImage()));
+
+    return disabledIcon;
+  }
+
+  /**
+   * This method changes the "disabledIcon" property. This icon (the disabled
+   * icon) will be the one displayed when the label is disabled.
+   *
+   * @param newIcon The disabled icon.
+   */
+  public void setDisabledIcon(Icon newIcon)
+  {
+    if (disabledIcon != newIcon)
+      {
+	Icon oldIcon = disabledIcon;
+	disabledIcon = newIcon;
+	firePropertyChange(DISABLED_ICON_CHANGED_PROPERTY, oldIcon, newIcon);
+      }
+  }
+
+  /**
+   * This method sets the keycode that will be the label's mnemonic. If the
+   * label is used as a label for another component, the label will give
+   * focus to that component when the mnemonic is activated.
+   *
+   * @param mnemonic The keycode to use for the mnemonic.
+   */
+  public void setDisplayedMnemonic(int mnemonic)
+  {
+    if (displayedMnemonic != mnemonic)
+      {
+	firePropertyChange(DISPLAYED_MNEMONIC_CHANGED_PROPERTY,
+	                   displayedMnemonic, mnemonic);
+	displayedMnemonic = mnemonic;
+
+	if (text != null)
+	  setDisplayedMnemonicIndex(text.indexOf(mnemonic));
+      }
+  }
+
+  /**
+   * This method sets the character that will be the mnemonic used. If the
+   * label is used as a label for another component, the label will give
+   * focus to that component when the mnemonic is activated.
+   *
+   * @param mnemonic The character to use for the mnemonic.
+   */
+  public void setDisplayedMnemonic(char mnemonic)
+  {
+    setDisplayedMnemonic((int) mnemonic);
+  }
+
+  /**
+   * This method returns the keycode that is used for the label's mnemonic.
+   *
+   * @return The keycode that is used for the label's mnemonic.
+   */
+  public int getDisplayedMnemonic()
+  {
+    return (int) displayedMnemonic;
+  }
+
+  /**
+   * This method sets which character in the text will be  the underlined
+   * character. If the given index is -1, then this indicates  that there is
+   * no mnemonic. If the index is less than -1 or if the index is equal to
+   * the length, this method will throw an IllegalArgumentException.
+   *
+   * @param newIndex The index of the character to underline.
+   *
+   * @throws IllegalArgumentException If index less than -1 or index equals
+   *         length.
+   */
+  public void setDisplayedMnemonicIndex(int newIndex)
+                                 throws IllegalArgumentException
+  {
+    if (newIndex < -1 || (text != null && newIndex >= text.length()))
+      throw new IllegalArgumentException();
+
+    if (text == null || text.charAt(newIndex) != displayedMnemonic)
+      newIndex = -1;
+
+    if (newIndex != displayedMnemonicIndex)
+      {
+	firePropertyChange(DISPLAYED_MNEMONIC_INDEX_CHANGED_PROPERTY,
+	                   displayedMnemonicIndex, newIndex);
+	displayedMnemonicIndex = newIndex;
+      }
+  }
+
+  /**
+   * This method returns which character in the text will be  the underlined
+   * character.
+   *
+   * @return The index of the character that will be underlined.
+   */
+  public int getDisplayedMnemonicIndex()
+  {
+    return displayedMnemonicIndex;
+  }
+
+  /**
+   * This method ensures that the key is valid as a horizontal alignment.
+   * Valid keys are: LEFT, CENTER, RIGHT, LEADING, TRAILING
+   *
+   * @param key The key to check.
+   * @param message The message of the exception to be thrown if the key is
+   *        invalid.
+   *
+   * @return The key if it's valid.
+   *
+   * @throws IllegalArgumentException If the key is invalid.
+   */
+  protected int checkHorizontalKey(int key, String message)
+  {
+    if (key != LEFT && key != CENTER && key != RIGHT && key != LEADING
+        && key != TRAILING)
+      throw new IllegalArgumentException(message);
+    else
+      return key;
+  }
+
+  /**
+   * This method ensures that the key is valid as a  vertical alignment. Valid
+   * keys are: TOP, CENTER, and BOTTOM.
+   *
+   * @param key The key to check.
+   * @param message The message of the exception to be thrown if the key is
+   *        invalid.
+   *
+   * @return The key if it's valid.
+   *
+   * @throws IllegalArgumentException If the key is invalid.
+   */
+  protected int checkVerticalKey(int key, String message)
+  {
+    if (key != TOP && key != BOTTOM && key != CENTER)
+      throw new IllegalArgumentException(message);
+    else
+      return key;
+  }
+
+  /**
+   * This method returns the gap between the icon and the text.
+   *
+   * @return The gap between the icon and the text.
+   */
+  public int getIconTextGap()
+  {
+    return iconTextGap;
+  }
+
+  /**
+   * This method changes the "iconTextGap" property. The iconTextGap
+   * determines how much space there is between the icon and the text.
+   *
+   * @param newGap The gap between the icon and the text.
+   */
+  public void setIconTextGap(int newGap)
+  {
+    if (iconTextGap != newGap)
+      {
+	firePropertyChange(ICON_TEXT_GAP_CHANGED_PROPERTY, iconTextGap, newGap);
+	iconTextGap = newGap;
+      }
+  }
+
+  /**
+   * This method returns the vertical alignment of the label.
+   *
+   * @return The vertical alignment of the label.
+   */
+  public int getVerticalAlignment()
+  {
+    return verticalAlignment;
+  }
+
+  /**
+   * This method changes the "verticalAlignment" property of the label. The
+   * vertical alignment determines how where the label will be placed
+   * vertically. If the alignment is not valid, it will default to the
+   * center.
+   *
+   * @param alignment The vertical alignment of the label.
+   */
+  public void setVerticalAlignment(int alignment)
+  {
+    if (alignment != verticalAlignment)
+      {
+	int oldAlignment = verticalAlignment;
+	verticalAlignment = checkVerticalKey(alignment, "verticalAlignment");
+	firePropertyChange(VERTICAL_ALIGNMENT_CHANGED_PROPERTY, oldAlignment,
+	                   verticalAlignment);
+      }
+  }
+
+  /**
+   * This method returns the horziontal alignment of the label.
+   *
+   * @return The horizontal alignment of the label.
+   */
+  public int getHorizontalAlignment()
+  {
+    return horizontalAlignment;
+  }
+
+  /**
+   * This method changes the "horizontalAlignment" property. The horizontal
+   * alignment determines where the label will be placed horizontally.
+   *
+   * @param alignment The horizontal alignment of the label.
+   */
+  public void setHorizontalAlignment(int alignment)
+  {
+    int oldAlignment = horizontalAlignment;
+    horizontalAlignment = checkHorizontalKey(alignment, "horizontalAlignment");
+    firePropertyChange(HORIZONTAL_ALIGNMENT_CHANGED_PROPERTY, oldAlignment,
+                       horizontalAlignment);
+  }
+
+  /**
+   * This method returns the vertical text position of the label.
+   *
+   * @return The vertical text position of the label.
+   */
+  public int getVerticalTextPosition()
+  {
+    return verticalTextPosition;
+  }
+
+  /**
+   * This method changes the "verticalTextPosition" property of the label. The
+   * vertical text position determines where the text will be placed
+   * vertically relative to the icon.
+   *
+   * @param textPosition The vertical text position.
+   */
+  public void setVerticalTextPosition(int textPosition)
+  {
+    if (textPosition != verticalTextPosition)
+      {
+	int oldPos = verticalTextPosition;
+	verticalTextPosition = checkVerticalKey(textPosition,
+	                                        "verticalTextPosition");
+	firePropertyChange(VERTICAL_TEXT_POSITION_CHANGED_PROPERTY, oldPos,
+	                   verticalTextPosition);
+      }
+  }
+
+  /**
+   * This method returns the horizontal text position of the label.
+   *
+   * @return The horizontal text position.
+   */
+  public int getHorizontalTextPosition()
+  {
+    return horizontalTextPosition;
+  }
+
+  /**
+   * This method changes the "horizontalTextPosition" property of the label.
+   * The horizontal text position determines where the text will be placed
+   * horizontally relative to the icon.
+   *
+   * @param textPosition The horizontal text position.
+   */
+  public void setHorizontalTextPosition(int textPosition)
+  {
+    if (textPosition != horizontalTextPosition)
+      {
+	int oldPos = horizontalTextPosition;
+	horizontalTextPosition = checkHorizontalKey(textPosition,
+	                                            "horizontalTextPosition");
+	firePropertyChange(HORIZONTAL_TEXT_POSITION_CHANGED_PROPERTY, oldPos,
+	                   horizontalTextPosition);
+      }
+  }
+
+  /**
+   * This method simply returns false if the current icon image (current  icon
+   * will depend on whether the label is enabled) is not equal to the passed
+   * in image.
+   *
+   * @param img The image to check.
+   * @param infoflags The bitwise inclusive OR of ABORT, ALLBITS, ERROR,
+   *        FRAMEBITS, HEIGHT, PROPERTIES, SOMEBITS, and WIDTH
+   * @param x The x position
+   * @param y The y position
+   * @param w The width
+   * @param h The height
+   *
+   * @return Whether the current icon image is equal to the image given.
+   */
+  public boolean imageUpdate(Image img, int infoflags, int x, int y, int w,
+                             int h)
+  {
+    Icon currIcon = isEnabled() ? icon : disabledIcon;
+
+    // XXX: Is this the correct way to check for image equality?
+    if (currIcon != null && currIcon instanceof ImageIcon)
+      return (((ImageIcon) currIcon).getImage() == img);
+
+    return false;
+  }
+
+  /**
+   * This method returns the component that the label gives focus to  when the
+   * mnemonic is activated.
+   *
+   * @return The component that gets focus when the label's mnemonic is
+   *         activated.
+   */
+  public Component getLabelFor()
+  {
+    return labelFor;
+  }
+
+  /**
+   * This method changes the "labelFor" property. The component that the label
+   * is acting as a label for will request focus when the label's  mnemonic
+   * is activated.
+   *
+   * @param c The component that gets focus when the label's mnemonic is
+   *        activated.
+   */
+  public void setLabelFor(Component c)
+  {
+    if (c != labelFor)
+      {
+	firePropertyChange(LABEL_FOR_CHANGED_PROPERTY, labelFor, c);
+	labelFor = c;
+      }
+  }
+
+  /**
+   * This method overrides setFont so that we can call for a repaint after the
+   * font is changed.
+   *
+   * @param f The font for this label.
+   */
+  public void setFont(Font f)
+  {
+    super.setFont(f);
+    repaint();
+  }
+
+  /**
+   * DOCUMENT ME!
+   *
+   * @return
+   */
+  public AccessibleContext getAccessibleContext()
+  {
+    return null;
+  }
 }

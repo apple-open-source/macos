@@ -29,13 +29,11 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_conn.h,v 1.18 2003/09/23 21:01:29 lindak Exp $
+ * $Id: smb_conn.h,v 1.32 2005/03/17 01:23:41 lindak Exp $
  */
 #ifndef _NETINET_IN_H_
-#ifdef APPLE
 #include <sys/socket.h>
 #include <net/if.h>
-#endif
 #include <netinet/in.h>
 #endif
 
@@ -79,6 +77,7 @@
 /*
  * VC flags
  */
+#define	SMBV_NT4		0x0001	/* used when NT4 issues invalid response */
 #define SMBV_PERMANENT		0x0002
 #define SMBV_LONGNAMES		0x0004	/* conn configured to use long names */
 #define	SMBV_ENCRYPT		0x0008	/* server demands encrypted password */
@@ -88,10 +87,14 @@
 #define SMBV_SINGLESHARE	0x0080	/* only one share conn is allowed */
 #define SMBV_CREATE		0x0100	/* lookup will create conn */
 /*#define SMBV_FAILED		0x0200*/	/* last reconnect attempt has failed */
-#ifdef APPLE
 #define SMBV_UNICODE		0x0400	/* conn configured to use Unicode */
-#endif
 #define SMBV_EXT_SEC		0x0800	/* conn to use extended security */
+#define SMBV_MINAUTH		0x7000	/* minimum auth level for conn */
+#define SMBV_MINAUTH_NONE		0x0000	/* any autherntication OK */
+#define SMBV_MINAUTH_LM			0x1000	/* no plaintext passwords */
+#define SMBV_MINAUTH_NTLM		0x2000	/* don't send LM reply */
+#define SMBV_MINAUTH_NTLMV2		0x3000	/* don't fall back to NTLMv1 */
+#define SMBV_MINAUTH_KERBEROS		0x4000	/* don't do NTLMv1 or v2 */
 
 /*
  * smb_share flags
@@ -99,7 +102,14 @@
 #define SMBS_PERMANENT		0x0001
 #define SMBS_RECONNECTING	0x0002
 #define SMBS_CONNECTED		0x0004
-
+#define SMBS_1980		0x0008	/* 
+					 * This partition can't handle
+					 * dates before 1980. It's
+					 * probably a FAT partition but
+					 * could be some other ancient
+					 * FS type
+                                         */
+#define SMBS_RESUMEKEYS		0x0010	/* must use resume keys */ 
 /*
  * share types
  */
@@ -188,7 +198,6 @@ struct smb_rq;
 struct mbdata;
 struct smbioc_oshare;
 struct smbioc_ossn;
-struct uio;
 
 TAILQ_HEAD(smb_rqhead, smb_rq);
 
@@ -216,12 +225,11 @@ typedef void smb_co_free_t (struct smb_connobj *cp);
 struct smb_connobj {
 	int			co_level;	/* SMBL_ */
 	int			co_flags;
-#ifdef APPLE
-	struct lock__bsd__	co_lock;
-#else
-	struct lock	co_lock;
-#endif
-	struct smb_slock	co_interlock;
+	lck_mtx_t   *co_lock;
+	void		 *co_lockowner;
+	int32_t		co_lockcount;
+	uint32_t	co_lock_flags;
+	smb_slock	co_interlock;
 	int			co_usecount;
 	struct smb_connobj *	co_parent;
 	SLIST_HEAD(,smb_connobj)co_children;
@@ -229,6 +237,8 @@ struct smb_connobj {
 	smb_co_gone_t *		co_gone;
 	smb_co_free_t *		co_free;
 };
+
+#define SMBFS_CO_LOCK_WAIT 1
 
 #define	SMBCO_FOREACH(var, cp)	SLIST_FOREACH((var), &(cp)->co_children, co_next)
 
@@ -287,7 +297,7 @@ struct smb_vc {
 	int		vc_rxmax;	/* max readx data size */
 	int		vc_wxmax;	/* max writex data size */
 	struct smbiod *	vc_iod;
-	struct smb_slock vc_stlock;
+	smb_slock vc_stlock;
 	size_t		vc_intoklen;
 	caddr_t		vc_intok;
 	size_t		vc_outtoklen;
@@ -299,9 +309,7 @@ struct smb_vc {
 #define vc_maxmux	vc_sopt.sv_maxmux
 #define	vc_flags	obj.co_flags
 
-#ifdef APPLE
 #define SMB_UNICODE_STRINGS(vcp)	((vcp)->vc_hflags2 & SMB_FLAGS2_UNICODE)
-#endif
 /*
  * smb_share structure describes connection to the given SMB share (tree).
  * Connection to share is always built on top of the VC.
@@ -325,7 +333,7 @@ struct smb_share {
 	mode_t		ss_mode;	/* access mode */
 	int		ss_vcgenid;
 	char *		ss_pass;	/* password to a share, can be null */
-	struct smb_slock ss_stlock;
+	smb_slock ss_stlock;
 	struct smb_cred *ss_cred;	/* used in reconnect procedure */
 };
 
@@ -380,11 +388,6 @@ struct smb_sharespec {
  */
 int  smb_sm_init(void);
 int  smb_sm_done(void);
-#ifndef APPLE
-int  smb_sm_lookup(struct smb_vcspec *vcspec,
-	struct smb_sharespec *shspec, struct smb_cred *scred,
-	struct smb_vc **vcpp);
-#endif
 int  smb_sm_negotiate(struct smb_vcspec *vcspec,
 	struct smb_sharespec *shspec, struct smb_cred *scred,
 	struct smb_vc **vcpp);
@@ -398,12 +401,13 @@ int  smb_sm_tcon(struct smb_vcspec *vcspec,
 /*
  * Connection object
  */
-void smb_co_ref(struct smb_connobj *cp, struct proc *p);
+void smb_co_ref(struct smb_connobj *cp);
 void smb_co_rele(struct smb_connobj *cp, struct smb_cred *scred);
-int  smb_co_get(struct smb_connobj *cp, int flags, struct smb_cred *scred);
 void smb_co_put(struct smb_connobj *cp, struct smb_cred *scred);
-int  smb_co_lock(struct smb_connobj *cp, int flags, struct proc *p);
-void smb_co_unlock(struct smb_connobj *cp, int flags, struct proc *p);
+int  smb_co_lock(struct smb_connobj *cp);
+void smb_co_unlock(struct smb_connobj *cp);
+void smb_co_drain(struct smb_connobj *cp);
+void smb_co_lockdrain(struct smb_connobj *cp);
 
 /*
  * session level functions
@@ -411,18 +415,15 @@ void smb_co_unlock(struct smb_connobj *cp, int flags, struct proc *p);
 int smb_vc_setup(struct smb_vcspec *vcspec, struct smb_vc *vcp);
 int  smb_vc_create(struct smb_vcspec *vcspec,
 	struct smb_cred *scred, struct smb_vc **vcpp);
-#ifndef APPLE
-int  smb_vc_connect(struct smb_vc *vcp, struct smb_cred *scred);
-#endif
 int  smb_vc_negotiate(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_vc_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_vc_access(struct smb_vc *vcp, struct smb_cred *scred, mode_t mode);
 int  smb_vc_get(struct smb_vc *vcp, int flags, struct smb_cred *scred);
 void smb_vc_put(struct smb_vc *vcp, struct smb_cred *scred);
-void smb_vc_ref(struct smb_vc *vcp, struct proc *p);
+void smb_vc_ref(struct smb_vc *vcp);
 void smb_vc_rele(struct smb_vc *vcp, struct smb_cred *scred);
-int  smb_vc_lock(struct smb_vc *vcp, int flags, struct proc *p);
-void smb_vc_unlock(struct smb_vc *vcp, int flags, struct proc *p);
+int  smb_vc_lock(struct smb_vc *vcp, struct proc *p);
+void smb_vc_unlock(struct smb_vc *vcp, struct proc *p);
 int  smb_vc_lookupshare(struct smb_vc *vcp, struct smb_sharespec *shspec,
 	struct smb_cred *scred, struct smb_share **sspp);
 const char * smb_vc_getpass(struct smb_vc *vcp);
@@ -434,12 +435,12 @@ u_short smb_vc_nextmid(struct smb_vc *vcp);
 int  smb_share_create(struct smb_vc *vcp, struct smb_sharespec *shspec,
 	struct smb_cred *scred, struct smb_share **sspp);
 int  smb_share_access(struct smb_share *ssp, struct smb_cred *scred, mode_t mode);
-void smb_share_ref(struct smb_share *ssp, struct proc *p);
+void smb_share_ref(struct smb_share *ssp);
 void smb_share_rele(struct smb_share *ssp, struct smb_cred *scred);
 int  smb_share_get(struct smb_share *ssp, int flags, struct smb_cred *scred);
 void smb_share_put(struct smb_share *ssp, struct smb_cred *scred);
-int  smb_share_lock(struct smb_share *ssp, int flags, struct proc *p);
-void smb_share_unlock(struct smb_share *ssp, int flags, struct proc *p);
+int  smb_share_lock(struct smb_share *ssp, struct proc *p);
+void smb_share_unlock(struct smb_share *ssp, struct proc *p);
 void smb_share_invalidate(struct smb_share *ssp);
 int  smb_share_valid(struct smb_share *ssp);
 const char * smb_share_getpass(struct smb_share *ssp);
@@ -453,9 +454,9 @@ int  smb_smb_ssnsetup(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_ssnclose(struct smb_vc *vcp, struct smb_cred *scred);
 int  smb_smb_treeconnect(struct smb_share *ssp, struct smb_cred *scred);
 int  smb_smb_treedisconnect(struct smb_share *ssp, struct smb_cred *scred);
-int  smb_read(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
+int  smb_read(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred);
-int  smb_write(struct smb_share *ssp, u_int16_t fid, struct uio *uio,
+int  smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	struct smb_cred *scred, int timo);
 int  smb_smb_echo(struct smb_vc *vcp, struct smb_cred *scred, int timo);
 int  smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, char *name, int nmlen, struct smb_cred *scred);
@@ -484,28 +485,27 @@ struct smbiod_event {
 };
 
 #define	SMBIOD_SHUTDOWN		0x0001
+#define	SMBIOD_RUNNING		0x0002
 
 struct smbiod {
 	int			iod_id;
 	int			iod_flags;
 	enum smbiod_state	iod_state;
+	smb_slock		iod_flagslock;	/* iod_flags */
 	int			iod_muxcnt;	/* number of active outstanding requests */
-	int			iod_sleeptimo;
+	struct timespec 	iod_sleeptimespec;
 	struct smb_vc *		iod_vc;
-	struct smb_slock	iod_rqlock;	/* iod_rqlist, iod_muxwant */
+	smb_slock		iod_rqlock;	/* iod_rqlist, iod_muxwant */
 	struct smb_rqhead	iod_rqlist;	/* list of outstanding requests */
 	int			iod_muxwant;
 	struct proc *		iod_p;
 	struct smb_cred		iod_scred;
-	struct smb_slock	iod_evlock;	/* iod_evlist */
+	smb_slock		iod_evlock;	/* iod_evlist */
 	STAILQ_HEAD(,smbiod_event) iod_evlist;
 	struct timespec 	iod_lastrqsent;
 	struct timespec 	iod_lastrecv;
 	struct timespec 	iod_pingtimo;
 	int			iod_workflag;	/* should be protected with lock */
-#ifdef APPLE_USE_CALLOUT_THREAD
-	thread_call_t		iod_tc;
-#endif
 };
 
 int  smb_iod_init(void);
@@ -517,5 +517,27 @@ int  smb_iod_addrq(struct smb_rq *rqp);
 int  smb_iod_waitrq(struct smb_rq *rqp);
 int  smb_iod_removerq(struct smb_rq *rqp);
 void smb_iod_shutdown_share(struct smb_share *ssp);
+
+extern lck_grp_attr_t *co_grp_attr;
+extern lck_grp_t *co_lck_group;
+extern lck_attr_t *co_lck_attr;
+extern lck_grp_attr_t *vcst_grp_attr;
+extern lck_grp_t *vcst_lck_group;
+extern lck_attr_t *vcst_lck_attr;
+extern lck_grp_attr_t *ssst_grp_attr;
+extern lck_grp_t *ssst_lck_group;
+extern lck_attr_t *ssst_lck_attr;
+extern lck_grp_attr_t *iodflags_grp_attr;
+extern lck_grp_t *iodflags_lck_group;
+extern lck_attr_t *iodflags_lck_attr;
+extern lck_grp_attr_t *iodrq_grp_attr;
+extern lck_grp_t *iodrq_lck_group;
+extern lck_attr_t *iodrq_lck_attr;
+extern lck_grp_attr_t *iodev_grp_attr;
+extern lck_grp_t *iodev_lck_group;
+extern lck_attr_t *iodev_lck_attr;
+extern lck_grp_attr_t *srs_grp_attr;
+extern lck_grp_t *srs_lck_group;
+extern lck_attr_t *srs_lck_attr;
 
 #endif /* _KERNEL */

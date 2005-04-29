@@ -1,0 +1,103 @@
+#!/bin/sh
+# man2html cgi script - uses /usr/bin/man2html to format man pages
+# auxiliary text files in /home/httpd/cgi-aux/man
+# aeb@cwi.nl - 980109
+
+MAN2HTML="/usr/bin/man2html"
+MANX="/home/httpd/cgi-aux/man/man.aux"
+
+# Do we need lynxcgi URLs? For the moment our criterion is
+# 1) HTTP_USER_AGENT=Lynx*  and 2) HTTP_HOST is unset.
+AGENT="${HTTP_USER_AGENT-unknown}"
+
+case "$AGENT" in
+    Lynx*|lynx*)
+	HH="${HTTP_HOST-nohh}"
+	SED="s/%lynx //"
+	;;
+    *)
+	HH=nolynx
+	SED="/%lynx/d"
+	;;
+esac
+
+SERVER="${SERVER_NAME-localhost}"
+case "$HH" in
+    nohh)
+	LL="-l"
+	CG="lynxcgi:/home/httpd/cgi-bin/man"
+	;;
+    *)
+	LL="-H$SERVER"
+	CG="http://$SERVER/cgi-bin/man"
+	;;
+esac
+
+# Find the required page - expect to be called with "man2html [sec] page".
+# There may a prefixed "-M manpath" option.
+if [ $# -ge 2 -a x"$1" = x-M ]; then
+    MANPATH="$2"
+    export MANPATH
+    shift; shift
+    MP=" using the given MANPATH"
+else
+    MP=""
+fi
+
+# If no arguments given, show a start page.
+if [ $# = 0 ]; then
+    if [ -r $MANX ]; then
+	cat $MANX | sed "s#%cg#$CG#g; $SED"
+    else
+	"$MAN2HTML" -E "man2html: cannot open $MANX"
+    fi
+    exit 0
+fi
+
+if [ $# -gt 2 ]; then
+    "$MAN2HTML" -E "man2html: bad invocation: too many arguments"
+    exit 0
+fi
+
+# A single argument may be an explicitly give path name
+# Otherwise, ask man where to find it
+if [ $# = 1 ]; then
+    case "$1" in
+	/*)
+	    PAGE="$1"
+	    ;;
+	*)
+	    PAGE=`man -w -c "$@" 2>/dev/null`
+	    ;;
+    esac
+else
+	PAGE=`man -w -c "$@" 2>/dev/null`
+fi
+
+if [ x"$PAGE" = x ]; then
+    complaint="man2html: cannot find a page"
+    if [ $# = 1 ]; then
+	"$MAN2HTML" -E "$complaint for $1$MP"
+    else
+	"$MAN2HTML" -E "$complaint for $2 in section $1$MP"
+    fi
+    exit 0
+fi
+
+if [ -r "$PAGE" ]
+then
+    case "$PAGE" in
+    *.gz)
+	zcat "$PAGE" | "$MAN2HTML" "$LL" -D "$PAGE"
+	;;
+    *)
+	"$MAN2HTML" "$LL" "$PAGE"
+	;;
+    esac
+elif [ -r "$PAGE".gz ]
+then
+	zcat "$PAGE".gz | "$MAN2HTML" "$LL" -D "$PAGE"
+else
+	"$MAN2HTML" -E "Strange... Cannot find (or read) $PAGE."
+fi
+exit 0

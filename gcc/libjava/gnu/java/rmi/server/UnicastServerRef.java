@@ -1,5 +1,6 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999, 2002, 2003 Free Software Foundation, Inc.
+/* UnicastServerRef.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,36 +36,23 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package gnu.java.rmi.server;
 
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
+import java.io.ObjectInputStream;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.RemoteStub;
 import java.rmi.server.ObjID;
 import java.rmi.server.ServerRef;
+import java.rmi.server.RemoteServer;
 import java.rmi.server.RemoteRef;
 import java.rmi.server.ServerNotActiveException;
-import java.rmi.server.RMIClientSocketFactory;
 import java.rmi.server.RMIServerSocketFactory;
-import java.rmi.server.UID;
 import java.rmi.server.Skeleton;
-import java.rmi.server.RemoteCall;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.Thread;
-import java.lang.Exception;
-import java.io.IOException;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.ObjectInput;
-import java.io.ObjectOutput;
 import java.util.Hashtable;
 
 public class UnicastServerRef
@@ -85,7 +73,7 @@ UnicastServerRef()
 {
 }
 
-public UnicastServerRef(ObjID id, int port, RMIServerSocketFactory ssf) {
+public UnicastServerRef(ObjID id, int port, RMIServerSocketFactory ssf) throws RemoteException {
 	super(id);
 	manager = UnicastConnectionManager.getInstance(port, ssf);
 }
@@ -99,13 +87,21 @@ public RemoteStub exportObject(Remote obj) throws RemoteException {
 
 		// Find and install the stub
 		Class cls = obj.getClass();
-		stub = (RemoteStub)getHelperClass(cls, "_Stub");
+		Class expCls;
+		try {
+			// where ist the _Stub? (check superclasses also)
+			expCls = findStubSkelClass(cls); 
+		} catch (Exception ex) {
+			throw new RemoteException("can not find stubs for class: " + cls, ex);
+		}
+
+		stub = (RemoteStub)getHelperClass(expCls, "_Stub");
 		if (stub == null) {
 			throw new RemoteException("failed to export: " + cls);
 		}
 
 		// Find and install the skeleton (if there is one)
-		skel = (Skeleton)getHelperClass(cls, "_Skel");
+		skel = (Skeleton)getHelperClass(expCls, "_Skel");
 
 		// Build hash of methods which may be called.
 		buildMethodHash(obj.getClass(), true);
@@ -135,11 +131,44 @@ public boolean unexportObject(Remote obj, boolean force) {
     return UnicastServer.unexportObject(this, force);
 }
 
+/**
+*
+*  The Subs/Skels might not there for the actual class, but maybe 
+*  for one of the superclasses.
+*
+*/
+private Class findStubSkelClass(Class startCls) throws Exception {
+	Class cls = startCls;
+
+	while (true) {
+		try {
+			String stubClassname = cls.getName() + "_Stub";
+			ClassLoader cl = cls.getClassLoader();
+			Class scls = cl == null ? Class.forName(stubClassname)
+						: cl.loadClass(stubClassname);
+			return cls; // found it
+		} catch (ClassNotFoundException e) {
+			Class superCls = cls.getSuperclass();
+			if (superCls == null 
+				|| superCls == java.rmi.server.UnicastRemoteObject.class) 
+			{
+				throw new Exception("Neither " + startCls 
+					+ " nor one of their superclasses (like" + cls + ")" 
+					+ " has a _Stub");
+			}
+			cls = superCls;
+		}
+	}
+}
+
+
+
 private Object getHelperClass(Class cls, String type) {
 	try {   
 	    String classname = cls.getName();
-		ClassLoader cl = cls.getClassLoader(); //DONT use "Class scls = Class.forName(classname + type);"
-		Class scls = cl.loadClass(classname + type);
+		ClassLoader cl = cls.getClassLoader();
+		Class scls = cl == null ? Class.forName(classname + type)
+					: cl.loadClass(classname + type);
 		if (type.equals("_Stub")) {
 			try {
 				// JDK 1.2 stubs
@@ -175,8 +204,10 @@ private Object getHelperClass(Class cls, String type) {
 	return (null);
 }
 
+
+
 public String getClientHost() throws ServerNotActiveException {
-	throw new Error("Not implemented");
+	return RemoteServer.getClientHost();
 }
 
 private void buildMethodHash(Class cls, boolean build) {
@@ -225,7 +256,9 @@ public Object incomingMessageCall(UnicastConnection conn, int method, long hash)
 			 * lets us know that.
 			 */
 			try {
-				args[i] = in.readObject();
+				// need to handle primitive types
+				args[i] = ((RMIObjectInputStream)in).readValue(meth.getParameterTypes()[i]);
+				
 			}
 			catch (Exception t) {
 				t.printStackTrace();
@@ -238,7 +271,16 @@ public Object incomingMessageCall(UnicastConnection conn, int method, long hash)
 		try{
 		    ret = meth.invoke(myself, args);
 		}catch(InvocationTargetException e){
-		    throw (Exception)(e.getTargetException());
+                    Throwable cause = e.getTargetException();
+                    if (cause instanceof Exception) {
+                        throw (Exception)cause;
+                    }
+                    else if (cause instanceof Error) {
+                        throw (Error)cause;
+                    }
+                    else {
+                        throw new Error("The remote method threw a java.lang.Throwable that is neither java.lang.Exception nor java.lang.Error.", e);
+                    }
 		}
 		return ret;
 	}
@@ -251,9 +293,14 @@ public Object incomingMessageCall(UnicastConnection conn, int method, long hash)
 			throw new NoSuchMethodException();
 		}
 		UnicastRemoteCall call = new UnicastRemoteCall(conn);
-		skel.dispatch(myself, call, method, hash);
-		return (call.returnValue());
+		skel.dispatch(myself, call, method, hash);		  
+		if (!call.isReturnValue())
+		  return RMIVoidValue.INSTANCE;
+		else
+		  return (call.returnValue());
 	}
 }
 
 }
+
+

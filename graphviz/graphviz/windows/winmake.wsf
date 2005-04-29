@@ -1,0 +1,152 @@
+<?xml version="1.0"?>
+<package>
+   <job id="all">
+     <script language="JScript">
+
+// Set the following variable to the root location of MS VC++ on your machine 
+    var vc = "c:\\progra~1\\micros~3";
+
+    var myshell = WScript.CreateObject("WScript.Shell");
+    var objEnv = myshell .Environment("Process");
+    var config = "Release";
+    var windowOption = "C";
+
+    var graphviz_home = myshell.CurrentDirectory;
+
+    var lFile = graphviz_home + "/log";
+    var args = WScript.Arguments;
+
+    if(args.Length == 1) {
+        lFile = args(0);
+    }
+
+    var cpfx = "%COMSPEC% /" + windowOption +" nmake /NOLOGO /f ";
+    var csfx = " - Win32 " + config + "\" >> " + lFile;
+
+    var path = objEnv("PATH");
+    objEnv("PATH") = path + ";" + vc + "\\VC98\\bin;"+vc+"\\Common\\MsDev98\\bin;";
+    objEnv("LIB") = vc+"\\VC98\\lib";
+    objEnv("INCLUDE") = vc+"\\VC98\\include";
+
+    function doComp(f)
+    {
+        myshell.Run("%COMSPEC% /C echo  ################### >> " + lFile);
+        myshell.Run("%COMSPEC% /C echo compiling " + f + " ... >> " + lFile);
+        myshell.Run(cpfx + f + ".mak CFG=\"" + f + csfx, 1, true);
+    }
+
+// base libraries to be built
+    var graphviz_libs = new Array(
+        "cdt",
+        "graph",
+        "agraph",
+        "gd",
+        "pathplan"
+    )
+
+// dotneato libraries to be built
+    var dotneato_lib_base = graphviz_home + "\\dotneato\\";
+    var graphviz_dnlibs = new Array(
+        "common",
+        "pack",
+        "gvrender",
+        "neatogen",
+        "dotgen",
+        "twopigen",
+        "circogen"
+    )
+
+// commands to be built
+    var graphviz_cmd_base = graphviz_home + "\\graphviz\\";
+    var graphviz_cmds = new Array(
+        "neato",
+        "dot",
+        "twopi",
+        "circo"
+    )
+
+// GUIs to be built
+    var graphviz_gui = new Array(
+        "lefty\\gfx",
+        "lefty",
+        "dotty",
+        "lneato"
+    )
+
+// tools to be built
+     var graphviz_tools = new Array(
+         "ToolsSupport",
+         "Acyclic",
+         "ccomps",
+         "gvcolor",
+         "gc",
+         "nop",
+         "sccmap",
+         "tred",
+         "unflatten",
+         "gxl2dot",
+         "dot2gxl",
+         "dijkstra"
+    )
+
+// The reason for using i and k and decrementing i in the loops
+// below is that it appears jscript is parsed as xml first. If we
+// use the less-than symbol, this is taken as the beginning of an
+// xml element and causes a parsing error. Note that an alternative
+// approach would be to use the &lt; entity, which will be replaced
+// by the less-than symbol. Also note that the contents of jscript
+// comments, such as this, are parsed as xml, so they cannot contain
+// a less-than symbol either.
+
+// build libs
+    var bnd = graphviz_libs.length;
+    var i = 0;
+    var k = 0;
+    for(i=bnd; i > 0; i--) { 
+        myshell.CurrentDirectory = graphviz_home + "\\" + graphviz_libs[k];
+        doComp(graphviz_libs[k]);
+        k++;
+    }
+
+// build dotneato libs
+    bnd = graphviz_dnlibs.length;
+    k = 0;
+    for(i=bnd; i > 0; i--) { 
+        myshell.CurrentDirectory = dotneato_lib_base + graphviz_dnlibs[k];
+        doComp(graphviz_dnlibs[k]);
+        k++;
+    }
+
+// build commands
+    bnd = graphviz_cmds.length;
+    k = 0;
+    for(i=bnd; i > 0; i--) { 
+        myshell.CurrentDirectory = graphviz_cmd_base + graphviz_cmds[k];
+        doComp(graphviz_cmds[k]);
+        k++;
+    }
+
+// build GUIs
+    bnd = graphviz_gui.length;
+    k = 0;
+    for(i=bnd; i > 0; i--) { 
+        var arcs = graphviz_gui[k].split("\\");
+        myshell.CurrentDirectory = graphviz_home + "\\" + graphviz_gui[k];
+        doComp(arcs[arcs.length-1]);
+        k++;
+    }
+
+// build tools
+    myshell.CurrentDirectory = graphviz_home + "\\tools\\projects";
+    bnd = graphviz_tools.length;
+    k = 0;
+    for(i=bnd; i > 0; i--) { 
+        doComp(graphviz_tools[k]);
+        k++;
+    }
+
+    </script>
+
+  </job>
+
+</package>

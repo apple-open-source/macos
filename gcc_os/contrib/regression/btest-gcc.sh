@@ -19,8 +19,9 @@
 
 # INPUT:
 # btest <target> <source> <prefix> <state> <build>
-# TARGET is the target triplet.  It should be the same one
-# as used in constructing PREFIX.
+# TARGET is the target triplet.  It should be the same one as used in
+# constructing PREFIX.  Or it can be the keyword 'native', indicating
+# a target of whatever platform the script is running on.
 TARGET=$1
 # SOURCE is the directory containing the toplevel configure.
 SOURCE=$2
@@ -98,20 +99,21 @@ H_REAL_TARGET=`$SOURCE/config.sub $H_TARGET || exit 1`
 TESTLOGS="gcc/testsuite/gcc.sum
 gcc/testsuite/g++.sum
 gcc/testsuite/g77.sum
-gcc/testsuite/objc.sum
-test-gdb/gdb.sum"
+gcc/testsuite/objc.sum"
 # $H_TARGET/libstdc++-v3/testsuite/libstdc++-v3.sum
 
 # Build.
 echo build > $RESULT
-$SOURCE/configure --prefix=$PREFIX --target=$H_TARGET || exit 1
 if [ $H_HOST = $H_TARGET ] ; then
+  $SOURCE/configure --prefix=$PREFIX --target=$H_TARGET || exit 1
   if ! make bootstrap ; then
     [ -s gcc/.bad_compare ] || exit 1
     cat gcc/.bad_compare >> $REGRESS || exit 1
     make all || exit 1
   fi
 else
+  $SOURCE/configure --prefix=$PREFIX --target=$H_TARGET \
+    --with-gnu-ld --with-gnu-as --with-newlib || exit 1
   make || exit 1
 fi
 echo error > $RESULT || exit 1
@@ -123,22 +125,25 @@ make -k check-gcc
 make check-target-libstdc++-v3
 
 # Test the just-built GCC with the GDB testsuite.
-mkdir test-gdb || exit 1
-cd $GDB_TESTSUITE || exit 1
-for i in gdb.* ; do
-  if [ -d $i ] ; then
-    mkdir $BUILD/test-gdb/$i
-  fi
-done
-cd $BUILD/test-gdb || exit 1
-echo "set host_alias $H_HOST" > site.exp
-echo "set host_triplet $H_HOST" >> site.exp
-echo "set target_alias $H_TARGET" >> site.exp
-echo "set target_triplet $H_REAL_TARGET" >> site.exp
-echo "set build_alias $H_BUILD" >> site.exp
-echo "set build_triplet $H_BUILD" >> site.exp
-echo "set srcdir $GDB_TESTSUITE" >> site.exp
-runtest --tool gdb
+if [ -d $GDB_TESTSUITE ] ; then
+  mkdir test-gdb || exit 1
+  cd $GDB_TESTSUITE || exit 1
+  for i in gdb.* ; do
+    if [ -d $i ] ; then
+      mkdir $BUILD/test-gdb/$i
+    fi
+  done
+  cd $BUILD/test-gdb || exit 1
+  echo "set host_alias $H_HOST" > site.exp
+  echo "set host_triplet $H_HOST" >> site.exp
+  echo "set target_alias $H_TARGET" >> site.exp
+  echo "set target_triplet $H_REAL_TARGET" >> site.exp
+  echo "set build_alias $H_BUILD" >> site.exp
+  echo "set build_triplet $H_BUILD" >> site.exp
+  echo "set srcdir $GDB_TESTSUITE" >> site.exp
+  runtest --tool gdb
+  TESTLOGS="$TESTLOGS test-gdb/gdb.sum"
+fi
 
 # Sanity-check the testlogs.  They should contain at least one PASS.
 cd $BUILD || exit 1

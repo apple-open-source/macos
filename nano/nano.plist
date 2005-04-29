@@ -1,0 +1,21 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>nano</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.4</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.nano-editor.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.nano-editor.org/dist/v1.2/nano-1.2.4.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>2c513310ec5e8b63abaecaf48670ac7a</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>nano.txt</string>
+</dict>
+</plist>

@@ -69,6 +69,8 @@
  *		automatically disabled.
  *	@constant eDSAuthAccountInactive The account was unused for a preset amount of time so
  *		it was automatically disabled.
+ *	@constant eDSAuthMasterUnreachable Unable to authenticate to make changes
+ *		because the master server is unreachable.
  */
 typedef	enum
 {
@@ -172,6 +174,7 @@ typedef	enum
 	eDSAuthPasswordChangeTooSoon=	-14174,
 	eDSAuthInvalidLogonHours	= 	-14175,
 	eDSAuthInvalidComputer		= 	-14176,
+	eDSAuthMasterUnreachable	=	-14177,
 	
 	eDSNullParameter			=	-14200,
 	eDSNullDataBuff				=	-14201,

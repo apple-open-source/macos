@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---           Copyright (C) 1992-2001 Free Software Foundation, Inc.         --
+--           Copyright (C) 1992-2004 Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,9 +47,6 @@ with System.Tasking.Rendezvous;
 with System.Task_Primitives.Operations;
 --  used for Self
 
-with System.Task_Info;
-use type System.Task_Info.Task_Image_Type;
-
 with Unchecked_Conversion;
 
 package body Ada.Task_Identification is
@@ -59,8 +55,8 @@ package body Ada.Task_Identification is
    -- Local Subprograms --
    -----------------------
 
-   function Convert_Ids (T : Task_Id) return System.Tasking.Task_ID;
-   function Convert_Ids (T : System.Tasking.Task_ID) return Task_Id;
+   function Convert_Ids (T : Task_Id) return System.Tasking.Task_Id;
+   function Convert_Ids (T : System.Tasking.Task_Id) return Task_Id;
    pragma Inline (Convert_Ids);
    --  Conversion functions between different forms of Task_Id
 
@@ -91,12 +87,12 @@ package body Ada.Task_Identification is
    -- Convert_Ids --
    -----------------
 
-   function Convert_Ids (T : Task_Id) return System.Tasking.Task_ID is
+   function Convert_Ids (T : Task_Id) return System.Tasking.Task_Id is
    begin
-      return System.Tasking.Task_ID (T);
+      return System.Tasking.Task_Id (T);
    end Convert_Ids;
 
-   function Convert_Ids (T : System.Tasking.Task_ID) return Task_Id is
+   function Convert_Ids (T : System.Tasking.Task_Id) return Task_Id is
    begin
       return Task_Id (T);
    end Convert_Ids;
@@ -115,7 +111,6 @@ package body Ada.Task_Identification is
    -----------
 
    function Image (T : Task_Id) return String is
-      use System.Task_Info;
       function To_Address is new
         Unchecked_Conversion (Task_Id, System.Address);
 
@@ -123,11 +118,11 @@ package body Ada.Task_Identification is
       if T = Null_Task_Id then
          return "";
 
-      elsif T.Common.Task_Image = null then
+      elsif T.Common.Task_Image_Len = 0 then
          return System.Address_Image (To_Address (T));
 
       else
-         return T.Common.Task_Image.all
+         return T.Common.Task_Image (1 .. T.Common.Task_Image_Len)
             & "_" &  System.Address_Image (To_Address (T));
       end if;
    end Image;

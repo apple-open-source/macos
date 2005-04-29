@@ -42,14 +42,12 @@
 #include "ggc.h"
 #include "target.h"
 #include "target-def.h"
+#include "langhooks.h"
 
 static void d30v_print_operand_memory_reference PARAMS ((FILE *, rtx));
 static void d30v_build_long_insn PARAMS ((HOST_WIDE_INT, HOST_WIDE_INT,
 					  rtx, rtx));
-static void d30v_add_gc_roots PARAMS ((void));
-static void d30v_init_machine_status PARAMS ((struct function *));
-static void d30v_mark_machine_status PARAMS ((struct function *));
-static void d30v_free_machine_status PARAMS ((struct function *));
+static struct machine_function * d30v_init_machine_status PARAMS ((void));
 static void d30v_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
 static void d30v_output_function_epilogue PARAMS ((FILE *, HOST_WIDE_INT));
 static int d30v_adjust_cost PARAMS ((rtx, rtx, rtx, int));
@@ -297,8 +295,6 @@ override_options ()
   reg_class_from_letter['x'] = F0_REGS;
   reg_class_from_letter['y'] = F1_REGS;
   reg_class_from_letter['z'] = OTHER_FLAG_REGS;
-
-  d30v_add_gc_roots ();
 }
 
 
@@ -1871,7 +1867,7 @@ debug_stack_info (info)
 }
 
 
-/* Return non-zero if this function is known to have a null or 1 instruction epilogue.  */
+/* Return nonzero if this function is known to have a null or 1 instruction epilogue.  */
 
 int
 direct_return ()
@@ -1989,7 +1985,7 @@ d30v_function_arg_boundary (mode, type)
    You may use the macro `MUST_PASS_IN_STACK (MODE, TYPE)' in the definition of
    this macro to determine if this argument is of a type that must be passed in
    the stack.  If `REG_PARM_STACK_SPACE' is not defined and `FUNCTION_ARG'
-   returns non-zero for such an argument, the compiler will abort.  If
+   returns nonzero for such an argument, the compiler will abort.  If
    `REG_PARM_STACK_SPACE' is defined, the argument will be computed in the
    stack and then loaded into a register.  */
 
@@ -2202,7 +2198,7 @@ d30v_build_va_list ()
   tree f_arg_ptr, f_arg_num, record, type_decl;
   tree int_type_node;
 
-  record = make_lang_type (RECORD_TYPE);
+  record = (*lang_hooks.types.make_type) (RECORD_TYPE);
   type_decl = build_decl (TYPE_DECL, get_identifier ("__va_list_tag"), record);
   int_type_node = make_signed_type (INT_TYPE_SIZE);
 
@@ -2229,8 +2225,7 @@ d30v_build_va_list ()
 /* Expand __builtin_va_start to do the va_start macro.  */
 
 void 
-d30v_expand_builtin_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+d30v_expand_builtin_va_start (valist, nextarg)
      tree valist;
      rtx nextarg ATTRIBUTE_UNUSED;
 {
@@ -2631,12 +2626,7 @@ d30v_split_double (value, p_high, p_low)
 
 /* A C compound statement to output to stdio stream STREAM the assembler syntax
    for an instruction operand that is a memory reference whose address is X.  X
-   is an RTL expression.
-
-   On some machines, the syntax for a symbolic address depends on the section
-   that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  *Note Assembler Format::.  */
+   is an RTL expression.  */
 
 void
 d30v_print_operand_address (stream, x)
@@ -3100,64 +3090,7 @@ d30v_initialize_trampoline (addr, fnaddr, static_chain)
 
 /* A C compound statement with a conditional `goto LABEL;' executed if X (an
    RTX) is a legitimate memory address on the target machine for a memory
-   operand of mode MODE.
-
-   It usually pays to define several simpler macros to serve as subroutines for
-   this one.  Otherwise it may be too complicated to understand.
-
-   This macro must exist in two variants: a strict variant and a non-strict
-   one.  The strict variant is used in the reload pass.  It must be defined so
-   that any pseudo-register that has not been allocated a hard register is
-   considered a memory reference.  In contexts where some kind of register is
-   required, a pseudo-register with no hard register must be rejected.
-
-   The non-strict variant is used in other passes.  It must be defined to
-   accept all pseudo-registers in every context where some kind of register is
-   required.
-
-   Compiler source files that want to use the strict variant of this macro
-   define the macro `REG_OK_STRICT'.  You should use an `#ifdef REG_OK_STRICT'
-   conditional to define the strict variant in that case and the non-strict
-   variant otherwise.
-
-   Subroutines to check for acceptable registers for various purposes (one for
-   base registers, one for index registers, and so on) are typically among the
-   subroutines used to define `GO_IF_LEGITIMATE_ADDRESS'.  Then only these
-   subroutine macros need have two variants; the higher levels of macros may be
-   the same whether strict or not.
-
-   Normally, constant addresses which are the sum of a `symbol_ref' and an
-   integer are stored inside a `const' RTX to mark them as constant.
-   Therefore, there is no need to recognize such sums specifically as
-   legitimate addresses.  Normally you would simply recognize any `const' as
-   legitimate.
-
-   Usually `PRINT_OPERAND_ADDRESS' is not prepared to handle constant sums that
-   are not marked with `const'.  It assumes that a naked `plus' indicates
-   indexing.  If so, then you *must* reject such naked constant sums as
-   illegitimate addresses, so that none of them will be given to
-   `PRINT_OPERAND_ADDRESS'.
-
-   On some machines, whether a symbolic address is legitimate depends on the
-   section that the address refers to.  On these machines, define the macro
-   `ENCODE_SECTION_INFO' to store the information into the `symbol_ref', and
-   then check for it here.  When you see a `const', you will have to look
-   inside it to find the `symbol_ref' in order to determine the section.  *Note
-   Assembler Format::.
-
-   The best way to modify the name string is by adding text to the beginning,
-   with suitable punctuation to prevent any ambiguity.  Allocate the new name
-   in `saveable_obstack'.  You will have to modify `ASM_OUTPUT_LABELREF' to
-   remove and decode the added text and output the name accordingly, and define
-   `STRIP_NAME_ENCODING' to access the original name string.
-
-   You can check the information stored here into the `symbol_ref' in the
-   definitions of the macros `GO_IF_LEGITIMATE_ADDRESS' and
-   `PRINT_OPERAND_ADDRESS'.
-
-   Return 0 if the address is not legitimate, 1 if the address would fit
-   in a short instruction, or 2 if the address would fit in a long
-   instruction.  */
+   operand of mode MODE.  */
 
 #define XREGNO_OK_FOR_BASE_P(REGNO, STRICT_P)				\
 ((STRICT_P)								\
@@ -3543,35 +3476,10 @@ d30v_issue_rate ()
 /* Routine to allocate, mark and free a per-function,
    machine specific structure.  */
 
-static void
-d30v_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+d30v_init_machine_status ()
 {
-  p->machine =
-    (machine_function *) xcalloc (1, sizeof (machine_function));
-}
-
-static void
-d30v_mark_machine_status (p)
-     struct function * p;
-{
-  if (p->machine == NULL)
-    return;
-  
-  ggc_mark_rtx (p->machine->eh_epilogue_sp_ofs);
-}
-
-static void
-d30v_free_machine_status (p)
-     struct function *p;
-{
-  struct machine_function *machine = p->machine;
-
-  if (machine == NULL)
-    return;
-
-  free (machine);
-  p->machine = NULL;
+  return ggc_alloc_cleared (sizeof (machine_function));
 }
 
 /* Do anything needed before RTL is emitted for each function.  */
@@ -3581,8 +3489,6 @@ d30v_init_expanders ()
 {
   /* Arrange to save and restore machine status around nested functions.  */
   init_machine_status = d30v_init_machine_status;
-  mark_machine_status = d30v_mark_machine_status;
-  free_machine_status = d30v_free_machine_status;
 }
 
 /* Find the current function's return address.
@@ -3596,14 +3502,4 @@ rtx
 d30v_return_addr ()
 {
   return get_hard_reg_initial_val (Pmode, GPR_LINK);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-d30v_add_gc_roots ()
-{
-  ggc_add_rtx_root (&d30v_compare_op0, 1);
-  ggc_add_rtx_root (&d30v_compare_op1, 1);
 }

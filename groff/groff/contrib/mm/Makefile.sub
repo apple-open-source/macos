@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.sub,v 1.1.1.2 2002/11/06 23:21:40 jevans Exp $
+# $Id: Makefile.sub,v 2.3 2002/05/22 06:26:12 jhaegg Exp $
 #
 PROG=mmroff
 MAN1=\

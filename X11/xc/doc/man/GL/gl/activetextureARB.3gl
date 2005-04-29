@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GL/gl/activetextureARB.3gl,v 1.4 2003/10/22 20:36:31 tsi Exp $
 '\" et
 '\"! eqn|tbl | mmdoc
 '\"macro stdmacro
@@ -28,7 +29,7 @@ Specifies which texture unit to make active. The number
 of texture units is implementation dependent, but must be at least
 two. \f2texture\fP must be one of \%\f3GL_TEXTURE\fP$i$\f3_ARB\fP, where 
 0 \(<= $ i $ < \%\f3GL_MAX_TEXTURE_UNITS_ARB\fP, which is an
-implementation-dependent value.  The intial value is \%\f3GL_TEXTURE0_ARB\fP.
+implementation-dependent value.  The initial value is \%\f3GL_TEXTURE0_ARB\fP.
 .SH DESCRIPTION
 \%\f3glActiveTextureARB\fP selects which texture unit subsequent texture state calls will
 affect.  The number of texture units an implementation supports is

@@ -1,0 +1,448 @@
+
+
+Network Working Group                                       S. Josefsson
+Internet-Draft                                              RSA Security
+Expires: March 29, 2002                               September 28, 2001
+
+
+                             DNS URI scheme
+                        draft-josefsson-dns-url
+
+Status of this Memo
+
+   This document is an Internet-Draft and is in full conformance with
+   all provisions of Section 10 of RFC2026.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups. Note that
+   other groups may also distribute working documents as
+   Internet-Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six
+   months and may be updated, replaced, or obsoleted by other documents
+   at any time. It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on March 29, 2002.
+
+   Distribution of this document is unlimited.  Comments and
+   suggestions on this document are encouraged. The key words 'MUST',
+   'MUST NOT', 'REQUIRED', 'SHALL', 'SHALL NOT', 'SHOULD', 'SHOULD
+   NOT', 'RECOMMENDED', 'MAY', and 'OPTIONAL' in this document are to
+   be interpreted as described in RFC 2119 [3].
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2001). All Rights Reserved.
+
+Abstract
+
+   This draft describes a URI scheme to locate DNS resources.
+
+
+
+
+
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 1]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+Table of Contents
+
+   1.  Introduction and Background  . . . . . . . . . . . . . . . . .  3
+   2.  URI Scheme . . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   3.  URI Scheme Syntax  . . . . . . . . . . . . . . . . . . . . . .  3
+   4.  Character Encoding Considerations  . . . . . . . . . . . . . .  4
+   5.  Intended Usage . . . . . . . . . . . . . . . . . . . . . . . .  4
+   6.  Applications and/or Protocols Using This Scheme  . . . . . . .  4
+   7.  Interoperability Considerations  . . . . . . . . . . . . . . .  4
+   8.  Security Considerations  . . . . . . . . . . . . . . . . . . .  4
+   9.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . .  5
+   10. Examples . . . . . . . . . . . . . . . . . . . . . . . . . . .  5
+       Author's Address . . . . . . . . . . . . . . . . . . . . . . .  6
+       References . . . . . . . . . . . . . . . . . . . . . . . . . .  5
+   A.  IANA URI Registration Template . . . . . . . . . . . . . . . .  6
+       Full Copyright Statement . . . . . . . . . . . . . . . . . . .  8
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 2]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+1. Introduction and Background
+
+   DNS [1][2] is a widely deployed protocol used to, among other
+   things, translate domain names into IP addresses.  More recent work
+   has added support for storing cryptographic keys and certificates in
+   DNS [6][7].  To be able to locate, for example, certificates via a
+   network resource, URIs are often used.  This document describes a
+   URI scheme to locate DNS information.  The DNS URI scheme described
+   here can be used to reference any DNS data, not only certificates.  
+
+   The following sections are modelled after the Registration Template
+   in [8].  The template can be found in Appendix A.
+
+2. URI Scheme
+
+   The name of the URI scheme defined in this document is "dns".
+
+   A DNS URI designates a DNS resource record: By domain name, type and
+   class and optionally server.  The DNS URI follows the generic syntax
+   from RFC 2396 [5], and is described using ABNF [4] in section 3.
+
+   A DNS URI is of the following general form.  This is intended to
+   illustrate, not define, the scheme.
+
+   dns:[//server/]domain[?type=TYPE;class=CLASS]
+
+3. URI Scheme Syntax
+
+   Strings are not case sensitive and free insertion of
+   linear-white-space is not permitted.
+
+   dnsurl       = "dns:" [ "//" hostport "/" ] dnsname ["?" query]
+                                ; See RFC 2396 for "hostport"  definition
+
+   domainname   = uric
+                                ; See RFC 2396 for "uric" definition
+
+   query        = queryelement [";" query]
+
+   queryelement = ( "CLASS=" classval ) | ( "TYPE=" typeval ) |
+                  ( 1*alphanum "=" 1*alphanum )
+
+   classval     = 1*digit / "IN" / "CH" / ...
+                                ; Any standard DNS class expressed as
+                                ; mnemonic or as decimal integer
+
+   typeval      = 1*digit / "A" / "NS" / "MD" / ...
+                                ; Any standard DNS type expressed as
+                                ; mnemonic or as decimal integer
+
+
+Josefsson                Expires March 29, 2002                 [Page 3]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+   The digit representation of types and classes SHOULD NOT be used
+   when a defined mnemonic for the corresponding value is known.
+
+   Of the "reserved" characters in the "dnsname" element, the "?"
+   character MUST be escaped, the rest MAY be escaped. Otherwise, it
+   would be impossible to separate a domain name containing "?" from
+   the "query" delimiter.
+
+   Unless specified, the "server" is assumed to be locally
+   (pre-)configured, and "class" to be the Internet class ("IN"), and
+   "type" to be the Address (A) type.
+
+   To resolve a DNS URI using the DNS protocol [2] a query is formed by
+   using the domainname, classval and typeval from the URI string (or
+   the previously mentioned default values if either classval or
+   typeval is missing from the string).  If hostport is given in the
+   URI string, this server should receive the DNS query, otherwise the
+   default DNS server should receive it.
+
+4. Character Encoding Considerations
+
+   The characters in the URI, in particular the "dnsname", MUST be
+   encoded as per the "URI Generic Syntax" RFC [5].
+
+   This URI specification allows all possible DNS names to be encoded
+   (of course following the encoding rules of [5]), however certain
+   applications may restrict the set of valid characters and care
+   should be taken so that invalid characters in these contexts does
+   not cause harm.  In particular, hostnames in DNS often have certain
+   restrictions.  It is up to these application to limit this subset,
+   this URI scheme places no restrictions.
+
+5. Intended Usage
+
+   Broad usage. 
+
+6. Applications and/or Protocols Using This Scheme
+
+   E.g. CNRP.
+
+7. Interoperability Considerations
+
+   The data referenced by this URI scheme might be transferred by
+   protocols that aren't URI aware (such as the DNS protocol). This is
+   not anticipated to have any serious interoperability impact though.
+
+8. Security Considerations
+
+   A DNS URI does not embed confidential information.  If it references
+
+
+Josefsson                Expires March 29, 2002                 [Page 4]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+   domains in the Internet DNS environment, even the information
+   referenced by the URI is public information.  If a DNS URI is used
+   within an "internal" DNS environment, the same security
+   considerations of the DNS environment apply to the use and handling
+   of DNS URIs themselves as well as the data returned by looking up
+   these URIs.
+
+   If security related information is referenced by DNS URIs (such as
+   certificates stored in DNS), care must be taken to prevent for
+   man-in-the-middle attacks that maliciously replace the certificate. 
+   Techniques such as Secure DNS may be used.
+
+   This draft does not affect the security considerations related to
+   DNS itself.
+
+9. IANA Considerations
+
+   The IANA is asked to register the DNS URI scheme using this document
+   as the template in accordance with RFC 2717 [8].
+
+10. Examples
+
+   The following illustrate a DNS query for "www.example.org" for the
+   Internet (IN) class and the Address (A) type:
+
+   dns:www.example.org?class=IN;type=A
+
+   The following illustrate a DNS query for "simon.example.org" for the
+   CERT type in the Internet (IN) class:
+
+   dns:simon.example.org?type=CERT
+
+   The following illustrate a DNS query for "ftp.example.org" from the
+   DNS server "internal-dns.example.org" server, in the Internet (IN)
+   class and the address (A) type:
+
+   dns://internal-dns.example.org/ftp.example.org?type=A
+
+   The following illustrate a strange, albeit valid, DNS query:
+
+   dns://internal-dns.example.org/*.%3f%20 %00%25+?type=TXT
+
+Acknowledgement
+
+   Thanks to Michael Mealling, Steve Mattson and Stuart Cheshire for
+   comments.
+
+References
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 5]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+   [1]  Mockapetris, P., "Domain Names - Concepts and Facilities", RFC
+        1034, November 1987.
+
+   [2]  Mockapetris, P., "Domain Names - Implementation and
+        Specification", RFC 1035, November 1987.
+
+   [3]  Bradner, S., "Key words for use in RFCs to Indicate Requirement
+        Levels", RFC 2119, March 1997.
+
+   [4]  Crocker, D. and P. Overell, "Augmented BNF for Syntax
+        Specifications: ABNF", RFC 2234, November 1997.
+
+   [5]  Berners-Lee, T., Fielding, R. and L. Masinter, "Uniform
+        Resource Identifiers (URI): Generic Syntax", RFC 2396, August
+        1998.
+
+   [6]  Eastlake, D., "Domain Name System Security Extensions", RFC
+        2535, March 1999.
+
+   [7]  Eastlake, D. and O. Gudmundsson, "Storing Certificates in the
+        Domain Name System (DNS)", RFC 2538, March 1999.
+
+   [8]  Petke, R. and I. King, "Registration Procedures for URL Scheme
+        Names", RFC 2717, November 1999.
+
+
+Author's Address
+
+   Simon Josefsson
+   RSA Security
+   Arenavägen 29
+   Stockholm  121 29
+   Sweden
+
+   Phone: +46 8 7250914
+   EMail: sjosefsson@rsasecurity.com
+
+Appendix A. IANA URI Registration Template
+
+   URL scheme name: dns
+
+   URL scheme syntax: Section 3
+
+   Character encoding considerations: Section 4
+
+   Intended usage: Section 5
+
+   Applications and/or protocols which use this scheme: Section 5.
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 6]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+   Interoperability considerations: Section 7.
+
+   Security considerations: Section 8
+
+   Contact: sjosefsson@rsasecurity.com
+
+   Author/Change Controller: IESG
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 7]
+
+Internet-Draft               DNS URI scheme               September 2001
+
+
+Full Copyright Statement
+
+   Copyright (C) The Internet Society (2001). All Rights Reserved.
+
+   This document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph
+   are included on all such copies and derivative works. However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assigns.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Josefsson                Expires March 29, 2002                 [Page 8]
+

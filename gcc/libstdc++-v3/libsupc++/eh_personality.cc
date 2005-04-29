@@ -1,20 +1,20 @@
 // -*- C++ -*- The GNU C++ exception personality routine.
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2002, 2003 Free Software Foundation, Inc.
 //
-// This file is part of GNU CC.
+// This file is part of GCC.
 //
-// GNU CC is free software; you can redistribute it and/or modify
+// GCC is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 2, or (at your option)
 // any later version.
 //
-// GNU CC is distributed in the hope that it will be useful,
+// GCC is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with GNU CC; see the file COPYING.  If not, write to
+// along with GCC; see the file COPYING.  If not, write to
 // the Free Software Foundation, 59 Temple Place - Suite 330,
 // Boston, MA 02111-1307, USA.
 
@@ -124,6 +124,8 @@ get_adjusted_ptr (const std::type_info *catch_type,
   return false;
 }
 
+// Return true if THROW_TYPE matches one if the filter types.
+
 static bool
 check_exception_spec (lsda_header_info *info, const std::type_info *throw_type,
 		      void *thrown_ptr, _Unwind_Sword filter_value)
@@ -154,9 +156,21 @@ check_exception_spec (lsda_header_info *info, const std::type_info *throw_type,
     }
 }
 
+// Return true if the filter spec is empty, ie throw().
+
+static bool
+empty_exception_spec (lsda_header_info *info, _Unwind_Sword filter_value)
+{
+  const unsigned char *e = info->TType - filter_value - 1;
+  _Unwind_Word tmp;
+
+  e = read_uleb128 (e, &tmp);
+  return tmp == 0;
+}
+
 // Using a different personality function name causes link failures
 // when trying to mix code using different exception handling models.
-#ifdef _GLIBCPP_SJLJ_EXCEPTIONS
+#ifdef _GLIBCXX_SJLJ_EXCEPTIONS
 #define PERSONALITY_FUNCTION	__gxx_personality_sj0
 #define __builtin_eh_return_data_regno(x) x
 #else
@@ -197,6 +211,7 @@ PERSONALITY_FUNCTION (int version,
       && exception_class == __gxx_exception_class)
     {
       handler_switch_value = xh->handlerSwitchValue;
+      language_specific_data = xh->languageSpecificData;
       landing_pad = (_Unwind_Ptr) xh->catchTemp;
       found_type = (landing_pad == 0 ? found_terminate : found_handler);
       goto install_context;
@@ -217,7 +232,7 @@ PERSONALITY_FUNCTION (int version,
   action_record = 0;
   handler_switch_value = 0;
 
-#ifdef _GLIBCPP_SJLJ_EXCEPTIONS
+#ifdef _GLIBCXX_SJLJ_EXCEPTIONS
   // The given "IP" is an index into the call-site table, with two
   // exceptions -- -1 means no-action, and 0 means terminate.  But
   // since we're using uleb128 values, we've not got random access
@@ -270,12 +285,12 @@ PERSONALITY_FUNCTION (int version,
 	  goto found_something;
 	}
     }
-#endif // _GLIBCPP_SJLJ_EXCEPTIONS
+#endif // _GLIBCXX_SJLJ_EXCEPTIONS
 
   // If ip is not present in the table, call terminate.  This is for
   // a destructor inside a cleanup, or a library routine the compiler
   // was not expecting to throw.
-  found_type = (actions & _UA_FORCE_UNWIND ? found_nothing : found_terminate);
+  found_type = found_terminate;
   goto do_something;
 
  found_something:
@@ -327,23 +342,15 @@ PERSONALITY_FUNCTION (int version,
 	      // Positive filter values are handlers.
 	      catch_type = get_ttype_entry (&info, ar_filter);
 
-	      // Null catch type is a catch-all handler.  We can catch
-	      // foreign exceptions with this.
-	      if (! catch_type)
+	      // Null catch type is a catch-all handler; we can catch foreign
+	      // exceptions with this.  Otherwise we must match types.
+	      if (! catch_type
+		  || (throw_type
+		      && get_adjusted_ptr (catch_type, throw_type,
+					   &thrown_ptr)))
 		{
-		  if (!(actions & _UA_FORCE_UNWIND))
-		    {
-		      saw_handler = true;
-		      break;
-		    }
-		}
-	      else if (throw_type)
-		{
-		  if (get_adjusted_ptr (catch_type, throw_type, &thrown_ptr))
-		    {
-		      saw_handler = true;
-		      break;
-		    }
+		  saw_handler = true;
+		  break;
 		}
 	    }
 	  else
@@ -352,9 +359,12 @@ PERSONALITY_FUNCTION (int version,
 	      // ??? How do foreign exceptions fit in?  As far as I can
 	      // see we can't match because there's no __cxa_exception
 	      // object to stuff bits in for __cxa_call_unexpected to use.
+	      // Allow them iff the exception spec is non-empty.  I.e.
+	      // a throw() specification results in __unexpected.
 	      if (throw_type
-		  && ! check_exception_spec (&info, throw_type, thrown_ptr,
-					     ar_filter))
+		  ? ! check_exception_spec (&info, throw_type, thrown_ptr,
+					    ar_filter)
+		  : empty_exception_spec (&info, ar_filter))
 		{
 		  saw_handler = true;
 		  break;
@@ -400,23 +410,43 @@ PERSONALITY_FUNCTION (int version,
     }
 
  install_context:
-  if (found_type == found_terminate)
+  // We can't use any of the cxa routines with foreign exceptions,
+  // because they all expect ue_header to be a struct __cxa_exception.
+  // So in that case, call terminate or unexpected directly.
+  if ((actions & _UA_FORCE_UNWIND)
+      || exception_class != __gxx_exception_class)
     {
-      __cxa_begin_catch (&xh->unwindHeader);
-      __terminate (xh->terminateHandler);
+      if (found_type == found_terminate)
+	std::terminate ();
+      else if (handler_switch_value < 0)
+	{
+	  try 
+	    { std::unexpected (); } 
+	  catch(...) 
+	    { std::terminate (); }
+	}
+    }
+  else
+    {
+      if (found_type == found_terminate)
+	{
+	  __cxa_begin_catch (&xh->unwindHeader);
+	  __terminate (xh->terminateHandler);
+	}
+
+      // Cache the TType base value for __cxa_call_unexpected, as we won't
+      // have an _Unwind_Context then.
+      if (handler_switch_value < 0)
+	{
+	  parse_lsda_header (context, language_specific_data, &info);
+	  xh->catchTemp = base_of_encoded_value (info.ttype_encoding, context);
+	}
     }
 
-  // Cache the TType base value for __cxa_call_unexpected, as we won't
-  // have an _Unwind_Context then.
-  if (handler_switch_value < 0)
-    {
-      parse_lsda_header (context, xh->languageSpecificData, &info);
-      xh->catchTemp = base_of_encoded_value (info.ttype_encoding,
-						      context);
-    }
-
+  /* For targets with pointers smaller than the word size, we must extend the
+     pointer, and this extension is target dependent.  */
   _Unwind_SetGR (context, __builtin_eh_return_data_regno (0),
-		 (_Unwind_Ptr) &xh->unwindHeader);
+		 __builtin_extend_pointer (&xh->unwindHeader));
   _Unwind_SetGR (context, __builtin_eh_return_data_regno (1),
 		 handler_switch_value);
   _Unwind_SetIP (context, landing_pad);
@@ -457,20 +487,19 @@ __cxa_call_unexpected (void *exc_obj_in)
   catch(...) 
     {
       // Get the exception thrown from unexpected.
-      // ??? Foreign exceptions can't be stacked this way.
-      
+
       __cxa_eh_globals *globals = __cxa_get_globals_fast ();
       __cxa_exception *new_xh = globals->caughtExceptions;
       void *new_ptr = new_xh + 1;
-      
+
       // We don't quite have enough stuff cached; re-parse the LSDA.
       parse_lsda_header (0, xh_lsda, &info);
-      
+
       // If this new exception meets the exception spec, allow it.
       if (check_exception_spec (&info, new_xh->exceptionType,
 				new_ptr, xh_switch_value))
 	__throw_exception_again;
-      
+
       // If the exception spec allows std::bad_exception, throw that.
       // We don't have a thrown object to compare against, but since
       // bad_exception doesn't have virtual bases, that's OK; just pass 0.
@@ -479,6 +508,7 @@ __cxa_call_unexpected (void *exc_obj_in)
       if (check_exception_spec (&info, &bad_exc, 0, xh_switch_value))
 	throw std::bad_exception();
 #endif   
+
       // Otherwise, die.
       __terminate (xh_terminate_handler);
     }

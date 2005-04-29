@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GL/gl/pixelstore.3gl,v 1.4 2003/10/22 20:36:31 tsi Exp $
 '\" te
 '\"! tbl|eqn | mmdoc
 '\"macro stdmacro
@@ -166,7 +167,7 @@ in a pixel, $l$ is the number of pixels in a row
 (\%\f3GL_PACK_ROW_LENGTH\fP if it is greater than 0,  the
 $width$ argument to \%\f3glTexImage3d\fP otherwise), $h$ is the number of
 rows in a pixel image (\%\f3GL_PACK_IMAGE_HEIGHT\fP if it is greater than
-0, the $height$ arguemnt to the \%\f3glTexImage3D\fP routine otherwise),
+0, the $height$ argument to the \%\f3glTexImage3D\fP routine otherwise),
 $a$ is the value of
 \%\f3GL_PACK_ALIGNMENT\fP, and $s$ is the size, in bytes, of a single
 component (if $ a < s$, then it is as if $a = s$).
@@ -430,7 +431,7 @@ storage modes in effect when
 \%\f3glConvolutionFilter1D\fP,
 \%\f3glConvolutionFilter2D\fP, of
 \%\f3glSeparableFilter2D\fP is placed in a display list control the
-intrepretation of memory data.
+interpretation of memory data.
 The pixel storage modes in effect when a display list is executed are
 not significant.
 .P

@@ -1,0 +1,669 @@
+SSH(1)                     OpenBSD Reference Manual                     SSH(1)
+
+NAME
+     ssh - OpenSSH SSH client (remote login program)
+
+SYNOPSIS
+     ssh [-1246AaCfgkNnqsTtVvXxY] [-b bind_address] [-c cipher_spec] [-D port]
+         [-e escape_char] [-F configfile] [-i identity_file]
+         [-L port:host:hostport] [-l login_name] [-m mac_spec] [-o option]
+         [-p port] [-R port:host:hostport] [user@]hostname [command]
+
+DESCRIPTION
+     ssh (SSH client) is a program for logging into a remote machine and for
+     executing commands on a remote machine.  It is intended to replace rlogin
+     and rsh, and provide secure encrypted communications between two untrust-
+     ed hosts over an insecure network.  X11 connections and arbitrary TCP/IP
+     ports can also be forwarded over the secure channel.
+
+     ssh connects and logs into the specified hostname (with optional user
+     name).  The user must prove his/her identity to the remote machine using
+     one of several methods depending on the protocol version used.
+
+     If command is specified, command is executed on the remote host instead
+     of a login shell.
+
+   SSH protocol version 1
+     First, if the machine the user logs in from is listed in /etc/hosts.equiv
+     or /etc/shosts.equiv on the remote machine, and the user names are the
+     same on both sides, the user is immediately permitted to log in.  Second,
+     if .rhosts or .shosts exists in the user's home directory on the remote
+     machine and contains a line containing the name of the client machine and
+     the name of the user on that machine, the user is permitted to log in.
+     This form of authentication alone is normally not allowed by the server
+     because it is not secure.
+
+     The second authentication method is the rhosts or hosts.equiv method com-
+     bined with RSA-based host authentication.  It means that if the login
+     would be permitted by $HOME/.rhosts, $HOME/.shosts, /etc/hosts.equiv, or
+     /etc/shosts.equiv, and if additionally the server can verify the client's
+     host key (see /etc/ssh/ssh_known_hosts and $HOME/.ssh/known_hosts in the
+     FILES section), only then is login permitted.  This authentication method
+     closes security holes due to IP spoofing, DNS spoofing and routing spoof-
+     ing.  [Note to the administrator: /etc/hosts.equiv, $HOME/.rhosts, and
+     the rlogin/rsh protocol in general, are inherently insecure and should be
+     disabled if security is desired.]
+
+     As a third authentication method, ssh supports RSA based authentication.
+     The scheme is based on public-key cryptography: there are cryptosystems
+     where encryption and decryption are done using separate keys, and it is
+     not possible to derive the decryption key from the encryption key.  RSA
+     is one such system.  The idea is that each user creates a public/private
+     key pair for authentication purposes.  The server knows the public key,
+     and only the user knows the private key.
+
+     The file $HOME/.ssh/authorized_keys lists the public keys that are per-
+     mitted for logging in.  When the user logs in, the ssh program tells the
+     server which key pair it would like to use for authentication.  The serv-
+     er checks if this key is permitted, and if so, sends the user (actually
+     the ssh program running on behalf of the user) a challenge, a random num-
+     ber, encrypted by the user's public key.  The challenge can only be de-
+     crypted using the proper private key.  The user's client then decrypts
+     the challenge using the private key, proving that he/she knows the pri-
+     vate key but without disclosing it to the server.
+
+     ssh implements the RSA authentication protocol automatically.  The user
+     creates his/her RSA key pair by running ssh-keygen(1).  This stores the
+     private key in $HOME/.ssh/identity and stores the public key in
+     $HOME/.ssh/identity.pub in the user's home directory.  The user should
+     then copy the identity.pub to $HOME/.ssh/authorized_keys in his/her home
+     directory on the remote machine (the authorized_keys file corresponds to
+     the conventional $HOME/.rhosts file, and has one key per line, though the
+     lines can be very long).  After this, the user can log in without giving
+     the password.  RSA authentication is much more secure than rhosts authen-
+     tication.
+
+     The most convenient way to use RSA authentication may be with an authen-
+     tication agent.  See ssh-agent(1) for more information.
+
+     If other authentication methods fail, ssh prompts the user for a pass-
+     word.  The password is sent to the remote host for checking; however,
+     since all communications are encrypted, the password cannot be seen by
+     someone listening on the network.
+
+   SSH protocol version 2
+     When a user connects using protocol version 2, similar authentication
+     methods are available.  Using the default values for
+     PreferredAuthentications, the client will try to authenticate first using
+     the hostbased method; if this method fails, public key authentication is
+     attempted, and finally if this method fails, keyboard-interactive and
+     password authentication are tried.
+
+     The public key method is similar to RSA authentication described in the
+     previous section and allows the RSA or DSA algorithm to be used: The
+     client uses his private key, $HOME/.ssh/id_dsa or $HOME/.ssh/id_rsa, to
+     sign the session identifier and sends the result to the server.  The
+     server checks whether the matching public key is listed in
+     $HOME/.ssh/authorized_keys and grants access if both the key is found and
+     the signature is correct.  The session identifier is derived from a
+     shared Diffie-Hellman value and is only known to the client and the serv-
+     er.
+
+     If public key authentication fails or is not available, a password can be
+     sent encrypted to the remote host to prove the user's identity.
+
+     Additionally, ssh supports hostbased or challenge response authentica-
+     tion.
+
+     Protocol 2 provides additional mechanisms for confidentiality (the traf-
+     fic is encrypted using 3DES, Blowfish, CAST128 or Arcfour) and integrity
+     (hmac-md5, hmac-sha1).  Note that protocol 1 lacks a strong mechanism for
+     ensuring the integrity of the connection.
+
+   Login session and remote execution
+     When the user's identity has been accepted by the server, the server ei-
+     ther executes the given command, or logs into the machine and gives the
+     user a normal shell on the remote machine.  All communication with the
+     remote command or shell will be automatically encrypted.
+
+     If a pseudo-terminal has been allocated (normal login session), the user
+     may use the escape characters noted below.
+
+     If no pseudo-tty has been allocated, the session is transparent and can
+     be used to reliably transfer binary data.  On most systems, setting the
+     escape character to ``none'' will also make the session transparent even
+     if a tty is used.
+
+     The session terminates when the command or shell on the remote machine
+     exits and all X11 and TCP/IP connections have been closed.  The exit sta-
+     tus of the remote program is returned as the exit status of ssh.
+
+   Escape Characters
+     When a pseudo-terminal has been requested, ssh supports a number of func-
+     tions through the use of an escape character.
+
+     A single tilde character can be sent as ~~ or by following the tilde by a
+     character other than those described below.  The escape character must
+     always follow a newline to be interpreted as special.  The escape charac-
+     ter can be changed in configuration files using the EscapeChar configura-
+     tion directive or on the command line by the -e option.
+
+     The supported escapes (assuming the default `~') are:
+
+     ~.      Disconnect.
+
+     ~^Z     Background ssh.
+
+     ~#      List forwarded connections.
+
+     ~&      Background ssh at logout when waiting for forwarded connection /
+             X11 sessions to terminate.
+
+     ~?      Display a list of escape characters.
+
+     ~B      Send a BREAK to the remote system (only useful for SSH protocol
+             version 2 and if the peer supports it).
+
+     ~C      Open command line (only useful for adding port forwardings using
+             the -L and -R options).
+
+     ~R      Request rekeying of the connection (only useful for SSH protocol
+             version 2 and if the peer supports it).
+
+   X11 and TCP forwarding
+     If the ForwardX11 variable is set to ``yes'' (or see the description of
+     the -X and -x options described later) and the user is using X11 (the
+     DISPLAY environment variable is set), the connection to the X11 display
+     is automatically forwarded to the remote side in such a way that any X11
+     programs started from the shell (or command) will go through the encrypt-
+     ed channel, and the connection to the real X server will be made from the
+     local machine.  The user should not manually set DISPLAY.  Forwarding of
+     X11 connections can be configured on the command line or in configuration
+     files.
+
+     The DISPLAY value set by ssh will point to the server machine, but with a
+     display number greater than zero.  This is normal, and happens because
+     ssh creates a ``proxy'' X server on the server machine for forwarding the
+     connections over the encrypted channel.
+
+     ssh will also automatically set up Xauthority data on the server machine.
+     For this purpose, it will generate a random authorization cookie, store
+     it in Xauthority on the server, and verify that any forwarded connections
+     carry this cookie and replace it by the real cookie when the connection
+     is opened.  The real authentication cookie is never sent to the server
+     machine (and no cookies are sent in the plain).
+
+     If the ForwardAgent variable is set to ``yes'' (or see the description of
+     the -A and -a options described later) and the user is using an authenti-
+     cation agent, the connection to the agent is automatically forwarded to
+     the remote side.
+
+     Forwarding of arbitrary TCP/IP connections over the secure channel can be
+     specified either on the command line or in a configuration file.  One
+     possible application of TCP/IP forwarding is a secure connection to an
+     electronic purse; another is going through firewalls.
+
+   Server authentication
+     ssh automatically maintains and checks a database containing identifica-
+     tions for all hosts it has ever been used with.  Host keys are stored in
+     $HOME/.ssh/known_hosts in the user's home directory.  Additionally, the
+     file /etc/ssh/ssh_known_hosts is automatically checked for known hosts.
+     Any new hosts are automatically added to the user's file.  If a host's
+     identification ever changes, ssh warns about this and disables password
+     authentication to prevent a trojan horse from getting the user's pass-
+     word.  Another purpose of this mechanism is to prevent man-in-the-middle
+     attacks which could otherwise be used to circumvent the encryption.  The
+     StrictHostKeyChecking option can be used to prevent logins to machines
+     whose host key is not known or has changed.
+
+     The options are as follows:
+
+     -1      Forces ssh to try protocol version 1 only.
+
+     -2      Forces ssh to try protocol version 2 only.
+
+     -4      Forces ssh to use IPv4 addresses only.
+
+     -6      Forces ssh to use IPv6 addresses only.
+
+     -A      Enables forwarding of the authentication agent connection.  This
+             can also be specified on a per-host basis in a configuration
+             file.
+
+             Agent forwarding should be enabled with caution.  Users with the
+             ability to bypass file permissions on the remote host (for the
+             agent's Unix-domain socket) can access the local agent through
+             the forwarded connection.  An attacker cannot obtain key material
+             from the agent, however they can perform operations on the keys
+             that enable them to authenticate using the identities loaded into
+             the agent.
+
+     -a      Disables forwarding of the authentication agent connection.
+
+     -b bind_address
+             Specify the interface to transmit from on machines with multiple
+             interfaces or aliased addresses.
+
+     -C      Requests compression of all data (including stdin, stdout,
+             stderr, and data for forwarded X11 and TCP/IP connections).  The
+             compression algorithm is the same used by gzip(1), and the
+             ``level'' can be controlled by the CompressionLevel option for
+             protocol version 1.  Compression is desirable on modem lines and
+             other slow connections, but will only slow down things on fast
+             networks.  The default value can be set on a host-by-host basis
+             in the configuration files; see the Compression option.
+
+     -c blowfish | 3des | des
+             Selects the cipher to use for encrypting the session.  3des is
+             used by default.  It is believed to be secure.  3des (triple-des)
+             is an encrypt-decrypt-encrypt triple with three different keys.
+             blowfish is a fast block cipher; it appears very secure and is
+             much faster than 3des.  des is only supported in the ssh client
+             for interoperability with legacy protocol 1 implementations that
+             do not support the 3des cipher.  Its use is strongly discouraged
+             due to cryptographic weaknesses.
+
+     -c cipher_spec
+             Additionally, for protocol version 2 a comma-separated list of
+             ciphers can be specified in order of preference.  See Ciphers for
+             more information.
+
+     -D port
+             Specifies a local ``dynamic'' application-level port forwarding.
+             This works by allocating a socket to listen to port on the local
+             side, and whenever a connection is made to this port, the connec-
+             tion is forwarded over the secure channel, and the application
+             protocol is then used to determine where to connect to from the
+             remote machine.  Currently the SOCKS4 and SOCKS5 protocols are
+             supported, and ssh will act as a SOCKS server.  Only root can
+             forward privileged ports.  Dynamic port forwardings can also be
+             specified in the configuration file.
+
+     -e ch | ^ch | none
+             Sets the escape character for sessions with a pty (default: `~').
+             The escape character is only recognized at the beginning of a
+             line.  The escape character followed by a dot (`.') closes the
+             connection; followed by control-Z suspends the connection; and
+             followed by itself sends the escape character once.  Setting the
+             character to ``none'' disables any escapes and makes the session
+             fully transparent.
+
+     -F configfile
+             Specifies an alternative per-user configuration file.  If a con-
+             figuration file is given on the command line, the system-wide
+             configuration file (/etc/ssh/ssh_config) will be ignored.  The
+             default for the per-user configuration file is $HOME/.ssh/config.
+
+     -f      Requests ssh to go to background just before command execution.
+             This is useful if ssh is going to ask for passwords or passphras-
+             es, but the user wants it in the background.  This implies -n.
+             The recommended way to start X11 programs at a remote site is
+             with something like ssh -f host xterm.
+
+     -g      Allows remote hosts to connect to local forwarded ports.
+
+     -I smartcard_device
+             Specifies which smartcard device to use.  The argument is the de-
+             vice ssh should use to communicate with a smartcard used for
+             storing the user's private RSA key.
+
+     -i identity_file
+             Selects a file from which the identity (private key) for RSA or
+             DSA authentication is read.  The default is $HOME/.ssh/identity
+             for protocol version 1, and $HOME/.ssh/id_rsa and
+             $HOME/.ssh/id_dsa for protocol version 2.  Identity files may al-
+             so be specified on a per-host basis in the configuration file.
+             It is possible to have multiple -i options (and multiple identi-
+             ties specified in configuration files).
+
+     -k      Disables forwarding (delegation) of GSSAPI credentials to the
+             server.
+
+     -L port:host:hostport
+             Specifies that the given port on the local (client) host is to be
+             forwarded to the given host and port on the remote side.  This
+             works by allocating a socket to listen to port on the local side,
+             and whenever a connection is made to this port, the connection is
+             forwarded over the secure channel, and a connection is made to
+             host port hostport from the remote machine.  Port forwardings can
+             also be specified in the configuration file.  Only root can for-
+             ward privileged ports.  IPv6 addresses can be specified with an
+             alternative syntax: port/host/hostport.
+
+     -l login_name
+             Specifies the user to log in as on the remote machine.  This also
+             may be specified on a per-host basis in the configuration file.
+
+     -m mac_spec
+             Additionally, for protocol version 2 a comma-separated list of
+             MAC (message authentication code) algorithms can be specified in
+             order of preference.  See the MACs keyword for more information.
+
+     -N      Do not execute a remote command.  This is useful for just for-
+             warding ports (protocol version 2 only).
+
+     -n      Redirects stdin from /dev/null (actually, prevents reading from
+             stdin).  This must be used when ssh is run in the background.  A
+             common trick is to use this to run X11 programs on a remote ma-
+             chine.  For example, ssh -n shadows.cs.hut.fi emacs & will start
+             an emacs on shadows.cs.hut.fi, and the X11 connection will be au-
+             tomatically forwarded over an encrypted channel.  The ssh program
+             will be put in the background.  (This does not work if ssh needs
+             to ask for a password or passphrase; see also the -f option.)
+
+     -o option
+             Can be used to give options in the format used in the configura-
+             tion file.  This is useful for specifying options for which there
+             is no separate command-line flag.  For full details of the op-
+             tions listed below, and their possible values, see ssh_config(5).
+
+                   AddressFamily
+                   BatchMode
+                   BindAddress
+                   ChallengeResponseAuthentication
+                   CheckHostIP
+                   Cipher
+                   Ciphers
+                   ClearAllForwardings
+                   Compression
+                   CompressionLevel
+                   ConnectionAttempts
+                   ConnectionTimeout
+                   DynamicForward
+                   EscapeChar
+                   ForwardAgent
+                   ForwardX11
+                   ForwardX11Trusted
+                   GatewayPorts
+                   GlobalKnownHostsFile
+                   GSSAPIAuthentication
+                   GSSAPIDelegateCredentials
+                   Host
+                   HostbasedAuthentication
+                   HostKeyAlgorithms
+                   HostKeyAlias
+                   HostName
+                   IdentityFile
+                   IdentitiesOnly
+                   LocalForward
+                   LogLevel
+                   MACs
+                   NoHostAuthenticationForLocalhost
+                   NumberOfPasswordPrompts
+                   PasswordAuthentication
+                   Port
+                   PreferredAuthentications
+                   Protocol
+                   ProxyCommand
+                   PubkeyAuthentication
+                   RemoteForward
+                   RhostsRSAAuthentication
+                   RSAAuthentication
+                   ServerAliveInterval
+                   ServerAliveCountMax
+                   SmartcardDevice
+                   StrictHostKeyChecking
+                   TCPKeepAlive
+                   UsePrivilegedPort
+                   User
+                   UserKnownHostsFile
+                   VerifyHostKeyDNS
+                   XAuthLocation
+
+     -p port
+             Port to connect to on the remote host.  This can be specified on
+             a per-host basis in the configuration file.
+
+     -q      Quiet mode.  Causes all warning and diagnostic messages to be
+             suppressed.
+
+     -R port:host:hostport
+             Specifies that the given port on the remote (server) host is to
+             be forwarded to the given host and port on the local side.  This
+             works by allocating a socket to listen to port on the remote
+             side, and whenever a connection is made to this port, the connec-
+             tion is forwarded over the secure channel, and a connection is
+             made to host port hostport from the local machine.  Port forward-
+             ings can also be specified in the configuration file.  Privileged
+             ports can be forwarded only when logging in as root on the remote
+             machine.  IPv6 addresses can be specified with an alternative
+             syntax: port/host/hostport.
+
+     -s      May be used to request invocation of a subsystem on the remote
+             system.  Subsystems are a feature of the SSH2 protocol which fa-
+             cilitate the use of SSH as a secure transport for other applica-
+             tions (eg. sftp(1)).  The subsystem is specified as the remote
+             command.
+
+     -T      Disable pseudo-tty allocation.
+
+     -t      Force pseudo-tty allocation.  This can be used to execute arbi-
+             trary screen-based programs on a remote machine, which can be
+             very useful, e.g., when implementing menu services.  Multiple -t
+             options force tty allocation, even if ssh has no local tty.
+
+     -V      Display the version number and exit.
+
+     -v      Verbose mode.  Causes ssh to print debugging messages about its
+             progress.  This is helpful in debugging connection, authentica-
+             tion, and configuration problems.  Multiple -v options increase
+             the verbosity.  The maximum is 3.
+
+     -X      Enables X11 forwarding.  This can also be specified on a per-host
+             basis in a configuration file.
+
+             X11 forwarding should be enabled with caution.  Users with the
+             ability to bypass file permissions on the remote host (for the
+             user's X authorization database) can access the local X11 display
+             through the forwarded connection.  An attacker may then be able
+             to perform activities such as keystroke monitoring.
+
+     -x      Disables X11 forwarding.
+
+     -Y      Enables trusted X11 forwarding.
+
+CONFIGURATION FILES
+     ssh may additionally obtain configuration data from a per-user configura-
+     tion file and a system-wide configuration file.  The file format and con-
+     figuration options are described in ssh_config(5).
+
+ENVIRONMENT
+     ssh will normally set the following environment variables:
+
+     DISPLAY  The DISPLAY variable indicates the location of the X11 server.
+              It is automatically set by ssh to point to a value of the form
+              ``hostname:n'' where hostname indicates the host where the shell
+              runs, and n is an integer >= 1.  ssh uses this special value to
+              forward X11 connections over the secure channel.  The user
+              should normally not set DISPLAY explicitly, as that will render
+              the X11 connection insecure (and will require the user to manu-
+              ally copy any required authorization cookies).
+
+     HOME     Set to the path of the user's home directory.
+
+     LOGNAME  Synonym for USER; set for compatibility with systems that use
+              this variable.
+
+     MAIL     Set to the path of the user's mailbox.
+
+     PATH     Set to the default PATH, as specified when compiling ssh.
+
+     SSH_ASKPASS
+              If ssh needs a passphrase, it will read the passphrase from the
+              current terminal if it was run from a terminal.  If ssh does not
+              have a terminal associated with it but DISPLAY and SSH_ASKPASS
+              are set, it will execute the program specified by SSH_ASKPASS
+              and open an X11 window to read the passphrase.  This is particu-
+              larly useful when calling ssh from a .Xsession or related
+              script.  (Note that on some machines it may be necessary to
+              redirect the input from /dev/null to make this work.)
+
+     SSH_AUTH_SOCK
+              Identifies the path of a unix-domain socket used to communicate
+              with the agent.
+
+     SSH_CONNECTION
+              Identifies the client and server ends of the connection.  The
+              variable contains four space-separated values: client ip-ad-
+              dress, client port number, server ip-address and server port
+              number.
+
+     SSH_ORIGINAL_COMMAND
+              The variable contains the original command line if a forced com-
+              mand is executed.  It can be used to extract the original argu-
+              ments.
+
+     SSH_TTY  This is set to the name of the tty (path to the device) associ-
+              ated with the current shell or command.  If the current session
+              has no tty, this variable is not set.
+
+     TZ       The timezone variable is set to indicate the present timezone if
+              it was set when the daemon was started (i.e., the daemon passes
+              the value on to new connections).
+
+     USER     Set to the name of the user logging in.
+
+     Additionally, ssh reads $HOME/.ssh/environment, and adds lines of the
+     format ``VARNAME=value'' to the environment if the file exists and if
+     users are allowed to change their environment.  For more information, see
+     the PermitUserEnvironment option in sshd_config(5).
+
+FILES
+     $HOME/.ssh/known_hosts
+             Records host keys for all hosts the user has logged into that are
+             not in /etc/ssh/ssh_known_hosts.  See sshd(8).
+
+     $HOME/.ssh/identity, $HOME/.ssh/id_dsa, $HOME/.ssh/id_rsa
+             Contains the authentication identity of the user.  They are for
+             protocol 1 RSA, protocol 2 DSA, and protocol 2 RSA, respectively.
+             These files contain sensitive data and should be readable by the
+             user but not accessible by others (read/write/execute).  Note
+             that ssh ignores a private key file if it is accessible by oth-
+             ers.  It is possible to specify a passphrase when generating the
+             key; the passphrase will be used to encrypt the sensitive part of
+             this file using 3DES.
+
+     $HOME/.ssh/identity.pub, $HOME/.ssh/id_dsa.pub, $HOME/.ssh/id_rsa.pub
+             Contains the public key for authentication (public part of the
+             identity file in human-readable form).  The contents of the
+             $HOME/.ssh/identity.pub file should be added to the file
+             $HOME/.ssh/authorized_keys on all machines where the user wishes
+             to log in using protocol version 1 RSA authentication.  The con-
+             tents of the $HOME/.ssh/id_dsa.pub and $HOME/.ssh/id_rsa.pub file
+             should be added to $HOME/.ssh/authorized_keys on all machines
+             where the user wishes to log in using protocol version 2 DSA/RSA
+             authentication.  These files are not sensitive and can (but need
+             not) be readable by anyone.  These files are never used automati-
+             cally and are not necessary; they are only provided for the con-
+             venience of the user.
+
+     $HOME/.ssh/config
+             This is the per-user configuration file.  The file format and
+             configuration options are described in ssh_config(5).
+
+     $HOME/.ssh/authorized_keys
+             Lists the public keys (RSA/DSA) that can be used for logging in
+             as this user.  The format of this file is described in the
+             sshd(8) manual page.  In the simplest form the format is the same
+             as the .pub identity files.  This file is not highly sensitive,
+             but the recommended permissions are read/write for the user, and
+             not accessible by others.
+
+     /etc/ssh/ssh_known_hosts
+             Systemwide list of known host keys.  This file should be prepared
+             by the system administrator to contain the public host keys of
+             all machines in the organization.  This file should be world-
+             readable.  This file contains public keys, one per line, in the
+             following format (fields separated by spaces): system name, pub-
+             lic key and optional comment field.  When different names are
+             used for the same machine, all such names should be listed, sepa-
+             rated by commas.  The format is described in the sshd(8) manual
+             page.
+
+             The canonical system name (as returned by name servers) is used
+             by sshd(8) to verify the client host when logging in; other names
+             are needed because ssh does not convert the user-supplied name to
+             a canonical name before checking the key, because someone with
+             access to the name servers would then be able to fool host au-
+             thentication.
+
+     /etc/ssh/ssh_config
+             Systemwide configuration file.  The file format and configuration
+             options are described in ssh_config(5).
+
+     /etc/ssh/ssh_host_key, /etc/ssh/ssh_host_dsa_key,
+             /etc/ssh/ssh_host_rsa_key
+             These three files contain the private parts of the host keys and
+             are used for RhostsRSAAuthentication and HostbasedAuthentication.
+             If the protocol version 1 RhostsRSAAuthentication method is used,
+             ssh must be setuid root, since the host key is readable only by
+             root.  For protocol version 2, ssh uses ssh-keysign(8) to access
+             the host keys for HostbasedAuthentication.  This eliminates the
+             requirement that ssh be setuid root when that authentication
+             method is used.  By default ssh is not setuid root.
+
+     $HOME/.rhosts
+             This file is used in rhosts authentication to list the host/user
+             pairs that are permitted to log in.  (Note that this file is also
+             used by rlogin and rsh, which makes using this file insecure.)
+             Each line of the file contains a host name (in the canonical form
+             returned by name servers), and then a user name on that host,
+             separated by a space.  On some machines this file may need to be
+             world-readable if the user's home directory is on a NFS parti-
+             tion, because sshd(8) reads it as root.  Additionally, this file
+             must be owned by the user, and must not have write permissions
+             for anyone else.  The recommended permission for most machines is
+             read/write for the user, and not accessible by others.
+
+             Note that by default sshd(8) will be installed so that it re-
+             quires successful RSA host authentication before permitting
+             rhosts authentication.  If the server machine does not have the
+             client's host key in /etc/ssh/ssh_known_hosts, it can be stored
+             in $HOME/.ssh/known_hosts.  The easiest way to do this is to con-
+             nect back to the client from the server machine using ssh; this
+             will automatically add the host key to $HOME/.ssh/known_hosts.
+
+     $HOME/.shosts
+             This file is used exactly the same way as .rhosts.  The purpose
+             for having this file is to be able to use rhosts authentication
+             with ssh without permitting login with rlogin or rsh(1).
+
+     /etc/hosts.equiv
+             This file is used during rhosts authentication.  It contains
+             canonical hosts names, one per line (the full format is described
+             in the sshd(8) manual page).  If the client host is found in this
+             file, login is automatically permitted provided client and server
+             user names are the same.  Additionally, successful RSA host au-
+             thentication is normally required.  This file should only be
+             writable by root.
+
+     /etc/shosts.equiv
+             This file is processed exactly as /etc/hosts.equiv.  This file
+             may be useful to permit logins using ssh but not using
+             rsh/rlogin.
+
+     /etc/ssh/sshrc
+             Commands in this file are executed by ssh when the user logs in
+             just before the user's shell (or command) is started.  See the
+             sshd(8) manual page for more information.
+
+     $HOME/.ssh/rc
+             Commands in this file are executed by ssh when the user logs in
+             just before the user's shell (or command) is started.  See the
+             sshd(8) manual page for more information.
+
+     $HOME/.ssh/environment
+             Contains additional definitions for environment variables, see
+             section ENVIRONMENT above.
+
+DIAGNOSTICS
+     ssh exits with the exit status of the remote command or with 255 if an
+     error occurred.
+
+SEE ALSO
+     gzip(1), rsh(1), scp(1), sftp(1), ssh-add(1), ssh-agent(1),
+     ssh-keygen(1), telnet(1), hosts.equiv(5), ssh_config(5), ssh-keysign(8),
+     sshd(8)
+
+     T. Ylonen, T. Kivinen, M. Saarinen, T. Rinne, and S. Lehtinen, SSH
+     Protocol Architecture, draft-ietf-secsh-architecture-12.txt, January
+     2002, work in progress material.
+
+AUTHORS
+     OpenSSH is a derivative of the original and free ssh 1.2.12 release by
+     Tatu Ylonen.  Aaron Campbell, Bob Beck, Markus Friedl, Niels Provos, Theo
+     de Raadt and Dug Song removed many bugs, re-added newer features and
+     created OpenSSH.  Markus Friedl contributed the support for SSH protocol
+     versions 1.5 and 2.0.
+
+OpenBSD 3.5                   September 25, 1999                            11

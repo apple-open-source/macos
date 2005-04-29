@@ -34,7 +34,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
   ----------------------------------------------------------------------- **/
-/* $XFree86: xc/programs/xwd/list.c,v 3.6 2001/12/14 20:02:33 dawes Exp $ */
+/* $XFree86: xc/programs/xwd/list.c,v 3.7 2003/11/17 22:20:54 dawes Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,12 +45,7 @@ from The Open Group.
 /** ------------------------------------------------------------------------
 	Sets the pointers of the specified list to NULL.
     --------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 void zero_list(list_ptr lp)
-#else
-void zero_list(lp)
-    list_ptr lp;
-#endif
 {
     lp->next = NULL;
     lp->ptr.item = NULL;
@@ -64,13 +59,7 @@ void zero_list(lp)
 	and the next pointer in the new node is set to NULL.
 	Returns 1 if successful, 0 if the malloc failed.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 int add_to_list(list_ptr lp, void *item)
-#else
-int add_to_list(lp, item)
-    list_ptr lp;
-    void *item;
-#endif
 {
     while (lp->next) {
 	lp = lp->next;
@@ -112,13 +101,7 @@ list_ptr new_list ()
 	curr pointer in the new list is the same as in the old list.
 	Returns a pointer to the new list head.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 list_ptr dup_list_head(list_ptr lp, int start_at_curr)
-#else
-list_ptr dup_list_head(lp, start_at_curr)
-    list_ptr lp;
-    int start_at_curr;
-#endif
 {
     list_ptr new_list;
 
@@ -136,12 +119,7 @@ list_ptr dup_list_head(lp, start_at_curr)
 /** ------------------------------------------------------------------------
 	Returns the number of items in the list.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 unsigned int list_length(list_ptr lp)
-#else
-unsigned int list_length(lp)
-    list_ptr lp;
-#endif
 {
     unsigned int count = 0;
 
@@ -163,13 +141,7 @@ unsigned int list_length(lp)
 	Returns a pointer to the item, so the caller can free it if it
 	so desires.  If a match is not found, returns NULL.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 void *delete_from_list(list_ptr lp, void *item)
-#else
-void *delete_from_list(lp, item)
-    list_ptr lp;
-    void *item;
-#endif
 {
     list_ptr new_next;
 
@@ -194,13 +166,7 @@ void *delete_from_list(lp, item)
 	with new_list().  If free_items is true, each item pointed to 
 	from the node is freed, in addition to the node itself.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 void delete_list(list_ptr lp, int free_items)
-#else
-void delete_list(lp, free_items)
-    list_ptr lp;
-    int free_items;
-#endif
 {
     list_ptr del_node;
     void *item;
@@ -216,13 +182,7 @@ void delete_list(lp, free_items)
     }
 }
 
-#if NeedFunctionPrototypes
 void delete_list_destroying(list_ptr lp, void destructor(void *item))
-#else
-void delete_list_destroying(lp, destructor)
-    list_ptr lp;
-    void (*destructor)();
-#endif
 {
     list_ptr del_node;
     void *item;
@@ -244,12 +204,7 @@ void delete_list_destroying(lp, destructor)
 	Sets the list head node's curr ptr to the first node in the list.
 	Returns NULL if the list is empty.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 void * first_in_list(list_ptr lp)
-#else
-void * first_in_list(lp)
-    list_ptr lp;
-#endif
 {
     if (! lp) {
 
@@ -266,12 +221,7 @@ void * first_in_list(lp)
 	first_in_list must have been called prior.
 	Returns NULL if no next item.
     -------------------------------------------------------------------- **/
-#if NeedFunctionPrototypes
 void * next_in_list(list_ptr lp)
-#else
-void * next_in_list(lp)
-    list_ptr lp;
-#endif
 {
     if (! lp) {
 
@@ -284,12 +234,7 @@ void * next_in_list(lp)
     return lp->ptr.curr ? lp->ptr.curr->ptr.item : NULL;
 }
 
-#if NeedFunctionPrototypes
 int list_is_empty(list_ptr lp)
-#else
-int list_is_empty(lp)
-    list_ptr lp;
-#endif
 {
     return (lp == NULL || lp->next == NULL);
 }

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -36,14 +36,6 @@
 ******************************************************************************
 */
 
-#ifdef _AIX
-#    include<sys/types.h>
-#endif
-
-#ifdef __QNXNTO__
-#include <sys/neutrino.h>
-#endif
-
 #ifndef PTX
 
 /* Define _XOPEN_SOURCE for Solaris and friends. */
@@ -65,30 +57,28 @@
 /* include ICU headers */
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
+#include "unicode/ustring.h"
+#include "putilimp.h"
+#include "uassert.h"
 #include "umutex.h"
 #include "cmemory.h"
 #include "cstring.h"
 #include "locmap.h"
 #include "ucln_cmn.h"
-
-/* Include standard headers. */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <math.h>
-#include <locale.h>
-#include <time.h>
-#include <float.h>
+#include "udataswp.h"
 
 /* include system headers */
 #ifdef WIN32
 #   define WIN32_LEAN_AND_MEAN
-#   define NOGDI
+#   define VC_EXTRALEAN
 #   define NOUSER
 #   define NOSERVICE
 #   define NOIME
 #   define NOMCX
 #   include <windows.h>
+#elif defined(U_CYGWIN) && defined(__STRICT_ANSI__)
+/* tzset isn't defined in strict ANSI on Cygwin. */
+#   undef __STRICT_ANSI__
 #elif defined(OS2)
 #   define INCL_DOSMISC
 #   define INCL_DOSERRORS
@@ -108,19 +98,33 @@
 #   include <TextUtils.h>
 #elif defined(OS390)
 #include "unicode/ucnv.h"   /* Needed for UCNV_SWAP_LFNL_OPTION_STRING */
-#elif defined(AIX)
-/*
-#   include <sys/ldr.h>
-*/
+#elif defined(U_AIX)
 #elif defined(U_SOLARIS) || defined(U_LINUX)
+#elif defined(U_HPUX)
+#elif defined(U_DARWIN)
+#include <sys/file.h>
+#include <sys/param.h>
+#elif defined(U_QNX)
+#include <sys/neutrino.h>
+#endif
+
+/* Include standard headers. */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <locale.h>
+#include <float.h>
+#include <time.h>
+
 /*
-#   include <dlfcn.h>
-#   include <link.h>
-*/
-#elif defined(HPUX)
-/*
-#   include <dl.h>
-*/
+ * Only include langinfo.h if we have a way to get the codeset. If we later
+ * depend on more feature, we can test on U_HAVE_NL_LANGINFO.
+ *
+ */
+
+#if U_HAVE_NL_LANGINFO_CODESET
+#include <langinfo.h>
 #endif
 
 /* Define the extension for data files, again... */
@@ -145,8 +149,8 @@ static const char copyright[] = U_COPYRIGHT_STRING;
 
 #if USE_64BIT_DOUBLE_OPTIMIZATION
 /* gcc 3.2 has an optimization bug */
-static const int64_t gNan64 = 0x7FF8000000000000L;
-static const int64_t gInf64 = 0x7FF0000000000000L;
+static const int64_t gNan64 = 0x7FF8000000000000LL;
+static const int64_t gInf64 = 0x7FF0000000000000LL;
 static const double * const fgNan = (const double *)(&gNan64);
 static const double * const fgInf = (const double *)(&gInf64);
 #else
@@ -182,16 +186,6 @@ static double * const fgInf = &gInf;
 #   define U_POSIX_LOCALE    1
 #endif
 
-/*
- * Only include langinfo.h if we have a way to get the codeset. If we later
- * depend on more feature, we can test on U_HAVE_NL_LANGINFO.
- *
- */
-
-#if U_HAVE_NL_LANGINFO_CODESET
-#include <langinfo.h>
-#endif
-
 /* Utilities to get the bits from a double */
 static char*
 u_topNBytesOfDouble(double* d, int n)
@@ -221,27 +215,27 @@ u_bottomNBytesOfDouble(double* d, int n)
   ---------------------------------------------------------------------------*/
 
 /* Get UTC (GMT) time measured in seconds since 0:00 on 1/1/70.*/
-U_CAPI int32_t U_EXPORT2
+U_CAPI UDate U_EXPORT2
 uprv_getUTCtime()
 {
 #ifdef XP_MAC
     time_t t, t1, t2;
     struct tm tmrec;
 
-    memset( &tmrec, 0, sizeof(tmrec) );
+    uprv_memset( &tmrec, 0, sizeof(tmrec) );
     tmrec.tm_year = 70;
     tmrec.tm_mon = 0;
     tmrec.tm_mday = 1;
     t1 = mktime(&tmrec);    /* seconds of 1/1/1970*/
 
     time(&t);
-    memcpy( &tmrec, gmtime(&t), sizeof(tmrec) );
+    uprv_memcpy( &tmrec, gmtime(&t), sizeof(tmrec) );
     t2 = mktime(&tmrec);    /* seconds of current GMT*/
-    return t2 - t1;         /* GMT (or UTC) in seconds since 1970*/
+    return (UDate)(t2 - t1) * U_MILLIS_PER_SECOND;         /* GMT (or UTC) in seconds since 1970*/
 #else
     time_t epochtime;
     time(&epochtime);
-    return epochtime;
+    return (UDate)epochtime * U_MILLIS_PER_SECOND;
 #endif
 }
 
@@ -262,7 +256,7 @@ uprv_isNaN(double number)
 #if USE_64BIT_DOUBLE_OPTIMIZATION
     /* gcc 3.2 has an optimization bug */
     /* Infinity is 0x7FF0000000000000U. Anything greater than that is a NaN */
-    return (UBool)(((*((int64_t *)&number)) & INT64_MAX) > gInf64);
+    return (UBool)(((*((int64_t *)&number)) & U_INT64_MAX) > gInf64);
 
 #else
     /* This should work in theory, but it doesn't, so we resort to the more*/
@@ -312,7 +306,7 @@ uprv_isInfinite(double number)
 #if IEEE_754
 #if USE_64BIT_DOUBLE_OPTIMIZATION
     /* gcc 3.2 has an optimization bug */
-    return (UBool)(((*((int64_t *)&number)) & INT64_MAX) == gInf64);
+    return (UBool)(((*((int64_t *)&number)) & U_INT64_MAX) == gInf64);
 #else
 
     /* We know the top bit is the sign bit, so we mask that off in a copy of */
@@ -611,6 +605,8 @@ uprv_log(double d)
     return log(d);
 }
 
+#if 0
+/* This isn't used. If it's readded, readd putiltst.c tests */
 U_CAPI int32_t U_EXPORT2
 uprv_digitsAfterDecimal(double x)
 {
@@ -653,6 +649,7 @@ uprv_digitsAfterDecimal(double x)
     }
     return numDigits;
 }
+#endif
 
 /*---------------------------------------------------------------------------
   Platform-specific Implementations
@@ -711,8 +708,6 @@ uprv_digitsAfterDecimal(double x)
   Since: ICU 2.6
   Based on original code by Carl Brown <cbrown@xnetinc.com>
 */
-
-static LONG openTZRegKey(HKEY* hkey, const char* winid, int winType);
 
 /**
  * Layout of the binary registry data under the "TZI" key.
@@ -937,6 +932,68 @@ enum {
 };
 
 /**
+ * Auxiliary Windows time zone function.  Attempts to open the given
+ * Windows time zone ID as a registry key.  Returns ERROR_SUCCESS if
+ * successful.  Caller must close the registry key.  Handles
+ * variations in the resource layout in different flavors of Windows.
+ *
+ * @param hkey output parameter to receive opened registry key
+ * @param winid Windows zone ID, e.g., "Pacific", without the
+ * " Standard Time" suffix (if any).  Special case "Mexico Standard Time 2"
+ * allowed.
+ * @param winType Windows flavor (WIN_9X_ME_TYPE, etc.)
+ * @return ERROR_SUCCESS upon success
+ */
+static LONG openTZRegKey(HKEY *hkey, const char* winid, int winType) {
+    LONG result;
+    char subKeyName[96];
+    char* name;
+    int i;
+
+    uprv_strcpy(subKeyName, TZ_REGKEY[(winType == WIN_9X_ME_TYPE) ? 0 : 1]);
+    name = &subKeyName[strlen(subKeyName)];
+    uprv_strcat(subKeyName, winid);
+    if (winType != WIN_9X_ME_TYPE) {
+        /* Don't modify "Mexico Standard Time 2", which does not occur
+           on WIN_9X_ME_TYPE.  Also, if the type is WIN_NT_TYPE, then
+           in practice this means the GMT key is not followed by
+           " Standard Time", so don't append in that case. */
+        int isMexico2 = (winid[uprv_strlen(winid)- 1] == '2');
+        if (!isMexico2 &&
+            !(winType == WIN_NT_TYPE && uprv_strcmp(winid, "GMT") == 0)) {
+            uprv_strcat(subKeyName, STANDARD_TIME_REGKEY);
+        }
+    }
+    result = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                          subKeyName,
+                          0,
+                          KEY_QUERY_VALUE,
+                          hkey);
+
+    if (result != ERROR_SUCCESS) {
+        /* If the primary lookup fails, try to remap the Windows zone
+           ID, according to the remapping table. */
+        for (i=0; ZONE_REMAP[i].winid; ++i) {
+            if (uprv_strcmp(winid, ZONE_REMAP[i].winid) == 0) {
+                uprv_strcpy(name, ZONE_REMAP[i].altwinid + 1);
+                if (*(ZONE_REMAP[i].altwinid) == '+' &&
+                    winType != WIN_9X_ME_TYPE) {
+                    uprv_strcat(subKeyName, STANDARD_TIME_REGKEY);                
+                }
+                result = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                                      subKeyName,
+                                      0,
+                                      KEY_QUERY_VALUE,
+                                      hkey);
+                break;
+            }
+        }
+    }
+
+    return result;
+}
+
+/**
  * Main Windows time zone detection function.  Returns the Windows
  * time zone, translated to an ICU time zone, or NULL upon failure.
  */
@@ -975,12 +1032,12 @@ static const char* detectWindowsTimeZone() {
     /* Obtain TIME_ZONE_INFORMATION from the API, and then convert it
        to TZI.  We could also interrogate the registry directly; we do
        this below if needed. */
-    memset(&apiTZI, 0, sizeof(apiTZI));
+    uprv_memset(&apiTZI, 0, sizeof(apiTZI));
     GetTimeZoneInformation(&apiTZI);
     tziKey.Bias = apiTZI.Bias;
-    memcpy((char *)&tziKey.StandardDate, (char*)&apiTZI.StandardDate,
+    uprv_memcpy((char *)&tziKey.StandardDate, (char*)&apiTZI.StandardDate,
            sizeof(apiTZI.StandardDate));
-    memcpy((char *)&tziKey.DaylightDate, (char*)&apiTZI.DaylightDate,
+    uprv_memcpy((char *)&tziKey.DaylightDate, (char*)&apiTZI.DaylightDate,
            sizeof(apiTZI.DaylightDate));
 
     /* For each zone that can be identified by Offset+Rules, see if we
@@ -1012,7 +1069,7 @@ static const char* detectWindowsTimeZone() {
                these unreliable fields. */
             tziKey.StandardBias = tziReg.StandardBias;
             tziKey.DaylightBias = tziReg.DaylightBias;
-            if (memcmp((char *)&tziKey, (char*)&tziReg,
+            if (uprv_memcmp((char *)&tziKey, (char*)&tziReg,
                        sizeof(tziKey)) == 0) {
                 if (firstMatch < 0) {
                     firstMatch = j;
@@ -1066,7 +1123,7 @@ static const char* detectWindowsTimeZone() {
                 RegCloseKey(hkey);
                 if (result == ERROR_SUCCESS &&
                     stdRegNameSize == stdNameSize &&
-                    memcmp(stdName, stdRegName, stdNameSize) == 0) {
+                    uprv_memcmp(stdName, stdRegName, stdNameSize) == 0) {
                     firstMatch = j; /* record the match */
                     break;
                 }
@@ -1077,68 +1134,6 @@ static const char* detectWindowsTimeZone() {
     }
 
     return ZONE_MAP[firstMatch].icuid;
-}
-
-/**
- * Auxiliary Windows time zone function.  Attempts to open the given
- * Windows time zone ID as a registry key.  Returns ERROR_SUCCESS if
- * successful.  Caller must close the registry key.  Handles
- * variations in the resource layout in different flavors of Windows.
- *
- * @param hkey output parameter to receive opened registry key
- * @param winid Windows zone ID, e.g., "Pacific", without the
- * " Standard Time" suffix (if any).  Special case "Mexico Standard Time 2"
- * allowed.
- * @param winType Windows flavor (WIN_9X_ME_TYPE, etc.)
- * @return ERROR_SUCCESS upon success
- */
-static LONG openTZRegKey(HKEY *hkey, const char* winid, int winType) {
-    LONG result;
-    char subKeyName[96];
-    char* name;
-    int i;
-
-    strcpy(subKeyName, TZ_REGKEY[(winType == WIN_9X_ME_TYPE) ? 0 : 1]);
-    name = &subKeyName[strlen(subKeyName)];
-    strcat(subKeyName, winid);
-    if (winType != WIN_9X_ME_TYPE) {
-        /* Don't modify "Mexico Standard Time 2", which does not occur
-           on WIN_9X_ME_TYPE.  Also, if the type is WIN_NT_TYPE, then
-           in practice this means the GMT key is not followed by
-           " Standard Time", so don't append in that case. */
-        int isMexico2 = (winid[strlen(winid)- 1] == '2');
-        if (!isMexico2 &&
-            !(winType == WIN_NT_TYPE && strcmp(winid, "GMT") == 0)) {
-            strcat(subKeyName, STANDARD_TIME_REGKEY);
-        }
-    }
-    result = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                          subKeyName,
-                          0,
-                          KEY_QUERY_VALUE,
-                          hkey);
-
-    if (result != ERROR_SUCCESS) {
-        /* If the primary lookup fails, try to remap the Windows zone
-           ID, according to the remapping table. */
-        for (i=0; ZONE_REMAP[i].winid; ++i) {
-            if (strcmp(winid, ZONE_REMAP[i].winid) == 0) {
-                strcpy(name, ZONE_REMAP[i].altwinid + 1);
-                if (*(ZONE_REMAP[i].altwinid) == '+' &&
-                    winType != WIN_9X_ME_TYPE) {
-                    strcat(subKeyName, STANDARD_TIME_REGKEY);                
-                }
-                result = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
-                                      subKeyName,
-                                      0,
-                                      KEY_QUERY_VALUE,
-                                      hkey);
-                break;
-            }
-        }
-    }
-
-    return result;
 }
 
 #endif /*WIN32*/
@@ -1159,7 +1154,7 @@ uprv_tzset()
 U_CAPI int32_t U_EXPORT2
 uprv_timezone()
 {
-#if U_HAVE_TIMEZONE
+#ifdef U_TIMEZONE
     return U_TIMEZONE;
 #else
     time_t t, t1, t2;
@@ -1168,10 +1163,10 @@ uprv_timezone()
     int32_t tdiff = 0;
 
     time(&t);
-    memcpy( &tmrec, localtime(&t), sizeof(tmrec) );
+    uprv_memcpy( &tmrec, localtime(&t), sizeof(tmrec) );
     dst_checked = (tmrec.tm_isdst != 0); /* daylight savings time is checked*/
     t1 = mktime(&tmrec);                 /* local time in seconds*/
-    memcpy( &tmrec, gmtime(&t), sizeof(tmrec) );
+    uprv_memcpy( &tmrec, gmtime(&t), sizeof(tmrec) );
     t2 = mktime(&tmrec);                 /* GMT (or UTC) in seconds*/
     tdiff = t2 - t1;
     /* imitate NT behaviour, which returns same timezone offset to GMT for
@@ -1182,22 +1177,62 @@ uprv_timezone()
 #endif
 }
 
-/* Note that U_TZNAME does *not* have to be tzname, but if it does,
+/* Note that U_TZNAME does *not* have to be tzname, but if it is,
    some platforms need to have it declared here. */ 
 
-#if defined(IRIX) || defined(U_DARWIN) /* For SGI/MacOSX.  */
-extern char *tzname[]; /* RS6000 and others reject char **tzname.  */
-#elif defined(U_CYGWIN)
-extern U_IMPORT char *_tzname[2]; 
+#if defined(U_TZNAME) && (defined(U_IRIX) || defined(U_DARWIN) || defined(U_CYGWIN))
+/* RS6000 and others reject char **tzname.  */
+extern U_IMPORT char *U_TZNAME[];
 #endif
 
-U_CAPI char* U_EXPORT2
+#if defined(U_DARWIN)   /* For Mac OS X */
+#define TZZONELINK      "/etc/localtime"
+#define TZZONEINFO      "/usr/share/zoneinfo/"
+static char *gTimeZoneBuffer = NULL; /* Heap allocated */
+#endif
+
+U_CAPI const char* U_EXPORT2
 uprv_tzname(int n)
 {
 #ifdef WIN32
     char* id = (char*) detectWindowsTimeZone();
     if (id != NULL) {
         return id;
+    }
+#endif
+
+#if defined(U_DARWIN)
+    int ret;
+
+    char *tzenv;
+
+    tzenv = getenv("TZFILE");
+    if (tzenv != NULL) {
+        return tzenv;
+    }
+
+#if 0
+    /* TZ is often set to "PST8PDT" or similar, so we cannot use it. Alan */
+    tzenv = getenv("TZ");
+    if (tzenv != NULL) {
+        return tzenv;
+    }
+#endif
+    
+    /* Caller must handle threading issues */
+    if (gTimeZoneBuffer == NULL) {
+        gTimeZoneBuffer = (char *) uprv_malloc(MAXPATHLEN + 2);
+
+        ret = readlink(TZZONELINK, gTimeZoneBuffer, MAXPATHLEN + 2);
+        if (0 < ret) {
+            gTimeZoneBuffer[ret] = '\0';
+            if (uprv_strncmp(gTimeZoneBuffer, TZZONEINFO, sizeof(TZZONEINFO) - 1) == 0) {
+                return (gTimeZoneBuffer += sizeof(TZZONEINFO) - 1);
+            }
+        }
+
+        uprv_free(gTimeZoneBuffer);
+        gTimeZoneBuffer = NULL;
     }
 #endif
 
@@ -1215,7 +1250,7 @@ static char *gDataDirectory = NULL;
  static char *gCorrectedPOSIXLocale = NULL; /* Heap allocated */
 #endif
 
-UBool putil_cleanup(void)
+static UBool U_CALLCONV putil_cleanup(void)
 {
     if (gDataDirectory) {
         uprv_free(gDataDirectory);
@@ -1238,21 +1273,59 @@ UBool putil_cleanup(void)
 U_CAPI void U_EXPORT2
 u_setDataDirectory(const char *directory) {
     char *newDataDir;
-    int length;
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+    char *p;
+#endif
+    int32_t length;
 
     if(directory==NULL) {
         directory = "";
     }
-    length=uprv_strlen(directory);
+    length=(int32_t)uprv_strlen(directory);
     newDataDir = (char *)uprv_malloc(length + 2);
     uprv_strcpy(newDataDir, directory);
+
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+    while(p = uprv_strchr(newDataDir, U_FILE_ALT_SEP_CHAR)) {
+       *p = U_FILE_SEP_CHAR;
+    }
+#endif
 
     umtx_lock(NULL);
     if (gDataDirectory) {
         uprv_free(gDataDirectory);
     }
     gDataDirectory = newDataDir;
+    ucln_common_registerCleanup(UCLN_COMMON_PUTIL, putil_cleanup);
     umtx_unlock(NULL);
+}
+
+U_CAPI UBool U_EXPORT2
+uprv_pathIsAbsolute(const char *path) 
+{
+  if(!path || !*path) { 
+    return FALSE; 
+  }
+
+  if(*path == U_FILE_SEP_CHAR) {
+    return TRUE;
+  }
+
+#if (U_FILE_SEP_CHAR != U_FILE_ALT_SEP_CHAR)
+  if(*path == U_FILE_ALT_SEP_CHAR) {
+    return TRUE;
+  }
+#endif
+
+#if defined(WIN32)
+  if( (((path[0] >= 'A') && (path[0] <= 'Z')) ||
+       ((path[0] >= 'a') && (path[0] <= 'z'))) &&
+      path[1] == ':' ) {
+    return TRUE;
+  }
+#endif
+
+  return FALSE;
 }
 
 U_CAPI const char * U_EXPORT2
@@ -1595,7 +1668,7 @@ The leftmost codepage (.xxx) wins.
 
         if ((q = uprv_strchr(p, '.')) != NULL) {
             /* How big will the resulting string be? */
-            len = uprv_strlen(correctedPOSIXLocale) + (q-p);
+            len = (int32_t)(uprv_strlen(correctedPOSIXLocale) + (q-p));
             uprv_strncat(correctedPOSIXLocale, p, q-p);
             correctedPOSIXLocale[len] = 0;
         }
@@ -1621,6 +1694,7 @@ The leftmost codepage (.xxx) wins.
 
     if (gCorrectedPOSIXLocale == NULL) {
         gCorrectedPOSIXLocale = correctedPOSIXLocale;
+        ucln_common_registerCleanup(UCLN_COMMON_PUTIL, putil_cleanup);
         correctedPOSIXLocale = NULL;
     }
 
@@ -1648,7 +1722,7 @@ The leftmost codepage (.xxx) wins.
     int32_t lang = MAC_LC_INIT_NUMBER;
     /* = GetScriptManagerVariable(smScriptLang);*/
     int32_t date_region = MAC_LC_INIT_NUMBER;
-    char* posixID = 0;
+    const char* posixID = 0;
     int32_t count = sizeof(mac_lc_recs) / sizeof(mac_lc_rec);
     int32_t i;
     Intl1Hndl ih;
@@ -1781,8 +1855,9 @@ The leftmost codepage (.xxx) wins.
 
 }
 
-U_CAPI const char*  U_EXPORT2
-uprv_getDefaultCodepage()
+
+static const char*  
+int_getDefaultCodepage()
 {
 #if defined(OS400)
     uint32_t ccsid = 37; /* Default to ibm-37 */
@@ -1823,74 +1898,65 @@ uprv_getDefaultCodepage()
     char *name = NULL;
     char *euro = NULL;
     const char *localeName = NULL;
-    const char *defaultTable = NULL;
 
     uprv_memset(codesetName, 0, sizeof(codesetName));
-    localeName = uprv_getPOSIXID();
-    if (localeName != NULL && (name = (uprv_strchr(localeName, (int)'.'))) != NULL)
-    {
-        /* strip the locale name and look at the suffix only */
-        name = uprv_strncpy(codesetName, name+1, sizeof(codesetName));
-        codesetName[sizeof(codesetName)-1] = 0;
-        if ((euro = (uprv_strchr(name, (int)'@'))) != NULL)
-        {
-           *euro = 0;
-        }
-        /* if we can find the codset name, return that. */
-        if (*name)
-        {
-            return name;
-        }
-    }
 
-    /* otherwise, try CTYPE */
-    if (*codesetName)
-    {
-        uprv_memset(codesetName, 0, sizeof(codesetName));
-    }
+    /* Check setlocale before the environment variables
+       because the application may have set it first */
+    /* setlocale needs "" and not NULL for Linux and Solaris */
     localeName = setlocale(LC_CTYPE, "");
-    if (localeName != NULL && (name = (uprv_strchr(localeName, (int)'.'))) != NULL)
-    {
+    if (localeName != NULL && (name = (uprv_strchr(localeName, '.'))) != NULL) {
         /* strip the locale name and look at the suffix only */
         name = uprv_strncpy(codesetName, name+1, sizeof(codesetName));
         codesetName[sizeof(codesetName)-1] = 0;
-        if ((euro = (uprv_strchr(name, (int)'@'))) != NULL)
-        {
+        if ((euro = (uprv_strchr(name, '@'))) != NULL) {
            *euro = 0;
         }
         /* if we can find the codset name from setlocale, return that. */
-        if (*name)
-        {
+        if (*name) {
             return name;
         }
     }
 
-    if (*codesetName)
-    {
+#if U_HAVE_NL_LANGINFO_CODESET
+    if (*codesetName) {
         uprv_memset(codesetName, 0, sizeof(codesetName));
     }
-#if U_HAVE_NL_LANGINFO_CODESET
+    /* When available, check nl_langinfo first because it usually gives more
+       useful names. It depends on LC_CTYPE and not LANG or LC_ALL */
     {
         const char *codeset = nl_langinfo(U_NL_LANGINFO_CODESET);
         if (codeset != NULL) {
             uprv_strncpy(codesetName, codeset, sizeof(codesetName));
             codesetName[sizeof(codesetName)-1] = 0;
+            return codesetName;
         }
     }
 #endif
+
+    /* Try a locale specified by the user.
+       This is usually underspecified and usually checked by setlocale already. */
+    if (*codesetName) {
+        uprv_memset(codesetName, 0, sizeof(codesetName));
+    }
+    localeName = uprv_getPOSIXID();
+    if (localeName != NULL && (name = (uprv_strchr(localeName, '.'))) != NULL) {
+        /* strip the locale name and look at the suffix only */
+        name = uprv_strncpy(codesetName, name+1, sizeof(codesetName));
+        codesetName[sizeof(codesetName)-1] = 0;
+        if ((euro = (uprv_strchr(name, '@'))) != NULL) {
+           *euro = 0;
+        }
+        /* if we can find the codset name, return that. */
+        if (*name) {
+            return name;
+        }
+    }
+
     if (*codesetName == 0)
     {
-        /* look up in srl's table */
-        defaultTable = uprv_defaultCodePageForLocale(localeName);
-        if (defaultTable != NULL)
-        {
-            uprv_strcpy(codesetName, defaultTable);
-        }
-        else
-        {
-            /* if the table lookup failed, return US ASCII (ISO 646). */
-            uprv_strcpy(codesetName, "US-ASCII");
-        }
+        /* if the table lookup failed, return US ASCII (ISO 646). */
+        uprv_strcpy(codesetName, "US-ASCII");
     }
     return codesetName;
 #else
@@ -1898,155 +1964,23 @@ uprv_getDefaultCodepage()
 #endif
 }
 
-#if U_CHARSET_FAMILY==U_EBCDIC_FAMILY
-#ifdef OS390
-/*
- * These maps for ASCII to/from EBCDIC are from
- * "UTF-EBCDIC - EBCDIC-Friendly Unicode (or UCS) Transformation Format"
- * at http://www.unicode.org/unicode/reports/tr16/
- * (which should reflect codepage 1047)
- * but modified to explicitly exclude the variant
- * control and graphical characters that are in ASCII-based
- * codepages at 0x80 and above.
- * Also, unlike in Version 6.0 of the UTR on UTF-EBCDIC,
- * the Line Feed mapping varies according to the environment.
- *
- * These tables do not establish a converter or a codepage.
- */
 
-    /* on S/390 Open Edition, ASCII 0xa (LF) maps to 0x15 and ISO-8 0x85 maps to 0x25 */
-#   define E_LF 0x15
-#   define A_15 0x0a
-#   define A_25 0x00
-
-#   if 0
-        /* the CDRA variation of 1047 is not currently used - see tables in #else below */
-        /* in standard EBCDIC (CDRA), ASCII 0xa (LF) maps to 0x25 and ISO-8 0x85 maps to 0x15 */
-#       define E_LF 0x25
-#       define A_15 0x00
-#       define A_25 0x0a
-#   endif
-
-static const uint8_t asciiFromEbcdic[256]={
-    0x00, 0x01, 0x02, 0x03, 0x00, 0x09, 0x00, 0x7F, 0x00, 0x00, 0x00, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-    0x10, 0x11, 0x12, 0x13, 0x00, A_15, 0x08, 0x00, 0x18, 0x19, 0x00, 0x00, 0x1C, 0x1D, 0x1E, 0x1F,
-    0x00, 0x00, 0x00, 0x00, 0x00, A_25, 0x17, 0x1B, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x06, 0x07,
-    0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x14, 0x15, 0x00, 0x1A,
-    0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2E, 0x3C, 0x28, 0x2B, 0x7C,
-    0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0x24, 0x2A, 0x29, 0x3B, 0x5E,
-    0x2D, 0x2F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2C, 0x25, 0x5F, 0x3E, 0x3F,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x3A, 0x23, 0x40, 0x27, 0x3D, 0x22,
-    0x00, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x7E, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x00, 0x00, 0x00, 0x5B, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5D, 0x00, 0x00,
-    0x7B, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x7D, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x5C, 0x00, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
-static const uint8_t ebcdicFromAscii[256]={
-    0x00, 0x01, 0x02, 0x03, 0x37, 0x2D, 0x2E, 0x2F, 0x16, 0x05, E_LF, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
-    0x10, 0x11, 0x12, 0x13, 0x3C, 0x3D, 0x32, 0x26, 0x18, 0x19, 0x3F, 0x27, 0x1C, 0x1D, 0x1E, 0x1F,
-    0x40, 0x5A, 0x7F, 0x7B, 0x5B, 0x6C, 0x50, 0x7D, 0x4D, 0x5D, 0x5C, 0x4E, 0x6B, 0x60, 0x4B, 0x61,
-    0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0x7A, 0x5E, 0x4C, 0x7E, 0x6E, 0x6F,
-    0x7C, 0xC1, 0xC2, 0xC3, 0xC4, 0xC5, 0xC6, 0xC7, 0xC8, 0xC9, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6,
-    0xD7, 0xD8, 0xD9, 0xE2, 0xE3, 0xE4, 0xE5, 0xE6, 0xE7, 0xE8, 0xE9, 0xAD, 0xE0, 0xBD, 0x5F, 0x6D,
-    0x79, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96,
-    0x97, 0x98, 0x99, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8, 0xA9, 0xC0, 0x4F, 0xD0, 0xA1, 0x07,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-#else
-/*
- * These maps for ASCII to/from EBCDIC were generated
- * using the ICU converter for codepage 37 on 2000-may-22.
- * They explicitly exclude the variant
- * control and graphical characters that are in ASCII-based
- * codepages at 0x80 and above.
- *
- * These tables do not establish a converter or a codepage.
- */
-
-static const uint8_t asciiFromEbcdic[256]={
-    0x00, 0x01, 0x02, 0x03, 0x00, 0x09, 0x00, 0x7f, 0x00, 0x00, 0x00, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10, 0x11, 0x12, 0x13, 0x00, 0x00, 0x08, 0x00, 0x18, 0x19, 0x00, 0x00, 0x1c, 0x1d, 0x1e, 0x1f,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x0a, 0x17, 0x1b, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x06, 0x07,
-    0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x00, 0x14, 0x15, 0x00, 0x1a,
-    0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2e, 0x3c, 0x28, 0x2b, 0x7c,
-    0x26, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x21, 0x24, 0x2a, 0x29, 0x3b, 0x00,
-    0x2d, 0x2f, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x2c, 0x25, 0x5f, 0x3e, 0x3f,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x60, 0x3a, 0x23, 0x40, 0x27, 0x3d, 0x22,
-    0x00, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f, 0x70, 0x71, 0x72, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x7e, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x5e, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x5b, 0x5d, 0x00, 0x00, 0x00, 0x00,
-    0x7b, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x7d, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x5c, 0x00, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-};
-
-static const uint8_t ebcdicFromAscii[256]={
-    0x00, 0x01, 0x02, 0x03, 0x37, 0x2d, 0x2e, 0x2f, 0x16, 0x05, 0x25, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
-    0x10, 0x11, 0x12, 0x13, 0x3c, 0x3d, 0x32, 0x26, 0x18, 0x19, 0x3f, 0x27, 0x1c, 0x1d, 0x1e, 0x1f,
-    0x40, 0x5a, 0x7f, 0x7b, 0x5b, 0x6c, 0x50, 0x7d, 0x4d, 0x5d, 0x5c, 0x4e, 0x6b, 0x60, 0x4b, 0x61,
-    0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8, 0xf9, 0x7a, 0x5e, 0x4c, 0x7e, 0x6e, 0x6f,
-    0x7c, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6,
-    0xd7, 0xd8, 0xd9, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xba, 0xe0, 0xbb, 0xb0, 0x6d,
-    0x79, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96,
-    0x97, 0x98, 0x99, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xc0, 0x4f, 0xd0, 0xa1, 0x07,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-};
-
-#endif
-
-#endif
-
-U_CAPI void U_EXPORT2
-u_charsToUChars(const char *cs, UChar *us, int32_t length) {
-    while(length>0) {
-#if U_CHARSET_FAMILY==U_ASCII_FAMILY
-        *us++=(UChar)(uint8_t)(*cs++);
-#elif U_CHARSET_FAMILY==U_EBCDIC_FAMILY
-        *us++=(UChar)asciiFromEbcdic[(uint8_t)(*cs++)];
-#else
-#   error U_CHARSET_FAMILY is not valid
-#endif
-        --length;
+U_CAPI const char*  U_EXPORT2
+uprv_getDefaultCodepage()
+{
+    static char const  *name = NULL;
+    umtx_lock(NULL);
+    if (name == NULL) {
+        name = int_getDefaultCodepage();
     }
+    umtx_unlock(NULL);
+    return name;
 }
 
-U_CAPI void U_EXPORT2
-u_UCharsToChars(const UChar *us, char *cs, int32_t length) {
-    while(length>0) {
-#if U_CHARSET_FAMILY==U_ASCII_FAMILY
-        *cs++=(char)(*us++);
-#elif U_CHARSET_FAMILY==U_EBCDIC_FAMILY
-        *cs++=(char)ebcdicFromAscii[(uint8_t)(*us++)];
-#else
-#   error U_CHARSET_FAMILY is not valid
-#endif
-        --length;
-    }
-}
 
-/* end of platform-specific implementation */
+/* end of platform-specific implementation -------------- */
+
+/* version handling --------------------------------------------------------- */
 
 U_CAPI void U_EXPORT2
 u_versionFromString(UVersionInfo versionArray, const char *versionString) {
@@ -2132,175 +2066,6 @@ u_versionToString(UVersionInfo versionArray, char *versionString) {
 U_CAPI void U_EXPORT2
 u_getVersion(UVersionInfo versionArray) {
     u_versionFromString(versionArray, U_ICU_VERSION);
-}
-
-/* u_errorName() ------------------------------------------------------------ */
-
-static const char * const
-_uErrorInfoName[U_ERROR_WARNING_LIMIT-U_ERROR_WARNING_START]={
-    "U_USING_FALLBACK_WARNING",
-    "U_USING_DEFAULT_WARNING",
-    "U_SAFECLONE_ALLOCATED_WARNING",
-    "U_STATE_OLD_WARNING",
-    "U_STRING_NOT_TERMINATED_WARNING",
-    "U_SORT_KEY_TOO_SHORT_WARNING",
-    "U_AMBIGUOUS_ALIAS_WARNING",
-    "U_DIFFERENT_UCA_VERSION"
-};
-
-static const char * const
-_uTransErrorName[U_PARSE_ERROR_LIMIT - U_PARSE_ERROR_START]={
-    "U_BAD_VARIABLE_DEFINITION",
-    "U_MALFORMED_RULE",
-    "U_MALFORMED_SET",
-    "U_MALFORMED_SYMBOL_REFERENCE",
-    "U_MALFORMED_UNICODE_ESCAPE",
-    "U_MALFORMED_VARIABLE_DEFINITION",
-    "U_MALFORMED_VARIABLE_REFERENCE",
-    "U_MISMATCHED_SEGMENT_DELIMITERS",
-    "U_MISPLACED_ANCHOR_START",
-    "U_MISPLACED_CURSOR_OFFSET",
-    "U_MISPLACED_QUANTIFIER",
-    "U_MISSING_OPERATOR",
-    "U_MISSING_SEGMENT_CLOSE",
-    "U_MULTIPLE_ANTE_CONTEXTS",
-    "U_MULTIPLE_CURSORS",
-    "U_MULTIPLE_POST_CONTEXTS",
-    "U_TRAILING_BACKSLASH",
-    "U_UNDEFINED_SEGMENT_REFERENCE",
-    "U_UNDEFINED_VARIABLE",
-    "U_UNQUOTED_SPECIAL",
-    "U_UNTERMINATED_QUOTE",
-    "U_RULE_MASK_ERROR",
-    "U_MISPLACED_COMPOUND_FILTER",
-    "U_MULTIPLE_COMPOUND_FILTERS",
-    "U_INVALID_RBT_SYNTAX",
-    "U_INVALID_PROPERTY_PATTERN",
-    "U_MALFORMED_PRAGMA",
-    "U_UNCLOSED_SEGMENT",
-    "U_ILLEGAL_CHAR_IN_SEGMENT",
-    "U_VARIABLE_RANGE_EXHAUSTED",
-    "U_VARIABLE_RANGE_OVERLAP",
-    "U_ILLEGAL_CHARACTER",
-    "U_INTERNAL_TRANSLITERATOR_ERROR",
-    "U_INVALID_ID",
-    "U_INVALID_FUNCTION"
-};
-
-static const char * const
-_uErrorName[U_STANDARD_ERROR_LIMIT]={
-    "U_ZERO_ERROR",
-
-    "U_ILLEGAL_ARGUMENT_ERROR",
-    "U_MISSING_RESOURCE_ERROR",
-    "U_INVALID_FORMAT_ERROR",
-    "U_FILE_ACCESS_ERROR",
-    "U_INTERNAL_PROGRAM_ERROR",
-    "U_MESSAGE_PARSE_ERROR",
-    "U_MEMORY_ALLOCATION_ERROR",
-    "U_INDEX_OUTOFBOUNDS_ERROR",
-    "U_PARSE_ERROR",
-    "U_INVALID_CHAR_FOUND",
-    "U_TRUNCATED_CHAR_FOUND",
-    "U_ILLEGAL_CHAR_FOUND",
-    "U_INVALID_TABLE_FORMAT",
-    "U_INVALID_TABLE_FILE",
-    "U_BUFFER_OVERFLOW_ERROR",
-    "U_UNSUPPORTED_ERROR",
-    "U_RESOURCE_TYPE_MISMATCH",
-    "U_ILLEGAL_ESCAPE_SEQUENCE",
-    "U_UNSUPPORTED_ESCAPE_SEQUENCE",
-    "U_NO_SPACE_AVAILABLE",
-    "U_CE_NOT_FOUND_ERROR",
-    "U_PRIMARY_TOO_LONG_ERROR",
-    "U_STATE_TOO_OLD_ERROR",
-    "U_TOO_MANY_ALIASES_ERROR",
-    "U_ENUM_OUT_OF_SYNC_ERROR",
-    "U_INVARIANT_CONVERSION_ERROR"
-};
-static const char * const
-_uFmtErrorName[U_FMT_PARSE_ERROR_LIMIT - U_FMT_PARSE_ERROR_START] = {
-    "U_UNEXPECTED_TOKEN",
-    "U_MULTIPLE_DECIMAL_SEPARATORS",
-    "U_MULTIPLE_EXPONENTIAL_SYMBOLS",
-    "U_MALFORMED_EXPONENTIAL_PATTERN",
-    "U_MULTIPLE_PERCENT_SYMBOLS",
-    "U_MULTIPLE_PERMILL_SYMBOLS",
-    "U_MULTIPLE_PAD_SPECIFIERS",
-    "U_PATTERN_SYNTAX_ERROR",
-    "U_ILLEGAL_PAD_POSITION",
-    "U_UNMATCHED_BRACES",
-    "U_UNSUPPORTED_PROPERTY",
-    "U_UNSUPPORTED_ATTRIBUTE"
-};
-
-static const char * const
-_uBrkErrorName[U_BRK_ERROR_LIMIT - U_BRK_ERROR_START] = {
-    "U_BRK_ERROR_START",
-    "U_BRK_INTERNAL_ERROR",
-    "U_BRK_HEX_DIGITS_EXPECTED",
-    "U_BRK_SEMICOLON_EXPECTED",
-    "U_BRK_RULE_SYNTAX",
-    "U_BRK_UNCLOSED_SET",
-    "U_BRK_ASSIGN_ERROR",
-    "U_BRK_VARIABLE_REDFINITION",
-    "U_BRK_MISMATCHED_PAREN",
-    "U_BRK_NEW_LINE_IN_QUOTED_STRING",
-    "U_BRK_UNDEFINED_VARIABLE",
-    "U_BRK_INIT_ERROR",
-    "U_BRK_RULE_EMPTY_SET"
-};
-
-static const char * const
-_uRegexErrorName[U_REGEX_ERROR_LIMIT - U_REGEX_ERROR_START] = {
-    "U_REGEX_ERROR_START",
-    "U_REGEX_INTERNAL_ERROR",
-    "U_REGEX_RULE_SYNTAX",
-    "U_REGEX_INVALID_STATE",
-    "U_REGEX_BAD_ESCAPE_SEQUENCE",
-    "U_REGEX_PROPERTY_SYNTAX",
-    "U_REGEX_UNIMPLEMENTED",
-    "U_REGEX_MISMATCHED_PAREN",
-    "U_REGEX_NUMBER_TOO_BIG",
-    "U_REGEX_BAD_INTERVAL",
-    "U_REGEX_MAX_LT_MIN",
-    "U_REGEX_INVALID_BACK_REF",
-    "U_REGEX_INVALID_FLAG",
-    "U_REGEX_LOOK_BEHIND_LIMIT",
-    "U_REGEX_SET_CONTAINS_STRING"
-};
-
-static const char * const
-_uIDNAErrorName[U_IDNA_ERROR_LIMIT - U_IDNA_ERROR_START] = {
-      "U_IDNA_ERROR_START",
-      "U_IDNA_PROHIBITED_CODEPOINT_FOUND_ERROR",
-      "U_IDNA_UNASSIGNED_CODEPOINT_FOUND_ERROR",
-      "U_IDNA_CHECK_BIDI_ERROR",
-      "U_IDNA_STD3_ASCII_RULES_ERROR",
-      "U_IDNA_ACE_PREFIX_ERROR",
-      "U_IDNA_VERIFICATION_ERROR",
-      "U_IDNA_LABEL_TOO_LONG_ERROR"
-};
-
-U_CAPI const char * U_EXPORT2
-u_errorName(UErrorCode code) {
-    if(U_ZERO_ERROR <= code && code < U_STANDARD_ERROR_LIMIT) {
-        return _uErrorName[code];
-    } else if(U_ERROR_WARNING_START <= code && code < U_ERROR_WARNING_LIMIT) {
-        return _uErrorInfoName[code - U_ERROR_WARNING_START];
-    } else if(U_PARSE_ERROR_START <= code && code < U_PARSE_ERROR_LIMIT){
-        return _uTransErrorName[code - U_PARSE_ERROR_START];
-    } else if(U_FMT_PARSE_ERROR_START <= code && code < U_FMT_PARSE_ERROR_LIMIT){
-        return _uFmtErrorName[code - U_FMT_PARSE_ERROR_START];
-    } else if (U_BRK_ERROR_START <= code  && code < U_BRK_ERROR_LIMIT){
-        return _uBrkErrorName[code - U_BRK_ERROR_START];
-    } else if (U_REGEX_ERROR_START <= code && code < U_REGEX_ERROR_LIMIT) {
-        return _uRegexErrorName[code - U_REGEX_ERROR_START];
-    } else if( U_IDNA_ERROR_START <= code && code <= U_IDNA_ERROR_LIMIT) {
-        return _uIDNAErrorName[code - U_IDNA_ERROR_START];
-    } else {
-        return "[BOGUS UErrorCode]";
-    }
 }
 
 /*

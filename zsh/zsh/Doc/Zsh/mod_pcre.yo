@@ -8,6 +8,13 @@ startitem()
 findex(pcre_compile)
 item(tt(pcre_compile) [ tt(-aimx) ] var(PCRE))(
 Compiles a perl-compatible regular expression.
+
+Option tt(-a) will force the pattern to be anchored.
+Option tt(-i) will compile a case-insensitive pattern.
+Option tt(-m) will compile a multi-line pattern; that is,
+tt(^) and tt($) will match newlines within the pattern.
+Option tt(-x) will compile an extended pattern, wherein
+whitespace and tt(#) comments are ignored.
 )
 findex(pcre_study)
 item(tt(pcre_study))(
@@ -23,5 +30,17 @@ If the expression captures substrings within parentheses,
 tt(pcre_match) will set the array var($match) to those
 substrings, unless the tt(-a) option is given, in which
 case it will set the array var(arr).
+)
+enditem()
+
+The tt(zsh/pcre) module makes available the following test condition:
+startitem()
+findex(pcre-match)
+item(expr tt(-pcre-match) pcre)(
+Matches a string against a perl-compatible regular expression.
+
+For example,
+
+[[ "$text" -pcre-match ^d+$ ]] && print text variable contains only "d's".
 )
 enditem()

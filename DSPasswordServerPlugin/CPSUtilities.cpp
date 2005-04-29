@@ -31,6 +31,7 @@
  *
  */
 
+#include <sys/poll.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -39,6 +40,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>				// for struct kinfo_proc and sysctl()
 #include <syslog.h>
 
 #include <ctype.h>
@@ -56,9 +58,11 @@
 #define kMaxTrialTime		1250000
 #define kMaxIPAddrs			32
 
+#define kSASLPluginDisabledPath		"/usr/lib/sasl2/disabled"
+
 #if 1
 static bool gDSDebuggingON = false;
-#define DEBUGLOG(A,args...)		if (gDSDebuggingON) syslog( LOG_INFO, (A), ##args )
+#define DEBUGLOG(A,args...)		if (gDSDebuggingON) syslog( LOG_ALERT, (A), ##args )
 #else
 #define DEBUGLOG(A,args...)		
 #endif
@@ -110,7 +114,7 @@ void writeToServerWithCASTKey( FILE *out, char *buf, CAST_KEY *inKey, unsigned c
 	unsigned char *ebuf;
 	long bufLen;
 	
-	if ( buf == NULL )
+	if ( out == NULL || buf == NULL || inKey == NULL || inOutIV == NULL )
 		return;
 	
 	DEBUGLOG( "encrypting and sending: %s", buf );
@@ -415,23 +419,31 @@ int Convert64ToBinary( const char *inHexStr, char *outData, unsigned long maxLen
 long ConnectToServer( sPSContextData *inContext )
 {
     long siResult = 0;
+	PWServerError pwsError;
     char buf[1024];
     
 	DEBUGLOG( "ConnectToServer trying %s:%s", inContext->psName, inContext->psPort);
 	
     // connect to remote server
-    siResult = getconn(inContext->psName, inContext->psPort, &inContext->fd);
+    siResult = getconn( inContext->psName, inContext->psPort, &inContext->fd );
     if ( siResult != 0 )
         return( siResult );
-    
-	gOpenCount++;
-	
-    inContext->serverIn = fdopen(inContext->fd, "r");
-    inContext->serverOut = fdopen(inContext->fd, "w");
-    
+    	
     // discard the greeting message
-    readFromServer(inContext->fd, buf, sizeof(buf));
-    
+    pwsError = readFromServer(inContext->fd, buf, sizeof(buf));
+    if ( pwsError.err < 0 && pwsError.type == kConnectionError )
+	{
+		close( inContext->fd );
+		inContext->fd = -1;
+		siResult = pwsError.err;
+	}
+	else
+	{
+		gOpenCount++;
+		inContext->serverIn = fdopen(inContext->fd, "r");
+		inContext->serverOut = fdopen(inContext->fd, "w");
+    }
+	
     return siResult;
 }
 
@@ -444,56 +456,21 @@ long ConnectToServer( sPSContextData *inContext )
 
 Boolean Connected( sPSContextData *inContext )
 {
-	int		bytesReadable = 0;
-	char	temp[1];
-
-	if ( inContext->fd == 0 )
+	struct pollfd fdToPoll;
+	int result;
+	
+	if ( inContext->fd == 0 || inContext->fd == -1 )
 		return false;
 	
-	bytesReadable = ::recvfrom( inContext->fd, temp, sizeof (temp), (MSG_DONTWAIT | MSG_PEEK), NULL, NULL );
-	
-	DEBUGLOG( "Connected bytesReadable = %d, errno = %d", bytesReadable, errno );
-	
-	if ( bytesReadable == -1 )
-	{
-		// The problem here is that the plug-in is multi-threaded and it is
-		// too likely that errno could be changed before it can be read.
-		// However, since a disconnected socket typically returns bytesReadable==0,
-		// it is more or less safe to assume that -1 means the socket is still open.
-		
-		switch ( errno )
-		{
-			case EAGAIN:
-				// no data in the socket but socket is still open and connected
-				return true;
-				break;
-			
-			case EBADF:
-			case ENOTCONN:
-			case ENOTSOCK:
-			case EINTR:
-			case EFAULT:
-				// valid failing error
-				return false;
-				break;
-			
-			default:
-				// invalid error
-				// [3649059] err on the side of, "needs a new connection"
-				return false;
-				break;
-		}
-	}
-	
-	// recvfrom() only returns 0 when the peer has closed the connection (read an EOF)
-	if ( bytesReadable == 0 )
-	{
-		return( false );
-	}
-
-	return( true );
-
-} // Connected
+	fdToPoll.fd = inContext->fd;
+	fdToPoll.events = POLLSTANDARD;
+	fdToPoll.revents = 0;
+	result = poll( &fdToPoll, 1, 0 );
+	DEBUGLOG( "XXXX poll = %d, events = %d", result, fdToPoll.revents );
+	if ( result == -1 )
+		return false;
+	return ( (fdToPoll.revents & POLLHUP) == 0 );
+}
 
 
 // ----------------------------------------------------------------------------
@@ -636,10 +613,10 @@ DEBUGLOG( "for servIndex" );
 			// check any queued UDP requests
 			if ( checkUDPDescriptors && socketList != NULL )
 			{
-				int structlength;
+				socklen_t structlength;
 				int byteCount;
 				struct sockaddr_in cin;
-				char packetData;
+				char packetData[64];
 				fd_set fdset;
 				struct timeval selectTimeout = { 0, 750000 };
 				
@@ -668,11 +645,35 @@ DEBUGLOG( "for servIndex2" );
 					if ( socketList[servIndex] > 0 )
 					{
 						structlength = sizeof( cin );
-						byteCount = recvfrom( socketList[servIndex], &packetData, sizeof(packetData), MSG_DONTWAIT, (struct sockaddr *)&cin, &structlength );
-						DEBUGLOG( "recvfrom() byteCount=%d.", byteCount );
+						byteCount = recvfrom( socketList[servIndex], packetData, sizeof(packetData) - 1, MSG_DONTWAIT, (struct sockaddr *)&cin, &structlength );
+						DEBUGLOG( "recvfrom() byteCount=%d", byteCount );
 					
-						if ( byteCount > 0 && packetData != '0' )
+						if ( byteCount > 0 && packetData[0] != '0' )
 						{
+							// if the server's key hash is available, opportunistically do more verification
+							if ( inHexHash != NULL && byteCount > 33 )
+							{
+								// guarantee termination
+								packetData[byteCount] = '\0';
+								
+								// find delimiter
+								char *serverHash = strchr( packetData, ';' );
+								if ( serverHash != NULL )
+								{
+									serverHash++;
+									
+									// find delimiter or end
+									char *endHashPtr = strchr( serverHash, ';' );
+									if ( endHashPtr != NULL )
+										*endHashPtr = '\0';
+									
+									// continue if a mismatch is confirmed
+									long hashLen = strlen( serverHash );
+									if ( hashLen == 32 && strcmp( inHexHash, serverHash ) != 0 )
+										continue;
+								}
+							}
+							
 							connectedSocket = socketList[servIndex];
 							memcpy( outReplica, &entrylist[servIndex], sizeof(sPSServerEntry) );
 							
@@ -992,7 +993,7 @@ GetPasswordServerList( CFMutableArrayRef *outServerList, int inConfigSearchOptio
 DEBUGLOG( "GetPasswordServerList");
 
 	if ( outServerList == NULL )
-		return -1;
+		return kAuthFail;
 	
 	*outServerList = NULL;
 	
@@ -1001,7 +1002,7 @@ DEBUGLOG( "GetPasswordServerList");
 	
 	serverArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 	if ( serverArray == NULL )
-		return -1;
+		return kAuthFail;
 	
 	if ( inConfigSearchOptions & kPWSearchLocalFile )
 		status = GetServerListFromLocalCache( serverArray );
@@ -1028,6 +1029,55 @@ DEBUGLOG( "GetPasswordServerList");
 
 
 // ---------------------------------------------------------------------------
+//	* GetPasswordServerListForKeyHash
+// ---------------------------------------------------------------------------
+
+long
+GetPasswordServerListForKeyHash( CFMutableArrayRef *outServerList, int inConfigSearchOptions, const char *inKeyHash )
+{
+	long status = 0;
+	long status1 = 0;
+	CFMutableArrayRef serverArray;
+	
+DEBUGLOG( "GetPasswordServerListForKeyHash");
+
+	if ( outServerList == NULL )
+		return kAuthFail;
+	
+	*outServerList = NULL;
+	
+	if ( inConfigSearchOptions == 0 )
+		return 0;
+	
+	serverArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+	if ( serverArray == NULL )
+		return kAuthFail;
+	
+	if ( inConfigSearchOptions & kPWSearchLocalFile )
+		status = GetServerListFromLocalCache( serverArray );
+	
+	if ( inConfigSearchOptions & kPWSearchReplicaFile )
+	{
+		status1 = GetServerListFromFileForKeyHash( serverArray, inKeyHash );
+		if ( status1 != noErr && status == noErr )
+			status = status1;
+	}
+		
+	if ( CFArrayGetCount(serverArray) > 0 )
+	{
+		*outServerList = serverArray;
+		status = 0;
+	}
+	else
+	{
+		CFRelease( serverArray );
+	}
+	
+	return status;	
+}
+
+
+// ---------------------------------------------------------------------------
 //	* GetServerListFromLocalCache
 // ---------------------------------------------------------------------------
 
@@ -1038,7 +1088,7 @@ GetServerListFromLocalCache( CFMutableArrayRef inOutServerList )
 	CFURLRef myReplicaDataFileRef;
 	CFReadStreamRef myReadStreamRef;
 	CFPropertyListRef myPropertyListRef = NULL;
-	CFStringRef errorString;
+	CFStringRef errorString = NULL;
 	CFPropertyListFormat myPLFormat;
 	CFIndex index, arrayCount;
 	CFDataRef dataRef;
@@ -1056,7 +1106,7 @@ DEBUGLOG( "GetServerListFromLocalCache");
 	else
 	{
 		if ( stat( kPWReplicaLocalFile, &sb ) != 0 )
-			return -1;
+			return kAuthFail;
 		
 		bLoadPreConfiguredFile = false;
 	}
@@ -1072,29 +1122,28 @@ DEBUGLOG( "GetServerListFromLocalCache");
 	{
 		myReplicaDataFilePathRef = CFStringCreateWithCString( kCFAllocatorDefault, kPWReplicaLocalFile, kCFStringEncodingUTF8 );
 		if ( myReplicaDataFilePathRef == NULL )
-			return -1;
+			return kAuthFail;
 		
 		myReplicaDataFileRef = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, myReplicaDataFilePathRef, kCFURLPOSIXPathStyle, false );
 		
 		CFRelease( myReplicaDataFilePathRef );
 		
 		if ( myReplicaDataFileRef == NULL )
-			return -1;
+			return kAuthFail;
 		
 		myReadStreamRef = CFReadStreamCreateWithFile( kCFAllocatorDefault, myReplicaDataFileRef );
 		
 		CFRelease( myReplicaDataFileRef );
 		
 		if ( myReadStreamRef == NULL )
-			return -1;
+			return kAuthFail;
 		
-		CFReadStreamOpen( myReadStreamRef );
-		
-		errorString = NULL;
-		myPLFormat = kCFPropertyListXMLFormat_v1_0;
-		myPropertyListRef = CFPropertyListCreateFromStream( kCFAllocatorDefault, myReadStreamRef, 0, kCFPropertyListMutableContainersAndLeaves, &myPLFormat, &errorString );
-		
-		CFReadStreamClose( myReadStreamRef );
+		if ( CFReadStreamOpen( myReadStreamRef ) )
+		{
+			myPLFormat = kCFPropertyListXMLFormat_v1_0;
+			myPropertyListRef = CFPropertyListCreateFromStream( kCFAllocatorDefault, myReadStreamRef, 0, kCFPropertyListMutableContainersAndLeaves, &myPLFormat, &errorString );
+			CFReadStreamClose( myReadStreamRef );
+		}
 		CFRelease( myReadStreamRef );
 		
 		if ( errorString != NULL )
@@ -1107,12 +1156,12 @@ DEBUGLOG( "GetServerListFromLocalCache");
 		}
 		
 		if ( myPropertyListRef == NULL )
-			return -1;
-	
+			return kAuthFail;
+		
 		if ( CFGetTypeID(myPropertyListRef) != CFArrayGetTypeID() )
 		{
 			CFRelease( myPropertyListRef );
-			return -1;
+			return kAuthFail;
 		}
 		
 		// put the last contacted server on top
@@ -1153,12 +1202,71 @@ DEBUGLOG( "GetServerListFromLocalCache");
 long
 GetServerListFromFile( CFMutableArrayRef inOutServerList )
 {
-	CReplicaFile replicaFile;
-	long status = 0;
-	
-	status = GetServerListFromXML( &replicaFile, inOutServerList );
-DEBUGLOG( "GetServerListFromFile = %d", (int)status);
+	return GetServerListFromFileForKeyHash( inOutServerList, NULL );
+}
 
+
+// ---------------------------------------------------------------------------
+//	* GetServerListFromFileForKeyHash
+// ---------------------------------------------------------------------------
+
+long
+GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *inKeyHash )
+{
+	long status = 0;
+	CReplicaFile *replicaFile = NULL;
+	sPSServerEntry serverEntry;
+	bool gotID;
+	
+	replicaFile = new CReplicaFile();
+	if ( replicaFile == NULL )
+		return kAuthFail;
+	
+	bzero( &serverEntry, sizeof(sPSServerEntry) );
+	gotID = replicaFile->GetUniqueID( serverEntry.id );
+	
+	// optimization: if we're alone in the world, return loopback
+	// requirements are no replicas, and file is present (able to get server ID)
+	if ( (gotID) && (replicaFile->ReplicaCount() == 0) )
+	{
+		if ( (inKeyHash == NULL) || (strcmp(inKeyHash, serverEntry.id) == 0) )
+		{
+			strcpy( serverEntry.ip, "127.0.0.1" );
+			strcpy( serverEntry.port, kPasswordServerPortStr );
+			AppendToArrayIfUnique( inOutServerList, &serverEntry );
+			
+			delete replicaFile;
+			return 0;
+		}
+	}
+	
+	// if there is no local password server or if the RSA keys don't match,
+	// see if there is a remote password server we've discovered in the past.
+	if ( inKeyHash != NULL )
+	{
+		if ( (!gotID) || (strcmp( inKeyHash, serverEntry.id ) != 0) )
+		{
+			char filePath[sizeof(kPWReplicaRemoteFilePrefix) + strlen(inKeyHash)];
+			
+			// construct cache file path
+			strcpy( filePath, kPWReplicaRemoteFilePrefix );
+			strcat( filePath, inKeyHash );
+			
+			delete replicaFile;
+			replicaFile = new CReplicaFile( true, filePath );
+			
+			// not really an error if there's no remote file
+			if ( replicaFile == NULL )
+				return 0;
+		}
+	}
+	
+	status = GetServerListFromXML( replicaFile, inOutServerList );
+	DEBUGLOG( "GetServerListFromFile = %d", (int)status);
+	
+	// clean up
+	delete replicaFile;
+	
 	return status;
 }
 
@@ -1175,13 +1283,13 @@ long GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *in
 DEBUGLOG( "GetServerListFromConfig");
 
 	if ( outServerList == NULL || inReplicaData == NULL )
-		return -1;
+		return kAuthFail;
 	
 	*outServerList = NULL;
 	
 	serverArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 	if ( serverArray == NULL )
-		return -1;
+		return kAuthFail;
 	
 	status = GetServerListFromXML( inReplicaData, serverArray );
 	
@@ -1216,7 +1324,7 @@ GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServer
 DEBUGLOG( "in GetServerListFromXML");
 
 	if ( inOutServerList == NULL )
-		return -1;
+		return kAuthFail;
 	
 	bzero( &serverEntry, sizeof(sPSServerEntry) );
 	
@@ -1270,26 +1378,26 @@ GetServerFromDict( CFDictionaryRef serverDict, sPSServerEntry *outServerEntry )
 DEBUGLOG( "GetServerListFromDict");
 
 	if ( serverDict == NULL || outServerEntry == NULL )
-		return -1;
+		return kAuthFail;
 	
 	// IP
 	if ( ! CFDictionaryGetValueIfPresent( serverDict, CFSTR(kPWReplicaIPKey), (const void **)&anIPRef ) )
-		return -1;
+		return kAuthFail;
 	
 	if ( CFGetTypeID(anIPRef) == CFStringGetTypeID() )
 	{
 		if ( ! CFStringGetCString( (CFStringRef)anIPRef, outServerEntry->ip, sizeof(outServerEntry->ip), kCFStringEncodingUTF8 ) )
-			return -1;
+			return kAuthFail;
 	}
 	else
 	if ( CFGetTypeID(anIPRef) == CFArrayGetTypeID() )
 	{
 		aString = (CFStringRef) CFArrayGetValueAtIndex( (CFArrayRef)anIPRef, 0 );
 		if ( aString == NULL || CFGetTypeID(aString) != CFStringGetTypeID() )
-			return -1;
+			return kAuthFail;
 		
 		if ( ! CFStringGetCString( aString, outServerEntry->ip, sizeof(outServerEntry->ip), kCFStringEncodingUTF8 ) )
-			return -1;
+			return kAuthFail;
 	}
 	
 	// DNS
@@ -1579,6 +1687,7 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 	char *endPtr = NULL;
 	struct timeval startTime, endTime;
 	struct timeval recvTimeoutVal = { 30, 0 };
+	struct timeval sendTimeoutVal = { 120, 0 };
 	struct timezone tz = { 0, 0 };
 	fd_set fdset;
 	int fcntlFlags = 0;
@@ -1654,8 +1763,13 @@ long getconn_async( const char *host, const char *port, struct timeval *inOpenTi
 			
 			if ( setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &recvTimeoutVal, sizeof(recvTimeoutVal) ) == -1 )
 			{
-				DEBUGLOG("setsockopt");
+				DEBUGLOG("setsockopt SO_RCVTIMEO");
 				throw((long)kCPSUtilServiceUnavailable);
+			}
+			if ( setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &sendTimeoutVal, sizeof(sendTimeoutVal) ) == -1 )
+			{
+				DEBUGLOG("setsockopt SO_SNDTIMEO");
+				//throw((long)kCPSUtilServiceUnavailable); // not fatal
 			}
 			
 			fcntlFlags = fcntl(sock, F_GETFL, 0);
@@ -1765,7 +1879,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 {
     char servername[1024];
     struct sockaddr_in sin, cin;
-    int sock = 0;
+    int sock = -1;
     long siResult = 0;
     int rc;
 	struct in_addr inetAddr;
@@ -1833,7 +1947,7 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 			DEBUGLOG("socket() keeps giving me zero. hate that!");
 			throw((long)kCPSUtilServiceUnavailable);
 		}
-				
+		
 		bzero( &cin, sizeof(cin) );
 		cin.sin_family = AF_INET;
 		cin.sin_addr.s_addr = htonl( INADDR_ANY );
@@ -1856,6 +1970,11 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
 	
     catch( long error )
     {
+		if ( error != 0 && sock > 0 )
+		{
+			close( sock );
+			sock = -1;
+		}
         siResult = error;
     }
     
@@ -1864,8 +1983,178 @@ long testconn_udp( const char *host, const char *port, int *outSocket )
     return siResult;
 }
 
+// ---------------------------------------------------------------------------
+//	* pwsf_ProcessIsRunning
+//
+//  Returns: -1 if not running, or pid
+// ---------------------------------------------------------------------------
+
+pid_t pwsf_ProcessIsRunning( const char *inProcName )
+{
+	register size_t		i ;
+	register pid_t 		pidLast		= -1 ;
+	int					mib[]		= { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+	size_t				ulSize		= 0;
+
+	// Allocate space for complete process list
+	if ( 0 > sysctl( mib, 4, NULL, &ulSize, NULL, 0) )
+	{
+		return( pidLast );
+	}
+
+	i = ulSize / sizeof( struct kinfo_proc );
+	struct kinfo_proc	*kpspArray = new kinfo_proc[ i ];
+	if ( !kpspArray )
+	{
+		return( pidLast );
+	}
+
+	// Get the proc list
+	ulSize = i * sizeof( struct kinfo_proc );
+	if ( 0 > sysctl( mib, 4, kpspArray, &ulSize, NULL, 0 ) )
+	{
+		delete [] kpspArray;
+		return( pidLast );
+	}
+
+	register struct kinfo_proc	*kpsp = kpspArray;
+	//register pid_t 				pidParent = -1, pidProcGroup = -1;
+
+	for ( ; i-- ; kpsp++ )
+	{
+		// Skip names that don't match
+		if ( strcmp( kpsp->kp_proc.p_comm, inProcName ) != 0 )
+		{
+			continue;
+		}
+
+		// Skip our id
+		if ( kpsp->kp_proc.p_pid == ::getpid() )
+		{
+			continue;
+		}
+
+		// If it's not us, is it a zombie
+		if ( kpsp->kp_proc.p_stat == SZOMB )
+		{
+			continue;
+		}
+
+		// If the name matches, break
+		if ( strcmp( kpsp->kp_proc.p_comm, inProcName ) == 0 )
+		{
+			pidLast = kpsp->kp_proc.p_pid;
+			break;
+		}
+	}
+
+	delete [] kpspArray;
+
+	return( pidLast );
+} // pwsf_ProcessIsRunning
 
 
+// ----------------------------------------------------------------------------------------
+//  pwsf_GetSASLMechInfo
+//
+//	Returns: TRUE if <inMechName> is in the table.
+// ----------------------------------------------------------------------------------------
 
+bool pwsf_GetSASLMechInfo( const char *inMechName, char **outPluginPath, bool *outRequiresPlainTextOnDisk )
+{
+	int index;
+	bool found = false;
+	SASLMechInfo knownMechList[] =
+	{
+		{"APOP",				"apop.la",				true},				
+		{"CRAM-MD5",			"libcrammd5.la",		false},
+		{"CRYPT",				"crypt.la",				false},
+		{"DHX",					"dhx.la",				false},
+		{"DIGEST-MD5",			"libdigestmd5.la",		false},
+		{"GSSAPI",				"libgssapiv2.la",		false},
+		{"KERBEROS_V4",			"libkerberos4.la",		false},
+		{"MS-CHAPv2",			"mschapv2.la",			false},
+		{"NTLM",				"libntlm.la",			false},
+		{"OTP",					"libotp.la",			false},
+		{"SMB-LAN-MANAGER",		"smb_lm.la",			false},
+		{"SMB-NT",				"smb_nt.la",			false},
+		{"SMB-NTLMv2",			"smb_ntlmv2.la",		false},
+		{"TWOWAYRANDOM",		"twowayrandom.la",		true},
+		{"WEBDAV-DIGEST",		"digestmd5WebDAV.la",	true},
+		{"",					"",						false}
+	};
+	
+	for ( index = 0; knownMechList[index].name[0] != '\0'; index++ )
+	{
+		if ( strcasecmp(inMechName, knownMechList[index].name) == 0 )
+		{
+			if ( outPluginPath != NULL ) {
+				*outPluginPath = (char *) malloc( strlen(knownMechList[index].filename) + 1 );
+				if ( *outPluginPath != NULL ) {
+					strcpy( *outPluginPath, knownMechList[index].filename );
+				}
+			}
+			
+			if ( outRequiresPlainTextOnDisk != NULL )
+				*outRequiresPlainTextOnDisk = knownMechList[index].requiresPlain;
+			
+			found = true;
+			break;
+		}
+	}
+	
+	return found;
+}
+
+
+// ----------------------------------------------------------------------------------------
+//  pwsf_SetSASLPluginState
+//
+//	Returns: TRUE if the plugin list changed
+// ----------------------------------------------------------------------------------------
+
+bool pwsf_SetSASLPluginState( const char *inMechName, bool enabled )
+{
+	char *pluginFileNamePtr = NULL;
+	bool changeMade = false;
+	struct stat sb;
+	char fromPath[256];
+	char toPath[256];
+	
+	// make sure the directory is there
+    int err = mkdir( kSASLPluginDisabledPath, S_IRWXU );
+    if ( err != 0 && errno != EEXIST )
+        return false;
+    
+	if ( pwsf_GetSASLMechInfo( inMechName, &pluginFileNamePtr, NULL ) )
+	{
+		fromPath[0] = '\0';
+		if ( enabled )
+		{
+			sprintf( fromPath, "%s/%s", kSASLPluginDisabledPath, pluginFileNamePtr );
+			sprintf( toPath, "/usr/lib/sasl2/%s", pluginFileNamePtr );
+		}
+		else
+		{
+			sprintf( fromPath, "/usr/lib/sasl2/%s", pluginFileNamePtr );
+			sprintf( toPath, "%s/%s", kSASLPluginDisabledPath, pluginFileNamePtr );
+		}
+		
+		if ( fromPath[0] != '\0' )
+		{
+			err = stat( fromPath, &sb );
+			if ( err == 0 )
+			{
+				rename( fromPath, toPath );
+				changeMade = true;
+			}
+		}
+		
+		if ( pluginFileNamePtr != NULL )
+			free( pluginFileNamePtr );
+	}
+	
+	return changeMade;
+}
 
 

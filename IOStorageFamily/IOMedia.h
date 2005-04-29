@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,7 +51,8 @@
  * object's creation, but it is possible that the description has been overridden
  * by a client (which has probed the media and identified the content correctly)
  * of the media object.  It is more accurate than the hint for this reason.  The
- * string is formed in the likeness of Apple's "Apple_HFS" strings.
+ * string is formed in the likeness of Apple's "Apple_HFS" strings or in the
+ * likeness of a UUID.
  */
 
 #define kIOMediaContentKey "Content"
@@ -66,7 +67,7 @@
  * The hint is set at the time of the object's creation, should the creator have
  * a clue as to what it may contain.  The hint string does not change for the
  * lifetime of the object and is formed in the likeness of Apple's "Apple_HFS"
- * strings.
+ * strings or in the likeness of a UUID.
  */
 
 #define kIOMediaContentHintKey "Content Hint"
@@ -130,6 +131,17 @@
  */
 
 #define kIOMediaSizeKey "Size"
+
+/*!
+ * @defined kIOMediaUUIDKey
+ * @abstract
+ * A property of IOMedia objects.
+ * @discussion
+ * The kIOMediaUUIDKey property has an OSString value and contains a persistent
+ * Universal Unique Identifier for the media if such an identifier is available.
+ */
+
+#define kIOMediaUUIDKey "UUID"
 
 /*!
  * @defined kIOMediaWholeKey
@@ -196,11 +208,14 @@
  * Indicates whether the media is removable from the drive mechanism.
  */
 
-typedef UInt32 IOMediaAttributeMask;
+enum
+{
+    kIOMediaAttributeEjectableMask = 0x00000001,
+    kIOMediaAttributeRemovableMask = 0x00000002,
+    kIOMediaAttributeReservedMask  = 0xFFFFFFFC
+};
 
-#define kIOMediaAttributeEjectableMask 0x00000001UL
-#define kIOMediaAttributeRemovableMask 0x00000002UL
-#define kIOMediaAttributeReservedMask  0xFFFFFFFCUL
+typedef UInt32 IOMediaAttributeMask;
 
 #ifdef KERNEL
 #ifdef __cplusplus
@@ -253,8 +268,9 @@ protected:
     UInt64          _mediaSize;
 
     IOStorageAccess _openLevel;
-    OSSet *         _openReaders;
-    IOService *     _openReaderWriter;
+    OSDictionary *  _openClients;
+
+    UInt32          _reserved0320;
 
     UInt64          _preferredBlockSize;
 
@@ -525,7 +541,7 @@ public:
      * possible that the description has been overridden by a client (which has probed
      * the media and identified the content correctly) of the media object.  It
      * is more accurate than the hint for this reason.  The string is formed in
-     * the likeness of Apple's "Apple_HFS" strings.
+     * the likeness of Apple's "Apple_HFS" strings or in the likeness of a UUID.
      *
      * The content description can be overridden by any client that matches onto
      * this media object with a match category of kIOStorageCategory.  The media
@@ -543,7 +559,8 @@ public:
      * Ask the media object for a hint of its contents.  The hint is set at the
      * time of the object's creation, should the creator have a clue as to what
      * it may contain.  The hint string does not change for the lifetime of the
-     * object and is also formed in the likeness of Apple's "Apple_HFS" strings.
+     * object and is also formed in the likeness of Apple's "Apple_HFS" strings
+     * or in the likeness of a UUID.
      * @result
      * Hint of media's contents.
      */

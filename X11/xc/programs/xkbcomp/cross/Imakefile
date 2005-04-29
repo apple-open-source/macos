@@ -1,5 +1,5 @@
 XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:54:30 cpqbld Exp $
-XCOMM $XFree86: xc/programs/xkbcomp/cross/Imakefile,v 1.3 2002/04/04 14:05:58 eich Exp $
+XCOMM $XFree86: xc/programs/xkbcomp/cross/Imakefile,v 1.4 2003/05/27 17:58:24 tsi Exp $
 
 #define PassCDebugFlags 'CDEBUGFLAGS=$(CDEBUGFLAGS)'
 
@@ -11,9 +11,9 @@ XCOMM $XFree86: xc/programs/xkbcomp/cross/Imakefile,v 1.3 2002/04/04 14:05:58 ei
 		 keymap.o keycodes.o keytypes.o compat.o action.o \
 		 symbols.o geometry.o xkbpath.o listing.o \
 		 xkbparse.o parseutils.o utils.o
-        DEPLIBS = $(DEPXLIBONLY)
+        DEPLIBS = $(DEPXONLYLIB)
 XCOMM Assumes local libraries installed in /usr/X11R6/lib
-LOCAL_LIBRARIES = -L/usr/X11R6/lib $(XKBFILELIB) $(XLIB)
+LOCAL_LIBRARIES = -L/usr/X11R6/lib $(XKBFILELIB) $(XONLYLIB)
 
 ROOT_DEFINES = -DDFLT_XKB_CONFIG_ROOT=\"$(LIBDIR)/xkb\"
 

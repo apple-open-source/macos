@@ -1,0 +1,13 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            ACTIONS = {downloadSource = id; }; 
+            CLASS = MBCAbout; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {fLicense = id; fVersion = id; }; 
+            SUPERCLASS = NSWindowController; 
+        }
+    ); 
+    IBVersion = 1; 
+}

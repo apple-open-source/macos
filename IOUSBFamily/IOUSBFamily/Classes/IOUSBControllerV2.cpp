@@ -34,6 +34,8 @@
 #include <IOKit/usb/IOUSBLog.h>
 
 
+extern IOReturn CheckForDisjointDescriptor(IOUSBCommand *command, UInt16 maxPacketSize);
+
 //================================================================================================
 //
 //   Local Definitions
@@ -83,27 +85,22 @@ IOUSBControllerV2::init(OSDictionary * propTable)
 	    return false;
 	bzero(_v2ExpansionData, sizeof(V2ExpansionData));
     }
-	
-    // Use other controller INIT routine to override this.
-    // This needs to be set before start.
-    _controllerSpeed = kUSBDeviceSpeedHigh;
-        
+	        
     return (true);
 }
 
-void IOUSBControllerV2::clearTTHandler( OSObject *target,
-//void clearTTHandler( OSObject *target,
-		    void *parameter,
-                    IOReturn	status,
-                    UInt32	bufferSizeRemaining)
+void
+IOUSBControllerV2::clearTTHandler( OSObject *	target,
+                                   void *	parameter,
+                                   IOReturn	status,
+                                   UInt32	bufferSizeRemaining)
 {
     IOUSBController *	me = (IOUSBController *)target;
-    IOUSBCommand 	*command = (IOUSBCommand *)parameter;
+    IOUSBCommand *	command = (IOUSBCommand *)parameter;
     UInt8		sent, back, todo;
     UInt8		hubAddr = command->GetAddress();
     
     USBLog(5,"clearTTHandler: status (%lx)", status);
-//    USBLog(1,"clearTTHandler this:%p, command:%p", me, command);
 
     sent = (command->GetStage() & 0x0f) << 4;
     back = command->GetStage() & 0xf0;
@@ -248,6 +245,7 @@ Endpoint Type
     completion.parameter = clearCommand;
     clearCommand->SetUSLCompletion(completion);
 
+    clearCommand->SetUseTimeStamp(false);
     clearCommand->SetSelector(DEVICE_REQUEST);
     clearCommand->SetRequest(clearRequest);
     clearCommand->SetAddress(hubAddress);
@@ -459,7 +457,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  1);
 IOReturn 		
 IOUSBControllerV2::UIMHubMaintenance(USBDeviceAddress highSpeedHub, UInt32 highSpeedPort, UInt32 command, UInt32 flags)
 {
-    return kIOReturnIPCError;			// not implemented
+    return kIOReturnUnsupported;			// not implemented
 }
 
 
@@ -485,7 +483,7 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  4);
 IOReturn 		
 IOUSBControllerV2::UIMSetTestMode(UInt32 mode, UInt32 port)
 {
-    return kIOReturnIPCError;			// not implemented
+    return kIOReturnUnsupported;			// not implemented
 }
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV2,  5);
@@ -499,7 +497,77 @@ OSMetaClassDefineReservedUsed(IOUSBControllerV2,  7);
 IOReturn
 IOUSBControllerV2::ReadV2(IOMemoryDescriptor *buffer, USBDeviceAddress address, Endpoint *endpoint, IOUSBCompletionWithTimeStamp *completion, UInt32 noDataTimeout, UInt32 completionTimeout, IOByteCount reqCount)
 {
-    return (kIOReturnUnsupported);
+    IOReturn	 	err = kIOReturnSuccess;
+    IOUSBCommand 	*command;
+    IOUSBCompletion 	nullCompletion;
+    IOUSBCompletion 	theCompletion;
+    IOUSBCompletionAction 	theAction;
+    int			i;
+
+    USBLog(7, "%s[%p]::Read #4 - reqCount = %d", getName(), this, reqCount);
+    // Validate its a inny pipe and that there is a buffer
+    if ((endpoint->direction != kUSBIn) || !buffer || (buffer->getLength() < reqCount))
+        return kIOReturnBadArgument;
+
+    if ((endpoint->transferType != kUSBBulk) && (noDataTimeout || completionTimeout))
+        return kIOReturnBadArgument;							// timeouts only on bulk pipes
+
+    // Validate the completion
+    if (!completion)
+        return kIOReturnNoCompletion;
+
+    // Validate the command gate
+    if (!_commandGate)
+        return kIOReturnInternalError;
+
+    // allocate the command
+    command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+    // If we couldn't get a command, increase the allocation and try again
+    //
+    if ( command == NULL )
+    {
+        IncreaseCommandPool();
+
+        command = (IOUSBCommand *)_freeUSBCommandPool->getCommand(false);
+        if ( command == NULL )
+        {
+            USBLog(3,"%s[%p]::DeviceRequest Could not get a IOUSBCommand",getName(),this);
+            return kIOReturnNoResources;
+        }
+    }
+
+    theCompletion.target = completion->target;
+    theCompletion.action = (IOUSBCompletionAction)completion->action;
+    theCompletion.parameter = completion->parameter;
+
+    command->SetUseTimeStamp(true);
+    command->SetSelector(READ);
+    command->SetRequest(0);            	// Not a device request
+    command->SetAddress(address);
+    command->SetEndpoint(endpoint->number);
+    command->SetDirection(kUSBIn);
+    command->SetType(endpoint->transferType);
+    command->SetBuffer(buffer);
+    command->SetReqCount(reqCount);
+    command->SetClientCompletion(theCompletion);
+    command->SetNoDataTimeout(noDataTimeout);
+    command->SetCompletionTimeout(completionTimeout);
+    for (i=0; i < 10; i++)
+        command->SetUIMScratch(i, 0);
+
+    nullCompletion.target = (void *) NULL;
+    nullCompletion.action = (IOUSBCompletionAction) NULL;
+    nullCompletion.parameter = (void *) NULL;
+    command->SetDisjointCompletion(nullCompletion);
+
+    err = CheckForDisjointDescriptor(command, endpoint->maxPacketSize);
+    if (!err)
+        err = _commandGate->runAction(DoIOTransfer, command);
+
+    if (err)
+        _freeUSBCommandPool->returnCommand(command);
+
+    return (err);
 }
 
 
@@ -513,6 +581,7 @@ IOUSBControllerV2::UIMCreateIsochEndpoint(short functionAddress, short endpointN
 	// In those cases the interval parameter is ignored
 	return UIMCreateIsochEndpoint(functionAddress, endpointNumber, maxPacketSize, direction, highSpeedHub, highSpeedPort);
 }
+
 
 
 OSMetaClassDefineReservedUnused(IOUSBControllerV2,  9);

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Templates Administation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The Templates Administration plugin allows you to add modify the templates for your blog. This
+                allows you to change the look and feel of your blog dynamically.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                edit-blog-templates=org.blojsom.plugin.admin.EditBlogTemplatesPlugin
+            </source>
+        </section>
+        <section>
+            <title>Usage</title>
+            <p>
+                After logging into the administration console, you may click on the link to "Edit Blog Templates"
+                and you will be able modify your blog templates.
+            </p>
+        </section>
+    </body>
+</document>
+

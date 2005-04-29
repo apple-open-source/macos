@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeWMCWin.man,v 1.3 2001/02/09 03:47:46 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XSeWMCWin.man,v 1.4 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,27 +144,12 @@
 .SH NAME
 XSetWMColormapWindows, XGetWMColormapWindows \- set or read a window's WM_COLORMAP_WINDOWS property
 .SH SYNTAX
-Status XSetWMColormapWindows\^(\^\fIdisplay\fP, \fIw\fP,
-\fIcolormap_windows\fP, \fIcount\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Window *\fIcolormap_windows\fP\^;
-.br
-      int \fIcount\fP\^;
-.LP
-Status XGetWMColormapWindows\^(\^\fIdisplay\fP, \fIw\fP,
-\fIcolormap_windows_return\fP, \fIcount_return\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      Window **\fIcolormap_windows_return\fP\^;
-.br
-      int *\fIcount_return\fP\^;
+.HP
+Status XSetWMColormapWindows\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+Window *\fIcolormap_windows\fP\^, int \fIcount\fP\^); 
+.HP
+Status XGetWMColormapWindows\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+Window **\fIcolormap_windows_return\fP\^, int *\fIcount_return\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

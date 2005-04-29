@@ -1,9 +1,9 @@
 /*
- * "$Id: cups-lpd.c,v 1.1.1.11 2003/05/28 06:02:42 jlovell Exp $"
+ * "$Id: cups-lpd.c,v 1.13 2005/01/21 00:23:18 jlovell Exp $"
  *
  *   Line Printer Daemon interface for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -50,7 +50,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#include <CoreFoundation/CFPriv.h>
+#endif /* __APPLE__ */
 
 /*
  * LPD "mini-daemon" for CUPS.  This program must be used in conjunction
@@ -90,24 +97,24 @@ char	*smart_gets(char *s, int len, FILE *fp);
  * 'main()' - Process an incoming LPD request...
  */
 
-int				/* O - Exit status */
-main(int  argc,			/* I - Number of command-line arguments */
-     char *argv[])		/* I - Command-line arguments */
+int					/* O - Exit status */
+main(int  argc,				/* I - Number of command-line arguments */
+     char *argv[])			/* I - Command-line arguments */
 {
-  int		i;		/* Looping var */
-  int		num_defaults;	/* Number of default options */
-  cups_option_t	*defaults;	/* Default options */
-  char		line[256],	/* Command string */
-		command,	/* Command code */
-		*dest,		/* Pointer to destination */
-		*list,		/* Pointer to list */
-		*agent,		/* Pointer to user */
-		status;		/* Status for client */
-  int		hostlen;	/* Size of client address */
-  unsigned	hostip;		/* (32-bit) IP address */
-  struct sockaddr_in hostaddr;	/* Address of client */
-  struct hostent *hostent;	/* Host entry of client */
-  char		hostname[256];	/* Hostname of client */
+  int		i;			/* Looping var */
+  int		num_defaults;		/* Number of default options */
+  cups_option_t	*defaults;		/* Default options */
+  char		line[256],		/* Command string */
+		command,		/* Command code */
+		*dest,			/* Pointer to destination */
+		*list,			/* Pointer to list */
+		*agent,			/* Pointer to user */
+		status;			/* Status for client */
+  int		hostlen;		/* Size of client address */
+  unsigned	hostip;			/* (32-bit) IP address */
+  struct sockaddr_in hostaddr;		/* Address of client */
+  struct hostent *hostent;		/* Host entry of client */
+  char		hostname[256];		/* Hostname of client */
 
 
  /*
@@ -212,10 +219,27 @@ main(int  argc,			/* I - Number of command-line arguments */
   command = line[0];
   dest    = line + 1;
 
-  for (list = dest + 1; *list && !isspace(*list); list ++);
+#ifdef __APPLE__
+ /*
+  * When some clients send a job they use the name they see in the UI as the 
+  * queue name (the printer-info value). Because this can include spaces we
+  * don't want to truncate names at the first whitespace character.
+  */
 
-  while (isspace(*list))
+  if (command == 0x02)	/* Receive a printer job */
+    list = "";
+  else
+  {
+#endif	/* __APPLE__ */
+
+  for (list = dest + 1; *list && !isspace(*list & 255); list ++);
+
+  while (isspace(*list & 255))
     *list++ = '\0';
+
+#ifdef __APPLE__
+  }
+#endif	/* __APPLE__ */
 
  /*
   * Do the command...
@@ -266,8 +290,8 @@ main(int  argc,			/* I - Number of command-line arguments */
 
         agent = list;
 
-	for (; *list && !isspace(*list); list ++);
-	while (isspace(*list))
+	for (; *list && !isspace(*list & 255); list ++);
+	while (isspace(*list & 255))
 	  *list++ = '\0';
 
         syslog(LOG_INFO, "Remove jobs %s on %s by %s", list, dest, agent);
@@ -282,6 +306,188 @@ main(int  argc,			/* I - Number of command-line arguments */
   closelog();
 
   return (status);
+}
+
+
+/*
+ * 'check_printer()' - Check that a printer exists and is accepting jobs.
+ */
+
+int					/* O - Job ID */
+check_printer(const char *name)		/* I - Printer or class name */
+{
+  http_t	*http;			/* Connection to server */
+  ipp_t		*request;		/* IPP request */
+  ipp_t		*response;		/* IPP response */
+  ipp_attribute_t *attr;		/* IPP job-id attribute */
+  char		uri[HTTP_MAX_URI];	/* Printer URI */
+  cups_lang_t	*language;		/* Language to use */
+  int		accepting;		/* printer-is-accepting-jobs value */
+
+
+ /*
+  * Setup a connection and request data...
+  */
+
+  if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
+                                 cupsEncryption())) == NULL)
+  {
+    syslog(LOG_ERR, "Unable to connect to server %s: %s", cupsServer(),
+           strerror(errno));
+    return (0);
+  }
+
+ /*
+  * Build a standard CUPS URI for the printer and fill the standard IPP
+  * attributes...
+  */
+
+  if ((request = ippNew()) == NULL)
+  {
+    syslog(LOG_ERR, "Unable to create request: %s", strerror(errno));
+    httpClose(http);
+    return (0);
+  }
+
+  request->request.op.operation_id = IPP_GET_PRINTER_ATTRIBUTES;
+  request->request.op.request_id   = 1;
+
+  snprintf(uri, sizeof(uri), "ipp://localhost/printers/%s", name);
+
+  language = cupsLangDefault();
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
+               "attributes-charset", NULL, cupsLangEncoding(language));
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE,
+               "attributes-natural-language", NULL,
+               language != NULL ? language->language : "C");
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri",
+               NULL, uri);
+
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requested-attributes",
+               NULL, "printer-is-accepting-jobs");
+
+#ifdef __APPLE__
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requested-attributes",
+               NULL, "printer-is-shared");
+#endif	/* __APPLE__ */
+
+ /*
+  * Do the request...
+  */
+
+  response = cupsDoRequest(http, request, "/");
+
+  if (response == NULL)
+  {
+    syslog(LOG_ERR, "Unable to check printer status - %s",
+           ippErrorString(cupsLastError()));
+    accepting = 0;
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    syslog(LOG_ERR, "Unable to check printer status - %s",
+           ippErrorString(response->request.status.status_code));
+    accepting = 0;
+  }
+  else if ((attr = ippFindAttribute(response, "printer-is-accepting-jobs",
+                                    IPP_TAG_BOOLEAN)) == NULL)
+  {
+    syslog(LOG_ERR, "No printer-is-accepting-jobs attribute found in response from server!");
+    accepting = 0;
+  }
+  else
+    accepting = attr->values[0].boolean;
+
+#ifdef __APPLE__
+  if (accepting && response)
+  {
+    /*
+     * Override cups Shared setting if installed on X Server
+     */ 
+    static const char printerprefsfile[] = "/Library/Preferences/com.apple.printservice.plist";
+
+    CFDictionaryRef versdict = _CFCopyServerVersionDictionary();
+
+    if (versdict != NULL)		/* use server sharing control */
+    {
+      CFRelease(versdict); 		/* not used */
+
+      accepting = 0;			/* default on server */
+
+      CFURLRef prefsurl = NULL;
+      CFDataRef xmldata = NULL;
+      CFPropertyListRef plist = NULL;
+      CFStringRef queueid = NULL;
+
+      CFArrayRef lprqarray = NULL;
+      CFBooleanRef serverflag = NULL;
+      Boolean prefsok = false;
+
+      do	/* not a loop */
+      {
+	prefsurl = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, 
+							   (const UInt8*) printerprefsfile, 
+							   (CFIndex) strlen(printerprefsfile), 
+							   false);
+	if (prefsurl == NULL) break;
+
+	prefsok = CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault, 
+							   prefsurl, &xmldata, 
+							   NULL, NULL, NULL);
+	if (!prefsok) break;
+
+	plist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, xmldata, 
+						kCFPropertyListImmutable, NULL);
+	if (plist == NULL) break;
+
+	serverflag = (CFBooleanRef) CFDictionaryGetValue((CFDictionaryRef) plist, 
+							 CFSTR("serviceState"));
+	if (serverflag== NULL) break;			/* missing serviceState flag == not running */
+	if (!CFBooleanGetValue(serverflag)) break;	/* server not running */
+
+	lprqarray = (CFArrayRef) CFDictionaryGetValue((CFDictionaryRef) plist, 
+						      CFSTR("lprSharedQueues"));
+	if (lprqarray == NULL) break;		/* no shared LPR queues */
+
+	CFStringRef queueid = CFStringCreateWithCString(CFAllocatorGetDefault(), 
+							name, kCFStringEncodingUTF8);
+	if (queueid == NULL) break;		/* error creating CFString */
+
+	accepting = CFArrayContainsValue(lprqarray, CFRangeMake(0, 
+								CFArrayGetCount(lprqarray)), queueid);
+
+      } while (0); /* not a loop */
+		
+      if (!accepting)
+	syslog(LOG_ERR, "Warning - Print Service sharing disable for LPR on queue: %s", name);
+
+      if (queueid != NULL) CFRelease(queueid);
+      if (plist != NULL) CFRelease(plist);
+      if (xmldata != NULL) CFRelease(xmldata);
+      if (prefsurl != NULL) CFRelease(prefsurl);
+    }
+    /* use desktop sharing control */
+    else if (response && (attr = ippFindAttribute(response, "printer-is-shared",
+                                    IPP_TAG_BOOLEAN)) == NULL)
+    {
+      syslog(LOG_ERR, "No printer-is-shared attribute found in response from server!");
+      accepting = 0;
+    }
+    else
+      accepting = attr->values[0].boolean;
+  }
+#endif	/* __APPLE__ */
+
+  if (response != NULL)
+    ippDelete(response);
+
+  httpClose(http);
+  cupsLangFree(language);
+
+  return (accepting);
 }
 
 
@@ -314,11 +520,10 @@ print_file(const char    *name,		/* I - Printer or class name */
   if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
                                  cupsEncryption())) == NULL)
   {
-    syslog(LOG_ERR, "Unable to connect to server: %s", strerror(errno));
+    syslog(LOG_ERR, "Unable to connect to server %s: %s", cupsServer(),
+           strerror(errno));
     return (0);
   }
-
-  language = cupsLangDefault();
 
  /*
   * Build a standard CUPS URI for the printer and fill the standard IPP
@@ -328,6 +533,7 @@ print_file(const char    *name,		/* I - Printer or class name */
   if ((request = ippNew()) == NULL)
   {
     syslog(LOG_ERR, "Unable to create request: %s", strerror(errno));
+    httpClose(http);
     return (0);
   }
 
@@ -335,6 +541,8 @@ print_file(const char    *name,		/* I - Printer or class name */
   request->request.op.request_id   = 1;
 
   snprintf(uri, sizeof(uri), "ipp://localhost/printers/%s", name);
+
+  language = cupsLangDefault();
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_CHARSET,
                "attributes-charset", NULL, cupsLangEncoding(language));
@@ -369,22 +577,28 @@ print_file(const char    *name,		/* I - Printer or class name */
   response = cupsDoFileRequest(http, request, uri, file);
 
   if (response == NULL)
-    jobid = 0;
-  else if (response->request.status.status_code > IPP_OK_CONFLICT)
-    jobid = 0;
-  else if ((attr = ippFindAttribute(response, "job-id", IPP_TAG_INTEGER)) == NULL)
-    jobid = 0;
-  else
-    jobid = attr->values[0].integer;
-
-  if (jobid)
-    syslog(LOG_INFO, "Print file - job ID = %d", jobid);
-  else if (response)
-    syslog(LOG_ERR, "Unable to print file - %s",
-           ippErrorString(response->request.status.status_code));
-  else
+  {
     syslog(LOG_ERR, "Unable to print file - %s",
            ippErrorString(cupsLastError()));
+    jobid = 0;
+  }
+  else if (response->request.status.status_code > IPP_OK_CONFLICT)
+  {
+    syslog(LOG_ERR, "Unable to print file - %s",
+           ippErrorString(response->request.status.status_code));
+    jobid = 0;
+  }
+  else if ((attr = ippFindAttribute(response, "job-id", IPP_TAG_INTEGER)) == NULL)
+  {
+    syslog(LOG_ERR, "No job-id attribute found in response from server!");
+    jobid = 0;
+  }
+  else
+  {
+    jobid = attr->values[0].integer;
+
+    syslog(LOG_INFO, "Print file - job ID = %d", jobid);
+  }
 
   if (response != NULL)
     ippDelete(response);
@@ -402,7 +616,8 @@ print_file(const char    *name,		/* I - Printer or class name */
 
 int					/* O - Command status */
 recv_print_job(const char    *dest,	/* I - Destination */
-               int           num_defaults,/* I - Number of default options */
+               int           num_defaults,
+					/* I - Number of default options */
 	       cups_option_t *defaults)	/* I - Default options */
 {
   int		i;			/* Looping var */
@@ -415,6 +630,8 @@ recv_print_job(const char    *dest,	/* I - Destination */
 		command,		/* Command from line */
 		*count,			/* Number of bytes */
 		*name;			/* Name of file */
+  const char	*printer_info,		/* Printer info */
+		*job_sheets;		/* Job sheets */
   int		num_data;		/* Number of data files */
   char		control[1024],		/* Control filename */
 		data[32][256],		/* Data files */
@@ -453,6 +670,28 @@ recv_print_job(const char    *dest,	/* I - Destination */
     if (!queue[0] || !strcmp(queue, "lp"))
       if ((destptr = cupsGetDest(NULL, NULL, num_dests, dests)) != NULL)
 	strlcpy(queue, destptr->name, sizeof(queue));
+    }
+
+#ifdef __APPLE__
+    if (destptr == NULL)
+    {
+     /*
+      * Lookup name in printer-info...
+      */
+
+      for (i = 0; i < num_dests; i ++)
+      {
+        if ((printer_info = cupsGetOption("printer-info", dests[i].num_options, dests[i].options)) != NULL)
+        {
+	  if (!strcasecmp(queue, printer_info))
+	  {
+	    destptr = &dests[i];
+	    strlcpy(queue, destptr->name, sizeof(queue));
+	    break;
+	  }
+        }
+      }
+#endif	/* __APPLE__ */
 
     if (destptr == NULL)
     {
@@ -469,6 +708,15 @@ recv_print_job(const char    *dest,	/* I - Destination */
     }
   }
 
+  if (!check_printer(queue))
+  {
+    cupsFreeDests(num_dests, dests);
+
+    putchar(1);
+
+    return (1);
+  }
+
   putchar(0);
 
   while (smart_gets(line, sizeof(line), stdin) != NULL)
@@ -482,8 +730,8 @@ recv_print_job(const char    *dest,	/* I - Destination */
     command = line[0];
     count   = line + 1;
 
-    for (name = count + 1; *name && !isspace(*name); name ++);
-    while (isspace(*name))
+    for (name = count + 1; *name && !isspace(*name & 255); name ++);
+    while (isspace(*name & 255))
       *name++ = '\0';
 
     switch (command)
@@ -492,6 +740,7 @@ recv_print_job(const char    *dest,	/* I - Destination */
       case 0x01 : /* Abort */
           status = 1;
 	  break;
+
       case 0x02 : /* Receive control file */
           if (strlen(name) < 2)
 	  {
@@ -511,8 +760,9 @@ recv_print_job(const char    *dest,	/* I - Destination */
 
 	    if ((fd = open(control, O_WRONLY)) < 0)
 	    {
-	      syslog(LOG_ERR, "Unable to append to temporary control file - %s",
-        	     strerror(errno));
+	      syslog(LOG_ERR,
+	             "Unable to append to temporary control file \"%s\" - %s",
+        	     control, strerror(errno));
 	      putchar(1);
 	      status = 1;
 	      break;
@@ -524,8 +774,8 @@ recv_print_job(const char    *dest,	/* I - Destination */
 	  {
 	    if ((fd = cupsTempFd(control, sizeof(control))) < 0)
 	    {
-	      syslog(LOG_ERR, "Unable to open temporary control file - %s",
-        	     strerror(errno));
+	      syslog(LOG_ERR, "Unable to open temporary control file \"%s\" - %s",
+        	     control, strerror(errno));
 	      putchar(1);
 	      status = 1;
 	      break;
@@ -534,6 +784,7 @@ recv_print_job(const char    *dest,	/* I - Destination */
 	    strcpy(filename, control);
 	  }
 	  break;
+
       case 0x03 : /* Receive data file */
           if (strlen(name) < 2)
 	  {
@@ -559,8 +810,8 @@ recv_print_job(const char    *dest,	/* I - Destination */
 
           if ((fd = cupsTempFd(temp[num_data], sizeof(temp[0]))) < 0)
 	  {
-	    syslog(LOG_ERR, "Unable to open temporary data file - %s",
-        	   strerror(errno));
+	    syslog(LOG_ERR, "Unable to open temporary data file \"%s\" - %s",
+        	   temp[num_data], strerror(errno));
 	    putchar(1);
 	    status = 1;
 	    break;
@@ -662,12 +913,15 @@ recv_print_job(const char    *dest,	/* I - Destination */
 	  case 'J' : /* Job name */
 	      strlcpy(title, line + 1, sizeof(title));
 	      break;
+
 	  case 'N' : /* Document name */
 	      strlcpy(docname, line + 1, sizeof(docname));
 	      break;
+
 	  case 'P' : /* User identification */
 	      strlcpy(user, line + 1, sizeof(user));
 	      break;
+
 	  case 'L' : /* Print banner page */
 	      banner = 1;
 	      break;
@@ -720,22 +974,31 @@ recv_print_job(const char    *dest,	/* I - Destination */
               num_options = 0;
 	      options     = NULL;
 
-	      for (i = 0; i < num_defaults; i ++)
-	        num_options = cupsAddOption(defaults[i].name,
-		                            defaults[i].value,
-		                            num_options, &options);
 	      for (i = 0; i < destptr->num_options; i ++)
 	        num_options = cupsAddOption(destptr->options[i].name,
 		                            destptr->options[i].value,
 		                            num_options, &options);
+	      for (i = 0; i < num_defaults; i ++)
+	        num_options = cupsAddOption(defaults[i].name,
+		                            defaults[i].value,
+		                            num_options, &options);
+
+             /*
+	      * If a banner was requested and it's not overridden by a command line option and
+	      * the destination's default is none then add the standard banner...
+	      */
+
+              if (banner && cupsGetOption("job-sheets", num_defaults, defaults) == NULL &&
+                  ((job_sheets = cupsGetOption("job-sheets", destptr->num_options, destptr->options)) == NULL ||
+                   !strcmp(job_sheets, "none,none")))
+	      {
+	        num_options = cupsAddOption("job-sheets", "standard",
+		                            num_options, &options);
+	      }
 
              /*
 	      * Add additional options as needed...
 	      */
-
-              if (!banner)
-	        num_options = cupsAddOption("job-sheets", "none",
-		                            num_options, &options);
 
 	      if (line[0] == 'l')
 	        num_options = cupsAddOption("raw", "", num_options, &options);
@@ -821,7 +1084,8 @@ remove_jobs(const char *dest,		/* I - Destination */
   if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
                                  cupsEncryption())) == NULL)
   {
-    syslog(LOG_ERR, "Unable to connect to server: %s", strerror(errno));
+    syslog(LOG_ERR, "Unable to connect to server %s: %s", cupsServer(),
+           strerror(errno));
     return (1);
   }
 
@@ -837,9 +1101,9 @@ remove_jobs(const char *dest,		/* I - Destination */
     * Skip job ID in list...
     */
 
-    while (isdigit(*list))
+    while (isdigit(*list & 255))
       list ++;
-    while (isspace(*list))
+    while (isspace(*list & 255))
       list ++;
 
    /*
@@ -926,8 +1190,8 @@ send_state(const char *dest,		/* I - Destination */
 		*jobuser,		/* Pointer to job-originating-user-name */
 		*jobname;		/* Pointer to job-name */
   ipp_jstate_t	jobstate;		/* job-state */
+  off_t		jobsize;		/* job-k-octets */
   int		jobid,			/* job-id */
-		jobsize,		/* job-k-octets */
 		jobcount,		/* Number of jobs */
 		jobcopies,		/* Number of copies */
 		rank;			/* Rank of job */
@@ -977,8 +1241,9 @@ send_state(const char *dest,		/* I - Destination */
   if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
                                  cupsEncryption())) == NULL)
   {
-    syslog(LOG_ERR, "Unable to connect to server: %s", strerror(errno));
-    printf("Unable to connect to server: %s", strerror(errno));
+    syslog(LOG_ERR, "Unable to connect to server %s: %s", cupsServer(),
+           strerror(errno));
+    printf("Unable to connect to server %s: %s", cupsServer(), strerror(errno));
     return (1);
   }
 
@@ -1151,7 +1416,7 @@ send_state(const char *dest,		/* I - Destination */
 
         if (strcmp(attr->name, "job-k-octets") == 0 &&
 	    attr->value_tag == IPP_TAG_INTEGER)
-	  jobsize = attr->values[0].integer * 1024;
+	  jobsize = (off_t)attr->values[0].integer * 1024;
 
         if (strcmp(attr->name, "job-state") == 0 &&
 	    attr->value_tag == IPP_TAG_ENUM)
@@ -1217,11 +1482,11 @@ send_state(const char *dest,		/* I - Destination */
 	  strlcpy(namestr, jobname, sizeof(namestr));
 
         printf("%s: %-33.33s [job %d localhost]\n", jobuser, rankstr, jobid);
-        printf("        %-39.39s %d bytes\n", namestr, jobsize);
+        printf("        %-39.39s %" PRIdMAX " bytes\n", namestr, (intmax_t)jobsize);
       }
       else
-        printf("%-7s %-7.7s %-7d %-31.31s %d bytes\n", rankstr, jobuser,
-	       jobid, jobname, jobsize);
+        printf("%-7s %-7.7s %-7d %-31.31s %" PRIdMAX " bytes\n", rankstr, jobuser,
+	       jobid, jobname, (intmax_t)jobsize);
 
       if (attr == NULL)
         break;
@@ -1249,14 +1514,14 @@ send_state(const char *dest,		/* I - Destination */
  * 'smart_gets()' - Get a line of text, removing the trailing CR and/or LF.
  */
 
-char *			/* O - Line read or NULL */
-smart_gets(char *s,	/* I - Pointer to line buffer */
-           int  len,	/* I - Size of line buffer */
-	   FILE *fp)	/* I - File to read from */
+char *					/* O - Line read or NULL */
+smart_gets(char *s,			/* I - Pointer to line buffer */
+           int  len,			/* I - Size of line buffer */
+	   FILE *fp)			/* I - File to read from */
 {
-  char	*ptr,		/* Pointer into line */
-	*end;		/* End of line */
-  int	ch;		/* Character from file */
+  char	*ptr,				/* Pointer into line */
+	*end;				/* End of line */
+  int	ch;				/* Character from file */
 
 
  /*
@@ -1300,5 +1565,5 @@ smart_gets(char *s,	/* I - Pointer to line buffer */
 
 
 /*
- * End of "$Id: cups-lpd.c,v 1.1.1.11 2003/05/28 06:02:42 jlovell Exp $".
+ * End of "$Id: cups-lpd.c,v 1.13 2005/01/21 00:23:18 jlovell Exp $".
  */

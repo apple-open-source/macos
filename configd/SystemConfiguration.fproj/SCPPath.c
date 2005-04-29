@@ -77,7 +77,7 @@ normalizePath(CFStringRef path)
 
 
 static Boolean
-getPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef *entity)
+getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 {
 	CFStringRef		element;
 	CFArrayRef		elements;
@@ -86,7 +86,7 @@ getPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef *entity)
 	CFIndex			nElements;
 	CFIndex			nLinks		= 0;
 	Boolean			ok		= FALSE;
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	CFDictionaryRef		value		= NULL;
 
 	elements = normalizePath(path);
@@ -95,14 +95,15 @@ getPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef *entity)
 		return FALSE;
 	}
 
+	__SCPreferencesAccess(prefs);
+
     restart :
 
 	nElements = CFArrayGetCount(elements);
 	for (i = 0; i < nElements; i++) {
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
-			sessionPrivate->accessed = TRUE;
-			value = CFDictionaryGetValue(sessionPrivate->prefs,
+			value = CFDictionaryGetValue(prefsPrivate->prefs,
 						     CFArrayGetValueAtIndex(elements, 0));
 		} else {
 			value = CFDictionaryGetValue(value, element);
@@ -163,7 +164,7 @@ getPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef *entity)
 
 
 static Boolean
-setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
+setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 {
 	CFStringRef		element;
 	CFArrayRef		elements;
@@ -175,13 +176,15 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 	CFDictionaryRef		node		= NULL;
 	CFMutableArrayRef	nodes;
 	Boolean			ok		= FALSE;
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
 	elements = normalizePath(path);
 	if (elements == NULL) {
 		_SCErrorSet(kSCStatusNoKey);
 		return FALSE;
 	}
+
+	__SCPreferencesAccess(prefs);
 
     restart :
 
@@ -190,8 +193,7 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 	for (i = 0; i < nElements - 1; i++) {
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
-			sessionPrivate->accessed = TRUE;
-			node = CFDictionaryGetValue(sessionPrivate->prefs, element);
+			node = CFDictionaryGetValue(prefsPrivate->prefs, element);
 		} else {
 			node = CFDictionaryGetValue(node, element);
 
@@ -258,11 +260,11 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 		element = CFArrayGetValueAtIndex(elements, i);
 		if (i == 0) {
 			if (newEntity) {
-				CFDictionarySetValue(sessionPrivate->prefs, element, newEntity);
+				CFDictionarySetValue(prefsPrivate->prefs, element, newEntity);
 			} else {
-				CFDictionaryRemoveValue(sessionPrivate->prefs, element);
+				CFDictionaryRemoveValue(prefsPrivate->prefs, element);
 			}
-			sessionPrivate->changed  = TRUE;
+			prefsPrivate->changed  = TRUE;
 			ok = TRUE;
 		} else {
 			CFMutableDictionaryRef	newNode;
@@ -291,7 +293,7 @@ setPath(SCPreferencesRef session, CFStringRef path, CFDictionaryRef entity)
 
 
 CFStringRef
-SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
+SCPreferencesPathCreateUniqueChild(SCPreferencesRef	prefs,
 				   CFStringRef		prefix)
 {
 	CFStringRef             child;
@@ -300,12 +302,13 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
 	CFUUIDRef               uuid;
 	CFDictionaryRef		entity;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathCreateUniqueChild:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  prefix = %@"), prefix);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return NULL;
 	}
 
-	if (getPath(session, prefix, &entity)) {
+	if (getPath(prefs, prefix, &entity)) {
 		// if prefix path exists
 		if (CFDictionaryContainsKey(entity, kSCResvLink)) {
 			/* the path is a link... */
@@ -328,9 +331,7 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
 					    0,
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
-	if (setPath(session, newPath, newDict)) {
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  child  = %@"), newPath);
-	} else {
+	if (!setPath(prefs, newPath, newDict)) {
 		CFRelease(newPath);
 		newPath = NULL;
 	}
@@ -341,55 +342,55 @@ SCPreferencesPathCreateUniqueChild(SCPreferencesRef	session,
 
 
 CFDictionaryRef
-SCPreferencesPathGetValue(SCPreferencesRef	session,
+SCPreferencesPathGetValue(SCPreferencesRef	prefs,
 			  CFStringRef		path)
 {
 	CFDictionaryRef	entity;
 	CFStringRef	entityLink;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathGetValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  path  = %@"), path);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return NULL;
 	}
 
-	if (!getPath(session, path, &entity)) {
+	if (!getPath(prefs, path, &entity)) {
 		return NULL;
 	}
 
 	if (isA_CFDictionary(entity) &&
 	    (CFDictionaryGetValueIfPresent(entity, kSCResvLink, (const void **)&entityLink))) {
 		/* if this is a dictionary AND it is a link */
-		if (!getPath(session, entityLink, &entity)) {
+		if (!getPath(prefs, entityLink, &entity)) {
 			/* if it was a bad link */
 			return NULL;
 		}
 	}
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  value = %@"), entity);
 	return entity;
 }
 
 
 CFStringRef
-SCPreferencesPathGetLink(SCPreferencesRef	session,
+SCPreferencesPathGetLink(SCPreferencesRef	prefs,
 			 CFStringRef		path)
 {
 	CFDictionaryRef	entity;
 	CFStringRef	entityLink;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathGetLink:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return NULL;
 	}
 
-	if (!getPath(session, path, &entity)) {
+	if (!getPath(prefs, path, &entity)) {
 		return NULL;
 	}
 
 	if (isA_CFDictionary(entity) &&
 	    (CFDictionaryGetValueIfPresent(entity, kSCResvLink, (const void **)&entityLink))) {
 		/* if this is a dictionary AND it is a link */
-		SCLog(_sc_verbose, LOG_DEBUG, CFSTR("  link = %@"), entityLink);
 		return entityLink;
 	}
 
@@ -398,16 +399,16 @@ SCPreferencesPathGetLink(SCPreferencesRef	session,
 
 
 Boolean
-SCPreferencesPathSetValue(SCPreferencesRef	session,
+SCPreferencesPathSetValue(SCPreferencesRef	prefs,
 			  CFStringRef		path,
 			  CFDictionaryRef	value)
 {
 	Boolean			ok;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathSetValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  path  = %@"), path);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  value = %@"), value);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
 	}
 
 	if (!value) {
@@ -415,13 +416,13 @@ SCPreferencesPathSetValue(SCPreferencesRef	session,
 		return FALSE;
 	}
 
-	ok = setPath(session, path, value);
+	ok = setPath(prefs, path, value);
 	return ok;
 }
 
 
 Boolean
-SCPreferencesPathSetLink(SCPreferencesRef	session,
+SCPreferencesPathSetLink(SCPreferencesRef	prefs,
 			 CFStringRef		path,
 			 CFStringRef		link)
 {
@@ -429,10 +430,10 @@ SCPreferencesPathSetLink(SCPreferencesRef	session,
 	CFDictionaryRef		entity;
 	Boolean			ok;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathSetLink:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  link = %@"), link);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
 	}
 
 	if (!link) {
@@ -440,7 +441,7 @@ SCPreferencesPathSetLink(SCPreferencesRef	session,
 		return FALSE;
 	}
 
-	if (!getPath(session, link, &entity)) {
+	if (!getPath(prefs, link, &entity)) {
 		// if bad link
 		return FALSE;
 	}
@@ -450,7 +451,7 @@ SCPreferencesPathSetLink(SCPreferencesRef	session,
 					 &kCFTypeDictionaryKeyCallBacks,
 					 &kCFTypeDictionaryValueCallBacks);
 	CFDictionaryAddValue(dict, kSCResvLink, link);
-	ok = setPath(session, path, dict);
+	ok = setPath(prefs, path, dict);
 	CFRelease(dict);
 
 	return ok;
@@ -458,19 +459,20 @@ SCPreferencesPathSetLink(SCPreferencesRef	session,
 
 
 Boolean
-SCPreferencesPathRemoveValue(SCPreferencesRef	session,
+SCPreferencesPathRemoveValue(SCPreferencesRef	prefs,
 			     CFStringRef	path)
 {
 	CFArrayRef		elements	= NULL;
 	Boolean			ok		= FALSE;
 	CFDictionaryRef		value;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesPathRemoveValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  path = %@"), path);
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
 	}
 
-	if (!getPath(session, path, &value)) {
+	if (!getPath(prefs, path, &value)) {
 		// if no such path
 		return FALSE;
 	}
@@ -481,7 +483,7 @@ SCPreferencesPathRemoveValue(SCPreferencesRef	session,
 		return FALSE;
 	}
 
-	ok = setPath(session, path, NULL);
+	ok = setPath(prefs, path, NULL);
 
 	CFRelease(elements);
 	return ok;

@@ -1,0 +1,33 @@
+--- printf.c.orig	2003-05-20 15:22:43.000000000 -0700
++++ printf.c	2005-02-23 16:34:28.000000000 -0800
+@@ -40,6 +40,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/printf.c,v 1.10 2002/09/06 11:23:55 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <stdio.h>
+ #include <stdarg.h>
+ 
+@@ -50,7 +52,20 @@
+ 	va_list ap;
+ 
+ 	va_start(ap, fmt);
+-	ret = vfprintf(stdout, fmt, ap);
++	ret = vfprintf_l(stdout, __current_locale(), fmt, ap);
++	va_end(ap);
++	return (ret);
++}
++
++int
++printf_l(locale_t loc, char const * __restrict fmt, ...)
++{
++	int ret;
++	va_list ap;
++
++	/* no need to call NORMALIZE_LOCALE(loc) because vfprintf_l will */
++	va_start(ap, fmt);
++	ret = vfprintf_l(stdout, loc, fmt, ap);
+ 	va_end(ap);
+ 	return (ret);
+ }

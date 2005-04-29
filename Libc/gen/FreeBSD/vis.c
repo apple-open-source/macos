@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)vis.c	8.1 (Berkeley) 7/19/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/vis.c,v 1.11 2002/08/19 17:14:58 jmallett Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/vis.c,v 1.13 2003/10/30 12:41:50 phk Exp $");
 
 #include <sys/types.h>
 #include <limits.h>
@@ -71,7 +71,10 @@ vis(dst, c, flag, nextc)
 		}
 	}
 
-	if (isgraph(c) ||
+	if ((flag & VIS_GLOB) &&
+	    (c == '*' || c == '?' || c == '[' || c == '#'))
+		;
+	else if (isgraph(c) ||
 	   ((flag & VIS_SP) == 0 && c == ' ') ||
 	   ((flag & VIS_TAB) == 0 && c == '\t') ||
 	   ((flag & VIS_NL) == 0 && c == '\n') ||
@@ -127,7 +130,7 @@ vis(dst, c, flag, nextc)
 			goto done;
 		}
 	}
-	if (((c & 0177) == ' ') || (flag & VIS_OCTAL)) {
+	if (((c & 0177) == ' ') || isgraph(c) || (flag & VIS_OCTAL)) {
 		*dst++ = '\\';
 		*dst++ = ((u_char)c >> 6 & 07) + '0';
 		*dst++ = ((u_char)c >> 3 & 07) + '0';

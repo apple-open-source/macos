@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: proto.h,v 1.31 2003/03/21 17:26:14 abe Exp $
+ * $Id: proto.h,v 1.32 2004/10/17 21:39:23 abe Exp $
  */
 
 
@@ -71,6 +71,7 @@ _PROTOTYPE(extern void add_nma,(char *cp, int len));
 _PROTOTYPE(extern void alloc_lfile,(char *nm, int num));
 _PROTOTYPE(extern void alloc_lproc,(int pid, int pgid, int ppid, UID_ARG uid, char *cmd, int pss, int sf));
 _PROTOTYPE(extern void childx,(void));
+_PROTOTYPE(extern int ck_fd_status,(char *nm, int num));
 _PROTOTYPE(extern int ck_file_arg,(int i, int ac, char *av[], int fv, int rs, struct stat *sbp));
 _PROTOTYPE(extern void ckkv,(char *d, char *er, char *ev, char *ea));
 _PROTOTYPE(extern void clr_devtab,(void));

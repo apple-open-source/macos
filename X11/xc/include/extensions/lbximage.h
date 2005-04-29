@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 ******************************************************************************/
-/* $XFree86: xc/include/extensions/lbximage.h,v 1.4 2001/12/20 19:28:54 tsi Exp $ */
+/* $XFree86: xc/include/extensions/lbximage.h,v 1.5 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _LBX_IMAGE_H_
 #define _LBX_IMAGE_H_
@@ -41,13 +41,10 @@ typedef struct _LbxBitmapCompMethod {
     int methodOpCode;	/* to be filled on reply from server */
 
     int (*compInit)(
-#if NeedFunctionPrototypes
 	void
-#endif
     );
 
     int (*compFunc)(
-#if NeedFunctionPrototypes
 	unsigned char *		/* inbuf */,
 	unsigned char *		/* outbuf */,
 	int			/* outbufSize */,
@@ -56,18 +53,15 @@ typedef struct _LbxBitmapCompMethod {
 	int			/* padded_bytes_per_scanline */,
 	int			/* reverse_bits */,
 	int *			/* bytesCompressed */
-#endif
     );
 
     int (*decompFunc)(
-#if NeedFunctionPrototypes
 	unsigned char *		/* inbuf */,
 	unsigned char *		/* outbuf */,
 	int			/* image_bytes */,
 	int			/* pixels_per_line */,
 	int			/* padded_bytes_per_scanline */,
 	int			/* reverse_bits */
-#endif
     );
 
 } LbxBitmapCompMethod;
@@ -85,13 +79,10 @@ typedef struct _LbxPixmapCompMethod {
     int methodOpCode;	/* to be filled on reply from server */
 
     int (*compInit)(
-#if NeedFunctionPrototypes
 	void
-#endif
     );
 
     int (*compFunc)(
-#if NeedFunctionPrototypes
 	char *			/* inbuf */,
 	char *			/* outbuf */,
 	int			/* outbufSize */,
@@ -100,23 +91,19 @@ typedef struct _LbxPixmapCompMethod {
 	int			/* num_scan_lines */,
 	int			/* scan_line_size */,
 	int *			/* bytesCompressed */
-#endif
     );
 
     int (*decompFunc)(
-#if NeedFunctionPrototypes
 	char *			/* inbuf */,
 	char *			/* outbuf */,
 	int			/* num_scan_lines */,
 	int			/* scan_line_size */
-#endif
     );
 
 } LbxPixmapCompMethod;
 
 
 extern int LbxImageEncodePackBits (
-#if NeedFunctionPrototypes
 char *			/* inbuf */,
 char *			/* outbuf */,
 int			/* outbufSize */,
@@ -125,11 +112,9 @@ int			/* depth */,
 int			/* num_scan_lines */,
 int			/* scan_line_size */,
 int *			/* bytesCompressed */
-#endif
 );
 
 extern int LbxImageEncodeFaxG42D (
-#if NeedFunctionPrototypes
 unsigned char *		/* inbuf */,
 unsigned char *		/* outbuf */,
 int			/* outbufSize */,
@@ -138,27 +123,22 @@ int			/* pixels_per_line */,
 int			/* padded_bytes_per_scanline */,
 int			/* reverse_bits */,
 int *			/* bytesCompressed */
-#endif
 );
 
 extern int LbxImageDecodePackBits (
-#if NeedFunctionPrototypes
 char *			/* inbuf */,
 char *			/* outbuf */,
 int			/* num_scan_lines */,
 int			/* scan_line_size */
-#endif
 );
 
 extern int LbxImageDecodeFaxG42D (
-#if NeedFunctionPrototypes
 unsigned char *		/* inbuf */,
 unsigned char *		/* outbuf */,
 int			/* image_bytes */,
 int			/* pixels_per_line */,
 int			/* padded_bytes_per_scanline */,
 int			/* reverse_bits */
-#endif
 );
 
 _XFUNCPROTOEND

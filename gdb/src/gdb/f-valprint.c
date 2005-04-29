@@ -1,5 +1,5 @@
 /* Support for printing Fortran values for GDB, the GNU debugger.
-   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2003
    Free Software Foundation, Inc.
    Contributed by Motorola.  Adapted from the C definitions by Farooq Butt
    (fmbutt@engage.sps.mot.com), additionally worked over by Stan Shebs.
@@ -33,6 +33,7 @@
 #include "frame.h"
 #include "gdbcore.h"
 #include "command.h"
+#include "block.h"
 
 #if 0
 static int there_is_a_visible_common_named (char *);
@@ -46,7 +47,8 @@ static void f77_print_array (struct type *, char *, CORE_ADDR,
 			     enum val_prettyprint);
 static void f77_print_array_1 (int, int, struct type *, char *,
 			       CORE_ADDR, struct ui_file *, int, int, int,
-			       enum val_prettyprint);
+			       enum val_prettyprint,
+			       int *elts);
 static void f77_create_arrayprint_offset_tbl (struct type *,
 					      struct ui_file *);
 static void f77_get_dynamic_length_of_aggregate (struct type *);
@@ -270,31 +272,37 @@ f77_create_arrayprint_offset_tbl (struct type *type, struct ui_file *stream)
     }
 }
 
+
+
 /* Actual function which prints out F77 arrays, Valaddr == address in 
    the superior.  Address == the address in the inferior.  */
 
 static void
 f77_print_array_1 (int nss, int ndimensions, struct type *type, char *valaddr,
 		   CORE_ADDR address, struct ui_file *stream, int format,
-		   int deref_ref, int recurse, enum val_prettyprint pretty)
+		   int deref_ref, int recurse, enum val_prettyprint pretty,
+		   int *elts)
 {
   int i;
 
   if (nss != ndimensions)
     {
-      for (i = 0; i < F77_DIM_SIZE (nss); i++)
+      for (i = 0; (i < F77_DIM_SIZE (nss) && (*elts) < print_max); i++)
 	{
 	  fprintf_filtered (stream, "( ");
 	  f77_print_array_1 (nss + 1, ndimensions, TYPE_TARGET_TYPE (type),
 			     valaddr + i * F77_DIM_OFFSET (nss),
 			     address + i * F77_DIM_OFFSET (nss),
-			     stream, format, deref_ref, recurse, pretty);
+			     stream, format, deref_ref, recurse, pretty, elts);
 	  fprintf_filtered (stream, ") ");
 	}
+      if (*elts >= print_max && i < F77_DIM_SIZE (nss)) 
+	fprintf_filtered (stream, "...");
     }
   else
     {
-      for (i = 0; (i < F77_DIM_SIZE (nss) && i < print_max); i++)
+      for (i = 0; i < F77_DIM_SIZE (nss) && (*elts) < print_max; 
+	   i++, (*elts)++)
 	{
 	  val_print (TYPE_TARGET_TYPE (type),
 		     valaddr + i * F77_DIM_OFFSET (ndimensions),
@@ -305,7 +313,7 @@ f77_print_array_1 (int nss, int ndimensions, struct type *type, char *valaddr,
 	  if (i != (F77_DIM_SIZE (nss) - 1))
 	    fprintf_filtered (stream, ", ");
 
-	  if (i == print_max - 1)
+	  if ((*elts == print_max - 1) && (i != (F77_DIM_SIZE (nss) - 1)))
 	    fprintf_filtered (stream, "...");
 	}
     }
@@ -320,6 +328,7 @@ f77_print_array (struct type *type, char *valaddr, CORE_ADDR address,
 		 enum val_prettyprint pretty)
 {
   int ndimensions;
+  int elts = 0;
 
   ndimensions = calc_f77_array_dims (type);
 
@@ -334,7 +343,7 @@ f77_print_array (struct type *type, char *valaddr, CORE_ADDR address,
   f77_create_arrayprint_offset_tbl (type, stream);
 
   f77_print_array_1 (1, ndimensions, type, valaddr, address, stream, format,
-		     deref_ref, recurse, pretty);
+		     deref_ref, recurse, pretty, &elts);
 }
 
 
@@ -356,7 +365,7 @@ f_val_print (struct type *type, char *valaddr, int embedded_offset,
 	     CORE_ADDR address, struct ui_file *stream, int format,
 	     int deref_ref, int recurse, enum val_prettyprint pretty)
 {
-  register unsigned int i = 0;	/* Number of characters printed */
+  unsigned int i = 0;	/* Number of characters printed */
   struct type *elttype;
   LONGEST val;
   CORE_ADDR addr;
@@ -375,11 +384,7 @@ f_val_print (struct type *type, char *valaddr, int embedded_offset,
 		       deref_ref, recurse, pretty);
       fprintf_filtered (stream, ")");
       break;
-#if 0
-      /* Array of unspecified length: treat like pointer to first elt.  */
-      valaddr = (char *) &address;
-      /* FALL THROUGH */
-#endif
+
     case TYPE_CODE_PTR:
       if (format && format != 's')
 	{
@@ -400,7 +405,7 @@ f_val_print (struct type *type, char *valaddr, int embedded_offset,
 	    }
 
 	  if (addressprint && format != 's')
-	    fprintf_filtered (stream, "0x%s", paddr_nz (addr));
+	    print_address_numeric (addr, 1, stream);
 
 	  /* For a pointer to char or unsigned char, also print the string
 	     pointed to, unless pointer is null.  */
@@ -410,9 +415,47 @@ f_val_print (struct type *type, char *valaddr, int embedded_offset,
 	      && addr != 0)
 	    i = val_print_string (addr, -1, TYPE_LENGTH (elttype), stream);
 
-	  /* Return number of characters printed, plus one for the
-	     terminating null if we have "reached the end".  */
-	  return (i + (print_max && i != print_max));
+	  /* Return number of characters printed, including the terminating
+	     '\0' if we reached the end.  val_print_string takes care including
+	     the terminating '\0' if necessary.  */
+	  return i;
+	}
+      break;
+
+    case TYPE_CODE_REF:
+      elttype = check_typedef (TYPE_TARGET_TYPE (type));
+      if (addressprint)
+	{
+	  CORE_ADDR addr
+	    = extract_typed_address (valaddr + embedded_offset, type);
+	  fprintf_filtered (stream, "@");
+	  print_address_numeric (addr, 1, stream);
+	  if (deref_ref)
+	    fputs_filtered (": ", stream);
+	}
+      /* De-reference the reference.  */
+      if (deref_ref)
+	{
+	  if (TYPE_CODE (elttype) != TYPE_CODE_UNDEF)
+	    {
+	      struct value *deref_val =
+	      value_at
+	      (TYPE_TARGET_TYPE (type),
+	       unpack_pointer (lookup_pointer_type (builtin_type_void),
+			       valaddr + embedded_offset),
+	       NULL);
+	      val_print (VALUE_TYPE (deref_val),
+			 VALUE_CONTENTS (deref_val),
+			 0,
+			 VALUE_ADDRESS (deref_val),
+			 stream,
+			 format,
+			 deref_ref,
+			 recurse,
+			 pretty);
+	    }
+	  else
+	    fputs_filtered ("???", stream);
 	}
       break;
 
@@ -579,7 +622,7 @@ info_common_command (char *comname, int from_tty)
   SAVED_F77_COMMON_PTR the_common;
   COMMON_ENTRY_PTR entry;
   struct frame_info *fi;
-  register char *funname = 0;
+  char *funname = 0;
   struct symbol *func;
 
   /* We have been told to display the contents of F77 COMMON 
@@ -617,17 +660,17 @@ info_common_command (char *comname, int from_tty)
       if (msymbol != NULL
 	  && (SYMBOL_VALUE_ADDRESS (msymbol)
 	      > BLOCK_START (SYMBOL_BLOCK_VALUE (func))))
-	funname = SYMBOL_NAME (msymbol);
+	funname = DEPRECATED_SYMBOL_NAME (msymbol);
       else
-	funname = SYMBOL_NAME (func);
+	funname = DEPRECATED_SYMBOL_NAME (func);
     }
   else
     {
-      register struct minimal_symbol *msymbol =
+      struct minimal_symbol *msymbol =
       lookup_minimal_symbol_by_pc (get_frame_pc (fi));
 
       if (msymbol != NULL)
-	funname = SYMBOL_NAME (msymbol);
+	funname = DEPRECATED_SYMBOL_NAME (msymbol);
     }
 
   /* If comname is NULL, we assume the user wishes to see the 
@@ -653,7 +696,7 @@ info_common_command (char *comname, int from_tty)
 
       while (entry != NULL)
 	{
-	  printf_filtered ("%s = ", SYMBOL_NAME (entry->symbol));
+	  printf_filtered ("%s = ", DEPRECATED_SYMBOL_NAME (entry->symbol));
 	  print_variable_value (entry->symbol, fi, gdb_stdout);
 	  printf_filtered ("\n");
 	  entry = entry->next;
@@ -673,7 +716,7 @@ there_is_a_visible_common_named (char *comname)
 {
   SAVED_F77_COMMON_PTR the_common;
   struct frame_info *fi;
-  register char *funname = 0;
+  char *funname = 0;
   struct symbol *func;
 
   if (comname == NULL)
@@ -709,17 +752,17 @@ there_is_a_visible_common_named (char *comname)
       if (msymbol != NULL
 	  && (SYMBOL_VALUE_ADDRESS (msymbol)
 	      > BLOCK_START (SYMBOL_BLOCK_VALUE (func))))
-	funname = SYMBOL_NAME (msymbol);
+	funname = DEPRECATED_SYMBOL_NAME (msymbol);
       else
-	funname = SYMBOL_NAME (func);
+	funname = DEPRECATED_SYMBOL_NAME (func);
     }
   else
     {
-      register struct minimal_symbol *msymbol =
+      struct minimal_symbol *msymbol =
       lookup_minimal_symbol_by_pc (fi->pc);
 
       if (msymbol != NULL)
-	funname = SYMBOL_NAME (msymbol);
+	funname = DEPRECATED_SYMBOL_NAME (msymbol);
     }
 
   the_common = find_common_for_function (comname, funname);

@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XConfWin.man,v 1.4 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XConfWin.man,v 1.6 2003/11/23 05:40:33 dawes Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -146,49 +146,19 @@
 .SH NAME
 XConfigureWindow, XMoveWindow, XResizeWindow, XMoveResizeWindow, XSetWindowBorderWidth, XWindowChanges \- configure windows and window changes structure
 .SH SYNTAX
-XConfigureWindow\^(\^\fIdisplay\fP, \fIw\fP\^, \fIvalue_mask\fP\^, \fIvalues\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned int \fIvalue_mask\fP\^;
-.br
-      XWindowChanges *\fIvalues\fP\^;
-.LP
-XMoveWindow\^(\^\fIdisplay\fP, \fIw\fP\^, \fIx\fP\^, \fIy\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.LP
-XResizeWindow\^(\^\fIdisplay\fP, \fIw\fP\^, \fIwidth\fP\^, \fIheight\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.LP
-XMoveResizeWindow\^(\^\fIdisplay\fP, \fIw\fP\^, \fIx\fP\^, \fIy\fP\^, \fIwidth\fP\^, \fIheight\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.br
-      unsigned int \fIwidth\fP\^, \fIheight\fP\^;
-.LP
-XSetWindowBorderWidth\^(\^\fIdisplay\fP, \fIw\fP, \fIwidth\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      unsigned int \fIwidth\fP\^;
+.HP
+int XConfigureWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, unsigned \fIvalue_mask\fP\^);
+.HP
+int XMoveWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int \fIx\fP\^, \fIy\fP\^);
+.HP
+int XResizeWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, unsigned
+\fIwidth\fP\^, unsigned \fIheight\fP\^);
+.HP
+int XMoveResizeWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int
+\fIx\fP\^, int \fIy\fP\^, unsigned \fIwidth\fP\^, unsigned \fIheight\fP\^); 
+.HP
+int XSetWindowBorderWidth\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+unsigned \fIwidth\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.
@@ -363,7 +333,7 @@ The
 structure contains:
 .LP
 .LP
-/* Configure window value mask bits */
+/\(** Configure window value mask bits */
 .TS
 lw(.5i) lw(2.5i) lw(.8i).
 T{
@@ -420,7 +390,7 @@ T}
 .Ds 0
 .TA .5i 3i
 .ta .5i 3i
-/* Values */
+/\(** Values */
 
 typedef struct {
 	int x, y;

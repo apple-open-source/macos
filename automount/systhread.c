@@ -533,7 +533,7 @@ static void
 sys_port_free(sys_port_type p)
 {
 #ifdef _IPC_UNTYPED_
-	mach_port_deallocate(sys_task_self(), p);
+	mach_port_destroy(sys_task_self(), p);
 #else
 	port_deallocate(sys_task_self(), p);
 #endif

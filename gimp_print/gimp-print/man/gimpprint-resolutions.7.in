@@ -1,6 +1,6 @@
 .\" t
-.\" $Id: gimpprint-resolutions.7.in,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
-.\" Copyright (C) 2000 Roger Leigh <roger@whinlatter.uklinux.net>
+.\" $Id: gimpprint-resolutions.7.in,v 1.1.1.3 2004/07/23 06:26:28 jlovell Exp $
+.\" Copyright (C) 2000 Roger Leigh <rleigh@debian.org>
 .\"
 .\" This program is free software; you can redistribute it and/or modify
 .\" it under the terms of the GNU General Public License as published by
@@ -15,9 +15,9 @@
 .\" You should have received a copy of the GNU General Public License
 .\" along with this program; if not, write to the Free Software
 .\" Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-.TH GIMPPRINT-RESOLUTIONS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
+.TH GIMPPRINT\-RESOLUTIONS 7 "@RELEASE_DATE@" "Version @GIMPPRINT_VERSION@" "Gimp-Print Manual Pages"
 .SH NAME
-gimpprint-resolutions \- Gimp-Print print resolutions
+gimpprint\-resolutions \- Gimp-Print print resolutions
 .SH DESCRIPTION
 Gimp-Print supports many different resolutions, which are printer type
 specific.  The option names are case sensitive.  Not all resolutions are
@@ -37,15 +37,6 @@ of passes made over each line.  "High" and "Highest" quality settings
 perform more passes, printing fewer dots with each pass over the same
 line and using different nozzles for each pass.  This reduces banding
 effects, but requires more time.
-.PP
-\fIMicroweave\fP modes use algorithms within the printer to generate the
-sequence of rows printed.  These algorithms generally only work well at low
-printing resolutions.  Many printers do not support this kind of printing at
-resolutions of 720 DPI and above, and some printers that do actually print just
-one row (using just one nozzle per color) at a time.  While this particular use
-will produce extremely high quality (no banding whatsoever, normally), it is
-extremely slow and may eventually damage the print head due to ink pooling.
-All printers that we are aware of have no such trouble at 360 DPI.
 .PP
 We generally recommend the following resolutions for the following
 purposes:
@@ -133,121 +124,135 @@ lb l l.
 Quality	Description	Note
 _
 360x90dpi	360 x 90 DPI Fast Economy Draft	(1)
-180dpi	180 DPI Economy Draft	(2)
-360x180dpi	360 x 180 DPI Draft	(2)
-360x180sw	360 x 180 DPI Draft	(3)
-360x120dpi	360 x 120 DPI Economy Draft	(4)
-360x120sw	360 x 120 DPI Economy Draft	(5)
-360x240dpi	360 x 240 DPI Draft	(4)
-360x240sw	360 x 240 DPI Draft	(5)
-360dpi	360 DPI	(6)
-360uni	360 DPI Unidirectional	(6)
-360mw	360 DPI Microweave	(6, *)
-360mwuni	360 DPI Microweave Unidirectional	(6)
-360sw	360 DPI	(7, 17, *)
-360swuni	360 DPI Unidirectional	(7, 17)
-360hq	360 DPI High Quality	(7, 8, 17)
-360hquni	360 DPI High Quality Unidirectional	(7, 8, 17)
-720x360sw	720 x 360 DPI	(9, 10)
-720x360swuni	720 x 360 DPI Unidirectional	(9, 10)
-720mw	720 DPI Microweave	(11)
-720mwuni	720 DPI Microweave Unidirectional	(11)
-720sw	720 DPI	(9)
-720swuni	720 DPI Unidirectional	(9)
-720hq	720 DPI High Quality	(9)
-720hquni	720 DPI High Quality Unidirectional	(9)
-720hq2	720 DPI Highest Quality	(9)
-1440x720mw	1440 x 720 DPI Microweave	(12)
-1440x720mwuni	1440 x 720 DPI Microweave Unidirectional	(12)
-1440x720sw	1440 x 720 DPI	(13)
-1440x720swuni	1440 x 720 DPI Unidirectional	(13, 14)
-1440x720hq	1440 x 720 DPI Highest Quality	(13)
-2880x720sw	2880 x 720 DPI	(15)
-2880x720swuni	2880 x 720 DPI Unidirectional	(15)
-1440x1440sw	1440 x 1440 DPI	(16)
-1440x1440hq2	1440 x 1440 DPI Highest Quality	(16)
-2880x1440sw	2880 x 1440 DPI	(16)
+360x90sw	360 x 90 DPI Fast Economy Draft	(2)
+180dpi	180 DPI Economy Draft	(3)
+180sw	180 DPI Economy Draft	(2)
+360x180dpi	360 x 180 DPI Draft	(3)
+360x180sw	360 x 180 DPI Draft	(4)
+360x120dpi	360 x 120 DPI Economy Draft	(5)
+360x120sw	360 x 120 DPI Economy Draft	(6)
+360x240dpi	360 x 240 DPI Draft	(5)
+360x240sw	360 x 240 DPI Draft	(6)
+360dpi	360 DPI	(7)
+360mw	360 DPI High Quality	(7, *)
+360sw	360 DPI	(8, 9, *)
+720x360sw	720 x 360 DPI	(10, 11, 12)
+720sw	720 DPI	(13)
+720hq	720 DPI High Quality	(13)
+720hq2	720 DPI Highest Quality	(13)
+720mw	720 DPI	(14)
+1440x720sw	1440 x 720 DPI	(15)
+1440x720hq	1440 x 720 DPI Highest Quality	(16)
+2880x720sw	2880 x 720 DPI	(17)
+2880x720hq	2880 x 720 DPI Highest Quality	(18)
+1440x1440sw	1440 x 1440 DPI	(19)
+2880x1440sw	2880 x 1440 DPI	(20)
+2880x2880sw	2880 x 2880 DPI	(21)
 .TE
 .IP *
-This resolution is the default on all printers supporting this setting.
+This setting is the default on all printers supporting this setting
+except for the PM-930C and PM-970C, which support no resolution lower
+than 720x360 DPI.
 .IP 1
-Works on printers that have a basic vertical spacing of 1/90".  This includes
-the Stylus Color, Stylus Color 440, 460, 600, 640, 660, 670, and 1500, and
-Stylus Photo, Stylus Photo 700, 720, and EX.
+Works on printers that have a basic vertical spacing of 1/90".  This
+includes the Stylus Color, Stylus Color 440, 460, 600, 640, 660, 670,
+and 1500, and Stylus Photo, Stylus Photo 700, 720, and EX.
 .IP 2
-Works on most printers that have a basic vertical spacing of 1/90, 1/180, or
-1/360 inch.  This includes Stylus Color, Stylus Color 440, 460, 600, 640, 660,
-670, 800, 850, 900, 980, 1500, 1520, 3000, and Stylus Photo, Stylus Photo 700,
-720 and EX.
+Works on the Stylus Color 640 and 660.
 .IP 3
-Works on Stylus C70, C80, and C82; and Stylus Photo 950, 960, 2100, and 2200.
+Works on most printers that have a basic vertical spacing of 1/90,
+1/180, or 1/360 inch.  This includes Stylus Color, Stylus Color 440,
+460, 600, 640, 660, 670, 800, 850, 900, 980, 1500, 1520, 3000, and
+Stylus Photo, Stylus Photo 700, 720 and EX.
 .IP 4
-Works on older printers with dot spacing of 1/120 inch.  This includes the
-Stylus Color Pro, Pro XL, 400, and 500.
+Works on Stylus Color 640 and 660; Stylus C70, C80, and C82; and
+Stylus Photo 950, 960, 2100, 2200, and PM-950C
 .IP 5
-Works on newer printers with dot spacing of 1/120 inch.  This includes the
-Stylus C20, C40, C41, C42, C60, C61, and C62; the Stylus Color 480, 580, 680,
-740, 760, 777, 860, 880, 83, and 1160, and the Stylus Photo 750, 780, 785, 790,
-810, 820, 825, 830, 870, 875, 890, 895, 915, 925, 1270, 1280, 1290, and 2000P,
-and the Stylus Scan 2000 and 2500.
+Works on older printers with dot spacing of 1/120 inch.  This includes
+the Stylus Color Pro, Pro XL, 400, and 500.
 .IP 6
-Works on all printers that do not support variable drop sizes.  This includes
-the Stylus Color, Stylus Color 400, 440, 460, 500, 600, 640, 660, 800, 850,
-1500, 1520, and 3000, Stylus Color Pro, Stylus Color Pro XL, and Stylus Photo,
-Stylus Photo 700, and EX.
+Works on newer printers with dot spacing of 1/120 inch.  This includes
+the Stylus C20, C40, C41, C42, C60, C61, and C62; the Stylus Color
+480, 580, 680, 740, 760, 777, 860, 880, 83, and 1160, and the Stylus
+Photo 750, 780, 785, 790, 810, 820, 825, 830, 870, 875, 890, 895, 900,
+915, 925, 1270, 1280, 1290, and 2000P, and the Stylus Scan 2000 and
+2500.
 .IP 7
-Works on all printers that do support variable drop sizes.  This includes all
-supported Epson Stylus printers except for those listed in note (6).
+Works on all printers that do not support variable drop sizes.  This
+includes the Stylus Color, Stylus Color 400, 440, 460, 500, 600, 640,
+660, 800, 850, 1500, 1520, and 3000, Stylus Color Pro, Stylus Color
+Pro XL, and Stylus Photo, Stylus Photo 700, and EX.
 .IP 8
-Recommended only on processors slower than 200 MHz, the system is heavily
-loaded with a faster processor, or if problems are experienced at 720x360.
+Works on all printers that do support variable drop sizes.  This
+includes all supported Epson Stylus printers except for those listed
+in note (6).
 .IP 9
-Works on all supported printers except for Stylus Color, Stylus Color Pro,
-Stylus Color Pro XL, Stylus Color 1500, 1520, and 3000.
+This setting prints at particularly high speed on the Epson Stylus
+Photo 950, 960, 2100, and 2200, and the PM-950C when used in color
+with three or four color mode, or with grayscale in any mode other
+than two or seven color.
 .IP 10
-On printers that do not support variable drop size (see note (4)), this will
-print as fast as 360 DPI, and faster than 360 DPI High Quality.  It will take
-twice as long to generate output, which may be important on a heavily loaded
-system or a processor slower than 200 MHz.
+Works on all supported printers except for Stylus Color, Stylus Color
+Pro, Stylus Color Pro XL, Stylus Color 1500, 1520, and 3000.  On
+printers that do not support variable drop size (see note (4)), this
+will print as fast as 360 DPI, and faster than 360 DPI High Quality.
+It will take twice as long to generate output, which may be important
+on a heavily loaded system or a processor slower than 200 MHz.
 .IP 11
-Works on some older printers, including the Stylus Color, Stylus Color 400,
-500, 600, 800, 850, 1500, 1520, and 3000, Stylus Color Pro, and Stylus Color
-Pro XL.  Not recommended except for the Stylus Color, Stylus Color 1500, 1520,
-and 3000.
+This is the default resolution on the PM-930C and PM-970C.
 .IP 12
-Works on Stylus Color 600, 800, 850, 1520, and 3000.  Not recommended unless
-other 1440x720 modes do not work.
+This setting prints at particularly high speed on the Epson PM-930C
+and PM-970C when used in color with three or four color mode, or with
+grayscale in any mode other than two or seven color.
 .IP 13
-Works on all printers that support 1440x720 DPI.  This includes all supported
-printers except for the Stylus Color, Stylus Color Pro, Pro XL, 400, 440, 460,
-480, 500, and 1500, and Stylus Photo.  In addition, this may not work correctly
-on Stylus Color 1520 and Stylus Color 3000.
+Works on certain printers that do not support 1440x720 DPI: Stylus
+Photo (original), Stylus Color 440, 460, 480, Stylus C20SX, and Stylus
+C20UX.
 .IP 14
-This is identical to 1440 x 720 Highest Quality (1440x720hq) on the Stylus
-Color 900.
+Works on some older printers, including the Stylus Color, Stylus Color
+400, 500, 600, 800, 850, 1500, 1520, and 3000, Stylus Color Pro, and
+Stylus Color Pro XL.  Not recommended except for the Stylus Color,
+Stylus Color 1500, 1520, and 3000.
 .IP 15
-Works on all printers that support 2880x720 DPI.  This includes the Stylus C60,
-C61, C62, C70, C80, and C82, the Stylus Color 680, 777, 880, 83, and 980, and
-Stylus Photo 780, 790, 810, 820, 825, 830, 890, 915, 925, 950, 960, 1280, and 1290.
-This resolution is offered on the Stylus Photo 2100 and 2200, but may not work
-correctly.
+Works on all printers that support 1440x720 DPI.  This includes all
+supported printers except for the Stylus Color, Stylus Color Pro, Pro
+XL, 400, 440, 460, 480, 500, and 1500, and Stylus Photo.  In addition,
+this may not work correctly on Stylus Color 1520 and Stylus Color
+3000.
 .IP 16
-Works on Epson Stylus Photo 825, 830, 925, 950, 960, 2100, 2200; Stylus C61,
-C62, C70, C80, C82 ; Stylus Pro 7600 and 9600.  This resolution is not
-supported by Epson on the C70 and C80, but it works correctly on at least some
-such printers.
+Works on printers that support 1440x720 DPI, but not any higher
+resolution.  This includes the Stylus Color 580, 670 740, 760, 860,
+900, and 1160, Stylus Photo EX, EX3, 700, 720, 750, 870, 875, 1200,
+1270, and 2000P, Stylus C40, C41, C42, and C50, and Stylus Scan 2000
+and 2500.
 .IP 17
-These resolutions print at particularly high speed on the Epson Stylus Photo
-950, 960, 2100, and 2200 when printing in Four Color Standard or Three Color
-Composite modes, or when printing in monochrome or grayscale with any ink type
-other than Two Level Grayscale, Seven Color Photo, or Quadtone.
+Works on all printers that support 2880x720 DPI.  This includes the
+Stylus C60, C61, C62, C70, C80, and C82, the Stylus Color 680, 777,
+880, 83, and 980, and Stylus Photo 780, 785, 790, 810, 820, 825, 830,
+890, 895, 900, 915, 925, 950, 960, 1280, and 1290.  It specifically
+does not include the Stylus Photo 950, 960, 2100, and 2200, and the
+PM-930C, PM-950C, and PM-970C.
+.IP 18
+Works on printers that support 2880x720 DPI, but not any higher
+resolution.  This includes the Stylus C60, the Stylus Color 680, 777,
+880, 83, and 980, and Stylus Photo 780, 785, 790, 810, 820, 890, 895,
+900, 915, 1280, and 1290.
+.IP 19
+Works on Epson Stylus Photo 825, 830, and 925, and Stylus C61, C62,
+C70, C80, C82.  This resolution is not listed by Epson, but
+experimentally has been verified to work on at least some printers.
+It offers the same total resolution as 2880x720, but the more even
+distribution of dots may yield better results in some cases.
+.IP 20
+Works on all printers that support 2880x1440 DPI.  This includes the
+Stylus C62, Stylus Photo 825, 830, 925, 950, 960, 2100, and 2200, and
+the PM-930C, PM-950C, and PM-970C.
+.IP 21
+Works on all printers that support 2880x2880 DPI.  This includes the
+PM-930C and PM-970C.
 .PP
 The Stylus Pro printers (Stylus Pro 5000, 5500, 7000, 7500, 7600,
-9000, 9500, 9600, and 10000) support additional microweave modes known
-as Full Overlap (FOL), Four Pass, and FOL2.  The Stylus Pro 5500,
-7500, 7600, 9500, 9600, and 10000 additionally have a mode called MW2.
-These modes can only be used at certain resolutions.  Stylus Pro
-printers support the following resolutions:
+9000, 9500, 9600, and 10000) support the following Quality settings:
 .PP
 .TS
 li li
@@ -255,40 +260,11 @@ lb l.
 Quality	Description
 _
 180dpi	180 DPI
-360dpi	360 DPI
-360uni	360 DPI Unidirectional
-360mw	360 DPI Microweave
-360mwuni	360 DPI Microweave Unidirectional
-360fol	360 DPI Full Overlap
-360foluni	360 DPI Full Overlap Unidirectional
-360fol2	360 DPI FOL2
-360fol2uni	360 DPI FOL2 Unidirectional
-360mw2	360 DPI MW2
-360mw2uni	360 DPI MW2 Unidirectional
-720x360dpi	720 x 360 DPI
-720x360uni	720 x 360 DPI Unidirectional
-720x360fol	720 x 360 DPI FOL
-720x360foluni	720 x 360 DPI FOL Unidirectional
-720x360fol2	720 x 360 DPI FOL2
-720x360fol2uni	720 x 360 DPI FOL2 Unidirectional
-720x360mw2	720 x 360 DPI MW2
-720x360mw2uni	720 x 360 DPI MW2 Unidirectional
-720dpi	720 DPI
-720uni	720 DPI Unidirectional
-720mw	720 DPI Microweave
-720mwuni	720 DPI Microweave Unidirectional
-720fol	720 DPI Full Overlap
-720foluni	720 DPI Full Overlap Unidirectional
-720fourp	720 DPI Four Pass
-720fourpuni	720 DPI Four Pass Unidirectional
-1440x720dpi	1440 x 720 DPI
-1440x720uni	1440 x 720 DPI Unidirectional
-1440x720mw	1440 x 720 DPI Microweave
-1440x720mwuni	1440 x 720 DPI Microweave Unidirectional
-1440x720fol	1440 x 720 DPI FOL
-1440x720foluni	1440 x 720 DPI FOL Unidirectional
-1440x720fourp	1440 x 720 DPI Four Pass
-1440x720fourpuni	1440 x 720 DPI Four Pass Unidirectional
+360x180dpi	360 x 180 DPI
+360pro	360 DPI
+720x360mw	720 x 360 DPI
+720mw	720 DPI
+1440x720mw	1440 x 720 DPI
 .TE
 .PP
 In addition, the Stylus Pro 7600 and 9600 printers support the
@@ -299,30 +275,9 @@ li li
 lb l.
 Quality	Description
 _
-2880x720dpi	2880 x 720 DPI
-2880x720uni	2880 x 720 DPI Unidirectional
-2880x720mw	2880 x 720 DPI Microweave
-2880x720mwuni	2880 x 720 DPI Microweave Unidirectional
-2880x720fol	2880 x 720 DPI FOL
-2880x720foluni	2880 x 720 DPI FOL Unidirectional
-2880x720fourp	2880 x 720 DPI Four Pass
-2880x720fourpuni	2880 x 720 DPI Four Pass Unidirectional
-1440x1440dpi	1440 x 1440 DPI
-1440x1440uni	1440 x 1440 DPI Unidirectional
-1440x1440mw	1440 x 1440 DPI Microweave
-1440x1440mwuni	1440 x 1440 DPI Microweave Unidirectional
-1440x1440fol	1440 x 1440 DPI FOL
-1440x1440foluni	1440 x 1440 DPI FOL Unidirectional
-1440x1440fourp	1440 x 1440 DPI Four Pass
-1440x1440fourpuni	1440 x 1440 DPI Four Pass Unidirectional
-2880x1440dpi	2880 x 1440 DPI
-2880x1440uni	2880 x 1440 DPI Unidirectional
-2880x1440mw	2880 x 1440 DPI Microweave
-2880x1440mwuni	2880 x 1440 DPI Microweave Unidirectional
-2880x1440fol	2880 x 1440 DPI FOL
-2880x1440foluni	2880 x 1440 DPI FOL Unidirectional
-2880x1440fourp	2880 x 1440 DPI Four Pass
-2880x1440fourpuni	2880 x 1440 DPI Four Pass Unidirectional
+2880x720mw	2880 x 720 DPI
+1440x1440mw	1440 x 1440 DPI
+2880x1440mw	2880 x 1440 DPI
 .TE
 .SS PCL printers (including Hewlett-Packard and Lexmark 4076)
 .PP
@@ -354,7 +309,6 @@ T}
 Note: the higher resolutions of newer PCL printers using "Photo-Ret" are
 not yet supported.
 .SS Lexmark printers (other than the 4076)
-.SS
 .TS
 li li
 lb l.
@@ -373,7 +327,7 @@ _
 2400x1200hq2	2400 DPI x 1200 DPI highest quality (Z52)
 .TE
 .SS Canon printers
-1200 DPI printers (BJC 7000, BJC 7100, BJC 8500):
+1200 DPI printers (BJC 7000, BJC 7100, BJC 8200, BJC 8500):
 .PP
 .TS
 li li
@@ -388,10 +342,8 @@ _
 1200x1200dpi	1200x1200 DPI
 .TE
 .PP
-1440 DPI printers (BJC 30, BJC 50, BJC 55, BJC 80, BJC 85, BJC 210,
-    BJC 240, BJC 250, BJC 1000, BJC 2000, BJC 3000, BJC 4300, BJC
-    4400, BJC 6000, BJC 6100, BJC 6200, BJC 6500, BJC 8200, S400,
-    S450, S800, S4500):
+1440 DPI printers (BJC 1000, BJC 2000, BJC 3000, BJC 4300, BJC 4400,
+    BJC 5100, BJC 5500, BJC 6000, BJC 6100, BJC 6500, BJC 8200):
 .PP
 .TS
 li li
@@ -414,16 +366,16 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation; either version 2 of the License, or (at your option) any later
 version.
 .PP
-This manual page was written by Roger Leigh (roger@whinlatter.uklinux.net)
+This manual page was written by Roger Leigh (rleigh@debian.org)
 .SH SEE ALSO
-.BR gimpprint-color (7),
-.BR gimpprint-dithers (7),
-.BR gimpprint-imagetypes (7),
-.BR gimpprint-inktypes (7),
-.BR gimpprint-mediasizes (7),
-.BR gimpprint-mediasources (7),
-.BR gimpprint-mediatypes (7),
-.BR gimpprint-models (7).
+.BR gimpprint\-color (7),
+.BR gimpprint\-dithers (7),
+.BR gimpprint\-imagetypes (7),
+.BR gimpprint\-inktypes (7),
+.BR gimpprint\-mediasizes (7),
+.BR gimpprint\-mediasources (7),
+.BR gimpprint\-mediatypes (7),
+.BR gimpprint\-models (7).
 .\"#
 .\"# The following sets edit modes for GNU EMACS
 .\"# Local Variables:

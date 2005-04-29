@@ -46,6 +46,11 @@ struct file_handle
 	char zero[FHSIZE3 - sizeof(unsigned int)];
 };
 
+typedef struct {
+	fsid_t fsid;
+	unsigned long nodeid;
+} VNodeHashKey;
+
 @interface Vnode : RRObject
 {
 	String *relpath;
@@ -57,15 +62,19 @@ struct file_handle
 	String *vfsType;
 	String *urlString;
 	String *authenticated_urlString;
-	BOOL mountInProgress;
+	unsigned long mountInProgressCount;
 	BOOL mounted;
 	BOOL mountPathCreated;
 	BOOL fake;
 	Vnode *supernode;
+	int serverDepth;
 	Map *map;
+	VNodeHashKey hashKey;
+	BOOL isHashed;
 	Array *dirlist;
 	Array *subnodes;
 	Array *submounts;
+	fsid_t fsid;
 	struct fattr attributes;
 	int mntArgs;
 	struct nfs_args nfsArgs;
@@ -75,7 +84,6 @@ struct file_handle
 	unsigned int forcedNFSVersion;
 	unsigned int forcedProtocol;
 	unsigned int nfsStatus;
-	struct MountProgressRecord mountInfo;
 	unsigned long transactionID;
 	BOOL marked;
 }
@@ -109,6 +117,7 @@ struct file_handle
 - (struct fattr)attributes;
 - (void)setAttributes:(struct fattr)a;
 
+- (void)markAccessTime;
 - (void)resetTime;
 - (void)markDirectoryChanged;
 - (void)resetAllTimes;
@@ -123,6 +132,11 @@ struct file_handle
 - (unsigned int)nodeID;
 - (void)setNodeID:(unsigned int)n;
 
+- (VNodeHashKey *)hashKey;
+- (void)setHashKey:(fsid_t)fs nodeID:(unsigned long)node;
+- (BOOL)isHashed;
+- (void)setHashed:(BOOL)hashed;
+
 - (void)setupOptions:(Array *)o;
 
 - (struct nfs_args)nfsArgs;
@@ -133,11 +147,15 @@ struct file_handle
 - (void)addMntArg:(int)arg;
 - (int)mntTimeout;
 
+- (BOOL)checkNodeIsMounted;
+- (BOOL)anyChildMounted:(const char *)path;
 - (BOOL)mounted;
 - (void)setMounted:(BOOL)m;
+- (BOOL)updateMountStatus;
 
 - (BOOL)mountInProgress;
-- (void)setMountInProgress:(BOOL)newMountInProgressState;
+- (void)incrementMountInProgressCount;
+- (void)decrementMountInProgressCount;
 
 - (BOOL)fakeMount;
 - (void)setFakeMount:(BOOL)m;
@@ -154,8 +172,6 @@ struct file_handle
 - (unsigned int)nfsStatus;
 - (void)setNfsStatus:(unsigned int)s;
 
-- (struct MountProgressRecord *)mountInfo;
-
 - (void)getFileHandle:(nfs_fh *)fh;
 
 - (Vnode *)lookup:(String *)name;
@@ -171,6 +187,12 @@ struct file_handle
 - (void)removeChild:(Vnode *)child;
 - (BOOL)hasChildren;
 
+- (int)serverDepth;
+- (void)setServerDepth:(int)depth;
+
+- (void)armNodeTrigger;
+- (void)deferContentGeneration;
+- (void)generateDirectoryContents:(BOOL)waitForSearchCompletion;
 - (Array *)dirlist;
 
 - (BOOL)needsAuthentication;

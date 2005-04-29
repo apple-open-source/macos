@@ -109,14 +109,20 @@ CheckCatalogBTree( SGlobPtr GPtr )
 	err = BTCheck(gScavGlobals, kCalculatedCatalogRefNum, (CheckLeafRecordProcPtr)CheckCatalogRecord);
 	if (err) goto exit;
 
-	if (gCIS.dirCount != gCIS.dirThreads)
+	if (gCIS.dirCount != gCIS.dirThreads) {
+		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;  /* a directory record is missing */
+	}
 
-	if (hfsplus && (gCIS.fileCount != gCIS.fileThreads))
+	if (hfsplus && (gCIS.fileCount != gCIS.fileThreads)) {
+		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
+	}
 
-	if (!hfsplus && (gCIS.fileThreads != gCIS.filesWithThreads))
+	if (!hfsplus && (gCIS.fileThreads != gCIS.filesWithThreads)) {
+		RcdError(gScavGlobals, E_IncorrectNumThdRcd);
 		gScavGlobals->CBTStat |= S_Orphan;
+	}
 
 	gScavGlobals->calculatedVCB->vcbEncodingsBitmap = gCIS.encodings;
 	gScavGlobals->calculatedVCB->vcbNextCatalogID = gCIS.nextCNID;
@@ -323,16 +329,16 @@ static int
 CheckIfAttributeExists(const UInt32 fileID) 
 {
 	int result = 0;
-	AttributeKey *attrKey;
+	HFSPlusAttrKey *attrKey;
 	BTreeIterator iterator;
 
 	/* Initialize the iterator, note that other fields in iterator are initialized to zero */
 	ClearMemory(&iterator, sizeof(BTreeIterator));
 
 	/* Initialize attribute key to iterator key.  Other fields initialized to zero */
-	attrKey = (AttributeKey *)&iterator.key;
-	attrKey->keyLength = kAttributeKeyMinimumLength;
-	attrKey->cnid = fileID;
+	attrKey = (HFSPlusAttrKey *)&iterator.key;
+	attrKey->keyLength = kHFSPlusAttrKeyMinimumLength;
+	attrKey->fileID = fileID;
 
 	/* Search for attribute with NULL name.  This will place the iterator at correct fileID location in BTree */	
 	result = BTSearchRecord(gScavGlobals->calculatedAttributesFCB, &iterator, kInvalidMRUCacheKey, NULL, NULL, &iterator);
@@ -345,7 +351,7 @@ CheckIfAttributeExists(const UInt32 fileID)
 
 	/* Iterate to next record and check there is a valid extended attribute for this file ID */ 
 	result = BTIterateRecord(gScavGlobals->calculatedAttributesFCB, kBTreeNextRecord, &iterator, NULL, NULL);
-	if ((result == noErr) && (attrKey->cnid == fileID)) {
+	if ((result == noErr) && (attrKey->fileID == fileID)) {
 		/* Set success return value only if we did _find_ an attribute record for the current fileID */
 		result = 1;
 	} 
@@ -370,6 +376,7 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 
 	dirID = dir->folderID;
 
+	/* Directory cannot have these two flags set */
 	if ((dir->flags & (kHFSFileLockedMask | kHFSThreadExistsMask)) != 0) {
 		RcdError(gScavGlobals, E_CatalogFlagsNotZero);
 		gScavGlobals->CBTStat |= S_ReservedNotZero;
@@ -381,7 +388,7 @@ CheckDirectory(const HFSPlusCatalogKey * key, const HFSPlusCatalogFolder * dir)
 	result = CheckIfAttributeExists(dir->folderID);
 	if (result == 1) {
 		/* Atleast one extended attribute exists for this folder ID */
-		/* 3857929: Record if directory record has attribute and/or security bit set */
+		/* 3843779 : Record if directory record has attribute and/or security bit set */
 		RecordXAttrBits(gScavGlobals, dir->flags, dir->folderID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
 		printf ("%s: Record folderID=%d for prime modulus calculations\n", __FUNCTION__, dir->folderID); 
@@ -434,7 +441,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 				filename, &len);
 	filename[len] = '\0';
 
-	/* 3843766: Check for reserved bits removed to support new bits in future */
+	/* 3843017 : Check for reserved field removed to support new bits in future */
 
 	/* 3971173, 3977448 : HFS does not clear the attribute bit after it deletes the 
 	 * last attribute.  Fix it later in 3977448 by removing the call for checking attrs
@@ -442,7 +449,7 @@ CheckFile(const HFSPlusCatalogKey * key, const HFSPlusCatalogFile * file)
 	result = CheckIfAttributeExists(file->fileID);
 	if (result == 1) {
 		/* Atleast one extended attribute exists for this file ID */
-		/* 3857929: Record if file record has attribute and/or security bit set */
+		/* 3843779 : Record if file record has attribute and/or security bit set */
 		RecordXAttrBits(gScavGlobals, file->flags, file->fileID, kCalculatedCatalogRefNum);
 #if DEBUG_XATTR
 		printf ("%s: Record fileID=%d for prime modulus calculations\n", __FUNCTION__, file->fileID); 
@@ -577,6 +584,7 @@ CheckDirectory_HFS(const HFSCatalogKey * key, const HFSCatalogFolder * dir)
 
 	dirID = dir->folderID;
 
+	/* Directory cannot have these two flags set */
 	if ((dir->flags & (kHFSFileLockedMask | kHFSThreadExistsMask)) != 0) {
 		RcdError(gScavGlobals, E_CatalogFlagsNotZero);
 		gScavGlobals->CBTStat |= S_ReservedNotZero;
@@ -613,7 +621,7 @@ CheckFile_HFS(const HFSCatalogKey * key, const HFSCatalogFile * file)
 	if (file->flags & kHFSThreadExistsMask)
 		++gCIS.filesWithThreads;
 
-	/* 3843766: Check for reserved bits removed to support new bits in future */
+	/* 3843017 : Check for reserved field removed to support new bits in future */
 	if ((file->dataStartBlock)          ||
 	    (file->rsrcStartBlock)          ||
 	    (file->reserved))

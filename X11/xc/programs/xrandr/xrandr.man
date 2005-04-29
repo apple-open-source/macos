@@ -1,6 +1,5 @@
 .\"
-.\" Copyright © 2001 Keith Packard, member of The XFree86 Project, Inc.
-.\"
+.\" Copyright 2001 Keith Packard, member of The XFree86 Project, Inc..\"
 .\" Permission to use, copy, modify, distribute, and sell this software and its
 .\" documentation for any purpose is hereby granted without fee, provided that
 .\" the above copyright notice appear in all copies and that both that
@@ -20,7 +19,7 @@
 .\" PERFORMANCE OF THIS SOFTWARE.
 .\"
 .\"
-.\" $XFree86: xc/programs/xrandr/xrandr.man,v 1.4 2002/10/02 16:58:05 keithp Exp $
+.\" $XFree86: xc/programs/xrandr/xrandr.man,v 1.7 2003/07/17 19:26:33 herrb Exp $
 .\"
 .TH XRANDR 1 "Version 1.0" "XFree86"
 .SH NAME
@@ -36,7 +35,7 @@ xrandr \- primitive command line interface to RandR extension
 [--verbose]
 .SH DESCRIPTION
 .I Xrandr
-is uses to set the screen size, orientation and/or reflection.
+is used to set the screen size, orientation and/or reflection.
 The
 .I -s
 option is a small integer index used to specify which size the screen should be set to.
@@ -49,7 +48,7 @@ The
 .I -o
 option is used to specify the orientation of the screen,
 and can be one of
-\f"Inormal inverted left right 0 1 2 3"\fP.
+\fI"normal inverted left right 0 1 2 3"\fP.
 .PP
 The
 .I -x

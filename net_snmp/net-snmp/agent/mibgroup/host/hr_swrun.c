@@ -1,3 +1,14 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
+
 /*
  *  Host Resources MIB - Running Software group implementation - hr_swrun.c
  *      (also includes Running Software Performance group )
@@ -20,6 +31,7 @@
 #endif
 #if HAVE_SYS_USER_H
 #ifdef solaris2
+#include <libgen.h>
 #define _KMEMUSER
 #endif
 #include <sys/user.h>
@@ -453,7 +465,7 @@ var_hrswrun(struct variable * vp,
             int exact, size_t * var_len, WriteMethod ** write_method)
 {
     int             pid = 0;
-    static char     string[256];
+    static char     string[1024];
 #ifdef HAVE_SYS_PSTAT_H
     struct pst_status proc_buf;
 #elif defined(solaris2)
@@ -461,6 +473,7 @@ var_hrswrun(struct variable * vp,
     static psinfo_t psinfo;
     static psinfo_t *proc_buf;
     int             procfd;
+    int             ret;
     char            procfn[sizeof "/proc/00000/psinfo"];
 #else
     static struct proc *proc_buf;
@@ -475,7 +488,7 @@ var_hrswrun(struct variable * vp,
 #endif
 #ifdef linux
     FILE           *fp;
-    char            buf[256];
+    char            buf[1024];
     int             i;
 #endif
     char           *cp;
@@ -507,12 +520,12 @@ var_hrswrun(struct variable * vp,
         proc_buf = &psinfo;
         sprintf(procfn, "/proc/%.5d/psinfo", pid);
         if ((procfd = open(procfn, O_RDONLY)) != -1) {
-            if (read(procfd, proc_buf, sizeof(*proc_buf)) !=
-                sizeof(*proc_buf))
-                abort();
+            ret =  read(procfd, proc_buf, sizeof(*proc_buf));
             close(procfd);
+            if (ret != sizeof(*proc_buf))
+                return NULL;
         } else
-            proc_buf = NULL;
+            return NULL;
 #else
         if (kd == NULL)
             return NULL;
@@ -529,6 +542,13 @@ var_hrswrun(struct variable * vp,
 #if NO_DUMMY_VALUES
         return NULL;
 #else
+        /* 
+         * per dts, on coders:
+         * cos (in general) we won't know which process should
+         * be regarded as "the primary O/S process".
+         * The most obvious candidate on a Unix box is probably 'init'
+         * which is typically (always?) process #1.
+         */
         long_return = 1;        /* Probably! */
         return (u_char *) & long_return;
 #endif
@@ -551,17 +571,25 @@ var_hrswrun(struct variable * vp,
             *cp = '\0';
 #elif defined(solaris2)
 #if _SLASH_PROC_METHOD_
-        if (proc_buf)
-            strncpy(string, proc_buf->pr_fname, sizeof(string));
-        else
+        if (proc_buf) { 
+            char *pos=strchr(proc_buf->pr_psargs,' ');
+            if (pos != NULL) *pos = '\0';
+            strlcpy(string, basename(proc_buf->pr_psargs),sizeof(string));
+            if (pos != NULL) *pos=' ';
+        } else {
             strcpy(string, "<exited>");
+        }
         string[ sizeof(string)-1 ] = 0;
 #else
         strncpy(string, proc_buf->p_user.u_comm, sizeof(string));
         string[ sizeof(string)-1 ] = 0;
 #endif
 #elif HAVE_KVM_GETPROCS
+    #if defined(freebsd5)
+        strcpy(string, proc_table[LowProcIndex].ki_comm);
+    #else
         strcpy(string, proc_table[LowProcIndex].kp_proc.p_comm);
+    #endif
 #elif defined(linux)
         sprintf(string, "/proc/%d/status", pid);
         if ((fp = fopen(string, "r")) == NULL)
@@ -666,7 +694,11 @@ var_hrswrun(struct variable * vp,
         *cp1 = 0;
 #endif
 #elif HAVE_KVM_GETPROCS
+    #if defined(freebsd5)
+        strcpy(string, proc_table[LowProcIndex].ki_comm);
+    #else
         strcpy(string, proc_table[LowProcIndex].kp_proc.p_comm);
+    #endif
 #elif defined(linux)
         sprintf(string, "/proc/%d/cmdline", pid);
         if ((fp = fopen(string, "r")) == NULL)
@@ -857,7 +889,11 @@ var_hrswrun(struct variable * vp,
         }
 #else
 #if HAVE_KVM_GETPROCS
+    #if defined(freebsd5)
+        switch (proc_table[LowProcIndex].ki_stat) {
+    #else
         switch (proc_table[LowProcIndex].kp_proc.p_stat) {
+    #endif
 #elif defined(dynix)
         switch (lowpsinfo.pr_state) {
 #elif defined(solaris2)
@@ -952,9 +988,13 @@ var_hrswrun(struct variable * vp,
         long_return = proc_buf->p_utime * 100 + proc_buf->p_stime * 100;
 #endif
 #elif HAVE_KVM_GETPROCS
+    #if defined(freebsd5)
+        long_return = proc_table[LowProcIndex].ki_runtime / 100000;
+    #else
         long_return = proc_table[LowProcIndex].kp_proc.p_uticks +
             proc_table[LowProcIndex].kp_proc.p_sticks +
             proc_table[LowProcIndex].kp_proc.p_iticks;
+    #endif
 #elif defined(linux)
         sprintf(string, "/proc/%d/stat", pid);
         if ((fp = fopen(string, "r")) == NULL)
@@ -1025,7 +1065,15 @@ var_hrswrun(struct variable * vp,
 #elif HAVE_KVM_GETPROCS
 #if defined(freebsd3) && !defined(darwin)
         long_return =
+    #if defined(freebsd5)
+            proc_table[LowProcIndex].ki_size / 1024;
+    #else
             proc_table[LowProcIndex].kp_eproc.e_vm.vm_map.size / 1024;
+    #endif
+#elif defined darwin
+//NLS, no realiable way of getting this data... 
+	long_return = -1; 
+
 #else
         long_return = proc_table[LowProcIndex].kp_eproc.e_vm.vm_tsize +
             proc_table[LowProcIndex].kp_eproc.e_vm.vm_ssize +
@@ -1107,6 +1155,8 @@ int
 Get_Next_HR_SWRun(void)
 {
     int             pid;
+    if (procdir == NULL)
+      return -1;
     procentry_p = readdir(procdir);
 
     if (procentry_p == NULL)
@@ -1303,8 +1353,13 @@ Get_Next_HR_SWRun(void)
 #elif defined(solaris2)
         return proc_table[current_proc_entry++];
 #elif HAVE_KVM_GETPROCS
+    #if defined(freebsd5)
+        if (proc_table[current_proc_entry].ki_stat != 0)
+            return proc_table[current_proc_entry++].ki_pid;
+    #else
         if (proc_table[current_proc_entry].kp_proc.p_stat != 0)
             return proc_table[current_proc_entry++].kp_proc.p_pid;
+    #endif
 #else
         if (proc_table[current_proc_entry].p_stat != 0)
             return proc_table[current_proc_entry++].p_pid;
@@ -1326,7 +1381,7 @@ End_HR_SWRun(void)
 int
 count_processes(void)
 {
-#if !(defined(linux) || defined(cygwin)) || defined(hpux10) || defined(hpux11) || defined(solaris2) || HAVE_KVM_GETPROCS
+#if !(defined(linux) || defined(cygwin) || defined(hpux10) || defined(hpux11) || defined(solaris2) || HAVE_KVM_GETPROCS || defined(dynix))
     int             i;
 #endif
     int             total = 0;

@@ -226,6 +226,9 @@ int cmd ( TFILE *f, char *s, int t )
 {
   char buf [ CMDBUFSIZE ], *p = "" ;
   int resplen=0, pause=0 ;
+#if defined(__APPLE__)
+  int ringcount = 0;
+#endif
 
   if ( t < 0 ) {
     pause = cmdpause ;
@@ -267,7 +270,21 @@ int cmd ( TFILE *f, char *s, int t )
 	break ;
       }
       
-      if ( ! strcmp ( buf, "RING" ) ) { msleep ( 100 ) ; goto retry ; }
+      if ( ! strcmp ( buf, "RING" ) ) { 
+#if defined(__APPLE__)
+	CFNumberRef value;
+
+	ringcount++;
+	value = CFNumberCreate(kCFAllocatorDefault,
+			kCFNumberSInt32Type, &ringcount);
+
+	notify(CFSTR("ring"), value);
+
+	CFRelease(value);
+#endif
+        msleep ( 100 ) ; 
+        goto retry ;
+      }
     }
   }
 
@@ -409,7 +426,9 @@ int begin_session ( TFILE *f, char *fname, int reverse, int hwfc,
 	msg ( "W %s locked or busy. waiting.", fname ) ;
 	minbusy = minbusy ? minbusy*2 : 1 ;
       }
-      msleep ( lockpolldelay ) ;
+
+      if (tdata ( f, lockpolldelay / 100 ) == -6)
+	err = -6;		/* machine is about to sleep... */
     }
   } while ( err == 1 ) ;
   

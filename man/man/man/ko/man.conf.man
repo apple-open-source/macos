@@ -1,0 +1,42 @@
+.\" @(#)man.conf
+.TH MAN.CONFIG 5 "30 Mar 1994"
+.SH 이름
+man.config \- man을 위한 구성 자료 
+.SH 설명
+.LP
+이 파일은 
+.BR man (1)
+에 의해 읽어지고, (a) man을 위한 검색 경로 조건 방법에 관한 정보,
+(b) nroff, eqn, tbl 등과 같은 man에 의해 사용되는 여러가지 프로그램을 위한 
+절대 경로명, (c) 파일에 주어진 확장자를 위한 압축풀기의 리스트 를 포함하고 
+있다. 이 파일을 대신하는 버젼은 다음 처럼 지정할 수 있다.
+.LP
+.RS
+man -C private_man.config ...
+.RE
+.LP
+명령 이름은 옵션들과 같이 제공 할 수 있다.
+nroff를 위한 유용한 옵션은 grotty(1)에서 찾을 수 있다.
+예를 들어, 기본 설정 
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+대신
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+를 밑줄과 굵은 글씨(볼드체)를 제거하기 위해 쓸지도 모른다.
+.SH 관련 항목
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) 와 compress(1), gzip(1).
+.SH 역자
+배성훈 <plodder@kldp.org>, 2000년 5월 5일
+

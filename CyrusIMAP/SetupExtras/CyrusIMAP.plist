@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2004-11-03</string>
+	<string>2005-03-04</string>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>
 	<key>OpenSourceLicenseFile</key>
@@ -15,11 +15,11 @@
 	<key>OpenSourceProject</key>
 	<string>Cyrus IMAP Server</string>
 	<key>OpenSourceSHA1</key>
-	<string>SHA1(cyrus-imapd-2.2.10.tar.gz)= ee9e52598728d77d69850db3781aa4388d9a453a</string>
+	<string>iSHA1(cyrus-imapd-2.2.12.tar.gz)= 08adc5dfde1288c0d9e7de44e7ea4d17a7940d06</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/cyrus-imapd-2.2.10.tar.gz</string>
+	<string>ftp://ftp.andrew.cmu.edu/pub/cyrus-mail/cyrus-imapd-2.2.12.tar.gz</string>
 	<key>OpenSourceVersion</key>
-	<string>cyrus_imap_2.2.10</string>
+	<string>cyrus_imap_2.2.12</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://asg.web.cmu.edu/cyrus</string>
 </dict>

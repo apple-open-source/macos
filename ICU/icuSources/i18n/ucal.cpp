@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2003, International Business Machines
+*   Copyright (C) 1996-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -29,7 +29,9 @@ _createTimeZone(const UChar* zoneID, int32_t len, UErrorCode* ec) {
         // behavior is by design and goes back to the JDK. The only
         // failure we will see is a memory allocation failure.
         int32_t l = (len<0 ? u_strlen(zoneID) : len);
-        zone = TimeZone::createTimeZone(UnicodeString(zoneID, l));
+        UnicodeString zoneStrID;
+        zoneStrID.setTo((UBool)(len < 0), zoneID, l); /* temporary read-only alias */
+        zone = TimeZone::createTimeZone(zoneStrID);
         if (zone == NULL) {
             *ec = U_MEMORY_ALLOCATION_ERROR;
         }
@@ -76,14 +78,32 @@ U_CAPI int32_t U_EXPORT2
 ucal_getDSTSavings(const UChar* zoneID, UErrorCode* ec) {
     int32_t result = 0;
     TimeZone* zone = _createTimeZone(zoneID, -1, ec);
-    if (U_SUCCESS(*ec) &&
-        zone->getDynamicClassID() == SimpleTimeZone::getStaticClassID()) {
-        result = ((SimpleTimeZone*) zone)->getDSTSavings();
+    if (U_SUCCESS(*ec)) {
+        if (zone->getDynamicClassID() == SimpleTimeZone::getStaticClassID()) {
+            result = ((SimpleTimeZone*) zone)->getDSTSavings();
+        } else {
+            // Since there is no getDSTSavings on TimeZone, we use a
+            // heuristic: Starting with the current time, march
+            // forwards for one year, looking for DST savings.
+            // Stepping by weeks is sufficient.
+            UDate d = Calendar::getNow();
+            for (int32_t i=0; i<53; ++i, d+=U_MILLIS_PER_DAY*7.0) {
+                int32_t raw, dst;
+                zone->getOffset(d, FALSE, raw, dst, *ec);
+                if (U_FAILURE(*ec)) {
+                    break;
+                } else if (dst != 0) {
+                    result = dst;
+                    break;
+                }
+            }
+        }
     }
     delete zone;
     return result;
 }
 
+#ifdef U_USE_UCAL_OBSOLETE_2_8
 U_CAPI const UChar* U_EXPORT2
 ucal_getAvailableTZIDs(        int32_t         rawOffset,
                 int32_t         index,
@@ -129,6 +149,7 @@ ucal_countAvailableTZIDs(int32_t rawOffset)
   uprv_free(tzs);
   return count;
 }
+#endif
 
 U_CAPI UDate  U_EXPORT2
 ucal_getNow()
@@ -449,6 +470,18 @@ ucal_getLimit(    const    UCalendar*              cal,
     break;
   }
   return -1;
+}
+
+U_CAPI const char * U_EXPORT2
+ucal_getLocaleByType(const UCalendar *cal, ULocDataLocaleType type, UErrorCode* status) 
+{
+    if (cal == NULL) {
+        if (U_SUCCESS(*status)) {
+            *status = U_ILLEGAL_ARGUMENT_ERROR;
+        }
+        return NULL;
+    }
+    return ((Calendar*)cal)->getLocaleID(type, *status);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

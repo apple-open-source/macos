@@ -1,0 +1,15 @@
+# Tcl package index file, version 1.1
+
+if {![package vsatisfies [package provide Tcl] 8.3]} {
+    return
+}
+if {[string equal 8.3 [package provide Tcl]]} {
+    package ifneeded Thread @THREAD_VERSION_SUBSET83@ \
+	[list load [file join $dir @thread_LIB_FILE@] Thread]
+} else {
+    package ifneeded Thread @VERSION@ \
+	[list load [file join $dir @thread_LIB_FILE@] Thread]
+}
+package ifneeded Ttrace @TTRACE_VERSION@ \
+    [list source [file join $dir ttrace.tcl]]
+

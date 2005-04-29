@@ -1,6 +1,6 @@
 /**
  *******************************************************************************
- * Copyright (C) 2001-2002, International Business Machines Corporation and    *
+ * Copyright (C) 2001-2003, International Business Machines Corporation and    *
  * others. All Rights Reserved.                                                *
  *******************************************************************************
  *
@@ -50,7 +50,7 @@ class ICUServiceTest : public IntlTest
 
   void msgstr(const UnicodeString& message, UObject* obj, UBool err = TRUE);
   void logstr(const UnicodeString& message, UObject* obj) {
-		msgstr(message, obj, FALSE);
+        msgstr(message, obj, FALSE);
   }
 };
 

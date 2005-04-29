@@ -33,6 +33,7 @@ PROF_LIBS = $(LIBS)
 
 
 HEADER_PATHS = -I../bootplib
+NEXTSTEP_PB_CFLAGS = -fconstant-cfstrings
 FRAMEWORKS = -framework CoreFoundation
 
 

@@ -37,29 +37,32 @@
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <pthread.h>
 #include <sys/errno.h>
 
 Boolean
-SCPreferencesLock(SCPreferencesRef session, Boolean wait)
+SCPreferencesLock(SCPreferencesRef prefs, Boolean wait)
 {
-	CFAllocatorRef		allocator		= CFGetAllocator(session);
+	CFAllocatorRef		allocator		= CFGetAllocator(prefs);
 	CFArrayRef		changes;
-	CFDataRef		currentSignature	= NULL;
 	Boolean			haveLock		= FALSE;
-	SCPreferencesPrivateRef	sessionPrivate		= (SCPreferencesPrivateRef)session;
-	struct stat		statBuf;
+	SCPreferencesPrivateRef	prefsPrivate		= (SCPreferencesPrivateRef)prefs;
 	CFDateRef		value			= NULL;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesLock:"));
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
+	}
 
-	if (sessionPrivate->locked) {
+	if (prefsPrivate->locked) {
 		/* sorry, you already have the lock */
 		_SCErrorSet(kSCStatusLocked);
 		return FALSE;
 	}
 
-	if (!sessionPrivate->isRoot) {
-		if (!sessionPrivate->perUser) {
+	if (!prefsPrivate->isRoot) {
+		if (!prefsPrivate->perUser) {
 			_SCErrorSet(kSCStatusAccessError);
 			return FALSE;
 		} else {
@@ -68,35 +71,31 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 		}
 	}
 
-	if (sessionPrivate->session == NULL) {
-		/* open a session */
-		sessionPrivate->session = SCDynamicStoreCreate(allocator,
-							       CFSTR("SCPreferencesLock"),
-							       NULL,
-							       NULL);
-		if (!sessionPrivate->session) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCreate() failed"));
-			return FALSE;
-		}
+	pthread_mutex_lock(&prefsPrivate->lock);
+
+	if (prefsPrivate->session == NULL) {
+		__SCPreferencesAddSession(prefs);
 	}
 
-	if (sessionPrivate->sessionKeyLock == NULL) {
+	if (prefsPrivate->sessionKeyLock == NULL) {
 		/* create the session "lock" key */
-		sessionPrivate->sessionKeyLock = _SCPNotificationKey(allocator,
-								     sessionPrivate->prefsID,
-								     sessionPrivate->perUser,
-								     sessionPrivate->user,
-								     kSCPreferencesKeyLock);
+		prefsPrivate->sessionKeyLock = _SCPNotificationKey(allocator,
+								   prefsPrivate->prefsID,
+								   prefsPrivate->perUser,
+								   prefsPrivate->user,
+								   kSCPreferencesKeyLock);
 	}
 
-	if (!SCDynamicStoreAddWatchedKey(sessionPrivate->session,
-					 sessionPrivate->sessionKeyLock,
+	pthread_mutex_unlock(&prefsPrivate->lock);
+
+	if (!SCDynamicStoreAddWatchedKey(prefsPrivate->session,
+					 prefsPrivate->sessionKeyLock,
 					 FALSE)) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreAddWatchedKey() failed"));
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesLock SCDynamicStoreAddWatchedKey() failed"));
 		goto error;
 	}
 
-	value  = CFDateCreate(allocator, CFAbsoluteTimeGetCurrent());
+	value = CFDateCreate(allocator, CFAbsoluteTimeGetCurrent());
 
 	while (TRUE) {
 		CFArrayRef	changedKeys;
@@ -104,8 +103,8 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 		/*
 		 * Attempt to acquire the lock
 		 */
-		if (SCDynamicStoreAddTemporaryValue(sessionPrivate->session,
-						    sessionPrivate->sessionKeyLock,
+		if (SCDynamicStoreAddTemporaryValue(prefsPrivate->session,
+						    prefsPrivate->sessionKeyLock,
 						    value)) {
 			haveLock = TRUE;
 			goto done;
@@ -119,13 +118,13 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 		/*
 		 * Wait for the lock to be released
 		 */
-		if (!SCDynamicStoreNotifyWait(sessionPrivate->session)) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreNotifyWait() failed"));
+		if (!SCDynamicStoreNotifyWait(prefsPrivate->session)) {
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesLock SCDynamicStoreNotifyWait() failed"));
 			goto error;
 		}
-		changedKeys = SCDynamicStoreCopyNotifiedKeys(sessionPrivate->session);
+		changedKeys = SCDynamicStoreCopyNotifiedKeys(prefsPrivate->session);
 		if (!changedKeys) {
-			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCopyNotifiedKeys() failed"));
+			SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesLock SCDynamicStoreCopyNotifiedKeys() failed"));
 			goto error;
 		}
 		CFRelease(changedKeys);
@@ -136,88 +135,71 @@ SCPreferencesLock(SCPreferencesRef session, Boolean wait)
 	CFRelease(value);
 	value = NULL;
 
-	if (!SCDynamicStoreRemoveWatchedKey(sessionPrivate->session,
-					    sessionPrivate->sessionKeyLock,
+	if (!SCDynamicStoreRemoveWatchedKey(prefsPrivate->session,
+					    prefsPrivate->sessionKeyLock,
 					    0)) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreRemoveWatchedKey() failed"));
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesLock SCDynamicStoreRemoveWatchedKey() failed"));
 		goto error;
 	}
 
-	changes = SCDynamicStoreCopyNotifiedKeys(sessionPrivate->session);
+	changes = SCDynamicStoreCopyNotifiedKeys(prefsPrivate->session);
 	if (!changes) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreCopyNotifiedKeys() failed"));
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesLock SCDynamicStoreCopyNotifiedKeys() failed"));
 		goto error;
 	}
 	CFRelease(changes);
 
     perUser:
 
-	/*
-	 * Check the signature
-	 */
-	if (stat(sessionPrivate->path, &statBuf) == -1) {
-		if (errno == ENOENT) {
-			bzero(&statBuf, sizeof(statBuf));
-		} else {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("stat() failed: %s"), strerror(errno));
-			_SCErrorSet(kSCStatusStale);
-			goto error;
-		}
-	}
+	if (prefsPrivate->accessed) {
+		CFDataRef       currentSignature;
+		Boolean		match;
+		struct stat     statBuf;
 
-	currentSignature = __SCPSignatureFromStatbuf(&statBuf);
-	if (!CFEqual(sessionPrivate->signature, currentSignature)) {
-		if (sessionPrivate->accessed) {
+		/*
+		 * the preferences have been accessed since the
+		 * session was created so we need to compare
+		 * the signature of the stored preferences.
+		 */
+		if (stat(prefsPrivate->path, &statBuf) == -1) {
+			if (errno == ENOENT) {
+				bzero(&statBuf, sizeof(statBuf));
+			} else {
+				SCLog(TRUE, LOG_DEBUG, CFSTR("SCPreferencesLock stat() failed: %s"), strerror(errno));
+				_SCErrorSet(kSCStatusStale);
+				goto error;
+			}
+		}
+
+		currentSignature = __SCPSignatureFromStatbuf(&statBuf);
+		match = CFEqual(prefsPrivate->signature, currentSignature);
+		CFRelease(currentSignature);
+		if (!match) {
 			/*
-			 * the preferences have been accessed since the
-			 * session was created so we've got no choice
+			 * the preferences have been updated since the
+			 * session was accessed so we've got no choice
 			 * but to deny the lock request.
 			 */
 			_SCErrorSet(kSCStatusStale);
 			goto error;
-		} else {
-			/*
-			 * the file contents have changed but since we
-			 * haven't accessed any of the preferences we
-			 * don't need to return an error.  Simply reload
-			 * the stored data and proceed.
-			 */
-			SCPreferencesRef	newPrefs;
-			SCPreferencesPrivateRef	newPrivate;
-
-			newPrefs = __SCPreferencesCreate(allocator,
-							 sessionPrivate->name,
-							 sessionPrivate->prefsID,
-							 sessionPrivate->perUser,
-							 sessionPrivate->user);
-			if (!newPrefs) {
-				/* if updated preferences could not be loaded */
-				_SCErrorSet(kSCStatusStale);
-				goto error;
-			}
-
-			/* synchronize this sessions prefs/signature */
-			newPrivate = (SCPreferencesPrivateRef)newPrefs;
-			CFRelease(sessionPrivate->prefs);
-			sessionPrivate->prefs = newPrivate->prefs;
-			CFRetain(sessionPrivate->prefs);
-			CFRelease(sessionPrivate->signature);
-			sessionPrivate->signature = CFRetain(newPrivate->signature);
-			CFRelease(newPrefs);
 		}
+//	} else {
+//		/*
+//		 * the file contents have changed but since we
+//		 * haven't accessed any of the preference data we
+//		 * don't need to return an error.  Simply proceed.
+//		 */
 	}
-	CFRelease(currentSignature);
 
-	sessionPrivate->locked = TRUE;
+	prefsPrivate->locked = TRUE;
 	return TRUE;
 
     error :
 
 	if (haveLock) {
-		SCDynamicStoreRemoveValue(sessionPrivate->session,
-					  sessionPrivate->sessionKeyLock);
+		SCDynamicStoreRemoveValue(prefsPrivate->session,
+					  prefsPrivate->sessionKeyLock);
 	}
-	if (currentSignature)	CFRelease(currentSignature);
 	if (value)		CFRelease(value);
 
 	return FALSE;

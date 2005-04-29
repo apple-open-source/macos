@@ -469,7 +469,7 @@ ntpdatemain (
 	}
 
 	if (debug || verbose)
-		msyslog(LOG_NOTICE, "%s", Version);
+		msyslog(LOG_INFO, "%s", Version);
 
 	/*
 	 * Add servers we are going to be polling
@@ -1271,14 +1271,14 @@ clock_adjust(void)
 
 	if (dostep) {
 		if (simple_query || l_step_systime(&server->offset)) {
-			msyslog(LOG_NOTICE, "step time server %s offset %s sec",
+			msyslog(LOG_INFO, "step time server %s offset %s sec",
 				ntoa(&server->srcadr),
 				lfptoa(&server->offset, 6));
 		}
 	} else {
 #if !defined SYS_WINNT && !defined SYS_CYGWIN32
 		if (simple_query || l_adj_systime(&server->offset)) {
-			msyslog(LOG_NOTICE, "adjust time server %s offset %s sec",
+			msyslog(LOG_INFO, "adjust time server %s offset %s sec",
 				ntoa(&server->srcadr),
 				lfptoa(&server->offset, 6));
 		}

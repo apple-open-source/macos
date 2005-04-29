@@ -1,0 +1,9 @@
+include "$(SRCROOT)/../../../Common/Scripts/man.jam" ;
+
+Man install : "1" "$(SRCROOT)/../Documentation/kpasswd.M" ;
+
+NOCARE all ;
+NOTFILE all ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;

@@ -1,6 +1,3 @@
-INCLUDED_ARCHS = ppc
-OTHER_RECURSIVE_VARIABLES += INCLUDED_ARCHS
-
 ###############################################################################
 #  Makefile.preamble
 #  Copyright 1997, Apple Computer, Inc.

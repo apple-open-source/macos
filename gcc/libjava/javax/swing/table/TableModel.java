@@ -37,56 +37,56 @@ exception statement from your version. */
 
 package javax.swing.table;
 
-// Imports
 import javax.swing.event.TableModelListener;
 
+
 /**
- * TableModel interface
+ * TableModel public interface
  * @author Andrew Selkirk
  */
-public interface TableModel {
-
+public interface TableModel
+{
 	/**
 	 * getRowCount
-	 * @returns row count
+   * @return row count
 	 */
-	public int getRowCount();
+	int getRowCount();
 
 	/**
 	 * getColumnCount
-	 * @returns column count
+   * @return column count
 	 */
-	public int getColumnCount();
+	int getColumnCount();
 
 	/**
 	 * getColumnName
 	 * @param columnIndex Column index
-	 * @returns Column name
+   * @return Column name
 	 */
-	public String getColumnName(int columnIndex);
+	String getColumnName(int columnIndex);
 
 	/**
 	 * getColumnClass
 	 * @param columnIndex Column index
-	 * @returns Column class
+   * @return Column class
 	 */
-	public Class getColumnClass(int columnIndex);
+	Class getColumnClass(int columnIndex);
 
 	/**
 	 * isCellEditable
 	 * @param rowIndex Row index
 	 * @param columnIndex Column index
-	 * @returns true if editable, false otherwise
+   * @return true if editable, false otherwise
 	 */
-	public boolean isCellEditable(int rowIndex, int columnIndex);
+	boolean isCellEditable(int rowIndex, int columnIndex);
 
 	/**
 	 * getValueAt
 	 * @param rowIndex Row index
 	 * @param columnIndex Column index
-	 * @returns Value at specified indices
+   * @return Value at specified indices
 	 */
-	public Object getValueAt(int rowIndex, int columnIndex);
+	Object getValueAt(int rowIndex, int columnIndex);
 
 	/**
 	 * setValueAt
@@ -94,19 +94,17 @@ public interface TableModel {
 	 * @param rowIndex Row index
 	 * @param columnIndex Column index
 	 */
-	public void setValueAt(Object aValue, int rowIndex, int columnIndex);
+	void setValueAt(Object aValue, int rowIndex, int columnIndex);
 
 	/**
 	 * addTableModelListener
 	 * @param listener TableModelListener
 	 */
-	public void addTableModelListener(TableModelListener listener);
+	void addTableModelListener(TableModelListener listener);
 
 	/**
 	 * removeTableModelListener
 	 * @param listener TableModelListener
 	 */
-	public void removeTableModelListener(TableModelListener listener);
-
-
-} // TableModel
+	void removeTableModelListener(TableModelListener listener);
+}

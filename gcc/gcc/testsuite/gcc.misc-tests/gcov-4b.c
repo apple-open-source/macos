@@ -4,6 +4,8 @@
 /* { dg-options "-fprofile-arcs -ftest-coverage" } */
 /* { dg-do run { target native } } */
 
+extern void abort (void);
+
 int do_something (int i)
 {
   return i;
@@ -258,4 +260,4 @@ main()
   return 0;
 }
 
-/* { dg-final { run-gcov -b gcov-4b.c } } */
+/* { dg-final { run-gcov branches { -b gcov-4b.c } } } */

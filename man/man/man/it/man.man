@@ -1,0 +1,269 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" Traduzione italiana by Michele Dalla Silvestra - dalla@maya.dei.unipd.it
+.\" Luglio 1996
+.\" Correzioni stilistiche di Daniele Giacomini <daniele@evo.it>
+.\" Gennaio 1999
+.\" Aggiornamento a 1.5g di Ottavio Rizzo <rizzo@pluto.linux.it>
+.\"
+.TH man 1 "2 settembre 1995"
+.LO 1
+.SH NOME
+man \- formatta e mostra le pagine di guida in linea
+.br
+manpath \- determina i percorsi di ricerca dell'utente per le pagine di
+guida
+.SH SINTASSI
+man [\-acdfFhkKtwW] [\-m sistema] [\-p stringa] [\-C file_configurazione]
+[\-M percorso] [\-P impaginatore] [\-S lista_sezioni] [sezione] nome ...
+.SH DESCRIZIONE
+.B man
+formatta e mostra le pagine di guida in linea. Questa versione
+riconosce le variabili d'ambiente
+.B MANPATH
+e
+.RB ( MAN ) PAGER ,
+in modo da avere il proprio insieme di pagine di guida e scegliere
+il programma preferito per leggere le pagine formattate. Se
+.I sezione
+è specificata,
+.B man
+cerca solamente in quella sezione del manuale.
+Si può anche specificare l'ordine di ricerca delle sezioni e quale
+preprocessore utilizzare tramite un'opzione della riga di comando o variabile
+d'ambiente.
+Se
+.I nome
+contiene un carattere /, allora questo viene prima provato come se
+fosse il nome di un file, in modo da
+poter fare
+.B "man ./foo.5"
+o anche
+.B "man /cd/foo/bar.1.gz\fR.\fP"
+.SH OPZIONI
+.TP
+.B \-\^C " file_configurazione"
+Specifica il file man.config da usare; il valore di default è
+@man_config_file@ (vedere
+.BR man.conf (5)).
+.TP
+.B \-\^M " percorso"
+Specifica la lista di directory in cui cercare le pagine di guida. Se
+questa opzione manca, viene usata la variabile d'ambiente
+.BR MANPATH .
+Se tale variabile d'ambiente non ci fosse, l'elenco di default è
+trovato consultando @man_config_file@. Una sottostringa vuota di
+MANPATH denota la lista di default.
+.TP
+.B \-\^P " impaginatore"
+Specifica il programma di impaginazione da usare. Per default man usa
+.BR @pager@ .
+Questa opzione sovrascrive la variabile d'ambiente
+.BR MANPAGER ,
+che sovrascrive a sua volta la variabile
+.BR PAGER .
+.TP
+.B \-\^S " lista_sezioni"
+La lista è un elenco separato dal carattere due punti di sezioni di
+guide da cercare. Questa opzione sovrascrive la variabile d'ambiente
+.BR MANSECT .
+.TP
+.B \-\^a
+Di natura, man esce dopo aver mostrato la prima pagina di guida
+trovata. Usando questa opzione si forza man a mostrare tutte le
+pagine di guida corrispondenti a 
+.B nome, 
+non solo la prima.
+.TP
+.B \-\^c
+Riformatta la pagina di guida sorgente, anche quando esiste una
+pagina formattata aggiornata. Questa opzione è utile se la pagina è
+stata formattata per uno schermo con un numero diverso di colonne.
+.TP
+.B \-\^d
+Non mostra la pagina di guida, ma stampa alcune informazioni diagnostiche.
+.TP
+.B \-\^D
+Mostra sia la pagina che le informazioni diagnostiche.
+.TP
+.B \-\^f
+Equivalente a
+.BR whatis .
+.TP
+.BR \-\^F " o " \-\-preformat
+Formatta solamente: non mostra niente.
+.TP
+.B \-\^h
+Stampa una riga di aiuto ed esce.
+.TP
+.B \-\^k
+Equivalente a
+.B apropos.
+.TP
+.B \-\^K
+Ricerca una stringa specifica in *tutte* le pagine di guida.
+Attenzione: questo è probabilmente molto lento! Può essere di aiuto
+specificare una sezione (solo per dare un'idea, nella mia macchina
+questo porta via circa un minuto per 500 pagine di guida).
+.TP
+.B \-\^m " sistema"
+Specifica un insieme alternativo di pagine di guida da cercare basato sul
+nome di sistema dato.
+.TP
+.B \-\^p " stringa"
+Specifica la sequenza di preprocessori da eseguire prima di nroff o
+troff. Non tutte le installazioni hanno l'insieme completo di
+preprocessori. Alcuni preprocessori e le lettere usate per designarli
+sono: eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Questa opzione sovrascrive la variabile d'ambiente
+.BR MANROFFSEQ .
+.TP
+.B \-\^t
+Usa
+.B @troff@
+per formattare la pagina di guida, mandando l'output allo
+.BR stdout .
+L'output di
+.B @troff@
+potrebbe aver bisogno di passare attraverso filtri o altro prima di
+essere stampato.
+.TP
+.B \-\^w \fRo\fP \-\-path
+Non mostra subito la pagina di guida, ma stampa la posizione dei file
+che dovrebbero essere formattati o visualizzati. Se non è dato nessun
+argomento mostra (sullo stdout) la lista di directory in cui
+.B man
+esegue la ricerca per le pagine di guida. Se
+.B manpath
+è un link a man, allora "manpath" è equivalente a "man --path".
+.TP
+.B \-\^W
+Come \-\^w, ma stampa i nomi dei file uno per riga, senza ulteriori
+informazioni. Questo è utile in comandi di shell tipo
+.ft CW
+man -aW man | xargs ls -l.
+.ft
+
+.SH "PAGINE FORMATTATE"
+Man tenterà di salvare le pagine di guida formattare, in modo da
+risparmiare il tempo di formattazione la volta successiva che quelle
+pagine saranno necessarie. Tradizionalmente, le versioni formattate
+delle pagine in DIR/manX sono salvate in DIR/catX, ma altri tipi di
+mappatura possono essere specificati in /usr/lib/man.config.
+Le pagine formattate non sono salvate quando la directory cat
+corrispondente non esiste.
+.PP
+È possibile rendere man suid all'utente man. Quindi, se una directory
+cat ha proprietario man e permessi 0755 (scrivibile solo da man), e i
+file formattati hanno proprietario man e permessi 0644 o 0444
+(scrivibili solo da man, o non scrivibili affatto), nessun utente
+ordinario può cambiare le pagine formattate o mettere altri file
+nella directory cat. Se man non è suid, allora la directory cat deve
+avere i permessi 0777 se tutti gli utenti devono essere abilitati a
+lasciare lì le pagine formattate.
+.PP
+L'opzione -c forza la formattazione di una pagina, anche se esiste una
+pagina formattata di recente.
+
+.SH AMBIENTE
+.TP
+.B MANPATH
+Se
+.B MANPATH
+è impostata, il suo valore è usato come percorso di ricerca per le
+pagine di guida.
+.TP
+.B MANROFFSEQ
+Se
+.B MANROFFSEQ
+è impostata, il suo valore è usato per determinare l'insieme di
+preprocessori da eseguire prima di nroff o troff. Per default, le
+pagine sono passate attraverso il preprocessore di tabelle prima di
+nroff.
+.TP
+.B MANSECT
+Se
+.B MANSECT
+è impostata, il suo valore è usato per determinare quale sezione del
+manuale usare per la ricerca.
+.TP
+.B MANWIDTH
+Se
+.B MANWIDTH
+è impostata, il suo valore è usato per la larghezza con cui le pagine
+di guida dovrebbero essere visualizzate. Altrimenti le pagine saranno
+mostrate utilizzando la dimensione intera dello schermo.
+.TP
+.B MANPAGER
+Se
+.B MANPAGER
+è impostata, il suo valore è usato come nome del programma da usare
+per mostrare le pagine di guida. Altrimenti viene usato il valore di 
+.BR PAGER .
+Se neanche questa è impostata, viene usato
+.BR @pager@ .
+.TP
+.B LANG
+Se
+.B LANG
+è impostata, il suo valore definisce il nome della sottodirectory
+dove man cerca prima per le pagine di guida. Così il comando `LANG=it
+man 1 foo' fa in modo che man cerchi la pagina di guida di foo in
+.../it/man1/foo.1, e se non la trova in .../man1/foo.1, dove ... è la
+directory nel percorso di ricerca.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Le variabili d'ambiente
+.B NLSPATH
+e
+.B LC_MESSAGES
+(o
+.B LANG
+quando l'ultima non esiste)
+giocano un ruolo nella localizzazione del catalogo messaggi
+(ma i messaggi inglesi sono compilati, e per l'inglese non è
+richiesto il catalogo).
+Notare che programmi tipo col(1) chiamati da man usano anche
+LC_CTYPE.
+.TP
+.B PATH
+.B PATH
+è usata nella costruzione del percorso di ricerca di default per le
+pagine di guida.
+.TP
+.B SYSTEM
+.B SYSTEM
+è usata per ottenere il nome di sistema alternativo (per l'uso con
+l'opzione
+.BR \-m ).
+.SH "VEDERE ANCHE"
+apropos(1), whatis(1), less(1), groff(1).
+.SH BACHI
+L'opzione
+.B \-t
+funziona solo se è installato un programma simile a troff.
+.br
+Se compaiono dei \e255 lampeggianti o <AD> al posto dei trattini, si
+ponga la variabile ambientale `LESSCHARSET=latin1'.
+.SH CONSIGLI
+Se si aggiunge la riga
+
+  (global-set-key [(f1)] (lambda () (interactive) (manual-entry (current-word))))
+
+nel proprio file
+.IR .emacs ,
+allora il tasto F1 produrrà la pagina di manuale corrispondente alla
+chiamata di libreria su cui è posizionato il cursore.

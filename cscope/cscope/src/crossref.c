@@ -37,11 +37,14 @@
  */
 
 #include "global.h"
+
+#include "build.h"
 #include "scanner.h"
 
 #include <stdlib.h>
+#include <sys/stat.h>
 
-static char const rcsid[] = "$Id: crossref.c,v 1.1.1.2 2002/01/09 18:50:31 umeshv Exp $";
+static char const rcsid[] = "$Id: crossref.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
 
 
 /* convert long to a string */
@@ -61,7 +64,6 @@ static char const rcsid[] = "$Id: crossref.c,v 1.1.1.2 2002/01/09 18:50:31 umesh
 
 long	dboffset;		/* new database offset */
 BOOL	errorsfound;		/* prompt before clearing messages */
-long	fileindex;		/* source file name index */
 long	lineoffset;		/* source line database offset */
 long	npostings;		/* number of postings */
 int	nsrcoffset;             /* number of file name database offsets */
@@ -91,7 +93,15 @@ crossref(char *srcfile)
 	int	length;		/* symbol length */
 	int	entry_no;		/* function level of the symbol */
 	int	token;			/* current token */
+	struct stat st;
 
+	if (! ((stat(srcfile, &st) == 0)
+	       && S_ISREG(st.st_mode))) {
+		cannotopen(srcfile);
+		errorsfound = YES;
+		return;
+	}
+	
 	entry_no = 0;
 	/* open the source file */
 	if ((yyin = myfopen(srcfile, "r")) == NULL) {
@@ -232,7 +242,7 @@ putcrossref(void)
 	/* output the source line */
 	lineoffset = dboffset;
 	dboffset += fprintf(newrefs, "%d ", lineno);
-#if BSD && !sun && !__FreeBSD__
+#ifdef PRINTF_RETVAL_BROKEN
 	dboffset = ftell(newrefs); /* fprintf doesn't return chars written */
 #endif
 

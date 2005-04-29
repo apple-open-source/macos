@@ -1,0 +1,697 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.internet.win32eventreactor.Win32Reactor</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.internet.html">Package&nbsp;internet</a> ::
+        <a href="twisted.internet.win32eventreactor.html">Module&nbsp;win32eventreactor</a> ::
+        Class&nbsp;Win32Reactor
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.internet.win32eventreactor.Win32Reactor.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class Win32Reactor</h2>
+
+<pre class="base-tree">
+ <a href="twisted.internet.base.ReactorBase.html"><code>ReactorBase</code></a> --+    
+               |    
+<a href="twisted.internet.default.PosixReactorBase.html"><code>PosixReactorBase</code></a> --+
+                   |
+                  <b>Win32Reactor</b>
+</pre><br />
+
+<hr/>
+
+Reactor that uses Win32 event APIs.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#_makeSocketEvent" class="summary-sig-name"><code>_makeSocketEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>fd</span>,
+          <span class=summary-sig-arg>action</span>,
+          <span class=summary-sig-arg>why</span>,
+          <span class=summary-sig-arg>events</span>)</span></code>
+<br />
+Make a win32 event object for a socket.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_runAction"></a><span class="summary-sig"><span class="summary-sig-name">_runAction</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>action</span>,
+          <span class=summary-sig-arg>fd</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="_runWrite"></a><span class="summary-sig"><span class="summary-sig-name">_runWrite</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>fd</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#addEvent" class="summary-sig-name"><code>addEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>event</span>,
+          <span class=summary-sig-arg>fd</span>,
+          <span class=summary-sig-arg>action</span>,
+          <span class=summary-sig-arg>events</span>)</span></code>
+<br />
+Add a new win32 event to the event loop.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#addReader" class="summary-sig-name"><code>addReader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reader</span>,
+          <span class=summary-sig-arg>reads</span>)</span></code>
+<br />
+Add a socket FileDescriptor for notification of data available to 
+read.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#addWriter" class="summary-sig-name"><code>addWriter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>writer</span>,
+          <span class=summary-sig-arg>writes</span>)</span></code>
+<br />
+Add a socket FileDescriptor for notification of data available to 
+write.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="doWaitForMultipleEvents"></a><span class="summary-sig"><span class="summary-sig-name">doIteration</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>timeout</span>,
+          <span class=summary-sig-arg>reads</span>,
+          <span class=summary-sig-arg>writes</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="doWaitForMultipleEvents"></a><span class="summary-sig"><span class="summary-sig-name">doWaitForMultipleEvents</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>timeout</span>,
+          <span class=summary-sig-arg>reads</span>,
+          <span class=summary-sig-arg>writes</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#removeAll" class="summary-sig-name"><code>removeAll</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Remove all selectables, and return a list of them.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#removeEvent" class="summary-sig-name"><code>removeEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>event</span>)</span></code>
+<br />
+Remove an event.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#removeReader" class="summary-sig-name"><code>removeReader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>reader</span>)</span></code>
+<br />
+Remove a Selectable for notification of data available to read.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#removeWriter" class="summary-sig-name"><code>removeWriter</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>writer</span>,
+          <span class=summary-sig-arg>writes</span>)</span></code>
+<br />
+Remove a Selectable for notification of data available to write.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.win32eventreactor.Win32Reactor.html#spawnProcess" class="summary-sig-name"><code>spawnProcess</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>processProtocol</span>,
+          <span class=summary-sig-arg>executable</span>,
+          <span class=summary-sig-arg>args</span>,
+          <span class=summary-sig-arg>env</span>,
+          <span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>usePTY</span>)</span></code>
+<br />
+Spawn a process.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from PosixReactorBase</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#_handleSigchld" class="summary-sig-name"><code>_handleSigchld</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>signum</span>,
+          <span class=summary-sig-arg>frame</span>)</span></code>
+<br />
+Reap all processes on SIGCHLD.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#_handleSignals" class="summary-sig-name"><code>_handleSignals</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Install the signal handlers for the Twisted event loop.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectMulticast" class="summary-sig-name"><code>connectMulticast</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>remotehost</span>,
+          <span class=summary-sig-arg>remoteport</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>localport</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>)</span></code>
+<br />
+Connects a ConnectedDatagramProtocol instance to a UDP port.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectSSL" class="summary-sig-name"><code>connectSSL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>contextFactory</span>,
+          <span class=summary-sig-arg>timeout</span>,
+          <span class=summary-sig-arg>bindAddress</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectTCP" class="summary-sig-name"><code>connectTCP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>timeout</span>,
+          <span class=summary-sig-arg>bindAddress</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectUDP" class="summary-sig-name"><code>connectUDP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>remotehost</span>,
+          <span class=summary-sig-arg>remoteport</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>localport</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>)</span></code>
+<br />
+DEPRECATED.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectUNIX" class="summary-sig-name"><code>connectUNIX</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>timeout</span>,
+          <span class=summary-sig-arg>checkPID</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectUNIXDatagram" class="summary-sig-name"><code>connectUNIXDatagram</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>,
+          <span class=summary-sig-arg>mode</span>,
+          <span class=summary-sig-arg>bindAddress</span>)</span></code>
+<br />
+Connects a <code>ConnectedDatagramProtocol</code> instance to a 
+path.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#connectWith" class="summary-sig-name"><code>connectWith</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>connectorType</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#installWaker" class="summary-sig-name"><code>installWaker</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Install a `waker' to allow threads and signals to wake up the IO 
+thread.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenMulticast" class="summary-sig-name"><code>listenMulticast</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>)</span></code>
+<br />
+Connects a given DatagramProtocol to the given numeric UDP port.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenSSL" class="summary-sig-name"><code>listenSSL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>contextFactory</span>,
+          <span class=summary-sig-arg>backlog</span>,
+          <span class=summary-sig-arg>interface</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenTCP" class="summary-sig-name"><code>listenTCP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>backlog</span>,
+          <span class=summary-sig-arg>interface</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenUDP" class="summary-sig-name"><code>listenUDP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>interface</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>)</span></code>
+<br />
+Connects a given <code>DatagramProtocol</code> to the given numeric 
+UDP port.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenUNIX" class="summary-sig-name"><code>listenUNIX</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>factory</span>,
+          <span class=summary-sig-arg>backlog</span>,
+          <span class=summary-sig-arg>mode</span>,
+          <span class=summary-sig-arg>wantPID</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenUNIXDatagram" class="summary-sig-name"><code>listenUNIXDatagram</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>maxPacketSize</span>,
+          <span class=summary-sig-arg>mode</span>)</span></code>
+<br />
+Connects a given <code>DatagramProtocol</code> to the given path.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#listenWith" class="summary-sig-name"><code>listenWith</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>portType</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#mainLoop" class="summary-sig-name"><code>mainLoop</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#run" class="summary-sig-name"><code>run</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>installSignalHandlers</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.default.PosixReactorBase.html#startRunning" class="summary-sig-name"><code>startRunning</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>installSignalHandlers</span>)</span></code>
+</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from ReactorBase</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#_cbContinueSystemEvent" class="summary-sig-name"><code>_cbContinueSystemEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>eventType</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#_continueSystemEvent" class="summary-sig-name"><code>_continueSystemEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>eventType</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#_initThreadPool" class="summary-sig-name"><code>_initThreadPool</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#_internalResolve" class="summary-sig-name"><code>_internalResolve</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>timeout</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#_resetCallLater" class="summary-sig-name"><code>_resetCallLater</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tple</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#addSystemEventTrigger" class="summary-sig-name"><code>addSystemEventTrigger</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>_phase</span>,
+          <span class=summary-sig-arg>_eventType</span>,
+          <span class=summary-sig-arg>_f</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+See 
+twisted.internet.interfaces.IReactorCore.addSystemEventTrigger.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#callFromThread" class="summary-sig-name"><code>callFromThread</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>f</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorThreads.callFromThread.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#callInThread" class="summary-sig-name"><code>callInThread</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>_callable</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorThreads.callInThread.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#callLater" class="summary-sig-name"><code>callLater</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>_seconds</span>,
+          <span class=summary-sig-arg>_f</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorTime.callLater.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#callWhenRunning" class="summary-sig-name"><code>callWhenRunning</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>_callable</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorCore.callWhenRunning.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#cancelCallLater" class="summary-sig-name"><code>cancelCallLater</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>callID</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorTime.cancelCallLater.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#clientSSL" class="summary-sig-name"><code>clientSSL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>contextFactory</span>,
+          <span class=summary-sig-arg>timeout</span>)</span></code>
+<br />
+Deprecated - use connectSSL instead.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#clientTCP" class="summary-sig-name"><code>clientTCP</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>host</span>,
+          <span class=summary-sig-arg>port</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>timeout</span>)</span></code>
+<br />
+Deprecated - use connectTCP instead.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#clientUNIX" class="summary-sig-name"><code>clientUNIX</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>address</span>,
+          <span class=summary-sig-arg>protocol</span>,
+          <span class=summary-sig-arg>timeout</span>)</span></code>
+<br />
+Deprecated - use connectUNIX instead.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#crash" class="summary-sig-name"><code>crash</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorCore.crash.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#disconnectAll" class="summary-sig-name"><code>disconnectAll</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Disconnect every reader, and writer in the system.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#fireSystemEvent" class="summary-sig-name"><code>fireSystemEvent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>eventType</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorCore.fireSystemEvent.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#getDelayedCalls" class="summary-sig-name"><code>getDelayedCalls</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#initThreads" class="summary-sig-name"><code>initThreads</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#installResolver" class="summary-sig-name"><code>installResolver</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>resolver</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#iterate" class="summary-sig-name"><code>iterate</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>delay</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorCore.iterate.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#removeSystemEventTrigger" class="summary-sig-name"><code>removeSystemEventTrigger</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>triggerID</span>)</span></code>
+<br />
+See 
+twisted.internet.interfaces.IReactorCore.removeSystemEventTrigger.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#resolve" class="summary-sig-name"><code>resolve</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>name</span>,
+          <span class=summary-sig-arg>timeout</span>)</span></code>
+<br />
+Return a Deferred that will resolve a hostname.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#runUntilCurrent" class="summary-sig-name"><code>runUntilCurrent</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Run all pending timed calls.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#sigBreak" class="summary-sig-name"><code>sigBreak</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+<br />
+Handle a SIGBREAK interrupt.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#sigInt" class="summary-sig-name"><code>sigInt</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+<br />
+Handle a SIGINT interrupt.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#sigTerm" class="summary-sig-name"><code>sigTerm</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>)</span></code>
+<br />
+Handle a SIGTERM interrupt.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#stop" class="summary-sig-name"><code>stop</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+See twisted.internet.interfaces.IReactorCore.stop.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#suggestThreadPoolSize" class="summary-sig-name"><code>suggestThreadPoolSize</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>size</span>)</span></code>
+<br />
+See 
+twisted.internet.interfaces.IReactorThreads.suggestThreadPoolSize.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#timeout" class="summary-sig-name"><code>timeout</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.internet.base.ReactorBase.html#wakeUp" class="summary-sig-name"><code>wakeUp</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Wake up the event loop.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>tuple</code></font></td>
+<td><b><a href="twisted.internet.win32eventreactor.Win32Reactor.html#__implements__"><code>__implements__</code></a></b> = <span title="(((&lt;class twisted.internet.interfaces.IReactorCore at 0x827a854&gt;, &lt;class twisted.internet.interfaces.IReactorTime at 0x828aedc&gt;, &lt;class twisted.internet.interfaces.IReactorThreads at 0x827b60c&gt;, &lt;class twisted.internet.interfaces.IReactorPluggableResolver at 0x824c10c&gt;), &lt;class twisted.internet.interfaces.IReactorArbitrary at 0x826461c&gt;, &lt;class twisted.internet.interfaces.IReactorTCP at 0x828afc4&gt;, &lt;class twisted.internet.interfaces.IReactorUDP at 0x825557c&gt;, &lt;class twisted.internet.interfaces.IReactorMulticast at 0x8251c3c&gt;, &lt;class twisted.internet.interfaces.IReactorSSL at 0x8250a9c&gt;, &lt;cl..."><code>(((&lt;class&nbsp;twisted.internet.interfaces.I<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.win32eventreactor.Win32Reactor.html#dummyEvent"><code>dummyEvent</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from ReactorBase</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.internet.base.ReactorBase.html#__name__"><code>__name__</code></a></b> = <span title="'ReactorBase'"><code><span class="variable-quote">'</span>ReactorBase<span class="variable-quote">'</span>                                 </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.base.ReactorBase.html#_lock"><code>_lock</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.internet.base.ReactorBase.html#installed"><code>installed</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.base.ReactorBase.html#threadCallQueue"><code>threadCallQueue</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>NoneType</code></font></td>
+<td><b><a href="twisted.internet.base.ReactorBase.html#threadpool"><code>threadpool</code></a></b> = <span title="None">None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="_makeSocketEvent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_makeSocketEvent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>fd</span>,
+          <span class=sig-arg>action</span>,
+          <span class=sig-arg>why</span>,
+          <span class=sig-arg>events</span>=<span class=sig-default>{}</span>)</span>
+  </h3>
+  Make a win32 event object for a socket.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addEvent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addEvent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>event</span>,
+          <span class=sig-arg>fd</span>,
+          <span class=sig-arg>action</span>,
+          <span class=sig-arg>events</span>=<span class=sig-default>{}</span>)</span>
+  </h3>
+  Add a new win32 event to the event loop.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addReader"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addReader</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>reader</span>,
+          <span class=sig-arg>reads</span>=<span class=sig-default>{}</span>)</span>
+  </h3>
+  Add a socket FileDescriptor for notification of data available to 
+  read.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.base.ReactorBase.html#addReader"><code>twisted.internet.base.ReactorBase.addReader</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="addWriter"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">addWriter</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>writer</span>,
+          <span class=sig-arg>writes</span>=<span class=sig-default>{}</span>)</span>
+  </h3>
+  Add a socket FileDescriptor for notification of data available to 
+  write.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.base.ReactorBase.html#addWriter"><code>twisted.internet.base.ReactorBase.addWriter</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="removeAll"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">removeAll</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Remove all selectables, and return a list of them.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.base.ReactorBase.html#removeAll"><code>twisted.internet.base.ReactorBase.removeAll</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="removeEvent"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">removeEvent</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>event</span>)</span>
+  </h3>
+  Remove an event.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="removeReader"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">removeReader</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>reader</span>)</span>
+  </h3>
+  Remove a Selectable for notification of data available to read.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.base.ReactorBase.html#removeReader"><code>twisted.internet.base.ReactorBase.removeReader</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="removeWriter"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">removeWriter</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>writer</span>,
+          <span class=sig-arg>writes</span>=<span class=sig-default>{}</span>)</span>
+  </h3>
+  Remove a Selectable for notification of data available to write.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.base.ReactorBase.html#removeWriter"><code>twisted.internet.base.ReactorBase.removeWriter</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="spawnProcess"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">spawnProcess</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>processProtocol</span>,
+          <span class=sig-arg>executable</span>,
+          <span class=sig-arg>args</span>=<span class=sig-default>()</span>,
+          <span class=sig-arg>env</span>=<span class=sig-default>{}</span>,
+          <span class=sig-arg>path</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>usePTY</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  Spawn a process.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.internet.default.PosixReactorBase.html#spawnProcess"><code>twisted.internet.default.PosixReactorBase.spawnProcess</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__implements__"></a>
+<h3>__implements__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>tuple</code>
+
+      </dd>
+<span title="(((&lt;class twisted.internet.interfaces.IReactorCore at 0x827a854&gt;, &lt;class twisted.internet.interfaces.IReactorTime at 0x828aedc&gt;, &lt;class twisted.internet.interfaces.IReactorThreads at 0x827b60c&gt;, &lt;class twisted.internet.interfaces.IReactorPluggableResolver at 0x824c10c&gt;), &lt;class twisted.internet.interfaces.IReactorArbitrary at 0x826461c&gt;, &lt;class twisted.internet.interfaces.IReactorTCP at 0x828afc4&gt;, &lt;class twisted.internet.interfaces.IReactorUDP at 0x825557c&gt;, &lt;class twisted.internet.interfaces.IReactorMulticast at 0x8251c3c&gt;, &lt;class twisted.internet.interfaces.IReactorSSL at 0x8250a9c&gt;, &lt;cl...">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+(((&lt;class twisted.internet.interfaces.IReactorCore at 0x827a854&gt;,
+   &lt;class twisted.internet.interfaces.IReactorTime at 0x828aedc&gt;,
+   &lt;class twisted.internet.interfaces.IReactorThreads at 0x827b60c&gt;,
+   &lt;class twisted.internet.interfaces.IReactorPluggableResolver at 0x8<span class="variable-linewrap">\</span>
+24c10c&gt;),
+  &lt;class twisted.internet.interfaces.IReactorArbitrary at 0x826461c&gt;,
+  &lt;class twisted.internet.interfaces.IReactorTCP at 0x828afc4&gt;,
+  &lt;class twisted.internet.interfaces.IReactorUDP at 0x825557c&gt;,
+<span class="variable-ellipsis">...</span>                                                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="dummyEvent"></a>
+<h3>dummyEvent</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>NoneType</code>
+
+      </dd>
+<span title="None">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+None&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:43 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

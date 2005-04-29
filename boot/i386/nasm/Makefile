@@ -70,7 +70,8 @@ macros.c: standard.mac macros.pl
 	perl macros.pl standard.mac
 
 clean::
-	rm -rf $(SYMROOT)/nasm $(SYMROOT)/ndisasm
+	rm -rf $(SYMROOT)/nasm $(SYMROOT)/ndisasm\
+	 $(SYMROOT)/nasm.1 $(SYMROOT)/ndisasm.1
 
 $(INSTALLDIR) $(MANINSTALLDIR):
 	$(MKDIRS) $@

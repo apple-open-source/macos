@@ -1,0 +1,100 @@
+Announcing XOTcl 0.9.4
+**********************
+
+WHAT IS XOTCL?
+
+  XOTcl is an object-oriented extension of Tcl that was derived from
+  OTcl. In short, XOTcl tries to provide a highly flexible,
+  reflective, component-based, and object-oriented environment. It
+  integrates language support for high level concepts which are not
+  found in other languages, with reasonable performance. It prevails
+  the Tcl programming style and the dynamic/introspective nature of
+  the language, rather than introducing other language's styles and
+  rigidness (such as C++) into Tcl.
+
+
+CHANGES relative to 0.9.3 are:
+
+  - fixes:
+ 
+     * separate reference counting for XOTcl objects and classes
+       to avoid references from tcl_obj's internal representation
+       to freed memory
+
+     * fixes for AOL-Server (many thanks to Zoran Vasiljevic for 
+       that and for his great help during fixing the problems above)
+
+     * improved portability: horrible macro substitution 
+       bug, when USE_ALLOCA or USE_MALLOC was specified; these
+       are used for some platforms such as AIX
+
+     * fixing path search for XOTcl library (bug was introduced in 
+       0.9.3 in connection with TEA compliance)
+
+     * fixed a bug in copy/move (many thanks for Artur Trzewik
+       for reporting this) in connection with constructors 
+       (constructors are not called automatically in copy/move
+       operations anymore)
+
+     * various small fixes in libraries (e.g. HTTP support, 
+       generation of pkgIndex-files, using "my", ...)
+
+  - enhancements:
+
+     * new global command "my": 
+       one can use now:
+
+         Class Counter -parameter  {{n 0}}
+         Counter instproc ++ {}    { my incr n }
+         Counter instproc print {} { puts "actual value: [my n]"}
+
+         Counter c1
+         c1 ++
+         c1 print
+
+       In earlier versions it was neccessary to use "[self]" 
+       instead of "my". This change reduces the number of 
+       special characters in XOTcl programs. 
+       "[self]" will continue to be supported by XOTcl.
+      
+     * extended semantics of "new"
+
+        a) Object new ...
+        b) Object new -childof  ...
+        c) Object new -volatile ...
+        d) Object new -volatile -childof ...
+
+       where (a) creates now "global" objects not in the global
+       namespace anymore, but in the ::xotcl namespace, (b) can
+       be used to create objects as child of other objects
+       (e.g. as children of the actual object [self]; the objects
+       are deleted, when the specified object is deleted).  (c)
+       creates are "global" objects as in (a), but they are
+       deleted, when the scope of the current
+       tcl-proc/object-proc/instproc is left and (d) is a
+       combination of (b) and (c).
+
+  - optimizations:
+
+     * XOTcl is trying to keep Tcl_Objs of type tclCmdNameType
+       instead of converting it to XOTclObjectType agressively.
+
+     * A patch for Tcl 8.4a3 is available from the XOTcl web site
+       for performance hungry applications to provide special
+       byte-code-support for xotcl, that yields for classical
+       benchmark programs up to 40%.  This patch is not likely to
+       be integrated into the general Tcl core in the new or
+       distant future.
+  
+ For more details, please consult the ChangeLog    
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+
+
+Best regards,
+
+Gustaf Neumann
+Uwe Zdun
+

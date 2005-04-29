@@ -33,7 +33,6 @@
 #include "CDSRefTable.h"
 #include "CBuff.h"
 
-#define		kDSServiceName						"DirectoryService"	// this needs to change to "com.apple.DirectoryService" (coordinate with update to checkpw in Security)
 /*!
  * @defined kDSStdNotifyxxxxx
  * @discussion notification tags that can be registered for with SystemConfiguration
@@ -41,10 +40,11 @@
  * local machine. Not placed in public headers since might deprecate in favor of BSD
  * daemon notification mechanism at later date.
  */
-#define		kDSStdNotifyTypePrefix				"com.apple.DirectoryService.NotifyTypeStandard:"
-#define		kDSStdNotifySearchPolicyChanged		"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
-#define		kDSStdNotifyDirectoryNodeAdded		"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeAdded"
-#define		kDSStdNotifyDirectoryNodeDeleted	"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeDeleted"
+#define		kDSStdNotifyTypePrefix					"com.apple.DirectoryService.NotifyTypeStandard:"
+#define		kDSStdNotifySearchPolicyChanged			"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
+#define		kDSStdNotifyDirectoryNodeAdded			"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeAdded"
+#define		kDSStdNotifyDirectoryNodeDeleted		"com.apple.DirectoryService.NotifyTypeStandard:DirectoryNodeDeleted"
+#define		kDSStdNotifySearchPolicyFoundNIParent	"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyFoundNIParent"
 
 tDirStatus	VerifyTDataBuff		(	tDataBuffer	   *inBuff,
 									tDirStatus		inNullErr,

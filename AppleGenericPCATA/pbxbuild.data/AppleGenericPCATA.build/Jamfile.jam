@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleGenericPCATA ;
-export deferred SRCROOT = /Volumes/MacOS/Build/IntelATA/AppleGenericPCATA ;
+export deferred SRCROOT = /remote/AppleGenericPCATA ;
 
 # User-defined project-wide settings for project
 
@@ -19,19 +19,19 @@ export deferred _PBDEVELOPMENT_PLIST_FILE_PATH = "$(SRCROOT)/pbxbuild.data/Apple
 
 # Implicitly computed build settings for target "AppleGenericPCATA"
 export deferred CLONE_HEADERS = NO ;
-export deferred PFE_FILE_C_DIALECTS = "c++" ;
+export deferred PFE_FILE_C_DIALECTS = c++ ;
 export deferred TARGETNAME = $(TARGET_NAME) ;
 export deferred TARGET_NAME = AppleGenericPCATA ;
 
 # User-defined build settings for target "AppleGenericPCATA"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleGenericPCATA ;
-export deferred MODULE_VERSION = 1.2 ;
+export deferred MODULE_VERSION = 1.3 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;
@@ -64,9 +64,9 @@ ProcessScriptBuildPhaseFiles "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(SC
 # Headers
 HEADERS =
 	AppleGenericPCATADriver.h
-	AppleGenericPCATAController.h
+	AppleGenericPCATAChannel.h
 	AppleGenericPCATAKeys.h
-	AppleGenericPCMultiATADriver.h ;
+	AppleGenericPCATARoot.h ;
 ProcessHeaders "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(HEADERS)" : BPTag000 : BPTag001 ;
 
 # Resources
@@ -78,8 +78,8 @@ ProcessResources "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(RESOURCES)" : 
 AppleGenericPCATADriver.cpp_ATTRIBUTES = ;
 SOURCES =
 	AppleGenericPCATADriver.cpp
-	AppleGenericPCATAController.cpp
-	AppleGenericPCMultiATADriver.cpp ;
+	AppleGenericPCATAChannel.cpp
+	AppleGenericPCATARoot.cpp ;
 ProcessSources "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(SOURCES)" : BPTag002 : BPTag003 ;
 
 # Frameworks & Libraries
@@ -93,6 +93,12 @@ ProcessRezFiles "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(REZ_FILES)" : B
 # Script Build Phase Files
 SCRIPT_BUILD_PHASE_FILES = "$(SRCROOT)/pbxbuild.data/AppleGenericPCATA.build/BPTag006-script.sh" ;
 ProcessScriptBuildPhaseFiles "<AppleGenericPCATA>AppleGenericPCATA.kext" : "$(SCRIPT_BUILD_PHASE_FILES)" : BPTag005 : BPTag006 ;
+
+rule DefineHeaderDependencies
+{
+}
+
+DefineHeaderDependencies "<AppleGenericPCATA>AppleGenericPCATA.kext" ;
 
 EndBundle "<AppleGenericPCATA>AppleGenericPCATA.kext" ;
 

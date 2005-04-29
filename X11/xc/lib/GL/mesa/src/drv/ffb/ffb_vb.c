@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vb.c,v 1.4 2002/02/22 21:32:59 dawes Exp $
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vb.c,v 1.5 2003/09/28 20:15:08 alanh Exp $
  *
  * GLX Hardware Device Driver for Sun Creator/Creator3D
  * Copyright (C) 2000, 2001 David S. Miller
@@ -28,7 +28,8 @@
 #include "ffb_xmesa.h"
 #include "ffb_context.h"
 #include "ffb_vb.h"
-#include "mem.h"
+#include "mmath.h"
+#include "imports.h"
 #include "tnl/t_context.h"
 #include "swrast_setup/swrast_setup.h"
 #include "math/m_translate.h"
@@ -175,12 +176,12 @@ static void ffbDDBuildVertices(GLcontext *ctx, GLuint start, GLuint count,
 	if (!newinputs)
 		return;
 
-	if (newinputs & VERT_CLIP) {
+	if (newinputs & VERT_BIT_CLIP) {
 		setup_tab[fmesa->setupindex].emit(ctx, start, count);
 	} else {
 		GLuint ind = 0;
 
-		if (newinputs & VERT_RGBA)
+		if (newinputs & VERT_BIT_COLOR0)
 			ind |= (FFB_VB_RGBA_BIT | FFB_VB_TWOSIDE_BIT);
 
 		ind &= fmesa->setupindex;

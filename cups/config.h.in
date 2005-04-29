@@ -1,11 +1,11 @@
 /*
- * "$Id: config.h.in,v 1.9 2003/09/05 01:14:49 jlovell Exp $"
+ * "$Id: config.h.in,v 1.19 2005/02/16 17:58:00 jlovell Exp $"
  *
  *   Configuration file for the Common UNIX Printing System (CUPS).
  *
  *   @configure_input@
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -17,18 +17,22 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
  *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  */
 
+#ifndef _CUPS_CONFIG_H_
+#define _CUPS_CONFIG_H_
+
 /*
  * Version of software...
  */
 
-#define CUPS_SVERSION	"CUPS v1.1.19rc3"
+#define CUPS_SVERSION	"CUPS v1.1.21"
+#define CUPS_MINIMAL	"CUPS/1.1.21"
 
 
 /*
@@ -44,6 +48,14 @@
  */
 
 #define CUPS_MAX_FDS		4096
+
+
+/*
+ * Do we have domain socket support?
+ */
+
+#undef HAVE_DOMAINSOCKETS
+#undef CUPS_DEFAULT_DOMAINSOCKET
 
 
 /*
@@ -92,6 +104,7 @@
 #undef HAVE_SYS_DIR_H
 #undef HAVE_SYS_NDIR_H
 #undef HAVE_NDIR_H
+#undef HAVE_LIBGEN_H
 
 
 /*
@@ -140,6 +153,13 @@
 
 
 /*
+ * Do we have the geteuid() function?
+ */
+
+#undef HAVE_GETEUID
+
+
+/*
  * Do we have the vsyslog() function?
  */
 
@@ -179,6 +199,20 @@
 
 
 /*
+ * Do we have the langinfo.h header file?
+ */
+
+#undef HAVE_LANGINFO_H
+
+
+/*
+ * Do we have the dlfcn.h header file?
+ */
+
+#undef HAVE_DLFCN_H
+
+
+/*
  * Which encryption libraries do we have?
  */
 
@@ -203,10 +237,24 @@
 
 
 /*
+ * Do we have DNS Service Discovery (aka Bonjour)?
+ */
+
+#undef HAVE_DNSSD
+
+
+/*
  * Do we have <sys/ioctl.h>?
  */
 
 #undef HAVE_SYS_IOCTL_H
+
+
+/*
+ * Do we have <inttypes.h>?
+ */
+
+#undef HAVE_INTTYPES_H
 
 
 /*
@@ -263,10 +311,25 @@
 
 
 /*
+ * Do we have MacOSX 10.4's mbr_XXX functions()?
+ */
+
+#undef HAVE_MEMBERSHIP_H
+#undef HAVE_MBR_UID_TO_UUID
+
+
+/*
  * Does the sockaddr structure contain an sa_len parameter?
  */
 
 #undef HAVE_STRUCT_SOCKADDR_SA_LEN
+
+
+/*
+ * Do we have the AIX usersec.h header file?
+ */
+
+#undef HAVE_USERSEC_H
 
 
 /*
@@ -283,6 +346,8 @@
 #define CUPS_PYTHON	"/usr/bin/python"
 
 
+#endif /* !_CUPS_CONFIG_H_ */
+
 /*
- * End of "$Id: config.h.in,v 1.9 2003/09/05 01:14:49 jlovell Exp $".
+ * End of "$Id: config.h.in,v 1.19 2005/02/16 17:58:00 jlovell Exp $".
  */

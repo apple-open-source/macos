@@ -1,4 +1,4 @@
-/*	$NetBSD: read.c,v 1.17 2000/09/04 22:06:31 lukem Exp $	*/
+/*	$NetBSD: read.c,v 1.21 2002/03/18 16:00:57 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,19 +36,60 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * read.c: Clean this junk up! This is horrible code.
  *	   Terminal read functions
  */
-#include "sys.h"
+#include <errno.h>
+#include <unistd.h>
+#include <stdlib.h>
 #include "el.h"
 
 #define	OKCMD	-1
 
 private int	read__fixio(int, int);
 private int	read_preread(EditLine *);
-private int	read_getcmd(EditLine *, el_action_t *, char *);
 private int	read_char(EditLine *, char *);
+private int	read_getcmd(EditLine *, el_action_t *, char *);
+
+/* read_init():
+ *	Initialize the read stuff
+ */
+protected int
+read_init(EditLine *el)
+{
+	/* builtin read_char */
+	el->el_read.read_char = read_char;
+	return 0;
+}
+
+
+/* el_read_setfn():
+ *	Set the read char function to the one provided.
+ *	If it is set to EL_BUILTIN_GETCFN, then reset to the builtin one.
+ */
+protected int
+el_read_setfn(EditLine *el, el_rfunc_t rc)
+{
+	el->el_read.read_char = (rc == EL_BUILTIN_GETCFN) ? read_char : rc;
+	return 0;
+}
+
+
+/* el_read_getfn():
+ *	return the current read char function, or EL_BUILTIN_GETCFN
+ *	if it is the default one
+ */
+protected el_rfunc_t
+el_read_getfn(EditLine *el)
+{
+       return (el->el_read.read_char == read_char) ?
+	    EL_BUILTIN_GETCFN : el->el_read.read_char;
+}
+
 
 #ifdef DEBUG_EDIT
 private void
@@ -169,14 +210,13 @@ read_preread(EditLine *el)
  *	Push a macro
  */
 public void
-el_push(EditLine *el, const char *str)
+el_push(EditLine *el, char *str)
 {
 	c_macro_t *ma = &el->el_chared.c_macro;
 
 	if (str != NULL && ma->level + 1 < EL_MAXMACRO) {
 		ma->level++;
-		/* LINTED const cast */
-		ma->macro[ma->level] = (char *) str;
+		ma->macro[ma->level] = str;
 	} else {
 		term_beep(el);
 		term__flush();
@@ -226,7 +266,7 @@ read_getcmd(EditLine *el, el_action_t *cmdnum, char *ch)
 				break;
 #endif
 			default:
-				abort();
+				EL_ABORT((el->el_errfile, "Bad XK_ type \n"));
 				break;
 			}
 		}
@@ -298,7 +338,7 @@ el_getc(EditLine *el, char *cp)
 #ifdef DEBUG_READ
 	(void) fprintf(el->el_errfile, "Reading a character\n");
 #endif /* DEBUG_READ */
-	num_read = read_char(el, cp);
+	num_read = (*el->el_read.read_char)(el, cp);
 #ifdef DEBUG_READ
 	(void) fprintf(el->el_errfile, "Got it %c\n", *cp);
 #endif /* DEBUG_READ */
@@ -322,16 +362,21 @@ el_gets(EditLine *el, int *nread)
 
 	if (el->el_flags & NO_TTY) {
 		char *cp = el->el_line.buffer;
+		size_t idx;
 
-		while (read_char(el, cp) == 1) {
-			cp++;
-			if (cp == el->el_line.limit) {
-				--cp;
-				break;
+		while ((*el->el_read.read_char)(el, cp) == 1) {
+			/* make sure there is space for next character */
+			if (cp + 1 >= el->el_line.limit) {
+				idx = (cp - el->el_line.buffer);
+				if (!ch_enlargebufs(el, 2))
+					break;
+				cp = &el->el_line.buffer[idx];
 			}
+			cp++;
 			if (cp[-1] == '\r' || cp[-1] == '\n')
 				break;
 		}
+
 		el->el_line.cursor = el->el_line.lastchar = cp;
 		*cp = '\0';
 		if (nread)
@@ -360,19 +405,23 @@ el_gets(EditLine *el, int *nread)
 
 	if (el->el_flags & EDIT_DISABLED) {
 		char *cp = el->el_line.buffer;
+		size_t idx;
 
 		term__flush();
 
-		while (read_char(el, cp) == 1) {
-			cp++;
-			if (cp == el->el_line.limit) {
-				--cp;
-				break;
+		while ((*el->el_read.read_char)(el, cp) == 1) {
+			/* make sure there is space next character */
+			if (cp + 1 >= el->el_line.limit) {
+				idx = (cp - el->el_line.buffer);
+				if (!ch_enlargebufs(el, 2))
+					break;
+				cp = &el->el_line.buffer[idx];
 			}
+			cp++;
 			if (cp[-1] == '\r' || cp[-1] == '\n')
 				break;
-
 		}
+
 		el->el_line.cursor = el->el_line.lastchar = cp;
 		*cp = '\0';
 		if (nread)

@@ -18,9 +18,6 @@ along with GNU CC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
-#include "mips/mips.h"
-#include "mips/abi64.h"
-
 #undef WCHAR_TYPE
 #define WCHAR_TYPE "int"
 
@@ -48,7 +45,7 @@ Boston, MA 02111-1307, USA.  */
    `varasm.c' when defining this macro.  */
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN)	\
 do {								\
-  ASM_GLOBALIZE_LABEL (FILE, NAME);				\
+  (*targetm.asm_out.globalize_label) (FILE, NAME);		\
   if (SIZE > 0 && SIZE <= mips_section_threshold)		\
     sbss_section ();						\
   else								\
@@ -67,41 +64,31 @@ do {								\
 /* Write the extra assembler code needed to declare an object properly.  */
 
 #undef ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)		\
-  do {								\
-    fprintf (FILE, "%s", TYPE_ASM_OP);				\
-    assemble_name (FILE, NAME);					\
-    putc (',', FILE);						\
-    fprintf (FILE, TYPE_OPERAND_FMT, "object");			\
-    putc ('\n', FILE);						\
-    size_directive_output = 0;					\
-    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))	\
-      {								\
-	size_directive_output = 1;				\
-	fprintf (FILE, "%s", SIZE_ASM_OP);			\
-	assemble_name (FILE, NAME);				\
-	fprintf (FILE, ",");					\
-	fprintf (FILE, HOST_WIDE_INT_PRINT_DEC,			\
-		 int_size_in_bytes (TREE_TYPE (DECL)));		\
-	fprintf (FILE, "\n");					\
-      }								\
-    mips_declare_object (FILE, NAME, "", ":\n", 0);		\
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
+  do {									\
+    HOST_WIDE_INT size;							\
+    ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");			\
+    size_directive_output = 0;						\
+    if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		\
+      {									\
+	size_directive_output = 1;					\
+	size = int_size_in_bytes (TREE_TYPE (DECL));			\
+	ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);			\
+      }									\
+    mips_declare_object (FILE, NAME, "", ":\n", 0);			\
   } while (0)
 
-#undef UNIQUE_SECTION
-#define UNIQUE_SECTION(DECL,RELOC) \
-  mips_unique_section ((DECL), (RELOC))
+#define TARGET_ASM_UNIQUE_SECTION  mips_unique_section
 
 /* A list of other sections which the compiler might be "in" at any
    given time.  */
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_sdata, in_sbss, in_rdata
+#define EXTRA_SECTIONS in_sdata, in_sbss
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS                                         \
   SECTION_FUNCTION_TEMPLATE(sdata_section, in_sdata, SDATA_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP) \
-  SECTION_FUNCTION_TEMPLATE(rdata_section, in_rdata, RDATA_SECTION_ASM_OP)
+  SECTION_FUNCTION_TEMPLATE(sbss_section, in_sbss, SBSS_SECTION_ASM_OP)
 
 #define SECTION_FUNCTION_TEMPLATE(FN, ENUM, OP)			\
 void FN ()							\
@@ -130,71 +117,55 @@ void FN ()							\
 #undef TARGET_DEFAULT
 #define TARGET_DEFAULT (MASK_ABICALLS|MASK_GAS)
 
-/* Specify predefined symbols in preprocessor.  */
-#undef CPP_PREDEFINES
-#if TARGET_ENDIAN_DEFAULT == 0
-#define CPP_PREDEFINES "-DMIPSEL -D_MIPSEL -Dunix -Dmips -D_mips \
--DR3000 -D_R3000 -D__gnu_linux__ -Dlinux -Asystem=posix -Acpu=mips \
--Amachine=mips -D__ELF__ -D__PIC__ -D__pic__"
-#else
-#define CPP_PREDEFINES "-DMIPSEB -D_MIPSEB -Dunix -Dmips -D_mips \
--DR3000 -D_R3000 -D__gnu_linux__ -Dlinux -Asystem=posix -Acpu=mips \
--Amachine=mips -D__ELF__ -D__PIC__ -D__pic__"
-#endif
+#define TARGET_OS_CPP_BUILTINS()				\
+    do {							\
+	builtin_define ("__gnu_linux__");			\
+	builtin_define ("__ELF__");				\
+	builtin_define ("__PIC__");				\
+	builtin_define ("__pic__");				\
+	builtin_define_std ("unix");				\
+	builtin_define_std ("linux");				\
+	builtin_assert ("system=linux");			\
+	/* The GNU C++ standard library requires this.  */	\
+	if (c_language = clk_cplusplus)				\
+	  builtin_define ("_GNU_SOURCE");			\
+								\
+      if (mips_abi == ABI_N32)					\
+      {								\
+        builtin_define ("_ABIN32=2");				\
+        builtin_define ("_MIPS_SIM=_ABIN32");			\
+        builtin_define ("_MIPS_SZLONG=32");			\
+        builtin_define ("_MIPS_SZPTR=32");			\
+      }								\
+     else if (mips_abi == ABI_64)				\
+      {								\
+        builtin_define ("_ABI64=3");				\
+        builtin_define ("_MIPS_SIM=_ABI64");			\
+        builtin_define ("_MIPS_SZLONG=64");			\
+        builtin_define ("_MIPS_SZPTR=64");			\
+      }								\
+     else							\
+      {								\
+        builtin_define ("_MIPS_SIM=_MIPS_SIM_ABI32");		\
+        builtin_define ("_MIPS_SZLONG=32");			\
+        builtin_define ("_MIPS_SZPTR=32");			\
+      }								\
+     if (TARGET_FLOAT64)					\
+        builtin_define ("_MIPS_FPSET=32");			\
+     else							\
+        builtin_define ("_MIPS_FPSET=16");			\
+								\
+     if (TARGET_INT64)						\
+        builtin_define ("_MIPS_SZINT=64");			\
+     else							\
+        builtin_define ("_MIPS_SZINT=32");			\
+} while (0)
 
-#undef SUBTARGET_CPP_SIZE_SPEC
-#define SUBTARGET_CPP_SIZE_SPEC "\
-%{mabi=32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=n32: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int} \
-%{mabi=64: -D__SIZE_TYPE__=long\\ unsigned\\ int -D__PTRDIFF_TYPE__=long\\ int} \
-%{!mabi*: -D__SIZE_TYPE__=unsigned\\ int -D__PTRDIFF_TYPE__=int}"
-
-/* We must make -mips3 do what -mlong64 used to do.  */
-/* ??? If no mipsX option given, but a mabi=X option is, then should set
-   _MIPS_ISA based on the mabi=X option.  */
-/* ??? If no mabi=X option give, but a mipsX option is, then should set
-   _MIPS_SIM based on the mipsX option.  */
-/* ??? Same for _MIPS_SZINT.  */
-/* ??? Same for _MIPS_SZPTR.  */
-/* ??? Same for __SIZE_TYPE and __PTRDIFF_TYPE.  */
-#undef SUBTARGET_CPP_SPEC
+#undef  SUBTARGET_CPP_SPEC
 #define SUBTARGET_CPP_SPEC "\
-%{mfp32: -D_MIPS_FPSET=16} \
-%{mfp64: -D_MIPS_FPSET=32} \
-%{!mfp*: -D_MIPS_FPSET=32} \
-%{mips1: -D_MIPS_ISA=_MIPS_ISA_MIPS1} \
-%{mips2: -D_MIPS_ISA=_MIPS_ISA_MIPS2} \
-%{mips3: -D_MIPS_ISA=_MIPS_ISA_MIPS3} \
-%{mips4: -D_MIPS_ISA=_MIPS_ISA_MIPS4} \
-%{!mips*: -D_MIPS_ISA=_MIPS_ISA_MIPS1} \
-%{mabi=32: -D_MIPS_SIM=_MIPS_SIM_ABI32}	\
-%{mabi=n32: -D_ABIN32=2 -D_MIPS_SIM=_ABIN32} \
-%{mabi=64: -D_ABI64=3 -D_MIPS_SIM=_ABI64} \
-%{!mabi*: -D_MIPS_SIM=_MIPS_SIM_ABI32}	\
-%{!mint64: -D_MIPS_SZINT=32}%{mint64: -D_MIPS_SZINT=64} \
-%{mabi=32: -D_MIPS_SZLONG=32} \
-%{mabi=n32: -D_MIPS_SZLONG=32} \
-%{mabi=64: -D_MIPS_SZLONG=64} \
-%{!mabi*: -D_MIPS_SZLONG=32} \
-%{mabi=32: -D_MIPS_SZPTR=32} \
-%{mabi=n32: -D_MIPS_SZPTR=32} \
-%{mabi=64: -D_MIPS_SZPTR=64} \
-%{!mabi*: -D_MIPS_SZPTR=32} \
-%{!mips*: -U__mips -D__mips} \
-%{mabi=32: -U__mips64} \
-%{mabi=n32: -D__mips64} \
-%{mabi=64: -U__mips64} \
-%{!mabi*: -U__mips64} \
 %{fno-PIC:-U__PIC__ -U__pic__} %{fno-pic:-U__PIC__ -U__pic__} \
 %{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} \
 %{pthread:-D_REENTRANT}"
-
-/* The GNU C++ standard library requires that these macros be defined.  */
-#undef CPLUSPLUS_CPP_SPEC
-#define CPLUSPLUS_CPP_SPEC "\
--D__LANGUAGE_C_PLUS_PLUS -D_LANGUAGE_C_PLUS_PLUS \
--D_GNU_SOURCE %(cpp) \
-"
 
 /* From iris5.h */
 /* -G is incompatible with -KPIC which is the default, so only allow objects
@@ -214,14 +185,13 @@ void FN ()							\
         %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}} \
         %{static:-static}}}"
 
-
 #undef SUBTARGET_ASM_SPEC
 #define SUBTARGET_ASM_SPEC "\
 %{mabi=64: -64} \
 %{!fno-PIC:%{!fno-pic:-KPIC}} \
 %{fno-PIC:-non_shared} %{fno-pic:-non_shared}"
 
-#undef SUBTARGET_ASM_DEBUGGING_SPEC
+#undef  SUBTARGET_ASM_DEBUGGING_SPEC
 #define SUBTARGET_ASM_DEBUGGING_SPEC "-g0"
 
 /* The MIPS assembler has different syntax for .set. We set it to
@@ -239,17 +209,6 @@ void FN ()							\
 	fputc ( '\n', FILE);						\
  } while (0)
 
-#undef ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(FILE, SY, HI, LO)    	\
-  do {									\
-	fputc ('\t', FILE);						\
-	assemble_name (FILE, SY);					\
-	fputc ('=', FILE);						\
-	assemble_name (FILE, HI);					\
-	fputc ('-', FILE);						\
-	assemble_name (FILE, LO);					\
-  } while (0)
-
 #undef ASM_DECLARE_FUNCTION_NAME
 #define ASM_DECLARE_FUNCTION_NAME(STREAM, NAME, DECL)			\
   do {									\
@@ -259,11 +218,7 @@ void FN ()							\
 	assemble_name (STREAM, NAME);					\
 	putc ('\n', STREAM);						\
       }									\
-    fprintf (STREAM, "\t%s\t ", TYPE_ASM_OP);				\
-    assemble_name (STREAM, NAME);					\
-    putc (',', STREAM);							\
-    fprintf (STREAM, TYPE_OPERAND_FMT, "function");			\
-    putc ('\n', STREAM);						\
+    ASM_OUTPUT_TYPE_DIRECTIVE (STREAM, NAME, "function");		\
     assemble_name (STREAM, NAME);					\
     fputs (":\n", STREAM);						\
   } while (0)
@@ -293,3 +248,7 @@ void FN ()							\
    presence of $gp-relative calls.  */
 #undef ASM_OUTPUT_REG_PUSH
 #undef ASM_OUTPUT_REG_POP
+
+/* The current Linux binutils uses MIPS_STABS_ELF and doesn't support
+   COFF.  */
+#undef SDB_DEBUGGING_INFO

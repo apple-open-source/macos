@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet href="$BLOJSOM_BLOG.getBlogBaseURL()/atom.css" type="text/css"?>
+
+<feed version="0.3"
+    xmlns="http://purl.org/atom/ns#"
+    xmlns:dc="http://purl.org/dc/elements/1.1/"
+    xml:lang="$BLOJSOM_BLOG.getBlogLanguage()">
+
+    <!-- required feed elements -->
+    <title mode="escaped">$BLOJSOM_BLOG.getBlogName()</title>
+    <link rel="alternate" type="text/html" href="$BLOJSOM_BLOG.getBlogURL()"/>
+    <modified>$BLOJSOM_DATE_UTC</modified>
+
+    <!-- optional feed elements -->
+    <info type="application/xhtml+xml" mode="xml">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+        This is an Atom syndication feed. It is intended to be viewed in a news aggregator or syndicated to
+        another site.  Please visit the <a href="http://intertwingly.net/wiki/pie/">Atom Project</a> for
+        more information.
+        </div>
+    </info>
+
+    <!-- in a single-author feed (like an individual weblog), put author at the feed level;
+    in a multi-author feed (like a group weblog or a comments feed), put author at the entry level -->
+    <author>
+        <!-- required author elements -->
+        <name>$BLOJSOM_BLOG.getBlogOwner()</name>
+        <!-- optional author elements -->
+        <url>$BLOJSOM_BLOG.getBlogURL()</url>
+        #if ( ! ( $BLOJSOM_BLOG.getBlogOwnerEmail().equals("") ) )
+        <email>$BLOJSOM_BLOG.getBlogOwnerEmail()</email>
+        #end
+    </author>
+
+    <!-- optional feed elements -->
+    <tagline>$BLOJSOM_BLOG.getBlogDescription().replaceAll("<.*?>","")</tagline>
+    <generator url="http://blojsom.sf.net" version="$BLOJSOM_VERSION">blojsom</generator>
+    <copyright mode="escaped">Copyright &#169; 2004 $BLOJSOM_BLOG.getBlogOwner()</copyright>
+
+    #foreach ($entry in $BLOJSOM_ENTRIES)
+    <entry>
+        <!-- required entry elements -->
+        <title>$entry.getEscapedTitle().replaceAll("<.*?>","")</title>
+        <link rel="alternate" type="text/html" href="$entry.getLink()"/>
+        <modified>$entry.getDateAsFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", "GMT")</modified>
+        <issued>$entry.getISO8601Date()</issued>
+        <id>tag:$BLOJSOM_BLOG.getBlogOwnerEmail(),$entry.getDateAsFormat("yyyy-MM-dd"):$entry.getEncodedCategory().$entry.getPermalink()</id>
+
+        <!-- optional entry elements -->
+        <created>$entry.getDateAsFormat("yyyy-MM-dd'T'HH:mm:ss'Z'")</created>
+        <content type="text/html" mode="escaped" xml:lang="$BLOJSOM_BLOG.getBlogLanguage()" xml:base="$BLOJSOM_BLOG.getBlogBaseURL()">
+            <![CDATA[ $entry.getDescription() ]]>
+        </content>
+        #if ($entry.getMetaData() && $entry.getMetaData().get("blog-entry-author"))
+        	#set( $entryUser = $entry.getMetaData().get("blog-entry-author") )
+        <author>
+        	<name>$USER_DATA_PLUGIN.getFullNameFromShortName($entryUser)</name>
+        	<url>${BLOJSOM_SITE_URL}weblog/$entryUser</url>
+        	<email>$USER_DATA_PLUGIN.getEmailAddressFromShortName($entryUser)</email>
+        </author>
+        #end
+    </entry>
+    #end
+</feed>

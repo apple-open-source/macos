@@ -25,7 +25,7 @@
 .\" not be used in advertising or otherwise to promote the sale, use or
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
-.\" $XFree86: xc/doc/man/Xt/XtAppNEv.man,v 1.5 2001/01/27 18:20:24 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtAppNEv.man,v 1.6 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,35 +130,21 @@
 .SH NAME
 XtAppNextEvent, XtAppPending, XtAppPeekEvent, XtAppProcessEvent, XtDispatchEvent, XtAppMainLoop \- query and process events and input
 .SH SYNTAX
-void XtAppNextEvent(\fIapp_context\fP, \fIevent_return\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      XEvent *\fIevent_return\fP;
-.LP
-Boolean XtAppPeekEvent(\fIapp_context\fP, \fIevent_return\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      XEvent *\fIevent_return\fP;
-.LP
-XtInputMask XtAppPending(\fIapp_context\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.LP
-void XtAppProcessEvent(\fIapp_context\fP, \fImask\fP)
-.br
-      XtAppContext \fIapp_context\fP;
-.br
-      XtInputMask \fImask\fP;
-.LP
-Boolean XtDispatchEvent(\fIevent\fP)
-.br
-      XEvent *\fIevent\fP;
-.LP
-void XtAppMainLoop(\fIapp_context\fP)
-.br
-      XtAppContext \fIapp_context\fP;
+.HP
+void XtAppNextEvent(XtAppContext \fIapp_context\fP, XEvent
+*\fIevent_return\fP); 
+.HP
+Boolean XtAppPeekEvent(XtAppContext \fIapp_context\fP, XEvent
+*\fIevent_return\fP); 
+.HP
+XtInputMask XtAppPending(XtAppContext \fIapp_context\fP); 
+.HP
+void XtAppProcessEvent(XtAppContext \fIapp_context\fP, XtInputMask
+\fImask\fP); 
+.HP
+Boolean XtDispatchEvent(XEvent *\fIevent\fP); 
+.HP
+void XtAppMainLoop(XtAppContext \fIapp_context\fP); 
 .SH ARGUMENTS
 .ds Co that identifies the application 
 .IP \fIapp_context\fP 1i

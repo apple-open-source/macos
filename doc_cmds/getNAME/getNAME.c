@@ -1,7 +1,4 @@
-/*	$NetBSD: getNAME.c,v 1.14 1998/05/21 23:21:48 christos Exp $	*/
-
 /*-
- * Copyright (c) 1997, Christos Zoulas
  * Copyright (c) 1980, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -17,7 +14,6 @@
  *    must display the following acknowledgement:
  *	This product includes software developed by the University of
  *	California, Berkeley and its contributors.
- *	This product includes software developed by Christos Zoulas.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,78 +31,59 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1980, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1980, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
+#endif /* not lint */
+
+#ifndef lint
 #if 0
 static char sccsid[] = "@(#)getNAME.c	8.1 (Berkeley) 6/30/93";
-#else
-__RCSID("$NetBSD: getNAME.c,v 1.14 1998/05/21 23:21:48 christos Exp $");
 #endif
+static const char rcsid[] =
+  "$FreeBSD: src/libexec/getNAME/getNAME.c,v 1.8 2002/02/06 16:38:40 imp Exp $";
 #endif /* not lint */
 
 /*
  * Get name sections from manual pages.
  *	-t	for building toc
  *	-i	for building intro entries
- *	-w	for querying type of manual source
- *	-v	verbose
  *	other	apropos database
  */
 #include <err.h>
-#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-static int tocrc;
-static int intro;
-static int typeflag;
-static int verbose;
+int tocrc;
+int intro;
+int typeflag;
 
-#define SLOP 10	/* strlen(" () - ") < 10 */
-
-static char *linebuf = NULL;
-static size_t maxlen = 0;
-
-
-static void doname __P((char *));
-static void dorefname __P((char *));
-static void getfrom __P((char *));
-static void oldman __P((char *, char *));
-static void newman __P((char *, char *));
-static void remcomma __P((char *, size_t *));
-static void remquote __P((char *, size_t *));
-static void fixxref __P((char *, size_t *));
-static void split __P((char *, char *));
-static void usage __P((void));
-
-int main __P((int, char *[]));
+void doname(char *);
+void dorefname(char *);
+void getfrom(char *);
+void split(char *, char *);
+void trimln(char *);
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int ch;
 
-	while ((ch = getopt(argc, argv, "itvw")) != -1)
-		switch (ch) {
+	while ((ch = getopt(argc, argv, "itw")) != -1)
+		switch(ch) {
 		case 'i':
 			intro = 1;
 			break;
 		case 't':
 			tocrc = 1;
 			break;
-		case 'v':
-			verbose = 1;
-			break;
 		case 'w':
 			typeflag = 1;
 			break;
-		case '?':
 		default:
 			usage();
 		}
@@ -122,323 +99,161 @@ main(argc, argv)
 }
 
 void
-getfrom(pathname)
-	char *pathname;
+getfrom(char *pathname)
 {
-	char *name;
-	char *line;
-	size_t len;
+	int i = 0;
+	char *name, *loc;
+	char headbuf[BUFSIZ];
+	char linbuf[BUFSIZ];
 
 	if (freopen(pathname, "r", stdin) == 0) {
-		warn("Cannot open `%s'", pathname);
+		warn("%s", pathname);
 		return;
 	}
-	if ((name = strrchr(pathname, '/')) != NULL)
+	if ((name = strrchr(pathname, '/')))
 		name++;
 	else
 		name = pathname;
 	for (;;) {
-		if ((line = fgetln(stdin, &len)) == NULL) {
+		if (fgets(headbuf, sizeof headbuf, stdin) == NULL) {
 			if (typeflag)
-				printf("%-60s\tUNKNOWN\n", pathname);
+				printf("%-60s	UNKNOWN\n", pathname);
 			return;
 		}
-		if (line[0] != '.')
+		if (headbuf[0] != '.')
 			continue;
-		if ((line[1] == 'T' && line[2] == 'H') ||
-		    (line[1] == 't' && line[2] == 'h'))
-			return oldman(pathname, name);
-		if (line[1] == 'D' && line[2] == 't')
-			return newman(pathname, name);
+		if ((headbuf[1] == 'T' && headbuf[2] == 'H') ||
+		    (headbuf[1] == 't' && headbuf[2] == 'h'))
+			break;
+		if (headbuf[1] == 'D' && headbuf[2] == 't') {
+			if (typeflag) {
+				printf("%-60s	NEW\n", pathname);
+				return;
+			}
+			goto newman;
+		}
 	}
-	if (verbose)
-		warnx("missing .TH or .Dt section in `%s'", pathname);
-}
-
-static void
-oldman(pathname, name)
-	char *pathname, *name;
-{
-	char *line, *ext, *s;
-	size_t len, i, extlen;
-	size_t curlen = 0;
-
 	if (typeflag) {
-		printf("%-60s\tOLD\n", pathname);
+		printf("%-60s	OLD\n", pathname);
 		return;
 	}
 	for (;;) {
-		if ((line = fgetln(stdin, &len)) == NULL) {
-			if (verbose)
-				warnx("missing .SH section in `%s'", pathname);
+		if (fgets(linbuf, sizeof linbuf, stdin) == NULL)
 			return;
-		}
-		if (line[0] != '.')
+		if (linbuf[0] != '.')
 			continue;
-		if (line[1] == 'S' && line[2] == 'H')
+		if (linbuf[1] == 'S' && linbuf[2] == 'H')
 			break;
-		if (line[1] == 's' && line[2] == 'h')
+		if (linbuf[1] == 's' && linbuf[2] == 'h')
 			break;
 	}
-
-	for (s = &line[3]; s < &line[len] && 
-	    (isspace((unsigned char) *s) || *s == '"' || *s == '\''); s++)
-		continue;
-	if (s == &line[len]) {
-		warnx("missing argument to .SH in `%s'", pathname);
-		return;
-	}
-	if (strncasecmp(s, "name", 4) != 0) {
-		warnx("first .SH section is not \"NAME\" in `%s'", pathname);
-		return;
-	}
-
+	trimln(headbuf);
 	if (tocrc)
 		doname(name);
-
-	for (i = 0;; i++) {
-		if ((line = fgetln(stdin, &len)) == NULL)
+	if (!tocrc && !intro)
+		printf("%s\t", headbuf);
+	linbuf[0] = '\0';
+	for (;;) {
+		if (fgets(headbuf, sizeof headbuf, stdin) == NULL)
 			break;
-		if (line[0] == '.') {
-			if (line[1] == '\\' && line[2] == '"')
-				continue;	/* [nt]roff comment */
-			if (line[1] == 'S' && line[2] == 'H')
+		if (headbuf[0] == '.') {
+			if (headbuf[1] == 'S' && headbuf[2] == 'H')
 				break;
-			if (line[1] == 's' && line[2] == 'h')
+			if (headbuf[1] == 's' && headbuf[2] == 'h')
 				break;
-			if (line[1] == 'P' && line[2] == 'P')
-				break;
-		}
-		if (line[len - 1] == '\n') {
-			line[len - 1] = '\0';
-			len--;
-		}
-		if ((ext = strrchr(name, '.')) != NULL) {
-			ext++;
-			extlen = strlen(ext);
-		}
-		else
-			extlen = 0;
-
-		if (maxlen + extlen < curlen + len + SLOP) {
-			maxlen = 2 * (curlen + len) + SLOP + extlen;
-			if ((linebuf = realloc(linebuf, maxlen)) == NULL)
-				err(1, "%s", "");
 		}
 		if (i != 0)
-			linebuf[curlen++] = ' ';
-		(void)memcpy(&linebuf[curlen], line, len);
-		curlen += len;
-		linebuf[curlen] = '\0';
-			
-		/* change the \- into (N) - */
-		if ((s = strstr(linebuf, "\\-")) != NULL) {
-			(void)memmove(s + extlen + 3, s + 1, 
-			    curlen - (s + 1 - linebuf));
-			curlen--;
-			if (extlen) {
-				*s++ = '(';
-				while (*ext)
-					*s++ = *ext++;
-				*s++ = ')';
-				*s++ = ' ';
-				curlen += extlen + 3;
-			}
-			linebuf[curlen] = '\0';
-		}
+			strcat(linbuf, " ");
+		i++;
+		trimln(headbuf);
+		strcat(linbuf, headbuf);
 	}
-
 	if (intro)
-		split(linebuf, name);
+		split(linbuf, name);
 	else
-		printf("%s\n", linebuf);
+		printf("%s\n", linbuf);
 	return;
-}
 
-static void
-newman(pathname, name)
-	char *pathname, *name;
-{
-	char *line, *ext, *s;
-	size_t len, i, extlen;
-	size_t curlen = 0;
-
-	if (typeflag) {
-		printf("%-60s\tNEW\n", pathname);
-		return;
-	}
+newman:
 	for (;;) {
-		if ((line = fgetln(stdin, &len)) == NULL) {
-			if (verbose)
-				warnx("missing .Sh section in `%s'", pathname);
+		if (fgets(linbuf, sizeof linbuf, stdin) == NULL)
 			return;
-		}
-		if (line[0] != '.')
+		if (linbuf[0] != '.')
 			continue;
-		if (line[1] == 'S' && line[2] == 'h')
+		if (linbuf[1] == 'S' && linbuf[2] == 'h')
 			break;
 	}
-
-	for (s = &line[3]; s < &line[len] && isspace((unsigned char) *s); s++)
-		continue;
-	if (s == &line[len]) {
-		warnx("missing argument to .Sh in `%s'", pathname);
-		return;
-	}
-	if (strncasecmp(s, "name", 4) != 0) {
-		warnx("first .Sh section is not \"NAME\" in `%s'", pathname);
-		return;
-	}
-
+	trimln(headbuf);
 	if (tocrc)
 		doname(name);
-
-	for (i = 0;; i++) {
-		if ((line = fgetln(stdin, &len)) == NULL)
+	if (!tocrc && !intro)
+		printf(".TH%s\t", &headbuf[3]);
+	linbuf[0] = '\0';
+	for (;;) {
+		if (fgets(headbuf, sizeof headbuf, stdin) == NULL)
 			break;
-
-		if (line[0] == '.') {
-			if (line[1] == '\\' && line[2] == '"')
-				continue;	/* [nt]roff comment */
-			if (line[1] == 'S' && line[2] == 'h')
+		if (headbuf[0] == '.') {
+			if (headbuf[1] == 'S' && headbuf[2] == 'h')
 				break;
 		}
-
-		if (line[len - 1] == '\n') {
-			line[len - 1] = '\0';
-			len--;
-		}
-
-		if ((ext = strrchr(name, '.')) != NULL) {
-			ext++;
-			extlen = strlen(ext);
-		}
-		else
-			extlen = 0;
-
-		if (maxlen + extlen < curlen + len + SLOP) {
-			maxlen = 2 * (curlen + len) + SLOP + extlen;
-			if ((linebuf = realloc(linebuf, maxlen)) == NULL)
-				err(1, "%s", "");
-		}
-
 		if (i != 0)
-			linebuf[curlen++] = ' ';
-
-		remcomma(line, &len);
-
-		if (line[0] != '.') {
-			(void)memcpy(&linebuf[curlen], line, len);
-			curlen += len;
-		}
-		else {
-			remquote(line, &len);
-			fixxref(line, &len);
-
+			strcat(linbuf, " ");
+		i++;
+		trimln(headbuf);
+		for (loc = strchr(headbuf, ' '); loc; loc = strchr(loc, ' '))
+			if (loc[1] == ',')
+				strcpy(loc, &loc[1]);
+			else
+				loc++;
+		if (headbuf[0] != '.') {
+			strcat(linbuf, headbuf);
+		} else {
 			/*
-			 * Put section and dash between names and description.
+			 * Get rid of quotes in macros.
 			 */
-			if (line[1] == 'N' && line[2] == 'd') {
-				if (extlen) {
-					linebuf[curlen++] = '(';
-					while (*ext)
-						linebuf[curlen++] = *ext++;
-					linebuf[curlen++] = ')';
-					linebuf[curlen++] = ' ';
-				}
-				linebuf[curlen++] = '-';
-				linebuf[curlen++] = ' ';
+			for (loc = strchr(&headbuf[4], '"'); loc; ) {
+				strcpy(loc, &loc[1]);
+				loc = strchr(loc, '"');
 			}
+			/*
+			 * Handle cross references
+			 */
+			if (headbuf[1] == 'X' && headbuf[2] == 'r') {
+				for (loc = &headbuf[4]; *loc != ' '; loc++)
+					continue;
+				loc[0] = '(';
+				loc[2] = ')';
+				loc[3] = '\0';
+			}
+			/*
+			 * Put dash between names and description.
+			 */
+			if (headbuf[1] == 'N' && headbuf[2] == 'd')
+				strcat(linbuf, "\\- ");
 			/*
 			 * Skip over macro names.
 			 */
-			if (len <= 4) 
-				continue;
-			(void)memcpy(&linebuf[curlen], &line[4], len - 4);
-			curlen += len - 4;
+			strcat(linbuf, &headbuf[4]);
 		}
 	}
-	linebuf[curlen] = '\0';
 	if (intro)
-		split(linebuf, name);
+		split(linbuf, name);
 	else
-		printf("%s\n", linebuf);
+		printf("%s\n", linbuf);
 }
 
-/*
- * convert " ," -> " "
- */
-static void
-remcomma(line, len)
-	char *line;
-	size_t *len;
+void
+trimln(char *cp)
 {
-	char *pline = line, *loc;
-	size_t plen = *len;
 
-	while ((loc = memchr(pline, ' ', plen)) != NULL) {
-		plen -= loc - pline + 1;
-		pline = loc;
-		if (loc[1] == ',') {
-			(void)memcpy(loc, &loc[1], plen);
-			(*len)--;
-		}
-		else
-			pline++;
-	}
+	while (*cp)
+		cp++;
+	if (*--cp == '\n')
+		*cp = 0;
 }
 
-/*
- * Get rid of quotes in macros.
- */
-static
-void remquote(line, len)
-	char *line;
-	size_t *len;
-{
-	char *loc;
-	char *pline = &line[4];
-	size_t plen = *len - 4;
-
-	if (*len < 4)
-		return;
-
-	while ((loc = memchr(pline, '"', plen)) != NULL) {
-		plen -= loc - pline + 1;
-		pline = loc;
-		(void)memcpy(loc, &loc[1], plen);
-		(*len)--;
-	}
-}
-
-/*
- * Handle cross references
- */
-static void
-fixxref(line, len)
-	char *line;
-	size_t *len;
-{
-	char *loc;
-	char *pline = &line[4];
-	size_t plen = *len - 4;
-
-	if (*len < 4)
-		return;
-
-	if (line[1] == 'X' && line[2] == 'r') {
-		if ((loc = memchr(pline, ' ', plen)) != NULL) {
-			*loc++ = '(';
-			loc++;
-			*loc++ = ')';
-			*len = loc - line;
-		}
-	}
-}
-
-static void
-doname(name)
-	char *name;
+void
+doname(char *name)
 {
 	char *dp = name, *ep;
 
@@ -460,9 +275,8 @@ again:
 	putchar(' ');
 }
 
-static void
-split(line, name)
-	char *line, *name;
+void
+split(char *line, char *name)
 {
 	char *cp, *dp;
 	char *sp, *sep;
@@ -493,9 +307,8 @@ split(line, name)
 	}
 }
 
-static void
-dorefname(name)
-	char *name;
+void
+dorefname(char *name)
 {
 	char *dp = name, *ep;
 
@@ -516,9 +329,8 @@ again:
 }
 
 static void
-usage()
+usage(void)
 {
-	extern char *__progname;
-	(void)fprintf(stderr, "Usage: %s [-itw] file ...\n", __progname);
+	(void)fprintf(stderr, "usage: getNAME [-itw] file ...\n");
 	exit(1);
 }

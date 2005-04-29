@@ -213,8 +213,8 @@ public:
      *  A total of the active user clients - those that are currently playing or 
      *    recording audio. */
     UInt32			numActiveUserClients;
-    UInt32			sampleOffset;
-    
+    UInt32			sampleOffset;				// used for input and output if inputSampleOffset is not set, if inputSampleOffset is set used as output only 
+		      
     UInt32			index;
     bool			duringStartup;
 
@@ -235,6 +235,7 @@ protected:
 		IOBufferMemoryDescriptor			*bytesInOutputBufferArrayDescriptor;
 		UInt32								mixClipOverhead;
 		OSArray								*streams;
+	    UInt32								inputSampleOffset;
 	};
     
     ExpansionData   *reserved;
@@ -305,6 +306,29 @@ public:
      */
 	virtual void setClockDomain(UInt32 clockDomain = kIOAudioNewClockDomain);
 
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 9);
+    /*!
+	 * @function convertInputSamplesVBR
+     * @abstract Override this method if you want to return a different number of sample frames than was requested.  
+     */
+	virtual IOReturn convertInputSamplesVBR(const void *sampleBuf, void *destBuf, UInt32 firstSampleFrame, UInt32 &numSampleFrames, const IOAudioStreamFormat *streamFormat, IOAudioStream *audioStream);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 10);
+    /*!
+	 * @function setInputSampleOffset
+     * @abstract set the offset CoreAudio will read from off the current read pointer
+	 * @param numSamples size of offset in sample
+	 */
+    virtual void setInputSampleOffset(UInt32 numSamples);
+
+	// OSMetaClassDeclareReservedUsed(IOAudioEngine, 11);
+    /*!
+	 * @function setOutputSampleOffset
+     * @abstract set the offset CoreAudio will write at off the current write pointer
+	 * @param numSamples size of offset in sample
+	 */
+    virtual void setOutputSampleOffset(UInt32 numSamples);
+
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
@@ -315,10 +339,10 @@ private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 6);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 7);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 8);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 9);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 10);
+	OSMetaClassDeclareReservedUsed(IOAudioEngine, 11);
 
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 9);
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 10);
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 11);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 12);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 13);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 14);
@@ -728,7 +752,7 @@ protected:
     virtual void setSampleOffset(UInt32 numSamples);
 
     /*!
-     * @function setErases
+     * @function setRunEraseHead
      * @abstract Tells the audio engine whether or not to run the erase head.
      * @discussion By default, output audio engines run the erase head and input audio engines do not.  This method can
      *  be called after setDirection() is called in order to change the default behavior.

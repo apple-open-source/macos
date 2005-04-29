@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -18,11 +18,12 @@
 
 #ifndef DATEFMT_H
 #define DATEFMT_H
- 
+
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/udat.h"
 #include "unicode/calendar.h"
 #include "unicode/numfmt.h"
 #include "unicode/format.h"
@@ -123,84 +124,20 @@ class TimeZone;
  *   <li>   Align any particular field, or find out where it is for selection
  *          on the screen.
  * </ul>
+ *
+ * <p><em>User subclasses are not supported.</em> While clients may write
+ * subclasses, such code will not necessarily work and will not be
+ * guaranteed to work stably from release to release.
  */
 class U_I18N_API DateFormat : public Format {
 public:
-    /**
-     * The following enum values are used in FieldPosition with date/time formatting.
-     * They are also used to index into DateFormatSymbols::fgPatternChars, which
-     * is the list of standard internal-representation pattern characters, and
-     * the resource bundle localPatternChars data. For this reason, this enum
-     * should be treated with care; don't change the order or contents of it
-     * unless you really know what you are doing. You'll probably have to change
-     * the code in DateFormatSymbols, SimpleDateFormat, and all the locale
-     * resource bundle data files.
-     * @draft ICU 2.4
-     */
-    enum EField
-    {
-        kEraField = 0,      // ERA field alignment.
-        kYearField,         // YEAR field alignment.
-        kMonthField,        // MONTH field alignment.
-        kDateField,         // DATE field alignment.
-        kHourOfDay1Field,     // One-based HOUR_OF_DAY field alignment.
-                            // kHourOfDay1Field is used for the one-based 24-hour clock.
-                            // For example, 23:59 + 01:00 results in 24:59.
-        kHourOfDay0Field,     // Zero-based HOUR_OF_DAY field alignment.
-                            // HOUR_OF_DAY0_FIELD is used for the zero-based 24-hour clock.
-                            // For example, 23:59 + 01:00 results in 00:59.
-        kMinuteField,       // MINUTE field alignment.
-        kSecondField,       // SECOND field alignment.
-        kMillisecondField,  // MILLISECOND field alignment.
-        kDayOfWeekField,      // DAY_OF_WEEK field alignment.
-        kDayOfYearField,      // DAY_OF_YEAR field alignment.
-        kDayOfWeekInMonthField,// DAY_OF_WEEK_IN_MONTH field alignment.
-        kWeekOfYearField,     // WEEK_OF_YEAR field alignment.
-        kWeekOfMonthField,    // WEEK_OF_MONTH field alignment.
-        kAmPmField,            // AM_PM field alignment.
-        kHour1Field,        // One-based HOUR field alignment.
-                            // HOUR1_FIELD is used for the one-based 12-hour clock.
-                            // For example, 11:30 PM + 1 hour results in 12:30 AM.
-        kHour0Field,        // Zero-based HOUR field alignment.
-                            // HOUR0_FIELD is used for the zero-based 12-hour clock.
-                            // For example, 11:30 PM + 1 hour results in 00:30 AM.
-        kTimezoneField,      // TIMEZONE field alignment.
-        kYearWOYField,   // Corrected year for week representation
-        kDOWLocalField, // localized day of week
-
-        
-        
-    /**
-     * These constants are provided for backwards compatibility only.
-     * Please use the C++ style constants defined above.
-     */
-        ERA_FIELD                     = kEraField,
-        YEAR_FIELD                     = kYearField,
-        MONTH_FIELD                 = kMonthField,
-        DATE_FIELD                     = kDateField,
-        HOUR_OF_DAY1_FIELD             = kHourOfDay1Field,
-        HOUR_OF_DAY0_FIELD             = kHourOfDay0Field,
-        MINUTE_FIELD                 = kMinuteField,
-        SECOND_FIELD                 = kSecondField,
-        MILLISECOND_FIELD             = kMillisecondField,
-        DAY_OF_WEEK_FIELD             = kDayOfWeekField,
-        DAY_OF_YEAR_FIELD             = kDayOfYearField,
-        DAY_OF_WEEK_IN_MONTH_FIELD     = kDayOfWeekInMonthField,
-        WEEK_OF_YEAR_FIELD             = kWeekOfYearField,
-        WEEK_OF_MONTH_FIELD         = kWeekOfMonthField,
-        AM_PM_FIELD                 = kAmPmField,
-        HOUR1_FIELD                 = kHour1Field,
-        HOUR0_FIELD                 = kHour0Field,
-        TIMEZONE_FIELD                 = kTimezoneField
-
-    };
 
     /**
      * Constants for various style patterns. These reflect the order of items in
      * the DateTimePatterns resource. There are 4 time patterns, 4 date patterns,
      * and then the date-time pattern. Each block of 4 values in the resource occurs
      * in the order full, long, medium, short.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     enum EStyle
     {
@@ -221,12 +158,12 @@ public:
 
         kDefault      = kMedium,
 
-        
-        
+
+
     /**
      * These constants are provided for backwards compatibility only.
      * Please use the C++ style constants defined above.
-     */       
+     */
         FULL        = kFull,
         LONG        = kLong,
         MEDIUM        = kMedium,
@@ -274,11 +211,11 @@ public:
      * <P>
      * On input, the FieldPosition parameter may have its "field" member filled with
      * an enum value specifying a field.  On output, the FieldPosition will be filled
-     * in with the text offsets for that field.  
+     * in with the text offsets for that field.
      * <P> For example, given a time text
      * "1996.07.10 AD at 15:08:56 PDT", if the given fieldPosition.field is
-     * DateFormat::kYearField, the offsets fieldPosition.beginIndex and
-     * statfieldPositionus.getEndIndex will be set to 0 and 4, respectively. 
+     * UDAT_YEAR_FIELD, the offsets fieldPosition.beginIndex and
+     * statfieldPositionus.getEndIndex will be set to 0 and 4, respectively.
      * <P> Notice
      * that if the same time field appears more than once in a pattern, the status will
      * be set for the first occurence of that time field. For instance,
@@ -306,11 +243,11 @@ public:
      * <P>
      * On input, the FieldPosition parameter may have its "field" member filled with
      * an enum value specifying a field.  On output, the FieldPosition will be filled
-     * in with the text offsets for that field.  
+     * in with the text offsets for that field.
      * <P> For example, given a time text
      * "1996.07.10 AD at 15:08:56 PDT", if the given fieldPosition.field is
-     * DateFormat::kYearField, the offsets fieldPosition.beginIndex and
-     * statfieldPositionus.getEndIndex will be set to 0 and 4, respectively. 
+     * UDAT_YEAR_FIELD, the offsets fieldPosition.beginIndex and
+     * statfieldPositionus.getEndIndex will be set to 0 and 4, respectively.
      * <P> Notice
      * that if the same time field appears more than once in a pattern, the status will
      * be set for the first occurence of that time field. For instance,
@@ -456,38 +393,38 @@ public:
      * @return A date/time formatter which the caller owns.
      * @stable ICU 2.0
      */
-    static DateFormat* createInstance(void);
+    static DateFormat* U_EXPORT2 createInstance(void);
 
     /**
      * Creates a time formatter with the given formatting style for the given
      * locale.
-     * 
+     *
      * @param style     The given formatting style. For example,
      *                  SHORT for "h:mm a" in the US locale.
      * @param aLocale   The given locale.
      * @return          A time formatter which the caller owns.
      * @stable ICU 2.0
      */
-    static DateFormat* createTimeInstance(EStyle style = kDefault,
+    static DateFormat* U_EXPORT2 createTimeInstance(EStyle style = kDefault,
                                           const Locale& aLocale = Locale::getDefault());
 
     /**
      * Creates a date formatter with the given formatting style for the given
      * const locale.
-     * 
+     *
      * @param style     The given formatting style. For example,
      *                  SHORT for "M/d/yy" in the US locale.
      * @param aLocale   The given locale.
      * @return          A date formatter which the caller owns.
      * @stable ICU 2.0
      */
-    static DateFormat* createDateInstance(EStyle style = kDefault,
+    static DateFormat* U_EXPORT2 createDateInstance(EStyle style = kDefault,
                                           const Locale& aLocale = Locale::getDefault());
 
     /**
      * Creates a date/time formatter with the given formatting styles for the
      * given locale.
-     * 
+     *
      * @param dateStyle The given formatting style for the date portion of the result.
      *                  For example, SHORT for "M/d/yy" in the US locale.
      * @param timeStyle The given formatting style for the time portion of the result.
@@ -496,7 +433,7 @@ public:
      * @return          A date/time formatter which the caller owns.
      * @stable ICU 2.0
      */
-    static DateFormat* createDateTimeInstance(EStyle dateStyle = kDefault,
+    static DateFormat* U_EXPORT2 createDateTimeInstance(EStyle dateStyle = kDefault,
                                               EStyle timeStyle = kDefault,
                                               const Locale& aLocale = Locale::getDefault());
 
@@ -507,8 +444,8 @@ public:
      *  does NOT own this list and must not delete it.
      * @stable ICU 2.0
      */
-    static const Locale* getAvailableLocales(int32_t& count);
-  
+    static const Locale* U_EXPORT2 getAvailableLocales(int32_t& count);
+
     /**
      * Returns true if the formatter is set for lenient parsing.
      * @stable ICU 2.0
@@ -520,20 +457,20 @@ public:
      * parsing, the parser may use heuristics to interpret inputs that do not
      * precisely match this object's format. With strict parsing, inputs must
      * match this object's format.
-     * 
+     *
      * @param lenient  True specifies date/time interpretation to be lenient.
      * @see Calendar::setLenient
      * @stable ICU 2.0
      */
     virtual void setLenient(UBool lenient);
-    
+
     /**
      * Gets the calendar associated with this date/time formatter.
      * @return the calendar associated with this date/time formatter.
      * @stable ICU 2.0
      */
     virtual const Calendar* getCalendar(void) const;
-    
+
     /**
      * Set the calendar to be used by this date format. Initially, the default
      * calendar for the specified or default locale is used.  The caller should
@@ -554,7 +491,7 @@ public:
      */
     virtual void setCalendar(const Calendar& newCalendar);
 
-   
+
     /**
      * Gets the number formatter which this date/time formatter uses to format
      * and parse the numeric portions of the pattern.
@@ -562,7 +499,7 @@ public:
      * @stable ICU 2.0
      */
     virtual const NumberFormat* getNumberFormat(void) const;
-    
+
     /**
      * Allows you to set the number formatter.  The caller should
      * not delete the NumberFormat object after it is adopted by this call.
@@ -584,7 +521,7 @@ public:
      * @stable ICU 2.0
      */
     virtual const TimeZone& getTimeZone(void) const;
-    
+
     /**
      * Sets the time zone for the calendar of this DateFormat object. The caller
      * no longer owns the TimeZone object and should not delete it after this call.
@@ -600,7 +537,6 @@ public:
      */
     virtual void setTimeZone(const TimeZone& zone);
 
-    
 protected:
     /**
      * Default constructor.  Creates a DateFormat with no Calendar or NumberFormat
@@ -626,7 +562,7 @@ protected:
      * The calendar that DateFormat uses to produce the time field values needed
      * to implement date/time formatting. Subclasses should generally initialize
      * this to the default calendar for the locale associated with this DateFormat.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     Calendar* fCalendar;
 
@@ -634,7 +570,7 @@ protected:
      * The number formatter that DateFormat uses to format numbers in dates and
      * times. Subclasses should generally initialize this to the default number
      * format for the locale associated with this DateFormat.
-     * @draft ICU 2.4
+     * @stable ICU 2.4
      */
     NumberFormat* fNumberFormat;
 
@@ -647,7 +583,61 @@ private:
      * @param inLocale the given locale.
      * @return a date/time formatter, or 0 on failure.
      */
-    static DateFormat* create(EStyle timeStyle, EStyle dateStyle, const Locale&);
+    static DateFormat* U_EXPORT2 create(EStyle timeStyle, EStyle dateStyle, const Locale&);
+
+public:
+    /**
+     * Field selector for FieldPosition for DateFormat fields.
+     * @obsolete ICU 3.4 use UDateFormatField instead, since this API will be
+     * removed in that release
+     */
+    enum EField
+    {
+        // Obsolete; use UDateFormatField instead
+        kEraField = UDAT_ERA_FIELD,
+        kYearField = UDAT_YEAR_FIELD,
+        kMonthField = UDAT_MONTH_FIELD,
+        kDateField = UDAT_DATE_FIELD,
+        kHourOfDay1Field = UDAT_HOUR_OF_DAY1_FIELD,
+        kHourOfDay0Field = UDAT_HOUR_OF_DAY0_FIELD,
+        kMinuteField = UDAT_MINUTE_FIELD,
+        kSecondField = UDAT_SECOND_FIELD,
+        kMillisecondField = UDAT_FRACTIONAL_SECOND_FIELD,
+        kDayOfWeekField = UDAT_DAY_OF_WEEK_FIELD,
+        kDayOfYearField = UDAT_DAY_OF_YEAR_FIELD,
+        kDayOfWeekInMonthField = UDAT_DAY_OF_WEEK_IN_MONTH_FIELD,
+        kWeekOfYearField = UDAT_WEEK_OF_YEAR_FIELD,
+        kWeekOfMonthField = UDAT_WEEK_OF_MONTH_FIELD,
+        kAmPmField = UDAT_AM_PM_FIELD,
+        kHour1Field = UDAT_HOUR1_FIELD,
+        kHour0Field = UDAT_HOUR0_FIELD,
+        kTimezoneField = UDAT_TIMEZONE_FIELD,
+        kYearWOYField = UDAT_YEAR_WOY_FIELD,
+        kDOWLocalField = UDAT_DOW_LOCAL_FIELD,
+        kExtendedYearField = UDAT_EXTENDED_YEAR_FIELD,
+        kJulianDayField = UDAT_JULIAN_DAY_FIELD,
+        kMillisecondsInDayField = UDAT_MILLISECONDS_IN_DAY_FIELD,
+
+        // Obsolete; use UDateFormatField instead
+        ERA_FIELD = UDAT_ERA_FIELD,
+        YEAR_FIELD = UDAT_YEAR_FIELD,
+        MONTH_FIELD = UDAT_MONTH_FIELD,
+        DATE_FIELD = UDAT_DATE_FIELD,
+        HOUR_OF_DAY1_FIELD = UDAT_HOUR_OF_DAY1_FIELD,
+        HOUR_OF_DAY0_FIELD = UDAT_HOUR_OF_DAY0_FIELD,
+        MINUTE_FIELD = UDAT_MINUTE_FIELD,
+        SECOND_FIELD = UDAT_SECOND_FIELD,
+        MILLISECOND_FIELD = UDAT_FRACTIONAL_SECOND_FIELD,
+        DAY_OF_WEEK_FIELD = UDAT_DAY_OF_WEEK_FIELD,
+        DAY_OF_YEAR_FIELD = UDAT_DAY_OF_YEAR_FIELD,
+        DAY_OF_WEEK_IN_MONTH_FIELD = UDAT_DAY_OF_WEEK_IN_MONTH_FIELD,
+        WEEK_OF_YEAR_FIELD = UDAT_WEEK_OF_YEAR_FIELD,
+        WEEK_OF_MONTH_FIELD = UDAT_WEEK_OF_MONTH_FIELD,
+        AM_PM_FIELD = UDAT_AM_PM_FIELD,
+        HOUR1_FIELD = UDAT_HOUR1_FIELD,
+        HOUR0_FIELD = UDAT_HOUR0_FIELD,
+        TIMEZONE_FIELD = UDAT_TIMEZONE_FIELD
+    };
 };
 
 inline UnicodeString&

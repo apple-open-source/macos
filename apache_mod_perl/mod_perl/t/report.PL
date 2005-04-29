@@ -15,7 +15,7 @@ my $mp_version = MM->parse_version(-e "lib/mod_perl.pm" ?
 	"lib/mod_perl.pm" : "../lib/mod_perl.pm");
 
 my $msg = Mail::Send->new(
-	To => 'modperl-cvs@apache.org',
+	To => 'modperl-cvs@perl.apache.org',
 	Subject => 'mod_perl test report');
 
 my $fh = $msg->open;

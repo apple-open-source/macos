@@ -1,0 +1,1 @@
+#pragma once on#include "tclMacCommonPch.h"#define USE_TCL_STUBS 1#define USE_TDOM_STUBS 1#undef VERSION#define VERSION "0.3"

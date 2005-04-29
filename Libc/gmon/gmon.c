@@ -131,7 +131,6 @@ extern void monreset(
     void);
 extern void monoutput(
     const char *filename);
-extern int add_profil(char *, int, int, int);
 
 static char profiling = -1;	/* tas (test and set) location for NeXT */
 static char init = 0;		/* set while moninit() is being serviced */
@@ -364,6 +363,9 @@ char *highpc)
 	    p->profrate = getprofhz();
 	    o = highpc - lowpc;
 	    if((monsize - sizeof(struct gmonhdr)) < o)
+/* POSSIBLE BUG, if "(float) (monsize - sizeof(struct gmonhdr))/ o)" is zero
+ * then m->scale will be set to zero and the add_profil() call will disable
+ * profiling */
 		m->scale = ((float) (monsize - sizeof(struct gmonhdr))/ o) *
 			   SCALE_1_TO_1;
 	    else
@@ -396,6 +398,8 @@ void)
 		p->lpc = (unsigned long)m->lowpc;
 		p->hpc = (unsigned long)m->highpc;
 		p->ncnt = m->ssiz;
+		p->version = GMONVERSION;
+		p->profrate = getprofhz();
 	    }
 	    if(m->froms != NULL)
 		memset(m->froms, '\0', m->textsize / HASHFRACTION);

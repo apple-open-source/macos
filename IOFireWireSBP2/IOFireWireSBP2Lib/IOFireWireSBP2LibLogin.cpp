@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Carbon/Carbon.h>  // for printf
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "FWDebugging.h"
 #include "IOFireWireSBP2LibLogin.h"

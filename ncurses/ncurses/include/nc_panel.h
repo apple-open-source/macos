@@ -33,7 +33,7 @@
 
 
 /*
- * $Id: nc_panel.h,v 1.1.1.1 2001/11/29 20:40:53 jevans Exp $
+ * $Id: nc_panel.h,v 1.3 2000/12/10 02:04:35 tom Exp $
  *
  *	nc_panel.h
  *

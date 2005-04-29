@@ -3,9 +3,6 @@ SRCS	= postcat.c
 OBJS	= postcat.o
 HDRS	= 
 TESTSRC	= 
-WARN	= -W -Wformat -Wimplicit -Wmissing-prototypes \
-	-Wparentheses -Wstrict-prototypes -Wswitch -Wuninitialized \
-	-Wunused
 DEFS	= -I. -I$(INC_DIR) -D$(SYSTYPE)
 CFLAGS	= $(DEBUG) $(OPT) $(DEFS)
 TESTPROG= 
@@ -65,3 +62,6 @@ postcat.o: ../../include/msg_vstream.h
 postcat.o: ../../include/vstring_vstream.h
 postcat.o: ../../include/record.h
 postcat.o: ../../include/rec_type.h
+postcat.o: ../../include/mail_queue.h
+postcat.o: ../../include/mail_conf.h
+postcat.o: ../../include/mail_params.h

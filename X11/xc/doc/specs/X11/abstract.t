@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/specs/X11/abstract.t,v 1.3 2003/12/11 21:24:37 herrb Exp $
 .EH ''''
 .OH ''''
 .EF ''''
@@ -11,7 +12,7 @@
 
 \s+1\fBX Consortium Standard\fP\s-1
 
-\s+1\fBX Version 11, Release 6.4\fP\s-1
+\s+1\fBX Version 11, Release 6.7 DRAFT\fP\s-1
 .sp 6
 .ce 4
 \s-1James Gettys
@@ -33,7 +34,7 @@ Chuck Adams, Tektronix, Inc.
 .sp 1
 Vania Joloboff, Open Software Foundation
 .sp 1
-Hideki Hiura, SunSoft, Inc.
+Hideki Hiura, Sun Microsystems, Inc.
 .sp 1
 Bill McMahon, Hewlett-Packard Company
 .sp 1
@@ -50,12 +51,13 @@ Shigeru Yamada, Fujitsu OSSI
 .nr PS 9
 .sp 8
 .LP
-The X Window System is a trademark of X Consortium, Inc.
+The X Window System is a trademark of The Open Group.
 .LP
 TekHVC is a trademark of Tektronix, Inc.
 .sp 2
 .LP
-Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994,1996 X Consortium
+Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994, 1996, 2002
+The Open Group
 .LP
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -76,10 +78,10 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 .LP
-Except as contained in this notice, the name of the X Consortium shall
+Except as contained in this notice, the name of The Open Group shall
 not be used in advertising or otherwise to promote the sale, use or
 other dealings in this Software without prior written authorization
-from the X Consortium.
+from The Open Group.
 .sp 3
 .LP
 Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991 by

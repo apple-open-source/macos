@@ -6,21 +6,25 @@
 	objectVersion = 38;
 	objects = {
 		01ABC0ED00973EA311CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2Controller.cpp;
 			refType = 4;
 		};
 		01ABC0EE00973EA311CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2Controller.h;
 			refType = 4;
 		};
 		01ABC0EF00973EA311CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2KeyboardDevice.cpp;
 			refType = 4;
 		};
 		01ABC0F000973EA311CA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2MouseDevice.cpp;
 			refType = 4;
@@ -119,6 +123,7 @@
 				06AA1265FFB2107B11CA28AA,
 				06AA1266FFB2107B11CA28AA,
 			);
+			hasScannedForEncodings = 1;
 			isa = PBXProject;
 			mainGroup = 089C166AFE841209C02AAC07;
 			projectDirPath = "";
@@ -155,8 +160,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.driver.ApplePS2Controller;
-				MODULE_VERSION = 1.0.2;
-				OTHER_CFLAGS = "-fpermissive";
+				MODULE_VERSION = 1.1.0;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ApplePS2Controller;
@@ -182,7 +186,7 @@
 	<key>CFBundleExecutable</key>
 	<string>ApplePS2Controller</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.0.2, Copyright Apple Computer, Inc. 2000-2002</string>
+	<string>1.1.0, Copyright Apple Computer, Inc. 2000-2003</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -194,11 +198,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.2</string>
+	<string>1.1.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.0.2</string>
+	<string>1.1.0</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>ApplePS2Controller</key>
@@ -216,7 +220,7 @@
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright Apple Computer, Inc. 2000-2002</string>
 	<key>OSBundleCompatibleVersion</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.kernel.iokit</key>
@@ -231,7 +235,6 @@
 </dict>
 </plist>
 ";
-			shouldUseHeadermap = 1;
 		};
 		089C1674FE841209C02AAC07 = {
 			buildActionMask = 2147483647;
@@ -375,16 +378,19 @@
 //403
 //404
 		406B474300AB14E90ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2Device.h;
 			refType = 4;
 		};
 		406B474400AB14E90ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2KeyboardDevice.h;
 			refType = 4;
 		};
 		406B474500AB14E90ACA2928 = {
+			fileEncoding = 30;
 			isa = PBXFileReference;
 			path = ApplePS2MouseDevice.h;
 			refType = 4;
@@ -438,7 +444,6 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 			productName = "ApplePS2Controller Headers";
 			productReference = 406B474900AB15080ACA2928;
-			shouldUseHeadermap = 0;
 		};
 		406B474B00AB15080ACA2928 = {
 			buildActionMask = 2147483647;

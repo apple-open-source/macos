@@ -312,7 +312,6 @@ extern int flag_pic;				/* -fpic */
 /*** Storage Layout ***/
 
 /* Sizes in bits of the various types.  */
-#define CHAR_TYPE_SIZE		 8
 #define SHORT_TYPE_SIZE		16
 #define INT_TYPE_SIZE		32
 #define LONG_TYPE_SIZE		32
@@ -336,21 +335,8 @@ extern int flag_pic;				/* -fpic */
    instructions for them.  */
 #define WORDS_BIG_ENDIAN 1
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 32
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 4
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 32
 
 /* Allocation boundary (in *bits*) for storing arguments in argument list.  */
 #define PARM_BOUNDARY 32
@@ -397,20 +383,12 @@ extern int flag_pic;				/* -fpic */
    when given unaligned data.  */
 #define STRICT_ALIGNMENT 1
 
-/* A bitfield declared as `int' forces `int' alignment for the struct.  */
+/* A bit-field declared as `int' forces `int' alignment for the struct.  */
 #define PCC_BITFIELD_TYPE_MATTERS 1
 
 /* Maximum size (in bits) to use for the largest integral type that
    replaces a BLKmode type. */
 /* #define MAX_FIXED_MODE_SIZE 0 */
-
-/* Check a `double' value for validity for a particular machine mode.
-   This is defined to avoid crashes outputting certain constants.
-   Since we output the number in hex, the assembler won't choke on it.  */
-/* #define CHECK_FLOAT_VALUE(MODE,VALUE) */
-
-/* A code distinguishing the floating point format of the target machine.  */
-/* #define TARGET_FLOAT_FORMAT IEEE_FLOAT_FORMAT */
 
 /*** Register Usage ***/
 
@@ -1039,8 +1017,8 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
   (VALIST) = m88k_build_va_list ()
 
 /* Implement `va_start' for varargs and stdarg.  */
-#define EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  m88k_va_start (stdarg, valist, nextarg)
+#define EXPAND_BUILTIN_VA_START(valist, nextarg) \
+  m88k_va_start (valist, nextarg)
 
 /* Implement `va_arg'.  */
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
@@ -1055,22 +1033,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* Maximum length in instructions of the code output by FUNCTION_PROFILER.  */
 #define FUNCTION_PROFILER_LENGTH (5+3+1+5)
 
-/* Output assembler code to FILE to initialize basic-block profiling for
-   the current module.  LABELNO is unique to each instance.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO) \
-  output_function_block_profiler (FILE, LABELNO)
-
-/* Maximum length in instructions of the code output by
-   FUNCTION_BLOCK_PROFILER.  */
-#define FUNCTION_BLOCK_PROFILER_LENGTH (3+5+2+5)
-
-/* Output assembler code to FILE to increment the count associated with
-   the basic block number BLOCKNO.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO) output_block_profiler (FILE, BLOCKNO)
-
-/* Maximum length in instructions of the code output by BLOCK_PROFILER.  */
-#define BLOCK_PROFILER_LENGTH 4
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1082,8 +1044,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    may be accessed via the stack pointer) in functions that seem suitable.
    This is computed in `reload', in reload1.c.  */
 #define FRAME_POINTER_REQUIRED \
-(current_function_varargs 					\
- || (TARGET_OMIT_LEAF_FRAME_POINTER && !leaf_function_p ()) 	\
+((TARGET_OMIT_LEAF_FRAME_POINTER && !leaf_function_p ()) 	\
  || (write_symbols != NO_DEBUG && !TARGET_OCS_FRAME_POSITION))
 
 /* Definitions for register eliminations.
@@ -1191,8 +1152,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define TARGET_MEM_FUNCTIONS
 
 /*** Addressing Modes ***/
-
-#define EXTRA_CC_MODES CC(CCEVENmode, "CCEVEN")
 
 #define SELECT_CC_MODE(OP,X,Y) CCmode
 
@@ -1479,11 +1438,8 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* The 88open ABI says size_t is unsigned int.  */
 #define SIZE_TYPE "unsigned int"
 
-/* Allow and ignore #sccs directives */
-#define SCCS_DIRECTIVE
-
 /* Handle #pragma pack and sometimes #pragma weak.  */
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* Tell when to handle #pragma weak.  This is only done for V.4.  */
 #define SUPPORTS_WEAK TARGET_SVR4
@@ -1515,10 +1471,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
    `int'.  In addition to avoiding errors in certain cases of
    mismatch, it also makes for better code on certain machines.  */
 #define PROMOTE_PROTOTYPES 1
-
-/* Define this macro if a float function always returns float
-   (even in traditional mode).  Redefined in luna.h.  */
-#define TRADITIONAL_RETURN_FLOAT
 
 /* We assume that the store-condition-codes instructions store 0 for false
    and some other value for true.  This is the value stored for true.  */
@@ -1637,7 +1589,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 
 /* Allow pseudo-ops to be overridden.  Override these in svr[34].h.  */
 #undef	ASCII_DATA_ASM_OP
-#undef	CONST_SECTION_ASM_OP
+#undef	READONLY_DATA_SECTION_ASM_OP
 #undef	CTORS_SECTION_ASM_OP
 #undef	DTORS_SECTION_ASM_OP
 #undef  TARGET_ASM_NAMED_SECTION
@@ -1656,7 +1608,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define DATA_SECTION_ASM_OP	"\tdata"
 
 /* Other sections.  */
-#define CONST_SECTION_ASM_OP (TARGET_SVR4			\
+#define READONLY_DATA_SECTION_ASM_OP (TARGET_SVR4		\
 			      ? "\tsection\t .rodata,\"a\""	\
 			      : "\tsection\t .rodata,\"x\"")
 #define TDESC_SECTION_ASM_OP (TARGET_SVR4			\
@@ -1672,7 +1624,6 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 /* These are pretty much common to all assemblers.  */
 #define IDENT_ASM_OP		"\tident\t"
 #define FILE_ASM_OP		"\tfile\t"
-#define SECTION_ASM_OP		"\tsection\t"
 #define SET_ASM_OP		"\tdef\t"
 #define GLOBAL_ASM_OP		"\tglobal\t"
 #define ALIGN_ASM_OP		"\talign\t"
@@ -1774,7 +1725,11 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #undef	ASM_FILE_END
 
 #define ASM_OUTPUT_SOURCE_FILENAME(FILE, NAME) \
-  fprintf (FILE, "%s\"%s\"\n", FILE_ASM_OP, NAME)
+  do {                                         \
+    fputs (FILE_ASM_OP, FILE);                 \
+    output_quoted_string (FILE, NAME);         \
+    putc ('\n', FILE);                         \
+  } while (0)
 
 #ifdef SDB_DEBUGGING_INFO
 #undef ASM_OUTPUT_SOURCE_LINE
@@ -1850,38 +1805,31 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL)			\
   do {									\
     if (DECLARE_ASM_NAME)						\
-      {									\
-	fprintf (FILE, "%s", TYPE_ASM_OP);				\
-	assemble_name (FILE, NAME);					\
-	putc (',', FILE);						\
-	fprintf (FILE, TYPE_OPERAND_FMT, "function");			\
-	putc ('\n', FILE);						\
-      }									\
+      ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "function");		\
     ASM_OUTPUT_LABEL(FILE, NAME);					\
   } while (0)
 
 /* Write the extra assembler code needed to declare an object properly.  */
 #undef	ASM_DECLARE_OBJECT_NAME
-#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			    \
-  do {									    \
-    if (DECLARE_ASM_NAME)						    \
-      {									    \
-	fprintf (FILE, "%s", TYPE_ASM_OP);				    \
-	assemble_name (FILE, NAME);					    \
-	putc (',', FILE);						    \
-	fprintf (FILE, TYPE_OPERAND_FMT, "object");			    \
-	putc ('\n', FILE);						    \
-        size_directive_output = 0;					    \
-	if (!flag_inhibit_size_directive && DECL_SIZE (DECL))		    \
-	  {								    \
-            size_directive_output = 1;					    \
-	    fprintf (FILE, "%s", SIZE_ASM_OP);				    \
-	    assemble_name (FILE, NAME);					    \
-	    fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
-	  }								    \
-      }									    \
-    ASM_OUTPUT_LABEL(FILE, NAME);					    \
-  } while (0)
+#define ASM_DECLARE_OBJECT_NAME(FILE, NAME, DECL)			\
+  do {									\
+    if (DECLARE_ASM_NAME)						\
+      {									\
+	HOST_WIDE_INT size;						\
+									\
+	ASM_OUTPUT_TYPE_DIRECTIVE (FILE, NAME, "object");		\
+									\
+	size_directive_output = 0;					\
+	if (!flag_inhibit_size_directive				\
+	    && (DECL) && DECL_SIZE (DECL))				\
+	  {								\
+	    size_directive_output = 1;					\
+	    size = int_size_in_bytes (TREE_TYPE (DECL));		\
+	    ASM_OUTPUT_SIZE_DIRECTIVE (FILE, NAME, size);		\
+	  }								\
+      }									\
+    ASM_OUTPUT_LABEL(FILE, NAME);					\
+  } while (0);
 
 /* Output the size directive for a decl in rest_of_decl_compilation
    in the case where we did not do so before the initializer.
@@ -1893,6 +1841,7 @@ enum reg_class { NO_REGS, AP_REG, XRF_REGS, GENERAL_REGS, AGRF_REGS,
 #define ASM_FINISH_DECLARE_OBJECT(FILE, DECL, TOP_LEVEL, AT_END)	 \
 do {									 \
      const char *name = XSTR (XEXP (DECL_RTL (DECL), 0), 0);		 \
+     HOST_WIDE_INT size;						 \
      if (!flag_inhibit_size_directive && DECL_SIZE (DECL)		 \
 	 && DECLARE_ASM_NAME						 \
          && ! AT_END && TOP_LEVEL					 \
@@ -1900,9 +1849,8 @@ do {									 \
 	 && !size_directive_output)					 \
        {								 \
 	 size_directive_output = 1;					 \
-	 fprintf (FILE, "%s", SIZE_ASM_OP);				 \
-	 assemble_name (FILE, name);					 \
-	 fprintf (FILE, ",%d\n",  int_size_in_bytes (TREE_TYPE (DECL))); \
+	 size = int_size_in_bytes (TREE_TYPE (DECL));			 \
+	 ASM_OUTPUT_SIZE_DIRECTIVE (FILE, name, size);			 \
        }								 \
    } while (0)
 
@@ -1910,36 +1858,8 @@ do {									 \
 #undef	ASM_DECLARE_FUNCTION_SIZE
 #define ASM_DECLARE_FUNCTION_SIZE(FILE, FNAME, DECL)			\
   do {									\
-    if (DECLARE_ASM_NAME)						\
-      {									\
-	if (!flag_inhibit_size_directive)				\
-	  {								\
-	    char label[256];						\
-	    static int labelno = 0;					\
-	    labelno++;							\
-	    ASM_GENERATE_INTERNAL_LABEL (label, "Lfe", labelno);	\
-	    ASM_OUTPUT_INTERNAL_LABEL (FILE, "Lfe", labelno);		\
-	    fprintf (FILE, "%s", SIZE_ASM_OP);				\
-	    assemble_name (FILE, (FNAME));				\
-	    fprintf (FILE, ",%s-", &label[1]);				\
-	    assemble_name (FILE, (FNAME));				\
-	    putc ('\n', FILE);						\
-	  }								\
-      }									\
-  } while (0)
-
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)			\
-  do {							\
-    fprintf (FILE, "%s", GLOBAL_ASM_OP);		\
-    assemble_name (FILE, NAME);				\
-    putc ('\n', FILE);					\
+    if (DECLARE_ASM_NAME && !flag_inhibit_size_directive)		\
+      ASM_OUTPUT_MEASURED_SIZE (FILE, FNAME);				\
   } while (0)
 
 /* The prefix to add to user-visible assembler symbols.
@@ -2313,32 +2233,24 @@ do {									 \
    and so follows DECLARE_ASM_NAME.  Note that strings go in text
    rather than const.  Override svr[34].h.  */
 
-#undef	USE_CONST_SECTION
 #undef	EXTRA_SECTIONS
-
-#define USE_CONST_SECTION DECLARE_ASM_NAME
 
 #if defined(USING_SVR4_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata
+#define EXTRA_SECTIONS in_tdesc, in_sdata
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
 #else
 #if defined(USING_SVR3_H)
 
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata, in_init, in_fini
+#define EXTRA_SECTIONS in_tdesc, in_sdata, in_init, in_fini
 
 #else /* luna or other not based on svr[34].h.  */
 
+#undef READONLY_DATA_SECTION_ASM_OP
 #undef INIT_SECTION_ASM_OP
-#define EXTRA_SECTIONS in_const, in_tdesc, in_sdata
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  text_section();							\
-}
+#define EXTRA_SECTIONS in_tdesc, in_sdata
 #define INIT_SECTION_FUNCTION
 #define FINI_SECTION_FUNCTION
 
@@ -2347,8 +2259,6 @@ const_section ()							\
 
 #undef	EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS						\
-  CONST_SECTION_FUNCTION						\
-									\
 void									\
 tdesc_section ()							\
 {									\
@@ -2372,75 +2282,12 @@ sdata_section ()							\
   INIT_SECTION_FUNCTION							\
   FINI_SECTION_FUNCTION
 
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.
-
-   For strings, the section is selected before the segment info is encoded.  */
-#undef	SELECT_SECTION
-#define SELECT_SECTION(DECL,RELOC,ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else if ( TREE_STRING_LENGTH (DECL) <= m88k_gp_threshold)		\
-	sdata_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if (SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)))			\
-	sdata_section ();						\
-      else if ((flag_pic && RELOC)					\
-	       || !TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)	\
-	       || !DECL_INITIAL (DECL)					\
-	       || (DECL_INITIAL (DECL) != error_mark_node		\
-		   && !TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();						\
-      else								\
-	const_section ();						\
-    }									\
-  else									\
-    const_section ();							\
-}
+#define TARGET_ASM_SELECT_SECTION  m88k_select_section
 
 /* Jump tables consist of branch instructions and should be output in
    the text section.  When we use a table of addresses, we explicitly
    change to the readonly data section.  */
 #define JUMP_TABLES_IN_TEXT_SECTION 1
-
-/* Define this macro if references to a symbol must be treated differently
-   depending on something about the variable or function named by the
-   symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the rtl for
-   DECL has been created and stored in `DECL_RTL (DECL)'.  The value of the
-   rtl will be a `mem' whose address is a `symbol_ref'.
-
-   For the m88k, determine if the item should go in the global pool.  */
-#define ENCODE_SECTION_INFO(DECL)					\
-  do {									\
-    if (m88k_gp_threshold > 0)						\
-    {									\
-      if (TREE_CODE (DECL) == VAR_DECL)					\
-	{								\
-	  if (!TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL))	\
-	    {								\
-	      int size = int_size_in_bytes (TREE_TYPE (DECL));		\
-									\
-	      if (size > 0 && size <= m88k_gp_threshold)		\
-		SYMBOL_REF_FLAG (XEXP (DECL_RTL (DECL), 0)) = 1;	\
-	    }								\
-	}								\
-      else if (TREE_CODE (DECL) == STRING_CST				\
-	       && flag_writable_strings					\
-	       && TREE_STRING_LENGTH (DECL) <= m88k_gp_threshold)	\
-	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (DECL), 0)) = 1;		\
-    }									\
-  } while (0)
 
 /* Print operand X (an rtx) in assembler syntax to file FILE.
    CODE is a letter or dot (`z' in `%z0') or 0 if no letter was specified.

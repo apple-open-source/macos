@@ -102,14 +102,12 @@ __private_extern__
 int
 __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
-	CFIndex				keyCnt;
-	CFStringRef			sessionKey;
 	CFDictionaryRef			dict;
 	CFArrayRef			keys;
+	CFIndex				keyCnt;
 	serverSessionRef		mySession;
-
-	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("__SCDynamicStoreClose:"));
+	CFStringRef			sessionKey;
+	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)*store;
 
 	if ((*store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
@@ -177,14 +175,12 @@ __SCDynamicStoreClose(SCDynamicStoreRef *store, Boolean internal)
 	}
 
 	/*
-	 * Remove the run loop source on the server port (for this
-	 * client).  Then, invalidate and release the port.
+	 * invalidate and release our run loop source on the server
+	 * port (for this client).  Then, release the port.
 	 */
 	mySession = getSession(storePrivate->server);
 	if (mySession->serverRunLoopSource) {
-		CFRunLoopRemoveSource(CFRunLoopGetCurrent(),
-				      mySession->serverRunLoopSource,
-				      kCFRunLoopDefaultMode);
+		CFRunLoopSourceInvalidate(mySession->serverRunLoopSource);
 		CFRelease(mySession->serverRunLoopSource);
 	}
 	CFMachPortInvalidate(mySession->serverPort);
@@ -204,11 +200,6 @@ _configclose(mach_port_t server, int *sc_status)
 {
 	serverSessionRef	mySession = getSession(server);
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Close session."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
-
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
 		return KERN_SUCCESS;
@@ -219,7 +210,6 @@ _configclose(mach_port_t server, int *sc_status)
 	 */
 	*sc_status = __SCDynamicStoreClose(&mySession->store, FALSE);
 	if (*sc_status != kSCStatusOK) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreClose(): %s"), SCErrorString(*sc_status));
 		return KERN_SUCCESS;
 	}
 

@@ -2,21 +2,21 @@
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
    2003 Free Software Foundation, Inc.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -63,12 +63,12 @@ static struct bfd_hash_entry *link_hash_newfunc
   PARAMS ((struct bfd_hash_entry *, struct bfd_hash_table *, const char *));
 static struct bfd_link_hash_table *elf32_sparc_link_hash_table_create
   PARAMS ((bfd *));
-static bfd_boolean create_got_section PARAMS ((bfd *,
-					       struct bfd_link_info *));
+static bfd_boolean create_got_section
+  PARAMS ((bfd *, struct bfd_link_info *));
 static bfd_boolean elf32_sparc_create_dynamic_sections
   PARAMS ((bfd *, struct bfd_link_info *));
 static void elf32_sparc_copy_indirect_symbol
-  PARAMS ((struct elf_backend_data *, struct elf_link_hash_entry *,
+  PARAMS ((const struct elf_backend_data *, struct elf_link_hash_entry *,
 	  struct elf_link_hash_entry *));
 static int elf32_sparc_tls_transition
   PARAMS ((struct bfd_link_info *, bfd *, int, int));
@@ -291,11 +291,14 @@ elf32_sparc_reloc_type_lookup (abfd, code)
       return &elf32_sparc_rev32_howto;
 
     default:
-      for (i = 0; i < sizeof (sparc_reloc_map) / sizeof (struct elf_reloc_map); i++)
-        {
-          if (sparc_reloc_map[i].bfd_reloc_val == code)
-	    return &_bfd_sparc_elf_howto_table[(int) sparc_reloc_map[i].elf_reloc_val];
-        }
+      for (i = 0;
+	   i < sizeof (sparc_reloc_map) / sizeof (struct elf_reloc_map);
+	   i++)
+	{
+	  if (sparc_reloc_map[i].bfd_reloc_val == code)
+	    return (_bfd_sparc_elf_howto_table
+		    + (int) sparc_reloc_map[i].elf_reloc_val);
+	}
     }
     bfd_set_error (bfd_error_bad_value);
     return NULL;
@@ -499,6 +502,35 @@ sparc_elf_lox10_reloc (abfd,
   return bfd_reloc_ok;
 }
 
+/* Support for core dump NOTE sections.  */
+
+static bfd_boolean
+elf32_sparc_grok_psinfo (bfd *abfd, Elf_Internal_Note *note)
+{
+  switch (note->descsz)
+    {
+    default:
+      return FALSE;
+
+    case 260:			/* Solaris prpsinfo_t.  */
+      elf_tdata (abfd)->core_program
+	= _bfd_elfcore_strndup (abfd, note->descdata + 84, 16);
+      elf_tdata (abfd)->core_command
+	= _bfd_elfcore_strndup (abfd, note->descdata + 100, 80);
+      break;
+
+    case 336:			/* Solaris psinfo_t.  */
+      elf_tdata (abfd)->core_program
+	= _bfd_elfcore_strndup (abfd, note->descdata + 88, 16);
+      elf_tdata (abfd)->core_command
+	= _bfd_elfcore_strndup (abfd, note->descdata + 104, 80);
+      break;
+    }
+
+  return TRUE;
+}
+
+
 /* Functions for the SPARC ELF linker.  */
 
 /* The name of the dynamic interpreter.  This is put in the .interp
@@ -633,9 +665,9 @@ link_hash_newfunc (entry, table, string)
   if (entry == NULL)
     {
       entry = bfd_hash_allocate (table,
-                                 sizeof (struct elf32_sparc_link_hash_entry));
+				 sizeof (struct elf32_sparc_link_hash_entry));
       if (entry == NULL)
-        return entry;
+	return entry;
     }
 
   /* Call the allocation method of the superclass.  */
@@ -747,7 +779,7 @@ elf32_sparc_create_dynamic_sections (dynobj, info)
 
 static void
 elf32_sparc_copy_indirect_symbol (bed, dir, ind)
-     struct elf_backend_data *bed;
+     const struct elf_backend_data *bed;
      struct elf_link_hash_entry *dir, *ind;
 {
   struct elf32_sparc_link_hash_entry *edir, *eind;
@@ -758,32 +790,32 @@ elf32_sparc_copy_indirect_symbol (bed, dir, ind)
   if (eind->dyn_relocs != NULL)
     {
       if (edir->dyn_relocs != NULL)
-        {
-          struct elf32_sparc_dyn_relocs **pp;
-          struct elf32_sparc_dyn_relocs *p;
+	{
+	  struct elf32_sparc_dyn_relocs **pp;
+	  struct elf32_sparc_dyn_relocs *p;
 
-          if (ind->root.type == bfd_link_hash_indirect)
-            abort ();
+	  if (ind->root.type == bfd_link_hash_indirect)
+	    abort ();
 
-          /* Add reloc counts against the weak sym to the strong sym
-             list.  Merge any entries against the same section.  */
-          for (pp = &eind->dyn_relocs; (p = *pp) != NULL; )
-            {
-              struct elf32_sparc_dyn_relocs *q;
+	  /* Add reloc counts against the weak sym to the strong sym
+	     list.  Merge any entries against the same section.  */
+	  for (pp = &eind->dyn_relocs; (p = *pp) != NULL; )
+	    {
+	      struct elf32_sparc_dyn_relocs *q;
 
-              for (q = edir->dyn_relocs; q != NULL; q = q->next)
-                if (q->sec == p->sec)
-                  {
-                    q->pc_count += p->pc_count;
-                    q->count += p->count;
-                    *pp = p->next;
-                    break;
-                  }
-              if (q == NULL)
-                pp = &p->next;
-            }
-          *pp = edir->dyn_relocs;
-        }
+	      for (q = edir->dyn_relocs; q != NULL; q = q->next)
+		if (q->sec == p->sec)
+		  {
+		    q->pc_count += p->pc_count;
+		    q->count += p->count;
+		    *pp = p->next;
+		    break;
+		  }
+	      if (q == NULL)
+		pp = &p->next;
+	    }
+	  *pp = edir->dyn_relocs;
+	}
 
       edir->dyn_relocs = eind->dyn_relocs;
       eind->dyn_relocs = NULL;
@@ -820,15 +852,15 @@ elf32_sparc_tls_transition (info, abfd, r_type, is_local)
       return R_SPARC_TLS_IE_HI22;
     case R_SPARC_TLS_GD_LO10:
       if (is_local)
-        return R_SPARC_TLS_LE_LOX10;
+	return R_SPARC_TLS_LE_LOX10;
       return R_SPARC_TLS_IE_LO10;
     case R_SPARC_TLS_IE_HI22:
       if (is_local)
-        return R_SPARC_TLS_LE_HIX22;
+	return R_SPARC_TLS_LE_HIX22;
       return r_type;
     case R_SPARC_TLS_IE_LO10:
       if (is_local)
-        return R_SPARC_TLS_LE_LOX10;
+	return R_SPARC_TLS_LE_LOX10;
       return r_type;
     case R_SPARC_TLS_LDM_HI22:
       return R_SPARC_TLS_LE_HIX22;
@@ -859,7 +891,7 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
   asection *sreloc;
   bfd_boolean checked_tlsgd = FALSE;
 
-  if (info->relocateable)
+  if (info->relocatable)
     return TRUE;
 
   htab = elf32_sparc_hash_table (info);
@@ -880,12 +912,12 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
       r_type = ELF32_R_TYPE (rel->r_info);
 
       if (r_symndx >= NUM_SHDR_ENTRIES (symtab_hdr))
-        {
-          (*_bfd_error_handler) (_("%s: bad symbol index: %d"),
-                                 bfd_archive_filename (abfd),
-                                 r_symndx);
-          return FALSE;
-        }
+	{
+	  (*_bfd_error_handler) (_("%s: bad symbol index: %d"),
+				 bfd_archive_filename (abfd),
+				 r_symndx);
+	  return FALSE;
+	}
 
       if (r_symndx < symtab_hdr->sh_info)
 	h = NULL;
@@ -1021,10 +1053,13 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 	      }
 	  }
 
-	  if (htab->elf.dynobj == NULL)
-	    htab->elf.dynobj = abfd;
-	  if (!create_got_section (htab->elf.dynobj, info))
-	    return FALSE;
+	  if (htab->sgot == NULL)
+	    {
+	      if (htab->elf.dynobj == NULL)
+		htab->elf.dynobj = abfd;
+	      if (!create_got_section (htab->elf.dynobj, info))
+		return FALSE;
+	    }
 	  break;
 
 	case R_SPARC_TLS_GD_CALL:
@@ -1049,17 +1084,17 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 	case R_SPARC_PLT32:
 	case R_SPARC_WPLT30:
 	  /* This symbol requires a procedure linkage table entry.  We
-             actually build the entry in adjust_dynamic_symbol,
-             because this might be a case of linking PIC code without
-             linking in any dynamic objects, in which case we don't
-             need to generate a procedure linkage table after all.  */
+	     actually build the entry in adjust_dynamic_symbol,
+	     because this might be a case of linking PIC code without
+	     linking in any dynamic objects, in which case we don't
+	     need to generate a procedure linkage table after all.  */
 
 	  if (h == NULL)
 	    {
 	      /* The Solaris native assembler will generate a WPLT30
-                 reloc for a local symbol if you assemble a call from
-                 one section to another when using -K pic.  We treat
-                 it as WDISP30.  */
+		 reloc for a local symbol if you assemble a call from
+		 one section to another when using -K pic.  We treat
+		 it as WDISP30.  */
 	      if (ELF32_R_TYPE (rel->r_info) == R_SPARC_PLT32)
 		goto r_sparc_plt32;
 	      break;
@@ -1149,8 +1184,8 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 	      struct elf32_sparc_dyn_relocs **head;
 
 	      /* When creating a shared object, we must copy these
-                 relocs into the output file.  We create a reloc
-                 section in dynobj and make room for the reloc.  */
+		 relocs into the output file.  We create a reloc
+		 section in dynobj and make room for the reloc.  */
 	      if (sreloc == NULL)
 		{
 		  const char *name;
@@ -1231,15 +1266,15 @@ elf32_sparc_check_relocs (abfd, info, sec, relocs)
 
 	  break;
 
-        case R_SPARC_GNU_VTINHERIT:
-          if (!_bfd_elf32_gc_record_vtinherit (abfd, sec, h, rel->r_offset))
-            return FALSE;
-          break;
+	case R_SPARC_GNU_VTINHERIT:
+	  if (!_bfd_elf32_gc_record_vtinherit (abfd, sec, h, rel->r_offset))
+	    return FALSE;
+	  break;
 
-        case R_SPARC_GNU_VTENTRY:
-          if (!_bfd_elf32_gc_record_vtentry (abfd, sec, h, rel->r_addend))
-            return FALSE;
-          break;
+	case R_SPARC_GNU_VTENTRY:
+	  if (!_bfd_elf32_gc_record_vtentry (abfd, sec, h, rel->r_addend))
+	    return FALSE;
+	  break;
 
 	default:
 	  break;
@@ -1263,21 +1298,21 @@ elf32_sparc_gc_mark_hook (sec, info, rel, h, sym)
       {
       case R_SPARC_GNU_VTINHERIT:
       case R_SPARC_GNU_VTENTRY:
-        break;
+	break;
 
       default:
-        switch (h->root.type)
-          {
-          case bfd_link_hash_defined:
-          case bfd_link_hash_defweak:
-            return h->root.u.def.section;
+	switch (h->root.type)
+	  {
+	  case bfd_link_hash_defined:
+	  case bfd_link_hash_defweak:
+	    return h->root.u.def.section;
 
-          case bfd_link_hash_common:
-            return h->root.u.c.p->section;
+	  case bfd_link_hash_common:
+	    return h->root.u.c.p->section;
 
 	  default:
 	    break;
-          }
+	  }
        }
      }
    else
@@ -1294,14 +1329,12 @@ elf32_sparc_gc_sweep_hook (abfd, info, sec, relocs)
      asection *sec;
      const Elf_Internal_Rela *relocs;
 {
-
   Elf_Internal_Shdr *symtab_hdr;
   struct elf_link_hash_entry **sym_hashes;
   bfd_signed_vma *local_got_refcounts;
   const Elf_Internal_Rela *rel, *relend;
-  unsigned long r_symndx;
-  int r_type;
-  struct elf_link_hash_entry *h;
+
+  elf_section_data (sec)->local_dynrel = NULL;
 
   symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
   sym_hashes = elf_sym_hashes (abfd);
@@ -1309,116 +1342,98 @@ elf32_sparc_gc_sweep_hook (abfd, info, sec, relocs)
 
   relend = relocs + sec->reloc_count;
   for (rel = relocs; rel < relend; rel++)
-    switch ((r_type = elf32_sparc_tls_transition (info, abfd,
-						  ELF32_R_TYPE (rel->r_info),
-						  ELF32_R_SYM (rel->r_info)
-						  >= symtab_hdr->sh_info)))
-      {
-      case R_SPARC_TLS_LDM_HI22:
-      case R_SPARC_TLS_LDM_LO10:
-	if (elf32_sparc_hash_table (info)->tls_ldm_got.refcount > 0)
-	  elf32_sparc_hash_table (info)->tls_ldm_got.refcount -= 1;
-	break;
+    {
+      unsigned long r_symndx;
+      unsigned int r_type;
+      struct elf_link_hash_entry *h = NULL;
 
-      case R_SPARC_TLS_LE_HIX22:
-      case R_SPARC_TLS_LE_LOX10:
-	if (info->shared)
-	  goto r_sparc_plt32;
-	break;
+      r_symndx = ELF32_R_SYM (rel->r_info);
+      if (r_symndx >= symtab_hdr->sh_info)
+	{
+	  struct elf32_sparc_link_hash_entry *eh;
+	  struct elf32_sparc_dyn_relocs **pp;
+	  struct elf32_sparc_dyn_relocs *p;
 
-      case R_SPARC_PC10:
-      case R_SPARC_PC22:
-	  if ((r_symndx = ELF32_R_SYM (rel->r_info)) >= symtab_hdr->sh_info
-	      && strcmp (sym_hashes[r_symndx
-				    - symtab_hdr->sh_info]->root.root.string,
-				    "_GLOBAL_OFFSET_TABLE_") == 0)
+	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	  eh = (struct elf32_sparc_link_hash_entry *) h;
+	  for (pp = &eh->dyn_relocs; (p = *pp) != NULL; pp = &p->next)
+	    if (p->sec == sec)
+	      {
+		/* Everything must go for SEC.  */
+		*pp = p->next;
+		break;
+	      }
+	}
+
+      r_type = ELF32_R_TYPE (rel->r_info);
+      r_type = elf32_sparc_tls_transition (info, abfd, r_type, h != NULL);
+      switch (r_type)
+	{
+	case R_SPARC_TLS_LDM_HI22:
+	case R_SPARC_TLS_LDM_LO10:
+	  if (elf32_sparc_hash_table (info)->tls_ldm_got.refcount > 0)
+	    elf32_sparc_hash_table (info)->tls_ldm_got.refcount -= 1;
+	  break;
+
+	case R_SPARC_TLS_GD_HI22:
+	case R_SPARC_TLS_GD_LO10:
+	case R_SPARC_TLS_IE_HI22:
+	case R_SPARC_TLS_IE_LO10:
+	case R_SPARC_GOT10:
+	case R_SPARC_GOT13:
+	case R_SPARC_GOT22:
+	  if (h != NULL)
+	    {
+	      if (h->got.refcount > 0)
+		h->got.refcount--;
+	    }
+	  else
+	    {
+	      if (local_got_refcounts[r_symndx] > 0)
+		local_got_refcounts[r_symndx]--;
+	    }
+	  break;
+
+	case R_SPARC_PC10:
+	case R_SPARC_PC22:
+	  if (h != NULL
+	      && strcmp (h->root.root.string, "_GLOBAL_OFFSET_TABLE_") == 0)
 	    break;
 	  /* Fall through.  */
 
-      case R_SPARC_DISP8:
-      case R_SPARC_DISP16:
-      case R_SPARC_DISP32:
-      case R_SPARC_WDISP30:
-      case R_SPARC_WDISP22:
-      case R_SPARC_WDISP19:
-      case R_SPARC_WDISP16:
-      case R_SPARC_8:
-      case R_SPARC_16:
-      case R_SPARC_32:
-      case R_SPARC_HI22:
-      case R_SPARC_22:
-      case R_SPARC_13:
-      case R_SPARC_LO10:
-      case R_SPARC_UA16:
-      case R_SPARC_UA32:
-      r_sparc_plt32:
-	r_symndx = ELF32_R_SYM (rel->r_info);
-	if (r_symndx >= symtab_hdr->sh_info)
-	  {
-	    struct elf32_sparc_link_hash_entry *eh;
-	    struct elf32_sparc_dyn_relocs **pp;
-	    struct elf32_sparc_dyn_relocs *p;
+	case R_SPARC_DISP8:
+	case R_SPARC_DISP16:
+	case R_SPARC_DISP32:
+	case R_SPARC_WDISP30:
+	case R_SPARC_WDISP22:
+	case R_SPARC_WDISP19:
+	case R_SPARC_WDISP16:
+	case R_SPARC_8:
+	case R_SPARC_16:
+	case R_SPARC_32:
+	case R_SPARC_HI22:
+	case R_SPARC_22:
+	case R_SPARC_13:
+	case R_SPARC_LO10:
+	case R_SPARC_UA16:
+	case R_SPARC_UA32:
+	case R_SPARC_PLT32:
+	  if (info->shared)
+	    break;
+	  /* Fall through.  */
 
-	    h = sym_hashes[r_symndx - symtab_hdr->sh_info];
+	case R_SPARC_WPLT30:
+	  if (h != NULL)
+	    {
+	      if (h->plt.refcount > 0)
+		h->plt.refcount--;
+	    }
+	  break;
 
-	    if (! info->shared)
-	      --h->plt.refcount;
-
-	    eh = (struct elf32_sparc_link_hash_entry *) h;
-
-	    for (pp = &eh->dyn_relocs; (p = *pp) != NULL; pp = &p->next)
-	      if (p->sec == sec)
-		{
-		  if (_bfd_sparc_elf_howto_table[r_type].pc_relative)
-		    p->pc_count -= 1;
-		  p->count -= 1;
-		  if (p->count == 0)
-		    *pp = p->next;
-		  break;
-		}
-	  }
-	break;
-
-      case R_SPARC_TLS_GD_HI22:
-      case R_SPARC_TLS_GD_LO10:
-      case R_SPARC_TLS_IE_HI22:
-      case R_SPARC_TLS_IE_LO10:
-      case R_SPARC_GOT10:
-      case R_SPARC_GOT13:
-      case R_SPARC_GOT22:
-	r_symndx = ELF32_R_SYM (rel->r_info);
-	if (r_symndx >= symtab_hdr->sh_info)
-	  {
-	    h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	    if (h->got.refcount > 0)
-	      h->got.refcount--;
-	  }
-	else
-	  {
-	    if (local_got_refcounts[r_symndx] > 0)
-	      local_got_refcounts[r_symndx]--;
-	  }
-        break;
-
-      case R_SPARC_PLT32:
-      case R_SPARC_HIPLT22:
-      case R_SPARC_LOPLT10:
-      case R_SPARC_PCPLT32:
-      case R_SPARC_PCPLT10:
-	r_symndx = ELF32_R_SYM (rel->r_info);
-	if (r_symndx >= symtab_hdr->sh_info)
-	  {
-	    h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	    if (h->plt.refcount > 0)
-	      h->plt.refcount--;
-	  }
-	if (r_type == R_SPARC_PLT32)
-	  goto r_sparc_plt32;
-	break;
-
-      default:
-	break;
-      }
+	default:
+	  break;
+	}
+    }
 
   return TRUE;
 }
@@ -1632,7 +1647,7 @@ allocate_dynrelocs (h, inf)
 	  /* The first four entries in .plt are reserved.  */
 	  if (s->_raw_size == 0)
 	    s->_raw_size = 4 * PLT_ENTRY_SIZE;
-                    
+
 	  /* The procedure linkage table has a maximum size.  */
 	  if (s->_raw_size >= 0x400000)
 	    {
@@ -1837,7 +1852,7 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
   if (elf_hash_table (info)->dynamic_sections_created)
     {
       /* Set the contents of the .interp section to the interpreter.  */
-      if (! info->shared)
+      if (info->executable)
 	{
 	  s = bfd_get_section_by_name (dynobj, ".interp");
 	  BFD_ASSERT (s != NULL);
@@ -2014,7 +2029,7 @@ elf32_sparc_size_dynamic_sections (output_bfd, info)
 #define add_dynamic_entry(TAG, VAL) \
   bfd_elf32_add_dynamic_entry (info, (bfd_vma) (TAG), (bfd_vma) (VAL))
 
-      if (!info->shared)
+      if (info->executable)
 	{
 	  if (!add_dynamic_entry (DT_DEBUG, 0))
 	    return FALSE;
@@ -2058,7 +2073,7 @@ struct elf32_sparc_section_data
 };
 
 #define sec_do_relax(sec) \
-  ((struct elf32_sparc_section_data *) (sec)->used_by_bfd)->do_relax
+  ((struct elf32_sparc_section_data *) elf_section_data (sec))->do_relax
 
 static bfd_boolean
 elf32_sparc_new_section_hook (abfd, sec)
@@ -2096,10 +2111,10 @@ static bfd_vma
 dtpoff_base (info)
      struct bfd_link_info *info;
 {
-  /* If tls_segment is NULL, we should have signalled an error already.  */
-  if (elf_hash_table (info)->tls_segment == NULL)
+  /* If tls_sec is NULL, we should have signalled an error already.  */
+  if (elf_hash_table (info)->tls_sec == NULL)
     return 0;
-  return elf_hash_table (info)->tls_segment->start;
+  return elf_hash_table (info)->tls_sec->vma;
 }
 
 /* Return the relocation value for @tpoff relocation
@@ -2110,14 +2125,12 @@ tpoff (info, address)
      struct bfd_link_info *info;
      bfd_vma address;
 {
-  struct elf_link_tls_segment *tls_segment
-    = elf_hash_table (info)->tls_segment;
+  struct elf_link_hash_table *htab = elf_hash_table (info);
 
-  /* If tls_segment is NULL, we should have signalled an error already.  */
-  if (tls_segment == NULL)
+  /* If tls_sec is NULL, we should have signalled an error already.  */
+  if (htab->tls_sec == NULL)
     return 0;
-  return -(align_power (tls_segment->size, tls_segment->align)
-	   + tls_segment->start - address);
+  return address - htab->tls_size - htab->tls_sec->vma;
 }
 
 /* Relocate a SPARC ELF section.  */
@@ -2143,7 +2156,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
   Elf_Internal_Rela *rel;
   Elf_Internal_Rela *relend;
 
-  if (info->relocateable)
+  if (info->relocatable)
     return TRUE;
 
   htab = elf32_sparc_hash_table (info);
@@ -2176,8 +2189,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
       r_type = ELF32_R_TYPE (rel->r_info);
 
       if (r_type == R_SPARC_GNU_VTINHERIT
-          || r_type == R_SPARC_GNU_VTENTRY)
-        continue;
+	  || r_type == R_SPARC_GNU_VTENTRY)
+	continue;
 
       if (r_type < 0 || r_type >= (int) R_SPARC_max_std)
 	{
@@ -2196,47 +2209,16 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	{
 	  sym = local_syms + r_symndx;
 	  sec = local_sections[r_symndx];
-	  relocation = _bfd_elf_rela_local_sym (output_bfd, sym, sec, rel);
+	  relocation = _bfd_elf_rela_local_sym (output_bfd, sym, &sec, rel);
 	}
       else
 	{
-	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	  while (h->root.type == bfd_link_hash_indirect
-		 || h->root.type == bfd_link_hash_warning)
-	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
+	  bfd_boolean warned ATTRIBUTE_UNUSED;
 
-	  relocation = 0;
-	  if (h->root.type == bfd_link_hash_defined
-	      || h->root.type == bfd_link_hash_defweak)
-	    {
-	      sec = h->root.u.def.section;
-	      if (sec->output_section == NULL)
-		 /* Set a flag that will be cleared later if we find a
-		   relocation value for this symbol.  output_section
-		   is typically NULL for symbols satisfied by a shared
-		   library.  */
-		unresolved_reloc = TRUE;
-	      else
-		relocation = (h->root.u.def.value
-			      + sec->output_section->vma
-			      + sec->output_offset);
-	    }
-	  else if (h->root.type == bfd_link_hash_undefweak)
-	    ;
-	  else if (info->shared
-		   && (!info->symbolic || info->allow_shlib_undefined)
-		   && !info->no_undefined
-		   && ELF_ST_VISIBILITY (h->other) == STV_DEFAULT)
-	    ;
-	  else
-	    {
-	      if (! ((*info->callbacks->undefined_symbol)
-		     (info, h->root.root.string, input_bfd,
-		      input_section, rel->r_offset,
-		      (!info->shared || info->no_undefined
-		       || ELF_ST_VISIBILITY (h->other)))))
-		return FALSE;
-	    }
+	  RELOC_FOR_GLOBAL_SYMBOL (h, sym_hashes, r_symndx,
+				   symtab_hdr, relocation, sec,
+				   unresolved_reloc, info,
+				   warned);
 	}
 
       switch (r_type)
@@ -2245,7 +2227,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_SPARC_GOT13:
 	case R_SPARC_GOT22:
 	  /* Relocation is to the entry for this symbol in the global
-             offset table.  */
+	     offset table.  */
 	  if (htab->sgot == NULL)
 	    abort ();
 
@@ -2265,13 +2247,13 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 		      && (h->elf_link_hash_flags & ELF_LINK_HASH_DEF_REGULAR)))
 		{
 		  /* This is actually a static link, or it is a
-                     -Bsymbolic link and the symbol is defined
-                     locally, or the symbol was forced to be local
-                     because of a version file.  We must initialize
-                     this entry in the global offset table.  Since the
-                     offset must always be a multiple of 4, we use the
-                     least significant bit to record whether we have
-                     initialized it already.
+		     -Bsymbolic link and the symbol is defined
+		     locally, or the symbol was forced to be local
+		     because of a version file.  We must initialize
+		     this entry in the global offset table.  Since the
+		     offset must always be a multiple of 4, we use the
+		     least significant bit to record whether we have
+		     initialized it already.
 
 		     When doing a dynamic link, we create a .rela.got
 		     relocation entry to initialize the value.  This
@@ -2343,7 +2325,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	case R_SPARC_WPLT30:
 	r_sparc_wplt30:
 	  /* Relocation is to the entry for this symbol in the
-             procedure linkage table.  */
+	     procedure linkage table.  */
 
 	  /* The Solaris native assembler will generate a WPLT30 reloc
 	     for a local symbol if you assemble a call from one
@@ -2355,8 +2337,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	  if (h->plt.offset == (bfd_vma) -1)
 	    {
 	      /* We didn't make a PLT entry for this symbol.  This
-                 happens when statically linking PIC code, or when
-                 using -Bsymbolic.  */
+		 happens when statically linking PIC code, or when
+		 using -Bsymbolic.  */
 	      break;
 	    }
 
@@ -2428,8 +2410,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      bfd_boolean skip, relocate = FALSE;
 
 	      /* When generating a shared object, these relocations
-                 are copied into the output file to be resolved at run
-                 time.  */
+		 are copied into the output file to be resolved at run
+		 time.  */
 
 	      BFD_ASSERT (sreloc != NULL);
 
@@ -2481,7 +2463,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      if (skip)
 		memset (&outrel, 0, sizeof outrel);
 	      /* h->dynindx may be -1 if the symbol was marked to
-                 become local.  */
+		 become local.  */
 	      else if (h != NULL && ! is_plt
 		       && ((! info->symbolic && h->dynindx != -1)
 			   || (h->elf_link_hash_flags
@@ -2504,16 +2486,8 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 
 		      if (is_plt)
 			sec = htab->splt;
-		      else if (h == NULL)
-			sec = local_sections[r_symndx];
-		      else
-			{
-			  BFD_ASSERT (h->root.type == bfd_link_hash_defined
-				      || (h->root.type
-					  == bfd_link_hash_defweak));
-			  sec = h->root.u.def.section;
-			}
-		      if (sec != NULL && bfd_is_abs_section (sec))
+
+		      if (bfd_is_abs_section (sec))
 			indx = 0;
 		      else if (sec == NULL || sec->owner == NULL)
 			{
@@ -2550,7 +2524,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      bfd_elf32_swap_reloca_out (output_bfd, &outrel, loc);
 
 	      /* This reloc will be computed at runtime, so there's no
-                 need to do anything now.  */
+		 need to do anything now.  */
 	      if (! relocate)
 		continue;
 	    }
@@ -2615,7 +2589,7 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      break;
 	    }
 
-          if (h != NULL)
+	  if (h != NULL)
 	    {
 	      off = h->got.offset;
 	      h->got.offset |= 1;
@@ -2626,14 +2600,14 @@ elf32_sparc_relocate_section (output_bfd, info, input_bfd, input_section,
 	      off = local_got_offsets[r_symndx];
 	      local_got_offsets[r_symndx] |= 1;
 	    }
-	    
+
 	r_sparc_tlsldm:
 	  if (htab->sgot == NULL)
 	    abort ();
 
 	  if ((off & 1) != 0)
 	    off &= ~1;
-          else
+	  else
 	    {
 	      Elf_Internal_Rela outrel;
 	      Elf32_External_Rela *loc;
@@ -3099,7 +3073,7 @@ elf32_sparc_finish_dynamic_symbol (output_bfd, info, h, sym)
 {
   bfd *dynobj;
   struct elf32_sparc_link_hash_table *htab;
-        
+
   htab = elf32_sparc_hash_table (info);
   dynobj = htab->elf.dynobj;
 
@@ -3111,7 +3085,7 @@ elf32_sparc_finish_dynamic_symbol (output_bfd, info, h, sym)
       bfd_byte *loc;
 
       /* This symbol has an entry in the procedure linkage table.  Set
-         it up.  */
+	 it up.  */
 
       BFD_ASSERT (h->dynindx != -1);
 
@@ -3165,7 +3139,7 @@ elf32_sparc_finish_dynamic_symbol (output_bfd, info, h, sym)
       bfd_byte *loc;
 
       /* This symbol has an entry in the global offset table.  Set it
-         up.  */
+	 up.  */
 
       sgot = htab->sgot;
       srela = htab->srelgot;
@@ -3245,7 +3219,7 @@ elf32_sparc_finish_dynamic_sections (output_bfd, info)
   bfd *dynobj;
   asection *sdyn;
   struct elf32_sparc_link_hash_table *htab;
-  
+
   htab = elf32_sparc_hash_table (info);
   dynobj = htab->elf.dynobj;
 
@@ -3309,8 +3283,7 @@ elf32_sparc_finish_dynamic_sections (output_bfd, info)
 		      splt->contents + splt->_raw_size - 4);
 	}
 
-      elf_section_data (splt->output_section)->this_hdr.sh_entsize =
-	PLT_ENTRY_SIZE;
+      elf_section_data (splt->output_section)->this_hdr.sh_entsize = 0;
     }
 
   /* Set the first entry in the global offset table to the address of
@@ -3395,15 +3368,6 @@ static bfd_boolean
 elf32_sparc_object_p (abfd)
      bfd *abfd;
 {
-  /* Allocate our special target data.  */
-  struct elf32_sparc_obj_tdata *new_tdata;
-  bfd_size_type amt = sizeof (struct elf32_sparc_obj_tdata);
-  new_tdata = bfd_zalloc (abfd, amt);
-  if (new_tdata == NULL)
-    return FALSE;
-  new_tdata->root = *abfd->tdata.elf_obj_data;
-  abfd->tdata.any = new_tdata;
-
   if (elf_elfheader (abfd)->e_machine == EM_SPARC32PLUS)
     {
       if (elf_elfheader (abfd)->e_flags & EF_SPARC_SUN_US3)
@@ -3513,8 +3477,9 @@ elf32_sparc_reloc_type_class (rela)
 #define elf_backend_object_p		elf32_sparc_object_p
 #define elf_backend_final_write_processing \
 					elf32_sparc_final_write_processing
-#define elf_backend_gc_mark_hook        elf32_sparc_gc_mark_hook
+#define elf_backend_gc_mark_hook	elf32_sparc_gc_mark_hook
 #define elf_backend_gc_sweep_hook       elf32_sparc_gc_sweep_hook
+#define elf_backend_grok_psinfo		elf32_sparc_grok_psinfo
 #define elf_backend_reloc_type_class	elf32_sparc_reloc_type_class
 
 #define elf_backend_can_gc_sections 1
@@ -3523,7 +3488,6 @@ elf32_sparc_reloc_type_class (rela)
 #define elf_backend_plt_readonly 0
 #define elf_backend_want_plt_sym 1
 #define elf_backend_got_header_size 4
-#define elf_backend_plt_header_size (4*PLT_ENTRY_SIZE)
 #define elf_backend_rela_normal 1
 
 #include "elf32-target.h"

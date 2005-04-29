@@ -5,7 +5,7 @@
 #	This sample mc file is for a site that uses the Cyrus IMAP server
 #	exclusively for local mail. This requires Sendmail 8.10 or later.
 #
-# $Id: cyrusv2.mc,v 1.4 2001/08/23 23:26:56 leg Exp $
+# $Id: cyrusv2.mc,v 1.5 2005/03/05 00:36:18 dasenbro Exp $
 
 divert(0)dnl
 VERSIONID(`cyrus v2 sample configuartion')

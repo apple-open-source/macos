@@ -42,7 +42,7 @@
 
 struct vpn_channel {
     /* read and allocate args to pass to pppd */
-    int (*get_pppd_args) __P((struct vpn_params*));
+    int (*get_pppd_args) __P((struct vpn_params*, int));
     /* intialize the vpn plugin */
     int (*listen) __P((void));
     /* accept an incoming connection */
@@ -56,9 +56,12 @@ struct vpn_channel {
 void init_address_lists(void);
 int add_address(char* ip_address);
 int add_address_range(char* ip_addr_start, char* ip_addr_end);
+void begin_address_update(void);
+void cancel_address_update(void);
+void apply_address_update(void);
 int address_avail(void);
 int init_plugin(struct vpn_params *params);
-int get_plugin_args(struct vpn_params* params);
+int get_plugin_args(struct vpn_params* params, int reload);
 void accept_connections(struct vpn_params* params);
 
 #endif

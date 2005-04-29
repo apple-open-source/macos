@@ -1,7 +1,7 @@
 /*
  *  main.c
  *
- *  $Id: main.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: main.c,v 1.3 2004/09/01 19:50:17 luesang Exp $
  *
  *  Main program
  *
@@ -159,8 +159,10 @@ main (int argc, char *argv[])
   char *gui = NULL;
   int i = 1;
 
-  printf ("iODBC Administrator from OpenLink Software, Copyright 2000.\n\r");
-  printf ("Build " DATEBUILD ", compliant ODBC v" VERSION "\n\r\n\r");
+  printf ("iODBC Administrator (GTK)\n");
+  printf ("%s\n", PACKAGE_STRING);
+  printf ("Copyright (C) 2000-2003 OpenLink Software\n");
+  printf ("Please report all bugs to <%s>\n\n", PACKAGE_BUGREPORT);
 
   /* Check options commands */
   if (argc > 1)
@@ -221,7 +223,8 @@ main (int argc, char *argv[])
   if (!getenv ("ODBCINI") && getenv ("HOME"))
     {
       STRCPY (path, getenv ("HOME"));
-      STRCAT (path, "/.odbc.ini");
+	// RDLS changed to force lookup in ~/Library/ODBC
+      STRCAT (path, "/Library/ODBC/odbc.ini");
       setenv ("ODBCINI", path, TRUE);
     }
 

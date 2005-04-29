@@ -82,7 +82,6 @@ static void usage();
 int main(int argc, char ** argv)
 {
     int                 argument  = 0;
-    mach_port_t         iokitPort = 0; // (don't release)
     struct options      options;
     io_registry_entry_t service   = 0; // (needs release)
     kern_return_t       status    = KERN_SUCCESS;
@@ -151,14 +150,9 @@ int main(int argc, char ** argv)
 
     if (options.flags & kIORegFlagShowBold)  boldinit();
 
-    // Obtain the I/O Kit communication handle.
-
-    status = IOMasterPort(bootstrap_port, &iokitPort);
-    assertion(status == KERN_SUCCESS, "can't obtain I/O Kit's master port");
-
     // Obtain the I/O Kit root service.
 
-    service = IORegistryGetRootEntry(iokitPort);
+    service = IORegistryGetRootEntry(kIOMasterPortDefault);
     assertion(service, "can't obtain I/O Kit's root service");
 
     // Traverse over all the I/O Kit services.

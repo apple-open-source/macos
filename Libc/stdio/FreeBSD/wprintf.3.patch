@@ -1,12 +1,25 @@
---- wprintf.3.orig	Thu Aug 21 18:19:12 2003
-+++ wprintf.3	Thu Aug 21 18:16:28 2003
-@@ -224,6 +224,20 @@
+--- wprintf.3.orig	Fri Mar 11 17:09:07 2005
++++ wprintf.3	Fri Mar 11 17:03:23 2005
+@@ -87,6 +87,12 @@
+ write to the wide character string
+ .Fa ws .
+ .Pp
++Extended locale versions of these functions are documented in
++.Xr wprintf_l 3 .
++See
++.Xr xlocale 3
++for more information.
++.Pp
+ These functions write the output under the control of a
+ .Fa format
+ string that specifies how subsequent arguments
+@@ -224,6 +230,20 @@
  .Xr localeconv 3 .
  .El
  .It
-+An optional seperator character (
++An optional separator character (
 +.Cm \ , | \;  | \ : | _
-+) used for seperating multiple values when printing an AltiVec vector,
++) used for separating multiple values when printing an AltiVec vector,
 +or other multi-value unit.
 +.Pp
 +NOTE: This is an AltiVec only extension onto the
@@ -21,7 +34,7 @@
  An optional decimal digit string specifying a minimum field width.
  If the converted value has fewer characters than the field width, it will
  be padded with spaces on the left (or right, if the left-adjustment
-@@ -314,6 +328,28 @@
+@@ -314,6 +334,28 @@
  .It Sy Modifier Ta Cm c Ta Cm s
  .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
  .El
@@ -50,3 +63,13 @@
  .It
  A character that specifies the type of conversion to be applied.
  .El
+@@ -602,7 +644,8 @@
+ .Xr putwc 3 ,
+ .Xr setlocale 3 ,
+ .Xr wcsrtombs 3 ,
+-.Xr wscanf 3
++.Xr wscanf 3 ,
++.Xr wprintf_l 3
+ .Sh STANDARDS
+ Subject to the caveats noted in the
+ .Sx BUGS

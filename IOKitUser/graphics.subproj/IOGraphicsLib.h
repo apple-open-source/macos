@@ -375,9 +375,13 @@ IOFBGetPixelInfoDictionary(
 
 /*! @enum IODisplayDictionaryOptions
     @constant kIODisplayMatchingInfo Include only the keys necessary to match two displays with IODisplayMatchDictionaries().
+    @constant kIODisplayOnlyPreferredName The kDisplayProductName property includes only the localized names returned by CFBundleCopyPreferredLocalizationsFromArray().
+    @constant kIODisplayNoProductName The kDisplayProductName property is not included in the returned dictionary.
 */
 enum {
-    kIODisplayMatchingInfo	= 0x00000100
+    kIODisplayMatchingInfo	= 0x00000100,
+    kIODisplayOnlyPreferredName	= 0x00000200,
+    kIODisplayNoProductName	= 0x00000400
 };
 
 /*! @function IODisplayCreateInfoDictionary

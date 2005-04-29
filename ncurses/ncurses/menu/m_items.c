@@ -27,7 +27,7 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1995,1997            *
+ *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
 /***************************************************************************
@@ -37,7 +37,7 @@
 
 #include "menu.priv.h"
 
-MODULE_ID("$Id: m_items.c,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $")
+MODULE_ID("$Id: m_items.c,v 1.12 2003/11/08 20:50:58 tom Exp $")
 
 /*---------------------------------------------------------------------------
 |   Facility      :  libnmenu  
@@ -78,7 +78,7 @@ set_menu_items (MENU * menu, ITEM ** items)
 |   Facility      :  libnmenu  
 |   Function      :  ITEM **menu_items(const MENU *menu)
 |   
-|   Description   :  Returns a pointer to the item pointer arry of the menu
+|   Description   :  Returns a pointer to the item pointer array of the menu
 |
 |   Return Values :  NULL on error
 +--------------------------------------------------------------------------*/

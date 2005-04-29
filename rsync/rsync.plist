@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>rsync</string>
+	<key>OpenSourceVersion</key>
+	<string>2.6.3</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://rsync.samba.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://rsync.samba.org/ftp/rsync/rsync-2.6.3.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>2beb30caafa69a01182e71c528fb0393</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-10-07</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>rsync.txt</string>
+</dict>
+</array>
+</plist>

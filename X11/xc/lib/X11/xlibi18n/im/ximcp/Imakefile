@@ -1,3 +1,5 @@
+XCOMM $XFree86: xc/lib/X11/xlibi18n/im/ximcp/Imakefile,v 1.3 2003/10/24 15:34:01 tsi Exp $
+
 #include "../../Xi18nLib.conf"
 
  EXTRA_INCLUDES = -I../../..
@@ -13,7 +15,7 @@
 
    CONN_DEFINES = ConnectionFlags
    XTRANS_XIM_DEFINES = -DXIM_t -DTRANS_CLIENT
-   REQUIREDLIBS = -L$(XENVLIBDIR) -lX11 -lc
+   REQUIREDLIBS = SharedXlibi18nReqs
 
 LinkSourceFile(imCallbk.c, ../../..)
 LinkSourceFile(imDefFlt.c, ../../..)

@@ -141,6 +141,7 @@ static int dns_query(const char *name, int type, int flags,
 {
     HEADER *reply_header;
     int     len;
+    unsigned long saved_options = _res.options;
 
     /*
      * Initialize the name service.
@@ -167,9 +168,11 @@ static int dns_query(const char *name, int type, int flags,
      * only if the name server told us so.
      */
     len = res_search((char *) name, C_IN, type, reply->buf, sizeof(reply->buf));
+    _res.options = saved_options;
     if (len < 0) {
 	if (why)
-	    vstring_sprintf(why, "Name service error for name=%s type=%s: %s",
+	    vstring_sprintf(why, "Host or domain name not found. "
+			    "Name service error for name=%s type=%s: %s",
 			    name, dns_strtype(type), dns_strerror(h_errno));
 	if (msg_verbose)
 	    msg_info("dns_query: %s (%s): %s",
@@ -509,6 +512,7 @@ int     dns_lookup(const char *name, unsigned type, unsigned flags,
 	    vstring_sprintf(why,
 		   "Name service error for %s: invalid host or domain name",
 			    name);
+	SET_H_ERRNO(HOST_NOT_FOUND);
 	return (DNS_NOTFOUND);
     }
 
@@ -520,6 +524,7 @@ int     dns_lookup(const char *name, unsigned type, unsigned flags,
 	    vstring_sprintf(why,
 		   "Name service error for %s: invalid host or domain name",
 			    name);
+	SET_H_ERRNO(HOST_NOT_FOUND);
 	return (DNS_NOTFOUND);
     }
 
@@ -546,8 +551,8 @@ int     dns_lookup(const char *name, unsigned type, unsigned flags,
 		vstring_sprintf(why, "Name service error for name=%s type=%s: "
 				"Malformed name server reply",
 				name, dns_strtype(type));
-	case DNS_NOTFOUND:
 	case DNS_OK:
+	case DNS_NOTFOUND:
 	    return (status);
 	case DNS_RECURSE:
 	    if (msg_verbose)

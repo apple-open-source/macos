@@ -66,7 +66,9 @@
 #include "restore.h"
 #include "extern.h"
 
-static char *keyval __P((int));
+static char *keyval(int);
+extern int addwhiteout(char *name);
+extern void delwhiteout(struct entry *ep);
 
 /*
  * This implements the 't' option.
@@ -240,6 +242,7 @@ nodeupdates(name, ino, type)
 	int lookuptype = 0;
 	int key = 0;
 		/* key values */
+#               define NULLKEY  0x0
 #		define ONTAPE	0x1	/* inode is on the tape */
 #		define INOFND	0x2	/* inode already exists */
 #		define NAMEFND	0x4	/* name already exists */
@@ -483,7 +486,7 @@ nodeupdates(name, ino, type)
 	 * for it, we discard the name knowing that it will be on the
 	 * next incremental tape.
 	 */
-	case NULL:
+	case NULLKEY:
 		fprintf(stderr, "%s: (inode %d) not found on tape\n",
 			name, ino);
 		break;

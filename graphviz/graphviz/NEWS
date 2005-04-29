@@ -1,0 +1,129 @@
+Notes on 1.7.7 
+
+dot now uses the spline router library, and has code
+that can convert arbitrary (non-monotonic) simply
+connected box paths into spline constraint polygons,
+but this code only runs when drawing self-edges because
+only self-edges on record nodes are known to give rise
+to non-monotonic spline box paths.
+
+=============
+
+Notes on 1.7.6 "graphtool release"
+
+Added gpr and other stream graph tools.
+
+More minor reworking of cluster sizes and separations.
+
+=============
+
+Notes on 1.7 "bugfix it!"
+
+nmakefiles work again.
+
+Better SVG generator.
+
+Compound edges, courtesy Emden Gansner.
+
+Moved webdot into its own package
+
+=============
+
+Notes on 1.6 a.k.a. "autoconf it!"
+
+Replaced old makefiles with GNU autoconf/automake/libtool generated Makefiles
+Configure now tests for existing libttf.so and libgd.so (e.g. on RedHat-6.0)
+
+(The nmakefiles are still around, but probably don't work at the moment.)
+
+Merged dot and neato into a single executable which acts like dot if the 
+graph is directed, or like neato if undirected.  Also tcldot, webdot, doted.
+
+Added first cut at SVG generator (http://www.w3.org/Graphics/SVG/)
+that can be used with "gill" as a viewer (http://www.levien.com/svg/)
+
+Added first cut at FIG generator for xfig
+
+Added dynamic graph code:  Tcldgr, Tcldgl, dge
+
+=============
+
+Notes on 1.5 a.k.a. "opensourcify it!"
+
+Updated source file comment headers; bug fixes in Lefty scripts.
+
+=============
+
+Notes on 1.4 a.k.a. "the final beta":
+
+New stuff includes bug fixes (what else), the untested imap driver,
+the slightly tested drivers for VRML and VTX (Confluent Visual Thought),
+cleaned up webdot demo.
+
+Of particular note, we improved neato's layouts using new algorithms
+to prevent node-node and node-edge overlaps.  This feature is enabled
+by running neato -Gsplines=true -Goverlap=false
+
+To use the GIF generator with Unix, you need to install TrueType fonts.
+For copyright reasons, we don't bundle any fonts with graphviz.
+You may have a licensed copy on a nearby PC in C:\Windows\Fonts,
+or you can download them e.g. from 
+	http://www.microsoft.com/typography/fontpack/default.htm
+The built-in default for the TrueType font lookup path in dot currently is
+/windows/fonts:/dos/windows/fonts:/usr/lib/fonts:/usr/local/lib/fonts:/usr/local/lib/fonts/ttf:/usr/add-on/share/ttf:.
+so if it's convenient, you can install the .ttf files in one of these
+directories. Otherwise, include the directory of your choice in the
+environment variable DOTFONTPATH (you have to set this in your environment
+or create a wrapper script for dot).
+At a minimum you need to install files for:
+courier.ttf helvetica.ttf times.ttf symbol.ttf
+It's up to you if you'd like to substitute e.g. New Times Roman for times.ttf,
+Arial for helvetica.ttf, etc.
+
+If someone can find freely available fonts and could like to build them
+in (somehow) that would be great.  Many of the "free" fonts on the
+web seem to be copyrighted and forbid or at least restrict redistribution.
+
+
+==  lefty  ==
+
+It seems that if LEFTYPATH is not in the environment,
+lefty will look for scripts in the first place in the PATH
+that contains lefty, by trying ../lib/lefty/<file>.
+So as long as things are put in <root>/bin and <root>/lib/lefty,
+everything will work.
+
+==  dotty  ==
+
+dotty uses whatever your SHELL variable is set to to start a process.
+If this causes problems, a simple fix would be to insert a line such as
+
+SHELL=/bin/sh
+
+in the dotty script before it starts lefty
+
+==  tcldot  ==
+
+The tcldot package is installed in <gviz_root>/lib/Tcldot. If this is not
+in your system's tcl library directory, tcl may complain that it
+can't find the package. However, you can tell tcl where to look by
+setting and exporting TCLLIBPATH, e.g., using ksh/sh,
+
+export TCLLIBPATH=<gviz_root>/lib
+
+=============
+
+Notes on 1.3:
+
+Special thanks are due to John Ellson for the great new GIF driver
+(built with the Freetype renderer for TrueType files).
+Other major improvements were made by Vladimir Alexiev.  John Mocenigo
+has released a compatible graph viewer Grappa written in Java;
+visit www.research.att.com/sw/tools/graphviz for further information.
+Likewise, we will also have an add-on package of stream graph filters.
+
+=============
+
+Wish List
+	a few built-in TrueType fonts
+	respectable cluster layouts

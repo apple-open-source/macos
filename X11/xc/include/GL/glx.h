@@ -1,7 +1,7 @@
 #ifndef __GLX_glx_h__
 #define __GLX_glx_h__
 
-/* $XFree86: xc/include/GL/glx.h,v 1.10 2002/10/30 08:52:36 alanh Exp $ */
+/* $XFree86: xc/include/GL/glx.h,v 1.11 2003/09/28 20:14:57 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -156,7 +156,7 @@ typedef void ( * PFNGLXFREEMEMORYNVPROC) (GLvoid *pointer);
 
 
 /*
- * ???. GLX_MESA_agp_offset
+ * ???. GLX_MESA_agp_offset (deprecated)
  */ 
 #ifndef GLX_MESA_agp_offset
 #define GLX_MESA_agp_offset 1
@@ -165,6 +165,34 @@ extern GLuint glXGetAGPOffsetMESA(const GLvoid *pointer);
 typedef GLuint (* PFNGLXGETAGPOFFSETMESAPROC) (const GLvoid *pointer);
 
 #endif /* GLX_MESA_agp_offset */
+
+
+/*
+ * ???. GLX_MESA_allocate_memory
+ */ 
+#ifndef GLX_MESA_allocate_memory
+#define GLX_MESA_allocate_memory 1
+
+extern void *glXAllocateMemoryMESA(Display *dpy, int scrn, size_t size, float readfreq, float writefreq, float priority);
+extern void glXFreeMemoryMESA(Display *dpy, int scrn, void *pointer);
+extern GLuint glXGetMemoryOffsetMESA(Display *dpy, int scrn, const void *pointer);
+typedef void * ( * PFNGLXALLOCATEMEMORYMESAPROC) (Display *dpy, int scrn, size_t size, float readfreq, float writefreq, float priority);
+typedef void ( * PFNGLXFREEMEMORYMESAPROC) (Display *dpy, int scrn, void *pointer);
+typedef GLuint (* PFNGLXGETMEMORYOFFSETMESAPROC) (Display *dpy, int scrn, const void *pointer);
+
+#endif /* GLX_MESA_allocate_memory */
+
+/*
+ * ???. GLX_ARB_render_texture
+ */
+#ifndef GLX_ARB_render_texture
+#define GLX_ARB_render_texture 1
+
+Bool glXBindTexImageARB( Display *dpy, GLXPbuffer pbuffer, int buffer );
+Bool glXReleaseTexImageARB(Display *dpy, GLXPbuffer pbuffer, int buffer );
+Bool glXDrawableAttribARB( Display *dpy, GLXDrawable draw, const int *attribList );
+
+#endif
 
 
 

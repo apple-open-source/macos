@@ -13,140 +13,28 @@
 // layout and some widely used Hungarian keyboard layouts.
 // Tested on Linux with XFree86 3.3.6
 //
-// $XFree86: xc/programs/xkbcomp/symbols/hu,v 1.7 2002/12/13 04:18:03 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/hu,v 1.8 2003/09/27 13:31:59 pascal Exp $
 
 
 // Default layout
 default partial
 xkb_symbols "default" {
-    include "hu(uni_102_qwertz_comma)"
+    include "hu(102_qwertz_comma)"
 };
 
 // Standard layout
 partial
 xkb_symbols "standard" {
-    include "hu(uni_102_qwertz_comma)"
+    include "hu(102_qwertz_comma)"
 };
 
 // Main layouts
 
-// l2_101_qwertz_comma:
-// ISO-8859-2 (Latin 2) based 101 key qwertz layout with decimal comma on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_101_qwertz_comma" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_101)"
-    include "hu(def_qwertz)"
-    include "hu(def_comma)"
-    include "hu(def_common)"
-};
-
-// l2_101_qwertz_dot:
-// ISO-8859-2 (Latin 2) based 101 key qwertz layout with decimal dot on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_101_qwertz_dot" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_101)"
-    include "hu(def_qwertz)"
-    include "hu(def_dot)"
-    include "hu(def_common)"
-};
-
-// l2_101_qwerty_comma:
-// ISO-8859-2 (Latin 2) based 101 key qwerty layout with decimal comma on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_101_qwerty_comma" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_101)"
-    include "hu(def_qwerty)"
-    include "hu(def_comma)"
-    include "hu(def_common)"
-};
-
-// l2_101_qwerty_dot:
-// ISO-8859-2 (Latin 2) based 101 key qwerty layout with decimal dot on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_101_qwerty_dot" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_101)"
-    include "hu(def_qwerty)"
-    include "hu(def_dot)"
-    include "hu(def_common)"
-};
-
-// l2_102_qwertz_comma:
-// ISO-8859-2 (Latin 2) based 102 key qwertz layout with decimal comma on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_102_qwertz_comma" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_102)"
-    include "hu(def_qwertz)"
-    include "hu(def_comma)"
-    include "hu(def_common)"
-};
-
-// l2_102_qwertz_dot:
-// ISO-8859-2 (Latin 2) based 102 key qwertz layout with decimal dot on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_102_qwertz_dot" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_102)"
-    include "hu(def_qwertz)"
-    include "hu(def_dot)"
-    include "hu(def_common)"
-};
-
-// l2_102_qwerty_comma:
-// ISO-8859-2 (Latin 2) based 102 key qwerty layout with decimal comma on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_102_qwerty_comma" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_102)"
-    include "hu(def_qwerty)"
-    include "hu(def_comma)"
-    include "hu(def_common)"
-};
-
-// l2_102_qwerty_dot:
-// ISO-8859-2 (Latin 2) based 102 key qwerty layout with decimal dot on keypad
-// You have to set your locale settings to ISO-8859-1 based settings
-// or unset them.
-partial
-xkb_symbols "l2_102_qwerty_dot" {
-    name[Group1] = "Hungarian";
-    include "hu(def_l2)"
-    include "hu(def_102)"
-    include "hu(def_qwerty)"
-    include "hu(def_dot)"
-    include "hu(def_common)"
-};
-
-// uni_101_qwertz_comma:
+// 101_qwertz_comma:
 // Unicode based 101 key qwertz layout with decimal comma on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_101_qwertz_comma" {
+xkb_symbols "101_qwertz_comma" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_101)"
@@ -155,11 +43,11 @@ xkb_symbols "uni_101_qwertz_comma" {
     include "hu(def_common)"
 };
 
-// uni_101_qwertz_dot:
+// 101_qwertz_dot:
 // Unicode based 101 key qwertz layout with decimal dot on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_101_qwertz_dot" {
+xkb_symbols "101_qwertz_dot" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_101)"
@@ -168,11 +56,11 @@ xkb_symbols "uni_101_qwertz_dot" {
     include "hu(def_common)"
 };
 
-// uni_101_qwerty_comma:
+// 101_qwerty_comma:
 // Unicode based 101 key qwerty layout with decimal comma on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_101_qwerty_comma" {
+xkb_symbols "101_qwerty_comma" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_101)"
@@ -181,11 +69,11 @@ xkb_symbols "uni_101_qwerty_comma" {
     include "hu(def_common)"
 };
 
-// uni_101_qwerty_dot:
+// 101_qwerty_dot:
 // Unicode based 101 key qwerty layout with decimal dot on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_101_qwerty_dot" {
+xkb_symbols "101_qwerty_dot" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_101)"
@@ -194,11 +82,11 @@ xkb_symbols "uni_101_qwerty_dot" {
     include "hu(def_common)"
 };
 
-// uni_102_qwertz_comma:
+// 102_qwertz_comma:
 // Unicode based 102 key qwertz layout with decimal comma on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_102_qwertz_comma" {
+xkb_symbols "102_qwertz_comma" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_102)"
@@ -207,11 +95,11 @@ xkb_symbols "uni_102_qwertz_comma" {
     include "hu(def_common)"
 };
 
-// uni_102_qwertz_dot:
+// 102_qwertz_dot:
 // Unicode based 102 key qwertz layout with decimal dot on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_102_qwertz_dot" {
+xkb_symbols "102_qwertz_dot" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_102)"
@@ -220,11 +108,11 @@ xkb_symbols "uni_102_qwertz_dot" {
     include "hu(def_common)"
 };
 
-// uni_102_qwerty_comma:
+// 102_qwerty_comma:
 // Unicode based 102 key qwerty layout with decimal comma on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_102_qwerty_comma" {
+xkb_symbols "102_qwerty_comma" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_102)"
@@ -233,11 +121,11 @@ xkb_symbols "uni_102_qwerty_comma" {
     include "hu(def_common)"
 };
 
-// uni_102_qwerty_dot:
+// 102_qwerty_dot:
 // Unicode based 102 key qwerty layout with decimal dot on keypad
 // You have to set your locale settings (at least LC_CTYPE) to hu_HU.
 partial
-xkb_symbols "uni_102_qwerty_dot" {
+xkb_symbols "102_qwerty_dot" {
     name[Group1] = "Hungarian";
     include "hu(def_uni)"
     include "hu(def_102)"
@@ -249,13 +137,7 @@ xkb_symbols "uni_102_qwerty_dot" {
 // Partial layouts
 
 // def_uni:
-// Unicode based Hungarian keybaord using the (recommended) Hungarian
-// locale (hu_HU).
-// This is the standard setting for Hungarian, but some applications
-// (e.g. LyX, Applixware) does not support this setting. In this case try
-// hu(l2_*_*).
-// You have to set your locale settings (at least LC_CTYPE) to hu_HU.
-// If you have to use another locale (eg. us) try the hu(l2_*_*).
+// Unicode based Hungarian keybaord.
 
 hidden partial alphanumeric_keys
 xkb_symbols "def_uni" {
@@ -273,30 +155,6 @@ xkb_symbols "def_uni" {
     key <AD11> {        [     odoubleacute, Odoubleacute     ],
                         [         division                   ]       };
     key <BKSL> {        [     udoubleacute, Udoubleacute     ],
-                        [         currency                   ]       };
-};
-
-// def_l2:
-// Hungarian keybaord used with us or another ISO-8859-1 based locale
-// settings resulting 8 bit compatible, ISO-8859-2 (Latin 2) compatible
-// layout for some applications (e.g. LyX, Applixware) wich unable to
-// handle Unicode based keysyms.
-// If you use the standard Hungarian locale (hu_HU) use the hu(uni_*_*)
-// instead.
-
-hidden partial alphanumeric_keys
-xkb_symbols "def_l2" {
-    key <AC02> {        [                s, S                ],
-                        [              eth                   ]       };
-    key <AC03> {        [                d, D                ],
-                        [              Eth                   ]       };
-    key <AC08> {        [                k, K                ],
-                        [    threesuperior                   ]       };
-    key <AC09> {        [                l, L                ],
-                        [         sterling                   ]       };
-    key <AD11> {        [           otilde, Otilde           ],
-                        [         division                   ]       };
-    key <BKSL> {        [      ucircumflex, Ucircumflex      ],
                         [         currency                   ]       };
 };
 
@@ -342,7 +200,7 @@ xkb_symbols "def_qwerty" {
 // The Hungarian standard is the comma on the keypad not decimal dot
 hidden partial keypad_keys
 xkb_symbols "def_comma" {
-   key  <KPDL> {        [        KP_Delete, comma            ]       };
+   key  <KPDL> {        [        KP_Delete, KP_Separator     ]       };
 };
 
 // def_dot:

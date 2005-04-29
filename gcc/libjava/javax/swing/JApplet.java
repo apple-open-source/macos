@@ -1,5 +1,5 @@
 /* JApplet.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,21 +35,23 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package javax.swing;
 
-import java.applet.*;
-import java.awt.*;
-import java.awt.event.*;
-
-
+import java.applet.Applet;
+import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.LayoutManager;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
 import javax.accessibility.AccessibleContext;
-import javax.accessibility.AccessibleRole;
-import javax.accessibility.AccessibleState;
-import javax.accessibility.AccessibleStateSet;
 
-
-public class JApplet extends Applet
+public class JApplet extends Applet implements RootPaneContainer
 {
+  private static final long serialVersionUID = 7269359214497372587L;
 
     public final static int HIDE_ON_CLOSE        = 0;
     public final static int EXIT_ON_CLOSE        = 1;
@@ -79,27 +81,27 @@ public class JApplet extends Applet
   public Dimension getPreferredSize()
   {
     Dimension d = super.getPreferredSize();
-    System.out.println("JFrame.getPrefSize(): " + d + " , comp="+countComponents() + ", layout=" + getLayout());
+    System.out.println("JFrame.getPrefSize(): " + d + " , comp="+ getComponentCount () + ", layout=" + getLayout());
     return d;
   }
 
   public  void setLayout(LayoutManager manager)
   {    super.setLayout(manager);  }
 
-    void setLayeredPane(JLayeredPane layeredPane) 
+   public void setLayeredPane(JLayeredPane layeredPane) 
     {   getRootPane().setLayeredPane(layeredPane);   }
   
-    JLayeredPane getLayeredPane()
+   public JLayeredPane getLayeredPane()
     {   return getRootPane().getLayeredPane();     }
   
-    JRootPane getRootPane()
+   public JRootPane getRootPane()
     {
         if (rootPane == null)
             setRootPane(createRootPane());
         return rootPane;          
     }
 
-    void setRootPane(JRootPane root)
+   public void setRootPane(JRootPane root)
     {
         if (rootPane != null)
             remove(rootPane);
@@ -108,19 +110,19 @@ public class JApplet extends Applet
         add(rootPane, BorderLayout.CENTER);
     }
 
-    JRootPane createRootPane()
+   public JRootPane createRootPane()
     {   return new JRootPane();    }
 
-    Container getContentPane()
+   public Container getContentPane()
     {    return getRootPane().getContentPane();     }
 
-    void setContentPane(Container contentPane)
+   public void setContentPane(Container contentPane)
     {    getRootPane().setContentPane(contentPane);    }
   
-    Component getGlassPane()
+   public  Component getGlassPane()
     {    return getRootPane().getGlassPane();   }
   
-    void setGlassPane(Component glassPane)
+   public void setGlassPane(Component glassPane)
     {   getRootPane().setGlassPane(glassPane);   }
 
 
@@ -135,10 +137,10 @@ public class JApplet extends Applet
     {    return close_action;   }
 
     
-    JMenuBar getJMenuBar()
+    public JMenuBar getJMenuBar()
     {    return getRootPane().getJMenuBar();   }
     
-    void setJMenuBar(JMenuBar menubar)
+    public void setJMenuBar(JMenuBar menubar)
     {    getRootPane().setJMenuBar(menubar); }
     
     

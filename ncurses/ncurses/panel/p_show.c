@@ -36,7 +36,7 @@
  */
 #include "panel.priv.h"
 
-MODULE_ID("$Id: p_show.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: p_show.c,v 1.9 2001/02/24 23:46:50 tom Exp $")
 
 NCURSES_EXPORT(int)
 show_panel (PANEL *pan)

@@ -2,7 +2,7 @@ XCOMM $Xorg: os2.cf,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
 
 
 
-XCOMM platform:  $XFree86: xc/config/cf/os2.cf,v 3.37 2002/05/31 16:31:18 dawes Exp $
+XCOMM platform:  $XFree86: xc/config/cf/os2.cf,v 3.41 2003/11/14 02:17:19 dawes Exp $
 
 XCOMM hv: This file will now require a compiler that defines
 XCOMM hv: the symbol __UNIXOS2__ (currently a modified EMX gcc,
@@ -61,7 +61,7 @@ XCOMM hv: but in future a separate system)
 #define HasSnprintf		YES
 #define HasWChar32		NO
 #define HasUsableFileMap	NO
-#define HasNCurses		NO
+#define HasNCurses		YES
 #define HasVarRun		NO
 #define HasLibPthread		NO
 #define HasPosixThreads		NO
@@ -86,30 +86,18 @@ XCOMM hv: but in future a separate system)
 #ifndef HasShm
 # define HasShm          	YES
 #endif
-#define ConnectionFlags		-DTCPCONN 
-/*-DOS2PIPECONN excluded*/
+#define ConnectionFlags		-DTCPCONN -DOS2PIPECONN
 #define StdIncDir	/usr/include
 #define HasStickyDirBit		NO
 #define HasMkstemp		NO
 #define BuildThreadStubLibrary	NO
+#define HasBasename		NO	/* C-function, not shell utility!! */
 
-
-
-/* XF86Setup stuff - does not work yet! */
-#define HasTcl			NO
-/*define TclLibDir		$(X11ROOT)$(SHLIBDIR)*/
-/*define TclIncDir		$(X11ROOT)$(INCROOT)/tcl*/
-/*define TclLibName		xtcl*/
-
-#define HasTk			NO
-/*define TkLibDir		$(X11ROOT)$(SHLIBDIR)*/
-/*define TkIncDir		$(X11ROOT)$(INCROOT)/tk*/
-/*define TkLibName		xtk*/
 
 /*
  * Compiler Features
  */
-#define DefaultGcc2i386Opt	-O2 -fstrength-reduce
+#define DefaultGcc2i386Opt	-O2 -fstrength-reduce -fpcc-struct-return
 #define UseGccMakeDepend	YES
 #define HasCplusplus		YES
 #define HasGnuMake		YES
@@ -132,7 +120,7 @@ XCOMM hv: but in future a separate system)
 #define StandardCppDefines	/**/
 #define PreProcessCmd	CppCmd
 
-#define CcCmd	gcc
+#define CcCmd	gcc -D__UNIXOS2__
 #define DefaultCCOptions	-D__ST_MT_ERRNO -Zmtd -Zsysv-signals
 #define LibraryCCOptions	-D__ST_MT_ERRNO -Zmtd -Zsysv-signals
 #define ServerCCOptions		-D__ST_MT_ERRNO  -Zmtd -Zsysv-signals
@@ -149,7 +137,7 @@ XCOMM hv: but in future a separate system)
 #define HasPerl5		YES
 
 #define CplusplusCmd	g++
-#define CplusplusOptions	-Zmtd -Zsysv-signals
+#define CplusplusOptions	-Zmtd -Zsysv-signals -D__UNIXOS2__
 
 #define AsCmd	as
 #define GccGasOption	-DGCCUSESGAS
@@ -159,7 +147,7 @@ XCOMM hv: but in future a separate system)
 
 #define LdCmd	ld
 #define ExtraLoadFlags	-Zbin-files
-#define ExtraLibraries	-lshm -lemxfix -lsocket -lbsd
+#define ExtraLibraries	-lshm -lemxfix -lsocket -lbsd -lgcc
 #define ServerExtraSysLibs     -lregex -lshm -lemxfix -lsocket
 
 /* quite a number of programs you need, most of them the same as
@@ -211,7 +199,7 @@ _NULLCMD_ =
 #define CaseSensitiveFileSystem	NO
 
 #ifndef ExtraFilesToClean
-# define ExtraFilesToClean 	*.~* *.exe *.dll *.obj *.lib *.map
+# define ExtraFilesToClean 	*.~* *.exe *.dll *.obj *.lib *.map *raw_os2.def MISSING_ORDINALS
 #endif
 
 #define ProgramTargetName(target) Concat(target,.exe)

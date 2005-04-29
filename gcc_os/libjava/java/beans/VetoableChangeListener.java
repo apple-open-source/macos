@@ -1,5 +1,5 @@
-/* java.beans.VetoableChangeListener
-   Copyright (C) 1998, 2000 Free Software Foundation, Inc.
+/* VetoableChangeListener.java -- listen for a change which can be vetoed
+   Copyright (C) 1998, 2000, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -41,37 +41,33 @@ package java.beans;
 import java.util.EventListener;
 
 /**
- ** VetoableChangeListener allows a class to monitor
- ** proposed changes to properties of a Bean and, if
- ** desired, prevent them from occurring.<P>
- **
- ** A vetoableChange() event will be fired <EM>before</EM>
- ** the property has changed.  If any listener rejects the
- ** change by throwing the PropertyChangeException, a new
- ** vetoableChange() event will be fired to all listeners
- ** who received a vetoableChange() event in the first
- ** place informing them of a reversion to the old value.
- ** The value, of course, never actually changed.<P>
- **
- ** <STRONG>Note:</STRONG> This class may not be reliably
- ** used to determine whether a property has actually
- ** changed.  Use the PropertyChangeListener interface
- ** for that instead.
- **
- ** @author John Keiser
- ** @version 1.1.0, 29 Jul 1998
- ** @since JDK1.1
- ** @see java.beans.PropertyChangeListener
- ** @see java.beans.VetoableChangeSupport
- **/
-
+ * VetoableChangeListener allows a class to monitor proposed changes to
+ * properties of a Bean and, if desired, prevent them from occurring. A
+ * vetoableChange() event will be fired <em>after</em> the property change has
+ * been requested, but before it is permanent. If any listener rejects the
+ * change by throwing the PropertyChangeException, a new vetoableChange()
+ * event will be fired to all listeners who received a vetoableChange() event
+ * in the first place, informing them to revert back to the old value. Thus,
+ * the listener that threw the exception the first time should be prepared
+ * to rethrow it the second time. The value, of course, never actually changed.
+ *
+ * <p><strong>Note:</strong> This class may not be reliably used to determine
+ * whether a property has actually changed.  Use the PropertyChangeListener
+ * interface for that instead.
+ *
+ * @author John Keiser
+ * @see java.beans.PropertyChangeListener
+ * @see java.beans.VetoableChangeSupport
+ * @since 1.1
+ * @status updated to 1.4
+ */
 public interface VetoableChangeListener extends EventListener
 {
-  /** Fired before a Bean's property changes.
-   ** @param e the change (containing the old and new values)
-   ** @exception PropertyChangeException if the listener
-   **            does not desire the change to be made.
-   **/
-  public abstract void vetoableChange(PropertyChangeEvent e)
-    throws PropertyVetoException;
-}
+  /**
+   * Fired before a Bean's property changes.
+   *
+   * @param e the change (containing the old and new values)
+   * @throws PropertyVetoException if the change is vetoed by the listener
+   */
+  void vetoableChange(PropertyChangeEvent e) throws PropertyVetoException;
+} // interface VetoableChangeListener

@@ -1,0 +1,63 @@
+# Commands covered: sound insert
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test insert-1.1 {insert command} {
+  set s1 [snack::sound snd1 -load ex1.wav]
+  set s2 [snack::sound snd2]
+  $s2 length 1000
+  $s2 insert $s1 500 -start 5000 -end 10000
+  set res [list [$s2 sample 499] [$s2 sample 500] [$s2 sample 5500] \
+	[$s2 sample 5501]]
+  $s1 destroy
+  $s2 destroy
+  set res
+} {0 7443 779 0}
+
+test insert-1.2 {insert command, stereo} {
+  set s1 [snack::sound snd1 -channels 2]
+  set s2 [snack::sound snd2 -channels 2]
+  $s1 length 1000
+  $s1 sample 500 1 2
+  $s2 length 1000
+  $s2 sample 999 3 4
+  $s1 insert $s2 500
+  set res [list [$s1 sample 1499] [$s1 sample 1500]]
+  $s1 destroy
+  $s2 destroy
+  set res
+} {{3 4} {1 2}}
+
+test insert-1.3 {insert command, 3 channel} {
+  set s1 [snack::sound snd1 -channels 3]
+  set s2 [snack::sound snd2 -channels 3]
+  $s1 length 1000
+  $s1 sample 500 1 2 3
+  $s2 length 1000
+  $s2 sample 999 4 5 6
+  $s1 insert $s2 500
+  set res [list [$s1 sample 1499] [$s1 sample 1500]]
+  $s1 destroy
+  $s2 destroy
+  set res
+} {{4 5 6} {1 2 3}}
+
+test insert-1.4 {insert command, missing argument for -end option} {
+  set s1 [snack::sound snd1 -load ex1.wav]
+  set s2 [snack::sound snd2]
+  $s2 length 1000
+  catch {$s2 insert $s1 500 -start 5000 -end} msg
+  $s1 destroy
+  $s2 destroy
+  set msg
+} {No argument given for -end option}
+
+# cleanup
+::tcltest::cleanupTests
+return

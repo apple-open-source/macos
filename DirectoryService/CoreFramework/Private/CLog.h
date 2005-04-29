@@ -31,9 +31,9 @@
 
 #include <stdarg.h>		// for inline functions
 
-#include "PrivateTypes.h"
-#include "CString.h"
-#include "CFile.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
+#include <DirectoryServiceCore/CString.h>
+#include <DirectoryServiceCore/CFile.h>
 
 class DSMutexSemaphore;
 

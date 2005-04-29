@@ -1,10 +1,20 @@
-/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.25.2.4 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slurpd/config.c,v 1.30.2.8 2004/03/25 22:57:56 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2003 Mark Benson.
+ * Portions Copyright 2002 John Morrissey.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
- * Copyright (c) 1996 Regents of the University of Michigan.
+/* Portions Copyright (c) 1996 Regents of the University of Michigan.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms are permitted
@@ -13,6 +23,13 @@
  * may not be used to endorse or promote products derived from this
  * software without specific prior written permission. This software
  * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).  Additional signficant contributors
+ * include:
+ *    John Morrissey
+ *    Mark Benson
  */
 
 
@@ -30,6 +47,7 @@
 #include <ac/ctype.h>
 
 #include <ldap.h>
+#include <lutil.h>
 
 #include "slurp.h"
 #include "globals.h"
@@ -64,8 +82,10 @@ slurpd_read_config(
     FILE	*fp;
     char	*line;
 
+	if ( cargv == NULL ) {
 	cargv = ch_calloc( ARGS_STEP + 1, sizeof(*cargv) );
 	cargv_size = ARGS_STEP + 1;
+	}
 
 #ifdef NEW_LOGGING
     LDAP_LOG ( CONFIG, ARGS, 
@@ -122,6 +142,7 @@ slurpd_read_config(
 			lineno, cargv[1] );
 		    fprintf( stderr, "line (ignored)\n" );
 		}
+		LUTIL_SLASHPATH( cargv[1] );
 		strcpy( sglob->slapd_replogfile, cargv[1] );
 	    }
 	} else if ( strcasecmp( cargv[0], "replica" ) == 0 ) {
@@ -145,6 +166,7 @@ slurpd_read_config(
 		
                 return( 1 );
             }
+	    LUTIL_SLASHPATH( cargv[1] );
 	    savefname = strdup( cargv[1] );
 	    savelineno = lineno;
 	    
@@ -158,7 +180,7 @@ slurpd_read_config(
 	} else if ( strcasecmp( cargv[0], "replica-pidfile" ) == 0 ) {
 		if ( cargc < 2 ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT,
+			LDAP_LOG( CONFIG, CRIT, 
 				"%s: line %d missing file name in \"replica-pidfile <file>\" "
 				"line.\n", fname, lineno, 0 );
 #else
@@ -170,12 +192,13 @@ slurpd_read_config(
 			return( 1 );
 		}
 
+		LUTIL_SLASHPATH( cargv[1] );
 		slurpd_pid_file = ch_strdup( cargv[1] );
 
 	} else if ( strcasecmp( cargv[0], "replica-argsfile" ) == 0 ) {
 		if ( cargc < 2 ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT,
+			LDAP_LOG( CONFIG, CRIT, 
 				   "%s: %d: missing file name in "
 				   "\"argsfile <file>\" line.\n",
 				   fname, lineno, 0 );
@@ -188,42 +211,41 @@ slurpd_read_config(
 			return( 1 );
 		}
 
+		LUTIL_SLASHPATH( cargv[1] );
 		slurpd_args_file = ch_strdup( cargv[1] );
-	} else if ( strcasecmp( cargv[0], "replicationinterval" ) == 0 ) {
-		int c;
-		if ( cargc < 2 ) {
+
+		} else if ( strcasecmp( cargv[0], "replicationinterval" ) == 0 ) {
+			int c;
+			if ( cargc < 2 ) {
 #ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT,
-				   "%s: %d: missing interval in "
-				   "\"replicationinterval <seconds>\" line.\n",
-				   fname, lineno, 0 );
+				LDAP_LOG( CONFIG, CRIT, "%s: %d: missing interval in "
+					"\"replicationinterval <seconds>\" line.\n",
+					fname, lineno, 0 );
 #else
-			Debug( LDAP_DEBUG_ANY,
-	    "%s: line %d: missing interval in \"replicationinterval <seconds>\" line\n",
-			    fname, lineno, 0 );
+				Debug( LDAP_DEBUG_ANY, "%s: line %d: missing interval in "
+					"\"replicationinterval <seconds>\" line\n",
+					fname, lineno, 0 );
+#endif
+				return( 1 );
+			}
+
+			c = atoi( cargv[1] );
+			if( c < 1 ) {
+#ifdef NEW_LOGGING
+				LDAP_LOG( CONFIG, CRIT, "%s: line %d: invalid interval "
+					"(%d) in \"replicationinterval <seconds>\" line\n",
+					fname, lineno, c );
+#else
+				Debug( LDAP_DEBUG_ANY, "%s: line %d: invalid interval "
+					"(%d) in \"replicationinterval <seconds>\" line\n",
+					fname, lineno, c );
 #endif
 
-			return( 1 );
+				return( 1 );
+			}
+
+			sglob->no_work_interval = c;
 		}
-		
-		c = atoi( cargv[1] );
-
-		if( c < 1 ) {
-#ifdef NEW_LOGGING
-			LDAP_LOG( CONFIG, CRIT, 
-					"%s: line %d: invalid interval (%d) in \"replicationinterval <seconds>\""
-					"line\n", fname, lineno, c );
-#else
-			Debug( LDAP_DEBUG_ANY,
-	"%s: line %d: invalid interval (%d) in \"replicationinterval <seconds>\" line\n",
-				fname, lineno, c );
-#endif
-
-			return( 1 );
-		}
-
-		sglob->no_work_interval = c;
-    }
 	}
     fclose( fp );
 #ifdef NEW_LOGGING
@@ -476,9 +498,16 @@ parse_replica_line(
     int		gots = 0;
     int		i;
     char	*hp, *val;
+    LDAPURLDesc *ludp;
 
     for ( i = 1; i < cargc; i++ ) {
 	if ( !strncasecmp( cargv[ i ], HOSTSTR, sizeof( HOSTSTR ) - 1 ) ) {
+		if ( gots & GOT_HOST ) {
+			fprintf( stderr, "Error: Malformed \"replica\" line in slapd config " );
+			fprintf( stderr, "file, too many host or uri names specified, line %d\n",
+				lineno );
+			return -1;
+		}	
 	    val = cargv[ i ] + sizeof( HOSTSTR ); /* '\0' string terminator accounts for '=' */
 	    if (( hp = strchr( val, ':' )) != NULL ) {
 		*hp = '\0';
@@ -490,15 +519,46 @@ parse_replica_line(
 	    }
 	    ri->ri_hostname = strdup( val );
 	    gots |= GOT_HOST;
+	} else if ( !strncasecmp( cargv[ i ], URISTR, sizeof( URISTR ) - 1 ) ) {
+		if ( gots & GOT_HOST ) {
+			fprintf( stderr, "Error: Malformed \"replica\" line in slapd config " );
+			fprintf( stderr, "file, too many host or uri names specified, line %d\n",
+				lineno );
+			return -1;
+		}		
+		if ( ldap_url_parse( cargv[ i ] + sizeof( URISTR ), &ludp ) != LDAP_SUCCESS ) {
+			fprintf( stderr, "Error: Malformed \"replica\" line in slapd config " );
+			fprintf( stderr, "file, bad uri format specified, line %d\n",
+				lineno );
+			return -1;
+		}
+		if (ludp->lud_host == NULL) {
+			fprintf( stderr, "Error: Malformed \"replica\" line in slapd config " );
+			fprintf( stderr, "file, missing uri hostname, line %d\n",
+				lineno );
+			return -1;
+		}
+		ri->ri_hostname = strdup ( ludp->lud_host );
+		ri->ri_port = ludp->lud_port;
+		ri->ri_uri = strdup ( cargv[ i ] + sizeof( URISTR ) );		
+		ldap_free_urldesc( ludp );				
+	    gots |= GOT_HOST;
 	} else if ( !strncasecmp( cargv[ i ], 
 			ATTRSTR, sizeof( ATTRSTR ) - 1 ) ) {
 	    /* ignore it */ ;
 	} else if ( !strncasecmp( cargv[ i ], 
 			SUFFIXSTR, sizeof( SUFFIXSTR ) - 1 ) ) {
 	    /* ignore it */ ;
+	} else if ( !strncasecmp( cargv[i], STARTTLSSTR, sizeof(STARTTLSSTR)-1 )) {
+	    val = cargv[ i ] + sizeof( STARTTLSSTR );
+		if( !strcasecmp( val, CRITICALSTR ) ) {
+			ri->ri_tls = TLS_CRITICAL;
+		} else {
+			ri->ri_tls = TLS_ON;
+		}
 	} else if ( !strncasecmp( cargv[ i ], TLSSTR, sizeof( TLSSTR ) - 1 ) ) {
 	    val = cargv[ i ] + sizeof( TLSSTR );
-		if( !strcasecmp( val, TLSCRITICALSTR ) ) {
+		if( !strcasecmp( val, CRITICALSTR ) ) {
 			ri->ri_tls = TLS_CRITICAL;
 		} else {
 			ri->ri_tls = TLS_ON;
@@ -517,10 +577,10 @@ parse_replica_line(
 	    fprintf( stderr, "slurpd no longer supports Kerberos.\n" );
 	    exit( EXIT_FAILURE );
 	    } else if ( !strcasecmp( val, SIMPLESTR )) {
-		ri->ri_bind_method = AUTH_SIMPLE;
+		ri->ri_bind_method = LDAP_AUTH_SIMPLE;
 		gots |= GOT_METHOD;
 	    } else if ( !strcasecmp( val, SASLSTR )) {
-		ri->ri_bind_method = AUTH_SASL;
+		ri->ri_bind_method = LDAP_AUTH_SASL;
 		gots |= GOT_METHOD;
 	    } else {
 		ri->ri_bind_method = -1;
@@ -569,14 +629,13 @@ parse_replica_line(
 	}
     }
     
-	if ( ri->ri_bind_method == AUTH_SASL) {
+	if ( ri->ri_bind_method == LDAP_AUTH_SASL) {
 		if ((gots & GOT_MECH) == 0) {
 			fprintf( stderr, "Error: \"replica\" line needs SASLmech flag in " );
 			fprintf( stderr, "slapd config file, line %d\n", lineno );
 			return -1;
 		}
-	}
-	else if ( gots != GOT_ALL ) {
+	} else if ( gots != GOT_ALL ) {
 		fprintf( stderr, "Error: Malformed \"replica\" line in slapd " );
 		fprintf( stderr, "config file, line %d\n", lineno );
 		return -1;

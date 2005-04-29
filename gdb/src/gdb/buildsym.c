@@ -1,6 +1,6 @@
 /* Support routines for building symbol tables in GDB's internal format.
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994, 1995,
-   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -43,6 +43,10 @@
 #include "filenames.h"		/* For DOSish file names */
 #include "macrotab.h"
 #include "demangle.h"		/* Needed by SYMBOL_INIT_DEMANGLED_NAME.  */
+#include "block.h"
+#include "cp-support.h"
+#include "dictionary.h"
+
 /* Ask buildsym.h to define the vars it normally declares `extern'.  */
 #define	EXTERN
 /**/
@@ -78,7 +82,7 @@ static int have_line_numbers;
 void
 add_free_pendings (struct pending *list)
 {
-  register struct pending *link = list;
+  struct pending *link = list;
 
   if (list)
     {
@@ -88,12 +92,15 @@ add_free_pendings (struct pending *list)
     }
 }
       
-/* Add a symbol to one of the lists of symbols.  */
+/* Add a symbol to one of the lists of symbols.  While we're at it, if
+   we're in the C++ case and don't have full namespace debugging info,
+   check to see if it references an anonymous namespace; if so, add an
+   appropriate using directive.  */
 
 void
 add_symbol_to_list (struct symbol *symbol, struct pending **listhead)
 {
-  register struct pending *link;
+  struct pending *link;
 
   /* If this is an alias for another symbol, don't add it.  */
   if (symbol->ginfo.name && symbol->ginfo.name[0] == '#')
@@ -120,6 +127,13 @@ add_symbol_to_list (struct symbol *symbol, struct pending **listhead)
 
   (*listhead)->symbol[(*listhead)->nsyms++] = symbol;
 
+  /* Check to see if we might need to look for a mention of anonymous
+     namespaces.  */
+  
+  if (SYMBOL_LANGUAGE (symbol) == language_cplus 
+      || SYMBOL_LANGUAGE (symbol) == language_objcplus)
+    cp_scan_for_anonymous_namespaces (symbol);
+
   /* APPLE LOCAL fix-and-continue */
   SYMBOL_OBSOLETED (symbol) = 0;
 }
@@ -137,7 +151,7 @@ find_symbol_in_list (struct pending *list, char *name, int length)
     {
       for (j = list->nsyms; --j >= 0;)
 	{
-	  pp = SYMBOL_NAME (list->symbol[j]);
+	  pp = DEPRECATED_SYMBOL_NAME (list->symbol[j]);
 	  if (*pp == *name && strncmp (pp, name, length) == 0 &&
 	      pp[length] == '\0')
 	    {
@@ -152,7 +166,6 @@ find_symbol_in_list (struct pending *list, char *name, int length)
 /* At end of reading syms, or in case of quit, really free as many
    `struct pending's as we can easily find. */
 
-/* ARGSUSED */
 void
 really_free_pendings (void *dummy)
 {
@@ -191,7 +204,7 @@ void
 free_pending_blocks (void)
 {
 #if 0				/* Now we make the links in the
-				   symbol_obstack, so don't free
+				   objfile_obstack, so don't free
 				   them.  */
   struct pending_block *bnext, *bnext1;
 
@@ -214,72 +227,29 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	      CORE_ADDR start, CORE_ADDR end,
 	      struct objfile *objfile)
 {
-  register struct pending *next, *next1;
-  register struct block *block;
-  register struct pending_block *pblock;
+  struct pending *next, *next1;
+  struct block *block;
+  struct pending_block *pblock;
   struct pending_block *opblock;
-  register int i;
-  register int j;
 
-  /* Count the length of the list of symbols.  */
-
-  for (next = *listhead, i = 0;
-       next;
-       i += next->nsyms, next = next->next)
-    {
-      /* EMPTY */ ;
-    }
-
-  /* Copy the symbols into the block.  */
+  block = allocate_block (&objfile->objfile_obstack);
 
   if (symbol)
     {
-      block = (struct block *) 
-	obstack_alloc (&objfile->symbol_obstack,
-		       (sizeof (struct block) + 
-			((i - 1) * sizeof (struct symbol *))));
-      BLOCK_NSYMS (block) = i;
-      for (next = *listhead; next; next = next->next)
-	for (j = next->nsyms - 1; j >= 0; j--)
-	  {
-	    BLOCK_SYM (block, --i) = next->symbol[j];
-	  }
+      BLOCK_DICT (block) = dict_create_linear (&objfile->objfile_obstack,
+					       *listhead);
     }
   else
     {
-      int htab_size = BLOCK_HASHTABLE_SIZE (i);
-
-      block = (struct block *) 
-	obstack_alloc (&objfile->symbol_obstack,
-		       (sizeof (struct block) + 
-			((htab_size - 1) * sizeof (struct symbol *))));
-      for (j = 0; j < htab_size; j++)
-	{
-	  BLOCK_BUCKET (block, j) = 0;
-	}
-      BLOCK_BUCKETS (block) = htab_size;
-      for (next = *listhead; next; next = next->next)
-	{
-	  for (j = next->nsyms - 1; j >= 0; j--)
-	    {
-	      struct symbol *sym;
-	      unsigned int hash_index;
-	      const char *name = SYMBOL_DEMANGLED_NAME (next->symbol[j]);
-	      if (name == NULL)
-		name = SYMBOL_NAME (next->symbol[j]);
-	      hash_index = msymbol_hash_iw (name);
-	      hash_index = hash_index % BLOCK_BUCKETS (block);
-	      sym = BLOCK_BUCKET (block, hash_index);
-	      BLOCK_BUCKET (block, hash_index) = next->symbol[j];
-	      next->symbol[j]->hash_next = sym;
-	    }
-	}
+      BLOCK_DICT (block) = dict_create_hashed (&objfile->objfile_obstack,
+					       *listhead);
     }
 
   BLOCK_START (block) = start;
   BLOCK_END (block) = end;
   /* Superblock filled in when containing block is made */
   BLOCK_SUPERBLOCK (block) = NULL;
+  BLOCK_NAMESPACE (block) = NULL;
 
   BLOCK_GCC_COMPILED (block) = processing_gcc_compilation;
 
@@ -288,9 +258,9 @@ finish_block (struct symbol *symbol, struct pending **listhead,
   if (symbol)
     {
       struct type *ftype = SYMBOL_TYPE (symbol);
+      struct dict_iterator iter;
       SYMBOL_BLOCK_VALUE (symbol) = block;
       BLOCK_FUNCTION (block) = symbol;
-      BLOCK_HASHTABLE (block) = 0;
 
       if (TYPE_NFIELDS (ftype) <= 0)
 	{
@@ -299,7 +269,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	     parameter symbols. */
 	  int nparams = 0, iparams;
 	  struct symbol *sym;
-	  ALL_BLOCK_SYMBOLS (block, i, sym)
+	  ALL_BLOCK_SYMBOLS (block, iter, sym)
 	    {
 	      switch (SYMBOL_CLASS (sym))
 		{
@@ -309,6 +279,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		case LOC_REGPARM_ADDR:
 		case LOC_BASEREG_ARG:
 		case LOC_LOCAL_ARG:
+		case LOC_COMPUTED_ARG:
 		  nparams++;
 		  break;
 		case LOC_UNDEF:
@@ -324,6 +295,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		case LOC_BASEREG:
 		case LOC_UNRESOLVED:
 		case LOC_OPTIMIZED_OUT:
+		case LOC_COMPUTED:
 		default:
 		  break;
 		}
@@ -335,9 +307,12 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		TYPE_ALLOC (ftype, nparams * sizeof (struct field));
 	      memset (TYPE_FIELDS (ftype), 0, sizeof (struct field) * nparams);
 
-	      for (i = iparams = 0; iparams < nparams; i++)
+	      iparams = 0;
+	      ALL_BLOCK_SYMBOLS (block, iter, sym)
 		{
-		  sym = BLOCK_SYM (block, i);
+		  if (iparams == nparams)
+		    break;
+
 		  switch (SYMBOL_CLASS (sym))
 		    {
 		    case LOC_ARG:
@@ -346,6 +321,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		    case LOC_REGPARM_ADDR:
 		    case LOC_BASEREG_ARG:
 		    case LOC_LOCAL_ARG:
+		    case LOC_COMPUTED_ARG:
 		      TYPE_FIELD_TYPE (ftype, iparams) = SYMBOL_TYPE (sym);
 		      TYPE_FIELD_ARTIFICIAL (ftype, iparams) = 0;
 		      iparams++;
@@ -363,17 +339,24 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		    case LOC_BASEREG:
 		    case LOC_UNRESOLVED:
 		    case LOC_OPTIMIZED_OUT:
+		    case LOC_COMPUTED:
 		    default:
 		      break;
 		    }
 		}
 	    }
 	}
+
+      /* If we're in the C++ case, set the block's scope.  */
+      if (SYMBOL_LANGUAGE (symbol) == language_cplus
+	  || SYMBOL_LANGUAGE (symbol) == language_objcplus)
+	{
+	  cp_set_block_scope (symbol, block, &objfile->objfile_obstack);
+	}
     }
   else
     {
       BLOCK_FUNCTION (block) = NULL;
-      BLOCK_HASHTABLE (block) = 1;
     }
 
   /* Now "free" the links of the list, and empty the list.  */
@@ -396,7 +379,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 	{
 	  complaint (&symfile_complaints,
 		     "block end address less than block start address in %s (patched it)",
-		     SYMBOL_SOURCE_NAME (symbol));
+		     SYMBOL_PRINT_NAME (symbol));
 	}
       else
 	{
@@ -430,7 +413,7 @@ finish_block (struct symbol *symbol, struct pending **listhead,
 		{
 		  complaint (&symfile_complaints,
 			     "inner block not inside outer block in %s",
-			     SYMBOL_SOURCE_NAME (symbol));
+			     SYMBOL_PRINT_NAME (symbol));
 		}
 	      else
 		{
@@ -455,21 +438,22 @@ finish_block (struct symbol *symbol, struct pending **listhead,
   record_pending_block (objfile, block, opblock);
 }
 
+
 /* Record BLOCK on the list of all blocks in the file.  Put it after
    OPBLOCK, or at the beginning if opblock is NULL.  This puts the
    block in the list after all its subblocks.
 
-   Allocate the pending block struct in the symbol_obstack to save
+   Allocate the pending block struct in the objfile_obstack to save
    time.  This wastes a little space.  FIXME: Is it worth it?  */
 
 void
 record_pending_block (struct objfile *objfile, struct block *block,
 		      struct pending_block *opblock)
 {
-  register struct pending_block *pblock;
+  struct pending_block *pblock;
 
   pblock = (struct pending_block *)
-    obstack_alloc (&objfile->symbol_obstack, sizeof (struct pending_block));
+    obstack_alloc (&objfile->objfile_obstack, sizeof (struct pending_block));
   pblock->block = block;
   if (opblock)
     {
@@ -504,9 +488,9 @@ compare_blocks (const void *v1, const void *v2)
 static struct blockvector *
 make_blockvector (struct objfile *objfile)
 {
-  register struct pending_block *next;
-  register struct blockvector *blockvector;
-  register int i;
+  struct pending_block *next;
+  struct blockvector *blockvector;
+  int i;
 
   /* Count the length of the list of blocks.  */
 
@@ -515,7 +499,7 @@ make_blockvector (struct objfile *objfile)
     }
 
   blockvector = (struct blockvector *)
-    obstack_alloc (&objfile->symbol_obstack,
+    obstack_alloc (&objfile->objfile_obstack,
 		   (sizeof (struct blockvector)
 		    + (i - 1) * sizeof (struct block *)));
 
@@ -601,7 +585,7 @@ make_blockvector (struct objfile *objfile)
 void
 start_subfile (char *name, char *dirname)
 {
-  register struct subfile *subfile;
+  struct subfile *subfile;
 
   /* See if this subfile is already known as a subfile of the current
      main source file.  */
@@ -655,17 +639,9 @@ start_subfile (char *name, char *dirname)
      later via a call to record_debugformat. */
   subfile->debugformat = NULL;
 
-#if 0 /* OBSOLETE CFront */
-// OBSOLETE   /* cfront output is a C program, so in most ways it looks like a C
-// OBSOLETE      program.  But to demangle we need to set the language to C++.  We
-// OBSOLETE      can distinguish cfront code by the fact that it has #line
-// OBSOLETE      directives which specify a file name ending in .C. */
-#endif /* OBSOLETE CFront */
-     
   /* If the filename of this subfile ends in .C, then change the
      language of any pending subfiles from C to C++.  We also accept
      any other C++ suffixes accepted by deduce_language_from_filename.  */
-  /* OBSOLETE     (in particular, some people use .cxx with cfront).  */
   /* Likewise for f2c.  */
 
   if (subfile->name)
@@ -673,7 +649,9 @@ start_subfile (char *name, char *dirname)
       struct subfile *s;
       enum language sublang = deduce_language_from_filename (subfile->name);
 
-      if (sublang == language_cplus || sublang == language_fortran)
+      /* APPLE LOCAL: Include ObjC++ */
+      if (sublang == language_cplus || sublang == language_fortran
+	  || sublang == language_objcplus)
 	for (s = subfiles; s != NULL; s = s->next)
 	  if (s->language == language_c)
 	    s->language = sublang;
@@ -683,6 +661,7 @@ start_subfile (char *name, char *dirname)
   if (subfile->language == language_c
       && subfile->next != NULL
       && (subfile->next->language == language_cplus
+	  || subfile->next->language == language_objcplus
 	  || subfile->next->language == language_fortran))
     {
       subfile->language = subfile->next->language;
@@ -739,7 +718,7 @@ patch_subfile_names (struct subfile *subfile, char *name)
 void
 push_subfile (void)
 {
-  register struct subfile_stack *tem
+  struct subfile_stack *tem
   = (struct subfile_stack *) xmalloc (sizeof (struct subfile_stack));
 
   tem->next = subfile_stack;
@@ -754,8 +733,8 @@ push_subfile (void)
 char *
 pop_subfile (void)
 {
-  register char *name;
-  register struct subfile_stack *link = subfile_stack;
+  char *name;
+  struct subfile_stack *link = subfile_stack;
 
   if (link == NULL)
     {
@@ -771,7 +750,7 @@ pop_subfile (void)
    line vector for SUBFILE.  */
 
 void
-record_line (register struct subfile *subfile, int line, CORE_ADDR pc)
+record_line (struct subfile *subfile, int line, CORE_ADDR pc)
 {
   struct linetable_entry *e;
   /* Ignore the dummy line number in libg.o */
@@ -855,6 +834,10 @@ start_symtab (char *name, char *dirname, CORE_ADDR start_addr)
     }
   context_stack_depth = 0;
 
+  /* Set up support for C++ namespace support, in case we need it.  */
+
+  cp_initialize_namespace ();
+
   /* Initialize the list of sub source files with one entry for this
      file (the top-level source file).  */
 
@@ -883,10 +866,10 @@ start_symtab (char *name, char *dirname, CORE_ADDR start_addr)
 struct symtab *
 end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 {
-  register struct symtab *symtab = NULL;
-  register struct blockvector *blockvector;
-  register struct subfile *subfile;
-  register struct context_stack *cstk;
+  struct symtab *symtab = NULL;
+  struct blockvector *blockvector;
+  struct subfile *subfile;
+  struct context_stack *cstk;
   struct subfile *nextsub;
 
   /* Finish the lexical context of the last function in the file; pop
@@ -979,6 +962,8 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
       finish_block (0, &global_symbols, 0, last_source_start_addr, end_addr,
 		    objfile);
       blockvector = make_blockvector (objfile);
+      cp_finalize_namespace (BLOCKVECTOR_BLOCK (blockvector, STATIC_BLOCK),
+			     &objfile->objfile_obstack);
     }
 
 #ifndef PROCESS_LINENUMBER_HOOK
@@ -1030,7 +1015,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	    {
 	      /* Reallocate the line table on the symbol obstack */
 	      symtab->linetable = (struct linetable *)
-		obstack_alloc (&objfile->symbol_obstack, linetablesize);
+		obstack_alloc (&objfile->objfile_obstack, linetablesize);
 	      memcpy (symtab->linetable, subfile->line_vector, linetablesize);
 	    }
 	  else
@@ -1042,7 +1027,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	    {
 	      /* Reallocate the dirname on the symbol obstack */
 	      symtab->dirname = (char *)
-		obstack_alloc (&objfile->symbol_obstack,
+		obstack_alloc (&objfile->objfile_obstack,
 			       strlen (subfile->dirname) + 1);
 	      strcpy (symtab->dirname, subfile->dirname);
 	    }
@@ -1051,7 +1036,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	      symtab->dirname = NULL;
 	    }
 	  symtab->free_code = free_linetable;
-	  symtab->free_ptr = NULL;
+	  symtab->free_func = NULL;
 
 	  /* Use whatever language we have been using for this
 	     subfile, not the one that was deduced in allocate_symtab
@@ -1066,7 +1051,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	    {
 	      symtab->debugformat = obsavestring (subfile->debugformat,
 					      strlen (subfile->debugformat),
-						  &objfile->symbol_obstack);
+						  &objfile->objfile_obstack);
 	    }
 
 	  /* All symtabs for the main file and the subfiles share a
@@ -1074,9 +1059,6 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 	     but the main file.  */
 
 	  symtab->primary = 0;
-
-          /* APPLE LOCAL fix-and-continue */
-          SYMTAB_OBSOLETED (symtab) = 50;
 	}
       if (subfile->name != NULL)
 	{
@@ -1119,7 +1101,7 @@ end_symtab (CORE_ADDR end_addr, struct objfile *objfile, int section)
 struct context_stack *
 push_context (int desc, CORE_ADDR valu)
 {
-  register struct context_stack *new;
+  struct context_stack *new;
 
   if (context_stack_depth == context_stack_size)
     {
@@ -1181,7 +1163,7 @@ record_debugformat (char *format)
 void
 merge_symbol_lists (struct pending **srclist, struct pending **targetlist)
 {
-  register int i;
+  int i;
 
   if (!srclist || !*srclist)
     return;

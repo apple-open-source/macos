@@ -25,6 +25,7 @@ MACOSX_FILES = \
 	macosx-nat-threads.o \
 	macosx-nat-infthread.o \
 	macosx-nat-info.o \
+	macosx-nat.o \
 	excServer.o \
 	excUser.o
 

@@ -55,8 +55,6 @@ static dsstatus is_admin LDAP_P((BackendDB *be, dsdata *user));
  *    are also supported.
  */
 dsstatus netinfo_back_authorize(
-	BackendDB *be,
-	Connection *conn,
 	Operation *op,
 	dsrecord *r,
 	AttributeDescription *desc,
@@ -92,7 +90,7 @@ dsstatus netinfo_back_authorize(
 			return DSStatusOK;
 			break;
 		case ACL_COMPARE:
-		case ACL_SEARCH:
+		case SLAP_ACL_SEARCH:
 		case ACL_READ:
 #ifdef AUTHZ_READERS
 			wr = netinfo_back_name_readers; /* struct copy */
@@ -112,12 +110,12 @@ dsstatus netinfo_back_authorize(
 	}
 
 	if ((op->o_dn.bv_len > 0) &&
-	    (distinguishedNameToPosixNameTransform(be, &posix,
+	    (distinguishedNameToPosixNameTransform(op->o_bd, &posix,
 	     &op->o_dn, DataTypeCaseUTF8Str, NULL) == DSStatusOK))
 	{
 		/* Always let the NetInfo root user, and optionally admin users, in. */
 		if (dsdata_equal(posix, (dsdata *)&netinfo_back_access_user_super) ||
-		    (is_admin(be, posix) == DSStatusOK))
+		    (is_admin(op->o_bd, posix) == DSStatusOK))
 		{
 #ifdef NEW_LOGGING
 			LDAP_LOG((BACK_NETINFO, INFO, "netinfo_back_authorize: "
@@ -145,7 +143,7 @@ dsstatus netinfo_back_authorize(
 		struct atmap map;
 		size_t len;
 
-		(void) schemamap_x500_to_ni_at(be, SUPER(r), desc, &map);
+		(void) schemamap_x500_to_ni_at(op->o_bd, SUPER(r), desc, &map);
 
 		len = wr.length /* includes \0 */ + map.ni_key->length; /* includes \0 */
 		if (map.selector == SELECT_META_ATTRIBUTE)
@@ -218,9 +216,7 @@ dsstatus netinfo_back_authorize(
  *
  * IMPORTANT NOTE: Caller acquires engine lock.
  */
-dsstatus netinfo_back_access_allowed(BackendDB *be,
-	Connection *conn,
-	Operation *op,
+dsstatus netinfo_back_access_allowed(Operation *op,
 	u_int32_t dsid,
 	AttributeDescription *desc,
 	struct berval *val,
@@ -229,10 +225,10 @@ dsstatus netinfo_back_access_allowed(BackendDB *be,
 	Entry *e;
 	dsstatus status;
 	dsrecord *r;
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 
 	/* short circuit if we are root */
-	if (be_isroot(be, &op->o_ndn))
+	if (be_isroot_dn(op->o_bd, &op->o_ndn))
 	{
 		return DSStatusOK;
 	}
@@ -242,7 +238,7 @@ dsstatus netinfo_back_access_allowed(BackendDB *be,
 	if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
 	{
 		/* First, check whether we are coming in on a trusted network. */
-		status = is_trusted_network(be, conn);
+		status = is_trusted_network(op->o_bd, op->o_conn);
 		if (status != DSStatusOK)
 		{
 			return status;
@@ -259,7 +255,7 @@ dsstatus netinfo_back_access_allowed(BackendDB *be,
 
 	if (di->flags & DSENGINE_FLAGS_NATIVE_AUTHORIZATION)
 	{
-		status = netinfo_back_authorize(be, conn, op, r, desc, access);
+		status = netinfo_back_authorize(op, r, desc, access);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(r);
@@ -270,11 +266,11 @@ dsstatus netinfo_back_access_allowed(BackendDB *be,
 	/* Always AND NetInfo authorization with slapd authorization. */
 	/* Consistent with search behaviour (which we can't help) */
 
-	if (dsrecord_to_entry(be, r, &e) == DSStatusOK)
+	if (dsrecord_to_entry(op->o_bd, r, &e) == DSStatusOK)
 	{
 		if (is_entry_alias(e))
 			status = DSStatusInvalidUpdate;
-		else if (access_allowed(be, conn, op, e, desc, val, access, NULL))
+		else if (access_allowed(op, e, desc, val, access, NULL))
 			status = DSStatusOK;
 		netinfo_back_entry_free(e);
 	}
@@ -392,7 +388,11 @@ dsstatus is_trusted_network(BackendDB *be, Connection *conn)
 		/* Couldn't parse. */
 		if (p != NULL)
 			*p = ':';
-		return DSStatusAccessRestricted;
+		/* Check if this is IPv6 loopback. */
+		if (strncmp(conn->c_peer_name.bv_val + 3,"::1 ",sizeof("::1 ")-1) == 0)
+			return DSStatusOK;
+		else
+			return DSStatusAccessRestricted;
 	}
 
 	if (p != NULL)

@@ -67,6 +67,10 @@ __RCSID("$FreeBSD: src/bin/mv/mv.c,v 1.39 2002/07/09 17:45:13 johan Exp $");
 #include <sysexits.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <copyfile.h>
+#endif
+
 #include "pathnames.h"
 
 int fflg, iflg, nflg, vflg;
@@ -331,6 +335,9 @@ err:		if (unlink(to))
 		(void)close(to_fd);
 		return (1);
 	}
+#ifdef __APPLE__
+	copyfile(from, to, 0, COPYFILE_ACL | COPYFILE_XATTR);
+#endif
 	(void)close(from_fd);
 
 	oldmode = sbp->st_mode & ALLPERMS;

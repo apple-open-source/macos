@@ -3,7 +3,7 @@
  *
  * Generate timing statistics for vertical-motion optimization.
  *
- * $Id: hashtest.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: hashtest.c,v 1.23 2002/10/19 22:11:24 tom Exp $
  */
 
 #ifdef TRACE
@@ -13,10 +13,6 @@
 #define Trace(p)		/* nothing */
 #define USE_TRACE 0
 #endif
-
-#include <string.h>
-#include <ctype.h>
-#include <signal.h>
 
 #include <test.priv.h>
 
@@ -164,6 +160,8 @@ main(int argc, char *argv[])
     int test_loops = 1;
     int test_normal = FALSE;
     int test_optimize = FALSE;
+
+    setlocale(LC_ALL, "");
 
     while ((c = getopt(argc, argv, "cf:h:l:norsx")) != EOF) {
 	switch (c) {

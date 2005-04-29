@@ -63,6 +63,10 @@
 
 #include <bits/concept_check.h>
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL begin libstdc++ debug mode */
+
 namespace std
 {
   // Forward declarations of operators < and ==, needed for friend declaration.
@@ -158,28 +162,52 @@ namespace std
      *  %queue.
     */
     reference
-    front() { return c.front(); }
+    front() 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      return c.front(); 
+    }
   
     /**
      *  Returns a read-only (constant) reference to the data at the first
      *  element of the %queue.
     */
     const_reference
-    front() const { return c.front(); }
+    front() const 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      return c.front(); 
+    }
   
     /**
      *  Returns a read/write reference to the data at the last element of the
      *  %queue.
     */
     reference
-    back() { return c.back(); }
+    back() 
+    {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      return c.back(); 
+    }
   
     /**
      *  Returns a read-only (constant) reference to the data at the last
      *  element of the %queue.
     */
     const_reference
-    back() const { return c.back(); }
+    back() const 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      return c.back(); 
+    }
   
     /**
      *  @brief  Add data to the end of the %queue.
@@ -204,7 +232,13 @@ namespace std
      *  needed, it should be retrieved before pop() is called.
     */
     void
-    pop() { c.pop_front(); }
+    pop() 
+    {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      c.pop_front(); 
+    }
   };
   
   
@@ -354,6 +388,9 @@ namespace std
                      const _Sequence& __s = _Sequence())
       : c(__s), comp(__x)
       { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_valid_range(__first, __last);
+	/* APPLE LOCAL begin libstdc++ debug mode */
         c.insert(c.end(), __first, __last);
         make_heap(c.begin(), c.end(), comp);
       }
@@ -373,7 +410,13 @@ namespace std
      *  element of the %queue.
     */
     const_reference
-    top() const { return c.front(); }
+    top() const 
+    { 
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      return c.front(); 
+    }
   
     /**
      *  @brief  Add data to the %queue.
@@ -411,6 +454,10 @@ namespace std
     void 
     pop() 
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_nonempty();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+
       try 
         {
           pop_heap(c.begin(), c.end(), comp);

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -38,7 +37,6 @@
 --  compiler is running, and thus this package is part of the compiler.
 
 package Hostparm is
-pragma Preelaborate (Hostparm);
 
    -----------------------
    -- TARGET Parameters --
@@ -53,7 +51,10 @@ pragma Preelaborate (Hostparm);
    -- HOST Parameters --
    ---------------------
 
-   OpenVMS : Boolean := False;
+   Gnat_VMSp : Integer;
+   pragma Import (C, Gnat_VMSp, "__gnat_vmsp");
+
+   OpenVMS : Boolean := Gnat_VMSp /= 0;
    --  Set True for OpenVMS host. See also OpenVMS target boolean in
    --  5vsystem.ads and OpenVMS_On_Target boolean in Targparm. This is
    --  not a constant, because it can be modified by -gnatdm.

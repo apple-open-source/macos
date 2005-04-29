@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -27,6 +24,8 @@
 #include <IOKit/IOLib.h>
 #include <IOKit/hidsystem/IOHIDTypes.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
+#include <IOKit/pwr_mgt/IOPM.h>
+#include <IOKit/pwr_mgt/RootDomain.h>
 #include "ApplePS2Keyboard.h"
 #include "ApplePS2ToADBMap.h"
 
@@ -162,6 +161,14 @@ bool ApplePS2Keyboard::start(IOService * provider)
 
   setKeyboardEnable(true);
 
+  //
+  // Install our power control handler.
+  //
+
+  _device->installPowerControlAction( this,
+           (PS2PowerControlAction) &ApplePS2Keyboard::setDevicePowerState );
+  _powerControlHandlerInstalled = true;
+
   return true;
 }
 
@@ -195,6 +202,13 @@ void ApplePS2Keyboard::stop(IOService * provider)
 
   if ( _interruptHandlerInstalled )  _device->uninstallInterruptAction();
   _interruptHandlerInstalled = false;
+
+  //
+  // Uninstall the power control handler.
+  //
+
+  if ( _powerControlHandlerInstalled ) _device->uninstallPowerControlAction();
+  _powerControlHandlerInstalled = false;
 
   //
   // Release the pointer to the provider object.
@@ -320,6 +334,22 @@ bool ApplePS2Keyboard::dispatchKeyboardEventWithScancode(UInt8 scanCode)
 
     switch (scanCode & ~kSC_UpBit)
     {
+      // scancodes from running showkey -s (under Linux) for extra keys on keyboard
+      case 0x30: keyCode = 0x7d; break;		   // E030 = volume up
+      case 0x2e: keyCode = 0x7e; break;		   // E02E = volume down
+      case 0x20: keyCode = 0x7f; break;		   // E020 = volume mute
+
+      case 0x5e: keyCode = 0x7c; break;            // E05E = power
+      case 0x5f:                                   // E05F = sleep
+        keyCode = 0;
+        if (!(scanCode & kSC_UpBit))
+        {
+          IOPMrootDomain * rootDomain = getPMRootDomain();
+          if (rootDomain)
+            rootDomain->receivePowerNotification( kIOPMSleepNow );
+        }
+        break;
+
       case 0x1D: keyCode = 0x60; break;            // ctrl
       case 0x38:             			   // right alt may become right command
 	if (macintoshMode == true) {
@@ -639,4 +669,47 @@ const unsigned char * ApplePS2Keyboard::defaultKeymapOfLength(UInt32 * length)
  
     *length = sizeof(appleUSAKeyMap);
     return appleUSAKeyMap;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Keyboard::setDevicePowerState( UInt32 whatToDo )
+{
+  switch ( whatToDo )
+  {
+    case kPS2C_DisableDevice:
+
+      //
+      // Disable keyboard.
+      //
+
+      setKeyboardEnable( false );
+
+      break;
+
+    case kPS2C_EnableDevice:
+
+      //
+      // Initialize the keyboard LED state.
+      //
+
+      setLEDs(_ledState);
+
+      //
+      // Enable the keyboard clock (should already be so), the keyboard
+      // IRQ line, and the keyboard Kscan -> scan code translation mode.
+      //
+
+      setCommandByte( kCB_EnableKeyboardIRQ | kCB_TranslateMode,
+                      kCB_DisableKeyboardClock );
+
+      //
+      // Finally, we enable the keyboard itself, so that it may start
+      // reporting key events.
+      //
+
+      setKeyboardEnable( true );
+
+      break;
+  }
 }

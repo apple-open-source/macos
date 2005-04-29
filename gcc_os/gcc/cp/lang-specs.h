@@ -32,78 +32,38 @@ Boston, MA 02111-1307, USA.  */
   {".cpp", "@c++", 0},
   {".c++", "@c++", 0},
   {".C",   "@c++", 0},
-  {"@c++",
-   /* cc1plus has an integrated ISO C preprocessor.  We should invoke
-      the external preprocessor if -save-temps is given.  */
-   /* APPLE LOCAL begin cpp-precomp dpatel */
-   /* Add support to invoke cpp-precomp with -precomp 
-      or -cpp-precomp, and optionally with -E.  */
-    "%{M|MM:cpp0 -lang-c++ %{!no-gcc:-D__GNUG__=%v1}\
-       %{!Wno-deprecated:-D__DEPRECATED}\
-       %{!fno-exceptions:-D__EXCEPTIONS}\
-       -D__GXX_ABI_VERSION=100\
-       %{ansi:-D__STRICT_ANSI__ -trigraphs -$} %(cpp_options)}\
-      %{E|S:%{@:%e-E and -S are not allowed with multiple -arch flags}}\
-      %{E:\
-	  %{cpp-precomp:\
-	    %(cpp_precomp) -lang-c++ %{!no-gcc:-D__GNUG__=%v1}\
-		%{!Wno-deprecated:-D__DEPRECATED}\
-		%{!fno-exceptions:-D__EXCEPTIONS}\
-		-D__cplusplus -D__GXX_ABI_VERSION=100\
-		%{ansi:-D__STRICT_ANSI__ -trigraphs -$} %(cpp_precomp_options) %y1}\
-	  %{!cpp-precomp:\
-	    cpp0 -lang-c++ %{!no-gcc:-D__GNUG__=%v1}\
-		%{!Wno-deprecated:-D__DEPRECATED}\
-		%{!fno-exceptions:-D__EXCEPTIONS}\
-		-D__GXX_ABI_VERSION=100\
-		%{ansi:-D__STRICT_ANSI__ -trigraphs -$} %(cpp_options)}}\
-     %{precomp: %(cpp_precomp) -lang-c++ \
-       %{!no-gcc:-D__GNUG__=%v1}\
-       %{!Wno-deprecated:-D__DEPRECATED}\
-       %{!fno-exceptions:-D__EXCEPTIONS}\
-       -D__GXX_ABI_VERSION=100\
-       %{ansi:-D__STRICT_ANSI__ -trigraphs -$}\
-       -D__cplusplus %(cpp_precomp_options) %y1\
-       %{@:-o %f%u.pp}%{!@:%W{o}%W{!o*:-o %b-gcc3.pp}} \n}\
-     %{!E:%{!M:%{!MM:%{!precomp:\
-       %{!save-temps:%{!no-integrated-cpp:%{!fload=*:%{!fdump=*:%{cpp-precomp:%(cpp_precomp) -lang-c++ \
-		    %{!no-gcc:-D__GNUG__=%v1}\
-       		    %{!Wno-deprecated:-D__DEPRECATED}\
-		    %{!fno-exceptions:-D__EXCEPTIONS}\
-		    -D__GXX_ABI_VERSION=100\
-		    %{ansi:-D__STRICT_ANSI__ -trigraphs -$}\
-		    -D__cplusplus %(cpp_precomp_options) %y1 %d%g.ii \n}}}}}\
-       %{save-temps|no-integrated-cpp:%{!cpp-precomp|fdump=*|fload=*:cpp0 -lang-c++ \
-		    %{!no-gcc:-D__GNUG__=%v1}\
-       		    %{!Wno-deprecated:-D__DEPRECATED}\
-		    %{!fno-exceptions:-D__EXCEPTIONS}\
-		    -D__GXX_ABI_VERSION=100\
-		    %{ansi:-D__STRICT_ANSI__ -trigraphs -$}\
-		    %(cpp_options) %b.ii \n}}\
-       %{save-temps|no-integrated-cpp:%{cpp-precomp:%{!fdump=*:%{!fload=*:%(cpp_precomp) -lang-c++ \
-		    %{!no-gcc:-D__GNUG__=%v1}\
-       		    %{!Wno-deprecated:-D__DEPRECATED}\
-		    %{!fno-exceptions:-D__EXCEPTIONS}\
-		    -D__GXX_ABI_VERSION=100\
-		    %{ansi:-D__STRICT_ANSI__ -trigraphs -$}\
-		    %(cpp_precomp_options) %y1 %b.ii \n}}}}\
-      cc1plus %{save-temps|no-integrated-cpp:%{!cpp-precomp:-fpreprocessed} %{cpp-precomp:-cpp-precomp} %{save-temps:%b.ii} %{!save-temps:%g.ii}}\
-              %{!save-temps:%{!no-integrated-cpp:%{cpp-precomp:%{!fload=*:%{!fdump=*:-cpp-precomp %d%{save-temps:%b.ii} %{!save-temps:%g.ii}}}}}}\
-              %{!save-temps:%{!cpp-precomp|fload=*|fdump=*:%(cpp_unique_options)\
-			    %{!no-gcc:-D__GNUG__=%v1} \
-       			    %{!Wno-deprecated:-D__DEPRECATED}\
-			    %{!fno-exceptions:-D__EXCEPTIONS}\
-			    -D__GXX_ABI_VERSION=100\
-			    %{ansi:-D__STRICT_ANSI__}}}\
-       %{ansi:-trigraphs -$}\
-       %(cc1_options) %2 %{+e1*}\
-       %{!fsyntax-only:%(invoke_as)}}}}}",
+  /* APPLE LOCAL .CPP extension */
+  /* FSF Candidate - Submitted */
+  {".CPP", "@c++", 0},
+  {".H",   "@c++-header", 0},
+  {".hh",  "@c++-header", 0},
+  /* APPLE LOCAL Symbol Separation */
+  /* Add dbg_ss constructs for Symbol Separation */
+  {"@c++-header",
+    "%{E|M|MM:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
+       %(cpp_options) %2 %(cpp_debug_options)}\
+     %{!E:%{!M:%{!MM:\
+       %{save-temps:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
+		%(cpp_options) %2 %b.ii \n}\
+      cc1plus %{save-temps:-fpreprocessed %b.ii}\
+	      %{!save-temps:%(cpp_unique_options) %{!no-gcc:-D__GNUG__=%v1}}\
+	%(cc1_options) %2 %{+e1*} %(dbg_ss) %(pch)}}}",
      CPLUSPLUS_CPP_SPEC},
-   /* APPLE LOCAL end cpp-precomp dpatel */
+  {"@c++",
+    "%{E|M|MM:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
+       %(cpp_options) %2 %(cpp_debug_options)}\
+    "/* APPLE LOCAL prohibit -arch with -E and -S  */"\
+     %{E|S:%{@:%e-E and -S are not allowed with multiple -arch flags}}\
+     %{!E:%{!M:%{!MM:\
+       %{save-temps|no-integrated-cpp:cc1plus -E %{!no-gcc:-D__GNUG__=%v1}\
+		%(cpp_options) %2 %{save-temps:%b.ii} %{!save-temps:%g.ii} \n}\
+      cc1plus %{save-temps|no-integrated-cpp:-fpreprocessed %{save-temps:%b.ii} %{!save-temps:%g.ii}}\
+	      %{!save-temps:%{!no-integrated-cpp:%(cpp_unique_options) %{!no-gcc:-D__GNUG__=%v1}}}\
+	%(cc1_options) %2 %{+e1*}\
+       %{!fsyntax-only:%(invoke_as)}}}}",
+     CPLUSPLUS_CPP_SPEC},
   {".ii", "@c++-cpp-output", 0},
-  /* APPLE LOCAL cpp-precomp dpatel */
-  /* Do not invoke_as with -precomp */
   {"@c++-cpp-output",
    "%{!M:%{!MM:%{!E:\
     cc1plus -fpreprocessed %i %(cc1_options) %2 %{+e*}\
-    %{!fsyntax-only:%{!precomp:%(invoke_as)}}}}}", 0},
+    %{!fsyntax-only:%(invoke_as)}}}}", 0},

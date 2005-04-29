@@ -65,7 +65,7 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 %{!mc68000:%{!m68000:%{!m68010:%{!mc68020:%{!m68020:%{!m68030:%{!m68040:%{!m68020-40:%{!m68302:%{!m68332:%(cpp_subtarget_cpu_default) }}}}}}}}}} \
 "
 
-#define DBX_DEBUGGING_INFO
+#define DBX_DEBUGGING_INFO 1
 #undef SDB_DEBUGGING_INFO
 
 /* These are the official values from WRS.  */
@@ -93,9 +93,6 @@ Unrecognized value in TARGET_CPU_DEFAULT.
 /* Every structure or union's size must be a multiple of 2 bytes.  */
 
 #define STRUCTURE_SIZE_BOUNDARY 16
-
-/* Allow folding division by zero.  */
-#define REAL_INFINITY
 
 /* GCC is the primary compiler for VxWorks, so we don't need this.  */
 #undef PCC_STATIC_STRUCT_RETURN

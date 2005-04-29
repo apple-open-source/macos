@@ -1,0 +1,47 @@
+# Commands covered: sound power
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test power-1.1 {power command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s power]
+  $s destroy
+  set res
+} {57.668 58.916 57.992 58.647 58.462 58.415 58.353 58.948 58.897 59.02 58.761 58.745 58.248 58.595 59.158 58.846 58.467 61.37 59.153 59.315 58.301 60.035 59.451 58.963 71.281 71.387 71.13 71.213 71.01 70.635 69.845 68.822 68.986 68.525 67.103 66.664 67.365 67.627 66.72 67.337 67.657 68.365 68.854 68.204 58.26 58.141 66.927 69.789 69.122 69.601 69.076 68.909 69.337 68.621 67.11 65.266 64.678 64.223 61.751 60.287 59.447 57.811 58.444 58.209 57.645 57.279 56.377 56.572 56.467 56.796 57.045 57.735 57.858 57.081 56.943 56.421 54.929 56.202 57.349 57.643 57.477 58.207 57.706 58.385 58.601 59.228 58.694 57.176 57.423 57.733 58.599 58.614 58.771 59.005 58.651 59.077 59.001 58.113 58.374}
+
+test power-1.2 {power command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [$s power -start 4000 -end 4256]
+  $s destroy
+  set res
+} {71.387}
+
+test power-2.1 {power command, with missing argument for -start option} {
+  set s [snack::sound snd -load ex1.wav]
+  catch {$s power -start} msg
+  $s destroy
+  set msg
+} {No argument given for -start option}
+
+test power-3.1 {power command, -progress option} {
+  set res ""
+  proc prog {msg frac} {
+    lappend ::res [expr 0.1 * int(10*$frac)]
+  }
+  set s [snack::sound snd -load ex1.wav]
+  $s power -progress prog
+  $s destroy
+  set res
+} {0.0 1.0}
+
+# cleanup
+::tcltest::cleanupTests
+return

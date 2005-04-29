@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atilock.c,v 1.18 2003/01/10 20:57:57 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atilock.c,v 1.21 2004/02/24 16:51:22 tsi Exp $ */
 /*
- * Copyright 1999 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1999 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -143,7 +143,7 @@ ATIUnlock
             /*
              * Prevent BIOS initiated display switches on dual-CRT controllers.
              */
-            if (pATI->Chip != ATI_CHIP_264XL)
+            if (!pATI->OptionBIOSDisplay && (pATI->Chip != ATI_CHIP_264XL))
             {
                 pATI->LockData.scratch_reg3 = inr(SCRATCH_REG3);
                 outr(SCRATCH_REG3,
@@ -250,20 +250,19 @@ ATIUnlock
                 saved_lcd_gen_ctrl = inr(LCD_GEN_CTRL);
 
                 /* Setup to unlock non-shadow registers */
-                lcd_gen_ctrl = saved_lcd_gen_ctrl &
-                    ~(SHADOW_EN | SHADOW_RW_EN);
+                lcd_gen_ctrl = saved_lcd_gen_ctrl & ~SHADOW_RW_EN;
                 outr(LCD_GEN_CTRL, lcd_gen_ctrl);
             }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
-                saved_lcd_gen_ctrl = ATIGetMach64LCDReg(LCD_GEN_CNTL);
+                saved_lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
 
                 /* Setup to unlock non-shadow registers */
                 lcd_gen_ctrl = saved_lcd_gen_ctrl &
-                    ~(CRTC_RW_SELECT | SHADOW_EN | SHADOW_RW_EN);
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
+                    ~(CRTC_RW_SELECT | SHADOW_RW_EN);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
             }
         }
 
@@ -322,14 +321,14 @@ ATIUnlock
         if (pATI->LCDPanelID >= 0)
         {
             /* Setup to unlock shadow registers */
-            lcd_gen_ctrl |= SHADOW_EN | SHADOW_RW_EN;
+            lcd_gen_ctrl |= SHADOW_RW_EN;
 
             if (pATI->Chip == ATI_CHIP_264LT)
                 outr(LCD_GEN_CTRL, lcd_gen_ctrl);
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
 
             /* Unlock shadow registers */
             ATISetVGAIOBase(pATI, inb(R_GENMO));
@@ -344,7 +343,9 @@ ATIUnlock
                 pATI->LockData.shadow_crt11 = tmp =
                     GetReg(CRTX(pATI->CPIO_VGABase), 0x11U);
                 if (tmp & 0x80U)            /* Unprotect CRTC[0-7] */
+                {
                     outb(CRTD(pATI->CPIO_VGABase), tmp & 0x7FU);
+                }
                 else if (!tmp && pATI->LockData.crt11)
                 {
                     pATI->LockData.shadow_crt11 = tmp = pATI->LockData.crt11;
@@ -386,12 +387,14 @@ ATIUnlock
 
             /* Restore selection */
             if (pATI->Chip == ATI_CHIP_264LT)
+            {
                 outr(LCD_GEN_CTRL, saved_lcd_gen_ctrl);
+            }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, saved_lcd_gen_ctrl);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, saved_lcd_gen_ctrl);
 
                 /* Restore LCD index */
                 out8(LCD_INDEX, GetByte(pATI->LockData.lcd_index, 0));
@@ -436,20 +439,19 @@ ATILock
                 saved_lcd_gen_ctrl = inr(LCD_GEN_CTRL);
 
                 /* Setup to lock non-shadow registers */
-                lcd_gen_ctrl = saved_lcd_gen_ctrl &
-                    ~(SHADOW_EN | SHADOW_RW_EN);
+                lcd_gen_ctrl = saved_lcd_gen_ctrl & ~SHADOW_RW_EN;
                 outr(LCD_GEN_CTRL, lcd_gen_ctrl);
             }
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
             {
-                saved_lcd_gen_ctrl = ATIGetMach64LCDReg(LCD_GEN_CNTL);
+                saved_lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
 
                 /* Setup to lock non-shadow registers */
                 lcd_gen_ctrl = saved_lcd_gen_ctrl &
-                    ~(CRTC_RW_SELECT | SHADOW_EN | SHADOW_RW_EN);
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
+                    ~(CRTC_RW_SELECT | SHADOW_RW_EN);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
             }
         }
 
@@ -462,14 +464,14 @@ ATILock
         if (pATI->LCDPanelID >= 0)
         {
             /* Setup to lock shadow registers */
-            lcd_gen_ctrl |= SHADOW_EN | SHADOW_RW_EN;
+            lcd_gen_ctrl |= SHADOW_RW_EN;
 
             if (pATI->Chip == ATI_CHIP_264LT)
                 outr(LCD_GEN_CTRL, lcd_gen_ctrl);
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, lcd_gen_ctrl);
 
             /* Lock shadow registers */
             ATISetVGAIOBase(pATI, inb(R_GENMO));
@@ -485,7 +487,7 @@ ATILock
             else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
                         (pATI->Chip == ATI_CHIP_264XL) ||
                         (pATI->Chip == ATI_CHIP_MOBILITY)) */
-                ATIPutMach64LCDReg(LCD_GEN_CNTL, saved_lcd_gen_ctrl);
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, saved_lcd_gen_ctrl);
         }
 
         if (pATI->CPIO_VGAWonder)
@@ -564,7 +566,7 @@ ATILock
         if ((pATI->LCDPanelID >= 0) && (pATI->Chip != ATI_CHIP_264LT))
         {
             outr(LCD_INDEX, pATI->LockData.lcd_index);
-            if (pATI->Chip != ATI_CHIP_264XL)
+            if (!pATI->OptionBIOSDisplay && (pATI->Chip != ATI_CHIP_264XL))
                 outr(SCRATCH_REG3, pATI->LockData.scratch_reg3);
         }
         if (pATI->Chip >= ATI_CHIP_264VTB)

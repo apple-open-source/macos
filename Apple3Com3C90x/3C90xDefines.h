@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -28,31 +25,29 @@
 
 #include <IOKit/IOTypes.h>
 
-typedef UInt16 ISAPortAddress;
-
 /*
  * Macros
  */
-#define DefineWindowRegisterAccessors( b, c, w, o, n ) \
-void set ## n( UInt ## b data )                        \
-{                                                      \
-    setRegisterWindow( w );                            \
-	out ## c( _ioBase + o, data );                     \
-}                                                      \
-UInt ## b get ## n()                                   \
-{                                                      \
-    setRegisterWindow( w );                            \
-    return in ## c( _ioBase + o );                     \
+#define DefineWindowRegisterAccessors( b, w, o, n )  \
+inline void set ## n( UInt ## b value )              \
+{                                                    \
+    setRegisterWindow( w );                          \
+    writeRegister ## b( o, value );                  \
+}                                                    \
+inline UInt ## b get ## n()                          \
+{                                                    \
+    setRegisterWindow( w );                          \
+    return readRegister ## b( o );                   \
 }
 
-#define DefineGlobalRegisterAccessors( b, c, o, n )    \
-void set ## n( UInt ## b data )                        \
-{                                                      \
-	out ## c( _ioBase + o, data );                     \
-}                                                      \
-UInt ## b get ## n()                                   \
-{                                                      \
-    return in ## c( _ioBase + o );                     \
+#define DefineGlobalRegisterAccessors( b, o, n )     \
+inline void set ## n( UInt ## b value )              \
+{                                                    \
+    writeRegister ## b( o, value );                  \
+}                                                    \
+inline UInt ## b get ## n()                          \
+{                                                    \
+    return readRegister ## b( o );                   \
 }
 
 #define Bit( p ) (1 << p)
@@ -76,12 +71,16 @@ UInt ## b get ## n()                                   \
 #define kTxRingSize  64
 #define kRxRingSize  32
 
+enum {
+    kInvalidRegisterWindow = 0xff
+};
+
 /*
  * Size of the aperture for I/O space mapped registers.
  */
 enum {
-	kApertureSizeBoomerang = 0x40,
-	kApertureSizeCyclone   = 0x80
+    kApertureSizeBoomerang = 0x40,
+    kApertureSizeCyclone   = 0x80
 };
 
 /*
@@ -197,10 +196,10 @@ typedef UInt16 PHYWord;
  */
 enum {
     kMediaCodeDef     = 0x0000,
-	kMediaCodeSQE     = 0x0008,
-	kMediaCode10TP    = 0x00C0,
-	kMediaCodeLink    = 0x0080,
-	kMediaCodeMask    = 0x00CC
+    kMediaCodeSQE     = 0x0008,
+    kMediaCode10TP    = 0x00C0,
+    kMediaCodeLink    = 0x0080,
+    kMediaCodeMask    = 0x00CC
 };
 
 /*
@@ -376,13 +375,20 @@ enum {
 enum {
     BitField(  0, 6, EEPROMCommand, Address     )
     BitField(  6, 2, EEPROMCommand, Opcode      )
-	BitField(  8, 4, EEPROMCommand, AddressHigh )  // 3C90xC
+    BitField(  8, 4, EEPROMCommand, AddressHigh )  // 3C90xC
     BitField( 15, 1, EEPROMCommand, Busy        )
 
     kEEPROMOpcodeEnable = SetBitField( EEPROMCommand, Opcode, 0 ),
     kEEPROMOpcodeWrite  = SetBitField( EEPROMCommand, Opcode, 1 ),
     kEEPROMOpcodeRead   = SetBitField( EEPROMCommand, Opcode, 2 ),
     kEEPROMOpcodeErase  = SetBitField( EEPROMCommand, Opcode, 3 ),
+};
+
+/*
+ * Power Management Event
+ */
+enum {
+    BitField(  1, 1, PowerMgmtEvent, MagicPktEnable )
 };
 
 /*
@@ -465,7 +471,7 @@ enum {
     BitField(  0, 1, MacControl, DeferExtendEnable    )
     BitField(  1, 4, MacControl, DeferTimerSelect     )
     BitField(  5, 1, MacControl, FullDuplexEnable     )
-	BitField(  6, 1, MacControl, AllowLargePackets    )
+    BitField(  6, 1, MacControl, AllowLargePackets    )
     BitField(  7, 1, MacControl, ExtendAfterCollision ) // 3C90xB
     BitField(  8, 1, MacControl, FlowControlEnable    ) // 3C90xB
     BitField(  9, 1, MacControl, VLTEnable            ) // 3C90xB
@@ -478,7 +484,7 @@ enum {
     BitField(  1, 1, MediaStatus, DataRate100        )
     BitField(  2, 1, MediaStatus, CRCStripDisable    ) // 3C90xB
     BitField(  3, 1, MediaStatus, EnableSQEStats     )
-	BitField(  4, 1, MediaStatus, CollisionDetect    )
+    BitField(  4, 1, MediaStatus, CollisionDetect    )
     BitField(  5, 1, MediaStatus, CarrierSense       )
     BitField(  6, 1, MediaStatus, JabberGuardEnabled )
     BitField(  7, 1, MediaStatus, LinkBeatEnabled    )
@@ -510,7 +516,7 @@ enum {
     BitField( 2, 1, TxStatus, Overflow           )
     BitField( 3, 1, TxStatus, MaxCollisions      )
     BitField( 4, 1, TxStatus, Underrun           )
-	BitField( 5, 1, TxStatus, Jabber             )
+    BitField( 5, 1, TxStatus, Jabber             )
     BitField( 6, 1, TxStatus, InterruptRequested )
     BitField( 7, 1, TxStatus, Complete           )
 };
@@ -622,8 +628,8 @@ enum {
     BitField(  16,  1, TxDescHeader, DnComplete       )
     BitField(  25,  1, TxDescHeader, AddIPChecksum    )
     BitField(  26,  1, TxDescHeader, AddTCPChecksum   )
-	BitField(  27,  1, TxDescHeader, AddUDPChecksum   )
-	BitField(  28,  1, TxDescHeader, RoundUpDefeat    )
+    BitField(  27,  1, TxDescHeader, AddUDPChecksum   )
+    BitField(  28,  1, TxDescHeader, RoundUpDefeat    )
     BitField(  29,  1, TxDescHeader, DPDEmpty         )
     BitField(  31,  1, TxDescHeader, DnIndicate       )
 
@@ -665,7 +671,7 @@ typedef struct _TxDescriptor
     _TxDescriptor *    drvNext;
     _TxDescriptor *    drvPrevious;
     IOPhysicalAddress  drvPhysAddr;
-    struct mbuf *      drvMbuf;
+    mbuf_t             drvMbuf;
 } TxDescriptor;
 
 /*****************************************************/
@@ -692,12 +698,19 @@ enum {
     BitField(  16,  1, RxDescStatus, UpOverrun        )
     BitField(  17,  1, RxDescStatus, RuntFrame        )
     BitField(  18,  1, RxDescStatus, AlignmentError   )
-	BitField(  19,  1, RxDescStatus, CRCError         )
-	BitField(  20,  1, RxDescStatus, OversizedFrame   )
+    BitField(  19,  1, RxDescStatus, CRCError         )
+    BitField(  20,  1, RxDescStatus, OversizedFrame   )
     BitField(  23,  1, RxDescStatus, DribbleBits      )
     BitField(  24,  1, RxDescStatus, UpOverflow       )
 
     // New in 3C90xB
+    BitField(  25,  1, RxDescStatus, IPChecksumError  )
+    BitField(  26,  1, RxDescStatus, TCPChecksumError )
+    BitField(  27,  1, RxDescStatus, UDPChecksumError )
+    BitField(  29,  1, RxDescStatus, IPChecksumChecked )
+    BitField(  30,  1, RxDescStatus, TCPChecksumChecked )
+    BitField(  31,  1, RxDescStatus, UDPChecksumChecked )
+
 };
 
 /*
@@ -721,7 +734,7 @@ typedef struct _RxDescriptor
     /* Driver Private Area (ignored by the hardware) */
 
     _RxDescriptor *    drvNext;
-    struct mbuf *      drvMbuf;
+    mbuf_t             drvMbuf;
 } RxDescriptor;
 
 /*************************************************************************/
@@ -750,9 +763,9 @@ enum {
 #define kMIIFrameSize      32
 
 enum {
-	kPHYAddrMin        = 0,
+    kPHYAddrMin        = 0,
     kPHYAddrCyclone    = 24,
-	kPHYAddrMax        = 31,
+    kPHYAddrMax        = 31,
     kPHYAddressInvalid = 0xff
 };
 
@@ -765,13 +778,13 @@ enum {
  */
 enum {
     kMIIRegisterControl        = 0,
-	kMIIRegisterStatus         = 1,
-	kMIIRegisterID0            = 2,
-	kMIIRegisterID1            = 3,
-	kMIIRegisterAdvertisement  = 4,
-	kMIIRegisterLinkPartner    = 5,
-	kMIIRegisterExpansion      = 6,
-	kMIIRegisterNextPage       = 7,
+    kMIIRegisterStatus         = 1,
+    kMIIRegisterID0            = 2,
+    kMIIRegisterID1            = 3,
+    kMIIRegisterAdvertisement  = 4,
+    kMIIRegisterLinkPartner    = 5,
+    kMIIRegisterExpansion      = 6,
+    kMIIRegisterNextPage       = 7,
 };
 
 /*
@@ -818,6 +831,7 @@ enum {
     BitField(  7, 1, MIIAdvertisement, 100BASETX    )
     BitField(  8, 1, MIIAdvertisement, 100BASETX_FD )
     BitField(  9, 1, MIIAdvertisement, 100BASET4    )
+    BitField( 10, 1, MIIAdvertisement, PauseCapable )
     BitField( 13, 1, MIIAdvertisement, RemoteFault  )
     BitField( 14, 1, MIIAdvertisement, Acknowledge  )    
 };
@@ -841,11 +855,11 @@ enum {
  * PHY timeout parameters in milliseconds.
  */
 enum {
-	kPHYResetDelay   = 10,
+    kPHYResetDelay   = 10,
     kPHYResetTimeout = 100,
 
-	kPHYLinkDelay    = 20,
-	kPHYLinkTimeout  = 5000,
+    kPHYLinkDelay    = 20,
+    kPHYLinkTimeout  = 5000,
 };
 
 #endif /* !__APPLE_3COM_3C90X_DEFINES_H */

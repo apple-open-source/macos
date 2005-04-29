@@ -22,9 +22,9 @@ Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 
-#ifdef ENABLE_DMP_TREE
-
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "c-common.h"
 #include <string.h>
@@ -78,45 +78,15 @@ c_dump_identifier (file, node, indent, after_id)
 	  fprintf (file, HOST_PTR_PRINTF, HOST_PTR_PRINTF_VALUE((void *)rid));
 	  fprintf (file, "(%s)", IDENTIFIER_POINTER (rid));
 	}
-      if (IDENTIFIER_GLOBAL_VALUE (node))
-	{
-	  fprintf (file, " gbl=");
-	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_GLOBAL_VALUE (node));
-	}
-      if (IDENTIFIER_LOCAL_VALUE (node))
-	{
-	  fprintf (file, " lcl=");
-	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_LOCAL_VALUE (node));
-	}
       if (IDENTIFIER_LABEL_VALUE (node))
 	{
 	  fprintf (file, " lbl=");
 	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_LABEL_VALUE (node));
 	}
-      if (IDENTIFIER_IMPLICIT_DECL (node))
-	{
-	  fprintf (file, " impl=");
-	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_IMPLICIT_DECL (node));
-	}
-      if (IDENTIFIER_ERROR_LOCUS (node))
-	{
-	  fprintf (file, " err-locus=");
-	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_ERROR_LOCUS (node));
-	}
-      if (IDENTIFIER_LIMBO_VALUE (node))
-	{
-	  fprintf (file, " limbo-value=");
-	  fprintf (file, HOST_PTR_PRINTF, IDENTIFIER_LIMBO_VALUE (node));
-	}
     }
   else
     {
-      dump_tree (file, "(gbl)", IDENTIFIER_GLOBAL_VALUE (node), indent + INDENT);
-      dump_tree (file, "(lcl)", IDENTIFIER_LOCAL_VALUE (node), indent + INDENT);
       dump_tree (file, "(lbl)", IDENTIFIER_LABEL_VALUE (node), indent + INDENT);
-      dump_tree (file, "(impl)", IDENTIFIER_IMPLICIT_DECL (node), indent + INDENT);
-      dump_tree (file, "(err-locus)", IDENTIFIER_ERROR_LOCUS (node), indent + INDENT);
-      dump_tree (file, "(limbo-value)", IDENTIFIER_LIMBO_VALUE (node), indent + INDENT);
     }
 }
 
@@ -201,18 +171,9 @@ c_dump_blank_line_p (previous_node, current_node)
    
 int
 c_dump_lineno_p (file, node)
-     FILE *file;
-     tree node;
+     FILE *file ATTRIBUTE_UNUSED;
+     tree node ATTRIBUTE_UNUSED;
 {
-  if (statement_code_p (TREE_CODE (node)) && STMT_LINENO (node))
-  {
-    if (STMT_LINENO_FOR_FN_P (node))
-      fprintf (file, " end-line=%d", STMT_LINENO (node));
-    else
-      fprintf (file, " line=%d", STMT_LINENO (node));
-    return 1;
-  }
-  
   return 0;
 }
 
@@ -233,17 +194,6 @@ c_dmp_tree3 (file, node, flags)
 #endif /* !CP_DMP_TREE */
 
 /*-------------------------------------------------------------------*/
-
-#ifndef CP_DMP_TREE
-static void
-print_SRCLOC (file, annotation, node, indent)
-     FILE *file ATTRIBUTE_UNUSED;
-     const char *annotation ATTRIBUTE_UNUSED;
-     tree node ATTRIBUTE_UNUSED;
-     int indent ATTRIBUTE_UNUSED;
-{
-}
-#endif
 
 static void
 print_SIZEOF_EXPR (file, annotation, node, indent)
@@ -567,4 +517,4 @@ c_dump_tree_p (file, annotation, node, indent)
    return 1;
 }
 
-#endif /* ENABLE_DMP_TREE */
+

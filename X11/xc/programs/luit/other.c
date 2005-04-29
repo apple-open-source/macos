@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-/* $XFree86: xc/programs/luit/other.c,v 1.1 2002/10/17 01:06:09 dawes Exp $ */
+/* $XFree86: xc/programs/luit/other.c,v 1.2 2004/01/27 02:30:30 dawes Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -241,6 +241,185 @@ stack_sjis(unsigned char c, OtherStatePtr s)
             b = -1;
         s->sjis.buf = -1;
         return b;
+    }
+}
+
+int
+init_hkscs(OtherStatePtr s)
+{
+    s->hkscs.mapping =
+        FontEncMapFind("big5hkscs-0", FONT_ENCODING_UNICODE, -1, -1, NULL);
+    if(!s->hkscs.mapping) return 0;
+
+    s->hkscs.reverse = FontMapReverse(s->hkscs.mapping);
+    if(!s->hkscs.reverse) return 0;
+
+    s->hkscs.buf = -1;
+    return 1;
+}
+
+unsigned int
+mapping_hkscs(unsigned int n, OtherStatePtr s)
+{
+    unsigned int r;
+    if(n < 128) return n;
+    if(n == 128) return EURO_10646;
+    r = FontEncRecode(n, s->hkscs.mapping);
+    return r;
+}
+
+unsigned int
+reverse_hkscs(unsigned int n, OtherStatePtr s)
+{
+    if(n < 128) return n;
+    if(n == EURO_10646) return 128;
+    return s->hkscs.reverse->reverse(n, s->hkscs.reverse->data);
+}
+
+int
+stack_hkscs(unsigned char c, OtherStatePtr s)
+{
+    if(s->hkscs.buf < 0) {
+        if(c < 129) return c;
+        s->hkscs.buf = c;
+	return -1;
+    } else {
+        int b;
+        if(c < 0x40 || c == 0x7F) {
+            s->hkscs.buf = -1;
+            return c;
+        }
+        if(s->hkscs.buf < 0xFF && c < 0xFF)
+            b = (s->hkscs.buf << 8) + c;
+        else
+            b = -1;
+        s->hkscs.buf = -1;
+        return b;
+    }
+}
+
+
+/*
+ *  Because of the 1 ~ 4 multi-bytes nature of GB18030.
+ *  CharSet encoding is split to 2 subset (besides latin)
+ *  The 2Bytes MB char is defined in gb18030.2000-0
+ *  The 4Bytes MB char is defined in gb18030.2000-1
+ *  Please note that the mapping in 2000-1 is not a 4Bytes seq => 2Bytes value
+ *  mapping.
+ *  To use the 2000-1 we need to 'linear' the 4Bytes sequence and 'lookup' the 
+ *  unicode value after that.
+ *
+ *  For more info on GB18030 standard pls check:
+ *    http://oss.software.ibm.com/icu/docs/papers/gb18030.html
+ *
+ *  For more info on GB18030 implementation issues in XFree86 pls check:
+ *    http://www.ibm.com/developerWorks/cn/linux/i18n/gb18030/xfree86/part1
+ */
+int
+init_gb18030(OtherStatePtr s)
+{
+    s->gb18030.cs0_mapping =
+        FontEncMapFind("gb18030.2000-0", FONT_ENCODING_UNICODE, -1, -1, NULL);
+    if(!s->gb18030.cs0_mapping) return 0;
+
+    s->gb18030.cs0_reverse = FontMapReverse(s->gb18030.cs0_mapping);
+    if(!s->gb18030.cs0_reverse) return 0;
+
+    s->gb18030.cs1_mapping =
+        FontEncMapFind("gb18030.2000-1", FONT_ENCODING_UNICODE, -1, -1, NULL);
+    if(!s->gb18030.cs1_mapping) return 0;
+
+    s->gb18030.cs1_reverse = FontMapReverse(s->gb18030.cs1_mapping);
+    if(!s->gb18030.cs1_reverse) return 0;
+
+    s->gb18030.linear  = 0;
+    s->gb18030.buf_ptr = 0;
+    return 1;
+}
+
+unsigned int
+mapping_gb18030(unsigned int n, OtherStatePtr s)
+{
+    if(n <= 0x80)   return n;       /* 0x80 is valid but unassigned codepoint */
+    if(n >= 0xFFFF) return '?';
+    
+    return FontEncRecode(n,
+            (s->gb18030.linear)?s->gb18030.cs1_mapping:s->gb18030.cs0_mapping);
+}
+
+unsigned int
+reverse_gb18030(unsigned int n, OtherStatePtr s)
+{
+    /* when lookup in 2000-0 failed. */
+    /* lookup in 2000-1 and then try to unlinear'd */
+    unsigned int r;
+    if(n <= 0x80) return n;
+
+    r = s->gb18030.cs0_reverse->reverse(n, s->gb18030.cs0_reverse->data);
+    if (r != 0)
+        return r;
+
+    r = s->gb18030.cs1_reverse->reverse(n, s->gb18030.cs1_reverse->data);
+    if (r != 0) {
+        unsigned char bytes[4];
+
+        bytes[3] = 0x30 + r % 10;   r /= 10;
+        bytes[2] = 0x81 + r % 126;  r /= 126;
+        bytes[1] = 0x30 + r % 10;   r /= 10;
+        bytes[0] = 0x81 + r;
+
+        r  = (unsigned int)bytes[0] << 24;
+        r |= (unsigned int)bytes[1] << 16;
+        r |= (unsigned int)bytes[2] << 8;
+        r |= (unsigned int)bytes[3];
+    }
+    return r;
+}
+
+int
+stack_gb18030(unsigned char c, OtherStatePtr s)
+{
+    /* if set gb18030.linear => True. the return value is "linear'd" */
+    if(s->gb18030.buf_ptr == 0) {
+        if(c <= 0x80) return c;
+        if (c == 0xFF) return -1;
+        s->gb18030.linear = 0;
+        s->gb18030.buf[s->gb18030.buf_ptr++] = c;
+        return -1;
+    } else if (s->gb18030.buf_ptr == 1) {
+        if (c >= 0x40) {
+            s->gb18030.buf_ptr = 0;
+            if ((c == 0x80) || (c == 0xFF))
+                return -1;
+            else
+                return (s->gb18030.buf[0] << 8) + c;
+        } else if (c >= 30) {   /* 2Byte is (0x30 -> 0x39) */
+            s->gb18030.buf[s->gb18030.buf_ptr++] = c;
+            return -1;
+        } else {
+            s->gb18030.buf_ptr = 0;
+            return c;
+        }
+    } else if (s->gb18030.buf_ptr == 2) {
+        if ((c >= 0x81) && (c <= 0xFE)) {
+            s->gb18030.buf[s->gb18030.buf_ptr++] = c;
+            return -1;
+        } else {
+            s->gb18030.buf_ptr = 0;
+            return c;
+        }
+    } else {
+        int r = 0;
+        s->gb18030.buf_ptr = 0;
+        if ((c >= 0x30) && (c <= 0x39)) {
+            s->gb18030.linear = 1;
+            r = (((s->gb18030.buf[0] - 0x81) * 10
+                        + (s->gb18030.buf[1] - 0x30)) * 126
+                    + (s->gb18030.buf[2] - 0x81)) * 10
+                + (c - 0x30);
+            return r;
+        }
+        return -1;
     }
 }
 

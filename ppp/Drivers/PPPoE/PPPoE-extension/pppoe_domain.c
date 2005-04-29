@@ -38,7 +38,8 @@
 #include <sys/protosw.h>
 #include <sys/domain.h>
 #include <kern/thread.h>
-#include <net/if_var.h>
+#include <kern/locks.h>
+#include <net/if.h>
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
@@ -68,18 +69,18 @@ Globals
 
 int 		pppoe_domain_inited = 0;
 
-
+extern lck_mtx_t   *ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int pppoe_domain_module_start(struct kmod_info *ki, void *data)
 {
-    boolean_t 	funnel_state;
+    //boolean_t 	funnel_state;
     int		ret;
 
-    funnel_state = thread_funnel_set(network_flock, TRUE);
+    //funnel_state = thread_funnel_set(network_flock, TRUE);
     ret = pppoe_domain_init(0);
-    thread_funnel_set(network_flock, funnel_state);
+    //thread_funnel_set(network_flock, funnel_state);
 
     return ret;
 }
@@ -88,12 +89,12 @@ int pppoe_domain_module_start(struct kmod_info *ki, void *data)
 ----------------------------------------------------------------------------- */
 int pppoe_domain_module_stop(struct kmod_info *ki, void *data)
 {
-    boolean_t 	funnel_state;
+    //boolean_t 	funnel_state;
     int		ret;
 
-    funnel_state = thread_funnel_set(network_flock, TRUE);
+    //funnel_state = thread_funnel_set(network_flock, TRUE);
     ret = pppoe_domain_terminate(0);
-    thread_funnel_set(network_flock, funnel_state);
+    //thread_funnel_set(network_flock, funnel_state);
 
     return ret;
 }
@@ -102,7 +103,7 @@ int pppoe_domain_module_stop(struct kmod_info *ki, void *data)
 ----------------------------------------------------------------------------- */
 int pppoe_domain_init(int init_arg)
 {
-    int 	ret;
+    int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
     log(LOGVAL, "PPPoE domain init\n");
@@ -113,27 +114,31 @@ int pppoe_domain_init(int init_arg)
     pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         log(LOGVAL, "PPPoE domain init : PF_PPP domain does not exist...\n");
-        return KERN_FAILURE;
+        return(KERN_FAILURE);
     }
-    
+    	
+	lck_mtx_lock(ppp_domain_mutex);
+	
     ret = pppoe_rfc_init();
     if (ret) {
         log(LOGVAL, "PPPoE domain init : can't init PPPoE protocol RFC, err : %d\n", ret);
-        return ret;
+        goto end;
     }
     
     ret = pppoe_add(pppdomain);
     if (ret) {
         log(LOGVAL, "PPPoE domain init : can't add proto to PPPoE domain, err : %d\n", ret);
         pppoe_rfc_dispose();
-        return ret;
+        goto end;
     }
 
     pppoe_wan_init();
 
     pppoe_domain_inited = 1;
 
-    return(KERN_SUCCESS);
+end:
+	lck_mtx_unlock(ppp_domain_mutex);
+    return ret;
 }
 
 
@@ -141,40 +146,44 @@ int pppoe_domain_init(int init_arg)
 ----------------------------------------------------------------------------- */
 int pppoe_domain_terminate(int term_arg)
 {
-    int 	ret;
+    int 	ret = KERN_SUCCESS;
     struct domain *pppdomain;
     
     log(LOGVAL, "PPPoE domain terminate\n");
 
     if (!pppoe_domain_inited)
         return(KERN_SUCCESS);
-
-    ret = pppoe_rfc_dispose();
-    if (ret) {
-        log(LOGVAL, "PPPoE domain is in use and cannot terminate, err : %d\n", ret);
-        return ret;
-    }
-
-    ret = pppoe_wan_dispose();
-    if (ret) {
-        log(LOGVAL, "PPPoE domain terminate : pppoe_wan_dispose, err : %d\n", ret);
-        return ret;
-    }
-
-    pppdomain = pffinddomain(PF_PPP);
+		
+	pppdomain = pffinddomain(PF_PPP);
     if (!pppdomain) {
         // humm.. should not happen
         log(LOGVAL, "PPPoE domain terminate : PF_PPP domain does not exist...\n");
         return KERN_FAILURE;
     }
+
+	lck_mtx_lock(ppp_domain_mutex);
+	
+    ret = pppoe_rfc_dispose();
+    if (ret) {
+        log(LOGVAL, "PPPoE domain is in use and cannot terminate, err : %d\n", ret);
+        goto end;
+    }
+
+    ret = pppoe_wan_dispose();
+    if (ret) {
+        log(LOGVAL, "PPPoE domain terminate : pppoe_wan_dispose, err : %d\n", ret);
+        goto end;
+    }
     
     ret = pppoe_remove(pppdomain);
     if (ret) {
         log(LOGVAL, "PPPoE domain terminate : can't del proto from PPPoE domain, err : %d\n", ret);
-        return ret;
+        goto end;
     }
 
     pppoe_domain_inited = 0;
-    
-    return(KERN_SUCCESS);
+
+end:
+	lck_mtx_unlock(ppp_domain_mutex);
+    return ret;
 }

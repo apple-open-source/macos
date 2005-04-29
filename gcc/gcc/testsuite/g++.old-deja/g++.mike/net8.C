@@ -1,5 +1,5 @@
-// Build don't link:
-// Special g++ Options: -pedantic-errors
+// { dg-do assemble  }
+// { dg-options "-pedantic-errors" }
 
 class Base {
 public:
@@ -11,22 +11,22 @@ public:
   int bar;
 };
 
-void func(Base&);		// ERROR - 
+void func(Base&);			// { dg-error "passing argument 1" } 
 
 void func2(const Derived& d) {
-  func(d);			// ERROR - this is bad
+  func(d);				// { dg-error "invalid initialization" }
 }
 
 void
-foo (int& a)
-{				// ERROR - 
+foo (int& a)				// { dg-error "in passing argument 1" } 
+{
 }
 
 int main ()
 {
   int b;
   const int*const a = &b;
-  *a = 10;				// ERROR - it's const
-  foo (*a);				// ERROR - it's const
+  *a = 10;				// { dg-error "read-only location" }
+  foo (*a);				// { dg-error "invalid initialization" }
   return 0;
 }

@@ -38,7 +38,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: ctl_cyrusdb.c,v 1.26 2004/07/13 02:34:20 ken3 Exp $
+ * $Id: ctl_cyrusdb.c,v 1.6 2005/03/05 00:36:46 dasenbro Exp $
  */
 
 #include <config.h>

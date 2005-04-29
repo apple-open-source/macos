@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ALGORITHM_H__
+#define __ALGORITHM_H__
+
 /* algorithm class */
 enum {
 	algclass_ipsec_enc,
@@ -189,3 +192,7 @@ extern int default_keylen __P((int, int));
 extern int check_keylen __P((int, int, int));
 extern int algtype2doi __P((int, int));
 extern int algclass2doi __P((int));
+
+
+#endif /* __ALGORITHM_H__ */
+

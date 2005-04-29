@@ -39,12 +39,13 @@ package java.net;
 
 import java.io.IOException;
 
+
 /**
  * This exception indicates that a URL passed to an object was not in a
  * valid format.
  *
- * @author Aaron M. Renn <arenn@urbanophile.com>
- * @author Warren Levy <warrenl@cygnus.com>
+ * @author Aaron M. Renn (arenn@urbanophile.com)
+ * @author Warren Levy (warrenl@cygnus.com)
  * @status updated to 1.4
  */
 public class MalformedURLException extends IOException

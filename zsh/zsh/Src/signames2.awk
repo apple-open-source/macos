@@ -6,12 +6,14 @@
 # NB: On SunOS 4.1.3 - user-functions don't work properly, also \" problems
 # Without 0 + hacks some nawks compare numbers as strings
 #
-/^XXNAMES XXSIG[A-Z][A-Z0-9]*[\t ][\t ]*[1-9][0-9]*/ {
+/^[\t ]*XXNAMES XXSIG[A-Z][A-Z0-9]*[\t ][\t ]*[1-9][0-9]*/ {
     sigindex = index($0, "SIG")
     sigtail = substr($0, sigindex, 80)
     split(sigtail, tmp)
     signam = substr(tmp[1], 4, 20)
     signum = tmp[2]
+    if (signam == "CHLD" && sig[signum] == "CLD")  sig[signum] = ""
+    if (signam == "POLL" && sig[signum] == "IO")  sig[signum] = ""
     if (sig[signum] == "") {
 	sig[signum] = signam
 	if (0 + max < 0 + signum && signum < 60)
@@ -63,7 +65,8 @@ END {
     printf "#include %czsh.mdh%c\n", 34, 34
     printf "\n"
     printf "/**/\n"
-    printf "#define sigmsg(sig) ((sig) <= SIGCOUNT ? sig_msg[sig] : %c%s%c)", 34, "unknown signal", 34
+    printf "#define sigmsg(sig) ((sig) <= SIGCOUNT ? sig_msg[sig]"
+    printf " : %c%s%c)", 34, "unknown signal", 34
     printf "\n"
     printf "/**/\n"
     printf "mod_export char *sig_msg[SIGCOUNT+2] = {\n"

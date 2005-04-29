@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.2 2002/08/04 12:43:53 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.3 2004/03/27 08:59:21 tjr Exp $");
 
 #include <ctype.h>
 #include <string.h>
@@ -61,6 +61,7 @@ wctype(const char *property)
 		{ "ideogram",	_CTYPE_I },	/* BSD extension */
 		{ "special",	_CTYPE_T },	/* BSD extension */
 		{ "phonogram",	_CTYPE_Q },	/* BSD extension */
+		{ "rune",	0xFFFFFF00L },	/* BSD extension */
 		{ NULL,		0UL },		/* Default */
 	};
 	int i;

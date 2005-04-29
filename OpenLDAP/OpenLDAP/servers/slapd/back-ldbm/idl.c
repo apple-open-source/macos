@@ -1,8 +1,17 @@
 /* idl.c - ldap id list handling routines */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/idl.c,v 1.66.2.9 2003/03/13 03:35:27 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/idl.c,v 1.82.2.3 2004/04/06 20:29:13 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -943,13 +952,16 @@ idl_delete_key (
 	   */
 	cont_alloc( &data, &key );
 #ifndef USE_INDIRECT_NIDS
-	for ( nids = 0; !ID_BLOCK_NOID(idl, nids); nids++ )
-		;	/* NULL */
+	for ( nids = 0; !ID_BLOCK_NOID(idl, nids); nids++ ) {
+		;	/* Empty */
+	}
 
 	for ( j = 0; j<nids; j++ ) 
 #else
 	nids = ID_BLOCK_NIDS(idl);
-	for ( j = idl_find(idl, id); j >= 0; j = -1)	/* execute once */
+	j = idl_find(idl, id);
+	if ( ID_BLOCK_ID(idl, j) > id ) j--;
+	for (; j>=0; j = -1 ) /* execute once */
 #endif
 	{
 		ID_BLOCK *tmp;

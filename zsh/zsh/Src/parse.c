@@ -729,7 +729,9 @@ par_pline(int *complex)
 	ecbuf[p] = WCB_PIPE(WC_PIPE_MID, (line >= 0 ? line + 1 : 0));
 	ecispace(p + 1, 1);
 	ecbuf[p + 1] = ecused - 1 - p;
-	par_pline(complex);
+	if (!par_pline(complex)) {
+	    tok = LEXERR;
+	}
 	cmdpop();
 	return 1;
     } else if (tok == BARAMP) {
@@ -750,7 +752,9 @@ par_pline(int *complex)
 	ecbuf[p] = WCB_PIPE(WC_PIPE_MID, (line >= 0 ? line + 1 : 0));
 	ecispace(p + 1, 1);
 	ecbuf[p + 1] = ecused - 1 - p;
-	par_pline(complex);
+	if (!par_pline(complex)) {
+	    tok = LEXERR;
+	}
 	cmdpop();
 	return 1;
     } else {
@@ -978,7 +982,7 @@ par_for(int *complex)
     incmdpos = 1;
     while (tok == SEPER)
 	yylex();
-    if (tok == DO) {
+    if (tok == DOLOOP) {
 	yylex();
 	par_save_list(complex);
 	if (tok != DONE)
@@ -1260,7 +1264,7 @@ par_while(int *complex)
     incmdpos = 1;
     while (tok == SEPER)
 	yylex();
-    if (tok == DO) {
+    if (tok == DOLOOP) {
 	yylex();
 	par_save_list(complex);
 	if (tok != DONE)
@@ -1304,7 +1308,7 @@ par_repeat(int *complex)
     yylex();
     while (tok == SEPER)
 	yylex();
-    if (tok == DO) {
+    if (tok == DOLOOP) {
 	yylex();
 	par_save_list(complex);
 	if (tok != DONE)
@@ -1330,25 +1334,55 @@ par_repeat(int *complex)
 }
 
 /*
- * subsh	: ( INPAR | INBRACE ) list ( OUTPAR | OUTBRACE )
+ * subsh	: INPAR list OUTPAR |
+ *                INBRACE list OUTBRACE [ "always" INBRACE list OUTBRACE ]
  */
 
 /**/
 static void
 par_subsh(int *complex)
 {
-    int oecused = ecused, otok = tok, p;
+    int oecused = ecused, otok = tok, p, pp;
 
     p = ecadd(0);
+    /* Extra word only needed for always block */
+    pp = ecadd(0);
     yylex();
     par_list(complex);
     ecadd(WCB_END());
     if (tok != ((otok == INPAR) ? OUTPAR : OUTBRACE))
 	YYERRORV(oecused);
-    ecbuf[p] = (otok == INPAR ? WCB_SUBSH(ecused - 1 - p) :
-		WCB_CURSH(ecused - 1 - p));
     incmdpos = 1;
     yylex();
+
+    /* Optional always block.  No intervening SEPERs allowed. */
+    if (otok == INBRACE && tok == STRING && !strcmp(tokstr, "always")) {
+	ecbuf[pp] = WCB_TRY(ecused - 1 - pp);
+	incmdpos = 1;
+	do {
+	    yylex();
+	} while (tok == SEPER);
+
+	if (tok != INBRACE)
+	    YYERRORV(oecused);
+	cmdpop();
+	cmdpush(CS_ALWAYS);
+
+	yylex();
+	par_save_list(complex);
+	while (tok == SEPER)
+	    yylex();
+
+	incmdpos = 1;
+
+	if (tok != OUTBRACE)
+	    YYERRORV(oecused);
+	yylex();
+	ecbuf[p] = WCB_TRY(ecused - 1 - p);
+    } else {
+	ecbuf[p] = (otok == INPAR ? WCB_SUBSH(ecused - 1 - p) :
+		    WCB_CURSH(ecused - 1 - p));
+    }
 }
 
 /*
@@ -1724,9 +1758,6 @@ par_redir(int *rp)
 	if ((tokstr[0] == Inang || tokstr[0] == Outang) && tokstr[1] == Inpar)
 	    type = tokstr[0] == Inang ? REDIR_INPIPE : REDIR_OUTPIPE;
 	break;
-    case REDIR_HERESTR:
-        remnulargs(name = dupstring(name));
-        break;
     }
     yylex();
 
@@ -2097,7 +2128,7 @@ dupeprog(Eprog p, int heap)
      */
     r->nref = heap ? -1 : 1;
     pp = r->pats = (heap ? (Patprog *) hcalloc(r->len) :
-		    (Patprog *) zcalloc(r->len));
+		    (Patprog *) zshcalloc(r->len));
     r->prog = (Wordcode) (r->pats + r->npats);
     r->strs = ((char *) r->prog) + (p->strs - ((char *) p->prog));
     memcpy(r->prog, p->prog, r->len - (p->npats * sizeof(Patprog)));
@@ -2141,7 +2172,10 @@ freeeprog(Eprog p)
 	/* paranoia */
 	DPUTS(p->nref > 0 && (p->flags & EF_HEAP), "Heap EPROG has nref > 0");
 	DPUTS(p->nref < 0 && !(p->flags & EF_HEAP), "Real EPROG has nref < 0");
-	DPUTS(p->nref < -1 || p->nref > 256, "Uninitialised EPROG nref");
+	DPUTS(p->nref < -1, "Uninitialised EPROG nref");
+#ifdef MAX_FUNCTION_DEPTH
+	DPUTS(p->nref > MAX_FUNCTION_DEPTH + 10, "Overlarge EPROG nref");
+#endif
 	if (p->nref > 0 && !--p->nref) {
 	    for (i = p->npats, pp = p->pats; i--; pp++)
 		freepatprog(*pp);
@@ -2400,7 +2434,7 @@ dump_find_func(Wordcode h, char *name)
 
 /**/
 int
-bin_zcompile(char *nam, char **args, Options ops, int func)
+bin_zcompile(char *nam, char **args, Options ops, UNUSED(int func))
 {
     int map, flags, ret;
     char *dump;
@@ -2524,9 +2558,8 @@ load_dump_header(char *nam, char *name, int err)
 	}
 	memcpy(head, buf, (FD_PRELEN + 1) * sizeof(wordcode));
 
-	if (read(fd, head + (FD_PRELEN + 1),
-		 len - ((FD_PRELEN + 1) * sizeof(wordcode))) !=
-	    len - ((FD_PRELEN + 1) * sizeof(wordcode))) {
+	len -= (FD_PRELEN + 1) * sizeof(wordcode);
+	if (read(fd, head + (FD_PRELEN + 1), len) != len) {
 	    close(fd);
 	    zwarnnam(nam, "invalid zwc file: %s" , name, 0);
 	    return NULL;
@@ -3125,7 +3158,7 @@ check_dump_file(char *file, struct stat *sbuf, char *name, int *ksh)
 	    }
 	    d = (Wordcode) zalloc(h->len + po);
 
-	    if (read(fd, ((char *) d) + po, h->len) != h->len) {
+	    if (read(fd, ((char *) d) + po, h->len) != (int)h->len) {
 		close(fd);
 		zfree(d, h->len);
 
@@ -3240,7 +3273,7 @@ dump_autoload(char *nam, char *file, int on, Options ops, int func)
 
     for (n = firstfdhead(h), e = (FDHead) (h + fdheaderlen(h)); n < e;
 	 n = nextfdhead(n)) {
-	shf = (Shfunc) zcalloc(sizeof *shf);
+	shf = (Shfunc) zshcalloc(sizeof *shf);
 	shf->flags = on;
 	shf->funcdef = mkautofn(shf);
 	shfunctab->addnode(shfunctab, ztrdup(fdname(n) + fdhtail(n)), shf);

@@ -46,6 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/proxyopts.h,v 1.6 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef _LBX_PROXYOPTS_H_
 #define _LBX_PROXYOPTS_H_
@@ -74,71 +75,51 @@ extern LbxNegOptsRec lbxNegOpt;
 /* options.c */
 
 extern void LbxOptInit(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/
-#endif
 );
 
 extern int LbxOptBuildReq(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     char * /*buf*/
-#endif
 );
 
 extern int LbxOptParseReply(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     int /*nopts*/,
     unsigned char * /*preply*/,
     int /*replylen*/
-#endif
 );
 
 extern void LbxNoDelta(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void LbxNoComp(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void LbxNoSquish(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern LbxBitmapCompMethod *LbxLookupBitmapCompMethod (
-#if NeedFunctionPrototypes
     XServerPtr 	/*server*/,
     int		/* methodOpCode */
-#endif
 );
 
 extern LbxPixmapCompMethod *LbxLookupPixmapCompMethod (
-#if NeedFunctionPrototypes
     XServerPtr 	/*server*/,
     int		/* methodOpCode */
-#endif
 );
 
 extern LbxBitmapCompMethod *LbxFindPreferredBitmapCompMethod (
-#if NeedFunctionPrototypes
     XServerPtr 	/*server*/
-#endif
 );
 
 extern LbxPixmapCompMethod *LbxFindPreferredPixmapCompMethod (
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     int		/* format */,
     int		/* depth */
-#endif
 );
 
 #endif /* _LBX_PROXYOPTS_H_ */

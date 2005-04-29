@@ -128,3 +128,5 @@ nibind_prot_svc.c: nibind_prot.x
 after_install:
 	install -d $(DSTROOT)/usr/share/man/man8
 	install -c -m 444 nibindd.8 $(DSTROOT)/usr/share/man/man8
+	$(MKDIRS) $(DSTROOT)/System/Library/LaunchDaemons
+	$(CP) com.apple.nibindd.plist $(DSTROOT)/System/Library/LaunchDaemons

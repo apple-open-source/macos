@@ -1,0 +1,384 @@
+Dies ist gettext.info, hergestellt von Makeinfo Version 4.3 aus
+gettext.texi.
+
+INFO-DIR-SECTION GNU Gettext Utilities
+START-INFO-DIR-ENTRY
+* gettext: (gettext).                          GNU gettext utilities.
+* autopoint: (gettext)autopoint Invocation.    Copy gettext infrastructure.
+* gettextize: (gettext)gettextize Invocation.  Prepare a package for gettext.
+* msgattrib: (gettext)msgattrib Invocation.    Select part of a PO file.
+* msgcat: (gettext)msgcat Invocation.          Combine several PO files.
+* msgcmp: (gettext)msgcmp Invocation.          Compare a PO file and template.
+* msgcomm: (gettext)msgcomm Invocation.        Match two PO files.
+* msgconv: (gettext)msgconv Invocation.        Convert PO file to encoding.
+* msgen: (gettext)msgen Invocation.            Create an English PO file.
+* msgexec: (gettext)msgexec Invocation.        Process a PO file.
+* msgfilter: (gettext)msgfilter Invocation.    Pipe a PO file through a filter.
+* msgfmt: (gettext)msgfmt Invocation.          Make MO files out of PO files.
+* msggrep: (gettext)msggrep Invocation.        Select part of a PO file.
+* msginit: (gettext)msginit Invocation.        Create a fresh PO file.
+* msgmerge: (gettext)msgmerge Invocation.      Update a PO file from template.
+* msgunfmt: (gettext)msgunfmt Invocation.      Uncompile MO file into PO file.
+* msguniq: (gettext)msguniq Invocation.        Unify duplicates for PO file.
+* xgettext: (gettext)xgettext Invocation.      Extract strings into a PO file.
+* ISO639: (gettext)Language Codes.             ISO 639 language codes.
+* ISO3166: (gettext)Country Codes.             ISO 3166 country codes.
+END-INFO-DIR-ENTRY
+
+   This file provides documentation for GNU `gettext' utilities.  It
+also serves as a reference for the free Translation Project.
+
+   Copyright (C) 1995-1998, 2001-2003 Free Software Foundation, Inc.
+
+   Permission is granted to make and distribute verbatim copies of this
+manual provided the copyright notice and this permission notice are
+preserved on all copies.
+
+   Permission is granted to copy and distribute modified versions of
+this manual under the conditions for verbatim copying, provided that
+the entire resulting derived work is distributed under the terms of a
+permission notice identical to this one.
+
+   Permission is granted to copy and distribute translations of this
+manual into another language, under the above conditions for modified
+versions, except that this permission notice may be stated in a
+translation approved by the Foundation.
+
+
+File: gettext.info,  Node: Index,  Prev: Autoconf Macro Index,  Up: Top
+
+General Index
+*************
+
+* Menu:
+
+* _, a macro to mark strings for translation: Mark Keywords.
+* _nl_msg_cat_cntr:                      gettext grok.
+* ABOUT-NLS file:                        Matrix.
+* acconfig.h file:                       acconfig.
+* accumulating translations:             Creating Compendia.
+* aclocal.m4 file:                       aclocal.
+* adding keywords, xgettext:             xgettext Invocation.
+* ambiguities:                           Preparing Strings.
+* apply a filter to translations:        msgfilter Invocation.
+* apply command to all translations in a catalog: msgexec Invocation.
+* attribute manipulation:                msgattrib Invocation.
+* attribute, fuzzy:                      Fuzzy Entries.
+* attributes of a PO file entry:         Fuzzy Entries.
+* attributes, manipulating:              Manipulating.
+* autoconf macros for gettext:           autoconf macros.
+* autopoint program, usage:              autopoint Invocation.
+* auxiliary PO file:                     Auxiliary.
+* available translations:                Matrix.
+* awk:                                   gawk.
+* awk-format flag:                       PO Files.
+* backup old file, and msgmerge program: msgmerge Invocation.
+* bash:                                  bash.
+* bibliography:                          References.
+* big picture:                           Overview.
+* bind_textdomain_codeset:               Charset conversion.
+* bug report address:                    Introduction.
+* C and C-like languages:                C.
+* C trigraphs:                           xgettext Invocation.
+* c-format flag:                         PO Files.
+* c-format, and xgettext:                c-format Flag.
+* catalog encoding and msgexec output:   msgexec Invocation.
+* catclose, a catgets function:          Interface to catgets.
+* catgets, a catgets function:           Interface to catgets.
+* catgets, X/Open specification:         catgets.
+* catopen, a catgets function:           Interface to catgets.
+* character encoding:                    Aspects.
+* charset conversion at runtime:         Charset conversion.
+* charset of PO files:                   Header Entry.
+* check format strings:                  msgfmt Invocation.
+* checking of translations:              Manipulating.
+* clisp:                                 Common Lisp.
+* clisp C sources:                       clisp C.
+* codeset:                               Aspects.
+* comments in PO files:                  PO Files.
+* Common Lisp:                           Common Lisp.
+* compare PO files:                      msgcmp Invocation.
+* comparison of interfaces:              Comparison.
+* compatibility with X/Open msgfmt:      msgfmt Invocation.
+* compendium:                            Compendium.
+* compendium, creating:                  Creating Compendia.
+* concatenate PO files:                  msgcat Invocation.
+* concatenating PO files into a compendium: Creating Compendia.
+* concatenation of strings:              Preparing Strings.
+* config.h.in file:                      config.h.in.
+* convert binary message catalog into PO file: msgunfmt Invocation.
+* convert translations to a different encoding: msgconv Invocation.
+* converting a package to use gettext:   Prerequisites.
+* country codes:                         Country Codes.
+* create new PO file:                    msginit Invocation.
+* creating a new PO file:                Creating.
+* creating compendia:                    Creating Compendia.
+* currency symbols:                      Aspects.
+* date format:                           Aspects.
+* dcngettext:                            Plural forms.
+* debugging messages marked as format strings: xgettext Invocation.
+* dialect:                               Manipulating.
+* disabling NLS:                         lib/gettext.h.
+* dngettext:                             Plural forms.
+* domain ambiguities:                    Ambiguities.
+* duplicate elimination:                 Manipulating.
+* duplicate removal:                     msguniq Invocation.
+* editing comments in PO files:          Modifying Comments.
+* editing translations:                  Modifying Translations.
+* elisp-format flag:                     PO Files.
+* Emacs Lisp:                            Emacs Lisp.
+* encoding:                              Aspects.
+* encoding conversion:                   Manipulating.
+* encoding conversion at runtime:        Charset conversion.
+* encoding for your language:            Header Entry.
+* encoding list:                         Header Entry.
+* encoding of PO files:                  Header Entry.
+* evolution of packages:                 Overview.
+* extracting parts of a PO file into a compendium: Creating Compendia.
+* file format, .mo:                      MO Files.
+* file format, .po:                      PO Files.
+* files, .po and .mo:                    Files.
+* files, .pot:                           Overview.
+* filter messages according to attributes: msgattrib Invocation.
+* find common messages:                  msgcomm Invocation.
+* force use of fuzzy entries:            msgfmt Invocation.
+* format strings:                        c-format Flag.
+* Free Pascal:                           Pascal.
+* fuzzy entries:                         Fuzzy Entries.
+* fuzzy flag:                            PO Files.
+* gawk:                                  gawk.
+* generate binary message catalog from PO file: msgfmt Invocation.
+* generate translation catalog in English: msgen Invocation.
+* gettext files:                         Adjusting Files.
+* gettext installation:                  Installation.
+* gettext interface:                     Interface to gettext.
+* gettext vs catgets:                    Comparison.
+* gettext, a programmer's view:          gettext.
+* gettext.h file:                        lib/gettext.h.
+* gettextize program, usage:             gettextize Invocation.
+* GUI programs:                          GUI program problems.
+* hash table, inside MO files:           MO Files.
+* he, she, and they:                     Introduction.
+* header entry of a PO file:             Header Entry.
+* help option:                           Preparing Strings.
+* history of GNU gettext:                History.
+* i18n:                                  Concepts.
+* importing PO files:                    Normalizing.
+* include file libintl.h <1>:            lib/gettext.h.
+* include file libintl.h <2>:            Comparison.
+* include file libintl.h <3>:            Sources.
+* include file libintl.h:                Overview.
+* initialization:                        Triggering.
+* initialize new PO file:                msginit Invocation.
+* initialize translations from a compendium: Using Compendia.
+* installing gettext:                    Installation.
+* interface to catgets:                  Interface to catgets.
+* internationalization:                  Concepts.
+* inttypes.h:                            Preparing Strings.
+* ISO 3166:                              Country Codes.
+* ISO 639:                               Language Codes.
+* Java:                                  Java.
+* Java mode, and msgfmt program:         msgfmt Invocation.
+* Java mode, and msgunfmt program:       msgunfmt Invocation.
+* Java, string concatenation:            Preparing Strings.
+* java-format flag:                      PO Files.
+* keyboard accelerator checking:         msgfmt Invocation.
+* l10n:                                  Concepts.
+* language codes:                        Language Codes.
+* language selection:                    End Users.
+* language selection at runtime:         gettext grok.
+* large package:                         Ambiguities.
+* libiconv library:                      AM_ICONV.
+* libintl for Java:                      Java.
+* libintl library:                       AM_GNU_GETTEXT.
+* librep Lisp:                           librep.
+* librep-format flag:                    PO Files.
+* LINGUAS file:                          po/LINGUAS.
+* link with libintl:                     Overview.
+* Linux <1>:                             Header Entry.
+* Linux <2>:                             Overview.
+* Linux:                                 Aspects.
+* Lisp:                                  Common Lisp.
+* lisp-format flag:                      PO Files.
+* list of translation teams, where to find: Header Entry.
+* locale facet, LC_ALL:                  Triggering.
+* locale facet, LC_COLLATE:              Triggering.
+* locale facet, LC_CTYPE <1>:            Triggering.
+* locale facet, LC_CTYPE:                Aspects.
+* locale facet, LC_MESSAGES <1>:         Triggering.
+* locale facet, LC_MESSAGES:             Aspects.
+* locale facet, LC_MONETARY <1>:         Triggering.
+* locale facet, LC_MONETARY:             Aspects.
+* locale facet, LC_NUMERIC <1>:          Triggering.
+* locale facet, LC_NUMERIC:              Aspects.
+* locale facet, LC_RESPONSES:            Triggering.
+* locale facet, LC_TIME <1>:             Triggering.
+* locale facet, LC_TIME:                 Aspects.
+* locale facets:                         Aspects.
+* locale program:                        Header Entry.
+* localization:                          Concepts.
+* magic signature of MO files:           MO Files.
+* Makevars file:                         po/Makevars.
+* manipulating PO files:                 Manipulating.
+* marking Perl sources:                  Perl.
+* marking string initializers:           Special cases.
+* marking strings that require translation: Mark Keywords.
+* marking strings, preparations:         Preparing Strings.
+* marking translatable strings:          Overview.
+* menu entries:                          GUI program problems.
+* menu, keyboard accelerator support:    msgfmt Invocation.
+* merge PO files:                        msgcat Invocation.
+* merging two PO files:                  Manipulating.
+* message catalog files location:        Locating Catalogs.
+* messages:                              Aspects.
+* migration from earlier versions of gettext: Prerequisites.
+* mkinstalldirs file:                    mkinstalldirs.
+* mnemonics of menu entries:             msgfmt Invocation.
+* MO file's format:                      MO Files.
+* modify message attrributes:            msgattrib Invocation.
+* msgattrib program, usage:              msgattrib Invocation.
+* msgcat program, usage:                 msgcat Invocation.
+* msgcmp program, usage:                 msgcmp Invocation.
+* msgcomm program, usage:                msgcomm Invocation.
+* msgconv program, usage:                msgconv Invocation.
+* msgen program, usage:                  msgen Invocation.
+* msgexec program, usage:                msgexec Invocation.
+* msgfilter filter and catalog encoding: msgfilter Invocation.
+* msgfilter program, usage:              msgfilter Invocation.
+* msgfmt program, usage:                 msgfmt Invocation.
+* msggrep program, usage:                msggrep Invocation.
+* msgid:                                 PO Files.
+* msgid_plural:                          PO Files.
+* msginit program, usage:                msginit Invocation.
+* msgmerge program, usage:               msgmerge Invocation.
+* msgstr:                                PO Files.
+* msgunfmt program, usage:               msgunfmt Invocation.
+* msguniq program, usage:                msguniq Invocation.
+* multi-line strings:                    Normalizing.
+* N_, a convenience macro:               Comparison.
+* Native Language Support:               Concepts.
+* Natural Language Support:              Concepts.
+* newlines in PO files:                  PO Files.
+* ngettext:                              Plural forms.
+* NLS:                                   Concepts.
+* no-awk-format flag:                    PO Files.
+* no-c-format flag:                      PO Files.
+* no-c-format, and xgettext:             c-format Flag.
+* no-elisp-format flag:                  PO Files.
+* no-java-format flag:                   PO Files.
+* no-librep-format flag:                 PO Files.
+* no-lisp-format flag:                   PO Files.
+* no-object-pascal-format flag:          PO Files.
+* no-php-format flag:                    PO Files.
+* no-python-format flag:                 PO Files.
+* no-smalltalk-format flag:              PO Files.
+* no-tcl-format flag:                    PO Files.
+* no-ycp-format flag:                    PO Files.
+* nplurals, in a PO file header:         Plural forms.
+* number format:                         Aspects.
+* Object Pascal:                         Pascal.
+* object-pascal-format flag:             PO Files.
+* obsolete entries:                      Obsolete Entries.
+* optimization of gettext functions:     Optimized gettext.
+* orthography:                           Manipulating.
+* output to stdout, xgettext:            xgettext Invocation.
+* overview of gettext:                   Overview.
+* package and version declaration in configure.in: configure.in.
+* package build and installation options: Installers.
+* package maintainer's view of gettext:  Maintainers.
+* paragraphs:                            Preparing Strings.
+* Pascal:                                Pascal.
+* Perl:                                  Perl.
+* Perl default keywords:                 Default Keywords.
+* Perl invalid string interpolation:     Interpolation I.
+* Perl long lines:                       Long Lines.
+* Perl parentheses:                      Parentheses.
+* Perl pitfalls:                         Perl Pitfalls.
+* Perl quote-like expressions:           Quote-like Expressions.
+* Perl special keywords for hash-lookups: Special Keywords.
+* Perl valid string interpolation:       Interpolation II.
+* PHP:                                   PHP.
+* php-format flag:                       PO Files.
+* Pike:                                  Pike.
+* plural form formulas:                  Plural forms.
+* plural forms:                          Plural forms.
+* plural forms, in MO files:             MO Files.
+* plural forms, in PO files:             PO Files.
+* plural, in a PO file header:           Plural forms.
+* PO files' format:                      PO Files.
+* PO mode (Emacs) commands:              Main PO Commands.
+* PO template file:                      Template.
+* po_file_domains:                       libgettextpo.
+* po_file_free:                          libgettextpo.
+* po_file_read:                          libgettextpo.
+* po_message_iterator:                   libgettextpo.
+* po_message_iterator_free:              libgettextpo.
+* po_message_msgid:                      libgettextpo.
+* po_message_msgid_plural:               libgettextpo.
+* po_message_msgstr:                     libgettextpo.
+* po_message_msgstr_plural:              libgettextpo.
+* po_next_message:                       libgettextpo.
+* portability problems with sed:         msgfilter Invocation.
+* POTFILES.in file:                      po/POTFILES.in.
+* preparing programs for translation:    Sources.
+* problems with catgets interface:       Problems with catgets.
+* programming languages:                 Language Implementors.
+* Python:                                Python.
+* python-format flag:                    PO Files.
+* quotation marks <1>:                   po/Makevars.
+* quotation marks:                       Header Entry.
+* quote characters, use in PO files:     Header Entry.
+* related reading:                       References.
+* RST:                                   RST.
+* scripting languages:                   Language Implementors.
+* search messages in a catalog:          msggrep Invocation.
+* selecting message language:            End Users.
+* sentences:                             Preparing Strings.
+* setting up gettext at build time:      Installers.
+* setting up gettext at run time:        End Users.
+* several domains:                       Ambiguities.
+* sex:                                   Introduction.
+* sgettext:                              GUI program problems.
+* she, he, and they:                     Introduction.
+* shell scripts:                         sh.
+* Smalltalk:                             Smalltalk.
+* smalltalk-format flag:                 PO Files.
+* sorting msgcat output:                 msgcat Invocation.
+* sorting msgmerge output:               msgmerge Invocation.
+* sorting msgunfmt output:               msgunfmt Invocation.
+* sorting output of xgettext:            xgettext Invocation.
+* specifying plural form in a PO file:   Plural forms.
+* standard output, and msgcat:           msgcat Invocation.
+* standard output, and msgmerge program: msgmerge Invocation.
+* string concatenation:                  Preparing Strings.
+* string normalization in entries:       Normalizing.
+* style:                                 Preparing Strings.
+* supported languages, xgettext:         xgettext Invocation.
+* Tcl:                                   Tcl.
+* Tcl mode, and msgfmt program:          msgfmt Invocation.
+* Tcl mode, and msgunfmt program:        msgunfmt Invocation.
+* tcl-format flag:                       PO Files.
+* template PO file:                      Overview.
+* testing .po files for equivalence:     xgettext Invocation.
+* Tk's scripting language:               Tcl.
+* translated entries:                    Translated Entries.
+* translating menu entries:              GUI program problems.
+* translation aspects:                   Aspects.
+* Translation Matrix:                    Matrix.
+* Translation Project:                   Why.
+* turning off NLS support:               lib/gettext.h.
+* tutorial of gettext usage:             Overview.
+* unify duplicate translations:          msguniq Invocation.
+* untranslated entries:                  Untranslated Entries.
+* update translations from a compendium: Using Compendia.
+* upgrading to new versions of gettext:  Prerequisites.
+* version control for backup files, msgmerge: msgmerge Invocation.
+* wxWindows library:                     wxWindows.
+* xargs, and output from msgexec:        msgexec Invocation.
+* xgettext program, usage:               xgettext Invocation.
+* xmodmap program, and typing quotation marks: Header Entry.
+* YaST2 scripting language:              YCP.
+* YCP:                                   YCP.
+* ycp-format flag:                       PO Files.
+
+

@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft/xftfreetype.c,v 1.29 2002/10/11 17:53:02 keithp Exp $
+ * $XFree86: xc/lib/Xft/xftfreetype.c,v 1.30 2003/03/26 20:43:51 tsi Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -51,7 +51,7 @@ _XftGetFile (const FcChar8 *file, int id)
 
     for (f = _XftFtFiles; f; f = f->next)
     {
-	if (!strcmp (f->file, (void *) file) && f->id == id)
+	if (!strcmp (f->file, (char *) file) && f->id == id)
 	{
 	    ++f->ref;
 	    if (XftDebug () & XFT_DBG_REF)
@@ -74,7 +74,7 @@ _XftGetFile (const FcChar8 *file, int id)
     f->ref = 1;
     
     f->file = (char *) (f+1);
-    strcpy (f->file, (void *) file);
+    strcpy (f->file, (char *) file);
     f->id = id;
     
     f->lock = 0;

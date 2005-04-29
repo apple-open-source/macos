@@ -1,28 +1,17 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 1997-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/sq_AL.xml
 // *
 // ***************************************************************************
-
-sq_AL {
-    Version{ "2.0" }
-//    LocaleString { "sq_AL" }
-    NumberPatterns { 
+sq_AL{
+    NumberPatterns{
         "#,##0.###;-#,##0.###",
-        "\u00A4#,##0.00;-\u00A4#,##0.00",
+        "¤#,##0.00;-¤#,##0.00",
         "#,##0%",
         "#E0",
     }
-    zoneStrings { 
-        {
-            "Europe/Tirane",
-            "CET", // TODO: Replace with long Albanian name
-            "CET",
-            "CEST", // TODO: Replace with long Albanian name
-            "CEST",
-        }
-    }
-//    ShortCountry { "ALB" }
-    LocaleID:int { 0x041c }
+    Version{"1.2"}
 }

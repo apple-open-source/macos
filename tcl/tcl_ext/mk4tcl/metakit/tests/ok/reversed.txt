@@ -1,0 +1,14 @@
+ VIEW     1 rows = address:V info:V
+    0: subview 'address'
+   VIEW     8 rows = name:S country:S age:I
+      0: 'John Williams' 'UK' 0
+      1: 'Paco Pena' 'Spain' 44
+      2: 'Julian Bream' '' 50
+      3: 'Julian Bream' '' 0
+      4: 'Julien Coco' 'Netherlands' 0
+      5: 'John Williams' 'UK' 0
+      6: 'Paco Pena' 'Spain' 0
+      7: 'Julien Coco' 'Netherlands' 0
+    0: subview 'info'
+   VIEW     1 rows = version:I
+      0: 100

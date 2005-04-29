@@ -1,4 +1,4 @@
-/*	$OpenBSD: bufaux.h,v 1.18 2002/04/20 09:14:58 markus Exp $	*/
+/*	$OpenBSD: bufaux.h,v 1.19 2003/11/10 16:23:41 jakob Exp $	*/
 
 /*
  * Author: Tatu Ylonen <ylo@cs.hut.fi>
@@ -18,8 +18,8 @@
 #include "buffer.h"
 #include <openssl/bn.h>
 
-void    buffer_put_bignum(Buffer *, BIGNUM *);
-void    buffer_put_bignum2(Buffer *, BIGNUM *);
+void    buffer_put_bignum(Buffer *, const BIGNUM *);
+void    buffer_put_bignum2(Buffer *, const BIGNUM *);
 void	buffer_get_bignum(Buffer *, BIGNUM *);
 void	buffer_get_bignum2(Buffer *, BIGNUM *);
 
@@ -29,10 +29,8 @@ void	buffer_put_short(Buffer *, u_short);
 u_int	buffer_get_int(Buffer *);
 void    buffer_put_int(Buffer *, u_int);
 
-#ifdef HAVE_U_INT64_T
 u_int64_t buffer_get_int64(Buffer *);
 void	buffer_put_int64(Buffer *, u_int64_t);
-#endif
 
 int     buffer_get_char(Buffer *);
 void    buffer_put_char(Buffer *, int);

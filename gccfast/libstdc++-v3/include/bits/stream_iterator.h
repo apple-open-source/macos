@@ -37,6 +37,10 @@
 
 #pragma GCC system_header
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+#include <debug/debug.h>
+/* APPLE LOCAL end libstdc++ debug mode */
+
 namespace std
 {
   template<typename _Tp, typename _CharT = char, 
@@ -65,18 +69,39 @@ namespace std
       { }
 
       const _Tp&
-      operator*() const { return _M_value; }
+      operator*() const 
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(_M_ok,
+				_M_message(__debug::__dbg_msg_deref_istream)
+				._M_iterator(*this)); 
+	/* APPLE LOCAL end libstdc++ debug mode */
+	return _M_value; 
+      }
 
       const _Tp*
       operator->() const { return &(operator*()); }
 
       istream_iterator& 
       operator++() 
-      { _M_read(); return *this; }
+      { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(_M_ok,
+				_M_message(__debug::__dbg_msg_inc_istream)
+				._M_iterator(*this)); 
+	/* APPLE LOCAL end libstdc++ debug mode */
+	_M_read(); 
+	return *this; 
+      }
 
       istream_iterator 
       operator++(int)  
       {
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(_M_ok,
+				_M_message(__debug::__dbg_msg_inc_istream)
+				._M_iterator(*this)); 
+	/* APPLE LOCAL end libstdc++ debug mode */
 	istream_iterator __tmp = *this;
 	_M_read();
 	return __tmp;
@@ -138,6 +163,11 @@ namespace std
       ostream_iterator& 
       operator=(const _Tp& __value) 
       { 
+	/* APPLE LOCAL begin libstdc++ debug mode */
+	__glibcxx_requires_cond(_M_stream != 0,
+				_M_message(__debug::__dbg_msg_output_ostream)
+				._M_iterator(*this));
+	/* APPLE LOCAL end libstdc++ debug mode */
 	*_M_stream << __value;
 	if (_M_string) *_M_stream << _M_string;
 	return *this;

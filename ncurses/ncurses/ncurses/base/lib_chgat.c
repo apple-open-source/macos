@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_chgat.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_chgat.c,v 1.5 2001/06/03 00:05:02 skimo Exp $")
 
 NCURSES_EXPORT(int)
 wchgat

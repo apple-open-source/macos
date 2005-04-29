@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtPopup.man,v 1.2 2001/01/27 18:20:29 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtPopup.man,v 1.3 2003/04/28 22:18:20 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,43 +131,21 @@
 .SH NAME
 XtPopup, XtPopupSpringLoaded, XtCallbackNone, XtCallbackNonexclusive, XtCallbackExclusive \- map a pop-up
 .SH SYNTAX
-void XtPopup(\fIpopup_shell\fP, \fIgrab_kind\fP)
-.br
-      Widget \fIpopup_shell\fP;
-.br
-      XtGrabKind \fIgrab_kind\fP;
-.LP
-void XtPopupSpringLoaded(\fIpopup_shell\fP)
-.br
-      Widget \fIpopup_shell\fP;
-.LP
-void XtCallbackNone(\fIw\fP, \fIclient_data\fP, \fIcall_data\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      XtPointer \fIcall_data\fP;
-.LP
-void XtCallbackNonexclusive(\fIw\fP, \fIclient_data\fP, \fIcall_data\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      XtPointer \fIcall_data\fP;
-.LP
-void XtCallbackExclusive(\fIw\fP, \fIclient_data\fP, \fIcall_data\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtPointer \fIclient_data\fP;
-.br
-      XtPointer \fIcall_data\fP;
-.LP
-void MenuPopup(\fIshell_name\fP)
-.br
-      String \fIshell_name\fP;
+.HP
+void XtPopup(Widget \fIpopup_shell\fP, XtGrabKind \fIgrab_kind\fP); 
+.HP
+void XtPopupSpringLoaded(Widget \fIpopup_shell\fP); 
+.HP
+void XtCallbackNone(Widget \fIw\fP, XtPointer \fIclient_data\fP, XtPointer
+\fIcall_data\fP): 
+.HP
+void XtCallbackNonexclusive(Widget \fIw\fP, XtPointer \fIclient_data\fP,
+XtPointer \fIcall_data\fP); 
+.HP
+void XtCallbackExclusive(Widget \fIw\fP, XtPointer \fIclient_data\fP,
+XtPointer \fIcall_data\fP); 
+.HP
+void MenuPopup(String \fIshell_name\fP); 
 .SH ARGUMENTS
 .IP \fIcall_data\fP 1i
 Specifies the callback data,

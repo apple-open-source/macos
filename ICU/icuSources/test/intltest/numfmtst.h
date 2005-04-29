@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
  
@@ -75,6 +75,12 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     void TestScientific(void);
 
+    void TestScientific2(void);
+
+    void TestScientificGrouping(void);
+
+    void TestInt64(void);
+
     void TestSurrogateSupport(void);
 
     /**
@@ -94,9 +100,17 @@ class NumberFormatTest: public CalendarTimeZoneTest {
      */
     void TestRegCurrency(void);
 
+    void TestCurrencyNames(void);
+
     void TestSymbolsWithBadLocale(void);
 
     void TestAdoptDecimalFormatSymbols(void);
+
+    void TestPerMill(void);
+
+    void TestIllegalPatterns(void);
+
+    void TestCases(void);
 
  private:
 

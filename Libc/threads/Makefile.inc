@@ -4,4 +4,4 @@
 .include "${.CURDIR}/${MACHINE_ARCH}/threads/Makefile.inc"
 .endif
 
-SRCS += cprocs.c       cthreads.c     lu_utils.c     mig_support.c
+MISRCS += cprocs.c       cthreads.c     lu_utils.c     mig_support.c

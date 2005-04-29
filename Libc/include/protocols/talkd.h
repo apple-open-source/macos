@@ -80,31 +80,31 @@
  * Client->server request message format.
  */
 typedef struct {
-	u_char	vers;		/* protocol version */
-	u_char	type;		/* request type, see below */
-	u_char	answer;		/* not used */
-	u_char	pad;
-	u_long	id_num;		/* message id */
-	struct	osockaddr addr;		/* old (4.3) style */
-	struct	osockaddr ctl_addr;	/* old (4.3) style */
-	long	pid;		/* caller's process id */
+	unsigned char	vers;		/* protocol version */
+	unsigned char	type;		/* request type, see below */
+	unsigned char	answer;		/* not used */
+	unsigned char	pad;
+	unsigned long	id_num;		/* message id */
+	struct		osockaddr addr;		/* old (4.3) style */
+	struct		osockaddr ctl_addr;	/* old (4.3) style */
+	long		pid;		/* caller's process id */
 #define	NAME_SIZE	12
-	char	l_name[NAME_SIZE];/* caller's name */
-	char	r_name[NAME_SIZE];/* callee's name */
+	char		l_name[NAME_SIZE];/* caller's name */
+	char		r_name[NAME_SIZE];/* callee's name */
 #define	TTY_SIZE	16
-	char	r_tty[TTY_SIZE];/* callee's tty name */
+	char		r_tty[TTY_SIZE];/* callee's tty name */
 } CTL_MSG;
 
 /*
  * Server->client response message format.
  */
 typedef struct {
-	u_char	vers;		/* protocol version */
-	u_char	type;		/* type of request message, see below */
-	u_char	answer;		/* respose to request message, see below */
-	u_char	pad;
-	u_long	id_num;		/* message id */
-	struct	osockaddr addr;	/* address for establishing conversation */
+	unsigned char	vers;		/* protocol version */
+	unsigned char	type;		/* type of request message, see below */
+	unsigned char	answer;		/* respose to request message, see below */
+	unsigned char	pad;
+	unsigned long	id_num;		/* message id */
+	struct	osockaddr addr;		/* address for establishing conversation */
 } CTL_RESPONSE;
 
 #define	TALK_VERSION	1		/* protocol version */

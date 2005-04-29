@@ -1,0 +1,35 @@
+##
+# Makefile for tcldom
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+# Project info
+Project               = tcldom
+ProjectName           = TclDOM
+
+Extra_Configure_Flags = $(TEA_Configure_Flags)
+Extra_CC_Flags        = -fno-common
+Extra_LD_Flags        = -L$(TclFramework)
+Extra_Environment     = CC=gcc $(TEA_Environment)
+Extra_Install_Flags   = GENERIC_HDRS=
+
+GnuAfterInstall       = strip install-doc fix-config fix-owner -f Makefile.$(Project)
+
+# include TEA Tcl extension build support
+include ../TEA.make
+
+TclExtDir             = Tcldom
+
+install-doc:
+	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(TclExtHtmlDir)" "$(DSTROOT)/$(TclExtManDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).html "$(DSTROOT)/$(TclExtHtmlDir)"
+	$(_v) $(INSTALL_FILE) "$(Sources)"/docs/$(Project).n "$(DSTROOT)/$(TclExtManDir)"
+
+# the tcldomxml subproject is built by a separate Makefile
+build install clean almostclean::
+	$(_v) $(MAKE) -f Makefile.tcldomxml $@ \
+	    Extra_TEA_Configure_Flags="--with-Tcldom=$(OBJROOT)" \
+	    AM_CPPFLAGS=-I$(Sources) \
+	    TclExtHtmlDir="$(TclExtHtmlDir)" \
+	    OBJROOT="$(OBJROOT)/src-libxml2" DSTROOT="$(DSTROOT)"

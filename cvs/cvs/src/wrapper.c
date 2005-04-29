@@ -14,7 +14,6 @@
 /*
   Original Author:  athan@morgan.com <Andrew C. Athan> 2/1/94
   Modified By:      vdemarco@bou.shl.com
-                    bbum@friday.com
 
   This package was written to support the NEXTSTEP concept of
   "wrappers."  These are essentially directories that are to be
@@ -31,8 +30,6 @@
   wildcard	[option value][option value]...
 
   where option is one of
-  -f		from cvs filter		value: path to filter
-  -t		to cvs filter		value: path to filter
   -m		update methodology	value: MERGE or COPY
   -k		default -k rcs option to use on import or add
 
@@ -91,27 +88,23 @@ void wrap_setup()
     static int wrap_setup_already_done = 0;
     char *homedir;
 
-#ifdef WRAPPERS_USE_TAR_FOR_TRANSFER
-    char *wfile;
-#endif	/* WRAPPERS_USE_TAR_FOR_TRANSFER */
-
     if (wrap_setup_already_done != 0)
         return;
     else
         wrap_setup_already_done = 1;
 
 #ifdef CLIENT_SUPPORT
-    if (!client_active)
+    if (!current_parsed_root->isremote)
 #endif
     {
 	char *file;
 
-	file = xmalloc (strlen (CVSroot_directory)
+	file = xmalloc (strlen (current_parsed_root->directory)
 			+ sizeof (CVSROOTADM)
 			+ sizeof (CVSROOTADM_WRAPPER)
-			+ 10);
+			+ 3);
 	/* Then add entries found in repository, if it exists.  */
-	(void) sprintf (file, "%s/%s/%s", CVSroot_directory, CVSROOTADM,
+	(void) sprintf (file, "%s/%s/%s", current_parsed_root->directory, CVSROOTADM,
 			CVSROOTADM_WRAPPER);
 	if (isfile (file))
 	{
@@ -123,24 +116,20 @@ void wrap_setup()
     /* Then add entries found in home dir, (if user has one) and file
        exists.  */
     homedir = get_homedir ();
+    /* If we can't find a home directory, ignore ~/.cvswrappers.  This may
+       make tracking down problems a bit of a pain, but on the other
+       hand it might be obnoxious to complain when CVS will function
+       just fine without .cvswrappers (and many users won't even know what
+       .cvswrappers is).  */
     if (homedir != NULL)
     {
-	char *file;
-
-	file = xmalloc (strlen (homedir) + sizeof (CVSDOTWRAPPER) + 10);
-	(void) sprintf (file, "%s/%s", homedir, CVSDOTWRAPPER);
+	char *file = strcat_filename_onto_homedir (homedir, CVSDOTWRAPPER);
 	if (isfile (file))
 	{
 	    wrap_add_file (file, 0);
 	}
 	free (file);
     }
-
-#ifdef WRAPPERS_USE_TAR_FOR_TRANSFER
-    if (wfile = getenv("CVS_CLIENT_WRAPPER_FILE")) {
-	wrap_add_file(wfile, 0);
-    }
-#endif	/* WRAPPERS_USE_TAR_FOR_TRANSFER */
 
     /* FIXME: calling wrap_add() below implies that the CVSWRAPPERS
      * environment variable contains exactly one "wrapper" -- a line
@@ -173,35 +162,25 @@ wrap_send ()
 
     for (i = 0; i < wrap_count + wrap_tempcount; ++i)
     {
+	if (wrap_list[i]->tocvsFilter != NULL
+	    || wrap_list[i]->fromcvsFilter != NULL)
+	    /* For greater studliness we would print the offending option
+	       and (more importantly) where we found it.  */
+	    error (0, 0, "\
+-t and -f wrapper options are not supported remotely; ignored");
+	if (wrap_list[i]->mergeMethod == WRAP_COPY)
+	    /* For greater studliness we would print the offending option
+	       and (more importantly) where we found it.  */
+	    error (0, 0, "\
+-m wrapper option is not supported remotely; ignored");
 	send_to_server ("Argument -W\012Argument ", 0);
 	send_to_server (wrap_list[i]->wildCard, 0);
-
-	if (wrap_list[i]->tocvsFilter != NULL)
-	{
-	    send_to_server (" -t '", 0);
-	    send_to_server (wrap_list[i]->tocvsFilter, 0);
-	    send_to_server ("' ", 0);
-	}
-
-	if (wrap_list[i]->fromcvsFilter != NULL)
-	{
-	    send_to_server (" -f '", 0);
-	    send_to_server (wrap_list[i]->fromcvsFilter, 0);
-	    send_to_server ("' ", 0);
-	}
-
-	if (wrap_list[i]->mergeMethod == WRAP_COPY)
-	{
-	    send_to_server (" -m 'COPY' ", 0);
-	}
-
+	send_to_server (" -k '", 0);
 	if (wrap_list[i]->rcsOption != NULL)
-	{
-	    send_to_server (" -k '", 0);
 	    send_to_server (wrap_list[i]->rcsOption, 0);
-	    send_to_server ("' ", 0);
-	}
-	send_to_server ("\012", 0);
+	else
+	    send_to_server ("kv", 0);
+	send_to_server ("'\012", 0);
     }
 }
 #endif /* CLIENT_SUPPORT */
@@ -232,34 +211,54 @@ wrap_unparse_rcs_options (line, first_call_p)
     if (first_call_p)
         i = 0;
 
-    for (; i < wrap_count + wrap_tempcount; ++i)
-    {
-	if (wrap_list[i]->rcsOption != NULL)
-	{
-            *line = xmalloc (strlen (wrap_list[i]->wildCard)
-                             + strlen ("\t")
-                             + strlen (" -k '")
-                             + strlen (wrap_list[i]->rcsOption)
-                             + strlen ("'")
-                             + 1);  /* leave room for '\0' */
-            
-            strcpy (*line, wrap_list[i]->wildCard);
-            strcat (*line, " -k '");
-            strcat (*line, wrap_list[i]->rcsOption);
-            strcat (*line, "'");
-
-            /* We're going to miss the increment because we return, so
-               do it by hand. */
-            ++i;
-
-            return;
-	}
+    if (i >= wrap_count + wrap_tempcount) {
+        *line = NULL;
+        return;
     }
 
-    *line = NULL;
-    return;
+    *line = xmalloc (strlen (wrap_list[i]->wildCard)
+                     + strlen ("\t")
+                     + strlen (" -k '")
+                     + (wrap_list[i]->rcsOption != NULL ? 
+                           strlen (wrap_list[i]->rcsOption) : 2)
+                     + strlen ("'")
+                     + 1);  /* leave room for '\0' */
+
+    strcpy (*line, wrap_list[i]->wildCard);
+    strcat (*line, " -k '");
+    if (wrap_list[i]->rcsOption != NULL)
+        strcat (*line, wrap_list[i]->rcsOption);
+    else
+        strcat (*line, "kv");
+    strcat (*line, "'");
+
+    ++i;
 }
 #endif /* SERVER_SUPPORT || CLIENT_SUPPORT */
+
+/*
+ * Remove fmt str specifier other than %% or %s. And allow
+ * only max_s %s specifiers
+ */
+void
+wrap_clean_fmt_str(char *fmt, int max_s)
+{
+    while (*fmt) {
+	if (fmt[0] == '%' && fmt[1])
+	{
+	    if (fmt[1] == '%') 
+		fmt++;
+	    else
+		if (fmt[1] == 's' && max_s > 0)
+		{
+		    max_s--;
+		    fmt++;
+		} else 
+		    *fmt = ' ';
+	}
+	fmt++;
+    }
+}
 
 /*
  * Open a file and read lines, feeding each line to a line parser. Arrange
@@ -369,9 +368,11 @@ wrap_add (line, isTemp)
     memset (&e, 0, sizeof(e));
 
 	/* Search for the wild card */
-    while(*line && isspace(*line))
+    while (*line && isspace ((unsigned char) *line))
 	++line;
-    for(temp=line;*line && !isspace(*line);++line)
+    for (temp = line;
+	 *line && !isspace ((unsigned char) *line);
+	 ++line)
 	;
     if(temp==line)
 	return;
@@ -416,6 +417,11 @@ wrap_add (line, isTemp)
 	*line='\0';
 	switch(opt){
 	case 'f':
+	    /* Before this is reenabled, need to address the problem in
+	       commit.c (see http://www.cvshome.org/docs/infowrapper.html).  */
+	    error (1, 0,
+		   "-t/-f wrappers not supported by this version of CVS\nA legacy version of cvs with -t/-f wrapper support is available as: /usr/bin/ocvs.");
+
 	    if(e.fromcvsFilter)
 		free(e.fromcvsFilter);
 	    /* FIXME: error message should say where the bad value
@@ -425,6 +431,11 @@ wrap_add (line, isTemp)
 		error (1, 0, "Correct above errors first");
 	    break;
 	case 't':
+	    /* Before this is reenabled, need to address the problem in
+	       commit.c (see http://www.cvshome.org/docs/infowrapper.html).  */
+	    error (1, 0,
+		   "-t/-f wrappers not supported by this version of CVS\nA legacy version of cvs with -t/-f wrapper support is available as: /usr/bin/ocvs.");
+
 	    if(e.tocvsFilter)
 		free(e.tocvsFilter);
 	    /* FIXME: error message should say where the bad value
@@ -434,8 +445,6 @@ wrap_add (line, isTemp)
 		error (1, 0, "Correct above errors first");
 	    break;
 	case 'm':
-	    /* FIXME: look into whether this option is still relevant given
-	       the 24 Jun 96 change to merge_file.  */
 	    if(*temp=='C' || *temp=='c')
 		e.mergeMethod=WRAP_COPY;
 	    else
@@ -444,7 +453,7 @@ wrap_add (line, isTemp)
 	case 'k':
 	    if (e.rcsOption)
 		free (e.rcsOption);
-	    e.rcsOption = xstrdup (temp);
+	    e.rcsOption = strcmp (temp, "kv") ? xstrdup (temp) : NULL;
 	    break;
 	default:
 	    break;
@@ -477,11 +486,7 @@ wrap_add_entry(e, temp)
 
     x=(temp ? wrap_count+(wrap_tempcount++):(wrap_count++));
     wrap_list[x]=(WrapperEntry *)xmalloc(sizeof(WrapperEntry));
-    wrap_list[x]->wildCard=e->wildCard;
-    wrap_list[x]->fromcvsFilter=e->fromcvsFilter;
-    wrap_list[x]->tocvsFilter=e->tocvsFilter;
-    wrap_list[x]->mergeMethod=e->mergeMethod;
-    wrap_list[x]->rcsOption = e->rcsOption;
+    *wrap_list[x]=*e;
 }
 
 /* Return 1 if the given filename is a wrapper filename */
@@ -575,9 +580,8 @@ wrap_tocvs_process_file(fileName)
     args = xmalloc (strlen (e->tocvsFilter)
 		    + strlen (fileName)
 		    + strlen (buf));
-    /* FIXME: sprintf will blow up if the format string contains items other
-       than %s, or contains too many %s's.  We should instead be parsing
-       e->tocvsFilter ourselves and giving a real error.  */
+
+    wrap_clean_fmt_str(e->tocvsFilter, 2);
     sprintf (args, e->tocvsFilter, fileName, buf);
     run_setup (args);
     run_exec(RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL|RUN_REALLY );
@@ -609,9 +613,8 @@ wrap_fromcvs_process_file(fileName)
 
     args = xmalloc (strlen (e->fromcvsFilter)
 		    + strlen (fileName));
-    /* FIXME: sprintf will blow up if the format string contains items other
-       than %s, or contains too many %s's.  We should instead be parsing
-       e->fromcvsFilter ourselves and giving a real error.  */
+
+    wrap_clean_fmt_str(e->fromcvsFilter, 1);
     sprintf (args, e->fromcvsFilter, fileName);
     run_setup (args);
     run_exec(RUN_TTY, RUN_TTY, RUN_TTY, RUN_NORMAL );

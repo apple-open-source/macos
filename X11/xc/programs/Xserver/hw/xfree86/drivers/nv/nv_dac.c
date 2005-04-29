@@ -1,30 +1,43 @@
-/* $XConsortium: nv_driver.c /main/3 1996/10/28 05:13:37 kaleb $ */
-/*
- * Copyright 1996-1997  David J. McKay
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
- * DAVID J. MCKAY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
- * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+ /***************************************************************************\
+|*                                                                           *|
+|*       Copyright 2003 NVIDIA, Corporation.  All rights reserved.           *|
+|*                                                                           *|
+|*     NOTICE TO USER:   The source code  is copyrighted under  U.S. and     *|
+|*     international laws.  Users and possessors of this source code are     *|
+|*     hereby granted a nonexclusive,  royalty-free copyright license to     *|
+|*     use this code in individual and commercial software.                  *|
+|*                                                                           *|
+|*     Any use of this source code must include,  in the user documenta-     *|
+|*     tion and  internal comments to the code,  notices to the end user     *|
+|*     as follows:                                                           *|
+|*                                                                           *|
+|*       Copyright 2003 NVIDIA, Corporation.  All rights reserved.           *|
+|*                                                                           *|
+|*     NVIDIA, CORPORATION MAKES NO REPRESENTATION ABOUT THE SUITABILITY     *|
+|*     OF  THIS SOURCE  CODE  FOR ANY PURPOSE.  IT IS  PROVIDED  "AS IS"     *|
+|*     WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.  NVIDIA, CORPOR-     *|
+|*     ATION DISCLAIMS ALL WARRANTIES  WITH REGARD  TO THIS SOURCE CODE,     *|
+|*     INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY, NONINFRINGE-     *|
+|*     MENT,  AND FITNESS  FOR A PARTICULAR PURPOSE.   IN NO EVENT SHALL     *|
+|*     NVIDIA, CORPORATION  BE LIABLE FOR ANY SPECIAL,  INDIRECT,  INCI-     *|
+|*     DENTAL, OR CONSEQUENTIAL DAMAGES,  OR ANY DAMAGES  WHATSOEVER RE-     *|
+|*     SULTING FROM LOSS OF USE,  DATA OR PROFITS,  WHETHER IN AN ACTION     *|
+|*     OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,  ARISING OUT OF     *|
+|*     OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOURCE CODE.     *|
+|*                                                                           *|
+|*     U.S. Government  End  Users.   This source code  is a "commercial     *|
+|*     item,"  as that  term is  defined at  48 C.F.R. 2.101 (OCT 1995),     *|
+|*     consisting  of "commercial  computer  software"  and  "commercial     *|
+|*     computer  software  documentation,"  as such  terms  are  used in     *|
+|*     48 C.F.R. 12.212 (SEPT 1995)  and is provided to the U.S. Govern-     *|
+|*     ment only as  a commercial end item.   Consistent with  48 C.F.R.     *|
+|*     12.212 and  48 C.F.R. 227.7202-1 through  227.7202-4 (JUNE 1995),     *|
+|*     all U.S. Government End Users  acquire the source code  with only     *|
+|*     those rights set forth herein.                                        *|
+|*                                                                           *|
+ \***************************************************************************/
 
-/* Hacked together from mga driver and 3.3.4 NVIDIA driver by Jarno Paananen
-   <jpaana@s2.org> */
-
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_dac.c,v 1.31 2003/01/02 20:44:56 mvojkovi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/nv_dac.c,v 1.38 2004/01/06 22:47:06 mvojkovi Exp $ */
 
 #include "nv_include.h"
 
@@ -51,8 +64,6 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
     NVFBLayout *pLayout = &pNv->CurrentLayout;
     vgaRegPtr   pVga;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVDACInit\n"));
-    
     /*
      * This will initialize all of the generic VGA registers.
      */
@@ -72,7 +83,7 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
        vertStart = vertTotal - 3;  
        vertEnd = vertTotal - 2;
        vertBlankStart = vertStart;
-       horizStart = horizTotal - 3;
+       horizStart = horizTotal - 5;
        horizEnd = horizTotal - 2;   
        horizBlankEnd = horizTotal + 4;    
     }
@@ -105,6 +116,9 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
     pVga->CRTC[0x16] = Set8Bits(vertBlankEnd);
 
     pVga->Attribute[0x10] = 0x01;
+
+    if(pNv->Television)
+       pVga->Attribute[0x11] = 0x00;
 
     nvReg->screen = SetBitField(horizBlankEnd,6:6,4:4)
                   | SetBitField(vertBlankStart,10:10,3:3)
@@ -152,37 +166,49 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	i = pLayout->depth;
     else i = 32;
 
-    if(pNv->riva.Architecture >= NV_ARCH_10)
-	pNv->riva.CURSOR = (U032 *)(pNv->FbStart + pNv->riva.CursorStart);
+    if(pNv->Architecture >= NV_ARCH_10)
+	pNv->CURSOR = (U032 *)(pNv->FbStart + pNv->CursorStart);
 
-    pNv->riva.LockUnlock(&pNv->riva, 0);
+    NVCalcStateExt(pNv, 
+                    nvReg,
+                    i,
+                    pLayout->displayWidth,
+                    mode->CrtcHDisplay,
+                    pScrn->virtualY,
+                    mode->Clock,
+                    mode->Flags);
 
-    pNv->riva.CalcStateExt(&pNv->riva, 
-                           nvReg,
-                           i,
-                           pLayout->displayWidth,
-                           mode->CrtcHDisplay,
-                           pScrn->virtualY,
-                           mode->Clock,
-			   mode->Flags);
-
-    nvReg->scale = pNv->riva.PRAMDAC[0x00000848/4] & 0xfff000ff;
+    nvReg->scale = pNv->PRAMDAC[0x00000848/4] & 0xfff000ff;
     if(pNv->FlatPanel == 1) {
        nvReg->pixel |= (1 << 7);
-       nvReg->scale |= (1 << 8) ;
+       if(!pNv->fpScaler || (pNv->fpWidth <= mode->HDisplay)
+                         || (pNv->fpHeight <= mode->VDisplay))
+       {
+           nvReg->scale |= (1 << 8) ;
+       }
     }
-    if(pNv->SecondCRTC) {
-       nvReg->head  = pNv->riva.PCRTC0[0x00000860/4] & ~0x00001000;
-       nvReg->head2 = pNv->riva.PCRTC0[0x00002860/4] | 0x00001000;
+
+    nvReg->vpll = nvReg->pll;
+    nvReg->vpll2 = nvReg->pll;
+    nvReg->vpllB = nvReg->pllB;
+    nvReg->vpll2B = nvReg->pllB;
+
+    if(pNv->CRTCnumber) {
+       nvReg->head  = pNv->PCRTC0[0x00000860/4] & ~0x00001000;
+       nvReg->head2 = pNv->PCRTC0[0x00002860/4] | 0x00001000;
        nvReg->crtcOwner = 3;
        nvReg->pllsel |= 0x20000800;
-       nvReg->vpll2 = nvReg->vpll;
+       nvReg->vpll = pNv->PRAMDAC0[0x0508/4];
+       if(pNv->twoStagePLL) 
+          nvReg->vpllB = pNv->PRAMDAC0[0x0578/4];
     } else 
-    if(pNv->riva.twoHeads) {
-       nvReg->head  =  pNv->riva.PCRTC0[0x00000860/4] | 0x00001000;
-       nvReg->head2 =  pNv->riva.PCRTC0[0x00002860/4] & ~0x00001000;
+    if(pNv->twoHeads) {
+       nvReg->head  =  pNv->PCRTC0[0x00000860/4] | 0x00001000;
+       nvReg->head2 =  pNv->PCRTC0[0x00002860/4] & ~0x00001000;
        nvReg->crtcOwner = 0;
-       nvReg->vpll2 = pNv->riva.PRAMDAC0[0x00000520/4];
+       nvReg->vpll2 = pNv->PRAMDAC0[0x0520/4];
+       if(pNv->twoStagePLL) 
+          nvReg->vpll2B = pNv->PRAMDAC0[0x057C/4];
     }
 
     nvReg->cursorConfig = 0x00000100;
@@ -193,16 +219,16 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
         nvReg->general |= (1 << 29);
 
         if((pNv->Chipset & 0x0ff0) == 0x0110) {
-            nvReg->dither = pNv->riva.PRAMDAC[0x0528/4] & ~0x00010000;
-            if(pNv->riva.flatPanel & FP_DITHER)
+            nvReg->dither = pNv->PRAMDAC[0x0528/4] & ~0x00010000;
+            if(pNv->FPDither)
                nvReg->dither |= 0x00010000;
             else
                nvReg->cursorConfig |= (1 << 28);
         } else 
-        if((pNv->riva.Chipset & 0x0ff0) >= 0x0170) {
-           nvReg->dither = pNv->riva.PRAMDAC[0x083C/4] & ~1;
+        if((pNv->Chipset & 0x0ff0) >= 0x0170) {
+           nvReg->dither = pNv->PRAMDAC[0x083C/4] & ~1;
            nvReg->cursorConfig |= (1 << 28);
-           if(pNv->riva.flatPanel & FP_DITHER)
+           if(pNv->FPDither)
               nvReg->dither |= 1;
         } else {
            nvReg->cursorConfig |= (1 << 28);
@@ -210,8 +236,8 @@ NVDACInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
     } else
        nvReg->cursorConfig |= 0x02000000;
 
-    nvReg->vpllB = 0;
-    nvReg->vpll2B = 0;
+    nvReg->timingH = 0;
+    nvReg->timingV = 0;
 
     return (TRUE);
 }
@@ -223,12 +249,10 @@ NVDACRestore(ScrnInfoPtr pScrn, vgaRegPtr vgaReg, NVRegPtr nvReg,
     NVPtr pNv = NVPTR(pScrn);
     int restore = VGA_SR_MODE;
 
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVDACRestore\n"));
-
     if(primary) restore |= VGA_SR_CMAP | VGA_SR_FONTS;
     else if((pNv->Chipset & 0xffff) == 0x0018) 
 	restore |= VGA_SR_CMAP;
-    pNv->riva.LoadStateExt(&pNv->riva, nvReg);
+    NVLoadStateExt(pNv, nvReg);
 #if defined(__powerpc__)
     restore &= ~VGA_SR_FONTS;
 #endif
@@ -245,16 +269,18 @@ NVDACSave(ScrnInfoPtr pScrn, vgaRegPtr vgaReg, NVRegPtr nvReg,
           Bool saveFonts)
 {
     NVPtr pNv = NVPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVDACSave\n"));
 
 #if defined(__powerpc__)
     saveFonts = FALSE;
 #endif
 
+    NVLockUnlock(pNv, 0);
+
     vgaHWSave(pScrn, vgaReg, VGA_SR_CMAP | VGA_SR_MODE | 
                              (saveFonts? VGA_SR_FONTS : 0));
-    pNv->riva.UnloadStateExt(&pNv->riva, nvReg);
+    NVUnloadStateExt(pNv, nvReg);
 
+    /* can't read this reliably on NV11 */
     if((pNv->Chipset & 0x0ff0) == 0x0110) 
        nvReg->crtcOwner = ((pNv->Chipset & 0x0fff) == 0x0112) ? 3 : 0;
 }
@@ -271,12 +297,6 @@ NVDACLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices, LOCO *colors,
     vgaRegPtr   pVga;
 
     pVga = &VGAHWPTR(pScrn)->ModeReg;
-
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVDACLoadPalette\n"));
-
-    if((pNv->riva.Architecture == NV_ARCH_03) && 
-       (pNv->CurrentLayout.depth != 8))
-           return;
 
     switch(pNv->CurrentLayout.depth) {
     case 15:
@@ -318,24 +338,6 @@ NVDACLoadPalette(ScrnInfoPtr pScrn, int numColors, int *indices, LOCO *colors,
 #define DDC_SDA_WRITE_MASK (1 << 4)
 #define DDC_SCL_WRITE_MASK (1 << 5)
 
-static unsigned int
-NV_ddc1Read(ScrnInfoPtr pScrn)
-{
-    NVPtr pNv = NVPTR(pScrn);
-    unsigned char val;
-
-    /* wait for Vsync */
-    while(VGA_RD08(pNv->riva.PCIO, 0x3da) & 0x08);
-    while(!(VGA_RD08(pNv->riva.PCIO, 0x3da) & 0x08));
-
-    /* Get the result */
-    VGA_WR08(pNv->riva.PCIO, 0x3d4, pNv->DDCBase);
-    val = VGA_RD08(pNv->riva.PCIO, 0x3d5);
-    DEBUG(ErrorF("NV_ddc1Read(%p,...) returns %d\n",
-                 pScrn, val));
-    return (val & DDC_SDA_READ_MASK) != 0;
-}
-
 static void
 NV_I2CGetBits(I2CBusPtr b, int *clock, int *data)
 {
@@ -343,13 +345,11 @@ NV_I2CGetBits(I2CBusPtr b, int *clock, int *data)
     unsigned char val;
 
     /* Get the result. */
-    VGA_WR08(pNv->riva.PCIO, 0x3d4, pNv->DDCBase);
-    val = VGA_RD08(pNv->riva.PCIO, 0x3d5);
+    VGA_WR08(pNv->PCIO, 0x3d4, pNv->DDCBase);
+    val = VGA_RD08(pNv->PCIO, 0x3d5);
 
     *clock = (val & DDC_SCL_READ_MASK) != 0;
     *data  = (val & DDC_SDA_READ_MASK) != 0;
-    DEBUG(ErrorF("NV_I2CGetBits(%p,...) val=0x%x, returns clock %d, data %d\n",
-                 b, val, *clock, *data));
 }
 
 static void
@@ -358,8 +358,8 @@ NV_I2CPutBits(I2CBusPtr b, int clock, int data)
     NVPtr pNv = NVPTR(xf86Screens[b->scrnIndex]);
     unsigned char val;
 
-    VGA_WR08(pNv->riva.PCIO, 0x3d4, pNv->DDCBase + 1);
-    val = VGA_RD08(pNv->riva.PCIO, 0x3d5) & 0xf0;
+    VGA_WR08(pNv->PCIO, 0x3d4, pNv->DDCBase + 1);
+    val = VGA_RD08(pNv->PCIO, 0x3d5) & 0xf0;
     if (clock)
         val |= DDC_SCL_WRITE_MASK;
     else
@@ -370,14 +370,12 @@ NV_I2CPutBits(I2CBusPtr b, int clock, int data)
     else
         val &= ~DDC_SDA_WRITE_MASK;
 
-    VGA_WR08(pNv->riva.PCIO, 0x3d4, pNv->DDCBase + 1);
-    VGA_WR08(pNv->riva.PCIO, 0x3d5, val | 0x1);
-    
-    DEBUG(ErrorF("NV_I2CPutBits(%p, %d, %d) val=0x%x\n", b, clock, data, val));
+    VGA_WR08(pNv->PCIO, 0x3d4, pNv->DDCBase + 1);
+    VGA_WR08(pNv->PCIO, 0x3d5, val | 0x1);
 }
 
-static Bool
-NV_i2cInit(ScrnInfoPtr pScrn)
+Bool
+NVDACi2cInit(ScrnInfoPtr pScrn)
 {
     NVPtr pNv = NVPTR(pScrn);
     I2CBusPtr I2CPtr;
@@ -397,19 +395,5 @@ NV_i2cInit(ScrnInfoPtr pScrn)
         return FALSE;
     }
     return TRUE;
-}
-
-/*
- * NVRamdacInit
- */
-void
-NVRamdacInit(ScrnInfoPtr pScrn)
-{
-    NVPtr pNv = NVPTR(pScrn);
-    DEBUG(xf86DrvMsg(pScrn->scrnIndex, X_INFO, "NVRamdacInit\n"));
-    pNv->ddc1Read = NV_ddc1Read;
-    /* vgaHWddc1SetSpeed will only work if the card is in VGA mode */
-    pNv->DDC1SetSpeed = vgaHWddc1SetSpeed;
-    pNv->i2cInit = NV_i2cInit;
 }
 

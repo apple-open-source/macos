@@ -1,0 +1,46 @@
+# if.tcl --
+#
+#  Test script for the compiler.
+#  The condition in the if statement is inline compiled to an expr, and
+#  therefore generates a catch exception range. Note that it must have no
+#  braces, or else the inline compilation does not generate an exception
+#  range. This exception range is implicit, emitted by the compiler so that
+#  the expression can be retried using the "expr" command if the inlined
+#  version fails. 
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: expr2.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+4 0 33 4 1 0 20 1 2 4 4 -1 -1
+33
+f!!!!bfCQ5:Zj<!Yrop#&<`W!^e'=!97A*'2Apiwz
+4
+>yYpv
+4
+KiJs!
+4
+i
+1
+x
+6
+7,V`FW+%
+x
+4
+Yt>c;
+x
+4
+>N%M9
+1
+C 1 5 3 -1 -1 11
+0
+}

@@ -14,7 +14,7 @@ PROJECT_TYPE = Component
 
 HFILES = DNSServiceDiscoveryDefines.h DNSServiceDiscovery.h dns_sd.h dnssd_ipc.h
 
-CFILES = DNSServiceDiscovery.c dnssd_clientstub.c dnssd_ipc.c
+CFILES = DNSServiceDiscovery.c dnssd_clientstub.c dnssd_ipc.c dnssd_clientlib.c
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
             DNSServiceDiscoveryReply.defs DNSServiceDiscoveryRequest.defs

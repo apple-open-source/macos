@@ -1,0 +1,838 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+
+<document>
+    <header>
+        <title>Upgrading</title>
+    </header>
+    <body>
+        <section>
+            <title>Upgrading</title>
+            <section>
+                <title>Upgrading from blojsom 2.13 to blojsom 2.14</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar,
+                        blojsom-resources-*.jar and blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.14.jar,
+                        blojsom-extensions-2.14.jar, blojsom-plugins-2.14.jar files, blojsom-resources-2.14.jar, 
+                        and blojsom-plugins-templates-2.14.jar.
+                    </p>
+                </section>
+            </section>
+
+            <section>
+                <title>Upgrading from blojsom 2.12 to blojsom 2.13</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.13.jar,
+                        blojsom-extensions-2.13.jar, blojsom-plugins-2.13.jar files, and blojsom-plugins-templates-2.13.jar.
+                    </p>
+                    <p>
+                        2. Add the blojsom-resources-2.13.jar file to your <code>/WEB-INF/lib</code> directory.
+                    </p>
+                    <p>
+                        3. Replace the sandler-0.5.jar file with the sandler-0.6.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                    <p>
+                        4. Replace the mail-1.3.jar file with the mail-1.3.1.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                    <p>
+                        5. Replace the oscache-2.0.1.jar file with the oscache-2.0.2.jar file in your
+                        <code>/WEB-INF/lib</code> directory if you are using the <code>CachingFetcher</code>. 
+                    </p>
+                </section>
+                <section>
+                    <title>Properties changes</title>
+                    <p>
+                        1. Add the following to your <code>/WEB-INF/blojsom.properties</code> file.
+                        <pre>
+                            blojsom-resource-manager=org.blojsom.util.resources.ResourceBundleResourceManager
+                            blojsom-resource-manager-bundles=org.blojsom.plugin.admin.resources.messages
+                        </pre>
+                    </p>
+                </section>
+            </section>
+
+            <section>
+                <title>Upgrading from blojsom 2.11 to blojsom 2.12</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.12.jar,
+                        blojsom-extensions-2.12.jar, blojsom-plugins-2.12.jar files, and blojsom-plugins-templates-2.12.jar.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.10 to blojsom 2.11</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.11.jar,
+                        blojsom-extensions-2.11.jar, blojsom-plugins-2.11.jar files, and blojsom-plugins-templates-2.11.jar.
+                    </p>
+                    <p>
+                        2. Replace the sandler-0.4.jar file with the sandler-0.5.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+                <section>
+                    <title>Template changes</title>
+                    <p>
+                        1. Copy the
+                        <code>blojsom-admin.css</code> file to the directory where you installed blojsom.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.09 to blojsom 2.10</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.10.jar,
+                        blojsom-extensions-2.10.jar, blojsom-plugins-2.10.jar files, and blojsom-plugins-templates-2.10.jar.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.08 to blojsom 2.09</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.09.jar,
+                        blojsom-extensions-2.09.jar, blojsom-plugins-2.09.jar files, and blojsom-plugins-templates-2.09.jar.
+                    </p>
+                    <p>
+                        2. Replace the xmlrpc-1.1.jar file with the xmlrpc-1.2b1.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.07 to blojsom 2.08</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.08.jar,
+                        blojsom-extensions-2.08.jar, blojsom-plugins-2.08.jar files, and blojsom-plugins-templates-2.08.jar.
+                    </p>
+                </section>
+                <section>
+                    <title>Plugin changes</title>
+                    <p>
+                        1. Updated the Wiki and Textile plugins to also check for metadata to specify whether or not processing
+                        should occur on a particular entry. You need to run the Meta plugin before either of these plugins in
+                        one of your plugin chains. The metadata key for the Wiki plugin would be specified as "meta-run-wiki=y"
+                        on a separate line in your blog entry text. The metadata key for the Textile plugin would be specified
+                        as "meta-run-textile=y" on a separate line in your blog entry text.
+                    </p>
+                </section>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add the following to your
+                        <code>/WEB-INF/(user-id)/blog.properties</code> if you would like to
+                        enable auto-formatting of comments. This will turn all newline characters into &lt;br/&gt; tags.
+                        <pre>
+                            plugin-comment-autoformat=true
+                        </pre>
+                    </p>
+                </section>
+                <section>
+                    <title>Template changes</title>
+                    <p>
+                        1. Replace the
+                        <code>atom.vm</code> or
+                        <code>atom.jsp</code> file (as appropriate) in the
+                        <code>templates</code> directory for those users who have an Atom flavor enabled. Alternatively,
+                        users can login to edit their Atom template via the web administration interface and change the
+                        text for
+                        <code>$entry.getCategory()</code> in the &lt;id&gt; tag to
+                        <code>$entry.getEncodedCategory()</code>.
+                    </p>
+                    <p>
+                        2. Although this is not a required change, in your RSS 2.0 template, you can remove
+                        <code> isPermalink="true"</code> from the &lt;guid&gt; tag under the &lt;item&gt; element. By
+                        default, this attribute defaults to true, so you can save yourself some more bandwidth by
+                        removing it.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.06 to blojsom 2.07</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.07.jar,
+                        blojsom-extensions-2.07.jar, blojsom-plugins-2.07.jar files, and blojsom-plugins-templates-2.07.jar.
+                    </p>
+                    <p>
+                        2. Replace the sandler-0.2.jar file with the sandler-0.4.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add the following to your
+                        <code>/WEB-INF/velocity.properties</code> file.
+                        <pre>
+                            #
+                            # Velocity macro properties
+                            #
+                            velocimacro.library=org/blojsom/plugin/admin/templates/admin-macros.vm
+                            velocimacro.permissions.allow.inline=true
+                            velocimacro.permissions.allow.inline.local.scope=true
+                        </pre>
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.05 to blojsom 2.06</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.06.jar,
+                        blojsom-extensions-2.06.jar, blojsom-plugins-2.06.jar files, and blojsom-plugins-templates-2.06.jar.
+                    </p>
+                    <p>
+                        2. Replace the commons-codec-1.1.jar file with the commons-code-1.2.jar file in your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add the following to your
+                        <code>/WEB-INF/plugin.properties</code> if you would like to
+                        enable web-based administration of blog users, authorization, and plugins.
+                        <pre>
+                            edit-blog-users=org.blojsom.plugin.admin.EditBlogUsersPlugin
+                            edit-blog-authorization=org.blojsom.plugin.admin.EditBlogAuthorizationPlugin
+                            edit-blog-plugins=org.blojsom.plugin.admin.EditBlogPluginsPlugin
+                        </pre>
+                    </p>
+                    <p>
+                        2. Add the following to your
+                        <code>/WEB-INF/web.xml</code> file under the init-params for
+                        BlojsomServlet if you are going to be using the administration plugin for editing blog users.
+                        <pre>
+                            &lt;init-param&gt;
+                            &lt;param-name&gt;plugin-admin-edit-users&lt;/param-name&gt;
+                            &lt;param-value&gt;/WEB-INF/plugin-admin-edit-users.properties&lt;/param-value&gt;
+                            &lt;/init-param&gt;
+                        </pre>
+                    </p>
+                    <p>
+                        3. Add the following file to your
+                        <code>/WEB-INF</code> directory under the
+                        filename,
+                        <code>plugin-admin-edit-users.properties</code> if you are going to be using the
+                        administration plugin for editing blog users.
+                        <pre>
+                            bootstrap-directory=/bootstrap
+                            blog-home-base-directory=/change/me/please
+                            administrators=default
+                        </pre>
+                        <code>bootstrap-directory</code> is the location off your
+                        <code>/WEB-INF</code> directory
+                        where the bootstrap properties and templates directory is. This precludes you from adding a
+                        user named "bootstrap". If you would like to add a user named "bootstrap", change the directory
+                        name here and on disk appropriately.
+                        <code>blog-home-base-directory</code> is the directory
+                        where users blogs will be stored. A directory with the new user id will be created under this
+                        directory for users you add dynamically to your blojsom installation.
+                        <code>administrators</code>
+                        is a comma-separated list of users who are enabled to add and delete users from your
+                        blojsom installation.
+                    </p>
+                    <p>
+                        4. Copy the
+                        <code>bootstrap</code> directory under your
+                        <code>/WEB-INF</code> directory so
+                        that you have a
+                        <code>/WEB-INF/bootstrap</code> directory and a
+                        <code>/WEB-INF/bootstrap/templates</code>
+                        directory. This is the directory that contains a bootstrap set of properties files and templates for
+                        adding new users to your blojsom installation.
+                    </p>
+                </section>
+                <section>
+                    <title>Template changes</title>
+                    <p>
+                        1. Replace the
+                        <code>rss2.vm</code> or
+                        <code>rss2.jsp</code> file (as appropriate) in the
+                        <code>templates</code> directory for those users who have an RSS2 flavor enabled. Added
+                        favorite icon support.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.04 to blojsom 2.05</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, blojsom-plugins-*.jar, and
+                        blojsom-plugins-templates-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.05.jar,
+                        blojsom-extensions-2.05.jar, blojsom-plugins-2.05.jar files, and blojsom-plugins-templates-2.05.jar.
+                    </p>
+                    <p>
+                        2. Add the commons-fileupload-1.0.jar file to your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add the following to your
+                        <code>/WEB-INF/plugin.properties</code> if you would like to
+                        enable web-based administration of blog entry editing, flavor editing, and file upload.
+                        <pre>
+                            edit-blog-entries=org.blojsom.plugin.admin.EditBlogEntriesPlugin
+                            file-upload=org.blojsom.plugin.admin.FileUploadPlugin
+                            edit-blog-flavors=org.blojsom.plugin.admin.EditBlogFlavorsPlugin
+                        </pre>
+                    </p>
+                    <p>
+                        2. Add the following you your
+                        <code>/WEB-INF/web.xml</code> file under the init-params
+                        for BlojsomServlet.
+                        <pre>
+                            &lt;init-param&gt;
+                            &lt;param-name&gt;plugin-admin-upload&lt;/param-name&gt;
+                            &lt;param-value&gt;/WEB-INF/plugin-admin-upload.properties&lt;/param-value&gt;
+                            &lt;/init-param&gt;
+                        </pre>
+                    </p>
+                    <p>
+                        3. Add the following file to your
+                        <code>/WEB-INF</code> directory under the
+                        filename,
+                        <code>plugin-admin-upload.properties</code>.
+                        <pre>
+                            temporary-directory=/tmp
+                            maximum-upload-size=100000
+                            maximum-memory-size=50000
+                            accepted-file-types=image/jpeg, image/gif, image/png
+                            resources-directory=/resources/
+                        </pre>
+                    </p>
+                    <p>
+                        4. Add the following to your
+                        <code>/WEB-INF/xmlrpc.properties</code> to set a default
+                        handler for the XML-RPC servlet. The value for the "$default" key is the short name for one
+                        of the blojsom XML-RPC handlers.
+                        <pre>
+                            $default=blogger
+                        </pre>
+                    </p>
+                </section>
+                <section>
+                    <title>Template changes</title>
+                    <p>
+                        1. Replace the
+                        <code>atom.vm</code> or
+                        <code>atom.jsp</code> file (as appropriate) in the
+                        <code>templates</code> directory for those users who have an Atom flavor enabled.
+                    </p>
+                    <p>
+                        2. Add the
+                        <code>atom.css</code> file to the directory where you unpacked the
+                        <code>blojsom.war</code> file.
+                    </p>
+                </section>
+                <section>
+                    <title>Core (add-on) changes</title>
+                    <p>
+                        1. If you would like to develop templates using the
+                        <link href="http://www.freemarker.org">FreeMarker</link>
+                        template language, copy the
+                        <code>freemarker-2.2.5.jar</code> file to your
+                        <code>/WEB-INF/lib</code>
+                        directory. You will also need to add the following line to your
+                        <code>/WEB-INF/dispatcher.properties</code>
+                        file.
+                        <pre>
+                            fm=org.blojsom.dispatcher.FreeMarkerDispatcher
+                        </pre>
+                        Templates will need to have the
+                        <code>.fm</code> extension for them to be handled by the
+                        FreeMarker dispatcher. You will also need to make the appropriate changes to an individual
+                        user's
+                        <code>flavor.properties</code> to change any flavors to use FreeMarker templates.
+                    </p>
+                </section>
+                <section>
+                    <title>Plugin (add-on) library changes</title>
+                    <p>
+                        1. If you are using the Wiki plugin, replace the radeox-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the
+                        updated radeox-0.9.jar file.
+                    </p>
+                    <p>
+                        2. If you are using the Caching fetcher, replace the oscache-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the
+                        updated oscache-2.0.1.jar file.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.03 to blojsom 2.04</title>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Replace the blojsom-core-*.jar, blojsom-extensions-*.jar, and blojsom-plugins-*.jar in your
+                        <code>/WEB-INF/lib</code> directory with the updated blojsom-core-2.04.jar,
+                        blojsom-extensions-2.04.jar, and blojsom-plugins-2.04.jar files.
+                    </p>
+                    <p>
+                        2. Add the blojsom-plugins-templates-2.04.jar file to your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add the following to your
+                        <code>/WEB-INF/plugin.properties</code> if you would like to
+                        enable web-based administration.
+                        <pre>
+                            admin=org.blojsom.plugin.admin.BaseAdminPlugin
+                            edit-blog-properties=org.blojsom.plugin.admin.EditBlogPropertiesPlugin
+                            edit-blog-categories=org.blojsom.plugin.admin.EditBlogCategoriesPlugin
+                            edit-blog-templates=org.blojsom.plugin.admin.EditBlogTemplatesPlugin
+                        </pre>
+                    </p>
+                    <p>
+                        2. Add the following to your
+                        <code>/WEB-INF/(user-id)/plugin.properties</code> file if you
+                        would like to enable blog administration for an individual user.
+                        <pre>
+                            admin.blojsom-plugin-chain=admin
+                        </pre>
+                    </p>
+                    <p>
+                        3. Add the following to your
+                        <code>/WEB-INF/(user-id)/flavor.properties</code> file if you
+                        would like to enable blog administration for an individual user.
+                        <pre>
+                            admin=admin.vm, text/html;charset=UTF-8
+                        </pre>
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.01 to blojsom 2.02</title>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. You may remove the
+                        <code>blojsom-installation-directory</code> parameter from
+                        <code>/WEB-INF/blojsom.properties</code>.
+                    </p>
+                </section>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Copy the sandler-0.2 JAR file into your
+                        <code>/WEB-INF/lib</code> directory if you
+                        are using the AtomAPIServlet. You may remove the sandler-0.1 JAR file from
+                        <code>/WEB-INF/lib</code>.
+                    </p>
+                    <p>
+                        2. If you are using the CachingFetcher, copy the oscache-2.0 JAR file into your
+                        <code>/WEB-INF/lib</code> directory. You may remove the oscache-2.0b2 JAR file.
+                    </p>
+                    <p>
+                        3. If you are using the XPath and/or XPath Search plugins, copy the
+                        commons-jxpath-1.1 JAR file into your
+                        <code>/WEB-INF/lib</code> directory.
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 2.0 to blojsom 2.01</title>
+                <section>
+                    <title>Properties file changes</title>
+                    <p>
+                        1. Add a parameter to
+                        <code>/WEB-INF/blojsom.properties</code> called
+                        <code>blojsom-installation-directory</code>. The value of this parameter should
+                        be set to the directory where the
+                        <code>blojsom.war</code> file was unpacked. Example:
+                        <pre>
+                            blojsom-installation-directory=/home/tomcat/webapps/blojsom/
+                        </pre>
+                    </p>
+                    <p>
+                        2. Remove the
+                        <code>file.resource.loader.path</code> parameter from your
+                        <code>/WEB-INF/velocity.properties</code> file. This parameter is now generated
+                        at runtime based on blojsom's global settings.
+                    </p>
+                    <p>
+                        3. Add the folowing parameter to
+                        <code>/WEB-INF/velocity.properties</code>.
+                        <pre>
+                            runtime.log.logsystem.class=org.blojsom.util.BlojsomSimpleLog4JSystem
+                        </pre>
+                    </p>
+                </section>
+                <section>
+                    <title>Library changes</title>
+                    <p>
+                        1. Copy the sandler-0.1 JAR file into your
+                        <code>/WEB-INF/lib</code> directory if you
+                        are using the AtomAPIServlet.
+                    </p>
+                </section>
+                <section>
+                    <title>Template changes</title>
+                    <p>
+                        1. If you are using the Atom templates to generate Atom feeds,
+                        copy the appropriate Atom template into your individual user's template directories.
+                    </p>
+                </section>
+                <section>
+                    <title>Addon changes</title>
+                    <p>
+                        1. A caching fetcher is included in
+                        <code>blojsom-addon-core.jar</code>. If you would
+                        like to use this fetcher, do the following.
+                        <ul>
+                            <li>Copy the
+                                <code>blojsom-addon-core.jar</code> file into your
+                                <code>/WEB-INF/lib</code> directory.
+                            </li>
+                            <li>Copy the
+                                <code>oscache-2.0b2.jar</code> file into your
+                                <code>/WEB-INF/lib</code> directory.
+                            </li>
+                            <li>Copy the
+                                <code>oscache.properties</code> file into your
+                                <code>/WEB-INF</code> directory.
+                            </li>
+                            <li>The caching fethcer uses
+                                <code>/WEB-INF/oscache.properties</code> as the
+                            default properties for OSCache. If you would like to change the filename used
+                            to initialize OSCache, you can add an init-param to web.xml with a param-name of
+                                <code>oscache-properties</code> and a param-value set to the new directory and filename. The new
+                            directory and filename must be set off your web application root directory.
+                            </li>
+                            <li>A user property,
+                                <code>caching-fetcher-refresh</code> can be added to an
+                            individual user's
+                                <code>blog.properties</code> file to control the number of
+                            seconds before blojsom will refresh its cache.
+                            </li>
+                        </ul>
+                    </p>
+                    <p>
+                        2. A wiki formatting plugin is included in
+                        <code>blojsom-addon-plugins.jar</code>. If you would
+                        like to use this plugin, do the following.
+                        <ul>
+                            <li>Copy the
+                                <code>blojsom-addon-plugins.jar</code> file into your
+                                <code>/WEB-INF/lib</code> directory.
+                            </li>
+                            <li>Copy the
+                                <code>radeox-0.7.jar</code> file into your
+                                <code>/WEB-INF/lib</code> directory.
+                            </li>
+                            <li>Add the line
+                                <code>wiki=org.blojsom.plugin.wiki.WikiPlugin</code> to the global
+                                <code>/WEB-INF/plugin.properties</code>.
+                            </li>
+                            <li>You may then add the
+                                <code>wiki</code> plugin shortname to the appropriate
+                                flavor-based plugin chains in a user's
+                                <code>plugin.properties</code> file.
+                            </li>
+                        </ul>
+                    </p>
+                </section>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 1.x to blojsom 2.0</title>
+                <p>
+                    <section>
+                        <title>General changes</title>
+                        <p>
+                            1. Change any classnames which reference the
+                            <code>org.ignition.blojsom.*</code>
+                            package to
+                            <code>org.blojsom.*</code>. You will find classnames in the following
+                            files,
+                            <code>blojsom.properties</code>,
+                            <code>dispatcher.properties</code>,
+                            <code>plugin.properties</code>, and
+                            <code>blojsom-xmlrpc.properties</code>.
+                        </p>
+                    </section>
+                    <section>
+                        <title>Create an initial user</title>
+                        <p>
+                            1. Create a sub-directory in the directory where blojsom is unpackaged for
+                            this initial user. For example, if we are creating a default user, create
+                            <code>/WEB-INF/default</code>.
+                        </p>
+                        <p>
+                            2. Move the
+                            <code>/WEB-INF/blojsom.properties</code> to the new user's directory under
+                            the name
+                            <code>blog.properties</code>. If you were creating a default user, you would
+                            be moving
+                            <code>/WEB-INF/blojsom.properties</code> to
+                            <code>/WEB-INF/default/blog.properties</code>.
+                        </p>
+                        <p>
+                            3. Create a new
+                            <code>/WEB-INF/blojsom.properties</code> file with general configuration
+                            properties for blojsom. For example:
+                            <pre>
+                                #
+                                # blojsom main configuration file
+                                #
+                                blojsom-users=default
+                                blojsom-default-user=default
+                                blojsom-configuration-base-directory=/WEB-INF/
+                                blojsom-fetcher=org.blojsom.fetcher.StandardFetcher
+                                blojsom-templates-directory=/templates/
+                            </pre>
+                        </p>
+                        <p>
+                            4. Move the
+                            <code>authorization.properties</code>,
+                            <code>blacklist.filters</code>,
+                            and
+                            <code>flavor.properties</code> files to the initial user's directory. So, for
+                            example, these would be moved to
+                            <code>/WEB-INF/default</code>. If you are using
+                            any of the plugins which require configuration files (Emoticons, Macro Expansion,
+                            Referer Log, or Show Me More), you may also move the plugin-specific configuration files
+                            (
+                            <code>emoticons.properties</code>,
+                            <code>macros.properties</code>,
+                            <code>referer.properties</code>, and
+                            <code>showmemore.properties</code>) into the initial user's directory.
+                        </p>
+                        <p>
+                            5. Copy the
+                            <code>/WEB-INF/plugin.properties</code> to the initial user's
+                            directory. For example, if using the default user as above, you would now have a
+                            copy of the file in
+                            <code>/WEB-INF/plugin.properties</code> and
+                            <code>/WEB-INF/default/plugin.properties</code>. Edit
+                            <code>/WEB-INF/plugin.properties</code>
+                            so that this file
+                            <b>only</b> contains plugin short name and class references. This file
+                            <b>should not</b> contain any
+                            <code>blojsom-plugin-chain</code> references. Edit
+                            <code>/WEB-INF/default/plugin.properties</code> so that this file
+                            <b>only</b> contains
+                            <code>blojsom-plugin-chain</code> references. blojsom will ignore the information it does
+                            not need from these respective files, but for cleanliness and readability, you should
+                            remove the appropriate information from the respective files.
+                        </p>
+                        <p>
+                            6. Change the
+                            <code>blog-blacklist-file</code> parameter in the user's
+                            <code>blog.properties</code> from
+                            <code>/WEB-INF/blacklist.filters</code> to
+                            <code>blacklist.filters</code>.
+                        </p>
+                    </section>
+                    <section>
+                        <title>Copy templates for the initial user</title>
+                        <p>
+                            1. Create a directory called
+                            <code>templates</code> in the initial user's directory. In
+                            the default user example above, this would be
+                            <code>/WEB-INF/default/templates</code>.
+                        </p>
+                        <p>
+                            2. Move the appropriate Velocity or JSP templates into the initial user's template
+                            directory. You do not need to move any of the CSS files or image button files.
+                        </p>
+                    </section>
+                    <section>
+                        <title>Modify the Velocity configuration</title>
+                        <p>
+                            1. Use the sample below for your
+                            <code>/WEB-INF/velocity.properties</code> file.
+                            The one change you will need to make is for the
+                            <code>file.resource.loader.path</code>
+                            which contains the path where blojsom is installed.
+                            <pre>
+                                #
+                                # blojsom Velocity dispatcher configuration file
+                                #
+                                # Tell Velocity which resource loader we are using
+                                #
+                                resource.loader=file, class
+                                #
+
+                                #
+                                # File resource loader information
+                                #
+                                file.resource.loader.description=Velocity File Resource Loader
+                                file.resource.loader.class=org.apache.velocity.runtime.resource.loader.FileResourceLoader
+                                file.resource.loader.path=/change/me/to/the/directory/where/blojsom/is/unpacked/
+                                file.resource.loader.cache=true
+                                file.resource.loader.modificationCheckInterval=60
+
+                                #
+                                # Class resource loader information
+                                #
+                                class.resource.loader.description=Velocity Classpath Resource Loader
+                                class.resource.loader.class=org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader
+                                class.resource.loader.cache=true
+                                class.resource.loader.modificationCheckInterval=0
+                            </pre>
+                        </p>
+                    </section>
+                    <section>
+                        <title>Changes to web.xml for the BlojsomServlet</title>
+                        <p>
+                            1. Change the
+                            <code>blog-configuration</code> init-param
+                            to
+                            <code>blojsom-configuration</code>. This parameter's value will stay
+                            <code>/WEB-INF/blojsom.properties</code>.
+                        </p>
+                        <p>
+                            2. Change the
+                            <code>blog-flavor-configuration</code> init-param
+                            to
+                            <code>flavor-configuration</code>. Change the parameter value to
+                            <code>flavor.properties</code>.
+                        </p>
+                        <p>
+                            3. Change the
+                            <code>dispatcher-map-configuration</code> init-param
+                            to
+                            <code>dispatcher-configuration</code>. This parameter's value will stay
+                            <code>/WEB-INF/dispatcher.properties</code>.
+                        </p>
+                        <p>
+                            4. Change the
+                            <code>blog-plugin-configuration</code> init-param
+                            to
+                            <code>plugin-configuration</code>. Change the parameter value to
+                            <code>plugin.properties</code>.
+                        </p>
+                        <p>
+                            5. Change the value of the
+                            <code>blog-authorization</code> init-param
+                            to
+                            <code>authorization.properties</code>.
+                        </p>
+                        <p>
+                            6. If you are using the Macros Expansion Plugin, change the value of the
+                            <code>plugin-macros-expansion</code> init-param to
+                            <code>macros.properties</code>.
+                        </p>
+                        <p>
+                            7. If you are using the Show Me More Plugin, change the value of the
+                            <code>plugin-showmemore</code> init-param to
+                            <code>showmemore.properties</code>.
+                        </p>
+                        <p>
+                            8. If you are using the Emoticons Plugin, change the value of the
+                            <code>plugin-emoticons</code> init-param to
+                            <code>emoticons.properties</code>.
+                        </p>
+                        <p>
+                            9. If you are using the Referer Log Plugin, change the value of the
+                            <code>plugin-referer</code> init-param to
+                            <code>referer.properties</code>.
+                        </p>
+                    </section>
+                    <section>
+                        <title>Changes to web.xml for the BlojsomXMLRPCServlet</title>
+                        <p>
+                            1. Change the
+                            <code>blog-configuration</code> init-param
+                            to
+                            <code>blojsom-configuration</code>. This parameter's value will stay
+                            <code>/WEB-INF/blojsom.properties</code>.
+                        </p>
+                        <p>
+                            2. Change the value of the
+                            <code>blog-authorization</code> init-param
+                            to
+                            <code>authorization.properties</code>.
+                        </p>
+                    </section>
+                    <section>
+                        <title>Changes to web.xml for the CommentAPIServlet</title>
+                        <p>
+                            1. Change the
+                            <code>blog-configuration</code> init-param
+                            to
+                            <code>blojsom-configuration</code>. This parameter's value will stay
+                            <code>/WEB-INF/blojsom.properties</code>.
+                        </p>
+                    </section>
+                </p>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 1.9.4 to blojsom 1.9.5</title>
+                <p>
+                    Add the following parameter,
+                    <code>blog-trackbacks-enabled</code> with a
+                    value of
+                    <code>true</code> to
+                    <code>/WEB-INF/blojsom.properties</code> if
+                    you want to keep trackbacks enabled on your blog.
+                </p>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 1.9.3 to blojsom 1.9.4</title>
+                <p>
+                    If you are using the MetaWeblog API handler for blojsom, there are 3
+                    parameters you'll need to add to
+                    <code>/WEB-INF/blojsom.properties</code>.
+                    <code>blojsom-extension-metaweblog-upload-directory</code>: location where files can be
+                    uploaded through the newMediaObject method
+                    <code>blojsom-extension-metaweblog-accepted-types</code>: comma-separated list of
+                    mime-types accepted for the newMediaObject method
+                    <code>blojsom-extension-metaweblog-static-url-prefix</code>: url prefix used to generate
+                    the return URL for the newMediaObject method
+                </p>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 1.9.2 to blojsom 1.9.3</title>
+                <p>No changes required</p>
+            </section>
+            <section>
+                <title>Upgrading from blojsom 1.9.1 to blojsom 1.9.2</title>
+                <p>No changes required</p>
+            </section>
+        </section>
+    </body>
+</document>

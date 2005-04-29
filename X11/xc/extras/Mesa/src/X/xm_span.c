@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,18 +21,18 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/extras/Mesa/src/X/xm_span.c,v 1.5 2002/12/16 16:18:31 dawes Exp $ */
 
 #include "glxheader.h"
+#include "colormac.h"
 #include "context.h"
-#include "drawpix.h"
-#include "mem.h"
-#include "state.h"
 #include "depth.h"
-#include "macros.h"
-#include "mtypes.h"
-#include "xmesaP.h"
+#include "drawpix.h"
 #include "extensions.h"
+#include "macros.h"
+#include "imports.h"
+#include "mtypes.h"
+#include "state.h"
+#include "xmesaP.h"
 
 #include "swrast/swrast.h"
 
@@ -3367,9 +3366,7 @@ static void write_span_index_ximage( INDEX_SPAN_ARGS )
 /*
  * Write a span of 8-bit CI pixels to a non 8-bit XImage.
  */
-static void write_span_index8_ximage( const GLcontext *ctx, GLuint n,
-                                      GLint x, GLint y, const GLubyte index[],
-                                      const GLubyte mask[] )
+static void write_span_index8_ximage( INDEX8_SPAN_ARGS )
 {
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    if (mask) {
@@ -3391,9 +3388,7 @@ static void write_span_index8_ximage( const GLcontext *ctx, GLuint n,
 /*
  * Write a span of 8-bit CI pixels to an 8-bit XImage.
  */
-static void write_span_index8_ximage8( const GLcontext *ctx, GLuint n,
-                                      GLint x, GLint y, const GLubyte index[],
-                                      const GLubyte mask[] )
+static void write_span_index8_ximage8( INDEX8_SPAN_ARGS )
 {
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    GLubyte *dst = PIXELADDR1( xmesa->xm_buffer,x,y);
@@ -3471,13 +3466,8 @@ static void read_index_span( const GLcontext *ctx,
 			     GLuint n, GLint x, GLint y, GLuint index[] )
 {
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-   XMesaBuffer source;
+   XMesaBuffer source = xmesa->xm_buffer;
    GLuint i;
-
-   if (xmesa->use_read_buffer)
-      source = xmesa->xm_read_buffer;
-   else
-      source = xmesa->xm_buffer;
 
    y = FLIP(source, y);
 
@@ -3527,12 +3517,7 @@ static void read_color_span( const GLcontext *ctx,
                              GLubyte rgba[][4] )
 {
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-   XMesaBuffer source;
-
-   if (xmesa->use_read_buffer)
-      source = xmesa->xm_read_buffer;
-   else
-      source = xmesa->xm_buffer;
+   XMesaBuffer source = xmesa->xm_buffer;
 
    if (source->buffer) {
       /* Read from Pixmap or Window */
@@ -3901,12 +3886,7 @@ static void read_index_pixels( const GLcontext *ctx,
 {
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    register GLuint i;
-   XMesaBuffer source;
-
-   if (xmesa->use_read_buffer)
-      source = xmesa->xm_read_buffer;
-   else
-      source = xmesa->xm_buffer;
+   XMesaBuffer source = xmesa->xm_buffer;
 
    if (source->buffer) {
       for (i=0;i<n;i++) {
@@ -3936,15 +3916,8 @@ static void read_color_pixels( const GLcontext *ctx,
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
    XMesaDisplay *dpy = xmesa->xm_visual->display;
    register GLuint i;
-   XMesaBuffer source;
-   XMesaDrawable buffer;
-
-   if (xmesa->use_read_buffer)
-      source = xmesa->xm_read_buffer;
-   else
-      source = xmesa->xm_buffer;
-
-   buffer = source->buffer;  /* the X drawable */
+   XMesaBuffer source = xmesa->xm_buffer;
+   XMesaDrawable buffer = source->buffer;  /* the X drawable */
 
    if (source->buffer) {
       switch (xmesa->pixelformat) {
@@ -4184,14 +4157,17 @@ static void read_color_pixels( const GLcontext *ctx,
 
 
 static void
-clear_color_HPCR_ximage( GLcontext *ctx, const GLchan color[4] )
+clear_color_HPCR_ximage( GLcontext *ctx, const GLfloat color[4] )
 {
    int i;
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
 
-   COPY_4V(xmesa->clearcolor, color);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[3], color[3]);
 
-   if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+   if (color[0] == 0.0 && color[1] == 0.0 && color[2] == 0.0) {
       /* black is black */
       MEMSET( xmesa->xm_visual->hpcr_clear_ximage_pattern, 0x0 ,
               sizeof(xmesa->xm_visual->hpcr_clear_ximage_pattern));
@@ -4199,24 +4175,33 @@ clear_color_HPCR_ximage( GLcontext *ctx, const GLchan color[4] )
    else {
       /* build clear pattern */
       for (i=0; i<16; i++) {
-         xmesa->xm_visual->hpcr_clear_ximage_pattern[0][i]    =
-            DITHER_HPCR(i, 0, color[0], color[1], color[2]);
+         xmesa->xm_visual->hpcr_clear_ximage_pattern[0][i] =
+            DITHER_HPCR(i, 0,
+                        xmesa->clearcolor[0],
+                        xmesa->clearcolor[1],
+                        xmesa->clearcolor[2]);
          xmesa->xm_visual->hpcr_clear_ximage_pattern[1][i]    =
-            DITHER_HPCR(i, 1, color[0], color[1], color[2]);
+            DITHER_HPCR(i, 1,
+                        xmesa->clearcolor[0],
+                        xmesa->clearcolor[1],
+                        xmesa->clearcolor[2]);
       }
    }
 }
 
 
 static void
-clear_color_HPCR_pixmap( GLcontext *ctx, const GLchan color[4] )
+clear_color_HPCR_pixmap( GLcontext *ctx, const GLfloat color[4] )
 {
    int i;
    const XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
 
-   COPY_4V(xmesa->clearcolor, color);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[0], color[0]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[1], color[1]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[2], color[2]);
+   CLAMPED_FLOAT_TO_UBYTE(xmesa->clearcolor[3], color[3]);
 
-   if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+   if (color[0] == 0.0 && color[1] == 0.0 && color[2] == 0.0) {
       /* black is black */
       for (i=0; i<16; i++) {
          XMesaPutPixel(xmesa->xm_visual->hpcr_clear_ximage, i, 0, 0);
@@ -4226,9 +4211,15 @@ clear_color_HPCR_pixmap( GLcontext *ctx, const GLchan color[4] )
    else {
       for (i=0; i<16; i++) {
          XMesaPutPixel(xmesa->xm_visual->hpcr_clear_ximage, i, 0,
-                       DITHER_HPCR(i, 0, color[0], color[1], color[2]));
+                       DITHER_HPCR(i, 0,
+                                   xmesa->clearcolor[0],
+                                   xmesa->clearcolor[1],
+                                   xmesa->clearcolor[2]));
          XMesaPutPixel(xmesa->xm_visual->hpcr_clear_ximage, i, 1,
-                       DITHER_HPCR(i, 1, color[0], color[1], color[2]));
+                       DITHER_HPCR(i, 1,
+                                   xmesa->clearcolor[0],
+                                   xmesa->clearcolor[1],
+                                   xmesa->clearcolor[2]));
       }
    }
    /* change tile pixmap content */
@@ -4490,6 +4481,4 @@ void xmesa_update_span_funcs( GLcontext *ctx )
    dd->ReadRGBASpan = read_color_span;
    dd->ReadCI32Pixels = read_index_pixels;
    dd->ReadRGBAPixels = read_color_pixels;
-
-   dd->SetReadBuffer = xmesa_set_read_buffer;
 }

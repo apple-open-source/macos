@@ -1,8 +1,10 @@
 /* APPLE LOCAL file CW asm blocks */
 /* Test whole asm functions.  */
 
-/* { dg-do run } */
-/* { dg-options "-fasm-blocks" } */
+/* { dg-do run { target powerpc*-*-* } } */
+/* { dg-options "-fasm-blocks -O2" } */
+
+void abort(void);
 
 asm void normal_fn ()
 {
@@ -39,7 +41,7 @@ asm int fralloc_fn_2 ()
   blr
 }
 
-static asm int fralloc_fn_3 ()
+asm int fralloc_fn_3 ()
 {
   int loc1, loc2;
   fralloc 41

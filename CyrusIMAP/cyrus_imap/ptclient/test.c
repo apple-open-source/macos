@@ -39,7 +39,7 @@
  *
  */
 
-/* $Id: test.c,v 1.6 2003/10/22 18:50:29 rjs3 Exp $ */
+/* $Id: test.c,v 1.5 2005/03/05 00:37:36 dasenbro Exp $ */
 
 #include <stdio.h>
 #include <sys/syslog.h>

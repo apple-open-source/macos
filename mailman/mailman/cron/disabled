@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 2001-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -189,8 +189,9 @@ def main():
                     info = _BounceInfo(
                         member, 0, today,
                         mlist.bounce_you_are_disabled_warnings,
-                        Pending.new(Pending.RE_ENABLE, mlist.internal_name(),
-                                    member))
+                        mlist.pend_new(Pending.RE_ENABLE,
+                                       mlist.internal_name(),
+                                       member))
                     mlist.setBounceInfo(member, info)
                 lastnotice = time.mktime(info.lastnotice + (0,) * 6)
                 if force or today >= lastnotice + interval:

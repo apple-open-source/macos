@@ -24,6 +24,7 @@ OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
+/* $XFree86: xc/lib/X11/XKBList.c,v 1.2 2003/11/17 22:20:09 dawes Exp $ */
 
 #define NEED_REPLIES
 #define NEED_EVENTS
@@ -35,13 +36,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 /***====================================================================***/
 
 static void
-#if NeedFunctionPrototypes
 _FreeComponentNames(int num,XkbComponentNamePtr names)
-#else
-_FreeComponentNames(num,names)
-    int			num;
-    XkbComponentNamePtr	names;
-#endif
 {
 int			i;
 XkbComponentNamePtr	tmp;
@@ -61,14 +56,7 @@ XkbComponentNamePtr	tmp;
 /***====================================================================***/
 
 static XkbComponentNamePtr
-#if NeedFunctionPrototypes
 _ReadListing(XkbReadBufferPtr buf,int count,Status *status_rtrn)
-#else
-_ReadListing(buf,count,status_rtrn)
-    XkbReadBufferPtr	buf;
-    int			count;
-    Status *		status_rtrn;
-#endif
 {
 XkbComponentNamePtr	first,this;
 register int		i;
@@ -104,18 +92,10 @@ BAILOUT:
 /***====================================================================***/
 
 XkbComponentListPtr
-#if NeedFunctionPrototypes
 XkbListComponents(	Display *		dpy,
 			unsigned		deviceSpec,
 			XkbComponentNamesPtr	ptrns,
 			int *			max_inout)
-#else
-XkbListComponents(dpy,deviceSpec,ptrns,max_inout)
-    Display *			dpy;
-    unsigned			deviceSpec;
-    XkbComponentNamesPtr	ptrns;
-    int *			max_inout;
-#endif
 {
 register xkbListComponentsReq*	req;
 xkbListComponentsReply 		rep;
@@ -246,12 +226,7 @@ BAILOUT:
 }
 
 void
-#if NeedFunctionPrototypes
 XkbFreeComponentList(XkbComponentListPtr list)
-#else
-XkbFreeComponentList(list)
-    XkbComponentListPtr	list;
-#endif
 {
     if (list) {
 	if (list->keymaps)

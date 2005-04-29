@@ -1,0 +1,9 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\SOFTWARE\Carnegie Mellon\Project Cyrus\SASL Library\Available Plugins]
+"Anonymous Plugin"="c:\\sasl-plugins\\saslANONYMOUS.dll"
+"Kerberos Plugin"="c:\\sasl-plugins\\saslKERBEROSV4.dll"
+"PLAIN Plugin"="c:\\sasl-plugins\\saslPLAIN.dll"
+"CRAM Plugin"="c:\\sasl-plugins\\saslCRAM.dll"
+"SCRAM Plugin"="c:\\sasl-plugins\\saslSCRAM.dll"
+

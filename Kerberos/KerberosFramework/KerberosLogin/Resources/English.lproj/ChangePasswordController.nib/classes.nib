@@ -1,0 +1,22 @@
+{
+    IBClasses = (
+        {CLASS = BadgedImageView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
+        {
+            ACTIONS = {cancel = id; ok = id; }; 
+            CLASS = ChangePasswordController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                cancelButton = NSButton; 
+                headerTextField = NSTextField; 
+                kerberosIconImageView = BadgedImageView; 
+                newPasswordSecureTextField = NSSecureTextField; 
+                okButton = NSButton; 
+                oldPasswordSecureTextField = NSSecureTextField; 
+                verifyPasswordSecureTextField = NSSecureTextField; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

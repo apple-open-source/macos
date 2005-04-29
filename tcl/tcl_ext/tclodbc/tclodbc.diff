@@ -1,0 +1,534 @@
+Index: ODBC.m4
+===================================================================
+RCS file: /cvsroot/tclodbc/tclodbc/ODBC.m4,v
+retrieving revision 1.7
+diff -u -p -r1.7 ODBC.m4
+--- ODBC.m4	19 Mar 2004 20:32:21 -0000	1.7
++++ ODBC.m4	2 Jun 2004 05:21:19 -0000
+@@ -102,46 +102,6 @@ AC_DEFUN(TCLODBC_PATH_ODBCH, [
+     fi
+ 
+     dnl ===============================
+-    dnl unixODBC or Intersolv... I have tested this
+-    dnl ===============================
+-    dnl Check for unixODBC headers
+-    if test x"${ac_cv_c_odbch}" = x ; then
+-	for i in \
+-		/opt/odbc/include \
+-		/opt/ODBC/include \
+-		${prefix}/include/odbc \
+-		${prefix}/include/ODBC \
+-		/opt/unixodbc/include \
+-		/opt/unixODBC/include \
+-		${prefix}/include/unixodbc \
+-		${prefix}/include/unixODBC \
+-		/usr/local/mysql/include \
+-		/usr/local/include \
+-		/usr/include \
+-		${prefix}/include ; do
+-	    if test -f "$i/sql.h"; then
+-		ac_cv_c_odbch=`(cd $i; pwd)`
+-		ODBCTYPE=unixODBC
+-	    fi
+-	done
+-    fi
+-
+-    dnl see if one is installed
+-    if test x"${ac_cv_c_odbch}" = x ; then
+-	AC_CHECK_HEADER(sql.h, ac_cv_c_odbch=installed, ac_cv_c_odbch="")
+-	if test x"${ac_cv_c_odbch}" != x ; then
+-	    ODBCTYPE=unixODBC
+-	fi
+-    fi
+-
+-    dnl Figure out whether this is unixODBC or Intersolv
+-    if test x"${ODBCTYPE}" = xunixODBC ; then
+-	if test -f "${ac_cv_c_odbch}/odbcver.h" ; then
+-	    ODBCTYPE=intersolv
+-	fi
+-    fi
+-
+-    dnl ===============================
+     dnl IODBC... I have not tested this a whole lot
+     dnl ===============================
+     dnl Check in the source tree
+@@ -159,6 +119,8 @@ AC_DEFUN(TCLODBC_PATH_ODBCH, [
+ 		/usr/local/include/iodbc \
+ 		/usr/local/share/iodbc \
+ 		${prefix}/include/iodbc \
++		/usr/local/include \
++		/usr/include \
+ 		${prefix}/include ; do
+ 	    if test -f $i/isql.h; then
+ 		ac_cv_c_odbch=`(cd $i; pwd)`
+@@ -186,6 +148,46 @@ AC_DEFUN(TCLODBC_PATH_ODBCH, [
+ 	fi
+     fi
+ 
++    dnl ===============================
++    dnl unixODBC or Intersolv... I have tested this
++    dnl ===============================
++    dnl Check for unixODBC headers
++    if test x"${ac_cv_c_odbch}" = x ; then
++	for i in \
++		/opt/odbc/include \
++		/opt/ODBC/include \
++		${prefix}/include/odbc \
++		${prefix}/include/ODBC \
++		/opt/unixodbc/include \
++		/opt/unixODBC/include \
++		${prefix}/include/unixodbc \
++		${prefix}/include/unixODBC \
++		/usr/local/mysql/include \
++		/usr/local/include \
++		/usr/include \
++		${prefix}/include ; do
++	    if test -f "$i/sql.h"; then
++		ac_cv_c_odbch=`(cd $i; pwd)`
++		ODBCTYPE=unixODBC
++	    fi
++	done
++    fi
++
++    dnl see if one is installed
++    if test x"${ac_cv_c_odbch}" = x ; then
++	AC_CHECK_HEADER(sql.h, ac_cv_c_odbch=installed, ac_cv_c_odbch="")
++	if test x"${ac_cv_c_odbch}" != x ; then
++	    ODBCTYPE=unixODBC
++	fi
++    fi
++
++    dnl Figure out whether this is unixODBC or Intersolv
++    if test x"${ODBCTYPE}" = xunixODBC ; then
++	if test -f "${ac_cv_c_odbch}/odbcver.h" ; then
++	    ODBCTYPE=intersolv
++	fi
++    fi
++
+     ODBC_INCLUDE_DIR=""
+     if test x"${ac_cv_c_odbch}" = x ; then
+ 	AC_MSG_ERROR([Cannot find any ODBC headers])
+@@ -250,7 +252,7 @@ AC_DEFUN(TCLODBC_PATH_ODBCLIB, [
+     if test x"${ODBCTYPE}" = xiodbc ; then
+ 	liblist="libpsqlodbc libmysqlodbc librbodbc libiodbc iodbc"
+ 	libpathlist="/usr/local/lib/iodbc ${prefix}/iodbc/lib \
+-	    ${prefix}/lib/iodbc /usr/local/mysql/lib /usr/local/lib ${prefix}/lib"
++	    ${prefix}/lib/iodbc /usr/local/mysql/lib /usr/local/lib /usr/lib ${prefix}/lib"
+     elif test x"${ODBCTYPE}" = xunixODBC ; then 
+ 	liblist="libodbc"
+ 	libpathlist="/opt/unixodbc/lib /opt/unixODBC/lib /usr/include/odbc \
+@@ -326,6 +328,7 @@ AC_DEFUN(TCLODBC_PATH_ODBCLIB, [
+     if test x"${ODBCTYPE}" = xiodbc ; then
+ 	AC_MSG_RESULT(Using IODBC driver)
+ 	AC_DEFINE(HAVE_IODBC)
++	ODBC_LIB="$ODBC_LIB -liodbcinst"
+     fi
+ 
+     if test x"${ODBCTYPE}" = xunixODBC ; then
+Index: configure
+===================================================================
+RCS file: /cvsroot/tclodbc/tclodbc/configure,v
+retrieving revision 1.4
+diff -u -p -r1.4 configure
+--- configure	20 Mar 2004 22:14:18 -0000	1.4
++++ configure	2 Jun 2004 05:21:19 -0000
+@@ -6653,40 +6653,51 @@ echo "$as_me: error: ${with_odbcinclude}
+ 	fi
+     fi
+ 
+-                    if test x"${ac_cv_c_odbch}" = x ; then
++                    for i in $dirlist; do
++	if test -f "${srcdir}/$i/postodbc/isql.h" ; then
++	    ac_cv_c_odbch=`(cd ${srcdir}/$i/postodbc/; pwd)`
++	    ODBCTYPE=iodbc
++	fi
++    done
++
++        if test x"${ac_cv_c_odbch}" = x ; then
+ 	for i in \
+-		/opt/odbc/include \
+-		/opt/ODBC/include \
+-		${prefix}/include/odbc \
+-		${prefix}/include/ODBC \
+-		/opt/unixodbc/include \
+-		/opt/unixODBC/include \
+-		${prefix}/include/unixodbc \
+-		${prefix}/include/unixODBC \
+ 		/usr/local/mysql/include \
++		/usr/local/include/iodbc \
++		/usr/local/share/iodbc \
++		${prefix}/include/iodbc \
+ 		/usr/local/include \
+ 		/usr/include \
+ 		${prefix}/include ; do
+-	    if test -f "$i/sql.h"; then
++	    if test -f $i/isql.h; then
+ 		ac_cv_c_odbch=`(cd $i; pwd)`
+-		ODBCTYPE=unixODBC
++		ODBCTYPE=iodbc
+ 	    fi
+ 	done
+     fi
+ 
+         if test x"${ac_cv_c_odbch}" = x ; then
+-	if test "${ac_cv_header_sql_h+set}" = set; then
+-  echo "$as_me:$LINENO: checking for sql.h" >&5
+-echo $ECHO_N "checking for sql.h... $ECHO_C" >&6
+-if test "${ac_cv_header_sql_h+set}" = set; then
++		ccprog=`echo ${CC} | sed -e 's: .*::'`
++	ccpath=`which ${ccprog} | sed -e 's:/bin/.*::'`/include/iodbc
++	if test -f $ccpath/isql.h; then
++	    ac_cv_c_odbch=$ccpath
++	    ODBCTYPE=iodbc
++	fi
++    fi
++
++        if test x"${ac_cv_c_odbch}" = x ; then
++	if test "${ac_cv_header_isql_h+set}" = set; then
++  echo "$as_me:$LINENO: checking for isql.h" >&5
++echo $ECHO_N "checking for isql.h... $ECHO_C" >&6
++if test "${ac_cv_header_isql_h+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ fi
+-echo "$as_me:$LINENO: result: $ac_cv_header_sql_h" >&5
+-echo "${ECHO_T}$ac_cv_header_sql_h" >&6
++echo "$as_me:$LINENO: result: $ac_cv_header_isql_h" >&5
++echo "${ECHO_T}$ac_cv_header_isql_h" >&6
+ else
+   # Is the header compilable?
+-echo "$as_me:$LINENO: checking sql.h usability" >&5
+-echo $ECHO_N "checking sql.h usability... $ECHO_C" >&6
++echo "$as_me:$LINENO: checking isql.h usability" >&5
++echo $ECHO_N "checking isql.h usability... $ECHO_C" >&6
+ cat >conftest.$ac_ext <<_ACEOF
+ #line $LINENO "configure"
+ /* confdefs.h.  */
+@@ -6695,7 +6706,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ $ac_includes_default
+-#include <sql.h>
++#include <isql.h>
+ _ACEOF
+ rm -f conftest.$ac_objext
+ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+@@ -6721,8 +6732,8 @@ echo "$as_me:$LINENO: result: $ac_header
+ echo "${ECHO_T}$ac_header_compiler" >&6
+ 
+ # Is the header present?
+-echo "$as_me:$LINENO: checking sql.h presence" >&5
+-echo $ECHO_N "checking sql.h presence... $ECHO_C" >&6
++echo "$as_me:$LINENO: checking isql.h presence" >&5
++echo $ECHO_N "checking isql.h presence... $ECHO_C" >&6
+ cat >conftest.$ac_ext <<_ACEOF
+ #line $LINENO "configure"
+ /* confdefs.h.  */
+@@ -6730,7 +6741,7 @@ _ACEOF
+ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+-#include <sql.h>
++#include <isql.h>
+ _ACEOF
+ if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+   (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+@@ -6763,10 +6774,10 @@ echo "${ECHO_T}$ac_header_preproc" >&6
+ # So?  What about this header?
+ case $ac_header_compiler:$ac_header_preproc in
+   yes:no )
+-    { echo "$as_me:$LINENO: WARNING: sql.h: accepted by the compiler, rejected by the preprocessor!" >&5
+-echo "$as_me: WARNING: sql.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: sql.h: proceeding with the preprocessor's result" >&5
+-echo "$as_me: WARNING: sql.h: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: isql.h: accepted by the compiler, rejected by the preprocessor!" >&5
++echo "$as_me: WARNING: isql.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
++    { echo "$as_me:$LINENO: WARNING: isql.h: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: isql.h: proceeding with the preprocessor's result" >&2;}
+     (
+       cat <<\_ASBOX
+ ## ------------------------------------ ##
+@@ -6777,12 +6788,12 @@ _ASBOX
+       sed "s/^/$as_me: WARNING:     /" >&2
+     ;;
+   no:yes )
+-    { echo "$as_me:$LINENO: WARNING: sql.h: present but cannot be compiled" >&5
+-echo "$as_me: WARNING: sql.h: present but cannot be compiled" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: sql.h: check for missing prerequisite headers?" >&5
+-echo "$as_me: WARNING: sql.h: check for missing prerequisite headers?" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: sql.h: proceeding with the preprocessor's result" >&5
+-echo "$as_me: WARNING: sql.h: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: isql.h: present but cannot be compiled" >&5
++echo "$as_me: WARNING: isql.h: present but cannot be compiled" >&2;}
++    { echo "$as_me:$LINENO: WARNING: isql.h: check for missing prerequisite headers?" >&5
++echo "$as_me: WARNING: isql.h: check for missing prerequisite headers?" >&2;}
++    { echo "$as_me:$LINENO: WARNING: isql.h: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: isql.h: proceeding with the preprocessor's result" >&2;}
+     (
+       cat <<\_ASBOX
+ ## ------------------------------------ ##
+@@ -6793,18 +6804,18 @@ _ASBOX
+       sed "s/^/$as_me: WARNING:     /" >&2
+     ;;
+ esac
+-echo "$as_me:$LINENO: checking for sql.h" >&5
+-echo $ECHO_N "checking for sql.h... $ECHO_C" >&6
+-if test "${ac_cv_header_sql_h+set}" = set; then
++echo "$as_me:$LINENO: checking for isql.h" >&5
++echo $ECHO_N "checking for isql.h... $ECHO_C" >&6
++if test "${ac_cv_header_isql_h+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  ac_cv_header_sql_h=$ac_header_preproc
++  ac_cv_header_isql_h=$ac_header_preproc
+ fi
+-echo "$as_me:$LINENO: result: $ac_cv_header_sql_h" >&5
+-echo "${ECHO_T}$ac_cv_header_sql_h" >&6
++echo "$as_me:$LINENO: result: $ac_cv_header_isql_h" >&5
++echo "${ECHO_T}$ac_cv_header_isql_h" >&6
+ 
+ fi
+-if test $ac_cv_header_sql_h = yes; then
++if test $ac_cv_header_isql_h = yes; then
+   ac_cv_c_odbch=installed
+ else
+   ac_cv_c_odbch=""
+@@ -6812,59 +6823,44 @@ fi
+ 
+ 
+ 	if test x"${ac_cv_c_odbch}" != x ; then
+-	    ODBCTYPE=unixODBC
+-	fi
+-    fi
+-
+-        if test x"${ODBCTYPE}" = xunixODBC ; then
+-	if test -f "${ac_cv_c_odbch}/odbcver.h" ; then
+-	    ODBCTYPE=intersolv
+-	fi
+-    fi
+-
+-                    for i in $dirlist; do
+-	if test -f "${srcdir}/$i/postodbc/isql.h" ; then
+-	    ac_cv_c_odbch=`(cd ${srcdir}/$i/postodbc/; pwd)`
+ 	    ODBCTYPE=iodbc
+ 	fi
+-    done
++    fi
+ 
+-        if test x"${ac_cv_c_odbch}" = x ; then
++                    if test x"${ac_cv_c_odbch}" = x ; then
+ 	for i in \
++		/opt/odbc/include \
++		/opt/ODBC/include \
++		${prefix}/include/odbc \
++		${prefix}/include/ODBC \
++		/opt/unixodbc/include \
++		/opt/unixODBC/include \
++		${prefix}/include/unixodbc \
++		${prefix}/include/unixODBC \
+ 		/usr/local/mysql/include \
+-		/usr/local/include/iodbc \
+-		/usr/local/share/iodbc \
+-		${prefix}/include/iodbc \
++		/usr/local/include \
++		/usr/include \
+ 		${prefix}/include ; do
+-	    if test -f $i/isql.h; then
++	    if test -f "$i/sql.h"; then
+ 		ac_cv_c_odbch=`(cd $i; pwd)`
+-		ODBCTYPE=iodbc
++		ODBCTYPE=unixODBC
+ 	    fi
+ 	done
+     fi
+ 
+         if test x"${ac_cv_c_odbch}" = x ; then
+-		ccprog=`echo ${CC} | sed -e 's: .*::'`
+-	ccpath=`which ${ccprog} | sed -e 's:/bin/.*::'`/include/iodbc
+-	if test -f $ccpath/isql.h; then
+-	    ac_cv_c_odbch=$ccpath
+-	    ODBCTYPE=iodbc
+-	fi
+-    fi
+-
+-        if test x"${ac_cv_c_odbch}" = x ; then
+-	if test "${ac_cv_header_isql_h+set}" = set; then
+-  echo "$as_me:$LINENO: checking for isql.h" >&5
+-echo $ECHO_N "checking for isql.h... $ECHO_C" >&6
+-if test "${ac_cv_header_isql_h+set}" = set; then
++	if test "${ac_cv_header_sql_h+set}" = set; then
++  echo "$as_me:$LINENO: checking for sql.h" >&5
++echo $ECHO_N "checking for sql.h... $ECHO_C" >&6
++if test "${ac_cv_header_sql_h+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ fi
+-echo "$as_me:$LINENO: result: $ac_cv_header_isql_h" >&5
+-echo "${ECHO_T}$ac_cv_header_isql_h" >&6
++echo "$as_me:$LINENO: result: $ac_cv_header_sql_h" >&5
++echo "${ECHO_T}$ac_cv_header_sql_h" >&6
+ else
+   # Is the header compilable?
+-echo "$as_me:$LINENO: checking isql.h usability" >&5
+-echo $ECHO_N "checking isql.h usability... $ECHO_C" >&6
++echo "$as_me:$LINENO: checking sql.h usability" >&5
++echo $ECHO_N "checking sql.h usability... $ECHO_C" >&6
+ cat >conftest.$ac_ext <<_ACEOF
+ #line $LINENO "configure"
+ /* confdefs.h.  */
+@@ -6873,7 +6869,7 @@ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ $ac_includes_default
+-#include <isql.h>
++#include <sql.h>
+ _ACEOF
+ rm -f conftest.$ac_objext
+ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+@@ -6899,8 +6895,8 @@ echo "$as_me:$LINENO: result: $ac_header
+ echo "${ECHO_T}$ac_header_compiler" >&6
+ 
+ # Is the header present?
+-echo "$as_me:$LINENO: checking isql.h presence" >&5
+-echo $ECHO_N "checking isql.h presence... $ECHO_C" >&6
++echo "$as_me:$LINENO: checking sql.h presence" >&5
++echo $ECHO_N "checking sql.h presence... $ECHO_C" >&6
+ cat >conftest.$ac_ext <<_ACEOF
+ #line $LINENO "configure"
+ /* confdefs.h.  */
+@@ -6908,7 +6904,7 @@ _ACEOF
+ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+-#include <isql.h>
++#include <sql.h>
+ _ACEOF
+ if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+   (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+@@ -6941,10 +6937,10 @@ echo "${ECHO_T}$ac_header_preproc" >&6
+ # So?  What about this header?
+ case $ac_header_compiler:$ac_header_preproc in
+   yes:no )
+-    { echo "$as_me:$LINENO: WARNING: isql.h: accepted by the compiler, rejected by the preprocessor!" >&5
+-echo "$as_me: WARNING: isql.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: isql.h: proceeding with the preprocessor's result" >&5
+-echo "$as_me: WARNING: isql.h: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: sql.h: accepted by the compiler, rejected by the preprocessor!" >&5
++echo "$as_me: WARNING: sql.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
++    { echo "$as_me:$LINENO: WARNING: sql.h: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: sql.h: proceeding with the preprocessor's result" >&2;}
+     (
+       cat <<\_ASBOX
+ ## ------------------------------------ ##
+@@ -6955,12 +6951,12 @@ _ASBOX
+       sed "s/^/$as_me: WARNING:     /" >&2
+     ;;
+   no:yes )
+-    { echo "$as_me:$LINENO: WARNING: isql.h: present but cannot be compiled" >&5
+-echo "$as_me: WARNING: isql.h: present but cannot be compiled" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: isql.h: check for missing prerequisite headers?" >&5
+-echo "$as_me: WARNING: isql.h: check for missing prerequisite headers?" >&2;}
+-    { echo "$as_me:$LINENO: WARNING: isql.h: proceeding with the preprocessor's result" >&5
+-echo "$as_me: WARNING: isql.h: proceeding with the preprocessor's result" >&2;}
++    { echo "$as_me:$LINENO: WARNING: sql.h: present but cannot be compiled" >&5
++echo "$as_me: WARNING: sql.h: present but cannot be compiled" >&2;}
++    { echo "$as_me:$LINENO: WARNING: sql.h: check for missing prerequisite headers?" >&5
++echo "$as_me: WARNING: sql.h: check for missing prerequisite headers?" >&2;}
++    { echo "$as_me:$LINENO: WARNING: sql.h: proceeding with the preprocessor's result" >&5
++echo "$as_me: WARNING: sql.h: proceeding with the preprocessor's result" >&2;}
+     (
+       cat <<\_ASBOX
+ ## ------------------------------------ ##
+@@ -6971,18 +6967,18 @@ _ASBOX
+       sed "s/^/$as_me: WARNING:     /" >&2
+     ;;
+ esac
+-echo "$as_me:$LINENO: checking for isql.h" >&5
+-echo $ECHO_N "checking for isql.h... $ECHO_C" >&6
+-if test "${ac_cv_header_isql_h+set}" = set; then
++echo "$as_me:$LINENO: checking for sql.h" >&5
++echo $ECHO_N "checking for sql.h... $ECHO_C" >&6
++if test "${ac_cv_header_sql_h+set}" = set; then
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+-  ac_cv_header_isql_h=$ac_header_preproc
++  ac_cv_header_sql_h=$ac_header_preproc
+ fi
+-echo "$as_me:$LINENO: result: $ac_cv_header_isql_h" >&5
+-echo "${ECHO_T}$ac_cv_header_isql_h" >&6
++echo "$as_me:$LINENO: result: $ac_cv_header_sql_h" >&5
++echo "${ECHO_T}$ac_cv_header_sql_h" >&6
+ 
+ fi
+-if test $ac_cv_header_isql_h = yes; then
++if test $ac_cv_header_sql_h = yes; then
+   ac_cv_c_odbch=installed
+ else
+   ac_cv_c_odbch=""
+@@ -6990,7 +6986,13 @@ fi
+ 
+ 
+ 	if test x"${ac_cv_c_odbch}" != x ; then
+-	    ODBCTYPE=iodbc
++	    ODBCTYPE=unixODBC
++	fi
++    fi
++
++        if test x"${ODBCTYPE}" = xunixODBC ; then
++	if test -f "${ac_cv_c_odbch}/odbcver.h" ; then
++	    ODBCTYPE=intersolv
+ 	fi
+     fi
+ 
+@@ -7065,7 +7067,7 @@ echo "$as_me: error: ${with_odbclibrary}
+         if test x"${ODBCTYPE}" = xiodbc ; then
+ 	liblist="libpsqlodbc libmysqlodbc librbodbc libiodbc iodbc"
+ 	libpathlist="/usr/local/lib/iodbc ${prefix}/iodbc/lib \
+-	    ${prefix}/lib/iodbc /usr/local/mysql/lib /usr/local/lib ${prefix}/lib"
++	    ${prefix}/lib/iodbc /usr/local/mysql/lib /usr/local/lib /usr/lib ${prefix}/lib"
+     elif test x"${ODBCTYPE}" = xunixODBC ; then
+ 	liblist="libodbc"
+ 	libpathlist="/opt/unixodbc/lib /opt/unixODBC/lib /usr/include/odbc \
+@@ -7207,6 +7209,7 @@ echo "${ECHO_T}Using IODBC driver" >&6
+ #define HAVE_IODBC 1
+ _ACEOF
+ 
++	ODBC_LIB="$ODBC_LIB -liodbcinst"
+     fi
+ 
+     if test x"${ODBCTYPE}" = xunixODBC ; then
+Index: tclodbc.hxx
+===================================================================
+RCS file: /cvsroot/tclodbc/tclodbc/tclodbc.hxx,v
+retrieving revision 1.4
+diff -u -p -r1.4 tclodbc.hxx
+--- tclodbc.hxx	20 Mar 2004 22:14:19 -0000	1.4
++++ tclodbc.hxx	2 Jun 2004 05:21:19 -0000
+@@ -110,7 +110,9 @@ extern "C" {
+ #ifdef HAVE_UNIXODBC
+ #define INCLUDE_EXTENSIONS // Uncomment this if odbc extensions available
+ #endif
+-//#define INCLUDE_EXTENSIONS // Uncomment this if odbc extensions available
++#ifdef HAVE_IODBC
++#define INCLUDE_EXTENSIONS // Uncomment this if odbc extensions available
++#endif
+ #endif
+ 
+ #include "tclobj.hxx"
+@@ -119,6 +121,8 @@ extern "C" {
+ // ODBC INCLUDES
+ //
+
++/* set _WCHAR_T so sqltypes.h is happy (until 3779905 is fixed) */
++#define       _WCHAR_T
+ extern "C" {
+ #ifdef HAVE_IODBC                       // Using the free IODBC driver
+ /* I am not sure what version this is...
+@@ -128,8 +132,7 @@ extern "C" {
+ /* iODBC 2.12 */
+ #include <isql.h>
+ #include <isqlext.h>
+-#include <odbc_funcs.h>
+-#include <odbc_types.h>
++#include <iodbcinst.h>
+ #else
+ #include <sql.h>
+ #include <odbcinst.h>

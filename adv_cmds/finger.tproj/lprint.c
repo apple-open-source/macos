@@ -50,9 +50,7 @@ static char sccsid[] = "@(#)lprint.c	8.3 (Berkeley) 4/28/95";
 #include <db.h>
 #include <err.h>
 #include <fcntl.h>
-#ifndef __APPLE__
 #include <langinfo.h>
-#endif
 #include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
@@ -111,10 +109,8 @@ lprint(PERSON *pn)
 	int oddfield;
 	char t[80];
 
-#ifndef __APPLE__
 	if (d_first < 0)
 		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
-#endif
 	/*
 	 * long format --
 	 *	login name

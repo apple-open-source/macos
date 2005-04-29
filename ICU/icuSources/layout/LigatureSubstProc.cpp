@@ -1,7 +1,6 @@
 /*
- * @(#)GlyphSubstLookupProc.cpp	1.6 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -12,15 +11,16 @@
 #include "SubtableProcessor.h"
 #include "StateTableProcessor.h"
 #include "LigatureSubstProc.h"
+#include "LEGlyphStorage.h"
 #include "LESwaps.h"
 
 U_NAMESPACE_BEGIN
 
 #define ExtendedComplement(m) ((le_int32) (~((le_uint32) (m))))
-#define SignBit(m) ((ExtendedComplement(m) >> 1) & (m))
+#define SignBit(m) ((ExtendedComplement(m) >> 1) & (le_int32)(m))
 #define SignExtend(v,m) (((v) & SignBit(m))? ((v) | ExtendedComplement(m)): (v))
 
-const char LigatureSubstitutionProcessor::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(LigatureSubstitutionProcessor)
 
 LigatureSubstitutionProcessor::LigatureSubstitutionProcessor(const MorphSubtableHeader *morphSubtableHeader)
   : StateTableProcessor(morphSubtableHeader)
@@ -42,7 +42,7 @@ void LigatureSubstitutionProcessor::beginStateTable()
     m = -1;
 }
 
-ByteOffset LigatureSubstitutionProcessor::processStateEntry(LEGlyphID *glyphs, le_int32 * /*charIndices*/, le_int32 &currGlyph, le_int32 /*glyphCount*/, EntryTableIndex index)
+ByteOffset LigatureSubstitutionProcessor::processStateEntry(LEGlyphStorage &glyphStorage, le_int32 &currGlyph, EntryTableIndex index)
 {
     const LigatureSubstitutionStateEntry *entry = &entryTable[index];
     ByteOffset newState = SWAPW(entry->newStateOffset);
@@ -78,17 +78,17 @@ ByteOffset LigatureSubstitutionProcessor::processStateEntry(LEGlyphID *glyphs, l
             if (offset != 0) {
                 const le_int16 *offsetTable = (const le_int16 *)((char *) &ligatureSubstitutionHeader->stHeader + 2 * SignExtend(offset, lafComponentOffsetMask));
 
-                i += SWAPW(offsetTable[LE_GET_GLYPH(glyphs[componentGlyph])]);
+                i += SWAPW(offsetTable[LE_GET_GLYPH(glyphStorage[componentGlyph])]);
 
                 if (action & (lafLast | lafStore))  {
                     const TTGlyphID *ligatureOffset = (const TTGlyphID *) ((char *) &ligatureSubstitutionHeader->stHeader + i);
                     TTGlyphID ligatureGlyph = SWAPW(*ligatureOffset);
 
-                    glyphs[componentGlyph] = LE_SET_GLYPH(glyphs[componentGlyph], ligatureGlyph);
+                    glyphStorage[componentGlyph] = LE_SET_GLYPH(glyphStorage[componentGlyph], ligatureGlyph);
                     stack[++mm] = componentGlyph;
                     i = 0;
                 } else {
-                    glyphs[componentGlyph] = LE_SET_GLYPH(glyphs[componentGlyph], 0xFFFF);
+                    glyphStorage[componentGlyph] = LE_SET_GLYPH(glyphStorage[componentGlyph], 0xFFFF);
                 }
             }
         } while (!(action & lafLast));

@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: sched.h,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU
+ * $Id: sched.h,v 1.1.1.1 1993/06/16 23:51:13 jnweiger Exp $ FAU
  */
 
 struct event

@@ -103,8 +103,10 @@ SLPInternalError active_da_discovery(SLPHandle hSLP, time_t tWait, SOCKET sd, in
     SLPFree(pcSendBuf);
     SLPFree(pcRecvBuf);
     
+#ifdef ENABLE_SLP_LOGGING
     if (err != SLP_OK) 
         SLP_LOG(SLP_LOG_DEBUG,"active_da_discovery failed",err);
+#endif
 
     return err;
 }
@@ -172,7 +174,9 @@ SLPInternalError handle_daadvert_in(const char *pcSendBuf, /* for testing vs rqs
                 scopeToUse = safe_malloc( extLength+1, pcRecvBuf+extOffset, extLength );
                 if( !scopeToUse ) return SLP_PARSE_ERROR;
                     
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DA, "Received manditory scope to use for registration: %s", scopeToUse );
+#endif
             }
         }        
     }
@@ -232,7 +236,9 @@ SLPInternalError handle_daadvert_in(const char *pcSendBuf, /* for testing vs rqs
     {
         SLPDAAdvertCallback *psdaac = (SLPDAAdvertCallback *) pvCallback;
         /* the SA will propogate regs to this DA */
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG,"handle_daadvert_in calling callback");
+#endif
         psdaac(hSLP,iErrorCode,sinDA,pcScopes,pcDAAttrs,lBootTime,(void*)pdat);
     }
     else 
@@ -433,8 +439,10 @@ SLPInternalError active_sa_async_discovery(SLPHandle hSLP, SLPScopeCallback call
     SLPFree(pcRecvBuf);
     CLOSESOCKET(sd);
     
+#ifdef ENABLE_SLP_LOGGING
     if (err != SLP_OK)
         SLP_LOG(SLP_LOG_DEBUG,"active_sa_async_discovery failed",err);
+#endif
     
     return err;
 }

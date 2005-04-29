@@ -1,6 +1,7 @@
 // Input streams -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1997, 1998, 1999, 2001, 2002, 2003, 2004
+// Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -36,8 +37,8 @@
  *  in your programs, rather than any of the "st[dl]_*.h" implementation files.
  */
 
-#ifndef _CPP_ISTREAM
-#define _CPP_ISTREAM	1
+#ifndef _GLIBCXX_ISTREAM
+#define _GLIBCXX_ISTREAM 1
 
 #pragma GCC system_header
 
@@ -69,10 +70,18 @@ namespace std
       typedef basic_streambuf<_CharT, _Traits> 		__streambuf_type;
       typedef basic_ios<_CharT, _Traits>		__ios_type;
       typedef basic_istream<_CharT, _Traits>		__istream_type;
-      typedef istreambuf_iterator<_CharT, _Traits>	__istreambuf_iter;
-      typedef num_get<_CharT, __istreambuf_iter>        __numget_type;
+      typedef num_get<_CharT, istreambuf_iterator<_CharT, _Traits> >        
+ 							__num_get_type;
       typedef ctype<_CharT>           			__ctype_type;
 
+      template<typename _CharT2, typename _Traits2>
+        friend basic_istream<_CharT2, _Traits2>&
+        operator>>(basic_istream<_CharT2, _Traits2>&, _CharT2&);
+ 
+      template<typename _CharT2, typename _Traits2>
+        friend basic_istream<_CharT2, _Traits2>&
+        operator>>(basic_istream<_CharT2, _Traits2>&, _CharT2*);
+ 
     protected:
       // Data Members:
       /**
@@ -93,11 +102,8 @@ namespace std
        *  their own stream buffer.
       */
       explicit 
-      basic_istream(__streambuf_type* __sb)
-      { 
-	this->init(__sb);
-	_M_gcount = streamsize(0);
-      }
+      basic_istream(__streambuf_type* __sb): _M_gcount(streamsize(0))
+      { this->init(__sb); }
 
       /**
        *  @brief  Base destructor.
@@ -122,13 +128,13 @@ namespace std
        *  functions in constructs like "std::cin >> std::ws".  For more
        *  information, see the iomanip header.
       */
-      __istream_type&
+      inline __istream_type&
       operator>>(__istream_type& (*__pf)(__istream_type&));
 
-      __istream_type&
+      inline __istream_type&
       operator>>(__ios_type& (*__pf)(__ios_type&));
 
-      __istream_type&
+      inline __istream_type&
       operator>>(ios_base& (*__pf)(ios_base&));
       //@}
       
@@ -181,7 +187,7 @@ namespace std
       __istream_type& 
       operator>>(unsigned long& __n);
 
-#ifdef _GLIBCPP_USE_LONG_LONG
+#ifdef _GLIBCXX_USE_LONG_LONG
       __istream_type& 
       operator>>(long long& __n);
 
@@ -206,7 +212,7 @@ namespace std
        *  @param  sb  A pointer to a streambuf
        *
        *  This function behaves like one of the basic arithmetic extractors,
-       *  in that it also constructs a sentry onject and has the same error
+       *  in that it also constructs a sentry object and has the same error
        *  handling behavior.
        *
        *  If @a sb is NULL, the stream will set failbit in its error state.
@@ -406,9 +412,20 @@ namespace std
        *  - the next character equals @a delim (in this case, the character
        *    is extracted); note that this condition will never occur if
        *    @a delim equals @c traits::eof().
+       *
+       *  NB: Provide three overloads, instead of the single function
+       *  (with defaults) mandated by the Standard: this leads to a
+       *  better performing implementation, while still conforming to
+       *  the Standard.
       */
       __istream_type& 
-      ignore(streamsize __n = 1, int_type __delim = traits_type::eof());
+      ignore();
+
+      __istream_type& 
+      ignore(streamsize __n);
+
+      __istream_type& 
+      ignore(streamsize __n, int_type __delim);
       
       /**
        *  @brief  Looking ahead in the stream
@@ -470,10 +487,6 @@ namespace std
        *
        *  @note  Since no characters are extracted, the next call to
        *         @c gcount() will return 0, as required by DR 60.
-       *
-       *  @if maint
-       *  FIXME We don't comply with DR 60 here, _M_gcount is untouched.
-       *  @endif
       */
       __istream_type& 
       putback(char_type __c);
@@ -507,9 +520,6 @@ namespace std
        *  @note  This function does not count the number of characters
        *         extracted, if any, and therefore does not affect the next
        *         call to @c gcount().
-       *  @if maint
-       *  FIXME We don't comply with DR 60 here, _M_gcount is zeroed.
-       *  @endif
       */
       int 
       sync();
@@ -539,9 +549,6 @@ namespace std
        *  @note  This function does not count the number of characters
        *         extracted, if any, and therefore does not affect the next
        *         call to @c gcount().
-       *  @if maint
-       *  FIXME We don't comply with DR 60 here, _M_gcount is zeroed.
-       *  @endif
       */
       __istream_type& 
       seekg(pos_type);
@@ -558,13 +565,14 @@ namespace std
        *  @note  This function does not count the number of characters
        *         extracted, if any, and therefore does not affect the next
        *         call to @c gcount().
-       *  @if maint
-       *  FIXME We don't comply with DR 60 here, _M_gcount is zeroed.
-       *  @endif
       */
       __istream_type& 
       seekg(off_type, ios_base::seekdir);
       //@}
+
+    protected:
+      explicit 
+      basic_istream(): _M_gcount(streamsize(0)) { }
     };
   
   /**
@@ -620,7 +628,7 @@ namespace std
        *  For ease of use, sentries may be converted to booleans.  The
        *  return value is that of the sentry state (true == okay).
       */
-      operator bool() { return _M_ok; }
+      operator bool() const { return _M_ok; }
 
     private:
       bool _M_ok;
@@ -708,15 +716,14 @@ namespace std
       public basic_ostream<_CharT, _Traits>
     {
     public:
-#ifdef _GLIBCPP_RESOLVE_LIB_DEFECTS
-// 271. basic_iostream missing typedefs
+      // _GLIBCXX_RESOLVE_LIB_DEFECTS
+      // 271. basic_iostream missing typedefs
       // Types (inherited):
       typedef _CharT                     		char_type;
       typedef typename _Traits::int_type 		int_type;
       typedef typename _Traits::pos_type 		pos_type;
       typedef typename _Traits::off_type 		off_type;
       typedef _Traits                    		traits_type;
-#endif
 
       // Non-standard Types:
       typedef basic_istream<_CharT, _Traits>		__istream_type;
@@ -730,14 +737,19 @@ namespace std
       */
       explicit 
       basic_iostream(basic_streambuf<_CharT, _Traits>* __sb)
-      : __istream_type(__sb), __ostream_type(__sb)
-      { }
+      : __istream_type(), __ostream_type()
+      { this->init(__sb); }
 
       /**
        *  @brief  Destructor does nothing.
       */
       virtual 
       ~basic_iostream() { }
+
+    protected:
+      explicit 
+      basic_iostream() : __istream_type(), __ostream_type()
+      { }
     };
 
   // [27.6.1.4] standard basic_istream manipulators
@@ -766,11 +778,8 @@ namespace std
     ws(basic_istream<_CharT, _Traits>& __is);
 } // namespace std
 
-#ifdef _GLIBCPP_NO_TEMPLATE_EXPORT
-# define export
-#endif
-#ifdef  _GLIBCPP_FULLY_COMPLIANT_HEADERS
+#ifndef _GLIBCXX_EXPORT_TEMPLATE
 # include <bits/istream.tcc>
 #endif
 
-#endif	/* _CPP_ISTREAM */
+#endif	/* _GLIBCXX_ISTREAM */

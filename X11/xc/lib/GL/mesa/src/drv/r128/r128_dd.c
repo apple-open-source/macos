@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_dd.c,v 1.15 2002/10/30 12:51:38 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_dd.c,v 1.16 2003/09/28 20:15:20 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -40,12 +40,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r128_dd.h"
 
 #include "context.h"
-#include "extensions.h"
-#if defined(USE_X86_ASM)
-#include "X86/common_x86_asm.h"
-#endif
 
-#define R128_DATE	"20020221"
+#include "utils.h"
+
+#define DRIVER_DATE	"20030328"
 
 
 /* Return the width and height of the current color buffer.
@@ -68,59 +66,28 @@ static const GLubyte *r128DDGetString( GLcontext *ctx, GLenum name )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
    static char buffer[128];
+   unsigned   offset;
+   const char * card_name = "Rage 128";
+   GLuint agp_mode = rmesa->r128Screen->IsPCI ? 0 :
+      rmesa->r128Screen->AGPMode;
 
    switch ( name ) {
    case GL_VENDOR:
       return (GLubyte *)"VA Linux Systems, Inc.";
 
    case GL_RENDERER:
-      sprintf( buffer, "Mesa DRI Rage128 " R128_DATE );
-
-      /* Append any chipset-specific information.
+      /* Select the spefic chipset.
        */
       if ( R128_IS_PRO( rmesa ) ) {
-	 strncat( buffer, " Pro", 4 );
+	 card_name = "Rage 128 Pro";
       }
-      if ( R128_IS_MOBILITY( rmesa ) ) {
-	 strncat( buffer, " M3", 3 );
-      }
-
-      /* Append any AGP-specific information.
-       */
-      switch ( rmesa->r128Screen->AGPMode ) {
-      case 1:
-	 strncat( buffer, " AGP 1x", 7 );
-	 break;
-      case 2:
-	 strncat( buffer, " AGP 2x", 7 );
-	 break;
-      case 4:
-	 strncat( buffer, " AGP 4x", 7 );
-	 break;
+      else if ( R128_IS_MOBILITY( rmesa ) ) {
+	 card_name = "Rage 128 Mobility";
       }
 
-      /* Append any CPU-specific information.
-       */
-#ifdef USE_X86_ASM
-      if ( _mesa_x86_cpu_features ) {
-	 strncat( buffer, " x86", 4 );
-      }
-#ifdef USE_MMX_ASM
-      if ( cpu_has_mmx ) {
-	 strncat( buffer, "/MMX", 4 );
-      }
-#endif
-#ifdef USE_3DNOW_ASM
-      if ( cpu_has_3dnow ) {
-	 strncat( buffer, "/3DNow!", 7 );
-      }
-#endif
-#ifdef USE_SSE_ASM
-      if ( cpu_has_xmm ) {
-	 strncat( buffer, "/SSE", 4 );
-      }
-#endif
-#endif
+      offset = driGetRendererString( buffer, card_name, DRIVER_DATE,
+				     agp_mode );
+
       return (GLubyte *)buffer;
 
    default:
@@ -167,16 +134,6 @@ static void r128DDFinish( GLcontext *ctx )
    r128WaitForIdle( rmesa );
 }
 
-
-/* Initialize the extensions supported by this driver.
- */
-void r128DDInitExtensions( GLcontext *ctx )
-{
-   _mesa_enable_extension( ctx, "GL_ARB_multitexture" );
-   _mesa_enable_extension( ctx, "GL_ARB_texture_env_add" );
-   _mesa_enable_extension( ctx, "GL_EXT_texture_env_add" );
-   _mesa_enable_imaging_extensions( ctx );
-}
 
 /* Initialize the driver's misc functions.
  */

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
 --          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
@@ -374,8 +373,11 @@ package body Tree_IO is
 
       declare
          B : Byte;
+         pragma Warnings (Off, B);
+
       begin
          B := Read_Byte;
+
       exception
          when Tree_Format_Error => return;
       end;

@@ -46,6 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/reqtype.h,v 1.6 2003/11/17 22:20:49 dawes Exp $ */
 
 #ifndef	_REQTYPE_H_
 #define	_REQTYPE_H_
@@ -55,17 +56,13 @@ in this Software without prior written authorization from The Open Group.
 #define	REQ_TYPE_MAYBE	2
 
 extern Bool GeneratesEvents(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReq * /*req*/
-#endif
 );
 
 extern int GeneratesReplies(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReq * /*req*/
-#endif
 );
 
 #endif				/* _REQTYPE_H_ */

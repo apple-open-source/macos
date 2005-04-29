@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/NextEvent.c,v 3.26 2002/06/04 21:55:42 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/NextEvent.c,v 3.27 2003/04/21 16:34:28 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include <stdio.h>
@@ -540,7 +540,6 @@ ENDILOOP:   ;
  * entering select/poll. It is illegal for drop_lock to be FALSE if
  * ignoreTimers, ignoreInputs, or ignoreSignals is FALSE.
  */
-#if NeedFunctionPrototypes
 int _XtWaitForSomething(
     XtAppContext app,
     _XtBoolean ignoreEvents,
@@ -552,25 +551,6 @@ int _XtWaitForSomething(
     _XtBoolean drop_lock,
 #endif
     unsigned long *howlong)
-#else
-int _XtWaitForSomething(app,
-			ignoreEvents, ignoreTimers, ignoreInputs, ignoreSignals,
-			block, 
-#ifdef XTHREADS
-			drop_lock, 
-#endif
-			howlong)
-    XtAppContext app;
-    Boolean ignoreEvents;
-    Boolean ignoreTimers;
-    Boolean ignoreInputs;
-    Boolean ignoreSignals;
-    Boolean block;
-#ifdef XTHREADS
-    Boolean drop_lock;
-#endif
-    unsigned long *howlong;
-#endif
 {
     wait_times_t wt;
     wait_fds_t wf;
@@ -1216,15 +1196,9 @@ void XtNextEvent(event)
 	XtAppNextEvent(_XtDefaultAppContext(), event);
 }
 
-#if NeedFunctionPrototypes
 void _XtRefreshMapping(
     XEvent* event,
     _XtBoolean dispatch)
-#else
-void _XtRefreshMapping(event, dispatch)
-    XEvent *event;
-    Boolean dispatch;
-#endif
 {
     XtPerDisplay pd;
 

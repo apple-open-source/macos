@@ -32,20 +32,16 @@
  *
  *	@(#)limits.h	8.3 (Berkeley) 1/4/94
  */
-/*
- * HISTORY
- *
- *	10-July-97  Umesh Vaishampayan  (umeshv@apple.com)
- *		Fixed conflicts with float.h. Avoid multiple includes.
- */
 
 #ifndef _PPC_LIMITS_H_
 #define _PPC_LIMITS_H_
 
+#include <ppc/_limits.h>
+
 #define	CHAR_BIT	8		/* number of bits in a char */
 #define	MB_LEN_MAX	6		/* Allow 31 bit UTF2 */
 
-#define	CLK_TCK		100		/* ticks per second */
+#define	CLK_TCK		__DARWIN_CLK_TCK	/* ticks per second */
 
 /*
  * According to ANSI (section 2.2.4.2), the values below must be usable by
@@ -72,30 +68,40 @@
 #define	INT_MAX		2147483647	/* max value for an int */
 #define	INT_MIN		(-2147483647-1)	/* min value for an int */
 
-#define	ULONG_MAX	0xffffffff	/* max value for an unsigned long */
-#define	LONG_MAX	2147483647	/* max value for a long */
-#define	LONG_MIN	(-2147483647-1)	/* min value for a long */
+#ifdef __LP64__
+#define	ULONG_MAX	0xffffffffffffffffUL	/* max unsigned long */
+#define	LONG_MAX	0x7fffffffffffffffL	/* max signed long */
+#define	LONG_MIN	(-0x7fffffffffffffffL-1) /* min signed long */
+#else /* !__LP64__ */
+#define	ULONG_MAX	0xffffffffL	/* max value for an unsigned long */
+#define	LONG_MAX	2147483647L	/* max value for a long */
+#define	LONG_MIN	(-2147483647L-1) /* min value for a long */
+#endif /* __LP64__ */
 
 #define	ULLONG_MAX	0xffffffffffffffffULL	/* max unsigned long long */
 #define	LLONG_MAX	0x7fffffffffffffffLL	/* max signed long long */
 #define	LLONG_MIN	(-0x7fffffffffffffffLL-1) /* min signed long long */
 
 #if !defined(_ANSI_SOURCE)
-#define	SSIZE_MAX	INT_MAX		/* max value for a ssize_t */
+#define	SSIZE_MAX	LONG_MAX	/* max value for a ssize_t */
 
-#if !defined(_POSIX_SOURCE) && !defined(_XOPEN_SOURCE)
-#define	SIZE_T_MAX	UINT_MAX	/* max value for a size_t */
+#if !defined(_POSIX_C_SOURCE) && !defined(_XOPEN_SOURCE)
+#define	SIZE_T_MAX	ULONG_MAX	/* max value for a size_t */
 
 #define	UQUAD_MAX	ULLONG_MAX
 #define	QUAD_MAX	LLONG_MAX
 #define	QUAD_MIN	LLONG_MIN
 
-#endif /* !_POSIX_SOURCE && !_XOPEN_SOURCE */
+#endif /* !_POSIX_C_SOURCE && !_XOPEN_SOURCE */
 #endif /* !_ANSI_SOURCE */
 
-#if (!defined(_ANSI_SOURCE)&&!defined(_POSIX_SOURCE)) || defined(_XOPEN_SOURCE)
+#if (!defined(_ANSI_SOURCE)&&!defined(_POSIX_C_SOURCE)) || defined(_XOPEN_SOURCE)
+#ifdef __LP64__
+#define LONG_BIT	64
+#else /* !__LP64__ */
 #define LONG_BIT	32
+#endif /* __LP64__ */
 #define WORD_BIT	32
-#endif /* (!(_ANSI_SOURCE) && !(_POSIX_SOURCE)) || (_XOPEN_SOURCE) */
+#endif /* (!(_ANSI_SOURCE) && !(_POSIX_C_SOURCE)) || (_XOPEN_SOURCE) */
 
 #endif /* _PPC_LIMITS_H_ */

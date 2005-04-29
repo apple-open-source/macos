@@ -6,7 +6,7 @@ MAINPROG_CFLAGS := -g -ffix-and-continue
 MAINPROG_LDFLAGS := -framework Foundation \
      -L/System/Library/PrivateFrameworks/ZeroLink.framework/Versions/A/Resources
 
-FIX_CFLAGS := $(MAINPROG_CFLAGS) -findirect-data -mno-dynamic-no-pic
+FIX_CFLAGS := $(MAINPROG_CFLAGS) -findirect-data -mno-dynamic-no-pic -freplace-objc-classes
 
 MAKE_A_BUNDLE_FLAGS := -bundle -flat_namespace -undefined suppress
 
@@ -35,7 +35,7 @@ stage2:
 	cp class-v2.m class.m
 	gcc $(FIX_CFLAGS) -c class.m
 	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class.o reload-stub.o
+	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B2SUFFIX) class.o
 
 # Second rebuild of class.o
 stage3:
@@ -43,7 +43,7 @@ stage3:
 	cp class-v3.m class.m
 	gcc $(FIX_CFLAGS) -c class.m
 	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class.o reload-stub.o
+	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B3SUFFIX) class.o
 
 # Third rebuild of class.o
 stage4:
@@ -51,7 +51,7 @@ stage4:
 	cp class-v4.m class.m
 	gcc $(FIX_CFLAGS) -c class.m
 	gcc -c -o reload-stub.o reload-stub.s
-	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class.o reload-stub.o
+	gcc $(MAKE_A_BUNDLE_FLAGS) -o class-bundlized.o$(B4SUFFIX) class.o
 
 clean:
 	rm -f a.out a.o b.o b-v1.o b-v2.o b-v3.o b.o.[0-9]*

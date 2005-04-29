@@ -7,8 +7,10 @@
 #include <mach/mach.h>
 #include <mach/mach_host.h>
 #include <mach/mach_error.h>
+#include <mach-o/arch.h>
 #include <libc.h>
 #include <servers/bootstrap.h>
+#include <signal.h>
 #include <sysexits.h>
 
 #include <IOKit/kext/KXKextManager.h>
@@ -26,6 +28,7 @@
 static const char * KEXTD_SERVER_NAME = "com.apple.KernelExtensionServer";
 
 #define kKXROMExtensionsFolder        "/System/Library/Caches/com.apple.romextensions/"
+#define kKXCSystemExtensionsFolder    "/System/Library/Extensions"
 
 char * progname = "(unknown)";  // don't free
 Boolean use_repository_caches = true;
@@ -34,6 +37,10 @@ Boolean load_in_task = false;
 Boolean jettison_kernel_linker = true;
 int g_verbose_level = 0;        // nonzero for -v option
 Boolean safe_boot_mode = false;
+
+static Boolean parent_received_sigterm = false;
+static Boolean parent_received_sigchld = false;
+static Boolean parent_received_sigalrm = false;
 
 // options for these are not yet implemented
 char * g_kernel_file = NULL;  // don't free
@@ -52,6 +59,9 @@ CFRunLoopRef gMainRunLoop = NULL;                      // must release
 CFRunLoopSourceRef gRescanRunLoopSource = NULL;        // must release
 CFRunLoopSourceRef gKernelRequestRunLoopSource = NULL; // must release
 CFRunLoopSourceRef gClientRequestRunLoopSource = NULL; // must release
+static CFMachPortRef gKextdSignalMachPort = NULL;      // must release
+static CFRunLoopSourceRef gSignalRunLoopSource = NULL; // must release
+
 #ifndef NO_CFUserNotification
 CFRunLoopSourceRef gNotificationQueueRunLoopSource = NULL;     // must release
 #endif /* NO_CFUserNotification */
@@ -61,6 +71,8 @@ const char * default_kernel_file = "/mach";
 queue_head_t g_request_queue;
 PTLockRef gKernelRequestQueueLock = NULL;
 PTLockRef gRunLoopSourceLock = NULL;
+
+static mach_port_t gBootstrap_port = 0;
 
 /*******************************************************************************
 * Function prototypes.
@@ -73,16 +85,23 @@ static Boolean kextd_set_up_server(void);
 static void kextd_release_parent_task(void);
 
 void kextd_register_signals(void);
-void kextd_handle_sigterm(int signum);
+void kextd_parent_handle_signal(int signum);
 void kextd_handle_sighup(int signum);
-void kextd_handle_sighup_in_runloop(void * info);
+void kextd_handle_rescan(void * info);
 
 static Boolean kextd_find_rom_mkexts(void);
+static void check_extensions_mkext(void);
 static Boolean kextd_download_personalities(void);
 
 static void usage(int level);
 
 char * CFURLCopyCString(CFURLRef anURL);
+
+void kextd_runloop_handle_sighup(
+    CFMachPortRef port,
+    void *msg,
+    CFIndex size,
+    void *info);
 
 /*******************************************************************************
 *******************************************************************************/
@@ -311,6 +330,11 @@ int main (int argc, const char * argv[]) {
     }
 
    /*****
+    * Check Extensions.mkext needs a rebuild
+    */
+    check_extensions_mkext();
+
+   /*****
     * Set up the kext manager.
     */
     gKextManager = KXKextManagerCreate(kCFAllocatorDefault);
@@ -336,6 +360,7 @@ int main (int argc, const char * argv[]) {
     KXKextManagerSetLogLevel(gKextManager, g_verbose_level);
     KXKextManagerSetLogFunction(gKextManager, kextd_log);
     KXKextManagerSetErrorLogFunction(gKextManager, kextd_error_log);
+    KXKextManagerSetWillUpdateCatalog(gKextManager, true);
 
    /*****
     * Disable clearing of relationships until we're done putting everything
@@ -473,6 +498,8 @@ static kern_return_t process_mkext(const UInt8 * bytes, CFIndex length)
     strcpy(mkextunpack_cmd, MKEXTUNPACK_COMMAND);
     strcat(mkextunpack_cmd, temp_file);
 
+    // kextd_error_log(mkextunpack_cmd);
+
     if (0 != system(mkextunpack_cmd))
     {
 	kextd_error_log(mkextunpack_cmd);
@@ -488,6 +515,10 @@ finish:
 
     return err;
 }
+
+/*******************************************************************************
+*
+*******************************************************************************/
 
 static Boolean kextd_find_rom_mkexts(void)
 {
@@ -530,31 +561,75 @@ static Boolean kextd_find_rom_mkexts(void)
 *
 *******************************************************************************/
 
+#define REBUILDMKEXT_COMMAND	"/usr/sbin/kextcache -elF -a "
+
+static void check_extensions_mkext(void)
+{
+    struct stat extensions_stat_buf;
+    struct stat mkext_stat_buf;
+    Boolean rebuild;
+    char rebuildmkext_cmd[1 + strlen(REBUILDMKEXT_COMMAND) + 64];
+
+    rebuild = (0 != stat(kKXCSystemExtensionsFolder ".mkext", &mkext_stat_buf));
+    if (!rebuild && (0 == stat(kKXCSystemExtensionsFolder, &extensions_stat_buf)))
+	rebuild = (mkext_stat_buf.st_mtime != (extensions_stat_buf.st_mtime + 1));
+    
+    if (rebuild) do
+    {
+	const NXArchInfo *
+	arch = NXGetLocalArchInfo();
+	if (arch)
+	    arch = NXGetArchInfoFromCpuType(arch->cputype, CPU_SUBTYPE_MULTIPLE);
+	if (!arch)
+	{
+	    kextd_error_log("unknown architecture");
+	    break;
+	}
+
+	strcpy(rebuildmkext_cmd, REBUILDMKEXT_COMMAND);
+	strcat(rebuildmkext_cmd, arch->name);
+
+	// kextd_error_log(rebuildmkext_cmd);
+
+	if (0 != system(rebuildmkext_cmd))
+	{
+	    kextd_error_log(rebuildmkext_cmd);
+	    kextd_error_log("failed");
+	    break;
+	}
+    }
+    while (false);
+}
+
+/*******************************************************************************
+*
+*******************************************************************************/
+
 static Boolean kextd_is_running(mach_port_t * bootstrap_port_ref)
 {
     boolean_t active = FALSE;
     Boolean result = false;
     kern_return_t kern_result = KERN_SUCCESS;
-    mach_port_t   bootstrap_port;
+    mach_port_t   the_bootstrap_port;
 
     if (bootstrap_port_ref && (*bootstrap_port_ref != PORT_NULL)) {
-        bootstrap_port = *bootstrap_port_ref;
+        the_bootstrap_port = *bootstrap_port_ref;
     } else {
         /* Get the bootstrap server port */
         kern_result = task_get_bootstrap_port(mach_task_self(),
-            &bootstrap_port);
+            &the_bootstrap_port);
         if (kern_result != KERN_SUCCESS) {
             kextd_error_log("task_get_bootstrap_port(): %s\n",
                 mach_error_string(kern_result));
             exit (EX_UNAVAILABLE);
         }
         if (bootstrap_port_ref) {
-            *bootstrap_port_ref = bootstrap_port;
+            *bootstrap_port_ref = the_bootstrap_port;
         }
     }
 
     /* Check "kextd" server status */
-    kern_result = bootstrap_status(bootstrap_port,
+    kern_result = bootstrap_status(the_bootstrap_port,
         (char *)KEXTD_SERVER_NAME, &active);
     switch (kern_result) {
       case BOOTSTRAP_SUCCESS:
@@ -602,47 +677,87 @@ static int kextd_get_mach_ports(void)
 *******************************************************************************/
 int kextd_fork(void)
 {
+    sigset_t signal_set;
+    sigset_t old_signal_set;
     uid_t pid;
 
-    // prep parent to receive sigterm from child
-    signal(SIGTERM, kextd_handle_sigterm);
+    sigemptyset(&signal_set);
+    sigaddset(&signal_set, SIGTERM);
+    sigaddset(&signal_set, SIGCHLD);
+    sigaddset(&signal_set, SIGALRM);
+
+    if (sigprocmask(SIG_BLOCK, &signal_set, &old_signal_set)) {
+         kextd_error_log("sigprocmask() failed");
+         return 0;
+    }
+
+    // prep parent to receive signals from/about child
+    signal(SIGTERM, kextd_parent_handle_signal);
+    signal(SIGCHLD, kextd_parent_handle_signal);
+    signal(SIGALRM, kextd_parent_handle_signal);
 
     pid = fork();
     switch (pid) {
+
       case -1:
-        return 0;
+        return 0;  // error
         break;
+
       case 0:   // child task
+
+        // child doesn't process sigterm or sigalrm
+        signal(SIGTERM, SIG_DFL);
+        signal(SIGALRM, SIG_DFL);
+
+        if (sigprocmask(SIG_UNBLOCK, &old_signal_set, NULL)) {
+             kextd_error_log("sigprocmask() failed");
+             return 0;
+        }
+
         // Reregister/get Mach ports for the child
         if (!kextd_get_mach_ports()) {
             // kextd_get_mach_ports() logged an error message
             exit(1);
         }
 
-        // child doesn't process sigterm
-        signal(SIGTERM, SIG_DFL);
         // FIXME: old kextd did this; is it needed?
         _CFRunLoopSetCurrent(NULL);
         break;
+
       default:  // parent task
-        {
-            /* parent: wait for signal, then exit */
-            int status;
 	    kextd_openlog("kextd-parent");  // should that arg be progname?
 
-            wait4(pid, (int *)&status, 0, 0);
-            if (WIFEXITED(status)) {
-                kextd_error_log(
-                    "*** %s (daemon) failed to start, exit status=%d",
-                    progname, WEXITSTATUS(status));
-            } else {
-                kextd_error_log(
-                    "*** %s (daemon) failed to start, received signal=%d",
-                    progname, WTERMSIG(status));
-            }
-            fflush (stderr);
-            exit(1);
-        }
+		struct itimerval timer_buf;
+		timer_buf.it_interval.tv_sec = 0;
+		timer_buf.it_interval.tv_usec = 0;
+		timer_buf.it_value.tv_sec = 40;
+		timer_buf.it_value.tv_usec = 0;
+		setitimer(ITIMER_REAL, &timer_buf, NULL);
+
+		while (1) {
+			sigsuspend(&old_signal_set);
+			if (parent_received_sigterm) {
+				kern_return_t    kern_result;
+				mach_timespec_t  waitTime = { 40, 0 };
+
+				kern_result = IOKitWaitQuiet(g_io_master_port, &waitTime);
+				if (kern_result == kIOReturnTimeout) {
+					kextd_error_log("IOKitWaitQuiet() timed out",
+					kern_result);
+				} else if (kern_result != kIOReturnSuccess) {
+					kextd_error_log("IOKitWaitQuiet() failed with result code %lx",
+					kern_result);
+					exit(1);
+				}
+				exit(0);
+			} else if (parent_received_sigchld) {
+				kextd_error_log("kextd forked child task exited abnormally");
+				exit(1);
+			} else if (parent_received_sigalrm) {
+				kextd_error_log("kextd parent task timed out waiting for signal from child");
+				exit(1);
+			}
+		}
         break;
     }
 
@@ -666,6 +781,7 @@ int kextd_fork(void)
 /*******************************************************************************
 * kextd_set_up_server()
 *******************************************************************************/
+// in mig_server.c
 extern void kextd_mach_port_callback(
     CFMachPortRef port,
     void *msg,
@@ -679,8 +795,17 @@ static Boolean kextd_set_up_server(void)
     CFRunLoopSourceContext sourceContext;
     unsigned int sourcePriority = 1;
     CFMachPortRef kextdMachPort = NULL;  // must release
+    mach_port_limits_t limits;  // queue limit for signal-handler port
 
-    if (kextd_is_running(&bootstrap_port)) {
+    if (kextd_is_running(&gBootstrap_port)) {
+        result = false;
+        goto finish;
+    }
+
+    gRunLoopSourceLock = PTLockCreate();
+    if (!gRunLoopSourceLock) {
+        kextd_error_log(
+            "failed to create kernel request run loop source lock");
         result = false;
         goto finish;
     }
@@ -701,7 +826,7 @@ static Boolean kextd_set_up_server(void)
     * It's important that each source have a distinct priority; sharing
     * them causes unpredictable behavior with the runloop.
     */
-    sourceContext.perform = kextd_handle_sighup_in_runloop;
+    sourceContext.perform = kextd_handle_rescan;
     gRescanRunLoopSource = CFRunLoopSourceCreate(kCFAllocatorDefault,
         sourcePriority++, &sourceContext);
     if (!gRescanRunLoopSource) {
@@ -733,6 +858,27 @@ static Boolean kextd_set_up_server(void)
         goto finish;
     }
     CFRunLoopAddSource(gMainRunLoop, gClientRequestRunLoopSource,
+        kCFRunLoopDefaultMode);
+
+    gKextdSignalMachPort = CFMachPortCreate(kCFAllocatorDefault,
+        kextd_runloop_handle_sighup, NULL, NULL);
+    limits.mpl_qlimit = 1;
+    kern_result = mach_port_set_attributes(mach_task_self(),
+        CFMachPortGetPort(gKextdSignalMachPort),
+        MACH_PORT_LIMITS_INFO,
+        (mach_port_info_t)&limits,
+        MACH_PORT_LIMITS_INFO_COUNT);
+    if (kern_result != KERN_SUCCESS) {
+        kextd_error_log("failed to set signal-handling port limits");
+    }
+    gSignalRunLoopSource = CFMachPortCreateRunLoopSource(
+        kCFAllocatorDefault, gKextdSignalMachPort, sourcePriority++);
+    if (!gSignalRunLoopSource) {
+       kextd_error_log("couldn't create signal-handling run loop source");
+        result = false;
+        goto finish;
+    }
+    CFRunLoopAddSource(gMainRunLoop, gSignalRunLoopSource,
         kCFRunLoopDefaultMode);
 
 #ifndef NO_CFUserNotification
@@ -809,26 +955,64 @@ void kextd_register_signals(void)
 * registered and used by parent of forked daemon to exit
 * upon signal from forked daemon.
 *******************************************************************************/
-void kextd_handle_sigterm(int signum)
+void kextd_parent_handle_signal(int signum)
 {
-    kern_return_t    kern_result;
-    mach_timespec_t  waitTime = { 40, 0 };
-
-    kern_result = IOKitWaitQuiet(g_io_master_port, &waitTime);
-    if (kern_result == kIOReturnTimeout) {
-        kextd_error_log("IOKitWaitQuiet() timed out");
-    } else if (kern_result != kIOReturnSuccess) {
-        kextd_error_log("IOKitWaitQuiet() failed with result code %lx",
-        kern_result);
+    switch (signum) {
+      case SIGTERM:
+        parent_received_sigterm = true;
+        break;
+      case SIGCHLD:
+        parent_received_sigchld = true;
+        break;
+      case SIGALRM:
+        parent_received_sigalrm = true;
+        break;
     }
-    _exit(0);
+    return;
+}
+
+/*******************************************************************************
+* On receiving a SIGHUP, the daemon sends a Mach message to the signal port,
+* causing the run loop handler function kextd_runloop_handle_sighup() to be called.
+*******************************************************************************/
+void kextd_handle_sighup(int signum)
+{
+    mach_msg_empty_send_t msg;
+    mach_msg_option_t options;
+    kern_return_t kern_result;
+
+    if (signum != SIGHUP) {
+        return;
+    }
+
+   /*
+    * send message to indicate that a request has been made
+    * for the daemon to be shutdown.
+    */
+    msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
+    msg.header.msgh_size = sizeof(msg);
+    msg.header.msgh_remote_port = CFMachPortGetPort(gKextdSignalMachPort);
+    msg.header.msgh_local_port = MACH_PORT_NULL;
+    msg.header.msgh_id = 0;
+    options = MACH_SEND_TIMEOUT;
+    kern_result = mach_msg(&msg.header,  /* msg */
+        MACH_SEND_MSG|options,      /* options */
+        msg.header.msgh_size,       /* send_size */
+        0,                          /* rcv_size */
+        MACH_PORT_NULL,             /* rcv_name */
+        0,                          /* timeout */
+        MACH_PORT_NULL);            /* notify */
     return;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_handle_sighup(int signum)
+void kextd_runloop_handle_sighup(
+    CFMachPortRef port,
+    void *msg,
+    CFIndex size,
+    void *info)
 {
     if (gRescanRunLoopSource) {
         PTLockTakeLock(gRunLoopSourceLock);
@@ -839,8 +1023,6 @@ void kextd_handle_sighup(int signum)
     } else {
         kextd_log("received SIGHUP before entering run loop; ignoring");
     }
-
-
     return;
 }
 
@@ -880,7 +1062,7 @@ void kextd_clear_all_notifications(void)
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_rescan(void)
+void kextd_handle_rescan(void * info)
 {
 #ifndef NO_CFUserNotification
     kextd_clear_all_notifications();
@@ -897,49 +1079,67 @@ void kextd_rescan(void)
 /*******************************************************************************
 *
 *******************************************************************************/
-void kextd_handle_sighup_in_runloop(void * info)
+static Boolean kextd_download_personalities(void)
 {
-    kextd_rescan();
-    return;
+    KXKextManagerError result;
+
+    result = KXKextManagerSendAllKextPersonalitiesToCatalog(gKextManager);
+
+    return (kKXKextManagerErrorNone == result) ? true : false;
 }
 
 /*******************************************************************************
 *
 *******************************************************************************/
-static Boolean kextd_download_personalities(void)
+static Boolean kextd_process_ndrvs(CFArrayRef repositoryDirectories)
 {
-    Boolean result = true;
-    CFArrayRef allKextPersonalities = NULL;  // must release
+    Boolean     result = true;
+    CFIndex     repositoryCount, r;
+    CFStringRef thisPath = NULL;        // don't release
+    CFURLRef    repositoryURL = NULL;   // must release
+    CFURLRef    ndrvDirURL = NULL;      // must release
 
-   /*****
-    * Empty the kernel's catalogue and send all candidate kext personalities
-    * down.
-    */
-    IOCatalogueReset(g_io_master_port, kIOCatalogResetDefault);
+    repositoryCount = CFArrayGetCount(repositoryDirectories);
+    for (r = 0; r < repositoryCount; r++) {
 
-    allKextPersonalities = KXKextManagerCopyAllKextPersonalities(gKextManager);
-    if (!allKextPersonalities) {
-        kextd_error_log("can't get kext personalities to send to kernel");
-        result = false;
-        goto finish;
-    }
+       /* Clean up at top of loop in case of a continue.
+        */
+        if (repositoryURL) {
+            CFRelease(repositoryURL);
+            repositoryURL = NULL;
+        }
+        if (ndrvDirURL) {
+            CFRelease(ndrvDirURL);
+            ndrvDirURL = NULL;
+        }
 
-    if (KXKextManagerSendPersonalitiesToCatalog(gKextManager,
-           allKextPersonalities) != kKXKextManagerErrorNone) {
+        thisPath = (CFStringRef)CFArrayGetValueAtIndex(
+            repositoryDirectories, r);
+        repositoryURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
+            thisPath, kCFURLPOSIXPathStyle, true);
+        if (!repositoryURL) {
+            kextd_error_log("memory allocation failure");
+            result = 0;
+            goto finish;
+        }
+        ndrvDirURL = CFURLCreateCopyAppendingPathComponent(kCFAllocatorDefault,
+            repositoryURL, CFSTR("AppleNDRV"), true);
+        if (!ndrvDirURL) {
+            kextd_error_log("memory allocation failure");
+            result = 0;
+            goto finish;
+        }
 
-        kextd_error_log("can't send kext personalities to kernel");
-        result = false;
-        goto finish;
+        IOLoadPEFsFromURL( ndrvDirURL, MACH_PORT_NULL );
     }
 
 finish:
-
-    if (allKextPersonalities) {
-        CFRelease(allKextPersonalities);
-    }
+    if (repositoryURL)   CFRelease(repositoryURL);
+    if (ndrvDirURL)      CFRelease(ndrvDirURL);
 
     return result;
 }
+
 
 /*******************************************************************************
 *

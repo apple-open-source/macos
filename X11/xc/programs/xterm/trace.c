@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/trace.c,v 3.16 2002/10/05 17:57:13 dickey Exp $
+ * $XFree86: xc/programs/xterm/trace.c,v 3.18 2003/09/21 17:12:48 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1997-2001 by Thomas E. Dickey
+Copyright 1997-2002,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -31,6 +31,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * debugging support via TRACE macro.
  */
 
+#include <version.h>
 #include <xterm.h>		/* for definition of GCC_UNUSED */
 #include <trace.h>
 
@@ -68,10 +69,25 @@ Trace(char *fmt,...)
 
     if (!fp) {
 	char name[BUFSIZ];
+#if 0				/* usually I do not want unique names */
+	int unique;
+	for (unique = 0;; ++unique) {
+	    if (unique)
+		sprintf(name, "Trace-%s.out-%d", trace_who, unique);
+	    else
+		sprintf(name, "Trace-%s.out", trace_who);
+	    if ((fp = fopen(name, "r")) == 0) {
+		break;
+	    }
+	    fclose(fp);
+	}
+#else
 	sprintf(name, "Trace-%s.out", trace_who);
+#endif
 	fp = fopen(name, "w");
 	if (fp != 0) {
 	    time_t now = time((time_t *) 0);
+	    fprintf(fp, "%s xterm patch #%d\n", XFREE86_VERSION, XTERM_PATCH);
 #ifdef HAVE_UNISTD_H
 	    fprintf(fp, "process %d real (%d/%d) effective (%d/%d) -- %s",
 		    getpid(),
@@ -160,6 +176,30 @@ visibleIChar(IChar * buf, unsigned len)
 	dst += strlen(dst);
     }
     return result;
+}
+
+void
+TraceSizeHints(XSizeHints * hints)
+{
+    TRACE(("size hints:\n"));
+    if (hints->flags & (USPosition | PPosition))
+	TRACE(("  position %d,%d\n", hints->y, hints->x));
+    if (hints->flags & (USSize | PSize))
+	TRACE(("  size %d,%d\n", hints->height, hints->width));
+    if (hints->flags & PMinSize)
+	TRACE(("  min %d,%d\n", hints->min_height, hints->min_width));
+    if (hints->flags & PMaxSize)
+	TRACE(("  max %d,%d\n", hints->max_height, hints->max_width));
+    if (hints->flags & PResizeInc)
+	TRACE(("  inc %d,%d\n", hints->height_inc, hints->width_inc));
+    if (hints->flags & PAspect)
+	TRACE(("  min aspect %d/%d\n", hints->min_aspect.y, hints->min_aspect.y));
+    if (hints->flags & PAspect)
+	TRACE(("  max aspect %d/%d\n", hints->max_aspect.y, hints->max_aspect.y));
+    if (hints->flags & PBaseSize)
+	TRACE(("  base %d,%d\n", hints->base_height, hints->base_width));
+    if (hints->flags & PWinGravity)
+	TRACE(("  gravity %d\n", hints->win_gravity));
 }
 
 /*

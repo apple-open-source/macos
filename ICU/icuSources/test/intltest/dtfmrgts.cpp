@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -434,7 +434,7 @@ void DateFormatRegressionTest::Test4065240(void)
 
         // Check to see if the resource is present; if not, we can't test
         ResourceBundle *bundle = new ResourceBundle(
-            u_getDataDirectory(), *curLocale, status);
+            NULL, *curLocale, status);
         failure(status, "new ResourceBundle");
             //(UnicodeString) "java.text.resources.DateFormatZoneData", curLocale);
 
@@ -671,7 +671,7 @@ void DateFormatRegressionTest::Test4101483(void)
     UErrorCode status = U_ZERO_ERROR;
     SimpleDateFormat *sdf = new SimpleDateFormat(UnicodeString("z"), Locale::getUS(), status);
     failure(status, "new SimpleDateFormat");
-    FieldPosition fp(DateFormat::TIMEZONE_FIELD);
+    FieldPosition fp(UDAT_TIMEZONE_FIELD);
     //Date d = date(9234567890L);
     UDate d = 9234567890.0;
     //StringBuffer buf = new StringBuffer("");

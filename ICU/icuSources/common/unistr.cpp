@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1999-2003, International Business Machines Corporation and   *
+* Copyright (C) 1999-2004, International Business Machines Corporation and   *
 * others. All Rights Reserved.                                               *
 ******************************************************************************
 *
@@ -20,17 +20,12 @@
 
 #include "unicode/utypes.h"
 #include "unicode/putil.h"
-#include "unicode/locid.h"
 #include "cstring.h"
 #include "cmemory.h"
 #include "unicode/ustring.h"
 #include "unicode/unistr.h"
-#include "unicode/uchar.h"
-#include "unicode/ucnv.h"
-#include "unicode/ubrk.h"
 #include "uhash.h"
 #include "ustr_imp.h"
-#include "unormimp.h"
 #include "umutex.h"
 
 #if 0
@@ -101,7 +96,20 @@ U_CDECL_END
 
 U_NAMESPACE_BEGIN
 
-const char UnicodeString::fgClassID=0;
+/* The Replaceable virtual destructor can't be defined in the header
+   due to how AIX works with multiple definitions of virtual functions.
+*/
+Replaceable::~Replaceable() {}
+Replaceable::Replaceable() {}
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(UnicodeString)
+
+UnicodeString U_EXPORT2
+operator+ (const UnicodeString &s1, const UnicodeString &s2) {
+    return
+        UnicodeString(s1.length()+s2.length()+1, (UChar32)0, 0).
+            append(s1).
+                append(s2);
+}
 
 //========================================
 // Reference Counting functions, put at top of file so that optimizing compilers
@@ -272,7 +280,7 @@ UnicodeString::UnicodeString(UChar *buff,
     fCapacity = US_STACKBUF_SIZE;
     fArray = fStackBuffer;
     fFlags = kShortString;
-  } else if(buffLength < -1 || buffLength > buffCapacity) {
+  } else if(buffLength < -1 || buffCapacity < 0 || buffLength > buffCapacity) {
     setToBogus();
   } else if(buffLength == -1) {
     // fLength = u_strlen(buff); but do not look beyond buffCapacity
@@ -284,66 +292,22 @@ UnicodeString::UnicodeString(UChar *buff,
   }
 }
 
-UnicodeString::UnicodeString(const char *codepageData,
-                             const char *codepage)
+UnicodeString::UnicodeString(const char *src, int32_t length, EInvariant)
   : fLength(0),
     fCapacity(US_STACKBUF_SIZE),
     fArray(fStackBuffer),
     fFlags(kShortString)
 {
-  if(codepageData != 0) {
-    doCodepageCreate(codepageData, (int32_t)uprv_strlen(codepageData), codepage);
-  }
-}
-
-
-UnicodeString::UnicodeString(const char *codepageData,
-                             int32_t dataLength,
-                             const char *codepage)
-  : fLength(0),
-    fCapacity(US_STACKBUF_SIZE),
-    fArray(fStackBuffer),
-    fFlags(kShortString)
-{
-  if(codepageData != 0) {
-    doCodepageCreate(codepageData, dataLength, codepage);
-  }
-}
-
-UnicodeString::UnicodeString(const char *src, int32_t srcLength,
-                             UConverter *cnv,
-                             UErrorCode &errorCode)
-  : fLength(0),
-    fCapacity(US_STACKBUF_SIZE),
-    fArray(fStackBuffer),
-    fFlags(kShortString)
-{
-  if(U_SUCCESS(errorCode)) {
-    // check arguments
-    if(src==NULL) {
-      // treat as an empty string, do nothing more
-    } else if(srcLength<-1) {
-      errorCode=U_ILLEGAL_ARGUMENT_ERROR;
-    } else {
-      // get input length
-      if(srcLength==-1) {
-        srcLength=(int32_t)uprv_strlen(src);
-      }
-      if(srcLength>0) {
-        if(cnv!=0) {
-          // use the provided converter
-          ucnv_resetToUnicode(cnv);
-          doCodepageCreate(src, srcLength, cnv, errorCode);
-        } else {
-          // use the default converter
-          cnv=u_getDefaultConverter(&errorCode);
-          doCodepageCreate(src, srcLength, cnv, errorCode);
-          u_releaseDefaultConverter(cnv);
-        }
-      }
+  if(src==NULL) {
+    // treat as an empty string
+  } else {
+    if(length<0) {
+      length=uprv_strlen(src);
     }
-
-    if(U_FAILURE(errorCode)) {
+    if(cloneArrayIfNeeded(length, length, FALSE)) {
+      u_charsToUChars(src, getArrayStart(), length);
+      fLength = length;
+    } else {
       setToBogus();
     }
   }
@@ -661,52 +625,6 @@ UnicodeString::doCompareCodePointOrder(int32_t start,
   }
 }
 
-int8_t
-UnicodeString::doCaseCompare(int32_t start,
-                             int32_t length,
-                             const UChar *srcChars,
-                             int32_t srcStart,
-                             int32_t srcLength,
-                             uint32_t options) const
-{
-  // compare illegal string values
-  // treat const UChar *srcChars==NULL as an empty string
-  if(isBogus()) {
-    return -1;
-  }
-
-  // pin indices to legal values
-  pinIndices(start, length);
-
-  if(srcChars == NULL) {
-    srcStart = srcLength = 0;
-  }
-
-  // get the correct pointer
-  const UChar *chars = getArrayStart();
-
-  chars += start;
-  srcChars += srcStart;
-
-  if(chars != srcChars) {
-    UErrorCode errorCode=U_ZERO_ERROR;
-    int32_t result=unorm_cmpEquivFold(chars, length, srcChars, srcLength,
-                                      options|U_COMPARE_IGNORE_CASE, &errorCode);
-    if(result!=0) {
-      return (int8_t)(result >> 24 | 1);
-    }
-  } else {
-    // get the srcLength if necessary
-    if(srcLength < 0) {
-      srcLength = u_strlen(srcChars + srcStart);
-    }
-    if(length != srcLength) {
-      return (int8_t)((length - srcLength) >> 24 | 1);
-    }
-  }
-  return 0;
-}
-
 int32_t
 UnicodeString::getLength() const {
     return length();
@@ -784,6 +702,37 @@ UnicodeString::extract(UChar *dest, int32_t destCapacity,
   }
 
   return fLength;
+}
+
+int32_t
+UnicodeString::extract(int32_t start,
+                       int32_t length,
+                       char *target,
+                       int32_t targetCapacity,
+                       enum EInvariant) const
+{
+  // if the arguments are illegal, then do nothing
+  if(targetCapacity < 0 || (targetCapacity > 0 && target == NULL)) {
+    return 0;
+  }
+
+  // pin the indices to legal values
+  pinIndices(start, length);
+
+  if(length <= targetCapacity) {
+    u_UCharsToChars(getArrayStart() + start, target, length);
+  }
+  UErrorCode status = U_ZERO_ERROR;
+  return u_terminateChars(target, targetCapacity, length, &status);
+}
+
+void 
+UnicodeString::extractBetween(int32_t start,
+                  int32_t limit,
+                  UnicodeString& target) const {
+  pinIndex(start);
+  pinIndex(limit);
+  doExtract(start, limit - start, target);
 }
 
 int32_t 
@@ -1041,9 +990,16 @@ UnicodeString::setTo(UChar *buffer,
     return *this;
   }
 
-  if(buffLength < 0 || buffLength > buffCapacity) {
+  if(buffLength < -1 || buffCapacity < 0 || buffLength > buffCapacity) {
     setToBogus();
     return *this;
+  } else if(buffLength == -1) {
+    // buffLength = u_strlen(buff); but do not look beyond buffCapacity
+    const UChar *p = buffer, *limit = buffer + buffCapacity;
+    while(p != limit && *p != 0) {
+      ++p;
+    }
+    buffLength = (int32_t)(p - buffer);
   }
 
   releaseArray();
@@ -1067,156 +1023,6 @@ UnicodeString::setCharAt(int32_t offset,
     }
 
     fArray[offset] = c;
-  }
-  return *this;
-}
-
-/*
- * Implement argument checking and buffer handling
- * for string case mapping as a common function.
- */
-enum {
-    TO_LOWER,
-    TO_UPPER,
-    TO_TITLE,
-    FOLD_CASE
-};
-
-UnicodeString &
-UnicodeString::toLower() {
-  return caseMap(0, Locale::getDefault(), 0, TO_LOWER);
-}
-
-UnicodeString &
-UnicodeString::toLower(const Locale &locale) {
-  return caseMap(0, locale, 0, TO_LOWER);
-}
-
-UnicodeString &
-UnicodeString::toUpper() {
-  return caseMap(0, Locale::getDefault(), 0, TO_UPPER);
-}
-
-UnicodeString &
-UnicodeString::toUpper(const Locale &locale) {
-  return caseMap(0, locale, 0, TO_UPPER);
-}
-
-#if !UCONFIG_NO_BREAK_ITERATION
-
-UnicodeString &
-UnicodeString::toTitle(BreakIterator *titleIter) {
-  return caseMap(titleIter, Locale::getDefault(), 0, TO_TITLE);
-}
-
-UnicodeString &
-UnicodeString::toTitle(BreakIterator *titleIter, const Locale &locale) {
-  return caseMap(titleIter, locale, 0, TO_TITLE);
-}
-
-#endif
-
-UnicodeString &
-UnicodeString::foldCase(uint32_t options) {
-    return caseMap(0, Locale::getDefault(), options, FOLD_CASE);
-}
-
-UnicodeString &
-UnicodeString::caseMap(BreakIterator *titleIter,
-                       const Locale& locale,
-                       uint32_t options,
-                       int32_t toWhichCase) {
-  if(fLength <= 0) {
-    // nothing to do
-    return *this;
-  }
-
-  // We need to allocate a new buffer for the internal string case mapping function.
-  // This is very similar to how doReplace() below keeps the old array pointer
-  // and deletes the old array itself after it is done.
-  // In addition, we are forcing cloneArrayIfNeeded() to always allocate a new array.
-  UChar *oldArray = fArray;
-  int32_t oldLength = fLength;
-  int32_t *bufferToDelete = 0;
-
-  // Make sure that if the string is in fStackBuffer we do not overwrite it!
-  int32_t capacity;
-  if(fLength <= US_STACKBUF_SIZE) {
-    if(fArray == fStackBuffer) {
-      capacity = 2 * US_STACKBUF_SIZE; // make sure that cloneArrayIfNeeded() allocates a new buffer
-    } else {
-      capacity = US_STACKBUF_SIZE;
-    }
-  } else {
-    capacity = fLength + 20;
-  }
-  if(!cloneArrayIfNeeded(capacity, capacity, FALSE, &bufferToDelete, TRUE)) {
-    return *this;
-  }
-
-  UErrorCode errorCode;
-
-#if !UCONFIG_NO_BREAK_ITERATION
-  // set up the titlecasing break iterator
-  UBreakIterator *cTitleIter = 0;
-
-  if(toWhichCase == TO_TITLE) {
-    if(titleIter != 0) {
-      cTitleIter = (UBreakIterator *)titleIter;
-    } else {
-      errorCode = U_ZERO_ERROR;
-      cTitleIter = ubrk_open(UBRK_WORD, locale.getName(),
-                             oldArray, oldLength,
-                             &errorCode);
-      if(U_FAILURE(errorCode)) {
-        uprv_free(bufferToDelete);
-        setToBogus();
-        return *this;
-      }
-    }
-  }
-#endif
-
-  // Case-map, and if the result is too long, then reallocate and repeat.
-  do {
-    errorCode = U_ZERO_ERROR;
-    if(toWhichCase==TO_LOWER) {
-      fLength = u_internalStrToLower(fArray, fCapacity,
-                                     oldArray, oldLength,
-                                     0, oldLength,
-                                     locale.getName(),
-                                     &errorCode);
-    } else if(toWhichCase==TO_UPPER) {
-      fLength = u_internalStrToUpper(fArray, fCapacity,
-                                     oldArray, oldLength,
-                                     locale.getName(),
-                                     &errorCode);
-#if !UCONFIG_NO_BREAK_ITERATION
-    } else if(toWhichCase==TO_TITLE) {
-      fLength = u_internalStrToTitle(fArray, fCapacity,
-                                     oldArray, oldLength,
-                                     cTitleIter, locale.getName(),
-                                     &errorCode);
-#endif
-    } else {
-      fLength = u_internalStrFoldCase(fArray, fCapacity,
-                                      oldArray, oldLength,
-                                      options,
-                                      &errorCode);
-    }
-  } while(errorCode==U_BUFFER_OVERFLOW_ERROR && cloneArrayIfNeeded(fLength, fLength, FALSE));
-
-#if !UCONFIG_NO_BREAK_ITERATION
-  if(cTitleIter != 0 && titleIter == 0) {
-    ubrk_close(cTitleIter);
-  }
-#endif
-
-  if (bufferToDelete) {
-    uprv_free(bufferToDelete);
-  }
-  if(U_FAILURE(errorCode)) {
-    setToBogus();
   }
   return *this;
 }
@@ -1427,53 +1233,6 @@ UnicodeString::padTrailing(int32_t targetLength,
   }
 }
 
-UnicodeString& 
-UnicodeString::trim()
-{
-  if(isBogus()) {
-    return *this;
-  }
-
-  UChar32 c;
-  int32_t i = fLength, length;
-
-  // first cut off trailing white space
-  for(;;) {
-    length = i;
-    if(i <= 0) {
-      break;
-    }
-    UTF_PREV_CHAR(fArray, 0, i, c);
-    if(!(c == 0x20 || u_isWhitespace(c))) {
-      break;
-    }
-  }
-  if(length < fLength) {
-    fLength = length;
-  }
-
-  // find leading white space
-  int32_t start;
-  i = 0;
-  for(;;) {
-    start = i;
-    if(i >= length) {
-      break;
-    }
-    UTF_NEXT_CHAR(fArray, i, length, c);
-    if(!(c == 0x20 || u_isWhitespace(c))) {
-      break;
-    }
-  }
-
-  // move string forward over leading white space
-  if(start > 0) {
-    doReplace(0, start, 0, 0, 0);
-  }
-
-  return *this;
-}
-
 //========================================
 // Hashing
 //========================================
@@ -1487,272 +1246,6 @@ UnicodeString::doHashCode() const
         hashCode = kEmptyHashCode;
     }
     return hashCode;
-}
-
-//========================================
-// Codeset conversion
-//========================================
-int32_t
-UnicodeString::extract(int32_t start,
-                       int32_t length,
-                       char *target,
-                       uint32_t dstSize,
-                       const char *codepage) const
-{
-  // if the arguments are illegal, then do nothing
-  if(/*dstSize < 0 || */(dstSize > 0 && target == 0)) {
-    return 0;
-  }
-
-  // pin the indices to legal values
-  pinIndices(start, length);
-
-  // create the converter
-  UConverter *converter;
-  UErrorCode status = U_ZERO_ERROR;
-
-  // just write the NUL if the string length is 0
-  if(length == 0) {
-      if(dstSize >= 0x80000000) {  
-          // careful: dstSize is unsigned! (0xffffffff means "unlimited")
-          // make sure that the NUL-termination works (takes int32_t)
-          dstSize=0x7fffffff;
-      }
-      return u_terminateChars(target, dstSize, 0, &status);
-  }
-
-  // if the codepage is the default, use our cache
-  // if it is an empty string, then use the "invariant character" conversion
-  if (codepage == 0) {
-    converter = u_getDefaultConverter(&status);
-  } else if (*codepage == 0) {
-    // use the "invariant characters" conversion
-    int32_t destLength;
-    // careful: dstSize is unsigned! (0xffffffff means "unlimited")
-    if(dstSize >= 0x80000000) {
-      destLength = length;
-      // make sure that the NUL-termination works (takes int32_t)
-      dstSize=0x7fffffff;
-    } else if(length <= (int32_t)dstSize) {
-      destLength = length;
-    } else {
-      destLength = (int32_t)dstSize;
-    }
-    u_UCharsToChars(getArrayStart() + start, target, destLength);
-    return u_terminateChars(target, (int32_t)dstSize, length, &status);
-  } else {
-    converter = ucnv_open(codepage, &status);
-  }
-
-  length = doExtract(start, length, target, (int32_t)dstSize, converter, status);
-
-  // close the converter
-  if (codepage == 0) {
-    u_releaseDefaultConverter(converter);
-  } else {
-    ucnv_close(converter);
-  }
-
-  return length;
-}
-
-int32_t
-UnicodeString::extract(char *dest, int32_t destCapacity,
-                       UConverter *cnv,
-                       UErrorCode &errorCode) const {
-  if(U_FAILURE(errorCode)) {
-    return 0;
-  }
-
-  if(isBogus() || destCapacity<0 || (destCapacity>0 && dest==0)) {
-    errorCode=U_ILLEGAL_ARGUMENT_ERROR;
-    return 0;
-  }
-
-  // nothing to do?
-  if(fLength<=0) {
-    return u_terminateChars(dest, destCapacity, 0, &errorCode);
-  }
-
-  // get the converter
-  UBool isDefaultConverter;
-  if(cnv==0) {
-    isDefaultConverter=TRUE;
-    cnv=u_getDefaultConverter(&errorCode);
-    if(U_FAILURE(errorCode)) {
-      return 0;
-    }
-  } else {
-    isDefaultConverter=FALSE;
-    ucnv_resetFromUnicode(cnv);
-  }
-
-  // convert
-  int32_t length=doExtract(0, fLength, dest, destCapacity, cnv, errorCode);
-
-  // release the converter
-  if(isDefaultConverter) {
-    u_releaseDefaultConverter(cnv);
-  }
-
-  return length;
-}
-
-void 
-UnicodeString::extractBetween(int32_t start,
-                  int32_t limit,
-                  UnicodeString& target) const
-{ doExtract(start, limit - start, target); }
-
-int32_t
-UnicodeString::doExtract(int32_t start, int32_t length,
-                         char *dest, int32_t destCapacity,
-                         UConverter *cnv,
-                         UErrorCode &errorCode) const {
-  if(U_FAILURE(errorCode)) {
-    if(destCapacity!=0) {
-      *dest=0;
-    }
-    return 0;
-  }
-
-  const UChar *src=fArray+start, *srcLimit=src+length;
-  char *originalDest=dest;
-  const char *destLimit;
-
-  if(destCapacity==0) {
-    destLimit=dest=0;
-  } else if(destCapacity==-1) {
-    // Pin the limit to U_MAX_PTR if the "magic" destCapacity is used.
-    destLimit=(char*)U_MAX_PTR(dest);
-    // for NUL-termination, translate into highest int32_t
-    destCapacity=0x7fffffff;
-  } else {
-    destLimit=dest+destCapacity;
-  }
-
-  // perform the conversion
-  ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, TRUE, &errorCode);
-  length=(int32_t)(dest-originalDest);
-
-  // if an overflow occurs, then get the preflighting length
-  if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
-    char buffer[1024];
-
-    destLimit=buffer+sizeof(buffer);
-    do {
-      dest=buffer;
-      errorCode=U_ZERO_ERROR;
-      ucnv_fromUnicode(cnv, &dest, destLimit, &src, srcLimit, 0, TRUE, &errorCode);
-      length+=(int32_t)(dest-buffer);
-    } while(errorCode==U_BUFFER_OVERFLOW_ERROR);
-  }
-
-  return u_terminateChars(originalDest, destCapacity, length, &errorCode);
-}
-
-void
-UnicodeString::doCodepageCreate(const char *codepageData,
-                int32_t dataLength,
-                const char *codepage)
-{
-  // if there's nothing to convert, do nothing
-  if(codepageData == 0 || dataLength <= 0) {
-    return;
-  }
-
-  UErrorCode status = U_ZERO_ERROR;
-
-  // create the converter
-  // if the codepage is the default, use our cache
-  // if it is an empty string, then use the "invariant character" conversion
-  UConverter *converter = (codepage == 0 ?
-                             u_getDefaultConverter(&status) :
-                             *codepage == 0 ?
-                               0 :
-                               ucnv_open(codepage, &status));
-
-  // if we failed, set the appropriate flags and return
-  if(U_FAILURE(status)) {
-    setToBogus();
-    return;
-  }
-
-  // perform the conversion
-  if(converter == 0) {
-    // use the "invariant characters" conversion
-    if(cloneArrayIfNeeded(dataLength, dataLength, FALSE)) {
-      u_charsToUChars(codepageData, getArrayStart(), dataLength);
-      fLength = dataLength;
-    } else {
-      setToBogus();
-    }
-    return;
-  }
-
-  // convert using the real converter
-  doCodepageCreate(codepageData, dataLength, converter, status);
-  if(U_FAILURE(status)) {
-    setToBogus();
-  }
-
-  // close the converter
-  if(codepage == 0) {
-    u_releaseDefaultConverter(converter);
-  } else {
-    ucnv_close(converter);
-  }
-}
-
-void
-UnicodeString::doCodepageCreate(const char *codepageData,
-                                int32_t dataLength,
-                                UConverter *converter,
-                                UErrorCode &status) {
-  if(U_FAILURE(status)) {
-    return;
-  }
-
-  // set up the conversion parameters
-  const char *mySource     = codepageData;
-  const char *mySourceEnd  = mySource + dataLength;
-  UChar *myTarget;
-
-  // estimate the size needed:
-  // 1.25 UChar's per source byte should cover most cases
-  int32_t arraySize = dataLength + (dataLength >> 2);
-
-  // we do not care about the current contents
-  UBool doCopyArray = FALSE;
-  for(;;) {
-    if(!cloneArrayIfNeeded(arraySize, arraySize, doCopyArray)) {
-      setToBogus();
-      break;
-    }
-
-    // perform the conversion
-    myTarget = fArray + fLength;
-    ucnv_toUnicode(converter, &myTarget,  fArray + fCapacity,
-           &mySource, mySourceEnd, 0, TRUE, &status);
-
-    // update the conversion parameters
-    fLength = (int32_t)(myTarget - fArray);
-
-    // allocate more space and copy data, if needed
-    if(status == U_BUFFER_OVERFLOW_ERROR) {
-      // reset the error code
-      status = U_ZERO_ERROR;
-
-      // keep the previous conversion results
-      doCopyArray = TRUE;
-
-      // estimate the new size needed, larger than before
-      // try 2 UChar's per remaining source byte
-      arraySize = (int32_t)(fLength + 2 * (mySourceEnd - mySource));
-    } else {
-      break;
-    }
-  }
 }
 
 //========================================

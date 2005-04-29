@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001 IBM and others. All rights reserved.
+*   Copyright (C) 2001-2004 IBM and others. All rights reserved.
 **********************************************************************
 *   Date        Name        Description
 *  08/13/2001   synwee      Creation.
@@ -42,8 +42,8 @@ struct UPattern {
           int32_t             textLength; // exact length
           // length required for backwards ce comparison
           int32_t             CELength; 
-          uint32_t           *CE;
-          uint32_t            CEBuffer[INITIAL_ARRAY_SIZE_];
+          int32_t            *CE;
+          int32_t             CEBuffer[INITIAL_ARRAY_SIZE_];
           UBool               hasPrefixAccents;
           UBool               hasSuffixAccents;
           int16_t             defaultShiftSize;

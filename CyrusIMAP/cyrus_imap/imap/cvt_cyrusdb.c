@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: cvt_cyrusdb.c,v 1.15 2004/05/22 03:45:48 rjs3 Exp $
+ * $Id: cvt_cyrusdb.c,v 1.5 2005/03/05 00:36:47 dasenbro Exp $
  */
 
 #include <config.h>
@@ -60,6 +60,7 @@
 #include <syslog.h>
 
 #include <sys/ipc.h>
+#include <sys/msg.h>
 
 #include "acl.h"
 #include "assert.h"

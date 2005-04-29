@@ -79,7 +79,7 @@ typedef struct {				/* format_disasm_line() data layout:	*/
      unsigned long addr;			/*   current addr being disassembled	*/
      unsigned long pc;				/*   current $pc value			*/
      short	   max_width;			/*   truncate to this width (if >0)	*/
-     GDB_FILE      *stream;			/*   output sto this stream		*/
+     GDB_FILE      *stream;			/*   output to this stream		*/
      unsigned short flags;			/*   control flags			*/
  	  #define FLAG_PC   	    0x0001	/*	flag pc line with '*' 		*/
 	  #define ALWAYS_SHOW_NAME  0x0002	/*	always show the function name	*/
@@ -195,6 +195,10 @@ typedef enum {					/* special screen_refresh() states:	*/
 } Special_Refresh_States;
 
 extern Special_Refresh_States immediate_flush;	/* Special_Refresh_States state switch	*/
+
+extern int current_pc_lines;			/* nbr of lines in pc area (may be 1 	*/
+						/* bigger than pc_area_lines if no sym	*/
+						/* for pc area				*/
 
 /*--------------------------------------------------------------------------------------*/
 

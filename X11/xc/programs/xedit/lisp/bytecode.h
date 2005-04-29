@@ -27,9 +27,9 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/bytecode.h,v 1.5 2002/11/23 08:26:48 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/bytecode.h,v 1.6 2003/04/27 18:17:31 tsi Exp $ */
 
-#include "private.h"
+#include "lisp/private.h"
 
 #ifndef Lisp_Bytecode_h
 #define Lisp_Bytecode_h

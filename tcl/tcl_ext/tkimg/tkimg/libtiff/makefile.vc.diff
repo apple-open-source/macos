@@ -1,0 +1,41 @@
+*** makefile.vc.orig	Sat May 13 07:05:06 2000
+--- makefile.vc	Fri Aug 11 09:22:42 2000
+***************
+*** 52,69 ****
+  	tif_write.obj \
+  	tif_zip.obj
+  
+! VERSION	= ..\VERSION
+! ALPHA = ..\dist\tiff.alpha
+  
+! default:	libtiff.lib
+  
+! all:	libtiff.lib libtiff.dll
+  
+! libtiff.lib:	$(OBJ)
+! 	lib /out:libtiff.lib $(OBJ)
+  
+! libtiff.dll:	$(OBJ)
+! 	link /dll /def:libtiff.def /out:libtiff.dll /implib:libtiff_i.lib \
+  		$(OBJ) $(LIBS)
+  	
+  version.h:	$(VERSION) $(ALPHA) mkversion.c
+--- 52,69 ----
+  	tif_write.obj \
+  	tif_zip.obj
+  
+! VERSION = VERSION
+! ALPHA = tiff.alpha
+  
+! default:	tiff.dll
+  
+! all:	tiff.lib tiff.dll
+  
+! tiffs.lib:	$(OBJ)
+! 	lib /out:libtiffs.lib $(OBJ)
+  
+! tiff.dll:	$(OBJ)
+! 	link /dll /def:libtiff.def /out:libtiff.dll /implib:tiff.lib \
+  		$(OBJ) $(LIBS)
+  	
+  version.h:	$(VERSION) $(ALPHA) mkversion.c

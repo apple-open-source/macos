@@ -23,7 +23,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/locale/ldpart.h,v 1.5 2002/08/08 05:51:54 ache Exp $
+ * $FreeBSD: src/lib/libc/locale/ldpart.h,v 1.6 2003/06/13 00:14:07 jkh Exp $
  */
 
 #ifndef _LDPART_H_
@@ -33,7 +33,7 @@
 #define _LDP_ERROR  (-1)
 #define _LDP_CACHE  1
 
-int	__part_load_locale(const char *, int*, char *, const char *,
+int	__part_load_locale(const char *, int*, char **, const char *,
 		    int, int, const char **);
 
 #endif /* !_LDPART_H_ */

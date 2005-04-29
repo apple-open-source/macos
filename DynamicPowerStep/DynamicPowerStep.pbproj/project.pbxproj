@@ -1,0 +1,254 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		4917C51201E3C21C03CA295E = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Headers;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242301E393D003CA295E = {
+			buildSettings = {
+			};
+			buildStyles = (
+				495F242501E393D003CA295E,
+				495F242601E393D003CA295E,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 495F242401E393D003CA295E;
+			productRefGroup = 495F242D01E3943503CA295E;
+			projectDirPath = "";
+			targets = (
+				495F242F01E3943503CA295E,
+			);
+		};
+		495F242401E393D003CA295E = {
+			children = (
+				495F242701E3943503CA295E,
+				4917C51201E3C21C03CA295E,
+				495F242901E3943503CA295E,
+				495F242D01E3943503CA295E,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242501E393D003CA295E = {
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		495F242601E393D003CA295E = {
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		495F242701E3943503CA295E = {
+			children = (
+				495F242801E3943503CA295E,
+			);
+			isa = PBXGroup;
+			name = Source;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242801E3943503CA295E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = DynamicPowerStep.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242901E3943503CA295E = {
+			children = (
+				495F242A01E3943503CA295E,
+				495F242B01E3943503CA295E,
+				495F242C01E3943503CA295E,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242A01E3943503CA295E = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		495F242B01E3943503CA295E = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		495F242C01E3943503CA295E = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = SystemConfiguration.framework;
+			path = /System/Library/Frameworks/SystemConfiguration.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		495F242D01E3943503CA295E = {
+			children = (
+				495F242E01E3943503CA295E,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		495F242E01E3943503CA295E = {
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
+			path = DynamicPowerStep.bundle;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		495F242F01E3943503CA295E = {
+			buildPhases = (
+				495F243001E3943503CA295E,
+				495F243101E3943503CA295E,
+				495F243201E3943503CA295E,
+				495F243401E3943503CA295E,
+				495F243801E3943503CA295E,
+			);
+			buildSettings = {
+				INSTALL_PATH = /System/Library/SystemConfiguration;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = DynamicPowerStep;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wall -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXBundleTarget;
+			name = DynamicPowerStep;
+			productInstallPath = /System/Library/SystemConfiguration;
+			productName = DynamicPowerStep;
+			productReference = 495F242E01E3943503CA295E;
+			productSettingsXML = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>DynamicPowerStep</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.SystemConfiguration.DynamicPowerStep</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>SystemConfiguration</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.3.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.3.0</string>
+</dict>
+</plist>
+";
+		};
+		495F243001E3943503CA295E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		495F243101E3943503CA295E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		495F243201E3943503CA295E = {
+			buildActionMask = 2147483647;
+			files = (
+				495F243301E3943503CA295E,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		495F243301E3943503CA295E = {
+			fileRef = 495F242801E3943503CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		495F243401E3943503CA295E = {
+			buildActionMask = 2147483647;
+			files = (
+				495F243501E3943503CA295E,
+				495F243601E3943503CA295E,
+				495F243701E3943503CA295E,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		495F243501E3943503CA295E = {
+			fileRef = 495F242A01E3943503CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		495F243601E3943503CA295E = {
+			fileRef = 495F242B01E3943503CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		495F243701E3943503CA295E = {
+			fileRef = 495F242C01E3943503CA295E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		495F243801E3943503CA295E = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+	};
+	rootObject = 495F242301E393D003CA295E;
+}

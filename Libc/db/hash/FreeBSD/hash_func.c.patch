@@ -1,0 +1,11 @@
+--- hash_func.c.orig	Sun Feb 16 09:29:09 2003
++++ hash_func.c	Sat Oct 18 18:30:57 2003
+@@ -45,7 +45,7 @@
+ #include <db.h>
+ #include "hash.h"
+ #include "page.h"
+-#include "extern.h"
++#include "hash_extern.h"
+ 
+ static u_int32_t hash1(const void *, size_t) __unused;
+ static u_int32_t hash2(const void *, size_t) __unused;

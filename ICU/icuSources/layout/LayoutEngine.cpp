@@ -1,8 +1,7 @@
 
 /*
- * %W% %E%
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -12,11 +11,15 @@
 
 #include "LayoutEngine.h"
 #include "ArabicLayoutEngine.h"
+#include "CanonShaping.h"
 #include "HanLayoutEngine.h"
 #include "IndicLayoutEngine.h"
 #include "ThaiLayoutEngine.h"
 #include "GXLayoutEngine.h"
 #include "ScriptAndLanguageTags.h"
+#include "CharSubstitutionFilter.h"
+
+#include "LEGlyphStorage.h"
 
 #include "OpenTypeUtilities.h"
 #include "GlyphSubstitutionTables.h"
@@ -82,142 +85,131 @@ LEUnicode32 DefaultCharMapper::mapChar(LEUnicode32 ch) const
     return ch;
 }
 
-const char LayoutEngine::fgClassID=0;
+// This is here to get it out of LEGlyphFilter.h.
+// No particular reason to put it here, other than
+// this is a good central location...
+LEGlyphFilter::~LEGlyphFilter()
+{
+    // nothing to do
+}
+
+CharSubstitutionFilter::CharSubstitutionFilter(const LEFontInstance *fontInstance)
+  : fFontInstance(fontInstance)
+{
+    // nothing to do
+}
+
+CharSubstitutionFilter::~CharSubstitutionFilter()
+{
+    // nothing to do
+}
+
+
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(LayoutEngine)
+
+static const LETag emptyTag = 0x00000000;
+
+static const LETag ccmpFeatureTag = LE_CCMP_FEATURE_TAG;
+
+static const LETag canonFeatures[] = {ccmpFeatureTag, emptyTag};
 
 LayoutEngine::LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode)
-    : fGlyphCount(0), fGlyphs(NULL), fCharIndices(NULL), fPositions(NULL),
-      fFontInstance(fontInstance), fScriptCode(scriptCode), fLanguageCode(languageCode)
+    : fGlyphStorage(NULL), fFontInstance(fontInstance), fScriptCode(scriptCode), fLanguageCode(languageCode)
 {
-    // nothing else to do?
+    fGlyphStorage = new LEGlyphStorage();
 }
+
+le_int32 LayoutEngine::getGlyphCount() const
+{
+    return fGlyphStorage->getGlyphCount();
+};
 
 void LayoutEngine::getCharIndices(le_int32 charIndices[], le_int32 indexBase, LEErrorCode &success) const
 {
-    le_int32 i;
-
-    if LE_FAILURE(success) {
-        return;
-    }
-
-    if (charIndices == NULL) {
-        success = LE_ILLEGAL_ARGUMENT_ERROR;
-        return;
-    }
-
-    if (fCharIndices == NULL) {
-        success = LE_NO_LAYOUT_ERROR;
-        return;
-    }
-
-    for (i = 0; i < fGlyphCount; i += 1) {
-        charIndices[i] = fCharIndices[i] + indexBase;
-    }
+    fGlyphStorage->getCharIndices(charIndices, indexBase, success);
 }
 
 void LayoutEngine::getCharIndices(le_int32 charIndices[], LEErrorCode &success) const
 {
-    if LE_FAILURE(success) {
-      return;
-    }
-    
-    if (charIndices == NULL) {
-      success = LE_ILLEGAL_ARGUMENT_ERROR;
-      return;
-    }
-    
-    if (fCharIndices == NULL) {
-      success = LE_NO_LAYOUT_ERROR;
-      return;
-    }
-    
-    LE_ARRAY_COPY(charIndices, fCharIndices, fGlyphCount);
+    fGlyphStorage->getCharIndices(charIndices, success);
 }
 
 // Copy the glyphs into caller's (32-bit) glyph array, OR in extraBits
 void LayoutEngine::getGlyphs(le_uint32 glyphs[], le_uint32 extraBits, LEErrorCode &success) const
 {
-    le_int32 i;
-
-    if (LE_FAILURE(success)) {
-        return;
-    }
-
-    if (glyphs == NULL) {
-        success = LE_ILLEGAL_ARGUMENT_ERROR;
-        return;
-    }
-
-    if (fGlyphs == NULL) {
-        success = LE_NO_LAYOUT_ERROR;
-        return;
-    }
-
-    for (i = 0; i < fGlyphCount; i += 1) {
-        glyphs[i] = fGlyphs[i] | extraBits;
-    }
+    fGlyphStorage->getGlyphs(glyphs, extraBits, success);
 }
 
 void LayoutEngine::getGlyphs(LEGlyphID glyphs[], LEErrorCode &success) const
 {
-    if (LE_FAILURE(success)) {
-      return;
-    }
-    
-    if (glyphs == NULL) {
-      success = LE_ILLEGAL_ARGUMENT_ERROR;
-      return;
-    }
-    
-    if (fGlyphs == NULL) {
-      success = LE_NO_LAYOUT_ERROR;
-    }
-    
-    LE_ARRAY_COPY(glyphs, fGlyphs, fGlyphCount);
+    fGlyphStorage->getGlyphs(glyphs, success);
 }
 
 
 void LayoutEngine::getGlyphPositions(float positions[], LEErrorCode &success) const
 {
-    if LE_FAILURE(success) {
-      return;
-    }
-  
-    if (positions == NULL) {
-      success = LE_ILLEGAL_ARGUMENT_ERROR;
-      return;
-    }
-    
-    if (fPositions == NULL) {
-      success = LE_NO_LAYOUT_ERROR;
-      return;
-    }
-    
-    LE_ARRAY_COPY(positions, fPositions, fGlyphCount * 2 + 2);
+    fGlyphStorage->getGlyphPositions(positions, success);
 }
 
 void LayoutEngine::getGlyphPosition(le_int32 glyphIndex, float &x, float &y, LEErrorCode &success) const
 {
-    if (LE_FAILURE(success)) {
-      return;
-    }
-    
-    if (glyphIndex > fGlyphCount) {
-      success = LE_INDEX_OUT_OF_BOUNDS_ERROR;
-      return;
-    }
-    
-    if (fPositions == NULL) {
-      success = LE_NO_LAYOUT_ERROR;
-      return;
-    }
-    
-    x = fPositions[glyphIndex * 2];
-    y = fPositions[glyphIndex * 2 + 1];
+    fGlyphStorage->getGlyphPosition(glyphIndex, x, y, success);
 }
 
+le_int32 LayoutEngine::characterProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
+                LEUnicode *&outChars, LEGlyphStorage &glyphStorage, LEErrorCode &success)
+{
+    if (LE_FAILURE(success)) {
+        return 0;
+    }
+
+    if (offset < 0 || count < 0 || max < 0 || offset >= max || offset + count > max) {
+        success = LE_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+
+    const GlyphSubstitutionTableHeader *canonGSUBTable = (GlyphSubstitutionTableHeader *) CanonShaping::glyphSubstitutionTable;
+    LETag scriptTag  = OpenTypeLayoutEngine::getScriptTag(fScriptCode);
+    LETag langSysTag = OpenTypeLayoutEngine::getLangSysTag(fLanguageCode);
+    le_int32 i, dir = 1, out = 0, outCharCount = count;
+
+    if (canonGSUBTable->coversScript(scriptTag)) {
+        CharSubstitutionFilter *substitutionFilter = new CharSubstitutionFilter(fFontInstance);
+
+        glyphStorage.allocateGlyphArray(count, rightToLeft, success);
+        glyphStorage.allocateAuxData(success);
+
+        if (LE_FAILURE(success)) {
+            return 0;
+        }
+
+        if (rightToLeft) {
+            out = count - 1;
+            dir = -1;
+        }
+
+        for (i = 0; i < count; i += 1, out += dir) {
+            glyphStorage[out] = (LEGlyphID) chars[offset + i];
+            glyphStorage.setAuxData(out, (void *) canonFeatures, success);
+        }
+
+        outCharCount = canonGSUBTable->process(glyphStorage, rightToLeft, scriptTag, langSysTag, NULL, substitutionFilter, NULL);
+
+        out = (rightToLeft? count - 1 : 0);
+
+        outChars = LE_NEW_ARRAY(LEUnicode, outCharCount);
+        for (i = 0; i < outCharCount; i += 1, out += dir) {
+            outChars[out] = (LEUnicode) LE_GET_GLYPH(glyphStorage[i]);
+        }
+
+        delete substitutionFilter;
+    }
+
+    return outCharCount;
+}
 
 le_int32 LayoutEngine::computeGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
-                                            LEGlyphID *&glyphs, le_int32 *&charIndices, LEErrorCode &success)
+                                            LEGlyphStorage &glyphStorage, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return 0;
@@ -228,91 +220,50 @@ le_int32 LayoutEngine::computeGlyphs(const LEUnicode chars[], le_int32 offset, l
         return 0;
     }
 
-    mapCharsToGlyphs(chars, offset, count, rightToLeft, rightToLeft, glyphs, charIndices, success);
+    LEUnicode *outChars = NULL;
+    le_int32 outCharCount = characterProcessing(chars, offset, count, max, rightToLeft, outChars, glyphStorage, success);
 
-    return count;
+    if (outChars != NULL) {
+        mapCharsToGlyphs(outChars, 0, outCharCount, rightToLeft, rightToLeft, glyphStorage, success);
+        LE_DELETE_ARRAY(outChars); // FIXME: a subclass may have allocated this, in which case this delete might not work...
+    } else {
+        mapCharsToGlyphs(chars, offset, count, rightToLeft, rightToLeft, glyphStorage, success);
+    }
+
+    return glyphStorage.getGlyphCount();
 }
 
 // Input: glyphs
 // Output: positions
-void LayoutEngine::positionGlyphs(const LEGlyphID glyphs[], le_int32 glyphCount, float x, float y, float *&positions, LEErrorCode &success)
+void LayoutEngine::positionGlyphs(LEGlyphStorage &glyphStorage, float x, float y, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return;
     }
 
-    if (glyphCount < 0) {
-        success = LE_ILLEGAL_ARGUMENT_ERROR;
+    glyphStorage.allocatePositions(success);
+
+    if (LE_FAILURE(success)) {
         return;
     }
 
-    if (positions == NULL) {
-        positions = LE_NEW_ARRAY(float, 2 * (glyphCount + 1));
-
-        if (positions == NULL) {
-            success = LE_MEMORY_ALLOCATION_ERROR;
-            return;
-        }
-    }
-
-    le_int32 i;
+    le_int32 i, glyphCount = glyphStorage.getGlyphCount();
 
     for (i = 0; i < glyphCount; i += 1) {
         LEPoint advance;
 
-        positions[i * 2] = x;
-        positions[i * 2 + 1] = y;
+        glyphStorage.setPosition(i, x, y, success);
 
-        fFontInstance->getGlyphAdvance(glyphs[i], advance);
+        fFontInstance->getGlyphAdvance(glyphStorage[i], advance);
         x += advance.fX;
         y += advance.fY;
     }
 
-    positions[glyphCount * 2] = x;
-    positions[glyphCount * 2 + 1] = y;
+    glyphStorage.setPosition(glyphCount, x, y, success);
 }
 
-void LayoutEngine::adjustMarkGlyphs(const LEGlyphID glyphs[], le_int32 glyphCount, le_bool reverse, LEGlyphFilter *markFilter,
-                                    float positions[], LEErrorCode &success)
-{
-    float xAdjust = 0;
-    le_int32 g = 0, direction = 1;
-    le_int32 p;
-
-    if (LE_FAILURE(success)) {
-        return;
-    }
-
-    if (positions == NULL || markFilter == NULL) {
-        success = LE_ILLEGAL_ARGUMENT_ERROR;
-        return;
-    }
-
-    if (reverse) {
-        g = glyphCount - 1;
-        direction = -1;
-    }
-
-    for (p = 0; p < glyphCount; p += 1, g += direction) {
-        float xAdvance = positions[(p + 1) * 2] - positions[p * 2];
-
-        positions[p * 2] += xAdjust;
-
-        if (markFilter->accept(glyphs[g])) {
-            xAdjust -= xAdvance;
-        }
-    }
-
-    positions[glyphCount * 2] += xAdjust;
-}
-
-const void *LayoutEngine::getFontTable(LETag tableTag) const
-{
-    return fFontInstance->getFontTable(tableTag);
-}
-
-void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror,
-                                    LEGlyphID *&glyphs, le_int32 *&charIndices, LEErrorCode &success)
+void LayoutEngine::adjustGlyphPositions(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool /*reverse*/,
+                                        LEGlyphStorage &/*glyphStorage*/, LEErrorCode &success)
 {
     if (LE_FAILURE(success)) {
         return;
@@ -323,38 +274,105 @@ void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le
         return;
     }
 
-    if (glyphs == NULL) {
-        glyphs = LE_NEW_ARRAY(LEGlyphID, count);
+    // default is no adjustments
+    return;
+}
 
-        if (glyphs == NULL) {
-            success = LE_MEMORY_ALLOCATION_ERROR;
-            return;
-        }
+void LayoutEngine::adjustMarkGlyphs(LEGlyphStorage &glyphStorage, LEGlyphFilter *markFilter, LEErrorCode &success)
+{
+    float xAdjust = 0;
+    le_int32 p, glyphCount = glyphStorage.getGlyphCount();
+
+    if (LE_FAILURE(success)) {
+        return;
     }
 
-    if (charIndices == NULL) {
-        le_int32 i, dir = 1, out = 0;
-
-        if (reverse) {
-            out = count - 1;
-            dir = -1;
-        }
-
-        charIndices = LE_NEW_ARRAY(le_int32, count);
-
-        if (charIndices == NULL) {
-            success = LE_MEMORY_ALLOCATION_ERROR;
-            return;
-        }
-
-        for (i = 0; i < count; i += 1, out += dir) {
-            charIndices[out] = i;
-        }
+    if (markFilter == NULL) {
+        success = LE_ILLEGAL_ARGUMENT_ERROR;
+        return;
     }
 
-    DefaultCharMapper charMapper(true, mirror);
+    float ignore, prev;
 
-    fFontInstance->mapCharsToGlyphs(chars, offset, count, reverse, &charMapper, glyphs);
+    glyphStorage.getGlyphPosition(0, prev, ignore, success);
+
+    for (p = 0; p < glyphCount; p += 1) {
+        float next, xAdvance;
+        
+        glyphStorage.getGlyphPosition(p + 1, next, ignore, success);
+
+        xAdvance = next - prev;
+        glyphStorage.adjustPosition(p, xAdjust, 0, success);
+
+        if (markFilter->accept(glyphStorage[p])) {
+            xAdjust -= xAdvance;
+        }
+
+        prev = next;
+    }
+
+    glyphStorage.adjustPosition(glyphCount, xAdjust, 0, success);
+}
+
+void LayoutEngine::adjustMarkGlyphs(const LEUnicode chars[], le_int32 charCount, le_bool reverse, LEGlyphStorage &glyphStorage, LEGlyphFilter *markFilter, LEErrorCode &success)
+{
+    float xAdjust = 0;
+    le_int32 c = 0, direction = 1, p;
+    le_int32 glyphCount = glyphStorage.getGlyphCount();
+
+    if (LE_FAILURE(success)) {
+        return;
+    }
+
+    if (markFilter == NULL) {
+        success = LE_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+
+    if (reverse) {
+        c = glyphCount - 1;
+        direction = -1;
+    }
+
+    float ignore, prev;
+
+    glyphStorage.getGlyphPosition(0, prev, ignore, success);
+
+    for (p = 0; p < charCount; p += 1, c += direction) {
+        float next, xAdvance;
+        
+        glyphStorage.getGlyphPosition(p + 1, next, ignore, success);
+
+        xAdvance = next - prev;
+        glyphStorage.adjustPosition(p, xAdjust, 0, success);
+
+        if (markFilter->accept(chars[c])) {
+            xAdjust -= xAdvance;
+        }
+
+        prev = next;
+    }
+
+    glyphStorage.adjustPosition(glyphCount, xAdjust, 0, success);
+}
+
+const void *LayoutEngine::getFontTable(LETag tableTag) const
+{
+    return fFontInstance->getFontTable(tableTag);
+}
+
+void LayoutEngine::mapCharsToGlyphs(const LEUnicode chars[], le_int32 offset, le_int32 count, le_bool reverse, le_bool mirror,
+                                    LEGlyphStorage &glyphStorage, LEErrorCode &success)
+{
+    if (LE_FAILURE(success)) {
+        return;
+    }
+
+    glyphStorage.allocateGlyphArray(count, reverse, success);
+
+    DefaultCharMapper charMapper(TRUE, mirror);
+
+    fFontInstance->mapCharsToGlyphs(chars, offset, count, reverse, &charMapper, glyphStorage);
 }
 
 // Input: characters, font?
@@ -372,37 +390,24 @@ le_int32 LayoutEngine::layoutChars(const LEUnicode chars[], le_int32 offset, le_
         return 0;
     }
 
-    fGlyphCount = computeGlyphs(chars, offset, count, max, rightToLeft, fGlyphs, fCharIndices, success);
-    positionGlyphs(fGlyphs, fGlyphCount, x, y, fPositions, success);
-    adjustGlyphPositions(chars, offset, count, rightToLeft, fGlyphs, fGlyphCount, fPositions, success);
+    le_int32 glyphCount;
+    
+    glyphCount = computeGlyphs(chars, offset, count, max, rightToLeft, *fGlyphStorage, success);
+    positionGlyphs(*fGlyphStorage, x, y, success);
+    adjustGlyphPositions(chars, offset, count, rightToLeft, *fGlyphStorage, success);
 
-    return fGlyphCount;
+    return glyphCount;
 }
 
 void LayoutEngine::reset()
 {
-    fGlyphCount = 0;
-
-    if (fGlyphs != NULL) {
-        LE_DELETE_ARRAY(fGlyphs);
-        fGlyphs = NULL;
-    }
-
-    if (fCharIndices != NULL) {
-        LE_DELETE_ARRAY(fCharIndices);
-        fCharIndices = NULL;
-    }
-
-    if (fPositions != NULL) {
-        LE_DELETE_ARRAY(fPositions);
-        fPositions = NULL;
-    }
+    fGlyphStorage->reset();
 }
     
 LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, LEErrorCode &success)
 {
-    static le_uint32 gsubTableTag = LE_GSUB_TABLE_TAG;
-    static le_uint32 mortTableTag = LE_MORT_TABLE_TAG;
+    static const le_uint32 gsubTableTag = LE_GSUB_TABLE_TAG;
+    static const le_uint32 mortTableTag = LE_MORT_TABLE_TAG;
 
     if (LE_FAILURE(success)) {
         return NULL;
@@ -439,7 +444,7 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
             case janLanguageCode:
             case zhtLanguageCode:
             case zhsLanguageCode:
-                if (gsubTable->coversScriptAndLanguage(scriptTag, languageTag)) {
+                if (gsubTable->coversScriptAndLanguage(scriptTag, languageTag, TRUE)) {
                     result = new HanOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode, gsubTable);
                     break;
                 }
@@ -478,7 +483,7 @@ LayoutEngine *LayoutEngine::layoutEngineFactory(const LEFontInstance *fontInstan
             }
 
             case arabScriptCode:
-            case hebrScriptCode:
+            //case hebrScriptCode:
                 result = new UnicodeArabicOpenTypeLayoutEngine(fontInstance, scriptCode, languageCode);
                 break;
 

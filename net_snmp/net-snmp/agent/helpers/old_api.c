@@ -61,15 +61,7 @@ netsnmp_register_old_api(const char *moduleName,
                          const char *context, int timeout, int flags)
 {
 
-    netsnmp_old_api_info *old_info =
-        SNMP_MALLOC_TYPEDEF(netsnmp_old_api_info);
     unsigned int    i;
-
-    old_info->var = var;
-    old_info->varsize = varsize;
-    old_info->numvars = numvars;
-    old_info->ss = ss;
-    old_info->flags = flags;
 
     /*
      * register all subtree nodes 
@@ -106,11 +98,10 @@ netsnmp_register_old_api(const char *moduleName,
          * register ourselves in the mib tree 
          */
         if (netsnmp_register_handler(reginfo) != MIB_REGISTERED_OK) {
-            netsnmp_handler_registration_free(reginfo);
+            /** netsnmp_handler_registration_free(reginfo); already freed */
             SNMP_FREE(vp);
         }
     }
-    SNMP_FREE(old_info);
     return SNMPERR_SUCCESS;
 }
 
@@ -133,8 +124,11 @@ netsnmp_register_mib_table_row(const char *moduleName,
     for (i = 0; i < numvars; i++) {
         struct variable *vr =
             (struct variable *) ((char *) var + (i * varsize));
-        netsnmp_handler_registration *r =
-            SNMP_MALLOC_TYPEDEF(netsnmp_handler_registration);
+        netsnmp_handler_registration *r;
+        if ( var_subid > (int)mibloclen ) {
+            break;    /* doesn't make sense */
+        }
+        r = SNMP_MALLOC_TYPEDEF(netsnmp_handler_registration);
 
         if (r == NULL) {
             /*
@@ -163,12 +157,13 @@ netsnmp_register_mib_table_row(const char *moduleName,
             break;
         }
         memcpy(r->rootoid, mibloc, mibloclen * sizeof(oid));
-        memcpy((u_char *) (r->rootoid + (var_subid - 1)), vr->name,
+        memcpy((u_char *) (r->rootoid + (var_subid - vr->namelen)), vr->name,
                vr->namelen * sizeof(oid));
         DEBUGMSGTL(("netsnmp_register_mib_table_row", "rootoid "));
         DEBUGMSGOID(("netsnmp_register_mib_table_row", r->rootoid,
                      r->rootoid_len));
-        DEBUGMSG(("netsnmp_register_mib_table_row", "\n"));
+        DEBUGMSG(("netsnmp_register_mib_table_row", "(%d)\n",
+                     (var_subid - vr->namelen)));
         r->handler->myvoid = (void *) malloc(varsize);
 
         if (r->handler->myvoid == NULL) {
@@ -342,6 +337,7 @@ netsnmp_old_api_helper(netsnmp_mib_handler *handler,
                                                  SNMP_ERR_RESOURCEUNAVAILABLE);
             cacheptr->data = access;
             cacheptr->write_method = write_method;
+            write_method = NULL;
             netsnmp_request_add_list_data(requests,
                                           netsnmp_create_data_list
                                           (OLD_API_NAME, cacheptr, free));

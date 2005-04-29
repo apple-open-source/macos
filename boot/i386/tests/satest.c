@@ -23,6 +23,7 @@
  */
 /* test standalone library */
 #include <stdarg.h>
+#include "libsa.h"
 
 #define TEST_RESULT "The quick brown #5 fox did fine.\n"
 #define TEST_FMT "The quick %s #%d fox did fine.\n"
@@ -45,6 +46,17 @@ va_list ap)
 					   sa_rld_error_buf_size,
 					   format, ap);
 }
+
+int printf(const char * fmt, ...)
+{
+    extern void putchar(int);
+    va_list ap;
+    va_start(ap, fmt);
+    prf(fmt, ap, putchar, 0);
+    va_end(ap);
+    return 0;
+}
+
 /*
  * Print the error message and set the 'error' indication.
  */
@@ -65,10 +77,11 @@ const char *format,
 //	errors = 1;
 }
 
-main()
+int
+main(int argc, char **argv)
 {
     char buf[1024];
-    int args[4], ret;
+    int ret;
     
     printf("Testing standalone library\n");
     printf("The following two lines should be identical:\n");
@@ -107,4 +120,6 @@ main()
     printf("printf(\"Test: %% 8d\\n\",-9);\n");
     printf("Test:       -9\n");
     printf("Test: % 8d\n",-9);
+
+    return 0;
 }

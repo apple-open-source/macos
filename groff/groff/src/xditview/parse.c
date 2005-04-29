@@ -12,12 +12,44 @@
 #include "DviP.h"
 
 static int StopSeen = 0;
-static ParseDrawFunction(), ParseDeviceControl();
-static push_env(), pop_env();
+static void ParseDrawFunction(), ParseDeviceControl();
+static void push_env(), pop_env();
+
+/* draw.c */
+extern int PutCharacter();
+extern int PutNumberedCharacter();
+extern void HorizontalGoto();
+extern void Word();
+extern void VerticalGoto();
+extern void VerticalMove();
+extern void FlushCharCache();
+extern void Newline();
+extern void DrawLine();
+extern void DrawCircle();
+extern void DrawFilledCircle();
+extern void DrawEllipse();
+extern void DrawFilledEllipse();
+extern void DrawArc();
+extern void DrawPolygon();
+extern void DrawFilledPolygon();
+extern void DrawSpline();
+
+/* Dvi.c */
+extern void SetDevice();
+
+/* page.c */
+extern void RememberPagePosition();
+
+/* font.c */
+extern void SetFontPosition();
+
+/* lex.c */
+extern int GetNumber();
 
 #define HorizontalMove(dw, delta)	((dw)->dvi.state->x += (delta))
 
 
+int
 ParseInput(dw)
     register DviWidget	dw;
 {
@@ -158,7 +190,7 @@ ParseInput(dw)
 	}
 }
 
-static
+static void
 push_env(dw)
 	DviWidget	dw;
 {
@@ -177,7 +209,7 @@ push_env(dw)
 	dw->dvi.state = new;
 }
 
-static
+static void
 pop_env(dw)
 	DviWidget	dw;
 {
@@ -188,7 +220,7 @@ pop_env(dw)
 	XtFree ((char *) old);
 }
 
-static
+static void
 InitTypesetter (dw)
 	DviWidget	dw;
 {
@@ -200,7 +232,7 @@ InitTypesetter (dw)
 
 #define DRAW_ARGS_MAX 128
 
-static
+static void
 ParseDrawFunction(dw, buf)
 DviWidget	dw;
 char		*buf;
@@ -284,13 +316,12 @@ char		*buf;
 	}
 } 
 
-static
+static void
 ParseDeviceControl(dw)				/* Parse the x commands */
 	DviWidget	dw;
 {
         char str[20], str1[50];
 	int c, n;
-	extern int LastPage, CurrentPage;
 
 	GetWord (dw, str, 20);
 	switch (str[0]) {			/* crude for now */

@@ -81,6 +81,7 @@ static NSComparisonResult sortKextArray(NSDictionary * dict1, NSDictionary * dic
 
 - (void)dealloc {
     [_loadedExtensions release];
+	[super dealloc];
 }
 
 - (void)awakeFromNib {

@@ -40,10 +40,10 @@ Includes
 #include <sys/systm.h>
 #include <sys/malloc.h>
 #include <sys/sockio.h>
+#include <kern/locks.h>
 
 #include <net/if.h>
-#include <net/dlil.h>
-#include <net/netisr.h>
+#include <net/kpi_protocol.h>
 #include <machine/spl.h>
 
 #include <netinet/in.h>
@@ -52,11 +52,10 @@ Includes
 #include <netinet/ip.h>
 
 #include "ppp_defs.h"		// public ppp values
-#include "ppp_fam.h"
 #include "ppp_ipv6.h"
+#include "ppp_domain.h"
 #include "ppp_if.h"
 #include "if_ppplink.h"
-#include "ppp_domain.h"
 
 
 /* -----------------------------------------------------------------------------
@@ -67,28 +66,26 @@ Definitions
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int ppp_ipv6_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                        u_long dl_tag, int sync_ok);
-static int ppp_ipv6_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                            caddr_t route, char *type, char *edst, u_long dl_tag );
-static int ppp_ipv6_ioctl(u_long dl_tag, struct ifnet *ifp, u_long cmd, caddr_t data);
+static errno_t ppp_ipv6_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header);
+static errno_t ppp_ipv6_preoutput(ifnet_t ifp, protocol_family_t protocol,
+									mbuf_t *packet, const struct sockaddr *dest, 
+									void *route, char *frame_type, char *link_layer_dest);
+static errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument);
 
 
 /* -----------------------------------------------------------------------------
 Globals
 ----------------------------------------------------------------------------- */
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 init function
 ----------------------------------------------------------------------------- */
 int ppp_ipv6_init(int init_arg)
 {
-    struct dlil_protomod_reg_str  reg;
-
-    bzero(&reg, sizeof(struct dlil_protomod_reg_str));
-    reg.attach_proto = ppp_ipv6_attach;
-    reg.detach_proto = ppp_ipv6_detach;
-    return dlil_reg_proto_module(PF_INET6, APPLE_IF_FAM_PPP, &reg);
+	return proto_register_plumber(PF_INET6, APPLE_IF_FAM_PPP, ppp_ipv6_attach, ppp_ipv6_detach);
 }
 
 /* -----------------------------------------------------------------------------
@@ -96,44 +93,36 @@ terminate function
 ----------------------------------------------------------------------------- */
 int ppp_ipv6_dispose(int term_arg)
 {
-    return dlil_dereg_proto_module(PF_INET6, APPLE_IF_FAM_PPP);
+	proto_unregister_plumber(PF_INET6, APPLE_IF_FAM_PPP);
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
 attach the PPPx interface ifp to the network protocol IPv6,
 called when the ppp interface is ready for ppp traffic
 ----------------------------------------------------------------------------- */
-int ppp_ipv6_attach(struct ifnet *ifp, u_long *dl_tag)
+errno_t ppp_ipv6_attach(ifnet_t ifp, protocol_family_t protocol)
 {
-    int 			ret;
-    struct dlil_proto_reg_str   reg;
-    struct dlil_demux_desc      desc;
-    u_short	      		ipv6proto = PPP_IPV6;
-    struct ppp_fam		*fam = (struct ppp_fam *)ifp->family_cookie;
+    int					ret;
+    struct ifnet_attach_proto_param   reg;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
     
-    LOGDBG(ifp, (LOGVAL, "ppp_ip_attach: name = %s, unit = %d\n", ifp->if_name, ifp->if_unit));
+    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_attach: name = %s, unit = %d\n", ifnet_name(ifp), ifnet_unit(ifp)));
 
-    if (fam->ipv6_tag) 
+    if (wan->ipv6_attached) 
         return 0;	// already attached
 
-    bzero(&reg, sizeof(struct dlil_proto_reg_str));
-    // register demux structure for ppp protocols
-    TAILQ_INIT(&reg.demux_desc_head);
-    bzero(&desc, sizeof(struct dlil_demux_desc));
-    desc.type = DLIL_DESC_RAW;
-    desc.native_type = (char *) &ipv6proto;
-    TAILQ_INSERT_TAIL(&reg.demux_desc_head, &desc, next);
-
-    reg.protocol_family  = PF_INET6;
-    reg.interface_family = ifp->if_family;
-    reg.unit_number      = ifp->if_unit;
-    reg.input            = ppp_ipv6_input;
-    reg.ioctl            = ppp_ipv6_ioctl;
-    reg.pre_output       = ppp_ipv6_preoutput;
-    ret = dlil_attach_protocol(&reg, dl_tag);
-    LOGRETURN(ret, ret, "ppp_ipv6_attach: dlil_attach_protocol error = 0x%x\n");
+    bzero(&reg, sizeof(struct ifnet_attach_proto_param));
+	
+	reg.input = ppp_ipv6_input;
+	reg.pre_output = ppp_ipv6_preoutput;
+	reg.ioctl = ppp_ipv6_ioctl;
+	ret = ifnet_attach_protocol(ifp, PF_INET6, &reg);
+    LOGRETURN(ret, ret, "ppp_ipv6_attach: ifnet_attach_protocol error = 0x%x\n");
      
-    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_attach: dlil_attach_protocol tag = 0x%x\n", *dl_tag));
+    LOGDBG(ifp, (LOGVAL, "ppp_ipv6_attach: ifnet_attach_protocol family = 0x%x\n", protocol));
+    wan->ipv6_attached = 1;
+
     return 0;
 }
 
@@ -141,32 +130,33 @@ int ppp_ipv6_attach(struct ifnet *ifp, u_long *dl_tag)
 detach the PPPx interface ifp from the network protocol IPv6,
 called when the ppp interface stops ip traffic
 ----------------------------------------------------------------------------- */
-int ppp_ipv6_detach(struct ifnet *ifp, u_long dl_tag)
+void ppp_ipv6_detach(ifnet_t ifp, protocol_family_t protocol)
 {
     int 		ret;
-    struct ppp_fam	*fam = (struct ppp_fam *)ifp->family_cookie;
+    struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
 
     LOGDBG(ifp, (LOGVAL, "ppp_ipv6_detach\n"));
 
-    if (!fam->ipv6_tag)
-        return 0;	// already detached
+    if (!wan->ipv6_attached)
+        return;	// already detached
 
-    ret = dlil_detach_protocol(fam->ipv6_tag);
-    LOGRETURN(ret, ret, "ppp_ipv6_detach: dlil_detach_protocol error = 0x%x\n");
+    ret = ifnet_detach_protocol(ifp, PF_INET6);
+	if (ret)
+        log(LOGVAL, "ppp_ipv6_detach: ifnet_detach_protocol error = 0x%x\n", ret);
 
-    fam->ipv6_tag = 0;
-    return 0;
+    wan->ipv6_attached = 0;
 }
 
 /* -----------------------------------------------------------------------------
 called from dlil when an ioctl is sent to the interface
 ----------------------------------------------------------------------------- */
-int ppp_ipv6_ioctl(u_long dl_tag, struct ifnet *ifp, u_long cmd, caddr_t data)
+errno_t ppp_ipv6_ioctl(ifnet_t ifp, protocol_family_t protocol,
+									 u_int32_t command, void* argument)
 {
-    struct ifaddr 	*ifa = (struct ifaddr *)data;
+    struct ifaddr 	*ifa = (struct ifaddr *)argument;
     int 		error = 0;
 
-    switch (cmd) {
+    switch (command) {
 
         case SIOCSIFADDR:
         case SIOCAIFADDR:
@@ -193,40 +183,27 @@ the network protocol has been determined earlier by the demux function.
 the packet is in the mbuf chain m without
 the frame header, which is provided separately. (not used)
 ----------------------------------------------------------------------------- */
-int ppp_ipv6_input(struct mbuf *m, char *frame_header, struct ifnet *ifp,
-                 u_long dl_tag, int sync_ok)
+errno_t ppp_ipv6_input(ifnet_t ifp, protocol_family_t protocol,
+									 mbuf_t packet, char* header)
 {
-    int  s;
-    
-    LOGMBUF("ppp_ipv6_input", m);
+    LOGMBUF("ppp_ipv6_input", packet);
 
-    schednetisr(NETISR_IPV6);
-
-    /* Put the packet on the ip input queue */
-    s = splimp();
-    if (IF_QFULL(&ip6intrq)) {
-        IF_DROP(&ip6intrq);
-        splx(s);
-        LOGDBG(ifp, (LOGVAL, "ppp%d: IPv6 input queue full\n", ifp->if_unit));
-        ifp->if_iqdrops++;
-        return 1;
-    }
-    IF_ENQUEUE(&ip6intrq, m);
-    splx(s);
-
-    return 0;
+	proto_input(PF_INET6, packet);
+   
+	return 0;
 }
 
 /* -----------------------------------------------------------------------------
 pre_output function
 ----------------------------------------------------------------------------- */
-int ppp_ipv6_preoutput(struct ifnet *ifp, struct mbuf **m0, struct sockaddr *dst_netaddr,
-                     caddr_t route, char *type, char *edst, u_long dl_tag)
+errno_t ppp_ipv6_preoutput(ifnet_t ifp, protocol_family_t protocol,
+									mbuf_t *packet, const struct sockaddr *dest, 
+									void *route, char *frame_type, char *link_layer_dest)
 {
 
-    LOGMBUF("ppp_ipv6_preoutput", *m0);
+    LOGMBUF("ppp_ipv6_preoutput", *packet);
 
-    *(u_int16_t *)type = PPP_IPV6;
+    *(u_int16_t *)frame_type = PPP_IPV6;
     return 0;
 }
 

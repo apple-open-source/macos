@@ -470,8 +470,7 @@ static tDirStatus opendirectory_smb_pwd_check_ntlmv2(tDirReference dirRef, tDirN
 	}
 
     status = opendirectory_ntlmv2_auth_user(dirRef, userNode, user, domain, sec_blob, ntv2_response, user_sess_key );
-	DEBUG(0, ("opendirectory_smb_pwd_check_ntlmv2:  [%d]opendirectory_[%s]_auth_user\n", status, ntv2_response->length == 24 ?  "LMv2" : "NTLMv2"));
-	DEBUG(0, ("opendirectory_smb_pwd_check_ntlmv2:  [%X]user_sess_key\n", user_sess_key));
+	DEBUG(4, ("opendirectory_smb_pwd_check_ntlmv2:  [%d]opendirectory_[%s]_auth_user\n", status, ntv2_response->length == 24 ?  "LMv2" : "NTLMv2"));
 
 
 	if (eDSNoErr == status)

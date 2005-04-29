@@ -1,4 +1,5 @@
-// Special g++ Options:
+// { dg-do run  }
+// { dg-options "" }
 
 #include <iostream>
 
@@ -17,7 +18,7 @@ public:
 
 class bar_2 : public foo {
 public:
-    bar_2(int i) : foo(i) {};
+    bar_2(int i) : foo(i) {}
         int get_k() {return k;}
 };
 

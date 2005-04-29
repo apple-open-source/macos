@@ -62,7 +62,7 @@
 #include <kern/clock.h>
 
 #include <net/if_types.h>
-#include <net/dlil.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/in_var.h>
@@ -103,13 +103,11 @@ static void	*mppe_comp_alloc __P((unsigned char *, int));
 static void	mppe_comp_free __P((void *));
 static int	mppe_comp_init __P((void *, unsigned char *,
 					int, int, int, int, int));
-static int	mppe_compress __P((void *, struct mbuf **));
-static void	mppe_incomp __P((void *, struct mbuf *));
-static int	mppe_decompress __P((void *, struct mbuf **));
+static int	mppe_compress __P((void *, mbuf_t *));
+static void	mppe_incomp __P((void *, mbuf_t ));
+static int	mppe_decompress __P((void *, mbuf_t *));
 static void	mppe_comp_reset __P((void *));
 static void	mppe_comp_stats __P((void *, struct compstat *));
-
-extern void    m_copydata __P((struct mbuf *, int, int, caddr_t));
 
 static ppp_comp_ref 	ppp_mppe_ref;
 static u_char 		ppp_mppe_tmp[2048];
@@ -182,7 +180,7 @@ GetNewKeyFromSHA(unsigned char *initialKey, unsigned char *currentKey,
     sha1_loop(&context, currentKey, keyLen);
     sha1_loop(&context, pad2, 40);
     sha1_result(&context, digest);
-    memcpy(resultKey, digest, keyLen);
+    bcopy(digest, resultKey, keyLen);
 }
 
 /* -----------------------------------------------------------------------------
@@ -343,11 +341,11 @@ mppe_comp_alloc(unsigned char *options, int opt_len)
     if (state == NULL)
 	return NULL;
 
-    memset (state, 0, sizeof (struct ppp_mppe_state));
+    bzero(state, sizeof (struct ppp_mppe_state));
 
     /* just copy the keys */
-    memcpy(state->master_key, options + CILEN_MPPE, MPPE_MAX_KEY_LEN);
-    memcpy(state->session_key, options + CILEN_MPPE, MPPE_MAX_KEY_LEN);
+    bcopy(options + CILEN_MPPE, state->master_key, MPPE_MAX_KEY_LEN);
+    bcopy(options + CILEN_MPPE, state->session_key, MPPE_MAX_KEY_LEN);
 
     return (void *) state;
 }
@@ -434,33 +432,33 @@ mppe_update_count(struct ppp_mppe_state *state)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int
-mppe_compress(void *arg, struct mbuf **m)
+mppe_compress(void *arg, mbuf_t *m)
 {
     struct ppp_mppe_state 	*state = (struct ppp_mppe_state *) arg;
-    struct mbuf			*m1;
-    int 			isize, proto = *mtod(*m, u_int16_t *);
+    mbuf_t			m1;
+    int 			isize, proto = *(u_int16_t *)mbuf_data(*m);
     u_char 			*p;
 
     /* Check that the protocol is in the range we handle. */
     if (proto < 0x0021 || proto > 0x00FA )
 	return COMP_NOTDONE;
 
-    for (m1 = *m, isize = 0; m1 ; m1 = m1->m_next)
-        isize += m1->m_len;
+    for (m1 = *m, isize = 0; m1 ; m1 = mbuf_next(m1))
+        isize += mbuf_len(m1);
 
-    if ((m1 = m_getpacket()) == 0) {
+    if (mbuf_getpacket(MBUF_WAITOK, &m1) != 0) {
 	log(LOG_DEBUG, "mppe_compress: no mbuf available\n");
         return COMP_NOTDONE;
     }
 
     /* fist transform mbuf into linear data buffer */
-    m_copydata(*m, 0, isize, ppp_mppe_tmp);
+    mbuf_copydata(*m, 0, isize, ppp_mppe_tmp);
 
 #ifdef DEBUG
     ppp_print_buffer("mppe_encrypt", ppp_mppe_tmp, isize);
 #endif
     
-    p = mtod(m1, u_char *);
+    p = mbuf_data(m1);
     p[0] = MPPE_CTRLHI(state);
     p[1] = MPPE_CTRLLO(state);
 
@@ -470,9 +468,9 @@ mppe_compress(void *arg, struct mbuf **m)
     /* read from rptr, write to wptr */
     rc4_crypt(&(state->rc4_state), ppp_mppe_tmp, p + 2, isize);
 
-    m_freem(*m);
-    m1->m_len = isize + 2;
-    m1->m_pkthdr.len = isize + 2;
+    mbuf_freem(*m);
+    mbuf_setlen(m1, isize + 2);
+    mbuf_pkthdr_setlen(m1, isize + 2);
     *m = m1;
     
     (state->stats).comp_bytes += isize;
@@ -508,14 +506,14 @@ mppe_comp_stats(void *arg, struct compstat *stats)
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int
-mppe_decompress(void *arg, struct mbuf **m)
+mppe_decompress(void *arg, mbuf_t *m)
 {
     struct ppp_mppe_state 	*state = (struct ppp_mppe_state *) arg;
-    struct mbuf			*m1;
+    mbuf_t			m1;
     int 			seq, isize;
 
-    for (m1 = *m, isize = 0; m1 ; m1 = m1->m_next)
-        isize += m1->m_len;
+    for (m1 = *m, isize = 0; m1 ; m1 = mbuf_next(m1))
+        isize += mbuf_len(m1);
         
     if (isize <= 2) {
 	if (state->debug) {
@@ -526,7 +524,7 @@ mppe_decompress(void *arg, struct mbuf **m)
     }
 
     /* fist transform mbuf into linear data buffer */
-    m_copydata(*m, 0, isize, ppp_mppe_tmp);
+    mbuf_copydata(*m, 0, isize, ppp_mppe_tmp);
 
     /* Check the sequence number. */
     seq = MPPE_CCOUNT_FROM_PACKET(ppp_mppe_tmp);
@@ -565,17 +563,17 @@ mppe_decompress(void *arg, struct mbuf **m)
 	    mppe_synchronize_key(state);
 	mppe_update_count(state);
 
-        if ((m1 = m_getpacket()) == 0) {
+        if (mbuf_getpacket(MBUF_WAITOK, &m1) != 0) {
             log(LOG_DEBUG, "mppe_decompress: no mbuf available\n");
             return DECOMP_ERROR;
         }
         
 	/* decrypt - adjust for MPPE_OVHD - mru should be OK */
-	rc4_crypt(&(state->rc4_state), ppp_mppe_tmp + 2, mtod(m1, u_char *), isize - 2);
+	rc4_crypt(&(state->rc4_state), ppp_mppe_tmp + 2, mbuf_data(m1), isize - 2);
 
-        m_freem(*m);
-        m1->m_len = isize - 2;
-        m1->m_pkthdr.len = isize - 2;
+        mbuf_freem(*m);
+        mbuf_setlen(m1, isize - 2);
+        mbuf_pkthdr_setlen(m1, isize - 2);
         *m = m1;
 
 	(state->stats).unc_bytes += (isize - 2);
@@ -589,10 +587,10 @@ mppe_decompress(void *arg, struct mbuf **m)
 Incompressible data has arrived - add it to the history 
 ----------------------------------------------------------------------------- */
 static void
-mppe_incomp(void *arg, struct mbuf *m)
+mppe_incomp(void *arg, mbuf_t m)
 {
     struct ppp_mppe_state *state = (struct ppp_mppe_state *)arg;
 
-    (state->stats).inc_bytes += m->m_pkthdr.len;
+    (state->stats).inc_bytes += mbuf_pkthdr_len(m);
     (state->stats).inc_packets++;
 }

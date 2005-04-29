@@ -41,7 +41,11 @@
 #endif
 #endif
 
+#ifdef __MACOSX__
+typedef u_short	cs_socket_t;
+#else
 typedef u_short	socket_t;
+#endif
 typedef u_short	ioaddr_t;
 #ifdef __MACOSX__
 typedef u_int	cs_event_t;

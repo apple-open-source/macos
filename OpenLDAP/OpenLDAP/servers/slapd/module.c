@@ -1,4 +1,18 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/module.c,v 1.15.2.4 2003/02/09 16:31:36 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/module.c,v 1.21.2.3 2004/01/01 18:16:34 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+
 #include "portable.h"
 #include <stdio.h>
 #include "slap.h"
@@ -36,13 +50,22 @@ module_loaded_t *module_list = NULL;
 
 static int module_unload (module_loaded_t *module);
 
+#ifdef HAVE_EBCDIC
+static char ebuf[BUFSIZ];
+#endif
+
 int module_init (void)
 {
 	if (lt_dlinit()) {
 		const char *error = lt_dlerror();
+#ifdef HAVE_EBCDIC
+		strcpy( ebuf, error );
+		__etoa( ebuf );
+		error = ebuf;
+#endif
 #ifdef NEW_LOGGING
 		LDAP_LOG( SLAPD, CRIT, 
-			"module_init: lt_ldinit failed: %s\n", error, 0, 0 );
+			"module_init: lt_dlinit failed: %s\n", error, 0, 0 );
 #else
 		Debug(LDAP_DEBUG_ANY, "lt_dlinit failed: %s\n", error, 0, 0);
 #endif
@@ -61,6 +84,11 @@ int module_kill (void)
 
 	if (lt_dlexit()) {
 		const char *error = lt_dlerror();
+#ifdef HAVE_EBCDIC
+		strcpy( ebuf, error );
+		__etoa( ebuf );
+		error = ebuf;
+#endif
 #ifdef NEW_LOGGING
 		LDAP_LOG( SLAPD, CRIT, "module_kill: lt_dlexit failed: %s\n", 
 			error, 0, 0 );
@@ -79,6 +107,11 @@ int module_load(const char* file_name, int argc, char *argv[])
 	const char *error;
 	int rc;
 	MODULE_INIT_FN initialize;
+#ifdef HAVE_EBCDIC
+#define	file	ebuf
+#else
+#define	file	file_name
+#endif
 
 	module = (module_loaded_t *)ch_calloc(1, sizeof(module_loaded_t));
 	if (module == NULL) {
@@ -93,19 +126,28 @@ int module_load(const char* file_name, int argc, char *argv[])
 		return -1;
 	}
 
+#ifdef HAVE_EBCDIC
+	strcpy( file, file_name );
+	__atoe( file );
+#endif
 	/*
 	 * The result of lt_dlerror(), when called, must be cached prior
 	 * to calling Debug. This is because Debug is a macro that expands
 	 * into multiple function calls.
 	 */
-	if ((module->lib = lt_dlopen(file_name)) == NULL) {
+	if ((module->lib = lt_dlopenext(file)) == NULL) {
 		error = lt_dlerror();
+#ifdef HAVE_EBCDIC
+		strcpy( ebuf, error );
+		__etoa( ebuf );
+		error = ebuf;
+#endif
 #ifdef NEW_LOGGING
 		LDAP_LOG( SLAPD, CRIT, 
-			"module_load: lt_dlopen failed: (%s) %s.\n", 
+			"module_load: lt_dlopenext failed: (%s) %s.\n", 
 			file_name, error, 0 );
 #else
-		Debug(LDAP_DEBUG_ANY, "lt_dlopen failed: (%s) %s\n", file_name,
+		Debug(LDAP_DEBUG_ANY, "lt_dlopenext failed: (%s) %s\n", file_name,
 			error, 0);
 #endif
 
@@ -120,7 +162,13 @@ int module_load(const char* file_name, int argc, char *argv[])
 #endif
 
    
+#ifdef HAVE_EBCDIC
+#pragma convlit(suspend)
+#endif
 	if ((initialize = lt_dlsym(module->lib, "init_module")) == NULL) {
+#ifdef HAVE_EBCDIC
+#pragma convlit(resume)
+#endif
 #ifdef NEW_LOGGING
 		LDAP_LOG( SLAPD, ERR, 
 			"module_load: module %s : no init_module() function found\n",
@@ -213,11 +261,21 @@ int module_load(const char* file_name, int argc, char *argv[])
 
 int module_path(const char *path)
 {
+#ifdef HAVE_EBCDIC
+	strcpy(ebuf, path);
+	__atoe(ebuf);
+	path = ebuf;
+#endif
 	return lt_dlsetsearchpath( path );
 }
 
 void *module_resolve (const void *module, const char *name)
 {
+#ifdef HAVE_EBCDIC
+	strcpy(ebuf, name);
+	__atoe(ebuf);
+	name = ebuf;
+#endif
 	if (module == NULL || name == NULL)
 		return(NULL);
 	return(lt_dlsym(((module_loaded_t *)module)->lib, name));
@@ -242,7 +300,13 @@ static int module_unload (module_loaded_t *module)
 		}
 
 		/* call module's terminate routine, if present */
+#ifdef HAVE_EBCDIC
+#pragma convlit(suspend)
+#endif
 		if ((terminate = lt_dlsym(module->lib, "term_module"))) {
+#ifdef HAVE_EBCDIC
+#pragma convlit(resume)
+#endif
 			terminate();
 		}
 
@@ -266,8 +330,8 @@ load_extop_module (
 )
 {
 	SLAP_EXTOP_MAIN_FN *ext_main;
-	int (*ext_getoid)(int index, char *oid, int blen);
-	char *oid;
+	SLAP_EXTOP_GETOID_FN *ext_getoid;
+	struct berval oid;
 	int rc;
 
 	ext_main = (SLAP_EXTOP_MAIN_FN *)module_resolve(module, "ext_main");
@@ -280,19 +344,15 @@ load_extop_module (
 		return(-1);
 	}
 
-	oid = ch_malloc(256);
-	rc = (ext_getoid)(0, oid, 256);
+	rc = (ext_getoid)(0, &oid, 256);
 	if (rc != 0) {
-		ch_free(oid);
 		return(rc);
 	}
-	if (*oid == 0) {
-		free(oid);
+	if (oid.bv_val == NULL || oid.bv_len == 0) {
 		return(-1);
 	}
 
-	rc = load_extop( oid, ext_main );
-	free(oid);
+	rc = load_extop( &oid, ext_main );
 	return rc;
 }
 #endif /* SLAPD_EXTERNAL_EXTENSIONS */

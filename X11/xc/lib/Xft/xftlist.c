@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft/xftlist.c,v 1.3 2002/02/15 07:36:11 keithp Exp $
+ * $XFree86: xc/lib/Xft/xftlist.c,v 1.4 2003/08/06 14:03:59 eich Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *

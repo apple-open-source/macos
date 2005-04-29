@@ -1,0 +1,11 @@
+#compdef darcs
+
+if (($CURRENT == 2)); then
+  # We're completing the first word after "darcs" -- the command.
+  _wanted command expl 'darcs command' \
+    compadd -- $( darcs --commands )
+else
+  # Find the options/files/URL/etc. for the current command by using darcs.
+  _wanted args expl 'arg for darcs command' \
+    compadd -- $( darcs ${words[2]} --list-option )
+fi

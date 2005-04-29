@@ -1,0 +1,831 @@
+# Tests for the 'list' module in the 'struct' library. -*- tcl -*-
+#
+# This file contains a collection of tests for one or more of the Tcllib
+# procedures.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2003 by Kevin B. Kenny. All rights reserved.
+#
+# RCS: @(#) $Id: list.test,v 1.3 2004/02/14 05:59:22 andreas_kupries Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+source [file join [file dirname [info script]] list.tcl]
+
+# Fake [lset] for Tcl releases that don't have it.  We need only
+# lset into a flat list.
+
+if { [string compare lset [info commands lset]] } {
+    proc K { x y } { set x }
+    proc lset { listVar index var } {
+	upvar 1 $listVar list
+	set list [lreplace [K $list [set list {}]] $index $index $var]
+    }
+}
+
+#----------------------------------------------------------------------
+
+interp alias {} lcs {} ::struct::list::list longestCommonSubsequence
+
+test list-lcs-1.1 {longestCommonSubsequence, no args} {
+    catch { lcs } msg
+    set msg
+} [tcltest::wrongNumArgs ::struct::list::LlongestCommonSubsequence \
+       {sequence1 sequence2 ?maxOccurs?} 0]
+
+test list-lcs-1.2 {longestCommonSubsequence, one arg} {
+    catch { lcs x } msg
+    set msg
+} [tcltest::wrongNumArgs ::struct::list::LlongestCommonSubsequence \
+       {sequence1 sequence2 ?maxOccurs?} 1]
+
+test list-lcs-2.1 {longestCommonSubsequence, two empty lists} {
+    list [catch { lcs {} {} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs-2.2 {longestCommonSubsequence, insert 1 into an empty list} {
+    list [catch { lcs {} {a} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs-2.3 {longestCommonSubsequence, delete 1 from singleton list} {
+    list [catch { lcs {a} {} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs-2.4 {longestCommonSubsequence, preserve singleton list} {
+    list [catch { lcs {a} {a} } msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.5 {longestCommonSubsequence, 1-element change in singleton list} {
+    list [catch { lcs {a} {b} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs-2.6 {longestCommonSubsequence, insert 1 in front of singleton list} {
+    list [catch { lcs {a} {b a} } msg] $msg
+} {0 {0 1}}
+
+test list-lcs-2.7 {longestCommonSubsequence, insert 1 at end of singleton list} {
+    list [catch {lcs {a} {a b}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.8 {longestCommonSubsequence, duplicate element} {
+    list [catch {lcs {a} {a a}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.9 {longestCommonSubsequence, interchange 2} {
+    list [catch {lcs {a b} {b a}} msg] $msg
+} {0 {1 0}}
+
+test list-lcs-2.10 {longestCommonSubsequence, insert before 2} {
+    list [catch {lcs {a b} {b a b}} msg] $msg
+} {0 {{0 1} {1 2}}}
+
+test list-lcs-2.11 {longestCommonSubsequence, insert inside 2} {
+    list [catch {lcs {a b} {a a b}} msg] $msg
+} {0 {{0 1} {0 2}}}
+
+test list-lcs-2.13 {longestCommonSubsequence, insert after 2} {
+    list [catch {lcs {a b} {a b a}} msg] $msg
+} {0 {{0 1} {0 1}}}
+
+test list-lcs-2.13 {longestCommonSubsequence, delete first of 2} {
+    list [catch {lcs {a b} a} msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.14 {longestCommonSubsequence, delete second of 2} {
+    list [catch {lcs {a b} b} msg] $msg
+} {0 {1 0}}
+
+test list-lcs-2.15 {longestCommonSubsequence, change first of 2} {
+    list [catch {lcs {a b} {c b}} msg] $msg
+} {0 {1 1}}
+
+test list-lcs-2.16 {longestCommonSubsequence, change first of 2 to dupe} {
+    list [catch {lcs {a b} {b b}} msg] $msg
+} {0 {1 0}}
+
+test list-lcs-2.17 {longestCommonSubsequence, change second of 2} {
+    list [catch {lcs {a b} {a c}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.18 {longestCommonSubsequence, change second of 2 to dupe} {
+    list [catch {lcs {a b} {a a}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs-2.19 {longestCommonSubsequence, mixed changes} {
+    list [catch {lcs {a b r a c a d a b r a} {b r i c a b r a c}} msg] $msg
+} {0 {{1 2 4 5 8 9 10} {0 1 3 4 5 6 7}}}
+
+test list-lcs-2.20 {longestCommonSubsequence, mixed changes} {
+    list [catch {lcs {b r i c a b r a c} {a b r a c a d a b r a}} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs-3.1 {longestCommonSubsequence, length limit} {
+    list [catch {lcs {b r i c a b r a c} {a b r a c a d a b r a} 5} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs-3.2 {longestCommonSubsequence, length limit} {
+    list [catch {lcs {b r i c a b r a c} {a b r a c a d a b r a} 4} msg] $msg
+} {0 {{0 1 3 5 6} {1 2 4 8 9}}}
+
+test list-lcs-3.3 {longestCommonSubsequence, length limit} {
+    list [catch {lcs {b r i c a b r a c} {a b r a c a d a b r a} 1} msg] $msg
+} {0 {3 4}}
+
+test list-lcs-3.4 {longestCommonSubsequence, stupid length limit} {
+    list [catch {lcs {b r i c a b r a c} {a b r a c a d a b r a} 0} msg] $msg
+} {0 {{} {}}}
+
+
+#----------------------------------------------------------------------
+
+interp alias {} lcs2 {} ::struct::list::list longestCommonSubsequence2
+
+test list-lcs2-1.1 {longestCommonSubsequence2, no args} {
+    catch { lcs2 } msg
+    set msg
+} [tcltest::wrongNumArgs ::struct::list::LlongestCommonSubsequence2 \
+       {sequence1 sequence2 ?maxOccurs?} 0]
+
+test list-lcs2-1.2 {longestCommonSubsequence2, one arg} {
+    catch { lcs2 x } msg
+    set msg
+} [tcltest::wrongNumArgs ::struct::list::LlongestCommonSubsequence2 \
+       {sequence1 sequence2 ?maxOccurs?} 1]
+
+test list-lcs2-2.1 {longestCommonSubsequence2, two empty lists} {
+    list [catch { lcs2 {} {} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs2-2.2 {longestCommonSubsequence2, insert 1 into an empty list} {
+    list [catch { lcs2 {} {a} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs2-2.3 {longestCommonSubsequence2, delete 1 from singleton list} {
+    list [catch { lcs2 {a} {} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs2-2.4 {longestCommonSubsequence2, preserve singleton list} {
+    list [catch { lcs2 {a} {a} } msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.5 {longestCommonSubsequence2, 1-element change in singleton list} {
+    list [catch { lcs2 {a} {b} } msg] $msg
+} {0 {{} {}}}
+
+test list-lcs2-2.6 {longestCommonSubsequence2, insert 1 in front of singleton list} {
+    list [catch { lcs2 {a} {b a} } msg] $msg
+} {0 {0 1}}
+
+test list-lcs2-2.7 {longestCommonSubsequence2, insert 1 at end of singleton list} {
+    list [catch {lcs2 {a} {a b}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.8 {longestCommonSubsequence2, duplicate element} {
+    list [catch {lcs2 {a} {a a}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.9 {longestCommonSubsequence2, interchange 2} {
+    list [catch {lcs2 {a b} {b a}} msg] $msg
+} {0 {1 0}}
+
+test list-lcs2-2.10 {longestCommonSubsequence2, insert before 2} {
+    list [catch {lcs2 {a b} {b a b}} msg] $msg
+} {0 {{0 1} {1 2}}}
+
+test list-lcs2-2.11 {longestCommonSubsequence2, insert inside 2} {
+    list [catch {lcs2 {a b} {a a b}} msg] $msg
+} {0 {{0 1} {0 2}}}
+
+test list-lcs2-2.13 {longestCommonSubsequence2, insert after 2} {
+    list [catch {lcs2 {a b} {a b a}} msg] $msg
+} {0 {{0 1} {0 1}}}
+
+test list-lcs2-2.13 {longestCommonSubsequence2, delete first of 2} {
+    list [catch {lcs2 {a b} a} msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.14 {longestCommonSubsequence2, delete second of 2} {
+    list [catch {lcs2 {a b} b} msg] $msg
+} {0 {1 0}}
+
+test list-lcs2-2.15 {longestCommonSubsequence2, change first of 2} {
+    list [catch {lcs2 {a b} {c b}} msg] $msg
+} {0 {1 1}}
+
+test list-lcs2-2.16 {longestCommonSubsequence2, change first of 2 to dupe} {
+    list [catch {lcs2 {a b} {b b}} msg] $msg
+} {0 {1 0}}
+
+test list-lcs2-2.17 {longestCommonSubsequence2, change second of 2} {
+    list [catch {lcs2 {a b} {a c}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.18 {longestCommonSubsequence2, change second of 2 to dupe} {
+    list [catch {lcs2 {a b} {a a}} msg] $msg
+} {0 {0 0}}
+
+test list-lcs2-2.19 {longestCommonSubsequence2, mixed changes} {
+    list [catch {lcs2 {a b r a c a d a b r a} {b r i c a b r a c}} msg] $msg
+} {0 {{1 2 4 5 8 9 10} {0 1 3 4 5 6 7}}}
+
+test list-lcs2-2.20 {longestCommonSubsequence2, mixed changes} {
+    list [catch {lcs2 {b r i c a b r a c} {a b r a c a d a b r a}} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs2-3.1 {longestCommonSubsequence2, length limit} {
+    list [catch {lcs2 {b r i c a b r a c} {a b r a c a d a b r a} 5} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs2-3.2 {longestCommonSubsequence2, length limit} {
+    list [catch {lcs2 {b r i c a b r a c} {a b r a c a d a b r a} 4} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs2-3.3 {longestCommonSubsequence2, length limit} {
+    list [catch {lcs2 {b r i c a b r a c} {a b r a c a d a b r a} 1} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+test list-lcs2-3.4 {longestCommonSubsequence2, stupid length limit} {
+    list [catch {lcs2 {b r i c a b r a c} {a b r a c a d a b r a} 0} msg] $msg
+} {0 {{0 1 3 4 5 6 7} {1 2 4 5 8 9 10}}}
+
+
+#----------------------------------------------------------------------
+
+interp alias {} lcsi  {} ::struct::list::list lcsInvert
+interp alias {} lcsim {} ::struct::list::list lcsInvertMerge
+
+test list-lcsInv-4.0 {longestCommonSubsequence, mixed changes} {
+
+    # sequence 1 = a b r a c a d a b r a
+    # lcs 1      =   1 2   4 5     8 9 10
+    # lcs 2      =   0 1   3 4     5 6 7
+    # sequence 2 =   b r i c a     b r a c
+    #
+    # Inversion  = deleted  {0  0} {-1 0}
+    #              changed  {3  3}  {2 2}
+    #              deleted  {6  7}  {4 5}
+    #              added   {10 11}  {8 8}
+
+    list [catch {lcsi [lcs {a b r a c a d a b r a} {b r i c a b r a c}] 11 9} msg] $msg
+} {0 {{deleted {0 0} {-1 0}} {changed {3 3} {2 2}} {deleted {6 7} {4 5}} {added {10 11} {8 8}}}}
+
+test list-lcsInv-4.1 {longestCommonSubsequence, mixed changes} {
+
+    # sequence 1 = a b r a c a d a b r a
+    # lcs 1      =   1 2   4 5     8 9 10
+    # lcs 2      =   0 1   3 4     5 6 7
+    # sequence 2 =   b r i c a     b r a c
+    #
+    # Inversion/Merge  = deleted   {0  0} {-1 0}
+    #                    unchanged {1  2}  {0 1}
+    #                    changed   {3  3}  {2 2}
+    #                    unchanged {4  5}  {3 4}
+    #                    deleted   {6  7}  {4 5}
+    #                    unchanged {8 10}  {5 7}
+    #                    added    {10 11}  {8 8}
+
+    list [catch {lcsim [lcs {a b r a c a d a b r a} {b r i c a b r a c}] 11 9} msg] $msg
+} {0 {{deleted {0 0} {-1 0}} {unchanged {1 2} {0 1}} {changed {3 3} {2 2}} {unchanged {4 5} {3 4}} {deleted {6 7} {4 5}} {unchanged {8 10} {5 7}} {added {10 11} {8 8}}}}
+
+
+proc diff2 {s1 s2} {
+    set l1 [split $s1 {}]
+    set l2 [split $s2 {}]
+    set x [lcs $l1 $l2]
+    lcsim $x [llength $l1] [llength $l2]
+}
+test list-lcsInv-4.2 {lcsInvertMerge} {
+    # Handling of 'unchanged' chunks at the beginning of the result
+    # (when result actually empty).
+
+    diff2 ab "a b" 
+} {{unchanged {-1 0} {-1 0}} {added {0 1} {1 1}}}
+
+#----------------------------------------------------------------------
+
+interp alias {} reverse {} ::struct::list::list reverse
+
+test reverse-1.1 {reverse method} {
+    reverse {a b c}
+} {c b a}
+
+test reverse-1.2 {reverse method} {
+    reverse a
+} {a}
+
+test reverse-1.3 {reverse method} {
+    reverse {}
+} {}
+
+test reverse-2.1 {reverse errors} {
+    list [catch {reverse} msg] $msg
+} [list 1 [tcltest::wrongNumArgs ::struct::list::Lreverse {sequence} 0]]
+
+#----------------------------------------------------------------------
+
+interp alias {} assign {} ::struct::list::list assign
+
+test assign-4.1 {assign method} {
+    catch {unset ::x ::y}
+    list [assign {foo bar} x y] $x $y
+} {{} foo bar}
+
+test assign-4.2 {assign method} {
+    catch {unset x y}
+    list [assign {foo bar baz} x y] $x $y
+} {baz foo bar}
+
+test assign-4.3 {assign method} {
+    catch {unset x y z}
+    list [assign {foo bar} x y z] $x $y $z
+} {{} foo bar {}}
+
+test assign-4.4 {assign method} {
+    assign {foo bar}
+} {foo bar}
+
+catch {unset x y z}
+
+#----------------------------------------------------------------------
+
+interp alias {} flatten {} ::struct::list::list flatten
+
+test flatten-1.1 {flatten command} {
+    flatten {1 2 3 {4 5} {6 7} {{8 9}} 10}
+} {1 2 3 4 5 6 7 {8 9} 10}
+
+test flatten-1.2 {flatten command} {
+    flatten -full {1 2 3 {4 5} {6 7} {{8 9}} 10}
+} {1 2 3 4 5 6 7 8 9 10}
+
+test flatten-2.1 {flatten errors} {
+    list [catch {flatten} msg] $msg
+} {1 {wrong#args: should be "::struct::list::Lflatten ?-full? ?--? sequence"}}
+
+#----------------------------------------------------------------------
+
+interp alias {} map {} ::struct::list::list map
+
+proc cc {a} {return $a$a}
+proc +  {a} {expr {$a + $a}}
+proc *  {a} {expr {$a * $a}}
+proc projection {n list} {::lindex $list $n}
+
+test map-4.1 {map command} {
+    map {a b c d} cc
+} {aa bb cc dd}
+
+test map-4.2 {map command} {
+    map {1 2 3 4 5} +
+} {2 4 6 8 10}
+
+test map-4.3 {map command} {
+    map {1 2 3 4 5} *
+} {1 4 9 16 25}
+
+test map-4.4 {map command} {
+    map {} *
+} {}
+
+test map-4.5 {map command} {
+    map {{a b c} {1 2 3} {d f g}} {projection 1}
+} {b 2 f}
+
+#----------------------------------------------------------------------
+
+interp alias {} fold {} ::struct::list::list fold
+
+proc cc {a b} {return $a$b}
+proc +  {a b} {expr {$a + $b}}
+proc *  {a b} {expr {$a * $b}}
+
+test fold-4.1 {fold command} {
+    fold {a b c d} {} cc
+} {abcd}
+
+test fold-4.2 {fold command} {
+    fold {1 2 3 4 5} 0 +
+} {15}
+
+test fold-4.3 {fold command} {
+    fold {1 2 3 4 5} 1 *
+} {120}
+
+test fold-4.4 {fold command} {
+    fold {} 1 *
+} {1}
+
+#----------------------------------------------------------------------
+
+interp alias {} iota {} ::struct::list::list iota
+
+test iota-4.1 {iota command} {
+    iota 0
+} {}
+
+test iota-4.2 {iota command} {
+    iota 1
+} {0}
+
+test iota-4.3 {iota command} {
+    iota 11
+} {0 1 2 3 4 5 6 7 8 9 10}
+
+
+#----------------------------------------------------------------------
+
+interp alias {} repeat {} ::struct::list::list repeat
+
+test repeat-4.1 {repeat command} {
+    repeat 0
+} {}
+
+test repeat-4.2 {repeat command} {
+    repeat 0 3
+} {0 0 0}
+
+test repeat-4.3 {repeat command} {
+    repeat 0 3 4
+} {{0 0 0} {0 0 0} {0 0 0} {0 0 0}}
+
+test repeat-4.4 {repeat command} {
+    repeat 0 {3 4}
+} {{0 0 0} {0 0 0} {0 0 0} {0 0 0}}
+
+
+#----------------------------------------------------------------------
+
+interp alias {} equal {} ::struct::list::list equal
+
+test equal-4.1 {equal command} {
+    equal 0 0
+} 1
+
+test equal-4.2 {equal command} {
+    equal 0 1
+} 0
+
+test equal-4.3 {equal command} {
+    equal {0 0 0} {0 0}
+} 0
+
+test equal-4.4 {equal command} {
+    equal {{0 2 3} 1} {{0 2 3} 1}
+} 1
+
+#----------------------------------------------------------------------
+
+interp alias {} dbjoin  {} ::struct::list::list dbJoin
+interp alias {} dbjoink {} ::struct::list::list dbJoinKeyed
+
+#----------------------------------------------------------------------
+# Input data sets ...
+
+set empty {}
+set table_as [list \
+	{0 foo} \
+	{1 snarf} \
+	{2 blue} \
+	]
+set table_am [list \
+	{0 foo} \
+	{0 bar} \
+	{1 snarf} \
+	{1 rim} \
+	{2 blue} \
+	{2 dog} \
+    ]
+set table_bs [list \
+	{0 bagel} \
+	{1 snatz} \
+	{3 driver} \
+	]
+set table_bm [list \
+	{0 bagel} \
+	{0 loaf} \
+	{1 snatz} \
+	{1 grid} \
+	{3 driver} \
+	{3 tcl} \
+	]
+set table_cs [list \
+	{0 smurf} \
+	{3 bird} \
+	{4 galapagos} \
+	]
+set table_cm [list \
+	{0 smurf} \
+	{0 blt} \
+	{3 bird} \
+	{3 itcl} \
+	{4 galapagos} \
+	{4 tk} \
+	]
+
+#----------------------------------------------------------------------
+# Result data sets ...
+
+set nyi __not_yet_written__
+
+set ijss [list \
+	[list 0 foo   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	]
+set ijsm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	]
+set ijms [list \
+	[list 0 foo   0 bagel] \
+	[list 0 bar   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 1 rim   1 snatz] \
+	]
+set ijmm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 0 bar   0 bagel] \
+	[list 0 bar   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 1 rim   1 snatz] \
+	[list 1 rim   1 grid] \
+    ]
+
+set ljss [list \
+	[list 0 foo   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 2 blue {} {}] \
+	]
+set ljsm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 2 blue {} {}] \
+	]
+set ljms [list \
+	[list 0 foo   0 bagel] \
+	[list 0 bar   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 1 rim   1 snatz] \
+	[list 2 blue {} {}] \
+	[list 2 dog  {} {}] \
+	]
+set ljmm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 0 bar   0 bagel] \
+	[list 0 bar   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 1 rim   1 snatz] \
+	[list 1 rim   1 grid] \
+	[list 2 blue {} {}] \
+	[list 2 dog  {} {}] \
+	]
+
+set rjss [list \
+	[list 0 foo   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list {} {}   3 driver] \
+	]
+set rjsm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list {} {}   3 driver] \
+	[list {} {}   3 tcl] \
+	]
+set rjms [list \
+	[list 0 foo   0 bagel] \
+	[list 0 bar   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 1 rim   1 snatz] \
+	[list {} {}   3 driver] \
+	]
+set rjmm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 0 bar   0 bagel] \
+	[list 0 bar   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 1 rim   1 snatz] \
+	[list 1 rim   1 grid] \
+	[list {} {}   3 driver] \
+	[list {} {}   3 tcl] \
+    ]
+
+set fjss [list \
+	[list 0 foo   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 2 blue {} {}] \
+	[list {} {}   3 driver] \
+	]
+set fjsm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 2 blue {} {}] \
+	[list {} {}   3 driver] \
+	[list {} {}   3 tcl] \
+	]
+set fjms [list \
+	[list 0 foo   0 bagel] \
+	[list 0 bar   0 bagel] \
+	[list 1 snarf 1 snatz] \
+	[list 1 rim   1 snatz] \
+	[list 2 blue {} {}] \
+	[list 2 dog  {} {}] \
+	[list {} {}   3 driver] \
+	]
+set fjmm [list \
+	[list 0 foo   0 bagel] \
+	[list 0 foo   0 loaf] \
+	[list 0 bar   0 bagel] \
+	[list 0 bar   0 loaf] \
+	[list 1 snarf 1 snatz] \
+	[list 1 snarf 1 grid] \
+	[list 1 rim   1 snatz] \
+	[list 1 rim   1 grid] \
+	[list 2 blue {} {}] \
+	[list 2 dog  {} {}] \
+	[list {} {}   3 driver] \
+	[list {} {}   3 tcl] \
+    ]
+
+set ijmmm {
+    {0 bar 0 bagel 0 blt}
+    {0 bar 0 bagel 0 smurf}
+    {0 bar 0 loaf 0 blt}
+    {0 bar 0 loaf 0 smurf}
+    {0 foo 0 bagel 0 blt}
+    {0 foo 0 bagel 0 smurf}
+    {0 foo 0 loaf 0 blt}
+    {0 foo 0 loaf 0 smurf}
+}
+set ljmmm {
+    {0 bar 0 bagel 0 blt}
+    {0 bar 0 bagel 0 smurf}
+    {0 bar 0 loaf 0 blt}
+    {0 bar 0 loaf 0 smurf}
+    {0 foo 0 bagel 0 blt}
+    {0 foo 0 bagel 0 smurf}
+    {0 foo 0 loaf 0 blt}
+    {0 foo 0 loaf 0 smurf}
+    {1 rim 1 grid {} {}}
+    {1 rim 1 snatz {} {}}
+    {1 snarf 1 grid {} {}}
+    {1 snarf 1 snatz {} {}}
+    {2 blue {} {} {} {}}
+    {2 dog {} {} {} {}}
+}
+set rjmmm {
+    {0 bar 0 bagel 0 blt}
+    {0 bar 0 bagel 0 smurf}
+    {0 bar 0 loaf 0 blt}
+    {0 bar 0 loaf 0 smurf} 
+    {0 foo 0 bagel 0 blt}
+    {0 foo 0 bagel 0 smurf}
+    {0 foo 0 loaf 0 blt}
+    {0 foo 0 loaf 0 smurf}
+    {{} {} 3 driver 3 bird}
+    {{} {} 3 driver 3 itcl}
+    {{} {} 3 tcl 3 bird}
+    {{} {} 3 tcl 3 itcl}
+    {{} {} {} {} 4 galapagos}
+    {{} {} {} {} 4 tk}
+}
+set fjmmm {
+    {0 bar 0 bagel 0 blt}
+    {0 bar 0 bagel 0 smurf}
+    {0 bar 0 loaf 0 blt}
+    {0 bar 0 loaf 0 smurf} 
+    {0 foo 0 bagel 0 blt}
+    {0 foo 0 bagel 0 smurf}
+    {0 foo 0 loaf 0 blt}
+    {0 foo 0 loaf 0 smurf}
+    {1 rim 1 grid {} {}}
+    {1 rim 1 snatz {} {}}
+    {1 snarf 1 grid {} {}}
+    {1 snarf 1 snatz {} {}}
+    {2 blue {} {} {} {}}
+    {2 dog {} {} {} {}}
+    {{} {} 3 driver 3 bird}
+    {{} {} 3 driver 3 itcl}
+    {{} {} 3 tcl 3 bird}
+    {{} {} 3 tcl 3 itcl}
+    {{} {} {} {} 4 galapagos}
+    {{} {} {} {} 4 tk}
+}
+
+#----------------------------------------------------------------------
+# Helper, translation to keyed format.
+
+proc keyed {table} {
+    # Get the key out of the row, hardwired to column 0
+    set res [list]
+    foreach row $table {lappend res [list [lindex $row 0] $row]}
+    return $res
+}
+
+#----------------------------------------------------------------------
+# I.	One table joins
+
+set n 0 ; # Counter for test cases
+foreach {jtype inout} {
+    -inner empty    -inner table_as    -inner table_am
+    -left  empty    -left  table_as    -left  table_am
+    -right empty    -right table_as    -right table_am
+    -full  empty    -full  table_as    -full  table_am
+} {
+    test dbjoin-1.$n "1-table join $jtype $inout" {
+	dbjoin $jtype 0 [set $inout]
+    } [set $inout] ; # {}
+
+    test dbjoinKeyed-1.$n "1-table join $jtype $inout" {
+	dbjoink $jtype [keyed [set $inout]]
+    } [set $inout] ; # {}
+
+    incr n
+}
+
+#----------------------------------------------------------------------
+# II.	Two table joins
+
+set n 0 ; # Counter for test cases
+foreach {jtype left right result} {
+    -inner empty    empty    empty
+    -inner empty    table_bs empty
+    -inner table_as empty    empty
+    -inner table_as table_bs ijss
+    -inner table_as table_bm ijsm
+    -inner table_am table_bs ijms
+    -inner table_am table_bm ijmm
+
+    -left  empty    empty    empty
+    -left  empty    table_bs empty
+    -left  table_as empty    table_as
+    -left  table_as table_bs ljss
+    -left  table_as table_bm ljsm
+    -left  table_am table_bs ljms
+    -left  table_am table_bm ljmm
+
+    -right empty    empty    empty
+    -right empty    table_bs table_bs
+    -right table_as empty    empty
+    -right table_as table_bs rjss
+    -right table_as table_bm rjsm
+    -right table_am table_bs rjms
+    -right table_am table_bm rjmm
+
+    -full  empty    empty    empty
+    -full  empty    table_bs table_bs
+    -full  table_as empty    table_as
+    -full  table_as table_bs fjss
+    -full  table_as table_bm fjsm
+    -full  table_am table_bs fjms
+    -full  table_am table_bm fjmm
+} {
+    test dbjoin-2.$n "2-table join $jtype ($left $right) = $result" {
+	lsort [dbjoin $jtype 0 [set $left] 0 [set $right]]
+    } [lsort [set $result]]
+
+    test dbjoinKeyed-2.$n "2-table join $jtype ($left $right) = $result" {
+	lsort [dbjoink $jtype [keyed [set $left]] [keyed [set $right]]]
+    } [lsort [set $result]]
+
+    incr n
+}
+
+#----------------------------------------------------------------------
+# III.	Three table joins
+
+set n 0 ; # Counter for test cases
+foreach {jtype left middle right result} {
+    -inner table_am table_bm table_cm ijmmm
+    -left  table_am table_bm table_cm ljmmm
+    -right table_am table_bm table_cm rjmmm
+    -full  table_am table_bm table_cm fjmmm
+} {
+    test dbjoin-3.$n "3-table join $jtype ($left $middle $right) = $result" {
+	lsort [dbjoin $jtype 0 [set $left] 0 [set $middle] 0 [set $right]]
+    } [lsort [set $result]]
+
+    test dbjoinKeyed-3.$n "3-table join $jtype ($left $middle $right) = $result" {
+	lsort [dbjoink $jtype [keyed [set $left]] [keyed [set $middle]] [keyed [set $right]]]
+    } [lsort [set $result]]
+
+    incr n
+}
+
+#----------------------------------------------------------------------
+::tcltest::cleanupTests

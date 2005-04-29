@@ -50,7 +50,7 @@
 
 #define	IFLEVELINC	5	/* #if nesting level size increment */
 
-static char const rcsid[] = "$Id: fscanner.l,v 1.1.1.1 2002/01/09 18:50:32 umeshv Exp $";
+static char const rcsid[] = "$Id: fscanner.l,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
 
 int	first;	/* buffer index for first char of symbol */
 int	last;	/* buffer index for last char of symbol */
@@ -127,11 +127,13 @@ static	void	my_yymore(void);
 %}
 identifier	[a-zA-Z_$][a-zA-Z_0-9$]*
 number		\.?[0-9][.0-9a-fA-FlLuUxX]*
-comment		"/*"([^*]*("*"+[^/])?)*"*/"
-whitespace	[ \t\n]|{comment}
+comment		"/*"([^*]*("*"+[^/])?)*"*/"|"//"[^\n]*\n
+ws		[ \t\r\v\f]
+wsnl		[ \t\n]|{comment}
 
-/* flex-only: stack of start conditions */
+/* flex options: stack of start conditions, and don't use yywrap() */
 %option stack
+%option noyywrap
 
 %start SDL
 %a 4000
@@ -222,20 +224,13 @@ whitespace	[ \t\n]|{comment}
 			/* NOTREACHED */
 		}
 
-\#[ \t]*	{ /* start a preprocessor line */
+\#{ws}*	{ /* start a preprocessor line */
 			if (rules == NO)		/* don't consider CPP for lex/yacc rules */
 				BEGIN(IN_PREPROC);
 			yyleng = 1;	/* get rid of the blanks, if any */
 			goto more;
 			/* NOTREACHED */
 		}
-<IN_PREPROC>.|\n			|
-<IN_PREPROC>{identifier}	{   /* unknown preprocessor line */
-			BEGIN(INITIAL);
-			goto more;
-			/* NOTREACHED */
-		}
-
 <IN_PREPROC>endif([^a-zA-Z0-9_$\n].*)?	{	/* #endif */
 			/* delay treatment of #endif depending on whether an
 			 * #if comes right after it, or not */
@@ -245,7 +240,7 @@ whitespace	[ \t\n]|{comment}
 			goto more;
 			/* NOTREACHED */
 		}
-<WAS_ENDIF>\n{whitespace}*#[ \t]*if(ndef|def)?[ \t]+		{
+<WAS_ENDIF>\n{wsnl}*#{ws}*if(ndef|def)?{ws}+		{
 			/* attempt to correct erroneous brace count caused by:
 			 * 
 			 * #if ...
@@ -267,7 +262,7 @@ whitespace	[ \t\n]|{comment}
 			goto eol;
 			/* NOTREACHED */
 		}
-<WAS_ENDIF>\n{whitespace}*		 { 	/* an #endif with no #if right after it */
+<WAS_ENDIF>\n{wsnl}*		 { 	/* an #endif with no #if right after it */
 		endif:
 			if (iflevel > 0) {
 				/* get the maximum brace count for this #if */
@@ -282,9 +277,9 @@ whitespace	[ \t\n]|{comment}
 			/* NOTREACHED */
 		}
 
-<IN_PREPROC>ifndef[ \t]+	|
-<IN_PREPROC>ifdef[ \t]+		|
-<IN_PREPROC>if[ \t]+		{ /* #if directive */
+<IN_PREPROC>ifndef{ws}+	|
+<IN_PREPROC>ifdef{ws}+		|
+<IN_PREPROC>if{ws}+		{ /* #if directive */
 			elseelif = NO;
 			if (pseudoelif == YES) {
 				pseudoelif = NO;
@@ -304,7 +299,7 @@ whitespace	[ \t\n]|{comment}
 			goto more;
 			/* NOTREACHED */
 		}
-<IN_PREPROC>else([ \t].*)?	{ /* #else --- eat up whole line */
+<IN_PREPROC>else({ws}.*)?	{ /* #else --- eat up whole line */
 			elseelif = YES;
 			if (iflevel > 0) {
 				
@@ -319,7 +314,7 @@ whitespace	[ \t\n]|{comment}
 			goto more;
 			/* NOTREACHED */
 		}
-<IN_PREPROC>elif[ \t]+	{ /* #elif */
+<IN_PREPROC>elif{ws}+	{ /* #elif */
 			/* elseelif = YES; --- HBB I doubt this is correct */
 		elif:
 			if (iflevel > 0) {
@@ -336,8 +331,8 @@ whitespace	[ \t\n]|{comment}
 			/* NOTREACHED */
 		}
 
-<IN_PREPROC>include[ \t]*\"[^"\n]+\" |
-<IN_PREPROC>include[ \t]*<[^>\n]+> 	{ /* #include file */
+<IN_PREPROC>include{ws}*\"[^"\n]+\" |
+<IN_PREPROC>include{ws}*<[^>\n]+> 	{ /* #include file */
 			char	*s;
 			char remember = yytext[yyleng-1];
 			
@@ -444,7 +439,7 @@ whitespace	[ \t\n]|{comment}
 			goto more;
 			/* NOTREACHED */
 		}
-<IN_PREPROC>define[ \t]+{identifier}	{
+<IN_PREPROC>define{ws}+{identifier}	{
 				
 			/* preprocessor macro or constant definition */
 			ppdefine = YES;
@@ -467,7 +462,14 @@ whitespace	[ \t\n]|{comment}
 			goto definition;
 			/* NOTREACHED */
 		}
-class{whitespace}+{identifier}({whitespace}|{identifier}|[():])*\{	{	/* class definition */
+<IN_PREPROC>.|\n			|
+<IN_PREPROC>{identifier}	{   /* unknown preprocessor line */
+			BEGIN(INITIAL);
+			goto more;
+			/* NOTREACHED */
+		}
+
+class{wsnl}+{identifier}({wsnl}|{identifier}|[():])*\{	{	/* class definition */
 			classdef = YES;
 			tagdef =  'c';
 			yyless(5);		/* eat up 'class', and re-scan */
@@ -482,12 +484,12 @@ class{whitespace}+{identifier}({whitespace}|{identifier}|[():])*\{	{	/* class de
 			goto more;
 		}
 <WAS_ESU>{
-({whitespace}+{identifier}){whitespace}*\{		{ /* e/s/u definition */
+({wsnl}+{identifier}){wsnl}*\{		{ /* e/s/u definition */
 			tagdef = my_yytext[ident_start];
 			BEGIN(WAS_IDENTIFIER);
 			goto ident;
 		}
-{whitespace}*\{		{ /* e/s/u definition without a tag */
+{wsnl}*\{		{ /* e/s/u definition without a tag */
 			tagdef = my_yytext[ident_start];
 			BEGIN(INITIAL);
 			if (braces == 0) {
@@ -498,14 +500,14 @@ class{whitespace}+{identifier}({whitespace}|{identifier}|[():])*\{	{	/* class de
 			tagdef = '\0';
 			goto more;
 		}
-({whitespace}+{identifier})?{whitespace}* 	|   
+({wsnl}+{identifier})?{wsnl}* 	|   
 .|\n										{   /* e/s/u usage */
 			BEGIN(WAS_IDENTIFIER);
 			goto ident;
 		}
 }
 
-if{whitespace}*\(	{ 	/* ignore 'if' */
+if{wsnl}*\(	{ 	/* ignore 'if' */
 			yyless(2);
 			yy_set_bol(0);
 			goto more;
@@ -519,7 +521,7 @@ if{whitespace}*\(	{ 	/* ignore 'if' */
 		}
 
 <WAS_IDENTIFIER>{       
-[ \t]*\(({whitespace}|{identifier}|[*&[\]=,.])*\)([()]|{whitespace})*[:a-zA-Z_#{]	{
+{ws}*\(({wsnl}|{identifier}|[*&[\]=,.])*\)([()]|{wsnl})*[:a-zA-Z_#{]	{
 			/* a function definition */
 			/* note: "#define a (b) {" and "#if defined(a)\n#" 
 			 * are not fcn definitions! */
@@ -541,7 +543,7 @@ if{whitespace}*\(	{ 	/* ignore 'if' */
 			goto fcncal;
 			/* NOTREACHED */
 		}
-[ \t]*\(([*&[\]=,.]|{identifier}|{whitespace})*		{ 	/* function call */
+{ws}*\(([*&[\]=,.]|{identifier}|{wsnl})*		{ 	/* function call */
 		fcncal:	if (fcndef == YES || ppdefine == YES || rules == YES) {
 				token = FCNCALL;
 				goto fcn;
@@ -554,7 +556,7 @@ if{whitespace}*\(	{ 	/* ignore 'if' */
 			goto ident;
 			/* NOTREACHED */
 		}
-("*"|{whitespace})+{identifier}		{	/* typedef name or modifier use */
+("*"|{wsnl})+{identifier}		{	/* typedef name or modifier use */
 			goto ident;
 			/* NOTREACHED */
 		}
@@ -767,17 +769,26 @@ if{whitespace}*\(	{ 	/* ignore 'if' */
 			goto more;
 			/* NOTREACHED */
 		}
-\\\n 	{				/* line continuation inside a string! */
+\\\n 	{		/* line continuation inside a string! */
 			myylineno++;
 			goto more;
 			/* NOTREACHED */
 		}
 }
 	
-^[ \t\f]+	{	/* don't save leading white space */
+^{ws}+		{		/* don't save leading white space */
+		}
+		
+{ws}+\n 	{		/* eat whitespace at end of line */
+			unput('\n');
 		}
 
-[ \t]{2,}	{   /* compress sequential whitespace here, not in putcrossref() */
+[\t\r\v\f]+	{	/* eat non-blank whitespace sequences, replace
+			 * by single blank */
+			unput(' ');
+		}
+
+{ws}{2,}	{   /* compress sequential whitespace here, not in putcrossref() */
 			unput(' ');
  		}
 

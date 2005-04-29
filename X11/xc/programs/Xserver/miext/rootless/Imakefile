@@ -1,0 +1,51 @@
+XCOMM $XFree86: xc/programs/Xserver/miext/rootless/Imakefile,v 1.3 2003/10/24 00:33:14 torrey Exp $
+
+#include <Server.tmpl>
+
+#ifdef DarwinArchitecture
+#define RootlessSafeAlpha YES
+#define RootlessAcceleration YES
+#else
+#define RootlessSafeAlpha NO
+#define RootlessAcceleration NO
+#endif
+
+#if RootlessSafeAlpha || RootlessAcceleration
+#define IHaveSubdirs
+#endif
+
+#if RootlessSafeAlpha
+ALPHADIRS = safeAlpha
+#endif
+
+#if RootlessAcceleration
+ACCELDIRS = accel
+#endif
+
+SRCS =  rootlessCommon.c \
+        rootlessScreen.c \
+        rootlessWindow.c \
+        rootlessGC.c \
+        rootlessValTree.c
+
+OBJS =  rootlessCommon.o \
+        rootlessScreen.o \
+        rootlessWindow.o \
+        rootlessGC.o \
+        rootlessValTree.o
+
+INCLUDES = -I. -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
+           -I$(XINCLUDESRC) -I$(FONTINCSRC) -I$(SERVERSRC)/render \
+           -I$(EXTINCSRC) -I$(ACCELDIRS)
+
+NormalLibraryObjectRule()
+LibraryModuleTarget(rootless,$(OBJS))
+
+DependTarget()
+
+SUBDIRS = $(ALPHADIRS) $(ACCELDIRS)
+
+#if RootlessSafeAlpha || RootlessAcceleration
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))
+#endif

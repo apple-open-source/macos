@@ -9,14 +9,11 @@
 # the test is a member of them.  Hopefully they're in at least one
 # test.
 
-. $srcdir/testsuite/rsync.fns
+. "$suitedir/rsync.fns"
 
 set -x
 
 # Build some hardlinks
-
-fromdir="$scratchdir/from"
-todir="$scratchdir/to"
 
 mygrps="`rsync_getgroups`" || fail "Can't get groups"
 mkdir "$fromdir"
@@ -29,7 +26,7 @@ do
 done
 sleep 2
 
-checkit "$RSYNC -rtgvvv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
+checkit "$RSYNC -rtgpvvv \"$fromdir/\" \"$todir/\"" "$fromdir" "$todir"
 
 # The script would have aborted on error, so getting here means we've won.
 exit 0

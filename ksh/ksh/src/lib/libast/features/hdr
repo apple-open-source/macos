@@ -1,0 +1,97 @@
+tst std_stddef note{ <stddef.h> looks ok }end compile{
+	#include <sys/types.h>
+	#include <stddef.h>
+	ptrdiff_t i;
+	size_t j;
+	wchar_t k;
+}end
+tst std_stdlib note{ <stdlib.h> looks ok }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	div_t i;
+	ldiv_t j;
+}end
+tst std_def_calloc note{ <std*.h> defines calloc macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef calloc
+	(
+	#endif
+}end
+tst std_def_cfree note{ <std*.h> defines cfree macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef cfree
+	(
+	#endif
+}end
+tst std_def_free note{ <std*.h> defines free macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef free
+	(
+	#endif
+}end
+tst std_def_malloc note{ <std*.h> defines malloc macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef malloc
+	(
+	#endif
+}end
+tst std_def_memalign note{ <std*.h> defines memalign macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef memalign
+	(
+	#endif
+}end
+tst std_def_pvalloc note{ <std*.h> defines pvalloc macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef pvalloc
+	(
+	#endif
+}end
+tst std_def_realloc note{ <std*.h> defines realloc macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef realloc
+	(
+	#endif
+}end
+tst std_def_valloc note{ <std*.h> defines valloc macro }end compile{
+	#include <sys/types.h>
+	#if _std_stddef
+	#include <stddef.h>
+	#endif
+	#include <stdlib.h>
+	#ifndef valloc
+	(
+	#endif
+}end
+npt	getpagesize,sbrk unistd.h

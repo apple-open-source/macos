@@ -19,7 +19,10 @@
 
 #include "lukemftp.h"
 
+#if HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
+#endif
+
 #ifndef INADDRSZ
 #define	INADDRSZ	4
 #endif

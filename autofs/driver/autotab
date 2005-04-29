@@ -1,0 +1,4 @@
+# $Id: autotab,v 1.2 2004/02/05 05:43:30 alfred Exp $
+# autofs, directory, fstype, opts, path
+/auto	bar	nfs	ro	pants:/export/bar
+/auto	baz	nfs	ro	pants:/export/baz

@@ -1,4 +1,4 @@
-.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage.man,v 1.6 2002/05/14 20:19:51 alanh Exp $ 
+.\" $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage.man,v 1.8 2004/01/07 17:20:09 tsi Exp $ 
 .\" shorthand for double quote that works everywhere.
 .ds q \N'34'
 .TH SAVAGE __drivermansuffix__ __vendorversion__
@@ -81,8 +81,7 @@ forces the ShadowFB option on, and disables acceleration.
 Default: no rotation.
 .TP
 .BI "Option \*qShadowFB\*q \*q" boolean \*q
-Enable or disable use of the shadow framebuffer layer.  See
-shadowfb(__drivermansuffix__) for further information.  This option
+Enable or disable use of the shadow framebuffer layer.  This option
 disables acceleration.  Default: off.
 .TP
 .BI "Option \*qLCDClock\*q \*q" frequency \*q
@@ -108,7 +107,7 @@ you would rather have the
 driver use your mode line timing exactly, turn off the UseBios option.  
 Default: on (use the BIOS).
 .TP
-.BI "Option \*qShadowStatus\*q \q*" boolean \*q
+.BI "Option \*qShadowStatus\*q \*q" boolean \*q
 Enables the use of a shadow status register.  There is a chip bug in the 
 Savage graphics engine that can cause a bus lock when reading the engine
 status register under heavy load, such as when scrolling text or dragging

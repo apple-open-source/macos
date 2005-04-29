@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_dri.c,v 1.12 2003/02/08 21:26:57 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i830_dri.c,v 1.16 2003/09/28 20:15:58 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2001 VA Linux Systems Inc., Fremont, California.
@@ -42,7 +42,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 /*
  * Authors: Jeff Hartmann <jhartmann@valinux.com>
- *          David Dawes <dawes@tungstengraphics.com>
+ *          David Dawes <dawes@xfree86.org>
  *          Keith Whitwell <keith@tungstengraphics.com>
  */
 
@@ -249,7 +249,7 @@ I830InitVisualConfigs(ScreenPtr pScreen)
 		  pConfigs[i].accumRedSize = 16;
 		  pConfigs[i].accumGreenSize = 16;
 		  pConfigs[i].accumBlueSize = 16;
-		  pConfigs[i].accumAlphaSize = 16;
+		  pConfigs[i].accumAlphaSize = 0;
 	       } else {
 		  pConfigs[i].accumRedSize = 0;
 		  pConfigs[i].accumGreenSize = 0;
@@ -270,10 +270,10 @@ I830InitVisualConfigs(ScreenPtr pScreen)
 	       pConfigs[i].auxBuffers = 0;
 	       pConfigs[i].level = 0;
 	       if (stencil || accum)
-		  pConfigs[i].visualRating = GLX_SLOW_VISUAL_EXT;
+		  pConfigs[i].visualRating = GLX_SLOW_CONFIG;
 	       else
-		  pConfigs[i].visualRating = GLX_NONE_EXT;
-	       pConfigs[i].transparentPixel = 0;
+		  pConfigs[i].visualRating = GLX_NONE;
+	       pConfigs[i].transparentPixel = GLX_NONE;
 	       pConfigs[i].transparentRed = 0;
 	       pConfigs[i].transparentGreen = 0;
 	       pConfigs[i].transparentBlue = 0;
@@ -324,16 +324,16 @@ I830InitVisualConfigs(ScreenPtr pScreen)
 	       pConfigs[i].redSize = 8;
 	       pConfigs[i].greenSize = 8;
 	       pConfigs[i].blueSize = 8;
-	       pConfigs[i].alphaSize = 0;
+	       pConfigs[i].alphaSize = 8;
 	       pConfigs[i].redMask = 0x00FF0000;
 	       pConfigs[i].greenMask = 0x0000FF00;
 	       pConfigs[i].blueMask = 0x000000FF;
-	       pConfigs[i].alphaMask = 0x00000000;;
+	       pConfigs[i].alphaMask = 0xFF000000;;
 	       if (accum) {
 		  pConfigs[i].accumRedSize = 16;
 		  pConfigs[i].accumGreenSize = 16;
 		  pConfigs[i].accumBlueSize = 16;
-		  pConfigs[i].accumAlphaSize = 0;
+		  pConfigs[i].accumAlphaSize = 16;
 	       } else {
 		  pConfigs[i].accumRedSize = 0;
 		  pConfigs[i].accumGreenSize = 0;
@@ -346,7 +346,7 @@ I830InitVisualConfigs(ScreenPtr pScreen)
 		  pConfigs[i].doubleBuffer = FALSE;
 	       }
 	       pConfigs[i].stereo = FALSE;
-	       pConfigs[i].bufferSize = 24;
+	       pConfigs[i].bufferSize = 32;
 	       if (depth) {
 		  pConfigs[i].depthSize = 24;
 		  pConfigs[i].stencilSize = 8;
@@ -357,11 +357,11 @@ I830InitVisualConfigs(ScreenPtr pScreen)
 	       pConfigs[i].auxBuffers = 0;
 	       pConfigs[i].level = 0;
 	       if (accum) {
-		  pConfigs[i].visualRating = GLX_SLOW_VISUAL_EXT;
+		  pConfigs[i].visualRating = GLX_SLOW_CONFIG;
 	       } else {
-		  pConfigs[i].visualRating = GLX_NONE_EXT;
+		  pConfigs[i].visualRating = GLX_NONE;
 	       }
-	       pConfigs[i].transparentPixel = 0;
+	       pConfigs[i].transparentPixel = GLX_NONE;
 	       pConfigs[i].transparentRed = 0;
 	       pConfigs[i].transparentGreen = 0;
 	       pConfigs[i].transparentBlue = 0;
@@ -757,8 +757,14 @@ I830DRICloseScreen(ScreenPtr pScreen)
 {
    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
    I830Ptr pI830 = I830PTR(pScrn);
+   I830DRIPtr pI830DRI = (I830DRIPtr) pI830->pDRIInfo->devPrivate;
 
    DPRINTF(PFX, "I830DRICloseScreen\n");
+
+   if (pI830DRI->irq) {
+       drmCtlUninstHandler(pI830->drmSubFD);
+       pI830DRI->irq = 0;
+   }
 
    I830CleanupDma(pScrn);
 
@@ -822,6 +828,9 @@ I830DRISwapContext(ScreenPtr pScreen, DRISyncType syncType,
 {
    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
    I830Ptr pI830 = I830PTR(pScrn);
+
+   if (!pScrn->vtSema)
+      return;
 
    if (syncType == DRI_3D_SYNC &&
        oldContextType == DRI_2D_CONTEXT && newContextType == DRI_2D_CONTEXT) {
@@ -1455,7 +1464,11 @@ I830EmitInvarientState(ScrnInfoPtr pScrn)
 	    STENCIL_TEST_FUNC(COMPAREFUNC_ALWAYS) |
 	    ENABLE_STENCIL_REF_VALUE | STENCIL_REF_VALUE(0));
 
-   OUT_RING(VRTX_FORMAT_NTEX(1));
+   OUT_RING(STATE3D_VERTEX_FORMAT_CMD |
+	    VRTX_TEX_COORD_COUNT(1) |
+	    VRTX_HAS_SPEC |
+	    VRTX_HAS_DIFFUSE |
+	    VRTX_HAS_XYZW);
 
    OUT_RING(STATE3D_VERTEX_FORMAT_2_CMD |
 	    VRTX_TEX_SET_0_FMT(TEXCOORDFMT_2D) |

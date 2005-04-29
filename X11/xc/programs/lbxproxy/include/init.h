@@ -45,35 +45,30 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/init.h,v 1.3 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef _INIT_H_
 #define _INIT_H_
 
 extern struct _XDisplay* DisplayOpen(
-#if NeedFunctionPrototypes
     char * /*dpy_name*/,
     int * /*request*/,
     int * /*event*/,
     int * /*error*/,
     int * /*sequencep*/
-#endif
 );
 
 extern int DisplayConnectionNumber(
-#if NeedFunctionPrototypes
     struct _XDisplay* /* dpy */
-#endif
 );
 
 extern void DisplayGetConnSetup (
-#if NeedFunctionPrototypes
     struct _XDisplay* /* dpy */,
     xConnSetup** /* tag_data */,
     int* /* len */,
     int /* change_type */,
     CARD32* /* changes */,
     int /* change_len */
-#endif
 );
 
 #endif

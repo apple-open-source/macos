@@ -24,11 +24,13 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/PutImage.c,v 3.11 2002/12/09 04:10:56 tsi Exp $ */
+/* $XFree86: xc/lib/X11/PutImage.c,v 3.12 2003/04/13 19:22:17 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xutil.h"
 #include <stdio.h>
+#include "Cr.h"
+#include "ImUtil.h"
 
 #if defined(__STDC__) && ((defined(sun) && defined(SVR4)) || defined(WIN32))
 #define RConst /**/
@@ -114,9 +116,9 @@ static unsigned char const _reverse_nibs[0x100] = {
 };
 
 int
-_XReverse_Bytes (bpt, nb)
-    register unsigned char *bpt;
-    register int nb;
+_XReverse_Bytes(
+    register unsigned char *bpt,
+    register int nb)
 {
     do {
 	*bpt = _reverse_byte[*bpt];
@@ -133,11 +135,14 @@ _XReverse_Bytes (bpt, nb)
 
 /*ARGSUSED*/
 static void
-NoSwap (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+NoSwap (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen,
+    long srcinc,
+    long destinc,
+    unsigned int height,
+    int half_order)
 {
     long h = height;
 
@@ -149,11 +154,12 @@ NoSwap (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapTwoBytes (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapTwoBytes (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 2);
     register long h, n;
@@ -176,11 +182,12 @@ SwapTwoBytes (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapThreeBytes (src, dest, srclen, srcinc, destinc, height, byte_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int byte_order;
+SwapThreeBytes (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int byte_order)
 {
     long length = ((srclen + 2) / 3) * 3;
     register long h, n;
@@ -206,11 +213,12 @@ SwapThreeBytes (src, dest, srclen, srcinc, destinc, height, byte_order)
 }
 
 static void
-SwapFourBytes (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapFourBytes (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 4);
     register long h, n;
@@ -241,11 +249,12 @@ SwapFourBytes (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapWords (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapWords (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 4);
     register long h, n;
@@ -276,10 +285,11 @@ SwapWords (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapNibbles (src, dest, srclen, srcinc, destinc, height)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
+SwapNibbles(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height)
 {
     register long h, n;
     register const unsigned char *rev = _reverse_nibs;
@@ -292,11 +302,12 @@ SwapNibbles (src, dest, srclen, srcinc, destinc, height)
 }
 
 static void
-ShiftNibblesLeft (src, dest, srclen, srcinc, destinc, height, nibble_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int nibble_order;
+ShiftNibblesLeft (
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int nibble_order)
 {
     register long h, n;
     register unsigned char c1, c2;
@@ -322,11 +333,12 @@ ShiftNibblesLeft (src, dest, srclen, srcinc, destinc, height, nibble_order)
 
 /*ARGSUSED*/
 static void
-SwapBits (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapBits(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     register long h, n;
     register const unsigned char *rev = _reverse_byte;
@@ -339,11 +351,12 @@ SwapBits (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapBitsAndTwoBytes (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapBitsAndTwoBytes(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 2);
     register long h, n;
@@ -367,11 +380,12 @@ SwapBitsAndTwoBytes (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapBitsAndFourBytes (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapBitsAndFourBytes(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 4);
     register long h, n;
@@ -403,11 +417,12 @@ SwapBitsAndFourBytes (src, dest, srclen, srcinc, destinc, height, half_order)
 }
 
 static void
-SwapBitsAndWords (src, dest, srclen, srcinc, destinc, height, half_order)
-    register unsigned char *src, *dest;
-    long srclen, srcinc, destinc;
-    unsigned int height;
-    int half_order;
+SwapBitsAndWords(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen, long srcinc, long destinc,
+    unsigned int height,
+    int half_order)
 {
     long length = ROUNDUP(srclen, 4);
     register long h, n;
@@ -488,7 +503,14 @@ legend:
 
 */
 
-static void (* RConst (SwapFunction[12][12]))() = {
+static void (* RConst (SwapFunction[12][12]))(
+    register unsigned char *src,
+    register unsigned char *dest,
+    long srclen,
+    long srcinc,
+    long destinc,
+    unsigned int height,
+    int half_order) = {
 #define n NoSwap,
 #define s SwapTwoBytes,
 #define l SwapFourBytes,
@@ -588,18 +610,25 @@ static int const HalfOrderWord[12] = {
 #endif
 
 static void
-SendXYImage(dpy, req, image, req_xoffset, req_yoffset)
-    register Display *dpy;
-    register xPutImageReq *req;
-    register XImage *image;
-    int req_xoffset, req_yoffset;
+SendXYImage(
+    register Display *dpy,
+    register xPutImageReq *req,
+    register XImage *image,
+    int req_xoffset, int req_yoffset)
 {
     register int j;
     long total_xoffset, bytes_per_src, bytes_per_dest, length;
     long bytes_per_line, bytes_per_src_plane, bytes_per_dest_plane;
     char *src, *dest, *buf;
     char *extra = (char *)NULL;
-    register void (*swapfunc)();
+    register void (*swapfunc)(
+        register unsigned char *src,
+        register unsigned char *dest,
+        long srclen,
+        long srcinc,
+        long destinc,
+        unsigned int height,
+        int half_order);
     int half_order;
 
     total_xoffset = image->xoffset + req_xoffset;
@@ -726,12 +755,12 @@ SendXYImage(dpy, req, image, req_xoffset, req_yoffset)
   }
 
 static void
-SendZImage(dpy, req, image, req_xoffset, req_yoffset,
-	   dest_bits_per_pixel, dest_scanline_pad)
-    register Display *dpy;
-    register xPutImageReq *req;
-    register XImage *image;
-    int req_xoffset, req_yoffset, dest_bits_per_pixel, dest_scanline_pad;
+SendZImage(
+    register Display *dpy,
+    register xPutImageReq *req,
+    register XImage *image,
+    int req_xoffset, int req_yoffset,
+    int dest_bits_per_pixel, int dest_scanline_pad)
 {
     long bytes_per_src, bytes_per_dest, length;
     unsigned char *src, *dest;
@@ -813,15 +842,15 @@ SendZImage(dpy, req, image, req_xoffset, req_yoffset,
 }
 
 static void
-PutImageRequest(dpy, d, gc, image, req_xoffset, req_yoffset, x, y,
-		req_width, req_height, dest_bits_per_pixel, dest_scanline_pad)
-    register Display *dpy;
-    Drawable d;
-    GC gc;
-    register XImage *image;
-    int x, y;
-    unsigned int req_width, req_height;
-    int req_xoffset, req_yoffset, dest_bits_per_pixel, dest_scanline_pad;
+PutImageRequest(
+    register Display *dpy,
+    Drawable d,
+    GC gc,
+    register XImage *image,
+    int req_xoffset, int req_yoffset,
+    int x, int y,
+    unsigned int req_width, unsigned int req_height,
+    int dest_bits_per_pixel, int dest_scanline_pad)
 {
     register xPutImageReq *req;
 
@@ -842,16 +871,18 @@ PutImageRequest(dpy, d, gc, image, req_xoffset, req_yoffset, x, y,
 }
 	
 static void
-PutSubImage (dpy, d, gc, image, req_xoffset, req_yoffset, x, y,
-	     req_width, req_height, dest_bits_per_pixel, dest_scanline_pad)
-    register Display *dpy;
-    Drawable d;
-    GC gc;
-    register XImage *image;
-    int x, y;
-    unsigned int req_width, req_height;
-    int req_xoffset, req_yoffset, dest_bits_per_pixel, dest_scanline_pad;
-
+PutSubImage (
+    register Display *dpy,
+    Drawable d,
+    GC gc,
+    register XImage *image,
+    int req_xoffset,
+    int req_yoffset,
+    int x, int y,
+    unsigned int req_width,
+    unsigned int req_height,
+    int dest_bits_per_pixel,
+    int dest_scanline_pad)
 {
     int left_pad, BytesPerRow, Available;
 
@@ -905,15 +936,7 @@ PutSubImage (dpy, d, gc, image, req_xoffset, req_yoffset, x, y,
     }
 }
 
-extern void _XInitImageFuncPtrs();
 
-#ifdef USE_DYNAMIC_XCURSOR
-void
-_XNoticePutBitmap (Display	*dpy,
-		   Drawable	draw,
-		   XImage	*image);
-#endif
-    
 int
 XPutImage (dpy, d, gc, image, req_xoffset, req_yoffset, x, y, req_width,
 							      req_height)

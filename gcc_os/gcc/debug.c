@@ -20,7 +20,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #include "debug.h"
 
 /* The do-nothing debug hooks.  */
-struct gcc_debug_hooks do_nothing_debug_hooks =
+const struct gcc_debug_hooks do_nothing_debug_hooks =
 {
   debug_nothing_charstar,
   debug_nothing_charstar,
@@ -33,15 +33,16 @@ struct gcc_debug_hooks do_nothing_debug_hooks =
   debug_true_tree,		/* ignore_block */
   debug_nothing_int_charstar,	/* source_line */
   debug_nothing_int_charstar,	/* begin_prologue */
-  debug_nothing_int,		/* end_prologue */
-  debug_nothing_void,		/* end_epilogue */
+  debug_nothing_int_charstar,	/* end_prologue */
+  debug_nothing_int_charstar,	/* end_epilogue */
   debug_nothing_tree,		/* begin_function */
   debug_nothing_int,		/* end_function */
   debug_nothing_tree,		/* function_decl */
   debug_nothing_tree,		/* global_decl */
   debug_nothing_tree,		/* deferred_inline_function */
   debug_nothing_tree,		/* outlining_inline_function */
-  debug_nothing_rtx		/* label */
+  debug_nothing_rtx,		/* label */
+  debug_nothing_int		/* handle_pch */
 };
 
 /* This file contains implementations of each debug hook that do

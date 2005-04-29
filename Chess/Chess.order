@@ -1,0 +1,169 @@
+__Z11ImageGetRowP9_ImageRecPhii
+__Z12read_texturePKcPiS1_S1_
+-[MBCBoardView(Draw) drawBoard:]
+-[MBCDrawStyle startStyle:]
+__Z12load_textureP8NSStringS0_c
+_MBCReadInput
+-[MBCBoardView(Draw) simplyDrawPiece:at:scale:]
+-[MBCBoardView(Draw) setupPieceDrawing:reflect:alpha:]
+-[MBCBoardView(Draw) drawCoords]
+-[MBCBoardView(Draw) drawPieces:]
+-[MBCBoardView(Draw) drawPiece:at:reflect:]
+__Z9rgbtorgbaPhS_S_S_i
+__Z10rgbatorgbaPhS_S_S_S_i
+__Z9ImageOpenPKc
+_yylex
+-[MBCBoard curContents:]
+__Z12revolve_linePfS_f
+_yy_get_next_buffer
+-[MBCBoardView(Draw) drawPosition]
+-[MBCBoardView squareToPosition:]
+-[MBCBoardView(Draw) endPieceDrawing]
++[MBCController controller]
+-[MBCController logFromEngine:]
+_yy_get_previous_state
+start
+__start
+__dyld_init_check
+__call_mod_init_funcs
+-[MBCBoardView initWithFrame:]
+-[MBCDrawStyle init]
+-[MBCBoardView(Textures) loadColors]
+-[MBCBoardView(Textures) loadStaticTextures]
+__Z10ImageCloseP9_ImageRec
+-[MBCBoardView(Models) generateModelLists]
+__Z22DrawWithScaledTexturesmPFvvE
+__Z9draw_kingv
+saveFP
+__Z10draw_queenv
+__Z11draw_bishopv
+-[MBCFloatingBoardWindow initWithContentRect:styleMask:backing:defer:]
+-[MBCDrawStyle initWithTexture:]
+__Z9draw_rookv
++[MBCController initialize]
+-[MBCController copyOpeningBook:]
+-[MBCController init]
+-[MBCController copyOpeningBooks:]
+-[MBCBoard reset]
+-[MBCBoard init]
+-[MBCEngine init]
+-[MBCEngine enableEngineMoves:]
+-[MBCEngine retain]
+-[MBCEngine runEngine:]
+_yy_create_buffer
+_yy_flex_alloc
+_yy_init_buffer
+_yy_flush_buffer
+_yy_load_buffer_state
+-[MBCController awakeFromNib]
+-[MBCController localizedStyleName:]
+-[MBCGameInfo numberOfRowsInTableView:]
+-[MBCBoardView reshape]
+-[MBCBoardView needsUpdate]
+-[MBCBoardView drawRect:]
+-[MBCBoardView(Draw) setupPerspective]
+restFP
+-[MBCBoardView(Draw) placeLights]
+-[MBCBoardView facingWhite]
+-[MBCBoardView(Draw) drawMove:asHint:]
+-[MBCBoardView(Draw) drawPromotionPiece]
+-[MBCBoard canPromote:]
+-[MBCBoardView(Draw) makeBoardSolid]
+-[MBCController applicationShouldOpenUntitledFile:]
+-[MBCController applicationDidFinishLaunching:]
+-[MBCController setBoardView:]
+-[MBCController startNewGame]
+-[MBCBoard startGame:]
+-[MBCController startGame]
+-[MBCBoardView startGame:playing:]
+-[MBCBoardView endGame]
++[MBCAnimation cancelCurrentAnimation]
+-[MBCBoardView facing]
+-[MBCEngine startGame:playing:]
+-[MBCController listenForMoves]
+-[MBCInteractivePlayer updateNeedMouse:]
+-[MBCGameInfo startGame:playing:]
+-[MBCController board]
+-[MBCGameInfo updateMoves:]
+-[MBCGameInfo updateTitle:]
+-[MBCController syncViewWithController]
+-[MBCController updateStyles:]
+-[MBCController unlocalizedStyleName:]
+-[MBCBoardView setStyleForBoard:pieces:]
+-[MBCBoardView(Textures) loadStyles]
+-[MBCBoardView(Textures) loadTextureAttr]
+-[MBCBoardView(Textures) loadDrawStyle:forColor:part:style:attr:]
+-[MBCBoardView(Textures) loadField:fromAttr:color:entry:]
+-[MBCBoardView(Textures) loadColorDrawStyles:forColor:]
+-[MBCDrawStyle unloadTexture]
+-[MBCEngine launchEngine:]
+_MBCIgnoredText
+_MBCEncodeStartGame
+-[MBCBoardView(Mouse) mouseMoved:]
+__ZN14MBCUnProjectorC1Edd
+__ZN14MBCUnProjectorC4Edd
+__ZN14MBCUnProjector9UnProjectEv
+-[MBCBoardView(Mouse) mouseDown:]
+-[MBCBoardView positionToSquareOrRegion:]
+-[MBCInteractivePlayer startSelection:]
+-[MBCBoard oldContents:]
+-[MBCController view]
+-[MBCBoardView selectPiece:at:]
+-[MBCController engine]
+-[MBCEngine interruptEngine]
+-[MBCEngine writeToEngine:]
+-[MBCController logToEngine:]
+-[MBCBoardView drawNow]
+-[MBCBoardView(Mouse) dragAndRedraw:forceRedraw:]
+__ZN14MBCUnProjector9UnProjectEf
+-[MBCBoardView snapToSquare:]
+__ZmiRK11MBCPositionS1_
+-[MBCBoardView positionToSquare:]
+-[MBCBoardView(Draw) drawSelectedPiece:]
+-[MBCInteractivePlayer endSelection:]
++[MBCMove moveWithCommand:]
++[MBCMove newWithCommand:]
+-[MBCMove initWithCommand:]
+-[MBCBoard tryPromotion:]
+-[MBCEngine opponentMoved:]
+_MBCEncodeLegal
+_MBCEncodeMove
+-[MBCEngine handlePortMessage:]
++[MBCMove moveFromCompactMove:]
++[MBCMove newFromCompactMove:]
+-[MBCMove initFromCompactMove:]
+-[MBCEngine flipSide]
+-[MBCEngine notificationForSide]
+-[MBCController executeMove:]
+-[MBCBoard makeMove:]
+-[MBCBoard tryCastling:]
+-[MBCBoard consistencyCheck]
+-[MBCBoardView unselectPiece]
+-[MBCBoardView hideMoves]
+-[MBCBoardView isOpaque]
+-[MBCBoard numMoves]
+-[MBCGameInfo tableView:objectValueForTableColumn:row:]
+-[MBCBoard lastMove]
+-[MBCMove localizedText:]
+-[MBCMove pieceLetter:forDrop:]
+-[MBCBoard move:]
+__Z7MakeTab14_NSTextTabTypef
++[MBCMoveAnimation moveAnimation:board:view:]
+-[MBCAnimation runWithTime:view:]
+-[MBCMoveAnimation startState]
+-[MBCAnimation startState]
+-[MBCBoardView startAnimation]
+-[MBCBoardView selectPiece:at:to:]
+-[MBCBoardView moveSelectionTo:]
+-[MBCAnimation doStep:]
+-[MBCMoveAnimation step:]
+-[MBCAnimation scheduleNextStep]
+-[MBCInteractivePlayer opponentMoved:]
+-[MBCInteractivePlayer speakMove:]
+-[MBCController speakMoves]
+-[MBCInteractivePlayer stringFromMove:]
+-[MBCMoveAnimation endState]
+-[MBCAnimation endState]
+-[MBCBoardView animationDone]
+-[MBCMoveAnimation dealloc]
+-[MBCController applicationWillTerminate:]

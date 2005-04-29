@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/xcursorgen/whiteglass/Imakefile,v 1.3 2003/02/10 00:57:26 tsi Exp $
+XCOMM $XFree86: xc/programs/xcursorgen/whiteglass/Imakefile,v 1.4 2003/03/26 20:43:59 tsi Exp $
 
 #define CursorSources(name) name-16.png name-24.png name-32.png name-48.png name-64.png
 
@@ -27,7 +27,7 @@ dst: src								@@\
 clean::									@@\
 	$(RM) dst							@@\
 									@@\
-install.link:: $(DESTDIR)$(THEMEDIR)/src				@@\
+install.link::								@@\
 	RemoveFile($(DESTDIR)$(THEMEDIR)/dst)				@@\
 	(set -x; cd $(DESTDIR)$(THEMEDIR) && $(LN) src dst)
 

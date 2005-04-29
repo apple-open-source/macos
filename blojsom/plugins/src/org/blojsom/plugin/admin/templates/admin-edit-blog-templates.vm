@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+#adminPageHeader("#adminResource('templates.page.header' 'Templates')")
+
+    <div id="header">
+        <ul id="primary">
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">#adminResource('administration.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">#adminResource('edit.blog.categories.page.header' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">#adminResource('entries.page.header' '')</a></li>
+            <li><span>#adminResource('weblog.settings.text' '')</span></li>
+            <ul id="secondary">
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-authorization&action=page">#adminResource('authorization.page.header' '')</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=file-upload&action=page">#adminResource('files.text' '')</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-flavors&action=page">#adminResource('flavors.text' '')</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">#adminResource('properties.text' '')</a></li>
+                <li><span>#adminResource('templates.text' '')</span></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-users&action=page">#adminResource('users.text' '')</a></li>
+            </ul>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">#adminResource('plugin.settings.text' '')</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">#adminResource('logout.text' '')</a></li>
+        </ul>
+    </div>
+
+    <div id="contents">
+        <!-- Edit blog template form -->
+        <div id="mainClm">
+            <h2>#adminResource('edit.blog.template.text' 'Update blog template')</h2>
+            <table>
+                <form name="edit-blog-template" action="." method="post" accept-charset="UTF-8">
+                    <input type="hidden" name="action" value="edit-blog-template"/>
+                    <input type="hidden" name="flavor" value="admin"/>
+                    <input type="hidden" name="plugins" value="edit-blog-templates"/>
+                    <tr>
+                        <td>#adminResource('blog.template.text' 'Blog template')</td>
+                        <td>
+                            <select name="blog-template">
+                            #foreach ($blogTemplate in $BLOJSOM_PLUGIN_EDIT_BLOG_TEMPLATES_TEMPLATE_FILES)
+                                <option value="$blogTemplate">$blogTemplate</option>
+                            #end
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <input type="submit" name="submit" value="#adminResource('edit.blog.template.text' 'Update blog template')"/>
+                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                        </td>
+                    </tr>
+                </form>
+            </table>
+        </div>
+    </div>
+
+#adminPageFooter()

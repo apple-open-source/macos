@@ -7,11 +7,10 @@
  * This can't be part of the ncurses test-program, because ncurses rips off the
  * bottom line to do labels.
  *
- * $Id: lrtest.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: lrtest.c,v 1.19 2002/07/13 16:55:50 tom Exp $
  */
 
 #include <test.priv.h>
-#include <term.h>
 
 typedef struct {
     int y, x, mode, dir, inc;
@@ -71,6 +70,8 @@ main(
 	{2, 0, 1, 1, 1, '*' | A_REVERSE}
     };
 
+    setlocale(LC_ALL, "");
+
     initscr();
     noecho();
     cbreak();
@@ -115,6 +116,12 @@ main(
 		nodelay(stdscr, FALSE);
 	    else if (ch == ' ')
 		nodelay(stdscr, TRUE);
+#ifdef TRACE
+	    else if (ch == 'T')
+		trace(0);
+	    else if (ch == 't')
+		trace(TRACE_CALLS|TRACE_ICALLS|TRACE_UPDATE);
+#endif
 #ifdef KEY_RESIZE
 	    else if (ch == KEY_RESIZE) {
 		for (n = 0; n < SIZEOF(marks); n++) {

@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002
+   Copyright (C) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
 This file is part of GNU CC.
@@ -55,15 +55,11 @@ static tree get_dispatch_table PARAMS ((tree, tree));
 static void add_interface_do PARAMS ((tree, tree, int));
 static tree maybe_layout_super_class PARAMS ((tree, tree));
 static int assume_compiled PARAMS ((const char *));
-static struct hash_entry *init_test_hash_newfunc PARAMS ((struct hash_entry *,
-							  struct hash_table *,
-							  hash_table_key));
 static tree build_method_symbols_entry PARAMS ((tree));
 
-static rtx registerClass_libfunc;
-static rtx registerResource_libfunc;
+static GTY(()) rtx registerClass_libfunc;
+static GTY(()) rtx registerResource_libfunc;
 
-extern struct obstack permanent_obstack;
 struct obstack temporary_obstack;
 
 /* The compiler generates different code depending on whether or not
@@ -79,7 +75,7 @@ typedef struct assume_compiled_node_struct
   /* The class or package name.  */
   const char *ident;
 
-  /* Non-zero if this represents an exclusion.  */
+  /* Nonzero if this represents an exclusion.  */
   int excludep;
 
   /* Pointers to other nodes in the tree.  */
@@ -95,8 +91,7 @@ static assume_compiled_node *find_assume_compiled_node
 
 static assume_compiled_node *assume_compiled_tree;
 
-static tree class_roots[5]
-= { NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE, NULL_TREE };
+static GTY(()) tree class_roots[5];
 #define registered_class class_roots[0]
 #define fields_ident class_roots[1]  /* get_identifier ("fields") */
 #define info_ident class_roots[2]  /* get_identifier ("info") */
@@ -146,7 +141,7 @@ find_assume_compiled_node (node, ident)
 }
 
 /* Add a new IDENT to the include/exclude tree.  It's an exclusion
-   if EXCLUDEP is non-zero.  */
+   if EXCLUDEP is nonzero.  */
 
 void
 add_assume_compiled (ident, excludep)
@@ -155,7 +150,7 @@ add_assume_compiled (ident, excludep)
 {
   assume_compiled_node *parent;
   assume_compiled_node *node = 
-    (assume_compiled_node *) xmalloc (sizeof (assume_compiled_node));
+    xmalloc (sizeof (assume_compiled_node));
 
   node->ident = xstrdup (ident);
   node->excludep = excludep;
@@ -165,8 +160,7 @@ add_assume_compiled (ident, excludep)
 
   if (NULL == assume_compiled_tree)
     {
-      assume_compiled_tree = 
-	(assume_compiled_node *) xmalloc (sizeof (assume_compiled_node));
+      assume_compiled_tree = xmalloc (sizeof (assume_compiled_node));
       assume_compiled_tree->ident = "";
       assume_compiled_tree->excludep = 0;
       assume_compiled_tree->sibling = NULL;
@@ -197,7 +191,7 @@ add_assume_compiled (ident, excludep)
   parent->child = node;
 }
 
-/* Returns non-zero if IDENT is the name of a class that the compiler
+/* Returns nonzero if IDENT is the name of a class that the compiler
    should assume has been compiled to FIXME  */
 
 static int
@@ -237,7 +231,7 @@ ident_subst (old_name, old_length, prefix, old_char, new_char, suffix)
 #ifdef __GNUC__
   char buffer[i];
 #else
-  char *buffer = (char *)alloca  (i);
+  char *buffer = alloca (i);
 #endif
   strcpy (buffer, prefix);
   for (i = 0; i < old_length; i++)
@@ -286,21 +280,7 @@ make_class ()
 {
   tree type;
   type = make_node (RECORD_TYPE);
-#ifdef JAVA_USE_HANDLES
-  tree field1 = build_decl (FIELD_DECL, get_identifier ("obj"),
-			    build_pointer_type (type));
-  tree field2 = build_decl (FIELD_DECL, get_identifier ("methods"),
-			    methodtable_ptr_type);
-  tree handle_type = make_node (RECORD_TYPE);
-  TREE_CHAIN (field1) = field2;
-  TYPE_FIELDS (handle_type) = field1;
-  TYPE_BINFO (type) = make_tree_vec (7);
-  TYPE_BINFO (handle_type) = make_tree_vec (7);
-  BINFO_HANDLE (TYPE_BINFO (handle_type)) = type;
-  BINFO_HANDLE (TYPE_BINFO (type)) = handle_type;
-#else
   TYPE_BINFO (type) = make_tree_vec (6);
-#endif
   MAYBE_CREATE_TYPE_TYPE_LANG_SPECIFIC (type);
 
   return type;
@@ -357,15 +337,6 @@ push_class (class_type, class_name)
   DECL_ARTIFICIAL (decl) = 1;
 
   pushdecl_top_level (decl);
-#ifdef JAVA_USE_HANDLES
-  {
-    tree handle_name = identifier_subst (class_name,
-					 "Handle$", '.', '.', "");
-    tree handle_decl = build_decl (TYPE_DECL, handle_name,
-				   CLASS_TO_HANDLE_TYPE (class_type));
-    pushdecl (handle_decl);
-  }
-#endif
 
   return decl;
 }
@@ -622,49 +593,12 @@ build_java_method_type (fntype, this_class, access_flags)
 {
   if (access_flags & ACC_STATIC)
     return fntype;
-  return build_method_type (CLASS_TO_HANDLE_TYPE (this_class), fntype);
-}
-
-static struct hash_entry *
-init_test_hash_newfunc (entry, table, string)
-     struct hash_entry *entry;
-     struct hash_table *table;
-     hash_table_key string ATTRIBUTE_UNUSED;
-{
-  struct init_test_hash_entry *ret = (struct init_test_hash_entry *) entry;
-  if (ret == NULL)
-    {
-      ret = ((struct init_test_hash_entry *)
-	     hash_allocate (table, sizeof (struct init_test_hash_entry)));
-      if (ret == NULL)
-	return NULL;
-    }
-  ret->init_test_decl = 0;
-  return (struct hash_entry *) ret;
-}
-
-/* Hash table helpers. Also reused in find_applicable_accessible_methods_list 
-   (parse.y). The hash of a tree node is its pointer value, comparison
-   is direct. */
-
-unsigned long
-java_hash_hash_tree_node (k)
-     hash_table_key k;
-{
-  return (long) k;
-}
-
-bool
-java_hash_compare_tree_node (k1, k2)
-     hash_table_key k1;
-     hash_table_key k2;
-{
-  return ((tree) k1 == (tree) k2);
+  return build_method_type (this_class, fntype);
 }
 
 tree
-add_method_1 (handle_class, access_flags, name, function_type)
-     tree handle_class;
+add_method_1 (this_class, access_flags, name, function_type)
+     tree this_class;
      int access_flags;
      tree name;
      tree function_type;
@@ -672,37 +606,37 @@ add_method_1 (handle_class, access_flags, name, function_type)
   tree method_type, fndecl;
 
   method_type = build_java_method_type (function_type,
-					handle_class, access_flags);
+					this_class, access_flags);
 
   fndecl = build_decl (FUNCTION_DECL, name, method_type);
-  DECL_CONTEXT (fndecl) = handle_class;
+  DECL_CONTEXT (fndecl) = this_class;
 
   DECL_LANG_SPECIFIC (fndecl)
-    = (struct lang_decl *) ggc_alloc_cleared (sizeof (struct lang_decl));
+    = ggc_alloc_cleared (sizeof (struct lang_decl));
+  DECL_LANG_SPECIFIC (fndecl)->desc = LANG_DECL_FUNC;
 
   /* Initialize the static initializer test table.  */
-  hash_table_init (&DECL_FUNCTION_INIT_TEST_TABLE (fndecl),
-		   init_test_hash_newfunc, java_hash_hash_tree_node, 
-		   java_hash_compare_tree_node);
+  
+  DECL_FUNCTION_INIT_TEST_TABLE (fndecl) = 
+    java_treetreehash_create (10, 1);
 
   /* Initialize the initialized (static) class table. */
   if (access_flags & ACC_STATIC)
-    hash_table_init (&DECL_FUNCTION_INITIALIZED_CLASS_TABLE (fndecl),
-		     init_test_hash_newfunc, java_hash_hash_tree_node,
-		     java_hash_compare_tree_node);
+    DECL_FUNCTION_INITIALIZED_CLASS_TABLE (fndecl) =
+      htab_create_ggc (50, htab_hash_pointer, htab_eq_pointer, NULL);
 
   /* Initialize the static method invocation compound list */
   DECL_FUNCTION_STATIC_METHOD_INVOCATION_COMPOUND (fndecl) = NULL_TREE;
 
-  TREE_CHAIN (fndecl) = TYPE_METHODS (handle_class);
-  TYPE_METHODS (handle_class) = fndecl;
+  TREE_CHAIN (fndecl) = TYPE_METHODS (this_class);
+  TYPE_METHODS (this_class) = fndecl;
 
   /* Notice that this is a finalizer and update the class type
      accordingly. This is used to optimize instance allocation. */
   if (name == finalize_identifier_node
       && TREE_TYPE (function_type) == void_type_node
       && TREE_VALUE (TYPE_ARG_TYPES (function_type)) == void_type_node)
-    HAS_FINALIZER_P (handle_class) = 1;
+    HAS_FINALIZER_P (this_class) = 1;
 
   if (access_flags & ACC_PUBLIC) METHOD_PUBLIC (fndecl) = 1;
   if (access_flags & ACC_PROTECTED) METHOD_PROTECTED (fndecl) = 1;
@@ -735,7 +669,6 @@ add_method (this_class, access_flags, name, method_sig)
      tree name;
      tree method_sig;
 {
-  tree handle_class = CLASS_TO_HANDLE_TYPE (this_class);
   tree function_type, fndecl;
   const unsigned char *sig
     = (const unsigned char *) IDENTIFIER_POINTER (method_sig);
@@ -744,7 +677,7 @@ add_method (this_class, access_flags, name, method_sig)
     fatal_error ("bad method signature");
 
   function_type = get_type_from_signature (method_sig);
-  fndecl = add_method_1 (handle_class, access_flags, name, function_type);
+  fndecl = add_method_1 (this_class, access_flags, name, function_type);
   set_java_signature (TREE_TYPE (fndecl), method_sig);
   return fndecl;
 }
@@ -1351,7 +1284,7 @@ make_method_value (mdecl)
 	     iter != NULL_TREE;
 	     iter = TREE_CHAIN (iter))
 	  {
-	    tree sig = build_java_signature (TREE_VALUE (iter));
+	    tree sig = DECL_NAME (TYPE_NAME (TREE_VALUE (iter)));
 	    tree utf8
 	      = build_utf8_ref (unmangle_classname (IDENTIFIER_POINTER (sig),
 						    IDENTIFIER_LENGTH (sig)));
@@ -1566,7 +1499,7 @@ make_class_data (type)
     fields_decl = NULL_TREE;
 
   /* Build Method array. */
-  for (method = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (type));
+  for (method = TYPE_METHODS (type);
        method != NULL_TREE; method = TREE_CHAIN (method))
     {
       tree init;
@@ -1732,6 +1665,7 @@ make_class_data (type)
   PUSH_FIELD_VALUE (cons, "idt", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "arrayclass", null_pointer_node);
   PUSH_FIELD_VALUE (cons, "protectionDomain", null_pointer_node);
+  PUSH_FIELD_VALUE (cons, "chain", null_pointer_node);
 
   FINISH_RECORD_CONSTRUCTOR (cons);
 
@@ -1748,7 +1682,7 @@ void
 finish_class ()
 {
   tree method;
-  tree type_methods = TYPE_METHODS (CLASS_TO_HANDLE_TYPE (current_class));
+  tree type_methods = TYPE_METHODS (current_class);
   int saw_native_method = 0;
 
   /* Find out if we have any native methods.  We use this information
@@ -1932,8 +1866,19 @@ maybe_layout_super_class (super_class, this_class)
 	super_class = TREE_TYPE (super_class);
       else
 	{
+	  /* do_resolve_class expects an EXPR_WITH_FILE_LOCATION, so
+	     we give it one.  */
+	  tree this_wrap = NULL_TREE;
+
+	  if (this_class)
+	    {
+	      tree this_decl = TYPE_NAME (this_class);
+	      this_wrap = build_expr_wfl (this_class,
+					  DECL_SOURCE_FILE (this_decl),
+					  DECL_SOURCE_LINE (this_decl), 0);
+	    }
 	  super_class = do_resolve_class (NULL_TREE, /* FIXME? */
-					  super_class, NULL_TREE, this_class);
+					  super_class, NULL_TREE, this_wrap);
 	  if (!super_class)
 	    return NULL_TREE;	/* FIXME, NULL_TREE not checked by caller. */
 	  super_class = TREE_TYPE (super_class);
@@ -2054,13 +1999,12 @@ layout_class_methods (this_class)
      tree this_class;
 {
   tree method_decl, dtable_count;
-  tree super_class, handle_type;
+  tree super_class;
 
   if (TYPE_NVIRTUALS (this_class))
     return;
 
   super_class = CLASSTYPE_SUPER (this_class);
-  handle_type = CLASS_TO_HANDLE_TYPE (this_class);
 
   if (super_class)
     {
@@ -2072,18 +2016,14 @@ layout_class_methods (this_class)
   else
     dtable_count = integer_zero_node;
 
-  TYPE_METHODS (handle_type) = nreverse (TYPE_METHODS (handle_type));
+  TYPE_METHODS (this_class) = nreverse (TYPE_METHODS (this_class));
 
-  for (method_decl = TYPE_METHODS (handle_type);
+  for (method_decl = TYPE_METHODS (this_class);
        method_decl; method_decl = TREE_CHAIN (method_decl))
     dtable_count = layout_class_method (this_class, super_class, 
 					method_decl, dtable_count);
 
   TYPE_NVIRTUALS (this_class) = dtable_count;
-
-#ifdef JAVA_USE_HANDLES
-  layout_type (handle_type);
-#endif
 }
 
 /* Return 0 if NAME is equal to STR, -1 if STR is "less" than NAME,
@@ -2327,12 +2267,85 @@ emit_offset_symbol_table ()
 void
 init_class_processing ()
 {
-  registerClass_libfunc = gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterClass");
+  registerClass_libfunc = gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterClass");
   registerResource_libfunc = 
-    gen_rtx (SYMBOL_REF, Pmode, "_Jv_RegisterResource");
-  ggc_add_tree_root (class_roots, sizeof (class_roots) / sizeof (tree));
+    gen_rtx_SYMBOL_REF (Pmode, "_Jv_RegisterResource");
   fields_ident = get_identifier ("fields");
   info_ident = get_identifier ("info");
-  ggc_add_rtx_root (&registerClass_libfunc, 1);
   gcc_obstack_init (&temporary_obstack);
 }
+
+static hashval_t java_treetreehash_hash PARAMS ((const void *));
+static int java_treetreehash_compare PARAMS ((const void *, const void *));
+
+/* A hash table mapping trees to trees.  Used generally.  */
+
+#define JAVA_TREEHASHHASH_H(t) (htab_hash_pointer (t))
+
+static hashval_t
+java_treetreehash_hash (k_p)
+     const void *k_p;
+{
+  struct treetreehash_entry *k = (struct treetreehash_entry *) k_p;
+  return JAVA_TREEHASHHASH_H (k->key);
+}
+
+static int
+java_treetreehash_compare (k1_p, k2_p)
+     const void * k1_p;
+     const void * k2_p;
+{
+  struct treetreehash_entry * k1 = (struct treetreehash_entry *) k1_p;
+  tree k2 = (tree) k2_p;
+  return (k1->key == k2);
+}
+
+tree 
+java_treetreehash_find (ht, t)
+     htab_t ht;
+     tree t;
+{
+  struct treetreehash_entry *e;
+  hashval_t hv = JAVA_TREEHASHHASH_H (t);
+  e = (struct treetreehash_entry *) htab_find_with_hash (ht, t, hv);
+  if (e == NULL)
+    return NULL;
+  else
+    return e->value;
+}
+
+tree *
+java_treetreehash_new (ht, t)
+     htab_t ht;
+     tree t;
+{
+  PTR *e;
+  struct treetreehash_entry *tthe;
+  hashval_t hv = JAVA_TREEHASHHASH_H (t);
+
+  e = htab_find_slot_with_hash (ht, t, hv, INSERT);
+  if (*e == NULL)
+    {
+      tthe = (*ht->alloc_f) (1, sizeof (*tthe));
+      tthe->key = t;
+      *e = (PTR) tthe;
+    }
+  else
+    tthe = (struct treetreehash_entry *) *e;
+  return &tthe->value;
+}
+
+htab_t
+java_treetreehash_create (size, gc)
+     size_t size;
+     int gc;
+{
+  if (gc)
+    return htab_create_ggc (size, java_treetreehash_hash,
+			    java_treetreehash_compare, NULL);
+  else
+    return htab_create_alloc (size, java_treetreehash_hash,
+			      java_treetreehash_compare, free, xcalloc, free);
+}
+
+#include "gt-java-class.h"

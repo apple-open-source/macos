@@ -1,7 +1,7 @@
 /* RTEMS threads compatibily routines for libgcc2 and libobjc.
    by: Rosimildo da Silva( rdasilva@connecttel.com ) */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -37,6 +37,7 @@ extern "C" {
 #define __GTHREADS 1
 
 #define __GTHREAD_ONCE_INIT  0
+#define __GTHREAD_MUTEX_INIT 0
 #define __GTHREAD_MUTEX_INIT_FUNCTION  rtems_gxx_mutex_init
 
 /* avoid depedency on rtems specific headers */
@@ -45,13 +46,13 @@ typedef int   __gthread_once_t;
 typedef void *__gthread_mutex_t;
 
 /*
- * External functions provided by RTEMS. They are very similar to their POSIX 
+ * External functions provided by RTEMS. They are very similar to their POSIX
  * counterparts. A "Wrapper API" is being use to avoid dependency on any RTEMS
  * header files.
  */
 
 /* generic per task variables */
-extern int rtems_gxx_once (__gthread_once_t *once, void (*func) ());
+extern int rtems_gxx_once (__gthread_once_t *once, void (*func) (void));
 extern int rtems_gxx_key_create (__gthread_key_t *key, void (*dtor) (void *));
 extern int rtems_gxx_key_dtor (__gthread_key_t key, void *ptr);
 extern int rtems_gxx_key_delete (__gthread_key_t key);
@@ -74,7 +75,7 @@ __gthread_active_p (void)
 
 /* Wrapper calls */
 static inline int
-__gthread_once (__gthread_once_t *once, void (*func) ())
+__gthread_once (__gthread_once_t *once, void (*func) (void))
 {
    return rtems_gxx_once( once, func );
 }

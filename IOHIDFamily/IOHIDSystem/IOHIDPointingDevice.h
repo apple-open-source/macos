@@ -37,7 +37,7 @@ private:
     UInt8			_numButtons;
     UInt32			_resolution;
     IOBufferMemoryDescriptor *	_report;
-    IOHIPointing *		_provider;
+    IOHIPointing *		_pointing;
 
 protected:
 
@@ -45,12 +45,14 @@ protected:
     virtual bool handleStart( IOService * provider );
     
 public:
-    static IOHIDPointingDevice	* newPointingDevice(IOService * owner, UInt8 numButtons, UInt32 resolution, bool scroll);
+    static IOHIDPointingDevice	* newPointingDeviceAndStart(IOService * owner, UInt8 numButtons = 8, UInt32 resolution = 100, bool scroll = false, UInt32 location = 0);
     
-    virtual bool init( OSDictionary * dictionary = 0 );
+    virtual bool initWithLocation( UInt32 location = 0 );
 
     virtual IOReturn newReportDescriptor(
                         IOMemoryDescriptor ** descriptor ) const;
+    
+    virtual OSString * newProductString() const;
                                                                 
     virtual IOReturn getReport( IOMemoryDescriptor * report,
                                  IOHIDReportType      reportType,

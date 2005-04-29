@@ -49,19 +49,19 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/Quarks.c,v 1.5 2001/12/14 19:54:04 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Quarks.c,v 1.7 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 #include <X11/Xresource.h>
+#include "Xresinternal.h"
 
 /* Not cost effective, at least for vanilla MIT clients */
 /* #define PERMQ */
 
-typedef unsigned long Signature;
-typedef unsigned long Entry;
 #ifdef PERMQ
 typedef unsigned char Bits;
 #endif
+typedef unsigned long Entry; /* dont confuse with EntryRec from Xintatom.h */
 
 static XrmQuark nextQuark = 1;	/* next available quark number */
 static unsigned long quarkMask = 0;
@@ -239,17 +239,10 @@ ExpandQuarkTable(void)
     return True;
 }
 
-#if NeedFunctionPrototypes
-XrmQuark _XrmInternalStringToQuark(
+XrmQuark
+_XrmInternalStringToQuark(
     register _Xconst char *name, register int len, register Signature sig,
     Bool permstring)
-#else
-XrmQuark _XrmInternalStringToQuark(name, len, sig, permstring)
-    register XrmString name;
-    register int len;
-    register Signature sig;
-    Bool permstring;
-#endif
 {
     register XrmQuark q;
     register Entry entry;
@@ -354,13 +347,9 @@ nomatch:    if (!rehash)
     return NULLQUARK;
 }
 
-#if NeedFunctionPrototypes
-XrmQuark XrmStringToQuark(
+XrmQuark
+XrmStringToQuark(
     _Xconst char *name)
-#else
-XrmQuark XrmStringToQuark(name)
-    XrmString name;
-#endif
 {
     register char c, *tname;
     register Signature sig = 0;
@@ -374,13 +363,9 @@ XrmQuark XrmStringToQuark(name)
     return _XrmInternalStringToQuark(name, tname-(char *)name-1, sig, False);
 }
 
-#if NeedFunctionPrototypes
-XrmQuark XrmPermStringToQuark(
+XrmQuark
+XrmPermStringToQuark(
     _Xconst char *name)
-#else
-XrmQuark XrmPermStringToQuark(name)
-    XrmString name;
-#endif
 {
     register char c, *tname;
     register Signature sig = 0;

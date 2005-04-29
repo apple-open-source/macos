@@ -32,23 +32,16 @@
  *
  *	@(#)limits.h	8.3 (Berkeley) 1/4/94
  */
-/*
- * HISTORY
- *
- *	10-July-97  Umesh Vaishampayan  (umeshv@apple.com)
- *		Avoid multiple includes. 
- */
 
 #ifndef _I386_LIMITS_H_
 #define _I386_LIMITS_H_
 
-#include <sys/types.h>			/* For quad_t and u_quad_t */
+#include <i386/_limits.h>
 
 #define	CHAR_BIT	8		/* number of bits in a char */
 #define	MB_LEN_MAX	6		/* Allow 31 bit UTF2 */
 
-
-#define	CLK_TCK		100		/* ticks per second */
+#define	CLK_TCK		__DARWIN_CLK_TCK	/* ticks per second */
 
 /*
  * According to ANSI (section 2.2.4.2), the values below must be usable by
@@ -79,26 +72,21 @@
 #define	LONG_MAX	2147483647	/* max value for a long */
 #define	LONG_MIN	(-2147483647-1)	/* min value for a long */
 
-                                       /* max value for an unsigned long long */
-#define	ULLONG_MAX	0xffffffffffffffffULL
-					/* max value for a long long */
-#define	LLONG_MAX	0x7fffffffffffffffLL
-					/* min value for a long long */
-#define	LLONG_MIN	(-0x7fffffffffffffffLL - 1)	
+#define	ULLONG_MAX	0xffffffffffffffffULL	/* max unsigned long long */
+#define	LLONG_MAX	0x7fffffffffffffffLL	/* max signed long long */
+#define	LLONG_MIN	(-0x7fffffffffffffffLL-1) /* min signed long long */
 
 #if !defined(_ANSI_SOURCE)
-#define	SSIZE_MAX	INT_MAX		/* max value for a ssize_t */
+#define	SSIZE_MAX	LONG_MAX	/* max value for a ssize_t */
 
-#if !defined(_POSIX_SOURCE)
-#define	SIZE_T_MAX	UINT_MAX	/* max value for a size_t */
+#if !defined(_POSIX_C_SOURCE)
+#define	SIZE_T_MAX	ULONG_MAX	/* max value for a size_t */
 
-/* GCC requires that quad constants be written as expressions. */
-#define	UQUAD_MAX	((u_quad_t)0-1)	/* max value for a uquad_t */
-					/* max value for a quad_t */
-#define	QUAD_MAX	((quad_t)(UQUAD_MAX >> 1))
-#define	QUAD_MIN	(-QUAD_MAX-1)	/* min value for a quad_t */
+#define	UQUAD_MAX	ULLONG_MAX
+#define	QUAD_MAX	LLONG_MAX
+#define	QUAD_MIN	LLONG_MIN
 
-#endif /* !_POSIX_SOURCE */
+#endif /* !_POSIX_C_SOURCE */
 #endif /* !_ANSI_SOURCE */
 
 #endif /* _I386_LIMITS_H_ */

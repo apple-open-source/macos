@@ -1,6 +1,6 @@
 ## Makefile.in for ICU - tools/gentest
 
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Madhu Katragadda
 
@@ -17,10 +17,8 @@ subdir = tools/gentest
 
 ##
 
-ICUDATADIR=$(top_builddir)/data
-
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(RES_FILES) $(TEST_FILES)
+CLEANFILES = *~ $(DEPS)
 
 ## Target information
 TARGET = gentest$(EXEEXT)
@@ -28,16 +26,14 @@ TARGET = gentest$(EXEEXT)
 CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)/../toolutil
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUUC) $(DEFAULT_LIBS) $(LIB_M)
 
-OBJECTS = gentest.o
+OBJECTS = gentest.o genres32.o
 
 DEPS = $(OBJECTS:.o=.d)
-
-TEST_FILES = $(ICUDATADIR)/test.dat
 
 ## List of phony targets
 .PHONY : all all-local install install-local clean clean-local		\
 distclean distclean-local dist dist-local check	\
-check-local build-data
+check-local
 
 ## Clear suffix list
 .SUFFIXES :

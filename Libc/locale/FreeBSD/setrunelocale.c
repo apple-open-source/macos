@@ -35,27 +35,34 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.26 2002/10/10 22:56:18 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.44 2004/10/18 02:06:18 ache Exp $");
 
-#include <rune.h>
+#include <runetype.h>
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <wchar.h>
+#include "ldpart.h"
+#include "mblocal.h"
 #include "setlocale.h"
 
 extern int		_none_init(_RuneLocale *);
-extern int		_UTF2_init(_RuneLocale *);
 extern int		_UTF8_init(_RuneLocale *);
 extern int		_EUC_init(_RuneLocale *);
+extern int		_GB18030_init(_RuneLocale *);
+extern int		_GB2312_init(_RuneLocale *);
+extern int		_GBK_init(_RuneLocale *);
 extern int		_BIG5_init(_RuneLocale *);
 extern int		_MSKanji_init(_RuneLocale *);
-extern _RuneLocale      *_Read_RuneMagi(FILE *);
+extern _RuneLocale	*_Read_RuneMagi(FILE *);
 
-int
-setrunelocale(char *encoding)
+static int		__setrunelocale(const char *);
+
+static int
+__setrunelocale(const char *encoding)
 {
 	FILE *fp;
 	char name[PATH_MAX];
@@ -64,13 +71,16 @@ setrunelocale(char *encoding)
 	static char ctype_encoding[ENCODING_LEN + 1];
 	static _RuneLocale *CachedRuneLocale;
 	static int Cached__mb_cur_max;
-
-	if (!encoding || !*encoding || strlen(encoding) > ENCODING_LEN ||
-	    (encoding[0] == '.' &&
-	     (encoding[1] == '\0' ||
-	      (encoding[1] == '.' && encoding[2] == '\0'))) ||
-	    strchr(encoding, '/') != NULL)
-		return (EINVAL);
+	static size_t (*Cached__mbrtowc)(wchar_t * __restrict,
+	    const char * __restrict, size_t, mbstate_t * __restrict);
+	static size_t (*Cached__wcrtomb)(char * __restrict, wchar_t,
+	    mbstate_t * __restrict);
+	static int (*Cached__mbsinit)(const mbstate_t *);
+	static size_t (*Cached__mbsnrtowcs)(wchar_t * __restrict,
+	    const char ** __restrict, size_t, size_t, mbstate_t * __restrict);
+	static size_t (*Cached__wcsnrtombs)(char * __restrict,
+	    const wchar_t ** __restrict, size_t, size_t,
+	    mbstate_t * __restrict);
 
 	/*
 	 * The "C" and "POSIX" locale are always here.
@@ -78,6 +88,11 @@ setrunelocale(char *encoding)
 	if (strcmp(encoding, "C") == 0 || strcmp(encoding, "POSIX") == 0) {
 		_CurrentRuneLocale = &_DefaultRuneLocale;
 		__mb_cur_max = 1;
+		__mbrtowc = _none_mbrtowc;
+		__mbsinit = _none_mbsinit;
+		__mbsnrtowcs = _none_mbsnrtowcs;
+		__wcrtomb = _none_wcrtomb;
+		__wcsnrtombs = _none_wcsnrtombs;
 		return (0);
 	}
 
@@ -88,30 +103,19 @@ setrunelocale(char *encoding)
 	    strcmp(encoding, ctype_encoding) == 0) {
 		_CurrentRuneLocale = CachedRuneLocale;
 		__mb_cur_max = Cached__mb_cur_max;
+		__mbrtowc = Cached__mbrtowc;
+		__mbsinit = Cached__mbsinit;
+		__mbsnrtowcs = Cached__mbsnrtowcs;
+		__wcrtomb = Cached__wcrtomb;
+		__wcsnrtombs = Cached__wcsnrtombs;
 		return (0);
 	}
 
 	/*
 	 * Slurp the locale file into the cache.
 	 */
-	if (_PathLocale == NULL) {
-		char *p = getenv("PATH_LOCALE");
 
-		if (p != NULL
-#ifndef __NETBSD_SYSCALLS
-			&& !issetugid()
-#endif
-			) {
-			if (strlen(p) + 1/*"/"*/ + ENCODING_LEN +
-			    1/*"/"*/ + CATEGORY_LEN >= PATH_MAX)
-				return (ENAMETOOLONG);
-			_PathLocale = strdup(p);
-			if (_PathLocale == NULL)
-				return (errno == 0 ? ENOMEM : errno);
-		} else
-			_PathLocale = _PATH_LOCALE;
-	}
-	/* Range checking not needed, encoding length already checked above */
+	/* Range checking not needed, encoding length already checked before */
 	(void) strcpy(name, _PathLocale);
 	(void) strcat(name, "/");
 	(void) strcat(name, encoding);
@@ -127,33 +131,61 @@ setrunelocale(char *encoding)
 	}
 	(void)fclose(fp);
 
-	if (strcmp(rl->encoding, "NONE") == 0)
+	__mbrtowc = NULL;
+	__mbsinit = NULL;
+	__mbsnrtowcs = __mbsnrtowcs_std;
+	__wcrtomb = NULL;
+	__wcsnrtombs = __wcsnrtombs_std;
+	rl->__sputrune = NULL;
+	rl->__sgetrune = NULL;
+	if (strcmp(rl->__encoding, "NONE") == 0)
 		ret = _none_init(rl);
-	else if (strcmp(rl->encoding, "UTF2") == 0)
-		ret = _UTF2_init(rl);
-	else if (strcmp(rl->encoding, "UTF-8") == 0)
+	else if (strcmp(rl->__encoding, "UTF-8") == 0)
 		ret = _UTF8_init(rl);
-	else if (strcmp(rl->encoding, "EUC") == 0)
+	else if (strcmp(rl->__encoding, "EUC") == 0)
 		ret = _EUC_init(rl);
-	else if (strcmp(rl->encoding, "BIG5") == 0)
+ 	else if (strcmp(rl->__encoding, "GB18030") == 0)
+ 		ret = _GB18030_init(rl);
+	else if (strcmp(rl->__encoding, "GB2312") == 0)
+		ret = _GB2312_init(rl);
+	else if (strcmp(rl->__encoding, "GBK") == 0)
+		ret = _GBK_init(rl);
+	else if (strcmp(rl->__encoding, "BIG5") == 0)
 		ret = _BIG5_init(rl);
-	else if (strcmp(rl->encoding, "MSKanji") == 0)
+	else if (strcmp(rl->__encoding, "MSKanji") == 0)
 		ret = _MSKanji_init(rl);
 	else
 		ret = EFTYPE;
 	if (ret == 0) {
 		if (CachedRuneLocale != NULL) {
 			/* See euc.c */
-			if (strcmp(CachedRuneLocale->encoding, "EUC") == 0)
-				free(CachedRuneLocale->variable);
+			if (strcmp(CachedRuneLocale->__encoding, "EUC") == 0)
+				free(CachedRuneLocale->__variable);
 			free(CachedRuneLocale);
 		}
 		CachedRuneLocale = _CurrentRuneLocale;
 		Cached__mb_cur_max = __mb_cur_max;
+		Cached__mbrtowc = __mbrtowc;
+		Cached__mbsinit = __mbsinit;
+		Cached__mbsnrtowcs = __mbsnrtowcs;
+		Cached__wcrtomb = __wcrtomb;
+		Cached__wcsnrtombs = __wcsnrtombs;
 		(void)strcpy(ctype_encoding, encoding);
 	} else
 		free(rl);
 
 	return (ret);
+}
+
+int
+__wrap_setrunelocale(const char *locale)
+{
+	int ret = __setrunelocale(locale);
+
+	if (ret != 0) {
+		errno = ret;
+		return (_LDP_ERROR);
+	}
+	return (_LDP_LOADED);
 }
 

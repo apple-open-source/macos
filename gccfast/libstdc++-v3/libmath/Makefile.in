@@ -157,8 +157,7 @@ libmath_la_SOURCES = stubs.c
 # Use common includes from acinclude.m4/GLIBCPP_EXPORT_INCLUDES
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
 
-INCLUDES = \
-	$(TOPLEVEL_INCLUDES) 
+INCLUDES =  	$(TOPLEVEL_INCLUDES) 
 
 
 # Only compiling "C" sources in this directory.
@@ -184,7 +183,7 @@ DIST_COMMON =  Makefile.am Makefile.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 SOURCES = $(libmath_la_SOURCES)
 OBJECTS = $(libmath_la_OBJECTS)

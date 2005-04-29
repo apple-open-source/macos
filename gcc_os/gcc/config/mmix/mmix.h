@@ -2,20 +2,20 @@
    Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Hans-Peter Nilsson (hp@bitrange.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -47,9 +47,10 @@ Boston, MA 02111-1307, USA.  */
 #define MMIX_LAST_GENERAL_REGISTER 255
 #define MMIX_INCOMING_RETURN_ADDRESS_REGNUM MMIX_rJ_REGNUM
 #define MMIX_HIMULT_REGNUM 258
-#define MMIX_REMAINDER_REGNUM 260
+#define MMIX_REMAINDER_REGNUM MMIX_rR_REGNUM
 #define MMIX_ARG_POINTER_REGNUM 261
-#define MMIX_LAST_REGISTER_FILE_REGNUM 31
+#define MMIX_rO_REGNUM 262
+#define MMIX_LAST_STACK_REGISTER_REGNUM 31
 
 /* Four registers; "ideally, these registers should be call-clobbered", so
    just grab a bunch of the common clobbered registers.  FIXME: Last
@@ -82,15 +83,17 @@ Boston, MA 02111-1307, USA.  */
 
 /* Declarations for helper variables that are not tied to a particular
    target macro.  */
-extern struct rtx_def *mmix_compare_op0;
-extern struct rtx_def *mmix_compare_op1;
+extern GTY(()) rtx mmix_compare_op0;
+extern GTY(()) rtx mmix_compare_op1;
 
 /* Per-function machine data.  This is normally an opaque type just
    defined and used in the tm.c file, but we need to see the definition in
    mmix.md too.  */
-struct machine_function
+struct machine_function GTY(())
  {
    int has_landing_pad;
+   int highest_saved_stack_register;
+   int in_prologue;
  };
 
 /* For these target macros, there is no generic documentation here.  You
@@ -103,14 +106,6 @@ struct machine_function
    soon outdated generic comments.  */
 
 /* Node: Driver */
-
-/* When both ABI:s work, this is how we tell them apart in code.  The
-   GNU abi is implied the default.  Also implied in TARGET_DEFAULT.  */
-#define CPP_SPEC \
- "%{mabi=gnu:-D__MMIX_ABI_GNU__\
-    %{mabi=mmixware:\
-      %eoptions -mabi=mmixware and -mabi=gnu are mutually exclusive}}\
-  %{!mabi=gnu:-D__MMIX_ABI_MMIXWARE__}"
 
 /* User symbols are in the same name-space as built-in symbols, but we
    don't need the built-in symbols, so remove those and instead apply
@@ -147,7 +142,17 @@ extern const char *mmix_cc1_ignored_option;
 /* Node: Run-time Target */
 
 /* Define __LONG_MAX__, since we're advised not to change glimits.h.  */
-#define CPP_PREDEFINES "-D__mmix__ -D__MMIX__ -D__LONG_MAX__=9223372036854775807L"
+#define TARGET_CPU_CPP_BUILTINS()				\
+  do								\
+    {								\
+      builtin_define ("__mmix__");				\
+      builtin_define ("__MMIX__");				\
+      if (TARGET_ABI_GNU)					\
+	builtin_define ("__MMIX_ABI_GNU__");			\
+      else							\
+	builtin_define ("__MMIX_ABI_MMIXWARE__");		\
+    }								\
+  while (0)
 
 extern int target_flags;
 
@@ -158,6 +163,7 @@ extern int target_flags;
 #define TARGET_MASK_KNUTH_DIVISION 16
 #define TARGET_MASK_TOPLEVEL_SYMBOLS 32
 #define TARGET_MASK_BRANCH_PREDICT 64
+#define TARGET_MASK_USE_RETURN_INSN 128
 
 /* We use the term "base address" since that's what Knuth uses.  The base
    address goes in a global register.  When addressing, it's more like
@@ -166,7 +172,9 @@ extern int target_flags;
    a constant pool in global registers, code offseting from those
    registers (automatically causing a request for a suitable constant base
    address register) without having to know the specific register or the
-   specific offset.  */
+   specific offset.  The setback is that there's a limited number of
+   registers, and you'll not find out until link time whether you
+   should've compiled with -mno-base-addresses.  */
 #define TARGET_MASK_BASE_ADDRESSES 128
 
 /* FIXME: Get rid of this one.  */
@@ -178,9 +186,11 @@ extern int target_flags;
 #define TARGET_TOPLEVEL_SYMBOLS (target_flags & TARGET_MASK_TOPLEVEL_SYMBOLS)
 #define TARGET_BRANCH_PREDICT (target_flags & TARGET_MASK_BRANCH_PREDICT)
 #define TARGET_BASE_ADDRESSES (target_flags & TARGET_MASK_BASE_ADDRESSES)
+#define TARGET_USE_RETURN_INSN (target_flags & TARGET_MASK_USE_RETURN_INSN)
 
 #define TARGET_DEFAULT \
- (TARGET_MASK_BRANCH_PREDICT | TARGET_MASK_BASE_ADDRESSES)
+ (TARGET_MASK_BRANCH_PREDICT | TARGET_MASK_BASE_ADDRESSES \
+  | TARGET_MASK_USE_RETURN_INSN)
 
 /* FIXME: Provide a way to *load* the epsilon register.  */
 #define TARGET_SWITCHES							\
@@ -215,6 +225,10 @@ extern int target_flags;
    N_("Use addresses that allocate global registers")},			\
   {"no-base-addresses",	-TARGET_MASK_BASE_ADDRESSES,			\
    N_("Do not use addresses that allocate global registers")},		\
+  {"single-exit",	-TARGET_MASK_USE_RETURN_INSN,			\
+   N_("Generate a single exit point for each function")},		\
+  {"no-single-exit",	TARGET_MASK_USE_RETURN_INSN,			\
+   N_("Do not generate a single exit point for each function")},	\
   {"",			TARGET_DEFAULT, ""}}
 
 /* Unfortunately, this must not reference anything in "mmix.c".  */
@@ -247,16 +261,13 @@ extern int target_flags;
 
 
 /* Node: Storage Layout */
-/* I see no bitfield instructions.  Anyway, the common order is from low
+/* I see no bit-field instructions.  Anyway, the common order is from low
    to high, as the power of two, hence little-endian.  */
 #define BITS_BIG_ENDIAN 0
 #define BYTES_BIG_ENDIAN 1
 #define WORDS_BIG_ENDIAN 1
 #define FLOAT_WORDS_BIG_ENDIAN 1
-#define BITS_PER_UNIT 8
-#define BITS_PER_WORD 64
 #define UNITS_PER_WORD 8
-#define POINTER_SIZE 64
 
 /* FIXME: This macro is correlated to MAX_FIXED_MODE_SIZE in that
    e.g. this macro must not be 8 (default, UNITS_PER_WORD) when
@@ -351,13 +362,13 @@ extern int target_flags;
 
 /* Node: Register Basics */
 /* We tell GCC about all 256 general registers, and we also include
-   rD, rE, rH, rJ and rR (in that order) so we can describe what insns
+   rD, rE, rH, rJ, rR and rO (in that order) so we can describe what insns
    clobber them.  We use a faked register for the argument pointer.  It is
    always eliminated towards the frame-pointer or the stack-pointer, never
    output in assembly.  Any fixed register would do for this, like $255,
    but future debugging is easier when using a separate register.  It
    counts as a global register for pseudorandom reasons.  */
-#define FIRST_PSEUDO_REGISTER 262
+#define FIRST_PSEUDO_REGISTER 263
 
 /* We treat general registers with no assigned purpose as fixed.  The
    stack pointer, $254, is also fixed.  Register $255 is referred to as a
@@ -381,7 +392,7 @@ extern int target_flags;
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, \
-   1, 1, 0, 0, 0, 1 \
+   1, 1, 0, 0, 0, 1, 1 \
  }
 
 /* General registers are fixed and therefore "historically" marked
@@ -405,19 +416,23 @@ extern int target_flags;
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, \
-   1, 1, 1, 1, 1, 1 \
+   1, 1, 1, 1, 1, 1, 1 \
  }
 
 #define CONDITIONAL_REGISTER_USAGE mmix_conditional_register_usage ()
 
-/* No LOCAL_REGNO, INCOMING_REGNO or OUTGOING_REGNO, since those macros
-   are not usable for MMIX: it doesn't have a fixed register window size.
-   FIXME: Perhaps we should say something about $0..$15 may sometimes be
-   the incoming $16..$31.  Those macros need better documentation; it
-   looks like they're just bogus and that FUNCTION_INCOMING_ARG_REGNO_P
-   and FUNCTION_OUTGOING_VALUE should be used where they're used.  For the
+/* No INCOMING_REGNO or OUTGOING_REGNO, since those macros are not usable
+   for MMIX: it doesn't have a fixed register window size.  FIXME: Perhaps
+   we should say something about $0..$15 may sometimes be the incoming
+   $16..$31.  Those macros need better documentation; it looks like
+   they're just bogus and that FUNCTION_INCOMING_ARG_REGNO_P and
+   FUNCTION_OUTGOING_VALUE should be used where they're used.  For the
    moment, do nothing; things seem to work anyway.  */
 
+/* Defining LOCAL_REGNO is necessary in presence of prologue/epilogue,
+   else GCC will be confused that those registers aren't saved and
+   restored.  */
+#define LOCAL_REGNO(REGNO) mmix_local_regno (REGNO)
 
 /* Node: Allocation Order */
 
@@ -465,7 +480,7 @@ extern int target_flags;
    232, 233, 234, 235, 236, 237, 238, 239,	\
    240, 241, 242, 243, 244, 245, 246,		\
 						\
-   254, 255, 256, 257, 261 			\
+   254, 255, 256, 257, 261, 262			\
  }
 
 /* As a convenience, we put this nearby, for ease of comparison.
@@ -520,7 +535,7 @@ extern int target_flags;
    216, 217, 218, 219, 220, 221, 222, 223,	\
    224, 225, 226, 227, 228, 229, 230,		\
 						\
-   254, 255, 256, 257, 261 			\
+   254, 255, 256, 257, 261, 262			\
  }
 
 /* The default one.  */
@@ -564,8 +579,8 @@ enum reg_class
   {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x20},	\
   {0, 0, 0, 0, 0, 0, 0, 0, 0x10},		\
   {0, 0, 0, 0, 0, 0, 0, 0, 4},			\
-  {0, 0, 0, 0, 0, 0, 0, 0, 0x3f},		\
-  {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x3f}}
+  {0, 0, 0, 0, 0, 0, 0, 0, 0x7f},		\
+  {~0, ~0, ~0, ~0, ~0, ~0, ~0, ~0, 0x7f}}
 
 #define REGNO_REG_CLASS(REGNO)					\
  ((REGNO) <= MMIX_LAST_GENERAL_REGISTER				\
@@ -720,13 +735,18 @@ enum reg_class
 
 /* This *sounds* good, but does not seem to be implemented correctly to
    be a win; at least it wasn't in 2.7.2.  FIXME: Check and perhaps
-   replace with a big comment.  */
-#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) 1
+   replace with a big comment.
+   The definition needs to match or be a subset of
+   FUNCTION_ARG_PASS_BY_REFERENCE, since not all callers check that before
+   usage.  Watch lots of C++ test-cases fail if set to 1, for example
+   g++.dg/init/byval1.C.  */
+#define FUNCTION_ARG_CALLEE_COPIES(CUM, MODE, TYPE, NAMED) \
+ mmix_function_arg_pass_by_reference (&(CUM), MODE, TYPE, NAMED)
 
-typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
+typedef struct { int regs; int lib; } CUMULATIVE_ARGS;
 
 #define INIT_CUMULATIVE_ARGS(CUM, FNTYPE, LIBNAME, INDIRECT)	\
- ((CUM).regs = 0, (CUM).lib = ((LIBNAME) != 0), (CUM).now_varargs = 0)
+ ((CUM).regs = 0, (CUM).lib = ((LIBNAME) != 0))
 
 #define FUNCTION_ARG_ADVANCE(CUM, MODE, TYPE, NAMED)		\
  ((CUM).regs							\
@@ -753,10 +773,10 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
  mmix_function_outgoing_value (VALTYPE, FUNC)
 
 #define LIBCALL_VALUE(MODE) \
- gen_rtx_REG (MODE, MMIX_OUTGOING_RETURN_VALUE_REGNUM)
+ gen_rtx_REG (MODE, MMIX_RETURN_VALUE_REGNUM)
 
 #define FUNCTION_VALUE_REGNO_P(REGNO) \
- ((REGNO) == MMIX_OUTGOING_RETURN_VALUE_REGNUM)
+ mmix_function_value_regno_p (REGNO)
 
 
 /* Node: Aggregate Return */
@@ -779,10 +799,6 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
    FIXME: Not needed if nonlocal_goto_stack_level.  */
 #define EPILOGUE_USES(REGNO) \
  ((REGNO) == MMIX_INCOMING_RETURN_ADDRESS_REGNUM)
-
-#define ASM_OUTPUT_MI_THUNK(FILE, THUNK_FNDECL, DELTA, FUNCTION)	\
- mmix_asm_output_mi_thunk (FILE, THUNK_FNDECL, DELTA, FUNCTION)
-
 
 /* Node: Profiling */
 #define FUNCTION_PROFILER(FILE, LABELNO)	\
@@ -848,17 +864,16 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
 
 /* Node: Condition Code */
 
-#define EXTRA_CC_MODES				\
- CC(CC_UNSmode, "CC_UNS")			\
- CC(CC_FPmode, "CC_FP")				\
- CC(CC_FPEQmode, "CC_FPEQ")			\
- CC(CC_FUNmode, "CC_FUN")
-
 #define SELECT_CC_MODE(OP, X, Y)		\
  mmix_select_cc_mode (OP, X, Y)
 
-#define CANONICALIZE_COMPARISON(CODE, OP0, OP1)		\
- mmix_canonicalize_comparison (&(CODE), &(OP0), &(OP1));
+/* A definition of CANONICALIZE_COMPARISON that changed LE and GT
+   comparisons with -1 to LT and GE respectively, and LT, LTU, GE or GEU
+   comparisons with 256 to 255 and LE, LEU, GT and GTU has been
+   ineffective; the code path for performing the changes did not trig for
+   neither the GCC test-suite nor ghostscript-6.52 nor Knuth's mmix.tar.gz
+   itself (core GCC functionality supposedly handling it) with sources
+   from 2002-06-06.  */
 
 #define REVERSIBLE_CC_MODE(MODE)		\
  mmix_reversible_cc_mode (MODE)
@@ -907,41 +922,7 @@ typedef struct { int regs; int lib; int now_varargs; } CUMULATIVE_ARGS;
 #define DATA_SECTION_ASM_OP \
  mmix_data_section_asm_op ()
 
-/* Stuff copied from elfos.h.  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS		\
-  CONST_SECTION_FUNCTION
-
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_ASM_OP	"\t.section\t.rodata"
-
-#define CONST_SECTION_FUNCTION					\
-void								\
-const_section ()						\
-{								\
-  if (in_section != in_const)					\
-    {								\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);	\
-      in_section = in_const;					\
-    }								\
-}
-
-#undef  SELECT_RTX_SECTION
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section ()
-
-#define SELECT_SECTION(DECL, RELOC, ALIGN) \
- mmix_select_section (DECL, RELOC, ALIGN)
-
-#define ENCODE_SECTION_INFO(DECL) \
- mmix_encode_section_info (DECL)
-
-#define STRIP_NAME_ENCODING(VAR, SYM_NAME) \
- (VAR) = mmix_strip_name_encoding (SYM_NAME)
-
-#define UNIQUE_SECTION(DECL, RELOC) \
-  mmix_unique_section (decl, reloc)
+#define READONLY_DATA_SECTION_ASM_OP	"\t.section\t.rodata"
 
 /* Node: PIC */
 /* (empty) */
@@ -1000,8 +981,7 @@ const_section ()						\
 #define ASM_DECLARE_REGISTER_GLOBAL(STREAM, DECL, REGNO, NAME) \
  mmix_asm_declare_register_global (STREAM, DECL, REGNO, NAME)
 
-#define ASM_GLOBALIZE_LABEL(STREAM, NAME) \
- mmix_asm_globalize_label (STREAM, NAME)
+#define GLOBAL_ASM_OP "\t.global "
 
 #define ASM_WEAKEN_LABEL(STREAM, NAME) \
  mmix_asm_weaken_label (STREAM, NAME)
@@ -1030,13 +1010,9 @@ const_section ()						\
 #define ASM_OUTPUT_DEF(STREAM, NAME, VALUE) \
  mmix_asm_output_def (STREAM, NAME, VALUE)
 
-#define ASM_OUTPUT_DEFINE_LABEL_DIFFERENCE_SYMBOL(STREAM, SY, HI, LO) \
- mmix_asm_output_define_label_difference_symbol (STREAM, SY, HI, LO)
-
-
 /* Node: Macros for Initialization */
-/* We're compiling to ELF and linking to MMO; all ELF features that GCC
-   care for are there.  FIXME: Are they?  */
+/* We're compiling to ELF and linking to MMO; fundamental ELF features
+   that GCC depend on are there.  */
 
 /* These must be constant strings, since they're used in crtstuff.c.  */
 #define INIT_SECTION_ASM_OP "\t.section .init,\"ax\" ! mmixal-incompatible"
@@ -1084,11 +1060,11 @@ const_section ()						\
   "$232", "$233", "$234", "$235", "$236", "$237", "$238", "$239",	\
   "$240", "$241", "$242", "$243", "$244", "$245", "$246", "$247",	\
   "$248", "$249", "$250", "$251", "$252", "$253", "$254", "$255",	\
-  ":rD",  ":rE",  ":rH",  ":rJ",  ":rR",  "ap_!BAD!"}
+  ":rD",  ":rE",  ":rH",  ":rJ",  ":rR",  "ap_!BAD!", ":rO"}
 
 #define ADDITIONAL_REGISTER_NAMES			\
  {{"sp", 254}, {":sp", 254}, {"rD", 256}, {"rE", 257},	\
-  {"rH", 258}, {"rJ", MMIX_rJ_REGNUM}}
+  {"rH", 258}, {"rJ", MMIX_rJ_REGNUM}, {"rO", MMIX_rO_REGNUM}}
 
 #define PRINT_OPERAND(STREAM, X, CODE) \
  mmix_print_operand (STREAM, X, CODE)
@@ -1144,19 +1120,8 @@ const_section ()						\
 
 
 /* Node: SDB and DWARF */
-#define DWARF2_DEBUGGING_INFO
+#define DWARF2_DEBUGGING_INFO 1
 #define DWARF2_ASM_LINE_DEBUG_INFO 1
-
-/* Node: Cross-compilation */
-
-/* FIXME: I don't know whether it is best to tweak emit-rtl.c to handle
-   the case where sizeof (float) == word_size / 2 on the target, or to fix
-   real.h to define REAL_ARITHMETIC in that case.  Anyway, it should be
-   documented that a target can define this to force emulation.  Note that
-   we don't check #ifdef CROSS_COMPILE here; not even if mmix gets
-   self-hosted must we do that.  Case gcc.c-torture/compile/930611-1.c.  */
-#define REAL_ARITHMETIC
-
 
 /* Node: Misc */
 
@@ -1173,8 +1138,6 @@ const_section ()						\
   {SYMBOL_REF, LABEL_REF, CONST,		\
    SUBREG, REG, PLUS}},				\
  {"mmix_reg_or_constant_operand",		\
-  {CONST_INT, CONST_DOUBLE, SUBREG, REG}},	\
- {"mmix_reg_or_8bit_or_256_operand",		\
   {CONST_INT, CONST_DOUBLE, SUBREG, REG}},	\
  {"mmix_reg_or_8bit_operand",			\
   {CONST_INT, CONST_DOUBLE, SUBREG, REG}},	\
@@ -1210,15 +1173,18 @@ const_section ()						\
 
 #define FUNCTION_MODE QImode
 
-/* When in due time we *will* have some specific headers.  */
 #define NO_IMPLICIT_EXTERN_C
 
-#define HANDLE_SYSV_PRAGMA
+#define HANDLE_SYSV_PRAGMA 1
 
 /* These are checked.  */
 #define DOLLARS_IN_IDENTIFIERS 0
 #define NO_DOLLAR_IN_LABEL
 #define NO_DOT_IN_LABEL
+
+/* Calculate the highest used supposed saved stack register.  */
+#define MACHINE_DEPENDENT_REORG(INSN) \
+ mmix_machine_dependent_reorg (INSN)
 
 #endif /* GCC_MMIX_H */
 /*

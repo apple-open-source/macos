@@ -3,6 +3,7 @@
  * distcc -- A simple distributed compiler system
  *
  * Copyright (C) 2002, 2003 by Martin Pool <mbp@samba.org>
+ * Copyright (C) 2005 by Apple Computer
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -108,6 +109,9 @@ const struct poptOption options[] = {
     { "user", 0,         POPT_ARG_STRING, &opt_user, 'u', 0, 0 },
     { "verbose", 0,      POPT_ARG_NONE, 0, 'v', 0, 0 },
     { "version", 0,      POPT_ARG_NONE, 0, 'V', 0, 0 },
+    { "compiler-versions", 0,      POPT_ARG_NONE, 0, 'C', 0, 0 },
+    { "os-version", 0,   POPT_ARG_NONE, 0, 'O', 0, 0 },
+    { "protocol-version", 0,      POPT_ARG_NONE, 0, 'R', 0, 0 },
     { 0, 0, 0, 0, 0, 0, 0 }
 };
 
@@ -203,9 +207,24 @@ int distccd_parse_options(int argc, const char **argv)
             exitcode = EXIT_SUCCESS;
             goto out_exit;
 
+	case 'C':
+	    puts(dcc_get_compiler_versions());
+            exitcode = EXIT_SUCCESS;
+            goto out_exit;
+
         case 'v':
             rs_trace_set_level(RS_LOG_DEBUG);
             break;
+
+	case 'O':
+	    puts(dcc_get_system_version());
+            exitcode = EXIT_SUCCESS;
+            goto out_exit;
+
+	case 'R':
+	    puts(dcc_get_protocol_version());
+            exitcode = EXIT_SUCCESS;
+            goto out_exit;
 
         default:                /* bad? */
             rs_log(RS_LOG_NONAME|RS_LOG_ERR|RS_LOG_NO_PID, "%s: %s",

@@ -90,6 +90,9 @@ CSLPPlugin::~CSLPPlugin( void )
 sInt32 CSLPPlugin::InitPlugin( void )
 {
     sInt32				siResult	= eDSNoErr;
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime		startTime = CFAbsoluteTimeGetCurrent();
+#endif
 	DBGLOG( "CSLPPlugin::InitPlugin\n" );
     
    if ( getenv( "NSLDEBUG" ) )
@@ -173,11 +176,17 @@ sInt32 CSLPPlugin::InitPlugin( void )
     
     AddNode( GetLocalNodeString() );		// always register the default registration node
     
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "CSLPPlugin::InitPlugin() took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+#endif
     return siResult;
 }
 
 void CSLPPlugin::ActivateSelf( void )
 {
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime		startTime = CFAbsoluteTimeGetCurrent();
+#endif
     DBGLOG( "CSLPPlugin::ActivateSelf called, runloopRef = 0x%x\n", GetRunLoopRef() );
 	
 	InitPlugin();
@@ -187,6 +196,10 @@ void CSLPPlugin::ActivateSelf( void )
 		
 	// we are getting activated.  If we have anything registered, we will want to
 	// kick off slpd
+    
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "CSLPPlugin::ActivateSelf() took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+#endif
 
 	CNSLPlugin::ActivateSelf();
 }
@@ -307,7 +320,14 @@ sInt32 CSLPPlugin::HandleNetworkTransition( sHeader *inData )
 	{
 		if ( mActivatedByNSL && IsActive() && IsNetworkSetToTriggerDialup() == false )
 		{
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime		startTime = CFAbsoluteTimeGetCurrent();
+#endif
 			KickSLPDALocator();			// wake this guy
+    
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "CSLPPlugin::HandleNetworkTransition(), KickSLPDALocator() took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+#endif
 		}
 	}
 	
@@ -591,13 +611,69 @@ sInt32 CSLPPlugin::DeregisterService( tRecordReference recordRef, CFDictionaryRe
     return status;
 }
 
+typedef struct SLPSendDataContext {
+	char*		dataBuffer;
+	UInt32		dataBufferLen;
+};
+
+void SendDataToSLPdOnRunLoop(CFRunLoopTimerRef timer, void *info)
+{
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime	startTime = CFAbsoluteTimeGetCurrent();
+#endif
+	SLPSendDataContext*		context = (SLPSendDataContext*)info;
+	
+	if ( context )
+	{
+		char*					returnBuffer = NULL;
+		UInt32					returnBufferLen = 0;
+		OSStatus				status = noErr;
+
+		status = SendDataToSLPd( context->dataBuffer, context->dataBufferLen, &returnBuffer, &returnBufferLen );
+
+		if ( status )
+		{
+			if ( returnBuffer )
+				free( returnBuffer );
+			returnBuffer = NULL;
+			
+	#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "SendDataToSLPdOnRunLoop received a status of %d, sleeping a second and will try again\n", status );
+	#endif
+			SmartSleep(1*USEC_PER_SEC);		// try again
+			status = SendDataToSLPd( context->dataBuffer, context->dataBufferLen, &returnBuffer, &returnBufferLen );
+
+			if ( returnBuffer )
+				free( returnBuffer );
+			returnBuffer = NULL;
+		}
+				
+		// now check for any message status
+		if ( !status && returnBuffer && returnBufferLen > 0 )
+			status = ((SLPdMessageHeader*)returnBuffer)->messageStatus;
+			
+		if ( context->dataBuffer )
+			free( context->dataBuffer );
+			
+		if ( returnBuffer )
+			free( returnBuffer );
+	
+		free( context );
+	}
+#ifdef TRACK_FUNCTION_TIMES
+	syslog( LOG_ERR, "(%s) SendDataToSLPdOnRunLoop took %f seconds\n", "SLP", CFAbsoluteTimeGetCurrent() - startTime );
+#endif
+}
+
 OSStatus CSLPPlugin::DoSLPRegistration( char* scopeList, char* url, char* attributeList )
 {
 	char*		dataBuffer = NULL;
-	char*		returnBuffer = NULL;
 	UInt32		dataBufferLen = 0;
-	UInt32		returnBufferLen = 0;
 	OSStatus	status = noErr;
+
+#ifdef TRACK_FUNCTION_TIMES
+	CFAbsoluteTime		startTime = CFAbsoluteTimeGetCurrent();
+#endif
 	
     DBGLOG( "CSLPPlugin::DoSLPRegistration called, scope: %s, url: %s, attributeList: %s\n", scopeList, url, attributeList );
     
@@ -605,41 +681,38 @@ OSStatus CSLPPlugin::DoSLPRegistration( char* scopeList, char* url, char* attrib
 
 	if ( dataBuffer )
 	{
-		status = SendDataToSLPd( dataBuffer, dataBufferLen, &returnBuffer, &returnBufferLen );
+		// let's do the send on our runloop
+		SLPSendDataContext*		context = new SLPSendDataContext();
+		context->dataBuffer = dataBuffer;
+		context->dataBufferLen = dataBufferLen;
+		
+		CFRunLoopTimerContext c = {0, (void*)context, NULL, NULL, NULL};
 
-		if ( status )
-        {
-            if ( returnBuffer )
-                free( returnBuffer );
-            returnBuffer = NULL;
-            
-            SmartSleep(1*USEC_PER_SEC);		// try again
-            status = SendDataToSLPd( dataBuffer, dataBufferLen, &returnBuffer, &returnBufferLen );
-            
-        }
+		CFRunLoopTimerRef timerRef = CFRunLoopTimerCreate(	NULL,
+											CFAbsoluteTimeGetCurrent() + 0,
+											0,
+											0,
+											0,
+											SendDataToSLPdOnRunLoop,
+											(CFRunLoopTimerContext*)&c);
+
+		CFRunLoopAddTimer( GetRunLoopRef(), timerRef, kCFRunLoopDefaultMode );
+		CFRelease( timerRef );
 	}
 	else
 		status = eMemoryAllocError;
-			
-	// now check for any message status
-	if ( !status && returnBuffer && returnBufferLen > 0 )
-		status = ((SLPdMessageHeader*)returnBuffer)->messageStatus;
-		
-    if ( dataBuffer )
-        free( dataBuffer );
         
-    if ( returnBuffer )
-        free( returnBuffer );
-        
+#ifdef TRACK_FUNCTION_TIMES
+	ourLog( "CSLPPlugin::DoSLPRegistration took %f seconds\n", CFAbsoluteTimeGetCurrent()-startTime );
+#endif
+
 	return status;
 }
 
 OSStatus CSLPPlugin::DoSLPDeregistration( char* scopeList, char* url )
 {
 	char*		dataBuffer = NULL;
-	char*		returnBuffer = NULL;
 	UInt32		dataBufferLen = 0;
-	UInt32		returnBufferLen = 0;
 	OSStatus	status = noErr;
 	
     DBGLOG( "CSLPPlugin::DoSLPDeregistration called, scope: %s, url: %s\n", scopeList, url );
@@ -647,19 +720,25 @@ OSStatus CSLPPlugin::DoSLPDeregistration( char* scopeList, char* url )
 	dataBuffer = MakeSLPDeregistrationDataBuffer( scopeList, strlen(scopeList), url, strlen(url), &dataBufferLen );
 	
 	if ( dataBuffer )
-		status = SendDataToSLPd( dataBuffer, dataBufferLen, &returnBuffer, &returnBufferLen );
-	else
-		status = eMemoryAllocError;
+	{
+		// let's do the send on our runloop
+		SLPSendDataContext*		context = new SLPSendDataContext();
+		context->dataBuffer = dataBuffer;
+		context->dataBufferLen = dataBufferLen;
 		
-	// now check for any message status
-	if ( !status && returnBuffer && returnBufferLen > 0 )
-		status = ((SLPdMessageHeader*)returnBuffer)->messageStatus;
-		
-    if ( dataBuffer )
-        free( dataBuffer );
-        
-    if ( returnBuffer )
-        free( returnBuffer );
+		CFRunLoopTimerContext c = {0, (void*)context, NULL, NULL, NULL};
+
+		CFRunLoopTimerRef timerRef = CFRunLoopTimerCreate(	NULL,
+											CFAbsoluteTimeGetCurrent() + 0,
+											0,
+											0,
+											0,
+											SendDataToSLPdOnRunLoop,
+											(CFRunLoopTimerContext*)&c);
+
+		CFRunLoopAddTimer( GetRunLoopRef(), timerRef, kCFRunLoopDefaultMode );
+		CFRelease( timerRef );
+	}
 		
 	return status;
 }

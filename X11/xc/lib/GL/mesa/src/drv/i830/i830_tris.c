@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_tris.c,v 1.4 2002/12/10 01:26:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_tris.c,v 1.5 2003/09/28 20:15:15 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2001 VA Linux Systems Inc., Fremont, California.
@@ -32,9 +32,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  * Adapted for use on the I830M:
  *   Jeff Hartmann <jhartmann@2d3d.com>
  */
-
-#include <stdio.h>
-#include <math.h>
 
 #include "glheader.h"
 #include "context.h"
@@ -666,21 +663,21 @@ static void i830RunPipeline( GLcontext *ctx )
 {
    i830ContextPtr imesa = I830_CONTEXT(ctx);
 
-   if (imesa->new_state) {
-      if (imesa->new_state & _NEW_TEXTURE) {
+   if (imesa->NewGLState) {
+      if (imesa->NewGLState & _NEW_TEXTURE) {
 	 I830_FIREVERTICES( imesa );
-	 i830UpdateTextureState( ctx ); /* may modify imesa->new_state */
+	 i830UpdateTextureState( ctx ); /* may modify imesa->NewGLState */
       }
 
       if (!imesa->Fallback) {
-	 if (imesa->new_state & _I830_NEW_VERTEX)
+	 if (imesa->NewGLState & _I830_NEW_VERTEX)
 	    i830ChooseVertexState( ctx );
 
-	 if (imesa->new_state & _I830_NEW_RENDERSTATE)
+	 if (imesa->NewGLState & _I830_NEW_RENDERSTATE)
 	    i830ChooseRenderState( ctx );
       }
 
-      imesa->new_state = 0;
+      imesa->NewGLState = 0;
    }
 
    _tnl_run_pipeline( ctx );
@@ -851,7 +848,7 @@ void i830Fallback( i830ContextPtr imesa, GLuint bit, GLboolean mode )
 	 tnl->Driver.Render.PrimitiveNotify = i830RenderPrimitive;
 	 tnl->Driver.Render.Finish = i830RenderFinish;
 	 tnl->Driver.Render.BuildVertices = i830BuildVertices;
-	 imesa->new_state |= (_I830_NEW_RENDERSTATE|_I830_NEW_VERTEX);
+	 imesa->NewGLState |= (_I830_NEW_RENDERSTATE|_I830_NEW_VERTEX);
       }
    }
 }

@@ -1,3 +1,4 @@
+// { dg-do run  }
 // prms-id: 3579
 
 extern "C" int printf(const char *, ...);
@@ -36,4 +37,4 @@ int main (int, char **) {
     }
     printf("PASS\n");
     return 0;
-};
+}

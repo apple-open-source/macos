@@ -27,6 +27,8 @@
 
 #include "CLog.h"
 #include "DSUtils.h"
+#include "SharedConsts.h"
+#include <DirectoryService/DirServicesConst.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -639,7 +641,7 @@ unsigned long dsGetDataLengthPriv ( tDataListPtr inDataList )
 
 //--------------------------------------------------------------------------------------------------
 //	Name:	dsDataListGetNodePriv
-//
+// PLEASE note that this really returns a tDataBufferPriv
 //--------------------------------------------------------------------------------------------------
 
 tDirStatus dsDataListGetNodePriv ( tDataListPtr		inDataList,
@@ -1136,3 +1138,378 @@ double dsTimestamp(void)
 }
 
 
+tDirStatus dsGetAuthMethodEnumValue( tDataNode *inData, uInt32 *outAuthMethod )
+{
+	tDirStatus		siResult			= eDSNoErr;
+	uInt32			uiNativeLen			= 0;
+	char		   *authMethodPtr		= NULL;
+	
+	if ( inData == NULL )
+	{
+		*outAuthMethod = kAuthUnknownMethod;
+		return eDSAuthMethodNotSupported;
+	}
+	
+	authMethodPtr = (char *)inData->fBufferData;
+	
+	//DBGLOG1( kLogPlugin, "Using authentication method %s.", authMethodPtr );
+	
+	if ( ::strcmp( authMethodPtr, kDSStdAuthClearText ) == 0 )
+	{
+		// Clear text auth method
+		*outAuthMethod = kAuthClearText;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthNodeNativeClearTextOK ) == 0 )
+	{
+		// Node native auth method
+		*outAuthMethod = kAuthNativeClearTextOK;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthNodeNativeNoClearText ) == 0 )
+	{
+		// Node native auth method
+		*outAuthMethod = kAuthNativeNoClearText;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthCrypt ) == 0 )
+	{
+		// Unix Crypt auth method
+		*outAuthMethod = kAuthCrypt;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandom ) == 0 )
+	{
+		// Two way random auth method
+		*outAuthMethod = kAuth2WayRandom;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandomChangePasswd ) == 0 )
+	{
+		// Two way random auth method
+		*outAuthMethod = kAuth2WayRandomChangePass;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_Key ) == 0 )
+	{
+		// Two way random auth method
+		*outAuthMethod = kAuthSMB_NT_Key;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_LM_Key ) == 0 )
+	{
+		// Two way random auth method
+		*outAuthMethod = kAuthSMB_LM_Key;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSecureHash ) == 0 )
+	{
+		// secure hash method
+		*outAuthMethod = kAuthSecureHash;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthReadSecureHash ) == 0 )
+	{
+		// secure hash method
+		*outAuthMethod = kAuthReadSecureHash;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthWriteSecureHash ) == 0 )
+	{
+		// secure hash method
+		*outAuthMethod = kAuthWriteSecureHash;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPasswd ) == 0 )
+	{
+		// Admin set password
+		*outAuthMethod = kAuthSetPasswd;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPasswdAsRoot ) == 0 )
+	{
+		// Admin set password
+		*outAuthMethod = kAuthSetPasswdAsRoot;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthChangePasswd ) == 0 )
+	{
+		// User change password
+		*outAuthMethod = kAuthChangePasswd;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthAPOP ) == 0 )
+	{
+		// APOP auth method
+		*outAuthMethod = kAuthAPOP;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthCRAM_MD5 ) == 0 )
+	{
+		// CRAM-MD5 auth method
+		*outAuthMethod = kAuthCRAM_MD5;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPolicy ) == 0 )
+	{
+		*outAuthMethod = kAuthSetPolicy;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthWithAuthorizationRef ) == 0 )
+	{
+		*outAuthMethod = kAuthWithAuthorizationRef;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetPolicy ) == 0 )
+	{
+		*outAuthMethod = kAuthGetPolicy;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetGlobalPolicy ) == 0 )
+	{
+		*outAuthMethod = kAuthGetGlobalPolicy;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetGlobalPolicy ) == 0 )
+	{
+		*outAuthMethod = kAuthSetGlobalPolicy;
+	}
+	else if ( ::strcmp( authMethodPtr, "dsAuthMethodSetPasswd:dsAuthNodeNativeCanUseClearText" ) == 0 )
+	{
+		*outAuthMethod = kAuthSetPasswdCheckAdmin;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetPolicyAsRoot ) == 0 )
+	{
+		*outAuthMethod = kAuthSetPolicyAsRoot;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetLMHash ) == 0 )
+	{
+		*outAuthMethod = kAuthSetLMHash;
+	}
+	else if ( ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthVPN_MPPEMasterKeys" ) == 0 ||
+			  ::strcmp( authMethodPtr, "dsAuthMethodStandard:dsAuthVPN_PPTPMasterKeys" ) == 0 ||
+			  ::strcmp( authMethodPtr, kDSStdAuthMPPEMasterKeys ) == 0 )
+	{
+		*outAuthMethod = kAuthVPN_PPTPMasterKeys;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetKerberosPrincipal ) == 0 )
+	{
+		*outAuthMethod = kAuthGetKerberosPrincipal;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetEffectivePolicy ) == 0 )
+	{
+		*outAuthMethod = kAuthGetEffectivePolicy;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetWorkstationPasswd ) == 0 )
+	{
+		*outAuthMethod = kAuthNTSetWorkstationPasswd;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMBWorkstationCredentialSessionKey ) == 0 ||
+			  ::strcmp( authMethodPtr, kDSStdAuthSetNTHash ) == 0 )
+	{
+		*outAuthMethod = kAuthSMBWorkstationCredentialSessionKey;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_UserSessionKey ) == 0 )
+	{
+		*outAuthMethod = kAuthSMB_NTUserSessionKey;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthGetUserName ) == 0 )
+	{
+		*outAuthMethod = kAuthGetUserName;
+	}
+    else if ( ::strcmp( authMethodPtr, kDSStdAuthSetUserName ) == 0 )
+	{
+		*outAuthMethod = kAuthSetUserName;
+	}
+    else if ( ::strcmp( authMethodPtr, kDSStdAuthGetUserData ) == 0 )
+	{
+		*outAuthMethod = kAuthGetUserData;
+	}
+    else if ( ::strcmp( authMethodPtr, kDSStdAuthSetUserData ) == 0 )
+	{
+		*outAuthMethod = kAuthSetUserData;
+	}
+    else if ( ::strcmp( authMethodPtr, kDSStdAuthDeleteUser ) == 0 )
+	{
+		*outAuthMethod = kAuthDeleteUser;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthNewUser ) == 0 )
+	{
+        *outAuthMethod = kAuthNewUser;
+    }
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthNTLMv2 ) == 0 )
+	{
+		*outAuthMethod = kAuthNTLMv2;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthMSCHAP2 ) == 0 )
+	{
+		*outAuthMethod = kAuthMSCHAP2;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthDIGEST_MD5 ) == 0 )
+	{
+		*outAuthMethod = kAuthDIGEST_MD5;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandom ) == 0 )
+	{
+		*outAuthMethod = kAuth2WayRandom;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuth2WayRandomChangePasswd ) == 0 )
+	{
+		*outAuthMethod = kAuth2WayRandomChangePass;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_NT_Key ) == 0 )
+	{
+		*outAuthMethod = kAuthSMB_NT_Key;
+	}
+    else if ( ::strcmp( authMethodPtr, kDSStdAuthSMB_LM_Key ) == 0 )
+	{
+		*outAuthMethod = kAuthSMB_LM_Key;
+	}
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthNewUserWithPolicy ) == 0 )
+	{
+        *outAuthMethod = kAuthNewUserWithPolicy;
+    }
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetShadowHashWindows ) == 0 )
+	{
+        *outAuthMethod = kAuthSetShadowHashWindows;
+    }
+	else if ( ::strcmp( authMethodPtr, kDSStdAuthSetShadowHashSecure ) == 0 )
+	{
+        *outAuthMethod = kAuthSetShadowHashSecure;
+    }
+	else
+	{
+		uiNativeLen	= ::strlen( kDSNativeAuthMethodPrefix );
+
+		if ( ::strncmp( authMethodPtr, kDSNativeAuthMethodPrefix, uiNativeLen ) == 0 )
+		{
+			// User change password
+			*outAuthMethod = kAuthNativeMethod;
+		}
+		else
+		{
+			*outAuthMethod = kAuthUnknownMethod;
+			siResult = eDSAuthMethodNotSupported;
+		}
+	}
+	
+	return( siResult );
+} // dsGetAuthMethodEnumValue
+
+
+const char* dsGetPatternMatchName ( tDirPatternMatch inPatternMatchEnum )
+{
+	const char	   *outString   = nil;
+	
+	switch (inPatternMatchEnum)
+	{
+		case eDSNoMatch1:
+			outString = "eDSNoMatch1";
+			break;
+			
+		case eDSAnyMatch:
+			outString = "eDSAnyMatch";
+			break;
+			
+		case eDSExact:
+			outString = "eDSExact";
+			break;
+			
+		case eDSStartsWith:
+			outString = "eDSStartsWith";
+			break;
+			
+		case eDSEndsWith:
+			outString = "eDSEndsWith";
+			break;
+			
+		case eDSContains:
+			outString = "eDSContains";
+			break;
+			
+		case eDSLessThan:
+			outString = "eDSLessThan";
+			break;
+			
+		case eDSGreaterThan:
+			outString = "eDSGreaterThan";
+			break;
+			
+		case eDSLessEqual:
+			outString = "eDSLessEqual";
+			break;
+			
+		case eDSGreaterEqual:
+			outString = "eDSGreaterEqual";
+			break;
+			
+		case eDSWildCardPattern:
+			outString = "eDSWildCardPattern";
+			break;
+			
+		case eDSRegularExpression:
+			outString = "eDSRegularExpression";
+			break;
+			
+		case eDSCompoundExpression:
+			outString = "eDSCompoundExpression";
+			break;
+			
+		case eDSiExact:
+			outString = "eDSiExact";
+			break;
+			
+		case eDSiStartsWith:
+			outString = "eDSiStartsWith";
+			break;
+			
+		case eDSiEndsWith:
+			outString = "eDSiEndsWith";
+			break;
+			
+		case eDSiContains:
+			outString = "eDSiContains";
+			break;
+			
+		case eDSiLessThan:
+			outString = "eDSiLessThan";
+			break;
+			
+		case eDSiGreaterThan:
+			outString = "eDSiGreaterThan";
+			break;
+			
+		case eDSiLessEqual:
+			outString = "eDSiLessEqual";
+			break;
+			
+		case eDSiGreaterEqual:
+			outString = "eDSiGreaterEqual";
+			break;
+			
+		case eDSiWildCardPattern:
+			outString = "eDSiWildCardPattern";
+			break;
+			
+		case eDSiRegularExpression:
+			outString = "eDSiRegularExpression";
+			break;
+			
+		case eDSiCompoundExpression:
+			outString = "eDSiCompoundExpression";
+			break;
+			
+		case eDSLocalNodeNames:
+			outString = "eDSLocalNodeNames";
+			break;
+			
+		case eDSAuthenticationSearchNodeName:
+			outString = "eDSAuthenticationSearchNodeName";
+			break;
+			
+		case eDSConfigNodeName:
+			outString = "eDSConfigNodeName";
+			break;
+			
+		case eDSLocalHostedNodes:
+			outString = "eDSLocalHostedNodes";
+			break;
+			
+		case eDSContactsSearchNodeName:
+			outString = "eDSContactsSearchNodeName";
+			break;
+			
+		case eDSNetworkSearchNodeName:
+			outString = "eDSNetworkSearchNodeName";
+			break;
+			
+		case eDSDefaultNetworkNodes:
+			outString = "eDSDefaultNetworkNodes";
+			break;
+
+		default:
+			outString = "Pattern Match Unknown";
+	}
+	
+	return(outString);
+}

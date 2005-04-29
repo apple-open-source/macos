@@ -3,6 +3,7 @@
 <data>
 HTTP/1.1 200 OK
 Funny-head: yesyes
+Content-Length: 27
 
 This is the proof it works
 </data>
@@ -10,6 +11,9 @@ This is the proof it works
 
 # Client-side
 <client>
+<server>
+http
+</server>
  <name>
 HTTP with config file on stdin
  </name>
@@ -25,18 +29,18 @@ request MOOO
 --max-time 180
  </stdin>
  <command>
--K - %HOSTIP:%HOSTPORT/that.site.com/17
+-K - %HOSTIP:%HTTPPORT/that.site.com/17
 </command>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
 <protocol>
 MOOO /that.site.com/17 HTTP/1.1
 User-Agent: agent007 license to drill	
-Host: 127.0.0.1:8999
+Host: 127.0.0.1:%HTTPPORT
 Pragma: no-cache
-Accept: image/gif, image/x-xbitmap, image/jpeg, image/pjpeg, */*
+Accept: */*
 
 </protocol>
 </verify>

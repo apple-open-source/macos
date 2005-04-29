@@ -3,30 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1998-2003 Apple Computer, Inc.  All rights reserved. 
- *
- * HISTORY
- *
  */
 
 
@@ -180,6 +171,23 @@ union IOPCIAddressSpace {
         unsigned int	reloc:1;
 #endif
     } s;
+    struct {
+#if __BIG_ENDIAN__
+        unsigned int	resv:4;
+        unsigned int	registerNumExtended:4;
+        unsigned int	busNum:8;
+        unsigned int	deviceNum:5;
+        unsigned int	functionNum:3;
+        unsigned int	registerNum:8;
+#elif __LITTLE_ENDIAN__
+        unsigned int	registerNum:8;
+        unsigned int	functionNum:3;
+        unsigned int	deviceNum:5;
+        unsigned int	busNum:8;
+        unsigned int	registerNumExtended:4;
+        unsigned int	resv:4;
+#endif
+    } es;
 };
 
 struct IOPCIPhysicalAddress {
@@ -543,8 +551,17 @@ public:
     @result kIOReturnSuccess if there were no errors */
     virtual IOReturn enablePCIPowerManagement(IOOptionBits state = 0xffffffff);
     
+    OSMetaClassDeclareReservedUsed(IOPCIDevice,  2);
+/*! @function extendedFindPCICapability
+    @abstract Search configuration space for a PCI capability register.
+    @discussion This method searchs the device's config space for a PCI capability register matching the passed capability ID, if the device supports PCI capabilities.
+    @param capabilityID An PCI capability ID.
+    @param offset An optional in/out parameter to return the offset into config space where the capability was found, and to set the start point of the next search. Initialize the offset to zero before the first call to extendedFindPCICapability() and subsequent calls will find all capabilty blocks that may exist on the device with the same ID.
+    @result The 32-bit value of the capability register if one was found, zero otherwise. */
+
+    virtual UInt32 extendedFindPCICapability( UInt32 capabilityID, IOByteCount * offset = 0 );
+
     // Unused Padding
-    OSMetaClassDeclareReservedUnused(IOPCIDevice,  2);
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  3);
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  4);
     OSMetaClassDeclareReservedUnused(IOPCIDevice,  5);
@@ -558,6 +575,55 @@ public:
     OSMetaClassDeclareReservedUnused(IOPCIDevice, 13);
     OSMetaClassDeclareReservedUnused(IOPCIDevice, 14);
     OSMetaClassDeclareReservedUnused(IOPCIDevice, 15);
+
+
+/*! @function extendedConfigRead32
+    @abstract Reads a 32-bit value from the PCI device's configuration space.
+    @discussion This method reads a 32-bit configuration space register on the device and returns its value.
+    @param offset A byte offset into configuration space, of which bits 0-1 are ignored.
+    @result An 32-bit value in host byte order (big endian on PPC). */
+
+    UInt32 extendedConfigRead32( IOByteCount offset );
+
+/*! @function extendedConfigRead16
+    @abstract Reads a 16-bit value from the PCI device's configuration space.
+    @discussion This method reads a 16-bit configuration space register on the device and returns its value.
+    @param offset A byte offset into configuration space, of which bit 0 is ignored.
+    @result An 16-bit value in host byte order (big endian on PPC). */
+
+    UInt16 extendedConfigRead16( IOByteCount offset );
+
+/*! @function extendedConfigRead8
+    @abstract Reads a 8-bit value from the PCI device's configuration space.
+    @discussion This method reads a 8-bit configuration space register on the device and returns its value.
+    @param offset A byte offset into configuration space.
+    @result An 8-bit value. */
+
+    UInt8 extendedConfigRead8( IOByteCount offset );
+
+/*! @function extendedConfigWrite32
+    @abstract Writes a 32-bit value to the PCI device's configuration space.
+    @discussion This method writes a 32-bit value to a configuration space register on the device.
+    @param offset A byte offset into configuration space, of which bits 0-1 are ignored.
+    @param data An 32-bit value to be written in host byte order (big endian on PPC). */
+
+    void extendedConfigWrite32( IOByteCount offset, UInt32 data );
+
+/*! @function extendedConfigWrite16
+    @abstract Writes a 16-bit value to the PCI device's configuration space.
+    @discussion This method writes a 16-bit value to a configuration space register on the device.
+    @param offset A byte offset into configuration space, of which bit 0 is ignored.
+    @param data An 16-bit value to be written in host byte order (big endian on PPC). */
+
+    void extendedConfigWrite16( IOByteCount offset, UInt16 data );
+
+/*! @function extendedConfigWrite8
+    @abstract Writes a 8-bit value to the PCI device's configuration space.
+    @discussion This method writes a 8-bit value to a configuration space register on the device.
+    @param offset A byte offset into configuration space.
+    @param data An 8-bit value to be written. */
+
+    void extendedConfigWrite8( IOByteCount offset, UInt8 data );
 };
 
 #endif /* ! _IOKIT_IOPCIDEVICE_H */

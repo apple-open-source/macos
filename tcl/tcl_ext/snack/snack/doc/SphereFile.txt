@@ -1,0 +1,14 @@
+If you have configured Snack to use the NIST/Sphere file format you have
+to explicitly add this file format in your script using the
+'package require snacksphere' command after 'package require snack'. 
+This will make Snack automatically recognize this file format in addition 
+to those already built-in, such as WAV, AU, and AIFF. 
+
+See ../demos/tcl/SphereTest.tcl for an example on how to use the package.
+
+Writing files in the Sphere file format is not supported yet.
+
+There seems to be a problem with reading some long compressed
+NIST/Sphere files. One solution is to use the program sph_convert
+to convert these files to wav-format before using them.
+The program is available from http://morph.ldc.upenn.edu/Using/

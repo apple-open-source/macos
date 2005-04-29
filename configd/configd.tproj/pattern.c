@@ -90,7 +90,7 @@ identifyKeyForPattern(const void *key, void *val, void *context)
 	if (len > (CFIndex)sizeof(str_q))
 		str = CFAllocatorAllocate(NULL, len, 0);
 	if (_SC_cfstring_to_cstring(storeKey, str, len, kCFStringEncodingASCII) == NULL) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not convert store key to C string"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("identifyKeyForPattern(): could not convert store key to C string"));
 		goto done;
 	}
 
@@ -108,7 +108,7 @@ identifyKeyForPattern(const void *key, void *val, void *context)
 			char	reErrBuf[256];
 
 			(void)regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+			SCLog(TRUE, LOG_DEBUG, CFSTR("identifyKeyForPattern regexec(): %s"), reErrBuf);
 			break;
 		}
 	}
@@ -173,12 +173,16 @@ patternCompile(CFStringRef pattern, regex_t *preg, CFStringRef *error)
 
 			(void)regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
 			*error = CFStringCreateWithCString(NULL, reErrBuf, kCFStringEncodingASCII);
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regcomp(%s) failed: %s"), str, reErrBuf);
+#ifdef	DEBUG
+			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("patternCompile regcomp(%s) failed: %s"), str, reErrBuf);
+#endif	/* DEBUG */
 			ok = FALSE;
 		}
 	} else {
 		*error = CFRetain(CFSTR("could not convert pattern to regex string"));
+#ifdef	DEBUG
 		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("%@"), *error);
+#endif	/* DEBUG */
 	}
 
 	if (str != str_q)	CFAllocatorDeallocate(NULL, str);
@@ -349,7 +353,7 @@ addKeyForPattern(const void *key, void *val, void *context)
 	if (len > (CFIndex)sizeof(str_q))
 		str = CFAllocatorAllocate(NULL, len, 0);
 	if (_SC_cfstring_to_cstring(storeKey, str, len, kCFStringEncodingASCII) == NULL) {
-		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not convert store key to C string"));
+		SCLog(TRUE, LOG_DEBUG, CFSTR("addKeyForPattern(): could not convert store key to C string"));
 		goto done;
 	}
 
@@ -389,7 +393,7 @@ addKeyForPattern(const void *key, void *val, void *context)
 			char	reErrBuf[256];
 
 			(void)regerror(reError, preg, reErrBuf, sizeof(reErrBuf));
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("regexec(): %s"), reErrBuf);
+			SCLog(TRUE, LOG_DEBUG, CFSTR("addKeyForPattern regexec(): %s"), reErrBuf);
 			break;
 		}
 	}
@@ -432,7 +436,7 @@ removeKeyFromPattern(const void *key, void *val, void *context)
 	}
 
 	i = CFArrayGetFirstIndexOfValue(pInfo, CFRangeMake(2, n-2), storeKey);
-	if (i == -1) {
+	if (i == kCFNotFound) {
 		/* if this key wasn't matched by this pattern */
 		return;
 	}

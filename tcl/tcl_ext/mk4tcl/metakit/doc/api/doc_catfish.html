@@ -1,0 +1,105 @@
+<html><head>
+	<title>Metakit CatFish Sample</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - CatFish</h2><br clear=left>
+
+<p>CatFish is the flagship of these sample applications. It is a very fast
+disk catalog browser which can easily deal with the huge file collections
+often found on current hard disks and CD-ROM software collections. </p>
+
+<p><b>What it does</b>: CatFish allows you to create disk catalogs by scanning
+disks, either entirely or from a specified directory, and to browse through
+the directories in each catalog to list the files, their sizes, and their
+modification dates. In addition, CatFish displays statistics about each
+directory, such as the total number of sub-directories, files, and kilobytes
+in each (including all nested entries). It also tells you the date of the
+most recent file in each directory (even if that file is inside a sub-directory).
+There is a flexible search facility to find files by (partial) name, size,
+and/or date. Finally, CatFish can be used as an application/document launcher
+- a bit like the File Manager (or the Explorer in Windows 95). </p>
+
+<p>The data files used by CatFish use the same format as those created
+by DisCat and FtpCat. You can use FtpCat to create FTP server catalogs
+- and then use CatFish to browse through them. </p>
+
+<p><b>What it illustrates</b>: CatFish is a 16-bit Windows application
+(it runs on Windows 95, and probably Windows NT, as well). The freeware
+version has been built with the static library version of Metakit and is
+fully self-contained. The size of the executable file illustrates how small
+complete applications can be when using Metakit for persistent storage.
+The makefile included with the sources are configured for dynamic linkage,
+which will produce an even smaller executable. </p>
+
+<p>CatFish uses a carefully chosen data structure with a high &quot;locality
+of reference&quot;, which generates very compact catalog files and which
+makes browsing extremely fast - even for full CD-ROM catalogs and large
+FTP archive server catalogs (created with FtpCat). </p>
+
+<p>There are several goodies in this sample application. Among other things,
+CatFish demonstrates: </p>
+
+<ul>
+	<li>How to use a sorted view subset (selection) of Metakit in a CListBox (MFC) </li>
+	<li>How to implement customizable sort order for a listbox, with clickable headers</li>
+	<li>How to scan directories recursively - in Win16 / Win32 / Win95 (long filenames) </li>
+	<li>How to quickly display huge lists - using the owner-draw listbox control </li>
+	<li>How to simplify columnar list formatting - using the MS Sans Serif font </li>
+	<li>How to implement the ellipsis (...) for text strings which are too long to show </li>
+	<li>How to deal with international dates, times, and numbers - but only a little bit </li>
+	<li>How to launch applications and/or documents - using ShellExecute()</li> 
+	<li>How to make a modal dialog main window deal with menus and accelerators</li>
+</ul>
+
+<p><b>How to use it</b>: This sample application is also separately distributed
+as freeware, and includes more of the standard features you would expect
+than the other sample applications in this library. Using CatFish is simple:
+set up one or more catalog files (which will be stored in the same directory
+as the executable) and start browsing by clicking on the various lists
+in the main window. To descend into a subdirectory, double-click on its
+name. To go back, double-click on one of the parent directory names. </p>
+
+<p>To search for a file, you can use the Edit / Find menu entry or use
+keyboard shortcuts, such as CTRL+F (find), F3 (find next), SHIFT+F3 (find
+previous).</p>
+
+<p>If you want to use FtpCat in combination with CatFish, make sure that
+you give all catalog files the extension &quot;.cf4&quot; and that you
+place them in the same directory as the CatFish utility itself. That's
+all. </p>
+
+<p><b>Known problems</b>: None.</p>
+
+<p><b>Files in EXAMPLES\CATFISH</b>: </p>
+
+<p>CATFISH.H, CATFISH.CPP - Main MFC application code 
+<br>CATFISH.MAK - MSVC 1.52 project makefile for Win16 
+<br>CATFISH.DEF, CATFISH.RC - Linker definitions, Application resources
+
+<br>PICKDIR.H, PICKDIR.CPP - Directory picker 
+<br>RESOURCE.H - Resource symbol definitions 
+<br>SCANDISK.H, SCANDISK.CPP - Creates a disk catalog object using Metakit
+
+<br>SETUPDLG.H, SETUPDLG.CPP - Setup dialog 
+<br>STDAFX.H, STDAFX.CPP - Used for precompiled headers 
+<br>RES\*.* - Application resources </p>
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

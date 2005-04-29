@@ -1,0 +1,29 @@
+In the good old days, with libc 4.*.*,
+if NLSPATH was set to "/usr/lib/locale/%N/%L"
+and LANG to "fr", then catopen("man",0) would open /usr/lib/locale/man/fr.
+
+These days, with libc 5.0.9, catopen will fail because it does a call
+to setlocale, and if no locale has been setup, the C locale is assumed,
+independent of the LANG setting.
+
+In order to preserve the possibility to say "LANG=de man fstab"
+for systems where no locale has been set up, I enclose here
+the original version of catopen.
+
+Concerning correctness: as far as I know POSIX does not specify
+catopen(), and X/Open specifies catopen() without mentioning any
+relation to locale - indeed, catopen() predates locale.
+So, I think catopen() in libc 5.0.9 is broken.
+
+---
+
+Time goes on, and I just looked at glibc-2.0.5.
+Its catgets() contains (at least) two bugs, and will dump core.
+One is fixed in RedHat's glibc-2.0.5c-10; I have submitted a fix
+for the other.  With a fixed catgets() things will work correctly.
+However, glibc does a secure_getenv("NLSPATH"), which means that
+the setting of NLSPATH is not taken into account for programs
+that are sgid or suid.  Thus, if you make man suid or sgid, and
+want to use message catalogues, you have to install them in the
+default place - on my system that is /usr/share/locale/%L/man
+where %L is $LANG.

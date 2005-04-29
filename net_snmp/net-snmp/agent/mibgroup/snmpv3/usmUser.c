@@ -58,20 +58,20 @@ static unsigned int usmUserSpinLock = 0;
 void
 init_usmUser(void)
 {
-    snmpd_register_config_handler("usmUser",
-                                  usm_parse_config_usmUser, NULL, NULL);
-    snmpd_register_config_handler("createUser",
-                                  usm_parse_create_usmUser, NULL,
-                                  "username (MD5|SHA) passphrase [DES [passphrase]]");
-
-    /*
-     * we need to be called back later 
-     */
-    snmp_register_callback(SNMP_CALLBACK_LIBRARY, SNMP_CALLBACK_STORE_DATA,
-                           usm_store_users, NULL);
-
     REGISTER_MIB("snmpv3/usmUser", usmUser_variables, variable4,
                  usmUser_variables_oid);
+}
+
+void
+init_register_usmUser_context(const char *contextName) {
+    register_mib_context("snmpv3/usmUser",
+                         (struct variable *) usmUser_variables,
+                         sizeof(struct variable4),
+                         sizeof(usmUser_variables)/sizeof(struct variable4),
+                         usmUser_variables_oid,
+                         sizeof(usmUser_variables_oid)/sizeof(oid),
+                         DEFAULT_MIB_PRIORITY, 0, 0, NULL,
+                         contextName, -1, 0);
 }
 
 /*******************************************************************-o-******
@@ -709,11 +709,13 @@ write_usmUserAuthProtocol(int action,
                 ((oid *) var_val, var_val_len / sizeof(oid),
                  usmNoAuthProtocol,
                  sizeof(usmNoAuthProtocol) / sizeof(oid)) == 0
+#ifndef DISABLE_MD5
                 || snmp_oid_compare((oid *) var_val,
                                     var_val_len / sizeof(oid),
                                     usmHMACMD5AuthProtocol,
                                     sizeof(usmHMACMD5AuthProtocol) /
                                     sizeof(oid)) == 0
+#endif
                 || snmp_oid_compare((oid *) var_val,
                                     var_val_len / sizeof(oid),
                                     usmHMACSHA1AuthProtocol,
@@ -818,6 +820,7 @@ write_usmUserAuthKeyChange(int action,
         if ((uptr = usm_parse_user(name, name_len)) == NULL) {
             return SNMP_ERR_INCONSISTENTNAME;
         } else {
+#ifndef DISABLE_MD5
             if (snmp_oid_compare(uptr->authProtocol, uptr->authProtocolLen,
                                  usmHMACMD5AuthProtocol,
                                  sizeof(usmHMACMD5AuthProtocol) /
@@ -826,6 +829,7 @@ write_usmUserAuthKeyChange(int action,
                     return SNMP_ERR_WRONGLENGTH;
                 }
             } else
+#endif
                 if (snmp_oid_compare
                     (uptr->authProtocol, uptr->authProtocolLen,
                      usmHMACSHA1AuthProtocol,
@@ -980,10 +984,17 @@ write_usmUserPrivProtocol(int action,
                     ((oid *) var_val, var_val_len / sizeof(oid),
                      usmNoPrivProtocol,
                      sizeof(usmNoPrivProtocol) / sizeof(oid)) != 0
+#ifndef DISABLE_DES
                     && snmp_oid_compare((oid *) var_val,
                                         var_val_len / sizeof(oid),
                                         usmDESPrivProtocol,
                                         sizeof(usmDESPrivProtocol) /
+                                        sizeof(oid) != 0)
+#endif
+                    && snmp_oid_compare((oid *) var_val,
+                                        var_val_len / sizeof(oid),
+                                        usmAESPrivProtocol,
+                                        sizeof(usmAESPrivProtocol) /
                                         sizeof(oid) != 0)) {
                     return SNMP_ERR_WRONGVALUE;
                 }
@@ -1061,9 +1072,19 @@ write_usmUserPrivKeyChange(int action,
         if ((uptr = usm_parse_user(name, name_len)) == NULL) {
             return SNMP_ERR_INCONSISTENTNAME;
         } else {
+#ifndef DISABLE_DES
             if (snmp_oid_compare(uptr->privProtocol, uptr->privProtocolLen,
                                  usmDESPrivProtocol,
                                  sizeof(usmDESPrivProtocol) /
+                                 sizeof(oid)) == 0) {
+                if (var_val_len != 0 && var_val_len != 32) {
+                    return SNMP_ERR_WRONGLENGTH;
+                }
+            }
+#endif
+            if (snmp_oid_compare(uptr->privProtocol, uptr->privProtocolLen,
+                                 usmAESPrivProtocol,
+                                 sizeof(usmAESPrivProtocol) /
                                  sizeof(oid)) == 0) {
                 if (var_val_len != 0 && var_val_len != 32) {
                     return SNMP_ERR_WRONGLENGTH;

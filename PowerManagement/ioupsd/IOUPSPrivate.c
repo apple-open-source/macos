@@ -125,6 +125,8 @@ IOReturn IOUPSGetEvent(mach_port_t connect, int upsID, CFDictionaryRef *event)
         return ret;
 
     *event = IOCFUnserialize(buffer, kCFAllocatorDefault, kNilOptions, NULL);
+
+    vm_deallocate(mach_task_self(), buffer, bufferSize);
     
     return ret;
 }
@@ -144,6 +146,8 @@ IOReturn IOUPSGetCapabilities(mach_port_t connect, int upsID, CFSetRef *capabili
         return ret;
 
     *capabilities = IOCFUnserialize(buffer, kCFAllocatorDefault, kNilOptions, NULL);
+
+    vm_deallocate(mach_task_self(), buffer, bufferSize);
 
     return ret;
 }

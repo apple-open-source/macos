@@ -48,7 +48,7 @@
 #include "global.h"
 #include "libconfig.h"
 
-static char rcsid[] = "$Id: ptdump.c,v 1.12 2004/03/11 18:36:46 ken3 Exp $";
+static char rcsid[] = "$Id: ptdump.c,v 1.5 2005/03/05 00:37:35 dasenbro Exp $";
 
 int config_need_data = 0;
 

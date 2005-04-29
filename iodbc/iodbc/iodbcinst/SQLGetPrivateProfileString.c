@@ -1,7 +1,7 @@
 /*
  *  SQLGetProfileString.c
  *
- *  $Id: SQLGetPrivateProfileString.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: SQLGetPrivateProfileString.c,v 1.3 2004/11/11 01:52:40 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -85,7 +85,7 @@ GetPrivateProfileString (LPCSTR lpszSection, LPCSTR lpszEntry,
   int len = 0;
   PCONFIG pCfg;
 
-  lpszRetBuffer[cbRetBuffer - 1] = 0;
+  lpszRetBuffer[0] = 0;
 
   /* If error during reading the file */
   if (_iodbcdm_cfg_search_init (&pCfg, lpszFilename, FALSE))

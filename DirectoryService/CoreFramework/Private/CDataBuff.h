@@ -28,8 +28,7 @@
 #ifndef __CDataBuff_h__
 #define __CDataBuff_h__	1
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 const uInt32 kDefaultSize = 512;
 

@@ -1,5 +1,5 @@
 /* TextComponent.java -- Widgets for entering text
-   Copyright (C) 1999, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,7 +41,8 @@ package java.awt;
 import java.awt.event.TextEvent;
 import java.awt.event.TextListener;
 import java.awt.peer.TextComponentPeer;
-import java.awt.peer.ComponentPeer;
+import java.io.Serializable;
+import java.util.EventListener;
 
 /**
   * This class provides common functionality for widgets than 
@@ -49,7 +50,8 @@ import java.awt.peer.ComponentPeer;
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
-public class TextComponent extends Component implements java.io.Serializable
+public class TextComponent extends Component
+  implements Serializable
 {
 
 /*
@@ -139,6 +141,7 @@ setText(String text)
   TextComponentPeer tcp = (TextComponentPeer)getPeer();
   if (tcp != null)
     tcp.setText(text);
+  setCaretPosition(0);
 }
 
 /*************************************************************************/
@@ -162,7 +165,7 @@ getSelectedText()
 
 /**
   * Returns the starting position of the selected text region.
-  * // FIXME: What is returned if there is no selected text?
+  * If the text is not selected then caret position is returned. 
   *
   * @return The starting position of the selected text region.
   */
@@ -195,7 +198,7 @@ setSelectionStart(int selectionStart)
 
 /**
   * Returns the ending position of the selected text region.
-  * // FIXME: What is returned if there is no selected text.
+  * If the text is not selected, then caret position is returned 
   *
   * @return The ending position of the selected text region.
   */
@@ -231,11 +234,11 @@ setSelectionEnd(int selectionEnd)
   * specified start and end positions.  Illegal values for these
   * positions are silently fixed.
   *
-  * @param startSelection The new start position for the selected text.
-  * @param endSelection The new end position for the selected text.
+  * @param selectionStart The new start position for the selected text.
+  * @param selectionEnd The new end position for the selected text.
   */
 public synchronized void
-select(int selectionStart, int endSelection)
+select(int selectionStart, int selectionEnd)
 {
   if (selectionStart < 0)
     selectionStart = 0;
@@ -442,5 +445,28 @@ paramString()
   return(getClass().getName() + "(text=" + getText() + ")");
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>TextComponent</code>. FooListeners are registered using
+   * the addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == TextListener.class)
+      return AWTEventMulticaster.getListeners (textListener, listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns all text listeners registered to this object.
+   */
+  public TextListener[] getTextListeners ()
+  {
+    return (TextListener[]) getListeners (TextListener.class);
+  }
 } // class TextComponent
 

@@ -1,22 +1,31 @@
-/*-
- * See the file LICENSE for redistribution information.
+/*
+ *  -
+ *  See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2002
- *      Sleepycat Software.  All rights reserved.
+ *  Copyright (c) 2000-2003
+ *  Sleepycat Software.  All rights reserved.
  *
- * $Id: DbAppendRecno.java,v 1.1.1.1 2003/02/15 04:56:07 zarzycki Exp $
+ *  $Id: DbAppendRecno.java,v 1.2 2004/03/30 01:23:36 jtownsen Exp $
  */
-
 package com.sleepycat.db;
 
-/*
- * This interface is used by Db.set_append_recno()
- *
+/**
+ *  An interface specifying a callback function that modifies stored
+ *  data based on a generated key.</p>
  */
-public interface DbAppendRecno
-{
-    public abstract void db_append_recno(Db db, Dbt data, int recno)
-        throws DbException;
+public interface DbAppendRecno {
+    /**
+     *  The DbAppendRecno interface is used by the Db.setAppendRecno
+     *  method.</p> The called function may modify the data {@link
+     *  com.sleepycat.db.Dbt Dbt}. </p>
+     *
+     * @param  db            the enclosing database handle.
+     * @param  data          the data {@link com.sleepycat.db.Dbt Dbt}
+     *      to be stored.
+     * @param  recno         the generated record number.
+     * @throws  DbException  Signals that an exception of some sort
+     *      has occurred.
+     */
+    public abstract void dbAppendRecno(Db db, Dbt data, int recno)
+             throws DbException;
 }
-
-// end of DbAppendRecno.java

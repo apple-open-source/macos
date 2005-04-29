@@ -30,7 +30,7 @@ OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
 
-/* $XFree86: xc/lib/X11/imLcPrs.c,v 1.8 2003/01/15 02:59:33 dawes Exp $ */
+/* $XFree86: xc/lib/X11/imLcPrs.c,v 1.11 2003/11/17 22:20:12 dawes Exp $ */
 
 #include <X11/Xlib.h>
 #include <X11/Xmd.h>
@@ -42,19 +42,15 @@ OR PERFORMANCE OF THIS SOFTWARE.
 #include <stdio.h>
 
 extern int _Xmbstowcs(
-#if NeedFunctionPrototypes
     wchar_t	*wstr,
     char	*str,
     int		len
-#endif
 );
 
 extern int _Xmbstoutf8(
-#if NeedFunctionPrototypes
     char	*ustr,
     const char	*str,
     int		len
-#endif
 );
 
 /*
@@ -80,9 +76,9 @@ extern int _Xmbstoutf8(
  */
 
 static int
-nextch(fp, lastch)
-    FILE *fp;
-    int *lastch;
+nextch(
+    FILE *fp,
+    int *lastch)
 {
     int c;
 
@@ -105,9 +101,9 @@ nextch(fp, lastch)
 }
 
 static void
-putbackch(c, lastch)
-    int c;
-    int *lastch;
+putbackch(
+    int c,
+    int *lastch)
 {
     *lastch = c;
 }
@@ -131,10 +127,10 @@ putbackch(c, lastch)
 #endif
 
 static int
-nexttoken(fp, tokenbuf, lastch)
-    FILE *fp;
-    char *tokenbuf;
-    int *lastch;
+nexttoken(
+    FILE *fp,
+    char *tokenbuf,
+    int *lastch)
 {
     int c;
     int token;
@@ -179,6 +175,15 @@ nexttoken(fp, tokenbuf, lastch)
 		  case '"':
 		    *p++ = c;
 		    break;
+		  case 'n':
+		    *p++ = '\n';
+		    break;
+		  case 'r':
+		    *p++ = '\r';
+		    break;
+		  case 't':
+		    *p++ = '\t';
+		    break;
 		  case '0':
 		  case '1':
 		  case '2':
@@ -200,30 +205,27 @@ nexttoken(fp, tokenbuf, lastch)
 		  case 'X':
 		  case 'x':
 		    i = 0;
-		    c = nextch(fp, lastch);
-#define ishexch(c) (((c) >= '0' && (c) <= '9') || \
-		    ((c) >= 'A' && (c) <= 'F') || \
-		    ((c) >= 'a' && (c) <= 'f'))
-		    for (j = 0; j < 2 && ishexch(c); j++) {
-			i <<= 4;
+		    for (j = 0; j < 2; j++) {
+			c = nextch(fp, lastch);
+ 			i <<= 4;
 			if (c >= '0' && c <= '9') {
 			    i += c - '0';
 			} else if (c >= 'A' && c <= 'F') {
 			    i += c - 'A' + 10;
-			} else {
+			} else if (c >= 'a' && c <= 'f') {
 			    i += c - 'a' + 10;
-			}
-			c = nextch(fp, lastch);
+			} else {
+			    putbackch(c, lastch);
+			    i >>= 4;
+			    break;
+		        }
 		    }
 		    if (j == 0) {
 		        token = ERROR;
 		        goto string_error;
 		    }
-		    putbackch(c, lastch);
 		    *p++ = (char)i;
-#undef ishexch
 		    break;
-		  case '\n':
 		  case EOF:
 		    putbackch(c, lastch);
 		    token = ERROR;
@@ -270,8 +272,8 @@ string_error:
 }
 
 static long
-modmask(name)
-    char *name;
+modmask(
+    char *name)
 {
     long mask;
 
@@ -301,28 +303,134 @@ modmask(name)
     return(mask);
 }
 
+static char*
+TransFileName(Xim im, char *name)
+{
+   char *home = NULL, *lcCompose = NULL;
+   char *i = name, *ret, *j;
+   int l = 0;
+
+   while (*i) {
+      if (*i == '%') {
+   	  i++;
+   	  switch (*i) {
+   	      case '%':
+                 l++;
+   	         break;
+   	      case 'H':
+   	         home = getenv("HOME");
+   	         if (home)
+                     l += strlen(home);
+   	         break;
+   	      case 'L':
+                 lcCompose = _XlcFileName(im->core.lcd, COMPOSE_FILE);
+                 if (lcCompose)
+                     l += strlen(lcCompose);
+   	         break;
+   	  }
+      } else {
+      	  l++;
+      }
+      i++;
+   }
+
+   j = ret = Xmalloc(l+1);
+   if (ret == NULL)
+      return ret;
+   i = name;
+   while (*i) {
+      if (*i == '%') {
+   	  i++;
+   	  switch (*i) {
+   	      case '%':
+                 *j++ = '%';
+   	         break;
+   	      case 'H':
+   	         if (home) {
+   	             strcpy(j, home);
+   	             j += strlen(home);
+   	         }
+   	         break;
+   	      case 'L':
+   	         if (lcCompose) {
+                    strcpy(j, lcCompose);
+                    j += strlen(lcCompose);
+                    Xfree(lcCompose);
+                 }
+   	         break;
+   	  }
+          i++;
+      } else {
+      	  *j++ = *i++;
+      }
+   }
+   *j = '\0';
+   return ret;
+}
+
+#ifndef MB_LEN_MAX
+#define MB_LEN_MAX 6
+#endif
+
+static int
+get_mb_string (Xim im, char *buf, KeySym ks)
+{
+    XPointer from, to;
+    int from_len, to_len, len;
+    XPointer args[1];
+    XlcCharSet charset;
+    char local_buf[MB_LEN_MAX];
+    unsigned int ucs;
+    ucs = KeySymToUcs4(ks);
+
+    from = (XPointer) &ucs;
+    to =   (XPointer) local_buf;
+    from_len = 1;
+    to_len = MB_LEN_MAX;
+    args[0] = (XPointer) &charset;
+    if (_XlcConvert(im->private.local.ucstoc_conv,
+                    &from, &from_len, &to, &to_len, args, 1 ) != 0) {
+         return 0;
+    }
+
+    from = (XPointer) local_buf;
+    to =   (XPointer) buf;
+    from_len = MB_LEN_MAX - to_len;
+    to_len = MB_LEN_MAX + 1;
+    args[0] = (XPointer) charset;
+    if (_XlcConvert(im->private.local.cstomb_conv,
+                    &from, &from_len, &to, &to_len, args, 1 ) != 0) {
+         return 0;
+    }
+    len = MB_LEN_MAX + 1 - to_len;
+    buf[len] = '\0';
+    return len;
+}
+
 #define AllMask (ShiftMask | LockMask | ControlMask | Mod1Mask) 
 #define LOCAL_WC_BUFSIZE 128
 #define LOCAL_UTF8_BUFSIZE 256
 #define SEQUENCE_MAX	10
 
 static int
-parseline(fp, top, tokenbuf)
-    FILE *fp;
-    DefTree **top;
-    char* tokenbuf;
+parseline(
+    FILE *fp,
+    Xim   im,
+    char* tokenbuf)
 {
     int token;
     unsigned modifier_mask;
     unsigned modifier;
     unsigned tmp;
     KeySym keysym = NoSymbol;
+    DefTree **top = &im->private.local.top;
     DefTree *p = NULL;
     Bool exclam, tilde;
     KeySym rhs_keysym = 0;
     char *rhs_string_mb;
     int l;
     int lastch = 0;
+    char local_mb_buf[MB_LEN_MAX+1];
     wchar_t local_wc_buf[LOCAL_WC_BUFSIZE], *rhs_string_wc;
     char local_utf8_buf[LOCAL_UTF8_BUFSIZE], *rhs_string_utf8;
 
@@ -345,7 +453,21 @@ parseline(fp, top, tokenbuf)
 
     n = 0;
     do {
-	if ((token == KEY) && (strcmp("None", tokenbuf) == 0)) {
+    	if ((token == KEY) && (strcmp("include", tokenbuf) == 0)) {
+            char *filename;
+            FILE *infp;
+            token = nexttoken(fp, tokenbuf, &lastch);
+            if (token != KEY && token != STRING)
+                goto error;
+            if ((filename = TransFileName(im, tokenbuf)) == NULL)
+                goto error;
+            infp = _XFopenFile(filename, "r");
+                Xfree(filename);
+            if (infp == NULL)
+                goto error;
+            _XimParseStringFile(infp, im);
+            return (0);
+	} else if ((token == KEY) && (strcmp("None", tokenbuf) == 0)) {
 	    modifier = 0;
 	    modifier_mask = AllMask;
 	    token = nexttoken(fp, tokenbuf, &lastch);
@@ -359,12 +481,11 @@ parseline(fp, top, tokenbuf)
 	    while (token == TILDE || token == KEY) {
 		tilde = False;
 		if (token == TILDE) {
-		    token = nexttoken(fp, tokenbuf, &lastch);
 		    tilde = True;
+		    token = nexttoken(fp, tokenbuf, &lastch);
 		    if (token != KEY)
 			goto error;
 		}
-		token = nexttoken(fp, tokenbuf, &lastch);
 		tmp = modmask(tokenbuf);
 		if (!tmp) {
 		    goto error;
@@ -375,6 +496,7 @@ parseline(fp, top, tokenbuf)
 		} else {
 		    modifier |= tmp;
 		}
+		token = nexttoken(fp, tokenbuf, &lastch);
 	    }
 	    if (exclam) {
 		modifier_mask = AllMask;
@@ -436,11 +558,18 @@ parseline(fp, top, tokenbuf)
 	if (token != ENDOFLINE && token != ENDOFFILE) {
 	    goto error;
 	}
-	if( (rhs_string_mb = Xmalloc(1)) == NULL ) {
-	    Xfree( rhs_string_mb );
+
+        l = get_mb_string(im, local_mb_buf, rhs_keysym);
+        if (l == 0) {
+            rhs_string_mb = Xmalloc(1);
+	} else {
+            rhs_string_mb = Xmalloc(l + 1);
+        }
+	if( rhs_string_mb == NULL ) {
 	    goto error;
 	}
-	rhs_string_mb[0] = '\0';
+        memcpy(rhs_string_mb, local_mb_buf, l);
+	rhs_string_mb[l] = '\0';
     } else {
 	goto error;
     }
@@ -514,9 +643,9 @@ error:
 }
 
 void
-_XimParseStringFile(fp, ptop)
-    FILE *fp;
-    DefTree **ptop;
+_XimParseStringFile(
+    FILE *fp,
+    Xim   im)
 {
     char tb[8192];
     char* tbp;
@@ -528,7 +657,7 @@ _XimParseStringFile(fp, ptop)
 	else tbp = malloc (size);
 
 	if (tbp != NULL) {
-	    while (parseline(fp, ptop, tbp) >= 0) {}
+	    while (parseline(fp, im, tbp) >= 0) {}
 	    if (tbp != tb) free (tbp);
 	}
     }

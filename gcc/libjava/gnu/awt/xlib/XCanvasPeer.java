@@ -1,4 +1,4 @@
-/* Copyright (C) 2000, 2002  Free Software Foundation
+/* Copyright (C) 2000, 2002, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -9,6 +9,7 @@ details.  */
 package gnu.awt.xlib;
 
 import java.awt.Dimension;
+import java.awt.BufferCapabilities;
 import java.awt.Component;
 import java.awt.EventQueue;
 import java.awt.Rectangle;
@@ -209,11 +210,11 @@ public class XCanvasPeer implements CanvasPeer
   }
   public Image createImage(ImageProducer prod)
   {
-    throw new UnsupportedOperationException("FIXME, not implemented");
+    return new XOffScreenImage (config, window, prod, config.getColorModel());
   }
   public Image createImage(int width, int height)
   {
-    throw new UnsupportedOperationException("FIXME, not implemented");
+    return new XOffScreenImage (config, window, width, height, config.getColorModel());
   }
   public void dispose()
   {
@@ -278,6 +279,32 @@ public class XCanvasPeer implements CanvasPeer
 
   public void handleEvent(AWTEvent event)
   {
+    int id = event.getID ();
+    
+    switch (id)
+    {
+      case PaintEvent.PAINT:
+      case PaintEvent.UPDATE:
+      {
+        try
+        {
+          Graphics g = getGraphics ();
+          g.setClip (((PaintEvent)event).getUpdateRect ());
+          
+          if (id == PaintEvent.PAINT)
+            component.paint (g);
+          else
+            component.update (g);
+          
+          g.dispose ();
+        }
+        catch (InternalError e)
+        {
+          System.err.println (e);
+        }
+      }
+      break;
+    }
   }
 
   public boolean isFocusTraversable()
@@ -397,7 +424,8 @@ public class XCanvasPeer implements CanvasPeer
       }
     else
       {
-	throw new UnsupportedOperationException("unmap not implemented");
+	window.unmap();
+	ensureFlush();	    
       }
   }
 	
@@ -409,6 +437,64 @@ public class XCanvasPeer implements CanvasPeer
   public void hide ()
   {
     setVisible (false);
+  }
+
+  public boolean isFocusable ()
+  {
+    return false;
+  }
+
+  public boolean requestFocus (Component source, boolean b1, 
+                               boolean b2, long x)
+  {
+    return false;
+  }
+
+  public boolean isObscured ()
+  {
+    return false;
+  }
+
+  public boolean canDetermineObscurity ()
+  {
+    return false;
+  }
+
+  public void coalescePaintEvent (PaintEvent e)
+  {
+  }
+
+  public void updateCursorImmediately ()
+  {
+  }
+
+  public VolatileImage createVolatileImage (int width, int height)
+  {
+    return null;
+  }
+
+  public boolean handlesWheelScrolling ()
+  {
+    return false;
+  }
+
+  public void createBuffers (int x, BufferCapabilities capabilities)
+    throws java.awt.AWTException
+
+  {
+  }
+
+  public Image getBackBuffer ()
+  {
+    return null;
+  }
+
+  public void flip (BufferCapabilities.FlipContents contents)
+  {
+  }
+
+  public void destroyBuffers ()
+  {
   }
 
   static class DoMap implements Runnable 

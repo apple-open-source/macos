@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,34 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Jan 24 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.12 2003/07/25 01:16:25 ssen Exp $
+ *  $Id: BLGetDeviceForOpenFirmwarePath.c,v 1.18 2005/02/07 21:22:38 ssen Exp $
  *
  *  $Log: BLGetDeviceForOpenFirmwarePath.c,v $
+ *  Revision 1.18  2005/02/07 21:22:38  ssen
+ *  Refact lookupServiceForName and code for BLDeviceNeedsBooter
+ *
+ *  Revision 1.17  2005/02/03 00:42:29  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.16  2005/01/25 19:38:38  ssen
+ *  Fix -getBoot functionality so that we can find the RAID for
+ *  an Apple_Boot_RAID
+ *
+ *  Revision 1.15  2005/01/16 00:10:12  ssen
+ *  <rdar://problem/3861859> bless needs to try getProperty(kIOBootDeviceKey)
+ *  Implement -getBoot and -info functionality. If boot-device is
+ *  set to the Apple_Boot for one of the RAID members, we map
+ *  this back to the top-level RAID device and print that out. This
+ *  enables support in Startup Disk
+ *
+ *  Revision 1.14  2004/04/20 21:40:45  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.13  2003/10/17 00:10:39  ssen
+ *  add more const
+ *
  *  Revision 1.12  2003/07/25 01:16:25  ssen
  *  When mapping OF -> device, if we found an Apple_Boot, try to
  *  find the corresponding partition that is the real root filesystem
@@ -76,6 +97,11 @@
  
 #import <mach/mach_error.h>
 #import <IOKit/IOKitLib.h>
+#import <IOKit/IOBSD.h>
+#import <IOKit/IOKitKeys.h>
+#import <IOKit/storage/IOMedia.h>
+#import <IOKit/storage/RAID/AppleRAIDUserLib.h>
+
 
 #import <CoreFoundation/CoreFoundation.h>
 
@@ -94,8 +120,12 @@ extern int getPNameAndPType(BLContextPtr context,
 			    unsigned char pname[],
 			    unsigned char ptype[]);
 
-int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, char ofstring[], unsigned char mntfrm[]) {
- 
+static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, unsigned char mntfrm[]);
+static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t member,
+					  CFDictionaryRef raidEntry);
+
+int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, const char ofstring[], unsigned char mntfrm[]) {
+	
     kern_return_t           kret;
     mach_port_t             ourIOKitPort;
     char newof[1024];
@@ -108,77 +138,249 @@ int BLGetDeviceForOpenFirmwarePath(BLContextPtr context, char ofstring[], unsign
     BLPartitionType partitionType = 0;
     
     char *comma = NULL;;
-
+	
     strcpy(newof, ofstring);
-
+	
     comma = strrchr(newof, ',');
     if(comma == NULL) { // there should be a ,\\:tbxi
         return 1;
     }
-
+	
     // strip off the booter path
     *comma = '\0';
-
-     // Obtain the I/O Kit communication handle.
+	
+	// Obtain the I/O Kit communication handle.
     if((kret = IOMasterPort(bootstrap_port, &ourIOKitPort)) != KERN_SUCCESS) {
-      return 2;
+		return 2;
     }
-
+	
     strcpy(mntfrm, "/dev/");
-
+	
     kret = IOServiceOFPathToBSDName(ourIOKitPort,
-                         newof,
-                         mntfrm + 5);
-
+									newof,
+									mntfrm + 5);
+	
     contextprintf(context, kBLLogLevelVerbose,  "bsd name is %s\n", mntfrm );
-
+	
     ret = getPNameAndPType(context, mntfrm+5, targetPName, targetPType);
     if(ret) {
-	contextprintf(context, kBLLogLevelVerbose,  "Could not get partition type for %s\n", mntfrm );
-	
-	return 3;
+		contextprintf(context, kBLLogLevelVerbose,  "Could not get partition type for %s\n", mntfrm );
+		
+		return 3;
+    }
+    
+    contextprintf(context, kBLLogLevelVerbose,  "Partition name is %s. Partition type is %s\n",  targetPName, targetPType);
+    
+    if(strcmp("Apple_Boot", targetPType) != 0 && strcmp("Apple_Boot_RAID", targetPType) != 0) {
+		contextprintf(context, kBLLogLevelVerbose,  "No external booter needed\n");
+        return 0;
+        
+    }
+    
+    // this is a auxiliary booter partition
+    contextprintf(context, kBLLogLevelVerbose,  "Looking for root partition\n");
+    
+    
+    if(strcmp("Apple_Boot", targetPType) == 0) {
+        ret = BLGetParentDeviceAndPartitionType(context,mntfrm,
+                                                parentDev,
+                                                &slice,
+                                                &partitionType);
+        
+        if(ret) {
+            contextprintf(context, kBLLogLevelVerbose,  "Could not get information about partition map for %s\n", mntfrm);
+            return 3;
+            
+        }
+        
+        slice += 1; // n+1 for "real" root partition
+        sprintf(mntfrm, "%ss%lu", parentDev, slice);
+
+        contextprintf(context, kBLLogLevelVerbose,  "Now looking at %s\n", mntfrm);
+    }
+    
+    ret = getPNameAndPType(context, mntfrm+5, targetPName, targetPType);
+    if(ret) {
+        contextprintf(context, kBLLogLevelVerbose,  "Could not get partition type for %s\n", mntfrm );
+        
+        return 3;
     }
     
     contextprintf(context, kBLLogLevelVerbose,  "Partition name is %s. Partition type is %s\n",  targetPName, targetPType);
     
     if(strcmp("Apple_Boot", targetPType) == 0) {
-	// this is a auxiliary booter partition
-	contextprintf(context, kBLLogLevelVerbose,  "Looking for root partition\n");
-	
-	ret = BLGetParentDeviceAndPartitionType(context,mntfrm,
-						parentDev,
-						&slice,
-					 &partitionType);
+        contextprintf(context, kBLLogLevelError,  "Apple_Boot followed by another Apple_Boot\n");
+        return 4;
+    }
+    
+    if(strcmp("Apple_HFS", targetPType) == 0) {
+        contextprintf(context, kBLLogLevelError,  "Apple_HFS does not require an Apple_Boot\n");
+        return 4;
+    }
 
-	if(ret) {
-	    contextprintf(context, kBLLogLevelVerbose,  "Could not get information about partition map for %s\n", mntfrm);
-	    return 3;
-	    
-	}
-	
-	slice += 1; // n+1 for "real" root partition
-	sprintf(mntfrm, "%ss%lu", parentDev, slice);
-
-	ret = getPNameAndPType(context, mntfrm+5, targetPName, targetPType);
-	if(ret) {
-	    contextprintf(context, kBLLogLevelVerbose,  "Could not get partition type for %s\n", mntfrm );
-	    
-	    return 3;
-	}
-
-	contextprintf(context, kBLLogLevelVerbose,  "Partition name is %s. Partition type is %s\n",  targetPName, targetPType);
-	
-	if(strcmp("Apple_Boot", targetPType) == 0) {
-	    contextprintf(context, kBLLogLevelError,  "Apple_Boot followed by another Apple_Boot\n");
-	    return 4;
-	}
-
-	if(strcmp("Apple_HFS", targetPType) == 0) {
-	    contextprintf(context, kBLLogLevelError,  "Apple_HFS does not require an Apple_Boot\n");
-	    return 4;
-	}
+    if(strcmp("Apple_RAID", targetPType) == 0 || strcmp("Apple_Boot_RAID", targetPType) == 0) {
+        contextprintf(context, kBLLogLevelVerbose,  "%s is an Apple_RAID. Looking for exported volume\n", mntfrm);
+        ret = findRAIDForMember(context, ourIOKitPort, mntfrm);
+        if(ret) {
+            contextprintf(context, kBLLogLevelError,  "Couldn't find appropriate RAID volume for %s\n", mntfrm);
+            return 4;
+        }				
     }
     
     return 0;
+	
+}
 
- }
+static int findRAIDForMember(BLContextPtr context, mach_port_t iokitPort, unsigned char mntfrm[])
+{
+	kern_return_t           kret;
+	io_service_t			member;
+	io_iterator_t			raiditer;
+	io_service_t			raidservice;
+	CFMutableDictionaryRef	matching = NULL;
+	CFMutableDictionaryRef	props = NULL;
+	int						foundRAID = 0;
+	int						errnum;
+
+	errnum = BLGetIOServiceForDeviceName(context, mntfrm+5, &member);
+	if(errnum) {
+		contextprintf(context, kBLLogLevelError,  "Could not find IOKit entry for %s\n" , mntfrm+5);
+		return 4;
+	}
+	
+	contextprintf(context, kBLLogLevelVerbose,  "Found service for %s\n", mntfrm+5);
+	
+	matching = IOServiceMatching(kIOMediaClass);
+	
+	props = CFDictionaryCreateMutable(kCFAllocatorDefault,0,&kCFTypeDictionaryKeyCallBacks,&kCFTypeDictionaryValueCallBacks);
+	CFDictionaryAddValue(props, CFSTR(kAppleRAIDIsRAIDKey), kCFBooleanTrue);
+	CFDictionaryAddValue(props, CFSTR(kIOMediaLeafKey), kCFBooleanTrue);
+	
+	CFDictionaryAddValue(matching, CFSTR(kIOPropertyMatchKey), props);
+	CFRelease(props);
+	
+	kret = IOServiceGetMatchingServices(iokitPort, matching, &raiditer);
+	if(kret != KERN_SUCCESS) {
+		contextprintf(context, kBLLogLevelVerbose,  "Could find any RAID devices on the system\n");
+		return 2;
+	}
+	
+	while((raidservice = IOIteratorNext(raiditer))) {
+//		CFMutableDictionaryRef rprops = NULL;
+		CFTypeRef			data = NULL;
+
+		/*
+		kret = IORegistryEntryCreateCFProperties(raidservice, &rprops, kCFAllocatorDefault, 0);
+		if(kret == KERN_SUCCESS) {
+			CFShow(rprops);
+			CFRelease(rprops);
+		}
+*/
+		contextprintf(context, kBLLogLevelVerbose,  "Checking if member is part of RAID %x\n", raidservice);
+		
+		// we know this IOService is a RAID member. Now we need to get the boot data
+		data = IORegistryEntrySearchCFProperty( raidservice,
+												kIOServicePlane,
+												CFSTR(kIOBootDeviceKey),
+												kCFAllocatorDefault,
+												kIORegistryIterateRecursively|
+												kIORegistryIterateParents);
+		if(data == NULL) {
+			// it's an error for a RAID not to have this information
+			IOObjectRelease(raidservice);
+			raidservice = 0;
+			continue;
+		}
+		
+		if(CFGetTypeID(data) == CFArrayGetTypeID()) {
+			CFIndex i, count = CFArrayGetCount(data);
+			for(i=0; i < count && !foundRAID; i++) {
+				CFDictionaryRef ent = CFArrayGetValueAtIndex((CFArrayRef)data,i);
+				if(isRAIDPath(context, iokitPort, member, ent)) {
+					foundRAID = 1;
+					CFRelease(data);
+					break;
+				}
+			}
+			if(foundRAID) break;
+			
+		} else if(CFGetTypeID(data) == CFDictionaryGetTypeID()) {
+			if(isRAIDPath(context, iokitPort, member, (CFDictionaryRef)data)) {
+				foundRAID = 1;
+				CFRelease(data);
+				break;
+			}
+		} else {
+			contextprintf(context, kBLLogLevelError,  "Invalid RAID boot data\n" );
+			CFRelease(data);
+			IOObjectRelease(raidservice);
+			raidservice = 0;
+			continue;
+		}
+		
+		
+		IOObjectRelease(raidservice);
+	}
+	
+	IOObjectRelease(raiditer);
+	
+	if(foundRAID) {
+		// sweet. We found the RAID device corresponding to this member.
+		// replace the dev node with it
+		CFStringRef name = (CFStringRef)IORegistryEntryCreateCFProperty(
+															raidservice,
+															CFSTR(kIOBSDNameKey),
+															kCFAllocatorDefault,
+															0);
+		
+		if(!CFStringGetCString(name, mntfrm+5, MAXPATHLEN-5, kCFStringEncodingUTF8)) {
+			CFRelease(name);
+			IOObjectRelease(raidservice);
+			return 1;
+		}
+
+		CFRelease(name);
+		IOObjectRelease(raidservice);
+
+		contextprintf(context, kBLLogLevelVerbose,  "RAID device is %s\n", mntfrm );
+
+		return 0;
+	}
+	
+	// no RAID found
+	return 5;
+}
+
+static int isRAIDPath(BLContextPtr context, mach_port_t iokitPort, io_service_t member,
+					  CFDictionaryRef raidEntry)
+{
+	CFStringRef path;
+	io_string_t	cpath;
+	io_service_t	service;
+	
+	path = CFDictionaryGetValue(raidEntry, CFSTR(kIOBootDevicePathKey));
+	if(path == NULL) return 0;
+
+	if(!CFStringGetCString(path,cpath,sizeof(cpath),kCFStringEncodingUTF8))
+		return 0;
+
+	contextprintf(context, kBLLogLevelVerbose,  "Comparing member to %s", cpath);
+	
+	service = IORegistryEntryFromPath(iokitPort, cpath);
+	if(service == 0) {
+		contextprintf(context, kBLLogLevelVerbose,  "\nCould not find service\n");
+		return 0;
+	}
+	
+	if(IOObjectIsEqualTo(service, member)) {
+		contextprintf(context, kBLLogLevelVerbose,  "\tEQUAL\n");
+		IOObjectRelease(service);
+		return 1;
+	} else {
+		contextprintf(context, kBLLogLevelVerbose,  "\tNOT EQUAL\n");		
+	}
+	
+	IOObjectRelease(service);	
+	
+	return 0;
+}

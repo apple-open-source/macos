@@ -1,7 +1,7 @@
 // 1999-05-07
 // bkoz 
 
-// Copyright (C) 1999 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -22,16 +22,24 @@
 // 23.2.4.2 vector capacity
 
 #include <vector>
+#include <stdexcept>
+#include <testsuite_allocator.h>
 #include <testsuite_hooks.h>
 
+using __gnu_cxx_test::copy_tracker;
+using __gnu_cxx_test::allocation_tracker;
+using __gnu_cxx_test::tracker_alloc;
+using __gnu_cxx_test::copy_constructor;
+using __gnu_cxx_test::assignment_operator;
+using __gnu_cxx_test::destructor;
+ 
 template<typename T>
   struct A { };
 
 struct B { };
 
-bool test01()
+void test01()
 {
-
   // non POD types
   bool test = true;
   std::vector< A<B> > vec01;
@@ -51,17 +59,120 @@ bool test01()
   vec01.resize(sz01);
   sz02 = vec01.size();
   VERIFY( sz01 == sz02 );
+}
 
-#ifdef DEBUG_ASSERT
-  assert(test);
-#endif
-  
-  return test;
+// libstdc++/8230
+void test02()
+{
+  bool test = true;
+  {
+    std::vector<int>  array;
+    const std::size_t size = array.max_size();
+    try 
+      {
+	array.reserve(size);
+      } 
+    catch (const std::length_error& error) 
+      {
+	test &= false;
+      }
+    catch (const std::bad_alloc& error)
+      {
+	test &= true;
+      }
+    catch (...)
+      {
+	test &= false;
+      }
+    VERIFY( test );
+  }
+
+  {
+    std::vector<int>  array;
+    const std::size_t size = array.max_size() + 1;
+    try 
+      {
+	array.reserve(size);
+      } 
+    catch (const std::length_error& error) 
+      {
+	test &= true;
+      }
+    catch (...)
+      {
+	test &= false;
+      }
+    VERIFY( test );
+  }
+}
+
+// Verifies basic functionality of reserve() with forced reallocation.
+void
+test_reserve()
+{
+  bool test = true;
+  typedef copy_tracker T;
+  typedef std::vector<T, tracker_alloc<T> > X;
+
+  allocation_tracker::resetCounts();
+  {
+    X a(3);
+    const X::size_type old_size     = a.size();
+    const X::size_type old_capacity = a.capacity();
+    const X::size_type new_capacity = old_capacity + 10;
+    T::reset();
+    
+    a.reserve(new_capacity);
+
+    // [23.2.4.1 (2)]
+    VERIFY(new_capacity <= a.capacity());
+    // [23.2.4.1 (3)]
+    VERIFY(old_size == a.size());
+    VERIFY(copy_constructor::count() <= old_size);
+    VERIFY(destructor::count() <= old_size);
+  }
+  // check for memory leaks
+  VERIFY(allocation_tracker::allocationTotal() == allocation_tracker::deallocationTotal());
+}
+
+// Verifies that reserve() with reallocation offers the strong
+// exception guarantee.
+void
+test_reserve_exception_guarantee()
+{
+  bool test = true;
+  typedef copy_tracker T;
+  typedef std::vector<T, tracker_alloc<T> > X;
+
+  allocation_tracker::resetCounts();
+  {
+    X a(7);
+    const X::size_type old_size     = a.size();
+    const X::size_type old_capacity = a.capacity();
+    const X::size_type new_capacity = old_capacity + 10;
+    T::reset();
+    copy_constructor::throw_on(3);
+    
+    try
+    {
+      a.reserve(new_capacity);
+      VERIFY(("no exception thrown", false));
+    }
+    catch (...)
+    {
+    }
+
+    VERIFY(old_capacity == a.capacity());
+    VERIFY(copy_constructor::count() == destructor::count()+1);
+  }
+  VERIFY(allocation_tracker::allocationTotal() == allocation_tracker::deallocationTotal());
 }
 
 int main()
 {
   test01();
-
+  test02();
+  test_reserve();
+  test_reserve_exception_guarantee();
   return 0;
 }

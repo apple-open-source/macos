@@ -2,21 +2,21 @@
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
    2003 Free Software Foundation, Inc.
 
-This file is part of BFD, the Binary File Descriptor library.
+   This file is part of BFD, the Binary File Descriptor library.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "bfd.h"
 #include "sysdep.h"
@@ -65,7 +65,8 @@ static bfd_boolean sparc64_elf_add_symbol_hook
 	   const char **, flagword *, asection **, bfd_vma *));
 static bfd_boolean sparc64_elf_output_arch_syms
   PARAMS ((bfd *, struct bfd_link_info *, PTR,
-	   bfd_boolean (*) (PTR, const char *, Elf_Internal_Sym *, asection *)));
+	   bfd_boolean (*) (PTR, const char *, Elf_Internal_Sym *,
+			    asection *, struct elf_link_hash_entry *)));
 static void sparc64_elf_symbol_processing
   PARAMS ((bfd *, asymbol *));
 
@@ -96,6 +97,8 @@ static bfd_boolean sparc64_elf_slurp_one_reloc_table
   PARAMS ((bfd *, asection *, Elf_Internal_Shdr *, asymbol **, bfd_boolean));
 static bfd_boolean sparc64_elf_slurp_reloc_table
   PARAMS ((bfd *, asection *, asymbol **, bfd_boolean));
+static long sparc64_elf_canonicalize_reloc
+  PARAMS ((bfd *, asection *, arelent **, asymbol **));
 static long sparc64_elf_canonicalize_dynamic_reloc
   PARAMS ((bfd *, arelent **, asymbol **));
 static void sparc64_elf_write_relocs PARAMS ((bfd *, asection *, PTR));
@@ -311,6 +314,17 @@ sparc64_elf_info_to_howto (abfd, cache_ptr, dst)
   cache_ptr->howto = &sparc64_elf_howto_table[ELF64_R_TYPE_ID (dst->r_info)];
 }
 
+struct sparc64_elf_section_data
+{
+  struct bfd_elf_section_data elf;
+  unsigned int do_relax, reloc_count;
+};
+
+#define sec_do_relax(sec) \
+  ((struct sparc64_elf_section_data *) elf_section_data (sec))->do_relax
+#define canon_reloc_count(sec) \
+  ((struct sparc64_elf_section_data *) elf_section_data (sec))->reloc_count
+
 /* Due to the way how we handle R_SPARC_OLO10, each entry in a SHT_RELA
    section can represent up to two relocs, we must tell the user to allocate
    more space.  */
@@ -361,7 +375,7 @@ sparc64_elf_slurp_one_reloc_table (abfd, asect, rel_hdr, symbols, dynamic)
 
   native_relocs = (bfd_byte *) allocated;
 
-  relents = asect->relocation + asect->reloc_count;
+  relents = asect->relocation + canon_reloc_count (asect);
 
   entsize = rel_hdr->sh_entsize;
   BFD_ASSERT (entsize == sizeof (Elf64_External_Rela));
@@ -416,7 +430,7 @@ sparc64_elf_slurp_one_reloc_table (abfd, asect, rel_hdr, symbols, dynamic)
 	relent->howto = &sparc64_elf_howto_table[ELF64_R_TYPE_ID (rela.r_info)];
     }
 
-  asect->reloc_count += relent - relents;
+  canon_reloc_count (asect) += relent - relents;
 
   if (allocated != NULL)
     free (allocated);
@@ -478,8 +492,9 @@ sparc64_elf_slurp_reloc_table (abfd, asect, symbols, dynamic)
   if (asect->relocation == NULL)
     return FALSE;
 
-  /* The sparc64_elf_slurp_one_reloc_table routine increments reloc_count.  */
-  asect->reloc_count = 0;
+  /* The sparc64_elf_slurp_one_reloc_table routine increments
+     canon_reloc_count.  */
+  canon_reloc_count (asect) = 0;
 
   if (!sparc64_elf_slurp_one_reloc_table (abfd, asect, rel_hdr, symbols,
 					  dynamic))
@@ -492,6 +507,32 @@ sparc64_elf_slurp_reloc_table (abfd, asect, symbols, dynamic)
 
   return TRUE;
 }
+
+/* Canonicalize the relocs.  */
+
+static long
+sparc64_elf_canonicalize_reloc (abfd, section, relptr, symbols)
+     bfd *abfd;
+     sec_ptr section;
+     arelent **relptr;
+     asymbol **symbols;
+{
+  arelent *tblptr;
+  unsigned int i;
+  const struct elf_backend_data *bed = get_elf_backend_data (abfd);
+
+  if (! bed->s->slurp_reloc_table (abfd, section, symbols, FALSE))
+    return -1;
+
+  tblptr = section->relocation;
+  for (i = 0; i < canon_reloc_count (section); i++)
+    *relptr++ = tblptr++;
+
+  *relptr = NULL;
+
+  return canon_reloc_count (section);
+}
+
 
 /* Canonicalize the dynamic relocation entries.  Note that we return
    the dynamic relocations as a single block, although they are
@@ -528,7 +569,7 @@ sparc64_elf_canonicalize_dynamic_reloc (abfd, storage, syms)
 
 	  if (! sparc64_elf_slurp_reloc_table (abfd, s, syms, TRUE))
 	    return -1;
-	  count = s->reloc_count;
+	  count = canon_reloc_count (s);
 	  p = s->relocation;
 	  for (i = 0; i < count; i++)
 	    *storage++ = p++;
@@ -1061,7 +1102,7 @@ sparc64_elf_check_relocs (abfd, info, sec, relocs)
   asection *srelgot;
   asection *sreloc;
 
-  if (info->relocateable || !(sec->flags & SEC_ALLOC))
+  if (info->relocatable || !(sec->flags & SEC_ALLOC))
     return TRUE;
 
   dynobj = elf_hash_table (info)->dynobj;
@@ -1462,7 +1503,7 @@ sparc64_elf_add_symbol_hook (abfd, info, sym, namep, flagsp, secp, valp)
   return TRUE;
 }
 
-/* This function takes care of emiting STT_REGISTER symbols
+/* This function takes care of emitting STT_REGISTER symbols
    which we cannot easily keep in the symbol hash table.  */
 
 static bfd_boolean
@@ -1471,7 +1512,8 @@ sparc64_elf_output_arch_syms (output_bfd, info, finfo, func)
      struct bfd_link_info *info;
      PTR finfo;
      bfd_boolean (*func)
-       PARAMS ((PTR, const char *, Elf_Internal_Sym *, asection *));
+       PARAMS ((PTR, const char *, Elf_Internal_Sym *, asection *,
+		struct elf_link_hash_entry *));
 {
   int reg;
   struct sparc64_elf_app_reg *app_regs =
@@ -1517,7 +1559,8 @@ sparc64_elf_output_arch_syms (output_bfd, info, finfo, func)
 	sym.st_shndx = app_regs [reg].shndx;
 	if (! (*func) (finfo, app_regs [reg].name, &sym,
 		       sym.st_shndx == SHN_ABS
-			 ? bfd_abs_section_ptr : bfd_und_section_ptr))
+			 ? bfd_abs_section_ptr : bfd_und_section_ptr,
+		       NULL))
 	  return FALSE;
       }
 
@@ -1741,7 +1784,7 @@ sparc64_elf_size_dynamic_sections (output_bfd, info)
   if (elf_hash_table (info)->dynamic_sections_created)
     {
       /* Set the contents of the .interp section to the interpreter.  */
-      if (! info->shared)
+      if (info->executable)
 	{
 	  s = bfd_get_section_by_name (dynobj, ".interp");
 	  BFD_ASSERT (s != NULL);
@@ -1840,7 +1883,7 @@ sparc64_elf_size_dynamic_sections (output_bfd, info)
       struct elf_strtab_hash *dynstr;
       struct elf_link_hash_table *eht = elf_hash_table (info);
 
-      if (!info->shared)
+      if (info->executable)
 	{
 	  if (!add_dynamic_entry (DT_DEBUG, 0))
 	    return FALSE;
@@ -1918,15 +1961,6 @@ sparc64_elf_size_dynamic_sections (output_bfd, info)
   return TRUE;
 }
 
-struct sparc64_elf_section_data
-{
-  struct bfd_elf_section_data elf;
-  unsigned int do_relax;
-};
-
-#define sec_do_relax(sec) \
-  ((struct sparc64_elf_section_data *) (sec)->used_by_bfd)->do_relax
-
 static bfd_boolean
 sparc64_elf_new_section_hook (abfd, sec)
      bfd *abfd;
@@ -1991,7 +2025,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
   Elf_Internal_Rela *rel;
   Elf_Internal_Rela *relend;
 
-  if (info->relocateable)
+  if (info->relocatable)
     return TRUE;
 
   dynobj = elf_hash_table (info)->dynobj;
@@ -2039,51 +2073,21 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	{
 	  sym = local_syms + r_symndx;
 	  sec = local_sections[r_symndx];
-	  relocation = _bfd_elf_rela_local_sym (output_bfd, sym, sec, rel);
+	  relocation = _bfd_elf_rela_local_sym (output_bfd, sym, &sec, rel);
 	}
       else
 	{
-	  h = sym_hashes[r_symndx - symtab_hdr->sh_info];
-	  while (h->root.type == bfd_link_hash_indirect
-		 || h->root.type == bfd_link_hash_warning)
-	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
+	  bfd_boolean warned;
 
-	  relocation = 0;
-	  if (h->root.type == bfd_link_hash_defined
-	      || h->root.type == bfd_link_hash_defweak)
+	  RELOC_FOR_GLOBAL_SYMBOL (h, sym_hashes, r_symndx,
+				   symtab_hdr, relocation, sec,
+				   unresolved_reloc, info,
+				   warned);
+	  if (warned)
 	    {
-	      sec = h->root.u.def.section;
-	      if (sec->output_section == NULL)
-		/* Set a flag that will be cleared later if we find a
-		   relocation value for this symbol.  output_section
-		   is typically NULL for symbols satisfied by a shared
-		   library.  */
-		unresolved_reloc = TRUE;
-	      else
-		relocation = (h->root.u.def.value
-			      + sec->output_section->vma
-			      + sec->output_offset);
-	    }
-	  else if (h->root.type == bfd_link_hash_undefweak)
-	    ;
-	  else if (info->shared
-		   && (!info->symbolic || info->allow_shlib_undefined)
-		   && !info->no_undefined
-		   && ELF_ST_VISIBILITY (h->other) == STV_DEFAULT)
-	    ;
-	  else
-	    {
-	      if (! ((*info->callbacks->undefined_symbol)
-		     (info, h->root.root.string, input_bfd,
-		      input_section, rel->r_offset,
-		      (!info->shared || info->no_undefined
-		       || ELF_ST_VISIBILITY (h->other)))))
-		return FALSE;
-
 	      /* To avoid generating warning messages about truncated
 		 relocations, set the relocation's address to be the same as
 		 the start of this section.  */
-
 	      if (input_section->output_section != NULL)
 		relocation = input_section->output_section->vma;
 	      else
@@ -2246,16 +2250,8 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 
 			if (is_plt)
 			  sec = splt;
-			else if (h == NULL)
-			  sec = local_sections[r_symndx];
-			else
-			  {
-			    BFD_ASSERT (h->root.type == bfd_link_hash_defined
-					|| (h->root.type
-					    == bfd_link_hash_defweak));
-			    sec = h->root.u.def.section;
-			  }
-			if (sec != NULL && bfd_is_abs_section (sec))
+
+			if (bfd_is_abs_section (sec))
 			  indx = 0;
 			else if (sec == NULL || sec->owner == NULL)
 			  {
@@ -2615,7 +2611,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 		    }
 		}
 	    }
-	  /* FALLTHROUGH */
+	  /* Fall through.  */
 
 	default:
 	do_default:
@@ -2655,7 +2651,7 @@ sparc64_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	       overflows.  We don't, but this breaks stabs debugging
 	       info, whose relocations are only 32-bits wide.  Ignore
 	       overflows for discarded entries.  */
-	    if (r_type == R_SPARC_32
+	    if ((r_type == R_SPARC_32 || r_type == R_SPARC_DISP32)
 		&& _bfd_elf_section_offset (output_bfd, info, input_section,
 					    rel->r_offset) == (bfd_vma) -1)
 	      break;
@@ -2820,7 +2816,6 @@ sparc64_elf_finish_dynamic_symbol (output_bfd, info, h, sym)
       bfd_byte *loc;
 
       /* This symbols needs a copy reloc.  Set it up.  */
-
       BFD_ASSERT (h->dynindx != -1);
 
       s = bfd_get_section_by_name (h->root.u.def.section->owner,
@@ -2923,10 +2918,8 @@ sparc64_elf_finish_dynamic_sections (output_bfd, info)
 
       /* Initialize the contents of the .plt section.  */
       if (splt->_raw_size > 0)
-	{
-	  sparc64_elf_build_plt (output_bfd, splt->contents,
-				 (int) (splt->_raw_size / PLT_ENTRY_SIZE));
-	}
+	sparc64_elf_build_plt (output_bfd, splt->contents,
+			       (int) (splt->_raw_size / PLT_ENTRY_SIZE));
 
       elf_section_data (splt->output_section)->this_hdr.sh_entsize =
 	PLT_ENTRY_SIZE;
@@ -3137,14 +3130,14 @@ const struct elf_size_info sparc64_elf_size_info =
   sizeof (Elf64_External_Sym),
   sizeof (Elf64_External_Dyn),
   sizeof (Elf_External_Note),
-  4,		/* hash-table entry size */
-  /* internal relocations per external relocations.
+  4,		/* hash-table entry size.  */
+  /* Internal relocations per external relocations.
      For link purposes we use just 1 internal per
      1 external, for assembly and slurp symbol table
      we use 2.  */
   1,
-  64,		/* arch_size */
-  8,		/* file_align */
+  64,		/* arch_size.  */
+  3,		/* log_file_align.  */
   ELFCLASS64,
   EV_CURRENT,
   bfd_elf64_write_out_phdrs,
@@ -3182,6 +3175,8 @@ const struct elf_size_info sparc64_elf_size_info =
   sparc64_elf_get_reloc_upper_bound
 #define bfd_elf64_get_dynamic_reloc_upper_bound \
   sparc64_elf_get_dynamic_reloc_upper_bound
+#define bfd_elf64_canonicalize_reloc \
+  sparc64_elf_canonicalize_reloc
 #define bfd_elf64_canonicalize_dynamic_reloc \
   sparc64_elf_canonicalize_dynamic_reloc
 #define bfd_elf64_bfd_reloc_type_lookup \
@@ -3236,6 +3231,5 @@ const struct elf_size_info sparc64_elf_size_info =
 #define elf_backend_plt_alignment 8
 
 #define elf_backend_got_header_size 8
-#define elf_backend_plt_header_size PLT_HEADER_SIZE
 
 #include "elf64-target.h"

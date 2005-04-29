@@ -41,11 +41,10 @@
 #include <curses.priv.h>
 #include <ctype.h>
 
-MODULE_ID("$Id: lib_wattroff.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: lib_wattroff.c,v 1.7 2002/07/20 17:07:16 tom Exp $")
 
 NCURSES_EXPORT(int)
-wattr_off
-(WINDOW *win, NCURSES_CONST attr_t at, void *opts GCC_UNUSED)
+wattr_off(WINDOW *win, attr_t at, void *opts GCC_UNUSED)
 {
     T((T_CALLED("wattr_off(%p,%s)"), win, _traceattr(at)));
     if (win) {

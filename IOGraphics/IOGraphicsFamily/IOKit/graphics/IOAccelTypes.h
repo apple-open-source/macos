@@ -25,7 +25,7 @@
 
 #include <IOKit/IOTypes.h>
 
-#define IOACCEL_TYPES_REV	8
+#define IOACCEL_TYPES_REV	11
 
 /* Integer rectangle in device coordinates */
 typedef struct
@@ -73,6 +73,14 @@ typedef struct {
         IOAccelSize	source;
 	UInt32		reserved[8];
 } IOAccelSurfaceScaling;
+
+
+typedef SInt32 IOAccelID;
+
+enum {
+    kIOAccelPrivateID		= 0x00000001
+};
+
 
 #endif /* _IOACCEL_TYPES_H */
 

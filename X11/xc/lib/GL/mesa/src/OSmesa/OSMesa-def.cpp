@@ -9,6 +9,7 @@ EXPORTS
 	OSMesaGetIntegerv
 	OSMesaMakeCurrent
 	OSMesaPixelStore
+#ifndef __UNIXOS2__
 	_glapi_Context 
 	_glapi_noop_enable_warnings
 	_glapi_add_entrypoint
@@ -21,5 +22,8 @@ EXPORTS
 	glNormalPointer
 	glVertexPointer
 	glDrawElements
+#else
+	OSMesaCreateContextExt
+#endif  /* __UNIXOS2__ */
 
-/* $XFree86: xc/lib/GL/mesa/src/OSmesa/OSMesa-def.cpp,v 1.1 2002/04/07 15:19:45 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/OSmesa/OSMesa-def.cpp,v 1.2 2003/03/25 04:18:08 dawes Exp $ */

@@ -1,7 +1,11 @@
 XCOMM $XConsortium: Imakefile,v 1.4 93/08/17 21:16:42 rws Exp $
+
+
+
+XCOMM $XFree86: xc/programs/viewres/Imakefile,v 1.2 2003/05/28 16:02:36 tsi Exp $
+
         DEPLIBS = XawClientDepLibs
 LOCAL_LIBRARIES = XawClientLibs
-  SYS_LIBRARIES = MathLibrary
            SRCS = viewres.c 
            OBJS = viewres.o 
 

@@ -10,22 +10,22 @@ Before this driver can be built you need to install the current version of
 MySQL on your system. As building MySQL itself on Mac OS X falls outside
 the context of this readme, we suggest you download a Darwin binary from:
 
-	http://www.mysql.com/downloads/mysql-3.23.htm
+	http://www.mysql.com/downloads/mysql-4.0.htm
 
 As of writing the version of this package is:
 
-	MySQL 3.23.47
-	MacOS X 10.1.1 (Darwin 5.1.x) (PowerPC) (4.8M)
+	MySQL 4.0.14
+	MacOS X 10.2 (Darwin 6.x) (PowerPC) (7.4M)
 
 
 From the same site you can also download the latest MyODBC sources:
 
-	http://www.mysql.com/downloads/api-myodbc-2.50.html	
+	http://www.mysql.com/downloads/api-myodbc-3.51.html	
 
 As of writing the version of this package is:
 
-	MyODBC 2.50.39
-	Source Files (tar.gz) (226K)
+	MyODBC 3.51.06
+	Source Files (tar.gz) (314K)
 
 
 Unpack this source code into a new directory.
@@ -47,12 +47,7 @@ Method 1 : using the iODBC frameworks
 
     To setup the MyODBC tree execute the following commands:
 
-	$ cd MyODBC-2.50.39
-
-
-    First update the version of libtool this package uses:
-
-	$ glibtoolize -c -f
+	$ cd MyODBC-3.51.06
 
 
     Then we can either use the supplied myodbc.configure.diff file from
@@ -84,16 +79,7 @@ Method 1 : using the iODBC frameworks
     MySQL libraries and header files.
 
 
-    Edit the libtool shell script and modify the following line:
-
-	allow_undefined_flag="-undefined warning"
-   
-    into:
-
-	allow_undefined_flag="-flat_namespace -undefined suppress"
-
-
-    Edit the file myodbc.h and replace every occurrence of:
+    Edit the file myodbc3.h and replace every occurrence of:
 
 	String			Replace with
 
@@ -120,7 +106,13 @@ Method 1 : using the iODBC frameworks
     into:
 
 	#define HAVE_ISQL_H	1
-	
+
+
+    Finally, you need to tell to the build process to link the MyODBC driver
+    against the iODBCinst framework. To achieve this goal, just edit the
+    driver/Makefile, make a search on libmyodbc3_la_LIBADD, and append
+    -Wl,-framework,iODBCinst at the end of this line.
+
 
 3.  Building the MyODBC driver
 
@@ -128,10 +120,11 @@ Method 1 : using the iODBC frameworks
 
 	$ make
 
-    As the version of libtool currently installed on Mac OS X does
-    not know how to deal with frameworks, use the following command
-    to build the actual MyODBC driver:
+    As Mac OS X is only able to load at runtime only bundle libraries,
+    you need to use the following command to build the actual MyODBC
+    driver :
 
+	$ cd driver
 	$ cc -bundle -o libmyodbc.dylib *.lo -framework iODBCinst \
 	  -L/usr/local/mysql/lib/mysql -lmysqlclient -lz
 
@@ -159,12 +152,7 @@ Method 2 : using the iODBC Unix libraries
 
     To setup the MyODBC tree execute the following commands:
 
-	$ cd MyODBC-2.50.39
-
-
-    First update the version of libtool this package uses:
-
-	$ glibtoolize -c -f
+	$ cd MyODBC-3.51.06
 
 
     After this we can configure the source code using the following 
@@ -176,24 +164,15 @@ Method 2 : using the iODBC Unix libraries
     MySQL libraries and header files.
 
 
-    Next edit the libtool shell script and modify the following line:
-
-	allow_undefined_flag="-undefined warning"
-   
-    into:
-
-	allow_undefined_flag="-flat_namespace -undefined suppress"
-
-
 3.  Building the MyODBC driver
 
     You can now execute the following command to build the driver:
 
 	$ make
 
-    As the version of libtool currently installed on Mac OS X does not
-    know how to deal with modules, use the following command
-    to build the actual MyODBC driver:
+    As Mac OS X is only able to load at runtime only bundle libraries,
+    you need to use the following command to build the actual MyODBC
+    driver :
 
 	$ cc -bundle -o libmyodbc.dylib *.lo -framework iODBCinst \
 	  -L/usr/local/mysql/lib/mysql -lmysqlclient -lz
@@ -263,5 +242,4 @@ be performed:
 	Driver: 02.50.39 
 
 	SQL> select * from <table_name>
-
 

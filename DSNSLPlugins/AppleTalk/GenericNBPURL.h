@@ -28,7 +28,7 @@
 #ifndef __GENERICNBPURL__
 #define __GENERICNBPURL__
 
-#include <CoreServices/CoreServices.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #define kNBPDivider				":/at/"
 #define kEntityZoneDelimiter	":"

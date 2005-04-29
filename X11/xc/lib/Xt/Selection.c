@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Selection.c,v 3.9 2001/12/14 19:56:29 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Selection.c,v 3.10 2003/04/21 16:34:28 herrb Exp $ */
 
 #include "IntrinsicI.h"
 #include "StringDefs.h"
@@ -395,11 +395,7 @@ Time time;
 static XContext selectWindowContext = 0;
 
 /* %%% Xlib.h should make this public! */
-typedef int (*xErrorHandler)(
-#if NeedFunctionPrototypes
-			   Display*, XErrorEvent*
-#endif
-			   );
+typedef int (*xErrorHandler)(Display*, XErrorEvent*);
 
 static xErrorHandler oldErrorHandler = NULL;
 static unsigned long firstProtectRequest;

@@ -1,5 +1,5 @@
 .TH XvGetStill 3X  __vendorversion__
-.\" $XFree86: xc/doc/man/Xv/XvGetStill.man,v 1.5 2001/01/27 18:20:36 dawes Exp $
+.\" $XFree86: xc/doc/man/Xv/XvGetStill.man,v 1.6 2003/05/29 21:48:05 herrb Exp $
 .SH Name
 XvGetStill \- capture a single frame of video from a drawable
 .\"
@@ -47,7 +47,7 @@ option has the format hostname:number.  Using two colons
 (::) instead of one (:) indicates that DECnet is to be used
 for transport.
 .IP \fIport\fR 15
-Defines the port to which the still is outputed.
+Defines the port to which the still is output'd.
 .IP \fId\fR 15
 Defines the drawable from which the still is to be captured.
 Pixmaps are currently not supported.

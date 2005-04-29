@@ -1,8 +1,27 @@
 /* ch_malloc.c - malloc routines that test returns from malloc and friends */
-/* $OpenLDAP: pkg/ldap/servers/slapd/ch_malloc.c,v 1.17.2.2 2003/03/03 17:10:07 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/ch_malloc.c,v 1.21.2.2 2004/01/01 18:16:33 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
  */
 
 #define CH_FREE 1
@@ -18,7 +37,12 @@
 
 #include "slap.h"
 
-#ifndef CSRIMALLOC
+BerMemoryFunctions ch_mfuncs = {
+	(BER_MEMALLOC_FN *)ch_malloc,
+	(BER_MEMCALLOC_FN *)ch_calloc,
+	(BER_MEMREALLOC_FN *)ch_realloc,
+	(BER_MEMFREE_FN *)ch_free 
+};
 
 void *
 ch_malloc(
@@ -27,7 +51,7 @@ ch_malloc(
 {
 	void	*new;
 
-	if ( (new = (void *) ber_memalloc( size )) == NULL ) {
+	if ( (new = (void *) ber_memalloc_x( size, NULL )) == NULL ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, ERR, 
 			   "ch_malloc: allocation of %lu bytes failed\n", (long)size, 0,0 );
@@ -48,7 +72,7 @@ ch_realloc(
     ber_len_t	size
 )
 {
-	void	*new;
+	void	*new, *ctx;
 
 	if ( block == NULL ) {
 		return( ch_malloc( size ) );
@@ -58,7 +82,12 @@ ch_realloc(
 		ch_free( block );
 	}
 
-	if ( (new = (void *) ber_memrealloc( block, size )) == NULL ) {
+	ctx = sl_context( block );
+	if ( ctx ) {
+		return sl_realloc( block, size, ctx );
+	}
+
+	if ( (new = (void *) ber_memrealloc_x( block, size, NULL )) == NULL ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, ERR, 
 			   "ch_realloc: reallocation of %lu bytes failed\n", (long)size, 0,0 );
@@ -81,7 +110,7 @@ ch_calloc(
 {
 	void	*new;
 
-	if ( (new = (void *) ber_memcalloc( nelem, size )) == NULL ) {
+	if ( (new = (void *) ber_memcalloc_x( nelem, size, NULL )) == NULL ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, ERR, 
 			   "ch_calloc: allocation of %lu elements of %lu bytes faild\n",
@@ -104,7 +133,7 @@ ch_strdup(
 {
 	char	*new;
 
-	if ( (new = ber_strdup( string )) == NULL ) {
+	if ( (new = ber_strdup_x( string, NULL )) == NULL ) {
 #ifdef NEW_LOGGING
 		LDAP_LOG( OPERATION, ERR, 
 			"chr_strdup: duplication of \"%s\" failed\n", string, 0, 0 );
@@ -121,7 +150,13 @@ ch_strdup(
 void
 ch_free( void *ptr )
 {
-	ber_memfree( ptr );
+	void *ctx;
+
+	ctx = sl_context( ptr );
+	if (ctx) {
+		sl_free( ptr, ctx );
+	} else {
+		ber_memfree_x( ptr, NULL );
+	}
 }
 
-#endif

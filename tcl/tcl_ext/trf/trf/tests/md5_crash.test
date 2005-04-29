@@ -1,0 +1,42 @@
+# -*- tcl -*-
+# Commands covered:	md5 - Try to crash it.
+#
+# This file contains a collection of tests for one or more of the commands
+# the TRF extension. Sourcing this file into Tcl runs the tests and generates
+# output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: md5_crash.test,v 1.1 2003/03/27 07:51:05 andreas_kupries Exp $
+
+
+# test suite from RFC 1321 (1..7)
+
+if {[info tclversion] < 8.0} {
+    puts "Skipping crash test in pre-8.0 interpreter"
+    return
+}
+
+test md5-5.0 {md5, crash} {
+    # SF tcltrf Bug #667168, trf
+
+    set f [open [makeFile {} debug.out] w]
+
+    fconfigure      $f -translation binary -encoding binary -buffering none
+    md5 -attach     $f -mode transparent -write-type var -write-dest ::md5
+
+    puts -nonewline $f [string repeat X 402]
+    puts -nonewline $f [string repeat X 224]
+
+    unstack $f
+    close   $f
+
+    removeFile debug.out
+    set res [hex -mode encode -- $::md5]
+    set res
+} {D6A0FFF1DFF65952747324F690FAF519}
+
+catch {::tcltest::cleanupTests}

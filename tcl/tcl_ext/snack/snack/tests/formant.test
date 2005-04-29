@@ -1,0 +1,22 @@
+# Commands covered: sound pitch
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test formant-1.1 {formant command} {
+  set s [snack::sound snd -load ex1.wav]
+  set tcl_precision 5
+  set res [lindex [$s formant -framelength 0.01 -preemphasis 0.7 -numformants 4  -lpcorder 12 -windowlength .049 -lpctype 0 -ds_freq 10000.0 -nom_f1_freq -10.0] end]
+  $s destroy
+  set res
+} {102.23 2077.6 2951.1 3818.2 734.88 480.1 532.49 588.74}
+
+
+# cleanup
+::tcltest::cleanupTests
+return

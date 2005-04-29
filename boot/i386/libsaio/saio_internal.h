@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -44,16 +44,20 @@ extern BOOL   eisa_present(void);
 extern int    bgetc(void);
 extern int    biosread(int dev, int cyl, int head, int sec, int num);
 extern int    ebiosread(int dev, long sec, int count);
+extern int    ebioswrite(int dev, long sec, int count);
 extern int    get_drive_info(int drive, struct driveInfo *dp);
 extern void   putc(int ch);
 extern void   putca(int ch, int attr, int repeat);
 extern int    getc(void);
 extern int    readKeyboardStatus(void);
+extern int    readKeyboardShiftFlags(void);
 extern unsigned int time18(void);
 extern void   delay(int ms);
 extern unsigned int get_diskinfo(int dev);
+#if APM_SUPPORT
 extern int    APMPresent(void);
 extern int    APMConnect32(void);
+#endif
 extern int    memsize(int i);
 extern void   video_mode(int mode);
 extern void   setCursorPosition(int x, int y, int page);
@@ -92,8 +96,16 @@ extern void   stop(const char *message);
 extern BVRef  diskScanBootVolumes(int biosdev, int *count);
 extern void   diskSeek(BVRef bvr, long long position);
 extern int    diskRead(BVRef bvr, long addr, long length);
+extern int    rawDiskRead(BVRef bvr, unsigned int secno, void *buffer, unsigned int len);
+extern int    rawDiskWrite(BVRef bvr, unsigned int secno, void *buffer, unsigned int len);
 extern int    readBootSector(int biosdev, unsigned int secno, void *buffer);
 extern void   turnOffFloppy(void);
+
+/* hfs_compare.c */
+extern void utf_encodestr( const u_int16_t * ucsp, int ucslen,
+                u_int8_t * utf8p, u_int32_t bufsize, int byte_order );
+extern void utf_decodestr(const u_int8_t *utf8p, u_int16_t *ucsp,
+                u_int16_t *ucslen, u_int32_t bufsize, int byte_order );
 
 /* load.c */
 extern char   gHaveKernelCache;
@@ -120,21 +132,23 @@ extern char * newStringForStringTableKey(char *table, char *key);
 extern char * newStringForKey(char *key);
 extern BOOL   getValueForBootKey(const char *line, const char *match, const char **matchval, int *len);
 extern BOOL   getValueForKey(const char *key, const char **val, int *size);
-extern BOOL   getBoolForKey(const char *key);
+extern BOOL   getBoolForKey(const char *key, BOOL *val);
 extern BOOL   getIntForKey(const char *key, int *val);
-extern int    loadConfigFile(const char *configFile, const char **table, BOOL allocTable);
-extern int    loadConfigDir(const char *bundleName, BOOL useDefault, const char **table,
-                            BOOL allocTable);
+extern int    loadConfigFile(const char *configFile);
 extern int    loadSystemConfig(const char *which, int size);
-extern void   addConfig(const char *config);
 extern char * newString(const char *oldString);
 
 /* sys.c */
+extern BVRef getBootVolumeRef( const char * path, const char ** outPath );
+extern long   LoadVolumeFile(BVRef bvr, const char *fileSpec);
 extern long   LoadFile(const char *fileSpec);
+extern long   ReadFileAtOffset(const char * fileSpec, void *buffer, unsigned long offset, unsigned long length);
+extern long   LoadThinFatFile(const char *fileSpec, void **binary);
 extern long   GetDirEntry(const char *dirSpec, long *dirIndex, const char **name,
                           long *flags, long *time);
 extern long   GetFileInfo(const char *dirSpec, const char *name,
                           long *flags, long *time);
+extern long   GetFileBlock(const char *fileSpec, unsigned long long *firstBlock);
 extern int    openmem(char *buf, int len);
 extern int    open(const char *str, int how);
 extern int    close(int fdesc);
@@ -145,14 +159,17 @@ extern int    tell(int fdesc);
 extern const char * usrDevices(void);
 extern const char * systemConfigDir(void);
 extern struct dirstuff * opendir(const char *path);
+extern struct dirstuff * vol_opendir(BVRef bvr, const char *path);
 extern int    closedir(struct dirstuff *dirp);
 extern int    readdir(struct dirstuff *dirp, const char **name, long *flags, long *time);
+extern int    readdir_ext(struct dirstuff * dirp, const char ** name, long * flags,
+                          long * time, FinderInfo *finderInfo, long *infoValid);
 extern void   flushdev(void);
 extern int    currentdev(void);
 extern int    switchdev(int dev);
 extern BVRef  scanBootVolumes(int biosdev, int *count);
 extern BVRef  selectBootVolume(BVRef chain);
-extern void   getBootVolumeDescription(BVRef bvr, char *str, long strMaxLen);
+extern void   getBootVolumeDescription(BVRef bvr, char *str, long strMaxLen, BOOL verbose);
 
 extern int gBIOSDev;
 extern int gBootFileType;

@@ -1,5 +1,5 @@
 dnl look for the (ucd|net)snmp libraries
-dnl $Id: ucdsnmp.m4,v 1.10 2004/05/24 19:25:41 ken3 Exp $
+dnl $Id: ucdsnmp.m4,v 1.5 2005/03/05 00:36:14 dasenbro Exp $
 
 AC_DEFUN([CMU_UCDSNMP], [
   AC_REQUIRE([CMU_SOCKETS])

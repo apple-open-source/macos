@@ -7,10 +7,10 @@ UserType        = Administration
 ToolType        = Services
 
 GnuNoChown      = YES
-GnuAfterInstall = install-startup-items install-config install-logdir install-strip plugins
+GnuAfterInstall = install-startup-items install-config install-logdir install-testtools install-strip plugins
 
 Extra_CC_Flags  = -mdynamic-no-pic  -no-cpp-precomp -I$(SRCROOT)/libopendirectorycommon -F/System/Library/PrivateFrameworks\
-		-DUSES_RECVFROM -DWITH_OPENDIRECTORY
+		-DUSES_RECVFROM -DWITH_OPENDIRECTORY -DWITH_MEMBERD -DUSES_KEYCHAIN -DWITH_BRLM
 
 Extra_Configure_Flags = --with-swatdir="$(SHAREDIR)/swat"			\
 			--with-sambabook="$(SHAREDIR)/swat/using_samba"		\
@@ -42,18 +42,19 @@ Extra_Install_Flags   = SWATDIR="$(DSTROOT)$(SHAREDIR)/swat"			\
 			LOCKDIR="$(DSTROOT)$(VARDIR)/samba"			\
 			CONFIGDIR="$(DSTROOT)/private/etc"
 			
-Environment += EXTRA_BIN_PROGS="bin/smbget@EXEEXT@"
+Environment += EXTRA_BIN_PROGS="bin/smbget@EXEEXT@" \
+EXTRA_ALL_TARGETS="bin/smbtorture@EXEEXT@ bin/msgtest@EXEEXT@ bin/masktest@EXEEXT@ bin/locktest@EXEEXT@ bin/locktest2@EXEEXT@ bin/vfstest@EXEEXT@"
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-LDFLAGS += -framework CoreFoundation -framework DirectoryService -L$(OBJROOT) -lopendirectorycommon
+LDFLAGS += -framework Security -framework CoreFoundation -framework DirectoryService -framework ByteRangeLocking -L$(OBJROOT) -lopendirectorycommon
 
 PATCHES = $(wildcard $(SRCROOT)/patches/*.diff)
 
 Install_Target = install
 
 lazy_install_source::
-	gcc $(RC_CFLAGS) -fPIC -c $(SRCROOT)/libopendirectorycommon/libopendirectorycommon.c -o $(OBJROOT)/libopendirectorycommon.o
+	gcc $(RC_CFLAGS) -framework Security -DUSES_KEYCHAIN=1  -fPIC -c $(SRCROOT)/libopendirectorycommon/libopendirectorycommon.c -o $(OBJROOT)/libopendirectorycommon.o
 	libtool -static -o $(OBJROOT)/libopendirectorycommon.a $(OBJROOT)/libopendirectorycommon.o
 
 patch: $(PATCHES)
@@ -76,11 +77,10 @@ repatch:
 	done
 
 install-startup-items:
-	$(INSTALL) -d -m 755 $(DSTROOT)/private/etc/xinetd.d
-	$(INSTALL) -c -m 444 $(SRCROOT)/smbd.xinetd $(DSTROOT)/private/etc/xinetd.d/smbd
-	$(INSTALL) -c -m 444 $(SRCROOT)/nmbd.xinetd $(DSTROOT)/private/etc/xinetd.d/nmbd
-	$(INSTALL) -c -m 444 $(SRCROOT)/smb-direct.xinetd $(DSTROOT)/private/etc/xinetd.d/smb-direct
-	$(INSTALL) -c -m 444 $(SRCROOT)/swat.xinetd $(DSTROOT)/private/etc/xinetd.d/swat
+	$(INSTALL) -d -m 755 $(DSTROOT)/System/Library/LaunchDaemons
+	$(INSTALL) -c -m 444 $(SRCROOT)/smbd.plist $(DSTROOT)/System/Library/LaunchDaemons/smbd.plist
+	$(INSTALL) -c -m 444 $(SRCROOT)/nmbd.plist $(DSTROOT)/System/Library/LaunchDaemons/nmbd.plist
+	$(INSTALL) -c -m 444 $(SRCROOT)/swat.plist $(DSTROOT)/System/Library/LaunchDaemons/swat.plist
 
 install-config:
 	$(INSTALL) -d -m 755 $(DSTROOT)/usr/local/OpenSourceVersions
@@ -118,9 +118,12 @@ install-testtools:
 	
 plugins:
 	echo "building $@";
-	make -C $(SRCROOT)/auth_ods -f auth_ods.make RC_CFLAGS="$(RC_CFLAGS)"
+	make -C $(SRCROOT)/auth_ods -f auth_ods.make RC_CFLAGS="$(RC_CFLAGS) -DWITH_SACL=1"
 	install -c -m 755 $(OBJROOT)/auth_ods.so $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
 	strip -x $(DSTROOT)/usr/lib/samba/auth/opendirectory.so
-	make -C $(SRCROOT)/pdb_ods -f pdb_ods.make RC_CFLAGS="$(RC_CFLAGS)"
+	make -C $(SRCROOT)/pdb_ods -f pdb_ods.make RC_CFLAGS="$(RC_CFLAGS) -DUSES_ODGROUPMAPPING -DUSE_ALGORITHMIC_RID -DUSES_KEYCHAIN"
 	install -c -m 755 $(OBJROOT)/pdb_ods.so $(DSTROOT)/usr/lib/samba/pdb/opendirectorysam.so
 	strip -x $(DSTROOT)/usr/lib/samba/pdb/opendirectorysam.so
+	make -C $(SRCROOT)/darwin_vfs -f darwin_acls.make RC_CFLAGS="$(RC_CFLAGS)"
+	install -c -m 755 $(OBJROOT)/darwin_acls.so $(DSTROOT)/usr/lib/samba/vfs/darwin_acls.so
+	strip -x $(DSTROOT)/usr/lib/samba/vfs/darwin_acls.so

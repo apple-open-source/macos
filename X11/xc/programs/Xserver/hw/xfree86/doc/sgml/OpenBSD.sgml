@@ -6,10 +6,10 @@
 <title>README for XFree86 &relvers; on OpenBSD
 <author>
 Matthieu Herrb
-<Date>Last modified on: 9 November 2002
+<Date>Last modified on: 9 December 2003
 
 <ident>
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OpenBSD.sgml,v 1.30 2003/02/25 19:31:01 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/OpenBSD.sgml,v 1.33 2004/02/15 02:16:48 dawes Exp $
 </ident>
 
 <toc>
@@ -31,7 +31,7 @@ The sources for XFree86 &relvers; are available by anonymous ftp from:
 <htmlurl name="ftp://ftp.XFree86.org/pub/XFree86/&relvers;"
 url="ftp://ftp.XFree86.org/pub/XFree86/&relvers;">
 
-Binaries for OpenBSD/i386 3.2 and later are available from:
+Binaries for OpenBSD/i386 3.4 and later are available from:
 
 <htmlurl name="ftp://ftp.XFree86.org/pub/XFree86/&relvers;/binaries/OpenBSD"
 url="ftp://ftp.XFree86.org/pub/XFree86/&relvers;/binaries/OpenBSD">
@@ -50,14 +50,26 @@ XFree86 also builds on other OpenBSD architectures. See section
 <sect>Bug Reports for This Document
 
 <p>
-Send email to <email>herrb@xfree86.org</email> (Matthieu Herrb) or
-<email>XFree86@XFree86.org</email> if you have comments or suggestions about
-this file and we'll revise it.
+Use the XFree86 Bugzilla at <url url="http://bugs.xfree86.org"> 
+to submit comments or suggestions about this file.
 
 <sect>New OS dependent features
 <p>
 See the <htmlurl url="RELNOTES.html" name="Release Notes"> for
 non-OS dependent new features in XFree86 &relvers;.
+
+<sect1>New OS related features in 4.4
+<p>
+<itemize>
+<item>The IPv6 support is enabled on OpenBSD, but XDMCP over IPv6 is
+not currently enabled since the code uses IPv6 mapped IPv4 addresses
+which are not supported on OpenBSD. 
+<item>The userland part of DRI is enabled and built. Now waiting for
+someone to port the kernel modules...
+<item>All major revisions of the shared libraries are incremented on 
+OpenBSD 3.3 and later, to support the API changes introduced by 
+gcc stack protector.
+</itemize>
 
 <sect1>New OS related features in 4.3
 <p>
@@ -225,18 +237,11 @@ line must be in your config file in <tt>/sys/arch/i386/conf</tt>:
 
 <sect1>Console drivers
 <p>
-The server supports the standard  OpenBSD/i386
-console drivers: pcvt and wscons. They are detected at runtime and no
-configuration of the server itself is required.
+The server supports wscons, the standard OpenBSD/i386 console driver. 
 
 <p>
-The pcvt console driver is the default in OpenBSD up to OpenBSD 2.8.
-It offers several virtual consoles and international keyboard support.
-
-<p>
-OpenBSD 2.9 and later has switched to the wscons console
-driver. This console driver has a pcvt compatibility mode for X
-support. 
+The pcvt console driver which was the default up to OpenBSD
+2.8, is also supported on those releases.
 
 <sect1>Aperture Driver
 <p>
@@ -245,7 +250,7 @@ feature that disables access to the <tt>/dev/mem</tt> device when in
 multi-user mode. But the XFree86 server requires
 linear access to the display memory in most cases.
 
-OpenBSD now requires the aperture driver to be enabled for all X
+OpenBSD requires the aperture driver to be enabled for all X
 servers, because the aperture driver also controls access to the
 I/O ports of the video boards.
 <p>

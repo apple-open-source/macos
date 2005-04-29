@@ -1,7 +1,7 @@
 # Top level makefile fragment for TREELANG For GCC. -*- makefile -*-
 
-#   Copyright (C) 1994, 1995, 1997, 1998, 1999 2000, 2001, 2002 Free
-#   Software Foundation, Inc.
+#   Copyright (C) 1994, 1995, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+#   Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -24,10 +24,9 @@
 # Each language makefile fragment must provide the following targets:
 #
 # foo.all.build, foo.all.cross, foo.start.encap, foo.rest.encap,
-# foo.info, foo.dvi,
-# foo.install-normal, foo.install-common, foo.install-info, foo.install-man,
+# foo.install-normal, foo.install-common, foo.install-man,
 # foo.uninstall, foo.distdir,
-# foo.mostlyclean, foo.clean, foo.distclean, foo.extraclean,
+# foo.mostlyclean, foo.clean, foo.distclean,
 # foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
 #
 # where `foo' is the name of the language.
@@ -46,8 +45,6 @@
 TREELANGSED = sed
 TREELANGSEDFLAGS = -n
 
-# back end compiler libraries etc
-TREE_BE_LIBS = $(BACKEND) $(LIBIBERTY) $(INTLLIBS) $(LIBS) $(LIBDEPS) 
 GCC_EXTRAS = -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include
 
 # ./xgcc is the just built compiler. See GCC_FOR_TARGET in the GCC Makefile.in.
@@ -56,15 +53,15 @@ GCC_EXTRAS = -B./ -B$(build_tooldir)/bin/ -isystem $(build_tooldir)/include
 
 # GCC_FOR_TREELANG = ./xgcc $(GCC_EXTRAS)
 
-TREE_GENERATED = $(srcdir)/treelang/lex.c $(srcdir)/treelang/parse.c\
-	$(srcdir)/treelang/parse.h $(srcdir)/treelang/parse.output $(srcdir)/treelang/TAGS
+TREE_GENERATED = lex.c parse.c parse.h parse.output
+TREE_EXES = tree1
 
-TREE_SOURCE = ${srcdir}/treelang/parse.y ${srcdir}/treelang/lex.l ${srcdir}/treelang/tree1.c ${srcdir}/treelang/treelang.h ${srcdir}/treelang/treetree.c $(srcdir)/treelang/treetree.h
-
-TREE_EXES = tree1$(exeext)
-
-#no -Wtraditional warnings, allow long long
-treelang-warn = $(LOOSE_WARN) -pedantic -Wno-long-long -Wmissing-prototypes -Wmissing-declarations
+#strict warnings for treelang
+treelang-warn = $(STRICT_WARN)
+# bison emits some unused static arrays (yytoknum)
+treelang/parse.o-warn = -Wno-error
+# flex produces 'no previous prototype' warnings
+treelang/lex.o-warn = -Wno-error
 
 #
 # Define the names for selecting treelang in LANGUAGES.
@@ -78,45 +75,53 @@ treelang.done: tree1$(exeext)
 
 # no preprocessor
 
-# core compiler 
-tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/lex.o treelang/parse.o\
-	$(TREE_BE_LIBS) c-convert.o c-typeck.o c-common.o c-decl.o attribs.o
+# core compiler
+tree1$(exeext): treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
+	treelang/lex.o treelang/parse.o \
+	$(BACKEND) $(LIBSDEPS) attribs.o
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
-	treelang/tree1.o treelang/treetree.o treelang/lex.o treelang/parse.o c-convert.o\
-	c-typeck.o c-common.o c-decl.o attribs.o $(TREE_BE_LIBS)
+	treelang/tree1.o treelang/treetree.o treelang/tree-convert.o \
+	treelang/lex.o treelang/parse.o \
+	$(BACKEND) $(LIBS) attribs.o
 
 #
 # Compiling object files from source files.
 
 # object file makes
 
-treelang/tree1.o: $(srcdir)/treelang/tree1.c $(srcdir)/treelang/treelang.h \
-	$(srcdir)/treelang/parse.h $(CONFIG_H) \
-	gt-treelang-tree1.h gtype-treelang.h
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/tree1.o: treelang/tree1.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
+  flags.h toplev.h $(GGC_H) $(TREE_H) diagnostic.h treelang/treelang.h \
+  input.h treelang/treetree.h options.h opts.h \
+  treelang/treetree.h gt-treelang-tree1.h gtype-treelang.h
 
-treelang/treetree.o: $(srcdir)/treelang/treetree.c $(srcdir)/treelang/treetree.h \
-	$(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/treetree.o: treelang/treetree.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) $(TREE_H) flags.h output.h $(RTL_H) $(GGC_H) toplev.h \
+  varray.h $(LANGHOOKS_DEF_H) langhooks.h treelang/treelang.h input.h \
+  treelang/treetree.h treelang/parse.h
 
-treelang/parse.o: $(srcdir)/treelang/parse.c $(srcdir)/treelang/treelang.h \
-	$(srcdir)/treelang/treetree.h $(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/tree-convert.o: treelang/tree-convert.c $(CONFIG_H) $(SYSTEM_H) \
+  coretypes.h diagnostic.h $(TREE_H) flags.h toplev.h langhooks.h $(TM_H)
 
-treelang/lex.o: $(srcdir)/treelang/lex.c $(srcdir)/treelang/parse.h \
-	$(srcdir)/treelang/treelang.h $(CONFIG_H)
-	$(CC) -o $@ -c $(ALL_CFLAGS) $(INCLUDES) $< 
+treelang/parse.o: treelang/parse.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) diagnostic.h treelang/treelang.h input.h treelang/treetree.h
+
+treelang/lex.o: treelang/lex.c $(CONFIG_H) $(SYSTEM_H) coretypes.h \
+  $(TM_H) diagnostic.h $(TREE_H) treelang/treelang.h input.h \
+  treelang/parse.h
 
 # generated files the files from lex and yacc are put into the source
 # directory in case someone wants to build but does not have
 # lex/yacc
 
-$(srcdir)/treelang/lex.c: $(srcdir)/treelang/lex.l
-	$(LEX) $(LEXFLAGS) -o$(srcdir)/treelang/lex.c $(srcdir)/treelang/lex.l
+treelang.srcextra: treelang/parse.c treelang/parse.h treelang/lex.c
+	-cp -p $^ $(srcdir)/treelang
 
-$(srcdir)/treelang/parse.c $(srcdir)/treelang/parse.h: $(srcdir)/treelang/parse.y
-	$(BISON) $(BISONFLAGS) -v $(srcdir)/treelang/parse.y\
-	--output=$(srcdir)/treelang/parse.c --defines
+treelang/lex.c: treelang/lex.l
+	-$(FLEX) $(FLEXFLAGS) -o$@ $<
+
+treelang/parse.c treelang/parse.h treelang/parse.output: treelang/parse.y
+	-$(BISON) $(BISONFLAGS) -v --defines --output=treelang/parse.c $<
+
 # -v
 
 gt-treelang-tree1.h gtype-treelang.h : s-gtype; @true
@@ -125,32 +130,34 @@ gt-treelang-tree1.h gtype-treelang.h : s-gtype; @true
 # Build hooks:
 
 treelang.all.build: treelang
-treelang.all.cross: 
+treelang.all.cross:
 	_error_not_here_yet - havent even thought about it - it may even work
 
 treelang.start.encap:
-treelang.rest.encap: 
+treelang.rest.encap:
+treelang.man:
+treelang.srcman:
 
-.phony:treelang.info
-treelang.info: $(srcdir)/treelang/treelang.info
+treelang.tags: force
+	cd $(srcdir)/treelang; etags -o TAGS.sub *.y *.l *.c *.h; \
+	etags --include TAGS.sub --include ../TAGS.sub
 
-$(srcdir)/treelang/treelang.info: $(srcdir)/treelang/treelang.texi \
-	 $(srcdir)/doc/include/gcc-common.texi \
-	 $(srcdir)/doc/include/gpl.texi \
-	 $(srcdir)/doc/include/fdl.texi \
-	 $(srcdir)/doc/include/funding.texi
-	cd $(srcdir) && $(MAKEINFO) $(MAKEINFOFLAGS) -Idoc/include \
-	-o treelang/treelang.info treelang/treelang.texi
+treelang.info: doc/treelang.info
 
-treelang.dvi: $(srcdir)/treelang/treelang.texi \
-	 $(srcdir)/doc/include/gcc-common.texi \
-	 $(srcdir)/doc/include/gpl.texi \
-	 $(srcdir)/doc/include/fdl.texi \
-	 $(srcdir)/doc/include/funding.texi
-	s=`cd $(srcdir); ${PWD}`; export s; \
-	cd treelang && $(TEXI2DVI) -I $$s/doc/include $$s/treelang/treelang.texi
+treelang.srcinfo: doc/treelang.info
+	-cp -p $^ $(srcdir)/doc
 
-treelang.generated-manpages:
+dvi:: doc/treelang.dvi
+
+doc/treelang.info: treelang/treelang.texi $(docdir)/include/gcc-common.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/include/funding.texi
+	$(MAKEINFO) $(MAKEINFOFLAGS) -I$(docdir)/include -o $@ $<
+
+doc/treelang.dvi: treelang/treelang.texi $(docdir)/include/gcc-common.texi \
+	 $(docdir)/include/gpl.texi $(docdir)/include/fdl.texi \
+	 $(docdir)/include/funding.texi
+	$(TEXI2DVI) -I $(abs_docdir)/include -o $@ $<
 
 #
 # Install hooks:
@@ -158,13 +165,13 @@ treelang.generated-manpages:
 # Nothing to do here.
 treelang.install-normal: treelang.install.common
 
-# Install 
+# Install
 .phony:treelang.install.common
 .phony:treelang.install
 
 treelang.install treelang.install.common treelang.install-common: treelang.install.common.done
 
-treelang.install.common.done:  installdirs treelang.done 
+treelang.install.common.done:  installdirs treelang.done
 	for name in $(TREE_EXES); \
 	do \
 	   if [ -f $$name ] ; then \
@@ -177,23 +184,10 @@ treelang.install.common.done:  installdirs treelang.done
 	done
 	$(STAMP) treelang.install.common.done
 
-treelang.install-info: $(srcdir)/treelang/treelang.info
-	if [ -f $(srcdir)/treelang/treelang.info ] ; then \
-	  rm -f $(DESTDIR)$(infodir)/treelang.info*; \
-	  for f in $(srcdir)/treelang/treelang.info*; do \
-	      realfile=`echo $$f | sed -e 's|.*/\([^/]*\)$$|\1|'`; \
-	      $(INSTALL_DATA) $$f $(DESTDIR)$(infodir)/$$realfile; \
-	  done; \
-	  chmod a-x $(DESTDIR)$(infodir)/treelang.info*; \
-	else true; fi
-	@if [ -f $(srcdir)/treelang/treelang.info ] ; then \
-	  if $(SHELL) -c 'install-info --version | sed 1q | fgrep -s -v -i debian' >/dev/null 2>&1; then \
-	    echo " install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/treelang.info"; \
-	    install-info --info-dir=$(DESTDIR)$(infodir) $(DESTDIR)$(infodir)/treelang.info || : ; \
-	  else : ; fi; \
-	else : ; fi
+# We might not be able to build the info files
+install-info:: $(DESTDIR)$(infodir)/treelang.info
 
-treelang.install-man: 
+treelang.install-man:
 
 treelang.uninstall:
 	for name in $(TREE_EXES); \
@@ -211,7 +205,7 @@ treelang.uninstall:
 # A lot of the ancillary files are deleted by the main makefile.
 # We just have to delete files specific to us.
 
-treelang.mostlyclean: 
+treelang.mostlyclean:
 	for name in $(TREE_EXES); \
 	do \
 	  echo deleting $$name; \
@@ -227,12 +221,10 @@ treelang.mostlyclean:
 treelang.clean: treelang.mostlyclean
 
 treelang.distclean: treelang.clean
-	-rm -f treelang/config.status 
+	-rm -f treelang/config.status
 	-rm -f treelang/*.output
 
-treelang.extraclean: treelang.distclean
-
-treelang.maintainer-clean: treelang.extraclean
+treelang.maintainer-clean: treelang.distclean
 	for name in $(TREE_GENERATED); \
 	do \
 	  if [ -f $(srcdir)/treelang/$$name ] ; then \
@@ -255,6 +247,10 @@ treelang.stage3: stage3-start
 	-mv treelang/*$(objext) stage3/treelang
 treelang.stage4: stage4-start
 	-mv treelang/*$(objext) stage4/treelang
+treelang.stageprofile: stageprofile-start
+	-mv treelang/*$(objext) stageprofile/treelang
+treelang.stagefeedback: stagefeedback-start
+	-mv treelang/*$(objext) stagefeedback/treelang
 #
 # Maintenance hooks:
 
@@ -264,56 +260,45 @@ treelang.distdir:
 #	not here yet sorry not sure if this is needed or not???
 
 # test hook
-# the other languages are hard coded in the main makefile.in - that seems to be wrong 
 
 check-treelang: treelang.check
 
 TESTSUITEDIR = testsuite
 
 treelang.check: $(TESTSUITEDIR)/site.exp
-	-mkdir testsuite/treelang 
+	-mkdir testsuite/treelang
 
 # these three files are empty and it seems diff has trouble generating
 # patch files for new empty files as required for cvs.
 # STAMP does not cut it here as I need an empty file.
 	touch $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
-	-rootme=`${PWD}`; export rootme; \
-	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
+	-rootme=`${PWD_COMMAND}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ; \
 	cd testsuite; \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	TRANSFORM=$(program_transform_name); export TRANSFORM; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD_COMMAND}` ; \
 	   export TCL_LIBRARY ; fi ; \
-	PATH=`cd ..;${PWD}`:$$PATH; export PATH; \
-	gcc_extras="-B`cd ..;${PWD}` -B`cd ..;${PWD}`/treelang"; export gcc_extras; \
+	PATH=`cd ..;${PWD_COMMAND}`:$$PATH; export PATH; \
+	gcc_extras="-B`cd ..;${PWD_COMMAND}` -B`cd ..;${PWD_COMMAND}`/treelang"; export gcc_extras; \
 	$(RUNTEST) --tool treelang $(RUNTESTFLAGS)
 	rm $(srcdir)/testsuite/treelang/{a01gcco01runpgmerr,a01gcc.out01,a01gcc.out01err}
 #	GCC_EXTRAS="$(GCC_EXTRAS)"; export GCC_EXTRAS; \
 
 # copy the output files from the current test to source ie say the new results are OK
 treelang.check.fix: force
-	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; 
+	srcdir=`cd ${srcdir}; ${PWD_COMMAND}` ; export srcdir ;
 	-cp testsuite/treelang/*.out* t
 	-cp testsuite/treelang/*runpgm* t
 	-rm -f t/*nofilename
 
-treelang.wc: force
-	wc  ${TREE_SOURCE}
-
 #
-
-# Update the tags table for emacs find label (alt-.) function
-TAGS: treelang.tags
-
-.PHONY: treelang.tags
-
-treelang.tags:
-	cd $(srcdir)/treelang;						\
-	etags -l c ${TREE_SOURCE}
 
 .PHONY: treelang.html
 
 treelang.html:
 	cd $(srcdir)/treelang && texi2html -I ../doc/include -verbose -menu -split_chapter -number treelang.texi
 #	mv treelang*.html $(srcdir)/treelang
+
+config.status: treelang/config-lang.in

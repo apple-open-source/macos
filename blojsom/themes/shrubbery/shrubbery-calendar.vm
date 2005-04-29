@@ -1,0 +1,48 @@
+<div class="sb ca">
+
+<table class="ccp"><tr><td colspan="7" class="ccp"><strong>$BLOJSOM_CALENDAR.getCaption()</strong></td></tr>
+
+## DOW Name Row
+
+<tr>
+
+#foreach( $downame in $BLOJSOM_CALENDAR.getShortDayOfWeekNames())
+
+	#if($downame)
+
+		<td class="ccl">$downame</td>
+
+	#end
+
+#end
+
+</tr>
+
+
+
+#foreach( $rowNum in [1..6] )
+
+<tr>
+
+    $BLOJSOM_CALENDAR_VTLHELPER.getCalendarRow($rowNum,"ccl")
+
+</tr>
+
+#end
+
+
+
+<tr>
+
+	<td colspan="2" class="ccl">$BLOJSOM_CALENDAR_VTLHELPER.getPreviousMonth()</td>
+
+	<td colspan="3" class="ccl">$BLOJSOM_CALENDAR_VTLHELPER.getToday()</td>
+
+	<td colspan="2" class="ccl">$BLOJSOM_CALENDAR_VTLHELPER.getNextMonth()</td>
+
+</tr>
+
+</table>
+
+</div>
+

@@ -42,7 +42,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: lex.h,v 1.8 2003/02/13 20:15:37 rjs3 Exp $ */
+/* $Id: lex.h,v 1.5 2005/03/05 00:37:10 dasenbro Exp $ */
 
 #ifndef _LEX_H_
 #define _LEX_H_

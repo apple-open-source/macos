@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2002, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 */
@@ -8,6 +8,15 @@
 #include "unicode/chariter.h"
 
 U_NAMESPACE_BEGIN
+
+ForwardCharacterIterator::~ForwardCharacterIterator() {}
+ForwardCharacterIterator::ForwardCharacterIterator()
+: UObject()
+{}
+ForwardCharacterIterator::ForwardCharacterIterator(const ForwardCharacterIterator &other)
+: UObject(other)
+{}
+
 
 CharacterIterator::CharacterIterator()
 : textLength(0), pos(0), begin(0), end(0) {

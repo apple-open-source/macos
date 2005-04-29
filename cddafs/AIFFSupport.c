@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -33,130 +31,149 @@
 #include "AppleCDDAFileSystemDebug.h"
 #endif
 
+#ifndef __APPLE_CDDA_FS_VNODE_OPS_H__
+#include "AppleCDDAFileSystemVNodeOps.h"
+#endif
+
 
 // System Includes
 #include <sys/systm.h>
+#include <libkern/OSByteOrder.h>
+
+
+#if defined(__LITTLE_ENDIAN__)
+
+// Conversion Routines
+static void
+SwapContainerChunk ( ContainerChunk * chunk );
+
+static void
+SwapFormatVersionChunk ( FormatVersionChunk * chunk );
+
+static void
+SwapExtCommonChunk ( ExtCommonChunk * chunk );
+
+static void
+SwapSoundDataChunk ( SoundDataChunk * chunk );
+
+static void
+SwapCDAIFFHeader ( CDAIFFHeader * header );
+
+static void
+SwapFloat80	( Float80 * value );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianContainerChunk_LtoB	-	This converts a little endian representation
+// 	SwapContainerChunk	-	This converts a little endian representation
 //									of a ContainerChunk into a big endian
 //									representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-ContainerChunk
-EndianContainerChunk_LtoB ( ContainerChunk chunk )
+static void
+SwapContainerChunk ( ContainerChunk * chunk )
 {
 	
-	chunk.ckID 		= EndianU32_LtoB ( chunk.ckID );
-	chunk.ckSize	= EndianS32_LtoB ( chunk.ckSize );
-	chunk.formType	= EndianU32_LtoB ( chunk.formType );
-	
-	return chunk;
+	chunk->ckID 	= OSSwapInt32 ( chunk->ckID );
+	chunk->ckSize	= OSSwapInt32 ( chunk->ckSize );
+	chunk->formType	= OSSwapInt32 ( chunk->formType );
 	
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianFormatVersionChunk_LtoB	-	This converts a little endian representation
+// 	SwapContainerChunk	-	This converts a little endian representation
 //										of a FormatVersionChunk into a big endian
 //										representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-FormatVersionChunk
-EndianFormatVersionChunk_LtoB ( FormatVersionChunk chunk )
+static void
+SwapFormatVersionChunk ( FormatVersionChunk * chunk )
 {
 	
-	chunk.ckID 		= EndianU32_LtoB ( chunk.ckID );
-	chunk.ckSize	= EndianS32_LtoB ( chunk.ckSize );
-	chunk.timeStamp	= EndianU32_LtoB ( chunk.timeStamp );
-	
-	return chunk;
+	chunk->ckID 		= OSSwapInt32 ( chunk->ckID );
+	chunk->ckSize		= OSSwapInt32 ( chunk->ckSize );
+	chunk->timeStamp	= OSSwapInt32 ( chunk->timeStamp );
 	
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianExtCommonChunk_LtoB	-	This converts a little endian representation
+// 	SwapExtCommonChunk	-	This converts a little endian representation
 //									of an ExtCommonChunk into a big endian
 //									representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-ExtCommonChunk
-EndianExtCommonChunk_LtoB ( ExtCommonChunk chunk )
+static void
+SwapExtCommonChunk ( ExtCommonChunk * chunk )
 {
 	
-	chunk.ckID				= EndianU32_LtoB ( chunk.ckID );
-	chunk.ckSize			= EndianS32_LtoB ( chunk.ckSize );
-	chunk.numChannels		= EndianS16_LtoB ( chunk.numChannels );
-	chunk.numSampleFrames	= EndianU32_LtoB ( chunk.numSampleFrames );
-	chunk.sampleSize		= EndianS16_LtoB ( chunk.sampleSize );
-	chunk.compressionType	= EndianU32_LtoB ( chunk.compressionType );
-	chunk.sampleRate		= EndianFloat80_LtoB ( chunk.sampleRate );
+	SwapFloat80 ( &chunk->sampleRate );
 	
-	return chunk;
+	chunk->ckID				= OSSwapInt32 ( chunk->ckID );
+	chunk->ckSize			= OSSwapInt32 ( chunk->ckSize );
+	chunk->numChannels		= OSSwapInt16 ( chunk->numChannels );
+	chunk->numSampleFrames	= OSSwapInt32 ( chunk->numSampleFrames );
+	chunk->sampleSize		= OSSwapInt16 ( chunk->sampleSize );
+	chunk->compressionType	= OSSwapInt32 ( chunk->compressionType );
 	
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianSoundDataChunk_LtoB	-	This converts a little endian representation
+// 	SwapSoundDataChunk	-	This converts a little endian representation
 //									of a SoundDataChunk into a big endian
 //									representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-SoundDataChunk
-EndianSoundDataChunk_LtoB ( SoundDataChunk chunk )
+static void
+SwapSoundDataChunk ( SoundDataChunk * chunk )
 {
 	
-	chunk.ckID 		= EndianU32_LtoB ( chunk.ckID );
-	chunk.ckSize 	= EndianS32_LtoB ( chunk.ckSize );
-	chunk.offset	= EndianU32_LtoB ( chunk.offset );
-	chunk.blockSize	= EndianU32_LtoB ( chunk.blockSize );
-	
-	return chunk;
-	
+	chunk->ckID 		= OSSwapInt32 ( chunk->ckID );
+	chunk->ckSize 		= OSSwapInt32 ( chunk->ckSize );
+	chunk->offset		= OSSwapInt32 ( chunk->offset );
+	chunk->blockSize	= OSSwapInt32 ( chunk->blockSize );
+		
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianCDAIFFHeader_LtoB	-	This converts a little endian representation
+// 	SwapCDAIFFHeader	-	This converts a little endian representation
 //								of a CDAIFFHeader into a big endian
 //								representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-CDAIFFHeader
-EndianCDAIFFHeader_LtoB	( CDAIFFHeader header )
+static void
+SwapCDAIFFHeader ( CDAIFFHeader * header )
 {
 	
-	header.u.AIFFHeader.containerChunk 		= EndianContainerChunk_LtoB 	( header.u.AIFFHeader.containerChunk );
-	header.u.AIFFHeader.formatVersionChunk	= EndianFormatVersionChunk_LtoB	( header.u.AIFFHeader.formatVersionChunk );
-	header.u.AIFFHeader.commonChunk			= EndianExtCommonChunk_LtoB 	( header.u.AIFFHeader.commonChunk );
-	header.u.AIFFHeader.soundDataChunk		= EndianSoundDataChunk_LtoB 	( header.u.AIFFHeader.soundDataChunk );
-	
-	return header;
+	SwapContainerChunk ( &header->containerChunk );
+	SwapFormatVersionChunk ( &header->formatVersionChunk );
+	SwapExtCommonChunk ( &header->commonChunk );
+	SwapSoundDataChunk ( &header->soundDataChunk );
 	
 }
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-// 	EndianFloat80_LtoB	-	This converts a little endian representation
+// 	SwapFloat80	-	This converts a little endian representation
 //							of a Float80 into a big endian representation
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-Float80
-EndianFloat80_LtoB	( Float80 data )
+static void
+SwapFloat80	( Float80 * data )
 {
 	
-	data.exp 	= EndianS16_LtoB ( data.exp );
-	data.man[0]	= EndianU16_LtoB ( data.man[0] );
-	data.man[1]	= EndianU16_LtoB ( data.man[1] );
-	data.man[2]	= EndianU16_LtoB ( data.man[2] );
-	data.man[3]	= EndianU16_LtoB ( data.man[3] );
-	
-	return data;
+	data->exp 		= OSSwapInt16 ( data->exp );
+	data->man[0]	= OSSwapInt16 ( data->man[0] );
+	data->man[1]	= OSSwapInt16 ( data->man[1] );
+	data->man[2]	= OSSwapInt16 ( data->man[2] );
+	data->man[3]	= OSSwapInt16 ( data->man[3] );
 	
 }
+
+
+#endif /* defined(__LITTLE_ENDIAN__) */
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
@@ -164,25 +181,21 @@ EndianFloat80_LtoB	( Float80 data )
 //							makes it Big Endian (as defined by AIFF standard)
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-CDAIFFHeader
-BuildCDAIFFHeader ( UInt32 fileSize )
+void
+BuildCDAIFFHeader ( CDAIFFHeader * header, uint32_t fileSize )
 {
 	
-	CDAIFFHeader			header;
-	ExtCommonChunkPtr		commonChunkPtr 			= NULL;
-	SoundDataChunkPtr		soundDataChunkPtr		= NULL;
-	ContainerChunkPtr		containerChunkPtr		= NULL;
-	FormatVersionChunkPtr	formatVersionChunkPtr	= NULL;
-	UInt32					dataSize				= fileSize - sizeof ( CDAIFFHeader );
+	ExtCommonChunk *		commonChunkPtr 			= NULL;
+	SoundDataChunk *		soundDataChunkPtr		= NULL;
+	ContainerChunk *		containerChunkPtr		= NULL;
+	FormatVersionChunk *	formatVersionChunkPtr	= NULL;
+	uint32_t				dataSize				= fileSize - kPhysicalMediaBlockSize;
 	
-	// Zero out the header structure
-	bzero ( &header, sizeof ( header ) );
-		
 	// Get the address of each sub-structure to make this easier to read
-	commonChunkPtr			= &header.u.AIFFHeader.commonChunk;
-	soundDataChunkPtr		= &header.u.AIFFHeader.soundDataChunk;
-	containerChunkPtr		= &header.u.AIFFHeader.containerChunk;
-	formatVersionChunkPtr	= &header.u.AIFFHeader.formatVersionChunk;
+	commonChunkPtr			= &header->commonChunk;
+	soundDataChunkPtr		= &header->soundDataChunk;
+	containerChunkPtr		= &header->containerChunk;
+	formatVersionChunkPtr	= &header->formatVersionChunk;
 	
 	// Setup the version chunk
 	formatVersionChunkPtr->ckID			= kFormatVersionID;
@@ -206,7 +219,7 @@ BuildCDAIFFHeader ( UInt32 fileSize )
 	
 	// Setup the soundData chunk
 	soundDataChunkPtr->ckID 		= kSoundDataID;
-	soundDataChunkPtr->offset 		= sizeof ( header.u.alignedHeader ) - sizeof ( header.u.AIFFHeader );
+	soundDataChunkPtr->offset 		= kPhysicalMediaBlockSize - sizeof ( CDAIFFHeader );
 	soundDataChunkPtr->ckSize 		= ( sizeof ( SoundDataChunk ) - sizeof ( ChunkHeader ) ) +
 									  dataSize + soundDataChunkPtr->offset;
 	soundDataChunkPtr->blockSize 	= 0;
@@ -217,17 +230,18 @@ BuildCDAIFFHeader ( UInt32 fileSize )
 					   			  ( formatVersionChunkPtr->ckSize + sizeof ( ChunkHeader ) ) + 	// size of common chunk
 					   			  ( commonChunkPtr->ckSize + sizeof ( ChunkHeader ) ) + 		// size of common chunk
 					   			  ( soundDataChunkPtr->ckSize + sizeof ( ChunkHeader ) );		// size of sound data chunk
-
 	
-	// save as uncompressed AIFF-C
+	// Save as uncompressed AIFF-C
 	containerChunkPtr->formType = kAIFCID;
+	
+#if defined(__LITTLE_ENDIAN__)
 	
 	// Convert from natural byte order to big endian byte order
 	// because AIFF Header data MUST be big endian (the audio data
 	// doesn't necessarily have to)
-	header = EndianCDAIFFHeader_NtoB ( header );
+	SwapCDAIFFHeader ( header );
 	
-	return header;
+#endif /* defined(__LITTLE_ENDIAN__) */
 	
 }
 

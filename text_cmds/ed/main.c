@@ -65,6 +65,12 @@ __RCSID("$NetBSD: main.c,v 1.9 1998/07/28 11:41:47 mycroft Exp $");
 #include <setjmp.h>
 #include <pwd.h>
 
+#ifdef __APPLE__
+#include <get_compat.h>
+#else
+#define COMPAT_MODE(a,b) (1)
+#endif /* __APPLE__ */
+
 #include "ed.h"
 
 
@@ -94,6 +100,8 @@ int red = 0;			/* if set, restrict shell/directory access */
 int scripted = 0;		/* if set, suppress diagnostics */
 int sigflags = 0;		/* if set, signals received while mutex set */
 int sigactive = 0;		/* if set, signal handlers are enabled */
+int posixly_correct = 0;	/* if set, POSIX behavior as per */
+/* http://www.opengroup.org/onlinepubs/009695399/utilities/ed.html */
 
 char old_filename[MAXPATHLEN + 1] = "";	/* default filename */
 long current_addr;		/* current address in editor buffer */
@@ -123,6 +131,8 @@ main(argc, argv)
 	(void) &argv;
 #endif
 
+	posixly_correct = COMPAT_MODE("bin/ed", "Unix2003");
+
 	red = (n = strlen(argv[0])) > 2 && argv[0][n - 3] == 'r';
 top:
 	while ((c = getopt(argc, argv, "p:sx")) != -1)
@@ -148,7 +158,7 @@ top:
 		}
 	argv += optind;
 	argc -= optind;
-	if (argc && **argv == '-') {
+	if (argc && 0==strcmp(*argv, "-")) {
 		scripted = 1;
 		if (argc > 1) {
 			optind = 1;
@@ -179,10 +189,16 @@ top:
 		if (argc && **argv && is_legal_filename(*argv)) {
 			if (read_file(*argv, 0) < 0 && !isatty(0))
 				quit(2);
-			else if (**argv != '!')
-				strcpy(old_filename, *argv);
+			else if (**argv != '!') {
+				if (strlen(*argv) < sizeof(old_filename)) {
+					strcpy(old_filename, *argv);
+				} else {
+					fprintf(stderr, "%s: filename too long\n", *argv);
+					quit(2);
+				}
+			}
 		} else if (argc) {
-			fputs("?\n", stderr);
+			fputs("?\n", stdout);
 			if (**argv == '\0')
 				sprintf(errmsg, "invalid filename");
 			if (!isatty(0))
@@ -253,7 +269,7 @@ top:
 				    errmsg);
 			quit(3);
 		default:
-			fputs("?\n", stderr);
+			fputs("?\n", stdout);
 			if (!isatty(0)) {
 				fprintf(stderr, garrulous ? 
 				    "script, line %d: %s\n" : "",
@@ -305,6 +321,11 @@ next_addr()
 	long addr = current_addr;
 	long n;
 	int first = 1;
+	int add = 0;		
+/*
+  Legal addresses to add to
+?re?	/re/	.	$	\x
+ */
 	int c;
 
 	SKIP_BLANKS();
@@ -326,14 +347,18 @@ next_addr()
 		case '0': case '1': case '2':
 		case '3': case '4': case '5':
 		case '6': case '7': case '8': case '9':
-			MUST_BE_FIRST();
-			STRTOL(addr, ibufp);
+			STRTOL(n, ibufp);
+			if (first || !add) /* don't add for ,\d or ;\d */
+				addr = n;
+			else
+				addr += n;
 			break;
 		case '.':
 		case '$':
 			MUST_BE_FIRST();
 			ibufp++;
 			addr = (c == '.') ? current_addr : addr_last;
+			add++;
 			break;
 		case '/':
 		case '?':
@@ -343,12 +368,14 @@ next_addr()
 				return ERR;
 			else if (c == *ibufp)
 				ibufp++;
+			add++;
 			break;
 		case '\'':
 			MUST_BE_FIRST();
 			ibufp++;
 			if ((addr = get_marked_node_addr(*ibufp++)) < 0)
 				return ERR;
+			add++;
 			break;
 		case '%':
 		case ',':
@@ -373,44 +400,31 @@ next_addr()
 	/* NOTREACHED */
 }
 
+#define GET_THIRD_ADDR(x) get_third_addr(&x)
 
-#ifdef BACKWARDS
-/* GET_THIRD_ADDR: get a legal address from the command buffer */
-#define GET_THIRD_ADDR(addr) \
-{ \
-	long ol1, ol2; \
-\
-	ol1 = first_addr, ol2 = second_addr; \
-	if (extract_addr_range() < 0) \
-		return ERR; \
-	else if (addr_cnt == 0) { \
-		sprintf(errmsg, "destination expected"); \
-		return ERR; \
-	} else if (second_addr < 0 || addr_last < second_addr) { \
-		sprintf(errmsg, "invalid address"); \
-		return ERR; \
-	} \
-	addr = second_addr; \
-	first_addr = ol1, second_addr = ol2; \
+static long get_third_addr(long *addr) {
+	long ol1, ol2;
+	ol1 = first_addr, ol2 = second_addr;
+	if (extract_addr_range() < 0)
+		return ERR;
+	if (!posixly_correct) { 
+		if (addr_cnt == 0) {
+			sprintf(errmsg, "destination expected");
+			return ERR;
+		} else if (second_addr < 0 || addr_last < second_addr) {
+			sprintf(errmsg, "invalid address");
+			return ERR;
+		}
+	} else {
+		if (second_addr < 0 || addr_last < second_addr) {
+		       sprintf(errmsg, "invalid address");
+		       return ERR;
+		}
+	}
+	*addr = second_addr;
+	first_addr = ol1, second_addr = ol2;
+	return *addr;
 }
-#else	/* BACKWARDS */
-/* GET_THIRD_ADDR: get a legal address from the command buffer */
-#define GET_THIRD_ADDR(addr) \
-{ \
-	long ol1, ol2; \
-\
-	ol1 = first_addr, ol2 = second_addr; \
-	if (extract_addr_range() < 0) \
-		return ERR; \
-	if (second_addr < 0 || addr_last < second_addr) { \
-		sprintf(errmsg, "invalid address"); \
-		return ERR; \
-	} \
-	addr = second_addr; \
-	first_addr = ol1, second_addr = ol2; \
-}
-#endif
-
 
 /* GET_COMMAND_SUFFIX: verify the command suffix in the command buffer */
 #define GET_COMMAND_SUFFIX() { \
@@ -476,6 +490,8 @@ exec_command()
 			return ERR;
 		break;
 	case 'c':
+		if (first_addr == 0)
+			first_addr = 1;
 		if (check_addr_range(current_addr, current_addr) < 0)
 			return ERR;
 		GET_COMMAND_SUFFIX();
@@ -483,6 +499,8 @@ exec_command()
 		if (delete_lines(first_addr, second_addr) < 0 ||
 		    append_lines(current_addr) < 0)
 			return ERR;
+		if (current_addr == 0 && addr_last != 0)
+			current_addr = 1;
 		break;
 	case 'd':
 		if (check_addr_range(current_addr, current_addr) < 0)
@@ -493,6 +511,8 @@ exec_command()
 			return ERR;
 		else if ((addr = INC_MOD(current_addr, addr_last)) != 0)
 			current_addr = addr;
+		if (current_addr == 0 && addr_last != 0)
+			current_addr = 1;
 		break;
 	case 'e':
 		if (modified && !scripted)
@@ -515,13 +535,20 @@ exec_command()
 			return ERR;
 		else if (open_sbuf() < 0)
 			return FATAL;
-		if (*fnp && *fnp != '!') strcpy(old_filename, fnp);
-#ifdef BACKWARDS
-		if (*fnp == '\0' && *old_filename == '\0') {
+		if (*fnp && *fnp != '!') {
+			if (strlen(fnp) < sizeof(old_filename)) {
+				strcpy(old_filename, fnp);
+			} else {
+				fprintf(stderr, "%s: filename too long\n", fnp);
+				quit(2);
+			}
+		}
+
+		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
 			sprintf(errmsg, "no current filename");
 			return ERR;
 		}
-#endif
+
 		if (read_file(*fnp ? fnp : old_filename, 0) < 0)
 			return ERR;
 		clear_undo_stack();
@@ -542,7 +569,14 @@ exec_command()
 			return ERR;
 		}
 		GET_COMMAND_SUFFIX();
-		if (*fnp) strcpy(old_filename, fnp);
+		if (*fnp) {
+			if (strlen(fnp) < sizeof(old_filename)) {
+				strcpy(old_filename, fnp);
+			} else {
+				fprintf(stderr, "%s: filename too long\n", fnp);
+				quit(2);
+			}
+		}
 		printf("%s\n", strip_escapes(old_filename));
 		break;
 	case 'g':
@@ -559,7 +593,10 @@ exec_command()
 		else if ((n = (c == 'G' || c == 'V')) != 0)
 			GET_COMMAND_SUFFIX();
 		isglobal++;
-		if (exec_global(n, gflag) < 0)
+		n = exec_global(n, gflag);
+		if (n == EOF) 
+			return EOF;
+		else if (n < 0)
 			return ERR; 
 		break;
 	case 'h':
@@ -581,13 +618,14 @@ exec_command()
 		break;
 	case 'i':
 		if (second_addr == 0) {
-			sprintf(errmsg, "invalid address");
-			return ERR;
+			second_addr = 1;
 		}
 		GET_COMMAND_SUFFIX();
 		if (!isglobal) clear_undo_stack();
 		if (append_lines(second_addr - 1) < 0)
 			return ERR;
+		if (u_addr_last == addr_last) /* nothing inserted */
+			current_addr = second_addr;
 		break;
 	case 'j':
 		if (check_addr_range(current_addr, current_addr + 1) < 0)
@@ -619,7 +657,8 @@ exec_command()
 	case 'm':
 		if (check_addr_range(current_addr, current_addr) < 0)
 			return ERR;
-		GET_THIRD_ADDR(addr);
+		if (ERR == GET_THIRD_ADDR(addr))
+			return ERR;
 		if (first_addr <= addr && addr < second_addr) {
 			sprintf(errmsg, "invalid destination");
 			return ERR;
@@ -673,20 +712,27 @@ exec_command()
 		GET_COMMAND_SUFFIX();
 		if (!isglobal) clear_undo_stack();
 		if (*old_filename == '\0' && *fnp != '!')
-			strcpy(old_filename, fnp);
-#ifdef BACKWARDS
-		if (*fnp == '\0' && *old_filename == '\0') {
+			if (strlen(fnp) < sizeof(old_filename)) {
+				strcpy(old_filename, fnp);
+			} else {
+				fprintf(stderr, "%s: filename too long\n", fnp);
+				quit(2);
+			}
+		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
 			sprintf(errmsg, "no current filename");
 			return ERR;
 		}
-#endif
 		if ((addr = read_file(*fnp ? fnp : old_filename, second_addr)) < 0)
 			return ERR;
 		else if (addr && addr != addr_last)
 			modified = 1;
 		break;
 	case 's':
-		do {
+		/*
+		 * POSIX requires ed to process srabcr123r as
+		 * replace abc with 123 delimiter='r'
+		 */
+		if (!posixly_correct) do {
 			switch(*ibufp) {
 			case '\n':
 				sflags |=SGF;
@@ -775,7 +821,8 @@ exec_command()
 	case 't':
 		if (check_addr_range(current_addr, current_addr) < 0)
 			return ERR;
-		GET_THIRD_ADDR(addr);
+		if (ERR == GET_THIRD_ADDR(addr))
+			return ERR;
 		GET_COMMAND_SUFFIX();
 		if (!isglobal) clear_undo_stack();
 		if (copy_lines(addr) < 0)
@@ -806,14 +853,17 @@ exec_command()
 		else if (check_addr_range(1, addr_last) < 0)
 			return ERR;
 		GET_COMMAND_SUFFIX();
-		if (*old_filename == '\0' && *fnp != '!')
-			strcpy(old_filename, fnp);
-#ifdef BACKWARDS
-		if (*fnp == '\0' && *old_filename == '\0') {
+		if (*old_filename == '\0' && *fnp != '!') 
+			if  (strlen(fnp) < sizeof(old_filename)) {
+				strcpy(old_filename, fnp);
+			} else {
+				fprintf(stderr, "%s: filename too long\n", fnp);
+				quit(2);
+			}
+		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
 			sprintf(errmsg, "no current filename");
 			return ERR;
 		}
-#endif
 		if ((addr = write_file(*fnp ? fnp : old_filename, 
 		    (c == 'W') ? "a" : "w", first_addr, second_addr)) < 0)
 			return ERR;
@@ -836,11 +886,9 @@ exec_command()
 #endif
 		break;
 	case 'z':
-#ifdef BACKWARDS
-		if (check_addr_range(first_addr = 1, current_addr + 1) < 0)
-#else
-		if (check_addr_range(first_addr = 1, current_addr + !isglobal) < 0)
-#endif
+		if (check_addr_range(first_addr = 1,
+				     current_addr + (posixly_correct ?
+				         !isglobal : 1)) < 0)
 			return ERR;
 		else if ('0' < *ibufp && *ibufp <= '9')
 			STRTOL(rows, ibufp);
@@ -862,15 +910,14 @@ exec_command()
 			return ERR;
 		GET_COMMAND_SUFFIX();
 		if (sflags) printf("%s\n", shcmd + 1);
+		fflush(stdout);
 		system(shcmd + 1);
 		if (!scripted) printf("!\n");
 		break;
 	case '\n':
-#ifdef BACKWARDS
-		if (check_addr_range(first_addr = 1, current_addr + 1) < 0
-#else
-		if (check_addr_range(first_addr = 1, current_addr + !isglobal) < 0
-#endif
+		if (check_addr_range(first_addr = 1, 
+				     current_addr + (posixly_correct ? 
+				         !isglobal : 1)) < 0
 		 || display_lines(second_addr, second_addr, 0) < 0)
 			return ERR;
 		break;
@@ -957,12 +1004,10 @@ get_filename()
 			return  NULL;
 		}
 	}
-#ifndef BACKWARDS
-	else if (*old_filename == '\0') {
+	else if (posixly_correct && *old_filename == '\0') {
 		sprintf(errmsg, "no current filename");
 		return  NULL;
 	}
-#endif
 	REALLOC(file, filesz, MAXPATHLEN + 1, NULL);
 	for (n = 0; *ibufp != '\n';)
 		file[n++] = *ibufp++;
@@ -1003,11 +1048,7 @@ get_shell_command()
 				REALLOC(buf, n, i + 1, ERR);
 				buf[i++] = *ibufp++;
 			}
-#ifdef BACKWARDS
-			else if (shcmd == NULL || *(shcmd + 1) == '\0')
-#else
-			else if (shcmd == NULL)
-#endif
+			else if (shcmd == NULL || (!posixly_correct && *(shcmd + 1) == '\0'))
 			{
 				sprintf(errmsg, "no previous command");
 				return ERR;
@@ -1122,6 +1163,8 @@ join_lines(from, to)
 		return ERR;
 	}
 	modified = 1;
+	if (current_addr == 0)
+		current_addr = 1;
 	SPL0();
 	return 0;
 }
@@ -1293,6 +1336,16 @@ get_marked_node_addr(n)
 		return ERR;
 	}
 	return get_line_node_addr(mark[n - 'a']);
+}
+
+/* Used by search and replace */
+void
+replace_marks(line_t *old, line_t *new)
+{
+	int i;
+	for (i=0; markno && i<MAXMARK; i++) 
+		if (mark[i] == old)
+			mark[i] = new;
 }
 
 

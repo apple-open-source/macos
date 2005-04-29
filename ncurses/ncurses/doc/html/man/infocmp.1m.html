@@ -2,7 +2,7 @@
 <!-- 
   * t
   ****************************************************************************
-  * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+  * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
   *                                                                          *
   * Permission is hereby granted, free of charge, to any person obtaining a  *
   * copy of this software and associated documentation files (the            *
@@ -28,17 +28,23 @@
   * sale, use or other dealings in this Software without prior written       *
   * authorization.                                                           *
   ****************************************************************************
-  * @Id: infocmp.1m,v 1.27 2000/08/19 18:51:05 tom Exp @
+  * @Id: infocmp.1m,v 1.34 2003/10/25 16:19:01 tom Exp @
 -->
 <HTML>
 <HEAD>
-<TITLE>infocmp 1m</TITLE><link rev=made href="mailto:bug-ncurses@gnu.org">
+<TITLE>infocmp 1m</TITLE>
+<link rev=made href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 </HEAD>
 <BODY>
 <H1>infocmp 1m</H1>
 <HR>
 <PRE>
 <!-- Manpage converted by man2html 3.0.1 -->
+<STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>                                           <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>
+
+
+
 
 </PRE>
 <H2>NAME</H2><PRE>
@@ -47,7 +53,8 @@
 
 </PRE>
 <H2>SYNOPSIS</H2><PRE>
-       <STRONG>infocmp</STRONG> [<STRONG>-dceEGgnpqrILCuV1</STRONG>] [<STRONG>-v</STRONG> <EM>n</EM>] [<STRONG>-s</STRONG> <STRONG>d</STRONG>| <STRONG>i</STRONG>| <STRONG>l</STRONG>| <STRONG>c</STRONG>]
+       <STRONG>infocmp</STRONG> [<STRONG>-1CEFGILTVcdegilnpqrtu</STRONG>]
+             [<STRONG>-v</STRONG> <EM>n</EM>] [<STRONG>-s</STRONG> <STRONG>d</STRONG>| <STRONG>i</STRONG>| <STRONG>l</STRONG>| <STRONG>c</STRONG>] [<STRONG>-R</STRONG> <STRONG>subset</STRONG>]
              [<STRONG>-w</STRONG> <EM>width</EM>] [<STRONG>-A</STRONG> <EM>directory</EM>] [<STRONG>-B</STRONG> <EM>directory</EM>]
              [<EM>termname</EM>...]
 
@@ -98,7 +105,6 @@
 
       <STRONG>-I</STRONG>   use the <STRONG>terminfo</STRONG> names
       <STRONG>-L</STRONG>   use the long C variable name listed in &lt;<STRONG>term.h</STRONG>&gt;
-
       <STRONG>-C</STRONG>   use the <STRONG>termcap</STRONG> names
       <STRONG>-r</STRONG>   when using <STRONG>-C</STRONG>, put out all capabilities in <STRONG>termcap</STRONG> form
 
@@ -207,30 +213,34 @@
        comparing descriptions for the same  terminal  created  by
        different people.
 
-   <STRONG>Other</STRONG>  <STRONG>Options</STRONG>  <STRONG>[-s</STRONG> <STRONG>d|i|l|c]</STRONG> <STRONG>[-1FTVefip]</STRONG> <STRONG>[-Rsubset]</STRONG> <STRONG>[-v</STRONG> <EM>n</EM>] [-w
-       <EM>width</EM>]
-       The <STRONG>-s</STRONG> option sorts the fields within each type  according
-       to the argument below:
-
-       <STRONG>d</STRONG>    leave fields in the order that they are stored in the
-            <EM>terminfo</EM> database.
-
-       <STRONG>i</STRONG>    sort by <EM>terminfo</EM> name.
-
-       <STRONG>l</STRONG>    sort by the long C variable name.
-
-       <STRONG>c</STRONG>    sort by the <EM>termcap</EM> name.
-
-            If the <STRONG>-s</STRONG> option is not given, the fields printed out
-            will  be  sorted  alphabetically by the <STRONG>terminfo</STRONG> name
-            within each type, except in the case of the <STRONG>-C</STRONG> or the
-            <STRONG>-L</STRONG> options, which cause the sorting to be done by the
-            <STRONG>termcap</STRONG> name or the long  C  variable  name,  respec-
-            tively.
-
+   <STRONG>Other</STRONG> <STRONG>Options</STRONG>
        <STRONG>-1</STRONG>   causes  the  fields  to be printed out one to a line.
             Otherwise, the fields will be printed  several  to  a
             line to a maximum width of 60 characters.
+
+       <STRONG>-a</STRONG>   tells  <STRONG>infocmp</STRONG>  to  retain commented-out capabilities
+            rather than discarding them.  Capabilities  are  com-
+            mented by prefixing them with a period.
+
+       <STRONG>-E</STRONG>   Dump  the  capabilities  of  the  given  terminal  as
+            tables, needed in the C initializer  for  a  TERMTYPE
+            structure  (the  terminal capability structure in the
+            <STRONG>&lt;term.h&gt;</STRONG>).  This option is useful for preparing  ver-
+            sions  of  the  curses  library hardwired for a given
+            terminal type.  The tables are all  declared  static,
+            and  are  named according to the type and the name of
+            the corresponding terminal entry.
+
+            Before ncurses 5.0, the split between the <STRONG>-e</STRONG>  and  <STRONG>-E</STRONG>
+            options  was  not  needed;  but  support for extended
+            names required making the arrays of terminal capabil-
+            ities separate from the TERMTYPE structure.
+
+       <STRONG>-e</STRONG>   Dump  the  capabilities  of the given terminal as a C
+            initializer for a TERMTYPE  structure  (the  terminal
+            capability  structure  in the <STRONG>&lt;term.h&gt;</STRONG>).  This option
+            is  useful  for  preparing  versions  of  the  curses
+            library hardwired for a given terminal type.
 
        <STRONG>-F</STRONG>   compare  terminfo  files.  This assumes that two fol-
             lowing  arguments  are  filenames.   The  files   are
@@ -245,77 +255,29 @@
             ferences, but resolution can be forced by also speci-
             fying <STRONG>-r</STRONG>.
 
-       <STRONG>-G</STRONG>   Display constant literals in decimal form rather than
-            their character equivalents.
-
-       <STRONG>-a</STRONG>   tells  <STRONG>infocmp</STRONG>  to  retain commented-out capabilities
-            rather than discarding them.  Capabilities  are  com-
-            mented by prefixing them with a period.
-
-       <STRONG>-q</STRONG>   Make  the comparison listing shorter by omitting sub-
-            headings, and using "-" for absent capabilities,  "@"
-            for canceled rather than "NULL".
-
-       <STRONG>-R</STRONG><EM>subset</EM>
-            Restrict  output  to  a given subset.  This option is
-            for use with archaic versions of terminfo like  those
-            on  SVr1,  Ultrix,  or  HP/UX that do not support the
-            full set of SVR4/XSI Curses  terminfo;  and  variants
-            such as AIX that have their own extensions incompati-
-            ble with SVr4/XSI.  Available  terminfo  subsets  are
-            "SVr1",  "Ultrix",  "HP",  and "AIX"; see <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
-            for details.  You can also choose  the  subset  "BSD"
-            which  selects only capabilities with termcap equiva-
-            lents recognized by 4.4BSD.
-
-       <STRONG>-T</STRONG>   eliminates size-restrictions on the  generated  text.
-            This is mainly useful for testing and analysis, since
-            the compiled descriptions are limited (e.g., 1023 for
-            termcap, 4096 for terminfo).
-
-       <STRONG>-V</STRONG>   reports the version of ncurses which was used in this
-            program, and exits.
-
-       <STRONG>-e</STRONG>   Dump the capabilities of the given terminal  as  a  C
-            initializer  for  a  TERMTYPE structure (the terminal
-            capability structure in the <STRONG>&lt;term.h&gt;</STRONG>).   This  option
-            is  useful  for  preparing  versions  of  the  curses
-            library hardwired for a given terminal type.
-
-       <STRONG>-E</STRONG>   Dump  the  capabilities  of  the  given  terminal  as
-            tables,  needed  in  the C initializer for a TERMTYPE
-            structure (the terminal capability structure  in  the
-            <STRONG>&lt;term.h&gt;</STRONG>).   This option is useful for preparing ver-
-            sions of the curses library  hardwired  for  a  given
-            terminal  type.   The tables are all declared static,
-            and are named according to the type and the  name  of
-            the corresponding terminal entry.
-
-            Before  ncurses  5.0, the split between the <STRONG>-e</STRONG> and <STRONG>-E</STRONG>
-            options was not  needed;  but  support  for  extended
-            names required making the arrays of terminal capabil-
-            ities separate from the TERMTYPE structure.
-
        <STRONG>-f</STRONG>   Display  complex  terminfo  strings   which   contain
             if/then/else/endif expressions indented for readabil-
             ity.
 
-       <STRONG>-g</STRONG>   Display constant character literals  in  quoted  form
+       <STRONG>-G</STRONG>   Display constant literals in decimal form rather than
+            their character equivalents.
+
+       <STRONG>-g</STRONG>   Display  constant  character  literals in quoted form
             rather than their decimal equivalents.
 
        <STRONG>-i</STRONG>   Analyze the initialization (<STRONG>is1</STRONG>, <STRONG>is2</STRONG>, <STRONG>is3</STRONG>), and reset
-            (<STRONG>rs1</STRONG>, <STRONG>rs2</STRONG>, <STRONG>rs3</STRONG>), strings  in  the  entry.   For  each
-            string,  the code tries to analyze it into actions in
+            (<STRONG>rs1</STRONG>,  <STRONG>rs2</STRONG>,  <STRONG>rs3</STRONG>),  strings  in  the entry.  For each
+            string, the code tries to analyze it into actions  in
             terms of the other capabilities in the entry, certain
-            X3.64/ISO  6429/ECMA-48 capabilities, and certain DEC
-            VT-series private modes (the set of  recognized  spe-
-            cial  sequences  has  been  selected for completeness
-            over the existing terminfo  database).   Each  report
-            line  consists  of the capability name, followed by a
+            X3.64/ISO 6429/ECMA-48 capabilities, and certain  DEC
+            VT-series  private  modes (the set of recognized spe-
+            cial sequences has  been  selected  for  completeness
+            over  the  existing  terminfo database).  Each report
+            line consists of the capability name, followed  by  a
             colon and space, followed by a printable expansion of
-            the  capability  string with sections matching recog-
-            nized   actions    translated    into    {}-bracketed
-            descriptions.  Here is a list of the DEC/ANSI special
+            the capability string with sections  matching  recog-
+            nized  actions  translated into {}-bracketed descrip-
+            tions.  Here  is  a  list  of  the  DEC/ANSI  special
             sequences recognized:
 
                   Action        Meaning
@@ -346,19 +308,69 @@
                   DEC[+-]AWM    wraparound mode
                   DEC[+-]ARM    auto-repeat mode
 
-            It also recognizes  a  SGR  action  corresponding  to
-            ANSI/ISO  6429/ECMA  Set Graphics Rendition, with the
-            values NORMAL, BOLD, UNDERLINE, BLINK,  and  REVERSE.
-            All  but NORMAL may be prefixed with `+' (turn on) or
+            It  also  recognizes  a  SGR  action corresponding to
+            ANSI/ISO 6429/ECMA Set Graphics Rendition,  with  the
+            values  NORMAL,  BOLD, UNDERLINE, BLINK, and REVERSE.
+            All but NORMAL may be prefixed with `+' (turn on)  or
             `-' (turn off).
 
-            An  SGR0  designates  an  empty  highlight   sequence
+            An   SGR0  designates  an  empty  highlight  sequence
             (equivalent to {SGR:NORMAL}).
+
+       <STRONG>-l</STRONG>   Set output format to terminfo.
 
        <STRONG>-p</STRONG>   Ignore padding specifications when comparing strings.
 
-       <STRONG>-v</STRONG> <EM>n</EM> prints out tracing information on standard  error  as
-            the  program runs.  Higher values of n induce greater
+       <STRONG>-q</STRONG>   Make  the comparison listing shorter by omitting sub-
+            headings, and using "-" for absent capabilities,  "@"
+            for canceled rather than "NULL".
+
+       <STRONG>-R</STRONG><EM>subset</EM>
+            Restrict  output  to  a given subset.  This option is
+            for use with archaic versions of terminfo like  those
+            on  SVr1,  Ultrix,  or  HP/UX that do not support the
+            full set of SVR4/XSI Curses  terminfo;  and  variants
+            such as AIX that have their own extensions incompati-
+            ble with SVr4/XSI.  Available  terminfo  subsets  are
+            "SVr1",  "Ultrix",  "HP",  and "AIX"; see <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+            for details.  You can also choose  the  subset  "BSD"
+            which  selects only capabilities with termcap equiva-
+            lents recognized by 4.4BSD.
+
+       <STRONG>-s</STRONG> <EM>[d|i|l|c]</EM>
+            The <STRONG>-s</STRONG> option  sorts  the  fields  within  each  type
+            according to the argument below:
+
+            <STRONG>d</STRONG>    leave  fields  in the order that they are stored
+                 in the <EM>terminfo</EM> database.
+
+            <STRONG>i</STRONG>    sort by <EM>terminfo</EM> name.
+
+            <STRONG>l</STRONG>    sort by the long C variable name.
+
+            <STRONG>c</STRONG>    sort by the <EM>termcap</EM> name.
+
+            If the <STRONG>-s</STRONG> option is not given, the fields printed out
+            will  be  sorted  alphabetically by the <STRONG>terminfo</STRONG> name
+            within each type, except in the case of the <STRONG>-C</STRONG> or the
+            <STRONG>-L</STRONG> options, which cause the sorting to be done by the
+            <STRONG>termcap</STRONG> name or the long  C  variable  name,  respec-
+            tively.
+
+       <STRONG>-T</STRONG>   eliminates  size-restrictions  on the generated text.
+            This is mainly useful for testing and analysis, since
+            the compiled descriptions are limited (e.g., 1023 for
+            termcap, 4096 for terminfo).
+
+       <STRONG>-t</STRONG>   tells  <STRONG>tic</STRONG>  to  discard  commented-out  capabilities.
+            Normally  when  translating from terminfo to termcap,
+            untranslatable capabilities are commented-out.
+
+       <STRONG>-V</STRONG>   reports the version of ncurses which was used in this
+            program, and exits.
+
+       <STRONG>-v</STRONG> <EM>n</EM> prints  out  tracing information on standard error as
+            the program runs.  Higher values of n induce  greater
             verbosity.
 
        <STRONG>-w</STRONG> <EM>width</EM>
@@ -367,72 +379,40 @@
 
 </PRE>
 <H2>FILES</H2><PRE>
-       /usr/share/terminfo Compiled     terminal      description
+       /usr/share/terminfo Compiled      terminal     description
                            database.
-
 
 
 </PRE>
 <H2>EXTENSIONS</H2><PRE>
-       The <STRONG>-E</STRONG>, <STRONG>-F</STRONG>, <STRONG>-G</STRONG>, <STRONG>-R</STRONG>, <STRONG>-T</STRONG>, <STRONG>-V</STRONG>, <STRONG>-a</STRONG>, <STRONG>-e</STRONG>, <STRONG>-f</STRONG>, <STRONG>-g</STRONG>, <STRONG>-i</STRONG>, <STRONG>-p</STRONG>, and <STRONG>-q</STRONG>
-       options are not supported in SVr4 curses.
+       The <STRONG>-E</STRONG>, <STRONG>-F</STRONG>, <STRONG>-G</STRONG>, <STRONG>-R</STRONG>, <STRONG>-T</STRONG>, <STRONG>-V</STRONG>, <STRONG>-a</STRONG>, <STRONG>-e</STRONG>, <STRONG>-f</STRONG>, <STRONG>-g</STRONG>, <STRONG>-i</STRONG>, <STRONG>-l</STRONG>, <STRONG>-p</STRONG>, <STRONG>-q</STRONG>
+       and <STRONG>-t</STRONG> options are not supported in SVr4 curses.
 
        The <STRONG>-r</STRONG> option's notion of `termcap' capabilities is System
-       V  Release  4's.   Actual  BSD curses versions will have a
-       more restricted set.  To see only the 4.4BSD set,  use  -r
-       -RBSD.
+       V Release 4's.  Actual BSD curses  versions  will  have  a
+       more  restricted  set.  To see only the 4.4BSD set, use <STRONG>-r</STRONG>
+       <STRONG>-RBSD</STRONG>.
 
 
 </PRE>
 <H2>BUGS</H2><PRE>
-       The -F option of <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG> should be a <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG> mode.
+       The <STRONG>-F</STRONG> option of <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG> should be a <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG> mode.
 
 
 </PRE>
 <H2>SEE ALSO</H2><PRE>
-       <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,    <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>,
+       <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,    <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>,
        <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
 
 
 </PRE>
 <H2>AUTHOR</H2><PRE>
-       Eric S.  Raymond  &lt;esr@snark.thyrsus.com&gt;  and  Thomas  E.
-       Dickey &lt;dickey@herndon4.his.com&gt;
+       Eric S. Raymond &lt;esr@snark.thyrsus.com&gt; and
+       Thomas E. Dickey &lt;dickey@invisible-island.net&gt;
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                                                      <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>
 </PRE>
 <HR>
 <ADDRESS>

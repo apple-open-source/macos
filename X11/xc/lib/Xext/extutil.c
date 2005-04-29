@@ -45,7 +45,7 @@ in this Software without prior written authorization from The Open Group.
  *         XSetExtensionErrorHandler	establish an extension error handler
  *         XMissingExtension		raise an error about missing ext
  */
-/* $XFree86: xc/lib/Xext/extutil.c,v 1.5 2002/10/16 00:37:27 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/extutil.c,v 1.6 2003/11/17 22:20:21 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xlibint.h>
@@ -255,20 +255,13 @@ static int _default_exterror (
 
 extern int (*_XExtensionErrorFunction)();
 
-#if NeedFunctionPrototypes
 int (*XSetExtensionErrorHandler(
     int (*handler)(
-#if NeedNestedPrototypes
 		   Display*,
 		   char *,
 		   char *
-#endif
 		   )
 ))()
-#else
-int (*XSetExtensionErrorHandler(handler))()
-    int (*handler)();
-#endif
 {
     int (*oldhandler)() = _XExtensionErrorFunction;
 
@@ -281,15 +274,10 @@ int (*XSetExtensionErrorHandler(handler))()
 /*
  * XMissingExtension - call the extension error handler
  */
-#if NeedFunctionPrototypes
-int XMissingExtension (
+int
+XMissingExtension (
     Display *dpy,
     _Xconst char *ext_name)
-#else
-int XMissingExtension (dpy, ext_name)
-    Display *dpy;
-    char *ext_name;
-#endif
 {
     int (*func)() = (_XExtensionErrorFunction ?
 		     _XExtensionErrorFunction : _default_exterror);

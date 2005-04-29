@@ -4,7 +4,7 @@
 // This file distributed without any expressed or implied warranty
 // Nilgün Belma Bugüner <nilgun@superonline.com>, 2002
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/tr,v 1.4 2003/01/04 02:55:20 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/tr,v 1.6 2003/06/21 13:01:59 pascal Exp $
 
 //Default Layout (Turkish Q)
 default partial
@@ -14,17 +14,17 @@ xkb_symbols "basic" {
 
     name[Group1]="Turkish";
 
-    key <AE01>	{ type[group1] = "FOUR_LEVEL", [         1,    exclam,    onesuperior,    exclamdown ]	};
-    key <AE02>	{ type[group1] = "FOUR_LEVEL", [         2, apostrophe,      sterling,   twosuperior ]	};
-    key <AE03>	{ type[group1] = "FOUR_LEVEL", [        3, asciicircum,    numbersign, threesuperior ]  };
-    key <AE04>	{ type[group1] = "FOUR_LEVEL", [         4,       plus,        dollar,    onequarter ]	};
-    key <AE06>	{ type[group1] = "FOUR_LEVEL", [         6,  ampersand, threequarters,    VoidSymbol ]	};
-    key <AE07>	{ type[group1] = "FOUR_LEVEL", [         7,      slash,     braceleft,    VoidSymbol ]	};
-    key <AE08>	{ type[group1] = "FOUR_LEVEL", [         8,  parenleft,   bracketleft,    VoidSymbol ]	};
-    key <AE09>	{ type[group1] = "FOUR_LEVEL", [         9, parenright,  bracketright,     plusminus ]	};
-    key <AE10>	{ type[group1] = "FOUR_LEVEL", [         0,      equal,    braceright,        degree ]	};
-    key <AE11>	{ type[group1] = "FOUR_LEVEL", [  asterisk,   question,     backslash,  questiondown ]	};
-    key <AE12>	{ type[group1] = "FOUR_LEVEL", [     minus, underscore,      division,    VoidSymbol ]	};
+    key <AE01>	{ [         1,    exclam,    onesuperior,    exclamdown ] };
+    key <AE02>	{ [         2, apostrophe,      sterling,   twosuperior ] };
+    key <AE03>	{ [        3, asciicircum,    numbersign, threesuperior ] };
+    key <AE04>	{ [         4,       plus,        dollar,    onequarter ] };
+    key <AE06>	{ [         6,  ampersand, threequarters,    VoidSymbol ] };
+    key <AE07>	{ [         7,      slash,     braceleft,    VoidSymbol ] };
+    key <AE08>	{ [         8,  parenleft,   bracketleft,    VoidSymbol ] };
+    key <AE09>	{ [         9, parenright,  bracketright,     plusminus ] };
+    key <AE10>	{ [         0,      equal,    braceright,        degree ] };
+    key <AE11>	{ [  asterisk,   question,     backslash,  questiondown ] };
+    key <AE12>	{ [     minus, underscore,      division,    VoidSymbol ] };
 
     key <AD02>	{ [         w,          W,   VoidSymbol,   VoidSymbol ]	};
     key <AD03>	{ [         e,          E,     EuroSign,   VoidSymbol ]	};
@@ -46,17 +46,16 @@ xkb_symbols "basic" {
     key <AC09>	{ [         l,          L,   VoidSymbol,   VoidSymbol ]	};
     key <AC10>	{ [  scedilla,   Scedilla,        acute,   dead_acute ]	};
     key <AC11>	{ [         i,  Iabovedot,   apostrophe,   dead_caron ]	};
-    key <TLDE>	{ type[group1] = "FOUR_LEVEL",[  quotedbl,  backslash,    plusminus,       degree ]	};
+    key <TLDE>	{ [  quotedbl,  backslash,    plusminus,       degree ]	};
 
-    key <BKSL>	{ type[group1] = "FOUR_LEVEL",[     comma,  semicolon,        grave,   dead_grave ]	};
-    key <LSGT>	{ type[group1] = "FOUR_LEVEL",[     less,     greater,          bar,    brokenbar ]	};
+    key <BKSL>	{ [     comma,  semicolon,        grave,   dead_grave ]	};
+    key <LSGT>	{ [      less,    greater,          bar,    brokenbar ]	};
     key <AB08>	{ [odiaeresis, Odiaeresis,     multiply,   VoidSymbol ]	};
     key <AB09>	{ [  ccedilla,   Ccedilla, periodcentered,     division ] };
-    key <AB10>	{ type[group1] = "FOUR_LEVEL",[    period,      colon, dead_abovedot, dead_abovedot ] };
-    key <SPCE>	{ type[group1] = "FOUR_LEVEL", [    space,  space, nobreakspace, nobreakspace ]	};
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    key <AB10>	{ [    period,      colon, dead_abovedot, dead_abovedot ] };
+    key <SPCE>	{ [     space,      space, nobreakspace,   nobreakspace ] };
+
+    include "level3(ralt_switch_multikey)"
 };
 
 
@@ -68,17 +67,17 @@ xkb_symbols "tr_f" {
 
     name[Group1]="Turkish";
 
-    key <AE01>	{ type[group1] = "FOUR_LEVEL", [         1,     exclam,  onesuperior,   exclamdown ]	};
-    key <AE02>	{ type[group1] = "FOUR_LEVEL", [         2,   quotedbl,  twosuperior,   VoidSymbol ]	};
-    key <AE03>	{ type[group1] = "FOUR_LEVEL", [         3, asciicircum, numbersign, threesuperior ]    };
-    key <AE04>	{ type[group1] = "FOUR_LEVEL", [         4,     dollar,   onequarter,   VoidSymbol ]	};
-    key <AE06>	{ type[group1] = "FOUR_LEVEL", [         6,  ampersand, threequarters,  VoidSymbol ]	};
-    key <AE07>	{ type[group1] = "FOUR_LEVEL", [         7, apostrophe,    braceleft,   VoidSymbol ]	};
-    key <AE08>	{ type[group1] = "FOUR_LEVEL", [         8,  parenleft,  bracketleft,   VoidSymbol ]	};
-    key <AE09>	{ type[group1] = "FOUR_LEVEL", [         9, parenright, bracketright,    plusminus ]	};
-    key <AE10>	{ type[group1] = "FOUR_LEVEL", [         0,      equal,   braceright,       degree ]	};
-    key <AE11>	{ type[group1] = "FOUR_LEVEL", [     slash,   question,    backslash, questiondown ]	};
-    key <AE12>	{ type[group1] = "FOUR_LEVEL", [     minus, underscore,     division,   VoidSymbol ]	};
+    key <AE01>	{ [         1,     exclam,  onesuperior,   exclamdown ]	};
+    key <AE02>	{ [         2,   quotedbl,  twosuperior,   VoidSymbol ]	};
+    key <AE03>	{ [         3, asciicircum, numbersign, threesuperior ] };
+    key <AE04>	{ [         4,     dollar,   onequarter,   VoidSymbol ]	};
+    key <AE06>	{ [         6,  ampersand, threequarters,  VoidSymbol ]	};
+    key <AE07>	{ [         7, apostrophe,    braceleft,   VoidSymbol ]	};
+    key <AE08>	{ [         8,  parenleft,  bracketleft,   VoidSymbol ]	};
+    key <AE09>	{ [         9, parenright, bracketright,    plusminus ]	};
+    key <AE10>	{ [         0,      equal,   braceright,       degree ]	};
+    key <AE11>	{ [     slash,   question,    backslash, questiondown ]	};
+    key <AE12>	{ [     minus, underscore,     division,   VoidSymbol ]	};
 
     key <AD01>	{ [         f,          F,           at,   VoidSymbol ]	};
     key <AD02>	{ [         g,          G,   VoidSymbol,   VoidSymbol ]	};
@@ -104,7 +103,7 @@ xkb_symbols "tr_f" {
     key <AC09>	{ [         l,          L,   VoidSymbol,   VoidSymbol ]	};
     key <AC10>	{ [         y,          Y,        acute,   dead_acute ]	};
     key <AC11>	{ [  scedilla,   Scedilla,   numbersign,   dead_caron ]	};
-    key <TLDE>	{ type[group1] = "FOUR_LEVEL", [      plus,   asterisk,      notsign,    plusminus ]	};
+    key <TLDE>	{ [      plus,   asterisk,      notsign,    plusminus ]	};
 
     key <BKSL>	{ [         x,          X,        grave,   dead_grave ]	};
     key <AB01>	{ [         j,          J, guillemotleft,  VoidSymbol ]	};
@@ -115,12 +114,40 @@ xkb_symbols "tr_f" {
     key <AB06>	{ [         z,          Z,   VoidSymbol,   VoidSymbol ]	};
     key <AB07>	{ [         s,          S,      section,   VoidSymbol ]	};
     key <AB08>	{ [         b,          B,     multiply, nobreakspace ]	};
-    key <AB09>	{ type[group1] = "FOUR_LEVEL", [    period,      colon,     division, dead_abovedot]	};
-    key <AB10>	{ type[group1] = "FOUR_LEVEL", [     comma,  semicolon, periodcentered, VoidSymbol ]	};
-    key <SPCE>	{ type[group1] = "FOUR_LEVEL", [    space,  space, nobreakspace, nobreakspace ]	};
-    key <LSGT>	{ type[group1] = "FOUR_LEVEL", [     less,     greater,          bar,    brokenbar ]	};
+    key <AB09>	{ [    period,      colon,     division, dead_abovedot]	};
+    key <AB10>	{ [     comma,  semicolon, periodcentered, VoidSymbol ]	};
+    key <SPCE>	{ [    space,       space, nobreakspace, nobreakspace ]	};
+    key <LSGT>	{ [     less,     greater,          bar,    brokenbar ]	};
    
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch_multikey)"
+};
+
+// Turkish Alt-Q Layout
+partial
+xkb_symbols "tr_alt" {
+
+    include "pc/latin"
+
+    name[Group1]="Turkish";
+
+    key <AE07>  { [         7,   ampersand,  lowleftcorner,  upleftcorner ] };
+    key <AE08>  { [         8,    asterisk,          leftt,          topt ] };
+    key <AE09>  { [         9,   parenleft,         rightt,          bott ] };
+    key <AE10>  { [         0,  parenright, lowrightcorner, uprightcorner ] };
+    key <AE11>  { [     minus,  underscore, horizlinescan5,      vertbar  ] };
+    key <AE12>  { [     equal,        plus,  crossinglines  ] };
+
+    key <AD03>  { [         e,           E,     EuroSign,   VoidSymbol ] };
+//    key <AD05>        { [         t,           T,    trademark,   VoidSymbol >
+    key <AD07>  { [         u,           U,   udiaeresis,   Udiaeresis ] };
+    key <AD08>  { [         i,           I,     idotless,    Iabovedot ] };
+    key <AD09>  { [         o,           O,   odiaeresis,   Odiaeresis ] };
+    key <AC01>  { [         a,           A,  acircumflex,  Acircumflex ] };
+    key <AC02>  { [         s,           S,     scedilla,     Scedilla ] };
+    key <AC05>  { [         g,           G,       gbreve,       Gbreve ] };
+
+    key <AB03>  { [         c,           C,     ccedilla,     Ccedilla ] };
+    key <SPCE>  { [     space,       space, nobreakspace, nobreakspace ] };
+
+    include "level3(ralt_switch_multikey)"
 };

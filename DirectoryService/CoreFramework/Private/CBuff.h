@@ -48,8 +48,7 @@ Buffer Type	  Dat Block Cnt 	Offset 1   Offset 2  Offset n	EndTag = 'EndT'
 #ifndef __CBuff_h__
 #define	__CBuff_h__	1
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 
 class CBuff {

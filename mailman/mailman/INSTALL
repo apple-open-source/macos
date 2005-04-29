@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 Free Software Foundation, Inc.
+Copyright (C) 1998-2004 Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 This file contains installation instructions for GNU Mailman, which is
@@ -11,6 +11,11 @@ UPGRADING: Upgrading is usually as easy as just installing the new
 version over the existing installation.  However, you should read the
 notes in the file UPGRADING for important information before you
 upgrade.
+
+The GNU Mailman website is at http://www.list.org
+
+GNU Mailman can be downloaded from
+http://sf.net/project/showfiles.php?group_id=103
 
 
 0. Installation requirements
@@ -148,7 +153,8 @@ upgrade.
 
       --with-var-prefix=<dir>
             Store mutable data under <dir> instead of under the prefix
-            or exec_prefix.
+            or exec_prefix.  Examples of such data include the list archives
+            and list settings database.
 
       --with-python=</path/to/python>
             Specify an alternative Python interpreter to use for the
@@ -213,6 +219,16 @@ upgrade.
             wrappers placed in $PREFIX/cgi-bin will have this
             extension (some web servers require an extension).
             <extension> must include the dot.
+
+      --with-mailhost
+            Specify the fully qualified host name part for outgoing email.
+            After the installation is complete, this value can be overriden in
+            $prefix/Mailman/mm_cfg.py.
+
+      --with-urlhost
+            Specify the fully qualified host name part of urls.  After the
+            installation is complete, this value can be overriden in
+            $prefix/Mailman/mm_cfg.py.
 
       --with-gcc=no
             Don't use gcc, even if it is found.  In this case, `cc'
@@ -332,7 +348,7 @@ upgrade.
       information.
 
       Now configure your site list.  There is a convenient template
-      for a generic site list in misc/sitelist.cfg to help you with
+      for a generic site list in data/sitelist.cfg to help you with
       this.  The template can be applied to your site list by running:
 
           % bin/config_list -i data/sitelist.cfg mailman

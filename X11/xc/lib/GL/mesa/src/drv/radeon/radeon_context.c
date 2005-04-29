@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_context.c,v 1.7 2003/02/08 21:26:45 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_context.c,v 1.13 2004/01/23 03:57:06 dawes Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,24 +6,25 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, VA LINUX SYSTEMS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
@@ -32,9 +33,22 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Kevin E. Martin <martin@valinux.com>
  *   Gareth Hughes <gareth@valinux.com>
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
 
+#include "glheader.h"
+#include "api_arrayelt.h"
+#include "context.h"
+#include "simple_list.h"
+#include "imports.h"
+#include "matrix.h"
+#include "extensions.h"
+
+#include "swrast/swrast.h"
+#include "swrast_setup/swrast_setup.h"
+#include "array_cache/acache.h"
+
+#include "tnl/tnl.h"
+#include "tnl/t_pipeline.h"
 
 #include "radeon_context.h"
 #include "radeon_ioctl.h"
@@ -46,25 +60,10 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "radeon_vtxfmt.h"
 #include "radeon_maos.h"
 
-#include "swrast/swrast.h"
-#include "swrast_setup/swrast_setup.h"
-#include "array_cache/acache.h"
+#define DRIVER_DATE	"20030328"
 
-#include "tnl/tnl.h"
-#include "tnl/t_pipeline.h"
-
-#include "api_arrayelt.h"
-#include "context.h"
-#include "simple_list.h"
-#include "mem.h"
-#include "matrix.h"
-#include "extensions.h"
-#if defined(USE_X86_ASM)
-#include "X86/common_x86_asm.h"
-#endif
-
-#define RADEON_DATE	"20020611"
-
+#include "vblank.h"
+#include "utils.h"
 #ifndef RADEON_DEBUG
 int RADEON_DEBUG = (0);
 #endif
@@ -91,64 +90,21 @@ static const GLubyte *radeonGetString( GLcontext *ctx, GLenum name )
 {
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
    static char buffer[128];
+   unsigned   offset;
+   GLuint agp_mode = rmesa->radeonScreen->IsPCI ? 0 :
+      rmesa->radeonScreen->AGPMode;
 
    switch ( name ) {
    case GL_VENDOR:
       return (GLubyte *)"Tungsten Graphics, Inc.";
 
    case GL_RENDERER:
-      sprintf( buffer, "Mesa DRI Radeon " RADEON_DATE);
+      offset = driGetRendererString( buffer, "Radeon", DRIVER_DATE,
+				     agp_mode );
 
-      /* Append any chipset-specific information.  None yet.
-       */
-
-      /* Append any AGP-specific information.
-       */
-      switch ( rmesa->radeonScreen->AGPMode ) {
-      case 1:
-	 strncat( buffer, " AGP 1x", 7 );
-	 break;
-      case 2:
-	 strncat( buffer, " AGP 2x", 7 );
-	 break;
-      case 4:
-	 strncat( buffer, " AGP 4x", 7 );
-	 break;
-      }
-
-      /* Append any CPU-specific information.
-       */
-#ifdef USE_X86_ASM
-      if ( _mesa_x86_cpu_features ) {
-	 strncat( buffer, " x86", 4 );
-      }
-#ifdef USE_MMX_ASM
-      if ( cpu_has_mmx ) {
-	 strncat( buffer, "/MMX", 4 );
-      }
-#endif
-#ifdef USE_3DNOW_ASM
-      if ( cpu_has_3dnow ) {
-	 strncat( buffer, "/3DNow!", 7 );
-      }
-#endif
-#ifdef USE_SSE_ASM
-      if ( cpu_has_xmm ) {
-	 strncat( buffer, "/SSE", 4 );
-      }
-#endif
-#endif
-
-      if ( rmesa->dri.drmMinor < 3 ) {
-	 strncat( buffer, " DRM-COMPAT", 11 );
-      }
-	 
-      if ( !(rmesa->TclFallback & RADEON_TCL_FALLBACK_TCL_DISABLE) ) {
-	 strncat( buffer, " TCL", 4 );
-      }
-      else {
-	 strncat( buffer, " NO-TCL", 7 );
-      }
+      sprintf( & buffer[ offset ], " %sTCL",
+	       !(rmesa->TclFallback & RADEON_TCL_FALLBACK_TCL_DISABLE)
+	       ? "" : "NO-" );
 
       return (GLubyte *)buffer;
 
@@ -160,7 +116,7 @@ static const GLubyte *radeonGetString( GLcontext *ctx, GLenum name )
 
 /* Extension strings exported by the R100 driver.
  */
-static const char * const radeon_extensions[] =
+static const char * const card_extensions[] =
 {
     "GL_ARB_multisample",
     "GL_ARB_multitexture",
@@ -172,33 +128,25 @@ static const char * const radeon_extensions[] =
     "GL_ARB_texture_mirrored_repeat",
     "GL_EXT_blend_logic_op",
     "GL_EXT_blend_subtract",
-/*    "GL_EXT_fog_coord", */
     "GL_EXT_secondary_color",
+    "GL_EXT_texture_edge_clamp",
     "GL_EXT_texture_env_add",
     "GL_EXT_texture_env_combine",
     "GL_EXT_texture_env_dot3",
     "GL_EXT_texture_filter_anisotropic",
     "GL_EXT_texture_lod_bias",
+    "GL_ATI_texture_env_combine3",
     "GL_ATI_texture_mirror_once",
     "GL_IBM_texture_mirrored_repeat",
+    "GL_MESA_ycbcr_texture",
     "GL_NV_blend_square",
     "GL_SGIS_generate_mipmap",
     "GL_SGIS_texture_border_clamp",
+    "GL_SGIS_texture_edge_clamp",
     NULL
 };
 
-/* Initialize the extensions supported by this driver.
- */
-static void radeonInitExtensions( GLcontext *ctx )
-{
-   unsigned   i;
-   _mesa_enable_imaging_extensions( ctx );
-
-   for ( i = 0 ; radeon_extensions[i] != NULL ; i++ ) {
-      _mesa_enable_extension( ctx, radeon_extensions[i] );
-   }
-}
-
+extern const struct gl_pipeline_stage _radeon_texrect_stage;
 extern const struct gl_pipeline_stage _radeon_render_stage;
 extern const struct gl_pipeline_stage _radeon_tcl_stage;
 
@@ -217,18 +165,10 @@ static const struct gl_pipeline_stage *radeon_pipeline[] = {
    &_tnl_texgen_stage,
    &_tnl_texture_transform_stage,
 
-   /* Try again to go to tcl? 
-    *     - no good for asymmetric-twoside (do with multipass)
-    *     - no good for asymmetric-unfilled (do with multipass)
-    *     - good for material
-    *     - good for texgen
-    *     - need to manipulate a bit of state
-    *
-    * - worth it/not worth it?
+   /* Scale texture rectangle to 0..1.
     */
-			
-   /* Else do them here.
-    */
+   &_radeon_texrect_stage,
+
    &_radeon_render_stage,
    &_tnl_render_stage,		/* FALLBACK:  */
    0,
@@ -249,25 +189,49 @@ static void radeonInitDriverFuncs( GLcontext *ctx )
     ctx->Driver.Bitmap			= NULL;
 }
 
+static const struct dri_debug_control debug_control[] =
+{
+    { "fall",  DEBUG_FALLBACKS },
+    { "tex",   DEBUG_TEXTURE },
+    { "ioctl", DEBUG_IOCTL },
+    { "prim",  DEBUG_PRIMS },
+    { "vert",  DEBUG_VERTS },
+    { "state", DEBUG_STATE },
+    { "code",  DEBUG_CODEGEN },
+    { "vfmt",  DEBUG_VFMT },
+    { "vtxf",  DEBUG_VFMT },
+    { "verb",  DEBUG_VERBOSE },
+    { "dri",   DEBUG_DRI },
+    { "dma",   DEBUG_DMA },
+    { "san",   DEBUG_SANITY },
+    { NULL,    0 }
+};
+
+
+static int
+get_ust_nop( int64_t * ust )
+{
+   *ust = 1;
+   return 0;
+}
 
 
 /* Create the device specific context.
  */
-static GLboolean
-radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
+GLboolean
+radeonCreateContext( const __GLcontextModes *glVisual,
                      __DRIcontextPrivate *driContextPriv,
                      void *sharedContextPrivate)
 {
    __DRIscreenPrivate *sPriv = driContextPriv->driScreenPriv;
-   radeonScreenPtr radeonScreen = (radeonScreenPtr)(sPriv->private);
+   radeonScreenPtr screen = (radeonScreenPtr)(sPriv->private);
    radeonContextPtr rmesa;
    GLcontext *ctx, *shareCtx;
    int i;
 
-   assert(dpy);
    assert(glVisual);
    assert(driContextPriv);
-   assert(radeonScreen);
+   assert(screen);
 
    /* Allocate the Radeon context */
    rmesa = (radeonContextPtr) CALLOC( sizeof(*rmesa) );
@@ -279,7 +243,7 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
       shareCtx = ((radeonContextPtr) sharedContextPrivate)->glCtx;
    else
       shareCtx = NULL;
-   rmesa->glCtx = _mesa_create_context(glVisual, shareCtx, rmesa, GL_TRUE);
+   rmesa->glCtx = _mesa_create_context(glVisual, shareCtx, (void *) rmesa, GL_TRUE);
    if (!rmesa->glCtx) {
       FREE(rmesa);
       return GL_FALSE;
@@ -287,59 +251,62 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
    driContextPriv->driverPrivate = rmesa;
 
    /* Init radeon context data */
-   rmesa->dri.display = dpy;
    rmesa->dri.context = driContextPriv;
    rmesa->dri.screen = sPriv;
    rmesa->dri.drawable = NULL; /* Set by XMesaMakeCurrent */
    rmesa->dri.hwContext = driContextPriv->hHWContext;
    rmesa->dri.hwLock = &sPriv->pSAREA->lock;
    rmesa->dri.fd = sPriv->fd;
+   rmesa->dri.drmMinor = sPriv->drmMinor;
 
-   /* If we don't have 1.3, fallback to the 1.1 interfaces.
-    */
-   if (getenv("RADEON_COMPAT") || sPriv->drmMinor < 3 ) 
-      rmesa->dri.drmMinor = 1;
-   else
-      rmesa->dri.drmMinor = sPriv->drmMinor;
-
-   rmesa->radeonScreen = radeonScreen;
+   rmesa->radeonScreen = screen;
    rmesa->sarea = (RADEONSAREAPrivPtr)((GLubyte *)sPriv->pSAREA +
-				       radeonScreen->sarea_priv_offset);
+				       screen->sarea_priv_offset);
 
 
    rmesa->dma.buf0_address = rmesa->radeonScreen->buffers->list[0].address;
 
-   for ( i = 0 ; i < radeonScreen->numTexHeaps ; i++ ) {
-      make_empty_list( &rmesa->texture.objects[i] );
-      rmesa->texture.heap[i] = mmInit( 0, radeonScreen->texSize[i] );
-      rmesa->texture.age[i] = -1;
+   (void) memset( rmesa->texture_heaps, 0, sizeof( rmesa->texture_heaps ) );
+   make_empty_list( & rmesa->swapped );
+
+   rmesa->nr_heaps = screen->numTexHeaps;
+   for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+      rmesa->texture_heaps[i] = driCreateTextureHeap( i, rmesa,
+	    screen->texSize[i],
+	    12,
+	    RADEON_NR_TEX_REGIONS,
+	    rmesa->sarea->texList[i],
+	    & rmesa->sarea->texAge[i],
+	    & rmesa->swapped,
+	    sizeof( radeonTexObj ),
+	    (destroy_texture_object_t *) radeonDestroyTexObj );
+
+      driSetTextureSwapCounterLocation( rmesa->texture_heaps[i],
+					& rmesa->c_textureSwaps );
    }
-   rmesa->texture.numHeaps = radeonScreen->numTexHeaps;
-   make_empty_list( &rmesa->texture.swapped );
 
    rmesa->swtcl.RenderIndex = ~0;
    rmesa->lost_context = 1;
 
-   /* KW: Set the maximum texture size small enough that we can
-    * guarentee that both texture units can bind a maximal texture
-    * and have them both in on-card memory at once.
-    * Test for 2 textures * 4 bytes/texel * size * size.
+   /* Set the maximum texture size small enough that we can guarentee that
+    * all texture units can bind a maximal texture and have them both in
+    * texturable memory at once.
     */
-   ctx = rmesa->glCtx;
-   if (radeonScreen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 2048 * 2048) {
-      ctx->Const.MaxTextureLevels = 12; /* 2048x2048 */
-   }
-   else if (radeonScreen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 1024 * 1024) {
-      ctx->Const.MaxTextureLevels = 11; /* 1024x1024 */
-   }
-   else if (radeonScreen->texSize[RADEON_CARD_HEAP] >= 2 * 4 * 512 * 512) {
-      ctx->Const.MaxTextureLevels = 10; /* 512x512 */
-   }
-   else {
-      ctx->Const.MaxTextureLevels = 9; /* 256x256 */
-   }
 
+   ctx = rmesa->glCtx;
    ctx->Const.MaxTextureUnits = 2;
+
+   driCalculateMaxTextureLevels( rmesa->texture_heaps,
+				 rmesa->nr_heaps,
+				 & ctx->Const,
+				 4,
+				 11, /* max 2D texture size is 2048x2048 */
+				 0,  /* 3D textures unsupported. */
+				 0,  /* cube textures unsupported. */
+				 11, /* max rect texture size is 2048x2048. */
+				 12,
+				 GL_FALSE );
+
    ctx->Const.MaxTextureMaxAnisotropy = 16.0;
 
    /* No wide points.
@@ -361,14 +328,10 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
     * etc.
     */
    ctx->Const.MaxArrayLockSize = 
-      MIN2( ctx->Const.MaxArrayLockSize,
-  	    RADEON_BUFFER_SIZE / RADEON_MAX_TCL_VERTSIZE );
+      MIN2( ctx->Const.MaxArrayLockSize, 
+ 	    RADEON_BUFFER_SIZE / RADEON_MAX_TCL_VERTSIZE ); 
 
-   if (getenv("LIBGL_PERFORMANCE_BOXES"))
-      rmesa->boxes = 1;
-   else
-      rmesa->boxes = 0;
-
+   rmesa->boxes = (getenv("LIBGL_PERFORMANCE_BOXES") != NULL);
 
    /* Initialize the software rasterizer and helper modules.
     */
@@ -382,6 +345,7 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
     */
    _tnl_destroy_pipeline( ctx );
    _tnl_install_pipeline( ctx, radeon_pipeline );
+   ctx->Driver.FlushVertices = radeonFlushVertices;
 
    /* Try and keep materials and vertices separate:
     */
@@ -389,6 +353,11 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
 
 
 /*     _mesa_allow_light_in_model( ctx, GL_FALSE ); */
+
+   /* Try and keep materials and vertices separate:
+    */
+   _tnl_isolate_materials( ctx, GL_TRUE );
+
 
    /* Configure swrast to match hardware characteristics:
     */
@@ -403,7 +372,11 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
    _math_matrix_set_identity( &rmesa->TexGenMatrix[1] );
    _math_matrix_set_identity( &rmesa->tmpmat );
 
-   radeonInitExtensions( ctx );
+   driInitExtensions( ctx, card_extensions, GL_TRUE );
+
+   if (rmesa->dri.drmMinor >= 9)
+      _mesa_enable_extension( ctx, "GL_NV_texture_rectangle");
+
    radeonInitDriverFuncs( ctx );
    radeonInitIoctlFuncs( ctx );
    radeonInitStateFuncs( ctx );
@@ -412,90 +385,26 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
    radeonInitState( rmesa );
    radeonInitSwtcl( ctx );
 
-   rmesa->do_irqs = (rmesa->radeonScreen->irq && !getenv("RADEON_NO_IRQS"));
-   rmesa->irqsEmitted = 0;
    rmesa->iw.irq_seq = -1;
+   rmesa->irqsEmitted = 0;
+   rmesa->do_irqs = (rmesa->radeonScreen->irq && !getenv("RADEON_NO_IRQS"));
 
    rmesa->do_usleeps = !getenv("RADEON_NO_USLEEPS");
-   
-#if DO_DEBUG
-   if (getenv("RADEON_DEBUG_FALLBACKS"))
-      RADEON_DEBUG |= DEBUG_FALLBACKS;
 
-   if (getenv("RADEON_DEBUG_TEXTURE"))
-      RADEON_DEBUG |= DEBUG_TEXTURE;
+   rmesa->vblank_flags = (rmesa->radeonScreen->irq != 0)
+       ? driGetDefaultVBlankFlags() : VBLANK_FLAG_NO_IRQ;
 
-   if (getenv("RADEON_DEBUG_IOCTL"))
-      RADEON_DEBUG |= DEBUG_IOCTL;
-
-   if (getenv("RADEON_DEBUG_PRIMS"))
-      RADEON_DEBUG |= DEBUG_PRIMS;
-
-   if (getenv("RADEON_DEBUG_VERTS"))
-      RADEON_DEBUG |= DEBUG_VERTS;
-
-   if (getenv("RADEON_DEBUG_STATE"))
-      RADEON_DEBUG |= DEBUG_STATE;
-
-   if (getenv("RADEON_DEBUG_CODEGEN"))
-      RADEON_DEBUG |= DEBUG_CODEGEN;
-
-   if (getenv("RADEON_DEBUG_VTXFMT"))
-      RADEON_DEBUG |= DEBUG_VFMT;
-
-   if (getenv("RADEON_DEBUG_VERBOSE"))
-      RADEON_DEBUG |= DEBUG_VERBOSE;
-
-   if (getenv("RADEON_DEBUG_DRI"))
-      RADEON_DEBUG |= DEBUG_DRI;
-
-   if (getenv("RADEON_DEBUG_DMA"))
-      RADEON_DEBUG |= DEBUG_DMA;
-
-   if (getenv("RADEON_DEBUG_SANITY"))
-      RADEON_DEBUG |= DEBUG_SANITY;
-
-   if (getenv("RADEON_DEBUG"))
-   {
-      const char *debug = getenv("RADEON_DEBUG");
-      if (strstr(debug, "fall")) 
-         RADEON_DEBUG |= DEBUG_FALLBACKS;
-
-      if (strstr(debug, "tex")) 
-         RADEON_DEBUG |= DEBUG_TEXTURE;
-
-      if (strstr(debug, "ioctl")) 
-         RADEON_DEBUG |= DEBUG_IOCTL;
-
-      if (strstr(debug, "prim")) 
-         RADEON_DEBUG |= DEBUG_PRIMS;
-
-      if (strstr(debug, "vert")) 
-         RADEON_DEBUG |= DEBUG_VERTS;
-
-      if (strstr(debug, "state")) 
-         RADEON_DEBUG |= DEBUG_STATE;
-
-      if (strstr(debug, "code")) 
-         RADEON_DEBUG |= DEBUG_CODEGEN;
-
-      if (strstr(debug, "vfmt") || strstr(debug, "vtxf")) 
-         RADEON_DEBUG |= DEBUG_VFMT;
-
-      if (strstr(debug, "verb")) 
-         RADEON_DEBUG |= DEBUG_VERBOSE;
-
-      if (strstr(debug, "dri")) 
-         RADEON_DEBUG |= DEBUG_DRI;
-
-      if (strstr(debug, "dma")) 
-         RADEON_DEBUG |= DEBUG_DMA;
-
-      if (strstr(debug, "san")) 
-         RADEON_DEBUG |= DEBUG_SANITY;
+   rmesa->get_ust = (PFNGLXGETUSTPROC) glXGetProcAddress( (const GLubyte *) "__glXGetUST" );
+   if ( rmesa->get_ust == NULL ) {
+      rmesa->get_ust = get_ust_nop;
    }
 
+   (*rmesa->get_ust)( & rmesa->swap_ust );
 
+
+#if DO_DEBUG
+   RADEON_DEBUG = driParseDebugString( getenv( "RADEON_DEBUG" ),
+				       debug_control );
 #endif
 
    if (getenv("RADEON_NO_RAST")) {
@@ -507,7 +416,6 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
       fprintf(stderr, "         your card if it isn't capable of TCL!\n");
       rmesa->radeonScreen->chipset |= RADEON_CHIPSET_TCL;
    } else if (getenv("RADEON_TCL_FORCE_DISABLE") ||
-	    rmesa->dri.drmMinor < 3 ||
 	    !(rmesa->radeonScreen->chipset & RADEON_CHIPSET_TCL)) {
       rmesa->radeonScreen->chipset &= ~RADEON_CHIPSET_TCL;
       fprintf(stderr, "disabling TCL support\n");
@@ -528,8 +436,7 @@ radeonCreateContext( Display *dpy, const __GLcontextModes *glVisual,
  */
 /* Destroy the Mesa and driver specific context data.
  */
-static void
-radeonDestroyContext( __DRIcontextPrivate *driContextPriv )
+void radeonDestroyContext( __DRIcontextPrivate *driContextPriv )
 {
    GET_CURRENT_CONTEXT(ctx);
    radeonContextPtr rmesa = (radeonContextPtr) driContextPriv->driverPrivate;
@@ -544,33 +451,16 @@ radeonDestroyContext( __DRIcontextPrivate *driContextPriv )
    /* Free radeon context resources */
    assert(rmesa); /* should never be null */
    if ( rmesa ) {
-      if (rmesa->glCtx->Shared->RefCount == 1) {
-         /* This share group is about to go away, free our private
-          * texture object data.
-          */
-         radeonTexObjPtr t, next_t;
-         int i;
+      GLboolean   release_texture_heaps;
 
-         for ( i = 0 ; i < rmesa->texture.numHeaps ; i++ ) {
-            foreach_s ( t, next_t, &rmesa->texture.objects[i] ) {
-               radeonDestroyTexObj( rmesa, t );
-            }
-            mmDestroy( rmesa->texture.heap[i] );
-	    rmesa->texture.heap[i] = NULL;
-         }
 
-         foreach_s ( t, next_t, &rmesa->texture.swapped ) {
-            radeonDestroyTexObj( rmesa, t );
-         }
-      }
-
+      release_texture_heaps = (rmesa->glCtx->Shared->RefCount == 1);
       _swsetup_DestroyContext( rmesa->glCtx );
       _tnl_DestroyContext( rmesa->glCtx );
       _ac_DestroyContext( rmesa->glCtx );
       _swrast_DestroyContext( rmesa->glCtx );
 
       radeonDestroySwtcl( rmesa->glCtx );
-
       radeonReleaseArrays( rmesa->glCtx, ~0 );
       if (rmesa->dma.current.buf) {
 	 radeonReleaseDmaRegion( rmesa, &rmesa->dma.current, __FUNCTION__ );
@@ -590,74 +480,30 @@ radeonDestroyContext( __DRIcontextPrivate *driContextPriv )
 	 rmesa->state.scissor.pClipRects = 0;
       }
 
+      if ( release_texture_heaps ) {
+         /* This share group is about to go away, free our private
+          * texture object data.
+          */
+         int i;
+
+         for ( i = 0 ; i < rmesa->nr_heaps ; i++ ) {
+	    driDestroyTextureHeap( rmesa->texture_heaps[ i ] );
+	    rmesa->texture_heaps[ i ] = NULL;
+         }
+
+	 assert( is_empty_list( & rmesa->swapped ) );
+      }
+
       FREE( rmesa );
    }
-
-#if 0
-   /* Use this to force shared object profiling. */
-   glx_fini_prof();
-#endif
-}
-
-
-/* Initialize the driver specific screen private data.
- */
-static GLboolean
-radeonInitDriver( __DRIscreenPrivate *sPriv )
-{
-   sPriv->private = (void *) radeonCreateScreen( sPriv );
-   if ( !sPriv->private ) {
-      radeonDestroyScreen( sPriv );
-      return GL_FALSE;
-   }
-
-   return GL_TRUE;
-}
-
-
-/* Create and initialize the Mesa and driver specific pixmap buffer
- * data.
- */
-static GLboolean
-radeonCreateBuffer( Display *dpy,
-                    __DRIscreenPrivate *driScrnPriv,
-                    __DRIdrawablePrivate *driDrawPriv,
-                    const __GLcontextModes *mesaVis,
-                    GLboolean isPixmap )
-{
-   if (isPixmap) {
-      return GL_FALSE; /* not implemented */
-   }
-   else {
-      const GLboolean swDepth = GL_FALSE;
-      const GLboolean swAlpha = GL_FALSE;
-      const GLboolean swAccum = mesaVis->accumRedBits > 0;
-      const GLboolean swStencil = mesaVis->stencilBits > 0 &&
-         mesaVis->depthBits != 24;
-      driDrawPriv->driverPrivate = (void *)
-         _mesa_create_framebuffer( mesaVis,
-                                   swDepth,
-                                   swStencil,
-                                   swAccum,
-                                   swAlpha );
-      return (driDrawPriv->driverPrivate != NULL);
-   }
-}
-
-
-static void
-radeonDestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
-{
-   _mesa_destroy_framebuffer((GLframebuffer *) (driDrawPriv->driverPrivate));
 }
 
 
 
-static void
-radeonSwapBuffers(Display *dpy, void *drawablePrivate)
+
+void
+radeonSwapBuffers( __DRIdrawablePrivate *dPriv )
 {
-   __DRIdrawablePrivate *dPriv = (__DRIdrawablePrivate *) drawablePrivate;
-   (void) dpy;
 
    if (dPriv->driContextPriv && dPriv->driContextPriv->driverPrivate) {
       radeonContextPtr rmesa;
@@ -665,7 +511,7 @@ radeonSwapBuffers(Display *dpy, void *drawablePrivate)
       rmesa = (radeonContextPtr) dPriv->driContextPriv->driverPrivate;
       ctx = rmesa->glCtx;
       if (ctx->Visual.doubleBufferMode) {
-         _mesa_swapbuffers( ctx );  /* flush pending rendering comands */
+         _mesa_notifySwapBuffers( ctx );  /* flush pending rendering comands */
 
          if ( rmesa->doPageFlip ) {
             radeonPageFlip( dPriv );
@@ -677,7 +523,7 @@ radeonSwapBuffers(Display *dpy, void *drawablePrivate)
    }
    else {
       /* XXX this shouldn't be an error but we can't handle it for now */
-      _mesa_problem(NULL, "radeonSwapBuffers: drawable has no context!\n");
+      _mesa_problem(NULL, "%s: drawable has no context!", __FUNCTION__);
    }
 }
 
@@ -685,39 +531,39 @@ radeonSwapBuffers(Display *dpy, void *drawablePrivate)
 /* Force the context `c' to be the current context and associate with it
  * buffer `b'.
  */
-static GLboolean
+GLboolean
 radeonMakeCurrent( __DRIcontextPrivate *driContextPriv,
                    __DRIdrawablePrivate *driDrawPriv,
                    __DRIdrawablePrivate *driReadPriv )
 {
    if ( driContextPriv ) {
-      radeonContextPtr newRadeonCtx = 
+      radeonContextPtr newCtx = 
 	 (radeonContextPtr) driContextPriv->driverPrivate;
 
       if (RADEON_DEBUG & DEBUG_DRI)
-	 fprintf(stderr, "%s ctx %p\n", __FUNCTION__, newRadeonCtx->glCtx);
+	 fprintf(stderr, "%s ctx %p\n", __FUNCTION__, (void *)newCtx->glCtx);
 
-      if ( newRadeonCtx->dri.drawable != driDrawPriv ) {
-	 newRadeonCtx->dri.drawable = driDrawPriv;
-	 radeonUpdateWindow( newRadeonCtx->glCtx );
-	 radeonUpdateViewportOffset( newRadeonCtx->glCtx );
+      if ( newCtx->dri.drawable != driDrawPriv ) {
+	 newCtx->dri.drawable = driDrawPriv;
+	 radeonUpdateWindow( newCtx->glCtx );
+	 radeonUpdateViewportOffset( newCtx->glCtx );
       }
-
-      _mesa_make_current2( newRadeonCtx->glCtx,
+  
+      _mesa_make_current2( newCtx->glCtx,
 			   (GLframebuffer *) driDrawPriv->driverPrivate,
 			   (GLframebuffer *) driReadPriv->driverPrivate );
 
-      if ( !newRadeonCtx->glCtx->Viewport.Width ) {
-	 _mesa_set_viewport( newRadeonCtx->glCtx, 0, 0,
+      if ( !newCtx->glCtx->Viewport.Width ) {
+	 _mesa_set_viewport( newCtx->glCtx, 0, 0,
 			     driDrawPriv->w, driDrawPriv->h );
       }
 
-      if (newRadeonCtx->vb.enabled)
-	 radeonVtxfmtMakeCurrent( newRadeonCtx->glCtx );
+      if (newCtx->vb.enabled)
+	 radeonVtxfmtMakeCurrent( newCtx->glCtx );
 
    } else {
       if (RADEON_DEBUG & DEBUG_DRI)
-	 fprintf(stderr, "%s ctx %p\n", __FUNCTION__, NULL);
+	 fprintf(stderr, "%s ctx is null\n", __FUNCTION__);
       _mesa_make_current( 0, 0 );
    }
 
@@ -728,68 +574,13 @@ radeonMakeCurrent( __DRIcontextPrivate *driContextPriv,
 
 /* Force the context `c' to be unbound from its buffer.
  */
-static GLboolean
+GLboolean
 radeonUnbindContext( __DRIcontextPrivate *driContextPriv )
 {
    radeonContextPtr rmesa = (radeonContextPtr) driContextPriv->driverPrivate;
 
    if (RADEON_DEBUG & DEBUG_DRI)
-      fprintf(stderr, "%s ctx %p\n", __FUNCTION__, rmesa->glCtx);
+      fprintf(stderr, "%s ctx %p\n", __FUNCTION__, (void *)rmesa->glCtx);
 
-   radeonVtxfmtUnbindContext( rmesa->glCtx );
    return GL_TRUE;
-}
-
-/* Fullscreen mode isn't used for much -- could be a way to shrink
- * front/back buffers & get more texture memory if the client has
- * changed the video resolution.
- * 
- * Pageflipping is now done automatically whenever there is a single
- * 3d client.
- */
-static GLboolean
-radeonOpenCloseFullScreen( __DRIcontextPrivate *driContextPriv )
-{
-   return GL_TRUE;
-}
-
-
-
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the dispatcher.
- */
-void
-__driRegisterExtensions( void )
-{
-}
-
-
-
-static struct __DriverAPIRec radeonAPI = {
-   radeonInitDriver,
-   radeonDestroyScreen,
-   radeonCreateContext,
-   radeonDestroyContext,
-   radeonCreateBuffer,
-   radeonDestroyBuffer,
-   radeonSwapBuffers,
-   radeonMakeCurrent,
-   radeonUnbindContext,
-   radeonOpenCloseFullScreen,
-   radeonOpenCloseFullScreen
-};
-
-
-
-/*
- * This is the bootstrap function for the driver.
- * The __driCreateScreen name is the symbol that libGL.so fetches.
- * Return:  pointer to a __DRIscreenPrivate.
- */
-void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
-                        int numConfigs, __GLXvisualConfig *config)
-{
-   __DRIscreenPrivate *psp;
-   psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &radeonAPI);
-   return (void *) psp;
 }

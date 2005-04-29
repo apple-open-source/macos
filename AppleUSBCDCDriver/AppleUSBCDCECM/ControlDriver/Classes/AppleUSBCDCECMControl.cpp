@@ -436,7 +436,7 @@ IOService* AppleUSBCDCECMControl::probe(IOService *provider, SInt32 *score)
     OSBoolean *boolObj = OSDynamicCast(OSBoolean, provider->getProperty("kDoNotClassMatchThisInterface"));
     if (boolObj && boolObj->isTrue())
     {
-        ALERT(0, 0, "probe - provider doesn't want us to match");
+        XTRACE(this, 0, 0, "probe - provider doesn't want us to match");
         return NULL;
     }
 

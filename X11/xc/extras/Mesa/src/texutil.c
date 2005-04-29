@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Gareth Hughes <gareth@valinux.com>
+ *    Gareth Hughes
  */
 
 /*
@@ -34,19 +34,16 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "context.h"
 #include "enums.h"
 #include "image.h"
+#include "imports.h"
 #include "macros.h"
-#include "mem.h"
 #include "mtypes.h"
 #include "texformat.h"
 #include "texutil.h"
-#endif
+
 
 #define DEBUG_TEXUTIL 0
 
@@ -506,7 +503,7 @@ CONVERT_ARGB1555( texsubimage3d )
 
 
 /* =============================================================
- * Conver to AL88 textures:
+ * AL88 textures:
  */
 
 #define DST_TYPE		GLushort
@@ -528,7 +525,7 @@ CONVERT_ARGB1555( texsubimage3d )
 	dst = PACK_COLOR_88_LE( src[0], 0x00 )
 
 #define CONVERT_TEXEL_DWORD( dst, src )					\
-	dst = APPEND16( PACK_COLOR_88_LE( src[0], 0x00 ),		\
+	dst = APPEND16( PACK_COLOR_88_LE( src[0], 0x00 ),			\
 			PACK_COLOR_88_LE( src[1], 0x00 ) )
 
 #define SRC_TEXEL_BYTES		1
@@ -629,7 +626,7 @@ convert_texsubimage3d_rgb332( const struct convert_info *convert )
 
 
 /* =============================================================
- * Convert to CI8 (and all other single-byte texel) textures:
+ * CI8 (and all other single-byte texel) textures:
  */
 
 #define DST_TYPE		GLubyte
@@ -751,10 +748,10 @@ CONVERT_YCBCR_REV( texsubimage3d )
 
 
 /* =============================================================
- * Tables of texture conversion/packing functions.
+ * Global entry points
  */
 
-static convert_func convert_texsubimage2d_table[] = {
+static convert_func convert_texsubimage2d_tab[] = {
    convert_texsubimage2d_rgba8888,
    convert_texsubimage2d_argb8888,
    convert_texsubimage2d_rgb888,
@@ -771,7 +768,7 @@ static convert_func convert_texsubimage2d_table[] = {
    convert_texsubimage2d_ycbcr_rev,
 };
 
-static convert_func convert_texsubimage3d_table[] = {
+static convert_func convert_texsubimage3d_tab[] = {
    convert_texsubimage3d_rgba8888,
    convert_texsubimage3d_argb8888,
    convert_texsubimage3d_rgb888,
@@ -816,10 +813,10 @@ convert_needs_unpacking( const struct gl_pixelstore_attrib *unpacking,
 
 
 GLboolean
-_mesa_convert_texsubimage1d( GLint mesaFormat,  /* dest */
+_mesa_convert_texsubimage1d( GLint mesaFormat,
 			     GLint xoffset,
 			     GLint width,
-			     GLenum format, GLenum type,  /* source */
+			     GLenum format, GLenum type,
 			     const struct gl_pixelstore_attrib *unpacking,
 			     const GLvoid *srcImage, GLvoid *dstImage )
 {
@@ -851,7 +848,7 @@ _mesa_convert_texsubimage1d( GLint mesaFormat,  /* dest */
 
    ASSERT(convert.index < 4);
 
-   return convert_texsubimage2d_table[mesaFormat]( &convert );
+   return convert_texsubimage2d_tab[mesaFormat]( &convert );
 }
 
 
@@ -905,8 +902,8 @@ _mesa_convert_texsubimage2d( GLint mesaFormat,  /* dest */
    convert.width = width;
    convert.height = height;
    convert.dstImageWidth = destImageWidth;
-   convert.format = format;  /* src */
-   convert.type = type;      /* src */
+   convert.format = format;
+   convert.type = type;
    convert.unpacking = unpacking;
    convert.srcImage = srcImage;
    convert.dstImage = dstImage;
@@ -919,12 +916,7 @@ _mesa_convert_texsubimage2d( GLint mesaFormat,  /* dest */
    if ( width != destImageWidth )
       convert.index |= CONVERT_STRIDE_BIT;
 
-   ASSERT(convert.index < 4);
-
-   ASSERT(mesaFormat < sizeof(convert_texsubimage2d_table) /
-                       sizeof(convert_texsubimage2d_table[0]));
-
-   return convert_texsubimage2d_table[mesaFormat]( &convert );
+   return convert_texsubimage2d_tab[mesaFormat]( &convert );
 }
 
 GLboolean
@@ -969,9 +961,7 @@ _mesa_convert_texsubimage3d( GLint mesaFormat,  /* dest */
    if ( width != dstImageWidth || height != dstImageHeight )
       convert.index |= CONVERT_STRIDE_BIT;
 
-   ASSERT(convert.index < 4);
-
-   return convert_texsubimage3d_table[mesaFormat]( &convert );
+   return convert_texsubimage3d_tab[mesaFormat]( &convert );
 }
 
 

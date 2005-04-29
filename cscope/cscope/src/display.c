@@ -36,6 +36,8 @@
  */
 
 #include "global.h"
+#include "build.h"
+
 #ifdef CCS
 #include "sgs.h"	/* ESG_PKG and ESG_REL */
 #else
@@ -52,7 +54,7 @@
 #include <errno.h>
 #include <stdarg.h>
 
-static char const rcsid[] = "$Id: display.c,v 1.4 2002/01/09 19:04:04 umeshv Exp $";
+static char const rcsid[] = "$Id: display.c,v 1.5 2004/07/09 21:34:44 nicolai Exp $";
 
 int	booklen;		/* OGS book name display field length */
 int	*displine;		/* screen line of displayed reference */
@@ -75,7 +77,7 @@ const char	dispchars[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQR
 
 static	int	fldline;		/* input field line */
 static	jmp_buf	env;			/* setjmp/longjmp buffer */
-int		lastdispline;		/* last displayed reference line */
+static	int	lastdispline;		/* last displayed reference line */
 static	char	lastmsg[MSGLEN + 1];	/* last message displayed */
 static	char	helpstring[] = "Press the ? key for help";
 static	char	selprompt[] = 
@@ -104,6 +106,9 @@ static	struct	{		/* text of input fields */
 	{"Find", "files #including this file",		findinclude},
 	{"Find all", "function definitions",		findallfcns},	/* samuel only */
 };
+
+/* Internal prototypes: */
+static	RETSIGTYPE	jumpback(int sig);
 
 /* initialize display parameters */
 
@@ -144,9 +149,6 @@ display(void)
 
 	/* see if this is the initial display */
 	erase();
-#if Darwin
-	move(0, 0);
-#endif
 	if (refsfound == NULL) {
 #if CCS
 		if (displayversion == YES) {
@@ -160,17 +162,15 @@ display(void)
 #endif
 		move(0, COLS - (int) sizeof(helpstring));
 		addstr(helpstring);
-	}
-	/* if no references were found */
-	else if (totallines == 0) {
+	} else if (totallines == 0) {
+		/* if no references were found */
 		/* redisplay the last message */
 		addstr(lastmsg);
-	}
-	else {	/* display the pattern */
+	} else {
+		/* display the pattern */
 		if (changing == YES) {
 			printw("Change \"%s\" to \"%s\"", pattern, newpat);
-		}
-		else {
+		} else {
 			printw("%c%s: %s", toupper((unsigned char)fields[field].text2[0]),
 				fields[field].text2 + 1, pattern);
 		}
@@ -208,13 +208,13 @@ display(void)
 		if (field == SYMBOL || field == CALLEDBY || field == CALLING) {
 			width -= fcnlen + 1;
 		}
+
 		/* until the max references have been displayed or 
 		   there is no more room */
 		topline = nextline;
 		for (disprefs = 0, screenline = REFLINE;
-		    disprefs < mdisprefs && screenline <= lastdispline;
-		    ++disprefs, ++screenline) {
-			
+		     disprefs < mdisprefs && screenline <= lastdispline;
+		     ++disprefs, ++screenline) {
 			/* read the reference line */
 			if (fscanf(refsfound, "%s%s%s %[^\n]", file, function, 
 			    linenum, tempstring) < 4) {
@@ -226,23 +226,22 @@ display(void)
 			/* if no mouse, display the selection number */
 			if (mouse == YES) {
 				addch(' ');
-			}
-			else
+			} else {
 				printw("%c", dispchars[disprefs]);
+			}
 
 			/* display any change mark */
 			if (changing == YES && 
 			    change[topline + disprefs - 1] == YES) {
 				addch('>');
-			}
-			else {
+			} else {
 				addch(' ');
 			}
+
 			/* display the file name */
 			if (field == FILENAME) {
 				printw("%-*s ", filelen, file);
-			}
-			else {
+			} else {
 				/* if OGS, display the subsystem and book names */
 				if (ogs == YES) {
 					ogsnames(file, &subsystem, &book);
@@ -254,7 +253,8 @@ display(void)
 					printw("%-*.*s ", filelen, filelen,
 						pathcomponents(file, dispcomponents));
 				}
-			}
+			} /* else(field == FILENAME) */
+
 			/* display the function name */
 			if (field == SYMBOL || field == CALLEDBY || field == CALLING) {
 				printw("%-*.*s ", fcnlen, fcnlen, function);
@@ -263,16 +263,16 @@ display(void)
 				addch('\n');	/* go to next line */
 				continue;
 			}
+
 			/* display the line number */
 			printw("%*s ", numlen, linenum);
-
 			/* there may be tabs in egrep output */
 			while ((s = strchr(tempstring, '\t')) != NULL) {
 				*s = ' ';
 			}
+
 			/* display the source line */
 			s = tempstring;
-
 			for (;;) {
 				/* see if the source line will fit */
 				if ((i = strlen(s)) > width) {
@@ -307,6 +307,8 @@ display(void)
 					/* if this is the first displayed line,
 					   display what will fit on the screen */
 					if (topline == nextline -1) {
+						disprefs++;
+						/* break out of two loops */
 						goto endrefs;
 					}
 					
@@ -324,9 +326,8 @@ display(void)
 				}
 				/* indent the continued source line */
 				move(screenline, COLS - width);
-			}
-
-		}
+			} /* for(ever) */
+		} /* for(reference output lines) */
 	endrefs:
 		/* position the cursor for the message */
 		i = FLDLINE - 1;
@@ -392,7 +393,7 @@ atchange(void)
 /* search for the symbol or text pattern */
 
 /*ARGSUSED*/
-RETSIGTYPE
+static RETSIGTYPE
 jumpback(int sig)
 {
 	(void) sig;		/* 'use' sig, to avoid warning from compiler */
@@ -442,7 +443,11 @@ search(void)
 				findcleanup();
 
 				/* append the non-global references */
-				(void) freopen(temp2, "rb", nonglobalrefs);
+				(void) fclose(nonglobalrefs);
+				if ( (nonglobalrefs = myfopen(temp2, "rb")) == NULL) {
+				  cannotopen(temp2);
+				  return(NO);
+				}
 				while ((c = getc(nonglobalrefs)) != EOF) {
 					(void) putc(c, refsfound);
 				}
@@ -456,9 +461,14 @@ search(void)
 	(void) lseek(symrefs, (long) 0, 0);
 	
 	/* reopen the references found file for reading */
-	(void) freopen(temp1, "rb", refsfound);
+	(void) fclose(refsfound);
+	if ( (refsfound = myfopen(temp1, "rb")) == NULL) {
+		cannotopen(temp1);
+		return(NO);
+	}
 	nextline = 1;
 	totallines = 0;
+	disprefs = 0;
 	
 	/* see if it is empty */
 	if ((c = getc(refsfound)) == EOF) {
@@ -471,7 +481,7 @@ search(void)
 				pattern);
 		}
 		else if (rc == REGCMPERROR) {
-			(void) sprintf(lastmsg, "Error in this regcmp(3X) regular expression: %s", 
+			(void) sprintf(lastmsg, "Error in this regcomp(3) regular expression: %s", 
 				pattern);
 			
 		}
@@ -553,6 +563,11 @@ progress(char *what, long current, long max)
 			addstr(msg);
 			refresh();
 		}
+		else if (verbosemode == YES)
+		{
+			sprintf(msg, "> %s %ld of %ld", what, current, max);
+		}
+
 		start = now;
 		if ((linemode == NO) && (incurses == YES))
 		{
@@ -566,7 +581,7 @@ progress(char *what, long current, long max)
 			refresh();
 		}
 		else
-			if (linemode == NO)
+			if (linemode == NO || verbosemode == YES)
 				postmsg(msg);
 	}
 	++searchcount;
@@ -600,6 +615,7 @@ postmsg(char *msg)
 {
 	if (linemode == YES || incurses == NO) {
 		(void) printf("%s\n", msg);
+		fflush(stdout);
 	}
 	else {
 		move(MSGLINE, 0);
@@ -742,10 +758,12 @@ writerefsfound(void)
 			cannotopen(temp1);
 			return(NO);
 		}
-	}
-	else if (freopen(temp1, "wb", refsfound) == NULL) {
-		postmsg("Cannot reopen temporary file");
-		return(NO);
+	} else {
+		(void) fclose(refsfound);
+		if ( (refsfound = myfopen(temp1, "wb")) == NULL) {
+			postmsg("Cannot reopen temporary file");
+			return(NO);
+		}
 	}
 	return(YES);
 }

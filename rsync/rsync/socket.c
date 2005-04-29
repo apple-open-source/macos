@@ -33,6 +33,8 @@
 
 #include "rsync.h"
 
+extern char *bind_address;
+extern int default_af_hint;
 
 /**
  * Establish a proxy connection on an open socket to a web proxy by
@@ -69,15 +71,13 @@ static int establish_proxy_connection(int fd, char *host, int port,
 		 host, port, authhdr, authbuf);
 	len = strlen(buffer);
 	if (write(fd, buffer, len) != len) {
-		rprintf(FERROR, "failed to write to proxy: %s\n",
-			strerror(errno));
+		rsyserr(FERROR, errno, "failed to write to proxy");
 		return -1;
 	}
 
 	for (cp = buffer; cp < &buffer[sizeof buffer - 1]; cp++) {
 		if (read(fd, cp, 1) != 1) {
-			rprintf(FERROR, "failed to read from proxy: %s\n",
-				strerror(errno));
+			rsyserr(FERROR, errno, "failed to read from proxy");
 			return -1;
 		}
 		if (*cp == '\n')
@@ -106,8 +106,8 @@ static int establish_proxy_connection(int fd, char *host, int port,
 	while (1) {
 		for (cp = buffer; cp < &buffer[sizeof buffer - 1]; cp++) {
 			if (read(fd, cp, 1) != 1) {
-				rprintf(FERROR, "failed to read from proxy: %s\n",
-					strerror(errno));
+				rsyserr(FERROR, errno,
+					"failed to read from proxy");
 				return -1;
 			}
 			if (*cp == '\n')
@@ -276,8 +276,7 @@ int open_socket_out(char *host, int port, const char *bind_address,
 	}
 	freeaddrinfo(res0);
 	if (s < 0) {
-		rprintf(FERROR, RSYNC_NAME ": failed to connect to %s: %s\n",
-			h, strerror(errno));
+		rsyserr(FERROR, errno, "failed to connect to %s", h);
 		return -1;
 	}
 	return s;
@@ -314,19 +313,14 @@ int open_socket_out_wrapped(char *host, int port, const char *bind_address,
 
 
 /**
- * Open a socket of the specified type, port and address for incoming data
+ * Open one or more sockets for incoming data using the specified type,
+ * port, and address.
  *
- * Try to be better about handling the results of getaddrinfo(): when
- * opening an inbound socket, we might get several address results,
- * e.g. for the machine's ipv4 and ipv6 name.
+ * The getaddrinfo() call may return several address results, e.g. for
+ * the machine's IPv4 and IPv6 name.
  *
- * If binding a wildcard, then any one of them should do.  If an address
- * was specified but it's insufficiently specific then that's not our
- * fault.
- *
- * However, some of the advertized addresses may not work because e.g. we
- * don't have IPv6 support in the kernel.  In that case go on and try all
- * addresses until one succeeds.
+ * We return an array of file-descriptors to the sockets, with a trailing
+ * -1 value to indicate the end of the list.
  *
  * @param bind_address Local address to bind, or NULL to allow it to
  * default.
@@ -334,8 +328,8 @@ int open_socket_out_wrapped(char *host, int port, const char *bind_address,
 static int *open_socket_in(int type, int port, const char *bind_address,
 			   int af_hint)
 {
-	int one=1;
-	int s, *sp, *socks, maxs;
+	int one = 1;
+	int s, *socks, maxs, i;
 	struct addrinfo hints, *all_ai, *resp;
 	char portbuf[10];
 	int error;
@@ -354,18 +348,14 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 
 	/* Count max number of sockets we might open. */
 	for (maxs = 0, resp = all_ai; resp; resp = resp->ai_next, maxs++) {}
-	socks = new_array(int, maxs + 1);
-	if (!socks) {
-		rprintf(FERROR,
-			RSYNC_NAME "couldn't allocate memory for sockets");
-		return NULL;
-	}
+
+	if (!(socks = new_array(int, maxs + 1)))
+		out_of_memory("open_socket_in");
 
 	/* We may not be able to create the socket, if for example the
 	 * machine knows about IPv6 in the C library, but not in the
 	 * kernel. */
-	sp = socks + 1; /* Leave room for count at start of array. */
-	for (resp = all_ai; resp; resp = resp->ai_next) {
+	for (resp = all_ai, i = 0; resp; resp = resp->ai_next) {
 		s = socket(resp->ai_family, resp->ai_socktype,
 			   resp->ai_protocol);
 
@@ -379,8 +369,12 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 
 #ifdef IPV6_V6ONLY
 		if (resp->ai_family == AF_INET6) {
-			setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
-				   (char *)&one, sizeof one);
+			if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
+				       (char *)&one, sizeof one) < 0
+			    && default_af_hint != AF_INET6) {
+				close(s);
+				continue;
+			}
 		}
 #endif
 
@@ -391,17 +385,17 @@ static int *open_socket_in(int type, int port, const char *bind_address,
 			continue;
 		}
 
-		*sp++ = s;
+		socks[i++] = s;
 	}
-	*socks = sp - socks - 1;   /* Save count. */
+	socks[i] = -1;
 
 	if (all_ai)
 		freeaddrinfo(all_ai);
 
-	if (*socks == 0) {
+	if (!i) {
 		rprintf(FERROR,
-			RSYNC_NAME ": open inbound socket on port %d failed: "
-			"%s\n", port, strerror(errno));
+			"unable to bind any inbound sockets on port %d\n",
+			port);
 		free(socks);
 		return NULL;
 	}
@@ -446,9 +440,7 @@ static RETSIGTYPE sigchld_handler(UNUSED(int val))
 void start_accept_loop(int port, int (*fn)(int, int))
 {
 	fd_set deffds;
-	int *sp, maxfd, i, j;
-	extern char *bind_address;
-	extern int default_af_hint;
+	int *sp, maxfd, i;
 
 	/* open an incoming socket */
 	sp = open_socket_in(SOCK_STREAM, port, bind_address, default_af_hint);
@@ -457,12 +449,15 @@ void start_accept_loop(int port, int (*fn)(int, int))
 
 	/* ready to listen */
 	FD_ZERO(&deffds);
-	maxfd = -1;
-	for (i = 1; i <= *sp; i++) {
-		if (listen(sp[i], 5) == -1) {
-			for (j = 1; j <= i; j++)
-				close(sp[j]);
-			free(sp);
+	for (i = 0, maxfd = -1; sp[i] >= 0; i++) {
+		if (listen(sp[i], 5) < 0) {
+			rsyserr(FERROR, errno, "listen() on socket failed");
+#ifdef INET6
+			if (errno == EADDRINUSE && i > 0) {
+				rprintf(FINFO,
+				    "Try using --ipv4 or --ipv6 to avoid this listen() error.");
+			}
+#endif
 			exit_cleanup(RERR_SOCKETIO);
 		}
 		FD_SET(sp[i], &deffds);
@@ -494,8 +489,7 @@ void start_accept_loop(int port, int (*fn)(int, int))
 		if (select(maxfd + 1, &fds, NULL, NULL, NULL) != 1)
 			continue;
 
-		fd = -1;
-		for (i = 1; i <= *sp; i++) {
+		for (i = 0, fd = -1; sp[i] >= 0; i++) {
 			if (FD_ISSET(sp[i], &fds)) {
 				fd = accept(sp[i], (struct sockaddr *)&addr,
 					    &addrlen);
@@ -510,7 +504,8 @@ void start_accept_loop(int port, int (*fn)(int, int))
 
 		if ((pid = fork()) == 0) {
 			int ret;
-			close(sp[i]);
+			for (i = 0; sp[i] >= 0; i++)
+				close(sp[i]);
 			/* open log file in child before possibly giving
 			 * up privileges  */
 			log_open();
@@ -518,10 +513,8 @@ void start_accept_loop(int port, int (*fn)(int, int))
 			close_all();
 			_exit(ret);
 		} else if (pid < 0) {
-			rprintf(FERROR,
-				RSYNC_NAME
-				": could not create child server process: %s\n",
-				strerror(errno));
+			rsyserr(FERROR, errno,
+				"could not create child server process");
 			close(fd);
 			/* This might have happened because we're
 			 * overloaded.  Sleep briefly before trying to
@@ -638,9 +631,10 @@ void set_socket_options(int fd, char *options)
 			break;
 		}
 
-		if (ret != 0)
-			rprintf(FERROR, "failed to set socket option %s: %s\n", tok,
-				strerror(errno));
+		if (ret != 0) {
+			rsyserr(FERROR, errno,
+				"failed to set socket option %s", tok);
+		}
 	}
 
 	free(options);
@@ -733,13 +727,15 @@ static int socketpair_tcp(int fd[2])
 		goto failed;
 
 	close(listener);
+	listener = -1;
+
+	set_blocking(fd[1]);
+
 	if (connect_done == 0) {
 		if (connect(fd[1], (struct sockaddr *)&sock, sizeof sock) != 0
 		    && errno != EISCONN)
 			goto failed;
 	}
-
-	set_blocking(fd[1]);
 
 	/* all OK! */
 	return 0;
@@ -770,8 +766,7 @@ int sock_exec(const char *prog)
 	int fd[2];
 
 	if (socketpair_tcp(fd) != 0) {
-		rprintf(FERROR, RSYNC_NAME ": socketpair_tcp failed (%s)\n",
-			strerror(errno));
+		rsyserr(FERROR, errno, "socketpair_tcp failed");
 		return -1;
 	}
 	if (verbose >= 2)

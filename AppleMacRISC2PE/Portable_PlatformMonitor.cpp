@@ -362,7 +362,9 @@ bool Portable_PlatformMonitor::start ( IOService * nub )
                             newNum = newCPUSpeed / (gPEClockFrequencyInfo.cpu_clock_rate_hz /
                                                     gPEClockFrequencyInfo.bus_to_cpu_rate_num);
                             gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;			// Set new numerator
-                            gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;		// Set new speed
+							gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;		// Set new speed (old, 32-bit)
+							gPEClockFrequencyInfo.cpu_frequency_hz = newCPUSpeed;		// Set new speed (64-bit)
+							gPEClockFrequencyInfo.cpu_frequency_max_hz = newCPUSpeed;	// Max as well (64-bit)
                         }
                     }
                     break;

@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstAtEnd.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -64,7 +63,7 @@ __RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstAtEnd.c,v 1.7 2000/07/09 00:08:47
 ReturnStatus
 Lst_AtEnd (l, d)
     Lst		l;	/* List to which to add the datum */
-    ClientData	d;	/* Datum to add */
+    void *	d;	/* Datum to add */
 {
     register LstNode	end;
 

@@ -1,0 +1,18 @@
+#!/bin/sh
+#
+# This is a small collection of example settings you can use to
+# compile tdom on different platforms. Just uncomment the line(s)
+# you need and run this script with "sh CONFIG".
+#
+#
+# Tcl on Unix (uses public Tcl library)
+# --------------------------------------------
+# ./configure
+#
+# Mac OS X. Uses public Tcl library.
+# --------------------------------------------
+# ./configure \
+#   --mandir=/usr/local/share/man \
+#   --libdir=/Library/Tcl
+#
+# EOF

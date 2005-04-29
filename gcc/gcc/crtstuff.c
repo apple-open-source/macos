@@ -1,7 +1,7 @@
 /* Specialized bits of code needed to support construction and
    destruction of file-scope objects in C++ code.
    Copyright (C) 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
    Contributed by Ron Guilmette (rfg@monkeys.com).
 
 This file is part of GCC.
@@ -60,6 +60,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "auto-host.h"
 #include "tconfig.h"
 #include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "unwind-dw2-fde.h"
 
 #ifndef FORCE_CODE_SECTION_ALIGN
@@ -107,7 +109,7 @@ call_ ## FUNC (void)					\
    but not its definition.
 
    Making TARGET_WEAK_ATTRIBUTE conditional seems like a good solution until
-   one thinks about scaling to larger problems -- ie, the condition under
+   one thinks about scaling to larger problems -- i.e., the condition under
    which TARGET_WEAK_ATTRIBUTE is active will eventually get far too
    complicated.
 
@@ -118,15 +120,16 @@ call_ ## FUNC (void)					\
    
 /* References to __register_frame_info and __deregister_frame_info should
    be weak in this file if at all possible.  */
-extern void __register_frame_info (void *, struct object *)
+extern void __register_frame_info (const void *, struct object *)
 				  TARGET_ATTRIBUTE_WEAK;
-extern void __register_frame_info_bases (void *, struct object *,
+extern void __register_frame_info_bases (const void *, struct object *,
 					 void *, void *)
 				  TARGET_ATTRIBUTE_WEAK;
-extern void *__deregister_frame_info (void *)
+extern void *__deregister_frame_info (const void *)
 				     TARGET_ATTRIBUTE_WEAK;
-extern void *__deregister_frame_info_bases (void *)
+extern void *__deregister_frame_info_bases (const void *)
 				     TARGET_ATTRIBUTE_WEAK;
+extern void __do_global_ctors_1 (void);
 
 /* Likewise for _Jv_RegisterClasses.  */
 extern void _Jv_RegisterClasses (void *) TARGET_ATTRIBUTE_WEAK;
@@ -270,7 +273,7 @@ __do_global_dtors_aux (void)
     }
 
 #ifdef USE_EH_FRAME_REGISTRY
-#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
+#ifdef CRT_GET_RFIB_DATA
   /* If we used the new __register_frame_info_bases interface,
      make sure that we deregister from the same place.  */
   if (__deregister_frame_info_bases)
@@ -297,28 +300,25 @@ frame_dummy (void)
 {
 #ifdef USE_EH_FRAME_REGISTRY
   static struct object object;
-#if defined(CRT_GET_RFIB_TEXT) || defined(CRT_GET_RFIB_DATA)
-  void *tbase, *dbase;
-#ifdef CRT_GET_RFIB_TEXT
-  CRT_GET_RFIB_TEXT (tbase);
-#else
-  tbase = 0;
-#endif
 #ifdef CRT_GET_RFIB_DATA
+  void *tbase, *dbase;
+  tbase = 0;
   CRT_GET_RFIB_DATA (dbase);
-#else
-  dbase = 0;
-#endif
   if (__register_frame_info_bases)
     __register_frame_info_bases (__EH_FRAME_BEGIN__, &object, tbase, dbase);
 #else
   if (__register_frame_info)
     __register_frame_info (__EH_FRAME_BEGIN__, &object);
-#endif
+#endif /* CRT_GET_RFIB_DATA */
 #endif /* USE_EH_FRAME_REGISTRY */
 #ifdef JCR_SECTION_NAME
-  if (__JCR_LIST__[0] && _Jv_RegisterClasses)
-    _Jv_RegisterClasses (__JCR_LIST__);
+  if (__JCR_LIST__[0])
+    {
+      void (*register_classes) (void *) = _Jv_RegisterClasses;
+      __asm ("" : "+r" (register_classes));
+      if (register_classes)
+	register_classes (__JCR_LIST__);
+    }
 #endif /* JCR_SECTION_NAME */
 }
 
@@ -349,16 +349,6 @@ __do_global_ctors (void)
 
 asm (INIT_SECTION_ASM_OP);	/* cc1 doesn't know that we are switching! */
 
-/* On some svr4 systems, the initial .init section preamble code provided in
-   crti.o may do something, such as bump the stack, which we have to 
-   undo before we reach the function prologue code for __do_global_ctors 
-   (directly below).  For such systems, define the macro INIT_SECTION_PREAMBLE
-   to expand into the code needed to undo the actions of the crti.o file.  */
-
-#ifdef INIT_SECTION_PREAMBLE
-  INIT_SECTION_PREAMBLE;
-#endif
-
 /* A routine to invoke all of the global constructors upon entry to the
    program.  We put this into the .init section (for systems that have
    such a thing) so that we can properly perform the construction of
@@ -376,6 +366,8 @@ __do_global_ctors_aux (void)	/* prologue goes in .init section */
 #endif /* OBJECT_FORMAT_ELF */
 
 #elif defined(HAS_INIT_SECTION) /* ! INIT_SECTION_ASM_OP */
+
+extern void __do_global_dtors (void);
 
 /* This case is used by the Irix 6 port, which supports named sections but
    not an SVR4-style .fini section.  __do_global_dtors can be non-static
@@ -408,8 +400,13 @@ __do_global_ctors_1(void)
     __register_frame_info (__EH_FRAME_BEGIN__, &object);
 #endif
 #ifdef JCR_SECTION_NAME
-  if (__JCR_LIST__[0] && _Jv_RegisterClasses)
-    _Jv_RegisterClasses (__JCR_LIST__);
+  if (__JCR_LIST__[0])
+    {
+      void (*register_classes) (void *) = _Jv_RegisterClasses;
+      __asm ("" : "+r" (register_classes));
+      if (register_classes)
+	register_classes (__JCR_LIST__);
+    }
 #endif
 }
 #endif /* USE_EH_FRAME_REGISTRY || JCR_SECTION_NAME */
@@ -458,9 +455,18 @@ STATIC func_ptr __DTOR_END__[1]
 #ifdef EH_FRAME_SECTION_NAME
 /* Terminate the frame unwind info section with a 4byte 0 as a sentinel;
    this would be the 'length' field in a real FDE.  */
-STATIC EH_FRAME_SECTION_CONST int __FRAME_END__[]
-     __attribute__ ((unused, mode(SI), section(EH_FRAME_SECTION_NAME),
-		     aligned(4)))
+# if __INT_MAX__ == 2147483647
+typedef int int32;
+# elif __LONG_MAX__ == 2147483647
+typedef long int32;
+# elif __SHRT_MAX__ == 2147483647
+typedef short int32;
+# else
+#  error "Missing a 4 byte integer"
+# endif
+STATIC EH_FRAME_SECTION_CONST int32 __FRAME_END__[]
+     __attribute__ ((unused, section(EH_FRAME_SECTION_NAME),
+		     aligned(sizeof(int32))))
      = { 0 };
 #endif /* EH_FRAME_SECTION_NAME */
 
@@ -523,10 +529,11 @@ asm (TEXT_SECTION_ASM_OP);
 
 #elif defined(HAS_INIT_SECTION) /* ! INIT_SECTION_ASM_OP */
 
+extern void __do_global_ctors (void);
+
 /* This case is used by the Irix 6 port, which supports named sections but
    not an SVR4-style .init section.  __do_global_ctors can be non-static
    in this case because we protect it with -hidden_symbol.  */
-extern void __do_global_ctors_1(void);
 void
 __do_global_ctors (void)
 {

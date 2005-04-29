@@ -219,6 +219,7 @@ rpcerr2errno(int r, int e)
 {
 	char hn[1024];
 	char *p;
+	int i;
 
 	[super init];
 
@@ -248,8 +249,16 @@ rpcerr2errno(int r, int e)
 	if (isLocalHost) address = htonl(INADDR_LOOPBACK);
 
 	myname = [servername retain];
-	[self reset];
 
+	for (i = 0; i < 4; i++)
+	{
+		port[i] = 0;
+		mountClient[i] = NULL;
+		lastTime[i] = 0;
+		isDead[i][0] = NO;
+		isDead[i][1] = NO;
+	}
+	
 	return self;
 }
 
@@ -286,13 +295,24 @@ rpcerr2errno(int r, int e)
 - (void)reset
 {
 	int i;
+	CLIENT *cl;
 
 	for (i = 0; i < 4; i++)
 	{
+		if (mountClient[i] != NULL)
+		{
+			cl = (CLIENT *)mountClient[i];
+			if (cl->cl_auth) {
+				auth_destroy(cl->cl_auth);
+			} else {
+				sys_msg(debug, LOG_INFO,
+					"[Server reset]: NULL cl_auth in non-NULL connection block for server '%s'?",
+						[[self name] value]);
+			}
+			clnt_destroy(cl);
+			mountClient[i] = NULL;
+		}
 		port[i] = 0;
-		lastTime[i] = 0;
-		isDead[i][0] = NO;
-		isDead[i][1] = NO;
 	}
 }
 
@@ -397,11 +417,16 @@ rpcerr2errno(int r, int e)
 	i = 1;
 	if (v == 3) i = 3;
 	
-	if (proto == IPPROTO_TCP)
+	if (proto == IPPROTO_TCP) {
+		sys_msg(debug, LOG_DEBUG, "Creating TCP MOUNTPROG client for server %s: %s",
+			inet_ntoa(sin.sin_addr), clnt_spcreateerror("clnttcp_create"));
 		cl = clnttcp_create(&sin, MOUNTPROG, i, &s, 0, 0);
-	else
+	} else {
+		sys_msg(debug, LOG_DEBUG, "Creating UDP MOUNTPROG client for server %s: %s",
+			inet_ntoa(sin.sin_addr), clnt_spcreateerror("clntudp_create"));
 		cl = clntudp_create(&sin, MOUNTPROG, i, tv, &s);
-
+	}
+	
 	if (cl == NULL)
 	{
 		sys_msg(debug, LOG_ERR, "Can't create MOUNTPROG client for server %s: %s",
@@ -453,14 +478,14 @@ rpcerr2errno(int r, int e)
 
 	if (v == 2)
 	{
-		status = clnt_call(cl, MOUNTPROC_MNT, xdr_dirpath, &dir,
-			xdr_fhstatus, &mount_res_2, tv);
+		status = clnt_call(cl, MOUNTPROC_MNT, (xdrproc_t)xdr_dirpath, &dir,
+			(xdrproc_t)xdr_fhstatus, &mount_res_2, tv);
 		if (status == RPC_SUCCESS) mount_status = mount_res_2.fhs_status;
 	}
 	else
 	{
-		status = clnt_call(cl, MOUNTPROC_MNT, xdr_dirpath, &dir,
-			xdr_mountres3, &mount_res_3, tv);
+		status = clnt_call(cl, MOUNTPROC_MNT, (xdrproc_t)xdr_dirpath, &dir,
+			(xdrproc_t)xdr_mountres3, &mount_res_3, tv);
 		if (status == RPC_SUCCESS) mount_status = mount_res_3.fhs_status;
 	}
 
@@ -478,11 +503,11 @@ rpcerr2errno(int r, int e)
 			v, [myname value], [filename value], mnt_strerror(mount_status));
 		if (v == 2)
 		{
-			(void)clnt_freeres(cl, xdr_fhstatus, &mount_res_2);
+			(void)clnt_freeres(cl, (xdrproc_t)xdr_fhstatus, &mount_res_2);
 		}
 		else
 		{
-			(void)clnt_freeres(cl, xdr_mountres3, &mount_res_3);
+			(void)clnt_freeres(cl, (xdrproc_t)xdr_mountres3, &mount_res_3);
 		}	
 		return mount_status;
 	}
@@ -491,13 +516,13 @@ rpcerr2errno(int r, int e)
 	{
 		*s = FHSIZE;
 		memmove(fh, mount_res_2.fhstatus_u.fhs_fhandle, *s);
-		(void)clnt_freeres(cl, xdr_fhstatus, &mount_res_2);
+		(void)clnt_freeres(cl, (xdrproc_t)xdr_fhstatus, &mount_res_2);
 	}
 	else
 	{
 		*s = mount_res_3.mountres3_u.mountinfo.fhandle.fhandle3_len;
 		memmove(fh, mount_res_3.mountres3_u.mountinfo.fhandle.fhandle3_val, *s);
-		(void)clnt_freeres(cl, xdr_mountres3, &mount_res_3);
+		(void)clnt_freeres(cl, (xdrproc_t)xdr_mountres3, &mount_res_3);
 	}	
 
 	return 0;
@@ -517,7 +542,9 @@ rpcerr2errno(int r, int e)
 			clnt_destroy(cl);
 		}
 	}
-
+	
+	[myname release];
+	
 	[super dealloc];
 }
 

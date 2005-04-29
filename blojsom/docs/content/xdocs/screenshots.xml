@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>screenshots</title>
+    </header>
+    <body>
+        <section>
+            <title>Screenshots</title>
+            <p>
+
+                <link href="screenshots/blojsom-main.jpg">
+                    <img src="screenshots/blojsom-main.jpg" width="120" height="120" alt="blojsom main page"/>
+                </link>
+                blojsom main page
+            </p>
+            <p>
+
+                <link href="screenshots/blojsom-calendar.jpg">
+                    <img src="screenshots/blojsom-calendar.jpg" width="120" height="120" alt="blojsom calendar navigation"/>
+                </link>
+                blojsom calendar navigation
+            </p>
+            <p>
+
+                <link href="screenshots/blojsom-search.jpg">
+                    <img src="screenshots/blojsom-search.jpg" width="120" height="120" alt="blojsom search box"/>
+                </link>
+                blojsom search box
+            </p>
+            <p>
+
+                <link href="screenshots/blojsom-comments-trackbacks.jpg">
+                    <img src="screenshots/blojsom-comments-trackbacks.jpg" width="120" height="120" alt="blojsom comments and trackbacks"/>
+                </link>
+                blojsom comments and trackbacks
+            </p>
+            <p>
+
+                <link href="screenshots/blojsom-comment-form.jpg">
+                    <img src="screenshots/blojsom-comment-form.jpg" width="120" height="120" alt="blojsom comment form"/>
+                </link>
+                blojsom comment form
+            </p>
+            <p>
+
+                <link href="screenshots/blojsom-referers.jpg">
+                    <img src="screenshots/blojsom-referers.jpg" width="120" height="120" alt="blojsom referer support"/>
+                </link>
+                blojsom referer support
+            </p>
+        </section>
+    </body>
+</document>

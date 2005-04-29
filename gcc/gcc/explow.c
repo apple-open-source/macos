@@ -1,6 +1,6 @@
 /* Subroutines for manipulating rtx's in semantically interesting ways.
    Copyright (C) 1987, 1991, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,8 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "toplev.h"
 #include "rtl.h"
 #include "tree.h"
@@ -36,22 +38,19 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "recog.h"
 #include "langhooks.h"
 
-static rtx break_out_memory_refs	PARAMS ((rtx));
-static void emit_stack_probe		PARAMS ((rtx));
+static rtx break_out_memory_refs (rtx);
+static void emit_stack_probe (rtx);
 
 
 /* Truncate and perhaps sign-extend C as appropriate for MODE.  */
 
 HOST_WIDE_INT
-trunc_int_for_mode (c, mode)
-     HOST_WIDE_INT c;
-     enum machine_mode mode;
+trunc_int_for_mode (HOST_WIDE_INT c, enum machine_mode mode)
 {
   int width = GET_MODE_BITSIZE (mode);
 
   /* You want to truncate to a _what_?  */
-  if (! SCALAR_INT_MODE_P (mode))
-    abort ();
+  gcc_assert (SCALAR_INT_MODE_P (mode));
 
   /* Canonicalize BImode to 0 and STORE_FLAG_VALUE.  */
   if (mode == BImode)
@@ -71,14 +70,10 @@ trunc_int_for_mode (c, mode)
   return c;
 }
 
-/* Return an rtx for the sum of X and the integer C.
-
-   This function should be used via the `plus_constant' macro.  */
+/* Return an rtx for the sum of X and the integer C.  */
 
 rtx
-plus_constant_wide (x, c)
-     rtx x;
-     HOST_WIDE_INT c;
+plus_constant (rtx x, HOST_WIDE_INT c)
 {
   RTX_CODE code;
   rtx y;
@@ -204,9 +199,7 @@ plus_constant_wide (x, c)
    it is not isomorphic to X.  */
 
 rtx
-eliminate_constant_term (x, constptr)
-     rtx x;
-     rtx *constptr;
+eliminate_constant_term (rtx x, rtx *constptr)
 {
   rtx x0, x1;
   rtx tem;
@@ -239,62 +232,17 @@ eliminate_constant_term (x, constptr)
   return x;
 }
 
-/* Returns the insn that next references REG after INSN, or 0
-   if REG is clobbered before next referenced or we cannot find
-   an insn that references REG in a straight-line piece of code.  */
-
-rtx
-find_next_ref (reg, insn)
-     rtx reg;
-     rtx insn;
-{
-  rtx next;
-
-  for (insn = NEXT_INSN (insn); insn; insn = next)
-    {
-      next = NEXT_INSN (insn);
-      if (GET_CODE (insn) == NOTE)
-	continue;
-      if (GET_CODE (insn) == CODE_LABEL
-	  || GET_CODE (insn) == BARRIER)
-	return 0;
-      if (GET_CODE (insn) == INSN
-	  || GET_CODE (insn) == JUMP_INSN
-	  || GET_CODE (insn) == CALL_INSN)
-	{
-	  if (reg_set_p (reg, insn))
-	    return 0;
-	  if (reg_mentioned_p (reg, PATTERN (insn)))
-	    return insn;
-	  if (GET_CODE (insn) == JUMP_INSN)
-	    {
-	      if (any_uncondjump_p (insn))
-		next = JUMP_LABEL (insn);
-	      else
-		return 0;
-	    }
-	  if (GET_CODE (insn) == CALL_INSN
-	      && REGNO (reg) < FIRST_PSEUDO_REGISTER
-	      && call_used_regs[REGNO (reg)])
-	    return 0;
-	}
-      else
-	abort ();
-    }
-  return 0;
-}
-
 /* Return an rtx for the size in bytes of the value of EXP.  */
 
 rtx
-expr_size (exp)
-     tree exp;
+expr_size (tree exp)
 {
-  tree size = (*lang_hooks.expr_size) (exp);
+  tree size;
 
-  if (TREE_CODE (size) != INTEGER_CST
-      && contains_placeholder_p (size))
-    size = build (WITH_RECORD_EXPR, sizetype, size, exp);
+  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
+    size = TREE_OPERAND (exp, 1);
+  else
+    size = SUBSTITUTE_PLACEHOLDER_IN_EXPR (lang_hooks.expr_size (exp), exp);
 
   return expand_expr (size, NULL_RTX, TYPE_MODE (sizetype), 0);
 }
@@ -303,20 +251,19 @@ expr_size (exp)
    if the size can vary or is larger than an integer.  */
 
 HOST_WIDE_INT
-int_expr_size (exp)
-     tree exp;
+int_expr_size (tree exp)
 {
-  tree t = (*lang_hooks.expr_size) (exp);
+  tree size;
 
-  if (t == 0
-      || TREE_CODE (t) != INTEGER_CST
-      || TREE_OVERFLOW (t)
-      || TREE_INT_CST_HIGH (t) != 0
-      /* If the result would appear negative, it's too big to represent.  */
-      || (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0)
+  if (TREE_CODE (exp) == WITH_SIZE_EXPR)
+    size = TREE_OPERAND (exp, 1);
+  else
+    size = lang_hooks.expr_size (exp);
+
+  if (size == 0 || !host_integerp (size, 0))
     return -1;
 
-  return TREE_INT_CST_LOW (t);
+  return tree_low_cst (size, 0);
 }
 
 /* Return a copy of X in which all memory references
@@ -336,10 +283,9 @@ int_expr_size (exp)
    Values returned by expand_expr with 1 for sum_ok fit this constraint.  */
 
 static rtx
-break_out_memory_refs (x)
-     rtx x;
+break_out_memory_refs (rtx x)
 {
-  if (GET_CODE (x) == MEM
+  if (MEM_P (x)
       || (CONSTANT_P (x) && CONSTANT_ADDRESS_P (x)
 	  && GET_MODE (x) != VOIDmode))
     x = force_reg (GET_MODE (x), x);
@@ -356,8 +302,6 @@ break_out_memory_refs (x)
   return x;
 }
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-
 /* Given X, a memory address in ptr_mode, convert it to an address
    in Pmode, or vice versa (TO_MODE says which way).  We take advantage of
    the fact that pointers are not allowed to overflow by commuting arithmetic
@@ -365,13 +309,21 @@ break_out_memory_refs (x)
    used.  */
 
 rtx
-convert_memory_address (to_mode, x)
-     enum machine_mode to_mode;
-     rtx x;
+convert_memory_address (enum machine_mode to_mode ATTRIBUTE_UNUSED, 
+			rtx x)
 {
-  enum machine_mode from_mode = to_mode == ptr_mode ? Pmode : ptr_mode;
+#ifndef POINTERS_EXTEND_UNSIGNED
+  return x;
+#else /* defined(POINTERS_EXTEND_UNSIGNED) */
+  enum machine_mode from_mode;
   rtx temp;
   enum rtx_code code;
+
+  /* If X already has the right mode, just return it.  */
+  if (GET_MODE (x) == to_mode)
+    return x;
+
+  from_mode = to_mode == ptr_mode ? Pmode : ptr_mode;
 
   /* Here we handle some special cases.  If none of them apply, fall through
      to the default case.  */
@@ -436,8 +388,8 @@ convert_memory_address (to_mode, x)
 
   return convert_modes (to_mode, from_mode,
 			x, POINTERS_EXTEND_UNSIGNED);
+#endif /* defined(POINTERS_EXTEND_UNSIGNED) */
 }
-#endif
 
 /* Given a memory address or facsimile X, construct a new address,
    currently equivalent, that is stable: future stores won't change it.
@@ -453,10 +405,9 @@ convert_memory_address (to_mode, x)
    but then you wouldn't get indexed addressing in the reference.  */
 
 rtx
-copy_all_regs (x)
-     rtx x;
+copy_all_regs (rtx x)
 {
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     {
       if (REGNO (x) != FRAME_POINTER_REGNUM
 #if HARD_FRAME_POINTER_REGNUM != FRAME_POINTER_REGNUM
@@ -465,7 +416,7 @@ copy_all_regs (x)
 	  )
 	x = copy_to_reg (x);
     }
-  else if (GET_CODE (x) == MEM)
+  else if (MEM_P (x))
     x = copy_to_reg (x);
   else if (GET_CODE (x) == PLUS || GET_CODE (x) == MINUS
 	   || GET_CODE (x) == MULT)
@@ -483,32 +434,16 @@ copy_all_regs (x)
    works by copying X or subexpressions of it into registers.  */
 
 rtx
-memory_address (mode, x)
-     enum machine_mode mode;
-     rtx x;
+memory_address (enum machine_mode mode, rtx x)
 {
   rtx oldx = x;
 
-  if (GET_CODE (x) == ADDRESSOF)
-    return x;
+  x = convert_memory_address (Pmode, x);
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-  if (GET_MODE (x) != Pmode)
-    x = convert_memory_address (Pmode, x);
-#endif
-
-  /* By passing constant addresses thru registers
+  /* By passing constant addresses through registers
      we get a chance to cse them.  */
   if (! cse_not_expected && CONSTANT_P (x) && CONSTANT_ADDRESS_P (x))
     x = force_reg (Pmode, x);
-
-  /* Accept a QUEUED that refers to a REG
-     even though that isn't a valid address.
-     On attempting to put this in an insn we will call protect_from_queue
-     which will turn it into a REG, which is valid.  */
-  else if (GET_CODE (x) == QUEUED
-      && GET_CODE (QUEUED_VAR (x)) == REG)
-    ;
 
   /* We get better cse by rejecting indirect addressing at this stage.
      Let the combiner create indirect addresses where appropriate.
@@ -516,11 +451,12 @@ memory_address (mode, x)
      are visible.  But not if cse won't be done!  */
   else
     {
-      if (! cse_not_expected && GET_CODE (x) != REG)
+      if (! cse_not_expected && !REG_P (x))
 	x = break_out_memory_refs (x);
 
       /* At this point, any valid address is accepted.  */
-      GO_IF_LEGITIMATE_ADDRESS (mode, x, win);
+      if (memory_address_p (mode, x))
+	goto win;
 
       /* If it was valid before but breaking out memory refs invalidated it,
 	 use it the old way.  */
@@ -564,7 +500,7 @@ memory_address (mode, x)
 
       /* If we have a register that's an invalid address,
 	 it must be a hard reg of the wrong class.  Copy it to a pseudo.  */
-      else if (GET_CODE (x) == REG)
+      else if (REG_P (x))
 	x = copy_to_reg (x);
 
       /* Last resort: copy the value to a register, since
@@ -577,7 +513,7 @@ memory_address (mode, x)
     win2:
       x = oldx;
     win:
-      if (flag_force_addr && ! cse_not_expected && GET_CODE (x) != REG
+      if (flag_force_addr && ! cse_not_expected && !REG_P (x)
 	  /* Don't copy an addr via a reg if it is one of our stack slots.  */
 	  && ! (GET_CODE (x) == PLUS
 		&& (XEXP (x, 0) == virtual_stack_vars_rtx
@@ -596,10 +532,10 @@ memory_address (mode, x)
      a reg as a pointer if we have REG or REG + CONST_INT.  */
   if (oldx == x)
     return x;
-  else if (GET_CODE (x) == REG)
+  else if (REG_P (x))
     mark_reg_pointer (x, BITS_PER_UNIT);
   else if (GET_CODE (x) == PLUS
-	   && GET_CODE (XEXP (x, 0)) == REG
+	   && REG_P (XEXP (x, 0))
 	   && GET_CODE (XEXP (x, 1)) == CONST_INT)
     mark_reg_pointer (XEXP (x, 0), BITS_PER_UNIT);
 
@@ -613,9 +549,7 @@ memory_address (mode, x)
 /* Like `memory_address' but pretend `flag_force_addr' is 0.  */
 
 rtx
-memory_address_noforce (mode, x)
-     enum machine_mode mode;
-     rtx x;
+memory_address_noforce (enum machine_mode mode, rtx x)
 {
   int ambient_force_addr = flag_force_addr;
   rtx val;
@@ -630,10 +564,9 @@ memory_address_noforce (mode, x)
    Pass through anything else unchanged.  */
 
 rtx
-validize_mem (ref)
-     rtx ref;
+validize_mem (rtx ref)
 {
-  if (GET_CODE (ref) != MEM)
+  if (!MEM_P (ref))
     return ref;
   if (! (flag_force_addr && CONSTANT_ADDRESS_P (XEXP (ref, 0)))
       && memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
@@ -643,38 +576,15 @@ validize_mem (ref)
   return replace_equiv_address (ref, XEXP (ref, 0));
 }
 
-/* Given REF, either a MEM or a REG, and T, either the type of X or
-   the expression corresponding to REF, set RTX_UNCHANGING_P if
-   appropriate.  */
-
-void
-maybe_set_unchanging (ref, t)
-     rtx ref;
-     tree t;
-{
-  /* We can set RTX_UNCHANGING_P from TREE_READONLY for decls whose
-     initialization is only executed once, or whose initializer always
-     has the same value.  Currently we simplify this to PARM_DECLs in the
-     first case, and decls with TREE_CONSTANT initializers in the second.  */
-  if ((TREE_READONLY (t) && DECL_P (t)
-       && (TREE_CODE (t) == PARM_DECL
-	   || DECL_INITIAL (t) == NULL_TREE
-	   || TREE_CONSTANT (DECL_INITIAL (t))))
-      || TREE_CODE_CLASS (TREE_CODE (t)) == 'c')
-    RTX_UNCHANGING_P (ref) = 1;
-}
-
 /* Return a modified copy of X with its memory address copied
    into a temporary register to protect it from side effects.
    If X is not a MEM, it is returned unchanged (and not copied).
    Perhaps even if it is a MEM, if there is no need to change it.  */
 
 rtx
-stabilize (x)
-     rtx x;
+stabilize (rtx x)
 {
-
-  if (GET_CODE (x) != MEM
+  if (!MEM_P (x)
       || ! rtx_unstable_p (XEXP (x, 0)))
     return x;
 
@@ -685,8 +595,7 @@ stabilize (x)
 /* Copy the value or contents of X to a new temp reg and return that reg.  */
 
 rtx
-copy_to_reg (x)
-     rtx x;
+copy_to_reg (rtx x)
 {
   rtx temp = gen_reg_rtx (GET_MODE (x));
 
@@ -705,8 +614,7 @@ copy_to_reg (x)
    in case X is a constant.  */
 
 rtx
-copy_addr_to_reg (x)
-     rtx x;
+copy_addr_to_reg (rtx x)
 {
   return copy_to_mode_reg (Pmode, x);
 }
@@ -715,9 +623,7 @@ copy_addr_to_reg (x)
    in case X is a constant.  */
 
 rtx
-copy_to_mode_reg (mode, x)
-     enum machine_mode mode;
-     rtx x;
+copy_to_mode_reg (enum machine_mode mode, rtx x)
 {
   rtx temp = gen_reg_rtx (mode);
 
@@ -726,10 +632,24 @@ copy_to_mode_reg (mode, x)
   if (! general_operand (x, VOIDmode))
     x = force_operand (x, temp);
 
-  if (GET_MODE (x) != mode && GET_MODE (x) != VOIDmode)
-    abort ();
+  gcc_assert (GET_MODE (x) == mode || GET_MODE (x) == VOIDmode);
   if (x != temp)
+  {
+    /* APPLE LOCAL begin Don't assign PARALLEL pattern to psuedo register */
+    tree exp = (current_function_decl != NULL_TREE) ? 
+	       DECL_RESULT (current_function_decl) : NULL_TREE;
+    if (exp != NULL_TREE && DECL_RTL_IF_SET (exp) == x
+	&& GET_CODE (x) == PARALLEL)
+      {
+	tree type = TREE_TYPE (exp);
+	rtx memloc = assign_temp (type, 1, 1, 1);
+	memloc = validize_mem (memloc); 
+	emit_group_store (memloc, x, type, int_size_in_bytes (type));
+	x = memloc;
+      }
+    /* APPLE LOCAL end Don't assign PARALLEL pattern to psuedo register */
     emit_move_insn (temp, x);
+  }
   return temp;
 }
 
@@ -742,13 +662,11 @@ copy_to_mode_reg (mode, x)
    since we mark it as a "constant" register.  */
 
 rtx
-force_reg (mode, x)
-     enum machine_mode mode;
-     rtx x;
+force_reg (enum machine_mode mode, rtx x)
 {
   rtx temp, insn, set;
 
-  if (GET_CODE (x) == REG)
+  if (REG_P (x))
     return x;
 
   if (general_operand (x, mode))
@@ -759,7 +677,7 @@ force_reg (mode, x)
   else
     {
       temp = force_operand (x, NULL_RTX);
-      if (GET_CODE (temp) == REG)
+      if (REG_P (temp))
 	insn = get_last_insn ();
       else
 	{
@@ -774,8 +692,43 @@ force_reg (mode, x)
      if INSN set something else (such as a SUBREG of TEMP).  */
   if (CONSTANT_P (x)
       && (set = single_set (insn)) != 0
-      && SET_DEST (set) == temp)
+      && SET_DEST (set) == temp
+      && ! rtx_equal_p (x, SET_SRC (set)))
     set_unique_reg_note (insn, REG_EQUAL, x);
+
+  /* Let optimizers know that TEMP is a pointer, and if so, the
+     known alignment of that pointer.  */
+  {
+    unsigned align = 0;
+    if (GET_CODE (x) == SYMBOL_REF)
+      {
+        align = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (x) && DECL_P (SYMBOL_REF_DECL (x)))
+	  align = DECL_ALIGN (SYMBOL_REF_DECL (x));
+      }
+    else if (GET_CODE (x) == LABEL_REF)
+      align = BITS_PER_UNIT;
+    else if (GET_CODE (x) == CONST
+	     && GET_CODE (XEXP (x, 0)) == PLUS
+	     && GET_CODE (XEXP (XEXP (x, 0), 0)) == SYMBOL_REF
+	     && GET_CODE (XEXP (XEXP (x, 0), 1)) == CONST_INT)
+      {
+	rtx s = XEXP (XEXP (x, 0), 0);
+	rtx c = XEXP (XEXP (x, 0), 1);
+	unsigned sa, ca;
+
+	sa = BITS_PER_UNIT;
+	if (SYMBOL_REF_DECL (s) && DECL_P (SYMBOL_REF_DECL (s)))
+	  sa = DECL_ALIGN (SYMBOL_REF_DECL (s));
+
+	ca = exact_log2 (INTVAL (c) & -INTVAL (c)) * BITS_PER_UNIT;
+
+	align = MIN (sa, ca);
+      }
+
+    if (align)
+      mark_reg_pointer (temp, align);
+  }
 
   return temp;
 }
@@ -784,15 +737,18 @@ force_reg (mode, x)
    that reg.  Otherwise, return X.  */
 
 rtx
-force_not_mem (x)
-     rtx x;
+force_not_mem (rtx x)
 {
   rtx temp;
 
-  if (GET_CODE (x) != MEM || GET_MODE (x) == BLKmode)
+  if (!MEM_P (x) || GET_MODE (x) == BLKmode)
     return x;
 
   temp = gen_reg_rtx (GET_MODE (x));
+
+  if (MEM_POINTER (x))
+    REG_POINTER (temp) = 1;
+
   emit_move_insn (temp, x);
   return temp;
 }
@@ -802,13 +758,11 @@ force_not_mem (x)
    MODE is the mode to use for X in case it is a constant.  */
 
 rtx
-copy_to_suggested_reg (x, target, mode)
-     rtx x, target;
-     enum machine_mode mode;
+copy_to_suggested_reg (rtx x, rtx target, enum machine_mode mode)
 {
   rtx temp;
 
-  if (target && GET_CODE (target) == REG)
+  if (target && REG_P (target))
     temp = target;
   else
     temp = gen_reg_rtx (mode);
@@ -823,27 +777,39 @@ copy_to_suggested_reg (x, target, mode)
 
    FOR_CALL is nonzero if this call is promoting args for a call.  */
 
+#if defined(PROMOTE_MODE) && !defined(PROMOTE_FUNCTION_MODE)
+#define PROMOTE_FUNCTION_MODE PROMOTE_MODE
+#endif
+
 enum machine_mode
-promote_mode (type, mode, punsignedp, for_call)
-     tree type;
-     enum machine_mode mode;
-     int *punsignedp;
-     int for_call ATTRIBUTE_UNUSED;
+promote_mode (tree type, enum machine_mode mode, int *punsignedp,
+	      int for_call ATTRIBUTE_UNUSED)
 {
   enum tree_code code = TREE_CODE (type);
   int unsignedp = *punsignedp;
 
-#ifdef PROMOTE_FOR_CALL_ONLY
+#ifndef PROMOTE_MODE
   if (! for_call)
     return mode;
 #endif
 
   switch (code)
     {
-#ifdef PROMOTE_MODE
+#ifdef PROMOTE_FUNCTION_MODE
     case INTEGER_TYPE:   case ENUMERAL_TYPE:   case BOOLEAN_TYPE:
     case CHAR_TYPE:      case REAL_TYPE:       case OFFSET_TYPE:
-      PROMOTE_MODE (mode, unsignedp, type);
+#ifdef PROMOTE_MODE
+      if (for_call)
+	{
+#endif
+	  PROMOTE_FUNCTION_MODE (mode, unsignedp, type);
+#ifdef PROMOTE_MODE
+	}
+      else
+	{
+	  PROMOTE_MODE (mode, unsignedp, type);
+	}
+#endif
       break;
 #endif
 
@@ -867,11 +833,9 @@ promote_mode (type, mode, punsignedp, for_call)
    This pops when ADJUST is positive.  ADJUST need not be constant.  */
 
 void
-adjust_stack (adjust)
-     rtx adjust;
+adjust_stack (rtx adjust)
 {
   rtx temp;
-  adjust = protect_from_queue (adjust, 0);
 
   if (adjust == const0_rtx)
     return;
@@ -898,11 +862,9 @@ adjust_stack (adjust)
    This pushes when ADJUST is positive.  ADJUST need not be constant.  */
 
 void
-anti_adjust_stack (adjust)
-     rtx adjust;
+anti_adjust_stack (rtx adjust)
 {
   rtx temp;
-  adjust = protect_from_queue (adjust, 0);
 
   if (adjust == const0_rtx)
     return;
@@ -929,15 +891,17 @@ anti_adjust_stack (adjust)
    by this machine.  SIZE is the desired size, which need not be constant.  */
 
 rtx
-round_push (size)
-     rtx size;
+round_push (rtx size)
 {
   int align = PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT;
+
   if (align == 1)
     return size;
+
   if (GET_CODE (size) == CONST_INT)
     {
-      int new = (INTVAL (size) + align - 1) / align * align;
+      HOST_WIDE_INT new = (INTVAL (size) + align - 1) / align * align;
+
       if (INTVAL (size) != new)
 	size = GEN_INT (new);
     }
@@ -952,6 +916,7 @@ round_push (size)
 			    NULL_RTX, 1);
       size = expand_mult (Pmode, size, GEN_INT (align), NULL_RTX, 1);
     }
+
   return size;
 }
 
@@ -964,14 +929,11 @@ round_push (size)
    are emitted at the current position.  */
 
 void
-emit_stack_save (save_level, psave, after)
-     enum save_level save_level;
-     rtx *psave;
-     rtx after;
+emit_stack_save (enum save_level save_level, rtx *psave, rtx after)
 {
   rtx sa = *psave;
   /* The default is that we use a move insn and save in a Pmode object.  */
-  rtx (*fcn) PARAMS ((rtx, rtx)) = gen_move_insn;
+  rtx (*fcn) (rtx, rtx) = gen_move_insn;
   enum machine_mode mode = STACK_SAVEAREA_MODE (save_level);
 
   /* See if this machine has anything special to do for this kind of save.  */
@@ -1012,17 +974,13 @@ emit_stack_save (save_level, psave, after)
 	    *psave = sa = gen_reg_rtx (mode);
 	}
     }
-  else
-    {
-      if (mode == VOIDmode || GET_MODE (sa) != mode)
-	abort ();
-    }
 
   if (after)
     {
       rtx seq;
 
       start_sequence ();
+      do_pending_stack_adjust ();
       /* We must validize inside the sequence, to ensure that any instructions
 	 created by the validize call also get moved to the right place.  */
       if (sa != 0)
@@ -1034,6 +992,7 @@ emit_stack_save (save_level, psave, after)
     }
   else
     {
+      do_pending_stack_adjust ();
       if (sa != 0)
 	sa = validize_mem (sa);
       emit_insn (fcn (sa, stack_pointer_rtx));
@@ -1047,13 +1006,10 @@ emit_stack_save (save_level, psave, after)
    current position.  */
 
 void
-emit_stack_restore (save_level, sa, after)
-     enum save_level save_level;
-     rtx after;
-     rtx sa;
+emit_stack_restore (enum save_level save_level, rtx sa, rtx after)
 {
   /* The default is that we use a move insn.  */
-  rtx (*fcn) PARAMS ((rtx, rtx)) = gen_move_insn;
+  rtx (*fcn) (rtx, rtx) = gen_move_insn;
 
   /* See if this machine has anything special to do for this kind of save.  */
   switch (save_level)
@@ -1087,11 +1043,13 @@ emit_stack_restore (save_level, sa, after)
 	 references to variable arrays below the code
 	 that deletes (pops) the arrays.  */
       emit_insn (gen_rtx_CLOBBER (VOIDmode,
-		    gen_rtx_MEM (BLKmode, 
+		    gen_rtx_MEM (BLKmode,
 			gen_rtx_SCRATCH (VOIDmode))));
       emit_insn (gen_rtx_CLOBBER (VOIDmode,
 		    gen_rtx_MEM (BLKmode, stack_pointer_rtx)));
     }
+
+  discard_pending_stack_adjust ();
 
   if (after)
     {
@@ -1106,6 +1064,27 @@ emit_stack_restore (save_level, sa, after)
   else
     emit_insn (fcn (stack_pointer_rtx, sa));
 }
+
+/* Invoke emit_stack_save on the nonlocal_goto_save_area for the current
+   function.  This function should be called whenever we allocate or
+   deallocate dynamic stack space.  */
+
+void
+update_nonlocal_goto_save_area (void)
+{
+  tree t_save;
+  rtx r_save;
+
+  /* The nonlocal_goto_save_area object is an array of N pointers.  The
+     first one is used for the frame pointer save; the rest are sized by
+     STACK_SAVEAREA_MODE.  Create a reference to array index 1, the first
+     of the stack save area slots.  */
+  t_save = build4 (ARRAY_REF, ptr_type_node, cfun->nonlocal_goto_save_area,
+		   integer_one_node, NULL_TREE, NULL_TREE);
+  r_save = expand_expr (t_save, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+  emit_stack_save (SAVE_NONLOCAL, &r_save, NULL_RTX);
+}
 
 #ifdef SETJMP_VIA_SAVE_AREA
 /* Optimize RTL generated by allocate_dynamic_stack_space for targets
@@ -1114,16 +1093,15 @@ emit_stack_restore (save_level, sa, after)
    frame, thus causing a crash if a longjmp unwinds to it.  */
 
 void
-optimize_save_area_alloca (insns)
-     rtx insns;
+optimize_save_area_alloca (void)
 {
   rtx insn;
 
-  for (insn = insns; insn; insn = NEXT_INSN(insn))
+  for (insn = get_insns (); insn; insn = NEXT_INSN(insn))
     {
       rtx note;
 
-      if (GET_CODE (insn) != INSN)
+      if (!NONJUMP_INSN_P (insn))
 	continue;
 
       for (note = REG_NOTES (insn); note; note = XEXP (note, 1))
@@ -1145,11 +1123,10 @@ optimize_save_area_alloca (insns)
 
 		 Right now only supported port with stack that grow upward
 		 is the HPPA and it does not define SETJMP_VIA_SAVE_AREA.  */
-	      if (GET_CODE (pat) != SET
-		  || SET_DEST (pat) != stack_pointer_rtx
-		  || GET_CODE (SET_SRC (pat)) != MINUS
-		  || XEXP (SET_SRC (pat), 0) != stack_pointer_rtx)
-		abort ();
+	      gcc_assert (GET_CODE (pat) == SET
+			  && SET_DEST (pat) == stack_pointer_rtx
+			  && GET_CODE (SET_SRC (pat)) == MINUS
+			  && XEXP (SET_SRC (pat), 0) == stack_pointer_rtx);
 
 	      /* This will now be transformed into a (set REG REG)
 		 so we can just blow away all the other notes.  */
@@ -1173,8 +1150,7 @@ optimize_save_area_alloca (insns)
 		    if (XEXP (srch, 1) == note)
 		      break;
 
-		  if (srch == NULL_RTX)
-		    abort ();
+		  gcc_assert (srch);
 
 		  XEXP (srch, 1) = XEXP (note, 1);
 		}
@@ -1199,10 +1175,7 @@ optimize_save_area_alloca (insns)
    KNOWN_ALIGN is the alignment (in bits) that we know SIZE has.  */
 
 rtx
-allocate_dynamic_stack_space (size, target, known_align)
-     rtx size;
-     rtx target;
-     int known_align;
+allocate_dynamic_stack_space (rtx size, rtx target, int known_align)
 {
 #ifdef SETJMP_VIA_SAVE_AREA
   rtx setjmpless_size = NULL_RTX;
@@ -1271,8 +1244,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 
 	/* ??? Code below assumes that the save area needs maximal
 	   alignment.  This constraint may be too strong.  */
-	if (PREFERRED_STACK_BOUNDARY != BIGGEST_ALIGNMENT)
-	  abort ();
+	gcc_assert (PREFERRED_STACK_BOUNDARY == BIGGEST_ALIGNMENT);
 
 	if (GET_CODE (size) == CONST_INT)
 	  {
@@ -1329,8 +1301,8 @@ allocate_dynamic_stack_space (size, target, known_align)
 
  /* We ought to be called always on the toplevel and stack ought to be aligned
     properly.  */
-  if (stack_pointer_delta % (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT))
-    abort ();
+  gcc_assert (!(stack_pointer_delta
+		% (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)));
 
   /* If needed, check that we have the required amount of stack.  Take into
      account what has already been checked.  */
@@ -1338,7 +1310,7 @@ allocate_dynamic_stack_space (size, target, known_align)
     probe_stack_range (STACK_CHECK_MAX_FRAME_SIZE + STACK_CHECK_PROTECT, size);
 
   /* Don't use a TARGET that isn't a pseudo or is the wrong mode.  */
-  if (target == 0 || GET_CODE (target) != REG
+  if (target == 0 || !REG_P (target)
       || REGNO (target) < FIRST_PSEUDO_REGISTER
       || GET_MODE (target) != Pmode)
     target = gen_reg_rtx (Pmode);
@@ -1363,7 +1335,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 
       pred = insn_data[(int) CODE_FOR_allocate_stack].operand[1].predicate;
       if (pred && ! ((*pred) (size, mode)))
-	size = copy_to_mode_reg (mode, size);
+	size = copy_to_mode_reg (mode, convert_to_mode (mode, size, 1));
 
       emit_insn (gen_allocate_stack (target, size));
     }
@@ -1433,16 +1405,9 @@ allocate_dynamic_stack_space (size, target, known_align)
 			    NULL_RTX, 1);
     }
 
-  /* Some systems require a particular insn to refer to the stack
-     to make the pages exist.  */
-#ifdef HAVE_probe
-  if (HAVE_probe)
-    emit_insn (gen_probe ());
-#endif
-
   /* Record the new stack level for nonlocal gotos.  */
-  if (nonlocal_goto_handler_slots != 0)
-    emit_stack_save (SAVE_NONLOCAL, &nonlocal_goto_stack_level, NULL_RTX);
+  if (cfun->nonlocal_goto_save_area != 0)
+    update_nonlocal_goto_save_area ();
 
   return target;
 }
@@ -1454,8 +1419,7 @@ allocate_dynamic_stack_space (size, target, known_align)
 static GTY(()) rtx stack_check_libfunc;
 
 void
-set_stack_check_libfunc (libfunc)
-     rtx libfunc;
+set_stack_check_libfunc (rtx libfunc)
 {
   stack_check_libfunc = libfunc;
 }
@@ -1463,8 +1427,7 @@ set_stack_check_libfunc (libfunc)
 /* Emit one stack probe at ADDRESS, an address within the stack.  */
 
 static void
-emit_stack_probe (address)
-     rtx address;
+emit_stack_probe (rtx address)
 {
   rtx memref = gen_rtx_MEM (word_mode, address);
 
@@ -1489,9 +1452,7 @@ emit_stack_probe (address)
 #endif
 
 void
-probe_stack_range (first, size)
-     HOST_WIDE_INT first;
-     rtx size;
+probe_stack_range (HOST_WIDE_INT first, rtx size)
 {
   /* First ensure SIZE is Pmode.  */
   if (GET_MODE (size) != VOIDmode && GET_MODE (size) != Pmode)
@@ -1506,11 +1467,7 @@ probe_stack_range (first, size)
 					         stack_pointer_rtx,
 					         plus_constant (size, first)));
 
-#ifdef POINTERS_EXTEND_UNSIGNED
-      if (GET_MODE (addr) != ptr_mode)
-	addr = convert_memory_address (ptr_mode, addr);
-#endif
-
+      addr = convert_memory_address (ptr_mode, addr);
       emit_library_call (stack_check_libfunc, LCT_NORMAL, VOIDmode, 1, addr,
 			 ptr_mode);
     }
@@ -1577,17 +1534,14 @@ probe_stack_range (first, size)
       rtx end_lab = gen_label_rtx ();
       rtx temp;
 
-      if (GET_CODE (test_addr) != REG
+      if (!REG_P (test_addr)
 	  || REGNO (test_addr) < FIRST_PSEUDO_REGISTER)
 	test_addr = force_reg (Pmode, test_addr);
 
-      emit_note (NULL, NOTE_INSN_LOOP_BEG);
       emit_jump (test_lab);
 
       emit_label (loop_lab);
       emit_stack_probe (test_addr);
-
-      emit_note (NULL, NOTE_INSN_LOOP_CONT);
 
 #ifdef STACK_GROWS_DOWNWARD
 #define CMP_OPCODE GTU
@@ -1599,14 +1553,12 @@ probe_stack_range (first, size)
 			   1, OPTAB_WIDEN);
 #endif
 
-      if (temp != test_addr)
-	abort ();
+      gcc_assert (temp == test_addr);
 
       emit_label (test_lab);
       emit_cmp_and_jump_insns (test_addr, last_addr, CMP_OPCODE,
 			       NULL_RTX, Pmode, 1, loop_lab);
       emit_jump (end_lab);
-      emit_note (NULL, NOTE_INSN_LOOP_END);
       emit_label (end_lab);
 
       emit_stack_probe (last_addr);
@@ -1623,10 +1575,8 @@ probe_stack_range (first, size)
    and 0 otherwise.  */
 
 rtx
-hard_function_value (valtype, func, outgoing)
-     tree valtype;
-     tree func ATTRIBUTE_UNUSED;
-     int outgoing ATTRIBUTE_UNUSED;
+hard_function_value (tree valtype, tree func ATTRIBUTE_UNUSED,
+		     int outgoing ATTRIBUTE_UNUSED)
 {
   rtx val;
 
@@ -1637,7 +1587,7 @@ hard_function_value (valtype, func, outgoing)
 #endif
     val = FUNCTION_VALUE (valtype, func);
 
-  if (GET_CODE (val) == REG
+  if (REG_P (val)
       && GET_MODE (val) == BLKmode)
     {
       unsigned HOST_WIDE_INT bytes = int_size_in_bytes (valtype);
@@ -1657,8 +1607,7 @@ hard_function_value (valtype, func, outgoing)
 	}
 
       /* No suitable mode found.  */
-      if (tmpmode == VOIDmode)
-	abort ();
+      gcc_assert (tmpmode != VOIDmode);
 
       PUT_MODE (val, tmpmode);
     }
@@ -1669,8 +1618,7 @@ hard_function_value (valtype, func, outgoing)
    in which a scalar value of mode MODE was returned by a library call.  */
 
 rtx
-hard_libcall_value (mode)
-     enum machine_mode mode;
+hard_libcall_value (enum machine_mode mode)
 {
   return LIBCALL_VALUE (mode);
 }
@@ -1681,8 +1629,7 @@ hard_libcall_value (mode)
    what `enum tree_code' means.  */
 
 int
-rtx_to_tree_code (code)
-     enum rtx_code code;
+rtx_to_tree_code (enum rtx_code code)
 {
   enum tree_code tcode;
 

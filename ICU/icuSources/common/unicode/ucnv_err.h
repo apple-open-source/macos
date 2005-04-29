@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
  *
@@ -80,17 +80,18 @@
  *  substituted to be the default substitution character.
  */
 
-/* This file isn't designed to be included all by itself. */
-#ifndef UCNV_H
-# include "unicode/ucnv.h"
- /* and the rest of this file will be ignored. */
-#endif
-
 #ifndef UCNV_ERR_H
 #define UCNV_ERR_H
 
 #include "unicode/utypes.h"
 
+#if !UCONFIG_NO_CONVERSION
+
+/** Forward declaring the UConverter structure. @stable ICU 2.0 */
+struct UConverter;
+
+/** @stable ICU 2.0 */
+typedef struct UConverter UConverter;
 
 /**
  * FROM_U, TO_U context options for sub callback
@@ -110,13 +111,13 @@
  */
 #define UCNV_ESCAPE_ICU       NULL
 /**
- * FROM_U_CALLBACK_ESCAPE context option to escape the code unit according to JAVA (\uXXXX)
+ * FROM_U_CALLBACK_ESCAPE context option to escape the code unit according to JAVA (\\uXXXX)
  * @stable ICU 2.0
  */
 #define UCNV_ESCAPE_JAVA      "J"
 /**
- * FROM_U_CALLBACK_ESCAPE context option to escape the code unit according to C (\uXXXX \UXXXXXXXX)
- * TO_U_CALLBACK_ESCAPE option to escape the character value accoding to C (\xXXXX)
+ * FROM_U_CALLBACK_ESCAPE context option to escape the code unit according to C (\\uXXXX \\UXXXXXXXX)
+ * TO_U_CALLBACK_ESCAPE option to escape the character value accoding to C (\\xXXXX)
  * @stable ICU 2.0
  */
 #define UCNV_ESCAPE_C         "C"
@@ -148,15 +149,15 @@ typedef enum {
     UCNV_UNASSIGNED = 0,  /**< The code point is unassigned.
                              The error code U_INVALID_CHAR_FOUND will be set. */
     UCNV_ILLEGAL = 1,     /**< The code point is illegal. For example, 
-                             \x81\x2E is illegal in SJIS because \x2E
-                             is not a valid trail byte for the \x81 
+                             \\x81\\x2E is illegal in SJIS because \\x2E
+                             is not a valid trail byte for the \\x81 
                              lead byte.
                              Also, starting with Unicode 3.0.1, non-shortest byte sequences
-                             in UTF-8 (like \xC1\xA1 instead of \x61 for U+0061)
+                             in UTF-8 (like \\xC1\\xA1 instead of \\x61 for U+0061)
                              are also illegal, not just irregular.
                              The error code U_ILLEGAL_CHAR_FOUND will be set. */
     UCNV_IRREGULAR = 2,   /**< The codepoint is not a regular sequence in 
-                             the encoding. For example, \xED\xA0\x80..\xED\xBF\xBF
+                             the encoding. For example, \\xED\\xA0\\x80..\\xED\\xBF\\xBF
                              are irregular UTF-8 byte sequences for single surrogate
                              code points.
                              The error code U_INVALID_CHAR_FOUND will be set. */
@@ -172,7 +173,7 @@ typedef enum {
                               by the new converter, the callback must clone 
                               the data and call ucnv_setFromUCallback 
                               (or setToUCallback) with the correct pointer.
-                              @draft ICU 2.2
+                              @stable ICU 2.2
                            */
 } UConverterCallbackReason;
 
@@ -223,7 +224,7 @@ typedef struct {
  * @param err This should always be set to a failure status prior to calling.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_STOP (
+U_STABLE void U_EXPORT2 UCNV_FROM_U_CALLBACK_STOP (
                   const void *context,
                   UConverterFromUnicodeArgs *fromUArgs,
                   const UChar* codeUnits,
@@ -247,7 +248,7 @@ U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_STOP (
  * @param err This should always be set to a failure status prior to calling.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_STOP (
+U_STABLE void U_EXPORT2 UCNV_TO_U_CALLBACK_STOP (
                   const void *context,
                   UConverterToUnicodeArgs *toUArgs,
                   const char* codeUnits,
@@ -274,7 +275,7 @@ U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_STOP (
  *      otherwise this value will be set to a failure status.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_SKIP (
+U_STABLE void U_EXPORT2 UCNV_FROM_U_CALLBACK_SKIP (
                   const void *context,
                   UConverterFromUnicodeArgs *fromUArgs,
                   const UChar* codeUnits,
@@ -304,7 +305,7 @@ U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_SKIP (
  * @see ucnv_setSubstChars
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_SUBSTITUTE (
+U_STABLE void U_EXPORT2 UCNV_FROM_U_CALLBACK_SUBSTITUTE (
                   const void *context,
                   UConverterFromUnicodeArgs *fromUArgs,
                   const UChar* codeUnits,
@@ -327,17 +328,17 @@ U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_SUBSTITUTE (
  *          Note that  codeUnit(32bit int eg: unit of a surrogate pair) is represented as
  *          %UD84D%UDC56</li>
  *        <li>UCNV_ESCAPE_JAVA: Substitues the  ILLEGAL SEQUENCE with the hexadecimal 
- *          representation in the format  \uXXXX, e.g. "\uFFFE\u00AC\uC8FE"). 
+ *          representation in the format  \\uXXXX, e.g. "\\uFFFE\\u00AC\\uC8FE"). 
  *          In the Event the converter doesn't support the characters {\,u}[A-F][0-9], 
  *          it will  substitute  the illegal sequence with the substitution characters.
  *          Note that  codeUnit(32bit int eg: unit of a surrogate pair) is represented as
- *          \uD84D\uDC56</li>
+ *          \\uD84D\\uDC56</li>
  *        <li>UCNV_ESCAPE_C: Substitues the  ILLEGAL SEQUENCE with the hexadecimal 
- *          representation in the format  \uXXXX, e.g. "\uFFFE\u00AC\uC8FE"). 
+ *          representation in the format  \\uXXXX, e.g. "\\uFFFE\\u00AC\\uC8FE"). 
  *          In the Event the converter doesn't support the characters {\,u,U}[A-F][0-9], 
  *          it will  substitute  the illegal sequence with the substitution characters.
  *          Note that  codeUnit(32bit int eg: unit of a surrogate pair) is represented as
- *          \U00023456</li>
+ *          \\U00023456</li>
  *        <li>UCNV_ESCAPE_XML_DEC: Substitues the  ILLEGAL SEQUENCE with the decimal 
  *          representation in the format  &amp;#DDDDDDDD;, e.g. "&amp;#65534;&amp;#172;&amp;#51454;"). 
  *          In the Event the converter doesn't support the characters {&amp;,#}[0-9], 
@@ -360,7 +361,7 @@ U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_SUBSTITUTE (
  *      otherwise this value will be set to a failure status.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_ESCAPE (
+U_STABLE void U_EXPORT2 UCNV_FROM_U_CALLBACK_ESCAPE (
                   const void *context,
                   UConverterFromUnicodeArgs *fromUArgs,
                   const UChar* codeUnits,
@@ -388,7 +389,7 @@ U_CAPI void U_EXPORT2 UCNV_FROM_U_CALLBACK_ESCAPE (
  *      otherwise this value will be set to a failure status.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_SKIP (
+U_STABLE void U_EXPORT2 UCNV_TO_U_CALLBACK_SKIP (
                   const void *context,
                   UConverterToUnicodeArgs *toUArgs,
                   const char* codeUnits,
@@ -414,7 +415,7 @@ U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_SKIP (
  *      otherwise this value will be set to a failure status.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_SUBSTITUTE (
+U_STABLE void U_EXPORT2 UCNV_TO_U_CALLBACK_SUBSTITUTE (
                   const void *context,
                   UConverterToUnicodeArgs *toUArgs,
                   const char* codeUnits,
@@ -440,13 +441,15 @@ U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_SUBSTITUTE (
  * @stable ICU 2.0
  */
 
-U_CAPI void U_EXPORT2 UCNV_TO_U_CALLBACK_ESCAPE (
+U_STABLE void U_EXPORT2 UCNV_TO_U_CALLBACK_ESCAPE (
                   const void *context,
                   UConverterToUnicodeArgs *toUArgs,
                   const char* codeUnits,
                   int32_t length,
                   UConverterCallbackReason reason,
                   UErrorCode * err);
+
+#endif
 
 #endif
 

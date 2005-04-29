@@ -22,6 +22,8 @@
 #ifndef READCONF_H
 #define READCONF_H
 
+#include <sys/types.h>
+
 /* Data structure for representing a forwarding request. */
 
 typedef struct {

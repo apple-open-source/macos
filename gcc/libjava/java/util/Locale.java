@@ -186,7 +186,7 @@ public final class Locale implements Serializable, Cloneable
    *
    * @serial should be -1 in serial streams
    */
-  private int hashcode;
+  private transient int hashcode;
 
   /**
    * The default locale. Except for during bootstrapping, this should never be
@@ -231,9 +231,9 @@ public final class Locale implements Serializable, Cloneable
     // default locale.
     if (defaultLocale != null)
       {
-        language = convertLanguage(language);
-        country = country.toUpperCase();
-        variant = variant.toUpperCase();
+        language = convertLanguage(language).intern();
+        country = country.toUpperCase().intern();
+        variant = variant.toUpperCase().intern();
       }
     this.language = language;
     this.country = country;
@@ -416,7 +416,7 @@ public final class Locale implements Serializable, Cloneable
    * @return the string representation of this Locale
    * @see #getDisplayName()
    */
-  public final String toString()
+  public String toString()
   {
     if (language.length() == 0 && country.length() == 0)
       return "";
@@ -436,7 +436,8 @@ public final class Locale implements Serializable, Cloneable
    */
   public String getISO3Language()
   {
-    if ("".equals(language))
+    // We know all strings are interned so we can use '==' for better performance.
+    if (language == "")
       return "";
     int index
       = ("aa,ab,af,am,ar,as,ay,az,ba,be,bg,bh,bi,bn,bo,br,ca,co,cs,cy,da,"
@@ -472,7 +473,8 @@ public final class Locale implements Serializable, Cloneable
    */
   public String getISO3Country()
   {
-    if ("".equals(country))
+    // We know all strings are interned so we can use '==' for better performance.
+    if (country == "")
       return "";
     int index
       = ("AD,AE,AF,AG,AI,AL,AM,AN,AO,AQ,AR,AS,AT,AU,AW,AZ,BA,BB,BD,BE,BF,"
@@ -489,7 +491,7 @@ public final class Locale implements Serializable, Cloneable
          + "WS,YE,YT,YU,ZA,ZM,ZR,ZW")
       .indexOf(country);
 
-    if (index % 3 != 0 || language.length() != 2)
+    if (index % 3 != 0 || country.length() != 2)
       throw new MissingResourceException
         ("Can't find ISO3 country for " + country,
          "java.util.Locale", country);
@@ -707,10 +709,8 @@ public final class Locale implements Serializable, Cloneable
    *
    * @return the hashcode
    */
-  public synchronized int hashCode()
+  public int hashCode()
   {
-    // This method is synchronized because writeObject() might reset
-    // the hashcode.
     return hashcode;
   }
 
@@ -723,12 +723,15 @@ public final class Locale implements Serializable, Cloneable
    */
   public boolean equals(Object obj)
   {
+    if (this == obj)
+      return true;
     if (! (obj instanceof Locale))
       return false;
     Locale l = (Locale) obj;
-    return (language.equals(l.language)
-            && country.equals(l.country)
-            && variant.equals(l.variant));
+
+    return (language == l.language
+            && country == l.country
+            && variant == l.variant);
   }
 
   /**
@@ -736,17 +739,19 @@ public final class Locale implements Serializable, Cloneable
    *
    * @param output the stream to write to
    * @throws IOException if the write fails
-   * @serialData the hashcode should always be written as -1, and recomputed
-   *      when reading it back
+   * @serialData The first three fields are Strings representing language,
+   *             country, and variant. The fourth field is a placeholder for 
+   *             the cached hashcode, but this is always written as -1, and 
+   *             recomputed when reading it back.
    */
-  private synchronized void writeObject(ObjectOutputStream output)
+  private void writeObject(ObjectOutputStream s)
     throws IOException
   {
-    // Synchronized so that hashCode() doesn't get wrong value.
-    int tmpHashcode = hashcode;
-    hashcode = -1;
-    output.defaultWriteObject();
-    hashcode = tmpHashcode;
+    s.writeObject(language);
+    s.writeObject(country);
+    s.writeObject(variant);
+    // Hashcode field is always written as -1.
+    s.writeInt(-1);
   }
 
   /**
@@ -757,10 +762,13 @@ public final class Locale implements Serializable, Cloneable
    * @throws ClassNotFoundException if reading fails
    * @serialData the hashCode is always invalid and must be recomputed
    */
-  private void readObject(ObjectInputStream input)
+  private void readObject(ObjectInputStream s)
     throws IOException, ClassNotFoundException
   {
-    input.defaultReadObject();
+    language = ((String) s.readObject()).intern();
+    country = ((String) s.readObject()).intern();
+    variant = ((String) s.readObject()).intern();
+    // Recompute hashcode.
     hashcode = language.hashCode() ^ country.hashCode() ^ variant.hashCode();
   }
 } // class Locale

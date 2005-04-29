@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Comments</title>
+    </header>
+    <body>
+        <section>
+            <title>Comments</title>
+            <p>
+                Starting with blojsom 1.5, you have the ability to allow users to comment on your blog entries. By default,
+                comments are enabled in the
+                <code>blojsom.properties</code> that ships with blojsom.
+            </p>
+            <p>
+                As indicated in the
+                <link href="site:installation">installation</link> documentation, the value for the
+                <em>blog-comments-enabled</em>
+                parameter can be either
+                <em>true</em> or
+                <em>false</em>. If set to true, blog comments are enabled globally
+                on your blog. If set to false, no user may comment on blog entries.
+            </p>
+            <p>
+                The
+                <em>blog-comments-directory</em> parameter indicates the directory where blog comments
+                will be written to under the blog category directories.  This directory is automatically
+                added to the list of directories that get filtered by blojsom.
+            </p>
+            <p>
+                When users are taken to the comments page for a blog entry, they are presented with a form
+                where they can enter their name, e-mail address, URL (for a homepage or their own blog), and
+                a comment. Users must enter, at a minimum, their name and a comment. Their e-mail address
+                and URL are optional.
+            </p>
+            <section>
+                <title>Disabling comments on individual entries</title>
+                <p>
+                    If comments are enabled on your blog, but you do not want to allow users to comment on
+                    an individual entry, you can do so by making that entry
+                    <em>read-only</em>. blojsom uses
+                    this to indicate whether or not it should allow users to comment on an entry. If a blog
+                    entry is writable, users may comment on that entry.
+                </p>
+                <p>
+                    Comments can also be disabled on individual entries throug the web administration interface.
+                    If you are adding or editing an entry, you can check a box to indicate that comments are
+                    not enabled on a single entry.
+                </p>
+                <p>
+                    Finally, if you are running the Meta plugin before the Comments plugin, you can add metadata
+                    to the entry to disable comments. The metadata key to disable comments
+                    would be specified as "meta-blog-entry-comments-disabled=y" in your blog entry. You would do
+                    this if you were not editing your blog through the web administration interface or you edit
+                    your blog entries from the command-line.
+                </p>
+            </section>
+            <section>
+                <title>Banning IP addresses from commenting and comment throttling</title>
+                <p>
+                    In blojsom 1.9.1, both the Comment and Trackback plugins can ban IP addresses from posting comments
+                    and trackbacks by specifying regular expressions for banned IP addresses. The list of banned IP
+                    addresses is controlled by the
+                    <em>blog-banned-ip-addresses</em> parameter in your individual
+                    <code>/WEB-INF/(user-id)/blog.properties</code>.
+                    As an example, the following will ban you from posting locally.
+                </p>
+                <source>
+                    blog-banned-ip-addresses=127\\.0\\.0\\.1
+                </source>
+                <p>
+                    In blojsom 2.11, you can configure comment throttling. If throttling is enabled,
+                    comments left from a particular IP address must wait a configurable number of
+                    minutes before another comment can be posted. The comment throttle parameter is
+                    controlled by the <em>plugin-comment-throttle</em> parameter in your individual
+                    <code>/WEB-INF/(user-id)/blog.properties</code>. The parameter is specified as minutes.
+                </p>
+                <source>
+                    plugin-comment-throttle=5
+                </source>
+            </section>
+            <section>
+                <title>Configuring "Remember Me" cookie expiration</title>
+                <p>
+                    Expiration of the cookies for the "Remember Me" functionality in the
+                    comments plugin can be controlled by the <em>plugin-comment-expiration-duration</em>
+                    parameter in your individual <code>/WEB-INF/(user-id)/blog.properties</code>. This parameter is specified as
+                    an integer value in number of seconds until expiration.
+                </p>
+            </section>
+            <section>
+                <title>Enabling auto-formatting of comments</title>
+                <p>
+                    Add the following to your <code>/WEB-INF/(user-id)/blog.properties</code> if you would like to
+                    enable auto-formatting of comments. This will turn all newline characters into &lt;br/&gt; tags.
+                    <source>
+                        plugin-comment-autoformat=true
+                    </source>
+                </p>
+            </section>
+            <section>
+                <title>Setting a prefix for comment e-mail messages</title>
+                <p>
+                    The default subject prefix for comment e-mails is set to <em>[blojsom] Comment on: </em>. If you
+                    would like to configure a different prefix for e-mail messages, set the
+                    <em>plugin-comment-email-prefix</em> property in your individual <code>/WEB-INF/(user-id)/blog.properties</code>.
+                    For example:
+                    <source>
+                        plugin-comment-email-prefix=[your.blog.com] Comment:
+                    </source>
+                </p>
+            </section>
+            <section>
+                <title>Comment API support</title>
+                <p>
+                    As of blojsom 1.8, support for the
+                    <link href="http://wellformedweb.org/story/9">Comment API</link>
+                    has been added to blojsom.
+                </p>
+            </section>
+        </section>
+    </body>
+</document>

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2000, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -64,6 +63,8 @@ package body Ada.Streams.Stream_IO is
    -------------------
 
    function AFCB_Allocate (Control_Block : Stream_AFCB) return FCB.AFCB_Ptr is
+      pragma Warnings (Off, Control_Block);
+
    begin
       return new Stream_AFCB;
    end AFCB_Allocate;
@@ -75,6 +76,8 @@ package body Ada.Streams.Stream_IO is
    --  No special processing required for closing Stream_IO file
 
    procedure AFCB_Close (File : access Stream_AFCB) is
+      pragma Warnings (Off, File);
+
    begin
       null;
    end AFCB_Close;
@@ -149,7 +152,7 @@ package body Ada.Streams.Stream_IO is
    -- Flush --
    -----------
 
-   procedure Flush (File : in out File_Type) is
+   procedure Flush (File : File_Type) is
    begin
       FIO.Flush (AP (File));
    end Flush;
@@ -261,10 +264,6 @@ package body Ada.Streams.Stream_IO is
       if File.Last_Op /= Op_Read
         or else File.Shared_Status = FCB.Yes
       then
-         if End_Of_File (File) then
-            raise End_Error;
-         end if;
-
          Locked_Processing : begin
             SSL.Lock_Task.all;
             Set_Position (File);

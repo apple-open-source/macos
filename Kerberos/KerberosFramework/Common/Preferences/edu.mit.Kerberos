@@ -1,0 +1,34 @@
+[domain_realm]
+	.mit.edu = ATHENA.MIT.EDU
+	mit.edu = ATHENA.MIT.EDU
+
+[libdefaults]
+	default_realm = ATHENA.MIT.EDU
+	ticket_lifetime = 600
+	default_tkt_enctypes = des-cbc-crc
+	default_tgs_enctypes = des-cbc-crc
+
+[realms]
+	ATHENA.MIT.EDU = {
+		kdc = kerberos.mit.edu:88
+		kdc = kerberos-1.mit.edu:88
+		kdc = kerberos-2.mit.edu:88
+		kdc = kerberos-3.mit.edu:88
+		admin_server = kerberos.mit.edu
+		default_domain = mit.edu
+	}
+
+[v4 realms]
+	ATHENA.MIT.EDU = {
+		kdc = kerberos.mit.edu
+		kdc = kerberos-1.mit.edu
+		kdc = kerberos-2.mit.edu
+		kdc = kerberos-3.mit.edu
+		admin_server = kerberos.mit.edu
+		default_domain = mit.edu
+		string_to_key_type = mit_string_to_key
+	}
+
+[v4 domain_realm]
+	.mit.edu = ATHENA.MIT.EDU
+	mit.edu = ATHENA.MIT.EDU

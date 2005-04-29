@@ -29,7 +29,7 @@
 #include "colormac.h"
 #include "light.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mmath.h"
 #include "simple_list.h"
 #include "mtypes.h"
@@ -83,13 +83,13 @@ static void import_color_material( GLcontext *ctx,
    else
       to->StrideB = 4 * sizeof(GLfloat);
    
-   _math_trans_4f( (GLfloat (*)[4]) to->Ptr,
-		   from->Ptr,
-		   from->StrideB,
-		   from->Type,
-		   from->Size,
-		   0,
-		   count);
+   _math_trans_4fc( (GLfloat (*)[4]) to->Ptr,
+		    from->Ptr,
+		    from->StrideB,
+		    from->Type,
+		    from->Size,
+		    0,
+		    count);
 
    VB->ColorPtr[0] = to;
 }
@@ -167,12 +167,12 @@ static GLboolean run_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
    /* Make sure we can talk about elements 0..2 in the vector we are
     * lighting.
     */
-   if (stage->changed_inputs & (VERT_EYE|VERT_OBJ)) {
+   if (stage->changed_inputs & (VERT_BIT_EYE|VERT_BIT_POS)) {
       if (input->size <= 2) {
 	 if (input->flags & VEC_NOT_WRITEABLE) {
-	    ASSERT(VB->importable_data & VERT_OBJ);
+	    ASSERT(VB->importable_data & VERT_BIT_POS);
 
-	    VB->import_data( ctx, VERT_OBJ, VEC_NOT_WRITEABLE );
+	    VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
 	    input = ctx->_NeedEyeCoords ? VB->EyePtr : VB->ObjPtr;
 
 	    ASSERT((input->flags & VEC_NOT_WRITEABLE) == 0);
@@ -294,19 +294,19 @@ static GLboolean run_init_lighting( GLcontext *ctx,
  */
 static void check_lighting( GLcontext *ctx, struct gl_pipeline_stage *stage )
 {
-   stage->active = ctx->Light.Enabled;
+   stage->active = ctx->Light.Enabled && !ctx->VertexProgram.Enabled;
    if (stage->active) {
       if (stage->privatePtr)
 	 stage->run = run_validate_lighting;
-      stage->inputs = VERT_NORM|VERT_MATERIAL;
+      stage->inputs = VERT_BIT_NORMAL|VERT_BIT_MATERIAL;
       if (ctx->Light._NeedVertices)
-	 stage->inputs |= VERT_EYE; /* effectively, even when lighting in obj */
+	 stage->inputs |= VERT_BIT_EYE; /* effectively, even when lighting in obj */
       if (ctx->Light.ColorMaterialEnabled)
-	 stage->inputs |= VERT_RGBA;
+	 stage->inputs |= VERT_BIT_COLOR0;
 
-      stage->outputs = VERT_RGBA;
+      stage->outputs = VERT_BIT_COLOR0;
       if (ctx->Light.Model.ColorControl == GL_SEPARATE_SPECULAR_COLOR)
-	 stage->outputs |= VERT_SPEC_RGB;
+	 stage->outputs |= VERT_BIT_COLOR1;
    }
 }
 
@@ -333,13 +333,16 @@ static void dtr( struct gl_pipeline_stage *stage )
 
 const struct gl_pipeline_stage _tnl_lighting_stage =
 {
-   "lighting",
+   "lighting",			/* name */
    _NEW_LIGHT,			/* recheck */
    _NEW_LIGHT|_NEW_MODELVIEW,	/* recalc -- modelview dependency
 				 * otherwise not captured by inputs
-				 * (which may be VERT_OBJ) */
-   0,0,0,			/* active, inputs, outputs */
-   0,0,				/* changed_inputs, private_data */
+				 * (which may be VERT_BIT_POS) */
+   GL_FALSE,			/* active? */
+   0,				/* inputs */
+   0,				/* outputs */
+   0,				/* changed_inputs */
+   NULL,			/* private_data */
    dtr,				/* destroy */
    check_lighting,		/* check */
    run_init_lighting		/* run -- initially set to ctr */

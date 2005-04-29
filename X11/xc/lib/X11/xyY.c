@@ -34,12 +34,13 @@
  *	DOCUMENTATION
  *		"TekColor Color Management System, System Implementor's Manual"
  */
-/* $XFree86: xc/lib/X11/xyY.c,v 1.3 2001/01/17 19:41:57 dawes Exp $ */
+/* $XFree86: xc/lib/X11/xyY.c,v 1.4 2003/04/13 19:22:22 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xos.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 /*
  *	DEFINES
@@ -52,23 +53,11 @@
 #endif
 
 /*
- *	EXTERNS
- */
-
-extern char _XcmsCIExyY_prefix[];
-
-/* CvCols.c */
-extern Status _XcmsDIConvertColors();
-
-/* XYZ.c */
-extern Status _XcmsCIEXYZ_ValidSpec();
-
-/*
  *	FORWARD DECLARATIONS
  */
 
-static int CIExyY_ParseString();
-static Status XcmsCIExyY_ValidSpec();
+static int CIExyY_ParseString(register char *spec, XcmsColor *pColor);
+static Status XcmsCIExyY_ValidSpec(XcmsColor *pColor);
 
 
 /*
@@ -124,9 +113,9 @@ XcmsColorSpace	XcmsCIExyYColorSpace =
  *	SYNOPSIS
  */
 static int
-CIExyY_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+CIExyY_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -188,8 +177,8 @@ CIExyY_ParseString(spec, pColor)
  *	SYNOPSIS
  */
 static Status
-XcmsCIExyY_ValidSpec(pColor)
-    XcmsColor *pColor;
+XcmsCIExyY_ValidSpec(
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Checks a valid CIExyY color specification.

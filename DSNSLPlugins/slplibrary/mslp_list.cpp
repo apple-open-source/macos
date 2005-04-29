@@ -75,7 +75,7 @@ EXPORT int list_intersection(const char *pcL1, const char *pcL2)
     
     if (!pcL1 || !pcL2) 
     {
-        LOG(SLP_LOG_ERR,"list_intersection: got NULL value as a parameter!");
+        SLPLOG(SLP_LOG_ERR,"list_intersection: got NULL value as a parameter!");
         return 0;
     }
     
@@ -87,7 +87,8 @@ EXPORT int list_intersection(const char *pcL1, const char *pcL2)
         i2 = 0;
         for (pcS2=get_next_string(",",pcL2,&i2,&c); pcS2;pcS2=get_next_string(",",pcL2,&i2,&c))
         {
-            int result = SDstrcasecmp(pcS1,pcS2);
+            // The SLPv2 RFC2608 explicitly states in SECTION 6.4 that scope lists MUST be handled case-insensitive.
+			int result = SDstrcasecmp(pcS1,pcS2);	
             SLPFree(pcS2);
             if (result==0)
             {

@@ -1,4 +1,5 @@
-use Apache::test;
+#!perl
+use Apache::testold;
 
 use strict;
 my $r = shift;

@@ -18,10 +18,29 @@
  * SOFTWARE. 
  ******************************************************************/
 
-#include <stdlib.h>
-#include <sys/time.h>
-#include <unistd.h>
 #include <net-snmp/net-snmp-config.h>
+
+#if HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#if TIME_WITH_SYS_TIME
+# ifdef WIN32
+#  include <sys/timeb.h>
+# else
+#  include <sys/time.h>
+# endif
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include "util_funcs.h"
@@ -127,44 +146,46 @@
                           u_long value,
                           u_long the_threshold, char *alarm_descr);
 
-     static int
-     fetch_var_val(oid * name, size_t namelen, u_long * new_value)
+static int
+fetch_var_val(oid * name, size_t namelen, u_long * new_value)
 {
     netsnmp_subtree *tree_ptr;
     size_t          var_len;
     WriteMethod    *write_method;
     struct variable called_var;
-    register struct variable *s_var_ptr;
-    register int    iii;
+    register struct variable *s_var_ptr = NULL;
     register u_char *access;
 
 
     tree_ptr = netsnmp_subtree_find(name, namelen, NULL, "");
     if (!tree_ptr) {
+        ag_trace("tree_ptr is NULL");
         return SNMP_ERR_NOSUCHNAME;
     }
 
+    
     memcpy(called_var.name, tree_ptr->name_a,
            tree_ptr->namelen * sizeof(oid));
-    s_var_ptr = tree_ptr->variables;
-    for (iii = 0; iii < tree_ptr->variables_len; iii++) {
+ 
+    if (tree_ptr->reginfo && 
+        tree_ptr->reginfo->handler && 
+        tree_ptr->reginfo->handler->next && 
+        tree_ptr->reginfo->handler->next->myvoid) {
+        s_var_ptr = (struct variable *)tree_ptr->reginfo->handler->next->myvoid;
+    }
+
+    if (s_var_ptr) {
         if (s_var_ptr->namelen) {
-            if (0 >= snmp_oidtree_compare(name + tree_ptr->namelen,
-                                          namelen - tree_ptr->namelen,
-                                          s_var_ptr->name,
-                                          s_var_ptr->namelen)) {
-                memcpy(called_var.name + tree_ptr->namelen,
-                       s_var_ptr->name, s_var_ptr->namelen * sizeof(oid));
-                called_var.namelen =
-                    tree_ptr->namelen + s_var_ptr->namelen;
+                called_var.namelen = 
+                                   tree_ptr->namelen;
                 called_var.type = s_var_ptr->type;
                 called_var.magic = s_var_ptr->magic;
                 called_var.acl = s_var_ptr->acl;
                 called_var.findVar = s_var_ptr->findVar;
-
-                access =
+                access =    
                     (*(s_var_ptr->findVar)) (&called_var, name, &namelen,
                                              1, &var_len, &write_method);
+
                 if (access
                     && snmp_oid_compare(name, namelen, tree_ptr->end_a,
                                         tree_ptr->end_len) > 0) {
@@ -199,11 +220,6 @@
                 }
             }
         }
-
-        s_var_ptr =
-            (struct variable *) ((char *) s_var_ptr +
-                                 tree_ptr->variables_width);
-    }
 
     return SNMP_ERR_NOSUCHNAME;
 }

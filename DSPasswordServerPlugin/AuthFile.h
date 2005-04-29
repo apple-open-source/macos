@@ -26,7 +26,7 @@
 #define __AUTHFILE_H__
 
 #include <time.h>
-#include <Carbon/Carbon.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #ifdef __cplusplus
 	extern "C" {
@@ -61,32 +61,58 @@
 #define kPWReplicaPreConfiguredFile			"/var/db/authserver/authserverreplicas.manual"
 
 // ascii identifiers for password policies
-#define kPWPolicyStr_isDisabled					"isDisabled"
-#define kPWPolicyStr_isAdminUser				"isAdminUser"
-#define kPWPolicyStr_newPasswordRequired		"newPasswordRequired"
-#define kPWPolicyStr_usingHistory				"usingHistory"
-#define kPWPolicyStr_canModifyPasswordforSelf	"canModifyPasswordforSelf"
-#define kPWPolicyStr_usingExpirationDate		"usingExpirationDate"
-#define kPWPolicyStr_usingHardExpirationDate	"usingHardExpirationDate"
-#define kPWPolicyStr_requiresAlpha				"requiresAlpha"
-#define kPWPolicyStr_requiresNumeric			"requiresNumeric"
-#define kPWPolicyStr_expirationDateGMT			"expirationDateGMT"
-#define kPWPolicyStr_hardExpireDateGMT			"hardExpireDateGMT"
-#define kPWPolicyStr_maxMinutesUntilChangePW	"maxMinutesUntilChangePassword"
-#define kPWPolicyStr_maxMinutesUntilDisabled	"maxMinutesUntilDisabled"
-#define kPWPolicyStr_maxMinutesOfNonUse			"maxMinutesOfNonUse"
-#define kPWPolicyStr_maxFailedLoginAttempts		"maxFailedLoginAttempts"    
-#define kPWPolicyStr_minChars					"minChars"
-#define kPWPolicyStr_maxChars					"maxChars"
-#define kPWPolicyStr_passwordCannotBeName		"passwordCannotBeName"
-#define kPWPolicyStr_isSessionKeyAgent			"isSessionKeyAgent"
+#define kPWPolicyStr_isDisabled						"isDisabled"
+#define kPWPolicyStr_isAdminUser					"isAdminUser"
+#define kPWPolicyStr_newPasswordRequired			"newPasswordRequired"
+#define kPWPolicyStr_usingHistory					"usingHistory"
+#define kPWPolicyStr_canModifyPasswordforSelf		"canModifyPasswordforSelf"
+#define kPWPolicyStr_usingExpirationDate			"usingExpirationDate"
+#define kPWPolicyStr_usingHardExpirationDate		"usingHardExpirationDate"
+#define kPWPolicyStr_requiresAlpha					"requiresAlpha"
+#define kPWPolicyStr_requiresNumeric				"requiresNumeric"
+#define kPWPolicyStr_expirationDateGMT				"expirationDateGMT"
+#define kPWPolicyStr_hardExpireDateGMT				"hardExpireDateGMT"
+#define kPWPolicyStr_maxMinutesUntilChangePW		"maxMinutesUntilChangePassword"
+#define kPWPolicyStr_maxMinutesUntilDisabled		"maxMinutesUntilDisabled"
+#define kPWPolicyStr_maxMinutesOfNonUse				"maxMinutesOfNonUse"
+#define kPWPolicyStr_maxFailedLoginAttempts			"maxFailedLoginAttempts"    
+#define kPWPolicyStr_minChars						"minChars"
+#define kPWPolicyStr_maxChars						"maxChars"
+#define kPWPolicyStr_passwordCannotBeName			"passwordCannotBeName"
+#define kPWPolicyStr_isSessionKeyAgent				"isSessionKeyAgent"
+#define kPWPolicyStr_requiresMixedCase				"requiresMixedCase"
+#define kPWPolicyStr_notGuessablePattern			"notGuessablePattern"
+#define kPWPolicyStr_warnOfExpirationMinutes		"warnOfExpirationMinutes"
+#define kPWPolicyStr_warnOfDisableMinutes			"warnOfDisableMinutes"
 
 // meta policies
-#define kPWPolicyStr_resetToGlobalDefaults		"resetToGlobalDefaults"
-#define kPWPolicyStr_logOffTime					"logOffTime"
-#define kPWPolicyStr_kickOffTime				"kickOffTime"
-#define kPWPolicyStr_lastLoginTime				"lastLoginTime"
-#define kPWPolicyStr_passwordLastSetTime		"passwordLastSetTime"
+#define kPWPolicyStr_resetToGlobalDefaults			"resetToGlobalDefaults"
+#define kPWPolicyStr_logOffTime						"logOffTime"
+#define kPWPolicyStr_kickOffTime					"kickOffTime"
+#define kPWPolicyStr_lastLoginTime					"lastLoginTime"
+#define kPWPolicyStr_passwordLastSetTime			"passwordLastSetTime"
+#define kPWPolicyStr_minutesUntilFailedLoginReset   "minutesUntilFailedLoginReset"
+#define kPWPolicyStr_newPasswordRequiredForAll		"newPasswordRequiredForAll"
+#define kPWPolicyStr_projectedPasswordExpireDate	"projectedPasswordExpireDate"
+#define kPWPolicyStr_projectedAccountDisableDate	"projectedAccountDisableDate"
+
+enum 
+{
+	kPWHashSlotSMB_NT					= 0,
+	kPWHashSlotSMB_LAN_MANAGER			= 1,
+	kPWHashSlotDIGEST_MD5				= 2,
+	kPWHashSlotCRAM_MD5					= 3,
+	kPWHashSlotKERBEROS					= 4,
+	kPWHashSlotKERBEROS_NAME			= 5
+};
+
+typedef enum PWDisableReasonCode {
+	kPWDisabledNotSet,
+	kPWDisabledByAdmin,
+	kPWDisabledExpired,
+	kPWDisabledInactive,
+	kPWDisabledTooManyFailedLogins
+} PWDisableReasonCode;
 
 // this is the version of the time struct that
 // will be written to our db file.
@@ -126,7 +152,12 @@ typedef struct PWGlobalAccessFeatures {
     unsigned int passwordIsHash:1;
     unsigned int passwordCannotBeName:1;
 	unsigned int historyCount:4;
-	int unused:5;
+	
+	// db 1.2
+	unsigned int requiresMixedCase:1;		// TRUE == password must have one char in [A-Z], and one char in [a-z]
+	unsigned int newPasswordRequired:1;		// TRUE == new users must change their passwords on first login
+	unsigned int noModifyPasswordforSelf:1;	// TRUE == users cannot change their own passwords.
+	int unused:2;
     
     BSDTimeStructCopy expirationDateGMT;	// if exceeded, user is required to change the password at next login
 	BSDTimeStructCopy hardExpireDateGMT;	// if exceeded, user is disabled
@@ -140,6 +171,11 @@ typedef struct PWGlobalAccessFeatures {
     UInt16 maxChars;						// maximum characters in a valid password, 0==limited to Server's limit (512 bytes)
     
 } PWGlobalAccessFeatures;
+
+typedef struct PWGlobalMoreAccessFeatures {
+	UInt32 minutesUntilFailedLoginReset;		// 0=off, after this # of minutes, the failed login count is reset.
+	UInt32 notGuessablePattern;					// 0=off, otherwise, # represents a password score for entropy.
+} PWGlobalMoreAccessFeatures;
 
 typedef struct PWAccessFeatures {
     int isDisabled:1;						// TRUE == cannot log in
@@ -171,6 +207,18 @@ typedef struct PWAccessFeatures {
     
 } PWAccessFeatures;
 
+typedef struct PWMoreAccessFeatures {
+	UInt32 minutesUntilFailedLoginReset;		// 0=off, after this # of minutes, the failed login count is reset.
+	UInt32 notGuessablePattern;					// 0=off, otherwise, # represents a password score for entropy.
+	char userkey[64];							// random key for RC5
+	UInt32 logOffTime;							// SMB data store
+	UInt32 kickOffTime;							// SMB data store
+	int recordIsDead:1;							// death certificate for deleted user
+	int doNotReplicate:1;						// the password information does not get replicated
+	int doNotMerge:1; 							// used for restoring from backup
+	unsigned int requiresMixedCase:1;			// TRUE == password must have one char in [A-Z], and one char in [a-z]
+	int unused511:12; 							// reserved
+} PWMoreAccessFeatures;
 
 typedef struct PWFileHeader {
     UInt32 signature;								// some value that means this is a real pw file
@@ -194,7 +242,8 @@ typedef struct PWFileHeader {
 	char replicationName[kPWFileMaxReplicaName];	// the name used by replication to identify this server
 	UInt32 deepestSlotUsedByThisServer;				// deepest slot used in this replica's allocated range
 	UInt32 accessModDate;							// time of last change to access field in seconds from 1970
-	UInt32 fExtraData[246];							// not used yet, room for future growth - all zero's until used...
+	PWGlobalMoreAccessFeatures extraAccess;			// new policy data
+	UInt32 fExtraData[244];							// not used yet, room for future growth - all zero's until used...
 } PWFileHeader;
 
 typedef struct PWFileEntry {
@@ -224,30 +273,47 @@ typedef struct PWFileEntry {
     PasswordDigest digest[kPWFileMaxDigests];	// password digests
     
     char usernameStr[256];						// the username
-    char userdata[438];							// place for users to store their own information
-	char userkey[64];							// random key for RC5
-	UInt32 logOffTime;							// SMB data store
-	UInt32 kickOffTime;							// SMB data store
-	int recordIsDead:1;							// death certificate for deleted user
-	int doNotReplicate:1;						// the password information does not get replicated
-	int unused511:14; 							// reserved
+	char userdata[426];							// place for users to store their own information
+	PWDisableReasonCode disableReason;			// indicates why an account was disabled
+	PWMoreAccessFeatures extraAccess;			// password policy data determined by marketing
 } PWFileEntry;
 
 int TimeIsStale( BSDTimeStructCopy *inTime );
 int LoginTimeIsStale( BSDTimeStructCopy *inLastLogin, unsigned long inMaxMinutesOfNonUse );
 void PWGlobalAccessFeaturesToString( PWGlobalAccessFeatures *inAccessFeatures, char *outString );
+void PWGlobalAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inAccessFeatures, PWGlobalMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
 void PWAccessFeaturesToString( PWAccessFeatures *inAccessFeatures, char *outString );
+void PWAccessFeaturesToStringExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
 void PWActualAccessFeaturesToString( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, char *outString );
+void PWActualAccessFeaturesToStringExtra( PWGlobalAccessFeatures *inGAccessFeatures, PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
 void PWAccessFeaturesToStringWithoutStateInfo( PWAccessFeatures *inAccessFeatures, char *outString );
+void PWAccessFeaturesToStringWithoutStateInfoExtra( PWAccessFeatures *inAccessFeatures, PWMoreAccessFeatures *inExtraFeatures, int inMaxLen, char *outString );
 Boolean StringToPWGlobalAccessFeatures( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures );
+Boolean StringToPWGlobalAccessFeaturesExtra( const char *inString, PWGlobalAccessFeatures *inOutAccessFeatures, PWGlobalMoreAccessFeatures *inOutExtraFeatures );
 Boolean StringToPWAccessFeatures( const char *inString, PWAccessFeatures *inOutAccessFeatures );
+Boolean StringToPWAccessFeaturesExtra( const char *inString, PWAccessFeatures *inOutAccessFeatures, PWMoreAccessFeatures *inOutExtraFeatures );
 Boolean StringToPWAccessFeatures_GetValue( const char *inString, unsigned long *outValue );
 void CrashIfBuiltWrong(void);
 
+int pwsf_GetPublicKey( char *outPublicKey );
+int pwsf_GetPublicKeyFromFile( const char *inFile, char *outPublicKey );
+void pwsf_CreateReplicaFile( const char *inIPStr, const char *inDNSStr, const char *inPublicKey );
+void pwsf_ResetReplicaFile( const char *inPublicKey );
+char* pwsf_GetPrincName( PWFileEntry *userRec );
+int pwsf_ShadowHashDataToArray( const char *inAAData, CFMutableArrayRef *outHashTypeArray );
+char * pwsf_ShadowHashArrayToData( CFArrayRef inHashTypeArray, long *outResultLen );
+void pwsf_AppendUTF8StringToArray( const char *inUTF8Str, CFMutableArrayRef inArray );
+
 // in CAuthFileBase.cpp
 int pwsf_TestDisabledStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts );
+int pwsf_TestDisabledStatusWithReasonCode( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inCreationDate, struct tm *inLastLoginTime, UInt16 *inOutFailedLoginAttempts, PWDisableReasonCode *outReasonCode );
 int pwsf_ChangePasswordStatus( PWAccessFeatures *inAccess, PWGlobalAccessFeatures *inGAccess, struct tm *inModDateOfPassword );
 int pwsf_RequiredCharacterStatus(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword);
+int pwsf_RequiredCharacterStatusExtra(PWAccessFeatures *access, PWGlobalAccessFeatures *inGAccess, const char *inUsername, const char *inPassword, PWMoreAccessFeatures *inExtraFeatures );
+void pwsf_getHashCramMD5(const unsigned char *inPassword, long inPasswordLen, unsigned char *outHash, unsigned long *outHashLen );
+
+// in CReplicaFile.cpp
+CFDictionaryRef pwsf_GetStatusForReplicas( void );
 
 #ifdef __cplusplus
 	};

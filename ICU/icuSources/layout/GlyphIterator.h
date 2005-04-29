@@ -1,7 +1,6 @@
 /*
- * %W% %E%
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
@@ -20,10 +19,11 @@
 
 U_NAMESPACE_BEGIN
 
+class LEGlyphStorage;
+
 class GlyphIterator : public UMemory {
 public:
-    GlyphIterator(LEGlyphID *theGlyphs, GlyphPositionAdjustment *theGlyphPositionAdjustments, le_int32 theGlyphCount,
-        le_bool rightToLeft, le_uint16 theLookupFlags, LETag theFeatureTag, const LETag *theGlyphTags[],
+    GlyphIterator(LEGlyphStorage &theGlyphStorage, GlyphPositionAdjustment *theGlyphPositionAdjustments, le_bool rightToLeft, le_uint16 theLookupFlags, LETag theFeatureTag,
         const GlyphDefinitionTableHeader *theGlyphDefinitionTableHeader);
 
     GlyphIterator(GlyphIterator &that);
@@ -32,7 +32,9 @@ public:
 
     GlyphIterator(GlyphIterator &that, le_uint16 newLookupFlags);
 
-    ~GlyphIterator();
+    virtual ~GlyphIterator();
+
+    void reset(le_uint16 newLookupFlags, LETag newFeatureTag);
 
     le_bool next(le_uint32 delta = 1);
     le_bool prev(le_uint32 delta = 1);
@@ -61,8 +63,11 @@ public:
     void setCurrStreamPosition(le_int32 position);
     void setCurrGlyphPositionAdjustment(const GlyphPositionAdjustment *adjustment);
     void setCurrGlyphBaseOffset(le_int32 baseOffset);
-    void adjustCurrGlyphPositionAdjustment(float xPlacmentAdjust, float yPlacementAdjust,
-                                           float xAdvanceAdjust, float yAdvanceAdjust);
+    void adjustCurrGlyphPositionAdjustment(float xPlacementAdjust, float yPlacementAdjust,
+                                           float xAdvanceAdjust,   float yAdvanceAdjust);
+
+    void setCurrGlyphPositionAdjustment(float xPlacementAdjust, float yPlacementAdjust,
+                                        float xAdvanceAdjust,   float yAdvanceAdjust);
 
     void setCursiveFirstExitPoint();
     void resetCursiveLastExitPoint();
@@ -71,8 +76,10 @@ public:
     void adjustCursiveLastGlyphPositionAdjustment(float xPlacmentAdjust, float yPlacementAdjust,
                                            float xAdvanceAdjust, float yAdvanceAdjust);
 
+    LEGlyphID *insertGlyphs(le_int32 count);
+    le_int32 applyInsertions();
+
 private:
-    GlyphIterator();
     le_bool filterGlyph(le_uint32 index) const;
     le_bool hasFeatureTag() const;
     le_bool nextInternal(le_uint32 delta = 1);
@@ -86,11 +93,12 @@ private:
     le_int32  cursiveLastPosition;
     float     cursiveBaselineAdjustment;
     LEPoint   cursiveLastExitPoint;
-    LEGlyphID *glyphs;
+    LEGlyphStorage &glyphStorage;
     GlyphPositionAdjustment *glyphPositionAdjustments;
+    le_int32 srcIndex;
+    le_int32 destIndex;
     le_uint16 lookupFlags;
     LETag    featureTag;
-    const LETag **glyphTags;
     const GlyphClassDefinitionTable *glyphClassDefinitionTable;
     const MarkAttachClassDefinitionTable *markAttachClassDefinitionTable;
 

@@ -138,31 +138,55 @@ int pptp_send(int fd, u_int16_t msg, void *req, u_int16_t reqlen, char *text)
 }
 
 /* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+int
+readn(int ref, void *data, int len)
+{
+    int 	n, left = len;
+    void 	*p = data;
+    
+    while (left > 0) {
+        if ((n = read(ref, p, left)) < 0) {
+            if (errno == EWOULDBLOCK) 
+                return (len - left);
+            if (errno != EINTR) 
+                return -1;
+            n = 0;
+        }
+        else if (n == 0)
+            return -1; /* EOF */
+            
+        left -= n;
+        p += n;
+    }
+    return (len - left);
+}        
+
+/* -----------------------------------------------------------------------------
 receives a PPTP control reply
 ----------------------------------------------------------------------------- */
 int pptp_recv(int fd, u_int16_t msg, void *rep, u_int16_t replen, char *text)
 {
     struct pptp_header	hdr;
+    int			err;
     
-    while (read(fd, &hdr, sizeof(hdr)) != sizeof(hdr)) {
-        if (errno != EINTR) {
-            error("PPTP error when reading header for %s : %m\n", text, msg);
-            return -1;
-        }
+    if ((err = read(fd, &hdr, sizeof(hdr))) != sizeof(hdr)) {
         if (kill_link)
             return -2;
+        if (err == -1) 
+            error("PPTP error when reading header for %s : %m\n", text);
+        return -1;
     }
     if (hdr.ctrl_msgtype != msg) {
         error("PPTP didn't get %s (got message : %d)\n", text, hdr.ctrl_msgtype);
         return -3;
     }
-    while (read(fd, rep, replen) != replen) {
-        if (errno != EINTR) {
-            error("PPTP error when reading %s : %m\n");
-            return -1;
-        }
+    if ((err = read(fd, rep, replen)) != replen) {
         if (kill_link)
             return -2;
+        if (err == -1) 
+            error("PPTP error when reading %s : %m\n", text);
+        return -1;
     }
     return 0;
 }
@@ -334,16 +358,18 @@ int pptp_data_in(int fd)
     struct pptp_echo_request 	echo_req;
     struct pptp_echo_reply 	echo_reply;
     struct pptp_set_link_info 	info_req;
-
-    if (read(fd, &header, sizeof(header)) != sizeof(header)) {
+    int				err;
+    
+    if ((err = read(fd, &header, sizeof(header))) != sizeof(header)) {
         return -1;
     }
         
     switch (header.ctrl_msgtype) {
         case PPTP_ECHO_REQUEST:
             // read the identifier
-            if (read(fd, &echo_req, sizeof(echo_req)) != sizeof(echo_req)) {
-                error("PPTP error when reading echo request : %m\n");
+            if ((err = read(fd, &echo_req, sizeof(echo_req))) != sizeof(echo_req)) {
+                if (err == -1) 
+                    error("PPTP error when reading echo request : %m\n");
                 return -1;
             }
             bzero(&echo_reply, sizeof(echo_reply));
@@ -356,8 +382,9 @@ int pptp_data_in(int fd)
             
         case PPTP_ECHO_REPLY:
             // read the identifier
-            if (read(fd, &echo_reply, sizeof(echo_reply)) != sizeof(echo_reply)) {
-                error("PPTP error when reading echo echo_reply : %m\n");
+            if ((err = read(fd, &echo_reply, sizeof(echo_reply))) != sizeof(echo_reply)) {
+                if (err == -1) 
+                    error("PPTP error when reading echo echo_reply : %m\n");
                 return -1;
             }
             pptp_received_echo_reply(echo_reply.identifier, echo_reply.result_code, echo_reply.error_code);
@@ -365,8 +392,9 @@ int pptp_data_in(int fd)
             
         case PPTP_SET_LINK_INFO:
             // ignore
-            if (read(fd, &info_req, sizeof(info_req)) != sizeof(info_req)) {
-                error("PPTP error when reading set_info_link request : %m\n");
+            if ((err = read(fd, &info_req, sizeof(info_req))) != sizeof(info_req)) {
+                if (err == -1) 
+                    error("PPTP error when reading set_info_link request : %m\n");
                 return -1;
             }                
             break;

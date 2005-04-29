@@ -6,8 +6,14 @@
 *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
 *
 *	$Log: IOFWDCL.h,v $
-*	Revision 1.9.12.1  2004/09/13 21:10:10  niels
+*	Revision 1.12  2005/02/18 03:19:03  niels
+*	fix isight
+*	
+*	Revision 1.11  2004/04/19 21:51:49  niels
 *	*** empty log message ***
+*	
+*	Revision 1.10  2004/03/25 00:00:23  niels
+*	fix panic allocating large physical address spaces
 *	
 *	Revision 1.9  2003/10/31 02:40:58  niels
 *	*** empty log message ***
@@ -75,7 +81,12 @@ class IOFWDCL : public OSObject
 			,kUser						= BIT(18) // kNuDCLUser
 		} ;
 
-		class InternalData {} ;
+		class InternalData 
+		{
+			public:
+			
+				IOFWDCL *			lastBranch ;
+		} ;
 
 	protected:
 		
@@ -160,7 +171,15 @@ class IOFWDCL : public OSObject
 		// dump DCL info...
 		virtual void					debug() ;
 
-    OSMetaClassDeclareReservedUnused ( IOFWDCL, 0 ) ;
+	public:
+		
+		//
+		// internal use only; please don't use... 
+		//
+		
+		virtual bool					checkForInterrupt() = 0 ;
+
+    OSMetaClassDeclareReservedUsed ( IOFWDCL, 0 ) ;
     OSMetaClassDeclareReservedUnused ( IOFWDCL, 1 ) ;
     OSMetaClassDeclareReservedUnused ( IOFWDCL, 2 ) ;
     OSMetaClassDeclareReservedUnused ( IOFWDCL, 3 ) ;

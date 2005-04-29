@@ -23,8 +23,8 @@
    Last change: May 21, 1993 by t^2  */
 /* modified for Ruby by matz@netlab.co.jp */
 
-#ifndef __REGEXP_LIBRARY
-#define __REGEXP_LIBRARY
+#ifndef REGEX_H
+#define REGEX_H
 
 /* symbol mangling for ruby */
 #ifdef RUBY
@@ -73,8 +73,6 @@
 #define RE_OPTION_MULTILINE  (RE_OPTION_EXTENDED<<1)
 /* ^ and $ ignore newline */
 #define RE_OPTION_SINGLELINE (RE_OPTION_MULTILINE<<1)
-/* works line Perl's /s; it's called POSIX for wrong reason */
-#define RE_OPTION_POSIXLINE  (RE_OPTION_MULTILINE|RE_OPTION_SINGLELINE)
 /* search for longest match, in accord with POSIX regexp */
 #define RE_OPTION_LONGEST    (RE_OPTION_SINGLELINE<<1)
 
@@ -90,13 +88,10 @@
 #define MBCTYPE_SJIS 2
 #define MBCTYPE_UTF8 3
 
-#if defined IMPORT || defined USEIMPORTLIB
-extern __declspec(dllimport)
-#elif defined EXPORT
-extern __declspec(dllexport)
-#else
 extern
-#endif
+#if defined _WIN32 && !defined __GNUC__ && !defined RUBY_EXPORT
+__declspec(dllimport)
+# endif
 const unsigned char *re_mbctab;
 #if defined(__STDC__)
 void re_mbcinit (int);
@@ -187,7 +182,6 @@ typedef struct
   regoff_t rm_eo;  /* Byte offset from string's start to substring's end.  */
 } regmatch_t;
 
-
 #ifdef __STDC__
 
 extern char *re_compile_pattern (const char *, int, struct re_pattern_buffer *);
@@ -224,4 +218,4 @@ extern void re_free_registers ();
 
 #endif /* __STDC__ */
 
-#endif /* !__REGEXP_LIBRARY */
+#endif /* !REGEX_H */

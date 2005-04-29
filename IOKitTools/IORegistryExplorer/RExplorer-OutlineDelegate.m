@@ -76,9 +76,10 @@
             return [NSNumber numberWithInt:[parentObject indexOfObject:item]];
         }
         if ([parentObject isKindOfClass:[NSDictionary class]]) {
-            //int index = [[parentObject allValues] indexOfObject:item];
-            //return [[parentObject allKeys] objectAtIndex:index];
-            id obj = (id)NSMapGet(_keyMap, item);
+//            int index = [[parentObject allValues] indexOfObject:item];
+//            NSString *val = [[parentObject allKeys] objectAtIndex:index];
+
+			id obj = (id)NSMapGet(_keyMap, item);
             return obj;
         }
 

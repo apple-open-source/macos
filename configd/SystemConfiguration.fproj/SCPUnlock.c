@@ -36,30 +36,34 @@
 #include "SCPreferencesInternal.h"
 
 Boolean
-SCPreferencesUnlock(SCPreferencesRef session)
+SCPreferencesUnlock(SCPreferencesRef prefs)
 {
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesUnlock:"));
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return FALSE;
+	}
 
-	if (!sessionPrivate->locked) {
+	if (!prefsPrivate->locked) {
 		/* sorry, you don't have the lock */
 		_SCErrorSet(kSCStatusNeedLock);
 		return FALSE;
 	}
 
-	if (!sessionPrivate->isRoot) {
+	if (!prefsPrivate->isRoot) {
 		/* CONFIGD REALLY NEEDS NON-ROOT WRITE ACCESS */
 		goto perUser;
 	}
 
-	if (!SCDynamicStoreRemoveValue(sessionPrivate->session, sessionPrivate->sessionKeyLock)) {
-		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCDynamicStoreRemoveValue() failed"));
+	if (!SCDynamicStoreRemoveValue(prefsPrivate->session, prefsPrivate->sessionKeyLock)) {
+		SCLog(_sc_verbose, LOG_INFO, CFSTR("SCPreferencesUnlock SCDynamicStoreRemoveValue() failed"));
 		return FALSE;
 	}
 
     perUser:
 
-	sessionPrivate->locked = FALSE;
+	prefsPrivate->locked = FALSE;
 	return TRUE;
 }

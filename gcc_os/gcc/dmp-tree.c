@@ -1,6 +1,6 @@
 /* APPLE LOCAL new tree dump */
 /* Common condensed tree display routines.
-   Copyright (C) 2001  Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002  Free Software Foundation, Inc.
    Contributed by Ira L. Ruben (ira@apple.com)
 
 This file is part of GNU CC.
@@ -171,6 +171,7 @@ Boston, MA 02111-1307, USA.  */
 
 #include "system.h"
 #include "tree.h"
+#include "real.h"
 #include "c-common.h"
 #include <string.h>
 #include <ctype.h>
@@ -627,7 +628,7 @@ print_decl (file, annotation, node, indent)
       /* APPLE LOCAL private extern */
       if (DECL_PRIVATE_EXTERN (node))
 	fputs (" pvt-ext", file);
-      /* APPLE LOCAL coalesced */
+      /* APPLE LOCAL coalescing */
       if (DECL_COALESCED (node))
 	fputs (" coal", file);
       /* APPLE LOCAL begin weak_import (Radar 2809704) ilr */
@@ -1015,27 +1016,9 @@ print_real_constant (file, node)
      FILE *file;
      tree node;
 {
-#if !defined(REAL_IS_NOT_DOUBLE) || defined(REAL_ARITHMETIC)
-  REAL_VALUE_TYPE d = TREE_REAL_CST (node);
-  
-  if (REAL_VALUE_ISINF (d))
-    fputs ("INF", file);
-  else if (REAL_VALUE_ISNAN (d))
-    fputs ("NAN", file);
-  else
-    {
-      char string[100];
-      REAL_VALUE_TO_DECIMAL (d, "%e", string);
-      fprintf (file, "%s", string);
-    }
-#else
-  int i;
-  unsigned char *p = (unsigned char *) &TREE_REAL_CST (node);
-  
-  fputs ("0x", file);
-  for (i = 0; i < sizeof TREE_REAL_CST (node); i++)
-    fprintf (file, "%02x", *p++);
-#endif
+  char string[100];
+  real_to_decimal (string, &TREE_REAL_CST (node), sizeof (string), 0, 1);
+  fputs (string, file);
 }
 
 void 
@@ -1127,15 +1110,16 @@ print_tree_flags (file, node)
     fputs (" protected", file);
   if (TREE_BOUNDED (node))
     fputs (" bounded", file);
-  /* APPLE LOCAL begin deprecated (Radar 2637521) ilr */
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
-  /* APPLE LOCAL end deprecated ilr */
   /* APPLE LOCAL begin unavailable (Radar 2809697) ilr */
   if (TREE_UNAVAILABLE (node))
     fputs (" unavailable", file);
   /* APPLE LOCAL end unavailable ilr */
- 
+  /* APPLE LOCAL begin dead code strip.  */
+  if (TREE_LIVE (node))
+    fputs (" live", file);
+  /* APPLE LOCAL end dead code strip.  */
   if (TREE_LANG_FLAG_0 (node)
       || TREE_LANG_FLAG_1 (node)
       || TREE_LANG_FLAG_2 (node)
@@ -1663,7 +1647,6 @@ print_COMPLEX_CST (file, annotation, node, indent)
   dump_tree (file, "(imag)", TREE_IMAGPART (node), indent + INDENT);
 }
 
-/* APPLE LOCAL: AltiVec */
 static void
 print_VECTOR_CST (file, annotation, node, indent)
      FILE *file;
@@ -1672,7 +1655,7 @@ print_VECTOR_CST (file, annotation, node, indent)
      int indent;
 {
   tree n, type = TREE_TYPE (node), t1;
-  int  i, ok, size = 0;
+  int  i, ok, ok2, size = 0;
   char *fmt = (char *)"this is just to stop compiler warning";
   
   union {
@@ -1691,28 +1674,28 @@ print_VECTOR_CST (file, annotation, node, indent)
       size = CST_VALUE (n, ok);
       t1 = TREE_VECTOR_CST_ELTS (node);
      
-      if (ok)
-        {
-	  if (TREE_CODE (type) == INTEGER_TYPE
-	      && (size == 1 || size == 2 || size == 4))
+      if (TREE_CODE (type) == INTEGER_TYPE
+	  && (size == 1 || size == 2 || size == 4))
+	{
+	  fmt = (char *) (TREE_UNSIGNED (type) ? "%u%s" : "%d%s");
+	  if (TREE_CODE (TREE_VALUE (t1)) == INTEGER_CST)
 	    {
-	      fmt = (char *) (TREE_UNSIGNED (type) ? "%u%s" : "%d%s");
-	      if (TREE_CODE (TREE_VALUE (t1)) == INTEGER_CST)
-		{
-		  vec_value.ul[0] = CST_VALUE (TREE_VALUE (t1), ok);
-		  vec_value.ul[1] = CST_VALUE (TREE_VALUE (TREE_CHAIN (t1)), ok);
-		  vec_value.ul[2] = CST_VALUE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (t1))), ok);
-		  vec_value.ul[3] = CST_VALUE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (t1)))), ok);
-		}
+	      vec_value.ul[0] = CST_VALUE (TREE_VALUE (t1), ok);
+	      vec_value.ul[1] = CST_VALUE (TREE_VALUE (TREE_CHAIN (t1)), ok);
+	      vec_value.ul[2] = CST_VALUE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (t1))), ok);
+	      vec_value.ul[3] = CST_VALUE (TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (t1)))), ok);
 	    }
-	  else if (TREE_CODE (type) != REAL_TYPE
-		   || TREE_CODE (TREE_VALUE (t1)) != REAL_CST
-		   || size != 4)
-	    ok = 0;
-        }
+	  ok2 = ok;
+	}
+      else if (TREE_CODE (type) != REAL_TYPE
+	       || TREE_CODE (TREE_VALUE (t1)) != REAL_CST
+	       || size != 4)
+	ok2 = 0;
+      else
+	ok2 = ok;
     }
   
-  if (ok)
+  if (ok2)
     {
       fprintf (file, " ");
       fprintf (file, HOST_PTR_PRINTF, HOST_PTR_PRINTF_VALUE(TREE_VALUE (t1)));
@@ -3210,7 +3193,8 @@ no_dump_tree_p (file, annotation, node, indent)
    initialization.  */
    
 lang_dump_tree_p_t
-set_dump_tree_p (lang_dump_tree_p_t new_lang_dump_tree_p)
+set_dump_tree_p (new_lang_dump_tree_p)
+     lang_dump_tree_p_t new_lang_dump_tree_p;
 {
    lang_dump_tree_p_t old_lang_dump_tree_p = lang_dump_tree_p;
    lang_dump_tree_p = new_lang_dump_tree_p;
@@ -3639,14 +3623,18 @@ dmp_tree_fprintf VPARAMS ((FILE *file, const char *fmt, ...))
 }
 
 int 
-dmp_tree_fputc (int c, FILE *file)
+dmp_tree_fputc (c, file)
+     int c;
+     FILE *file;
 {
   dmp_tree_fprintf (file, "%c", c);
   return c;
 }
 
 int 
-dmp_tree_fputs (const char *s, FILE *file)
+dmp_tree_fputs (s, file)
+     const char *s;
+     FILE *file;
 {
   return dmp_tree_fprintf (file, "%s", s);
 }
@@ -3672,19 +3660,3 @@ print_TREE_CHAIN (node)
 }
 
 #endif /* ENABLE_DMP_TREE */
-
-/*-------------------------------------------------------------------*/
-
-#if 0
-
-cd $gcc3/gcc; \
-cc -no-cpp-precomp -c  -DIN_GCC  -g \
-  -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -Wtraditional -pedantic -Wno-long-long \
-  -DHAVE_CONFIG_H \
-  -I$gcc3obj \
-  -I. \
-  -Iconfig \
-  -I../include \
-  dmp-tree.c -o ~/tmp.o -w 
-
-#endif

@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xhost/xhost.c,v 3.20 2001/12/14 20:01:45 dawes Exp $ */
+/* $XFree86: xc/programs/xhost/xhost.c,v 3.27 2003/07/29 07:23:27 herrb Exp $ */
 
 #if defined(TCPCONN) || defined(STREAMSCONN) || defined(AMTCPCONN)
 #define NEEDSOCKETS
@@ -43,6 +43,7 @@ from The Open Group.
 #include <X11/Xproto.h>
 #include <X11/Xfuncs.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <signal.h>
 #ifdef X_NOT_POSIX
 #include <setjmp.h>
@@ -123,7 +124,7 @@ static signal_t nameserver_lost(int sig);
 
 #define NAMESERVER_TIMEOUT 5	/* time to wait for nameserver */
 
-int nameserver_timedout;
+volatile int nameserver_timedout;
  
 char *ProgramName;
 
@@ -143,6 +144,9 @@ XFamily(int af)
 #endif
 #ifdef	AF_INET
         { AF_INET, FamilyInternet },
+#if defined(IPv6) && defined(AF_INET6)
+        { AF_INET6, FamilyInternet6 },
+#endif
 #endif
 };
 
@@ -201,6 +205,9 @@ main(int argc, char *argv[])
 		    switch (list[i].family) {
 		    case FamilyInternet:
 			printf("INET:");
+			break;
+		    case FamilyInternet6:
+			printf("INET6:");
 			break;
 		    case FamilyDECnet:
 			printf("DNET:");
@@ -286,7 +293,6 @@ main(int argc, char *argv[])
 static int 
 change_host(Display *dpy, char *name, Bool add)
 {
-    struct hostent *hp;
     XHostAddress ha;
     char *lname;
     int namelen, i, family = FamilyWild;
@@ -297,6 +303,11 @@ change_host(Display *dpy, char *name, Bool add)
 #ifdef NEEDSOCKETS
 #ifndef AMTCPCONN
     static struct in_addr addr;	/* so we can point at it */
+#if defined(IPv6) && defined(AF_INET6)
+    static struct in6_addr addr6; /* so we can point at it */
+#else
+    struct hostent *hp;
+#endif
 #else
     static ipaddr_t addr;
 #endif
@@ -328,7 +339,17 @@ change_host(Display *dpy, char *name, Bool add)
 	return 0;
 #endif
     }
-    if (!strncmp("dnet:", lname, 5)) {
+    else if (!strncmp("inet6:", lname, 6)) {
+#if (defined(TCPCONN) || defined(STREAMSCONN)) && \
+    defined(IPv6) && defined(AF_INET6)
+	family = FamilyInternet6;
+	name += 6;
+#else
+	fprintf (stderr, "%s: not compiled for IPv6\n", ProgramName);
+	return 0;
+#endif
+    }
+    else if (!strncmp("dnet:", lname, 5)) {
 #ifdef DNETCONN
 	family = FamilyDECnet;
 	name += 5;
@@ -337,7 +358,7 @@ change_host(Display *dpy, char *name, Bool add)
 	return 0;
 #endif
     }
-    if (!strncmp("nis:", lname, 4)) {
+    else if (!strncmp("nis:", lname, 4)) {
 #ifdef SECURE_RPC
 	family = FamilyNetname;
 	name += 4;
@@ -346,7 +367,7 @@ change_host(Display *dpy, char *name, Bool add)
 	return 0;
 #endif
     }
-    if (!strncmp("krb:", lname, 4)) {
+    else if (!strncmp("krb:", lname, 4)) {
 #ifdef K5AUTH
 	family = FamilyKrb5Principal;
 	name +=4;
@@ -355,7 +376,7 @@ change_host(Display *dpy, char *name, Bool add)
 	return 0;
 #endif
     }
-    if (!strncmp("local:", lname, 6)) {
+    else if (!strncmp("local:", lname, 6)) {
 	family = FamilyLocalHost;
     }
     if (family == FamilyWild && (cp = strchr(lname, ':'))) {
@@ -475,9 +496,11 @@ change_host(Display *dpy, char *name, Bool add)
      * First see if inet_addr() can grok the name; if so, then use it.
      */
 #ifndef AMTCPCONN
-    if ((addr.s_addr = inet_addr(name)) != -1) {
+    if (((family == FamilyWild) || (family == FamilyInternet)) &&
+	((addr.s_addr = inet_addr(name)) != -1)) {
 #else
-    if ((addr = inet_addr(name)) != -1) {
+    if (((family == FamilyWild) || (family == FamilyInternet)) &&
+	((addr = inet_addr(name)) != -1)) {
 #endif
 	ha.family = FamilyInternet;
 	ha.length = 4;		/* but for Cray would be sizeof(addr.s_addr) */
@@ -491,6 +514,83 @@ change_host(Display *dpy, char *name, Bool add)
 	}
 	return 1;
     } 
+#if defined(IPv6) && defined(AF_INET6)
+    /*
+     * Check to see if inet_pton() can grok it as an IPv6 address
+     */
+    else if (((family == FamilyWild) || (family == FamilyInternet6)) &&
+	     (inet_pton(AF_INET6, name, &addr6.s6_addr) == 1)) {
+	ha.family = FamilyInternet6;
+	ha.length = sizeof(addr6.s6_addr);		
+	ha.address = (char *) &addr6.s6_addr; 
+	if (add) {
+	    XAddHost (dpy, &ha);
+	    printf ("%s %s\n", name, add_msg);
+	} else {
+	    XRemoveHost (dpy, &ha);
+	    printf ("%s %s\n", name, remove_msg);
+	}
+	return 1;
+    } else {
+    /*
+     * Is it in the namespace?  
+     *
+     * If no family was specified, use both Internet v4 & v6 addresses.
+     * Otherwise, use only addresses matching specified family.
+     */
+	struct addrinfo *addresses;
+	struct addrinfo *a;
+	Bool didit = False;
+
+	if (getaddrinfo(name, NULL, NULL, &addresses) != 0)
+	    return 0;
+
+	for (a = addresses; a != NULL; a = a->ai_next) {
+	    if ( ((a->ai_family == AF_INET) && (family != FamilyInternet6))
+	      || ((a->ai_family == AF_INET6) && (family != FamilyInternet)) ) {
+		char ad[INET6_ADDRSTRLEN];
+		ha.family = XFamily(a->ai_family);
+		if (a->ai_family == AF_INET6) {
+		    ha.address = (char *)
+		      &((struct sockaddr_in6 *) a->ai_addr)->sin6_addr;
+		    ha.length = 
+		      sizeof (((struct sockaddr_in6 *) a->ai_addr)->sin6_addr);
+		} else {
+		    ha.address = (char *)
+		      &((struct sockaddr_in *) a->ai_addr)->sin_addr;
+		    ha.length = 
+		      sizeof (((struct sockaddr_in *) a->ai_addr)->sin_addr);
+		}
+		inet_ntop(a->ai_family, ha.address, ad, sizeof(ad));
+	/* printf("Family: %d\nLength: %d\n", a->ai_family, ha.length); */
+		/* printf("Address: %s\n", ad); */
+
+		if (add) {
+		    XAddHost (dpy, &ha);
+		} else {
+		    XRemoveHost (dpy, &ha);
+		}
+		didit = True;
+	    }
+	}
+	if (didit == True) {
+	    printf ("%s %s\n", name, add ? add_msg : remove_msg);
+	} else {
+	    const char *familyMsg = "";
+
+	    if (family == FamilyInternet6) {
+		familyMsg = "inet6 ";
+	    } else if (family == FamilyInternet) {
+		familyMsg = "inet ";
+	    }
+
+	    fprintf(stderr, "%s: unable to get %saddress for \"%s\"\n",
+		ProgramName, familyMsg, name);
+	}
+	freeaddrinfo(addresses);
+	return 1;
+    }
+#else /* !IPv6 */
     /*
      * Is it in the namespace?
      */
@@ -525,6 +625,7 @@ change_host(Display *dpy, char *name, Bool add)
 	printf ("%s %s\n", name, add ? add_msg : remove_msg);
 	return 1;
     }
+#endif /* IPv6 */
 #else /* NEEDSOCKETS */
     return 0;
 #endif /* NEEDSOCKETS */
@@ -544,7 +645,8 @@ jmp_buf env;
 static char *
 get_hostname(XHostAddress *ha)
 {
-#if defined(TCPCONN) || defined(STREAMSCONN) || defined(AMTCPCONN)
+#if (defined(TCPCONN) || defined(STREAMSCONN) || defined(AMTCPCONN)) && \
+     (!defined(IPv6) || !defined(AF_INET6))
     static struct hostent *hp = NULL;
 #endif
 #ifdef DNETCONN
@@ -562,6 +664,63 @@ get_hostname(XHostAddress *ha)
 #endif
 
 #if defined(TCPCONN) || defined(STREAMSCONN) || defined(AMTCPCONN)
+#if defined(IPv6) && defined(AF_INET6)
+    if ((ha->family == FamilyInternet) || (ha->family == FamilyInternet6)) {
+	struct sockaddr_storage saddr;
+	static char inetname[NI_MAXHOST];
+	int saddrlen;
+
+	inetname[0] = '\0';
+	memset(&saddr, 0, sizeof saddr);
+	if (ha->family == FamilyInternet) {
+	    struct sockaddr_in *sin = (struct sockaddr_in *) &saddr;
+#ifdef BSD44SOCKETS
+	    sin->sin_len = sizeof(struct sockaddr_in);
+#endif
+	    sin->sin_family = AF_INET;
+	    sin->sin_port = 0;
+	    memcpy(&sin->sin_addr, ha->address, sizeof(sin->sin_addr));
+	    saddrlen = sizeof(struct sockaddr_in);
+	} else {
+	    struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) &saddr;
+#ifdef SIN6_LEN
+	    sin6->sin6_len = sizeof(struct sockaddr_in6);
+#endif
+	    sin6->sin6_family = AF_INET6;
+	    sin6->sin6_port = 0;
+	    memcpy(&sin6->sin6_addr, ha->address, sizeof(sin6->sin6_addr));
+	    saddrlen = sizeof(struct sockaddr_in6);
+	}
+
+	/* gethostbyaddr can take a LONG time if the host does not exist.
+	   Assume that if it does not respond in NAMESERVER_TIMEOUT seconds
+	   that something is wrong and do not make the user wait.
+	   gethostbyaddr will continue after a signal, so we have to
+	   jump out of it. 
+	   */
+#ifndef X_NOT_POSIX
+	memset(&sa, 0, sizeof sa);
+	sa.sa_handler = nameserver_lost;
+	sa.sa_flags = 0;	/* don't restart syscalls */
+	sigaction(SIGALRM, &sa, NULL);
+#else
+	signal(SIGALRM, nameserver_lost);
+#endif
+	alarm(NAMESERVER_TIMEOUT);
+#ifdef X_NOT_POSIX
+	if (setjmp(env) == 0) 
+#endif
+	{ 
+	    getnameinfo((struct sockaddr *) &saddr, saddrlen, inetname,
+	      sizeof(inetname), NULL, 0, 0);
+	}
+	alarm(0);
+	if (nameserver_timedout || inetname[0] == '\0')
+	    inet_ntop(((struct sockaddr *)&saddr)->sa_family, ha->address,
+		inetname, sizeof(inetname));
+	return inetname;	      
+    }
+#else
     if (ha->family == FamilyInternet) {
 #ifdef CRAY
 	struct in_addr t_addr;
@@ -600,6 +759,7 @@ get_hostname(XHostAddress *ha)
 	else return (inet_ntoa(*((ipaddr_t *)(ha->address))));
 #endif
     }
+#endif /* IPv6 */
 #endif
     if (ha->family == FamilyNetname) {
 	static char netname[512];

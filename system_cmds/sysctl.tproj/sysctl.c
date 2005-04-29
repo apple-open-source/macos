@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -110,7 +110,6 @@ static char sccsid[] = "@(#)sysctl.c	8.5 (Berkeley) 5/9/95";
 #else
 #include <vm/vm_param.h>
 #endif /* __APPLE__ */
-#include <machine/cpu.h>
 
 #include <errno.h>
 #include <ctype.h>
@@ -148,7 +147,7 @@ struct list secondlevel[] = {
 	{ 0, 0 },			/* CTL_VFS */
 	{ 0, 0 },			/* CTL_NET */
 	{ 0, CTL_DEBUG_MAXID },		/* CTL_DEBUG */
-	{ 0, 0 },			/* CTL_HW */
+	{ hwname, HW_MAXID },		/* CTL_HW */
 #ifdef CTL_MACHDEP_NAMES
 	{ machdepname, CPU_MAXID },	/* CTL_MACHDEP */
 #else
@@ -212,7 +211,7 @@ main(argc, argv)
 	}
 	if (argc == 0)
 		usage();
-	for (; *argv != NULL; ++argv)
+	for (; *argv != NULL; ++argv) 
 		parse(*argv, 1);
 	exit(0);
 }
@@ -350,7 +349,8 @@ old_parse(string, flags)
 		break;
 
 	case CTL_VM:
-		if (mib[1] == VM_LOADAVG) {	/* XXX this is bogus */
+		switch (mib[1]) {
+		case VM_LOADAVG: {	/* XXX this is bogus */
 			double loads[3];
 
 			getloadavg(loads, 3);
@@ -359,6 +359,33 @@ old_parse(string, flags)
 			fprintf(stdout, "%.2f %.2f %.2f\n", 
 			    loads[0], loads[1], loads[2]);
 			return;
+		}
+		case VM_SWAPUSAGE: {
+			struct xsw_usage	xsu;
+			int			saved_errno;
+
+			size = sizeof (xsu);
+			if (sysctl(mib, 2, &xsu, &size, NULL, 0) != 0) {
+				if (flags == 0)
+					return;
+				saved_errno = errno;
+				if (!nflag)
+					fprintf(stderr, "%s: ", string);
+				fprintf(stderr, "sysctl(VM_SWAPUSAGE): %s\n",
+					strerror(saved_errno));
+				return;
+			}
+
+			if (!nflag)
+				fprintf(stdout, "%s: ", string);
+			fprintf(stdout,
+				"total = %.2fM  used = %.2fM  free = %.2fM  %s\n",
+				((double) xsu.xsu_total) / (1024.0 * 1024.0),
+				((double) xsu.xsu_used) / (1024.0 * 1024.0),
+				((double) xsu.xsu_avail) / (1024.0 * 1024.0),
+				xsu.xsu_encrypted ? "(encrypted)" : "");
+			return;
+		}
 		}
 		if (flags == 0)
 			return;
@@ -613,6 +640,9 @@ findname(string, level, bufp, namelist)
 	char *name;
 	int i;
 
+	/* Make 'sysctl kern.' style behave the same as 'sysctl kern' 3360872*/
+	if (bufp[0][strlen(*bufp)-1] == '.') 
+		bufp[0][strlen(*bufp)-1]='\0';
 	if (namelist->list == 0 || (name = strsep(bufp, ".")) == NULL) {
 		fprintf(stderr, "%s: incomplete specification\n", string);
 		return (-1);
@@ -719,8 +749,7 @@ parse(char *string, int flags)
 			case CTLTYPE_STRING:
 				break;
 			case CTLTYPE_QUAD:
-				break;
-				sscanf(newval, "%qd", &quadval);
+				quadval = strtoq(newval, NULL, 0);
 				newval = &quadval;
 				newsize = sizeof quadval;
 				break;

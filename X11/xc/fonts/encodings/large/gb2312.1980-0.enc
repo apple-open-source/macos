@@ -1,4 +1,5 @@
 STARTENCODING gb2312.1980-0
+# $XFree86: xc/fonts/encodings/large/gb2312.1980-0.enc,v 1.5 2003/10/19 18:34:43 dawes Exp $
 SIZE 0x78 0x80
 FIRSTINDEX 0x20 0x20
 STARTMAPPING unicode

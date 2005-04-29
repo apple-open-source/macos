@@ -454,10 +454,11 @@ iq2000_elf_check_relocs (abfd, info, sec, relocs)
 {
   Elf_Internal_Shdr *symtab_hdr;
   struct elf_link_hash_entry **sym_hashes, **sym_hashes_end;
-  Elf_Internal_Rela *rel;
-  Elf_Internal_Rela *rel_end;
+  const Elf_Internal_Rela *rel;
+  const Elf_Internal_Rela *rel_end;
+  bfd_boolean changed = FALSE;
   
-  if (info->relocateable)
+  if (info->relocatable)
     return TRUE;
   
   symtab_hdr = &elf_tdata (abfd)->symtab_hdr;
@@ -499,10 +500,20 @@ iq2000_elf_check_relocs (abfd, info, sec, relocs)
 	  if (memcmp (sec->name, ".debug", 6) == 0
 	      || memcmp (sec->name, ".stab", 5) == 0
 	      || memcmp (sec->name, ".eh_frame", 9) == 0)
-	    rel->r_info = ELF32_R_INFO (ELF32_R_SYM (rel->r_info), R_IQ2000_32_DEBUG);
+	    {
+	      ((Elf_Internal_Rela *) rel)->r_info
+		= ELF32_R_INFO (ELF32_R_SYM (rel->r_info), R_IQ2000_32_DEBUG);
+	      changed = TRUE;
+	    }
 	  break;
 	}
     }
+
+  if (changed)
+    /* Note that we've changed relocs, otherwise if !info->keep_memory
+       we'll free the relocs and lose our changes.  */
+    (const Elf_Internal_Rela *) (elf_section_data (sec)->relocs) = relocs;
+
   return TRUE;
 }
 
@@ -520,7 +531,7 @@ iq2000_elf_check_relocs (abfd, info, sec, relocs)
    zero.
 
    This function is responsible for adjusting the section contents as
-   necessary, and (if using Rela relocs and generating a relocateable
+   necessary, and (if using Rela relocs and generating a relocatable
    output file) adjusting the reloc addend as necessary.
 
    This function does not have to worry about setting the reloc
@@ -534,7 +545,7 @@ iq2000_elf_check_relocs (abfd, info, sec, relocs)
    The global hash table entry for the global symbols can be found
    via elf_sym_hashes (input_bfd).
 
-   When generating relocateable output, this function must handle
+   When generating relocatable output, this function must handle
    STB_LOCAL/STT_SECTION symbols specially.  The output symbol is
    going to be the section symbol corresponding to the output
    section, which means that the addend must be adjusted
@@ -607,48 +618,14 @@ iq2000_elf_relocate_section (output_bfd, info, input_bfd, input_section,
 	}
       else
 	{
-	  h = sym_hashes [r_symndx];
-	  
-	  while (h->root.type == bfd_link_hash_indirect
-		 || h->root.type == bfd_link_hash_warning)
-	    h = (struct elf_link_hash_entry *) h->root.u.i.link;
+	  bfd_boolean unresolved_reloc;
+	  bfd_boolean warned;
+
+	  RELOC_FOR_GLOBAL_SYMBOL (h, sym_hashes, r_symndx,
+				   symtab_hdr, relocation,
+				   sec, unresolved_reloc, info, warned);
 
 	  name = h->root.root.string;
-	  
-	  if (h->root.type == bfd_link_hash_defined
-	      || h->root.type == bfd_link_hash_defweak)
-	    {
-	      sec = h->root.u.def.section;
-	      relocation = (h->root.u.def.value
-			    + sec->output_section->vma
-			    + sec->output_offset);
-#ifdef DEBUG
-	      fprintf (stderr,
-		       "defined: sec: %s, name: %s, value: %x + %x + %x gives: %x\n",
-		       sec->name, name, h->root.u.def.value,
-		       sec->output_section->vma, sec->output_offset, relocation);
-#endif
-	    }
-	  else if (h->root.type == bfd_link_hash_undefweak)
-	    {
-#ifdef DEBUG
-	      fprintf (stderr, "undefined: sec: %s, name: %s\n",
-		       sec->name, name);
-#endif
-	      relocation = 0;
-	    }
-	  else
-	    {
-	      if (! ((*info->callbacks->undefined_symbol)
-		     (info, h->root.root.string, input_bfd,
-		      input_section, rel->r_offset,
-		     (!info->shared || info->no_undefined))))
-		return FALSE;
-#ifdef DEBUG
-	      fprintf (stderr, "unknown: name: %s\n", name);
-#endif
-	      relocation = 0;
-	    }
 	}
 
       switch (r_type)
@@ -929,6 +906,7 @@ iq2000_elf_print_private_bfd_data (abfd, ptr)
     }
 
   fputc ('\n', file);
+  return TRUE;
 }
 
 static

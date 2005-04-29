@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,10 +41,6 @@ const UInt32 kPollerInterval = 1000;                           // (ms, 1 second)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 #define isMediaRemovable() _removable
-
-#define kIOPropertyProtocolCharacteristicsKey      "Protocol Characteristics"
-#define kIOPropertyPhysicalInterconnectLocationKey "Physical Interconnect Location"
-#define kIOPropertyExternalKey                     "External"
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 

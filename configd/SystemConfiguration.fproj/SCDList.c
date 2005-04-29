@@ -52,12 +52,7 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	int				sc_status;
 	CFArrayRef			allKeys;
 
-	if (_sc_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  pattern = %@"), pattern);
-	}
-
-	if (!store) {
+	if (store == NULL) {
 		/* sorry, you must provide a session */
 		_SCErrorSet(kSCStatusNoStoreSession);
 		return NULL;
@@ -87,8 +82,10 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 	CFRelease(utfPattern);
 
 	if (status != KERN_SUCCESS) {
+#ifdef	DEBUG
 		if (status != MACH_SEND_INVALID_DEST)
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("configlist(): %s"), mach_error_string(status));
+			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList configlist(): %s"), mach_error_string(status));
+#endif	/* DEBUG */
 		(void) mach_port_destroy(mach_task_self(), storePrivate->server);
 		storePrivate->server = MACH_PORT_NULL;
 		_SCErrorSet(status);
@@ -97,10 +94,12 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 
 	if (sc_status != kSCStatusOK) {
 		status = vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+#ifdef	DEBUG
 		if (status != KERN_SUCCESS) {
-			SCLog(_sc_verbose, LOG_DEBUG, CFSTR("vm_deallocate(): %s"), mach_error_string(status));
+			SCLog(TRUE, LOG_DEBUG, CFSTR("SCDynamicStoreCopyKeyList vm_deallocate(): %s"), mach_error_string(status));
 			/* non-fatal???, proceed */
 		}
+#endif	/* DEBUG */
 		_SCErrorSet(sc_status);
 		return NULL;
 	}

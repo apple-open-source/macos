@@ -1,6 +1,6 @@
 /* Remote target communications for serial-line targets using SDS' protocol.
 
-   Copyright 1997, 1998, 1999, 2000, 2001, 2002 Free Software
+   Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2004 Free Software
    Foundation, Inc.
 
    This file is part of GDB.
@@ -92,8 +92,6 @@ static ptid_t sds_wait (ptid_t, struct target_waitstatus *);
 
 static void sds_kill (void);
 
-static int tohex (int);
-
 static int fromhex (int);
 
 static void sds_detach (char *, int);
@@ -148,7 +146,6 @@ static int message_pending;
 
 /* Clean up connection to a remote debugger.  */
 
-/* ARGSUSED */
 static void
 sds_close (int quitting)
 {
@@ -277,17 +274,6 @@ fromhex (int a)
     return a - 'a' + 10;
   else
     error ("Reply contains invalid hex digit %d", a);
-}
-
-/* Convert number NIB to a hex digit.  */
-
-static int
-tohex (int nib)
-{
-  if (nib < 10)
-    return '0' + nib;
-  else
-    return 'a' + nib - 10;
 }
 
 static int
@@ -467,16 +453,15 @@ static unsigned char sprs[16];
 /* Read the remote registers into the block REGS.  */
 /* Currently we just read all the registers, so we don't use regno.  */
 
-/* ARGSUSED */
 static void
 sds_fetch_registers (int regno)
 {
   unsigned char buf[PBUFSIZ];
   int i, retlen;
-  char regs[REGISTER_BYTES];
+  char *regs = alloca (DEPRECATED_REGISTER_BYTES);
 
   /* Unimplemented registers read as all bits zero.  */
-  memset (regs, 0, REGISTER_BYTES);
+  memset (regs, 0, DEPRECATED_REGISTER_BYTES);
 
   buf[0] = 18;
   buf[1] = 1;
@@ -499,7 +484,7 @@ sds_fetch_registers (int regno)
   /* (should warn about reply too short) */
 
   for (i = 0; i < NUM_REGS; i++)
-    supply_register (i, &regs[REGISTER_BYTE (i)]);
+    supply_register (i, &regs[DEPRECATED_REGISTER_BYTE (i)]);
 }
 
 /* Prepare to store registers.  Since we may send them all, we have to
@@ -509,7 +494,7 @@ static void
 sds_prepare_to_store (void)
 {
   /* Make sure the entire registers array is valid.  */
-  deprecated_read_register_bytes (0, (char *) NULL, REGISTER_BYTES);
+  deprecated_read_register_bytes (0, (char *) NULL, DEPRECATED_REGISTER_BYTES);
 }
 
 /* Store register REGNO, or all registers if REGNO == -1, from the contents
@@ -657,7 +642,6 @@ sds_read_bytes (CORE_ADDR memaddr, char *myaddr, int len)
    if SHOULD_WRITE is nonzero.  Returns length of data written or
    read; 0 for error.  TARGET is unused.  */
 
-/* ARGSUSED */
 static int
 sds_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len, int should_write,
 		 struct mem_attrib *attrib, struct target_ops *target)

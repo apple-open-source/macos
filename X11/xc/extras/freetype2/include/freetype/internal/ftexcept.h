@@ -1,3 +1,4 @@
+/* $XFree86: xc/extras/freetype2/include/freetype/internal/ftexcept.h,v 1.3 2003/10/22 18:51:24 tsi Exp $ */
 #ifndef __FT_EXCEPT_H__
 #define __FT_EXCEPT_H__
 

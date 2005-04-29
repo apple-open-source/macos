@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/ativalid.c,v 1.15 2003/01/01 19:16:34 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/ativalid.c,v 1.18 2004/01/05 16:42:05 tsi Exp $ */
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -34,7 +34,7 @@
  *
  * This checks for hardware-related limits on mode timings.
  */
-int
+ModeStatus
 ATIValidMode
 (
     int iScreen,
@@ -102,7 +102,7 @@ ATIValidMode
             (pMode->CrtcVDisplay > pATI->LCDVertical))
             return MODE_PANEL;
 
-        if (!pATI->OptionSync || (pMode->type & M_T_BUILTIN))
+        if (!pATI->OptionLCDSync || (pMode->type & M_T_BUILTIN))
         {
             if ((pMode->HDisplay > pATI->LCDHorizontal) ||
                 (pMode->VDisplay > pATI->LCDVertical))

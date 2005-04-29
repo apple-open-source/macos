@@ -36,6 +36,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef __GSSAPI_H__
+#define __GSSAPI_H__
+
+
 #include <gssapi/gssapi.h>
 
 #define GSSAPI_DEF_NAME         "ike"
@@ -86,3 +90,7 @@ void gssapi_set_id_rcvd __P((struct ph1handle *));
 int gssapi_id_rcvd __P((struct ph1handle *));
 void gssapi_free_state __P((struct ph1handle *));
 vchar_t *gssapi_get_default_id __P((struct ph1handle *));
+
+
+#endif /* __GSSAPI_H__ */
+

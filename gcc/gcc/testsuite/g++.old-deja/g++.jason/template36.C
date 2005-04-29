@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Testcase for implicit 'typename' and resolution of 'typename's in the
 // current scope.
 
@@ -32,7 +33,7 @@ public:
     int base::* g ();
 
     int zowee() const
-    { return bar(); }  
+    { return this->bar(); }  
 };
 
 template <class T>

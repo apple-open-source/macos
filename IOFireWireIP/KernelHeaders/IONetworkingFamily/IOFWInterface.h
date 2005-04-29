@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -81,6 +78,7 @@
 #include "IOFWController.h"
 #include "IOFWStats.h"
 
+
 /*! @class IOFWInterface : public IONetworkInterface
     @abstract The FireWire interface object. An FireWire controller driver,
     that is a subclass of IOFWController, will instantiate an object
@@ -95,13 +93,15 @@ class IOFWInterface : public IONetworkInterface
     OSDeclareDefaultStructors( IOFWInterface )
 
 private:
-    struct arpcom *  _arpcom;               // Arpcom struct allocated
+    OSData		 *	 _uniqueID;             // used in ifnet recycling
     UInt32           _mcAddrCount;          // # of multicast addresses
     bool             _ctrEnabled;           // Is controller enabled?
     OSDictionary *   _supportedFilters;     // Controller's supported filters
     OSDictionary *   _requiredFilters;      // The required filters
     OSDictionary *   _activeFilters;        // Currently active filters    
     bool             _controllerLostPower;  // true if controller is unusable
+	void		 *	 _controller;			// we need this to access FireWire specific ARP mechanism.
+	void		 *   _familyCookie;			// moved from BSD layer to IOKit.
 
     struct ExpansionData { };
     /*! @var reserved
@@ -142,8 +142,7 @@ public:
 
 /*! @function init
     @abstract Initialize an IOFWInterface instance.
-    @discussion Instance variables are initialized, and an arpcom
-    structure is allocated.
+    @discussion Instance variables are initialized
     @param controller A network controller object that will service
     the interface object being initialized.
     @result true on success, false otherwise. */
@@ -179,7 +178,7 @@ protected:
 
 /*! @function free
     @abstract Free the IOFWInterface instance.
-    @discussion The memory allocated for the arpcom structure is released,
+    @discussion The memory allocated for internal bookkeeping is released,
     followed by a call to super::free(). */
 
     virtual void free();
@@ -226,26 +225,24 @@ protected:
 
     virtual void controllerWillClose(IONetworkController * controller);
 
-/*! @function initIfnet
+/*! @function initIfnetParams
     @abstract Initialize the ifnet structure given.
     @discussion IOFWInterface will initialize this structure in a manner
-    that is appropriate for FireWire interfaces, then call super::initIfnet()
+    that is appropriate for FireWire interfaces, then call super::initIfnetParams()
     to allow the superclass to perform generic interface initialization.
     @param ifp Pointer to an ifnet structure obtained earlier through
                the getIfnet() method call.
     @result true on success, false otherwise. */
 
-    virtual bool initIfnet(struct ifnet * ifp);
+	virtual bool initIfnetParams(struct ifnet_init_params *params);
 
 /*! @function getIfnet
     @abstract Get the ifnet structure allocated by the interface object.
     @discussion This method returns a pointer to an ifnet structure
     that was allocated by a concrete subclass of IONetworkInterface.
-    IOFWInterface will allocate an arpcom structure during init(),
-    and returns a pointer to that structure when this method is called.
     @result Pointer to an ifnet structure. */
 
-    virtual struct ifnet * getIfnet() const;
+    virtual ifnet_t   getIfnet() const;
 
 /*! @function controllerWillChangePowerState
     @abstract Handle a notification that the network controller which is
@@ -301,10 +298,12 @@ public:
 	virtual void detachFromDataLinkLayer( IOOptionBits options,
 											void *       parameter );
 
-	void setIfnetSoftc(void* parameter);
-
 	void setIfnetMTU(UInt32 mtu);
 	
+	void setFamilyCookie(void *data);
+	
+	void *getFamilyCookie(){return _familyCookie;}
+
     // Virtual function padding
     OSMetaClassDeclareReservedUnused( IOFWInterface,  0);
     OSMetaClassDeclareReservedUnused( IOFWInterface,  1);

@@ -31,7 +31,7 @@ my $nidb = "${root}/${nipath}/${tag}.nidb";
 
 die "Error: database ${nidb} exists\n" if (-d ${nidb});
 
-my $nicl = "nicl -q -raw ${nidb}";
+my $nicl = "nicl -q -raw \"${nidb}\"";
 
 ##
 # For debugging:

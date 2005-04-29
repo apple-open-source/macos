@@ -1,9 +1,8 @@
-
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0.2
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2003  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,39 +22,30 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-
 #ifndef S_ZOOM_H
 #define S_ZOOM_H
 
-
 #include "mtypes.h"
-
-
-extern void
-_mesa_write_zoomed_rgba_span( GLcontext *ctx,
-                              GLuint n, GLint x, GLint y, const GLdepth z[],
-                              const GLfloat *fog,
-                              CONST GLchan rgba[][4], GLint y0 );
-
+#include "swrast.h"
 
 extern void
-_mesa_write_zoomed_rgb_span( GLcontext *ctx,
-                             GLuint n, GLint x, GLint y, const GLdepth z[],
-                             const GLfloat *fog,
+_mesa_write_zoomed_rgba_span( GLcontext *ctx, const struct sw_span *span,
+                              CONST GLchan rgb[][4], GLint y0 );
+
+extern void
+_mesa_write_zoomed_rgb_span( GLcontext *ctx, const struct sw_span *span,
                              CONST GLchan rgb[][3], GLint y0 );
 
+extern void
+_mesa_write_zoomed_index_span( GLcontext *ctx, const struct sw_span *span,
+                               GLint y0 );
 
 extern void
-_mesa_write_zoomed_index_span( GLcontext *ctx,
-                               GLuint n, GLint x, GLint y, const GLdepth z[],
-                               const GLfloat *fog,
-                               const GLuint indexes[], GLint y0 );
-
+_mesa_write_zoomed_depth_span( GLcontext *ctx, const struct sw_span *span,
+                               GLint y0 );
 
 extern void
-_mesa_write_zoomed_stencil_span( GLcontext *ctx,
-                                 GLuint n, GLint x, GLint y,
+_mesa_write_zoomed_stencil_span( GLcontext *ctx, GLuint n, GLint x, GLint y,
                                  const GLstencil stencil[], GLint y0 );
-
 
 #endif

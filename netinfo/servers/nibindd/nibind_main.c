@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netinfo/ni.h>
+#include <notify.h>
 #include <sys/dir.h>
 #include <sys/ioctl.h>
 #include <sys/param.h>
@@ -70,7 +71,6 @@ extern void storepid(int, ni_name);
 static void parentexit(int);
 static void closeall(void);
 static void writepid(void);
-static void killparent(void);
 static void catchhup(int);
 
 extern int waitreg;
@@ -114,6 +114,11 @@ main(int argc, char *argv[])
 			netinfod_argv[netinfod_argc++] = argv[i];
 		}
 
+		if (!strcmp(argv[i], "-A"))
+		{
+			localonly = 0;
+		}
+
 		if (!strcmp(argv[i], "-d"))
 		{
 			debug = 1;
@@ -155,61 +160,9 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (debug == 1)
-	{
-		system_log_open("nibindd", LOG_NDELAY | LOG_PID, LOG_NETINFO, stderr);
-		system_log_set_max_priority(log_pri);
-		system_log(LOG_DEBUG, "version %s - debug mode\n", _PROJECT_VERSION_);
-	}
-	else
-	{
-		closeall();
-		system_log_open("nibindd", LOG_NDELAY | LOG_PID, LOG_NETINFO, NULL);
-		system_log_set_max_priority(log_pri);
-		system_log(LOG_DEBUG, "version %s - starting\n", _PROJECT_VERSION_);
-
-		child_pid = fork();
-		if (child_pid == -1)
-		{
-			system_log(LOG_ALERT, "fork() failed: %m, aborting");
-			system_log_close();
-			exit(1);
-		}
-		else if (child_pid > 0)
-		{
-			signal(SIGTERM, parentexit);
-			system_log(LOG_DEBUG, "parent waiting for child to start");
-			wait4(child_pid, (_WAIT_TYPE_ *)&wait_stat, 0, 0);
-
-			if (WIFEXITED(wait_stat))
-			{
-				system_log(LOG_DEBUG,
-					"unexpected child exit, status=%d",
-					WEXITSTATUS(wait_stat));
-			}
-			else
-			{
-				system_log(LOG_DEBUG,
-					"unexpected child exit, received signal=%d",
-					WTERMSIG(wait_stat));
-			}
-			system_log_close();
-			exit(1);
-		}
-	}
-
-	restart = 0;
-
-	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
-	setrlimit(RLIMIT_CORE, &rlim);
-	signal(SIGCHLD, catchchild);
-	signal(SIGTERM, killchildren);
-	signal(SIGHUP, catchhup);
-	signal(SIGINT, SIG_IGN);
-
-	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
-
-	writepid();
+	system_log_open("nibindd", LOG_NDELAY | LOG_PID, LOG_NETINFO, debug ? stderr : NULL);
+	system_log_set_max_priority(log_pri);
+	system_log(LOG_DEBUG, "version %s - %s\n", debug ? "debug mode" : "starting", _PROJECT_VERSION_);
 
 	/*
 	 * cd to netinfo directory, find out which databases should
@@ -217,15 +170,13 @@ main(int argc, char *argv[])
 	 */
 	if (chdir(NETINFO_DIR) < 0)
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot chdir to netinfo directory");
 		exit(1);
 	}
 
-	dp = opendir(NETINFO_DIR);
+	dp = opendir(".");
 	if (dp == NULL)
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot open netinfo directory");
 		exit(1);
 	}
@@ -252,7 +203,6 @@ main(int argc, char *argv[])
 	 */
 	if (flock(dp->dd_fd, LOCK_EX|LOCK_NB) < 0)
 	{
-		killparent();
 		system_log(LOG_ALERT, "nibindd already running");
 		exit(1);
 	}
@@ -261,25 +211,46 @@ main(int argc, char *argv[])
 	closedir(dp);
 #endif
 
+	if (localonly)
+	{
+#ifdef _NETINFO_FLOCK_
+		closedir(dp);
+#endif
+		system_log_close();
+		execl(NETINFO_PROG, NETINFO_PROG, "-s", "local", NULL);
+		system_log(LOG_ALERT, "execl(\"%s\"): %m", NETINFO_PROG);
+		exit(1);
+	}
+
+	restart = 0;
+
+	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
+	setrlimit(RLIMIT_CORE, &rlim);
+	signal(SIGCHLD, catchchild);
+	signal(SIGTERM, killchildren);
+	signal(SIGHUP, catchhup);
+	signal(SIGINT, SIG_IGN);
+
+	notify_register_signal(NETWORK_CHANGE_NOTIFICATION, SIGHUP, &nctoken);
+
+	writepid();
+
 	/*
 	 * Register as a SUNRPC service
 	 */
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
-	if (localonly == 1) addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
 	pmap_unset(NIBIND_PROG, NIBIND_VERS);
 	utransp = svcudp_bind(RPC_ANYSOCK, addr);
 	if (utransp == NULL)
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot start udp service");
 		exit(1);
 	}
 
 	if (!svc_register(utransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_UDP))
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot register udp service");
 		exit(1);
 	}
@@ -289,14 +260,12 @@ main(int argc, char *argv[])
 	ttransp = svctcp_bind(RPC_ANYSOCK, addr, 0, 0);
 	if (ttransp == NULL)
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot start tcp service");
 		exit(1);
 	}
 
 	if (!svc_register(ttransp, NIBIND_PROG, NIBIND_VERS, nibind_prog_1, IPPROTO_TCP))
 	{
-		killparent();
 		system_log(LOG_ALERT, "cannot register tcp service");
 		exit(1);
 	}
@@ -339,23 +308,6 @@ main(int argc, char *argv[])
 
 	ni_namelist_free(&nl);
 		
-	/*
-	 * Detach from controlling tty.
-	 * Do this AFTER starting netinfod so "type c to continue..." works.
-	 */
-#ifdef _UNIX_BSD_43_
-	ttyfd = open("/dev/tty", O_RDWR, 0);
-	if (ttyfd > 0)
-	{
-		ioctl(ttyfd, TIOCNOTTY, NULL);
-		close(ttyfd);
-	}
-
-	setpgrp(0, getpid());
-#else
-	if (setsid() < 0) syslog(LOG_ERR, "nibindd: setsid() failed: %m");
-#endif
-
 	system_log(LOG_DEBUG, "starting RPC service");
 
 	nibind_svc_run();
@@ -404,12 +356,6 @@ closeall(void)
 	dup(0);
 }
 
-static void
-killparent(void)
-{
-	kill(getppid(), SIGTERM);
-}
-
 void
 nibind_svc_run(void)
 {
@@ -446,7 +392,6 @@ nibind_svc_run(void)
 			{
 				system_log(LOG_DEBUG,
 					"all servers registered - signalling parent");
-				killparent();
 			}
 		}
 

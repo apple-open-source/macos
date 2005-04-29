@@ -32,78 +32,79 @@
 
 /*!
 	@header SCNetwork
+	@discussion The SCNetwork API contains functions an application can
+		use to determine remote host reachability and notify the
+		system of configuration changes.
 
-	SCNetworkCheckReachabilityXXX()
+		The two SCNetworkCheckReachability functions allow an
+		application to determine the status of the system's current
+		network configuration and the reachability of a target host
+		or address.
 
-	The SCNetworkCheckReachabilityXXX() APIs allow an application to
-	determine the status of the system's current network configuration
-	and the accessibility of a target host/address.
+		"Reachability" reflects whether a data packet, sent by an
+		application into the network stack, can leave the local
+		computer.  Note that reachability does <i>not</i> guarantee
+		that the data packet will actually be received by the host.
 
-	The term "reachable" reflects whether a data packet, sent by
-	an application into the network stack, can be sent to the
-	the target host/address.  Please note that their is no
-	guarantee that the data packet will actually be received by
-	the host.
-
-
-	SCNetworkInterfaceRefreshConfiguration()
-
-	This API sends a notification to interested network configuration
-	agents to retry	their configuraton immediately. For example, calling
-	this API will cause the DHCP client to contact the DHCP server
-	immediately rather than waiting until its timeout has expired.
-	The utility of this API is to allow the caller to give a hint to
-	the system that the network infrastructure/configuration has changed.
+		The SCNetworkInterfaceRefreshConfiguration function sends a
+		notification to interested network configuration agents to
+		retry their configuration immediately. For example, calling
+		this function will cause the DHCP client to contact the DHCP
+		server immediately rather than waiting until its timeout has
+		expired.  The utility of this function is to allow the caller
+		to give a hint to the system that the network infrastructure
+		or configuration has changed.
  */
 
 /*!
 	@enum SCNetworkConnectionFlags
 	@discussion Flags that indicate whether the specified network
-		nodename/address is reachable, requires a connection,
-		requires some user intervention in establishing the
-		connection, and whether the calling application must
-		initiate the connection using the (TBD???) API.
-
+		nodename or address is reachable, whether a connection is
+		required, and whether some user intervention may be required
+		when establishing a connection.
 	@constant kSCNetworkFlagsTransientConnection
-		This flag indicates that the specified nodename/address can
-		be reached via a transient (e.g. PPP) connection.
-
+		This flag indicates that the specified nodename or address can
+		be reached via a transient connection, such as PPP.
 	@constant kSCNetworkFlagsReachable
-		This flag indicates that the specified nodename/address can
+		This flag indicates that the specified nodename or address can
 		be reached using the current network configuration.
-
 	@constant kSCNetworkFlagsConnectionRequired
-		This flag indicates that the specified nodename/address can
-		be reached using the current network configuration but a
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
 		connection must first be established.
 
 		As an example, this status would be returned for a dialup
-		connection that was not currently active but could handle
+		connection that was not currently active, but could handle
 		network traffic for the target system.
-
 	@constant kSCNetworkFlagsConnectionAutomatic
-		This flag indicates that the specified nodename/address can
-		be reached using the current network configuration but a
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
 		connection must first be established.  Any traffic directed
-		to the specified name/address will initiate the connection.
-
+		to the specified name or address will initiate the connection.
 	@constant kSCNetworkFlagsInterventionRequired
-		This flag indicates that the specified nodename/address can
-		be reached using the current network configuration but a
+		This flag indicates that the specified nodename or address can
+		be reached using the current network configuration, but a
 		connection must first be established.  In addition, some
-		form of user intervention will be required to establish
-		this connection (e.g. providing a password, authentication
-		token, etc.).
+		form of user intervention will be required to establish this
+		connection, such as providing a password, an authentication
+		token, etc.
 
+		Note: At the present time, this flag will only be returned
+		in the case where you have a dial-on-traffic configuration
+		(ConnectionAutomatic), where an attempt to connect has
+		already been made, and where some error (e.g. no dial tone,
+		no answer, bad password, ...) was encountered during the
+		automatic connection attempt.  In this case the PPP controller
+		will stop attempting to establish a connection until the user
+		has intervened.
 	@constant kSCNetworkFlagsIsLocalAddress
-		This flag indicates that the specified nodename/address
+		This flag indicates that the specified nodename or address
 		is one associated with a network interface on the current
 		system.
-
 	@constant kSCNetworkFlagsIsDirect
 		This flag indicates that network traffic to the specified
-		nodename/address will not go through a gateway but is routed
-		directly to one of the interfaces in the system.
+		nodename or address will not go through a gateway, but is
+		routed directly to one of the interfaces in the system.
  */
 enum {
 	kSCNetworkFlagsTransientConnection	= 1<<0,
@@ -127,8 +128,8 @@ __BEGIN_DECLS
 	@param flags A pointer to memory that will be filled with a
 		set of SCNetworkConnectionFlags detailing the reachability
 		of the specified address.
-	@result TRUE if the network connection flags are valid; FALSE if the
-		status could not be determined.
+	@result Returns TRUE if the network connection flags are valid;
+		FALSE if the status could not be determined.
  */
 Boolean
 SCNetworkCheckReachabilityByAddress	(
@@ -139,35 +140,39 @@ SCNetworkCheckReachabilityByAddress	(
 
 /*!
 	@function SCNetworkCheckReachabilityByName
-	@discussion Determines if the given network host/node name is
+	@discussion Determines if the given network host or node name is
 		reachable using the current network configuration.
 	@param nodename The node name of the desired host. This name would
-		be the same as that passed to gethostbyname() or getaddrinfo().
+		be the same as that passed to the gethostbyname(3) or
+		getaddrinfo(3) functions.
 	@param flags A pointer to memory that will be filled with a
 		set of SCNetworkConnectionFlags detailing the reachability
 		of the specified node name.
-	@result TRUE if the network connection flags are valid; FALSE if the
-		status could not be determined.
+	@result Returns TRUE if the network connection flags are valid;
+		FALSE if the status could not be determined.
  */
 Boolean
 SCNetworkCheckReachabilityByName	(
 					const char			*nodename,
 					SCNetworkConnectionFlags	*flags
 					);
+
 /*!
 	@function SCNetworkInterfaceRefreshConfiguration
 	@discussion Sends a notification to interested configuration agents
 		to have them immediately retry their configuration over a
 		particular network interface.
-		Note: This API must be invoked by root (uid == 0).
 
-	@param ifName The BSD name of the network interface e.g. CFSTR("en0").
-	@result TRUE if the notification was sent; FALSE otherwise.
+		Note: This function must be invoked by root (uid == 0).
+	@param ifName The BSD name of the network interface, such as
+		CFSTR("en0").
+	@result Returns TRUE if the notification was sent; FALSE otherwise.
  */
 Boolean
 SCNetworkInterfaceRefreshConfiguration	(
 					CFStringRef ifName
 					);
+
 __END_DECLS
 
 #endif /* _SCNETWORK_H */

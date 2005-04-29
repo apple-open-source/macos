@@ -1,170 +1,168 @@
 {
-    CURRENTLY_ACTIVE_VERSION = YES; 
-    DEPLOY_WITH_VERSION_NAME = A; 
-    DYNAMIC_CODE_GEN = YES; 
+    "CURRENTLY_ACTIVE_VERSION" = YES; 
+    "DEPLOY_WITH_VERSION_NAME" = A; 
+    "DYNAMIC_CODE_GEN" = YES; 
     FILESTABLE = {
         CLASSES = (); 
-        H_FILES = (
-            DynaAPI.h, 
-            clib.h, 
-            config.h, 
-            dns.h, 
-            dsassertion.h, 
-            dsattribute.h, 
-            dscache.h, 
-            dsdata.h, 
-            dsengine.h, 
-            dsfilter.h, 
-            dsindex.h, 
-            dsrecord.h, 
-            dsreference.h, 
-            dsstatus.h, 
-            dsstore.h, 
-            dsutil.h, 
-            dsx500.h, 
-            dsx500dit.h, 
-            ffparser.h, 
-            mm.h, 
-            network.h, 
-            ni_shared.h, 
-            nilib2.h, 
-            nistore.h, 
-            os.h, 
-            rpc_extra.h, 
-            sdns.h, 
-            socket_lock.h, 
-            syslock.h, 
-            system.h, 
-            system_log.h, 
-            systhread.h, 
+        "H_FILES" = (
+            "DynaAPI.h", 
+            "cache.h",
+            "clib.h", 
+            "config.h", 
+            "dsassertion.h", 
+            "dsattribute.h", 
+            "dscache.h", 
+            "dsdata.h", 
+            "dsengine.h", 
+            "dsfilter.h", 
+            "dsindex.h", 
+            "dsrecord.h", 
+            "dsreference.h", 
+            "dsstatus.h", 
+            "dsstore.h", 
+            "dsutil.h", 
+            "dsx500.h", 
+            "dsx500dit.h", 
+            "ffparser.h", 
+            "mm.h", 
+            "network.h", 
+            "ni_shared.h", 
+            "nilib2.h", 
+            "nistore.h", 
+            "os.h", 
+            "rpc_extra.h", 
+            "socket_lock.h", 
+            "syslock.h", 
+            "system.h", 
+            "system_log.h", 
+            "systhread.h", 
             "utf-8.h"
         ); 
-        OTHER_LINKED = (
-            dns.c, 
-            dsassertion.c, 
-            dsattribute.c, 
-            dscache.c, 
-            dsdata.c, 
-            dsengine.c, 
-            dsfilter.c, 
-            dsindex.c, 
-            dsrecord.c, 
-            dsreference.c, 
-            dsstatus.c, 
-            dsstore.c, 
-            dsutil.c, 
-            dsx500.c, 
-            dsx500dit.c, 
-            ffparser.c, 
-            network.c, 
-            ni_shared.c, 
-            nilib2.c, 
-            nistore.c, 
-            rparent.c, 
-            rpc_extra.c, 
-            sdns.c, 
-            socket_lock.c, 
-            syslock.c, 
-            system.c, 
-            system_log.c, 
-            systhread.c, 
+        "OTHER_LINKED" = (
+            "cache.c",
+            "dsassertion.c", 
+            "dsattribute.c", 
+            "dscache.c", 
+            "dsdata.c", 
+            "dsengine.c", 
+            "dsfilter.c", 
+            "dsindex.c", 
+            "dsrecord.c", 
+            "dsreference.c", 
+            "dsstatus.c", 
+            "dsstore.c", 
+            "dsutil.c", 
+            "dsx500.c", 
+            "dsx500dit.c", 
+            "ffparser.c", 
+            "network.c", 
+            "ni_shared.c", 
+            "nilib2.c", 
+            "nistore.c", 
+            "rparent.c", 
+            "rpc_extra.c", 
+            "socket_lock.c", 
+            "syslock.c", 
+            "system.c", 
+            "system_log.c", 
+            "systhread.c", 
             "utf-8.c"
         ); 
-        OTHER_SOURCES = (
-            CustomInfo.plist, 
-            Makefile.preamble, 
+        "OTHER_SOURCES" = (
+            "CustomInfo.plist", 
+            "Makefile.preamble", 
             Makefile, 
-            Makefile.postamble, 
-            lookup.defs, 
-            mk_version, 
-            nibind_prot.x, 
-            ni_prot.x, 
-            _lu_types.x
+            "Makefile.postamble", 
+            "lookup.defs", 
+            "mk_version", 
+            "nibind_prot.x", 
+            "ni_prot.x", 
+            "_lu_types.x"
         ); 
-        PROJECT_HEADERS = (
-            clib.h, 
-            config.h, 
-            dns.h, 
-            dsassertion.h, 
-            dsattribute.h, 
-            dscache.h, 
-            dsdata.h, 
-            dsengine.h, 
-            dsfilter.h, 
-            dsindex.h, 
-            dsrecord.h, 
-            dsreference.h, 
-            dsstatus.h, 
-            dsstore.h, 
-            dsutil.h, 
-            dsx500.h, 
-            dsx500dit.h, 
-            mm.h, 
-            network.h, 
-            ni_shared.h, 
-            nilib2.h, 
-            nistore.h, 
-            os.h, 
-            rpc_extra.h, 
-            sdns.h, 
-            socket_lock.h, 
-            syslock.h, 
-            system.h, 
-            systhread.h, 
-            system_log.h, 
-            "utf-8.h"
+        "PROJECT_HEADERS" = (
+            "clib.h", 
+            "config.h", 
+            "dsassertion.h", 
+            "dsattribute.h", 
+            "dscache.h", 
+            "dsdata.h", 
+            "dsengine.h", 
+            "dsfilter.h", 
+            "dsindex.h", 
+            "dsrecord.h", 
+            "dsreference.h", 
+            "dsstatus.h", 
+            "dsstore.h", 
+            "dsutil.h", 
+            "dsx500.h", 
+            "dsx500dit.h", 
+            "mm.h", 
+            "network.h", 
+            "ni_shared.h", 
+            "nilib2.h", 
+            "nistore.h", 
+            "os.h", 
+            "rpc_extra.h", 
+            "socket_lock.h", 
+            "syslock.h", 
+            "system.h", 
+            "systhread.h", 
+            "system_log.h", 
+            "utf-8.h", 
+            "DynaAPI.h", 
+            "ffparser.h"
         ); 
-        PUBLIC_HEADERS = (
-            clib.h, 
-            config.h, 
-            dns.h, 
-            dsassertion.h, 
-            dsattribute.h, 
-            dscache.h, 
-            dsdata.h, 
-            dsengine.h, 
-            dsfilter.h, 
-            dsindex.h, 
-            dsrecord.h, 
-            dsreference.h, 
-            dsstatus.h, 
-            dsstore.h, 
-            dsutil.h, 
-            dsx500.h, 
-            dsx500dit.h, 
-            mm.h, 
-            network.h, 
-            ni_shared.h, 
-            nilib2.h, 
-            nistore.h, 
-            os.h, 
-            rpc_extra.h, 
-            sdns.h, 
-            socket_lock.h, 
-            syslock.h, 
-            system.h, 
-            system_log.h, 
-            systhread.h, 
-            "utf-8.h"
+        "PUBLIC_HEADERS" = (
+            "clib.h", 
+            "config.h", 
+            "dsassertion.h", 
+            "dsattribute.h", 
+            "dscache.h", 
+            "dsdata.h", 
+            "dsengine.h", 
+            "dsfilter.h", 
+            "dsindex.h", 
+            "dsrecord.h", 
+            "dsreference.h", 
+            "dsstatus.h", 
+            "dsstore.h", 
+            "dsutil.h", 
+            "dsx500.h", 
+            "dsx500dit.h", 
+            "mm.h", 
+            "network.h", 
+            "ni_shared.h", 
+            "nilib2.h", 
+            "nistore.h", 
+            "os.h", 
+            "rpc_extra.h", 
+            "socket_lock.h", 
+            "syslock.h", 
+            "system.h", 
+            "system_log.h", 
+            "systhread.h", 
+            "utf-8.h", 
+            "DynaAPI.h", 
+            "ffparser.h"
         ); 
         SUBPROJECTS = (); 
     }; 
     LANGUAGE = English; 
-    LOCALIZABLE_FILES = {}; 
+    "LOCALIZABLE_FILES" = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
-    NEXTSTEP_BUILDTOOL = /usr/bin/gnumake; 
-    NEXTSTEP_INSTALLDIR = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"; 
-    NEXTSTEP_JAVA_COMPILER = /usr/bin/javac; 
-    NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc; 
-    PDO_UNIX_BUILDTOOL = $NEXT_ROOT/Developer/bin/make; 
-    PDO_UNIX_JAVA_COMPILER = "$(JDKBINDIR)/javac"; 
-    PDO_UNIX_OBJCPLUS_COMPILER = "$(NEXTDEV_BIN)/gcc"; 
+    "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
+    "NEXTSTEP_INSTALLDIR" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks"; 
+    "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
+    "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 
+    "PDO_UNIX_BUILDTOOL" = "$NEXT_ROOT/Developer/bin/make"; 
+    "PDO_UNIX_JAVA_COMPILER" = "$(JDKBINDIR)/javac"; 
+    "PDO_UNIX_OBJCPLUS_COMPILER" = "$(NEXTDEV_BIN)/gcc"; 
     PROJECTNAME = NetInfo; 
     PROJECTTYPE = Framework; 
-    PROJECTVERSION = 2.8; 
-    WINDOWS_BUILDTOOL = $NEXT_ROOT/Developer/Executables/make; 
-    WINDOWS_INSTALLDIR = LOCAL_DEVELOPER_DIR/Libraries; 
-    WINDOWS_JAVA_COMPILER = "$(JDKBINDIR)/javac.exe"; 
-    WINDOWS_OBJCPLUS_COMPILER = "$(DEVDIR)/gcc"; 
-    WINDOWS_PUBLICHEADERSDIR = "LOCAL_DEVELOPER_DIR/Headers/$(NAME)"; 
+    PROJECTVERSION = "2.8"; 
+    "WINDOWS_BUILDTOOL" = "$NEXT_ROOT/Developer/Executables/make"; 
+    "WINDOWS_INSTALLDIR" = "LOCAL_DEVELOPER_DIR/Libraries"; 
+    "WINDOWS_JAVA_COMPILER" = "$(JDKBINDIR)/javac.exe"; 
+    "WINDOWS_OBJCPLUS_COMPILER" = "$(DEVDIR)/gcc"; 
+    "WINDOWS_PUBLICHEADERSDIR" = "LOCAL_DEVELOPER_DIR/Headers/$(NAME)"; 
 }

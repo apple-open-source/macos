@@ -1,4 +1,3 @@
-/* APPLE LOCAL file test suite */
 /* Test that compiling for the GNU runtime works (regardless of
    the system runtime used).  */
 /* Author: Ziemowit Laski <zlaski@apple.com>  */

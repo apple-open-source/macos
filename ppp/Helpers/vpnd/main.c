@@ -58,10 +58,12 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
+#include "../../Family/if_ppplink.h"
 
 #include "vpnd.h"
 #include "vpnoptions.h"
 #include "vpnplugins.h"
+#include "cf_utils.h"
 
 
 // ----------------------------------------------------------------------------
@@ -74,6 +76,8 @@ static char	pid_path[MAXPATHLEN] = _PATH_VARRUN DAEMON_NAME "-";	// pid file pat
 // ----------------------------------------------------------------------------
 
 static volatile int rcvd_sig_child = 0;
+static volatile int rcvd_sig_hup = 0;
+static volatile int rcvd_sig_usr1 = 0;
 static volatile int terminate = 0;
 static int forwarding = -1;
 static FILE	*logfile = 0;
@@ -88,12 +92,13 @@ static void write_pid_file(struct vpn_params *params);
 static void delete_pid_file(void);
 static void sig_chld(int inSignal);
 static void sig_term(int inSignal);
+static void sig_hup(int inSignal);
 static void setup_signal_handlers(void);
 static int set_forwarding(int *oldval, int newval);
 static void create_log_file(char *inLogPath);
 static void close_log_file(void);
 void vpnlog(int nSyslogPriority, char *format_str, ...);
-
+static void dump_params(struct vpn_params *params);
 
 // ----------------------------------------------------------------------------
 //	main
@@ -132,14 +137,19 @@ int main (int argc, char *argv[])
     }
 
     /*
+     * open syslog facility.
+     */
+    openlog("vpnd", LOG_PID | LOG_NDELAY, LOG_RAS);
+
+    /*
      * read and process options.
      */
     if (process_options(params, argc, argv))
         exit(EXIT_OPTION_ERROR);
-   
+		   
     /* Check if ppp is available in the kernel */
     if (!ppp_available()) {
-	vpnlog(LOG_ERR, "VPND: The PPP kernel extension could not be loaded\n");
+	vpnlog(LOG_ERR, "The PPP kernel extension could not be loaded\n");
 	exit(EXIT_NO_KERNEL_SUPPORT);
     }  
     
@@ -151,9 +161,14 @@ int main (int argc, char *argv[])
         spawn(params);
         exit(EXIT_OK);
     }
-        
+ 
+    vpnlog(LOG_NOTICE, "Server '%s' starting...\n", params->server_id);
+
+    open_dynamic_store(params); 	// open a connection to the dynamic store     
+    init_address_lists();		// init the address lists
+
     if (process_prefs(params)) {	// prepare launch args
-    	vpnlog(LOG_ERR, "VPND: error processing prefs file\n");
+    	vpnlog(LOG_ERR, "Error processing prefs file\n");
         exit(EXIT_OPTION_ERROR);
     }
     if (check_conflicts(params))	// check if another server of this type already running
@@ -166,42 +181,51 @@ int main (int argc, char *argv[])
    	create_log_file(params->log_path);
     
     if (init_plugin(params)) {
-        vpnlog(LOG_ERR, "VPND: initialization of vpnd plugin failed\n");
+        vpnlog(LOG_ERR, "Initialization of vpnd plugin failed\n");
         exit(EXIT_FATAL_ERROR);
     }
-    if (get_plugin_args(params)) {		
-    	vpnlog(LOG_ERR, "VPND: error getting arguments from plugin\n");
+    if (get_plugin_args(params, 0)) {		
+    	vpnlog(LOG_ERR, "Error getting arguments from plugin\n");
         exit(EXIT_OPTION_ERROR);
     }
 
+
+    if (params->debug)
+        dump_params(params);
+        
     setuid(geteuid());
     
     // OK, everything looks good. Daemonize now and redirect std fd's.
     if (params->daemonize) {
         stdio_is_valid = 0;
+		close_dynamic_store(params);	// close it now, re-open after detach
         detach();
         setsid();
         redirect_std_file();
         open_dynamic_store(params);	// re-open after detach
+        vpnlog(LOG_NOTICE, "Server '%s' moved to background\n", params->server_id);
     }
+    
     setup_signal_handlers();
     write_pid_file(params);	/* Write out our pid like a good little daemon */
-    vpnlog(LOG_INFO, "VPND: Listening for connections\n");
     publish_state(params);
             
     /* activate IP forwarding */
     if (set_forwarding(&forwarding, 1))
-        vpnlog(LOG_ERR, "VPND: cannot activate IP forwarding (error %d)\n", errno);
+        vpnlog(LOG_ERR, "Cannot activate IP forwarding (error %d)\n", errno);
 
     /* now listen for connections*/
+    vpnlog(LOG_NOTICE, "Listening for connections...\n");
     accept_connections(params);
         
     /* restore IP forwarding to former state */
     if (set_forwarding(0, forwarding))
-        vpnlog(LOG_ERR, "VPND: cannot reset IP forwarding (error %d)\n", errno);
+        vpnlog(LOG_ERR, "Cannot reset IP forwarding (error %d)\n", errno);
 
     close_log_file();
     delete_pid_file();
+    vpnlog(LOG_NOTICE, "Server '%s' stopped\n", params->server_id);
+
     exit(EXIT_OK) ;
 }
 
@@ -250,10 +274,10 @@ static int spawn(struct vpn_params *params)
                 execv(PATH_VPND, args);		// launch it
                 break;
             case -1:		// error
-                vpnlog(LOG_ERR, "VPND: attempt to fork new vpnd failed\n") ;
+                vpnlog(LOG_ERR, "Attempt to fork new vpnd failed\n") ;
                 return -1;
             default:
-                vpnlog(LOG_INFO, "VPND: launched vpnd process id '%d' for server id '%s'\n", pidChild, server);
+                vpnlog(LOG_INFO, "Launched vpnd process id '%d' for server id '%s'\n", pidChild, server);
                 break;
         }
     }
@@ -287,7 +311,7 @@ static void close_file_descriptors(void)
     if (!getrlimit (RLIMIT_NOFILE, &lim))
         i = lim.rlim_cur;
     else
-        vpnlog(LOG_ERR, "VPND: close_file_descriptors() - getrlimit() failed\n");
+        vpnlog(LOG_ERR, "close_file_descriptors() - getrlimit() failed\n");
 
     // Close all file descriptors except std*.
     while (--i > nMin)
@@ -332,7 +356,7 @@ static void detach(void)
         case 0:		// in child
             break;
         case -1:	// error
-            vpnlog(LOG_ERR, "VPND: detach failed: errno= %d\n", errno);
+            vpnlog(LOG_ERR, "Detach failed: errno= %d\n", errno);
             /* FALLTHRU */
         default:	// parent
             exit(errno) ;
@@ -349,7 +373,8 @@ static void write_pid_file(struct vpn_params *params)
     char	subtype[OPT_STR_LEN];
     
     subtype[0] = 0;
-    CFStringGetCString(params->serverSubTypeRef, subtype, OPT_STR_LEN, kCFStringEncodingUTF8);
+    if (params->serverSubTypeRef)
+		CFStringGetCString(params->serverSubTypeRef, subtype, OPT_STR_LEN, kCFStringEncodingUTF8);
     if (subtype[0])
         strcat(pid_path, subtype);
     strcat(pid_path, ".pid");
@@ -358,7 +383,7 @@ static void write_pid_file(struct vpn_params *params)
 	fprintf(pidfile, "%d\n", getpid());
 	fclose(pidfile);
     } else
-	vpnlog(LOG_WARNING, "VPND: Failed to create pid file %s: %m", pid_path);
+	vpnlog(LOG_WARNING, "Failed to create pid file %s: %m", pid_path);
 }
 
 //-----------------------------------------------------------------------------
@@ -394,9 +419,15 @@ static char *log_time_string(time_t inNow, char *inTimeString)
 static void create_log_file(char *inLogPath)
 {
     char	theTime[40];
+	mode_t	mask;
 
     // Setup the log file.
-    if ((logfile = fopen(inLogPath, "a")) == 0)
+
+	mask = umask(S_IWGRP|S_IXGRP|S_IWOTH|S_IXOTH);
+	logfile = fopen(inLogPath, "a");
+	mask = umask(mask);
+
+    if (logfile == 0)
             vpnlog(LOG_ERR, "Could not open log file %s.\n", inLogPath);
     else {
         fcntl(fileno(logfile), F_SETFD, 1);
@@ -447,8 +478,8 @@ void vpnlog(int nSyslogPriority, char *format_str, ...)
     tmTime = localtime(&tNow);
 
     // If the facility hasn't been defined, make it LOG_DAEMON.
-    if (!(nSyslogPriority & LOG_FACMASK))
-        nSyslogPriority |= LOG_DAEMON;
+    //if (!(nSyslogPriority & LOG_FACMASK))
+    //    nSyslogPriority |= LOG_DAEMON;
 
     sprintf(theTime, "%04d-%02d-%02d %02d:%02d:%02d %s\t",
                             tmTime->tm_year + 1900, tmTime->tm_mon + 1, tmTime->tm_mday,
@@ -461,16 +492,66 @@ void vpnlog(int nSyslogPriority, char *format_str, ...)
         fflush(logfile);
     };
     
-    if (!logfile || LOG_PRI(nSyslogPriority) != LOG_DEBUG)
-        vsyslog(nSyslogPriority, format_str, args);
+	vsyslog(nSyslogPriority, format_str, args);
 
     // Log to stderr if the socket is valid
     //	AND ( we're debugging OR this is a high priority message)
-    if (stdio_is_valid && (params->debug || (LOG_PRI(nSyslogPriority) <= LOG_WARNING))) {
+    if (stdio_is_valid && (params->debug || (LOG_PRI(nSyslogPriority) >= LOG_WARNING))) {
         fputs(theTime, stderr);
         vfprintf(stderr, format_str, args);
         fflush(stderr);
     }
+}
+
+//-----------------------------------------------------------------------------
+//	dump_params
+//-----------------------------------------------------------------------------
+static void dump_params(struct vpn_params *params)
+{
+    int	i;
+	char	*subtype = 0, *servertype;
+    
+	switch (params->server_type) {
+		case SERVER_TYPE_IPSEC:
+			servertype = "IPSec";
+			break;
+		case SERVER_TYPE_PPP:
+			servertype = "PPP";
+			switch (params->server_subtype) {
+				case PPP_TYPE_SERIAL:
+					subtype = "Serial";
+					break;
+				case PPP_TYPE_PPPoE:
+					subtype = "PPPoE";
+					break;
+				case PPP_TYPE_PPTP:
+					subtype = "PPTP";
+					break;
+				case PPP_TYPE_L2TP:
+					subtype = "L2TP";
+					break;
+				default:
+					subtype = "Unknown";
+					break;
+			}
+			break;
+	}
+	
+    vpnlog(LOG_DEBUG, "params->daemonize = %d\n", params->daemonize);
+    vpnlog(LOG_DEBUG, "params->max_sessions = %d\n", params->max_sessions);    
+    vpnlog(LOG_DEBUG, "params->server_id = %s\n", params->server_id);
+    vpnlog(LOG_DEBUG, "params->server_type = %s\n", servertype);
+    if (subtype)
+		vpnlog(LOG_DEBUG, "params->server_subtype = %s\n", subtype);
+    if (params->plugin_path)
+		vpnlog(LOG_DEBUG, "params->plugin_path = %s\n", params->plugin_path);
+    vpnlog(LOG_DEBUG, "params->log_path = %s\n", params->log_path);
+    if (params->next_arg_index)
+		vpnlog(LOG_DEBUG, "params->next_arg_index = %d\n", params->next_arg_index);
+    
+    for (i = 0; i < params->next_arg_index; i++)
+        vpnlog(LOG_DEBUG, "params->exec_args[%d] = %s\n", i, params->exec_args[i]);
+    
 }
 
 //-----------------------------------------------------------------------------
@@ -502,6 +583,32 @@ int got_sig_chld(void)
 }
 
 //-----------------------------------------------------------------------------
+//	got_sig_hup
+//-----------------------------------------------------------------------------
+int got_sig_hup(void)
+{
+    if (rcvd_sig_hup) {
+        rcvd_sig_hup = 0;
+        return 1;
+    }
+    return 0;
+}
+
+//-----------------------------------------------------------------------------
+//	got_sig_usr1
+//-----------------------------------------------------------------------------
+int got_sig_usr1(void)
+{
+    if (rcvd_sig_usr1) {
+        rcvd_sig_usr1 = 0;
+        return 1;
+    }
+    return 0;
+}
+
+
+
+//-----------------------------------------------------------------------------
 //	setup_signal_handlers
 //-----------------------------------------------------------------------------
 static void sig_chld(int inSignal)
@@ -511,7 +618,18 @@ static void sig_chld(int inSignal)
 
 static void sig_term(int inSignal)
 {
+    vpnlog(LOG_INFO, "terminating on signal %d\n", inSignal);
     terminate = 1;
+}
+
+static void sig_hup(int inSignal)
+{
+    rcvd_sig_hup = 1;
+}
+
+static void sig_usr1(int inSignal)
+{
+    rcvd_sig_usr1 = 1;
 }
 
 
@@ -530,10 +648,113 @@ static void setup_signal_handlers(void)
     sSigAction.sa_handler = sig_term;
     sigaction(SIGINT, &sSigAction, &sSigOldAction);
 
-    sSigAction.sa_handler = sig_term;
+    sSigAction.sa_handler = sig_hup;
     sigaction(SIGHUP, &sSigAction, &sSigOldAction);
+
+    sSigAction.sa_handler = sig_usr1;
+    sigaction(SIGUSR1, &sSigAction, &sSigOldAction);
 
     sSigAction.sa_flags |= SA_NOCLDSTOP;	//%%%% do we want this ??
     sSigAction.sa_handler = sig_chld;
     sigaction(SIGCHLD, &sSigAction, &sSigOldAction);
 }
+
+//-----------------------------------------------------------------------------
+// 	toggle_debug
+//-----------------------------------------------------------------------------
+void toggle_debug(void)
+{
+	if (params->debug) {
+		vpnlog(LOG_DEBUG, "debugging disabled\n");
+		params->debug = 0;
+	} else {
+		params->debug = 1;
+		vpnlog(LOG_DEBUG, "debugging enabled - dumping current parameters\n");
+		dump_params(params);
+	}
+}
+
+//-----------------------------------------------------------------------------
+// 	update_prefs
+//-----------------------------------------------------------------------------
+int update_prefs(void)
+{
+    int 		i;
+    struct vpn_params 	*old_params;
+	int		debug = params->debug;
+    
+	
+	// need to update existing params structure because ptr
+	// to this struct is passed to accept_connections function
+    
+    old_params = (struct vpn_params*)malloc(sizeof(struct vpn_params));
+    if (old_params == 0) {
+        vpnlog(LOG_ERR, "Could not allocate memory for old preferences");
+        return -1;
+    }
+
+    // save current parameters and clear params struct
+    *old_params = *params;
+	bzero(params, sizeof(params));
+	params->debug = old_params->debug;
+	params->server_id = old_params->server_id;
+	params->daemonize = old_params->daemonize;
+	
+	begin_address_update();
+	
+    if (process_prefs(params)) {
+    	vpnlog(LOG_ERR, "Update preferences - Error processing prefs file\n");
+        goto fail;
+	}
+
+    // check for consistency
+    if (params->server_subtype != old_params->server_subtype) {
+        vpnlog(LOG_ERR, "Update preferences - server subtype does not match\n");
+        goto fail;
+    }
+    
+    // get and check plugin args
+    if (get_plugin_args(params, 1)) {
+        vpnlog(LOG_ERR, "Update preferences - plugin arguments invalid or inconsistent\n");
+        goto fail;
+    }
+             
+    //
+    // success
+    //
+    CFRelease(old_params->serverSubTypeRef);
+    CFRelease(old_params->serverRef);
+    CFRelease(old_params->serverIDRef);
+    if (old_params->plugin_path)
+		free(old_params->plugin_path);
+    for (i = 0; i < old_params->next_arg_index; i++)
+        free(old_params->exec_args[i]);
+    free(old_params);
+    apply_address_update();
+    vpnlog(LOG_INFO, "Update of preferences succeeded - settings have been changed\n");  
+    if (debug)
+        dump_params(params);
+    return 0;
+    
+fail:       
+    cancel_address_update();	
+	if (debug)
+		dump_params(params);
+	if (params->serverSubTypeRef)
+		CFRelease(params->serverSubTypeRef);
+	if (params->serverRef)
+		CFRelease(params->serverRef);
+	if (params->serverIDRef)
+		CFRelease(params->serverIDRef);
+    if (params->plugin_path)
+		free(params->plugin_path);
+	for (i = 0; i < params->next_arg_index; i++)
+		free(params->exec_args[i]);
+	*params = *old_params;
+	free(old_params);
+    
+    vpnlog(LOG_ERR, "Update of preferences failed - settings left unchanged\n");
+    return 0;
+	
+}
+

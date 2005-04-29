@@ -1,0 +1,114 @@
+--- src/cvs.h.orig	Fri Dec 24 23:46:41 2004
++++ src/cvs.h	Fri Dec 24 23:49:54 2004
+@@ -263,6 +263,8 @@
+ #define	CVSREAD_ENV	"CVSREAD"	/* make files read-only */
+ #define	CVSREAD_DFLT	0		/* writable files by default */
+ 
++#define CVSREADONLYFS_ENV "CVSREADONLYFS" /* repository is read-only */
++
+ #define	TMPDIR_ENV	"TMPDIR"	/* Temporary directory */
+ 
+ #define	EDITOR1_ENV	"CVSEDITOR"	/* which editor to use */
+@@ -393,6 +395,7 @@
+ 
+ extern int trace;		/* Show all commands */
+ extern int noexec;		/* Don't modify disk anywhere */
++extern int readonlyfs;		/* fail on all write locks; succeed all read locks */
+ extern int logoff;		/* Don't write history entry */
+ 
+ extern int top_level_admin;
+--- src/lock.c.orig	Fri Dec 24 23:47:25 2004
++++ src/lock.c	Fri Dec 24 23:49:22 2004
+@@ -407,7 +407,7 @@
+ 	(void) fprintf (stderr, "%s-> Reader_Lock(%s)\n", CLIENT_SERVER_STR,
+                         xrepository);
+ 
+-    if (noexec)
++    if (noexec || readonlyfs)
+ 	return 0;
+ 
+     /* we only do one directory at a time for read locks! */
+@@ -483,6 +483,11 @@
+ 
+     if (noexec)
+ 	return 0;
++
++    if (readonlyfs) {
++	error (0, 0, "write lock failed - read-only repository");
++	return (1);
++    }
+ 
+     /* We only know how to do one list at a time */
+     if (locklist != (List *) NULL)
+--- src/main.c.orig	Fri Dec 24 23:44:22 2004
++++ src/main.c	Fri Dec 24 23:50:40 2004
+@@ -41,6 +41,7 @@
+ int quiet = 0;
+ int trace = 0;
+ int noexec = 0;
++int readonlyfs = 0;
+ int logoff = 0;
+ 
+ /* Set if we should be writing CVSADM directories at top level.  At
+@@ -397,7 +398,7 @@
+     int help = 0;		/* Has the user asked for help?  This
+ 				   lets us support the `cvs -H cmd'
+ 				   convention to give help for cmd. */
+-    static const char short_options[] = "+Qqrwtnvb:T:e:d:Hfz:s:xa";
++    static const char short_options[] = "+QqrwtnRvb:T:e:d:Hfz:s:xa";
+     static struct option long_options[] =
+     {
+         {"help", 0, NULL, 'H'},
+@@ -454,6 +455,10 @@
+ 	Editor = cp;
+     if (getenv (CVSREAD_ENV) != NULL)
+ 	cvswrite = 0;
++    if (getenv (CVSREADONLYFS_ENV) != NULL) {
++	readonlyfs = 1;
++	logoff = 1;
++    }
+ 
+     /* Set this to 0 to force getopt initialization.  getopt() sets
+        this to 1 internally.  */
+@@ -518,6 +523,10 @@
+ 		break;
+ 	    case 't':
+ 		trace = 1;
++		break;
++	    case 'R':
++		readonlyfs = 1;
++		logoff = 1;
+ 		break;
+ 	    case 'n':
+ 		noexec = 1;
+--- src/tag.c.orig	Fri Dec 24 23:51:52 2004
++++ src/tag.c	Fri Dec 24 23:52:27 2004
+@@ -1199,6 +1199,9 @@
+ 	|| strcmp (name, TAG_HEAD) == 0)
+ 	return;
+ 
++    if (readonlyfs)
++	return;
++
+     /* Verify that the tag is valid syntactically.  Some later code once made
+      * assumptions about this.
+      */
+--- doc/cvs.1.orig	Fri Dec 24 23:56:23 2004
++++ doc/cvs.1	Sat Dec 25 00:04:20 2004
+@@ -337,6 +337,16 @@
+ generate output for serious problems.
+ .SP
+ .IP "" 0
++\fB-R\fR
++.IP "" 2
++Turns on read-only repository mode.  This allows one to check out from a
++read-only repository, such as within an anoncvs server, or from a CDROM
++repository.
++Same effect as if the \fBCVSREADONLYFS\fR
++environment variable is set.  Using \fB-R\fR
++can also considerably speed up checkout's over NFS.
++.SP
++.IP "" 0
+ \fB-q\fR
+ .IP "" 2
+ Cause the command to be somewhat quiet; informational messages,

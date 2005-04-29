@@ -157,6 +157,10 @@ private:
                                     IODisplayModeInformation * theInfo );
     virtual IOReturn getResInfoForArbMode( IODisplayModeID modeID,
                                     IODisplayModeInformation * theInfo );
+    IOReturn getResInfoForDetailed( IODisplayModeID modeID,
+				    VDDetailedTimingRec * detailed,
+				    IODisplayModeInformation * info );
+    IOIndex mapDepthIndex( IODisplayModeID modeID, IOIndex depth, bool fromDepthMode );
     virtual IOReturn validateDisplayMode(
             IODisplayModeID mode, IOOptionBits flags,
             VDDetailedTimingRec ** detailed );
@@ -186,6 +190,7 @@ private:
     static IOReturn extControl( OSObject * owner, void * code, void * params );
     static IOReturn extStatus( OSObject * owner, void * code, void * params );
     IOReturn createI2C( void );
+    void setInfoProperties( void );
 
 public:
     virtual IOReturn doControl( UInt32 code, void * params );

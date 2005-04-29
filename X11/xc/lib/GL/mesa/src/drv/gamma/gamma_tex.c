@@ -1,11 +1,11 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_tex.c,v 1.4 2002/11/05 17:46:07 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/gamma/gamma_tex.c,v 1.5 2003/09/28 20:15:10 alanh Exp $ */
 
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "glheader.h"
 #include "mtypes.h"
-#include "mem.h"
+#include "imports.h"
 #include "simple_list.h"
 #include "enums.h"
 #include "texstore.h"
@@ -14,17 +14,18 @@
 
 #include "mm.h"
 #include "gamma_context.h"
-#include "mmath.h"
+#include "colormac.h"
 
 
 /*
  * Compute the 'S2.4' lod bias factor from the floating point OpenGL bias.
  */
+#if 0
 static GLuint gammaComputeLodBias(GLfloat bias)
 {
    return bias;
 }
-
+#endif
 
 static void gammaSetTexWrapping(gammaTextureObjectPtr t, 
 			       GLenum wraps, GLenum wrapt)
@@ -141,7 +142,7 @@ static void gammaTexParameter( GLcontext *ctx, GLenum target,
       break;
   
    case GL_TEXTURE_BORDER_COLOR:
-      gammaSetTexBorderColor( gmesa, t, tObj->BorderColor );
+      gammaSetTexBorderColor( gmesa, t, tObj->_BorderChan );
       break;
 
    case GL_TEXTURE_BASE_LEVEL:
@@ -206,6 +207,7 @@ static void gammaTexEnv( GLcontext *ctx, GLenum target,
       {
          struct gl_texture_object *tObj = ctx->Texture.Unit[unit]._Current;
          gammaTextureObjectPtr t = (gammaTextureObjectPtr) tObj->DriverData;
+         (void) t;
 	 /* XXX Looks like there's something missing here */
       }
 #endif
@@ -216,6 +218,7 @@ static void gammaTexEnv( GLcontext *ctx, GLenum target,
    }
 } 
 
+#if 0
 static void gammaTexImage1D( GLcontext *ctx, GLenum target, GLint level,
 			    GLint internalFormat,
 			    GLint width, GLint border,
@@ -233,7 +236,9 @@ static void gammaTexImage1D( GLcontext *ctx, GLenum target, GLint level,
 			   width, border, format, type,
 			   pixels, pack, texObj, texImage );
 }
+#endif
 
+#if 0
 static void gammaTexSubImage1D( GLcontext *ctx, 
 			       GLenum target,
 			       GLint level,	
@@ -253,6 +258,7 @@ static void gammaTexSubImage1D( GLcontext *ctx,
 			     format, type, pixels, pack, texObj,
 			     texImage);
 }
+#endif
 
 static void gammaTexImage2D( GLcontext *ctx, GLenum target, GLint level,
 			    GLint internalFormat,
@@ -341,7 +347,7 @@ static void gammaBindTexture( GLcontext *ctx, GLenum target,
 
 	 gammaSetTexWrapping( t, tObj->WrapS, tObj->WrapT );
 	 gammaSetTexFilter( gmesa, t, tObj->MinFilter, tObj->MagFilter, bias );
-	 gammaSetTexBorderColor( gmesa, t, tObj->BorderColor );
+	 gammaSetTexBorderColor( gmesa, t, tObj->_BorderChan );
       }
 }
 

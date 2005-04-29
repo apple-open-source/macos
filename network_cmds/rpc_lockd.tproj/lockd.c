@@ -60,6 +60,7 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/resource.h>
+#include <sys/sysctl.h>
 
 #include <rpc/rpc.h>
 #include <rpc/pmap_clnt.h>
@@ -105,6 +106,10 @@ main(argc, argv)
 	struct sigaction sigalarm;
 	int grace_period = 30;
 	struct rlimit rlp;
+	int mib[6];
+	int oldstate;
+	int oldsize;
+	int newstate;
 	
 	while ((ch = getopt(argc, argv, "d:g:wx:")) != (-1)) {
 		switch (ch) {
@@ -154,7 +159,20 @@ main(argc, argv)
 	signal(SIGHUP, handle_sig_cleanup);
 	signal(SIGQUIT, handle_sig_cleanup);
 
+
+	
 	openlog("rpc.lockd", debug_level == 99 ? LOG_PERROR : 0, LOG_DAEMON);
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_PROCDELAYTERM;
+
+	oldstate = 0;
+	oldsize = 4;
+	newstate  = 1;
+
+	if (sysctl(mib, 2, &oldstate, &oldsize,  &newstate, 4) < 0) {
+		syslog(LOG_INFO, "cannot mark pid for delayed termination");
+	}
 
 	if (claim_pid_file("/var/run/lockd.pid", 0) < 0) {
 		syslog(LOG_ERR, "cannot claim pid file");

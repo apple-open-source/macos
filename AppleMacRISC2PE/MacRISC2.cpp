@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
- * Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 1999-2005 Apple Computer, Inc.  All rights reserved.
  *
  *  DRI: Dave Radcliffe
  *
@@ -28,12 +28,10 @@
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
+
 #include <ppc/proc_reg.h>
 #include <ppc/machine_routines.h>
 
-/* Map memory map IO space */
-#include <mach/mach_types.h>
-extern vm_offset_t ml_io_map(vm_offset_t phys_addr, vm_size_t size);
 __END_DECLS
 
 #include <IOKit/IODeviceTreeSupport.h>
@@ -55,9 +53,6 @@ static unsigned long macRISC2Speed[] = { 0, 1 };
 
 extern char *gIOMacRISC2PMTree;
 
-#ifndef kIOHibernateFeatureKey
-#define kIOHibernateFeatureKey	"Hibernation"
-#endif
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -220,7 +215,9 @@ bool MacRISC2PE::start(IOService *provider)
 								newNum = newCPUSpeed / (gPEClockFrequencyInfo.cpu_clock_rate_hz /
 														gPEClockFrequencyInfo.bus_to_cpu_rate_num);
 								gPEClockFrequencyInfo.bus_to_cpu_rate_num = newNum;		// Set new numerator
-								gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;	// Set new speed
+								gPEClockFrequencyInfo.cpu_clock_rate_hz = newCPUSpeed;		// Set new speed (old, 32-bit)
+								gPEClockFrequencyInfo.cpu_frequency_hz = newCPUSpeed;		// Set new speed (64-bit)
+                                gPEClockFrequencyInfo.cpu_frequency_max_hz = newCPUSpeed;	// Max as well (64-bit)
 							}
 						}
                         else
@@ -532,8 +529,19 @@ IORegistryEntry * MacRISC2PE::retrievePowerMgtEntry (void)
 
 bool MacRISC2PE::platformAdjustService(IOService *service)
 {
-    bool           result;
-  
+    bool           		result;
+    
+    if (IODTMatchNubWithKeys(service, "kauai-ata"))
+	{
+        IORegistryEntry 	*devicetreeRegEntry;
+        OSData				*tmpData;
+            
+        devicetreeRegEntry = fromPath("/", gIODTPlane);
+        tmpData = OSDynamicCast(OSData, devicetreeRegEntry->getProperty("has-safe-sleep"));
+        if (tmpData != 0)
+            service->setProperty("has-safe-sleep", (void *) 0, (unsigned int) 0);
+    }
+    
 	/*
 		
 	this is for 3290321 & 3383856 to patch up audio components of an improper device tree. 
@@ -557,16 +565,6 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 			
 	*/
 	
-    if (IODTMatchNubWithKeys(service, "kauai-ata"))
-	{
-        UInt32 		hibEnable;
-
-        if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
-            service->setProperty("has-safe-sleep", (void *) 0, (unsigned int) 0);
-
-        return true;
-    }
-    
     if(!strcmp(service->getName(), "sound"))
 	{
 		OSObject			*hasAndedReset;
@@ -705,6 +703,20 @@ bool MacRISC2PE::platformAdjustService(IOService *service)
 		return true;
 	}
 
+    if (IODTMatchNubWithKeys(service, "cpu"))
+    {
+		// Create a "cpu-device-type" property and populate it with "MacRISC2CPU".
+        // This allows us to be more specific about which PE_*CPU object IOKit ends
+        // up matching the "cpu" node(s) with.  Previously it was matching on an
+        // IONameMatch of "cpu" which matches against every Mac we make.  This is
+        // much more selective. There is a corresponding change in the project file
+        // that does an IOPropertyMatch against this property with this value so
+        // that only MacRISC2CPUs will match the MacRISC2CPU object/class.
+		service->setProperty ("cpu-device-type", "MacRISC2CPU");
+        
+        return true;
+    }
+    
     if (IODTMatchNubWithKeys(service, "open-pic"))
     {
 	const OSSymbol	* keySymbol;
@@ -1214,8 +1226,9 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
 {    
 	const OSSymbol 			*desc = OSSymbol::withCString("powertreedesc");
     IOPMUSBMacRISC2 		*usbMacRISC2;
-	UInt32 					hibEnable;
-    
+    IORegistryEntry 		*devicetreeRegEntry;
+    OSData					*tmpData;
+
 	// Move our power tree description from our driver (where it's a property in the driver)
 	// to our provider
 	kprintf ("MacRISC2PE::PMInstantiatePowerDomains - getting pmtree property\n");
@@ -1249,11 +1262,7 @@ void MacRISC2PE::PMInstantiatePowerDomains ( void )
     }
 
     root->setSleepSupported(kRootDomainSleepSupported);
-   
-    if (PE_parse_boot_arg("hib", &hibEnable) && hibEnable)
-    {
-        root->publishFeature(kIOHibernateFeatureKey);
-    }
+    
 
     PMRegisterDevice (NULL, root);
 

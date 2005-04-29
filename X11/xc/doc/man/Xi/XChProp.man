@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChProp.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChProp.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,27 +17,13 @@
 .SH NAME
 XChangeDeviceDontPropagateList, XGetDeviceDontPropagateList \- query or change the dont-propagate-list for extension devices
 .SH SYNTAX
-XChangeDeviceDontPropagateList\^(\^\fIdisplay\fP, \fIwindow\fP\^,
-\fIcount\fP\^, \fIevent_list\fP\^, \fImode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window *\fIwindow\fP\^; 
-.br
-      int *\fIcount\fP\^; 
-.br
-      XEventClass *\fIevent_list\fP\^; 
-.br
-      int \fImode\fP\^; 
-.br
-XEventClass *XGetDeviceDontPropagateList\^(\^\fIdisplay\fP, \fIwindow\fP\^, 
-\fIcount\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window *\fIwindow\fP\^; 
-.br
-      int *\fIcount\fP\^; 
+.HP
+int XChangeDeviceDontPropagateList\^(\^Display *\fIdisplay\fP\^, Window
+*\fIwindow\fP\^, int *\fIcount\fP\^, XEventClass *\fIevent_list\fP\^, int
+\fImode\fP\^); 
+.HP
+XEventClass *XGetDeviceDontPropagateList\^(\^Display *\fIdisplay\fP\^, Window
+*\fIwindow\fP\^, int *\fIcount\fP\^); 
 .SH ARGUMENTS
 .TP 12
 .I display

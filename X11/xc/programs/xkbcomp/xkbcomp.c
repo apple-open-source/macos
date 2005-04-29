@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/xkbcomp/xkbcomp.c,v 3.18 2002/11/15 03:14:12 dawes Exp $ */
+/* $XFree86: xc/programs/xkbcomp/xkbcomp.c,v 3.21 2003/10/08 11:13:03 eich Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -88,7 +88,6 @@ static	Display *	inDpy;
 static	Display *	outDpy;
 static	Bool		showImplicit= False;
 static	Bool		synch= False;
-static	Bool		merge= False;
 static	Bool		computeDflts= False;
 static	Bool		xkblist= False;
 	unsigned	warningLevel= 5;
@@ -135,8 +134,6 @@ Usage(int argc,char *argv[])
 	M("                     default is all options off\n");
     }
     M("-m[ap] <map>         Specifies map to compile\n");
-    if (!xkblist)
-	M("-merge               Merge file with map on server\n");
     M("-o <file>            Specifies output file name\n");
     if (!xkblist) {
 	M("-opt[ional] <parts>  Specifies optional components of keymap\n");
@@ -199,6 +196,7 @@ register int i,tmp;
 	xkblist= True;
     }
     for (i=1;i<argc;i++) {
+	int itmp;
 	if ((argv[i][0]!='-')||(uStringEqual(argv[i],"-"))) {
 	    if (!xkblist) {
 		if (inputFile==NULL)
@@ -236,7 +234,8 @@ register int i,tmp;
 		debugFlags= 1;
 	    }
 	    else {
-		sscanf(argv[++i],"%i",&debugFlags);
+		if (sscanf(argv[++i],"%i",&itmp) == 1)
+		    debugFlags = itmp;
 	    }
 	    INFO1("Setting debug flags to %d\n",debugFlags);
 	}
@@ -334,7 +333,7 @@ register int i,tmp;
 	    else inputMap= argv[i];
 	}
 	else if ((strcmp(argv[i],"-merge")==0)&&(!xkblist)) {
-	    merge= True;
+	    /* Ignored */
 	}
 	else if (strcmp(argv[i],"-o")==0) {
 	    if (++i>=argc) {
@@ -392,10 +391,12 @@ register int i,tmp;
 	}
 	else if (strncmp(argv[i],"-p",2)==0) {
 	    if (isdigit(argv[i][2])) {
-		sscanf(&argv[i][2],"%i",&dirsToStrip);
+		if (sscanf(&argv[i][2],"%i",&itmp) == 1)
+		    dirsToStrip = itmp;
 	    }
 	    else if ((i<(argc-1))&&(isdigit(argv[i+1][0]))) {
-		sscanf(argv[++i],"%i",&dirsToStrip);
+		if (sscanf(argv[++i],"%i",&itmp) == 1)
+		    dirsToStrip = itmp;
 	    }
 	    else {
 		dirsToStrip= 0;
@@ -443,12 +444,14 @@ register int i,tmp;
 	}
 	else if (strncmp(argv[i],"-w",2)==0) {
 	    if ((i>=(argc-1))||(!isdigit(argv[i+1][0]))) {
+		warningLevel = 0;
 		if (isdigit(argv[i][1]))
-		     sscanf(&argv[i][1],"%i",&warningLevel);
-		else warningLevel= 0;
+		     if (sscanf(&argv[i][1],"%i",&itmp) == 1)
+			warningLevel = itmp;
 	    }
 	    else {
-		sscanf(argv[++i],"%i",&warningLevel);
+		if (sscanf(argv[++i],"%i",&itmp) == 1)
+		    warningLevel = itmp;
 	    }
 	}
 	else if ((strcmp(argv[i],"-xkb")==0)&&(!xkblist)) {
@@ -874,16 +877,29 @@ Status		status;
 		 * -- Branden Robinson
 		 */
 		int outputFileFd;
+		int binMode = 0;
+		const char *openMode = "w";
 		unlink(outputFile);
+#ifdef O_BINARY
+		switch (outputFormat) {
+		    case WANT_XKM_FILE:
+		        binMode = O_BINARY;
+			openMode = "wb";
+			break;
+		    default:
+		        binMode = 0;
+			break;
+		}
+#endif
 		outputFileFd= open(outputFile, O_WRONLY|O_CREAT|O_EXCL,
-			    S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
+		    S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH|binMode);
 		if (outputFileFd<0) {
 		    ERROR1("Cannot open \"%s\" to write keyboard description\n",
 								outputFile);
 		    ACTION("Exiting\n");
 		    exit(1);
 		}
-		out= fdopen(outputFileFd, "w");
+		out= fdopen(outputFileFd, openMode);
 		/* end BR */
 		if (out==NULL) {
 		    ERROR1("Cannot open \"%s\" to write keyboard description\n",

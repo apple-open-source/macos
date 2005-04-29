@@ -2,16 +2,20 @@
 
   dln.c -
 
-  $Author: melville $
-  $Date: 2003/05/14 13:58:42 $
+  $Author: matz $
+  $Date: 2004/12/25 10:56:41 $
   created at: Tue Jan 18 17:05:06 JST 1994
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
 #include "ruby.h"
 #include "dln.h"
+
+#ifdef HAVE_STDLIB_H
+# include <stdlib.h>
+#endif
 
 #ifdef __CHECKER__
 #undef HAVE_DLOPEN
@@ -27,7 +31,7 @@ char *dln_argv0;
 #pragma alloca
 #endif
 
-#if defined(HAVE_ALLOCA_H) && !defined(__GNUC__)
+#if defined(HAVE_ALLOCA_H)
 #include <alloca.h>
 #endif
 
@@ -44,7 +48,7 @@ void *xrealloc();
 #endif
 
 #include <stdio.h>
-#ifdef NT
+#if defined(_WIN32) || defined(__VMS)
 #include "missing/file.h"
 #endif
 #include <sys/types.h>
@@ -56,7 +60,8 @@ void *xrealloc();
 
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
-#else
+#endif
+#ifndef MAXPATHLEN
 # define MAXPATHLEN 1024
 #endif
 
@@ -64,8 +69,13 @@ void *xrealloc();
 # include <unistd.h>
 #endif
 
-#ifndef NT
+#ifndef _WIN32
 char *getenv();
+#endif
+
+#if defined(__VMS)
+#pragma builtins
+#include <dlfcn.h>
 #endif
 
 #ifdef __MACOS__
@@ -81,41 +91,58 @@ char *getenv();
 
 int eaccess();
 
-#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(__APPLE__)
+#if defined(HAVE_DLOPEN) && !defined(USE_DLN_A_OUT) && !defined(_AIX) && !defined(__APPLE__) && !defined(_UNICOSMP)
 /* dynamic load with dlopen() */
 # define USE_DLN_DLOPEN
 #endif
 
 #ifndef FUNCNAME_PATTERN
-# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || defined(__OpenBSD__) || defined(NeXT) || defined(__WATCOMC__) || defined(__APPLE__)
-#  define FUNCNAME_PATTERN "_Init_%.200s"
+# if defined(__hp9000s300) ||  (defined(__NetBSD__) && !defined(__ELF__)) || defined(__BORLANDC__) || (defined(__FreeBSD__) && !defined(__ELF__)) || (defined(__OpenBSD__) && !defined(__ELF__)) || defined(NeXT) || defined(__WATCOMC__) || defined(__APPLE__)
+#  define FUNCNAME_PATTERN "_Init_%s"
 # else
-#  define FUNCNAME_PATTERN "Init_%.200s"
+#  define FUNCNAME_PATTERN "Init_%s"
 # endif
 #endif
 
-static void
-init_funcname(buf, file)
-    char *buf;
-    char *file;
+static int
+init_funcname_len(buf, file)
+    char **buf;
+    const char *file;
 {
-    char *p, *slash;
+    char *p;
+    const char *slash;
+    int len;
 
     /* Load the file as an object one */
-    for (p = file, slash = p-1; *p; p++) /* Find position of last '/' */
+    for (slash = file-1; *file; file++) /* Find position of last '/' */
 #ifdef __MACOS__
-	if (*p == ':') slash = p;
+	if (*file == ':') slash = file;
 #else
-	if (*p == '/') slash = p;
+	if (*file == '/') slash = file;
 #endif
 
-    snprintf(buf, MAXPATHLEN, FUNCNAME_PATTERN, slash + 1);
-    for (p = buf; *p; p++) {         /* Delete suffix if it exists */
+    len = strlen(FUNCNAME_PATTERN) + strlen(slash + 1);
+    *buf = xmalloc(len);
+    snprintf(*buf, len, FUNCNAME_PATTERN, slash + 1);
+    for (p = *buf; *p; p++) {         /* Delete suffix if it exists */
 	if (*p == '.') {
 	    *p = '\0'; break;
 	}
     }
+    return p - *buf;
 }
+
+#define init_funcname(buf, file) do {\
+    int len = init_funcname_len(buf, file);\
+    char *tmp = ALLOCA_N(char, len+1);\
+    if (!tmp) {\
+	free(*buf);\
+	rb_memerror();\
+    }\
+    strcpy(tmp, *buf);\
+    free(*buf);\
+    *buf = tmp;\
+} while (0)
 
 #ifdef USE_DLN_A_OUT
 
@@ -622,7 +649,6 @@ load_1(fd, disp, need_init)
     struct nlist *sym;
     struct nlist *end;
     int init_p = 0;
-    char buf[MAXPATHLEN];
 
     if (load_header(fd, &hdr, disp) == -1) return -1;
     if (INVALID_OBJECT(hdr)) {
@@ -631,8 +657,12 @@ load_1(fd, disp, need_init)
     }
     reloc = load_reloc(fd, &hdr, disp);
     if (reloc == NULL) return -1;
+
     syms = load_sym(fd, &hdr, disp);
-    if (syms == NULL) return -1;
+    if (syms == NULL) {
+	free(reloc);
+	return -1;
+    }
 
     sym = syms;
     end = syms + (hdr.a_syms / sizeof(struct nlist));
@@ -645,7 +675,7 @@ load_1(fd, disp, need_init)
 	    char *key = sym->n_un.n_name;
 
 	    if (st_lookup(sym_tbl, sym[1].n_un.n_name, &old_sym)) {
-		if (st_delete(undef_tbl, &key, NULL)) {
+		if (st_delete(undef_tbl, (st_data_t*)&key, NULL)) {
 		    unlink_undef(key, old_sym->n_value);
 		    free(key);
 		}
@@ -658,7 +688,7 @@ load_1(fd, disp, need_init)
 		st_foreach(reloc_tbl, reloc_repl, &data);
 
 		st_insert(undef_tbl, strdup(sym[1].n_un.n_name), NULL);
-		if (st_delete(undef_tbl, &key, NULL)) {
+		if (st_delete(undef_tbl, (st_data_t*)&key, NULL)) {
 		    free(key);
 		}
 	    }
@@ -726,7 +756,7 @@ load_1(fd, disp, need_init)
 	    }
 
 	    key = sym->n_un.n_name;
-	    if (st_delete(undef_tbl, &key, NULL) != 0) {
+	    if (st_delete(undef_tbl, (st_data_t*)&key, NULL) != 0) {
 		unlink_undef(key, sym->n_value);
 		free(key);
 	    }
@@ -835,12 +865,13 @@ load_1(fd, disp, need_init)
     if (need_init) {
 	int len;
 	char **libs_to_be_linked = 0;
+	char *buf;
 
 	if (undef_tbl->num_entries > 0) {
 	    if (load_lib(libc) == -1) goto err_exit;
 	}
 
-	init_funcname(buf, need_init);
+	init_funcname(&buf, need_init);
 	len = strlen(buf);
 
 	for (sym = syms; sym<end; sym++) {
@@ -1084,7 +1115,7 @@ dln_sym(name)
 #endif /* USE_DLN_A_OUT */
 
 #ifdef USE_DLN_DLOPEN
-# ifdef __NetBSD__
+# if defined(__NetBSD__) && defined(__NetBSD_Version__) && __NetBSD_Version__ < 105000000
 #  include <nlist.h>
 #  include <link.h>
 # else
@@ -1108,15 +1139,27 @@ dln_sym(name)
 #include <mach-o/rld.h>
 #else
 #include <mach-o/dyld.h>
+#ifndef NSLINKMODULE_OPTION_BINDNOW
+#define NSLINKMODULE_OPTION_BINDNOW 1
 #endif
 #endif
+#else
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
-
+#endif
 
 #if defined _WIN32 && !defined __CYGWIN__
 #include <windows.h>
+#endif
+
+#ifdef _WIN32_WCE
+#undef FormatMessage
+#define FormatMessage FormatMessageA
+#undef LoadLibrary
+#define LoadLibrary LoadLibraryA
+#undef GetProcAddress
+#define GetProcAddress GetProcAddressA
 #endif
 
 static const char *
@@ -1129,7 +1172,7 @@ dln_strerror()
       case DLN_ECONFL:
 	return "Symbol name conflict";
       case DLN_ENOINIT:
-	return "No inititalizer given";
+	return "No initializer given";
       case DLN_EUNDEF:
 	return "Unresolved symbols";
       case DLN_ENOTLIB:
@@ -1153,7 +1196,7 @@ dln_strerror()
     char *p = message;
     p += sprintf(message, "%d: ", error);
     FormatMessage(
-	FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+	FORMAT_MESSAGE_FROM_SYSTEM	 | FORMAT_MESSAGE_IGNORE_INSERTS,
 	NULL,
 	error,
 	MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
@@ -1178,7 +1221,7 @@ aix_loaderror(const char *pathname)
     int i,j;
 
     struct errtab { 
-	int errno;
+	int errnum;
 	char *errstr;
     } load_errtab[] = {
 	{L_ERROR_TOOMANY,	"too many errors, rest skipped."},
@@ -1190,7 +1233,7 @@ aix_loaderror(const char *pathname)
 	{L_ERROR_MEMBER,
 	     "file not an archive or does not contain requested member:"},
 	{L_ERROR_TYPE,		"symbol table mismatch:"},
-	{L_ERROR_ALIGN,		"text allignment in file is wrong."},
+	{L_ERROR_ALIGN,		"text alignment in file is wrong."},
 	{L_ERROR_SYSTEM,	"System error:"},
 	{L_ERROR_ERRNO,		NULL}
     };
@@ -1198,14 +1241,14 @@ aix_loaderror(const char *pathname)
 #define LOAD_ERRTAB_LEN	(sizeof(load_errtab)/sizeof(load_errtab[0]))
 #define ERRBUF_APPEND(s) strncat(errbuf, s, sizeof(errbuf)-strlen(errbuf)-1)
 
-    snprintf(errbuf, 1024, "load failed - %.200s ", pathname);
+    snprintf(errbuf, 1024, "load failed - %s ", pathname);
 
     if (!loadquery(1, &message[0], sizeof(message))) 
 	ERRBUF_APPEND(strerror(errno));
     for(i = 0; message[i] && *message[i]; i++) {
 	int nerr = atoi(message[i]);
 	for (j=0; j<LOAD_ERRTAB_LEN; j++) {
-	    if (nerr == load_errtab[i].errno && load_errtab[i].errstr)
+           if (nerr == load_errtab[i].errnum && load_errtab[i].errstr)
 		ERRBUF_APPEND(load_errtab[i].errstr);
 	}
 	while (isdigit(*message[i])) message[i]++; 
@@ -1216,6 +1259,19 @@ aix_loaderror(const char *pathname)
     rb_loaderror(errbuf);
     return;
 }
+#endif
+
+#if defined(__VMS)
+#include <starlet.h>
+#include <rms.h>
+#include <stsdef.h>
+#include <unixlib.h>
+#include <descrip.h>
+#include <lib$routines.h>
+
+static char *vms_filespec;
+static int vms_fileact(char *filespec, int type);
+static long vms_fisexh(long *sigarr, long *mecarr);
 #endif
 
 void*
@@ -1231,12 +1287,12 @@ dln_load(file)
     HINSTANCE handle;
     char winfile[MAXPATHLEN];
     void (*init_fct)();
-    char buf[MAXPATHLEN];
+    char *buf;
 
     if (strlen(file) >= MAXPATHLEN) rb_loaderror("filename too long");
 
     /* Load the file as an object one */
-    init_funcname(buf, file);
+    init_funcname(&buf, file);
 
     strcpy(winfile, file);
 
@@ -1249,6 +1305,7 @@ dln_load(file)
     if ((init_fct = (void(*)())GetProcAddress(handle, buf)) == NULL) {
 	rb_loaderror("%s - %s\n%s", dln_strerror(), buf, file);
     }
+
     /* Call the init code */
     (*init_fct)();
     return handle;
@@ -1261,9 +1318,9 @@ dln_load(file)
     return 0;
 #else
 
-    char buf[MAXPATHLEN];
+    char *buf;
     /* Load the file as an object one */
-    init_funcname(buf, file);
+    init_funcname(&buf, file);
 
 #ifdef USE_DLN_DLOPEN
 #define DLN_DEFINED
@@ -1273,6 +1330,9 @@ dln_load(file)
 
 #ifndef RTLD_LAZY
 # define RTLD_LAZY 1
+#endif
+#ifdef __INTERIX
+# undef RTLD_GLOBAL
 #endif
 #ifndef RTLD_GLOBAL
 # define RTLD_GLOBAL 0
@@ -1284,13 +1344,15 @@ dln_load(file)
 	    goto failed;
 	}
 
-	if ((init_fct = (void(*)())dlsym(handle, buf)) == NULL) {
+	init_fct = (void(*)())dlsym(handle, buf);
+	if (init_fct == NULL) {
 	    error = DLN_ERROR();
 	    dlclose(handle);
 	    goto failed;
 	}
 	/* Call the init code */
 	(*init_fct)();
+
 	return handle;
     }
 #endif /* USE_DLN_DLOPEN */
@@ -1346,31 +1408,41 @@ dln_load(file)
    Special Thanks...
     Yu tomoak-i@is.aist-nara.ac.jp,
     Mi hisho@tasihara.nest.or.jp,
+    sunshine@sunshineco.com,
     and... Miss ARAI Akino(^^;)
  ----------------------------------------------------*/
 #if defined(NeXT) && (NS_TARGET_MAJOR < 4)/* NeXTSTEP rld functions */
 
     {
+        NXStream* s;
 	unsigned long init_address;
 	char *object_files[2] = {NULL, NULL};
 
 	void (*init_fct)();
 	
-	object_files[0] = file;
+	object_files[0] = (char*)file;
 	
+	s = NXOpenFile(2,NX_WRITEONLY);
+
 	/* Load object file, if return value ==0 ,  load failed*/
-	if(rld_load(NULL, NULL, object_files, NULL) == 0) {
+	if(rld_load(s, NULL, object_files, NULL) == 0) {
+	    NXFlush(s);
+	    NXClose(s);
 	    rb_loaderror("Failed to load %.200s", file);
 	}
 
 	/* lookup the initial function */
-	if(rld_lookup(NULL, buf, &init_address) == 0) {
+	if(rld_lookup(s, buf, &init_address) == 0) {
+	    NXFlush(s);
+	    NXClose(s);
 	    rb_loaderror("Failed to lookup Init function %.200s", file);
 	}
 
-	 /* Cannot call *init_address directory, so copy this value to
-	    funtion pointer */
+	NXFlush(s);
+	NXClose(s);
 
+	/* Cannot call *init_address directory, so copy this value to
+	   funtion pointer */
 	init_fct = (void(*)())init_address;
 	(*init_fct)();
 	return (void*)init_address;
@@ -1380,7 +1452,7 @@ dln_load(file)
 	int dyld_result;
 	NSObjectFileImage obj_file; /* handle, but not use it */
 	/* "file" is module file name .
-	   "buf" is initial function name with "_" . */
+	   "buf" is pointer to initial function name with "_" . */
 
 	void (*init_fct)();
 
@@ -1493,12 +1565,63 @@ dln_load(file)
       if (err) {
 	  rb_loaderror("Unresolved symbols - %s" , file);
       }
-	
       init_fct = (void (*)())symAddr;
       (*init_fct)();
       return (void*)init_fct;
     }
 #endif /* __MACOS__ */
+
+#if defined(__VMS)
+#define DLN_DEFINED
+    {
+	long status;
+	void (*init_fct)();
+	char *fname, *p1, *p2;
+
+	$DESCRIPTOR(fname_d, "");
+	$DESCRIPTOR(image_d, "");
+	$DESCRIPTOR(buf_d, "");
+
+	decc$to_vms(file, vms_fileact, 0, 0);
+
+	fname = (char *)__alloca(strlen(file)+1);
+	strcpy(fname,file);
+	if (p1 = strrchr(fname,'/'))
+	    fname = p1 + 1;
+	if (p2 = strrchr(fname,'.'))
+	    *p2 = '\0';
+
+	fname_d.dsc$w_length  = strlen(fname);
+	fname_d.dsc$a_pointer = fname;
+	image_d.dsc$w_length  = strlen(vms_filespec);
+	image_d.dsc$a_pointer = vms_filespec;
+	buf_d.dsc$w_length    = strlen(buf);
+	buf_d.dsc$a_pointer   = buf;
+
+	lib$establish(vms_fisexh);
+
+	status = lib$find_image_symbol (
+		     &fname_d,
+		     &buf_d, 
+		     &init_fct, 
+		     &image_d);
+
+	lib$establish(0);
+
+	if (status == RMS$_FNF) {
+	    error = dln_strerror();
+	    goto failed;
+	} else if (!$VMS_STATUS_SUCCESS(status)) {
+	    error = DLN_ERROR();
+	    goto failed;
+	}
+
+	/* Call the init code */
+	(*init_fct)();
+
+	return 1;
+    }
+#endif /* __VMS */
 
 #ifndef DLN_DEFINED
     rb_notimplement();
@@ -1510,6 +1633,7 @@ dln_load(file)
   failed:
     rb_loaderror("%s - %s", error, file);
 #endif
+    return 0;			/* dummy return */
 }
 
 static char *dln_find_1();
@@ -1520,15 +1644,11 @@ dln_find_exe(fname, path)
     const char *path;
 {
     if (!path) {
-#if defined(__human68k__)
-	path = getenv("path");
-#else
-	path = getenv("PATH");
-#endif
+	path = getenv(PATH_ENV);
     }
 
     if (!path) {
-#if defined(MSDOS) || defined(NT) || defined(__human68k__) || defined(__MACOS__)
+#if defined(MSDOS) || defined(_WIN32) || defined(__human68k__) || defined(__MACOS__)
 	path = "/usr/local/bin;/usr/ucb;/usr/bin;/bin;.";
 #else
 	path = "/usr/local/bin:/usr/ucb:/usr/bin:/bin:.";
@@ -1590,19 +1710,21 @@ dln_find_1(fname, path, exe_flag)
     register char *dp;
     register char *ep;
     register char *bp;
-#ifndef __MACOS__
     struct stat st;
-#else
+#ifdef __MACOS__
     const char* mac_fullpath;
 #endif
 
+    if (!fname) return fname;
     if (fname[0] == '/') return fname;
     if (strncmp("./", fname, 2) == 0 || strncmp("../", fname, 3) == 0)
       return fname;
     if (exe_flag && strchr(fname, '/')) return fname;
-#if defined(MSDOS) || defined(NT) || defined(__human68k__) || defined(__EMX__)
+#ifdef DOSISH
     if (fname[0] == '\\') return fname;
+# ifdef DOSISH_DRIVE_LETTER
     if (strlen(fname) > 2 && fname[1] == ':') return fname;
+# endif
     if (strncmp(".\\", fname, 2) == 0 || strncmp("..\\", fname, 3) == 0)
       return fname;
     if (exe_flag && strchr(fname, '\\')) return fname;
@@ -1632,7 +1754,7 @@ dln_find_1(fname, path, exe_flag)
 	    */
 
 	    if (*dp == '~' && (l == 1 ||
-#if defined(MSDOS) || defined(NT) || defined(__human68k__) || defined(__EMX__)
+#if defined(DOSISH)
 			       dp[1] == '\\' || 
 #endif
 			       dp[1] == '/')) {
@@ -1669,7 +1791,7 @@ dln_find_1(fname, path, exe_flag)
 	    *bp = '\0';
 	    fprintf(stderr, "\tDirectory \"%s\"\n", fbuf);
 	    fprintf(stderr, "\tFile \"%s\"\n", fname);
-	    continue;
+	    goto next;
 	}
 	memcpy(bp, fname, i + 1);
 
@@ -1677,16 +1799,20 @@ dln_find_1(fname, path, exe_flag)
 	if (stat(fbuf, &st) == 0) {
 	    if (exe_flag == 0) return fbuf;
 	    /* looking for executable */
-	    if (!S_ISDIR(st.st_mode) && eaccess(fbuf, X_OK) == 0) return fbuf;
+	    if (!S_ISDIR(st.st_mode) && eaccess(fbuf, X_OK) == 0)
+		return fbuf;
 	}
 #else
 	if (mac_fullpath = _macruby_exist_file_in_libdir_as_posix_name(fbuf)) {
 	    if (exe_flag == 0) return mac_fullpath;
 	    /* looking for executable */
-	    if (eaccess(mac_fullpath, X_OK) == 0) return mac_fullpath;
+	    if (stat(mac_fullpath, &st) == 0) {
+		if (!S_ISDIR(st.st_mode) && eaccess(mac_fullpath, X_OK) == 0)
+		    return mac_fullpath;
+	    }
 	}
 #endif
-#if defined(MSDOS) || defined(NT) || defined(__human68k__) || defined(__EMX__)
+#if defined(DOSISH)
 	if (exe_flag) {
 	    static const char *extension[] = {
 #if defined(MSDOS)
@@ -1694,9 +1820,9 @@ dln_find_1(fname, path, exe_flag)
 #if defined(DJGPP)
 		".btm", ".sh", ".ksh", ".pl", ".sed",
 #endif
-#elif defined(__EMX__) || defined(NT)
+#elif defined(__EMX__) || defined(_WIN32)
 		".exe", ".com", ".cmd", ".bat",
-/* end of __EMX__ or NT*/
+/* end of __EMX__ or _WIN32 */
 #else
 		".r", ".R", ".x", ".X", ".bat", ".BAT",
 /* __human68k__ */
@@ -1719,10 +1845,13 @@ dln_find_1(fname, path, exe_flag)
 #else
 		if (mac_fullpath = _macruby_exist_file_in_libdir_as_posix_name(fbuf))
 		    return mac_fullpath;
+
 #endif
 	    }
 	}
-#endif /* MSDOS or NT or __human68k__ or __EMX__ */
+#endif /* MSDOS or _WIN32 or __human68k__ or __EMX__ */
+
+      next:
 	/* if not, and no other alternatives, life is bleak */
 	if (*ep == '\0') {
 	    return NULL;
@@ -1731,3 +1860,24 @@ dln_find_1(fname, path, exe_flag)
 	/* otherwise try the next component in the search path */
     }
 }
+
+#if defined(__VMS)
+
+/* action routine for decc$to_vms */
+static int vms_fileact(char *filespec, int type)
+{
+    if (vms_filespec)
+	free(vms_filespec);
+    vms_filespec = malloc(strlen(filespec)+1);
+    strcpy(vms_filespec, filespec);
+    return 1;
+}
+
+/* exception handler for LIB$FIND_IMAGE_SYMBOL */
+static long vms_fisexh(long *sigarr, long *mecarr)
+{
+    sys$unwind(1, 0);
+    return 1;
+}
+
+#endif /* __VMS */

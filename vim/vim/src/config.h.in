@@ -357,3 +357,9 @@
 
 /* Define if vsnprintf() works */
 #undef HAVE_VSNPRINTF
+
+/* Define if there is a copyfile() */
+#undef HAVE_COPYFILE
+
+/* Define if there is a copyfile.h */
+#undef HAVE_COPYFILE_H

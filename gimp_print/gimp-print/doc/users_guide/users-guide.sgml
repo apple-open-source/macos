@@ -7,6 +7,24 @@
 <!ENTITY gfdl  SYSTEM "gfdl.sgml">
 ]>
 <book>
+
+ <bookinfo>
+  <title>The User's Guide to the Gimp-Print - Complete Edition</title>
+  <date>April 7, 2002</date>
+  <pubdate>April 7, 2002</pubdate>
+  <author>
+    <firstname>Andy</firstname>
+    <surname>Stewart</surname>
+  </author>
+  <copyright>
+    <year>2002</year>
+    <holder>Andy Stewart</holder>
+  </copyright>
+  <legalnotice>
+    <para>The User's Guide to the Gimp-Print - Complete Edition,
+Copyright 2002, Andy Stewart. 
+    </para>
+
 &title;
 &history;
 &gimp;

@@ -59,6 +59,7 @@ Includes
 #include <net/if_types.h>
 #include <net/dlil.h>
 #include <kern/clock.h>
+#include <kern/locks.h>
 
 
 
@@ -96,7 +97,7 @@ struct pppoe_wan {
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-static int	pppoe_wan_output(struct ppp_link *link, struct mbuf *m);
+static int	pppoe_wan_output(struct ppp_link *link, mbuf_t m);
 static int 	pppoe_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data);
 static int 	pppoe_wan_findfreeunit(u_short *freeunit);
 
@@ -106,6 +107,7 @@ Globals
 
 static TAILQ_HEAD(, pppoe_wan) 	pppoe_wan_head;
 
+extern lck_mtx_t   *ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -137,6 +139,8 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     struct pppoe_wan  	*wan;
     struct ppp_link  	*lk;
     u_short 		unit;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
@@ -170,13 +174,13 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
 
     ret = ppp_link_attach((struct ppp_link *)wan);
     if (ret) {
-        log(LOG_INFO, "pppoe_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
+        log(LOGVAL, "pppoe_wan_attach, error = %d, (ld = 0x%x)\n", ret, wan);
         TAILQ_REMOVE(&pppoe_wan_head, wan, next);
         FREE(wan, M_TEMP);
         return ret;
     }
     
-    log(LOG_INFO, "pppoe_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
+    //log(LOGVAL, "pppoe_wan_attach, link index = %d, (ld = 0x%x)\n", lk->lk_index, lk);
 
     *link = lk;
     
@@ -189,6 +193,8 @@ detach pppoe interface dlil layer
 void pppoe_wan_detach(struct ppp_link *link)
 {
     struct pppoe_wan  	*wan = (struct pppoe_wan *)link;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     ppp_link_detach(link);
     TAILQ_REMOVE(&pppoe_wan_head, wan, next);
@@ -202,6 +208,8 @@ int pppoe_wan_findfreeunit(u_short *freeunit)
 {
     struct pppoe_wan  	*wan = TAILQ_FIRST(&pppoe_wan_head);
     u_short 		unit = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     while (wan) {
     	if (wan->link.lk_unit == unit) {
@@ -218,13 +226,17 @@ int pppoe_wan_findfreeunit(u_short *freeunit)
 /* -----------------------------------------------------------------------------
 called from pppoe_rfc when data are present
 ----------------------------------------------------------------------------- */
-int pppoe_wan_input(struct ppp_link *link, struct mbuf *m)
+int pppoe_wan_input(struct ppp_link *link, mbuf_t m)
 {
-    
+	struct timespec tv;	
+
+    lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     link->lk_ipackets++;
-    link->lk_ibytes += m->m_pkthdr.len;
+    link->lk_ibytes += mbuf_pkthdr_len(m);
     //getmicrotime(&link->lk_last_recv);
-    link->lk_last_recv = clock_get_system_value().tv_sec;
+	nanouptime(&tv);
+	link->lk_last_recv = tv.tv_sec;
 
     ppp_link_input(link, m);	
     return 0;
@@ -237,6 +249,8 @@ int pppoe_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
 {
     //struct pppoe_wan 	*wan = (struct pppoe_wan *)link;;
     int error = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     //LOGDBG(ifp, (LOGVAL, "pppoe_wan_ioctl, cmd = 0x%x\n", cmd));
 
@@ -251,19 +265,23 @@ int pppoe_wan_ioctl(struct ppp_link *link, u_int32_t cmd, void *data)
 This gets called at splnet from if_ppp.c at various times
 when there is data ready to be sent
 ----------------------------------------------------------------------------- */
-int pppoe_wan_output(struct ppp_link *link, struct mbuf *m)
+int pppoe_wan_output(struct ppp_link *link, mbuf_t m)
 {
     struct pppoe_wan 	*wan = (struct pppoe_wan *)link;
     int			err;
+	struct timespec tv;	
     
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+	
     if (err = pppoe_rfc_output(wan->rfc, m)) {
         link->lk_oerrors++;
         return err;
     }
 
     link->lk_opackets++;
-    link->lk_obytes += m->m_pkthdr.len;
+    link->lk_obytes += mbuf_pkthdr_len(m);
     //getmicrotime(link->lk_last_xmit);
-    link->lk_last_xmit = clock_get_system_value().tv_sec;
+	nanouptime(&tv);
+	link->lk_last_xmit = tv.tv_sec;
     return 0;
 }

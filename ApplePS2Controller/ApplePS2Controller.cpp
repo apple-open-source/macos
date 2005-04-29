@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,7 +23,6 @@
 #include <IOKit/assert.h>
 #include <IOKit/IOService.h>
 #include <IOKit/IOSyncer.h>
-#include <IOKit/IOCommandQueue.h>
 #include <IOKit/ps2/ApplePS2KeyboardDevice.h>
 #include <IOKit/ps2/ApplePS2MouseDevice.h>
 #include "ApplePS2Controller.h"
@@ -37,19 +33,33 @@ extern "C"
     #include <machine/machine_routines.h>
 }
 
-#warning We should be including inb and outb from the kernel framework instead of re-defining them here (2688371)
+#warning FIXME: use inb and outb from the kernel framework (2688371)
 typedef unsigned short i386_ioport_t;
 inline unsigned char inb(i386_ioport_t port)
 {
-        unsigned char datum;
-	asm volatile("inb %1, %0" : "=a" (datum) : "d" (port));
-	return(datum);
+    unsigned char datum;
+    asm volatile("inb %1, %0" : "=a" (datum) : "d" (port));
+    return(datum);
 }
 
 inline void outb(i386_ioport_t port, unsigned char datum)
 {
-	asm volatile("outb %0, %1" : : "a" (datum), "d" (port));
+    asm volatile("outb %0, %1" : : "a" (datum), "d" (port));
 }
+
+enum {
+    kPS2PowerStateSleep  = 0,
+    kPS2PowerStateDoze   = 1,
+    kPS2PowerStateNormal = 2,
+    kPS2PowerStateCount
+};
+
+static const IOPMPowerState PS2PowerStateArray[ kPS2PowerStateCount ] =
+{
+    { 1,0,0,0,0,0,0,0,0,0,0,0 },
+    { 1,kIOPMDeviceUsable, kIOPMDoze, kIOPMDoze, 0,0,0,0,0,0,0,0 },
+    { 1,kIOPMDeviceUsable, IOPMPowerOn, IOPMPowerOn, 0,0,0,0,0,0,0,0 }
+};
 
 static ApplePS2Controller * gApplePS2Controller = 0;  // global variable to self
 
@@ -81,11 +91,12 @@ static void interruptHandlerKeyboard(OSObject *, void *, IOService *, int)
 
   UInt8 key;
   UInt8 status;
+  int   state;
 
   // Lock out the keyboard interrupt handler [redundant here] and claim
   // exclusive access to the internal keyboard queue.
 
-  gApplePS2Controller->lockController();
+  gApplePS2Controller->lockController(&state);
 
   // Verify that data is available on the controller's input port.
 
@@ -108,9 +119,10 @@ static void interruptHandlerKeyboard(OSObject *, void *, IOService *, int)
       // completes, the debugger function will be invoked immediately within
       // doEscape).  The doEscape call may insist that we drop the scan code
       // we just received in some cases (a true return) -- we don't question
-      // it's judgement and comply.
+      // it's judgement and comply. No escape check if debugging is disabled.
 
-      if (gApplePS2Controller->doEscape(key) == false)
+      if (gApplePS2Controller->_debuggingEnabled == false ||
+          gApplePS2Controller->doEscape(key) == false)
         gApplePS2Controller->enqueueKeyboardData(key);
 
       // In all cases, we wake up our workloop to service the interrupt data.
@@ -121,7 +133,7 @@ static void interruptHandlerKeyboard(OSObject *, void *, IOService *, int)
   // Remove the lockout on the keyboard interrupt handler [ineffective here]
   // and release our exclusive access to the internal keyboard queue.
 
-  gApplePS2Controller->unlockController();
+  gApplePS2Controller->unlockController(state);
 #else
   //
   // Wake our workloop to service the interrupt.    This is an edge-triggered
@@ -143,14 +155,12 @@ OSDefineMetaClassAndStructors(ApplePS2Controller, IOService);
 
 bool ApplePS2Controller::init(OSDictionary * properties)
 {
-
   if (!super::init(properties))  return false;
 
   //
   // Initialize minimal state.
   //
 
-  _commandQueue            = 0;
   _workLoop                = 0;
 
   _interruptSourceKeyboard = 0;
@@ -168,19 +178,34 @@ bool ApplePS2Controller::init(OSDictionary * properties)
   _mouseDevice    = 0;
   _keyboardDevice = 0;
 
+  queue_init(&_requestQueue);
+
+  _currentPowerState = kPS2PowerStateNormal;
+  
 #if DEBUGGER_SUPPORT
   _extendedState = false;
   _modifierState = 0x00;
+  _debuggingEnabled = false;
 
   _keyboardQueueAlloc = NULL;
   queue_init(&_keyboardQueue);
   queue_init(&_keyboardQueueUnused);
 
-  _controllerLockOldSpl = 0;
-  usimple_lock_init(&_controllerLock, ETAP_NO_TRACE);
+  _controllerLock = IOSimpleLockAlloc();
+  if (!_controllerLock) return false;
 #endif DEBUGGER_SUPPORT
 
   return true;
+}
+
+void ApplePS2Controller::free(void)
+{
+    if (_controllerLock)
+    {
+        IOSimpleLockFree(_controllerLock);
+        _controllerLock = 0;
+    }
+    super::free();
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -193,9 +218,14 @@ bool ApplePS2Controller::start(IOService * provider)
  if (!super::start(provider))  return false;
 
 #if DEBUGGER_SUPPORT
+  // Enable special key sequence to enter debugger if debug boot-arg was set.
+  int debugFlag = 0;
+  PE_parse_boot_arg("debug", &debugFlag);
+  if (debugFlag) _debuggingEnabled = true;
+
   _keyboardQueueAlloc = (KeyboardQueueElement *)
                       IOMalloc(kKeyboardQueueSize*sizeof(KeyboardQueueElement));
-  if (!_keyboardQueueAlloc)  return false;
+  if (!_keyboardQueueAlloc)  goto fail;
 
   // Add the allocated keyboard queue entries to "unused" queue.
   for (int index = 0; index < kKeyboardQueueSize; index++)
@@ -232,30 +262,68 @@ bool ApplePS2Controller::start(IOService * provider)
 
   while ( inb(kCommandPort) & kOutputReady )
   {
+    IODelay(kDataDelay);
     inb(kDataPort);
     IODelay(kDataDelay);
   }
 
   //
-  // Initialize our work loop, our command queue, and our interrupt event
+  // Use a spin lock to protect the client async request queue.
+  //
+
+  _requestQueueLock = IOSimpleLockAlloc();
+  if (!_requestQueueLock) goto fail;
+
+  //
+  // Initialize our work loop, our command gate, and our interrupt event
   // sources.  The work loop can accept requests after this step.
   //
 
   _workLoop                = IOWorkLoop::workLoop();
-  _commandQueue            = IOCommandQueue::commandQueue(
-        this, (IOCommandQueueAction) &ApplePS2Controller::processRequest);
   _interruptSourceMouse    = IOInterruptEventSource::interruptEventSource(
         this, (IOInterruptEventAction) &ApplePS2Controller::interruptOccurred);
   _interruptSourceKeyboard = IOInterruptEventSource::interruptEventSource(
         this, (IOInterruptEventAction) &ApplePS2Controller::interruptOccurred);
+  _interruptSourceQueue    = IOInterruptEventSource::interruptEventSource(
+        this, (IOInterruptEventAction) &ApplePS2Controller::processRequestQueue);
 
   if ( !_workLoop                ||
-       !_commandQueue            ||
        !_interruptSourceMouse    ||
-       !_interruptSourceKeyboard )  return false;
+       !_interruptSourceKeyboard ||
+       !_interruptSourceQueue )  goto fail;
 
-  if ( _workLoop->addEventSource(_commandQueue) != kIOReturnSuccess )
-    return false;
+  if ( _workLoop->addEventSource(_interruptSourceQueue) != kIOReturnSuccess )
+    goto fail;
+
+  _interruptSourceQueue->enable();
+
+  //
+  // Since there is a calling path from the PS/2 driver stack to power
+  // management for activity tickles.  We must create a thread callout
+  // to handle power state changes from PM to avoid a deadlock.
+  //
+
+  _powerChangeThreadCall = thread_call_allocate( 
+                           (thread_call_func_t)  setPowerStateCallout,
+                           (thread_call_param_t) this );
+  if ( !_powerChangeThreadCall )
+    goto fail;
+
+  //
+  // Initialize our PM superclass variables and register as the power
+  // controlling driver.
+  //
+
+  PMinit();
+
+  registerPowerDriver( this, (IOPMPowerState *) PS2PowerStateArray,
+                       kPS2PowerStateCount );
+
+  //
+  // Insert ourselves into the PM tree.
+  //
+
+  provider->joinPMtree(this);
 
   //
   // Create the keyboard nub and the mouse nub. The keyboard and mouse drivers
@@ -267,25 +335,31 @@ bool ApplePS2Controller::start(IOService * provider)
 
   if ( !_keyboardDevice               ||
        !_keyboardDevice->init()       ||
-       !_keyboardDevice->attach(this) )  return false;
+       !_keyboardDevice->attach(this) )  goto fail;
 
   _mouseDevice = new ApplePS2MouseDevice;
 
   if ( !_mouseDevice               ||
        !_mouseDevice->init()       ||
-       !_mouseDevice->attach(this) )  return false;
+       !_mouseDevice->attach(this) )  goto fail;
 
   gApplePS2Controller = this;
 
   _keyboardDevice->registerService();
   _mouseDevice->registerService();
   return true; // success
+
+fail:
+  stop(provider);
+  return false;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void ApplePS2Controller::stop(IOService * provider)
 {
+  #define RELEASE(x) do { if(x) { (x)->release(); (x) = 0; } } while(0)
+
   //
   // The driver has been instructed to stop.  Note that we must break all
   // connections to other service objects now (ie. no registered actions,
@@ -293,20 +367,41 @@ void ApplePS2Controller::stop(IOService * provider)
   //
 
   // Ensure that the interrupt handlers have been uninstalled (ie. no clients).
-  assert(_interruptInstalledKeyboard == false);
-  assert(_interruptInstalledMouse    == false);
+  assert(_interruptInstalledKeyboard    == false);
+  assert(_interruptInstalledMouse       == false);
+  assert(_powerControlInstalledKeyboard == false);
+  assert(_powerControlInstalledMouse    == false);
 
   // Free the nubs we created.
-  if (_keyboardDevice)  _keyboardDevice->release();
-  if (_mouseDevice)     _mouseDevice->release();
+  RELEASE(_keyboardDevice);
+  RELEASE(_mouseDevice);
 
   // Free the work loop.
-  if (_workLoop)  _workLoop->release();
+  RELEASE(_workLoop);
 
-  // Free the interrupt source and command queue.
-  if (_commandQueue)             _commandQueue->release();
-  if (_interruptSourceKeyboard)  _interruptSourceKeyboard->release();
-  if (_interruptSourceMouse)     _interruptSourceMouse->release();
+  // Free the interrupt sources.
+  RELEASE(_interruptSourceKeyboard);
+  RELEASE(_interruptSourceMouse);
+  RELEASE(_interruptSourceQueue);
+
+  // Free the request queue lock and empty out the request queue.
+  if (_requestQueueLock)
+  {
+    _hardwareOffline = true;
+    processRequestQueue(0, 0);
+    IOSimpleLockFree(_requestQueueLock);
+    _requestQueueLock = 0;
+  }
+
+  // Free the power management thread call.
+  if (_powerChangeThreadCall)
+  {
+    thread_call_free(_powerChangeThreadCall);
+    _powerChangeThreadCall = 0;
+  }
+
+  // Detach from power management plane.
+  PMstop();
 
 #if DEBUGGER_SUPPORT
   // Free the keyboard queue allocation space (after disabling interrupt).
@@ -385,7 +480,7 @@ void ApplePS2Controller::uninstallInterruptAction(PS2DeviceType deviceType)
   {
     getProvider()->disableInterrupt(kIRQ_Keyboard);
     getProvider()->unregisterInterrupt(kIRQ_Keyboard);
-    _workLoop->removeEventSource(_interruptSourceMouse);
+    _workLoop->removeEventSource(_interruptSourceKeyboard);
     _interruptInstalledKeyboard = false;
     _interruptActionKeyboard = NULL;
     _interruptTargetKeyboard->release();
@@ -437,7 +532,13 @@ bool ApplePS2Controller::submitRequest(PS2Request * request)
   // Submit the request to the controller for processing, asynchronously.
   //
 
-  return (_commandQueue->enqueueCommand(false, request) == KERN_SUCCESS);
+  IOSimpleLockLock(_requestQueueLock);
+  queue_enter(&_requestQueue, request, PS2Request *, chain);
+  IOSimpleLockUnlock(_requestQueueLock);
+
+  _interruptSourceQueue->interruptOccurred(0, 0, 0);
+
+  return true;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -448,24 +549,45 @@ void ApplePS2Controller::submitRequestAndBlock(PS2Request * request)
   // Submit the request to the controller for processing, synchronously.
   //
 
-  IOSyncer * completionSyncer = IOSyncer::create();
+  if (_workLoop->inGate())
+  {
+    //
+    // Special case to allow PS/2 device drivers to issue synchronous
+    // requests from their interrupt handlers. Must process the queue
+    // first to process any queued async requests.
+    //
 
-  assert(completionSyncer);
-  request->completionTarget = this;
-  request->completionAction = submitRequestAndBlockCompletion;
-  request->completionParam  = completionSyncer;
+    request->completionTarget = this;
+    request->completionAction = submitRequestAndBlockCompletion;
+    request->completionParam  = 0;
 
-  _commandQueue->enqueueCommand(true, request);
+    processRequestQueue(0, 0);
+    processRequest(request);
+  }
+  else
+  {
+    IOSyncer * completionSyncer = IOSyncer::create();
 
-  completionSyncer->wait();                               // wait 'till done
+    assert(completionSyncer);
+    request->completionTarget = this;
+    request->completionAction = submitRequestAndBlockCompletion;
+    request->completionParam  = completionSyncer;
+
+    submitRequest(request);
+
+    completionSyncer->wait();                               // wait 'till done
+  }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 void ApplePS2Controller::submitRequestAndBlockCompletion(void *, void * param)
 {                                                      // PS2CompletionAction
-  IOSyncer * completionSyncer = (IOSyncer *) param;
-  completionSyncer->signal();
+  if (param)
+  {
+    IOSyncer * completionSyncer = (IOSyncer *) param;
+    completionSyncer->signal();
+  }
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -480,9 +602,17 @@ void ApplePS2Controller::interruptOccurred(IOInterruptEventSource *, int)
   // This method should only be called from our single-threaded work loop.
   //
 
+  if (_hardwareOffline)
+  {
+    // Toss any asynchronous data received. The interrupt event source may
+    // have been signalled before the PS/2 port was offline.
+    return;
+  }
+
   UInt8 status;
 #if DEBUGGER_SUPPORT
-  lockController();                  // (lock out interrupt + access to queue)
+  int state;
+  lockController(&state);              // (lock out interrupt + access to queue)
   while (1)
   {
     // See if data is available on the keyboard input stream (off queue);
@@ -491,9 +621,9 @@ void ApplePS2Controller::interruptOccurred(IOInterruptEventSource *, int)
 
     if (dequeueKeyboardData(&status))
     {
-      unlockController();
+      unlockController(state);
       dispatchDriverInterrupt(kDT_Keyboard, status);
-      lockController();
+      lockController(&state);
     }
 
     // See if data is available on the mouse input stream (off real port).
@@ -501,13 +631,13 @@ void ApplePS2Controller::interruptOccurred(IOInterruptEventSource *, int)
     else if ( (inb(kCommandPort) & (kOutputReady | kMouseData)) ==
                                    (kOutputReady | kMouseData))
     {
-      unlockController();
+      unlockController(state);
       dispatchDriverInterrupt(kDT_Mouse, inb(kDataPort));
-      lockController();
+      lockController(&state);
     }
     else break; // out of loop
   }
-  unlockController();         // (release interrupt lockout + access to queue)
+  unlockController(state);      // (release interrupt lockout + access to queue)
 #else
   // Loop only while there is data currently on the input stream.
 
@@ -550,11 +680,7 @@ void ApplePS2Controller::dispatchDriverInterrupt(PS2DeviceType deviceType,
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void ApplePS2Controller::processRequest(PS2Request * request,
-                                        void *       /* field1 */,
-                                        void *       /* field2 */,
-                                        void *       /* field3 */)
-                                                         // IOCommandQueueAction
+void ApplePS2Controller::processRequest(PS2Request * request)
 {
   //
   // Our work loop has informed us of a request submission. Process
@@ -569,6 +695,13 @@ void ApplePS2Controller::processRequest(PS2Request * request,
   bool          failed          = false;
   bool          transmitToMouse = false;
   unsigned      index;
+
+  if (_hardwareOffline)
+  {
+    failed = true;
+    index  = 0;
+    goto hardware_offline;
+  }
 
   // Process each of the commands in the list.
 
@@ -633,6 +766,8 @@ void ApplePS2Controller::processRequest(PS2Request * request,
     if (failed) break;
   }
 
+hardware_offline:
+
   // If a command failed and stopped the request processing, store its
   // index into the commandsCount field.
 
@@ -648,6 +783,35 @@ void ApplePS2Controller::processRequest(PS2Request * request,
   else
   {
     freeRequest(request);
+  }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::processRequestQueue(IOInterruptEventSource *, int)
+{
+  queue_head_t localQueue;
+
+  // Transfer queued (async) requests to a local queue.
+
+  IOSimpleLockLock(_requestQueueLock);
+
+  if (!queue_empty(&_requestQueue))
+  {
+    queue_assign(&localQueue, &_requestQueue, PS2Request *, chain);
+    queue_init(&_requestQueue);
+  }
+  else queue_init(&localQueue);
+
+  IOSimpleLockUnlock(_requestQueueLock);
+
+  // Process each request in order.
+
+  while (!queue_empty(&localQueue))
+  {
+    PS2Request * request;
+    queue_remove_first(&localQueue, request, PS2Request *, chain);
+    processRequest(request);
   }
 }
 
@@ -675,10 +839,11 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType)
   while (1)
   {
 #if DEBUGGER_SUPPORT
-    lockController();              // (lock out interrupt + access to queue)
+    int state;
+    lockController(&state);            // (lock out interrupt + access to queue)
     if (deviceType == kDT_Keyboard && dequeueKeyboardData(&readByte))
     {
-      unlockController();
+      unlockController(state);
       return readByte;
     }
 #endif DEBUGGER_SUPPORT
@@ -700,13 +865,21 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType)
     if (timeoutCounter == 0)
     {
 #if DEBUGGER_SUPPORT
-      unlockController();    // (release interrupt lockout + access to queue)
+      unlockController(state);  // (release interrupt lockout + access to queue)
 #endif DEBUGGER_SUPPORT
 
       IOLog("%s: Timed out on %s input stream.\n", getName(),
                           (deviceType == kDT_Keyboard) ? "keyboard" : "mouse");
       return 0;
     }
+
+    //
+    // For older machines, it is necessary to wait a while after the controller
+    // has asserted the output buffer bit before reading the data port. No more
+    // data will be available if this wait is not performed.
+    //
+
+    IODelay(kDataDelay);
 
     //
     // Read in the data.  We return the data, however, only if it arrived on
@@ -716,7 +889,7 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType)
     readByte = inb(kDataPort);
 
 #if DEBUGGER_SUPPORT
-    unlockController();      // (release interrupt lockout + access to queue)
+    unlockController(state);    // (release interrupt lockout + access to queue)
 #endif DEBUGGER_SUPPORT
 
     if ( (status & kMouseData) )
@@ -784,7 +957,8 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType,
   while (1)
   {
 #if DEBUGGER_SUPPORT
-    lockController();              // (lock out interrupt + access to queue)
+    int state;
+    lockController(&state);            // (lock out interrupt + access to queue)
     if (deviceType == kDT_Keyboard && dequeueKeyboardData(&readByte))
     {
       requestedStream = true;
@@ -811,7 +985,7 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType,
     if (timeoutCounter == 0)
     {
 #if DEBUGGER_SUPPORT
-      unlockController();    // release interrupt lockout + access to queue
+      unlockController(state);  // (release interrupt lockout + access to queue)
 #endif DEBUGGER_SUPPORT
 
       if (firstByteHeld)  return firstByte;
@@ -820,6 +994,14 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType,
                           (deviceType == kDT_Keyboard) ? "keyboard" : "mouse");
       return 0;
     }
+
+    //
+    // For older machines, it is necessary to wait a while after the controller
+    // has asserted the output buffer bit before reading the data port. No more
+    // data will be available if this wait is not performed.
+    //
+
+    IODelay(kDataDelay);
 
     //
     // Read in the data.  We process the data, however, only if it arrived on
@@ -840,7 +1022,7 @@ UInt8 ApplePS2Controller::readDataPort(PS2DeviceType deviceType,
 
 #if DEBUGGER_SUPPORT
 skipForwardToY:
-    unlockController();      // (release interrupt lockout + access to queue)
+    unlockController(state);    // (release interrupt lockout + access to queue)
 #endif DEBUGGER_SUPPORT
 
     if (requestedStream)
@@ -1011,8 +1193,7 @@ bool ApplePS2Controller::doEscape(UInt8 scancode)
 
   if (scancode == kSC_Delete)    // (both extended and non-extended scancodes)
   {
-    if ( _modifierState == kModifierAltLeft ||
-         _modifierState == kModifierAltRight )
+    if ( _modifierState == (kModifierAltLeft | kModifierAltRight) )
     {
       // Disable the mouse by forcing the clock line low.
 
@@ -1104,17 +1285,223 @@ bool ApplePS2Controller::dequeueKeyboardData(UInt8 * key)
   return false;
 }
 
-void ApplePS2Controller::unlockController(void)
+void ApplePS2Controller::unlockController(int state)
 {
-  usimple_unlock(&_controllerLock); 
-  ml_set_interrupts_enabled(_controllerLockOldSpl);
+  IOSimpleLockUnlockEnableInterrupt(_controllerLock, state);
 }
 
-void ApplePS2Controller::lockController(void)
+void ApplePS2Controller::lockController(int * state)
 {
-  int oldSpl = ml_set_interrupts_enabled(FALSE);
-  usimple_lock(&_controllerLock); 
-  _controllerLockOldSpl = oldSpl;
+  *state = IOSimpleLockLockDisableInterrupt(_controllerLock);
 }
 
 #endif DEBUGGER_SUPPORT
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//
+// Power Management support.
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IOReturn ApplePS2Controller::setPowerState( unsigned long powerStateOrdinal,
+                                            IOService *   policyMaker)
+{
+  IOReturn result = IOPMAckImplied;
+
+  //
+  // Prevent the object from being freed while a call is pending.
+  // If thread_call_enter() returns TRUE, indicating that a call
+  // is already pending, then the extra retain is dropped.
+  //
+
+  retain();
+  if ( thread_call_enter1( _powerChangeThreadCall,
+                           (void *) powerStateOrdinal ) == TRUE )
+  {
+    release();
+  }
+  result = 5000000;  // 5 seconds before acknowledgement timeout
+
+  return result;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::setPowerStateCallout( thread_call_param_t param0,
+                                               thread_call_param_t param1 )
+{
+  ApplePS2Controller * me = (ApplePS2Controller *) param0;
+
+  if ( me && me->_workLoop )
+  {
+    me->_workLoop->runAction( /* Action */ setPowerStateAction,
+                              /* target */ me,
+                              /*   arg0 */ param1 );
+  }
+
+  me->release();  // drop the retain from setPowerState()
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+IOReturn ApplePS2Controller::setPowerStateAction( OSObject * target,
+                                                  void * arg0, void * arg1,
+                                                  void * arg2, void * arg3 )
+{
+  ApplePS2Controller * me = (ApplePS2Controller *) target;
+  UInt32       powerState = (UInt32) arg0;
+
+  me->setPowerStateGated( powerState );
+
+  return kIOReturnSuccess;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::setPowerStateGated( UInt32 powerState )
+{
+  UInt8 commandByte;
+
+  if ( _currentPowerState != powerState )
+  {
+    switch ( powerState )
+    {
+      case kPS2PowerStateSleep:
+
+        //
+        // Transition from Working state to Sleep state in 3 stages.
+        //
+
+        // 1. Notify clients about the state change. Clients can issue
+        //    synchronous requests thanks to the recursive lock.
+
+        dispatchDriverPowerControl( kPS2C_DisableDevice );
+
+        // 2. Freeze the request queue and drop all data received over
+        //    the PS/2 port.
+
+        _hardwareOffline = true;
+
+        // 3. Disable the PS/2 port.
+
+#if 0
+        // This will cause some machines to turn on the LCD after the
+        // ACPI display driver has turned it off. With a real display
+        // driver present, this block of code can be uncommented (?).
+
+        writeCommandPort( kCP_GetCommandByte );
+        commandByte = readDataPort( kDT_Keyboard );
+        commandByte |=  ( kCB_DisableKeyboardClock |
+                          kCB_DisableMouseClock );
+        commandByte &= ~( kCB_EnableKeyboardIRQ |
+                          kCB_EnableMouseIRQ );
+        writeCommandPort( kCP_SetCommandByte );
+        writeDataPort( commandByte );
+#endif
+        break;
+
+      case kPS2PowerStateDoze:
+      case kPS2PowerStateNormal:
+
+        if ( _currentPowerState != kPS2PowerStateSleep )
+        {
+          // Transitions between doze and normal power states
+          // require no action, since both are working states.
+          break;
+        }
+
+        //
+        // Transition from Sleep state to Working state in 3 stages.
+        //
+
+        // 1. Enable the PS/2 port.
+
+        writeCommandPort( kCP_GetCommandByte );
+        commandByte = readDataPort( kDT_Keyboard );
+        commandByte &= ~( kCB_DisableKeyboardClock |
+                          kCB_DisableMouseClock );
+        commandByte |=  ( kCB_EnableKeyboardIRQ |
+                          kCB_EnableMouseIRQ );
+        writeCommandPort( kCP_SetCommandByte );
+        writeDataPort( commandByte );
+
+        // 2. Unblock the request queue and wake up all driver threads
+        //    that were blocked by submitRequest().
+
+        _hardwareOffline = false;
+
+        // 3. Notify clients about the state change.
+
+        dispatchDriverPowerControl( kPS2C_EnableDevice );
+
+        break;
+
+      default:
+        IOLog("%s: bad power state %ld\n", getName(), powerState);
+        break;
+    }
+
+    _currentPowerState = powerState;
+  }
+
+  //
+  // Acknowledge the power change before the power management timeout
+  // expires.
+  //
+
+  acknowledgeSetPowerState();
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::dispatchDriverPowerControl( UInt32 whatToDo )
+{
+  if (_powerControlInstalledMouse)
+    (*_powerControlActionMouse)(_powerControlTargetMouse, whatToDo);
+
+  if (_powerControlInstalledKeyboard)       
+    (*_powerControlActionKeyboard)(_powerControlTargetKeyboard, whatToDo);
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::installPowerControlAction(
+                                          PS2DeviceType         deviceType,
+                                          OSObject *            target, 
+                                          PS2PowerControlAction action )
+{
+  if ( deviceType == kDT_Keyboard && _powerControlInstalledKeyboard == false )
+  {
+    target->retain();
+    _powerControlTargetKeyboard = target;
+    _powerControlActionKeyboard = action;
+    _powerControlInstalledKeyboard = true;
+  }
+  else if ( deviceType == kDT_Mouse && _powerControlInstalledMouse == false )
+  {
+    target->retain();
+    _powerControlTargetMouse = target;
+    _powerControlActionMouse = action;
+    _powerControlInstalledMouse = true;
+  }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+void ApplePS2Controller::uninstallPowerControlAction( PS2DeviceType deviceType )
+{
+  if ( deviceType == kDT_Keyboard && _powerControlInstalledKeyboard == true )
+  {
+    _powerControlInstalledKeyboard = false;
+    _powerControlActionKeyboard = NULL;
+    _powerControlTargetKeyboard->release();
+    _powerControlTargetKeyboard = 0;
+  }
+  else if ( deviceType == kDT_Mouse && _powerControlInstalledMouse == true )
+  {
+    _powerControlInstalledMouse = false;
+    _powerControlActionMouse = NULL;
+    _powerControlTargetMouse->release();
+    _powerControlTargetMouse = 0;
+  }
+}

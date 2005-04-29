@@ -1,5 +1,5 @@
 /* MenuBar.java -- An AWT menu bar class
-   Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -128,15 +128,15 @@ setHelpMenu(Menu menu)
       helpMenu.removeNotify ();
       helpMenu.parent = null;
     }
+  helpMenu = menu;
 
-  if (menu.parent != null)
-    menu.parent.remove (menu);
   if (menu.parent != null)
     menu.parent.remove (menu);
   menu.parent = this;
 
   if (peer != null)
     {
+      menu.addNotify();
       MenuBarPeer mp = (MenuBarPeer) peer;
       mp.addHelpMenu (menu);
     }
@@ -163,8 +163,7 @@ add(Menu menu)
 
   if (peer != null)
     {
-      MenuBarPeer mp = (MenuBarPeer) peer;
-      mp.addMenu (menu);
+      menu.addNotify();
     }
 
   return(menu);
@@ -219,8 +218,7 @@ remove(MenuComponent menu)
 public int
 getMenuCount()
 {
-  // FIXME: How does the help menu fit in here?
-  return(menus.size());
+  return countMenus ();
 }
 
 /*************************************************************************/
@@ -235,7 +233,8 @@ getMenuCount()
 public int
 countMenus()
 {
-  return(getMenuCount());
+  // FIXME: How does the help menu fit in here?
+  return menus.size ();
 }
 
 /*************************************************************************/
@@ -263,6 +262,17 @@ addNotify()
 {
   if (getPeer() == null)
     setPeer((MenuComponentPeer)getToolkit().createMenuBar(this));
+  Enumeration e = menus.elements();
+  while (e.hasMoreElements())
+  {
+    Menu mi = (Menu)e.nextElement();
+    mi.addNotify();
+  }
+  if (helpMenu != null)
+  {
+    helpMenu.addNotify();
+    ((MenuBarPeer) peer).addHelpMenu(helpMenu);
+  }
 }
 
 /*************************************************************************/
@@ -273,6 +283,12 @@ addNotify()
 public void
 removeNotify()
 {
+  Enumeration e = menus.elements();
+  while (e.hasMoreElements())
+  {
+    Menu mi = (Menu) e.nextElement();
+    mi.removeNotify();
+  }
   super.removeNotify();
 }
 

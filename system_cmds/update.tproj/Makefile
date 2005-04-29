@@ -12,10 +12,12 @@ NAME = update
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CFILES = update.c
+CFILES = update.c disk_power.c power_mgmt.c
+HFILES = disk_power.h power_mgmt.h
 
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble update.8
 
+FRAMEWORKS = -framework CoreFoundation -framework IOKit
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC

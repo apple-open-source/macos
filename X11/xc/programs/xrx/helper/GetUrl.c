@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization from
 The Open Group.
 
 */
-/* $XFree86: xc/programs/xrx/helper/GetUrl.c,v 1.4 2001/12/14 20:02:16 dawes Exp $ */
+/* $XFree86: xc/programs/xrx/helper/GetUrl.c,v 1.5 2003/07/20 16:12:20 tsi Exp $ */
 
 /*
  * This file is really split into two major parts where GetUrl is implemented
@@ -206,6 +206,7 @@ ParseHttpUrl(char *url, char **hostname_ret, int *port_ret, char **path_ret)
     int port;
     char *ptr, *bos;
     int status = 0;
+    int bracketed = 0;
 
     /* check if it's an http url */
     if (strncmp(HTTP, url, sizeof(HTTP) - 1))
@@ -213,8 +214,17 @@ ParseHttpUrl(char *url, char **hostname_ret, int *port_ret, char **path_ret)
 
     /* parse hostname */
     bos = ptr = url + sizeof(HTTP) - 1;
-    while (*ptr && *ptr != ':' && *ptr != '/')
-	ptr++;
+    /* Check for RFC 2732 bracketed IPv6 numeric address */
+    if (*ptr == '[') {
+	bos++;
+	while (*ptr && (*ptr != ']')) {
+	    ptr++;
+	}
+	bracketed = 1;
+    } else {
+	while (*ptr && *ptr != ':' && *ptr != '/')
+	    ptr++;
+    }
     if (bos == ptr)
 	return 1;		/* doesn't have any hostname */
 
@@ -226,6 +236,9 @@ ParseHttpUrl(char *url, char **hostname_ret, int *port_ret, char **path_ret)
 
     /* make sure path is initialized in case of error */
     path = NULL;
+
+    if (bracketed)
+	ptr++;
 
     /* parse port */
     if (*ptr != ':' || ! ptr[1])

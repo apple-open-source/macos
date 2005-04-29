@@ -2,3 +2,7 @@ LIBRARY_STYLE = STATIC
 STRIP_ON_INSTALL = NO
 BEFORE_INSTALL += debug profile
 override LINK_SUBPROJECTS = NO
+
+# for building 64-bit
+# <rdar://problem/3819761> Libinfo need to build with gcc-3.5 and 3-way fat
+export CCOMPILER = /usr/bin/gcc-3.5

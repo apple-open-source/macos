@@ -4,22 +4,28 @@
 # Synopsis: Holds struct info parsed by headerDoc
 #
 # Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2003/07/29 20:41:19 $
+# Last Updated: $Date: 2004/10/13 00:09:28 $
 # 
-# Copyright (c) 1999 Apple Computer, Inc.  All Rights Reserved.
-# The contents of this file constitute Original Code as defined in and are
-# subject to the Apple Public Source License Version 1.1 (the "License").
-# You may not use this file except in compliance with the License.  Please
-# obtain a copy of the License at http://www.apple.com/publicsource and
-# read it before using this file.
+# Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
-# This Original Code and all software distributed under the License are
-# distributed on an TAS ISU basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+# @APPLE_LICENSE_HEADER_START@
+#
+# This file contains Original Code and/or Modifications of Original Code
+# as defined in and that are subject to the Apple Public Source License
+# Version 2.0 (the 'License'). You may not use this file except in
+# compliance with the License. Please obtain a copy of the License at
+# http://www.opensource.apple.com/apsl/ and read it before using this
+# file.
+# 
+# The Original Code and all software distributed under the License are
+# distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
 # EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
-# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the License for
-# the specific language governing rights and limitations under the
-# License.
+# INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+# Please see the License for the specific language governing rights and
+# limitations under the License.
+#
+# @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
 package HeaderDoc::Enum;
@@ -33,7 +39,7 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$VERSION = '1.20';
+$VERSION = '$Revision: 1.10.2.9.2.24 $';
 
 sub new {
     my($param) = shift;
@@ -49,33 +55,44 @@ sub _initialize {
     my($self) = shift;
     
     $self->SUPER::_initialize();
-    $self->{CONSTANTS} = ();
+    $self->{CLASS} = "HeaderDoc::Enum";
 }
 
-sub constants {
+sub clone {
     my $self = shift;
-    if (@_) { 
-        @{ $self->{CONSTANTS} } = @_;
+    my $clone = undef;
+    if (@_) {
+	$clone = shift;
+    } else {
+	$clone = HeaderDoc::Enum->new();
     }
-    ($self->{CONSTANTS}) ? return @{ $self->{CONSTANTS} } : return ();
+
+    $self->SUPER::clone($clone);
+
+    # now clone stuff specific to enum
+
+    return $clone;
 }
 
-sub addConstant {
-    my $self = shift;
-    if (@_) { 
-        push (@{$self->{CONSTANTS}}, @_);
-    }
-    return @{ $self->{CONSTANTS} };
-}
 
-sub processEnumComment {
+sub processComment {
     my $self = shift;
     my $fieldArrayRef = shift;
     my @fields = @$fieldArrayRef;
+    my $filename = $self->filename();
+    my $linenum = $self->linenum();
+
 	foreach my $field (@fields) {
 		SWITCH: {
-            ($field =~ /^\/\*\!/)&& do {last SWITCH;}; # ignore opening /*!
-            ($field =~ s/^enum\s+//) && 
+            ($field =~ /^\/\*\!/o)&& do {
+                                my $copy = $field;
+                                $copy =~ s/^\/\*\!\s*//s;
+                                if (length($copy)) {
+                                        $self->discussion($copy);
+                                }
+                        last SWITCH;
+                        };
+            ($field =~ s/^enum(\s+)/$1/o) && 
             do {
                 my ($name, $disc);
                 ($name, $disc) = &getAPINameAndDisc($field); 
@@ -83,14 +100,59 @@ sub processEnumComment {
                 if (length($disc)) {$self->discussion($disc);};
                 last SWITCH;
             };
-            ($field =~ s/^abstract\s+//) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^discussion\s+//) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^updated\s+//) && do {$self->updated($field); last SWITCH;};
-            ($field =~ s/^constant\s+//) && 
+            ($field =~ s/^abstract\s+//o) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^discussion\s+//o) && do {$self->discussion($field); last SWITCH;};
+            ($field =~ s/^availability\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//o) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//o) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^version\s+//o) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//o) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//o) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 0);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attribute\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributelist\s+//o) && do {
+		    $field =~ s/^\s*//so;
+		    $field =~ s/\s*$//so;
+		    my ($name, $lines) = split(/\n/, $field, 2);
+		    $name =~ s/^\s*//so;
+		    $name =~ s/\s*$//so;
+		    $lines =~ s/^\s*//so;
+		    $lines =~ s/\s*$//so;
+		    if (length($name) && length($lines)) {
+			my @attlines = split(/\n/, $lines);
+			foreach my $line (@attlines) {
+			    $self->attributelist($name, $line);
+			}
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributelist\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ s/^attributeblock\s+//o) && do {
+		    my ($attname, $attdisc) = &getAPINameAndDisc($field);
+		    if (length($attname) && length($attdisc)) {
+			$self->attribute($attname, $attdisc, 1);
+		    } else {
+			warn "$filename:$linenum:Missing name/discussion for attributeblock\n";
+		    }
+		    last SWITCH;
+		};
+	    ($field =~ /^see(also|)\s+/o) &&
+		do {
+		    $self->see($field);
+		    last SWITCH;
+		};
+            ($field =~ s/^constant\s+//o) && 
             do {
-				$field =~ s/^\s+|\s+$//g;
-	            $field =~ /(\w*)\s*(.*)/s;
+				$field =~ s/^\s+|\s+$//go;
+	            $field =~ /(\w*)\s*(.*)/so;
 	            my $cName = $1;
 	            my $cDesc = $2;
 	            my $cObj = HeaderDoc::MinorAPIElement->new();
@@ -105,8 +167,11 @@ sub processEnumComment {
 		}
                 last SWITCH;
             };
-	    my $filename = $HeaderDoc::headerObject->filename();
-            print "$filename:0:Unknown field: $field\n";
+	    # my $filename = $HeaderDoc::headerObject->filename();
+	    my $filename = $self->filename();
+	    my $linenum = $self->linenum();
+            # print "$filename:$linenum:Unknown field in Enum comment: $field\n";
+		    if (length($field)) { warn "$filename:$linenum:Unknown field (\@$field) in enum comment (".$self->name().")\n"; }
 		}
 	}
 }
@@ -118,10 +183,13 @@ sub getEnumDeclaration {
     
     print "============================================================================\n" if ($localDebug);
     print "Raw declaration is: $dec\n" if ($localDebug);
+    if ($HeaderDoc::use_styles) {
+	return $dec;
+    }
     
-    $dec =~ s/\t/  /g;
-    $dec =~ s/</&lt;/g;
-    $dec =~ s/>/&gt;/g;
+    $dec =~ s/\t/  /go;
+    $dec =~ s/</&lt;/go;
+    $dec =~ s/>/&gt;/go;
     if (length ($dec)) {$dec = "<pre>\n$dec</pre>\n";};
     
     print "Enum: returning declaration:\n\t|$dec|\n" if ($localDebug);
@@ -129,109 +197,6 @@ sub getEnumDeclaration {
     return $dec;
 }
 
-sub documentationBlock {
-    my $self = shift;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $declaration = $self->declarationInHTML();
-    my @constants = $self->constants();
-    my $contentString;
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-    
-    $contentString .= "<hr>";
-    my $uid = "//$apiUIDPrefix/c/tag/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<a name=\"$uid\"></a>\n"; # apple_ref marker
-    $contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-    $contentString .= "<tr>";
-    $contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
-    $contentString .= "<h2><a name=\"$name\">$name</a></h2>\n";
-    $contentString .= "</td>";
-    $contentString .= "</tr></table>";
-    $contentString .= "<hr>";
-    if (length($abstract)) {
-        # $contentString .= "<b>Abstract:</b> $abstract\n";
-        $contentString .= "$abstract<br>\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<b>Availability:</b> $availability<br>\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<b>Updated:</b> $updated<br>\n";
-    }
-    $contentString .= "<blockquote>$declaration</blockquote>\n";
-    # $contentString .= "<p>$desc</p>\n";
-    if (length($desc)) {$contentString .= "<h5><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5><p>$desc</p>\n"; }
-    my $arrayLength = @constants;
-    if ($arrayLength > 0) {
-        $contentString .= "<h4>Constants</h4>\n";
-        $contentString .= "<blockquote>\n";
-	$contentString .= "<dl>\n";
-        # $contentString .= "<table border=\"1\"  width=\"90%\">\n";
-        # $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
-        foreach my $element (@constants) {
-            my $cName = $element->name();
-            my $cDesc = $element->discussion();
-            my $uid = "//$apiUIDPrefix/c/econst/$cName";
-	    HeaderDoc::APIOwner->register_uid($uid);
-            # $contentString .= "<tr><td align=\"center\"><a name=\"$uid\"><tt>$cName</tt></a></td><td>$cDesc</td></tr>\n";
-            $contentString .= "<dt><a name=\"$uid\"><tt>$cName</tt></a></dt><dd>$cDesc</dd>\n";
-        }
-        # $contentString .= "</table>\n</blockquote>\n";
-        $contentString .= "</dl>\n</blockquote>\n";
-    }
-    # $contentString .= "<hr>\n";
-    return $contentString;
-}
-
-sub XMLdocumentationBlock {
-    my $self = shift;
-    my $name = $self->name();
-    my $abstract = $self->abstract();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-    my $desc = $self->discussion();
-    my $declaration = $self->declarationInHTML();
-    my @constants = $self->constants();
-    my $contentString;
-    my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
-    
-    my $uid = "//$apiUIDPrefix/c/tag/$name";
-    HeaderDoc::APIOwner->register_uid($uid);
-    $contentString .= "<enum id=\"$uid\">\n"; # apple_ref marker
-    $contentString .= "<name>$name</name>\n";
-    if (length($abstract)) {
-        $contentString .= "<abstract>$abstract</abstract>\n";
-    }
-    if (length($availability)) {
-        $contentString .= "<availability>$availability</availability>\n";
-    }
-    if (length($updated)) {
-        $contentString .= "<updated>$updated</updated>\n";
-    }
-    $contentString .= "<declaration>$declaration</declaration>\n";
-    $contentString .= "<description>$desc</description>\n";
-    my $arrayLength = @constants;
-    if ($arrayLength > 0) {
-        $contentString .= "<constantlist>\n";
-        foreach my $element (@constants) {
-            my $cName = $element->name();
-            my $cDesc = $element->discussion();
-            my $uid = "//$apiUIDPrefix/c/econst/$cName";
-	    HeaderDoc::APIOwner->register_uid($uid);
-            $contentString .= "<constant id=\"$uid\">\n";
-	    $contentString .= "<name>$cName</name>\n";
-	    $contentString .= "<description>$cDesc</description>\n";
-	    $contentString .= "</constant>\n";
-        }
-        $contentString .= "</constantlist>\n";
-    }
-    $contentString .= "</enum>\n";
-    return $contentString;
-}
 
 sub printObject {
     my $self = shift;
@@ -239,12 +204,6 @@ sub printObject {
     print "Enum\n";
     $self->SUPER::printObject();
     print "Constants:\n";
-    my $fieldArrayRef = $self->{CONSTANTS};
-    my $arrayLength = @{$fieldArrayRef};
-    if ($arrayLength > 0) {
-        &printArray(@{$fieldArrayRef});
-    }
-    print "\n";
 }
 
 1;

@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.3 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -244,6 +243,32 @@ package Exp_Util is
    --  copy after it is attached to the tree. The Name_Req flag is set to
    --  ensure that the result is suitable for use in a context requiring a
    --  name (e.g. the prefix of an attribute reference).
+   --
+   --  Note that if there are any run time checks in Exp, these same checks
+   --  will be duplicated in the returned duplicated expression. The two
+   --  following functions allow this behavior to be modified.
+
+   function Duplicate_Subexpr_No_Checks
+     (Exp      : Node_Id;
+      Name_Req : Boolean := False)
+      return     Node_Id;
+   --  Identical in effect to Duplicate_Subexpr, except that Remove_Checks
+   --  is called on the result, so that the duplicated expression does not
+   --  include checks. This is appropriate for use when Exp, the original
+   --  expression is unconditionally elaborated before the duplicated
+   --  expression, so that there is no need to repeat any checks.
+
+   function Duplicate_Subexpr_Move_Checks
+     (Exp      : Node_Id;
+      Name_Req : Boolean := False)
+      return     Node_Id;
+   --  Identical in effect to Duplicate_Subexpr, except that Remove_Checks
+   --  is called on Exp after the duplication is complete, so that the
+   --  original expression does not include checks. In this case the result
+   --  returned (the duplicated expression) will retain the original checks.
+   --  This is appropriate for use when the duplicated expression is sure
+   --  to be elaborated before the original expression Exp, so that there
+   --  is no need to repeat the checks.
 
    procedure Ensure_Defined (Typ : Entity_Id; N : Node_Id);
    --  This procedure ensures that type referenced by Typ is defined. For the
@@ -406,6 +431,16 @@ package Exp_Util is
    --  procedures, since the setting of the flag in this case is generated
    --  in the binder. We do that so that we can detect cases where this is
    --  the only elaboration action that is required.
+
+   function Target_Has_Fixed_Ops
+     (Left_Typ   : Entity_Id;
+      Right_Typ  : Entity_Id;
+      Result_Typ : Entity_Id)
+      return       Boolean;
+   --  Returns True if and only if the target machine has direct support
+   --  for fixed-by-fixed multiplications and divisions for the given
+   --  operand and result types. This is called in package Exp_Fixd to
+   --  determine whether to expand such operations.
 
    procedure Wrap_Cleanup_Procedure (N : Node_Id);
    --  Given an N_Subprogram_Body node, this procedure adds an Abort_Defer

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/Or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,7 +26,7 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNAT was Originally developed  by the GNAT team at  New YOrk University. --
+-- GNAT was originally developed  by the GNAT team at  New York University. --
 -- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
@@ -103,9 +102,8 @@ package body System.Aux_DEC is
    function "-" (Left : Address; Right : Address) return Integer is
       pragma Unsuppress (All_Checks);
       --  Because this can raise Constraint_Error for 64-bit addresses
-
    begin
-      return Integer (From_A (Left - Right));
+      return Integer (From_A (Left) - From_A (Right));
    end "-";
 
    function "-" (Left : Address; Right : Integer) return Address is
@@ -121,7 +119,6 @@ package body System.Aux_DEC is
       type T_Ptr is access all Target;
       function To_T_Ptr is new Unchecked_Conversion (Address, T_Ptr);
       Ptr : constant T_Ptr := To_T_Ptr (A);
-
    begin
       return Ptr.all;
    end Fetch_From_Address;
@@ -134,7 +131,6 @@ package body System.Aux_DEC is
       type T_Ptr is access all Target;
       function To_T_Ptr is new Unchecked_Conversion (Address, T_Ptr);
       Ptr : constant T_Ptr := To_T_Ptr (A);
-
    begin
       Ptr.all := T;
    end Assign_To_Address;

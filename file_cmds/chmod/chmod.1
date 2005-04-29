@@ -35,17 +35,33 @@
 .\"	@(#)chmod.1	8.4 (Berkeley) 3/31/94
 .\" $FreeBSD: src/bin/chmod/chmod.1,v 1.33 2002/10/01 20:32:59 trhodes Exp $
 .\"
-.Dd March 31, 1994
+.Dd July 08, 2004
 .Dt CHMOD 1
 .Os
 .Sh NAME
 .Nm chmod
-.Nd change file modes
+.Nd change file modes or Access Control Lists
 .Sh SYNOPSIS
 .Nm
-.Op Fl fhv
+.Op Fl fv
 .Op Fl R Op Fl H | L | P
 .Ar mode
+.Ar
+.Nm
+.Op Fl fv
+.Op Fl R Op Fl H | L | P 
+.Op -a | +a | =a
+.Ar ACE
+.Ar
+.Nm
+.Op Fl fv
+.Op Fl R Op Fl H | L | P 
+.Op Fl E
+.Ar
+.Nm
+.Op Fl fv
+.Op Fl R Op Fl H | L | P 
+.Op Fl C
 .Ar
 .Sh DESCRIPTION
 The
@@ -53,9 +69,10 @@ The
 utility modifies the file mode bits of the listed files
 as specified by the
 .Ar mode
-operand.
+operand. It may also be used to modify the Access Control
+Lists (ACLs) associated with the listed files.
 .Pp
-The options are as follows:
+The generic options are as follows:
 .Bl -tag -width Ds
 .It Fl H
 If the
@@ -80,9 +97,6 @@ Do not display a diagnostic message if
 .Nm
 could not modify the mode for
 .Va file .
-.It Fl h
-If the file is a symbolic link, change the mode of the link itself
-rather than the file that the link points to.
 .It Fl v
 Cause
 .Nm
@@ -277,7 +291,7 @@ Operations upon the other permissions only (specified by the symbol
 ``o'' by itself), in combination with the
 .Ar perm
 symbols ``s'' or ``t'', are ignored.
-.Sh EXAMPLES
+.Sh EXAMPLES OF VALID MODES
 .Bl -tag -width "u=rwx,go=u-w" -compact
 .It Li 644
 make a file readable by anyone and writable by the owner only.
@@ -304,10 +318,209 @@ clear all mode bits for group and others.
 .It Li g=u-w
 set the group bits equal to the user bits, but clear the group write bit.
 .El
-.Sh BUGS
-There's no
-.Ar perm
-option for the naughty bits.
+.Sh ACL MANIPULATION OPTIONS
+ACLs are manipulated using extensions to the symbolic mode
+grammar.  Each file has one ACL, containing an ordered list of entries.
+Each entry refers to a user or group, and grants or denies a set of
+permissions.
+.Pp
+The following permissions are applicable to all filesystem objects:
+.Bl -tag -width 6n -compact -offset indent
+.It delete
+Delete the item.  Deletion may be granted by either this permission
+on an object or the delete_child right on the containing directory.
+.It readattr
+Read an objects basic attributes.  This is implicitly granted if 
+the object can be looked up and not explicitly denied.
+.It writeattr
+Write an object's basic attributes.
+.It readextattr
+Read extended attributes.
+.It writeextattr
+Write extended attributes.
+.It readsecurity
+Read an object's extended security information (ACL).
+.It writesecurity
+Write an object's security information (ownership, mode, ACL).
+.It chown
+Change an object's ownership.
+.El
+.Pp
+The following permissions are applicable to directories:
+.Bl -tag -width 6n -compact -offset indent
+.It list
+List entries.
+.It search
+Look up files by name.
+.It add_file
+Add a file.
+.It add_subdirectory
+Add a subdirectory.
+.It delete_child
+Delete a contained object.  See the file delete permission above.
+.El
+.Pp
+The following permissions are applicable to non-directory filesystem objects:
+.Bl -tag -width 6n -compact -offset indent
+.It read
+Open for reading.
+.It write
+Open for writing.
+.It append
+Open for writing, but in a fashion that only allows writes into areas of 
+the file not previously written.
+.It execute
+Execute the file as a script or program.
+.El
+.Pp
+ACL inheritance is controlled with the following permissions words, which
+may only be applied to directories:
+.Bl -tag -width 6n -compact -offset indent
+.It file_inherit
+Inherit to files.
+.It directory_inherit
+Inherit to directories.
+.It limit_inherit
+This flag is only relevant to entries inherited by subdirectories; it
+causes the directory_inherit flag to be cleared in the entry that is
+inherited, preventing further nested subdirectories from also
+inheriting the entry.
+.It only_inherit
+The entry is inherited by created items but not considered when processing
+the ACL.
+.El
+.Pp
+The ACL manipulation options are as follows:
+.Bl -tag -width Ds
+.It \fB+a\fR
+The +a mode parses a new ACL entry from the next argument on
+the commandline and inserts it into the canonical location in the
+ACL. If the supplied entry refers to an identity already listed, the
+two entries are combined.
+.Pp
+\fBExamples\fR
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+ # chmod +a "admin allow write" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: admin allow write
+ # chmod +a "guest deny read" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write
+ # chmod +a "admin allow delete" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write,delete
+.Pp
+The +a mode strives to maintain correct canonical form for the ACL.
+                 local deny
+                 local allow
+                 inherited deny
+                 inherited allow
+.Pp
+By default, chmod adds entries to the top of the local deny and local
+allow lists. Inherited entries are added by using the +ai mode.
+.Pp
+\fBExamples\fR
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write,delete
+   3: juser inherited deny delete
+   4: admin inherited allow delete
+   5: backup inherited deny read
+   6: admin inherited allow write-security
+ # chmod +ai "others allow write" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write,delete
+   3: juser inherited deny delete
+   4: others inherited allow read
+   5: admin inherited allow delete
+   6: backup inherited deny read
+   7: admin inherited allow write-security
+.It \fB+a#\fR
+When a specific ordering is required, the exact location at which an
+entry will be inserted is specified with the +a# mode.
+.Pp
+\fBExamples\fR
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write
+ # chmod +a# 2 "others deny read" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: others deny read
+   3: admin allow write
+.Pp
+The +ai# mode may be used to insert inherited entries at a specific
+location. Note that these modes allow non-canonical ACL ordering to
+be constructed.
+.It Fl a
+The -a mode is used to delete ACL entries. All entries exactly
+matching the supplied entry will be deleted. If the entry lists a
+subset of rights granted by an entry, only the rights listed are
+removed. Entries may also be deleted by index using the -a# mode.
+.Pp
+\fBExamples\fR
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: guest deny read
+   2: admin allow write,delete
+ # chmod -a# 1 file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: admin allow write,delete
+ # chmod -a "admin allow write" file1
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: admin allow delete
+.Pp
+Inheritance is not considered when processing the -a mode; rights and
+entries will be removed regardless of their inherited state.
+.It \fB=a#\fR
+Individual entries are rewritten using the =a# mode.
+.Pp
+\fBExamples\fR
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: admin allow delete
+ # chmod =a# 1 "admin allow write,chown"
+ # ls -le
+ -rw-r--r--+ 1 juser  wheel  0 Apr 28 14:06 file1
+   owner: juser
+   1: admin allow write,chown
+.Pp
+This mode may not be used to add new entries.
+.It Fl E    
+Reads the ACL information from stdin, as a sequential list
+of ACEs, separated by newlines.  If the information parses correctly,
+the existing information is replaced.
+.It Fl C
+Returns false if any of the named files have ACLs in non-canonical order.
+.It Fl i
+Removes the 'inherited' bit from all entries in the named file(s) ACLs.
+.It Fl I
+Removes all inherited entries from the named file(s) ACL(s).
+.El
 .Sh COMPATIBILITY
 The
 .Fl v

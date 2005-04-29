@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2001 Alexey Zelkin <phantom@FreeBSD.org>
+ * Copyright (c) 2001, 2003 Alexey Zelkin <phantom@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,64 +25,35 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/nl_langinfo.c,v 1.15 2002/03/22 21:52:18 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/nl_langinfo.c,v 1.17 2003/06/26 10:46:16 phantom Exp $");
 
-#include <locale.h>
 #include <langinfo.h>
 #include <limits.h>
+#include <locale.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "../stdtime/timelocal.h"
 #include "lnumeric.h"
-#include "lmonetary.h"
 #include "lmessages.h"
-
-#define TRANSITION_PERIOD_HACK
+#include "lmonetary.h"
+#include "../stdtime/timelocal.h"
 
 #define _REL(BASE) ((int)item-BASE)
 
 char *
-nl_langinfo(nl_item item) {
-
+nl_langinfo(nl_item item)
+{
    char *ret, *s, *cs;
    static char *csym = NULL;
-#ifdef TRANSITION_PERIOD_HACK
-   static char *cset = NULL;
-#endif /* TRANSITION_PERIOD_HACK */
 
    switch (item) {
 	case CODESET:
 		ret = "";
 		if ((s = setlocale(LC_CTYPE, NULL)) != NULL) {
-			if ((cs = strchr(s, '.')) != NULL) {
+			if ((cs = strchr(s, '.')) != NULL)
 				ret = cs + 1;
-#ifdef TRANSITION_PERIOD_HACK
-				if (strncmp(ret, "ISO_", 4) == 0) {
-					int slen = strlen(ret);
-
-					if ((cset = reallocf(cset, slen)) != NULL) {
-						strcpy(cset, "ISO");
-						strcat(cset, ret + 4);
-						ret = cset;
-					} else
-						ret = "";
-				} else if (strcmp(ret, "EUC") == 0) {
-					if (strncmp(s, "ja_JP", 5) == 0)
-						ret = "eucJP";
-					else if (strncmp(s, "ko_KR", 5) == 0)
-						ret = "eucKR";
-					else if (strncmp(s, "zh_CN", 5) == 0)
-						ret = "eucCN";
-				} else if (strcmp(ret, "ASCII") == 0)
-					ret = "US-ASCII";
-#endif /* TRANSITION_PERIOD_HACK */
-			} else if (strcmp(s, "C") == 0 ||
-				   strcmp(s, "POSIX") == 0
-#ifdef TRANSITION_PERIOD_HACK
-				   || strstr(s, "ASCII") != NULL
-#endif /* TRANSITION_PERIOD_HACK */
-				  )
+			else if (strcmp(s, "C") == 0 ||
+				 strcmp(s, "POSIX") == 0)
 				ret = "US-ASCII";
 		}
 		break;
@@ -155,9 +126,9 @@ nl_langinfo(nl_item item) {
 		ret = (char*) __get_current_messages_locale()->noexpr;
 		break;
 	/*
-	 * All items marked with LEGACY are available, but not recomended
-	 * by SUSv2 to be used in portable applications since they're subject
-	 * to remove in future specification editions
+	 * YESSTR and NOSTR items marked with LEGACY are available, but not
+	 * recomended by SUSv2 to be used in portable applications since
+	 * they're subject to remove in future specification editions.
 	 */
 	case YESSTR:            /* LEGACY  */
 		ret = (char*) __get_current_messages_locale()->yesstr;
@@ -165,6 +136,9 @@ nl_langinfo(nl_item item) {
 	case NOSTR:             /* LEGACY  */
 		ret = (char*) __get_current_messages_locale()->nostr;
 		break;
+	/*
+	 * SUSv2 special formatted currency string 
+	 */
 	case CRNCYSTR:
 		ret = "";
 		cs = (char*) __get_current_monetary_locale()->currency_symbol;
@@ -191,7 +165,7 @@ nl_langinfo(nl_item item) {
 			}
 		}
 		break;
-	case D_MD_ORDER:        /* local extension */
+	case D_MD_ORDER:        /* FreeBSD local extension */
 		ret = (char *) __get_current_time_locale()->md_order;
 		break;
 	default:

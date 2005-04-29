@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GL/gl/linestipple.3gl,v 1.4 2003/10/22 20:36:31 tsi Exp $
 '\" e
 '\"! eqn | mmdoc
 '\"macro stdmacro
@@ -60,7 +61,7 @@ Bit zero of \f2pattern\fP is the least significant bit.
 .P
 Antialiased lines are treated as a sequence of $1 times width$ rectangles
 for purposes of stippling.
-Whether rectagle $s$ is rasterized or not depends on the fragment rule
+Whether rectangle $s$ is rasterized or not depends on the fragment rule
 described for aliased lines,
 counting rectangles rather than groups of fragments.
 .P

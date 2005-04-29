@@ -1,0 +1,73 @@
+--- getcap.c.orig	2003-05-20 15:21:01.000000000 -0700
++++ getcap.c	2005-02-27 15:52:46.000000000 -0800
+@@ -40,6 +40,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/gen/getcap.c,v 1.19 2003/01/02 10:19:43 thomas Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include "namespace.h"
+ #include <sys/types.h>
+ 
+@@ -70,7 +72,7 @@
+ static int	 gottoprec;	/* Flag indicating retrieval of toprecord */
+ 
+ static int	cdbget(DB *, char **, const char *);
+-static int 	getent(char **, u_int *, char **, int, const char *, int, char *);
++static int 	getent(char **, u_int *, char **, int, const char *, int, char *, locale_t);
+ static int	nfcmp(char *, char *);
+ 
+ /*
+@@ -166,7 +168,7 @@
+ {
+ 	u_int dummy;
+ 
+-	return (getent(buf, &dummy, db_array, -1, name, 0, NULL));
++	return (getent(buf, &dummy, db_array, -1, name, 0, NULL, __current_locale()));
+ }
+ 
+ /*
+@@ -189,7 +191,7 @@
+  */
+ static int
+ getent(char **cap, u_int *len, char **db_array, int fd, const char *name,
+-    int depth, char *nfield)
++    int depth, char *nfield, locale_t loc)
+ {
+ 	DB *capdbp;
+ 	char *r_end, *rp, **db_p;
+@@ -428,7 +430,7 @@
+ 			tcend = s;
+ 
+ 			iret = getent(&icap, &ilen, db_p, fd, tc, depth+1,
+-				      NULL);
++				      NULL, loc);
+ 			newicap = icap;		/* Put into a register. */
+ 			newilen = ilen;
+ 			if (iret != 0) {
+@@ -652,6 +654,7 @@
+ 	int done, hadreaderr, i, savederrno, status;
+ 	char *cp, *line, *rp, *np, buf[BSIZE], nbuf[BSIZE];
+ 	u_int dummy;
++	locale_t loc = __current_locale();
+ 
+ 	if (dbp == NULL)
+ 		dbp = db_array;
+@@ -693,7 +696,7 @@
+ 				slash = 0;
+ 				continue;
+ 			}
+-			if (isspace((unsigned char)*line) ||
++			if (isspace_l((unsigned char)*line, loc) ||
+ 			    *line == ':' || *line == '#' || slash) {
+ 				if (line[len - 2] == '\\')
+ 					slash = 1;
+@@ -765,7 +768,7 @@
+ 		 * rather than the duplicate entry record.  This is a
+ 		 * matter of semantics that should be resolved.
+ 		 */
+-		status = getent(bp, &dummy, db_array, -1, buf, 0, NULL);
++		status = getent(bp, &dummy, db_array, -1, buf, 0, NULL, loc);
+ 		if (status == -2 || status == -3)
+ 			(void)cgetclose();
+ 

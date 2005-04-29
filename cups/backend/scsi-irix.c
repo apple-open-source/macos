@@ -3,7 +3,7 @@
  *
  *   IRIX SCSI printer support for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 2003 by Easy Software Products, all rights reserved.
+ *   Copyright 2003-2005 by Easy Software Products, all rights reserved.
  *
  *   Redistribution and use in source and binary forms, with or
  *   without modification, are permitted provided that the

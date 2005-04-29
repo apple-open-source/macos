@@ -174,7 +174,7 @@ file_close(arcn, fd)
 	 * if not preserving mode or we cannot set uid/gid, then PROHIBIT
 	 * set uid/gid bits
 	 */
-	if (!pmode || res)
+	if (!pids || res)
 		arcn->sb.st_mode &= ~(SETBITS);
 	if (pmode)
 		set_pmode(arcn->name, arcn->sb.st_mode);
@@ -579,6 +579,9 @@ unlnk_exist(name, type)
 		return(0);
 	if (kflag)
 		return(-1);
+
+	if(strstr(name, "._") != NULL) /* remove when stat works properly */
+	    return(0);
 
 	if (S_ISDIR(sb.st_mode)) {
 		/*

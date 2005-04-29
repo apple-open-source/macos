@@ -46,7 +46,7 @@ mi_gdb_load ${binfile}
 
 send_gdb "100-break-insert randomFunc\n"
 gdb_expect {
-    -re "100\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*randomFunc.*\",file=\".*objc-prog.m\",line=\"($decimal)\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    -re "100\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*randomFunc.*\",file=\".*objc-prog.m\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
     set randomFunc_line_number $expect_out(1,string)
     pass "break-insert randomFunc operation"
   }
@@ -61,7 +61,7 @@ gdb_expect {
 
 send_gdb "200-break-insert blocky\n"
 gdb_expect {
-  -re "200\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"blocky\",file=\".*objc-prog.m\",line=\"($decimal)\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+  -re "200\\^done,bkpt=\{number=\"2\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"blocky\",file=\".*objc-prog.m\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
     set blocky_line_number $expect_out(1,string)
     pass "break-insert blocky operation"
   }
@@ -76,7 +76,7 @@ gdb_expect {
 
 send_gdb "100-break-insert main\n"
 gdb_expect {
-    -re "100\\^done,bkpt=\{number=\"3\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*objc-prog.m\",line=\"($decimal)\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    -re "100\\^done,bkpt=\{number=\"3\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"main\",file=\".*objc-prog.m\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
     set main_line_number $expect_out(1,string)
     pass "break-insert main operation"
   }
@@ -99,7 +99,7 @@ mi_get_bp_stopped "3" "\[01\]" "" "main" "objc-prog.m" ".*" "run to main"
 # later when we make it a MyChild.
 
 mi_gdb_test "80-var-create objectVar * object" \
-    {80\^done,name="objectVar",numchild="1",type="id",typecode="PTR",dynamic_type="",in_scope="true",block_start_addr=".*",block_end_addr=".*"} \
+    {80\^done,name="objectVar",numchild="1",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="",in_scope="true",block_start_addr=".*",block_end_addr=".*"} \
     "created varobj for uninitialized object - no dynamic type - no error"
 
 # Run to randomFunc twice, once as MyClass, once as MyChild, and make sure the dynamic
@@ -116,11 +116,11 @@ mi_gdb_test "102-var-delete firstSelf" \
 mi_finish_to main ".*" "objc-prog.m" ".*" ".*" {\(struct objc_object \*\) 0x.*} "finished from randomFunc first time"
 
 mi_gdb_test "103-var-update objectVar" \
-    {103\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="id",new_dynamic_type="class MyClass \*",new_typecode="PTR",new_num_children="3"}\]} \
+    {103\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="class MyClass \*",new_typecode="PTR",new_num_children="3"}\]} \
     "Update objectVar as MyClass"
 
 mi_gdb_test "104-var-list-children objectVar" \
-    {104\^done,numchild="3",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="Class",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"}\]} "List objectVar's children as MyClass"
+    {104\^done,numchild="3",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"}\]} "List objectVar's children as MyClass"
 
 mi_continue_to 1 {-\[MyClass randomFunc\]} ".*" objc-prog.m $randomFunc_line_number "continue to randomFunc"
 
@@ -128,7 +128,7 @@ mi_gdb_test "105-var-create secondSelf * self" \
     {105\^done,name="secondSelf",numchild="4",type="class MyClass \*",typecode="PTR",dynamic_type="class MyChild \*",in_scope="true",block_start_addr=".*",block_end_addr=".*"} "randomFunc called for MyChild object"
 
 mi_gdb_test "106-var-list-children secondSelf" \
-    {106\^done,numchild="4",children=\[child={name="secondSelf.isa",exp="isa",numchild="0",type="Class",typecode="PTR",dynamic_type=""},child={name="secondSelf.object",exp="object",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf._object2",exp="_object2",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List secondSelf's children"
+    {106\^done,numchild="4",children=\[child={name="secondSelf.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="secondSelf.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="secondSelf.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List secondSelf's children"
 
 mi_gdb_test "107-var-evaluate-expression secondSelf.some_val" \
     {107\^done,value="5"} "secondSelf.some_value is 5"
@@ -139,11 +139,11 @@ mi_gdb_test "108-var-delete secondSelf" \
 mi_finish_to main ".*" "objc-prog.m" ".*" ".*" {\(struct objc_object \*\) 0x.*} "finished from randomFunc second time"
 
 mi_gdb_test "109-var-update objectVar" \
-    {109\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="id",new_dynamic_type="class MyChild \*",new_typecode="PTR",new_num_children="4"}\]} \
+    {109\^done,changelist=\[varobj={name="objectVar",in_scope="true",type_changed="true",new_type="(id|struct objc_object \*)",new_dynamic_type="class MyChild \*",new_typecode="PTR",new_num_children="4"}\]} \
     "Update objectVar as MyChild"
 
 mi_gdb_test "110-var-list-children objectVar" \
-    {110\^done,numchild="4",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="Class",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="id",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List objectVar's children"
+    {110\^done,numchild="4",children=\[child={name="objectVar.isa",exp="isa",numchild="0",type="(Class|struct objc_class \*)",typecode="PTR",dynamic_type=""},child={name="objectVar.object",exp="object",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar._object2",exp="_object2",numchild="3",type="(id|struct objc_object \*)",typecode="PTR",dynamic_type="class NSConstantString \*"},child={name="objectVar.some_val",exp="some_val",numchild="0",type="int",typecode="INT",dynamic_type=""}\]} "List objectVar's children"
 
 mi_gdb_test "111-var-evaluate-expression objectVar.some_val" \
     {111\^done,value="5"} "objectVar.some_value is 5"
@@ -190,7 +190,7 @@ mi_gdb_test "125-stack-list-locals 2 1" \
 set second_blocky_bp [expr $blocky_line_number + 7]
 
 mi_gdb_test "130-break-insert $second_blocky_bp" \
-	"130\\^done,bkpt=\{number=\"4\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"blocky\",file=\".*objc-prog.m\",line=\"$second_blocky_bp\",times=\"0\"\}" \
+	"130\\^done,bkpt=\{number=\"4\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\"blocky\",file=\".*objc-prog.m\",line=\"$second_blocky_bp\",shlib=\"$binfile\",times=\"0\"\}" \
 	"break-insert operation 4"
 mi_continue_to "4" "blocky" ".*" "objc-prog.m" "$second_blocky_bp"  "continue to line $second_blocky_bp"
 

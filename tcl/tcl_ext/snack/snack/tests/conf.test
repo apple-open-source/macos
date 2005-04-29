@@ -1,0 +1,163 @@
+# Commands covered: sound configure
+#
+
+package require -exact snack 2.2
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+test configure-1.1 {configure command, bad args} {
+  set s [snack::sound snd]
+  set res [list [catch {$s configure -junk} msg] $msg]
+  $s destroy
+  set res
+} {1 {bad option "-junk": must be -load, -file, -channel, -rate, -frequency, -channels, -encoding, -format, -byteorder, -buffersize, -skiphead, -guessproperties, -precision, -changecommand, -fileformat, or -debug}}
+
+test configure-2.1 {configure command, get option -load} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s configure -load]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test configure-2.2 {configure command, get option -file} {
+  set s [snack::sound snd -file ex1.wav]
+  set res [$s configure -file]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test configure-2.3 {configure command, get option -rate} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s configure -rate]
+  $s destroy
+  set res
+} 16000
+
+test configure-2.4 {configure command, get option -encoding} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s configure -encoding]
+  $s destroy
+  set res
+} Lin16
+
+test configure-2.5 {configure command, get option -channels} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s configure -channels]
+  $s destroy
+  set res
+} 1
+
+test configure-2.6 {configure command, get option -byteorder} {
+  set s [snack::sound snd -load ex1.wav]
+  set res [$s configure -byteorder]
+  $s destroy
+  set res
+} littleEndian
+
+test configure-3.1 {configure command, set option -load} {
+  set s [snack::sound snd]
+  $s configure -load ex1.wav
+  set res [$s cget -load]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test configure-3.2 {configure command, set option -file} {
+  set s [snack::sound snd]
+  $s configure -file ex1.wav
+  set res [$s cget -file]
+  $s destroy
+  set res
+} {ex1.wav}
+
+test configure-3.3 {configure command, set option -rate} {
+  set s [snack::sound snd]
+  $s configure -rate 8000
+  set res [$s cget -rate]
+  $s destroy
+  set res
+} 8000
+
+test configure-3.4 {configure command, set option -rate} {
+  set s [snack::sound snd]
+  $s configure -rate 44100
+  set res [$s cget -rate]
+  $s destroy
+  set res
+} 44100
+
+test configure-3.5 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  $s configure -encoding Lin16
+  set res [$s cget -encoding]
+  $s destroy
+  set res
+} Lin16
+
+test configure-3.6 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  $s configure -encoding Mulaw
+  set res [$s cget -encoding]
+  $s destroy
+  set res
+} Mulaw
+
+test configure-3.7 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  $s configure -encoding Float
+  set res [$s cget -encoding]
+  $s destroy
+  set res
+} Float
+
+test configure-3.8 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  catch {$s configure -encoding junk} msg
+  $s destroy
+  set msg
+} {Unknown encoding}
+
+test configure-3.9 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  $s configure -channels 2
+  set res [$s cget -channels]
+  $s destroy
+  set res
+} 2
+
+test configure-3.10 {configure command, set option -byteorder} {
+  set s [snack::sound snd]
+  $s configure -byteorder littleEndian
+  set res [$s cget -byteorder]
+  $s destroy
+  set res
+} littleEndian
+
+test configure-3.11 {configure command, set option -precision} {
+  set s [snack::sound snd]
+  $s configure -precision double
+  set res [$s cget -precision]
+  $s destroy
+  set res
+} double
+
+test configure-4.1 {configure command} {
+  set s [snack::sound snd]
+  set res [$s configure]
+  $s destroy
+  set res
+} {0 16000 0 0 Lin16 1}
+
+test configure-5.1 {configure command, set option -encoding} {
+  set s [snack::sound snd]
+  catch {$s configure -channels 2 -encoding} msg
+  $s destroy
+  set msg
+} {No argument given for -encoding option}
+
+# cleanup
+::tcltest::cleanupTests
+return

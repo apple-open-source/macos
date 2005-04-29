@@ -1,5 +1,7 @@
 /* GNU m4 -- A simple macro processor
-   Copyright (C) 1989, 90, 91, 92, 93, 94 Free Software Foundation, Inc.
+
+   Copyright (C) 1989, 1990, 1991, 1992, 1993, 1994, 2004 Free
+   Software Foundation, Inc.
   
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -91,8 +93,10 @@ typedef struct macro_definition macro_definition;
 void
 reference_error (void)
 {
+  int e = errno;
   fflush (stdout);
   fprintf (stderr, "%s:%d: ", current_file, current_line);
+  errno = e;
 }
 
 #ifdef USE_STACKOVF

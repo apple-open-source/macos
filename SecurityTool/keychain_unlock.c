@@ -1,36 +1,34 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
- *  keychain_unlock.c
- *  security
  *
- *  Created by Archana Gottipaty on Sun May 11 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
+ * keychain_unlock.c
  */
 
 #include "keychain_unlock.h"
 #include "readline.h"
 #include "keychain_utilities.h"
+#include "security.h"
+
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,7 +53,7 @@ do_unlock(const char *keychainName, char *password, Boolean use_password)
 	result = SecKeychainUnlock(keychain, password ? strlen(password) : 0, password, use_password);
 	if (result)
 	{
-		fprintf(stderr, "SecKeychainUnlock %s returned %ld(0x%lx)\n", keychainName ? keychainName : "<NULL>", result, result);
+		sec_error("SecKeychainUnlock %s: %s", keychainName ? keychainName : "<NULL>", sec_errstr(result));
 	}
 
 loser:
@@ -68,7 +66,7 @@ loser:
 int
 keychain_unlock(int argc, char * const *argv)
 {
-	int free_password = 0;
+	int zero_password = 0;
 	char *password = NULL;
 	int ch, result = 0;
 	Boolean use_password = TRUE;
@@ -107,14 +105,18 @@ keychain_unlock(int argc, char * const *argv)
 
     if (!password && use_password)
     {
-        fprintf(stderr, "password to unlock %s: ", keychainName ? keychainName : "default");
-        password = readline(NULL, 0);
+		const char *fmt = "password to unlock %s: ";
+		const char *name = keychainName ? keychainName : "default";
+		char *prompt = malloc(strlen(fmt) + strlen(name));
+		sprintf(prompt, fmt, name);
+        password = getpass(prompt);
+		free(prompt);
 		if (!password)
 		{
 			result = -1;
 			goto loser;
 		}
-		free_password = 1;
+		zero_password = 1;
     }
 
 	result = do_unlock(keychainName, password, use_password);
@@ -122,8 +124,8 @@ keychain_unlock(int argc, char * const *argv)
 		goto loser;
 
 loser:
-	if (free_password)
-		free(password);
+	if (zero_password)
+		memset(password, 0, strlen(password));
 
 	return result;
 }

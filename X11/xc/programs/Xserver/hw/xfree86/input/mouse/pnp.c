@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/pnp.c,v 1.16 2003/02/04 15:21:18 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/mouse/pnp.c,v 1.21 2003/11/03 05:11:49 tsi Exp $ */
 /*
  * Copyright 1998 by Kazutaka YOKOTA <yokota@zodiac.mech.utsunomiya-u.ac.jp>
  *
@@ -35,6 +35,11 @@
 #include "mouse.h"
 #include "mousePriv.h"
 
+#ifdef MOUSEINITDEBUG
+# define DEBUG
+# define EXTMOUSEDEBUG
+#endif
+
 /* serial PnP ID string */
 typedef struct {
     int revision;	/* PnP revision, 100 for 1.00 */
@@ -53,7 +58,7 @@ typedef struct {
 /* symbol table entry */
 typedef struct {
     char *name;
-    int val;
+    MouseProtocolID val;
 } symtab_t;
 
 /* PnP EISA/product IDs */
@@ -118,7 +123,7 @@ static symtab_t pnpprod[] = {
     { "PNP0F1D",  PROT_??? },		/* Compaq LTE TrackBall serial */
     { "PNP0F1E",  PROT_??? },		/* MS Kids Trackball */
 #endif
-    { NULL,	  -1 },
+    { NULL,	  PROT_UNKNOWN },
 };
 
 static const char *pnpSerial[] = {
@@ -134,13 +139,13 @@ static const char *pnpSerial[] = {
 
 static int pnpgets(InputInfoPtr, char *, Bool *prePNP);
 static int pnpparse(InputInfoPtr, pnpid_t *, char *, int);
-static int prepnpparse(InputInfoPtr pInfo, char *buf);
+static MouseProtocolID prepnpparse(InputInfoPtr pInfo, char *buf);
 static symtab_t *pnpproto(pnpid_t *);
 static symtab_t *gettoken(symtab_t *, char *, int);
 static MouseProtocolID getPs2ProtocolPnP(InputInfoPtr pInfo);
 static MouseProtocolID probePs2ProtocolPnP(InputInfoPtr pInfo);
 
-static int
+static MouseProtocolID
 MouseGetSerialPnpProtocol(InputInfoPtr pInfo)
 {
     char buf[256];	/* PnP ID string may be up to 256 bytes long */
@@ -164,12 +169,12 @@ MouseGetSerialPnpProtocol(InputInfoPtr pInfo)
     return PROT_UNKNOWN;
 }
 
-int
+MouseProtocolID
 MouseGetPnpProtocol(InputInfoPtr pInfo)
 {
     MouseDevPtr  pMse = pInfo->private;
     mousePrivPtr mPriv = (mousePrivPtr)pMse->mousePriv;
-    int val;
+    MouseProtocolID val;
     CARD32 last;
     
     if ((val = MouseGetSerialPnpProtocol(pInfo)) != PROT_UNKNOWN) {
@@ -473,7 +478,7 @@ pnpparse(InputInfoPtr pInfo, pnpid_t *id, char *buf, int len)
     /* checksum exists if there are any optional fields */
     if ((id->nserial > 0) || (id->nclass > 0)
 	|| (id->ncompat > 0) || (id->ndescription > 0)) {
-	xf86MsgVerb(X_INFO, 4, "PnP checksum: 0x%02X\n", pInfo->name, sum);
+	xf86MsgVerb(X_INFO, 4, "%s: PnP checksum: 0x%02X\n", pInfo->name, sum);
         sprintf(s, "%02X", sum & 0x0ff);
         if (strncmp(s, &buf[len - 3], 2) != 0) {
 #if 0
@@ -491,7 +496,7 @@ pnpparse(InputInfoPtr pInfo, pnpid_t *id, char *buf, int len)
 }
 
 /* We can only identify MS at the moment */
-static int
+static MouseProtocolID
 prepnpparse(InputInfoPtr pInfo, char *buf)
 {
     if (buf[0] == 'M' && buf[1] == '3')
@@ -638,11 +643,14 @@ ps2EnableDataReporting(InputInfoPtr pInfo)
     return ps2SendPacket(pInfo, packet, sizeof(packet));
 }
 
-static int
+int
 ps2GetDeviceID(InputInfoPtr pInfo)
 {
     unsigned char u;
     unsigned char packet[] = { 0xf2 };
+
+    usleep(30000);
+    xf86FlushInput(pInfo->fd);
     if (!ps2SendPacket(pInfo, packet, sizeof(packet))) 
 	return -1;
     while (1) {
@@ -663,7 +671,7 @@ ps2Reset(InputInfoPtr pInfo)
     unsigned char u;
     unsigned char packet[] = { 0xff };
     unsigned char reply[] = { 0xaa, 0x00 };
-    int i;
+    unsigned int i;
 #ifdef DEBUG
    xf86ErrorF("PS/2 Mouse reset\n");
 #endif
@@ -696,16 +704,16 @@ probePs2ProtocolPnP(InputInfoPtr pInfo)
     ps2DisableDataReporting(pInfo);
     
     if (ps2Reset(pInfo)) { /* Reset PS2 device */
-	unsigned char seq[] = { 243, 200, 243, 100, 243, 80, 242 };
+  	unsigned char seq[] = { 243, 200, 243, 100, 243, 80 }; 
 	/* Try to identify Intelli Mouse */
 	if (ps2SendPacket(pInfo, seq, sizeof(seq))) {
-	    readMouse(pInfo,&u);
+	    u = ps2GetDeviceID(pInfo);
 	    if (u == 0x03) {
 		/* found IntelliMouse now try IntelliExplorer */
-		unsigned char seq[] = { 243, 200, 243, 200, 243, 80, 242 };
+		unsigned char seq[] = { 243, 200, 243, 200, 243, 80 };
 		if (ps2SendPacket(pInfo,seq,sizeof(seq))) {
-		    readMouse(pInfo,&u);
-		    if (u == 0x05)
+		    u = ps2GetDeviceID(pInfo);
+		    if (u == 0x04)
 			ret =  PROT_EXPPS2;
 		    else 
 			ret = PROT_IMPS2;
@@ -726,7 +734,7 @@ static struct ps2protos {
 } ps2 [] = {
     { 0x0, PROT_PS2 },
     { 0x3, PROT_IMPS2 },
-    { 0x5, PROT_EXPPS2 },
+    { 0x4, PROT_EXPPS2 },
     { -1 , PROT_UNKNOWN }
 };
 

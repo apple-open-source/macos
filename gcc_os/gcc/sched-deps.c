@@ -81,14 +81,12 @@ static sbitmap *forward_dependency_cache;
 static int deps_may_trap_p PARAMS ((rtx));
 static void add_dependence_list PARAMS ((rtx, rtx, enum reg_note));
 static void add_dependence_list_and_free PARAMS ((rtx, rtx *, enum reg_note));
-static void remove_dependence PARAMS ((rtx, rtx));
 static void set_sched_group_p PARAMS ((rtx));
 
 static void flush_pending_lists PARAMS ((struct deps *, rtx, int, int));
 static void sched_analyze_1 PARAMS ((struct deps *, rtx, rtx));
 static void sched_analyze_2 PARAMS ((struct deps *, rtx, rtx));
 static void sched_analyze_insn PARAMS ((struct deps *, rtx, rtx, rtx));
-static rtx group_leader PARAMS ((rtx));
 
 static rtx get_condition PARAMS ((rtx));
 static int conditions_mutex_p PARAMS ((rtx, rtx));
@@ -182,7 +180,7 @@ add_dependence (insn, elem, dep_type)
      rtx elem;
      enum reg_note dep_type;
 {
-  rtx link, next;
+  rtx link;
   int present_p;
   rtx cond1, cond2;
 
@@ -214,38 +212,6 @@ add_dependence (insn, elem, dep_type)
 	     instruction if switched.  */
 	  && !modified_in_p (cond2, insn))
 	return;
-    }
-
-  /* If elem is part of a sequence that must be scheduled together, then
-     make the dependence point to the last insn of the sequence.
-     When HAVE_cc0, it is possible for NOTEs to exist between users and
-     setters of the condition codes, so we must skip past notes here.
-     Otherwise, NOTEs are impossible here.  */
-  next = next_nonnote_insn (elem);
-  if (next && SCHED_GROUP_P (next)
-      && GET_CODE (next) != CODE_LABEL)
-    {
-      /* Notes will never intervene here though, so don't bother checking
-         for them.  */
-      /* Hah!  Wrong.  */
-      /* We must reject CODE_LABELs, so that we don't get confused by one
-         that has LABEL_PRESERVE_P set, which is represented by the same
-         bit in the rtl as SCHED_GROUP_P.  A CODE_LABEL can never be
-         SCHED_GROUP_P.  */
-
-      rtx nnext;
-      while ((nnext = next_nonnote_insn (next)) != NULL
-	     && SCHED_GROUP_P (nnext)
-	     && GET_CODE (nnext) != CODE_LABEL)
-	next = nnext;
-
-      /* Again, don't depend an insn on itself.  */
-      if (insn == next)
-	return;
-
-      /* Make the dependence to NEXT, the last insn of the group, instead
-         of the original ELEM.  */
-      elem = next;
     }
 
   present_p = 1;
@@ -280,7 +246,7 @@ add_dependence (insn, elem, dep_type)
       else if (TEST_BIT (output_dependency_cache[INSN_LUID (insn)],
 			 INSN_LUID (elem)))
 	present_dep_type = REG_DEP_OUTPUT;
-      else 
+      else
 	present_p = 0;
       if (present_p && (int) dep_type >= (int) present_dep_type)
 	return;
@@ -313,7 +279,7 @@ add_dependence (insn, elem, dep_type)
 	     one, then change the existing dependence to this type.  */
 	  if ((int) dep_type < (int) REG_NOTE_KIND (link))
 	    PUT_REG_NOTE_KIND (link, dep_type);
-	  
+
 #ifdef INSN_SCHEDULING
 	  /* If we are adding a dependency to INSN's LOG_LINKs, then
 	     note that in the bitmap caches of dependency information.  */
@@ -383,103 +349,22 @@ add_dependence_list_and_free (insn, listp, dep_type)
     }
 }
 
-/* Remove ELEM wrapped in an INSN_LIST from the LOG_LINKS
-   of INSN.  Abort if not found.  */
-
-static void
-remove_dependence (insn, elem)
-     rtx insn;
-     rtx elem;
-{
-  rtx prev, link, next;
-  int found = 0;
-
-  for (prev = 0, link = LOG_LINKS (insn); link; link = next)
-    {
-      next = XEXP (link, 1);
-      if (XEXP (link, 0) == elem)
-	{
-	  if (prev)
-	    XEXP (prev, 1) = next;
-	  else
-	    LOG_LINKS (insn) = next;
-
-#ifdef INSN_SCHEDULING
-	  /* If we are removing a dependency from the LOG_LINKS list,
-	     make sure to remove it from the cache too.  */
-	  if (true_dependency_cache != NULL)
-	    {
-	      if (REG_NOTE_KIND (link) == 0)
-		RESET_BIT (true_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
-	      else if (REG_NOTE_KIND (link) == REG_DEP_ANTI)
-		RESET_BIT (anti_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
-	      else if (REG_NOTE_KIND (link) == REG_DEP_OUTPUT)
-		RESET_BIT (output_dependency_cache[INSN_LUID (insn)],
-			   INSN_LUID (elem));
-	    }
-#endif
-
-	  free_INSN_LIST_node (link);
-
-	  found = 1;
-	}
-      else
-	prev = link;
-    }
-
-  if (!found)
-    abort ();
-  return;
-}
-
-/* Return an insn which represents a SCHED_GROUP, which is
-   the last insn in the group.  */
-
-static rtx
-group_leader (insn)
-     rtx insn;
-{
-  rtx prev;
-
-  do
-    {
-      prev = insn;
-      insn = next_nonnote_insn (insn);
-    }
-  while (insn && SCHED_GROUP_P (insn) && (GET_CODE (insn) != CODE_LABEL));
-
-  return prev;
-}
-
 /* Set SCHED_GROUP_P and care for the rest of the bookkeeping that
    goes along with that.  */
 
+/* APPLE LOCAL begin - 3.4 scheduler update */
 static void
 set_sched_group_p (insn)
      rtx insn;
 {
-  rtx link, prev;
+  rtx prev;
 
   SCHED_GROUP_P (insn) = 1;
 
-  /* There may be a note before this insn now, but all notes will
-     be removed before we actually try to schedule the insns, so
-     it won't cause a problem later.  We must avoid it here though.  */
   prev = prev_nonnote_insn (insn);
-
-  /* Make a copy of all dependencies on the immediately previous insn,
-     and add to this insn.  This is so that all the dependencies will
-     apply to the group.  Remove an explicit dependence on this insn
-     as SCHED_GROUP_P now represents it.  */
-
-  if (find_insn_list (prev, LOG_LINKS (insn)))
-    remove_dependence (insn, prev);
-
-  for (link = LOG_LINKS (prev); link; link = XEXP (link, 1))
-    add_dependence (insn, XEXP (link, 0), REG_NOTE_KIND (link));
+  add_dependence (insn, prev, REG_DEP_ANTI);
 }
+/* APPLE LOCAL end  - 3.4 scheduler update */
 
 /* Process an insn's memory dependencies.  There are four kinds of
    dependencies:
@@ -923,7 +808,15 @@ sched_analyze_insn (deps, x, insn, loop_notes)
       code = GET_CODE (x);
     }
   if (code == SET || code == CLOBBER)
-    sched_analyze_1 (deps, x, insn);
+    {
+      sched_analyze_1 (deps, x, insn);
+
+      /* Bare clobber insns are used for letting life analysis, reg-stack
+	 and others know that a value is dead.  Depend on the last call
+	 instruction so that reg-stack won't get confused.  */
+      if (code == CLOBBER)
+	add_dependence_list (insn, deps->last_function_call, REG_DEP_OUTPUT);
+    }
   else if (code == PARALLEL)
     {
       int i;
@@ -974,7 +867,17 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  INIT_REG_SET (&tmp);
 
 	  (*current_sched_info->compute_jump_reg_dependencies) (insn, &tmp);
-	  IOR_REG_SET (reg_pending_uses, &tmp);
+	  /* APPLE LOCAL begin - 3.4 scheduler update */
+	  /* Make latency of jump equal to 0 by using anti-dependence.  */
+	  EXECUTE_IF_SET_IN_REG_SET (&tmp, 0, i,
+	    {
+	      struct deps_reg *reg_last = &deps->reg_last[i];
+	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
+	      reg_last->uses_length++;
+	      reg_last->uses = alloc_INSN_LIST (insn, reg_last->uses);
+	    });
+	  /* APPLE LOCAL end - 3.4 scheduler update */
 	  CLEAR_REG_SET (&tmp);
 
 	  /* All memory writes and volatile reads must happen before the
@@ -1032,7 +935,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
     }
 
   /* If this instruction can throw an exception, then moving it changes
-     where block boundaries fall.  This is mighty confusing elsewhere. 
+     where block boundaries fall.  This is mighty confusing elsewhere.
      Therefore, prevent such an instruction from being moved.  */
   if (can_throw_internal (insn))
     reg_pending_barrier = true;
@@ -1040,14 +943,18 @@ sched_analyze_insn (deps, x, insn, loop_notes)
   /* Add dependencies if a scheduling barrier was found.  */
   if (reg_pending_barrier)
     {
+      /* In the case of barrier the most added dependencies are not
+         real, so we use anti-dependence here.  */
       if (GET_CODE (PATTERN (insn)) == COND_EXEC)
 	{
 	  EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
-	      add_dependence_list (insn, reg_last->sets, 0);
-	      add_dependence_list (insn, reg_last->clobbers, 0);
+	      /* APPLE LOCAL begin - 3.4 scheduler update */
+	      add_dependence_list (insn, reg_last->sets, REG_DEP_ANTI);
+	      add_dependence_list (insn, reg_last->clobbers, REG_DEP_ANTI);
+	      /* APPLE LOCAL end - 3.4 scheduler update */
 	    });
 	}
       else
@@ -1057,8 +964,12 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	      struct deps_reg *reg_last = &deps->reg_last[i];
 	      add_dependence_list_and_free (insn, &reg_last->uses,
 					    REG_DEP_ANTI);
-	      add_dependence_list_and_free (insn, &reg_last->sets, 0);
-	      add_dependence_list_and_free (insn, &reg_last->clobbers, 0);
+	      /* APPLE LOCAL begin - 3.4 scheduler update */
+	      add_dependence_list_and_free (insn, &reg_last->sets,
+					    REG_DEP_ANTI);
+	      add_dependence_list_and_free (insn, &reg_last->clobbers,
+					    REG_DEP_ANTI);
+	      /* APPLE LOCAL end - 3.4 scheduler update */
 	      reg_last->uses_length = 0;
 	      reg_last->clobbers_length = 0;
 	    });
@@ -1118,8 +1029,6 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 	  EXECUTE_IF_SET_IN_REG_SET (reg_pending_clobbers, 0, i,
 	    {
 	      struct deps_reg *reg_last = &deps->reg_last[i];
-	      add_dependence_list (insn, reg_last->sets, REG_DEP_OUTPUT);
-	      add_dependence_list (insn, reg_last->uses, REG_DEP_ANTI);
 	      if (reg_last->uses_length > MAX_PENDING_LIST_LENGTH
 		  || reg_last->clobbers_length > MAX_PENDING_LIST_LENGTH)
 		{
@@ -1129,6 +1038,7 @@ sched_analyze_insn (deps, x, insn, loop_notes)
 						REG_DEP_ANTI);
 		  add_dependence_list_and_free (insn, &reg_last->clobbers,
 						REG_DEP_OUTPUT);
+		  reg_last->sets = alloc_INSN_LIST (insn, reg_last->sets);
 		  reg_last->clobbers_length = 0;
 		  reg_last->uses_length = 0;
 		}
@@ -1162,6 +1072,16 @@ sched_analyze_insn (deps, x, insn, loop_notes)
   CLEAR_REG_SET (reg_pending_uses);
   CLEAR_REG_SET (reg_pending_clobbers);
   CLEAR_REG_SET (reg_pending_sets);
+
+  /* If we are currently in a libcall scheduling group, then mark the
+     current insn as being in a scheduling group and that it can not
+     be moved into a different basic block.  */
+
+  if (deps->libcall_block_tail_insn)
+    {
+      set_sched_group_p (insn);
+      CANT_MOVE (insn) = 1;
+    }
 
   /* If a post-call group is still open, see if it should remain so.
      This insn must be a simple move of a hard reg to a pseudo or
@@ -1226,13 +1146,12 @@ sched_analyze (deps, head, tail)
 
   for (insn = head;; insn = NEXT_INSN (insn))
     {
+      rtx link, end_seq, r0, set;
+
       if (GET_CODE (insn) == INSN || GET_CODE (insn) == JUMP_INSN)
 	{
 	  /* Clear out the stale LOG_LINKS from flow.  */
 	  free_INSN_LIST_list (&LOG_LINKS (insn));
-
-	  /* Clear out stale SCHED_GROUP_P.  */
-	  SCHED_GROUP_P (insn) = 0;
 
 	  /* Make each JUMP_INSN a scheduling barrier for memory
              references.  */
@@ -1251,9 +1170,6 @@ sched_analyze (deps, head, tail)
       else if (GET_CODE (insn) == CALL_INSN)
 	{
 	  int i;
-
-	  /* Clear out stale SCHED_GROUP_P.  */
-	  SCHED_GROUP_P (insn) = 0;
 
 	  CANT_MOVE (insn) = 1;
 
@@ -1275,8 +1191,12 @@ sched_analyze (deps, head, tail)
 		    SET_REGNO_REG_SET (reg_pending_sets, i);
 		    SET_REGNO_REG_SET (reg_pending_uses, i);
 		  }
-		/* Other call-clobbered hard regs may be clobbered.  */
-		else if (TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
+		/* Other call-clobbered hard regs may be clobbered.
+		   Since we only have a choice between 'might be clobbered'
+		   and 'definitely not clobbered', we must include all
+		   partly call-clobbered registers here.  */
+		else if (HARD_REGNO_CALL_PART_CLOBBERED (i, reg_raw_mode[i])
+			 || TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
 		  SET_REGNO_REG_SET (reg_pending_clobbers, i);
 		/* We don't know what set of fixed registers might be used
 		   by the function, but it is certain that the stack pointer
@@ -1321,17 +1241,7 @@ sched_analyze (deps, head, tail)
       /* See comments on reemit_notes as to why we do this.
 	 ??? Actually, the reemit_notes just say what is done, not why.  */
 
-      else if (GET_CODE (insn) == NOTE
-	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_BEG
-		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_RANGE_END))
-	{
-	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE, NOTE_RANGE_INFO (insn),
-					loop_notes);
-	  loop_notes = alloc_EXPR_LIST (REG_SAVE_NOTE,
-					GEN_INT (NOTE_LINE_NUMBER (insn)),
-					loop_notes);
-	}
-      else if (GET_CODE (insn) == NOTE
+      if (GET_CODE (insn) == NOTE
 	       && (NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_BEG
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_LOOP_END
 		   || NOTE_LINE_NUMBER (insn) == NOTE_INSN_EH_REGION_BEG
@@ -1356,6 +1266,46 @@ sched_analyze (deps, head, tail)
 
       if (current_sched_info->use_cselib)
 	cselib_process_insn (insn);
+
+      /* Now that we have completed handling INSN, check and see if it is
+	 a CLOBBER beginning a libcall block.   If it is, record the
+	 end of the libcall sequence. 
+
+	 We want to schedule libcall blocks as a unit before reload.  While
+	 this restricts scheduling, it preserves the meaning of a libcall
+	 block.
+
+	 As a side effect, we may get better code due to decreased register
+	 pressure as well as less chance of a foreign insn appearing in
+	 a libcall block.  */
+      if (!reload_completed
+	  /* Note we may have nested libcall sequences.  We only care about
+	     the outermost libcall sequence.  */ 
+	  && deps->libcall_block_tail_insn == 0
+	  /* The sequence must start with a clobber of a register.  */
+	  && GET_CODE (insn) == INSN
+	  && GET_CODE (PATTERN (insn)) == CLOBBER
+          && (r0 = XEXP (PATTERN (insn), 0), GET_CODE (r0) == REG)
+	  && GET_CODE (XEXP (PATTERN (insn), 0)) == REG
+	  /* The CLOBBER must also have a REG_LIBCALL note attached.  */
+	  && (link = find_reg_note (insn, REG_LIBCALL, NULL_RTX)) != 0
+	  && (end_seq = XEXP (link, 0)) != 0
+	  /* The insn referenced by the REG_LIBCALL note must be a
+	     simple nop copy with the same destination as the register
+	     mentioned in the clobber.  */
+	  && (set = single_set (end_seq)) != 0
+	  && SET_DEST (set) == r0 && SET_SRC (set) == r0
+	  /* And finally the insn referenced by the REG_LIBCALL must
+	     also contain a REG_EQUAL note and a REG_RETVAL note.  */
+	  && find_reg_note (end_seq, REG_EQUAL, NULL_RTX) != 0
+	  && find_reg_note (end_seq, REG_RETVAL, NULL_RTX) != 0)
+	deps->libcall_block_tail_insn = XEXP (link, 0);
+
+      /* If we have reached the end of a libcall block, then close the
+	 block.  */
+      if (deps->libcall_block_tail_insn == insn)
+	deps->libcall_block_tail_insn = 0;
+
       if (insn == tail)
 	{
 	  if (current_sched_info->use_cselib)
@@ -1384,11 +1334,9 @@ compute_forward_dependences (head, tail)
       if (! INSN_P (insn))
 	continue;
 
-      insn = group_leader (insn);
-
       for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
 	{
-	  rtx x = group_leader (XEXP (link, 0));
+	  rtx x = XEXP (link, 0); /* APPLE LOCAL - 3.4 scheduler update */
 	  rtx new_link;
 
 	  if (x != XEXP (link, 0))
@@ -1449,6 +1397,7 @@ init_deps (deps)
   deps->last_function_call = 0;
   deps->sched_before_next_call = 0;
   deps->in_post_call_group_p = false;
+  deps->libcall_block_tail_insn = 0;
 }
 
 /* Free insn lists found in DEPS.  */
@@ -1471,9 +1420,12 @@ free_deps (deps)
   EXECUTE_IF_SET_IN_REG_SET (&deps->reg_last_in_use, 0, i,
     {
       struct deps_reg *reg_last = &deps->reg_last[i];
-      free_INSN_LIST_list (&reg_last->uses);
-      free_INSN_LIST_list (&reg_last->sets);
-      free_INSN_LIST_list (&reg_last->clobbers);
+      if (reg_last->uses)
+	free_INSN_LIST_list (&reg_last->uses);
+      if (reg_last->sets)
+	free_INSN_LIST_list (&reg_last->sets);
+      if (reg_last->clobbers)
+	free_INSN_LIST_list (&reg_last->clobbers);
     });
   CLEAR_REG_SET (&deps->reg_last_in_use);
 
@@ -1481,7 +1433,7 @@ free_deps (deps)
 }
 
 /* If it is profitable to use them, initialize caches for tracking
-   dependency informatino.  LUID is the number of insns to be scheduled,
+   dependency information.  LUID is the number of insns to be scheduled,
    it is used in the estimate of profitability.  */
 
 void

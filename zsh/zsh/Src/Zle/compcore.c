@@ -277,7 +277,7 @@ int fromcomp;
 /* This holds the end-position of the last string inserted into the line. */
 
 /**/
-int lastend;
+mod_export int lastend;
 
 #define inststr(X) inststrlen((X),1,-1)
 
@@ -285,7 +285,7 @@ int lastend;
 
 /**/
 int
-do_completion(Hookdef dummy, Compldat dat)
+do_completion(UNUSED(Hookdef dummy), Compldat dat)
 {
     int ret = 0, lst = dat->lst, incmd = dat->incmd, osl = showinglist;
     char *s = dat->s;
@@ -444,7 +444,7 @@ static int oldmenucmp;
 
 /**/
 int
-before_complete(Hookdef dummy, int *lst)
+before_complete(UNUSED(Hookdef dummy), int *lst)
 {
     oldmenucmp = menucmp;
 
@@ -483,7 +483,7 @@ before_complete(Hookdef dummy, int *lst)
 
 /**/
 int
-after_complete(Hookdef dummy, int *dat)
+after_complete(UNUSED(Hookdef dummy), int *dat)
 {
     if (menucmp && !oldmenucmp) {
 	struct chdata cdat;
@@ -618,14 +618,14 @@ callcompfunc(char *s, char *fn)
 		untokenize(*q = ztrdup(*p));
 	    *q = NULL;
 	} else
-	    compwords = (char **) zcalloc(sizeof(char *));
+	    compwords = (char **) zshcalloc(sizeof(char *));
 
 	if (compredirs)
 	    freearray(compredirs);
         if (rdstrs)
             compredirs = bld_list_array(rdstrs);
         else
-            compredirs = (char **) zcalloc(sizeof(char *));
+            compredirs = (char **) zshcalloc(sizeof(char *));
 
 	compparameter = ztrdup(compparameter);
 	compredirect = ztrdup(compredirect);
@@ -1477,7 +1477,7 @@ set_comp_sep(void)
     sl = strlen(s);
     if (swe > sl) {
 	swe = sl;
-	if (strlen(ns) > swe - swb + 1)
+	if ((int)strlen(ns) > swe - swb + 1)
 	    ns[swe - swb + 1] = '\0';
     }
     qs = (issq ? dupstring(s + swe) : rembslash(s + swe));
@@ -1862,8 +1862,8 @@ addmatches(Cadata dat, char **argv)
 	    llpl = strlen(lpre);
 	    llsl = strlen(lsuf);
 
-	    if (llpl + strlen(compqiprefix) + strlen(lipre) != origlpre ||
-		llsl + strlen(compqisuffix) + strlen(lisuf) != origlsuf)
+	    if (llpl + (int)strlen(compqiprefix) + (int)strlen(lipre) != origlpre
+	     || llsl + (int)strlen(compqisuffix) + (int)strlen(lisuf) != origlsuf)
 		lenchanged = 1;
 
 	    /* Test if there is an existing -P prefix. */
@@ -2082,7 +2082,7 @@ addmatches(Cadata dat, char **argv)
 		    compignored++;
 		    if (dparr && !*++dparr)
 			dparr = NULL;
-		    continue;
+		    goto next_array;
 		}
 	    }
 	    if (!(dat->aflags & CAF_MATCH)) {
@@ -2100,7 +2100,7 @@ addmatches(Cadata dat, char **argv)
 					 &isexact))) {
 		if (dparr && !*++dparr)
 		    dparr = NULL;
-		continue;
+		goto next_array;
 	    }
 	    if (doadd) {
 		Brinfo bp;
@@ -2132,6 +2132,7 @@ addmatches(Cadata dat, char **argv)
 		}
 		free_cline(lc);
 	    }
+	next_array:
 	    if ((dat->aflags & CAF_ARRAYS) && !argv[1]) {
 		Heap oldheap2;
 
@@ -2822,7 +2823,7 @@ dupmatch(Cmatch m, int nbeg, int nend)
 {
     Cmatch r;
 
-    r = (Cmatch) zcalloc(sizeof(struct cmatch));
+    r = (Cmatch) zshcalloc(sizeof(struct cmatch));
 
     r->str = ztrdup(m->str);
     r->orig = ztrdup(m->orig);
@@ -2922,7 +2923,7 @@ permmatches(int last)
 	    if (g->mcount > 1)
 		diffmatches = 1;
 
-	    n = (Cmgroup) zcalloc(sizeof(struct cmgroup));
+	    n = (Cmgroup) zshcalloc(sizeof(struct cmgroup));
 
 	    if (g->perm) {
 		g->perm->next = NULL;
@@ -2940,7 +2941,7 @@ permmatches(int last)
 	    n->num = gn++;
 	    n->flags = g->flags;
 	    n->mcount = g->mcount;
-	    n->matches = p = (Cmatch *) zcalloc((n->mcount + 1) * sizeof(Cmatch));
+	    n->matches = p = (Cmatch *) zshcalloc((n->mcount + 1) * sizeof(Cmatch));
 	    n->name = ztrdup(g->name);
 	    for (q = g->matches; *q; q++, p++)
 		*p = dupmatch(*q, nbrbeg, nbrend);
@@ -2954,9 +2955,9 @@ permmatches(int last)
 		n->ylist = NULL;
 
 	    if ((n->ecount = g->ecount)) {
-		n->expls = ep = (Cexpl *) zcalloc((n->ecount + 1) * sizeof(Cexpl));
+		n->expls = ep = (Cexpl *) zshcalloc((n->ecount + 1) * sizeof(Cexpl));
 		for (eq = g->expls; (o = *eq); eq++, ep++) {
-		    *ep = e = (Cexpl) zcalloc(sizeof(struct cexpl));
+		    *ep = e = (Cexpl) zshcalloc(sizeof(struct cexpl));
 		    e->count = (fi ? o->fcount : o->count);
                     e->always = o->always;
 		    e->fcount = 0;

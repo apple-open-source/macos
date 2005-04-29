@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -90,7 +90,7 @@ unsigned long getMemoryMap( MemoryRange *   rangeArray,
     MemoryRange *        range = rangeArray;
     unsigned long        count = 0;
     unsigned long long   conMemSize = 0;
-    unsigned long long   extMemTop  = 0;
+    unsigned long long   extMemSize = 0;
 
     // The memory pointed by the rangeArray must reside within the
     // first megabyte.
@@ -131,13 +131,14 @@ unsigned long getMemoryMap( MemoryRange *   rangeArray,
              range->type == kMemoryRangeNVS )
         {
             // Tally the conventional memory ranges.
-            if ( range->base + range->length <= 0xa0000 )
+            if ( range->base + range->length <= 0xa0000 ) {
                 conMemSize += range->length;
+            } 
 
             // Record the top of extended memory.
-            if ( range->base >= EXTENDED_ADDR &&
-                 range->base >= extMemTop )
-                extMemTop = range->base + range->length;
+            if ( range->base >= EXTENDED_ADDR ) {
+                extMemSize += range->length;
+            }
         }
 
         range++;
@@ -147,10 +148,18 @@ unsigned long getMemoryMap( MemoryRange *   rangeArray,
 
         if ( bb.ebx.rx == 0 ) break;
     }
-
-    if (extMemTop) extMemTop -= EXTENDED_ADDR;  // convert to size
     *conMemSizePtr = conMemSize / 1024;  // size in KB
-    *extMemSizePtr = extMemTop  / 1024;  // size in KB
+    *extMemSizePtr = extMemSize  / 1024;  // size in KB
+
+#if DEBUG
+    {
+        for (range = rangeArray; range->length != 0; range++) {
+        printf("range: type %d, base 0x%x, length 0x%x\n",
+               range->type, (unsigned int)range->base, (unsigned int)range->length); getc();
+
+        }
+    }
+#endif
 
     return count;
 }
@@ -261,12 +270,49 @@ int ebiosread(int dev, long sec, int count)
         unsigned short bufferOffset;
         unsigned short bufferSegment;
         unsigned long  long startblock;
-    } addrpacket = {0};
+    } addrpacket __attribute__((aligned(16))) = {0};
     addrpacket.size = sizeof(addrpacket);
 
     for (i=0;;) {
         bb.intno   = 0x13;
         bb.eax.r.h = 0x42;
+        bb.edx.r.l = dev;
+        bb.esi.rr  = OFFSET((unsigned)&addrpacket);
+        bb.ds      = SEGMENT((unsigned)&addrpacket);
+        addrpacket.reserved = addrpacket.reserved2 = 0;
+        addrpacket.numblocks     = count;
+        addrpacket.bufferOffset  = OFFSET(ptov(BIOS_ADDR));
+        addrpacket.bufferSegment = SEGMENT(ptov(BIOS_ADDR));
+        addrpacket.startblock    = sec;
+        bios(&bb);
+        if ((bb.eax.r.h == 0x00) || (i++ >= 5))
+            break;
+
+        /* reset disk subsystem and try again */
+        bb.eax.r.h = 0x00;
+        bios(&bb);
+    }
+    return bb.eax.r.h;
+}
+
+int ebioswrite(int dev, long sec, int count)
+{
+    int i;
+    static struct {
+        unsigned char  size;
+        unsigned char  reserved;
+        unsigned char  numblocks;
+        unsigned char  reserved2;
+        unsigned short bufferOffset;
+        unsigned short bufferSegment;
+        unsigned long  long startblock;
+    } addrpacket __attribute__((aligned(16))) = {0};
+    addrpacket.size = sizeof(addrpacket);
+
+    for (i=0;;) {
+        bb.intno   = 0x13;
+        bb.eax.r.l = 0; /* Don't verify */
+        bb.eax.r.h = 0x43;
         bb.edx.r.l = dev;
         bb.esi.rr  = OFFSET((unsigned)&addrpacket);
         bb.ds      = SEGMENT((unsigned)&addrpacket);
@@ -324,7 +370,7 @@ int is_no_emulation(int drive)
 	unsigned char sec_count;
 	unsigned char head_count;
 	unsigned char reseved;
-    };
+    } __attribute__((packed));
     static struct packet pkt;
 
     bzero(&pkt, sizeof(pkt));
@@ -413,7 +459,7 @@ int get_drive_info(int drive, struct driveInfo *dp)
     boot_drive_info_t *di = &dp->di;
     int ret = 0;
 
-#if 0
+#if UNUSED
     if (maxhd == 0) {
         bb.intno = 0x13;
         bb.eax.r.h = 0x08;
@@ -605,6 +651,8 @@ int readDriveParameters(int drive, struct driveParameters *dp)
 }
 #endif
 
+#ifdef APM_SUPPORT
+
 #define APM_INTNO   0x15
 #define APM_INTCODE 0x53
 
@@ -655,6 +703,8 @@ APMConnect32(void)
     }
     return 0;
 }
+
+#endif /* APM_SUPPORT */
 
 #ifdef EISA_SUPPORT
 BOOL
@@ -778,3 +828,4 @@ void delay(int ms)
     bb.edx.rr = ms & 0xFFFF;
     bios(&bb);
 }
+

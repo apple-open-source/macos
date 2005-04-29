@@ -160,6 +160,8 @@ static GTY(()) varray_type incomplete_types;
    define type declaration DIE's.  */
 static GTY(()) varray_type decl_scope_table;
 
+static GTY(()) unsigned long label_num;
+
 /* How to start an assembler comment.  */
 #ifndef ASM_COMMENT_START
 #define ASM_COMMENT_START ";#"
@@ -574,7 +576,6 @@ char *
 dwarf2out_cfi_label ()
 {
   static char label[20];
-  static unsigned long label_num = 0;
 
   ASM_GENERATE_INTERNAL_LABEL (label, "LCFI", label_num++);
   ASM_OUTPUT_LABEL (asm_out_file, label);

@@ -1,6 +1,7 @@
 // natClass.cc - Implementation of java.lang.Class native methods.
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004  
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -12,6 +13,7 @@ details.  */
 
 #include <limits.h>
 #include <string.h>
+#include <stddef.h>
 
 #pragma implementation "Class.h"
 
@@ -36,6 +38,7 @@ details.  */
 #include <java/lang/IllegalAccessError.h>
 #include <java/lang/IllegalArgumentException.h>
 #include <java/lang/IncompatibleClassChangeError.h>
+#include <java/lang/NoSuchFieldError.h>
 #include <java/lang/ArrayIndexOutOfBoundsException.h>
 #include <java/lang/InstantiationException.h>
 #include <java/lang/NoClassDefFoundError.h>
@@ -48,16 +51,20 @@ details.  */
 #include <java/lang/System.h>
 #include <java/lang/SecurityManager.h>
 #include <java/lang/StringBuffer.h>
+#include <java/lang/VMClassLoader.h>
 #include <gnu/gcj/runtime/StackTrace.h>
 #include <gcj/method.h>
 #include <gnu/gcj/runtime/MethodRef.h>
 #include <gnu/gcj/RawData.h>
 
 #include <java-cpool.h>
+#include <java-interp.h>
 
 
 
 using namespace gcj;
+
+bool gcj::verbose_class_flag;
 
 jclass
 java::lang::Class::forName (jstring className, jboolean initialize,
@@ -68,7 +75,7 @@ java::lang::Class::forName (jstring className, jboolean initialize,
 
   jsize length = _Jv_GetStringUTFLength (className);
   char buffer[length];
-  _Jv_GetStringUTFRegion (className, 0, length, buffer);
+  _Jv_GetStringUTFRegion (className, 0, className->length(), buffer);
 
   _Jv_Utf8Const *name = _Jv_makeUtf8Const (buffer, length);
 
@@ -76,7 +83,7 @@ java::lang::Class::forName (jstring className, jboolean initialize,
     throw new java::lang::ClassNotFoundException (className);
 
   jclass klass = (buffer[0] == '[' 
-		  ? _Jv_FindClassFromSignature (name->data, loader)
+		  ? _Jv_FindClassFromSignature (name->chars(), loader)
 		  : _Jv_FindClass (name, loader));
 
   if (klass == NULL)
@@ -101,7 +108,7 @@ java::lang::Class::forName (jstring className)
 	{
 	  klass = t->classAt (i);
 	}
-      loader = klass->getClassLoader();
+      loader = klass->getClassLoaderInternal();
     }
   catch (::java::lang::ArrayIndexOutOfBoundsException *e)
     {
@@ -113,13 +120,31 @@ java::lang::Class::forName (jstring className)
 java::lang::ClassLoader *
 java::lang::Class::getClassLoader (void)
 {
-#if 0
-  // FIXME: the checks we need to do are more complex.  See the spec.
-  // Currently we can't implement them.
   java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
   if (s != NULL)
-    s->checkPermission (new RuntimePermission (JvNewStringLatin1 ("getClassLoader")));
-#endif
+    {
+      gnu::gcj::runtime::StackTrace *t 
+	= new gnu::gcj::runtime::StackTrace(4);
+      Class *caller = NULL;
+      ClassLoader *caller_loader = NULL;
+      try
+	{
+	  for (int i = 1; !caller; i++)
+	    {
+	      caller = t->classAt (i);
+	    }
+	  caller_loader = caller->getClassLoaderInternal();
+	}
+      catch (::java::lang::ArrayIndexOutOfBoundsException *e)
+	{
+	}
+
+      // If the caller has a non-null class loader, and that loader
+      // is not this class' loader or an ancestor thereof, then do a
+      // security check.
+      if (caller_loader != NULL && ! caller_loader->isAncestorOf(loader))
+	s->checkPermission (new RuntimePermission (JvNewStringLatin1 ("getClassLoader")));
+    }
 
   // The spec requires us to return `null' for primitive classes.  In
   // other cases we have the option of returning `null' for classes
@@ -130,19 +155,20 @@ java::lang::Class::getClassLoader (void)
   // `null' instead.
   if (isPrimitive ())
     return NULL;
-  return loader ? loader : ClassLoader::getSystemClassLoader ();
+  return loader ? loader : ClassLoader::systemClassLoader;
 }
 
 java::lang::reflect::Constructor *
 java::lang::Class::getConstructor (JArray<jclass> *param_types)
 {
+  memberAccessCheck(java::lang::reflect::Member::PUBLIC);
+
   jstring partial_sig = getSignature (param_types, true);
   jint hash = partial_sig->hashCode ();
 
   int i = isPrimitive () ? 0 : method_count;
   while (--i >= 0)
     {
-      // FIXME: access checks.
       if (_Jv_equalUtf8Consts (methods[i].name, init_name)
 	  && _Jv_equal (methods[i].signature, partial_sig, hash))
 	{
@@ -157,13 +183,13 @@ java::lang::Class::getConstructor (JArray<jclass> *param_types)
 	  return cons;
 	}
     }
-  throw new java::lang::NoSuchMethodException;
+  throw new java::lang::NoSuchMethodException (_Jv_NewStringUtf8Const (init_name));
 }
 
 JArray<java::lang::reflect::Constructor *> *
 java::lang::Class::_getConstructors (jboolean declared)
 {
-  // FIXME: this method needs access checks.
+  memberAccessCheck(java::lang::reflect::Member::PUBLIC);
 
   int numConstructors = 0;
   int max = isPrimitive () ? 0 : method_count;
@@ -206,13 +232,14 @@ java::lang::Class::_getConstructors (jboolean declared)
 java::lang::reflect::Constructor *
 java::lang::Class::getDeclaredConstructor (JArray<jclass> *param_types)
 {
+  memberAccessCheck(java::lang::reflect::Member::DECLARED);
+
   jstring partial_sig = getSignature (param_types, true);
   jint hash = partial_sig->hashCode ();
 
   int i = isPrimitive () ? 0 : method_count;
   while (--i >= 0)
     {
-      // FIXME: access checks.
       if (_Jv_equalUtf8Consts (methods[i].name, init_name)
 	  && _Jv_equal (methods[i].signature, partial_sig, hash))
 	{
@@ -224,7 +251,7 @@ java::lang::Class::getDeclaredConstructor (JArray<jclass> *param_types)
 	  return cons;
 	}
     }
-  throw new java::lang::NoSuchMethodException;
+  throw new java::lang::NoSuchMethodException (_Jv_NewStringUtf8Const (init_name));
 }
 
 java::lang::reflect::Field *
@@ -256,9 +283,7 @@ java::lang::Class::getField (jstring name, jint hash)
 java::lang::reflect::Field *
 java::lang::Class::getDeclaredField (jstring name)
 {
-  java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
-  if (s != NULL)
-    s->checkMemberAccess (this, java::lang::reflect::Member::DECLARED);
+  memberAccessCheck(java::lang::reflect::Member::DECLARED);
   int hash = name->hashCode();
   for (int i = 0;  i < field_count;  i++)
     {
@@ -275,18 +300,32 @@ java::lang::Class::getDeclaredField (jstring name)
 }
 
 JArray<java::lang::reflect::Field *> *
-java::lang::Class::getDeclaredFields (void)
+java::lang::Class::getDeclaredFields (jboolean public_only)
 {
-  java::lang::SecurityManager *s = java::lang::System::getSecurityManager();
-  if (s != NULL)
-    s->checkMemberAccess (this, java::lang::reflect::Member::DECLARED);
+  int size;
+  if (public_only)
+    {
+      size = 0;
+      for (int i = 0; i < field_count; ++i)
+	{
+	  _Jv_Field *field = &fields[i];
+	  if ((field->flags & java::lang::reflect::Modifier::PUBLIC))
+	    ++size;
+	}
+    }
+  else
+    size = field_count;
+
   JArray<java::lang::reflect::Field *> *result
     = (JArray<java::lang::reflect::Field *> *)
-    JvNewObjectArray (field_count, &java::lang::reflect::Field::class$, NULL);
+    JvNewObjectArray (size, &java::lang::reflect::Field::class$, NULL);
   java::lang::reflect::Field** fptr = elements (result);
   for (int i = 0;  i < field_count;  i++)
     {
       _Jv_Field *field = &fields[i];
+      if (public_only
+	  && ! (field->flags & java::lang::reflect::Modifier::PUBLIC))
+	continue;
       java::lang::reflect::Field* rfield = new java::lang::reflect::Field ();
       rfield->offset = (char*) field - (char*) fields;
       rfield->declaringClass = this;
@@ -361,6 +400,8 @@ java::lang::Class::_getDeclaredMethod (jstring name,
 JArray<java::lang::reflect::Method *> *
 java::lang::Class::getDeclaredMethods (void)
 {
+  memberAccessCheck(java::lang::reflect::Member::DECLARED);
+
   int numMethods = 0;
   int max = isPrimitive () ? 0 : method_count;
   int i;
@@ -402,10 +443,7 @@ java::lang::Class::getDeclaredMethods (void)
 jstring
 java::lang::Class::getName (void)
 {
-  char buffer[name->length + 1];  
-  memcpy (buffer, name->data, name->length); 
-  buffer[name->length] = '\0';
-  return _Jv_NewStringUTF (buffer);
+  return name->toString();
 }
 
 JArray<jclass> *
@@ -424,7 +462,7 @@ java::lang::Class::getClasses (void)
 JArray<jclass> *
 java::lang::Class::getDeclaredClasses (void)
 {
-  checkMemberAccess (java::lang::reflect::Member::DECLARED);
+  memberAccessCheck (java::lang::reflect::Member::DECLARED);
   // Until we have inner classes, it always makes sense to return an
   // empty array.
   JArray<jclass> *result
@@ -439,62 +477,6 @@ java::lang::Class::getDeclaringClass (void)
   // Until we have inner classes, it makes sense to always return
   // NULL.
   return NULL;
-}
-
-jint
-java::lang::Class::_getFields (JArray<java::lang::reflect::Field *> *result,
-			       jint offset)
-{
-  int count = 0;
-  for (int i = 0;  i < field_count;  i++)
-    {
-      _Jv_Field *field = &fields[i];
-      if (! (field->getModifiers() & java::lang::reflect::Modifier::PUBLIC))
-	continue;
-      ++count;
-
-      if (result != NULL)
-	{
-	  java::lang::reflect::Field *rfield
-	    = new java::lang::reflect::Field ();
-	  rfield->offset = (char *) field - (char *) fields;
-	  rfield->declaringClass = this;
-	  rfield->name = _Jv_NewStringUtf8Const (field->name);
-	  (elements (result))[offset++] = rfield;
-	}
-    }
-  jclass superclass = getSuperclass();
-  if (superclass != NULL)
-    {
-      int s_count = superclass->_getFields (result, offset);
-      count += s_count;
-      offset += s_count;
-    }
-  for (int i = 0; i < interface_count; ++i)
-    {
-      int f_count = interfaces[i]->_getFields (result, offset);
-      count += f_count;
-      offset += f_count;
-    }
-  return count;
-}
-
-JArray<java::lang::reflect::Field *> *
-java::lang::Class::getFields (void)
-{
-  // FIXME: security checking.
-
-  using namespace java::lang::reflect;
-
-  int count = _getFields (NULL, 0);
-
-  JArray<java::lang::reflect::Field *> *result
-    = ((JArray<java::lang::reflect::Field *> *)
-       JvNewObjectArray (count, &java::lang::reflect::Field::class$, NULL));
-
-  _getFields (result, 0);
-
-  return result;
 }
 
 JArray<jclass> *
@@ -518,7 +500,6 @@ java::lang::Class::_getMethod (jstring name, JArray<jclass> *param_types)
       int i = klass->isPrimitive () ? 0 : klass->method_count;
       while (--i >= 0)
 	{
-	  // FIXME: access checks.
 	  if (_Jv_equalUtf8Consts (klass->methods[i].name, utf_name)
 	      && _Jv_equaln (klass->methods[i].signature, partial_sig, p_len)
 	      && (klass->methods[i].accflags
@@ -642,7 +623,7 @@ java::lang::Class::getMethods (void)
 {
   using namespace java::lang::reflect;
 
-  // FIXME: security checks.
+  memberAccessCheck(Member::PUBLIC);
 
   // This will overestimate the size we need.
   jint count = _getMethods (NULL, 0);
@@ -696,26 +677,21 @@ java::lang::Class::isInstance (jobject obj)
 jobject
 java::lang::Class::newInstance (void)
 {
-  // FIXME: do accessibility checks here.  There currently doesn't
-  // seem to be any way to do these.
-  // FIXME: we special-case one check here just to pass a Plum Hall
-  // test.  Once access checking is implemented, remove this.
-  if (this == &java::lang::Class::class$)
-    throw new java::lang::IllegalAccessException;
+  memberAccessCheck(java::lang::reflect::Member::PUBLIC);
 
   if (isPrimitive ()
       || isInterface ()
       || isArray ()
       || java::lang::reflect::Modifier::isAbstract(accflags))
-    throw new java::lang::InstantiationException;
+    throw new java::lang::InstantiationException (getName ());
 
   _Jv_InitClass (this);
 
   _Jv_Method *meth = _Jv_GetMethodLocal (this, init_name, void_signature);
   if (! meth)
-    throw new java::lang::NoSuchMethodException;
+    throw new java::lang::InstantiationException (getName());
 
-  jobject r = JvAllocObject (this);
+  jobject r = _Jv_AllocObject (this);
   ((void (*) (jobject)) meth->ncode) (r);
   return r;
 }
@@ -748,7 +724,7 @@ java::lang::Class::initializeClass (void)
 	{
 	  // this can throw exceptions, so exit the monitor as a precaution.
 	  _Jv_MonitorExit (this);
-	  java::lang::ClassLoader::resolveClass0 (this);
+	  java::lang::VMClassLoader::resolveClass (this);
 	  _Jv_MonitorEnter (this);
 	}
       else
@@ -758,9 +734,6 @@ java::lang::Class::initializeClass (void)
 	}
     }
 
-  if (state <= JV_STATE_LINKED)
-    _Jv_PrepareConstantTimeTables (this);
-
   // Step 2.
   java::lang::Thread *self = java::lang::Thread::currentThread();
   // FIXME: `self' can be null at startup.  Hence this nasty trick.
@@ -769,9 +742,21 @@ java::lang::Class::initializeClass (void)
     wait ();
 
   // Steps 3 &  4.
-  if (state == JV_STATE_DONE || state == JV_STATE_IN_PROGRESS)
+  if (state == JV_STATE_DONE)
     {
       _Jv_MonitorExit (this);
+      return;
+    }
+  if (state == JV_STATE_IN_PROGRESS)
+    {
+      _Jv_MonitorExit (this);
+
+      /* Initialization in progress.  The class is linked now,
+         so ensure internal tables are built.  */
+      _Jv_PrepareConstantTimeTables (this);
+      _Jv_MakeVTable(this);
+      _Jv_LinkSymbolTable(this);
+
       return;
     }
 
@@ -804,6 +789,16 @@ java::lang::Class::initializeClass (void)
 	  throw except;
 	}
     }
+
+  _Jv_PrepareConstantTimeTables (this);
+
+  if (vtable == NULL)
+    _Jv_MakeVTable(this);
+
+  if (otable || atable)
+    _Jv_LinkSymbolTable(this);
+
+  _Jv_linkExceptionClassTable (this);
 
   // Steps 8, 9, 10, 11.
   try
@@ -891,7 +886,7 @@ _Jv_FindMethodInCache (jclass klass,
                        _Jv_Utf8Const *name,
                        _Jv_Utf8Const *signature)
 {
-  int index = name->hash & MCACHE_SIZE;
+  int index = name->hash16() & MCACHE_SIZE;
   _Jv_mcache *mc = method_cache + index;
   _Jv_Method *m = mc->method;
 
@@ -909,7 +904,7 @@ _Jv_AddMethodToCache (jclass klass,
 {
   _Jv_MonitorEnter (&java::lang::Class::class$); 
 
-  int index = method->name->hash & MCACHE_SIZE;
+  int index = method->name->hash16() & MCACHE_SIZE;
 
   method_cache[index].method = method;
   method_cache[index].klass = klass;
@@ -964,14 +959,14 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 {
   if (source == target)
     return true;
-     
+
   // If target is array, so must source be.  
-  if (target->isArray ())
+  while (target->isArray ())
     {
       if (! source->isArray())
 	return false;
-      return _Jv_IsAssignableFrom(target->getComponentType(), 
-                                  source->getComponentType());
+      target = target->getComponentType();
+      source = source->getComponentType();
     }
 
   if (target->isInterface())
@@ -981,7 +976,7 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
       if (__builtin_expect 
           (source->idt == NULL || source->isInterface(), false))
         return _Jv_InterfaceAssignableFrom (target, source);
-	
+
       _Jv_IDispatchTable *cl_idt = source->idt;
       _Jv_IDispatchTable *if_idt = target->idt;
 
@@ -997,23 +992,31 @@ _Jv_IsAssignableFrom (jclass target, jclass source)
 	}
       return false;
     }
-     
+
   // Primitive TYPE classes are only assignable to themselves.
-  if (__builtin_expect (target->isPrimitive(), false))
+  if (__builtin_expect (target->isPrimitive() || source->isPrimitive(), false))
     return false;
-    
+
   if (target == &java::lang::Object::class$)
+    return true;
+  else if (source->ancestors == NULL || target->ancestors == NULL)
     {
-      if (source->isPrimitive())
-        return false;
-      return true;
+      // We need this case when either SOURCE or TARGET has not has
+      // its constant-time tables prepared.
+
+      // At this point we know that TARGET can't be Object, so it is
+      // safe to use that as the termination point.
+      while (source && source != &java::lang::Object::class$)
+	{
+	  if (source == target)
+	    return true;
+	  source = source->getSuperclass();
+	}
     }
-  else if (source->ancestors != NULL
-	   && target->ancestors != NULL
-	   && source->depth >= target->depth
+  else if (source->depth >= target->depth
 	   && source->ancestors[source->depth - target->depth] == target)
     return true;
-      
+
   return false;
 }
 
@@ -1208,6 +1211,10 @@ _Jv_GetInterfaces (jclass klass, _Jv_ifaces *ifaces)
   for (int i=0; i < klass->interface_count; i++)
     {
       jclass iface = klass->interfaces[i];
+
+      /* Make sure interface is linked.  */
+      _Jv_WaitForState(iface, JV_STATE_LINKED);
+
       if (_Jv_IndexOf (iface, (void **) ifaces->list, ifaces->count) == -1)
         {
 	  if (ifaces->count + 1 >= ifaces->len)
@@ -1275,9 +1282,9 @@ _Jv_GenerateITable (jclass klass, _Jv_ifaces *ifaces, jshort *itable_offsets)
 jstring
 _Jv_GetMethodString (jclass klass, _Jv_Utf8Const *name)
 {
-  jstring r = JvNewStringUTF (klass->name->data);
+  jstring r = klass->name->toString();
   r = r->concat (JvNewStringUTF ("."));
-  r = r->concat (JvNewStringUTF (name->data));
+  r = r->concat (name->toString());
   return r;
 }
 
@@ -1319,7 +1326,7 @@ _Jv_AppendPartialITable (jclass klass, jclass iface, void **itable,
 	    break;
 	}
 
-      if (meth && (meth->name->data[0] == '<'))
+      if (meth && (meth->name->first() == '<'))
 	{
 	  // leave a placeholder in the itable for hidden init methods.
           itable[pos] = NULL;	
@@ -1352,7 +1359,7 @@ _Jv_AppendPartialITable (jclass klass, jclass iface, void **itable,
 }
 
 static _Jv_Mutex_t iindex_mutex;
-bool iindex_mutex_initialized = false;
+static bool iindex_mutex_initialized = false;
 
 // We need to find the correct offset in the Class Interface Dispatch 
 // Table for a given interface. Once we have that, invoking an interface 
@@ -1483,7 +1490,7 @@ java::lang::Class::getPrivateMethod (jstring name, JArray<jclass> *param_types)
 	    }
 	}
     }
-  throw new java::lang::NoSuchMethodException;
+  throw new java::lang::NoSuchMethodException (name);
 }
 
 // Private accessor method for Java code to retrieve the protection domain.
@@ -1493,92 +1500,303 @@ java::lang::Class::getProtectionDomain0 ()
   return protectionDomain;
 }
 
-// Functions for indirect dispatch (symbolic virtual method binding) support.
-
-// Resolve entries in the virtual method offset symbol table 
-// (klass->otable_syms). The vtable offset (in bytes) for each resolved method 
-// is placed at the corresponding position in the virtual method offset table 
-// (klass->otable). A single otable and otable_syms pair may be shared by many 
-// classes.
-void
-_Jv_LinkOffsetTable(jclass klass)
+JArray<jobject> *
+java::lang::Class::getSigners()
 {
-  //// FIXME: Need to lock the otable ////
+  return hack_signers;
+}
+
+void
+java::lang::Class::setSigners(JArray<jobject> *s)
+{
+  hack_signers = s;
+}
+
+// Functions for indirect dispatch (symbolic virtual binding) support.
+
+// There are two tables, atable and otable.  atable is an array of
+// addresses, and otable is an array of offsets, and these are used
+// for static and virtual members respectively.
+
+// {a,o}table_syms is an array of _Jv_MethodSymbols.  Each such symbol
+// is a tuple of {classname, member name, signature}.
+// _Jv_LinkSymbolTable() scans these two arrays and fills in the
+// corresponding atable and otable with the addresses of static
+// members and the offsets of virtual members.
+
+// The offset (in bytes) for each resolved method or field is placed
+// at the corresponding position in the virtual method offset table
+// (klass->otable). 
+
+// The same otable and atable may be shared by many classes.
+
+void
+_Jv_LinkSymbolTable(jclass klass)
+{
+  //// FIXME: Need to lock the tables ////
   
+  int index = 0;
+  _Jv_MethodSymbol sym;
   if (klass->otable == NULL
       || klass->otable->state != 0)
-    return;
-  
+    goto atable;
+   
   klass->otable->state = 1;
 
-  int index = 0;
-  _Jv_MethodSymbol sym = klass->otable_syms[0];
-
-  while (sym.name != NULL)
+  for (index = 0; sym = klass->otable_syms[index], sym.name != NULL; index++)
     {
+      // FIXME: Why are we passing NULL as the class loader?
       jclass target_class = _Jv_FindClass (sym.class_name, NULL);
       _Jv_Method *meth = NULL;            
-      
-      if (target_class != NULL)
-	if (target_class->isInterface())
+
+      const _Jv_Utf8Const *signature = sym.signature;
+
+      {
+	static char *bounce = (char *)_Jv_ThrowNoSuchMethodError;
+	ptrdiff_t offset = (char *)(klass->vtable) - bounce;
+	klass->otable->offsets[index] = offset;
+      }
+
+      if (target_class == NULL)
+	continue;
+
+      if (target_class->isInterface())
+	{
+	  // FIXME: This does not yet fully conform to binary compatibility
+	  // rules. It will break if a declaration is moved into a 
+	  // superinterface.
+	  for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
+	    {
+	      for (int i=0; i < cls->method_count; i++)
+		{
+		  meth = &cls->methods[i];
+		  if (_Jv_equalUtf8Consts (sym.name, meth->name)
+		      && _Jv_equalUtf8Consts (signature, meth->signature))
+		    {
+		      klass->otable->offsets[index] = i + 1;
+		      goto found;
+		    }
+		}
+	    
+	    }
+	found:
+	  continue;
+	}
+
+      // We're looking for a field or a method, and we can tell
+      // which is needed by looking at the signature.
+      if (signature->first() == '(' && signature->len() >= 2)
+	{
+ 	  // If the target class does not have a vtable_method_count yet, 
+	  // then we can't tell the offsets for its methods, so we must lay 
+	  // it out now.
+	  if (target_class->vtable_method_count == -1)
+	    {
+	      JvSynchronize sync (target_class);
+	      _Jv_LayoutVTableMethods (target_class);
+	    }
+		
+	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
+					  sym.signature);
+		
+	  if (meth != NULL)
+	    {
+	      klass->otable->offsets[index] = 
+		_Jv_VTable::idx_to_offset (meth->index);	      
+	    }
+
+	  continue;
+	}
+
+      // try fields
+      {
+	_Jv_Field *the_field = NULL;
+
+	for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
 	  {
-	    // FIXME: This does not yet fully conform to binary compatibility
-	    // rules. It will break if a declaration is moved into a 
-	    // superinterface.
-	    for (int i=0; i < target_class->method_count; i++)
+	    for (int i = 0; i < cls->field_count; i++)
 	      {
-		meth = &target_class->methods[i];
-		if (_Jv_equalUtf8Consts (sym.name, meth->name)
-		    && _Jv_equalUtf8Consts (sym.signature, meth->signature))
-		  {
-		    klass->otable->offsets[index] = i + 1;
-		    break;
-		  }
+		_Jv_Field *field = &cls->fields[i];
+		if (! _Jv_equalUtf8Consts (field->name, sym.name))
+		  continue;
+
+		// FIXME: What access checks should we perform here?
+// 		if (_Jv_CheckAccess (klass, cls, field->flags))
+// 		  {
+
+		if (!field->isResolved ())
+		  _Jv_ResolveField (field, cls->loader);
+
+// 		if (field_type != 0 && field->type != field_type)
+// 		  throw new java::lang::LinkageError
+// 		    (JvNewStringLatin1 
+// 		     ("field type mismatch with different loaders"));
+
+		the_field = field;
+		goto end_of_field_search;
+	      }
+	  }
+      end_of_field_search:
+	if (the_field != NULL)
+	  {
+	    if (the_field->flags & 0x0008 /* Modifier::STATIC */)
+	      {	      
+		throw new java::lang::IncompatibleClassChangeError;
+	      }
+	    else
+	      {
+		klass->otable->offsets[index] = the_field->u.boffset;
 	      }
 	  }
 	else
 	  {
-	    // If the target class does not have a vtable_method_count yet, 
-	    // then we can't tell the offsets for its methods, so we must lay 
-	    // it out now.
-	    if (target_class->vtable_method_count == -1)
-	      {
-		JvSynchronize sync (target_class);
-		_Jv_LayoutVTableMethods (target_class);
-	      }
+	    throw new java::lang::NoSuchFieldError
+	      (_Jv_NewStringUtf8Const (sym.name));
+	  }
+      }
+    }
 
-            meth = _Jv_LookupDeclaredMethod(target_class, sym.name, 
-					    sym.signature);
+ atable:
+  if (klass->atable == NULL
+      || klass->atable->state != 0)
+    return;
 
-	    if (meth != NULL)
+  klass->atable->state = 1;
+
+  for (index = 0; sym = klass->atable_syms[index], sym.name != NULL; index++)
+    {
+      // FIXME: Why are we passing NULL as the class loader?
+      jclass target_class = _Jv_FindClass (sym.class_name, NULL);
+      _Jv_Method *meth = NULL;            
+      const _Jv_Utf8Const *signature = sym.signature;
+
+      // ??? Setting this pointer to null will at least get us a
+      // NullPointerException
+      klass->atable->addresses[index] = NULL;
+      
+      if (target_class == NULL)
+	continue;
+      
+      // We're looking for a static field or a static method, and we
+      // can tell which is needed by looking at the signature.
+      if (signature->first() == '(' && signature->len() >= 2)
+	{
+ 	  // If the target class does not have a vtable_method_count yet, 
+	  // then we can't tell the offsets for its methods, so we must lay 
+	  // it out now.
+	  if (target_class->vtable_method_count == -1)
+	    {
+	      JvSynchronize sync (target_class);
+	      _Jv_LayoutVTableMethods (target_class);
+	    }
+	  
+	  meth = _Jv_LookupDeclaredMethod(target_class, sym.name,
+					  sym.signature);
+	  
+	  if (meth != NULL)
+	    {
+	      if (meth->ncode) // Maybe abstract?
+		klass->atable->addresses[index] = meth->ncode;
+#ifdef INTERPRETER
+	      else if (_Jv_IsInterpretedClass (target_class))
+		_Jv_Defer_Resolution (target_class, meth, 
+				      &klass->atable->addresses[index]);
+#endif
+	    }
+	  else
+	    klass->atable->addresses[index] = (void *)_Jv_ThrowNoSuchMethodError;
+
+	  continue;
+	}
+
+      // try fields
+      {
+	_Jv_Field *the_field = NULL;
+
+	for (jclass cls = target_class; cls != 0; cls = cls->getSuperclass ())
+	  {
+	    for (int i = 0; i < cls->field_count; i++)
 	      {
-		klass->otable->offsets[index] = 
-		  _Jv_VTable::idx_to_offset (meth->index);
+		_Jv_Field *field = &cls->fields[i];
+		if (! _Jv_equalUtf8Consts (field->name, sym.name))
+		  continue;
+
+		// FIXME: What access checks should we perform here?
+// 		if (_Jv_CheckAccess (klass, cls, field->flags))
+// 		  {
+
+		if (!field->isResolved ())
+		  _Jv_ResolveField (field, cls->loader);
+		
+// 		if (field_type != 0 && field->type != field_type)
+// 		  throw new java::lang::LinkageError
+// 		    (JvNewStringLatin1 
+// 		     ("field type mismatch with different loaders"));
+
+		the_field = field;
+		goto end_of_static_field_search;
 	      }
 	  }
-
-      if (meth == NULL)
-	// FIXME: This should be special index for ThrowNoSuchMethod().
-	klass->otable->offsets[index] = -1;
-
-      sym = klass->otable_syms[++index];
+      end_of_static_field_search:
+	if (the_field != NULL)
+	  {
+	    if (the_field->flags & 0x0008 /* Modifier::STATIC */)
+	      {	      
+		klass->atable->addresses[index] = the_field->u.addr;
+	      }
+	    else
+	      {
+		throw new java::lang::IncompatibleClassChangeError;
+	      }
+	  }
+	else
+	  {
+	    throw new java::lang::NoSuchFieldError
+	      (_Jv_NewStringUtf8Const (sym.name));
+	  }
+      }
     }
 }
 
-// Returns true if METH should get an entry in a VTable.
-static jboolean
-isVirtualMethod (_Jv_Method *meth)
-{
-  using namespace java::lang::reflect;
-  return (((meth->accflags & (Modifier::STATIC | Modifier::PRIVATE)) == 0)
-          && meth->name->data[0] != '<');
-}
 
+// For each catch_record in the list of caught classes, fill in the
+// address field.
+void 
+_Jv_linkExceptionClassTable (jclass self)
+{
+  struct _Jv_CatchClass *catch_record = self->catch_classes;
+  if (!catch_record || catch_record->classname)
+    return;  
+  catch_record++;
+  while (catch_record->classname)
+    {
+      jclass target_class = _Jv_FindClass (catch_record->classname,  
+					   self->getClassLoaderInternal ());
+      *catch_record->address = target_class;
+      catch_record++;
+    }
+  self->catch_classes->classname = (_Jv_Utf8Const *)-1;
+}
+  
 // This is put in empty vtable slots.
 static void
 _Jv_abstractMethodError (void)
 {
   throw new java::lang::AbstractMethodError();
+}
+
+// Set itable method indexes for members of interface IFACE.
+void
+_Jv_LayoutInterfaceMethods (jclass iface)
+{
+  if (! iface->isInterface())
+    return;
+  
+  // itable indexes start at 1. 
+  // FIXME: Static initalizers currently get a NULL placeholder entry in the
+  // itable so they are also assigned an index here.
+  for (int i = 0; i < iface->method_count; i++)
+    iface->methods[i].index = i + 1;
 }
 
 // Prepare virtual method declarations in KLASS, and any superclasses as 
@@ -1594,6 +1812,25 @@ _Jv_LayoutVTableMethods (jclass klass)
 
   jclass superclass = klass->superclass;
 
+  typedef unsigned int uaddr __attribute__ ((mode (pointer)));
+
+  // If superclass looks like a constant pool entry,
+  // resolve it now.
+  if ((uaddr) superclass < (uaddr) klass->constants.size)
+    {
+      if (klass->state < JV_STATE_LINKED)
+	{
+	  _Jv_Utf8Const *name = klass->constants.data[(uaddr) superclass].utf8;
+	  superclass = _Jv_FindClass (name, klass->loader);
+	  if (! superclass)
+	    {
+	      throw new java::lang::NoClassDefFoundError (name->toString());
+	    }
+	}
+      else
+	superclass = klass->constants.data[(uaddr) superclass].clazz;
+    }
+
   if (superclass != NULL && superclass->vtable_method_count == -1)
     {
       JvSynchronize sync (superclass);
@@ -1607,8 +1844,14 @@ _Jv_LayoutVTableMethods (jclass klass)
       _Jv_Method *meth = &klass->methods[i];
       _Jv_Method *super_meth = NULL;
 
-      if (! isVirtualMethod (meth))
+      if (! _Jv_isVirtualMethod (meth))
 	continue;
+
+      // FIXME: Must check that we don't override:
+      // - Package-private method where superclass is in different package.
+      // - Final or less-accessible declaration in superclass (check binary 
+      //   spec, do we allocate new vtable entry or put throw node in vtable?)
+      // - Static or private method in superclass.
 
       if (superclass != NULL)
 	{
@@ -1618,8 +1861,7 @@ _Jv_LayoutVTableMethods (jclass klass)
 
       if (super_meth)
         meth->index = super_meth->index;
-      else if (! (meth->accflags & java::lang::reflect::Modifier::FINAL)
-	       && ! (klass->accflags & java::lang::reflect::Modifier::FINAL))
+      else
 	meth->index = index++;
     }
 
@@ -1670,7 +1912,7 @@ _Jv_MakeVTable (jclass klass)
       || (klass->accflags & Modifier::ABSTRACT))
     return;
 
-  //  out before we can create a vtable. 
+  // Class must be laid out before we can create a vtable. 
   if (klass->vtable_method_count == -1)
     _Jv_LayoutVTableMethods (klass);
 
@@ -1715,7 +1957,26 @@ _Jv_MakeVTable (jclass klass)
     {
       for (int i = 0; i < klass->vtable_method_count; ++i)
 	if (! flags[i])
-	  // FIXME: messsage.
-	  throw new java::lang::AbstractMethodError ();
+	  {
+	    using namespace java::lang;
+	    while (klass != NULL)
+	      {
+		for (int j = 0; j < klass->method_count; ++j)
+		  {
+		    if (klass->methods[i].index == i)
+		      {
+			StringBuffer *buf = new StringBuffer ();
+			buf->append (_Jv_NewStringUtf8Const (klass->methods[i].name));
+			buf->append ((jchar) ' ');
+			buf->append (_Jv_NewStringUtf8Const (klass->methods[i].signature));
+			throw new AbstractMethodError (buf->toString ());
+		      }
+		  }
+		klass = klass->getSuperclass ();
+	      }
+	    // Couldn't find the name, which is weird.
+	    // But we still must throw the error.
+	    throw new AbstractMethodError ();
+	  }
     }
 }

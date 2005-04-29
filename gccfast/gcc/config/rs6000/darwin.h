@@ -58,8 +58,8 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__ppc__");               \
       builtin_define ("__POWERPC__");           \
       builtin_define ("__NATURAL_ALIGNMENT__"); \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL XJR */                     \
+      SUBTARGET_OS_CPP_BUILTINS ();             \
     }                                           \
   while (0)
 
@@ -146,13 +146,15 @@ Boston, MA 02111-1307, USA.  */
 /* Define cutoff for using external functions to save floating point.
    For Darwin, use the function for more than a few registers.  */
 
-#define FP_SAVE_INLINE(FIRST_REG) ((FIRST_REG) > 60 && (FIRST_REG) < 64)
+/* APPLE LOCAL long-branch */
+#define FP_SAVE_INLINE(FIRST_REG) (((FIRST_REG) > 60 && (FIRST_REG) < 64) || TARGET_LONG_BRANCH)
 
 /* APPLE LOCAL begin AltiVec */
 /* Define cutoff for using external functions to save vector registers.  */
 
+/* APPLE LOCAL long-branch */
 #define VECTOR_SAVE_INLINE(FIRST_REG) \
-  ((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO)
+  (((FIRST_REG) >= LAST_ALTIVEC_REGNO - 1 && (FIRST_REG) <= LAST_ALTIVEC_REGNO) || TARGET_LONG_BRANCH)
 
 /* vector pixel and vector bool are aliases of other vector types.  */
 
@@ -392,9 +394,13 @@ extern unsigned round_type_align (union tree_node*, unsigned, unsigned); /* rs60
 /* Address of indirect call must be computed here */
 #define MAGIC_INDIRECT_CALL_REG 12
 
-/* For binary compatibility with 2.95; Darwin/PPC C APIs use bool from
-   stdbool.h, which was an int-sized enum in 2.95.  */
-#define BOOL_TYPE_SIZE INT_TYPE_SIZE
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* For binary compatibility with 2.95; Darwin C APIs use bool from
+   stdbool.h, which was an int-sized enum in 2.95.  Users can explicitly
+   choose to have sizeof(bool)==1 with the -mone-byte-bool switch. */
+extern const char *darwin_one_byte_bool;
+#define BOOL_TYPE_SIZE (darwin_one_byte_bool ? CHAR_TYPE_SIZE : INT_TYPE_SIZE)
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
 
 /* APPLE LOCAL OS pragma hook */
 /* Register generic Darwin pragmas as "OS" pragmas.  */

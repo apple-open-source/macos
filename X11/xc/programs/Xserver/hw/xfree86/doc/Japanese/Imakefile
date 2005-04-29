@@ -1,26 +1,12 @@
-XCOMM $XConsortium: Imakefile /main/6 1996/02/21 17:41:56 kaleb $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/Imakefile,v 3.10 2003/10/01 02:30:48 dawes Exp $
 
-
-
-
-
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/Japanese/Imakefile,v 3.9 1999/07/19 13:36:18 dawes Exp $
 #include <Server.tmpl>
 
-#ifdef LinuxArchitecture
-OSREADME = README.Linux
-#endif
+MAINDOCS = README98.1st README98
 
-MAINDOCS = COPYRIGHT QuickStart.doc README README.Config INSTALL AccelCards \
-	   /*VideoModes.doc*/ README.S3 README.Mach64 README.ati \
-	   README.cirrus RELNOTES LinkKit VGADriver.doc \
-	   README98.1st README98
-
-FILES = $(MAINDOCS) $(OSREADME)
+FILES = $(MAINDOCS)
 
 all::
 
 InstallMultipleDest(install,$(FILES),$(XFREE86JAPANESEDOCDIR))
-
-LinkFile(README.Mach64,READ.Mach64)
 

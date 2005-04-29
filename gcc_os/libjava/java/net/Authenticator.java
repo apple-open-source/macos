@@ -38,10 +38,10 @@ exception statement from your version. */
 package java.net;
 
 /**
-  * Sometimes a network operation (such as hitting a password protected
-  * web site) will require authentication information in the form of a
-  * username and password.  This abstract class provides a model for 
-  * obtaining that information.
+  * This abstract class provides a model for obtaining authentication
+  * information (in the form of a username and password) required by
+  * some network operations (such as hitting a password protected
+  * web site).
   * <p>
   * To make use of this feature, a programmer must create a subclass of
   * Authenticator that knows how to obtain the necessary info.  An example
@@ -53,6 +53,7 @@ package java.net;
   * @since 1.2
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
+  * @status Believed to be JDK 1.4 complete
   */
 public abstract class Authenticator
 {
@@ -73,6 +74,11 @@ private static Authenticator default_authenticator;
 /*
  * Instance Variables
  */
+
+/**
+  * The hostname of the site requesting authentication
+  */
+private String host;
 
 /**
   * InternetAddress of the site requesting authentication
@@ -144,7 +150,7 @@ setDefault(Authenticator def_auth)
   * @param port The port requesting authentication
   * @param protocol The protocol requesting authentication
   * @param prompt The prompt to display to the user when requesting 
-           authentication info
+  *        authentication info
   * @param scheme The authentication scheme in use
   * 
   * @return A <code>PasswordAuthentication</code> object with the user's 
@@ -156,6 +162,44 @@ setDefault(Authenticator def_auth)
 public static PasswordAuthentication
 requestPasswordAuthentication(InetAddress addr, int port, String protocol,
                               String prompt, String scheme) 
+  throws SecurityException
+{
+  return(requestPasswordAuthentication (null, addr, port, protocol,
+					prompt, scheme));
+}
+
+/**
+  * This method is called whenever a username and password for a given
+  * network operation is required.  First, a security check is made to see
+  * if the caller has the "requestPasswordAuthentication"
+  * permission.  If not, the method thows an exception.  If there is no
+  * default <code>Authenticator</code> object, the method then returns
+  * <code>null</code>.  Otherwise, the default authenticators's instance
+  * variables are initialized and it's <code>getPasswordAuthentication</code>
+  * method is called to get the actual authentication information to return.
+  * This method is the preferred one as it can be used with hostname
+  * when addr is unknown.
+  *
+  * @param host The hostname requesting authentication
+  * @param addr The address requesting authentication
+  * @param port The port requesting authentication
+  * @param protocol The protocol requesting authentication
+  * @param prompt The prompt to display to the user when requesting 
+  *        authentication info
+  * @param scheme The authentication scheme in use
+  *
+  * @return A <code>PasswordAuthentication</code> object with the user's 
+  *         authentication info.
+  *
+  * @exception SecurityException If the caller does not have permission to 
+  *         perform this operation
+  *
+  * @since 1.4
+  */
+public static PasswordAuthentication
+requestPasswordAuthentication(String host, InetAddress addr, int port,
+		              String protocol, String prompt, String scheme)
+  throws SecurityException
 {
   SecurityManager sm = System.getSecurityManager();
   if (sm != null)
@@ -164,6 +208,7 @@ requestPasswordAuthentication(InetAddress addr, int port, String protocol,
   if (default_authenticator == null)
     return(null);
 
+  default_authenticator.host = host;
   default_authenticator.addr = addr;
   default_authenticator.port = port;
   default_authenticator.protocol = protocol;
@@ -171,6 +216,17 @@ requestPasswordAuthentication(InetAddress addr, int port, String protocol,
   default_authenticator.scheme = scheme;
 
   return(default_authenticator.getPasswordAuthentication());
+}
+
+/**
+ *  Returns the hostname of the host or proxy requesting authorization,
+ *  or null if not available.
+ *
+ *  @since 1.4
+ */
+protected final String getRequestingHost()
+{
+  return(host);
 }
 
 /*************************************************************************/

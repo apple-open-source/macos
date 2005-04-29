@@ -1,4 +1,4 @@
-# Copyright (c) 1999,2000 Apple Computer, Inc.
+# Copyright (c) 1999-2003 Apple Computer, Inc.
 # All rights reserved.
 
 export OS = DARWIN ;
@@ -8,7 +8,11 @@ export SYSTEM_ADMIN_APPS_DIR default = /Applications/Utilities ;
 export SYSTEM_DEMOS_DIR default = /Applications/Extras ;
 export SYSTEM_DEVELOPER_DIR default = /Developer ;
 export SYSTEM_DEVELOPER_APPS_DIR default = /Developer/Applications ;
-export SYSTEM_DEVELOPER_DEMOS_DIR default = /Developer/Applications/Extras ;
+export SYSTEM_DEVELOPER_JAVA_TOOLS_DIR default = /Developer/Applications/Java\ Tools ;
+export SYSTEM_DEVELOPER_PERFORMANCE_TOOLS_DIR default = /Developer/Applications/Performance\ Tools ;
+export SYSTEM_DEVELOPER_GRAPHICS_TOOLS_DIR default = /Developer/Applications/Graphics\ Tools ;
+export SYSTEM_DEVELOPER_UTILITIES_DIR default = /Developer/Applications/Utilities ;
+export SYSTEM_DEVELOPER_DEMOS_DIR default = /Developer/Applications/Utilities/Built\ Examples ;
 export SYSTEM_DEVELOPER_DOC_DIR default = /Developer/Documentation ;
 export SYSTEM_LIBRARY_DIR default = /System/Library ;
 export SYSTEM_CORE_SERVICES_DIR default = /System/Library/CoreServices ;

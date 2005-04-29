@@ -22,7 +22,7 @@
  * Authors:  Alan Hourihane, <alanh@fairlite.demon.co.uk>
  *           Matthew Grossman, <mattg@oz.net> - acceleration and misc fixes
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tga/tga_driver.c,v 1.58 2001/11/21 22:33:00 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tga/tga_driver.c,v 1.61 2003/11/03 05:11:41 tsi Exp $ */
 
 /* everybody includes these */
 #include "xf86.h"
@@ -69,10 +69,8 @@
 #define DPMS_SERVER
 #include "extensions/dpms.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
 #include "Xv.h"
-#endif
 
 static const OptionInfoRec * TGAAvailableOptions(int chipid, int busid);
 static void	TGAIdentify(int flags);
@@ -92,8 +90,8 @@ static void	TGAAdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 static void	TGAFreeScreen(int scrnIndex, int flags);
-static int	TGAValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus TGAValidMode(int scrnIndex, DisplayModePtr mode,
+			       Bool verbose, int flags);
 
 /* Internally used functions */
 static Bool	TGAMapMem(ScrnInfoPtr pScrn);
@@ -193,7 +191,6 @@ static const char *xaaSymbols[] = {
     "XAADestroyInfoRec",
     "XAAGCIndex",
     "XAAInit",
-    "XAAScreenIndex",
     NULL
 };
 
@@ -1419,7 +1416,6 @@ TGAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
     if(xf86DPMSInit(pScreen, TGADisplayPowerManagementSet, 0) == FALSE)
       ErrorF("DPMS initialization failed!\n");
 
-#ifdef XvExtension
     {
       XF86VideoAdaptorPtr *ptr;
       int n;
@@ -1434,7 +1430,6 @@ TGAScreenInit(int scrnIndex, ScreenPtr pScreen, int argc, char **argv)
       }
 
     }
-#endif
     
     /* Report any unused options (only for the first generation) */
     if (serverGeneration == 1) {
@@ -1503,10 +1498,9 @@ TGAEnterVT(int scrnIndex, int flags)
 static void
 TGALeaveVT(int scrnIndex, int flags)
 {
-    TGAPtr pTga;
     ScrnInfoPtr pScrn = xf86Screens[scrnIndex];
+/*     TGAPtr pTga = TGAPTR(pScrn); */
 
-    pTga = TGAPTR(pScrn);
     TGARestore(pScrn);
 
     /* no longer necessary with new VT switching code */
@@ -1555,7 +1549,7 @@ TGAFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 TGAValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

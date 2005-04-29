@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1998 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: usage.c,v 1.20 2003/03/21 17:25:10 abe Exp $";
+static char *rcsid = "$Id: usage.c,v 1.22 2004/07/06 19:09:32 abe Exp $";
 #endif
 
 
@@ -372,14 +372,29 @@ usage(xv, fh, version)
 
 	    (void) fprintf(stderr, " [+|-L [l]]");
 
-#if	defined(HASMOPT)
-	    (void) fprintf(stderr, " [-m m]");
-#endif	/* defined(HASMOPT) */
+#if	defined(HASMOPT) || defined(HASMNTSUP)
+	    (void) fprintf(stderr,
+# if	defined(HASMOPT)
+#  if	defined(HASMNTSUP)
+		" [+|-m [m]]"
+#  else	/* !defined(HASMNTSUP) */
+		" [-m m]"
+#  endif	/* defined(HASMNTSUP) */
+# else	/* !defined(HASMOPT) */
+		" [+m [m]]"
+# endif	/* defined(HASMOPT) */
+		);
+#endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
 
 	    (void) fprintf(stderr,
-	    " [+|-M] [-o [o]] [-p s]\n [+|-r [t]] [-S [t]] [-T [t]]");
-	    (void) fprintf(stderr,
-	    " [-u s] [+|-w] [--] [names]\n");
+	        " [+|-M] [-o [o]]\n[-p s] [+|-r [t]] [-S [t]] [-T [t]]");
+	    (void) fprintf(stderr, " [-u s] [+|-w] [-x [fl]]");
+
+#if	defined(HASZONES)
+	    (void) fprintf(stderr, " [-z [z]]");
+#endif	/* defined(HASZONES) */
+
+	    (void) fprintf(stderr, " [--] [names]\n");
 	}
 	if (xv && !Fhelp) {
 	    (void) fprintf(stderr,
@@ -473,7 +488,8 @@ usage(xv, fh, version)
 # if	defined(HASXOPT_ROOT)
 	    if (Myuid == 0)
 		(void) snpf(buf, sizeof(buf), "-X %s", HASXOPT);
-	    buf[0] = '\0';
+	    else
+		buf[0] = '\0';
 # else	/* !defined(HASXOPT_ROOT) */
 	    (void) snpf(buf, sizeof(buf), "-X %s", HASXOPT);
 # endif	/* defined(HASXOPT_ROOT) */
@@ -481,7 +497,14 @@ usage(xv, fh, version)
 	    buf[0] = '\0';
 #endif	/* defined(HASXOPT) */
 
-	    (void) fprintf(stderr, "  %-25.25s", buf);
+	    if (buf[0])
+		(void) fprintf(stderr, "  %-25.25s", buf);
+
+#if	defined(HASZONES)
+	    (void) fprintf(stderr,
+		(buf[0]) ? " %s\n" : "  %-25.25s", "-z z  zone [z]");
+#endif	/* defined(HASZONES) */
+
 	    (void) fprintf(stderr, "  %s\n", "-- end option scan");
 	    (void) fprintf(stderr, "  %-36.36s",
 		"+f|-f  +filesystem or -file names");
@@ -522,13 +545,22 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr,
 		"  +|-L [l] list (+) suppress (-) link counts < l (0 = all; default = 0)\n");
 
+#if	defined(HASMOPT) || defined(HASMNTSUP)
 # if	defined(HASMOPT)
 	    (void) snpf(buf, sizeof(buf), "-m m   kernel memory (%s)", KMEM);
-#else	/* !defined(HASMOPT) */
-	    (void) snpf(buf, sizeof(buf), " ");
-#endif	/* defined(HASMOPT) */
+# else	/* !defined(HASMOPT) */
+	    buf[0] = '\0';
+# endif	/* defined(HASMOPT) */
 
 	    (void) fprintf(stderr, "  %-36.36s", buf);
+
+# if	defined(HASMNTSUP)
+	    (void) fprintf(stderr, "  +m [m] use|create mount supplement\n");
+# else	/* !defined(HASMNTSUP) */
+	    (void) fprintf(stderr, "\n");
+# endif	/* defined(HASMNTSUP) */
+#endif	/* defined(HASMOPT) || defined(HASMNTSUP) */
+
 	    (void) snpf(buf, sizeof(buf), "+|-M   portMap registration (%s)",
 
 #if	defined(HASPMAPENABLED)
@@ -538,15 +570,21 @@ usage(xv, fh, version)
 #endif	/* defined(HASPMAPENABLED) */
 
 	    );
-	    (void) fprintf(stderr, "  %s\n", buf);
+	    (void) fprintf(stderr, "  %-36.36s", buf);
 	    (void) snpf(buf, sizeof(buf), "-o o   o 0t offset digits (%d)",
 		OFFDECDIG);
-	    (void) fprintf(stderr, "  %-36.36s", buf);
-	    (void) fprintf(stderr, "  -p s   select by PID set\n");
+	    (void) fprintf(stderr, "  %s\n", buf);
+	    (void) fprintf(stderr, "  %-36.36s", "-p s   select by PID set");
+	    (void) fprintf(stderr, "  -S [t] t second stat timeout (%d)\n",
+		TMLIMIT);
 	    (void) snpf(buf, sizeof(buf),
-		"-S [t] t second stat timeout (%d)", TMLIMIT);
-	    (void) fprintf(stderr, "  %-36.36s", buf);
-	    (void) snpf(buf, sizeof(buf), "-T %ss%s TCP/TPI %sSt%s info (s)",
+		"-T %s%ss%s TCP/TPI %s%sSt%s (s) info",
+
+#if     defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
+		"f",
+#else	/* !defined(HASSOOPT) && !defined(HASSOSTATE) && !defined(HASTCPOPT)*/
+		"",
+#endif	/* defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)*/
 
 #if 	defined(HASTCPTPIQ)
 		"q",
@@ -557,8 +595,14 @@ usage(xv, fh, version)
 #if 	defined(HASTCPTPIW)
 		"w",
 #else	/* !defined(HASTCPTPIW) */
-		" ",
+		"",
 #endif	/* defined(HASTCPTPIW) */
+
+#if     defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)
+		"Fl,",
+#else	/* !defined(HASSOOPT) && !defined(HASSOSTATE) && !defined(HASTCPOPT)*/
+		"",
+#endif	/* defined(HASSOOPT) || defined(HASSOSTATE) || defined(HASTCPOPT)*/
 
 #if 	defined(HASTCPTPIQ)
 		"Q,",
@@ -608,6 +652,8 @@ usage(xv, fh, version)
 	    (void) fprintf(stderr,
 		"  -u s   exclude(^)|select login|UID set s\n");
 	    (void) fprintf(stderr,
+		"  -x [fl] cross over +d|+D File systems or symbolic Links\n");
+	    (void) fprintf(stderr,
 		"  names  select named files or files on named file systems\n");
 	    (void) report_SECURITY(NULL, "; ");
 	    (void) report_WARNDEVACCESS(NULL, NULL, ";");
@@ -630,6 +676,11 @@ usage(xv, fh, version)
 		||  FieldSel[i].id == LSOF_FID_NI)
 		    continue;
 #endif	/* !defined(HASFSTRUCT) */
+
+#if	!defined(HASZONES)
+		if (FieldSel[i].id == LSOF_FID_ZONE)
+		    continue;
+#endif	/* !defined(HASZONES) */
 
 		(void) fprintf(stderr, "\t %c    %s\n",
 		    FieldSel[i].id, FieldSel[i].nm);

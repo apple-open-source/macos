@@ -107,18 +107,18 @@ bool IOMbufMemoryCursor::initWithSpecification(OutputSegmentFunc inOutSeg,
 //
 #define BCOPY(s, d, l) do { bcopy((void *) s, (void *) d, l); } while(0)
 
-static inline void coalesceSegments(struct mbuf *srcm, struct mbuf *dstm)
+static inline void coalesceSegments(mbuf_t srcm, mbuf_t dstm)
 {
     vm_offset_t src, dst;
     SInt32 srcLen, dstLen;
-    struct mbuf *temp;
+    mbuf_t temp;
             
-    srcLen = srcm->m_len;
-    src = mtod(srcm, vm_offset_t);
+    srcLen = mbuf_len( srcm );
+    src = (vm_offset_t) mbuf_data(srcm);
 
-    dstLen = dstm->m_len;
-    dst = mtod(dstm, vm_offset_t);
-
+    dstLen = mbuf_len( dstm );
+    dst = (vm_offset_t) mbuf_data( dstm );
+	
     for (;;) {
         if (srcLen < dstLen) {
 
@@ -128,11 +128,11 @@ static inline void coalesceSegments(struct mbuf *srcm, struct mbuf *dstm)
             dstLen -= srcLen;
 
             // Move on to the next source mbuf.
-            temp = srcm->m_next; assert(temp);
+            temp = mbuf_next( srcm ); assert(temp);
             srcm = temp;
 
-            srcLen = srcm->m_len;
-            src = mtod(srcm, vm_offset_t);
+            srcLen = mbuf_len( srcm );
+            src = (vm_offset_t)mbuf_data(srcm);
         }
         else if (srcLen > dstLen) {
 
@@ -142,11 +142,11 @@ static inline void coalesceSegments(struct mbuf *srcm, struct mbuf *dstm)
             srcLen -= dstLen;
             
             // Move on to the next destination mbuf.
-            temp = dstm->m_next; assert(temp);
+            temp = mbuf_next( dstm ); assert(temp);
             dstm = temp;
 
-            dstLen = dstm->m_len;
-            dst = mtod(dstm, vm_offset_t);
+            dstLen = mbuf_len( dstm );
+            dst = (vm_offset_t)mbuf_data( dstm );
         }
         else {  /* (srcLen == dstLen) */
 
@@ -154,18 +154,18 @@ static inline void coalesceSegments(struct mbuf *srcm, struct mbuf *dstm)
             BCOPY(src, dst, srcLen);
 
             // Free current mbuf and move the current onto the next
-            srcm = srcm->m_next;
+            srcm = mbuf_next( srcm );
 
             // Do we have any data left to copy?
-            if (!dstm->m_next)
+            if (! mbuf_next ( dstm ))
                 break;
-            dstm = dstm->m_next;
+            dstm = mbuf_next ( dstm );
 
             assert(srcm);
-            dstLen = dstm->m_len;
-            dst = mtod(dstm, vm_offset_t);
-            srcLen = srcm->m_len;
-            src = mtod(srcm, vm_offset_t);
+            dstLen = mbuf_len ( dstm );
+            dst = (vm_offset_t)mbuf_data( dstm );
+            srcLen = mbuf_len( srcm );
+            src = (vm_offset_t)mbuf_data( srcm );
         }
     }
 }
@@ -173,26 +173,26 @@ static inline void coalesceSegments(struct mbuf *srcm, struct mbuf *dstm)
 static const UInt32 kMBufDataCacheSize = 16;
 
 static inline bool analyseSegments(
-    struct mbuf *packet,        /* input packet mbuf */
+    mbuf_t packet,        /* input packet mbuf */
     const UInt32 mbufsInCache,  /* number of entries in segsPerMBuf[] */
     const UInt32 segsPerMBuf[], /* segments required per mbuf */
     SInt32 numSegs,               /* total number of segments */
     const UInt32 maxSegs)       /* max controller segments per mbuf */
 {
-    struct mbuf *newPacket;     // output mbuf chain.
-    struct mbuf *out;           // current output mbuf link.
+    mbuf_t newPacket;     // output mbuf chain.
+    mbuf_t out;           // current output mbuf link.
     SInt32 outSize;               // size of current output mbuf link.
     SInt32 outSegs;               // segments for current output mbuf link.
     SInt32 doneSegs;              // segments for output mbuf chain.
     SInt32 outLen;                // remaining length of input buffer.
 
-    struct mbuf *in = packet;   // save the original input packet pointer.
+    mbuf_t in = packet;   // save the original input packet pointer.
     UInt32 inIndex = 0;
 
     // Allocate a mbuf (non header mbuf) to begin the output mbuf chain.
-    //
-    MGET(newPacket, M_DONTWAIT, MT_DATA);
-    if (!newPacket) {
+    
+    if(mbuf_get(M_DONTWAIT, MT_DATA, &newPacket))
+    {
         ERROR_LOG("analyseSegments: MGET() 1 error\n");
         return false;
     }
@@ -214,7 +214,7 @@ static inline bool analyseSegments(
     do {
         vm_offset_t vmo;
         
-        outLen += in->m_len;
+        outLen += mbuf_len(in);
 
         while (outLen > outSize) {
             // Oh dear the current outgoing length is too big.
@@ -222,8 +222,8 @@ static inline bool analyseSegments(
                 // Current mbuf is not yet a cluster so promote, then
                 // check for error.
 
-                MCLGET(out, M_DONTWAIT);
-                if ( !(out->m_flags & M_EXT) ) {
+                if(mbuf_mclget(M_DONTWAIT, MT_DATA, &out) || !(mbuf_flags(out) & M_EXT) ) 
+				{
                     ERROR_LOG("analyseSegments: MCLGET() error\n");
                     goto bombAnalysis;
                 }
@@ -233,8 +233,8 @@ static inline bool analyseSegments(
                 continue;
             }
             
-            vmo = mtod(out, vm_offset_t);
-            out->m_len = MCLBYTES;  /* Fill in target copy size */
+            vmo = (vm_offset_t)mbuf_data(out);
+            mbuf_setlen(out, MCLBYTES);  /* Fill in target copy size */
             doneSegs += (round_page_32(vmo + MCLBYTES) - trunc_page_32(vmo))
                      /   PAGE_SIZE;
 
@@ -248,19 +248,20 @@ static inline bool analyseSegments(
                 goto bombAnalysis;
             }
 
-            MGET(out->m_next, M_DONTWAIT, MT_DATA);
-            if (!out->m_next) {
+            mbuf_t tempmbuf;
+			if(mbuf_get(M_DONTWAIT, MT_DATA, &tempmbuf))
+            {
                 ERROR_LOG("analyseSegments: MGET() error\n");
                 goto bombAnalysis;
             }
-            
-            out = out->m_next;
+            mbuf_setnext(out, tempmbuf);
+            out = tempmbuf;
             outSize = MLEN;
             outLen -= MCLBYTES;
         }
 
         // Compute number of segment in current outgoing mbuf.
-        vmo = mtod(out, vm_offset_t);
+        vmo = (vm_offset_t)mbuf_data(out);
         outSegs = (round_page_32(vmo + outLen) - trunc_page_32(vmo)) / PAGE_SIZE;
         if (doneSegs + outSegs > (int) maxSegs) {
             ERROR_LOG("analyseSegments: maxSegs limit 2 reached! %ld %ld %ld\n",
@@ -275,8 +276,8 @@ static inline bool analyseSegments(
             // Hmm, we have to recompute from scratch. Copy code from genPhys.
             int thisLen = 0, mbufLen;
 
-            vmo = mtod(in, vm_offset_t);
-            for (mbufLen = in->m_len; mbufLen; mbufLen -= thisLen) {
+            vmo = (vm_offset_t)mbuf_data(in);
+            for (mbufLen = mbuf_len(in); mbufLen; mbufLen -= thisLen) {
                 thisLen = MIN(next_page(vmo), vmo + mbufLen) - vmo;
                 vmo += thisLen;
                 numSegs--;
@@ -284,7 +285,7 @@ static inline bool analyseSegments(
         }
 
         // Walk the incoming buffer on one.
-        in = in->m_next;
+        in = mbuf_next(in);
         inIndex++;
 
         // continue looping until the total number of segments has dropped
@@ -294,7 +295,7 @@ static inline bool analyseSegments(
 
     if ( (int) (numSegs + doneSegs + outSegs) <= 0) {   // success
 
-        out->m_len = outLen;    // Set last mbuf with the remaining length.
+        mbuf_setlen(out, outLen);    // Set last mbuf with the remaining length.
         
         // The amount to copy is determine by the segment length in each
         // mbuf linked to newPacket. The sum can be smaller than
@@ -310,32 +311,36 @@ static inline bool analyseSegments(
         // output packet chain. Everything before 'in', except for the
         // header mbuf can be freed.
         //
-        struct mbuf *m = packet->m_next;
+        mbuf_t m = mbuf_next(packet);
         while (m != in)
-            m = m_free(m);
+		{
+			mbuf_t nextm = mbuf_next(m);
+            mbuf_free(m);
+			m = nextm;
+		}
 
         // The initial header mbuf is preserved, its length set to zero, and
         // linked to the new packet chain.
         
-        packet->m_len = 0;
-        packet->m_next = newPacket;
-        newPacket->m_next = in;
+        mbuf_setlen(packet , 0 );
+        mbuf_setnext(packet, newPacket);
+        mbuf_setnext(newPacket, in);
         
         return true;
     }
 
 bombAnalysis:
 
-    m_freem(newPacket);
+    mbuf_freem(newPacket);
     return false;
 }
                                
-UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector,
+UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
                                                UInt32 maxSegs, bool doCoalesce)
 {
     bool doneCoalesce = false;
 
-    if (!packet || !(packet->m_flags & M_PKTHDR))
+    if (!packet || !(mbuf_flags(packet) & M_PKTHDR))
         return 0;
 
     if (!maxSegs)
@@ -344,7 +349,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
         if (!maxSegs) return 0;
     }
 
-    if ( packet->m_next == 0 )
+    if ( mbuf_next(packet) == 0 )
     {
         vm_offset_t               src;
         struct IOPhysicalSegment  physSeg;
@@ -354,14 +359,14 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
          * so if the data buffer doesn't span a page boundary
          * we can take the simple way out
          */
-        src = mtod(packet, vm_offset_t);
+        src = (vm_offset_t)mbuf_data(packet);
 
-        if ( trunc_page_32(src) == trunc_page_32(src + packet->m_len - 1) )
+        if ( trunc_page_32(src) == trunc_page_32(src + mbuf_len(packet) - 1) )
         {
             physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
             if ( physSeg.location )
             {
-                physSeg.length = packet->m_len;
+                physSeg.length = mbuf_len(packet);
                 (*outSeg)(physSeg, vector, 0);
                 return 1;
             }
@@ -375,57 +380,56 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(struct mbuf *packet, void *vector
     {
         vm_offset_t               src;
         vm_offset_t               dst;
-        struct mbuf               *m;
-        struct mbuf               *mnext;
-        struct mbuf               *out;
+        mbuf_t               m;
+        mbuf_t               mnext;
+        mbuf_t               out;
         UInt32                    len = 0;
         struct IOPhysicalSegment  physSeg;
 
-        if ( packet->m_pkthdr.len > MCLBYTES ) return 0;
+        if ( mbuf_pkthdr_len(packet) > MCLBYTES ) return 0;
 
         m = packet;
 
         // Allocate a non-header mbuf + cluster.
-    
-        out = m_getpackets( 1, 0, M_DONTWAIT );
-        if ( out == 0 ) return 0;
-
-        dst = mtod(out, vm_offset_t);
+        if (mbuf_getpacket( M_DONTWAIT, &out ))
+			return 0;
+		mbuf_setflags( out, mbuf_flags( out ) & ~M_PKTHDR );
+        dst = (vm_offset_t)mbuf_data(out);
 
         do
         {
-            src = mtod(m, vm_offset_t);
-            BCOPY( src, dst, m->m_len );
-            dst += m->m_len;
-            len += m->m_len;
-        } while ( (m = m->m_next) != 0 );
+            src = (vm_offset_t)mbuf_data(m);
+            BCOPY( src, dst, mbuf_len(m) );
+            dst += mbuf_len(m);
+            len += mbuf_len(m);
+        } while ( (m = mbuf_next(m)) != 0 );
 
-        out->m_len = len;
+        mbuf_setlen(out , len);
 
-        dst = mtod(out, vm_offset_t);
+        dst = (vm_offset_t)mbuf_data(out);
         physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)dst);
         if (!physSeg.location)
         {
-            m_free(out);
+            mbuf_free(out);
             return 0;
         }
-        physSeg.length = out->m_len;
+        physSeg.length = mbuf_len(out);
         (*outSeg)(physSeg, vector, 0);
 
-        m = packet->m_next;
+        m = mbuf_next(packet);
         while (m != 0)
         {
-            mnext = m->m_next;
-            m_free(m);
+            mnext = mbuf_next(m);
+            mbuf_free(m);
             m = mnext;
         }
 
         // The initial header mbuf is preserved, its length set to zero,
         // and linked to the new packet chain.
 
-        packet->m_len  = 0;
-        packet->m_next = out;
-        out->m_next    = 0;
+        mbuf_setlen(packet , 0);
+        mbuf_setnext(packet , out);
+        mbuf_setnext(out , 0);
 
         return 1;
     }
@@ -443,7 +447,7 @@ tryAgain:
     UInt32 curMBufIndex = 0;
     UInt32 curSegIndex  = 0;
     UInt32 lastSegCount = 0;
-    struct mbuf *m = packet;
+    mbuf_t m = packet;
 
     // For each mbuf in incoming packet.
     do {
@@ -451,7 +455,7 @@ tryAgain:
         vm_offset_t src;
 
         // Step through each segment in the current mbuf
-        for (mbufLen = m->m_len, src = mtod(m, vm_offset_t);
+        for (mbufLen = mbuf_len(m), src = (vm_offset_t)mbuf_data(m);
              mbufLen;
              src += thisLen, mbufLen -= thisLen)
         {
@@ -487,7 +491,7 @@ tryAgain:
 
         // Move on to next imcoming mbuf
         curMBufIndex++;
-        m = m->m_next;
+        m = mbuf_next(m);
     } while (m);
 
     // If we finished cleanly return number of segments found
@@ -498,7 +502,7 @@ tryAgain:
 
     // If we are coalescing and it is possible then attempt coalesce, 
     if (!doneCoalesce
-    &&  (UInt) packet->m_pkthdr.len <= maxSegs * maxSegmentSize) {
+    &&  (UInt) mbuf_pkthdr_len(packet) <= maxSegs * maxSegmentSize) {
         // Hmm, we have to do some coalescing.
         bool analysisRet;
             
@@ -523,6 +527,9 @@ UInt32 IOMbufMemoryCursor::getAndResetCoalesceCount()
     UInt32 cnt = coalesceCount; coalesceCount = 0; return cnt;
 }
 
+/* the extern "C" wrappers that follow, are used for binary compatability since
+changing the prototypes from "struct mbuf *" to "mbuf_t" causes the symbol name to change. */
+
 /********************* class IOMbufBigMemoryCursor **********************/
 IOMbufBigMemoryCursor *
 IOMbufBigMemoryCursor::withSpecification(UInt32 maxSegSize, UInt32 maxNumSegs)
@@ -538,16 +545,28 @@ IOMbufBigMemoryCursor::withSpecification(UInt32 maxSegSize, UInt32 maxNumSegs)
     return me;
 }
 
+extern "C" UInt32 _ZN21IOMbufBigMemoryCursor19getPhysicalSegmentsEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+      IOMbufBigMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegments((mbuf_t)packet, vector,numVectorSegments);
+}
+																								   
 UInt32
-IOMbufBigMemoryCursor::getPhysicalSegments(struct mbuf *packet,
+IOMbufBigMemoryCursor::getPhysicalSegments(mbuf_t packet,
                        struct IOPhysicalSegment *vector,
                        UInt32 numVectorSegments)
 {
     return genPhysicalSegments(packet, vector, numVectorSegments, false);
 }
 
+extern "C" UInt32 _ZN21IOMbufBigMemoryCursor31getPhysicalSegmentsWithCoalesceEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+ IOMbufBigMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegmentsWithCoalesce((mbuf_t)packet, vector,numVectorSegments);
+}
+
 UInt32
-IOMbufBigMemoryCursor::getPhysicalSegmentsWithCoalesce(struct mbuf *packet,
+IOMbufBigMemoryCursor::getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                    struct IOPhysicalSegment *vector,
                                    UInt32 numVectorSegments)
 {
@@ -570,16 +589,29 @@ IOMbufNaturalMemoryCursor::withSpecification(UInt32 maxSegSize, UInt32 maxNumSeg
     return me;
 }
 
+extern "C" UInt32 _ZN25IOMbufNaturalMemoryCursor19getPhysicalSegmentsEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+ IOMbufNaturalMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegments((mbuf_t)packet, vector,numVectorSegments);
+}
+
 UInt32
-IOMbufNaturalMemoryCursor::getPhysicalSegments(struct mbuf *packet,
+IOMbufNaturalMemoryCursor::getPhysicalSegments(mbuf_t packet,
                        struct IOPhysicalSegment *vector,
                        UInt32 numVectorSegments)
 {
     return genPhysicalSegments(packet, vector, numVectorSegments, false);
 }
 
+extern "C" UInt32 _ZN25IOMbufNaturalMemoryCursor31getPhysicalSegmentsWithCoalesceEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+IOMbufNaturalMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegmentsWithCoalesce((mbuf_t)packet, vector,numVectorSegments);
+}
+
+
 UInt32
-IOMbufNaturalMemoryCursor::getPhysicalSegmentsWithCoalesce(struct mbuf *packet,
+IOMbufNaturalMemoryCursor::getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                    struct IOPhysicalSegment *vector,
                                    UInt32 numVectorSegments)
 {
@@ -602,16 +634,29 @@ IOMbufLittleMemoryCursor::withSpecification(UInt32 maxSegSize, UInt32 maxNumSegs
     return me;
 }
 
+extern "C" UInt32 _ZN24IOMbufLittleMemoryCursor19getPhysicalSegmentsEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+ IOMbufLittleMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegments((mbuf_t)packet, vector,numVectorSegments);
+}
+
 UInt32
-IOMbufLittleMemoryCursor::getPhysicalSegments(struct mbuf *packet,
+IOMbufLittleMemoryCursor::getPhysicalSegments(mbuf_t packet,
                        struct IOPhysicalSegment *vector,
                        UInt32 numVectorSegments)
 {
     return genPhysicalSegments(packet, vector, numVectorSegments, false);
 }
 
+extern "C" UInt32 _ZN24IOMbufLittleMemoryCursor31getPhysicalSegmentsWithCoalesceEP4mbufPN14IOMemoryCursor15PhysicalSegmentEm(
+  IOMbufLittleMemoryCursor *self, void *packet, struct IOPhysicalSegment *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegmentsWithCoalesce((mbuf_t)packet, vector,numVectorSegments);
+}
+
+
 UInt32
-IOMbufLittleMemoryCursor::getPhysicalSegmentsWithCoalesce(struct mbuf *packet,
+IOMbufLittleMemoryCursor::getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                    struct IOPhysicalSegment *vector,
                                    UInt32 numVectorSegments)
 {
@@ -636,16 +681,29 @@ IOMbufDBDMAMemoryCursor::withSpecification(UInt32 maxSegSize, UInt32 maxNumSegs)
     return me;
 }
 
+extern "C" UInt32 _ZN23IOMbufDBDMAMemoryCursor19getPhysicalSegmentsEP4mbufP17IODBDMADescriptorm(
+IOMbufDBDMAMemoryCursor *self, void *packet, struct IODBDMADescriptor *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegments((mbuf_t)packet, vector, numVectorSegments);
+}
+
 UInt32
-IOMbufDBDMAMemoryCursor::getPhysicalSegments(struct mbuf *packet,
+IOMbufDBDMAMemoryCursor::getPhysicalSegments(mbuf_t packet,
                                    struct IODBDMADescriptor *vector,
                                    UInt32 numVectorSegments)
 {
     return genPhysicalSegments(packet, vector, numVectorSegments, false);
 }
 
+extern "C" UInt32 _ZN23IOMbufDBDMAMemoryCursor31getPhysicalSegmentsWithCoalesceEP4mbufP17IODBDMADescriptorm(
+IOMbufDBDMAMemoryCursor *self, void *packet, struct IODBDMADescriptor *vector, UInt32 numVectorSegments)
+{
+	return self->getPhysicalSegmentsWithCoalesce((mbuf_t)packet, vector, numVectorSegments);
+}
+
+
 UInt32
-IOMbufDBDMAMemoryCursor::getPhysicalSegmentsWithCoalesce(struct mbuf *packet,
+IOMbufDBDMAMemoryCursor::getPhysicalSegmentsWithCoalesce(mbuf_t packet,
                                    struct IODBDMADescriptor *vector,
                                    UInt32 numVectorSegments)
 {

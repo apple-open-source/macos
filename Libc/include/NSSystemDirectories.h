@@ -55,18 +55,21 @@ extern "C" {
 // Directories
 
 typedef enum {
-    NSApplicationDirectory = 1,		// supported applications (Applications)
-    NSDemoApplicationDirectory,		// unsupported applications, demonstration versions (Applications/GrabBag)
-    NSDeveloperApplicationDirectory,	// developer applications (Developer/Applications)
-    NSAdminApplicationDirectory,	// system and network administration applications (Applications/Utilities)
-    NSLibraryDirectory, 		// various user-visible documentation, support, and configuration files, resources (Library)
-    NSDeveloperDirectory,		// developer resources (Developer)
-    NSUserDirectory,			// user home directories (Users)
-    NSDocumentationDirectory,		// documentation (Library/Documentation)
-    NSDocumentDirectory,                // documents (Documents)
-    NSCoreServiceDirectory,		// location of core services (System/Library/CoreServices)
-    NSAllApplicationsDirectory = 100,	// all directories where applications can occur (Applications, Applications/Utilities, Developer/Applications, Applications/GrabBag)
-    NSAllLibrariesDirectory = 101	// all directories where resources can occur (Library, Developer)
+    NSApplicationDirectory = 1,             // supported applications (Applications)
+    NSDemoApplicationDirectory = 2,         // unsupported applications, demonstration versions (Applications/GrabBag)
+    NSDeveloperApplicationDirectory = 3,    // developer applications (Developer/Applications)
+    NSAdminApplicationDirectory = 4,        // system and network administration applications (Applications/Utilities)
+    NSLibraryDirectory = 5,                 // various user-visible documentation, support, and configuration files, resources (Library)
+    NSDeveloperDirectory = 6,               // developer resources (Developer)
+    NSUserDirectory = 7,                    // user home directories (Users)
+    NSDocumentationDirectory = 8,           // documentation (Library/Documentation)
+    NSDocumentDirectory = 9,                // documents (Documents)
+    NSCoreServiceDirectory = 10,            // location of core services (System/Library/CoreServices)
+    NSDesktopDirectory = 12,                // location of user's Desktop (Desktop)
+    NSCachesDirectory = 13,                 // location of discardable cache files (Library/Caches)
+    NSApplicationSupportDirectory = 14,     // location of application support files (plug-ins, etc) (Library/Application Support)
+    NSAllApplicationsDirectory = 100,       // all directories where applications can occur (Applications, Applications/Utilities, Developer/Applications, ...)
+    NSAllLibrariesDirectory = 101           // all directories where resources can occur (Library, Developer)
 } NSSearchPathDirectory;
 
 // Domains

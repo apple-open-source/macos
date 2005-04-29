@@ -1,9 +1,9 @@
-
+/* $XFree86: xc/extras/Mesa/src/X86/common_x86.c,v 1.14 2003/10/22 15:44:42 tsi Exp $ */
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  5.0
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -44,6 +44,7 @@
 
 #include "context.h"
 #include "common_x86_asm.h"
+#include "imports.h"
 
 
 int _mesa_x86_cpu_features = 0;
@@ -236,6 +237,7 @@ static void check_os_sse_support( void )
 
 void _mesa_init_all_x86_transform_asm( void )
 {
+   (void) message; /* silence warning */
 #ifdef USE_X86_ASM
    _mesa_x86_cpu_features = _mesa_identify_x86_cpu_features();
 
@@ -284,26 +286,3 @@ void _mesa_init_all_x86_transform_asm( void )
 #endif
 }
 
-/* Note: the above function must be called before this one, so that
- * _mesa_x86_cpu_features gets correctly initialized.
- */
-void _mesa_init_all_x86_vertex_asm( void )
-{
-#ifdef USE_X86_ASM
-   if ( _mesa_x86_cpu_features ) {
-      _mesa_init_x86_vertex_asm();
-   }
-
-#ifdef USE_3DNOW_ASM
-   if ( cpu_has_3dnow && getenv( "MESA_NO_3DNOW" ) == 0 ) {
-      _mesa_init_3dnow_vertex_asm();
-   }
-#endif
-
-#ifdef USE_SSE_ASM
-   if ( cpu_has_xmm && getenv( "MESA_NO_SSE" ) == 0 ) {
-      _mesa_init_sse_vertex_asm();
-   }
-#endif
-#endif
-}

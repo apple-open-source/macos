@@ -24,7 +24,7 @@
  *
  *    Wittawat Yamwong <Wittawat.Yamwong@stud.uni-hannover.de>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/common/hwlog.c,v 1.3 2001/08/18 02:51:03 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/common/hwlog.c,v 1.4 2003/09/28 20:15:07 alanh Exp $ */
  
 #include "hwlog.h"
 hwlog_t hwlog = { 0,0,0, "[???] "};
@@ -36,7 +36,8 @@ hwlog_t hwlog = { 0,0,0, "[???] "};
 #include <stdarg.h>
 
 
-int usec( void ) 
+#ifdef HW_LOG_ENABLED
+static int usec( void ) 
 {
    struct timeval tv;
    struct timezone tz;
@@ -46,8 +47,6 @@ int usec( void )
    return (tv.tv_sec & 2047) * 1000000 + tv.tv_usec;
 }
 
-
-#ifdef HW_LOG_ENABLED
 int hwOpenLog(const char *filename, char *prefix)
 {
   hwCloseLog();
@@ -118,13 +117,6 @@ void hwMsg(int l, const char *format, ...)
   }
 
   va_end(ap);
-}
-
-#else /* ifdef HW_LOG_ENABLED */
-
-int hwlogdummy()
-{
-  return 0;
 }
 
 #endif

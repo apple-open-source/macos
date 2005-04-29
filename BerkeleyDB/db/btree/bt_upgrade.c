@@ -1,26 +1,25 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  */
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: bt_upgrade.c,v 1.1.1.1 2003/02/15 04:55:36 zarzycki Exp $";
+static const char revid[] = "$Id: bt_upgrade.c,v 1.2 2004/03/30 01:21:13 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
 #include <sys/types.h>
 
-#include <limits.h>
 #include <string.h>
 #endif
 
 #include "db_int.h"
 #include "dbinc/db_page.h"
-#include "dbinc/db_am.h"
 #include "dbinc/db_upgrade.h"
+#include "dbinc/btree.h"
 
 /*
  * __bam_30_btreemeta --

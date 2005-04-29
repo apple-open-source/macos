@@ -1,0 +1,14 @@
+#!/bin/sh
+
+cd `dirname $0`/../htdocs
+
+out=$HOME/logs/crontab.trf
+mkdir -p `dirname $out`
+
+echo _________________________________________ `date` >> $out 2>&1
+echo htdocs_get_sf_stats _____________________        >> $out 2>&1
+../tools/htdocs_get_sf_stats                          >> $out 2>&1
+echo htdocs_regen ____________________________        >> $out 2>&1
+../tools/htdocs_regen                                 >> $out 2>&1
+
+exit

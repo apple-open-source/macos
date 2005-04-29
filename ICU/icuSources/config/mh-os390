@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## 390-specific setup 
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-os390,v 1.1.1.2 2003/07/03 18:13:33 avery Exp $
 
 ###################################################################
 #                    IMPORTANT NOTE                               #
@@ -46,7 +44,7 @@ endif
 #       -Wc,"ros" seems to work, but not the "roc"
 CFLAGS          += -Wc,"langlvl(extended),spill(2000)" -Wc,"ros" $(ICU_BUILD_OPTIONS) $(ICU_IEEE) -Wc,dll,expo
 CXXFLAGS        += -Wc,"langlvl(extended),spill(2000)" -Wc,"ros" $(ICU_BUILD_OPTIONS) $(ICU_IEEE) -Wc,dll,expo
-DEFS            += -D_OPEN_THREADS -D_XOPEN_SOURCE_EXTENDED -D_MSE_PROTOS -D_SHR_TZNAME -D_SHR_TIMEZONE -DU_LIBICUDATA_NAME=\"$(ICUDATA_NAME)\"
+DEFS            += -D_OPEN_THREADS -D_XOPEN_SOURCE_EXTENDED -D_MSE_PROTOS -D_SHR_TZNAME -D_SHR_TIMEZONE -DU_LIBICUDATA_NAME=\"$(ICUPREFIX)$(DATA_STUBNAME)$(ICULIBSUFFIX)\"
 ARFLAGS         = -cr
 
 # TODO: Fix this configuration so that icu-config will work!
@@ -101,9 +99,9 @@ FINAL_SO_TARGET=  $(basename $(SO_TARGET))$(SO_TARGET_VERSION).$(SO)
 MIDDLE_SO_TARGET= $(basename $(SO_TARGET))$(SO_TARGET_VERSION_MAJOR).$(SO)
 
 ## Versioned import library names.
-IMPORT_LIB = $(basename $(SO_TARGET))$(IMPORT_LIB_EXT)
-MIDDLE_IMPORT_LIB = $(basename $(MIDDLE_SO_TARGET))$(IMPORT_LIB_EXT)
-FINAL_IMPORT_LIB = $(basename $(FINAL_SO_TARGET))$(IMPORT_LIB_EXT)
+IMPORT_LIB = $(basename $(notdir $(SO_TARGET)))$(IMPORT_LIB_EXT)
+MIDDLE_IMPORT_LIB = $(basename $(notdir $(MIDDLE_SO_TARGET)))$(IMPORT_LIB_EXT)
+FINAL_IMPORT_LIB = $(basename $(notdir $(FINAL_SO_TARGET)))$(IMPORT_LIB_EXT)
 
 ## Shared object suffix (switch to dll for shared library build)
 SO = dll
@@ -126,25 +124,27 @@ BATCH_LIBICUDT=		"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}DA)'"
 endif
 
 BATCH_COMMON_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}UC)'"
-BATCH_I18N_TARGET=	"//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}IN)'"
-BATCH_USTDIO_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}IO)'"
+BATCH_I18N_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}IN)'"
+BATCH_IO_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}IO)'"
+BATCH_LAYOUT_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}LE)'"
+BATCH_LAYOUTEX_TARGET="//'${LOADMOD}(IXMI${SO_TARGET_VERSION_MAJOR}LX)'"
 
 BATCH_LIBICUUC=		"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}UC)'"
 BATCH_LIBICUI18N=	"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}IN)'"
-BATCH_LIBICUSTDIO=	"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}IO)'"
+BATCH_LIBICUIO=		"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}IO)'"
 BATCH_LIBICULE=		"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}LE)'"
 BATCH_LIBICULX=		"//'${LOADEXP}(IXMI${SO_TARGET_VERSION_MAJOR}LX)'"
 endif
 
 ## Link commands to link to ICU libs
-LIBICUDT=	$(top_builddir)/stubdata/lib$(ICUPREFIX)data$(ICULIBSUFFIX)$(STUB_SUFFIX)$(SO_TARGET_VERSION).x
-LIBICUUC=	$(top_builddir)/common/lib$(ICUPREFIX)uc$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBICUI18N=	$(top_builddir)/i18n/lib$(ICUPREFIX)i18n$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBICULE=	$(top_builddir)/layout/lib$(ICUPREFIX)le$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBICULX=	$(top_builddir)/layoutex/lib$(ICUPREFIX)lx$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBCTESTFW=	$(top_builddir)/tools/ctestfw/lib$(ICUPREFIX)ctestfw$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBICUTOOLUTIL=	$(top_builddir)/tools/toolutil/lib$(ICUPREFIX)toolutil$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
-LIBUSTDIO=	$(top_builddir)/extra/ustdio/libicuio$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICUDT=	$(top_builddir)/stubdata/$(LIBICU)data$(ICULIBSUFFIX)$(STUB_SUFFIX)$(SO_TARGET_VERSION).x
+LIBICUUC=	$(top_builddir)/common/$(LIBICU)uc$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICUI18N=	$(top_builddir)/i18n/$(LIBICU)i18n$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICULE=	$(top_builddir)/layout/$(LIBICU)le$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICULX=	$(top_builddir)/layoutex/$(LIBICU)lx$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICUIO=	$(top_builddir)/io/$(LIBICU)io$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBCTESTFW=	$(top_builddir)/tools/ctestfw/$(LIBICU)test$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
+LIBICUTOOLUTIL=	$(top_builddir)/tools/toolutil/$(LIBICU)tu$(ICULIBSUFFIX)$(SO_TARGET_VERSION).x
 
 ## Special 390 rules
 
@@ -181,8 +181,11 @@ LIBUSTDIO=	$(top_builddir)/extra/ustdio/libicuio$(ICULIBSUFFIX)$(SO_TARGET_VERSI
 
 ## Versioned libraries rules
 %$(SO_TARGET_VERSION_MAJOR).$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
 %.$(SO): %$(SO_TARGET_VERSION).$(SO)
-	$(RM) $@ && ln -s $*$(SO_TARGET_VERSION).$(SO) $@
+	$(RM) $@ && ln -s ${*F}$(SO_TARGET_VERSION).$(SO) $@
+
+## Install libraries as executable
+INSTALL-L=$(INSTALL_PROGRAM)
 
 ## End 390-specific setup

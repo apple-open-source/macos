@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/Imakefile,v 3.56 2003/02/17 17:06:45 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/Imakefile,v 3.62 2003/11/24 02:02:29 dawes Exp $
 
 
 
@@ -12,13 +12,15 @@ XCOMM $XConsortium: Imakefile /main/9 1996/10/25 15:38:46 kaleb $
 
 #if defined(i386Architecture) || defined(ia64Architecture) || \
 	(defined(SunArchitecture) && defined(SparcArchitecture)) || \
-	(defined(FreeBSDArchitecture) && defined(AlphaArchitecture)) || \
-	(defined(NetBSDArchitecture) && defined(AlphaArchitecture)) || \
-	(defined(NetBSDArchitecture) && defined(PpcArchitecture)) || \
-	(defined(NetBSDArchitecture) && defined(SparcArchitecture)) || \
-	defined(OpenBSDArchitecture) || \
+	(defined(KFreeBSDArchitecture) && defined(AlphaArchitecture)) || \
+	(defined(KFreeBSDArchitecture) && defined(Sparc64Architecture)) || \
+	(defined(KNetBSDArchitecture) && defined(AlphaArchitecture)) || \
+	(defined(KNetBSDArchitecture) && defined(PpcArchitecture)) || \
+	(defined(KNetBSDArchitecture) && defined(SparcArchitecture)) || \
+	defined(KOpenBSDArchitecture) || defined(SGIArchitecture) || \
 	(defined(LynxOSArchitecture) && defined(PpcArchitecture)) || \
-	defined(x86_64Architecture) || defined(LinuxArchitecture)
+	defined(AMD64Architecture) || defined(LinuxArchitecture) || \
+	defined(GNUMachArchitecture)
 BUS_SUBDIR = bus
 #endif
 
@@ -45,6 +47,8 @@ OS_SUBDIR = sunos
 OS_SUBDIR = pmax
 # elif defined(DguxArchitecture)
 OS_SUBDIR = dgux
+# elif defined(SGIArchitecture)
+OS_SUBDIR = irix
 # else
 OS_SUBDIR = sysv
 # endif
@@ -106,10 +110,6 @@ $(DONES): $(SUBDIRS)
 
 NormalDepLibraryTarget(xf86_os,$(SUBDIRS) $(DONES),$(OBJS))
 
-#if !HasSnprintf
-LinkSourceFile(snprintf.c,$(LIBSRC)/misc)
-#endif
-
 ForceSubdirs($(SUBDIRS))
 
 DependSubdirs($(SUBDIRS))
@@ -119,3 +119,5 @@ InstallDriverSDKNonExecFile(xf86_OSlib.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(xf86_ansic.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(xf86_libc.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(xf86drm.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(xf86drmCompat.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(assyntax.h,$(DRIVERSDKINCLUDEDIR))

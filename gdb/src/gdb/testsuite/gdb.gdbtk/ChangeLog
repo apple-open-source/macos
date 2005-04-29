@@ -1,3 +1,30 @@
+2003-02-28  Martin M. Hunt  <hunt@redhat.com>
+
+	* c_variable.test: Fix result for 6.22.
+
+2003-02-27  Martin M. Hunt  <hunt@redhat.com>
+
+	* cpp_variable.test: Major changes required because varobj_update
+	now returns "-1" if a variable is out of scope.
+
+	* c_variable.test: Major changes required because varobj_update
+	now returns "-1" if a variable is out of scope. This fixes a bunch 
+	of XFAILS. Change bug reporting address.
+	
+	* windows.test: Remove HtmlViewer from list of windows.
+
+	* srcwin.test: Use "list get" instead of "listget" to
+	get contents of comboboxes. 
+	(2.1): Be less sensitive. 
+
+	* srcwin2.test: Use "list get" instead of "listget" to
+	get contents of comboboxes
+	(2-1.3): Accept assembly == mixed
+	for no source tests.
+
+	* srcwin3.test:  Use "list get" instead of "listget" to
+	get contents of comboboxes
+
 2002-09-09  Fred Fish  <fnf@intrinsity.com>
 
 	* simple.c:  Pass addresses to strncpy, not chars.

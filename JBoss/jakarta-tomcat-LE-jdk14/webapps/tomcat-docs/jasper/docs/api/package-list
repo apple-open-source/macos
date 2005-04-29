@@ -1,7 +1,0 @@
-org.apache.jasper
-org.apache.jasper.compiler
-org.apache.jasper.logging
-org.apache.jasper.runtime
-org.apache.jasper.servlet
-org.apache.jasper.util
-org.apache.jasper.xmlparser

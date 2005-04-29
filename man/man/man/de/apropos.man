@@ -1,0 +1,29 @@
+.\" Man page for apropos
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Übersetzt von Jochen Hein ( Hein@Student.tu-clausthal.de )
+.\"
+.TH apropos 1 "Jan 15, 1991"
+.LO 1
+.SH NAME
+apropos \- durchsucht die whatis Datenbank nach Zeichenketten
+.SH SYNTAX
+.BI apropos
+keyword ...
+.SH BESCHREIBUNG
+apropos durchsucht eine Reihe von Datenbank-Dateien, die kurze Beschreibungen
+von System-Kommandos enthalten, nach Schlüsselworten und zeigt das Ergebnis
+auf der Standard-Ausgabe an.
+.SH "SIEHE AUCH"
+whatis(1), man(1).

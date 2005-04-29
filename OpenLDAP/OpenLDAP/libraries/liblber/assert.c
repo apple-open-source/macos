@@ -1,12 +1,16 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblber/assert.c,v 1.7.2.1 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1999-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* $OpenLDAP: pkg/ldap/libraries/liblber/assert.c,v 1.9.2.2 2004/01/01 18:16:29 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted only
- * as authorized by the OpenLDAP Public License.  A copy of this
- * license is available at http://www.OpenLDAP.org/license.html or
- * in file LICENSE in the top-level directory of the distribution.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -27,7 +31,7 @@ void
 ber_pvt_assert( const char *file, int line, const char *test )
 {
 	fprintf(stderr,
-		"Assertion failed: %s, file %s, line %d\n",
+		_("Assertion failed: %s, file %s, line %d\n"),
 			test, file, line);
 
 	abort();

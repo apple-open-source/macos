@@ -19,7 +19,7 @@ XCOMM $Xorg: Library.tmpl,v 1.3 2000/08/17 19:41:46 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/config/cf/Library.tmpl,v 3.21 2003/01/04 02:48:24 dawes Exp $
+XCOMM $XFree86: xc/config/cf/Library.tmpl,v 3.24 2003/10/21 17:41:43 tsi Exp $
 
 #ifndef DoNormalLib
 #define DoNormalLib NO
@@ -81,7 +81,7 @@ SHLIBGLOBALSFLAGS = ShlibGlobalsFlags
 # ifndef StripPath
 #  define StripPath(x) `echo x|sed "s%.*/%%"`
 # endif
-#endif 
+#endif
 
 #ifndef CplusplusSource
 # ifndef LibraryCcCmd
@@ -127,7 +127,7 @@ CLIBDEBUGFLAGS = LibraryDebugOpt
 #    define LibraryCplusplusCmd CplusplusCmd
 #   endif
 #  endif
-# else 
+# else
 #  ifndef CrossLibraryCplusplusCmd
 #   if DoSharedLib && defined(SharedLibraryCplusplusCmd)
 #    define CrossLibraryCplusplusCmd Concat3(CrossCompileDir,/,StripPath(SharedLibraryCplusplusCmd))
@@ -164,7 +164,9 @@ CXXLIBDEBUGFLAGS = LibraryDebugOpt
 # endif
 #endif
 
+#ifdef LibraryMTDefines
 LIB_MT_DEFINES = LibraryMTDefines
+#endif
 
 #if defined(IHaveSubdirs) && HasSymLinks && !defined(NoLibSubdirs)
 #define _LibMkdir LibMkdirLinkSubdirs
@@ -250,10 +252,12 @@ LIB_MT_DEFINES = LibraryMTDefines
 
 #ifndef CplusplusSource
 # define SRCsuf c
+# define Isuf i
 #else
 # define SRCsuf CCsuf
+# define Isuf ii
 # ifdef SunArchitecture
-.SUFFIXES: .CCsuf
+.SUFFIXES: Concat(.,CCsuf)
 # endif
 #endif
 
@@ -275,7 +279,7 @@ target									@@\
 	_ProfiledObjCompile(staticopts)					@@\
 	_NormalObjCompile(staticopts)					@@\
 	_ExtraObjCompile(staticopts)					@@\
-	_SharedObjCompile(sharedopts)	
+	_SharedObjCompile(sharedopts)
 #endif
 
 #ifdef CplusplusSource
@@ -324,7 +328,7 @@ _CompileObj(objs: depends,options)
 # define SpecialCLibObjectRule(basename,depends,options)		@@\
 _CompileObj(basename.Osuf: basename.SRCsuf depends,options)		@@\
 									@@\
-basename.i: basename.SRCsuf depends					@@\
+basename.Isuf: basename.SRCsuf depends					@@\
 	CPPOnlyCompile(basename.SRCsuf,options)				@@\
 									@@\
 CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
@@ -334,7 +338,7 @@ CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
 # define SpecialCLibObjectRuleSeparateOpts(basename,depends,staticopts,shopts) @@\
 _CompileObjSeparateOpts(basename.Osuf: basename.SRCsuf depends,staticopts,shopts)	@@\
 									@@\
-basename.i: basename.SRCsuf depends					@@\
+basename.Isuf: basename.SRCsuf depends					@@\
 	CPPOnlyCompile(basename.SRCsuf,sharedopts)			@@\
 									@@\
 CenterLoadTarget(debug_src,basename.SRCsuf,NullParameter,$(ALLDEFINES) options)
@@ -459,10 +463,18 @@ LibraryObjectRule()
 #   if HugeLibrary && defined(SharedLibraryTarget3)
 SharedLibraryTarget3($(LIBNAME),$(SoRev),$(OBJS1),$(OBJS2),$(OBJS3) $(EXTRASHAREDOBJS),.,.)
 #   else
+#    if defined(SharedLibtoolRev) && defined(SharedLibtoolLibraryTarget)
+SharedLibtoolLibraryTarget($(LIBNAME),SharedLibtoolRev,$(OBJS) $(EXTRASHAREDOBJS),.,.)
+#    else
 SharedLibraryTarget($(LIBNAME),$(SoRev),$(OBJS) $(EXTRASHAREDOBJS),.,.)
+#    endif
 #   endif
 #   if !defined(LibInstall) || LibInstall
+#    if defined(SharedLibtoolRev) && defined(InstallSharedLibtoolLibrary)
+InstallSharedLibtoolLibrary($(LIBNAME),SharedLibtoolRev,$(SHLIBDIR))
+#    else
 InstallSharedLibrary($(LIBNAME),$(SoRev),$(SHLIBDIR))
+#    endif
 #   endif
 #   if HasSharedData
 SharedLibraryDataTarget($(LIBNAME),$(SoRev),$(UNSHAREDOBJS))

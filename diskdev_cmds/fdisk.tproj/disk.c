@@ -66,7 +66,6 @@
 #include <sys/disk.h>
 #include <sys/param.h>
 #include <sys/sysctl.h>
-#include <machine/cpu.h>
 #ifdef __i386__
 #include <pexpert/i386/boot.h>
 #endif

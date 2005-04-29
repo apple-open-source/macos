@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1447: Origin of test
+dnl ../doc/m4.texinfo:1448: Origin of test
 define(`reverse', `ifelse($#, 0, , $#, 1, ``$1'',
 			  `reverse(shift($@)), `$1'')')
 dnl @result{}

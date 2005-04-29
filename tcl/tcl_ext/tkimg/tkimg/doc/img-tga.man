@@ -1,0 +1,70 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME tga]
+[vset FORMATFULLNAME {Truevision Targa Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {TGA OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {TGA OPTIONS}].
+
+[list_end]
+
+
+[section {SUPPORTED TGA TYPES}]
+
+[example_begin]
+ 24-bit pixels: True-color (RGB, each channel 8 bit).
+ 32-bit pixels: True-color with alpha channel (RGBA, each channel 8 bit).
+
+ List of currently supported features:
+
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+ 24-bit | Yes   | Yes   | Yes   | Yes   |
+ 32-bit | Yes   | Yes   | Yes   | Yes   |
+
+ All images types may be either uncompressed (Targa-Type 2) or
+ run-length encoded (Targa-Type 10).
+[example_end]
+
+
+[section {TGA OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], additional information about the loaded/stored image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -compression] [arg type]"]
+
+This option is supported for writing only.
+[nl]
+Set the compression mode to either [const none] or [const rle].
+Default is [const rle].
+
+[lst_item "[option -matte] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const false], a matte (alpha) channel is ignored
+during reading or writing. Default is [const true].
+
+[list_end]
+
+[list_begin definitions]
+[include format-footer.inc]

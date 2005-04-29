@@ -29,8 +29,6 @@ Boston, MA 02111-1307, USA.  */
 #include "c-dmp-tree.c"
 #endif
 
-#ifdef ENABLE_DMP_TREE
-
 #include "objc-act.h"
 
 int objc_dump_tree_p (FILE *, const char *, tree, int);
@@ -268,7 +266,6 @@ objc_dump_tree_p (file, annotation, node, indent)
    return 1;
 }
 
-#endif /* ENABLE_DMP_TREE */
 
 /*-------------------------------------------------------------------*/
 

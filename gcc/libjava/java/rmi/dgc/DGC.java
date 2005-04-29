@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* DGC.java --
+   Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -41,11 +41,11 @@ import java.rmi.Remote;
 import java.rmi.RemoteException;
 import java.rmi.server.ObjID;
 
-public interface DGC
-	extends Remote {
+public interface DGC extends Remote
+{
+  Lease dirty (ObjID[] ids, long sequenceNum, Lease lease)
+    throws RemoteException;
 
-public Lease dirty(ObjID[] ids, long sequenceNum, Lease lease) throws RemoteException;
-
-public void clean(ObjID[] ids, long sequenceNum, VMID vmid, boolean strong) throws RemoteException;
-
+  void clean (ObjID[] ids, long sequenceNum, VMID vmid, boolean strong)
+    throws RemoteException;
 }

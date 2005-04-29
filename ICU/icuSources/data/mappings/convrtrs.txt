@@ -1,27 +1,48 @@
-# *******************************************************************************
+# ******************************************************************************
 # *
-# *   Copyright (C) 1995-2003, International Business Machines
+# *   Copyright (C) 1995-2004, International Business Machines
 # *   Corporation and others.  All Rights Reserved.
 # *
-# *******************************************************************************
+# ******************************************************************************
+
+# If this converter alias table looks very confusing, a much easier to
+# understand view can be found at this demo:
+# http://oss.software.ibm.com/cgi-bin/icu/convexp
 
 # IMPORTANT NOTE
 #
 # This file is not read directly by ICU. If you change it, you need to
-# run gencnval, and eventually pkgdata to update the representation that
-# ICU uses for aliases.
+# run gencnval, and eventually run pkgdata to update the representation that
+# ICU uses for aliases. The gencnval tool will normally compile this file into
+# cnvalias.icu. The gencnval -v verbose option will help you when you edit
+# this file.
 
-# Please be friendly to the rest of use that edit this table by
+# Please be friendly to the rest of us that edit this table by
 # keeping this table free of tabs.
 
 # This is an alias file used by the character set converter.
+# A lot of converter information can be found in unicode/ucnv.h, but here
+# is more information about this file.
 #
-# Format:
+# Here is the file format using BNF-like syntax:
 #
-#     Actual file name || Algorithm name     alias1 alias2 ...
+# converterTable ::= tags { converterLine* }
+# converterLine ::= converterName [ tags ] { taggedAlias* }'\n'
+# taggedAlias ::= alias [ tags ]
+# tags ::= '{' { tag+ } '}'
+# tag ::= standard['*']
+# converterName ::= [0-9a-zA-Z:_'-']+
+# alias ::= converterName
 #
-# except for column 1 (file names) case insensitive. Names are separated
-# by whitespace.
+# Except for the converter name, aliases are case insensitive.
+# Names are separated by whitespace.
+# Line continuation and comment sytax are similar to the GNU make syntax.
+# Any lines beginning with whitespace (e.g. U+0020 SPACE or U+0009 HORIZONTAL
+# TABULATION) are presumed to be a continuation of the previous line.
+# The # symbol starts a comment and the comment continues till the end of
+# the line.
+#
+# The converter
 #
 # All names can be tagged by including a space-separated list of tags in
 # curly braces, as in ISO_8859-1:1987{IANA*} iso-8859-1 { MIME* } or
@@ -30,55 +51,67 @@
 #
 # The tags can be used to get standard names using ucnv_getStandardName().
 #
-# Here is a list of tags used in this file:
-#
-# IANA          The IANA charset name, as documented in RFC 1700.
-# MIME          The MIME charset name, used for content type tagging. 
+# The complete list of recognized tags used in this file is defined in
+# the affinity list near the beginning of the file.
 #
 # The * after the standard tag denotes that the previous alias is the
 # preferred (default) charset name for that standard. There can only
 # be one of these default charset names per converter.
 
+
+
 # The world is getting more complicated...
 # Supporting XML parsers, HTML, MIME, and similar applications
-# that mark encodings with unique charset names, we are forced to
-# make this table much more static than before.
+# that mark encodings with a charset name can be difficult.
+# Many of these applications and operating systems will update
+# their codepages over time.
 
-# It means that a new encoding, one that differs from an
+# It means that a new codepage, one that differs from an
 # old one by changing a code point, e.g., to the Euro sign,
 # must not get an old alias, because it would mean that
 # old files with this alias would be interpreted differently.
 
-# If an encoding gets updated by assigning characters to previously
+# If an codepage gets updated by assigning characters to previously
 # unassigned code points, then a new name is not necessary.
 # Also, some codepages map unassigned codepage byte values
 # to the same numbers in Unicode for roundtripping. It may be
 # industry practice to keep the encoding name in such a case, too
 # (example: Windows codepages).
 
-# Especially, the aliases listed in the list of character sets
+# The aliases listed in the list of character sets
 # that is maintained by the IANA (http://www.iana.org/) must
 # not be changed to mean encodings different from what this
-# list shows.
-# Currently, the IANA list is at
+# list shows. Currently, the IANA list is at
 # http://www.iana.org/assignments/character-sets
+# It should also be mentioned that the exact mapping table used for each
+# IANA names usually isn't specified. This means that some other applications
+# and operating systems are left to interpret the exact mappings for the
+# underspecified aliases. For instance, Shift-JIS on a Solaris platform
+# may be different from Shift-JIS on a Windows platform. This is why
+# some of the aliases can be tagged to differentiate different mapping
+# tables with the same alias. If an alias is given to more than one converter,
+# it is considered to be an ambiguous alias, and the affinity list will
+# choose the converter to use when a standard isn't specified with the alias.
 
 # Name matching is case-insensitive. Also, dashes '-', underscores '_'
-# and spaces ' ' are ignored in names (thus cs-iso-latin-1 and csisolatin1
-# are the same).
+# and spaces ' ' are ignored in names (thus cs-iso_latin-1, csisolatin1
+# and "cs iso latin 1" are the same).
 # However, the names in the left column are directly file names
 # or names of algorithmic converters, and their case must not
 # be changed - or else code and/or file names must also be changed.
+# For example, the converter ibm-921 is expected to be the file ibm-921.cnv.
 
 
 
-# This is the list of supported standard tags.
+# The immediately following list is the affinity list of supported standard tags.
 # When multiple converters have the same alias under different standards,
 # the standard nearest to the top of this list with that alias will
-# be the first converter that will be opened.
+# be the first converter that will be opened. The ordering of the aliases
+# after this affinity list does not affect the preferred alias, but it may
+# affect the order of the returned list of aliases for a given converter.
 #
 # The general ordering is from specific and frequently used to more general
-# or rarely used.
+# or rarely used at the bottom.
 {   UTR22           # Name format specified by http://www.unicode.org/unicode/reports/tr22/
     # ICU             # Can also use ICU_FEATURE
     IBM             # The IBM CCSID number is specified by ibm-*
@@ -86,7 +119,7 @@
     JAVA            # Source: Sun JDK. Alias name case is ignored, but dashes are not ignored.
     # GLIBC
     # AIX
-	# DB2
+    # DB2
     # SOLARIS
     # APPLE
     # HPUX
@@ -142,8 +175,8 @@ UTF32_OppositeEndian
 # On UTF-7:
 # RFC 2152 (http://www.imc.org/rfc2152) allows to encode some US-ASCII
 # characters directly or in base64. Especially, the characters in set O
-# as defined in the RFC (!"#$%&*;<=>@[]^_`{|}) may be encoded directly but are not
-# allowed in, e.g., email headers.
+# as defined in the RFC (!"#$%&*;<=>@[]^_`{|}) may be encoded directly
+# but are not allowed in, e.g., email headers.
 # By default, the ICU UTF-7 converter encodes set O directly.
 # By choosing the option "version=1", set O will be escaped instead.
 # For example:
@@ -200,46 +233,8 @@ US-ASCII { MIME* IANA JAVA WINDOWS }
     windows-20127 { WINDOWS* }
     # IBM367 { IANA WINDOWS } # This isn't the default ibm-367.
 
-# Partially algorithmic converters
-
-ISO_2022                         ISO-2022 { MIME* } 2022 cp2022
-ISO_2022,locale=ja,version=0     ISO-2022-JP { IANA* MIME* JAVA* } csISO2022JP { JAVA } 
-ISO_2022,locale=ja,version=1     ISO-2022-JP-1 JIS JIS_Encoding { IANA* }
-ISO_2022,locale=ja,version=2     ISO-2022-JP-2 { IANA* MIME* } csISO2022JP2
-ISO_2022,locale=ja,version=3     JIS7 csJISEncoding
-ISO_2022,locale=ja,version=4     JIS8
-ISO_2022,locale=ko,version=0     ISO-2022-KR { IANA* MIME* } csISO2022KR # This uses ibm-949
-ISO_2022,locale=ko,version=1     ibm-25546
-ISO_2022,locale=zh,version=0     ISO-2022-CN { IANA* MIME* } # csISO2022CN
-ISO_2022,locale=zh,version=1     ISO-2022-CN-EXT { IANA* MIME* }
-HZ                               HZ-GB-2312 { IANA* MIME* }
-ISCII,version=0         x-iscii-de { WINDOWS } windows-57002 { WINDOWS* } iscii-dev
-ISCII,version=1         x-iscii-be { WINDOWS } windows-57003 { WINDOWS* } iscii-bng windows-57006 { WINDOWS } x-iscii-as { WINDOWS } # be is different from as on Windows.
-ISCII,version=2         x-iscii-pa { WINDOWS } windows-57011 { WINDOWS* } iscii-gur
-ISCII,version=3         x-iscii-gu { WINDOWS } windows-57010 { WINDOWS* } iscii-guj
-ISCII,version=4         x-iscii-or { WINDOWS } windows-57007 { WINDOWS* } iscii-ori
-ISCII,version=5         x-iscii-ta { WINDOWS } windows-57004 { WINDOWS* } iscii-tml
-ISCII,version=6         x-iscii-te { WINDOWS } windows-57005 { WINDOWS* } iscii-tlg
-ISCII,version=7         x-iscii-ka { WINDOWS } windows-57008 { WINDOWS* } iscii-knd
-ISCII,version=8         x-iscii-ma { WINDOWS } windows-57009 { WINDOWS* } iscii-mlm
-
 # GB 18030 is partly algorithmic, using the MBCS converter
 gb18030 { IANA* }       ibm-1392 { IBM* } windows-54936 { WINDOWS* }
-
-# Lotus specific
-LMBCS-1                 lmbcs
-LMBCS-2
-LMBCS-3
-LMBCS-4
-LMBCS-5
-LMBCS-6
-LMBCS-8
-LMBCS-11
-LMBCS-16
-LMBCS-17
-LMBCS-18
-LMBCS-19
-
 
 # Table-based interchange codepages
 
@@ -406,7 +401,10 @@ ibm-942_P12A-1999 { UTR22* }    # ibm-942_P120 is a rarely used alternate mappin
                         ibm-932_VSUB_VPUA
                         # Is this "JIS_C6226-1978"?
 
-ibm-943_P14A-1999 { UTR22* }
+# ibm-943_P15A-2003 differs from windows-932-2000 only in a few roundtrip mappings:
+# - the usual IBM PC control code rotation (1A-1C-7F)
+# - the Windows table has roundtrips for bytes 80, A0, and FD-FF to U+0080 and PUA
+ibm-943_P15A-2003 { UTR22* }
                         ibm-943 # Leave untagged because this isn't the default
                         Shift_JIS { IANA* MIME* WINDOWS JAVA }
                         MS_Kanji { IANA WINDOWS JAVA }
@@ -418,6 +416,7 @@ ibm-943_P14A-1999 { UTR22* }
                         cp932 { WINDOWS }
                         windows-932 { WINDOWS* }
                         cp943c { JAVA* }    # This is slightly different, but the backslash mapping is the same.
+                        IBM-943C #{ AIX* } # Add this tag once AIX aliases becomes available
                         ms932
                         pck     # Probably SOLARIS
                         sjis    # This might be for ibm-1351
@@ -448,9 +447,16 @@ ibm-33722_P120-1999 { UTR22* }  # Japan EUC with \ <-> Yen mapping
                         cp33722 { JAVA* }
                         33722 { JAVA }
                         ibm-33722_VASCII_VPUA
-                        # ibm-954 seems to be a superset of ibm-33722
+# ibm-954 seems to be almost a superset of ibm-33722
+ibm-954_P101-2000 { UTR22* }
+                        ibm-954 { IBM* }
+                        EUC-JP # This is Solaris EUC-JP.
+                        # eucJP # A closer Solaris alias
+
 ibm-1373_P100-2002 { UTR22* }               # Taiwan Big-5 (w/ euro update)
                         ibm-1373 { IBM* }
+                        windows-950 # Alternate mapping. Leave untagged. This is the IBM interpretation of a Windows codepage.
+windows-950-2000 { UTR22* }
                         Big5 { IANA* MIME* JAVA* WINDOWS }
                         csBig5 { IANA WINDOWS }
                         windows-950 { WINDOWS* }
@@ -459,21 +465,29 @@ ibm-950_P110-1999 { UTR22* }                # Taiwan Big-5 (w/o euro update)
                         ibm-950 { IBM* JAVA }
                         cp950 { JAVA* }
                         950 { JAVA }
-macos-2566-10_2 { UTR22* }
+macos-2566-10.2 { UTR22* }      # This uses supplementary characters.
                         Big5-HKSCS { IANA* JAVA* }
                         big5hk { JAVA }
                         HKSCS-BIG5  # From http://www.openi18n.org/localenameguide/
                         # big5-hkscs:unicode3.0 # This is actually post 3.0 data, which has different mappings
+ibm-1375_P100-2003 { UTR22* }   # IBM's interpretation of Windows' Taiwan Big-5 w/ HKSCS extensions
+                        ibm-1375 { IBM* }
+                        Big5-HKSCS
+                        # windows-950 # Windows-950 can be w/ or w/o HKSCS extensions. By default it's not.
+                        # windows-950_hkscs
 
 ibm-1386_P100-2002  { UTR22* }
                         ibm-1386 { IBM* JAVA }
-                        GBK { IANA* WINDOWS }
-                        CP936 { IANA }
-                        windows-936 { IANA WINDOWS* }
-                        MS936 { IANA }
                         cp1386 { JAVA* }
+                        windows-936 # Alternate mapping. Leave untagged. This is the IBM interpretation of a Windows codepage.
                         ibm-1386_VSUB_VPUA
                         # zh_cn
+
+windows-936-2000 { UTR22* }
+                        GBK { IANA* WINDOWS }
+                        CP936 { IANA }
+                        MS936 { IANA }
+                        windows-936 { IANA WINDOWS* }
 
 ibm-1383_P110-1999 { UTR22* }       # China EUC.
                         ibm-1383 { IBM* }
@@ -515,51 +529,92 @@ ibm-949_P11A-1999 { UTR22* }
                         cp949c { JAVA* }
                         ibm-949_VSUB_VPUA
 
-# ibm-970 is a almost a subset of ibm-1363.
+# Korean EUC.
+#
+# <quote from="Jungshik Shin">
+# EUC-KR = KS X 1003/ISO 646-KR or ISO 646-IRV/US-ASCII in GL and KS X 1001:1998 (formerly KS C 5601-1987) in GR.
+#
+# Although widely spread on MS Windows, using 
+# KS C 5601 or related names to denote EUC-KR or
+# windows-949 is very much misleading. KS C 5601-1987
+# is NOT suitable as a designation for MIME charset
+# and MBCS. It's just the name of a 94 x 94 Korean 
+# coded character set standard which can be invoked
+# on either GL (with MSB reset) or GR (with MSB set).
+# Note that JOHAB (windows-1361) specified in 
+# KS X 1001:1998 annex 3 (KS C 5601-1992 annex 3) 
+# is a _seprate_ MBCS with a _completely different_
+# mapping.
+# </quote>
+#
+# The following aliases tries to mirror the poor state of alias recognition
+# on these platforms.
+#
+# ibm-970 is almost a subset of ibm-1363.
 # Java, Solaris and AIX use euc-kr to also mean ksc5601.
 ibm-970_P110-1995 { UTR22* }
-                        ibm-970 { IBM* }
+                        ibm-970 { IBM* JAVA }
                         EUC-KR { IANA* MIME* WINDOWS JAVA* }
+                        KS_C_5601-1987 { JAVA }
                         windows-51949 { WINDOWS* }
+                        csEUCKR { IANA WINDOWS }  # x-euc-kr is also a MIME name
                         ibm-eucKR { JAVA }
-                        csEUCKR { IANA WINDOWS }  # Korean EUC. x-euc-kr is a MIME name
+                        KSC_5601 { JAVA } # Needed by iso-2022
+                        5601 { JAVA }
                         ibm-970_VPUA
+
+# ibm-971 is almost the set of DBCS mappings of ibm-970
+ibm-971_P100-1995       ibm-971 { IBM* } ibm-971_VPUA
+
 # Java, Solaris and AIX use euc-kr to also mean ksc5601, and _sometimes_ for Windows too.
 # ibm-1363 is almost a superset of ibm-970.
-# Johab seems to be ksc5601-1992 and windows-1361, which is not this.
 ibm-1363_P11B-1998 { UTR22* }
                         ibm-1363 # Leave untagged because this isn't the default
-                        KS_C_5601-1987 { IANA* WINDOWS JAVA }
-                        KS_C_5601-1989 { IANA WINDOWS }
-                        KSC_5601 { MIME* IANA WINDOWS }
-                        csKSC56011987 { IANA WINDOWS }
-                        korean { IANA WINDOWS }
-                        iso-ir-149 { IANA WINDOWS }
-                        5601 { JAVA }
-                        windows-949 { JAVA* WINDOWS* }
+                        KS_C_5601-1987 { IANA* }
+                        KS_C_5601-1989 { IANA }
+                        KSC_5601 { MIME* IANA } # Needed by iso-2022
+                        csKSC56011987 { IANA }
+                        korean { IANA }
+                        iso-ir-149 { IANA }
+                        5601
                         cp1363
                         ksc
+                        windows-949 # Alternate mapping. Leave untagged. This is the IBM interpretation of a Windows codepage.
                         ibm-1363_VSUB_VPUA
-                        # ks_x_1001:1992    # This seems to mean johab
-                        # ksc5601-1992      # This seems to mean johab
+                        # ks_x_1001:1992
+                        # ksc5601-1992
+
 ibm-1363_P110-1997 { UTR22* } # Korean KSC MBCS with \ <-> Won mapping
                         ibm-1363 { IBM* }
                         ibm-1363_VASCII_VSUB_VPUA
 
+windows-949-2000 { UTR22* }
+                        windows-949 { JAVA* WINDOWS* }
+                        KS_C_5601-1987 { WINDOWS }
+                        KS_C_5601-1989 { WINDOWS }
+                        KSC_5601 { WINDOWS } # Needed by iso-2022
+                        csKSC56011987 { WINDOWS }
+                        korean { WINDOWS }
+                        iso-ir-149 { WINDOWS }
+                        ms949 { JAVA }
+
 ibm-1162_P100-1999 { UTR22* }   # Thai (w/ euro update)
                         ibm-1162 { IBM* }
-                        TIS-620 { IANA* WINDOWS }
-                        windows-874 { JAVA* WINDOWS* }
-                        tis620.2533 { JAVA }
-                        eucTH               # eucTH is an unusual alias from Solaris.  eucTH has fewer mappings than TIS620
-                        # iso-8859-11 { WINDOWS } # iso-8859-11 is similar to TIS-620. ibm-13162 is a closer match.
 
 ibm-874_P100-1995 { UTR22* }    # Thai PC (w/o euro update).
-                        ibm-874 { IBM* }
+                        ibm-874 { IBM* JAVA }
                         ibm-9066 { IBM }    # Yes ibm-874 == ibm-9066. ibm-1161 has the euro update.
-                        874 { JAVA }
                         cp874 { JAVA* }
+                        TIS-620 { IANA* JAVA }  # This actually separate from ibm-874, which is similar to this table
+                        tis620.2533 { JAVA }    # This actually separate from ibm-874, which is similar to this table
+                        eucTH               # eucTH is an unusual alias from Solaris.  eucTH has fewer mappings than TIS620
                         cp9066
+
+windows-874-2000 { UTR22* }   # Thai (w/ euro update)
+                        TIS-620 { WINDOWS }
+                        windows-874 { JAVA* WINDOWS* }
+                        MS874 { JAVA }
+                        # iso-8859-11 { WINDOWS } # iso-8859-11 is similar to TIS-620. ibm-13162 is a closer match.
 
 # Platform codepages
 ibm-437_P100-1995 { UTR22* }    ibm-437 { IBM* } IBM437 { IANA* WINDOWS JAVA } cp437 { IANA WINDOWS JAVA* } 437 { IANA WINDOWS JAVA } csPC8CodePage437 { IANA JAVA } windows-437 { WINDOWS* }  # PC US
@@ -586,33 +641,39 @@ ibm-902_P100-1999 { UTR22* }    ibm-902 { IBM* } # PC Estonian (w/ euro update),
 ibm-922_P100-1999 { UTR22* }    ibm-922 { IBM* JAVA }   cp922 { MIME* JAVA* } 922 { JAVA } # PC Estonian (w/o euro update)
 ibm-4909_P100-1999 { UTR22* }   ibm-4909 { IBM* } # ISO Greek (w/ euro update), update of ibm-813
 
-# The cp aliases in this section aren't really windows aliases, but it's used by ICU for Windows.
+# The cp aliases in this section aren't really windows aliases, but it was used by ICU for Windows.
+# cp is used to denote IBM in Java, and that is why we don't do that anymore.
+# The windows-* aliases mean windows codepages.
 ibm-5346_P100-1998 { UTR22* }   ibm-5346 { IBM* } windows-1250 { IANA* JAVA* WINDOWS* } cp1250 { WINDOWS }  # Windows Latin2 (w/ euro update)
 ibm-5347_P100-1998 { UTR22* }   ibm-5347 { IBM* } windows-1251 { IANA* JAVA* WINDOWS* } cp1251 { WINDOWS }  # Windows Cyrillic (w/ euro update)
 ibm-5348_P100-1997 { UTR22* }   ibm-5348 { IBM* } windows-1252 { IANA* JAVA* WINDOWS* } cp1252 { WINDOWS }  # Windows Latin1 (w/ euro update)
 ibm-5349_P100-1998 { UTR22* }   ibm-5349 { IBM* } windows-1253 { IANA* JAVA* WINDOWS* } cp1253 { WINDOWS }  # Windows Greek (w/ euro update)
 ibm-5350_P100-1998 { UTR22* }   ibm-5350 { IBM* } windows-1254 { IANA* JAVA* WINDOWS* } cp1254 { WINDOWS }  # Windows Turkish (w/ euro update)
-ibm-5351_P100-1998 { UTR22* }   ibm-5351 { IBM* } windows-1255 { IANA* JAVA* WINDOWS* } cp1255 { WINDOWS }  # Windows Hebrew (w/ euro update)
-ibm-5352_P100-1998 { UTR22* }   ibm-5352 { IBM* } windows-1256 { IANA* JAVA* WINDOWS* } cp1256 { WINDOWS }  # Windows Arabic (w/ euro update)
-ibm-5353_P100-1998 { UTR22* }   ibm-5353 { IBM* } windows-1257 { IANA* JAVA* WINDOWS* } cp1257 { WINDOWS }  # Windows Baltic (w/ euro update)
+ibm-9447_P100-2002 { UTR22* }   ibm-9447 { IBM* } windows-1255 { IANA* JAVA* WINDOWS* } cp1255 { WINDOWS }  # Windows Hebrew (w/ euro update)
+windows-1256-2000 { UTR22* }    windows-1256 { IANA* JAVA* WINDOWS* } cp1256 { WINDOWS }                    # Windows Arabic (w/ euro update)
+ibm-9449_P100-2002 { UTR22* }   ibm-9449 { IBM* } windows-1257 { IANA* JAVA* WINDOWS* } cp1257 { WINDOWS }  # Windows Baltic (w/ euro update)
 ibm-5354_P100-1998 { UTR22* }   ibm-5354 { IBM* } windows-1258 { IANA* JAVA* WINDOWS* } cp1258 { WINDOWS }  # Windows Vietnamese (w/ euro update)
 
-# These tables are out of date, and don't have the Euro
-ibm-1250_P100-1995 { UTR22* }   ibm-1250 { IBM* }       # Windows Latin2 (w/o euro update)
-ibm-1251_P100-1995 { UTR22* }   ibm-1251 { IBM* }       # Windows Cyrillic (w/o euro update)
-ibm-1252_P100-2000 { UTR22* }   ibm-1252 { IBM* }       # Windows Latin 1 without Euro
-ibm-1253_P100-1995 { UTR22* }   ibm-1253 { IBM* }       # Windows Greek (w/o euro update)
-ibm-1254_P100-1995 { UTR22* }   ibm-1254 { IBM* }       # Windows Turkish (w/o euro update)
-ibm-1255_P100-1995 { UTR22* }   ibm-1255 { IBM* }       # Windows Hebrew (w/o euro update)
-ibm-1256_P110-1997 { UTR22* }   ibm-1256 { IBM* }       # Windows Arabic (w/o euro update)
-ibm-1257_P100-1995 { UTR22* }   ibm-1257 { IBM* }       # Windows Baltic (w/o euro update)
-ibm-1258_P100-1997 { UTR22* }   ibm-1258 { IBM* }       # Windows Vietnamese (w/o euro update)
+# These tables are out of date, and most don't have the Euro
+# Leave the windows- variants untagged. They are alternate tables of the newer ones above.
+ibm-1250_P100-1995 { UTR22* }   ibm-1250 { IBM* } windows-1250  # Old Windows Latin2 (w/o euro update)
+ibm-1251_P100-1995 { UTR22* }   ibm-1251 { IBM* } windows-1251  # Old Windows Cyrillic (w/o euro update)
+ibm-1252_P100-2000 { UTR22* }   ibm-1252 { IBM* } windows-1252  # Old Windows Latin 1 without Euro
+ibm-1253_P100-1995 { UTR22* }   ibm-1253 { IBM* } windows-1253  # Old Windows Greek (w/o euro update)
+ibm-1254_P100-1995 { UTR22* }   ibm-1254 { IBM* } windows-1254  # Old Windows Turkish (w/o euro update)
+ibm-1255_P100-1995 { UTR22* }   ibm-1255 { IBM* }               # Very old Windows Hebrew (w/o euro update)
+ibm-5351_P100-1998 { UTR22* }   ibm-5351 { IBM* } windows-1255  # Old Windows Hebrew (w/ euro update)
+ibm-1256_P110-1997 { UTR22* }   ibm-1256 { IBM* }               # Old Windows Arabic (w/o euro update)
+ibm-5352_P100-1998 { UTR22* }   ibm-5352 { IBM* } windows-1256  # Somewhat old Windows Arabic (w/ euro update)
+ibm-1257_P100-1995 { UTR22* }   ibm-1257 { IBM* }               # Old Windows Baltic (w/o euro update)
+ibm-5353_P100-1998 { UTR22* }   ibm-5353 { IBM* } windows-1257  # Somewhat old Windows Baltic (w/ euro update)
+ibm-1258_P100-1997 { UTR22* }   ibm-1258 { IBM* } windows-1258  # Old Windows Vietnamese (w/o euro update)
 
-ibm-1275_P100-1995 { UTR22* }   ibm-1275 { IBM* } macintosh { IANA* MIME* WINDOWS } mac { IANA } csMacintosh { IANA } windows-10000 { WINDOWS* } # Apple latin 1
-ibm-1280_P100-1996 { UTR22* }   ibm-1280 { IBM* } x-mac-greek { MIME* WINDOWS } windows-10006 { WINDOWS* } macgr           # Apple Greek
-ibm-1281_P100-1996 { UTR22* }   ibm-1281 { IBM* } x-mac-turkish { MIME* WINDOWS } windows-10081 { WINDOWS* } mactr         # Apple Turkish
-ibm-1282_P100-1996 { UTR22* }   ibm-1282 { IBM* } x-mac-centraleurroman { MIME* } windows-10029 { WINDOWS* } x-mac-ce { WINDOWS } macce   # Apple Central Europe
-ibm-1283_P100-1996 { UTR22* }   ibm-1283 { IBM* } x-mac-cyrillic { MIME* WINDOWS } windows-10007 { WINDOWS* } maccy        # Apple Cyrillic
+macos-0_2-10.2 { UTR22* }       macintosh { IANA* MIME* WINDOWS } mac { IANA } csMacintosh { IANA } windows-10000 { WINDOWS* } # Apple latin 1
+macos-6-10.2 { UTR22* }         x-mac-greek { MIME* WINDOWS } windows-10006 { WINDOWS* } macgr           # Apple Greek
+macos-7_3-10.2 { UTR22* }       x-mac-cyrillic { MIME* WINDOWS } windows-10007 { WINDOWS* } maccy        # Apple Cyrillic
+macos-29-10.2 { UTR22* }        x-mac-centraleurroman { MIME* } windows-10029 { WINDOWS* } x-mac-ce { WINDOWS } macce   # Apple Central Europe
+macos-35-10.2 { UTR22* }        x-mac-turkish { MIME* WINDOWS } windows-10081 { WINDOWS* } mactr         # Apple Turkish
 
 ibm-1051_P100-1995 { UTR22* }   ibm-1051 { IBM* } hp-roman8 { IANA* } roman8 { IANA } r8 { IANA } csHPRoman8 { IANA }   # HP Latin1
 ibm-1276_P100-1995 { UTR22* }   ibm-1276 { IBM* } Adobe-Standard-Encoding { IANA* } csAdobeStandardEncoding { IANA } # Different from ISO-Unicode-IBM-1276 (GCSGID: 1276)
@@ -627,6 +688,53 @@ ibm-1131_P100-1997 { UTR22* }   ibm-1131 { IBM* JAVA } cp1131 { JAVA* }         
 ibm-1133_P100-1997 { UTR22* }   ibm-1133 { IBM* }                                       # ISO Lao
 ibm-1381_P110-1999 { UTR22* }   ibm-1381 { IBM* JAVA } cp1381 { JAVA* } 1381 { JAVA }   # S-Ch PC Data mixed (IBM GB) 
 
+
+# Partially algorithmic converters
+
+# [U_ENABLE_GENERIC_ISO_2022]
+# The _generic_ ISO-2022 converter is disabled starting 2003-dec-03 (ICU 2.8).
+# For details see the icu mailing list from 2003-dec-01 and the ucnv2022.c file.
+# Language-specific variants of ISO-2022 continue to be available as listed below.
+# ISO_2022                         ISO-2022 { MIME* } 2022 cp2022
+
+ISO_2022,locale=ja,version=0    ISO-2022-JP { IANA* MIME* JAVA* } csISO2022JP { JAVA } 
+ISO_2022,locale=ja,version=1    ISO-2022-JP-1 JIS JIS_Encoding { IANA* }
+ISO_2022,locale=ja,version=2    ISO-2022-JP-2 { IANA* MIME* } csISO2022JP2
+ISO_2022,locale=ja,version=3    JIS7 csJISEncoding
+ISO_2022,locale=ja,version=4    JIS8
+ISO_2022,locale=ko,version=0    ISO-2022-KR { IANA* MIME* } csISO2022KR # This uses ibm-949
+ISO_2022,locale=ko,version=1    ibm-25546
+ISO_2022,locale=zh,version=0    ISO-2022-CN { IANA* MIME* } # csISO2022CN
+ISO_2022,locale=zh,version=1    ISO-2022-CN-EXT { IANA* MIME* }
+HZ                              HZ-GB-2312 { IANA* MIME* }
+
+# Part of iso-2022
+ibm-897_P100-1995 { UTR22* }    ibm-897 { IBM* } JIS_X0201 { IANA* } X0201 { IANA } csHalfWidthKatakana { IANA }
+
+
+ISCII,version=0         x-iscii-de { WINDOWS } windows-57002 { WINDOWS* } iscii-dev
+ISCII,version=1         x-iscii-be { WINDOWS } windows-57003 { WINDOWS* } iscii-bng windows-57006 { WINDOWS } x-iscii-as { WINDOWS } # be is different from as on Windows.
+ISCII,version=2         x-iscii-pa { WINDOWS } windows-57011 { WINDOWS* } iscii-gur
+ISCII,version=3         x-iscii-gu { WINDOWS } windows-57010 { WINDOWS* } iscii-guj
+ISCII,version=4         x-iscii-or { WINDOWS } windows-57007 { WINDOWS* } iscii-ori
+ISCII,version=5         x-iscii-ta { WINDOWS } windows-57004 { WINDOWS* } iscii-tml
+ISCII,version=6         x-iscii-te { WINDOWS } windows-57005 { WINDOWS* } iscii-tlg
+ISCII,version=7         x-iscii-ka { WINDOWS } windows-57008 { WINDOWS* } iscii-knd
+ISCII,version=8         x-iscii-ma { WINDOWS } windows-57009 { WINDOWS* } iscii-mlm
+
+# Lotus specific
+LMBCS-1                 lmbcs
+LMBCS-2
+LMBCS-3
+LMBCS-4
+LMBCS-5
+LMBCS-6
+LMBCS-8
+LMBCS-11
+LMBCS-16
+LMBCS-17
+LMBCS-18
+LMBCS-19
 
 # EBCDIC codepages according to the CDRA
 
@@ -680,7 +788,7 @@ ibm-939_P120-1999 { UTR22* }    # EBCDIC_STATEFUL Latin-Kanji Host Mixed.
 ibm-1025_P100-1995 { UTR22* }   ibm-1025 { IBM* JAVA } cp1025 { JAVA* } 1025 { JAVA }       # EBCDIC Cyrillic
 ibm-1026_P100-1995 { UTR22* }   ibm-1026 { IBM* JAVA } IBM1026 { IANA* } CP1026 { IANA JAVA* } csIBM1026 { IANA } 1026 { JAVA } # EBCDIC Turkey 
 ibm-1047_P100-1995 { UTR22* }   ibm-1047 { IBM* } IBM1047 { IANA* } cpibm1047                       # EBCDIC Open systems Latin1
-ibm-1097_P100-1995 { UTR22* }   ibm-1097 { IBM* JAVA } cp1097 { JAVA* } 1097 { JAVA } ibm-1097_VPUA # EBCDIC Farsi
+ibm-1097_P100-1995 { UTR22* }   ibm-1097 { IBM* JAVA } cp1097 { JAVA* } 1097 { JAVA }               # EBCDIC Farsi
 ibm-1112_P100-1995 { UTR22* }   ibm-1112 { IBM* JAVA } cp1112 { JAVA* } 1112 { JAVA }               # EBCDIC Baltic
 ibm-1122_P100-1999 { UTR22* }   ibm-1122 { IBM* JAVA } cp1122 { JAVA* } 1122 { JAVA }               # EBCDIC Estonia 
 ibm-1123_P100-1995 { UTR22* }   ibm-1123 { IBM* JAVA } cp1123 { JAVA* } 1123 { JAVA } cpibm1123     # EBCDIC Cyrillic Ukraine
@@ -709,8 +817,9 @@ ibm-1164_P100-1999 { UTR22* }   ibm-1164 { IBM* } cpibm1164             # EBCDIC
 ibm-1364_P110-1997 { UTR22* }   ibm-1364 { IBM* } cp1364                # Korean Host Mixed
 ibm-1371_P100-1999 { UTR22* }   ibm-1371 { IBM* } cpibm1371             # Taiwan EBCDIC MIXED
 ibm-1388_P103-2001 { UTR22* }   ibm-1388 { IBM* } ibm-9580 { IBM }      # S-Ch DBCS-Host Data GBK EBCDIC_STATEFUL. Yes ibm-9580 is an alias.
-ibm-1390_P100-1999 { UTR22* }   ibm-1390 { IBM* } cpibm1390             # Japan EBCDIC MIXED
-ibm-1399_P100-1999 { UTR22* }   ibm-1399 { IBM* }                       # Host MBCS (Latin-Kanji)
+ibm-1390_P110-2003 { UTR22* }   ibm-1390 { IBM* } cpibm1390             # Japan EBCDIC MIXED (JIS X 0213)
+ibm-1399_P110-2003 { UTR22* }   ibm-1399 { IBM* }                       # Host MBCS (Latin-Kanji) (JIS X 0213)
+ibm-16684_P110-2003 { UTR22* }  ibm-16684 { IBM* }                      # DBCS Jis + Roman Jis Host. This is the DBCS portion of ibm-1390 and ibm-1399 (JIS X 0213)
 ibm-4899_P100-1998 { UTR22* }   ibm-4899 { IBM* } cpibm4899             # Old EBCDIC Hebrew
 ibm-4971_P100-1999 { UTR22* }   ibm-4971 { IBM* } cpibm4971             # EBCDIC Greek
 ibm-12712_P100-1998 { UTR22* }  ibm-12712 { IBM* } cpibm12712 ebcdic-he # EBCDIC Hebrew (new sheqel, control charaters update)
@@ -720,8 +829,7 @@ ibm-16804_X110-1999 { UTR22* }  ibm-16804 { IBM* } cpibm16804 ebcdic-ar # EBCDIC
 # TODO: Consider removing the mappings in this section
 ibm-1137_P100-1999 { UTR22* }   ibm-1137 { IBM* }   # Devanagari EBCDIC (based on Unicode character set)
 ibm-5123_P100-1999 { UTR22* }   ibm-5123 { IBM* }   # Host Roman Jis. Euro update of ibm-1027
-ibm-8482 { IBM* }                                   # host SBCS (Katakana). Euro update of ibm-290
-ibm-16684_P100-1999 { UTR22* }  ibm-16684 { IBM* }  # DBCS Jis + Roman Jis Host. This is the DBCS portion of ibm-1390 and ibm-1399
+ibm-8482_P100-1999 { UTR22* }   ibm-8482 { IBM* }   # host SBCS (Katakana). Euro update of ibm-290
 
 
 # EBCDIC codepages for S/390, with LF and NL codes swapped
@@ -734,7 +842,24 @@ ibm-16684_P100-1999 { UTR22* }  ibm-16684 { IBM* }  # DBCS Jis + Roman Jis Host.
 # This avoids the duplication of all EBCDIC SBCS and mixed-SBCS/DBCS
 # mapping files.
 
-# Some examples
+# Some examples below for declaring old-style, obsolete aliases with the "-s390"
+# suffix to map to the new-style, recommended names with the option added.
+# These are listed here for backward compatibility.
+# Do not use these; instead use the normal converter name with the option
+# added as recommended above.
+
+# Note: It is not possible to define an alias (non-initial name in a line here)
+# that itself contains a converter option like this one for swapping LF<->NL.
+# Such names would never be found because ucnv_open() will first parse and strip
+# options before looking up a name in this table.
+# ucnv_open() then parses the lookup result (the canonical name on the left
+# in lines here) as well.
+
+# This also means that it is not necessary to add anything to convrtrs.txt
+# for converter names like "ibm-1026,swaplfnl" to work -
+# they are already covered by the normal option parsing together with the
+# regular, option-less alias elsewhere in this file.
+
 ibm-37_P100-1995,swaplfnl     ibm-37-s390 ibm037-s390
 ibm-1047_P100-1995,swaplfnl   ibm-1047-s390
 ibm-1140_P100-1997,swaplfnl   ibm-1140-s390
@@ -778,4 +903,5 @@ ebcdic-xml-us
 
 #ibm-1159_P100-1999 { UTR22* }   ibm-1159 { IBM* }   # SBCS T-Ch Host. Euro update of ibm-28709. This is used in combination with another CCSID mapping.
 #ibm-9027_P100-1999 { UTR22* }   ibm-9027 { IBM* }   # DBCS T-Ch Host. Euro update of ibm-835. DBCS portion of ibm-1371.
+
 

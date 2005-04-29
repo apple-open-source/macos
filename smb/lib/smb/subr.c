@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: subr.c,v 1.11 2003/02/26 02:14:28 lindak Exp $
+ * $Id: subr.c,v 1.19 2005/02/09 00:23:45 lindak Exp $
  */
 
 #include <sys/param.h>
@@ -50,14 +50,10 @@
 #include <netsmb/nb_lib.h>
 #include <cflib.h>
 
-#ifdef APPLE
 #include <sysexits.h>
 #include <sys/wait.h>
-#include <mach/mach.h>
-#include <mach/mach_error.h>
 
 uid_t real_uid, eff_uid;
-#endif /* APPLE */
 
 extern char *__progname;
 
@@ -69,24 +65,9 @@ int
 smb_lib_init(void)
 {
 	int error;
-#ifndef APPLE
-	int kv;
-	size_t kvlen = sizeof(kv);
-#endif
 
 	if (smblib_initialized)
 		return 0;
-#if __FreeBSD_version > 400000
-	error = sysctlbyname("net.smb.version", &kv, &kvlen, NULL, 0);
-	if (error) {
-		warnx("%s: can't find kernel module\n", __FUNCTION__);
-		return error;
-	}
-	if (NSMB_VERSION != kv) {
-		warnx("%s: kernel module version(%d) don't match library(%d).\n", __FUNCTION__, kv, NSMB_VERSION);
-		return EINVAL;
-	}
-#endif
 	if ((error = nls_setlocale("")) != 0) {
 		warnx("%s: can't initialise locale\n", __FUNCTION__);
 		return error;
@@ -105,16 +86,19 @@ void
 smb_error(const char *fmt, int error,...) {
 	va_list ap;
 	const char *cp;
-	int errtype = error & SMB_ERRTYPE_MASK;
+	int errtype;
 
 	fprintf(stderr, "%s: ", __progname);
 	va_start(ap, error);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	if (error == -1)
+	if (error == -1) {
 		error = errno;
-	else
+		errtype = SMB_SYS_ERROR;
+	} else {
+		errtype = error & SMB_ERRTYPE_MASK;
 		error &= ~SMB_ERRTYPE_MASK;
+	}
 	switch (errtype) {
 	    case SMB_SYS_ERROR:
 		if (error)
@@ -155,7 +139,8 @@ smb_printb(char *dest, int flags, const struct smb_bitname *bnp) {
 }
 
 /*
- * first read ~/.smbrc, next try to merge SMB_CFG_FILE
+ * first read ~/.smbrc, next try to merge SMB_CFG_FILE - if that fails
+ * because SMB_CFG_FILE doesn't exist, try to merge OLD_SMB_CFG_FILE
  */
 int
 smb_open_rcfile(void)
@@ -168,49 +153,27 @@ smb_open_rcfile(void)
 		fn = malloc(strlen(home) + 20);
 		sprintf(fn, "%s/.nsmbrc", home);
 		error = rc_open(fn, "r", &smb_rc);
+		if (error != 0 && error != ENOENT) {
+			fprintf(stderr, "Can't open %s: %s\n", fn,
+			    strerror(errno));
+		}
 		free(fn);
 	}
-	error = rc_merge(SMB_CFG_FILE, &smb_rc);
+	fn = SMB_CFG_FILE;
+	error = rc_merge(fn, &smb_rc);
+	if (error == ENOENT) {
+		/*
+		 * OK, try to read a config file in the old location.
+		 */
+		fn = OLD_SMB_CFG_FILE;
+		error = rc_merge(fn, &smb_rc);
+	}
+	if (error != 0 && error != ENOENT)
+		fprintf(stderr, "Can't open %s: %s\n", fn, strerror(errno));
 	if (smb_rc == NULL) {
-#ifndef APPLE
-		printf("Warning: no cfg file(s) found.\n");
-#endif
 		return ENOENT;
 	}
 	return 0;
-}
-
-void *
-smb_dumptree(void)
-{
-	size_t len;
-	void *p;
-	int error;
-	
-#ifdef APPLE
-	seteuid(eff_uid); /* restore setuid root briefly */
-#endif
-	error = sysctlbyname("net.smb.treedump", NULL, &len, NULL, 0);
-#ifdef APPLE
-	seteuid(real_uid); /* and back to real user */
-#endif
-	if (error)
-		return NULL;
-	p = malloc(len);
-	if (p == NULL)
-		return NULL;
-#ifdef APPLE
-	seteuid(eff_uid); /* restore setuid root briefly */
-#endif
-	error = sysctlbyname("net.smb.treedump", p, &len, NULL, 0);
-#ifdef APPLE
-	seteuid(real_uid); /* and back to real user */
-#endif
-	if (error) {
-		free(p);
-		return NULL;
-	}
-	return p;
 }
 
 void
@@ -268,7 +231,6 @@ smb_simpledecrypt(char *dst, const char *src)
 }
 
 
-#ifdef APPLE
 static int
 safe_execv(char *args[])
 {       
@@ -334,4 +296,3 @@ loadsmbvfs()
 	seteuid(real_uid); /* and back to real user */
 	return (error);
 }       
-#endif /* APPLE */

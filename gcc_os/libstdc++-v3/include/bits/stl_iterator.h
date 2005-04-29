@@ -317,6 +317,8 @@ namespace std
 
   // 24.4.2.2.1 back_insert_iterator
   /**
+   *  @brief  Turns assignment into insertion.
+   *
    *  These are output iterators, constructed from a container-of-T.
    *  Assigning a T to the iterator appends it to the container using
    *  push_back.
@@ -387,6 +389,8 @@ namespace std
     { return back_insert_iterator<_Container>(__x); }
 
   /**
+   *  @brief  Turns assignment into insertion.
+   *
    *  These are output iterators, constructed from a container-of-T.
    *  Assigning a T to the iterator prepends it to the container using
    *  push_front.
@@ -456,6 +460,8 @@ namespace std
     { return front_insert_iterator<_Container>(__x); }
 
   /**
+   *  @brief  Turns assignment into insertion.
+   *
    *  These are output iterators, constructed from a container-of-T.
    *  Assigning a T to the iterator inserts it in the container at the
    *  %iterator's position, rather than overwriting the value at that
@@ -629,10 +635,6 @@ namespace __gnu_cxx
       operator-(const difference_type& __n) const
       { return __normal_iterator(_M_current - __n); }
       
-      difference_type
-      operator-(const __normal_iterator& __i) const
-      { return _M_current - __i._M_current; }
-      
       const _Iterator& 
       base() const { return _M_current; }
     };
@@ -718,6 +720,16 @@ namespace __gnu_cxx
   operator>=(const __normal_iterator<_Iterator, _Container>& __lhs,
 	     const __normal_iterator<_Iterator, _Container>& __rhs)
   { return __lhs.base() >= __rhs.base(); }
+
+  // _GLIBCPP_RESOLVE_LIB_DEFECTS
+  // According to the resolution of DR179 not only the various comparison
+  // operators but also operator- must accept mixed iterator/const_iterator
+  // parameters.
+  template<typename _IteratorL, typename _IteratorR, typename _Container>
+  inline typename __normal_iterator<_IteratorL, _Container>::difference_type
+  operator-(const __normal_iterator<_IteratorL, _Container>& __lhs,
+	     const __normal_iterator<_IteratorR, _Container>& __rhs)
+  { return __lhs.base() - __rhs.base(); }
 
   template<typename _Iterator, typename _Container>
   inline __normal_iterator<_Iterator, _Container>

@@ -1,45 +1,58 @@
-
-// based on
-// Yugoslavian keyboard.
-// Source: the keyboard pictures on MS-DOS 6.22 manual
-// Pablo Saratxaga <srtxg@f2219.n293.z2.fidonet.org>
+// $XFree86: xc/programs/xkbcomp/symbols/pc/yu,v 1.5 2003/10/25 13:24:05 pascal Exp $
+// Serbian XKB keyboard mapping (derived from "Danube" D.2)
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/yu,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// Danube D.2 from 2003-05-12 is available at http://srpski.org/dunav/
+//
+// Original authors:
+//  Danilo Segan (Данило Шеган) <dsegan@gmx.net>
+//  Chusslove Illich (Часлав Илић) <chaslav@sezampro.yu>
+//
+// Modified for inclusion in XFree86 by Danilo Segan <dsegan@gmx.net>
+//  
+//
 
 default partial alphanumeric_keys
-xkb_symbols "basic" {
+xkb_symbols "default" {
 
-    include "pc/latin(type3)"
+  name[Group1]= "Serbian Latin";
 
-    name[Group1]="Yugoslav";
-
-    key <AE01>	{ [         1,     exclam,   asciitilde,   exclamdown ]	};
-    key <AE02>	{ [         2,   quotedbl,   dead_caron,    oneeighth ]	};
-    key <AE03>	{ [         3, numbersign, dead_circumflex,  sterling ]	};
-    key <AE04>	{ [         4,     dollar,   dead_breve,       dollar ]	};
-    key <AE05>	{ [         5,    percent,       degree, threeeighths ]	};
-    key <AE06>	{ [         6,  ampersand,  dead_ogonek,  fiveeighths ]	};
-    key <AE07>	{ [         7,      slash,   dead_grave, seveneighths ]	};
-    key <AE08>	{ [         8,  parenleft,     abovedot,    trademark ]	};
-    key <AE09>	{ [         9, parenright,   dead_acute,    plusminus ]	};
-    key <AE10>	{ [         0,      equal, dead_doubleacute,   degree ]	};
-    key <AE11>	{ [apostrophe,   question, dead_diaeresis, questiondown ] };
-    key <AE12>	{ [      plus,   asterisk, dead_cedilla,  dead_ogonek ]	};
-
-    key <AD06>	{ [         y,          Y,    leftarrow,          yen ]	};
-    key <AD11>	{ [    scaron,     Scaron,     division, dead_abovering ] };
-    key <AD12>	{ [   dstroke,    Dstroke,     multiply,  dead_macron ]	};
-
-    key <AC09>	{ [         l,          l,      Lstroke,      Lstroke ]	};
-    key <AC10>	{ [    ccaron,     Ccaron,   dead_acute, dead_doubleacute ] };
-    key <AC11>	{ [    cacute,     Cacute,       ssharp,   dead_caron ]	};
-    key <TLDE>	{ [dead_diaeresis, dead_cedilla, notsign,     notsign ]	};
-
-    key <BKSL>	{ [    zcaron,     Zcaron,   dead_grave,   dead_breve ]	};
-    key <AB01>	{ [         z,          Z, guillemotleft,         less ]	};
-
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+  include "pc/sr(level3)"
+  include "pc/sr(common)"
+  include "pc/sr(latalpha)"
+  include "level3(ralt_switch_multikey)"
 };
 
+partial alphanumeric_keys
+xkb_symbols "unicode" {
+  // This mapping supports the Unicode characters 0x1c4-0x1cc (dz, lj, and nj
+  // as single character). You get the title form with AltGr+Shift.
+
+  name[Group1]= "Serbian Latin Unicode";
+
+  include "pc/yu(default)"
+  include "pc/sr(twoletter)"
+};
+
+partial alphanumeric_keys
+xkb_symbols "yz" {
+  // For those who insist on using "english-position" Z and Y.
+
+  name[Group1]= "Serbian Latin (swap Y, Z)";
+
+  include "pc/yu(default)"
+
+  key <AD06> {   [ y,                   Y,             any,any ]   }; // y
+  key <AB01> {   [ z,                   Z,             any,any ]   }; // z
+};
+
+partial alphanumeric_keys
+xkb_symbols "unicodeyz" {
+  // Unicode, ZHE and Z swapped.
+
+  name[Group1]= "Serbian Latin Unicode (swap ZHE, Z)";
+
+  include "pc/yu(unicode)"
+
+  key <AD06> {   [ zcaron,              Zcaron,        any,any ]   }; // y
+  key <AB01> {   [ z,                   Z,             any,any ]   }; // z
+};

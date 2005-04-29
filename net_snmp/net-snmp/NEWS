@@ -1,6 +1,249 @@
 This file contains major changes in released revisions.  Please read
 the ChangeLog file for a more detailed listing of changes/bug fixes.
 
+*5.2*
+ New:
+    For the security parnoid (like Wes):
+      - Insecure versions of SNMP may be completely disabled at compile time.
+          (configure using one or both of --disable-snmpv1 --disable-snmpv2c)
+      - Less secure versions of SNMPv3 authentication and encryption
+          algorithms may be completely disabled at compile time.
+          (configure using one or both of --disable-des --disable-md5)
+          (This requires you have OpenSSL to support SHA1 and AES instead)
+      - Diffie-Helman key negotianion (perfect-forward-secrecy - RFC2786)
+          has been implemented in both the agent and "snmpusm".
+      - better support for direct use of localized and master keys
+        (randomly generated keys have more entropy than passwords) See
+        the -3m -3M -3k and -3K options, and the defAuthLocalizedKey,
+        defPrivLocalizedKey, defAuthMasterKey, defPrivMasterKey
+        snmp.conf tokens)
+
+    library:
+      - send and receive buffer sizes for UDP/TCP are configurable
+      - .conf file token registration can now search multiple files
+        (separate file names to search by a :.  IE, "snmpd:agentx")
+
+    snmptrapd:
+      - Embedded perl support for trap handlers (much faster than traphandles).
+          (configure --with-embedded-perl ; see 'perldoc NetSNMP::TrapReceiver')
+      - the snmptrapd usmUser table can be controlled through SNMP & AgentX
+	  (the snmptrapd registers MIBs under the "snmptrapd" SNMPv3 context)
+
+    agent:
+      - community strings can be mapped to individual SNMPv3 contexts
+          (see the snmpd.conf manual on "com2sec").
+      - AgentX should work properly with SNMPv3 contexts now.
+      - improved version of "exec" extension directive - "extend":
+          supports multi-line output, configurable command input, SET
+          handling, a valid relocatable MIB output structure, etc
+      - more flexibility added to netsnmp_cache helper, including periodic
+          refreshing of caches and cache pre-loading.
+      - experimental implementation of DisMan Remote Operations MIB groups
+        (remote nslookup, ping, traceroute and expressions via SNMP)
+      - The proxy supports a new -Cc flag which passes the community
+        name through to the other side rather than hard-coding it.
+      - The config_require() and other modules can now be placed
+        inside of CPP directievs (#if, /* ... */) as header files are
+        now passed through CPP processing first.
+      - new config_exclude() macro for excluding certain modules
+      - new config_belongs_in() macro to specify if a chunk of code
+        found by --with-mib-modules belongs in the agent library or
+        the mib module library.
+      - Uses a smaller function stack.
+
+    commands:
+      - snmpusm: A number of key-change improvements
+        (EG, changing localized keys supported, diffie-helman support, ...)
+      - New -Ln option to completely disable logging.
+
+    mib2c:
+      - a number of new or updated configuration templates:
+        - mib2c.iterate.conf: the iterator-based table config
+            now produces fuller template code than before.
+        - mib2c.table_data.conf and mib2c.container.conf:
+            two new "internal-row" style configs
+        - mib2c.mfd.conf: "MIBs for Dummies" (or MFD) - intended to
+            reduce the SNMP knowledge needed to develop MIB modules
+            and add flexibility at the same time.  Run "mib2c -S
+            mfd_interactive_setup=1 -c mib2c.mfd.conf OID" and follow
+            its guided instructions to help you tailor its results to
+            meet your needs.
+        - mib2c.genhtml.conf: Generates an easier-to-read HTML view of
+          a MIB tree structure.  (See http://www.Net-SNMP.org/mibs/
+          for example output.)
+      - more node tags available for conf file writers
+      - additional search directories may be set via MIB2C_DIRS env var.
+      - mib2c-update: new utility to help update mib2c generated code
+          when conf file changes.
+      - a mib2c.conf manual page to describe how to write mib2c .conf files.
+      - support for embedded perl code in mib2c.conf files
+
+    documentation:
+      - New README.agent-mibs: an attempt to start documenting what
+          MIBs are implemented in the agent and on what architectures.
+
+    perl:
+      - An improved SNMP::gettable() method.  Uses GETBULK if possible and
+        better GETNEXT requests if not, decodes indexes from OIDs,
+        requests multiple variables at once, ...  ("perldoc SNMP" for details)
+      - A NetSNMP::OID::get_indexes() function to extract index values
+        from an OID.
+
+ Ports:
+   Linux:
+     - new experimental tables/rewrites for Linux, including:
+           ifTable, ifXTable, inetCidrRouteTable, ipCidrRouteTable,
+           ipAddressTable, ipSystemStatsTable, ipNetToPhysicalTable.
+       - Enable these talbles by specifying --enable-mfd-rewrites to configure.
+       - Most of these tables have IPv6 support as well.
+     - ifIndex no longer changes when interfaces are added/removed, and all
+         tables/object wiil now use the same ifIndex for the same interface.
+
+   Solaris:
+     - new experimental support for ucd-snmp/lmSensors MIB module
+
+   Win32:
+     - Support for the MinGW compiler
+     - Support for snmptrapd running as a service
+     - A Win32 specific build and install script
+     - Support for a .exe installer
+       (we'll make binaries available using it)
+
+ Fixes:
+   - AgentX memory leak on sets
+   - SNMPv3 not-in-time window after 248 days
+   - Agent hang in HOST-RESOURCES MIB
+   - double free on duplicate registration
+   - OIDs with IP Addresses as indexes now print prettier
+   -'Lazy' installation of headers (only install if newer)
+   - allow whitespace in rocommunity/rwcommunity
+   - many miscellaneous bug reports
+
+
+*5.1.2*
+ New:
+   - Minor improvements to snmpdelta (error reporting)
+   - Minor improvements to snmpnetstat (IPv6 output)
+
+ Fixes:
+   - Misc 64bit processor fixes.
+   - Misc perl build and install fixes.
+
+ Ports:
+   - Linux 2.6 improvements
+   - Win32 Suport for TCP and UDP over IPv6 via Winsock version 2
+   - Win32 fixes in many places.
+   - Win32 service support for snmptrapd
+   - Win32 support for snmpconf
+
+*5.1.1*
+ New:
+   - test suite supports testing over other transports (tcp, udp6, unix, ...)
+     (see the -P switch to the testing/RUNTESTS script)
+   - Solaris supports the use of it's PKCS#11 library for supporting
+     cryptographic functions (OpenSSL isn't required if PKCS#11 is available)
+     (see configure's --with-pkcs flag)
+
+ Fixes:
+   - Improvements on 64 bit architectures.
+   - A few minor memory leaks fixed.
+   - An extremely large number of minor bug fixes.
+   - Many perl module specific bug fixes.
+   - snmpd will safely handle more signals.
+
+ Ports:
+   - Many many significant Windows improvements.
+     - AgentX support is working again under windows.
+     - SCM support is built into the agent to allow the agent to be
+       started as a windows service.
+     - MSDOS names are supported in path names.
+     - A win32 build script in win32/build.pl
+     - Support for the MinGW compiler
+     - (see the README.win32 file for details on new ports)
+     - Various helpful win32/*.bat files for installation, etc.
+   - Some linux 2.6 support improvements
+
+*5.1*
+ New:
+
+    Building:
+      - configure is now generated using autoconf 2.57.
+      - The make system now supports "make uninstall"
+      - configure & make supports a --with-install-prefix option
+      - new configure options to disable building of the agent, apps, ...
+        ./configure --help for a list of package sections that can be excluded.
+      - new configure option to remove specific code pieces (mib reading, ...)
+        ./configure --help for a list of code areas that can be excluded.
+
+    snmpd:
+      - linkUp and linkDown notifications can be enabled
+        (see the linkUpDownNotifications snmpd.conf token documentation)
+      - notifications (traps) can be generated for disman/monitor events.
+        (see the snmpd.conf documentation on "monitor" and "notificatonEvent")
+      - new snmpd.conf tokens:  includeAllDisks
+      - the UCD-DISKIO-MIB will now work on linux.
+      - com2sec mappings for SNMP over unix sockets.
+      - some speed improvements have been made that should increase the
+        speed of the agent's processing time.
+      - for mib code using the table iterator, an auto-caching mechanism
+        which can greatly speed up access at the cost of caching.
+        (see "stash_cache" in the injectHandler token docs in snmpd.conf(5))
+      - Some of the agent modules were completely rewritten (and
+        should be faster and cleaner).
+      - A number of new APIs and helper modules are available, but
+        there is no major summary to easily list.
+      - A number of new Net-SNMP specific MIBs now exist.
+
+    snmptrapd:
+      - snmptrapd now supports forwarding of notifications.
+        (see the snmptrapd.conf manual for details)
+      - snmptrapd's new -t switch can be used to disable syslog.
+        (useful for a no-output snmptrapd with only traphandle support)
+
+    apps:
+      - snmptable sports 3 new options: fixed width, max-repeaters,
+        left-justify.  (see snmptable -h for details)
+      - mib2c walks you through instructions to help you generate code
+        "just for you".  Including some new forms of output code, like
+        notification code generation.  Run mib2c SOMETHING for details.
+      - mib2c has about a billion other improvements, including the
+        ability to generate trap generation code templates.
+      - snmpwalk supports a new -Ct option for timing how long a walk takes.
+      - net-snmp-config supports a number of new options.
+      - All applications support a consistent -L flag for turning on
+        which forms of output logging should be used.
+
+    perl:
+      - the SNMP module supports a new get_table() call.
+
+ Fixes:
+    - More patches to properly demonize snmpd (close std*, double fork, ...).
+    - Version numbers of all packages/perl-modules/etc are better synchronized.
+    - more documentation, especially for APIs
+    - all perl module version numbers are synchronized with the
+      net-snmp package.
+    - Many many misc bug fixes, as always.
+
+ Ports:
+    - diskio MIB support for Darwin.
+    - ifSpeed under Linux should now be correct for most network cards.
+    - more windows build fixes
+
+*5.0.9*
+
+ SECURITY:
+    - An existing user/community could get access to data in MIB
+      objects that were explicitly excluded from their view.
+
+ Fixes:
+    - Perl build environment should better under Windows
+    - Misc kerberos support fixes.
+    - Improvements on various manual pages.
+    - A annoying bug with SETs being passed to pass scripts was fixed.
+    - The often talked about VACM optimization improvement was fixed again.
+    - mib2c handles augmentation tables better now.
+    - Various 64 bit issues have been addressed.
+
 *5.0.8*
  New:
     - No new features will be added to the 5.0.x line.

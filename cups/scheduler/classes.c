@@ -1,9 +1,9 @@
 /*
- * "$Id: classes.c,v 1.4.4.1 2003/11/14 23:48:30 jlovell Exp $"
+ * "$Id: classes.c,v 1.13 2005/02/09 23:12:13 jlovell Exp $"
  *
  *   Printer class routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -32,6 +32,8 @@
  *   FindClass()                - Find the named class.
  *   LoadAllClasses()           - Load classes from the classes.conf file.
  *   SaveAllClasses()           - Save classes to the classes.conf file.
+ *   UpdateImplicitClasses()    - Update the accepting state of implicit
+ *                                classes.
  */
 
 /*
@@ -46,8 +48,11 @@
  */
 
 printer_t *			/* O - New class */
-AddClass(const char *name)	/* I - Name of class */
+AddClass(const char *name,	/* I - Name of class */
+	 int       update)	/* I - Update printcap? */
 {
+  int		i,		/* Looping var */
+  		port;		/* Port number to use */
   printer_t	*c;		/* New class */
 
 
@@ -55,15 +60,22 @@ AddClass(const char *name)	/* I - Name of class */
   * Add the printer and set the type to "class"...
   */
 
-  if ((c = AddPrinter(name)) != NULL)
+  if ((c = AddPrinter(name, update)) != NULL)
   {
    /*
     * Change from a printer to a class...
     */
 
+  port = ippPort();
+  for (i = 0; i < NumListeners && Listeners[i].address.sin_family != AF_INET; i++)
+    ;
+
+  if (i < NumListeners)
+    port = ntohs(Listeners[i].address.sin_port);
+
     c->type = CUPS_PRINTER_CLASS;
     SetStringf(&c->uri, "ipp://%s:%d/classes/%s", ServerName,
-               ntohs(Listeners[0].address.sin_port), name);
+               port, name);
   }
 
   return (c);
@@ -156,7 +168,7 @@ DeletePrinterFromClass(printer_t *c,	/* I - Class to delete from */
 
     c->num_printers --;
     if (i < c->num_printers)
-      memcpy(c->printers + i, c->printers + i + 1,
+      memmove(c->printers + i, c->printers + i + 1,
              (c->num_printers - i) * sizeof(printer_t *));
   }
 
@@ -192,6 +204,7 @@ DeletePrinterFromClasses(printer_t *p)	/* I - Printer to delete */
 {
   printer_t	*c,			/* Pointer to current class */
 		*next;			/* Pointer to next class */
+  int		num_printers;		/* Number of printers */
 
 
  /*
@@ -217,7 +230,20 @@ DeletePrinterFromClasses(printer_t *p)	/* I - Printer to delete */
 
     if ((c->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_IMPLICIT)) &&
         c->num_printers == 0)
+    {
+     /*
+      * Deleting a printer that is part of an implicit class can also cause 
+      * a following class to be deleted (which our 'next' may be pointing at). 
+      * In this case reset 'next' to the head of the list...
+      */
+
+      num_printers = NumPrinters;
+
       DeletePrinter(c, 1);
+
+      if (NumPrinters != num_printers - 1)
+	next = Printers;
+    }
   }
 }
 
@@ -278,8 +304,9 @@ FindAvailablePrinter(const char *name)	/* I - Class to check */
     if (i >= c->num_printers)
       i = 0;
 
-    if (c->printers[i]->state == IPP_PRINTER_IDLE ||
-        ((c->printers[i]->type & CUPS_PRINTER_REMOTE) && !c->printers[i]->job))
+    if (c->printers[i]->accepting &&
+        (c->printers[i]->state == IPP_PRINTER_IDLE ||
+         ((c->printers[i]->type & CUPS_PRINTER_REMOTE) && !c->printers[i]->job)))
     {
       c->last_printer = i;
       return (c->printers[i]);
@@ -370,7 +397,7 @@ LoadAllClasses(void)
 
     len = strlen(line);
 
-    while (len > 0 && isspace(line[len - 1]))
+    while (len > 0 && isspace(line[len - 1] & 255))
     {
       len --;
       line[len] = '\0';
@@ -380,14 +407,14 @@ LoadAllClasses(void)
     * Extract the name from the beginning of the line...
     */
 
-    for (value = line; isspace(*value); value ++);
+    for (value = line; isspace(*value & 255); value ++);
 
-    for (nameptr = name; *value != '\0' && !isspace(*value) &&
+    for (nameptr = name; *value != '\0' && !isspace(*value & 255) &&
 	                     nameptr < (name + sizeof(name) - 1);)
       *nameptr++ = *value++;
     *nameptr = '\0';
 
-    while (isspace(*value))
+    while (isspace(*value & 255))
       value ++;
 
     if (name[0] == '\0')
@@ -410,7 +437,7 @@ LoadAllClasses(void)
 
         LogMessage(L_DEBUG, "LoadAllClasses: Loading class %s...", value);
 
-        p = AddClass(value);
+        p = AddClass(value, 0);
 	p->accepting = 1;
 	p->state     = IPP_PRINTER_IDLE;
 
@@ -460,7 +487,7 @@ LoadAllClasses(void)
 	* Add the missing remote printer...
 	*/
 
-	if ((temp = AddPrinter(value)) != NULL)
+	if ((temp = AddPrinter(value, 0)) != NULL)
 	{
 	  SetString(&temp->make_model, "Remote Printer on unknown");
 
@@ -496,7 +523,7 @@ LoadAllClasses(void)
       * Set the initial queue state message...
       */
 
-      while (isspace(*value))
+      while (isspace(*value & 255))
         value ++;
 
       strlcpy(p->state_message, value, sizeof(p->state_message));
@@ -518,19 +545,19 @@ LoadAllClasses(void)
       * Set the initial job sheets...
       */
 
-      for (valueptr = value; *valueptr && !isspace(*valueptr); valueptr ++);
+      for (valueptr = value; *valueptr && !isspace(*valueptr & 255); valueptr ++);
 
       if (*valueptr)
         *valueptr++ = '\0';
 
       SetString(&p->job_sheets[0], value);
 
-      while (isspace(*valueptr))
+      while (isspace(*valueptr & 255))
         valueptr ++;
 
       if (*valueptr)
       {
-        for (value = valueptr; *valueptr && !isspace(*valueptr); valueptr ++);
+        for (value = valueptr; *valueptr && !isspace(*valueptr & 255); valueptr ++);
 
 	if (*valueptr)
           *valueptr++ = '\0';
@@ -610,7 +637,7 @@ SaveAllClasses(void)
   * Restrict access to the file...
   */
 
-  fchown(cupsFileNumber(fp), getuid(), Group);
+  fchown(cupsFileNumber(fp), RunUser, Group);
 #ifdef __APPLE__
   fchmod(cupsFileNumber(fp), 0600);
 #else
@@ -693,5 +720,34 @@ SaveAllClasses(void)
 
 
 /*
- * End of "$Id: classes.c,v 1.4.4.1 2003/11/14 23:48:30 jlovell Exp $".
+ * 'UpdateImplicitClasses()' - Update the accepting state of implicit classes.
+ */
+
+void
+UpdateImplicitClasses(void)
+{
+  int		i;			/* Looping var */
+  printer_t	*pclass;		/* Current class */
+  int		accepting;		/* printer-is-accepting-jobs value */
+
+
+  for (pclass = Printers; pclass; pclass = pclass->next)
+    if (pclass->type & CUPS_PRINTER_IMPLICIT)
+    {
+     /*
+      * Implicit class, loop through the printers to come up with a
+      * composite state...
+      */
+
+      for (i = 0, accepting = 0; i < pclass->num_printers; i ++)
+        if ((accepting |= pclass->printers[i]->accepting) != 0)
+	  break;
+
+      pclass->accepting = accepting;
+    }
+}
+
+
+/*
+ * End of "$Id: classes.c,v 1.13 2005/02/09 23:12:13 jlovell Exp $".
  */

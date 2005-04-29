@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/vendor.h,v 1.11 2002/09/21 02:38:25 dawes Exp $ */
+/* $XFree86: xc/programs/xman/vendor.h,v 1.13 2003/07/29 21:16:56 dawes Exp $ */
 
 /* Vendor-specific definitions */
 
@@ -167,25 +167,19 @@ from the X Consortium.
 # elif defined(BSD) && (BSD >= 199103)
 #  define FORMAT "| eqn | tbl | nroff -man"
 # elif defined(linux)
-#  define FORMAT "| geqn | gtbl | groff -Tlatin1 -mandoc"
+#  define FORMAT "| eqn | tbl | GROFF_NO_SGR= groff -Tlatin1 -mandoc"
 # else
 #  define FORMAT "| neqn | nroff -man"      /* The format command. */
 # endif
-# if defined(linux)
-#  define TBL "gtbl"
-# else
-#  define TBL "tbl"
-# endif
+# define TBL "tbl"
 #else /* HANDLE_ROFFSEQ */
 # if defined(linux)
 #  define ZSOELIM	"zsoelim"
-#  define EQN		"geqn"
-#  define TBL		"gtbl"
 # else
 #  define ZSOELIM	"soelim"
-#  define EQN		"eqn"
-#  define TBL		"tbl"
 #endif
+# define EQN		"eqn"
+# define TBL		"tbl"
 # define GRAP		"grap"
 # define PIC		"pic"
 # define VGRIND		"vgrind"
@@ -193,7 +187,9 @@ from the X Consortium.
 # if defined(CSRG_BASED)
 #  define FORMAT	"nroff -mandoc"
 # elif defined(linux)
-#  define FORMAT	"groff -Tlatin1 -mandoc"
+#  define FORMAT	"GROFF_NO_SGR= groff -Tlatin1 -mandoc"
+# elif defined(__DARWIN__)
+#  define FORMAT	"nroff -man"
 # else
 #  define FORMAT	"groff -man"
 # endif

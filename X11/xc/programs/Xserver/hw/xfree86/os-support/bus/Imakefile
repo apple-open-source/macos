@@ -3,7 +3,7 @@ XCOMM $XConsortium: Imakefile /main/16 1996/10/27 18:07:43 kaleb $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bus/Imakefile,v 1.30 2003/02/23 20:26:49 tsi Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/os-support/bus/Imakefile,v 1.32 2003/10/02 13:30:06 eich Exp $
 
 #include <Server.tmpl>
 
@@ -73,7 +73,7 @@ PCIDRVRSRC = ppcPci.c
 PCIDRVROBJ = ppcPci.o
 
 #elif defined(LinuxArchitecture) && \
-     (defined(i386Architecture) || defined(x86_64Architecture))
+     (defined(i386Architecture) || defined(AMD64Architecture))
 
 XCOMM ix86 PCI driver with OS fallback for Linux
 
@@ -88,6 +88,15 @@ XCOMM generic FreeBSD PCI driver (using /dev/pci)
 PCIDRVRSRC = freebsdPci.c
 PCIDRVROBJ = freebsdPci.o
 
+#elif defined(FreeBSDArchitecture) && defined(Sparc64Architecture)
+
+XCOMM Sparc SBUS & PCI drivers
+
+PCIDRVRSRC = freebsdPci.c
+PCIDRVROBJ = freebsdPci.o
+SBUSDRVSRC = Sbus.c
+SBUSDRVOBJ = Sbus.o
+
 #elif defined(NetBSDArchitecture) && defined(AlphaArchitecture)
 
 XCOMM Alpha (NetBSD) PCI driver
@@ -97,7 +106,7 @@ PCIDRVROBJ = netbsdPci.o
 
 #elif defined(i386Architecture) || \
       defined(ia64Architecture) || \
-      defined(x86_64Architecture)
+      defined(AMD64Architecture)
 
 XCOMM ix86 PCI driver
 

@@ -32,11 +32,9 @@ struct d
   
   return u;
 }
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__                                   
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 /* The second class */
@@ -59,11 +57,9 @@ struct d
     }
 }
 
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__                                   
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 

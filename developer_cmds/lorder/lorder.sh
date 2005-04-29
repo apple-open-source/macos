@@ -100,5 +100,5 @@ trap "rm -f $R $S; exit 1" 1 2 3 13 15
 # join on that field, and print out the file names.
 sort +1 $R -o $R
 sort +1 $S -o $S
-join -j 2 -o 1.1 2.1 $R $S
+join -j 2 -o "1.1 2.1" $R $S
 rm -f $R $S

@@ -1,0 +1,262 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" Japanese Version Copyright (c) 1996 Tanoshima Hidetohsi
+.\"         all rights reserved.
+.\" Dec 31, 1996   Tanoshima Hidetoshi <tano@sainet.or.jp> 
+.\"
+.\" Modified Thu Jan 29 01:52:36 JST 1998
+.\"         by HANATAKA Shinya <hanataka@abyss.rim.or.jp>
+.\"
+.TH man 1 "September 12, 1995"
+.LO 1
+.SH 名前
+man \- オンラインマニュアルページを整形し表示する。
+.br
+manpath \- ユーザー個々のマニュアルページの検索パスを決める。
+.SH 書式
+man [\-adfhktwW] [\-m system] [\-p string] [\-C config_file] [\-M path]
+[\-P pager] [\-S section_list] [section] name ...
+.SH 説明
+.B man
+はオンライン・マニュアル・ページを整形し表示する。このバージョン
+の man コマンドでは環境変数 MANPATH と (MAN)PAGER を設定できる。
+これにより、個人的なマニュアルページを設定したり、整形したページを
+表示するプログラムを好きに選べる。
+.I section
+を指定すると、
+.B man
+はマニュアルのそのセクションのみ探す。またコマンドライン・オプションや
+環境変数で、それぞれのセクションを検索する順序や、ソース・ファイルに
+対してどんなプリプロセッサを用いるかを指定したりすることができる。
+.I name
+に / が含まれているとき man コマンドはまずファイル名として扱う。
+したがって
+.B "man ./foo.5"
+または
+.B "man /cd/foo/bar.1.gz\fR\fP"
+とさえできる。
+.SH オプション
+.TP
+.B \-\^C " config_file"
+使用する man.conf ファイルを指定する。デフォルトは
+.BR @man_config_file@
+(参照： man.conf(5))
+.TP
+.B \-\^M " path"
+マニュアル・ページを探すディレクトリのリストを指定する。
+このオプションを指定しない場合、環境変数
+.B MANPATH
+を使う。この環境変数も指定しないと、
+.BR @man_config_file@
+に指定されたデフォルトのリストを使う。
+MANPATH 中の空の文字列はデフォルトのリストを意味する。
+.TP
+.B \-\^P " pager"
+使用するページャーを指定する。デフォルトでは man は
+.BR @pager@ 
+を使う。このオプションは環境変数
+.B MANPAGER
+より優先する。この環境変数は
+.B PAGER
+よりも優先する。デフォルトでは
+.B man
+は
+.BR @pager@
+を使用する。
+.TP
+.B \-\^S " section_list"
+コロンで分けられたリストで、マニュアルを探すセクションを
+指定する。このオプションは環境変数
+.B MANSECT
+より優先される。
+.TP
+.B \-\^a
+デフォルトでは、man は見つかった最初のマニュアルページを表示
+したあと終了する。このオプションを使うと、man は最初にみつかった
+ものだけでなく
+.B name
+にマッチしたすべてのページを表示する。
+.TP
+.B \-\^c
+最新の cat 形式のページがあってもマニュアルページのソースを
+整形しなおす。このオプションは cat ページが端末と違った幅で
+整形されているときや壊れている場合などに有用である。
+.TP
+.B \-\^d
+マニュアル・ページを表示せず、大量のデバッグ情報を出力する。
+.TP
+.B \-\^D
+デバッグ情報とマニュアル・ページの両方を表示する。
+.TP
+.B \-\^f
+.B whatis
+コマンドと同じ。
+.TP
+.B \-\^h
+1行ヘルプ・メッセージを表示して終了する。
+.TP
+.B \-\^k
+.B apropos
+コマンドと同じ。
+.B \-\^K
+「全ての」マニュアル・ページより指定した文字列を探す。警告: これは
+非常に遅いので セクションを指定した方が良い。(私のマシンでは、
+だいたいの目安として、500 ページを検索するのに 1分間かかる。)
+.TP
+.B \-\^m " system"
+別のシステムのマニュアル・ページを検索するように指定する。
+.TP
+.B \-\^p " string"
+.B nroff
+や 
+.B troff
+のまえに実行するプリプロセッサの順番を指定する。
+インストールの状態によってはフルセットの
+プリプロセッサが用意されてないかもしない。いくつ
+かのプリプロセッサとそれを指し示す文字は次のとおり：
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r)。
+このオプションは環境変数
+.B MANROFFSEQ
+より優先される。
+.TP
+.B \-\^t
+マニュアル・ページの整形に
+.B @troff@
+を使い、
+.B stdout
+に出力する。
+.B @troff@
+からの出力は印刷するまえになんらかのフィルターなどを通す必要
+があるかもしれない。
+.TP
+.B \-\^w \fRor\fP \-\-path
+マニュア・ルページを表示せず、すでにフォーマットまたは表示に使用する
+ソース・ファイルの位置を表示する。引数を与えないと
+.B man
+がマニュア・ルページを検索するディレクトリのリストを(標準出力に)表示する。
+.B manpath
+が man にリンクされているときは "manpath" は "man --path" と
+同じになる。
+.TP
+.B \-\^W
+\-\^w に似ているが、ファイル名を追加情報なしに１行１つずつ表示する。
+これはシェル上で
+.ft CW
+,B "man -aW man | xargs ls -l"
+.ft
+などと使うのに便利である。
+
+.SH "CAT ページ"
+man コマンドはすでに整形されたマニュアルページを、次にその
+ページが必要になったときの整形時間の節約のために、保存しよう
+とする。伝統的に、DIR/manX の整形済みマニュアルは DIR/catX に
+セーブされるが、man ディレクトリから cat ディレクトリへの
+他のマッピング方法を 
+.BR @man_config_file@
+に指定できる。
+cat ディレクトリが用意されてなかった場合、cat ページはセーブされない。
+.PP
+man コマンドをユーザー man に suid することができる。そのすると
+ cat ディレクトリのオーナーが man かつモードが 0755 (ユーザー man だけが
+書き込み可)で、cat ファイルのオーナーが man かつモードが 0644 または 
+0444 (ユーザー man だけが書き込み可、またはユーザーすべてが書き込み不可)
+のとき、普通のユーザーは cat ページを変更したり他のファイルを cat ディレ
+クトリ置いたりすることができなくなる。 man コマンドが suid されていなければ、
+すべてのユーザーが cat ページを cat ディレクトリに置けるように、
+cat ディレクトリのモードを 0777 にする必要がある。
+.PP
+cat ページがあったとしても、オプション
+.B \-c
+をつけると強制的にマニュアルページを再整形する。
+
+.SH 環境変数
+.TP
+.B MANPATH
+.B MANPATH
+を設定すると、マニュアル・ページを探すときそのパスを使う。
+.TP
+.B MANROFFSEQ
+.B MANROFFSEQ
+を設定すると、nroff や troff の前に実行するプリプロセッサ
+を決定するのにその値を使う。デフォルトではマニュアルページは 
+.B nroff 
+のまえにテーブル用のプリプロセッサに通される。
+.TP
+.B MANSECT
+.B MANSECT
+を設定すると、その値を元にどのマニュアル・セクションを探すかを決める。
+.TP
+.B MANWIDTH
+.B MANWIDTH
+を設定すると、その値を表示するマニュアル・ページの幅として使用する。
+指定しなかった場合には画面の幅一杯まで使用する。
+.TP
+.B MANPAGER
+.B MANPAGER
+を設定すると、マニュアル・ページを表示するプログラムとして使用する。
+指定しなかった場合には、
+.B PAGER
+が使用される。どちらも設定されていない場合には
+.B @pager@
+が使われる。
+.TP
+.B LANG
+.B LANG
+を設定すると、man コマンドその名前のサブディレクトリから最初に
+マニュアル・ぺージを探す。それゆえ、'LANG=dk man 1 foo'
+とコマンドラインから打つと、man コマンドはまず .../dk/man1/foo.1 を探し、
+見つからなければ .../man1/foo.1 を探す。この ... はサーチパス
+のディレクトリである。
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+環境変数
+.B NLSPATH
+と
+.B LC_MESSAGES
+(また後者がないときは
+.B LANG
+)はメッセージ・カタログの位置を指定する。
+(英語のメッセージはコンパイル時に組み込まれているので、英語の場合は
+ カタログは必要ない)
+man に呼び出される col(1) のような
+moプログラムは 、たとえば LC_CTYPE
+使うことに注意すること。
+.TP
+.B PATH
+.B PATH
+はマニュアル・ページのデフォルトの検索パスの構築に使われる。
+.TP
+.B SYSTEM
+.B SYSTEM
+はデフォルトのシステム名を得るのに使われる。
+(
+.B \-m
+オプションとともに使う) 
+.SH 関連項目
+apropos(1), whatis(1), less(1), groff(1).
+.SH バグ
+.B \-t
+オプションは troff ライクなプログラムがインストールされている
+場合のみ有効である。
+.br
+もしハイフンのかわりに、点滅する \e255 や <AD> が表示された場合には
+環境変数に 'LESSCHARSET=latin1' を設定すると良い。
+
+(訳注: 日本語を使用する場合には 
+'JLESSCHARSET=ja_JP.ujis' または 'LESSCHARSET=ja_JP.ujis'
+を使用するために、この方法では対応できない。groff のオプションで
+\-Tnippon また \-Tascii を使用すること。)

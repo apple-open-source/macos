@@ -1,0 +1,2 @@
+[vset    digest haval]
+[include digest/main.inc]

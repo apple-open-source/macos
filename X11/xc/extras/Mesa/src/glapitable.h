@@ -294,7 +294,7 @@ struct _glapi_table
    void (*GetTexLevelParameteriv)(GLenum target, GLint level, GLenum pname, GLint * params); /* 285 */
    GLboolean (*IsEnabled)(GLenum cap); /* 286 */
    GLboolean (*IsList)(GLuint list); /* 287 */
-   void (*DepthRange)(GLclampd near, GLclampd far); /* 288 */
+   void (*DepthRange)(GLclampd zNear, GLclampd zFar); /* 288 */
    void (*Frustum)(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar); /* 289 */
    void (*LoadIdentity)(void); /* 290 */
    void (*LoadMatrixf)(const GLfloat * m); /* 291 */
@@ -335,7 +335,7 @@ struct _glapi_table
    void (*CopyTexSubImage2D)(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height); /* 326 */
    void (*DeleteTextures)(GLsizei n, const GLuint * textures); /* 327 */
    void (*GenTextures)(GLsizei n, GLuint * textures); /* 328 */
-   void (*GetPointerv)(GLenum pname, GLvoid * * params); /* 329 */
+   void (*GetPointerv)(GLenum pname, GLvoid ** params); /* 329 */
    GLboolean (*IsTexture)(GLuint texture); /* 330 */
    void (*PrioritizeTextures)(GLsizei n, const GLuint * textures, const GLclampf * priorities); /* 331 */
    void (*TexSubImage1D)(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const GLvoid * pixels); /* 332 */
@@ -377,7 +377,7 @@ struct _glapi_table
    void (*Minmax)(GLenum target, GLenum internalformat, GLboolean sink); /* 368 */
    void (*ResetHistogram)(GLenum target); /* 369 */
    void (*ResetMinmax)(GLenum target); /* 370 */
-   void (*TexImage3D)(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid * pixels); /* 371 */
+   void (*TexImage3D)(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const GLvoid * pixels); /* 371 */
    void (*TexSubImage3D)(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const GLvoid * pixels); /* 372 */
    void (*CopyTexSubImage3D)(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height); /* 373 */
    void (*ActiveTextureARB)(GLenum texture); /* 374 */
@@ -419,7 +419,7 @@ struct _glapi_table
    void (*MultTransposeMatrixfARB)(const GLfloat * m); /* 410 */
    void (*MultTransposeMatrixdARB)(const GLdouble * m); /* 411 */
    void (*SampleCoverageARB)(GLclampf value, GLboolean invert); /* 412 */
-   void (*SamplePassARB)(GLenum pass); /* 413 */
+   void (*__unused413)(void); /* 413 */
    void (*PolygonOffsetEXT)(GLfloat factor, GLfloat bias); /* 414 */
    void (*GetTexFilterFuncSGIS)(GLenum target, GLenum filter, GLfloat * weights); /* 415 */
    void (*TexFilterFuncSGIS)(GLenum target, GLenum filter, GLsizei n, const GLfloat * weights); /* 416 */
@@ -504,7 +504,7 @@ struct _glapi_table
    void (*VertexWeightfvEXT)(const GLfloat * weight); /* 495 */
    void (*VertexWeightPointerEXT)(GLsizei size, GLenum type, GLsizei stride, const GLvoid * pointer); /* 496 */
    void (*FlushVertexArrayRangeNV)(void); /* 497 */
-   void (*VertexArrayRangeNV)(GLsizei size, const GLvoid * pointer); /* 498 */
+   void (*VertexArrayRangeNV)(GLsizei length, const GLvoid * pointer); /* 498 */
    void (*CombinerParameterfvNV)(GLenum pname, const GLfloat * params); /* 499 */
    void (*CombinerParameterfNV)(GLenum pname, GLfloat param); /* 500 */
    void (*CombinerParameterivNV)(GLenum pname, const GLint * params); /* 501 */
@@ -584,6 +584,82 @@ struct _glapi_table
    void (*SecondaryColor3usEXT)(GLushort red, GLushort green, GLushort blue); /* 575 */
    void (*SecondaryColor3usvEXT)(const GLushort * v); /* 576 */
    void (*SecondaryColorPointerEXT)(GLint size, GLenum type, GLsizei stride, const GLvoid * pointer); /* 577 */
+   GLboolean (*AreProgramsResidentNV)(GLsizei n, const GLuint * ids, GLboolean * residences); /* 578 */
+   void (*BindProgramNV)(GLenum target, GLuint id); /* 579 */
+   void (*DeleteProgramsNV)(GLsizei n, const GLuint * ids); /* 580 */
+   void (*ExecuteProgramNV)(GLenum target, GLuint id, const GLfloat * params); /* 581 */
+   void (*GenProgramsNV)(GLsizei n, GLuint * ids); /* 582 */
+   void (*GetProgramParameterdvNV)(GLenum target, GLuint index, GLenum pname, GLdouble * params); /* 583 */
+   void (*GetProgramParameterfvNV)(GLenum target, GLuint index, GLenum pname, GLfloat * params); /* 584 */
+   void (*GetProgramivNV)(GLuint id, GLenum pname, GLint * params); /* 585 */
+   void (*GetProgramStringNV)(GLuint id, GLenum pname, GLubyte * program); /* 586 */
+   void (*GetTrackMatrixivNV)(GLenum target, GLuint address, GLenum pname, GLint * params); /* 587 */
+   void (*GetVertexAttribdvNV)(GLuint index, GLenum pname, GLdouble * params); /* 588 */
+   void (*GetVertexAttribfvNV)(GLuint index, GLenum pname, GLfloat * params); /* 589 */
+   void (*GetVertexAttribivNV)(GLuint index, GLenum pname, GLint * params); /* 590 */
+   void (*GetVertexAttribPointervNV)(GLuint index, GLenum pname, GLvoid ** pointer); /* 591 */
+   GLboolean (*IsProgramNV)(GLuint id); /* 592 */
+   void (*LoadProgramNV)(GLenum target, GLuint id, GLsizei len, const GLubyte * program); /* 593 */
+   void (*ProgramParameter4dNV)(GLenum target, GLuint index, GLdouble x, GLdouble y, GLdouble z, GLdouble w); /* 594 */
+   void (*ProgramParameter4dvNV)(GLenum target, GLuint index, const GLdouble * params); /* 595 */
+   void (*ProgramParameter4fNV)(GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w); /* 596 */
+   void (*ProgramParameter4fvNV)(GLenum target, GLuint index, const GLfloat * params); /* 597 */
+   void (*ProgramParameters4dvNV)(GLenum target, GLuint index, GLuint num, const GLdouble * params); /* 598 */
+   void (*ProgramParameters4fvNV)(GLenum target, GLuint index, GLuint num, const GLfloat * params); /* 599 */
+   void (*RequestResidentProgramsNV)(GLsizei n, const GLuint * ids); /* 600 */
+   void (*TrackMatrixNV)(GLenum target, GLuint address, GLenum matrix, GLenum transform); /* 601 */
+   void (*VertexAttribPointerNV)(GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid * pointer); /* 602 */
+   void (*VertexAttrib1dNV)(GLuint index, GLdouble x); /* 603 */
+   void (*VertexAttrib1dvNV)(GLuint index, const GLdouble * v); /* 604 */
+   void (*VertexAttrib1fNV)(GLuint index, GLfloat x); /* 605 */
+   void (*VertexAttrib1fvNV)(GLuint index, const GLfloat * v); /* 606 */
+   void (*VertexAttrib1sNV)(GLuint index, GLshort x); /* 607 */
+   void (*VertexAttrib1svNV)(GLuint index, const GLshort * v); /* 608 */
+   void (*VertexAttrib2dNV)(GLuint index, GLdouble x, GLdouble y); /* 609 */
+   void (*VertexAttrib2dvNV)(GLuint index, const GLdouble * v); /* 610 */
+   void (*VertexAttrib2fNV)(GLuint index, GLfloat x, GLfloat y); /* 611 */
+   void (*VertexAttrib2fvNV)(GLuint index, const GLfloat * v); /* 612 */
+   void (*VertexAttrib2sNV)(GLuint index, GLshort x, GLshort y); /* 613 */
+   void (*VertexAttrib2svNV)(GLuint index, const GLshort * v); /* 614 */
+   void (*VertexAttrib3dNV)(GLuint index, GLdouble x, GLdouble y, GLdouble z); /* 615 */
+   void (*VertexAttrib3dvNV)(GLuint index, const GLdouble * v); /* 616 */
+   void (*VertexAttrib3fNV)(GLuint index, GLfloat x, GLfloat y, GLfloat z); /* 617 */
+   void (*VertexAttrib3fvNV)(GLuint index, const GLfloat * v); /* 618 */
+   void (*VertexAttrib3sNV)(GLuint index, GLshort x, GLshort y, GLshort z); /* 619 */
+   void (*VertexAttrib3svNV)(GLuint index, const GLshort * v); /* 620 */
+   void (*VertexAttrib4dNV)(GLuint index, GLdouble x, GLdouble y, GLdouble z, GLdouble w); /* 621 */
+   void (*VertexAttrib4dvNV)(GLuint index, const GLdouble * v); /* 622 */
+   void (*VertexAttrib4fNV)(GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w); /* 623 */
+   void (*VertexAttrib4fvNV)(GLuint index, const GLfloat * v); /* 624 */
+   void (*VertexAttrib4sNV)(GLuint index, GLshort x, GLshort y, GLshort z, GLshort w); /* 625 */
+   void (*VertexAttrib4svNV)(GLuint index, const GLshort * v); /* 626 */
+   void (*VertexAttrib4ubNV)(GLuint index, GLubyte x, GLubyte y, GLubyte z, GLubyte w); /* 627 */
+   void (*VertexAttrib4ubvNV)(GLuint index, const GLubyte * v); /* 628 */
+   void (*VertexAttribs1dvNV)(GLuint index, GLsizei n, const GLdouble * v); /* 629 */
+   void (*VertexAttribs1fvNV)(GLuint index, GLsizei n, const GLfloat * v); /* 630 */
+   void (*VertexAttribs1svNV)(GLuint index, GLsizei n, const GLshort * v); /* 631 */
+   void (*VertexAttribs2dvNV)(GLuint index, GLsizei n, const GLdouble * v); /* 632 */
+   void (*VertexAttribs2fvNV)(GLuint index, GLsizei n, const GLfloat * v); /* 633 */
+   void (*VertexAttribs2svNV)(GLuint index, GLsizei n, const GLshort * v); /* 634 */
+   void (*VertexAttribs3dvNV)(GLuint index, GLsizei n, const GLdouble * v); /* 635 */
+   void (*VertexAttribs3fvNV)(GLuint index, GLsizei n, const GLfloat * v); /* 636 */
+   void (*VertexAttribs3svNV)(GLuint index, GLsizei n, const GLshort * v); /* 637 */
+   void (*VertexAttribs4dvNV)(GLuint index, GLsizei n, const GLdouble * v); /* 638 */
+   void (*VertexAttribs4fvNV)(GLuint index, GLsizei n, const GLfloat * v); /* 639 */
+   void (*VertexAttribs4svNV)(GLuint index, GLsizei n, const GLshort * v); /* 640 */
+   void (*VertexAttribs4ubvNV)(GLuint index, GLsizei n, const GLubyte * v); /* 641 */
+   void (*PointParameteriNV)(GLenum pname, GLint params); /* 642 */
+   void (*PointParameterivNV)(GLenum pname, const GLint * params); /* 643 */
+   void (*MultiDrawArraysEXT)(GLenum mode, GLint * first, GLsizei * count, GLsizei primcount); /* 644 */
+   void (*MultiDrawElementsEXT)(GLenum mode, const GLsizei * count, GLenum type, const GLvoid ** indices, GLsizei primcount); /* 645 */
+   void (*ActiveStencilFaceEXT)(GLenum face); /* 646 */
+   void (*DeleteFencesNV)(GLsizei n, const GLuint * fences); /* 647 */
+   void (*GenFencesNV)(GLsizei n, GLuint * fences); /* 648 */
+   GLboolean (*IsFenceNV)(GLuint fence); /* 649 */
+   GLboolean (*TestFenceNV)(GLuint fence); /* 650 */
+   void (*GetFenceivNV)(GLuint fence, GLenum pname, GLint * params); /* 651 */
+   void (*FinishFenceNV)(GLuint fence); /* 652 */
+   void (*SetFenceNV)(GLuint fence, GLenum condition); /* 653 */
 };
 
 #endif

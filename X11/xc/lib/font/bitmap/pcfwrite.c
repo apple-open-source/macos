@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/pcfwrite.c,v 1.10 2003/01/12 03:55:46 tsi Exp $ */
+/* $XFree86: xc/lib/font/bitmap/pcfwrite.c,v 1.12 2003/11/18 01:17:04 dawes Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -36,12 +36,6 @@ from The Open Group.
 #include "fntfilst.h"
 #include "bitmap.h"
 #include "pcf.h"
-
-extern void pcfError(
-#if NeedVarargsPrototypes
-		     char* message, ...
-#endif
-		    );
 
 /* Write PCF font files */
 

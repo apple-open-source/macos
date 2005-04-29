@@ -84,6 +84,7 @@ extern int errno;
 extern int echo_input_at_read;
 extern int current_command_line_count;
 extern int literal_history;
+extern int posixly_correct;
 
 extern int unlink __P((const char *));
 
@@ -155,6 +156,7 @@ static void fc_addhist __P((char *));
 
 /* String to execute on a file that we want to edit. */
 #define FC_EDIT_COMMAND "${FCEDIT:-${EDITOR:-vi}}"
+#define POSIX_FC_EDIT_COMMAND "${FCEDIT:-ed}"
 
 int
 fc_builtin (list)
@@ -302,7 +304,7 @@ fc_builtin (list)
       if (listing)
 	{
 	  histend = last_hist;
-	  histbeg = histend - 16;
+	  histbeg = histend - 16 + 1; /* -1 because loop uses >= */
 	  if (histbeg < 0)
 	    histbeg = 0;
 	}
@@ -346,8 +348,12 @@ fc_builtin (list)
       QUIT;
       if (numbering)
 	fprintf (stream, "%d", i + history_base);
-      if (listing)
-	fprintf (stream, "\t%c", histdata (i) ? '*' : ' ');
+      if (listing) {
+	if (posixly_correct)
+	  fputs ("\t", stream);
+	else
+	  fprintf (stream, "\t%c", histdata (i) ? '*' : ' ');
+      }
       fprintf (stream, "%s\n", histline (i));
     }
 
@@ -364,8 +370,9 @@ fc_builtin (list)
     }
   else
     {
-      command = (char *)xmalloc (3 + strlen (FC_EDIT_COMMAND) + strlen (fn));
-      sprintf (command, "%s %s", FC_EDIT_COMMAND, fn);
+      char *fcedit = posixly_correct ? POSIX_FC_EDIT_COMMAND : FC_EDIT_COMMAND;
+      command = (char *)xmalloc (3 + strlen (fcedit) + strlen (fn));
+      sprintf (command, "%s %s", fcedit, fn);
     }
   retval = parse_and_execute (command, "fc", SEVAL_NOHIST);
   if (retval != EXECUTION_SUCCESS)

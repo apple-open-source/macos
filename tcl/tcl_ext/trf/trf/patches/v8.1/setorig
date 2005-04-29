@@ -1,0 +1,10 @@
+#!/bin/sh
+# copy current state of some files into the designated directory
+
+files='tcl.decls tclDecls.h tclIO.c tclStubInit.c tclStubs.c'
+
+for f in $files
+do
+	cp $1/$f.orig $f
+done
+exit

@@ -302,6 +302,10 @@ print_node (file, prefix, node, indent)
     fputs (" tree_5", file);
   if (TREE_LANG_FLAG_6 (node))
     fputs (" tree_6", file);
+  /* APPLE LOCAL begin dead code strip.  */
+  if (TREE_LIVE (node))
+    fputs (" live", file);
+  /* APPLE LOCAL end dead code strip.  */
 
   /* DECL_ nodes have additional attributes.  */
 

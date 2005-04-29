@@ -1,8 +1,22 @@
 /* config.c - DNS SRV backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/config.c,v 1.6.2.2 2003/03/03 17:10:09 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/config.c,v 1.8.2.4 2004/04/06 18:16:01 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2000-2003 Kurt D. Zeilenga.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by Kurt D. Zeilenga for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -32,11 +46,5 @@ dnssrv_back_db_config(
 	}
 
 	/* no configuration options (yet) */
-	{
-		fprintf( stderr,
-			"%s: line %d: unknown directive \"%s\""
-			" in DNSSRV database definition (ignored)\n",
-		    fname, lineno, argv[0] );
-	}
-	return 0;
+	return SLAP_CONF_UNKNOWN;
 }

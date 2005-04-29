@@ -1,7 +1,7 @@
 /*
  *  connectionpooling.c
  *
- *  $Id: connectionpooling.c,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: connectionpooling.c,v 1.3 2004/11/11 01:52:39 luesang Exp $
  *
  *  The iODBC driver manager.
  *  
@@ -130,7 +130,7 @@ create_connectionpool (HWND hwnd, LPCSTR driver, LPCSTR oldtimeout)
   char msg[1024];
 
   if (hwnd == NULL || !GTK_IS_WIDGET (hwnd))
-    return;
+    return NULL;
 
   accel_group = gtk_accel_group_new ();
 

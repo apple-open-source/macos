@@ -1,0 +1,2 @@
+>>> Set memo empty or same size
+<<< done.

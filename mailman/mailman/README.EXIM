@@ -247,13 +247,13 @@ in your "RCPT TO" ACL:
   # Accept bounces to lists even if callbacks or other checks would fail
   warn     message	= X-WhitelistedRCPT-nohdrfromcallback: Yes
 	   condition	= \
-           ${if and {{match{$local_part}{(.*)-bounces\+.*}}
+           ${if and {{match{$local_part}{(.*)-bounces\+.*}} \
                      {exists {MAILMAN_HOME/lists/$1/config.pck}}} \
                 {yes}{no}}
                 {yes}{no}}
 
   accept   condition	= \
-           ${if and {{match{$local_part}{(.*)-bounces\+.*}}
+           ${if and {{match{$local_part}{(.*)-bounces\+.*}} \
                      {exists {MAILMAN_HOME/lists/$1/config.pck}}} \
                 {yes}{no}}
                 {yes}{no}}

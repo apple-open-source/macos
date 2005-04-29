@@ -1,19 +1,19 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 """Create a new, unpopulated mailing list.
@@ -118,9 +118,9 @@ def main():
         usage(1, _('Unknown language: %(lang)s'))
 
     if len(args) > 0:
-	listname = args[0]
+        listname = args[0]
     else:
-	listname = raw_input(_('Enter the name of the list: '))
+        listname = raw_input(_('Enter the name of the list: '))
     listname = listname.lower()
 
     host_name = None
@@ -134,13 +134,13 @@ def main():
         usage(1, _('List already exists: %(listname)s'))
 
     if len(args) > 1:
-	owner_mail = args[1]
+        owner_mail = args[1]
     else:
-	owner_mail = raw_input(
-	    _('Enter the email of the person running the list: '))
+        owner_mail = raw_input(
+            _('Enter the email of the person running the list: '))
 
     if len(args) > 2:
-	listpasswd = args[2]
+        listpasswd = args[2]
     else:
         listpasswd = getpass.getpass(_('Initial %(listname)s password: '))
     # List passwords cannot be empty
@@ -162,7 +162,7 @@ def main():
                 os.umask(oldmask)
         except Errors.BadListNameError, s:
             usage(1, _('Illegal list name: %(s)s'))
-        except Errors.MMBadEmailError, s:
+        except Errors.EmailAddressError, s:
             usage(1, _('Bad owner email address: %(s)s'))
         except Errors.MMListAlreadyExistsError:
             usage(1, _('List already exists: %(listname)s'))
@@ -193,8 +193,8 @@ def main():
         text = Utils.maketext(
             'newlist.txt',
             {'listname'    : listname,
-             'password'    : listpasswd, 
-             'admin_url'   : mlist.GetScriptURL('admin', absolute=1), 
+             'password'    : listpasswd,
+             'admin_url'   : mlist.GetScriptURL('admin', absolute=1),
              'listinfo_url': mlist.GetScriptURL('listinfo', absolute=1),
              'requestaddr' : mlist.GetRequestEmail(),
              'siteowner'   : siteadmin,

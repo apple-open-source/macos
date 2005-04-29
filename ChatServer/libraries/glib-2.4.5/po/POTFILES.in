@@ -1,0 +1,10 @@
+glib/gconvert.c
+glib/gdir.c
+glib/gfileutils.c
+glib/giochannel.c
+glib/giowin32.c
+glib/gmarkup.c
+glib/gshell.c
+glib/gspawn-win32.c
+glib/gspawn.c
+glib/gutf8.c

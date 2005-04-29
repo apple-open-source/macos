@@ -4304,6 +4304,9 @@ lookup_template_class (d1, arglist, in_decl, context, entering_scope, complain)
 	  CLASSTYPE_GOT_SEMICOLON (t) = 1;
 	  SET_CLASSTYPE_IMPLICIT_INSTANTIATION (t);
 	  TYPE_FOR_JAVA (t) = TYPE_FOR_JAVA (template_type);
+	  /* APPLE LOCAL begin libstdc++ debug mode */
+	  TYPE_ATTRIBUTES (t) = TYPE_ATTRIBUTES (template_type);
+	  /* APPLE LOCAL end libstdc++ debug mode */
 
 	  /* A local class.  Make sure the decl gets registered properly.  */
 	  if (context == current_function_decl)
@@ -5295,6 +5298,9 @@ instantiate_class_template (type)
   TYPE_ALIGN (type) = TYPE_ALIGN (pattern);
   TYPE_USER_ALIGN (type) = TYPE_USER_ALIGN (pattern);
   TYPE_FOR_JAVA (type) = TYPE_FOR_JAVA (pattern); /* For libjava's JArray<T> */
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  TYPE_ATTRIBUTES (type) = TYPE_ATTRIBUTES (pattern);
+  /* APPLE LOCAL end libstdc++ debug mode */
   if (ANON_AGGR_TYPE_P (pattern))
     SET_ANON_AGGR_TYPE_P (type);
 
@@ -9313,11 +9319,6 @@ mark_decl_instantiated (result, extern_p)
      tree result;
      int extern_p;
 {
-  if (TREE_CODE (result) != FUNCTION_DECL)
-    /* The TREE_PUBLIC flag for function declarations will have been
-       set correctly by tsubst.  */
-    TREE_PUBLIC (result) = 1;
-
   /* We used to set this unconditionally; we moved that to
      do_decl_instantiation so it wouldn't get set on members of
      explicit class template instantiations.  But we still need to set
@@ -9325,6 +9326,16 @@ mark_decl_instantiated (result, extern_p)
      implicit instantiations.  */
   if (extern_p)
     SET_DECL_EXPLICIT_INSTANTIATION (result);
+
+  /* If this entity has already been written out, it's too late to
+     make any modifications.  */
+  if (TREE_ASM_WRITTEN (result))
+    return;
+
+  if (TREE_CODE (result) != FUNCTION_DECL)
+    /* The TREE_PUBLIC flag for function declarations will have been
+       set correctly by tsubst.  */
+    TREE_PUBLIC (result) = 1;
 
   if (! extern_p)
     {
@@ -9339,7 +9350,10 @@ mark_decl_instantiated (result, extern_p)
       else if (TREE_PUBLIC (result))
 	maybe_make_one_only (result);
     }
-  else if (TREE_CODE (result) == FUNCTION_DECL)
+  
+  if (TREE_CODE (result) == FUNCTION_DECL 
+      && (DECL_ARTIFICIAL (result) 
+	  || (DECL_DECLARED_INLINE_P (result) && TREE_USED (result))))
     defer_fn (result);
 }
 
@@ -10302,9 +10316,8 @@ instantiate_decl (d, defer_ok)
   if (need_push)
     push_to_top_level ();
 
-  /* We're now committed to instantiating this template.  Mark it as
-     instantiated so that recursive calls to instantiate_decl do not
-     try to instantiate it again.  */
+  /* Mark D as instantiated so that recursive calls to
+     instantiate_decl do not try to instantiate it again.  */
   DECL_TEMPLATE_INSTANTIATED (d) = 1;
 
   /* Regenerate the declaration in case the template has been modified
@@ -10324,21 +10337,61 @@ instantiate_decl (d, defer_ok)
 
       DECL_IN_AGGR_P (d) = 0;
       import_export_decl (d);
-      DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
-      cp_finish_decl (d, 
-		      (!DECL_INITIALIZED_IN_CLASS_P (d) 
-		       ? DECL_INITIAL (d) : NULL_TREE),
-		      NULL_TREE, 0);
-    /* APPLE LOCAL begin coalescing  */
-      /* We have to call MARK_TEMPLATE_COALESCED after import_export_decl */
+  /* APPLE LOCAL begin coalescing  */
 #ifdef MARK_TEMPLATE_COALESCED
-      MARK_TEMPLATE_COALESCED (d);
+    MARK_TEMPLATE_COALESCED (d);
 #endif
-      /* APPLE LOCAL end coalescing  */
+  /* APPLE LOCAL end coalescing  */
+      DECL_EXTERNAL (d) = ! DECL_NOT_REALLY_EXTERN (d);
+
+      if (DECL_EXTERNAL (d))
+	{
+	  /* The fact that this code is executing indicates that:
+	     
+	     (1) D is a template static data member, for which a
+	         definition is available.
+
+	     (2) An implicit or explicit instantiation has occurred.
+
+	     (3) We are not going to emit a definition of the static
+	         data member at this time.
+
+	     This situation is peculiar, but it occurs on platforms
+	     without weak symbols when performing an implicit
+	     instantiation.  There, we cannot implicitly instantiate a
+	     defined static data member in more than one translation
+	     unit, so import_export_decl marks the declaration as
+	     external; we must rely on explicit instantiation.
+
+             Reset instantiated marker to make sure that later
+             explicit instantiation will be processed.  */
+          DECL_TEMPLATE_INSTANTIATED (d) = 0;
+	}
+      else
+	{
+	  /* This is done in analogous to `start_decl'.  It is
+	     required for correct access checking.  */
+	  push_nested_class (DECL_CONTEXT (d), 2);
+	  cp_finish_decl (d, 
+			  (!DECL_INITIALIZED_IN_CLASS_P (d) 
+			   ? DECL_INITIAL (d) : NULL_TREE),
+			  NULL_TREE, 0);
+	  /* Normally, pop_nested_class is called by cp_finish_decl
+	     above.  But when instantiate_decl is triggered during
+	     instantiate_class_template processing, its DECL_CONTEXT
+	     is still not completed yet, and pop_nested_class isn't
+	     called.  */
+	  if (!COMPLETE_TYPE_P (DECL_CONTEXT (d)))
+	    pop_nested_class ();
+	}
     }
   else if (TREE_CODE (d) == FUNCTION_DECL)
     {
       htab_t saved_local_specializations;
+
+      /* Mark D as instantiated so that recursive calls to
+	 instantiate_decl do not try to instantiate it again.  */
+      DECL_TEMPLATE_INSTANTIATED (d) = 1;
 
       /* Save away the current list, in case we are instantiating one
 	 template from within the body of another.  */
@@ -10351,6 +10404,13 @@ instantiate_decl (d, defer_ok)
 					   NULL);
 
       /* Set up context.  */
+      import_export_decl (d);
+  /* APPLE LOCAL begin coalescing  */
+#ifdef MARK_TEMPLATE_COALESCED
+    MARK_TEMPLATE_COALESCED (d);
+#endif
+  /* APPLE LOCAL end coalescing  */
+  
       start_function (NULL_TREE, d, NULL_TREE, SF_PRE_PARSED);
 
       /* Substitute into the body of the function.  */
@@ -10363,13 +10423,6 @@ instantiate_decl (d, defer_ok)
 
       /* Finish the function.  */
       d = finish_function (0);
-      import_export_decl (d);
-      /* APPLE LOCAL begin coalescing  */
-      /* We have to call MARK_TEMPLATE_COALESCED after import_export_decl */
-#ifdef MARK_TEMPLATE_COALESCED
-      MARK_TEMPLATE_COALESCED (d);
-#endif
-      /* APPLE LOCAL end coalescing  */
 
       expand_body (d);
     }

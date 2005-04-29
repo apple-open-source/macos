@@ -1,0 +1,40 @@
+# -*- tcl -*-
+# Commands covered:	none!
+#
+# this file checks the integrity of the complete package
+#
+# Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: ________,v 1.5 1998/11/15 13:45:11 aku Exp $
+
+
+cd ../unix
+
+foreach md {crc crc-zlib adler md5 sha haval ripemd128 ripemd160} {
+    set fail [catch {
+	exec ./tclsh ../tools/mdwrap -a $md -c digests.$md | sed -e {s/^/	/} >@ stdout
+    } msg];#{}
+
+    if {$fail} {puts "$md: $msg"}
+}
+
+cd ../tests
+
+
+if {0} {
+    cd ..
+
+    foreach md {crc crc-zlib adler md5 sha haval ripemd128 ripemd160} {
+	set fail [catch {
+	    exec unix/tclsh tools/md -a $md -c digests.$md | sed -e {s/^/	/} >@ stdout
+	} msg];#{}
+	
+	if {$fail} {puts "$md: $msg"}
+    }
+
+    cd tests
+}
+

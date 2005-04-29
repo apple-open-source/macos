@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_dri.h,v 1.10 2002/12/10 01:27:04 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_dri.h,v 1.11 2003/09/28 20:15:58 alanh Exp $ */
 
 #ifndef _I810_DRI_
 #define _I810_DRI_
@@ -95,8 +95,10 @@ typedef struct {
     * kick out your own texture or someone else's - simply eject
     * them all in LRU order.
     */
-   I810TexRegionRec texList[I810_NR_TEX_REGIONS + 1];	/* Last elt is sentinal */
+ 
+   drmTextureRegion texList[I810_NR_TEX_REGIONS + 1];
 
+   /* Last elt is sentinal */
    int texAge;				/* last time texture was uploaded */
 
    int last_enqueue;			/* last time a buffer was enqueued */
@@ -106,6 +108,11 @@ typedef struct {
    int ctxOwner;			/* last context to upload state */
 
    int vertex_prim;
+
+   int pf_enabled;                  /* is pageflipping allowed? */
+   int pf_active;                   /* is pageflipping active right now? */
+   int pf_current_page; 	    /* which buffer is being displayed? */
+
 
 } I810SAREARec, *I810SAREAPtr;
 

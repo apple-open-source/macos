@@ -1,8 +1,31 @@
 /* modify.c - shell backend modify function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modify.c,v 1.19.2.6 2003/03/03 17:10:11 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/modify.c,v 1.27.2.4 2004/04/12 17:53:23 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 #include "portable.h"
@@ -17,56 +40,50 @@
 
 int
 shell_back_modify(
-    Backend	*be,
-    Connection	*conn,
     Operation	*op,
-    struct berval *dn,
-    struct berval *ndn,
-    Modifications	*ml
-)
+    SlapReply	*rs )
 {
 	Modification *mod;
-	struct shellinfo	*si = (struct shellinfo *) be->be_private;
+	struct shellinfo	*si = (struct shellinfo *) op->o_bd->be_private;
 	AttributeDescription *entry = slap_schema.si_ad_entry;
+	Modifications *ml  = op->oq_modify.rs_modlist;
 	Entry e;
 	FILE			*rfp, *wfp;
 	int			i;
 
 	if ( si->si_modify == NULL ) {
-		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM, NULL,
-		    "modify not implemented", NULL, NULL );
+		send_ldap_error( op, rs, LDAP_UNWILLING_TO_PERFORM,
+		    "modify not implemented" );
 		return( -1 );
 	}
 
 	e.e_id = NOID;
-	e.e_name = *dn;
-	e.e_nname = *ndn;
+	e.e_name = op->o_req_dn;
+	e.e_nname = op->o_req_ndn;
 	e.e_attrs = NULL;
 	e.e_ocflags = 0;
 	e.e_bv.bv_len = 0;
 	e.e_bv.bv_val = NULL;
 	e.e_private = NULL;
 
-	if ( ! access_allowed( be, conn, op, &e,
+	if ( ! access_allowed( op, &e,
 		entry, NULL, ACL_WRITE, NULL ) )
 	{
-		send_ldap_result( conn, op, LDAP_INSUFFICIENT_ACCESS,
-			NULL, NULL, NULL, NULL );
+		send_ldap_error( op, rs, LDAP_INSUFFICIENT_ACCESS, NULL );
 		return -1;
 	}
 
-	if ( (op->o_private = (void *) forkandexec( si->si_modify, &rfp, &wfp ))
-	    == (void *) -1 ) {
-		send_ldap_result( conn, op, LDAP_OTHER, NULL,
-		    "could not fork/exec", NULL, NULL );
+	if ( forkandexec( si->si_modify, &rfp, &wfp ) == (pid_t)-1 ) {
+		send_ldap_error( op, rs, LDAP_OTHER,
+		    "could not fork/exec" );
 		return( -1 );
 	}
 
 	/* write out the request to the modify process */
 	fprintf( wfp, "MODIFY\n" );
 	fprintf( wfp, "msgid: %ld\n", (long) op->o_msgid );
-	print_suffixes( wfp, be );
-	fprintf( wfp, "dn: %s\n", dn->bv_val );
+	print_suffixes( wfp, op->o_bd );
+	fprintf( wfp, "dn: %s\n", op->o_req_dn.bv_val );
 	for ( ; ml != NULL; ml = ml->sml_next ) {
 		mod = &ml->sml_mod;
 
@@ -86,10 +103,10 @@ shell_back_modify(
 			break;
 		}
 
-		if( mod->sm_bvalues != NULL ) {
-			for ( i = 0; mod->sm_bvalues[i].bv_val != NULL; i++ ) {
+		if( mod->sm_values != NULL ) {
+			for ( i = 0; mod->sm_values[i].bv_val != NULL; i++ ) {
 				fprintf( wfp, "%s: %s\n", mod->sm_desc->ad_cname.bv_val,
-					mod->sm_bvalues[i].bv_val /* binary! */ );
+					mod->sm_values[i].bv_val /* binary! */ );
 			}
 		}
 
@@ -98,7 +115,7 @@ shell_back_modify(
 	fclose( wfp );
 
 	/* read in the results and send them along */
-	read_and_send_results( be, conn, op, rfp, NULL, 0 );
+	read_and_send_results( op, rs, rfp );
 	fclose( rfp );
 	return( 0 );
 }

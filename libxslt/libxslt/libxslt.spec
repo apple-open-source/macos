@@ -1,6 +1,6 @@
 Summary: Library providing the Gnome XSLT engine
 Name: libxslt
-Version: 1.1.9
+Version: 1.1.11
 Release: 1
 License: MIT
 Group: Development/Libraries
@@ -76,7 +76,7 @@ rm -fr %{buildroot}
 %defattr(-, root, root)
 
 %doc AUTHORS ChangeLog.gz NEWS README Copyright TODO FEATURES
-%doc doc/*.html doc/html doc/tutorial doc/*.gif
+%doc doc/*.html doc/html doc/tutorial doc/tutorial2 doc/*.gif
 %doc %{_mandir}/man1/xsltproc.1*
 %{_libdir}/lib*.so.*
 %{prefix}/bin/xsltproc
@@ -113,8 +113,8 @@ rm -fr %{buildroot}
 %doc python/tests/*.xsl
 
 %changelog
-* Sun Aug 22 2004 Daniel Veillard <veillard@redhat.com>
-- upstream release 1.1.9 see http://xmlsoft.org/XSLT/news.html
+* Wed Sep 29 2004 Daniel Veillard <veillard@redhat.com>
+- upstream release 1.1.11 see http://xmlsoft.org/XSLT/news.html
 
 * Sun Nov  2 2003 Daniel Veillard <veillard@redhat.com>
 - cleanup, removal of the deprecated breakpoint library and

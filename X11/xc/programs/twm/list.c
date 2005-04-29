@@ -48,7 +48,7 @@ in this Software without prior written authorization from The Open Group.
 /**    TORTIOUS ACTION, ARISING OUT OF OR IN  CONNECTION  WITH  THE  USE    **/
 /**    OR PERFORMANCE OF THIS SOFTWARE.                                     **/
 /*****************************************************************************/
-/* $XFree86: xc/programs/twm/list.c,v 1.8 2002/09/24 21:00:27 tsi Exp $ */
+/* $XFree86: xc/programs/twm/list.c,v 1.9 2003/04/21 11:46:13 herrb Exp $ */
 
 
 /**********************************************************************
@@ -110,7 +110,7 @@ char *ptr;
 	twmrc_error_prefix();
 	fprintf (stderr, "unable to allocate %ld bytes for name_list\n",
 		 (unsigned long)sizeof(name_list));
-	Done(0);
+	Done(NULL, NULL);
     }
 
     nptr->next = *list_head;

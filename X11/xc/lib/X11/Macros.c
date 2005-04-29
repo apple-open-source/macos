@@ -24,9 +24,12 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/Macros.c,v 1.4 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Macros.c,v 1.5 2003/04/13 19:22:17 dawes Exp $ */
 
 #include "Xlibint.h"
+#define XUTIL_DEFINE_FUNCTIONS
+#include "Xutil.h"
+
 /*
  * This file makes full definitions of routines for each macro.
  * We do not expect C programs to use these, but other languages may
@@ -200,39 +203,39 @@ int XScreenNumberOfScreen (scr)
  */
 #undef XDestroyImage
 int
-XDestroyImage(ximage)
-	XImage *ximage;
+XDestroyImage(
+	XImage *ximage)
 {
 	return((*((ximage)->f.destroy_image))((ximage)));
 }
 #undef XGetPixel
-unsigned long XGetPixel(ximage, x, y)
-	XImage *ximage;
-	int x, y;
+unsigned long XGetPixel(
+	XImage *ximage,
+	int x, int y)
 {
 	return ((*((ximage)->f.get_pixel))((ximage), (x), (y)));
 }
 #undef XPutPixel
-int XPutPixel(ximage, x, y, pixel)
-	XImage *ximage;
-	int x, y;
-	unsigned long pixel;
+int XPutPixel(
+	XImage *ximage,
+	int x, int y,
+	unsigned long pixel)
 {
 	return((*((ximage)->f.put_pixel))((ximage), (x), (y), (pixel)));
 }
 #undef XSubImage
-XImage *XSubImage(ximage, x, y, width, height)
-	XImage *ximage;
-	int x, y;
-	unsigned int width, height;
+XImage *XSubImage(
+	XImage *ximage,
+	int x, int y,
+	unsigned int width, unsigned int height)
 {
 	return((*((ximage)->f.sub_image))((ximage), (x),
 		(y), (width), (height)));
 }
 #undef XAddPixel
-int XAddPixel(ximage, value)
-	XImage *ximage;
-	long value;
+int XAddPixel(
+	XImage *ximage,
+	long value)
 {
 	return((*((ximage)->f.add_pixel))((ximage), (value)));
 }

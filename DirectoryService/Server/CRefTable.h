@@ -34,6 +34,8 @@
 #include "DSMutexSemaphore.h"
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <map>
+#include <set>
 
 class CRefTable;
 class CServerPlugin;
@@ -98,6 +100,14 @@ typedef struct sRefTable {
 	sRefEntry		*fTableData[ kMaxTableItems ];
 } sRefTable;
 
+// IP -> PID -> DirRef (Set)
+typedef std::set<uInt32>					tDirRefSet;
+typedef std::map<uInt32, tDirRefSet>		tPIDDirRefMap;
+typedef std::map<uInt32, tPIDDirRefMap>		tIPPIDDirRefMap;
+
+// IP -> PID -> RefCount
+typedef std::map<uInt32, uInt32>			tPIDRefCountMap;
+typedef std::map<uInt32, tPIDRefCountMap>	tIPPIDRefCountMap;
 
 //------------------------------------------------------------------------------------
 //	* CRefTable
@@ -132,7 +142,7 @@ public:
 	static tDirStatus	SetNodePluginPtr	( tDirNodeReference inNodeRef, CServerPlugin *inPlugin );
 	static tDirStatus	AddChildPIDToRef	( uInt32 inRefNum, uInt32 inParentPID, sInt32 inChildPID, uInt32 inIPAddress );
 	
-	static void			CheckClientPIDs		( bool inUseTimeOuts, uInt32 inIPAddress, uInt32 inPIDorPort );
+	static void			CleanClientRefs		( uInt32 inIPAddress, uInt32 inPIDorPort );
 
 private:
 	tDirStatus	VerifyReference		( tDirReference inDirRef, uInt32 inType, CServerPlugin **outPlugin, sInt32 inPID, uInt32 inIPAddress, bool inDaemonPID_OK = false );
@@ -155,23 +165,21 @@ private:
 	uInt32		UpdateClientPIDRefCount
 									( sInt32 inClientPID, uInt32 inIPAddress, bool inUpRefCount, uInt32 inDirRef=0 );
 
-	void		DoCheckClientPIDs	( bool inUseTimeOuts, uInt32 inIPAddress, uInt32 inPIDorPort );
+	void		DoCleanClientRefs	( uInt32 inIPAddress, uInt32 inPIDorPort );
 
 	uInt32		fTableCount;
 	sRefTable	*fRefTables[ kMaxTables + 1 ];	//KW80 added 1 since table is 1-based and code depends upon having that last
 												//index in as kMaxTables ie. note array is 0-based
 	RefDeallocateProc *fDeallocProc;
 	
-	CFMutableDictionaryRef	fClientPIDList;
-	CFMutableDictionaryRef	fClientIPList;
+	tIPPIDDirRefMap			fClientDirRefMap;
+	tIPPIDRefCountMap		fClientRefCountMap;
 	DSMutexSemaphore	   *fClientPIDListLock;		//mutex on the client PID list tracking references per PID
-	time_t					fSunsetTime;
 	DSMutexSemaphore		fTableMutex;
 	sRefCleanUpEntry	   *fRefCleanUpEntriesHead;
 	sRefCleanUpEntry	   *fRefCleanUpEntriesTail;
 
 };
-
 
 #endif
 

@@ -1,5 +1,6 @@
 /* DateFormat.java -- Class for formatting/parsing date/times
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,7 +39,13 @@ exception statement from your version. */
 
 package java.text;
 
-import java.util.*;
+import java.io.InvalidObjectException;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
+import java.util.TimeZone;
 
 /**
  * @author Per Bothner <bothner@cygnus.com>
@@ -86,6 +93,97 @@ public abstract class DateFormat extends Format implements Cloneable
   public static final int HOUR0_FIELD = 16;
   public static final int TIMEZONE_FIELD = 17;
 
+
+  public static class Field extends Format.Field
+  {
+    static final long serialVersionUID = 7441350119349544720L;
+    
+    private int calendarField;
+
+    public static final DateFormat.Field ERA
+	= new Field("era", Calendar.ERA);
+    public static final DateFormat.Field YEAR
+	= new Field("year", Calendar.YEAR);
+    public static final DateFormat.Field MONTH
+	= new Field("month", Calendar.MONTH);
+    public static final DateFormat.Field DAY_OF_MONTH
+	= new Field("day of month", Calendar.DAY_OF_MONTH);
+    public static final DateFormat.Field HOUR_OF_DAY1
+	= new Field("hour of day 1", Calendar.HOUR_OF_DAY);
+    public static final DateFormat.Field HOUR_OF_DAY0
+	= new Field("hour of day 0", Calendar.HOUR_OF_DAY);
+    public static final DateFormat.Field MINUTE
+	= new Field("minute", Calendar.MINUTE);
+    public static final DateFormat.Field SECOND
+	= new Field("second", Calendar.SECOND);
+    public static final DateFormat.Field MILLISECOND
+	= new Field("millisecond", Calendar.MILLISECOND);
+    public static final DateFormat.Field DAY_OF_WEEK
+	= new Field("day of week", Calendar.DAY_OF_WEEK);
+    public static final DateFormat.Field DAY_OF_YEAR
+	= new Field("day of year", Calendar.DAY_OF_YEAR);
+    public static final DateFormat.Field DAY_OF_WEEK_IN_MONTH
+	= new Field("day of week in month", Calendar.DAY_OF_WEEK_IN_MONTH);
+    public static final DateFormat.Field WEEK_OF_YEAR
+	= new Field("week of year", Calendar.WEEK_OF_YEAR);
+    public static final DateFormat.Field WEEK_OF_MONTH
+	= new Field("week of month", Calendar.WEEK_OF_MONTH);
+    public static final DateFormat.Field AM_PM
+	= new Field("am/pm", Calendar.AM_PM);
+    public static final DateFormat.Field HOUR1
+	= new Field("hour1", Calendar.HOUR);
+    public static final DateFormat.Field HOUR0
+	= new Field("hour0", Calendar.HOUR);
+    public static final DateFormat.Field TIME_ZONE
+	= new Field("timezone", Calendar.ZONE_OFFSET);
+ 
+    public static final DateFormat.Field[] allFields =
+    {
+      ERA, YEAR, MONTH, DAY_OF_MONTH, HOUR_OF_DAY1,
+      HOUR_OF_DAY0, MINUTE, SECOND, MILLISECOND,
+      DAY_OF_WEEK, DAY_OF_YEAR, DAY_OF_WEEK_IN_MONTH,
+      WEEK_OF_YEAR, WEEK_OF_MONTH, AM_PM, HOUR1, HOUR0,
+      TIME_ZONE
+    };
+
+    // For deserialization
+    private Field()
+    {
+      super("");
+    }
+
+    protected Field(String name, int calendarField)
+    {
+      super(name);
+      this.calendarField = calendarField;
+    }
+    
+    public int getCalendarField()
+    {
+      return calendarField;
+    }
+
+    public static Field ofCalendarField(int calendarField)
+    {
+      if (calendarField >= allFields.length || calendarField < 0)
+	throw new IllegalArgumentException("no such calendar field ("
+					   + calendarField + ")");
+      
+      return allFields[calendarField];
+    }
+    
+    protected Object readResolve() throws InvalidObjectException
+    {
+      String s = getName();
+
+      for (int i=0;i<allFields.length;i++)
+	if (s.equals(allFields[i].getName()))
+	  return allFields[i];
+      
+      throw new InvalidObjectException("no such DateFormat field called " + s);
+    }
+  }
+
   /**
    * This method initializes a new instance of <code>DateFormat</code>.
    */
@@ -99,9 +197,9 @@ public abstract class DateFormat extends Format implements Cloneable
    * object:
    * <P>
    * <ul>
-   * <li>Is not <code>null</code>.
-   * <li>Is an instance of <code>DateFormat</code>.
-   * <li>Has the same calendar and numberFormat field values as this object.
+   * <li>Is not <code>null</code>.</li>
+   * <li>Is an instance of <code>DateFormat</code>.</li>
+   * <li>Has the same numberFormat field value as this object.</li>
    * </ul>
    *
    * @param obj The object to test for equality against.
@@ -111,10 +209,12 @@ public abstract class DateFormat extends Format implements Cloneable
    */
   public boolean equals (Object obj)
   {
-    if (! (obj instanceof DateFormat))
+    if (!(obj instanceof DateFormat))
       return false;
+
     DateFormat d = (DateFormat) obj;
-    return calendar.equals(d.calendar) && numberFormat.equals(d.numberFormat);
+
+    return numberFormat.equals(d.numberFormat);
   }
 
   /**
@@ -149,6 +249,10 @@ public abstract class DateFormat extends Format implements Cloneable
   {
     if (obj instanceof Number)
       obj = new Date(((Number) obj).longValue());
+    else if (! (obj instanceof Date))
+      throw new IllegalArgumentException
+	("Cannot format given Object as a Date");
+
     return format ((Date) obj, buf, pos);
   }
 
@@ -205,24 +309,21 @@ public abstract class DateFormat extends Format implements Cloneable
     return calendar;
   }
 
-  private static final DateFormat computeInstance (int style, Locale loc,
-						   boolean use_date,
-						   boolean use_time)
+  private static DateFormat computeInstance (int style, Locale loc,
+                                             boolean use_date, boolean use_time)
   {
     return computeInstance (style, style, loc, use_date, use_time);
   }
 
-  private static final DateFormat computeInstance (int dateStyle, 
-						   int timeStyle,
-						   Locale loc,
-						   boolean use_date,
-						   boolean use_time)
+  private static DateFormat computeInstance (int dateStyle, int timeStyle,
+                                             Locale loc, boolean use_date,
+                                             boolean use_time)
   {
     ResourceBundle res;
     try
       {
 	res = ResourceBundle.getBundle("gnu.java.locale.LocaleInformation",
-				       loc);
+				       loc, ClassLoader.getSystemClassLoader());
       }
     catch (MissingResourceException x)
       {
@@ -467,10 +568,10 @@ public abstract class DateFormat extends Format implements Cloneable
    */
   public int hashCode ()
   {
-    int hash = calendar.hashCode();
     if (numberFormat != null)
-      hash ^= numberFormat.hashCode();
-    return hash;
+      return numberFormat.hashCode();
+    else
+      return 0;
   }
 
   /**
@@ -488,6 +589,7 @@ public abstract class DateFormat extends Format implements Cloneable
   /**
    * This method parses the specified date/time string.
    *
+   * @param source The string to parse.
    * @return The resultant date.
    *
    * @exception ParseException If the specified string cannot be parsed.
@@ -501,7 +603,8 @@ public abstract class DateFormat extends Format implements Cloneable
 	int index = pos.getErrorIndex();
 	if (index < 0)
 	  index = pos.getIndex();
-	throw new ParseException("invalid Date syntax", index);
+	throw new ParseException("invalid Date syntax in \""
+				 + source + '\"', index);
       }
     return result;
   }

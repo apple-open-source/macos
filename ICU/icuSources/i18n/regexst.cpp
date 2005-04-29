@@ -1,7 +1,7 @@
 //
 //  regexst.h
 //
-//  Copyright (C) 2003, International Business Machines Corporation and others.
+//  Copyright (C) 2004, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains class RegexStaticSets
@@ -86,20 +86,22 @@ static const UChar gRuleWhiteSpacePattern[] = {
 //  Unicode Set Definitions for Regular Expression  \w
 //
 static const UChar gIsWordPattern[] = {
-//    [     \     p     {     L     l     }     \     p     {     L     u     }
-    0x5b, 0x5c, 0x70, 0x7b, 0x4c, 0x6c, 0x7d, 0x5c, 0x70, 0x7b, 0x4c, 0x75, 0x7d,
-//          \     p     {     L     t     }     \     p     {     L     o     }
-          0x5c, 0x70, 0x7b, 0x4c, 0x74, 0x7d, 0x5c, 0x70, 0x7b, 0x4c, 0x6f, 0x7d,
-//          \     p     {     N     d     }     _     ]
-          0x5c, 0x70, 0x7b, 0x4e, 0x64, 0x7d, 0x5f, 0x5d, 0};
+//    [     \     p     {    A     l     p     h     a     b     e     t     i      c    }
+    0x5b, 0x5c, 0x70, 0x7b, 0x61, 0x6c, 0x70, 0x68, 0x61, 0x62, 0x65, 0x74, 0x69, 0x63, 0x7d,
+//          \     p     {    M     }                               Mark
+          0x5c, 0x70, 0x7b, 0x4d, 0x7d, 
+//          \     p     {    N     d     }                         Digit_Numeric
+          0x5c, 0x70, 0x7b, 0x4e, 0x64, 0x7d,
+//          \     p     {    P     c     }      ]                  Connector_Punctuation
+          0x5c, 0x70, 0x7b, 0x50, 0x63, 0x7d, 0x5d, 0};
 
 
 //
 //  Unicode Set Definitions for Regular Expression  \s
 //
     static const UChar gIsSpacePattern[] = {
-//    [     \     t     \     n     \     f     \     r     \     p     {     Z     }     ]
-    0x5b, 0x5c, 0x74, 0x5c, 0x6e, 0x5c, 0x66, 0x5c, 0x72, 0x5c, 0x70, 0x7b, 0x5a, 0x7d, 0x5d,  0};
+//        [     \     p     {     W     h     i     t     e     S     p     a     c     e     }     ]
+        0x5b, 0x5c, 0x70, 0x7b, 0x57, 0x68, 0x69, 0x74, 0x65, 0x53, 0x70, 0x61, 0x63, 0x65, 0x7d, 0x5d, 0};
 
 
 //
@@ -108,8 +110,12 @@ static const UChar gIsWordPattern[] = {
     static const UChar gGC_ControlPattern[] = {
 //    [     [     :     Z     l     :     ]     [     :     Z     p     :     ]    
     0x5b, 0x5b, 0x3a, 0x5A, 0x6c, 0x3a, 0x5d, 0x5b, 0x3a, 0x5A, 0x70, 0x3a, 0x5d, 
-//    [     :     C     c     :     ]     [     :     C     f     :     ]     ] 
-    0x5b, 0x3a, 0x43, 0x63, 0x3a, 0x5d, 0x5b, 0x3a, 0x43, 0x66, 0x3a, 0x5d, 0x5d, 0};
+//    [     :     C     c     :     ]     [     :     C     f     :     ]     -
+    0x5b, 0x3a, 0x43, 0x63, 0x3a, 0x5d, 0x5b, 0x3a, 0x43, 0x66, 0x3a, 0x5d, 0x2d,
+//    [     :     G     r     a     p     h     e     m     e     _
+    0x5b, 0x3a, 0x47, 0x72, 0x61, 0x70, 0x68, 0x65, 0x6d, 0x65, 0x5f,
+//    E     x     t     e     n     d     :     ]     ]
+    0x45, 0x78, 0x74, 0x65, 0x6e, 0x64, 0x3a, 0x5d, 0x5d, 0};
 
     static const UChar gGC_ExtendPattern[] = {
 //    [     \     p     {     G     r     a     p     h     e     m     e     _
@@ -212,7 +218,7 @@ RegexStaticSets::RegexStaticSets(UErrorCode *status) {
 
     // Empty UnicodeString, for use by matchers with NULL input.
     fEmptyString = new UnicodeString;
-};
+}
 
 
 RegexStaticSets::~RegexStaticSets() {
@@ -232,8 +238,28 @@ RegexStaticSets::~RegexStaticSets() {
     fRuleDigits = NULL;
     delete fEmptyString;
     fEmptyString = NULL;
-};
+}
 
+
+//----------------------------------------------------------------------------------
+//
+//   regex_cleanup      Memory cleanup function, free/delete all
+//                      cached memory.  Called by ICU's u_cleanup() function.
+//
+//----------------------------------------------------------------------------------
+UBool
+RegexStaticSets::cleanup(void) {
+    delete RegexStaticSets::gStaticSets;
+    RegexStaticSets::gStaticSets = NULL;
+    return TRUE;
+}
+
+U_CDECL_BEGIN
+static UBool U_CALLCONV
+regex_cleanup(void) {
+    return RegexStaticSets::cleanup();
+}
+U_CDECL_END
 
 void RegexStaticSets::initGlobals(UErrorCode *status) {
     umtx_lock(NULL);
@@ -254,7 +280,7 @@ void RegexStaticSets::initGlobals(UErrorCode *status) {
         if (p) {
             delete p;
         }
-        ucln_i18n_registerCleanup();
+        ucln_i18n_registerCleanup(UCLN_I18N_REGEX, regex_cleanup);
     }
 }
     

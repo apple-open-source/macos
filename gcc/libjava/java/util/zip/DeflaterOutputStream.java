@@ -1,5 +1,5 @@
 /* DeflaterOutputStream.java - Output filter for compressing.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2001, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -35,31 +35,49 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.util.zip;
 
 import java.io.FilterOutputStream;
-import java.io.OutputStream;
 import java.io.IOException;
-
-/**
- * @author Tom Tromey
- * @date May 17, 1999
- */
+import java.io.OutputStream;
 
 /* Written using on-line Java Platform 1.2 API Specification
  * and JCL book.
  * Believed complete and correct.
  */
 
+/**
+ * This is a special FilterOutputStream deflating the bytes that are
+ * written through it.  It uses the Deflater for deflating.
+ *
+ * A special thing to be noted is that flush() doesn't flush
+ * everything in Sun's JDK, but it does so in jazzlib. This is because
+ * Sun's Deflater doesn't have a way to flush() everything, without
+ * finishing the stream.
+ *
+ * @author Tom Tromey, Jochen Hoenicke
+ * @date Jan 11, 2001 
+ */
 public class DeflaterOutputStream extends FilterOutputStream
 {
-  public void close () throws IOException
-  {
-    finish ();
-    out.close();
-  }
+  /** 
+   * This buffer is used temporarily to retrieve the bytes from the
+   * deflater and write them to the underlying output stream.  
+   */
+  protected byte[] buf;
 
-  protected void deflate () throws IOException
+  /** 
+   * The deflater which is used to deflate the stream.
+   */
+  protected Deflater def;
+  
+  /**
+   * Deflates everything in the def's input buffers.  This will call
+   * <code>def.deflate()</code> until all bytes from the input buffers
+   * are processed.
+   */
+  protected void deflate() throws IOException
   {
     do
       {
@@ -70,33 +88,54 @@ public class DeflaterOutputStream extends FilterOutputStream
     while (! def.needsInput());
   }
 
-  public DeflaterOutputStream (OutputStream out)
+  /** 
+   * Creates a new DeflaterOutputStream with a default Deflater and
+   * default buffer size.
+   * @param out the output stream where deflated output should be written.
+   */
+  public DeflaterOutputStream(OutputStream out)
   {
-    this (out, new Deflater (), 512);
+    this(out, new Deflater(), 512);
   }
 
-  public DeflaterOutputStream (OutputStream out, Deflater defl)
+  /** 
+   * Creates a new DeflaterOutputStream with the given Deflater and
+   * default buffer size.
+   * @param out the output stream where deflated output should be written.
+   * @param defl the underlying deflater.
+   */
+  public DeflaterOutputStream(OutputStream out, Deflater defl)
   {
-    this (out, defl, 512);
+    this(out, defl, 512);
   }
 
+  /** 
+   * Creates a new DeflaterOutputStream with the given Deflater and
+   * buffer size.
+   * @param out the output stream where deflated output should be written.
+   * @param defl the underlying deflater.
+   * @param bufsize the buffer size.
+   * @exception IllegalArgumentException if bufsize isn't positive.
+   */
   public DeflaterOutputStream(OutputStream out, Deflater defl, int bufsize)
   {
-    super (out);
+    super(out);
+    if (bufsize <= 0)
+      throw new IllegalArgumentException("bufsize <= 0");
     buf = new byte[bufsize];
     def = defl;
   }
 
-  public void finish () throws IOException
+  /**
+   * Finishes the stream by calling finish() on the deflater.  This
+   * was the only way to ensure that all bytes are flushed in Sun's
+   * JDK.  
+   */
+  public void finish() throws IOException
   {
-    if (inbufLength > 0)
-      {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
-	inbufLength = 0;
-      }
+    inbufWrite();
     def.finish();
-    while (! def.finished ())
+    while (! def.finished())
       {
 	int len = def.deflate(buf, 0, buf.length);
 	if (len > 0)
@@ -104,41 +143,53 @@ public class DeflaterOutputStream extends FilterOutputStream
       }
   }
 
-  public void write (int bval) throws IOException
+  /**
+   * Calls finish() and closes the stream. 
+   */
+  public void close() throws IOException
+  {
+    finish();
+    out.close();
+  }
+
+  /**
+   * Writes a single byte to the compressed output stream.
+   * @param bval the byte value.
+   */
+  public void write(int bval) throws IOException
   {
     if (inbuf == null)
-      {
-	inbuf = new byte[128];
-      }
+      inbuf = new byte[128];
     else if (inbufLength == inbuf.length)
-      {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
-	inbufLength = 0;
-      }
+      inbufWrite();
     inbuf[inbufLength++] = (byte) bval;
   }
 
-  public void write (byte[] buf, int off, int len) throws IOException
+  /**
+   * Writes a len bytes from an array to the compressed stream.
+   * @param buf the byte array.
+   * @param off the offset into the byte array where to start.
+   * @param len the number of bytes to write.
+   */
+  public void write(byte[] buf, int off, int len) throws IOException
+  {
+    inbufWrite();
+    def.setInput(buf, off, len);
+    deflate();
+  }
+
+  private void inbufWrite() throws IOException
   {
     if (inbufLength > 0)
       {
-	def.setInput (inbuf, 0, inbufLength);
-	deflate ();
+	int size = inbufLength;
 	inbufLength = 0;
+	write(inbuf, 0, size);
       }
-    def.setInput (buf, off, len);
-    deflate ();
   }
 
   // Used, if needed, for write(int).
   private byte[] inbuf;
   // Used length of inbuf.
   private int inbufLength;
-
-  // The retrieval buffer.
-  protected byte[] buf;
-
-  // Deflater used to compress data.
-  protected Deflater def;
 }

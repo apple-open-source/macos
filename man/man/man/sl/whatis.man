@@ -1,0 +1,31 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\" Slovenski prevod Primo¾ Peterlin <primoz.peterlin@biofiz.mf.uni-lj.si>
+.\" avgust 1996
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.TH whatis 1 "5. januar 1991"
+.LO 1
+.SH IME
+whatis \- poi¹èi besedo v zbirki whatis.
+.SH SINTAKSA
+.BI whatis
+kljuèna_beseda ...
+.SH OPIS
+whatis poskusi v podatkovnih zbirkah s kratkimi opisi sistemskih
+ukazov poiskati kljuène besede in izpi¹e rezultat na standardni
+izhod.  Samo ujemanja celih besed se izpi¹ejo.
+
+Podatkovno zbirko whatis napravimo z ukazom @makewhatis@.
+.SH "GLEJTE TUDI"
+apropos(1), man(1).

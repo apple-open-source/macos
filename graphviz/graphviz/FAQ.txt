@@ -1,0 +1,50 @@
+Source License FAQ 28 September 1999
+Q1. Can I modify the source and distribute it to someone else?
+A1. Yes, but you need to package the modifications separately, usually as a 
+patch file.
+
+Q2. Can I give the original source capsule to someone else? 
+A2. You can, provided that the person you give it to has agreed to these same 
+conditions. The person does not have to physically sign the license, but they 
+must affirmatively agree to the same license agreement that you have. We have 
+enclosed this agreement with the package.
+
+Q3. If I make changes to the source, can I keep them private?
+A3. You can as long as you do not distribute them to anyone else. If you 
+distribute them to anyone else, then you need to make the changes available to 
+AT&T and give AT&T the right to distribute these changes without any royalties.
+
+Q4. What types of changes must I make available to AT&T?
+A4. You only need to inform AT&T of changes to the source code files that are 
+provided by AT&T.
+
+Q5. Can I distribute copies of binaries, compiled from the original or modified 
+source, within and outside my company or organization? 
+A5. Yes. The binaries should include the notice set forth in the agreement 
+indicating that some of the underlying source code came from AT&T.
+
+Q6. Can I sell binaries?
+A6. Yes, provided that you adhere to the terms of the license, for example in 
+not misrepresenting your relationship with AT&T. 
+
+Q7. Are there any patents that would affect the use of this software?
+A7. The agreement allows you to use the AT&T source code (within the
+guidelines set forth in the agreement) without worrying about whether
+such usage infringes any patents AT&T may have. AT&T, however, cannot
+assure that the software does not infringe some other unknown third
+party's patents, which is why AT&T asks that you check the website
+http://www.research.att.com/sw/tools/graphviz for any notices relating
+to the software.
+
+Q8. Does AT&T provide support for any of this software?
+A8. AT&T does not provide support for the source code at this time.
+
+Q9. Can I redistribute the source files outside the original capsule, e.g. in a 
+CD-ROM file system?
+A9. Yes, as long as the exact same set of files is distributed. 
+
+Q10. Can I obtain a different license to cover commercial applications where I 
+do not want to release patches?
+A10. Please contact AT&T if you are interested in a license that differs
+from the terms in the source code agreement, or if you have any questions
+regarding the agreement.

@@ -1,0 +1,6 @@
+JCR:
+
+JCR, also known as the Jabber Component Runtime, is a way for components originally designed to run under jabberd1.4 to run externally. It has been developed by Paul Curtis, and incorporating some of the functions available in the Jabberd v1.4 server code. MU-Conference has been altered so it can run both ways - as an internal component or external using JCR.
+
+This library will be available from http://jabber.terrapin.com/JCR/. Included with mu-conference is an example configuration file which is a copy of the configuration file I used whilst testing. It is optimised for connection to a Jabberd v2 server, however there is instructions on how to convert it to connect to a Jabberd v1.4 server inside the file. The configuration file is muc-jcr.xml.
+

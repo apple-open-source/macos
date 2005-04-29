@@ -6,10 +6,11 @@
 Project               = bash
 UserType              = Administration
 ToolType              = Commands
-Extra_CC_Flags        = -no-cpp-precomp
+Extra_CC_Flags        = -no-cpp-precomp -mdynamic-no-pic
 Extra_Configure_Flags = --bindir=/bin --mandir=/usr/share
 Extra_Install_Flags   = bindir=$(DSTROOT)/bin
-GnuAfterInstall       = bashcleanup
+Extra_LD_Flags        = -Wl,-search_paths_first
+GnuAfterInstall       = after-install
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
@@ -24,7 +25,7 @@ Environment =   CFLAGS="$(CFLAGS)"	\
 	       LDFLAGS="$(LDFLAGS)"	\
 	      $(Extra_Environment)
 
-bashcleanup:
+after-install:
 	mkdir $(DSTROOT)/usr/bin
 	chown root:wheel $(DSTROOT)/usr/bin
 	mv $(DSTROOT)/bin/bashbug $(DSTROOT)/usr/bin
@@ -38,3 +39,6 @@ bashcleanup:
 	rm -rf $(DSTROOT)/usr/html
 	rm -f $(DSTROOT)/usr/share/info/dir
 	ln -s bash.1 $(DSTROOT)/usr/share/man/man1/sh.1
+	mkdir -p $(DSTROOT)/usr/share/doc/bash
+	cp $(SRCROOT)/doc/*.pdf $(DSTROOT)/usr/share/doc/bash
+	cp $(SRCROOT)/doc/*.html $(DSTROOT)/usr/share/doc/bash

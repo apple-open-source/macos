@@ -24,7 +24,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  * 
  * **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_screen.c,v 1.3 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_screen.c,v 1.4 2003/09/28 20:15:14 alanh Exp $ */
 
 /*
  * Authors:
@@ -33,13 +33,6 @@
  *   Jeff Hartmann <jhartmann@2d3d.com>
  */
 
-
-#include <X11/Xlibint.h>
-#include <stdio.h>
-
-
-#include <X11/Xlibint.h>
-#include <stdio.h>
 
 #include "glheader.h"
 #include "context.h"
@@ -132,17 +125,14 @@ static GLboolean i830InitDriver(__DRIscreenPrivate *sPriv)
    i830ScreenPrivate *i830Screen;
    I830DRIPtr         gDRIPriv = (I830DRIPtr)sPriv->pDevPriv;
 
-   /* Check the DRI version */
-   {
-      int major, minor, patch;
-      if (XF86DRIQueryVersion(sPriv->display, &major, &minor, &patch)) {
-	 if (major != 4 || minor < 0) {
-	    __driUtilMessage("i830 DRI driver expected DRI version 4.0.x but got version %d.%d.%d", major, minor, patch);
-	    return GL_FALSE;
-	 }
-      }
+   /* Check the DRI externsion version */
+   if ( sPriv->driMajor != 4 || sPriv->driMinor < 0 ) {
+      __driUtilMessage( "i830 DRI driver expected DRI version 4.0.x "
+                        "but got version %d.%d.%d",
+                        sPriv->driMajor, sPriv->driMinor, sPriv->driPatch );
+      return GL_FALSE;
    }
-   
+
    /* Check that the DDX driver version is compatible */
    if (sPriv->ddxMajor != 1 || sPriv->ddxMinor < 0) {
       __driUtilMessage("i830 DRI driver expected DDX driver version 1.0.x but got version %d.%d.%d", sPriv->ddxMajor, sPriv->ddxMinor, sPriv->ddxPatch);
@@ -270,6 +260,21 @@ static GLboolean i830InitDriver(__DRIscreenPrivate *sPriv)
       }
    }
 
+#if 0
+   if (sPriv->drmMinor >= 3) {
+      int ret;
+      drmI830SetParam sp;
+
+      sp.param = I830_SETPARAM_PERF_BOXES;
+      sp.value = (getenv("I830_DO_BOXES") != 0);
+
+      ret = drmCommandWrite( sPriv->fd, DRM_I830_SETPARAM,
+			     &sp, sizeof(sp));
+      if (ret) 
+	 fprintf(stderr, "Couldn't set perfboxes: %d\n", ret);
+   }
+#endif
+
    return GL_TRUE;
 }
 		
@@ -287,8 +292,7 @@ static void i830DestroyScreen(__DRIscreenPrivate *sPriv)
    sPriv->private = NULL;
 }
 
-static GLboolean i830CreateBuffer( Display *dpy,
-				  __DRIscreenPrivate *driScrnPriv,
+static GLboolean i830CreateBuffer(__DRIscreenPrivate *driScrnPriv,
 				  __DRIdrawablePrivate *driDrawPriv,
 				  const __GLcontextModes *mesaVis,
 				  GLboolean isPixmap )
@@ -318,29 +322,30 @@ static void i830DestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
    _mesa_destroy_framebuffer((GLframebuffer *) (driDrawPriv->driverPrivate));
 }
 
-static GLboolean i830OpenFullScreen (__DRIcontextPrivate *driContextPriv)
+static GLboolean i830OpenCloseFullScreen (__DRIcontextPrivate *driContextPriv)
 {
    return GL_TRUE;  
 }
 
-static GLboolean i830CloseFullScreen (__DRIcontextPrivate *driContextPriv)
-{
-   return GL_TRUE;  
-}
-
-static struct __DriverAPIRec i830API = {
-   i830InitDriver,
-   i830DestroyScreen,
-   i830CreateContext,
-   i830DestroyContext,
-   i830CreateBuffer,
-   i830DestroyBuffer,
-   i830SwapBuffers,
-   i830MakeCurrent,
-   i830UnbindContext,
-   i830OpenFullScreen,
-   i830CloseFullScreen
+static const struct __DriverAPIRec i830API = {
+   .InitDriver      = i830InitDriver,
+   .DestroyScreen   = i830DestroyScreen,
+   .CreateContext   = i830CreateContext,
+   .DestroyContext  = i830DestroyContext,
+   .CreateBuffer    = i830CreateBuffer,
+   .DestroyBuffer   = i830DestroyBuffer,
+   .SwapBuffers     = i830SwapBuffers,
+   .MakeCurrent     = i830MakeCurrent,
+   .UnbindContext   = i830UnbindContext,
+   .OpenFullScreen  = i830OpenCloseFullScreen,
+   .CloseFullScreen = i830OpenCloseFullScreen,
+   .GetSwapInfo     = NULL,
+   .GetMSC          = NULL,
+   .WaitForMSC      = NULL,
+   .WaitForSBC      = NULL,
+   .SwapBuffersMSC  = NULL
 };
+
 
 /*
  * This is the bootstrap function for the driver.
@@ -354,40 +359,3 @@ void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
    psp = __driUtilCreateScreen(dpy, scrn, psc, numConfigs, config, &i830API);
    return (void *) psp;
 }
-	     
-
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the dispatcher.
- *
- * Note: Most of these are probably already registered - just doing
- * this for the benefit of old libGL.so's out there.
- */
-#include "glapioffsets.h"
-
-void __driRegisterExtensions( void )
-{
-   int i;
-   static struct { const char *name; int offset; } funcs[] = {
-	{ "glSecondaryColor3bEXT", _gloffset_SecondaryColor3bEXT },
-	{ "glSecondaryColor3dEXT", _gloffset_SecondaryColor3dEXT },
-	{ "glSecondaryColor3fEXT", _gloffset_SecondaryColor3fEXT },
-	{ "glSecondaryColor3iEXT", _gloffset_SecondaryColor3iEXT },
-	{ "glSecondaryColor3sEXT", _gloffset_SecondaryColor3sEXT },
-	{ "glSecondaryColor3ubEXT", _gloffset_SecondaryColor3ubEXT },
-	{ "glSecondaryColor3uiEXT", _gloffset_SecondaryColor3uiEXT },
-	{ "glSecondaryColor3usEXT", _gloffset_SecondaryColor3usEXT },
-	{ "glSecondaryColor3bvEXT", _gloffset_SecondaryColor3bvEXT },
-	{ "glSecondaryColor3dvEXT", _gloffset_SecondaryColor3dvEXT },
-	{ "glSecondaryColor3fvEXT", _gloffset_SecondaryColor3fvEXT },
-	{ "glSecondaryColor3ivEXT", _gloffset_SecondaryColor3ivEXT },
-	{ "glSecondaryColor3svEXT", _gloffset_SecondaryColor3svEXT },
-	{ "glSecondaryColor3ubvEXT", _gloffset_SecondaryColor3ubvEXT },
-	{ "glSecondaryColor3uivEXT", _gloffset_SecondaryColor3uivEXT },
-	{ "glSecondaryColor3usvEXT", _gloffset_SecondaryColor3usvEXT },
-	{ "glSecondaryColorPointerEXT", _gloffset_SecondaryColorPointerEXT }
-   };
-
-   for (i = 0 ; i < sizeof(funcs) / sizeof(*funcs) ; i++ ) 
-      _glapi_add_entrypoint( funcs[i].name, funcs[i].offset );
-}
-

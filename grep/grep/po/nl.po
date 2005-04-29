@@ -1,26 +1,26 @@
 # Dutch messages for GNU grep.
-# Copyright (C) 1996 Free Software Foundation, Inc.
+# Copyright (C) 1996, 2000 Free Software Foundation, Inc.
+# Ivo Timmermans <itimmermans@bigfoot.com>, 2000.
 # Erick Branderhorst <branderh@debian.org>, 1996.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: GNU grep 2.0\n"
-"POT-Creation-Date: 2000-03-01 22:44-0500\n"
-"PO-Revision-Date: 1996-08-18 11:24 EDT\n"
-"Last-Translator: Erick Branderhorst <branderh@debian.org>\n"
+"Project-Id-Version: GNU grep 2.4f\n"
+"POT-Creation-Date: 2000-02-02 01:04-0500\n"
+"PO-Revision-Date: 2000-05-21 03:57+02:00\n"
+"Last-Translator: Ivo Timmermans <itimmermans@bigfoot.com>\n"
 "Language-Team: Dutch <nl@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=ISO-8859-1\n"
 "Content-Transfer-Encoding: 8-bit\n"
 
 #: src/dfa.c:163 src/dfa.c:174 src/dfa.c:185 src/grep.c:902
-#, fuzzy
 msgid "Memory exhausted"
-msgstr "geen geheugen meer beschikbaar"
+msgstr "Geen geheugen meer beschikbaar"
 
 #: src/dfa.c:448
 msgid "Unfinished \\ escape"
-msgstr ""
+msgstr "Onafgemaakte \\ escape"
 
 #. Cases:
 #. {M} - exact count
@@ -28,91 +28,91 @@ msgstr ""
 #. {M,N} - M through N
 #: src/dfa.c:581 src/dfa.c:587 src/dfa.c:597 src/dfa.c:605 src/dfa.c:620
 msgid "unfinished repeat count"
-msgstr ""
+msgstr "Onafgemaakt herhalingsaantal"
 
 #: src/dfa.c:594 src/dfa.c:611 src/dfa.c:619 src/dfa.c:623
 msgid "malformed repeat count"
-msgstr ""
+msgstr "foutief herhalingsaantal"
 
 #: src/dfa.c:688 src/dfa.c:691 src/dfa.c:718 src/dfa.c:722 src/dfa.c:723
 #: src/dfa.c:726 src/dfa.c:739 src/dfa.c:740
 msgid "Unbalanced ["
-msgstr ""
+msgstr "Ongebalanceerde ["
 
 #: src/dfa.c:886
 msgid "Unbalanced ("
-msgstr ""
+msgstr "Ongebalanceerde ("
 
 #: src/dfa.c:1000
 msgid "No syntax specified"
-msgstr ""
+msgstr "Geen syntax opgegeven"
 
 #: src/dfa.c:1008
 msgid "Unbalanced )"
-msgstr ""
+msgstr "Ongebalanceerde )"
 
 #: src/dfa.c:1994
 msgid "out of memory"
-msgstr ""
+msgstr "geheugen is op"
 
 #: src/getopt.c:675
 #, c-format
 msgid "%s: option `%s' is ambiguous\n"
-msgstr ""
+msgstr "%s: optie `%s' is dubbelzinnig\n"
 
 #: src/getopt.c:700
 #, c-format
 msgid "%s: option `--%s' doesn't allow an argument\n"
-msgstr ""
+msgstr "%s: optie `--%s' staat geen argumenten toe\n"
 
 #: src/getopt.c:705
 #, c-format
 msgid "%s: option `%c%s' doesn't allow an argument\n"
-msgstr ""
+msgstr "%s: optie `%c%s' staat geen argumenten toe\n"
 
 #: src/getopt.c:723 src/getopt.c:896
 #, c-format
 msgid "%s: option `%s' requires an argument\n"
-msgstr ""
+msgstr "%s: optie `%s' vereist een argument\n"
 
 #. --option
 #: src/getopt.c:752
 #, c-format
 msgid "%s: unrecognized option `--%s'\n"
-msgstr ""
+msgstr "%s: Onbekende optie `--%s'\n"
 
 #. +option or -option
 #: src/getopt.c:756
 #, c-format
 msgid "%s: unrecognized option `%c%s'\n"
-msgstr ""
+msgstr "%s: onbekende optie `%c%s'\n"
 
 #. 1003.2 specifies the format of this message.
 #: src/getopt.c:782
 #, c-format
 msgid "%s: illegal option -- %c\n"
-msgstr ""
+msgstr "%s: ongeldige optie -- %c\n"
 
 #: src/getopt.c:785
 #, c-format
 msgid "%s: invalid option -- %c\n"
-msgstr ""
+msgstr "%s: ongeldige optie -- %c\n"
 
 #. 1003.2 specifies the format of this message.
 #: src/getopt.c:815 src/getopt.c:945
 #, c-format
 msgid "%s: option requires an argument -- %c\n"
-msgstr ""
+msgstr "%s: optie vereist een argument -- %c\n"
 
 #: src/getopt.c:862
 #, c-format
 msgid "%s: option `-W %s' is ambiguous\n"
-msgstr ""
+msgstr "%s: optie `-W %s' is dubbelzinnig\n"
 
 #: src/getopt.c:880
 #, c-format
 msgid "%s: option `-W %s' doesn't allow an argument\n"
-msgstr ""
+msgstr "%s: optie `-W %s' staat geen argumenten toe\n"
 
 #: src/grep.c:185 src/grep.c:200 src/grep.c:293 src/grep.c:399 src/kwset.c:180
 #: src/kwset.c:186 src/obstack.c:471
@@ -126,7 +126,7 @@ msgstr "schrijven van uitvoer"
 #: src/grep.c:777
 #, c-format
 msgid "Binary file %s matches\n"
-msgstr ""
+msgstr "Binair bestand %s komt overeen\n"
 
 #: src/grep.c:791
 msgid "(standard input)"
@@ -139,22 +139,22 @@ msgstr "%s: let op: %s: %s\n"
 
 #: src/grep.c:888
 msgid "recursive directory loop"
-msgstr ""
+msgstr "recursieve map herhaling"
 
 #: src/grep.c:938
 #, c-format
 msgid "Usage: %s [OPTION]... PATTERN [FILE]...\n"
-msgstr ""
+msgstr "Gebruik: %s [OPTIE]... PATROON [BESTAND]...\n"
 
 #: src/grep.c:939
 #, c-format
 msgid "Try `%s --help' for more information.\n"
-msgstr ""
+msgstr "Probeer `%s --help' voor meer informatie.\n"
 
 #: src/grep.c:943
 #, c-format
 msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
-msgstr ""
+msgstr "Gebruik: %s [OPTIE]... PATROON [BESTAND] ...\n"
 
 #: src/grep.c:944
 #, c-format
@@ -164,6 +164,10 @@ msgid ""
 "\n"
 "Regexp selection and interpretation:\n"
 msgstr ""
+"Zoek voor PATROON in ieder BESTAND of standaard invoer.\n"
+"Voorbeeld: %s -i 'hello world' menu.h main.c\n"
+"\n"
+"Selectie en interpretatie van reguliere expressies:\n"
 
 #: src/grep.c:949
 msgid ""
@@ -171,6 +175,10 @@ msgid ""
 "  -F, --fixed-strings       PATTERN is a set of newline-separated strings\n"
 "  -G, --basic-regexp        PATTERN is a basic regular expression\n"
 msgstr ""
+"  -E, --extended-regexp     PATROON is een uitgebreide reguliere expressie\n"
+"  -F, --fixed-strings       PATROON is een verzameling van strings, op\n"
+"                            aparte regels\n"
+"  -G, --basic-regexp        PATROON is een basis reguliere expressie\n"
 
 #: src/grep.c:953
 msgid ""
@@ -181,6 +189,12 @@ msgid ""
 "  -x, --line-regexp         force PATTERN to match only whole lines\n"
 "  -z, --null-data           a data line ends in 0 byte, not newline\n"
 msgstr ""
+"  -e, --regexp=PATROON      gebruik PATROON als reguliere exprossie\n"
+"  -f, --file=BESTAND        haal PATROON uit BESTAND\n"
+"  -i, --ignore-case         negeer hoofd-/kleine letters\n"
+"  -w, --word-regexp         forceer PATROON om alleen hele woorden te zoeken\n"
+"  -x, --line-regexp         forceer PATROON om alleen hele regels te zoeken\n"
+"  -z, --null-data           een dataregel eindigt in een 0 byte, niet nieuwe regel\n"
 
 #: src/grep.c:960
 msgid ""
@@ -192,6 +206,13 @@ msgid ""
 "      --help                display this help and exit\n"
 "      --mmap                use memory-mapped input if possible\n"
 msgstr ""
+"\n"
+"Divers:\n"
+"  -s, --no-messages         onderdruk foutmeldingen\n"
+"  -v, --invert-match        selecteer niet overeenkomende regels\n"
+"  -V, --version             toon versie informatie en beëindig\n"
+"      --help                toon deze hulptekst en beëindig\n"
+"      --mmap                gebruik gemmapte invoer indien mogelijk\n"
 
 #: src/grep.c:968
 msgid ""
@@ -214,6 +235,24 @@ msgid ""
 "  -c, --count               only print a count of matching lines per FILE\n"
 "  -Z, --null                print 0 byte after FILE name\n"
 msgstr ""
+"\n"
+"Uitvoer opties:\n"
+"  -b, --byte-offset         geef byteadres bij de uitvoerregels\n"
+"  -n, --line-number         geef een regelnummer bij de uitvoerregels\n"
+"  -H, --with-filename       geef de bestandsnaam bij iedere overeenkomst\n"
+"  -h, --no-filename         onderdruk het toevoegen van de bestandsnaam\n"
+"  -q, --quiet, --silent     onderdruk alle normale uitvoer\n"
+"      --binary-files=TYPE   neem aan dat binaire bestanden van TYPE zijn\n"
+"                            TYPE is `binary', `text', of `without-match'.\n"
+"  -a, --text                gelijk aan --binary-files=text\n"
+"  -I                        gelijk aan --binary-files=without-match\n"
+"  -d, --directories=ACTIE   hoe mappen te behandelen\n"
+"                            ACTIE is `read', `recurse' of `skip'.\n"
+"  -r, --recursive           gelijk aan --directories=recurse.\n"
+"  -L, --files-without-match geef alleen BESTANDsnamen zonder overeenkomst\n"
+"  -l, --files-with-matches  geef alleen BESTANDsnamen met overeenkomsten\n"
+"  -c, --count               geef alleen het aantal overeenkomsten per BESTAND\n"
+"  -Z, --null                print 0 byte na iedere BESTANDsnaam\n"
 
 #: src/grep.c:987
 msgid ""
@@ -232,12 +271,28 @@ msgid ""
 "two FILEs given, assume -h.  Exit status is 0 if match, 1 if no match,\n"
 "and 2 if trouble.\n"
 msgstr ""
+"\n"
+"Contextbesturing:\n"
+"  -B, --before-context=NUM  geef NUM regels voorafgaande context\n"
+"  -A, --after-context=NUM   geef NUM regels achterafkomende context\n"
+"  -C, --context[=NUM]       geef NUM (standaard 2) regels context\n"
+"                            tenzij ook -A of -B gegeven is\n"
+"  -NUM                      zelfde als --context=NUM\n"
+"  -U, --binary              haal geen CR tekens weg bij EOL (MSDOS)\n"
+"  -u, --unix-byte-offsets   geef adressen alsof CRs er niet waren (MSDOS)\n"
+"\n"
+"`egrep' betkent `grep -E'.  `fgrep' betekent `grep -F'.\n"
+"Indien geen BESTAND is gegeven, of BESTAND is -, wordt de standaard\n"
+"invoer gelezen.  Indien minder dan twee BESTANDen gegeven zijn, wordt\n"
+"-h aangenomen.  Afsluitwaarde is 0 in geval van overeenkomsten, 1\n"
+"indien geen, en 2 indien er iets mis is.\n"
 
 #: src/grep.c:1002
-msgid ""
-"\n"
-"Report bugs to <bug-gnu-utils@gnu.org>.\n"
+msgid "\nReport bugs to <bug-gnu-utils@gnu.org>.\n"
 msgstr ""
+"\n"
+"Meld fouten in het programma aan <bug-gnu-utils@gnu.org>;\n"
+"meld fouten in de vertaling aan <nl@li.org>.\n"
 
 #  viendo los fuentes , hay varias opciones
 #  que hay sin documentar. O quiza es que getopt() lo he entendido mal
@@ -248,46 +303,35 @@ msgstr ""
 #  usage: grep [-[[AB] ]<num>] [-[CEFGVchilnqsvwx]] [-[ef]] <expr> [<files...>]
 #  La opcisn -X es a la que corresponde esta lmnea.
 #: src/grep.c:1012
-#, fuzzy
 msgid "conflicting matchers specified"
-msgstr "overeenkomer (matcher FIXME) al gespecificeerd"
+msgstr "conflicterende `matchers' opgegeven"
 
 #: src/grep.c:1203 src/grep.c:1210 src/grep.c:1219
 msgid "invalid context length argument"
-msgstr ""
+msgstr "ongeldig contextlengte-argument"
 
 #: src/grep.c:1273
 msgid "unknown directories method"
-msgstr ""
+msgstr "onbekend mappen methode"
 
 #: src/grep.c:1358
 msgid "unknown binary-files type"
-msgstr ""
+msgstr "onbekend binair bestanstype"
 
 #: src/grep.c:1378
 #, c-format
 msgid "%s (GNU grep) %s\n"
-msgstr ""
+msgstr "%s (GNU grep) %s\n"
 
 #: src/grep.c:1380
 msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
-msgstr ""
+msgstr "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
 
 #: src/grep.c:1382
 msgid ""
 "This is free software; see the source for copying conditions. There is NO\n"
 "warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n"
 msgstr ""
-
-#~ msgid "you may specify only one of -E, -F, or -G"
-#~ msgstr "alleen de volgende opties zijn toegestaan: -E, -F, of -G"
-
-#, fuzzy
-#~ msgid "memory exhausted\n"
-#~ msgstr "geen geheugen meer beschikbaar"
-
-#~ msgid "GNU grep version 2.0"
-#~ msgstr "(FIXME) GNU grep version 2.0"
-
-#~ msgid "(standard input)\n"
-#~ msgstr "(standaardinvoer)\n"
+"Dit is vrije programmatuur; zie de broncode voor kopieervoorwaarden.\n"
+"Er is GEEN garantie; zelfs niet voor VERKOOPBAARHEID of GESCHIKTHEID\n"
+"VOOR EEN BEPAALD DOEL.\n"

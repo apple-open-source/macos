@@ -14,10 +14,8 @@
 #include <sys/queue.h>
 #include <sys/kernel.h>
 #include <sys/kobj.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 #include "iconv_converter_if.h"
 
 PRIVSYM struct kobjop_desc iconv_converter_open_desc = {

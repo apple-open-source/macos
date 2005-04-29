@@ -20,23 +20,20 @@ extern          "C" {
 #define SNMP_TRANS_PRIVLEN_1DES		64
 #define SNMP_TRANS_PRIVLEN_1DES_IV	64
 
-#define SNMP_TRANS_PRIVLEN_AES128	128
-#define SNMP_TRANS_PRIVLEN_AES128_IV	128
-#define SNMP_TRANS_AES_AES128_PADSIZE   128
-
-#define SNMP_TRANS_PRIVLEN_AES192	192
-#define SNMP_TRANS_PRIVLEN_AES192_IV	192
-#define SNMP_TRANS_AES_AES192_PADSIZE   128
-
-#define SNMP_TRANS_PRIVLEN_AES256	256
-#define SNMP_TRANS_PRIVLEN_AES256_IV	256
-#define SNMP_TRANS_AES_AES256_PADSIZE   128
+#define SNMP_TRANS_PRIVLEN_AES		128
+#define SNMP_TRANS_PRIVLEN_AES_IV	128
+#define SNMP_TRANS_AES_PADSIZE	   	128  /* backwards compat */
+#define SNMP_TRANS_PRIVLEN_AES128	128  /* backwards compat */
+#define SNMP_TRANS_PRIVLEN_AES128_IV	128  /* backwards compat */
+#define SNMP_TRANS_AES_AES128_PADSIZE   128  /* backwards compat */
 
     /*
      * Prototypes.
      */
     int             sc_get_properlength(const oid * hashtype,
                                         u_int hashtype_len);
+    int             sc_get_proper_priv_length(const oid * privtype,
+                                              u_int privtype_len);
 
     int             sc_init(void);
     int             sc_shutdown(int majorID, int minorID, void *serverarg,

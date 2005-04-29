@@ -46,7 +46,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/X11/GetDflt.c,v 3.21 2002/05/31 18:45:41 dawes Exp $ */
+/* $XFree86: xc/lib/X11/GetDflt.c,v 3.23 2003/11/17 22:20:07 dawes Exp $ */
 
 #include "Xlibint.h"
 #include <X11/Xos.h>
@@ -89,9 +89,10 @@ SOFTWARE.
 
 
 /*ARGSUSED*/
-static char *GetHomeDir (dest, len)
-    char *dest;
-    int len;
+static char *
+GetHomeDir(
+    char *dest,
+    int len)
 {
 #ifdef WIN32
     register char *ptr1;
@@ -140,8 +141,9 @@ static char *GetHomeDir (dest, len)
 }
 
 
-static XrmDatabase InitDefaults (dpy)
-    Display *dpy;			/* display for defaults.... */
+static XrmDatabase
+InitDefaults(
+    Display *dpy)			/* display for defaults.... */
 {
     XrmDatabase userdb;
     XrmDatabase xdb;
@@ -190,17 +192,11 @@ static XrmDatabase InitDefaults (dpy)
 #endif
 }
 
-#if NeedFunctionPrototypes
-char *XGetDefault(
+char *
+XGetDefault(
 	Display *dpy,			/* display for defaults.... */
 	char _Xconst *prog,		/* name of program for option	*/
 	register _Xconst char *name)	/* name of option program wants */
-#else
-char *XGetDefault(dpy, prog, name)
-	Display *dpy;			/* display for defaults.... */
-	char *prog;			/* name of program for option	*/
-	register char *name;		/* name of option program wants */
-#endif
 {					/* to get, for example, "font"  */
 	XrmName names[3];
 	XrmClass classes[3];

@@ -35,12 +35,13 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.util.zip;
-import java.io.OutputStream;
+
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.util.Vector;
+import java.io.OutputStream;
 import java.util.Enumeration;
+import java.util.Vector;
 
 /**
  * This is a FilterOutputStream that writes the files into a zip
@@ -337,10 +338,10 @@ public class ZipOutputStream extends DeflaterOutputStream implements ZipConstant
     int numEntries = 0;
     int sizeEntries = 0;
     
-    Enumeration enum = entries.elements();
-    while (enum.hasMoreElements())
+    Enumeration e = entries.elements();
+    while (e.hasMoreElements())
       {
-	ZipEntry entry = (ZipEntry) enum.nextElement();
+	ZipEntry entry = (ZipEntry) e.nextElement();
 	
 	int method = entry.getMethod();
 	writeLeInt(CENSIG);

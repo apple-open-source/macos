@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_texstate.c,v 1.2 2002/02/22 21:45:04 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_texstate.c,v 1.4 2003/12/22 17:48:03 tsi Exp $ */
 
 /*
  * Original rewrite:
@@ -799,7 +799,7 @@ SetupTexEnvNapalm(GLcontext *ctx, GLboolean useIteratedRGBA,
         break;
 
     default:
-        _mesa_problem(ctx, "Bad envMode in SetupTexEnvNapalm");
+        _mesa_problem(ctx, "%s: Bad envMode", __FUNCTION__);
     }
 
     fxMesa->dirty |= TDFX_UPLOAD_TEXTURE_ENV;
@@ -1009,7 +1009,7 @@ SetupSingleTexEnvVoodoo3(GLcontext *ctx, int unit,
       break;
 
    default:
-      _mesa_problem(NULL, "bad texture env mode in SetupSingleTexEnvVoodoo3");
+      _mesa_problem(ctx, "bad texture env mode in %s", __FUNCTION__);
    }
 
    if (colorComb.Function != fxMesa->ColorCombine.Function ||
@@ -1251,7 +1251,7 @@ SetupDoubleTexEnvVoodoo3(GLcontext *ctx, int tmu0,
       fxMesa->AlphaCombine.Invert = FXFALSE;
    }
    else {
-      /*_mesa_problem(ctx, "Unexpected dual texture mode encountered\n");*/
+      /*_mesa_problem(ctx, "%s: Unexpected dual texture mode encountered", __FUNCTION__);*/
       return GL_FALSE;
    }
 
@@ -1478,6 +1478,7 @@ selectSingleTMUSrc(tdfxContextPtr fxMesa, GLint tmu, FxBool LODblend)
    fxMesa->dirty |= TDFX_UPLOAD_TEXTURE_ENV;
 }
 
+#ifdef UNUSED
 static void print_state(tdfxContextPtr fxMesa)
 {
    GLcontext *ctx = fxMesa->glCtx;
@@ -1487,19 +1488,19 @@ static void print_state(tdfxContextPtr fxMesa)
    GLenum base1 = tObj1->Image[tObj1->BaseLevel] ? tObj1->Image[tObj1->BaseLevel]->Format : 99;
 
    printf("Unit 0: Enabled:  GL=%d   Gr=%d\n", ctx->Texture.Unit[0]._ReallyEnabled,
-          fxMesa->TexState.Enabled);
+          fxMesa->TexState.Enabled[0]);
    printf("   EnvMode: GL=0x%x  Gr=0x%x\n", ctx->Texture.Unit[0].EnvMode,
           fxMesa->TexState.EnvMode[0]);
    printf("   BaseFmt: GL=0x%x  Gr=0x%x\n", base0, fxMesa->TexState.TexFormat[0]);
 
 
    printf("Unit 1: Enabled:  GL=%d  Gr=%d\n", ctx->Texture.Unit[1]._ReallyEnabled,
-          fxMesa->TexState.Enabled);
+          fxMesa->TexState.Enabled[1]);
    printf("   EnvMode: GL=0x%x  Gr:0x%x\n", ctx->Texture.Unit[1].EnvMode,
           fxMesa->TexState.EnvMode[1]);
    printf("   BaseFmt: GL=0x%x  Gr:0x%x\n", base1, fxMesa->TexState.TexFormat[1]);
 }
-
+#endif
 
 /*
  * When we're only using a single texture unit, we always use the 0th
@@ -1543,7 +1544,7 @@ static void setupTextureSingleTMU(GLcontext * ctx, GLuint unit)
 
    if (TDFX_IS_NAPALM(fxMesa)) {
       /* see if we really need to update the unit */
-      if (fxMesa->TexState.Enabled != ctx->Texture._ReallyEnabled ||
+      if (fxMesa->TexState.Enabled[unit] != ctx->Texture.Unit[unit]._ReallyEnabled ||
           envMode != fxMesa->TexState.EnvMode[0] ||
           envMode == GL_COMBINE_EXT ||
           baseFormat != fxMesa->TexState.TexFormat[0]) {
@@ -1577,7 +1578,7 @@ static void setupTextureSingleTMU(GLcontext * ctx, GLuint unit)
          otherEnv->Alpha.Shift = 0;
          otherEnv->Alpha.Invert = FXFALSE;
 
-         fxMesa->TexState.Enabled = ctx->Texture._ReallyEnabled;
+         fxMesa->TexState.Enabled[unit] = ctx->Texture.Unit[unit]._ReallyEnabled;
          fxMesa->TexState.EnvMode[0] = envMode;
          fxMesa->TexState.TexFormat[0] = baseFormat;
          fxMesa->TexState.EnvMode[1] = 0;
@@ -1588,7 +1589,7 @@ static void setupTextureSingleTMU(GLcontext * ctx, GLuint unit)
       /* Voodoo3 */
 
       /* see if we really need to update the unit */
-      if (fxMesa->TexState.Enabled != ctx->Texture._ReallyEnabled ||
+      if (fxMesa->TexState.Enabled[unit] != ctx->Texture.Unit[unit]._ReallyEnabled ||
           envMode != fxMesa->TexState.EnvMode[0] ||
           envMode == GL_COMBINE_EXT ||
           baseFormat != fxMesa->TexState.TexFormat[0]) {
@@ -1596,7 +1597,7 @@ static void setupTextureSingleTMU(GLcontext * ctx, GLuint unit)
             /* software fallback */
             FALLBACK(fxMesa, TDFX_FALLBACK_TEXTURE_ENV, GL_TRUE);
          }
-         fxMesa->TexState.Enabled = ctx->Texture._ReallyEnabled;
+         fxMesa->TexState.Enabled[unit] = ctx->Texture.Unit[unit]._ReallyEnabled;
          fxMesa->TexState.EnvMode[0] = envMode;
          fxMesa->TexState.TexFormat[0] = baseFormat;
          fxMesa->TexState.EnvMode[1] = 0;
@@ -1850,7 +1851,7 @@ static void setupTextureDoubleTMU(GLcontext * ctx)
       GLboolean hw1 = GL_TRUE, hw2 = GL_TRUE;
 
       /* check if we really need to update glide unit 1 */
-      if (fxMesa->TexState.Enabled != ctx->Texture._ReallyEnabled ||
+      if (fxMesa->TexState.Enabled[0] != ctx->Texture.Unit[0]._ReallyEnabled ||
           envMode0 != fxMesa->TexState.EnvMode[1] ||
           envMode0 == GL_COMBINE_EXT ||
           baseImage0->Format != fxMesa->TexState.TexFormat[1] ||
@@ -1859,10 +1860,11 @@ static void setupTextureDoubleTMU(GLcontext * ctx)
                                 baseImage0->Format, &fxMesa->TexCombineExt[1]);
          fxMesa->TexState.EnvMode[1] = envMode0;
          fxMesa->TexState.TexFormat[1] = baseImage0->Format;
+         fxMesa->TexState.Enabled[0] = ctx->Texture.Unit[0]._ReallyEnabled;
       }
 
       /* check if we really need to update glide unit 0 */
-      if (fxMesa->TexState.Enabled != ctx->Texture._ReallyEnabled ||
+      if (fxMesa->TexState.Enabled[1] != ctx->Texture.Unit[1]._ReallyEnabled ||
           envMode1 != fxMesa->TexState.EnvMode[0] ||
           envMode1 == GL_COMBINE_EXT ||
           baseImage1->Format != fxMesa->TexState.TexFormat[0] ||
@@ -1871,9 +1873,9 @@ static void setupTextureDoubleTMU(GLcontext * ctx)
                                 baseImage1->Format, &fxMesa->TexCombineExt[0]);
          fxMesa->TexState.EnvMode[0] = envMode1;
          fxMesa->TexState.TexFormat[0] = baseImage1->Format;
+         fxMesa->TexState.Enabled[1] = ctx->Texture.Unit[1]._ReallyEnabled;
       }
 
-      fxMesa->TexState.Enabled = ctx->Texture._ReallyEnabled;
 
       if (!hw1 || !hw2) {
          FALLBACK(fxMesa, TDFX_FALLBACK_TEXTURE_ENV, GL_TRUE);
@@ -1887,7 +1889,8 @@ static void setupTextureDoubleTMU(GLcontext * ctx)
          unit0 = 0;
       unit1 = 1 - unit0;
 
-      if (fxMesa->TexState.Enabled != ctx->Texture._ReallyEnabled ||
+      if (fxMesa->TexState.Enabled[0] != ctx->Texture.Unit[0]._ReallyEnabled ||
+          fxMesa->TexState.Enabled[1] != ctx->Texture.Unit[1]._ReallyEnabled ||
           envMode0 != fxMesa->TexState.EnvMode[unit0] ||
           envMode0 == GL_COMBINE_EXT ||
           envMode1 != fxMesa->TexState.EnvMode[unit1] ||
@@ -1906,7 +1909,8 @@ static void setupTextureDoubleTMU(GLcontext * ctx)
          fxMesa->TexState.TexFormat[unit0] = baseImage0->Format;
          fxMesa->TexState.EnvMode[unit1] = envMode1;
          fxMesa->TexState.TexFormat[unit1] = baseImage1->Format;
-         fxMesa->TexState.Enabled = ctx->Texture._ReallyEnabled;
+         fxMesa->TexState.Enabled[0] = ctx->Texture.Unit[0]._ReallyEnabled;
+         fxMesa->TexState.Enabled[1] = ctx->Texture.Unit[1]._ReallyEnabled;
       }
    }
 }
@@ -1916,31 +1920,29 @@ void
 tdfxUpdateTextureState( GLcontext *ctx )
 {
    tdfxContextPtr fxMesa = TDFX_CONTEXT(ctx);
-   GLuint tex2Denabled = ctx->Texture._ReallyEnabled;
-
-   if (!fxMesa->haveTwoTMUs)
-      tex2Denabled &= TEXTURE0_2D;
 
    FALLBACK(fxMesa, TDFX_FALLBACK_TEXTURE_BORDER, GL_FALSE);
    FALLBACK(fxMesa, TDFX_FALLBACK_TEXTURE_ENV, GL_FALSE);
 
-   switch (tex2Denabled) {
-   case TEXTURE0_2D:
+   if (ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT &&
+       ctx->Texture.Unit[1]._ReallyEnabled == 0) {
       LOCK_HARDWARE( fxMesa );  /* XXX remove locking eventually */
       setupTextureSingleTMU(ctx, 0);
       UNLOCK_HARDWARE( fxMesa );
-      break;
-   case TEXTURE1_2D:
+   }
+   else if (ctx->Texture.Unit[0]._ReallyEnabled == 0 && 
+            ctx->Texture.Unit[1]._ReallyEnabled == TEXTURE_2D_BIT) {
       LOCK_HARDWARE( fxMesa );
       setupTextureSingleTMU(ctx, 1);
       UNLOCK_HARDWARE( fxMesa );
-      break;
-   case (TEXTURE0_2D | TEXTURE1_2D):
+   }
+   else if (ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT &&
+            ctx->Texture.Unit[1]._ReallyEnabled == TEXTURE_2D_BIT) {
       LOCK_HARDWARE( fxMesa );
       setupTextureDoubleTMU(ctx);
       UNLOCK_HARDWARE( fxMesa );
-      break;
-   default:
+   }
+   else {
       /* disable hardware texturing */
       if (TDFX_IS_NAPALM(fxMesa)) {
          fxMesa->ColorCombineExt.SourceA = GR_CMBX_ITRGB;
@@ -1978,12 +1980,19 @@ tdfxUpdateTextureState( GLcontext *ctx )
          fxMesa->AlphaCombine.Invert = FXFALSE;
       }
 
-      fxMesa->TexState.Enabled = 0;
+      fxMesa->TexState.Enabled[0] = 0;
+      fxMesa->TexState.Enabled[1] = 0;
       fxMesa->TexState.EnvMode[0] = 0;
       fxMesa->TexState.EnvMode[1] = 0;
 
       fxMesa->dirty |= TDFX_UPLOAD_COLOR_COMBINE;
       fxMesa->dirty |= TDFX_UPLOAD_ALPHA_COMBINE;
+
+      if (ctx->Texture.Unit[0]._ReallyEnabled != 0 ||
+          ctx->Texture.Unit[1]._ReallyEnabled != 0) {
+         /* software texture (cube map, rect tex, etc */
+         FALLBACK(fxMesa, TDFX_FALLBACK_TEXTURE_ENV, GL_TRUE);
+      }
    }
 }
 
@@ -2027,7 +2036,9 @@ tdfxUpdateTextureBinding( GLcontext *ctx )
       fxMesa->tScale1 = ti1->tScale;
    }
 
-   if (ctx->Texture._ReallyEnabled == TEXTURE0_2D) {
+   if (ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT &&
+       ctx->Texture.Unit[0]._ReallyEnabled == 0) {
+      /* Only unit 0 2D enabled */
       if (shared->umaTexMemory) {
          fxMesa->TexSource[0].StartAddress = ti0->tm[0]->startAddr;
          fxMesa->TexSource[0].EvenOdd = GR_MIPMAPLEVELMASK_BOTH;
@@ -2058,14 +2069,18 @@ tdfxUpdateTextureBinding( GLcontext *ctx )
          }
       }
    }
-   else if (ctx->Texture._ReallyEnabled == TEXTURE1_2D) {
+   else if (ctx->Texture.Unit[0]._ReallyEnabled == 0 && 
+            ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT) {
+      /* Only unit 1 2D enabled */
       if (shared->umaTexMemory) {
          fxMesa->TexSource[0].StartAddress = ti1->tm[0]->startAddr;
          fxMesa->TexSource[0].EvenOdd = GR_MIPMAPLEVELMASK_BOTH;
          fxMesa->TexSource[0].Info = &(ti1->info);
       }
    }
-   else if (ctx->Texture._ReallyEnabled == (TEXTURE0_2D | TEXTURE1_2D)) {
+   else if (ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT && 
+            ctx->Texture.Unit[0]._ReallyEnabled == TEXTURE_2D_BIT) {
+      /* Both 2D enabled */
       if (shared->umaTexMemory) {
          const FxU32 tmu0 = 0, tmu1 = 1;
          fxMesa->TexSource[tmu0].StartAddress = ti0->tm[0]->startAddr;

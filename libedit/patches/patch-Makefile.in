@@ -1,0 +1,11 @@
+--- Makefile.in.orig	Wed Oct 27 15:57:15 2004
++++ Makefile.in	Wed Oct 27 15:57:21 2004
+@@ -178,7 +178,7 @@
+ 	$(RANLIB) $@
+ 
+ $(LIB_S) : $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
+-	$(CC) $(S_LDFLAGS) -o $@ $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
++	$(CC) $(RC_CFLAGS) $(S_LDFLAGS) -o $@ $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
+ 
+ $(TEST) : $(TCSRCS:.c=.o) $(LIB_A)
+ 	$(CC) -o $@ $(TCSRCS:.c=.o) $(LIB_A) $(LIBS)

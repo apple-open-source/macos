@@ -1,4 +1,4 @@
-.\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994, 1996 X Consortium
+.\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991, 1994, 1996, 2000 The Open Group
 .\"
 .\" Permission is hereby granted, free of charge, to any person obtaining
 .\" a copy of this software and associated documentation files (the
@@ -19,10 +19,10 @@
 .\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 .\" OTHER DEALINGS IN THE SOFTWARE.
 .\"
-.\" Except as contained in this notice, the name of the X Consortium shall
+.\" Except as contained in this notice, the name of The Open Group shall
 .\" not be used in advertising or otherwise to promote the sale, use or
 .\" other dealings in this Software without prior written authorization
-.\" from the X Consortium.
+.\" from The Open Group.
 .\"
 .\" Copyright \(co 1985, 1986, 1987, 1988, 1989, 1990, 1991 by
 .\" Digital Equipment Corporation
@@ -40,6 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
+.\" $XFree86: xc/doc/specs/X11/CH02,v 1.2 2003/07/09 15:27:25 tsi Exp $
 \&
 .sp 1
 .ce 3
@@ -116,8 +117,13 @@ the display name or DISPLAY environment variable can be a string in the format:
 .Ds 0
 .TA 1i
 .ta 1i
-	\fIhostname\fP\^:\^\fInumber\fP\^.\^\fIscreen_number\fP
+	\fIprotocol\fP\^/\^\fIhostname\fP\^:\^\fInumber\fP\^.\^\fIscreen_number\fP
 .De
+.IP \fIprotocol\fP 1i
+Specifies a protocol family or an alias for a protocol family.  Supported 
+protocol families are implementation dependent.  The protocol entry is 
+optional.  If protocol is not specified, the / separating protocol and 
+hostname must also not be specified.
 .IP \fIhostname\fP 1i
 Specifies the name of the host machine on which the display is physically
 attached.
@@ -159,11 +165,14 @@ or DECnet communications protocols,
 or through some local inter-process communication protocol.
 .IN "Protocol" "TCP"
 .IN "Protocol" "DECnet"
-If the hostname is a host machine name and a single colon (:)
+If the protocol is specified as "tcp", "inet", or "inet6", or
+if no protocol is specified and the hostname is a host machine name and a single colon (:)
 separates the hostname and display number,
 .PN XOpenDisplay
-connects using TCP streams.
-If the hostname is not specified,
+connects using TCP streams.  (If the protocol is specified as "inet", TCP over
+IPv4 is used.  If the protocol is specified as "inet6", TCP over IPv6 is used.
+Otherwise, the implementation determines which IP version is used.)
+If the hostname and protocol are both not specified,
 Xlib uses whatever it believes is the fastest transport.
 If the hostname is a host machine name and a double colon (::)
 separates the hostname and display number,

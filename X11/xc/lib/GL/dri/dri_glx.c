@@ -24,7 +24,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/dri/dri_glx.c,v 1.12 2003/02/06 12:42:10 alanh Exp $ */
+/* $XFree86: xc/lib/GL/dri/dri_glx.c,v 1.15 2003/09/28 20:14:59 alanh Exp $ */
 
 /*
  * Authors:
@@ -48,12 +48,12 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <sys/types.h>
 #include <stdarg.h>
 
-
-typedef void *(*CreateScreenFunc)(Display *dpy, int scrn, __DRIscreen *psc,
-                                  int numConfigs, __GLXvisualConfig *config);
-
-typedef void *(*RegisterExtensionsFunc)(void);
-
+#ifndef RTLD_NOW
+#define RTLD_NOW 0
+#endif
+#ifndef RTLD_GLOBAL
+#define RTLD_GLOBAL 0
+#endif
 
 #ifdef BUILT_IN_DRI_DRIVER
 
@@ -68,17 +68,6 @@ extern void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
 /* this is normally defined in the Imakefile */
 #define DEFAULT_DRIVER_DIR "/usr/X11R6/lib/modules/dri"
 #endif
-
-/*
- * We keep a linked list of these structures, one per DRI device driver.
- */
-typedef struct __DRIdriverRec {
-   const char *name;
-   void *handle;
-   CreateScreenFunc createScreenFunc;
-   RegisterExtensionsFunc registerExtensionsFunc;
-   struct __DRIdriverRec *next;
-} __DRIdriver;
 
 static __DRIdriver *Drivers = NULL;
 
@@ -247,8 +236,6 @@ static __DRIdriver *OpenDriver(const char *driverName)
             dlclose(handle);
             continue;
          }
-         driver->registerExtensionsFunc = (RegisterExtensionsFunc)
-            dlsym(handle, "__driRegisterExtensions");
          driver->handle = handle;
          /* put at head of linked list */
          driver->next = Drivers;
@@ -279,11 +266,11 @@ static Bool GetDriverName(Display *dpy, int scrNum, char **driverName)
    *driverName = NULL;
 
    if (!XF86DRIQueryDirectRenderingCapable(dpy, scrNum, &directCapable)) {
-      ErrorMessageF("XF86DRIQueryDirectRenderingCapable failed");
+      ErrorMessageF("XF86DRIQueryDirectRenderingCapable failed\n");
       return False;
    }
    if (!directCapable) {
-      ErrorMessageF("XF86DRIQueryDirectRenderingCapable returned false");
+      ErrorMessageF("XF86DRIQueryDirectRenderingCapable returned false\n");
       return False;
    }
 
@@ -305,18 +292,16 @@ static Bool GetDriverName(Display *dpy, int scrNum, char **driverName)
  * Given a display pointer and screen number, return a __DRIdriver handle.
  * Return NULL if anything goes wrong.
  */
-static __DRIdriver *GetDriver(Display *dpy, int scrNum)
+__DRIdriver *driGetDriver(Display *dpy, int scrNum)
 {
    char *driverName;
-   __DRIdriver *ret;
-
    if (GetDriverName(dpy, scrNum, &driverName)) {
+      __DRIdriver *ret;
       ret = OpenDriver(driverName);
       if (driverName)
      	 Xfree(driverName);
       return ret;
    }
-
    return NULL;
 }
 
@@ -410,9 +395,8 @@ void *driCreateDisplay(Display *dpy, __DRIdisplay *pdisp)
      * driver's "__driCreateScreen" function pointer.  That's the bootstrap
      * entrypoint for all DRI drivers.
      */
-    __glXRegisterExtensions();
     for (scrn = 0; scrn < numScreens; scrn++) {
-        __DRIdriver *driver = GetDriver(dpy, scrn);
+        __DRIdriver *driver = driGetDriver(dpy, scrn);
         if (driver) {
            pdisp->createScreen[scrn] = driver->createScreenFunc;
            pdpyp->libraryHandles[scrn] = driver->handle;
@@ -426,63 +410,5 @@ void *driCreateDisplay(Display *dpy, __DRIdisplay *pdisp)
 
     return (void *)pdpyp;
 }
-
-
-
-/*
-** Here we'll query the DRI driver for each screen and let each
-** driver register its GL extension functions.  We only have to
-** do this once.  But it MUST be done before we create any contexts
-** (i.e. before any dispatch tables are created) and before
-** glXGetProcAddressARB() returns.
-**
-** Currently called by glXGetProcAddress(), __glXInitialize(), and
-** __glXNewIndirectAPI().
-*/
-void
-__glXRegisterExtensions(void)
-{
-#ifndef BUILT_IN_DRI_DRIVER
-   static GLboolean alreadyCalled = GL_FALSE;
-   int displayNum, maxDisplays;
-
-   if (alreadyCalled)
-      return;
-   alreadyCalled = GL_TRUE;
-
-   if (getenv("LIBGL_MULTIHEAD")) {
-      /* we'd like to always take this path but doing so causes a second
-       * or more of delay while the XOpenDisplay() function times out.
-       */
-      maxDisplays = 10;  /* infinity, really */
-   }
-   else {
-      /* just open the :0 display */
-      maxDisplays = 1;
-   }
-
-   for (displayNum = 0; displayNum < maxDisplays; displayNum++) {
-      char displayName[200];
-      Display *dpy;
-      snprintf(displayName, 199, ":%d.0", displayNum);
-      dpy = XOpenDisplay(displayName);
-      if (dpy) {
-         const int numScreens = ScreenCount(dpy);
-         int screenNum;
-         for (screenNum = 0; screenNum < numScreens; screenNum++) {
-            __DRIdriver *driver = GetDriver(dpy, screenNum);
-            if (driver && driver->registerExtensionsFunc) {
-               (*driver->registerExtensionsFunc)();
-            }
-         }
-         XCloseDisplay(dpy);
-      }
-      else {
-         break;
-      }
-   }
-#endif
-}
-
 
 #endif /* GLX_DIRECT_RENDERING */

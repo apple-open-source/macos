@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/Xp/XpExtUtil.h,v 1.3 2002/10/16 00:37:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xp/XpExtUtil.h,v 1.4 2003/11/17 22:20:22 dawes Exp $ */
 /*
  * Copyright (C) 2000 The XFree86 Project, Inc.  All Rights Reserved.
  *
@@ -34,10 +34,8 @@
 extern XEXT_FIND_DISPLAY_PROTO(xp_find_display);
 
 extern int XpCheckExtInit(
-#if NeedFunctionPrototypes
     Display * /* dpy */,
     int       /* version_index */
-#endif
 );
 
 #endif /* _XPEXTUTIL_H */

@@ -1,3 +1,5 @@
+/* $Id: port-aix.h,v 1.19 2004/02/10 04:27:35 dtucker Exp $ */
+
 /*
  *
  * Copyright (c) 2001 Gert Doering.  All rights reserved.
@@ -21,10 +23,23 @@
  * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
  */
 
 #ifdef _AIX
+
+#ifdef WITH_AIXAUTHENTICATE
+# include <login.h>
+# include <userpw.h>
+# if defined(HAVE_SYS_AUDIT_H) && defined(AIX_LOGINFAILED_4ARG)
+#  include <sys/audit.h>
+# endif
+# include <usersec.h>
+#endif
+
+/* Some versions define r_type in the above headers, which causes a conflict */
+#ifdef r_type
+# undef r_type
+#endif
 
 /* AIX 4.2.x doesn't have nanosleep but does have nsleep which is equivalent */
 #if !defined(HAVE_NANOSLEEP) && defined(HAVE_NSLEEP)
@@ -36,5 +51,23 @@
 # include <sys/timers.h>
 #endif
 
-void aix_usrinfo(struct passwd *pw);
+/*
+ * According to the setauthdb man page, AIX password registries must be 15
+ * chars or less plus terminating NUL.
+ */
+#ifdef HAVE_SETAUTHDB
+# define REGISTRY_SIZE	16
+#endif
+
+void aix_usrinfo(struct passwd *);
+
+#ifdef WITH_AIXAUTHENTICATE
+# define CUSTOM_SYS_AUTH_PASSWD 1
+# define CUSTOM_FAILED_LOGIN 1
+void record_failed_login(const char *, const char *);
+#endif
+
+void aix_setauthdb(const char *);
+void aix_restoreauthdb(void);
+void aix_remove_embedded_newlines(char *);
 #endif /* _AIX */

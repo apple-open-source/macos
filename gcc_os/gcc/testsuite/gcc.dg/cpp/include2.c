@@ -1,12 +1,12 @@
 /* Copyright (C) 2000 Free Software Foundation, Inc.  */
 
 /* { dg-do preprocess } */
-
 /* Tests that #include does not allow the terminating '>' or '"' to be
    escaped, as per the standard.  */
-
 /* Source: Neil Booth, 4 Nov 2000.  */
 
+/* APPLE LOCAL BEGIN Apple disable this warning by default */
+/* { dg-options "-Wextra-tokens"  } */
 #include <silly\>>  /* { dg-warning "extra tokens" "" } */
 #include "silly\""  /* { dg-error "missing" "" } */
 
@@ -15,3 +15,4 @@
 /* { dg-error "silly" "" { target *-*-* } 10 } */
 /* { dg-error "silly" "" { target *-*-* } 11 } */
 /* { dg-warning "extra tokens" "" { target *-*-* } 11 } */
+/* APPLE LOCAL END  */

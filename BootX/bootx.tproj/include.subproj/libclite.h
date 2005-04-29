@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,9 +39,10 @@
 
 // ci_io.c
 extern int putchar(int ch);
+extern int puts(const char *str);
 
 // prf.c
-extern void prf(const char *fmt, unsigned int *adx, void (*putfn_p)(),
+extern void prf(const char *fmt, unsigned int *adx, int (*putfn_p)(int ch),
 		void *putfn_arg);
 
 // printf.c
@@ -59,8 +57,6 @@ extern int strcmp(const char *s1, const char *s2);
 extern int strncmp(const char *s1, const char *s2, size_t len);
 extern char *strcpy(char *s1, const char *s2);
 extern char *strncpy(char *s1, const char *s2, size_t n);
-extern int ptol(char *str);
-extern int atoi(const char *str);
 extern char *strncat(char *s1, const char *s2, size_t n);
 extern char *strcat(char *s1, const char *s2);
 extern int strncasecmp(const char *s1, const char *s2, size_t len);
@@ -72,6 +68,7 @@ extern int isspace(char c);
 extern int isdigit(char c);
 extern char tolower(char c);
 extern long strtol(const char *nptr, char **endptr, register int base);
+extern u_quad_t strtouq(const char *nptr, char **endptr, register int base);
 
 // zalloc.c
 extern void malloc_init(char *start, int size);
@@ -83,6 +80,7 @@ extern void *realloc(void *start, size_t newsize);
 // mem.c
 extern void *memcpy(void *dst, const void *src, size_t len);
 extern void *memset(void *dst, int ch, size_t len);
+extern int memcmp(const void *b1, const void *b2, size_t len);
 extern void bcopy(const void *src, void *dst, size_t len);
 extern void bzero(void *dst, int len);
 

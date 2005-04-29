@@ -41,6 +41,7 @@ void free_value __P((struct val *));
 int is_integer __P((struct val *, int64_t *));
 int to_integer __P((struct val *));
 void to_string __P((struct val *));
+int is_null __P((struct val *));
 int is_zero_or_null __P((struct val *));
 void nexttoken __P((void));
 void error __P((void)) __attribute__((__noreturn__));
@@ -118,8 +119,14 @@ is_integer(vp, r)
 	i = 0;
 
 	neg = (*s == '-');
-	if (neg)
+	if (neg) {
 		s++;
+		/* the optional unary minus *must* be followed by digits to 
+		 * be considered an integer.  A '-' alone is not an integer.
+		 */
+		if(!*s)
+			return 0;
+	}
 
 	while (*s) {
 		if (!isdigit(*s))
@@ -177,6 +184,14 @@ to_string(vp)
 	(void)snprintf(tmp, 100, "%lld", vp->u.i);
 	vp->type = string;
 	vp->u.s = tmp;
+}
+
+int is_null(vp)
+	struct val     *vp;
+{
+	if ((vp->type != integer) && (*vp->u.s == 0))
+		return 1;
+	return 0;
 }
 
 int
@@ -513,6 +528,10 @@ eval0()
 		if (is_zero_or_null(l)) {
 			free_value(l);
 			l = r;
+			if( is_null(r) ) {
+				free_value(r);
+				l = make_int(0);
+			}
 		} else {
 			free_value(r);
 		}
@@ -531,13 +550,15 @@ main(argc, argv)
 
 	(void) setlocale(LC_ALL, "");
 	av = argv + 1;
-
+	if (!strcmp(*av, "--"))
+	    av++;
 	nexttoken();
 	vp = eval0();
 
 	if (token != EOI)
 		error();
-
+        if (vp->type == string && vp->u.s[0]) 
+		to_integer(vp);		/* -0 is not a string */
 	if (vp->type == integer)
 		(void)printf("%lld\n", vp->u.i);
 	else

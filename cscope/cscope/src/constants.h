@@ -30,24 +30,19 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: constants.h,v 1.5 2002/01/15 21:41:44 jevans Exp $ */
+/* $Id: constants.h,v 1.7 2004/07/09 21:51:24 nicolai Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	preprocessor macro and constant definitions
  */
 
+#ifndef CSCOPE_CONSTANTS_H
+#define CSCOPE_CONSTANTS_H
+
 #include "config.h"		/* Get OS defines */
 
 #define ctrl(x)	(x & 037)	/* control character macro */
-
-/* database output macros that update its offset */
-#define	dbputc(c)	(++dboffset, (void) putc(c, newrefs))
-#if Linux || BSD && !sun
-#define	dbfputs(s)	(dboffset += strlen(s), fputs(s, newrefs))
-#else
-#define	dbfputs(s)	(dboffset += fputs(s, newrefs))
-#endif
 
 /* fast string equality tests (avoids most strcmp() calls) */
 #define	strequal(s1, s2)	(*(s1) == *(s2) && strcmp(s1, s2) == 0)
@@ -77,9 +72,11 @@
 #define	NAMEFILE "cscope.files"	/* default list-of-files file */
 #define	INVNAME	"cscope.in.out"	/* inverted index to the database */
 #define	INVPOST	"cscope.po.out"	/* inverted index postings */
+#define	INVNAME2 "cscope.out.in"/* follows correct naming convention */
+#define	INVPOST2 "cscope.out.po"/* follows correct naming convention */
+
 #define	STMTMAX	10000		/* maximum source statement length */
-#define	READ	4		/* access(2) parameter */
-#define	WRITE	2		/* access(2) parameter */
+
 /* screen lines */
 #define	FLDLINE	(LINES - FIELDS - 1)	/* first input field line */
 #define	MSGLINE	0			/* message line */
@@ -98,14 +95,13 @@
 #define INCLUDES	8
 #define	FIELDS		9
 
-#if (BSD || V9) && !__NetBSD__
+#if (BSD || V9) && !__NetBSD__ && !__APPLE__
 #define TERMINFO	0	/* no terminfo curses */
 #else
 #define TERMINFO	1
 #endif
 
 
-#ifndef Darwin
 #ifndef __FreeBSD__	/* Prevent search issues in cscope.out */
 #if !TERMINFO
 #ifndef KEY_BREAK
@@ -118,7 +114,7 @@
 #define	KEY_BACKSPACE	0402
 #endif
 
-#if !sun
+#if !sun && !__APPLE__
 #define cbreak()	crmode()			/* name change */
 #endif
 
@@ -129,7 +125,8 @@
 #define	erasechar()	(_tty.sg_erase)			/* equivalent */
 #define	killchar()	(_tty.sg_kill)			/* equivalent */
 #endif	/* if UNIXPC */
-#endif /* !Darwin */
 
 #endif	/* if !TERMINFO */
 #endif	/* ifndef __FreeBSD__ */
+
+#endif /* CSCOPE_CONSTANTS_H */

@@ -2,7 +2,7 @@
 #include <netdb.h>
 #include <errno.h>
 
-#include "options.h"
+#include "config.h"
 
 static char *cvs_server;
 static char *command;

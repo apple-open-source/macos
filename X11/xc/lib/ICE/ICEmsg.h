@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
 
 Author: Ralph Mor, X Consortium
 ******************************************************************************/
-/* $XFree86: xc/lib/ICE/ICEmsg.h,v 1.4 2001/12/20 19:40:59 tsi Exp $ */
+/* $XFree86: xc/lib/ICE/ICEmsg.h,v 1.5 2003/11/17 22:20:05 dawes Exp $ */
 
 #ifndef _ICEMSG_H_
 #define _ICEMSG_H_
@@ -42,65 +42,51 @@ _XFUNCPROTOBEGIN
  */
 
 extern Status _IceRead (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     unsigned long	/* nbytes */,
     char *		/* ptr */
-#endif
 );
 
 extern void _IceReadSkip (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     unsigned long	/* nbytes */
-#endif
 );
 
 extern void _IceWrite (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     unsigned long	/* nbytes */,
     char *		/* ptr */
-#endif
 );
 
 
 extern void _IceErrorBadMinor (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */,
     int			/* offendingMinor */,
     int			/* severity */
-#endif
 );
 
 extern void _IceErrorBadState (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */,
     int			/* offendingMinor */,
     int			/* severity */
-#endif
 );
 
 extern void _IceErrorBadLength (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */,
     int			/* offendingMinor */,
     int			/* severity */
-#endif
 );
 
 extern void _IceErrorBadValue (
-#if NeedFunctionPrototypes
     IceConn		/* iceConn */,
     int			/* majorOpcode */,
     int			/* offendingMinor */,
     int			/* offset */,
     int			/* length */,
     IcePointer		/* value */
-#endif
 );
 
 

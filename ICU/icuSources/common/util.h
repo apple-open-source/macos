@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (c) 2001, International Business Machines
+*   Copyright (c) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -71,9 +71,10 @@ class U_COMMON_API ICU_Utility /* not : public UObject because all methods are s
      * @param c character to search for
      * @return Offset of the first instance of c, or -1 if not found.
      */
-    static int32_t quotedIndexOf(const UnicodeString& text,
-                                 int32_t start, int32_t limit,
-                                 UChar c);
+//?FOR FUTURE USE.  DISABLE FOR NOW for coverage reasons.
+//    static int32_t quotedIndexOf(const UnicodeString& text,
+//                                 int32_t start, int32_t limit,
+//                                 UChar c);
 
     /**
      * Skip over a sequence of zero or more white space characters at pos.
@@ -232,6 +233,13 @@ private:
 };
 
 U_NAMESPACE_END
+
+/**
+ * Is this character a "white space" in the sense of ICU rule parsers?
+ * @internal
+ */
+U_CAPI UBool U_EXPORT2
+uprv_isRuleWhiteSpace(UChar32 c);
 
 #endif
 //eof

@@ -1,0 +1,43 @@
+There are still many problems with man2html.
+Partly these are caused by the imprecise definition
+of the man file format. (And the many buggy man pages.)
+Partly by the incomplete implementation of the man/doc macro packages.
+Partly by the imperfect emulation of troff.
+Partly by the variation between various browsers in the
+accepted html.
+Partly just because man2html is buggy.
+
+Of course in reality a man2html converter must contain
+large parts of the troff source, so that it can be fed
+with the defining macro packages and always do the right thing.
+
+On a RedHat 5.0 system:
+- /usr/man/mann/DirDlg.n is not formatted correctly.
+  (It does not start with .TH)
+- <i>bug_readline</i>@<i>prep.ai.mit.edu</i> does not generate
+  a mailto: link. It should generate
+    <a href="mailto:bug_readline@prep.ai.mit.edu>
+      <i>bug_readline</i>@<i>prep.ai.mit.edu</i>
+    </a>
+  but this requires parsing of the surrounding html markup.
+  Easy, but not done yet.
+- Some manpages generate bad whatis information
+  [where the name in the whatis line is not the filename of the man page].
+  (E.g., tc589_cs.4, auto.master.5, pcmcia.5, proc.5 and autofs.8
+   generate whatis lines
+        3c589_cs (4)         - 3Com 3c589 Etherlink III device driver
+	/etc/auto.master (5) - Master Map for automounter
+	/etc/init.d/rc.d/autofs (8) - Control Script for automounter
+	/etc/pcmcia/config (5) - PCMCIA card configuration database
+	/proc (5)            - process information pseudo-filesystem
+  )
+  As a consequence, the corresponding manwhatis links are bad.
+- Some manpages have bad .so information.
+  (E.g., TIFFScanlineSize.3t contains .so TIFFsize.3t
+   instead of .so man3/TIFFsize.3t .)
+  This also confuses whatis, and generates bad links.
+  (But right now these happen to work.)
+
+
+Many browsers do not handle tables well (or at all).
+Arena (arena-0.98.beta3-3) fails on many constructions.

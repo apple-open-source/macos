@@ -1,4 +1,4 @@
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 2000, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -12,6 +12,7 @@ import java.awt.GraphicsConfiguration;
 import java.awt.Rectangle;
 import java.awt.Graphics2D;
 import java.awt.Graphics;
+import java.awt.GraphicsDevice;
 import java.awt.Point;
 import java.awt.Color;
 import java.awt.color.ColorSpace;
@@ -128,7 +129,8 @@ public class XGraphicsConfiguration extends GraphicsConfiguration
    * maybe be moved to a different location.]
    *
    * @param offset Offset to data. The given offset does not include
-   * data buffer offset, which will also be added.  */
+   * data buffer offset, which will also be added.  
+   */
   static void attachData(XImage ximage, DataBuffer dataB, int offset)
   {
     offset += dataB.getOffset();
@@ -236,13 +238,47 @@ public class XGraphicsConfiguration extends GraphicsConfiguration
 				  rmap, gmap, bmap, amap);
   }
 
+  /**
+   * Gets the associated device that this configuration describes.
+   *
+   * @return the device
+   */
+  public GraphicsDevice getDevice()
+  {
+    throw new UnsupportedOperationException("not implemented");  
+  }
+
+  /**
+   * Returns a buffered image optimized to this device, so that blitting can
+   * be supported in the buffered image.
+   *
+   * @param w the width of the buffer
+   * @param h the height of the buffer
+   * @return the buffered image, or null if none is supported
+   */
   public BufferedImage createCompatibleImage(int width,
 					     int height,
 					     int transparency)
   {
     throw new UnsupportedOperationException("not implemented");
   }
-    
+
+  /**
+   * Returns a buffered volatile image optimized to this device, so that
+   * blitting can be supported in the buffered image. Because the buffer is
+   * volatile, it can be optimized by native graphics accelerators.
+   *
+   * @param w the width of the buffer
+   * @param h the height of the buffer
+   * @return the buffered image, or null if none is supported
+   * @see Component#createVolatileImage(int, int)
+   * @since 1.4
+   */
+  public VolatileImage createCompatibleVolatileImage(int w, int h)
+  {
+    throw new UnsupportedOperationException("not implemented");
+  }
+
   /**
    * FIXME: I'm not sure which color model that should be returned here.
    */
@@ -353,15 +389,32 @@ public class XGraphicsConfiguration extends GraphicsConfiguration
 
   int getPixel(Color color)
   {
+    /* FIXME: consider an integer technique whenever
+     * the ColorModel is 8 bits per color.
+     * The problem with using integers is that it doesn't work unless
+     * the colors are 8 bits each (as in the array), since ColorModel.getDataElement(int[],int)
+     * expects non-normalized values.  For example, in a 16-bit display mode, you
+     * would typically have 5 bits each for red and blue, and 6 bits for green.
     int[] components =
-        {
-	  color.getRed(),
-	  color.getGreen(),
-	  color.getBlue(),
-	  0xff
-	};
-	
-    ColorModel cm = getColorModel();
-    return cm.getDataElement(components, 0);
+    {
+      color.getRed (),
+      color.getGreen (),
+      color.getBlue (),
+      0xff
+    };
+     */
+    
+    float[] normalizedComponents =
+    {
+      ((float)color.getRed ()) / 255F,
+      ((float)color.getGreen ()) / 255F,
+      ((float)color.getBlue ()) / 255F,
+      1
+    };
+    int[] unnormalizedComponents = { 0, 0, 0, 0xff };
+    ColorModel cm = getColorModel ();
+    cm.getUnnormalizedComponents(normalizedComponents, 0,
+				 unnormalizedComponents, 0);
+    return cm.getDataElement (unnormalizedComponents, 0);
   }
 }

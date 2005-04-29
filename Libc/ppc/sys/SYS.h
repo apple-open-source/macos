@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,13 +41,10 @@
  *	Created.
  */
 
-#define KERNEL_PRIVATE	1
 /*
  * Header files.
  */
-#import	<architecture/ppc/asm_help.h>
-#import	<architecture/ppc/pseudo_inst.h>
-#import	<mach/ppc/exception.h>
+#include <architecture/ppc/mode_independent_asm.h>
 #import	<sys/syscall.h>
 
 /* From rhapsody kernel mach/ppc/syscall_sw.h */
@@ -70,8 +67,7 @@
 _##trap_name:						@\
 	li	r0,trap_number				 @\
 	sc						 @\
-	blr						 @\
-	END(trap_name)
+	blr
 
 #define kernel_trap_0(trap_name,trap_number)		 \
 	simple_kernel_trap(trap_name,trap_number)
@@ -109,56 +105,55 @@ _##trap_name:						@\
  * Macros.
  */
 
+/*
+ * This is the same as SYSCALL, but it can call an alternate error
+ * return function.  It's generic to support potential future callers.
+ */
+#define	SYSCALL_ERR(name, nargs, error_ret)		\
+	.globl	error_ret			@\
+    MI_ENTRY_POINT(_##name)     @\
+	kernel_trap_args_##nargs    @\
+	li	r0,SYS_##name			@\
+	sc                          @\
+	b	1f                      @\
+	blr                         @\
+1:	MI_BRANCH_EXTERNAL(error_ret)
+
 #define	SYSCALL(name, nargs)			\
 	.globl	cerror				@\
-LEAF(_##name)					@\
-	kernel_trap_args_##nargs		@\
+    MI_ENTRY_POINT(_##name)     @\
+	kernel_trap_args_##nargs    @\
 	li	r0,SYS_##name			@\
-	sc					@\
-	b	1f   				@\
-	blr					@\
-1:	BRANCH_EXTERN(cerror)			@\
-.text						\
-2:	nop
+	sc                          @\
+	b	1f                      @\
+	blr                         @\
+1:	MI_BRANCH_EXTERNAL(cerror)
+
 
 #define	SYSCALL_NONAME(name, nargs)		\
 	.globl	cerror				@\
-	kernel_trap_args_##nargs		@\
+	kernel_trap_args_##nargs    @\
 	li	r0,SYS_##name			@\
-	sc					@\
-	b	1f   				@\
-	b	2f				@\
-1:	BRANCH_EXTERN(cerror)			@\
-.text						\
-2:	nop
+	sc                          @\
+	b	1f                      @\
+	b	2f                      @\
+1:	MI_BRANCH_EXTERNAL(cerror)  @\
+2:
+
 
 #define	PSEUDO(pseudo, name, nargs)		\
-LEAF(_##pseudo)					@\
+    .globl  _##pseudo           @\
+    .text                       @\
+    .align  2                   @\
+_##pseudo:                      @\
 	SYSCALL_NONAME(name, nargs)
 
 
 #undef END
 #import	<mach/ppc/syscall_sw.h>
-
-#if !defined(SYS_getdirentriesattr)
-#define SYS_getdirentriesattr 222
-#endif
-
-#if !defined(SYS_semsys)
-#define SYS_semsys	251
-#define SYS_msgsys	252
-#define SYS_shmsys	253
-#define SYS_semctl	254
-#define SYS_semget	255
-#define SYS_semop	256
-#define SYS_semconfig	257
-#define SYS_msgctl	258
-#define SYS_msgget	259
-#define SYS_msgsnd	260
-#define SYS_msgrcv	261
-#define SYS_shmat	262
-#define SYS_shmctl	263
-#define SYS_shmdt	264
-#define SYS_shmget	265
-#endif
  
+#if !defined(SYS___pthread_canceled)
+#define SYS___pthread_markcancel	332
+#define SYS___pthread_canceled		333
+#define SYS___semwait_signal		334
+#endif

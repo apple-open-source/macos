@@ -1,0 +1,37 @@
+--- gdtoa-gethex.c.orig	2005-02-17 01:16:50.000000000 -0800
++++ gdtoa-gethex.c	2005-02-17 01:27:10.000000000 -0800
+@@ -29,6 +29,8 @@
+ /* Please send bug reports to David M. Gay (dmg at acm dot org,
+  * with " at " changed at "@" and " dot " changed to ".").	*/
+ 
++#include "xlocale_private.h"
++
+ #include "gdtoaimp.h"
+ 
+ #ifdef USE_LOCALE
+@@ -37,10 +39,10 @@
+ 
+  int
+ #ifdef KR_headers
+-gethex(sp, fpi, exp, bp, sign)
+-	CONST char **sp; FPI *fpi; Long *exp; Bigint **bp; int sign;
++gethex(sp, fpi, exp, bp, sign, loc)
++	CONST char **sp; FPI *fpi; Long *exp; Bigint **bp; int sign; locale_t loc;
+ #else
+-gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign)
++gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t loc)
+ #endif
+ {
+ 	Bigint *b;
+@@ -49,7 +51,10 @@
+ 	ULong L, lostbits, *x;
+ 	Long e, e1;
+ #ifdef USE_LOCALE
+-	unsigned char decimalpoint = *localeconv()->decimal_point;
++	unsigned char decimalpoint;
++
++	NORMALIZE_LOCALE(loc);
++	decimalpoint = *localeconv_l(loc)->decimal_point;
+ #else
+ #define decimalpoint '.'
+ #endif

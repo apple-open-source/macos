@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1999,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1999-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,25 +29,28 @@
 /*
  * Author: Thomas E. Dickey <dickey@clark.net> 1999
  *
- * $Id: cardfile.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $
+ * $Id: cardfile.c,v 1.23 2003/04/26 16:43:56 tom Exp $
  *
- * File format: text beginning in column 1 is a title; other text forms the content.
+ * File format: text beginning in column 1 is a title; other text is content.
  */
 
 #include <test.priv.h>
 
+#if USE_LIBFORM && USE_LIBPANEL
+
 #include <form.h>
 #include <panel.h>
-
-#include <string.h>
-#include <ctype.h>
 
 #define VISIBLE_CARDS 10
 #define OFFSET_CARD 2
 
-#ifndef CTRL
-#define CTRL(x)		((x) & 0x1f)
-#endif
+enum {
+    MY_CTRL_x = MAX_FORM_COMMAND
+    ,MY_CTRL_N
+    ,MY_CTRL_P
+    ,MY_CTRL_Q
+    ,MY_CTRL_W
+};
 
 typedef struct _card {
     struct _card *link;
@@ -130,6 +133,8 @@ add_content(CARD * card, const char *content)
 	    card->content = (char *) realloc(card->content, total + 1);
 	    strcpy(card->content + offset++, " ");
 	} else {
+	    if (card->content != 0)
+		free(card->content);
 	    card->content = (char *) malloc(total + 1);
 	}
 	strcpy(card->content + offset, content);
@@ -270,14 +275,14 @@ form_virtualize(WINDOW *w)
 
     switch (c) {
     case CTRL('W'):
-	return (MAX_FORM_COMMAND + 4);
+	return (MY_CTRL_W);
     case CTRL('N'):
-	return (MAX_FORM_COMMAND + 3);
+	return (MY_CTRL_N);
     case CTRL('P'):
-	return (MAX_FORM_COMMAND + 2);
+	return (MY_CTRL_P);
     case CTRL('Q'):
     case 033:
-	return (MAX_FORM_COMMAND + 1);
+	return (MY_CTRL_Q);
 
     case KEY_BACKSPACE:
 	return (REQ_DEL_PREV);
@@ -300,6 +305,48 @@ form_virtualize(WINDOW *w)
     }
 }
 
+static FIELD **
+make_fields(CARD * p, int form_high, int form_wide)
+{
+    FIELD **f = (FIELD **) calloc(3, sizeof(FIELD *));
+
+    f[0] = new_field(1, form_wide, 0, 0, 0, 0);
+    set_field_back(f[0], A_REVERSE);
+    set_field_buffer(f[0], 0, p->title);
+    field_opts_off(f[0], O_BLANK);
+
+    f[1] = new_field(form_high - 1, form_wide, 1, 0, 0, 0);
+    set_field_buffer(f[1], 0, p->content);
+    set_field_just(f[1], JUSTIFY_LEFT);
+    field_opts_off(f[1], O_BLANK);
+
+    f[2] = 0;
+    return f;
+}
+
+static void
+show_legend(void)
+{
+    erase();
+    move(LINES - 3, 0);
+    addstr("^Q/ESC -- exit form            ^W   -- writes data to file\n");
+    addstr("^N   -- go to next card        ^P   -- go to previous card\n");
+    addstr("Arrow keys move left/right within a field, up/down between fields");
+}
+
+#if (defined(KEY_RESIZE) && HAVE_WRESIZE) || NO_LEAKS
+static void
+free_form_fields(FIELD ** f)
+{
+    int n;
+
+    for (n = 0; f[n] != 0; ++n) {
+	free_field(f[n]);
+    }
+    free(f);
+}
+#endif
+
 /*******************************************************************************/
 
 static void
@@ -313,43 +360,29 @@ cardfile(char *fname)
     int panel_high = LINES - (visible_cards * OFFSET_CARD) - 5;
     int form_wide = panel_wide - 2;
     int form_high = panel_high - 2;
-    int x = (visible_cards - 1) * OFFSET_CARD;
-    int y = 0;
-    int ch;
+    int y = (visible_cards - 1) * OFFSET_CARD;
+    int x = 0;
+    int ch = ERR;
+    int last_ch;
     int finished = FALSE;
 
-    move(LINES - 3, 0);
-    addstr("^Q/ESC -- exit form            ^W   -- writes data to file\n");
-    addstr("^N   -- go to next card        ^P   -- go to previous card\n");
-    addstr("Arrow keys move left/right within a field, up/down between fields");
+    show_legend();
 
     /* make a panel for each CARD */
     for (p = all_cards; p != 0; p = p->link) {
-	FIELD **f = (FIELD **) calloc(3, sizeof(FIELD *));
 
-	win = newwin(panel_high, panel_wide, x, y);
+	win = newwin(panel_high, panel_wide, y, x);
 	keypad(win, TRUE);
 	p->panel = new_panel(win);
 	box(win, 0, 0);
 
-	/* ...and a form in each panel */
-	f[0] = new_field(1, form_wide, 0, 0, 0, 0);
-	set_field_back(f[0], A_REVERSE);
-	set_field_buffer(f[0], 0, p->title);
-
-	f[1] = new_field(form_high - 1, form_wide, 1, 0, 0, 0);
-	set_field_buffer(f[1], 0, p->content);
-	set_field_just(f[1], JUSTIFY_LEFT);
-
-	f[2] = 0;
-
-	p->form = new_form(f);
+	p->form = new_form(make_fields(p, form_high, form_wide));
 	set_form_win(p->form, win);
 	set_form_sub(p->form, derwin(win, form_high, form_wide, 1, 1));
 	post_form(p->form);
 
-	x -= OFFSET_CARD;
-	y += OFFSET_CARD;
+	y -= OFFSET_CARD;
+	x += OFFSET_CARD;
     }
 
     order_cards(top_card = all_cards, visible_cards);
@@ -358,26 +391,80 @@ cardfile(char *fname)
 	update_panels();
 	doupdate();
 
-	switch (form_driver(top_card->form, ch =
-			    form_virtualize(panel_window(top_card->panel)))) {
+	last_ch = ch;
+	ch = form_virtualize(panel_window(top_card->panel));
+	switch (form_driver(top_card->form, ch)) {
 	case E_OK:
 	    break;
 	case E_UNKNOWN_COMMAND:
 	    switch (ch) {
-	    case MAX_FORM_COMMAND + 1:
+	    case MY_CTRL_Q:
 		finished = TRUE;
 		break;
-	    case MAX_FORM_COMMAND + 2:
+	    case MY_CTRL_P:
 		top_card = prev_card(top_card);
 		order_cards(top_card, visible_cards);
 		break;
-	    case MAX_FORM_COMMAND + 3:
+	    case MY_CTRL_N:
 		top_card = next_card(top_card);
 		order_cards(top_card, visible_cards);
 		break;
-	    case MAX_FORM_COMMAND + 4:
+	    case MY_CTRL_W:
+		form_driver(top_card->form, REQ_VALIDATION);
 		write_data(fname);
 		break;
+#if defined(KEY_RESIZE) && HAVE_WRESIZE
+	    case KEY_RESIZE:
+		/* resizeterm already did "something" reasonable, but it cannot
+		 * know much about layout.  So let's make it nicer.
+		 */
+		panel_wide = COLS - (visible_cards * OFFSET_CARD);
+		panel_high = LINES - (visible_cards * OFFSET_CARD) - 5;
+
+		form_wide = panel_wide - 2;
+		form_high = panel_high - 2;
+
+		y = (visible_cards - 1) * OFFSET_CARD;
+		x = 0;
+
+		show_legend();
+		for (p = all_cards; p != 0; p = p->link) {
+		    FIELD **oldf = form_fields(p->form);
+		    WINDOW *olds = form_sub(p->form);
+
+		    win = form_win(p->form);
+
+		    /* move and resize the card as needed
+		     * FIXME: if the windows are shrunk too much, this won't do
+		     */
+		    mvwin(win, y, x);
+		    wresize(win, panel_high, panel_wide);
+
+		    /* reconstruct each form.  Forms are not resizable, and
+		     * there appears to be no good way to reload the text in
+		     * a resized window.
+		     */
+		    werase(win);
+
+		    unpost_form(p->form);
+		    free_form(p->form);
+
+		    p->form = new_form(make_fields(p, form_high, form_wide));
+		    set_form_win(p->form, win);
+		    set_form_sub(p->form, derwin(win, form_high, form_wide,
+						 1, 1));
+		    post_form(p->form);
+
+		    free_form_fields(oldf);
+		    delwin(olds);
+
+		    box(win, 0, 0);
+
+		    y -= OFFSET_CARD;
+		    x += OFFSET_CARD;
+		}
+		break;
+#endif
 	    default:
 		beep();
 		break;
@@ -388,6 +475,28 @@ cardfile(char *fname)
 	    break;
 	}
     }
+#if NO_LEAKS
+    while (all_cards != 0) {
+	FIELD **f;
+	int count;
+
+	p = all_cards;
+	all_cards = all_cards->link;
+
+	f = form_fields(p->form);
+	count = field_count(p->form);
+
+	unpost_form(p->form);	/* ...so we can free it */
+	free_form(p->form);	/* this also disconnects the fields */
+
+	free_form_fields(f);
+
+	del_panel(p->panel);
+	free(p->title);
+	free(p->content);
+	free(p);
+    }
+#endif
 }
 
 /*******************************************************************************/
@@ -396,6 +505,8 @@ int
 main(int argc, char *argv[])
 {
     int n;
+
+    setlocale(LC_ALL, "");
 
     initscr();
     cbreak();
@@ -418,3 +529,11 @@ main(int argc, char *argv[])
 
     ExitProgram(EXIT_SUCCESS);
 }
+#else
+int
+main(void)
+{
+    printf("This program requires the curses form and panel libraries\n");
+    ExitProgram(EXIT_FAILURE);
+}
+#endif

@@ -1,14 +1,14 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2000-2002
+ * Copyright (c) 2000-2003
  *	Sleepycat Software.  All rights reserved.
  */
 
 #include "db_config.h"
 
 #ifndef lint
-static const char revid[] = "$Id: util_cache.c,v 1.1.1.1 2003/02/15 04:55:40 zarzycki Exp $";
+static const char revid[] = "$Id: util_cache.c,v 1.2 2004/03/30 01:21:22 jtownsen Exp $";
 #endif /* not lint */
 
 #ifndef NO_SYSTEM_INCLUDES
@@ -17,7 +17,6 @@ static const char revid[] = "$Id: util_cache.c,v 1.1.1.1 2003/02/15 04:55:40 zar
 #include <stdlib.h>
 
 #include <string.h>
-#include <unistd.h>
 #endif
 
 #include "db_int.h"
@@ -72,6 +71,7 @@ __db_util_cache(dbenv, dbp, cachep, resizep)
 		bsp = (DB_BTREE_STAT *)sp;
 		pgsize = bsp->bt_pagesize;
 		break;
+	case DB_UNKNOWN:
 	default:
 		dbenv->err(dbenv, ret, "unknown database type: %d", type);
 		return (EINVAL);

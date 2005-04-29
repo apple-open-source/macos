@@ -25,182 +25,38 @@
 #include "fp_private.h"
 #include "fenv_private.h"
 
-float acosf( float x ) 	{ return (float)acos((double)( x )); }
-float asinf( float x ) 	{ return (float)asin((double)( x )); }
-float atanf( float x ) 	{ return (float)atan( (double)x ); }
+float acosf( float x )		{ return (float)acos((double)( x )); }
+float asinf( float x )		{ return (float)asin((double)( x )); }
+float atanf( float x )		{ return (float)atan( (double)x ); }
 float atan2f( float y, float x) { return (float)atan2( (double)y, (double)x ); }
-float cosf( float x ) 	{ return (float)cos((double)( x )); }
-float sinf( float x) 	{ return (float)sin( (double)x ); }
-float tanf( float x ) 	{ return (float)tan( (double)x ); }
-float acoshf( float x )	{ return (float)acosh( (double)x ); }
-float asinhf( float x )	{ return (float)asinh( (double)x ); }
-float atanhf( float x )	{ return (float)atanh( (double)x ); }
-float coshf( float x)	{ return (float)cosh( (double)x ); }
-float sinhf( float x)	{ return (float)sinh( (double)x ); }
-float tanhf( float x)	{ return (float)tanh( (double)x ); }
+float cosf( float x )		{ return (float)cos((double)( x )); }
+float sinf( float x)		{ return (float)sin( (double)x ); }
+float tanf( float x )		{ return (float)tan( (double)x ); }
+float acoshf( float x )		{ return (float)acosh( (double)x ); }
+float asinhf( float x )		{ return (float)asinh( (double)x ); }
+float atanhf( float x )		{ return (float)atanh( (double)x ); }
+float coshf( float x)		{ return (float)cosh( (double)x ); }
+float sinhf( float x)		{ return (float)sinh( (double)x ); }
+float tanhf( float x)		{ return (float)tanh( (double)x ); }
 
-float expf( float x)	{ return (float)exp( (double)x ); }
-float exp2f( float x)	{ return (float)exp2( (double)x ); }
-float expm1f( float x )	{ return (float)expm1( (double)x ); }
-float logf ( float x )	{ return (float)log( (double)x ); }
-float log10f ( float x ){ return (float)log10( (double)x ); }
-float log2f ( float x )	{ return (float)log2( x ); }
-float log1pf ( float x ){ return (float)log1p( (double)x ); }
+float expf( float x)		{ return (float)exp( (double)x ); }
+float exp2f( float x)		{ return (float)exp2( (double)x ); }
+float expm1f( float x )		{ return (float)expm1( (double)x ); }
+float logf ( float x )		{ return (float)log( (double)x ); }
+float log10f ( float x )	{ return (float)log10( (double)x ); }
+float log2f ( float x )		{ return (float)log2( x ); }
+float log1pf ( float x )	{ return (float)log1p( (double)x ); }
 
-float cbrtf( float x ) 	{ return (float)cbrt((double)( x )); }
+float cbrtf( float x )		{ return (float)cbrt((double)( x )); }
 float powf ( float x, float y )	{ return (float)pow ( (double)x, (double)y ); }
 
-float erff( float x ) 	{ return (float)erf((double)( x )); }
-float erfcf( float x ) 	{ return (float)erfc((double)( x )); }
-float lgammaf( float x ){ return (float)lgamma((double)( x )); }
-float tgammaf( float x ){ return (float)tgamma((double)( x )); }
+float erff( float x )		{ return (float)erf((double)( x )); }
+float erfcf( float x )		{ return (float)erfc((double)( x )); }
+float lgammaf( float x )	{ return (float)lgamma((double)( x )); }
+float tgammaf( float x )	{ return (float)tgamma((double)( x )); }
 
-#ifdef notdef
-/*******************************************************************************
-*     									       *
-*     Single Precision Implementation.					       *
-*     									       *
-*******************************************************************************/
-
-#undef	     upHalfOfAnULP
-#define      upHalfOfAnULP      0.50000006         	 // 0x1.000002p-1
-#define      twoTo64            0.1844674407370955e20    // 2**64    
-#define      twoToMinus32      	0.2328306436538696e-9    // 2**-32
-
-float sqrtf ( float x )
-      {
-      register int index;
-      hexdouble OldEnvironment;
-      hexsingle xInHex, yInHex, gInHex;
-      register float g, y, y2, d, e;
-      register unsigned long int xhead, ghead, yhead;
-            
-      xInHex.fval = x;
-      xhead = xInHex.lval;                         // 32 bits of x
-      FEGETENVD( OldEnvironment.d );               // save environment, set default
-      FESETENVD( 0.0 );
-    
-/*******************************************************************************
-*     ∞ > x ≥ 0.0.  This section includes +0.0, but not -0.0.                  *
-*******************************************************************************/
-
-      if ( xhead < 0x7f800000 ) 
-            {
-
-/*******************************************************************************
-*     First and most common section: argument > 2.0^(-76), about 0.1323488e-22.*
-*******************************************************************************/
-            
-            if ( xhead > 0x1a000000ul )
-                  {
-
-/*******************************************************************************
-*     Calculate initial estimates for g and y from x and SqrtTable[].          *
-*******************************************************************************/
-
-                  ghead = ( ( xhead + 0x3f800000 ) >> 1 ) & 0x7f800000;
-                  index = ( xhead >> 16 ) & 0xffUL; // table index
-                  yhead = 0x7e000000UL - ghead;
-                  gInHex.lval = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 7 );
-                  yInHex.lval = yhead + ( ( 0xffUL & SqrtTable[index] ) << 15 );
-                  g = gInHex.fval;
-                  y = yInHex.fval;
-      
-/*******************************************************************************
-*     Iterate to refine both g and y.                                          *
-*******************************************************************************/
-
-                  d = x - g * g;
-                  y2 = y + y;
-                  g = g + y * d;                   //   16-bit g
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   16-bit y
-                  g = g + y * d;                   //   32-bit g before rounding
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   32-bit y
-                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
-                  return ( g + y * d );            //   final step
-                  }
-
-/*******************************************************************************
-*     Second section: 0.0 < argument < 2.0^(-76) which is about 0.1323488e-22. *
-*     Identical to the previous segment aside from 2^64 scale factor.          *
-*******************************************************************************/
-
-            if ( xhead != 0UL ) 
-                  { 
-                  xInHex.fval = x * twoTo64;         //   scale up by 2^64
-                  xhead = xInHex.lval;
-
-/*******************************************************************************
-*     Calculate initial estimates for g and y from x and SqrtTable[].          *
-*******************************************************************************/
-
-                  ghead = ( ( xhead + 0x3f800000 ) >> 1 ) & 0x7f800000;
-                  index = ( xhead >> 16 ) & 0xffUL; // table index
-                  yhead = 0x7e000000UL - ghead;
-                  gInHex.lval = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 7 );
-                  yInHex.lval = yhead + ( ( 0xffUL & SqrtTable[index] ) << 15 );
-                  x = xInHex.fval;
-                  g = gInHex.fval;
-                  y = yInHex.fval;
-
-/*******************************************************************************
-*     Iterate to refine both g and y.                                          *
-*******************************************************************************/
-            
-                  d = x - g * g;
-                  y2 = y + y;
-                  g = g + y * d;                   //   16-bit g
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   16-bit y
-                  g = g + y * d;                   //   32-bit g before rounding
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   32-bit y
-                  g *= twoToMinus32;               //   undo scaling
-                  d *= twoToMinus32;
-                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
-                  return ( g + y * d );            //   final step            
-                  }
-
-/*******************************************************************************
-*     Third section: handle x = +0.0 that slipped through.                     *
-*******************************************************************************/
-
-            else 
-                  {                                // x = +0.0
-                  FESETENVD( OldEnvironment.d );   //   restore caller's environment
-                  return ( x );
-                  }
-            }
-/*******************************************************************************
-*     Fourth section: special cases: argument is +INF, NaN, -0.0, or <0.       *
-*******************************************************************************/
-   
-      FESETENVD( OldEnvironment.d );               //   restore caller's environment
-
-      if ( xhead < 0x80000000 )                    // x is +NaN or +INF
-            return ( x );
-
-      if ( ( x == 0.0 ) || ( x != x ) )            // return -0.0 or -NaN argument
-            return x;
-      else                                         // negative x is INVALID
-            {
-            x = nan ( SQRT_NAN );
-            OldEnvironment.i.lo |= SET_INVALID;
-            FESETENVD( OldEnvironment.d );         //   restore caller's environment
-            return ( x );                          // return NAN
-            }
-      }
-#else /* Let the 970 hardware have a crack at this. */
+ /* By calling through the double sqrt, we let the 970 hardware have a crack at this. */
 float sqrtf ( float x )	{ return (float) sqrt((double) x); }
-#endif
 
 static const hexsingle HugeF = { 0x7F800000 };
 static const hexsingle NegHugeF = { 0xFF800000 };
@@ -222,10 +78,10 @@ float hypotf ( float x, float y )
 *     flag signaled.                                                           * 
 *******************************************************************************/
 	
-	if ( ( x == FPR_inf ) || ( y == FPR_inf ) || ( x == FPR_Minf ) || ( y == FPR_Minf ) )
+	if (unlikely( ( x == FPR_inf ) || ( y == FPR_inf ) || ( x == FPR_Minf ) || ( y == FPR_Minf ) ))
             return FPR_inf;
                 
-        if ( ( x != x ) || ( y != y ) )
+        if (unlikely( ( x != x ) || ( y != y ) ))
         {
             x = __FABSF ( x + y );
             return x;
@@ -244,7 +100,7 @@ float hypotf ( float x, float y )
         
         // Now +0.0 <= FPR_small <= FPR_big < INFINITY
         
-        if ( FPR_small == FPR_z )
+        if (unlikely( FPR_small == FPR_z ))
             return FPR_big;
             
         FEGETENVD( FPR_env );				// save environment, set default
@@ -253,15 +109,15 @@ float hypotf ( float x, float y )
         temp = FPR_small / FPR_big;			OldEnvironment.d = FPR_env;
         temp = sqrtf ( FPR_one + temp * temp );	   
         
-        FEGETENVD( CurrentEnvironment.d );
+        FEGETENVD_GRP( CurrentEnvironment.d );
         CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;	// Clear any inconsequential underflow
-        FESETENVD( CurrentEnvironment.d );
+        FESETENVD_GRP( CurrentEnvironment.d );
         
         temp = FPR_big * temp;				// Might raise UNDERFLOW or OVERFLOW
             
-        FEGETENVD( CurrentEnvironment.d );
+        FEGETENVD_GRP( CurrentEnvironment.d );
         OldEnvironment.i.lo |= CurrentEnvironment.i.lo; // Pick up any UF or OF
-        FESETENVD( OldEnvironment.d );        		// restore caller's environment
+        FESETENVD_GRP( OldEnvironment.d );        		// restore caller's environment
 
         return temp;
 }

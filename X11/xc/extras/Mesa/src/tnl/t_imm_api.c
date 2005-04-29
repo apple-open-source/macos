@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -33,10 +33,11 @@
 #include "dlist.h"
 #include "enums.h"
 #include "light.h"
-#include "mem.h"
+#include "imports.h"
 #include "state.h"
 #include "colormac.h"
 #include "macros.h"
+#include "vtxfmt.h"
 
 #include "t_context.h"
 #include "t_imm_api.h"
@@ -47,13 +48,19 @@
 
 /* A cassette is full or flushed on a statechange.
  */
-void _tnl_flush_immediate( struct immediate *IM )
+void _tnl_flush_immediate( GLcontext *ctx, struct immediate *IM )
 {
-   GLcontext *ctx = IM->backref;
+   if (!ctx) {
+      /* We were called by glVertex, glEvalCoord, glArrayElement, etc.
+       * The current context is corresponds to the IM structure.
+       */
+      GET_CURRENT_CONTEXT(context);
+      ctx = context;
+   }
 
    if (MESA_VERBOSE & VERBOSE_IMMEDIATE)
-      fprintf(stderr, "_tnl_flush_immediate IM: %d compiling: %d\n",
-	      IM->id, ctx->CompileFlag);
+      _mesa_debug(ctx, "_tnl_flush_immediate IM: %d compiling: %d\n",
+                  IM->id, ctx->CompileFlag);
 
    if (IM->FlushElt == FLUSH_ELT_EAGER) {
       _tnl_translate_array_elts( ctx, IM, IM->LastPrimitive, IM->Count );
@@ -78,19 +85,19 @@ void _tnl_flush_vertices( GLcontext *ctx, GLuint flags )
    struct immediate *IM = TNL_CURRENT_IM(ctx);
 
    if (MESA_VERBOSE & VERBOSE_IMMEDIATE)
-      fprintf( stderr, 
-	       "_tnl_flush_vertices flags %x IM(%d) %d..%d Flag[%d]: %x\n", 
-	       flags, IM->id, IM->Start, IM->Count, IM->Start,
-	       IM->Flag[IM->Start]);
+      _mesa_debug(ctx,
+                  "_tnl_flush_vertices flags %x IM(%d) %d..%d Flag[%d]: %x\n", 
+                  flags, IM->id, IM->Start, IM->Count, IM->Start,
+                  IM->Flag[IM->Start]);
 
-   if (IM->Flag[IM->Start])
+   if (IM->Flag[IM->Start]) {
       if ((flags & FLUSH_UPDATE_CURRENT) || 
 	  IM->Count > IM->Start ||
-	  (IM->Flag[IM->Start] & (VERT_BEGIN|VERT_END)))
-	 _tnl_flush_immediate( IM );
+	  (IM->Flag[IM->Start] & (VERT_BIT_BEGIN | VERT_BIT_END))) {
+	 _tnl_flush_immediate( ctx, IM );
+      }
+   }
 }
-
-
 
 
 void
@@ -100,7 +107,7 @@ _tnl_save_Begin( GLenum mode )
    struct immediate *IM = TNL_CURRENT_IM(ctx);
    GLuint inflags, state;
 
-/*     fprintf(stderr, "%s: before: %x\n", __FUNCTION__, IM->BeginState); */
+/*     _mesa_debug(ctx, "%s: before: %x\n", __FUNCTION__, IM->BeginState); */
 
    if (mode > GL_POLYGON) {
       _mesa_compile_error( ctx, GL_INVALID_ENUM, "_tnl_Begin" );
@@ -110,15 +117,24 @@ _tnl_save_Begin( GLenum mode )
    if (ctx->NewState)
       _mesa_update_state(ctx);
 
+#if 000
+   /* if only a very few slots left, might as well flush now
+    */
    if (IM->Count > IMM_MAXDATA-8) {
-      _tnl_flush_immediate( IM );
+      _tnl_flush_immediate( ctx, IM );
+      IM = TNL_CURRENT_IM(ctx);
+   }
+#endif
+
+   if (IM->Count > IMM_MAXDATA-8) {
+      _tnl_flush_immediate( ctx, IM );
       IM = TNL_CURRENT_IM(ctx);
    }
 
    /* Check for and flush buffered vertices from internal operations.
     */
    if (IM->SavedBeginState) {
-      _tnl_flush_immediate( IM );
+      _tnl_flush_immediate( ctx, IM );
       IM = TNL_CURRENT_IM(ctx);
       IM->BeginState = IM->SavedBeginState;
       IM->SavedBeginState = 0;
@@ -134,7 +150,7 @@ _tnl_save_Begin( GLenum mode )
       GLuint last = IM->LastPrimitive;
 
       state |= (VERT_BEGIN_0|VERT_BEGIN_1);
-      IM->Flag[count] |= VERT_BEGIN;
+      IM->Flag[count] |= VERT_BIT_BEGIN;
       IM->Primitive[count] = mode | PRIM_BEGIN;
       IM->PrimitiveLength[IM->LastPrimitive] = count - IM->LastPrimitive;
       IM->LastPrimitive = count;
@@ -170,7 +186,7 @@ _tnl_Begin( GLenum mode )
    ASSERT (!ctx->CompileFlag);
 
    if (mode > GL_POLYGON) {
-      _mesa_error( ctx, GL_INVALID_ENUM, "_tnl_Begin" );
+      _mesa_error( ctx, GL_INVALID_ENUM, "_tnl_Begin(0x%x)", mode );
       return;
    }
 
@@ -185,7 +201,7 @@ _tnl_Begin( GLenum mode )
    {
       struct immediate *IM = TNL_CURRENT_IM(ctx);
       if (IM->Count > IMM_MAXDATA-8) {
-	 _tnl_flush_immediate( IM );
+	 _tnl_flush_immediate( ctx, IM );
 	 IM = TNL_CURRENT_IM(ctx);
       }
    }
@@ -213,11 +229,13 @@ _tnl_Begin( GLenum mode )
 	 _tnl_translate_array_elts( ctx, IM, last, count );
       }
 
-      IM->Flag[count] |= VERT_BEGIN;
+      IM->Flag[count] |= VERT_BIT_BEGIN;
       IM->Primitive[count] = mode | PRIM_BEGIN;
       IM->PrimitiveLength[last] = count - last;
       IM->LastPrimitive = count;
       IM->BeginState = (VERT_BEGIN_0|VERT_BEGIN_1);
+
+/*        _mesa_debug(ctx, "%s: %x\n", __FUNCTION__, IM->BeginState);  */
 
       ctx->Driver.NeedFlush |= FLUSH_STORED_VERTICES;
       ctx->Driver.CurrentExecPrimitive = mode;
@@ -232,12 +250,12 @@ _tnl_Begin( GLenum mode )
 GLboolean
 _tnl_hard_begin( GLcontext *ctx, GLenum p )
 {
-/*     fprintf(stderr, "%s\n", __FUNCTION__); */
+/*     _mesa_debug(ctx, "%s\n", __FUNCTION__); */
 
    if (!ctx->CompileFlag) {
       /* If not compiling, treat as a normal begin().
        */
-/*        fprintf(stderr, "%s: treating as glBegin\n", __FUNCTION__); */
+/*        _mesa_debug(ctx, "%s: treating as glBegin\n", __FUNCTION__); */
       glBegin( p );
       return GL_TRUE;
    }
@@ -252,7 +270,7 @@ _tnl_hard_begin( GLcontext *ctx, GLenum p )
 	 _mesa_update_state(ctx);
 
       if (IM->Count > IMM_MAXDATA-8) {
-	 _tnl_flush_immediate( IM );
+	 _tnl_flush_immediate( ctx, IM );
 	 IM = TNL_CURRENT_IM(ctx);
       }
 
@@ -291,7 +309,7 @@ _tnl_hard_begin( GLcontext *ctx, GLenum p )
 	 ASSERT (IM->FlushElt != FLUSH_ELT_EAGER);
 
 	 IM->BeginState |= VERT_BEGIN_0|VERT_BEGIN_1;
-	 IM->Flag[IM->Count] |= VERT_BEGIN;
+	 IM->Flag[IM->Count] |= VERT_BIT_BEGIN;
 	 IM->Primitive[IM->Count] = p | PRIM_BEGIN;
 	 IM->PrimitiveLength[IM->LastPrimitive] = IM->Count - IM->LastPrimitive;
 	 IM->LastPrimitive = IM->Count;
@@ -340,7 +358,7 @@ _tnl_end( GLcontext *ctx )
       GLuint last = IM->LastPrimitive;
 
       state &= ~(VERT_BEGIN_0|VERT_BEGIN_1); /* update state */
-      IM->Flag[count] |= VERT_END;
+      IM->Flag[count] |= VERT_BIT_END;
       IM->Primitive[last] |= PRIM_END;
       IM->PrimitiveLength[last] = count - last;
       IM->Primitive[count] = PRIM_OUTSIDE_BEGIN_END; /* removes PRIM_BEGIN 
@@ -355,10 +373,6 @@ _tnl_end( GLcontext *ctx )
 
    IM->BeginState = state;
 
-   /* Only update CurrentExecPrimitive if not compiling.  If we are in
-    * COMPILE_AND_EXECUTE mode, it will be done on replay of this
-    * cassette.
-    */
    if (!ctx->CompileFlag) {
       if (ctx->Driver.CurrentExecPrimitive == PRIM_OUTSIDE_BEGIN_END) 
 	 _mesa_error( ctx, GL_INVALID_OPERATION, "_tnl_End" );
@@ -370,13 +384,14 @@ _tnl_end( GLcontext *ctx )
     * behaviour.
     */
    if (MESA_DEBUG_FLAGS & DEBUG_ALWAYS_FLUSH)
-      _tnl_flush_immediate( IM );
+      _tnl_flush_immediate( ctx, IM );
 }
 
-static void
+void
 _tnl_End(void)
 {
    GET_CURRENT_CONTEXT(ctx);
+
    _tnl_end( ctx );
 
    /* Need to keep save primitive uptodate in COMPILE and
@@ -388,29 +403,28 @@ _tnl_End(void)
 }
 
 
-#define COLOR( IM, r, g, b, a )			\
-{						\
-   GLuint count = IM->Count;			\
-   IM->Flag[count] |= VERT_RGBA;		\
-   IM->Color[count][0] = r;			\
-   IM->Color[count][1] = g;			\
-   IM->Color[count][2] = b;			\
-   IM->Color[count][3] = a;			\
+#define COLOR( r, g, b, a )					\
+{								\
+   GET_IMMEDIATE;						\
+   GLuint count = IM->Count;					\
+   GLfloat *color = IM->Attrib[VERT_ATTRIB_COLOR0][count];	\
+   IM->Flag[count] |= VERT_BIT_COLOR0;				\
+   color[0] = r;						\
+   color[1] = g;						\
+   color[2] = b;						\
+   color[3] = a;						\
 }
 
 static void
 _tnl_Color3f( GLfloat red, GLfloat green, GLfloat blue )
 {
-   GET_IMMEDIATE;
-   COLOR( IM, red, green, blue, 1.0 );
+   COLOR( red, green, blue, 1.0 );
 }
 
 static void
 _tnl_Color3ub( GLubyte red, GLubyte green, GLubyte blue )
 {
-   GET_IMMEDIATE;
-   COLOR(IM,
-         UBYTE_TO_FLOAT(red),
+   COLOR(UBYTE_TO_FLOAT(red),
          UBYTE_TO_FLOAT(green),
          UBYTE_TO_FLOAT(blue),
          1.0);
@@ -419,16 +433,13 @@ _tnl_Color3ub( GLubyte red, GLubyte green, GLubyte blue )
 static void
 _tnl_Color4f( GLfloat red, GLfloat green, GLfloat blue, GLfloat alpha )
 {
-   GET_IMMEDIATE;
-   COLOR( IM, red, green, blue, alpha );
+   COLOR( red, green, blue, alpha );
 }
 
 static void
 _tnl_Color4ub( GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha )
 {
-   GET_IMMEDIATE;
-   COLOR(IM,
-         UBYTE_TO_FLOAT(red),
+   COLOR(UBYTE_TO_FLOAT(red),
          UBYTE_TO_FLOAT(green),
          UBYTE_TO_FLOAT(blue),
          UBYTE_TO_FLOAT(alpha));
@@ -437,16 +448,13 @@ _tnl_Color4ub( GLubyte red, GLubyte green, GLubyte blue, GLubyte alpha )
 static void
 _tnl_Color3fv( const GLfloat *v )
 {
-   GET_IMMEDIATE;
-   COLOR( IM, v[0], v[1], v[2], 1.0 );
+   COLOR( v[0], v[1], v[2], 1.0 );
 }
 
 static void
 _tnl_Color3ubv( const GLubyte *v )
 {
-   GET_IMMEDIATE;
-   COLOR(IM,
-         UBYTE_TO_FLOAT(v[0]),
+   COLOR(UBYTE_TO_FLOAT(v[0]),
          UBYTE_TO_FLOAT(v[1]),
          UBYTE_TO_FLOAT(v[2]),
          1.0 );
@@ -455,16 +463,13 @@ _tnl_Color3ubv( const GLubyte *v )
 static void
 _tnl_Color4fv( const GLfloat *v )
 {
-   GET_IMMEDIATE;
-   COLOR( IM, v[0], v[1], v[2], v[3] );
+   COLOR( v[0], v[1], v[2], v[3] );
 }
 
 static void
 _tnl_Color4ubv( const GLubyte *v)
 {
-   GET_IMMEDIATE;
-   COLOR(IM,
-         UBYTE_TO_FLOAT(v[0]),
+   COLOR(UBYTE_TO_FLOAT(v[0]),
          UBYTE_TO_FLOAT(v[1]),
          UBYTE_TO_FLOAT(v[2]),
          UBYTE_TO_FLOAT(v[3]));
@@ -473,28 +478,27 @@ _tnl_Color4ubv( const GLubyte *v)
 
 
 
-#define SECONDARY_COLOR( IM, r, g, b )		\
-{						\
-   GLuint count = IM->Count;			\
-   IM->Flag[count] |= VERT_SPEC_RGB;		\
-   IM->SecondaryColor[count][0] = r;		\
-   IM->SecondaryColor[count][1] = g;		\
-   IM->SecondaryColor[count][2] = b;		\
+#define SECONDARY_COLOR( r, g, b )			\
+{							\
+   GLuint count;					\
+   GET_IMMEDIATE;					\
+   count = IM->Count;					\
+   IM->Flag[count] |= VERT_BIT_COLOR1;			\
+   IM->Attrib[VERT_ATTRIB_COLOR1][count][0] = r;	\
+   IM->Attrib[VERT_ATTRIB_COLOR1][count][1] = g;	\
+   IM->Attrib[VERT_ATTRIB_COLOR1][count][2] = b;	\
 }
 
 static void
 _tnl_SecondaryColor3fEXT( GLfloat red, GLfloat green, GLfloat blue )
 {
-   GET_IMMEDIATE;
-   SECONDARY_COLOR( IM, red, green, blue );
+   SECONDARY_COLOR( red, green, blue );
 }
 
 static void
 _tnl_SecondaryColor3ubEXT( GLubyte red, GLubyte green, GLubyte blue )
 {
-   GET_IMMEDIATE;
-   SECONDARY_COLOR(IM,
-                   UBYTE_TO_FLOAT(red),
+   SECONDARY_COLOR(UBYTE_TO_FLOAT(red),
                    UBYTE_TO_FLOAT(green),
                    UBYTE_TO_FLOAT(blue));
 }
@@ -502,21 +506,16 @@ _tnl_SecondaryColor3ubEXT( GLubyte red, GLubyte green, GLubyte blue )
 static void
 _tnl_SecondaryColor3fvEXT( const GLfloat *v )
 {
-   GET_IMMEDIATE;
-   SECONDARY_COLOR( IM, v[0], v[1], v[2] );
+   SECONDARY_COLOR( v[0], v[1], v[2] );
 }
 
 static void
 _tnl_SecondaryColor3ubvEXT( const GLubyte *v )
 {
-   GET_IMMEDIATE;
-   SECONDARY_COLOR(IM,
-                   UBYTE_TO_FLOAT(v[0]),
+   SECONDARY_COLOR(UBYTE_TO_FLOAT(v[0]),
                    UBYTE_TO_FLOAT(v[1]),
                    UBYTE_TO_FLOAT(v[2]));
 }
-
-
 
 
 static void
@@ -526,7 +525,7 @@ _tnl_EdgeFlag( GLboolean flag )
    GET_IMMEDIATE;
    count = IM->Count;
    IM->EdgeFlag[count] = flag;
-   IM->Flag[count] |= VERT_EDGE;
+   IM->Flag[count] |= VERT_BIT_EDGEFLAG;
 }
 
 
@@ -537,7 +536,7 @@ _tnl_EdgeFlagv( const GLboolean *flag )
    GET_IMMEDIATE;
    count = IM->Count;
    IM->EdgeFlag[count] = *flag;
-   IM->Flag[count] |= VERT_EDGE;
+   IM->Flag[count] |= VERT_BIT_EDGEFLAG;
 }
 
 
@@ -547,8 +546,8 @@ _tnl_FogCoordfEXT( GLfloat f )
    GLuint count;
    GET_IMMEDIATE;
    count = IM->Count;
-   IM->FogCoord[count] = f;
-   IM->Flag[count] |= VERT_FOG_COORD;
+   IM->Attrib[VERT_ATTRIB_FOG][count][0] = f; /*FogCoord[count] = f;*/
+   IM->Flag[count] |= VERT_BIT_FOG;
 }
 
 static void
@@ -557,8 +556,8 @@ _tnl_FogCoordfvEXT( const GLfloat *v )
    GLuint count;
    GET_IMMEDIATE;
    count = IM->Count;
-   IM->FogCoord[count] = v[0];
-   IM->Flag[count] |= VERT_FOG_COORD;
+   IM->Attrib[VERT_ATTRIB_FOG][count][0] = v[0]; /*FogCoord[count] = v[0];*/
+   IM->Flag[count] |= VERT_BIT_FOG;
 }
 
 
@@ -569,7 +568,7 @@ _tnl_Indexi( GLint c )
    GET_IMMEDIATE;
    count = IM->Count;
    IM->Index[count] = c;
-   IM->Flag[count] |= VERT_INDEX;
+   IM->Flag[count] |= VERT_BIT_INDEX;
 }
 
 
@@ -580,19 +579,19 @@ _tnl_Indexiv( const GLint *c )
    GET_IMMEDIATE;
    count = IM->Count;
    IM->Index[count] = *c;
-   IM->Flag[count] |= VERT_INDEX;
+   IM->Flag[count] |= VERT_BIT_INDEX;
 }
 
 
-#define NORMAL( x, y, z )			\
-{						\
-   GLuint count;				\
-   GLfloat *normal;				\
-   GET_IMMEDIATE;				\
-   count = IM->Count;				\
-   IM->Flag[count] |= VERT_NORM;		\
-   normal = IM->Normal[count];			\
-   ASSIGN_3V(normal, x,y,z);			\
+#define NORMAL( x, y, z )				\
+{							\
+   GLuint count;					\
+   GLfloat *normal;					\
+   GET_IMMEDIATE;					\
+   count = IM->Count;					\
+   IM->Flag[count] |= VERT_BIT_NORMAL;			\
+   normal = IM->Attrib[VERT_ATTRIB_NORMAL][count];	\
+   ASSIGN_3V(normal, x,y,z);				\
 }
 
 #if defined(USE_IEEE)
@@ -602,8 +601,8 @@ _tnl_Indexiv( const GLint *c )
    fi_type *normal;						\
    GET_IMMEDIATE;						\
    count = IM->Count;						\
-   IM->Flag[count] |= VERT_NORM;				\
-   normal = (fi_type *)IM->Normal[count];			\
+   IM->Flag[count] |= VERT_BIT_NORMAL;				\
+   normal = (fi_type *)IM->Attrib[VERT_ATTRIB_NORMAL][count];	\
    normal[0].i = ((fi_type *)&(x))->i;				\
    normal[1].i = ((fi_type *)&(y))->i;				\
    normal[2].i = ((fi_type *)&(z))->i;				\
@@ -635,55 +634,55 @@ _tnl_Normal3fv( const GLfloat *v )
    GLfloat *tc;					\
    GET_IMMEDIATE;				\
    count = IM->Count;				\
-   IM->Flag[count] |= VERT_TEX0;		\
-   tc = IM->TexCoord0[count];			\
+   IM->Flag[count] |= VERT_BIT_TEX0;		\
+   tc = IM->Attrib[VERT_ATTRIB_TEX0][count];	\
    ASSIGN_4V(tc,s,0,0,1);			\
 }
 
-#define TEXCOORD2(s,t)				\
+#define TEXCOORD2(s, t)				\
 {						\
    GLuint count;				\
    GLfloat *tc;					\
    GET_IMMEDIATE;				\
    count = IM->Count;				\
-   IM->Flag[count] |= VERT_TEX0;		\
-   tc = IM->TexCoord0[count];			\
-   ASSIGN_4V(tc, s,t,0,1);		        \
+   IM->Flag[count] |= VERT_BIT_TEX0;		\
+   tc = IM->Attrib[VERT_ATTRIB_TEX0][count];	\
+   ASSIGN_4V(tc, s, t, 0, 1);		        \
 }
 
-#define TEXCOORD3(s,t,u)			\
+#define TEXCOORD3(s, t, u)			\
 {						\
    GLuint count;				\
    GLfloat *tc;					\
    GET_IMMEDIATE;				\
    count = IM->Count;				\
-   IM->Flag[count] |= VERT_TEX0;		\
-   IM->TexSize |= TEX_0_SIZE_3;		\
-   tc = IM->TexCoord0[count];			\
-   ASSIGN_4V(tc, s,t,u,1);			\
+   IM->Flag[count] |= VERT_BIT_TEX0;		\
+   IM->TexSize |= TEX_0_SIZE_3;			\
+   tc = IM->Attrib[VERT_ATTRIB_TEX0][count];	\
+   ASSIGN_4V(tc, s, t, u, 1);			\
 }
 
-#define TEXCOORD4(s,t,u,v)			\
+#define TEXCOORD4(s, t, u, v)			\
 {						\
    GLuint count;				\
    GLfloat *tc;					\
    GET_IMMEDIATE;				\
    count = IM->Count;				\
-   IM->Flag[count] |= VERT_TEX0;		\
-   IM->TexSize |= TEX_0_SIZE_4;		\
-   tc = IM->TexCoord0[count];			\
-   ASSIGN_4V(tc, s,t,u,v);			\
+   IM->Flag[count] |= VERT_BIT_TEX0;		\
+   IM->TexSize |= TEX_0_SIZE_4;			\
+   tc = IM->Attrib[VERT_ATTRIB_TEX0][count];	\
+   ASSIGN_4V(tc, s, t, u, v);			\
 }
 
 #if defined(USE_IEEE)
-#define TEXCOORD2F(s,t)					\
+#define TEXCOORD2F(s, t)				\
 {							\
    GLuint count;					\
    fi_type *tc;						\
    GET_IMMEDIATE;					\
    count = IM->Count;					\
-   IM->Flag[count] |= VERT_TEX0;			\
-   tc = (fi_type *)IM->TexCoord0[count];		\
+   IM->Flag[count] |= VERT_BIT_TEX0;			\
+   tc = (fi_type *)IM->Attrib[VERT_ATTRIB_TEX0][count];	\
    tc[0].i = ((fi_type *)&(s))->i;			\
    tc[1].i = ((fi_type *)&(t))->i;			\
    tc[2].i = 0;						\
@@ -703,20 +702,20 @@ _tnl_TexCoord1f( GLfloat s )
 static void
 _tnl_TexCoord2f( GLfloat s, GLfloat t )
 {
-   TEXCOORD2F(s,t);
+   TEXCOORD2F(s, t);
 }
 
 
 static void
 _tnl_TexCoord3f( GLfloat s, GLfloat t, GLfloat r )
 {
-   TEXCOORD3(s,t,r);
+   TEXCOORD3(s, t, r);
 }
 
 static void
 _tnl_TexCoord4f( GLfloat s, GLfloat t, GLfloat r, GLfloat q )
 {
-   TEXCOORD4(s,t,r,q)
+   TEXCOORD4(s, t, r, q)
 }
 
 static void
@@ -728,19 +727,19 @@ _tnl_TexCoord1fv( const GLfloat *v )
 static void
 _tnl_TexCoord2fv( const GLfloat *v )
 {
-   TEXCOORD2F(v[0],v[1]);
+   TEXCOORD2F(v[0], v[1]);
 }
 
 static void
 _tnl_TexCoord3fv( const GLfloat *v )
 {
-   TEXCOORD3(v[0],v[1],v[2]);
+   TEXCOORD3(v[0], v[1], v[2]);
 }
 
 static void
 _tnl_TexCoord4fv( const GLfloat *v )
 {
-   TEXCOORD4(v[0],v[1],v[2],v[3]);
+   TEXCOORD4(v[0], v[1], v[2], v[3]);
 }
 
 
@@ -748,86 +747,86 @@ _tnl_TexCoord4fv( const GLfloat *v )
 /* KW: Run into bad problems in vertex copying if we don't fully pad
  *     the incoming vertices.
  */
-#define VERTEX2(IM, x,y)			\
-{						\
-   GLuint count = IM->Count++;			\
-   GLfloat *dest = IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ;			\
-   ASSIGN_4V(dest, x, y, 0, 1);			\
-/*     ASSERT(IM->Flag[IM->Count]==0);		 */\
-   if (count == IMM_MAXDATA - 1)		\
-      _tnl_flush_immediate( IM );		\
-}
-
-#define VERTEX3(IM,x,y,z)			\
-{						\
-   GLuint count = IM->Count++;			\
-   GLfloat *dest = IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ_23;		\
-   ASSIGN_4V(dest, x, y, z, 1);			\
-/*     ASSERT(IM->Flag[IM->Count]==0); */		\
-   if (count == IMM_MAXDATA - 1)		\
-      _tnl_flush_immediate( IM );		\
-}
-
-#define VERTEX4(IM, x,y,z,w)			\
-{						\
-   GLuint count = IM->Count++;			\
-   GLfloat *dest = IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ_234;		\
-   ASSIGN_4V(dest, x, y, z, w);			\
+#define VERTEX2(IM, x,y)				\
+{							\
+   GLuint count = IM->Count++;				\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_POS;			\
+   ASSIGN_4V(dest, x, y, 0, 1);				\
+/*     ASSERT(IM->Flag[IM->Count]==0);		 */	\
    if (count == IMM_MAXDATA - 1)			\
-      _tnl_flush_immediate( IM );		\
+      _tnl_flush_immediate( NULL, IM );			\
+}
+
+#define VERTEX3(IM,x,y,z)				\
+{							\
+   GLuint count = IM->Count++;				\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BITS_OBJ_23;			\
+   ASSIGN_4V(dest, x, y, z, 1);				\
+/*     ASSERT(IM->Flag[IM->Count]==0); */		\
+   if (count == IMM_MAXDATA - 1)			\
+      _tnl_flush_immediate( NULL, IM );			\
+}
+
+#define VERTEX4(IM, x,y,z,w)				\
+{							\
+   GLuint count = IM->Count++;				\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BITS_OBJ_234;		\
+   ASSIGN_4V(dest, x, y, z, w);				\
+   if (count == IMM_MAXDATA - 1)			\
+      _tnl_flush_immediate( NULL, IM );			\
 }
 
 #if defined(USE_IEEE)
-#define VERTEX2F(IM, x, y)				\
-{							\
-   GLuint count = IM->Count++;				\
-   fi_type *dest = (fi_type *)IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ; 			\
-   dest[0].i = ((fi_type *)&(x))->i;			\
-   dest[1].i = ((fi_type *)&(y))->i;			\
-   dest[2].i = 0;					\
-   dest[3].i = IEEE_ONE;				\
-/*     ASSERT(IM->Flag[IM->Count]==0); */		\
-   if (count == IMM_MAXDATA - 1)			\
-      _tnl_flush_immediate( IM );			\
+#define VERTEX2F(IM, x, y)						\
+{									\
+   GLuint count = IM->Count++;						\
+   fi_type *dest = (fi_type *)IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_POS; 					\
+   dest[0].i = ((fi_type *)&(x))->i;					\
+   dest[1].i = ((fi_type *)&(y))->i;					\
+   dest[2].i = 0;							\
+   dest[3].i = IEEE_ONE;						\
+/*     ASSERT(IM->Flag[IM->Count]==0); */				\
+   if (count == IMM_MAXDATA - 1)					\
+      _tnl_flush_immediate( NULL, IM );					\
 }
 #else
 #define VERTEX2F VERTEX2
 #endif
 
 #if defined(USE_IEEE)
-#define VERTEX3F(IM, x, y, z)				\
-{							\
-   GLuint count = IM->Count++;				\
-   fi_type *dest = (fi_type *)IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ_23;			\
-   dest[0].i = ((fi_type *)&(x))->i;			\
-   dest[1].i = ((fi_type *)&(y))->i;			\
-   dest[2].i = ((fi_type *)&(z))->i;			\
-   dest[3].i = IEEE_ONE;				\
-/*     ASSERT(IM->Flag[IM->Count]==0);	 */		\
-   if (count == IMM_MAXDATA - 1)			\
-      _tnl_flush_immediate( IM );			\
+#define VERTEX3F(IM, x, y, z)						\
+{									\
+   GLuint count = IM->Count++;						\
+   fi_type *dest = (fi_type *)IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BITS_OBJ_23;					\
+   dest[0].i = ((fi_type *)&(x))->i;					\
+   dest[1].i = ((fi_type *)&(y))->i;					\
+   dest[2].i = ((fi_type *)&(z))->i;					\
+   dest[3].i = IEEE_ONE;						\
+/*     ASSERT(IM->Flag[IM->Count]==0);	 */				\
+   if (count == IMM_MAXDATA - 1)					\
+      _tnl_flush_immediate( NULL, IM );					\
 }
 #else
 #define VERTEX3F VERTEX3
 #endif
 
 #if defined(USE_IEEE)
-#define VERTEX4F(IM, x, y, z, w)			\
-{							\
-   GLuint count = IM->Count++;				\
-   fi_type *dest = (fi_type *)IM->Obj[count];		\
-   IM->Flag[count] |= VERT_OBJ_234;			\
-   dest[0].i = ((fi_type *)&(x))->i;			\
-   dest[1].i = ((fi_type *)&(y))->i;			\
-   dest[2].i = ((fi_type *)&(z))->i;			\
-   dest[3].i = ((fi_type *)&(w))->i;			\
-   if (count == IMM_MAXDATA - 1)			\
-      _tnl_flush_immediate( IM );			\
+#define VERTEX4F(IM, x, y, z, w)					\
+{									\
+   GLuint count = IM->Count++;						\
+   fi_type *dest = (fi_type *)IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BITS_OBJ_234;				\
+   dest[0].i = ((fi_type *)&(x))->i;					\
+   dest[1].i = ((fi_type *)&(y))->i;					\
+   dest[2].i = ((fi_type *)&(z))->i;					\
+   dest[3].i = ((fi_type *)&(w))->i;					\
+   if (count == IMM_MAXDATA - 1)					\
+      _tnl_flush_immediate( NULL, IM );					\
 }
 #else
 #define VERTEX4F VERTEX4
@@ -895,9 +894,9 @@ _tnl_Vertex4fv( const GLfloat *v )
    GLuint texunit = target - GL_TEXTURE0_ARB;		\
    if (texunit < IM->MaxTextureUnits) {			\
       GLuint count = IM->Count;				\
-      GLfloat *tc = IM->TexCoord[texunit][count];	\
+      GLfloat *tc = IM->Attrib[VERT_ATTRIB_TEX0 + texunit][count];	\
       ASSIGN_4V(tc, s, 0.0F, 0.0F, 1.0F);		\
-      IM->Flag[count] |= VERT_TEX(texunit);		\
+      IM->Flag[count] |= VERT_BIT_TEX(texunit);		\
    }							\
 }
 
@@ -907,9 +906,9 @@ _tnl_Vertex4fv( const GLfloat *v )
    GLuint texunit = target - GL_TEXTURE0_ARB;		\
    if (texunit < IM->MaxTextureUnits) {			\
       GLuint count = IM->Count;				\
-      GLfloat *tc = IM->TexCoord[texunit][count];	\
+      GLfloat *tc = IM->Attrib[VERT_ATTRIB_TEX0 + texunit][count];	\
       ASSIGN_4V(tc, s, t, 0.0F, 1.0F);			\
-      IM->Flag[count] |= VERT_TEX(texunit);		\
+      IM->Flag[count] |= VERT_BIT_TEX(texunit);		\
    }							\
 }
 
@@ -919,9 +918,9 @@ _tnl_Vertex4fv( const GLfloat *v )
    GLuint texunit = target - GL_TEXTURE0_ARB;		\
    if (texunit < IM->MaxTextureUnits) {			\
       GLuint count = IM->Count;				\
-      GLfloat *tc = IM->TexCoord[texunit][count];	\
+      GLfloat *tc = IM->Attrib[VERT_ATTRIB_TEX0 + texunit][count];	\
       ASSIGN_4V(tc, s, t, u, 1.0F);			\
-      IM->Flag[count] |= VERT_TEX(texunit);		\
+      IM->Flag[count] |= VERT_BIT_TEX(texunit);		\
       IM->TexSize |= TEX_SIZE_3(texunit);		\
    }							\
 }
@@ -932,9 +931,9 @@ _tnl_Vertex4fv( const GLfloat *v )
    GLuint texunit = target - GL_TEXTURE0_ARB;		\
    if (texunit < IM->MaxTextureUnits) {			\
       GLuint count = IM->Count;				\
-      GLfloat *tc = IM->TexCoord[texunit][count];	\
+      GLfloat *tc = IM->Attrib[VERT_ATTRIB_TEX0 + texunit][count];	\
       ASSIGN_4V(tc, s, t, u, v);			\
-      IM->Flag[count] |= VERT_TEX(texunit);		\
+      IM->Flag[count] |= VERT_BIT_TEX(texunit);		\
       IM->TexSize |= TEX_SIZE_4(texunit);		\
    }							\
 }
@@ -946,8 +945,8 @@ _tnl_Vertex4fv( const GLfloat *v )
    GLuint texunit = target - GL_TEXTURE0_ARB;			\
    if (texunit < IM->MaxTextureUnits) {				\
       GLuint count = IM->Count;					\
-      fi_type *tc = (fi_type *)IM->TexCoord[texunit][count];	\
-      IM->Flag[count] |= VERT_TEX(texunit);			\
+      fi_type *tc = (fi_type *)IM->Attrib[VERT_ATTRIB_TEX0 + texunit][count];\
+      IM->Flag[count] |= VERT_BIT_TEX(texunit);			\
       tc[0].i = ((fi_type *)&(s))->i;				\
       tc[1].i = ((fi_type *)&(t))->i;				\
       tc[2].i = 0;						\
@@ -1017,37 +1016,41 @@ _tnl_MultiTexCoord4fvARB(GLenum target, const GLfloat *v)
 #define EVALCOORD1(IM, x)				\
 {							\
    GLuint count = IM->Count++;				\
-   IM->Flag[count] |= VERT_EVAL_C1;			\
-   ASSIGN_4V(IM->Obj[count], x, 0, 0, 1);		\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_EVAL_C1;			\
+   ASSIGN_4V(dest, x, 0, 0, 1);				\
    if (count == IMM_MAXDATA-1)				\
-      _tnl_flush_immediate( IM );			\
+      _tnl_flush_immediate( NULL, IM );			\
 }
 
 #define EVALCOORD2(IM, x, y)				\
 {							\
    GLuint count = IM->Count++;				\
-   IM->Flag[count] |= VERT_EVAL_C2;			\
-   ASSIGN_4V(IM->Obj[count], x, y, 0, 1);		\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_EVAL_C2;			\
+   ASSIGN_4V(dest, x, y, 0, 1);				\
    if (count == IMM_MAXDATA-1)				\
-      _tnl_flush_immediate( IM );			\
+      _tnl_flush_immediate( NULL, IM );			\
 }
 
 #define EVALPOINT1(IM, x)				\
 {							\
    GLuint count = IM->Count++;				\
-   IM->Flag[count] |= VERT_EVAL_P1;			\
-   ASSIGN_4V(IM->Obj[count], x, 0, 0, 1);		\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_EVAL_P1;			\
+   ASSIGN_4V(dest, x, 0, 0, 1);				\
    if (count == IMM_MAXDATA-1)				\
-      _tnl_flush_immediate( IM );			\
+      _tnl_flush_immediate( NULL, IM );			\
 }
 
 #define EVALPOINT2(IM, x, y)				\
 {							\
    GLuint count = IM->Count++;				\
-   IM->Flag[count] |= VERT_EVAL_P2;			\
-   ASSIGN_4V(IM->Obj[count], x, y, 0, 1);		\
+   GLfloat *dest = IM->Attrib[VERT_ATTRIB_POS][count];	\
+   IM->Flag[count] |= VERT_BIT_EVAL_P2;			\
+   ASSIGN_4V(dest, x, y, 0, 1);				\
    if (count == IMM_MAXDATA-1)				\
-      _tnl_flush_immediate( IM );			\
+      _tnl_flush_immediate( NULL, IM );			\
 }
 
 static void
@@ -1103,11 +1106,11 @@ _tnl_EvalPoint2( GLint i, GLint j )
    GLuint count = IM->Count;			\
    IM->Elt[count] = i;				\
    IM->Flag[count] &= IM->ArrayEltFlags;	\
-   IM->Flag[count] |= VERT_ELT;			\
+   IM->Flag[count] |= VERT_BIT_ELT;		\
    IM->FlushElt = IM->ArrayEltFlush;		\
    IM->Count += IM->ArrayEltIncr;		\
-   if (IM->Count == IMM_MAXDATA)			\
-      _tnl_flush_immediate( IM );		\
+   if (IM->Count == IMM_MAXDATA)		\
+      _tnl_flush_immediate( NULL, IM );		\
 }
 
 
@@ -1145,6 +1148,51 @@ _tnl_eval_coord2f( GLcontext *CC, GLfloat u, GLfloat v )
 
 
 
+/*
+ * NV_vertex_program
+ */
+
+static void
+_tnl_VertexAttrib4fNV( GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w )
+{
+   if (index < 16) {
+      GET_IMMEDIATE;
+      const GLuint count = IM->Count;
+      GLfloat *attrib = IM->Attrib[index][count];
+      ASSIGN_4V(attrib, x, y, z, w);
+      IM->Flag[count] |= (1 << index);
+      if (index == 0) {
+         IM->Count++;
+         if (count == IMM_MAXDATA - 1)
+            _tnl_flush_immediate( NULL, IM );
+      }
+   }
+   else {
+      GET_CURRENT_CONTEXT(ctx);
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribNV(index > 15)");
+   }
+}   
+
+static void
+_tnl_VertexAttrib4fvNV( GLuint index, const GLfloat *v )
+{
+   if (index < 16) {
+      GET_IMMEDIATE;
+      const GLuint count = IM->Count;
+      GLfloat *attrib = IM->Attrib[index][count];
+      COPY_4V(attrib, v);
+      IM->Flag[count] |= (1 << index);
+      if (index == 0) {
+         IM->Count++;
+         if (count == IMM_MAXDATA - 1)
+            _tnl_flush_immediate( NULL, IM );
+      }
+   }
+   else {
+      GET_CURRENT_CONTEXT(ctx);
+      _mesa_error(ctx, GL_INVALID_VALUE, "glVertexAttribNV(index > 15)");
+   }
+}   
 
 
 /* Execute a glRectf() function.  _tnl_hard_begin() ensures the check
@@ -1180,20 +1228,20 @@ _tnl_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
       return;
    
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "_tnl_Materialfv\n");
+      _mesa_debug(ctx, "_tnl_Materialfv\n");
 
    if (tnl->IsolateMaterials &&
        !(IM->BeginState & VERT_BEGIN_1)) /* heuristic */
    {
-      _tnl_flush_immediate( IM );      
+      _tnl_flush_immediate( ctx, IM );      
       IM = TNL_CURRENT_IM(ctx);
       count = IM->Count;
    }
 
-   if (!(IM->Flag[count] & VERT_MATERIAL)) {
+   if (!(IM->Flag[count] & VERT_BIT_MATERIAL)) {
       if (!IM->Material) {
-	 IM->Material = (GLmaterial (*)[2]) MALLOC( sizeof(GLmaterial) *
-						    IMM_SIZE * 2 );
+	 IM->Material = (struct gl_material (*)[2])
+            MALLOC( sizeof(struct gl_material) * IMM_SIZE * 2 );
 	 IM->MaterialMask = (GLuint *) MALLOC( sizeof(GLuint) * IMM_SIZE );
 	 IM->MaterialMask[IM->LastMaterial] = 0;
       }
@@ -1203,7 +1251,7 @@ _tnl_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
 				    IM->MaterialOrMask & ~bitmask );
       }
 
-      IM->Flag[count] |= VERT_MATERIAL;
+      IM->Flag[count] |= VERT_BIT_MATERIAL;
       IM->MaterialMask[count] = 0;
       IM->MaterialAndMask &= IM->MaterialMask[IM->LastMaterial];
       IM->LastMaterial = count;
@@ -1259,7 +1307,7 @@ _tnl_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
    if (tnl->IsolateMaterials && 
        !(IM->BeginState & VERT_BEGIN_1)) /* heuristic */
    {
-      _tnl_flush_immediate( IM );
+      _tnl_flush_immediate( ctx, IM );
    }
 }
 
@@ -1321,6 +1369,8 @@ void _tnl_imm_vtxfmt_init( GLcontext *ctx )
    vfmt->Vertex3fv = _tnl_Vertex3fv;
    vfmt->Vertex4f = _tnl_Vertex4f;
    vfmt->Vertex4fv = _tnl_Vertex4fv;
+   vfmt->VertexAttrib4fNV = _tnl_VertexAttrib4fNV;
+   vfmt->VertexAttrib4fvNV = _tnl_VertexAttrib4fvNV;
 
    /* Outside begin/end functions (from t_varray.c, t_eval.c, ...):
     */

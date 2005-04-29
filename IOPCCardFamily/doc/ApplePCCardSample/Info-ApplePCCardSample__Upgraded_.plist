@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleExecutable</key>
+	<string>ApplePCCardSample</string>
+	<key>CFBundleGetInfoString</key>
+	<string>Sample demonstration driver for IOPCCard16Device device nubs.</string>
+	<key>CFBundleIconFile</key>
+	<string></string>
+	<key>CFBundleIdentifier</key>
+	<string>com.apple.iokit.ApplePCCardSample</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ApplePCCardSample</string>
+	<key>CFBundlePackageType</key>
+	<string>KEXT</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>1.0.0d1</string>
+	<key>IOKitPersonalities</key>
+	<dict>
+		<key>Serial Card</key>
+		<dict>
+			<key> comment</key>
+			<string> this is an example of function name matching</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.ApplePCCardSample</string>
+			<key>FunctionName</key>
+			<string>Serial Port</string>
+			<key>IOClass</key>
+			<string>ApplePCCardSample</string>
+			<key>IOKitDebug</key>
+			<integer>65535</integer>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCCard16Device</string>
+		</dict>
+		<key>WaveLAN</key>
+		<dict>
+			<key> comment</key>
+			<string>this is an example of version one tuple matching</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.ApplePCCardSample</string>
+			<key>IOClass</key>
+			<string>ApplePCCardSample</string>
+			<key>IOKitDebug</key>
+			<integer>65535</integer>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCCard16Device</string>
+			<key>VersionOneInfo</key>
+			<array>
+				<string>Lucent Technologies</string>
+				<string>WaveLAN/IEEE</string>
+			</array>
+		</dict>
+		<key>everything else</key>
+		<dict>
+			<key> comment</key>
+			<string>this an example of specific vendor id/model id matching</string>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.ApplePCCardSample</string>
+			<key>IOClass</key>
+			<string>ApplePCCardSample</string>
+			<key>IOKitDebug</key>
+			<integer>65535</integer>
+			<key>IONameMatch</key>
+			<array>
+				<string>pccard-no-cis</string>
+				<string>pccard-no-manfid</string>
+				<string>pccard0,0</string>
+				<string>pccard106,0</string>
+				<string>pccard149,c1ab</string>
+				<string>pccard1fd,0</string>
+				<string>pccard4e01,200</string>
+				<string>pccard89,8503</string>
+				<string>pccard89,8513</string>
+				<string>pccard1f1,100</string>
+				<string>pccard101,589</string>
+				<string>pccardffff,1</string>
+				<string>pccard12f,1</string>
+				<string>pccard105,10a</string>
+				<string>pccard101,562</string>
+			</array>
+			<key>IOProbeScore</key>
+			<integer>10000</integer>
+			<key>IOProviderClass</key>
+			<string>IOPCCard16Device</string>
+		</dict>
+	</dict>
+	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.iokit.IOPCCardFamily</key>
+		<string>1.1.0</string>
+	</dict>
+</dict>
+</plist>

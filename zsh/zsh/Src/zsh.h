@@ -28,7 +28,7 @@
  */
 
 #define trashzle()      trashzleptr()
-#define zleread(X,Y,H)  zlereadptr(X,Y,H)
+#define zleread(X,Y,H,C)  zlereadptr(X,Y,H,C)
 #define spaceinline(X)  spaceinlineptr(X)
 #define zrefresh()      refreshptr()
 
@@ -209,7 +209,7 @@ enum {
     OUTBRACE,   /* }         */
     CASE,	/* case      */
     COPROC,	/* coproc    */
-    DO,		/* do        */
+    DOLOOP,	/* do        */
     DONE,	/* done      */ /* 45 */
     ELIF,	/* elif      */
     ELSE,	/* else      */
@@ -580,6 +580,10 @@ struct eccstr {
 #define WC_COND    17
 #define WC_ARITH   18
 #define WC_AUTOFN  19
+#define WC_TRY     20
+
+/* increment as necessary */
+#define WC_COUNT   21
 
 #define WCB_END()           wc_bld(WC_END, 0)
 
@@ -657,6 +661,9 @@ struct eccstr {
 #define WC_REPEAT_SKIP(C)   wc_data(C)
 #define WCB_REPEAT(O)       wc_bld(WC_REPEAT, (O))
 
+#define WC_TRY_SKIP(C)	    wc_data(C)
+#define WCB_TRY(O)	    wc_bld(WC_TRY, (O))
+
 #define WC_CASE_TYPE(C)     (wc_data(C) & 3)
 #define WC_CASE_HEAD        0
 #define WC_CASE_OR          1
@@ -683,10 +690,6 @@ struct eccstr {
 /********************************************/
 /* Definitions for job table and job control */
 /********************************************/
-
-#ifdef NEED_LINUX_TASKS_H
-#include <linux/tasks.h>
-#endif
 
 /* entry in the job table */
 
@@ -731,14 +734,23 @@ struct timeinfo {
 
 #define JOBTEXTSIZE 80
 
+/* Size to initialise the job table to, and to increment it by when needed. */
+#define MAXJOBS_ALLOC	(50)
+
 /* node in job process lists */
+
+#ifdef HAVE_GETRUSAGE
+typedef struct rusage child_times_t;
+#else
+typedef struct timeinfo child_times_t;
+#endif
 
 struct process {
     struct process *next;
     pid_t pid;                  /* process id                       */
     char text[JOBTEXTSIZE];	/* text to print when 'jobs' is run */
     int status;			/* return code from waitpid/wait3() */
-    struct timeinfo ti;
+    child_times_t ti;
     struct timeval bgtime;	/* time job was spawned             */
     struct timeval endtime;	/* time job exited                  */
 };
@@ -872,8 +884,11 @@ struct alias {
     int inuse;			/* alias is being expanded  */
 };
 
-/* is this alias global */
+/* bit 0 of flags is the DISABLED flag */
+/* is this alias global? */
 #define ALIAS_GLOBAL	(1<<1)
+/* is this an alias for suffix handling? */
+#define ALIAS_SUFFIX	(1<<2)
 
 /* node in command path hash table (cmdnamtab) */
 
@@ -1073,10 +1088,10 @@ struct patprog {
     long		startoff;  /* length before start of programme */
     long		size;	   /* total size from start of struct */
     long		mustoff;   /* offset to string that must be present */
+    long		patmlen;   /* length of pure string or longest match */
     int			globflags; /* globbing flags to set at start */
     int			globend;   /* globbing flags set after finish */
     int			flags;	   /* PAT_* flags */
-    int			patmlen;   /* length of pure string or longest match */
     int			patnpar;   /* number of active parentheses */
     char		patstartch;
 };
@@ -1094,6 +1109,7 @@ struct patprog {
 #define PAT_ZDUP        0x0100  /* Copy pattern in real memory */
 #define PAT_NOTSTART	0x0200	/* Start of string is not real start */
 #define PAT_NOTEND	0x0400	/* End of string is not real end */
+#define PAT_HAS_EXCLUDP	0x0800	/* (internal): top-level path1~path2. */
 
 /* Globbing flags: lower 8 bits gives approx count */
 #define GF_LCMATCHUC	0x0100
@@ -1106,6 +1122,49 @@ struct patprog {
 
 #define dummy_patprog1 ((Patprog) 1)
 #define dummy_patprog2 ((Patprog) 2)
+
+/* standard node types for get/set/unset union in parameter */
+
+/*
+ * note non-standard const in pointer declaration: structures are
+ * assumed to be read-only.
+ */
+typedef const struct gsu_scalar *GsuScalar;
+typedef const struct gsu_integer *GsuInteger;
+typedef const struct gsu_float *GsuFloat;
+typedef const struct gsu_array *GsuArray;
+typedef const struct gsu_hash *GsuHash;
+
+struct gsu_scalar {
+    char *(*getfn) _((Param));
+    void (*setfn) _((Param, char  *));
+    void (*unsetfn) _((Param, int));
+};
+
+struct gsu_integer {
+    zlong (*getfn) _((Param));
+    void (*setfn) _((Param, zlong));
+    void (*unsetfn) _((Param, int));
+};
+
+struct gsu_float {
+    double (*getfn) _((Param));
+    void (*setfn) _((Param, double));
+    void (*unsetfn) _((Param, int));
+};
+
+struct gsu_array {
+    char **(*getfn) _((Param));
+    void (*setfn) _((Param, char **));
+    void (*unsetfn) _((Param, int));
+};
+
+struct gsu_hash {
+    HashTable (*getfn) _((Param));
+    void (*setfn) _((Param, HashTable));
+    void (*unsetfn) _((Param, int));
+};
+
 
 /* node used in parameter hash table (paramtab) */
 
@@ -1120,37 +1179,40 @@ struct param {
 	char **arr;		/* value if declared array   (PM_ARRAY)   */
 	char *str;		/* value if declared string  (PM_SCALAR)  */
 	zlong val;		/* value if declared integer (PM_INTEGER) */
+	zlong *valptr;		/* value if special pointer to integer */
 	double dval;		/* value if declared float
 				                    (PM_EFLOAT|PM_FFLOAT) */
         HashTable hash;		/* value if declared assoc   (PM_HASHED)  */
     } u;
 
-    /* pointer to function to set value of this parameter */
+    /*
+     * get/set/unset methods.
+     *
+     * Unlike the data union, this points to a single instance
+     * for every type (although there are special types, e.g.
+     * tied arrays have a different gsu_scalar struct from the
+     * normal one).  It's really a poor man's vtable.
+     */
     union {
-	void (*cfn) _((Param, char *));
-	void (*ifn) _((Param, zlong));
-	void (*ffn) _((Param, double));
-	void (*afn) _((Param, char **));
-        void (*hfn) _((Param, HashTable));
-    } sets;
+	GsuScalar s;
+	GsuInteger i;
+	GsuFloat f;
+	GsuArray a;
+	GsuHash h;
+    } gsu;
 
-    /* pointer to function to get value of this parameter */
-    union {
-	char *(*cfn) _((Param));
-	zlong (*ifn) _((Param));
-	double (*ffn) _((Param));
-	char **(*afn) _((Param));
-        HashTable (*hfn) _((Param));
-    } gets;
-
-    /* pointer to function to unset this parameter */
-    void (*unsetfn) _((Param, int));
-
-    int ct;			/* output base or field width            */
+    int base;			/* output base or floating point prec    */
+    int width;			/* field width                           */
     char *env;			/* location in environment, if exported  */
     char *ename;		/* name of corresponding environment var */
     Param old;			/* old struct for use with local         */
     int level;			/* if (old != NULL), level of localness  */
+};
+
+/* structure stored in struct param's u.data by tied arrays */
+struct tieddata {
+    char ***arrptr;		/* pointer to corresponding array */
+    int joinchar;		/* character used to join arrays */
 };
 
 /* flags for parameters */
@@ -1189,20 +1251,23 @@ struct param {
 #define PM_HIDEVAL	(1<<15)	/* Value not shown in `typeset' commands    */
 #define PM_TIED 	(1<<16)	/* array tied to colon-path or v.v.         */
 
+#define PM_KSHSTORED	(1<<17) /* function stored in ksh form              */
+#define PM_ZSHSTORED	(1<<18) /* function stored in zsh form              */
+
 /* Remaining flags do not correspond directly to command line arguments */
-#define PM_LOCAL	(1<<17) /* this parameter will be made local        */
-#define PM_SPECIAL	(1<<18) /* special builtin parameter                */
-#define PM_DONTIMPORT	(1<<19)	/* do not import this variable              */
-#define PM_RESTRICTED	(1<<20) /* cannot be changed in restricted mode     */
-#define PM_UNSET	(1<<21)	/* has null value                           */
-#define PM_REMOVABLE	(1<<22)	/* special can be removed from paramtab     */
-#define PM_AUTOLOAD	(1<<23) /* autoloaded from module                   */
-#define PM_NORESTORE	(1<<24)	/* do not restore value of local special    */
-#define PM_HASHELEM     (1<<25) /* is a hash-element */
-#define PM_NAMEDDIR     (1<<26) /* has a corresponding nameddirtab entry    */
+#define PM_LOCAL	(1<<21) /* this parameter will be made local        */
+#define PM_SPECIAL	(1<<22) /* special builtin parameter                */
+#define PM_DONTIMPORT	(1<<23)	/* do not import this variable              */
+#define PM_RESTRICTED	(1<<24) /* cannot be changed in restricted mode     */
+#define PM_UNSET	(1<<25)	/* has null value                           */
+#define PM_REMOVABLE	(1<<26)	/* special can be removed from paramtab     */
+#define PM_AUTOLOAD	(1<<27) /* autoloaded from module                   */
+#define PM_NORESTORE	(1<<28)	/* do not restore value of local special    */
+#define PM_HASHELEM     (1<<29) /* is a hash-element */
+#define PM_NAMEDDIR     (1<<30) /* has a corresponding nameddirtab entry    */
 
 /* The option string corresponds to the first of the variables above */
-#define TYPESET_OPTSTR "aiEFALRZlurtxUhHT"
+#define TYPESET_OPTSTR "aiEFALRZlurtxUhHTkz"
 
 /* These typeset options take an optional numeric argument */
 #define TYPESET_OPTNUM "LRZiEF"
@@ -1246,22 +1311,22 @@ struct paramdef {
     char *name;
     int flags;
     void *var;
-    void *set;
-    void *get;
-    void *unset;
+    void *gsu;			/* get/set/unset structure */
 };
 
-#define PARAMDEF(name, flags, var, set, get, unset) \
-    { name, flags, (void *) var, (void *) set, (void *) get, (void *) unset }
+#define PARAMDEF(name, flags, var, gsu) \
+    { name, flags, (void *) var, (void *) gsu, }
+/*
+ * Note that the following definitions are appropriate for defining
+ * parameters that reference a variable (var).  Hence the get/set/unset
+ * methods used will assume var needs dereferencing to get the value.
+ */
 #define INTPARAMDEF(name, var) \
-    { name, PM_INTEGER, (void *) var, (void *) intvarsetfn, \
-      (void *) intvargetfn, (void *) stdunsetfn }
+    { name, PM_INTEGER, (void *) var, NULL }
 #define STRPARAMDEF(name, var) \
-    { name, PM_SCALAR, (void *) var, (void *) strvarsetfn, \
-      (void *) strvargetfn, (void *) stdunsetfn }
+    { name, PM_SCALAR, (void *) var, NULL }
 #define ARRPARAMDEF(name, var) \
-    { name, PM_ARRAY, (void *) var, (void *) arrvarsetfn, \
-      (void *) arrvargetfn, (void *) stdunsetfn }
+    { name, PM_ARRAY, (void *) var, NULL }
 
 #define setsparam(S,V) assignsparam(S,V,0)
 #define setaparam(S,V) assignaparam(S,V,0)
@@ -1316,7 +1381,7 @@ struct histent {
     short *words;		/* Position of words in history     */
 				/*   line:  as pairs of start, end  */
     int nwords;			/* Number of words in history line  */
-    int histnum;		/* A sequential history number      */
+    zlong histnum;		/* A sequential history number      */
 };
 
 #define HIST_MAKEUNIQUE	0x00000001	/* Kill this new entry if not unique */
@@ -1346,6 +1411,7 @@ struct histent {
 #define HFILE_SKIPDUPS		0x0004
 #define HFILE_SKIPFOREIGN	0x0008
 #define HFILE_FAST		0x0010
+#define HFILE_NO_REWRITE	0x0020
 #define HFILE_USE_OPTIONS	0x8000
 
 /******************************************/
@@ -1404,6 +1470,7 @@ enum {
     BGNICE,
     BRACECCL,
     BSDECHO,
+    CASEGLOB,
     CBASES,
     CDABLEVARS,
     CHASEDOTS,
@@ -1426,6 +1493,7 @@ enum {
     EXECOPT,
     EXTENDEDGLOB,
     EXTENDEDHISTORY,
+    EVALLINENO,
     FLOWCONTROL,
     FUNCTIONARGZERO,
     GLOBOPT,
@@ -1514,6 +1582,7 @@ enum {
     SINGLELINEZLE,
     SUNKEYBOARDHACK,
     TRANSIENTRPROMPT,
+    TRAPSASYNC,
     TYPESETSILENT,
     UNSET,
     VERBOSE,
@@ -1682,6 +1751,10 @@ struct ttyinfo {
 #define CS_HEREDOCD    28
 #define CS_BRACE       29
 #define CS_BRACEPAR    30
+#define CS_ALWAYS      31
+
+/* Increment as necessary */
+#define CS_COUNT       32
 
 /*********************
  * Memory management *
@@ -1753,6 +1826,17 @@ struct heap {
 #define ZLRF_NOSETTY	0x02	/* Don't set tty before return */
 #define ZLRF_IGNOREEOF  0x04	/* Ignore an EOF from the keyboard */
 
+/***************************/
+/* Context of zleread call */
+/***************************/
+
+enum {
+    ZLCON_LINE_START,		/* Command line at PS1 */
+    ZLCON_LINE_CONT,		/* Command line at PS2 */
+    ZLCON_SELECT,		/* Select loop */
+    ZLCON_VARED			/* Vared command */
+};
+
 /****************/
 /* Entry points */
 /****************/
@@ -1765,7 +1849,7 @@ typedef int (*CompctlReadFn) _((char *, char **, Options, char *));
 
 typedef void (*ZleVoidFn) _((void));
 typedef void (*ZleVoidIntFn) _((int));
-typedef unsigned char * (*ZleReadFn) _((char *, char *, int));
+typedef unsigned char * (*ZleReadFn) _((char **, char **, int, int));
 
 /***************************************/
 /* Hooks in core.                      */

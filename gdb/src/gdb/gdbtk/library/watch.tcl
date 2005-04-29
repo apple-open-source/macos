@@ -91,12 +91,6 @@ itcl::class WatchWin {
     grid columnconfigure $entryFrame 0 -weight 1
     grid columnconfigure $entryFrame 1
 
-    if {$::tcl_platform(platform) == "windows"} {
-#      grid columnconfigure $entryFrame 1 -pad 20
-#      ide_sizebox [namespace tail $this].sizebox
-#      place [namespace tail $this].sizebox -relx 1 -rely 1 -anchor se
-    }
-
     grid $treeFrame -row 0 -column 0 -sticky news
     grid $entryFrame -row 1 -column 0 -padx 5 -pady 5 -sticky news
     grid columnconfigure $f 0 -weight 1

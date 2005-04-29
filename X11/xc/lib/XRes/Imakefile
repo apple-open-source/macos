@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/XRes/Imakefile,v 1.2 2002/10/16 00:37:26 dawes Exp $
+XCOMM $XFree86: xc/lib/XRes/Imakefile,v 1.4 2003/11/06 03:02:02 dawes Exp $
 
 #define DoNormalLib NormalLibXRes
 #define DoSharedLib SharedLibXRes
@@ -24,5 +24,11 @@ ALLOC_DEFINES = -DMALLOC_0_RETURNS_NULL
      LINTLIBS = $(LINTXLIB)
 
 #include <Library.tmpl>
+
+MANSUFFIX=$(LIBMANSUFFIX)
+InstallManPage(LibName,$(LIBMANDIR))
+#if ExpandManNames
+InstallManPageAliases(LibName,$(LIBMANDIR),XResQueryExtension XResQueryVersion XResQueryClients XResQueryClientResources XResQueryClientPixmapBytes)
+#endif
 
 DependTarget()

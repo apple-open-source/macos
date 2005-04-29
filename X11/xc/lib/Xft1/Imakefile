@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/Xft1/Imakefile,v 1.11 2002/11/14 21:01:18 tsi Exp $
+XCOMM $XFree86: xc/lib/Xft1/Imakefile,v 1.14 2003/11/17 15:18:05 tsi Exp $
 
 XCOMM Allow for builds against old installed bits
 #ifdef UseInstalled
@@ -85,8 +85,8 @@ YFLAGS = -d
 
 XFTLIBDIR=XftLibDir
 
-INCLUDES=$(FREETYPE2INCLUDES)
-DEFINES=$(FREETYPE2DEFINES) $(RENDERDEFINES)
+INCLUDES=$(FONTCONFIGINCLUDES) $(FREETYPE2INCLUDES) -I$(XBUILDINCDIR)
+DEFINES=$(FREETYPE2DEFINES) $(RENDERDEFINES) -DXFREE86_FT2
 
 #if UseFreetype2
 FREETYPE2REQLIB = $(FREETYPE2LIB)
@@ -98,12 +98,12 @@ REQUIREDLIBS=$(LDPRELIBS) $(XRENDERLIB) $(XLIB) $(FONTCONFIGLIB) $(EXPATLIB) $(F
 FT_OLD = xftcache.c
 FT_HEADERS = XftFreetype.h
    FT_SRCS = xftfreetype.c xftglyphs.c xftrender.c xftdir.c
-   FT_OBJS = xftfreetype.o xftglyphs.o xftrender.o xftdir.o 
+   FT_OBJS = xftfreetype.o xftglyphs.o xftrender.o xftdir.o
 #endif
 
 HEADERS = Xft.h $(FT_HEADERS)
 
-OLD = xftgram.c xftlex.c 
+OLD = xftgram.c xftlex.c
 
    SRCS = xftcfg.c xftcolor.c xftcore.c xftdbg.c xftdpy.c \
           xftdraw.c xftextent.c xftfont.c xftfs.c\
@@ -127,7 +127,7 @@ SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
  * annotating older systems with information on the relationship
  * with the new system.
  */
- 
+
 #ifndef InstallNamedTargetRelated
 #define InstallNamedTargetRelated(step,srcname,flags,dest,dstname,dstrel)@@\
 step:: srcname								@@\

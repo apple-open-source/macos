@@ -34,6 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
@@ -43,8 +44,7 @@ namespace std
     ctype_byname<char>::ctype_byname(const char* __s, size_t __refs)
     : ctype<char>(0, false, __refs) 
     { 	
-      if (_M_c_locale_ctype != _S_c_locale)
-	_S_destroy_c_locale(_M_c_locale_ctype);
+      _S_destroy_c_locale(_M_c_locale_ctype);
       _S_create_c_locale(_M_c_locale_ctype, __s); 
       _M_toupper = _M_c_locale_ctype->__ctype_toupper;
       _M_tolower = _M_c_locale_ctype->__ctype_tolower;
@@ -165,15 +165,30 @@ namespace std
   wchar_t
   ctype<wchar_t>::
   do_widen(char __c) const
-  { return btowc(__c); }
-  
+  {
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __c_locale __old = __uselocale(_M_c_locale_ctype);
+#endif
+    wchar_t __ret = btowc(__c);
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __uselocale(__old);
+#endif
+    return __ret;
+  }
+
   const char* 
   ctype<wchar_t>::
   do_widen(const char* __lo, const char* __hi, wchar_t* __dest) const
   {
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __c_locale __old = __uselocale(_M_c_locale_ctype);
+#endif
     mbstate_t __state;
     memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
     mbsrtowcs(__dest, &__lo, __hi - __lo, &__state);
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __uselocale(__old);
+#endif
     return __hi;
   }
 
@@ -181,7 +196,13 @@ namespace std
   ctype<wchar_t>::
   do_narrow(wchar_t __wc, char __dfault) const
   { 
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __c_locale __old = __uselocale(_M_c_locale_ctype);
+#endif
     int __c = wctob(__wc);
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __uselocale(__old);
+#endif
     return (__c == EOF ? __dfault : static_cast<char>(__c)); 
   }
 
@@ -190,12 +211,29 @@ namespace std
   do_narrow(const wchar_t* __lo, const wchar_t* __hi, char __dfault, 
 	    char* __dest) const
   {
-    mbstate_t __state;
-    memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
-    size_t __len = __hi - __lo;
-    size_t __conv = wcsrtombs(__dest, &__lo, __len, &__state);
-    if (__conv == __len)
-      *__dest = __dfault;
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __c_locale __old = __uselocale(_M_c_locale_ctype);
+#endif
+    size_t __offset = 0;
+    while (true)
+      {
+	const wchar_t* __start = __lo + __offset;        
+	size_t __len = __hi - __start;
+	
+	mbstate_t __state;
+	memset(static_cast<void*>(&__state), 0, sizeof(mbstate_t));
+	size_t __con = wcsrtombs(__dest + __offset, &__start, __len, &__state);
+	if (__con != __len && __start != 0)
+	  {
+	    __offset = __start - __lo;          
+	    __dest[__offset++] = __dfault;
+	  }
+	else
+	  break;
+      }
+#if __GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ > 2)
+    __uselocale(__old);
+#endif
     return __hi;
   }
 #endif //  _GLIBCPP_USE_WCHAR_T

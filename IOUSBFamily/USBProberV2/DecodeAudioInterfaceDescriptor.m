@@ -473,7 +473,7 @@
                 for ( tempIndex = 0; tempIndex <= ch; tempIndex++ )
                 {
                     buf[0] = 0;
-                    s = (char*)buf;
+					s = (char*)buf;
                     switch( tempIndex )
                     {
                         case 0:		strcat (s, "Master Channel:......................... ( " );	break;
@@ -532,7 +532,7 @@
                     // p points to the next descriptor byte.
                     sprintf((char *)buf, "%u", *p );
                 [thisDevice addProperty:"Feature Unit Name String Index:" withValue:buf atDepth:INTERFACE_LEVEL+1];
-
+				
 				// Dump hex values for Audio Class Specific Feature
 				
 				dump[0] = 0;

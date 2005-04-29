@@ -1,0 +1,339 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Customization</title>
+    </header>
+    <body>
+        <section>
+            <title>Categories</title>
+            <p>The default or "/" category has special meaning for blojsom. This category acts as an
+                "aggregator" whereby it can be mapped to display entries from all or a subset of your blog
+                categories.
+            </p>
+            <p>
+                By default, the
+                <em>blog-default-category-mapping</em> property in your individual
+                <code>blog.properties</code>
+                does not contain a value. This means that all your blog categories will be aggregated if someone
+                requests the default or "/" category. blojsom will obey the
+                <em>blog-directory-depth</em> parameter
+                so that
+                only blog directories will be aggregated to that directory depth. blojsom will also obey the
+                <em>blog-entries-display</em> parameter so that only that number of blog entries will be aggregated
+                for the
+                individual blog directories.
+            </p>
+            <p>
+                The
+                <em>blog-default-category-mapping</em> parameter takes a comma-separated list of blog directories
+                underneath
+                your
+                <em>blog-home</em>. The following configuration for
+                <em>blog-default-category-mapping</em> will
+                aggregate
+            </p>
+            <source>
+                blog-default-category-mapping=/java, /osx, /politics/voting
+            </source>
+            <p>the "/java", "/osx", and "/politics/voting" categories if someone requests the default or "/" category.
+            </p>
+            <p>
+            </p>
+        </section>
+        <section>
+            <title>Flavor-based default category mapping</title>
+            <p>
+                Starting with blojsom 1.4, you have the ability to configure a default category mapping based on
+                the particular flavor. The default flavor, HTML, will still be mapped using the
+                <em>blog-default-category-mapping</em>
+                parameter. However, if you would like to configure the RSS flavor to map a different set of
+                categories than
+                the HTML flavor for the default or "/" category, then you can add a line such as
+            </p>
+            <source>
+                rss.blog-default-category-mapping=/blojsom, /java
+            </source>
+            <p>to your individual
+                <code>blog.properties</code> file. In this case, the "/blojsom" and "/java" categories will be
+                aggregated if someone requests the RSS flavor for the default or "/" category.
+
+            </p>
+        </section>
+        <section>
+            <title>blojsom context</title>
+            <p>
+                There are a number of objects that get placed in a "Context" that is used by the particular
+                dispatcher handling the template for a requested flavor. A concrete instance of BlojsomDispatcher
+                will use this "Context" map and make the objects in it available, as appropriate, for the particular
+                presentation technology. For example, in the JSPDispatcher, the objects from this "Context" are placed
+                on the request using the setAttribute method.
+            </p>
+            <p>
+                However, you as a user should be aware of the name and type of objects that are available in the
+                "Context". You can see examples of how they are accessed by looking at the html.jsp (JSP page for the
+                html flavor) and html.vm (Velocity template for the html flavor).
+
+            </p>
+            <table>
+                <tr>
+                    <th>Key</th>
+                    <th>Object type</th>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_BLOG"</td>
+                    <td>org.blojsom.blog.Blog</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_ENTRIES"</td>
+                    <td>org.blojsom.blog.BlogEntry[]</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_CATEGORIES"</td>
+                    <td>org.blojsom.blog.BlogCategory[]</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_REQUESTED_CATEGORY"</td>
+                    <td>org.blojsom.blog.BlogCategory</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_SITE_URL"</td>
+                    <td>java.lang.String</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_DATE"</td>
+                    <td>java.lang.String (RFC-822 format)</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_DATE_ISO8601"</td>
+                    <td>java.lang.String</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_DATE_OBJECT"</td>
+                    <td>java.util.Date</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_COMMENTS_ENABLED"</td>
+                    <td>java.lang.Boolean</td>
+                </tr>
+                <tr>
+                    <td>"BLOJSOM_PERMALINK"</td>
+                    <td>java.lang.String</td>
+                </tr>
+            </table>
+
+        </section>
+        <section>
+            <title>blojsom category meta-data</title>
+            <p>
+                In blojsom 1.1, a per-category meta-data facility was added to blojsom. A configuration
+                property in your individual
+                <em>blog.properties</em> was added,
+                <em>blojsom-properties-extensions</em>, which
+                defaults to
+                <code>.properties</code>. As blojsom traverses the blog home directory looking for entries,
+                it will also look for files with the extensions listed in
+                <em>blojsom-properties-extensions</em>. If
+                a file matching an extension listed in this configuration property is found, it will be loaded and
+                stored as meta-data information for that category. The properties files
+                <strong>must</strong> adhere to the
+                restrictions for Java .properties files.
+            </p>
+            <p>
+                A sample
+                <code>category.properties</code> file in the blog home directory might look like:
+            </p>
+            <source>
+                blojsom.name=the aggregator
+                blojsom.description=This is a long description for the aggregator category
+            </source>
+            <p>There are two reserved properties for blojsom,
+                <em>blojsom.name</em> and
+                <em>blojsom.description</em>.
+                These two properties can be used to set another descriptive name for the current blog category and to
+                provide a detailed description of the entries in that category. Other properties can be extracted by
+                calling the
+                <em>BlogCategory.getMetaData()</em> method and then looking for the particular property in
+                the returned HashMap.
+            </p>
+            <p>
+                As a user, you can use the meta-data in any way you like. For example, besides an alternate name and
+                description, you could have per-category colors or other personalization features that are extracted
+                by the proper template. An example of printing out a category's alternate name, if found in the category
+                meta-data for a category, is given in the Velocity template for the HTML flavor,
+                <code>html.vm</code>.
+            </p>
+            <p>
+                <link href="screenshots/blojsom-screenshot.jpg">Click here</link> for a screen shot of the meta-data
+                facility in
+                action. Look for the string, "the aggregator".
+
+            </p>
+        </section>
+        <section>
+            <title>blojsom entry meta-data</title>
+            <p>
+                In blojsom 1.9, a per-entry meta-data facility was added to blojsom. A configuration property
+                in your individual
+                <code>blog.properties</code> was added,
+                <em>blog-entry-meta-data-extension</em>. There is no
+                default value for this property. If it is left blank, blojsom will not try to look for meta-data
+                for a blog entry. blojsom looks for the appropriate meta-data file by taking the blog entry
+                filename, stripping off its original extension, and adding the extension indicated by this
+                property.
+            </p>
+            <p>
+                As an example, if this property was set to
+                <code>.properties</code> and you had a blog entry
+                titled,
+                <em>some-blog-entry.html</em>, blojsom would look for
+                <em>some-blog-entry.properties</em>.
+            </p>
+            <p>
+                In the standard release of blojsom, the meta-data file must be a Java
+                .properties file. The properties file
+                <strong>must</strong> adhere to the restrictions for Java
+                .properties files.
+            </p>
+            <p>
+                As a user, you can use the meta-data in any way you like.
+
+            </p>
+        </section>
+        <section>
+            <title>blojsom flavor and template customization</title>
+            <p>
+                In blojsom, you have the ability to configure both the flavor and the template mechanism. Why would
+                you want to do this? Well, out of the box, blojsom can generate a few simple flavors for people to
+                view your blog, HTML and RSS. However, these flavors may be insufficient to "describe" your blog and
+                you may also want to use a particular presentation technology for rendering your blog.
+            </p>
+        </section>
+        <section>
+            <title>Configuring blojsom flavors</title>
+            <p>blojsom flavors are configured in
+                <code>/WEB-INF/(user-id)/flavor.properties</code>. Here is a sample of what the file looks
+                like when you download blojsom.
+            </p>
+            <source>
+                html=html.vm, text/html
+                rss=rss.vm, text/xml
+            </source>
+            <p>Each line represents a configuration of
+                <em>flavor</em>=
+                <em>flavor template filename</em>,
+                <em>flavor content type</em>. In this configuration, the
+                <em>html</em> flavor uses the
+                <code>html.vm</code> template and also uses a content type of
+                <em>text/html</em>. Each line must also
+                follow this configuration of
+            </p>
+            <source>
+                flavor=flavor template filename, flavor content type
+            </source>
+            <p>
+                This is the first half of the flavor/template equation. If you wanted to have the HTML flavor
+                for your blog rendered using JavaServer Pages (JSP), you can do this.
+            </p>
+            <p>
+            </p>
+        </section>
+        <section>
+            <title>Configuring blojsom dispatchers</title>
+            <p>blojsom dispatchers are configured in
+                <code>WEB-INF/dispatcher.properties</code>. Here is what the file
+                looks like when you download blojsom.
+            </p>
+            <source>
+                jsp=org.blojsom.dispatcher.JSPDispatcher
+                vm=org.blojsom.dispatcher.VelocityDispatcher
+            </source>
+            <p>Each line represents a configuration of
+                <em>template extension</em>=
+                <em>fully qualified
+                    dispatcher classname</em>. For the template dispatcher to be configured correctly, the template
+                extension must be present in one of the configured flavors.
+            </p>
+            <p>
+                In the above configuration, the
+                <em>html</em> flavor is handled by the
+                <code>html.vm</code> template
+                which is dispatched by the
+                <em>org.blojsom.dispatcher.VelocityDispatcher</em>. Got that?
+                OK, well, let's say you wanted to use the JSP template for the HTML flavor to render your blog.
+                Here's how that configuration would look for the
+                <code>flavor.properties</code> and
+                <code>dispatcher.properties</code>, respectively.
+            </p>
+            <p>
+                <em>flavor.properties</em>
+            </p>
+            <source>
+                html=html.jsp, text/html
+                rss=rss.vm, text/xml
+            </source>
+            <p>
+                <em>dispatcher.properties</em>
+            </p>
+            <source>
+                jsp=org.blojsom.dispatcher.JSPDispatcher
+                vm=org.blojsom.dispatcher.VelocityDispatcher
+            </source>
+            <p>OK. So, one simple change to the
+                <code>flavor.properties</code> file and no change to the
+                <code>dispatcher.properties</code>. That's it. It's that simple!
+            </p>
+            <p>
+
+            </p>
+        </section>
+        <section>
+            <title>Writing a blojsom custom dispatcher</title>
+            <p>
+                For now, check out the
+                <a href="javadoc/index.html">javadocs</a> and the source code for the
+                JSPDispatcher and VelocityDispatcher. It's pretty straightforward.
+            </p>
+            <p>
+
+            </p>
+        </section>
+        <section>
+            <title>blojsom logging customization</title>
+            <p>
+                blojsom uses
+                <link href="http://jakarta.apache.org/commons/logging.html">Jakarta Commons Logging</link> to
+                do logging. blojsom also ships with
+                <link href="http://jakarta.apache.org/log4j/docs/index.html">Log4J
+                </link> as its logging package. In the
+                <code>/WEB-INF/classes</code> directory, you will find a file called
+                <code>log4j.properties</code>. Developers who have downloaded blojsom from CVS will find this file in the
+                directory where blojsom was checked out to in
+                <em>/properties</em>.
+            </p>
+            <p>
+                You may edit the
+                <code>log4j.properties</code> file to configure logging in blojsom as per your needs. How
+                ever, Log4J configuration is out of the scope of this document, so you should refer to the
+                <link href="http://jakarta.apache.org/log4j/docs/index.html">Log4J</link> website for documentation on configuring
+                Log4J.
+            </p>
+            <p>
+                However, if you would like to turn off blojsom debugging log messages, you can change the following
+                statement in
+                <em>log4j.properties</em>:
+            </p>
+            <source>
+                log4j.rootLogger=DEBUG, stdout
+            </source>
+            <p>to</p>
+            <source>
+                log4j.rootLogger=INFO, stdout
+            </source>
+            <p>
+                This will ensure that only information messages get logged by blojsom.
+
+            </p>
+        </section>
+    </body>
+</document>

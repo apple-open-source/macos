@@ -3,9 +3,11 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 38;
+	objectVersion = 39;
 	objects = {
 		018938C0FFE55C3511CE15BF = {
+			buildSettings = {
+			};
 			buildStyles = (
 				0E9C736CFFE56ADA11CE15BF,
 				0E9C736DFFE56ADA11CE15BF,
@@ -33,6 +35,7 @@
 			isa = PBXGroup;
 			name = AppleCDDAFileSystemProj;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		018938C7FFE55C3511CE15BF = {
 			children = (
@@ -47,67 +50,91 @@
 				018938D9FFE55C3511CE15BF,
 				018938D0FFE55C3511CE15BF,
 				018938DCFFE55C3511CE15BF,
+				E611F38106FFB15E0058BBBA,
 				0E9C738AFFE59D1811CE15BF,
 			);
 			isa = PBXGroup;
 			name = "CDDA Filesystem";
 			path = "";
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D0FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			path = AppleCDDAFileSystemUtilities.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D2FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleCDDAFileSystemDefines.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D3FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleCDDAFileSystemVFSOps.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D4FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleCDDAFileSystemVNodeOps.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D5FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AIFFSupport.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D6FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleCDDAFileSystemUtils.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D7FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			path = AppleCDDAFileSystemDebug.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938D9FFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = AppleCDDAFileSystemUtils.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938DAFFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = AppleCDDAFileSystemVFSOps.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938DBFFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = AppleCDDAFileSystemVNodeOps.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938DCFFE55C3511CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			path = AIFFSupport.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		018938F7FFE55C3511CE15BF = {
 			children = (
@@ -120,12 +147,15 @@
 			isa = PBXGroup;
 			name = "Frameworks and Libraries";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		018938F8FFE55C3511CE15BF = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = IOKit.framework;
 			path = /System/Library/Frameworks/IOKit.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		018938FAFFE55C3511CE15BF = {
 			children = (
@@ -137,26 +167,31 @@
 			isa = PBXGroup;
 			name = Products;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		018938FBFFE55C3511CE15BF = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = cddafs.kext;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		018938FCFFE55C3511CE15BF = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = mount_cddafs;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		018938FDFFE55C3511CE15BF = {
-			isa = PBXExecutableFileReference;
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
 			path = cddafs.util;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		018938FEFFE55C3511CE15BF = {
 			buildPhases = (
-				01893925FFE55C3511CE15BF,
-				01893927FFE55C3511CE15BF,
 			);
 			buildSettings = {
 				OTHER_CFLAGS = "";
@@ -177,6 +212,7 @@
 		018938FFFFE55C3511CE15BF = {
 			isa = PBXTargetDependency;
 			target = 01893900FFE55C3511CE15BF;
+			targetProxy = AC1ECC8906BB1B910047D89F;
 		};
 		01893900FFE55C3511CE15BF = {
 			buildPhases = (
@@ -189,6 +225,7 @@
 				01893912FFE55C3511CE15BF,
 			);
 			buildSettings = {
+				EXPORTED_SYMBOLS_FILE = cddafs.exp;
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -198,8 +235,8 @@
 				MODULE_NAME = com.apple.filesystems.cddafs;
 				MODULE_START = Apple_CDDA_FS_Module_Start;
 				MODULE_STOP = Apple_CDDA_FS_Module_Stop;
-				MODULE_VERSION = 2.1.2;
-				OTHER_CFLAGS = "-Wno-format -DMACH_KERNEL=1";
+				MODULE_VERSION = 2.2.0;
+				OTHER_CFLAGS = "-Wno-format";
 				OTHER_CPLUSPLUSFLAGS = "-fapple-kext";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -224,7 +261,7 @@
 	<key>CFBundleExecutable</key>
 	<string>cddafs</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.2, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.2.0, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -236,21 +273,23 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.2</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.2</string>
+	<string>2.2.0</string>
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOCDStorageFamily</key>
 		<string>1.0.0</string>
-		<key>com.apple.kernel.bsd</key>
-		<string>1.1.0</string>
-		<key>com.apple.kernel.iokit</key>
-		<string>1.0.0b1</string>
-		<key>com.apple.kernel.mach</key>
-		<string>1.0.0b1</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.0.0b1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0.0b1</string>
 	</dict>
 </dict>
 </plist>
@@ -260,11 +299,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -345,6 +380,7 @@
 				0189390DFFE55C3511CE15BF,
 				0189390EFFE55C3511CE15BF,
 				0189390FFFE55C3511CE15BF,
+				E611F38206FFB15E0058BBBA,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -407,11 +443,7 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
@@ -554,45 +586,6 @@
 			isa = PBXRezBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		01893925FFE55C3511CE15BF = {
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				01893926FFE55C3511CE15BF,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01893926FFE55C3511CE15BF = {
-			fileRef = 018938FBFFE55C3511CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01893927FFE55C3511CE15BF = {
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				01893928FFE55C3511CE15BF,
-				01893929FFE55C3511CE15BF,
-			);
-			isa = PBXCopyFilesBuildPhase;
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		01893928FFE55C3511CE15BF = {
-			fileRef = 018938FCFFE55C3511CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
-		01893929FFE55C3511CE15BF = {
-			fileRef = 018938FDFFE55C3511CE15BF;
-			isa = PBXBuildFile;
-			settings = {
-			};
-		};
 		0189392DFFE55EF111CE15BF = {
 			fileRef = 018938D2FFE55C3511CE15BF;
 			isa = PBXBuildFile;
@@ -610,10 +603,12 @@
 //043
 //044
 		0405E03F000A841111CE15C0 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = Kernel.framework;
 			path = /System/Library/Frameworks/Kernel.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 //040
 //041
@@ -626,28 +621,33 @@
 //0E3
 //0E4
 		0E9C736CFFE56ADA11CE15BF = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		0E9C736DFFE56ADA11CE15BF = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Deployment;
 		};
 		0E9C736EFFE585B911CE15BF = {
-			isa = PBXBundleReference;
+			explicitFileType = wrapper.cfbundle;
+			isa = PBXFileReference;
 			path = cddafs.fs;
 			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
 		};
 		0E9C736FFFE585B911CE15BF = {
 			buildPhases = (
@@ -684,7 +684,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>English</string>
 	<key>CFBundleGetInfoString</key>
-	<string>2.1.2, Copyright Apple Computer, Inc. 2000-2003</string>
+	<string>2.2.0, Copyright Apple Computer, Inc. 2000-2004</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -696,11 +696,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.1.2</string>
+	<string>2.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.1.2</string>
+	<string>2.2.0</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>CD</key>
@@ -774,6 +774,7 @@
 		0E9C7376FFE5877A11CE15BF = {
 			isa = PBXTargetDependency;
 			target = 0189391EFFE55C3511CE15BF;
+			targetProxy = AC1ECC8A06BB1B910047D89F;
 		};
 		0E9C7378FFE5883411CE15BF = {
 			buildActionMask = 12;
@@ -813,30 +814,39 @@
 			isa = PBXGroup;
 			name = FilesystemProber;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0E9C737BFFE598CE11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = cddafs_util.cpp;
 			path = FilesystemProber/cddafs_util.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0E9C737CFFE598CE11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = cddafs_util.h;
 			path = FilesystemProber/cddafs_util.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0E9C737EFFE598CE11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = getmntopts.c;
 			path = MountUtility/getmntopts.c;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0E9C737FFFE598CE11CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = mntopts.h;
 			path = MountUtility/mntopts.h;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 		0E9C7384FFE598CE11CE15BF = {
 			fileRef = 0E9C737CFFE598CE11CE15BF;
@@ -860,13 +870,16 @@
 			name = InfoPlist.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0E9C738BFFE59D1811CE15BF = {
 			fileEncoding = 4;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = English;
 			path = English.lproj/InfoPlist.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		0E9C738CFFE59D1811CE15BF = {
 			fileRef = 0E9C738AFFE59D1811CE15BF;
@@ -885,10 +898,12 @@
 //5C3
 //5C4
 		5C596BD800BF099A05CE15C0 = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = CoreFoundation.framework;
 			path = /System/Library/Frameworks/CoreFoundation.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		5C596BD900BF099A05CE15C0 = {
 			fileRef = 5C596BD800BF099A05CE15C0;
@@ -898,15 +913,19 @@
 		};
 		5CC237B40190BA4505CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDDATrackName.h;
 			path = Classes/CDDATrackName.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		5CC237BD0190BACA05CE15BF = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = CDDATrackName.cpp;
 			path = Classes/CDDATrackName.cpp;
 			refType = 2;
+			sourceTree = SOURCE_ROOT;
 		};
 //5C0
 //5C1
@@ -919,10 +938,12 @@
 //AC3
 //AC4
 		AC0458CD04D75866007FCDBB = {
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		AC0458CE04D75866007FCDBB = {
 			fileRef = AC0458CD04D75866007FCDBB;
@@ -930,33 +951,69 @@
 			settings = {
 			};
 		};
+		AC1ECC8606BB1B910047D89F = {
+			containerPortal = 018938C0FFE55C3511CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01893914FFE55C3511CE15BF;
+			remoteInfo = mount_cddafs;
+		};
+		AC1ECC8706BB1B910047D89F = {
+			containerPortal = 018938C0FFE55C3511CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0E9C736FFFE585B911CE15BF;
+			remoteInfo = cddafs.fs;
+		};
+		AC1ECC8906BB1B910047D89F = {
+			containerPortal = 018938C0FFE55C3511CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 01893900FFE55C3511CE15BF;
+			remoteInfo = cddafs;
+		};
+		AC1ECC8A06BB1B910047D89F = {
+			containerPortal = 018938C0FFE55C3511CE15BF;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 0189391EFFE55C3511CE15BF;
+			remoteInfo = cddafs.util;
+		};
 		AC8075370467378400E41653 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = TBundle.h;
 			path = Classes/TBundle.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		AC8075380467378400E41653 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = TSystemUtils.h;
 			path = Classes/TSystemUtils.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		AC8075390467378400E41653 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = TSystemUtils.cpp;
 			path = Classes/TSystemUtils.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		AC80753A0467378400E41653 = {
 			fileEncoding = 30;
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = TBundle.cpp;
 			path = Classes/TBundle.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		AC80753B0467378400E41653 = {
 			fileRef = AC8075370467378400E41653;
@@ -987,6 +1044,30 @@
 //AC2
 //AC3
 //AC4
+//E60
+//E61
+//E62
+//E63
+//E64
+		E611F38106FFB15E0058BBBA = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.exports;
+			path = cddafs.exp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		E611F38206FFB15E0058BBBA = {
+			fileRef = E611F38106FFB15E0058BBBA;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+//E60
+//E61
+//E62
+//E63
+//E64
 //F70
 //F71
 //F72
@@ -1016,20 +1097,18 @@
 		F720E0840200C7D8017BD92B = {
 			isa = PBXTargetDependency;
 			target = 01893914FFE55C3511CE15BF;
+			targetProxy = AC1ECC8606BB1B910047D89F;
 		};
 		F720E0850200C7D8017BD92B = {
 			isa = PBXTargetDependency;
 			target = 0E9C736FFFE585B911CE15BF;
+			targetProxy = AC1ECC8706BB1B910047D89F;
 		};
 		F720E0860200C7D8017BD92B = {
 			buildActionMask = 8;
 			files = (
 			);
-			generatedFileNames = (
-			);
 			isa = PBXShellScriptBuildPhase;
-			neededFileNames = (
-			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "rm -f $DSTROOT/sbin/mount_cddafs\nmkdir -p $DSTROOT/sbin\nln $DSTROOT/System/Library/Filesystems/cddafs.fs/Contents/Resources/cddafs.util $DSTROOT/sbin/mount_cddafs";
@@ -1051,13 +1130,16 @@
 			name = Localizable.strings;
 			path = "";
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F72B1239020750BD01B847FC = {
 			fileEncoding = 10;
 			isa = PBXFileReference;
+			lastKnownFileType = text.plist.strings;
 			name = Localizable.strings;
 			path = English.lproj/Localizable.strings;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F75EC306021C8BC501CE15C0 = {
 			fileRef = F72B1238020750BD01B847FC;
@@ -1067,15 +1149,19 @@
 		};
 		F7700AE6021C73D601CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = iTunesDatabase.h;
 			path = Classes/iTunesDatabase.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7700AE7021C73D601CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
 			name = iTunesDatabase.cpp;
 			path = Classes/iTunesDatabase.cpp;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7700AE8021C73D601CE15C0 = {
 			fileRef = F7700AE6021C73D601CE15C0;
@@ -1091,15 +1177,19 @@
 		};
 		F7700AEA021C73FC01CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
 			name = CDInfo.h;
 			path = Classes/CDInfo.h;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7700AEB021C73FC01CE15C0 = {
 			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
 			name = CDInfo.c;
 			path = Classes/CDInfo.c;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F7700AEC021C73FC01CE15C0 = {
 			fileRef = F7700AEA021C73FC01CE15C0;
@@ -1126,10 +1216,12 @@
 			};
 		};
 		F7700AF0021C892001CE15C0 = {
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
+			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libcrypto.dylib;
-			path = /usr/lib/libcrypto.0.9.dylib;
+			path = /usr/lib/libcrypto.dylib;
 			refType = 0;
+			sourceTree = "<absolute>";
 		};
 		F7700AF1021C892001CE15C0 = {
 			fileRef = F7700AF0021C892001CE15C0;
@@ -1139,9 +1231,11 @@
 		};
 		F776122C0209DB2B01FD8D06 = {
 			isa = PBXFileReference;
+			lastKnownFileType = text;
 			name = mount_cddafs.8;
 			path = FilesystemProber/mount_cddafs.8;
 			refType = 4;
+			sourceTree = "<group>";
 		};
 		F776122D0209DB2C01FD8D06 = {
 			buildActionMask = 8;

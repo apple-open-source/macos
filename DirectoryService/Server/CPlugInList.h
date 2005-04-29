@@ -37,12 +37,6 @@
 
 class	CServerPlugin;
 
-const sInt32	kPlugInListNoErr			= 0;
-const sInt32	kInvalidPlugInName			= -10128;
-const sInt32	kMaxPlugInsLoaded			= -10129;
-const sInt32	kPlugInFound				= -10130;
-const sInt32	kPlugInNotFound				= -10131;
-
 // Typedefs --------------------------------------------------------------------
 
 class CPlugInList {
@@ -59,6 +53,7 @@ typedef struct sTableData
 	uInt32				fULVers;
 	FourCharCode		fKey;
 	uInt32				fState;
+	sTableData		   *pNext;
 } sTableData;
 
 enum {
@@ -79,9 +74,7 @@ public:
 										CFUUIDRef		 inCFuuidFactory = NULL,
 										uInt32			 inULVers = 0 );
 										
-	sInt32		DeletePlugIn		( const char *inName );
-
-	void		LoadPlugin			( uInt32 tableIndex );
+	void		LoadPlugin			( sTableData *inTableEntry );
 	void		InitPlugIns			( void );
 
 	sInt32	 	IsPresent			( const char *inName );
@@ -101,8 +94,9 @@ CServerPlugin* 	GetPlugInPtr		( const uInt32 inKey, bool loadIfNeeded = true );
 
 private:
 	uInt32				fPICount;
-	DSMutexSemaphore		fMutex;
-	sTableData			fTable[ kMaxPlugIns ];
+	DSMutexSemaphore	fMutex;
+	sTableData			*fTable;
+	sTableData			*fTableTail;
 	DSEventSemaphore   	fWaitToInit;
 };
 

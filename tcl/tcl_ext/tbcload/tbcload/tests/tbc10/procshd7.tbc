@@ -1,0 +1,225 @@
+# procshd7.tcl --
+#
+#  Test file for compilation.
+#  This file contains a proc definintion, where the body is shared among
+#  several procs. The args are different for same, the same for others
+#  It checks that the compiler detects that the object is shared and creates a
+#  copy that it will then compile.
+#  Same as procsh5.tcl, with the addition that a variable shares the first
+#  proc body.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procshd7.tbc,v 1.2 2000/05/30 22:19:10 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+14 0 115 22 0 0 60 0 8 14 14 -1 -1
+115
+9oE<!6qMH&/HW<!<E`<!?qgqv>Ce`'0#>6#?Mo9v;VP>!0Ki<!BfAs!Abtl#/2:3w/HW<!Co
+J=!6M1qv6P60%;btt!2ZE<!9/9X!6elf%0cvpvB:3-&3#YQ#9/9X!;tlf%5;UNw9/9X!.6!!
+
+14
+B=xOwHe(qv7J1R#-3!
+14
+M=xOwg7wL.;Dbpv-3!
+22
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+x
+22
+6dV<+8JfCFB4uD+U.#F+mC+UGM?!
+x
+1
+.v
+x
+13
+UPxQH?Vu^FHxf<IA!
+x
+1
+/v
+x
+5
+S>%pGA!
+x
+1
+0v
+x
+1
+1v
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+JHFw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+2v
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+HBFw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+3
+swW-
+x
+4
+4/;EF
+x
+4
+b4Z)<
+x
+5
++EF/DEv
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 1 257
+x
+5
++EF/DEv
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 0 257
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+2 2
+1
+Dv
+0 0 257
+1
+Ev
+1 1 257
+x
+5
++EF/DEv
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

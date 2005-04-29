@@ -63,7 +63,6 @@ cron_popen(program, type, e)
 	FILE *iop;
 	int argc, pdes[2];
 	PID_T pid;
-	char *usernm;
 	char *argv[MAX_ARGS + 1];
 # if defined(LOGIN_CAP)
 	struct passwd	*pwd;
@@ -151,13 +150,47 @@ cron_popen(program, type, e)
 			(void)close(pdes[1]);
 		}
 		if (e != NULL) {
+			struct passwd *pwd;
+			uid_t uid;
+			gid_t gid;
 			/* Set user's entire context, but skip the environment
 			 * as cron provides a separate interface for this
 			 */
-			usernm = env_get("LOGNAME", e->envp);
+
+			if ((pwd = getpwnam(e->uname))) {
+				char envstr[MAXPATHLEN + sizeof "HOME="];
+
+				uid = pwd->pw_uid;
+				gid = pwd->pw_gid;
+
+				if (pwd->pw_expire && time(NULL) >= pwd->pw_expire) {
+					warn("user account expired: %s", e->uname);
+					_exit(ERROR_EXIT);
+				}
+
+				sprintf(envstr, "HOME=%s", pwd->pw_dir);
+				e->envp = env_set(e->envp, envstr);
+				if (e->envp == NULL) {
+					warn("env_set(%s)", envstr);
+					_exit(ERROR_EXIT);
+				}
+			} else {
+				warn("getpwnam(\"%s\")", e->uname);
+				_exit(ERROR_EXIT);
+			}
+
+			if (strlen(e->gname) > 0) {
+				struct group *gr = getgrnam(e->gname);
+				if (gr) {
+					gid = gr->gr_gid;
+				} else {
+					warn("getgrnam(\"%s\")", e->gname);
+					_exit(ERROR_EXIT);
+				}
+			}
+
 # if defined(LOGIN_CAP)
-			if ((pwd = getpwnam(usernm)) == NULL)
-				pwd = getpwuid(e->uid);
+			pwd = getpwnam(e->uname);
 			lc = NULL;
 			if (pwd != NULL) {
 				pwd->pw_gid = e->gid;
@@ -175,12 +208,12 @@ cron_popen(program, type, e)
 				/* set our directory, uid and gid.  Set gid first,
 				 * since once we set uid, we've lost root privledges.
 				 */
-				setgid(e->gid);
+				setgid(gid);
 # if defined(BSD)
-				initgroups(usernm, e->gid);
+				initgroups(e->uname, gid);
 # endif
-				setlogin(usernm);
-				setuid(e->uid);         /* we aren't root after this..*/
+				setlogin(e->uname);
+				setuid(uid);         /* we aren't root after this..*/
 #if defined(LOGIN_CAP)
 			}
 			if (lc != NULL)

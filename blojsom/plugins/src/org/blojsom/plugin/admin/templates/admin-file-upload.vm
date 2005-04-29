@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+#adminPageHeader("#adminResource('file.upload.header' 'File Upload')")
+
+    <div id="header">
+        <ul id="primary">
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin">Administration</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-categories&action=page">Categories</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-entries&action=new-blog-entry&blog-category-name=/">Entries</a></li>
+            <li><span>Weblog Settings</span></li>
+            <ul id="secondary">
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-authorization&action=page">Authorization</a></li>
+                <li><span>Files</span></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-flavors&action=page">Flavors</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-properties&action=page">Properties</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-templates&action=page">Templates</a></li>
+                <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-users&action=page">Users</a></li>
+            </ul>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&plugins=edit-blog-plugins&action=page">Plugin Settings</a></li>
+            <li><a href="$BLOJSOM_BLOG.getBlogURL()?flavor=admin&action=logout">Logout</a></li>
+        </ul>
+    </div>
+
+    <div id="contents">
+
+        <!-- File upload form -->
+        <div id="mainClm">
+            <h2>#adminResource('file.upload.text' 'Upload a file')</h2>
+            <table>
+                <form name="upload-file" action=".?flavor=admin&plugins=file-upload&action=upload-file" method="post" accept-charset="UTF-8" enctype="multipart/form-data">
+                    <tr>
+                        <td>#adminResource('file.to.upload.text' 'File to upload')</td>
+                        <td><input type="file" size="50" name="upload-file"/></td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <input type="submit" name="submit" value="#adminResource('file.upload.text' 'Upload a file')"/>
+                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                        </td>
+                    </tr>
+                </form>
+            </table>
+        </div>
+
+        <p></p>
+
+        <!-- File upload delete form -->
+        <div id="mainClm">
+            <h2>#adminResource('file.delete.text' 'Delete a file(s)')</h2>
+            <table>
+                <form name="delete-upload-files" action="." method="post" accept-charset="UTF-8">
+                    <input type="hidden" name="flavor" value="admin"/>
+                    <input type="hidden" name="plugins" value="file-upload"/>
+                    <input type="hidden" name="action" value="delete-upload-files"/>
+                    <tr>
+                        <td>#adminResource('files.to.delete.text' 'File(s) to delete - multiple selections allowed')</td>
+                        <td>
+                            <select name="file-to-delete" multiple="true" size="5">
+                            #foreach ($filename in $PLUGIN_ADMIN_FILE_UPLOAD_FILES.keySet())
+                                <option value="$filename">$filename</option>
+                            #end
+                            </select>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="2">
+                            <input type="submit" name="submit" value="#adminResource('file.delete.text' 'Delete a file(s)')"/>
+                            <input type="reset" name="reset" value="#adminResource('reset.text' 'Reset')"/>
+                        </td>
+                    </tr>
+                </form>
+            </table>
+        </div>
+
+    </div>
+
+#adminPageFooter()

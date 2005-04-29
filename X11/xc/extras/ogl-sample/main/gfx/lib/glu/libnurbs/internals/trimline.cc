@@ -31,6 +31,7 @@
 ** published by SGI, but has not been independently verified as being
 ** compliant with the OpenGL(R) version 1.2.1 Specification.
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/internals/trimline.cc,v 1.2 2003/10/22 19:20:57 tsi Exp $ */
 
 /*
  * trimline.c++
@@ -162,13 +163,9 @@ Trimline::getNextPts( Arc_ptr botarc )
 {
     reset(); swap(); append( tinterp );
 
-    PwlArc *lastpwl = botarc->prev->pwlArc;
-    TrimVertex *lastpt1 = &lastpwl->pts[lastpwl->npts-1];
-    TrimVertex *lastpt2 = botarc->pwlArc->pts;
-
     register TrimVertex *p = jarcl.getnextpt();
-    for( append( p ); p != lastpt2; append( p ) ) {
-	assert( p != lastpt1 );
+    for( append( p ); p != botarc->pwlArc->pts; append( p ) ) {
+	assert( p != &botarc->prev->pwlArc->pts[botarc->prev->pwlArc->npts-1] );
 	p = jarcl.getnextpt();
     }
 }
@@ -179,12 +176,10 @@ Trimline::getPrevPts( Arc_ptr botarc )
     reset();  swap(); append( tinterp );
 
     PwlArc *lastpwl = botarc->prev->pwlArc;
-    TrimVertex *lastpt1 = &lastpwl->pts[lastpwl->npts-1];
-    TrimVertex *lastpt2 = botarc->pwlArc->pts;
 
     register TrimVertex *q =  jarcl.getprevpt();
-    for( append( q ); q != lastpt1; append( q ) ) {
-	assert( q != lastpt2 );
+    for( append( q ); q != &lastpwl->pts[lastpwl->npts-1]; append( q ) ) {
+	assert( q != botarc->pwlArc->pts );
 	q = jarcl.getprevpt();
     }
 }

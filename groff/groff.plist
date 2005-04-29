@@ -1,0 +1,21 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>groff</string>
+	<key>OpenSourceVersion</key>
+	<string>1.19.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/groff/</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/pub/gnu/groff/groff-1.19.1.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>57d155378640c12a80642664dfdfc892</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Added Darwin to the list of valid .Os values.</string>
+		<string>Disabled SGR by default (color codes).</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+</dict>
+</plist>

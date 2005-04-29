@@ -3,6 +3,10 @@
 // if natd_record matches source, returns 1.
 // if natd_record matches desination, returns 2.
 // if natd_record doesn't match any entries, returns 0.
+
+#ifndef __ISAKMP_NATD_H__
+#define __ISAKMP_NATD_H__
+
 typedef enum
 {
 	natd_match_none		= 0,
@@ -13,3 +17,7 @@ typedef enum
 natd_match_t	natd_matches(struct ph1handle* iph1, struct isakmp_gen *natd_record);
 int				natd_create(struct ph1handle* iph1);
 int				natd_hasnat(const struct ph1handle* iph1);
+
+
+#endif /* __ISAKMP_NATD_H__ */
+

@@ -1,0 +1,51 @@
+# $Id: s.WebAgent.xotcl 1.8 01/03/23 21:55:31+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::actiweb::webAgent 0.8
+
+package require xotcl::actiweb::agent
+package require xotcl::actiweb::invoker
+package require xotcl::mixinStrategy
+
+#
+# Web Agent are special agents that allow us to define another
+# object in the paramter webfacade as a facade for the web agent
+# itself and the sub-system shielded by the web agent with an interface
+# for agents
+#
+Class WebAgent -superclass Agent
+
+WebAgent instproc init args {
+  next
+}
+
+#
+# let the web agents facade handle the call -> interprete args
+# as "method args"
+# return result of the invoker
+#
+#WebAgent instproc invokeFacade {args} {
+#  set a ""
+#  set m ""
+#  set l [llength $args]
+#  set o [my webfacade]
+#  if {$l > 0} {
+#    set m [lindex $args 0]
+#  }
+#  if {$l > 1} {
+#    set a [lrange $args 1 end]
+#  } 
+#    
+#  #puts stderr "Web Agent [self]->invoke:  OBJ: $o PROC: $m ARGS: $a"
+#
+#  #
+#  # tell the invoker to redirect the call to the webfacade object
+#  #
+#  set re [RedirectException [self]::[my autoname re] \
+\#	    -obj $o -method $m -arguments $a]
+#
+#  return $re
+#}
+    
+
+#WebAgent instproc default args {
+#  return [next]
+#}

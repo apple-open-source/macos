@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization from
 The Open Group.
 
 */
-/* $XFree86: xc/programs/xrx/plugin/Main.c,v 1.8 2001/12/14 20:02:17 dawes Exp $ */
+/* $XFree86: xc/programs/xrx/plugin/Main.c,v 1.9 2003/05/27 22:27:09 tsi Exp $ */
 
 /*
  * RX plug-in module based on the UnixTemplate file provided by Netcape.
@@ -281,10 +281,6 @@ int32 STREAMBUFSIZE = 0X0FFFFFFF; /* If we are reading from a file in NPAsFile
 int32 
 NPP_WriteReady(NPP instance, NPStream *stream)
 {
-    PluginInstance* This;
-    if (instance != NULL)
-	This = (PluginInstance*) instance->pdata;
-
     return STREAMBUFSIZE;
 }
 
@@ -360,8 +356,6 @@ NPP_Write(NPP instance, NPStream *stream, int32 offset, int32 len, void *buf)
 void
 StartApplication(PluginInstance* This)
 {
-    NPError err;
-
 #ifndef NO_STARTING_STATE
     RxpSetStatusWidget(This, STARTING);
 #else
@@ -371,7 +365,7 @@ StartApplication(PluginInstance* This)
     /* perform GET request
      * throwing away the response.
      */
-    err = NPN_GetURL(This->instance, This->query, NULL);
+    (void) NPN_GetURL(This->instance, This->query, NULL);
     This->parse_reply = 1;	/* we want to print out the answer  */
 }
 

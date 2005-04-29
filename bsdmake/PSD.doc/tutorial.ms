@@ -35,7 +35,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)tutorial.ms	8.1 (Berkeley) 8/18/93
-.\" $FreeBSD: src/usr.bin/make/PSD.doc/tutorial.ms,v 1.8 1999/08/28 01:03:44 peter Exp $
+.\" $FreeBSD: src/usr.bin/make/PSD.doc/tutorial.ms,v 1.13 2002/10/29 14:56:09 ru Exp $
 .\"
 .EH 'PSD:12-%''PMake \*- A Tutorial'
 .OH 'PMake \*- A Tutorial''PSD:12-%'
@@ -59,6 +59,7 @@
 .XE
 .nr PD .3v
 ..
+.ig
 .\" CW is used to place a string in fixed-width or switch to a
 .\" fixed-width font.
 .\" C is a typewriter font for a laserwriter. Use something else if
@@ -84,6 +85,7 @@
 .mk 
 .nr g3 \\n(.f
 .nr g4 \\n(.s
+.ig ft
 .sp -1
 .\" .st cf
 \D's -1u'\D't 5u'
@@ -103,6 +105,7 @@
 \h'85u'\v'0.85n'\h-\w\\*(g9u/2u\&\\*(g9
 .sp |\\n(g8u
 .sp 166u
+.ig br
 \D't 3u'\D's -1u'
 .br
 .po
@@ -598,7 +601,7 @@ likely freeze if you execute something that produces thousands of
 bytes of output (8 Kb is the limit on many UNIX systems).
 .LP
 The value of a variable may be retrieved by enclosing the variable
-name in parentheses or curly braces and preceeding the whole thing
+name in parentheses or curly braces and preceding the whole thing
 with a dollar sign.
 .LP
 For example, to set the variable CFLAGS to the string
@@ -1239,7 +1242,7 @@ and
 .B \-L )
 and various other information on how PMake was configured.
 .Ix 0 ref configuration
-.Ix 0 ref makefile system
+.Ix 0 ref makefilesystem
 .IP \fB\-i\fP
 .Ix 0 def flags -i
 If you give this flag, PMake will ignore non-zero status returned
@@ -2396,7 +2399,7 @@ flag. This variable can then be used as an argument for the compiler
 in the normal fashion. The
 .CW .h
 suffix is already marked in this way in the system makefile.
-.Ix 0 ref makefile system
+.Ix 0 ref makefilesystem
 E.g. if you have
 .DS
 \&.SUFFIXES       : .bitmap
@@ -2636,7 +2639,7 @@ character is replaced by the
 unless it is preceded by a backslash.
 You are allowed to use any character except
 colon or exclamation point to separate the two strings. This so-called
-delimiter character may be placed in either string by preceeding it
+delimiter character may be placed in either string by preceding it
 with a backslash.
 .IP T
 .Ix 0 def :T

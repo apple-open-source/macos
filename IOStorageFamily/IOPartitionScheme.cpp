@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -121,12 +121,27 @@ bool IOPartitionScheme::handleOpen(IOService *  client,
     // the open if the required access is the access we already hold).
     //
 
-    if (_openLevel != level)                        // (has open level changed?)
+    if ( _openLevel != level )
     {
-        IOStorage * provider = OSDynamicCast(IOStorage, getProvider());
+        IOStorage * provider;
 
-        if (provider && provider->open(this, options, level) == false)
-            return false;
+        provider = OSDynamicCast( IOStorage, getProvider( ) );
+
+        if ( provider )
+        {
+            bool success;
+
+            level = ( level | kIOStorageAccessSharedLock );
+
+            success = provider->open( this, options, level );
+
+            level = ( level & kIOStorageAccessReaderWriter );
+
+            if ( success == false )
+            {
+                return false;
+            }
+        }
     }
 
     //
@@ -215,27 +230,33 @@ void IOPartitionScheme::handleClose(IOService * client, IOOptionBits options)
     else if (_openReaders->getCount())   level = kIOStorageAccessReader;
     else                                 level = kIOStorageAccessNone;
 
-    if (_openLevel != level)                        // (has open level changed?)
+    if ( _openLevel != level )
     {
-        IOStorage * provider = OSDynamicCast(IOStorage, getProvider());
+        IOStorage * provider;
 
-        assert(level != kIOStorageAccessReaderWriter);
+        provider = OSDynamicCast( IOStorage, getProvider( ) );
 
-        if (provider)
+        if ( provider )
         {
-            if (level == kIOStorageAccessNone)         // (is a close in order?)
+            if ( level == kIOStorageAccessNone )
             {
-                provider->close(this, options);
+                provider->close( this, options );
             }
-            else                                   // (is a downgrade in order?)
+            else
             {
                 bool success;
-                success = provider->open(this, 0, level);
-                assert(success); // (should never fail, unless avoided deadlock)
+
+                level = ( level | kIOStorageAccessSharedLock );
+
+                success = provider->open( this, 0, level );
+
+                level = ( level & kIOStorageAccessReaderWriter );
+
+                assert( success );
             }
          }
 
-         _openLevel = level;                             // (set new open level)
+         _openLevel = level;
     }
 }
 

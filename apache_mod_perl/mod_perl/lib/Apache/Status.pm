@@ -1,7 +1,8 @@
 package Apache::Status;
 use strict;
+use mod_perl ();
 
-$Apache::Status::VERSION = '2.02';
+$Apache::Status::VERSION = '2.03';
 
 my %is_installed = ();
 my $Is_Win32 = ($^O eq "MSWin32");
@@ -37,6 +38,7 @@ my(%status) = (
    hooks => "Enabled mod_perl Hooks",
 );
 
+delete $status{'hooks'} if $mod_perl::VERSION >= 1.9901;
 delete $status{'sig'} if $Is_Win32;
 
 if($Apache::Server::SaveConfig) {
@@ -180,13 +182,26 @@ sub status_script {
     \@retval;
 }
 
+my $RegistryCache;
+
+sub registry_cache {
+    my($self, $cache) = @_;
+
+    if ($cache) {
+        $RegistryCache = $cache;
+    }
+
+    $RegistryCache || $Apache::Registry;
+}
+
 sub status_rgysubs {
     my($r,$q) = @_;
     my(@retval);
     local $_;
     my $uri = $r->uri;
+    my $cache = __PACKAGE__->registry_cache;
     push @retval, "<b>Click on package name to see its symbol table</b><p>\n";
-    foreach (sort keys %{$Apache::Registry}) {
+    foreach (sort keys %$cache) {
 	push @retval, 
 	qq(<a href="$uri?$_">$_</a>\n),
 	"<br>";
@@ -330,6 +345,7 @@ sub b_terse_link {
 
 sub noh_b_terse {
     my $r = shift;
+    return unless eval { require B::Terse };
     $r->send_http_header("text/plain");
     no strict 'refs';
     my($arg, $name) = (split "/", $r->uri)[-2,-1];
@@ -353,6 +369,7 @@ sub b_terse_size_link {
 
 sub noh_b_terse_size {
     my $r = shift;
+    return unless eval { require B::TerseSize };
     $r->send_http_header("text/html");
     $r->print('<pre>');
     my($arg, $name) = (split "/", $r->uri)[-2,-1];
@@ -372,6 +389,7 @@ sub b_package_size_link {
 
 sub noh_b_package_size {
     my($r, $q) = @_;
+    return unless eval { require B::TerseSize };
     $r->send_http_header("text/html");
     $r->print('<pre>');
     no strict 'refs';
@@ -499,6 +517,7 @@ sub noh_b_graph {
     mkdir $dir, 0755 unless -d $dir;
 
     (my $thing = $r->path_info) =~ s:^/::;
+    $thing =~ s{::}{-}g; # :: is not allowed in the filename on some OS
     my $type = "dot";
     my $file = "$dir/$thing.$$.gif";
     

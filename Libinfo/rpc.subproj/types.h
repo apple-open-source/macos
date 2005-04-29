@@ -51,7 +51,7 @@
  *
  *	from: @(#)types.h 1.18 87/07/24 SMI
  *	from: @(#)types.h	2.3 88/08/15 4.0 RPCSRC
- *	$Id: types.h,v 1.3 2002/07/27 18:24:28 majka Exp $
+ *	$Id: types.h,v 1.4 2003/10/16 22:15:15 majka Exp $
  */
 
 /*
@@ -70,9 +70,18 @@
 #ifndef TRUE
 #	define TRUE	(1)
 #endif
+
 #ifndef NULL
-#	define NULL	0
-#endif
+#ifdef __GNUG__
+#define NULL __null
+#else /* ! __GNUG__ */
+#ifndef __cplusplus
+#define NULL ((void *)0)
+#else /* __cplusplus */
+#define NULL 0
+#endif /* ! __cplusplus */
+#endif /* __GNUG__ */
+#endif /* ! NULL */
 
 #define mem_alloc(bsize)	calloc(1, bsize)
 #define mem_free(ptr, bsize)	free(ptr)

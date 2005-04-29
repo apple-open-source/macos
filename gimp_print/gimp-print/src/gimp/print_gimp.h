@@ -1,5 +1,5 @@
 /*
- * "$Id: print_gimp.h,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $"
+ * "$Id: print_gimp.h,v 1.1.1.2 2004/07/23 06:26:31 jlovell Exp $"
  *
  *   Print plug-in for the GIMP.
  *
@@ -34,14 +34,6 @@
 #endif
 
 #include <gtk/gtk.h>
-
-/*
- * We define GIMP_ENABLE_COMPAT_CRUFT here because we are still using
- * the old API names. This is because we have to support 1.0 as well.
- * This define is required as the default in Gimp was changed 24 Aug 00.
- * This should be removed when we stop supporting 1.0.
- */
-
 #include <libgimp/gimp.h>
 #include <libgimp/gimpui.h>
 
@@ -51,74 +43,13 @@
 #include <gimp-print/gimp-print.h>
 #endif
 
-/*
- * All Gimp-specific code is in this file.
- */
-
-#define PLUG_IN_VERSION		VERSION " - " RELEASE_DATE
-#define PLUG_IN_NAME		"Print"
-
-typedef struct		/**** Printer List ****/
-{
-  int	active;			/* Do we know about this printer? */
-  char	name[128];		/* Name of printer */
-  stp_vars_t v;
-} gp_plist_t;
-
-#define THUMBNAIL_MAXW	(128)
-#define THUMBNAIL_MAXH	(128)
-
-extern gint    thumbnail_w, thumbnail_h, thumbnail_bpp;
-extern guchar *thumbnail_data;
-extern gint    adjusted_thumbnail_bpp;
-extern guchar *adjusted_thumbnail_data;
-
-extern stp_vars_t           vars;
-extern gint             plist_count;	   /* Number of system printers */
-extern gint             plist_current;     /* Current system printer */
-extern gp_plist_t         *plist;		  /* System printers */
-extern gint32           image_ID;
-extern const gchar     *image_filename;
-extern gint             image_width;
-extern gint             image_height;
-extern stp_printer_t current_printer;
-extern gint             runme;
-extern gint             saveme;
-
-extern GtkWidget *gimp_color_adjust_dialog;
-extern GtkWidget *dither_algo_combo;
-extern stp_vars_t *pv;
-
-/*
- * Function prototypes
- */
+#ifdef INCLUDE_GIMP_PRINT_UI_H
+#include INCLUDE_GIMP_PRINT_UI_H
+#else
+#include <gimp-print-ui/gimp-print-ui.h>
+#endif
 
 /* How to create an Image wrapping a Gimp drawable */
-extern void  printrc_save (void);
-
-extern stp_image_t *Image_GimpDrawable_new(GimpDrawable *drawable);
-extern int add_printer(const gp_plist_t *key, int add_only);
-extern void initialize_printer(gp_plist_t *printer);
-extern void gimp_update_adjusted_thumbnail (void);
-extern void gimp_plist_build_combo         (GtkWidget     *combo,
-					    gint          num_items,
-					    stp_param_t   *items,
-					    const gchar   *cur_item,
-					    const gchar	  *def_value,
-					    GtkSignalFunc callback,
-					    gint          *callback_id);
-
-extern void gimp_invalidate_frame(void);
-extern void gimp_invalidate_preview_thumbnail(void);
-extern void gimp_do_color_updates    (void);
-extern void gimp_redraw_color_swatch (void);
-extern void gimp_build_dither_combo  (void);
-extern void gimp_create_color_adjust_window  (void);
-extern void gimp_update_adjusted_thumbnail   (void);
-extern void gimp_create_main_window (void);
-extern void gimp_set_color_sliders_active(int active);
-extern void gimp_writefunc (void *file, const char *buf, size_t bytes);
-extern void set_adjustment_tooltip(GtkObject *adjustment,
-				   const gchar *tip, const gchar *private);
+extern stpui_image_t *Image_GimpDrawable_new(GimpDrawable *drawable, gint32);
 
 #endif  /* __PRINT_GIMP_H__ */

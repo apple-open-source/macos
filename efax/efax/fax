@@ -27,8 +27,12 @@ EFIX=efix
 # name or the UUCP locking mechanism will fail.  For example, if
 # /dev/modem is a link to /dev/cua1, then getty, uucp, kermit,
 # pppd, dip, etc. must *all* use either /dev/modem or /dev/cua1.
+#
+# To support port sharing the answer mode device may be different
+# than the send or receive device.
 
-DEV=cua1
+DEV=cu.modem
+DEVANSWER=tty.modem
 
 # Your fax number in international format, 20 characters maximum.
 # Use only digits, spaces, and the "+" character.
@@ -81,12 +85,12 @@ DIALSUFFIX=""
 # conventions. Protect with single quotes for delayed evaluation.
 # Add a leading '#' to the file name to use binary format.
 
-LOCK='-x /var/lock/LCK..$DEV' 			# modern systems
+# LOCK='-x /var/lock/LCK..$DEV'			# modern systems
 # LOCK='-x /usr/spool/uucp/LCK..$DEV'		# older systems
 # LOCK='-x /var/lock/LCK..$DEV -x /var/spool/uucp/LCK..$DEV' # both
 # LOCK='-x #/usr/spool/uucp/LCK..$DEV'		# binary format
 # LOCK='-x /usr/spool/locks/LK.047.040.011'	# SysV style names
-# LOCK=''					# no lock file
+LOCK=''					# no lock file
 
 # Uncomment one of the following lines to force xon/xoff flow
 # control only if you have one of the types of modems listed.
@@ -430,24 +434,6 @@ ERR=0
 
 $NICE true 2>/dev/null ; case $? in 0) ;; *) NICE="" ;; esac
 
-# -------- resolve dependencies on command-line arguments
-
-eval LOCK=\"$LOCK\"			# depends on DEV
-
-# make device name w/o directories
-
-case $DEV in
-	*/*) DEVN=`echo $DEV|sed -e s./._.g` ;;
-	*) DEVN=$DEV ;;
-esac
-
-case $PAGE in
-	letter)	PAGEDIM="$PAGE_letter" ;;
-	legal) 	PAGEDIM="$PAGE_legal" ;;
-	a4) 	PAGEDIM="$PAGE_a4" ;;
-	*) 	echo "Error: PAGE=\"${PAGE}\" not valid." ; exit 2 ;;
-esac	
-
 # --- check for a command or alias and optional flags
 
 cmd=""
@@ -467,6 +453,33 @@ case $0 in
 	done
 ;; 
 esac
+
+
+# -------- If answer mode use the optional answer device
+
+if [ "x$cmd" = "xanswer" ]; then
+	if [ "x$DEVANSWER" != "x" ]; then
+		DEV=$DEVANSWER
+	fi
+fi
+
+# -------- resolve dependencies on command-line arguments
+
+eval LOCK=\"$LOCK\"			# depends on DEV
+
+# make device name w/o directories
+
+case $DEV in
+	*/*) DEVN=`echo $DEV|sed -e s./._.g` ;;
+	*) DEVN=$DEV ;;
+esac
+
+case $PAGE in
+	letter)	PAGEDIM="$PAGE_letter" ;;
+	legal) 	PAGEDIM="$PAGE_legal" ;;
+	a4) 	PAGEDIM="$PAGE_a4" ;;
+	*) 	echo "Error: PAGE=\"${PAGE}\" not valid." ; exit 2 ;;
+esac	
 
 # -------- functions
 
@@ -520,23 +533,24 @@ case $cmd in
 
 	for f in ${DEVN}.[0-9]*  	# clean up old log files
 	do
-	  egrep	"done, returning $NOLOG|exec'ing" $f >/dev/null 2>/dev/null
-	  case $? in
-	  0) 
-	  	$RM $f
-	  ;;
-	  1)    FILES=`sed -n -e  '/received ->/s/^.*-> \(.*\)$/\1/p' $f`
-		FILES=`echo $FILES`
-		REMID=`sed -n -e '/remote ID ->/s/^.*-> \(.*\)$/\1/p' \
-			-e tok -e b -e ':ok' -e q $f`
-		case $REMID in '') REMID='?' ;; esac
-		eval $NOTIFY
-		echo   >>${LOGDIR}/${DEVN}.log && \
-		cat $f >>${LOGDIR}/${DEVN}.log && \
-  		$RM $f || \
-		echo "Error: $FAX cannot save log files" >>$CONSOLE
-	  ;;
-	  esac
+	  if [ -r $f ]
+	  then
+	    egrep	"done, returning $NOLOG|exec'ing" $f >/dev/null 2>/dev/null
+	    case $? in
+	    1)    FILES=`sed -n -e  '/received ->/s/^.*-> \(.*\)$/\1/p' $f`
+		  FILES=`echo $FILES`
+		  REMID=`sed -n -e '/remote ID ->/s/^.*-> \(.*\)$/\1/p' \
+			  -e tok -e b -e ':ok' -e q $f`
+		  case $REMID in '') REMID='?' ;; esac
+		  eval $NOTIFY
+	    ;;
+	    esac
+
+	    echo   >>${LOGDIR}/${DEVN}.log && \
+	    cat $f >>${LOGDIR}/${DEVN}.log && \
+  	    $RM $f || \
+	    echo "Error: $FAX cannot save log files" >>$CONSOLE
+	  fi
 	done	
 
 	while [ -f ${DEVN}.stop ] ; do sleep 15 ; done

@@ -50,6 +50,7 @@ from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/cache.h,v 1.7 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef _CACHE_H_
 #define	_CACHE_H_
@@ -67,35 +68,26 @@ typedef void (*CacheFree) ();
 typedef struct _cache *CachePtr;
 
 extern Cache CacheInit(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     unsigned long /*maxsize*/
-#endif
 );
 
 extern void CacheFreeCache(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cid*/
-#endif
 );
 
 extern Bool CacheTrimNeeded(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cid*/
-#endif
 );
 
 extern void CacheTrim(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cid*/
-#endif
 );
 
 extern Bool CacheStoreMemory(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cid*/,
     CacheID /*id*/,
@@ -103,25 +95,20 @@ extern Bool CacheStoreMemory(
     unsigned long /*size*/,
     CacheFree /*free_func*/,
     Bool /*can_flush*/
-#endif
 );
 
 extern pointer CacheFetchMemory(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cid*/,
     CacheID /*id*/,
     Bool /*update*/
-#endif
 );
 
 extern void CacheFreeMemory(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cacheid*/,
     CacheID /*cid*/,
     Bool /*notify*/
-#endif
 );
 
 #endif				/* _CACHE_H_ */

@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfxdefs.h,v 1.13 2002/10/17 01:02:08 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/tdfx/tdfxdefs.h,v 1.14 2003/06/18 16:17:41 eich Exp $ */
 /*
    Voodoo Banshee driver version 1.0.1
 
@@ -45,6 +45,7 @@
 #define SST_DESKTOP_EN                  BIT(7)
 #define SST_DESKTOP_PIXEL_FORMAT_SHIFT  18
 #define SST_DESKTOP_CLUT_BYPASS         BIT(10)
+#define SST_INTERLACE                   BIT(3)
 #define SST_HALF_MODE                   BIT(4)
 #define SST_CURSOR_EN                   BIT(27)
 #define SST_FBI_BUSY                    BIT(7)

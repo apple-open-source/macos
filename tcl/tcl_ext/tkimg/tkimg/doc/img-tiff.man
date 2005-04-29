@@ -1,0 +1,52 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME tiff]
+[vset FORMATFULLNAME {Tagged Image File Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {TIFF OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {TIFF OPTIONS}].
+
+[list_end]
+
+
+
+[section {TIFF OPTIONS}]
+
+The handler provides two options to influence the writing of a TIFF
+image. There are [emph no] options to influence the reader.
+
+
+[list_begin definitions]
+
+[lst_item "[option -compression] [arg type]"]
+
+This option specifies the type of compression to use when writing TIFF
+data. It has to be one of [const none], [const jpeg],
+[const packbits], or [const deflate]. The default is [const none].
+
+
+[lst_item "[option -byteorder] [arg type]"]
+
+This option specifies the byteorder to use when writing TIFF data. It
+has to be one of [const bigendian], [const littleendian],
+
+[const network], [const smallendian], or the empty string. The default
+is the empty string.
+
+[nl]
+
+The values [const bigendian] and [const network] are aliases of each
+other, as are [const littleendian] and [const smallendian].
+
+
+[include format-footer.inc]

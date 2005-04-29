@@ -19,6 +19,8 @@
    Foundation, Inc., 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
+struct objfile;
+
 /* Definitions, prototypes, etc for stabs debugging format support
    functions.
 
@@ -128,17 +130,13 @@ EXTERN int n_this_object_header_files;
 
 EXTERN int n_allocated_this_object_header_files;
 
-extern struct type *read_type (char **, struct objfile *);
-
 extern void cleanup_undefined_types (void);
 
 extern struct type **dbx_lookup_type (int[2], struct objfile *objfile);
 
 extern long read_number (char **, int);
 
-extern void add_undefined_type (struct type *);
-
-extern struct symbol *define_symbol (CORE_ADDR, char *, char *, int, int,
+extern struct symbol *define_symbol (CORE_ADDR, char *, const char *, int, int,
 				     struct objfile *);
 
 extern void stabsread_init (void);
@@ -182,7 +180,7 @@ process_one_symbol (int, int, CORE_ADDR, char *, const char *,
 
 extern void elfstab_build_psymtabs (struct objfile *objfile,
 				    int mainline,
-				    file_ptr staboff, unsigned int stabsize,
+				    asection *stabsect,
 				    file_ptr stabstroffset,
 				    unsigned int stabstrsize);
 
@@ -197,16 +195,10 @@ extern void stabsect_build_psymtabs
   (struct objfile *objfile,
    int mainline,
    char *stab_name,
-   char *stabstr_name, char *text_name, char *data_name, char *bss_name);
+   char *stabstr_name, char *text_name);
 
 extern void elfstab_offset_sections (struct objfile *,
 				     struct partial_symtab *);
-
-#if 0 /* OBSOLETE CFront */
-// OBSOLETE extern void process_later
-// OBSOLETE   (struct symbol *, char *,
-// OBSOLETE    int (*f) (struct objfile *, struct symbol *, char *));
-#endif /* OBSOLETE CFront */
 
 extern int symbol_reference_defined (char **);
 
@@ -214,10 +206,6 @@ extern void ref_add (int, struct symbol *, char *, CORE_ADDR);
 
 extern struct symbol *ref_search (int);
 
-#if 0 /* OBSOLETE CFront */
-// OBSOLETE extern int resolve_cfront_continuation
-// OBSOLETE   (struct objfile *objfile, struct symbol *sym, char *p);
-#endif /* OBSOLETE CFront */
 extern void free_header_files (void);
 
 extern void init_header_files (void);

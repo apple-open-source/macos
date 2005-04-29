@@ -1,4 +1,4 @@
-// $XFree86: xc/programs/xkbcomp/keymap/xfree86,v 3.29 2002/12/20 02:07:10 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/keymap/xfree86,v 3.31 2003/06/21 13:01:58 pascal Exp $
 
 
 default xkb_keymap "us" {
@@ -299,6 +299,20 @@ xkb_keymap "th"	{
     xkb_symbols		{ include "en_US(pc105)+th"	};
     xkb_geometry 	{ include "pc(pc102)"		};
 };
+xkb_keymap "th_tis"	{
+    xkb_keycodes	{ include "xfree86"		};
+    xkb_types		{ include "default"		};
+    xkb_compatibility	{ include "default"		};
+    xkb_symbols		{ include "en_US(pc105)+th_tis"	};
+    xkb_geometry 	{ include "pc(pc102)"		};
+};
+xkb_keymap "th_pat"	{
+    xkb_keycodes	{ include "xfree86"		};
+    xkb_types		{ include "default"		};
+    xkb_compatibility	{ include "default"		};
+    xkb_symbols		{ include "en_US(pc105)+th_pat"	};
+    xkb_geometry 	{ include "pc(pc102)"		};
+};
 xkb_keymap "tr" {
     xkb_keycodes	{ include "xfree86"		};
     xkb_types		{ include "default"		};
@@ -336,5 +350,13 @@ xkb_keymap "us_microsoft" {
     xkb_compatibility	{ include "default"		};
     xkb_symbols		{ include "us(pc105)"		};
     xkb_geometry	{ include "microsoft"		};
+};
+
+xkb_keymap "uz" {
+    xkb_keycodes	{ include "xfree86"		};
+    xkb_types		{ include "default"		};
+    xkb_compatibility	{ include "default"		};
+    xkb_symbols		{ include "en_US(pc105)+uz"	};
+    xkb_geometry	{ include "pc(pc102)"		};
 };
 

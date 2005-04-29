@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (c) 2002, International Business Machines Corporation
-*   and others.  All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   01/28/2002  aliu        Creation.
-**********************************************************************
-*/
+ **************************************************************************
+ *   Copyright (c) 2002-2004, International Business Machines Corporation *
+ *   and others.  All Rights Reserved.                                    *
+ **************************************************************************
+ *   Date        Name        Description                                  *
+ *   01/28/2002  aliu        Creation.                                    *
+ **************************************************************************
+ */
 #ifndef TRIDPARS_H
 #define TRIDPARS_H
 
@@ -135,7 +135,7 @@ class TransliteratorIDParser /* not : public UObject because all methods are sta
      * @return a SingleID object or null
      */
     static SingleID* parseSingleID(const UnicodeString& id, int32_t& pos,
-                                  int32_t dir);
+                                  int32_t dir, UErrorCode& status);
 
     /**
      * Parse a global filter of the form "[f]" or "([f])", depending
@@ -287,7 +287,8 @@ class TransliteratorIDParser /* not : public UObject because all methods are sta
      */
     static void registerSpecialInverse(const UnicodeString& target,
                                        const UnicodeString& inverseTarget,
-                                       UBool bidirectional);
+                                       UBool bidirectional,
+                                       UErrorCode &status);
 
     /**
      * Free static memory.
@@ -343,7 +344,7 @@ class TransliteratorIDParser /* not : public UObject because all methods are sta
      * @return a SingleID or null.  Returned object always has
      * 'filter' field of null.
      */
-    static SingleID* specsToSpecialInverse(const Specs& specs);
+    static SingleID* specsToSpecialInverse(const Specs& specs, UErrorCode &status);
 
     /**
      * Glue method to get around access problems in C++.
@@ -356,7 +357,7 @@ class TransliteratorIDParser /* not : public UObject because all methods are sta
     /**
      * Initialize static memory.
      */
-    static void init();
+    static void init(UErrorCode &status);
 
     friend class SingleID;
 };

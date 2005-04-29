@@ -214,7 +214,7 @@ ever a number of ioctl() calls are broken.
 
 Bug reports should be sent to <XFree86@XFree86.org>.
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Solaris.sgml,v 1.4 2003/01/04 04:20:23 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Solaris.sgml,v 1.4 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Solaris,v 1.4 2003/01/04 04:28:27 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.Solaris,v 1.5 2003/07/15 02:28:30 dawes Exp $

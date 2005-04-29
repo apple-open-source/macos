@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2004-03-18</string>
+		<key>OpenSourceLicense</key>
+		<string>Info-ZIP</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>zip.txt</string>
+		<key>OpenSourceMD5</key>
+		<string>5206a99541f3b0ab90f1baa167392c4f</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Fix for CAN-2004-1010, obtained from http://ftp.info-zip.org/pub/infozip/src/zip23-CAN-2004-1010-patch.txt</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>zip</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.info-zip.org/pub/infozip/src/zip23.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>2.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://ftp.info-zip.org/pub/infozip/Zip.html</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2004-06-03</string>
+		<key>OpenSourceLicense</key>
+		<string>Info-ZIP</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>unzip.txt</string>
+		<key>OpenSourceMD5</key>
+		<string>8a25712aac642430d87d21491f7c6bd1</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>unzip</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.info-zip.org/pub/infozip/src/unzip551.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>5.51</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://ftp.info-zip.org/pub/infozip/UnZip.html</string>
+	</dict>
+</array>
+</plist>

@@ -1,0 +1,43 @@
+# catch.tcl --
+#
+#  Test script for the compiler.
+#  Contains a catch command at global scope, with a variable. This command
+#  is not compiled inline as of TCL 8.0, so that no exception ranges should
+#  be generated.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: catch.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+3 0 19 4 0 0 16 0 3 3 3 -1 -1
+19
+w0E<!:B`W!&0*!!.EW<!-E!!
+3
+0ir!
+3
+3N<!
+4
+x
+6
+7,V`FW+%
+x
+4
+>N%M9
+x
+5
+h-ur@4v
+x
+16
+6dV<+6_PcEsds`:hk'<w
+0
+0
+}

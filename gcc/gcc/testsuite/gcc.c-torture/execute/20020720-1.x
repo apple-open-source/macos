@@ -11,11 +11,25 @@
 #     and can make the optimization.
 
 # Don't XFAIL at -O0, that should never fail.
+if { [istarget "sparc*-*-*"] } {
+    set torture_eval_before_compile {
+        global compiler_conditional_xfail_data
+        set compiler_conditional_xfail_data {
+            "PR opt/10348" \
+            { "*-*-*" } \
+            { "-fpic" "-fPIC" } \
+            { "-O0" }
+        }
+    }
+    return 0
+}
+
 set torture_eval_before_compile {
     global compiler_conditional_xfail_data
     set compiler_conditional_xfail_data {
         "This test fails to optimize completely on certain platforms." \
-        { "xtensa-*-*" "sh-*-*" "arm*-*-*" "strongarm*-*-*" "xscale*-*-*" "h8300*-*-*" "x86_64-*-*" } \
+        { "xtensa-*-*" "sh-*-*" "arm*-*-*" "strongarm*-*-*" "xscale*-*-*" \
+	  "h8300*-*-*" "cris-*-*" "frv-*-*" "powerpc-*-*spe" } \
         { "*" } \
         { "-O0" }
     }

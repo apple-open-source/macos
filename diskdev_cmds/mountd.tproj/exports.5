@@ -31,7 +31,7 @@
 .\"
 .\"     @(#)exports.5	8.3 (Berkeley) 3/29/95
 .\"
-.Dd March 29, 1995
+.Dd March 8, 2005
 .Dt EXPORTS 5
 .Os
 .Sh NAME
@@ -53,38 +53,44 @@ server specification; see
 and
 .%T "NFS: Network File System Version 3 Specification, Appendix I" .
 .Pp
-Each line in the file
-(other than comment lines that begin with a #)
-specifies the mount point(s) and export flags within one local server
-filesystem for one or more hosts.
-A host may be specified only once for each local filesystem on the
-server and there may be only one default entry for each server
-filesystem that applies to all other hosts.
-The latter exports the filesystem to the ``world'' and should
-be used only when the filesystem contains public information.
+Lines that begin with a # are considered comments and are ignored.
 .Pp
-In a mount entry,
-the first field(s) specify the directory path(s) within a server filesystem
-that can be mounted on by the corresponding client(s).
-There are two forms of this specification.
-The first is to list all mount points as absolute
-directory paths separated by whitespace.
-The second is to specify the pathname of the root of the filesystem
-followed by the
+Each line in the file specifies one or more exported directories,
+any additional mountable sub-directories within those directories,
+export flags, and one or more hosts (if access to the export is to
+be restricted).  All directories on the line must exist within the
+same local file system.
+.Pp
+Within a file system there may be several exported sub-directories
+with different export options.  However, none of those exported
+directories may lie within another.
+.Pp
+A host may be specified only once for each exported directory
+and there may be only one default entry for each exported
+directory that applies to all other hosts.
+The latter exports the file system to the ``world'' and should
+be used only when the file system contains public information.
+Any attempt to export the same directory to a host with different
+export options will cause the conflicting export entry to be rejected.
+.Pp
+The first field(s) of an export entry is a list of directories on
+a local file system to export.  At least one pathname must be to an
+exported directory.  Other pathnames may refer to sub-directories of
+the exported directory to indicate that hosts are also allowed to
+explicitly mount those sub-directories of the exported directory.
+(Note that the
 .Fl alldirs
-flag;
-this form allows the host(s) to mount at any point within the filesystem,
-including regular files if the
-.Fl r
-option is used on mountd.
-The pathnames must not have any symbolic links in them and should not have
-any "." or ".." components.
-Mount points for a filesystem may appear on multiple lines each with
-different sets of hosts and export options.
+flag can be used to allow mounting any sub-directories of the pathnames
+specified.)
 .Pp
-The second component of a line specifies how the filesystem is to be
+The pathnames must not have any symbolic links in them and
+should not have any "." or ".." components.  Mount points for a
+file system may appear on multiple lines each with different
+sets of hosts and export options.
+.Pp
+The second component of a line specifies how the file system is to be
 exported to the host set.
-The option flags specify whether the filesystem
+The option flags specify whether the file system
 is exported read-only or read-write and how the client uid is mapped to
 user credentials on the server.
 .Pp
@@ -95,7 +101,7 @@ Export options are specified as follows:
 .Sm on
 The credential of the specified user is used for remote access by root.
 The credential includes all the groups to which the user is a member
-on the local machine (see
+on the local machine ( see
 .Xr id 1 ).
 The user may be specified by name or number.
 .Pp
@@ -105,7 +111,7 @@ The user may be specified by name or number.
 The colon separated list is used to specify the precise credential
 to be used for remote access by root.
 The elements of the list may be either names or numbers.
-Note that user: should be used to distinguish a credential containing
+Note that ``user:'' should be used to distinguish a credential containing
 no groups from a complete credential for that user.
 .Pp
 .Sm off
@@ -142,6 +148,13 @@ all users (including root) will be mapped to that credential in
 place of their own.
 .Pp
 The
+.Fl alldirs
+flag allows the host(s) to mount at any point within the file system,
+including regular files if the
+.Fl r
+option is used on mountd.
+.Pp
+The
 .Fl kerb
 option specifies that the Kerberos authentication server should be
 used to authenticate and map client credentials.
@@ -149,7 +162,7 @@ This option requires that the kernel be built with the NFSKERB option.
 .Pp
 The
 .Fl ro
-option specifies that the filesystem should be exported read-only
+option specifies that the file system should be exported read-only
 (default read/write).
 The option
 .Fl o
@@ -163,12 +176,12 @@ The first way is to list the host name(s) separated by white space.
 (Standard internet ``dot'' addresses may be used in place of names.)
 The second way is to specify a ``netgroup'' as defined in the netgroup file (see
 .Xr netgroup 5 ).
-The third way is to specify an internet subnetwork using a network and
+The third way is to specify an internet sub-network using a network and
 network mask that is defined as the set of all hosts with addresses within
-the subnetwork.
+the sub-network.
 This latter approach requires less overhead within the
 kernel and is recommended for cases where the export line refers to a
-large number of clients within an administrative subnet.
+large number of clients within an administrative sub-net.
 .Pp
 The first two cases are specified by simply listing the name(s) separated
 by whitespace.
@@ -187,32 +200,41 @@ and optionally
 If the mask is not specified, it will default to the mask for that network
 class (A, B or C; see
 .Xr inet 5 ).
-.Pp
-For example:
+.Sh EXAMPLES
 .Bd -literal -offset indent
 /usr /usr/local -maproot=0:10 friends
 /usr -maproot=daemon grumpy.cis.uoguelph.ca 131.104.48.16
 /usr -ro -mapall=nobody
 /u -maproot=bin: -network 131.104.48 -mask 255.255.255.0
 /u2 -maproot=root friends
-/u2 -alldirs -kerb -network cis-net -mask cis-mask
+/u2 -alldirs -network cis-net -mask cis-mask
+/Users -alldirs -network 2.29.96.0 -mask 255.255.255.0
+/Applications -ro -network 2.29.96.0 -mask 255.255.255.0
 .Ed
 .Pp
 Given that
-.Sy /usr ,
-.Sy /u
+.Pa /usr ,
+.Pa /u ,
+.Pa /u2 ,
 and
-.Sy /u2
+.Pa /
 are
-local filesystem mount points, the above example specifies the following:
-.Sy /usr
+local file system mount points, the above example specifies the following:
+.Pp
+.Pa /usr
 is exported to hosts
-.Em friends
-where friends is specified in the netgroup file
+.Ar friends ,
+where
+.Ar friends
+is specified in the netgroup file
 with users mapped to their remote credentials and
 root mapped to uid 0 and group 10.
-It is exported read-write and the hosts in ``friends'' can mount either /usr
-or /usr/local.
+It is exported read-write and the hosts in
+.Ar friends
+can mount either
+.Pa /usr
+or
+.Pa /usr/local .
 It is exported to
 .Em 131.104.48.16
 and
@@ -222,17 +244,32 @@ root mapped to the user and groups associated with ``daemon'';
 it is exported to the rest of the world as read-only with
 all users mapped to the user and groups associated with ``nobody''.
 .Pp
-.Sy /u
-is exported to all hosts on the subnetwork
+.Pa /u
+is exported to all hosts on the sub-network
 .Em 131.104.48
 with root mapped to the uid for ``bin'' and with no group access.
 .Pp
-.Sy /u2
+.Pa /u2
 is exported to the hosts in ``friends'' with root mapped to uid and groups
 associated with ``root'';
 it is exported to all hosts on network ``cis-net'' allowing mounts at any
-directory within /u2 and mapping all uids to credentials for the principal
-that is authenticated by a Kerberos ticket.
+directory within /u2.
+.Pp
+The
+.Pa /Users
+and
+.Pa /Applications
+sub-directories of
+.Pa /
+are exported to all hosts on the sub-network
+.Em 2.29.96 .
+Any directory within
+.Pa /Users
+can be mounted.
+.Pa /Users
+is exported read-write and
+.Pa /Applications
+is exported read-only.
 .Sh FILES
 .Bl -tag -width /etc/exports -compact
 .It Pa /etc/exports
@@ -244,11 +281,8 @@ The default remote mount-point file.
 .Xr nfsd 8 ,
 .Xr showmount 8
 .Sh BUGS
-The export options are tied to the local mount points in the kernel and
-must be non-contradictory for any exported subdirectory of the local
-server mount point.
 It is recommended that all exported directories within the same server
-filesystem be specified on adjacent lines going down the tree.
+file system be specified on adjacent lines going down the tree.
 You cannot specify a hostname that is also the name of a netgroup.
 Specifying the full domain specification for a hostname can normally
 circumvent the problem.

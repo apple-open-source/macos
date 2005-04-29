@@ -37,4 +37,3 @@ char *presuffix(char *, char);
 char *suffix(char *, char);
 char *lowerCase(char *);
 char **explode(char *, char);
-char *itoa(int);

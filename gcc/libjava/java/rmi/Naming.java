@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Naming.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,35 +35,109 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.rmi.registry.Registry;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 
 public final class Naming {
 
+/**
+ * Looks for the remote object that is associated with the named service.
+ * Name and location is given in form of a URL without a scheme:
+ *
+ * <pre>
+ * //host:port/service-name
+ * </pre>
+ *  
+ * The port is optional.
+ * 
+ * @param name the service name and location
+ * @return Remote-object that implements the named service
+ * @throws NotBoundException if no object implements the service
+ * @throws MalformedURLException 
+ * @throws RemoteException
+ */
 public static Remote lookup(String name) throws NotBoundException, MalformedURLException, RemoteException {
+	// hack to accept "rmi://host:port/service" strings
+	if(name.startsWith("rmi:")){ name = name.substring(4); }
 	URL u = new URL("http:" + name);
-	return (getRegistry(u).lookup(u.getFile().substring(1)));
+	String filename = u.getFile();
+
+	// If the filename begins with a slash we must cut it for
+	// name resolution.
+	if (filename.charAt(0) == '/')
+		return (getRegistry(u).lookup(filename.substring(1)));
+	else
+		return (getRegistry(u).lookup(filename));
 }
 
+/**
+ * Try to bind the given object to the given service name. 
+ * @param name
+ * @param obj
+ * @throws AlreadyBoundException
+ * @throws MalformedURLException
+ * @throws RemoteException
+ */
 public static void bind(String name, Remote obj) throws AlreadyBoundException, MalformedURLException, RemoteException {
 	URL u = new URL("http:" + name);
-	getRegistry(u).bind(u.getFile().substring(1), obj);
+	String filename = u.getFile();
+	// If the filename begins with a slash we must cut it for
+	// name resolution.
+	if (filename.charAt(0) == '/')
+		getRegistry(u).bind(filename.substring(1), obj);
+	else
+		getRegistry(u).bind(filename, obj);
 }
 
+/**
+ * Remove a binding for a given service name.
+ * @param name
+ * @throws RemoteException
+ * @throws NotBoundException
+ * @throws MalformedURLException
+ */
 public static void unbind(String name) throws RemoteException, NotBoundException, MalformedURLException {
 	URL u = new URL("http:" + name);
-	getRegistry(u).unbind(u.getFile().substring(1));
+	String filename = u.getFile();
+	// If the filename begins with a slash we must cut it for
+	// name resolution.
+	if (filename.charAt(0) == '/')
+		getRegistry(u).unbind(filename.substring(1));
+	else
+		getRegistry(u).unbind(filename);
 }
 
+/**
+ * Forces the binding between the given Remote-object and the given service name, even 
+ * if there was already an object bound to this name. 
+ * @param name
+ * @param obj
+ * @throws RemoteException
+ * @throws MalformedURLException
+ */
 public static void rebind(String name, Remote obj) throws RemoteException, MalformedURLException {
 	URL u = new URL("http:" + name);
-	getRegistry(u).rebind(u.getFile().substring(1), obj);
+	String filename = u.getFile();
+	// If the filename begins with a slash we must cut it for
+	// name resolution.
+	if (filename.charAt(0) == '/')
+		getRegistry(u).rebind(filename.substring(1), obj);
+	else
+		getRegistry(u).rebind(filename, obj);
 }
 
+/**
+ * Lists all services at the named registry.
+ * @param name url that specifies the registry
+ * @return list of services at the name registry
+ * @throws RemoteException
+ * @throws MalformedURLException
+ */
 public static String[] list(String name) throws RemoteException, MalformedURLException {
 	return (getRegistry(new URL("http:" + name)).list());
 }

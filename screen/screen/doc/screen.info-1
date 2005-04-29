@@ -1,4 +1,4 @@
-This is screen.info, produced by makeinfo version 4.2 from
+This is screen.info, produced by makeinfo version 4.5 from
 ./screen.texinfo.
 
 INFO-DIR-SECTION General Commands
@@ -31,7 +31,7 @@ Screen
 ******
 
    This file documents the `Screen' virtual terminal manager, version
-3.9.15.
+4.0.2.
 
 * Menu:
 
@@ -376,6 +376,7 @@ Invoking `Screen'
      the `-d' or `-r' option to tell screen to look only for attached
      or detached screen sessions. Note that this command doesn't work
      if the session is password protected.
+
 
 
 File: screen.info,  Node: Customization,  Next: Commands,  Prev: Invoking Screen,  Up: Top
@@ -822,6 +823,12 @@ Command Summary
 `bindkey [OPTS] [STRING [CMD ARGS]]'
      Bind a string to a series of keystrokes. *Note Bindkey::.
 
+`blanker'
+     Blank the screen.  *Note Screen Saver::.
+
+`blankerprg'
+     Define a blanker program.  *Note Screen Saver::.
+
 `break [DURATION]'
      Send a break signal to the current window.  *Note Break::.
 
@@ -920,6 +927,9 @@ Command Summary
 `defmonitor STATE'
      Select default activity monitoring behavior.  *Note Monitor::.
 
+`defnonblock STATE|NUMSECS'
+     Select default nonblock mode.  *Note Nonblock::.
+
 `defobuflimit LIMIT'
      Select default output buffer limit.  *Note Obuflimit::.
 
@@ -1014,6 +1024,9 @@ Command Summary
 `hstatus STATUS'
      Change the window's hardstatus line.  *Note Hardstatus::.
 
+`idle [TIMEOUT [CMD ARGS]]'
+     Define a screen saver command.  *Note Screen Saver::.
+
 `ignorecase [STATE]'
      Ignore character case in searches.  *Note Searching::.
 
@@ -1086,8 +1099,9 @@ Command Summary
 `next'
      Switch to the next window.  *Note Selecting::.
 
-`nonblock STATE'
-     Disable flow control to the current display. *Note Nonblock::.
+`nonblock [STATE|NUMSECS]'
+     Disable flow control to the current display. *Note
+     Nonblock::.|NUMSECS]
 
 `number [N]'
      Change/display the current window's number.  *Note Number::.
@@ -1286,6 +1300,9 @@ Command Summary
 `xon'
      Send an XON character.  *Note XON/XOFF::.
 
+`zmodem [off|auto|catch|pass]'
+     Define how screen treats zmodem requests.  *Note Zmodem::.
+
 `zombie [KEYS]'
      Keep dead windows.  *Note Zombie::.
 
@@ -1427,107 +1444,4 @@ Term
      vt100) for the next `screen rlogin othermachine' command. Use the
      command `screen -T vt100 rlogin othermachine' rather than setting
      and resetting the default.
-
-
-File: screen.info,  Node: Window Types,  Prev: Term,  Up: New Window
-
-Window Types
-============
-
-   Screen provides three different window types. New windows are created
-with `screen''s `screen' command (*note Screen Command::).  The first
-parameter to the `screen' command defines which type of window is
-created. The different window types are all special cases of the normal
-type. They have been added in order to allow `screen' to be used
-efficiently as a console with 100 or more windows.
-   * The normal window contains a shell (default, if no parameter is
-     given) or any other system command that could be executed from a
-     shell.  (e.g. `slogin', etc...).
-
-   * If a tty (character special device) name (e.g. `/dev/ttya') is
-     specified as the first parameter, then the window is directly
-     connected to this device.  This window type is similar to `screen
-     cu -l /dev/ttya'.  Read and write access is required on the device
-     node, an exclusive open is attempted on the node to mark the
-     connection line as busy.  An optional parameter is allowed
-     consisting of a comma separated list of flags in the notation used
-     by `stty(1)':
-    `<baud_rate>'
-          Usually 300, 1200, 9600 or 19200. This affects transmission
-          as well as receive speed.
-
-    `cs8 or cs7'
-          Specify the transmission of eight (or seven) bits per byte.
-
-    `ixon or -ixon'
-          Enables (or disables) software flow-control (CTRL-S/CTRL-Q)
-          for sending data.
-
-    `ixoff or -ixoff'
-          Enables (or disables) software flow-control for receiving
-          data.
-
-    `istrip or -istrip'
-          Clear (or keep) the eight bit in each received byte.
-
-     You may want to specify as many of these options as applicable.
-     Unspecified options cause the terminal driver to make up the
-     parameter values of the connection. These values are system
-     dependant and may be in defaults or values saved from a previous
-     connection.
-
-     For tty windows, the `info' command shows some of the modem
-     control lines in the status line.  These may include `RTS', `CTS',
-     `DTR', `CD' and more. This depends rather on on the available
-     `ioctl()''s and system header files than on the physical
-     capabilities of the serial board.  The name of a logical low
-     (inactive) signal is preceded by an exclamation mark (`!'),
-     otherwise the signal is logical high (active).  Unsupported but
-     shown signals are usually shown low.  When the `CLOCAL' status bit
-     is true, the whole set of modem signals is placed inside curly
-     braces (`{' and `}').  When the `CRTSCTS' or `TIOCSOFTCAR' bit is
-     true, the signals `CTS' or `CD' are shown in parenthesis,
-     respectively.
-
-     For tty windows, the command `break' causes the Data transmission
-     line (TxD) to go low for a specified period of time. This is
-     expected to be interpreted as break signal on the other side.  No
-     data is sent and no modem control line is changed when a `break'
-     is issued.
-
-   * If the first parameter is `//telnet', the second parameter is
-     expected to be a host name, and an optional third parameter may
-     specify a TCP port number (default decimal 23). Screen will
-     connect to a server listening on the remote host and use the
-     telnet protocol to communicate with that server.
-
-     For telnet windows, the command `info' shows details about the
-     connection in square brackets (`[' and `]') at the end of the
-     status line.
-    `b'
-          BINARY. The connection is in binary mode.
-
-    `e'
-          ECHO. Local echo is disabled.
-
-    `c'
-          SGA. The connection is in `character mode' (default: `line
-          mode').
-
-    `t'
-          TTYPE. The terminal type has been requested by the remote
-          host. Screen sends the name `screen' unless instructed
-          otherwise (see also the command `term').
-
-    `w'
-          NAWS. The remote site is notified about window size changes.
-
-    `f'
-          LFLOW. The remote host will send flow control information.
-          (Ignored at the moment.)  Additional flags for debugging are
-     `x', `t' and `n' (XDISPLOC, TSPEED and NEWENV).
-
-     For telnet windows, the command `break' sends the telnet code `IAC
-     BREAK' (decimal 243) to the remote host.
-
 

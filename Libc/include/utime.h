@@ -58,6 +58,13 @@
 #ifndef	_UTIME_H_
 #define	_UTIME_H_
 
+#include <_types.h>
+
+#ifndef _TIME_T
+#define _TIME_T
+typedef __darwin_time_t		time_t;
+#endif /* _TIME_T */
+
 struct utimbuf {
 	time_t actime;		/* Access time */
 	time_t modtime;		/* Modification time */

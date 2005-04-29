@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/resource.c,v 3.10 2002/12/07 20:31:04 herrb Exp $ */
+/* $XFree86: xc/programs/xdm/resource.c,v 3.12 2003/09/17 05:48:32 herrb Exp $ */
 
 /*
  * xdm - display manager daemon
@@ -57,7 +57,17 @@ int	removeDomainname;
 char	*keyFile;
 char	*accessFile;
 char	**exportList;
+#if !defined(ARC4_RANDOM)
 char	*randomFile;
+#endif
+#ifdef DEV_RANDOM
+char	*randomDevice;
+#endif
+#if !defined(ARC4_RANDOM)
+char	*prngdSocket;
+int	prngdPort;
+#endif
+
 char	*greeterLib;
 char	*willing;
 int	choiceTimeout;	/* chooser choice timeout */
@@ -72,6 +82,7 @@ int	choiceTimeout;	/* chooser choice timeout */
  * parameters set util/imake.includes/site.def (or *.macros in that directory
  * if it is server-specific).  DO NOT CHANGE THESE DEFINITIONS!
  */
+#ifndef __EMX__
 #ifndef DEF_SERVER_LINE 
 #define DEF_SERVER_LINE ":0 local /usr/bin/X11/X :0"
 #endif
@@ -119,15 +130,74 @@ int	choiceTimeout;	/* chooser choice timeout */
 #define DEF_ACCESS_FILE	""
 #endif
 #ifndef DEF_RANDOM_FILE
-# ifdef linux
-#  define DEF_RANDOM_FILE "/dev/urandom"
-# else
-#  define DEF_RANDOM_FILE "/dev/mem"
-# endif
+#define DEF_RANDOM_FILE "/dev/mem"
+#endif
+#ifndef DEF_PRNGD_SOCKET 
+#define DEF_PRNGD_SOCKET "/tmp/entropy"
+#endif
+#ifndef DEF_PRNGD_PORT
+#define DEF_PRNGD_PORT "0"
 #endif
 #ifndef DEF_GREETER_LIB
 #define DEF_GREETER_LIB "/usr/lib/X11/xdm/libXdmGreet.so"
 #endif
+#else
+/* unfortunately I have to declare all of them, because there is a limit
+ * in argument size in OS/2
+ * but everything needs to be fixed again
+ */
+#define DEF_SERVER_LINE ":0 local /XFree86/bin/X :0"
+#ifndef XRDB_PROGRAM
+#define XRDB_PROGRAM "/XFree86/bin/xrdb"
+#endif
+#ifndef DEF_SESSION
+#define DEF_SESSION "/XFree86/bin/xterm -ls"
+#endif
+#ifndef DEF_USER_PATH
+#define DEF_USER_PATH "c:\\os2;c:\\os2\apps;\\XFree86\\bin"
+#endif
+#ifndef DEF_SYSTEM_PATH
+#define DEF_SYSTEM_PATH "c:\\os2;c:\\os2\apps;\\XFree86\\bin"
+#endif
+#ifndef DEF_SYSTEM_SHELL
+#define DEF_SYSTEM_SHELL "sh"
+#endif
+#ifndef DEF_FAILSAFE_CLIENT
+#define DEF_FAILSAFE_CLIENT "/XFree86/bin/xterm"
+#endif
+#ifndef DEF_XDM_CONFIG
+#define DEF_XDM_CONFIG "/XFree86/lib/X11/xdm/xdm-config"
+#endif
+#ifndef DEF_CHOOSER
+#define DEF_CHOOSER "/XFree86/lib/X11/xdm/chooser"
+#endif
+#ifndef DEF_AUTH_NAME
+#ifdef HASXDMAUTH
+#define DEF_AUTH_NAME	"XDM-AUTHORIZATION-1 MIT-MAGIC-COOKIE-1"
+#else
+#define DEF_AUTH_NAME	"MIT-MAGIC-COOKIE-1"
+#endif
+#endif
+#ifndef DEF_AUTH_DIR
+#define DEF_AUTH_DIR "/XFree86/lib/X11/xdm"
+#endif
+#ifndef DEF_USER_AUTH_DIR
+#define DEF_USER_AUTH_DIR	"/tmp"
+#endif
+#ifndef DEF_KEY_FILE
+#define DEF_KEY_FILE	""
+#endif
+#ifndef DEF_ACCESS_FILE
+#define DEF_ACCESS_FILE	""
+#endif
+#ifndef DEF_RANDOM_FILE
+#define DEF_RANDOM_FILE ""
+#endif
+#ifndef DEF_GREETER_LIB
+#define DEF_GREETER_LIB "/XFree86/lib/X11/xdm/libXdmGreet.so"
+#endif
+
+#endif /* __EMX__ */
 
 #define DEF_UDP_PORT	"177"	    /* registered XDMCP port, dont change */
 
@@ -163,8 +233,18 @@ struct dmResources {
 				DEF_ACCESS_FILE} ,
 { "exportList",	"ExportList",	DM_ARGV,	(char **) &exportList,
 				""} ,
+#if !defined(ARC4_RANDOM)
 { "randomFile",	"RandomFile",	DM_STRING,	&randomFile,
 				DEF_RANDOM_FILE} ,
+{ "prgndSocket", "PrngdSocket", DM_STRING,	&prngdSocket, 
+				DEF_PRNGD_SOCKET},
+{ "prngdPort", "PrngdPort",	DM_INT,		(char **) &prngdPort,
+				DEF_PRNGD_PORT},
+#endif
+#ifdef DEV_RANDOM
+{ "randomDevice", "RandomDevice", DM_STRING,	&randomDevice,
+				DEV_RANDOM} ,
+#endif
 { "greeterLib",	"GreeterLib",	DM_STRING,	&greeterLib,
 				DEF_GREETER_LIB} ,
 { "choiceTimeout","ChoiceTimeout",DM_INT,	(char **) &choiceTimeout,

@@ -1,6 +1,6 @@
 /* Definitions of target machine for GNU compiler.  TMS320C[34]x
-   Copyright (C) 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
+   2003 Free Software Foundation, Inc.
 
    Contributed by Michael Hayes (m.hayes@elec.canterbury.ac.nz)
               and Herman Ten Brugge (Haj.Ten.Brugge@net.HCC.nl).
@@ -22,11 +22,64 @@
    the Free Software Foundation, 59 Temple Place - Suite 330,
    Boston, MA 02111-1307, USA.  */
 
-#include "hwint.h"
-
 /* RUN-TIME TARGET SPECIFICATION.  */
 
+#include "hwint.h"
+
 #define C4x   1
+
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      if (!TARGET_SMALL)			\
+	builtin_define ("_BIGMODEL");		\
+      if (!TARGET_MEMPARM)			\
+	builtin_define ("_REGPARM");		\
+      if (flag_inline_functions			\
+	  || flag_inline_trees)			\
+	builtin_define ("_INLINE");		\
+      if (TARGET_C3X)				\
+	{					\
+	  builtin_define ("_TMS320C3x");	\
+	  builtin_define ("_C3x");		\
+	  if (TARGET_C30)			\
+	    {					\
+	      builtin_define ("_TMS320C30");	\
+	      builtin_define ("_C30");		\
+	    }					\
+	  else if (TARGET_C31)			\
+	    {					\
+	      builtin_define ("_TMS320C31");	\
+	      builtin_define ("_C31");		\
+	    }					\
+	  else if (TARGET_C32)			\
+	    {					\
+	      builtin_define ("_TMS320C32");	\
+	      builtin_define ("_C32");		\
+	    }					\
+	  else if (TARGET_C33)			\
+	    {					\
+	      builtin_define ("_TMS320C33");	\
+	      builtin_define ("_C33");		\
+	    }					\
+	}					\
+      else					\
+	{					\
+	  builtin_define ("_TMS320C4x");	\
+	  builtin_define ("_C4x");		\
+	  if (TARGET_C40)			\
+	    {					\
+	      builtin_define ("_TMS320C40");	\
+	      builtin_define ("_C40");		\
+	    }					\
+	  else if (TARGET_C44)			\
+	    {					\
+	      builtin_define ("_TMS320C44");	\
+	      builtin_define ("_C44");		\
+	    }					\
+	}					\
+    }						\
+  while (0)
 
 /* Name of the c4x assembler.  */
 
@@ -40,23 +93,21 @@
 
 #define ASM_SPEC "\
 %{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=33:%{!mcpu=40:%{!mcpu=44:\
-%{!m30:%{!m40:-m40}}}}}}}} \
-%{mcpu=30:-m30} \
-%{mcpu=31:-m31} \
-%{mcpu=32:-m32} \
-%{mcpu=33:-m33} \
-%{mcpu=40:-m40} \
-%{mcpu=44:-m44} \
-%{m30:-m30} \
-%{m31:-m31} \
-%{m32:-m32} \
-%{m33:-m33} \
-%{m40:-m40} \
-%{m44:-m44} \
-%{mmemparm:-p} %{mregparm:-r} \
-%{!mmemparm:%{!mregparm:-r}} \
-%{mbig:-b} %{msmall:-s} \
-%{!msmall:%{!mbig:-b}}"
+%{!m30:%{!m31:%{!m32:%{!m33:%{!m40:%{!m44:-m40}}}}}}}}}}}} \
+%{mcpu=30} \
+%{mcpu=31} \
+%{mcpu=32} \
+%{mcpu=33} \
+%{mcpu=40} \
+%{mcpu=44} \
+%{m30} \
+%{m31} \
+%{m32} \
+%{m33} \
+%{m40} \
+%{m44} \
+%{mmemparm} %{mregparm} %{!mmemparm:%{!mregparm:-mregparm}} \
+%{mbig} %{msmall} %{!msmall:%{!mbig:-mbig}}"
 
 /* Define linker options.  */
 
@@ -69,30 +120,6 @@
 %{mcpu=31:--architecture c3x} \
 %{mcpu=32:--architecture c3x} \
 %{mcpu=33:--architecture c3x}"
-
-/* Define C preprocessor options.  */
-
-#define CPP_SPEC "\
-%{!m30:%{!m31:%{!m32:%{!m33:%{!mcpu=30:%{!mcpu=31:%{!mcpu=32:%{!mcpu=33:\
-%{!mcpu=40:%{!mcpu=44:%{\
-!m40:%{!m44:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40}}}}}}}}}}}} \
-%{mcpu=30:-D_TMS320C3x -D_C3x -D_TMS320C30 -D_C30 } \
-%{m30:-D_TMS320C3x -D_C3x -D_TMS320C30 -D_C30 } \
-%{mcpu=31:-D_TMS320C3x -D_C3x -D_TMS320C31 -D_C31 } \
-%{m31:-D_TMS320C3x -D_C3x -D_TMS320C31 -D_C31 } \
-%{mcpu=32:-D_TMS320C3x -D_C3x -D_TMS320C32 -D_C32 } \
-%{m32:-D_TMS320C3x -D_C3x -D_TMS320C32 -D_C32 } \
-%{mcpu=33:-D_TMS320C3x -D_C3x -D_TMS320C33 -D_C33 } \
-%{m33:-D_TMS320C3x -D_C3x -D_TMS320C33 -D_C33 } \
-%{mcpu=40:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40 } \
-%{m40:-D_TMS320C4x -D_C4x -D_TMS320C40 -D_C40 } \
-%{mcpu=44:-D_TMS320C4x -D_C4x -D_TMS320C44 -D_C44 } \
-%{m44:-D_TMS320C4x -D_C4x -D_TMS320C44 -D_C44 } \
-%{mmemparm:-U_REGPARM }%{mregparm:-D_REGPARM } \
-%{!mmemparm:%{!mregparm:-D_REGPARM }} \
-%{msmall:-U_BIGMODEL } %{mbig:-D_BIGMODEL } \
-%{!msmall:%{!mbig:-D_BIGMODEL }} \
-%{finline-functions:-D_INLINE }"
 
 /* Specify the end file to link with.  */
 
@@ -124,7 +151,7 @@
 #define C30_FLAG            0x0100000 /* Emit C30 code.  */
 #define C31_FLAG            0x0200000 /* Emit C31 code.  */
 #define C32_FLAG            0x0400000 /* Emit C32 code.  */
-#define C33_FLAG            0x0400000 /* Emit C33 code.  */
+#define C33_FLAG            0x0800000 /* Emit C33 code.  */
 #define C40_FLAG            0x1000000 /* Emit C40 code.  */
 #define C44_FLAG            0x2000000 /* Emit C44 code.  */
 
@@ -339,9 +366,7 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
    sizeof(int) = sizeof(long) = sizeof(float) = sizeof(double) = 1.  */
 
 #define BITS_PER_UNIT		32
-#define BITS_PER_WORD		32
 #define UNITS_PER_WORD		1
-#define POINTER_SIZE		32
 #define PARM_BOUNDARY	        32
 #define STACK_BOUNDARY		32
 #define FUNCTION_BOUNDARY	32
@@ -352,19 +377,14 @@ extern const char *c4x_rpts_cycles_string, *c4x_cpu_version_string;
 #define MAX_FIXED_MODE_SIZE	64 /* HImode.  */
 
 /* If a structure has a floating point field then force structure
-   to have BLKMODE.  */
-#define MEMBER_TYPE_FORCES_BLK(FIELD) \
-  (TREE_CODE (TREE_TYPE (FIELD)) == REAL_TYPE)
+   to have BLKMODE, unless it is the only field.  */
+#define MEMBER_TYPE_FORCES_BLK(FIELD, MODE) \
+  (TREE_CODE (TREE_TYPE (FIELD)) == REAL_TYPE && (MODE) == VOIDmode)
 
 /* Number of bits in the high and low parts of a two stage
    load of an immediate constant.  */
 #define BITS_PER_HIGH 16
 #define BITS_PER_LO_SUM 16
-
-/* Use the internal floating point stuff in the compiler and not the
-   host floating point stuff.  */
-
-#define REAL_ARITHMETIC
 
 /* Define register numbers.  */
 
@@ -1144,9 +1164,6 @@ CUMULATIVE_ARGS;
 
 /* Varargs handling.  */
 
-#define	EXPAND_BUILTIN_VA_START(stdarg, valist, nextarg) \
-  c4x_va_start (stdarg, valist, nextarg)
-
 #define EXPAND_BUILTIN_VA_ARG(valist, type) \
   c4x_va_arg (valist, type)
 
@@ -1262,85 +1279,6 @@ CUMULATIVE_ARGS;
   } while (0)
 
 #define TARGET_MEM_FUNCTIONS
-
-/* Add any extra modes needed to represent the condition code.
-
-   On the C4x, we have a "no-overflow" mode which is used when an ADD,
-   SUB, NEG, or MPY insn is used to set the condition code.  This is
-   to prevent the combiner from optimising away a following CMP of the
-   result with zero when a signed conditional branch or load insn
-   follows.
-
-   The problem is a subtle one and deals with the manner in which the
-   negative condition (N) flag is used on the C4x.  This flag does not
-   reflect the status of the actual result but of the ideal result had
-   no overflow occurred (when considering signed operands).
-
-   For example, 0x7fffffff + 1 => 0x80000000 Z=0 V=1 N=0 C=0.  Here
-   the flags reflect the untruncated result, not the actual result.
-   While the actual result is less than zero, the N flag is not set
-   since the ideal result of the addition without truncation would
-   have been positive.
-   
-   Note that the while the N flag is handled differently to most other
-   architectures, the use of it is self consistent and is not the
-   cause of the problem.
-
-   Logical operations set the N flag to the MSB of the result so if
-   the result is negative, N is 1.  However, integer and floating
-   point operations set the N flag to be the MSB of the result
-   exclusive ored with the overflow (V) flag.  Thus if an overflow
-   occurs and the result does not have the MSB set (i.e., the result
-   looks like a positive number), the N flag is set.  Conversely, if
-   an overflow occurs and the MSB of the result is set, N is set to 0.
-   Thus the N flag represents the sign of the result if it could have
-   been stored without overflow but does not represent the apparent
-   sign of the result.  Note that most architectures set the N flag to
-   be the MSB of the result.
-
-   The C4x approach to setting the N flag simplifies signed
-   conditional branches and loads which only have to test the state of
-   the N flag, whereas most architectures have to look at both the N
-   and V flags.  The disadvantage is that there is no flag giving the
-   status of the sign bit of the operation.  However, there are no
-   conditional load or branch instructions that make use of this
-   feature (e.g., BMI---branch minus) instruction.  Note that BN and
-   BLT are identical in the C4x.
-   
-   To handle the problem where the N flag is set differently whenever
-   there is an overflow we use a different CC mode, CC_NOOVmode which
-   says that the CC reflects the comparison of the result against zero
-   if no overflow occurred.
-
-   For example, 
-
-   [(set (reg:CC_NOOV 21)
-         (compare:CC_NOOV (minus:QI (match_operand:QI 1 "src_operand" "")
-                                    (match_operand:QI 2 "src_operand" ""))
-                          (const_int 0)))
-    (set (match_operand:QI 0 "ext_reg_operand" "")
-         (minus:QI (match_dup 1)
-                   (match_dup 2)))]
-
-   Note that there is no problem for insns that don't return a result
-   like CMP, since the CC reflects the effect of operation.
-
-   An example of a potential problem is when GCC
-   converts   (LTU (MINUS (0x80000000) (0x7fffffff) (0x80000000)))
-   to         (LEU (MINUS (0x80000000) (0x7fffffff) (0x7fffffff)))
-   to         (GE  (MINUS (0x80000000) (0x7fffffff) (0x00000000)))
-
-   Now (MINUS (0x80000000) (0x7fffffff)) returns 0x00000001 but the
-   C4x sets the N flag since the result without overflow would have
-   been 0xffffffff when treating the operands as signed integers.
-   Thus (GE (MINUS (0x80000000) (0x7fffffff) (0x00000000))) sets the N
-   flag but (GE (0x00000001)) does not set the N flag.
-
-   The upshot is that we can not use signed branch and conditional
-   load instructions after an add, subtract, neg, abs or multiply.
-   We must emit a compare insn to check the result against 0.  */
-
-#define EXTRA_CC_MODES CC(CC_NOOVmode, "CC_NOOV")
 
 /* CC_NOOVmode should be used when the first operand is a PLUS, MINUS, NEG
    or MULT.
@@ -1523,25 +1461,6 @@ CUMULATIVE_ARGS;
 
 #define LEGITIMATE_DISPLACEMENT_P(X) IS_DISP8_CONST (INTVAL (X))
 
-/* Define this macro if references to a symbol must be treated
-   differently depending on something about the variable or
-   function named by the symbol (such as what section it is in).
-
-   The macro definition, if any, is executed immediately after the
-   rtl for DECL or other node is created.
-   The value of the rtl will be a `mem' whose address is a
-   `symbol_ref'.
-
-   The usual thing for this macro to do is to a flag in the
-   `symbol_ref' (such as `SYMBOL_REF_FLAG') or to store a modified
-   name string in the `symbol_ref' (if one bit is not enough
-   information).
-
-   On the C4x we use this to indicate if a symbol is in text or
-   data space.  */
-
-#define ENCODE_SECTION_INFO(DECL) c4x_encode_section_info (DECL);
-
 /* Descripting Relative Cost of Operations.  */
 
 /* Provide the costs of a rtl expression.  This is in the body of a
@@ -1549,7 +1468,7 @@ CUMULATIVE_ARGS;
 
    Note that we return, rather than break so that rtx_cost doesn't
    include CONST_COSTS otherwise expand_mult will think that it is
-   cheaper to synthesise a multiply rather than to use a multiply
+   cheaper to synthesize a multiply rather than to use a multiply
    instruction.  I think this is because the algorithm synth_mult
    doesn't take into account the loading of the operands, whereas the
    calculation of mult_cost does. 
@@ -1680,9 +1599,7 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 
 #define DATA_SECTION_ASM_OP "\t.data"
 
-#define USE_CONST_SECTION 1
-
-#define CONST_SECTION_ASM_OP "\t.sect\t\".const\""
+#define READONLY_DATA_SECTION_ASM_OP "\t.sect\t\".const\""
 
 /* Do not use .init section so __main will be called on startup. This will
    call __do_global_ctors and prepare for __do_global_dtors on exit.  */
@@ -1694,11 +1611,10 @@ if (REG_P (OP1) && ! REG_P (OP0))			\
 #define FINI_SECTION_ASM_OP  "\t.sect\t\".fini\""
 
 #undef EXTRA_SECTIONS
-#define EXTRA_SECTIONS in_const, in_init, in_fini
+#define EXTRA_SECTIONS in_init, in_fini
 
 #undef EXTRA_SECTION_FUNCTIONS
 #define EXTRA_SECTION_FUNCTIONS					\
-  CONST_SECTION_FUNCTION					\
   INIT_SECTION_FUNCTION						\
   FINI_SECTION_FUNCTION
 
@@ -1725,54 +1641,10 @@ fini_section ()							\
     }								\
 }
 
-#define READONLY_DATA_SECTION() const_section ()
-
-#define CONST_SECTION_FUNCTION						\
-void									\
-const_section ()							\
-{									\
-  if (! USE_CONST_SECTION)						\
-    text_section();							\
-  else if (in_section != in_const)					\
-    {									\
-      fprintf (asm_out_file, "%s\n", CONST_SECTION_ASM_OP);		\
-      in_section = in_const;						\
-    }									\
-}
-
 #define ASM_STABS_OP "\t.stabs\t"
 
 /* Switch into a generic section.  */
 #define TARGET_ASM_NAMED_SECTION c4x_asm_named_section
-
-/* A C statement or statements to switch to the appropriate
-   section for output of DECL.  DECL is either a `VAR_DECL' node
-   or a constant of some sort.  RELOC indicates whether forming
-   the initial value of DECL requires link-time relocations.  */
-
-#define SELECT_SECTION(DECL, RELOC, ALIGN)				\
-{									\
-  if (TREE_CODE (DECL) == STRING_CST)					\
-    {									\
-      if (! flag_writable_strings)					\
-	const_section ();						\
-      else								\
-	data_section ();						\
-    }									\
-  else if (TREE_CODE (DECL) == VAR_DECL)				\
-    {									\
-      if ((0 && RELOC)	/* Should be (flag_pic && RELOC).  */		\
-	  || ! TREE_READONLY (DECL) || TREE_SIDE_EFFECTS (DECL)		\
-	  || ! DECL_INITIAL (DECL)					\
-	  || (DECL_INITIAL (DECL) != error_mark_node			\
-	      && ! TREE_CONSTANT (DECL_INITIAL (DECL))))		\
-	data_section ();						\
-      else								\
-	const_section ();						\
-    }									\
-  else									\
-    const_section ();							\
-}
 
 /* The TI assembler wants to have hex numbers this way.  */
 
@@ -1789,15 +1661,6 @@ const_section ()							\
 # endif
 #endif /* ! HOST_WIDE_INT_PRINT_HEX */
 
-/* A C statement or statements to switch to the appropriate
-   section for output of RTX in mode MODE.  RTX is some kind
-   of constant in RTL.  The argument MODE is redundant except
-   in the case of a `const_int' rtx.  Currently, these always
-   go into the const section.  */
-
-#define SELECT_RTX_SECTION(MODE, RTX, ALIGN) const_section()
-
-
 /* Overall Framework of an Assembler File.  */
 /* We need to have a data section we can identify so that we can set
    the DP register back to a data pointer in the small memory model.
@@ -1810,6 +1673,7 @@ const_section ()							\
     if (TARGET_C30) dspversion = 30;				\
     if (TARGET_C31) dspversion = 31;				\
     if (TARGET_C32) dspversion = 32;				\
+    if (TARGET_C33) dspversion = 33;                            \
     if (TARGET_C40) dspversion = 40;				\
     if (TARGET_C44) dspversion = 44;				\
     fprintf (FILE, "\t.version\t%d\n", dspversion);		\
@@ -1839,16 +1703,8 @@ const_section ()							\
 
 #define NO_DOT_IN_LABEL		/* Only required for TI format.  */
 
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0);
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME) \
-  do {                                  \
-    fprintf (FILE, "\t.global\t");	\
-    assemble_name (FILE, NAME);		\
-    fputs ("\n", FILE); 	        \
-    c4x_global_label (NAME);		\
-  } while (0);
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global\t"
 
 #define ASM_OUTPUT_EXTERNAL(FILE, DECL, NAME) \
 c4x_external_ref (NAME)
@@ -1871,7 +1727,7 @@ c4x_file_end (FILE)
    PREFIX is the class of label and NUM is the number within the class.  */
 
 #define ASM_OUTPUT_INTERNAL_LABEL(FILE, PREFIX, NUM)	\
-asm_fprintf (FILE, "%s%d:\n", PREFIX, NUM)
+	fprintf (FILE, "%s%d:\n", PREFIX, NUM)
 
 /* This is how to store into the string LABEL
    the symbol_ref name of an internal numbered label where
@@ -1928,16 +1784,10 @@ do {						\
 #define DOUBLE_TYPE_SIZE	32
 #define LONG_DOUBLE_TYPE_SIZE	64 /* Actually only 40.  */
 
-/* Allow #sccs in preprocessor.  */
-
-#define SCCS_DIRECTIVE
-
 /* Output #ident as a .ident.  */
 
 #define ASM_OUTPUT_IDENT(FILE, NAME) \
   fprintf (FILE, "\t.ident \"%s\"\n", NAME);
-
-#define CPP_PREDEFINES ""
 
 /* Output of Uninitialized Variables.  */
 
@@ -2041,7 +1891,7 @@ do {						\
    to avoid conflict with TI's use of .def).  */
 
 #define SDB_DELIM "\n"
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 
 /* Don't use octal since this can confuse gas for the c4x.  */
 #define PUT_SDB_TYPE(a) fprintf(asm_out_file, "\t.type\t0x%x%s", a, SDB_DELIM)
@@ -2137,27 +1987,27 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 {								\
   if (TARGET_C3X)						\
     {								\
-      asm_fprintf (FILE, "\tldiu\t0,ar1\n");			\
-      asm_fprintf (FILE, "\tlsh\t16,ar1\n");			\
-      asm_fprintf (FILE, "\tor\t0,ar1\n");			\
-      asm_fprintf (FILE, "\tldiu\t0,ar0\n");			\
-      asm_fprintf (FILE, "\tbud\tar1\n");			\
-      asm_fprintf (FILE, "\tlsh\t16,ar0\n");			\
-      asm_fprintf (FILE, "\tor\t0,ar0\n");			\
-      asm_fprintf (FILE, "\tor\t1000h,st\n");			\
+      fprintf (FILE, "\tldiu\t0,ar1\n");			\
+      fprintf (FILE, "\tlsh\t16,ar1\n");			\
+      fprintf (FILE, "\tor\t0,ar1\n");				\
+      fprintf (FILE, "\tldiu\t0,ar0\n");			\
+      fprintf (FILE, "\tbud\tar1\n");				\
+      fprintf (FILE, "\tlsh\t16,ar0\n");			\
+      fprintf (FILE, "\tor\t0,ar0\n");				\
+      fprintf (FILE, "\tor\t1000h,st\n");			\
     }								\
   else								\
     {								\
-      asm_fprintf (FILE, "\tlaj\t$+4\n");			\
-      asm_fprintf (FILE, "\taddi3\t4,r11,ar0\n");		\
-      asm_fprintf (FILE, "\tlda\t*ar0,ar1\n");			\
-      asm_fprintf (FILE, "\tlda\t*+ar0(1),ar0\n");		\
-      asm_fprintf (FILE, "\tbud\tar1\n");			\
-      asm_fprintf (FILE, "\tnop\n");				\
-      asm_fprintf (FILE, "\tnop\n");				\
-      asm_fprintf (FILE, "\tor\t1000h,st\n");			\
-      asm_fprintf (FILE, "\t.word\t0\n");			\
-      asm_fprintf (FILE, "\t.word\t0\n");			\
+      fprintf (FILE, "\tlaj\t$+4\n");				\
+      fprintf (FILE, "\taddi3\t4,r11,ar0\n");			\
+      fprintf (FILE, "\tlda\t*ar0,ar1\n");			\
+      fprintf (FILE, "\tlda\t*+ar0(1),ar0\n");			\
+      fprintf (FILE, "\tbud\tar1\n");				\
+      fprintf (FILE, "\tnop\n");				\
+      fprintf (FILE, "\tnop\n");				\
+      fprintf (FILE, "\tor\t1000h,st\n");			\
+      fprintf (FILE, "\t.word\t0\n");				\
+      fprintf (FILE, "\t.word\t0\n");				\
     }								\
 }
 
@@ -2220,13 +2070,13 @@ do { fprintf (asm_out_file, "\t.sdef\t");		\
 #define BSS_SECTION_ASM_OP "\t.bss"
 
 #define ASM_OUTPUT_REG_PUSH(FILE, REGNO)  \
-  asm_fprintf (FILE, "\tpush\t%s\n", reg_names[REGNO])
+  fprintf (FILE, "\tpush\t%s\n", reg_names[REGNO])
 
 /* This is how to output an insn to pop a register from the stack.
    It need not be very fast code.  */
 
 #define ASM_OUTPUT_REG_POP(FILE, REGNO)  \
-  asm_fprintf (FILE, "\tpop\t%s\n", reg_names[REGNO])
+  fprintf (FILE, "\tpop\t%s\n", reg_names[REGNO])
 
 /* Value is 1 if truncating an integer of INPREC bits to OUTPREC bits
    is done just by pretending it is already truncated.  */
@@ -2294,6 +2144,8 @@ if (final_sequence != NULL_RTX)				\
   {"src_hi_operand", {SUBREG, REG, MEM, CONST_DOUBLE}}, 	\
   {"lsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"tsrc_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
+  {"nonimmediate_src_operand", {SUBREG, REG, MEM}}, 		\
+  {"nonimmediate_lsrc_operand", {SUBREG, REG, MEM}}, 		\
   {"any_operand", {SUBREG, REG, MEM, CONST_INT, CONST_DOUBLE}}, \
   {"par_ind_operand", {MEM}},					\
   {"parallel_operand", {SUBREG, REG, MEM}},			\

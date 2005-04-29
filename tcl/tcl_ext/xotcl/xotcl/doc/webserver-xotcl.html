@@ -1,0 +1,181 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../apps/comm/webserver.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../apps/comm/webserver.xotcl" ALIGN="MIDDLE">
+  ./../apps/comm/webserver.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package required: </b> XOTcl 
+    <BR>
+    <b> Package required: </b> xotcl::comm::httpd 
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#SpecializedWorker">
+          <em>SpecializedWorker</em>:
+        </A>
+        <a href="#SpecializedWorker-respond">respond</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#h1">
+          <em>h1</em>:
+        </A>
+        
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#h2">
+          <em>h2</em>:
+        </A>
+        
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../apps/comm/webserver.xotcl">
+      ./../apps/comm/webserver.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+    This small demo program starts two different webservers:
+    <ul>
+    <li>Firstly, it provides a sample web server that povides the documents in 
+    ../../src/doc (or the files specified with -root) at port 8086 
+    (or at the port specified via the -port option) as unprotected resources.
+    <p>
+    <li>Secondly, it starts a second webserver with basic access control
+    (it accepts test/test as user/password) on port 9096 (or on the
+    port specified via -protected-port). If it receives an request
+    for an resource named "exit", it terminates. For all other requests
+    it returns actual information about the user and the issued request.
+    </ul>
+    To see, how it works, contact it e.g. from netscape.
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="SpecializedWorker">
+        
+      </A>
+      <h2> Class: <em> SpecializedWorker </em> </h2>
+      <b>Class</b>: Class
+      <BR>
+      <b> Procs/Instprocs: </b> 
+      <a href="#SpecializedWorker-respond">respond</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+  Specialized worker that can be passed to any webserver
+
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="SpecializedWorker-respond">
+            
+          </A>
+          <b>respond </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+  This method handles all responses from the webserver to the client.
+  We implent here "exit", and we return the information about the  actual 
+  request and  user in HTML format for all other requests.
+  <p>This method is an example, how to access on the server side 
+  request specific infomation.
+
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="h1">
+        
+      </A>
+      <h2> Object: <em> h1 </em> </h2>
+      <b>Class</b>: Httpd
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            unprotected web server
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <HR>
+    <P>
+      <A NAME="h2">
+        
+      </A>
+      <h2> Object: <em> h2 </em> </h2>
+      <b>Class</b>: Httpd
+      <BR>
+      
+      
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            Web server with basic authentication using the specialied worker
+          </TD>
+        </TR>
+      </TABLE>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

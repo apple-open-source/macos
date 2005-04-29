@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xdm/xdmauth.c,v 1.5 2001/12/14 20:01:25 dawes Exp $ */
+/* $XFree86: xc/programs/xdm/xdmauth.c,v 1.7 2003/10/27 21:39:02 herrb Exp $ */
 /*
  * xdm - display manager daemon
  * Author:  Keith Packard, MIT X Consortium
@@ -45,11 +45,8 @@ from The Open Group.
 static char	auth_name[256];
 static int	auth_name_len;
 
-void
-XdmPrintDataHex (s, a, l)
-    char	    *s;
-    char	    *a;
-    int		    l;
+static void
+XdmPrintDataHex (char *s, char *a, int l)
 {
     int	i;
 
@@ -59,30 +56,16 @@ XdmPrintDataHex (s, a, l)
     Debug ("\n");
 }
 
-#ifdef notdef			/* not used */
-void
-XdmPrintKey (s, k)
-    char	    *s;
-    XdmAuthKeyRec   *k;
-{
-    XdmPrintDataHex (s, (char *) k->data, 8);
-}
-#endif
-
 #ifdef XDMCP
-void
-XdmPrintArray8Hex (s, a)
-    char	*s;
-    ARRAY8Ptr	a;
+static void
+XdmPrintArray8Hex (char *s, ARRAY8Ptr a)
 {
     XdmPrintDataHex (s, (char *) a->data, a->length);
 }
 #endif
 
 void
-XdmInitAuth (name_len, name)
-    unsigned short  name_len;
-    char	    *name;
+XdmInitAuth (unsigned short name_len, char *name)
 {
     if (name_len > 256)
 	name_len = 256;
@@ -99,11 +82,8 @@ XdmInitAuth (name_len, name)
  * between xdm and the server (16 bytes total)
  */
 
-Xauth *
-XdmGetAuthHelper (namelen, name, includeRho)
-    unsigned short  namelen;
-    char	    *name;
-    int	    includeRho;
+static Xauth *
+XdmGetAuthHelper (unsigned short namelen, char *name, int includeRho)
 {
     Xauth   *new;
     new = (Xauth *) malloc (sizeof (Xauth));
@@ -135,7 +115,13 @@ XdmGetAuthHelper (namelen, name, includeRho)
     }
     memmove( (char *)new->name, name, namelen);
     new->name_length = namelen;
-    GenerateAuthData ((char *)new->data, new->data_length);
+    if (!GenerateAuthData ((char *)new->data, new->data_length))
+    {
+	free ((char *) new->name);
+	free ((char *) new->data);
+	free ((char *) new);
+	return (Xauth *) 0;
+    }
     /*
      * set the first byte of the session key to zero as it
      * is a DES key and only uses 56 bits
@@ -146,9 +132,7 @@ XdmGetAuthHelper (namelen, name, includeRho)
 }
 
 Xauth *
-XdmGetAuth (namelen, name)
-    unsigned short  namelen;
-    char	    *name;
+XdmGetAuth (unsigned short namelen, char *name)
 {
     return XdmGetAuthHelper (namelen, name, TRUE);
 }
@@ -156,10 +140,8 @@ XdmGetAuth (namelen, name)
 #ifdef XDMCP
 
 void
-XdmGetXdmcpAuth (pdpy,authorizationNameLen, authorizationName)
-    struct protoDisplay	*pdpy;
-    unsigned short	authorizationNameLen;
-    char		*authorizationName;
+XdmGetXdmcpAuth (struct protoDisplay *pdpy, 
+    unsigned short authorizationNameLen, char *authorizationName)
 {
     Xauth   *fileauth, *xdmcpauth;
 
@@ -210,8 +192,7 @@ XdmGetXdmcpAuth (pdpy,authorizationNameLen, authorizationName)
 		 'A' <= c && c <= 'F' ? c - 'A' + 10 : -1)
 
 static int
-HexToBinary (key)
-    char    *key;
+HexToBinary(char *key)
 {
     char    *out, *in;
     int	    top, bottom;
@@ -240,10 +221,8 @@ HexToBinary (key)
  * routine accepts either plain ascii strings for keys, or hex-encoded numbers
  */
 
-int
-XdmGetKey (pdpy, displayID)
-    struct protoDisplay	*pdpy;
-    ARRAY8Ptr		displayID;
+static int
+XdmGetKey(struct protoDisplay *pdpy, ARRAY8Ptr displayID)
 {
     FILE    *keys;
     char    line[1024], id[1024], key[1024];
@@ -283,9 +262,8 @@ XdmGetKey (pdpy, displayID)
 
 /*ARGSUSED*/
 int
-XdmCheckAuthentication (pdpy, displayID, authenticationName, authenticationData)
-    struct protoDisplay	*pdpy;
-    ARRAY8Ptr		displayID, authenticationName, authenticationData;
+XdmCheckAuthentication(struct protoDisplay *pdpy, ARRAY8Ptr displayID, 
+    ARRAY8Ptr authenticationName, ARRAY8Ptr authenticationData)
 {
     XdmAuthKeyPtr   incoming;
 

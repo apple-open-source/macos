@@ -1,6 +1,6 @@
 #!/bin/sh
 # 
-# Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+# Copyright (c) 1999-2005 Apple Computer, Inc. All rights reserved.
 #
 # @APPLE_LICENSE_HEADER_START@
 # 
@@ -55,12 +55,7 @@ migflags=
 files=
 arch=`/usr/bin/arch`
 
-# If an argument to this shell script contains whitespace,
-# then we will screw up.  migcom will see it as multiple arguments.
-#
-# As a special hack, if -i is specified first we don't pass -user to migcom.
-# We do use the -user argument for the dependencies.
-# In this case, the -user argument can have whitespace.
+# parse out the arguments until we hit plain file name(s)
 
 until [ $# -eq 0 ]
 do
@@ -81,64 +76,76 @@ do
 	-cc) C=$2; shift; shift;;
 	-migcom) M=$2; shift; shift;;
 	-* ) cppflags="$cppflags $1"; shift;;
-	* ) files="$files $1"; shift;;
+	* ) break;;
     esac
 done
 
-#
-# traditional-cpp is deprecated in gcc 3.3 and later
-#
-gcc_version=`$C --version | /usr/bin/cut -d' ' -f3`
-if [ "$gcc_version" "<" "3.3" ]; then
-	cppflags="-traditional-cpp $cppflags"
-fi
-
-for file in $files
+# process the rest as files
+until [ $# -eq 0 ]
 do
-    base="$(basename "$file" .defs)"
-    temp=/tmp/"$base".$$
-    sourcedir="$(dirname "$file")"
-    rm -f "$temp".c "$temp".d
-    (echo '#line 1 '\""$file"\"; cat "$file") > "$temp".c
-    $C -E -arch $arch $cppflags -I "$sourcedir" "$temp".c | $M  $migflags || rm -f "$temp".c "$temp".d | exit
+    case "$1" in
+	-[dtqkKQvVtTrRsSlLxX] ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
+	-i	) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-user   ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-server ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-header ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-sheader ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-iheader ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-dheader ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-arch ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift ; shift; continue;;
+	-maxonstack ) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-split ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
+	-MD ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
+	-cpp) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-cc) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-migcom) echo "warning: option \"$1 $2\" after filename(s) ignored"; shift; shift; continue;;
+	-* ) echo "warning: option \"$1\" after filename(s) ignored"; shift; continue;;
+        * ) file="$1"; shift;;
+    esac
+    base="$(basename "${file}" .defs)"
+    temp="/tmp/${base}.$$"
+    sourcedir="$(dirname "${file}")"
+    rm -f "${temp}.c" "${temp}.d"
+    (echo '#line 1 '\"${file}\" ; cat "${file}" ) > "${temp}.c"
+    $C -E -arch ${arch} ${cppflags} -I "${sourcedir}" "${temp}.c" | $M  $migflags || rm -f "${temp}.c" "${temp}.d" | exit
 
-    if [ "$sawMD" -a -f "$temp".d ]
+    if [ "${sawMD}" -a -f "${temp}.d" ]
     then
 	deps=
 	s=
 	rheader="${header-${base}.h}"
-	if [ "$rheader" != /dev/null ]; then
+	if [ "${rheader}" != /dev/null ]; then
 		deps="${deps}${s}${rheader}"; s=" "
 	fi
 	ruser="${user-${base}User.c}"
-	if [ "$ruser" != /dev/null ]; then
+	if [ "${ruser}" != /dev/null ]; then
 		deps="${deps}${s}${ruser}"; s=" "
 	fi
 	rserver="${server-${base}Server.c}"
-	if [ "$rserver" != /dev/null ]; then
+	if [ "${rserver}" != /dev/null ]; then
 		deps="${deps}${s}${rserver}"; s=" "
 	fi
 	rsheader="${sheader-/dev/null}"
-	if [ "$rsheader" != /dev/null ]; then
+	if [ "${rsheader}" != /dev/null ]; then
 		deps="${deps}${s}${rsheader}"; s=" "
 	fi
 	riheader="${iheader-/dev/null}"
-	if [ "$riheader" != /dev/null ]; then
+	if [ "${riheader}" != /dev/null ]; then
 		deps="${deps}${s}${riheader}"; s=" "
 	fi
 	rdheader="${dheader-/dev/null}"
-	if [ "$rdheader" != /dev/null ]; then
+	if [ "${rdheader}" != /dev/null ]; then
 		deps="${deps}${s}${rdheader}"; s=" "
 	fi
-	for target in ${deps}
+	for target in "${deps}"
 	do
 		sed -e 's;^'"${temp}"'.o[ 	]*:;'"${target}"':;' \
 		    -e 's;: '"${temp}"'.c;: '"$file"';' \
-		< "${temp}".d > "${target}".d
+		< "${temp}.d" > "${target}.d"
 	done
-	rm -f "$temp".d
+	rm -f "${temp}.d"
     fi
-    rm -f "$temp".c
+    rm -f "${temp}.c"
 done
 
 exit 0

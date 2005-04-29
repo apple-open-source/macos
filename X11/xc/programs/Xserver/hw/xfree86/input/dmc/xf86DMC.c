@@ -27,7 +27,15 @@
  * in this Software without prior written authorization from Metro Link.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/dmc/xf86DMC.c,v 1.2 2001/11/26 16:25:52 dawes Exp $ */
+ /*
+  * Changes :
+  * 25-Jul-2003 Andreas Kies ( a.kies(at)gppag.de )
+  *   - Make driver work again ; Pen-up is one byte in size
+  *   - Change extremly missleading error messages
+  *   - Make dectection work after restart of X
+  */
+
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/dmc/xf86DMC.c,v 1.3 2003/06/25 18:06:25 eich Exp $ */
 
 #define _DMC_C_
 
@@ -342,10 +350,18 @@ DeviceControl (DeviceIntPtr dev, int mode)
 			}
 			else
 			{
+				unsigned char	resbuf[1] = { 0x55 };
 				unsigned char	buf[2] = { 0x05, 0x40 };
 
-				sleep(1);	/* touch need ca. 500ms delay !!! */
 				XisbBlockDuration (priv->buffer, 500000);
+				sleep(1);	/* touch need ca. 500ms delay !!! */
+				if ( DMCSendPacket(priv, resbuf, 1) != Success )
+				{
+					xf86Msg(X_ERROR, "DMC-Touch reset error\n");
+					return (!Success);
+				}
+
+				sleep(1);	/* touch need ca. 500ms delay !!! */
 				if ( DMCSendPacket(priv, buf, 2) == Success )
 				{
 					/* wait for right response */
@@ -357,23 +373,23 @@ DeviceControl (DeviceIntPtr dev, int mode)
 							buf[0] = 0x31;
 							DMCSendPacket(priv,buf,1);
 							priv->lex_mode = DMC_Response0;
-							xf86Msg(X_ERROR, "DMC-Touch found\n");
+							xf86Msg(X_INFO, "DMC-Touch found\n");
 						}
 						else
 						{
-							xf86Msg(X_ERROR, "DMC-Touch found\n");
+							xf86Msg(X_ERROR, "DMC-Touch not found(bad response)\n");
 							return (!Success);
 						}
 					}
 					else
 					{
-						xf86Msg(X_ERROR, "DMC-Touch found\n");
+						xf86Msg(X_ERROR, "DMC-Touch not found(no response)\n");
 						return (!Success);
 					}
 				}
 				else
 				{
-					xf86Msg(X_ERROR, "DMC-Touch found\n");
+					xf86Msg(X_ERROR, "DMC-Touch not found(send error)\n");
 					return (!Success);
 				}
 			}
@@ -627,6 +643,8 @@ DMCGetPacket (DMCPrivatePtr priv)
 					return (!Success);
 
 			priv->packet[0] = (unsigned char) c & 0x3f;
+			if ( ( (unsigned char) c & 0x3f) == 0x10 )
+				return (Success);
 			priv->lex_mode = DMC_byte1;
 			break;
 

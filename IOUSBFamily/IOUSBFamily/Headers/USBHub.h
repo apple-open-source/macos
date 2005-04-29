@@ -61,7 +61,8 @@ enum {
     kUSBHubPortEnableChangeFeature      = 17,
     kUSBHubPortSuspendChangeFeature     = 18,
     kUSBHubPortOverCurrentChangeFeature = 19,
-    kUSBHubPortResetChangeFeature       = 20
+    kUSBHubPortResetChangeFeature       = 20,
+    kUSBHubPortTestFeature		= 21
 };
 
     /*!

@@ -38,33 +38,22 @@
  *		Fred W. Billmeyer & Max Saltzman, "Principles of Color
  *		Technology", John Wily & Sons, Inc, 1981.
  */
-/* $XFree86: xc/lib/X11/Luv.c,v 1.3 2001/01/17 19:41:39 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Luv.c,v 1.4 2003/04/13 19:22:16 dawes Exp $ */
 
 #include <X11/Xos.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 #include <stdio.h> /* sscanf */
-
-/*
- *	EXTERNS
- */
-
-extern char _XcmsCIELuv_prefix[];
-
-/* CvCols.c */
-extern Status _XcmsDIConvertColors();
-
-/* uvY.c */
-Status _XcmsCIEuvY_ValidSpec();
 
 
 /*
  *	FORWARD DECLARATIONS
  */
 
-static int CIELuv_ParseString();
-static Status XcmsCIELuv_ValidSpec();
+static int CIELuv_ParseString(register char *spec, XcmsColor *pColor);
+static Status XcmsCIELuv_ValidSpec(XcmsColor *pColor);
 
 /*
  *	DEFINES
@@ -131,9 +120,9 @@ XcmsColorSpace	XcmsCIELuvColorSpace =
  *	SYNOPSIS
  */
 static int
-CIELuv_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+CIELuv_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -194,8 +183,8 @@ CIELuv_ParseString(spec, pColor)
  *	SYNOPSIS
  */
 static Status
-XcmsCIELuv_ValidSpec(pColor)
-    XcmsColor *pColor;
+XcmsCIELuv_ValidSpec(
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Checks if color specification valid for CIE L*u*v*.

@@ -1,0 +1,11 @@
+--- configure.orig	Wed Oct 27 08:25:38 2004
++++ configure	Wed Oct 27 11:11:05 2004
+@@ -13769,7 +13769,7 @@
+ 	rhapsody*)	: ${LDSHARED='cc -dynamic -bundle -undefined suppress'}
+ 			: ${LDFLAGS=""}
+ 			rb_cv_dlopen=yes ;;
+-	darwin*)	: ${LDSHARED='cc -dynamic -bundle -undefined suppress -flat_namespace'}
++	darwin*)	: ${LDSHARED='cc $(RC_CFLAGS) -dynamic -bundle -undefined suppress -flat_namespace'}
+ 			: ${LDFLAGS=""}
+ 			rb_cv_dlopen=yes ;;
+ 	aix*)		: ${LDSHARED='/usr/ccs/bin/ld'}

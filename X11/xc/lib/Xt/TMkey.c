@@ -59,7 +59,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/TMkey.c,v 3.10 2001/12/14 19:56:30 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TMkey.c,v 3.11 2003/04/21 16:34:28 herrb Exp $ */
 
 #define XK_MISCELLANY
 #define XK_LATIN1
@@ -492,24 +492,12 @@ void _XtBuildKeysymTables(dpy,pd)
     XFreeModifiermap(modKeymap);
 }
 
-#if NeedFunctionPrototypes
 void XtTranslateKeycode (
     Display *dpy, 
     _XtKeyCode keycode,
     Modifiers modifiers,
     Modifiers *modifiers_return,
-    KeySym *keysym_return
-    )
-#else
-void XtTranslateKeycode (dpy, keycode, modifiers,
-                            modifiers_return, keysym_return)
-
-    Display *dpy;
-    KeyCode keycode;
-    Modifiers modifiers;
-    Modifiers *modifiers_return;
-    KeySym *keysym_return;
-#endif
+    KeySym *keysym_return)
 {
     XtPerDisplay pd;
     DPY_TO_APPCON(dpy);
@@ -523,23 +511,12 @@ void XtTranslateKeycode (dpy, keycode, modifiers,
 }
 
 /* This code should match XTranslateKey (internal, sigh) in Xlib */
-#if NeedFunctionPrototypes
 void XtTranslateKey(
     register Display *dpy,
     _XtKeyCode keycode,
     Modifiers modifiers,
     Modifiers *modifiers_return,
-    KeySym *keysym_return
-    )
-#else
-void XtTranslateKey(dpy, keycode, modifiers,
-                            modifiers_return, keysym_return)
-    register Display *dpy;
-    KeyCode keycode;
-    Modifiers modifiers;
-    Modifiers *modifiers_return;
-    KeySym *keysym_return;
-#endif
+    KeySym *keysym_return)
 #ifndef XKB
 {
     XtPerDisplay pd;

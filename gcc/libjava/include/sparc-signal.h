@@ -18,7 +18,9 @@ details.  */
 #define HANDLE_FPE 1
 
 #define SIGNAL_HANDLER(_name) 						\
-static void _name (int _dummy, siginfo_t *_info, void *arg)
+static void _name (int _dummy __attribute__ ((__unused__)), \
+		   siginfo_t *_info __attribute__ ((__unused__)), \
+		   void *arg __attribute__ ((__unused__)))
 
 #ifdef __arch64__
 #define FLUSH_REGISTER_WINDOWS					\
@@ -45,7 +47,6 @@ while (0)
 #define INIT_SEGV						\
 do								\
   {								\
-    nullp = new java::lang::NullPointerException ();		\
     struct sigaction act;					\
     act.sa_sigaction = catch_segv;				\
     act.sa_flags = SA_SIGINFO | SA_NODEFER;			\
@@ -57,8 +58,6 @@ while (0)
 #define INIT_FPE						\
 do								\
   {								\
-    arithexception = new java::lang::ArithmeticException 	\
-      (JvNewStringLatin1 ("/ by zero"));			\
     struct sigaction act;					\
     act.sa_flags = SA_SIGINFO | SA_NODEFER;			\
     act.sa_sigaction = catch_fpe;				\

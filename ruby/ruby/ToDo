@@ -1,12 +1,7 @@
 Language Spec.
 
-- def foo; .. rescue .. end
-- compile time string concatenation, "hello" "world" => "helloworld"
-- rescue modifier; a rescue b => begin a rescue; b end
-- %w(a\ b\ c abc) => ["a b c", "abc"]
-- objectify symbols
-- class variable (prefix @@)
-- rescue RuntimeError => err
+- Class#allocate - basicNew
+- class Foo::Bar<Baz .. end, module Boo::Bar .. end
 * operator !! for rescue. ???
 * objectify characters
 * ../... outside condition invokes operator method too.
@@ -17,27 +12,35 @@ Language Spec.
 * multiple return values, yield values.  maybe incompatible ???
 * cascading method invocation ???
 * def Class#method .. end ??
-* class Foo::Bar<Baz .. end, module Boo::Bar .. end
 * def Foo::Bar::baz() .. end ??
 * I18N (or M17N) script/string/regexp
 * Fixnum 0 as false ????
-* discourage use of symbol variable (e.g. $/, etc.) in manual
+* discourage use of symbol variables (e.g. $/, etc.) in manual
 * discourage use of Perlish features by giving warnings.
 * non confusing in-block local variable (is it possible?)
   + remove scope by block
   + variables appears within block may have independent values.
 * Regexp: make /o thread safe.
-* decide if begin with rescue or ensure make do..while loop.
+* decide whether begin with rescue or ensure make do..while loop.
 * a +1 to be a+1, not a(+1).
+* unify == and eql? again
+* to_i returns nil if str contains no digit.
+* raise exception by `` error
+* jar like combined library package. -> RubyGems?
+* resumable Exception via Exception#resume.
+* method combination, e.g. before, after, around, etc.
+* .. or something like defadvice in Emacs.
+* property - for methods, or for objects in general.
+* "in" modifier, to annotate, or to encourage assertion.
+* selector namespace - something like generic-flet in CLOS, to help RubyBehavior
+* private instance variable (as in Python?) @_foo in class Foo => @_Foo_foo
+* warn/error "bare word" method, like "foo",  you should type "foo()"
+* clarify evaluation order of operator argument (=~, .., ...)
+* :symbol => value hash in the form of {symbol: value, ...} ??
 
 Hacking Interpreter
 
-- use eban's fnmatch
-- RUBYOPT environment variable
-- alias $defout $>
-- retrieve STACK_LEVEL_MAX from users' limit.
-- remove end_proc registered out of require only
-- all object made freezable
+- generational GC
 * non-blocking open (e.g. for named pipe) for thread
 * avoid blocking with gethostbyname/gethostbyaddr (use fork ???)
 * objectify interpreters ???
@@ -46,45 +49,42 @@ Hacking Interpreter
 * scrambled script, or script filter
 * setuid ruby
 * performance tune for in-block (dynamic) local variables.
-* generational GC
 * give warnings to assign magic variables.
 * export rb_io_{addstr,printf,puts,print}
 * autoload should work with threads [ruby-talk:4589]
 * remove stdio dependency from IOs.
 * warn for inconsistent local variable usage (lv m and method m at the same time). 
+* MicroRuby
+* Built-in Interactive Ruby.
+* Parser API
+* trap every method invocation, which can be enabled by e.g. trap_call :method.
+* unify Errno exceptions of same errno, or new exception comparison scheme.
+* 2.times{|i| if i==0 then a = 15 else puts eval("a") end} should print nil.
+* Thread#max_stack_size attribute (possible??)
 
 Standard Libraries
 
-- hash[key] = nil does not remove entry; hashes may have nil as the value.
-- hash.fetch(key) raises exception if key is not found.
-- Array#{first,last,at}
-- Dir.glob(pat){|f|...}
-- sprintf/printf's $ to specify argument order
-- Dir.glob("**/*.c") ala zsh
-- Remove Enumerable#{size,length}
-- Array#slice, Array#slice!
-- String#slice, String#slice!
-- Marshal should handle generic instance variables.
-- debugger for thread programming
-- SyntaxError, NameError, LoadError and NotImplementedError are subclasses of
-  ScriptError<Exception, not StandardError.
-- Thread::start gives arguments, not a thread object to the block
-- regexp: (?>..), \G
-- Struct::new([name,]member,...)
-- IO#reopen accepts path as well
-- Kernel#scan
-- call initialize for builtin classes too
-- performance tune for String's non-bang methods.
-- 'w' template for pack/unpack
-- alternative for interator? => block_given?
-- regex - /p (made obsolete), /m (new)
-- consistent /, %, divmod
-- unbound method object
-- integrate final.rb into the core.
-* Enumerable#sort_by for Schwartzian transformation
+- Module#define_method which takes a name and a body (block, proc or method).
+- Enume#inject
+- Array#fetch
+- IO::for_fd
+- Process::waitall [ruby-talk:4557]
+- Process::Status
+- File::lchown, File::lchmod; xxx - still need work for non existing platforms
+- move Time::times to Process.
+- Enumerable#sort_by for Schwartzian transformation
+- fork_and_kill_other_threads.
+- signal list (Signal::trap, Signal::list).
+- move NameError under StandardError.
+- Integer#to_s(base)
+- Hash::new{default}
+- hash etc. should handle self referenceing array/hash
+- Array#select(n1,n2...) works like Array#indexes(n1,n2...)
+- use Mersenne Twister RNG for random.
+- deprecate Array#indexes, and Array#indices.
+- remove dependency on MAXPATHLEN.
 * String#scanf(?)
 * Object#fmt(?)
-* Integer#{bin,oct,hex,heX}
 * Time::strptime
 * Integer[num], Float[num];  Fixnum[num]?
 * method to retrieve non-number trailer for to_i/to_f.
@@ -93,37 +93,34 @@ Standard Libraries
 * optional stepsize argument for succ()
 * Ruby module -- Ruby::Version, Ruby::Interpreter
 * introduce Boolean class; super of TrueClass, FalseClass
-* Process::waitall [ruby-talk:4557]
 * synchronized method - synchronized{...}, synchronized :foo, :bar
-* move Time::times to Process.
-- Module#define_method which takes a name and a body (block, proc or method).
-* IO#for_fd in general
 * Array#&, Array#| to allow duplication. ???
-- fork_and_kill_other_threads.
 * way to specify immortal (fork endurance) thread;
 * or raise ForkException to every thread but fork caller.
-* Array#fetch
+* new user-defined marshal scheme. _dump(dumper), _load(restorer)
+* library to load per-user profile seeking .ruby_profile or ruby.ini file.
+* warning framework (warn, warning for Ruby level)
+* marshal should not depend on sprintf (works bad with locale).
+* ternary arg pow: a.pow(b,c) == a**b%c
+* new caller(), e.g. call_stack; needs better name.
+* pointer share mechanism similar to one in String for Array.
+* require "1.6" etc. by /usr/lib/ruby/1.6/1.6.rb ;-)
+* save both "feature names" and "normalized path" in $"
+* implement Mutex_m (or MutexMixin) using Mutex.
 
 Extension Libraries
 
-- FastCGI ruby
 * ptk.rb pTk wrapper that is compatible to tk.rb
 * Berkeley DB extension
 * BitVector
+* thread-safe fcgi
 
 Ruby Libraries
 
-- net/http.rb
-* add uri.rb
 * urllib.rb, nttplib.rb, etc.
 * format like perl's
 
 Tools
 
-- extension library maker using SWIG
 * freeze or undump to bundle everything
-
-Misc
-
-- publish Ruby books
-- publish Ruby books in English
+* bundle using zlib

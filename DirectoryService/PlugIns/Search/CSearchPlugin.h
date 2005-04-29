@@ -48,8 +48,6 @@ typedef enum {
 	keUnknownState		= 0,
 	keGetRecordList		= 1,
 	keAddDataToBuff		= 2,
-	keGetAliases		= 3,
-	keExpandAliases		= 4,
 	keGetNextNodeRef	= 5,
 	keSetContinueData	= 6,
 	keDone				= 7,
@@ -80,10 +78,7 @@ typedef struct {
 	uInt32				fRecIndex;
 	uInt32				fLimitRecSearch;
 	uInt32				fTotalRecCount;
-	uInt32				fMetaTypes;
 	eSearchState		fState;
-	tDataList		   *fAliasList;
-	tDataList		   *fAliasAttribute;
 	tDataBuffer		   *fDataBuff;
 	void			   *fContextData;
 	bool				bNodeBuffTooSmall;
@@ -97,6 +92,7 @@ typedef struct {
 	uInt32				fSearchConfigKey;
 	void			   *fSearchNode;
 	bool				bAutoSearchList;
+	bool				bCheckForNIParentNow;
 	uid_t				fUID;
 	uid_t				fEffectiveUID;
 } sSearchContextData;
@@ -120,6 +116,8 @@ public:
 	static	void		ContinueDeallocProc		( void *inContinueData );
 	static	void		ContextDeallocProc		( void* inContextData );
 	static	void		ContextSetListChangedProc
+												( void* inContextData );
+	static	void		ContextSetCheckForNIParentNowProc 
 												( void* inContextData );
 
 	sInt32				CleanSearchConfigData	( sSearchConfig *inList );
@@ -162,11 +160,16 @@ private:
 	sSearchList	   *GetNetInfoPaths			( bool bFullPath, char** localNodeName );
 	sSearchList	   *GetDefaultLDAPPaths		( void );
 	sInt32			AttributeValueSearch	( sDoAttrValueSearchWithData *inData );
+	sInt32			MultipleAttributeValueSearch
+											( sDoMultiAttrValueSearchWithData *inData );
 	sInt32			CloseAttributeList		( sCloseAttributeList *inData );
 	sInt32			CloseAttributeValueList	( sCloseAttributeValueList *inData );
 	sInt32			ReleaseContinueData		( sReleaseContinueData *inData );
 	sInt32			DoPlugInCustomCall		( sDoPlugInCustomCall *inData );
 	
+	void			SystemGoingToSleep		( void );
+	void			SystemWillPowerOn			( void );
+
 	sInt32			GetNextNodeRef			(	tDirNodeReference inNodeRef,
 												tDirNodeReference *outNodeRef,
 												sSearchContextData *inContext );
@@ -175,14 +178,11 @@ private:
 
 	sInt32			AddDataToOutBuff		(	sSearchContinueData *inContinue,
 												CBuff *inOutBuff,
-												sSearchContextData *inContext,
-												tDataList *inTarget = nil );
-	sInt32			ExpandAliases			(	sSearchContinueData *inContinue,
-												CBuff *inOutBuff,
-												sGetRecordList *inGRLData,
-												sDoAttrValueSearchWithData *inDAVSData,
 												sSearchContextData *inContext );
-	void			DoAliasCheck			( tDataList *inRecTypeList,  tDataList *inAttrTypeList, sSearchContinueData *inContinue );
+
+	sInt32			CheckSearchPolicyChange	(	sSearchContextData *pContext,
+												tDirNodeReference inNodeRef,
+												tContextData inContinueData );
 
 	sSearchContextData*	MakeContextData		( void );
 
@@ -203,6 +203,7 @@ private:
 	CFStringRef			fLZMACAddress;
 	CFStringRef			fNLZMACAddress;
 	char			   *fAuthSearchPathCheck;
+	bool				fSomeNodeFailedToOpen;
 };
 
 #endif	// __CSearchPlugin_H__

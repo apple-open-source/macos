@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2001, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -31,12 +31,15 @@ class TransliteratorRoundTripTest : public IntlTest {
     void TestKatakana(void);
     void TestJamo(void);
     void TestHangul(void);
+    void TestHan(void);
     void TestGreek(void);
     void TestGreekUNGEGN(void);
     void Testel(void);
     void TestCyrillic(void);
     void TestDevanagariLatin(void);
     void TestInterIndic(void);
+    void TestHebrew(void);
+    void TestArabic(void);
     void TestDebug(const char* name,const char fromSet[],
                    const char* toSet,const char* exclusions);
 };

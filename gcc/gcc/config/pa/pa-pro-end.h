@@ -1,20 +1,20 @@
 /* Definitions of target machine for GNU compiler, for PRO.
-   Copyright (C) 1996, 1997, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1996, 1997, 2002, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -29,8 +29,7 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	if (c_language != clk_cplusplus		\
-	    && !flag_iso)			\
+	if (!c_dialect_cxx () && !flag_iso)	\
 	  {					\
 	    builtin_define ("hppa");		\
 	    builtin_define_std ("PWB");		\
@@ -53,25 +52,13 @@ Boston, MA 02111-1307, USA.  */
 #undef STARTFILE_SPEC
 #define STARTFILE_SPEC ""
 
-/* The following two macros are identical to the ones in pa.h.  We need
-   to override the macros in elfos.h on the rtems and pro ports.  */
-
-/* This says how to output an assembler line to define a global common symbol
-   with size SIZE (in bytes) and alignment ALIGN (in bits).  */
-
+/* We need to override the following two macros defined in elfos.h since
+   the .comm directive has a different syntax and it can't be used for
+   local common symbols.  */
 #undef ASM_OUTPUT_ALIGNED_COMMON
-#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGNED)		\
-{ bss_section ();							\
-  assemble_name ((FILE), (NAME));					\
-  fputs ("\t.comm ", (FILE));						\
-  fprintf ((FILE), "%d\n", MAX ((SIZE), ((ALIGNED) / BITS_PER_UNIT)));}
-
-/* This says how to output an assembler line to define a local common symbol
-   with size SIZE (in bytes) and alignment ALIGN (in bits).  */
+#define ASM_OUTPUT_ALIGNED_COMMON(FILE, NAME, SIZE, ALIGN)              \
+  pa_asm_output_aligned_common (FILE, NAME, SIZE, ALIGN)
 
 #undef ASM_OUTPUT_ALIGNED_LOCAL
-#define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGNED)		\
-{ bss_section ();							\
-  fprintf ((FILE), "\t.align %d\n", ((ALIGNED) / BITS_PER_UNIT));	\
-  assemble_name ((FILE), (NAME));					\
-  fprintf ((FILE), "\n\t.block %d\n", (SIZE));}
+#define ASM_OUTPUT_ALIGNED_LOCAL(FILE, NAME, SIZE, ALIGN)               \
+  pa_asm_output_aligned_local (FILE, NAME, SIZE, ALIGN)

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2000 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,6 +26,8 @@
 
 with Atree;    use Atree;
 with Einfo;    use Einfo;
+with Opt;      use Opt;
+with Sem;      use Sem;
 with Sem_Util; use Sem_Util;
 with Sinfo;    use Sinfo;
 with Stand;    use Stand;
@@ -63,6 +64,13 @@ package body Itypes is
       Set_Etype (Typ, Any_Type);
       Set_Is_Itype (Typ);
       Set_Associated_Node_For_Itype (Typ, Related_Nod);
+
+      if In_Deleted_Code
+        and then not ASIS_Mode
+      then
+         Set_Is_Frozen (Typ);
+      end if;
+
       return Typ;
    end Create_Itype;
 

@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/lnxdoc.rules,v 3.27 2003/01/15 03:17:29 dawes Exp $
+XCOMM $XFree86: xc/config/cf/lnxdoc.rules,v 3.28 2003/10/18 02:14:21 dawes Exp $
 XCOMM
 XCOMM Rules for formatting Linuxdoc-SGML documentation
 XCOMM
@@ -8,17 +8,26 @@ XCOMM
 #ifdef DontInstallLinuxDoc
 #define LinuxDocInstall(file,dest)	/* do nothing */
 #define LinuxDocInstallMultiple(files,dest)	/* do nothing */
+#define LinuxDocInstallIfExists(file,dest)	/* do nothing */
 #else
 #define LinuxDocInstall(file,dest)	InstallNonExecFile(file,dest)
 #define LinuxDocInstallMultiple(files,dest)				@@\
 InstallMultipleDest(install,files,dest)
+
+#define LinuxDocInstallIfExists(file,dir)				@@\
+install::								@@\
+	MakeDir($(DESTDIR)dir)						@@\
+	@if [ -f file ]; then set -x; \					@@\
+	  $(INSTALL) $(INSTALLFLAGS) $(INSTDATFLAGS) \			@@\
+		file $(DESTDIR)dir; \					@@\
+	fi
 #endif
 
 /* Version for sgmlfmt */
 
 #if BuildLinuxDocPS
 #define LinuxDocSgmlToPs(sgmlfile,base) 				@@\
-AllTarget(base.ps)							@@\
+all:: base.ps PdfTarget(base)						@@\
 									@@\
 base.ps: sgmlfile $(SGMLDEPENDS)					@@\
 	RemoveFile(_$@ $@)						@@\
@@ -29,6 +38,10 @@ base.ps: sgmlfile $(SGMLDEPENDS)					@@\
 		$(MV) $$BASE.ps _$@ && $(MV) _$@ $@)			@@\
 									@@\
 LinuxDocInstall(base.ps,$(XFREE86PSDOCDIR))				@@\
+									@@\
+ConvertPsToPdf(base)							@@\
+									@@\
+LinuxDocInstallIfExists(base.pdf,$(XFREE86PDFDOCDIR))			@@\
 									@@\
 clean::									@@\
 	RemoveFile(Concat(_,base.ps) base.ps)

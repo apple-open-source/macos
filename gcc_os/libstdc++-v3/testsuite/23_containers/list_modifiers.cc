@@ -1,4 +1,4 @@
-// Copyright (C) 2001 Free Software Foundation, Inc.
+// Copyright (C) 2001, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,59 +21,9 @@
 #include <list>
 #include <testsuite_hooks.h>
 
+typedef __gnu_cxx_test::copy_tracker  T;
+
 bool test = true;
-
-// Here's a class with nontrivial ctor/dtor that provides
-// the ability to track the number of copy ctors and dtors
-// and will throw on demand during copy.
-class T
-{
-public:
-  // default constructor
-  T(int anId, bool throwOnDemand = false)
-  : itsId(anId), willThrow(throwOnDemand)
-  { }
-
-  // copy constructor
-  T(const T& rhs)
-  : itsId(rhs.id()), willThrow(rhs.willThrow)
-  {
-    ++itsCopyCount;
-    if (willThrow) 
-      throw "exception";
-  }
-
-  ~T()
-  { ++itsDtorCount; }
-
-  int
-  id() const
-  { return itsId; }
-
-private:
-  const int  itsId;
-  const bool willThrow;
-
-public:
-  static void
-  reset()
-  { itsCopyCount = 0; itsDtorCount = 0; }
-
-  static int
-  copyCount() 
-  { return itsCopyCount; }
-
-  static int
-  dtorCount() 
-  { return itsDtorCount; }
-
-private:
-  static int itsCopyCount;
-  static int itsDtorCount;
-};
-
-int T::itsCopyCount = 0;
-int T::itsDtorCount = 0;
 
 
 // This test verifies the following.
@@ -157,14 +107,12 @@ test01()
   VERIFY(list0101.size() == 2);
   VERIFY(T::dtorCount() == 1);
   VERIFY(i->id() == 1);
-  VERIFY(j->id() == 1);
   VERIFY(k->id() == 1);
 
   list0101.pop_front();          // list should be [1]
   VERIFY(list0101.size() == 1);
   VERIFY(T::dtorCount() == 2);
   VERIFY(i->id() == 1);
-  VERIFY(j->id() == 1);
   VERIFY(k->id() == 1);
 }
 
@@ -314,7 +262,7 @@ test03()
   VERIFY(e == list0301.end());
 }
 
-main(int argc, char* argv[])
+int main()
 {
     test01();
     test02();

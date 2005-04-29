@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_span.c,v 1.1 2002/10/30 12:51:52 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_span.c,v 1.2 2003/09/28 20:15:24 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,20 +25,24 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#include "glheader.h"
+#include "imports.h"
+#include "swrast/swrast.h"
+#include "colormac.h"
+
 #include "r200_context.h"
 #include "r200_ioctl.h"
 #include "r200_state.h"
 #include "r200_span.h"
 #include "r200_tex.h"
-
-#include "swrast/swrast.h"
 
 #define DBG 0
 
@@ -179,7 +183,7 @@ do {								\
  * Depth buffer
  */
 
-/* The R200 has depth tiling on all the time, so we have to convert
+/* The Radeon family has depth tiling on all the time, so we have to convert
  * the x,y coordinates into the memory bus address (mba) in the same
  * manner as the engine.  In each case, the linear block address (ba)
  * is calculated, and then wired with x and y to produce the final
@@ -285,33 +289,46 @@ do {									\
 #include "stenciltmp.h"
 
 
-static void r200SetReadBuffer( GLcontext *ctx,
-				 GLframebuffer *colorBuffer,
-				 GLenum mode )
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void r200SetBuffer( GLcontext *ctx,
+                           GLframebuffer *colorBuffer,
+                           GLuint bufferBit )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
+   switch ( bufferBit ) {
+   case FRONT_LEFT_BIT:
       if ( rmesa->doPageFlip && rmesa->sarea->pfCurrentPage == 1 ) {
         rmesa->state.pixel.readOffset = rmesa->r200Screen->backOffset;
         rmesa->state.pixel.readPitch  = rmesa->r200Screen->backPitch;
+        rmesa->state.color.drawOffset = rmesa->r200Screen->backOffset;
+        rmesa->state.color.drawPitch  = rmesa->r200Screen->backPitch;
       } else {
       	rmesa->state.pixel.readOffset = rmesa->r200Screen->frontOffset;
       	rmesa->state.pixel.readPitch  = rmesa->r200Screen->frontPitch;
+      	rmesa->state.color.drawOffset = rmesa->r200Screen->frontOffset;
+      	rmesa->state.color.drawPitch  = rmesa->r200Screen->frontPitch;
       }
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       if ( rmesa->doPageFlip && rmesa->sarea->pfCurrentPage == 1 ) {
       	rmesa->state.pixel.readOffset = rmesa->r200Screen->frontOffset;
       	rmesa->state.pixel.readPitch  = rmesa->r200Screen->frontPitch;
+      	rmesa->state.color.drawOffset = rmesa->r200Screen->frontOffset;
+      	rmesa->state.color.drawPitch  = rmesa->r200Screen->frontPitch;
       } else {
         rmesa->state.pixel.readOffset = rmesa->r200Screen->backOffset;
         rmesa->state.pixel.readPitch  = rmesa->r200Screen->backPitch;
+        rmesa->state.color.drawOffset = rmesa->r200Screen->backOffset;
+        rmesa->state.color.drawPitch  = rmesa->r200Screen->backPitch;
       }
       break;
    default:
-      assert(0);
+      _mesa_problem(ctx, "Bad bufferBit in %s", __FUNCTION__);
       break;
    }
 }
@@ -359,7 +376,7 @@ void r200InitSpanFuncs( GLcontext *ctx )
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = r200SetReadBuffer;
+   swdd->SetBuffer = r200SetBuffer;
 
    switch ( rmesa->r200Screen->cpp ) {
    case 2:

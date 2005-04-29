@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -75,12 +74,8 @@ package body Interfaces.CPP is
    function To_Type_Specific_Data_Ptr is
      new Unchecked_Conversion (Address, Type_Specific_Data_Ptr);
 
-   function To_Address is new Unchecked_Conversion (Vtable_Ptr, Address);
    function To_Address is
      new Unchecked_Conversion (Type_Specific_Data_Ptr, Address);
-
-   function To_Vtable_Ptr is new Unchecked_Conversion (Tag, Vtable_Ptr);
-   function To_Tag is new Unchecked_Conversion (Vtable_Ptr, Tag);
 
    ---------------------------------------------
    -- Unchecked Conversions for String Fields --
@@ -158,6 +153,8 @@ package body Interfaces.CPP is
    -----------------------
 
    function CPP_Get_RC_Offset (T : Vtable_Ptr) return SSE.Storage_Offset is
+      pragma Warnings (Off, T);
+
    begin
       return 0;
    end CPP_Get_RC_Offset;
@@ -167,6 +164,8 @@ package body Interfaces.CPP is
    -------------------------------
 
    function CPP_Get_Remotely_Callable (T : Vtable_Ptr) return Boolean is
+      pragma Warnings (Off, T);
+
    begin
       return True;
    end CPP_Get_Remotely_Callable;
@@ -269,6 +268,9 @@ package body Interfaces.CPP is
    -----------------------
 
    procedure CPP_Set_RC_Offset (T : Vtable_Ptr; Value : SSE.Storage_Offset) is
+      pragma Warnings (Off, T);
+      pragma Warnings (Off, Value);
+
    begin
       null;
    end CPP_Set_RC_Offset;
@@ -278,6 +280,9 @@ package body Interfaces.CPP is
    -------------------------------
 
    procedure CPP_Set_Remotely_Callable (T : Vtable_Ptr; Value : Boolean) is
+      pragma Warnings (Off, T);
+      pragma Warnings (Off, Value);
+
    begin
       null;
    end CPP_Set_Remotely_Callable;
@@ -301,6 +306,9 @@ package body Interfaces.CPP is
      Position     : Positive)
      return         System.Address
    is
+      pragma Warnings (Off, Vptr);
+      pragma Warnings (Off, Position);
+
    begin
       return Current_This;
 

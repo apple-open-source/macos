@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/vertarr.c,v 1.4 2001/03/25 05:32:00 tsi Exp $ */
+/* $XFree86: xc/lib/GL/glx/vertarr.c,v 1.5 2004/01/28 18:11:43 alanh Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -64,6 +64,14 @@
 	colorPointer->proc = (void (*)(const void *))glColor4##let##v; \
       break
 
+#define __GL_SEC_COLOR_FUNC(NAME, let) \
+    case GL_##NAME: \
+      seccolorPointer->proc = (void (*)(const void *))glSecondaryColor3##let##v; \
+
+#define __GL_FOG_FUNC(NAME, let) \
+    case GL_##NAME: \
+      fogPointer->proc = (void (*)(const void *))glFogCoord##let##v; \
+
 #define __GL_INDEX_FUNC(NAME, let) \
     case GL_##NAME: \
       indexPointer->proc = (void (*)(const void *))glIndex##let##v; \
@@ -71,15 +79,19 @@
 
 #define __GL_TEXTURE_FUNC(NAME, let) \
     case GL_##NAME: \
-      if (size == 1) \
+      if (size == 1) { \
 	texCoordPointer->proc = (void (*)(const void *))glTexCoord1##let##v; \
-      else if (size == 2) \
+	texCoordPointer->mtex_proc = (void (*)(GLenum, const void *))glMultiTexCoord1##let##vARB; \
+      } else if (size == 2) { \
 	texCoordPointer->proc = (void (*)(const void *))glTexCoord2##let##v; \
-      else if (size == 3) \
+	texCoordPointer->mtex_proc = (void (*)(GLenum, const void *))glMultiTexCoord2##let##vARB; \
+      } else if (size == 3) { \
 	texCoordPointer->proc = (void (*)(const void *))glTexCoord3##let##v; \
-      else if (size == 4) \
+	texCoordPointer->mtex_proc = (void (*)(GLenum, const void *))glMultiTexCoord2##let##vARB; \
+      } else if (size == 4) { \
 	texCoordPointer->proc = (void (*)(const void *))glTexCoord4##let##v; \
-      break
+	texCoordPointer->mtex_proc = (void (*)(GLenum, const void *))glMultiTexCoord4##let##vARB; \
+      } break
 
 static GLuint __glXTypeSize(GLenum enm)
 {
@@ -99,7 +111,8 @@ static GLuint __glXTypeSize(GLenum enm)
 
 void __glXInitVertexArrayState(__GLXcontext *gc)
 {
-    __GLXvertArrayState *va = &gc->state.vertArray;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertArrayState *va = &state->vertArray;
     GLint i;
 
     va->vertex.enable = GL_FALSE;
@@ -125,6 +138,22 @@ void __glXInitVertexArrayState(__GLXcontext *gc)
     va->color.size = 4;
     va->color.type = GL_FLOAT;
     va->color.stride = 0;
+
+    va->secondaryColor.enable = GL_FALSE;
+    va->secondaryColor.proc = NULL;
+    va->secondaryColor.skip = 0;
+    va->secondaryColor.ptr = 0;
+    va->secondaryColor.size = 3;
+    va->secondaryColor.type = GL_FLOAT;
+    va->secondaryColor.stride = 0;
+
+    va->fogCoord.enable = GL_FALSE;
+    va->fogCoord.proc = NULL;
+    va->fogCoord.skip = 0;
+    va->fogCoord.ptr = 0;
+    va->fogCoord.size = 1;
+    va->fogCoord.type = GL_FLOAT;
+    va->fogCoord.stride = 0;
 
     va->index.enable = GL_FALSE;
     va->index.proc = NULL;
@@ -164,7 +193,8 @@ void glVertexPointer(GLint size, GLenum type, GLsizei stride,
 		     const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertexArrayPointerState *vertexPointer = &gc->state.vertArray.vertex;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *vertexPointer = &state->vertArray.vertex;
 
     /* Check arguments */
     if (size < 2 || size > 4 || stride < 0) {
@@ -199,7 +229,8 @@ void glVertexPointer(GLint size, GLenum type, GLsizei stride,
 void glNormalPointer(GLenum type, GLsizei stride, const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertexArrayPointerState *normalPointer = &gc->state.vertArray.normal;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *normalPointer = &state->vertArray.normal;
 
     /* Check arguments */
     if (stride < 0) {
@@ -235,7 +266,8 @@ void glColorPointer(GLint size, GLenum type, GLsizei stride,
 		    const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertexArrayPointerState *colorPointer = &gc->state.vertArray.color;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *colorPointer = &state->vertArray.color;
 
     /* Check arguments */
     if (stride < 0) {
@@ -274,7 +306,8 @@ void glColorPointer(GLint size, GLenum type, GLsizei stride,
 void glIndexPointer(GLenum type, GLsizei stride, const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertexArrayPointerState *indexPointer = &gc->state.vertArray.index;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *indexPointer = &state->vertArray.index;
 
     /* Check arguments */
     if (stride < 0) {
@@ -310,8 +343,9 @@ void glTexCoordPointer(GLint size, GLenum type, GLsizei stride,
 		       const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     __GLXvertexArrayPointerState *texCoordPointer =
-    	&gc->state.vertArray.texCoord[gc->state.vertArray.activeTexture];
+    	&state->vertArray.texCoord[state->vertArray.activeTexture];
 
     /* Check arguments */
     if (size < 1 || size > 4 || stride < 0) {
@@ -346,7 +380,8 @@ void glTexCoordPointer(GLint size, GLenum type, GLsizei stride,
 void glEdgeFlagPointer(GLsizei stride, const GLvoid *pointer)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertexArrayPointerState *edgeFlagPointer = &gc->state.vertArray.edgeFlag;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *edgeFlagPointer = &state->vertArray.edgeFlag;
 
     /* Check arguments */
     if (stride < 0) {
@@ -367,6 +402,81 @@ void glEdgeFlagPointer(GLsizei stride, const GLvoid *pointer)
 	edgeFlagPointer->skip = stride;
     }
 
+}
+
+void glSecondaryColorPointer(GLint size, GLenum type, GLsizei stride,
+			     const GLvoid * pointer )
+{
+    __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *seccolorPointer = &state->vertArray.secondaryColor;
+
+    /* Check arguments */
+    if ( (stride < 0) || (size != 3) ) {
+	__glXSetError(gc, GL_INVALID_VALUE);
+	return;
+    } 
+
+    /* Choose appropriate api proc */
+    switch(type) {
+	__GL_SEC_COLOR_FUNC(BYTE, b);
+	__GL_SEC_COLOR_FUNC(UNSIGNED_BYTE, ub);
+	__GL_SEC_COLOR_FUNC(SHORT, s);
+	__GL_SEC_COLOR_FUNC(UNSIGNED_SHORT, us);
+	__GL_SEC_COLOR_FUNC(INT, i);
+	__GL_SEC_COLOR_FUNC(UNSIGNED_INT, ui);
+	__GL_SEC_COLOR_FUNC(FLOAT, f);
+	__GL_SEC_COLOR_FUNC(DOUBLE, d);
+      default:
+        __glXSetError(gc, GL_INVALID_ENUM);
+        return;
+    }
+
+    seccolorPointer->size = size;
+    seccolorPointer->type = type;
+    seccolorPointer->stride = stride;
+    seccolorPointer->ptr = pointer;
+
+    /* Set internal state */
+    if (stride == 0) {
+        seccolorPointer->skip = size * __glXTypeSize(type);
+    } else {
+        seccolorPointer->skip = stride;
+    }
+}
+
+void glFogCoordPointer(GLenum type, GLsizei stride, const GLvoid * pointer)
+{
+    __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertexArrayPointerState *fogPointer = &state->vertArray.fogCoord;
+
+    /* Check arguments */
+    if (stride < 0) {
+	__glXSetError(gc, GL_INVALID_VALUE);
+	return;
+    } 
+
+    /* Choose appropriate api proc */
+    switch(type) {
+	__GL_FOG_FUNC(FLOAT, f);
+	__GL_FOG_FUNC(DOUBLE, d);
+      default:
+        __glXSetError(gc, GL_INVALID_ENUM);
+        return;
+    }
+
+    fogPointer->size = 1;
+    fogPointer->type = type;
+    fogPointer->stride = stride;
+    fogPointer->ptr = pointer;
+
+    /* Set internal state */
+    if (stride == 0) {
+        fogPointer->skip = __glXTypeSize(type);
+    } else {
+        fogPointer->skip = stride;
+    }
 }
 
 void glInterleavedArrays(GLenum format, GLsizei stride, const GLvoid *pointer)
@@ -506,6 +616,8 @@ void glInterleavedArrays(GLenum format, GLsizei stride, const GLvoid *pointer)
 
     trueStride = (stride == 0) ? size : stride;
 
+    glDisableClientState(GL_SECONDARY_COLOR_ARRAY);
+    glDisableClientState(GL_FOG_COORDINATE_ARRAY);
     glDisableClientState(GL_EDGE_FLAG_ARRAY);
     glDisableClientState(GL_INDEX_ARRAY);
     if (tEnable) {
@@ -535,7 +647,8 @@ void glInterleavedArrays(GLenum format, GLsizei stride, const GLvoid *pointer)
 void glArrayElement(GLint i)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertArrayState *va = &gc->state.vertArray;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertArrayState *va = &state->vertArray;
     GLint j;
 
     if (va->edgeFlag.enable == GL_TRUE) {
@@ -552,12 +665,20 @@ void glArrayElement(GLint i)
 	(*va->color.proc)(va->color.ptr+i*va->color.skip);
     }
 
+    if (va->secondaryColor.enable == GL_TRUE) {
+	(*va->secondaryColor.proc)(va->secondaryColor.ptr+i*va->secondaryColor.skip);
+    }
+
     if (va->index.enable == GL_TRUE) {
 	(*va->index.proc)(va->index.ptr+i*va->index.skip);
     }
 
     if (va->normal.enable == GL_TRUE) {
 	(*va->normal.proc)(va->normal.ptr+i*va->normal.skip);
+    }
+
+    if (va->fogCoord.enable == GL_TRUE) {
+	(*va->fogCoord.proc)(va->fogCoord.ptr+i*va->fogCoord.skip);
     }
 
     if (va->vertex.enable == GL_TRUE) {
@@ -568,8 +689,10 @@ void glArrayElement(GLint i)
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertArrayState *va = &gc->state.vertArray;
-    const GLubyte *vaPtr = NULL, *naPtr = NULL, *caPtr = NULL, 
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertArrayState *va = &state->vertArray;
+    const GLubyte *vaPtr = NULL, *naPtr = NULL, *caPtr = NULL,
+                  *scaPtr = NULL, *faPtr = NULL,
                   *iaPtr = NULL, *tcaPtr[__GLX_MAX_TEXTURE_UNITS];
     const GLboolean *efaPtr = NULL;
     GLint i, j;
@@ -603,6 +726,10 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 	naPtr = va->normal.ptr + first * va->normal.skip;
     if (va->color.enable == GL_TRUE) 
 	caPtr = va->color.ptr + first * va->color.skip;
+    if (va->secondaryColor.enable == GL_TRUE) 
+	scaPtr = va->secondaryColor.ptr + first * va->secondaryColor.skip;
+    if (va->fogCoord.enable == GL_TRUE) 
+	faPtr = va->fogCoord.ptr + first * va->fogCoord.skip;
     if (va->index.enable == GL_TRUE) 
 	iaPtr = va->index.ptr + first * va->index.skip;
     for (j=0; j<__GLX_MAX_TEXTURE_UNITS; ++j) {
@@ -620,15 +747,34 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
                 (*va->edgeFlag.proc)(efaPtr);
                 efaPtr += va->edgeFlag.skip;
             }
-	    for (j=0; j<__GLX_MAX_TEXTURE_UNITS; ++j) {
+
+	    
+	    if (va->texCoord[0].enable == GL_TRUE) {
+		(*va->texCoord[0].proc)(tcaPtr[0]);
+		tcaPtr[0] += va->texCoord[0].skip;
+	    }
+
+	    /* Multitexturing is handled specially because the protocol
+	     * requires an extra parameter.
+	     */
+	    for (j=1; j<__GLX_MAX_TEXTURE_UNITS; ++j) {
 		if (va->texCoord[j].enable == GL_TRUE) {
-		    (*va->texCoord[j].proc)(tcaPtr[j]);
+		    (*va->texCoord[j].mtex_proc)(GL_TEXTURE0 + j, tcaPtr[j]);
 		    tcaPtr[j] += va->texCoord[j].skip;
 		}
 	    }
+
             if (va->color.enable == GL_TRUE) {
                 (*va->color.proc)(caPtr);
                 caPtr += va->color.skip;
+            }
+            if (va->secondaryColor.enable == GL_TRUE) {
+                (*va->secondaryColor.proc)(scaPtr);
+                scaPtr += va->secondaryColor.skip;
+            }
+            if (va->fogCoord.enable == GL_TRUE) {
+                (*va->fogCoord.proc)(faPtr);
+                faPtr += va->fogCoord.skip;
             }
             if (va->index.enable == GL_TRUE) {
                 (*va->index.proc)(iaPtr);
@@ -650,7 +796,8 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type,
 		    const GLvoid *indices)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
-    __GLXvertArrayState *va = &gc->state.vertArray;
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
+    __GLXvertArrayState *va = &state->vertArray;
     const GLubyte *iPtr1 = NULL;
     const GLushort *iPtr2 = NULL;
     const GLuint *iPtr3 = NULL;
@@ -745,14 +892,40 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end,
     glDrawElements(mode,count,type,indices);
 }
 
+void glMultiDrawArrays(GLenum mode, GLint *first, GLsizei *count,
+		       GLsizei primcount)
+{
+   GLsizei  i;
+
+   for(i=0; i<primcount; i++) {
+      if ( count[i] > 0 ) {
+	  glDrawArrays( mode, first[i], count[i] );
+      }
+   }
+}
+
+void glMultiDrawElements(GLenum mode, const GLsizei *count,
+			 GLenum type, const GLvoid ** indices,
+			 GLsizei primcount)
+{
+   GLsizei  i;
+
+   for(i=0; i<primcount; i++) {
+      if ( count[i] > 0 ) {
+	  glDrawElements( mode, count[i], type, indices[i] );
+      }
+   }
+}
+
 void glClientActiveTextureARB(GLenum texture)
 {
     __GLXcontext *gc = __glXGetCurrentContext();
+    __GLXattribute * state = (__GLXattribute *)(gc->client_state_private);
     GLint unit = (GLint) texture - GL_TEXTURE0_ARB;
 
     if (unit < 0 || __GLX_MAX_TEXTURE_UNITS <= unit) {
 	__glXSetError(gc, GL_INVALID_ENUM);
 	return;
     }
-    gc->state.vertArray.activeTexture = unit;
+    state->vertArray.activeTexture = unit;
 }

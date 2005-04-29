@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,19 +26,20 @@
 **
 */
 
-#include <architecture/ppc/asm_help.h>
+/* We use mode-independent "g" opcodes such as "srgi".  These expand
+ * into word operations when targeting __ppc__, and into doubleword
+ * operations when targeting __ppc64__.
+ */
+#include <architecture/ppc/mode_independent_asm.h>
 
-        .text
-        .align 2
-        .globl mcount
-mcount:
-        mflr r0
-        stw r0,8(r1)
-        stwu r1,-64(r1)
-        mflr r4
-        CALL_EXTERN(_moncount)
-        addi r1,r1,64
-        lwz r0,8(r1)
-        mtlr r0
+MI_ENTRY_POINT(mcount)
+        mflr    r0
+        stg     r0,SF_RETURN(r1)
+        stgu    r1,-SF_MINSIZE(r1)
+        mr      r4,r0               /* pass our return address as 2nd argument */
+        MI_CALL_EXTERNAL(_moncount)
+        addi    r1,r1,SF_MINSIZE
+        lg      r0,SF_RETURN(r1)
+        mtlr    r0
         blr
 

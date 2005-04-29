@@ -1,6 +1,6 @@
-// Build don't run:
+// { dg-do link  }
+// { dg-options "-ansi -pedantic-errors -w" }
 // GROUPS passed templates
-// Special g++ Options: -ansi -pedantic-errors -w
 template <class T>
 struct S
 {
@@ -11,7 +11,7 @@ struct S
 
 int main()
 {
-  double d = S<int>::template foo<char>(3.3);
+  double d = S<int>::foo<char>(3.3);
 
   return (d >= 3.1);
 }

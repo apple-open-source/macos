@@ -31,7 +31,7 @@ up-to-date.  Many thanks.
 ******************************************************************/
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/nls/msgcat.c,v 1.45 2002/10/27 17:44:33 wollman Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/nls/msgcat.c,v 1.48 2003/10/29 10:45:01 tjr Exp $");
 
 /*
  * We need a better way of handling errors than printing text.  I need
@@ -111,11 +111,7 @@ catopen(name, type)
 		pcode = cptr;
 	}
 
-	if ((nlspath = getenv("NLSPATH")) == NULL
-#ifndef __NETBSD_SYSCALLS
-	    || issetugid()
-#endif
-	   )
+	if ((nlspath = getenv("NLSPATH")) == NULL || issetugid())
 		nlspath = _DEFAULT_NLS_PATH;
 
 	if ((base = cptr = strdup(nlspath)) == NULL) {

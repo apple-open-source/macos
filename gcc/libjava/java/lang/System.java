@@ -1,5 +1,6 @@
 /* System.java -- useful methods to interface with the system
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,17 +39,24 @@ exception statement from your version. */
 
 package java.lang;
 
-import java.io.*;
+import gnu.classpath.Configuration;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.util.Properties;
 import java.util.PropertyPermission;
-import gnu.classpath.Configuration;
 
 /**
  * System represents system-wide resources; things that represent the
  * general environment.  As such, all methods are static.
  *
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  * @status still missing 1.4 functionality
  */
@@ -91,8 +99,27 @@ public final class System
 	defaultProperties.put("gnu.classpath.vm.shortname", value);
       }
 
+    // Network properties
+    if (defaultProperties.get("http.agent") == null)
+      {
+	String userAgent
+	  = ("gnu-classpath/"
+	     + defaultProperties.getProperty("gnu.classpath.version")
+	     + " ("
+	     + defaultProperties.getProperty("gnu.classpath.vm.shortname")
+	     + "/"
+	     + defaultProperties.getProperty("java.vm.version")
+	     + ")");
+	defaultProperties.put("http.agent", userAgent);
+      }
+
     defaultProperties.put("gnu.cpu.endian",
 			  isWordsBigEndian() ? "big" : "little");
+
+    // GCJ LOCAL: Classpath sets common encoding aliases here.
+    // Since we don't (yet) have gnu.java.io.EncodingManager, these
+    // are a waste of time and just slow down system startup.
+
     // XXX FIXME - Temp hack for old systems that set the wrong property
     if (defaultProperties.get("java.io.tmpdir") == null)
       defaultProperties.put("java.io.tmpdir",
@@ -106,7 +133,7 @@ public final class System
    */
   // Note that we use clone here and not new.  Some programs assume
   // that the system properties do not have a parent.
-  private static Properties properties
+  static Properties properties
     = (Properties) Runtime.defaultProperties.clone();
 
   /**
@@ -136,7 +163,7 @@ public final class System
   /**
    * The standard output PrintStream.  This is assigned at startup and
    * starts its life perfectly valid. Although it is marked final, you can
-   * change it using {@link #setOut(PrintStream)} through some hefty VM magic.
+   * change it using {@link #setErr(PrintStream)} through some hefty VM magic.
    *
    * <p>This corresponds to the C stderr and C++ cerr variables, which
    * typically output error messages to the screen, but may be used to pipe
@@ -184,6 +211,7 @@ public final class System
     SecurityManager sm = Runtime.securityManager; // Be thread-safe.
     if (sm != null)
       sm.checkPermission(new RuntimePermission("setIO"));
+    
     setOut0(out);
   }
 
@@ -298,51 +326,53 @@ public final class System
    *
    * <p>The required properties include:
    * <dl>
-   * <dt>java.version         <dd>Java version number
-   * <dt>java.vendor          <dd>Java vendor specific string
-   * <dt>java.vendor.url      <dd>Java vendor URL
-   * <dt>java.home            <dd>Java installation directory
-   * <dt>java.vm.specification.version <dd>VM Spec version
-   * <dt>java.vm.specification.vendor  <dd>VM Spec vendor
-   * <dt>java.vm.specification.name    <dd>VM Spec name
-   * <dt>java.vm.version      <dd>VM implementation version
-   * <dt>java.vm.vendor       <dd>VM implementation vendor
-   * <dt>java.vm.name         <dd>VM implementation name
-   * <dt>java.specification.version    <dd>Java Runtime Environment version
-   * <dt>java.specification.vendor     <dd>Java Runtime Environment vendor
-   * <dt>java.specification.name       <dd>Java Runtime Environment name
-   * <dt>java.class.version   <dd>Java class version number
-   * <dt>java.class.path      <dd>Java classpath
-   * <dt>java.library.path    <dd>Path for finding Java libraries
-   * <dt>java.io.tmpdir       <dd>Default temp file path
-   * <dt>java.compiler        <dd>Name of JIT to use
-   * <dt>java.ext.dirs        <dd>Java extension path
-   * <dt>os.name              <dd>Operating System Name
-   * <dt>os.arch              <dd>Operating System Architecture
-   * <dt>os.version           <dd>Operating System Version
-   * <dt>file.separator       <dd>File separator ("/" on Unix)
-   * <dt>path.separator       <dd>Path separator (":" on Unix)
-   * <dt>line.separator       <dd>Line separator ("\n" on Unix)
-   * <dt>user.name            <dd>User account name
-   * <dt>user.home            <dd>User home directory
-   * <dt>user.dir             <dd>User's current working directory
+   * <dt>java.version</dt>         <dd>Java version number</dd>
+   * <dt>java.vendor</dt>          <dd>Java vendor specific string</dd>
+   * <dt>java.vendor.url</dt>      <dd>Java vendor URL</dd>
+   * <dt>java.home</dt>            <dd>Java installation directory</dd>
+   * <dt>java.vm.specification.version</dt> <dd>VM Spec version</dd>
+   * <dt>java.vm.specification.vendor</dt>  <dd>VM Spec vendor</dd>
+   * <dt>java.vm.specification.name</dt>    <dd>VM Spec name</dd>
+   * <dt>java.vm.version</dt>      <dd>VM implementation version</dd>
+   * <dt>java.vm.vendor</dt>       <dd>VM implementation vendor</dd>
+   * <dt>java.vm.name</dt>         <dd>VM implementation name</dd>
+   * <dt>java.specification.version</dt>    <dd>Java Runtime Environment version</dd>
+   * <dt>java.specification.vendor</dt>     <dd>Java Runtime Environment vendor</dd>
+   * <dt>java.specification.name</dt>       <dd>Java Runtime Environment name</dd>
+   * <dt>java.class.version</dt>   <dd>Java class version number</dd>
+   * <dt>java.class.path</dt>      <dd>Java classpath</dd>
+   * <dt>java.library.path</dt>    <dd>Path for finding Java libraries</dd>
+   * <dt>java.io.tmpdir</dt>       <dd>Default temp file path</dd>
+   * <dt>java.compiler</dt>        <dd>Name of JIT to use</dd>
+   * <dt>java.ext.dirs</dt>        <dd>Java extension path</dd>
+   * <dt>os.name</dt>              <dd>Operating System Name</dd>
+   * <dt>os.arch</dt>              <dd>Operating System Architecture</dd>
+   * <dt>os.version</dt>           <dd>Operating System Version</dd>
+   * <dt>file.separator</dt>       <dd>File separator ("/" on Unix)</dd>
+   * <dt>path.separator</dt>       <dd>Path separator (":" on Unix)</dd>
+   * <dt>line.separator</dt>       <dd>Line separator ("\n" on Unix)</dd>
+   * <dt>user.name</dt>            <dd>User account name</dd>
+   * <dt>user.home</dt>            <dd>User home directory</dd>
+   * <dt>user.dir</dt>             <dd>User's current working directory</dd>
    * </dl>
    *
    * In addition, gnu defines several other properties, where ? stands for
    * each character in '0' through '9':
    * <dl>
-   * <dl> gnu.classpath.vm.shortname <dd> Succinct version of the VM name;
-   *      used for finding property files in file system
-   * <dl> gnu.classpath.home.url <dd> Base URL; used for finding
-   *      property files in file system
-   * <dt> gnu.cpu.endian      <dd>big or little
-   * <dt> gnu.java.io.encoding_scheme_alias.ISO-8859-?   <dd>8859_?
-   * <dt> gnu.java.io.encoding_scheme_alias.iso-8859-?   <dd>8859_?
-   * <dt> gnu.java.io.encoding_scheme_alias.iso8859_?    <dd>8859_?
-   * <dt> gnu.java.io.encoding_scheme_alias.iso-latin-_? <dd>8859_?
-   * <dt> gnu.java.io.encoding_scheme_alias.latin?       <dd>8859_?
-   * <dt> gnu.java.io.encoding_scheme_alias.UTF-8        <dd>UTF8
-   * <dt> gnu.java.io.encoding_scheme_alias.utf-8        <dd>UTF8
+   * <dt>gnu.classpath.home</dt>         <dd>Path to the classpath libraries.</dd>
+   * <dt>gnu.classpath.version</dt>      <dd>Version of the classpath libraries.</dd>
+   * <dt>gnu.classpath.vm.shortname</dt> <dd>Succinct version of the VM name;
+   *     used for finding property files in file system</dd>
+   * <dt>gnu.classpath.home.url</dt>     <dd> Base URL; used for finding
+   *     property files in file system</dd>
+   * <dt>gnu.cpu.endian</dt>             <dd>big or little</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.ISO-8859-?</dt>   <dd>8859_?</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.iso-8859-?</dt>   <dd>8859_?</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.iso8859_?</dt>    <dd>8859_?</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.iso-latin-_?</dt> <dd>8859_?</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.latin?</dt>       <dd>8859_?</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.UTF-8</dt>        <dd>UTF8</dd>
+   * <dt>gnu.java.io.encoding_scheme_alias.utf-8</dt>        <dd>UTF8</dd>
    * </dl>
    *
    * @return the system properties, will never be null
@@ -439,18 +469,22 @@ public final class System
   }
 
   /**
-   * This used to get an environment variable, but following Sun's lead,
-   * it now throws an Error. Use <code>getProperty</code> instead.
+   * Gets the value of an environment variable.
    *
    * @param name the name of the environment variable
-   * @return this does not return
-   * @throws Error this is not supported
-   * @deprecated use {@link #getProperty(String)}; getenv is not supported
+   * @return the string value of the variable
+   * @throws NullPointerException
+   * @throws SecurityException if permission is denied
+   * @since 1.5
    */
   public static String getenv(String name)
   {
-    throw new Error("getenv no longer supported, use properties instead: "
-                    + name);
+    if (name == null)
+      throw new NullPointerException();
+    SecurityManager sm = Runtime.securityManager; // Be thread-safe.
+    if (sm != null)
+      sm.checkPermission(new RuntimePermission("getenv."+name));
+    return getenv0(name);
   }
 
   /**
@@ -587,4 +621,11 @@ public final class System
    * @see #setErr(PrintStream)
    */
   private static native void setErr0(PrintStream err);
+
+  /**
+   * Gets the value of an environment variable.
+   *
+   * @see #getenv(String)
+   */
+  static native String getenv0(String name);
 } // class System

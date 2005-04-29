@@ -1,0 +1,409 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "http://cvs.apache.org/viewcvs.cgi/*checkout*/xml-forrest/src/resources/schema/dtd/document-v12.dtd?rev=HEAD&content-type=text/plain">
+<document>
+    <header>
+        <title>Installation</title>
+    </header>
+    <body>
+        <section>
+            <title>Installation</title>
+            <section>
+                <title>Requirements</title>
+                <ul>
+                    <li>Servlet 2.3 compliant application server (e.g. Jakarta Tomcat 4.1.27)</li>
+                    <li>Java 1.4.x runtime</li>
+                </ul>
+            </section>
+            <section>
+                <title>General notes</title>
+                <p>
+                    If any of the options don't make sense, you probably don't need to change them. If
+                    you do feel you need to change an option and it still doesn't make sense as to what you
+                    are changing, let us know and we'll clarify the documentation.
+                </p>
+            </section>
+            <section>
+                <title>Installation and default configuration</title>
+                <p>
+                    1. Download
+                    <link href="http://sourceforge.net/projects/blojsom">blojsom</link>.
+                </p>
+                <p>
+                    2. Unpack
+                    <code>blojsom.war</code> using Java's JAR program (jar xvf blojsom.war) into a directory
+                    under where the application server will be running blojsom.
+                    Under Tomcat, this might be $TOMCAT_HOME/webapps/blojsom. In this case, the servlet context
+                    for blojsom will be "blojsom".
+                    <br/>
+                </p>
+                <p>
+                    3. Configure the
+                    <code>/WEB-INF/blojsom.properties</code> file which contains global properties
+                    for blojsom.
+                </p>
+                <table>
+                    <tr>
+                        <th>Configuration parameter</th>
+                        <th>Default value</th>
+                        <th>Usage</th>
+                    </tr>
+                    <tr>
+                        <td>blojsom-users</td>
+                        <td></td>
+                        <td>Comma-separated list of users with blogs for this blojsom installation. This list
+ will be used to initialize the individual user blogs.</td>
+                    </tr>
+                    <tr>
+                        <td>blojsom-default-user</td>
+                        <td></td>
+                        <td>This option provides legacy blojsom (i.e. pre 2.0) installations a way of preserving
+ their current installations. Set the name of the default user from one of the user ids in the
+                            <em>blojsom-users</em> property. The default
+                            user will not have to enter their user id in the URL for the blojsom installation to
+                            request their blog. For example,
+                            <em>http://localhost:8080/blojsom/blog/</em> would point
+                            to the blog of the default user where
+                            <em>http://localhost:8080/blojsom/blog/david/</em> would
+                            point to the blog for the user
+                            <em>david</em>.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blojsom-configuration-base-directory</td>
+                        <td>/WEB-INF/</td>
+                        <td>Directory off the base WAR directory where blojsom will look for certain properties
+                        files and user directories.</td>
+                    </tr>
+                    <tr>
+                        <td>blojsom-fetcher</td>
+                        <td><code>org.blojsom.fetcher.StandardFetcher</code></td>
+                        <td>Fully qualified class name of the
+                            <code>BlojsomFetcher</code> class responsible for "fetching" blog categories and entries
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blojsom-templates-directory</td>
+                        <td>/templates/</td>
+                        <td>This parameter will be used by blojsom to generate the proper path from which
+                        to retrieve the page templates for the individual users. For example, in a default blojsom
+ installation, requesting the default flavor (HTML) for the default user would cause the dispatcher to look for
+                            <code>/WEB-INF/default/templates/html.vm</code>.
+                        </td>
+                    </tr>
+                </table>
+                <p>
+                    4. If you have added users to the
+                    <em>blojsom-users</em> property, you will need to create directories
+                    off the directory indicated in
+                    <em>blojsom-configuration-base-directory</em> for each of the users.
+                    It is recommended that you initially create another user and copy all of the directories and files
+                    from the default user directory into this new user's directory. You would then set the
+                    <em>blojsom-default-user</em> to the appropriate user id you just created and remove the default
+ user id from the <em>blojsom-users</em> configuration property. This allows you to keep the default
+                    user directory as a set of template directories and files when adding new users to your blojsom
+                    installation.
+                </p>
+                <p>
+                    5. Configure the appropriate
+                    <code>/WEB-INF/(user-id)/blog.properties</code> file for your blog. This will need to be done for each
+                    of the users that you have indicated in the
+                    <em>blojsom-users</em> property.
+                </p>
+                <table>
+                    <tr>
+                        <th>Configuration parameter</th>
+                        <th>Default value</th>
+                        <th>Usage</th>
+                    </tr>
+                    <tr>
+                        <td>blog-home</td>
+                        <td></td>
+                        <td>Points to the directory where your blog entries will be located
+                            <br/><br/>
+                            For example:
+                            <em>/my/home/directory/blog</em>
+                            <p>NOTE:
+                                <br/>This parameter should point to the absolute directory where your blog entries
+                                will be kept. It should exist outside the web application root directory.
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-directory-depth</td>
+                        <td>-1</td>
+                        <td>Indicates the number of levels deep that blojsom should traverse in
+                            <em>blog-home</em> to look for entries. A value of -1 indicates that blojsom should traverse all directories
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-language</td>
+                        <td>en</td>
+                        <td>Indicates the language code for this blog. This parameter is used when generating RSS feeds for your blog</td>
+                    </tr>
+                    <tr>
+                        <td>blog-country</td>
+                        <td>US</td>
+                        <td>Indicates the country code for this blog</td>
+                    </tr>
+                    <tr>
+                        <td>blog-name</td>
+                        <td></td>
+                        <td>The name of your blog</td>
+                    </tr>
+                    <tr>
+                        <td>blog-description</td>
+                        <td></td>
+                        <td>A concise description of your blog</td>
+                    </tr>
+                    <tr>
+                        <td>blog-base-url</td>
+                        <td></td>
+                        <td>Base URL for your blog
+                            <br/><br/>For example:
+                            <em>http://localhost:8080/blojsom</em>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-url</td>
+                        <td></td>
+                        <td>URL for your blog. This URL should include the appropriate user id otherwise links
+                            will be generated for the default user's blog.
+                            <br/><br/>For example:
+                            <em>http://localhost:8080/blojsom/blog/david/</em>
+                            <br/><br/>
+                            NOTE:
+                            The default
+                            <em>servlet-mapping</em> configured in the
+                            <code>/WEB-INF/web.xml</code> for blojsom is set
+                            to pass all requests for
+                            <em>/blog/*</em> to blojsom. If you change the mapping in the
+                            <code>/WEN-INF/web.xml</code> file, then you will need to make sure that change is reflected in the URL
+                            for your blog.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-file-extensions</td>
+                        <td></td>
+                        <td>Comma-separated list of regular expressions to identify file extensions blojsom uses for blog entries. By default, blojsom will look for .txt and .html file extensions in the blog directories for entries</td>
+                    </tr>
+                    <tr>
+                        <td>blog-entry-meta-data-extension</td>
+                        <td></td>
+                        <td>File extension that blojsom should look for if using per-entry meta-data. This feature is described in the
+                            <link href="custom.html">customization</link> reference
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-properties-extensions</td>
+                        <td></td>
+                        <td>File extensions that blojsom should look for in the blog category directories. Any properties files discovered when loading the blog from disk will be used as meta-data for the current category. This feature is described in the
+                            <link href="custom.html">customization</link> reference
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-entries-display</td>
+                        <td>-1</td>
+                        <td>Sets the maximum number of display entries per category. If this value is -1, all entries will be displayed. This parameter also controls the number of entries that get aggregated for individual categories if requesting the default or "/" category</td>
+                    </tr>
+                    <tr>
+                        <td>blog-default-category-mapping</td>
+                        <td></td>
+                        <td>Customize the blog directories that will be "aggregated" to the default or "/" category. If left blank, all directories, up to
+                            <em>blog-directory-depth</em> will be aggregated. This feature is described in the
+                            <link href="custom.html">customization</link> reference
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-directory-filter</td>
+                        <td></td>
+                        <td>Comma-separated list of regular expressions of directory names that blojsom should filter when looking for categories. By default, the comments and trackback directories are added to this list.</td>
+                    </tr>
+                    <tr>
+                        <td>blog-owner</td>
+                        <td></td>
+                        <td>Identifies the name of the blog owner. This is a personalization feature used in the RDF flavor</td>
+                    </tr>
+                    <tr>
+                        <td>blog-owner-email</td>
+                        <td></td>
+                        <td>Identifies the e-mail address of the blog owner. This is a personalization feature used in the RDF flavor</td>
+                    </tr>
+                    <tr>
+                        <td>blog-comments-enabled</td>
+                        <td></td>
+                        <td>Indicates whether or not comments are enabled on this blog. Can be either
+                            <em>true</em> or
+                            <em>false</em>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-comments-directory</td>
+                        <td>.comments</td>
+                        <td>The directory where blog comments will be written to under the blog category directories. This directory is automatically added to the list of directories that get filtered</td>
+                    </tr>
+                    <tr>
+                        <td>blog-trackbacks-enabled</td>
+                        <td></td>
+                        <td>Indicates whether or not trackbacks are enabled on this blog. Can be either
+                            <em>true</em> or
+                            <em>false</em>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-trackbacks-directory</td>
+                        <td>.trackbacks</td>
+                        <td>The directory where blog trackbacks will be written to under the blog category directories. This directory is automatically added to the list of directories that get filtered</td>
+                    </tr>
+                    <tr>
+                        <td>blog-email-enabled</td>
+                        <td>false</td>
+                        <td>Indicates whether or not comments and trackbacks will be e-mailed to the blog owner. Can be either
+                            <em>true</em> or
+                            <em>false</em>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>blog-file-encoding</td>
+                        <td>
+                            <code>UTF-8</code>
+                        </td>
+                        <td>File encoding for reading and writing blog entries/comments/trackbacks</td>
+                    </tr>
+                    <tr>
+                        <td>blog-blacklist-file</td>
+                        <td></td>
+                        <td>Points to the file containing the blacklist regular expressions</td>
+                    </tr>
+                    <tr>
+                        <td>blog-xmlrpc-entry-extension</td>
+                        <td>
+                            <code>.txt</code>
+                        </td>
+                        <td>File extension used by the XML-RPC extension when writing entries to disk</td>
+                    </tr>
+                    <tr>
+                        <td>blog-banned-ip-addresses</td>
+                        <td></td>
+                        <td>Comma-separated list of regular expressions IP addresses that you would like to
+ be banned. Presently, this is only used by the Comment and Trackback plugins.</td>
+                    </tr>
+                    <tr>
+                        <td>blog-default-flavor</td>
+                        <td>html</td>
+                        <td>Sets the default flavor used to render the blog if not specified.</td>
+                    </tr>
+                </table>
+                <p>
+                    6. Start your application server. On startup, blojsom will log messages to the console to
+                    indicate what it is doing. Configuring blojsom's log capability is described on
+                    the
+                    <link href="custom.html">customization</link> page.
+                </p>
+                <p>
+                    7. Start your browser and open the URL to your blog. Example:
+                    <em>http://localhost:8080/blojsom/blog/</em>.
+                    The default user's blog should show up in your browser. If you have created other users, you
+                    can browse their blogs by including the appropriate user id at the end of this blog URL.
+                    Now you're ready to create categories and entries for your blog.
+                </p>
+            </section>
+            <section>
+                <title>Adding, removing, and updating blog entries and categories</title>
+                <p>
+                    The following applies to each of the individual user blogs you have setup for your blojsom
+                    installation.<br /><br />
+                    blojsom uses the filesystem as its database. In blojsom, files matching the files indicated in the
+                    <em>blog-file-extensions</em> configuration property will be picked up as your
+                    blog entries. Directories that blojsom discovers under
+                    <em>blog-home</em> will be used as the categories for your blog. The following is an oversimplified example of how to
+                    manipulate your blog to add, update, and remove blog entries and categories.
+                </p>
+            </section>
+            <section>
+                <title>blojsom blog entry format</title>
+                <p>The first line of a blojsom blog entry is used as the title for that entry. Everything after that is treated as the body or description
+                    of that blog entry. The filename of the blog entry will be used in generating a "permalink" (a permanent link) to that individual blog entry.
+                </p>
+
+                <source>
+                    This is a blog entry title
+                    And everything after will show up as the body for the blog entry
+                </source>
+            </section>
+            <section>
+                <title>Adding blog entries and categories</title>
+                <p>
+                    1. Change to your
+                    <em>blog-home</em> directory.
+                    <br/>
+                    2. Add a directory called "general". There you go, you've just created a category!
+                    <br/>
+                    3. Open up your favorite editor and create a file called "my-first-entry.html" in the "general" directory. Again, the first line of your blog entry is used
+                    as the title and everything after the title will be used as the body of the entry.
+                    <br/>
+                    4. In your browser, open up the URL to your blog and you should see your entry displayed on the screen.
+                    <br/>
+                </p>
+            </section>
+            <section>
+                <title>Updating blog entries and categories</title>
+                <p>
+
+                    1. Change to your
+                    <em>blog-home</em> directory.
+                    <br/>
+                    2. Rename the "general" directory to "news". There you go, you've just updated a category!
+                    <br/>
+                    3. Open up your favorite editor and edit the file "my-first-entry.html", now in the "news" directory. Update the title and/or the entry body. It's that simple.
+                    <br/>
+                    4. In your browser, open up the URL to your blog and you should see your entry displayed on the screen.
+                    <br/>
+                </p>
+            </section>
+            <section>
+                <title>Removing blog entries and categories</title>
+                <p>
+                    1. Change to your
+                    <em>blog-home</em> directory.
+                    <br/>
+                    2. Remove the "news" directory. There you go, you've just removed a category (and removed your first blog entry)!
+                    <br/>
+                    3. In your browser, open up the URL to your blog and you should see that the "news" category and your first entry are gone.
+                    <br/>
+                </p>
+            </section>
+            <section>
+                <title>Blog navigation</title>
+                <p>
+                    After blojsom is setup and running, your users will be able to navigate around your blog in those categories that have entries. No surprise there, eh?!
+                </p>
+                <p>
+                    The following table describes the URL parameters that blojsom accepts and how they affect the entries that get displayed by your blog.
+                </p>
+                <table>
+                    <tr>
+                        <th>URL parameter</th>
+                        <th>Default value</th>
+                        <th>Accepted values</th>
+                        <th>Usage example</th>
+                    </tr>
+                    <tr>
+                        <td>flavor</td>
+                        <td>html</td>
+                        <td>blojsom includes an "html", "rss", "rss2", and "rdf" flavor, but you may add or remove flavors from blojsom as appropriate.</td>
+                        <td>/blog/david/?flavor=rss</td>
+                    </tr>
+                    <tr>
+                        <td>permalink</td>
+                        <td></td>
+                        <td>Permalinks are generated by blojsom to point to an individual blog entry.</td>
+                        <td>/blog/david/?permalink=my-first-entry.html</td>
+                    </tr>
+                </table>
+
+
+            </section>
+
+        </section>
+    </body>
+</document>

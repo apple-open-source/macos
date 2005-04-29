@@ -50,6 +50,7 @@
 
 
 #include <sys/param.h>
+#include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/disklabel.h>
 #include <sys/mount.h>
@@ -551,7 +552,7 @@ main(int argc, char *argv[])
 		x += howmany(bpb.rde ? bpb.rde : DEFRDE, bpb.bps / sizeof(struct de));
 		/* Plus data clusters */
 		x += (MAXCLS12+1) * bpb.spc;
-		
+
 		/*
 		 * We now know how many sectors the volume would occupy with the given
 		 * sectors per cluster, and the maximum number of FAT12 clusters.  If
@@ -656,7 +657,17 @@ main(int argc, char *argv[])
     cls = (bpb.bsec - x1) / bpb.spc;
     x = (u_int64_t)bpb.bspf * bpb.bps * NPB / (fat / BPN) - RESFTE;
     if (cls > x)
+    {
+    	/* 
+    	 * This indicates that there are more sectors available
+    	 * for data clusters than there are usable entries in the
+    	 * FAT.  In this case, we need to limit the number of
+    	 * clusters, and also reduce the number of sectors.
+    	 */
+	bpb.bsec = bpb.res + bpb.bspf*bpb.nft + rds + x*bpb.spc;
+	warnx("warning: sectors/FAT limits sectors to %u, clusters to %u", bpb.bsec, x);
 	cls = x;
+    }
     if (bpb.bspf < x2)
 	warnx("warning: sectors/FAT limits file system to %u clusters",
 	      cls);
@@ -784,7 +795,7 @@ main(int argc, char *argv[])
 		mk1(img[0], bpb.mid);
 		for (x = 1; x < fat * (fat == 32 ? 3 : 2) / 8; x++)
 		    mk1(img[x], fat == 32 && x % 4 == 3 ? 0x0f : 0xff);
-	    } else if (lsn == dir && opt_v) {
+	    } else if (lsn == dir && opt_v && *opt_v) {
 		de = (struct de *)img;
 		mklabel(de->namext, opt_v);
 		mk1(de->attr, 050);
@@ -946,7 +957,7 @@ oklabel(const char *src)
 	if (c < ' ' + !i || strchr("\"*+,./:;<=>?[\\]|", c))
 	    break;
     }
-    return i && !c;
+    return !c;
 }
 
 /*

@@ -1,20 +1,20 @@
 /* Definitions for SOM assembler support.
-   Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -27,30 +27,11 @@ Boston, MA 02111-1307, USA.  */
    from other embedded stabs implementations.  */
 #undef DBX_USE_BINCL
 
-/* We make the first line stab special to avoid adding several
-   gross hacks to GAS.  */
-#undef  ASM_OUTPUT_SOURCE_LINE
-#define ASM_OUTPUT_SOURCE_LINE(file, line)		\
-  { static int sym_lineno = 1;				\
-    static tree last_function_decl = NULL;		\
-    if (current_function_decl == last_function_decl)	\
-      fprintf (file, "\t.stabn 68,0,%d,L$M%d-%s\nL$M%d:\n",	\
-	       line, sym_lineno,			\
-	       XSTR (XEXP (DECL_RTL (current_function_decl), 0), 0) + 1, \
-	       sym_lineno);				\
-    else						\
-      fprintf (file, "\t.stabn 68,0,%d,0\n", line);	\
-    last_function_decl = current_function_decl;		\
-    sym_lineno += 1; }
+#define DBX_LINES_FUNCTION_RELATIVE 1
 
 /* gdb needs a null N_SO at the end of each file for scattered loading.  */
 
-#undef	DBX_OUTPUT_MAIN_SOURCE_FILE_END
-#define DBX_OUTPUT_MAIN_SOURCE_FILE_END(FILE, FILENAME) \
-  text_section (); \
-  fputs ("\t.SPACE $TEXT$\n\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE); \
-  fprintf (FILE,							\
-	   "\t.stabs \"\",%d,0,0,L$text_end0000\nL$text_end0000:\n", N_SO)
+#define DBX_OUTPUT_NULL_N_SO_AT_MAIN_SOURCE_FILE_END
 
 /* Select a format to encode pointers in exception handling data.  CODE
    is 0 for data, 1 for code labels, 2 for function pointers.  GLOBAL is
@@ -126,19 +107,6 @@ do {								\
 #endif
 
 
-/* NAME refers to the function's name.  If we are placing each function into
-   its own section, we need to switch to the section for this function.  Note
-   that the section name will have a "." prefix.  */
-#define ASM_OUTPUT_FUNCTION_PREFIX(FILE, NAME) \
-  {									\
-    const char *name = (*targetm.strip_name_encoding) (NAME);		\
-    if (TARGET_GAS && in_section == in_text) 				\
-      fputs ("\t.NSUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n", FILE); \
-    else if (TARGET_GAS)						\
-      fprintf (FILE,							\
-	       "\t.SUBSPA .%s\n", name);				\
-  }
-    
 #define ASM_DECLARE_FUNCTION_NAME(FILE, NAME, DECL) \
     do { tree fntype = TREE_TYPE (TREE_TYPE (DECL));			\
 	 tree tree_type = TREE_TYPE (DECL);				\
@@ -214,53 +182,16 @@ do {								\
 	     fputs ("\n", FILE);					\
 	   }} while (0)
 
-/* Output at beginning of assembler file.  */
+#define TARGET_ASM_FILE_START pa_som_file_start
 
-#define ASM_FILE_START(FILE) \
-do {  \
-     if (TARGET_PA_20) \
-       fputs("\t.LEVEL 2.0\n", FILE); \
-     else if (TARGET_PA_11) \
-       fputs("\t.LEVEL 1.1\n", FILE); \
-     else \
-       fputs("\t.LEVEL 1.0\n", FILE); \
-     fputs ("\t.SPACE $PRIVATE$\n\
-\t.SUBSPA $DATA$,QUAD=1,ALIGN=8,ACCESS=31\n\
-\t.SUBSPA $BSS$,QUAD=1,ALIGN=8,ACCESS=31,ZERO,SORT=82\n\
-\t.SPACE $TEXT$\n\
-\t.SUBSPA $LIT$,QUAD=0,ALIGN=8,ACCESS=44\n\
-\t.SUBSPA $CODE$,QUAD=0,ALIGN=8,ACCESS=44,CODE_ONLY\n\
-\t.IMPORT $global$,DATA\n\
-\t.IMPORT $$dyncall,MILLICODE\n", FILE);\
-     if (profile_flag)\
-       fprintf (FILE, "\t.IMPORT _mcount, CODE\n");\
-     if (write_symbols != NO_DEBUG) \
-       output_file_directive ((FILE), main_input_filename); \
-   } while (0)
+/* String to output before text.  */
+#define TEXT_SECTION_ASM_OP som_text_section_asm_op ()
 
-/* Output before code.  */
+/* String to output before writable data.  */
+#define DATA_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $DATA$\n"
 
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define TEXT_SECTION_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $CODE$\n"
-
-/* Output before read-only data.  */
-
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define READONLY_DATA_ASM_OP "\t.SPACE $TEXT$\n\t.SUBSPA $LIT$\n"
-
-#define EXTRA_SECTIONS in_readonly_data
-
-#define EXTRA_SECTION_FUNCTIONS						\
-extern void readonly_data PARAMS ((void));				\
-void									\
-readonly_data ()							\
-{									\
-  if (in_section != in_readonly_data)					\
-    {									\
-      in_section = in_readonly_data;					\
-      fprintf (asm_out_file, "%s\n", READONLY_DATA_ASM_OP);		\
-    }									\
-}
+/* String to output before uninitialized data.  */
+#define BSS_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $BSS$\n"
 
 /* FIXME: HPUX ld generates incorrect GOT entries for "T" fixups
    which reference data within the $TEXT$ space (for example constant
@@ -274,17 +205,8 @@ readonly_data ()							\
    $TEXT$ space during PIC generation.  Instead place all constant
    data into the $PRIVATE$ subspace (this reduces sharing, but it
    works correctly).  */
-
-#define READONLY_DATA_SECTION (flag_pic ? data_section : readonly_data)
-
-/* Output before writable data.  */
-
-/* Supposedly the assembler rejects the command if there is no tab!  */
-#define DATA_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $DATA$\n"
-
-/* Output before uninitialized data.  */
-
-#define BSS_SECTION_ASM_OP "\t.SPACE $PRIVATE$\n\t.SUBSPA $BSS$\n"
+#define READONLY_DATA_SECTION \
+  (flag_pic ? data_section : som_readonly_data_section)
 
 /* We must not have a reference to an external symbol defined in a
    shared library in a readonly section, else the SOM linker will
@@ -351,16 +273,25 @@ readonly_data ()							\
 
 #define DO_GLOBAL_DTORS_BODY			\
 do {						\
-  extern void __gcc_plt_call ();		\
-  void (*reference)() = &__gcc_plt_call;	\
+  extern void __gcc_plt_call (void);		\
+  void (*reference)(void) = &__gcc_plt_call;	\
   func_ptr *p;					\
   __asm__ ("" : : "r" (reference));		\
   for (p = __DTOR_LIST__ + 1; *p; )		\
     (*p++) ();					\
 } while (0)
 
-/* The .align directive in the HP assembler allows up to a 32 alignment.  */
-#define MAX_OFILE_ALIGNMENT 32768
+/* This macro specifies the biggest alignment supported by the object
+   file format of this machine.
+
+   The .align directive in the HP assembler allows alignments up to 4096
+   bytes.  However, the maximum alignment of a global common symbol is 8
+   bytes for objects smaller than the page size (4096 bytes).  For larger
+   objects, the linker provides an alignment of 32 bytes.  */
+#define MAX_OFILE_ALIGNMENT						\
+  (TREE_PUBLIC (decl) && DECL_COMMON (decl)				\
+   ? (host_integerp (DECL_SIZE_UNIT (decl), 1) >= 4096 ? 256 : 64)	\
+   : 32768)
 
 /* The SOM linker hardcodes paths into binaries.  As a result, dotdots
    must be removed from library prefixes to prevent binaries from depending

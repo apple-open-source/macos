@@ -83,6 +83,59 @@ static void check_for_pipe(const char *fname)
 }
 
 /****************************************************************************
+Open a file.
+****************************************************************************/
+#ifdef WITH_BRLM
+int map_deny_mode_to_brlm_permissions(files_struct *fsp, int flags)
+{
+	int deny_mode = 0;
+	
+	switch (flags) {
+		   case DENY_ALL: 
+				   deny_mode = kBRLMDenyRead | kBRLMDenyWrite; 
+				   break;
+		   case DENY_WRITE: 
+				   deny_mode = kBRLMDenyWrite; 
+				   break;
+		   case DENY_READ: 
+				   deny_mode = kBRLMDenyRead; 
+				   break;
+		   case DENY_DOS: 
+		   case DENY_FCB: 
+		   default: 
+				   deny_mode = 0; 
+				   break;
+	}
+	DEBUG(4,("map_deny_mode_to_brlm_permissions[0x%X] flags[0x%X]\n",deny_mode, flags));
+	fsp->brlm_deny_mode = deny_mode;
+	return deny_mode;
+}
+
+int map_open_mode_to_brlm_permissions(files_struct *fsp, int flags)
+{
+	int open_mode = 0;
+	
+	if (flags & DOS_OPEN_RDONLY) {
+		   open_mode = kBRLMRead;  
+		   DEBUG(4,("map_open_mode_to_brlm_permissions: DOS_OPEN_RDONLY\n"));
+	} else if ( flags & DOS_OPEN_WRONLY) {
+		   open_mode = kBRLMWrite;         
+	} else if ( flags & DOS_OPEN_RDWR) {
+		   open_mode = kBRLMRead | kBRLMWrite;     
+	} else if ( flags & DOS_OPEN_FCB) {
+		   open_mode = kBRLMRead; 
+	} else {
+		   open_mode = kBRLMRead;          
+		   DEBUG(4,("map_open_mode_to_brlm_permissions: !!! default open permissions - kBRLMRead flags[0x%X]\n", flags));
+	}
+	
+	fsp->brlm_open_mode = open_mode;
+	DEBUG(4,("map_open_mode_to_brlm_permissions[0x%X] flags[0x%X]\n",open_mode, flags));
+	
+	return open_mode;
+}
+#endif
+/****************************************************************************
  Open a file.
 ****************************************************************************/
 
@@ -92,6 +145,10 @@ static BOOL open_file(files_struct *fsp,connection_struct *conn,
 	extern struct current_user current_user;
 	int accmode = (flags & O_ACCMODE);
 	int local_flags = flags;
+#ifdef WITH_BRLM
+	BRLMStatus brlm_status = BRLMNoErr;
+	BRLMRef brlm_ref = 0;
+#endif
 
 	fsp->fd = -1;
 	fsp->oplock_type = NO_OPLOCK;
@@ -172,7 +229,29 @@ static BOOL open_file(files_struct *fsp,connection_struct *conn,
 		}
 
 		/* Actually do the open */
+#ifdef WITH_BRLM
+	if (lp_BRLM())
+	{
+		map_open_mode_to_brlm_permissions(fsp, local_flags); 
+		brlm_status = BRLMPosixOpen(fname, kBRLMDataFork, fsp->brlm_deny_mode | fsp->brlm_open_mode, local_flags & ~O_ACCMODE/* creatPermissions */, mode, &brlm_ref, 0 /* sessionID */);
+		fsp->brlm_ref = brlm_ref;
+		if (BRLMNoErr == brlm_status) {
+			fsp->fd = BRLMGetDescriptor(brlm_ref);
+		} else {
+			if (BRLMOpenDenied == brlm_status || BRLMLockConflict == brlm_status) {
+				unix_ERR_class = ERRDOS;
+				unix_ERR_code = ERRbadshare;
+				unix_ERR_ntstatus = NT_STATUS_SHARING_VIOLATION;
+			}
+			fsp->fd = -1;
+			DEBUG(3,("open_file: [%d]BRLMPosixOpen file (%s) (brlm_perms=0x%X) (local_flags=0x%X) (mode=%d) (fd=%d) (brlm_ref=%X)\n", brlm_status, fname, fsp->brlm_deny_mode | fsp->brlm_open_mode, local_flags & ~O_ACCMODE, mode, fsp->fd, brlm_ref));
+		}
+	} else {
+#endif
 		fsp->fd = fd_open(conn, fname, local_flags, mode);
+#ifdef WITH_BRLM
+	} /* lp_BRLM */   
+#endif         
 		if (fsp->fd == -1)  {
 			DEBUG(3,("Error opening file %s (%s) (local_flags=%d) (flags=%d)\n",
 				 fname,strerror(errno),local_flags,flags));
@@ -1163,7 +1242,10 @@ files_struct *open_file_shared1(connection_struct *conn,char *fname, SMB_STRUCT_
 			flags2 &= ~O_CREAT;
 		}
 	}
-
+#ifdef WITH_BRLM
+	if (lp_BRLM())
+		map_deny_mode_to_brlm_permissions(fsp, deny_mode); 
+#endif
 	if (file_existed) {
 
 		dev = psbuf->st_dev;

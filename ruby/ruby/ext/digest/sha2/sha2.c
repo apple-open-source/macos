@@ -34,18 +34,12 @@
  */
 
 /* $RoughId: sha2.c,v 1.3 2002/02/26 22:03:36 knu Exp $ */
-/* $Id: sha2.c,v 1.2 2003/04/03 05:35:20 melville Exp $ */
+/* $Id: sha2.c,v 1.4 2003/07/26 15:03:12 matz Exp $ */
 
+#include "sha2.h"
 #include <stdio.h>
 #include <string.h>	/* memcpy()/memset() or bcopy()/bzero() */
 #include <assert.h>	/* assert() */
-#include "sha2.h"
-
-#ifdef __BIG_ENDIAN__
-#define WORDS_BIGENDIAN
-#else
-#undef WORDS_BIGENDIAN
-#endif
 
 /*
  * ASSERT NOTE:
@@ -73,7 +67,7 @@ typedef uint8_t  sha2_byte;	/* Exactly 1 byte */
 typedef uint32_t sha2_word32;	/* Exactly 4 bytes */
 typedef uint64_t sha2_word64;	/* Exactly 8 bytes */
 
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(_HPUX_SOURCE)
 #define ULL(number)	number##ULL
 #else
 #define ULL(number)	(uint64_t)(number)

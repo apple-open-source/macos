@@ -1,5 +1,5 @@
 ## Makefile.in for ICU - tools/ctestfw
-## Copyright (c) 1999-2003, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
 ## Stephen F. Booth
 
@@ -15,20 +15,20 @@ include $(top_builddir)/icudefs.mk
 subdir = tools/ctestfw
 
 ## Extra files to remove for 'make clean'
-CLEANFILES = *~ $(DEPS) $(ALL_TARGETS)
+CLEANFILES = *~ $(DEPS) $(IMPORT_LIB) $(MIDDLE_IMPORT_LIB) $(FINAL_IMPORT_LIB)
 
 ## Target information
 
 ifneq ($(ENABLE_STATIC),)
-TARGET = $(LIBICU)ctestfw$(ICULIBSUFFIX).a
+TARGET = $(LIBSICU)$(CTESTFW_STUBNAME)$(ICULIBSUFFIX).$(A)
 endif
 
-CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil
+CPPFLAGS += -I$(top_builddir)/common -I$(top_srcdir)/common -I$(srcdir)
 DEFS += -DT_CTEST_IMPLEMENTATION
 
 
 ifneq ($(ENABLE_SHARED),)
-SO_TARGET = $(LIBICU)ctestfw$(ICULIBSUFFIX).$(SO)
+SO_TARGET = $(LIBICU)$(CTESTFW_STUBNAME)$(ICULIBSUFFIX).$(SO)
 ALL_SO_TARGETS = $(SO_TARGET) $(MIDDLE_SO_TARGET) $(FINAL_SO_TARGET)
 endif
 
@@ -38,9 +38,10 @@ DYNAMICCPPFLAGS = $(SHAREDLIBCPPFLAGS)
 DYNAMICCFLAGS = $(SHAREDLIBCFLAGS)
 DYNAMICCXXFLAGS = $(SHAREDLIBCXXFLAGS)
 
-LIBS = $(DEFAULT_LIBS)
+LDFLAGS += $(LDFLAGSCTESTFW)
+LIBS = $(LIBICUUC) $(DEFAULT_LIBS)
 
-OBJECTS = ctest.o
+OBJECTS = ctest.o tstdtmod.o testdata.o datamap.o
 
 STATIC_OBJECTS = $(OBJECTS:.o=.$(STATIC_O))
 
@@ -83,7 +84,7 @@ dist-local:
 
 clean-local:
 	test -z "$(CLEANFILES)" || $(RMV) $(CLEANFILES)
-	$(RMV)  $(OBJECTS) $(STATIC_OBJECTS) $(ALL_TARGETS)
+	$(RMV) $(OBJECTS) $(STATIC_OBJECTS) $(ALL_TARGETS)
 
 distclean-local: clean-local
 	$(RMV) Makefile

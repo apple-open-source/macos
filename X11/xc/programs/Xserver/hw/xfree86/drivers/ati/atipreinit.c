@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atipreinit.c,v 1.65 2003/01/01 19:16:33 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atipreinit.c,v 1.75 2004/01/05 16:42:03 tsi Exp $ */
 /*
- * Copyright 1999 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1999 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -24,22 +24,26 @@
 #include "ati.h"
 #include "atiadapter.h"
 #include "atiadjust.h"
+#include "atiaudio.h"
 #include "atibus.h"
 #include "atichip.h"
 #include "aticonfig.h"
 #include "aticursor.h"
 #include "atidac.h"
 #include "atidsp.h"
+#include "atii2c.h"
 #include "atiident.h"
 #include "atiload.h"
 #include "atilock.h"
 #include "atimach64.h"
+#include "atimach64accel.h"
 #include "atimach64io.h"
 #include "atimode.h"
 #include "atipreinit.h"
 #include "atiprint.h"
 #include "atividmem.h"
 #include "atiwonderio.h"
+#include "atixv.h"
 
 #include "vbe.h"
 #include "xf86RAC.h"
@@ -248,12 +252,14 @@ ATIMach32videoRam
         /* Test for lost pixels */
         AllPixelsOK = TRUE;
         ForEachTestPixel
+        {
             if (ATIMach32ReadPixel(TestPixel.x, TestPixel.y) !=
                 Test_Pixel[Pixel_Number])
             {
                 AllPixelsOK = FALSE;
                 break;
             }
+        }
 
         /* Restore clobbered pixels */
         ForEachTestPixel
@@ -319,8 +325,10 @@ ATIReportMemory
 #endif /* AVOID_CPIO */
 
     if (pATI->VideoRAM > pScreenInfo->videoRam)
+    {
         Message += snprintf(Message, Buffer + SizeOf(Buffer) - Message,
             " (using %d kB)", pScreenInfo->videoRam);
+    }
     xf86DrvMsg(pScreenInfo->scrnIndex, X_PROBED, "%s.\n", Buffer);
 }
 
@@ -330,12 +338,12 @@ static const rgb   defaultWeight = {0, 0, 0};
 static const Gamma defaultGamma  = {0.0, 0.0, 0.0};
 
 /*
- * ATIMapMach64 --
+ * ATIMach64Map --
  *
  * This function attempts to mmap() a Mach64's MMIO aperture.
  */
 static void
-ATIMapMach64
+ATIMach64Map
 (
     int    iScreen,
     ATIPtr pATI
@@ -394,7 +402,8 @@ ATIPreInit
                                                (BIOS[(_n) + 3] << 24)))
     unsigned int     BIOSSize = 0;
     unsigned int     ROMTable = 0, ClockTable = 0, FrequencyTable = 0;
-    unsigned int     LCDTable = 0, LCDPanelInfo = 0;
+    unsigned int     LCDTable = 0, LCDPanelInfo = 0, VideoTable = 0;
+    unsigned int     HardwareTable = 0;
 
     char             Buffer[128], *Message;
     ATIPtr           pATI;
@@ -412,7 +421,9 @@ ATIPreInit
     int              DefaultmaxClock = 0;
     int              minPitch, maxPitch = 0xFFU, maxHeight = 0;
     int              ApertureSize = 0x00010000U;
+    int              ModeType = M_T_BUILTIN;
     LookupModeFlags  Strategy = LOOKUP_CLOSEST_CLOCK;
+    int              DefaultDepth;
 
 #   define           pATIHW     (&pATI->OldHW)
 
@@ -509,10 +520,17 @@ ATIPreInit
         /* Set depth, bpp, etc. */
         if ((pATI->Chipset != ATI_CHIPSET_ATI) ||
             (pATI->Chip < ATI_CHIP_264CT))
+        {
             i = NoDepth24Support;       /* No support for >8bpp either */
+            DefaultDepth = 8;
+        }
         else
+        {
             i = Support24bppFb | Support32bppFb;
-        if (!xf86SetDepthBpp(pScreenInfo, 8, 8, 8, i))
+            DefaultDepth = 0;
+        }
+
+        if (!xf86SetDepthBpp(pScreenInfo, DefaultDepth, 0, 0, i))
             return FALSE;
 
         for (j = 0;  ;  j++)
@@ -573,7 +591,9 @@ ATIPreInit
 #ifdef AVOID_CPIO
 
     else /* if (flags & PROBE_DETECT) */
+    {
         return TRUE;
+    }
 
 #else /* AVOID_CPIO */
 
@@ -582,20 +602,28 @@ ATIPreInit
      * has been executed, and retrieve DDC and VBE information from it.
      */
     if (!(pInt10Module = ATILoadModule(pScreenInfo, "int10", ATIint10Symbols)))
+    {
         xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
             "Unable to load int10 module.\n");
+    }
     else if (!(pInt10Info = xf86InitInt10(pATI->iEntity)))
+    {
         xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
              "Unable to initialise int10 interface.\n");
+    }
     else
     {
         if (!(pDDCModule = ATILoadModule(pScreenInfo, "ddc", ATIddcSymbols)))
+        {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                 "Unable to load ddc module.\n");
+        }
         else
         if (!(pVBEModule = ATILoadModule(pScreenInfo, "vbe", ATIvbeSymbols)))
+        {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                 "Unable to load vbe module.\n");
+        }
         else
         {
             if ((pVBE = VBEInit(pInt10Info, pATI->iEntity)))
@@ -612,8 +640,10 @@ ATIPreInit
             CARD8 *pBIOS = xf86int10Addr(pInt10Info, pInt10Info->BIOSseg << 4);
 
             if ((pBIOS[0] != 0x55U) || (pBIOS[1] != 0xAAU) || !pBIOS[2])
+            {
                 xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                     "Unable to correctly retrieve adapter BIOS.\n");
+            }
             else
             {
                 BIOSSize = pBIOS[2] << 9;
@@ -722,6 +752,7 @@ ATIPreInit
 
     pATI->LCDPanelID = -1;
     pATI->nFIFOEntries = 16;                    /* For now */
+    pATI->Audio = ATI_AUDIO_NONE;
 
     /* Finish probing the adapter */
     switch (pATI->Adapter)
@@ -805,12 +836,12 @@ ATIPreInit
                         if ((pATI->Block0Base = pVideo->memBase[0]))
                         {
                             pATI->Block0Base += 0x007FFC00U;
-                            ATIMapMach64(pScreenInfo->scrnIndex, pATI);
+                            ATIMach64Map(pScreenInfo->scrnIndex, pATI);
                             if (pATI->pBlock[0])
                                 break;
 
                             pATI->Block0Base -= 0x00400000U;
-                            ATIMapMach64(pScreenInfo->scrnIndex, pATI);
+                            ATIMach64Map(pScreenInfo->scrnIndex, pATI);
                             if (pATI->pBlock[0])
                                 break;
                         }
@@ -820,7 +851,7 @@ ATIPreInit
                     pATI->Block0Base = 0x000BFC00U;
                 }
 
-                ATIMapMach64(pScreenInfo->scrnIndex, pATI);
+                ATIMach64Map(pScreenInfo->scrnIndex, pATI);
             } while (0);
             pATI->Block0Base = Block0Base;
 
@@ -862,8 +893,10 @@ ATIPreInit
 
             pATIHW->mem_cntl = inr(MEM_CNTL);
             if (pATI->Chip < ATI_CHIP_264VTB)
+            {
                 pATI->VideoRAM =
                     videoRamSizes[GetBits(pATIHW->mem_cntl, CTL_MEM_SIZE) + 2];
+            }
             else
             {
                 pATI->nFIFOEntries =            /* Don't care */
@@ -885,7 +918,7 @@ ATIPreInit
             {
                 pATI->MemoryType = GetBits(IOValue, CFG_MEM_TYPE_T);
 
-                /* Get LCD panel id and set LCD & TV I/O port numbers */
+                /* Get LCD panel id */
                 if (pATI->Chip == ATI_CHIP_264LT)
                 {
                     pATI->LCDPanelID = GetBits(IOValue, CFG_PANEL_ID);
@@ -902,7 +935,7 @@ ATIPreInit
 
                     pATIHW->lcd_index = inr(LCD_INDEX);
                     pATIHW->horz_stretching =
-                        ATIGetMach64LCDReg(LCD_HORZ_STRETCHING);
+                        ATIMach64GetLCDReg(LCD_HORZ_STRETCHING);
                     pATI->LCDHorizontal =
                         GetBits(pATIHW->horz_stretching, HORZ_PANEL_SIZE);
                     if (pATI->LCDHorizontal)
@@ -914,7 +947,7 @@ ATIPreInit
                                 (pATI->LCDHorizontal + 1) << 3;
                     }
                     pATIHW->ext_vert_stretch =
-                        ATIGetMach64LCDReg(LCD_EXT_VERT_STRETCH);
+                        ATIMach64GetLCDReg(LCD_EXT_VERT_STRETCH);
                     pATI->LCDVertical =
                         GetBits(pATIHW->ext_vert_stretch, VERT_PANEL_SIZE);
                     if (pATI->LCDVertical)
@@ -925,8 +958,8 @@ ATIPreInit
                             pATI->LCDVertical++;
                     }
                     pATIHW->vert_stretching =
-                        ATIGetMach64LCDReg(LCD_VERT_STRETCHING);
-                    pATIHW->lcd_gen_ctrl = ATIGetMach64LCDReg(LCD_GEN_CNTL);
+                        ATIMach64GetLCDReg(LCD_VERT_STRETCHING);
+                    pATIHW->lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
                     outr(LCD_INDEX, pATIHW->lcd_index);
                 }
 
@@ -993,7 +1026,9 @@ ATIPreInit
         pATI->ClockNumberToProgramme = -1;
 
         ROMTable = BIOSWord(0x48U);
-        if ((ROMTable + 0x12U) > BIOSSize)
+        if ((ROMTable < 0x0002U) ||
+            (BIOSWord(ROMTable - 0x02U) < 0x0012U) ||
+            ((ROMTable + BIOSWord(ROMTable - 0x02U)) > BIOSSize))
             ROMTable = 0;
 
         if (ROMTable > 0)
@@ -1001,6 +1036,26 @@ ATIPreInit
             ClockTable = BIOSWord(ROMTable + 0x10U);
             if ((ClockTable + 0x20U) > BIOSSize)
                 ClockTable = 0;
+
+            if (BIOSWord(ROMTable - 0x02U) >= 0x0048U)
+            {
+                VideoTable = BIOSWord(ROMTable + 0x46U);
+                if ((VideoTable < 0x08U) ||
+                    (BIOSByte(VideoTable - 0x01U) < 0x08U) ||
+                    (BIOSByte(VideoTable - 0x02U) > 0x01U) ||
+                    ((VideoTable + BIOSByte(VideoTable - 0x01U)) > BIOSSize))
+                    VideoTable = 0;
+            }
+
+            if (BIOSWord(ROMTable - 0x02U) >= 0x004AU)
+            {
+                HardwareTable = BIOSWord(ROMTable + 0x48U);
+                if (((HardwareTable + 0x08U) <= BIOSSize) &&
+                    !memcmp(BIOS + HardwareTable, "$ATI", 4))
+                    pATI->I2CType = BIOSByte(HardwareTable + 0x06U) & 0x0FU;
+                else
+                    HardwareTable = 0;
+            }
         }
 
         if (ClockTable > 0)
@@ -1043,7 +1098,9 @@ ATIPreInit
              * frequency has already been set by option processing.
              */
             if ((pATI->DAC & ~0x0FU) == ATI_DAC_INTERNAL)
+            {
                 pATI->ProgrammableClock = ATI_CLOCK_INTERNAL;
+            }
             else switch (pATI->DAC)
             {
                 case ATI_DAC_STG1703:
@@ -1135,7 +1192,7 @@ ATIPreInit
                  * graphics controller's tolerance.
                  */
                 pATI->ClockDescriptor.MinM = pATI->ClockDescriptor.MaxM =
-                    ATIGetMach64PLLReg(PLL_REF_DIV);
+                    ATIMach64GetPLLReg(PLL_REF_DIV);
 
                 /* The DAC is also integrated */
                 if ((pATI->DAC & ~0x0FU) != ATI_DAC_INTERNAL)
@@ -1178,7 +1235,55 @@ ATIPreInit
                 pATI->ClockNumberToProgramme = 7;
             }
             else
+            {
                 pATI->DAC = ClockDac;   /* For now */
+            }
+        }
+
+        /*
+         * Pick up multimedia information, which will be at different
+         * displacements depending on table revision.
+         */
+        if (VideoTable > 0)
+        {
+            switch (BIOSByte(VideoTable - 0x02U))
+            {
+                case 0x00U:
+                    pATI->Tuner = BIOSByte(VideoTable) & 0x1FU;
+
+                    /*
+                     * XXX  The VideoTable[1] byte is known to have been
+                     *      omitted in LTPro and Mobility BIOS'es.  Any others?
+                     */
+                    switch (pATI->Chip)
+                    {
+                        case ATI_CHIP_264LTPRO:
+                        case ATI_CHIP_MOBILITY:
+                            pATI->Decoder =
+                                BIOSByte(VideoTable + 0x01U) & 0x07U;
+                            pATI->Audio =
+                                BIOSByte(VideoTable + 0x02U) & 0x0FU;
+                            break;
+
+                        default:
+                            pATI->Decoder =
+                                BIOSByte(VideoTable + 0x02U) & 0x07U;
+                            pATI->Audio =
+                                BIOSByte(VideoTable + 0x03U) & 0x0FU;
+                            break;
+                    }
+
+                    break;
+
+                case 0x01U:
+                    pATI->Tuner = BIOSByte(VideoTable) & 0x1FU;
+                    pATI->Audio = BIOSByte(VideoTable + 0x01U) & 0x0FU;
+                    pATI->Decoder = BIOSByte(VideoTable + 0x05U) & 0x0FU;
+                    break;
+
+                default:
+                    break;
+            }
         }
 
         /* Determine panel dimensions */
@@ -1213,11 +1318,13 @@ ATIPreInit
 
                     /* ... followed by 24-byte panel model name ... */
                     for (j = 0;  j < 24;  j++)
+                    {
                         if ((CARD8)(BIOSByte(i + j + 1) - 0x20U) > 0x5FU)
                         {
                             i += j;
                             goto NextBIOSByte;
                         }
+                    }
 
                     /* ... verify panel width ... */
                     if (pATI->LCDHorizontal &&
@@ -1262,6 +1369,23 @@ ATIPreInit
                 pATI->LCDVertical = BIOSWord(LCDPanelInfo + 0x1BU);
             }
         }
+
+        xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_INFO, 3,
+            "BIOS Data:  BIOSSize=0x%04X, ROMTable=0x%04X.\n",
+            BIOSSize, ROMTable);
+        xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_INFO, 3,
+            "BIOS Data:  ClockTable=0x%04X, FrequencyTable=0x%04X.\n",
+            ClockTable, FrequencyTable);
+        xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_INFO, 3,
+            "BIOS Data:  LCDTable=0x%04X, LCDPanelInfo=0x%04X.\n",
+            LCDTable, LCDPanelInfo);
+        xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_INFO, 3,
+            "BIOS Data:  VideoTable=0x%04X, HardwareTable=0x%04X.\n",
+            VideoTable, HardwareTable);
+        xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_INFO, 3,
+            "BIOS Data:  I2CType=0x%02X, Tuner=0x%02X, Decoder=0x%02X,"
+            " Audio=0x%02X.\n",
+            pATI->I2CType, pATI->Tuner, pATI->Decoder, pATI->Audio);
     }
 
     ATIUnlock(pATI);            /* Unlock registers */
@@ -1323,7 +1447,6 @@ ATIPreInit
 #ifndef AVOID_CPIO
 
         if (pATI->Adapter >= ATI_ADAPTER_MACH64)
-
         {
             Message += snprintf(Message, Buffer + SizeOf(Buffer) - Message,
                 ";  %s I/O base is 0x%04lX",
@@ -1340,7 +1463,7 @@ ATIPreInit
 
     if (pATI->CPIO_VGAWonder)
         xf86DrvMsg(pScreenInfo->scrnIndex, X_PROBED,
-            "VGA Wonder registers at I/O port 0x%04X.\n",
+            "VGA Wonder registers at I/O port 0x%04lX.\n",
             pATI->CPIO_VGAWonder);
 
     if (pATI->Coprocessor != ATI_CHIP_NONE)
@@ -1360,8 +1483,10 @@ ATIPreInit
             " adapter, please see http://gatos.sf.net.\n");
 
     if ((pATI->DAC & ~0x0FU) == ATI_DAC_INTERNAL)
+    {
         xf86DrvMsg(pScreenInfo->scrnIndex, X_PROBED,
             "Internal RAMDAC (subtype %d) detected.\n", pATI->DAC & 0x0FU);
+    }
     else
     {
         const SymTabRec *DAC;
@@ -1424,8 +1549,8 @@ ATIPreInit
     {
         xf86DrvMsg(pScreenInfo->scrnIndex, X_ERROR,
             "Driver does not support weight %d%d%d for depth %d.\n",
-            pScreenInfo->weight.red, pScreenInfo->weight.green,
-            pScreenInfo->weight.blue, pScreenInfo->depth);
+            (int)pScreenInfo->weight.red, (int)pScreenInfo->weight.green,
+            (int)pScreenInfo->weight.blue, pScreenInfo->depth);
         ATILock(pATI);
         ATIPrintNoiseIfRequested(pATI, BIOS, BIOSSize);
         ATIUnmapApertures(pScreenInfo->scrnIndex, pATI);
@@ -1585,77 +1710,223 @@ ATIPreInit
         }
         else
         {
-            int HDisplay, VDisplay;
+            unsigned HDisplay, VDisplay;
             CARD8 ClockMask, PostMask;
 
             /*
-             * Determine porch data.  The following is inaccurate (but still
-             * good enough) when BIOS initialisation has set things up so that
-             * the registers read here are not the ones actually in use by the
-             * panel.  Thus, a further refinement here would be to flip back
-             * and forth between shadow and non-shadow registers as dictated by
-             * the various LCD_GEN_CNTL and CONFIG_PANEL bits involved.
-             *
-             * This groks the mode on entry to extract the width and position
-             * of its sync and blanking pulses, and considers any overscan as
-             * part of the displayed area, given that the overscan is also
-             * stretched.
+             * Determine porch data.  This groks the mode on entry to extract
+             * the width and position of its sync and blanking pulses, and
+             * considers any overscan as part of the displayed area, given that
+             * the overscan is also stretched.
              *
              * This also attempts to determine panel dimensions but cannot do
              * so for one that is "auto-stretched".
              */
 
+            if (pATI->Chip == ATI_CHIP_264LT)
+            {
+                pATIHW->lcd_gen_ctrl = inr(LCD_GEN_CTRL);
+
+                /* Set up to read non-shadow registers */
+                if (pATIHW->lcd_gen_ctrl & SHADOW_RW_EN)
+                    outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl & ~SHADOW_RW_EN);
+            }
+            else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
+                        (pATI->Chip == ATI_CHIP_264XL) ||
+                        (pATI->Chip == ATI_CHIP_MOBILITY)) */
+            {
+                pATIHW->lcd_index = inr(LCD_INDEX);
+                pATIHW->config_panel = ATIMach64GetLCDReg(LCD_CONFIG_PANEL);
+                pATIHW->lcd_gen_ctrl = ATIMach64GetLCDReg(LCD_GEN_CNTL);
+
+                /* Set up to read non-shadow registers */
+                if (pATIHW->lcd_gen_ctrl & SHADOW_RW_EN)
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL,
+                        pATIHW->lcd_gen_ctrl & ~SHADOW_RW_EN);
+            }
+
 #ifndef AVOID_CPIO
 
             if (!(pATIHW->crtc_gen_cntl & CRTC_EXT_DISP_EN))
             {
+                unsigned HBlankStart, HSyncStart, HSyncEnd, HBlankEnd, HTotal;
+                unsigned VBlankStart, VSyncStart, VSyncEnd, VBlankEnd, VTotal;
+
                 pATIHW->clock = (inb(R_GENMO) & 0x0CU) >> 2;
 
-                pATIHW->crt[0] = GetReg(CRTX(pATI->CPIO_VGABase), 0x00U);
                 pATIHW->crt[2] = GetReg(CRTX(pATI->CPIO_VGABase), 0x02U);
                 pATIHW->crt[3] = GetReg(CRTX(pATI->CPIO_VGABase), 0x03U);
-                pATIHW->crt[4] = GetReg(CRTX(pATI->CPIO_VGABase), 0x04U);
                 pATIHW->crt[5] = GetReg(CRTX(pATI->CPIO_VGABase), 0x05U);
-                pATIHW->crt[6] = GetReg(CRTX(pATI->CPIO_VGABase), 0x06U);
                 pATIHW->crt[7] = GetReg(CRTX(pATI->CPIO_VGABase), 0x07U);
                 pATIHW->crt[9] = GetReg(CRTX(pATI->CPIO_VGABase), 0x09U);
-                pATIHW->crt[16] = GetReg(CRTX(pATI->CPIO_VGABase), 0x10U);
-                pATIHW->crt[17] = GetReg(CRTX(pATI->CPIO_VGABase), 0x11U);
                 pATIHW->crt[21] = GetReg(CRTX(pATI->CPIO_VGABase), 0x15U);
                 pATIHW->crt[22] = GetReg(CRTX(pATI->CPIO_VGABase), 0x16U);
 
-                pATI->LCDHSyncWidth =
-                    (pATIHW->crt[5] - pATIHW->crt[4]) & 0x1FU;
-                pATI->LCDHBlankWidth = (((pATIHW->crt[3] & 0x1FU) |
-                                         ((pATIHW->crt[5] >> 2) & 0x20U)) -
-                                        pATIHW->crt[2]) & 0x3FU;
-                pATI->LCDVSyncWidth =
-                    (pATIHW->crt[17] - pATIHW->crt[16]) & 0x0FU;
-                pATI->LCDVBlankWidth =
-                    ((pATIHW->crt[22] - pATIHW->crt[21]) & 0xFFU) + 1;
+                pATIHW->crtc_h_total_disp = inr(CRTC_H_TOTAL_DISP);
+                pATIHW->crtc_h_sync_strt_wid = inr(CRTC_H_SYNC_STRT_WID);
+                pATIHW->crtc_v_total_disp = inr(CRTC_V_TOTAL_DISP);
+                pATIHW->crtc_v_sync_strt_wid = inr(CRTC_V_SYNC_STRT_WID);
 
-                pATI->LCDHSyncStart =
-                    ((pATIHW->crt[4] - pATIHW->crt[2]) & 0xFFU) + 1;
-                pATI->LCDVSyncStart = (((((pATIHW->crt[7] << 2) & 0x0200U) |
-                                         ((pATIHW->crt[7] << 6) & 0x0100U) |
-                                         pATIHW->crt[16]) -
-                                        (((pATIHW->crt[9] << 4) & 0x0200U) |
-                                         ((pATIHW->crt[7] << 5) & 0x0100U) |
-                                         pATIHW->crt[21])) & 0xFFU) + 1;
+                /* Switch to shadow registers */
+                if (pATI->Chip == ATI_CHIP_264LT)
+                    outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
+                else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
+                            (pATI->Chip == ATI_CHIP_264XL) ||
+                            (pATI->Chip == ATI_CHIP_MOBILITY)) */
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL,
+                        pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
 
-                HDisplay = pATI->LCDHSyncStart + pATI->LCDHSyncWidth -
-                    pATI->LCDHBlankWidth;
-                if (HDisplay > 0)
-                    pATI->LCDHBlankWidth += (HDisplay + 0x3FU) & ~0x3FU;
-                VDisplay = pATI->LCDVSyncStart + pATI->LCDVSyncWidth -
-                    pATI->LCDVBlankWidth;
-                if (VDisplay > 0)
-                    pATI->LCDVBlankWidth += (VDisplay + 0xFFU) & ~0xFFU;
+                pATIHW->shadow_vga[2] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x02U);
+                pATIHW->shadow_vga[3] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x03U);
+                pATIHW->shadow_vga[5] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x05U);
+                pATIHW->shadow_vga[7] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x07U);
+                pATIHW->shadow_vga[9] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x09U);
+                pATIHW->shadow_vga[21] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x15U);
+                pATIHW->shadow_vga[22] =
+                    GetReg(CRTX(pATI->CPIO_VGABase), 0x16U);
 
-                HDisplay = pATIHW->crt[0] + 5 - pATI->LCDHBlankWidth;
-                VDisplay = (((pATIHW->crt[7] << 4) & 0x0200U) |
-                            ((pATIHW->crt[7] << 8) & 0x0100U) |
-                            pATIHW->crt[6]) + 3 - pATI->LCDVBlankWidth;
+                pATIHW->shadow_h_total_disp = inr(CRTC_H_TOTAL_DISP);
+                pATIHW->shadow_h_sync_strt_wid = inr(CRTC_H_SYNC_STRT_WID);
+                pATIHW->shadow_v_total_disp = inr(CRTC_V_TOTAL_DISP);
+                pATIHW->shadow_v_sync_strt_wid = inr(CRTC_V_SYNC_STRT_WID);
+
+                /*
+                 * HSyncStart and HSyncEnd should equal their shadow
+                 * counterparts.  Otherwise, due to a chip bug, the panel might
+                 * not sync, regardless of which register set is used to drive
+                 * the panel.  There are certain combinations of register
+                 * values where the panel does in fact sync, but it remains
+                 * impossible to accurately determine the horizontal sync pulse
+                 * timing actually seen by the panel.
+                 *
+                 * Note that this hardware bug does not affect the CRT output.
+                 */
+                if (((pATIHW->crtc_h_sync_strt_wid ^
+                      pATIHW->shadow_h_sync_strt_wid) &
+                     (CRTC_H_SYNC_STRT | CRTC_H_SYNC_STRT_HI |
+                      CRTC_H_SYNC_WID)))
+                {
+                    xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_NOTICE, 0,
+                        "Invalid horizontal sync pulse timing detected in mode"
+                        " on server entry.\n");
+
+                    /* Don't trust input timing */
+                    pATI->OptionLCDSync = TRUE;
+                    ModeType = 0;
+                }
+
+                /* Merge in shadow registers as appropriate */
+                if (pATIHW->lcd_gen_ctrl & SHADOW_EN)
+                {
+                    pATIHW->crt[2] = pATIHW->shadow_vga[2];
+                    pATIHW->crt[3] = pATIHW->shadow_vga[3];
+                    pATIHW->crt[5] = pATIHW->shadow_vga[5];
+
+                    /* XXX Does this apply to VGA?  If so, what about the LT? */
+                    if ((pATI->Chip < ATI_CHIP_264LTPRO) ||
+                        !(pATIHW->config_panel & DONT_SHADOW_HEND))
+                    {
+                        pATIHW->crtc_h_total_disp &= ~CRTC_H_DISP;
+                        pATIHW->crtc_h_total_disp |=
+                            pATIHW->shadow_h_total_disp & CRTC_H_DISP;
+                    }
+
+                    pATIHW->crtc_h_total_disp &= ~CRTC_H_TOTAL;
+                    pATIHW->crtc_h_total_disp |=
+                        pATIHW->shadow_h_total_disp & CRTC_H_TOTAL;
+                    pATIHW->crtc_h_sync_strt_wid =
+                        pATIHW->shadow_h_sync_strt_wid;
+
+                    /* XXX Does this apply to VGA? */
+                    if (pATIHW->lcd_gen_ctrl & USE_SHADOWED_VEND)
+                    {
+                        pATIHW->crtc_v_total_disp &= ~CRTC_V_DISP;
+                        pATIHW->crtc_v_total_disp |=
+                            pATIHW->shadow_v_total_disp & CRTC_V_DISP;
+                    }
+
+                    if (!(pATIHW->lcd_gen_ctrl & DONT_SHADOW_VPAR))
+                    {
+                        pATIHW->crt[7] = pATIHW->shadow_vga[7];
+                        pATIHW->crt[9] = pATIHW->shadow_vga[9];
+                        pATIHW->crt[21] = pATIHW->shadow_vga[21];
+                        pATIHW->crt[22] = pATIHW->shadow_vga[22];
+
+                        pATIHW->crtc_v_total_disp &= ~CRTC_V_TOTAL;
+                        pATIHW->crtc_v_total_disp |=
+                            pATIHW->shadow_v_total_disp & CRTC_V_TOTAL;
+                    }
+                }
+
+                if (!(pATIHW->lcd_gen_ctrl & DONT_SHADOW_VPAR))
+                    pATIHW->crtc_v_sync_strt_wid =
+                        pATIHW->shadow_v_sync_strt_wid;
+
+                /*
+                 * Decipher input timing.  This is complicated by the fact that
+                 * the full width of all timing parameters, except for the
+                 * blanking pulses, is only available through the accelerator
+                 * registers, not the VGA ones.  Blanking pulse boundaries must
+                 * then be interpolated.
+                 *
+                 * Note that, in VGA mode, the accelerator's sync width fields
+                 * are actually end positions, not widths.
+                 */
+                HDisplay = GetBits(pATIHW->crtc_h_total_disp, CRTC_H_DISP);
+                HSyncStart =
+                    (GetBits(pATIHW->crtc_h_sync_strt_wid,
+                        CRTC_H_SYNC_STRT_HI) *
+                     (MaxBits(CRTC_H_SYNC_STRT) + 1)) |
+                    GetBits(pATIHW->crtc_h_sync_strt_wid, CRTC_H_SYNC_STRT);
+                HSyncEnd = (HSyncStart & ~MaxBits(CRTC_H_SYNC_WID)) |
+                    GetBits(pATIHW->crtc_h_sync_strt_wid, CRTC_H_SYNC_WID);
+                if (HSyncStart >= HSyncEnd)
+                    HSyncEnd += MaxBits(CRTC_H_SYNC_WID) + 1;
+                HTotal = GetBits(pATIHW->crtc_h_total_disp, CRTC_H_TOTAL);
+
+                HBlankStart = (HDisplay & ~0xFFU) | pATIHW->crt[2];
+                if (HDisplay > HBlankStart)
+                    HBlankStart += 0x0100U;
+                HBlankEnd = (HSyncEnd & ~0x3FU) |
+                    ((pATIHW->crt[5] >> 2) & 0x20U) |
+                    (pATIHW->crt[3] & 0x1FU);
+                if (HSyncEnd > (HBlankEnd + 1))
+                    HBlankEnd += 0x40U;
+
+                VDisplay = GetBits(pATIHW->crtc_v_total_disp, CRTC_V_DISP);
+                VSyncStart =
+                    GetBits(pATIHW->crtc_v_sync_strt_wid, CRTC_V_SYNC_STRT);
+                VSyncEnd = (VSyncStart & ~MaxBits(CRTC_V_SYNC_WID)) |
+                    GetBits(pATIHW->crtc_v_sync_strt_wid, CRTC_V_SYNC_WID);
+                if (VSyncStart > VSyncEnd)
+                    VSyncEnd += MaxBits(CRTC_V_SYNC_WID) + 1;
+                VTotal = GetBits(pATIHW->crtc_v_total_disp, CRTC_V_TOTAL);
+
+                VBlankStart = (VDisplay & ~0x03FFU) |
+                   ((pATIHW->crt[9] << 4) & 0x0200U) |
+                   ((pATIHW->crt[7] << 5) & 0x0100U) | pATIHW->crt[21];
+                if (VDisplay > VBlankStart)
+                   VBlankStart += 0x0400U;
+                VBlankEnd = (VSyncEnd & ~0x00FFU) | pATIHW->crt[22];
+                if (VSyncEnd > (VBlankEnd + 1))
+                   VBlankEnd += 0x0100U;
+
+                pATI->LCDHBlankWidth = HBlankEnd - HBlankStart;
+                pATI->LCDHSyncStart = HSyncStart - HBlankStart - 1;
+                pATI->LCDHSyncWidth = HSyncEnd - HSyncStart;
+
+                pATI->LCDVBlankWidth = VBlankEnd - VBlankStart;
+                pATI->LCDVSyncStart = VSyncStart - VBlankStart - 1;
+                pATI->LCDVSyncWidth = VSyncEnd - VSyncStart;
+
+                HDisplay = HTotal + 5 - pATI->LCDHBlankWidth;
+                VDisplay = VTotal + 2 - pATI->LCDVBlankWidth;
             }
             else
 
@@ -1671,6 +1942,84 @@ ATIPreInit
                 pATIHW->ovr_wid_left_right = inr(OVR_WID_LEFT_RIGHT);
                 pATIHW->ovr_wid_top_bottom = inr(OVR_WID_TOP_BOTTOM);
 
+                /* Switch to shadow registers */
+                if (pATI->Chip == ATI_CHIP_264LT)
+                    outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
+                else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
+                            (pATI->Chip == ATI_CHIP_264XL) ||
+                            (pATI->Chip == ATI_CHIP_MOBILITY)) */
+                    ATIMach64PutLCDReg(LCD_GEN_CNTL,
+                        pATIHW->lcd_gen_ctrl | SHADOW_RW_EN);
+
+                /* Oddly enough, there are no shadow overscan registers */
+                pATIHW->shadow_h_total_disp = inr(CRTC_H_TOTAL_DISP);
+                pATIHW->shadow_h_sync_strt_wid = inr(CRTC_H_SYNC_STRT_WID);
+                pATIHW->shadow_v_total_disp = inr(CRTC_V_TOTAL_DISP);
+                pATIHW->shadow_v_sync_strt_wid = inr(CRTC_V_SYNC_STRT_WID);
+
+                /*
+                 * HSyncStart and HSyncEnd should equal their shadow
+                 * counterparts.  Otherwise, due to a chip bug, the panel might
+                 * not sync, regardless of which register set is used to drive
+                 * the panel.  There are certain combinations of register
+                 * values where the panel does in fact sync, but it remains
+                 * impossible to accurately determine the horizontal sync pulse
+                 * timing actually seen by the panel.
+                 *
+                 * Note that this hardware bug does not affect the CRT output.
+                 */
+                if (((pATIHW->crtc_h_sync_strt_wid ^
+                      pATIHW->shadow_h_sync_strt_wid) &
+                     (CRTC_H_SYNC_STRT | CRTC_H_SYNC_STRT_HI |
+                      CRTC_H_SYNC_WID)))
+                {
+                    xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_NOTICE, 0,
+                        "Invalid horizontal sync pulse timing detected in mode"
+                        " on server entry.\n");
+
+                    /* Don't trust input timing */
+                    pATI->OptionLCDSync = TRUE;
+                    ModeType = 0;
+                }
+
+                /* Merge in shadow registers as appropriate */
+                if (pATIHW->lcd_gen_ctrl & SHADOW_EN)
+                {
+                    /* XXX What about the LT? */
+                    if ((pATI->Chip < ATI_CHIP_264LTPRO) ||
+                        !(pATIHW->config_panel & DONT_SHADOW_HEND))
+                    {
+                        pATIHW->crtc_h_total_disp &= ~CRTC_H_DISP;
+                        pATIHW->crtc_h_total_disp |=
+                            pATIHW->shadow_h_total_disp & CRTC_H_DISP;
+                    }
+
+                    pATIHW->crtc_h_total_disp &= ~CRTC_H_TOTAL;
+                    pATIHW->crtc_h_total_disp |=
+                        pATIHW->shadow_h_total_disp & CRTC_H_TOTAL;
+                    pATIHW->crtc_h_sync_strt_wid =
+                        pATIHW->shadow_h_sync_strt_wid;
+
+                    if (pATIHW->lcd_gen_ctrl & USE_SHADOWED_VEND)
+                    {
+                        pATIHW->crtc_v_total_disp &= ~CRTC_V_DISP;
+                        pATIHW->crtc_v_total_disp |=
+                            pATIHW->shadow_v_total_disp & CRTC_V_DISP;
+                    }
+
+                    if (!(pATIHW->lcd_gen_ctrl & DONT_SHADOW_VPAR))
+                    {
+                        pATIHW->crtc_v_total_disp &= ~CRTC_V_TOTAL;
+                        pATIHW->crtc_v_total_disp |=
+                            pATIHW->shadow_v_total_disp & CRTC_V_TOTAL;
+                    }
+                }
+
+                if (!(pATIHW->lcd_gen_ctrl & DONT_SHADOW_VPAR))
+                    pATIHW->crtc_v_sync_strt_wid =
+                        pATIHW->shadow_v_sync_strt_wid;
+
+                /* Decipher input timing */
                 HDisplay = GetBits(pATIHW->crtc_h_total_disp, CRTC_H_DISP) +
                     GetBits(pATIHW->ovr_wid_left_right, OVR_WID_LEFT) +
                     GetBits(pATIHW->ovr_wid_left_right, OVR_WID_RIGHT);
@@ -1700,6 +2049,19 @@ ATIPreInit
 
                 HDisplay++;
                 VDisplay++;
+            }
+
+            /* Restore LCD registers */
+            if (pATI->Chip == ATI_CHIP_264LT)
+            {
+                outr(LCD_GEN_CTRL, pATIHW->lcd_gen_ctrl);
+            }
+            else /* if ((pATI->Chip == ATI_CHIP_264LTPRO) ||
+                        (pATI->Chip == ATI_CHIP_264XL) ||
+                        (pATI->Chip == ATI_CHIP_MOBILITY)) */
+            {
+                ATIMach64PutLCDReg(LCD_GEN_CNTL, pATIHW->lcd_gen_ctrl);
+                outr(LCD_INDEX, pATIHW->lcd_index);
             }
 
             HDisplay <<= 3;
@@ -1810,7 +2172,7 @@ ATIPreInit
                      (HORZ_STRETCH_EN | AUTO_HORZ_RATIO))
                     pATI->LCDHorizontal = HDisplay;
             }
-            else if (pATI->LCDHorizontal != HDisplay)
+            else if (pATI->LCDHorizontal != (int)HDisplay)
             {
                 if ((pATIHW->horz_stretching &
                     (HORZ_STRETCH_EN | AUTO_HORZ_RATIO)) !=
@@ -1827,7 +2189,7 @@ ATIPreInit
                     !(pATIHW->ext_vert_stretch & AUTO_VERT_RATIO))
                     pATI->LCDVertical = VDisplay;
             }
-            else if (pATI->LCDVertical != VDisplay)
+            else if (pATI->LCDVertical != (int)VDisplay)
             {
                 if (!(pATIHW->vert_stretching & VERT_STRETCH_EN) ||
                     !(pATIHW->ext_vert_stretch & AUTO_VERT_RATIO))
@@ -1855,10 +2217,12 @@ ATIPreInit
 
             /* If the mode on entry wasn't stretched, adjust timings */
             if (!(pATIHW->horz_stretching & HORZ_STRETCH_EN) &&
-                ((HDisplay = pATI->LCDHorizontal - HDisplay) > 0))
+                (pATI->LCDHorizontal > (int)HDisplay))
             {
-                pATI->LCDHSyncStart -= HDisplay;
-                if (pATI->LCDHSyncStart < 0)
+                HDisplay = pATI->LCDHorizontal - HDisplay;
+                if (pATI->LCDHSyncStart >= HDisplay)
+                    pATI->LCDHSyncStart -= HDisplay;
+                else
                     pATI->LCDHSyncStart = 0;
                 pATI->LCDHBlankWidth -= HDisplay;
                 HDisplay = pATI->LCDHSyncStart + pATI->LCDHSyncWidth;
@@ -1867,10 +2231,12 @@ ATIPreInit
             }
 
             if (!(pATIHW->vert_stretching & VERT_STRETCH_EN) &&
-                ((VDisplay = pATI->LCDVertical - VDisplay) > 0))
+                (pATI->LCDVertical > (int)VDisplay))
             {
-                pATI->LCDVSyncStart -= VDisplay;
-                if (pATI->LCDVSyncStart < 0)
+                VDisplay = pATI->LCDVertical - VDisplay;
+                if (pATI->LCDVSyncStart >= VDisplay)
+                    pATI->LCDVSyncStart -= VDisplay;
+                else
                     pATI->LCDVSyncStart = 0;
                 pATI->LCDVBlankWidth -= VDisplay;
                 VDisplay = pATI->LCDVSyncStart + pATI->LCDVSyncWidth;
@@ -1911,12 +2277,12 @@ ATIPreInit
              */
             ClockMask = PLL_VCLK0_XDIV << pATIHW->clock;
             PostMask = PLL_VCLK0_POST_DIV << (pATIHW->clock * 2);
-            i = GetBits(ATIGetMach64PLLReg(PLL_XCLK_CNTL), ClockMask);
+            i = GetBits(ATIMach64GetPLLReg(PLL_XCLK_CNTL), ClockMask);
             i *= MaxBits(PLL_VCLK0_POST_DIV) + 1;
-            i |= GetBits(ATIGetMach64PLLReg(PLL_VCLK_POST_DIV), PostMask);
+            i |= GetBits(ATIMach64GetPLLReg(PLL_VCLK_POST_DIV), PostMask);
 
             /* Calculate clock of mode on entry */
-            Numerator = ATIGetMach64PLLReg(PLL_VCLK0_FB_DIV + pATIHW->clock) *
+            Numerator = ATIMach64GetPLLReg(PLL_VCLK0_FB_DIV + pATIHW->clock) *
                 pATI->ReferenceNumerator;
             Denominator = pATI->ClockDescriptor.MinM *
                 pATI->ReferenceDenominator *
@@ -2060,14 +2426,17 @@ ATIPreInit
                 else
                     IOValue = ~((CARD32)((1 << 22) - 1));
 
-                if ((IOValue &= pGDev->MemBase) &&
-                    (IOValue <= (MaxBits(CFG_MEM_AP_LOC) << 22)))
+                IOValue &= pGDev->MemBase;
+                if (IOValue &&
+                    (IOValue <= (CARD32)(MaxBits(CFG_MEM_AP_LOC) << 22)))
                     pATI->LinearBase = IOValue;
 
                 if (!pATI->LinearBase)
+                {
                     xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                         "Linear aperture not configured.  Specify \"MemBase\""
                         " override in XF86Config \"Device\" section.\n");
+                }
                 else
                 {
                     if (!pATI->LinearSize)
@@ -2088,7 +2457,7 @@ ATIPreInit
                     {
                         xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                             "Unable to register %d MB linear aperture at"
-                            " 0x%08X.\n", pATI->LinearSize >> 10,
+                            " 0x%08lX.\n", pATI->LinearSize >> 10,
                             pATI->LinearBase);
 
                         pATI->LinearSize = 0;
@@ -2108,7 +2477,7 @@ ATIPreInit
                 {
                     pATI->Block0Base =
                         pATI->LinearBase + pATI->LinearSize - 0x00000400U;
-                    pATI->MMIOInLinear = pATI->OptionAccel;
+                    pATI->MMIOInLinear = TRUE;
                 }
 
                 AcceleratorVideoRAM = pATI->LinearSize >> 10;
@@ -2137,7 +2506,7 @@ ATIPreInit
                     pATI->CursorBase = pATI->LinearBase + pATI->CursorOffset;
 
                     xf86DrvMsg(pScreenInfo->scrnIndex, X_INFO,
-                        "Storing hardware cursor image at 0x%08X.\n",
+                        "Storing hardware cursor image at 0x%08lX.\n",
                         pATI->CursorBase);
                 }
 
@@ -2192,7 +2561,7 @@ ATIPreInit
                         (AcceleratorVideoRAM + PageSize) & ~PageSize;
 
                     xf86DrvMsg(pScreenInfo->scrnIndex, X_INFO,
-                        "Using %d MB linear aperture at 0x%08X.\n",
+                        "Using %d MB linear aperture at 0x%08lX.\n",
                         pATI->LinearSize >> 20, pATI->LinearBase);
 
                     /* Only mmap what is needed */
@@ -2282,28 +2651,17 @@ ATIPreInit
 
         }
 
-#ifndef AVOID_CPIO
-
-        if (!pATI->OptionAccel)
-        {
-            pATI->Block0Base = 0;       /* Not needed */
-            pATI->MMIOInLinear = FALSE;
-        }
-        else
-
-#endif
-
         if (pATI->Block0Base)
         {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_INFO,
-                "Using Block 0 MMIO aperture at 0x%08X.\n", pATI->Block0Base);
+                "Using Block 0 MMIO aperture at 0x%08lX.\n", pATI->Block0Base);
 
             /* Set Block1 MMIO address if supported */
             if (pATI->Chip >= ATI_CHIP_264VT)
             {
                 pATI->Block1Base = pATI->Block0Base - 0x00000400U;
                 xf86DrvMsg(pScreenInfo->scrnIndex, X_INFO,
-                    "Using Block 1 MMIO aperture at 0x%08X.\n",
+                    "Using Block 1 MMIO aperture at 0x%08lX.\n",
                     pATI->Block1Base);
             }
         }
@@ -2352,23 +2710,20 @@ ATIPreInit
                 "Linear aperture not supported in this configuration.\n");
             pATI->OptionLinear = FALSE;
         }
-        else
+        else if (pATI->VGAAdapter != ATI_ADAPTER_NONE)
         {
-            if (pATI->VGAAdapter != ATI_ADAPTER_NONE)
+            /*
+             * Free VGA memory aperture during operating state (but it is still
+             * decoded).
+             */
+            pResources = xf86SetOperatingState(resVgaMem, pATI->iEntity,
+                ResUnusedOpr);
+            if (pResources)
             {
-                /*
-                 * Free VGA memory aperture during operating state (but it is
-                 * still decoded).
-                 */
-                pResources = xf86SetOperatingState(resVgaMem,
-                    pATI->iEntity, ResUnusedOpr);
-                if (pResources)
-                {
-                    xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
-                        "Logic error setting operating state for VGA memory"
-                        " aperture.\n");
-                    xf86FreeResList(pResources);
-                }
+                xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
+                    "Logic error setting operating state for VGA memory"
+                    " aperture.\n");
+                xf86FreeResList(pResources);
             }
         }
     }
@@ -2437,10 +2792,14 @@ ATIPreInit
 #ifndef AVOID_CPIO
 
     else if (pATI->Adapter >= ATI_ADAPTER_V3)
+    {
         ATIReportMemory(pScreenInfo, pATI,
             (ATIGetExtReg(0xB7U) & 0x04U) ? "DRAM" : "VRAM");
+    }
     else
+    {
         ATIReportMemory(pScreenInfo, pATI, "video memory");
+    }
 
 #endif /* AVOID_CPIO */
 
@@ -2480,7 +2839,9 @@ ATIPreInit
 #endif
         if ((pATI->Chip >= ATI_CHIP_88800GXC) &&
             (pATI->LockData.crtc_gen_cntl & CRTC_EXT_DISP_EN))
+        {
             pATIHW->crtc = ATI_CRTC_MACH64;
+        }
 
         if (pATI->depth <= 4)
         {
@@ -2510,7 +2871,9 @@ ATIPreInit
             pATIHW->nBank = pATI->NewHW.nBank = 1;
         }
         else if (!pATI->UseSmallApertures)
+        {
             pATIHW->SetBank = pATI->NewHW.SetBank;
+        }
         else if ((pATIHW->crtc == ATI_CRTC_VGA) &&
                  !(pATI->LockData.config_cntl & CFG_MEM_VGA_AP_EN))
         {
@@ -2518,9 +2881,13 @@ ATIPreInit
             pATIHW->nBank = 1;
         }
         else if (pATIHW->nPlane == 1)
+        {
             pATIHW->SetBank = ATIMach64SetBankPacked;
+        }
         else
+        {
             pATIHW->SetBank = ATIMach64SetBankPlanar;
+        }
 
         if (((ApertureSize * pATI->depth) / pATI->BankInfo.nBankDepth) >=
             (unsigned)(pScreenInfo->videoRam * 1024))
@@ -2558,8 +2925,10 @@ ATIPreInit
             pATI->OptionShadowFB = FALSE;
         }
         else
+        {
             xf86DrvMsg(pScreenInfo->scrnIndex, X_INFO,
                 "Using shadow frame buffer.\n");
+        }
     }
 
     /* 264VT-B's and later have DSP registers */
@@ -2704,12 +3073,16 @@ ATIPreInit
 #ifndef AVOID_CPIO
 
                 if (pATI->NewHW.crtc == ATI_CRTC_VGA)
+                {
                     DefaultmaxClock = 100000;
+                }
                 else
 
 #endif /* AVOID_CPIO */
 
+                {
                     DefaultmaxClock = 220000;
+                }
                 break;
 
             default:
@@ -2723,12 +3096,16 @@ ATIPreInit
                  */
                 if ((pATI->Chip == ATI_CHIP_18800) ||
                     (pATI->Chip == ATI_CHIP_18800_1))
+                {
                     DefaultmaxClock = 40000;
+                }
                 else if (pATI->CPIO_VGAWonder &&
                         (pATI->VideoRAM < 1024) &&
                         (pATI->depth >= 8))
+                {
                     DefaultmaxClock =
                         (GetBits(BIOSByte(0x44U), 0x04U) * 5000) + 40000;
+                }
                 else
 
 #endif /* AVOID_CPIO */
@@ -2767,12 +3144,16 @@ ATIPreInit
 #ifdef AVOID_CPIO
 
     if (pATI->Chip >= ATI_CHIP_264CT)
+    {
         minPitch = 8;
+    }
 
 #else /* AVOID_CPIO */
 
     if ((pATI->depth >= 8) && (pATI->Chip >= ATI_CHIP_264CT))
+    {
         minPitch = 8;
+    }
     else if (pATI->CPIO_VGAWonder &&
              (pATI->Chip <= ATI_CHIP_18800_1) &&
              (pATI->VideoRAM == 256) &&
@@ -2785,7 +3166,9 @@ ATIPreInit
 #endif /* AVOID_CPIO */
 
     else
+    {
         minPitch = 16;
+    }
 
     pATI->pitchInc = minPitch;
 
@@ -2905,51 +3288,56 @@ ATIPreInit
          */
         Strategy |= LOOKUP_OPTIONAL_TOLERANCES;
 
-        /*
-         * Add a mode to the end of the monitor's list for the panel's native
-         * resolution.
-         */
-        pMode = (DisplayModePtr)xnfcalloc(1, SizeOf(DisplayModeRec));
-        pMode->name = "Native panel mode";
-        pMode->type = M_T_BUILTIN;
-        pMode->Clock = pATI->LCDClock;
-        pMode->HDisplay = pATI->LCDHorizontal;
-        pMode->VDisplay = pATI->LCDVertical;
-
-        /*
-         * These timings are bogus, but enough to survive sync tolerance
-         * checks.
-         */
-        pMode->HSyncStart = pMode->HDisplay;
-        pMode->HSyncEnd = pMode->HSyncStart + minPitch;
-        pMode->HTotal = pMode->HSyncEnd + minPitch;
-        pMode->VSyncStart = pMode->VDisplay;
-        pMode->VSyncEnd = pMode->VSyncStart + 1;
-        pMode->VTotal = pMode->VSyncEnd + 1;
-
-        pMode->CrtcHDisplay = pMode->HDisplay;
-        pMode->CrtcHBlankStart = pMode->HDisplay;
-        pMode->CrtcHSyncStart = pMode->HSyncStart;
-        pMode->CrtcHSyncEnd = pMode->HSyncEnd;
-        pMode->CrtcHBlankEnd = pMode->HTotal;
-        pMode->CrtcHTotal = pMode->HTotal;
-
-        pMode->CrtcVDisplay = pMode->VDisplay;
-        pMode->CrtcVBlankStart = pMode->VDisplay;
-        pMode->CrtcVSyncStart = pMode->VSyncStart;
-        pMode->CrtcVSyncEnd = pMode->VSyncEnd;
-        pMode->CrtcVBlankEnd = pMode->VTotal;
-        pMode->CrtcVTotal = pMode->VTotal;
-
-        if (!pScreenInfo->monitor->Modes)
-            pScreenInfo->monitor->Modes = pMode;
-        else
+        if (ModeType == M_T_BUILTIN)
         {
-            pScreenInfo->monitor->Last->next = pMode;
-            pMode->prev = pScreenInfo->monitor->Last;
-        }
+            /*
+             * Add a mode to the end of the monitor's list for the panel's
+             * native resolution.
+             */
+            pMode = (DisplayModePtr)xnfcalloc(1, SizeOf(DisplayModeRec));
+            pMode->name = "Native panel mode";
+            pMode->type = M_T_BUILTIN;
+            pMode->Clock = pATI->LCDClock;
+            pMode->HDisplay = pATI->LCDHorizontal;
+            pMode->VDisplay = pATI->LCDVertical;
 
-        pScreenInfo->monitor->Last = pMode;
+            /*
+             * These timings are bogus, but enough to survive sync tolerance
+             * checks.
+             */
+            pMode->HSyncStart = pMode->HDisplay;
+            pMode->HSyncEnd = pMode->HSyncStart + minPitch;
+            pMode->HTotal = pMode->HSyncEnd + minPitch;
+            pMode->VSyncStart = pMode->VDisplay;
+            pMode->VSyncEnd = pMode->VSyncStart + 1;
+            pMode->VTotal = pMode->VSyncEnd + 1;
+
+            pMode->CrtcHDisplay = pMode->HDisplay;
+            pMode->CrtcHBlankStart = pMode->HDisplay;
+            pMode->CrtcHSyncStart = pMode->HSyncStart;
+            pMode->CrtcHSyncEnd = pMode->HSyncEnd;
+            pMode->CrtcHBlankEnd = pMode->HTotal;
+            pMode->CrtcHTotal = pMode->HTotal;
+
+            pMode->CrtcVDisplay = pMode->VDisplay;
+            pMode->CrtcVBlankStart = pMode->VDisplay;
+            pMode->CrtcVSyncStart = pMode->VSyncStart;
+            pMode->CrtcVSyncEnd = pMode->VSyncEnd;
+            pMode->CrtcVBlankEnd = pMode->VTotal;
+            pMode->CrtcVTotal = pMode->VTotal;
+
+            if (!pScreenInfo->monitor->Modes)
+            {
+                pScreenInfo->monitor->Modes = pMode;
+            }
+            else
+            {
+                pScreenInfo->monitor->Last->next = pMode;
+                pMode->prev = pScreenInfo->monitor->Last;
+            }
+
+            pScreenInfo->monitor->Last = pMode;
+        }
 
         /*
          * Defeat Xconfigurator brain damage.  Ignore all HorizSync and
@@ -2958,7 +3346,7 @@ ATIPreInit
          */
         if (pScreenInfo->monitor->nHsync > 0)
         {
-            double hsync = (double)pMode->Clock /
+            double hsync = (double)pATI->LCDClock /
                            (pATI->LCDHorizontal + pATI->LCDHBlankWidth);
 
             for (i = 0;  ;  i++)
@@ -2986,7 +3374,7 @@ ATIPreInit
 
         if (pScreenInfo->monitor->nVrefresh > 0)
         {
-            double vrefresh = ((double)pMode->Clock * 1000.0) /
+            double vrefresh = ((double)pATI->LCDClock * 1000.0) /
                               ((pATI->LCDHorizontal + pATI->LCDHBlankWidth) *
                                (pATI->LCDVertical + pATI->LCDVBlankWidth));
 
@@ -3072,12 +3460,18 @@ ATIPreInit
         else if ((pMode->HDisplay & ~pATI->AdjustMask) / pScreenInfo->xInc)
             xf86DrvMsg(pScreenInfo->scrnIndex, X_WARNING,
                 "Mode \"%s\" cannot scroll to bottom right corner of virtual"
-                " resolution.\n Horizontal dimension not a multiple of %d.\n",
+                " resolution.\n Horizontal dimension not a multiple of %ld.\n",
                 pMode->name, ~pATI->AdjustMask + 1);
     } while ((pMode = pMode->next) != pScreenInfo->modes);
 
+    /* Initialise XVideo extension support */
+    ATIXVPreInit(pATI);
+
     /* Initialise CRTC code */
     ATIModePreInit(pScreenInfo, pATI, &pATI->NewHW);
+
+    /* Set up for I2C */
+    ATII2CPreInit(pScreenInfo, pATI);
 
     if (!pScreenInfo->chipset || !*pScreenInfo->chipset)
         pScreenInfo->chipset = (char *)ATIChipsetNames[0];

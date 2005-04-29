@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/drv/radeon/Imakefile,v 1.11 2002/11/25 14:04:51 eich Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/drv/radeon/Imakefile,v 1.12 2003/11/08 00:18:40 dawes Exp $
 
 #include <Threads.tmpl>
 
@@ -73,6 +73,10 @@ SOPROF_LIBNAME = _radeon_dri_p
 NormalDepLibraryTarget($(SOPROF_LIBNAME),DONE $(OBJS),$(OBJS))
 InstallLibrary($(SOPROF_LIBNAME),$(MODULEDIR)/dri)
 #endif
+#endif
+
+#ifdef i386Architecture
+ObjectFromAsmSource(radeon_vtxtmp_x86, NullParameter)
 #endif
 
 DependTarget()

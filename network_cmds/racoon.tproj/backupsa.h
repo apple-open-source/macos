@@ -29,9 +29,17 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __BACKUPSA_H__
+#define __BACKUPSA_H__
+
+
 extern int backupsa_to_file __P((u_int, u_int,
 	struct sockaddr *, struct sockaddr *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int,
 	u_int32_t, u_int64_t, u_int64_t, u_int64_t, u_int32_t));
 extern int backupsa_from_file __P((void));
 extern int backupsa_clean __P((void));
+
+
+#endif /* __BACKUPSA_H__ */
+

@@ -1,0 +1,66 @@
+// !$*UTF8*$!
+{
+	4C2741E803E9FBAF00A80181 = {
+		activeBuildStyle = 4C6B85B80728545100D91A83;
+		activeTarget = 4C2741ED03E9FBF700A80181;
+		codeSenseManager = 4C50E51F07A1B63000216A0A;
+		perUserDictionary = {
+			PBXPerProjectTemplateStateSaveDate = 128048080;
+			PBXWorkspaceStateSaveDate = 128048080;
+		};
+		perUserProjectItems = {
+			4C4CA23207A1DBD600616DED = 4C4CA23207A1DBD600616DED;
+		};
+		sourceControlManager = 4C50E51E07A1B63000216A0A;
+		userBuildSettings = {
+		};
+	};
+	4C2741ED03E9FBF700A80181 = {
+		activeExec = 0;
+	};
+	4C27420303E9FC5B00A80181 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {854, 12642}}";
+			sepNavSelRange = "{20640, 25}";
+			sepNavVisRect = "{{0, 9731}, {734, 180}}";
+		};
+	};
+	4C4CA23207A1DBD600616DED = {
+		fRef = 4CB42E330421212D00CA2E66;
+		isa = PBXTextBookmark;
+		name = "cryptohi.c: 156";
+		rLen = 0;
+		rLoc = 4843;
+		rType = 0;
+		vrLen = 1612;
+		vrLoc = 3849;
+	};
+	4C50E51E07A1B63000216A0A = {
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		isa = PBXSourceControlManager;
+		scmConfiguration = {
+		};
+		scmType = "";
+	};
+	4C50E51F07A1B63000216A0A = {
+		indexTemplatePath = "";
+		isa = PBXCodeSenseManager;
+	};
+	4C7FAB40056AC7A200FE0C44 = {
+		activeExec = 0;
+	};
+	4C8E166C0438EEE700CA2E66 = {
+		uiCtxt = {
+			sepNavWindowFrame = "{{1295, 154}, {787, 870}}";
+		};
+	};
+	4CB42E330421212D00CA2E66 = {
+		uiCtxt = {
+			sepNavIntBoundsRect = "{{0, 0}, {926, 7854}}";
+			sepNavSelRange = "{4840, 0}";
+			sepNavVisRect = "{{0, 1778}, {742, 797}}";
+			sepNavWindowFrame = "{{1295, 154}, {787, 870}}";
+		};
+	};
+}

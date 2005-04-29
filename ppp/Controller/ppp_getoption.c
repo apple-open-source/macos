@@ -50,7 +50,7 @@ includes
 #include "ppp_client.h"
 #include "ppp_manager.h"
 #include "ppp_option.h"
-#include "ppp_command.h"
+#include "ppp_utils.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -62,6 +62,8 @@ definitions
 #ifndef MAX
 #define MAX(a, b)	((a) > (b)? (a): (b))
 #endif
+
+
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -309,8 +311,11 @@ int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
             
         // LCP options
         case PPP_OPT_LCP_HDRCOMP:
-            get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, opts, setup, &lval, OPT_LCP_PCOMP_DEF);
-            get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, opts, setup, &lval1, OPT_LCP_ACCOMP_DEF);
+			get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPCompressionPField, opts, setup, &lval, ppp->subtype == PPP_TYPE_PPPoE ? 0 : OPT_LCP_PCOMP_DEF);
+            if (ppp->subtype == PPP_TYPE_PPPoE)
+				lval1 = 0; // not applicable
+			else
+				get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPCompressionACField, opts, setup, &lval1, OPT_LCP_ACCOMP_DEF);
             *lopt = lval + (lval1 << 1); 
             break;
         case PPP_OPT_LCP_MRU:
@@ -346,9 +351,19 @@ int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
             get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPMTU, opts, setup, lopt, lval);
             break;
         case PPP_OPT_LCP_RCACCM:
+            if (ppp->subtype == PPP_TYPE_PPPoE) {
+				// not applicable
+				*plen = 0;
+				return 0;
+			}
             get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPReceiveACCM, opts, setup, lopt, OPT_LCP_RCACCM_DEF);
             break;
         case PPP_OPT_LCP_TXACCM:
+            if (ppp->subtype == PPP_TYPE_PPPoE) {
+				// not applicable
+				*plen = 0;
+				return 0;
+			}
             get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPLCPTransmitACCM, opts, setup, lopt, OPT_LCP_TXACCM_DEF);
             break;
         case PPP_OPT_LCP_ECHO:
@@ -380,7 +395,7 @@ int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
 
             // IPCP options
         case PPP_OPT_IPCP_HDRCOMP:
-            get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ, opts, setup, lopt, OPT_IPCP_HDRCOMP_DEF);
+            get_int_option(ppp, kSCEntNetPPP, kSCPropNetPPPIPCPCompressionVJ, opts, setup, lopt, ppp->subtype == PPP_TYPE_PPPoE ? 0 : OPT_IPCP_HDRCOMP_DEF);
             break;
         case PPP_OPT_IPCP_LOCALADDR:
              get_addr_option(ppp, kSCEntNetIPv4, kSCPropNetIPv4Addresses, opts, setup, lopt, 0);
@@ -413,10 +428,8 @@ int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
             *plen = strlen(popt);
             break;
         case PPP_OPT_IFNAME:
-            if (ppp->ifunit != 0xFFFF) {
-                sprintf(popt, "%s%d", ppp->name, ppp->ifunit);
-                *plen = strlen(popt);
-            }
+            strncpy(popt, ppp->ifname, sizeof(ppp->ifname));
+            *plen = strlen(popt);
             break;
 
         default:
@@ -425,46 +438,4 @@ int ppp_getoptval(struct ppp *ppp, CFDictionaryRef opts, CFDictionaryRef setup, 
     };
 
     return 1; // OK
-}
-
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-u_long ppp_getoption (struct client *client, struct msg *msg, void **reply)
-{
-    struct ppp_opt 		*opt = (struct ppp_opt *)&msg->data[MSG_DATAOFF(msg)];
-    CFDictionaryRef		opts;
-    struct ppp 			*ppp = ppp_find(msg);
-            
-    if (!ppp) {
-        msg->hdr.m_len = 0;
-        msg->hdr.m_result = ENODEV;
-        return 0;
-    }
-
-    if (ppp->phase != PPP_IDLE)
-        // take the active user options
-        opts = ppp->connectopts ? ppp->connectopts : ppp->needconnectopts; 
-    else 
-        // not connected, get the client options that will be used.
-        opts = client_findoptset(client, ppp->serviceID);
-    
-    *reply = CFAllocatorAllocate(NULL, sizeof(struct ppp_opt_hdr) + OPT_STR_LEN + 1, 0); // XXX should allocate len dynamically
-    if (*reply == 0) {
-        msg->hdr.m_result = ENOMEM;
-        msg->hdr.m_len = 0;
-        return 0;
-    }
-    bcopy(opt, *reply, sizeof(struct ppp_opt_hdr));
-    opt = (struct ppp_opt *)*reply;
-    
-    if (!ppp_getoptval(ppp, opts, 0, opt->o_type, &opt->o_data[0], &msg->hdr.m_len)) {
-        msg->hdr.m_len = 0;
-        msg->hdr.m_result = EOPNOTSUPP;
-        CFAllocatorDeallocate(NULL, *reply);
-        return 0;
-    }
-    
-    msg->hdr.m_result = 0;
-    msg->hdr.m_len += sizeof(struct ppp_opt_hdr);
-    return 0;
 }

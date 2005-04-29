@@ -1,8 +1,8 @@
-/* $XFree86: xc/programs/xterm/xterm.h,v 3.87 2003/02/25 23:36:55 dickey Exp $ */
+/* $XFree86: xc/programs/xterm/xterm.h,v 3.94 2004/02/01 02:14:46 dickey Exp $ */
 
 /************************************************************
 
-Copyright 1999,2000,2001,2002 by Thomas E. Dickey
+Copyright 1999-2002,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -133,6 +133,11 @@ authorization.
 #define USE_LASTLOG
 #endif
 
+#if defined(SCO)
+#define DEFDELETE_DEL TRUE
+#define OPT_SCO_FUNC_KEYS 1
+#endif
+
 #if defined(SCO) || defined(SVR4) || defined(_POSIX_SOURCE) || defined(__QNX__) || defined(__hpux) || (defined(BSD) && (BSD >= 199103)) || defined(__CYGWIN__)
 #define USE_POSIX_WAIT
 #endif
@@ -162,6 +167,10 @@ authorization.
 
 #if defined(ut_xstatus)
 #define HAVE_UTMP_UT_XSTATUS 1
+#endif
+
+#if defined(XKB)
+#define HAVE_XKBBELL 1
 #endif
 
 #endif /* HAVE_CONFIG_H */
@@ -265,6 +274,7 @@ extern int errno;
 
 /***====================================================================***/
 
+#define XtNallowC1Printable	"allowC1Printable"
 #define XtNallowSendEvents	"allowSendEvents"
 #define XtNallowWindowOps	"allowWindowOps"
 #define XtNalwaysHighlight	"alwaysHighlight"
@@ -279,7 +289,9 @@ extern int errno;
 #define XtNboldColors		"boldColors"
 #define XtNboldFont		"boldFont"
 #define XtNboldMode		"boldMode"
+#define XtNbrokenLinuxOSC	"brokenLinuxOSC"
 #define XtNbrokenSelections	"brokenSelections"
+#define XtNbrokenStringTerm	"brokenStringTerm"
 #define XtNc132			"c132"
 #define XtNcacheDoublesize	"cacheDoublesize"
 #define XtNcharClass		"charClass"
@@ -306,6 +318,12 @@ extern int errno;
 #define XtNeightBitOutput	"eightBitOutput"
 #define XtNfaceName		"faceName"
 #define XtNfaceSize		"faceSize"
+#define XtNfont1		"font1"
+#define XtNfont2		"font2"
+#define XtNfont3		"font3"
+#define XtNfont4		"font4"
+#define XtNfont5		"font5"
+#define XtNfont6		"font6"
 #define XtNfontDoublesize	"fontDoublesize"
 #define XtNfontStyle		"fontStyle"
 #define XtNforceBoxChars	"forceBoxChars"
@@ -366,6 +384,7 @@ extern int errno;
 #define XtNutf8			"utf8"
 #define XtNveryBoldColors	"veryBoldColors"
 #define XtNvisualBell		"visualBell"
+#define XtNvisualBellDelay	"visualBellDelay"
 #define XtNvt100Graphics	"vt100Graphics"
 #define XtNwideBoldFont		"wideBoldFont"
 #define XtNwideChars		"wideChars"
@@ -376,6 +395,7 @@ extern int errno;
 #define XtNxmcInline		"xmcInline"
 #define XtNxmcMoveSGR		"xmcMoveSGR"
 
+#define XtCAllowC1Printable	"AllowC1Printable"
 #define XtCAllowSendEvents	"AllowSendEvents"
 #define XtCAllowWindowOps	"AllowWindowOps"
 #define XtCAlwaysHighlight	"AlwaysHighlight"
@@ -389,11 +409,14 @@ extern int errno;
 #define XtCBellSuppressTime	"BellSuppressTime"
 #define XtCBoldFont		"BoldFont"
 #define XtCBoldMode		"BoldMode"
+#define XtCBrokenLinuxOSC	"BrokenLinuxOSC"
 #define XtCBrokenSelections	"BrokenSelections"
+#define XtCBrokenStringTerm	"BrokenStringTerm"
 #define XtCC132			"C132"
 #define XtCCacheDoublesize	"CacheDoublesize"
 #define XtCCharClass		"CharClass"
 #define XtCCjkWidth 		"CjkWidth"
+#define XtCColorAttrMode        "ColorAttrMode"
 #define XtCColorMode		"ColorMode"
 #define XtCColumn		"Column"
 #define XtCCtrlFKeys		"CtrlFKeys"
@@ -411,6 +434,12 @@ extern int errno;
 #define XtCEightBitOutput	"EightBitOutput"
 #define XtCFaceName		"FaceName"
 #define XtCFaceSize		"FaceSize"
+#define XtCFont1		"Font1"
+#define XtCFont2		"Font2"
+#define XtCFont3		"Font3"
+#define XtCFont4		"Font4"
+#define XtCFont5		"Font5"
+#define XtCFont6		"Font6"
 #define XtCFontDoublesize	"FontDoublesize"
 #define XtCFontStyle		"FontStyle"
 #define XtCHighlightSelection	"HighlightSelection"
@@ -460,7 +489,9 @@ extern int errno;
 #define XtCUnderLine		"UnderLine"
 #define XtCUtf8			"Utf8"
 #define XtCVT100Graphics	"VT100Graphics"
+#define XtCVeryBoldColors	"VeryBoldColors"
 #define XtCVisualBell		"VisualBell"
+#define XtCVisualBellDelay	"VisualBellDelay"
 #define XtCWideBoldFont		"WideBoldFont"
 #define XtCWideChars		"WideChars"
 #define XtCWideFont		"WideFont"
@@ -556,6 +587,7 @@ extern void unparseputc (int c, int fd);
 extern void unparseputc1 (int c, int fd);
 extern void unparseputs (char *s, int fd);
 extern void unparseseq (ANSI *ap, int fd);
+extern void xtermAddInput(Widget w);
 
 #if OPT_BLINK_CURS
 extern void ToggleCursorBlink(TScreen *screen);
@@ -597,7 +629,6 @@ extern GC xterm_DoubleGC(unsigned chrset, unsigned flags, GC old_gc);
 extern Boolean xtermDeleteIsDEL (void);
 extern void Input (TKeyboard *keyboard, TScreen *screen, XKeyEvent *event, Bool eightbit);
 extern void StringInput (TScreen *screen, Char *string, size_t nbytes);
-extern void xtermAddInput(Widget w);
 
 #if OPT_NUM_LOCK
 extern void VTInitModifiers(void);
@@ -744,7 +775,7 @@ extern void ScrnRefresh (TScreen *screen, int toprow, int leftcol, int nrows, in
 		(Char *)(((long)SCRN_BUF_FLAGS(screen, row + screen->topline) | LINEWRAPPED))
 
 #define ScrnTstWrapped(screen, row) \
-	(((long)SCRN_BUF_FLAGS(screen, row + screen->topline) & LINEWRAPPED) != 0)
+	((row + screen->savelines + screen->topline) >= 0 && ((long)SCRN_BUF_FLAGS(screen, row + screen->topline) & LINEWRAPPED) != 0)
 
 /* scrollbar.c */
 extern void DoResizeScreen (XtermWidget xw);

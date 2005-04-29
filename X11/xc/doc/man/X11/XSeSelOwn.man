@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeSelOwn.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeSelOwn.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,33 +144,16 @@
 .SH NAME
 XSetSelectionOwner, XGetSelectionOwner, XConvertSelection \- manipulate window selection
 .SH SYNTAX
-XSetSelectionOwner\^(\^\fIdisplay\fP, \fIselection\fP\^, \fIowner\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Atom \fIselection\fP\^;
-.br
-      Window \fIowner\fP\^; 
-.br
-      Time \fItime\fP\^;
-.LP
-Window XGetSelectionOwner\^(\^\fIdisplay\fP, \fIselection\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Atom \fIselection\fP\^;
-.LP
-XConvertSelection\^(\^\fIdisplay\fP, \fIselection\fP\^, \fItarget\fP\^, \fIproperty\fP\^, \fIrequestor\fP\^, \fItime\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Atom \fIselection\fP\^, \fItarget\fP\^;
-.br
-      Atom \fIproperty\fP\^;
-.br
-      Window \fIrequestor\fP\^;
-.br
-      Time \fItime\fP\^;
+.HP
+int XSetSelectionOwner\^(\^Display *\fIdisplay\fP\^, Atom \fIselection\fP\^,
+Window \fIowner\fP\^, Time \fItime\fP\^); 
+.HP
+Window XGetSelectionOwner\^(\^Display *\fIdisplay\fP\^, Atom
+\fIselection\fP\^); 
+.HP
+int XConvertSelection\^(\^Display *\fIdisplay\fP\^, Atom \fIselection\fP\^,
+Atom \fItarget\fP\^, Atom \fIproperty\fP\^, Window \fIrequestor\fP\^, Time
+\fItime\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

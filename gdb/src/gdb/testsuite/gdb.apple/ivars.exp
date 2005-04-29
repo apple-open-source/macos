@@ -41,7 +41,7 @@ if $tracelevel then {
 	strace $tracelevel
 }
 
-set timeout 30
+set timeout 120
 set prms_id 0
 set bug_id 0
 
@@ -159,6 +159,11 @@ proc test_run { args } {
    gdb_expect {
      -re ".*Breakpoint 1, -\\\[MyClass randomFunc\\\].*libivars.m.*$gdb_prompt $" {
        pass "continue to obj bp ($run_name) (dynamic prog)"
+       set stopped "yes"
+     }
+     -re ".*Breakpoint 2, -\\\[MyClass randomFunc\\\].*libivars.m.*$gdb_prompt $" {
+# The breakpoint should be #1, as we assigned it originally.
+       fail "continue to obj bp ($run_name) (dynamic prog) (wrong breakpoint number)"
        set stopped "yes"
      }
      -re ".*Program exited.*" {

@@ -3,19 +3,22 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -68,12 +71,6 @@
  *
  * October 1992
  */
-//#define MSDOSFS_DEBUG 1
-#ifdef MSDOSFS_DEBUG
-#define msdos_dprintf(x) printf x;
-#else
-#define msdos_dprintf(x) ;
-#endif
 
 
 /*
@@ -134,18 +131,24 @@
 #define DE_SYNC		IO_SYNC	/* 0x4 do it synchronisly...from vnode.h */
 
 
-int pcbmap __P((struct denode *dep, u_long findcn, u_long numclusters, daddr_t *bnp, u_long *cnp, u_long *sp));
-int clusterfree __P((struct msdosfsmount *pmp, u_long cn, u_long *oldcnp));
-int clusteralloc __P((struct msdosfsmount *pmp, u_long start, u_long count, u_long fillwith, u_long *retcluster, u_long *got));
-int fatentry __P((int function, struct msdosfsmount *pmp, u_long cluster, u_long *oldcontents, u_long newcontents));
-int freeclusterchain __P((struct msdosfsmount *pmp, u_long startchain));
-int extendfile __P((struct denode *dep, u_long count));
+void msdosfs_fat_init(void);
+void msdosfs_fat_uninit(void);
+int  msdosfs_fat_init_vol(struct msdosfsmount *pmp, vfs_context_t context);
+void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp);
+int pcbmap __P((struct denode *dep, u_long findcn, u_long numclusters, daddr64_t *bnp, u_long *cnp, u_long *sp, vfs_context_t context));
+int clusterfree __P((struct msdosfsmount *pmp, u_long cn, u_long *oldcnp, vfs_context_t context));
+int clusteralloc __P((struct msdosfsmount *pmp, u_long start, u_long count, u_long fillwith, u_long *retcluster, u_long *got, vfs_context_t context));
+int fatentry __P((int function, struct msdosfsmount *pmp, u_long cluster, u_long *oldcontents, u_long newcontents, vfs_context_t context));
+int freeclusterchain __P((struct msdosfsmount *pmp, u_long startchain, vfs_context_t context));
+int extendfile __P((struct denode *dep, u_long count, vfs_context_t context));
 void fc_purge __P((struct denode *dep, u_int frcn));
 
 /* [2753891]
  * Routine to mark a FAT16 or FAT32 volume as "clean" or "dirty" by manipulating the upper bit
  * of the FAT entry for cluster 1.  Note that this bit is not defined for FAT12 volumes.
  */
-int markvoldirty(struct msdosfsmount *pmp, int dirty);
+int markvoldirty(struct msdosfsmount *pmp, int dirty, vfs_context_t context);
+
+enum vtype msdosfs_check_link(struct denode *dep, vfs_context_t context);
 
 #endif	/* KERNEL */

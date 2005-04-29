@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -197,14 +195,13 @@ executecommand_exit:
 				command, result, strerror(errno));
 		}
 		if (*has_timedout == 1 && errno == ESRCH) {
-// we should really pass back the error.
-//			errno = ENOERR;
+			errno = ENOERR;
 		} else {
 			errno = result;
 		}
 	}
 
-//	if (errno != ENOERR) 
+	if (errno != ENOERR) 
 	{
 		DBGLOG(  
 			"executecommand(%s): errno=%d, %s\n", command, errno, strerror(errno));

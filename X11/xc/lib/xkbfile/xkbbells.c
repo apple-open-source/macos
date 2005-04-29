@@ -24,6 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
+/* $XFree86: xc/lib/xkbfile/xkbbells.c,v 1.2 2003/11/17 22:20:23 dawes Exp $ */
 
 #include <X11/Xlib.h>
 #include <X11/XKBlib.h>
@@ -80,15 +81,7 @@ static char *_xkbStdBellNames[XkbBI_NumBells] = {
 static Atom _xkbStdBellAtoms[XkbBI_NumBells];
 
 Bool
-#if NeedFunctionPrototypes
 XkbStdBell(Display *dpy,Window win,int percent,int bellDef)
-#else
-XkbStdBell(dpy,win,percent,bellDef)
-    Display *	dpy;
-    Window	win;
-    int		percent;
-    int		bellDef;
-#endif
 {
     if ((bellDef<0)||(bellDef>=XkbBI_NumBells))
 	bellDef= XkbBI_Info;
@@ -98,15 +91,7 @@ XkbStdBell(dpy,win,percent,bellDef)
 }
 
 Bool
-#if NeedFunctionPrototypes
 XkbStdBellEvent(Display *dpy,Window win,int percent,int bellDef)
-#else
-XkbStdBellEvent(dpy,win,percent,bellDef)
-    Display *	dpy;
-    Window	win;
-    int		percent;
-    int		bellDef;
-#endif
 {
     if ((bellDef<0)||(bellDef>=XkbBI_NumBells))
 	bellDef= XkbBI_Info;

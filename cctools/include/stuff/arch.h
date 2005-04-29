@@ -141,4 +141,11 @@ __private_extern__ unsigned long get_stack_size_from_flag(
 __private_extern__ unsigned long get_segalign_from_flag(
     const struct arch_flag *flag);
 
+/*
+ * force_cpusubtype_ALL_for_cputype() takes a cputype and returns TRUE if for
+ * that cputype the cpusubtype should always be forced to the ALL cpusubtype,
+ * otherwise it returns FALSE.
+ */
+__private_extern__ enum bool force_cpusubtype_ALL_for_cputype(
+    cpu_type_t cputype);
 #endif /* _STUFF_ARCH_H_ */

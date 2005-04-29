@@ -1,0 +1,53 @@
+--- wctype.3.orig	Fri Mar 11 18:15:32 2005
++++ wctype.3	Fri Mar 11 18:19:55 2005
+@@ -28,7 +28,8 @@
+ .Dt WCTYPE 3
+ .Os
+ .Sh NAME
+-.Nm iswctype , wctype
++.Nm iswctype , wctype ,
++.Nm iswctype_l , wctype_l
+ .Nd "wide character class functions"
+ .Sh LIBRARY
+ .Lb libc
+@@ -38,6 +39,11 @@
+ .Fn iswctype "wint_t wc" "wctype_t charclass"
+ .Ft wctype_t
+ .Fn wctype "const char *property"
++.In xlocale.h
++.Ft int
++.Fn iswctype_l "wint_t wc" "wctype_t charclass" "locale_t loc"
++.Ft wctype_t
++.Fn wctype_l "const char *property" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn wctype
+@@ -60,6 +66,18 @@
+ .Fa wc
+ is in the character class
+ .Fa charclass .
++.Pp
++While the
++.Fn iswctype
++and
++.Fn wctype
++functions use the current locale, the
++.Fn iswctype_l
++and
++.Fn wctype_l
++functions may be passed locales directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn iswctype
+@@ -94,7 +112,8 @@
+ }
+ .Ed
+ .Sh SEE ALSO
+-.Xr ctype 3
++.Xr ctype 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ The
+ .Fn iswctype

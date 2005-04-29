@@ -1,4 +1,5 @@
-// Special g++ Options: -ansi -pedantic-errors -w
+// { dg-do run  }
+// { dg-options "-ansi -pedantic-errors -w" }
 struct S 
 {
   template <class U>
@@ -15,5 +16,5 @@ void S::Y<char>::foo<int>(int i) { }
 int main()
 {
   S::Y<char> s;
-  s.template foo<int>(3.0);
+  s.foo<int>(3.0);
 }

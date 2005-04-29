@@ -1,0 +1,23 @@
+# Configuration file for HeaderDoc
+# $Revision: 1.1.2.2 $
+###########################################################
+copyrightOwner =>
+defaultFrameName => index.html
+masterTOCName => masterTOC.html
+apiUIDPrefix => apple_ref
+ignorePrefixes =>
+htmlHeader => 
+dateFormat => %A, %B %d, %Y
+textStyle =>
+commentStyle => 
+preprocessorStyle =>
+funcNameStyle => 
+stringStyle => 
+charStyle => 
+numberStyle => 
+keywordStyle => 
+typeStyle => 
+paramStyle => 
+varStyle => 
+templateStyle => 
+

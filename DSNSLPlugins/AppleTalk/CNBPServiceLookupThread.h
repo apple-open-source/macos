@@ -65,6 +65,7 @@ private:
             char*					mBuffer;
             NBPNameAndAddress*		mNABuffer;
     const	char*					mDefaultNeighborhoodName;
+	CFMutableArrayRef				mResultList;
 };
 
 #endif		// #ifndef

@@ -1,0 +1,91 @@
+// $XFree86: xc/programs/xkbcomp/symbols/fo,v 1.1 2003/06/30 13:23:11 pascal Exp $
+
+partial alphanumeric_keys 
+xkb_symbols "basic" {
+
+    // Describes the differences between a very simple en_US
+    // keyboard and a Faroese keyboard with dead key support
+    // and all of ISO-8859-1 characters available.
+
+    name[Group1]= "Faroese";
+
+    key <TLDE> {	[         onehalf,         section      ],
+			[   threequarters,       paragraph	]};
+    key <LSGT> {	[	     less,	   greater	],
+			[	backslash,         notsign	]};
+    key <SPCE> {	[	    space,	     space	],
+			[    nobreakspace,    nobreakspace	]};
+    key <AE01> {	[               1,          exclam  	],
+			[      exclamdown,     onesuperior	]};
+    key <AE02> {	[               2,        quotedbl  	],
+			[	       at,     twosuperior	]};
+    key <AE03> {	[              	3,	numbersign	],
+			[	 sterling,   threesuperior	]};
+    key <AE04> {	[               4,        currency     	],
+			[	   dollar,	onequarter	]};
+    key <AE05> {	[               5,         percent     	],
+			[        NoSymbol,	      cent	]};
+    key <AE06> {	[               6,       ampersand     	],
+			[	      yen,	  NoSymbol	]};
+    key <AE07> {	[               7,           slash     	],
+			[       braceleft,        division	]};
+    key <AE08> {	[               8,       parenleft     	],
+			[     bracketleft,   guillemotleft	]};
+    key <AE09> {	[               9,      parenright     	],
+			[    bracketright,  guillemotright	]};
+    key <AE10> {	[               0,           equal     	],
+                        [      braceright,          degree      ]};
+    key <AB08> {	[           comma,       semicolon     	],
+			[    dead_cedilla,     dead_ogonek	]};
+    key <AB09> {	[          period,           colon     	],
+			[  periodcentered,   dead_abovedot	]};
+    key <AB03> {        [               c,               C      ],
+                        [       copyright,        NoSymbol      ]};
+    key <AB10> {	[           minus,      underscore     	],
+			[	   hyphen,          macron	]};
+    key <AC01> {        [               a,               A      ],
+                        [     ordfeminine,       masculine      ]};
+    key <AC03> {        [               d,               D      ],
+                        [             eth,             ETH      ]};
+    key <AD03> {        [               e,               E      ],
+                        [        EuroSign,            cent      ]};
+    key <AD04> {        [               r,               R      ],
+                        [      registered,        NoSymbol      ]};
+    key <AD05> {        [               t,               T      ],
+                        [           thorn,           THORN      ]};
+    key <AD08> {        [               i,               I      ],
+                        [        NoSymbol,        NoSymbol      ]};
+    key <AD09> {        [               o,               O      ],
+                        [              oe,              OE      ]};
+    key	<AC10> {	[	       ae,	        AE	]};
+    key <AE11> {	[            plus,        question      ],
+			[       plusminus,    questiondown	]};
+    key <AC11> {	[	   oslash,        Ooblique 	]};
+    key <BKSL> {	[      apostrophe,        asterisk	],
+                 	[dead_doubleacute,        multiply      ]};
+    key <AD11> {	[	    aring,           Aring 	],
+			[  dead_diaeresis, dead_circumflex     	]};
+    key <AE12> {   	[      dead_acute,      dead_grave      ],
+                 	[             bar,       brokenbar      ]};
+    key <AD12> {   	[             eth,             ETH      ],
+                 	[      dead_tilde,      dead_caron      ]};
+
+
+    // End alphanumeric section
+
+    // begin modifier mappings
+    
+    modifier_map Shift  { Shift_L };
+    modifier_map Lock   { Caps_Lock };
+    modifier_map Control{ Control_L };
+    modifier_map Mod3   { Mode_switch };
+};
+
+partial alphanumeric_keys 
+xkb_symbols "nodeadkeys" {
+    include "fo(basic)"
+    key <AE12> {	[	    acute,	     grave	],	
+			[	      bar,	    ogonek	]	};
+    key <AD12> {	[       diaeresis,     asciicircum     	],	
+			[      asciitilde,          macron     	]      	};
+};

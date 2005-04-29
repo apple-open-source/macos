@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_ddc.c,v 1.8 2001/05/09 19:57:04 dbateman Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_ddc.c,v 1.9 2003/09/24 02:43:20 dawes Exp $ */
 
 /* All drivers should typically include these */
 #include "xf86.h"
@@ -39,7 +39,7 @@ chips_ddc1(ScrnInfoPtr pScrn)
 {
     unsigned char FR0B, FR0C, XR62;
     unsigned char mask_c = 0x00;
-    unsigned char val, tmp_val;
+    unsigned char val, tmp_val = 0;
     int i;
     CHIPSPtr cPtr = CHIPSPTR(pScrn);    
 

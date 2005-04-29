@@ -62,14 +62,12 @@ import java.util.Iterator;
 public interface BeanContextServiceProvider {
 	/**
 	 * Get a service.
-	 * Called from <code>BeanContextServices.getService().
-	 * <P>
+	 * Called from <code>BeanContextServices.getService()</code>.
 	 *
-	 * If the requested service class is not available, or if this
+	 * <p>If the requested service class is not available, or if this
 	 * <code>BeanContextServiceProvider</code> chooses not honor the
 	 * request for some reason, then this method will return
-	 * <code>null</code>.
-	 * <P>
+	 * <code>null</code>.</p>
 	 *
 	 * This method may throw unchecked exceptions, so watch out.
 	 *
@@ -89,7 +87,7 @@ public interface BeanContextServiceProvider {
 	 *        <code>null</code>.
 	 * @see java.beans.beancontext.BeanContextServices#getService(java.beans.beancontext.BeanContextChild,java.lang.Object,java.lang.Class,java.lang.Object,java.beans.beancontext.BeanContextServiceRevokedListener)
 	 */
-	public Object getService(BeanContextServices services, Object requestor, Class serviceClass, Object serviceSelector);
+	Object getService(BeanContextServices services, Object requestor, Class serviceClass, Object serviceSelector);
 
 	/**
 	 * Release the service.
@@ -109,7 +107,7 @@ public interface BeanContextServiceProvider {
 	 * @param service the service to relinquish
 	 * @see java.beans.beancontext.BeanContextServices#releaseService(java.beans.beancontext.BeanContextChild,java.lang.Object,java.lang.Object)
 	 */
-	public void releaseService(BeanContextServices services, Object requestor, Object service);
+	void releaseService(BeanContextServices services, Object requestor, Object service);
 
 	/**
 	 * Get a list of valid service selectors for the specified service class.
@@ -136,5 +134,5 @@ public interface BeanContextServiceProvider {
 	 *         class, or <code>null</code>.
 	 * @see java.beans.beancontext.BeanContextServices#getCurrentServiceSelectors(java.lang.Class)
 	 */
-	public Iterator getCurrentServiceSelectors(BeanContextServices services, Class serviceClass);
+	Iterator getCurrentServiceSelectors(BeanContextServices services, Class serviceClass);
 }

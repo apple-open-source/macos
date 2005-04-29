@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xfd/grid.h,v 1.4 2002/07/23 01:45:41 tsi Exp $ */
+/* $XFree86: xc/programs/xfd/grid.h,v 1.5 2003/11/17 22:20:53 dawes Exp $ */
 
 #ifndef _FontGrid_h_
 #define _FontGrid_h_
@@ -81,22 +81,18 @@ typedef struct _FontGridCharRec {
 } FontGridCharRec;
 
 extern void GetFontGridCellDimensions(
-#if NeedFunctionPrototypes
    Widget,
    long *,
    int *,
    int *
-#endif
 );
 
 extern void GetPrevNextStates(
-#if NeedFunctionPrototypes
     Widget,
     Bool *,
     Bool *,
     Bool *,
     Bool *
-#endif
 );
 
 long

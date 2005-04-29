@@ -1,5 +1,5 @@
 /* BFD back-end for linux flavored sparc a.out binaries.
-   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002
+   Copyright 1992, 1993, 1994, 1995, 1996, 1997, 2000, 2001, 2002, 2003
    Free Software Foundation, Inc.
 
 This file is part of BFD, the Binary File Descriptor library.
@@ -24,7 +24,6 @@ USA.  */
 #define SEGMENT_SIZE		TARGET_PAGE_SIZE
 #define TEXT_START_ADDR		0x0
 #define N_SHARED_LIB(x)		0
-#define BYTES_IN_WORD		4
 
 #define MACHTYPE_OK(mtype) ((mtype) == M_SPARC || (mtype) == M_UNKNOWN)
 
@@ -114,7 +113,7 @@ sparclinux_write_object_contents (abfd)
 #endif
 
 /* This special symbol is a set vector that contains a list of
-   pointers to fixup tables.  It will be present in any dynamicly
+   pointers to fixup tables.  It will be present in any dynamically
    linked file.  The linker generated fixup table should also be added
    to the list, and it should always appear in the second slot (the
    first one is a dummy with a magic number that is defined in
@@ -355,7 +354,7 @@ linux_add_one_symbol (info, abfd, name, flags, section, value, string,
 
   insert = FALSE;
 
-  if (! info->relocateable
+  if (! info->relocatable
       && linux_hash_table (info)->dynobj == NULL
       && strcmp (name, SHARABLE_CONFLICTS) == 0
       && (flags & BSF_CONSTRUCTOR) != 0

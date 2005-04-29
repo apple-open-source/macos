@@ -1,8 +1,17 @@
 /* cache.c - routines to maintain an in-core cache of entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/cache.c,v 1.57.2.3 2003/02/09 16:31:38 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldbm/cache.c,v 1.61.2.3 2004/01/01 18:16:37 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #include "portable.h"
@@ -511,11 +520,11 @@ try_again:
 
 #ifdef NEW_LOGGING
 			LDAP_LOG( CACHE, INFO, 
-				   "cache_find_entry_dn2id: (%s) %ld not ready: %d\n",
+				   "cache_find_entry_ndn2id: (%s) %ld not ready: %d\n",
 				   ndn->bv_val, id, state );
 #else
 			Debug(LDAP_DEBUG_TRACE,
-				"====> cache_find_entry_dn2id(\"%s\"): %ld (not ready) %d\n",
+				"====> cache_find_entry_ndn2id(\"%s\"): %ld (not ready) %d\n",
 				ndn->bv_val, id, state);
 #endif
 
@@ -532,11 +541,11 @@ try_again:
 
 #ifdef NEW_LOGGING
 		LDAP_LOG( CACHE, DETAIL1, 
-			   "cache_find_entry_dn2id: (%s): %ld %d tries\n",
+			   "cache_find_entry_ndn2id: (%s): %ld %d tries\n",
 			   ndn->bv_val, id, count );
 #else
 		Debug(LDAP_DEBUG_TRACE,
-			"====> cache_find_entry_dn2id(\"%s\"): %ld (%d tries)\n",
+			"====> cache_find_entry_ndn2id(\"%s\"): %ld (%d tries)\n",
 			ndn->bv_val, id, count);
 #endif
 

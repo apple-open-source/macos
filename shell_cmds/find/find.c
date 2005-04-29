@@ -53,6 +53,7 @@ static const char rcsid[] =
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "find.h"
 
@@ -168,6 +169,30 @@ find_formplan(argv)
 	return (plan);
 }
 
+/* addPath - helper function used to build a list of paths that were
+ * specified on the command line that we are allowed to search.
+ */
+static char **addPath(char **array, char *newPath)
+{
+	static int pathCounter = 0;
+	
+	if (newPath == NULL) {	/* initialize array */
+		if ((array = malloc(sizeof(char *))) == NULL)
+			err(2, "out of memory");
+		array[0] = NULL;
+	}
+	else {
+		array = realloc(array, (++pathCounter + 1) * sizeof(char *));
+		if (array == NULL)
+			err(2, "out of memory");
+		else {
+			array[pathCounter - 1] = newPath;
+			array[pathCounter] = NULL;	/* ensure array is null terminated */
+		}
+	}
+	return (array);
+}
+
 FTS *tree;			/* pointer to top of FTS hierarchy */
 
 /*
@@ -183,12 +208,44 @@ find_execute(plan, paths)
 	register FTSENT *entry;
 	PLAN *p;
 	int rval;
+	char	**myPaths;
+	int	nonSearchableDirFound = 0;
+	int			pathIndex;
+	struct stat statInfo;
 
-	tree = fts_open(paths, ftsoptions, (issort ? find_compare : NULL));
+	/* special-case directories specified on command line - explicitly examine
+	 * mode bits, to ensure failure if the directory cannot be searched
+	 * (whether or not it's empty). UNIX conformance... <sigh>
+	 */
+		
+	myPaths = addPath(NULL, NULL);
+	for (pathIndex = 0; paths[pathIndex] != NULL; ++pathIndex) {
+		/* retrieve mode bits, and examine "searchable" bit of directories */
+		/* exempt root from POSIX conformance */
+		if (getuid() && (stat(paths[pathIndex], &statInfo) == 0) && ((statInfo.st_mode & S_IFMT) == S_IFDIR)) {
+			if ((statInfo.st_mode & (S_IXUSR + S_IXGRP + S_IXOTH)) != 0) {
+				myPaths = addPath(myPaths, paths[pathIndex]);
+			} else {
+				if (errno != ENAMETOOLONG) {	/* if name is too long, just let existing logic handle it */
+					warnx("%s: Permission denied", paths[pathIndex]);
+					nonSearchableDirFound = 1;
+				}
+			}
+		} else {
+			/* not a directory, so add path to array */
+			myPaths = addPath(myPaths, paths[pathIndex]);
+		}
+	}
+	if (myPaths[0] == NULL) {	/* were any directories searchable? */
+		free(myPaths);
+		return(nonSearchableDirFound);	/* no... */
+	}
+
+	tree = fts_open(myPaths, ftsoptions, (issort ? find_compare : NULL));
 	if (tree == NULL)
 		err(1, "ftsopen");
 
-	for (rval = 0; (entry = fts_read(tree)) != NULL;) {
+	for (rval = nonSearchableDirFound; (entry = fts_read(tree)) != NULL;) {
 		switch (entry->fts_info) {
 		case FTS_D:
 			if (isdepth)
@@ -237,5 +294,7 @@ find_execute(plan, paths)
 	}
 	if (errno)
 		err(1, "fts_read");
+
+	free (myPaths);
 	return (rval);
 }

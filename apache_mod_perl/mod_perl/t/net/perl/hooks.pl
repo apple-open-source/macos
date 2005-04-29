@@ -1,3 +1,4 @@
+#!perl
 use Apache ();
 my $tests = 0;
 

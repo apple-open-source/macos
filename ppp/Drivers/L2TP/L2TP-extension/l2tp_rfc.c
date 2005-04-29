@@ -29,10 +29,9 @@
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/domain.h>
+#include <kern/locks.h>
 
 #include <machine/spl.h>
-
-#include <net/if_var.h>
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
@@ -50,6 +49,7 @@ Definitions
 #define L2TP_STATE_SESSION_EST	0x00000001	/* session is established - data can be transfered */
 #define L2TP_STATE_NEW_SEQUENCE	0x00000002	/* we have a seq number to acknowledge */
 #define L2TP_STATE_FREEING	0x00000004	/* rfc has been freed. structure is kept for 31 seconds */
+#define L2TP_STATE_RELIABILITY_OFF	0x00000008	/* reliability layer is currently off */
 
 
 /*
@@ -67,7 +67,7 @@ Definitions
 
 struct l2tp_elem {
     TAILQ_ENTRY(l2tp_elem)	next;
-    struct mbuf *		packet;
+    mbuf_t 		packet;
     u_int16_t			seqno;
     u_int8_t			addr[INET6_ADDRSTRLEN]; /* use the largest address between v4 and v6 */
 };
@@ -80,11 +80,12 @@ struct l2tp_rfc {
     void 			*host; 			/* pointer back to the hosting structure */
     l2tp_rfc_input_callback 	inputcb;		/* callback function when data are present */
     l2tp_rfc_event_callback 	eventcb;		/* callback function for events */
-    struct socket	 	*socket;		/* socket used for udp packets */
+    socket_t				socket;		/* socket used for udp packets */
     
     // l2tp info
     u_int32_t  		state;				/* state information */
     u_int32_t  		flags;				/* miscellaneous flags */
+    u_int32_t		baudrate;				/* baudrate of the underlying transport */
     struct sockaddr*	peer_address;			/* ip address we are connected to */
     struct sockaddr*	our_address;			/* our side of the tunnel */
     u_int16_t		our_tunnel_id;			/* our tunnel id */
@@ -111,7 +112,7 @@ struct l2tp_rfc {
 
 #define LOGIT(rfc, str, args...)	\
     if (rfc->flags & L2TP_FLAG_DEBUG)	\
-        log(LOG_INFO, str, args)
+        log(LOGVAL, str, args)
 
 /* -----------------------------------------------------------------------------
 Globals
@@ -119,19 +120,20 @@ Globals
 
 TAILQ_HEAD(, l2tp_rfc) 	l2tp_rfc_head;
 static u_int16_t unique_tunnel_id = 0;
+extern lck_mtx_t	*ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 Forward declarations
 ----------------------------------------------------------------------------- */
 
-u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *to);
-u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, struct mbuf *m);
+u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *to);
+u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, mbuf_t m);
 int l2tp_rfc_output_queued(struct l2tp_rfc *rfc, struct l2tp_elem *elem);
 int l2tp_rfc_compare_address(struct sockaddr* addr1, struct sockaddr* addr2);
 void l2tp_rfc_handle_ack(struct l2tp_rfc *rfc, u_int16_t nr);
-u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *from, 
+u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from, 
     u_int16_t flags, u_int16_t len, u_int16_t tunnel_id, u_int16_t session_id);
-u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *from, 
+u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from, 
     u_int16_t flags, u_int16_t len, u_int16_t tunnel_id, u_int16_t session_id);
 void l2tp_rfc_free_now(struct l2tp_rfc *rfc);
 void l2tp_rfc_accept(struct l2tp_rfc* rfc);
@@ -152,6 +154,7 @@ dispose of a L2TP protocol
 ----------------------------------------------------------------------------- */
 u_int16_t l2tp_rfc_dispose()
 {
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (TAILQ_FIRST(&l2tp_rfc_head))
         return 1;
@@ -168,6 +171,8 @@ u_int16_t l2tp_rfc_new_client(void *host, void **data,
                          l2tp_rfc_event_callback event)
 {
     struct l2tp_rfc 	*rfc;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
     if (input == 0 || event == 0)
         return EINVAL;
@@ -176,7 +181,7 @@ u_int16_t l2tp_rfc_new_client(void *host, void **data,
     if (rfc == 0)
         return 1;
 
-    //log(LOG_INFO, "L2TP new_client rfc = 0x%x\n", rfc);
+    //log(LOGVAL, "L2TP new_client rfc = 0x%x\n", rfc);
 
     bzero(rfc, sizeof(struct l2tp_rfc));
 
@@ -208,6 +213,8 @@ prepare for dispose of a L2TP structure
 void l2tp_rfc_free_client(void *data)
 {
     struct l2tp_rfc 		*rfc = (struct l2tp_rfc *)data;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     if (rfc->flags & L2TP_FLAG_CONTROL 
         && rfc->our_tunnel_id && rfc->peer_tunnel_id) {
@@ -233,6 +240,8 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
     struct l2tp_elem 	*send_elem;
     struct l2tp_elem	*recv_elem;
     struct l2tp_rfc 	*rfc1;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
     LOGIT(rfc, "L2TP free (0x%x)\n", rfc);
     
@@ -256,12 +265,12 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
                             
     while(send_elem = TAILQ_FIRST(&rfc->send_queue)) {
         TAILQ_REMOVE(&rfc->send_queue, send_elem, next);
-        m_freem(send_elem->packet);
+        mbuf_freem(send_elem->packet);
         _FREE(send_elem, M_TEMP);
     }
     while(recv_elem = TAILQ_FIRST(&rfc->recv_queue)) {
         TAILQ_REMOVE(&rfc->recv_queue, recv_elem, next);
-        m_freem(recv_elem->packet);
+        mbuf_freem(recv_elem->packet);
         _FREE(recv_elem, M_TEMP);
     }
 
@@ -277,13 +286,15 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
     u_int16_t		error = 0;
     int			len;
     u_char 		*p;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     switch (cmd) {
 
         case L2TP_CMD_SETFLAGS:
             LOGIT(rfc, "L2TP command (0x%x): set flags = 0x%x\n", rfc, *(u_int32_t *)cmddata);
             rfc->flags = *(u_int32_t *)cmddata;
-            break;
+           break;
 
         case L2TP_CMD_GETFLAGS:
             LOGIT(rfc, "L2TP command (0x%x): get flags = 0x%x\n", rfc, rfc->flags);
@@ -357,6 +368,16 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
                 rfc->peer_session_id = *(u_int16_t *)cmddata;
             break;
 		
+        case L2TP_CMD_SETBAUDRATE:
+            LOGIT(rfc, "L2TP command (0x%x): set baudrate of the tunnel = %d\n", rfc, *(u_int32_t *)cmddata);
+			rfc->baudrate = *(u_int32_t *)cmddata;	
+            break;
+
+        case L2TP_CMD_GETBAUDRATE:
+            LOGIT(rfc, "L2TP command (0x%x): get baudrate of the tunnel = %d\n", rfc, rfc->baudrate);
+            *(u_int32_t *)cmddata = rfc->baudrate;
+            break;
+
         case L2TP_CMD_SETTIMEOUT:
             LOGIT(rfc, "L2TP command (0x%x): set initial timeout = %d (seconds)\n", rfc, *(u_int16_t *)cmddata);
             rfc->initial_timeout = *(u_int16_t *)cmddata * 2;	
@@ -482,6 +503,17 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             LOGIT(rfc, "L2TP command (0x%x): get our IP address = %d.%d.%d.%d, port %d\n", rfc, p[4], p[5], p[6], p[7], *((u_int16_t *)(p+2)));
             break;
 
+        case L2TP_CMD_SETRELIABILITY:
+            LOGIT(rfc, "L2TP command (0x%x): set reliability layer %s\n", rfc, *(u_int16_t *)cmddata ? "on" : "off");
+            if (*(u_int16_t *)cmddata) {
+				rfc->state &= ~L2TP_STATE_RELIABILITY_OFF;
+				rfc->retry_count = 0;
+				rfc->retrans_time_remain = rfc->initial_timeout;
+			}
+			else 
+				rfc->state |= L2TP_STATE_RELIABILITY_OFF;
+            break;
+
         default:
             LOGIT(rfc, "L2TP command (0x%x): unknown command = %d\n", rfc, cmd);
     }
@@ -495,20 +527,19 @@ called by protocol family when fast timer expires
 ----------------------------------------------------------------------------- */
 void l2tp_rfc_fasttimer()
 {
-    struct mbuf		*m;
+    mbuf_t				m;
     struct l2tp_header 	*hdr;
     struct l2tp_rfc 	*rfc;
     
     TAILQ_FOREACH(rfc, &l2tp_rfc_head, next)
         if ((rfc->state & L2TP_STATE_NEW_SEQUENCE) && rfc->peer_tunnel_id) {
 
-            MGETHDR(m, M_DONTWAIT, MT_DATA);
-            if (m == 0)
+			if (mbuf_gethdr(MBUF_DONTWAIT, MBUF_TYPE_DATA, &m) != 0)
                 return;
             
-            m->m_len = L2TP_CNTL_HDR_SIZE;
-            m->m_pkthdr.len = L2TP_CNTL_HDR_SIZE;
-            hdr = mtod(m, struct l2tp_header*);
+            mbuf_setlen(m, L2TP_CNTL_HDR_SIZE);
+            mbuf_pkthdr_setlen(m, L2TP_CNTL_HDR_SIZE);
+            hdr = mbuf_data(m);
         
             bzero(hdr, L2TP_CNTL_HDR_SIZE);
             
@@ -547,7 +578,8 @@ void l2tp_rfc_slowtimer()
             continue;
         }
 
-        if (!TAILQ_EMPTY(&rfc->send_queue)) {
+        if (!(rfc->state & L2TP_STATE_RELIABILITY_OFF) 
+			&& !TAILQ_EMPTY(&rfc->send_queue)) {
             if (--rfc->retrans_time_remain == 0) {
                 rfc->retry_count++;
                 if (rfc->retry_count >= rfc->max_retries) {
@@ -593,8 +625,9 @@ void l2tp_rfc_accept(struct l2tp_rfc* rfc)
             
             rfc->our_nr = 1;							/* set nr to the correct value */
             rfc->state |= L2TP_STATE_NEW_SEQUENCE;				/* setup to send ack */
-            if ((*rfc->inputcb)(rfc->host, elem->packet, (struct sockaddr*)elem->addr, 1))	/* up to the socket */
-                m_freem(elem->packet);
+            if ((*rfc->inputcb)(rfc->host, elem->packet, (struct sockaddr*)elem->addr, 1)) {	/* up to the socket */
+				/* mbuf has been freed by upcall */ 
+			}
             _FREE(elem, M_TEMP);
 
             return;
@@ -604,12 +637,12 @@ void l2tp_rfc_accept(struct l2tp_rfc* rfc)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_int16_t l2tp_rfc_output(void *data, struct mbuf *m, struct sockaddr *to)
+u_int16_t l2tp_rfc_output(void *data, mbuf_t m, struct sockaddr *to)
 {
     struct l2tp_rfc 	*rfc = (struct l2tp_rfc *)data;
     
     if (rfc->state & L2TP_STATE_FREEING) {
-        m_freem(m);
+        mbuf_freem(m);
         return ENXIO;
     }
 
@@ -625,18 +658,18 @@ u_int16_t l2tp_rfc_output(void *data, struct mbuf *m, struct sockaddr *to)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *to)
+u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *to)
 {
     struct l2tp_elem 	*elem;
-    struct l2tp_header		*hdr;
-    struct mbuf 		*m0;
+    struct l2tp_header	*hdr;
+    mbuf_t				m0;
     u_int16_t 			len;
 
     len = 0;
-    for (m0 = m; m0 != 0; m0 = m0->m_next)
-        len += m0->m_len;
+    for (m0 = m; m0 != 0; m0 = mbuf_next(m0))
+        len += mbuf_len(m0);
                 
-    hdr = mtod(m, struct l2tp_header *);
+    hdr = mbuf_data(m);
     
     /* flags, version and length should have been filled already by pppd */
     hdr->flags_vers = htons(L2TP_FLAGS_L | L2TP_HDR_VERSION | L2TP_FLAGS_T | L2TP_FLAGS_S);
@@ -654,13 +687,13 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, struct mbuf *m, struct s
     /* if the address is too large then we have a problem... */
     if (to->sa_len > sizeof(elem->addr)
         || (to->sa_family == 0 && rfc->peer_address == 0)) {
-        m_freem(m);
+        mbuf_freem(m);
         return EINVAL;
     }
 
     elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
     if (elem == 0) {
-        m_freem(m);
+        mbuf_freem(m);
         return ENOMEM;
     }
 
@@ -686,23 +719,22 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, struct mbuf *m, struct s
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, struct mbuf *m)
+u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, mbuf_t m)
 {
-    struct l2tp_header		*hdr;
-    struct mbuf 		*m0;
+    struct l2tp_header	*hdr;
+    mbuf_t				m0;
     u_int16_t 			len, hdr_length;
     u_int16_t			flags;
 
     len = 0;
-    for (m0 = m; m0 != 0; m0 = m0->m_next)
-        len += m0->m_len;
+    for (m0 = m; m0 != 0; m0 = mbuf_next(m0))
+        len += mbuf_len(m0);
 
     hdr_length = L2TP_DATA_HDR_SIZE + (rfc->flags & L2TP_FLAG_PEER_SEQ_REQ ? 4 : 0);
                 
-    M_PREPEND(m, hdr_length, M_WAIT);
-    if (m == 0)
+    if (mbuf_prepend(&m, hdr_length, MBUF_WAITOK) != 0)
         return ENOBUFS;
-    hdr = mtod(m, struct l2tp_header *);
+    hdr = mbuf_data(m);
     bzero(hdr, hdr_length);
     
     flags = L2TP_FLAGS_L | L2TP_HDR_VERSION; 
@@ -726,14 +758,13 @@ u_int16_t l2tp_rfc_output_data(struct l2tp_rfc *rfc, struct mbuf *m)
 ----------------------------------------------------------------------------- */
 int l2tp_rfc_output_queued(struct l2tp_rfc *rfc, struct l2tp_elem *elem)
 {
-    struct mbuf 	*dup;
+    mbuf_t				dup;
     struct l2tp_header	*hdr;
 
-    dup = m_copy(elem->packet, 0, M_COPYALL);
-    if (dup == 0) 
+    if (mbuf_copym(elem->packet, 0, M_COPYALL, MBUF_DONTWAIT, &dup) != 0)
         return ENOBUFS;
    
-    hdr = mtod(dup, struct l2tp_header*);
+    hdr = mbuf_data(dup);
     hdr->nr = htons(rfc->our_nr); 
     
     return l2tp_udp_output(rfc->socket, dup, (struct sockaddr *)elem->addr);
@@ -741,13 +772,13 @@ int l2tp_rfc_output_queued(struct l2tp_rfc *rfc, struct l2tp_elem *elem)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *from, 
+u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from, 
     u_int16_t flags, u_int16_t len, u_int16_t tunnel_id, u_int16_t session_id)
 {
-    struct l2tp_header 		*hdr = mtod(m, struct l2tp_header*);
+    struct l2tp_header 		*hdr = mbuf_data(m);
     u_int16_t 			*p, ns, hdr_length;
 
-    //log(LOG_INFO, "handle_data, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
+    //log(LOGVAL, "handle_data, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
     // check the tunnel ID and session ID as well as the peer address
     // to determine which client the packet belongs to
@@ -783,7 +814,7 @@ u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr
             hdr_length += (2 + ntohs(*p));
         
         /* data packet are given up without header */
-        m_adj(m, hdr_length);				/* remove the header and send it up to PPP */
+        mbuf_adj(m, hdr_length);				/* remove the header and send it up to PPP */
         (*rfc->inputcb)(rfc->host, m, 0, 0);
 
         return 1;
@@ -792,20 +823,20 @@ u_int16_t l2tp_handle_data(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr
     return 0;
 
 dropit:
-    m_freem(m);
+    mbuf_freem(m);
     return 1;
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct sockaddr *from, 
+u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *from, 
     u_int16_t flags, u_int16_t len, u_int16_t tunnel_id, u_int16_t session_id)
 {
-    struct l2tp_header 		*hdr = mtod(m, struct l2tp_header*);
+    struct l2tp_header 		*hdr = mbuf_data(m);
     struct l2tp_elem 	*elem, *new_elem;
     u_int16_t			buf_full;
 
-    //log(LOG_INFO, "handle_control, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
+    //log(LOGVAL, "handle_control, rfc = 0x%x, from 0x%x, peer address = 0x%x, our tunnel id = %d, tunnel id = %d, our session id = %d, session id = %d\n", rfc, from, rfc->peer_address, rfc->our_tunnel_id, tunnel_id, rfc->our_session_id, session_id);    
     
     // check tunnel ID as well as the peer address
     // to determine which client the packet belongs to
@@ -820,10 +851,10 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 || (flags & L2TP_FLAGS_O != 0))     
                     goto dropit;
 
-            if (m->m_len < len)					/* check the length */
+            if (mbuf_len(m) < len)					/* check the length */
                 goto dropit;			
-            m->m_len = len;					/* remove padding - plugin uses datagram len */
-            m->m_pkthdr.len = len;
+            mbuf_setlen(m, len);					/* remove padding - plugin uses datagram len */
+            mbuf_pkthdr_setlen(m, len);
 
             if (tunnel_id == 0) {
                 /* receive a packet on a generic listening connection and queue it */
@@ -833,7 +864,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 if (new_elem == 0)
                     goto dropit;
                     
-                if ((new_elem->packet = m_copy(m, 0, M_COPYALL)) == 0) {
+                if (mbuf_copym(m, 0, M_COPYALL, MBUF_DONTWAIT, &new_elem->packet) != 0) {
                     _FREE(new_elem, M_TEMP);
                     goto dropit;
                 }
@@ -843,9 +874,10 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
 
                 if ((*rfc->inputcb)(rfc->host, m, from, 0)) {		/* send up to call socket */                        
                     TAILQ_REMOVE(&rfc->recv_queue, new_elem, next);	/* remove the packet from the queue */
-                    m_freem(new_elem->packet);
+                    mbuf_freem(new_elem->packet);
                     _FREE(new_elem, M_TEMP);
-                    goto dropit;
+					/* mbuf has been freed by upcall */ 
+					return 1;
                 }
                 
                 return 1;
@@ -864,14 +896,14 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 goto dropit;
 
             if (SEQ_GT(ntohs(hdr->ns), rfc->our_nr)) {			/* out of order - need to queue it */	
-                //log(LOG_INFO, "L2TP out of order message reveived seq#=%d\n", ntohs(hdr->ns));
-                TAILQ_FOREACH(elem, &rfc->recv_queue, next) {
+                //log(LOGVAL, "L2TP out of order message reveived seq#=%d\n", ntohs(hdr->ns));
+               TAILQ_FOREACH(elem, &rfc->recv_queue, next) {
                     if (ntohs(hdr->ns) == elem->seqno)	
                         goto dropit;					/* already queued - drop it */
                     if (SEQ_GT(ntohs(hdr->ns), elem->seqno))
                         break;
                 }
-                //log(LOG_INFO, "L2TP queing out of order message\n");
+                //log(LOGVAL, "L2TP queing out of order message\n");
                 new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
                 if (new_elem == 0)
                     goto dropit;
@@ -883,7 +915,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 else
                     TAILQ_INSERT_HEAD(&rfc->recv_queue, new_elem, next);   
             } else if (SEQ_LT(ntohs(hdr->ns), rfc->our_nr)) {
-                //log(LOG_INFO, "L2TP dropping message already received seq#=%d\n", ntohs(hdr->ns));
+                //log(LOGVAL, "L2TP dropping message already received seq#=%d\n", ntohs(hdr->ns));
                 rfc->state |= L2TP_STATE_NEW_SEQUENCE;		/* its a dup thats already been ack'd - drop it and ack */
                 goto dropit;					
             } else {						/* packet we are waiting for */
@@ -891,10 +923,11 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 /* control packets are given up with l2tp header */
 
                 if (rfc->state & L2TP_STATE_FREEING)
-                    m_freem(m);
+                    mbuf_freem(m);
                 else if ((*rfc->inputcb)(rfc->host, m, from, 1))
-                    goto dropit;
-                   
+					/* mbuf has been freed by upcall */ 
+					return 1;
+				
                 rfc->our_nr++;
                 rfc->state |= L2TP_STATE_NEW_SEQUENCE;		/* sent up - ack it */
                 
@@ -907,18 +940,18 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 buf_full = 0;
                 while (elem = TAILQ_FIRST(&rfc->recv_queue)) {
                     if (buf_full) {						/* host buffer is full - empty the queue */
-                        m_freem(elem->packet);
+                        mbuf_freem(elem->packet);
                         TAILQ_REMOVE(&rfc->recv_queue, elem, next);
                         _FREE(elem, M_TEMP);
                     } else if (elem->seqno == rfc->our_nr) {		/* another packet to send up */
 
                         if (rfc->state & L2TP_STATE_FREEING) {
-                            m_freem(elem->packet);
+                            mbuf_freem(elem->packet);
                             rfc->our_nr++;
                         }
                         else if ((*rfc->inputcb)(rfc->host, elem->packet, (struct sockaddr *)elem->addr, 1)) {
+							/* mbuf has been freed by upcall */ 
                             buf_full = 1;
-                            m_freem(elem->packet);
                         }
                         else 
                             rfc->our_nr++;
@@ -931,6 +964,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
                 /* nothing more */
                 if (!(rfc->state & L2TP_STATE_FREEING))
                     (*rfc->inputcb)(rfc->host, 0, 0, 0);
+
             }
                         
             return 1;
@@ -940,7 +974,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, struct mbuf *m, struct socka
         return 0;
         
 dropit:
-        m_freem(m);
+        mbuf_freem(m);
         return 1;
 }
 
@@ -973,7 +1007,7 @@ void l2tp_rfc_handle_ack(struct l2tp_rfc *rfc, u_int16_t nr)
             rfc->retrans_time_remain = rfc->initial_timeout;	/* setup timeout and count */
             rfc->retry_count = 0;
             TAILQ_REMOVE(&rfc->send_queue, elem, next);
-            m_freem(elem->packet);
+            mbuf_freem(elem->packet);
             _FREE(elem, M_TEMP);
         } else
             break;
@@ -994,21 +1028,23 @@ void l2tp_rfc_handle_ack(struct l2tp_rfc *rfc, u_int16_t nr)
 /* -----------------------------------------------------------------------------
 called from l2tp_ip when l2tp data are present
 ----------------------------------------------------------------------------- */
-int l2tp_rfc_lower_input(struct socket *so, struct mbuf *m, struct sockaddr *from)
+int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 {
     struct l2tp_rfc  	*rfc;
-    struct l2tp_header 	*hdr = mtod(m, struct l2tp_header*);
+    struct l2tp_header 	*hdr = mbuf_data(m);
     u_int16_t 		*p;
     u_int16_t		flags, len, tunnel_id, session_id;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    //log(LOG_INFO, "L2TP inputdata\n");
+    //log(LOGVAL, "L2TP inputdata\n");
     
     flags = ntohs(hdr->flags_vers);
     if (flags & L2TP_VERSION_MASK != L2TP_VERSION)
         goto dropit;
             
     if (flags & L2TP_FLAGS_L) {		/* len field present ? */
-        len = hdr->len;
+        len = ntohs(hdr->len);
         p = &hdr->tunnel_id;
     }
     else {
@@ -1034,10 +1070,10 @@ int l2tp_rfc_lower_input(struct socket *so, struct mbuf *m, struct sockaddr *fro
                     return 1;
     }
 
-    //log(LOG_INFO, ">>>>>>> L2TP - no matching client found for packet\n");
+    //log(LOGVAL, ">>>>>>> L2TP - no matching client found for packet\n");
     // need to drop the packet
     
 dropit:
-    m_freem(m);
+    mbuf_freem(m);
     return 0;
 }

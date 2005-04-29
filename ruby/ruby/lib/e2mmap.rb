@@ -1,8 +1,8 @@
 #
 #   e2mmap.rb - for ruby 1.1
 #   	$Release Version: 2.0$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Revision: 1.10 $
+#   	$Date: 1999/02/17 12:33:17 $
 #   	by Keiju ISHITSUKA
 #
 # --
@@ -51,7 +51,7 @@
 fail "Use Ruby 1.1" if VERSION < "1.1"
 
 module Exception2MessageMapper
-  @RCS_ID='-$Id: e2mmap.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  @RCS_ID='-$Id: e2mmap.rb,v 1.10 1999/02/17 12:33:17 keiju Exp keiju $-'
 
   E2MM = Exception2MessageMapper
 
@@ -69,12 +69,11 @@ module Exception2MessageMapper
   def bind(cl)
     self.module_eval %[
       def Raise(err = nil, *rest)
-	Exception2MessageMapper.Raise(self.type, err, *rest)
+	Exception2MessageMapper.Raise(self.class, err, *rest)
       end
       alias Fail Raise
 
-      def self.append_features(mod)
-	super
+      def self.included(mod)
 	mod.extend Exception2MessageMapper
       end
     ]

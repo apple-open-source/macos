@@ -1,5 +1,5 @@
-/* NetworkInterface.java
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* NetworkInterface.java --
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -7,7 +7,7 @@ GNU Classpath is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
- 
+
 GNU Classpath is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -35,109 +35,128 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.net;
+
+import gnu.classpath.Configuration;
 
 import java.util.Enumeration;
 import java.util.Vector;
 
 /**
- * @author Michael Koch <konqueror@gmx.de>
+ * This class models a network interface on the host computer.  A network
+ * interface contains a name (typically associated with a specific
+ * hardware adapter) and a list of addresses that are bound to it.
+ * For example, an ethernet interface may be named "eth0" and have the
+ * address 192.168.1.101 assigned to it.
+ *
+ * @author Michael Koch (konqueror@gmx.de)
  * @since 1.4
  */
 public final class NetworkInterface
 {
-  private static Vector networkInterfaces;
-	
+  static
+    {
+      if (Configuration.INIT_LOAD_LIBRARY)
+	System.loadLibrary("javanet");
+    }
+
   private String name;
-  
   private Vector inetAddresses;
 
-  private NetworkInterface (String name, InetAddress address)
+  private NetworkInterface(String name, InetAddress address)
   {
     this.name = name;
-    this.inetAddresses = new Vector (1, 1);
-    this.inetAddresses.add (address);
+    this.inetAddresses = new Vector(1, 1);
+    this.inetAddresses.add(address);
   }
 
-  private native static Vector getRealNetworkInterfaces ()
+  private static native Vector getRealNetworkInterfaces()
     throws SocketException;
 
   /**
-   *  Returns the name of the network interface
+   * Returns the name of the network interface
+   *
+   * @return The name of the interface.
    */
-  public String getName ()
+  public String getName()
   {
     return name;
   }
 
   /**
    *  Returns all available addresses of the network interface
-   *  
+   *
    *  If a @see SecurityManager is available all addresses are checked
    *  with @see SecurityManager::checkConnect() if they are available.
-   *  Only InetAddresses are returned where the security manager doesn't
-   *  thrown an exception.
-   *  
+   *  Only <code>InetAddresses</code> are returned where the security manager
+   *  doesn't throw an exception.
+   *
    *  @return An enumeration of all addresses.
    */
-  public Enumeration getInetAddresses ()
+  public Enumeration getInetAddresses()
   {
-    SecurityManager s = System.getSecurityManager ();
+    SecurityManager s = System.getSecurityManager();
 
     if (s == null)
-      return inetAddresses.elements ();
+      return inetAddresses.elements();
 
-    Vector tmpInetAddresses = new Vector (1, 1);
+    Vector tmpInetAddresses = new Vector(1, 1);
 
-    for (Enumeration addresses = inetAddresses.elements ();
-	 addresses.hasMoreElements (); )
+    for (Enumeration addresses = inetAddresses.elements();
+         addresses.hasMoreElements();)
       {
-	InetAddress addr = (InetAddress) addresses.nextElement ();
+	InetAddress addr = (InetAddress) addresses.nextElement();
 	try
 	  {
-	    s.checkConnect (addr.getHostAddress (), 58000);
-	    tmpInetAddresses.add (addr);
+	    s.checkConnect(addr.getHostAddress(), 58000);
+	    tmpInetAddresses.add(addr);
 	  }
 	catch (SecurityException e)
 	  {
+	    // Ignore.
 	  }
-    }
+      }
 
-    return tmpInetAddresses.elements ();
+    return tmpInetAddresses.elements();
   }
 
   /**
    *  Returns the display name of the interface
+   *
+   *  @return The display name of the interface
    */
-  public String getDisplayName ()
+  public String getDisplayName()
   {
     return name;
   }
 
   /**
-   *  Returns an network interface by name
+   * Returns an network interface by name
    *
-   *  @param name The name of the interface to return
+   * @param name The name of the interface to return
+   * 
+   * @return a <code>NetworkInterface</code> object representing the interface,
+   * or null if there is no interface with that name.
    *
-   *  @exception SocketException If an error occurs
-   *  @exception NullPointerException If the specified name is null
+   * @exception SocketException If an error occurs
+   * @exception NullPointerException If the specified name is null
    */
-  public static NetworkInterface getByName (String name)
+  public static NetworkInterface getByName(String name)
     throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
+    Vector networkInterfaces = getRealNetworkInterfaces();
 
-    for (Enumeration e = networkInterfaces.elements ();
-         e.hasMoreElements (); )
+    for (Enumeration e = networkInterfaces.elements(); e.hasMoreElements();)
       {
-        NetworkInterface tmp = (NetworkInterface) e.nextElement ();
-      
-        if (name.equals (tmp.getName ()))
-          return tmp;
+	NetworkInterface tmp = (NetworkInterface) e.nextElement();
+
+	if (name.equals(tmp.getName()))
+	  return tmp;
       }
 
-    throw new SocketException ("no network interface with this name exists");
+    // No interface with the given name found.
+    return null;
   }
 
   /**
@@ -148,89 +167,83 @@ public final class NetworkInterface
    *  @exception SocketException If an error occurs
    *  @exception NullPointerException If the specified addess is null
    */
-  public static NetworkInterface getByInetAddress (InetAddress addr)
+  public static NetworkInterface getByInetAddress(InetAddress addr)
     throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
-    
-    for (Enumeration interfaces = networkInterfaces.elements ();
-         interfaces.hasMoreElements (); )
+    Vector networkInterfaces = getRealNetworkInterfaces();
+
+    for (Enumeration interfaces = networkInterfaces.elements();
+         interfaces.hasMoreElements();)
       {
-        NetworkInterface tmp = (NetworkInterface) interfaces.nextElement ();
-      
-        for (Enumeration addresses = tmp.inetAddresses.elements ();
-             addresses.hasMoreElements (); )
-          {
-            if (addr.equals ((InetAddress) addresses.nextElement ()))
-              return tmp;
-          }
+	NetworkInterface tmp = (NetworkInterface) interfaces.nextElement();
+
+	for (Enumeration addresses = tmp.inetAddresses.elements();
+	     addresses.hasMoreElements();)
+	  {
+	    if (addr.equals((InetAddress) addresses.nextElement()))
+	      return tmp;
+	  }
       }
 
-    throw new SocketException (
-      "no network interface is bound to such an IP address");
+    throw new SocketException("no network interface is bound to such an IP address");
   }
 
   /**
-   *  Return an Enumeration of all available network interfaces
+   *  Return an <code>Enumeration</code> of all available network interfaces
    *
    *  @exception SocketException If an error occurs
    */
-  public static Enumeration getNetworkInterfaces ()
-    throws SocketException
+  public static Enumeration getNetworkInterfaces() throws SocketException
   {
-    if (networkInterfaces == null)
-      networkInterfaces = getRealNetworkInterfaces ();
+    Vector networkInterfaces = getRealNetworkInterfaces();
 
-    Enumeration tmp = networkInterfaces.elements ();
-    if (tmp.hasMoreElements ())
-      return tmp;
+    if (networkInterfaces.isEmpty())
+      return null;
 
-    return null;
+    return networkInterfaces.elements();
   }
 
   /**
    *  Checks if the current instance is equal to obj
    *
    *  @param obj The object to compare with
-   */ 
-  public boolean equals (Object obj)
+   */
+  public boolean equals(Object obj)
   {
-    if (!(obj instanceof NetworkInterface))
+    if (! (obj instanceof NetworkInterface))
       return false;
-   
+
     NetworkInterface tmp = (NetworkInterface) obj;
-    
-    return (name.equals (tmp.name)
-            && inetAddresses.equals (tmp.inetAddresses));
+
+    return (name.equals(tmp.name) && inetAddresses.equals(tmp.inetAddresses));
   }
 
   /**
    *  Returns the hashcode of the current instance
    */
-  public int hashCode ()
+  public int hashCode()
   {
     // FIXME: hash correctly
-    return name.hashCode () + inetAddresses.hashCode ();
+    return name.hashCode() + inetAddresses.hashCode();
   }
 
   /**
    *  Returns a string representation of the interface
    */
-  public String toString ()
+  public String toString()
   {
     // FIXME: check if this is correct
     String result;
-    String separator = System.getProperty ("line.separator");
+    String separator = System.getProperty("line.separator");
 
-    result = "name: " + getDisplayName () + " (" + getName () +
-	     ") addresses:" + separator;
+    result =
+      "name: " + getDisplayName() + " (" + getName() + ") addresses:"
+      + separator;
 
-    for (Enumeration e = inetAddresses.elements ();
-         e.hasMoreElements (); )
+    for (Enumeration e = inetAddresses.elements(); e.hasMoreElements();)
       {
-        InetAddress address = (InetAddress) e.nextElement ();
-        result += address.toString () + separator;
+	InetAddress address = (InetAddress) e.nextElement();
+	result += address.toString() + ";" + separator;
       }
 
     return result;

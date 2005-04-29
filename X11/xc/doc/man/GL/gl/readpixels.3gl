@@ -1,3 +1,4 @@
+.\" $XFree86: xc/doc/man/GL/gl/readpixels.3gl,v 1.4 2003/10/22 20:36:31 tsi Exp $
 '\" te
 '\"! tbl|eqn | mmdoc
 '\"macro stdmacro
@@ -98,7 +99,7 @@ but not all of the parameters specified by these three commands.
 .P
 When the \%\f3GL_ARB_imaging\fP extension is supported, the pixel data may
 be processed by additional operations including color table lookup,
-color matrix tranformations, convolutions, histograms and minimum and
+color matrix transformations, convolutions, histograms and minimum and
 maximun pixel value computations.
 .P
 \%\f3glReadPixels\fP returns values from each pixel with lower left corner at

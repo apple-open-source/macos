@@ -1,0 +1,649 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		4094B098057EA68B00B44BCC = {
+			children = (
+				D6E970330607D40C0057A1B5,
+				D6E970340607D40C0057A1B5,
+			);
+			isa = PBXGroup;
+			path = mds;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//400
+//401
+//402
+//403
+//404
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4CA1FEA7052A3C3800F22E42 = {
+			children = (
+				D66B17010639E5B500E30944,
+				4CA1FEBF052A3C8100F22E42,
+				C28436DB0534880F000AE0FC,
+				4094B098057EA68B00B44BCC,
+				D6FEBACA06518908003810E8,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEA9052A3C3800F22E42 = {
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAA052A3C3800F22E42 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_OPTIMIZATION_LEVEL = s;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEAB052A3C3800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEA9052A3C3800F22E42,
+				4CA1FEAA052A3C3800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEA7052A3C3800F22E42;
+			productRefGroup = 4CA1FEBF052A3C8100F22E42;
+			projectDirPath = "";
+			targets = (
+				D6FEBAB006518908003810E8,
+			);
+		};
+		4CA1FEBF052A3C8100F22E42 = {
+			children = (
+				D6FEBACB06518908003810E8,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+//C20
+//C21
+//C22
+//C23
+//C24
+		C28436DB0534880F000AE0FC = {
+			children = (
+				D6C5CC9A0680F29A002E2C08,
+				D6C5CC9B0680F29A002E2C08,
+				D6EFB0AC066528F800E68C0C,
+				D6EFB0AD066528F800E68C0C,
+				D66D84F80664F721004F6E1D,
+				D66D84F90664F721004F6E1D,
+				D6FE2B2206469C1500DA234F,
+				D6FE2B2306469C1500DA234F,
+				D661C5A60648673400A1CFFF,
+				D661C5A70648673400A1CFFF,
+				D64218A8064A89DE00ABB3AE,
+				D64218CD064A99E300ABB3AE,
+				D64218CE064A99E300ABB3AE,
+				D64218BB064A94E200ABB3AE,
+				D64218B4064A8EF200ABB3AE,
+				D67BE6B6065931A400E26A3B,
+				D67BE6B7065931A400E26A3B,
+				D64218B5064A8EF200ABB3AE,
+				D64218D1064A9E2800ABB3AE,
+				D64218D2064A9E2800ABB3AE,
+				D687EAE3064BF83800DF1A47,
+				D687EAE4064BF83800DF1A47,
+				D687EB46064C06B500DF1A47,
+				D687EB47064C06B500DF1A47,
+			);
+			isa = PBXGroup;
+			path = lib;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//C20
+//C21
+//C22
+//C23
+//C24
+//D60
+//D61
+//D62
+//D63
+//D64
+		D64218A8064A89DE00ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = Bridge.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218B4064A8EF200ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = DataStorageLibrary.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218B5064A8EF200ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = DataStorageLibrary.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218BB064A94E200ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = CSSMStubs.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218CD064A99E300ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = LDAPDLModule.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218CE064A99E300ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = LDAPDLModule.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218D1064A9E2800ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = AttachedInstance.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D64218D2064A9E2800ABB3AE = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AttachedInstance.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D661C5A60648673400A1CFFF = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = TableRelation.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D661C5A70648673400A1CFFF = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = TableRelation.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D66B17010639E5B500E30944 = {
+			children = (
+				D6C5CCA20680F2DE002E2C08,
+				D66B17040639E5E200E30944,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D66B17040639E5E200E30944 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		D66D84F80664F721004F6E1D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = DSX509Relation.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D66D84F90664F721004F6E1D = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = DSX509Relation.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D66D84FA0664F721004F6E1D = {
+			fileRef = D66D84F80664F721004F6E1D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D66D84FB0664F721004F6E1D = {
+			fileRef = D66D84F90664F721004F6E1D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D67BE6B6065931A400E26A3B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = CommonCode.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D67BE6B7065931A400E26A3B = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = CommonCode.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D67BE6B8065931A400E26A3B = {
+			fileRef = D67BE6B6065931A400E26A3B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D67BE6B9065931A400E26A3B = {
+			fileRef = D67BE6B7065931A400E26A3B;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D687EAE3064BF83800DF1A47 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = Mutex.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D687EAE4064BF83800DF1A47 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = Mutex.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D687EB46064C06B500DF1A47 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = Database.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D687EB47064C06B500DF1A47 = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = Database.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6C5CC9A0680F29A002E2C08 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = DirectoryServices.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6C5CC9B0680F29A002E2C08 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = DirectoryServices.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6C5CC9C0680F29A002E2C08 = {
+			fileRef = D6C5CC9A0680F29A002E2C08;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6C5CC9D0680F29A002E2C08 = {
+			fileRef = D6C5CC9B0680F29A002E2C08;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6C5CCA20680F2DE002E2C08 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = DirectoryService.framework;
+			path = /System/Library/Frameworks/DirectoryService.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		D6C5CCA30680F2DE002E2C08 = {
+			fileRef = D6C5CCA20680F2DE002E2C08;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6E970330607D40C0057A1B5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = ldap_common.mdsinfo;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6E970340607D40C0057A1B5 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = ldap_primary.mdsinfo;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6EFB0AC066528F800E68C0C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = PartialRelation.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6EFB0AD066528F800E68C0C = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = PartialRelation.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6EFB0AE066528F800E68C0C = {
+			fileRef = D6EFB0AC066528F800E68C0C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6EFB0AF066528F800E68C0C = {
+			fileRef = D6EFB0AD066528F800E68C0C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FE2B2206469C1500DA234F = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = Relation.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6FE2B2306469C1500DA234F = {
+			fileEncoding = 4;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = Relation.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6FEBAB006518908003810E8 = {
+			buildPhases = (
+				D6FEBAB106518908003810E8,
+				D6FEBAB906518908003810E8,
+				D6FEBABC06518908003810E8,
+				D6FEBAC606518908003810E8,
+				D6FEBAC806518908003810E8,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				CURRENT_PROJECT_VERSION = 11;
+				DEAD_CODE_STRIPPING = YES;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				INFOPLIST_FILE = Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Security";
+				PRODUCT_NAME = ldapdl;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = bundle;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = ldapdl.bundle;
+			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
+			productName = ldapdl.bundle;
+			productReference = D6FEBACB06518908003810E8;
+			productType = "com.apple.product-type.bundle";
+		};
+		D6FEBAB106518908003810E8 = {
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBAB206518908003810E8,
+				D6FEBAB306518908003810E8,
+				D6FEBAB406518908003810E8,
+				D6FEBAB506518908003810E8,
+				D6FEBAB606518908003810E8,
+				D6FEBAB706518908003810E8,
+				D6FEBAB806518908003810E8,
+				D67BE6B8065931A400E26A3B,
+				D66D84FA0664F721004F6E1D,
+				D6EFB0AE066528F800E68C0C,
+				D6C5CC9D0680F29A002E2C08,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6FEBAB206518908003810E8 = {
+			fileRef = D6FE2B2206469C1500DA234F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB306518908003810E8 = {
+			fileRef = D661C5A60648673400A1CFFF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB406518908003810E8 = {
+			fileRef = D64218B4064A8EF200ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB506518908003810E8 = {
+			fileRef = D64218CD064A99E300ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB606518908003810E8 = {
+			fileRef = D64218D1064A9E2800ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB706518908003810E8 = {
+			fileRef = D687EAE3064BF83800DF1A47;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB806518908003810E8 = {
+			fileRef = D687EB46064C06B500DF1A47;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAB906518908003810E8 = {
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBABA06518908003810E8,
+				D6FEBABB06518908003810E8,
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6FEBABA06518908003810E8 = {
+			fileRef = D6E970330607D40C0057A1B5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBABB06518908003810E8 = {
+			fileRef = D6E970340607D40C0057A1B5;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBABC06518908003810E8 = {
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBABD06518908003810E8,
+				D6FEBABE06518908003810E8,
+				D6FEBABF06518908003810E8,
+				D6FEBAC006518908003810E8,
+				D6FEBAC106518908003810E8,
+				D6FEBAC206518908003810E8,
+				D6FEBAC306518908003810E8,
+				D6FEBAC406518908003810E8,
+				D6FEBAC506518908003810E8,
+				D67BE6B9065931A400E26A3B,
+				D66D84FB0664F721004F6E1D,
+				D6EFB0AF066528F800E68C0C,
+				D6C5CC9C0680F29A002E2C08,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6FEBABD06518908003810E8 = {
+			fileRef = D6FE2B2306469C1500DA234F;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBABE06518908003810E8 = {
+			fileRef = D661C5A70648673400A1CFFF;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBABF06518908003810E8 = {
+			fileRef = D64218A8064A89DE00ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC006518908003810E8 = {
+			fileRef = D64218B5064A8EF200ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC106518908003810E8 = {
+			fileRef = D64218BB064A94E200ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC206518908003810E8 = {
+			fileRef = D64218CE064A99E300ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC306518908003810E8 = {
+			fileRef = D64218D2064A9E2800ABB3AE;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC406518908003810E8 = {
+			fileRef = D687EAE4064BF83800DF1A47;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC506518908003810E8 = {
+			fileRef = D687EB47064C06B500DF1A47;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC606518908003810E8 = {
+			buildActionMask = 2147483647;
+			files = (
+				D6FEBAC706518908003810E8,
+				D6C5CCA30680F2DE002E2C08,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6FEBAC706518908003810E8 = {
+			fileRef = D66B17040639E5E200E30944;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		D6FEBAC806518908003810E8 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D6FEBACA06518908003810E8 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = Info.plist;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		D6FEBACB06518908003810E8 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = ldapdl.bundle;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+	};
+	rootObject = 4CA1FEAB052A3C3800F22E42;
+}

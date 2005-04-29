@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/font/stubs/stubs.h,v 1.3 1999/12/15 01:14:36 robin Exp $ */
+/* $XFree86: xc/lib/font/stubs/stubs.h,v 1.4 2003/09/13 21:33:03 dawes Exp $ */
 
 /* This directory includes dummy entry for bdftopcf and mkfontdir */
 
@@ -15,15 +15,13 @@
 #endif
 
 extern FontPtr find_old_font ( FSID id );
-extern FontResolutionPtr GetClientResolutions ( int *num );
-extern int GetDefaultPointSize ( void );
 extern int set_font_authorizations ( char **authorizations, 
 				     int *authlen, 
 				     ClientPtr client );
-extern Bool XpClientIsBitmapClient ( ClientPtr client );
-extern Bool XpClientIsPrintClient ( ClientPtr client, 
-				    FontPathElementPtr fpe );
 
 extern unsigned long GetTimeInMillis (void);
+
+extern void ErrorF(const char *format, ...);
+extern void FatalError(const char *format, ...);
 
 /* end of file */

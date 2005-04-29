@@ -1,0 +1,43 @@
+.\" @(#)man.conf
+.TH MAN.CONF 5 "30 Mar 1994"
+.SH NAME
+man.conf \- Konfigurationsdatei für man
+.SH BESCHREIBUNG
+.LP
+Diese Datei wird von
+.BR man (1)
+gelesen und enthält (a) Informationen darüber, wie der Such-Pfad für man 
+aufgebaut wird, (b) den vollständigen Namen (inclusive Pfad) von diversen
+Programmen wie nroff, eqn, tbl etc, die von man aufgerufen werden und (c)
+eine Liste mit Auspack-Programmen für Dateien mit speziellen Erweiterungen.
+Eine alternative Version dieser Datei benutzt werden mit
+.LP
+.RS
+man -C private_man.conf ...
+.RE
+.LP
+Die Programm-Namen können mit Optionen angegeben werden. Nützliche Optionen
+für roff sind in grotty(1) beschrieben. Zum Beispiel könnte man statt
+des Default-Kommandos
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tascii
+.fi
+.RE
+.LP
+den Befehl
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tascii -P-u -P-b
+.fi
+.RE
+.LP
+verwenden, um Unterstreichungen und Überschreiben zu verhindern.
+.SH "SIEHE AUCH"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) and compress(1), gzip(1).
+
+
+

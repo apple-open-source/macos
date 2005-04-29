@@ -1,25 +1,3 @@
-/*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /* $FreeBSD: src/include/nl_types.h,v 1.7 1999/08/27 23:44:51 peter Exp $ */
 
 /***********************************************************
@@ -57,16 +35,21 @@ up-to-date.  Many thanks.
 #ifndef _NL_TYPES_H_
 #define _NL_TYPES_H_
 #include <sys/cdefs.h>
+#include <_types.h>
 
 #define	NL_SETD		0
 #define	NL_CAT_LOCALE	1
 
-typedef	int	nl_item;
+#ifndef _NL_ITEM
+typedef	__darwin_nl_item	nl_item;
+#define _NL_ITEM
+#endif
+
 typedef	void	*nl_catd;
 
 __BEGIN_DECLS
-extern nl_catd 	catopen(__const char *, int);
-extern char    *catgets(nl_catd, int, int, __const char *);
+extern nl_catd 	catopen(const char *, int);
+extern char    *catgets(nl_catd, int, int, const char *);
 extern int	catclose(nl_catd);
 __END_DECLS
 

@@ -1,0 +1,7 @@
+ VIEW     1 rows = a:V
+    0: subview 'a'
+   VIEW     1 rows = p1:F p2:D p3:V
+      0: 123 123
+      0: subview 'p3'
+     VIEW     1 rows = p1:F p2:D
+        0: 234 234

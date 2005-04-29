@@ -744,7 +744,7 @@ char *yytext;
 #line 2 "sieve-lex.l"
 /* sieve.l -- sieve lexer
  * Larry Greenfield
- * $Id: sieve-lex.l,v 1.20 2002/06/07 20:04:49 ken3 Exp $
+ * $Id: sieve-lex.c,v 1.4 2005/03/05 00:37:38 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

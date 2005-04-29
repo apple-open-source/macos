@@ -31,6 +31,5 @@
 #define __X86_H__
 
 extern void _mesa_init_x86_transform_asm( void );
-extern void _mesa_init_x86_vertex_asm( void );
 
 #endif

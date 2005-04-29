@@ -1,0 +1,97 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../apps/utils/xo-daemon</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../apps/utils/xo-daemon" ALIGN="MIDDLE">
+  ./../apps/utils/xo-daemon</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package required: </b> XOTcl 
+    <BR>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../apps/utils/xo-daemon">
+      ./../apps/utils/xo-daemon
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+      This script can be used to start/stop/restart xotcl daemons
+      and maintains the process IDs, log files and means for easy 
+      restart.
+      <p>
+      It receives as first parameter the name of the xotcl script
+      to be executed followed by the desired action and optional 
+      parameters. The specified action can be
+      <UL>
+      <LI> <EM>start</EM>: the specified script is started in 
+         the background, an entry to restart is generated in 
+         the run-directory as well as the process id of the started 
+         script. In addition a logfile is created in the log directory.
+         If the start of the script fails, the error messages are 
+         shown.
+      <LI> <EM>startall</EM>: all scripts that were started before 
+         via this script, are started
+      <LI> <EM>stop</EM> terminates te specified script.
+      <LI> <EM>stopall</EM> terminates all scripts started via this
+         command
+      <LI> <EM>restart</EM> tries to restart the specified script.
+      </UL>
+      The optional parameters are:
+      <UL>
+      <LI> <EM>-logir</EM> specifies the directory for logging.
+            The default is ~/.xotcl/log.
+      <LI> <EM>-rundir</EM> specifies the directory where 
+            the information about the running processes is kept.
+            The default is ~/.xotcl/run.
+      </UL>
+    
+        </TD>
+      </TR>
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Authors:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+	Gustaf Neumann, Gustaf.Neumann@wu-wien.ac.at
+    
+        </TD>
+      </TR>
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Date:</em>
+        </TD>
+        <TD VALIGN="top">
+          [::xotcl::rcs date {$Date: 01/03/09 13:20:04-00:00 $}]
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

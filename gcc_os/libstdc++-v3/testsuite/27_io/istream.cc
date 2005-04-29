@@ -1,6 +1,6 @@
 // 1999-09-20 bkoz
 
-// Copyright (C) 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -31,17 +31,33 @@
 // NB: This file is for testing istream with NO OTHER INCLUDES.
 
 #include <istream>
+#include <testsuite_hooks.h>
 
 // { dg-do compile }
+
+// libstdc++/7216
+void test01()
+{
+  // Check for required typedefs
+  typedef std::istream test_type;
+  typedef test_type::char_type char_type;
+  typedef test_type::traits_type traits_type;
+  typedef test_type::int_type int_type;
+  typedef test_type::pos_type pos_type;
+  typedef test_type::off_type off_type;
+}
 
 namespace test 
 {
   using namespace std;
+  using __gnu_cxx_test::pod_char;
   typedef short type_t;
   template class basic_istream<type_t, char_traits<type_t> >;
+  template class basic_istream<pod_char, char_traits<pod_char> >;
 } // test
 
 int main() 
 {
+  test01();
   return 0;
 }

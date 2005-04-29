@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
  * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
  *
@@ -57,13 +57,13 @@ void _mesa_noop_EdgeFlagv( const GLboolean *b )
 void _mesa_noop_FogCoordfEXT( GLfloat a )
 {
    GET_CURRENT_CONTEXT(ctx);
-   ctx->Current.FogCoord = a;
+   ctx->Current.Attrib[VERT_ATTRIB_FOG][0] = a;
 }
 
 void _mesa_noop_FogCoordfvEXT( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   ctx->Current.FogCoord = *v;
+   ctx->Current.Attrib[VERT_ATTRIB_FOG][0] = *v;
 }
 
 void _mesa_noop_Indexi( GLint i )
@@ -81,7 +81,7 @@ void _mesa_noop_Indexiv( const GLint *v )
 void _mesa_noop_Normal3f( GLfloat a, GLfloat b, GLfloat c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Normal;
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_NORMAL];
    COPY_FLOAT(dest[0], a);
    COPY_FLOAT(dest[1], b);
    COPY_FLOAT(dest[2], c);
@@ -90,7 +90,7 @@ void _mesa_noop_Normal3f( GLfloat a, GLfloat b, GLfloat c )
 void _mesa_noop_Normal3fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Normal;
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_NORMAL];
    COPY_FLOAT(dest[0], v[0]);
    COPY_FLOAT(dest[1], v[1]);
    COPY_FLOAT(dest[2], v[2]);
@@ -154,7 +154,7 @@ void _mesa_noop_Materialfv( GLenum face, GLenum pname, const GLfloat *params )
 void _mesa_noop_Color4ub( GLubyte a, GLubyte b, GLubyte c, GLubyte d )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = UBYTE_TO_FLOAT(a);
    color[1] = UBYTE_TO_FLOAT(b);
    color[2] = UBYTE_TO_FLOAT(c);
@@ -164,7 +164,7 @@ void _mesa_noop_Color4ub( GLubyte a, GLubyte b, GLubyte c, GLubyte d )
 void _mesa_noop_Color4ubv( const GLubyte *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = UBYTE_TO_FLOAT(v[0]);
    color[1] = UBYTE_TO_FLOAT(v[1]);
    color[2] = UBYTE_TO_FLOAT(v[2]);
@@ -174,7 +174,7 @@ void _mesa_noop_Color4ubv( const GLubyte *v )
 void _mesa_noop_Color4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = a;
    color[1] = b;
    color[2] = c;
@@ -184,7 +184,7 @@ void _mesa_noop_Color4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d )
 void _mesa_noop_Color4fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = v[0];
    color[1] = v[1];
    color[2] = v[2];
@@ -194,7 +194,7 @@ void _mesa_noop_Color4fv( const GLfloat *v )
 void _mesa_noop_Color3ub( GLubyte a, GLubyte b, GLubyte c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = UBYTE_TO_FLOAT(a);
    color[1] = UBYTE_TO_FLOAT(b);
    color[2] = UBYTE_TO_FLOAT(c);
@@ -204,7 +204,7 @@ void _mesa_noop_Color3ub( GLubyte a, GLubyte b, GLubyte c )
 void _mesa_noop_Color3ubv( const GLubyte *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = UBYTE_TO_FLOAT(v[0]);
    color[1] = UBYTE_TO_FLOAT(v[1]);
    color[2] = UBYTE_TO_FLOAT(v[2]);
@@ -214,7 +214,7 @@ void _mesa_noop_Color3ubv( const GLubyte *v )
 void _mesa_noop_Color3f( GLfloat a, GLfloat b, GLfloat c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = a;
    color[1] = b;
    color[2] = c;
@@ -224,7 +224,7 @@ void _mesa_noop_Color3f( GLfloat a, GLfloat b, GLfloat c )
 void _mesa_noop_Color3fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.Color;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR0];
    color[0] = v[0];
    color[1] = v[1];
    color[2] = v[2];
@@ -240,7 +240,7 @@ void _mesa_noop_MultiTexCoord1fARB( GLenum target, GLfloat a )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], a);
       dest[1] = 0;
       dest[2] = 0;
@@ -257,7 +257,7 @@ void _mesa_noop_MultiTexCoord1fvARB( GLenum target, const GLfloat *v )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], v[0]);
       dest[1] = 0;
       dest[2] = 0;
@@ -274,7 +274,7 @@ void _mesa_noop_MultiTexCoord2fARB( GLenum target, GLfloat a, GLfloat b )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], a);
       COPY_FLOAT(dest[1], b);
       dest[2] = 0;
@@ -291,7 +291,7 @@ void _mesa_noop_MultiTexCoord2fvARB( GLenum target, const GLfloat *v )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], v[0]);
       COPY_FLOAT(dest[1], v[1]);
       dest[2] = 0;
@@ -308,7 +308,7 @@ void _mesa_noop_MultiTexCoord3fARB( GLenum target, GLfloat a, GLfloat b, GLfloat
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], a);
       COPY_FLOAT(dest[1], b);
       COPY_FLOAT(dest[2], c);
@@ -325,7 +325,7 @@ void _mesa_noop_MultiTexCoord3fvARB( GLenum target, const GLfloat *v )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], v[0]);
       COPY_FLOAT(dest[1], v[1]);
       COPY_FLOAT(dest[2], v[2]);
@@ -343,7 +343,7 @@ void _mesa_noop_MultiTexCoord4fARB( GLenum target, GLfloat a, GLfloat b,
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], a);
       COPY_FLOAT(dest[1], b);
       COPY_FLOAT(dest[2], c);
@@ -360,7 +360,7 @@ void _mesa_noop_MultiTexCoord4fvARB( GLenum target, const GLfloat *v )
     */
    if (unit < MAX_TEXTURE_UNITS)
    {
-      GLfloat *dest = ctx->Current.Texcoord[unit];
+      GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0 + unit];
       COPY_FLOAT(dest[0], v[0]);
       COPY_FLOAT(dest[1], v[1]);
       COPY_FLOAT(dest[2], v[2]);
@@ -371,7 +371,7 @@ void _mesa_noop_MultiTexCoord4fvARB( GLenum target, const GLfloat *v )
 void _mesa_noop_SecondaryColor3ubEXT( GLubyte a, GLubyte b, GLubyte c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.SecondaryColor;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR1];
    color[0] = UBYTE_TO_FLOAT(a);
    color[1] = UBYTE_TO_FLOAT(b);
    color[2] = UBYTE_TO_FLOAT(c);
@@ -381,7 +381,7 @@ void _mesa_noop_SecondaryColor3ubEXT( GLubyte a, GLubyte b, GLubyte c )
 void _mesa_noop_SecondaryColor3ubvEXT( const GLubyte *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.SecondaryColor;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR1];
    color[0] = UBYTE_TO_FLOAT(v[0]);
    color[1] = UBYTE_TO_FLOAT(v[1]);
    color[2] = UBYTE_TO_FLOAT(v[2]);
@@ -391,7 +391,7 @@ void _mesa_noop_SecondaryColor3ubvEXT( const GLubyte *v )
 void _mesa_noop_SecondaryColor3fEXT( GLfloat a, GLfloat b, GLfloat c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.SecondaryColor;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR1];
    color[0] = a;
    color[1] = b;
    color[2] = c;
@@ -401,7 +401,7 @@ void _mesa_noop_SecondaryColor3fEXT( GLfloat a, GLfloat b, GLfloat c )
 void _mesa_noop_SecondaryColor3fvEXT( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *color = ctx->Current.SecondaryColor;
+   GLfloat *color = ctx->Current.Attrib[VERT_ATTRIB_COLOR1];
    color[0] = v[0];
    color[1] = v[1];
    color[2] = v[2];
@@ -411,7 +411,7 @@ void _mesa_noop_SecondaryColor3fvEXT( const GLfloat *v )
 void _mesa_noop_TexCoord1f( GLfloat a )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], a);
    dest[1] = 0;
    dest[2] = 0;
@@ -421,7 +421,7 @@ void _mesa_noop_TexCoord1f( GLfloat a )
 void _mesa_noop_TexCoord1fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], v[0]);
    dest[1] = 0;
    dest[2] = 0;
@@ -431,7 +431,7 @@ void _mesa_noop_TexCoord1fv( const GLfloat *v )
 void _mesa_noop_TexCoord2f( GLfloat a, GLfloat b )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], a);
    COPY_FLOAT(dest[1], b);
    dest[2] = 0;
@@ -441,7 +441,7 @@ void _mesa_noop_TexCoord2f( GLfloat a, GLfloat b )
 void _mesa_noop_TexCoord2fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], v[0]);
    COPY_FLOAT(dest[1], v[1]);
    dest[2] = 0;
@@ -451,7 +451,7 @@ void _mesa_noop_TexCoord2fv( const GLfloat *v )
 void _mesa_noop_TexCoord3f( GLfloat a, GLfloat b, GLfloat c )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], a);
    COPY_FLOAT(dest[1], b);
    COPY_FLOAT(dest[2], c);
@@ -461,7 +461,7 @@ void _mesa_noop_TexCoord3f( GLfloat a, GLfloat b, GLfloat c )
 void _mesa_noop_TexCoord3fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], v[0]);
    COPY_FLOAT(dest[1], v[1]);
    COPY_FLOAT(dest[2], v[2]);
@@ -471,7 +471,7 @@ void _mesa_noop_TexCoord3fv( const GLfloat *v )
 void _mesa_noop_TexCoord4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], a);
    COPY_FLOAT(dest[1], b);
    COPY_FLOAT(dest[2], c);
@@ -481,7 +481,7 @@ void _mesa_noop_TexCoord4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d )
 void _mesa_noop_TexCoord4fv( const GLfloat *v )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLfloat *dest = ctx->Current.Texcoord[0];
+   GLfloat *dest = ctx->Current.Attrib[VERT_ATTRIB_TEX0];
    COPY_FLOAT(dest[0], v[0]);
    COPY_FLOAT(dest[1], v[1]);
    COPY_FLOAT(dest[2], v[2]);
@@ -518,6 +518,25 @@ void _mesa_noop_Vertex3f( GLfloat a, GLfloat b, GLfloat c )
 void _mesa_noop_Vertex4f( GLfloat a, GLfloat b, GLfloat c, GLfloat d )
 {
    (void) a; (void) b; (void) c; (void) d;
+}
+
+
+
+void _mesa_noop_VertexAttrib4fNV( GLuint index, GLfloat x,
+                                  GLfloat y, GLfloat z, GLfloat w )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (index < 16) {
+      ASSIGN_4V(ctx->Current.Attrib[index], x, y, z, w);
+   }
+}
+
+void _mesa_noop_VertexAttrib4fvNV( GLuint index, const GLfloat *v )
+{
+   GET_CURRENT_CONTEXT(ctx);
+   if (index < 16) {
+      ASSIGN_4V(ctx->Current.Attrib[index], v[0], v[1], v[2], v[3]);
+   }
 }
 
 

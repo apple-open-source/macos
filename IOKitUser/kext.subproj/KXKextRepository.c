@@ -3,6 +3,10 @@
 #include <CoreFoundation/CFRuntime.h>
 #include <zlib.h>
 #include <errno.h>
+#include <syslog.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/IOCFSerialize.h>
+#include <IOKit/IOKitServer.h>
 
 #include "KXKextRepository.h"
 #include "KXKextRepository_private.h"
@@ -24,6 +28,8 @@ typedef struct __KXKextRepository {
     Boolean   scansForKexts;        // scan whole directory or just kexts known
 
     Boolean hasAuthenticated;
+    Boolean scanTimeValid;
+    time_t  scanTime;		    // mod time of source at scan start
 
    /* Kexts whose loadable status has yet to be determined or which may
     * change (disabled/enabled, dependencies arriving/departing).
@@ -34,6 +40,10 @@ typedef struct __KXKextRepository {
     * but may become so if they fixed and rescanned.
     */
     CFMutableArrayRef  badKexts;
+
+   /* Serialized personalities of valid kexts.
+    */
+    CFDataRef	       personalityCache;
 
 } __KXKextRepository, * __KXKextRepositoryRef;
 
@@ -606,11 +616,19 @@ KXKextManagerError KXKextRepositoryWriteCache(
         goto finish;
     }
 
-    outputGZFile = gzopen(cache_path, "w");
+
+#define TEMP_DIR	"/tmp/com.apple.iokit.kextcache.XX"
+    char temp_file[1 + strlen(TEMP_DIR)];
+    char * output_filename = NULL;
+
+    strcpy(temp_file, TEMP_DIR);
+    mktemp(temp_file);
+
+    outputGZFile = gzopen(temp_file, "w");
     if (!outputGZFile) {
         _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "cannot open kext cache file %s for writing",
-            cache_path);
+            temp_file);
         if (errno == 0) {
             result = kKXKextManagerErrorNoMemory;
         } else {
@@ -618,12 +636,13 @@ KXKextManagerError KXKextRepositoryWriteCache(
         }
         goto finish;
     }
+    output_filename = temp_file;
 
     bytes_written = gzwrite(outputGZFile, (void *)cache_data, cacheDataLength);
     if (bytes_written != cacheDataLength) {
         _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "error writing kext cache file %s",
-            cache_path);
+            output_filename);
         result = kKXKextManagerErrorUnspecified;
         goto finish;
     }
@@ -631,12 +650,44 @@ KXKextManagerError KXKextRepositoryWriteCache(
     if (gzclose(outputGZFile) != Z_OK) {
         _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "error closing kext cache file %s",
-            cache_path);
+            output_filename);
         result = kKXKextManagerErrorUnspecified;
         goto finish;
     }
+    outputGZFile = NULL;
+
+    // move it to the final destination
+    if (-1 == rename(output_filename, cache_path)) {
+		syslog(LOG_ERR, "can't create file %s: %m\n", cache_path);
+		result = kKXKextManagerErrorFileAccess;
+		goto finish;
+    }
+    output_filename = NULL;
+
+    // give the cache file the mod time of the repository when scanned
+    if (aRepository->scanTimeValid)
+    {
+		struct timeval cacheFileTimes[2];
+		cacheFileTimes[0].tv_sec  = aRepository->scanTime + 1;
+		cacheFileTimes[0].tv_usec = 0;
+		cacheFileTimes[1].tv_sec  = aRepository->scanTime + 1;
+		cacheFileTimes[1].tv_usec = 0;
+		if(-1 == utimes(cache_path, cacheFileTimes)) {
+			syslog(LOG_ERR, "can't set file times %s: %m\n", cache_path);
+			result = kKXKextManagerErrorFileAccess;
+			goto finish;
+		}
+    }
 
 finish:
+
+    if (outputGZFile) gzclose(outputGZFile);
+    if (output_filename)
+    {
+		if (-1 == unlink(output_filename)) {
+			syslog(LOG_ERR, "can't remove file %s - %m\n", output_filename);
+		}
+    }
 
     if (cachePath)        CFRelease(cachePath);
     if (createdURL)       CFRelease(createdURL);
@@ -691,9 +742,14 @@ KXKextManagerError _KXKextRepositoryInitWithDirectory(
     aRepository->manager = aManager;  // do not retain up pointer!
 
     absURL = PATH_CopyCanonicalizedURL(aDirectory);
-    aRepository->repositoryPath = CFURLCopyFileSystemPath(absURL,
+	if (absURL != NULL) {
+			aRepository->repositoryPath = CFURLCopyFileSystemPath(absURL,
         kCFURLPOSIXPathStyle);
-    if (!aRepository->repositoryPath) {
+	} else {
+		aRepository->repositoryPath = NULL;
+		goto finish;
+	}
+	if (!aRepository->repositoryPath) {
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
@@ -930,18 +986,74 @@ KXKextManagerError _KXKextRepositoryInitWithCache(
         char * repository_path = NULL;
 
         if (CFStringGetCString(aRepository->repositoryPath, repository_path_buffer,
-            sizeof(repository_path_buffer), kCFStringEncodingMacRoman)) {
+            sizeof(repository_path_buffer), kCFStringEncodingUTF8)) {
             repository_path = repository_path_buffer;
         }
         _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository),
             "repository cache problem found; scanning %s directly",
             repository_path ? repository_path : "(unknown)");
         KXKextRepositoryReset(aRepository);
+
+    } else if (KXKextManagerWillUpdateCatalog(aManager)) {
+        CFStringRef string = (CFStringRef) CFDictionaryGetValue(aDictionary, _CACHE_PERSONALITIES_KEY);
+        if (string) {
+            aRepository->personalityCache = CFStringCreateExternalRepresentation(kCFAllocatorDefault, 
+                    string, kCFStringEncodingUTF8, 0);
+        }
     }
 
 finish:
     if (absURL)     CFRelease(absURL);
     return result;
+}
+/*******************************************************************************
+*
+*******************************************************************************/
+
+KXKextManagerError KXKextRepositorySendCatalogFromCache(
+    KXKextRepositoryRef aRepository,
+    CFMutableDictionaryRef candidateKexts)
+{
+    KXKextManagerError result = kKXKextManagerErrorNone;
+    kern_return_t kern_result = KERN_SUCCESS;
+    CFIndex count, i, len = 0;
+    void * ptr;
+
+    if (!aRepository->personalityCache) return kKXKextManagerErrorKextNotFound;
+
+    count = CFArrayGetCount(aRepository->candidateKexts);
+    for (i = 0; i < count; i++) {
+        KXKextRef thisKext =
+            (KXKextRef) CFArrayGetValueAtIndex(aRepository->candidateKexts, i);
+        if (thisKext != CFDictionaryGetValue(candidateKexts, KXKextGetBundleIdentifier(thisKext))) {
+            result = kKXKextManagerErrorCache;
+            goto finish;
+        }
+    }
+
+    // all the repository plists are candidates, so remove them all & send in bulk
+    for (i = 0; i < count; i++) {
+        KXKextRef thisKext =
+            (KXKextRef) CFArrayGetValueAtIndex(aRepository->candidateKexts, i);
+        CFDictionaryRemoveValue(candidateKexts, KXKextGetBundleIdentifier(thisKext));
+    }
+
+    len = CFDataGetLength(aRepository->personalityCache);
+    ptr = (void *)CFDataGetBytePtr(aRepository->personalityCache);
+    kern_result = IOCatalogueSendData(kIOMasterPortDefault, kIOCatalogAddDrivers,
+        ptr, len);
+
+    // FIXME: check specific kernel error result for permission or whatever
+    if (kern_result != KERN_SUCCESS) {
+        _KXKextManagerLogError(KXKextRepositoryGetManager(aRepository), "couldn't send personalities to catalog");
+        result = kKXKextManagerErrorKernelError;
+    }
+
+finish:
+    CFRelease(aRepository->personalityCache);
+    aRepository->personalityCache = 0;
+
+    return (result);
 }
 
 /*******************************************************************************
@@ -960,15 +1072,13 @@ const char * _KXKextRepositoryCopyCanonicalPathnameAsCString(
         goto finish;
     }
 
-    pathSize = 1 + CFStringGetLength(absPath);
+    pathSize = 1 + CFStringGetMaximumSizeOfFileSystemRepresentation(absPath);
     abs_path = (char *)malloc(pathSize * sizeof(char));
     if (!abs_path) {
         goto finish;
     }
 
-    if (!CFStringGetCString(absPath, abs_path,
-        pathSize, kCFStringEncodingMacRoman)) {
-
+    if (!CFStringGetFileSystemRepresentation(absPath, abs_path, pathSize)) {
         error = true;
     }
 
@@ -1286,6 +1396,7 @@ KXKextManagerError _KXKextRepositoryScanDirectoryForKexts(
                     CFArrayAppendValue(notKextArray, thisKext);
                 }
             }
+
 	    CFRelease(thisKext);
             result = kKXKextManagerErrorNone;
         }
@@ -1711,7 +1822,10 @@ CFDictionaryRef _KXKextRepositoryCopyCacheDictionary(
 {
     Boolean error = false;
     CFMutableDictionaryRef theDictionary = NULL; // returned
+    CFMutableArrayRef thePersonalities = NULL;   // must release
     CFMutableArrayRef kexts = NULL;              // must release
+    CFDataRef   cacheData = NULL;
+    CFStringRef cacheString = NULL;
     long int cache_version = _kKXKextRepositoryCacheVersion;
     CFNumberRef cacheVersion = NULL;             // must release
     CFIndex count, i;
@@ -1753,11 +1867,26 @@ CFDictionaryRef _KXKextRepositoryCopyCacheDictionary(
    /*****
     * Dump the candidate kexts into the kext array.
     */
+
+    thePersonalities = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
+    if (!thePersonalities) {
+        error = true;
+        goto finish;
+    }
+
     count = CFArrayGetCount(aRepository->candidateKexts);
     for (i = 0; i < count; i++) {
         KXKextRef kext = (KXKextRef)CFArrayGetValueAtIndex(
             aRepository->candidateKexts, i);
         CFDictionaryRef kDict = NULL;  // must release
+
+        CFArrayRef personalities = KXKextCopyPersonalitiesArray(kext);
+        if (personalities) {
+            CFArrayAppendArray(thePersonalities, personalities,
+                CFRangeMake(0, CFArrayGetCount(personalities)));
+            CFRelease(personalities);
+        }
 
        /* Plugins are added to the cache by their container.
         */
@@ -1801,9 +1930,24 @@ CFDictionaryRef _KXKextRepositoryCopyCacheDictionary(
         kDict = NULL;
     }
 
+    cacheData = IOCFSerialize(thePersonalities, kNilOptions);
+    CFRelease(thePersonalities);
+    thePersonalities = 0;
+    if (cacheData) {
+        cacheString = CFStringCreateFromExternalRepresentation(kCFAllocatorDefault, 
+                            cacheData, kCFStringEncodingUTF8);
+        CFRelease(cacheData);
+    }
+
+    if (cacheString) {
+        CFDictionarySetValue(theDictionary, _CACHE_PERSONALITIES_KEY, cacheString);
+        CFRelease(cacheString);
+    }
+
 finish:
-    if (cacheVersion) CFRelease(cacheVersion);
-    if (kexts)        CFRelease(kexts);
+    if (thePersonalities) CFRelease(thePersonalities);
+    if (cacheVersion)     CFRelease(cacheVersion);
+    if (kexts)            CFRelease(kexts);
 
     if (error) {
         if (theDictionary) CFRelease(theDictionary);
@@ -1822,9 +1966,9 @@ Boolean _KXKextRepositoryInvalidateCaches(
 {
     Boolean result = true;
     char path[MAXPATHLEN+1];
+	CFIndex pathSize = 1 + CFStringGetMaximumSizeOfFileSystemRepresentation(aRepository->repositoryPath);
 
-    if (!CFStringGetCString(aRepository->repositoryPath, path,
-        sizeof(path), kCFStringEncodingMacRoman)) {
+    if (!CFStringGetFileSystemRepresentation(aRepository->repositoryPath, path, pathSize)) {
 
         result = false;
         goto finish;
@@ -1922,6 +2066,7 @@ void __KXKextRepositoryReleaseContents(CFTypeRef cf)
     if (aRepository->repositoryPath)   CFRelease(aRepository->repositoryPath);
     if (aRepository->candidateKexts)   CFRelease(aRepository->candidateKexts);
     if (aRepository->badKexts)         CFRelease(aRepository->badKexts);
+    if (aRepository->personalityCache) CFRelease(aRepository->personalityCache);
 
     return;
 }
@@ -1942,6 +2087,8 @@ KXKextManagerError __KXKextRepositoryScanDirectory(
     CFArrayRef addedPlugins = NULL;    // must release
     CFArrayRef badKextPlugins = NULL;  // must release
     CFArrayRef removedPlugins = NULL;  // must release
+    char * dir_path = NULL;	       // must free
+    struct stat dir_stat;
 
     CFIndex outerCount, outerIndex;
     CFIndex innerCount, innerIndex;
@@ -1966,6 +2113,17 @@ KXKextManagerError __KXKextRepositoryScanDirectory(
         result = kKXKextManagerErrorNoMemory;
         goto finish;
     }
+
+    dir_path = PATH_CanonicalizedCStringForURL(repositoryURL);
+    if (!dir_path) {
+        result = kKXKextManagerErrorNoMemory;
+        goto finish;
+    }
+    
+    aRepository->scanTimeValid = (stat(dir_path, &dir_stat) == 0);
+    aRepository->scanTime = dir_stat.st_mtime;
+
+    free(dir_path);
 
     existingKexts = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0,
             aRepository->candidateKexts);

@@ -28,6 +28,7 @@ IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
                                fujiwara@a80.tech.yk.fujitsu.co.jp
 
 ******************************************************************/
+/* $XFree86: xc/lib/X11/XimTrans.h,v 1.4 2003/11/17 22:20:10 dawes Exp $ */
 
 #ifndef _XIMTRANS_H
 #define _XIMTRANS_H
@@ -36,9 +37,7 @@ typedef struct _TransIntrCallbackRec	*TransIntrCallbackPtr;
 
 typedef struct _TransIntrCallbackRec {
     Bool			(*func)(
-#if NeedNestedPrototypes
 					Xim, INT16, XPointer, XPointer
-#endif
 					);
     XPointer			 call_data;
     TransIntrCallbackPtr	 next;
@@ -58,70 +57,67 @@ typedef struct {
  * Prototypes
  */
 
-extern Bool _XimTransIntrCallback(
-#if NeedFunctionPrototypes
+extern Bool _XimTransRegisterDispatcher(
     Xim		 im,
     Bool	 (*callback)(
-#if NeedNestedPrototypes
 			     Xim, INT16, XPointer, XPointer
-#endif
 			     ),
     XPointer	 call_data
-#endif
 );
 
-extern void _XimFreeTransIntrCallback(
-#if NeedFunctionPrototypes
-    Xim		 im
-#endif
+
+extern Bool _XimTransIntrCallback(
+    Xim		 im,
+    Bool	 (*callback)(
+			     Xim, INT16, XPointer, XPointer
+			     ),
+    XPointer	 call_data
 );
 
-extern Bool _XimTransIntrCallbackCheck(
-#if NeedFunctionPrototypes
+extern Bool _XimTransCallDispatcher(
     Xim		 im,
     INT16	 len,
     XPointer	 data
-#endif
+);
+
+extern void _XimFreeTransIntrCallback(
+    Xim		 im
+);
+
+extern Bool _XimTransIntrCallbackCheck(
+    Xim		 im,
+    INT16	 len,
+    XPointer	 data
 );
 
 extern Bool _XimTransFilterWaitEvent(
-#if NeedFunctionPrototypes
     Display	*d,
     Window	 w,
     XEvent	*ev,
     XPointer	 arg
-#endif
 );
 
 extern void _XimTransInternalConnection(
-#if NeedFunctionPrototypes
     Display	*d,
     int		 fd,
     XPointer	 arg
-#endif
 );
 
 extern Bool _XimTransWrite(
-#if NeedFunctionPrototypes
     Xim		 im,
     INT16	 len,
     XPointer	 data
-#endif
 );
 
 extern Bool _XimTransRead(
-#if NeedFunctionPrototypes
     Xim		 im,
     XPointer	 recv_buf,
     int		 buf_len,
     int		*ret_len
-#endif
 );
 
 extern void _XimTransFlush(
-#if NeedFunctionPrototypes
     Xim		 im
-#endif
 );
 
 #endif /* _XIMTRANS__H */

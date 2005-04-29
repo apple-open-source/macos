@@ -1,0 +1,98 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-10-23  Andreas Kupries  <andreask@activestate.com>
+
+	* comm.man: Updated version number in documentation.
+
+2003-10-21  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: updated to v4.2.
+
+	* comm.man: 
+	* comm.tcl (comm_cmd_new): make 'comm::comm new ?chan?' fully
+	qualify the namespace of the new channel and return that.
+	[Bug #741653, #817351]
+
+	* comm.tcl: change default encoding to utf-8.  This should still
+	work with other versions of comm because the previous one-sided
+	binary setting only allowed for limited i18n-ness.  Using this
+	version of comm on both sides will ensure full i18n-happiness.
+	[Bug #806420]
+
+2003-05-09  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* pkgIndex.tcl: updated to comm 4.1
+	* comm.man:
+	* comm.tcl: rewrite of code to remove pseudo-object model.
+	Clean up code, add send -command callback to allow for
+	notification of results for asynchronous sends.
+
+2003-05-08  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* comm.tcl: update use of string functions to 8.2 cleanliness.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* comm.man:
+	* comm.tcl:
+	* pkgIndex.tcl: Set version of the package to to 4.0.1.
+
+2003-01-28  David N. Welton  <davidw@dedasys.com>
+
+	* comm.tcl (::comm::commConfigure): Use 'string is integer'
+	  instead of regexp's.
+	  Require Tcl 8.2.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* comm.man: More semantic markup, less visual one.
+
+2002-08-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* comm.test: Removed writing of file ~/foo, was debugging
+	  code. Changed creation and usage of file 'spawn' to allow an
+	  arbitrary setting of -tmpdir. Fixes SF Bug #589225 reported by
+	  Don Porter <dgp@users.sourceforge.net>.
+
+2002-03-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Bumped version number to 4.0 per request by John LoVerso.
+
+	* comm.tcl: Applied patch #526499 improving the handling of errors
+	  for async invoked commands.
+
+2002-02-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* comm.tcl: Frink run.
+
+2002-01-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Bumped version to 3.7.1.
+
+2001-11-16  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* comm.n: Updated to reflect the changes in the comm code
+	  (namespaces). This fixes SF item #480227.
+
+	* comm.tcl: Fixed two places where namespacing was not handled
+	  correctly.
+
+2001-08-22  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Integrated into tcllib.

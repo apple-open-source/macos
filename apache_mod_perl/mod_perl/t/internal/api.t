@@ -1,3 +1,3 @@
-use Apache::test;
+use Apache::testold;
 
-print fetch "http://$net::httpserver$net::perldir/api.pl";
+print fetch "http://$net::httpserver$net::perldir/api.pl?arg1=one&arg2=two";

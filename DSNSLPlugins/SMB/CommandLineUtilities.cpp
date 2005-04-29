@@ -59,7 +59,7 @@ int executecommand(char *command, char **output)
 }
 
 
-int myexecutecommandas(const char *command, const char* path, const char * argv[], Boolean useSHELL, size_t timeout_delay, char **output, Boolean* canceledFlag,
+int myexecutecommandas(const char *command, const char* path, char *const argv[], Boolean useSHELL, size_t timeout_delay, char **output, Boolean* canceledFlag,
 	uid_t uid, gid_t gid)
 {
 	FILE	*pipe = NULL;
@@ -242,7 +242,7 @@ executecommand_exit:
  *	ec_popen
  *	Mimic the popen(cmdstring, "r") function.
  *---------------------------------------------------------------------------*/
-FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boolean useSHELL, uid_t uid, gid_t gid)
+FILE *ec_popen(const char *cmdstring, const char* path, char *const argv[], Boolean useSHELL, uid_t uid, gid_t gid)
 {
 	int		pfd[2] = {0,};
 	pid_t	pid = 0;
@@ -259,7 +259,7 @@ FILE *ec_popen(const char *cmdstring, const char* path, const char * argv[], Boo
 	}
 
 	/* Fork the child */
-	if ((pid = vfork()) < 0) {
+	if ((pid = fork()) < 0) {
 		(void) close(pfd[0]);
 		(void) close(pfd[1]);
 		return NULL;

@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -35,6 +34,7 @@
 with Ada.IO_Exceptions;         use Ada.IO_Exceptions;
 with Interfaces.C_Streams;      use Interfaces.C_Streams;
 with System;                    use System;
+with System.CRTL;
 with System.File_IO;
 with System.Soft_Links;
 with Unchecked_Deallocation;
@@ -46,6 +46,9 @@ package body System.Direct_IO is
 
    subtype AP is FCB.AFCB_Ptr;
    use type FCB.Shared_Status_Type;
+
+   use type System.CRTL.long;
+   use type System.CRTL.size_t;
 
    -----------------------
    -- Local Subprograms --
@@ -59,7 +62,7 @@ package body System.Direct_IO is
    -------------------
 
    function AFCB_Allocate (Control_Block : Direct_AFCB) return FCB.AFCB_Ptr is
-      pragma Warnings (Off, Control_Block);
+      pragma Unreferenced (Control_Block);
 
    begin
       return new Direct_AFCB;
@@ -72,7 +75,7 @@ package body System.Direct_IO is
    --  No special processing required for Direct_IO close
 
    procedure AFCB_Close (File : access Direct_AFCB) is
-      pragma Warnings (Off, File);
+      pragma Unreferenced (File);
 
    begin
       null;
@@ -105,11 +108,14 @@ package body System.Direct_IO is
       Name : in String := "";
       Form : in String := "")
    is
-      File_Control_Block : Direct_AFCB;
+      Dummy_File_Control_Block : Direct_AFCB;
+      pragma Warnings (Off, Dummy_File_Control_Block);
+      --  Yes, we know this is never assigned a value, only the tag
+      --  is used for dispatching purposes, so that's expected.
 
    begin
       FIO.Open (File_Ptr  => AP (File),
-                Dummy_FCB => File_Control_Block,
+                Dummy_FCB => Dummy_File_Control_Block,
                 Mode      => Mode,
                 Name      => Name,
                 Form      => Form,
@@ -148,11 +154,14 @@ package body System.Direct_IO is
       Name : in String;
       Form : in String := "")
    is
-      File_Control_Block : Direct_AFCB;
+      Dummy_File_Control_Block : Direct_AFCB;
+      pragma Warnings (Off, Dummy_File_Control_Block);
+      --  Yes, we know this is never assigned a value, only the tag
+      --  is used for dispatching purposes, so that's expected.
 
    begin
       FIO.Open (File_Ptr  => AP (File),
-                Dummy_FCB => File_Control_Block,
+                Dummy_FCB => Dummy_File_Control_Block,
                 Mode      => Mode,
                 Name      => Name,
                 Form      => Form,

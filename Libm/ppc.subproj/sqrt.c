@@ -81,11 +81,17 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include     "fenv_private.h"
 #include     "fp_private.h"
+#include <System/ppc/cpu_capabilities.h>
+
+inline static uint32_t __attribute__((always_inline))
+_get_cpu_capabilities(void) 
+{
+        uint32_t caps;
+        asm("lwz %0, %1(0)" : "=r" (caps) : "I" (_COMM_PAGE_CPU_CAPABILITIES));
+        return caps;
+}
 
 #define      twoTo512           1.34078079299425971e154    // 2**512    
 #define      twoToMinus256      8.636168555094444625e-78   // 2**-256
@@ -126,197 +132,50 @@ const unsigned short SqrtTable[256] =
       26732, 26732, 26987, 27242 };
 
 //    There are flag and rounding errors being generated in this file
-#ifdef notdef
-double __sqrt ( double x )
-      {
-      register int index;
-      hexdouble xInHex, yInHex, gInHex;
-      register double OldEnvironment, g, y, y2, d, e;
-      register unsigned long int xhead, ghead, yhead;
-            
-      xInHex.d = x;
-      xhead = xInHex.i.hi;                         // high 32 bits of x
-      FEGETENVD( OldEnvironment );               // save environment, set default
-      FESETENVD( 0.0 );
-    
-/*******************************************************************************
-*     ° > x ³ 0.0.  This section includes +0.0, but not -0.0.                  *
-*******************************************************************************/
 
-      if ( xhead < 0x7ff00000 ) 
-            {
-
-/*******************************************************************************
-*     First and most common section: argument > 2.0^(-911), about 5.77662E-275.*
-*******************************************************************************/
-            
-            if ( xhead > 0x07000000ul ) 
-                  {
-
-/*******************************************************************************
-*     Calculate initial estimates for g and y from x and SqrtTable[].          *
-*******************************************************************************/
-
-                  ghead = ( ( xhead + 0x3ff00000 ) >> 1 ) & 0x7ff00000;
-                  index = ( xhead >> 13 ) & 0xffUL; // table index
-                  yhead = 0x7fc00000UL - ghead;
-                  gInHex.i.hi = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 4 );
-                  gInHex.i.lo = 0UL;
-                  yInHex.i.hi = yhead + ( ( 0xffUL & SqrtTable[index] ) << 12 );
-                  yInHex.i.lo = 0UL;
-                  g = gInHex.d;
-                  y = yInHex.d;
-      
-/*******************************************************************************
-*     Iterate to refine both g and y.                                          *
-*******************************************************************************/
-
-                  d = x - g * g;
-                  y2 = y + y;
-                  g = g + y * d;                   //   16-bit g
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   16-bit y
-                  g = g + y * d;                   //   32-bit g
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   32-bit y
-                  g = g + y * d;                   //   64-bit g before rounding
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   64-bit y
-                  FESETENVD( OldEnvironment );   //   restore caller's environment
-                  return ( g + y * d );            //   final step
-                  }
-
-/*******************************************************************************
-*     Second section: 0.0 < argument < 2.0^(-911) which is about 5.77662E-275. *
-*     Identical to the previous segment aside from 2^512 scale factor.         *
-*******************************************************************************/
-
-            if ( ( xhead | xInHex.i.lo ) != 0UL ) 
-                  { 
-                  xInHex.d = x * twoTo512;         //   scale up by 2^512
-                  xhead = xInHex.i.hi;
-
-/*******************************************************************************
-*     Calculate initial estimates for g and y from x and SqrtTable[].          *
-*******************************************************************************/
-
-                  ghead = ( ( xhead + 0x3ff00000 ) >> 1) & 0x7ff00000;
-                  index = ( xhead >> 13) & 0xffUL; // table index
-                  yhead = 0x7fc00000UL - ghead;
-                  gInHex.i.hi = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 4 );
-                  yInHex.i.hi = yhead + ( ( 0xffUL & SqrtTable[index] ) << 12 );
-                  x = xInHex.d;
-                  g = gInHex.d;
-                  y = yInHex.d;
-
-/*******************************************************************************
-*     Iterate to refine both g and y.                                          *
-*******************************************************************************/
-            
-                  d = x - g * g;
-                  y2 = y + y;
-                  g = g + y * d;                   //   16-bit g
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   16-bit y
-                  g = g + y * d;                   //   32-bit g
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   32-bit y
-                  g = g + y * d;                   //   64-bit g before rounding
-                  y2 = y + y;
-                  e = upHalfOfAnULP - y * g;
-                  d = x - g * g;
-                  y = y + e * y2;                  //   64-bit y
-                  g *= twoToMinus256;              //   undo scaling
-                  d *= twoToMinus256;
-                  FESETENVD( OldEnvironment );   //   restore caller's environment
-                  return ( g + y * d );            //   final step            
-                  }
-
-/*******************************************************************************
-*     Third section: handle x = +0.0 that slipped through.                     *
-*******************************************************************************/
-
-            else 
-                  {                                // x = +0.0
-                  FESETENVD( OldEnvironment );   //   restore caller's environment
-                  return ( x );
-                  }
-            }
-
-/*******************************************************************************
-*     Fourth section: special cases: argument is +INF, NaN, -0.0, or <0.       *
-*******************************************************************************/
-   
-      FESETENVD( OldEnvironment );               //   restore caller's environment
-
-      if ( xhead < 0x80000000 )                    // x is +NaN or +INF
-            return ( x );
-
-      if ( ( x == 0.0 ) || ( x != x ) )            // return -0.0 or -NaN argument
-            return x;
-      else                                         // negative x is INVALID
-            {
-            hexdouble env;
-            x = nan ( SQRT_NAN );
-            env.d = OldEnvironment;
-            env.i.lo |= SET_INVALID;
-            FESETENVD( env.d );         //   restore caller's environment
-            return ( x );                          // return NAN
-            }
-      }
-#else
-
-static const hexdouble Two911   = HEXDOUBLE( 0x07000000, 0x00000000 );
+static const double Two911      = 0x1.0p-911; // HEXDOUBLE( 0x07000000, 0x00000000 );
 static const hexdouble infinity = HEXDOUBLE( 0x7ff00000, 0x00000000 );
-static const double twoTo128    = 0.340282366920938463463e39;
-static const double twoToM128   = 0.293873587705571876992e-38;
+static const double twoTo128    = 0x1.0p+128; // 0.340282366920938463463e39;
+static const double twoToM128   = 0x1.0p-128; // 0.293873587705571876992e-38;
 
 double __sqrt ( double x )
 {
       register int index;
       hexdouble xInHex, yInHex, gInHex;
       register double OldEnvironment, g, y, y2, d, e;
-      register unsigned long int xhead, ghead, yhead;
+      register uint32_t xhead, ghead, yhead;
       
       register double FPR_z, FPR_Two911, FPR_TwoM128, FPR_Two128, FPR_inf, FPR_HalfULP;
       
       xInHex.d = x;					FPR_z = 0.0;
-      FPR_inf = infinity.d;				FPR_Two911 = Two911.d;
+      FPR_inf = infinity.d;				FPR_Two911 = Two911;
       FPR_TwoM128 = twoToM128;				FPR_Two128 = twoTo128;
-      gInHex.i.lo = 0UL;				yInHex.i.lo = 0UL;
+      gInHex.i.lo = 0u;				yInHex.i.lo = 0u;
       FPR_HalfULP = upHalfOfAnULP;
       
       FEGETENVD( OldEnvironment );               	// save environment, set default
       
-      __ORI_NOOP;
+      __NOOP;
       __ENSURE( FPR_TwoM128, FPR_Two128, FPR_z );
       
        FESETENVD( FPR_z );
-       __ENSURE( FPR_HalfULP, FPR_inf, FPR_Two911 );
-    
+      __ENSURE( FPR_HalfULP, FPR_inf, FPR_Two911 );
+      
 /*******************************************************************************
 *     Special case for GPUL: storing and loading floats avoids L/S hazard  
 *******************************************************************************/
-      __ORI_NOOP;
-      if (  FPR_TwoM128 < x &&  x < FPR_Two128 ) // Can float hold initial guess?
+      __NOOP;
+      if (likely(  FPR_TwoM128 < x &&  x < FPR_Two128 )) // Can float hold initial guess?
       {
             hexsingle GInHex, YInHex;
-            register unsigned long GPR_t, GPR_foo;
+            register uint32_t GPR_t, GPR_foo;
 
 /*******************************************************************************
 *     Calculate initial estimates for g and y from x and SqrtTable[].          *
 *******************************************************************************/
             
             xhead = xInHex.i.hi;			// high 32 bits of x
-            index = ( xhead >> 13 ) & 0xffUL; 		// table index
+            index = ( xhead >> 13 ) & 0xffu; 		// table index
             GPR_t = SqrtTable[index];
   
             // Form *single* precision exponent estimate from double argument:
@@ -324,21 +183,21 @@ double __sqrt ( double x )
             // (((((xhead - bias1024 + bias128 + bias128) >> 1) << 3) & 0x7f800000))
             
             ghead = ( ( xhead + 0x07f00000 + 0x07f00000 - 0x3ff00000 ) << 2 ) & 0x7f800000;
-            GInHex.lval = ghead + ( ( 0xff00UL & GPR_t ) << 7 );
+            GInHex.lval = ghead + ( ( 0xff00u & GPR_t ) << 7 );
 
             // Force GInHex.lval to memory. Then load it into g in the FPU register file
             // on the *following* cycle. This avoids a Store/Load hazard.
             asm volatile ( "add %0, %1, %2" : "=r" (GPR_foo) : "b" (&GInHex), "b" (&YInHex) : "memory" ); /* NOOP */
             g = GInHex.fval;
 
-            yhead = 0x7e000000UL - ghead;
-            YInHex.lval = yhead + ( ( 0xffUL & GPR_t ) << 15 ); 
+            yhead = 0x7e000000u - ghead;
+            YInHex.lval = yhead + ( ( 0xffu & GPR_t ) << 15 ); 
             
             // Force YInHex.lval to memory. Then load it into y in the FPU register file
             // on the *following* cycle. This avoids a Store/Load hazard.
             asm volatile ( "add %0, %1, %2" : "=r" (GPR_foo) : "b" (&GInHex), "b" (&YInHex) : "memory" ); /* NOOP */
-            __ORI_NOOP;
-            __ORI_NOOP;
+            __NOOP;
+            __NOOP;
             y = YInHex.fval;
             
 /*******************************************************************************
@@ -367,35 +226,35 @@ double __sqrt ( double x )
             
              FESETENVD( OldEnvironment );   					//   restore caller's environment
             
-            __ORI_NOOP;
+            __NOOP;
             return (  __FMADD( y, d, g ) );            				//   final step
       }
         
-      if ( FPR_z < x && x < FPR_inf ) 
+      if (likely( FPR_z < x && x < FPR_inf )) 
       {
 
 /*******************************************************************************
 *     First and most common section: argument > 2.0^(-911), about 5.77662E-275.*
 *******************************************************************************/
             
-            if ( FPR_Two911 < x ) 
+            if (likely( FPR_Two911 < x )) 
             {
-                  register unsigned long GPR_t;
+                  register uint32_t GPR_t;
 
 /*******************************************************************************
 *     Calculate initial estimates for g and y from x and SqrtTable[].          *
 *******************************************************************************/
                   xhead = xInHex.i.hi;                         	// high 32 bits of x
-                  index = ( xhead >> 13 ) & 0xffUL; 		// table index
+                  index = ( xhead >> 13 ) & 0xffu; 		// table index
                   GPR_t = SqrtTable[index];
                   
                   ghead = ( ( xhead + 0x3ff00000 ) >> 1 ) & 0x7ff00000;
-                  yhead = 0x7fc00000UL - ghead;
+                  yhead = 0x7fc00000u - ghead;
                 
-                  gInHex.i.hi = ghead + ( ( 0xff00UL & GPR_t ) << 4 );
+                  gInHex.i.hi = ghead + ( ( 0xff00u & GPR_t ) << 4 );
                   g = gInHex.d;
                 
-                  yInHex.i.hi = yhead + ( ( 0xffUL & GPR_t ) << 12 ); 
+                  yInHex.i.hi = yhead + ( ( 0xffu & GPR_t ) << 12 ); 
                   y = yInHex.d;
 /*******************************************************************************
 *     Iterate to refine both g and y.                                          *
@@ -432,6 +291,9 @@ double __sqrt ( double x )
             else
             { 
                   xInHex.d = x * twoTo512;         //   scale up by 2^512
+		  __NOOP;
+		  __NOOP;
+		  __NOOP;
                   xhead = xInHex.i.hi;
 
 /*******************************************************************************
@@ -439,10 +301,10 @@ double __sqrt ( double x )
 *******************************************************************************/
 
                   ghead = ( ( xhead + 0x3ff00000 ) >> 1) & 0x7ff00000;
-                  index = ( xhead >> 13) & 0xffUL; // table index
-                  yhead = 0x7fc00000UL - ghead;
-                  gInHex.i.hi = ghead + ( ( 0xff00UL & SqrtTable[index] ) << 4 );
-                  yInHex.i.hi = yhead + ( ( 0xffUL & SqrtTable[index] ) << 12 );
+                  index = ( xhead >> 13) & 0xffu; // table index
+                  yhead = 0x7fc00000u - ghead;
+                  gInHex.i.hi = ghead + ( ( 0xff00u & SqrtTable[index] ) << 4 );
+                  yInHex.i.hi = yhead + ( ( 0xffu & SqrtTable[index] ) << 12 );
                   x = xInHex.d;
                   g = gInHex.d;
                   y = yInHex.d;
@@ -489,16 +351,34 @@ double __sqrt ( double x )
             hexdouble env;
             x = nan ( SQRT_NAN );
             env.d = OldEnvironment;
+	    __NOOP;
+	    __NOOP;
+	    __NOOP;
+      
             env.i.lo |= SET_INVALID;
-            FESETENVD( env.d );         		//   restore caller's environment
+            FESETENVD_GRP( env.d );         		//   restore caller's environment
             return ( x );               		// return NAN
       }
       else return ( x );				// NANs and +/-0.0
 }
 
-#endif
+/*
+By pushing the software sqrt implementation into its own routine, we avoid the PIC setup and simply have:
+_sqrt:
+00000340        lwz     r0,0x8020(0)
+00000344        andis.  r2,r0,0x2000
+00000348        bne     0x350
+0000034c        b       ___sqrt
+00000350        fsqrt   f1,f1
+00000354        blr
+Perhaps gcc can someday be coaxed to eliminate the extra branch?
+Matt suggests "use -freorder-blocks", we'll pick that up for the next release.
+*/
+double sqrt(double x)
+{
+      if ((_get_cpu_capabilities() & kHasFsqrt))
+	return __fsqrt( x );
+      else return __sqrt( x );
+}
+	    
 
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

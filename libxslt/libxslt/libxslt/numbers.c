@@ -1158,7 +1158,7 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
      * "number" part, should be in suffix 
      */
     if (delayed_multiplier != 0) {
-	the_format--;
+	the_format -= len;
 	delayed_multiplier = 0;
     }
 
@@ -1176,14 +1176,18 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
      * If the number is -ve, we must substitute the -ve prefix / suffix
      */
     if (number < 0) {
+        /*
+	 * Note that j is the number of UTF8 chars before the separator,
+	 * not the number of bytes! (bug 151975)
+	 */
         j =  xmlUTF8Strloc(format, self->patternSeparator);
 	if (j < 0) {
 	/* No -ve pattern present, so use default signing */
 	    default_sign = 1;
 	}
 	else {
-	    /* Skip over pattern separator */
-	    the_format = format + j + 1;
+	    /* Skip over pattern separator (accounting for UTF8) */
+	    the_format = xmlUTF8Strpos(format, j + 1);
 	    /* 
 	     * Flag changes interpretation of percent/permille 
 	     * in -ve pattern 
@@ -1216,11 +1220,15 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 		    delayed_multiplier = 0;
 		else
 		    break; /* while */
-		the_format++;
+		if ((len = xsltUTF8Size(the_format)) < 1) {
+		    found_error = 1;
+		    goto OUTPUT_NUMBER;
+		}
+		the_format += len;
 	    }
 	    if (delayed_multiplier != 0) {
 		format_info.is_multiplier_set = FALSE;
-		the_format--;
+		the_format -= len;
 	    }
 
 	    /* Finally do the -ve suffix */
@@ -1229,8 +1237,8 @@ xsltFormatNumberConversion(xsltDecimalFormatPtr self,
 		nsuffix_length = xsltFormatNumberPreSuffix(self, 
 					&the_format, &format_info);
 		if (nsuffix_length < 0) {
-		found_error = 1;
-		goto OUTPUT_NUMBER;
+		    found_error = 1;
+		    goto OUTPUT_NUMBER;
 		}
 	    }
 	    else

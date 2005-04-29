@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/xtrap/chparse.c,v 1.3 2002/09/18 17:11:57 tsi Exp $ */
+/* $XFree86: xc/programs/xtrap/chparse.c,v 1.4 2003/05/27 22:27:13 tsi Exp $ */
 /*****************************************************************************
 Copyright 1987, 1988, 1989, 1990, 1991 by Digital Equipment Corp., Maynard, MA
 
@@ -120,7 +120,6 @@ int		inter[],	/* intermediate char, starting at [1]	*/
 int		*ninter,	/* Number of intermediates		*/
 int		*final)		/* Sequence terminator			*/
 {
-        int  present[NPARAM]; /* TRUE if param[i] is not defaulted	*/
 	register int		c;
 	register int		i;
 
@@ -145,7 +144,7 @@ label2:	switch (c) {
 	    *state = c;
 	    *private = 0;
 	    for (i = 0; i < NPARAM; i++)
-		param[i] = present[i] = 0;
+		param[i] = 0;
 	    for (i = 0; i < NINTER; i++)
 		inter[i] = EOS;
 	    *nparam = *ninter = 0;
@@ -205,7 +204,6 @@ label2:	switch (c) {
 	    *private = 'X';
 	    goto label1;
 	}
-	present[*nparam] = 1;
 	param[*nparam] = (param[*nparam] * 10) + (c - '0');
 	goto label1;
 label3:	if (*nparam == 0)

@@ -46,12 +46,6 @@ itcl::body StackWin::build_win {} {
   [$itk_component(slb) component listbox] configure \
     -bg $::Colors(textbg) -fg $::Colors(textfg)
 
-  # Add sizebox for windows
-  if {[string compare $tcl_platform(platform) "windows"] == 0} {
-#    ide_sizebox $itk_interior.sbox
-#    place $itk_interior.sbox -relx 1.0 -rely 1.0 -anchor se
-  }
-
   update dummy
 
   pack $itk_interior.s -side left -expand yes -fill both
@@ -133,7 +127,6 @@ itcl::body StackWin::change_frame {} {
 # ------------------------------------------------------------------
 itcl::body StackWin::reconfig {} {
   destroy $itk_interior.s
-  if {[winfo exists $itk_interior.sbox]} { destroy $itk_interior.sbox }
   build_win
 }
 

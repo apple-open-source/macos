@@ -1,6 +1,6 @@
 /* comparator.h
  * Larry Greenfield
- * $Id: comparator.h,v 1.11 2003/10/22 18:50:30 rjs3 Exp $
+ * $Id: comparator.h,v 1.4 2005/03/05 00:37:37 dasenbro Exp $
  */
 /***********************************************************
         Copyright 1999 by Carnegie Mellon University

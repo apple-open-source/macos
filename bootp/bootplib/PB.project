@@ -31,12 +31,8 @@
             "subnetDescr.h", 
             "util.h", 
             "ipcfg.h", 
-            "lockc.h", 
-            "ts_log.h", 
             "ipconfig_ext.h", 
             "ipconfig_types.h", 
-            "machcompat.h", 
-            "threadcompat.h", 
             "dhcp_options.h", 
             "dynarray.h", 
             "macnc_options.h", 
@@ -76,7 +72,6 @@
             "NIDomain.c", 
             "ptrlist.c", 
             "tftplib.c", 
-            "ts_log.c", 
             "util.c", 
             "ioregpath.c", 
             "cfutil.c", 
@@ -95,6 +90,7 @@
     "LOCALIZABLE_FILES" = {}; 
     MAKEFILEDIR = "$(MAKEFILEPATH)/pb_makefiles"; 
     "NEXTSTEP_BUILDTOOL" = "/usr/bin/gnumake"; 
+    "NEXTSTEP_COMPILEROPTIONS" = "-fconstant-cfstrings"; 
     "NEXTSTEP_INSTALLDIR" = "/usr/lib"; 
     "NEXTSTEP_JAVA_COMPILER" = "/usr/bin/javac"; 
     "NEXTSTEP_OBJCPLUS_COMPILER" = "/usr/bin/cc"; 

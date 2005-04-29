@@ -1,0 +1,86 @@
+<html><head>
+	<title>Metakit sample code - KitBinder</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - KitBinder</h2><br clear=left>
+<p>
+This application is a generic utility for the Metakit library.
+<p>
+<b>What it does</b>: KitBinder is a utility program which converts any
+Metakit datafile into a format suitable for embedding as resources inside
+an excutable program.  The current version supports Win16 and Win32.
+<p>
+<b>What it illustrates</b>: KitBinder further enhances the stand-alone
+nature of Metakit by allowing you to package read-only data as part of
+your application, to simplify deployment and installation.
+Compression is used to further reduce the size of this read-only data,
+the resources can optionally be encoded to protect sensitive data.
+<p>
+<b>How to use it</b>: To use these resources, you must make some very
+simple changes to your code, using the "c4_BoundStorage" class
+which is part of the KitBinder sample code.
+<p>
+Here is some more information from the "kbound.h" file:
+<blockquote><table width=550 cellpadding=10 cellspacing=0 border=1><tr><td>
+    The process of switching to bound data is quite simple:
+<p>
+<ol>
+	<li> Presumably, you have a Metakit datafile with some data in it.
+            Let's assume it is now stored in a file called "try.dat".
+	<li> Create source files for the resource editor (Win32):
+                <u>kbinder try.dat kbtry</u>,
+            or for Win16, use a text format instead:
+                <u>kbinder -t try.dat kbtry</u>.
+	<li> This produces a file called "kbtry.rc", as well as one or more
+            files called "kbtryXXX.res" (or "kbtryXXX.rc" if text format).
+	<li> Add the following line to your application resource file:
+                <u>#include "kbtry.rc"</u>
+	<li> Include the file "kbound.h" to define the c4_BoundStorage class,
+            and include the code which is in "kbound.cpp" in your project.
+	<li> Create your storage object from the class "c4_BoundStorage",
+         ie. change:
+                <u>c4_Storage myStorage ("try.dat", false)</u>;
+            to
+                <u>c4_BoundStorage myStorage</u>;
+	<li> That's it, you now have a read-only copy of "try.dat" bound to
+            your application and no longer need that data file at run time.
+            Everything will continue to work, but you cannot commit changes.
+            You can however call DumpAsRes, or c4_Storage::SaveToStream.
+</ol>
+<p>
+    For the original comments about the compression code, see "kboundw.cpp".
+<p>
+    To use encoding, you need to point c4_BoundStorage::_Encoder to an
+    appropriate function before creating any instances of c4_BoundStorage.
+</td></tr></table></blockquote>
+<p>
+The "kbdump" program is a example based on some code taken from the
+"Dump" utility.  When you run it, it will dump a sample datafile
+(the catalog of the Metakit 1.5 release).  That data was bound using the
+procedure described above, and is embedded in the "kbdump" executable.
+<p>
+<b>Known problems</b>: None.
+<p>
+<b>Files in EXAMPLES\KN\BIND</b>:
+<p>DUMP.CPP - Dump main program 
+<br>DUMP.MAK, DUMP.MDP - MSVC 4.2 project makefiles for Win32
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

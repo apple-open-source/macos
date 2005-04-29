@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)exit.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/exit.c,v 1.6 2002/03/22 21:53:10 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/exit.c,v 1.7 2003/12/19 17:11:20 kan Exp $");
 
 #include "namespace.h"
 #include <stdlib.h>
@@ -61,17 +61,12 @@ void
 exit(status)
 	int status;
 {
-	struct atexit *p;
-	int n;
-
 	/* Ensure that the auto-initialization routine is linked in: */
 	extern int _thread_autoinit_dummy_decl;
 
 	_thread_autoinit_dummy_decl = 1;
 
-	for (p = __atexit; p; p = p->next)
-		for (n = p->ind; --n >= 0;)
-			(*p->fns[n])();
+	__cxa_finalize(NULL);
 	if (__cleanup)
 		(*__cleanup)();
 	_exit(status);

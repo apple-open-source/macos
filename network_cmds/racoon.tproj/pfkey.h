@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __PFKEY_H__
+#define __PFKEY_H__
+
+
 struct pfkey_satype {
 	u_int8_t	ps_satype;
 	const char	*ps_name;
@@ -68,3 +72,7 @@ extern int pfkey_convertfromipsecdoi __P(( u_int, u_int, u_int,
 extern u_int32_t pk_getseq __P((void));
 extern const char *sadbsecas2str
 	__P((struct sockaddr *, struct sockaddr *, int, u_int32_t, int));
+
+
+#endif /* __PFKEY_H__ */
+

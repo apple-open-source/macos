@@ -25,7 +25,6 @@ Boston, MA 02111-1307, USA.  */
 #include "cpplib.h"
 #include "tree.h"
 #include "c-pragma.h"
-#include "c-lex.h"
 #include "c-tree.h"
 #include "toplev.h"
 #include "tm_p.h"
@@ -139,7 +138,6 @@ void
 darwin_pragma_options (pfile)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
-  /* APPLE LOCAL const char *  */
   const char *arg;
   tree t, x;
 
@@ -176,9 +174,12 @@ darwin_pragma_options (pfile)
 }
 
 /* APPLE LOCAL begin Macintosh alignment 2002-1-22 ff */
-/* #pragma pack ()
+/*
+   #pragma pack ()
    #pragma pack (N)  
-   
+   #pragma pack (pop[,id])
+   #pragma pack (push[,id],N)
+
    We have a problem handling the semantics of these directives since,
    to play well with the Macintosh alignment directives, we want the
    usual pack(N) form to do a push of the previous alignment state.
@@ -188,17 +189,18 @@ void
 darwin_pragma_pack (pfile)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
 {
-  tree x;
+  tree x, id = 0;
   int align = -1;
   enum cpp_ttype token;
   enum { set, push, pop } action;
 
   if (c_lex (&x) != CPP_OPEN_PAREN)
     BAD ("missing '(' after '#pragma pack' - ignored");
+
   token = c_lex (&x);
   if (token == CPP_CLOSE_PAREN)
     {
-      action = pop;  		/* or "set" ???  */    
+      action = pop;
       align = 0;
     }
   else if (token == CPP_NUMBER)
@@ -208,26 +210,76 @@ darwin_pragma_pack (pfile)
       if (c_lex (&x) != CPP_CLOSE_PAREN)
 	BAD ("malformed '#pragma pack' - ignored");
     }
+  else if (token == CPP_NAME)
+    {
+#define GCC_BAD_ACTION do { if (action == push) \
+	  BAD ("malformed '#pragma pack(push[, id], <n>)' - ignored"); \
+	else \
+	  BAD ("malformed '#pragma pack(pop[, id])' - ignored"); \
+	} while (0)
+
+      const char *op = IDENTIFIER_POINTER (x);
+      if (!strcmp (op, "push"))
+	action = push;
+      else if (!strcmp (op, "pop"))
+	action = pop;
+      else
+	BAD2 ("unknown action '%s' for '#pragma pack' - ignored", op);
+
+      token = c_lex (&x);
+      if (token != CPP_COMMA && action == push)
+	GCC_BAD_ACTION;
+
+      if (token == CPP_COMMA)
+	{
+	  token = c_lex (&x);
+	  if (token == CPP_NAME)
+	    {
+	      id = x;
+	      if (action == push && c_lex (&x) != CPP_COMMA)
+		GCC_BAD_ACTION;
+	      token = c_lex (&x);
+	    }
+
+	  if (action == push)
+	    {
+	      if (token == CPP_NUMBER)
+		{
+		  align = TREE_INT_CST_LOW (x);
+		  token = c_lex (&x);
+		}
+	      else
+		GCC_BAD_ACTION;
+	    }
+	}
+
+      if (token != CPP_CLOSE_PAREN)
+	GCC_BAD_ACTION;
+#undef GCC_BAD_ACTION
+    }
   else
     BAD ("malformed '#pragma pack' - ignored");
 
   if (c_lex (&x) != CPP_EOF)
     warning ("junk at end of '#pragma pack'");
-    
-  switch (align)
-    {
-    case 0:
-    case 1:
-    case 2:
-    case 4:
-    case 8:
-    case 16:
-      align *= BITS_PER_UNIT;
-      break;
-    default:
-      BAD2 ("alignment must be a small power of two, not %d", align);
-    }
-  
+
+  if (action != pop)
+  {
+    switch (align)
+        {
+        case 0:
+        case 1:
+        case 2:
+        case 4:
+        case 8:
+        case 16:
+          align *= BITS_PER_UNIT;
+          break;
+        default:
+          BAD2 ("alignment must be a small power of two, not %d", align);
+        }
+  }
+
   switch (action)
     {
     case pop:   pop_field_alignment ();		      break;

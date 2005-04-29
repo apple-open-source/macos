@@ -16,7 +16,7 @@
  * The Original Software is CID font code that was developed by Silicon
  * Graphics, Inc.
  */
-/* $XFree86: xc/programs/mkcfm/mkcfm.c,v 1.12 2002/12/09 17:30:12 dawes Exp $ */
+/* $XFree86: xc/programs/mkcfm/mkcfm.c,v 1.13 2003/05/27 22:26:56 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,16 +59,8 @@ FontEntryRec entry;
 int 
 main(int argc, char **argv)
 {
-       char temp[CID_NAME_MAX];
-       int failed;
-       char *p;
- 
-       temp[0] = '\0';
-
        CIDFillVals(&vals);
        CIDRegisterFontFileFunctions();
-
-       failed = 0;
 
        if (argc == 1) {
            if (!DoDirectory(DEFAULTCID)) {
@@ -80,7 +72,7 @@ main(int argc, char **argv)
                exit(1);
            }
        } else if(argc == 2) {
-           if ((p = strstr(argv[1], "CID")) == NULL || !DoDirectory(argv[1])) {
+           if (strstr(argv[1], "CID") == NULL || !DoDirectory(argv[1])) {
                fprintf(stderr, 
                "Specified CID directory not found. CFM files not created.\n");
                exit(1);

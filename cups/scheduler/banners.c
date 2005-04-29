@@ -1,9 +1,9 @@
 /*
- * "$Id: banners.c,v 1.1.1.9 2003/07/16 17:22:01 jlovell Exp $"
+ * "$Id: banners.c,v 1.8 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   Banner routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,18 +15,18 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
  * Contents:
  *
- *   AddBanner()   - Add a banner to the array.
- *   FindBanner()  - Find a named banner.
- *   LoadBanners() - Load all available banner files...
- *   compare()     - Compare two banners.
+ *   AddBanner()      - Add a banner to the array.
+ *   FindBanner()     - Find a named banner.
+ *   LoadBanners()    - Load all available banner files...
+ *   banner_compare() - Compare two banners.
  */
 
 /*
@@ -40,7 +40,7 @@
  * Local functions...
  */
 
-static int	compare(const banner_t *b0, const banner_t *b1);
+static int	banner_compare(const banner_t *b0, const banner_t *b1);
 
 
 /*
@@ -90,7 +90,7 @@ AddBanner(const char *name,	/* I - Name of banner */
   NumBanners ++;
 
   memset(temp, 0, sizeof(banner_t));
-  strlcpy(temp->name, name, sizeof(temp->name));
+  temp->name = strdup(name);
   temp->filetype = filetype;
 }
 
@@ -105,10 +105,10 @@ FindBanner(const char *name)	/* I - Name of banner */
   banner_t	key;		/* Search key */
 
 
-  strlcpy(key.name, name, sizeof(key.name));
+  key.name = (char*)name;
 
   return ((banner_t *)bsearch(&key, Banners, NumBanners, sizeof(banner_t),
-                              (int (*)(const void *, const void *))compare));
+                              (int (*)(const void *, const void *))banner_compare));
 }
 
 
@@ -124,6 +124,7 @@ LoadBanners(const char *d)	/* I - Directory to search */
   char		filename[1024],	/* Name of banner */
 		*ext;		/* Pointer to extension */
   struct stat	fileinfo;	/* File information */
+  int		i;		/* Looping var */
 
 
  /*
@@ -132,6 +133,10 @@ LoadBanners(const char *d)	/* I - Directory to search */
 
   if (NumBanners)
   {
+    for (i = 0; i < NumBanners; i++)
+      if (Banners[i].name)
+        free(Banners[i].name);
+
     free(Banners);
     NumBanners = 0;
   }
@@ -153,6 +158,13 @@ LoadBanners(const char *d)	/* I - Directory to search */
 
   while ((dent = readdir(dir)) != NULL)
   {
+   /*
+    * Skip "." and ".."...
+    */
+
+    if (dent->d_name[0] == '.')
+      continue;
+
    /*
     * Check the file to make sure it isn't a directory or a backup
     * file of some sort...
@@ -194,22 +206,22 @@ LoadBanners(const char *d)	/* I - Directory to search */
 
   if (NumBanners > 1)
     qsort(Banners, NumBanners, sizeof(banner_t),
-          (int (*)(const void *, const void *))compare);
+          (int (*)(const void *, const void *))banner_compare);
 }
 
 
 /*
- * 'compare()' - Compare two banners.
+ * 'banner_compare()' - Compare two banners.
  */
 
-static int			/* O - -1 if name0 < name1, etc. */
-compare(const banner_t *b0,	/* I - First banner */
-        const banner_t *b1)	/* I - Second banner */
+static int				/* O - -1 if name0 < name1, etc. */
+banner_compare(const banner_t *b0,	/* I - First banner */
+	       const banner_t *b1)	/* I - Second banner */
 {
   return (strcasecmp(b0->name, b1->name));
 }
 
 
 /*
- * End of "$Id: banners.c,v 1.1.1.9 2003/07/16 17:22:01 jlovell Exp $".
+ * End of "$Id: banners.c,v 1.8 2005/01/04 22:10:45 jlovell Exp $".
  */

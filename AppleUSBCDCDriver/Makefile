@@ -16,7 +16,8 @@ install:
 	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCACMData.kext
 	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCECMControl.kext
 	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCECMData.kext
-	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCWMCData.kext
+	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCWCM.kext
+	sudo chown -R root:wheel /System/Library/Extensions/IOUSBFamily.kext/Contents/PlugIns/AppleUSBCDCDMM.kext
 	sudo rm -rf /System/Library/Caches/com.apple.kernelcaches
 	sudo rm -rf /System/Library/Extensions.kextcache
 	sudo rm -rf /System/Library/Extensions.mkext

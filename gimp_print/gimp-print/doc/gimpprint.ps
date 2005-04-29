@@ -8,7 +8,7 @@
 %DVIPSWebPage: (www.radicaleye.com)
 %DVIPSCommandLine: /usr/bin/dvips gimpprint.dvi -o gimpprint.ps
 %DVIPSParameters: dpi=600, compressed
-%DVIPSSource:  TeX output 2003.01.22:1957
+%DVIPSSource:  TeX output 2003.12.17:2114
 %%BeginProcSet: texc.pro
 %!
 /TeXDict 300 dict def TeXDict begin/N{def}def/B{bind def}N/S{exch}N/X{S
@@ -3122,7 +3122,7 @@ TeXDict begin
 %%Page: 1 1
 1 0 bop 150 1318 a Fv(GIMP-Prin)-5 b(t)p 150 1385 3600
 34 v 2515 1481 a Fu(The)30 b(prin)m(t)f(plugin)f(for)i(the)h(GIMP)2529
-1589 y(V)-8 b(ersion)30 b(4.2.5,)j(27)e(Octob)s(er)f(2001)150
+1589 y(V)-8 b(ersion)30 b(4.2.6,)j(27)e(Octob)s(er)f(2001)150
 5068 y Ft(The)44 b(GIMP-Prin)l(t)h(Pro)7 b(ject)p 150
 5141 3600 17 v eop
 %%Page: 2 2
@@ -3380,7 +3380,7 @@ g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g
 (.)g(.)g(.)47 b Fu(81)449 4568 y(D.5)92 b(Canon)30 b(inkjet)f(prin)m
 (ters)24 b Fn(.)15 b(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)
 g(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)h(.)f(.)g(.)g(.)g(.)g(.)g(.)g(.)g(.)g
-(.)g(.)g(.)54 b Fu(82)150 4790 y Ft(Data)46 b(T)l(yp)t(e)e(and)h(V)-11
+(.)g(.)g(.)54 b Fu(83)150 4790 y Ft(Data)46 b(T)l(yp)t(e)e(and)h(V)-11
 b(ariable)46 b(Index)21 b Fo(.)e(.)h(.)f(.)g(.)h(.)f(.)h(.)f(.)h(.)f(.)
 g(.)h(.)f(.)h(.)f(.)66 b Ft(85)150 5040 y(F)-11 b(unction)44
 b(and)h(Macro)f(Index)11 b Fo(.)20 b(.)f(.)g(.)h(.)f(.)h(.)f(.)h(.)f(.)
@@ -4043,7 +4043,7 @@ m(as)h(prop)s(erly)d(con\014gured)i(and)g(installed.)275
 3413 y(The)f(installed)g(v)m(ersion)g(of)i(GIMP-Prin)m(t)f(can)h(b)s(e)
 e(obtained)h(with)f(the)i(`)p Fr(--version)p Fu(')d(option:)390
 3553 y Fr(roger@whinlatter:~/gimpp)o(rint)o(/dev)o(el$)41
-b(gimpprint-config)j(--version)390 3657 y(4.2.5)275 3803
+b(gimpprint-config)j(--version)390 3657 y(4.2.6)275 3803
 y Fu(The)29 b(correct)j Fr(CFLAGS)d Fu(to)i(use)f(can)g(b)s(e)g
 (obtained)g(with)f(the)i(`)p Fr(--cflags)p Fu(')d(option:)390
 3944 y Fr(roger@whinlatter:~/gimpp)o(rint)o(/dev)o(el$)41
@@ -9841,696 +9841,702 @@ f(below)h(*/)630 5340 y(/***********************)o(****)o(****)o(***)o
 (black)f(nozzles)g(\(may)h(be)g(extra\))f(*/)725 714
 y(int)h(min_black_nozzles;)c(/*)k(#)h(of)f(black)f(nozzles)g(\(may)h
 (be)g(extra\))f(*/)725 818 y(int)h(black_nozzle_separation;)42
-b(/*)47 b(Separation)e(between)h(rows)g(*/)630 922 y
+b(/*)47 b(Separation)e(between)h(rows)g(*/)725 922 y(int)h
+(fast_nozzles;)e(/*)i(Number)f(of)h(fast)g(nozzles)e(*/)725
+1025 y(int)i(min_fast_nozzles;)c(/*)48 b(#)f(of)g(fast)g(nozzles)f
+(\(may)g(be)i(extra\))e(*/)725 1129 y(int)h(fast_nozzle_separation;)42
+b(/*)47 b(Separation)e(between)h(rows)g(*/)630 1233 y
 (/***********************)o(****)o(****)o(***)o(****)o(****)o(***)o
 (****)o(****)o(***)o(****)o(****)o(***)o(****)o(***)o(***/)725
-1025 y(int)h(xres;)g(/*)g(Normal)f(distance)g(between)f(dots)i(in)g(*/)
-630 1129 y(/*)g(softweave)e(mode)i(\(inverse)f(inches\))f(*/)725
-1233 y(int)i(enhanced_xres;)d(/*)j(Distance)f(between)g(dots)g(in)i
-(highest)d(*/)630 1337 y(/*)i(quality)f(modes)g(*/)725
-1440 y(int)h(base_separation;)d(/*)j(Basic)f(unit)h(of)g(row)g
-(separation)e(*/)725 1544 y(int)i(base_resolution;)d(/*)j(Base)g
-(hardware)e(spacing)h(\(above)g(this)h(*/)630 1648 y(/*)g(always)f
-(requires)g(multiple)f(passes\))h(*/)725 1752 y(int)h
+1337 y(int)h(xres;)g(/*)g(Normal)f(distance)g(between)f(dots)i(in)g(*/)
+630 1440 y(/*)g(softweave)e(mode)i(\(inverse)f(inches\))f(*/)725
+1544 y(int)i(enhanced_xres;)d(/*)j(Distance)f(between)g(dots)g(in)i
+(highest)d(*/)630 1648 y(/*)i(quality)f(modes)g(*/)725
+1752 y(int)h(base_separation;)d(/*)j(Basic)f(unit)h(of)g(row)g
+(separation)e(*/)725 1856 y(int)i(base_resolution;)d(/*)j(Base)g
+(hardware)e(spacing)h(\(above)g(this)h(*/)630 1959 y(/*)g(always)f
+(requires)g(multiple)f(passes\))h(*/)725 2063 y(int)h
 (enhanced_resolution;/*)42 b(Above)k(this)h(we)g(use)g(the)g(*/)821
-1856 y(/*)g(enhanced_xres)d(rather)i(than)h(xres)g(*/)725
-1959 y(int)g(resolution_scale;)139 b(/*)47 b(Scaling)f(factor)g(for)h
-(ESC\(D)f(command)g(*/)725 2063 y(int)h(max_black_resolution;)42
-b(/*)48 b(Above)e(this)h(resolution,)d(we)j(*/)916 2167
-y(/*)h(must)e(use)h(color)f(parameters)f(*/)916 2271
-y(/*)j(rather)e(than)g(\(faster\))g(black)g(*/)916 2374
-y(/*)i(only)e(parameters*/)725 2478 y(int)h(max_hres;)725
-2582 y(int)g(max_vres;)725 2686 y(int)g(min_hres;)725
-2790 y(int)g(min_vres;)630 2893 y(/***********************)o(****)o
+2167 y(/*)g(enhanced_xres)d(rather)i(than)h(xres)g(*/)725
+2271 y(int)g(resolution_scale;)139 b(/*)47 b(Scaling)f(factor)g(for)h
+(ESC\(D)f(command)g(*/)725 2374 y(int)h(max_black_resolution;)42
+b(/*)48 b(Above)e(this)h(resolution,)d(we)j(*/)916 2478
+y(/*)h(must)e(use)h(color)f(parameters)f(*/)916 2582
+y(/*)j(rather)e(than)g(\(faster\))g(black)g(*/)916 2686
+y(/*)i(only)e(parameters*/)725 2790 y(int)h(max_hres;)725
+2893 y(int)g(max_vres;)725 2997 y(int)g(min_hres;)725
+3101 y(int)g(min_vres;)630 3205 y(/***********************)o(****)o
 (****)o(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(****)o
-(***)o(****)o(***)o(***/)725 2997 y(int)g(max_paper_width;)d(/*)j
-(Maximum)f(paper)g(width,)g(in)h(points)f(*/)725 3101
+(***)o(****)o(***)o(***/)725 3308 y(int)g(max_paper_width;)d(/*)j
+(Maximum)f(paper)g(width,)g(in)h(points)f(*/)725 3412
 y(int)h(max_paper_height;)c(/*)48 b(Maximum)d(paper)i(height,)f(in)h
-(points)f(*/)725 3205 y(int)h(min_paper_width;)d(/*)j(Maximum)f(paper)g
-(width,)g(in)h(points)f(*/)725 3308 y(int)h(min_paper_height;)c(/*)48
-b(Maximum)d(paper)i(height,)f(in)h(points)f(*/)630 3412
-y(/*)h(Softweave:)e(*/)725 3516 y(int)i(left_margin;)e(/*)i(Left)g
-(margin,)e(points)i(*/)725 3620 y(int)g(right_margin;)e(/*)i(Right)f
-(margin,)g(points)g(*/)725 3724 y(int)h(top_margin;)e(/*)i(Absolute)f
-(top)h(margin,)f(points)g(*/)725 3827 y(int)h(bottom_margin;)d(/*)j
-(Absolute)f(bottom)g(margin,)g(points)g(*/)630 3931 y(/*)h
-("Micro"weave:)d(*/)725 4035 y(int)j(m_left_margin;)d(/*)j(Left)g
-(margin,)f(points)g(*/)725 4139 y(int)h(m_right_margin;)d(/*)j(Right)g
-(margin,)e(points)h(*/)725 4242 y(int)h(m_top_margin;)e(/*)i(Absolute)e
-(top)i(margin,)f(points)g(*/)725 4346 y(int)h(m_bottom_margin;)d(/*)j
-(Absolute)e(bottom)i(margin,)e(points)h(*/)630 4450 y
-(/***********************)o(****)o(****)o(***)o(****)o(****)o(***)o
-(****)o(****)o(***)o(****)o(****)o(***)o(****)o(***)o(***/)725
-4554 y(int)h(extra_feed;)e(/*)i(Extra)g(distance)e(the)i(paper)f(can)h
-(be)h(spaced)e(*/)630 4658 y(/*)h(beyond)f(the)h(bottom)f(margin,)g(in)
-h(1/360".)f(*/)630 4761 y(/*)h(\(maximum)f(useful)g(value)g(is)h(*/)630
-4865 y(/*)g(nozzles)f(*)h(nozzle_separation\))c(*/)725
-4969 y(int)k(separation_rows;)d(/*)j(Some)g(printers)e(require)h(funky)
-g(spacing)g(*/)630 5073 y(/*)h(arguments)e(in)j(microweave)d(mode.)h
-(*/)725 5176 y(int)h(pseudo_separation_rows;/*)41 b(Some)47
-b(printers)e(require)h(funky)h(*/)630 5280 y(/*)g(spacing)f(arguments)f
-(in)i(softweave)f(mode)g(*/)p eop
+(points)f(*/)725 3516 y(int)h(min_paper_width;)d(/*)j(Maximum)f(paper)g
+(width,)g(in)h(points)f(*/)725 3620 y(int)h(min_paper_height;)c(/*)48
+b(Maximum)d(paper)i(height,)f(in)h(points)f(*/)630 3724
+y(/*)h(Printer)f(interleave:)f(*/)725 3827 y(int)i(m_left_margin;)d(/*)
+j(Left)g(margin,)f(points)g(*/)725 3931 y(int)h(m_right_margin;)d(/*)j
+(Right)g(margin,)e(points)h(*/)725 4035 y(int)h(m_top_margin;)e(/*)i
+(Absolute)e(top)i(margin,)f(points)g(*/)725 4139 y(int)h
+(m_bottom_margin;)d(/*)j(Absolute)e(bottom)i(margin,)e(points)h(*/)630
+4242 y(/*)h(ROLL)g(FEED:)f(*/)630 4346 y(/*)h(Softweave:)e(*/)725
+4450 y(int)i(roll_left_margin;)c(/*)48 b(Left)e(margin,)g(points)g(*/)
+725 4554 y(int)h(roll_right_margin;)c(/*)k(Right)g(margin,)f(points)g
+(*/)725 4658 y(int)h(roll_top_margin;)d(/*)j(Absolute)e(top)i(margin,)f
+(points)g(*/)725 4761 y(int)h(roll_bottom_margin;)c(/*)k(Absolute)f
+(bottom)g(margin,)g(points)g(*/)630 4865 y(/*)h(Printer)f(interleave:)f
+(*/)725 4969 y(int)i(m_roll_left_margin;)c(/*)k(Left)g(margin,)f
+(points)g(*/)725 5073 y(int)h(m_roll_right_margin;)c(/*)k(Right)f
+(margin,)g(points)g(*/)725 5176 y(int)h(m_roll_top_margin;)c(/*)k
+(Absolute)f(top)h(margin,)f(points)g(*/)725 5280 y(int)h
+(m_roll_bottom_margin;)42 b(/*)48 b(Absolute)d(bottom)h(margin,)g
+(points)g(*/)p eop
 %%Page: 77 82
 77 81 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(77)725 403 y Fr(int)525 b(zero_margin_offset;)138
-b(/*)47 b(Offset)f(to)h(use)g(to)g(achieve)f(*/)916 506
-y(/*)i(zero-margin)c(printing)i(*/)630 610 y(/***********************)o
-(****)o(****)o(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o
-(****)o(***)o(****)o(***)o(***/)678 714 y(/*)h(The)g(stylus)f(480)h
-(and)g(580)g(have)f(an)h(unusual)f(arrangement)f(of)725
-818 y(color)i(jets)f(that)h(need)g(special)f(handling)f(*/)725
-922 y(const)i(int)g(*head_offset;)725 1025 y(int)g
-(initial_vertical_offset;)725 1129 y(int)g(black_initial_vertical_off)o
-(set)o(;)630 1337 y(/***********************)o(****)o(****)o(***)o
-(****)o(****)o(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o
-(***)o(***/)725 1440 y(const)g(int)g(*dot_sizes;)d(/*)k(Vector)e(of)h
-(dot)g(sizes)f(for)h(resolutions)e(*/)725 1544 y(const)i(double)f
-(*densities;)f(/*)i(List)f(of)i(densities)d(for)i(each)f(printer)g(*/)
-725 1648 y(const)h(escp2_variable_inklist_t)41 b(*inks;)46
-b(/*)h(Choices)f(of)h(inks)g(for)g(this)f(printer)g(*/)630
-1752 y(/***********************)o(****)o(****)o(***)o(****)o(****)o
+(ter)2112 b(77)630 299 y Fr(/***********************)o(****)o(****)o
+(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(****)o(***)o
+(****)o(***)o(***/)725 403 y(int)47 b(extra_feed;)e(/*)i(Extra)g
+(distance)e(the)i(paper)f(can)h(be)h(spaced)e(*/)630
+506 y(/*)h(beyond)f(the)h(bottom)f(margin,)g(in)h(1/360".)f(*/)630
+610 y(/*)h(\(maximum)f(useful)g(value)g(is)h(*/)630 714
+y(/*)g(nozzles)f(*)h(nozzle_separation\))c(*/)725 818
+y(int)k(separation_rows;)d(/*)j(Some)g(printers)e(require)h(funky)g
+(spacing)g(*/)630 922 y(/*)h(arguments)e(in)j(interleave)d(mode.)h(*/)
+725 1025 y(int)h(pseudo_separation_rows;/*)41 b(Some)47
+b(printers)e(require)h(funky)h(*/)630 1129 y(/*)g(spacing)f(arguments)f
+(in)i(softweave)f(mode)g(*/)725 1337 y(int)525 b(zero_margin_offset;)
+138 b(/*)47 b(Offset)f(to)h(use)g(to)g(achieve)f(*/)916
+1440 y(/*)i(zero-margin)c(printing)i(*/)725 1544 y(int)h
+(initial_vertical_offset;)725 1648 y(int)g(black_initial_vertical_off)o
+(set)o(;)725 1752 y(int)g(extra_720dpi_separation;)630
+1959 y(/***********************)o(****)o(****)o(***)o(****)o(****)o
 (***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(***)o(***/)725
-1856 y(const)h(double)f(*lum_adjustment;)725 1959 y(const)h(double)f
-(*hue_adjustment;)725 2063 y(const)h(double)f(*sat_adjustment;)725
-2167 y(const)h(paperlist_t)e(*paperlist;)630 2271 y(})i
-(escp2_printer_t;)275 2454 y Fu(The)c(prin)m(ter)g(de\014nition)f(blo)s
-(c)m(k)i(is)f(divided)f(in)m(to)i(8)h(sections.)82 b(The)44
-b(\014rst)g(section)g(is)f(a)i(set)g(of)150 2563 y(miscellaneous)33
-b(prin)m(ter)g(options.)53 b(These)34 b(are)h(describ)s(ed)e(in)g(the)i
-(co)s(de,)h(and)e(will)e(not)j(b)s(e)f(discussed)150
-2673 y(further)29 b(here.)275 2807 y(The)21 b(second)i(section)f
-(describ)s(es)f(the)h(n)m(um)m(b)s(er)f(of)i(nozzles)f(and)g(the)h
-(separation)f(b)s(et)m(w)m(een)h(nozzles)f(in)150 2916
-y(base)28 b(units.)38 b(The)28 b(base)g(unit)e(is)h(1/360)p
+2063 y(const)g(int)g(*dot_sizes;)d(/*)k(Vector)e(of)h(dot)g(sizes)f
+(for)h(resolutions)e(*/)725 2167 y(const)i(double)f(*densities;)f(/*)i
+(List)f(of)i(densities)d(for)i(each)f(printer)g(*/)725
+2271 y(const)h(escp2_variable_inklist_t)41 b(*inks;)46
+b(/*)h(Choices)f(of)h(inks)g(for)g(this)f(printer)g(*/)630
+2374 y(/***********************)o(****)o(****)o(***)o(****)o(****)o
+(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(***)o(***/)725
+2478 y(const)h(paperlist_t)e(*paperlist;)725 2582 y(const)i(res_t)f
+(*reslist;)725 2686 y(const)h(inklist_t)e(*inklist;)630
+2790 y(/***********************)o(****)o(****)o(***)o(****)o(****)o
+(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(***)o(***/)725
+2893 y(const)i(int)g(*bits;)725 2997 y(const)g(int)g
+(*base_resolutions;)725 3101 y(const)g(input_slot_list_t)c
+(*input_slots;)630 3205 y(/***********************)o(****)o(****)o(***)
+o(****)o(****)o(***)o(****)o(****)o(***)o(****)o(****)o(***)o(****)o
+(***)o(***/)725 3308 y(const)k(init_sequence_t)c(*preinit_sequence;)725
+3412 y(const)k(init_sequence_t)c(*postinit_remote_sequence;)630
+3516 y(})k(escp2_printer_t;)275 3756 y Fu(The)c(prin)m(ter)g
+(de\014nition)f(blo)s(c)m(k)i(is)f(divided)f(in)m(to)i(8)h(sections.)82
+b(The)44 b(\014rst)g(section)g(is)f(a)i(set)g(of)150
+3866 y(miscellaneous)33 b(prin)m(ter)g(options.)53 b(These)34
+b(are)h(describ)s(ed)e(in)g(the)i(co)s(de,)h(and)e(will)e(not)j(b)s(e)f
+(discussed)150 3976 y(further)29 b(here.)275 4138 y(The)21
+b(second)i(section)f(describ)s(es)f(the)h(n)m(um)m(b)s(er)f(of)i
+(nozzles)f(and)g(the)h(separation)f(b)s(et)m(w)m(een)h(nozzles)f(in)150
+4248 y(base)28 b(units.)38 b(The)28 b(base)g(unit)e(is)h(1/360)p
 Fr(")j Fu(for)e(all)f(curren)m(tly)g(supp)s(orted)f(prin)m(ters,)h(but)
-g(future)g(prin)m(ters)150 3026 y(ma)m(y)k(supp)s(ort)e(a)h(smaller)f
-(base)i(unit.)275 3160 y(Man)m(y)k(prin)m(ters)e(ha)m(v)m(e)i(more)g
+g(future)g(prin)m(ters)150 4357 y(ma)m(y)k(supp)s(ort)e(a)h(smaller)f
+(base)i(unit.)275 4520 y(Man)m(y)k(prin)m(ters)e(ha)m(v)m(e)i(more)g
 (blac)m(k)f(nozzles)h(than)f(nozzles)h(of)f(other)h(colors,)g(and)f
-(when)g(used)f(in)150 3270 y(blac)m(k)j(and)g(white)f(mo)s(de,)j(it's)e
+(when)g(used)f(in)150 4629 y(blac)m(k)j(and)g(white)f(mo)s(de,)j(it's)e
 (p)s(ossible)e(to)j(use)f(these)g(extra)h(nozzles,)h(whic)m(h)d(sp)s
-(eeds)h(up)f(prin)m(ting.)150 3379 y(As)i(an)f(example,)j(a)e(prin)m
+(eeds)h(up)f(prin)m(ting.)150 4739 y(As)i(an)f(example,)j(a)e(prin)m
 (ter)e(that)i(is)f(sp)s(eci\014ed)f(to)j(ha)m(v)m(e)g(48)f(cy)m(an,)i
-(magen)m(ta,)i(and)36 b(y)m(ello)m(w)g(nozzles,)150 3489
+(magen)m(ta,)i(and)36 b(y)m(ello)m(w)g(nozzles,)150 4849
 y(and)f(144)h(blac)m(k)g(nozzles,)h(can)e(use)g(all)g(144)h(blac)m(k)g
 (nozzles)f(when)f(prin)m(ting)g(blac)m(k)h(ink)f(only)-8
-b(.)55 b(When)150 3598 y(prin)m(ting)28 b(in)h(color,)i(only)e(48)j
+b(.)55 b(When)150 4958 y(prin)m(ting)28 b(in)h(color,)i(only)e(48)j
 (nozzles)e(of)h(eac)m(h)g(color)g(\(including)c(blac)m(k\))k(can)g(b)s
-(e)e(used.)275 3732 y(Most)45 b(prin)m(ters)e(can)h(prin)m(t)f(using)g
+(e)e(used.)275 5121 y(Most)45 b(prin)m(ters)e(can)h(prin)m(t)f(using)g
 (either)h(the)g(n)m(um)m(b)s(er)f(of)h(nozzles)h(a)m(v)-5
-b(ailable)44 b(or)g(an)m(y)g(smaller)150 3842 y(n)m(um)m(b)s(er.)39
+b(ailable)44 b(or)g(an)m(y)g(smaller)150 5230 y(n)m(um)m(b)s(er.)39
 b(Some)29 b(prin)m(ters)e(require)h(that)h(all)f(of)h(the)g(nozzles)h
 (b)s(e)e(used.)39 b(Those)29 b(prin)m(ters)e(will)g(set)i
-Fr(min_)150 3952 y(nozzles)22 b Fu(and/or)i Fr(min_black_nozzles)19
+Fr(min_)150 5340 y(nozzles)22 b Fu(and/or)i Fr(min_black_nozzles)19
 b Fu(to)25 b(the)f(same)g(v)-5 b(alue)23 b(as)i Fr(nozzles)c
-Fu(and/or)j Fr(black_nozzles)p Fu(.)275 4086 y(The)31
-b(third)g(section)h(de\014nes)f(basic)h(units)e(of)j(measure)f(for)g
-(the)g(prin)m(ter,)g(including)c(the)33 b(standard)150
-4195 y(separation)24 b(b)s(et)m(w)m(een)g(dots,)h(the)f(base)g(nozzle)g
-(separation,)h(and)e(the)h(minim)m(um)d(and)i(maxim)m(um)g(prin)m(t-)
-150 4305 y(ing)28 b(resolutions)f(the)h(prin)m(ter)g(supp)s(orts.)38
-b(Most)29 b(of)g(these)g(are)g(fairly)e(self-explanatory)-8
-b(,)29 b(but)f(some)h(are)150 4414 y(not)i(ob)m(vious.)275
-4548 y(Most)44 b(Epson)e(prin)m(ters,)j(other)f(than)f(the)g(high-end)f
-(St)m(ylus)g(Pro)h(mo)s(dels,)i(cannot)f(prin)m(t)e(dots)150
-4658 y(spaced)30 b(more)g(closely)g(than)g(1/360)p Fr(")i
-Fu(or)e(1/720)p Fr(")i Fu(apart)e(\(this)g(is)f(the)h(setting)g(for)g
-Fr(xres)p Fu(.)40 b(This)28 b(is)h(true)150 4768 y(ev)m(en)c(for)g
-(prin)m(ters)e(that)i(supp)s(ort)e(resolutions)g(of)i(1440)i(or)d(2880)
-j(DPI.)e(In)f(these)h(cases,)i(the)e(data)g(m)m(ust)150
-4877 y(b)s(e)33 b(prin)m(ted)f(in)g(2,)j(4,)g(or)f(8)g(passes.)50
-b(While)33 b(the)g(prin)m(ter)g(can)g(p)s(osition)f(the)i(head)f(to)i
-(a)f(resolution)e(of)150 4987 y(1/1440)p Fr(")h Fu(or)d(1/2880)p
-Fr(")p Fu(,)j(the)e(head)f(cannot)h(dep)s(osit)e(ink)g(that)i(frequen)m
-(tly)-8 b(.)275 5121 y(Some)25 b(prin)m(ters)e(can)j(only)e(prin)m(t)f
-(in)h(their)g(v)m(ery)i(b)s(est)e(qualit)m(y)h(\(using)f(the)h
-(smallest)f(dots)h(a)m(v)-5 b(ailable\))150 5230 y(prin)m(ting)29
-b(at)k(a)f(lo)m(w)m(er)g(resolution.)43 b(F)-8 b(or)32
-b(example,)g(the)g(St)m(ylus)e(Photo)j(EX)e(can)h(normally)e(prin)m(t)g
-(with)150 5340 y(a)f(dot)h(spacing)e(of)h(1/720)p Fr(")p
-Fu(.)42 b(The)29 b(smallest)f(dot)h(size)g(cannot)h(b)s(e)e(prin)m(ted)
-g(with)f(a)j(dot)f(spacing)f(of)i(less)p eop
+Fu(and/or)j Fr(black_nozzles)p Fu(.)p eop
 %%Page: 78 83
 78 82 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(78)150 299 y(than)32 b(1/360)p Fr(")p Fu(,)j(ho)m(w)m(ev)m
-(er.)47 b(In)32 b(this)f(case,)j(w)m(e)e(use)g Fr(enhanced_xres)d
-Fu(to)k(sp)s(ecify)e(the)h(resolution)f(to)i(b)s(e)150
-408 y(used)e(in)g(this)h(enhanced)g(mo)s(de,)g(and)g
+(ter)2112 b(78)275 299 y(The)31 b(third)g(section)h(de\014nes)f(basic)h
+(units)e(of)j(measure)f(for)g(the)g(prin)m(ter,)g(including)c(the)33
+b(standard)150 408 y(separation)24 b(b)s(et)m(w)m(een)g(dots,)h(the)f
+(base)g(nozzle)g(separation,)h(and)e(the)h(minim)m(um)d(and)i(maxim)m
+(um)g(prin)m(t-)150 518 y(ing)28 b(resolutions)f(the)h(prin)m(ter)g
+(supp)s(orts.)38 b(Most)29 b(of)g(these)g(are)g(fairly)e
+(self-explanatory)-8 b(,)29 b(but)f(some)h(are)150 628
+y(not)i(ob)m(vious.)275 774 y(Most)44 b(Epson)e(prin)m(ters,)j(other)f
+(than)f(the)g(high-end)f(St)m(ylus)g(Pro)h(mo)s(dels,)i(cannot)f(prin)m
+(t)e(dots)150 883 y(spaced)30 b(more)g(closely)g(than)g(1/360)p
+Fr(")i Fu(or)e(1/720)p Fr(")i Fu(apart)e(\(this)g(is)f(the)h(setting)g
+(for)g Fr(xres)p Fu(.)40 b(This)28 b(is)h(true)150 993
+y(ev)m(en)c(for)g(prin)m(ters)e(that)i(supp)s(ort)e(resolutions)g(of)i
+(1440)i(or)d(2880)j(DPI.)e(In)f(these)h(cases,)i(the)e(data)g(m)m(ust)
+150 1103 y(b)s(e)33 b(prin)m(ted)f(in)g(2,)j(4,)g(or)f(8)g(passes.)50
+b(While)33 b(the)g(prin)m(ter)g(can)g(p)s(osition)f(the)i(head)f(to)i
+(a)f(resolution)e(of)150 1212 y(1/1440)p Fr(")h Fu(or)d(1/2880)p
+Fr(")p Fu(,)j(the)e(head)f(cannot)h(dep)s(osit)e(ink)g(that)i(frequen)m
+(tly)-8 b(.)275 1358 y(Some)25 b(prin)m(ters)e(can)j(only)e(prin)m(t)f
+(in)h(their)g(v)m(ery)i(b)s(est)e(qualit)m(y)h(\(using)f(the)h
+(smallest)f(dots)h(a)m(v)-5 b(ailable\))150 1468 y(prin)m(ting)29
+b(at)k(a)f(lo)m(w)m(er)g(resolution.)43 b(F)-8 b(or)32
+b(example,)g(the)g(St)m(ylus)e(Photo)j(EX)e(can)h(normally)e(prin)m(t)g
+(with)150 1577 y(a)f(dot)h(spacing)e(of)h(1/720)p Fr(")p
+Fu(.)42 b(The)29 b(smallest)f(dot)h(size)g(cannot)h(b)s(e)e(prin)m(ted)
+g(with)f(a)j(dot)f(spacing)f(of)i(less)150 1687 y(than)i(1/360)p
+Fr(")p Fu(,)j(ho)m(w)m(ev)m(er.)47 b(In)32 b(this)f(case,)j(w)m(e)e
+(use)g Fr(enhanced_xres)d Fu(to)k(sp)s(ecify)e(the)h(resolution)f(to)i
+(b)s(e)150 1797 y(used)e(in)g(this)h(enhanced)g(mo)s(de,)g(and)g
 Fr(enhanced_resolution)27 b Fu(to)33 b(sp)s(ecify)e(the)h(prin)m(ting)e
-(resolution)150 518 y(ab)s(o)m(v)m(e)i(whic)m(h)d(w)m(e)i(use)f(the)g
-Fr(enhanced_xres)p Fu(.)275 661 y(The)22 b Fr(resolution_scale)c
+(resolution)150 1906 y(ab)s(o)m(v)m(e)i(whic)m(h)d(w)m(e)i(use)f(the)g
+Fr(enhanced_xres)p Fu(.)275 2052 y(The)22 b Fr(resolution_scale)c
 Fu(command)k(is)g(used)g(to)h(sp)s(ecify)f(scaling)f(factors)j(for)e
-(the)h(dot)g(separation)150 770 y(on)30 b(new)m(er)h(prin)m(ters.)39
+(the)h(dot)g(separation)150 2162 y(on)30 b(new)m(er)h(prin)m(ters.)39
 b(It)30 b(should)f(alw)m(a)m(ys)i(b)s(e)e(14400)k(with)c(curren)m(t)h
-(prin)m(ters.)275 913 y(The)i(fourth)g(section)h(sp)s(eci\014es)f(the)h
-(minim)m(um)d(and)j(maxim)m(um)f(pap)s(er)g(sizes,)h(and)g(the)g
-(margins.)150 1022 y(Some)f(prin)m(ters)f(allo)m(w)g(use)h(of)h(narro)m
+(prin)m(ters.)275 2308 y(The)i(fourth)g(section)h(sp)s(eci\014es)f(the)
+h(minim)m(um)d(and)j(maxim)m(um)f(pap)s(er)g(sizes,)h(and)g(the)g
+(margins.)150 2418 y(Some)f(prin)m(ters)f(allo)m(w)g(use)h(of)h(narro)m
 (w)m(er)f(margins)f(when)g(soft)m(w)m(ea)m(v)m(e)k(is)c(used;)i(b)s
-(oth)e(sets)i(of)f(margins)150 1132 y(are)f(sp)s(eci\014ed.)275
-1274 y(There)41 b(is)f(a)i(con)m(v)m(enien)m(t)h(`)p
+(oth)e(sets)i(of)f(margins)150 2527 y(are)f(sp)s(eci\014ed.)275
+2673 y(There)41 b(is)f(a)i(con)m(v)m(enien)m(t)h(`)p
 Fr(INCH)p Fu(')e(macro)h(de\014ned)e(to)i(mak)m(e)h(sp)s(eci\014cation)
-d(of)i(the)g Fr(max_paper_)150 1384 y(width)29 b Fu(and)h
+d(of)i(the)g Fr(max_paper_)150 2783 y(width)29 b Fu(and)h
 Fr(max_paper_height)c Fu(more)31 b(legible.)39 b(It)31
 b(m)m(ultiplies)c(72)32 b(b)m(y)e(the)h(pro)m(vided)e(expression)g(to)
-150 1493 y(get)j(the)e(appropriate)g(n)m(um)m(b)s(er)f(of)i(p)s(oin)m
+150 2892 y(get)j(the)e(appropriate)g(n)m(um)m(b)s(er)f(of)i(p)s(oin)m
 (ts.)40 b(F)-8 b(or)32 b(example,)e(to)i(sp)s(ecify)d(8.5)p
 Fr(")p Fu(,)j(`)p Fr(INCH\(17/2\))p Fu(')c(expands)150
-1603 y(to)j(`)p Fr(\(72)f(*)g(17/2\))p Fu(',)f(whic)m(h)g(is)h(ev)-5
+3002 y(to)j(`)p Fr(\(72)f(*)g(17/2\))p Fu(',)f(whic)m(h)g(is)h(ev)-5
 b(aluated)30 b(left)g(to)i(righ)m(t,)e(and)g(hence)g(generates)i(the)e
-(correct)i(v)-5 b(alue.)275 1745 y(The)21 b(\014fth)f(section)i(sp)s
+(correct)i(v)-5 b(alue.)275 3148 y(The)21 b(\014fth)f(section)i(sp)s
 (eci\014es)e(some)i(miscellaneous)e(v)-5 b(alues)21 b(that)h(are)g
-(required)d(for)j(certain)f(prin)m(ters.)150 1855 y(F)-8
+(required)d(for)j(certain)f(prin)m(ters.)150 3258 y(F)-8
 b(or)28 b(most)f(prin)m(ters,)f(the)h(correct)h(v)-5
 b(alues)26 b(are)h(1)g(for)g Fr(separation_rows)22 b
 Fu(and)k(0)i(for)e(the)h(others.)40 b(V)-8 b(ery)g(,)150
-1965 y(v)m(ery)36 b(few)f(prin)m(ters)e(require)h(\(or)i(allo)m(w\))f
+3367 y(v)m(ery)36 b(few)f(prin)m(ters)e(require)h(\(or)i(allo)m(w\))f
 Fr(separation_rows)c Fu(to)36 b(b)s(e)f(an)m(ything)f(but)h(1)g(and)g
-Fr(pseudo_)150 2074 y(separation_rows)28 b Fu(other)33
+Fr(pseudo_)150 3477 y(separation_rows)28 b Fu(other)33
 b(than)f(zero.)47 b(The)32 b(St)m(ylus)f(Color)h(1520,)i(St)m(ylus)d
-(Color)h(800,)i(St)m(ylus)e(Color)150 2184 y(850,)g(and)e(\(strangely)h
+(Color)h(800,)i(St)m(ylus)e(Color)150 3587 y(850,)g(and)e(\(strangely)h
 (enough)g(to)g(m)m(y)g(mind,)e(since)h(it's)g(a)i(new)e(prin)m(ter\))f
-(St)m(ylus)h(Color)g(660)i(seem)f(to)150 2293 y(b)s(e)f(the)g(only)g
-(exceptions.)275 2436 y(The)43 b Fr(zero_margin_offset)c
+(St)m(ylus)h(Color)g(660)i(seem)f(to)150 3696 y(b)s(e)f(the)g(only)g
+(exceptions.)275 3842 y(The)43 b Fr(zero_margin_offset)c
 Fu(is)k(used)h(to)g(sp)s(ecify)f(an)h(additional)e(negativ)m(e)j
-(horizon)m(tal)f(o\013set)150 2545 y(required)36 b(to)i(prin)m(t)e(to)j
+(horizon)m(tal)f(o\013set)150 3952 y(required)36 b(to)i(prin)m(t)e(to)j
 (the)e(edges)h(of)g(the)g(pap)s(er)e(on)i(new)m(er)f(St)m(ylus)g(Photo)
-h(prin)m(ters.)61 b(These)37 b(m)m(ust)150 2655 y(b)s(e)30
+h(prin)m(ters.)61 b(These)37 b(m)m(ust)150 4061 y(b)s(e)30
 b(determined)f(empirically;)e(go)s(o)s(d)j(starting)g(v)-5
 b(alues)30 b(are)h(100)g(for)f(1440)j(DPI)d(and)g(50)h(for)f(2880)i
-(DPI)150 2765 y(prin)m(ters.)39 b(The)30 b(goal)h(is)e(to)j(prin)m(t)d
+(DPI)150 4171 y(prin)m(ters.)39 b(The)30 b(goal)h(is)e(to)j(prin)m(t)d
 (to)i(the)f(edge)h(of)g(the)f(page,)i(but)d(not)i(o)m(v)m(er)h(it.)275
-2907 y(The)22 b(sixth)g(section)h(sp)s(eci\014es)e(head)i(o\013sets)g
+4317 y(The)22 b(sixth)g(section)h(sp)s(eci\014es)e(head)i(o\013sets)g
 (for)g(prin)m(ters)e(that)j(do)f(not)g(ha)m(v)m(e)h(the)f(color)g(jets)
-g(aligned.)150 3017 y(Certain)28 b(prin)m(ters,)f(suc)m(h)i(as)f(the)h
+g(aligned.)150 4427 y(Certain)28 b(prin)m(ters,)f(suc)m(h)i(as)f(the)h
 (St)m(ylus)f(Color)f(480,)k(ha)m(v)m(e)f(an)e(un)m(usual)f(head)h
-(arrangemen)m(t)h(whereb)m(y)150 3126 y(instead)38 b(of)g(all)g(of)g
+(arrangemen)m(t)h(whereb)m(y)150 4536 y(instead)38 b(of)g(all)g(of)g
 (the)h(colors)f(b)s(eing)f(aligned)g(v)m(ertically)-8
 b(,)41 b(the)d(nozzles)h(are)g(con\014gured)e(in)g(groups.)150
-3236 y(These)26 b(prin)m(ters)e(are)i(easy)h(to)g(determine;)f(if)f
+4646 y(These)26 b(prin)m(ters)e(are)i(easy)h(to)g(determine;)f(if)f
 (the)h(normal)f(head)h(o\013set)h(of)f(zero)h(for)e(eac)m(h)i(color)g
-(is)d(used,)150 3345 y(the)29 b(prin)m(ting)e(will)g(b)s(e)h(v)m
+(is)d(used,)150 4755 y(the)29 b(prin)m(ting)e(will)g(b)s(e)h(v)m
 (ertically)h(out)g(of)h(alignmen)m(t.)39 b(Most)31 b(of)e(these)h(prin)
-m(ters)d(require)h(sp)s(eci\014cation)150 3455 y(of)g(a)h(negativ)m(e)g
+m(ters)d(require)h(sp)s(eci\014cation)150 4865 y(of)g(a)h(negativ)m(e)g
 (o\013set)g(for)f(prin)m(ting)e(to)i(the)h(top)f(edge)h(of)f(the)g(pap)
 s(er;)g(t)m(ypically)f(these)h(prin)m(ters)f(do)h(not)150
-3565 y(require)h(suc)m(h)h(an)g(o\013set)i(when)d(prin)m(ting)f(blac)m
-(k)j(only)-8 b(.)275 3707 y(The)38 b(sev)m(en)m(th)h(section)g(sp)s
+4975 y(require)h(suc)m(h)h(an)g(o\013set)i(when)d(prin)m(ting)f(blac)m
+(k)j(only)-8 b(.)275 5121 y(The)38 b(sev)m(en)m(th)h(section)g(sp)s
 (eci\014es)f(the)g(most)i(di\016cult)c(v)-5 b(alues)38
-b(to)i(tune,)g(the)f(dot)g(sizes,)i(prin)m(ting)150 3817
+b(to)i(tune,)g(the)f(dot)g(sizes,)i(prin)m(ting)150 5230
 y(densities,)28 b(and)f(ink)h(v)-5 b(alues)28 b(\(for)g(v)-5
 b(ariable)28 b(dot)h(size)f(enabled)g(prin)m(ters\).)39
-b(These)28 b(will)e(b)s(e)i(describ)s(ed)e(in)150 3926
-y(detail)k(b)s(elo)m(w.)275 4069 y(The)42 b(last)g(section)h(sp)s
-(eci\014es)f(luminosit)m(y)-8 b(,)44 b(h)m(ue,)i(and)c(saturation)g
-(adjustmen)m(t)h(v)m(ectors)h(for)f(the)150 4178 y(prin)m(ter,)35
-b(and)f(the)h(pap)s(er)f(de\014nitions.)51 b(These)35
-b(are)g(used)f(to)i(adjust)e(the)h(color)g(in)f(Photograph)h(and)150
-4288 y(Solid)h(Colors)h(output)h(mo)s(des.)64 b(These)37
-b(are)i(eac)m(h)g(v)m(ectors)h(of)e(48)h(\(actually)f(49,)j(as)e(the)f
-(\014rst)f(v)-5 b(alue)150 4398 y(m)m(ust)35 b(b)s(e)g(duplicated\))f
-(doubles)g(that)i(remap)f(the)h(luminosit)m(y)-8 b(,)35
-b(h)m(ue,)i(and)e(saturation)g(resp)s(ectiv)m(ely)-8
-b(.)150 4507 y(The)32 b(h)m(ue)h(is)e(calculated,)j(and)e(the)g(v)-5
-b(alue)32 b(used)g(to)i(in)m(terp)s(olate)e(b)s(et)m(w)m(een)h(the)g(t)
-m(w)m(o)h(closest)f(p)s(oin)m(ts)e(in)150 4617 y(eac)m(h)h(v)m(ector.)
-275 4759 y(The)37 b(pap)s(er)h(de\014nitions)e(is)h(a)i(set)g(of)g(pap)
-s(er)e(de\014nitions.)63 b(The)38 b(pap)s(er)f(de\014nition)f(con)m
-(tains)j(the)150 4869 y(name)30 b(of)g(the)g(pap)s(er)e(t)m(yp)s(e,)j
-(sp)s(ecial)d(settings)i(that)g(are)g(required)e(for)i(prin)m(ters)e
-(to)j(pro)s(cess)e(the)h(pap)s(er)150 4978 y(correctly)-8
-b(,)31 b(and)f(a)h(set)g(of)f(adjustmen)m(t)h(v)-5 b(alues.)40
-b(These)30 b(are)h(not)f(curren)m(tly)g(discussed)e(here.)275
-5121 y(The)23 b(lists)f(of)j(dot)f(sizes)g(and)f(densities)f(con)m
-(tain)j(v)-5 b(alues)23 b(for)h(13)g(prin)m(ting)e(mo)s(des:)37
-b(120/180)27 b(DPI)d(us-)150 5230 y(ing)g(prin)m(ter)f(w)m(ea)m(ving)j
-(\(single)d(ro)m(w;)k(incorrectly)d(referred)g(to)i(as)f(\\micro)m(w)m
-(ea)m(v)m(e"\))j(and)c(\\soft")i(w)m(ea)m(ving)150 5340
-y(\(the)h(driv)m(er)d(determines)h(the)h(exact)i(pattern)e(of)g(dot)g
-(la)m(y)m(out\),)j(360)e(DPI)f(micro)m(w)m(ea)m(v)m(e)i(and)e(soft)m(w)
-m(ea)m(v)m(e,)p eop
+b(These)28 b(will)e(b)s(e)i(describ)s(ed)e(in)150 5340
+y(detail)k(b)s(elo)m(w.)p eop
 %%Page: 79 84
 79 83 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(79)150 299 y(720x360)32 b(DPI)d(micro)m(w)m(ea)m(v)m(e)i
-(and)e(soft)m(w)m(ea)m(v)m(e,)k(720)d(DPI)g(micro)m(w)m(ea)m(v)m(e)h
-(and)e(soft)m(w)m(ea)m(v)m(e,)j(1440x720)h(mi-)150 408
-y(cro)m(w)m(ea)m(v)m(e)25 b(and)c(soft)m(w)m(ea)m(v)m(e,)27
-b(2880x720)d(micro)m(w)m(ea)m(v)m(e)g(and)d(soft)m(w)m(ea)m(v)m(e,)27
-b(and)21 b(2880x1440)k(soft)m(w)m(ea)m(v)m(e)g(only)-8
-b(.)150 518 y(Prin)m(ter)29 b(w)m(ea)m(ving)i(is)f(referred)f(to)i(as)g
-(\\micro)m(w)m(ea)m(v)m(e")j(for)c(historical)e(reasons.)275
-675 y(F)-8 b(or)29 b(the)g(dot)f(sizes,)h(the)g(v)-5
-b(alue)28 b(for)g(eac)m(h)i(elemen)m(t)f(in)f(the)g(v)m(ector)i
-(selects)f(the)g(dot)g(size)f(to)i(b)s(e)e(used)150 784
+(ter)2112 b(79)275 299 y(The)42 b(last)g(section)h(sp)s(eci\014es)f
+(luminosit)m(y)-8 b(,)44 b(h)m(ue,)i(and)c(saturation)g(adjustmen)m(t)h
+(v)m(ectors)h(for)f(the)150 408 y(prin)m(ter,)35 b(and)f(the)h(pap)s
+(er)f(de\014nitions.)51 b(These)35 b(are)g(used)f(to)i(adjust)e(the)h
+(color)g(in)f(Photograph)h(and)150 518 y(Solid)h(Colors)h(output)h(mo)s
+(des.)64 b(These)37 b(are)i(eac)m(h)g(v)m(ectors)h(of)e(48)h
+(\(actually)f(49,)j(as)e(the)f(\014rst)f(v)-5 b(alue)150
+628 y(m)m(ust)35 b(b)s(e)g(duplicated\))f(doubles)g(that)i(remap)f(the)
+h(luminosit)m(y)-8 b(,)35 b(h)m(ue,)i(and)e(saturation)g(resp)s(ectiv)m
+(ely)-8 b(.)150 737 y(The)32 b(h)m(ue)h(is)e(calculated,)j(and)e(the)g
+(v)-5 b(alue)32 b(used)g(to)i(in)m(terp)s(olate)e(b)s(et)m(w)m(een)h
+(the)g(t)m(w)m(o)h(closest)f(p)s(oin)m(ts)e(in)150 847
+y(eac)m(h)h(v)m(ector.)275 984 y(The)37 b(pap)s(er)h(de\014nitions)e
+(is)h(a)i(set)g(of)g(pap)s(er)e(de\014nitions.)63 b(The)38
+b(pap)s(er)f(de\014nition)f(con)m(tains)j(the)150 1093
+y(name)30 b(of)g(the)g(pap)s(er)e(t)m(yp)s(e,)j(sp)s(ecial)d(settings)i
+(that)g(are)g(required)e(for)i(prin)m(ters)e(to)j(pro)s(cess)e(the)h
+(pap)s(er)150 1203 y(correctly)-8 b(,)31 b(and)f(a)h(set)g(of)f
+(adjustmen)m(t)h(v)-5 b(alues.)40 b(These)30 b(are)h(not)f(curren)m
+(tly)g(discussed)e(here.)275 1340 y(The)33 b(lists)g(of)h(dot)g(sizes)g
+(and)f(densities)f(con)m(tain)j(v)-5 b(alues)33 b(for)h(13)h(prin)m
+(ting)c(mo)s(des:)48 b(120/180)37 b(DPI)150 1450 y(using)22
+b(prin)m(ter)h(w)m(ea)m(ving)i(\(single)e(ro)m(w;)j(referred)d(to)i(as)
+f(\\in)m(terlea)m(v)m(e"\))i(and)e(\\soft")h(w)m(ea)m(ving)g(\(the)f
+(driv)m(er)150 1559 y(determines)39 b(the)h(exact)i(pattern)e(of)g(dot)
+h(la)m(y)m(out\),)i(360)f(DPI)e(in)m(terlea)m(v)m(e)h(and)e(soft)m(w)m
+(ea)m(v)m(e,)46 b(720x360)150 1669 y(DPI)36 b(in)m(terlea)m(v)m(e)g
+(and)f(soft)m(w)m(ea)m(v)m(e,)41 b(720)c(DPI)e(in)m(terlea)m(v)m(e)i
+(and)e(soft)m(w)m(ea)m(v)m(e,)40 b(1440x720)f(in)m(terlea)m(v)m(e)e
+(and)150 1778 y(soft)m(w)m(ea)m(v)m(e,)d(2880x720)f(in)m(terlea)m(v)m
+(e)f(and)d(soft)m(w)m(ea)m(v)m(e,)34 b(and)c(2880x1440)k(soft)m(w)m(ea)
+m(v)m(e)f(only)-8 b(.)275 1915 y(F)g(or)29 b(the)g(dot)f(sizes,)h(the)g
+(v)-5 b(alue)28 b(for)g(eac)m(h)i(elemen)m(t)f(in)f(the)g(v)m(ector)i
+(selects)f(the)g(dot)g(size)f(to)i(b)s(e)e(used)150 2025
 y(when)35 b(prin)m(ting)e(at)j(this)f(\(or)h(similar\))d(resolution.)55
 b(The)35 b(dot)h(sizes)f(are)h(determined)e(b)m(y)h(consulting)150
-894 y(the)h(programming)f(man)m(ual)h(for)g(the)h(prin)m(ter)d(and)i
+2134 y(the)h(programming)f(man)m(ual)h(for)g(the)h(prin)m(ter)d(and)i
 (exp)s(erimen)m(ting)f(as)h(describ)s(ed)e(b)s(elo)m(w.)58
-b(Curren)m(t)150 1003 y(Epson)25 b(prin)m(ters)f(alw)m(a)m(ys)j(use)e
+b(Curren)m(t)150 2244 y(Epson)25 b(prin)m(ters)f(alw)m(a)m(ys)j(use)e
 (dot)i(sizes)e(less)g(than)h(`)p Fr(16)p Fu(',)h(or)f(`)p
 Fr(0x10)p Fu(',)g(to)h(indicate)e(single)g(dot)h(size)f(\(eac)m(h)150
-1113 y(dot)33 b(is)f(represen)m(ted)g(b)m(y)h(1)g(bit,)g(and)f(it's)g
+2354 y(dot)33 b(is)f(represen)m(ted)g(b)m(y)h(1)g(bit,)g(and)f(it's)g
 (either)g(prin)m(ted)f(or)i(not\),)h(and)e(dot)h(sizes)g(of)f(`)p
-Fr(16)p Fu(')h(or)g(greater)150 1223 y(to)39 b(indicate)f(v)-5
+Fr(16)p Fu(')h(or)g(greater)150 2463 y(to)39 b(indicate)f(v)-5
 b(ariable)37 b(dot)i(size)g(\(eac)m(h)h(dot)f(is)f(represen)m(ted)g(b)m
 (y)h(2)g(bits,)g(and)g(it)f(can)h(either)f(b)s(e)g(not)150
-1332 y(prin)m(ted)28 b(or)i(tak)m(e)h(on)e(2)h(or)g(3)g(v)-5
+2573 y(prin)m(ted)28 b(or)i(tak)m(e)h(on)e(2)h(or)g(3)g(v)-5
 b(alues,)29 b(represen)m(ting)g(the)h(relativ)m(e)f(size)h(of)g(the)f
-(prin)m(ted)f(dot\).)41 b(V)-8 b(ariable)150 1442 y(dot)33
+(prin)m(ted)f(dot\).)41 b(V)-8 b(ariable)150 2682 y(dot)33
 b(sizes)g(p)s(ermit)e(the)i(use)f(of)h(v)m(ery)g(small)f(dots)g(\(whic)
 m(h)g(w)m(ould)g(b)s(e)g(to)s(o)h(small)f(to)h(\014ll)e(the)i(page)h
-(and)150 1551 y(pro)s(duce)d(solid)g(blac)m(k\))i(in)f(ligh)m(t)g
+(and)150 2792 y(pro)s(duce)d(solid)g(blac)m(k\))i(in)f(ligh)m(t)g
 (areas,)i(while)c(allo)m(wing)i(the)h(page)g(to)g(b)s(e)f(\014lled)f
-(with)g(larger)h(dots)h(in)150 1661 y(dark)m(er)d(areas.)275
-1817 y(Ev)m(en)j(single)f(dot)h(size)g(prin)m(ters)f(can)i(usually)d
+(with)g(larger)h(dots)h(in)150 2902 y(dark)m(er)d(areas.)275
+3039 y(Ev)m(en)j(single)f(dot)h(size)g(prin)m(ters)f(can)i(usually)d
 (pro)s(duce)h(dots)h(of)h(di\013eren)m(t)e(sizes;)j(it's)e(just)g
-(illegal)150 1927 y(to)27 b(actually)e(try)h(to)g(switc)m(h)g(dot)g
+(illegal)150 3148 y(to)27 b(actually)e(try)h(to)g(switc)m(h)g(dot)g
 (size)g(during)d(a)k(page.)40 b(These)25 b(dots)h(are)h(also)e(m)m(uc)m
-(h)h(bigger)g(than)f(those)150 2037 y(used)30 b(in)f(true)h(v)-5
-b(ariable)29 b(dot)i(size)f(prin)m(ting.)275 2193 y(A)e(dot)h(size)f
+(h)h(bigger)g(than)f(those)150 3258 y(used)30 b(in)f(true)h(v)-5
+b(ariable)29 b(dot)i(size)f(prin)m(ting.)275 3395 y(A)e(dot)h(size)f
 (of)h(`)p Fr(-1)p Fu(')f(indicates)g(that)h(this)f(resolution)f(is)g
 (illegal)g(for)h(the)h(prin)m(ter)e(in)g(question.)40
-b(An)m(y)150 2303 y(resolutions)27 b(that)j(w)m(ould)d(use)i(this)e
+b(An)m(y)150 3504 y(resolutions)27 b(that)j(w)m(ould)d(use)i(this)e
 (dot)i(size)g(will)d(not)j(b)s(e)f(presen)m(ted)h(to)g(the)g(user.)40
-b(A)29 b(dot)g(size)f(of)h(`)p Fr(-2)p Fu(')150 2412
+b(A)29 b(dot)g(size)f(of)h(`)p Fr(-2)p Fu(')150 3614
 y(indicates)j(that)i(this)d(resolution)h(is)g(legal,)i(but)e(that)i
 (the)f(driv)m(er)f(is)g(not)h(to)h(attempt)g(to)g(set)f(an)m(y)h(dot)
-150 2522 y(size.)41 b(Some)30 b(v)m(ery)h(old)e(prin)m(ters)g(do)h(not)
+150 3724 y(size.)41 b(Some)30 b(v)m(ery)h(old)e(prin)m(ters)g(do)h(not)
 h(supp)s(ort)e(the)h(command)g(to)h(set)g(the)g(dot)g(size.)275
-2679 y(Most)f(prin)m(ters)e(supp)s(ort)f(a)j(dot)g(size)f(of)g(`)p
+3861 y(Most)f(prin)m(ters)e(supp)s(ort)f(a)j(dot)g(size)f(of)g(`)p
 Fr(0)p Fu(')h(as)f(a)h(mo)s(de-sp)s(eci\014c)e(default,)h(but)g(it's)g
-(often)h(a)f(bigger)150 2788 y(dot)23 b(than)f(necessary)-8
+(often)h(a)f(bigger)150 3970 y(dot)23 b(than)f(necessary)-8
 b(.)39 b(Prin)m(ters)22 b(usually)e(also)i(supp)s(ort)f(some)i(dot)g
 (sizes)f(b)s(et)m(w)m(een)i(`)p Fr(1)p Fu(')e(and)g(`)p
-Fr(3)p Fu('.)39 b(Usually)150 2898 y(`)p Fr(1)p Fu(')31
+Fr(3)p Fu('.)39 b(Usually)150 4080 y(`)p Fr(1)p Fu(')31
 b(is)e(the)i(righ)m(t)e(dot)i(size)f(for)g(720)i(and)e(1440)i(dpi)d
 (prin)m(ting,)f(and)i(`)p Fr(3)p Fu(')g(w)m(orks)h(b)s(est)f(at)h(360)g
-(dpi.)275 3054 y(V)-8 b(ariable)26 b(dot)h(size)f(prin)m(ters)g
+(dpi.)275 4217 y(V)-8 b(ariable)26 b(dot)h(size)f(prin)m(ters)g
 (usually)e(supp)s(ort)h(2)i(or)g(3)g(sets)g(of)g(v)-5
 b(ariable)26 b(dot)h(sizes.)39 b(Older)25 b(prin)m(ters)150
-3164 y(based)33 b(on)f(a)h(6)h(picolitre)d(drop)h(\(the)h(480,)i(720,)g
+4326 y(based)33 b(on)f(a)h(6)h(picolitre)d(drop)h(\(the)h(480,)i(720,)g
 (740,)g(750,)g(900,)g(and)e(1200\))i(supp)s(ort)c(t)m(w)m(o:)47
-b(mo)s(de)32 b(16)150 3273 y(\(0x10)f(in)d(hexadecimal\))h(for)g
+b(mo)s(de)32 b(16)150 4436 y(\(0x10)f(in)d(hexadecimal\))h(for)g
 (normal)g(v)-5 b(ariable)28 b(dots)h(at)i(1440)g(or)e(720)i(dpi,)d(and)
-h(mo)s(de)g(17)h(\(0x10\))h(for)150 3383 y(sp)s(ecial)f(larger)h(dots)h
+h(mo)s(de)g(17)h(\(0x10\))h(for)150 4545 y(sp)s(ecial)f(larger)h(dots)h
 (at)g(360)h(dpi.)43 b(New)m(er)32 b(prin)m(ters)e(based)h(on)h(4)g
-(picolitre)e(drops)g(normally)g(supp)s(ort)150 3493 y(three)38
+(picolitre)e(drops)g(normally)g(supp)s(ort)150 4655 y(three)38
 b(sizes:)55 b(`)p Fr(0x10)p Fu(')37 b(for)g(4)h(pl)e(base)i(drops,)g(`)
 p Fr(0x11)p Fu(')f(for)h(6)g(pl)e(base)i(drops,)g(and)f(`)p
-Fr(0x12)p Fu(')g(for)g(sp)s(ecial)150 3602 y(large)i(drops.)64
+Fr(0x12)p Fu(')g(for)g(sp)s(ecial)150 4765 y(large)i(drops.)64
 b(On)38 b(these)h(prin)m(ters,)h(`)p Fr(0x10)p Fu(')e(usually)f(w)m
 (orks)h(b)s(est)h(at)g(1440x720)j(and)c(`)p Fr(0x11)p
-Fu(')g(w)m(orks)150 3712 y(b)s(est)d(at)i(720x720.)60
+Fu(')g(w)m(orks)150 4874 y(b)s(est)d(at)i(720x720.)60
 b(Unfortunately)-8 b(,)37 b(`)p Fr(0x10)p Fu(')e(do)s(esn't)h(seem)g
 (to)h(generate)g(quite)e(enough)h(densit)m(y)f(at)150
-3821 y(720x720,)d(b)s(ecause)c(if)g(it)g(did)f(the)h(output)g(w)m(ould)
+4984 y(720x720,)d(b)s(ecause)c(if)g(it)g(did)f(the)h(output)g(w)m(ould)
 g(b)s(e)g(v)m(ery)h(smo)s(oth.)40 b(P)m(erhaps)28 b(it's)g(p)s(ossible)
-e(to)j(t)m(w)m(eak)150 3931 y(things)5 b(.)21 b(.)h(.)g(.)275
-4088 y(The)38 b(list)g(of)i(densities)d(is)i(a)g(list)f(of)i(base)f
+e(to)j(t)m(w)m(eak)150 5093 y(things)5 b(.)21 b(.)h(.)g(.)275
+5230 y(The)38 b(list)g(of)i(densities)d(is)i(a)g(list)f(of)i(base)f
 (densit)m(y)g(v)-5 b(alues)39 b(for)g(all)f(of)h(the)h(ab)s(o)m(v)m(e)g
-(listed)e(mo)s(des.)150 4197 y(\\Densit)m(y")47 b(refers)e(to)h(the)f
+(listed)e(mo)s(des.)150 5340 y(\\Densit)m(y")47 b(refers)e(to)h(the)f
 (amoun)m(t)h(of)g(ink)e(dep)s(osited)g(when)h(a)g(solid)f(color)i(\(or)
-f(solid)f(blac)m(k\))i(is)150 4307 y(prin)m(ted.)65 b(So)39
-b(if)f(the)h(densit)m(y)g(is)f(`)p Fr(.5)p Fu(',)j(solid)c(blac)m(k)i
-(actually)g(prin)m(ts)f(only)g(half)g(the)h(p)s(ossible)e(dots.)150
-4416 y(\\Base)32 b(densit)m(y")e(refers)f(to)i(the)g(fact)g(that)f(the)
-h(densit)m(y)e(v)-5 b(alue)30 b(can)g(b)s(e)g(scaled)g(in)f(the)h(GUI)h
-(or)f(on)g(the)150 4526 y(Ghostscript)35 b(command)g(line.)54
-b(The)35 b(densit)m(y)g(v)-5 b(alue)35 b(sp)s(eci\014ed)f(\(whic)m(h)g
-(is)h(not)g(made)h(visible)d(to)j(the)150 4635 y(user\))25
-b(is)g(m)m(ultiplied)e(b)m(y)i(the)h(base)g(densit)m(y)f(to)i(obtain)e
-(the)h(e\013ectiv)m(e)i(densit)m(y)d(v)-5 b(alue.)39
-b(All)24 b(other)i(things)150 4745 y(\(suc)m(h)38 b(as)g(ink)f(drop)g
-(size\))h(remaining)e(the)i(same,)j(doubling)35 b(the)j(resolution)f
-(requires)f(halving)h(the)150 4855 y(base)c(densit)m(y)-8
-b(.)47 b(The)32 b(base)h(densit)m(y)e(in)h(the)g(densit)m(y)g(v)m
-(ector)j(ma)m(y)e(exceed)g(`)p Fr(1)p Fu(',)h(as)f(man)m(y)f(pap)s(er)g
-(t)m(yp)s(es)150 4964 y(require)25 b(lo)m(w)m(er)i(densit)m(y)f(than)h
-(the)g(base)g(driv)m(er.)38 b(The)26 b(driv)m(er)g(ensures)f(that)j
-(the)f(actual)g(densit)m(y)f(nev)m(er)150 5074 y(exceeds)31
-b(1.)275 5230 y(T)-8 b(uning)30 b(the)i(densit)m(y)f(should)f(b)s(e)h
-(done)h(on)g(high)e(qualit)m(y)i(pap)s(er)e(\(usually)h(glossy)g(photo)
-h(pap)s(er\).)150 5340 y(The)26 b(goal)i(is)d(to)j(\014nd)d(the)i(lo)m
-(w)m(est)h(densit)m(y)e(v)-5 b(alue)26 b(that)h(results)f(in)f(solid)g
-(blac)m(k)i(\(no)g(visible)d(gaps)j(under)p eop
+f(solid)f(blac)m(k\))i(is)p eop
 %%Page: 80 85
 80 84 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(80)150 299 y(a)30 b(fairly)e(high)h(p)s(o)m(w)m(er)h
+(ter)2112 b(80)150 299 y(prin)m(ted.)65 b(So)39 b(if)f(the)h(densit)m
+(y)g(is)f(`)p Fr(.5)p Fu(',)j(solid)c(blac)m(k)i(actually)g(prin)m(ts)f
+(only)g(half)g(the)h(p)s(ossible)e(dots.)150 408 y(\\Base)32
+b(densit)m(y")e(refers)f(to)i(the)g(fact)g(that)f(the)h(densit)m(y)e(v)
+-5 b(alue)30 b(can)g(b)s(e)g(scaled)g(in)f(the)h(GUI)h(or)f(on)g(the)
+150 518 y(Ghostscript)35 b(command)g(line.)54 b(The)35
+b(densit)m(y)g(v)-5 b(alue)35 b(sp)s(eci\014ed)f(\(whic)m(h)g(is)h(not)
+g(made)h(visible)d(to)j(the)150 628 y(user\))25 b(is)g(m)m(ultiplied)e
+(b)m(y)i(the)h(base)g(densit)m(y)f(to)i(obtain)e(the)h(e\013ectiv)m(e)i
+(densit)m(y)d(v)-5 b(alue.)39 b(All)24 b(other)i(things)150
+737 y(\(suc)m(h)38 b(as)g(ink)f(drop)g(size\))h(remaining)e(the)i
+(same,)j(doubling)35 b(the)j(resolution)f(requires)f(halving)h(the)150
+847 y(base)c(densit)m(y)-8 b(.)47 b(The)32 b(base)h(densit)m(y)e(in)h
+(the)g(densit)m(y)g(v)m(ector)j(ma)m(y)e(exceed)g(`)p
+Fr(1)p Fu(',)h(as)f(man)m(y)f(pap)s(er)g(t)m(yp)s(es)150
+956 y(require)25 b(lo)m(w)m(er)i(densit)m(y)f(than)h(the)g(base)g(driv)
+m(er.)38 b(The)26 b(driv)m(er)g(ensures)f(that)j(the)f(actual)g(densit)
+m(y)f(nev)m(er)150 1066 y(exceeds)31 b(1.)275 1208 y(T)-8
+b(uning)30 b(the)i(densit)m(y)f(should)f(b)s(e)h(done)h(on)g(high)e
+(qualit)m(y)i(pap)s(er)e(\(usually)h(glossy)g(photo)h(pap)s(er\).)150
+1318 y(The)26 b(goal)i(is)d(to)j(\014nd)d(the)i(lo)m(w)m(est)h(densit)m
+(y)e(v)-5 b(alue)26 b(that)h(results)f(in)f(solid)g(blac)m(k)i(\(no)g
+(visible)d(gaps)j(under)150 1428 y(a)j(fairly)e(high)h(p)s(o)m(w)m(er)h
 (magnifying)e(glass)i(or)g(loup)s(e\).)39 b(If)30 b(an)f(appropriate)g
-(densit)m(y)g(v)-5 b(alue)30 b(is)f(found)f(for)150 408
+(densit)m(y)g(v)-5 b(alue)30 b(is)f(found)f(for)150 1537
 y(720)h(DPI,)f(it)g(could)f(b)s(e)g(divided)e(b)m(y)j(2)g(for)f
 (1440x720,)32 b(b)m(y)c(4)g(for)g(2880x720,)j(and)d(b)m(y)f(8)i(for)e
-(2880x1440.)275 548 y(Ho)m(w)m(ev)m(er,)36 b(for)d(prin)m(ters)f(that)h
-(o\013er)h(a)g(c)m(hoice)g(of)f(dot)h(size,)g(this)e(ma)m(y)i(not)f(b)s
-(e)g(the)g(b)s(est)g(strategy)-8 b(.)150 658 y(The)37
+(2880x1440.)275 1680 y(Ho)m(w)m(ev)m(er,)36 b(for)d(prin)m(ters)f(that)
+h(o\013er)h(a)g(c)m(hoice)g(of)f(dot)h(size,)g(this)e(ma)m(y)i(not)f(b)
+s(e)g(the)g(b)s(est)g(strategy)-8 b(.)150 1789 y(The)37
 b(b)s(est)g(c)m(hoice)h(for)f(dot)h(size)f(is)g(the)g(smallest)g(dot)h
 (size)f(that)h(allo)m(ws)f(c)m(ho)s(osing)g(a)h(densit)m(y)e(v)-5
-b(alue)150 767 y(not)41 b(greater)h(than)e(1)h(that)g(giv)m(es)g(full)d
-(co)m(v)m(erage.)74 b(This)39 b(dot)i(size)f(ma)m(y)h(b)s(e)f
-(di\013eren)m(t)g(for)g(di\013eren)m(t)150 877 y(resolutions.)f(T)-8
+b(alue)150 1899 y(not)41 b(greater)h(than)e(1)h(that)g(giv)m(es)g(full)
+d(co)m(v)m(erage.)74 b(This)39 b(dot)i(size)f(ma)m(y)h(b)s(e)f
+(di\013eren)m(t)g(for)g(di\013eren)m(t)150 2008 y(resolutions.)f(T)-8
 b(uning)29 b(v)-5 b(ariable)29 b(dot)i(size)f(prin)m(ters)f(is)g(more)i
 (complicated;)f(the)h(pro)s(cess)f(is)f(describ)s(ed)150
-986 y(b)s(elo)m(w.)275 1126 y(The)k(last)h(mem)m(b)s(er)g(is)f(a)i(p)s
+2118 y(b)s(elo)m(w.)275 2261 y(The)k(last)h(mem)m(b)s(er)g(is)f(a)i(p)s
 (oin)m(ter)e(to)i(a)g(structure)f(con)m(taining)g(a)g(list)f(of)i(ink)d
-(v)-5 b(alues)34 b(for)g(v)-5 b(ariable)150 1235 y(dot)33
+(v)-5 b(alues)34 b(for)g(v)-5 b(ariable)150 2370 y(dot)33
 b(size)h(\(or)f(6)h(color\))f(inks.)48 b(W)-8 b(e)35
 b(mo)s(del)d(v)-5 b(ariable)32 b(dot)h(size)g(inks)f(as)h(pro)s(ducing)
-e(a)j(certain)f Fr(")p Fu(v)-5 b(alue)p Fr(")150 1345
+e(a)j(certain)f Fr(")p Fu(v)-5 b(alue)p Fr(")150 2480
 y Fu(of)34 b(ink)f(for)h(eac)m(h)h(a)m(v)-5 b(ailable)33
 b(dot)h(size,)h(where)f(the)g(largest)h(dot)f(size)g(has)f(a)i(v)-5
-b(alue)33 b(of)h(1.)53 b(6-color)34 b(inks)150 1455 y(are)d(handled)e
+b(alue)33 b(of)h(1.)53 b(6-color)34 b(inks)150 2589 y(are)d(handled)e
 (similarly;)e(the)k(ligh)m(t)f(cy)m(an)h(and)f(ligh)m(t)g(magen)m(ta)j
 (inks)c(are)i(treated)g(as)g(a)g(fractional)f(ink)150
-1564 y(v)-5 b(alue.)57 b(The)36 b(com)m(bination)f(of)h(v)-5
+2699 y(v)-5 b(alue.)57 b(The)36 b(com)m(bination)f(of)h(v)-5
 b(ariable)35 b(dot)h(size)g(and)g(6)g(color)g(inks,)g(of)h(course,)g
-(just)f(creates)h(that)150 1674 y(man)m(y)30 b(more)h(di\013eren)m(t)f
-(ink)f(c)m(hoices.)275 1813 y(This)c(structure)i(is)f(actually)h
+(just)f(creates)h(that)150 2808 y(man)m(y)30 b(more)h(di\013eren)m(t)f
+(ink)f(c)m(hoices.)275 2951 y(This)c(structure)i(is)f(actually)h
 (rather)g(complicated;)h(it)f(con)m(tains)h(en)m(tries)f(for)g(eac)m(h)
-h(com)m(bination)f(of)150 1923 y(ph)m(ysical)f(prin)m(ter)f(resolution)
+h(com)m(bination)f(of)150 3061 y(ph)m(ysical)f(prin)m(ter)f(resolution)
 h(\(180,)j(360,)h(720,)f(and)d(1440)j(dpi\),)d(ink)g(colors)h(\(4,)i
-(6,)f(and)e(7\),)j(and)d(single)150 2032 y(and)i(v)-5
+(6,)f(and)e(7\),)j(and)d(single)150 3170 y(and)i(v)-5
 b(ariable)28 b(dot)h(sizes)g(\(since)g(some)g(prin)m(ter)f(mo)s(des)g
 (can't)i(handle)e(v)-5 b(ariable)28 b(dot)h(size)g(inks\).)39
-b(Since)150 2142 y(there's)31 b(so)f(m)m(uc)m(h)h(data,)g(it's)f
+b(Since)150 3280 y(there's)31 b(so)f(m)m(uc)m(h)h(data,)g(it's)f
 (actually)g(a)h(somewhat)g(deeply)e(nested)h(structure:)275
-2281 y(An)f Fr(escp2_printer_t)e Fu(con)m(tains)j(a)h(p)s(oin)m(ter)e
+3422 y(An)f Fr(escp2_printer_t)e Fu(con)m(tains)j(a)h(p)s(oin)m(ter)e
 (\(essen)m(tially)-8 b(,)30 b(a)h(reference)g(rather)f(than)g(a)h(cop)m
-(y\))g(to)150 2391 y(an)f Fr(escp2_variable_inklist_t)p
-Fu(.)275 2531 y(An)c Fr(escp2_variable_inklist_t)20 b
+(y\))g(to)150 3532 y(an)f Fr(escp2_variable_inklist_t)p
+Fu(.)275 3674 y(An)c Fr(escp2_variable_inklist_t)20 b
 Fu(con)m(tains)27 b(p)s(oin)m(ters)e(to)j Fr(escp2_variable_inkset_t)20
-b Fu(struc-)150 2640 y(tures.)39 b(There)25 b(is)g(one)h(suc)m(h)g(p)s
+b Fu(struc-)150 3784 y(tures.)39 b(There)25 b(is)g(one)h(suc)m(h)g(p)s
 (oin)m(ter)f(for)g(eac)m(h)i(com)m(bination)e(of)h(resolution,)g(dot)g
-(t)m(yp)s(e,)h(and)e(ink)g(colors)150 2750 y(as)31 b(describ)s(ed)d(ab)
+(t)m(yp)s(e,)h(and)e(ink)g(colors)150 3893 y(as)31 b(describ)s(ed)d(ab)
 s(o)m(v)m(e.)42 b(Y)-8 b(es,)31 b(this)f(is)f(rather)h(in\015exible.)
-275 2889 y(An)c Fr(escp2_variable_inkset_t)20 b Fu(con)m(tains)26
+275 4036 y(An)c Fr(escp2_variable_inkset_t)20 b Fu(con)m(tains)26
 b(p)s(oin)m(ters)f(to)i Fr(escp2_variable_ink_t)21 b
-Fu(structures.)150 2999 y(There)30 b(is)f(one)i(suc)m(h)f(p)s(oin)m
+Fu(structures.)150 4145 y(There)30 b(is)f(one)i(suc)m(h)f(p)s(oin)m
 (ter)f(for)i(eac)m(h)g(of)g(the)f(four)g(colors)g(\(C,)h(M,)g(Y,)f(and)
-g(K\).)275 3138 y(An)g Fr(escp2_variable_ink_t)25 b Fu(con)m(tains)31
+g(K\).)275 4288 y(An)g Fr(escp2_variable_ink_t)25 b Fu(con)m(tains)31
 b(a)h(p)s(oin)m(ter)d(to)j(the)f(actual)g(list)f(of)h(ink)e(v)-5
-b(alues)31 b(\()p Fr(simple_)150 3248 y(dither_range_t)p
+b(alues)31 b(\()p Fr(simple_)150 4398 y(dither_range_t)p
 Fu(\),)c(the)j(n)m(um)m(b)s(er)f(of)i(ink)e(v)-5 b(alues,)29
 b(and)h(a)h(densit)m(y)e(v)-5 b(alue)30 b(to)h(b)s(e)e(used)h(for)g
-(computing)150 3357 y(the)24 b(transitions.)37 b(This)23
+(computing)150 4507 y(the)24 b(transitions.)37 b(This)23
 b(densit)m(y)g(v)-5 b(alue)23 b(is)h(actually)f(a)i(scaling)e(v)-5
 b(alue;)26 b(it)d(is)h(m)m(ultiplied)c(b)m(y)k(the)g(e\013ectiv)m(e)150
-3467 y(densit)m(y)36 b(to)i(compute)f(the)g(densit)m(y)f(to)i(b)s(e)e
+4617 y(densit)m(y)36 b(to)i(compute)f(the)g(densit)m(y)f(to)i(b)s(e)e
 (used)g(for)g(computing)g(the)h(transitions.)59 b(Normally)-8
-b(,)38 b(this)150 3577 y(v)-5 b(alue)34 b(is)g(`)p Fr(1)p
+b(,)38 b(this)150 4726 y(v)-5 b(alue)34 b(is)g(`)p Fr(1)p
 Fu(',)j(but)d(in)f(some)j(cases)f(it)g(ma)m(y)g(b)s(e)f(p)s(ossible)f
 (to)i(get)h(smo)s(other)f(results)f(with)f(a)i(di\013eren)m(t)150
-3686 y(v)-5 b(alue)39 b(\(in)g(particular,)h(the)g(single)e(dot)i(size)
+4836 y(v)-5 b(alue)39 b(\(in)g(particular,)h(the)g(single)e(dot)i(size)
 g(6-color)g(inks)e(w)m(ork)i(b)s(est)f(with)g(the)g(e\013ectiv)m(e)j
-(densit)m(y)150 3796 y(scaled)27 b(to)h(`)p Fr(.75)p
+(densit)m(y)150 4945 y(scaled)27 b(to)h(`)p Fr(.75)p
 Fu(')e(for)h(this)f(purp)s(ose\).)38 b(A)27 b(lo)m(w)m(er)h(densit)m(y)
 e(lo)m(w)m(ers)h(the)g(transition)f(p)s(oin)m(ts,)g(whic)m(h)g(results)
-150 3905 y(in)j(more)i(ink)e(b)s(eing)g(dep)s(osited.)275
-4045 y(A)h Fr(simple_dither_range_t)25 b Fu(is)k(a)i(structure)f(con)m
-(taining)g(four)f(v)-5 b(alues:)199 4184 y(1.)61 b(The)30
-b(v)-5 b(alue)30 b(of)g(the)h(particular)e(ink)199 4321
-y(2.)61 b(The)30 b(bit)f(pattern)i(used)e(to)i(represen)m(t)g(the)f
-(ink)199 4458 y(3.)61 b(Whether)31 b(the)f(ink)f(is)h(ligh)m(t)f(\(0\))
-j(or)e(dark)g(\(1\),)i(for)e(inks)f(with)g(ligh)m(t)g(and)h(dark)g(v)-5
-b(arian)m(ts)199 4595 y(4.)61 b(The)25 b(relativ)m(e)h(amoun)m(t)g(of)f
-(ink)g(actually)g(dep)s(osited)f(b)m(y)i(this)e(dot)i(\(not)g(curren)m
-(tly)f(used)f(for)i(m)m(uc)m(h;)330 4705 y(it)35 b(can)i(b)s(e)e(used)g
-(for)g(ink)g(reduction)g(purp)s(oses,)g(to)i(reduce)f(the)g(amoun)m(t)g
-(of)g(ink)e(dep)s(osited)h(on)330 4814 y(the)c(pap)s(er\).)275
-4981 y(These)26 b(things)g(are)i(in)m(teresting)e(as)i(arra)m(ys.)40
-b(F)-8 b(rom)27 b(an)g(arra)m(y)h(of)f Fr(simple_dither_range_t)p
-Fu('s,)c(the)150 5091 y(dither)32 b(co)s(de)h(computes)g(transition)f
-(v)-5 b(alues)32 b(that)i(it)f(lo)s(oks)f(up)h(at)g(run)f(time)h(to)h
-(decide)e(what)h(ink)f(to)150 5200 y(prin)m(t,)d(as)i(w)m(ell)e(as)i
-(whether)f(to)h(prin)m(t)e(at)i(all.)275 5340 y Fi(Really)g
-Fu(confused)f(no)m(w?)40 b(Y)-8 b(up.)40 b(Y)-8 b(ou'll)30
-b(probably)f(\014nd)f(it)i(easier)h(to)g(simply)d(read)i(the)g(co)s
-(de.)p eop
+150 5055 y(in)j(more)i(ink)e(b)s(eing)g(dep)s(osited.)275
+5198 y(A)h Fr(simple_dither_range_t)25 b Fu(is)k(a)i(structure)f(con)m
+(taining)g(four)f(v)-5 b(alues:)199 5340 y(1.)61 b(The)30
+b(v)-5 b(alue)30 b(of)g(the)h(particular)e(ink)p eop
 %%Page: 81 86
 81 85 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(81)150 299 y Ft(D.4)68 b(T)-11 b(uning)44
-b(the)h(prin)l(ter)275 497 y Fu(No)m(w,)35 b(ho)m(w)g(do)f(y)m(ou)g
-(use)g(all)f(this)g(to)i(tune)e(a)i(prin)m(ter?)50 b(There)34
-b(are)g(a)g(n)m(um)m(b)s(er)f(of)h(w)m(a)m(ys)h(to)g(do)f(it;)150
-606 y(this)29 b(one)i(is)e(m)m(y)i(p)s(ersonal)e(fa)m(v)m(orite.)275
-746 y(There's)37 b(a)h(\014le)f(named)g(`)p Fr(cyan-sweep.tif)p
-Fu('.)59 b(This)36 b(consists)h(of)h(a)g(thin)e(bar)h(of)h(cy)m(an)g
-(sw)m(eeping)150 855 y(from)33 b(white)g(to)i(almost)f(pure)f(cy)m(an,)
-j(and)d(from)h(pure)e(cy)m(an)j(to)g(blac)m(k.)51 b(The)34
-b(\014rst)f(thing)g(to)h(do)g(is)f(to)150 965 y(pic)m(k)39
-b(the)g(appropriate)f Fr(simple_dither_range_t)33 b Fu(\(or)39
-b(create)i(a)e(whole)g(new)f Fr(escp2_variable_)150 1075
-y(inklist_t)p Fu(\))24 b(and)h(commen)m(t)i(out)f(all)f(but)g(the)h
-(dark)m(est)g(ink)f(\(this)g(means)h(y)m(ou'll)f(b)s(e)g(using)g(the)h
-(largest)150 1184 y(dots)37 b(of)h(dark)e(ink\).)60 b(A)m(t)39
+(ter)2112 b(81)199 299 y(2.)61 b(The)30 b(bit)f(pattern)i(used)e(to)i
+(represen)m(t)g(the)f(ink)199 434 y(3.)61 b(Whether)31
+b(the)f(ink)f(is)h(ligh)m(t)f(\(0\))j(or)e(dark)g(\(1\),)i(for)e(inks)f
+(with)g(ligh)m(t)g(and)h(dark)g(v)-5 b(arian)m(ts)199
+570 y(4.)61 b(The)25 b(relativ)m(e)h(amoun)m(t)g(of)f(ink)g(actually)g
+(dep)s(osited)f(b)m(y)i(this)e(dot)i(\(not)g(curren)m(tly)f(used)f(for)
+i(m)m(uc)m(h;)330 679 y(it)35 b(can)i(b)s(e)e(used)g(for)g(ink)g
+(reduction)g(purp)s(oses,)g(to)i(reduce)f(the)g(amoun)m(t)g(of)g(ink)e
+(dep)s(osited)h(on)330 789 y(the)c(pap)s(er\).)275 951
+y(These)26 b(things)g(are)i(in)m(teresting)e(as)i(arra)m(ys.)40
+b(F)-8 b(rom)27 b(an)g(arra)m(y)h(of)f Fr(simple_dither_range_t)p
+Fu('s,)c(the)150 1060 y(dither)32 b(co)s(de)h(computes)g(transition)f
+(v)-5 b(alues)32 b(that)i(it)f(lo)s(oks)f(up)h(at)g(run)f(time)h(to)h
+(decide)e(what)h(ink)f(to)150 1170 y(prin)m(t,)d(as)i(w)m(ell)e(as)i
+(whether)f(to)h(prin)m(t)e(at)i(all.)275 1306 y Fi(Really)g
+Fu(confused)f(no)m(w?)40 b(Y)-8 b(up.)40 b(Y)-8 b(ou'll)30
+b(probably)f(\014nd)f(it)i(easier)h(to)g(simply)d(read)i(the)g(co)s
+(de.)150 1568 y Ft(D.4)68 b(T)-11 b(uning)44 b(the)h(prin)l(ter)275
+1762 y Fu(No)m(w,)35 b(ho)m(w)g(do)f(y)m(ou)g(use)g(all)f(this)g(to)i
+(tune)e(a)i(prin)m(ter?)50 b(There)34 b(are)g(a)g(n)m(um)m(b)s(er)f(of)
+h(w)m(a)m(ys)h(to)g(do)f(it;)150 1872 y(this)29 b(one)i(is)e(m)m(y)i(p)
+s(ersonal)e(fa)m(v)m(orite.)275 2008 y(There's)37 b(a)h(\014le)f(named)
+g(`)p Fr(cyan-sweep.tif)p Fu('.)59 b(This)36 b(consists)h(of)h(a)g
+(thin)e(bar)h(of)h(cy)m(an)g(sw)m(eeping)150 2118 y(from)33
+b(white)g(to)i(almost)f(pure)f(cy)m(an,)j(and)d(from)h(pure)e(cy)m(an)j
+(to)g(blac)m(k.)51 b(The)34 b(\014rst)f(thing)g(to)h(do)g(is)f(to)150
+2227 y(pic)m(k)39 b(the)g(appropriate)f Fr(simple_dither_range_t)33
+b Fu(\(or)39 b(create)i(a)e(whole)g(new)f Fr(escp2_variable_)150
+2337 y(inklist_t)p Fu(\))24 b(and)h(commen)m(t)i(out)f(all)f(but)g(the)
+h(dark)m(est)g(ink)f(\(this)g(means)h(y)m(ou'll)f(b)s(e)g(using)g(the)h
+(largest)150 2447 y(dots)37 b(of)h(dark)e(ink\).)60 b(A)m(t)39
 b(8.5)p Fr(")f Fu(width)d(\(the)j(width)d(of)i(a)h(letter-size)g(piece)
-f(of)g(pap)s(er\),)i(the)e(bar)g(will)150 1294 y(b)s(e)e(1/8)p
+f(of)g(pap)s(er\),)i(the)e(bar)g(will)150 2556 y(b)s(e)e(1/8)p
 Fr(")h Fu(high.)55 b(Prin)m(ting)34 b(it)h(on)g(wider)f(or)h(narro)m(w)
 m(er)h(pap)s(er)f(will)d(c)m(hange)37 b(the)f(heigh)m(t)f(accordingly)
--8 b(.)150 1403 y(Prin)m(t)30 b(it)g(width-wise)f(across)i(a)g(piece)g
+-8 b(.)150 2666 y(Prin)m(t)30 b(it)g(width-wise)f(across)i(a)g(piece)g
 (of)g(photo)g(qualit)m(y)f(pap)s(er)f(in)h(line)f(art)i(mo)s(de)f
-(using)g(ordered)g(or)150 1513 y(adaptiv)m(e)35 b(h)m(ybrid)e(dither.)
+(using)g(ordered)g(or)150 2775 y(adaptiv)m(e)35 b(h)m(ybrid)e(dither.)
 54 b(Do)36 b(not)f(use)g(photographic)f(mo)s(de;)k(the)d(colors)g(in)f
-(photographic)g(mo)s(de)150 1623 y(v)-5 b(ary)29 b(non-linearly)d(dep)s
+(photographic)g(mo)s(de)150 2885 y(v)-5 b(ary)29 b(non-linearly)d(dep)s
 (ending)h(up)s(on)g(the)i(presence)g(of)g(the)g(three)g(color)g(comp)s
-(onen)m(ts,)h(while)d(in)h(line)150 1732 y(art)36 b(mo)s(de)f(the)h
+(onen)m(ts,)h(while)d(in)h(line)150 2995 y(art)36 b(mo)s(de)f(the)h
 (colors)g(are)g(m)m(uc)m(h)g(purer.)55 b(Mak)m(e)37 b(sure)e(that)h
 (all)f(the)h(color)f(adjustmen)m(ts)h(are)g(set)g(to)150
-1842 y(defaults)e(\(1.0\).)57 b(Use)36 b(the)f(highest)f(qualit)m(y)h
+3104 y(defaults)e(\(1.0\).)57 b(Use)36 b(the)f(highest)f(qualit)m(y)h
 (v)m(ersion)f(of)h(the)h(prin)m(t)e(mo)s(de)g(y)m(ou're)i(testing)f(to)
-h(reduce)150 1951 y(banding)21 b(and)h(other)h(artifacts.)39
+h(reduce)150 3214 y(banding)21 b(and)h(other)h(artifacts.)39
 b(This)20 b(is)i(m)m(uc)m(h)h(easier)g(to)g(do)g(with)e(the)i(Gimp)e
-(than)i(with)e(Ghostscript.)275 2091 y(A)m(t)31 b(this)e(stage,)j(y)m
+(than)i(with)e(Ghostscript.)275 3350 y(A)m(t)31 b(this)e(stage,)j(y)m
 (ou)f(w)m(an)m(t)g(to)g(lo)s(ok)f(for)g(four)g(things:)199
-2231 y(1.)61 b(The)30 b(blac)m(k)g(near)h(the)f(cen)m(ter)i(of)e(the)h
+3486 y(1.)61 b(The)30 b(blac)m(k)g(near)h(the)f(cen)m(ter)i(of)e(the)h
 (line)d(is)i(solid,)f(but)g(not)i(more)f(so)h(than)f(that.)199
-2368 y(2.)61 b(The)30 b(cy)m(an)h(immediately)e(to)i(the)f(left)g(of)h
-(the)g(blac)m(k)f(is)f Fn(almost)41 b Fu(solid.)199 2505
+3622 y(2.)61 b(The)30 b(cy)m(an)h(immediately)e(to)i(the)f(left)g(of)h
+(the)g(blac)m(k)f(is)f Fn(almost)41 b Fu(solid.)199 3757
 y(3.)61 b(The)25 b(dark)h(cy)m(an)h(at)f(the)g(far)g(righ)m(t)g(of)g
 (the)g(page)h(is)e(solid,)g(but)g(not)h(more)g(so.)40
-b(Y)-8 b(ou)26 b(can)h(try)e(tuning)330 2614 y(the)31
+b(Y)-8 b(ou)26 b(can)h(try)e(tuning)330 3867 y(the)31
 b(densit)m(y)e(so)i(that)g(it)f(isn't)f(quite)h(solid,)f(then)h(n)m
 (udging)f(up)g(the)i(densit)m(y)e(un)m(til)g(it)h(is.)199
-2751 y(4.)61 b(Both)29 b(sw)m(eeps)f(sw)m(eep)g(smo)s(othly)f(from)g
+4002 y(4.)61 b(Both)29 b(sw)m(eeps)f(sw)m(eep)g(smo)s(othly)f(from)g
 (ligh)m(t)g(to)i(dark.)40 b(In)27 b(particular,)g(the)h(dark)f(half)g
-(of)h(the)g(bar)330 2861 y(shouldn't)g(visibly)g(c)m(hange)j(color;)g
+(of)h(the)g(bar)330 4112 y(shouldn't)g(visibly)g(c)m(hange)j(color;)g
 (it)f(should)e(go)k(smo)s(othly)d(from)h(cy)m(an)h(to)g(blac)m(k.)275
-3028 y(Rep)s(eat)h(this)e(stage)j(un)m(til)d(y)m(ou)i(ha)m(v)m(e)h(ev)m
+4274 y(Rep)s(eat)h(this)e(stage)j(un)m(til)d(y)m(ou)i(ha)m(v)m(e)h(ev)m
 (erything)e(just)g(righ)m(t.)44 b(Use)32 b(the)g(p)s(ositioning)d(en)m
-(try)j(b)s(o)m(xes)150 3138 y(in)g(the)h(dialog)f(to)h(p)s(osition)e
+(try)j(b)s(o)m(xes)150 4383 y(in)g(the)h(dialog)f(to)h(p)s(osition)e
 (eac)m(h)j(bar)f(exactly)h(1/8)p Fr(")f Fu(further)f(do)m(wn)g(the)h
-(page.)49 b(Adjacen)m(t)34 b(bars)f(will)150 3247 y(b)s(e)d(touc)m
-(hing.)275 3387 y(The)e(next)i(step)f(is)f(to)i(uncommen)m(t)g(out)f
+(page.)49 b(Adjacen)m(t)34 b(bars)f(will)150 4493 y(b)s(e)d(touc)m
+(hing.)275 4629 y(The)e(next)i(step)f(is)f(to)i(uncommen)m(t)g(out)f
 (the)h(second)f(dark)m(est)h(dot)f(size.)41 b(If)28 b(y)m(ou're)i
-(using)e(v)-5 b(ariable)150 3496 y(dots,)32 b(use)f(the)h(second)f
+(using)e(v)-5 b(ariable)150 4739 y(dots,)32 b(use)f(the)h(second)f
 (largest)h(dot)g(size)f(of)h(the)f(dark)g(ink)f(rather)i(than)f(the)g
-(largest)h(dot)g(size)f(of)h(the)150 3606 y(ligh)m(t)e(ink.)39
+(largest)h(dot)g(size)f(of)h(the)150 4848 y(ligh)m(t)e(ink.)39
 b(This)29 b(will)e(giv)m(e)k(y)m(ou)g(t)m(w)m(o)h(inks.)275
-3746 y(When)j(y)m(ou)g(recompile)g(the)g(plugin,)f(y)m(ou)i(simply)d
+4985 y(When)j(y)m(ou)g(recompile)g(the)g(plugin,)f(y)m(ou)i(simply)d
 (need)i(to)h(cop)m(y)g(the)g(new)f(executable)g(in)m(to)h(the)150
-3855 y(correct)c(place.)40 b(Y)-8 b(ou)31 b(do)f(not)h(need)f(to)h
-(exit)f(and)g(restart)h(the)g(Gimp.)275 3995 y(Prin)m(t)c(another)j
+5094 y(correct)c(place.)40 b(Y)-8 b(ou)31 b(do)f(not)h(need)f(to)h
+(exit)f(and)g(restart)h(the)g(Gimp.)275 5230 y(Prin)m(t)c(another)j
 (bar)e(adjacen)m(t)i(to)g(the)f(\014rst)f(one.)40 b(Y)-8
 b(our)29 b(goal)h(is)e(to)h(matc)m(h)h(the)f(bar)g(using)e(a)i(single)
-150 4104 y(dot)i(size)f(as)h(closely)f(as)h(p)s(ossible.)38
+150 5340 y(dot)i(size)f(as)h(closely)f(as)h(p)s(ossible.)38
 b(Y)-8 b(ou'll)30 b(\014nd)f(that)i(the)g(dark)f(region)g(of)g(the)h
-(bar)f(shouldn't)f(c)m(hange)150 4214 y(to)k(an)m(y)f(great)i(degree,)f
-(but)f(the)g(ligh)m(t)f(half)g(probably)f(will.)44 b(If)31
-b(the)i(ligh)m(ter)e(part)h(of)g(the)h(ligh)m(t)e(half)g(is)150
-4324 y(to)s(o)37 b(dark,)h(y)m(ou)g(need)e(to)h(increase)g(the)g(v)-5
-b(alue)36 b(of)h(the)g(smaller)e(dot;)40 b(if)c(it's)g(to)s(o)i(ligh)m
-(t,)g(y)m(ou)f(need)f(to)150 4433 y(decrease)e(the)g(v)-5
-b(alue.)48 b(The)33 b(reasoning)f(is)h(that)g(if)g(the)g(v)-5
-b(alue)33 b(is)f(to)s(o)i(lo)m(w,)g(the)f(ink)f(isn't)g(b)s(eing)g(giv)
-m(en)150 4543 y(enough)g(credit)h(for)f(its)g(con)m(tribution)f(to)j
-(the)f(darkness)e(of)i(the)g(ink,)f(and)g(vice)h(v)m(ersa.)48
-b(Rep)s(eat)34 b(un)m(til)150 4652 y(y)m(ou)29 b(ha)m(v)m(e)g(a)g(go)s
-(o)s(d)f(matc)m(h.)41 b(Mak)m(e)30 b(sure)d(y)m(ou)i(let)f(the)h(ink)e
-(dry)g(fully)-8 b(,)27 b(whic)m(h)g(will)f(tak)m(e)k(a)f(few)f(min)m
-(utes.)150 4762 y(W)-8 b(et)32 b(ink)d(will)f(lo)s(ok)i(to)s(o)i(dark.)
-40 b(Don't)32 b(lo)s(ok)e(at)h(the)g(pap)s(er)e(to)s(o)j(closely;)e
-(hold)f(it)h(at)i(a)f(distance.)40 b(The)150 4872 y(extra)e(graininess)
-e(of)h(the)h(largest)g(dot)f(size)h(will)d(probably)g(mak)m(e)k(it)e
-(lo)s(ok)g(ligh)m(ter)f(than)i(it)f(should;)150 4981
-y(if)e(y)m(ou)h(hold)f(it)h(far)f(enough)h(a)m(w)m(a)m(y)i(so)e(that)h
-(y)m(ou)f(can't)h(see)g(the)f(dots,)i(y)m(ou'll)d(get)i(a)f(more)g
-(accurate)150 5091 y(picture)29 b(of)i(what's)f(going)h(on.)275
-5230 y(After)j(y)m(ou)g(ha)m(v)m(e)h(what)f(lo)s(oks)f(lik)m(e)g(a)i
-(go)s(o)s(d)e(matc)m(h,)j(prin)m(t)d(another)h(bar)f(using)g(only)g
-(the)h(largest)150 5340 y(dot)29 b(size)g(\(or)g(dark)f(ink,)g(for)g
-(single)g(dot)h(size)f(6-color)i(prin)m(ters\).)39 b(Y)-8
-b(ou)29 b(w)m(an)m(t)h(to)f(ensure)f(that)i(the)f(bars)p
-eop
+(bar)f(shouldn't)f(c)m(hange)p eop
 %%Page: 82 87
 82 86 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(82)150 299 y(touc)m(hing)34 b(eac)m(h)g(other)g(lo)s(ok)g
-(iden)m(tical,)f(or)h(as)g(close)g(as)g(p)s(ossible)d(to)j(it;)h(y)m
-(our)f(ey)m(e)h(w)m(on't)f(giv)m(e)h(y)m(ou)f(a)150 408
-y(go)s(o)s(d)c(reading)e(if)h(the)h(bars)f(are)h(separated)h(from)e
-(eac)m(h)i(other.)40 b(Y)-8 b(ou'll)29 b(probably)f(ha)m(v)m(e)j(to)g
-(rep)s(eat)f(the)150 518 y(pro)s(cedure.)275 653 y(The)24
-b(next)g(step)h(is)f(to)h(commen)m(t)h(out)f(all)e(but)h(the)h(largest)
-g(and)f(third-largest)f(dot)i(size,)h(and)e(rep)s(eat)150
-763 y(the)31 b(pro)s(cedure.)42 b(When)31 b(they)g(matc)m(h,)i(use)e
-(all)f(three)h(dot)g(sizes)g(of)g(dark)g(ink.)42 b(Again,)31
-b(the)g(goal)h(is)e(to)150 872 y(matc)m(h)h(the)g(single)e(dot)h(size.)
-275 1008 y(Y)-8 b(ou'll)22 b(probably)g(\014nd)g(the)h(matc)m(h)i(is)d
-(imp)s(erfect.)37 b(No)m(w)24 b(y)m(ou)g(ha)m(v)m(e)h(to)f(\014gure)f
-(out)g(what)h(region)f(isn't)150 1117 y(righ)m(t,)37
-b(whic)m(h)d(tak)m(es)j(some)f(exp)s(erimen)m(tation.)55
-b(Ev)m(en)36 b(small)e(adjustmen)m(ts)h(can)h(mak)m(e)g(a)g(noticeable)
-150 1227 y(di\013erence)d(in)f(what)h(y)m(ou)h(see.)50
-b(A)m(t)34 b(this)e(stage,)k(it's)d(v)m(ery)h(imp)s(ortan)m(t)e(to)i
-(hold)e(the)i(page)g(far)f(enough)150 1336 y(from)28
-b(y)m(our)h(ey)m(e;)i(when)d(y)m(ou)h(use)g(all)f(three)h(dot)g(sizes,)
-g(the)g(texture)h(will)c(b)s(e)i(m)m(uc)m(h)h(more)g(ev)m(en,)h(whic)m
-(h)150 1446 y(sometimes)g(mak)m(es)i(it)e(lo)s(ok)g(dark)m(er)g(and)g
-(sometimes)g(ligh)m(ter.)275 1581 y(After)j(this)g(is)f(calibrated,)i
-(it's)f(time)g(to)h(calibrate)f(the)h(ligh)m(t)e(ink)g(against)i(the)g
-(dark)f(ink.)48 b(T)-8 b(o)34 b(do)150 1691 y(this,)d(commen)m(t)i(out)
-f(all)f(but)g(the)h(large)g(dot)g(v)m(ersion)f(of)h(the)g(t)m(w)m(o)i
-(inks,)d(and)g(rep)s(eat)h(the)g(pro)s(cedure.)150 1800
-y(This)26 b(is)h(tric)m(kier,)h(b)s(ecause)g(the)g(h)m(ues)g(of)g(the)g
-(inks)f(migh)m(t)h(not)g(b)s(e)f(quite)h(iden)m(tical.)38
-b(Lo)s(ok)29 b(at)f(the)g(dark)150 1910 y(half)37 b(of)h(the)g(bar)g
-(as)g(w)m(ell)f(as)h(the)g(ligh)m(t)g(half)f(to)h(see)h(that)g(the)f(h)
-m(ue)g(really)e(do)s(esn't)i(c)m(hange)h(as)g(y)m(ou)150
-2020 y(sw)m(eep)c(from)e(cy)m(an)j(to)f(blac)m(k.)52
+(ter)2112 b(82)150 299 y(to)33 b(an)m(y)f(great)i(degree,)f(but)f(the)g
+(ligh)m(t)f(half)g(probably)f(will.)44 b(If)31 b(the)i(ligh)m(ter)e
+(part)h(of)g(the)h(ligh)m(t)e(half)g(is)150 408 y(to)s(o)37
+b(dark,)h(y)m(ou)g(need)e(to)h(increase)g(the)g(v)-5
+b(alue)36 b(of)h(the)g(smaller)e(dot;)40 b(if)c(it's)g(to)s(o)i(ligh)m
+(t,)g(y)m(ou)f(need)f(to)150 518 y(decrease)e(the)g(v)-5
+b(alue.)48 b(The)33 b(reasoning)f(is)h(that)g(if)g(the)g(v)-5
+b(alue)33 b(is)f(to)s(o)i(lo)m(w,)g(the)f(ink)f(isn't)g(b)s(eing)g(giv)
+m(en)150 628 y(enough)g(credit)h(for)f(its)g(con)m(tribution)f(to)j
+(the)f(darkness)e(of)i(the)g(ink,)f(and)g(vice)h(v)m(ersa.)48
+b(Rep)s(eat)34 b(un)m(til)150 737 y(y)m(ou)29 b(ha)m(v)m(e)g(a)g(go)s
+(o)s(d)f(matc)m(h.)41 b(Mak)m(e)30 b(sure)d(y)m(ou)i(let)f(the)h(ink)e
+(dry)g(fully)-8 b(,)27 b(whic)m(h)g(will)f(tak)m(e)k(a)f(few)f(min)m
+(utes.)150 847 y(W)-8 b(et)32 b(ink)d(will)f(lo)s(ok)i(to)s(o)i(dark.)
+40 b(Don't)32 b(lo)s(ok)e(at)h(the)g(pap)s(er)e(to)s(o)j(closely;)e
+(hold)f(it)h(at)i(a)f(distance.)40 b(The)150 956 y(extra)e(graininess)e
+(of)h(the)h(largest)g(dot)f(size)h(will)d(probably)g(mak)m(e)k(it)e(lo)
+s(ok)g(ligh)m(ter)f(than)i(it)f(should;)150 1066 y(if)e(y)m(ou)h(hold)f
+(it)h(far)f(enough)h(a)m(w)m(a)m(y)i(so)e(that)h(y)m(ou)f(can't)h(see)g
+(the)f(dots,)i(y)m(ou'll)d(get)i(a)f(more)g(accurate)150
+1176 y(picture)29 b(of)i(what's)f(going)h(on.)275 1322
+y(After)j(y)m(ou)g(ha)m(v)m(e)h(what)f(lo)s(oks)f(lik)m(e)g(a)i(go)s(o)
+s(d)e(matc)m(h,)j(prin)m(t)d(another)h(bar)f(using)g(only)g(the)h
+(largest)150 1431 y(dot)29 b(size)g(\(or)g(dark)f(ink,)g(for)g(single)g
+(dot)h(size)f(6-color)i(prin)m(ters\).)39 b(Y)-8 b(ou)29
+b(w)m(an)m(t)h(to)f(ensure)f(that)i(the)f(bars)150 1541
+y(touc)m(hing)34 b(eac)m(h)g(other)g(lo)s(ok)g(iden)m(tical,)f(or)h(as)
+g(close)g(as)g(p)s(ossible)d(to)j(it;)h(y)m(our)f(ey)m(e)h(w)m(on't)f
+(giv)m(e)h(y)m(ou)f(a)150 1650 y(go)s(o)s(d)c(reading)e(if)h(the)h
+(bars)f(are)h(separated)h(from)e(eac)m(h)i(other.)40
+b(Y)-8 b(ou'll)29 b(probably)f(ha)m(v)m(e)j(to)g(rep)s(eat)f(the)150
+1760 y(pro)s(cedure.)275 1906 y(The)24 b(next)g(step)h(is)f(to)h
+(commen)m(t)h(out)f(all)e(but)h(the)h(largest)g(and)f(third-largest)f
+(dot)i(size,)h(and)e(rep)s(eat)150 2016 y(the)31 b(pro)s(cedure.)42
+b(When)31 b(they)g(matc)m(h,)i(use)e(all)f(three)h(dot)g(sizes)g(of)g
+(dark)g(ink.)42 b(Again,)31 b(the)g(goal)h(is)e(to)150
+2125 y(matc)m(h)h(the)g(single)e(dot)h(size.)275 2271
+y(Y)-8 b(ou'll)22 b(probably)g(\014nd)g(the)h(matc)m(h)i(is)d(imp)s
+(erfect.)37 b(No)m(w)24 b(y)m(ou)g(ha)m(v)m(e)h(to)f(\014gure)f(out)g
+(what)h(region)f(isn't)150 2381 y(righ)m(t,)37 b(whic)m(h)d(tak)m(es)j
+(some)f(exp)s(erimen)m(tation.)55 b(Ev)m(en)36 b(small)e(adjustmen)m
+(ts)h(can)h(mak)m(e)g(a)g(noticeable)150 2491 y(di\013erence)d(in)f
+(what)h(y)m(ou)h(see.)50 b(A)m(t)34 b(this)e(stage,)k(it's)d(v)m(ery)h
+(imp)s(ortan)m(t)e(to)i(hold)e(the)i(page)g(far)f(enough)150
+2600 y(from)28 b(y)m(our)h(ey)m(e;)i(when)d(y)m(ou)h(use)g(all)f(three)
+h(dot)g(sizes,)g(the)g(texture)h(will)c(b)s(e)i(m)m(uc)m(h)h(more)g(ev)
+m(en,)h(whic)m(h)150 2710 y(sometimes)g(mak)m(es)i(it)e(lo)s(ok)g(dark)
+m(er)g(and)g(sometimes)g(ligh)m(ter.)275 2856 y(After)j(this)g(is)f
+(calibrated,)i(it's)f(time)g(to)h(calibrate)f(the)h(ligh)m(t)e(ink)g
+(against)i(the)g(dark)f(ink.)48 b(T)-8 b(o)34 b(do)150
+2966 y(this,)d(commen)m(t)i(out)f(all)f(but)g(the)h(large)g(dot)g(v)m
+(ersion)f(of)h(the)g(t)m(w)m(o)i(inks,)d(and)g(rep)s(eat)h(the)g(pro)s
+(cedure.)150 3075 y(This)26 b(is)h(tric)m(kier,)h(b)s(ecause)g(the)g(h)
+m(ues)g(of)g(the)g(inks)f(migh)m(t)h(not)g(b)s(e)f(quite)h(iden)m
+(tical.)38 b(Lo)s(ok)29 b(at)f(the)g(dark)150 3185 y(half)37
+b(of)h(the)g(bar)g(as)g(w)m(ell)f(as)h(the)g(ligh)m(t)g(half)f(to)h
+(see)h(that)g(the)f(h)m(ue)g(really)e(do)s(esn't)i(c)m(hange)h(as)g(y)m
+(ou)150 3294 y(sw)m(eep)c(from)e(cy)m(an)j(to)f(blac)m(k.)52
 b(Sometimes)34 b(it's)g(easier)h(to)g(judge)f(that)h(w)m(a)m(y)-8
 b(.)54 b(Y)-8 b(ou)35 b(ma)m(y)g(\014nd)d(that)j(it)150
-2129 y(lo)s(oks)30 b(blotc)m(h)m(y)-8 b(,)31 b(in)e(whic)m(h)g(case)j
+3404 y(lo)s(oks)30 b(blotc)m(h)m(y)-8 b(,)31 b(in)e(whic)m(h)g(case)j
 (y)m(ou)f(should)d(switc)m(h)i(from)g(ordered)f(dither)g(to)i(adaptiv)m
-(e)g(h)m(ybrid.)275 2264 y(After)36 b(y)m(ou)h(ha)m(v)m(e)g(the)g(ligh)
+(e)g(h)m(ybrid.)275 3550 y(After)36 b(y)m(ou)h(ha)m(v)m(e)g(the)g(ligh)
 m(t)f(and)f(dark)h(inks)f(calibrated)h(against)g(eac)m(h)i(other,)g
-(it's)e(time)g(to)i(add)150 2374 y(ev)m(erything)33 b(bac)m(k)g(in.)48
+(it's)e(time)g(to)i(add)150 3660 y(ev)m(erything)33 b(bac)m(k)g(in.)48
 b(Usually)31 b(y)m(ou)i(don't)g(w)m(an)m(t)h(to)g(use)e(the)i(largest)f
-(dot)g(size)g(of)g(ligh)m(t)f(ink.)47 b(These)150 2484
+(dot)g(size)g(of)g(ligh)m(t)f(ink.)47 b(These)150 3769
 y(dots)24 b(will)e(b)s(e)h(m)m(uc)m(h)h(larger)g(than)g(the)g(small)f
 (dots)h(of)g(dark)f(ink,)i(but)e(they'll)g(still)f(b)s(e)h(ligh)m(ter.)
-38 b(This)23 b(will)150 2593 y(cause)34 b(problems)d(when)h(prin)m
+38 b(This)23 b(will)150 3879 y(cause)34 b(problems)d(when)h(prin)m
 (ting)f(mixed)h(colors,)i(since)e(y)m(ou'll)g(b)s(e)h(dep)s(ositing)e
-(more)i(ink)f(on)h(ligh)m(ter)150 2703 y(regions)d(of)h(the)g(page,)g
+(more)i(ink)f(on)h(ligh)m(ter)150 3988 y(regions)d(of)h(the)g(page,)g
 (and)f(y)m(ou'll)g(probably)f(get)i(strange)g(color)g(casts)g(that)h(y)
-m(ou)e(can't)i(get)g(rid)d(of)h(in)150 2812 y(neutral)f(tones.)42
+m(ou)e(can't)i(get)g(rid)d(of)h(in)150 4098 y(neutral)f(tones.)42
 b(I)30 b(normally)e(use)i(only)g(the)g(smallest)g(one)h(or)f(t)m(w)m(o)
-i(dot)e(sizes)g(of)h(ligh)m(t)f(ink.)275 2948 y(After)35
+i(dot)e(sizes)g(of)h(ligh)m(t)f(ink.)275 4244 y(After)35
 b(y)m(ou'v)m(e)h(t)m(w)m(eak)m(ed)h(ev)m(erything,)f(prin)m(t)d(the)i
 (color)g(bar)g(with)e(saturation)i(set)g(to)h(zero.)55
-b(This)150 3057 y(will)32 b(prin)m(t)g(neutral)i(tones)g(using)f(color)
+b(This)150 4354 y(will)32 b(prin)m(t)g(neutral)i(tones)g(using)f(color)
 h(inks.)51 b(Y)-8 b(our)34 b(goal)h(here)f(is)f(to)i(lo)s(ok)f(for)g
-(neutral)f(tonalit)m(y)-8 b(.)52 b(If)150 3167 y(y)m(ou're)31
+(neutral)f(tonalit)m(y)-8 b(.)52 b(If)150 4463 y(y)m(ou're)31
 b(using)e(a)i(6-color)h(prin)m(ter)d(and)h(get)h(a)g(y)m(ello)m(w)g
 (cast,)h(it)e(means)g(that)h(the)g(v)-5 b(alues)30 b(for)g(y)m(our)h
-(ligh)m(t)150 3276 y(inks)37 b(are)j(to)s(o)f(high)e(\(remem)m(b)s(er,)
+(ligh)m(t)150 4573 y(inks)37 b(are)j(to)s(o)f(high)e(\(remem)m(b)s(er,)
 k(that)f(means)e(they're)i(getting)f(to)s(o)h(m)m(uc)m(h)f(credit,)h
-(so)f(y)m(ou're)h(not)150 3386 y(dep)s(ositing)33 b(enough)i(cy)m(an)g
+(so)f(y)m(ou're)h(not)150 4682 y(dep)s(ositing)33 b(enough)i(cy)m(an)g
 (and)f(magen)m(ta)j(ink,)e(and)f(the)h(y)m(ello)m(w)g(dominates\).)54
-b(If)35 b(y)m(ou)g(get)h(a)f(bluish)150 3496 y(or)30
+b(If)35 b(y)m(ou)g(get)h(a)f(bluish)150 4792 y(or)30
 b(bluish-purple)25 b(cast,)31 b(y)m(our)f(ligh)m(t)f(inks)f(are)j(to)s
 (o)f(lo)m(w)g(\(y)m(ou're)h(not)f(giving)f(them)g(enough)h(credit,)g
-(so)150 3605 y(to)s(o)e(m)m(uc)m(h)g(cy)m(an)g(and)f(magen)m(ta)j(is)c
+(so)150 4902 y(to)s(o)e(m)m(uc)m(h)g(cy)m(an)g(and)f(magen)m(ta)j(is)c
 (dep)s(osited,)h(whic)m(h)g(o)m(v)m(erwhelms)g(the)h(y)m(ello)m(w\).)40
-b(Mak)m(e)29 b(sure)e(y)m(ou)h(do)150 3715 y(this)e(on)i(v)m(ery)g
+b(Mak)m(e)29 b(sure)e(y)m(ou)h(do)150 5011 y(this)e(on)i(v)m(ery)g
 (white,)f(v)m(ery)h(high)e(grade)i(inkjet)f(pap)s(er)f(that's)j
 (designed)d(for)h(1440x720)k(dpi)26 b(or)h(higher;)150
-3824 y(otherwise)e(the)g(ink)f(will)f(spread)h(on)h(con)m(tact)j(and)c
+5121 y(otherwise)e(the)g(ink)f(will)f(spread)h(on)h(con)m(tact)j(and)c
 (y)m(ou'll)h(get)h(v)-5 b(alues)25 b(that)g(aren't)h(really)e(true)h
-(for)g(high)150 3934 y(grade)33 b(pap)s(er.)47 b(Y)-8
+(for)g(high)150 5230 y(grade)33 b(pap)s(er.)47 b(Y)-8
 b(ou)33 b(can,)h(of)f(course,)h(calibrate)e(for)g(lo)m(w)h(grade)g(pap)
-s(er)f(if)f(that's)j(what)f(y)m(ou're)g(going)150 4043
+s(er)f(if)f(that's)j(what)f(y)m(ou're)g(going)150 5340
 y(to)e(use,)f(but)g(that)h(shouldn't)e(b)s(e)g(put)h(in)m(to)g(the)h
-(distribution.)275 4179 y(Y)-8 b(ou)43 b(can)f(also)h(fully)d
-(desaturate)k(this)d(bar)h(inside)e(the)j(Gimp)f(and)g(prin)m(t)f(it)h
-(as)h(mono)s(c)m(hrome)150 4288 y(\(don't)38 b(prin)m(t)e(the)i(cy)m
-(an)g(as)f(mono)s(c)m(hrome;)42 b(the)37 b(driv)m(er)g(do)s(es)g(funn)m
-(y)f(things)g(with)g(luminance\),)i(for)150 4398 y(comparison.)i(Y)-8
-b(ou'll)30 b(\014nd)e(it)i(v)m(ery)h(hard)e(to)i(get)h(rid)d(of)h(all)f
-(color)i(casts.)275 4533 y(There)e(are)i(other)g(w)m(a)m(ys)g(of)g
-(tuning)d(prin)m(ters,)i(but)f(this)g(one)i(w)m(orks)f(prett)m(y)h(w)m
-(ell)f(for)g(me.)150 4792 y Ft(D.5)68 b(Canon)45 b(inkjet)h(prin)l
-(ters)275 4986 y Fu(Basically)-8 b(,)39 b(a)f(new)f(Canon)g(prin)m(ter)
-g(can)h(b)s(e)f(added)g(to)h(`)p Fr(print-canon.c)p Fu(')d(in)h(a)i
-(similar)d(w)m(a)m(y)k(as)150 5095 y(describ)s(ed)28
-b(ab)s(o)m(v)m(e)k(for)e(the)h(epson)f(inkjet)f(prin)m(ters.)39
-b(The)30 b(main)g(di\013erences)f(are)i(noted)f(here:)275
-5230 y(In)h(general,)i(Canon)f(prin)m(ters)f(ha)m(v)m(e)i(more)g
-(\\built-in)c(in)m(telligence")j(than)g(Epson)f(prin)m(ters)g(whic)m(h)
-150 5340 y(results)j(in)f(the)i(fact)h(that)g(the)f(driv)m(er)e(only)h
-(has)h(to)h(tell)e(the)h(prin)m(ting)e(conditions)g(lik)m(e)h
-(resolutions,)p eop
+(distribution.)p eop
 %%Page: 83 88
 83 87 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(83)150 299 y(dot)36 b(sizes,)g(etc.)57 b(to)36
-b(the)f(prin)m(ter)f(and)h(afterw)m(ards)g(transfer)g(the)h(raster)f
-(data)h(line)e(b)m(y)h(line)f(for)h(eac)m(h)150 408 y(color)30
-b(used.)275 549 y Fr(canon_cap_t)d Fu(is)i(a)i(C)f(struct)g(de\014ned)f
-(as)i(follo)m(ws:)3474 800 y(Data)h(t)m(yp)s(e)-3724
-b Fk(canon)p 449 800 35 5 v 40 w(cap)p 660 800 V 41 w(t)630
-904 y Fr(typedef)46 b(struct)g(canon_caps)f({)725 1008
-y(int)i(model;)476 b(/*)47 b(model)g(number)f(as)h(used)f(in)i
-(printers.xml)c(*/)725 1112 y(int)j(max_width;)284 b(/*)47
-b(maximum)f(printable)f(paper)i(size)f(*/)725 1215 y(int)h(max_height;)
-725 1319 y(int)g(base_res;)332 b(/*)47 b(base)g(resolution)e(-)i(shall)
-g(be)g(150)g(or)g(180)g(*/)725 1423 y(int)g(max_xdpi;)332
-b(/*)47 b(maximum)f(horizontal)f(resolution)g(*/)725
-1527 y(int)i(max_ydpi;)332 b(/*)47 b(maximum)f(vertical)g(resolution)f
-(*/)725 1631 y(int)i(max_quality;)725 1734 y(int)g(border_left;)188
-b(/*)47 b(left)g(margin,)f(points)g(*/)725 1838 y(int)h(border_right;)
-140 b(/*)47 b(right)g(margin,)e(points)h(*/)725 1942
-y(int)h(border_top;)236 b(/*)47 b(absolute)f(top)h(margin,)e(points)i
-(*/)725 2046 y(int)g(border_bottom;)92 b(/*)47 b(absolute)f(bottom)g
-(margin,)g(points)g(*/)725 2149 y(int)h(inks;)524 b(/*)47
-b(installable)e(cartridges)g(\(CANON_INK_*\))f(*/)725
-2253 y(int)j(slots;)476 b(/*)47 b(available)e(paperslots)g(*/)725
-2357 y(int)i(features;)332 b(/*)47 b(special)f(bjl)h(settings)e(*/)725
-2461 y(canon_dot_size_t)f(dot_sizes;)h(/*)i(Vector)f(of)h(dot)g(sizes)g
-(for)f(resolutions)f(*/)725 2565 y(canon_densities_t)f(densities;)h(/*)
-i(List)f(of)i(densities)d(for)i(each)f(printer)g(*/)725
-2668 y(canon_variable_inklist_t)c(*inxs;)k(/*)h(Choices)f(of)h(inks)g
-(for)f(this)h(printer)f(*/)630 2772 y(})h(canon_cap_t;)275
-2968 y Fu(Since)38 b(there)i(are)g(Canon)f(prin)m(ters)f(whic)m(h)g
+(ter)2112 b(83)275 299 y(Y)-8 b(ou)43 b(can)f(also)h(fully)d
+(desaturate)k(this)d(bar)h(inside)e(the)j(Gimp)f(and)g(prin)m(t)f(it)h
+(as)h(mono)s(c)m(hrome)150 408 y(\(don't)38 b(prin)m(t)e(the)i(cy)m(an)
+g(as)f(mono)s(c)m(hrome;)42 b(the)37 b(driv)m(er)g(do)s(es)g(funn)m(y)f
+(things)g(with)g(luminance\),)i(for)150 518 y(comparison.)i(Y)-8
+b(ou'll)30 b(\014nd)e(it)i(v)m(ery)h(hard)e(to)i(get)h(rid)d(of)h(all)f
+(color)i(casts.)275 652 y(There)e(are)i(other)g(w)m(a)m(ys)g(of)g
+(tuning)d(prin)m(ters,)i(but)f(this)g(one)i(w)m(orks)f(prett)m(y)h(w)m
+(ell)f(for)g(me.)150 909 y Ft(D.5)68 b(Canon)45 b(inkjet)h(prin)l(ters)
+275 1101 y Fu(Basically)-8 b(,)39 b(a)f(new)f(Canon)g(prin)m(ter)g(can)
+h(b)s(e)f(added)g(to)h(`)p Fr(print-canon.c)p Fu(')d(in)h(a)i(similar)d
+(w)m(a)m(y)k(as)150 1210 y(describ)s(ed)28 b(ab)s(o)m(v)m(e)k(for)e
+(the)h(epson)f(inkjet)f(prin)m(ters.)39 b(The)30 b(main)g
+(di\013erences)f(are)i(noted)f(here:)275 1345 y(In)h(general,)i(Canon)f
+(prin)m(ters)f(ha)m(v)m(e)i(more)g(\\built-in)c(in)m(telligence")j
+(than)g(Epson)f(prin)m(ters)g(whic)m(h)150 1454 y(results)j(in)f(the)i
+(fact)h(that)g(the)f(driv)m(er)e(only)h(has)h(to)h(tell)e(the)h(prin)m
+(ting)e(conditions)g(lik)m(e)h(resolutions,)150 1564
+y(dot)i(sizes,)g(etc.)57 b(to)36 b(the)f(prin)m(ter)f(and)h(afterw)m
+(ards)g(transfer)g(the)h(raster)f(data)h(line)e(b)m(y)h(line)f(for)h
+(eac)m(h)150 1673 y(color)30 b(used.)275 1807 y Fr(canon_cap_t)d
+Fu(is)i(a)i(C)f(struct)g(de\014ned)f(as)i(follo)m(ws:)3474
+2040 y(Data)h(t)m(yp)s(e)-3724 b Fk(canon)p 449 2040
+35 5 v 40 w(cap)p 660 2040 V 41 w(t)630 2144 y Fr(typedef)46
+b(struct)g(canon_caps)f({)725 2247 y(int)i(model;)476
+b(/*)47 b(model)g(number)f(as)h(used)f(in)i(printers.xml)c(*/)725
+2351 y(int)j(max_width;)284 b(/*)47 b(maximum)f(printable)f(paper)i
+(size)f(*/)725 2455 y(int)h(max_height;)725 2559 y(int)g(base_res;)332
+b(/*)47 b(base)g(resolution)e(-)i(shall)g(be)g(150)g(or)g(180)g(*/)725
+2663 y(int)g(max_xdpi;)332 b(/*)47 b(maximum)f(horizontal)f(resolution)
+g(*/)725 2766 y(int)i(max_ydpi;)332 b(/*)47 b(maximum)f(vertical)g
+(resolution)f(*/)725 2870 y(int)i(max_quality;)725 2974
+y(int)g(border_left;)188 b(/*)47 b(left)g(margin,)f(points)g(*/)725
+3078 y(int)h(border_right;)140 b(/*)47 b(right)g(margin,)e(points)h(*/)
+725 3181 y(int)h(border_top;)236 b(/*)47 b(absolute)f(top)h(margin,)e
+(points)i(*/)725 3285 y(int)g(border_bottom;)92 b(/*)47
+b(absolute)f(bottom)g(margin,)g(points)g(*/)725 3389
+y(int)h(inks;)524 b(/*)47 b(installable)e(cartridges)g(\(CANON_INK_*\))
+f(*/)725 3493 y(int)j(slots;)476 b(/*)47 b(available)e(paperslots)g(*/)
+725 3597 y(int)i(features;)332 b(/*)47 b(special)f(bjl)h(settings)e(*/)
+725 3700 y(canon_dot_size_t)f(dot_sizes;)h(/*)i(Vector)f(of)h(dot)g
+(sizes)g(for)f(resolutions)f(*/)725 3804 y(canon_densities_t)f
+(densities;)h(/*)i(List)f(of)i(densities)d(for)i(each)f(printer)g(*/)
+725 3908 y(canon_variable_inklist_t)c(*inxs;)k(/*)h(Choices)f(of)h
+(inks)g(for)f(this)h(printer)f(*/)630 4012 y(})h(canon_cap_t;)275
+4195 y Fu(Since)38 b(there)i(are)g(Canon)f(prin)m(ters)f(whic)m(h)g
 (prin)m(t)g(in)h(resolutions)f(of)h(2^)p Fc(n)27 b Fs(\003)g
-Fu(150)41 b(dpi)d(\(e.g.)69 b(300,)150 3078 y(600,)44
+Fu(150)41 b(dpi)d(\(e.g.)69 b(300,)150 4305 y(600,)44
 b(1200\))e(and)d(others)h(whic)m(h)e(supp)s(ort)g(resolutions)h(of)h
 (2^)p Fc(n)27 b Fs(\003)g Fu(180)41 b(dpi)d(\(e.g.)70
-b(360,)44 b(720,)g(1440\),)150 3187 y(there's)32 b(a)h(base)f
+b(360,)44 b(720,)g(1440\),)150 4414 y(there's)32 b(a)h(base)f
 (resolution)f(\(150)i(or)f(180,)i(resp)s(ectiv)m(ely\))e(giv)m(en)g(in)
 f(the)h Fr(canon_cap_t)p Fu(.)43 b(The)31 b(structs)150
-3297 y Fr(canon_dot_size_t)p Fu(,)c Fr(canon_densities_t)f
+4524 y Fr(canon_dot_size_t)p Fu(,)c Fr(canon_densities_t)f
 Fu(and)k Fr(canon_variable_inklist_)o(t)25 b Fu(refer)30
-b(to)i(resolu-)150 3406 y(tions)e(b)s(eing)f(m)m(ultiples)f(of)i(the)h
-(base)f(resolution.)275 3547 y(F)-8 b(or)30 b(the)h(Canon)f(driv)m(er,)
+b(to)i(resolu-)150 4633 y(tions)e(b)s(eing)f(m)m(ultiples)f(of)i(the)h
+(base)f(resolution.)275 4767 y(F)-8 b(or)30 b(the)h(Canon)f(driv)m(er,)
 f(the)h(struct)g Fr(canon_dot_size_t)c Fu(holds)j(v)-5
-b(alues)29 b(for)h(a)h(mo)s(del's)e(capabil-)150 3656
+b(alues)29 b(for)h(a)h(mo)s(del's)e(capabil-)150 4877
 y(ities)i(at)h(a)g(giv)m(en)g(resolution:)42 b(`)p Fr(-1)p
 Fu(')32 b(if)f(the)g(resolution)g(is)g(not)h(supp)s(orted.)43
 b(`)p Fr(0)p Fu(')31 b(if)g(it)g(can)h(b)s(e)g(used)f(and)150
-3766 y(`)p Fr(1)p Fu(')g(if)e(the)h(resolution)f(can)i(b)s(e)f(used)f
+4987 y(`)p Fr(1)p Fu(')g(if)e(the)h(resolution)f(can)i(b)s(e)f(used)f
 (for)i(v)-5 b(ariable)29 b(dot)h(size)h(prin)m(ting.)275
-3906 y(In)c Fr(canon_densities_t)c Fu(the)28 b(base)g(densities)f(for)g
+5121 y(In)c Fr(canon_densities_t)c Fu(the)28 b(base)g(densities)f(for)g
 (eac)m(h)j(resolution)c(can)i(b)s(e)g(sp)s(eci\014ed)e(lik)m(e)h(for)h
-(an)150 4016 y(epson)35 b(prin)m(ter,)i(the)f(same)g(holds)e(true)i
+(an)150 5230 y(epson)35 b(prin)m(ter,)i(the)f(same)g(holds)e(true)i
 (for)f Fr(canon_variable_inklist_t)p Fu(.)51 b(See)36
-b(the)g(descriptions)150 4125 y(ab)s(o)m(v)m(e)c(to)f(learn)e(ab)s(out)
+b(the)g(descriptions)150 5340 y(ab)s(o)m(v)m(e)c(to)f(learn)e(ab)s(out)
 h(ho)m(w)h(to)g(adjust)f(y)m(our)g(mo)s(del's)f(output)h(to)h(yield)e
-(nice)h(results.)275 4266 y(There's)40 b(a)i(sligh)m(t)e(di\013erence)h
-(though)g(in)f(the)h(w)m(a)m(y)h(the)g(Canon)e(driv)m(er)g(and)h(the)g
-(escp2)h(driv)m(er)150 4375 y(de\014ne)30 b(their)f(v)-5
-b(ariable)29 b(inklists:)38 b(In)30 b(the)g(Canon)g(driv)m(er,)g(y)m
-(ou)g(need)g(to)i(de\014ne)d(an)h(inklist)e(lik)m(e)i(this:)390
-4510 y Fr(static)46 b(const)g(canon_variable_inklist_t)c
-(canon_ink_myinks[])g(=)390 4614 y({)485 4717 y({)581
-4821 y(1,4,)47 b(/*)g(1bit/pixel,)d(4)k(colors)e(*/)581
-4925 y(&ci_CMYK_1,)f(&ci_CMYK_1,)f(&ci_CMYK_1,)581 5029
-y(&ci_CMYK_1,)h(&ci_CMYK_1,)f(&ci_CMYK_1,)485 5132 y(},)485
-5236 y({)581 5340 y(3,4,)j(/*)g(3bit/pixel,)d(4)k(colors)e(*/)p
-eop
+(nice)h(results.)p eop
 %%Page: 84 89
 84 88 bop 150 -116 a Fu(App)s(endix)28 b(D:)j(Adding)d(a)j(new)f(prin)m
-(ter)2112 b(84)581 299 y Fr(&ci_CMYK_3,)45 b(&ci_CMYK_3,)f(&ci_CMYK_3,)
-581 403 y(&ci_CMYK_3,)h(&ci_CMYK_3,)f(&ci_CMYK_3,)485
-506 y(},)390 610 y(};)150 745 y Fu(where)d(the)h(`)p
-Fr(&ci_CMYK_1)p Fu(')d(and)i(`)p Fr(&ci_CMYK_3)p Fu(')e(en)m(tries)i
-(are)h(references)g(to)g(a)g(previously)d(de\014ned)150
-854 y(const)31 b(of)f(t)m(yp)s(e)h Fr(canon_variable_inkset_t)p
-Fu(.)p eop
+(ter)2112 b(84)275 299 y(There's)40 b(a)i(sligh)m(t)e(di\013erence)h
+(though)g(in)f(the)h(w)m(a)m(y)h(the)g(Canon)e(driv)m(er)g(and)h(the)g
+(escp2)h(driv)m(er)150 408 y(de\014ne)30 b(their)f(v)-5
+b(ariable)29 b(inklists:)38 b(In)30 b(the)g(Canon)g(driv)m(er,)g(y)m
+(ou)g(need)g(to)i(de\014ne)d(an)h(inklist)e(lik)m(e)i(this:)390
+537 y Fr(static)46 b(const)g(canon_variable_inklist_t)c
+(canon_ink_myinks[])g(=)390 641 y({)485 745 y({)581 848
+y(1,4,)47 b(/*)g(1bit/pixel,)d(4)k(colors)e(*/)581 952
+y(&ci_CMYK_1,)f(&ci_CMYK_1,)f(&ci_CMYK_1,)581 1056 y(&ci_CMYK_1,)h
+(&ci_CMYK_1,)f(&ci_CMYK_1,)485 1160 y(},)485 1264 y({)581
+1367 y(3,4,)j(/*)g(3bit/pixel,)d(4)k(colors)e(*/)581
+1471 y(&ci_CMYK_3,)f(&ci_CMYK_3,)f(&ci_CMYK_3,)581 1575
+y(&ci_CMYK_3,)h(&ci_CMYK_3,)f(&ci_CMYK_3,)485 1679 y(},)390
+1782 y(};)150 1917 y Fu(where)d(the)h(`)p Fr(&ci_CMYK_1)p
+Fu(')d(and)i(`)p Fr(&ci_CMYK_3)p Fu(')e(en)m(tries)i(are)h(references)g
+(to)g(a)g(previously)d(de\014ned)150 2027 y(const)31
+b(of)f(t)m(yp)s(e)h Fr(canon_variable_inkset_t)p Fu(.)p
+eop
 %%Page: 85 90
 85 89 bop 150 -116 a Fu(Data)32 b(T)m(yp)s(e)e(and)g(V)-8
 b(ariable)29 b(Index)2290 b(85)150 299 y Fp(Data)54 b(T)l(yp)t(e)g(and)

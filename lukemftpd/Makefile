@@ -24,9 +24,10 @@ AEP_Version    = 20040810
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = PR-2571387-pw.db.patch PR-3285536.pamify.patch PR-3795936.long-username.patch
+AEP_Patches    = PR-2571387-pw.db.patch PR-3285536.pamify.patch PR-3795936.long-username.patch \
+                 PR-3886477.Makefile.in.patch PR-3886477.ftpd.c.patch NLS_PR-3955757.patch
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -O"
+ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -Os -mdynamic-no-pic"
 
 .PHONY : copysrc installsrc installhdrs install clean
 
@@ -51,6 +52,8 @@ install :
 	mv $(DSTROOT)/usr/libexec/tnftpd $(DSTROOT)/usr/libexec/ftpd
 	mkdir -p $(DSTROOT)/private/etc/pam.d/
 	cp ftpd $(DSTROOT)/private/etc/pam.d/
+	mkdir -p $(DSTROOT)/System/Library/LaunchDaemons
+	install -c -m 0644 $(SRCROOT)/ftp.plist $(DSTROOT)/System/Library/LaunchDaemons
 
 clean:
 #

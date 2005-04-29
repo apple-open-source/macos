@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_IDENT_H__
+#define __ISAKMP_IDENT_H__
+
 extern int ident_i1send __P((struct ph1handle *, vchar_t *));
 extern int ident_i2recv __P((struct ph1handle *, vchar_t *));
 extern int ident_i2send __P((struct ph1handle *, vchar_t *));
@@ -43,3 +46,7 @@ extern int ident_r2recv __P((struct ph1handle *, vchar_t *));
 extern int ident_r2send __P((struct ph1handle *, vchar_t *));
 extern int ident_r3recv __P((struct ph1handle *, vchar_t *));
 extern int ident_r3send __P((struct ph1handle *, vchar_t *));
+
+
+#endif /* __ISAKMP_IDENT_H__ */
+

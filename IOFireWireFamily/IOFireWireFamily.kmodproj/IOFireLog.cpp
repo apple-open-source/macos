@@ -126,7 +126,7 @@ IOReturn IOFireLog::initialize( void )
     fLogSize = kFireLogSize + sizeof(FireLogHeader);
     
     clock_get_uptime(&time);
-    fRandomID = time.lo;
+    fRandomID = (uint32_t)AbsoluteTime_to_scalar(&time);
     fRandomID &= 0x00ffffff;
     
     fController = NULL;

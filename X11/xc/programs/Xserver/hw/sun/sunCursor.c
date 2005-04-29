@@ -27,7 +27,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/Xserver/hw/sun/sunCursor.c,v 3.5 2001/12/14 19:59:43 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/sunCursor.c,v 3.6 2003/11/17 22:20:36 dawes Exp $ */
 
 /*-
  * sunCursor.c --
@@ -235,13 +235,8 @@ extern miPointerScreenFuncRec	sunPointerScreenFuncs;
 
 #endif
 
-#if NeedFunctionPrototypes
 Bool sunCursorInitialize (
     ScreenPtr	pScreen)
-#else
-Bool sunCursorInitialize (pScreen)
-    ScreenPtr	pScreen;
-#endif
 {
 #ifdef FBIOGCURMAX
     SetupCursor (pScreen);
@@ -269,13 +264,8 @@ Bool sunCursorInitialize (pScreen)
 #endif
 }
 
-#if NeedFunctionPrototypes
 void sunDisableCursor (
     ScreenPtr	pScreen)
-#else
-void sunDisableCursor (pScreen)
-    ScreenPtr	pScreen;
-#endif
 {
 #ifdef FBIOGCURMAX
     SetupCursor (pScreen);

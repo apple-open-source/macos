@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -163,22 +163,23 @@ def main():
         # Because they can't supply a password for unsubscribing, we'll need
         # to do the confirmation dance.
         if mlist.isMember(user):
-            # If unsubs require admin approval, then this request has to be
-            # held.  Otherwise, send a confirmation.
-            if mlist.unsubscribe_policy:
-                try:
-                    mlist.Lock()
+            # We must acquire the list lock in order to pend a request.
+            try:
+                mlist.Lock()
+                # If unsubs require admin approval, then this request has to
+                # be held.  Otherwise, send a confirmation.
+                if mlist.unsubscribe_policy:
                     mlist.HoldUnsubscription(user)
                     doc.addError(_("""Your unsubscription request has been
                     forwarded to the list administrator for approval."""),
                                  tag='')
-                    mlist.Save()
-                finally:
-                    mlist.Unlock()
-            else:
-                mlist.ConfirmUnsubscription(user, userlang)
-                doc.addError(_('The confirmation email has been sent.'),
-                             tag='')
+                else:
+                    mlist.ConfirmUnsubscription(user, userlang)
+                    doc.addError(_('The confirmation email has been sent.'),
+                                 tag='')
+                mlist.Save()
+            finally:
+                mlist.Unlock()
         else:
             # Not a member
             if mlist.private_roster == 0:
@@ -219,7 +220,6 @@ def main():
 
     # Authenticate, possibly using the password supplied in the login page
     password = cgidata.getvalue('password', '').strip()
-
     if not mlist.WebAuthenticate((mm_cfg.AuthUser,
                                   mm_cfg.AuthListAdmin,
                                   mm_cfg.AuthSiteAdmin),
@@ -629,7 +629,10 @@ address.  Upon confirmation, any other mailing list containing the address
         print doc.Format()
         return
 
-    options_page(mlist, doc, user, cpuser, userlang)
+    if mlist.isMember(user):
+        options_page(mlist, doc, user, cpuser, userlang)
+    else:
+        loginpage(mlist, doc, user, userlang)
     print doc.Format()
 
 

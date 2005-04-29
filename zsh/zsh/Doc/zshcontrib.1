@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHCONTRIB" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-4\&.1\&.1/Util/helpfiles\fP
+perl ~/zsh\-4\&.2\&.3/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-4\&.1\&.1/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-4\&.2\&.3/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-4\&.1\&.1/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-4\&.2\&.3/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -443,7 +443,7 @@ select\-word\-style bash\fP
 \fBup\-case\-word\-match\fP, \fBdown\-case\-word\-match\fP
 .TP
 .PD
-\fBselect\-word\-style\fP, \fBmatch\-word\-by\-style\fP
+\fBselect\-word\-style\fP, \fBmatch\-words\-by\-style\fP
 The eight `\fB\-match\fP' functions are drop\-in replacements for the
 builtin widgets without the suffix\&.  By default they behave in a similar
 way\&.  However, by the use of styles and the function \fBselect\-word\-style\fP,
@@ -544,11 +544,34 @@ has been set, and \fBtranspose\-words\-match\fP is called with the cursor on
 the \fIX\fP of \fBfoo\fP\fIX\fP\fBbar\fP, where \fIX\fP can be any character, then
 the resulting expression is \fBbar\fP\fIX\fP\fBfoo\fP\&.
 .PP
+Here are some examples of use of the styles, actually taken from the
+simplified interface in \fBselect\-word\-style\fP:
+.PP
+.RS
+.nf
+\fBzstyle ':zle:*' word\-style standard
+zstyle ':zle:*' word\-chars ''\fP
+.fi
+.RE
+.PP
+Implements bash\-style word handling for all widgets, i\&.e\&. only
+alphanumerics are word characters; equivalent to setting
+the parameter \fBWORDCHARS\fP empty for the given context\&.
+.PP
+.RS
+.nf
+\fBstyle ':zle:*kill*' word\-style space\fP
+.fi
+.RE
+.PP
+Uses space\-delimited words for widgets with the word `kill' in the name\&.
+Neither of the styles \fBword\-chars\fP nor \fBword\-class\fP is used in this case\&.
+.PP
 The word matching and all the handling of \fBzstyle\fP settings is actually
-implemented by the function \fBmatch\-word\-by\-style\fP\&.  This can be used to
+implemented by the function \fBmatch\-words\-by\-style\fP\&.  This can be used to
 create new user\-defined widgets\&.  The calling function should set the local
 parameter \fBcurcontext\fP to \fB:zle:\fP\fIwidget\fP, create the local
-parameter \fBmatched_words\fP and call \fBmatch\-word\-by\-style\fP with no
+parameter \fBmatched_words\fP and call \fBmatch\-words\-by\-style\fP with no
 arguments\&.  On return, \fBmatched_words\fP will be set to an array with the
 elements: (1) the start of the line (2) the word before the cursor (3) any
 non\-word characters between that word and the cursor (4) any non\-word
@@ -558,6 +581,47 @@ before the next word, including all characters specified by the
 non\-word characters following that word (7) the remainder of the line\&.  Any
 of the elements may be an empty string; the calling function should test
 for this to decide whether it can perform its function\&.
+.PP
+It is possible to pass options with arguments to \fBmatch\-words\-by\-style\fP
+to override the use of styles\&.  The options are:
+.PD 0
+.TP
+\fB\-w\fP
+\fIword\-style\fP
+.TP
+\fB\-s\fP
+\fIskip\-chars\fP
+.TP
+\fB\-c\fP
+\fIword\-class\fP
+.TP
+\fB\-C\fP
+\fIword\-chars\fP
+.PD
+.PP
+For example, \fBmatch\-words\-by\-style \-w shell \-c 0\fP may be used to
+extract the command argument around the cursor\&.
+.RE
+.TP
+\fBdelete\-whole\-word\-match\fP
+This is another function which works like the \fB\-match\fP functions
+described immediately above, i\&.e\&. using styles to decide the word
+boundaries\&.  However, it is not a replacement for any existing function\&.
+.RS
+.PP
+The basic behaviour is to delete the word around the cursor\&.  There is no
+numeric prefix handling; only the single word around the cursor is
+considered\&.  If the widget contains the string \fBkill\fP, the removed text
+will be placed in the cutbuffer for future yanking\&.  This can be obtained
+by defining \fBkill\-whole\-word\-match\fP as follows:
+.PP
+.RS
+.nf
+\fBzle \-N kill\-whole\-word\-match delete\-whole\-word\-match\fP
+.fi
+.RE
+.PP
+and then binding the widget \fBkill\-whole\-word\-match\fP\&.
 .RE
 .TP
 \fBcopy\-earlier\-word\fP
@@ -626,6 +690,28 @@ zle \-N history\-beginning\-search\-forward\-end \e
        history\-search\-end
 bindkey '\ee^P' history\-beginning\-search\-backward\-end
 bindkey '\ee^N' history\-beginning\-search\-forward\-end\fP
+.fi
+.RE
+.RE
+.TP
+\fBhistory\-pattern\-search\fP
+The function \fBhistory\-pattern\-search\fP implements widgets which prompt
+for a pattern with which to search the history backwards or forwards\&.  The
+pattern is in the usual zsh format, however the first character may be
+\fB^\fP to anchor the search to the start of the line, and the last character
+may be \fB$\fP to anchor the search to the end of the line\&.  If the
+search was not anchored to the end of the line the cursor is positioned
+just after the pattern found\&.
+.RS
+.PP
+The commands to create bindable widgets are similar to those in the
+example immediately above:
+.PP
+.RS
+.nf
+\fBautoload \-U history\-pattern\-search
+zle \-N history\-pattern\-search\-backward history\-pattern\-search
+zle \-N history\-pattern\-search\-forward history\-pattern\-search\fP
 .fi
 .RE
 .RE
@@ -811,13 +897,21 @@ when executing, for example, \fBexecute\-named\-cmd\fP)\&.  The value is then
 returned to the calling function in the parameter \fB$REPLY\fP and the
 editing buffer restored to its previous state\&.  If the read was aborted
 by a keyboard break (typically \fB^G\fP), the function returns status 1
-and \fB$REPLY\fP is not set\&.  If an argument is supplied to the function
-it is taken as a prompt, otherwise `\fB? \fP' is used\&.
+and \fB$REPLY\fP is not set\&.
 .RS
+.PP
+If one argument is supplied to the function it is taken as a prompt,
+otherwise `\fB? \fP' is used\&.  If two arguments are supplied, they are the
+prompt and the initial value of \fB$LBUFFER\fP, and if a third argument is
+given it is the initial value of \fB$RBUFFER\fP\&.  This provides a default
+value and starting cursor placement\&.  Upon return the entire buffer is the
+value of \fB$REPLY\fP\&.
 .PP
 One option is available: `\fB\-k\fP \fInum\fP' specifies that \fInum\fP
 characters are to be read instead of a whole line\&.  The line editor is not
-invoked recursively in this case\&.  Note that unlike the \fBread\fP builtin
+invoked recursively in this case, so depending on the terminal settings
+the input may not be visible, and only the input keys are placed in
+\fB$REPLY\fP, not the entire buffer\&.  Note that unlike the \fBread\fP builtin
 \fInum\fP must be given; there is no default\&.
 .PP
 The name is a slight misnomer, as in fact the shell's own minibuffer is
@@ -1097,6 +1191,180 @@ whether the \fBwidget\fP style is used\&.
 .RE
 .RE
 .PP
+.SH "MIME FUNCTIONS"
+.PP
+Three functions are available to provide handling of files recognised by
+extension, for example to dispatch a file \fBtext\&.ps\fP when executed as a
+command to an appropriate viewer\&.
+.PP
+.PD 0
+.TP
+.PD 0
+\fBzsh\-mime\-setup [\-flv]\fP
+.TP
+.PD
+\fBzsh\-mime\-handler\fP
+These two functions use the files \fB~/\&.mime\&.types\fP and \fB/etc/mime\&.types\fP,
+which associate types and extensions, as well as \fB~/\&.mailcap\fP and
+\fB/etc/mailcap\fP files, which associate types and the programs that
+handle them\&.  These are provided on many systems with the Multimedia
+Internet Mail Extensions\&.
+.RS
+.PP
+To enable the system, the function \fBzsh\-mime\-setup\fP should be
+autoloaded and run\&.  This allows files with extensions to be treated
+as executable; such files be completed by the function completion system\&.
+The function \fBzsh\-mime\-handler\fP should not need to be called by the
+user\&.
+.PP
+The system works by setting up suffix aliases with `\fBalias \-s\fP'\&.
+Suffix aliases already installed by the user will not be overwritten\&.
+.PP
+Repeated calls to \fBzsh\-mime\-setup\fP do not override the existing
+mapping between suffixes and executable files unless the option \fB\-f\fP
+is given\&.  Note, however, that this does not override existing suffix
+aliases assigned to handlers other than \fBzsh\-mime\-handler\fP\&.
+Calling \fBzsh\-mime\-setup\fP with the option \fB\-l\fP lists the existing
+mapping without altering it\&.  Calling \fBzsh\-mime\-setup\fP with the option
+\fB\-v\fP causes verbose output to be shown during the setup operation\&.
+.PP
+The system respects the \fBmailcap\fP flags \fBneedsterminal\fP and
+\fBcopiousoutput\fP, see \fImailcap\fP(4)\&.
+.PP
+The functions use the following styles, which are defined with the
+\fBzstyle\fP builtin command (see \fIzshmodules\fP(1))\&.  They should be defined
+before \fBzsh\-mime\-setup\fP is run\&.  The contexts used all
+start with \fB:mime:\fP, with additional components in some cases\&.
+It is recommended that a trailing \fB*\fP (suitably quoted) be appended
+to style patterns in case the system is extended in future\&.  Some
+examples are given below\&.
+.PD 0
+.TP
+.PD
+mime\-types
+A list of files in the format of \fB~/\&.mime\&.types\fP and
+\fB/etc/mime\&.types\fP to be read during setup, replacing the default list
+which consists of those two files\&.  The context is \fB:mime:\fP\&.
+A \fB+\fP in the list will be replaced by the default files\&.
+.TP
+mailcap
+A list of files in the format of \fB~/\&.mailcap\fP and
+\fB/etc/mailcap\fP to be read during setup, replacing the default list
+which consists of those two files\&.  The context is \fB:mime:\fP\&.
+A \fB+\fP in the list will be replaced by the default files\&.
+.TP
+handler
+Specifies a handler for a suffix; the suffix is given by the context as
+\fB:mime:\&.\fP\fIsuffix\fP\fB:\fP, and the format of the handler is exactly
+that in \fBmailcap\fP\&.  Note in particular the `\fB\&.\fP' and trailing colon
+to distinguish this use of the context\&.  This overrides any handler
+specified by the \fBmailcap\fP files\&.  If the handler requires a terminal,
+the \fBflags\fP style should be set to include the word \fBneedsterminal\fP,
+or if the output is to be displayed through a pager (but not if the
+handler is itself a pager), it should include \fBcopiousoutput\fP\&.
+.TP
+flags
+Defines flags to go with a handler; the context is as for the
+\fBhandler\fP style, and the format is as for the flags in \fBmailcap\fP\&.
+.TP
+pager
+If set, will be used instead of \fB$PAGER\fP or \fBmore\fP to handle
+suffixes where the \fBcopiousoutput\fP flag is set\&.  The context is
+as for \fBhandler\fP, i\&.e\&. \fB:mime:\&.\fP\fIsuffix\fP\fB:\fP for handling
+a file with the given \fIsuffix\fP\&.
+.PP
+Examples:
+.PP
+.RS
+.nf
+\fBzstyle ':mime:*' mailcap ~/\&.mailcap /usr/local/etc/mailcap
+zstyle ':mime:\&.txt' handler less %s
+zstyle ':mime:\&.txt' flags needsterminal\fP
+.fi
+.RE
+.PP
+When \fBzsh\-mime\-setup\fP is subsequently run, it will look for
+\fBmailcap\fP entries in the two files given\&.  Files of suffix \fB\&.txt\fP
+will be handled by running `\fBless\fP \fIfile\&.txt\fP'\&.  The flag
+\fBneedsterminal\fP is set to show that this program must run attached to a
+terminal\&.
+.PP
+As there are several steps to dispatching a command, the following
+should be checked if attempting to execute a file by extension
+\fB\&.\fP\fIext\fP does not have the expected effect\&.
+starteit()
+eit()(
+The command `\fBalias \-s\fP \fIext\fP' should show
+`\fBps=zsh\-mime\-handler\fP'\&.  If it shows something else, another suffix
+alias was already installed and was not overwritten\&.  If it shows
+nothing, no handler was installed:  this is most likely because no
+handler was found in the \fB\&.mime\&.types\fP and \fBmailcap\fP combination for
+\fB\&.ext\fP files\&.  In that case, appropriate handling should be added to
+\fB~/\&.mime\&.types\fP and \fBmailcap\fP\&.
+)
+eit()(
+If the extension is handled by \fBzsh\-mime\-handler\fP but the file is
+not opened correctly, either the handler defined for the type is
+incorrect, or the flags associated with it are in appropriate\&.  Running
+\fBzsh\-mime\-setup \-l\fP will show the handler and, if there are any, the
+flags\&.  A \fB%s\fP in the handler is replaced by the file (suitably quoted
+if necessary)\&.  Check that the handler program listed lists and can
+be run in the way shown\&.  Also check that the flags \fBneedsterminal\fP or
+\fBcopiousoutput\fP are set if the handler needs to be run under a
+terminal; the second flag is used if the output should be sent to a pager\&.
+An example of a suitable \fBmailcap\fP entry for such a program is:
+.PP
+.RS
+.nf
+\fBtext/html; /usr/bin/lynx '%s'; needsterminal\fP
+.fi
+.RE
+)
+endeit()
+.RE
+.TP
+\fBpick\-web\-browser\fP
+This function is separate from the two MIME functions described above
+and can be assigned directly to a suffix:
+.RS
+.PP
+.RS
+.nf
+\fBautoload \-U pick\-web\-browser
+alias \-s html=pick\-web\-browser\fP
+.fi
+.RE
+.PP
+It is provided as an intelligent front end to dispatch a web browser\&.
+It will check if an X Windows display is available, and if so
+if there is already a browser running which can accept a remote
+connection\&.  In that case, the file will be displayed in that browser;
+you should check explicitly if it has appeared in the running browser's
+window\&.  Otherwise, it will start a new browser according to a builtin
+set of preferences\&.
+.PP
+Alternatively, \fBpick\-web\-browser\fP can be run as a zsh script\&.
+.PP
+Two styles are available to customize the choice of browsers:
+\fBx\-browsers\fP when running under the X Windows System, and
+\fBtty\-browsers\fP otherwise\&.  These are arrays in decreasing order
+of preference consiting of the command name under which to start the
+browser\&.  They are looked up in the context \fB:mime:\fP (which may
+be extended in future, so appending `\fB*\fP' is recommended)\&.  For
+example,
+.PP
+.RS
+.nf
+\fBzstyle ':mime:*' x\-browsers opera konqueror netscape\fP
+.fi
+.RE
+.PP
+specifies that \fBpick\-web\-browser\fP should first look for a runing
+instance of Opera, Konqueror or Netscape, in that order, and if it
+fails to find any should attempt to start Opera\&.
+.RE
+.RE
+.PP
 .SH "OTHER FUNCTIONS"
 .PP
 There are a large number of helpful functions in the \fBFunctions/Misc\fP
@@ -1244,6 +1512,58 @@ widget will continue where you left off\&.  If you lost, it will start a new
 game\&.
 .RE
 .TP
+\fBzargs\fP [ \fIoption\fP \&.\&.\&. \fB\-\fP\fB\-\fP ] [ \fIinput\fP \&.\&.\&. ] [ \fB\-\fP\fB\-\fP \fIcommand\fP [ \fIarg\fP \&.\&.\&. ] ]
+This function works like GNU xargs, except that instead of reading lines
+of arguments from the standard input, it takes them from the command line\&.
+This is useful because zsh, especially with recursive glob operators,
+often can construct a command line for a shell function that is longer
+than can be accepted by an external command\&.
+.RS
+.PP
+The \fIoption\fP list represents options of the \fBzargs\fP command itself,
+which are the same as those of \fBxargs\fP\&.  The \fIinput\fP list is the
+collection of strings (often file names) that become the arguments of the
+\fBcommand\fP, analogous to the standard input of \fBxargs\fP\&.  Finally, the
+\fIarg\fP list consists of those arguments (usually options) that are
+passed to the \fIcommand\fP each time it runs\&.  The \fIarg\fP list precedes
+the elements from the \fBinput\fP list in each run\&.  If no \fIcommand\fP is
+provided, then no \fIarg\fP list may be provided, and in that event the
+default command is `\fBprint\fP' with arguments `\fB\-r \-\fP\fB\-\fP'\&.
+.PP
+For example, to get a long \fBls\fP listing of all plain files in the
+current directory or its subdirectories:
+.PP
+.RS
+.nf
+\fBautoload \-U zargs
+zargs \-\- **/*(\&.) \-\- ls \-l\fP
+.fi
+.RE
+.PP
+Note that `\fB\-\fP\fB\-\fP' is used both to mark the end of the \fIoption\fP
+list and to mark the end of the \fIinput\fP list, so it must appear twice
+whenever the \fIinput\fP list may be empty\&.  If there is guaranteed to be
+at least one \fIinput\fP and the first \fIinput\fP does not begin with a
+`\fB\-\fP', then the first `\fB\-\fP\fB\-\fP' may be omitted\&.
+.PP
+In the event that the string `\fB\-\fP\fB\-\fP' is or may be an \fIinput\fP, the
+\fB\-e\fP option may be used to change the end\-of\-inputs marker\&.  Note that
+this does \fInot\fP change the end\-of\-options marker\&.  For example, to use
+`\fB\&.\&.\fP' as the marker:
+.PP
+.RS
+.nf
+\fBzargs \-e\&.\&. \-\- **/*(\&.) \&.\&. ls \-l\fP
+.fi
+.RE
+.PP
+This is a good choice in that example because no plain file can be named
+`\fB\&.\&.\fP', but the best end\-marker depends on the circumstances\&.
+.PP
+For details of the other \fBzargs\fP options, see \fIxargs\fP(1) or run
+\fBzargs\fP with the \fB\-\fP\fB\-help\fP option\&.
+.RE
+.TP
 \fBzcalc\fP [ \fIexpression\fP \&.\&.\&. ]
 A reasonably powerful calculator based on zsh's arithmetic evaluation
 facility\&.  The syntax is similar to that of formulae in most programming
@@ -1290,17 +1610,16 @@ referred to in \fBZCALCPROMPT\fP as `\fB%1v\fP'\&.  The default prompt is
 See the comments in the function for a few extra tips\&.
 .RE
 .TP
+.PD 0
 \fBzed\fP [ \fB\-f\fP ] \fIname\fP
-This function uses the ZLE editor to edit a file or function\&.  It rebinds
-the return key to insert a line break, and adds bindings for `\fB^X^W\fP' in
-the \fBemacs\fP keymap and `\fBZZ\fP' in the \fBvicmd\fP keymap to accept (and
-therefore write, in the case of a file) the edited file or function\&.
-Keybindings are otherwise the standard ones; completion is available, and
-styles may be set with the context prefix `\fB:completion:zed\fP'\&.
+.TP
+.PD
+\fBzed \-b\fP
+This function uses the ZLE editor to edit a file or function\&.
 .RS
 .PP
-Only one \fIname\fP argument is recognized (additional arguments are
-ignored)\&.  If the \fB\-f\fP option is given, the name is taken to be that of
+Only one \fIname\fP argument is allowed\&.
+If the \fB\-f\fP option is given, the name is taken to be that of
 a function; if the function is marked for autoloading, \fBzed\fP searches
 for it in the \fBfpath\fP and loads it\&.  Note that functions edited this way
 are installed into the current shell, but \fInot\fP written back to the
@@ -1308,6 +1627,37 @@ autoload file\&.
 .PP
 Without \fB\-f\fP, \fIname\fP is the path name of the file to edit, which need
 not exist; it is created on write, if necessary\&.
+.PP
+While editing, the function sets the main keymap to \fBzed\fP and the
+vi command keymap to \fBzed\-vicmd\fP\&.  These will be copied from the existing
+\fBmain\fP and \fBvicmd\fP keymaps if they do not exist the first time \fBzed\fP
+is run\&.  They can be used to provide special key bindings used only in zed\&.
+.PP
+If it creates the keymap, \fBzed\fP rebinds the return key to insert a line
+break and `\fB^X^W\fP' to accept the edit in the \fBzed\fP keymap, and binds
+`\fBZZ\fP' to accept the edit in the \fBzed\-vicmd\fP keymap\&.
+.PP
+The bindings alone can be installed by running `\fBzed \-b\fP'\&.  This is
+suitable for putting into a startup file\&.  Note that, if rerun,
+this will overwrite the existing \fBzed\fP and \fBzed\-vicmd\fP keymaps\&.
+.PP
+Completion is available, and styles may be set with the context prefix
+`\fB:completion:zed\fP'\&.
+.PP
+A zle widget \fBzed\-set\-file\-name\fP is available\&.  This can be called by
+name from within zed using `\fB\eex zed\-set\-file\-name\fP' (note, however, that
+because of zed's rebindings you will have to type \fB^j\fP at the end instead
+of the return key), or can be bound to a key in either of the \fBzed\fP or
+\fBzed\-vicmd\fP keymaps after `\fBzed \-b\fP' has been run\&.  When the widget is
+called, it prompts for a new name for the file being edited\&.  When zed
+exits the file will be written under that name and the original file will
+be left alone\&.  The widget has no effect with `\fBzed \-f\fP'\&.
+.PP
+While \fBzed\-set\-file\-name\fP is running, zed uses the keymap
+\fBzed\-normal\-keymap\fP, which is linked from the main keymap in effect
+at the time zed initialised its bindings\&.  (This is to make the return key
+operate normally\&.)  The result is that if the main keymap has been changed,
+the widget won't notice\&.  This is not a concern for most users\&.
 .RE
 .TP
 .PD 0

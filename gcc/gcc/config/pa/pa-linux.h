@@ -1,20 +1,20 @@
 /* Definitions for PA_RISC with ELF format
-   Copyright 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 1999, 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -56,18 +56,13 @@ Boston, MA 02111-1307, USA.  */
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\
     {						\
-	builtin_define ("__ELF__");		\
-	builtin_define ("__gnu_linux__");	\
-	builtin_define_std ("linux");		\
-	builtin_define_std ("unix");		\
+	LINUX_TARGET_OS_CPP_BUILTINS();		\
 	builtin_assert ("machine=bigendian");	\
-	builtin_assert ("system=posix");	\
-	builtin_assert ("system=unix");		\
     }						\
   while (0)
 
 #undef CPP_SPEC
-#define CPP_SPEC "%{fPIC:-D__PIC__ -D__pic__} %{fpic:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
+#define CPP_SPEC "%{fPIC|fpic|fPIE|fpie:-D__PIC__ -D__pic__} %{posix:-D_POSIX_SOURCE}"
 
 #undef	LIB_SPEC
 #define LIB_SPEC \
@@ -107,29 +102,7 @@ Boston, MA 02111-1307, USA.  */
 #define DATA_SECTION_ASM_OP "\t.data"
 #define BSS_SECTION_ASM_OP "\t.section\t.bss"
 
-/* Output at beginning of assembler file.  We override the definition
-   from <linux.h> so that we can get the proper .LEVEL directive.  */
-#undef ASM_FILE_START
-#define ASM_FILE_START(FILE) \
-  do								\
-    {								\
-      if (write_symbols != NO_DEBUG)				\
-	{							\
-	  output_file_directive (FILE, main_input_filename);	\
-	  fputs ("\t.version\t\"01.01\"\n", FILE);		\
-	}							\
-      if (TARGET_64BIT)						\
-	fputs("\t.LEVEL 2.0w\n", FILE);				\
-      else if (TARGET_PA_20)					\
-	fputs("\t.LEVEL 2.0\n", FILE);				\
-      else if (TARGET_PA_11)					\
-	fputs("\t.LEVEL 1.1\n", FILE);				\
-      else							\
-	fputs("\t.LEVEL 1.0\n", FILE);				\
-      if (profile_flag)						\
-	fputs ("\t.IMPORT _mcount, CODE\n", FILE);		\
-    }								\
-   while (0)
+#define TARGET_ASM_FILE_START pa_linux_file_start
 
 /* We want local labels to start with period if made with asm_fprintf.  */
 #undef LOCAL_LABEL_PREFIX
@@ -144,21 +117,21 @@ Boston, MA 02111-1307, USA.  */
 #undef ASM_OUTPUT_ADDR_VEC_ELT
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
   if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldil LR'.L%d,%%r1\n\tbe RR'.L%d(%%sr4,%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE, VALUE);		\
+    fprintf (FILE, "\t.word .L%d\n", VALUE);			\
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 
 #undef ASM_OUTPUT_ADDR_DIFF_ELT
 #define ASM_OUTPUT_ADDR_DIFF_ELT(FILE, BODY, VALUE, REL) \
   if (TARGET_BIG_SWITCH)					\
-    fprintf (FILE, "\tstw %%r1,-16(%%r30)\n\tldw T'.L%d(%%r19),%%r1\n\tbv %%r0(%%r1)\n\tldw -16(%%r30),%%r1\n", VALUE);				\
+    fprintf (FILE, "\t.word .L%d-.L%d\n", VALUE, REL);		\
   else								\
     fprintf (FILE, "\tb .L%d\n\tnop\n", VALUE)
 
 /* Use the default.  */
 #undef ASM_OUTPUT_LABEL
 
-/* NOTE: ASM_OUTPUT_INTERNAL_LABEL() is defined for us by elfos.h, and
+/* NOTE: (*targetm.asm_out.internal_label)() is defined for us by elfos.h, and
    does what we want (i.e. uses colons).  It must be compatible with
    ASM_GENERATE_INTERNAL_LABEL(), so do not define it here.  */
 

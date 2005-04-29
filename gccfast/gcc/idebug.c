@@ -112,6 +112,8 @@ fn_1( TREE_LANG_FLAG_3, int, tree )
 fn_1( TREE_LANG_FLAG_4, int, tree )
 fn_1( TREE_LANG_FLAG_5, int, tree )
 fn_1( TREE_LANG_FLAG_6, int, tree )
+/* APPLE LOCAL dead code strip.  */
+fn_1( TREE_LIVE, int, tree )
 fn_1( TREE_INT_CST_LOW, unsigned HOST_WIDE_INT, tree )
 fn_1( TREE_INT_CST_HIGH, HOST_WIDE_INT, tree )
 fn_2( INT_CST_LT, int, tree, tree )

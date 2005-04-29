@@ -1,7 +1,7 @@
 // SAX exception class.
 // http://www.saxproject.org
 // No warranty; no copyright -- use this as you will.
-// $Id: SAXException.java,v 1.4 2003/01/22 06:04:34 gkeating Exp $
+// $Id: SAXException.java,v 1.1.1.2 2003/01/21 21:21:17 gkeating Exp $
 
 package org.xml.sax;
 

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 2001, International Business Machines
+*   Copyright (C) 2001-2003, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -273,7 +273,9 @@ testTrieRangesWithMalloc(const char *testName,
     storage = (uint8_t*) uprv_malloc(sizeof(uint8_t)*100000);
 
     log_verbose("\ntesting Trie '%s'\n", testName);
-    newTrie=utrie_open(NULL, NULL, 2000, checkRanges[0].value, latin1Linear);
+    newTrie=utrie_open(NULL, NULL, 2000,
+                       checkRanges[0].value, checkRanges[0].value,
+                       latin1Linear);
 
     /* set values from setRanges[] */
     ok=TRUE;
@@ -457,7 +459,9 @@ testTrieRanges(const char *testName,
     UBool overwrite, ok;
 
     log_verbose("\ntesting Trie '%s'\n", testName);
-    newTrie=utrie_open(NULL, NULL, 2000, checkRanges[0].value, latin1Linear);
+    newTrie=utrie_open(NULL, NULL, 2000,
+                       checkRanges[0].value, checkRanges[0].value,
+                       latin1Linear);
 
     /* set values from setRanges[] */
     ok=TRUE;
@@ -682,11 +686,11 @@ setRanges1[]={
     {0x20,   0xa7,       0x1234, FALSE},
     {0xa7,   0x3400,     0,      FALSE},
     {0x3400, 0x9fa6,     0x6162, FALSE},
-    {0x9fa6, 0xdada,     0x3132, FALSE},
-    {0xdada, 0xeeee,     0x27,   FALSE},
+    {0x9fa6, 0xda9e,     0x3132, FALSE},
+    {0xdada, 0xeeee,     0x87ff, FALSE}, /* try to disrupt _testFoldingOffset16() */
     {0xeeee, 0x11111,    1,      FALSE},
     {0x11111, 0x44444,   0x6162, FALSE},
-    {0x44444, 0xf0003,   0,      FALSE},
+    {0x44444, 0x60003,   0,      FALSE},
     {0xf0003, 0xf0004,   0xf,    FALSE},
     {0xf0004, 0xf0006,   0x10,   FALSE},
     {0xf0006, 0xf0007,   0x11,   FALSE},
@@ -701,8 +705,9 @@ checkRanges1[]={
     {0xa7,   0x1234},
     {0x3400, 0},
     {0x9fa6, 0x6162},
-    {0xdada, 0x3132},
-    {0xeeee, 0x27},
+    {0xda9e, 0x3132},
+    {0xdada, 0},
+    {0xeeee, 0x87ff},
     {0x11111,1},
     {0x44444,0x6162},
     {0xf0003,0},
@@ -782,7 +787,7 @@ addTrieTest(TestNode** root);
 
 void
 addTrieTest(TestNode** root) {
-    addTest(root, &TrieTest, "tsutil/TrieTest");
+    addTest(root, &TrieTest, "tsutil/trietest/TrieTest");
 }
 #else
 /* standalone utrie development */

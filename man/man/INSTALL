@@ -1,0 +1,70 @@
+INSTALLATION
+
+NOTE! The default configuration file has moved from
+/usr/lib/man.config or /etc/man.conf to /usr/share/misc/man.conf.
+Remove the former two.
+The country code dk has been replaced by the language code da.
+If you had Danish man pages installed, these should probably be moved.
+
+The quick installation goes in three steps:
+	1. configure -default
+	2. make
+	3. make install
+
+This should suffice for most people. The defaults are:
+   Only English man pages, no message catalogs, man not suid,
+   handle compressed man pages, compress cat pages, create cat pages
+   whenever the appropriate directory exists,
+   follow FHS by putting cat pages under /var/cache/man provided that
+   that directory exists.
+
+In order to select man pages in other languages, replace Step 1 by
+	1. configure +lang de,en,nl
+or perhaps (especially when making a general distribution) by
+	1. configure +lang all
+This yields all the defaults, except for the language setting.
+
+People who want something other than the default also use three steps:
+1. configure -ask
+2. make
+3. make install
+but have to answer a lot of questions during configure.
+
+In somewhat greater detail:
+
+1. Run configure.  This will grope around your system a bit and then
+   ask you a number of questions.  It will create a Makefile from the
+   file Makefile.in.  You may have to do some fine tuning to get things
+   to work exactly right on your system.  If you do, I'd like to know
+   what changes you had to make to get things working.
+
+   Man uses groff (nroff, troff) to format man pages. If you don't
+   have *roff, then you can only use preformatted man pages.
+
+   You can make man suid to some uid, say man, where man is the owner
+   of the directories (like /usr/man/cat*) for formatted man pages.
+   That way man can write formatted pages there, even when the directory
+   does not have universal write permission. However, it is fairly easy
+   to spoof man, so really this setup is not very different from the one
+   where /usr/man/cat* has universal write permission.
+   Never make man suid bin or daemon or root!
+
+   Of course it is not necessary at all to cache formatted man pages.
+   Formatting usually takes less than a second, and by not having
+   preformatted pages one avoids problems with window width, integrity, etc.
+
+2. Look at the man.conf file. This determines the programs and extensions
+   used in compressing and uncompressing cat pages. It also determines
+   the system-wide mappings from bin directories to man page directories.
+   It was constructed by configure; you might want to make some changes.
+
+3. Do a `make all', try it out, and then if you're happy with that, do
+   a `make install'.  You don't need to be root to use this set of
+   programs.
+   [Note: if you want to try man with the new, not yet installed, man.conf
+   file, use "man -C ./man.conf ...".]
+
+4. Install the whatis database(s) by running makewhatis.  If you want
+   to keep things absolutely current, you'll need to run this whenever
+   you add new man pages.  You might want to add an entry in your
+   crontab. 

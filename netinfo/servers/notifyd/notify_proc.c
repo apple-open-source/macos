@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <asl.h>
 #include "notify.h"
 #include "daemon.h"
 #include "service.h"
@@ -134,7 +135,7 @@ kern_return_t __notify_server_post
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_post %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_post %s", name);
 
 	*status = _notify_lib_check_controlled_access(ns, name, token->val[0], token->val[1], NOTIFY_ACCESS_WRITE);
 	if (*status != NOTIFY_STATUS_OK)
@@ -167,7 +168,7 @@ kern_return_t __notify_server_register_plain
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_register_plain %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_plain %s", name);
 
 	*status = _notify_lib_register_plain(ns, name, task, -1, token->val[0], token->val[1], client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -203,7 +204,7 @@ kern_return_t __notify_server_register_check
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_register_check %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_check %s", name);
 
 	if (shm_enabled == 0)
 	{
@@ -238,8 +239,7 @@ kern_return_t __notify_server_register_check
 			/* Ran out of slots! */
 			slot_id++;
 			if (slot_id >= nslots) slot_id = 0;
-			if (debug_log) log_message(LOG_ERR, "reused shared memory slot %u", slot_id);
-			else log_message(LOG_INFO, "reused shared memory slot %u", slot_id);
+			log_message(ASL_LEVEL_DEBUG, "reused shared memory slot %u", slot_id);
 			x = slot_id;
 		}
 		else
@@ -281,7 +281,7 @@ kern_return_t __notify_server_register_signal
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_register_signal %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_signal %s", name);
 
 	*status = _notify_lib_register_signal(ns, name, task, sig, token->val[0], token->val[1], client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -312,7 +312,7 @@ kern_return_t __notify_server_register_file_descriptor
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_register_file_descriptor %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_file_descriptor %s", name);
 
 	*status = _notify_lib_register_file_descriptor(ns, name, task, udp_port, ntoken, token->val[0], token->val[1], client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -342,7 +342,7 @@ kern_return_t __notify_server_register_mach_port
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_register_mach_port %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_mach_port %s", name);
 
 	*status = _notify_lib_register_mach_port(ns, name, task, port, ntoken, token->val[0], token->val[1], client_id);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -370,7 +370,7 @@ kern_return_t __notify_server_cancel
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_cancel %u", client_id);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_cancel %u", client_id);
 
 	*status = NOTIFY_STATUS_OK;
 
@@ -409,7 +409,7 @@ kern_return_t __notify_server_check
 	security_token_t *token
 )
 {
-	if (debug_log) log_message(LOG_ERR, "__notify_server_check %u", client_id);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_check %u", client_id);
 
 	*status = _notify_lib_check(ns, client_id, check);
 	return KERN_SUCCESS;
@@ -424,7 +424,7 @@ kern_return_t __notify_server_get_state
 	security_token_t *token
 )
 {
-	if (debug_log) log_message(LOG_ERR, "__notify_server_get_state %u", client_id);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_state %u", client_id);
 
 	*status = _notify_lib_get_state(ns, client_id, state);
 	return KERN_SUCCESS;
@@ -439,9 +439,56 @@ kern_return_t __notify_server_set_state
 	security_token_t *token
 )
 {
-	if (debug_log) log_message(LOG_ERR, "__notify_server_set_state %u", client_id);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_state %u", client_id);
 
 	*status = _notify_lib_set_state(ns, client_id, state, token->val[0], token->val[1]);
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_get_val
+(
+	mach_port_t server,
+	int client_id,
+	int *val,
+	int *status,
+	security_token_t *token
+ )
+{
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_val %u", client_id);
+	
+	*status = _notify_lib_get_val(ns, client_id, val);
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_set_val
+(
+	mach_port_t server,
+	int client_id,
+	int val,
+	int *status,
+	security_token_t *token
+ )
+{
+	client_t *c;
+	name_info_t *n;
+	
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_val %u", client_id);
+
+	*status = _notify_lib_set_val(ns, client_id, val, token->val[0], token->val[1]);
+	if (*status == NOTIFY_STATUS_OK)
+	{
+		c = _nc_table_find_n(ns->client_table, client_id);
+		if ((c == NULL) || (c->info == NULL))
+		{
+			*status = NOTIFY_STATUS_FAILED;
+			return KERN_SUCCESS;
+		}
+
+		n = c->info->name_info;
+		if (n->slot == -1) return KERN_SUCCESS;
+		shm_base[n->slot] = val;
+	}
+
 	return KERN_SUCCESS;
 }
 
@@ -462,7 +509,7 @@ kern_return_t __notify_server_set_owner
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_set_owner %s %u %u", name, uid, gid);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_owner %s %u %u", name, uid, gid);
 
 	/* only root may set owner for names */
 	if (token->val[0] != 0)
@@ -494,7 +541,7 @@ kern_return_t __notify_server_get_owner
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_get_owner %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_owner %s", name);
 
 	*status = _notify_lib_get_owner(ns, name, uid, gid);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -519,7 +566,7 @@ kern_return_t __notify_server_set_access
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_set_access %s 0x%03x", name, mode);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_set_access %s 0x%03x", name, mode);
 
 	_notify_lib_get_owner(ns, name, &u, &g);
 
@@ -553,7 +600,7 @@ kern_return_t __notify_server_get_access
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_get_access %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_access %s", name);
 
 	*status = _notify_lib_get_access(ns, name, mode);
 	vm_deallocate(mach_task_self(), (vm_address_t)name, nameCnt);
@@ -577,7 +624,7 @@ kern_return_t __notify_server_release_name
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_release_name %s", name);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_release_name %s", name);
 
 	_notify_lib_get_owner(ns, name, &u, &g);
 
@@ -614,7 +661,7 @@ kern_return_t __notify_server_monitor_file
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_monitor_file %d %s %d", client_id, (path == NULL) ? "NULL" : path, flags);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_monitor_file %d %s %d", client_id, (path == NULL) ? "NULL" : path, flags);
 
 	c = _nc_table_find_n(ns->client_table, client_id);
 	if (c == NULL)
@@ -658,7 +705,7 @@ kern_return_t __notify_server_get_event
 		return KERN_SUCCESS;
 	}
 
-	if (debug_log) log_message(LOG_ERR, "__notify_server_get_event %u", client_id);
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_get_event %u", client_id);
 
 	*status = NOTIFY_STATUS_INVALID_REQUEST;
 	*event_type = 0;

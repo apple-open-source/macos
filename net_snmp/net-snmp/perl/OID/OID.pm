@@ -26,6 +26,10 @@ sub length {
     return $_[0]->{'oidptr'}->length();
 }
 
+sub get_indexes {
+    return $_[0]->{'oidptr'}->get_indexes();
+}
+
 sub append {
     my $this = shift;
     my $str = shift;
@@ -87,7 +91,7 @@ use vars qw(@ISA %EXPORT_TAGS @EXPORT_OK @EXPORT $VERSION $AUTOLOAD);
 	snmp_oid_compare
         compare
 );
-$VERSION = '0.1';
+$VERSION = '5.2';
 
 sub new {
     my $type = shift;
@@ -176,7 +180,6 @@ bootstrap NetSNMP::OID $VERSION;
 
 1;
 __END__
-# Below is stub documentation for your module. You better edit it!
 
 =head1 NAME
 
@@ -209,6 +212,9 @@ NetSNMP::OID - Perl extension for manipulating OIDs
 
   $len = $oid3->length();
   # -> 7
+
+  # retrieving indexes from an oid:
+  $arrayref = $tableoid->get_indexes()
 
 =head1 DESCRIPTION
 

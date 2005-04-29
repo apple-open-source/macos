@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/int10/xf86int10.c,v 1.10 2002/11/25 14:05:01 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/int10/xf86int10.c,v 1.11 2003/03/21 22:26:11 tsi Exp $ */
 /*
  *                   XFree86 int10 module
  *   execute BIOS int 10h calls in x86 real mode environment
@@ -664,7 +664,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb108:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    X86_CL = pciReadByte(tag, X86_EDI);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -677,7 +677,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb109:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    X86_CX = pciReadWord(tag, X86_EDI);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -690,7 +690,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb10a:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    X86_ECX = pciReadLong(tag, X86_EDI);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -703,7 +703,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb10b:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    pciWriteByte(tag, X86_EDI, X86_CL);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -716,7 +716,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb10c:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    pciWriteWord(tag, X86_EDI, X86_CX);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -729,7 +729,7 @@ int1A_handler(xf86Int10InfoPtr pInt)
 #endif
 	return 1;
     case 0xb10d:
-	if ((tag = findPci(pInt, X86_EBX))) {
+	if ((tag = findPci(pInt, X86_EBX)) != PCI_NOT_FOUND) {
 	    pciWriteLong(tag, X86_EDI, X86_ECX);
 	    X86_EAX = X86_AL | (SUCCESSFUL << 8);
 	    X86_EFLAGS &= ~((unsigned long)0x01); /* clear carry flag */
@@ -759,7 +759,7 @@ findPci(xf86Int10InfoPtr pInt, unsigned short bx)
     int func = bx & 0x7;
     if (xf86IsPciDevPresent(bus, dev, func))
 	return pciTag(bus, dev, func);
-    return 0;
+    return PCI_NOT_FOUND;
 }
 
 static CARD32

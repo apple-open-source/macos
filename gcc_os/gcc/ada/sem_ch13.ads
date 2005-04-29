@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,11 +21,10 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
-with Snames; use Snames;
 with Types; use Types;
 with Uintp; use Uintp;
 
@@ -79,20 +77,6 @@ package Sem_Ch13 is
    --  set if the type is not currently biased, but biasing it is the only
    --  way to meet the requirement. If the type is currently biased, then
    --  this biased size is used in the initial check, and Biased is False.
-
-   function Get_Rep_Pragma (E : Entity_Id; Nam : Name_Id) return Node_Id;
-   --  Searches the Rep_Item chain for the given entity E, for an instance
-   --  of a representation pragma with the given name Nam. If found then
-   --  the value returned is the N_Pragma node, otherwise Empty is returned.
-
-   function Get_Attribute_Definition_Clause
-     (E    : Entity_Id;
-      Id   : Attribute_Id)
-      return Node_Id;
-   --  Searches the Rep_Item chain for a given entity E, for an instance
-   --  of an attribute definition clause with the given attibute Id Id. If
-   --  found, the value returned is the N_Attribute_Definition_Clause node,
-   --  otherwise Empty is returned.
 
    procedure Record_Rep_Item (T : Entity_Id; N : Node_Id);
    --  N is the node for either a representation pragma or an attribute

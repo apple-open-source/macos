@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,10 +39,6 @@ _swrast_choose_texture_sample_func( GLcontext *ctx,
 
 
 extern void
-_swrast_texture_fragments( GLcontext *ctx, GLuint texSet, GLuint n,
-                           const GLfloat s[], const GLfloat t[],
-                           const GLfloat r[], GLfloat lambda[],
-                           CONST GLchan primary_rgba[][4], GLchan rgba[][4] );
-
+_swrast_texture_span( GLcontext *ctx, struct sw_span *span );
 
 #endif

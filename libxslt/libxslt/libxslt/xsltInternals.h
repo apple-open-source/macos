@@ -144,6 +144,7 @@ struct _xsltDocument {
     xmlDocPtr doc;		/* the parsed document */
     void *keys;			/* key tables storage */
     struct _xsltDocument *includes; /* subsidiary includes */
+    int preproc;		/* pre-processing already done */
 };
 
 typedef struct _xsltTransformContext xsltTransformContext;
@@ -435,6 +436,10 @@ struct _xsltStylesheet {
      * if namespace-alias has an alias for the default stylesheet prefix
      */
     const xmlChar *defaultAlias;
+    /*
+     * bypass pre-processing (already done) (used in imports)
+     */
+    int nopreproc;
 };
 
 /*

@@ -25,7 +25,7 @@ in this Software without prior written authorization from The Open Group.
 
 */
 
-/* $XFree86: xc/lib/X11/GetPntMap.c,v 1.6 2001/12/14 19:54:01 dawes Exp $ */
+/* $XFree86: xc/lib/X11/GetPntMap.c,v 1.7 2003/11/17 22:20:07 dawes Exp $ */
 
 #define NEED_REPLIES
 #include "Xlibint.h"
@@ -76,8 +76,8 @@ int XGetPointerMapping (dpy, map, nmaps)
     return ((int) rep.nElts);
 }
 
-#if NeedFunctionPrototypes
-KeySym *XGetKeyboardMapping (Display *dpy,
+KeySym *
+XGetKeyboardMapping (Display *dpy,
 #if NeedWidePrototypes
 			     unsigned int first_keycode,
 #else
@@ -85,13 +85,6 @@ KeySym *XGetKeyboardMapping (Display *dpy,
 #endif
 			     int count,
 			     int *keysyms_per_keycode)
-#else
-KeySym *XGetKeyboardMapping (dpy, first_keycode, count, keysyms_per_keycode)
-    register Display *dpy;
-    KeyCode first_keycode;
-    int count;
-    int *keysyms_per_keycode;		/* RETURN */
-#endif
 {
     long nbytes;
     unsigned long nkeysyms;

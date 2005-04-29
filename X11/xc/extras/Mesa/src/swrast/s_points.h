@@ -29,10 +29,10 @@
 
 #include "mtypes.h"
 
-void
+extern void
 _swrast_choose_point( GLcontext *ctx );
 
-void
+extern void
 _swrast_add_spec_terms_point( GLcontext *ctx,
 			      const SWvertex *v0 );
 

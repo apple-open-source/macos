@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
 
 #include "unicode/utypes.h"
 
@@ -277,7 +277,7 @@ IntlTestDateFormatAPI::TestNameHiding(void) {
             fmt->format(numObj, str, fpos, status);
             delete fmt;
         } else {
-            errln("FAIL: Can't create NumberFormat");
+            errln("FAIL: Can't create NumberFormat()");
         }
     }
 

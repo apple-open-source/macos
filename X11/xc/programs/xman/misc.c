@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xman/misc.c,v 1.7 2001/12/28 17:09:08 dawes Exp $ */
+/* $XFree86: xc/programs/xman/misc.c,v 1.10 2003/08/02 17:35:48 herrb Exp $ */
 
 /*
  * xman - X window system manual page display program.
@@ -43,12 +43,6 @@ from the X Consortium.
 #include <errno.h>
 #include <X11/Xaw/Dialog.h>
 #include <X11/Shell.h>
-
-#ifndef HAS_SNPRINTF
-#undef SCOPE
-#define SCOPE static
-#include "snprintf.c"
-#endif
 
 static FILE * Uncompress(ManpageGlobals * man_globals, char * filename);
 #ifndef HAS_MKSTEMP
@@ -98,15 +92,10 @@ PopupWarning(ManpageGlobals * man_globals, char * string)
   Arg wargs[3];
   Dimension topX, topY;
   char buffer[BUFSIZ];
-  Widget positionto;
   Boolean hasPosition;
 
   sprintf( buffer, "Xman Warning: %s", string);
   hasPosition = FALSE;
-  if (man_globals->This_Manpage)
-    positionto = man_globals->This_Manpage;
-  else
-    positionto = top;
   if (top)
   {
     n=0;
@@ -601,6 +590,9 @@ ConstructCommand(cmdbuf, path, filename, tempfile)
    char fmtbuf[128];
    int gotfmt = 0;             /* set to 1 if we got a directive from source */
    char *fname = NULL;
+#ifdef __UNIXOS2__
+   int i;
+#endif
 
    fmt = NULL;
    /* If you have a command line option that gives a setting for fmt,
@@ -646,7 +638,15 @@ ConstructCommand(cmdbuf, path, filename, tempfile)
 
 
    /* Start with the first fixed part of the command line */
+#ifdef __UNIXOS2__
+   for (i = 0; i < strlen(path); i++) {
+     if (path[i] == '/')
+       path[i] = '\\';
+   }
+   used = snprintf(c, left, "cd %s & %s %s ", path, ZSOELIM, filename);
+#else
    used = snprintf(c, left, "cd %s; %s %s ", path, ZSOELIM, filename);
+#endif
    left -= used;
    c += used;
    if (left <= 1)
@@ -691,11 +691,15 @@ ConstructCommand(cmdbuf, path, filename, tempfile)
    }
 
    /* Now add the fixed trailing part 'formatprog > tempfile 2> /dev/null' */
+#ifdef __UNIXOS2__
+   used = snprintf(c, left, " | %s > %s 2>NUL", FORMAT, tempfile);
+#else
 #ifndef HAS_MKSTEMP
    used = snprintf(c, left, " | %s > %s 2>/dev/null", FORMAT, tempfile);
 #else
    used = snprintf(c, left, " | %s >> %s 2>/dev/null", FORMAT, tempfile);
 #endif
+#endif /* __UNIXOS2__ */
    left -= used;
    if (left <= 1)
       return (FALSE);

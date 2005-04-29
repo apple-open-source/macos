@@ -425,6 +425,7 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 	CFStringRef		cfsOKToLoadPluginLazily	= nil;
 	CFArrayRef		cfaLazyNodesToRegister	= nil;
 	bool			loadPluginLazily	= false;
+	uInt32			callocLength		= 0;
 	
 	try
 	{
@@ -443,57 +444,61 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 		if ( ::CFDictionaryGetValue( plInfo, kCFPlugInFactoriesKey ) == nil ) throw ( (sInt32)eCFBndleGetInfoDictErr );
 
 		// Get the plugin version
-		cfsVersion = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginVersionStr );
+		cfsVersion = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginShortVersionStr );
 		if ( cfsVersion == nil ) throw( (sInt32)ePluginVersionNotFound );
 
-		pPIVersion = (char *)::malloc( kMaxPlugInAttributeStrLen );
+		callocLength = (uInt32) CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfsVersion), kCFStringEncodingUTF8) + 1;
+		pPIVersion = (char *)::calloc( 1, callocLength );
 		if ( pPIVersion == nil ) throw( (sInt32)eMemoryError );
 
 		// Convert it to a regular 'C' string 
-		bGotIt = CFStringGetCString( cfsVersion, pPIVersion, kMaxPlugInAttributeStrLen, kCFStringEncodingMacRoman );
+		bGotIt = CFStringGetCString( cfsVersion, pPIVersion, callocLength, kCFStringEncodingUTF8 );
 		if (bGotIt == false) throw( (sInt32)ePluginVersionNotFound );
 
 		// Get the plugin configavail
 		// if it does not exist then we use a default of "Not Available"
-		pPIConfigAvail = (char *)::malloc( kMaxPlugInAttributeStrLen );
-		if ( pPIConfigAvail == nil ) throw( (sInt32)eMemoryError );
 		cfsConfigAvail = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginConfigAvailStr );
 		if (cfsConfigAvail)
 		{
+			callocLength = (uInt32) CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfsConfigAvail), kCFStringEncodingUTF8) + 1;
+			pPIConfigAvail = (char *)::calloc( 1, callocLength );
+			if ( pPIConfigAvail == nil ) throw( (sInt32)eMemoryError );
 			// Convert it to a regular 'C' string 
-			bGotIt = CFStringGetCString( cfsConfigAvail, pPIConfigAvail, kMaxPlugInAttributeStrLen, kCFStringEncodingMacRoman );
+			bGotIt = CFStringGetCString( cfsConfigAvail, pPIConfigAvail, callocLength, kCFStringEncodingUTF8 );
 			if (bGotIt == false) throw( (sInt32)ePluginConfigAvailNotFound );
 		}
 		else
 		{
-			::strcpy(pPIConfigAvail, "Not Available");
+			pPIConfigAvail = strdup("Not Available");
 		}
 
 		// Get the plugin configfile
 		// if it does not exist then we use a default of "Not Available"
-		pPIConfigFile = (char *)::malloc( kMaxPlugInAttributeStrLen );
-		if ( pPIConfigFile == nil ) throw( (sInt32)eMemoryError );
 		cfsConfigFile = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginConfigFileStr );
 		if (cfsConfigFile)
 		{
+			callocLength = (uInt32) CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfsConfigFile), kCFStringEncodingUTF8) + 1;
+			pPIConfigFile = (char *)::calloc( 1, callocLength );
+			if ( pPIConfigFile == nil ) throw( (sInt32)eMemoryError );
 			// Convert it to a regular 'C' string 
-			bGotIt = CFStringGetCString( cfsConfigFile, pPIConfigFile, kMaxPlugInAttributeStrLen, kCFStringEncodingMacRoman );
+			bGotIt = CFStringGetCString( cfsConfigFile, pPIConfigFile, callocLength, kCFStringEncodingUTF8 );
 			if (bGotIt == false) throw( (sInt32)ePluginConfigFileNotFound );
 		}
 		else
 		{
-			::strcpy(pPIConfigFile, "Not Available");
+			pPIConfigFile = strdup("Not Available");
 		}
 
 		// Get the plugin name
 		cfsName = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginNameStr );
 		if ( cfsName == nil ) throw( (sInt32)ePluginNameNotFound );
 
-		pPIName = (char *)::malloc( kMaxPlugInAttributeStrLen );
+		callocLength = (uInt32) CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfsName), kCFStringEncodingUTF8) + 1;
+		pPIName = (char *)::calloc( 1, callocLength );
 		if ( pPIName == nil ) throw( (sInt32)eMemoryError );
 
 		// Convert it to a regular 'C' string 
-		bGotIt = CFStringGetCString( cfsName, pPIName, kMaxPlugInAttributeStrLen, kCFStringEncodingMacRoman );
+		bGotIt = CFStringGetCString( cfsName, pPIName, callocLength, kCFStringEncodingUTF8 );
 		if (bGotIt == false) throw( (sInt32)ePluginNameNotFound );
 
 		// Check for plugin handler
@@ -501,7 +506,7 @@ sInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 
 		// Do we already have a plugin with this prefix registered?
 		siResult = gPlugins->IsPresent( pPIName );
-		if (siResult != kPlugInNotFound) throw( (sInt32)ePluginNameNotFound );
+		if (siResult == eDSNoErr) throw( (sInt32)ePluginAlreadyLoaded );
 
 #ifdef vDEBUB
 	::printf( "Complete Info.plist is:\n" );

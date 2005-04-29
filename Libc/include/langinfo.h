@@ -1,25 +1,3 @@
-/*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
 /*-
  * Copyright (c) 2001 Alexey Zelkin <phantom@FreeBSD.org>
  * All rights reserved.
@@ -52,11 +30,11 @@
 #define	_LANGINFO_H_
 
 #include <sys/cdefs.h>
-#include <sys/types.h>
+#include <_types.h>
 
-#ifndef _NL_ITEM_DECLARED
-typedef	int	nl_item;
-#define	_NL_ITEM_DECLARED
+#ifndef _NL_ITEM
+typedef	__darwin_nl_item	nl_item;
+#define	_NL_ITEM
 #endif
 
 #define	CODESET		0	/* codeset name */
@@ -132,12 +110,16 @@ typedef	int	nl_item;
 
 #define	CRNCYSTR	56	/* currency symbol */
 
-#if !defined(_ANSI_SOURCE)
+#if !defined(_ANSI_SOURCE) && !defined(_POSIX_C_SOURCE)
 #define	D_MD_ORDER	57	/* month/day order (local extension) */
 #endif
 
 __BEGIN_DECLS
 char	*nl_langinfo(nl_item);
 __END_DECLS
+
+#ifdef _USE_EXTENDED_LOCALES_
+#include <xlocale/_langinfo.h>
+#endif /* _USE_EXTENDED_LOCALES_ */
 
 #endif /* !_LANGINFO_H_ */

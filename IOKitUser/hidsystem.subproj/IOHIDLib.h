@@ -30,7 +30,9 @@
 #define _IOKIT_IOHIDLIB_H
 
 #include <IOKit/hidsystem/IOHIDShared.h>
+#include <sys/cdefs.h>
 
+__BEGIN_DECLS
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -50,7 +52,8 @@ enum {
     // Options for IOHIDPostEvent()
     kIOHIDSetGlobalEventFlags       = 0x00000001,
     kIOHIDSetCursorPosition         = 0x00000002,
-    kIOHIDSetRelativeCursorPosition = 0x00000004
+    kIOHIDSetRelativeCursorPosition = 0x00000004,
+    kIOHIDPostHIDManagerEvent       = 0x00000008
 };
 
 extern kern_return_t
@@ -114,6 +117,8 @@ IOHIDSetCFTypeParameter( io_connect_t handle, CFStringRef key,
                 CFTypeRef parameter );
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+__END_DECLS
 
 #endif /* ! _IOKIT_IOHIDLIB_H */
 

@@ -1,10 +1,10 @@
+// { dg-do run  }
+// { dg-options "" }
 // Copyright (C) 1999 Free Software Foundation
 
 // by Alexandre Oliva <oliva@dcc.unicamp.br>
 // simplified from bug report by Michael Rosenbruch <Rosenbruch@bfw-online.de>
 
-// Special g++ Options: 
-// execution test - XFAIL *-*-*
 
 extern "C" void abort();
 

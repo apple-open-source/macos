@@ -681,6 +681,7 @@
       <field name='doc' type='xmlDocPtr' info=' the parsed document'/>
       <field name='keys' type='void *' info=' key tables storage'/>
       <field name='includes' type='struct _xsltDocument *' info=' subsidiary includes'/>
+      <field name='preproc' type='int' info=' pre-processing already done'/>
     </struct>
     <typedef name='xsltDocumentPtr' file='xsltInternals' type='xsltDocument *'/>
     <struct name='xsltElemPreComp' file='xsltInternals' type='struct _xsltElemPreComp'>
@@ -844,7 +845,9 @@ informations are stored'/>
 *'/>
       <field name='attVTs' type='void *' info='* if namespace-alias has an alias for the default stylesheet prefix
 *'/>
-      <field name='defaultAlias' type='const xmlChar *' info=''/>
+      <field name='defaultAlias' type='const xmlChar *' info='* bypass pre-processing (already done) (used in imports)
+*'/>
+      <field name='nopreproc' type='int' info=''/>
     </struct>
     <typedef name='xsltStylesheetPtr' file='xsltInternals' type='xsltStylesheet *'/>
     <struct name='xsltTemplate' file='xsltInternals' type='struct _xsltTemplate'>
@@ -1813,9 +1816,9 @@ informations are stored'/>
       <arg name='doc' type='xmlDocPtr' info='the input document'/>
     </function>
     <function name='xsltNextImport' file='imports'>
-      <info></info>
-      <return type='xsltStylesheetPtr' info=''/>
-      <arg name='cur' type='xsltStylesheetPtr' info=''/>
+      <info>Find the next stylesheet in import precedence.</info>
+      <return type='xsltStylesheetPtr' info='the next stylesheet or NULL if it was the last one'/>
+      <arg name='cur' type='xsltStylesheetPtr' info='the current XSLT stylesheet'/>
     </function>
     <function name='xsltNormalizeCompSteps' file='pattern'>
       <info>This is a hashtable scanner function to normalize the compiled steps of an imported stylesheet.</info>

@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __IPSEC_DOI_H__
+#define __IPSEC_DOI_H__
+
 /* refered to RFC2407 */
 
 #define IPSEC_DOI 1
@@ -164,7 +167,7 @@ struct ipsecdoi_pl_id {
 #define IPSECDOI_ID_KEY_ID                           11
 
 /* compressing doi type, it's internal use. */
-#define IDTYPE_FQDN		0
+#define IDTYPE_FQDN			0
 #define IDTYPE_USERFQDN		1
 #define IDTYPE_KEYID		2
 #define IDTYPE_ADDRESS		3
@@ -174,6 +177,15 @@ struct ipsecdoi_pl_id {
 #define SECRETTYPE_USE		0
 #define SECRETTYPE_KEY		1
 #define SECRETTYPE_KEYCHAIN	2
+
+/* verification modules */
+#define VERIFICATION_MODULE_OPENSSL			0
+#define VERIFICATION_MODULE_SEC_FRAMEWORK	1
+
+/* verification options */
+#define VERIFICATION_OPTION_NONE				0
+#define VERIFICATION_OPTION_PEERS_IDENTIFIER	1
+#define VERIFICATION_OPTION_OPEN_DIR			2
 
 /* The use for checking proposal payload. This is not exchange type. */
 #define IPSECDOI_TYPE_PH1	0
@@ -216,4 +228,7 @@ extern int ipsecdoi_t2satrns __P((struct isakmp_pl_t *,
 extern int ipsecdoi_authalg2trnsid __P((int));
 extern int idtype2doi __P((int));
 extern int doi2idtype __P((int));
+
+
+#endif /* __IPSEC_DOI_H__ */
 

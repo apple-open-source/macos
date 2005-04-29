@@ -278,7 +278,7 @@ IOReturn IOFWWriteCommand::execute()
     }
     else 
 	{
-		IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
+		//IOLog("IOFWWriteCommand::execute: Out of tLabels?\n");
         result = kIOFireWireOutOfTLabels;
     }
 
@@ -302,7 +302,7 @@ IOReturn IOFWWriteCommand::execute()
 void IOFWWriteCommand::gotPacket( int rcode, const void* data, int size )
 {
 	setResponseCode( rcode );
-
+	
     if( rcode != kFWResponseComplete ) 
 	{
         complete( kIOFireWireResponseBase+rcode );

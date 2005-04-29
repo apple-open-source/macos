@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2002 Tim J. Robbins.
+ * Copyright (c) 2002-2004 Tim J. Robbins.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetwc.c,v 1.5 2002/10/16 12:09:43 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetwc.c,v 1.9 2004/07/20 08:27:27 tjr Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/ungetwc.c,v 1.5 2002/10/16 12:09:43 tjr E
 #include "un-namespace.h"
 #include "libc_private.h"
 #include "local.h"
+#include "mblocal.h"
 
 /*
  * Non-MT-safe version.
@@ -43,13 +44,11 @@ wint_t
 __ungetwc(wint_t wc, FILE *fp)
 {
 	char buf[MB_LEN_MAX];
-	mbstate_t mbs;
 	size_t len;
 
 	if (wc == WEOF)
 		return (WEOF);
-	memset(&mbs, 0, sizeof(mbs));
-	if ((len = wcrtomb(buf, wc, &mbs)) == (size_t)-1) {
+	if ((len = __wcrtomb(buf, wc, &fp->_extra->mbstate)) == (size_t)-1) {
 		fp->_flags |= __SERR;
 		return (WEOF);
 	}

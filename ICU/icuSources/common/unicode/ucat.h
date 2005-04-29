@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-* Copyright (c) 2003, International Business Machines
+* Copyright (c) 2003-2004, International Business Machines
 * Corporation and others.  All Rights Reserved.
 **********************************************************************
 * Author: Alan Liu
@@ -26,7 +26,7 @@
  * The ICU resource bundles obey standard ICU inheritance policies.
  * To facilitate this, sets and messages are flattened into one tier.
  * This is done by creating resource bundle keys of the form
- * <set_num>%<msg_num> where set_num is the set number and msg_num is
+ * &lt;set_num&gt;%&lt;msg_num&gt; where set_num is the set number and msg_num is
  * the message number, formatted as decimal strings.
  *
  * Example:  Consider a message catalog containing two sets:
@@ -57,7 +57,7 @@
  * The catgets function is commonly used in combination with functions
  * like printf and strftime.  ICU components like message format can
  * be used instead, although they use a different format syntax.
- * There is an unsupported ICU package, ustdio, that provides some of
+ * There is an ICU package, icuio, that provides some of
  * the POSIX-style formatting API.
  */
 
@@ -66,7 +66,7 @@ U_CDECL_BEGIN
 /**
  * An ICU message catalog descriptor, analogous to nl_catd.
  * 
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
 typedef UResourceBundle* u_nl_catd;
 
@@ -99,9 +99,9 @@ typedef UResourceBundle* u_nl_catd;
  * catalog. If the ec parameter indicates failure, then NULL will be
  * returned.
  * 
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI u_nl_catd U_EXPORT2
+U_STABLE u_nl_catd U_EXPORT2
 u_catopen(const char* name, const char* locale, UErrorCode* ec);
 
 /**
@@ -110,9 +110,9 @@ u_catopen(const char* name, const char* locale, UErrorCode* ec);
  * @param catd a message catalog descriptor to be closed. May be NULL,
  * in which case no action is taken.
  * 
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI void U_EXPORT2
+U_STABLE void U_EXPORT2
 u_catclose(u_nl_catd catd);
 
 /**
@@ -145,9 +145,9 @@ u_catclose(u_nl_catd catd);
  * which ec indicates a failing error code upon entry to this
  * function.
  * 
- * @draft ICU 2.6
+ * @stable ICU 2.6
  */
-U_CAPI const UChar* U_EXPORT2
+U_STABLE const UChar* U_EXPORT2
 u_catgets(u_nl_catd catd, int32_t set_num, int32_t msg_num,
           const UChar* s,
           int32_t* len, UErrorCode* ec);

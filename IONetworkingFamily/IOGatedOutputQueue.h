@@ -36,8 +36,9 @@
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/network/IOBasicOutputQueue.h>
 
-/*! @class IOGatedOutputQueue : public IOBasicOutputQueue
-    @abstract An extension of an IOBasicOutputQueue. An IOCommandGate
+/*! @class IOGatedOutputQueue
+    @abstract An extension of an IOBasicOutputQueue. 
+    @discussion An IOCommandGate
     object is created by this queue and added to a work loop as an
     event source. All calls to the target by the consumer thread must
     occur with the gate closed. Therefore, all calls to the target of
@@ -45,7 +46,8 @@
     runs on the same work loop context. This is useful for network
     drivers that have a tight hardware coupling between the transmit
     and receive engines, and a single-threaded hardware access model
-    is desirable. */
+    is desirable. 
+*/
 
 class IOGatedOutputQueue : public IOBasicOutputQueue
 {
@@ -66,32 +68,34 @@ protected:
     IOInterruptEventSource *  _interruptSrc;
 
 /*! @function output
-    @abstract Transfer all packets in the mbuf queue to the target.
+    @abstract Transfers all packets in the mbuf queue to the target.
     @param queue A queue of output packets.
     @param state Return a state bit defined by IOBasicOutputQueue that
     declares the new state of the queue following this method call.
     A kStateStalled is returned if the queue should stall, otherwise 0
-    is returned. */
+    is returned. 
+*/
 
     virtual void output(IOMbufQueue * queue, UInt32 * state);
 
 /*! @function free
-    @abstract Free the IOGatedOutputQueue object.
+    @abstract Frees the IOGatedOutputQueue object.
     @discussion Release allocated resources, then call super::free(). */
 
     virtual void free();
 
 /*! @function output
-    @abstract Override the method inherited from IOOutputQueue.
-    @result true if a thread was successfully scheduled to service
-    the queue. */
+    @abstract Overrides the method inherited from IOOutputQueue.
+    @result Returns true if a thread was successfully scheduled to service
+    the queue. 
+*/
 
     virtual bool scheduleServiceThread(void * param);
 
 public:
 
 /*! @function init
-    @abstract Initialize an IOGatedOutputQueue object.
+    @abstract Initializes an IOGatedOutputQueue object.
     @param target The object that will handle packets removed from the
     queue, and is usually a subclass of IONetworkController.
     @param action The function that will handle packets removed from the
@@ -99,7 +103,8 @@ public:
     @param workloop A workloop object. An IOCommandGate object is created
     and added to this workloop as an event source.
     @param capacity The initial capacity of the output queue.
-    @result true if initialized successfully, false otherwise. */
+    @result Returns true if initialized successfully, false otherwise. 
+*/
 
     virtual bool init(OSObject *     target,
                       IOOutputAction action,
@@ -107,21 +112,22 @@ public:
                       UInt32         capacity = 0);
 
 /*! @function withTarget
-    @abstract Factory method that will construct and initialize an
+    @abstract Factory method that constructs and initializes an
     IOGatedOutputQueue object.
     @param target An IONetworkController object that will handle packets
     removed from the queue.
     @param workloop A workloop object. An IOCommandGate object is created
     and added to this workloop as an event source.
     @param capacity The initial capacity of the output queue.
-    @result An IOGatedOutputQueue object on success, or 0 otherwise. */
+    @result Returns an IOGatedOutputQueue object on success, or 0 otherwise. 
+*/
 
     static IOGatedOutputQueue * withTarget(IONetworkController * target,
                                            IOWorkLoop *          workloop,
                                            UInt32                capacity = 0);
 
 /*! @function withTarget
-    @abstract Factory method that will construct and initialize an
+    @abstract Factory method that constructs and initializes an
     IOGatedOutputQueue object.
     @param target The object that will handle packets removed from the
     queue.
@@ -130,7 +136,8 @@ public:
     @param workloop A workloop object. An IOCommandGate object is created
     and added to this workloop as an event source.
     @param capacity The initial capacity of the output queue.
-    @result An IOGatedOutputQueue object on success, or 0 otherwise. */
+    @result Returns an IOGatedOutputQueue object on success, or 0 otherwise. 
+*/
 
     static IOGatedOutputQueue * withTarget(OSObject *     target,
                                            IOOutputAction action,

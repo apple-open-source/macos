@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -47,65 +45,55 @@
 #endif
 
 // System Includes
-#include <vm/vm_pageout.h>
-
 #include <sys/param.h>
 #include <sys/systm.h>
-#include <sys/kernel.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/proc.h>
-#include <sys/filedesc.h>
-#include <sys/lock.h>
+#include <sys/buf.h>
 #include <sys/vnode.h>
 #include <sys/dirent.h>
-#include <sys/file.h>
 #include <sys/stat.h>
 #include <sys/mount.h>
 #include <sys/malloc.h>
-#include <sys/namei.h>
-#include <sys/mbuf.h>
 #include <sys/paths.h>
-#include <sys/un.h>
-#include <sys/unpcb.h>
 #include <sys/errno.h>
+#include <sys/uio.h>
 #include <sys/ubc.h>
+#include <sys/xattr.h>
 #include <vfs/vfs_support.h>
+#include <string.h>
+#include <libkern/OSByteOrder.h>
 
-#include <miscfs/specfs/specdev.h>
 
-extern int		strcmp __P  	( ( const char *, const char * ) );					// Kernel already includes a copy
-extern int		strncmp __P  	( ( const char *, const char *, size_t length ) );	// Kernel already includes a copy
-extern char *	strcpy __P  	( ( char *, const char * ) );						// Kernel already includes a copy
-extern char *	strncpy __P 	( ( char *, const char *, size_t length ) );		// Kernel already includes a copy
-extern char *	strchr __P  	( ( const char *, int ) );							// Kernel already includes a copy
-extern int		atoi __P		( ( const char * ) );								// Kernel already includes a copy
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
+//	Globals
+//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
-#define RENAME_SUPPORTED 0
-
+const char gAIFFHeaderPadData[kPhysicalMediaBlockSize - sizeof(CDAIFFHeader)] = { 0 };
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	Static Function Prototypes
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static SInt32
-AddDirectoryEntry ( UInt32 nodeID, UInt8 type, const char * name, struct uio * uio );
+AddDirectoryEntry ( UInt32 nodeID, UInt8 type, const char * name, uio_t uio );
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	AddDirectoryEntry -	This routine adds a directory entry to the uio buffer
+//	AddDirectoryEntry - This routine adds a directory entry to the uio buffer
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 static SInt32
-AddDirectoryEntry ( UInt32 nodeID,
-					UInt8 type,
-					const char * name,
-					struct uio * uio )
+AddDirectoryEntry ( UInt32			nodeID,
+					UInt8			type,
+					const char *	name,
+					uio_t			uio )
 {
 	
 	struct dirent		directoryEntry;
-	SInt32 				nameLength				= 0;
-	UInt16 				directoryEntryLength	= 0;
+	SInt32				nameLength				= 0;
+	UInt16				directoryEntryLength	= 0;
 	
 	DebugAssert ( ( name != NULL ) );
 	DebugAssert ( ( uio != NULL ) );
@@ -117,7 +105,7 @@ AddDirectoryEntry ( UInt32 nodeID,
 	
 	directoryEntry.d_fileno = nodeID;
 	directoryEntry.d_reclen = sizeof ( directoryEntry );
-	directoryEntry.d_type 	= type;
+	directoryEntry.d_type	= type;
 	directoryEntry.d_namlen = nameLength;
 	directoryEntryLength	= directoryEntry.d_reclen;
 	
@@ -127,7 +115,7 @@ AddDirectoryEntry ( UInt32 nodeID,
 	// Zero the rest of the array for safe-keeping
 	bzero ( &directoryEntry.d_name[nameLength], MAXNAMLEN + 1 - nameLength );
 	
-	if ( uio->uio_resid < directoryEntry.d_reclen )
+	if ( uio_resid ( uio ) < directoryEntry.d_reclen )
 	{
 		
 		// We can't copy because there isn't enough room in the buffer,
@@ -155,86 +143,56 @@ AddDirectoryEntry ( UInt32 nodeID,
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Lookup ( struct vop_lookup_args * lookupArgsPtr )
+CDDA_Lookup ( struct vnop_lookup_args * lookupArgsPtr )
 /*
-struct vop_lookup_args {
+struct vnop_lookup_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_dvp;
-	struct vnode **a_vpp;
+	vnode_t a_dvp;
+	vnode_t *a_vpp;
 	struct componentname *a_cnp;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	struct componentname *		compNamePtr 		= NULL;
-	struct vnode **				vNodeHandle 		= NULL;
-	struct vnode *				parentVNodePtr 		= NULL;
-	struct vnode *				vNodePtr 			= NULL;
-	struct proc *				theProcPtr 			= NULL;
+	struct mount *				mountPtr			= NULL;
+	struct componentname *		compNamePtr			= NULL;
+	vnode_t *					vNodeHandle			= NULL;
+	vnode_t						parentVNodePtr		= NULLVP;
 	AppleCDDANodePtr			parentCDDANodePtr	= NULL;
 	AppleCDDAMountPtr			cddaMountPtr		= NULL;
-	AppleCDDANodeInfoPtr		nodeInfoArrayPtr	= NULL;
-	UInt32						index				= 0;
-	int 						error				= 0;
-	int 						flags				= 0;
-	int							lockParent			= 0;
+	int							error				= 0;
+	int							flags				= 0;
 	
 	DebugLog ( ( "CDDA_Lookup: Entering.\n" ) );
 	
 	DebugAssert ( ( lookupArgsPtr != NULL ) );
 	
-	compNamePtr 	= lookupArgsPtr->a_cnp;
-	vNodeHandle 	= lookupArgsPtr->a_vpp;
-	parentVNodePtr 	= lookupArgsPtr->a_dvp;
+	compNamePtr		= lookupArgsPtr->a_cnp;
+	vNodeHandle		= lookupArgsPtr->a_vpp;
+	parentVNodePtr	= lookupArgsPtr->a_dvp;
+	mountPtr		= vnode_mount ( parentVNodePtr );
 	
 	DebugAssert ( ( compNamePtr != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
 	DebugAssert ( ( parentVNodePtr != NULL ) );
 	
-	theProcPtr 			= compNamePtr->cn_proc;
 	parentCDDANodePtr	= VTOCDDA ( parentVNodePtr );
-	cddaMountPtr 		= VFSTOCDDA ( parentVNodePtr->v_mount );
+	cddaMountPtr		= VFSTOCDDA ( mountPtr );
 	
-	DebugAssert ( ( theProcPtr != NULL ) );
 	DebugAssert ( ( parentCDDANodePtr != NULL ) );
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 	
-	*vNodeHandle 	= NULL;
+	*vNodeHandle	= NULL;
 	flags			= compNamePtr->cn_flags;
-	lockParent		= flags & LOCKPARENT;
-
-
-#if RENAME_SUPPORTED
 	
-	// Check if process wants to create, delete or rename anything
-	if ( compNamePtr->cn_nameiop == CREATE )
+	if ( compNamePtr->cn_namelen > NAME_MAX )
 	{
 		
-		DebugLog ( ( "Can't CREATE %s, returning EROFS\n", compNamePtr->cn_nameptr ) );
-		error = EROFS;
+		error = ENAMETOOLONG;
 		goto Exit;
 		
 	}
-	
-	// Check if process wants to create, delete or rename anything
-	if ( compNamePtr->cn_nameiop == RENAME )
-	{
-		
-		DebugLog ( ( "Can't RENAME %s, returning EJUSTRETURN\n", compNamePtr->cn_nameptr ) );
-		error = EJUSTRETURN;
-		goto Exit;
-		
-	}
-
-	// Check if process wants to create, delete or rename anything
-	if ( compNamePtr->cn_nameiop == DELETE )
-	{
-		
-		DebugLog ( ( "Can't DELETE %s\n", compNamePtr->cn_nameptr ) );
-		
-	}
-	
-#else /* if ( RENAME_SUPPORTED = 0 ) */
 	
 	// Check if process wants to create, delete or rename anything
 	if ( compNamePtr->cn_nameiop == CREATE ||
@@ -242,14 +200,11 @@ struct vop_lookup_args {
 		 compNamePtr->cn_nameiop == DELETE )
 	{
 		
-		DebugLog ( ( "Can't CREATE %s, returning EROFS\n", compNamePtr->cn_nameptr ) );
+		DebugLog ( ( "Can't CREATE, RENAME or DELETE %s, returning EROFS\n", compNamePtr->cn_nameptr ) );
 		error = EROFS;
 		goto Exit;
 		
 	}
-	
-#endif
-	
 	
 	// Determine if we're looking for a resource fork.
 	// NB: this could cause a read off the end of the component name buffer in some rare cases.
@@ -265,41 +220,19 @@ struct vop_lookup_args {
 		
 	}
 	
-	if ( parentVNodePtr->v_type != VDIR )
-	{
-		
-		DebugLog ( ( "parentVNodePtr->v_type != VDIR, returning ENOTDIR\n" ) );
-		error = ENOTDIR;
-		goto Exit;
-		
-	}
-	
 	DebugLog ( ( "Looking for name = %s.\n", compNamePtr->cn_nameptr ) );
 	
-	// first check for ".", "..", and ".TOC.plist"
+	// first check for "." and ".TOC.plist"
 	if ( compNamePtr->cn_nameptr[0] == '.' )
 	{
-		
+
 		if ( compNamePtr->cn_namelen == 1 )
 		{
 			
 			DebugLog ( ( ". was requested\n" ) );
 			
-			// "." requested
-			vNodePtr = parentVNodePtr;
-			VREF ( vNodePtr );
-			
-			error = 0;
-			*vNodeHandle = vNodePtr;
-			
+			error = CDDA_VGetInternal ( mountPtr, kAppleCDDARootFileID, parentVNodePtr, compNamePtr, vNodeHandle );
 			goto Exit;
-			
-		}
-		
-		else if ( ( compNamePtr->cn_namelen == 2 ) && ( compNamePtr->cn_nameptr[1] == '.' ) )
-		{
-			
-			panic ( "CDDA_Lookup: namei asked for .. when it shouldn't have" );			
 			
 		}
 		
@@ -308,206 +241,69 @@ struct vop_lookup_args {
 			
 			DebugLog ( ( ".TOC.plist was requested\n" ) );
 			
-			// ".TOC.plist" requested, lock it and return
-			error = vget ( cddaMountPtr->xmlFileVNodePtr, LK_EXCLUSIVE, theProcPtr );
-			if ( error != 0 )
-			{
-				
-				DebugLog ( ( "CDDA_Lookup: exiting with error = %d after vget.\n", error ) );
-				goto Exit;
-				
-			}
-						
-			if ( !lockParent || !( flags & ISLASTCN ) )
-			{
-				
-				// Unlock the parent if the last component name
-				VOP_UNLOCK ( parentVNodePtr, 0, theProcPtr );
-				
-			}
+			error = CDDA_VGetInternal ( mountPtr, kAppleCDDAXMLFileID, parentVNodePtr, compNamePtr, vNodeHandle );
+			goto Exit;
 			
-			if ( ! ( flags & LOCKLEAF ) )
-			{
-				
-				// Unlock the vnode since they didn't ask for it locked
-				VOP_UNLOCK ( cddaMountPtr->xmlFileVNodePtr, 0, theProcPtr );
-				
-			}
+		}
+		
+		else
+		{
 			
-			// Stuff the vnode in
-			*vNodeHandle = cddaMountPtr->xmlFileVNodePtr;
-			
+			// Not going to find anything prefixed with "." other than the above.
+			error = ENOENT;
 			goto Exit;
 			
 		}
 		
 	}
 	
-	// Now check for the name of the root directory (usually "Audio CD", but could be anything)
-	if ( strcmp ( &compNamePtr->cn_nameptr[0], parentCDDANodePtr->u.directory.name ) == 0 )
+	// At this point, we better be fetching a file which ends in ".aiff".
+	if ( strcmp ( &compNamePtr->cn_nameptr[compNamePtr->cn_namelen - 5], ".aiff" ) != 0 )
 	{
 		
-		DebugLog ( ( "The root directory was requested by name = %s\n", parentCDDANodePtr->u.directory.name ) );
-		
-		// "." requested
-		vNodePtr = parentVNodePtr;
-		VREF ( vNodePtr );
-		
-		error = 0;
-		*vNodeHandle = vNodePtr;
-		
+		error = ENOENT;
 		goto Exit;
 		
 	}
 	
-	// Look in our NodeInfo array to see if a vnode has been created for this
-	// track yet.
-	nodeInfoArrayPtr = VFSTONODEINFO ( parentVNodePtr->v_mount );
-	DebugAssert ( ( nodeInfoArrayPtr != NULL ) );
-	
-	// Not '.' or "..", so it must be a track we're looking up
-	// Look for entries by name (making sure the entry's length matches the
-	// compNamePtr's namelen
-	
-	
-LOOP:
-	
-	
-	DebugLog ( ( "Locking nodeInfoLock.\n" ) );
-	
-	error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_EXCLUSIVE, NULL, theProcPtr );
-	
-	index = 0;
-	
-	while ( index < ( parentCDDANodePtr->u.directory.entryCount - kNumberOfFakeDirEntries ) )
+	// Find out which inode they want. The first two bytes will tell us the track number which
+	// we can convert to an inode number by adding the kOffsetForFiles constant. Beware lame string
+	// parsing ahead...
 	{
-				
-		if ( nodeInfoArrayPtr->nameSize == compNamePtr->cn_namelen &&
-			 !strcmp ( nodeInfoArrayPtr->name, compNamePtr->cn_nameptr ) )
+		
+		ino64_t inode = 0;
+		
+		if ( compNamePtr->cn_nameptr[1] == ' ' )
 		{
 			
-			// See if the vNodePtr was attached (vNodePtr is only non-NULL if the node has been created)
-			if ( nodeInfoArrayPtr->vNodePtr != NULL )
-			{
-								
-				// If the vnode was attached, the vNode was created already
-				// so set the pointer to that address
-				vNodePtr = nodeInfoArrayPtr->vNodePtr;
-				
-				DebugLog ( ( "Releasing nodeInfoLock.\n" ) );
-
-				// Release the lock on our nodeInfo structure first
-				error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_RELEASE, NULL, theProcPtr );
-				
-				// vget the vnode to up the refcount and lock it
-				error = vget ( vNodePtr, LK_EXCLUSIVE, theProcPtr );
-				if ( error != 0 )
-				{
-
-					DebugLog ( ( "CDDA_Lookup: exiting with error = %d after vget.\n", error ) );
-					goto LOOP;
-				
-				}
-								
-				if ( !lockParent || !( flags & ISLASTCN ) )
-				{
-					
-					// Unlock the parent if the last component name
-					VOP_UNLOCK ( parentVNodePtr, 0, theProcPtr );
-					
-				}
-				
-				if ( ! ( flags & LOCKLEAF ) )
-				{
-					
-					// Unlock the vnode since they didn't ask for it locked
-					VOP_UNLOCK ( vNodePtr, 0, theProcPtr );
-				
-				}
-
-				// Stuff the vnode in
-				*vNodeHandle = vNodePtr;
-					
-				// The specified vNode was found and successfully acquired
-				goto Exit;
-			
-			}
-			
-			else
-			{
-				
-				int		error2 = 0;
-				
-				DebugLog ( ( "Couldn't find the vnode...Calling CreateNewCDDAFile\n" ) );
-
-				DebugLog ( ( "Releasing nodeInfoLock.\n" ) );
-				// Now we can release our lock because we're creating a node
-				error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_RELEASE, NULL, theProcPtr );
-
-				// if we get here, it doesn't exist yet, so create it
-				error2 = CreateNewCDDAFile ( parentVNodePtr->v_mount,
-											nodeInfoArrayPtr->trackDescriptor.point + kOffsetForFiles,
-											nodeInfoArrayPtr,
-											theProcPtr,
-											&vNodePtr );
-
-				DebugLog ( ( "Locking nodeInfoLock.\n" ) );
-				error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_EXCLUSIVE, NULL, theProcPtr );
-				
-				// Make sure we mark this vnode as being in the array now
-				nodeInfoArrayPtr->vNodePtr = vNodePtr;
-				
-				// Now we can release our lock because we're getting out
-				error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_RELEASE, NULL, theProcPtr );
-				
-				if ( error != 0 || error2 != 0 )
-					goto Exit;
-				
-				if ( !lockParent || !( flags & ISLASTCN ) )
-				{
-					
-					// Unlock the parent if the last component name
-					VOP_UNLOCK ( parentVNodePtr, 0, theProcPtr );
-					
-				}
-
-				if ( ! ( flags & LOCKLEAF ) )
-				{
-					
-					// Unlock the vnode since they didn't ask for it locked
-					VOP_UNLOCK ( vNodePtr, 0, theProcPtr );
-				
-				}
-
-				// Stuff the vnode in
-				*vNodeHandle = vNodePtr;
-
-				// The specified vNode was found and successfully acquired
-				goto Exit;
-				
-			}
+			// It's asking about track 1-9.
+			inode = ( ino64_t ) ( compNamePtr->cn_nameptr[0] - '0' );
 			
 		}
 		
-		index++;
-		nodeInfoArrayPtr++;
+		else if ( compNamePtr->cn_nameptr[2] == ' ' )
+		{
+			
+			// It's asking about track 10-99.
+			inode = ( ino64_t ) ( ( ( compNamePtr->cn_nameptr[0] - '0' ) * 10 ) + ( compNamePtr->cn_nameptr[1] - '0' ) );
+			
+		}
+		
+		DebugLog ( ( "Track %lld was requested\n", inode ) );
+		
+		// Add the offset for a CD Track...
+		inode += kOffsetForFiles;
+		
+		// Call the internal vget routine. Make sure to pass the parentVNode and compNamePtr so they
+		// can be passed to the CreateXXX routines if a vnode needs to be created.
+		error = CDDA_VGetInternal ( mountPtr, inode, parentVNodePtr, compNamePtr, vNodeHandle );
+		goto Exit;
 		
 	}
-	
-	DebugLog ( ( "Releasing nodeInfoLock...About to return ENOENT.\n" ) );
-	
-	// Now we can release our lock because we're getting out
-	error = lockmgr ( &cddaMountPtr->nodeInfoLock, LK_RELEASE, NULL, theProcPtr );
-	
-	// If we get here, we couldn't find anything with that name. Return ENOENT
-	return ( ENOENT );
-	
 	
 	
 Exit:
 	
-	
-	DebugLog ( ( "CDDA_Lookup: exiting from Exit with error = %d.\n", error ) );
 	
 	return ( error );
 	
@@ -515,24 +311,23 @@ Exit:
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Open -	This routine opens a file
+//	CDDA_Open - This routine opens a file
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Open ( struct vop_open_args * openArgsPtr )
+CDDA_Open ( struct vnop_open_args * openArgsPtr )
 /*
-struct vop_open_args {
+struct vnop_open_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	int a_mode;
-	struct ucred *a_cred;
-	struct proc *a_p;
+	vfs_context_t a_context;
 };
 */
 {
 
-	struct vnode *		vNodePtr 	= NULL;
-	int 				error		= 0;
+	vnode_t		vNodePtr	= NULLVP;
+	int			error		= 0;
 	
 	DebugLog ( ( "CDDA_Open: Entering.\n" ) );
 
@@ -543,11 +338,11 @@ struct vop_open_args {
 		
 	// Set the vNodeOperationType to tell the user process if we are going to open a
 	// file or a directory
-	if ( vNodePtr->v_type != VREG && vNodePtr->v_type != VDIR )
+	if ( ! vnode_isreg ( vNodePtr ) && ! vnode_isdir ( vNodePtr ) )
 	{
 	
 		// This should never happen but just in case
-		DebugLog ( ( "Error = %d, wrong v_type.\n", ENOTSUP ) );
+		DebugLog ( ( "Error = %d, wrong vnode type.\n", ENOTSUP ) );
 		error = ENOTSUP;
 		goto ERROR;
 		
@@ -556,7 +351,7 @@ struct vop_open_args {
 	// Turn off speculative read-ahead for our vnodes. The cluster
 	// code can't possibly do the right thing when we have possible
 	// loss of streaming on CD media.
-	vNodePtr->v_flag |= VRAOFF;
+	vnode_setnoreadahead ( vNodePtr );
 	
 	
 ERROR:
@@ -575,14 +370,13 @@ ERROR:
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Close ( struct vop_close_args * closeArgsPtr )
+CDDA_Close ( struct vnop_close_args * closeArgsPtr )
 /*
-struct vop_close_args {
+struct vnop_close_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	int a_fflag;
-	struct ucred *a_cred;
-	struct proc *a_p;
+	vfs_context_t a_context;
 };
 */
 {
@@ -603,26 +397,26 @@ struct vop_close_args {
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Read -	This routine reads from a file
+//	CDDA_Read - This routine reads from a file
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Read ( struct vop_read_args * readArgsPtr )
+CDDA_Read ( struct vnop_read_args * readArgsPtr )
 /*
-struct vop_read_args {
+struct vnop_read_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct uio *a_uio;
+	vnode_t a_vp;
+	uio_t a_uio;
 	int a_ioflag;
-	struct ucred *a_cred;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	register struct vnode * 	vNodePtr 			= NULL;
-	register struct uio *		uio 				= NULL;
-	AppleCDDANodePtr			cddaNodePtr			= NULL;
-	int							error				= 0;
+	vnode_t				vNodePtr		= NULLVP;
+	uio_t				uio				= NULL;
+	AppleCDDANodePtr	cddaNodePtr		= NULL;
+	int					error			= 0;
 	
 	DebugLog ( ( "CDDA_Read: Entering.\n" ) );
 	
@@ -633,15 +427,12 @@ struct vop_read_args {
 	
 	DebugAssert ( ( vNodePtr != NULL ) );
 	DebugAssert ( ( uio != NULL ) );
-	DebugAssert ( ( UBCINFOEXISTS ( vNodePtr ) != 0 ) );
 	
 	cddaNodePtr = VTOCDDA ( vNodePtr );
 	DebugAssert ( ( cddaNodePtr != NULL ) );
 	
-	cddaNodePtr->flags |= kAppleCDDAAccessedMask;
-	
 	// Check to make sure we're operating on a regular file
-	if ( vNodePtr->v_type != VREG )
+	if ( ! vnode_isreg ( vNodePtr ) )
 	{
 
 		DebugLog ( ( "CDDA_Read: not a file, exiting with error = %d.\n", EISDIR ) );
@@ -650,7 +441,7 @@ struct vop_read_args {
 	}
 	
 	// Check to make sure they asked for data
-	if ( uio->uio_resid == 0 )
+	if ( uio_resid ( uio ) == 0 )
 	{
 		
 		DebugLog ( ( "CDDA_Read: uio_resid = 0, no data requested" ) );
@@ -659,7 +450,7 @@ struct vop_read_args {
 	}
 	
 	// Can't read from a negative offset
-	if ( uio->uio_offset < 0 )
+	if ( uio_offset ( uio ) < 0 )
 	{
 		
 		DebugLog ( ( "CDDA_Read: Can't read from a negative offset..." ) );
@@ -670,14 +461,14 @@ struct vop_read_args {
 	if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
 		
-		off_t		offset			= uio->uio_offset;
+		off_t		offset			= uio_offset ( uio );
 		UInt32		amountToCopy	= 0;
 		UInt32		numBytes		= 0;
 		
 		numBytes = cddaNodePtr->u.xmlFile.fileSize;
 		
 		// Check to make sure we don't read past EOF
-		if ( uio->uio_offset > numBytes )
+		if ( uio_offset ( uio ) > numBytes )
 		{
 			
 			DebugLog ( ( "CDDA_Read: Can't read past end of file..." ) );
@@ -685,7 +476,7 @@ struct vop_read_args {
 			
 		}
 		
-		amountToCopy = ulmin ( uio->uio_resid, numBytes - offset );
+		amountToCopy = ulmin ( uio_resid ( uio ), numBytes - offset );
 		
 		uiomove ( ( caddr_t ) &cddaNodePtr->u.xmlFile.fileDataPtr[offset],
 				  amountToCopy,
@@ -700,12 +491,12 @@ struct vop_read_args {
 		
 		UInt32			headerSize		= 0;
 		UInt32			count			= 0;
-		UInt32			blockNumber 	= 0;
+		UInt32			blockNumber		= 0;
 		off_t			offset			= 0;
 		off_t			sectorOffset	= 0;
-		struct buf *	bufPtr			= NULL;
+		buf_t			bufPtr			= NULL;
 		
-		offset	= uio->uio_offset;
+		offset	= uio_offset ( uio );
 		
 		// Check to make sure we don't read past EOF
 		if ( offset > cddaNodePtr->u.file.nodeInfoPtr->numBytes )
@@ -723,10 +514,13 @@ struct vop_read_args {
 		{
 			
 			UInt32	amountToCopy = 0;
+			UInt8 *	bytes		 = NULL;
 			
-			amountToCopy = ulmin ( uio->uio_resid, headerSize - offset );
+			bytes = ( UInt8 * ) &cddaNodePtr->u.file.aiffHeader;
 			
-			uiomove ( ( caddr_t ) &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler[offset],
+			amountToCopy = ulmin ( uio_resid ( uio ), headerSize - offset );
+			
+			uiomove ( ( caddr_t ) &bytes[offset],
 				  amountToCopy,
 				  uio );
 			
@@ -734,12 +528,29 @@ struct vop_read_args {
 			
 		}
 		
-		if ( ( uio->uio_resid > 0  ) &&
-			 ( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
+		// Copy any part of the header pad that we need to copy.
+		if ( ( uio_resid ( uio ) > 0  ) &&
+			 ( offset < kPhysicalMediaBlockSize ) )
+		{
+			
+			UInt32	amountToCopy = 0;
+			
+			amountToCopy = ulmin ( uio_resid ( uio ), kPhysicalMediaBlockSize - offset );
+			
+			uiomove ( ( caddr_t ) &gAIFFHeaderPadData[offset - headerSize],
+				  amountToCopy,
+				  uio );
+			
+			offset += amountToCopy;
+			
+		}
+		
+		if ( ( uio_resid ( uio ) > 0  ) &&
+			 ( uio_offset ( uio ) < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 		{
 			
 			// Adjust offset by the header size so we have a true offset into the media.
-			offset -= headerSize;
+			offset -= kPhysicalMediaBlockSize;
 			sectorOffset = offset % kPhysicalMediaBlockSize;
 			blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
 			
@@ -751,32 +562,33 @@ struct vop_read_args {
 			{
 				
 				// Clip to requested transfer count and end of file.
-				count = ulmin ( uio->uio_resid, ( kPhysicalMediaBlockSize - sectorOffset ) );
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
+				count = ulmin ( uio_resid ( uio ), ( kPhysicalMediaBlockSize - sectorOffset ) );
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 				
 				// Read the one sector
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								kPhysicalMediaBlockSize,
-								NOCRED,
-								&bufPtr );
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									kPhysicalMediaBlockSize,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
 				
 				// Move the data from the block into the buffer
-				uiomove ( bufPtr->b_data + sectorOffset, count, uio );
+				uiomove ( ( caddr_t ) ( ( char * ) buf_dataptr ( bufPtr ) + sectorOffset ), count, uio );
 				
 				// Make sure we mark this bp invalid as we don't need to keep it around anymore
-				SET ( bufPtr->b_flags, B_INVAL );
+				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 				// Update offset
 				blockNumber++;
@@ -788,14 +600,14 @@ struct vop_read_args {
 			// We will read multiple disc blocks up to MAXBSIZE bytes in a loop until we hit a chunk which
 			// is less than one block size. That will be read in the third part.
 			
-			while ( ( uio->uio_resid > kPhysicalMediaBlockSize ) &&
-					( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
+			while ( ( uio_resid ( uio ) > kPhysicalMediaBlockSize ) &&
+					( uio_offset ( uio ) < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
 				UInt32		blocksToRead = 0;
 				
 				// Read in as close to MAXBSIZE chunks as possible
-				if ( uio->uio_resid > kMaxBytesPerRead )
+				if ( uio_resid ( uio ) > kMaxBytesPerRead )
 				{
 					blocksToRead	= kMaxBlocksPerRead;
 					count			= kMaxBytesPerRead;
@@ -803,36 +615,37 @@ struct vop_read_args {
 				
 				else
 				{
-					blocksToRead	= uio->uio_resid / kPhysicalMediaBlockSize;
+					blocksToRead	= uio_resid ( uio ) / kPhysicalMediaBlockSize;
 					count			= blocksToRead * kPhysicalMediaBlockSize;
 				}
 				
-				// bread kMaxBlocksPerRead blocks and put them in the cache.
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								count,
-								NOCRED,
-								&bufPtr );
+				// read kMaxBlocksPerRead blocks and put them in the cache.
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									count,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
 				
-				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
+				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 				
 				// Move the data from the block into the buffer
-				uiomove ( bufPtr->b_data, count, uio );
+				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
 				// Make sure we mark any intermediate buffers as invalid as we don't need
 				// to keep them.
-				SET ( bufPtr->b_flags, B_INVAL );
+				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 				// Update offset
 				blockNumber += blocksToRead;
@@ -842,32 +655,33 @@ struct vop_read_args {
 			// Part 3
 			// Now that we have read everything, we read the tail end which is a partial sector.
 			// Sometimes we don't need to execute this step since there isn't a tail.
-			if ( ( uio->uio_resid > 0  ) &&
-				 ( uio->uio_offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
+			if ( ( uio_resid ( uio ) > 0  ) &&
+				 ( uio_offset ( uio ) < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
-				count = ulmin ( uio->uio_resid, cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio->uio_offset );
+				count = ulmin ( uio_resid ( uio ), cddaNodePtr->u.file.nodeInfoPtr->numBytes - uio_offset ( uio ) );
 				
 				// Read the one sector
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								kPhysicalMediaBlockSize,
-								NOCRED,
-								&bufPtr );
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									kPhysicalMediaBlockSize,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
 				
 				// Move the data from the block into the buffer
-				uiomove ( bufPtr->b_data, count, uio );
+				uiomove ( ( caddr_t ) buf_dataptr ( bufPtr ), count, uio );
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 			}
 			
@@ -887,28 +701,27 @@ struct vop_read_args {
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_ReadDir ( struct vop_readdir_args * readDirArgsPtr )
+CDDA_ReadDir ( struct vnop_readdir_args * readDirArgsPtr )
 /*
-struct vop_readdir_args {
+struct vnop_readdir_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct uio *a_uio;
-	struct ucred *a_cred;
+	vnode_t a_vp;
+	uio_t a_uio;
+	int a_flags;
 	int *a_eofflag;
-	int *a_ncookies;
-	u_long **a_cookies;
+	int *a_numdirent;
+	vfs_context_t a_context;
 };
 */
 {
 
-	struct vnode * 			vNodePtr 			= NULL;
-	AppleCDDANodePtr	 	cddaNodePtr			= NULL;
-	AppleCDDAMountPtr	 	cddaMountPtr		= NULL;
+	vnode_t					vNodePtr			= NULLVP;
+	AppleCDDANodePtr		cddaNodePtr			= NULL;
+	AppleCDDAMountPtr		cddaMountPtr		= NULL;
 	AppleCDDANodeInfoPtr	nodeInfoArrayPtr	= NULL;
-	struct proc *			theProcPtr			= NULL;
-	struct uio *			uio 				= NULL;
+	uio_t					uio					= NULL;
 	UInt32					index				= 0;
-	int 					error				= 0;
+	int						error				= 0;
 	SInt32					offsetValue			= 0;
 	UInt32					direntSize			= 0;
 
@@ -916,31 +729,21 @@ struct vop_readdir_args {
 
 	DebugAssert ( ( readDirArgsPtr != NULL ) );
 
-	vNodePtr 	= readDirArgsPtr->a_vp;
-	uio 		= readDirArgsPtr->a_uio;
+	vNodePtr	= readDirArgsPtr->a_vp;
+	uio			= readDirArgsPtr->a_uio;
 
 	DebugAssert ( ( vNodePtr != NULL ) );
 	DebugAssert ( ( uio != NULL ) );
 
-	// Get the current proc
-	theProcPtr = current_proc ( );
 	cddaNodePtr = VTOCDDA ( vNodePtr );
 	
-	DebugAssert ( ( theProcPtr != NULL ) );
 	DebugAssert ( ( cddaNodePtr != NULL ) );
-
-	// We don't allow exporting CDDA mounts, and currently local requests do
-	// not need cookies.
-	if ( readDirArgsPtr->a_ncookies != NULL || readDirArgsPtr->a_cookies != NULL )
-	{
-		
-		DebugLog ( ( "No cookie exporting, exiting with error = %d.\n", EINVAL ) );
-		return EINVAL;
-
-	}
+	
+	if ( readDirArgsPtr->a_flags & ( VNODE_READDIR_EXTENDED | VNODE_READDIR_REQSEEKOFF ) )
+		return ( EINVAL );
 	
 	// First make sure it is a directory we are dealing with
-	if ( vNodePtr->v_type != VDIR )
+	if ( ! vnode_isdir ( vNodePtr ) )
 	{
 
 		DebugLog ( ( "CDDA_ReadDir: not a directory, exiting with error = %d.\n", ENOTDIR ) );
@@ -957,72 +760,71 @@ struct vop_readdir_args {
 	}
 	
 	// Make sure it's all one big buffer
-	if ( uio->uio_iovcnt > 1 )
+	if ( uio_iovcnt ( uio ) > 1 )
 	{
-
+		
 		DebugLog ( ( "More than one buffer, exiting with error = %d.\n", EINVAL ) );
 		return ( EINVAL );
-
+		
 	}
-
+	
 	// Make sure we don't return partial entries
-	if ( uio->uio_resid < sizeof ( struct dirent ) )
+	if ( ( uint32_t ) uio_resid ( uio ) < sizeof ( struct dirent ) )
 	{
-
+		
 		DebugLog ( ( "resid < dirent size, exiting with error = %d.\n", EINVAL ) );
 		return ( EINVAL );
-
+		
 	}
 	
-	direntSize 	= sizeof ( struct dirent );
+	direntSize	= sizeof ( struct dirent );
 	
 	// Synthesize '.', "..", and ".TOC.plist"
-	if ( uio->uio_offset == 0 )
+	if ( uio_offset ( uio ) == 0 )
 	{
-	
+		
 		offsetValue = AddDirectoryEntry ( cddaNodePtr->nodeID, DT_DIR, ".", uio );
 		if ( offsetValue == 0 )
 		{
-		
+			
 			DebugLog ( ( "offsetValue is zero, exiting with error = %d.\n", 0 ) );
 			return 0;
-		
-		}
 			
-	}
+		}
 		
-	if ( uio->uio_offset == direntSize )
+	}
+	
+	if ( uio_offset ( uio ) == direntSize )
 	{
 		
 		offsetValue = AddDirectoryEntry ( cddaNodePtr->nodeID, DT_DIR, "..", uio );
 		if ( offsetValue == 0 )
 		{
-		
+			
 			DebugLog ( ( "offsetValue is zero, exiting with error = %d.\n", 0 ) );
 			return 0;
-		
+			
 		}
 		
 	}
-		
 	
-	if ( uio->uio_offset == direntSize * kAppleCDDARootFileID )
+	if ( uio_offset ( uio ) == direntSize * kAppleCDDARootFileID )
 	{
 		
 		offsetValue += AddDirectoryEntry ( kAppleCDDAXMLFileID, kAppleCDDAXMLFileType, ".TOC.plist", uio );
 		if ( offsetValue == 0 )
 		{
-		
+			
 			DebugLog ( ( "offsetValue is zero, exiting with error = %d.\n", 0 ) );
 			return 0;
-		
+			
 		}
 		
 	}
 	
-	nodeInfoArrayPtr	= VFSTONODEINFO ( vNodePtr->v_mount );
-	cddaMountPtr		= VFSTOCDDA ( vNodePtr->v_mount );
-
+	nodeInfoArrayPtr	= VFSTONODEINFO ( vnode_mount ( vNodePtr ) );
+	cddaMountPtr		= VFSTOCDDA ( vnode_mount ( vNodePtr ) );
+	
 	DebugAssert ( ( nodeInfoArrayPtr != NULL ) );
 	DebugAssert ( ( cddaMountPtr != NULL ) );
 	
@@ -1034,14 +836,14 @@ struct vop_readdir_args {
 	for ( index = 0; index < cddaMountPtr->numTracks; index++, nodeInfoArrayPtr++ )
 	{
 		
-		DebugLog ( ( "uio->uio_offset = %ld.\n", uio->uio_offset ) );
-		DebugLog ( ( "uio->uio_resid = %ld.\n", uio->uio_resid ) );
+		DebugLog ( ( "uio_offset ( uio ) = %ld.\n", uio_offset ( uio ) ) );
+		DebugLog ( ( "uio_resid ( uio ) = %ld.\n", uio_resid ( uio ) ) );
 		
-		if ( uio->uio_offset == direntSize * ( index + kNumberOfFakeDirEntries ) )
+		if ( uio_offset ( uio ) == direntSize * ( index + kNumberOfFakeDirEntries ) )
 		{
 			
 			DebugLog ( ( "index = %ld.\n", index ) );
-								
+			
 			// Return this entry
 			offsetValue = AddDirectoryEntry ( nodeInfoArrayPtr->trackDescriptor.point,
 											  kAppleCDDATrackType,
@@ -1050,23 +852,23 @@ struct vop_readdir_args {
 			
 			if ( offsetValue == 0 )
 			{
-			
+				
 				DebugLog ( ( "offsetValue is zero, exiting with error = %d.\n", 0 ) );
 				return 0;
-			
-			}
-						
-		}
 				
-	}
+			}
+					
+		}
 		
+	}
+	
 	if ( readDirArgsPtr->a_eofflag )
 	{
 		
-		DebugLog ( ( "eofflag = %d.\n", ( uio->uio_offset >= direntSize * ( cddaMountPtr->numTracks + kNumberOfFakeDirEntries ) ) ? 1 : 0 ) );
+		DebugLog ( ( "eofflag = %d.\n", ( uio_offset ( uio ) >= direntSize * ( cddaMountPtr->numTracks + kNumberOfFakeDirEntries ) ) ? 1 : 0 ) );
 		
 		// If we ran all the way through the list, there are no more
-		*readDirArgsPtr->a_eofflag = ( uio->uio_offset >= direntSize * ( cddaMountPtr->numTracks + kNumberOfFakeDirEntries ) ) ? 1 : 0;
+		*readDirArgsPtr->a_eofflag = ( uio_offset ( uio ) >= direntSize * ( cddaMountPtr->numTracks + kNumberOfFakeDirEntries ) ) ? 1 : 0;
 		error = 0;
 		
 	}
@@ -1083,26 +885,26 @@ struct vop_readdir_args {
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_PageIn ( struct vop_pagein_args * pageInArgsPtr )
+CDDA_PageIn ( struct vnop_pagein_args * pageInArgsPtr )
 /*
-struct vop_pagein_args {
+struct vnop_pagein_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	upl_t a_pl;
 	vm_offset_t a_pl_offset;
 	off_t a_f_offset;
 	size_t a_size;
-	struct ucred *a_cred;
 	int a_flags;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	register struct vnode *		vNodePtr		= NULL;
-	AppleCDDANodePtr			cddaNodePtr		= NULL;
-	int 		   				error			= 0;
-	int							nocommit 		= 0;
-	UInt32						numBytes		= 0;
+	vnode_t				vNodePtr		= NULLVP;
+	AppleCDDANodePtr	cddaNodePtr		= NULL;
+	int					error			= 0;
+	int					nocommit		= 0;
+	UInt32				numBytes		= 0;
 	
 	DebugLog ( ( "CDDA_PageIn: Entering.\n" ) );
 	
@@ -1115,9 +917,6 @@ struct vop_pagein_args {
 	
 	cddaNodePtr = VTOCDDA ( vNodePtr );
 	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	if ( vNodePtr->v_type != VREG )
-		panic ( "CDDA_PageIn: vNodePtr not UBC type.\n" );
 	
 	if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 	{
@@ -1234,7 +1033,7 @@ struct vop_pagein_args {
 		{
 			
 			// Commit the page to the vm subsystem
-			ubc_upl_commit_range ( 	pageInArgsPtr->a_pl,
+			ubc_upl_commit_range (	pageInArgsPtr->a_pl,
 									pageInArgsPtr->a_pl_offset,
 									PAGE_SIZE,
 									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY );
@@ -1249,14 +1048,14 @@ struct vop_pagein_args {
 	{
 		
 		UInt32			headerSize		= 0;
-		UInt32			blockNumber 	= 0;
+		UInt32			blockNumber		= 0;
 		UInt32			count			= 0;
 		off_t			offset			= 0;
 		off_t			sectorOffset	= 0;
 		off_t			residual		= 0;
 		kern_return_t	kret			= 0;
 		vm_offset_t		vmOffsetPtr		= 0;
-		struct buf *	bufPtr			= NULL;
+		buf_t			bufPtr			= NULL;
 		
 		residual	= pageInArgsPtr->a_size;
 		offset		= pageInArgsPtr->a_f_offset;
@@ -1283,21 +1082,48 @@ struct vop_pagein_args {
 		
 		}
 		
+		// Account for the offset into the UPL.
+		vmOffsetPtr += pageInArgsPtr->a_pl_offset;
+		
 		// Copy any part of the header that we need to copy.
 		if ( offset < headerSize )
 		{
 			
-			off_t	amountToCopy	= 0;
+			off_t		amountToCopy	= 0;
+			UInt8 *		bytes			= NULL;
 			
-			amountToCopy = ulmin ( pageInArgsPtr->a_size, headerSize - offset );			
+			amountToCopy = ulmin ( pageInArgsPtr->a_size, headerSize - offset );
+			
+			bytes = ( UInt8 * ) &cddaNodePtr->u.file.aiffHeader;
 			
 			// Copy the header data
-			bcopy ( &cddaNodePtr->u.file.aiffHeader.u.alignedHeader.filler[pageInArgsPtr->a_f_offset],
+			bcopy ( &bytes[offset],
 					( void * ) vmOffsetPtr,
 					amountToCopy );
 			
 			offset += amountToCopy;
 			residual -= amountToCopy;
+			vmOffsetPtr += amountToCopy;
+			
+		}
+
+		// Copy any part of the header pad that we need to copy.
+		if ( ( residual > 0 ) &&
+			 ( offset < kPhysicalMediaBlockSize ) )
+		{
+			
+			off_t	amountToCopy = 0;
+			
+			amountToCopy = ulmin ( residual, kPhysicalMediaBlockSize - offset );
+						
+			// Copy the header pad data (all zeroes).
+			bcopy ( &gAIFFHeaderPadData[offset - headerSize],
+					( void * ) vmOffsetPtr,
+					amountToCopy );
+			
+			offset += amountToCopy;
+			residual -= amountToCopy;
+			vmOffsetPtr += amountToCopy;
 			
 		}
 		
@@ -1305,8 +1131,8 @@ struct vop_pagein_args {
 			 ( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 		{
 			
-			// Adjust offset by the header size so we have a true offset into the media.
-			offset -= headerSize;
+			// Adjust offset by the size of header + header pad so we have a true offset into the media.
+			offset -= kPhysicalMediaBlockSize;
 			sectorOffset = offset % kPhysicalMediaBlockSize;
 			blockNumber = ( offset / kPhysicalMediaBlockSize ) + cddaNodePtr->u.file.nodeInfoPtr->LBA;
 			
@@ -1322,32 +1148,36 @@ struct vop_pagein_args {
 				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								kPhysicalMediaBlockSize,
-								NOCRED,
-								&bufPtr );
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									kPhysicalMediaBlockSize,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
 				
 				// Copy the data
-				bcopy ( bufPtr->b_data + sectorOffset, ( void * ) vmOffsetPtr + offset + headerSize, count );
+				bcopy ( ( void * ) ( ( char * ) buf_dataptr ( bufPtr ) + sectorOffset ),
+						( void * ) vmOffsetPtr,
+						count );
 				
 				// Increment/decrement counters
 				offset		+= count;
 				residual	-= count;
+				vmOffsetPtr += count;
 				
 				// Make sure we mark this bp invalid as we don't need to keep it around anymore
-				SET ( bufPtr->b_flags, B_INVAL );
+				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 				// Update offset
 				blockNumber++;
@@ -1378,17 +1208,18 @@ struct vop_pagein_args {
 					count			= blocksToRead * kPhysicalMediaBlockSize;
 				}
 				
-				// bread kMaxBlocksPerRead blocks and put them in the cache.
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								count,
-								NOCRED,
-								&bufPtr );
+				// read kMaxBlocksPerRead blocks and put them in the cache.
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									count,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
@@ -1396,18 +1227,19 @@ struct vop_pagein_args {
 				count = ulmin ( count, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Copy the data
-				bcopy ( bufPtr->b_data, ( void * ) vmOffsetPtr + offset + headerSize, count );
+				bcopy ( ( void * ) buf_dataptr ( bufPtr ), ( void * ) vmOffsetPtr, count );
 				
 				// Increment/decrement counters
 				offset		+= count;
 				residual	-= count;
+				vmOffsetPtr += count;
 				
 				// Make sure we mark any intermediate buffers as invalid as we don't need
 				// to keep them.
-				SET ( bufPtr->b_flags, B_INVAL );
+				buf_markinvalid ( bufPtr );
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 				// Update offset
 				blockNumber += blocksToRead;
@@ -1417,36 +1249,38 @@ struct vop_pagein_args {
 			// Part 3
 			// Now that we have read everything, we read the tail end which is a partial sector.
 			// Sometimes we don't need to execute this step since there isn't a tail.
-			if ( ( residual > 0  ) &&
+			if ( ( residual > 0	 ) &&
 				 ( offset < cddaNodePtr->u.file.nodeInfoPtr->numBytes ) )
 			{
 				
 				count = ulmin ( residual, cddaNodePtr->u.file.nodeInfoPtr->numBytes - offset );
 				
 				// Read the one sector
-				error = bread ( cddaNodePtr->blockDeviceVNodePtr,
-								blockNumber,
-								kPhysicalMediaBlockSize,
-								NOCRED,
-								&bufPtr );
+				error = ( int ) buf_bread (
+									cddaNodePtr->blockDeviceVNodePtr,
+									blockNumber,
+									kPhysicalMediaBlockSize,
+									NOCRED,
+									&bufPtr );
 				
 				if ( error != 0 )
 				{
 					
-					brelse ( bufPtr );
+					buf_brelse ( bufPtr );
 					return ( error );
 					
 				}
 				
 				// Copy the data
-				bcopy ( bufPtr->b_data, ( void * ) vmOffsetPtr + offset + headerSize, count );
+				bcopy ( ( void * ) buf_dataptr ( bufPtr ), ( void * ) vmOffsetPtr, count );
 				
 				// Increment/decrement counters
 				offset		+= count;
 				residual	-= count;
+				vmOffsetPtr += count;
 				
 				// Release this buffer back into the buffer pool. 
-				brelse ( bufPtr );
+				buf_brelse ( bufPtr );
 				
 			}
 			
@@ -1467,7 +1301,7 @@ struct vop_pagein_args {
 		{
 			
 			// Commit the page to the vm subsystem
-			ubc_upl_commit_range ( 	pageInArgsPtr->a_pl,
+			ubc_upl_commit_range (	pageInArgsPtr->a_pl,
 									pageInArgsPtr->a_pl_offset,
 									pageInArgsPtr->a_size,
 									UPL_COMMIT_FREE_ON_EMPTY | UPL_COMMIT_CLEAR_DIRTY );
@@ -1488,89 +1322,140 @@ struct vop_pagein_args {
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_GetAttributes ( struct vop_getattr_args * getAttrArgsPtr )
+CDDA_GetAttributes ( struct vnop_getattr_args * getAttrArgsPtr )
 /*
-struct vop_getattr_args {
+struct vnop_getattr_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct vattr *a_vap;
-	struct ucred *a_cred;
-	struct proc *a_p;
+	vnode_t a_vp;
+	struct vnode_attr *a_vap;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	struct vnode *			vNodePtr 		= NULL;
-	struct vattr *			attributesPtr 	= NULL;
+	vnode_t					vNodePtr		= NULLVP;
+	mount_t					mountPtr		= NULL;
+	struct vnode_attr *		attributesPtr	= NULL;
 	AppleCDDANodePtr		cddaNodePtr		= NULL;
 	AppleCDDAMountPtr		cddaMountPtr	= NULL;
+	struct timespec			nullTime		= { 0, 0 };
 	
 	DebugLog ( ( "CDDA_GetAttributes: Entering.\n" ) );
 	
 	DebugAssert ( ( getAttrArgsPtr != NULL ) );
 	
-	vNodePtr 		= getAttrArgsPtr->a_vp;
-	attributesPtr 	= getAttrArgsPtr->a_vap;
+	vNodePtr		= getAttrArgsPtr->a_vp;
+	mountPtr		= vnode_mount ( vNodePtr );
+	attributesPtr	= getAttrArgsPtr->a_vap;
 	
 	DebugAssert ( ( vNodePtr != NULL ) );
 	DebugAssert ( ( attributesPtr != NULL ) );
 	
-	cddaMountPtr	= VFSTOCDDA ( vNodePtr->v_mount );
+	cddaMountPtr	= VFSTOCDDA ( mountPtr );
 	cddaNodePtr		= VTOCDDA ( vNodePtr );
-
+	
 	DebugAssert ( ( cddaNodePtr != NULL ) );
 	DebugAssert ( ( cddaMountPtr != NULL ) );
-
+	
 	DebugLog ( ( "nodeID = %ld.\n", cddaNodePtr->nodeID ) );
 	
-	// Set filesystem ID since we called vfs_getnewfsid() on mount
-	attributesPtr->va_fsid		= vNodePtr->v_mount->mnt_stat.f_fsid.val[0];
-	
-	attributesPtr->va_fileid 	= cddaNodePtr->nodeID;		// Set the nodeID
-	attributesPtr->va_type		= vNodePtr->v_type;			// Set the VNode type (e.g. VREG, VDIR)
-	attributesPtr->va_blocksize = kPhysicalMediaBlockSize;	// Set preferred block size for I/O requests
-	
-	// Set all the time fields
-	attributesPtr->va_atime		= cddaMountPtr->mountTime;	// Last accessed time
-	attributesPtr->va_mtime 	= cddaMountPtr->mountTime;	// Last modification time
-	attributesPtr->va_ctime 	= cddaMountPtr->mountTime;	// Last change time
-	
-	// These fields are the same
-	attributesPtr->va_uid 		= kUnknownUserID;	// "unknown"
-	attributesPtr->va_gid 		= kUnknownGroupID;	// "unknown"
-	attributesPtr->va_gen 		= 0;
-	attributesPtr->va_flags 	= 0;
-	attributesPtr->va_rdev 		= NULL;
-	
-	// Set some common mode flags
-	attributesPtr->va_mode		= S_IRUSR | S_IRGRP | S_IROTH;	// Read is ok for user, group, other
-	
-	// If it's the root, set some flags for it.
-	if ( vNodePtr->v_flag & VROOT )
+	// Special case root since we know how to get its name
+	if ( cddaNodePtr->nodeType == kAppleCDDADirectoryType )
 	{
 		
-		attributesPtr->va_mode 		|= S_IFDIR;									// It's a directory
-		attributesPtr->va_mode		|= S_IXUSR | S_IXGRP | S_IXOTH;				// Execute is ok for user, group, other
-		attributesPtr->va_nlink 	= kAppleCDDANumberOfRootDirReferences;		// Number of file refs: "." and ".."
-		
-		// Number of Tracks + ".", "..", and ".TOC.plist"
-		attributesPtr->va_bytes	= attributesPtr->va_size = ( cddaNodePtr->u.directory.entryCount ) * sizeof ( struct dirent );
+		// Set the nodeID. Force root to be 2.
+		VATTR_RETURN ( attributesPtr, va_fileid, kAppleCDDARootFileID );
 		
 	}
-
-	// If it isn't the root vnode, it's a file
+	
+	// Special case the XMLFileNode
+	else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
+	{
+		
+		// Set the nodeID. Force the XMLFileNode to be 3.
+		VATTR_RETURN ( attributesPtr, va_fileid, kAppleCDDAXMLFileID );
+	}
+	
 	else
 	{
 		
-		attributesPtr->va_mode 		|= S_IFREG;	// It's a file...
-		attributesPtr->va_nlink 	= kAppleCDDANumberOfFileReferences;	// Just the file itself
+		// Set the nodeID.		
+		VATTR_RETURN ( attributesPtr, va_fileid, cddaNodePtr->nodeID );
+		
+	}
+	
+	if ( cddaNodePtr->nodeType == kAppleCDDADirectoryType )
+	{
+		
+		// If this is the root directory and they want the parent, force it to 1
+		VATTR_RETURN ( attributesPtr, va_parentid, 1 );
+		
+	}
+	
+	else
+	{
+		
+		// Every other object has the root as its parent (flat filesystem)
+		VATTR_RETURN ( attributesPtr, va_parentid, kAppleCDDARootFileID );
+		
+	}
+	
+	VATTR_RETURN ( attributesPtr, va_type, vnode_vtype ( vNodePtr ) );	// Set the VNode type (e.g. VREG, VDIR)
+	VATTR_RETURN ( attributesPtr, va_iosize, kPhysicalMediaBlockSize );	// Set preferred block size for I/O requests
+	
+	// Set all the time fields
+	VATTR_RETURN ( attributesPtr, va_create_time, cddaMountPtr->mountTime );	// Creation time
+	VATTR_RETURN ( attributesPtr, va_modify_time, cddaMountPtr->mountTime );	// Last modification time
+	VATTR_RETURN ( attributesPtr, va_change_time, nullTime );					// Last change time
+	VATTR_RETURN ( attributesPtr, va_access_time, nullTime );					// Last accessed time
+	VATTR_RETURN ( attributesPtr, va_backup_time, nullTime );					// Backup time
+	
+	// These fields are the same
+	VATTR_RETURN ( attributesPtr, va_fsid, vfs_statfs ( mountPtr )->f_fsid.val[0] );
+	VATTR_RETURN ( attributesPtr, va_uid, kUnknownUserID );		// "unknown"
+	VATTR_RETURN ( attributesPtr, va_gid, kUnknownGroupID );	// "unknown"
+	VATTR_RETURN ( attributesPtr, va_filerev, 0 );
+	VATTR_RETURN ( attributesPtr, va_gen, 0 );
+	VATTR_RETURN ( attributesPtr, va_flags, 0 );
+	VATTR_RETURN ( attributesPtr, va_rdev, 0 );
+	VATTR_RETURN ( attributesPtr, va_encoding, 0 );
+	
+	// Set some common mode flags.
+	// Read is ok for user, group, other.
+	VATTR_RETURN ( attributesPtr, va_mode, S_IRUSR | S_IRGRP | S_IROTH );
+	
+	// If it's the root, set some flags for it.
+	if ( vnode_isvroot ( vNodePtr ) )
+	{
+		
+		attributesPtr->va_mode		|= S_IFDIR;							// It's a directory
+		attributesPtr->va_mode		|= S_IXUSR | S_IXGRP | S_IXOTH;		// Execute is ok for user, group, other
+		
+		// Number of file refs: "." and ".."
+		VATTR_RETURN ( attributesPtr, va_nlink, kAppleCDDANumberOfRootDirReferences );		
+		
+		// Number of Tracks + ".", "..", and ".TOC.plist"
+		VATTR_RETURN ( attributesPtr, va_data_size, ( cddaNodePtr->u.directory.entryCount ) * sizeof ( struct dirent ) );
+		
+	}
+	
+	// If it isn't the root vnode, it's a file.
+	else
+	{
+		
+		// It's a file...
+		attributesPtr->va_mode |= DEFFILEMODE;
+		
+		// Just the file itself
+		VATTR_RETURN ( attributesPtr, va_nlink, kAppleCDDANumberOfFileReferences );
 		
 		// Is it a track?
 		if ( cddaNodePtr->nodeType == kAppleCDDATrackType )
 		{
 			
 			// Set file size in bytes
-			attributesPtr->va_bytes	= attributesPtr->va_size = cddaNodePtr->u.file.nodeInfoPtr->numBytes;
+			VATTR_RETURN ( attributesPtr, va_data_size, cddaNodePtr->u.file.nodeInfoPtr->numBytes );
+			VATTR_RETURN ( attributesPtr, va_data_alloc, cddaNodePtr->u.file.nodeInfoPtr->numBytes );
 			
 		}
 		
@@ -1578,8 +1463,9 @@ struct vop_getattr_args {
 		else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
 		{
 			
-			// Set file size in bytes
-			attributesPtr->va_bytes	= attributesPtr->va_size = cddaNodePtr->u.xmlFile.fileSize;
+			// Set file size in bytes.
+			VATTR_RETURN ( attributesPtr, va_data_size, cddaNodePtr->u.xmlFile.fileSize );
+			VATTR_RETURN ( attributesPtr, va_data_alloc, cddaNodePtr->u.xmlFile.fileSize );
 			
 		}
 		
@@ -1593,148 +1479,16 @@ struct vop_getattr_args {
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_GetAttributesList - 	This routine gets the attribute list for the
-//								specified vnode.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_GetAttributesList ( struct vop_getattrlist_args * attrListArgsPtr )
-/*
-struct vop_getattrlist_args {
-	struct vnode *a_vp;
-	struct attrlist *a_alist
-	struct uio *a_uio;
-	struct ucred *a_cred;
-	struct proc *a_p;
-};
-*/
-{
-	
-	struct vnode *		vNodePtr 			= NULL;
-	AppleCDDANodePtr	cddaNodePtr			= NULL;
-	struct attrlist *	attributesListPtr	= NULL;
-	int 				error = 0;
-	UInt32 				fixedblocksize;
-	UInt32 				attrblocksize;
-	UInt32 				attrbufsize;
-	void *				attrbufptr;
-	void *				attrptr;
-	void *				varptr;
-	
-	DebugLog ( ( "CDDA_GetAttributesList: Entering.\n" ) );
-	
-	DebugAssert ( ( attrListArgsPtr != NULL ) );
-	
-	vNodePtr 			= attrListArgsPtr->a_vp;
-	attributesListPtr 	= attrListArgsPtr->a_alist;
-	
-	DebugAssert ( ( vNodePtr != NULL ) );
-	DebugAssert ( ( attributesListPtr != NULL ) );
-	
-	cddaNodePtr	= VTOCDDA ( vNodePtr );
-	
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	DebugAssert ( ( ap->a_uio->uio_rw == UIO_READ ) );
-	
-	// Make sure the caller isn't asking for an attribute we don't support.
-	if ( ( attributesListPtr->bitmapcount != 5 ) ||
-		 ( ( attributesListPtr->commonattr & ~kAppleCDDACommonAttributesValidMask ) != 0 ) ||
-		 ( ( attributesListPtr->volattr & ~kAppleCDDAVolumeAttributesValidMask ) != 0 ) ||
-		 ( ( attributesListPtr->dirattr & ~kAppleCDDADirectoryAttributesValidMask ) != 0 ) ||
-		 ( ( attributesListPtr->fileattr & ~kAppleCDDAFileAttributesValidMask ) != 0 ) ||
-		 ( ( attributesListPtr->forkattr & ~kAppleCDDAForkAttributesValidMask ) != 0) )
-	{
-		
-		DebugLog ( ( "CDDA_GetAttributesList: bad attrlist\n" ) );
-		return EOPNOTSUPP;
-		
-	}
-	
-	// Requesting volume information requires setting the ATTR_VOL_INFO bit
-	// and volume info requests are mutually exclusive with all other info requests:
-	if ( ( attributesListPtr->volattr != 0 ) && ( ( ( attributesListPtr->volattr & ATTR_VOL_INFO ) == 0 ) ||
-		 ( attributesListPtr->dirattr != 0 ) || ( attributesListPtr->fileattr != 0 ) || ( attributesListPtr->forkattr != 0 ) ) )
-	{
-		
-		DebugLog ( ( "CDDA_GetAttributesList: conflicting information requested\n" ) );
-		return EINVAL;
-		
-	}
-	
-	fixedblocksize = CalculateAttributeBlockSize ( attributesListPtr );
-	
-	// UInt32 for length longword
-	attrblocksize = fixedblocksize + ( sizeof ( UInt32 ) );
-	
-	if ( attributesListPtr->commonattr & ATTR_CMN_NAME )
-		attrblocksize += kCDDAMaxFileNameBytes + 1;
-		
-	if ( attributesListPtr->volattr & ATTR_VOL_MOUNTPOINT )
-		attrblocksize += PATH_MAX;
-		
-	if ( attributesListPtr->volattr & ATTR_VOL_NAME )
-		attrblocksize += kCDDAMaxFileNameBytes + 1;
-	
-	attrbufsize = MIN ( attrListArgsPtr->a_uio->uio_resid, attrblocksize );
-	
-	DebugLog ( ( "CDDA_GetAttributesList: allocating Ox%X byte buffer (Ox%X + Ox%X) for attributes...\n",
-				  attrblocksize, fixedblocksize, attrblocksize - fixedblocksize ) );
-	
-	MALLOC ( attrbufptr, void *, attrblocksize, M_TEMP, M_WAITOK );
-	attrptr = attrbufptr;
-	
-	// Set buffer length in case of errors
-	*( ( UInt32 * ) attrptr ) = 0;
-	
-	// Reserve space for length field
-	++( ( UInt32 * ) attrptr );
-	
-	// Point to variable-length storage
-	varptr = ( ( char * ) attrptr ) + fixedblocksize;
-	
-	DebugLog ( ( "CDDA_GetAttributesList: attrptr = 0x%08X, varptr = 0x%08X...\n", ( u_int ) attrptr, ( u_int ) varptr ) );
-	
-	PackAttributesBlock ( attributesListPtr, vNodePtr, &attrptr, &varptr );
-
-	DebugLog ( ( "CDDA_GetAttributesList: calculating MIN\n" ) );
-	
-	// Don't copy out more data than was generated
-	attrbufsize = MIN ( attrbufsize, ( u_int ) varptr - ( u_int ) attrbufptr );
-	
-	DebugLog ( ( "CDDA_GetAttributesList: setting attrbufsize = %ld\n", attrbufsize ) );
-	
-	// Set actual buffer length for return to caller
-	*( ( UInt32 * ) attrbufptr ) = attrbufsize;
-	
-	DebugLog ( ( "CDDA_GetAttributesList: copying %ld bytes to user address 0x%08X.\n",
-				 ( UInt32 ) attrbufsize, ( u_int ) attrListArgsPtr->a_uio->uio_iov->iov_base ) );
-	
-	error = uiomove ( ( caddr_t ) attrbufptr, attrbufsize, attrListArgsPtr->a_uio );
-	if ( error != 0 )
-	{
-		DebugLog ( ( "CDDA_GetAttributesList: error %d on uiomove.\n", error ) );
-	}
-	
-	DebugLog ( ( "CDDA_GetAttributesList: calling FREE\n" ) );
-	FREE ( attrbufptr, M_TEMP );
-	
-	return error;
-	
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	CDDA_Inactive - This routine simply unlocks a vnode.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Inactive ( struct vop_inactive_args * inactiveArgsPtr )
+CDDA_Inactive ( struct vnop_inactive_args * inactiveArgsPtr )
 /*
-struct vop_inactive_args {
+struct vnop_inactive_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct proc *a_p;
+	vnode_t a_vp;
+	vfs_context_t a_context;
 };
 */
 {
@@ -1753,242 +1507,22 @@ struct vop_inactive_args {
 }
 
 
-#if RENAME_SUPPORTED
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Rename - This routine renames a file in the filesystem.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_Rename ( struct vop_rename_args * renameArgsPtr )
-/*
-struct vop_rename_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_fdvp;
-	struct vnode *a_fvp;
-	struct componentname *a_fcnp;
-	struct vnode *a_tdvp;
-	struct vnode *a_tvp;
-	struct componentname *a_tcnp;
-};
-*/
-{
-
-	struct vnode *			targetVNodePtr 			= NULL;
-	struct vnode *			targetParentVNodePtr 	= NULL;
-	struct vnode *			sourceVNodePtr 			= NULL;
-	struct vnode *			sourceParentVNodePtr 	= NULL;
-	struct componentname *	targetComponentNamePtr 	= NULL;
-	struct componentname *	sourceComponentNamePtr 	= NULL;
-	struct proc	*			procPtr					= NULL;
-	AppleCDDAMountPtr		cddaMountPtr			= NULL;
-	AppleCDDANodePtr		sourceCDDANodePtr		= NULL;
-	AppleCDDANodePtr		sourceParentCDDANodePtr	= NULL;
-	AppleCDDANodeInfoPtr	nodeInfoPtr				= NULL;
-	int						retval					= 0;
-	struct timeval			tv;
-	struct timespec			timespec;
-	
-	DebugLog ( ( "CDDA_Rename: Entering.\n" ) );	
-	DebugAssert ( ( renameArgsPtr != NULL ) );
-	
-	targetVNodePtr 			= renameArgsPtr->a_tvp;
-	targetParentVNodePtr 	= renameArgsPtr->a_tdvp;
-	sourceVNodePtr 			= renameArgsPtr->a_fvp;
-	sourceParentVNodePtr 	= renameArgsPtr->a_fdvp;
-	targetComponentNamePtr 	= renameArgsPtr->a_tcnp;
-	sourceComponentNamePtr 	= renameArgsPtr->a_fcnp;
-	
-	DebugAssert ( ( targetVNodePtr != NULL ) );
-	DebugAssert ( ( targetParentVNodePtr != NULL ) );
-	DebugAssert ( ( sourceVNodePtr != NULL ) );
-	DebugAssert ( ( sourceParentVNodePtr != NULL ) );
-	DebugAssert ( ( targetComponentNamePtr != NULL ) );
-	DebugAssert ( ( sourceComponentNamePtr != NULL ) );
-	
-	procPtr = sourceComponentNamePtr->cn_proc;
-	
-	DebugAssert ( ( procPtr != NULL ) );
-	
-    if ( ( ( targetComponentNamePtr->cn_flags & HASBUF ) == 0 ) ||
-		 ( ( sourceComponentNamePtr->cn_flags & HASBUF ) == 0 ) )
-        panic ( "CDDA_Rename: no name" );
-	
-	// If targetVNodePtr is not NULL, we bail.
-	// We only support in place renaming.
-	if ( targetVNodePtr != NULL )
-	{
-		
-		DebugLog ( ( "CDDA_Rename: sourceVNodePtr != targetVNodePtr.\n" ) );
-		retval = EINVAL;
-		goto Exit;
-		
-	}
-		
-	sourceCDDANodePtr 		= VTOCDDA ( sourceVNodePtr );
-	sourceParentCDDANodePtr	= VTOCDDA ( sourceParentVNodePtr );
-	
-	// Be sure we are not renaming ".", "..", or an alias of ".". This
-	// leads to a crippled directory tree.	It's pretty tough to do a
-	// "ls" or "pwd" with the "." directory entry missing, and "cd .."
-	// doesn't work if the ".." entry is missing.
-	if ( sourceCDDANodePtr->nodeType == kAppleCDDADirectoryType )
-	{
-		
-		DebugLog ( ( "CDDA_Rename: sourceCDDANodePtr->nodeType == kAppleCDDADirectoryType.\n" ) );
-		retval = EINVAL;
-		goto Exit;
-		
-	}
-	
-	if ( sourceCDDANodePtr->nodeType == kAppleCDDAXMLFileType )
-	{
-		
-		DebugLog ( ( "CDDA_Rename: sourceCDDANodePtr->nodeType == kAppleCDDAXMLFileType.\n" ) );
-		retval = EPERM;
-		goto Exit;
-		
-	}
-	
-	// Verify the name makes sense (has .aiff at the end and
-	// has the track number at the beginning)
-	if ( targetComponentNamePtr->cn_nameptr )
-	{
-		
-		char		buffer[3];
-		char *		ptr;
-		char *		ptr2;
-		UInt32		size;
-		UInt8		value;
-		
-		ptr = strchr ( targetComponentNamePtr->cn_nameptr, ' ' );
-		if ( ptr == NULL )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: Need space between number and name.\n" ) );
-			retval = EINVAL;
-			goto Exit;
-			
-		}
-		
-		size = ( UInt32 ) ptr - ( UInt32 ) targetComponentNamePtr->cn_nameptr;
-		if ( size < 1 )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: Amount of data to copy is nothing, bail\n" ) );
-			retval = EINVAL;
-			goto Exit;
-			
-		}
-			
-		strncpy ( buffer, targetComponentNamePtr->cn_nameptr, size );
-		buffer[size] = 0;
-		value = atoi ( buffer );
-		
-		if ( value != sourceCDDANodePtr->u.file.nodeInfoPtr->trackDescriptor.point )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: Name is invalid\n" ) );
-			retval = EINVAL;
-			goto Exit;
-			
-		}
-		
-		// Now check for .aiff
-		ptr = strchr ( targetComponentNamePtr->cn_nameptr, '.' );
-		if ( ptr == NULL )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: No .aiff at the end\n" ) );
-			retval = EINVAL;
-			goto Exit;
-			
-		}
-		
-		// make sure we go to the last . in the name (so tedious)...
-		ptr2 = strchr ( ptr + 1, '.' );		
-		while ( ptr2 != NULL )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: In while loop\n" ) );
-			
-			ptr = ptr2;
-			ptr2 = strchr ( ptr2 + 1, '.' );
-			
-		}
-		
-		size = ( UInt32 ) ptr - ( UInt32 ) targetComponentNamePtr->cn_nameptr + strlen ( ".aiff" );
-		if ( size != strlen ( targetComponentNamePtr->cn_nameptr ) )
-		{
-			
-			DebugLog ( ( "CDDA_Rename: .aiff is not at the ending\n" ) );
-			retval = EINVAL;
-			goto Exit;
-			
-		}
-		
-	}
-	
-	// remove the existing entry from the namei cache:
-	cache_purge ( sourceVNodePtr );
-	DebugLog ( ( "CDDA_Rename: finished cach_purge.\n" ) );
-	
-	// Change the name in the NodeInfoArray
-	nodeInfoPtr = sourceCDDANodePtr->u.file.nodeInfoPtr;
-	FREE ( nodeInfoPtr->name, M_TEMP );
-	DebugLog ( ( "CDDA_Rename: FREE'd name.\n" ) );
-	
-	MALLOC ( nodeInfoPtr->name, char *, strlen ( targetComponentNamePtr->cn_nameptr ) + 1, M_TEMP, M_WAITOK );
-	strcpy ( nodeInfoPtr->name, targetComponentNamePtr->cn_nameptr );
-	nodeInfoPtr->nameSize = strlen ( targetComponentNamePtr->cn_nameptr );
-	DebugLog ( ( "CDDA_Rename: finished strcpy of name.\n" ) );
-	
-	// Timestamp the parent directory.
-	tv = time;
-	
-	TIMEVAL_TO_TIMESPEC ( &tv, &timespec );
-	cddaMountPtr = VFSTOCDDA ( sourceVNodePtr->v_mount );
-	cddaMountPtr->mountTime	= timespec;
-	
-	
-Exit:
-	
-	
-	if ( targetVNodePtr != NULL )
-	{
-		
-		vput ( targetVNodePtr );
-		DebugLog ( ( "CDDA_Rename: vput of targetVNodePtr done.\n" ) );
-		
-	}
-	
-	vput ( targetParentVNodePtr );
-	DebugLog ( ( "CDDA_Rename: vput of targetParentVNodePtr done.\n" ) );
-	
-	vrele ( sourceParentVNodePtr );
-	DebugLog ( ( "CDDA_Rename: vrele of sourceParentVNodePtr done.\n" ) );
-	
-	vrele ( sourceVNodePtr );
-	DebugLog ( ( "CDDA_Rename: vrele of sourceVNodePtr done.\n" ) );
-	
-	return retval;
-	
-}
-#endif	/* RENAME_SUPPORTED */
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Remove - 	This routine removes a file from the name space. Since we
+//	CDDA_Remove -	This routine removes a file from the name space. Since we
 //					are a read-only volume, we release any locks if appropriate
 //					and return EROFS
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int 
-CDDA_Remove ( struct vop_remove_args * removeArgsPtr )
+CDDA_Remove ( struct vnop_remove_args * removeArgsPtr )
 /*
-struct vop_remove_args {
+struct vnop_remove_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_dvp;
-	struct vnode *a_vp;
+	vnode_t a_dvp;
+	vnode_t a_vp;
 	struct componentname *a_cnp;
+	int a_flags;
+	vfs_context_t a_context;
 };
 */
 {
@@ -2005,23 +1539,24 @@ struct vop_remove_args {
 	// Return the read-only filesystem error
 	return ( EROFS );
 	
-}   
+}	
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_RmDir - 	This routine removes a directory from the name space.
+//	CDDA_RmDir -	This routine removes a directory from the name space.
 //					Since we are a read-only volume, we release any locks
 //					and return EROFS
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int 
-CDDA_RmDir ( struct vop_rmdir_args * removeDirArgsPtr )
+CDDA_RmDir ( struct vnop_rmdir_args * removeDirArgsPtr )
 /*
-struct vop_rmdir_args {
+struct vnop_rmdir_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_dvp;
-	struct vnode *a_vp;
+	vnode_t a_dvp;
+	vnode_t a_vp;
 	struct componentname *a_cnp;
+	vfs_context_t a_context;
 };
 */
 {
@@ -2038,32 +1573,71 @@ struct vop_rmdir_args {
 	// Return the read-only filesystem error
 	return ( EROFS );
 	
-}   
+}	
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 //	CDDA_Reclaim - This routine reclaims a vnode for use by the system.
+//
+//	Remove the vnode from our node info array, drop the fs reference,
+//	free our private data.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Reclaim ( struct vop_reclaim_args * reclaimArgsPtr )
+CDDA_Reclaim ( struct vnop_reclaim_args * reclaimArgsPtr )
 /*
-struct vop_reclaim_args {
+struct vnop_reclaim_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	struct proc *a_p;
+	vnode_t a_vp;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	int		error 	= 0;
+	vnode_t					vNodePtr			= NULLVP;
+	AppleCDDANodePtr		cddaNodePtr			= NULL;
+	AppleCDDAMountPtr		cddaMountPtr		= NULL;
+	AppleCDDANodeInfoPtr	nodeInfoPtr			= NULL;
+	int						error				= 0;
 	
 	DebugLog ( ( "CDDA_Reclaim: Entering.\n" ) );
-
+	
 	DebugAssert ( ( reclaimArgsPtr != NULL ) );
-
-	error = DisposeCDDANode ( reclaimArgsPtr->a_vp, reclaimArgsPtr->a_p );	
-
+	
+	vNodePtr = reclaimArgsPtr->a_vp;
+	
+	DebugAssert ( ( vNodePtr != NULL ) );
+	
+	cddaNodePtr = VTOCDDA ( vNodePtr );
+	
+	DebugAssert ( ( cddaNodePtr != NULL ) );
+	
+	cddaMountPtr = VFSTOCDDA ( vnode_mount ( vNodePtr ) );
+	
+	lck_mtx_lock ( cddaMountPtr->cddaMountLock );
+	
+	if ( cddaNodePtr->nodeType == kAppleCDDATrackType )
+	{
+		
+		nodeInfoPtr = CDDATONODEINFO ( cddaNodePtr );
+		nodeInfoPtr->vNodePtr = NULL;
+		
+	}
+	
+	else if ( cddaNodePtr->nodeType == kAppleCDDAXMLFileType )
+	{
+		
+		cddaMountPtr->xmlFileVNodePtr = NULL;
+		
+	}
+	
+	lck_mtx_unlock ( cddaMountPtr->cddaMountLock );
+	
+	// Release our reference on this node
+	vnode_removefsref ( vNodePtr );
+	
+	error = DisposeCDDANode ( vNodePtr );
+	
 	DebugLog ( ( "CDDA_Reclaim: exiting...\n" ) );
 	
 	return ( error );
@@ -2071,92 +1645,19 @@ struct vop_reclaim_args {
 }
 
 
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Access - This routine checks the access attributes for a node
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_Access ( struct vop_access_args * accessArgsPtr )
-/*
-struct vop_access_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	int a_mode;
-	struct ucred *a_cred;
-	struct proc *a_p;
-};
-*/
-{
-	
-	AppleCDDANodePtr	cddaNodePtr		= NULL;
-	struct ucred * 		cred			= NULL;
-	mode_t				mode			= 0;
-	int					error			= 0;
-	
-	DebugLog ( ( "CDDA_Access: Entering.\n" ) );
-	
-	DebugAssert ( ( accessArgsPtr != NULL ) );
-	
-	cred 		= accessArgsPtr->a_cred;
-	mode 		= accessArgsPtr->a_mode;	
-	cddaNodePtr = VTOCDDA ( accessArgsPtr->a_vp );
-	
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	// Disallow writes on read-only filesystem
-	if ( mode & VWRITE )
-	{
-		
-		if ( accessArgsPtr->a_vp->v_mount->mnt_flag & MNT_RDONLY )
-		{
-			
-			// They tried to write to a read-only mountpoint, return EROFS
-			return ( EROFS );
-		
-		}
-		
-		else
-		{
-
-			// Should never get here
-			DebugLog ( ( "Error: this filesystem is read-only, but isn't marked read-only" ) );
-			panic ( "Read-Only filesystem" );
-		
-		}
-		
-	}
-	
-	// user id 0 (super-user) always gets access
-	if ( cred->cr_uid == 0 )
-	{
-
-		error = 0;
-
-	}
-	
-	// everyone else gets access too!
-	error = 0;
-	
-	
-	DebugLog ( ( "CDDA_Access: exiting...\n" ) );
-	
-	return ( error );
-
-}
-
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_BlockToOffset - 	This routine converts logical block number to file
+//	CDDA_BlockToOffset -	This routine converts logical block number to file
 //							offset
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_BlockToOffset ( struct vop_blktooff_args * blockToOffsetArgsPtr )
+CDDA_BlockToOffset ( struct vnop_blktooff_args * blockToOffsetArgsPtr )
 /*
-struct vop_blktooff_args {
+struct vnop_blktooff_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	daddr_t a_lblkno;
+	vnode_t a_vp;
+	daddr64_t a_lblkno;
 	off_t *a_offset;
 };
 */
@@ -2185,18 +1686,18 @@ struct vop_blktooff_args {
 
 
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_OffsetToBlock - 	This routine converts a file offset to a logical
+//	CDDA_OffsetToBlock -	This routine converts a file offset to a logical
 //							block number
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_OffsetToBlock ( struct vop_offtoblk_args * offsetToBlockArgsPtr )
+CDDA_OffsetToBlock ( struct vnop_offtoblk_args * offsetToBlockArgsPtr )
 /*
-struct vop_offtoblk_args {
+struct vnop_offtoblk_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	off_t a_offset;
-	daddr_t *a_lblkno;
+	daddr64_t *a_lblkno;
 };
 */
 {
@@ -2228,18 +1729,19 @@ struct vop_offtoblk_args {
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Pathconf ( struct vop_pathconf_args * pathConfArgsPtr )
+CDDA_Pathconf ( struct vnop_pathconf_args * pathConfArgsPtr )
 /*
-struct vop_pathconf_args {
+struct vnop_pathconf_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
+	vnode_t a_vp;
 	int a_name;
 	register_t *a_retval;
+	vfs_context_t a_context;
 };
 */
 {
 	
-	int returnValue	= 0;
+	int returnValue = 0;
 	
 	DebugLog ( ( "CDDA_Pathconf: Entering.\n" ) );
 
@@ -2280,193 +1782,83 @@ struct vop_pathconf_args {
 		
 }
 
-
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Lock -  Locks a vnode
+//	CDDA_GetXAttr - Handles extended attribute reads.
+//					In this case, just for FinderInfo.
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int
-CDDA_Lock ( struct vop_lock_args * lockArgsPtr )
+CDDA_GetXAttr ( struct vnop_getxattr_args * getXAttrArgsPtr )
 /*
-struct vop_lock_args {
+struct vnop_getxattr_args {
 	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	int a_flags;
-	struct proc *a_p;
+	vnode_t a_vp;
+	char * a_name;
+	uio_t a_uio;
+	size_t
+	*a_size;
+	int a_options;
+	vfs_context_t a_context;
 };
 */
 {
-
-	struct vnode * 		vNodePtr 	= NULL;
-	AppleCDDANodePtr	cddaNodePtr = NULL;
-	int					error		= 0;
-		
-	DebugLog ( ( "CDDA_Lock: Entering.\n" ) );
 	
-	DebugAssert ( ( lockArgsPtr != NULL ) );
-
-	vNodePtr = lockArgsPtr->a_vp;
-	DebugAssert ( ( vNodePtr != NULL ) );
+	AppleCDDANodePtr	cddaNodePtr		= NULL;
+	FinderInfo *		finderInfoPtr	= NULL;
+	char				buf[32]			= { 0 };
 	
-	cddaNodePtr = VTOCDDA ( vNodePtr );
-	DebugAssert ( ( cddaNodePtr != NULL ) );
+	DebugLog ( ( "CDDA_GetXAttr: Entering.\n" ) );
+	DebugAssert ( ( getXAttrArgsPtr != NULL ) );
 	
-	// Pass it along to the lockmgr to do the locking
-	error = lockmgr ( &cddaNodePtr->lock, lockArgsPtr->a_flags,
-					   &vNodePtr->v_interlock, lockArgsPtr->a_p );
+	if ( strcmp ( getXAttrArgsPtr->a_name, XATTR_FINDERINFO_NAME ) != 0 )
+	{
+		return ( ENOATTR );
+	}
 	
-	if ( error != 0 )
+	cddaNodePtr		= VTOCDDA ( getXAttrArgsPtr->a_vp );
+	finderInfoPtr	= ( FinderInfo * ) buf;
+	
+	if ( !vnode_isvroot ( getXAttrArgsPtr->a_vp ) )
 	{
 		
-		if ( ( lockArgsPtr->a_flags & LK_NOWAIT ) == 0 )
+		if ( cddaNodePtr->nodeID == kAppleCDDAXMLFileID )
 		{
 			
-			DebugLog ( ( "CDDA_Lock: error %d trying to lock vnode (flags = 0x%08X).\n", error, lockArgsPtr->a_flags ) );
+			DebugLog ( ( "kFinderInfoInvisibleMask\n" ) );
+			// Make the XML file invisible
+			finderInfoPtr->finderFlags = kFinderInfoInvisibleMask;
 			
 		}
 		
-	}
-
-	DebugLog ( ( "CDDA_Lock: exiting...\n" ) );
-	
-	return ( error );
-
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Unlock -  Unlocks a vnode
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_Unlock ( struct vop_unlock_args * unlockArgsPtr )
-/*
-struct vop_unlock_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-	int a_flags;
-	struct proc *a_p;
-};
-*/
-{
-
-	struct vnode * 		vNodePtr 	= NULL;
-	AppleCDDANodePtr	cddaNodePtr = NULL;
-	int					error		= 0;
-	
-	DebugLog ( ( "CDDA_Unlock: Entering.\n" ) );
-	
-	DebugAssert ( ( unlockArgsPtr != NULL ) );
-
-	vNodePtr = unlockArgsPtr->a_vp;
-	DebugAssert ( ( vNodePtr != NULL ) );
-	
-	cddaNodePtr = VTOCDDA ( vNodePtr );
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	// Pass it along to the lockmgr to do the unlocking
-	error = lockmgr ( &cddaNodePtr->lock, unlockArgsPtr->a_flags | LK_RELEASE,
-					   &vNodePtr->v_interlock, unlockArgsPtr->a_p );
-	
-	if ( error != 0 )
-	{
+		else
+		{
+			finderInfoPtr->finderFlags = kFinderInfoNoFileExtensionMask;
+		}
 		
-		DebugLog ( ( "CDDA_Unlock: error %d trying to unlock vnode (flags = 0x%08X).\n", error, unlockArgsPtr->a_flags ) );
+		finderInfoPtr->location.v	= -1;
+		finderInfoPtr->location.h	= -1;
+		
+		if ( vnode_isreg ( getXAttrArgsPtr->a_vp ) && ( cddaNodePtr->nodeID != kAppleCDDAXMLFileID ) )
+		{
+			
+			DebugLog ( ( "fileType, creator\n" ) );
+			finderInfoPtr->fileType		= VFSTOCDDA ( vnode_mount ( cddaNodePtr->vNodePtr ) )->fileType;
+			finderInfoPtr->fileCreator	= VFSTOCDDA ( vnode_mount ( cddaNodePtr->vNodePtr ) )->fileCreator;
+			
+		}
+		
+		// Swap FinderInfo into big endian. FinderInfo must always be big endian when passed
+		// back and forth across the kernel using getattrlist/getxattr.
+		finderInfoPtr->fileType 	= OSSwapHostToBigInt32 ( finderInfoPtr->fileType );
+		finderInfoPtr->fileCreator 	= OSSwapHostToBigInt32 ( finderInfoPtr->fileCreator );
+		finderInfoPtr->finderFlags 	= OSSwapHostToBigInt16 ( finderInfoPtr->finderFlags );
+		finderInfoPtr->location.v 	= OSSwapHostToBigInt16 ( finderInfoPtr->location.v );
+		finderInfoPtr->location.h 	= OSSwapHostToBigInt16 ( finderInfoPtr->location.h );
 		
 	}
-
-	DebugLog ( ( "CDDA_Unlock: exiting...\n" ) );
 	
-	return ( error );
-
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_IsLocked -  Gets lock status on a vnode
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_IsLocked ( struct vop_islocked_args * isLockedArgsPtr )
-/*
-struct vop_islocked_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-};
-*/
-{
+	return ( uiomove ( ( caddr_t ) buf, sizeof ( buf ), getXAttrArgsPtr->a_uio ) );
 	
-	struct vnode * 		vNodePtr 	= NULL;
-	AppleCDDANodePtr	cddaNodePtr = NULL;
-	int					lockStatus	= 0;
-
-	DebugLog ( ( "CDDA_IsLocked: Entering.\n" ) );
-		
-	DebugAssert ( ( isLockedArgsPtr != NULL ) );
-
-	vNodePtr = isLockedArgsPtr->a_vp;
-	DebugAssert ( ( vNodePtr != NULL ) );
-	
-	cddaNodePtr = VTOCDDA ( vNodePtr );
-	DebugAssert ( ( cddaNodePtr != NULL ) );
-	
-	// Pass along to the lockmgr to get the lock status
-	lockStatus = lockstatus ( &cddaNodePtr->lock );
-	
-	DebugLog ( ( "CDDA_IsLocked: exiting...\n" ) );
-	
-	return ( lockStatus );
-
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_Print -  Print out the contents of a CDDA vnode.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_Print ( struct vop_print_args * printArgsPtr )
-/*
-struct vop_print_args {
-	struct vnodeop_desc *a_desc;
-	struct vnode *a_vp;
-};
-*/
-{
-
-#if DEBUG
-	DebugAssert ( ( printArgsPtr != NULL ) );
-#else
-	#pragma unused ( printArgsPtr )
-#endif
-
-	DebugLog ( ( "CDDA_Print: Entering.\n" ) );
-	DebugLog ( ( "CDDA_Print: exiting...\n" ) );
-	
-	return ( 0 );
-
-}
-
-
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-//	CDDA_VFree -  Does nothing.
-//ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
-
-int
-CDDA_VFree ( struct vop_vfree_args * vFreeArgsPtr )
-{
-
-#if DEBUG
-	DebugAssert ( ( vFreeArgsPtr != NULL ) );
-#else
-	#pragma unused ( vFreeArgsPtr )
-#endif
-
-	DebugLog ( ( "CDDA_VFree: Entering.\n" ) );
-	DebugLog ( ( "CDDA_VFree: exiting...\n" ) );
-	
-	return ( 0 );
-
 }
 
 
@@ -2475,7 +1867,7 @@ CDDA_VFree ( struct vop_vfree_args * vFreeArgsPtr )
 //ÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑÑ
 
 int ( **gCDDA_VNodeOp_p )( void * );
-#define VOPFUNC int ( * )( void * )
+typedef int (*VNOPFUNC) ( void * );
 
 
 #if 0
@@ -2489,60 +1881,25 @@ int ( **gCDDA_VNodeOp_p )( void * );
 
 struct vnodeopv_entry_desc gCDDA_VNodeOperationEntries[] =
 {
-	{ &vop_default_desc, 		( VOPFUNC ) vn_default_error },
-	{ &vop_lookup_desc, 		( VOPFUNC ) CDDA_Lookup },				// lookup
-	{ &vop_create_desc, 		( VOPFUNC ) err_create },				// create
-	{ &vop_mknod_desc, 			( VOPFUNC ) err_mknod },				// mknod
-	{ &vop_open_desc, 			( VOPFUNC ) CDDA_Open },				// open
-	{ &vop_close_desc, 			( VOPFUNC ) CDDA_Close },				// close
-	{ &vop_access_desc, 		( VOPFUNC ) CDDA_Access },				// access
-	{ &vop_getattr_desc, 		( VOPFUNC ) CDDA_GetAttributes },		// getattr
-	{ &vop_setattr_desc, 		( VOPFUNC ) nop_setattr },				// setattr
-	{ &vop_read_desc, 			( VOPFUNC ) CDDA_Read },				// read
-	{ &vop_write_desc, 			( VOPFUNC ) err_write },				// write
-	{ &vop_ioctl_desc, 			( VOPFUNC ) err_ioctl },				// ioctl
-	{ &vop_select_desc, 		( VOPFUNC ) err_select },				// select
-	{ &vop_exchange_desc, 		( VOPFUNC ) err_exchange },				// exchange
-	{ &vop_mmap_desc, 			( VOPFUNC ) err_mmap },					// mmap
-	{ &vop_fsync_desc, 			( VOPFUNC ) nop_fsync },				// fsync
-	{ &vop_seek_desc, 			( VOPFUNC ) err_seek },					// seek
-	{ &vop_remove_desc, 		( VOPFUNC ) CDDA_Remove },				// remove
-	{ &vop_link_desc, 			( VOPFUNC ) err_link },					// link
-#if RENAME_SUPPORTED
-	{ &vop_rename_desc, 		( VOPFUNC ) CDDA_Rename },				// rename
-#else
-	{ &vop_rename_desc, 		( VOPFUNC ) err_rename },				// rename	
-#endif /* RENAME_SUPPORTED */
-	{ &vop_mkdir_desc, 			( VOPFUNC ) err_mkdir },				// mkdir
-	{ &vop_rmdir_desc, 			( VOPFUNC ) CDDA_RmDir },				// rmdir
-	{ &vop_getattrlist_desc, 	( VOPFUNC ) CDDA_GetAttributesList },	// getattrlist
-	{ &vop_setattrlist_desc, 	( VOPFUNC ) err_setattrlist },			// setattrlist
-	{ &vop_symlink_desc, 		( VOPFUNC ) err_symlink },				// symlink
-	{ &vop_readdir_desc, 		( VOPFUNC ) CDDA_ReadDir },				// readdir
-	{ &vop_readdirattr_desc, 	( VOPFUNC ) err_readdirattr },			// readdirattr
-	{ &vop_readlink_desc, 		( VOPFUNC ) err_readlink },				// readlink
-	{ &vop_abortop_desc, 		( VOPFUNC ) err_abortop },				// abortop
-	{ &vop_inactive_desc, 		( VOPFUNC ) CDDA_Inactive },			// inactive
-	{ &vop_reclaim_desc, 		( VOPFUNC ) CDDA_Reclaim },				// reclaim
-	{ &vop_lock_desc, 			( VOPFUNC ) CDDA_Lock },				// lock
-	{ &vop_unlock_desc, 		( VOPFUNC ) CDDA_Unlock },				// unlock
-	{ &vop_bmap_desc, 			( VOPFUNC ) err_bmap },					// bmap
-	{ &vop_strategy_desc, 		( VOPFUNC ) err_strategy },				// strategy
-	{ &vop_print_desc, 			( VOPFUNC ) CDDA_Print },				// print
-	{ &vop_islocked_desc, 		( VOPFUNC ) CDDA_IsLocked },			// islocked
-	{ &vop_pathconf_desc, 		( VOPFUNC ) CDDA_Pathconf },			// pathconf
-	{ &vop_advlock_desc, 		( VOPFUNC ) err_advlock },				// advlock
-	{ &vop_reallocblks_desc,	( VOPFUNC ) err_reallocblks },			// reallocblks
-	{ &vop_truncate_desc, 		( VOPFUNC ) err_truncate },				// truncate
-	{ &vop_allocate_desc, 		( VOPFUNC ) err_allocate },				// allocate
-	{ &vop_update_desc, 		( VOPFUNC ) nop_update },				// update
-	{ &vop_bwrite_desc, 		( VOPFUNC ) err_bwrite },				// bwrite
-	{ &vop_pagein_desc, 		( VOPFUNC ) CDDA_PageIn },				// pagein
-	{ &vop_pageout_desc, 		( VOPFUNC ) err_pageout },				// pageout
-	{ &vop_blktooff_desc, 		( VOPFUNC ) CDDA_BlockToOffset },		// blktoff
-	{ &vop_offtoblk_desc,		( VOPFUNC ) CDDA_OffsetToBlock },		// offtoblk
-	{ &vop_cmap_desc,			( VOPFUNC ) err_cmap },					// cmap
-	{ NULL, 					( VOPFUNC ) NULL }
+	{ &vnop_default_desc,		( VNOPFUNC ) vn_default_error },
+	{ &vnop_lookup_desc,		( VNOPFUNC ) CDDA_Lookup },				// lookup
+	{ &vnop_open_desc,			( VNOPFUNC ) CDDA_Open },				// open
+	{ &vnop_close_desc,			( VNOPFUNC ) CDDA_Close },				// close
+	{ &vnop_getattr_desc,		( VNOPFUNC ) CDDA_GetAttributes },		// getattr
+	{ &vnop_setattr_desc,		( VNOPFUNC ) nop_setattr },				// setattr
+	{ &vnop_read_desc,			( VNOPFUNC ) CDDA_Read },				// read
+	{ &vnop_fsync_desc,			( VNOPFUNC ) nop_fsync },				// fsync
+	{ &vnop_remove_desc,		( VNOPFUNC ) CDDA_Remove },				// remove
+	{ &vnop_rmdir_desc,			( VNOPFUNC ) CDDA_RmDir },				// rmdir
+	{ &vnop_readdir_desc,		( VNOPFUNC ) CDDA_ReadDir },			// readdir
+	{ &vnop_inactive_desc,		( VNOPFUNC ) CDDA_Inactive },			// inactive
+	{ &vnop_reclaim_desc,		( VNOPFUNC ) CDDA_Reclaim },			// reclaim
+	{ &vnop_pathconf_desc,		( VNOPFUNC ) CDDA_Pathconf },			// pathconf
+	{ &vnop_pagein_desc,		( VNOPFUNC ) CDDA_PageIn },				// pagein
+	{ &vnop_blktooff_desc,		( VNOPFUNC ) CDDA_BlockToOffset },		// blktoff
+	{ &vnop_offtoblk_desc,		( VNOPFUNC ) CDDA_OffsetToBlock },		// offtoblk
+	{ &vnop_getxattr_desc,		( VNOPFUNC ) CDDA_GetXAttr },			// getxattr
+	{ NULL,						( VNOPFUNC ) NULL }
 };
 
 

@@ -40,6 +40,15 @@ class IOFireWireController;
 class IOFireWireBus;
 class IOConfigDirectory;
 class IOFireWireNub;
+class IOFireWireDevice;
+class IOFireWireUnit;
+
+enum TerminationState
+{
+	kNotTerminated = 0,
+	kNeedsTermination,
+	kTerminated
+};
 
 #pragma mark -
 
@@ -56,6 +65,7 @@ class IOFireWireNubAux : public OSObject
 protected:
 	
 	IOFireWireNub * 		fPrimary;
+	TerminationState		fTerminationState;
 	
 	/*! 
 		@struct ExpansionData
@@ -76,6 +86,9 @@ protected:
 
 	virtual UInt32 hopCount( IOFireWireNub * nub );
 	virtual UInt32 hopCount( void );
+	
+	virtual TerminationState getTerminationState( void );
+	virtual void setTerminationState( TerminationState state );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireNubAux, 0);
@@ -109,6 +122,8 @@ class IOFireWireNub : public IOService
     friend class IOFireWireNubAux;
 	friend class IOFireWireDeviceAux;
 	friend class IOFireWireUnitAux;
+	friend class IOFireWireDevice;
+	friend class IOFireWireUnit;
    
 /*------------------Useful info about device (also available in the registry)--------*/
 protected:
@@ -244,8 +259,14 @@ public:
 		
 	inline UInt32 hopCount( void )
 		{ return fAuxiliary->hopCount(); }
-		
+
+	inline TerminationState getTerminationState( void )
+		{ return fAuxiliary->getTerminationState(); }
+				
 protected:
+	inline void setTerminationState( TerminationState state )
+		{ fAuxiliary->setTerminationState( state ); }
+
 	virtual IOFireWireNubAux * createAuxiliary( void );
     
 private:

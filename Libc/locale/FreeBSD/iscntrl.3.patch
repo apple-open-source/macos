@@ -1,0 +1,12 @@
+--- iscntrl.3.orig	Fri Mar 11 19:25:22 2005
++++ iscntrl.3	Fri Mar 11 19:27:09 2005
+@@ -92,7 +92,8 @@
+ .Xr ctype 3 ,
+ .Xr iswcntrl 3 ,
+ .Xr multibyte 3 ,
+-.Xr ascii 7
++.Xr ascii 7 ,
++.Xr isalnum_l
+ .Sh STANDARDS
+ The
+ .Fn iscntrl

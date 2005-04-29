@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -47,9 +46,22 @@
 #ifndef _AT_PROTO_H_
 #define _AT_PROTO_H_
 
+#include <AvailabilityMacros.h>
+
 #ifdef  __cplusplus
 extern "C" {
 #endif
+
+
+/*
+ *	***** DEPRECATED *****
+ *
+ *	The AppleTalk Library APIs have been deprecated in Mac OS X 
+ *	version 10.4. It is recommended that clients of this API migrate 
+ *	to Rendezvous APIs or use standard TCP/IP libraries.
+ *
+ */
+
 
 /* Appletalk Stack status Function. */
 
@@ -60,7 +72,8 @@ enum {
 	, OTHERERROR
 };
 
-int checkATStack();
+int checkATStack()
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* Datagram Delivery Protocol (DDP) Functions */
 
@@ -82,8 +95,10 @@ int checkATStack();
      
 /* AppleTalk Transaction Protocol (ATP) Functions */
 
-int atp_open(at_socket *socket);
-int atp_close(int fd);
+int atp_open(at_socket *socket)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int atp_close(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int atp_sendreq(int fd,
 		at_inet_t *dest,
 		char *buf,
@@ -94,7 +109,8 @@ int atp_sendreq(int fd,
 		u_short *tid,
 		at_resp_t *resp,
 		at_retry_t *retry,
-		int nowait);
+		int nowait)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int atp_getreq(int fd,
 	       at_inet_t *src,
 	       char *buf,
@@ -103,43 +119,55 @@ int atp_getreq(int fd,
 	       int *xo,
 	       u_short *tid,
 	       u_char *bitmap,
-	       int nowait);
+	       int nowait)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int atp_sendrsp(int fd,
 		at_inet_t *dest,
 		int xo,
 		u_short tid,
-		at_resp_t *resp);
+		at_resp_t *resp)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int atp_getresp(int fd,
 		u_short *tid,
-		at_resp_t *resp);
-int atp_look(int fd);
+		at_resp_t *resp)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int atp_look(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int atp_abort(int fd,
 	      at_inet_t *dest,
-	      u_short tid);
+	      u_short tid)
+	      AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* Name Binding Protocol (NBP) Functions */
 
 int nbp_parse_entity(at_entity_t *entity,
-		     char *str);
+		     char *str)
+		     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int nbp_make_entity(at_entity_t *entity, 
 		    char *obj, 
 		    char *type, 
-		    char *zone);
+		    char *zone)
+		    AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int nbp_confirm(at_entity_t *entity,
 		at_inet_t *dest,
-		at_retry_t *retry);
+		at_retry_t *retry)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int nbp_lookup(at_entity_t *entity,
 	       at_nbptuple_t *buf,
 	       int max,
-	       at_retry_t *retry);
+	       at_retry_t *retry)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int nbp_register(at_entity_t *entity, 
 		 int fd, 
-		 at_retry_t *retry);
+		 at_retry_t *retry)
+		 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int nbp_remove(at_entity_t *entity, 
-	       int fd);	     	/* fd is not currently used */
+	       int fd)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4; /* fd is not currently used */
 
 int nbp_reg_lookup(at_entity_t *entity,
-		   at_retry_t *retry);
+		   at_retry_t *retry)
+		   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 /*
   Used to make sure an NBP entity does not exist before it is registered.
   Returns 1 	if the entity already exists, 
@@ -156,126 +184,162 @@ int nbp_reg_lookup(at_entity_t *entity,
 
 /* Printer Access Protocol (PAP) Functions */
 
-int pap_open(at_nbptuple_t *tuple);
-int pap_open2(at_nbptuple_t *tuple, int num_tries, long wait_time);
+int pap_open(at_nbptuple_t *tuple)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int pap_open2(at_nbptuple_t *tuple, int num_tries, long wait_time)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int pap_read(int fd,
 	     u_char *data,
-	     int len);
-int pap_read_ignore(int fd);
-char *pap_status(at_nbptuple_t *tuple);
+	     int len)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int pap_read_ignore(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+char *pap_status(at_nbptuple_t *tuple)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int pap_write(int fd,
 	      char *data,
 	      int len,
 	      int eof,
-	      int flush);
-int pap_close(int fd);
+	      int flush)
+	      AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int pap_close(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* AppleTalk Data Stream Protocol (ADSP) Functions: */
 
 int ADSPaccept(int fd, 
 	       void *name, 
-	       int *namelen);
+	       int *namelen)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPbind(int fd, 
 	     void *name, 
-	     int namelen);
-int ADSPclose(int fd);
+	     int namelen)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int ADSPclose(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPconnect(int fd, 
 		void *name, 
-		int namelen);
-int ADSPfwdreset(int fd);
+		int namelen)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+int ADSPfwdreset(int fd)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPgetpeername(int fd, 
 		    void *name, 
-		    int *namelen);
+		    int *namelen)
+		    AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPgetsockname(int fd, 
 		    void *name, 
-		    int *namelen);
+		    int *namelen)
+		    AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPgetsockopt(int fd, 
 		   int level, 
 		   int optname, 
 		   char *optval, 
-		   int *optlen);
+		   int *optlen)
+		   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPlisten(int fd, 
-	       int backlog);
+	       int backlog)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPrecv(int fd, 
 	     char *buf, 
 	     int len, 
-	     int flags);
+	     int flags)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPsend(int fd,
 	     char *buf,
 	     int len,
-	     int flags);
+	     int flags)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPsetsockopt(int fd,
 		   int level,
 		   int optname,
 		   char *optval,
-		   int optlen);
+		   int optlen)
+		   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ADSPsocket(int fd,
 	       int type,
-	       int protocol);
+	       int protocol)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ASYNCread(int fd,
 	      char *buf,
-	      int len);
+	      int len)
+	      AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int ASYNCread_complete(int fd,
 		       char *buf,
-		       int len);
+		       int len)
+		       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* AppleTalk Session Protocol (ASP) Functions */
 
 int SPAttention(int SessRefNum,
 		unsigned short AttentionCode,
 		int *SPError,
-		int NoWait);
+		int NoWait)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPCloseSession(int SessRefNum,
-		   int *SPError);
+		   int *SPError)
+		   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPCmdReply(int SessRefNum,
 	       unsigned short ReqRefNum,
 	       int CmdResult,
 	       char *CmdReplyData,
 	       int CmdReplyDataSize,
-	       int *SPError);
+	       int *SPError)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 void SPConfigure(unsigned short TickleInterval,
 		 unsigned short SessionTimer,
-		 at_retry_t *Retry);
+		 at_retry_t *Retry)
+		 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 void SPGetParms(int *MaxCmdSize,
 		int *QuantumSize,
-		int SessRefNum);
+		int SessRefNum)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPGetProtoFamily(int SessRefNum,
 		      int *ProtoFamily,
-		      int *SPError);
+		      int *SPError)
+		      AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPGetRemEntity(int SessRefNum,
 		   void *SessRemEntityIdentifier,
-		   int *SPError);
+		   int *SPError)
+		   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPGetReply(int SessRefNum,
 	       char *ReplyBuffer,
 	       int ReplyBufferSize,
 	       int *CmdResult,
 	       int *ActRcvdReplyLen,
-	       int *SPError);
+	       int *SPError)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPGetRequest(int SessRefNum,
 		 char *ReqBuffer,
 		 int ReqBufferSize,
 		 unsigned short *ReqRefNum,
 		 int *ReqType,
 		 int *ActRcvdReqLen,
-		 int *SPError);
+		 int *SPError)
+		 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPGetSession(int SLSRefNum,
 		 int *SessRefNum,
-		 int *SPError);
+		 int *SPError)
+		 AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPInit(at_inet_t *SLSEntityIdentifier,
 	   char *ServiceStatusBlock,
 	   int ServiceStatusBlockSize,
 	   int *SLSRefNum,
-	   int *SPError);
+	   int *SPError)
+	   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPLook(int SessRefNum,
-	   int *SPError);
+	   int *SPError)
+	   AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPNewStatus(int SLSRefNum,
 		char *ServiceStatusBlock,
 		int ServiceStatusBlockSize,
-		int *SPError);
+		int *SPError)
+		AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPRegister(at_entity_t *SLSEntity,
 	       at_retry_t *Retry,
 	       at_inet_t *SLSEntityIdentifier,
-	       int *SPError);
+	       int *SPError)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 /*
  * the following API is added to fix bug 2285307;  It replaces SPRegister 
  * which now only behaves as asp over appletalk.
@@ -283,27 +347,32 @@ int SPRegister(at_entity_t *SLSEntity,
 int SPRegisterWithTCPPossiblity(at_entity_t *SLSEntity,
            at_retry_t *Retry,
            at_inet_t *SLSEntityIdentifier,
-           int *SPError);
+           int *SPError)
+           AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPRemove(at_entity_t *SLSEntity,
 	     at_inet_t *SLSEntityIdentifier,
-	     int *SPError);
+	     int *SPError)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 /* *** Why do we need to be able to set the pid from the ASP API? *** */
 int SPSetPid(int SessRefNum,
 	     int SessPid,
-	     int *SPError);
+	     int *SPError)
+	     AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPWrtContinue(int SessRefNum,
 		  unsigned short ReqRefNum,
 		  char *Buff,
 		  int BuffSize,
 		  int *ActLenRcvd,
 		  int *SPError,
-		  int NoWait);
+		  int NoWait)
+		  AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 int SPWrtReply(int SessRefNum,
 	       unsigned short ReqRefNum,
 	       int CmdResult,
 	       char *CmdReplyData,
 	       int CmdReplyDataSize,
-	       int *SPError);
+	       int *SPError)
+	       AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* Zone Information Protocol (ZIP) Functions */
 
@@ -319,7 +388,8 @@ int zip_getmyzone(
 		   interface will be used.
 		*/
 	at_nvestr_t *zone
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* zip_getzonelist() will return the zone count on success, 
    and -1 on failure. */
@@ -344,7 +414,8 @@ int zip_getzonelist(
 		/* Length of the "zones" buffer; must be at least 
 		   (ATP_DATA_SIZE+1) bytes in length.
 		*/
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* zip_getlocalzones() will return the zone count on success, 
    and -1 on failure. */
@@ -369,7 +440,8 @@ int zip_getlocalzones(
 		/* Length of the "zones" buffer; must be at least 
 		   (ATP_DATA_SIZE+1) bytes in length.
 		*/
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* These functions are used to read/write defaultss in persistent storage,
    for now /etc/appletalk.nvram.[interface name, e.g. en0].
@@ -386,7 +458,8 @@ int at_getdefaultzone(
      at_nvestr_t *zone
           /* The return value for the default zone, from persistent 
              storage */
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* at_setdefaultzone() returns
       0 on success
@@ -399,7 +472,8 @@ int at_setdefaultzone(
      at_nvestr_t *zone
           /* The value of the default zone, to be set in persistent 
              storage */
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* at_getdefaultaddr() returns
       0 on success
@@ -412,7 +486,8 @@ int at_getdefaultaddr(
      struct at_addr *init_address
           /* The return value for the address hint, from persistent 
              storage */
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* at_setdefaultaddr() returns
       0 on success
@@ -425,7 +500,8 @@ int at_setdefaultaddr(
      struct at_addr *init_address
           /* The return value for the address hint, from persistent 
              storage */
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* Save the current configuration in persistent storage.
 
@@ -439,7 +515,8 @@ int at_savecfgdefaults(
      char *ifName
 	/* If ifName is a null pointer the name of the default
 	   interface will be used. */
-);
+)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 
 /* 
    ***
@@ -447,10 +524,12 @@ int at_savecfgdefaults(
    ***
 */
 
-int at_send_to_dev(int fd, int cmd, char *dp, int *length);
+int at_send_to_dev(int fd, int cmd, char *dp, int *length)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 	/* Used to send an old-style (pre-BSD) IOC to the AppleTalk stack. */
 
-int ddp_config(int fd, ddp_addr_t *addr);
+int ddp_config(int fd, ddp_addr_t *addr)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
 	/* Used to provide functionality similar to BSD getsockname().
 	   Will be replaced with a sockopt as soon as the ATP and the ADSP
 	   protocols have been socketized */

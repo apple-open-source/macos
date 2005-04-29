@@ -1,5 +1,6 @@
 /* dri_dispatch.h -- built automatically, DO NOT EDIT
-   $Id: dri_dispatch.h,v 1.8 2003/02/17 20:05:41 jharper Exp $ */
+   $Id: dri_dispatch.h,v 1.9 2004/07/16 19:09:24 jharper Exp $
+   $XFree86: xc/lib/GL/apple/dri_dispatch.h,v 1.5 2004/01/17 00:38:12 torrey Exp $ */
 
 DEFUN_LOCAL_VOID (NewList,
     (void *rend, GLuint list, GLenum mode),
@@ -1154,8 +1155,8 @@ DEFUN_LOCAL (GLboolean, IsList,
     (list))
 
 DEFUN_LOCAL_VOID (DepthRange,
-    (void *rend, GLclampd near, GLclampd far),
-    (near, far))
+    (void *rend, GLclampd zNear, GLclampd zFar),
+    (zNear, zFar))
 
 DEFUN_LOCAL_VOID (Frustum,
     (void *rend, GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLdouble zNear, GLdouble zFar),
@@ -1653,10 +1654,6 @@ DEFUN_LOCAL_VOID (SampleCoverageARB,
     (void *rend, GLclampf value, GLboolean invert),
     (value, invert))
 
-DEFUN_LOCAL_VOID (SamplePassARB,
-    (void *rend, GLenum pass),
-    (pass))
-
 DEFUN_ALIAS_VOID (PolygonOffsetEXT, PolygonOffset,
     (GLfloat factor, GLfloat bias),
     (factor, bias))
@@ -2002,12 +1999,12 @@ DEFUN_EXTERN_VOID (FlushVertexArrayRangeNV,
     ())
 
 DEFUN_LOCAL_VOID (VertexArrayRangeNV,
-    (void *rend, GLsizei size, const GLvoid * pointer),
-    (size, pointer))
+    (void *rend, GLsizei length, const GLvoid * pointer),
+    (length, pointer))
 
 DEFUN_ALIAS_VOID (VertexArrayRangeNV, VertexArrayRangeAPPLE,
-    (GLsizei size, const GLvoid * pointer),
-    (size, pointer))
+    (GLsizei length, const GLvoid * pointer),
+    (length, pointer))
 
 DEFUN_LOCAL_VOID (CombinerParameterfvNV,
     (void *rend, GLenum pname, const GLfloat * params),
@@ -2182,11 +2179,11 @@ DEFUN_LOCAL_VOID (UnlockArraysEXT,
     ())
 
 DEFUN_EXTERN_VOID (CullParameterdvEXT,
-    (GLenum pname, const GLdouble * params),
+    (GLenum pname, GLdouble * params),
     (pname, params))
 
 DEFUN_EXTERN_VOID (CullParameterfvEXT,
-    (GLenum pname, const GLfloat * params),
+    (GLenum pname, GLfloat * params),
     (pname, params))
 
 DEFUN_EXTERN_VOID (HintPGI,
@@ -2244,6 +2241,378 @@ DEFUN_LOCAL_VOID (CompressedTexSubImage1DARB,
 DEFUN_LOCAL_VOID (GetCompressedTexImageARB,
     (void *rend, GLenum target, GLint level, void * img),
     (target, level, img))
+
+DEFUN_LOCAL_VOID (SecondaryColor3bEXT,
+    (void *rend, GLbyte red, GLbyte green, GLbyte blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3bvEXT,
+    (void *rend, const GLbyte * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3dEXT,
+    (void *rend, GLdouble red, GLdouble green, GLdouble blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3dvEXT,
+    (void *rend, const GLdouble * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3fEXT,
+    (void *rend, GLfloat red, GLfloat green, GLfloat blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3fvEXT,
+    (void *rend, const GLfloat * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3iEXT,
+    (void *rend, GLint red, GLint green, GLint blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3ivEXT,
+    (void *rend, const GLint * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3sEXT,
+    (void *rend, GLshort red, GLshort green, GLshort blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3svEXT,
+    (void *rend, const GLshort * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3ubEXT,
+    (void *rend, GLubyte red, GLubyte green, GLubyte blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3ubvEXT,
+    (void *rend, const GLubyte * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3uiEXT,
+    (void *rend, GLuint red, GLuint green, GLuint blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3uivEXT,
+    (void *rend, const GLuint * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColor3usEXT,
+    (void *rend, GLushort red, GLushort green, GLushort blue),
+    (red, green, blue))
+
+DEFUN_LOCAL_VOID (SecondaryColor3usvEXT,
+    (void *rend, const GLushort * v),
+    (v))
+
+DEFUN_LOCAL_VOID (SecondaryColorPointerEXT,
+    (void *rend, GLint size, GLenum type, GLsizei stride, const GLvoid * pointer),
+    (size, type, stride, pointer))
+
+DEFUN_EXTERN (GLboolean, AreProgramsResidentNV,
+    (GLsizei n, const GLuint * ids, GLboolean * residences),
+    (n, ids, residences))
+
+DEFUN_EXTERN_VOID (BindProgramNV,
+    (GLenum target, GLuint id),
+    (target, id))
+
+DEFUN_EXTERN_VOID (DeleteProgramsNV,
+    (GLsizei n, const GLuint * ids),
+    (n, ids))
+
+DEFUN_EXTERN_VOID (ExecuteProgramNV,
+    (GLenum target, GLuint id, const GLfloat * params),
+    (target, id, params))
+
+DEFUN_EXTERN_VOID (GenProgramsNV,
+    (GLsizei n, GLuint * ids),
+    (n, ids))
+
+DEFUN_EXTERN_VOID (GetProgramParameterdvNV,
+    (GLenum target, GLuint index, GLenum pname, GLdouble * params),
+    (target, index, pname, params))
+
+DEFUN_EXTERN_VOID (GetProgramParameterfvNV,
+    (GLenum target, GLuint index, GLenum pname, GLfloat * params),
+    (target, index, pname, params))
+
+DEFUN_EXTERN_VOID (GetProgramivNV,
+    (GLuint id, GLenum pname, GLint * params),
+    (id, pname, params))
+
+DEFUN_EXTERN_VOID (GetProgramStringNV,
+    (GLuint id, GLenum pname, GLubyte * program),
+    (id, pname, program))
+
+DEFUN_EXTERN_VOID (GetTrackMatrixivNV,
+    (GLenum target, GLuint address, GLenum pname, GLint * params),
+    (target, address, pname, params))
+
+DEFUN_EXTERN_VOID (GetVertexAttribdvNV,
+    (GLuint index, GLenum pname, GLdouble * params),
+    (index, pname, params))
+
+DEFUN_EXTERN_VOID (GetVertexAttribfvNV,
+    (GLuint index, GLenum pname, GLfloat * params),
+    (index, pname, params))
+
+DEFUN_EXTERN_VOID (GetVertexAttribivNV,
+    (GLuint index, GLenum pname, GLint * params),
+    (index, pname, params))
+
+DEFUN_EXTERN_VOID (GetVertexAttribPointervNV,
+    (GLuint index, GLenum pname, GLvoid ** pointer),
+    (index, pname, pointer))
+
+DEFUN_EXTERN (GLboolean, IsProgramNV,
+    (GLuint id),
+    (id))
+
+DEFUN_EXTERN_VOID (LoadProgramNV,
+    (GLenum target, GLuint id, GLsizei len, const GLubyte * program),
+    (target, id, len, program))
+
+DEFUN_EXTERN_VOID (ProgramParameter4dNV,
+    (GLenum target, GLuint index, GLdouble x, GLdouble y, GLdouble z, GLdouble w),
+    (target, index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (ProgramParameter4dvNV,
+    (GLenum target, GLuint index, const GLdouble * params),
+    (target, index, params))
+
+DEFUN_EXTERN_VOID (ProgramParameter4fNV,
+    (GLenum target, GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w),
+    (target, index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (ProgramParameter4fvNV,
+    (GLenum target, GLuint index, const GLfloat * params),
+    (target, index, params))
+
+DEFUN_EXTERN_VOID (ProgramParameters4dvNV,
+    (GLenum target, GLuint index, GLuint num, const GLdouble * params),
+    (target, index, num, params))
+
+DEFUN_EXTERN_VOID (ProgramParameters4fvNV,
+    (GLenum target, GLuint index, GLuint num, const GLfloat * params),
+    (target, index, num, params))
+
+DEFUN_EXTERN_VOID (RequestResidentProgramsNV,
+    (GLsizei n, const GLuint * ids),
+    (n, ids))
+
+DEFUN_EXTERN_VOID (TrackMatrixNV,
+    (GLenum target, GLuint address, GLenum matrix, GLenum transform),
+    (target, address, matrix, transform))
+
+DEFUN_EXTERN_VOID (VertexAttribPointerNV,
+    (GLuint index, GLint size, GLenum type, GLsizei stride, const GLvoid * pointer),
+    (index, size, type, stride, pointer))
+
+DEFUN_EXTERN_VOID (VertexAttrib1dNV,
+    (GLuint index, GLdouble x),
+    (index, x))
+
+DEFUN_EXTERN_VOID (VertexAttrib1dvNV,
+    (GLuint index, const GLdouble * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib1fNV,
+    (GLuint index, GLfloat x),
+    (index, x))
+
+DEFUN_EXTERN_VOID (VertexAttrib1fvNV,
+    (GLuint index, const GLfloat * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib1sNV,
+    (GLuint index, GLshort x),
+    (index, x))
+
+DEFUN_EXTERN_VOID (VertexAttrib1svNV,
+    (GLuint index, const GLshort * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib2dNV,
+    (GLuint index, GLdouble x, GLdouble y),
+    (index, x, y))
+
+DEFUN_EXTERN_VOID (VertexAttrib2dvNV,
+    (GLuint index, const GLdouble * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib2fNV,
+    (GLuint index, GLfloat x, GLfloat y),
+    (index, x, y))
+
+DEFUN_EXTERN_VOID (VertexAttrib2fvNV,
+    (GLuint index, const GLfloat * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib2sNV,
+    (GLuint index, GLshort x, GLshort y),
+    (index, x, y))
+
+DEFUN_EXTERN_VOID (VertexAttrib2svNV,
+    (GLuint index, const GLshort * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib3dNV,
+    (GLuint index, GLdouble x, GLdouble y, GLdouble z),
+    (index, x, y, z))
+
+DEFUN_EXTERN_VOID (VertexAttrib3dvNV,
+    (GLuint index, const GLdouble * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib3fNV,
+    (GLuint index, GLfloat x, GLfloat y, GLfloat z),
+    (index, x, y, z))
+
+DEFUN_EXTERN_VOID (VertexAttrib3fvNV,
+    (GLuint index, const GLfloat * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib3sNV,
+    (GLuint index, GLshort x, GLshort y, GLshort z),
+    (index, x, y, z))
+
+DEFUN_EXTERN_VOID (VertexAttrib3svNV,
+    (GLuint index, const GLshort * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib4dNV,
+    (GLuint index, GLdouble x, GLdouble y, GLdouble z, GLdouble w),
+    (index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (VertexAttrib4dvNV,
+    (GLuint index, const GLdouble * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib4fNV,
+    (GLuint index, GLfloat x, GLfloat y, GLfloat z, GLfloat w),
+    (index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (VertexAttrib4fvNV,
+    (GLuint index, const GLfloat * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib4sNV,
+    (GLuint index, GLshort x, GLshort y, GLshort z, GLshort w),
+    (index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (VertexAttrib4svNV,
+    (GLuint index, const GLshort * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttrib4ubNV,
+    (GLuint index, GLubyte x, GLubyte y, GLubyte z, GLubyte w),
+    (index, x, y, z, w))
+
+DEFUN_EXTERN_VOID (VertexAttrib4ubvNV,
+    (GLuint index, const GLubyte * v),
+    (index, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs1dvNV,
+    (GLuint index, GLsizei n, const GLdouble * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs1fvNV,
+    (GLuint index, GLsizei n, const GLfloat * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs1svNV,
+    (GLuint index, GLsizei n, const GLshort * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs2dvNV,
+    (GLuint index, GLsizei n, const GLdouble * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs2fvNV,
+    (GLuint index, GLsizei n, const GLfloat * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs2svNV,
+    (GLuint index, GLsizei n, const GLshort * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs3dvNV,
+    (GLuint index, GLsizei n, const GLdouble * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs3fvNV,
+    (GLuint index, GLsizei n, const GLfloat * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs3svNV,
+    (GLuint index, GLsizei n, const GLshort * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs4dvNV,
+    (GLuint index, GLsizei n, const GLdouble * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs4fvNV,
+    (GLuint index, GLsizei n, const GLfloat * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs4svNV,
+    (GLuint index, GLsizei n, const GLshort * v),
+    (index, n, v))
+
+DEFUN_EXTERN_VOID (VertexAttribs4ubvNV,
+    (GLuint index, GLsizei n, const GLubyte * v),
+    (index, n, v))
+
+DEFUN_LOCAL_VOID (PointParameteriNV,
+    (void *rend, GLenum pname, GLint params),
+    (pname, params))
+
+DEFUN_LOCAL_VOID (PointParameterivNV,
+    (void *rend, GLenum pname, const GLint * params),
+    (pname, params))
+
+DEFUN_LOCAL_VOID (MultiDrawArraysEXT,
+    (void *rend, GLenum mode, GLint * first, GLsizei * count, GLsizei primcount),
+    (mode, first, count, primcount))
+
+DEFUN_LOCAL_VOID (MultiDrawElementsEXT,
+    (void *rend, GLenum mode, const GLsizei * count, GLenum type, const GLvoid ** indices, GLsizei primcount),
+    (mode, count, type, indices, primcount))
+
+DEFUN_LOCAL_VOID (ActiveStencilFaceEXT,
+    (void *rend, GLenum face),
+    (face))
+
+DEFUN_EXTERN_VOID (DeleteFencesNV,
+    (GLsizei n, const GLuint * fences),
+    (n, fences))
+
+DEFUN_EXTERN_VOID (GenFencesNV,
+    (GLsizei n, GLuint * fences),
+    (n, fences))
+
+DEFUN_EXTERN (GLboolean, IsFenceNV,
+    (GLuint fence),
+    (fence))
+
+DEFUN_EXTERN (GLboolean, TestFenceNV,
+    (GLuint fence),
+    (fence))
+
+DEFUN_EXTERN_VOID (GetFenceivNV,
+    (GLuint fence, GLenum pname, GLint * params),
+    (fence, pname, params))
+
+DEFUN_EXTERN_VOID (FinishFenceNV,
+    (GLuint fence),
+    (fence))
+
+DEFUN_EXTERN_VOID (SetFenceNV,
+    (GLuint fence, GLenum condition),
+    (fence, condition))
 
 DEFUN_ALIAS_VOID (ArrayElementEXT, ArrayElement,
     (GLint i),
@@ -2355,6 +2724,14 @@ DEFUN_ALIAS_VOID (PointParameterfSGIS, PointParameterf,
 
 DEFUN_ALIAS_VOID (PointParameterfvSGIS, PointParameterfv,
     (GLenum pname, const GLfloat * params),
+    (pname, params))
+
+DEFUN_ALIAS_VOID (PointParameteri, PointParameteriNV,
+    (GLenum pname, GLint params),
+    (pname, params))
+
+DEFUN_ALIAS_VOID (PointParameteriv, PointParameterivNV,
+    (GLenum pname, const GLint * params),
     (pname, params))
 
 DEFUN_ALIAS_VOID (PrioritizeTexturesEXT, PrioritizeTextures,
@@ -2785,6 +3162,23 @@ do { \
     (d)[383] = (void *) &p ## CompressedTexSubImage2DARB; \
     (d)[384] = (void *) &p ## CompressedTexSubImage1DARB; \
     (d)[385] = (void *) &p ## GetCompressedTexImageARB; \
+    (d)[386] = (void *) &p ## SecondaryColor3bEXT; \
+    (d)[387] = (void *) &p ## SecondaryColor3bvEXT; \
+    (d)[388] = (void *) &p ## SecondaryColor3dEXT; \
+    (d)[389] = (void *) &p ## SecondaryColor3dvEXT; \
+    (d)[390] = (void *) &p ## SecondaryColor3fEXT; \
+    (d)[391] = (void *) &p ## SecondaryColor3fvEXT; \
+    (d)[392] = (void *) &p ## SecondaryColor3iEXT; \
+    (d)[393] = (void *) &p ## SecondaryColor3ivEXT; \
+    (d)[394] = (void *) &p ## SecondaryColor3sEXT; \
+    (d)[395] = (void *) &p ## SecondaryColor3svEXT; \
+    (d)[396] = (void *) &p ## SecondaryColor3ubEXT; \
+    (d)[397] = (void *) &p ## SecondaryColor3ubvEXT; \
+    (d)[398] = (void *) &p ## SecondaryColor3uiEXT; \
+    (d)[399] = (void *) &p ## SecondaryColor3uivEXT; \
+    (d)[400] = (void *) &p ## SecondaryColor3usEXT; \
+    (d)[401] = (void *) &p ## SecondaryColor3usvEXT; \
+    (d)[402] = (void *) &p ## SecondaryColorPointerEXT; \
     (d)[403] = (void *) &p ## VertexArrayRangeNV; \
     (d)[405] = (void *) &p ## DrawRangeElements; \
     (d)[406] = (void *) &p ## ColorTable; \
@@ -2836,12 +3230,16 @@ do { \
     (d)[452] = (void *) &p ## GetFinalCombinerInputParameterfvNV; \
     (d)[453] = (void *) &p ## GetFinalCombinerInputParameterivNV; \
     (d)[459] = (void *) &p ## SampleCoverageARB; \
-    (d)[460] = (void *) &p ## SamplePassARB; \
     (d)[540] = (void *) &p ## PointParameterfEXT; \
     (d)[541] = (void *) &p ## PointParameterfvEXT; \
+    (d)[542] = (void *) &p ## PointParameteriNV; \
+    (d)[543] = (void *) &p ## PointParameterivNV; \
     (d)[544] = (void *) &p ## FogCoordfEXT; \
     (d)[545] = (void *) &p ## FogCoordfvEXT; \
     (d)[546] = (void *) &p ## FogCoorddEXT; \
     (d)[547] = (void *) &p ## FogCoorddvEXT; \
     (d)[548] = (void *) &p ## FogCoordPointerEXT; \
+    (d)[567] = (void *) &p ## MultiDrawArraysEXT; \
+    (d)[568] = (void *) &p ## MultiDrawElementsEXT; \
+    (d)[585] = (void *) &p ## ActiveStencilFaceEXT; \
 } while (0)

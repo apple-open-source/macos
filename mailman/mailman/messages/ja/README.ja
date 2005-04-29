@@ -1,4 +1,3 @@
-
 Mailmanで日本語を扱うときの注意 (English summary in the end)
 
 日本語のメールは ISO-2022-JP を使うことが、RFC1468に定められており、
@@ -9,7 +8,7 @@ Mailmanで日本語を扱うときの注意 (English summary in the end)
 うことになります。ここでは Mailman 内部と Web については EUC-JP に
 統一することで、問題を解決しようとしています。
 
-Mailman 2.1.1 では、このように複数の文字集合が同一言語に使われる
+Mailman 2.1.x では、このように複数の文字集合が同一言語に使われる
 場合でも最大限の努力で Web メールともにそれぞれの標準文字集合で
 出力するようになっています。つまり、そのままで日本語が使えるように
 なって、2.1(.0)までのように文字変換モジュールを入れる必要はなくなり
@@ -26,45 +25,25 @@ mm_cfg.py から下記の記述を削除してください。
 
 但し、日本語が使えるようになりましたが、いくつかの致命的でない不具合
 が残っています。例えば、平文のメールに付加されるヘッダとフッタが
-MIMEの添付となってしまいます。この不具合を修正するパッチを作成して
-http://mm.tkikuchi.net/mailman-2.1.1+patch.20030214
-に置きました。(このURLは変更の可能性があります. http://mm.tkikuchi.net/
+MIMEの添付となってしまいます。また、日本でのメーリングリストは番号
+付けができないと使われないというような、文化的不具合も残っています。
+このため、これらの不具合を修正するパッチを作成して
+http://mm.tkikuchi.net/mailman-2.1.x+patch.YYYYMMDD
+に置くようにしています。
+さらに、Mailman に同梱されている email パッケージにも若干の不具合が
+あり、こちらもパッチを作成しています。
+http://mm.tkikuchi.net/email.patch.YYYYMMDD
+(これらのURLは変更される可能性があります. http://mm.tkikuchi.net/
 の情報を読んでください)
 
-パッチの使用法は、GNUなどのサイトからダウンロードした、mailman-2.1.1.tgz
-を展開した後、mailman-2.1.1ディレクトリに移り、patch -p0 < パッチファイル
+パッチの使用法は、GNUなどのサイトからダウンロードした、mailman-2.1.x.tgz
+を展開した後、まず、mailman-2.1.xディレクトリに移り、
+patch -p0 < /path/to/mailman-2.1.x+patch.YYYYMMDD
 です。その後、README, INSTALLに記載された方法でインストールしてください。
-
-以下の情報は 2.1(.0)以前のものです。削除を予定しています.
-
-旧>日本語のように、いくつかの文字集合が使われている言語は他にもある
-旧>かもしれません。このため、標準文字集合(stdcharset)と別の文字集合
-旧>(altcharset)を考慮して問題解決の一般化を試みます。
-旧>
-旧>このため、外部から入ってくるメールを altcharst から stdcharset へ変換し、
-旧>Mailman から出ていくメールは全て email パッケージに準拠した文字集合へ
-旧>へ変換する必要があります。
-旧>このための変換プログラムを mc_Entry.py および mc_Finish.py として
-旧>用意しました。また、全てのメールが mc_Finish.py を経て出ていくように、
-旧>mc_SMTPDirect.py を作りました。
-旧>
-旧>Mailman/Handlers に mc_SMTPDirect.py, mc_Entry.py, mc_Finish.py を
-旧>入れてください。これらの最新版は http://mm.tkikuchi.net/ から
-旧>ダウンロードできます。
-旧>
-旧>Mailman/mm_cfg.py に以下の行を追加してください。
-旧>##################################################################
-旧>DEFAULT_SERVER_LANGUAGE = 'ja'
-旧>GLOBAL_PIPELINE = [ 'mc_Entry', ] + GLOBAL_PIPELINE
-旧>DELIVERY_MODULE = 'mc_SMTPDirect'
-旧># for multi charset language
-旧>def _(s):
-旧>    return s
-旧>LC_DESCRIPTIONS['ja'] = ( _('Japanese'),
-旧>                          'euc-jp', ['iso-2022-jp', 'shift_jis'] )
-旧>##################################################################
-旧>
-旧>以上で、メールの文字コード変換が出来るようになります。
+次に、インストールされたディレクトリの下の pythonlib ディレクトリで
+patch -p0 < /path/to/email.patch.YYYYMMDD
+のようにパッチを当ててから、INSTALL に従って Mailman をスタートして
+ください。
 
 * 2.0.x から 2.1 への更新
   2.1 の保存書庫作成では, メールのヘッダに記述された charset に
@@ -74,22 +53,23 @@ http://mm.tkikuchi.net/mailman-2.1.1+patch.20030214
   再構築しようとするとエラーになりますので、charset 指定を修正して
   ください.
 
-なお、templates/ja と messages/ja の最新版も上と同じく
- http://mm.tkikuchi.net/ からダウンロードできます。CVS が古いと
-感じたら、寄ってみてください。
-
 日本語で Mailman について Q&A したいかたは、mmjp-users メーリングリスト
 があります。これも、上記 URL からたどれますので、ぜひ御参加ください。
 
-旧>注意) 今後の日本語修正について
-旧>Mailman-Developer で若干議論しましたが, 入口と出口でコード変換する
-旧>方法では, ニュースへの中継や, 外部アーカイバへのインターフェースに
-旧>問題が生じる恐れがあります. このため, 方針を見直して内部で Web用の
-旧>stdcharset に変換する方向を探って見たいと考えています. 
+                  ******** 謝辞 ********
+mailman.po と templates/ja/* の翻訳文について、安田幸広さんより全面的
+改訂のご提案があり、これを採用させて頂きました。
+
+池田荘児さんより mailman-member.tex と Defaults.py.in の翻訳を頂きま
+した。messages/ja/doc に入れさせていただきました。
+
+以上、謹んでお礼申し上げます。(2004/01/22)
+                  **********************
 
 by tkikuchi_at_is.kochi-u.ac.jp (2002/03/26)
 rev. for 2.1 final (2002/12/25) 
 rev. for 2.1.1 (2003/02/14)
+rev. for 2.1.4+ (2004/01/22)
 
 I18N Jananization Note
 #
@@ -100,9 +80,19 @@ these differences, I made a patch to brush up some small gritches
 in treating the mail and web pages. The patch should be available
 at http://mm.tkikuchi.net/
 
+Patch and install procedure is ...
+    - download and untar the src
+    % cd mailman-2.1.x
+    % patch -p0 < /path/to/mailman-2.1.x+patch.YYYYMMDD
+    - configure and install
+    % cd <prefix>/pythonlib
+    % patch -p0 < /path/to/email.patch.YYYYMMDD
+    - start mailman
+
 Revised 2002/03/26
 Revised for multi-charset 2002/12/10
 Revised for 2.1.1 2003/02/14
+Revised for 2.1.4+ 2004/01/22
 
 Please visit http://mm.tkikuchi.net/ for more.
 

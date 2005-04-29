@@ -34,9 +34,11 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 /* APPLE LOCAL begin Mach time */
 #ifdef HAVE_MACH_MACH_TIME_H
 #include <mach/mach_time.h>
-#define HAVE_MACH_TIME
+#define HAVE_MACH_TIME 1
 static double timeBaseRatio;
 static struct mach_timebase_info tbase;
+#else
+#define HAVE_MACH_TIME 0
 #endif
 /* APPLE LOCAL end Mach time */
 
@@ -88,14 +90,30 @@ extern clock_t clock PARAMS ((void));
    information).  */
 /* APPLE LOCAL begin Mach time */
 /* On Darwin, prefer getrusage, plus Mach absolute time for the wall
-   clock time.  */
-#ifdef HAVE_MACH_TIME
+   clock time.  Use PPC intrinsics if possible.  */
+#if defined(__APPLE__) && defined(__POWERPC__) && HAVE_MACH_TIME
+#if __POWERPC__
+# include <ppc_intrinsics.h>
+# define HAVE_WALL_TIME
+# define USE_PPC_INTRINSICS
+inline double ppc_intrinsic_time()
+{
+  unsigned long hi, lo;
+  do 
+    {
+      hi = __mftbu();
+      lo = __mftb();
+    } while (hi != __mftbu());
+  return (hi * 0x100000000ull + lo) * timeBaseRatio;
+}
+#endif /* __POWERPC__ */
+#elif HAVE_MACH_TIME
 # define USE_GETRUSAGE
 # define USE_MACH_TIME
 # define HAVE_USER_TIME
 # define HAVE_SYS_TIME
 # define HAVE_WALL_TIME
-#else
+# else
 /* APPLE LOCAL end Mach time */
 #ifdef HAVE_TIMES
 # define USE_TIMES
@@ -122,21 +140,22 @@ extern clock_t clock PARAMS ((void));
    precompute them.  Whose wonderful idea was it to make all those
    _constants_ variable at run time, anyway?  */
 #ifdef USE_TIMES
-static float ticks_to_msec;
-#define TICKS_TO_MSEC (1 / (float)TICKS_PER_SECOND)
+static double ticks_to_msec;
+#define TICKS_TO_MSEC (1 / (double)TICKS_PER_SECOND)
 #endif
 
 #ifdef USE_CLOCK
-static float clocks_to_msec;
-#define CLOCKS_TO_MSEC (1 / (float)CLOCKS_PER_SEC)
+static double clocks_to_msec;
+#define CLOCKS_TO_MSEC (1 / (double)CLOCKS_PER_SEC)
 #endif
 
 #include "flags.h"
 #include "timevar.h"
+#include "toplev.h"
 
 /* See timevar.h for an explanation of timing variables.  */
 
-/* This macro evaluates to non-zero if timing variables are enabled.  */
+/* This macro evaluates to nonzero if timing variables are enabled.  */
 #define TIMEVAR_ENABLE (time_report)
 
 /* A timing variable.  */
@@ -193,12 +212,12 @@ static struct timevar_time_def start_time;
 static void get_time
   PARAMS ((struct timevar_time_def *));
 static void timevar_accumulate
-  PARAMS ((struct timevar_time_def *, struct timevar_time_def *, 
+  PARAMS ((struct timevar_time_def *, struct timevar_time_def *,
 	   struct timevar_time_def *));
 
 /* Fill the current times into TIME.  The definition of this function
    also defines any or all of the HAVE_USER_TIME, HAVE_SYS_TIME, and
-   HAVA_WALL_TIME macros.  */
+   HAVE_WALL_TIME macros.  */
 
 static void
 get_time (now)
@@ -231,17 +250,20 @@ get_time (now)
 #ifdef USE_MACH_TIME
     now->wall = mach_absolute_time() * timeBaseRatio;
 #endif
+#ifdef USE_PPC_INTRINSICS
+    now->wall = ppc_intrinsic_time();
+#endif
     /* APPLE LOCAL end Mach time */
   }
 }
 
 /* Add the difference between STOP_TIME and START_TIME to TIMER.  */
 
-static void 
+static void
 timevar_accumulate (timer, start_time, stop_time)
-  struct timevar_time_def *timer;
-  struct timevar_time_def *start_time;
-  struct timevar_time_def *stop_time;
+     struct timevar_time_def *timer;
+     struct timevar_time_def *start_time;
+     struct timevar_time_def *stop_time;
 {
   timer->user += stop_time->user - start_time->user;
   timer->sys += stop_time->sys - start_time->sys;
@@ -272,7 +294,7 @@ init_timevar ()
   clocks_to_msec = CLOCKS_TO_MSEC;
 #endif
   /* APPLE LOCAL begin Mach time */
-#ifdef USE_MACH_TIME
+#if defined(USE_MACH_TIME) || defined(USE_PPC_INTRINSICS)
   mach_timebase_info(&tbase);
   timeBaseRatio = ((double) tbase.numer / (double) tbase.denom) * 1e-9;
 #endif
@@ -282,7 +304,7 @@ init_timevar ()
 /* Push TIMEVAR onto the timing stack.  No further elapsed time is
    attributed to the previous topmost timing variable on the stack;
    subsequent elapsed time is attributed to TIMEVAR, until it is
-   popped or another element is pushed on top. 
+   popped or another element is pushed on top.
 
    TIMEVAR cannot be running as a standalone timer.  */
 
@@ -318,13 +340,13 @@ timevar_push (timevar)
 
   /* See if we have a previously-allocated stack instance.  If so,
      take it off the list.  If not, malloc a new one.  */
-  if (unused_stack_instances != NULL) 
+  if (unused_stack_instances != NULL)
     {
       context = unused_stack_instances;
       unused_stack_instances = unused_stack_instances->next;
     }
   else
-    context = (struct timevar_stack_def *) 
+    context = (struct timevar_stack_def *)
       xmalloc (sizeof (struct timevar_stack_def));
 
   /* Fill it in and put it on the stack.  */
@@ -350,7 +372,11 @@ timevar_pop (timevar)
     return;
 
   if (&timevars[timevar] != stack->timevar)
-    abort ();
+    {
+      sorry ("cannot timevar_pop '%s' when top of timevars stack is '%s'",
+             timevars[timevar].name, stack->timevar->name);
+      abort ();
+    }
 
   /* What time is it?  */
   get_time (&now);
@@ -429,7 +455,7 @@ timevar_get (timevar, elapsed)
   struct timevar_time_def now;
 
   *elapsed = tv->elapsed;
-  
+
   /* Is TIMEVAR currently running as a standalone timer?  */
   if (tv->standalone)
     {
@@ -482,7 +508,7 @@ timevar_print (fp)
   for (id = 0; id < (unsigned int) TIMEVAR_LAST; ++id)
     {
       struct timevar_def *tv = &timevars[(timevar_id_t) id];
-      const float tiny = 5e-3;
+      const double tiny = 5e-3;
 
       /* Don't print the total execution time here; that goes at the
 	 end.  */
@@ -505,21 +531,21 @@ timevar_print (fp)
 
 #ifdef HAVE_USER_TIME
       /* Print user-mode time for this process.  */
-      fprintf (fp, "%7.2f (%2.0f%%) usr", 
+      fprintf (fp, "%7.2f (%2.0f%%) usr",
 	       tv->elapsed.user,
 	       (total->user == 0 ? 0 : tv->elapsed.user / total->user) * 100);
 #endif /* HAVE_USER_TIME */
 
 #ifdef HAVE_SYS_TIME
       /* Print system-mode time for this process.  */
-      fprintf (fp, "%7.2f (%2.0f%%) sys", 
+      fprintf (fp, "%7.2f (%2.0f%%) sys",
 	       tv->elapsed.sys,
 	       (total->sys == 0 ? 0 : tv->elapsed.sys / total->sys) * 100);
 #endif /* HAVE_SYS_TIME */
 
 #ifdef HAVE_WALL_TIME
       /* Print wall clock time elapsed.  */
-      fprintf (fp, "%7.2f (%2.0f%%) wall", 
+      fprintf (fp, "%7.2f (%2.0f%%) wall",
 	       tv->elapsed.wall,
 	       (total->wall == 0 ? 0 : tv->elapsed.wall / total->wall) * 100);
 #endif /* HAVE_WALL_TIME */
@@ -571,6 +597,6 @@ print_time (str, total)
   fprintf (stderr,
 	   _("time in %s: %ld.%06ld (%ld%%)\n"),
 	   str, total / 1000000, total % 1000000,
- 	   all_time == 0 ? 0
- 	   : (long) (((100.0 * (double) total) / (double) all_time) + .5));
+	   all_time == 0 ? 0
+	   : (long) (((100.0 * (double) total) / (double) all_time) + .5));
 }

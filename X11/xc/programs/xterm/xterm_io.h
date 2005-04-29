@@ -1,9 +1,9 @@
 /*
- * $XFree86: xc/programs/xterm/xterm_io.h,v 1.9 2002/10/05 17:57:14 dickey Exp $
+ * $XFree86: xc/programs/xterm/xterm_io.h,v 1.13 2004/01/07 04:28:07 dawes Exp $
  */
 
 /*
- * Copyright 2000 by Thomas E. Dickey
+ * Copyright 2000-2002,2003 by Thomas E. Dickey
  *
  *                         All Rights Reserved
  *
@@ -68,13 +68,22 @@
 #define USE_TERMIOS
 #endif
 
+#ifdef SCO325
+#define USE_TERMIOS
+#define _SVID3
+#endif
+
 #ifdef Lynx
 #define USE_SYSV_TERMIO
 #endif
 
 #ifdef macII
-#undef SYSV				/* pretend to be bsd (sgtty.h) */
+#undef SYSV			/* pretend to be bsd (sgtty.h) */
 #endif /* macII */
+
+#if defined(__GLIBC__) && !defined(linux)
+#define USE_POSIX_TERMIOS	/* GNU/Hurd, GNU/KFreeBSD and GNU/KNetBSD */
+#endif
 
 #ifdef __MVS__
 #define SVR4
@@ -210,6 +219,8 @@ struct winsize {
 	unsigned short	ws_xpixel;	/* horizontal size, pixels */
 	unsigned short	ws_ypixel;	/* vertical size, pixels */
 };
+#define TTYSIZE_STRUCT struct winsize
+#define USE_STRUCT_WINSIZE 1
 
 #ifdef XTERM_MAIN
 extern int ptioctl(int fd, int func, void* data);
@@ -262,6 +273,28 @@ extern int ptioctl(int fd, int func, void* data);
 
 #if defined(TIOCSLTC) && ! (defined(linux) || defined(__MVS__) || defined(Lynx) || defined(SVR4))
 #define HAS_LTCHARS
+#endif
+
+#if !defined(TTYSIZE_STRUCT)
+#if defined(TIOCSSIZE) && (defined(sun) && !defined(SVR4))
+#define USE_STRUCT_TTYSIZE 1
+#define TTYSIZE_STRUCT struct ttysize
+#elif defined(TIOCSWINSZ)
+#define USE_STRUCT_WINSIZE 1
+#define TTYSIZE_STRUCT struct winsize
+#endif /* sun vs TIOCSWINSZ */
+#endif /* TTYSIZE_STRUCT */
+
+#if defined(USE_STRUCT_TTYSIZE)
+#define TTYSIZE_STRUCT struct ttysize
+#define SET_TTYSIZE(fd, data) ioctl(fd, TIOCSSIZE, &data);
+#define TTYSIZE_COLS(data) data.ts_cols
+#define TTYSIZE_ROWS(data) data.ts_lines
+#elif defined(USE_STRUCT_WINSIZE)
+#define TTYSIZE_STRUCT struct winsize
+#define SET_TTYSIZE(fd, data) ioctl(fd, TIOCSWINSZ, (char *) &data)
+#define TTYSIZE_COLS(data) data.ws_col
+#define TTYSIZE_ROWS(data) data.ws_row
 #endif
 
 #endif	/* included_xterm_io_h */

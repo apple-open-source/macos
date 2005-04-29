@@ -37,6 +37,7 @@ exception statement from your version. */
 
 
 package javax.naming.ldap;
+
 import java.io.Serializable;
  
 /**
@@ -46,6 +47,6 @@ import java.io.Serializable;
 
 public interface ExtendedResponse extends Serializable
 {
-  public String getID();
-  public byte[] getEncodedValue();
+  String getID();
+  byte[] getEncodedValue();
 }

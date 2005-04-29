@@ -19,15 +19,23 @@
   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   THE SOFTWARE.
 */
-/* $XFree86: xc/programs/mkfontscale/list.h,v 1.1 2002/06/05 19:46:04 dawes Exp $ */
+/* $XFree86: xc/programs/mkfontscale/list.h,v 1.3 2003/07/08 15:39:49 tsi Exp $ */
+
+#ifndef _MKS_LIST_H_
+#define _MKS_LIST_H_ 1
+
+char *dsprintf(char *f, ...);
 
 typedef struct _List {
     char *value;
     struct _List *next;
 } ListRec, *ListPtr;
 
+int listMember(char *elt, ListPtr list);
 ListPtr listCons(char *car, ListPtr cdr);
+ListPtr listAdjoin(char *car, ListPtr cdr);
 ListPtr listConsF(ListPtr cdr, char *f, ...);
+ListPtr listAdjoinF(ListPtr cdr, char *f, ...);
 int listLength(ListPtr list);
 ListPtr appendList(ListPtr first, ListPtr second);
 ListPtr makeList(char **a, int n, ListPtr old, int begin);
@@ -35,3 +43,4 @@ ListPtr reverseList(ListPtr old);
 void destroyList(ListPtr old);
 void deepDestroyList(ListPtr old);
 
+#endif /* _MKS_LIST_H_ */

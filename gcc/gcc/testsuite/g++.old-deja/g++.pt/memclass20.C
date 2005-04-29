@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Mark Mitchell <mark@codesourcery.com>
 
 template <class X, class Y>
@@ -12,7 +12,7 @@ struct S<int, X> {
 
 template <class T>
 void f() {
-  typename S<T, T>::I<T> si;
+  typename S<T, T>::template I<T> si;
 }
 
 template void f<int>();

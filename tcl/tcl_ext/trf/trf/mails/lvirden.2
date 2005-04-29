@@ -1,0 +1,538 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11k6mq-00027DC; Sat, 6 Nov 1999 15:25:48 +0100 (MET)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Sat Nov  6 15:19:25 1999
+Received: from srv01.cas.org (srv01s4.cas.org [134.243.50.9])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id HAA24449
+	for <a.kupries@westend.com>; Sat, 6 Nov 1999 07:39:20 +0100 (MET)
+Received: (from lwv26@localhost)
+	by cas.org (8.8.8+Sun/8.8.8/CAS-1.04) id BAA12525;
+	Sat, 6 Nov 1999 01:38:45 -0500 (EST)
+X-From_: lvirden@cas.org  Sat Nov  6 07:39:22 1999
+Date: Sat, 6 Nov 1999 01:38:45 -0500 (EST)
+From: "Larry W. Virden" <lvirden@cas.org>
+Message-Id: <9911060138.AA12167@cas.org>
+Subject: trf2.0 and tea
+To: a.kupries@westend.com
+Content-Type: text/plain;
+              charset="us-ascii"
+
+I tried to build the TEA version of trf 2.0 instead of the Unix version
+today.  Here's what i see:
+LD_LIBRARY_PATH="/vol/tclsrcsol/tcl82/trf2.0/tea:../tea/";	\
+export LD_LIBRARY_PATH; SHLIB_PATH="D_LIBRARY_PATH"; export SHLIB_PATH ;	\
+echo load ./libTrf2.0.so \; cd /vol/tclsrcsol/tcl82/trf2.0/tea/../tests \; source defs \; defConstraints \"hasZlib hasSSL hasBz\" \; source all | /usr/tcl82/sun4/bin/tclsh8.2
+adler.test
+ascii85.test
+base64.test
+bin.test
+binio.test
+	Skipping 'binio' tests, as the command is not compiled into the package
+bz2.test
+common.all.test
+common.conv.test
+common.md.test
+common_seek.test
+crc.test
+crc_zlib.test
+haval.test
+
+
+==== haval-4.1-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+60D33AC6994D77476D166AC1D471F967B9D222429EC22DB65A9E50B185A4E6E3
+---- Result should have been:
+4F6938531F0BC8991F62DA7BBD6F7DE3FAD44562B8C6F4EBF146D5B4E46F7C17
+---- haval-4.1-8.x FAILED
+
+
+==== haval-4.2-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+230553D27F3483E39BC9500276D10E7E9BCD060F4F0784F36F6C2F8E78F9F2C4
+---- Result should have been:
+47C838FBB4081D9525A0FF9B1E2C05A98F625714E72DB289010374E27DB021D8
+---- haval-4.2-8.x FAILED
+
+
+==== haval-4.3-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+049BAE5DE9D0A556592F03E8828AF4BFFA6F0556602AC690428D4FABD9C4CAA0
+---- Result should have been:
+91850C6487C9829E791FC5B58E98E372F3063256BB7D313A93F1F83B426AEDCC
+---- haval-4.3-8.x FAILED
+
+
+==== haval-4.4-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+017BA6DF332ADAE5BD187F1B1D18BF1566709BE5EA74C7E1B6D25F809838E6C7
+---- Result should have been:
+63238D99C02BE18C3C5DB7CCE8432F51329012C228CCC17EF048A5D0FD22D4AE
+---- haval-4.4-8.x FAILED
+
+
+==== haval-4.5-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+001D949439941A8B5DD7BE165F0A210C7F2C974A513A04C9C882DF6ABC2B10B0
+---- Result should have been:
+72FAD4BDE1DA8C8332FB60561A780E7F504F21547B98686824FC33FC796AFA76
+---- haval-4.5-8.x FAILED
+
+
+==== haval-4.6-8.x haval, immediate
+==== Contents of test case:
+
+	    hex -m e [haval $in]
+	
+==== Result was:
+B370648DF829C7B5C46FC8A639FD79A1233DB1786C577152BB874C33138CC432
+---- Result should have been:
+899397D96489281E9E76D5E65ABAB751F312E06C06C07C9C1D42ABD31BB6A404
+---- haval-4.6-8.x FAILED
+hex.test
+md2.test
+md5.test
+
+
+==== md5-4.0-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+92A258488E038D5FC502E88996931439
+---- Result should have been:
+5EB63BBBE01EEED093CB22BB8F5ACDC3
+---- md5-4.0-8.x FAILED
+
+
+==== md5-4.1-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+227B7F48D21283F63BC9BBC15B44EA1A
+---- Result should have been:
+D41D8CD98F00B204E9800998ECF8427E
+---- md5-4.1-8.x FAILED
+
+
+==== md5-4.2-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+D28D203603D8500B2350A3E1A4BA962E
+---- Result should have been:
+0CC175B9C0F1B6A831C399E269772661
+---- md5-4.2-8.x FAILED
+
+
+==== md5-4.3-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+142D0F234A271AA946ED858FF3A7AF3E
+---- Result should have been:
+900150983CD24FB0D6963F7D28E17F72
+---- md5-4.3-8.x FAILED
+
+
+==== md5-4.4-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+91127DC84F80F6C95B383F52CE0CEE20
+---- Result should have been:
+F96B697D7CB7938D525A2F31AAF161D0
+---- md5-4.4-8.x FAILED
+
+
+==== md5-4.5-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+3B998FFCB671983BA5A538130515BAA0
+---- Result should have been:
+C3FCD3D76192E4007DFB496CCA67E13B
+---- md5-4.5-8.x FAILED
+
+
+==== md5-4.6-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+7E87CD5822F9001AB3581DB601A276DA
+---- Result should have been:
+D174AB98D277D9F5A5611C2C9F419D9F
+---- md5-4.6-8.x FAILED
+
+
+==== md5-4.7-8.x md5, immediate
+==== Contents of test case:
+
+	    hex -m e [md5 $in]
+	
+==== Result was:
+E81D78B6216EDDD46F54580A70883242
+---- Result should have been:
+57EDF4A22BE3C955AC49DA2E2107B67A
+---- md5-4.7-8.x FAILED
+oct.test
+otp_words.test
+otpmd5.test
+
+
+==== otp_md5-4.0-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+57A0B0C118909966
+---- Result should have been:
+CD7D19006F442313
+---- otp_md5-4.0-8.x FAILED
+
+
+==== otp_md5-4.1-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+19B2C489895669EC
+---- Result should have been:
+3D9D854163F8F07A
+---- otp_md5-4.1-8.x FAILED
+
+
+==== otp_md5-4.2-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+F1DD83D7A762C625
+---- Result should have been:
+3D02EC5BA98690C9
+---- otp_md5-4.2-8.x FAILED
+
+
+==== otp_md5-4.3-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+52C08AACB980B597
+---- Result should have been:
+46976FE5143330C2
+---- otp_md5-4.3-8.x FAILED
+
+
+==== otp_md5-4.4-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+CA2A429A818C18E9
+---- Result should have been:
+AB31464CD646F25D
+---- otp_md5-4.4-8.x FAILED
+
+
+==== otp_md5-4.5-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+9E3CB7EFB364229B
+---- Result should have been:
+BE079ABBABF5053B
+---- otp_md5-4.5-8.x FAILED
+
+
+==== otp_md5-4.6-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+CDDFD0EE235B76C0
+---- Result should have been:
+7415B7B44D36446A
+---- otp_md5-4.6-8.x FAILED
+
+
+==== otp_md5-4.7-8.x otp_md5, immediate
+==== Contents of test case:
+
+	    hex -m e [otp_md5 $in]
+	
+==== Result was:
+874920BC51E6EF96
+---- Result should have been:
+FBA42E8C0AE47F2F
+---- otp_md5-4.7-8.x FAILED
+otpsha1.test
+rmd128.test
+
+
+==== ripemd128-4.0-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+1362F2CD3EDC50A1180F61CB468BB3F6
+---- Result should have been:
+CDF26213A150DC3ECB610F18F6B38B46
+---- ripemd128-4.0-8.x FAILED
+
+
+==== ripemd128-4.1-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+FA7ABE86C70F9D33E785C7CF338D572F
+---- Result should have been:
+86BE7AFA339D0FC7CFC785E72F578D33
+---- ripemd128-4.1-8.x FAILED
+
+
+==== ripemd128-4.2-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+19124AC1BAE4669C0F6B6384774C1469
+---- Result should have been:
+C14A12199C66E4BA84636B0F69144C77
+---- ripemd128-4.2-8.x FAILED
+
+
+==== ripemd128-4.3-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+3D7B329E6230526E2D13C1AFB8D1F97D
+---- Result should have been:
+9E327B3D6E523062AFC1132D7DF9D1B8
+---- ripemd128-4.3-8.x FAILED
+
+
+==== ripemd128-4.4-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+07A62AFDF5C81DF7224971104E8371B3
+---- Result should have been:
+FD2AA607F71DC8F510714922B371834E
+---- ripemd128-4.4-8.x FAILED
+
+
+==== ripemd128-4.5-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+8906AAA12DFAFAD08BE822DC063A1349
+---- Result should have been:
+A1AA0689D0FAFA2DDC22E88B49133A06
+---- ripemd128-4.5-8.x FAILED
+
+
+==== ripemd128-4.6-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+EB59E9D11F919C174C62A4AE02C7C560
+---- Result should have been:
+D1E959EB179C911FAEA4624C60C5C702
+---- ripemd128-4.6-8.x FAILED
+
+
+==== ripemd128-4.7-8.x ripemd128, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd128 $in]
+	
+==== Result was:
+4B38D3D71678A2DAF4B18FC95C82DE22
+---- Result should have been:
+3F45EF194732C2DBB2C4A2C769795FA3
+---- ripemd128-4.7-8.x FAILED
+rmd160.test
+
+
+==== ripemd160-4.0-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+A585119C54FCE9C59708286148F5E87E318D25B2
+---- Result should have been:
+9C1185A5C5E9FC54612808977EE8F548B2258D31
+---- ripemd160-4.0-8.x FAILED
+
+
+==== ripemd160-4.1-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Test generated error:
+hex: wrong # args
+
+
+==== ripemd160-4.2-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+F708B28E7A985DE08E4A049B87B0C698FC0B5AF1
+---- Result should have been:
+8EB208F7E05D987A9B044A8E98C6B087F15A0BFC
+---- ripemd160-4.2-8.x FAILED
+
+
+==== ripemd160-4.3-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+EF89065DE5FAD249B181B872FA5FA823365F5921
+---- Result should have been:
+5D0689EF49D2FAE572B881B123A85FFA21595F36
+---- ripemd160-4.3-8.x FAILED
+
+
+==== ripemd160-4.4-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+10271CF71B2C699CEBDCBB5665289D5BBC8D70B3
+---- Result should have been:
+F71C27109C692C1B56BBDCEB5B9D2865B3708DBC
+---- ripemd160-4.4-8.x FAILED
+
+
+==== ripemd160-4.5-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+3853A012880C9C4A6CA005E49AF4DC272BEB62DA
+---- Result should have been:
+12A053384A9C0C88E405A06C27DCF49ADA62EB2B
+---- ripemd160-4.5-8.x FAILED
+
+
+==== ripemd160-4.6-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+6E0BE2B002641631873AED86793071A589511FB2
+---- Result should have been:
+B0E20B6E3116640286ED3A87A5713079B21F5189
+---- ripemd160-4.6-8.x FAILED
+
+
+==== ripemd160-4.7-8.x ripemd160, immediate
+==== Contents of test case:
+
+	    hex -m e [ripemd160 $in]
+	
+==== Result was:
+2F5B5E982B063FD20A8B367F9F45F93C6431BED0
+---- Result should have been:
+9B752E45573D4B39F4DBD3323CAB82BF63326BFB
+---- ripemd160-4.7-8.x FAILED
+rs_ecc.test
+sha.test
+
+
+==== sha-4.0-8.x sha, immediate
+==== Contents of test case:
+
+	    hex -m e [sha $in]
+	
+==== Result was:
+1868B1A4CC8829094E1C17CF269ACAE27F8E0BEA
+---- Result should have been:
+0164B8A914CD2A5E74C4F7FF082C4D97F1EDF880
+---- sha-4.0-8.x FAILED
+
+
+==== sha-4.1-8.x sha, immediate
+==== Contents of test case:
+
+	    hex -m e [sha $in]
+	
+==== Result was:
+6DC550C926EE22624B3DD746BD8523BF74DEFF0F
+---- Result should have been:
+D2516EE1ACFA5BAF33DFC1C471E438449EF134C8
+---- sha-4.1-8.x FAILED
+sha1.test
+transform.test
+uu.test
+zip.test
+-- 
+Larry W. Virden                 <URL: mailto:lvirden@cas.org>
+<URL: http://www.purl.org/NET/lvirden/> <*> O- 
+Unless explicitly stated to the contrary, nothing in this posting should 
+be construed as representing my employer's opinions.
+-><-

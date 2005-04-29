@@ -3,7 +3,7 @@
 !
 !
 !
-! $XFree86: xc/programs/xdm/config/xdm-conf.cpp,v 1.10 2002/11/30 19:11:32 herrb Exp $
+! $XFree86: xc/programs/xdm/config/xdm-conf.cpp,v 1.11 2004/01/09 00:25:25 dawes Exp $
 !
 DisplayManager.errorLogFile:	XDMLOGDIR/xdm.log
 DisplayManager.pidFile:		XDMPIDDIR/xdm.pid
@@ -20,6 +20,7 @@ DisplayManager._0.setup:	XDMDIR/Xsetup_0
 DisplayManager._0.startup:	XDMDIR/GiveConsole
 DisplayManager._0.reset:	XDMDIR/TakeConsole
 !
+DisplayManager*chooser:		CHOOSERPATH
 DisplayManager*resources:	XDMDIR/Xresources
 DisplayManager*session:		XDMDIR/Xsession
 DisplayManager*authComplain:	true

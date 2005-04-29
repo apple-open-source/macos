@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>gperf</string>
+	<key>OpenSourceVersion</key>
+	<string>3.0.1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.gnu.org/software/gperf/</string>
+	<key>OpenSourceURL</key>
+	<string>http://ftp.gnu.org/gnu/gperf/gperf-3.0.1.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>00c0f7512710e1b68ab37bd2e68081bf</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-10-26</string>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>gperf.txt</string>
+</dict>
+</array>
+</plist>

@@ -77,7 +77,7 @@ createthingytab(void)
 
 /**/
 static void
-emptythingytab(HashTable ht)
+emptythingytab(UNUSED(HashTable ht))
 {
     /* This will only be called when deleting the thingy table, which *
      * is only done to unload the zle module.  A normal emptytable()  *
@@ -93,7 +93,7 @@ emptythingytab(HashTable ht)
 
 /**/
 static void
-scanemptythingies(HashNode hn, int flags)
+scanemptythingies(HashNode hn, UNUSED(int flags))
 {
     Thingy t = (Thingy) hn;
 
@@ -107,7 +107,7 @@ scanemptythingies(HashNode hn, int flags)
 static Thingy
 makethingynode(void)
 {
-    Thingy t = (Thingy) zcalloc(sizeof(*t));
+    Thingy t = (Thingy) zshcalloc(sizeof(*t));
 
     t->flags = DISABLED;
     return t;
@@ -161,6 +161,17 @@ rthingy(char *nam)
 
     if(!t)
 	thingytab->addnode(thingytab, ztrdup(nam), t = makethingynode());
+    return refthingy(t);
+}
+
+/**/
+Thingy
+rthingy_nocreate(char *nam)
+{
+    Thingy t = (Thingy) thingytab->getnode2(thingytab, nam);
+
+    if(!t)
+	return NULL;
     return refthingy(t);
 }
 
@@ -324,7 +335,7 @@ deletezlefunction(Widget w)
 
 /**/
 int
-bin_zle(char *name, char **args, Options ops, int func)
+bin_zle(char *name, char **args, Options ops, UNUSED(int func))
 {
     static struct opn {
 	char o;
@@ -373,7 +384,7 @@ bin_zle(char *name, char **args, Options ops, int func)
 
 /**/
 static int
-bin_zle_list(char *name, char **args, Options ops, char func)
+bin_zle_list(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 {
     if (!*args) {
 	scanhashtable(thingytab, 1, 0, DISABLED, scanlistwidgets,
@@ -394,7 +405,7 @@ bin_zle_list(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_refresh(char *name, char **args, Options ops, char func)
+bin_zle_refresh(UNUSED(char *name), char **args, Options ops, UNUSED(char func))
 {
     char *s = statusline;
     int sl = statusll, ocl = clearlist;
@@ -439,7 +450,7 @@ bin_zle_refresh(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_mesg(char *name, char **args, Options ops, char func)
+bin_zle_mesg(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     if (!zleactive) {
 	zwarnnam(name, "can only be called from widget function", NULL, 0);
@@ -453,7 +464,7 @@ bin_zle_mesg(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_unget(char *name, char **args, Options ops, char func)
+bin_zle_unget(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     char *b = *args, *p = b + strlen(b);
 
@@ -468,7 +479,7 @@ bin_zle_unget(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_keymap(char *name, char **args, Options ops, char func)
+bin_zle_keymap(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     if (!zleactive) {
 	zwarnnam(name, "can only be called from widget function", NULL, 0);
@@ -522,7 +533,7 @@ scanlistwidgets(HashNode hn, int list)
 
 /**/
 static int
-bin_zle_del(char *name, char **args, Options ops, char func)
+bin_zle_del(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     int ret = 0;
 
@@ -541,7 +552,7 @@ bin_zle_del(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_link(char *name, char **args, Options ops, char func)
+bin_zle_link(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     Thingy t = (Thingy) thingytab->getnode(thingytab, args[0]);
 
@@ -558,7 +569,7 @@ bin_zle_link(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_new(char *name, char **args, Options ops, char func)
+bin_zle_new(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     Widget w = zalloc(sizeof(*w));
 
@@ -574,7 +585,7 @@ bin_zle_new(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_complete(char *name, char **args, Options ops, char func)
+bin_zle_complete(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     Thingy t;
     Widget w, cw;
@@ -608,7 +619,24 @@ bin_zle_complete(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_call(char *name, char **args, Options ops, char func)
+zle_usable()
+{
+    return zleactive && !incompctlfunc && !incompfunc
+#if 0
+	/*
+	 * PWS experiment: commenting this out allows zle widgets
+	 * in signals, hooks etc.  I'm not sure if this has a down side;
+	 * it ought to be that zleactive is good enough to test whether
+	 * widgets are callable.
+	 */
+	&& sfcontext == SFC_WIDGET
+#endif
+	   ;
+}
+
+/**/
+static int
+bin_zle_call(char *name, char **args, UNUSED(Options ops), UNUSED(char func))
 {
     Thingy t;
     struct modifier modsave;
@@ -618,10 +646,9 @@ bin_zle_call(char *name, char **args, Options ops, char func)
     if (!wname) {
 	if (saveflag)
 	    zmod = modsave;
-	return (!zleactive || incompctlfunc || incompfunc ||
-		sfcontext != SFC_WIDGET);
+	return !zle_usable();
     }
-    if(!zleactive || incompctlfunc || incompfunc || sfcontext != SFC_WIDGET) {
+    if(!zle_usable()) {
 	zwarnnam(name, "widgets can only be called when ZLE is active",
 	    NULL, 0);
 	return 1;
@@ -672,8 +699,13 @@ bin_zle_call(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_invalidate(char *name, char **args, Options ops, char func)
+bin_zle_invalidate(UNUSED(char *name), UNUSED(char **args), UNUSED(Options ops), UNUSED(char func))
 {
+    /*
+     * Trash zle if trashable, but only indicate that zle is usable
+     * if it's possible to call a zle widget next.  This is not
+     * true if a completion widget is active.
+     */
     if (zleactive) {
 	if (!trashedzle)
 	    trashzle();
@@ -684,7 +716,7 @@ bin_zle_invalidate(char *name, char **args, Options ops, char func)
 
 /**/
 static int
-bin_zle_fd(char *name, char **args, Options ops, char func)
+bin_zle_fd(char *name, char **args, Options ops, UNUSED(char func))
 {
     int fd = 0, i, found = 0;
     char *endptr;

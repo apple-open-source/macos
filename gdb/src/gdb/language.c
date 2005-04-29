@@ -1,7 +1,7 @@
 /* Multiple source language support for GDB.
 
    Copyright 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    Contributed by the Department of Computer Science at the State University
    of New York at Buffalo.
@@ -44,6 +44,7 @@
 #include "target.h"
 #include "parser-defs.h"
 #include "jv-lang.h"
+#include "demangle.h"
 
 extern void _initialize_language (void);
 
@@ -100,6 +101,8 @@ static int unk_lang_val_print (struct type *, char *, int, CORE_ADDR,
 
 static int unk_lang_value_print (struct value *, struct ui_file *, int, enum val_prettyprint);
 
+static CORE_ADDR unk_lang_trampoline (CORE_ADDR pc);
+
 /* Forward declaration */
 extern const struct language_defn unknown_language_defn;
 
@@ -148,7 +151,6 @@ static char *case_sensitive;
 char lang_frame_mismatch_warn[] =
 "Warning: the current language does not match this frame.";
 
-
 /* This page contains the functions corresponding to GDB commands
    and their helpers. */
 
@@ -203,7 +205,7 @@ set_language_command (char *ignore, int from_tty)
   /* Search the list of languages for a match.  */
   for (i = 0; i < languages_size; i++)
     {
-      if (STREQ (languages[i]->la_name, language))
+      if (strcmp (languages[i]->la_name, language) == 0)
 	{
 	  /* Found it!  Go into manual mode, and use this language.  */
 	  if (languages[i]->la_language == language_auto)
@@ -251,22 +253,22 @@ show_type_command (char *ignore, int from_tty)
 static void
 set_type_command (char *ignore, int from_tty)
 {
-  if (STREQ (type, "on"))
+  if (strcmp (type, "on") == 0)
     {
       type_check = type_check_on;
       type_mode = type_mode_manual;
     }
-  else if (STREQ (type, "warn"))
+  else if (strcmp (type, "warn") == 0)
     {
       type_check = type_check_warn;
       type_mode = type_mode_manual;
     }
-  else if (STREQ (type, "off"))
+  else if (strcmp (type, "off") == 0)
     {
       type_check = type_check_off;
       type_mode = type_mode_manual;
     }
-  else if (STREQ (type, "auto"))
+  else if (strcmp (type, "auto") == 0)
     {
       type_mode = type_mode_auto;
       set_type_range_case ();
@@ -297,22 +299,22 @@ show_range_command (char *ignore, int from_tty)
 static void
 set_range_command (char *ignore, int from_tty)
 {
-  if (STREQ (range, "on"))
+  if (strcmp (range, "on") == 0)
     {
       range_check = range_check_on;
       range_mode = range_mode_manual;
     }
-  else if (STREQ (range, "warn"))
+  else if (strcmp (range, "warn") == 0)
     {
       range_check = range_check_warn;
       range_mode = range_mode_manual;
     }
-  else if (STREQ (range, "off"))
+  else if (strcmp (range, "off") == 0)
     {
       range_check = range_check_off;
       range_mode = range_mode_manual;
     }
-  else if (STREQ (range, "auto"))
+  else if (strcmp (range, "auto") == 0)
     {
       range_mode = range_mode_auto;
       set_type_range_case ();
@@ -342,17 +344,17 @@ show_case_command (char *ignore, int from_tty)
 static void
 set_case_command (char *ignore, int from_tty)
 {
-   if (STREQ (case_sensitive, "on"))
+   if (DEPRECATED_STREQ (case_sensitive, "on"))
    {
       case_sensitivity = case_sensitive_on;
       case_mode = case_mode_manual;
    }
-   else if (STREQ (case_sensitive, "off"))
+   else if (DEPRECATED_STREQ (case_sensitive, "off"))
    {
       case_sensitivity = case_sensitive_off;
       case_mode = case_mode_manual;
    }
-   else if (STREQ (case_sensitive, "auto"))
+   else if (DEPRECATED_STREQ (case_sensitive, "auto"))
    {
       case_mode = case_mode_auto;
       set_type_range_case ();
@@ -413,6 +415,21 @@ set_language (enum language lang)
 
   return prev_language;
 }
+
+static void
+do_set_language (void *in_language)
+{
+  enum language lang = (enum language) in_language;
+  set_language (lang);
+}
+
+struct cleanup *
+make_cleanup_restore_language (enum language new_lang)
+{
+  enum language lang = set_language (new_lang);
+  return make_cleanup (do_set_language, (void *) lang);
+}
+
 
 /* This page contains functions that update the global vars
    language, type and range. */
@@ -938,7 +955,7 @@ lang_bool_type (void)
   switch (current_language->la_language)
     {
     case language_fortran:
-      sym = lookup_symbol ("logical", NULL, VAR_NAMESPACE, NULL, NULL);
+      sym = lookup_symbol ("logical", NULL, VAR_DOMAIN, NULL, NULL);
       if (sym)
 	{
 	  type = SYMBOL_TYPE (sym);
@@ -947,11 +964,13 @@ lang_bool_type (void)
 	}
       return builtin_type_f_logical_s2;
     case language_cplus:
+    case language_objcplus:
     case language_pascal:
-      if (current_language->la_language==language_cplus)
-        {sym = lookup_symbol ("bool", NULL, VAR_NAMESPACE, NULL, NULL);}
+      if (current_language->la_language == language_cplus
+	  || current_language->la_language == language_objcplus)
+        {sym = lookup_symbol ("bool", NULL, VAR_DOMAIN, NULL, NULL);}
       else
-        {sym = lookup_symbol ("boolean", NULL, VAR_NAMESPACE, NULL, NULL);}
+        {sym = lookup_symbol ("boolean", NULL, VAR_DOMAIN, NULL, NULL);}
       if (sym)
 	{
 	  type = SYMBOL_TYPE (sym);
@@ -960,7 +979,7 @@ lang_bool_type (void)
 	}
       return builtin_type_bool;
     case language_java:
-      sym = lookup_symbol ("boolean", NULL, VAR_NAMESPACE, NULL, NULL);
+      sym = lookup_symbol ("boolean", NULL, VAR_DOMAIN, NULL, NULL);
       if (sym)
 	{
 	  type = SYMBOL_TYPE (sym);
@@ -989,210 +1008,9 @@ value_true (struct value *val)
   return !value_logical_not (val);
 }
 
-/* Returns non-zero if the operator OP is defined on
-   the values ARG1 and ARG2. */
-
-#if 0				/* Currently unused */
-
-void
-binop_type_check (struct value *arg1, struct value *arg2, int op)
-{
-  struct type *t1, *t2;
-
-  /* If we're not checking types, always return success. */
-  if (!STRICT_TYPE)
-    return;
-
-  t1 = VALUE_TYPE (arg1);
-  if (arg2 != NULL)
-    t2 = VALUE_TYPE (arg2);
-  else
-    t2 = NULL;
-
-  switch (op)
-    {
-    case BINOP_ADD:
-    case BINOP_SUB:
-      if ((numeric_type (t1) && pointer_type (t2)) ||
-	  (pointer_type (t1) && numeric_type (t2)))
-	{
-	  warning ("combining pointer and integer.\n");
-	  break;
-	}
-    case BINOP_MUL:
-    case BINOP_LSH:
-    case BINOP_RSH:
-      if (!numeric_type (t1) || !numeric_type (t2))
-	type_op_error ("Arguments to %s must be numbers.", op);
-      else if (!same_type (t1, t2))
-	type_op_error ("Arguments to %s must be of the same type.", op);
-      break;
-
-    case BINOP_LOGICAL_AND:
-    case BINOP_LOGICAL_OR:
-      if (!boolean_type (t1) || !boolean_type (t2))
-	type_op_error ("Arguments to %s must be of boolean type.", op);
-      break;
-
-    case BINOP_EQUAL:
-      if ((pointer_type (t1) && !(pointer_type (t2) || integral_type (t2))) ||
-	  (pointer_type (t2) && !(pointer_type (t1) || integral_type (t1))))
-	type_op_error ("A pointer can only be compared to an integer or pointer.", op);
-      else if ((pointer_type (t1) && integral_type (t2)) ||
-	       (integral_type (t1) && pointer_type (t2)))
-	{
-	  warning ("combining integer and pointer.\n");
-	  break;
-	}
-      else if (!simple_type (t1) || !simple_type (t2))
-	type_op_error ("Arguments to %s must be of simple type.", op);
-      else if (!same_type (t1, t2))
-	type_op_error ("Arguments to %s must be of the same type.", op);
-      break;
-
-    case BINOP_REM:
-    case BINOP_MOD:
-      if (!integral_type (t1) || !integral_type (t2))
-	type_op_error ("Arguments to %s must be of integral type.", op);
-      break;
-
-    case BINOP_LESS:
-    case BINOP_GTR:
-    case BINOP_LEQ:
-    case BINOP_GEQ:
-      if (!ordered_type (t1) || !ordered_type (t2))
-	type_op_error ("Arguments to %s must be of ordered type.", op);
-      else if (!same_type (t1, t2))
-	type_op_error ("Arguments to %s must be of the same type.", op);
-      break;
-
-    case BINOP_ASSIGN:
-      if (pointer_type (t1) && !integral_type (t2))
-	type_op_error ("A pointer can only be assigned an integer.", op);
-      else if (pointer_type (t1) && integral_type (t2))
-	{
-	  warning ("combining integer and pointer.");
-	  break;
-	}
-      else if (!simple_type (t1) || !simple_type (t2))
-	type_op_error ("Arguments to %s must be of simple type.", op);
-      else if (!same_type (t1, t2))
-	type_op_error ("Arguments to %s must be of the same type.", op);
-      break;
-
-    case BINOP_CONCAT:
-      /* FIXME:  Needs to handle bitstrings as well. */
-      if (!(string_type (t1) || character_type (t1) || integral_type (t1))
-	|| !(string_type (t2) || character_type (t2) || integral_type (t2)))
-	type_op_error ("Arguments to %s must be strings or characters.", op);
-      break;
-
-      /* Unary checks -- arg2 is null */
-
-    case UNOP_LOGICAL_NOT:
-      if (!boolean_type (t1))
-	type_op_error ("Argument to %s must be of boolean type.", op);
-      break;
-
-    case UNOP_PLUS:
-    case UNOP_NEG:
-      if (!numeric_type (t1))
-	type_op_error ("Argument to %s must be of numeric type.", op);
-      break;
-
-    case UNOP_IND:
-      if (integral_type (t1))
-	{
-	  warning ("combining pointer and integer.\n");
-	  break;
-	}
-      else if (!pointer_type (t1))
-	type_op_error ("Argument to %s must be a pointer.", op);
-      break;
-
-    case UNOP_PREINCREMENT:
-    case UNOP_POSTINCREMENT:
-    case UNOP_PREDECREMENT:
-    case UNOP_POSTDECREMENT:
-      if (!ordered_type (t1))
-	type_op_error ("Argument to %s must be of an ordered type.", op);
-      break;
-
-    default:
-      /* Ok.  The following operators have different meanings in
-         different languages. */
-      switch (current_language->la_language)
-	{
-#ifdef _LANG_c
-	case language_c:
-	case language_cplus:
-	case language_objc:
-	case language_objcplus:
-	  switch (op)
-	    {
-	    case BINOP_DIV:
-	      if (!numeric_type (t1) || !numeric_type (t2))
-		type_op_error ("Arguments to %s must be numbers.", op);
-	      break;
-	    }
-	  break;
-#endif
-
-#ifdef _LANG_m2
-	case language_m2:
-	  switch (op)
-	    {
-	    case BINOP_DIV:
-	      if (!float_type (t1) || !float_type (t2))
-		type_op_error ("Arguments to %s must be floating point numbers.", op);
-	      break;
-	    case BINOP_INTDIV:
-	      if (!integral_type (t1) || !integral_type (t2))
-		type_op_error ("Arguments to %s must be of integral type.", op);
-	      break;
-	    }
-#endif
-
-#ifdef _LANG_pascal
-      case language_pascal:
-	 switch(op)
-	 {
-	 case BINOP_DIV:
-	    if (!float_type(t1) && !float_type(t2))
-	       type_op_error ("Arguments to %s must be floating point numbers.",op);
-	    break;
-	 case BINOP_INTDIV:
-	    if (!integral_type(t1) || !integral_type(t2))
-	       type_op_error ("Arguments to %s must be of integral type.",op);
-	    break;
-	 }
-#endif
-
-	}
-    }
-}
-
-#endif /* 0 */
-
-
 /* This page contains functions for the printing out of
    error messages that occur during type- and range-
    checking. */
-
-/* Prints the format string FMT with the operator as a string
-   corresponding to the opcode OP.  If FATAL is non-zero, then
-   this is an error and error () is called.  Otherwise, it is
-   a warning and printf() is called. */
-void
-op_error (char *fmt, enum exp_opcode op, int fatal)
-{
-  if (fatal)
-    error (fmt, op_string (op));
-  else
-    {
-      warning (fmt, op_string (op));
-    }
-}
 
 /* These are called when a language fails a type- or range-check.  The
    first argument should be a printf()-style format string, and the
@@ -1264,7 +1082,7 @@ language_enum (char *str)
   int i;
 
   for (i = 0; i < languages_size; i++)
-    if (STREQ (languages[i]->la_name, str))
+    if (DEPRECATED_STREQ (languages[i]->la_name, str))
       return languages[i]->la_language;
 
   return language_unknown;
@@ -1344,6 +1162,55 @@ add_language (const struct language_defn *lang)
   languages[languages_size++] = lang;
 }
 
+/* Iterate through all registered languages looking for and calling
+   any non-NULL struct language_defn.skip_trampoline() functions.
+   Return the result from the first that returns non-zero, or 0 if all
+   `fail'.  */
+CORE_ADDR 
+skip_language_trampoline (CORE_ADDR pc)
+{
+  int i;
+
+  for (i = 0; i < languages_size; i++)
+    {
+      if (languages[i]->skip_trampoline)
+	{
+	  CORE_ADDR real_pc = (languages[i]->skip_trampoline) (pc);
+	  if (real_pc)
+	    return real_pc;
+	}
+    }
+
+  return 0;
+}
+
+/* Return demangled language symbol, or NULL.  
+   FIXME: Options are only useful for certain languages and ignored
+   by others, so it would be better to remove them here and have a
+   more flexible demangler for the languages that need it.  
+   FIXME: Sometimes the demangler is invoked when we don't know the
+   language, so we can't use this everywhere.  */
+char *
+language_demangle (const struct language_defn *current_language, 
+				const char *mangled, int options)
+{
+  if (current_language != NULL && current_language->la_demangle)
+    return current_language->la_demangle (mangled, options);
+  return NULL;
+}
+
+/* Return the default string containing the list of characters
+   delimiting words.  This is a reasonable default value that
+   most languages should be able to use.  */
+
+/* APPLE LOCAL: Don't include '/' in this list.  See also the copy of this
+   string in completer.c:gdb_completer_command_word_break_characters().  */
+char *
+default_word_break_characters (void)
+{
+  return " \t\n!@#$%^&*()+=|~`}{[]\"';:?>.<,-";
+}
+
 /* Define the language that is no language.  */
 
 static int
@@ -1359,13 +1226,13 @@ unk_lang_error (char *msg)
 }
 
 static void
-unk_lang_emit_char (register int c, struct ui_file *stream, int quoter)
+unk_lang_emit_char (int c, struct ui_file *stream, int quoter)
 {
   error ("internal error - unimplemented function unk_lang_emit_char called.");
 }
 
 static void
-unk_lang_printchar (register int c, struct ui_file *stream)
+unk_lang_printchar (int c, struct ui_file *stream)
 {
   error ("internal error - unimplemented function unk_lang_printchar called.");
 }
@@ -1405,6 +1272,18 @@ unk_lang_value_print (struct value *val, struct ui_file *stream, int format,
   error ("internal error - unimplemented function unk_lang_value_print called.");
 }
 
+static CORE_ADDR unk_lang_trampoline (CORE_ADDR pc)
+{
+  return 0;
+}
+
+/* Unknown languages just use the cplus demangler.  */
+static char *unk_lang_demangle (const char *mangled, int options)
+{
+  return cplus_demangle (mangled, options);
+}
+
+
 static struct type **const (unknown_builtin_types[]) =
 {
   0
@@ -1422,9 +1301,9 @@ const struct language_defn unknown_language_defn =
   range_check_off,
   type_check_off,
   case_sensitive_on,
+  &exp_descriptor_standard,
   unk_lang_parser,
   unk_lang_error,
-  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_emit_char,
@@ -1432,6 +1311,11 @@ const struct language_defn unknown_language_defn =
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */
   unk_lang_value_print,		/* Print a top-level value */
+  unk_lang_trampoline,		/* Language specific skip_trampoline */
+  value_of_this,		/* value_of_this */
+  basic_lookup_symbol_nonlocal, /* lookup_symbol_nonlocal */
+  basic_lookup_transparent_type,/* lookup_transparent_type */
+  unk_lang_demangle,		/* Language specific symbol demangler */
   {"", "", "", ""},		/* Binary format info */
   {"0%lo", "0", "o", ""},	/* Octal format info */
   {"%ld", "", "d", ""},		/* Decimal format info */
@@ -1440,6 +1324,7 @@ const struct language_defn unknown_language_defn =
   1,				/* c-style arrays */
   0,				/* String lower bound */
   &builtin_type_char,		/* Type of string elements */
+  default_word_break_characters,
   LANG_MAGIC
 };
 
@@ -1452,9 +1337,9 @@ const struct language_defn auto_language_defn =
   range_check_off,
   type_check_off,
   case_sensitive_on,
+  &exp_descriptor_standard,
   unk_lang_parser,
   unk_lang_error,
-  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_emit_char,
@@ -1462,6 +1347,11 @@ const struct language_defn auto_language_defn =
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */
   unk_lang_value_print,		/* Print a top-level value */
+  unk_lang_trampoline,		/* Language specific skip_trampoline */
+  value_of_this,		/* value_of_this */
+  basic_lookup_symbol_nonlocal,	/* lookup_symbol_nonlocal */
+  basic_lookup_transparent_type,/* lookup_transparent_type */
+  unk_lang_demangle,		/* Language specific symbol demangler */
   {"", "", "", ""},		/* Binary format info */
   {"0%lo", "0", "o", ""},	/* Octal format info */
   {"%ld", "", "d", ""},		/* Decimal format info */
@@ -1470,6 +1360,7 @@ const struct language_defn auto_language_defn =
   1,				/* c-style arrays */
   0,				/* String lower bound */
   &builtin_type_char,		/* Type of string elements */
+  default_word_break_characters,
   LANG_MAGIC
 };
 
@@ -1481,9 +1372,9 @@ const struct language_defn local_language_defn =
   range_check_off,
   type_check_off,
   case_sensitive_on,
+  &exp_descriptor_standard,
   unk_lang_parser,
   unk_lang_error,
-  evaluate_subexp_standard,
   unk_lang_printchar,		/* Print character constant */
   unk_lang_printstr,
   unk_lang_emit_char,
@@ -1491,6 +1382,11 @@ const struct language_defn local_language_defn =
   unk_lang_print_type,		/* Print a type using appropriate syntax */
   unk_lang_val_print,		/* Print a value using appropriate syntax */
   unk_lang_value_print,		/* Print a top-level value */
+  unk_lang_trampoline,		/* Language specific skip_trampoline */
+  value_of_this,		/* value_of_this */
+  basic_lookup_symbol_nonlocal,	/* lookup_symbol_nonlocal */
+  basic_lookup_transparent_type,/* lookup_transparent_type */
+  unk_lang_demangle,		/* Language specific symbol demangler */
   {"", "", "", ""},		/* Binary format info */
   {"0%lo", "0", "o", ""},	/* Octal format info */
   {"%ld", "", "d", ""},		/* Decimal format info */
@@ -1499,6 +1395,7 @@ const struct language_defn local_language_defn =
   1,				/* c-style arrays */
   0,				/* String lower bound */
   &builtin_type_char,		/* Type of string elements */
+  default_word_break_characters,
   LANG_MAGIC
 };
 

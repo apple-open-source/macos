@@ -1,72 +1,58 @@
-<HTML>
-<BODY>
-<PRE>
-<!-- Manpage converted by man2html 3.0.1 -->
-       curl_strequal,  curl_strnequal  -  case insensitive string
-       comparisons
+<html><head>
+<title>curl_strequal man page</title>
+<meta name="generator" content="roffit 0.7">
+<STYLE type="text/css">
+P.level0 {
+ padding-left: 2em;
+}
 
+P.level1 {
+ padding-left: 4em;
+}
 
-</PRE>
-<H2>SYNOPSIS</H2><PRE>
-       <B>#include</B> <B>&lt;curl/curl.h&gt;</B>
+P.level2 {
+ padding-left: 6em;
+}
 
-       <B>int</B> <B>curl_strequal(char</B> <B>*</B><I>str1</I><B>,</B> <B>char</B> <B>*</B><I>str2</I><B>);</B>
+span.emphasis {
+ font-style: italic;
+}
 
-       <B>int</B> <B>curl_strenqual(char</B> <B>*</B><I>str1</I><B>,</B> <B>char</B> <B>*</B><I>str2</I><B>,</B> <B>size_t</B> <I>len</I><B>);</B>
+span.bold {
+ font-weight: bold;
+}
 
+span.manpage {
+ font-weight: bold;
+}
 
-</PRE>
-<H2>DESCRIPTION</H2><PRE>
-       The <B>curl_strequal()</B> function compares the two strings <I>str1</I>
-       and  <I>str2</I>, ignoring the case of the characters. It returns
-       a non-zero (TRUE) integer if the strings are identical.
+h2.nroffsh {
+ background-color: #e0e0e0;
+}
 
-       The <B>curl_strnequal()</B> function is similar, except  it  only
-       compares the first <I>len</I> characters of <I>str1</I>.
+span.nroffip {
+ font-weight: bold;
+ font-size: 120%;
+ font-family: monospace;
+}
 
-       These functions are provided by libcurl to enable applica-
-       tions to compare strings in a truly portable manner. There
-       are  no standard portable case insensitive string compari-
-       son functions. These two works on all platforms.
+p.roffit {
+ text-align: center;
+ font-size: 80%;
+}
+</STYLE>
+</head><body>
 
-
-</PRE>
-<H2>RETURN VALUE</H2><PRE>
-       Non-zero if the strings are  identical.  Zero  if  they're
-       not.
-
-
-</PRE>
-<H2>SEE ALSO</H2><PRE>
-       <B>strcmp(3)</B>, <B>strcasecmp(3)</B>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</PRE>
-<HR>
-<ADDRESS>
-Man(1) output converted with
-<a href="http://www.oac.uci.edu/indiv/ehood/man2html.html">man2html</a>
-</ADDRESS>
-</BODY>
-</HTML>
+<p class="level0"><a name="NAME"></a><h2 class="nroffsh">NAME</h2>
+<p class="level0">curl_strequal, curl_strnequal - case insensitive string comparisons <a name="SYNOPSIS"></a><h2 class="nroffsh">SYNOPSIS</h2>
+<p class="level0"><span Class="bold">#include &lt;curl/curl.h&gt;</span> 
+<p class="level0"><span Class="bold">int curl_strequal(char * str1 , char * str2 );</span> 
+<p class="level0"><span Class="bold">int curl_strenqual(char * str1 , char * str2 , size_t  len );</span> <a name="DESCRIPTION"></a><h2 class="nroffsh">DESCRIPTION</h2>
+<p class="level0">The <span Class="bold">curl_strequal()</span> function compares the two strings <span Class="emphasis">str1</span> and <span Class="emphasis">str2</span>, ignoring the case of the characters. It returns a non-zero (TRUE) integer if the strings are identical. 
+<p class="level0">The <span Class="bold">curl_strnequal()</span> function is similar, except it only compares the first <span Class="emphasis">len</span> characters of <span Class="emphasis">str1</span>. 
+<p class="level0">These functions are provided by libcurl to enable applications to compare strings in a truly portable manner. There are no standard portable case insensitive string comparison functions. These two works on all platforms. <a name="AVAILABILITY"></a><h2 class="nroffsh">AVAILABILITY</h2>
+<p class="level0">These functions will be removed from the public libcurl API in a near future. They will instead be made "available" by source code access only, and then as curlx_strequal() and curlx_strenqual(). <a name="RETURN"></a><h2 class="nroffsh">RETURN VALUE</h2>
+<p class="level0">Non-zero if the strings are identical. Zero if they're not. <a name="SEE"></a><h2 class="nroffsh">SEE ALSO</h2>
+<p class="level0"><span Class="manpage">strcmp (3)</span> <span Class="manpage">  strcasecmp (3)</span> <p class="roffit">
+ This HTML page was made with <a href="http://daniel.haxx.se/projects/roffit/">roffit</a>.
+</body></html>

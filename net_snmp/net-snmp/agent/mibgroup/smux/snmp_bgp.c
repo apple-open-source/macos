@@ -1,5 +1,5 @@
 /*
- * $Id: snmp_bgp.c,v 1.1.1.2 2003/05/29 00:03:08 rbraun Exp $ 
+ * $Id: snmp_bgp.c,v 5.0 2002/04/20 07:30:06 hardaker Exp $ 
  */
 
 /*

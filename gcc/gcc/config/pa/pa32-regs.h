@@ -119,7 +119,8 @@
    registers will generally not be allocated across a call).
 
    Experimentation has shown slightly better results by allocating
-   FP registers first.  
+   FP registers first.  We allocate the caller-saved registers more
+   or less in reverse order to their allocation as arguments.
 
    FP registers are ordered so that all L registers are selected before
    R registers.  This works around a false dependency interlock on the
@@ -130,14 +131,14 @@
  {					\
   /* caller-saved fp regs.  */		\
   68, 70, 72, 74, 76, 78, 80, 82,	\
-  84, 86, 40, 42, 44, 46, 32, 34,	\
-  36, 38,				\
+  84, 86, 40, 42, 44, 46, 38, 36,	\
+  34, 32,				\
   69, 71, 73, 75, 77, 79, 81, 83,	\
-  85, 87, 41, 43, 45, 47, 33, 35,	\
-  37, 39,				\
+  85, 87, 41, 43, 45, 47, 39, 37,	\
+  35, 33,				\
   /* caller-saved general regs.  */	\
-  19, 20, 21, 22, 23, 24, 25, 26,	\
-  27, 28, 29, 31,  2,			\
+  28, 19, 20, 21, 22, 31, 27, 29,	\
+  23, 24, 25, 26,  2,			\
   /* callee-saved fp regs.  */		\
   48, 50, 52, 54, 56, 58, 60, 62,	\
   64, 66,				\
@@ -228,7 +229,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
 
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-/* Give names of register classes as strings for dump file.   */
+/* Give names of register classes as strings for dump file.  */
 
 #define REG_CLASS_NAMES \
   {"NO_REGS", "R1_REGS", "GENERAL_REGS", "FPUPPER_REGS", "FP_REGS", \
@@ -262,7 +263,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
    : SHIFT_REGS)
 
 /* Get reg_class from a letter such as appears in the machine description.  */
-/* Keep 'x' for backward compatibility with user asm.   */
+/* Keep 'x' for backward compatibility with user asm.  */
 #define REG_CLASS_FROM_LETTER(C) \
   ((C) == 'f' ? FP_REGS :					\
    (C) == 'y' ? FPUPPER_REGS :					\

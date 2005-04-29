@@ -41,7 +41,7 @@
 static char sccsid[] = "@(#)regerror.c	8.4 (Berkeley) 3/20/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/regex/regerror.c,v 1.8 2002/10/02 07:49:35 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/regex/regerror.c,v 1.9 2004/07/12 06:07:26 tjr Exp $");
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -81,6 +81,7 @@ static char *regatoi(const regex_t *preg, char *localbuf);
  = #define	REG_EMPTY	14
  = #define	REG_ASSERT	15
  = #define	REG_INVARG	16
+ = #define	REG_ILLSEQ	17
  = #define	REG_ATOI	255	// convert name to number (!)
  = #define	REG_ITOA	0400	// convert number to name (!)
  */
@@ -105,6 +106,7 @@ static struct rerr {
 	{REG_EMPTY,	"REG_EMPTY",	"empty (sub)expression"},
 	{REG_ASSERT,	"REG_ASSERT",	"\"can't happen\" -- you found a bug"},
 	{REG_INVARG,	"REG_INVARG",	"invalid argument to regex routine"},
+	{REG_ILLSEQ,	"REG_ILLSEQ",	"illegal byte sequence"},
 	{0,		"",		"*** unknown regexp error code ***"}
 };
 

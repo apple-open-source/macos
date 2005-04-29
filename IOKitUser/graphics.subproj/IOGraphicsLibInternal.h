@@ -51,7 +51,9 @@ enum {
     // skips all the various checks and always installs
     kScaleInstallAlways		= 0x00000001,
     // disables the install of a stretched version if the aspect is different
-    kScaleInstallNoStretch	= 0x00000002
+    kScaleInstallNoStretch	= 0x00000002,
+    // install resolution untransformed
+    kScaleInstallNoResTransform	= 0x00000004
 };
 
 enum {
@@ -59,16 +61,13 @@ enum {
 };
 
 enum {
-    kAppleNTSCManufacturerFlag	= 0x40,
-    kApplePALManufacturerFlag	= 0x20
+    kAppleNTSCManufacturerFlag		 = 0x40,
+    kApplePALManufacturerFlag		 = 0x20,
+    kAppleNTSCDefaultPALManufacturerFlag = 0x04
 };
 
 enum {
     kIOMirrorHint = 0x10000
-};
-
-enum {
-    kIODisplayOnlyPreferredName	= 0x00000200
 };
 
 enum {
@@ -292,6 +291,8 @@ struct IOFBConnect
     CFMutableDictionaryRef	iographicsProperties;
 #if RLOG
     FILE *			logfile;
+#else
+    void *			__pad;
 #endif
     CFMutableDictionaryRef	kernelInfo;
     CFMutableDictionaryRef	modes;
@@ -303,6 +304,7 @@ struct IOFBConnect
     io_iterator_t		interestNotifier;
     IOOptionBits		state;
     IOOptionBits		previousState;
+    IODisplayModeID 		arbModeIDSeed;
     IODisplayModeID		defaultMode;
     IOIndex			defaultDepth;
     IODisplayModeID		default4By3Mode;
@@ -322,6 +324,7 @@ struct IOFBConnect
     IODisplayScalerInformation * scalerInfo;	// only during IOFBBuildModeList()
     GTFTimingCurve		gtfCurves[2];
     UInt32			numGTFCurves;
+    UInt64			transform;
     Boolean			gtfDisplay;
     Boolean			cvtDisplay;
     Boolean			supportsReducedBlank;
@@ -330,11 +333,16 @@ struct IOFBConnect
     Boolean			hasInterlaced;
     Boolean			suppressRefresh;
     Boolean			detailedRefresh;
+    Boolean			useScalerUnderscan;
     Boolean			trimToDependent;
     Boolean			defaultToDependent;
     Boolean			make4By3;
     Boolean			defaultNot4By3;
     Boolean			relaunch;
+    Boolean			firstBoot;
+    Boolean			displayMirror;
+
+    struct IOAccelConnectStruct * transformSurface;
 
     const IOFBMessageCallbacks * clientCallbacks;
     void *			 clientCallbackRef;
@@ -350,7 +358,7 @@ IODisplayInstallTimings( IOFBConnectRef connectRef );
 
 __private_extern__ kern_return_t
 IOFBInstallMode( IOFBConnectRef connectRef, IODisplayModeID mode,
-                 IODisplayModeInformation * info, IOTimingInformation * timingInfo,
+                 IOFBDisplayModeDescription * desc,
                  UInt32 driverFlags, IOOptionBits modeGenFlags );
 
 io_service_t
@@ -366,15 +374,21 @@ _IODisplayCreateInfoDictionary(
 
 __private_extern__ IOReturn
 IOCheckTimingWithDisplay( IOFBConnectRef connectRef,
-			  IOTimingInformation * timing,
+			  IOFBDisplayModeDescription * desc,
 			  IOOptionBits modeGenFlags );
 
 __private_extern__ kern_return_t
-IOFBDriverPreflight(IOFBConnectRef connectRef, IOTimingInformation * timingInfo);
+IOFBDriverPreflight(IOFBConnectRef connectRef, IOFBDisplayModeDescription * desc);
 __private_extern__ Boolean
-ValidateTimingInformation( const IOTimingInformation * timingInfo );
+ValidateTimingInformation( IOFBConnectRef connectRef, const IOTimingInformation * timingInfo );
 __private_extern__ Boolean
 IOFBTimingSanity(IOTimingInformation * timingInfo);
+__private_extern__ Boolean
+InvalidTiming( IOFBConnectRef connectRef, const IOTimingInformation * timingInfo );
+__private_extern__ void
+UpdateTimingInfoForTransform(IOFBConnectRef connectRef, 
+				IOFBDisplayModeDescription * desc,
+				IOOptionBits flags );
 
 __private_extern__ IOReturn
 readFile(const char *path, vm_offset_t * objAddr, vm_size_t * objSize);

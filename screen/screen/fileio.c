@@ -21,10 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: fileio.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
-
 #include <sys/types.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -140,6 +136,7 @@ char *rcfilename;
   register char *p, *cp;
   char buf[2048];
   char *args[MAXARGS];
+  int argl[MAXARGS];
   FILE *fp;
   char *oldrc_name = rc_name;
 
@@ -174,7 +171,7 @@ char *rcfilename;
     {
       if ((p = rindex(buf, '\n')) != NULL)
 	*p = '\0';
-      if ((argc = Parse(expand_vars(buf, display), args)) == 0)
+      if ((argc = Parse(buf, sizeof buf, args, argl)) == 0)
 	continue;
       if (strcmp(args[0], "echo") == 0)
 	{
@@ -202,7 +199,7 @@ char *rcfilename;
 	      Msg(0, "%s: sleep: one numeric argument expected.", rc_name);
 	      continue;
 	    }
-	  DisplaySleep(atoi(args[1]), 1);
+	  DisplaySleep1000(1000 * atoi(args[1]), 1);
 	}
 #ifdef TERMINFO
       else if (!strcmp(args[0], "termcapinfo") || !strcmp(args[0], "terminfo"))
@@ -284,7 +281,7 @@ char *rcfilename;
 
   debug("finishrc is going...\n");
   while (fgets(buf, sizeof buf, fp) != NULL)
-    RcLine(buf);
+    RcLine(buf, sizeof buf);
   (void) fclose(fp);
   Free(rc_name);
   rc_name = oldrc_name;
@@ -311,10 +308,12 @@ char *rcfilename;
  * This is bad when we run detached.
  */
 void
-RcLine(ubuf)
+RcLine(ubuf, ubufl)
 char *ubuf;
+int ubufl;
 {
-  char *args[MAXARGS], *buf;
+  char *args[MAXARGS];
+  int argl[MAXARGS];
 #ifdef MULTIUSER
   extern struct acluser *EffectiveAclUser;	/* acl.c */
   extern struct acluser *users;		/* acl.c */
@@ -327,19 +326,17 @@ char *ubuf;
     }
   else
     flayer = fore ? fore->w_savelayer : 0;
-  buf = expand_vars(ubuf, display);
-  if (Parse(buf, args) <= 0)
+  if (Parse(ubuf, ubufl, args, argl) <= 0)
     return;
 #ifdef MULTIUSER
   if (!display)
     {
       /* the session owner does it, when there is no display here */
       EffectiveAclUser = users;        
-      debug1("RcLine: WARNING, no display no user! Session owner does: %s",
-             ubuf);
+      debug("RcLine: WARNING, no display no user! Session owner executes command\n");
     }
 #endif
-  DoCommand(args);
+  DoCommand(args, argl);
 #ifdef MULTIUSER
   EffectiveAclUser = 0;
 #endif
@@ -385,7 +382,7 @@ int dump;
       if (fn == 0)
 	{
 	  i = SockName - SockPath;
-	  if (i > sizeof(fnbuf) - 9)
+	  if (i > (int)sizeof(fnbuf) - 9)
 	    i = 0;
 	  strncpy(fnbuf, SockPath, i);
 	  strcpy(fnbuf + i, ".termcap");
@@ -796,6 +793,7 @@ readpipe(cmdv)
 char **cmdv;
 {
   int pi[2];
+
   if (pipe(pi))
     {
       Msg(errno, "pipe");
@@ -814,14 +812,21 @@ char **cmdv;
 #endif
       close(1);
       if (dup(pi[1]) != 1)
-        Panic(0, "dup");
+	{
+	  close(pi[1]);
+          Panic(0, "dup");
+	}
       closeallfiles(1);
       if (setgid(real_gid) || setuid(real_uid))
-        Panic(errno, "setuid/setgid");
+	{
+          close(1);
+          Panic(errno, "setuid/setgid");
+	}
 #ifdef SIGPIPE
       signal(SIGPIPE, SIG_DFL);
 #endif
       execvp(*cmdv, cmdv);
+      close(1);
       Panic(errno, *cmdv);
     default:
       break;

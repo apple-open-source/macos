@@ -1,8 +1,8 @@
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -39,20 +39,19 @@ static void TAG(emit)( GLcontext *ctx,
 		       void *dest )
 {
    LOCALVARS
-      struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
-   GLuint (*tc0)[4], (*tc1)[4];
-   GLfloat *fog;
-   GLuint (*tc2)[4], (*norm)[3];
+   struct vertex_buffer *VB = &TNL_CONTEXT(ctx)->vb;
+   GLuint (*tc0)[4], (*tc1)[4], (*tc2)[4];
+   GLfloat (*fog)[4];
+   GLuint (*norm)[4];
    GLubyte (*col)[4], (*spec)[4];
    GLuint tc0_stride, tc1_stride, col_stride, spec_stride, fog_stride;
    GLuint tc2_stride, norm_stride;
    GLuint (*coord)[4];
-   GLuint coord_stride;
+   GLuint coord_stride; /* object coordinates */
    GLubyte dummy[4];
    int i;
 
    union emit_union *v = (union emit_union *)dest;
-
 
    if (RADEON_DEBUG & DEBUG_VERTS)
       fprintf(stderr, "%s\n", __FUNCTION__); 
@@ -63,14 +62,14 @@ static void TAG(emit)( GLcontext *ctx,
     */
    if (VB->ObjPtr->size < 3) {
       if (VB->ObjPtr->flags & VEC_NOT_WRITEABLE) {
-	 VB->import_data( ctx, VERT_OBJ, VEC_NOT_WRITEABLE );
+	 VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
       }
       _mesa_vector4f_clean_elem( VB->ObjPtr, VB->Count, 2 );
    }
 
    if (DO_W && VB->ObjPtr->size < 4) {
       if (VB->ObjPtr->flags & VEC_NOT_WRITEABLE) {
-	 VB->import_data( ctx, VERT_OBJ, VEC_NOT_WRITEABLE );
+	 VB->import_data( ctx, VERT_BIT_POS, VEC_NOT_WRITEABLE );
       }
       _mesa_vector4f_clean_elem( VB->ObjPtr, VB->Count, 3 );
    }
@@ -84,7 +83,7 @@ static void TAG(emit)( GLcontext *ctx,
       tc2_stride = VB->TexCoordPtr[t2]->stride;
       if (DO_PTEX && VB->TexCoordPtr[t2]->size < 4) {
 	 if (VB->TexCoordPtr[t2]->flags & VEC_NOT_WRITEABLE) {
-	    VB->import_data( ctx, VERT_TEX2, VEC_NOT_WRITEABLE );
+	    VB->import_data( ctx, VERT_BIT_TEX2, VEC_NOT_WRITEABLE );
 	 }
 	 _mesa_vector4f_clean_elem( VB->TexCoordPtr[t2], VB->Count, 3 );
       }
@@ -97,12 +96,12 @@ static void TAG(emit)( GLcontext *ctx,
 	 tc1_stride = VB->TexCoordPtr[t1]->stride;
 	 if (DO_PTEX && VB->TexCoordPtr[t1]->size < 4) {
 	    if (VB->TexCoordPtr[t1]->flags & VEC_NOT_WRITEABLE) {
-	       VB->import_data( ctx, VERT_TEX1, VEC_NOT_WRITEABLE );
+	       VB->import_data( ctx, VERT_BIT_TEX1, VEC_NOT_WRITEABLE );
 	    }
 	    _mesa_vector4f_clean_elem( VB->TexCoordPtr[t1], VB->Count, 3 );
 	 }
       } else {
-	 tc1 = (GLuint (*)[4])&ctx->Current.Texcoord[1]; /* could be anything, really */
+	 tc1 = (GLuint (*)[4])&ctx->Current.Attrib[VERT_ATTRIB_TEX1]; /* could be anything, really */
 	 tc1_stride = 0;
       }
    }
@@ -114,12 +113,12 @@ static void TAG(emit)( GLcontext *ctx,
 	 tc0 = (GLuint (*)[4])VB->TexCoordPtr[t0]->data;
 	 if (DO_PTEX && VB->TexCoordPtr[t0]->size < 4) {
 	    if (VB->TexCoordPtr[t0]->flags & VEC_NOT_WRITEABLE) {
-	       VB->import_data( ctx, VERT_TEX0, VEC_NOT_WRITEABLE );
+	       VB->import_data( ctx, VERT_BIT_TEX0, VEC_NOT_WRITEABLE );
 	    }
 	    _mesa_vector4f_clean_elem( VB->TexCoordPtr[t0], VB->Count, 3 );
 	 }
       } else {
-	 tc0 = (GLuint (*)[4])&ctx->Current.Texcoord[0]; /* could be anything, really */
+	 tc0 = (GLuint (*)[4])&ctx->Current.Attrib[VERT_ATTRIB_TEX0]; /* could be anything, really */
 	 tc0_stride = 0;
       }
 	 
@@ -128,10 +127,10 @@ static void TAG(emit)( GLcontext *ctx,
    if (DO_NORM) {
       if (VB->NormalPtr) {
 	 norm_stride = VB->NormalPtr->stride;
-	 norm = (GLuint (*)[3])VB->NormalPtr->data;
+	 norm = (GLuint (*)[4])VB->NormalPtr->data;
       } else {
 	 norm_stride = 0;
-	 norm = (GLuint (*)[3])&ctx->Current.Normal;
+	 norm = (GLuint (*)[4])&ctx->Current.Attrib[VERT_ATTRIB_NORMAL];
       }
    }
 
@@ -149,7 +148,6 @@ static void TAG(emit)( GLcontext *ctx,
 	 col = &dummy; /* any old memory is fine */
 	 col_stride = 0;
       }
-      
    }
 
    if (DO_SPEC) {
@@ -162,7 +160,6 @@ static void TAG(emit)( GLcontext *ctx,
 	 spec = &dummy;
 	 spec_stride = 0;
       }
-	 
    }
 
    if (DO_FOG) {
@@ -170,10 +167,9 @@ static void TAG(emit)( GLcontext *ctx,
 	 fog = VB->FogCoordPtr->data;
 	 fog_stride = VB->FogCoordPtr->stride;
       } else {
-	 fog = (GLfloat *)&dummy; *fog = 0;
+	 fog = (GLfloat (*)[4])&dummy; fog[0][0] = 0.0F;
 	 fog_stride = 0;
       }
-	      
    }
    
    
@@ -187,13 +183,13 @@ static void TAG(emit)( GLcontext *ctx,
 	 if (DO_TEX2) 
 	    tc2 =  (GLuint (*)[4])((GLubyte *)tc2 + start * tc2_stride);
 	 if (DO_NORM) 
-	    norm =  (GLuint (*)[3])((GLubyte *)norm + start * norm_stride);
+	    norm =  (GLuint (*)[4])((GLubyte *)norm + start * norm_stride);
 	 if (DO_RGBA) 
 	    STRIDE_4UB(col, start * col_stride);
 	 if (DO_SPEC)
 	    STRIDE_4UB(spec, start * spec_stride);
 	 if (DO_FOG)
-	    STRIDE_F(fog, start * fog_stride);
+	    fog =  (GLfloat (*)[4])((GLubyte *)fog + start * fog_stride);
       }
 
       for (i=start; i < end; i++) {
@@ -216,7 +212,7 @@ static void TAG(emit)( GLcontext *ctx,
 	    v[2].ui = norm[0][2];
 	    if (TCL_DEBUG) fprintf(stderr, "norm: %.2f %.2f %.2f ", v[0].f, v[1].f, v[2].f);
 	    v += 3;
-	    norm =  (GLuint (*)[3])((GLubyte *)norm +  norm_stride);
+	    norm =  (GLuint (*)[4])((GLubyte *)norm +  norm_stride);
 	 }
 	 if (DO_RGBA) {
 	    v[0].ui = LE32_TO_CPU(*(GLuint *)&col[0]);
@@ -232,8 +228,8 @@ static void TAG(emit)( GLcontext *ctx,
 	       STRIDE_4UB(spec, spec_stride);
 	    }
 	    if (DO_FOG) {
-	       v[0].specular.alpha = fog[0] * 255.0;
-	       STRIDE_F(fog, fog_stride);
+	       v[0].specular.alpha = fog[0][0] * 255.0;
+               fog = (GLfloat (*)[4])((GLubyte *)fog + fog_stride);
 	    }
 	    if (TCL_DEBUG) fprintf(stderr, "%x ", v[0].ui);
 	    v++;
@@ -306,7 +302,8 @@ static void TAG(emit)( GLcontext *ctx,
 	       v[0].specular.blue  = spec[i][2];
 	    }
 	    if (DO_FOG) {
-	       v[0].specular.alpha = fog[i] * 255.0;
+               GLfloat *f = (GLfloat *) ((GLubyte *)fog + fog_stride);
+               v[0].specular.alpha = *f * 255.0;
 	    }
 	    v++;
 	 }

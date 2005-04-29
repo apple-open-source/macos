@@ -1,10 +1,10 @@
 /*
- * $XFree86: xc/programs/xterm/xtermcfg.hin,v 3.42 2002/12/08 22:31:50 dickey Exp $
+ * $XFree86: xc/programs/xterm/xtermcfg.hin,v 3.47 2003/10/27 01:07:58 dickey Exp $
  */
 
 /************************************************************
 
-Copyright 1997-2001,2002 by Thomas E. Dickey
+Copyright 1997-2002,2003 by Thomas E. Dickey
 
                         All Rights Reserved
 
@@ -45,6 +45,7 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #undef HAVE_LIB_NEXTAW		/* CF_X_ATHENA(--with-neXtaw) */
 #undef HAVE_LIB_XAW		/* CF_X_ATHENA */
 #undef HAVE_LIB_XAW3D		/* CF_X_ATHENA(--with-Xaw3d) */
+#undef HAVE_LIB_XAWPLUS		/* CF_X_ATHENA(--with-XawPlus) */
 #undef HAVE_NCURSES_TERM_H	/* AC_CHECK_HEADERS(ncurses/term.h) */
 #undef HAVE_PATHS_H		/* CF_LASTLOG */
 #undef HAVE_STDLIB_H		/* AC_CHECK_HEADERS(stdlib.h) */
@@ -66,13 +67,16 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #undef HAVE_X11_DECKEYSYM_H	/* AC_CHECK_HEADERS(X11/DECkeysym.h) */
 #undef HAVE_X11_SUNKEYSYM_H	/* AC_CHECK_HEADERS(X11/Sunkeysym.h) */
 #undef HAVE_X11_XPOLL_H		/* AC_CHECK_HEADERS(X11/Xpoll.h) */
-#undef HAVE_XKBSTDBELL		/* AC_CHECK_FUNCS(XkbStdBell) */
+#undef HAVE_XKB_BELL_EXT	/* CF_XKB_BELL_EXT */
 #undef NO_ACTIVE_ICON		/* CF_ARG_DISABLE(active-icon) */
 #undef OPT_256_COLORS		/* CF_ARG_ENABLE(256-color) */
 #undef OPT_88_COLORS		/* CF_ARG_ENABLE(88-color) */
 #undef OPT_AIX_COLORS		/* CF_ARG_DISABLE(16-color) */
 #undef OPT_BLINK_CURS		/* CF_ARG_DISABLE(blink-cursor) */
 #undef OPT_BOX_CHARS		/* CF_ARG_DISABLE(boxchars) */
+#undef OPT_BROKEN_OSC		/* CF_ARG_ENABLE(broken-osc) */
+#undef OPT_BROKEN_ST		/* CF_ARG_DISABLE(broken-st) */
+#undef OPT_C1_PRINT		/* CF_ARG_DISABLE(c1-print) */
 #undef OPT_COLOR_CLASS		/* CF_ARG_DISABLE(color-class) */
 #undef OPT_DEC_CHRSET		/* CF_ARG_DISABLE(doublechars) */
 #undef OPT_DEC_LOCATOR		/* CF_ARG_ENABLE(dec-locator) */
@@ -82,10 +86,12 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #undef OPT_INITIAL_ERASE	/* CF_ARG_DISABLE(initial-erase) */
 #undef OPT_INPUT_METHOD		/* CF_ARG_DISABLE(input-method) */
 #undef OPT_ISO_COLORS		/* CF_ARG_DISABLE(ansi-color) */
+#undef OPT_LOAD_VTFONTS		/* CF_ARG_ENABLE(load-vt-fonts) */
 #undef OPT_LUIT_PROG		/* CF_ARG_ENABLE(luit) */
 #undef OPT_MAXIMIZE		/* CF_ARG_DISABLE(maximize) */
 #undef OPT_NUM_LOCK		/* CF_ARG_DISABLE(num-lock) */
 #undef OPT_PC_COLORS		/* CF_ARG_DISABLE(pc-color) */
+#undef OPT_PTY_HANDSHAKE	/* CF_ARG_ENABLE(pty-handshake) */
 #undef OPT_SAME_NAME
 #undef OPT_SCO_FUNC_KEYS	/* CF_ARG_ENABLE(sco-fkeys) */
 #undef OPT_TCAP_QUERY
@@ -121,8 +127,13 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #undef ut_xstatus		/* CF_UTMP_UT_XSTATUS */
 #undef ut_xtime			/* CF_UTMP_UT_XTIME */
 
+/*
+ * g++ support for __attribute__() is haphazard.
+ */
+#ifndef __cplusplus
 #undef GCC_PRINTF
 #undef GCC_UNUSED
+#endif
 
 #ifdef USE_OK_BCOPY
 #define memmove(d,s,n) bcopy(s,d,n)
@@ -140,10 +151,6 @@ extern char *my_strerror(int n);
 
 #ifndef HAVE_X11_XPOLL_H
 #define NO_XPOLL_H	/* X11R6.1 & up use Xpoll.h for select() definitions */
-#endif
-
-#ifndef HAVE_XKBSTDBELL
-#define NO_XKBSTDBELL	/* IRIX 6.2 incorrectly defines XKB in imake */
 #endif
 
 #endif /* included_xtermcfg_h */

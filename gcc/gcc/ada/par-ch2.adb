@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2003 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -48,7 +47,7 @@ package body Ch2 is
 
    --  Error recovery: can raise Error_Resync (cannot return Error)
 
-   function P_Identifier return Node_Id is
+   function P_Identifier (C : Id_Check := None) return Node_Id is
       Ident_Node : Node_Id;
 
    begin
@@ -62,7 +61,7 @@ package body Ch2 is
       --  If we have a reserved identifier, manufacture an identifier with
       --  a corresponding name after posting an appropriate error message
 
-      elsif Is_Reserved_Identifier then
+      elsif Is_Reserved_Identifier (C) then
          Scan_Reserved_Identifier (Force_Msg => False);
          Ident_Node := Token_Node;
          Scan; -- past the node
@@ -299,7 +298,20 @@ package body Ch2 is
             Scan; -- past comma
          end loop;
 
-         T_Right_Paren;
+         --  If we have := for pragma Debug, it is worth special casing
+         --  the error message (it is easy to think of pragma Debug as
+         --  taking a statement, and an assignment statement is the most
+         --  likely candidate for this error)
+
+         if Token = Tok_Colon_Equal and then Pragma_Name = Name_Debug then
+            Error_Msg_SC ("argument for pragma Debug must be procedure call");
+            Resync_To_Semicolon;
+
+         --  Normal case, we expect a right paren here
+
+         else
+            T_Right_Paren;
+         end if;
       end if;
 
       Semicolon_Loc := Token_Ptr;

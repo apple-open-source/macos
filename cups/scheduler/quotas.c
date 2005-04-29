@@ -1,9 +1,9 @@
 /*
- * "$Id: quotas.c,v 1.1.1.8 2003/02/10 21:59:00 jlovell Exp $"
+ * "$Id: quotas.c,v 1.7 2005/01/04 22:10:46 jlovell Exp $"
  *
  *   Quota routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,19 +15,19 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
  * Contents:
  *
- *   AddQuota()    - Add a quota record for this printer and user.
- *   FindQuota()   - Find a quota record.
- *   FreeQuotas()  - Free quotas for a printer.
- *   UpdateQuota() - Update quota data for the specified printer and user.
- *   compare()     - Compare two quota records...
+ *   AddQuota()      - Add a quota record for this printer and user.
+ *   FindQuota()     - Find a quota record.
+ *   FreeQuotas()    - Free quotas for a printer.
+ *   UpdateQuota()   - Update quota data for the specified printer and user.
+ *   quota_compare() - Compare two quota records...
  */
 
 /*
@@ -36,12 +36,22 @@
 
 #include "cupsd.h"
 
+#ifdef __APPLE__
+#ifdef HAVE_DLFCN_H
+typedef int (*PSQUpdateQuotaProcPtr)(const char *printer, const char *info, 
+                                       const char *user, int nPages, int options);
+
+/* External global symbols */
+extern void *PSQUpdateQuotaProc;
+#endif /* HAVE_DLFCN_H */
+#endif /* __APPLE__ */
+
 
 /*
  * Local functions...
  */
 
-static int	compare(const quota_t *q1, const quota_t *q2);
+static int	quota_compare(const quota_t *q1, const quota_t *q2);
 
 
 /*
@@ -75,7 +85,7 @@ AddQuota(printer_t  *p,			/* I - Printer */
 
   if (p->num_quotas > 1)
     qsort(p->quotas, p->num_quotas, sizeof(quota_t),
-          (int (*)(const void *, const void *))compare);
+          (int (*)(const void *, const void *))quota_compare);
 
   return (FindQuota(p, username));
 }
@@ -103,7 +113,7 @@ FindQuota(printer_t  *p,		/* I - Printer */
     strlcpy(match.username, username, sizeof(match.username));
 
     q = bsearch(&match, p->quotas, p->num_quotas, sizeof(quota_t),
-                (int(*)(const void *, const void *))compare);
+                (int(*)(const void *, const void *))quota_compare);
   }
 
   if (q)
@@ -159,6 +169,20 @@ UpdateQuota(printer_t  *p,		/* I - Printer */
 
   LogMessage(L_DEBUG, "UpdateQuota: p=%s username=%s pages=%d k=%d",
              p->name, username, pages, k);
+
+#ifdef __APPLE__
+#ifdef HAVE_DLFCN_H
+ /*
+  * Use Apple PrintService quota enforcement if installed (X Server only)
+  */
+  if (PSQUpdateQuotaProc)
+  { 
+    q->page_count = ((PSQUpdateQuotaProcPtr) PSQUpdateQuotaProc)(p->name, 
+			p->info, username, pages, 0);
+    return (q);
+  }
+#endif /* HAVE_DLFCN_H */
+#endif /* __APPLE__ */
 
   curtime = time(NULL);
 
@@ -222,17 +246,17 @@ UpdateQuota(printer_t  *p,		/* I - Printer */
 
 
 /*
- * 'compare()' - Compare two quota records...
+ * 'quota_compare()' - Compare two quota records...
  */
 
 static int				/* O - Result of comparison */
-compare(const quota_t *q1,		/* I - First quota record */
-        const quota_t *q2)		/* I - Second quota record */
+quota_compare(const quota_t *q1,	/* I - First quota record */
+	      const quota_t *q2)	/* I - Second quota record */
 {
   return (strcasecmp(q1->username, q2->username));
 }
 
 
 /*
- * End of "$Id: quotas.c,v 1.1.1.8 2003/02/10 21:59:00 jlovell Exp $".
+ * End of "$Id: quotas.c,v 1.7 2005/01/04 22:10:46 jlovell Exp $".
  */

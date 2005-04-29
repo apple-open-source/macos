@@ -1,0 +1,35 @@
+.\" Man stranica za whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\"   You may distribute under the terms of the GNU General Public
+.\"   License as specified in the README file that comes with the man 1.0
+.\"   distribution.  
+.\"
+.\" Mo¾ete distribuirati pod uvjetima GNU Opæe javne licence kako je
+.\" odreðeno u datoteci README koja dolazi s distribucijom mana 1.0.
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" 9. studenog 1998. preveo Matej Vela <mvela@public.srce.hr>, META.
+.TH whatis 1 "5. sijeènja 1991."
+.SH IME
+whatis \- tra¾i potpune rijeèi u whatis bazi podataka
+.SH SA®ETAK
+.BI whatis kljuèna_rijeè
+...
+.SH OPIS
+.B whatis
+tra¾i kljuène rijeèi u skupu baza podataka koje sadr¾e kratke opise naredbi
+sustava i prikazuje rezultate na standardnom izlazu.
+Prikazuju se samo rijeèi koje potpuno odgovaraju zadanima.
+.PP
+.B whatis
+baza podataka se stvara naredbom @makewhatis@.
+.SH "TAKOÐER POGLEDAJTE"
+.BR apropos (1),
+.BR man (1).

@@ -1,0 +1,591 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.enterprise.sqlreflector.SQLReflector</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.enterprise.html">Package&nbsp;enterprise</a> ::
+        <a href="twisted.enterprise.sqlreflector.html">Module&nbsp;sqlreflector</a> ::
+        Class&nbsp;SQLReflector
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.enterprise.sqlreflector.SQLReflector.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF CLASS DESCRIPTION =========== -->
+<h2 class="class">Class SQLReflector</h2>
+
+<pre class="base-tree">
+<a href="twisted.enterprise.adbapi.Augmentation.html"><code>Augmentation</code></a> --+
+               |
+   <a href="twisted.enterprise.reflector.Reflector.html"><code>Reflector</code></a> --+
+               |
+              <b>SQLReflector</b>
+</pre><br />
+
+<hr/>
+
+<p>I reflect on a database and load RowObjects from it.</p>
+In order to do this, I interrogate a relational database to extract 
+schema information and interface with RowObject class objects that can 
+interact with specific tables.
+<hr/>
+
+
+<!-- =========== START OF METHOD SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Method Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#__init__" class="summary-sig-name"><code>__init__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>dbpool</span>,
+          <span class=summary-sig-arg>rowClasses</span>)</span></code>
+<br />
+Initialize me against a database.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#_populate" class="summary-sig-name"><code>_populate</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Implement me to populate schema information for the reflector.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#_populateSchemaFor" class="summary-sig-name"><code>_populateSchemaFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rc</span>)</span></code>
+<br />
+Construct all the SQL templates for database operations on 
+&lt;tableName&gt; and populate the class &lt;rowClass&gt; with that 
+info.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#_rowLoader" class="summary-sig-name"><code>_rowLoader</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>transaction</span>,
+          <span class=summary-sig-arg>tableName</span>,
+          <span class=summary-sig-arg>parentRow</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>whereClause</span>,
+          <span class=summary-sig-arg>forceChildren</span>)</span></code>
+<br />
+immediate loading of rowobjects from the table with the 
+whereClause.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#_transPopulateSchema" class="summary-sig-name"><code>_transPopulateSchema</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+<br />
+Used to construct the row classes in a single interaction.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#buildDeleteSQL" class="summary-sig-name"><code>buildDeleteSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableInfo</span>)</span></code>
+<br />
+Build the SQL template to delete a row from the table.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#buildInsertSQL" class="summary-sig-name"><code>buildInsertSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableInfo</span>)</span></code>
+<br />
+(Internal) Build SQL template to insert a new row.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#buildUpdateSQL" class="summary-sig-name"><code>buildUpdateSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableInfo</span>)</span></code>
+<br />
+(Internal) Build SQL template to update a RowObject.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#deleteRow" class="summary-sig-name"><code>deleteRow</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Delete the row for rowObject from the database.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#deleteRowSQL" class="summary-sig-name"><code>deleteRowSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Build SQL to delete rowObject from the database.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#escape_string" class="summary-sig-name"><code>escape_string</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>text</span>)</span></code>
+<br />
+Escape a string for use in an SQL statement.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findTypeFor"></a><span class="summary-sig"><span class="summary-sig-name">findTypeFor</span>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableName</span>,
+          <span class=summary-sig-arg>columnName</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#insertRow" class="summary-sig-name"><code>insertRow</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Insert a new row for rowObject.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#insertRowSQL" class="summary-sig-name"><code>insertRowSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Build SQL to insert the contents of rowObject.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#loadObjectsFrom" class="summary-sig-name"><code>loadObjectsFrom</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableName</span>,
+          <span class=summary-sig-arg>parentRow</span>,
+          <span class=summary-sig-arg>data</span>,
+          <span class=summary-sig-arg>whereClause</span>,
+          <span class=summary-sig-arg>forceChildren</span>)</span></code>
+<br />
+Load a set of RowObjects from a database.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#quote_value" class="summary-sig-name"><code>quote_value</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>value</span>,
+          <span class=summary-sig-arg>type</span>)</span></code>
+<br />
+Format a value for use in an SQL statement.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#updateRow" class="summary-sig-name"><code>updateRow</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Update the contents of rowObject to the database.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.sqlreflector.SQLReflector.html#updateRowSQL" class="summary-sig-name"><code>updateRowSQL</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Build SQL to update the contents of rowObject.</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Reflector</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#__getstate__" class="summary-sig-name"><code>__getstate__</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#__setstate__" class="summary-sig-name"><code>__setstate__</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>state</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#addToCache" class="summary-sig-name"><code>addToCache</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+NOTE: Should this be recursive?! requires better container 
+knowledge...</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#addToParent" class="summary-sig-name"><code>addToParent</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>parentRow</span>,
+          <span class=summary-sig-arg>rows</span>,
+          <span class=summary-sig-arg>tableName</span>)</span></code>
+<br />
+util method used by reflectors.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#buildWhereClause" class="summary-sig-name"><code>buildWhereClause</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>relationship</span>,
+          <span class=summary-sig-arg>row</span>)</span></code>
+<br />
+util method used by reflectors.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#findInCache" class="summary-sig-name"><code>findInCache</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowClass</span>,
+          <span class=summary-sig-arg>kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#getTableInfo" class="summary-sig-name"><code>getTableInfo</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+Get a TableInfo record about a particular instance.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#populateSchemaFor" class="summary-sig-name"><code>populateSchemaFor</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>tableInfo</span>)</span></code>
+<br />
+This is called once for each registered rowClass to add it and its 
+foreign key relationships for that rowClass to the schema.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.reflector.Reflector.html#removeFromCache" class="summary-sig-name"><code>removeFromCache</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>rowObject</span>)</span></code>
+<br />
+NOTE: should this be recursive!??</td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Augmentation</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#createSchema" class="summary-sig-name"><code>createSchema</code></a>(<span class=summary-sig-arg>self</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#operationDone" class="summary-sig-name"><code>operationDone</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>done</span>)</span></code>
+<br />
+Example callback for database operation success.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#operationError" class="summary-sig-name"><code>operationError</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+<br />
+Example callback for database operation failure.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#runInteraction" class="summary-sig-name"><code>runInteraction</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>interaction</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#runOperation" class="summary-sig-name"><code>runOperation</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#runQuery" class="summary-sig-name"><code>runQuery</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kw</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#schemaCreated" class="summary-sig-name"><code>schemaCreated</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>result</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.enterprise.adbapi.Augmentation.html#schemaNotCreated" class="summary-sig-name"><code>schemaNotCreated</code></a>(<span class=summary-sig-arg>self</span>,
+          <span class=summary-sig-arg>error</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF CLASS VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Class Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>dict</code></font></td>
+<td><b><a href="twisted.enterprise.sqlreflector.SQLReflector.html#conditionalLabels"><code>conditionalLabels</code></a></b> = <span title="{0: '=', 1: '&lt;', 2: '&gt;', 3: 'like'}"><code>{0:&nbsp;'=',&nbsp;1:&nbsp;'&lt;',&nbsp;2:&nbsp;'&gt;',&nbsp;3:&nbsp;'like'}  </code>
+</span></td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>int</code></font></td>
+<td><b><a href="twisted.enterprise.sqlreflector.SQLReflector.html#populated"><code>populated</code></a></b> = <span title="0">0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td></tr>
+<tr bgcolor="#e8f0f8" class="group">
+  <th colspan="2">&nbsp;&nbsp;&nbsp;&nbsp;Inherited from Augmentation</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.enterprise.adbapi.Augmentation.html#schema"><code>schema</code></a></b> = <span title="' Insert your SQL database schema here. '"><code><span class="variable-quote">'</span>&nbsp;Insert&nbsp;your&nbsp;SQL&nbsp;database&nbsp;schema&nbsp;here.&nbsp;<span class="variable-quote">'</span>       </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF METHOD DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Method Details</th></tr>
+</table>
+
+<a name="__init__"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">__init__</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>dbpool</span>,
+          <span class=sig-arg>rowClasses</span>)</span>
+    <br /><i>(Constructor)</i>
+  </h3>
+  Initialize me against a database.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#__init__"><code>twisted.enterprise.reflector.Reflector.__init__</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_populate"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_populate</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Implement me to populate schema information for the reflector.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#_populate"><code>twisted.enterprise.reflector.Reflector._populate</code></a> <i>(inherited documentation)</i>
+</dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_populateSchemaFor"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_populateSchemaFor</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rc</span>)</span>
+  </h3>
+  Construct all the SQL templates for database operations on 
+  &lt;tableName&gt; and populate the class &lt;rowClass&gt; with that 
+  info.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_rowLoader"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_rowLoader</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>transaction</span>,
+          <span class=sig-arg>tableName</span>,
+          <span class=sig-arg>parentRow</span>,
+          <span class=sig-arg>data</span>,
+          <span class=sig-arg>whereClause</span>,
+          <span class=sig-arg>forceChildren</span>)</span>
+  </h3>
+  immediate loading of rowobjects from the table with the 
+  whereClause.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="_transPopulateSchema"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_transPopulateSchema</span>(<span class=sig-arg>self</span>)</span>
+  </h3>
+  Used to construct the row classes in a single interaction.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="buildDeleteSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">buildDeleteSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>tableInfo</span>)</span>
+  </h3>
+  Build the SQL template to delete a row from the table.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="buildInsertSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">buildInsertSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>tableInfo</span>)</span>
+  </h3>
+  <p>(Internal) Build SQL template to insert a new row.</p>
+  Returns: SQL that is used to insert a new row for a rowObject 
+  instance not created from the database.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="buildUpdateSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">buildUpdateSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>tableInfo</span>)</span>
+  </h3>
+  <p>(Internal) Build SQL template to update a RowObject.</p>
+  Returns: SQL that is used to contruct a rowObject class.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="deleteRow"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">deleteRow</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Delete the row for rowObject from the database.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#deleteRow"><code>twisted.enterprise.reflector.Reflector.deleteRow</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="deleteRowSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">deleteRowSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Build SQL to delete rowObject from the database.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="escape_string"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">escape_string</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>text</span>)</span>
+  </h3>
+  Escape a string for use in an SQL statement. The default 
+  implementation escapes ' with '' and \ with \. Redefine this function 
+  in a subclass if your database server uses different escaping 
+  rules.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="insertRow"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">insertRow</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Insert a new row for rowObject.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#insertRow"><code>twisted.enterprise.reflector.Reflector.insertRow</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="insertRowSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">insertRowSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Build SQL to insert the contents of rowObject.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="loadObjectsFrom"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">loadObjectsFrom</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>tableName</span>,
+          <span class=sig-arg>parentRow</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>data</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>whereClause</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>forceChildren</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Load a set of RowObjects from a database.</p>
+  Create a set of python objects of &lt;rowClass&gt; from the contents 
+  of a table populated with appropriate data members. Example:
+<pre class="literalblock">
+ |  class EmployeeRow(row.RowObject):
+ |      pass
+ |
+ |  def gotEmployees(employees):
+ |      for emp in employees:
+ |          emp.manager = &quot;fred smith&quot;
+ |          manager.updateRow(emp)
+ |
+ |  reflector.loadObjectsFrom(&quot;employee&quot;,
+ |                          data = userData,
+ |                          whereClause = [(&quot;manager&quot; , EQUAL, &quot;fred smith&quot;)]
+ |                          ).addCallback(gotEmployees)
+</pre>
+  NOTE: the objects and all children should be loaded in a single 
+  transaction. NOTE: can specify a parentRow _OR_ a whereClause.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#loadObjectsFrom"><code>twisted.enterprise.reflector.Reflector.loadObjectsFrom</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="quote_value"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">quote_value</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>value</span>,
+          <span class=sig-arg>type</span>)</span>
+  </h3>
+  Format a value for use in an SQL statement.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Parameters:</b></dt>
+      <dd><code><b>value</b></code> -
+         a value to format as data in SQL.
+      <dd><code><b>type</b></code> -
+         a key in util.dbTypeMap.
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="updateRow"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">updateRow</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Update the contents of rowObject to the database.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Overrides:</b></dt>
+      <dd><a href="twisted.enterprise.reflector.Reflector.html#updateRow"><code>twisted.enterprise.reflector.Reflector.updateRow</code></a></dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="updateRowSQL"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">updateRowSQL</span>(<span class=sig-arg>self</span>,
+          <span class=sig-arg>rowObject</span>)</span>
+  </h3>
+  Build SQL to update the contents of rowObject.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF CLASS VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Class Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="conditionalLabels"></a>
+<h3>conditionalLabels</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>dict</code>
+
+      </dd>
+<span title="{0: '=', 1: '&lt;', 2: '&gt;', 3: 'like'}">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+{0: '=', 1: '&lt;', 2: '&gt;', 3: 'like'}                                    </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="populated"></a>
+<h3>populated</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>int</code>
+
+      </dd>
+<span title="0">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+0&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:55 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

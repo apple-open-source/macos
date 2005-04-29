@@ -71,7 +71,7 @@
  * The Original Software is CID font code that was developed by Silicon
  * Graphics, Inc.
  */
-/* $XFree86: xc/lib/font/Type1/t1funcs.c,v 3.30 2002/12/09 17:29:59 dawes Exp $ */
+/* $XFree86: xc/lib/font/Type1/t1funcs.c,v 3.34 2004/02/02 03:55:27 dawes Exp $ */
 
 /*
 
@@ -123,10 +123,14 @@ from The Open Group.
 #else
 #include "Xmd.h"
 #include "Xdefs.h"
-#include "xf86_ansic.h"
 #endif
 
 #include "os.h"
+
+#ifdef FONTMODULE
+#include "xf86_ansic.h"
+#endif
+
 #include "fntfilst.h"
 #include "fontutil.h"
 #include "FSproto.h"
@@ -204,7 +208,6 @@ CIDOpenScalable (FontPathElementPtr fpe,
                 glyph,
                 scan,
                 image;
-    int pad,wordsize;     /* scan & image in bits                         */
     long *pool;           /* memory pool for ximager objects              */
     int size;             /* for memory size calculations                 */
     struct XYspace *S;    /* coordinate space for character               */
@@ -227,8 +230,9 @@ CIDOpenScalable (FontPathElementPtr fpe,
 #endif
 #if defined(CID_ALL_CHARS)
     char *cf;
-#endif
+#else
     long sAscent, sDescent;
+#endif
 
     /* check the font name */
     len = strlen(fileName);
@@ -324,9 +328,6 @@ CIDOpenScalable (FontPathElementPtr fpe,
     rc = CheckFSFormat(format, fmask, &bit, &byte, &scan, &glyph, &image);
     if (rc != Successful)
         return rc;
-
-    pad                = glyph * 8;
-    wordsize           = scan * 8;
 
 #define  PAD(bits, pad)  (((bits)+(pad)-1)&-(pad))
 
@@ -461,8 +462,10 @@ CIDOpenScalable (FontPathElementPtr fpe,
     /* CID-keyed are not constant-width fonts.                      */
     pFont->info.constantWidth = 0;
 
+#ifndef CID_ALL_CHARS
     sAscent = CIDFontP->CIDfontInfoP[CIDFONTBBOX].value.data.arrayP[3].data.integer;
     sDescent = -CIDFontP->CIDfontInfoP[CIDFONTBBOX].value.data.arrayP[1].data.integer;
+#endif
 
     if (strncmp(entry->name.name, "-bogus", 6)) {
 #ifdef CID_ALL_CHARS
@@ -508,8 +511,7 @@ Type1OpenScalable (FontPathElementPtr fpe,
        struct XYspace *S;    /* coordinate space for character               */
        struct region *area;
        CharInfoRec *glyphs;
-       register int i;
-       int len, rc, count = 0;
+       int len, rc, count = 0, i = 0;
        struct type1font *type1;
        char *p;
        FontMapPtr mapping = NULL;
@@ -617,6 +619,9 @@ Type1OpenScalable (FontPathElementPtr fpe,
            no_mapping=1;        /* font's native encoding vector */
        }
 
+       pFont->info.firstCol = 255;
+       pFont->info.lastCol  = 0;
+
        if(!no_mapping) {
            mapping = FontEncMapFind(p, 
                                     FONT_ENCODING_POSTSCRIPT, -1, -1,
@@ -626,13 +631,10 @@ Type1OpenScalable (FontPathElementPtr fpe,
                                         FONT_ENCODING_UNICODE, -1, -1,
                                         fileName);
            if(!mapping)
-               no_mapping=2;
+	       goto NoEncoding;
            else
                no_mapping=0;
        }
-
-       pFont->info.firstCol = 255;
-       pFont->info.lastCol  = 0;
 
        for (i=0; i < 256; i++) {
                long h,w;
@@ -757,7 +759,8 @@ Type1OpenScalable (FontPathElementPtr fpe,
  
                Destroy(area);
        }
- 
+ NoEncoding:
+       
        delmemory();
        xfree(pool);
  
@@ -948,7 +951,7 @@ CIDGetGlyphs(FontPtr pFont,
 	     unsigned long *glyphCount, /* RETURN */
 	     CharInfoPtr *glyphs)	/* RETURN */
 {
-    unsigned int firstRow, numRows, code, char_row, char_col;
+    unsigned int code, char_row, char_col;
     CharInfoPtr *glyphsBase;
     register unsigned int c;
     CharInfoPtr pci;
@@ -1040,8 +1043,6 @@ CIDGetGlyphs(FontPtr pFont,
         break;
 
     case TwoD16Bit:
-        firstRow = pFont->info.firstRow;
-        numRows = pFont->info.lastRow - firstRow + 1;
         while (count--) {
             char_row = (*chars++);
             char_col = (*chars++);

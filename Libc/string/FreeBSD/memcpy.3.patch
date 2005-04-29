@@ -1,14 +1,29 @@
---- memcpy.3.orig	Tue May 20 15:23:54 2003
-+++ memcpy.3	Sat Jun 21 06:17:05 2003
-@@ -58,6 +58,18 @@
+--- memcpy.3.orig	Fri May 28 17:44:25 2004
++++ memcpy.3	Fri May 28 17:45:22 2004
+@@ -41,7 +41,7 @@
+ .Os
+ .Sh NAME
+ .Nm memcpy
+-.Nd copy byte string
++.Nd copy memory area
+ .Sh LIBRARY
+ .Lb libc
+ .Sh SYNOPSIS
+@@ -54,10 +54,22 @@
+ function
+ copies
+ .Fa len
+-bytes from string
++bytes from memory area
  .Fa src
- to string
+-to string
++to memory area
  .Fa dst .
 +If 
 +.Fa src
 +and 
 +.Fa dst
-+overlap, behaviour is undefined.
++overlap, behavior is undefined.
 +Applications in which
 +.Fa src
 +and 

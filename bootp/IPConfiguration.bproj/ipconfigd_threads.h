@@ -2,23 +2,24 @@
 #ifndef _S_IPCONFIGD_THREADS_H
 #define _S_IPCONFIGD_THREADS_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,7 +37,7 @@
 
 #include <mach/boolean.h>
 #include "ipconfig_types.h"
-#include "ipconfigd_globals.h"
+#include "globals.h"
 #include "bootp_session.h"
 #include "arp_session.h"
 #include "timer.h"
@@ -52,6 +53,10 @@ typedef enum {
     IFEventID_change_e,			/* ask config method to change */
     IFEventID_renew_e,			/* ask config method to renew */
     IFEventID_arp_collision_e,		/* there was an ARP collision */
+    IFEventID_sleep_e,			/* system will sleep */
+    IFEventID_wake_e,			/* system has awoken */
+    IFEventID_power_off_e,		/* system is powering off */
+    IFEventID_network_changed_e,	/* the underlying network changed */
     IFEventID_last_e,
 } IFEventID_t;
 
@@ -68,6 +73,10 @@ IFEventID_names(IFEventID_t evid)
 	"CHANGE",
 	"RENEW",
 	"ARP COLLISION",
+	"SLEEP",
+	"WAKE",
+	"POWER OFF",
+	"NETWORK CHANGED",
     };
     if (evid < IFEventID_start_e || evid >= IFEventID_last_e)
 	return ("<unknown event>");
@@ -114,6 +123,7 @@ struct IFState {
     boolean_t			startup_ready;
     boolean_t			free_in_progress;
     boolean_t			netboot;
+    struct ether_addr		bssid;
 };
 
 struct saved_pkt {
@@ -146,8 +156,6 @@ typedef struct {
     int				hwlen;
 } arp_collision_data_t;
 
-extern struct ether_addr *ether_aton(char *);
-
 /*
  * Function: ip_valid
  * Purpose:
@@ -163,31 +171,11 @@ ip_valid(struct in_addr ip)
     return (TRUE);
 }
 
-static __inline__ ipconfig_status_t
+extern ipconfig_status_t
 validate_method_data_addresses(config_data_t * cfg, ipconfig_method_t method,
-			       char * ifname)
-{
-    if (cfg->data_len < sizeof(ipconfig_method_data_t)
-	+ sizeof(struct in_addr) * 2) {
-	my_log(LOG_DEBUG, "%s %s: method data too short (%d bytes)",
-	       ipconfig_method_string(method), ifname, cfg->data_len);
-	return (ipconfig_status_invalid_parameter_e);
-    }
-    if (cfg->data->n_ip == 0) {
-	my_log(LOG_DEBUG, "%s %s: no IP addresses specified", 
-	       ipconfig_method_string(method), ifname);
-	return (ipconfig_status_invalid_parameter_e);
-    }
-    if (ip_valid(cfg->data->ip[0].addr) == FALSE) {
-	my_log(LOG_DEBUG, "%s %s: invalid IP %s", 
-	       ipconfig_method_string(method), ifname,
-	       inet_ntoa(cfg->data->ip[0].addr));
-	return (ipconfig_status_invalid_parameter_e);
-    }
-    return (ipconfig_status_success_e);
-}
+			       char * ifname);
 
-extern unsigned	count_params(dhcpol_t * options, u_char * tags, int size);
+extern unsigned	count_params(dhcpol_t * options, const u_char * tags, int size);
 
 extern char *	computer_name();
 
@@ -214,6 +202,10 @@ void
 service_publish_success(Service_t * service_p, void * pkt, int pkt_size);
 
 void
+service_publish_success2(Service_t * service_p, void * pkt, int pkt_size,
+			 absolute_time_t start);
+
+void
 service_publish_failure(Service_t * service_p, 
 			ipconfig_status_t status, char * msg);
 
@@ -224,7 +216,7 @@ service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
 
 void
 service_report_conflict(Service_t * service_p, struct in_addr * ip,
-			void * hwaddr, struct in_addr * server);
+			const void * hwaddr, struct in_addr * server);
 
 void
 service_tell_user(Service_t * service_p, char * msg);
@@ -269,13 +261,22 @@ linklocal_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
  * DHCP lease information
  */
 boolean_t
-dhcp_lease_read(const char *, struct in_addr *);
+dhcp_lease_read(const char * ifname, 
+		u_char cid_type, const void * cid, int cid_length, 
+		absolute_time_t * lease_start,
+		char * pkt, int * pkt_size, 
+		char * router_hwaddr, int * router_hwaddr_size);
 
 boolean_t
-dhcp_lease_write(const char *, struct in_addr);
+dhcp_lease_write(const char * ifname, 
+		 u_char cid_type, const void * cid, int cid_length, 
+		 absolute_time_t lease_start,
+		 const char * pkt, int pkt_size, 
+		 const char * router_hwaddr, int router_hwaddr_size);
 
 void
-dhcp_lease_clear(const char *);
+dhcp_lease_clear(const char * ifname, 
+		 u_char cid_type, const void * cid, int cid_length);
 
 void
 netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);

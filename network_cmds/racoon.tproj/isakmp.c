@@ -147,6 +147,8 @@ static int isakmp_ph2begin_i __P((struct ph1handle *, struct ph2handle *));
 static int isakmp_ph2begin_r __P((struct ph1handle *, vchar_t *));
 static int etypesw1 __P((int));
 static int etypesw2 __P((int));
+static void isakmp_free_addrs __P((void));
+
 
 /*
  * isakmp packet handler
@@ -201,6 +203,8 @@ isakmp_handler(so_isakmp)
 		goto end;
 	}
 
+	remote_len = sizeof(remote);
+
 	/* read real message */
 	if ((buf = vmalloc(ntohl(isakmp.len))) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -220,7 +224,8 @@ isakmp_handler(so_isakmp)
 		if (errno == EINTR)
 			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to receive isakmp packet\n");
+			"failed to read isakmp packet from socket %d, len=%d\n", so_isakmp, buf->l);
+		error = -2;    /* serious problem with socket */
 		goto end;
 	}
 
@@ -341,6 +346,8 @@ isakmp_natt_handler(so_isakmp)
 		goto end;
 	}
 
+	remote_len = sizeof(remote);
+
 	/* read real message */
 	if ((buf = vmalloc(ntohl(isakmp->len) + 4)) == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -360,7 +367,8 @@ isakmp_natt_handler(so_isakmp)
 		if (errno == EINTR)
 			continue;
 		plog(LLV_ERROR, LOCATION, NULL,
-			"failed to receive isakmp packet\n");
+			"failed to read isakmp packet from socket %d, len=%d\n", so_isakmp, buf->l);
+		error = -2;    /* serious problem with socket */
 		goto end;
 	}
 
@@ -923,10 +931,6 @@ quick_main(iph2, msg)
 		return -1;
 	}
 
-	/* when using commit bit, status will be reached here. */
-	if (iph2->status == PHASE2ST_ADDSA)
-		return 0;
-
 	/* free resend buffer */
 	if (iph2->sendbuf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -939,6 +943,10 @@ quick_main(iph2, msg)
 	/* turn off schedule */
 	if (iph2->scr)
 		SCHED_KILL(iph2->scr);
+		
+	/* when using commit bit, status will be reached here. */
+	if (iph2->status == PHASE2ST_ADDSA)
+		return 0;
 
 	/* send */
 	plog(LLV_DEBUG, LOCATION, NULL, "===\n");
@@ -1549,7 +1557,12 @@ isakmp_open()
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (!p->addr)
 			continue;
-
+			
+		if (p->sock != -1) {
+			ifnum++;
+			continue;		// socket already open	
+		}
+					
 		/* warn if wildcard address - should we forbid this? */
 		switch (p->addr->sa_family) {
 		case AF_INET:
@@ -1591,14 +1604,12 @@ isakmp_open()
 		{
 			struct sockaddr_in	sin = *(struct sockaddr_in*)p->addr;
 			
-			sin.sin_port = ntohs(PORT_ISAKMP_NATT);
+			sin.sin_port = htons(PORT_ISAKMP_NATT);
 			p->nattsock = isakmp_setup_socket((struct sockaddr*)&sin);
 			if (p->nattsock >= 0)
-			{
 				plog(LLV_DEBUG, LOCATION, NULL,
 					"%s used as nat-t isakmp port (fd=%d)\n",
 					saddr2str((struct sockaddr*)&sin), p->nattsock);
-			}
 		}
 #endif
 
@@ -1624,24 +1635,79 @@ isakmp_open()
 void
 isakmp_close()
 {
+	isakmp_close_sockets();
+	isakmp_free_addrs();
+}
+
+void
+isakmp_close_sockets()
+{
+	struct myaddrs *p;
+
+	for (p = lcconf->myaddrs; p; p = p->next) {
+
+		if (!p->addr)
+			continue;
+
+		if (p->sock >= 0) {
+			close(p->sock);
+			p->sock = -1;
+		}
+
+#ifdef IKE_NAT_T
+		if (p->nattsock >= 0) {
+			close(p->nattsock);
+			p->nattsock = -1;
+		}
+#endif
+		
+	}
+
+}
+
+void
+isakmp_free_addrs()
+{
 	struct myaddrs *p, *next;
 
 	for (p = lcconf->myaddrs; p; p = next) {
 		next = p->next;
 
-		if (!p->addr) {
-			racoon_free(p);
-			continue;
-		}
-		close(p->sock);
-#ifdef IKE_NAT_T
-		if (p->nattsock >= 0) close(p->nattsock);
-#endif
-		racoon_free(p->addr);
+		if (p->addr)
+			racoon_free(p->addr);
 		racoon_free(p);
 	}
 
 	lcconf->myaddrs = NULL;
+
+}
+
+
+// close sockets for addresses that have gone away
+void
+isakmp_close_unused()
+{
+	struct myaddrs *p, *next, **prev;
+	
+	prev = &(lcconf->myaddrs);
+	for (p = lcconf->myaddrs; p; p = next) {
+		next = p->next;
+		if (p->addrcount == 0) { 	// not in use ?
+	
+			if (p->sock >= 0)
+				close(p->sock);
+			
+	#ifdef IKE_NAT_T
+			if (p->nattsock >= 0) 
+				close(p->nattsock);
+	#endif
+			*prev = p->next;
+			if (p->addr)
+				racoon_free(p->addr);
+			racoon_free(p);
+		} else
+			prev = &(p->next);
+	}
 }
 
 int
@@ -1745,6 +1811,15 @@ isakmp_ph2resend(iph2)
 			"phase2 negotiation failed due to time up. %s\n",
 				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 		unbindph12(iph2);
+		remph2(iph2);
+		delph2(iph2);
+		return -1;
+	}
+
+	if (iph2->ph1 == 0) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			"internal error - attempt to re-send phase2 with no phase1 bound.\n");
+		iph2->retry_counter = -1;
 		remph2(iph2);
 		delph2(iph2);
 		return -1;

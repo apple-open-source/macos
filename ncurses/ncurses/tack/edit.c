@@ -23,7 +23,7 @@
 #include <time.h>
 #include <tic.h>
 
-MODULE_ID("$Id: edit.c,v 1.1.1.1 2001/11/29 20:40:59 jevans Exp $")
+MODULE_ID("$Id: edit.c,v 1.8 2001/06/18 18:44:32 tom Exp $")
 
 /*
  * Terminfo edit features

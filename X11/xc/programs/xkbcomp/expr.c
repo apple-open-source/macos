@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/xkbcomp/expr.c,v 3.6 2002/06/05 00:00:37 dawes Exp $ */
+/* $XFree86: xc/programs/xkbcomp/expr.c,v 3.8 2003/12/18 14:14:37 pascal Exp $ */
 
 #include "xkbcomp.h"
 #include "tokens.h"
@@ -245,6 +245,7 @@ static LookupEntry modIndexNames[] = {
 	{	"mod3",		Mod3MapIndex	},
 	{	"mod4",		Mod4MapIndex	},
 	{	"mod5",		Mod5MapIndex	},
+	{	"none",		XkbNoModifier	},
 	{	NULL,		0		}
 };
 
@@ -569,9 +570,16 @@ ExprDef		*left,*right;
 	    if (expr->type==TypeString) {
 		register char *str;
 		str= XkbAtomGetString(NULL,expr->value.str);
-		if ((str!=None)&&(strlen(str)==1)) {
-		    val_rtrn->uval= str[0];
-		    return True;
+		if (str!=None)
+		    switch (strlen(str)) {
+			case 0:
+			    val_rtrn->uval= 0;
+			    return True;
+			case 1:
+			    val_rtrn->uval= str[0];
+			    return True;
+			default:
+			    break;
 		}
 	    }
 	    if ((expr->type!=TypeInt)&&(expr->type!=TypeFloat)) {

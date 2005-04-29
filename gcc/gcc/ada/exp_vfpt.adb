@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1997-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1997-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -32,7 +31,6 @@ with Nmake;    use Nmake;
 with Rtsfind;  use Rtsfind;
 with Sem_Res;  use Sem_Res;
 with Sinfo;    use Sinfo;
-with Snames;   use Snames;
 with Stand;    use Stand;
 with Tbuild;   use Tbuild;
 with Ttypef;   use Ttypef;
@@ -310,7 +308,6 @@ package body Exp_VFpt is
          end if;
       end Equivalent_Integer_Type;
 
-
    --  Start of processing for Expand_Vax_Conversion;
 
    begin
@@ -322,7 +319,6 @@ package body Exp_VFpt is
       then
          Rewrite (N,
            Unchecked_Convert_To (T_Typ, Expr));
-
 
       elsif Is_Fixed_Point_Type (S_Typ) then
 

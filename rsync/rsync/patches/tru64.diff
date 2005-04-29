@@ -1,53 +1,9 @@
+Depends-On-Patch: mkfifo.diff
+
 This is an adapted version of the original by Zoong Pham.
 
---- rsync.h	11 Feb 2004 08:01:21 -0000	1.186
-+++ rsync.h	23 Feb 2004 18:56:02 -0000
-@@ -156,6 +156,11 @@ enum msgcode {
- #include <sys/socket.h>
- #endif
- 
-+#ifdef HAVE_SYS_UN_H
-+#define _SOCKADDR_LEN
-+#include <sys/un.h>
-+#endif
-+
- #ifdef HAVE_STRING_H
- #include <string.h>
- #endif
---- syscall.c	18 Feb 2004 22:33:21 -0000	1.30
-+++ syscall.c	23 Feb 2004 18:56:02 -0000
-@@ -76,6 +76,29 @@ int do_mknod(char *pathname, mode_t mode
- {
- 	if (dry_run) return 0;
- 	RETURN_ERROR_IF_RO_OR_LO;
-+# if HAVE_MKFIFO
-+	if (S_ISFIFO(mode))
-+		return mkfifo(pathname, mode);
-+# endif
-+# if HAVE_SYS_UN_H
-+	if (S_ISSOCK(mode)) {
-+		int sock;
-+		struct sockaddr_un saddr;
-+		int len = strlen(pathname) + 1; /* include null */
-+
-+		saddr.sun_family = AF_UNIX;
-+		strncpy(saddr.sun_path, pathname, sizeof saddr.sun_path);
-+		saddr.sun_len = len > sizeof saddr.sun_path ? sizeof saddr.sun_path: len;
-+
-+		if ((sock = socket(PF_UNIX, SOCK_STREAM, 0)) < 0)
-+			return -1;
-+		unlink(pathname);
-+		if ((bind(sock, (struct sockaddr*)&saddr, sizeof saddr)) < 0)
-+			return -1;
-+		close(sock);
-+		return do_chmod(pathname, mode);
-+	}
-+# endif
- 	return mknod(pathname, mode, dev);
- }
- #endif
---- lib/getaddrinfo.c	10 Jan 2003 22:38:25 -0000	1.17
-+++ lib/getaddrinfo.c	23 Feb 2004 18:56:02 -0000
+--- orig/lib/getaddrinfo.c	2004-03-16 01:26:36
++++ lib/getaddrinfo.c	2004-06-18 17:38:35
 @@ -41,6 +41,20 @@
  
  #include <rsync.h>
@@ -69,3 +25,13 @@ This is an adapted version of the original by Zoong Pham.
  #if defined(__KAME__) && defined(INET6)
  # define FAITH
  #endif
+--- orig/syscall.c	2004-09-23 05:46:46
++++ syscall.c	2004-09-23 18:11:06
+@@ -27,6 +27,7 @@
+ #include "rsync.h"
+ 
+ #if HAVE_SYS_UN_H
++#define _SOCKADDR_LEN
+ #include <sys/un.h>
+ #endif
+ 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,7 +30,6 @@
 
 #include "configd.h"
 #include "session.h"
-#include "notify.h"
 
 __private_extern__
 boolean_t
@@ -71,8 +70,8 @@ notify_server(mach_msg_header_t *request, mach_msg_header_t *reply)
 	}
 
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("HELP!, Received notification: port=%d, msgh_id=%d"),
-	       Request->not_header.msgh_local_port,
-	       Request->not_header.msgh_id);
+	      Request->not_header.msgh_local_port,
+	      Request->not_header.msgh_id);
 
 	Reply->NDR     = NDR_record;
 	Reply->RetCode = MIG_BAD_ID;

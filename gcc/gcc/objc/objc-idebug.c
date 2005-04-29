@@ -40,10 +40,6 @@ Boston, MA 02111-1307, USA.  */
 #ifdef ENABLE_IDEBUG
 
 #include "objc-act.h"
-/* The following will redefine some of the macros in objc-act.h.  */
-#ifdef OBJCPLUS
-#include "objcp-decl.h"
-#endif
 
 /* Macros from objc/objc-act.h  */
 
@@ -72,10 +68,5 @@ fn_1 ( PROTOCOL_FORWARD_DECL, tree, tree )
 fn_1 ( PROTOCOL_DEFINED, tree, tree )
 fn_1 ( TREE_STATIC_TEMPLATE, int, tree )
 fn_1 ( TYPE_PROTOCOL_LIST, tree, tree)
-fn_1 ( TYPED_OBJECT, int, tree )
-fn_1 ( OBJC_TYPE_NAME, tree, tree )
-fn_1 ( IS_ID, int, tree )
-fn_1 ( IS_PROTOCOL_QUALIFIED_ID, int, tree )
-fn_1 ( IS_SUPER, int, tree )
 
 #endif /* ENABLE_IDEBUG */

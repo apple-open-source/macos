@@ -1,0 +1,98 @@
+# Features covered:  Elements
+#
+# This file contains a collection of tests for the TclXML parser.
+# This file tests the parser's performance on elements.
+# Sourcing this file into Tcl runs the tests and generates output
+# for errors.  No output means no errors were found.
+#
+# Copyright (c) 1999-2000 Zveno Pty Ltd.
+#
+# $Id: element.test,v 1.4 2001/02/06 07:29:51 doss Exp $
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if { ![llength [info commands ::xml::parser]] } {
+     catch {puts stderr "You havent loaded a valid parser class before running this test"}
+     return
+}
+
+proc parray arrayName {
+    upvar #0 $arrayName arr
+    foreach key [lsort [array names $arrayName]] {
+	lappend result $key $arr($key)
+    }
+    return $result
+}
+
+catch {unset started}
+proc Start {name atList args} {
+    array set opts $args
+    if {![info exists ::started($name)]} {
+	set ::started($name) 1
+    } else {
+	incr ::started($name)
+    }
+}
+catch {unset ended}
+proc End {name args} {
+    array set opts $args
+    if {![info exists ::ended($name)]} {
+	set ::ended($name) 1
+    } else {
+	incr ::ended($name)
+    }
+}
+
+catch {unset elList}
+proc ElStart {name atList args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList start $name $opts(-empty)
+}
+proc ElEnd {name args} {
+    array set opts {-empty 0}
+    array set opts $args
+    lappend ::elList end $name $opts(-empty)
+}
+
+test element-1.1 {document element} {
+    catch {unset ::started}
+    catch {unset ::ended}
+
+    catch {rename xml::element-1.1 {}}
+    set parser [xml::parser element-1.1 \
+	-elementstartcommand Start \
+	-elementendcommand End]
+    $parser parse {<Test></Test>}
+    list [array get ::started] [array get ::ended]
+} {{Test 1} {Test 1}}
+
+test element-1.2 {distinct elements} {
+    catch {unset ::started}
+    catch {unset ::ended}
+
+    catch {rename xml::element-1.2 {}}
+    set parser [xml::parser element-1.2 \
+	-elementstartcommand Start \
+	-elementendcommand End]
+    $parser parse {<Test><Child1></Child1><Child2></Child2></Test>}
+    list [parray ::started] [parray ::ended]
+} {{Child1 1 Child2 1 Test 1} {Child1 1 Child2 1 Test 1}}
+
+test element-2.1 {empty element} {
+    catch {unset ::elList}
+
+    catch {rename xml::element-2.1 {}}
+    set parser [xml::parser element-2.1 \
+	-reportempty 1 \
+	-elementstartcommand ElStart \
+	-elementendcommand ElEnd]
+    $parser parse {<Test><Child1/></Test>}
+    set ::elList
+} {start Test 0 start Child1 1 end Child1 1 end Test 0}
+
+# cleanup
+::tcltest::cleanupTests
+return

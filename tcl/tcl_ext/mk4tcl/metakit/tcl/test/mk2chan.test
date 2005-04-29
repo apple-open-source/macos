@@ -1,0 +1,39 @@
+# new, added after Mk4tcl 1.1
+
+source defs_mk.tcl
+
+T 1 {channel interface} {
+  mk::file open db
+  mk::view layout db.a {m:B}
+  mk::view size db.a 1
+
+  set a 1234567890
+  set b $a$a$a$a$a$a$a$a$a$a
+  set c $b$b$b$b$b$b$b$b$b$b
+  set d $c$c$c$c$c$c$c$c$c$c
+  C [string length $d] 10000
+
+  set fd [mk::channel db.a!0 m w]
+  puts $fd $a
+  puts $fd $b
+  puts $fd $c
+  puts $fd $d
+  close $fd
+
+  switch $::tcl_platform(platform) {
+    windows { set eolsize 2 }
+    default { set eolsize 1 }
+  }
+  
+  C [string length [mk::get db.a!0 m]] [expr {11110 + 4 * $eolsize}]
+
+  set fd [mk::channel db.a!0 m]
+  C [gets $fd] $a
+  C [gets $fd] $b
+  C [gets $fd] $c
+  C [gets $fd] $d
+  C [gets $fd x] -1
+  close $fd
+}
+
+Q 2

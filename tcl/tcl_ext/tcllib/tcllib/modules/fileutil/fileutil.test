@@ -1,0 +1,644 @@
+# -*- tcl -*-
+# Tests for the find function.
+#
+# Sourcing this file into Tcl runs the tests and generates output for errors.
+# No output means no errors were found.
+#
+# Copyright (c) 1998-2000 by Ajuba Solutions.
+# Copyright (c) 2001 by ActiveState Tool Corp.
+# All rights reserved.
+#
+# RCS: @(#) $Id: fileutil.test,v 1.22.2.1 2004/05/24 04:17:30 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+# Initialise the test package
+#
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    set auto_path [linsert $auto_path 0 .]
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+# -------------------------------------------------------------------------
+# Ensure we test _this_ local copy and one installed somewhere else.
+#
+package forget fileutil
+catch {namespace delete ::fileutil}
+if { [lsearch $auto_path [file dirname [info script]]] == -1 } {
+    set auto_path [linsert $auto_path 0 [file dirname [info script]]]
+}
+if {[catch {source [file join [file dirname [info script]] fileutil.tcl]} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+
+# -------------------------------------------------------------------------
+# Setup any constraints
+
+# -------------------------------------------------------------------------
+# Now the package specific tests....
+# -------------------------------------------------------------------------
+
+puts "- tcltest [package present tcltest]"
+puts "- fileutil [package present fileutil]"
+
+# -------------------------------------------------------------------------
+
+# Build a sample tree to search
+# Structure
+#
+#	dir
+#	+--{find 1}
+#          +--{find 2}
+#          |  +--{file* 2}
+#          +--{file 1}
+
+catch {removeDirectory {find 1}} ; # start with a clean structure!
+
+makeDirectory {find 1}
+makeDirectory [file join {find 1} {find 2}]
+makeFile "" [file join {find 1} {file [1]}]
+makeFile "test" [file join {find 1} {find 2} {file* 2}]
+set dir $::tcltest::temporaryDirectory
+
+
+proc fileIsBiggerThan {s f} {
+    expr {![file isdirectory $f] && [file size $f] > $s}
+}
+
+test find-1.1 {standard recursive find} {
+    lsort [fileutil::find [file join $dir {find 1}]]
+} [list [file join $dir {find 1} {file [1]}] [file join $dir {find 1} {find 2}] \
+	[file join $dir {find 1} {find 2} {file* 2}]]
+
+test find-1.2 {find directories} {
+    fileutil::find [file join $dir {find 1}] {file isdirectory}
+} [list [file join $dir {find 1} {find 2}]]
+
+test find-1.3 {find files bigger than a given size} {
+    fileutil::find [file join $dir {find 1}] {fileIsBiggerThan 1}
+} [list [file join $dir {find 1} {find 2} {file* 2}]]
+
+
+# Extend the previous sample tree
+# Extended structure:
+#
+#	dir
+#	+--{find 1}
+#          +--{find 2}       <----------+
+#          |  +--{file* 2}		     |
+#          |  +--{file 3} --> ../{find 2} -+
+#          +--{file [1]}
+
+test find-1.4 {handling of circular links} {unix} {
+    catch {file delete -force [file join $dir {find 1} {find 2} {file 3}]}
+    exec ln -s [file join .. {find 2}] [file join $dir {find 1} {find 2} {file 3}]
+
+    # Find has to skip '{file 3}'
+    lsort [fileutil::find [file join $dir {find 1}]]
+} [list [file join $dir {find 1} {file [1]}] [file join $dir {find 1} {find 2}] \
+	[file join $dir {find 1} {find 2} {file* 2}]]
+
+test find-1.5 {find file} {
+    ::fileutil::find [file join $dir {find 1} {file [1]}]
+} [list [file join $dir {find 1} {file [1]}]]
+
+test find-1.6 {find file with filter} {
+    ::fileutil::find [file join $dir {find 1} {file [1]}] {file isfile}
+} [list [file join $dir {find 1} {file [1]}]]
+
+test find-1.7 {find file with filter - negative} {
+    ::fileutil::find [file join $dir {find 1} {file [1]}] {file isdirectory}
+} {}
+
+
+# find by pattern tests
+
+test find-2.0 {find by pattern} {
+    catch {::fileutil::findByPattern $dir -glob {fil*} foo} msg
+    set msg
+} {wrong#args for "::fileutil::findByPattern", should be "::fileutil::findByPattern basedir ?-regexp|-glob? ?--? patterns"}
+
+test find-2.1 {find by pattern} {
+    catch {::fileutil::findByPattern $dir -glob} msg
+    set msg
+} {wrong#args for "::fileutil::findByPattern", should be "::fileutil::findByPattern basedir ?-regexp|-glob? ?--? patterns"}
+
+test find-2.2 {find by pattern} {
+    lsort [::fileutil::findByPattern [file join $dir {find 1}] -glob {fil*}]
+} [list [file join $dir {find 1} {file [1]}] [file join $dir {find 1} {find 2} {file* 2}]]
+
+test find-2.3 {find by pattern} {
+    lsort [::fileutil::findByPattern [file join $dir {find 1}] -regexp {.*\\[1\\]$}]
+} [list [file join $dir {find 1} {file [1]}]]
+
+
+catch {removeDirectory grepTest} ; # start with a clean structure!
+
+# Build a sample tree to search
+makeDirectory grepTest
+makeFile "zoop" [file join $dir grepTest {file [1]}]
+makeFile "zoo\nbart"  [file join $dir grepTest {file* 2}]
+
+test grep-1.1 {normal grep} {
+    lsort [fileutil::grep "zoo" [glob [file join $dir grepTest *]]]
+} [list "[file join $dir grepTest {file [1]}]:1:zoop" \
+	"[file join $dir grepTest {file* 2}]:1:zoo"]
+test grep-1.2 {more restrictive grep} {
+    lsort [fileutil::grep "zoo." [glob [file join $dir grepTest *]]]
+} [list "[file join $dir grepTest {file [1]}]:1:zoop"]
+test grep-1.3 {more restrictive grep} {
+    lsort [fileutil::grep "bar" [glob [file join $dir grepTest *]]]
+} [list "[file join $dir grepTest {file* 2}]:2:bart"]
+
+makeDirectory catTest
+makeFile "foo\nbar\nbaz\n" [file join $dir catTest {file [1]}]
+makeFile "bebop" [file join $dir catTest {file* 2}]
+
+test cat-1.1 {cat} {
+    fileutil::cat [file join $dir catTest {file [1]}]
+} "foo\nbar\nbaz\n"
+
+test cat-1.2 {cat multiple files} {
+    fileutil::cat [file join $dir catTest {file [1]}] [file join $dir catTest {file* 2}]
+} "foo\nbar\nbaz\nbebop\n"
+
+
+test foreachline-1.0 {foreachLine} {
+    set res ""
+    ::fileutil::foreachLine line [file join $dir catTest {file [1]}] {
+	append res /$line
+    }
+    set res
+} {/foo/bar/baz}
+
+
+
+catch {removeDirectory touchTest} ; # start with a clean structure!
+makeDirectory touchTest
+makeFile "blah" [file join $dir touchTest {file [1]}]
+
+test touch-1.1 {create file} tcl8.3plus {
+    set f [file join $dir touchTest here]
+    fileutil::touch $f
+    # reap this file on cleanup
+    lappend ::tcltest::filesmade $f
+    file exists $f
+} 1
+
+test touch-1.2 {'-c' prevents file creation} tcl8.3plus {
+    set f [file join $dir touchTest nothere]
+    fileutil::touch -c $f
+    file exists $f
+} 0
+
+test touch-1.3 {'-c' has no effect on existing files} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch -c $f
+    file exists $f
+} 1
+
+test touch-1.4 {test relative times} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    after 1001
+    fileutil::touch $f
+    set a2 [file atime $f]
+    set m2 [file mtime $f]
+    list [expr {$a1 == $m1}] [expr {$a2 == $m2}] [expr {$a1 < $a2}] [expr {$m1 < $m2}]
+} [list 1 1 1 1]
+
+test touch-1.5 {test relative times using -a} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    after 1001
+    fileutil::touch -a $f
+    set a2 [file atime $f]
+    set m2 [file mtime $f]
+    list [expr {$a1 == $m1}] [expr {$a2 == $m2}] [expr {$a1 < $a2}] [expr {$m1 < $m2}]
+} [list 1 0 1 0]
+
+test touch-1.6 {test relative times using -m} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    after 1001
+    fileutil::touch -m $f
+    set a2 [file atime $f]
+    set m2 [file mtime $f]
+    list [expr {$a1 == $m1}] [expr {$a2 == $m2}] [expr {$a1 < $a2}] [expr {$m1 < $m2}]
+} [list 1 0 0 1]
+
+test touch-1.7 {test relative times using -a and -m} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    after 1001
+    fileutil::touch -a -m $f
+    set a2 [file atime $f]
+    set m2 [file mtime $f]
+    list [expr {$a1 == $m1}] [expr {$a2 == $m2}] [expr {$a1 < $a2}] [expr {$m1 < $m2}]
+} [list 1 1 1 1]
+
+test touch-1.8 {test -t} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -t 42 $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == 42}] [expr {$m1 == 42}]
+} [list 1 1]
+
+test touch-1.9 {test -t with -a} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -t 42 -a $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == 42}] [expr {$m1 == 42}]
+} [list 1 0]
+
+test touch-1.10 {test -t with -m} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -t 42 -m $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == 42}] [expr {$m1 == 42}]
+} [list 0 1]
+
+test touch-1.11 {test -t with -a and -m} tcl8.3plus {
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -t 42 -a -m $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == 42}] [expr {$m1 == 42}]
+} [list 1 1]
+
+test touch-1.12 {test -r} tcl8.3plus {
+    set r [info script]
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -r $r $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == [file atime $r]}] [expr {$m1 == [file mtime $r]}]
+} [list 1 1]
+
+test touch-1.13 {test -r with -a} tcl8.3plus {
+    set r [info script]
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -r $r -a $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == [file atime $r]}] [expr {$m1 == [file mtime $r]}]
+} [list 1 0]
+
+test touch-1.14 {test -r with -m} tcl8.3plus {
+    set r [info script]
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -r $r -m $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == [file atime $r]}] [expr {$m1 == [file mtime $r]}]
+} [list 0 1]
+
+test touch-1.15 {test -r with -a and -m} tcl8.3plus {
+    set r [info script]
+    set f [file join $dir touchTest {file [1]}]
+    fileutil::touch $f
+    after 1001
+    fileutil::touch -r $r -m -a $f
+    set a1 [file atime $f]
+    set m1 [file mtime $f]
+    list [expr {$a1 == [file atime $r]}] [expr {$m1 == [file mtime $r]}]
+} [list 1 1]
+
+
+catch {removeDirectory fileTypeTest} ; # start with a clean structure!
+makeDirectory fileTypeTest
+# Can't use for tcl < 8.3
+#fileutil::touch [file join $dir fileTypeTest emptyFile]
+set _f [open [file join $dir fileTypeTest emptyFile] a] ; close $_f
+
+makeFile "\u0000" [file join $dir fileTypeTest binaryFile]
+
+set elfData "\x7F"
+append elfData "ELF"
+append elfData "\x01\x01\x01\x00\x00"
+makeFile $elfData [file join $dir fileTypeTest elfFile]
+
+set bzipData "BZh91AY&SY"
+append bzipData "\x01\x01\x01\x00\x00"
+makeFile $bzipData [file join $dir fileTypeTest bzipFile]
+
+set gzipData "\x1f\x8b"
+append gzipData "\x01\x01\x01\x00\x00"
+makeFile $gzipData [set f [file join $dir fileTypeTest gzipFile]]
+set fh [open $f w] ; fconfigure $fh -encoding binary ; puts -nonewline $fh $gzipData ; close $fh
+
+set jpgData "\xFF\xD8\xFF\xE0\x00\x10JFIF"
+append jpgData "\x00\x01\x02\x01\x01\x2c"
+makeFile $jpgData [file join $dir fileTypeTest jpegFile]
+
+set gifData "GIF89a\x2b\x00\x40\x00\xf7\xff\x00"
+makeFile $gifData [file join $dir fileTypeTest gifFile]
+
+set pngData "\x89PNG"
+append pngData "\x00\x01\x02\x01\x01\x2c"
+makeFile $pngData [set f [file join $dir fileTypeTest pngFile]]
+set fh [open $f w] ; fconfigure $fh -encoding binary ; puts -nonewline $fh $pngData ; close $fh
+
+set tiffData "MM\x00\*"
+append tiffData "\x00\x01\x02\x01\x01\x2c"
+makeFile $tiffData [file join $dir fileTypeTest tiffFile]
+
+set psData "%!PS-"
+append psData "ADOBO-123 EPSF-1.4"
+makeFile $psData [file join $dir fileTypeTest psFile]
+
+set pdfData "%PDF-"
+append pdfData "1.2 \x00\x01\x02\x01\x01\x2c"
+makeFile $pdfData [file join $dir fileTypeTest pdfFile]
+
+set epsData $psData
+makeFile $psData [file join $dir fileTypeTest epsFile]
+
+set igwdData "IGWD"
+append igwdData "\x00\x01\x02\x01\x01\x2c"
+makeFile $igwdData [file join $dir fileTypeTest igwdFile]
+
+makeFile "simple text" [file join $dir fileTypeTest textFile]
+makeFile "#!/bin/tclsh" [file join $dir fileTypeTest scriptFile]
+makeFile "<html></html>" [file join $dir fileTypeTest htmlFile]
+
+set xmlData {<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<foobar></foobar>
+}
+
+set xmlDataWithDTD {<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE foobar SYSTEM bogus.dtd>
+<foobar></foobar>
+}
+
+makeFile $xmlData [file join $dir fileTypeTest xmlFile]
+makeFile $xmlDataWithDTD [file join $dir fileTypeTest xmlWithDTDFile]
+
+set pgpData {-----BEGIN PGP MESSAGE-----
+Version: PGP 6.5.8
+
+abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz
+}
+
+makeFile $pgpData [file join $dir fileTypeTest pgpFile]
+
+test fileType-1.1 {test file non-existance} {
+    set f [file join $dir fileTypeTest bogus]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 1 "file not found: '[file join $dir fileTypeTest bogus]'"]
+test fileType-1.2 {test file directory} {
+    set f [file join $dir fileTypeTest]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list directory]]
+test fileType-1.3 {test file empty} {
+    set f [file join $dir fileTypeTest emptyFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list empty]]
+test fileType-1.4 {test simple binary} {
+    set f [file join $dir fileTypeTest binaryFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary]]
+test fileType-1.5 {test elf executable} {
+    set f [file join $dir fileTypeTest elfFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary executable elf]]
+test fileType-1.6 {test simple text} {
+    set f [file join $dir fileTypeTest textFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text]]
+test fileType-1.7 {test script file} {
+    set f [file join $dir fileTypeTest scriptFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text script /bin/tclsh]]
+test fileType-1.8 {test html text} {
+    set f [file join $dir fileTypeTest htmlFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text html]]
+test fileType-1.9 {test xml text} {
+    set f [file join $dir fileTypeTest xmlFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text xml]]
+test fileType-1.10 {test xml with dtd text} {
+    set f [file join $dir fileTypeTest xmlWithDTDFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text xml foobar]]
+test fileType-1.11 {test PGP message} {
+    set f [file join $dir fileTypeTest pgpFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text message pgp]]
+test fileType-1.12 {test binary graphic jpeg} {
+    set f [file join $dir fileTypeTest jpegFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary graphic jpeg jfif]]
+test fileType-1.13 {test binary graphic gif} {
+    set f [file join $dir fileTypeTest gifFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary graphic gif]]
+test fileType-1.14 {test binary graphic png} {
+    set f [file join $dir fileTypeTest pngFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary graphic png]]
+test fileType-1.15 {test binary graphic tiff} {
+    set f [file join $dir fileTypeTest tiffFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary graphic tiff]]
+test fileType-1.16 {test binary pdf} {
+    set f [file join $dir fileTypeTest pdfFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary pdf]]
+test fileType-1.17 {test text ps} {
+    set f [file join $dir fileTypeTest psFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text ps eps]]
+test fileType-1.18 {test text eps} {
+    set f [file join $dir fileTypeTest epsFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list text ps eps]]
+test fileType-1.19 {test binary gravity_wave_data_frame} {
+    set f [file join $dir fileTypeTest igwdFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary gravity_wave_data_frame]]
+test fileType-1.20 {test binary compressed bzip} {
+    set f [file join $dir fileTypeTest bzipFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary compressed bzip]]
+test fileType-1.21 {test binary compressed gzip} {
+    set f [file join $dir fileTypeTest gzipFile]
+    set res [catch {fileutil::fileType $f} msg]
+    list $res $msg
+} [list 0 [list binary compressed gzip]]
+
+
+
+# stripPwd/N -----------------------------------------------------
+# dir = $::tcltest::temporaryDirectory = current working directory
+
+test stripPwd-1.0 {unrelated path} {
+    fileutil::stripPwd {find 1}
+} {find 1}
+
+test stripPwd-1.1 {pwd-relative path} {
+    fileutil::stripPwd [file join [pwd] $dir {find 1}]
+} {find 1}
+
+test stripPwd-1.2 {pwd-relative path} {
+    fileutil::stripPwd [file join [pwd] $dir {find 1} {find 2}]
+} [file join {find 1} {find 2}]
+
+test stripPwd-1.3 {pwd itself} {
+    fileutil::stripPwd [pwd]
+} .
+
+
+test stripN-1.0 {remove nothing} {
+    fileutil::stripN {find 1} 0
+} {find 1}
+
+test stripN-1.1 {remove all} {
+    fileutil::stripN {find 1} 1
+} {}
+
+test stripN-1.2 {remove more than existing} {
+    fileutil::stripN {find 1} 2
+} {}
+
+test stripN-2.0 {remove nothing} {
+    fileutil::stripN [file join {find 1} {find 2}] 0
+} [file join {find 1} {find 2}]
+
+test stripN-2.1 {remove part} {
+    fileutil::stripN [file join {find 1} {find 2}] 1
+} {find 2}
+
+test stripN-2.2 {remove all} {
+    fileutil::stripN [file join {find 1} {find 2}] 2
+} {}
+
+test stripN-2.3 {remove more than existing} {
+    fileutil::stripN [file join {find 1} {find 2}] 3
+} {}
+
+
+# ----------------------------------------------------------------
+
+# install --------------------------------------------------------
+
+catch {removeDirectory installDst} ;
+catch {removeDirectory installSrc} ;# start with a clean structure!
+
+makeDirectory installDst
+makeDirectory installSrc
+makeDirectory [file join installSrc subdir]
+makeFile "blah" [file join installSrc {file [1]}]
+
+# Make a second subdirectory to install.
+if { $tcl_platform(platform) == "unix" } {
+    makeDirectory [file join installSrc subdir2]
+    makeFile "blah" [file join installSrc subdir subfile1]
+    makeFile "blah" [file join installSrc subdir subfile2]
+    makeFile "blah" [file join installSrc subdir subfile3]
+
+    foreach fl {1 2 3} {
+	set fn [file join installSrc subdir2 subfile$fl]
+	makeFile "blah" $fn
+
+	# Give it some "bad" permissions.
+	file attributes $fn -permissions 0600
+    }
+}
+
+test install-1.1 {install a file} {
+    fileutil::install [file join installSrc {file [1]}] installDst
+    file exists [file join installDst {file [1]}]
+} {1}
+
+makeDirectory installDst
+test install-2.1 {install a directory} {tcl8.4plus} {
+    fileutil::install [file join installSrc subdir] installDst
+    set result [lsort [glob -tails -directory [file join installDst subdir] [file join . / *]]]
+    file delete -force installDst
+    set result
+} {subfile1 subfile2 subfile3}
+
+makeDirectory installDst
+test install-2.2 {install a directory} {tcl8.3plus} {
+    fileutil::install [file join installSrc subdir] installDst
+    set result [lsort [glob -directory [file join installDst subdir] [file join . / *]]]
+    file delete -force installDst
+    set result
+} {installDst/subdir/subfile1 installDst/subdir/subfile2 installDst/subdir/subfile3}
+
+makeDirectory installDst
+test install-3.1 {install a directory, set permissions} {unix tcl8.3plus} {
+    set res {}
+    fileutil::install -m go+rw [file join installSrc subdir2] installDst
+    foreach fl [glob [file join installDst subdir2 *]] {
+	append res [file attributes $fl -permissions]
+    }
+    set res
+} {006660066600666}
+
+test tempdir-1.1 {return the correct directorary for temporary files} {unix} {
+    set ::env(TMPDIR) [pwd] ;# Most high-priority source, and existing directory!
+    set result [::fileutil::tempdir]
+    unset ::env(TMPDIR)
+    set result
+} [pwd]
+
+test tempdir-1.2 {return the correct directorary for temporary files} {unix} {
+    catch {unset ::env(TMPDIR)}
+    catch {unset ::env(TEMPDIR)}
+    catch {unset ::env(TMP)}
+    ::fileutil::tempdir
+} {/tmp}
+
+::tcltest::cleanupTests
+return

@@ -41,6 +41,52 @@
 
 extern Boolean NodesAreContiguous(SFCB *fcb, UInt32 nodeSize);
 
+/*-------------------------------------------------------------------------------
+Routine:	CopyKey
+
+Function:	Copy a BTree key.  Sanity check the key length; if it is too large,
+			then set the copy's length to the BTree's maximum key length.
+
+Inputs:		btcb		BTree whose key is being copied
+			srcKey		Source key being copied
+
+Output:		destKey		Destination where copy will be stored
+
+Result:		none (void)
+-------------------------------------------------------------------------------*/
+static void CopyKey(BTreeControlBlockPtr btcb, const BTreeKey *srcKey, BTreeKey *destKey)
+{
+	unsigned	keySize = CalcKeySize(btcb, srcKey);
+	unsigned	maxKeySize = MaxKeySize(btcb);
+	int			fixLength = 0;
+	
+	/*
+	 *	If the key length is too long (corrupted), then constrain the number
+	 *	of bytes to copy.  Remember that we did this so we can also update
+	 *	the copy's length field later.
+	 */
+	if (keySize > maxKeySize)
+	{
+		keySize = maxKeySize;
+		fixLength = 1;
+	}
+	
+	CopyMemory(srcKey, destKey, keySize);
+	
+	/*
+	 *	If we had to constrain the key size above, then also update the
+	 *	key length in the copy.  This will prevent the caller from dereferencing
+	 *	part of the key which we never actually copied.
+	 */
+	if (fixLength)
+	{
+		if (btcb->attributes & kBTBigKeysMask)
+			destKey->length16 = btcb->maxKeyLength;
+		else
+			destKey->length8 = btcb->maxKeyLength;
+	}
+}
+
 
 //////////////////////////////////// Globals ////////////////////////////////////
 
@@ -381,7 +427,7 @@ OSStatus	BTOpenPath			(SFCB					*filePtr,
 
 	///////////////////// Initalize fields from header //////////////////////////
 	
-	PanicIf ( (filePtr->fcbVolume->vcbSigWord != 'BD') && (btreePtr->nodeSize == 512), "\p BTOpenPath: wrong node size for HFS+ volume!");
+	PanicIf ( (filePtr->fcbVolume->vcbSignature != 0x4244) && (btreePtr->nodeSize == 512), "\p BTOpenPath: wrong node size for HFS+ volume!");
 
 	btreePtr->treeDepth			= header->treeDepth;
 	btreePtr->rootNode			= header->rootNode;
@@ -763,9 +809,9 @@ OSStatus	BTSearchRecord		(SFCB						*filePtr,
 
 		// copy the key in the BTree when found rather than searchIterator->key to get proper case/diacriticals
 		if (foundRecord == true)
-			CopyMemory ((Ptr)keyPtr, (Ptr)&resultIterator->key, CalcKeySize(btreePtr, keyPtr));
+			CopyKey(btreePtr, keyPtr, &resultIterator->key);
 		else
-			CopyMemory ((Ptr)&searchIterator->key, (Ptr)&resultIterator->key, CalcKeySize(btreePtr, &searchIterator->key));
+			CopyKey(btreePtr, &searchIterator->key, &resultIterator->key);
 	}
 
 	err = ReleaseNode (btreePtr, &node);
@@ -1036,7 +1082,7 @@ CopyData:
 		iterator->version			= 0;
 		iterator->reserved			= 0;
 
-		CopyMemory ((Ptr)keyPtr, (Ptr)&iterator->key, CalcKeySize(btreePtr, keyPtr));
+		CopyKey(btreePtr, keyPtr, &iterator->key);
 	}
 
 

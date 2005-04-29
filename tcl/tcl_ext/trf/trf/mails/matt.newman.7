@@ -1,0 +1,171 @@
+MIME-Version: 1.0
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11UjQV-00027cC; Sat, 25 Sep 1999 06:27:11 +0200 (MEST)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Sat Sep 25 06:21:36 1999
+Received: from mail_srv.novadigm.com (novadigm.com [208.244.225.99])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id CAA15871
+	for <a.kupries@westend.com>; Sat, 25 Sep 1999 02:08:14 +0200 (MET DST)
+Received: from LAPCAT ([208.244.230.179]) by mail_srv.novadigm.com with SMTP (Microsoft Exchange Internet Mail Service Version 5.5.2448.0)
+	id TNC6Q92X; Fri, 24 Sep 1999 20:01:44 -0400
+X-From_: matt@novadigm.com  Sat Sep 25 02:08:15 1999
+Message-ID: <01b801bf06ea$08f34da0$b3e6f4d0@lapcat>
+Reply-To: "Matt Newman" <matt@novadigm.com>
+From: "Matt Newman" <matt@novadigm.com>
+To: "Andreas Kupries" <a.kupries@westend.com>
+Cc: "Jean-Claude Wippler" <jcw@equi4.com>
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+Date: Fri, 24 Sep 1999 20:08:00 -0400
+X-Priority: 3
+X-MSMail-Priority: Normal
+X-Mailer: Microsoft Outlook Express 4.72.2106.4
+X-MimeOLE: Produced By Microsoft MimeOLE V4.72.2106.4
+Content-Type: multipart/mixed;
+              boundary="----=_NextPart_000_01B2_01BF06C8.8038DFA0"
+
+------=_NextPart_000_01B2_01BF06C8.8038DFA0
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+              charset="iso-8859-1"
+
+I'm having a problem with the ZIP support in Trf - I have attached a test
+script - this fails with tcl8.0/trf1.7 AND tcl8.2/trf1.8.....
+
+test2 fails - can you shed any light on this? I noticed that this kind of
+test is not part of your normal test suite .....
+
+Also with tcl 8.2 test3 fails during decompress.
+
+This is windows nt with zlib 1.1.3
+
+Matt Newman
+-----Original Message-----
+From: Andreas Kupries <a.kupries@westend.com>
+To: Matt Newman <matt@sensus.org>
+Cc: Jean-Claude Wippler <jcw@equi4.com>
+Date: Friday, September 24, 1999 3:17 PM
+Subject: Re: [trf1.8] Tcl 8.2 UNSTACK causes GPF
+
+
+>
+>> >A big ummph. My own documentation for the integrated/rewritten patch
+>> >clearly states that inside the Close procedure the pointer to the
+>> >channel itself already refers to the parent channel. gIOT behaves
+>> >correctly but Trf erroneously uses 'DownChannel' to search although it
+>> >doesn't have to. Enclosed a patch which should correct that
+>> >problem. To much CCP.
+>
+>> Thanks, but unfortunately this doesn't quite get us there.
+>
+>> In the core patch for Unstack it doesn't call Flush, just Close.
+>
+>> Now Close does call flush, but if data is pending then you run into
+>> the same DownChannel NULL-DEREF because Unstack has already switched
+>> the pointers.  It's safe if you call flush explicitly first though.
+>
+>> You could view this as a problem in registry.c or a problem in
+>> Unstack - personally I think the problem is in unstack - it should
+>> explicitly call flush *before* unlinking the channel and closing it.
+>
+>> What are your thoughts on this?
+>
+>I took a look at the various pieces of code (registry.c, unstack.c,
+>tclIO.c), made a drawing of the structures and pointers and you are
+>right, a flush during the unstack will not find its own channel
+>anymore and jump through a NULL while searching it.
+>
+>I see it more as a problem of registry.c. The unstack should not know
+>nothing about flushing and all that, this part should be done by the
+>machinery below, i.e. the driver.
+>
+>I would say simply having 'DownChannel' returning ctrl->self in that
+>situation should solve the problem.
+>
+>Enclosed a patch doing just that.
+>
+>Remarks: Marshall Rose reported a problem that he had to explicitly
+>flush before unstack to have some of his code worki right, but his
+>machine did not crash, and I was unable to reproduce the problem on my
+>machine. I really wonder how that worked out.
+>
+>My thanks for tracking down this problem.
+>
+>If this patch solves your problem I will update all relevant code and
+>websites (Trf 1.8 and 2.0 [*], gIOT)
+>
+>[*] Trf 2.0 is already on my website, but not officially announced, so
+>although I am not happy about error in itself I am very happy that it
+>turned up now with me able to correct it before the official release.
+>
+>--
+>So long,
+> Andreas Kupries <a.kupries@westend.com>
+> <http://www.westend.com/~kupries/>
+>---------------------------------------------------------------------------
+----
+>
+>
+>
+>
+
+
+------=_NextPart_000_01B2_01BF06C8.8038DFA0
+Content-Disposition: attachment;
+	filename="test-zip"
+Content-Transfer-Encoding: 7bit
+Content-Type: application/octet-stream;
+              name="test-zip"
+
+proc read_file {file} {
+    set fd [open $file]
+    fconfigure $fd -translation binary
+    set data [read $fd]
+    close $fd
+    return $data
+}
+proc write_file {file data} {
+    set fd [open $file w]
+    fconfigure $fd -translation binary
+    puts -nonewline $fd $data
+    close $fd
+}
+proc read_zip {file} {
+    set fd [open $file]
+    fconfigure $fd -translation binary
+    zip -attach $fd -mode decompress
+    fconfigure $fd -translation binary
+    set data [read $fd]
+    close $fd
+    return $data
+}
+proc write_zip {file data} {
+    set fd [open $file w]
+    fconfigure $fd -translation binary
+    zip -attach $fd -mode compress
+    fconfigure $fd -translation binary
+    puts -nonewline $fd $data
+    close $fd
+}
+proc check {d1 d2 tag} {
+    if {[string compare $d1 $d2] != 0} {
+	tclLog "$tag: expected: [string length $d1], got: [string length $d2]"
+    }
+}
+
+package require Trf
+
+set data [info comm]
+set zdata [zip -mode compress $data]
+
+write_file zip $data
+check $data [read_file zip] "test1"
+
+write_zip zip $data
+check $data [read_zip zip] "test2"
+
+write_file zip $zdata
+check $data [zip -mode decompress [read_file zip]] "test3"
+
+------=_NextPart_000_01B2_01BF06C8.8038DFA0--

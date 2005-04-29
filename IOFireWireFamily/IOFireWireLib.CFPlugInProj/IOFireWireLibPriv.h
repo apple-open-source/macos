@@ -29,7 +29,7 @@
  */
 /*
 	$Log: IOFireWireLibPriv.h,v $
-	Revision 1.33.10.1  2005/03/08 03:48:49  collin
+	Revision 1.34  2004/05/04 22:52:20  niels
 	*** empty log message ***
 	
 	Revision 1.33  2004/01/22 01:50:01  niels
@@ -235,9 +235,9 @@ namespace IOFireWireLib {
 		
 		unsigned			bufferRangeCount ;
 		IOVirtualRange *	bufferRanges ;
-
-		IOFWIsochPortOptions options ;
 		
+		IOFWIsochPortOptions options ;
+
 		void*				userObj ;
 	}  ;
 	

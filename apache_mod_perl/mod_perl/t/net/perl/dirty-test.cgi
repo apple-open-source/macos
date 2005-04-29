@@ -1,3 +1,4 @@
+#!perl
 
 unshift @INC, 
        -e "dirty-lib" ? '.' :
@@ -11,7 +12,7 @@ unless (defined(&not_ina_package) && not_ina_package()) {
 
 package Apache::ROOT::dirty_2dperl::dirty_2dscript_2ecgi;
 
-use Apache::test qw(test);
+use Apache::testold qw(test);
 
 print "Content-type: text/plain\n\n";
 

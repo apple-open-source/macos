@@ -74,7 +74,7 @@
     {
         int len;
         buf[0] = 0;
-        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf),NULL);
+        len = GetStringDescriptor(deviceIntf, strIndex, buf, sizeof(buf), nil);
         
         if (len > 2)
         {

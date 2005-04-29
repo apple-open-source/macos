@@ -1,0 +1,234 @@
+XCOMM $XFree86: xc/programs/fc-lang/Imakefile,v 1.1 2003/06/09 15:11:16 dawes Exp $
+
+FONTCONFIGDIR = $(TOP)/extras/fontconfig
+
+INCLUDES=$(FREETYPE2INCLUDES) -I$(FONTCONFIGDIR)/src
+
+LOCAL_LIBRARIES=FontconfigClientLibs
+        DEPLIBS=FontconfigClientDepLibs
+
+SRCS=fc-lang.c
+OBJS=fc-lang.o
+
+TARG=fclang.h
+TMPL=fclang.tmpl.h
+
+#
+# Basic ISO 639-1 two letter language names, 639-2 are three-letter
+# language codes
+#
+
+ORTH=aa.orth ab.orth af.orth am.orth ar.orth ast.orth ava.orth ay.orth\
+     az.orth bam.orth ba.orth be.orth bg.orth bho.orth bh.orth bin.orth\
+     bi.orth bn.orth bo.orth br.orth bs.orth bua.orth ca.orth ce.orth\
+     chm.orth ch.orth chr.orth co.orth cs.orth cu.orth cv.orth cy.orth\
+     da.orth de.orth dz.orth el.orth en.orth eo.orth es.orth et.orth eu.orth\
+     fa.orth fi.orth fj.orth fo.orth fr.orth ful.orth fur.orth fy.orth\
+     ga.orth gd.orth gez.orth gl.orth gn.orth gu.orth gv.orth ha.orth\
+     haw.orth he.orth hi.orth ho.orth hr.orth hu.orth hy.orth ia.orth\
+     ibo.orth id.orth ie.orth ik.orth io.orth is.orth it.orth iu.orth ja.orth\
+     kaa.orth ka.orth ki.orth kk.orth kl.orth km.orth kn.orth kok.orth\
+     ko.orth ks.orth kum.orth ku.orth kv.orth kw.orth ky.orth la.orth lb.orth\
+     lez.orth lo.orth lt.orth lv.orth mg.orth mh.orth mi.orth mk.orth ml.orth\
+     mn.orth mo.orth mr.orth mt.orth my.orth nb.orth ne.orth nl.orth nn.orth\
+     no.orth ny.orth oc.orth om.orth or.orth os.orth pl.orth pt.orth rm.orth\
+     ro.orth ru.orth sah.orth sa.orth sco.orth sel.orth se.orth sh.orth\
+     si.orth sk.orth sl.orth sma.orth smj.orth smn.orth sm.orth sms.orth\
+     so.orth sq.orth sr.orth sv.orth sw.orth syr.orth ta.orth te.orth tg.orth\
+     th.orth ti.orth tk.orth tl.orth tn.orth to.orth tr.orth ts.orth tt.orth\
+     tw.orth tyv.orth ug.orth uk.orth ur.orth uz.orth ven.orth vi.orth\
+     vo.orth vot.orth wa.orth wen.orth wo.orth xh.orth yap.orth yi.orth\
+     yo.orth zh_cn.orth zh_hk.orth zh_mo.orth zh_sg.orth zh_tw.orth zu.orth
+     
+all:: $(TARG)
+     
+clean::
+	$(RM) $(TARG)
+	
+$(TARG): fc-lang $(ORTH) $(TMPL)
+	$(RM) $(TARG)
+	./fc-lang $(ORTH) < $(TMPL) > $(TARG)
+
+ComplexProgramTarget(fc-lang)
+LinkBuildBinary(ProgramTargetName(fc-lang))
+
+LinkSourceFile(fc-lang.c,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fclang.tmpl.h,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fc-lang.man,$(FONTCONFIGDIR)/fc-lang)
+
+LinkSourceFile(aa.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ab.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(af.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(am.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ar.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ast.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ava.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ay.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(az.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ba.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bam.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(be.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bg.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bh.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bho.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bin.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(br.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bs.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(bua.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ca.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ce.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ch.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(chm.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(chr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(co.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(cs.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(cu.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(cv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(cy.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(da.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(de.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(dz.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(el.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(en.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(eo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(es.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(et.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(eu.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fa.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fj.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ful.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fur.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(fy.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ga.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gd.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gez.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gu.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(gv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ha.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(haw.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(he.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(hi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ho.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(hr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(hu.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(hy.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ia.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ibo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(id.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ie.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ik.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(io.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(is.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(it.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(iu.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ja.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ka.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kaa.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ki.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(km.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ko.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kok.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ks.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ku.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kum.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(kw.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ky.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(la.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(lb.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(lez.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(lo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(lt.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(lv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mg.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mh.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ml.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(mt.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(my.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(nb.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ne.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(nl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(nn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(no.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ny.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(oc.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(om.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(or.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(os.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(pl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(pt.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(rm.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ro.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ru.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sa.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sah.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sco.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(se.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sel.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sh.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(si.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sm.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sma.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(smj.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(smn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sms.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(so.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sq.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(sw.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(syr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ta.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(te.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tg.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(th.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ti.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tl.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(to.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tr.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ts.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tt.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tw.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(tyv.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ug.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(uk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ur.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(uz.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(ven.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(vi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(vo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(vot.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(wa.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(wen.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(wo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(xh.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(yap.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(yi.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(yo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zh_cn.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zh_hk.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zh_mo.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zh_sg.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zh_tw.orth,$(FONTCONFIGDIR)/fc-lang)
+LinkSourceFile(zu.orth,$(FONTCONFIGDIR)/fc-lang)
+

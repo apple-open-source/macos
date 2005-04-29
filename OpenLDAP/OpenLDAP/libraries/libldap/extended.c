@@ -1,7 +1,19 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/extended.c,v 1.15.2.6 2003/03/03 17:10:04 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/libraries/libldap/extended.c,v 1.23.2.6 2004/10/20 20:06:51 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (C) The Internet Society (1997).
+ * ASN.1 fragments are from RFC 2251; see RFC for full legal notices.
  */
 
 /*
@@ -43,6 +55,7 @@ ldap_extended_operation(
 {
 	BerElement *ber;
 	int rc;
+	ber_int_t id;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG ( OPERATION, ENTRY, "ldap_extended_operation\n", 0,0,0 );
@@ -67,15 +80,16 @@ ldap_extended_operation(
 		return( ld->ld_errno );
 	}
 
+	LDAP_NEXT_MSGID( ld, id );
 	if ( reqdata != NULL ) {
 		rc = ber_printf( ber, "{it{tstON}", /* '}' */
-			++ld->ld_msgid, LDAP_REQ_EXTENDED,
+			id, LDAP_REQ_EXTENDED,
 			LDAP_TAG_EXOP_REQ_OID, reqoid,
 			LDAP_TAG_EXOP_REQ_VALUE, reqdata );
 
 	} else {
 		rc = ber_printf( ber, "{it{tsN}", /* '}' */
-			++ld->ld_msgid, LDAP_REQ_EXTENDED,
+			id, LDAP_REQ_EXTENDED,
 			LDAP_TAG_EXOP_REQ_OID, reqoid );
 	}
 
@@ -98,7 +112,7 @@ ldap_extended_operation(
 	}
 
 	/* send the message */
-	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_EXTENDED, NULL, ber );
+	*msgidp = ldap_send_initial_request( ld, LDAP_REQ_EXTENDED, NULL, ber, id );
 
 	return( *msgidp < 0 ? ld->ld_errno : LDAP_SUCCESS );
 }
@@ -281,7 +295,7 @@ ldap_parse_extended_result (
 
 /* Parse an extended partial */
 int
-ldap_parse_extended_partial (
+ldap_parse_intermediate (
 	LDAP			*ld,
 	LDAPMessage		*res,
 	char			**retoidp,
@@ -301,9 +315,9 @@ ldap_parse_extended_partial (
 	assert( res != NULL );
 
 #ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_parse_extended_partial\n", 0,0,0 );
+	LDAP_LOG ( OPERATION, ENTRY, "ldap_parse_intermediate\n", 0,0,0 );
 #else
-	Debug( LDAP_DEBUG_TRACE, "ldap_parse_extended_partial\n", 0, 0, 0 );
+	Debug( LDAP_DEBUG_TRACE, "ldap_parse_intermediate\n", 0, 0, 0 );
 #endif
 
 	if( ld->ld_version < LDAP_VERSION3 ) {
@@ -311,7 +325,7 @@ ldap_parse_extended_partial (
 		return ld->ld_errno;
 	}
 
-	if( res->lm_msgtype != LDAP_RES_EXTENDED_PARTIAL ) {
+	if( res->lm_msgtype != LDAP_RES_INTERMEDIATE ) {
 		ld->ld_errno = LDAP_PARAM_ERROR;
 		return ld->ld_errno;
 	}
@@ -339,7 +353,13 @@ ldap_parse_extended_partial (
 
 	tag = ber_peek_tag( ber, &len );
 
-	if( tag == LDAP_TAG_EXOP_RES_OID ) {
+	/*
+	 * NOTE: accept intermediate and extended response tag values
+	 * as older versions of slapd(8) incorrectly used extended
+	 * response tags.
+	 * Should be removed when 2.2 is moved to Historic.
+	 */
+	if( tag == LDAP_TAG_IM_RES_OID || tag == LDAP_TAG_EXOP_RES_OID ) {
 		/* we have a resoid */
 		if( ber_scanf( ber, "a", &resoid ) == LBER_ERROR ) {
 			ld->ld_errno = LDAP_DECODING_ERROR;
@@ -350,7 +370,7 @@ ldap_parse_extended_partial (
 		tag = ber_peek_tag( ber, &len );
 	}
 
-	if( tag == LDAP_TAG_EXOP_RES_VALUE ) {
+	if( tag == LDAP_TAG_IM_RES_VALUE || tag == LDAP_TAG_EXOP_RES_VALUE ) {
 		/* we have a resdata */
 		if( ber_scanf( ber, "O", &resdata ) == LBER_ERROR ) {
 			ld->ld_errno = LDAP_DECODING_ERROR;
@@ -370,7 +390,7 @@ ldap_parse_extended_partial (
 		goto free_and_return;
 	}
 
-	rc = ldap_int_get_controls( ber, serverctrls );
+	rc = ldap_pvt_get_controls( ber, serverctrls );
 
 free_and_return:
 	ber_free( ber, 0 );
@@ -394,119 +414,3 @@ free_and_return:
 	return LDAP_SUCCESS;
 }
 
-#ifdef LDAP_RES_INTERMEDIATE_RESP
-/* Parse an intermediate response result */
-int
-ldap_parse_intermediate_resp_result (
-	LDAP			*ld,
-	LDAPMessage		*res,
-	char			**retoidp,
-	struct berval		**retdatap,
-	int			freeit )
-{
-	BerElement *ber;
-	ber_tag_t rc;
-	ber_tag_t tag;
-	ber_len_t len;
-	struct berval *resdata;
-	ber_int_t errcode;
-	char *resoid;
-
-	assert( ld != NULL );
-	assert( LDAP_VALID( ld ) );
-	assert( res != NULL );
-
-#ifdef NEW_LOGGING
-	LDAP_LOG ( OPERATION, ENTRY, "ldap_parse_intermediate_resp_result\n", 0,0,0 );
-#else
-	Debug( LDAP_DEBUG_TRACE, "ldap_parse_intermediate_resp_result\n", 0, 0, 0 );
-#endif
-
-	if( ld->ld_version < LDAP_VERSION3 ) {
-		ld->ld_errno = LDAP_NOT_SUPPORTED;
-		return ld->ld_errno;
-	}
-
-	if( res->lm_msgtype != LDAP_RES_INTERMEDIATE_RESP ) {
-		ld->ld_errno = LDAP_PARAM_ERROR;
-		return ld->ld_errno;
-	}
-
-	if( retoidp != NULL ) *retoidp = NULL;
-	if( retdatap != NULL ) *retdatap = NULL;
-
-	if ( ld->ld_error ) {
-		LDAP_FREE( ld->ld_error );
-		ld->ld_error = NULL;
-	}
-
-	if ( ld->ld_matched ) {
-		LDAP_FREE( ld->ld_matched );
-		ld->ld_matched = NULL;
-	}
-
-	ber = ber_dup( res->lm_ber );
-
-	if ( ber == NULL ) {
-		ld->ld_errno = LDAP_NO_MEMORY;
-		return ld->ld_errno;
-	}
-
-	rc = ber_scanf( ber, "{iaa" /*}*/, &errcode,
-		&ld->ld_matched, &ld->ld_error );
-
-	if( rc == LBER_ERROR ) {
-		ld->ld_errno = LDAP_DECODING_ERROR;
-		ber_free( ber, 0 );
-		return ld->ld_errno;
-	}
-
-	resoid = NULL;
-	resdata = NULL;
-
-	tag = ber_peek_tag( ber, &len );
-
-	if( tag == LDAP_TAG_EXOP_RES_OID ) {
-		/* we have a resoid */
-		if( ber_scanf( ber, "a", &resoid ) == LBER_ERROR ) {
-			ld->ld_errno = LDAP_DECODING_ERROR;
-			ber_free( ber, 0 );
-			return ld->ld_errno;
-		}
-
-		tag = ber_peek_tag( ber, &len );
-	}
-
-	if( tag == LDAP_TAG_EXOP_RES_VALUE ) {
-		/* we have a resdata */
-		if( ber_scanf( ber, "O", &resdata ) == LBER_ERROR ) {
-			ld->ld_errno = LDAP_DECODING_ERROR;
-			ber_free( ber, 0 );
-			if( resoid != NULL ) LDAP_FREE( resoid );
-			return ld->ld_errno;
-		}
-	}
-
-	ber_free( ber, 0 );
-
-	if( retoidp != NULL ) {
-		*retoidp = resoid;
-	} else {
-		LDAP_FREE( resoid );
-	}
-
-	if( retdatap != NULL ) {
-		*retdatap = resdata;
-	} else {
-		ber_bvfree( resdata );
-	}
-
-	ld->ld_errno = errcode;
-
-	if( freeit ) {
-		ldap_msgfree( res );
-	}
-
-	return LDAP_SUCCESS;
-}
-#endif

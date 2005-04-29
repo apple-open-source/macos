@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/freetype2/Imakefile,v 1.9 2003/01/01 22:08:39 torrey Exp $
+XCOMM $XFree86: xc/lib/freetype2/Imakefile,v 1.20 2003/12/11 21:07:41 dawes Exp $
 
 #define IHaveSubdirs
 #define PassCDebugFlags
@@ -12,6 +12,9 @@ XCOMM $XFree86: xc/lib/freetype2/Imakefile,v 1.9 2003/01/01 22:08:39 torrey Exp 
 #define HasSharedData YES
 #define LibName freetype
 #define SoRev SOFREETYPE2REV
+#ifdef SharedLibtoolFreetype2Rev
+#define SharedLibtoolRev SharedLibtoolFreetype2Rev
+#endif
 #define LibHeaders NO
 
 #include <Threads.tmpl>
@@ -22,20 +25,23 @@ FREETYPEINC = $(FREETYPETOP)/include/freetype
 
 #ifdef DarwinArchitecture
 # if DarwinQuartzSupport
-DEFINES = -DTARGET_API_MAC_CARBON=TRUE
-REQUIREDLIBS = -framework Carbon
+DARWINDEFINES = -DTARGET_API_MAC_CARBON=TRUE
+REQUIREDLIBS = -framework CoreServices -framework ApplicationServices
 # else
-DEFINES = -DDARWIN_NO_CARBON
+DARWINDEFINES = -DDARWIN_NO_CARBON
 # endif
 #endif
 
-INCLUDES = -I. $(FREETYPE2INCLUDES)\
+DEFINES = $(DARWINDEFINES) Freetype2BuildDefines -DXFREE86_FT2
+
+INCLUDES = -I.\
 	-I$(FREETYPESRC)\
 	-I$(FREETYPESRC)/base\
 	-I$(FREETYPESRC)/autohint\
 	-I$(FREETYPESRC)/bdf\
 	-I$(FREETYPESRC)/cff\
 	-I$(FREETYPESRC)/cid\
+	-I$(FREETYPESRC)/gzip\
 	-I$(FREETYPESRC)/pcf\
 	-I$(FREETYPESRC)/pfr\
 	-I$(FREETYPESRC)/psaux\
@@ -47,34 +53,44 @@ INCLUDES = -I. $(FREETYPE2INCLUDES)\
 	-I$(FREETYPESRC)/truetype\
 	-I$(FREETYPESRC)/type1\
 	-I$(FREETYPESRC)/type42\
-	-I$(FREETYPESRC)/winfonts
+	-I$(FREETYPESRC)/winfonts\
+	$(FREETYPE2INCLUDES)\
+	-I$(XBUILDINCDIR)
 
 SUBDIRS=freetype
 
 HEADERS=ft2build.h
 
-SRCS_BASE = ftbase.c \
-            ftbdf.c \
+SRCS_BASE = ftapi.c \
+            ftbase.c \
             ftbbox.c \
+            ftbdf.c \
             ftdebug.c \
             ftglyph.c \
             ftinit.c \
             ftmm.c \
+            ftpfr.c \
+            ftstroker.c \
             ftsynth.c \
             ftsystem.c \
             fttype1.c \
+            ftwinfnt.c \
             ftxf86.c
 
-OBJS_BASE = ftbase.o \
-            ftbdf.o \
+OBJS_BASE = ftapi.o \
+            ftbase.o \
             ftbbox.o \
+            ftbdf.o \
             ftdebug.o \
             ftglyph.o \
             ftinit.o \
             ftmm.o \
+            ftpfr.o \
+            ftstroker.o \
             ftsynth.o \
             ftsystem.o \
             fttype1.o \
+            ftwinfnt.o \
             ftxf86.o
 
 #if defined(DarwinArchitecture) && DarwinQuartzSupport
@@ -93,6 +109,9 @@ OBJS_CFF      = cff.o
 
 SRCS_CID      = type1cid.c
 OBJS_CID      = type1cid.o
+
+SRCS_GZIP     = ftgzip.c
+OBJS_GZIP     = ftgzip.o
 
 SRCS_PCF      = pcf.c
 OBJS_PCF      = pcf.o
@@ -136,6 +155,7 @@ SRCS = $(SRCS_BASE)\
        $(SRCS_BDF)\
        $(SRCS_CFF)\
        $(SRCS_CID)\
+       $(SRCS_GZIP)\
        $(SRCS_PCF)\
        $(SRCS_PFR)\
        $(SRCS_PSAUX)\
@@ -155,6 +175,7 @@ OBJS = $(OBJS_BASE)\
        $(OBJS_BDF)\
        $(OBJS_CFF)\
        $(OBJS_CID)\
+       $(OBJS_GZIP)\
        $(OBJS_PCF)\
        $(OBJS_PFR)\
        $(OBJS_PSAUX)\
@@ -180,11 +201,18 @@ MANSUFFIX = $(LIBMANSUFFIX)
 InstallManPage(Freetype,$(LIBMANDIR))
 #endif
 
-BuildIncludes($(HEADERS),freetype2,..)
-InstallMultipleFlags($(HEADERS),$(INCDIR)/freetype2,$(INSTINCFLAGS))
+BuildIncludes($(HEADERS),.,.)
+InstallMultipleFlags($(HEADERS),$(INCDIR),$(INSTINCFLAGS))
 
-LinkSourceFile(ft2build.h,$(FREETYPETOP)/include)
+/* There might be an ft2build.h file in the wrong place.  If so, remove it. */
+install::
+	@if [ -f $(DESTDIR)$(INCDIR)/freetype2/ft2build.h ]; then \
+		(set -x; $(RM) -f $(DESTDIR)$(INCDIR)/freetype2/ft2build.h) \
+	fi
 
+LinkFile(ft2build.h,$(FREETYPETOP)/builds/unix/ft2unix.h)
+
+LinkSourceFile(ftapi.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftbase.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftbdf.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftbbox.c,$(FREETYPESRC)/base)
@@ -192,9 +220,12 @@ LinkSourceFile(ftdebug.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftglyph.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftinit.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftmm.c,$(FREETYPESRC)/base)
+LinkSourceFile(ftpfr.c,$(FREETYPESRC)/base)
+LinkSourceFile(ftstroker.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftsynth.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftsystem.c,$(FREETYPESRC)/base)
 LinkSourceFile(fttype1.c,$(FREETYPESRC)/base)
+LinkSourceFile(ftwinfnt.c,$(FREETYPESRC)/base)
 LinkSourceFile(ftxf86.c,$(FREETYPESRC)/base)
 
 #if defined(DarwinArchitecture) && DarwinQuartzSupport
@@ -204,6 +235,7 @@ LinkSourceFile(ftmac.c,$(FREETYPESRC)/base)
 LinkSourceFile(autohint.c,$(FREETYPESRC)/autohint)
 LinkSourceFile(bdf.c,$(FREETYPESRC)/bdf)
 LinkSourceFile(cff.c,$(FREETYPESRC)/cff)
+LinkSourceFile(ftgzip.c,$(FREETYPESRC)/gzip)
 LinkSourceFile(type1cid.c,$(FREETYPESRC)/cid)
 LinkSourceFile(pcf.c,$(FREETYPESRC)/pcf)
 LinkSourceFile(pfr.c,$(FREETYPESRC)/pfr)

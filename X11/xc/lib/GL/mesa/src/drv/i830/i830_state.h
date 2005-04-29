@@ -25,7 +25,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_state.h,v 1.3 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_state.h,v 1.4 2003/09/28 20:15:14 alanh Exp $ */
 
 /*
  * Author:
@@ -38,7 +38,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define _I830_STATE_H
 
 #include "i830_context.h"
-/*Maths macros from mmath.h*/
+#include "colormac.h"
 #define FloatToInt(F) ((int)(F))
 
 /* 

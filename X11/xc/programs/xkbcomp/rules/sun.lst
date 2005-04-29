@@ -1,10 +1,12 @@
-// $XFree86: xc/programs/xkbcomp/rules/sun.lst,v 3.5 2001/05/23 16:03:51 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/rules/sun.lst,v 3.6 2003/08/09 14:30:49 pascal Exp $
 
 ! model
   type4			Sun Type4
   type5			Sun Type5
   type5_euro		Sun Type5 European
   type5_unix		Sun Type5 Unix
+  type6                 Sun Type6
+  type6_euro            Sun Type6 European
 
 ! layout
   be			Belgian

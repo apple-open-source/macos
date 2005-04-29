@@ -27,7 +27,7 @@
    * used in advertising or publicity pertaining to distribution of the 
    * software without specific, written prior permission.
   \*/
-/* $XFree86: xc/programs/xkbevd/utils.h,v 1.6 2002/01/14 18:30:11 dawes Exp $ */
+/* $XFree86: xc/programs/xkbevd/utils.h,v 1.7 2003/11/17 22:20:53 dawes Exp $ */
 
 /***====================================================================***/
 
@@ -86,34 +86,24 @@ typedef union {
 /***====================================================================***/
 
 extern	Opaque	uAlloc(
-#if NeedFunctionPrototypes
     unsigned	/* size */
-#endif
 );
 extern	Opaque	uCalloc(
-#if NeedFunctionPrototypes
     unsigned	/* n */,
     unsigned	/* size */
-#endif
 );
 extern	Opaque	uRealloc(
-#if NeedFunctionPrototypes
     Opaque	/* old */,
     unsigned	/* newSize */
-#endif
 );
 extern	Opaque	uRecalloc(
-#if NeedFunctionPrototypes
     Opaque 	/* old */,
     unsigned	/* nOld */,
     unsigned	/* nNew */,
     unsigned 	/* newSize */
-#endif
 );
 extern	void	uFree(
-#if NeedFunctionPrototypes
     Opaque	/* ptr */
-#endif
 );
 
 #define	uTypedAlloc(t)		((t *)uAlloc((unsigned)sizeof(t)))
@@ -152,25 +142,19 @@ extern void uInternalError ( char *s, ... );
 #define	uStrCasePrefix(p,s)	(strncasecmp(p,s,strlen(p))==0)
 #else
 extern	int uStrCaseCmp(
-#if NeedFunctionPrototypes
 	char *	/* s1 */,
 	char *	/* s2 */
-#endif
 );
 extern	int uStrCasePrefix(
-#if NeedFunctionPrototypes
 	char *	/* p */,
 	char *	/* str */
-#endif
 );
 #endif
 #ifdef HAVE_STRDUP
 #define	uStringDup(s1)		(strdup(s1))
 #else
 extern	char *uStringDup(
-#if NeedFunctionPrototypes
 	char *	/* s1 */
-#endif
 );
 #endif
 
@@ -197,9 +181,7 @@ unsigned	int	DEBUG_VAR;
 extern	void	uDebug( char *s, ... );
 extern	void	uDebugNOI( char *s, ... );	/* no indent */
 extern	Boolean	uSetDebugFile(
-#if NeedFunctionPrototypes
     char *name
-#endif
 );
 extern	FILE	*uDebugFile;
 extern	int	uDebugIndentLevel;
@@ -235,15 +217,11 @@ extern	int	uDebugIndentSize;
 #endif
 
 extern	Boolean	uSetEntryFile(
-#if NeedFunctionPrototypes
     char *name
-#endif
 );
 extern	void	uEntry(int l, char *s, ... );
 extern	void	uExit(
-#if NeedFunctionPrototypes
     int l,char *rtVal
-#endif
 );
 #ifdef ENTRY_TRACKING_ON
 #define	ENTRY_BIT	0x10

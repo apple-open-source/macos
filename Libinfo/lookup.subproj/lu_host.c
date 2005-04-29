@@ -34,7 +34,10 @@
 #include <net/if.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <errno.h>
 #include <ifaddrs.h>
+#include <sys/types.h>
+#include <netinet/if_ether.h>
 
 #include "_lu_types.h"
 #include "lookup.h"
@@ -62,14 +65,15 @@ static unsigned int _host_byaddr_cache_index = 0;
 
 static pthread_mutex_t _host_lock = PTHREAD_MUTEX_INITIALIZER;
 
-extern struct hostent *_res_gethostbyaddr();
-extern struct hostent *_res_gethostbyname();
 extern struct hostent *_old_gethostbyaddr();
 extern struct hostent *_old_gethostbyname();
 extern struct hostent *_old_gethostent();
 extern void _old_sethostent();
 extern void _old_endhostent();
 extern void _old_sethostfile();
+
+extern int _old_ether_hostton(const char *, struct ether_addr *);
+extern int _old_ether_ntohost(char *, const struct ether_addr *);
 
 extern mach_port_t _lu_port;
 extern int _lu_running(void);
@@ -665,7 +669,7 @@ lu_gethostbyaddr(const char *addr, int want, int *err)
 
 	if (_lookup_all(_lu_port, proc, (unit *)address, len / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
-		*err = NO_RECOVERY;
+		*err = HOST_NOT_FOUND;
 		return NULL;
 	}
 
@@ -750,7 +754,7 @@ lu_gethostbyname(const char *name, int want, int *err)
 	if (_lookup_all(_lu_port, proc, (unit *)namebuf, xdr_getpos(&outxdr) / BYTES_PER_XDR_UNIT, &lookup_buf, &datalen) != KERN_SUCCESS)
 	{
 		xdr_destroy(&outxdr);
-		*err = NO_RECOVERY;
+		*err = HOST_NOT_FOUND;
 		return NULL;
 	}
 
@@ -831,7 +835,7 @@ lu_gethostent(int want, int *err)
 		if (_lookup_all(_lu_port, proc, NULL, 0, &(tdata->lu_vm), &(tdata->lu_vm_length)) != KERN_SUCCESS)
 		{
 			lu_endhostent();
-			*err = NO_RECOVERY;
+			*err = HOST_NOT_FOUND;
 			return NULL;
 		}
 
@@ -908,8 +912,7 @@ gethostbyaddrerrno(const char *addr, int len, int type, int *err)
 	else
 	{
 		pthread_mutex_lock(&_host_lock);
-		res = copy_host(_res_gethostbyaddr(addr, len, type));
-		if (res == NULL) res = copy_host(_old_gethostbyaddr(addr, len, type));
+		res = copy_host(_old_gethostbyaddr(addr, len, type));
 		*err = h_errno;
 		pthread_mutex_unlock(&_host_lock);
 	}
@@ -920,7 +923,7 @@ gethostbyaddrerrno(const char *addr, int len, int type, int *err)
 }
 
 struct hostent *
-gethostbyaddr(const char *addr, int len, int type)
+gethostbyaddr(const void *addr, socklen_t len, int type)
 {
 	struct hostent *res;
 	struct lu_thread_info *tdata;
@@ -1010,8 +1013,7 @@ gethostbynameerrno(const char *name, int *err)
 	else
 	{
 		pthread_mutex_lock(&_host_lock);
-		res = copy_host(_res_gethostbyname(name));
-		if (res == NULL) res = copy_host(_old_gethostbyname(name));
+		res = copy_host(_old_gethostbyname(name));
 		*err = h_errno;
 		pthread_mutex_unlock(&_host_lock);
 	}
@@ -1069,7 +1071,6 @@ gethostbyname2(const char *name, int af)
 	if (res == NULL)
 	{
 		errno = EAFNOSUPPORT;
-		h_errno = NETDB_INTERNAL;
 		return NULL;
 	}
 
@@ -1356,8 +1357,7 @@ getipnodebyname(const char *name, int af, int flags, int *err)
 	else
 	{
 		pthread_mutex_lock(&_host_lock);
-		res = copy_host(_res_gethostbyname(name));
-		if (res == NULL) res = copy_host(_old_gethostbyname(name));
+		res = copy_host(_old_gethostbyname(name));
 		*err = h_errno;
 		pthread_mutex_unlock(&_host_lock);
 	}
@@ -1371,4 +1371,111 @@ getipnodebyname(const char *name, int af, int flags, int *err)
 	if (from_cache == 0) cache_host(res, want, CACHE_BYNAME);
 
 	return res;
+}
+
+/*
+ * Given a host's name, this routine returns its 48 bit ethernet address.
+ * Returns zero if successful, non-zero otherwise.
+ */
+int
+lu_ether_hostton(const char *host, struct ether_addr *e)
+{
+	unsigned int i, n, j, x[6];
+	ni_proplist *q, **r;
+	char *s;
+	
+	if (host == NULL) return -1;
+	if (e == NULL) return -1;
+	
+	q = lookupd_make_query("2", "kvk", "name", host, "en_address");
+	if (q == NULL) return -1;
+	
+	n = lookupd_query(q, &r);
+	ni_proplist_free(q);
+	free(q);
+	
+	if (n == 0) return -1;
+	if (r[0] == NULL) return -1;
+	
+	i = ni_proplist_match(*r[0], "en_address", NULL);
+	if (i == (unsigned int)NI_INDEX_NULL) return -1;
+	
+	if (r[0]->ni_proplist_val[i].nip_val.ni_namelist_len == 0) return -1;
+	
+	s = r[0]->ni_proplist_val[i].nip_val.ni_namelist_val[0];
+	j = sscanf(s, " %x:%x:%x:%x:%x:%x", &x[0], &x[1], &x[2], &x[3], &x[4], &x[5]);
+	if (j != 6)
+	{
+		for (i = 0; i < n; i++)
+		{
+			ni_proplist_free(r[i]);
+			free(r[i]);
+		}
+		free(r);
+		return -1;
+	}
+	
+	for (i = 0; i < 6; i++) e->ether_addr_octet[i] = x[i];
+	
+	for (i = 0; i < n; i++)
+	{
+		ni_proplist_free(r[i]);
+		free(r[i]);
+	}
+	
+	free(r);
+	return 0;
+}
+
+/*
+ * Given a 48 bit ethernet address, this routine return its host name.
+ * Returns zero if successful, non-zero otherwise.
+ */
+int
+lu_ether_ntohost(char *host, const struct ether_addr *e)
+{
+	unsigned int i, n, len, x[6];
+	ni_proplist *q, **r;
+	char str[256];
+	
+	if (host == NULL) return -1;
+	if (e == NULL) return -1;
+	
+	for (i = 0; i < 6; i++) x[i] = e->ether_addr_octet[i];
+	sprintf(str, "%x:%x:%x:%x:%x:%x", x[0], x[1], x[2], x[3], x[4], x[5]);
+	
+	q = lookupd_make_query("2", "kv", "en_address", str);
+	if (q == NULL) return -1;
+	
+	n = lookupd_query(q, &r);
+	ni_proplist_free(q);
+	free(q);
+	if (n == 0) return -1;
+	if (r[0] == NULL) return -1;
+	
+	i = ni_proplist_match(*r[0], "name", NULL);
+	if (i == (unsigned int)NI_INDEX_NULL) return -1;
+	
+	if (r[0]->ni_proplist_val[i].nip_val.ni_namelist_len == 0) return -1;
+	
+	len = strlen(r[0]->ni_proplist_val[i].nip_val.ni_namelist_val[0]) + 1;
+	memcpy(host, r[0]->ni_proplist_val[i].nip_val.ni_namelist_val[0], len);
+	
+	for (i = 0; i < n; i++) ni_proplist_free(r[i]);
+	free(r);
+	return 0;
+}
+
+int
+ether_hostton(const char *host, struct ether_addr *e)
+{
+	if (_lu_running()) return lu_ether_hostton(host, e);
+	return _old_ether_hostton(host, e);
+}
+
+int
+ether_ntohost(char *host, const struct ether_addr *e)
+{
+	if (_lu_running()) return lu_ether_ntohost(host, e);
+	return _old_ether_ntohost(host, e);
 }

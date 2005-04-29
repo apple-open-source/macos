@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001, International Business Machines
+*   Copyright (C) 2001-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -28,7 +28,7 @@
 
 U_NAMESPACE_BEGIN
 
-void uprv_growTable(ContractionTable *tbl, UErrorCode *status) {
+static void uprv_growTable(ContractionTable *tbl, UErrorCode *status) {
     if(tbl->position == tbl->size) {
         uint32_t *newData = (uint32_t *)uprv_realloc(tbl->CEs, 2*tbl->size*sizeof(uint32_t));
         if(newData == NULL) {
@@ -212,7 +212,11 @@ uprv_cnttab_constructTable(CntTable *table, uint32_t mainOffset, UErrorCode *sta
         CEPointer += size;
     }
 
-
+    // TODO: this one apparently updates the contraction CEs to point to a real address (relative to the 
+    // start of the flat file). However, what is done below is just wrong and it affects building of 
+    // tailorings that have constructions in a bad way. At least, one should enumerate the trie. Also,
+    // keeping a list of code points that are contractions might be smart, although I'm not sure if it's
+    // feasible.
     uint32_t CE;
     for(i = 0; i<=0x10FFFF; i++) {
         /*CE = ucmpe32_get(table->mapping, i);*/
@@ -228,7 +232,7 @@ uprv_cnttab_constructTable(CntTable *table, uint32_t mainOffset, UErrorCode *sta
     return table->position;
 }
 
-ContractionTable *uprv_cnttab_cloneContraction(ContractionTable *t, UErrorCode *status) {
+static ContractionTable *uprv_cnttab_cloneContraction(ContractionTable *t, UErrorCode *status) {
   ContractionTable *r = (ContractionTable *)uprv_malloc(sizeof(ContractionTable));
   if(r == NULL) {
     *status = U_MEMORY_ALLOCATION_ERROR;

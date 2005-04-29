@@ -25,7 +25,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_accel.c,v 1.17 2002/11/25 14:04:59 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_accel.c,v 1.22 2004/01/03 02:11:53 dawes Exp $ */
 
 /*
  * Reformatted with GNU indent (2.2.8), using the following options:
@@ -48,46 +48,8 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "xf86_ansic.h"
 #include "xf86.h"
-
+#include "xaarop.h"
 #include "i810.h"
-
-static unsigned int i810Rop[16] = {
-   0x00,				/* GXclear      */
-   0x88,				/* GXand        */
-   0x44,				/* GXandReverse */
-   0xCC,				/* GXcopy       */
-   0x22,				/* GXandInvert  */
-   0xAA,				/* GXnoop       */
-   0x66,				/* GXxor        */
-   0xEE,				/* GXor         */
-   0x11,				/* GXnor        */
-   0x99,				/* GXequiv      */
-   0x55,				/* GXinvert     */
-   0xDD,				/* GXorReverse  */
-   0x33,				/* GXcopyInvert */
-   0xBB,				/* GXorInverted */
-   0x77,				/* GXnand       */
-   0xFF					/* GXset        */
-};
-
-static unsigned int i810PatternRop[16] = {
-   0x00,				/* GXclear      */
-   0xA0,				/* GXand        */
-   0x50,				/* GXandReverse */
-   0xF0,				/* GXcopy       */
-   0x0A,				/* GXandInvert  */
-   0xAA,				/* GXnoop       */
-   0x5A,				/* GXxor        */
-   0xFA,				/* GXor         */
-   0x05,				/* GXnor        */
-   0xA5,				/* GXequiv      */
-   0x55,				/* GXinvert     */
-   0xF5,				/* GXorReverse  */
-   0x0F,				/* GXcopyInvert */
-   0xAF,				/* GXorInverted */
-   0x5F,				/* GXnand       */
-   0xFF					/* GXset        */
-};
 
 static void I810SetupForMono8x8PatternFill(ScrnInfoPtr pScrn,
 					   int pattx, int patty,
@@ -130,10 +92,7 @@ I810AccelInit(ScreenPtr pScreen)
 
    pI810->bufferOffset = 0;
    infoPtr->Flags = LINEAR_FRAMEBUFFER | OFFSCREEN_PIXMAPS;
-   /* There is a bit blt bug in 24 bpp.  This is a problem, but
-    * at least without the pixmap cache we can pass the test suite */
-   if (pScrn->depth != 24)
-      infoPtr->Flags |= PIXMAP_CACHE;
+   infoPtr->Flags |= PIXMAP_CACHE;
 
    /* Sync
     */
@@ -334,7 +293,7 @@ I810SetupForSolidFill(ScrnInfoPtr pScrn, int color, int rop,
 
    /* Color blit, p166 */
    pI810->BR[13] = (BR13_SOLID_PATTERN |
-		    (i810PatternRop[rop] << 16) |
+		    (XAAPatternROP[rop] << 16) |
 		    (pScrn->displayWidth * pI810->cpp));
    pI810->BR[16] = color;
 }
@@ -380,7 +339,7 @@ I810SetupForScreenToScreenCopy(ScrnInfoPtr pScrn, int xdir, int ydir, int rop,
    if (xdir == -1)
       pI810->BR[13] |= BR13_RIGHT_TO_LEFT;
 
-   pI810->BR[13] |= i810Rop[rop] << 16;
+   pI810->BR[13] |= XAACopyROP[rop] << 16;
 
    pI810->BR[18] = 0;
 }
@@ -401,9 +360,12 @@ I810SubsequentScreenToScreenCopy(ScrnInfoPtr pScrn, int x1, int y1,
      * This was developed empirically so it may not catch all
      * cases.
      */
+#define I810_MWIDTH 8
+
     if ( !(pI810->BR[13] & BR13_RIGHT_TO_LEFT) && (y2 - y1) < 3 
-	 && (y2 - y1) >= 0 && (x2 - x1) <= (w + 4) && (w > 4))
-	w = 4;
+	 && (y2 - y1) >= 0 && (x2 - x1) <= (w + I810_MWIDTH)
+	 && (w > I810_MWIDTH))
+	w = I810_MWIDTH;
     do {
 
 	if (pI810->BR[13] & BR13_PITCH_SIGN_BIT) {
@@ -441,7 +403,10 @@ I810SubsequentScreenToScreenCopy(ScrnInfoPtr pScrn, int x1, int y1,
 	    break;
 	x2 += w;
 	x1 += w;
-	w = w_back;
+	if (w_back > I810_MWIDTH)
+	    w = I810_MWIDTH;
+	else
+	    w = w_back;
     }  while (1);
 }
 
@@ -460,9 +425,9 @@ I810SetupForMono8x8PatternFill(ScrnInfoPtr pScrn, int pattx, int patty,
    pI810->BR[18] = bg;
    pI810->BR[19] = fg;
    pI810->BR[13] = (pScrn->displayWidth * pI810->cpp);
-   pI810->BR[13] |= i810PatternRop[rop] << 16;
+   pI810->BR[13] |= XAAPatternROP[rop] << 16;
    if (bg == -1)
-      pI810->BR[13] |= BR13_MONO_TRANSPCY;
+      pI810->BR[13] |= BR13_MONO_PATN_TRANS;
 }
 
 static void
@@ -524,7 +489,7 @@ I810SetupForScanlineCPUToScreenColorExpandFill(ScrnInfoPtr pScrn,
 	     fg, bg, rop, planemask);
 
    pI810->BR[13] = (pScrn->displayWidth * pI810->cpp);
-   pI810->BR[13] |= i810Rop[rop] << 16;
+   pI810->BR[13] |= XAACopyROP[rop] << 16;
    pI810->BR[13] |= (1 << 27);
    if (bg == -1)
       pI810->BR[13] |= BR13_MONO_TRANSPCY;

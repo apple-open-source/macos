@@ -10,11 +10,11 @@ dnl libexslt is an extension
 dnl
 LIBXSLT_MAJOR_VERSION=1
 LIBXSLT_MINOR_VERSION=1
-LIBXSLT_MICRO_VERSION=9
+LIBXSLT_MICRO_VERSION=11
 PACKAGE=libxslt
 LIBEXSLT_MAJOR_VERSION=0
 LIBEXSLT_MINOR_VERSION=8
-LIBEXSLT_MICRO_VERSION=7
+LIBEXSLT_MICRO_VERSION=9
 LIBXML_REQUIRED_VERSION=2.6.8
 
 
@@ -273,7 +273,12 @@ if [[ "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XSLT" ]] || \
 	with_mem_debug="yes"
     fi
     CFLAGS="-Wall -g -O -ansi -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wuninitialized -Wparentheses -Wshadow -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline "
-    STATIC_BINARIES="-static"
+    if test "`uname -i`" != "x86_64" ;
+    then
+	STATIC_BINARIES="-static"
+    else
+        STATIC_BINARIES=
+    fi
     if test "$LOGNAME" = "veillard"
     then
         LIBXML_SRC="/u/veillard/XML"
@@ -433,7 +438,10 @@ dnl
 dnl In build tree I use a static version with memory debug enabled
 dnl
 if test "${LOGNAME}" = "veillard" -a "`pwd`" = "/u/veillard/XSLT" ; then
-    LIBXML_LIBS="../../XML/.libs/libxml2.a -lpthread -lz"
+    if test "`uname -i`" != "x86_64" ;
+    then
+	LIBXML_LIBS="../../XML/.libs/libxml2.a -lpthread -lz"
+    fi
     DV_LINK="1"
     XSLTPROCDV="xsltproc.dv"
     INSTALLED_XSLT_LIB=""

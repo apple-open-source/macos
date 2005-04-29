@@ -32,10 +32,12 @@
 #include <syslog.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <membershipPriv.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/fcntl.h>
+#include <uuid/uuid.h>
 
 #include "imap_err.h"
 #include "xmalloc.h"
@@ -928,6 +930,7 @@ int sDoCRAM_MD5_Auth ( struct protstream *inStreamIn,
 
 int sGetUserOptions ( const char *inUserID, struct od_user_opts *inOutOpts )
 {
+	int					i				= 1;
 	tDirStatus			dsStatus		= eDSNoErr;
 	tDirReference		dirRef			= 0;
 	tDirNodeReference	searchNodeRef	= 0;
@@ -937,21 +940,44 @@ int sGetUserOptions ( const char *inUserID, struct od_user_opts *inOutOpts )
 		return( -1 );
 	}
 
-	/* get user "record" name and mail attribute if any */
+	/* turns out that DS can fail with invalid ref during _any_ call
+		we can recover by trying again.  However, don't retry forever */
 
-	/* open DS */
-	dsStatus = sOpen_ds( &dirRef );
-	if ( dsStatus == eDSNoErr )
+	for ( i = 1; i < 4; i++ )
 	{
-		/* open search node */
-		dsStatus = sGet_search_node( dirRef, &searchNodeRef );
+		/* reset to eDSNoErr if dir ref is valid */
+		dsStatus = eDSNoErr;
+
+		/* No need to close dir ref if still valid */
+		if ( dsVerifyDirRefNum( dirRef ) != eDSNoErr )
+		{
+			dsStatus = sOpen_ds( &dirRef );
+		}
+
+		/* we have a valid dir ref, try to get the search node */
 		if ( dsStatus == eDSNoErr )
 		{
-			/* get user attributes from mail attribute */
-			dsStatus = sGet_user_attributes( dirRef, searchNodeRef, inUserID, inOutOpts );
-			(void)dsCloseDirNode( searchNodeRef );
+			/* open search node */
+			dsStatus = sGet_search_node( dirRef, &searchNodeRef );
+			if ( dsStatus == eDSNoErr )
+			{
+				/* get user attributes from mail attribute */
+				dsStatus = sGet_user_attributes( dirRef, searchNodeRef, inUserID, inOutOpts );
+				(void)dsCloseDirNode( searchNodeRef );
+			}
+			(void)dsCloseDirService( dirRef );
 		}
-		(void)dsCloseDirService( dirRef );
+
+		/* if ref is invalid, try to get user options again */
+		if ( dsStatus != eDSInvalidReference )
+		{
+			break;
+		}
+
+		syslog( LOG_WARNING, "AOD Warning: Directory reference is invalid, retrying (%d)", i );
+
+		/* wait and try again */
+		sleep( 1 );
 	}
 
 	return( dsStatus );
@@ -965,7 +991,57 @@ int sGetUserOptions ( const char *inUserID, struct od_user_opts *inOutOpts )
 
 int checkServiceACL ( struct od_user_opts *inOutOpts, const char *inGroup )
 {
-	return( eTypeNoErr );
+	int			err			= eTypeNoErr;
+	int			result		= 0;
+	uuid_t		userUuid;
+
+	/* get the uuid for user */
+	err = mbr_user_name_to_uuid( inOutOpts->fRecName, userUuid );
+	if ( err != eTypeNoErr )
+	{
+		/* couldn't turn user into uuid settings form user record */
+		syslog( LOG_DEBUG, "AOD: mbr_user_name_to_uuid failed for user: %s (%s)", inOutOpts->fRecName, strerror( err ) );
+		return( -1 );
+	}
+
+	/* check the mail service ACL */
+	err = mbr_check_service_membership( userUuid, inGroup, &result );
+	if ( err == ENOENT )
+	{
+		/* look for all services acl */
+		err = mbr_check_service_membership( userUuid, "access_all_services", &result );
+	}
+
+	if ( err == eTypeNoErr )
+	{
+		/* service ACL is enabled, check membership */
+		if ( result != 0 )
+		{
+			/* we are a member, enable all mail services */
+			if ( inOutOpts->fAcctState == eAcctForwarded )
+			{
+				/* preserve auto-forwarding */
+				inOutOpts->fPOP3Login = eAcctDisabled;
+				inOutOpts->fIMAPLogin = eAcctDisabled;
+			}
+			else
+			{
+				inOutOpts->fAcctState = eAcctEnabled;
+				inOutOpts->fPOP3Login = eAcctProtocolEnabled;
+				inOutOpts->fIMAPLogin = eAcctProtocolEnabled;
+			}
+		}
+		else
+		{
+			/* we are not a member override any settings form user record */
+			inOutOpts->fAcctState = eAcctNotMember;
+			inOutOpts->fPOP3Login = eAcctDisabled;
+			inOutOpts->fIMAPLogin = eAcctDisabled;
+		}
+	}
+
+	return( result );
+
 } /* checkServiceACL */
 
 

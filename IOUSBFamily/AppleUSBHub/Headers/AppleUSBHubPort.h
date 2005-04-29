@@ -82,6 +82,8 @@ protected:
     bool			_initThreadActive;
     bool			_inCommandSleep;
     UInt32			_attachRetry;
+	bool			_attachMessageDisplayed;
+	bool			_overCurrentNoticeDisplayed;
     
     portStatusChangeVector	_changeHandler[kNumChangeHandlers];
     
@@ -152,8 +154,8 @@ public:
     IOReturn		ReEnumeratePort(UInt32 options);
 
     void		DisplayOverCurrentNotice(bool individual);
-    bool 		willTerminate( IOService * provider, IOOptionBits options );
 
+    bool 		willTerminate( IOService * provider, IOOptionBits options );
 };
 
 #endif  _IOKIT_APPLEUSBHUBPORT_H

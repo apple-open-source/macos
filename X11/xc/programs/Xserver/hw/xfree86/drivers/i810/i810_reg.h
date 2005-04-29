@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_reg.h,v 1.13 2003/02/06 04:18:04 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i810/i810_reg.h,v 1.14 2004/01/02 20:22:17 dawes Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -497,6 +497,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define BR13_RIGHT_TO_LEFT   0x40000000
 #define BR13_LEFT_TO_RIGHT   0x00000000
 #define BR13_MONO_TRANSPCY   0x20000000
+#define BR13_MONO_PATN_TRANS 0x10000000
 #define BR13_USE_DYN_DEPTH   0x04000000
 #define BR13_DYN_8BPP        0x00000000
 #define BR13_DYN_16BPP       0x01000000

@@ -20,7 +20,7 @@ Mailman/OldStyleMemberships.py
 Mailman/Pending.py
 Mailman/Post.py
 Mailman/SafeDict.py
-Mailman/SecurityManager.py
+Mailman/Defaults.py
 Mailman/Site.py
 Mailman/TopicMgr.py
 Mailman/UserDesc.py
@@ -84,7 +84,6 @@ Mailman/Handlers/Approve.py
 Mailman/Handlers/AvoidDuplicates.py
 Mailman/Handlers/CalcRecips.py
 Mailman/Handlers/Cleanse.py
-Mailman/Handlers/CookHeaders.py
 Mailman/Handlers/Decorate.py
 Mailman/Handlers/Emergency.py
 Mailman/Handlers/FileRecips.py
@@ -103,6 +102,7 @@ Mailman/Handlers/ToDigest.py
 Mailman/Handlers/ToOutgoing.py
 Mailman/Handlers/ToUsenet.py
 Mailman/Handlers/__init__.py
+Mailman/Handlers/CookHeaders.py
 Mailman/Logging/Logger.py
 Mailman/Logging/MultiLogger.py
 Mailman/Logging/StampedLogger.py
@@ -126,4 +126,4 @@ Mailman/Queue/VirginRunner.py
 Mailman/Queue/__init__.py
 Mailman/Queue/sbcache.py
 Mailman/Queue/RetryRunner.py
-Mailman/Defaults.py
+Mailman/SecurityManager.py

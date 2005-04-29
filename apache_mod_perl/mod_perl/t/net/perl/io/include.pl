@@ -1,4 +1,4 @@
-
+#!perl
 
 use Apache::Include ();
 print "Content-type: text/plain\n\n";

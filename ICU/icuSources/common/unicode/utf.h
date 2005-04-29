@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -16,11 +16,13 @@
 
 /**
  * \file
- * \brief C API: UChar and UChar32 data types and code point macros
+ * \brief C API: Code point macros
  *
- * This file defines the UChar and UChar32 data types for Unicode code units
- * and code points, as well as macros for checking whether a code point is
- * a surrogate or a non-character.
+ * This file defines macros for checking whether a code point is
+ * a surrogate or a non-character etc.
+ *
+ * The UChar and UChar32 data types for Unicode code units and code points
+ * are defined in umachines.h because they can be machine-dependent.
  *
  * utf.h is included by utypes.h and itself includes utf8.h and utf16.h after some
  * common definitions. Those files define macros for efficiently getting code points
@@ -90,116 +92,14 @@
  * Compound statements (curly braces {}) must be used  for if-else-while... 
  * bodies and all macro statements should be terminated with semicolon.
  *
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 
 #ifndef __UTF_H__
 #define __UTF_H__
 
-/* wchar_t-related definitions ---------------------------------------------- */
-
-/*
- * ANSI C headers:
- * stddef.h defines wchar_t
- */
-#include "unicode/umachine.h"
-#include <stddef.h>
+#include "unicode/utypes.h"
 /* include the utfXX.h after the following definitions */
-
-/**
- * \def U_HAVE_WCHAR_H
- * Indicates whether <wchar.h> is available (1) or not (0). Set to 1 by default.
- *
- * @stable ICU 2.0
- */
-#ifndef U_HAVE_WCHAR_H
-#   define U_HAVE_WCHAR_H 1
-#endif
-
-/**
- * \def U_SIZEOF_WCHAR_T
- * U_SIZEOF_WCHAR_T==sizeof(wchar_t) (0 means it is not defined or autoconf could not set it)
- *
- * @stable ICU 2.0
- */
-#if U_SIZEOF_WCHAR_T==0
-#   undef U_SIZEOF_WCHAR_T
-#   define U_SIZEOF_WCHAR_T 4
-#endif
-
-/*
- * \def U_WCHAR_IS_UTF16
- * Defined if wchar_t uses UTF-16.
- *
- * @stable ICU 2.0
- */
-/*
- * \def U_WCHAR_IS_UTF32
- * Defined if wchar_t uses UTF-32.
- *
- * @stable ICU 2.0
- */
-#if !defined(U_WCHAR_IS_UTF16) && !defined(U_WCHAR_IS_UTF32)
-#   ifdef __STDC_ISO_10646__ 
-#       if (U_SIZEOF_WCHAR_T==2)
-#           define U_WCHAR_IS_UTF16
-#       elif (U_SIZEOF_WCHAR_T==4)
-#           define  U_WCHAR_IS_UTF32
-#       endif
-#   elif defined __UCS2__
-#       if (__OS390__ || __OS400__) && (U_SIZEOF_WCHAR_T==2)
-#           define U_WCHAR_IS_UTF16
-#       endif
-#   elif defined __UCS4__
-#       if (U_SIZEOF_WCHAR_T==4)
-#           define U_WCHAR_IS_UTF32
-#       endif
-#   elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
-#       define U_WCHAR_IS_UTF16    
-#   endif
-#endif
-
-/* UChar and UChar32 definitions -------------------------------------------- */
-
-/** Number of bytes in a UChar. @stable ICU 2.0 */
-#define U_SIZEOF_UCHAR 2
-
-/**
- * \var UChar
- * Define UChar to be wchar_t if that is 16 bits wide; always assumed to be unsigned.
- * If wchar_t is not 16 bits wide, then define UChar to be uint16_t.
- * This makes the definition of UChar platform-dependent
- * but allows direct string type compatibility with platforms with
- * 16-bit wchar_t types.
- *
- * @stable ICU 2.0
- */
-
-/* Define UChar to be compatible with wchar_t if possible. */
-#if U_SIZEOF_WCHAR_T==2
-    typedef wchar_t UChar;
-#else
-    typedef uint16_t UChar;
-#endif
-
-/**
- * Define UChar32 as a type for single Unicode code points.
- * UChar32 is a signed 32-bit integer (same as int32_t).
- *
- * The Unicode code point range is 0..0x10ffff.
- * All other values (negative or >=0x110000) are illegal as Unicode code points.
- * They may be used as sentinel values to indicate "done", "error"
- * or similar non-code point conditions.
- *
- * Before ICU 2.4 (Jitterbug 2146), UChar32 was defined
- * to be wchar_t if that is 32 bits wide (wchar_t may be signed or unsigned)
- * or else to be uint32_t.
- * That is, the definition of UChar32 was platform-dependent.
- *
- * @see U_SENTINEL
- * @draft ICU 2.4
- */
-typedef int32_t UChar32;
 
 /* single-code point definitions -------------------------------------------- */
 
@@ -219,7 +119,7 @@ typedef int32_t UChar32;
  *
  * @return -1
  * @see UChar32
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_SENTINEL (-1)
 
@@ -227,7 +127,7 @@ typedef int32_t UChar32;
  * Is this code point a Unicode noncharacter?
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_UNICODE_NONCHAR(c) \
     ((c)>=0xfdd0 && \
@@ -249,7 +149,7 @@ typedef int32_t UChar32;
  *
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_UNICODE_CHAR(c) \
     ((uint32_t)(c)<0xd800 || \
@@ -257,11 +157,31 @@ typedef int32_t UChar32;
          (uint32_t)(c)<=0x10ffff && \
          !U_IS_UNICODE_NONCHAR(c)))
 
+#ifndef U_HIDE_DRAFT_API
+
+/**
+ * Is this code point a BMP code point (U+0000..U+ffff)?
+ * @param c 32-bit code point
+ * @return TRUE or FALSE
+ * @draft ICU 2.8
+ */
+#define U_IS_BMP(c) ((uint32_t)(c)<=0xffff)
+
+/**
+ * Is this code point a supplementary code point (U+10000..U+10ffff)?
+ * @param c 32-bit code point
+ * @return TRUE or FALSE
+ * @draft ICU 2.8
+ */
+#define U_IS_SUPPLEMENTARY(c) ((uint32_t)((c)-0x10000)<=0xfffff)
+
+#endif /*U_HIDE_DRAFT_API*/
+ 
 /**
  * Is this code point a lead surrogate (U+d800..U+dbff)?
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_LEAD(c) (((c)&0xfffffc00)==0xd800)
 
@@ -269,7 +189,7 @@ typedef int32_t UChar32;
  * Is this code point a trail surrogate (U+dc00..U+dfff)?
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_TRAIL(c) (((c)&0xfffffc00)==0xdc00)
 
@@ -277,7 +197,7 @@ typedef int32_t UChar32;
  * Is this code point a surrogate (U+d800..U+dfff)?
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_SURROGATE(c) (((c)&0xfffff800)==0xd800)
 
@@ -286,7 +206,7 @@ typedef int32_t UChar32;
  * is it a lead surrogate?
  * @param c 32-bit code point
  * @return TRUE or FALSE
- * @draft ICU 2.4
+ * @stable ICU 2.4
  */
 #define U_IS_SURROGATE_LEAD(c) (((c)&0x400)==0)
 

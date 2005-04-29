@@ -1,0 +1,247 @@
+# commit functionality added in 2.3
+
+source defs_mk.tcl
+
+T 1 {simple commit aside} {
+  set f [F].dat
+  set g $f.aside
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::row append db.a i 111
+  mk::row append db.a i 222
+  mk::row append db.a i 333
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  C [mk::view size db.a] 3
+  mk::file aside db dba
+  C [mk::view size db.a] 3
+
+  mk::row append db.a i 444
+  mk::row append db.a i 555
+
+  C [mk::view size db.a] 5
+  mk::file commit db
+  mk::file commit dba
+  C [mk::view size db.a] 5
+
+  mk::row append db.a i 666
+  C [mk::view size db.a] 6
+
+  mk::file rollback db
+  C [mk::view size db.a] 5
+  mk::file rollback db -full
+  C [mk::view size db.a] 3
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  C [mk::view size db.a] 3
+
+  C [mk::get db.a!0 i] 111
+  C [mk::get db.a!1 i] 222
+  C [mk::get db.a!2 i] 333
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  C [mk::view size db.a] 5
+
+  C [mk::get db.a!0 i] 111
+  C [mk::get db.a!1 i] 222
+  C [mk::get db.a!2 i] 333
+  C [mk::get db.a!3 i] 444
+  C [mk::get db.a!4 i] 555
+}
+
+T 2 {add view commit aside} {
+  set f [F].dat
+  set g $f.aside
+
+  mk::file open db $f
+  mk::view layout db.a i:I
+  C [mk::view layout db.a] i:I
+
+  mk::row append db.a i 111
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  C [mk::view size db.a] 1
+  mk::file aside db dba
+  C [mk::view size db.a] 1
+
+  mk::view layout db.a {i:I j:I}
+  C [mk::view layout db.a] {i:I j:I}
+
+  C [mk::get db.a!0] {i 111 j 0}
+
+  mk::set db.a!0 j 222
+
+  mk::file commit db
+  mk::file commit dba
+
+  mk::row append db.a i 333 j 444
+  C [mk::view size db.a] 2
+
+  mk::file rollback db
+  C [mk::view layout db.a] {i:I j:I}
+  C [mk::view size db.a] 1
+  C [mk::get db.a!0] {i 111 j 222}
+
+  mk::file rollback db -full
+  C [mk::view layout db.a] i:I
+  C [mk::view size db.a] 1
+  C [mk::get db.a!0] {i 111}
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  C [mk::view layout db.a] i:I
+  C [mk::view size db.a] 1
+  C [mk::get db.a!0] {i 111}
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  C [mk::view layout db.a] {i:I j:I}
+  C [mk::view size db.a] 1
+  C [mk::get db.a!0] {i 111 j 222}
+}
+
+T 3 {removed view commit aside} {
+  set f [F].dat
+  set g $f.aside
+
+  mk::file open db $f
+  mk::view layout db.a {i:I j:I}
+  C [mk::view layout db.a] {i:I j:I}
+
+  mk::row append db.a i 111 j 222
+  mk::file close db
+
+  mk::file open db $f -readonly
+  mk::file open dba $g
+
+  C [mk::view size db.a] 1
+  mk::file aside db dba
+  C [mk::view size db.a] 1
+
+  mk::view layout db.a i:I
+  C [mk::view layout db.a] i:I
+
+    # this may be surprisini, but it is correct behavior:
+    # the j prop is still present as *temporary* property
+  C [mk::get db.a!0] {i 111 j 222}
+
+  mk::file commit db
+  mk::file commit dba
+
+    # even a commit won't make it go away. because the
+    # commit on db is not a real one, and the commit on
+    # dba is not affecting db (in a non-commit-aside
+    # situation, the j prop would be gone by now)
+  C [mk::get db.a!0] {i 111 j 222}
+
+  mk::file close db
+  mk::file close dba
+
+  mk::file open db $f -readonly
+  C [mk::view layout db.a] {i:I j:I}
+  C [mk::view size db.a] 1
+  C [mk::get db.a!0] {i 111 j 222}
+
+  mk::file open dba $g -readonly
+  mk::file aside db dba
+  C [mk::view layout db.a] i:I
+  C [mk::view size db.a] 1
+
+    # this hows that j was indeed a temporary property
+  C [mk::get db.a!0] {i 111}
+}
+
+T 4 {stacked commit aside} {
+  set f [F].dat
+  set g $f.a1
+  set h $f.a2
+
+  mk::file open db0 $f
+  mk::view layout db0.a i:I
+  mk::row append db0.a i 111
+  mk::file close db0 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g
+  mk::file aside db0 db1
+  mk::row append db0.a i 222
+  mk::file commit db0
+  mk::file close db0
+  mk::file close db1 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file open db2 $h
+  mk::file aside db1 db2
+  mk::file aside db0 db1
+  mk::row append db0.a i 333
+  mk::file commit db0
+  mk::file commit db1
+  mk::file close db0
+  mk::file close db1
+  mk::file close db2 ;# will autocommit
+
+  mk::file open db0 $f -readonly
+  C [mk::view size db0.a] 1
+  C [mk::get db0.a!0 i] 111
+  mk::file close db0
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file aside db0 db1
+  C [mk::view size db0.a] 2
+  C [mk::get db0.a!1 i] 222
+  mk::file close db0
+  mk::file close db1
+
+  mk::file open db0 $f -readonly
+  mk::file open db1 $g -readonly
+  mk::file open db2 $h -readonly
+  mk::file aside db1 db2
+  mk::file aside db0 db1
+  C [mk::view size db0.a] 3
+  C [mk::get db0.a!2 i] 333
+  mk::file close db0
+  mk::file close db1
+  mk::file close db2
+   
+  # force an error here to keep the datafiles
+  # C 0 1
+}
+
+T 5 {missing/empty file} {
+  set f [F].dat
+
+  catch {mk::file end $f} err
+  C $err {no such file}
+  
+  close [open $f w]
+  C [file size $f] 0
+
+  catch {mk::file end $f} err
+  C $err {not a Metakit datafile}
+  
+  mk::file open db $f
+  mk::file close db
+  C [file size $f] 0
+  
+  mk::file open db $f
+  mk::view layout db.a i:I
+  mk::file close db
+  C [mk::file end $f] 37
+}
+
+Q 6

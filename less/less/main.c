@@ -69,7 +69,7 @@ main(argc, argv)
 {
 	IFILE ifile;
 	char *s;
-	int len;
+	extern char *__progname;
 
 #ifdef __EMX__
 	_response(&argc, &argv);
@@ -106,14 +106,13 @@ main(argc, argv)
 	GetConsoleTitle(consoleTitle, sizeof(consoleTitle)/sizeof(char));
 #endif /* WIN32 */
 
-	len = strlen(progname);
-	if (len >= 4 && strcmp(&progname[len - 4], "more") == 0)
-		more_mode = 1;
-
 	/*
 	 * Process command line arguments and LESS environment arguments.
 	 * Command line arguments override environment arguments.
 	 */
+	if (strcmp(__progname, "more") == 0)
+		more_mode = 1;
+
 	is_tty = isatty(1);
 	get_term();
 	init_cmds();
@@ -121,7 +120,7 @@ main(argc, argv)
 	init_charset();
 	init_line();
 	init_option();
-	s = lgetenv("LESS");
+
 	if (more_mode) {
 		scan_option("-E");
 		scan_option("-m");

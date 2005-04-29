@@ -1,7 +1,7 @@
 /* Cache and manage the values of registers for GDB, the GNU debugger.
 
    Copyright 1986, 1987, 1989, 1991, 1994, 1995, 1996, 1998, 2000,
-   2001, 2002 Free Software Foundation, Inc.
+   2001, 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -51,10 +51,11 @@ struct regcache_descr
      for raw and pseudo registers and allow access to both.  */
   int legacy_p;
 
-  /* The raw register cache.  This should contain just [0
-     .. NUM_RAW_REGISTERS).  However, for older targets, it contains
-     space for the full [0 .. NUM_RAW_REGISTERS +
-     NUM_PSEUDO_REGISTERS).  */
+  /* The raw register cache.  Each raw (or hard) register is supplied
+     by the target interface.  The raw cache should not contain
+     redundant information - if the PC is constructed from two
+     registers then those regigisters and not the PC lives in the raw
+     cache.  */
   int nr_raw_registers;
   long sizeof_raw_registers;
   long sizeof_raw_register_valid_p;
@@ -78,14 +79,11 @@ struct regcache_descr
   long *register_offset;
   long *sizeof_register;
 
-  /* Useful constant.  Largest of all the registers.  */
-  long max_register_size;
-
   /* Cached table containing the type of each register.  */
   struct type **register_type;
 };
 
-void
+static void
 init_legacy_regcache_descr (struct gdbarch *gdbarch,
 			    struct regcache_descr *descr)
 {
@@ -94,58 +92,53 @@ init_legacy_regcache_descr (struct gdbarch *gdbarch,
      ``gdbarch'' as a parameter.  */
   gdb_assert (gdbarch != NULL);
 
-  /* FIXME: cagney/2002-05-11: Shouldn't be including pseudo-registers
-     in the register cache.  Unfortunatly some architectures still
-     rely on this and the pseudo_register_write() method.  */
-  descr->nr_raw_registers = descr->nr_cooked_registers;
-  descr->sizeof_raw_register_valid_p = descr->sizeof_cooked_register_valid_p;
-
   /* Compute the offset of each register.  Legacy architectures define
-     REGISTER_BYTE() so use that.  */
-  /* FIXME: cagney/2002-11-07: Instead of using REGISTER_BYTE() this
-     code should, as is done in init_regcache_descr(), compute the
-     offets at runtime.  This currently isn't possible as some ISAs
-     define overlapping register regions - see the mess in
-     read_register_bytes() and write_register_bytes() registers.  */
-  descr->sizeof_register = XCALLOC (descr->nr_cooked_registers, long);
-  descr->register_offset = XCALLOC (descr->nr_cooked_registers, long);
-  descr->max_register_size = 0;
+     DEPRECATED_REGISTER_BYTE() so use that.  */
+  /* FIXME: cagney/2002-11-07: Instead of using
+     DEPRECATED_REGISTER_BYTE() this code should, as is done in
+     init_regcache_descr(), compute the offets at runtime.  This
+     currently isn't possible as some ISAs define overlapping register
+     regions - see the mess in read_register_bytes() and
+     write_register_bytes() registers.  */
+  descr->sizeof_register
+    = GDBARCH_OBSTACK_CALLOC (gdbarch, descr->nr_cooked_registers, long);
+  descr->register_offset
+    = GDBARCH_OBSTACK_CALLOC (gdbarch, descr->nr_cooked_registers, long);
   for (i = 0; i < descr->nr_cooked_registers; i++)
     {
       /* FIXME: cagney/2001-12-04: This code shouldn't need to use
-         REGISTER_BYTE().  Unfortunatly, legacy code likes to lay the
-         buffer out so that certain registers just happen to overlap.
-         Ulgh!  New targets use gdbarch's register read/write and
-         entirely avoid this uglyness.  */
-      descr->register_offset[i] = REGISTER_BYTE (i);
-      descr->sizeof_register[i] = REGISTER_RAW_SIZE (i);
-      if (descr->max_register_size < REGISTER_RAW_SIZE (i))
-	descr->max_register_size = REGISTER_RAW_SIZE (i);
-      if (descr->max_register_size < REGISTER_VIRTUAL_SIZE (i))
-	descr->max_register_size = REGISTER_VIRTUAL_SIZE (i);
+         DEPRECATED_REGISTER_BYTE().  Unfortunately, legacy code likes
+         to lay the buffer out so that certain registers just happen
+         to overlap.  Ulgh!  New targets use gdbarch's register
+         read/write and entirely avoid this uglyness.  */
+      descr->register_offset[i] = DEPRECATED_REGISTER_BYTE (i);
+      descr->sizeof_register[i] = DEPRECATED_REGISTER_RAW_SIZE (i);
+      gdb_assert (MAX_REGISTER_SIZE >= DEPRECATED_REGISTER_RAW_SIZE (i));
+      gdb_assert (MAX_REGISTER_SIZE >= DEPRECATED_REGISTER_VIRTUAL_SIZE (i));
     }
 
   /* Compute the real size of the register buffer.  Start out by
-     trusting REGISTER_BYTES, but then adjust it upwards should that
-     be found to not be sufficient.  */
-  /* FIXME: cagney/2002-11-05: Instead of using REGISTER_BYTES, this
-     code should, as is done in init_regcache_descr(), compute the
-     total number of register bytes using the accumulated offsets.  */
-  descr->sizeof_cooked_registers = REGISTER_BYTES; /* OK use.  */
+     trusting DEPRECATED_REGISTER_BYTES, but then adjust it upwards
+     should that be found to not be sufficient.  */
+  /* FIXME: cagney/2002-11-05: Instead of using the macro
+     DEPRECATED_REGISTER_BYTES, this code should, as is done in
+     init_regcache_descr(), compute the total number of register bytes
+     using the accumulated offsets.  */
+  descr->sizeof_cooked_registers = DEPRECATED_REGISTER_BYTES; /* OK */
   for (i = 0; i < descr->nr_cooked_registers; i++)
     {
       long regend;
       /* Keep extending the buffer so that there is always enough
          space for all registers.  The comparison is necessary since
          legacy code is free to put registers in random places in the
-         buffer separated by holes.  Once REGISTER_BYTE() is killed
-         this can be greatly simplified.  */
+         buffer separated by holes.  Once DEPRECATED_REGISTER_BYTE()
+         is killed this can be greatly simplified.  */
       regend = descr->register_offset[i] + descr->sizeof_register[i];
       if (descr->sizeof_cooked_registers < regend)
 	descr->sizeof_cooked_registers = regend;
     }
   /* FIXME: cagney/2002-05-11: Shouldn't be including pseudo-registers
-     in the register cache.  Unfortunatly some architectures still
+     in the register cache.  Unfortunately some architectures still
      rely on this and the pseudo_register_write() method.  */
   descr->sizeof_raw_registers = descr->sizeof_cooked_registers;
 }
@@ -158,7 +151,7 @@ init_regcache_descr (struct gdbarch *gdbarch)
   gdb_assert (gdbarch != NULL);
 
   /* Create an initial, zero filled, table.  */
-  descr = XCALLOC (1, struct regcache_descr);
+  descr = GDBARCH_OBSTACK_ZALLOC (gdbarch, struct regcache_descr);
   descr->gdbarch = gdbarch;
 
   /* Total size of the register space.  The raw registers are mapped
@@ -168,21 +161,17 @@ init_regcache_descr (struct gdbarch *gdbarch)
   descr->sizeof_cooked_register_valid_p = NUM_REGS + NUM_PSEUDO_REGS;
 
   /* Fill in a table of register types.  */
-  descr->register_type = XCALLOC (descr->nr_cooked_registers,
-				  struct type *);
+  descr->register_type
+    = GDBARCH_OBSTACK_CALLOC (gdbarch, descr->nr_cooked_registers, struct type *);
   for (i = 0; i < descr->nr_cooked_registers; i++)
     {
-      descr->register_type[i] = REGISTER_VIRTUAL_TYPE (i);
-    }
-
-  /* If an old style architecture, fill in the remainder of the
-     register cache descriptor using the register macros.  */
-  if (!gdbarch_pseudo_register_read_p (gdbarch)
-      && !gdbarch_pseudo_register_write_p (gdbarch))
-    {
-      descr->legacy_p = 1;
-      init_legacy_regcache_descr (gdbarch, descr);
-      return descr;
+      if (gdbarch_register_type_p (gdbarch))
+	{
+	  gdb_assert (!DEPRECATED_REGISTER_VIRTUAL_TYPE_P ()); /* OK */
+	  descr->register_type[i] = gdbarch_register_type (gdbarch, i);
+	}
+      else
+	descr->register_type[i] = DEPRECATED_REGISTER_VIRTUAL_TYPE (i); /* OK */
     }
 
   /* Construct a strictly RAW register cache.  Don't allow pseudo's
@@ -195,6 +184,26 @@ init_regcache_descr (struct gdbarch *gdbarch)
      .. NUM_REGS + NUM_PSEUDO_REGS).  */
   descr->sizeof_raw_register_valid_p = descr->sizeof_cooked_register_valid_p;
 
+  /* If an old style architecture, fill in the remainder of the
+     register cache descriptor using the register macros.  */
+  /* NOTE: cagney/2003-06-29: If either of DEPRECATED_REGISTER_BYTE or
+     DEPRECATED_REGISTER_RAW_SIZE are still present, things are most likely
+     totally screwed.  Ex: an architecture with raw register sizes
+     smaller than what DEPRECATED_REGISTER_BYTE indicates; non
+     monotonic DEPRECATED_REGISTER_BYTE values.  For GDB 6 check for
+     these nasty methods and fall back to legacy code when present.
+     Sigh!  */
+  if ((!gdbarch_pseudo_register_read_p (gdbarch)
+       && !gdbarch_pseudo_register_write_p (gdbarch)
+       && !gdbarch_register_type_p (gdbarch))
+      || DEPRECATED_REGISTER_BYTE_P ()
+      || DEPRECATED_REGISTER_RAW_SIZE_P ())
+    {
+      descr->legacy_p = 1;
+      init_legacy_regcache_descr (gdbarch, descr);
+      return descr;
+    }
+
   /* Lay out the register cache.
 
      NOTE: cagney/2002-05-22: Only register_type() is used when
@@ -204,43 +213,41 @@ init_regcache_descr (struct gdbarch *gdbarch)
 
   {
     long offset = 0;
-    descr->sizeof_register = XCALLOC (descr->nr_cooked_registers, long);
-    descr->register_offset = XCALLOC (descr->nr_cooked_registers, long);
-    descr->max_register_size = 0;
+    descr->sizeof_register
+      = GDBARCH_OBSTACK_CALLOC (gdbarch, descr->nr_cooked_registers, long);
+    descr->register_offset
+      = GDBARCH_OBSTACK_CALLOC (gdbarch, descr->nr_cooked_registers, long);
     for (i = 0; i < descr->nr_cooked_registers; i++)
       {
 	descr->sizeof_register[i] = TYPE_LENGTH (descr->register_type[i]);
 	descr->register_offset[i] = offset;
 	offset += descr->sizeof_register[i];
-	if (descr->max_register_size < descr->sizeof_register[i])
-	  descr->max_register_size = descr->sizeof_register[i];
+	gdb_assert (MAX_REGISTER_SIZE >= descr->sizeof_register[i]);
       }
     /* Set the real size of the register cache buffer.  */
     descr->sizeof_cooked_registers = offset;
   }
 
   /* FIXME: cagney/2002-05-22: Should only need to allocate space for
-     the raw registers.  Unfortunatly some code still accesses the
+     the raw registers.  Unfortunately some code still accesses the
      register array directly using the global registers[].  Until that
      code has been purged, play safe and over allocating the register
      buffer.  Ulgh!  */
   descr->sizeof_raw_registers = descr->sizeof_cooked_registers;
 
-#if 0
-  /* Sanity check.  Confirm that the assumptions about gdbarch are
-     true.  The REGCACHE_DESCR_HANDLE is set before doing the checks
-     so that targets using the generic methods supplied by regcache
-     don't go into infinite recursion trying to, again, create the
-     regcache.  */
-  set_gdbarch_data (gdbarch, regcache_descr_handle, descr);
+  /* Sanity check.  Confirm that there is agreement between the
+     regcache and the target's redundant DEPRECATED_REGISTER_BYTE (new
+     targets should not even be defining it).  */
   for (i = 0; i < descr->nr_cooked_registers; i++)
     {
-      gdb_assert (descr->sizeof_register[i] == REGISTER_RAW_SIZE (i));
-      gdb_assert (descr->sizeof_register[i] == REGISTER_VIRTUAL_SIZE (i));
-      gdb_assert (descr->register_offset[i] == REGISTER_BYTE (i));
-    }
-  /* gdb_assert (descr->sizeof_raw_registers == REGISTER_BYTES (i));  */
+      if (DEPRECATED_REGISTER_BYTE_P ())
+	gdb_assert (descr->register_offset[i] == DEPRECATED_REGISTER_BYTE (i));
+#if 0
+      gdb_assert (descr->sizeof_register[i] == DEPRECATED_REGISTER_RAW_SIZE (i));
+      gdb_assert (descr->sizeof_register[i] == DEPRECATED_REGISTER_VIRTUAL_SIZE (i));
 #endif
+    }
+  /* gdb_assert (descr->sizeof_raw_registers == DEPRECATED_REGISTER_BYTES (i));  */
 
   return descr;
 }
@@ -249,19 +256,6 @@ static struct regcache_descr *
 regcache_descr (struct gdbarch *gdbarch)
 {
   return gdbarch_data (gdbarch, regcache_descr_handle);
-}
-
-static void
-xfree_regcache_descr (struct gdbarch *gdbarch, void *ptr)
-{
-  struct regcache_descr *descr = ptr;
-  if (descr == NULL)
-    return;
-  xfree (descr->register_offset);
-  xfree (descr->sizeof_register);
-  descr->register_offset = NULL;
-  descr->sizeof_register = NULL;
-  xfree (descr);
 }
 
 /* Utility functions returning useful register attributes stored in
@@ -279,10 +273,18 @@ register_type (struct gdbarch *gdbarch, int regnum)
    the regcache descr.  */
 
 int
-max_register_size (struct gdbarch *gdbarch)
+register_size (struct gdbarch *gdbarch, int regnum)
 {
   struct regcache_descr *descr = regcache_descr (gdbarch);
-  return descr->max_register_size;
+  int size;
+  gdb_assert (regnum >= 0 && regnum < (NUM_REGS + NUM_PSEUDO_REGS));
+  size = descr->sizeof_register[regnum];
+  /* NB: The deprecated DEPRECATED_REGISTER_RAW_SIZE, if not provided, defaults
+     to the size of the register's type.  */
+  gdb_assert (size == DEPRECATED_REGISTER_RAW_SIZE (regnum)); /* OK */
+  /* NB: Don't check the register's virtual size.  It, in say the case
+     of the MIPS, may not match the raw size!  */
+  return size;
 }
 
 /* The register cache for storing raw register values.  */
@@ -331,7 +333,7 @@ regcache_xfree (struct regcache *regcache)
   xfree (regcache);
 }
 
-void
+static void
 do_regcache_xfree (void *data)
 {
   regcache_xfree (data);
@@ -343,67 +345,94 @@ make_cleanup_regcache_xfree (struct regcache *regcache)
   return make_cleanup (do_regcache_xfree, regcache);
 }
 
+/* Return REGCACHE's architecture.  */
+
+struct gdbarch *
+get_regcache_arch (const struct regcache *regcache)
+{
+  return regcache->descr->gdbarch;
+}
+
 /* Return  a pointer to register REGNUM's buffer cache.  */
 
 static char *
-register_buffer (struct regcache *regcache, int regnum)
+register_buffer (const struct regcache *regcache, int regnum)
 {
   return regcache->registers + regcache->descr->register_offset[regnum];
 }
 
 void
-regcache_save (struct regcache *dst, struct regcache *src)
+regcache_save (struct regcache *dst, regcache_cooked_read_ftype *cooked_read,
+	       void *src)
 {
   struct gdbarch *gdbarch = dst->descr->gdbarch;
+  char buf[MAX_REGISTER_SIZE];
   int regnum;
-  /* The SRC and DST register caches had better belong to the same
-     architecture.  */
-  gdb_assert (src->descr->gdbarch == dst->descr->gdbarch);
   /* The DST should be `read-only', if it wasn't then the save would
-     end up trying to write the register values out through to the
+     end up trying to write the register values back out to the
      target.  */
-  gdb_assert (!src->readonly_p);
   gdb_assert (dst->readonly_p);
   /* Clear the dest.  */
   memset (dst->registers, 0, dst->descr->sizeof_cooked_registers);
   memset (dst->register_valid_p, 0, dst->descr->sizeof_cooked_register_valid_p);
   /* Copy over any registers (identified by their membership in the
-     save_reggroup) and mark them as valid.  The full [0
-     .. NUM_REGS+NUM_PSEUDO_REGS) range is checked since some
-     architectures need to save/restore `cooked' registers that live
-     in memory.  */
+     save_reggroup) and mark them as valid.  The full [0 .. NUM_REGS +
+     NUM_PSEUDO_REGS) range is checked since some architectures need
+     to save/restore `cooked' registers that live in memory.  */
   for (regnum = 0; regnum < dst->descr->nr_cooked_registers; regnum++)
     {
       if (gdbarch_register_reggroup_p (gdbarch, regnum, save_reggroup))
 	{
-	  regcache_cooked_read (src, regnum, register_buffer (dst, regnum));
-	  dst->register_valid_p[regnum] = 1;
+	  int valid = cooked_read (src, regnum, buf);
+	  if (valid)
+	    {
+	      memcpy (register_buffer (dst, regnum), buf,
+		      register_size (gdbarch, regnum));
+	      dst->register_valid_p[regnum] = 1;
+	    }
 	}
     }
 }
 
 void
-regcache_restore (struct regcache *dst, struct regcache *src)
+regcache_restore (struct regcache *dst,
+		  regcache_cooked_read_ftype *cooked_read,
+		  void *src)
 {
   struct gdbarch *gdbarch = dst->descr->gdbarch;
+  char buf[MAX_REGISTER_SIZE];
   int regnum;
-  gdb_assert (src->descr->gdbarch == dst->descr->gdbarch);
+  /* The dst had better not be read-only.  If it is, the `restore'
+     doesn't make much sense.  */
   gdb_assert (!dst->readonly_p);
-  gdb_assert (src->readonly_p);
   /* Copy over any registers, being careful to only restore those that
-     were both saved and need to be restored.  The full [0
-     .. NUM_REGS+NUM_PSEUDO_REGS) range is checked since some
-     architectures need to save/restore `cooked' registers that live
-     in memory.  */
-  for (regnum = 0; regnum < src->descr->nr_cooked_registers; regnum++)
+     were both saved and need to be restored.  The full [0 .. NUM_REGS
+     + NUM_PSEUDO_REGS) range is checked since some architectures need
+     to save/restore `cooked' registers that live in memory.  */
+  for (regnum = 0; regnum < dst->descr->nr_cooked_registers; regnum++)
     {
-      if (gdbarch_register_reggroup_p (gdbarch, regnum, restore_reggroup)
-	  && src->register_valid_p[regnum])
+      if (gdbarch_register_reggroup_p (gdbarch, regnum, restore_reggroup))
 	{
-	  regcache_cooked_write (dst, regnum, register_buffer (src, regnum));
+	  int valid = cooked_read (src, regnum, buf);
+	  if (valid)
+	    regcache_cooked_write (dst, regnum, buf);
 	}
     }
 }
+
+static int
+do_cooked_read (void *src, int regnum, void *buf)
+{
+  struct regcache *regcache = src;
+  if (!regcache->register_valid_p[regnum] && regcache->readonly_p)
+    /* Don't even think about fetching a register from a read-only
+       cache when the register isn't yet valid.  There isn't a target
+       from which the register value can be fetched.  */
+    return 0;
+  regcache_cooked_read (regcache, regnum, buf);
+  return 1;
+}
+
 
 void
 regcache_cpy (struct regcache *dst, struct regcache *src)
@@ -415,9 +444,9 @@ regcache_cpy (struct regcache *dst, struct regcache *src)
   gdb_assert (src != dst);
   gdb_assert (src->readonly_p || dst->readonly_p);
   if (!src->readonly_p)
-    regcache_save (dst, src);
+    regcache_save (dst, do_cooked_read, src);
   else if (!dst->readonly_p)
-    regcache_restore (dst, src);
+    regcache_restore (dst, do_cooked_read, src);
   else
     regcache_cpy_no_passthrough (dst, src);
 }
@@ -430,7 +459,7 @@ regcache_cpy_no_passthrough (struct regcache *dst, struct regcache *src)
   gdb_assert (src->descr->gdbarch == dst->descr->gdbarch);
   /* NOTE: cagney/2002-05-17: Don't let the caller do a no-passthrough
      move of data into the current_regcache().  Doing this would be
-     silly - it would mean that valid_p would be completly invalid.  */
+     silly - it would mean that valid_p would be completely invalid.  */
   gdb_assert (dst != current_regcache);
   memcpy (dst->registers, src->registers, dst->descr->sizeof_raw_registers);
   memcpy (dst->register_valid_p, src->register_valid_p,
@@ -469,12 +498,6 @@ char *
 deprecated_grub_regcache_for_registers (struct regcache *regcache)
 {
   return regcache->registers;
-}
-
-char *
-deprecated_grub_regcache_for_register_valid (struct regcache *regcache)
-{
-  return regcache->register_valid_p;
 }
 
 /* Global structure containing the current regcache.  */
@@ -624,7 +647,7 @@ deprecated_read_register_bytes (int in_start, char *in_buf, int in_len)
 {
   int in_end = in_start + in_len;
   int regnum;
-  char *reg_buf = alloca (MAX_REGISTER_RAW_SIZE);
+  char reg_buf[MAX_REGISTER_SIZE];
 
   /* See if we are trying to read bytes from out-of-date registers.  If so,
      update just those registers.  */
@@ -638,8 +661,8 @@ deprecated_read_register_bytes (int in_start, char *in_buf, int in_len)
       int end;
       int byte;
 
-      reg_start = REGISTER_BYTE (regnum);
-      reg_len = REGISTER_RAW_SIZE (regnum);
+      reg_start = DEPRECATED_REGISTER_BYTE (regnum);
+      reg_len = DEPRECATED_REGISTER_RAW_SIZE (regnum);
       reg_end = reg_start + reg_len;
 
       if (reg_end <= in_start || in_end <= reg_start)
@@ -704,7 +727,7 @@ legacy_read_register_gen (int regnum, char *myaddr)
     target_fetch_registers (regnum);
 
   memcpy (myaddr, register_buffer (current_regcache, regnum),
-	  REGISTER_RAW_SIZE (regnum));
+	  DEPRECATED_REGISTER_RAW_SIZE (regnum));
 }
 
 void
@@ -827,7 +850,7 @@ regcache_cooked_read_signed (struct regcache *regcache, int regnum,
 {
   char *buf;
   gdb_assert (regcache != NULL);
-  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_raw_registers);
+  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_cooked_registers);
   buf = alloca (regcache->descr->sizeof_register[regnum]);
   regcache_cooked_read (regcache, regnum, buf);
   (*val) = extract_signed_integer (buf,
@@ -840,11 +863,35 @@ regcache_cooked_read_unsigned (struct regcache *regcache, int regnum,
 {
   char *buf;
   gdb_assert (regcache != NULL);
-  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_raw_registers);
+  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_cooked_registers);
   buf = alloca (regcache->descr->sizeof_register[regnum]);
   regcache_cooked_read (regcache, regnum, buf);
   (*val) = extract_unsigned_integer (buf,
 				     regcache->descr->sizeof_register[regnum]);
+}
+
+void
+regcache_cooked_write_signed (struct regcache *regcache, int regnum,
+			      LONGEST val)
+{
+  void *buf;
+  gdb_assert (regcache != NULL);
+  gdb_assert (regnum >=0 && regnum < regcache->descr->nr_cooked_registers);
+  buf = alloca (regcache->descr->sizeof_register[regnum]);
+  store_signed_integer (buf, regcache->descr->sizeof_register[regnum], val);
+  regcache_cooked_write (regcache, regnum, buf);
+}
+
+void
+regcache_cooked_write_unsigned (struct regcache *regcache, int regnum,
+				ULONGEST val)
+{
+  void *buf;
+  gdb_assert (regcache != NULL);
+  gdb_assert (regnum >=0 && regnum < regcache->descr->nr_cooked_registers);
+  buf = alloca (regcache->descr->sizeof_register[regnum]);
+  store_unsigned_integer (buf, regcache->descr->sizeof_register[regnum], val);
+  regcache_cooked_write (regcache, regnum, buf);
 }
 
 /* Write register REGNUM at MYADDR to the target.  MYADDR points at
@@ -867,7 +914,7 @@ legacy_write_register_gen (int regnum, const void *myaddr)
       registers_ptid = inferior_ptid;
     }
 
-  size = REGISTER_RAW_SIZE (regnum);
+  size = DEPRECATED_REGISTER_RAW_SIZE (regnum);
 
   if (real_register (regnum))
     {
@@ -976,8 +1023,8 @@ deprecated_write_register_bytes (int myregstart, char *myaddr, int inlen)
     {
       int regstart, regend;
 
-      regstart = REGISTER_BYTE (regnum);
-      regend = regstart + REGISTER_RAW_SIZE (regnum);
+      regstart = DEPRECATED_REGISTER_BYTE (regnum);
+      regend = regstart + DEPRECATED_REGISTER_RAW_SIZE (regnum);
 
       /* Is this register completely outside the range the user is writing?  */
       if (myregend <= regstart || regend <= myregstart)
@@ -990,7 +1037,7 @@ deprecated_write_register_bytes (int myregstart, char *myaddr, int inlen)
       /* The register partially overlaps the range being written.  */
       else
 	{
-	  char *regbuf = (char*) alloca (MAX_REGISTER_RAW_SIZE);
+	  char regbuf[MAX_REGISTER_SIZE];
 	  /* What's the overlap between this register's bytes and
              those the caller wants to write?  */
 	  int overlapstart = max (regstart, myregstart);
@@ -1017,13 +1064,13 @@ typedef void (regcache_read_ftype) (struct regcache *regcache, int regnum,
 typedef void (regcache_write_ftype) (struct regcache *regcache, int regnum,
 				     const void *buf);
 
-void
+static void
 regcache_xfer_part (struct regcache *regcache, int regnum,
 		    int offset, int len, void *in, const void *out,
 		    regcache_read_ftype *read, regcache_write_ftype *write)
 {
   struct regcache_descr *descr = regcache->descr;
-  bfd_byte *reg = alloca (descr->max_register_size);
+  bfd_byte reg[MAX_REGISTER_SIZE];
   gdb_assert (offset >= 0 && offset <= descr->sizeof_register[regnum]);
   gdb_assert (len >= 0 && offset + len <= descr->sizeof_register[regnum]);
   /* Something to do?  */
@@ -1106,9 +1153,9 @@ register_offset_hack (struct gdbarch *gdbarch, int regnum)
 ULONGEST
 read_register (int regnum)
 {
-  char *buf = alloca (REGISTER_RAW_SIZE (regnum));
+  char *buf = alloca (DEPRECATED_REGISTER_RAW_SIZE (regnum));
   deprecated_read_register_gen (regnum, buf);
-  return (extract_unsigned_integer (buf, REGISTER_RAW_SIZE (regnum)));
+  return (extract_unsigned_integer (buf, DEPRECATED_REGISTER_RAW_SIZE (regnum)));
 }
 
 ULONGEST
@@ -1132,36 +1179,6 @@ read_register_pid (int regnum, ptid_t ptid)
   return retval;
 }
 
-/* Return the contents of register REGNUM as a signed integer.  */
-
-LONGEST
-read_signed_register (int regnum)
-{
-  void *buf = alloca (REGISTER_RAW_SIZE (regnum));
-  deprecated_read_register_gen (regnum, buf);
-  return (extract_signed_integer (buf, REGISTER_RAW_SIZE (regnum)));
-}
-
-LONGEST
-read_signed_register_pid (int regnum, ptid_t ptid)
-{
-  ptid_t save_ptid;
-  LONGEST retval;
-
-  if (ptid_equal (ptid, inferior_ptid))
-    return read_signed_register (regnum);
-
-  save_ptid = inferior_ptid;
-
-  inferior_ptid = ptid;
-
-  retval = read_signed_register (regnum);
-
-  inferior_ptid = save_ptid;
-
-  return retval;
-}
-
 /* Store VALUE into the raw contents of register number REGNUM.  */
 
 void
@@ -1169,7 +1186,7 @@ write_register (int regnum, LONGEST val)
 {
   void *buf;
   int size;
-  size = REGISTER_RAW_SIZE (regnum);
+  size = DEPRECATED_REGISTER_RAW_SIZE (regnum);
   buf = alloca (size);
   store_signed_integer (buf, size, (LONGEST) val);
   deprecated_write_register_gen (regnum, buf);
@@ -1195,6 +1212,10 @@ write_register_pid (int regnum, CORE_ADDR val, ptid_t ptid)
   inferior_ptid = save_ptid;
 }
 
+/* FIXME: kettenis/20030828: We should get rid of supply_register and
+   regcache_collect in favour of regcache_raw_supply and
+   regcache_raw_collect.  */
+
 /* SUPPLY_REGISTER()
 
    Record that register REGNUM contains VAL.  This is used when the
@@ -1208,21 +1229,7 @@ write_register_pid (int regnum, CORE_ADDR val, ptid_t ptid)
 void
 supply_register (int regnum, const void *val)
 {
-#if 1
-  if (! ptid_equal (registers_ptid, inferior_ptid))
-    {
-      registers_changed ();
-      registers_ptid = inferior_ptid;
-    }
-#endif
-
-  set_register_cached (regnum, 1);
-  if (val)
-    memcpy (register_buffer (current_regcache, regnum), val, 
-	    REGISTER_RAW_SIZE (regnum));
-  else
-    memset (register_buffer (current_regcache, regnum), '\000', 
-	    REGISTER_RAW_SIZE (regnum));
+  regcache_raw_supply (current_regcache, regnum, val);
 
   /* On some architectures, e.g. HPPA, there are a few stray bits in
      some registers, that the rest of the code would like to ignore.  */
@@ -1242,49 +1249,72 @@ supply_register (int regnum, const void *val)
 void
 regcache_collect (int regnum, void *buf)
 {
-  memcpy (buf, register_buffer (current_regcache, regnum),
-	  REGISTER_RAW_SIZE (regnum));
+  regcache_raw_collect (current_regcache, regnum, buf);
+}
+
+/* Supply register REGNUM, whose contents are stored in BUF, to REGCACHE.  */
+
+void
+regcache_raw_supply (struct regcache *regcache, int regnum, const void *buf)
+{
+  void *regbuf;
+  size_t size;
+
+  gdb_assert (regcache != NULL);
+  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_raw_registers);
+  gdb_assert (!regcache->readonly_p);
+
+  /* FIXME: kettenis/20030828: It shouldn't be necessary to handle
+     CURRENT_REGCACHE specially here.  */
+  if (regcache == current_regcache
+      && !ptid_equal (registers_ptid, inferior_ptid))
+    {
+      registers_changed ();
+      registers_ptid = inferior_ptid;
+    }
+
+  regbuf = register_buffer (regcache, regnum);
+  size = regcache->descr->sizeof_register[regnum];
+
+  if (buf)
+    memcpy (regbuf, buf, size);
+  else
+    memset (regbuf, 0, size);
+
+  /* Mark the register as cached.  */
+  regcache->register_valid_p[regnum] = 1;
+}
+
+/* Collect register REGNUM from REGCACHE and store its contents in BUF.  */
+
+void
+regcache_raw_collect (const struct regcache *regcache, int regnum, void *buf)
+{
+  const void *regbuf;
+  size_t size;
+
+  gdb_assert (regcache != NULL && buf != NULL);
+  gdb_assert (regnum >= 0 && regnum < regcache->descr->nr_raw_registers);
+
+  regbuf = register_buffer (regcache, regnum);
+  size = regcache->descr->sizeof_register[regnum];
+  memcpy (buf, regbuf, size);
 }
 
 
-/* read_pc, write_pc, read_sp, write_sp, read_fp, etc.  Special
+/* read_pc, write_pc, read_sp, deprecated_read_fp, etc.  Special
    handling for registers PC, SP, and FP.  */
 
-/* NOTE: cagney/2001-02-18: The functions generic_target_read_pc(),
-   read_pc_pid(), read_pc(), generic_target_write_pc(),
-   write_pc_pid(), write_pc(), generic_target_read_sp(), read_sp(),
-   generic_target_write_sp(), write_sp(), generic_target_read_fp() and
-   read_fp(), will eventually be moved out of the reg-cache into
-   either frame.[hc] or to the multi-arch framework.  The are not part
-   of the raw register cache.  */
+/* NOTE: cagney/2001-02-18: The functions read_pc_pid(), read_pc(),
+   read_sp(), and deprecated_read_fp(), will eventually be replaced by
+   per-frame methods.  Instead of relying on the global INFERIOR_PTID,
+   they will use the contextual information provided by the FRAME.
+   These functions do not belong in the register cache.  */
 
-/* This routine is getting awfully cluttered with #if's.  It's probably
-   time to turn this into READ_PC and define it in the tm.h file.
-   Ditto for write_pc.
-
-   1999-06-08: The following were re-written so that it assumes the
-   existence of a TARGET_READ_PC et.al. macro.  A default generic
-   version of that macro is made available where needed.
-
-   Since the ``TARGET_READ_PC'' et.al. macro is going to be controlled
-   by the multi-arch framework, it will eventually be possible to
-   eliminate the intermediate read_pc_pid().  The client would call
-   TARGET_READ_PC directly. (cagney). */
-
-CORE_ADDR
-generic_target_read_pc (ptid_t ptid)
-{
-#ifdef PC_REGNUM
-  if (PC_REGNUM >= 0)
-    {
-      CORE_ADDR pc_val = ADDR_BITS_REMOVE ((CORE_ADDR) read_register_pid (PC_REGNUM, ptid));
-      return pc_val;
-    }
-#endif
-  internal_error (__FILE__, __LINE__,
-		  "generic_target_read_pc");
-  return 0;
-}
+/* NOTE: cagney/2003-06-07: The functions generic_target_write_pc(),
+   write_pc_pid(), write_pc(), and deprecated_read_fp(), all need to
+   be replaced by something that does not rely on global state.  But
+   what?  */
 
 CORE_ADDR
 read_pc_pid (ptid_t ptid)
@@ -1296,7 +1326,16 @@ read_pc_pid (ptid_t ptid)
   saved_inferior_ptid = inferior_ptid;
   inferior_ptid = ptid;
 
-  pc_val = TARGET_READ_PC (ptid);
+  if (TARGET_READ_PC_P ())
+    pc_val = TARGET_READ_PC (ptid);
+  /* Else use per-frame method on get_current_frame.  */
+  else if (PC_REGNUM >= 0)
+    {
+      CORE_ADDR raw_val = read_register_pid (PC_REGNUM, ptid);
+      pc_val = ADDR_BITS_REMOVE (raw_val);
+    }
+  else
+    internal_error (__FILE__, __LINE__, "read_pc_pid: Unable to find PC");
 
   inferior_ptid = saved_inferior_ptid;
   return pc_val;
@@ -1311,15 +1350,11 @@ read_pc (void)
 void
 generic_target_write_pc (CORE_ADDR pc, ptid_t ptid)
 {
-#ifdef PC_REGNUM
   if (PC_REGNUM >= 0)
     write_register_pid (PC_REGNUM, pc, ptid);
-  if (NPC_REGNUM >= 0)
-    write_register_pid (NPC_REGNUM, pc + 4, ptid);
-#else
-  internal_error (__FILE__, __LINE__,
-		  "generic_target_write_pc");
-#endif
+  else
+    internal_error (__FILE__, __LINE__,
+		    "generic_target_write_pc");
 }
 
 void
@@ -1345,60 +1380,37 @@ write_pc (CORE_ADDR pc)
 /* Cope with strage ways of getting to the stack and frame pointers */
 
 CORE_ADDR
-generic_target_read_sp (void)
-{
-#ifdef SP_REGNUM
-  if (SP_REGNUM >= 0)
-    return read_register (SP_REGNUM);
-#endif
-  internal_error (__FILE__, __LINE__,
-		  "generic_target_read_sp");
-}
-
-CORE_ADDR
 read_sp (void)
 {
-  return TARGET_READ_SP ();
+  if (TARGET_READ_SP_P ())
+    return TARGET_READ_SP ();
+  else if (gdbarch_unwind_sp_p (current_gdbarch))
+    return get_frame_sp (get_current_frame ());
+  else if (SP_REGNUM >= 0)
+    /* Try SP_REGNUM last: this makes all sorts of [wrong] assumptions
+       about the architecture so put it at the end.  */
+    return read_register (SP_REGNUM);
+  internal_error (__FILE__, __LINE__, "read_sp: Unable to find SP");
 }
 
 void
-generic_target_write_sp (CORE_ADDR val)
+deprecated_write_sp (CORE_ADDR val)
 {
-#ifdef SP_REGNUM
-  if (SP_REGNUM >= 0)
-    {
-      write_register (SP_REGNUM, val);
-      return;
-    }
-#endif
-  internal_error (__FILE__, __LINE__,
-		  "generic_target_write_sp");
-}
-
-void
-write_sp (CORE_ADDR val)
-{
-  TARGET_WRITE_SP (val);
+  gdb_assert (SP_REGNUM >= 0);
+  write_register (SP_REGNUM, val);
 }
 
 CORE_ADDR
-generic_target_read_fp (void)
+deprecated_read_fp (void)
 {
-#ifdef FP_REGNUM
-  if (FP_REGNUM >= 0)
-    return read_register (FP_REGNUM);
-#endif
-  internal_error (__FILE__, __LINE__,
-		  "generic_target_read_fp");
+  if (DEPRECATED_TARGET_READ_FP_P ())
+    return DEPRECATED_TARGET_READ_FP ();
+  else if (DEPRECATED_FP_REGNUM >= 0)
+    return read_register (DEPRECATED_FP_REGNUM);
+  else
+    internal_error (__FILE__, __LINE__, "deprecated_read_fp");
 }
 
-CORE_ADDR
-read_fp (void)
-{
-  return TARGET_READ_FP ();
-}
-
-/* ARGSUSED */
 static void
 reg_flush_command (char *command, int from_tty)
 {
@@ -1414,7 +1426,7 @@ build_regcache (void)
   current_regcache = regcache_xmalloc (current_gdbarch);
   current_regcache->readonly_p = 0;
   deprecated_registers = deprecated_grub_regcache_for_registers (current_regcache);
-  deprecated_register_valid = deprecated_grub_regcache_for_register_valid (current_regcache);
+  deprecated_register_valid = current_regcache->register_valid_p;
 }
 
 static void
@@ -1448,14 +1460,13 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 {
   struct cleanup *cleanups = make_cleanup (null_cleanup, NULL);
   struct gdbarch *gdbarch = regcache->descr->gdbarch;
-  struct reggroup *const *groups = reggroups (gdbarch);
   int regnum;
   int footnote_nr = 0;
   int footnote_register_size = 0;
   int footnote_register_offset = 0;
   int footnote_register_type_name_null = 0;
   long register_offset = 0;
-  unsigned char *buf = alloca (regcache->descr->max_register_size);
+  unsigned char buf[MAX_REGISTER_SIZE];
 
 #if 0
   fprintf_unfiltered (file, "legacy_p %d\n", regcache->descr->legacy_p);
@@ -1467,8 +1478,6 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 		      regcache->descr->sizeof_raw_registers);
   fprintf_unfiltered (file, "sizeof_raw_register_valid_p %ld\n",
 		      regcache->descr->sizeof_raw_register_valid_p);
-  fprintf_unfiltered (file, "max_register_size %ld\n",
-		      regcache->descr->max_register_size);
   fprintf_unfiltered (file, "NUM_REGS %d\n", NUM_REGS);
   fprintf_unfiltered (file, "NUM_PSEUDO_REGS %d\n", NUM_PSEUDO_REGS);
 #endif
@@ -1513,7 +1522,7 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 	  fprintf_unfiltered (file, " %6ld",
 			      regcache->descr->register_offset[regnum]);
 	  if (register_offset != regcache->descr->register_offset[regnum]
-	      || register_offset != REGISTER_BYTE (regnum)
+	      || register_offset != DEPRECATED_REGISTER_BYTE (regnum)
 	      || (regnum > 0
 		  && (regcache->descr->register_offset[regnum]
 		      != (regcache->descr->register_offset[regnum - 1]
@@ -1538,9 +1547,9 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 	  fprintf_unfiltered (file, " %5ld",
 			      regcache->descr->sizeof_register[regnum]);
 	  if ((regcache->descr->sizeof_register[regnum]
-	       != REGISTER_RAW_SIZE (regnum))
+	       != DEPRECATED_REGISTER_RAW_SIZE (regnum))
 	      || (regcache->descr->sizeof_register[regnum]
-		  != REGISTER_VIRTUAL_SIZE (regnum))
+		  != DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum))
 	      || (regcache->descr->sizeof_register[regnum]
 		  != TYPE_LENGTH (register_type (regcache->descr->gdbarch,
 						 regnum)))
@@ -1596,7 +1605,7 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 	      regcache_raw_read (regcache, regnum, buf);
 	      fprintf_unfiltered (file, "0x");
 	      dump_endian_bytes (file, TARGET_BYTE_ORDER, buf,
-				 REGISTER_RAW_SIZE (regnum));
+				 DEPRECATED_REGISTER_RAW_SIZE (regnum));
 	    }
 	}
 
@@ -1610,7 +1619,7 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 	      regcache_cooked_read (regcache, regnum, buf);
 	      fprintf_unfiltered (file, "0x");
 	      dump_endian_bytes (file, TARGET_BYTE_ORDER, buf,
-				 REGISTER_VIRTUAL_SIZE (regnum));
+				 DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum));
 	    }
 	}
 
@@ -1621,13 +1630,15 @@ regcache_dump (struct regcache *regcache, struct ui_file *file,
 	    fprintf_unfiltered (file, "Groups");
 	  else
 	    {
-	      int i;
 	      const char *sep = "";
-	      for (i = 0; groups[i] != NULL; i++)
+	      struct reggroup *group;
+	      for (group = reggroup_next (gdbarch, NULL);
+		   group != NULL;
+		   group = reggroup_next (gdbarch, group))
 		{
-		  if (gdbarch_register_reggroup_p (gdbarch, regnum, groups[i]))
+		  if (gdbarch_register_reggroup_p (gdbarch, regnum, group))
 		    {
-		      fprintf_unfiltered (file, "%s%s", sep, reggroup_name (groups[i]));
+		      fprintf_unfiltered (file, "%s%s", sep, reggroup_name (group));
 		      sep = ",";
 		    }
 		}
@@ -1689,15 +1700,16 @@ maintenance_print_register_groups (char *args, int from_tty)
   regcache_print (args, regcache_dump_groups);
 }
 
+extern initialize_file_ftype _initialize_regcache; /* -Wmissing-prototype */
+
 void
 _initialize_regcache (void)
 {
-  regcache_descr_handle = register_gdbarch_data (init_regcache_descr,
-						 xfree_regcache_descr);
-  REGISTER_GDBARCH_SWAP (current_regcache);
-  register_gdbarch_swap (&deprecated_registers, sizeof (deprecated_registers), NULL);
-  register_gdbarch_swap (&deprecated_register_valid, sizeof (deprecated_register_valid), NULL);
-  register_gdbarch_swap (NULL, 0, build_regcache);
+  regcache_descr_handle = register_gdbarch_data (init_regcache_descr);
+  DEPRECATED_REGISTER_GDBARCH_SWAP (current_regcache);
+  DEPRECATED_REGISTER_GDBARCH_SWAP (deprecated_registers);
+  DEPRECATED_REGISTER_GDBARCH_SWAP (deprecated_register_valid);
+  deprecated_register_gdbarch_swap (NULL, 0, build_regcache);
 
   add_com ("flushregs", class_maintenance, reg_flush_command,
 	   "Force gdb to flush its register cache (maintainer command)");

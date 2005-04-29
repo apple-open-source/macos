@@ -1,5 +1,5 @@
 /* PushbackReader.java -- An character stream that can unread chars
-   Copyright (C) 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2001, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -48,8 +48,6 @@ package java.io;
  * The default pushback buffer size one char, but this can be overridden
  * by the creator of the stream.
  *
- * @version 0.0
- *
  * @author Aaron M. Renn (arenn@urbanophile.com)
  * @author Warren Levy <warrenl@cygnus.com>
  */
@@ -79,7 +77,7 @@ public class PushbackReader extends FilterReader
    * specified subordinate <code>Reader</code> with a default pushback buffer 
    * size of 1.
    *
-   * @code in The subordinate stream to read from
+   * @param in The subordinate stream to read from
    */
   public PushbackReader(Reader in)
   {
@@ -136,7 +134,8 @@ public class PushbackReader extends FilterReader
    * This method returns <code>false</code> to indicate that it does not support
    * mark/reset functionality.
    *
-   * @return This method returns <code>false</code> to indicate that this class does not support mark/reset functionality
+   * @return This method returns <code>false</code> to indicate that this 
+   * class does not support mark/reset functionality
    *
    */
   public boolean markSupported()
@@ -165,7 +164,8 @@ public class PushbackReader extends FilterReader
    * read in the pushback buffer or if the underlying stream is ready to
    * be read.
    *
-   * @return <code>true</code> if this stream is ready to be read, <code>false</code> otherwise
+   * @return <code>true</code> if this stream is ready to be read, 
+   * <code>false</code> otherwise
    *
    * @exception IOException If an error occurs
    */
@@ -252,7 +252,8 @@ public class PushbackReader extends FilterReader
 
   /**
    * This method read chars from a stream and stores them into a caller
-   * supplied buffer.  It starts storing the data at index <code>offset</code> into
+   * supplied buffer.  It starts storing the data at index <code>offset</code>
+   * into
    * the buffer and attempts to read <code>len</code> chars.  This method can
    * return before reading the number of chars requested.  The actual number
    * of chars read is returned as an int.  A -1 is returned to indicate the
@@ -265,33 +266,34 @@ public class PushbackReader extends FilterReader
    * of the chars requested, the remaining chars are read from the 
    * underlying stream.
    *
-   * @param buf The array into which the chars read should be stored
+   * @param buffer The array into which the chars read should be stored
    * @param offset The offset into the array to start storing chars
-   * @param len The requested number of chars to read
+   * @param length The requested number of chars to read
    *
    * @return The actual number of chars read, or -1 if end of stream.
    *
    * @exception IOException If an error occurs.
    */
-  public synchronized int read(char[] b, int offset, int len) throws IOException
+  public synchronized int read(char[] buffer, int offset, int length)
+    throws IOException
   {
     synchronized (lock)
       {
 	if (buf == null)
           throw new IOException("stream closed");
 
-	if (offset < 0 || len < 0 || offset + len > b.length)
+	if (offset < 0 || length < 0 || offset + length > buffer.length)
           throw new ArrayIndexOutOfBoundsException();
 
-	int numBytes = Math.min(buf.length - pos, len);
+	int numBytes = Math.min(buf.length - pos, length);
 	if (numBytes > 0)
 	  {
-	    System.arraycopy (buf, pos, b, offset, numBytes);
+	    System.arraycopy (buf, pos, buffer, offset, numBytes);
 	    pos += numBytes;
 	    return numBytes;
 	  }
 
-	return super.read(b, offset, len);
+	return super.read(buffer, offset, length);
       }
   }
 
@@ -302,8 +304,8 @@ public class PushbackReader extends FilterReader
    * <p>
    * If the pushback buffer is full, this method throws an exception.
    * <p>
-   * The argument to this method is an <code>int</code>.  Only the low eight bits
-   * of this value are pushed back.
+   * The argument to this method is an <code>int</code>.  Only the low eight 
+   * bits of this value are pushed back.
    *
    * @param b The char to be pushed back, passed as an int
    *
@@ -343,7 +345,8 @@ public class PushbackReader extends FilterReader
 
   /**
    * This method pushed back chars from the passed in array into the pushback
-   * buffer.  The chars from <code>buf[offset]</code> to <code>buf[offset + len]</code>
+   * buffer.  The chars from <code>buf[offset]</code> to 
+   * <code>buf[offset + len]</code>
    * are pushed in reverse order so that the next char read from the stream
    * after this operation will be <code>buf[offset]</code> followed by
    * <code>buf[offset + 1]</code>, etc.
@@ -351,30 +354,31 @@ public class PushbackReader extends FilterReader
    * If the pushback buffer cannot hold all of the requested chars, an
    * exception is thrown.
    *
-   * @param buf The char array to be pushed back
+   * @param buffer The char array to be pushed back
    * @param offset The index into the array where the chars to be push start
-   * @param len The number of chars to be pushed.
+   * @param length The number of chars to be pushed.
    *
    * @exception IOException If the pushback buffer is full
    */
-  public synchronized void unread(char[] b, int offset, int len)
+  public synchronized void unread(char[] buffer, int offset, int length)
     throws IOException
   {
     synchronized (lock)
       {
 	if (buf == null)
           throw new IOException("stream closed");
-	if (pos < len)
+	if (pos < length)
 	  throw new IOException("Pushback buffer is full");
 
 	// Note the order that these chars are being added is the opposite
 	// of what would be done if they were added to the buffer one at a time.
 	// See the Java Class Libraries book p. 1397.
-	System.arraycopy(b, offset, buf, pos - len, len);
+	System.arraycopy(buffer, offset, buf, pos - length, length);
 
 	// Don't put this into the arraycopy above, an exception might be thrown
 	// and in that case we don't want to modify pos.
-	pos -= len;
+	pos -= length;
       }
   }
 }
+

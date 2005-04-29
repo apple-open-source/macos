@@ -8,7 +8,7 @@
    subject to change. Applications should only use zlib.h.
  */
 
-/* @(#) $Id: deflate.h,v 1.4 2002/03/14 07:38:16 shebs Exp $ */
+/* @(#) $Id: deflate.h,v 1.1.1.4 2002/08/01 17:58:15 shebs Exp $ */
 
 #ifndef _DEFLATE_H
 #define _DEFLATE_H

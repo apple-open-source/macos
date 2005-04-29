@@ -11,7 +11,7 @@ SYMROOT=$(OBJROOT)
 DSTROOT=/usr/local
 RC_ARCHS=
 
-ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp"
+ENV=	CFLAGS="$(RC_ARCHS:%=-arch %) -no-cpp-precomp -mdynamic-no-pic"
 
 # Since the vendor (Apple) is installing this, it must not go in the site-lisp
 # directory.  Unfortunately, that means hard coding  the path to the emacs lisp

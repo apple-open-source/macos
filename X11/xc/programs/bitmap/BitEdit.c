@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/bitmap/BitEdit.c,v 1.6 2001/12/26 21:39:34 paulo Exp $ */
+/* $XFree86: xc/programs/bitmap/BitEdit.c,v 1.7 2003/05/27 22:26:55 tsi Exp $ */
 
 /*
  * Author:  Davor Matic, MIT X Consortium
@@ -215,8 +215,8 @@ static Widget
     top_widget, 
     parent_widget,
     formy_widget,
-    fileButton_widget, fileMenu_widget,
-    editButton_widget, editMenu_widget,
+    fileMenu_widget,
+    editMenu_widget,
     status_widget,
     pane_widget, 
     form_widget,
@@ -1014,9 +1014,10 @@ int main(int argc, char *argv[])
 					 simpleMenuWidgetClass, 
 					 formy_widget, NULL, 0);
     
-    fileButton_widget = XtCreateManagedWidget("fileButton",
-					      menuButtonWidgetClass, 
-					      formy_widget, NULL, 0);
+    (void) XtCreateManagedWidget("fileButton",
+				 menuButtonWidgetClass, 
+				 formy_widget, NULL, 0);
+
     for (i = 0; i < XtNumber(file_menu); i++) {
 	w = XtCreateManagedWidget(file_menu[i].name, 
 				  (file_menu[i].trap ? 
@@ -1034,9 +1035,9 @@ int main(int argc, char *argv[])
 					 simpleMenuWidgetClass, 
 					 formy_widget, NULL, 0);
     
-    editButton_widget = XtCreateManagedWidget("editButton", 
-					      menuButtonWidgetClass, 
-					      formy_widget, NULL, 0);
+    (void) XtCreateManagedWidget("editButton", 
+				 menuButtonWidgetClass, 
+				 formy_widget, NULL, 0);
 
     for (i = 0; i < XtNumber(edit_menu); i++) {
 	w = XtCreateManagedWidget(edit_menu[i].name, 

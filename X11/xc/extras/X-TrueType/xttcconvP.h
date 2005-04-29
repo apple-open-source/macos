@@ -6,6 +6,8 @@
    Copyright (c) 1999 Nozomi YTOW, All rights reserved.
    Copyright (c) 1998,1999 X-TrueType Server Project, All rights reserved. 
 
+   Copyright (c) 1999 Pablo Saratxaga <pablo@mandrakesoft.com>
+
 ===Notice
    Redistribution and use in source and binary forms, with or without
    modification, are permitted provided that the following conditions
@@ -32,7 +34,7 @@
 
 Notice===
  */
-/* $XFree86: xc/extras/X-TrueType/xttcconvP.h,v 1.8 2001/08/01 00:44:33 tsi Exp $ */
+/* $XFree86: xc/extras/X-TrueType/xttcconvP.h,v 1.9 2003/07/27 02:01:17 dawes Exp $ */
 
 #ifndef _XTTCCONVP_H_
 #define _XTTCCONVP_H_ 1
@@ -182,6 +184,20 @@ funcName(ft_char_code_t codeSrc)\
     return codeDst;\
 }
 
+/* dos-* or microsoft-* codepages ( only 0x80-0xff needs to be defined) */
+#define CODE_CONV_CP_TO_UCS2(funcName, tableName)\
+ft_char_code_t /* result charCodeDst */\
+funcName(ft_char_code_t codeSrc)\
+{\
+    ucs2_t codeDst = 0;\
+\
+    if (codeSrc>=0x80)\
+        codeDst = tableName[codeSrc-0x80];\
+    else if (codeSrc<0x80)\
+        codeDst = codeSrc;\
+\
+    return codeDst;\
+}
 
 /*************************************
   Code convert functions

@@ -50,6 +50,9 @@ Boolean ExceptionInResult( const char* resultPtr );
 int IsIPAddress(const char* adrsStr, long *ipAdrs);
 Boolean IsDNSName(char* theName);
 
+Boolean UseCapitalization( void );
+CFStringRef CFStringCreateCapitalizedWithCString( char* cstr, CFStringEncoding encoding );
+
 #define	kLMBGoodTimeOutVal			10		// seconds
 #define kMinTimeBetweenRetries		15*60	// fifteen minutes
 #define kMinTimeToRecheckLMB		15*60	// fifteen minutes?
@@ -97,6 +100,7 @@ public:
 			
 			void				ThreadStarted					( void ) { mThreadsRunning++; }
 			void				ThreadFinished					( void ) { mThreadsRunning--; }
+			
 protected: 
 			
 			sInt32				GetPrimaryInterfaceBroadcastAdrs( char** broadcastAddr );
@@ -169,5 +173,6 @@ CFArrayRef GetLMBInfoFromLMB	( CFStringRef workgroupRef, CFStringRef lmbNameRef 
 CFArrayRef ParseOutStringsFromSMBClientResult( char* smbClientResult, char* primaryKey, char* secondaryKey, char** outPtr  = NULL );
 Boolean IsStringInArray( CFStringRef theString, CFArrayRef theArray );
 
+const char* GetCodePageStringForCurrentSystem( void );
 
 #endif

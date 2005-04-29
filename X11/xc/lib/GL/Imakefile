@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/Imakefile,v 1.41 2002/11/22 22:55:57 tsi Exp $
+XCOMM $XFree86: xc/lib/GL/Imakefile,v 1.44 2003/09/28 20:14:58 alanh Exp $
 
 XCOMM
 XCOMM Imake tokens which are significant to building libGL:
@@ -98,7 +98,7 @@ LIBGLBUILDDIR = GL
    DRIVERDIRS = mesa/src/drv
 #endif
 
-#if XAppleServer
+#if defined(DarwinArchitecture) && BuildAppleDRI
       DRIDIRS = apple
 #endif
 

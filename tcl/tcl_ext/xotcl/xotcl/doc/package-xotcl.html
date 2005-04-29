@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/lib/package.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/lib/package.xotcl" ALIGN="MIDDLE">
+  ./../library/lib/package.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::package 0.91
+    <BR>
+    <b> Package required: </b> xotcl::mixinStrategy 
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#package">
+          <em>package</em>:
+        </A>
+        <a href="#package-present">present</a>, <a href="#package-verbose">verbose</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/lib/package.xotcl">
+      ./../library/lib/package.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+  Represent Tcl package loading command by an XOTcl
+  object. Enables tracking, tracing, and verbose output
+  of package loading
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="package">
+        
+      </A>
+      <h2> Object: <em> package </em> </h2>
+      <b>Class</b>: Object
+      <BR>
+      <b> Procs </b> 
+      <a href="#package-present">present</a>, <a href="#package-verbose">verbose</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Supports all Tcl package options plus present and verbose.
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="package-present">
+            
+          </A>
+          <b>present </b>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: packageName or -exact packageName
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Check whether a package is present or not. Similar to Tcl's 
+    package present, but works with Tcl < 8.3
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="package-verbose">
+            
+          </A>
+          <b>verbose </b>
+          <em>v</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>v</b>: 1 or 0
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Toggle verbose output on/off. If on, package prints the locations
+    from where packages are loaded to the screen. Default is off.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

@@ -880,6 +880,8 @@ function_body:
 	  compstmtend
                 {
 		  STMT_LINENO ($<ttype>5) = $3;
+		  /* APPLE LOCAL CW asm blocks */
+		  if (flag_cw_asm_blocks) cw_asm_block = 0;
 		  finish_compound_stmt (/*has_no_scope=*/1, $<ttype>5);
 		  finish_function_body ($1);
 		}
@@ -3569,6 +3571,8 @@ single_cw_asm_stmt:
 		{ cw_asm_in_operands = 1; }
 	  cw_asm_operands
 		{ cw_asm_stmt ($1, $3); }
+	| identifier SCSPEC cw_asm_operand
+		{ cw_asm_entry ($1, $2, $3); }
 	| cw_asm_label
 	| cw_asm_label single_cw_asm_stmt
 	;
@@ -4080,15 +4084,11 @@ cw_asm_primary:
 		{ $$ = cw_asm_build_register_offset ($1, $3); }
 	| cw_asm_primary '[' cw_asm_expr_no_commas ']'   %prec '.'
 		{ $$ = build_array_ref ($1, $3); }
-/*
-	| TYPENAME '.' identifier
-		{ $$ = get_structure_offset ($1, $3); }
 	| cw_asm_primary '.' identifier
-		{ $$ = build_component_ref ($1, $3); }
+		{ $$ = cw_asm_cp_build_component_ref ($1, $3); }
 	| cw_asm_primary POINTSAT identifier
-		{ tree expr = build_indirect_ref ($1, "->");
-		  $$ = build_component_ref (expr, $3); }
-*/
+		{ tree expr = build_x_arrow ($1);
+		  $$ = cw_asm_cp_build_component_ref (expr, $3); }
 	;
 /* APPLE LOCAL end CW asm blocks */
 
@@ -4662,17 +4662,20 @@ ivar_declarator:
 	  declarator
 		{ 
                 $$ = add_instance_variable (objc_ivar_context, objc_public_flag,
-                           $1, current_declspecs, NULL_TREE); 
+                           /* APPLE LOCAL XJR */
+                           prefix_attributes, $1, current_declspecs, NULL_TREE); 
                 }
 	| declarator ':' expr_no_commas
 		{ 
                 $$ = add_instance_variable (objc_ivar_context, objc_public_flag,
-                           $1, current_declspecs, $3); 
+                           /* APPLE LOCAL XJR */
+                           prefix_attributes, $1, current_declspecs, $3); 
                 }
 	| ':' expr_no_commas
 		{ 
                 $$ = add_instance_variable (objc_ivar_context, objc_public_flag,
-                           NULL_TREE, current_declspecs, $2); 
+			   /* APPLE LOCAL XJR */
+                           prefix_attributes, NULL_TREE, current_declspecs, $2); 
                 }
 	;
 

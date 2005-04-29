@@ -1,11 +1,11 @@
 #!/bin/sh
 #
-# $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/build-bindist,v 1.6 2003/02/08 23:11:49 dawes Exp $
+# $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/build-bindist,v 1.7 2003/12/05 15:04:07 dawes Exp $
 #
 
 Usage()
 {
-  echo `basename $0` [-l] [-t type] [prefix] from-dir to-dir
+  echo "`basename $0` [-l] [-t type] [prefix] from-dir to-dir"
   exit 1
 }
 

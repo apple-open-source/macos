@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -24,12 +24,17 @@
 #include "unicode/uloc.h"
 
 #include "cintltst.h"
+#include "putilimp.h"
 #include "uparse.h"
+#include "ucase.h"
 #include "uprops.h"
+#include "uset_imp.h"
 #include "usc_impl.h"
 #include "unormimp.h"
+#include "udatamem.h" /* for testing ucase_openBinary() */
+#include "cucdapi.h"
 
-#define LENGTHOF(array) (sizeof(array)/sizeof((array)[0]))
+#define LENGTHOF(array) (int32_t)(sizeof(array)/sizeof((array)[0]))
 
 /* prototypes --------------------------------------------------------------- */
 
@@ -45,19 +50,18 @@ static void TestCodePoint(void);
 static void TestCharLength(void);
 static void TestCharNames(void);
 static void TestMirroring(void);
-       void TestUScriptCodeAPI(void);    /* defined in cucdapi.c */
+/*       void TestUScriptCodeAPI(void);*/    /* defined in cucdapi.h */
 static void TestUScriptRunAPI(void);
 static void TestAdditionalProperties(void);
 static void TestNumericProperties(void);
 static void TestPropertyNames(void);
 static void TestPropertyValues(void);
 static void TestConsistency(void);
+static void TestUCase(void);
 
 /* internal methods used */
 static int32_t MakeProp(char* str);
 static int32_t MakeDir(char* str);
-
-#define LENGTHOF(array) (sizeof(array)/sizeof((array)[0]))
 
 /* test data ---------------------------------------------------------------- */
 
@@ -142,6 +146,7 @@ void addUnicodeTest(TestNode** root)
     addTest(root, &TestPropertyNames, "tsutil/cucdtst/TestPropertyNames");
     addTest(root, &TestPropertyValues, "tsutil/cucdtst/TestPropertyValues");
     addTest(root, &TestConsistency, "tsutil/cucdtst/TestConsistency");
+    addTest(root, &TestUCase, "tsutil/cucdtst/TestUCase");
 }
 
 /*==================================================== */
@@ -399,9 +404,10 @@ static void TestLetterNumber()
          * The following checks work only starting from Unicode 4.0.
          * Check the version number here.
          */
+        static UVersionInfo u401={ 4, 0, 1, 0 };
         UVersionInfo version;
         u_getUnicodeVersion(version);
-        if(version[0]<4) {
+        if(version[0]<4 || 0==memcmp(version, u401, 4)) {
             return;
         }
     }
@@ -416,13 +422,9 @@ static void TestLetterNumber()
          * (which checks Nd).
          *
          * This was not true in Unicode 3.2 and earlier.
-         * The following characters had decimal digit values but were No not Nd.
-         * (from DerivedNumericType-3.2.0.txt)
-00B2..00B3    ; decimal # No   [2] SUPERSCRIPT TWO..SUPERSCRIPT THREE
-00B9          ; decimal # No       SUPERSCRIPT ONE
-2070          ; decimal # No       SUPERSCRIPT ZERO
-2074..2079    ; decimal # No   [6] SUPERSCRIPT FOUR..SUPERSCRIPT NINE
-2080..2089    ; decimal # No  [10] SUBSCRIPT ZERO..SUBSCRIPT NINE
+         * Unicode 4.0 fixed discrepancies.
+         * Unicode 4.0.1 re-introduced problems in this area due to an
+         * unintentionally incomplete last-minute change.
          */
         U_STRING_DECL(digitsPattern, "[:Nd:]", 6);
         U_STRING_DECL(decimalValuesPattern, "[:Numeric_Type=Decimal:]", 24);
@@ -524,7 +526,7 @@ static void TestMisc()
     /* Tests the ICU version #*/
     u_getVersion(realVersion);
     u_versionToString(realVersion, icuVersion);
-    if (strncmp(icuVersion, U_ICU_VERSION, uprv_min(strlen(icuVersion), strlen(U_ICU_VERSION))) != 0)
+    if (strncmp(icuVersion, U_ICU_VERSION, uprv_min((int32_t)strlen(icuVersion), (int32_t)strlen(U_ICU_VERSION))) != 0)
     {
         log_err("ICU version test failed. Header says=%s, got=%s \n", U_ICU_VERSION, icuVersion);
     }
@@ -685,7 +687,7 @@ static void TestMisc()
 #define ISCN 0x800
 
 /* C/POSIX-style functions, in the same order as the bit flags */
-typedef UBool IsPOSIXClass(UChar32 c);
+typedef UBool U_EXPORT2 IsPOSIXClass(UChar32 c);
 
 static const struct {
     IsPOSIXClass *fn;
@@ -732,7 +734,8 @@ static const struct {
     { 0x2002,                                         ISPR|ISSP|ISBL      },    /* en space */
     { 0x2007,                                         ISPR|ISSP|ISBL      },    /* figure space */
     { 0x2009,                                         ISPR|ISSP|ISBL      },    /* thin space */
-    { 0x200b,                                         ISPR|ISSP           },    /* ZWSP */
+    { 0x200b,                                                        ISCN },    /* ZWSP */
+  /*{ 0x200b,                                         ISPR|ISSP           },*/    /* ZWSP */ /* ZWSP became a control char in 4.0.1*/
     { 0x200e,                                                        ISCN },    /* LRM */
     { 0x2028,                                         ISPR|ISSP|     ISCN },    /* LS */
     { 0x2029,                                         ISPR|ISSP|     ISCN },    /* PS */
@@ -1038,6 +1041,36 @@ enumTypeRange(const void *context, UChar32 start, UChar32 limit, UCharCategory t
         {0xeffff, U_UNASSIGNED}
     };
 
+    int32_t i, count;
+
+    if(0!=strcmp((const char *)context, "a1")) {
+        log_err("error: u_enumCharTypes() passes on an incorrect context pointer\n");
+        return FALSE;
+    }
+
+    count=LENGTHOF(test);
+    for(i=0; i<count; ++i) {
+        if(start<=test[i][0] && test[i][0]<limit) {
+            if(type!=(UCharCategory)test[i][1]) {
+                log_err("error: u_enumCharTypes() has range [U+%04lx, U+%04lx[ with %ld instead of U+%04lx with %ld\n",
+                        start, limit, (long)type, test[i][0], test[i][1]);
+            }
+            /* stop at the range that includes the last test code point (increases code coverage for enumeration) */
+            return i==(count-1) ? FALSE : TRUE;
+        }
+    }
+
+    if(start>test[count-1][0]) {
+        log_err("error: u_enumCharTypes() has range [U+%04lx, U+%04lx[ with %ld after it should have stopped\n",
+                start, limit, (long)type);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+static UBool U_CALLCONV
+enumDefaultsRange(const void *context, UChar32 start, UChar32 limit, UCharCategory type) {
     /* default Bidi classes for unassigned code points */
     static const int32_t defaultBidi[][2]={ /* { limit, class } */
         { 0x0590, U_LEFT_TO_RIGHT },
@@ -1055,30 +1088,8 @@ enumTypeRange(const void *context, UChar32 start, UChar32 limit, UCharCategory t
     };
 
     UChar32 c;
-    int i, count;
-
-    if(0!=strcmp((const char *)context, "a1")) {
-        log_err("error: u_enumCharTypes() passes on an incorrect context pointer\n");
-        return FALSE;
-    }
-
-    count=sizeof(test)/sizeof(test[0]);
-    for(i=0; i<count; ++i) {
-        if(start<=test[i][0] && test[i][0]<limit) {
-            if(type!=(UCharCategory)test[i][1]) {
-                log_err("error: u_enumCharTypes() has range [U+%04lx, U+%04lx[ with %ld instead of U+%04lx with %ld\n",
-                        start, limit, (long)type, test[i][0], test[i][1]);
-            }
-            /* stop at the range that includes the last test code point */
-            return i==(count-1) ? FALSE : TRUE;
-        }
-    }
-
-    if(start>test[count-1][0]) {
-        log_err("error: u_enumCharTypes() has range [U+%04lx, U+%04lx[ with %ld after it should have stopped\n",
-                start, limit, (long)type);
-        return FALSE;
-    }
+    int32_t i;
+    UCharDirection shouldBeDir;
 
     /*
      * LineBreak.txt specifies:
@@ -1101,10 +1112,20 @@ enumTypeRange(const void *context, UChar32 start, UChar32 limit, UCharCategory t
 
     /*
      * Verify default Bidi classes.
+     * For recent Unicode versions, see UCD.html.
+     *
+     * For older Unicode versions:
      * See table 3-7 "Bidirectional Character Types" in UAX #9.
      * http://www.unicode.org/reports/tr9/
      *
      * See also DerivedBidiClass.txt for Cn code points!
+     *
+     * Unicode 4.0.1/Public Review Issue #28 (http://www.unicode.org/review/resolved-pri.html)
+     * changed some default values.
+     * In particular, non-characters and unassigned Default Ignorable Code Points
+     * change from L to BN.
+     *
+     * UCD.html version 4.0.1 does not yet reflect these changes.
      */
     if(type==U_UNASSIGNED || type==U_PRIVATE_USE_CHAR) {
         /* enumerate the intersections of defaultBidi ranges with [start..limit[ */
@@ -1112,11 +1133,17 @@ enumTypeRange(const void *context, UChar32 start, UChar32 limit, UCharCategory t
         for(i=0; i<LENGTHOF(defaultBidi) && c<limit; ++i) {
             if((int32_t)c<defaultBidi[i][0]) {
                 while(c<limit && (int32_t)c<defaultBidi[i][0]) {
-                    if( u_charDirection(c)!=(UCharDirection)defaultBidi[i][1] ||
-                        u_getIntPropertyValue(c, UCHAR_BIDI_CLASS)!=defaultBidi[i][1]
+                    if(U_IS_UNICODE_NONCHAR(c) || u_hasBinaryProperty(c, UCHAR_DEFAULT_IGNORABLE_CODE_POINT)) {
+                        shouldBeDir=U_BOUNDARY_NEUTRAL;
+                    } else {
+                        shouldBeDir=(UCharDirection)defaultBidi[i][1];
+                    }
+
+                    if( u_charDirection(c)!=shouldBeDir ||
+                        u_getIntPropertyValue(c, UCHAR_BIDI_CLASS)!=shouldBeDir
                     ) {
                         log_err("error: u_charDirection(unassigned/PUA U+%04lx)=%s should be %s\n",
-                            c, dirStrings[u_charDirection(c)], dirStrings[defaultBidi[i][1]]);
+                            c, dirStrings[u_charDirection(c)], dirStrings[shouldBeDir]);
                     }
                     ++c;
                 }
@@ -1219,6 +1246,9 @@ static void TestUnicodeData()
 
     /* test u_enumCharTypes() */
     u_enumCharTypes(enumTypeRange, "a1");
+
+    /* check default properties */
+    u_enumCharTypes(enumDefaultsRange, NULL);
 }
 
 static void TestCodeUnit(){
@@ -1336,6 +1366,23 @@ static void TestCodePoint(){
         }
     }
 
+    if(
+        !U_IS_BMP(0) || !U_IS_BMP(0x61) || !U_IS_BMP(0x20ac) ||
+        !U_IS_BMP(0xd9da) || !U_IS_BMP(0xdfed) || !U_IS_BMP(0xffff) ||
+        U_IS_BMP(U_SENTINEL) || U_IS_BMP(0x10000) || U_IS_BMP(0x50005) ||
+        U_IS_BMP(0x10ffff) || U_IS_BMP(0x110000) || U_IS_BMP(0x7fffffff)
+    ) {
+        log_err("error with U_IS_BMP()\n");
+    }
+
+    if(
+        U_IS_SUPPLEMENTARY(0) || U_IS_SUPPLEMENTARY(0x61) || U_IS_SUPPLEMENTARY(0x20ac) ||
+        U_IS_SUPPLEMENTARY(0xd9da) || U_IS_SUPPLEMENTARY(0xdfed) || U_IS_SUPPLEMENTARY(0xffff) ||
+        U_IS_SUPPLEMENTARY(U_SENTINEL) || !U_IS_SUPPLEMENTARY(0x10000) || !U_IS_SUPPLEMENTARY(0x50005) ||
+        !U_IS_SUPPLEMENTARY(0x10ffff) || U_IS_SUPPLEMENTARY(0x110000) || U_IS_SUPPLEMENTARY(0x7fffffff)
+    ) {
+        log_err("error with U_IS_SUPPLEMENTARY()\n");
+    }
 }
 
 static void TestCharLength()
@@ -1379,7 +1426,8 @@ static int32_t MakeProp(char* str)
         log_err("unrecognized type letter ");
         log_err(str);
     }
-    else result = ((matchPosition - tagStrings) / 2);
+    else
+        result = (int32_t)((matchPosition - tagStrings) / 2);
     return result;
 }
 
@@ -1603,11 +1651,21 @@ TestCharNames() {
          * it includes all the characters in lowercased names of
          * general categories, for the full possible set of extended names.
          */
-        uprv_getCharNameCharacters(set);
+        {
+            USetAdder sa={
+                NULL,
+                uset_add,
+                uset_addRange,
+                uset_addString
+            };
+            sa.set=set;
+            uprv_getCharNameCharacters(&sa);
+        }
 
         /* build set the dumb (but sure-fire) way */
-        for (i=0; i<256; ++i)
+        for (i=0; i<256; ++i) {
             map[i] = FALSE;
+        }
 
         maxLength=0;
         for (cp=0; cp<0x110000; ++cp) {
@@ -1629,6 +1687,15 @@ TestCharNames() {
                     map[(uint8_t) buf[i]] = TRUE;
                 }
             }
+
+            /* test for leading/trailing whitespace */
+            if(buf[0]==' ' || buf[0]=='\t' || buf[len-1]==' ' || buf[len-1]=='\t') {
+                log_err("u_charName(U+%04x) returns a name with leading or trailing whitespace\n", cp);
+            }
+        }
+
+        if(map[(uint8_t)'\t']) {
+            log_err("u_charName() returned a name with a TAB for some code point\n", cp);
         }
 
         length=uprv_getMaxCharNameLength();
@@ -1670,17 +1737,10 @@ TestCharNames() {
         }
 
         if (!ok) {
-            char c1[256], c2[256];
-            u_UCharsToChars(pat, c1, l1);
-            u_UCharsToChars(dumbPat, c2, l2);
-            c1[l1] = c2[l2] = 0;
             log_err("FAIL: uprv_getCharNameCharacters() returned %s, expected %s (too many lowercase a-z are ok)\n",
-                    c1, c2);
-        } else {
-            char c1[256];
-            u_UCharsToChars(pat, c1, l1);
-            c1[l1] = 0;
-            log_verbose("Ok: uprv_getCharNameCharacters() returned %s\n", c1);
+                    aescstrdup(pat, l1), aescstrdup(dumbPat, l2));
+        } else if(VERBOSITY) {
+            log_verbose("Ok: uprv_getCharNameCharacters() returned %s\n", aescstrdup(pat, l1));
         }
 
         uset_close(set);
@@ -1762,7 +1822,7 @@ CheckScriptRuns(UScriptRun *scriptRun, int32_t *runStarts, const RunTestData *te
 static void
 TestUScriptRunAPI()
 {
-    static const RunTestData testData[] = {
+    static const RunTestData testData1[] = {
         {"\\u0020\\u0946\\u0939\\u093F\\u0928\\u094D\\u0926\\u0940\\u0020", USCRIPT_DEVANAGARI},
         {"\\u0627\\u0644\\u0639\\u0631\\u0628\\u064A\\u0629\\u0020", USCRIPT_ARABIC},
         {"\\u0420\\u0443\\u0441\\u0441\\u043A\\u0438\\u0439\\u0020", USCRIPT_CYRILLIC},
@@ -1774,135 +1834,152 @@ TestUScriptRunAPI()
         {"\\u30AB\\u30BF\\u30AB\\u30CA", USCRIPT_KATAKANA},
         {"\\U00010400\\U00010401\\U00010402\\U00010403", USCRIPT_DESERET}
     };
-
-    int32_t nTestRuns = sizeof testData / sizeof testData[0];
-
-    UChar testString[1024];
-    int32_t runStarts[256];
-
-    int32_t run, stringLimit;
-    UScriptRun *scriptRun = NULL;
-    UErrorCode err;
-
-    /*
-     * Fill in the test string and the runStarts array.
-     */
-    stringLimit = 0;
-    for (run = 0; run < nTestRuns; run += 1) {
-        runStarts[run] = stringLimit;
-        stringLimit += u_unescape(testData[run].runText, &testString[stringLimit], 1024 - stringLimit);
-        /*stringLimit -= 1;*/
-    }
-
-    /* The limit of the last run */ 
-    runStarts[nTestRuns] = stringLimit;
-
-    /*
-     * Make sure that calling uscript_OpenRun with a NULL text pointer
-     * and a non-zero text length returns the correct error.
-     */
-    err = U_ZERO_ERROR;
-    scriptRun = uscript_openRun(NULL, stringLimit, &err);
-
-    if (err != U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("uscript_openRun(NULL, stringLimit, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
-    }
-
-    if (scriptRun != NULL) {
-        log_err("uscript_openRun(NULL, stringLimit, &err) returned a non-NULL result.\n");
+    
+    static const RunTestData testData2[] = {
+       {"((((((((((abc))))))))))", USCRIPT_LATIN}
+    };
+    
+    static const struct {
+      const RunTestData *testData;
+      int32_t nRuns;
+    } testDataEntries[] = {
+        {testData1, LENGTHOF(testData1)},
+        {testData2, LENGTHOF(testData2)}
+    };
+    
+    static const int32_t nTestEntries = LENGTHOF(testDataEntries);
+    int32_t testEntry;
+    
+    for (testEntry = 0; testEntry < nTestEntries; testEntry += 1) {
+        UChar testString[1024];
+        int32_t runStarts[256];
+        int32_t nTestRuns = testDataEntries[testEntry].nRuns;
+        const RunTestData *testData = testDataEntries[testEntry].testData;
+    
+        int32_t run, stringLimit;
+        UScriptRun *scriptRun = NULL;
+        UErrorCode err;
+    
+        /*
+         * Fill in the test string and the runStarts array.
+         */
+        stringLimit = 0;
+        for (run = 0; run < nTestRuns; run += 1) {
+            runStarts[run] = stringLimit;
+            stringLimit += u_unescape(testData[run].runText, &testString[stringLimit], 1024 - stringLimit);
+            /*stringLimit -= 1;*/
+        }
+    
+        /* The limit of the last run */ 
+        runStarts[nTestRuns] = stringLimit;
+    
+        /*
+         * Make sure that calling uscript_OpenRun with a NULL text pointer
+         * and a non-zero text length returns the correct error.
+         */
+        err = U_ZERO_ERROR;
+        scriptRun = uscript_openRun(NULL, stringLimit, &err);
+    
+        if (err != U_ILLEGAL_ARGUMENT_ERROR) {
+            log_err("uscript_openRun(NULL, stringLimit, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
+        }
+    
+        if (scriptRun != NULL) {
+            log_err("uscript_openRun(NULL, stringLimit, &err) returned a non-NULL result.\n");
+            uscript_closeRun(scriptRun);
+        }
+    
+        /*
+         * Make sure that calling uscript_OpenRun with a non-NULL text pointer
+         * and a zero text length returns the correct error.
+         */
+        err = U_ZERO_ERROR;
+        scriptRun = uscript_openRun(testString, 0, &err);
+    
+        if (err != U_ILLEGAL_ARGUMENT_ERROR) {
+            log_err("uscript_openRun(testString, 0, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
+        }
+    
+        if (scriptRun != NULL) {
+            log_err("uscript_openRun(testString, 0, &err) returned a non-NULL result.\n");
+            uscript_closeRun(scriptRun);
+        }
+    
+        /*
+         * Make sure that calling uscript_openRun with a NULL text pointer
+         * and a zero text length doesn't return an error.
+         */
+        err = U_ZERO_ERROR;
+        scriptRun = uscript_openRun(NULL, 0, &err);
+    
+        if (U_FAILURE(err)) {
+            log_err("Got error %s from uscript_openRun(NULL, 0, &err)\n", u_errorName(err));
+        }
+    
+        /* Make sure that the empty iterator doesn't find any runs */
+        if (uscript_nextRun(scriptRun, NULL, NULL, NULL)) {
+            log_err("uscript_nextRun(...) returned TRUE for an empty iterator.\n");
+        }
+    
+        /*
+         * Make sure that calling uscript_setRunText with a NULL text pointer
+         * and a non-zero text length returns the correct error.
+         */
+        err = U_ZERO_ERROR;
+        uscript_setRunText(scriptRun, NULL, stringLimit, &err);
+    
+        if (err != U_ILLEGAL_ARGUMENT_ERROR) {
+            log_err("uscript_setRunText(scriptRun, NULL, stringLimit, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
+        }
+    
+        /*
+         * Make sure that calling uscript_OpenRun with a non-NULL text pointer
+         * and a zero text length returns the correct error.
+         */
+        err = U_ZERO_ERROR;
+        uscript_setRunText(scriptRun, testString, 0, &err);
+    
+        if (err != U_ILLEGAL_ARGUMENT_ERROR) {
+            log_err("uscript_setRunText(scriptRun, testString, 0, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
+        }
+    
+        /*
+         * Now call uscript_setRunText on the empty iterator
+         * and make sure that it works.
+         */
+        err = U_ZERO_ERROR;
+        uscript_setRunText(scriptRun, testString, stringLimit, &err);
+    
+        if (U_FAILURE(err)) {
+            log_err("Got error %s from uscript_setRunText(...)\n", u_errorName(err));
+        } else {
+            CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_setRunText");
+        }
+    
+        uscript_closeRun(scriptRun);
+    
+        /* 
+         * Now open an interator over the testString
+         * using uscript_openRun and make sure that it works
+         */
+        scriptRun = uscript_openRun(testString, stringLimit, &err);
+    
+        if (U_FAILURE(err)) {
+            log_err("Got error %s from uscript_openRun(...)\n", u_errorName(err));
+        } else {
+            CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_openRun");
+        }
+    
+        /* Now reset the iterator, and make sure
+         * that it still works.
+         */
+        uscript_resetRun(scriptRun);
+    
+        CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_resetRun");
+    
+        /* Close the iterator */
         uscript_closeRun(scriptRun);
     }
-
-    /*
-     * Make sure that calling uscript_OpenRun with a non-NULL text pointer
-     * and a zero text length returns the correct error.
-     */
-    err = U_ZERO_ERROR;
-    scriptRun = uscript_openRun(testString, 0, &err);
-
-    if (err != U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("uscript_openRun(testString, 0, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
-    }
-
-    if (scriptRun != NULL) {
-        log_err("uscript_openRun(testString, 0, &err) returned a non-NULL result.\n");
-        uscript_closeRun(scriptRun);
-    }
-
-    /*
-     * Make sure that calling uscript_openRun with a NULL text pointer
-     * and a zero text length doesn't return an error.
-     */
-    err = U_ZERO_ERROR;
-    scriptRun = uscript_openRun(NULL, 0, &err);
-
-    if (U_FAILURE(err)) {
-        log_err("Got error %s from uscript_openRun(NULL, 0, &err)\n", u_errorName(err));
-    }
-
-    /* Make sure that the empty iterator doesn't find any runs */
-    if (uscript_nextRun(scriptRun, NULL, NULL, NULL)) {
-        log_err("uscript_nextRun(...) returned TRUE for an empty iterator.\n");
-    }
-
-    /*
-     * Make sure that calling uscript_setRunText with a NULL text pointer
-     * and a non-zero text length returns the correct error.
-     */
-    err = U_ZERO_ERROR;
-    uscript_setRunText(scriptRun, NULL, stringLimit, &err);
-
-    if (err != U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("uscript_setRunText(scriptRun, NULL, stringLimit, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
-    }
-
-    /*
-     * Make sure that calling uscript_OpenRun with a non-NULL text pointer
-     * and a zero text length returns the correct error.
-     */
-    err = U_ZERO_ERROR;
-    uscript_setRunText(scriptRun, testString, 0, &err);
-
-    if (err != U_ILLEGAL_ARGUMENT_ERROR) {
-        log_err("uscript_setRunText(scriptRun, testString, 0, &err) returned %s instead of U_ILLEGAL_ARGUMENT_ERROR.\n", u_errorName(err));
-    }
-
-    /*
-     * Now call uscript_setRunText on the empty iterator
-     * and make sure that it works.
-     */
-    err = U_ZERO_ERROR;
-    uscript_setRunText(scriptRun, testString, stringLimit, &err);
-
-    if (U_FAILURE(err)) {
-        log_err("Got error %s from uscript_setRunText(...)\n", u_errorName(err));
-    } else {
-        CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_setRunText");
-    }
-
-    uscript_closeRun(scriptRun);
-
-    /* 
-     * Now open an interator over the testString
-     * using uscript_openRun and make sure that it works
-     */
-    scriptRun = uscript_openRun(testString, stringLimit, &err);
-
-    if (U_FAILURE(err)) {
-        log_err("Got error %s from uscript_openRun(...)\n", u_errorName(err));
-    } else {
-        CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_openRun");
-    }
-
-    /* Now reset the iterator, and make sure
-     * that it still works.
-     */
-    uscript_resetRun(scriptRun);
-
-    CheckScriptRuns(scriptRun, runStarts, testData, nTestRuns, "uscript_resetRun");
-
-    /* Close the iterator */
-    uscript_closeRun(scriptRun);
 }
 
 /* test additional, non-core properties */
@@ -1954,6 +2031,29 @@ TestAdditionalProperties() {
         { 0xfb1d, UCHAR_FULL_COMPOSITION_EXCLUSION, TRUE },
         { 0x1d15f, UCHAR_FULL_COMPOSITION_EXCLUSION, TRUE },
         { 0xfb1e, UCHAR_FULL_COMPOSITION_EXCLUSION, FALSE },
+
+        { 0x110a, UCHAR_NFD_INERT, TRUE },      /* Jamo L */
+        { 0x0308, UCHAR_NFD_INERT, FALSE },
+
+        { 0x1164, UCHAR_NFKD_INERT, TRUE },     /* Jamo V */
+        { 0x1d79d, UCHAR_NFKD_INERT, FALSE },   /* math compat version of xi */
+
+        { 0x0021, UCHAR_NFC_INERT, TRUE },      /* ! */
+        { 0x0061, UCHAR_NFC_INERT, FALSE },     /* a */
+        { 0x00e4, UCHAR_NFC_INERT, FALSE },     /* a-umlaut */
+        { 0x0102, UCHAR_NFC_INERT, FALSE },     /* a-breve */
+        { 0xac1c, UCHAR_NFC_INERT, FALSE },     /* Hangul LV */
+        { 0xac1d, UCHAR_NFC_INERT, TRUE },      /* Hangul LVT */
+
+        { 0x1d79d, UCHAR_NFKC_INERT, FALSE },   /* math compat version of xi */
+        { 0x2a6d6, UCHAR_NFKC_INERT, TRUE },    /* Han, last of CJK ext. B */
+
+        { 0x00e4, UCHAR_SEGMENT_STARTER, TRUE },
+        { 0x0308, UCHAR_SEGMENT_STARTER, FALSE },
+        { 0x110a, UCHAR_SEGMENT_STARTER, TRUE }, /* Jamo L */
+        { 0x1164, UCHAR_SEGMENT_STARTER, FALSE },/* Jamo V */
+        { 0xac1c, UCHAR_SEGMENT_STARTER, TRUE }, /* Hangul LV */
+        { 0xac1d, UCHAR_SEGMENT_STARTER, TRUE }, /* Hangul LVT */
 #endif
 
         { 0x0044, UCHAR_HEX_DIGIT, TRUE },
@@ -2018,7 +2118,7 @@ TestAdditionalProperties() {
          * The following properties are only supported starting with the
          * Unicode version indicated in the second field.
          */
-        { -1, 0x32, 0 },
+        { -1, 0x320, 0 },
 
         { 0x180c, UCHAR_DEFAULT_IGNORABLE_CODE_POINT, TRUE },
         { 0xfe02, UCHAR_DEFAULT_IGNORABLE_CODE_POINT, TRUE },
@@ -2056,6 +2156,16 @@ TestAdditionalProperties() {
         { 0xfa11, UCHAR_UNIFIED_IDEOGRAPH, TRUE },
         { 0xfa12, UCHAR_UNIFIED_IDEOGRAPH, FALSE },
 
+        { -1, 0x401, 0 },
+
+        { 0x002e, UCHAR_S_TERM, TRUE },
+        { 0x0061, UCHAR_S_TERM, FALSE },
+
+        { 0x180c, UCHAR_VARIATION_SELECTOR, TRUE },
+        { 0xfe03, UCHAR_VARIATION_SELECTOR, TRUE },
+        { 0xe01ef, UCHAR_VARIATION_SELECTOR, TRUE },
+        { 0xe0200, UCHAR_VARIATION_SELECTOR, FALSE },
+
         /* enum/integer type properties */
 
         /* UCHAR_BIDI_CLASS tested for assigned characters in TestUnicodeData() */
@@ -2084,11 +2194,13 @@ TestAdditionalProperties() {
         { 0x0C4E, UCHAR_BLOCK, UBLOCK_TELUGU },
         { 0x155A, UCHAR_BLOCK, UBLOCK_UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS },
         { 0x1717, UCHAR_BLOCK, UBLOCK_TAGALOG },
+        { 0x1900, UCHAR_BLOCK, UBLOCK_LIMBU },
         { 0x1AFF, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
         { 0x3040, UCHAR_BLOCK, UBLOCK_HIRAGANA },
         { 0x1D0FF, UCHAR_BLOCK, UBLOCK_BYZANTINE_MUSICAL_SYMBOLS },
-        { 0x10D0FF, UCHAR_BLOCK, UBLOCK_SUPPLEMENTARY_PRIVATE_USE_AREA_B },
+        { 0x50000, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
         { 0xEFFFF, UCHAR_BLOCK, UBLOCK_NO_BLOCK },
+        { 0x10D0FF, UCHAR_BLOCK, UBLOCK_SUPPLEMENTARY_PRIVATE_USE_AREA_B },
 
         /* UCHAR_CANONICAL_COMBINING_CLASS tested for assigned characters in TestUnicodeData() */
         { 0xd7d7, UCHAR_CANONICAL_COMBINING_CLASS, 0 },
@@ -2209,7 +2321,7 @@ TestAdditionalProperties() {
 
     /* what is our Unicode version? */
     u_getUnicodeVersion(version);
-    uVersion=(version[0]<<4)|version[1]; /* major/minor version numbers */
+    uVersion=((int32_t)version[0]<<8)|(version[1]<<4)|version[2]; /* major/minor/update version numbers */
 
     u_charAge(0x20, version);
     if(version[0]==0) {
@@ -2678,21 +2790,56 @@ TestConsistency() {
     set1=uset_open(1, 0);
     set2=uset_open(1, 0);
 
-    unorm_getCanonStartSet(0x49, &sset);
-    _setAddSerialized(set1, &sset);
+    if (unorm_getCanonStartSet(0x49, &sset)) {
+        _setAddSerialized(set1, &sset);
 
-    /* enumerate all characters that are plausible to be latin letters */
-    for(start=0xa0; start<0x2000; ++start) {
-        if(unorm_getDecomposition(start, FALSE, buffer16, LENGTHOF(buffer16))>1 && buffer16[0]==0x49) {
-            uset_add(set2, start);
+        /* enumerate all characters that are plausible to be latin letters */
+        for(start=0xa0; start<0x2000; ++start) {
+            if(unorm_getDecomposition(start, FALSE, buffer16, LENGTHOF(buffer16))>1 && buffer16[0]==0x49) {
+                uset_add(set2, start);
+            }
         }
+
+        compareUSets(set1, set2,
+                     "[canon start set of 0049]", "[all c with canon decomp with 0049]",
+                     TRUE);
+    } else {
+      log_err("error calling unorm_getCanonStartSet()\n");
     }
 
-    compareUSets(set1, set2,
-                 "[canon start set of 0049]", "[all c with canon decomp with 0049]",
-                 TRUE);
     uset_close(set1);
     uset_close(set2);
 
 #endif
+}
+
+/* API coverage for ucase.c */
+static void TestUCase() {
+    UDataMemory *pData;
+    UCaseProps *csp;
+    UErrorCode errorCode;
+
+    /* coverage for ucase_openBinary() */
+    errorCode=U_ZERO_ERROR;
+    pData=udata_open(NULL, UCASE_DATA_TYPE, UCASE_DATA_NAME, &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_data_err("unable to open " UCASE_DATA_NAME "." UCASE_DATA_TYPE ": %s\n",
+                    u_errorName(errorCode));
+        return;
+    }
+
+    csp=ucase_openBinary((const uint8_t *)pData->pHeader, -1, &errorCode);
+    if(U_FAILURE(errorCode)) {
+        log_err("ucase_openBinary() fails for the contents of " UCASE_DATA_NAME "." UCASE_DATA_TYPE ": %s\n",
+                u_errorName(errorCode));
+        udata_close(pData);
+        return;
+    }
+
+    if(UCASE_LOWER!=ucase_getType(csp, 0xdf)) { /* verify islower(sharp s) */
+        log_err("ucase_openBinary() does not seem to return working UCaseProps\n");
+    }
+
+    ucase_close(csp);
+    udata_close(pData);
 }

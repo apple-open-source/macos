@@ -1,0 +1,29 @@
+a{color:#060}
+a:hover{color:#090}
+body{background-color:white;color:#333;font-family:Georgia,"Times New Roman",Times,serif;margin:24pt 50pt 36pt}
+img{border:0px}
+h3{color:#000;margin-top:0pt;margin-bottom:4pt;padding-top:0pt}
+li{list-style-type:circle}
+li,p,.ce {font-size:15px;line-height:120%}
+ul{margin-left:8px;padding-left:8px}
+.bn{background-color:#303411;border:1px solid #000;width:100%}
+.bn h1{color:white;float:right;font-size:120%;margin-right:16px;margin-top:32px;}
+.bu{background-color:#06F;border-color:#06F}
+.c{text-align:center}
+.ccl{font-size:smaller;padding:2px;text-align:center}
+.ccp{text-align:center}
+.cs{background-color:#CCC;border:#000 1px dashed;font-size:smaller;margin-top:8px;margin-bottom:20px;padding:8px}
+.es{background-color:#C9DCC2;border:#000 1px solid;margin-bottom:16px;padding:8px}
+.lc{background:#fff;float:left;padding-bottom:20px;width:67%}
+.og{background-color:#F60;border-color:#F60}
+.rc{width:256px;float:right}
+.sb{background-color:#CF9;border:#000 1px solid;margin-bottom:16px;margin-left:16px;padding:8px}
+.ca {background-color:#CC9}
+.st{font-size:65%}
+.wlt{font-size:smaller;font-weight:bold;margin-bottom:0pt;padding-bottom:0pt}
+.wldl{color:#555;font-size:smaller;font-weight:normal;margin-top:0pt;padding-top:0pt}
+.wlbl{font-size:smaller;margin-bottom:20px;margin-top:0pt;padding-top:0pt;text-align:right}
+.tmw{vertical-align:top;width:100%}
+.tx{width:512px}
+.xb{border-style:outset;border-width:1px;color:#FFF;font-size:80%;font-weight:bold;margin:2em 0em 0em 0em;padding:0em 0.5em 0em 0.5em;text-decoration:none}
+.xb:hover{color:#FFF}

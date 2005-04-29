@@ -1,0 +1,144 @@
+<html><head><base target=k-main></head><body bgcolor=white><nobr>
+
+<font face=Helvetica size=3>
+<dl><dt>
+
+  <b>class c4_StringProp</b>
+ : public <A HREF="c4_Property.html" >c4_Property</A> <br><br>
+
+<dd><font face=Times size=3>
+String properties.<br><br>
+
+
+</font></dl>
+
+
+  <table cellborder=0>
+    <tr>
+    <td colspan=2>
+	  <font face=Helvetica size=-1><b>Public members</b></font>
+    </td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  
+    </td>
+	<td>
+	  <nobr>
+	  <b>c4_StringProp</b> (const char* name_);
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Construct a new property</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_StringRef.html" >c4_StringRef</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator()</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Get or set a string property in a row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  const char* 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Get</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Get a string property in a row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  void 
+    </td>
+	<td>
+	  <nobr>
+	  <b>Set</b> (const <A HREF="c4_RowRef.html" >c4_RowRef</A>&#38; row_, const char* value_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Set a string property in a row</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Row.html" >c4_Row</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>operator[]</b> (const char* value_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create a row with one string, shorthand for AsRow</font>
+	</td>
+	</tr>
+  
+    <tr>
+    <td valign=top align=right width=150>
+	  <A HREF="c4_Row.html" >c4_Row</A> 
+    </td>
+	<td>
+	  <nobr>
+	  <b>AsRow</b> (const char* value_) <i>const</i>;
+	  
+	  
+		<font face=Helvetica size=-1><br>
+			Create a row with one string</font>
+	</td>
+	</tr>
+  
+  </table>
+
+
+
+
+
+
+<br><hr size=1 width=50 align=left>
+
+<table cellborder=0>
+    <tr>
+    <td width=150>
+	  <font face=Helvetica size=-1><b>Header file</b></font>
+    </td>
+    <td>
+	  "mk4.h" &nbsp; -- &nbsp; Dec 9, 1999
+    </td>
+	</tr>
+
+  
+
+  
+    <tr>
+    <td>
+	  <font face=Helvetica size=-1><b>Derived from</b></font>
+    </td>
+    <td>
+	  
+		<a name="c4_Property" href="c4_Property.html">c4_Property</a>
+	  
+    </td>
+	</tr>
+  
+</table>
+
+</font></font>
+
+</nobr></body></html>

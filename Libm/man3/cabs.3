@@ -30,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     from: @(#)hypot.3	6.7 (Berkeley) 5/6/91
-.\"	$Id: cabs.3,v 1.3 2003/08/17 20:36:46 scp Exp $
+.\"	$Id: cabs.3,v 1.5 2004/12/20 21:35:44 scp Exp $
 .\"
 .Dd January 28, 2003
 .Dt CABS 3
@@ -39,10 +39,13 @@
 .Nm cabs
 .Nd complex absolute value function
 .Sh SYNOPSIS
-.Fd #include <math.h>
-.Fd struct {double x, y;} z;
+.Fd #include <complex.h>
 .Ft double
-.Fn cabs z
+.Fn cabs "complex"
+.Ft long double
+.Fn cabsl "long double complex"
+.Ft float
+.Fn cabsf "float complex"
 .Sh DESCRIPTION
 The
 .Fn cabs
@@ -54,8 +57,7 @@ magnitude) of z, without undue underflow or overflow. It is specified by
 .Sh SEE ALSO
 .Xr hypot 3 ,
 .Xr math 3 ,
-.Xr sqrt 3 ,
-.Xr cabsf
+.Xr sqrt 3
 .Sh STANDARDS
 The
 .Fn cabs

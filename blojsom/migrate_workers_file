@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+
+# change this var to a different file to test
+$fileLocation = '/etc/httpd/workers.properties';
+$backupFileLocation = '/etc/httpd/workers.properties.applesaved';
+
+$defaultFileText = "ps=/\nworker.list=blojsomworker\n\n# ------------------------\n# Blojsom worker\n# ------------------------\n#\n# Worker created specifically for Blojsom.\nworker.blojsomworker.port=1279\nworker.blojsomworker.host=127.0.0.1\nworker.blojsomworker.type=ajp13\nworker.blojsomworker.lbfactor=100\n\n#\n# END workers.properties\n#\n\n";
+$endWorkersText = "\n#\n# END workers.properties\n#\n";
+$newBlojsomWorkerText = "\n# ------------------------\n# Blojsom worker\n# ------------------------\n#\n# Worker created specifically for Blojsom.\nworker.blojsomworker.port=1279\nworker.blojsomworker.host=127.0.0.1\nworker.blojsomworker.type=ajp13\nworker.blojsomworker.lbfactor=100\n\n";
+$_ = '';
+
+sub writeDefaultFileText {
+	`/bin/cp "$fileLocation" "$backupFileLocation"`;
+	open (WORKERSFILE, ">$fileLocation");
+	print WORKERSFILE $defaultFileText;
+	close WORKERSFILE;	
+}
+
+# try and read the file
+if (open(WORKERSFILE, $fileLocation)) {
+
+	# read in the entire file
+	while ($line = <WORKERSFILE>) {
+		$_ .= $line;
+	}
+	close(WORKERSFILE);
+
+	# if we don't find a worker list then we're done
+	if (!(m/worker.list=(.+)\n/)) {
+		writeDefaultFileText();
+		exit 0;
+	}
+	
+	# if the blojsom worker is there then bail
+	if ($1 =~ m/blojsomworker/) {
+		`/usr/bin/logger "Migration was unable to add a blojsom worker to your corrupted /etc/httpd/workers.properties file"`;
+		exit 0;
+	}
+	
+	# otherwise, add the blojsom worker
+	$newWorkerList .= "$1, blojsomworker";
+	s/worker.list=.+\n/worker.list=$newWorkerList\n/;
+	
+	# now try and remove the END workers.properties comment
+	s/$endWorkersText//;
+		
+	# add on the blojsom worker
+	$_ .= $newBlojsomWorkerText;
+	
+	# and add the END back on
+	$_ .= $endWorkersText;
+	
+	`/bin/cp "$fileLocation" "$backupFileLocation"`;
+	`/usr/bin/logger "The previous /etc/httpd/workers.properties file has been saved as /etc/httpd/workers.properties.applesaved. The current /etc/httpd/workers.properties file now includes a blojsom worker."`;
+	open (WORKERSFILE, ">$fileLocation");
+	print WORKERSFILE $_;
+	close WORKERSFILE;
+}
+else {
+	`/usr/bin/logger "Migration was unable to find a /etc/httpd/workers.properties file. Saving a new one."`;
+	writeDefaultFileText();
+}
+
+1;

@@ -41,7 +41,7 @@
  *
  */
 /*
- * $Id: index.h,v 1.10 2004/05/22 03:45:50 rjs3 Exp $
+ * $Id: index.h,v 1.5 2005/03/05 00:36:56 dasenbro Exp $
  */
 
 /* Header for internal usage of index.c + programs that make raw access

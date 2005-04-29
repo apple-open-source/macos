@@ -1,4 +1,4 @@
-/*	$NetBSD: prompt.c,v 1.7 2000/09/04 22:06:31 lukem Exp $	*/
+/*	$NetBSD: prompt.c,v 1.9 2002/03/18 16:00:56 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,13 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * prompt.c: Prompt printing functions
  */
-#include "sys.h"
+#include <stdio.h>
 #include "el.h"
 
 private char	*prompt_default(EditLine *);
@@ -89,7 +92,7 @@ prompt_print(EditLine *el, int op)
 		elp = &el->el_rprompt;
 	p = (elp->p_func) (el);
 	while (*p)
-		re_putc(el, *p++);
+		re_putc(el, *p++, 1);
 
 	elp->p_pos.v = el->el_refresh.r_cursor.v;
 	elp->p_pos.h = el->el_refresh.r_cursor.h;
@@ -111,6 +114,7 @@ prompt_init(EditLine *el)
 	el->el_rprompt.p_pos.h = 0;
 	return (0);
 }
+
 
 /* prompt_end():
  *	Clean up the prompt stuff

@@ -6,8 +6,7 @@
 	objectVersion = 39;
 	objects = {
 		056C099F02AC7DC402CA2A4E = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = SystemConfiguration.framework;
 			path = /System/Library/Frameworks/SystemConfiguration.framework;
@@ -30,19 +29,47 @@
 //432
 //433
 //434
-		43D7623D062D243700ACAD0E = {
+		43FB67BF05E889BF00442558 = {
 			containerPortal = 9B56400302060BA317CA284C;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 9B56403902060BA317CA284C;
 			remoteInfo = "automount (Tool)";
 		};
-		43D7623E062D243700ACAD0E = {
+		43FB67C005E889BF00442558 = {
 			containerPortal = 9B56400302060BA317CA284C;
 			isa = PBXContainerItemProxy;
 			proxyType = 1;
 			remoteGlobalIDString = 9B5DD9D90211E9D317CA284C;
 			remoteInfo = RPCGen;
+		};
+		43FB67D805E88D4A00442558 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			path = vfs_sysctl.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		43FB67D905E88D4A00442558 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = vfs_sysctl.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		43FB67DA05E88D4A00442558 = {
+			fileRef = 43FB67D805E88D4A00442558;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		43FB67DB05E88D4A00442558 = {
+			fileRef = 43FB67D905E88D4A00442558;
+			isa = PBXBuildFile;
+			settings = {
+			};
 		};
 //430
 //431
@@ -227,6 +254,7 @@
 				9B56402002060BA317CA284C,
 				9B56402102060BA317CA284C,
 				9BE38B24024FE0A817CA284C,
+				43FB67D905E88D4A00442558,
 				9B56402202060BA317CA284C,
 				9B56402302060BA317CA284C,
 			);
@@ -377,6 +405,7 @@
 				9B56402602060BA317CA284C,
 				9B56402702060BA317CA284C,
 				9B56402802060BA317CA284C,
+				43FB67D805E88D4A00442558,
 				9B56402902060BA317CA284C,
 				9B56402A02060BA317CA284C,
 				9BE87ECC02528DCA17CA284C,
@@ -480,6 +509,7 @@
 			path = automount.8;
 			refType = 4;
 			sourceTree = "<group>";
+			wrapsLines = 1;
 		};
 		9B56403002060BA317CA284C = {
 			fileEncoding = 30;
@@ -511,8 +541,7 @@
 			sourceTree = "<group>";
 		};
 		9B56403302060BA317CA284C = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = URLMount.framework;
 			path = /System/Library/PrivateFrameworks/URLMount.framework;
@@ -520,8 +549,7 @@
 			sourceTree = "<absolute>";
 		};
 		9B56403402060BA317CA284C = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = System.framework;
 			path = /System/Library/Frameworks/System.framework;
@@ -539,9 +567,8 @@
 			sourceTree = "<group>";
 		};
 		9B56403802060BA317CA284C = {
-			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			explicitFileType = folder;
+			isa = PBXFileReference;
 			path = automount;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -602,6 +629,7 @@
 				9BE38B28024FE0A817CA284C,
 				9BE38B29024FE0A817CA284C,
 				9BE87EC702528CCA17CA284C,
+				43FB67DB05E88D4A00442558,
 			);
 			isa = PBXHeadersBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -736,6 +764,7 @@
 				9BE38B33024FE0E017CA284C,
 				9BE38B34024FE0E017CA284C,
 				9BE87ECE02528DCA17CA284C,
+				43FB67DA05E88D4A00442558,
 			);
 			isa = PBXSourcesBuildPhase;
 			runOnlyForDeploymentPostprocessing = 0;
@@ -900,26 +929,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		9B56406402060BA317CA284C = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OPTIMIZATION_CFLAGS = "-O0";
-				ZERO_LINK = YES;
+				OTHER_CFLAGS = "-Dlint";
+				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
 			name = Development;
 		};
 		9B56406502060BA317CA284C = {
-			buildRules = (
-			);
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OTHER_CFLAGS = "-Dlint";
 				ZERO_LINK = NO;
 			};
 			isa = PBXBuildStyle;
@@ -927,8 +954,7 @@
 		};
 		9B5DD9D80211E9D317CA284C = {
 			explicitFileType = "compiled.mach-o.executable";
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			path = RPCGen;
 			refType = 3;
 			sourceTree = BUILT_PRODUCTS_DIR;
@@ -1011,7 +1037,7 @@
 		9B5DD9E10211F87E17CA284C = {
 			isa = PBXTargetDependency;
 			target = 9B5DD9D90211E9D317CA284C;
-			targetProxy = 43D7623E062D243700ACAD0E;
+			targetProxy = 43FB67C005E889BF00442558;
 		};
 		9B5DD9E20211F87E17CA284C = {
 			fileRef = 9B5DD9DD0211F76A17CA284C;
@@ -1038,8 +1064,7 @@
 			};
 		};
 		9B5DD9E60211FAC117CA284C = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXExecutableFileReference;
+			isa = PBXFileReference;
 			lastKnownFileType = "compiled.mach-o.dylib";
 			name = libobjc.dylib;
 			path = /usr/lib/libobjc.dylib;
@@ -1053,8 +1078,7 @@
 			};
 		};
 		9B7A9A9B025152C117CA284C = {
-			fallbackIsa = PBXFileReference;
-			isa = PBXFrameworkReference;
+			isa = PBXFileReference;
 			lastKnownFileType = wrapper.framework;
 			name = CoreServices.framework;
 			path = /System/Library/Frameworks/CoreServices.framework;
@@ -1243,7 +1267,7 @@
 		9BE5B6A5020B6AC517CA284C = {
 			isa = PBXTargetDependency;
 			target = 9B56403902060BA317CA284C;
-			targetProxy = 43D7623D062D243700ACAD0E;
+			targetProxy = 43FB67BF05E889BF00442558;
 		};
 		9BE87EC602528CCA17CA284C = {
 			fileEncoding = 30;
@@ -1283,20 +1307,6 @@
 //C12
 //C13
 //C14
-		C1DB31560622022900F9B930 = {
-			containerPortal = 9B56400302060BA317CA284C;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 9B56403902060BA317CA284C;
-			remoteInfo = "automount (Tool)";
-		};
-		C1DB31570622022900F9B930 = {
-			containerPortal = 9B56400302060BA317CA284C;
-			isa = PBXContainerItemProxy;
-			proxyType = 1;
-			remoteGlobalIDString = 9B5DD9D90211E9D317CA284C;
-			remoteInfo = RPCGen;
-		};
 		C1FB9BFC04BBBA4600687F92 = {
 			buildActionMask = 8;
 			dstPath = /usr/share/man/man8/;

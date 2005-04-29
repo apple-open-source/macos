@@ -22,18 +22,18 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 
 #include "config.h"
 #include "system.h"
+#include <dirent.h>
 #include "cpplib.h"
 #include "cpphash.h"
 #include "intl.h"
 #include "mkdeps.h"
 #include "splay-tree.h"
-#include "timevar.h"
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/pfe-header.h"
-#endif /* PFE */
+#ifdef ENABLE_VALGRIND_CHECKING
+#include <valgrind.h>
+#else
+/* Avoid #ifdef:s when we can help it.  */
+#define VALGRIND_DISCARD(x)
+#endif
 
 /* APPLE LOCAL indexing dpatel */
 #include "genindex.h"
@@ -74,6 +74,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 #define USING_DARWIN_MMAP 0
 #endif
 #if MMAP_THRESHOLD && USING_DARWIN_MMAP
+#include <mach/mach_init.h>
 #include <mach/mach_host.h>
 static kernel_version_t darwin_kernel_version;
 static int darwin_mmap_allowed = 1;
@@ -98,9 +99,9 @@ static int darwin_mmap_allowed = 1;
 #undef strcmp
 
 /* This structure is used for the table of all includes.  */
-struct include_file
-{
+struct include_file {
   const char *name;		/* actual path name of file */
+  const char *header_name;	/* the original header found */
   const cpp_hashnode *cmacro;	/* macro, if any, preventing reinclusion.  */
   const struct search_path *foundhere;
 				/* location in search path where file was
@@ -112,6 +113,20 @@ struct include_file
   unsigned short include_count;	/* number of times file has been read */
   unsigned short refcnt;	/* number of stacked buffers using this file */
   unsigned char mapped;		/* file buffer is mmapped */
+  /* APPLE LOCAL begin PCH */
+  unsigned char pch;		/* 0: file not known to be a PCH.
+				   1: file is a PCH 
+				      (on return from find_include_file).
+				   2: file is not and never will be a valid
+				      precompiled header.
+				   3: file is always a valid precompiled
+				      header.  */
+  /* APPLE LOCAL end PCH */
+  /* APPLE LOCAL begin Symbol Separation */
+  unsigned char suppress_dbg;   /* 0: Default. Do nothing.
+				   1: file has separate debugging information
+				      available. Do not generate again.  */
+  /* APPLE LOCAL end Symbol Separation */
 };
 
 /* Variable length record files on VMS will have a stat size that includes
@@ -127,11 +142,12 @@ struct include_file
    included again.  If it's NEVER_REREAD, the file is never to be
    included again.  Otherwise it is a macro hashnode, and the file is
    to be included again if the macro is defined.  */
-#define NEVER_REREAD ((const cpp_hashnode *)-1)
+#define NEVER_REREAD ((const cpp_hashnode *) -1)
 #define DO_NOT_REREAD(inc) \
 ((inc)->cmacro && ((inc)->cmacro == NEVER_REREAD \
 		   || (inc)->cmacro->type == NT_MACRO))
 #define NO_INCLUDE_PATH ((struct include_file *) -1)
+#define INCLUDE_PCH_P(F) (((F)->pch & 1) != 0)
 
 static struct file_name_map *read_name_map
 				PARAMS ((cpp_reader *, const char *));
@@ -140,6 +156,10 @@ static char *remap_filename 	PARAMS ((cpp_reader *, char *,
 					 struct search_path *));
 static struct search_path *search_from PARAMS ((cpp_reader *,
 						enum include_type));
+/* APPLE LOCAL begin read-from-stdin */
+static bool more_to_read_from_stdin = false;
+/* APPLE LOCAL end read-from-stdin */
+
 /* APPLE LOCAL framework headers */
 #ifdef FRAMEWORK_HEADERS
 struct framework_header {const char * dirName; int dirNameLen; };
@@ -158,15 +178,22 @@ static struct include_file *
 #endif /* FRAMEWORK_HEADERS  */
 
 /* APPLE LOCAL begin header search */
+static void _init_include_hash PARAMS ((cpp_reader *, char *));
 static struct include_file * 
         find_include_file_in_hashtable PARAMS ((cpp_reader *, const char *, char *, 
                                                 enum include_type, struct search_path *));
+static void  synthesize_name_from_path PARAMS ((char *, struct search_path *, const char *));
 /* APPLE LOCAL end header search */
 
 static struct include_file *
 	find_include_file PARAMS ((cpp_reader *, const cpp_token *,
 				   enum include_type));
 static struct include_file *open_file PARAMS ((cpp_reader *, const char *));
+static struct include_file *validate_pch PARAMS ((cpp_reader *,
+						  const char *,
+						  const char *));
+static struct include_file *open_file_pch PARAMS ((cpp_reader *, 
+						   const char *));
 static int read_include_file	PARAMS ((cpp_reader *, struct include_file *));
 static bool stack_include_file	PARAMS ((cpp_reader *, struct include_file *));
 static void purge_cache 	PARAMS ((struct include_file *));
@@ -176,6 +203,176 @@ static splay_tree_node find_or_create_entry PARAMS ((cpp_reader *,
 						     const char *));
 static void handle_missing_header PARAMS ((cpp_reader *, const char *, int));
 static int remove_component_p	PARAMS ((const char *));
+
+/* APPLE LOCAL begin Symbol Separation */
+static const char context_ident[8] = "gContext";
+
+/* File pointer for context information file.  */
+static FILE *cinfo_file;
+
+/* Hold checksum for the include file. It is included with BINCL and EINCL stabs.  */
+static struct cpp_stab_checksum stabs_checksum;
+
+/* See if valid .cinfo file exists for given filename.
+   Use cpp_valid_state() (from PCH) to validate preprocessor state.  */
+int c_valid_cinfo PARAMS ((cpp_reader *, const char *));
+/* APPLE LOCAL end Symbol Separation */
+
+/* APPLE LOCAL begin distcc pch */
+static int init_indirect_pipes PARAMS ((int *, int*));
+static int read_from_parent PARAMS ((int, char *, int));
+static int write_to_parent PARAMS ((int, const char *));
+static char *indirect_file PARAMS ((char *, const int));
+
+static const char message_terminator = '\n';
+
+/* Communications routine to communicate with filename translation
+   server for distributed builds.  This routine reads data from the
+   server.  */
+
+static int
+read_from_parent (fd, buffer, size)
+     int fd;
+     char *buffer;
+     int size;
+{
+  int index = 0;
+  int result;
+
+  if (size <= 0)
+    return 0;
+
+  do {
+    result = read (fd, &buffer[index], size - index);
+
+    if (result <= 0 || index >= size )
+      return 0;
+    else
+      index += result;
+  } while (buffer[index - 1] != message_terminator);
+
+  /* Straighten out the string termination. */
+  buffer[index - 1] = '\0';
+
+  return 1;
+}
+
+/* Communications routine to communicate with filename translation server
+   for distributed builds.  This routine writes data to the server.  */
+
+static int
+write_to_parent (fd, message)
+     int fd;
+     const char *message;
+{
+  int result;
+
+  if (message) {
+    const int length = strlen (message);
+    int index = 0;
+
+    while (index < length) {
+      result = write (fd, &message[index], length - index);
+
+      if (result < 0)
+        return 0;
+      else
+        index += result;
+    }
+  }
+
+  result = write (fd, &message_terminator, 1);
+
+  if (result < 0)
+    return 0;
+
+  return 1;
+}
+
+
+/* Initialize the filename translation service.  */
+
+static int
+init_indirect_pipes (read_fd, write_fd)
+     int *read_fd;
+     int *write_fd;
+{
+  const char *file_indirect_pipes = getenv ("GCC_INDIRECT_FILES");
+  const char *protocol_operation = "VERS";
+  const char *protocol_version = "1";
+  char response[MAXPATHLEN];
+
+  if (!file_indirect_pipes)
+    return -1;
+
+  /* The environment variable indicates that the process that invoked
+     gcc would like to provide a different path for certain files.
+     This is mainly intended to be used with PCH headers and symbol
+     separation files (.cinfo) files under certain circumstances. */
+
+  if (sscanf (file_indirect_pipes, "%d, %d", read_fd, write_fd) != 2)
+    return -1;
+
+  /* Verify the protocol version. */
+  if (write_to_parent (*write_fd, protocol_operation))
+    if (write_to_parent (*write_fd, protocol_version))
+      if (read_from_parent (*read_fd, response, MAXPATHLEN))
+	if (strcmp ("OK", response) == 0)
+	  return 1;
+
+  return -1;
+}
+
+/* Redirect file I/O at the direction of a translation server.  fname
+   is the filename to transform.  OPERATION is:
+
+   0 for reading
+   1 for writing
+   2 for reading and writing  */
+
+static char *
+indirect_file (fname, operation)
+     char *fname;
+     int operation;
+{
+  static int indirection_initialized;
+  static int read_fd;
+  static int write_fd;
+  const char *operation_identifier = NULL;
+
+  if (!indirection_initialized)
+    indirection_initialized = init_indirect_pipes (&read_fd, &write_fd);
+
+  if (indirection_initialized != 1)
+    return fname;
+
+  switch (operation)
+    {
+    case 0:
+      operation_identifier = "PULL";
+      break;
+    case 1:
+      operation_identifier = "PUSH";
+      break;
+    case 2:
+      operation_identifier = "BOTH";
+      break;
+    default:
+      return fname;
+    }
+
+  if (write_to_parent (write_fd, operation_identifier))
+    if (write_to_parent (write_fd, fname))
+      {
+	char response[MAXPATHLEN];
+
+	if (read_from_parent (read_fd, response, MAXPATHLEN))
+	  fname = xstrdup (response);
+      }
+
+  return fname;
+}
+/* APPLE LOCAL end distcc pch */
 
 /* Set up the splay tree we use to store information about all the
    file names seen in this compilation.  We also have entries for each
@@ -212,7 +409,7 @@ static void
 destroy_node (v)
      splay_tree_value v;
 {
-  struct include_file *f = (struct include_file *)v;
+  struct include_file *f = (struct include_file *) v;
 
   if (f)
     {
@@ -240,8 +437,10 @@ find_or_create_entry (pfile, fname)
   splay_tree_node node;
   struct include_file *file;
   char *name = xstrdup (fname);
+  int saved_errno;
 
   _cpp_simplify_pathname (name);
+  saved_errno = errno;
   node = splay_tree_lookup (pfile->all_include_files, (splay_tree_key) name);
   if (node)
     free (name);
@@ -249,7 +448,8 @@ find_or_create_entry (pfile, fname)
     {
       file = xcnew (struct include_file);
       file->name = name;
-      file->err_no = errno;
+      file->header_name = name;
+      file->err_no = saved_errno;
       node = splay_tree_insert (pfile->all_include_files,
 				(splay_tree_key) file->name,
 				(splay_tree_value) file);
@@ -291,6 +491,183 @@ inode_finder (x, data)
     }
   return 0;
 }
+
+/* APPLE LOCAL begin pch #import hack */
+#include <md5.h>
+static struct pchf_data {
+
+  size_t count;
+  int have_once_only;
+  
+  struct pchf_entry {
+    off_t size;
+    unsigned char sum[16];
+    char once_only;
+  } entries[1];
+
+} *pchf;
+
+static int
+pchf_counter (x, data)
+     splay_tree_node x;
+     void *data;
+{
+  struct include_file *f = (struct include_file *)x->value;
+  if (f != NULL && f->include_count != 0)
+    ++ *(size_t *)data;
+  return 0;
+}
+
+static int
+pchf_adder (x, data)
+     splay_tree_node x;
+     void *data;
+{
+  struct include_file *f = (struct include_file *)x->value;
+  struct pchf_data *d = (struct pchf_data *)data;
+  if (f != NULL && f->include_count != 0)
+    {
+      size_t count = d->count++;
+      
+      d->entries[count].size = f->st.st_size;
+      d->entries[count].once_only = f->cmacro == NEVER_REREAD;
+      d->have_once_only |= d->entries[count].once_only;
+      if (f->buffer)
+	md5_buffer ((const char *)f->buffer, 
+		    f->st.st_size, d->entries[count].sum);
+      else
+	{
+	  FILE *ff;
+	  ff = fopen (f->name, "rb");
+	  md5_stream (ff, d->entries[count].sum);
+	  fclose (ff);
+	}
+    }
+  return 0;
+}
+
+static int
+pchf_save_compare (e1, e2)
+     const void *e1;
+     const void *e2;
+{
+  return memcmp (e1, e2, sizeof (struct pchf_entry));
+}
+
+int
+_cpp_save_file_entries (pfile, f)
+     cpp_reader *pfile;
+     FILE *f;
+{
+  size_t count = 0;
+  struct pchf_data *result;
+  size_t result_size;
+  
+  splay_tree_foreach (pfile->all_include_files, pchf_counter, &count);
+  result_size = (sizeof (struct pchf_data) 
+		 + sizeof (struct pchf_entry) * (count - 1));
+  result = xmalloc (result_size);
+  
+  result->count = 0;
+  result->have_once_only = false;
+  
+  splay_tree_foreach (pfile->all_include_files, pchf_adder, result);
+
+  qsort (result->entries, count, sizeof (struct pchf_entry), 
+	 pchf_save_compare);
+
+  return fwrite (result, result_size, 1, f) == 1 ? 0 : -1;
+}
+
+int
+_cpp_read_file_entries (pfile, f)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     FILE *f;
+{
+  struct pchf_data d;
+  
+  if (fread (&d, sizeof (struct pchf_data) - sizeof (struct pchf_entry), 1, f)
+       != 1)
+    return -1;
+  
+  pchf = xmalloc (sizeof (struct pchf_data)
+		  + sizeof (struct pchf_entry) * (d.count - 1));
+  memcpy (pchf, &d, sizeof (struct pchf_data) - sizeof (struct pchf_entry));
+  if (fread (pchf->entries, sizeof (struct pchf_entry), d.count, f)
+      != d.count)
+    return -1;
+  return 0;
+}
+
+struct pchf_compare_data 
+{
+  off_t size;
+  unsigned char sum[16];
+  bool sum_computed;
+  bool check_included;
+  struct include_file *f;
+};
+
+static int
+pchf_compare (d_p, e_p)
+     const void *d_p;
+     const void *e_p;
+{
+  const struct pchf_entry *e = (const struct pchf_entry *)e_p;
+  struct pchf_compare_data *d = (struct pchf_compare_data *)d_p;
+  int result;
+  
+  result = memcmp (&d->size, &e->size, sizeof (off_t));
+  if (result != 0)
+    return result;
+  
+  if (! d->sum_computed)
+    {
+      struct include_file *const f = d->f;
+      
+      if (f->buffer)
+	md5_buffer ((const char *)f->buffer, f->st.st_size, d->sum);
+      else
+	{
+	  FILE *ff;
+	  ff = fopen (f->name, "rb");
+	  md5_stream (ff, d->sum);
+	  fclose (ff);
+	}
+      d->sum_computed = true;
+    }
+
+  result = memcmp (d->sum, e->sum, 16);
+  if (result != 0)
+    return result;
+
+  if (d->check_included || e->once_only)
+    return 0;
+  else
+    return 1;
+}
+
+static int
+check_file_against_entries (pfile, f, check_included)
+     cpp_reader *pfile ATTRIBUTE_UNUSED;
+     struct include_file *f;
+     int check_included;
+{
+  struct pchf_compare_data d;
+  
+  if (pchf == NULL
+      || (! check_included && ! pchf->have_once_only))
+    return 0;
+  
+  d.size = f->st.st_size;
+  d.sum_computed = false;
+  d.f = f;
+  d.check_included = check_included;
+  return bsearch (&d, pchf->entries, pchf->count, sizeof (struct pchf_entry),
+		  pchf_compare) != NULL;
+}
+
+/* APPLE LOCAL end pch #import hack */
 /* APPLE LOCAL end #import inode hack 2001-10-29 sts */
 
 /* Given a file name, look it up in the cache; if there is no entry,
@@ -302,7 +679,6 @@ inode_finder (x, data)
 
    Returns an include_file structure with an open file descriptor on
    success, or NULL on failure.  */
-
 static struct include_file *
 open_file (pfile, filename)
      cpp_reader *pfile;
@@ -321,7 +697,7 @@ open_file (pfile, filename)
   /* Don't reopen an idempotent file.  */
   if (DO_NOT_REREAD (file))
     return file;
-      
+
   /* Don't reopen one which is already loaded.  */
   if (file->buffer != NULL)
     return file;
@@ -341,36 +717,164 @@ open_file (pfile, filename)
      Special case: the empty string is translated to stdin.  */
 
   if (filename[0] == '\0')
-    file->fd = 0;
+    {
+      file->fd = 0;
+#ifdef __DJGPP__
+      /* For DJGPP redirected input is opened in text mode. Change it
+         to binary mode.  */
+      if (! isatty (file->fd))
+	setmode (file->fd, O_BINARY);
+#endif
+    }
   else
     file->fd = open (file->name, O_RDONLY | O_NOCTTY | O_BINARY, 0666);
 
-  if (file->fd != -1 && fstat (file->fd, &file->st) == 0)
+  if (file->fd != -1)
     {
-      /* APPLE LOCAL begin #import inode hack 2001-10-29 sts */
-      new_inode = file->st.st_ino;
-      new_device = file->st.st_dev;
-      if (splay_tree_foreach (pfile->all_include_files, inode_finder, 0))
+      if (fstat (file->fd, &file->st) == 0)
 	{
-	  close (file->fd);
-	  file->fd  = -1;
-	  return repl_file;
+	  /* APPLE LOCAL begin #import inode hack 2001-10-29 sts */
+	  new_inode = file->st.st_ino;
+	  new_device = file->st.st_dev;
+	  if (splay_tree_foreach (pfile->all_include_files, inode_finder, 0))
+	    {
+	      close (file->fd);
+	      file->fd  = -1;
+	      return repl_file;
+	    }
+	  /* APPLE LOCAL end #import inode hack 2001-10-29 sts */
+
+	  if (!S_ISDIR (file->st.st_mode))
+	    {
+	      file->err_no = 0;
+	      return file;
+	    }
+
+          /* Ignore a directory and continue the search.  The file we're
+             looking for may be elsewhere in the search path.  */
+	  errno = ENOENT;
 	}
-      /* APPLE LOCAL end #import inode hack 2001-10-29 sts */
+      else
+	{
+	  fprintf (stderr, "fstat fails after open success, should not happen!  file is %s, errno is %d\n",
+		   file->name, errno);
+	  pause ();
+	}
 
-      if (!S_ISDIR (file->st.st_mode))
-	return file;
-
-      /* If it's a directory, we return null and continue the search
-	 as the file we're looking for may appear elsewhere in the
-	 search path.  */
-      errno = ENOENT;
       close (file->fd);
       file->fd = -1;
     }
+  else if (errno == ENOTDIR)
+    errno = ENOENT;
 
   file->err_no = errno;
   return 0;
+}
+
+static bool invalid_pch_found;
+
+static struct include_file *
+validate_pch (pfile, filename, pchname)
+     cpp_reader *pfile;
+     const char *filename;
+     const char *pchname;
+{
+  struct include_file * file;
+  
+  file = open_file (pfile, pchname);
+  if (file == NULL)
+    return NULL;
+  if ((file->pch & 2) == 0)
+    file->pch = pfile->cb.valid_pch (pfile, pchname, file->fd);
+  if (! INCLUDE_PCH_P (file))
+    invalid_pch_found = true;
+  if (CPP_OPTION (pfile, print_include_names))
+    {
+      unsigned int i;
+      for (i = 1; i < pfile->line_maps.depth; i++)
+	putc ('.', stderr);
+      fprintf (stderr, "%c %s\n", INCLUDE_PCH_P (file) ? '!' : 'x', pchname);
+    }
+  if (INCLUDE_PCH_P (file))
+    {
+      file->header_name = _cpp_simplify_pathname (xstrdup (filename));
+      return file;
+    }
+  close (file->fd);
+  file->fd = -1;
+  return NULL;
+}
+
+/* Like open_file, but also look for a precompiled header if (a) one exists
+   and (b) it is valid.  */
+static struct include_file *
+open_file_pch (pfile, filename)
+     cpp_reader *pfile;
+     const char *filename;
+{
+  if (filename[0] != '\0'
+      && pfile->cb.valid_pch != NULL)
+    {
+      size_t namelen = strlen (filename);
+      char *pchname = alloca (namelen + 5);
+      struct include_file * file;
+      splay_tree_node nd;
+      
+      /* APPLE LOCAL .gch and .cinfo suffix */
+      if (namelen > 6 && strcmp(&filename[namelen-6], ".cinfo") == 0)
+        return open_file (pfile, filename);
+      
+      memcpy (pchname, filename, namelen);
+      /* APPLE LOCAL .gch suffix */
+      memcpy (pchname + namelen, ".gch", 5);
+
+      /* APPLE LOCAL begin distcc pch */
+      pchname = indirect_file (pchname, 0);
+      namelen = strlen (pchname) - 4;
+      /* APPLE LOCAL end distcc pch */
+
+      nd = find_or_create_entry (pfile, pchname);
+      file = (struct include_file *) nd->value;
+
+      if (file != NULL)
+	{
+	  if (stat (file->name, &file->st) == 0 && S_ISDIR (file->st.st_mode))
+	    {
+	      DIR * thedir;
+	      struct dirent *d;
+	      size_t subname_len = namelen + 64;
+	      char *subname = xmalloc (subname_len);
+	      
+	      thedir = opendir (pchname);
+	      if (thedir == NULL)
+		return NULL;
+	      memcpy (subname, pchname, namelen + 4);
+	      subname[namelen+4] = '/';
+	      while ((d = readdir (thedir)) != NULL)
+		{
+		  if (strlen (d->d_name) + namelen + 7 > subname_len)
+		    {
+		      subname_len = strlen (d->d_name) + namelen + 64;
+		      subname = xrealloc (subname, subname_len);
+		    }
+		  strcpy (subname + namelen + 5, d->d_name);
+		  file = validate_pch (pfile, filename, subname);
+		  if (file)
+		    break;
+		}
+	      closedir (thedir);
+	      free (subname);
+	    }
+	  else
+	    file = validate_pch (pfile, filename, pchname);
+	  if (file)
+	    {
+	      file->err_no = 0;
+	      return file;
+	    }
+	}
+    }
+  return open_file (pfile, filename);
 }
 
 /* Place the file referenced by INC into a new buffer on the buffer
@@ -392,9 +896,21 @@ stack_include_file (pfile, inc)
   sysp = MAX ((pfile->map ? pfile->map->sysp : 0),
 	      (inc->foundhere ? inc->foundhere->sysp : 0));
 
-  /* For -M, add the file to the dependencies on its first inclusion.  */
-  if (CPP_OPTION (pfile, print_deps) > sysp && !inc->include_count)
-    deps_add_dep (pfile->deps, inc->name);
+  /* Add the file to the dependencies on its first inclusion.  */
+  if (CPP_OPTION (pfile, deps.style) > !!sysp && !inc->include_count)
+    {
+      if (pfile->buffer || CPP_OPTION (pfile, deps.ignore_main_file) == 0)
+	deps_add_dep (pfile->deps, inc->name);
+    }
+
+  /* PCH files get dealt with immediately.  */
+  if (INCLUDE_PCH_P (inc))
+    {
+      pfile->cb.read_pch (pfile, inc->name, inc->fd, inc->header_name);
+      close (inc->fd);
+      inc->fd = -1;
+      return false;
+    }
 
   /* Not in cache?  */
   if (! inc->buffer)
@@ -410,13 +926,28 @@ stack_include_file (pfile, inc)
 	 file of zero length does not raise an error.  */
       if (S_ISREG (inc->st.st_mode) && inc->st.st_size == 0)
 	_cpp_never_reread (inc);
-      close (inc->fd);
-      inc->fd = -1;
+      /* APPLE LOCAL read-from-stdin */
+      if (inc->fd != 0)  /* Don't close stdin */
+      {
+        close (inc->fd);
+        inc->fd = -1;
+      }
+      /* APPLE LOCAL end read-from-stdin */
     }
 
   if (pfile->buffer)
     /* We don't want MI guard advice for the main file.  */
     inc->include_count++;
+
+  /* APPLE LOCAL begin Symbol Separation */
+  if (pfile->cinfo_state == CINFO_VALID)
+    {
+      inc->suppress_dbg = 1;
+      pfile->cinfo_state = CINFO_READ;
+      if (pfile->cb.clear_write_symbols)
+	  pfile->cb.clear_write_symbols (inc->name, cpp_get_stabs_checksum ());
+    }
+  /* APPLE LOCAL end Symbol Separation */
 
   /* Push a buffer.  */
   fp = cpp_push_buffer (pfile, inc->buffer, inc->st.st_size,
@@ -424,14 +955,22 @@ stack_include_file (pfile, inc)
   fp->inc = inc;
   fp->inc->refcnt++;
 
-  /* Initialise controlling macro state.  */
+  /* Initialize controlling macro state.  */
   pfile->mi_valid = true;
   pfile->mi_cmacro = 0;
 
   /* Generate the call back.  */
   filename = inc->name;
-  if (*filename == '\0')
-    filename = "<stdin>";
+  if (*filename == '\0') 
+  {
+    /* APPLE LOCAL begin read-from-stdin */
+    filename = CPP_OPTION(pfile, stdin_diag_filename);
+    if (filename == NULL)
+    {
+      filename = "<stdin>";
+    }
+    /* APPLE LOCAL end read-from-stdin */
+  }
   _cpp_do_file_change (pfile, LC_ENTER, filename, 1, sysp);
 
   return true;
@@ -457,7 +996,7 @@ read_include_file (pfile, inc)
      struct include_file *inc;
 {
   ssize_t size, offset, count;
-  U_CHAR *buf;
+  uchar *buf;
 #if MMAP_THRESHOLD
   static int pagesize = -1;
 #endif
@@ -474,7 +1013,7 @@ read_include_file (pfile, inc)
 	 does not bite us.  */
       if (inc->st.st_size > INTTYPE_MAXIMUM (ssize_t))
 	{
-	  cpp_error (pfile, "%s is too large", inc->name);
+	  cpp_error (pfile, DL_ERROR, "%s is too large", inc->name);
 	  goto fail;
 	}
       size = inc->st.st_size;
@@ -534,8 +1073,8 @@ read_include_file (pfile, inc)
       	  size / pagesize >= MMAP_THRESHOLD
 	  && (size % pagesize) != 0)
 	{
-	  buf = (U_CHAR *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
-	  if (buf == (U_CHAR *)-1)
+	  buf = (unsigned char *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
+	  if (buf == (unsigned char *)-1)
 	    goto perror_fail;
 	  inc->mapped = 1;
 	}
@@ -547,9 +1086,14 @@ read_include_file (pfile, inc)
 
       if (SHOULD_MMAP (size, pagesize))
 	{
-	  buf = (U_CHAR *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
-	  if (buf == (U_CHAR *)-1)
+	  buf = (uchar *) mmap (0, size, PROT_READ, MAP_PRIVATE, inc->fd, 0);
+	  if (buf == (uchar *) -1)
 	    goto perror_fail;
+
+	  /* We must tell Valgrind that the byte at buf[size] is actually
+	     readable.  Discard the handle to avoid handle leak.  */
+	  VALGRIND_DISCARD (VALGRIND_MAKE_READABLE (buf + size, 1));
+
 	  inc->mapped = 1;
 	}
       else
@@ -557,7 +1101,7 @@ read_include_file (pfile, inc)
 #endif /* !USING_DARWIN_MMAP */
 #endif
 	{
-	  buf = (U_CHAR *) xmalloc (size + 1);
+	  buf = (uchar *) xmalloc (size + 1);
 	  offset = 0;
 	  while (offset < size)
 	    {
@@ -567,8 +1111,8 @@ read_include_file (pfile, inc)
 	      if (count == 0)
 		{
 		  if (!STAT_SIZE_TOO_BIG (inc->st))
-		    cpp_warning
-		      (pfile, "%s is shorter than expected", inc->name);
+		    cpp_error (pfile, DL_WARNING,
+			       "%s is shorter than expected", inc->name);
 		  size = offset;
 		  buf = xrealloc (buf, size + 1);
 		  inc->st.st_size = size;
@@ -582,9 +1126,56 @@ read_include_file (pfile, inc)
     }
   else if (S_ISBLK (inc->st.st_mode))
     {
-      cpp_error (pfile, "%s is a block device", inc->name);
+      cpp_error (pfile, DL_ERROR, "%s is a block device", inc->name);
       goto fail;
     }
+  /* APPLE LOCAL begin read-from-stdin */
+  else if ( CPP_OPTION(pfile, stdin_diag_filename) != NULL )
+    {
+      if (CPP_OPTION(pfile, predictive_compilation_size) >= 0)
+      {
+	count = 0;
+	size = CPP_OPTION(pfile, predictive_compilation_size);
+	offset = 0;
+	buf = (uchar *) xmalloc (size + 1);
+	if (size > 0)
+	{
+	    while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
+	    {
+	      offset += count;
+	      if (offset == size)
+		break;
+	    }
+	} 
+	CPP_OPTION(pfile, predictive_compilation_size) = -1;
+        if (count == 0)
+          count = 1;
+      }
+      else
+      {
+        size = 8 * 1024;
+        buf = (uchar *) xmalloc (size + 1);
+        offset = 0;
+        while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
+        {
+	    offset += count;
+	    if (offset == size)
+	      {
+	        size *= 2;
+	        buf = xrealloc (buf, size + 1);
+	      }
+        }
+      }
+      more_to_read_from_stdin = (count > 0);
+
+      if (offset + 1 < size)
+	buf = xrealloc (buf, offset + 1);
+
+      /* The lexer requires that the buffer be NUL-terminated.  */
+      buf[offset] = '\0';
+      inc->st.st_size = offset;
+    }
+  /* APPLE LOCAL end read-from-stdin */
   else
     {
       /* 8 kilobytes is a sensible starting size.  It ought to be
@@ -592,7 +1183,7 @@ read_include_file (pfile, inc)
 	 bigger than the majority of C source files.  */
       size = 8 * 1024;
 
-      buf = (U_CHAR *) xmalloc (size + 1);
+      buf = (uchar *) xmalloc (size + 1);
       offset = 0;
       while ((count = read (inc->fd, buf + offset, size - offset)) > 0)
 	{
@@ -618,10 +1209,36 @@ read_include_file (pfile, inc)
   return 0;
 
  perror_fail:
-  cpp_error_from_errno (pfile, inc->name);
+  cpp_errno (pfile, DL_ERROR, inc->name);
  fail:
   return 1;
 }
+
+/* APPLE LOCAL begin read-from-stdin */
+bool read_from_stdin(pfile)
+cpp_reader *pfile;
+{
+  cpp_buffer *buffer;
+  struct include_file *inc;
+
+  if (!more_to_read_from_stdin)
+    return false;
+
+  buffer = pfile->buffer;
+  inc = buffer->inc;
+  if (inc == NULL || inc->name[0] != '\0')
+    return false;
+  purge_cache(inc);
+
+  if (!read_include_file(pfile, inc))
+  {
+    buffer->line_base = buffer->buf = buffer->cur = inc->buffer;
+    buffer->rlimit = buffer->buf + inc->st.st_size;
+    return true;
+  }
+  return false;
+}
+/* APPLE LOCAL end read-from-stdin */
 
 /* Drop INC's buffer from memory, if we are unlikely to need it again.  */
 static void
@@ -632,7 +1249,14 @@ purge_cache (inc)
     {
 #if MMAP_THRESHOLD
       if (inc->mapped)
-	munmap ((PTR) inc->buffer, inc->st.st_size);
+	{
+	  /* Undo the previous annotation for the
+	     known-zero-byte-after-mmap.  Discard the handle to avoid
+	     handle leak.  */
+	  VALGRIND_DISCARD (VALGRIND_MAKE_NOACCESS (inc->buffer
+						    + inc->st.st_size, 1));
+	  munmap ((PTR) inc->buffer, inc->st.st_size);
+	}
       else
 #endif
 	free ((PTR) inc->buffer);
@@ -657,7 +1281,7 @@ cpp_included (pfile, fname)
       nd = splay_tree_lookup (pfile->all_include_files, (splay_tree_key) fname);
       return (nd && nd->value);
     }
-      
+
   /* Search directory path for the file.  */
   name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2);
   for (path = CPP_OPTION (pfile, quote_include); path; path = path->next)
@@ -677,6 +1301,65 @@ cpp_included (pfile, fname)
   return 0;
 }
 
+/* APPLE LOCAL begin Symbol Separation */
+void
+find_include_cinfo (pfile, in_name)
+     cpp_reader *pfile;
+     const char *in_name;
+{
+  struct search_path *path;
+  struct include_file *file;
+  size_t len, namelen;
+  char *name, *cinfoname;
+  const char *fname = NULL;
+
+  if (!in_name)
+    return;
+
+  len = namelen = strlen (in_name);
+  cinfoname = alloca (namelen + 8);
+
+  /* Extract header name from path */
+  while (len > 0 && in_name[len] != '/')
+    --len;
+
+  if (in_name[len] == '/')
+    ++len;
+
+  if (!in_name[len])
+    return;
+
+  fname = &in_name[len];
+
+  pfile->cinfo_candidate_file = fname;
+  pfile->cinfo_src_file = fname;
+
+  path = search_from (pfile, IT_INCLUDE);
+
+  if (path == NULL)
+    return;
+
+  memcpy (cinfoname, fname, namelen);
+  memcpy (cinfoname + namelen, ".cinfo", 7);
+  cinfoname[namelen+7] = NULL;
+  
+  name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2 + 500);
+  /* handle everything but gcc's include_next and -I- extensions */
+  if ((file = find_include_file_in_hashtable (pfile, cinfoname, name, IT_INCLUDE, path)))
+    {
+      size_t dirlen = strlen ((file->foundhere)->name);
+      char *cinfo_fullname = xmalloc (namelen + dirlen + 1);
+      memcpy (cinfo_fullname,  (file->foundhere)->name, dirlen);
+      memcpy (cinfo_fullname + dirlen, "/", 1);
+      memcpy (cinfo_fullname + dirlen + 1, fname, namelen);
+      cinfo_fullname [dirlen + namelen + 1] = NULL;
+      pfile->cinfo_state = CINFO_FOUND;
+      pfile->cinfo_candidate_file = cinfo_fullname;
+      file = NULL;
+    }
+}
+/* APPLE LOCAL end Symbol Separation */
+
 /* Search for HEADER.  Return 0 if there is no such file (or it's
    un-openable), in which case an error code will be in errno.  If
    there is no include path to use it returns NO_INCLUDE_PATH,
@@ -695,23 +1378,70 @@ find_include_file (pfile, header, type)
   /* APPLE LOCAL end -header-mapfile */
   struct include_file *file;
   char *name, *n;
-  
-  if (IS_ABSOLUTE_PATHNAME (fname))
-    return open_file (pfile, fname);
 
+  /* APPLE LOCAL begin Symbol Separation */
+  if (c_valid_cinfo (pfile, fname))
+    pfile->cinfo_state = CINFO_VALID;
+  /* APPLE LOCAL end Symbol Separtion */
+
+  /* APPLE LOCAL begin distcc pch */
+  if (type == IT_INCLUDE_PCH)
+    {
+      struct include_file * file;
+      splay_tree_node nd;
+
+      cpp_get_options (pfile)->warn_invalid_pch = 1;
+      cpp_get_options (pfile)->pch_preprocess = 1;
+
+      fname = indirect_file (fname, 0);
+      nd = find_or_create_entry (pfile, fname);
+      file = (struct include_file *) nd->value;
+      if (file != NULL)
+	{
+	  file = open_file (pfile, fname);
+	  if (file)
+	    {
+	      if ((file->pch & 2) == 0)
+		file->pch = pfile->cb.valid_pch (pfile, fname, file->fd);
+	      if (INCLUDE_PCH_P (file))
+		{
+		  file->header_name = _cpp_simplify_pathname (xstrdup (fname));
+		  return file;
+		}
+	      close (file->fd);
+	      file->fd = -1;
+	    }
+	}
+      cpp_error (pfile, DL_ERROR, "invalid pch file %s", fname);
+      return 0;
+    }
+  /* APPLE LOCAL begin distcc pch */
+
+  if (IS_ABSOLUTE_PATHNAME (fname))
+    return open_file_pch (pfile, fname);
+  
   /* For #include_next, skip in the search path past the dir in which
      the current file was found, but if it was found via an absolute
      path use the normal search logic.  */
   if (type == IT_INCLUDE_NEXT && pfile->buffer->inc->foundhere)
     path = pfile->buffer->inc->foundhere->next;
   else if (header->type == CPP_HEADER_NAME)
-    path = CPP_OPTION (pfile, bracket_include);
+    {
+      path = CPP_OPTION (pfile, bracket_include);
+/* APPLE LOCAL begin framework headers */
+#ifdef FRAMEWORK_HEADERS
+      if (path == NULL)
+	path = CPP_OPTION (pfile, framework_include);
+#endif
+/* APPLE LOCAL end framework headers */
+    }
   else
     path = search_from (pfile, type);
 
   if (path == NULL)
     {
-      cpp_error (pfile, "no include path in which to find %s", fname);
+      cpp_error (pfile, DL_ERROR, "no include path in which to find %s",
+		 fname);
       return NO_INCLUDE_PATH;
     }
 
@@ -719,23 +1449,46 @@ find_include_file (pfile, header, type)
   /* APPLE LOCAL -header-mapfile bandaid for buffer overflows */
   name = (char *) alloca (strlen (fname) + pfile->max_include_len + 2 + 500);
 
-/* APPLE LOCAL begin header search */
+  /* APPLE LOCAL begin header search */
   if ((type != IT_INCLUDE_NEXT) && 
       (CPP_OPTION (pfile, bracket_include) == CPP_OPTION (pfile, quote_include)))
     {
-    /* handle everything but gcc's include_next and -I- extensions */
-    if ((file = find_include_file_in_hashtable (pfile, fname, name, header->type, path)))
-      return file;
+      /* APPLE LOCAL begin Symbol Separation */
+      if (CPP_OPTION (pfile, use_ss))
+	{
+	  size_t namelen = strlen (fname);
+	  char *cinfoname = alloca (namelen + 8);
+	  memcpy (cinfoname, fname, namelen);
+	  memcpy (cinfoname + namelen, ".cinfo", 7);
+	  cinfoname[namelen+7] = NULL;
+	  /* handle everything but gcc's include_next and -I- extensions */
+	  if ((file = find_include_file_in_hashtable (pfile, cinfoname, name, header->type, path)))
+	    {
+	      size_t dirlen = strlen ((file->foundhere)->name);
+	      char *cinfo_fullname = alloca (namelen + dirlen + 1);
+	      memcpy (cinfo_fullname,  (file->foundhere)->name, dirlen);
+	      memcpy (cinfo_fullname + dirlen, "/", 1);
+	      memcpy (cinfo_fullname + dirlen + 1, fname, namelen);
+	      cinfo_fullname [dirlen + namelen + 1] = NULL;
+	      if (c_valid_cinfo (pfile, cinfo_fullname))
+		pfile->cinfo_state = CINFO_VALID;
+	      file = NULL;
+	    }
+	}
+      /* APPLE LOCAL end Symbol Separation */
+      /* handle everything but gcc's include_next and -I- extensions */
+      if ((file = find_include_file_in_hashtable (pfile, fname, name, header->type, path)))
+	return file;
     }
-/* APPLE LOCAL end header search */
+  /* APPLE LOCAL end header search */
 
   for (; path; path = path->next)
     {
       /* APPLE LOCAL begin -header-mapfile */
       saved_path = path;
       if (path == CPP_OPTION (pfile, bracket_include)
-          && CPP_OPTION (pfile, header_map))
-        path = hmap_lookup_path (pfile, &fname);
+	  && CPP_OPTION (pfile, header_map))
+	path = hmap_lookup_path (pfile, &fname);
       {
       /* APPLE LOCAL end -header-mapfile */
       int len = path->len;
@@ -753,7 +1506,12 @@ find_include_file (pfile, header, type)
       else
 	n = name;
 
-      file = open_file (pfile, n);
+      /* APPLE LOCAL begin Symbol Separation */
+      if (c_valid_cinfo (pfile, fname))
+	pfile->cinfo_state = CINFO_VALID;
+      /* APPLE LOCAL end Symbol Separtion */
+
+      file = open_file_pch (pfile, n);
       if (file)
 	{
 	  file->foundhere = path;
@@ -797,8 +1555,9 @@ find_framework_file (pfile, header, type)
   struct search_path *path;
   struct include_file *file;
   char *n, *frname;
-  U_CHAR *bufptr; 
-  int frname_len, position, slash_position, index; 
+  unsigned char *bufptr;
+  unsigned position;
+  int frname_len, slash_position, index; 
 
   if (fname == NULL)
     return 0; 
@@ -812,7 +1571,7 @@ find_framework_file (pfile, header, type)
 
   if (path == NULL)
     {
-      cpp_error (pfile, "No include path in which to find %s", fname);
+      cpp_error (pfile, DL_ERROR, "No include path in which to find %s", fname);
       return NO_INCLUDE_PATH;
     }
 
@@ -822,7 +1581,7 @@ find_framework_file (pfile, header, type)
   bufptr = NULL;
   slash_position = -1;
   position = 0;
-  for (bufptr = (U_CHAR *) fname; bufptr != NULL;  bufptr++)
+  for (bufptr = (unsigned char *) fname; bufptr != NULL;  bufptr++)
     {
        if (position > strlen(fname))
          break;
@@ -863,7 +1622,12 @@ find_framework_file (pfile, header, type)
           else
 	    n = frname;
 
-          file = open_file (pfile, n);
+	  /* APPLE LOCAL begin Symbol Separation */
+	  if (c_valid_cinfo (pfile, fname))
+	    pfile->cinfo_state = CINFO_VALID;
+	  /* APPLE LOCAL end Symbol Separtion */
+
+          file = open_file_pch (pfile, n);
           if (file)
 	    {
 	      file->foundhere = path;
@@ -967,8 +1731,13 @@ find_subframework_file (pfile, header, path)
             n = remap_filename (pfile, sfrname, path);
           else
             n = sfrname;
-    
-          file = open_file (pfile, n);
+   
+	  /* APPLE LOCAL begin Symbol Separation */
+	  if (c_valid_cinfo (pfile, n))
+	    pfile->cinfo_state = CINFO_VALID;
+	  /* APPLE LOCAL end Symbol Separtion */
+ 
+          file = open_file_pch (pfile, n);
           if (file)
             {
               file->foundhere = path;
@@ -1016,7 +1785,7 @@ report_missing_guard (n, b)
      void *b;
 {
   struct include_file *f = (struct include_file *) n->value;
-  int *bannerp = (int *)b;
+  int *bannerp = (int *) b;
 
   if (f && f->cmacro == 0 && f->include_count == 1)
     {
@@ -1032,7 +1801,7 @@ report_missing_guard (n, b)
 }
 
 /* Create a dependency for file FNAME, or issue an error message as
-   appropriate.  ANGLE_BRACKETS is non-zero if the file was bracketed
+   appropriate.  ANGLE_BRACKETS is nonzero if the file was bracketed
    like <..>.  */
 static void
 handle_missing_header (pfile, fname, angle_brackets)
@@ -1040,43 +1809,30 @@ handle_missing_header (pfile, fname, angle_brackets)
      const char *fname;
      int angle_brackets;
 {
-  int print_dep = CPP_PRINT_DEPS(pfile) > (angle_brackets || pfile->map->sysp);
+  bool print_dep
+    = CPP_OPTION (pfile, deps.style) > (angle_brackets || pfile->map->sysp);
 
-  if (CPP_OPTION (pfile, print_deps_missing_files) && print_dep)
-    {
-      if (!angle_brackets || IS_ABSOLUTE_PATHNAME (fname))
-	deps_add_dep (pfile->deps, fname);
-      else
-	{
-	  /* If requested as a system header, assume it belongs in
-	     the first system header directory.  */
-	  struct search_path *ptr = CPP_OPTION (pfile, bracket_include);
-	  char *p;
-	  int len = 0, fname_len = strlen (fname);
-
-	  if (ptr)
-	    len = ptr->len;
-
-	  p = (char *) alloca (len + fname_len + 2);
-	  if (len)
-	    {
-	      memcpy (p, ptr->name, len);
-	      p[len++] = '/';
-	    }
-	  memcpy (p + len, fname, fname_len + 1);
-	  deps_add_dep (pfile->deps, p);
-	}
-    }
+  if (CPP_OPTION (pfile, deps.missing_files) && print_dep)
+    deps_add_dep (pfile->deps, fname);
   /* If -M was specified, then don't count this as an error, because
      we can still produce correct output.  Otherwise, we can't produce
      correct output, because there may be dependencies we need inside
      the missing file, and we don't know what directory this missing
-     file exists in.  FIXME: Use a future cpp_diagnostic_with_errno ()
-     for both of these cases.  */
-  else if (CPP_PRINT_DEPS (pfile) && ! print_dep)
-    cpp_warning (pfile, "%s: %s", fname, xstrerror (errno));
+     file exists in.  */
   else
-    cpp_error_from_errno (pfile, fname);
+    {
+      cpp_errno (pfile, (CPP_OPTION (pfile, deps.style) && !print_dep
+			 ? DL_WARNING : DL_ERROR), fname);
+      if (invalid_pch_found 
+	  && !(CPP_OPTION (pfile, deps.style) && !print_dep))
+	{
+	  cpp_error (pfile, DL_ERROR, 
+	     "one or more PCH files were found, but they were invalid");
+	  if (!cpp_get_options (pfile)->warn_invalid_pch)
+	    cpp_error (pfile, DL_ERROR, 
+		       "use -Winvalid-pch for more information");
+	}
+    }
 }
 
 /* Handles #include-family directives (distinguished by TYPE),
@@ -1089,12 +1845,16 @@ _cpp_execute_include (pfile, header, type)
      enum include_type type;
 {
   bool stacked = false;
-  struct include_file *inc = find_include_file (pfile, header, type);
+  struct include_file *inc;
+
+  invalid_pch_found = false;
+
+  inc = find_include_file (pfile, header, type);
 
   /* APPLE LOCAL begin framework headers */
 #ifdef FRAMEWORK_HEADERS
   /* Search framework */
-  if (inc == 0)
+  if (type != IT_INCLUDE_PCH && inc == 0)
     inc = find_framework_file (pfile, header, type);
 #endif
   /* APPLE LOCAL end framework headers */
@@ -1102,43 +1862,23 @@ _cpp_execute_include (pfile, header, type)
   if (inc == 0)
     handle_missing_header (pfile, (const char *) header->val.str.text,
 			   header->type == CPP_HEADER_NAME);
-
+  /* APPLE LOCAL unnecessary test? */
   if (inc && inc != NO_INCLUDE_PATH)
     {
       /* Catch #import after #include */
       if (type == IT_IMPORT && inc->include_count)
 	_cpp_never_reread (inc);
 
-/* APPLE LOCAL PFE begin validation dpatel */
-#ifdef PFE
-      if (pfe_operation == PFE_LOAD)
-	{
-	  /* Determine whether the specified file has already been 
-	     included in a pre-compiled header.  If so, skip the include 
-	     processing.  */
-	  if (pfe_check_header (inc->name, inc->st.st_mtime,
-	  		        inc->st.st_ino))
-	    {
-	      close (inc->fd);
-	      inc->fd = -1;
-	      return 0;
-	    }
-	}
-      else if (pfe_operation == PFE_DUMP)
-	{
-	  /* Add the header name in the list of headers included in the
-	     precompiled header.  */
-	  pfe_add_header_name (inc->name, inc->st.st_mtime,
-	  		       inc->st.st_ino);
-	}
-#endif
-/* APPLE LOCAL PFE end validation dpatel */
+      /* APPLE LOCAL begin pch #import hack */
+      if (inc->include_count == 0
+	  && check_file_against_entries (pfile, inc, type == IT_IMPORT))
+	_cpp_never_reread (inc);
+      /* APPLE LOCAL end pch #import hack */
 
       stacked = stack_include_file (pfile, inc);
 
       if (type == IT_IMPORT)
 	_cpp_never_reread (inc);
-
     }
 
   /* APPLE LOCAL begin indexing dpatel */
@@ -1158,7 +1898,7 @@ _cpp_compare_file_date (pfile, header)
      const cpp_token *header;
 {
   struct include_file *inc = find_include_file (pfile, header, 0);
-  
+
   if (inc == NULL || inc == NO_INCLUDE_PATH)
     return -1;
 
@@ -1167,7 +1907,7 @@ _cpp_compare_file_date (pfile, header)
       close (inc->fd);
       inc->fd = -1;
     }
-    
+
   return inc->st.st_mtime > pfile->buffer->inc->st.st_mtime;
 }
 
@@ -1180,11 +1920,14 @@ _cpp_read_file (pfile, fname)
      cpp_reader *pfile;
      const char *fname;
 {
+  /* This uses open_file, because we don't allow a PCH to be used as
+     the toplevel compilation (that would prevent re-compiling an
+     existing PCH without deleting it first).  */
   struct include_file *f = open_file (pfile, fname);
 
   if (f == NULL)
     {
-      cpp_error_from_errno (pfile, fname);
+      cpp_errno (pfile, DL_ERROR, fname);
       return false;
     }
 
@@ -1192,14 +1935,12 @@ _cpp_read_file (pfile, fname)
 }
 
 /* Do appropriate cleanup when a file INC's buffer is popped off the
-   input stack.  Push the next -include file, if any remain.  */
-bool
+   input stack.  */
+void
 _cpp_pop_file_buffer (pfile, inc)
      cpp_reader *pfile;
      struct include_file *inc;
 {
-  bool pushed = false;
-
   /* Record the inclusion-preventing macro, which could be NULL
      meaning no controlling macro.  */
   if (pfile->mi_valid && inc->cmacro == NULL)
@@ -1211,18 +1952,6 @@ _cpp_pop_file_buffer (pfile, inc)
   inc->refcnt--;
   if (inc->refcnt == 0 && DO_NOT_REREAD (inc))
     purge_cache (inc);
-
-  /* Don't generate a callback for popping the main file.  */
-  if (pfile->buffer)
-    {
-      _cpp_do_file_change (pfile, LC_LEAVE, 0, 0, 0);
-
-      /* Finally, push the next -included file, if any.  */
-      if (!pfile->buffer->prev)
-	pushed = _cpp_push_next_buffer (pfile);
-    }
-
-  return pushed;
 }
 
 /* Returns the first place in the include chain to start searching for
@@ -1261,6 +1990,19 @@ search_from (pfile, type)
 	  if (dlen > 1)
 	    dlen--;
 	}
+      /* APPLE LOCAL begin read-from-stdin */
+      else if (buffer->inc->name && strlen(buffer->inc->name) == 0
+	       && CPP_OPTION(pfile, stdin_diag_filename) != NULL)
+        {
+          buffer->dir.name = CPP_OPTION(pfile, stdin_diag_filename);
+          dlen = lbasename (buffer->dir.name) - buffer->dir.name;
+          if (dlen <= 0)
+            goto use_cwd;      
+	  /* Drop a trailing '/'.  */
+	  if (dlen > 1)
+	    dlen--;
+        }
+      /* APPLE LOCAL end read-from-stdin */
       else
 	{
 	use_cwd:
@@ -1286,8 +2028,7 @@ search_from (pfile, type)
    such as DOS.  The format of the file name map file is just a series
    of lines with two tokens on each line.  The first token is the name
    to map, and the second token is the actual name to use.  */
-struct file_name_map
-{
+struct file_name_map {
   struct file_name_map *map_next;
   char *map_from;
   char *map_to;
@@ -1307,10 +2048,10 @@ read_filename_string (ch, f)
 
   len = 20;
   set = alloc = xmalloc (len + 1);
-  if (! is_space(ch))
+  if (! is_space (ch))
     {
       *set++ = ch;
-      while ((ch = getc (f)) != EOF && ! is_space(ch))
+      while ((ch = getc (f)) != EOF && ! is_space (ch))
 	{
 	  if (set - alloc == len)
 	    {
@@ -1327,8 +2068,7 @@ read_filename_string (ch, f)
 }
 
 /* This structure holds a linked list of file name maps, one per directory.  */
-struct file_name_map_list
-{
+struct file_name_map_list {
   struct file_name_map_list *map_list_next;
   char *map_list_name;
   struct file_name_map *map_list_map;
@@ -1368,17 +2108,16 @@ read_name_map (pfile, dirname)
   if (f)
     {
       int ch;
-      int dirlen = strlen (dirname);
 
       while ((ch = getc (f)) != EOF)
 	{
 	  char *from, *to;
 	  struct file_name_map *ptr;
 
-	  if (is_space(ch))
+	  if (is_space (ch))
 	    continue;
 	  from = read_filename_string (ch, f);
-	  while ((ch = getc (f)) != EOF && is_hspace(ch))
+	  while ((ch = getc (f)) != EOF && is_hspace (ch))
 	    ;
 	  to = read_filename_string (ch, f);
 
@@ -1391,12 +2130,9 @@ read_name_map (pfile, dirname)
 	    ptr->map_to = to;
 	  else
 	    {
-	      ptr->map_to = xmalloc (dirlen + strlen (to) + 2);
-	      strcpy (ptr->map_to, dirname);
-	      ptr->map_to[dirlen] = '/';
-	      strcpy (ptr->map_to + dirlen + 1, to);
+	      ptr->map_to = concat (dirname, "/", to, NULL);
 	      free (to);
-	    }	      
+	    }
 
 	  ptr->map_next = map_list_ptr->map_list_map;
 	  map_list_ptr->map_list_map = ptr;
@@ -1407,13 +2143,13 @@ read_name_map (pfile, dirname)
 	}
       fclose (f);
     }
-  
+
   /* Add this information to the cache.  */
   map_list_ptr->map_list_next = CPP_OPTION (pfile, map_list);
   CPP_OPTION (pfile, map_list) = map_list_ptr;
 
   return map_list_ptr->map_list_map;
-}  
+}
 
 /* Remap an unsimplified path NAME based on the file_name_map (if any)
    for LOC.  */
@@ -1438,10 +2174,10 @@ remap_filename (pfile, name, loc)
       if (! loc->name_map)
 	return name;
     }
-  
+
   /* This works since NAME has not been simplified yet.  */
   from = name + loc->len + 1;
-  
+
   for (map = loc->name_map; map; map = map->map_next)
     if (!strcmp (map->map_from, from))
       return map->map_to;
@@ -1456,13 +2192,13 @@ remap_filename (pfile, name, loc)
 
   /* We know p != name as absolute paths don't call remap_filename.  */
   if (p == name)
-    cpp_ice (pfile, "absolute file name in remap_filename");
+    cpp_error (pfile, DL_ICE, "absolute file name in remap_filename");
 
   dir = (char *) alloca (p - name + 1);
   memcpy (dir, name, p - name);
   dir[p - name] = '\0';
   from = p + 1;
-  
+
   for (map = read_name_map (pfile, dir); map; map = map->map_next)
     if (! strcmp (map->map_from, from))
       return map->map_to;
@@ -1512,7 +2248,7 @@ remove_component_p (path)
    nonzero if an error occurred when using stat () or lstat ().  */
 char *
 _cpp_simplify_pathname (path)
-    char *path;
+     char *path;
 {
 #ifndef VMS
   char *from, *to;
@@ -1528,7 +2264,7 @@ _cpp_simplify_pathname (path)
   /* Convert all backslashes to slashes.  */
   for (from = path; *from; from++)
     if (*from == '\\') *from = '/';
-    
+
   /* Skip over leading drive letter if present.  */
   if (ISALPHA (path[0]) && path[1] == ':')
     from = to = &path[2];
@@ -1537,7 +2273,7 @@ _cpp_simplify_pathname (path)
 #else
   from = to = path;
 #endif
-    
+
   /* Remove redundant leading /s.  */
   if (*from == '/')
     {
@@ -1612,7 +2348,7 @@ _cpp_simplify_pathname (path)
       if (move_base)
 	base = to;
     }
-    
+
   /* Change the empty string to "." so that it is not treated as stdin.
      Null terminate.  */
   if (to == path)
@@ -1649,7 +2385,9 @@ static int hashed_entry_eq            PARAMS ((const void *x, const void *y));
 static void hash_enter PARAMS ((struct hashed_entry **, const char *, struct search_path *));
 static void hash_add_attr PARAMS ((struct hashed_entry *, struct search_path *));
 static void _load_include_headers PARAMS ((cpp_reader *, htab_t, char *));
+#ifdef FRAMEWORK_HEADERS
 static void _load_framework_directories PARAMS ((cpp_reader *, htab_t, char *));
+#endif
 
 static hashval_t
 hashed_entry_hash (p)
@@ -1699,7 +2437,7 @@ hash_add_attr (entry, value)
       list->next = obj;
     }
   else
-    entry->list = obj;
+    entry->list = obj;		
 }
 
 static void
@@ -1713,19 +2451,27 @@ _load_include_headers (pfile, includehash, name)
     {
     DIR    *directory;
     struct dirent *directory_entry;
-    
+
     /* cannot depend on path->name being null terminated (weird) */
     memcpy (name, path->name, path->len);
     name[path->len] = 0;
     
-    /* no need to check for existence...already done by append_include_chain() */
+    /* There was a comment here that said "no need to check for
+       existence...already done by append_include_chain()", but it's possible
+       that the directory might have existed before, but was deleted
+       since then.  (That, of course, is a fatal error.)  */
     directory = opendir(name);
+    if (directory == NULL)
+      {
+	cpp_error (pfile, DL_ERROR, 
+		   "couldn't open %s: %s", name, xstrerror (errno));
+	return;
+      }
     while ((directory_entry = readdir(directory)) != NULL) 
       {
-      if (directory_entry->d_name[0] == '.') // for now, assume headers cannot begin with "."
-        continue;
-      else if (directory_entry->d_type == DT_REG || directory_entry->d_type == DT_DIR ||
-               directory_entry->d_type == DT_UNKNOWN) /* for symbolic links */
+	if (directory_entry->d_name[0] == '.') /* for now, assume headers cannot begin with "."  */
+	  continue;
+      else
         {
         struct hashed_entry **slot, *entry;
         slot = (struct hashed_entry **)htab_find_slot_with_hash (includehash, directory_entry->d_name,
@@ -1741,6 +2487,7 @@ _load_include_headers (pfile, includehash, name)
     }
 }
 
+#ifdef FRAMEWORK_HEADERS
 static void
 _load_framework_directories (pfile, frameworkhash, name)
      cpp_reader *pfile;
@@ -1760,13 +2507,31 @@ _load_framework_directories (pfile, frameworkhash, name)
       /* cannot depend on path->name being null terminated (weird) */
       memcpy (name, path->name, path->len);
       name[path->len] = 0;
-      /* no need to check for existence...already done by append_include_chain() */
+      /* There was a comment here that said "no need to check for
+	 existence...already done by append_include_chain()", but it's
+	 possible that the directory might have existed before, but
+	 was deleted since then.  (That, of course, is a fatal
+	 error.)  */
       directory = opendir(name);
+      if (directory == NULL)
+	{
+	  cpp_error (pfile, DL_ERROR, 
+		     "couldn't open %s: %s", name, xstrerror (errno));
+	  return;
+	}
       while ((directory_entry = readdir(directory)) != NULL) 
         {
-        if (directory_entry->d_name[0] == '.') // for now, assume headers cannot begin with "."
-          continue;
-        else if (directory_entry->d_type == DT_DIR) // just add directories, *not* all the headers
+	  int len = strlen (directory_entry->d_name);
+	  int framework_dir = -1;
+	  /* 10 = strlen (".framework");  */
+	  if (len > 10)
+	    framework_dir = len - 10;
+	  if (directory_entry->d_name[0] == '.') /* for now, assume headers cannot begin with "." */
+	    continue;
+	  /* just add directories, *not* all the headers        */
+	else if (directory_entry->d_type == DT_DIR ||
+		 ((framework_dir != -1) 
+		  && !strcmp ((directory_entry->d_name + framework_dir), ".framework")))
           {
           struct hashed_entry **slot, *entry;
           slot = (struct hashed_entry **)htab_find_slot_with_hash (frameworkhash, directory_entry->d_name,
@@ -1779,9 +2544,12 @@ _load_framework_directories (pfile, frameworkhash, name)
           }
         }
       closedir(directory);
-      } // for
+      } /* for */
     }
 }
+#endif
+
+
 
 static void
 _init_include_hash(pfile, name)
@@ -1791,7 +2559,9 @@ _init_include_hash(pfile, name)
   header_htab = htab_create (2039, hashed_entry_hash, hashed_entry_eq, NULL);
   
   _load_include_headers(pfile, header_htab, name);
+#ifdef FRAMEWORK_HEADERS
   _load_framework_directories(pfile, header_htab, name);      
+#endif
 }
 
 static void 
@@ -1830,7 +2600,7 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
     if ((type == CPP_STRING) && (path != CPP_OPTION (pfile, bracket_include)))
       {
       synthesize_name_from_path(name, path, fname);
-      if ((file = open_file (pfile, name)))
+      if ((file = open_file_pch (pfile, name)))
         {
         file->foundhere = path;
         return file;
@@ -1838,24 +2608,27 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
       }
     if (CPP_OPTION (pfile, header_map))
       {
+      const char *saved_fname = fname;
       struct search_path *hmap_path = hmap_lookup_path (pfile, &fname);
       
       if (hmap_path != CPP_OPTION (pfile, bracket_include))
         {
         synthesize_name_from_path(name, hmap_path, fname);
-        if ((file = open_file (pfile, name)))
+        if ((file = open_file_pch (pfile, name)))
           {
           file->foundhere = hmap_path;
           return file;
           }
         }
+      /* The header map search was not successful - restore clobbered fname. */
+      fname = saved_fname;
       }
     if (!slash_in_fname)
       {
       if ((entry = htab_find(header_htab, fname))) 
         {
         synthesize_name_from_path(name, entry->include_directory, fname);
-        if ((file = open_file (pfile, name)))
+        if ((file = open_file_pch (pfile, name)))
           {
           file->foundhere = entry->include_directory;
           return file;
@@ -1873,18 +2646,18 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
       if ((entry = htab_find(header_htab, name)))
         {
         synthesize_name_from_path(name, entry->include_directory, fname);
-        if ((file = open_file (pfile, name)))
+        if ((file = open_file_pch (pfile, name)))
           {
           file->foundhere = entry->include_directory;
           return file;
           }
-        else if (entry->list) // ambiguous...look in multiple places...
+        else if (entry->list) /* ambiguous...look in multiple places... */
           { 
           struct hashed_attribute *hattr = entry->list;
           do 
             { 
             synthesize_name_from_path(name, hattr->include_directory, fname);
-            if ((file = open_file (pfile, name)))
+            if ((file = open_file_pch (pfile, name)))
               {
               file->foundhere = hattr->include_directory;
               return file;
@@ -1904,8 +2677,8 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
         name[len] = '/';
         strcpy (&name[len + 1], entry->file_name);
         strcat (name, "/Headers");
-        strcat (name, basename); // add the base name
-        if ((file = open_file (pfile, name)))
+        strcat (name, basename); /* add the base name */
+        if ((file = open_file_pch (pfile, name)))
           {
             file->foundhere = entry->include_directory;
             return file;
@@ -1914,8 +2687,8 @@ find_include_file_in_hashtable (pfile, fname, name, type, path)
         name[len] = '/';
         strcpy (&name[len + 1], entry->file_name);
         strcat (name, "/PrivateHeaders");
-        strcat (name, basename); // add the base name
-        if ((file = open_file (pfile, name)))
+        strcat (name, basename); /* add the base name */
+        if ((file = open_file_pch (pfile, name)))
           {
             file->foundhere = entry->include_directory;
             return file;
@@ -1945,12 +2718,12 @@ splay_func (n, b)
     {
     if (parse_in->buffer->inc == f)
       {
-      ; //printf("module %s %d\n",f->name, size);
+	; /* printf("module %s %d\n",f->name, size); */
       }
     else
       {
       total_size += size;
-      //printf("header %s %d %d\n",f->name, size, total_size);
+      /* printf("header %s %d %d\n",f->name, size, total_size); */
       }
     found++;
     }
@@ -1977,3 +2750,197 @@ cpp_log (pfile)
 }
 #endif
 /* APPLE LOCAL end header search */
+
+/* APPLE LOCAL begin Symbol Separation */
+
+/* See if valid .cinfo file exists for given filename.
+   Use cpp_valid_state() (from PCH) to validate preprocessor state.  */
+int
+c_valid_cinfo (pfile, filename)
+     cpp_reader *pfile;
+     const char *filename;
+{
+
+  if (!CPP_OPTION (pfile, use_ss))
+    return 0;
+
+  /* If already using repository, no need to use anymore until we are done using current
+     repository.  */
+  if (pfile->cinfo_state == CINFO_READ)
+    return 0;
+
+  if (1)
+    {
+      size_t namelen = strlen (filename);
+      char *cinfoname = alloca (namelen + 7);
+      int fd, sizeread, result;
+      char ident[8];
+
+      memcpy (cinfoname, filename, namelen);
+      memcpy (cinfoname + namelen, ".cinfo", 7);
+
+      /* file = validate_context (pfile, filename, pchname);*/
+      fd = open (cinfoname, O_RDONLY, S_IRWXU);
+      if (fd == -1)
+	return 0;
+
+      sizeread = read (fd, ident, sizeof (context_ident));
+      if (sizeread == -1)
+	{
+	  cpp_error (pfile, DL_WARNING, "can't read %s", cinfoname); 
+	  return 0;
+	}
+      else if (sizeread != sizeof (context_ident))
+	return 0;
+  
+      if (memcmp (ident, context_ident, sizeof (context_ident)) != 0)
+	{
+	  /*
+	    if (cpp_get_options (pfile)->warn_invalid_context)
+	      {
+	      }
+	  */
+	  return 0;
+	}
+
+      /* Check the preprocessor macros are the same as when the PCH was
+	 generated.  */
+  
+      result = cpp_valid_state (pfile, cinfoname, fd);
+      if (result == 0)
+	{
+	  /* printf ("using ss for %s\n", filename); */
+	  cpp_read_stabs_checksum (pfile, fd);
+	  pfile->cinfo_state = CINFO_VALID;
+	  return 1;
+	}
+      else 
+	{
+	  pfile->cinfo_state = CINFO_NONE;
+	  return 0;
+	}
+    }
+}
+
+/* Return 1 if include has suppress_dbg set.  */
+int
+suppress_dbg_info (inc)
+     struct include_file *inc;
+{
+  if (!inc)
+    return 0;
+  if (inc->suppress_dbg)
+    {
+      inc->suppress_dbg = 0;
+      return 1;
+    }
+  return 0;
+}
+
+/* Initialize symbol separtion. 
+   If creating new symbol repository then write preprocessor state  in .cinfo file.
+   Create .cinfo file based on main input file name in the location specified by 
+   dbg_dir.  */
+const char *
+cpp_symbol_separation_init (pfile, dbg_dir, main_input_filename)
+     struct cpp_reader *pfile;
+     const char * dbg_dir;
+     const char * main_input_filename;
+{
+  FILE *f;
+  int dir_len, len;
+  if (dbg_dir)
+    {
+      const char *basename;
+      char *cinfo_file_name;
+      int main_inputfilename_len, i = strlen (main_input_filename);
+      main_inputfilename_len = i;
+      dir_len = strlen (dbg_dir);
+
+      /* Search backward for first '/' */
+      while (main_input_filename[i] != '/' && i > 0)
+	i--;
+
+      basename = &main_input_filename[i];
+      len = main_inputfilename_len - i;
+
+      /* 6 = strlen (".cinfo") */
+      cinfo_file_name = (char *) xmalloc (dir_len + len + 6 + 2);
+      strcpy (cinfo_file_name, dbg_dir);
+      memcpy (&cinfo_file_name[dir_len], "/", 1);
+      memcpy (&cinfo_file_name[dir_len + 1], basename, len);
+      memcpy (&cinfo_file_name[dir_len + 1 + len], ".cinfo", 6);
+      cinfo_file_name[dir_len + 1 + len + 6] = NULL;
+
+      f = fopen (cinfo_file_name, "w+b");
+      if (f == NULL)
+	{
+	  cpp_error (pfile, DL_ERROR, "can't open %s", cinfo_file_name);
+	  return NULL;
+	}
+
+      cinfo_file = f;
+      cpp_calculate_stabs_checksum (main_input_filename);
+
+      /* Write identification bytes.  */
+      if (fwrite (context_ident, sizeof (context_ident), 1, f) != 1)
+	{
+	  cpp_error (pfile, DL_ERROR, "can't write to %s", cinfo_file_name);
+	  return NULL;
+	}
+
+      cpp_save_state (pfile, f);
+    }
+  return dbg_dir;
+}
+
+/* Write checksum in to input file (.cinfo).  */
+void
+cpp_write_symbol_deps (pfile)
+     struct cpp_reader *pfile;
+{
+  pfile->cinfo_state = CINFO_WRITE;
+  cpp_write_pch_deps (pfile, cinfo_file);
+  if (fwrite (&stabs_checksum, sizeof (struct cpp_stab_checksum), 1, cinfo_file) != 1)
+    cpp_errno (pfile, DL_ERROR, "while writing checksum for context info file");
+  fclose (cinfo_file);
+  pfile->cinfo_state = CINFO_NONE;
+}
+
+/* Read checksum using input file descriptor (.cifno).  */
+void
+cpp_read_stabs_checksum (pfile, fd)
+     struct cpp_reader *pfile;
+     int fd;
+{
+  size_t len = sizeof (struct cpp_stab_checksum);
+
+  stabs_checksum.checksum = 0;
+  if (read (fd, &stabs_checksum, len) == -1)
+    cpp_errno (pfile, DL_ERROR, "while reading checksum from context info file");
+}
+
+/* Return checksum */
+unsigned long
+cpp_get_stabs_checksum ()
+{
+  return stabs_checksum.checksum;
+}
+
+/* Calculate checksum for the header represented by input name.
+   Use inode value as checksum.  */
+void
+cpp_calculate_stabs_checksum (name)
+     const char *name;
+{
+  struct stat st;
+  if (stat (name, &st) == 0)
+    {
+      /* Use timestamp from stat and mask one bit.  */
+      stabs_checksum.checksum = (unsigned long) st.st_mtime | 0x10000000;
+    }
+  else
+    stabs_checksum.checksum = 0xFF;
+}
+
+/* APPLE LOCAL end Symbol Separation */

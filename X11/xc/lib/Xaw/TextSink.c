@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xaw/TextSink.c,v 1.21 2002/06/03 21:39:24 paulo Exp $ */
+/* $XFree86: xc/lib/Xaw/TextSink.c,v 1.22 2004/01/23 03:57:58 dawes Exp $ */
 
 /*
  * Author:  Chris Peterson, MIT X Consortium.
@@ -1330,7 +1330,7 @@ _XawTextSinkAddProperty(XawTextPropertyList *list, XawTextProperty *property,
     else
 	xlfd = null;
 
-    XmuSnprintf(identifier, sizeof(identifier), "%08x%08x%s%s%d%d%d%d%s",
+    XmuSnprintf(identifier, sizeof(identifier), "%08lx%08lx%s%s%d%d%d%d%s",
 		property->mask, property->xlfd_mask,
 		foreground, background,
 		(result->mask & XAW_TPROP_UNDERLINE) != 0,

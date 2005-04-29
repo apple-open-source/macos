@@ -24,12 +24,11 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/Text16.c,v 1.5 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/Text16.c,v 1.6 2003/11/17 22:20:08 dawes Exp $ */
 
 #include "Xlibint.h"
 
 int
-#if NeedFunctionPrototypes
 XDrawString16(
     register Display *dpy,
     Drawable d,
@@ -38,15 +37,6 @@ XDrawString16(
     int y,
     _Xconst XChar2b *string,
     int length)
-#else
-XDrawString16(dpy, d, gc, x, y, string, length)
-    register Display *dpy;
-    Drawable d;
-    GC gc;
-    int x, y;
-    XChar2b *string;
-    int length;
-#endif
 {   
     int Datalength = 0;
     register xPolyText16Req *req;

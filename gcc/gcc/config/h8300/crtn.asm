@@ -1,9 +1,9 @@
 /* Copyright (C) 2001 Free Software Foundation, Inc.
    This file was adapted from glibc sources.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify it
+GCC is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation; either version 2, or (at your option) any
 later version.
@@ -17,7 +17,7 @@ do apply in other respects; for example, they cover modification of
 the file, and distribution when not linked into a combine
 executable.)
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
 General Public License for more details.
@@ -30,11 +30,26 @@ Boston, MA 02111-1307, USA.  */
 /* See an explanation about .init and .fini in crti.asm.  */
 
 #ifdef __H8300H__
+#ifdef __NORMAL_MODE__
+	.h8300hn
+#else
 	.h8300h
+#endif
 #endif
 
 #ifdef __H8300S__
+#ifdef __NORMAL_MODE__
+	.h8300sn
+#else
 	.h8300s
+#endif
+#endif
+#ifdef __H8300SX__
+#ifdef __NORMAL_MODE__
+	.h8300sxn
+#else
+	.h8300sx
+#endif
 #endif
 	.section .init
 	rts

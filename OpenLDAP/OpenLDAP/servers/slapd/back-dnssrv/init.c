@@ -1,8 +1,22 @@
 /* init.c - initialize ldap backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/init.c,v 1.14.2.2 2003/03/03 17:10:09 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/init.c,v 1.17.2.4 2004/04/12 18:20:13 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2000-2003 Kurt D. Zeilenga.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by Kurt D. Zeilenga for inclusion
+ * in OpenLDAP Software.
  */
 
 #include "portable.h"
@@ -14,9 +28,9 @@
 #include "slap.h"
 #include "external.h"
 
-#ifdef SLAPD_DNSSRV_DYNAMIC
+#if SLAPD_DNSSRV == SLAPD_MOD_DYNAMIC
 
-int back_dnssrv_LTX_init_module(int argc, char *argv[])
+int init_module(int argc, char *argv[])
 {
     BackendInfo bi;
 
@@ -28,7 +42,7 @@ int back_dnssrv_LTX_init_module(int argc, char *argv[])
     return 0;
 }
 
-#endif /* SLAPD_DNSSRV_DYNAMIC */
+#endif /* SLAPD_DNSSRV */
 
 int
 dnssrv_back_initialize(
@@ -66,8 +80,6 @@ dnssrv_back_initialize(
 	bi->bi_op_unbind = 0;
 
 	bi->bi_extended = 0;
-	bi->bi_acl_group = 0;
-	bi->bi_acl_attribute = 0;
 
 	bi->bi_connection_init = 0;
 	bi->bi_connection_destroy = 0;

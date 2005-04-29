@@ -38,19 +38,15 @@
 static char sccsid[] = "@(#)fileno.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fileno.c,v 1.9 2003/01/13 02:58:18 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fileno.c,v 1.10 2004/03/17 01:43:07 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
 #include "un-namespace.h"
 #include "libc_private.h"
 
-/*
- * fileno has traditionally been a macro in <stdio.h>.  That is
- * no longer true because it needs to be thread-safe.
- *
- * #undef fileno
- */
+#undef fileno
+
 int
 fileno(FILE *fp)
 {

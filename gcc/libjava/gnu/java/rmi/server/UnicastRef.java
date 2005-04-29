@@ -37,32 +37,24 @@ exception statement from your version. */
 
 package gnu.java.rmi.server;
 
-import java.rmi.Remote;
-import java.rmi.RemoteException;
-import java.rmi.server.RemoteRef;
-import java.rmi.server.RMISocketFactory;
-import java.rmi.server.RMIClientSocketFactory;
-import java.rmi.server.RMIServerSocketFactory;
-import java.rmi.server.RemoteObject;
-import java.rmi.server.RemoteCall;
-import java.rmi.server.UnicastRemoteObject;
-import java.rmi.server.Operation;
-import java.rmi.server.ObjID;
-import java.rmi.server.UID;
-import java.lang.reflect.Method;
-import java.io.ObjectOutput;
-import java.io.ObjectInput;
-import java.io.IOException;
-import java.net.Socket;
-import java.net.InetAddress;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
-
+import java.io.IOException;
+import java.io.ObjectInput;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutput;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.rmi.server.ObjID;
+import java.rmi.server.Operation;
+import java.rmi.server.RMIClientSocketFactory;
+import java.rmi.server.RemoteCall;
+import java.rmi.server.RemoteObject;
+import java.rmi.server.RemoteRef;
+import java.rmi.server.UID;
 
 public class UnicastRef
 	implements RemoteRef, ProtocolConstants {
@@ -73,8 +65,9 @@ UnicastConnectionManager manager;
 /**
  * Used by serialization, and let subclass capable of having default constructor
  */
-//private 
-UnicastRef() {
+// must be public otherwise java.rmi.RemoteObject cannot instantiate this class
+// -- iP
+public UnicastRef() {
 }
 
 public UnicastRef(ObjID objid, String host, int port, RMIClientSocketFactory csf) {
@@ -90,7 +83,10 @@ public Object invoke(Remote obj, Method method, Object[] params, long opnum) thr
     // Check if client and server are in the same VM, then local call can be used to
     // replace remote call, but it's somewhat violating remote semantic.
     Object svrobj = manager.serverobj;
-    if(svrobj != null){
+    
+    // Make sure that the server object is compatible. It could be loaded from a different
+    // classloader --iP
+    if(svrobj != null && method.getDeclaringClass().isInstance(svrobj)){
         //local call
 		Object ret = null;
 		try{
@@ -120,7 +116,7 @@ private Object invokeCommon(Remote obj, Method method, Object[] params, int opnu
 		dout = conn.getDataOutputStream();
 		dout.writeByte(MESSAGE_CALL);
 
-		out = conn.getObjectOutputStream();
+		out = conn.startObjectOutputStream(); // (re)start ObjectOutputStream
 		
 		objid.write(out);
 		out.writeInt(opnum);
@@ -150,19 +146,22 @@ private Object invokeCommon(Remote obj, Method method, Object[] params, int opnu
 			throw new RemoteException("Call not acked:" + returncode);
 		}
 
-		in = conn.getObjectInputStream();
+		in = conn.startObjectInputStream(); // (re)start ObjectInputStream
 		returncode = in.readUnsignedByte();
 		ack = UID.read(in);
 
 		Class cls = method.getReturnType();
-        if(cls == Void.TYPE){
-            returnval = null;
-            in.readObject();
-        }else
-            returnval = ((RMIObjectInputStream)in).readValue(cls);
 
+	if (returncode == RETURN_NACK) { 
+	    returnval = in.readObject();  // get Exception
+
+        } else if(cls == Void.TYPE) { 
+            returnval = null;
+            // in.readObject() // not required! returntype 'void' means no field is returned.
+        } else {
+            returnval = ((RMIObjectInputStream)in).readValue(cls); // get returnvalue
 	}
-	catch (IOException e3) {
+	} catch (IOException e3) {
 	    //for debug: e3.printStackTrace();
 		throw new RemoteException("call return failed: ", e3);
 	}
@@ -178,7 +177,8 @@ private Object invokeCommon(Remote obj, Method method, Object[] params, int opnu
 	manager.discardConnection(conn);
 
 	if (returncode != RETURN_ACK && returnval != null) {
-		throw (Exception)returnval;
+		if (returncode == RETURN_NACK) throw (Exception)returnval;
+		else throw new RemoteException("unexpected returncode: " + returncode);
 	}
 
 	return (returnval);

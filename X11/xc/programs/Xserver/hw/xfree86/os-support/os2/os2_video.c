@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_video.c,v 3.15 2002/05/31 18:46:02 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/os-support/os2/os2_video.c,v 3.16 2003/03/25 04:18:24 dawes Exp $ */
 /*
  * (c) Copyright 1994,1999 by Holger Veit
  *			<Holger.Veit@gmd.de>
@@ -51,6 +51,9 @@
  * You must install it with a line DEVICE=path\xf86sup.sys in config.sys.
  */
 
+#define LOWORD(X) ((X) & 0xffff)
+#define HIWORD(X) ((X) >> 16)
+
 static HFILE mapdev = -1;
 static ULONG stored_virt_addr;
 static char* mappath = "\\DEV\\PMAP$";
@@ -66,8 +69,25 @@ static HFILE open_mmap()
 	   (ULONG)0, FILE_SYSTEM, FILE_OPEN,
 	   OPEN_SHARE_DENYNONE|OPEN_FLAGS_NOINHERIT|OPEN_ACCESS_READONLY,
 	   (ULONG)0);
-	if (rc!=0)
-		mapdev = -1;
+	if (rc!=0) {
+		mapdev = -1; }
+	else {
+		/* fg030203: ask for driver version of xf86sup.sys;
+		   no output prior to version 1.539 */
+                struct {
+                       	ULONG	magic;
+                       	ULONG	drvtype;
+                       	ULONG	version;
+                } drvid;
+		ULONG dlen = sizeof(drvid);
+		if ((rc=DosDevIOCtl(mapdev, (ULONG)0x76, (ULONG)0x61,
+			(PVOID)NULL, (ULONG)0, (PULONG)NULL,
+			(PVOID)&drvid, (ULONG)dlen, (PULONG)&dlen))==0) {
+		  xf86Msg(X_INFO,"PMAP$: driver version = %x.%x\n",
+		  	  HIWORD(drvid.version),
+		  	  LOWORD(drvid.version));
+		}
+	}
 	return mapdev;
 }
 
@@ -123,8 +143,9 @@ mapVidMem(int ScreenNum, unsigned long Base, unsigned long Size, int flags)
 	if ((rc=DosDevIOCtl(mapdev, (ULONG)0x76, (ULONG)0x44,
 	      (PVOID)&par, (ULONG)plen, (PULONG)&plen,
 	      (PVOID)&dta, (ULONG)dlen, (PULONG)&dlen)) == 0) {
-		xf86Msg(X_INFO,"mapVidMem succeeded: (ScreenNum= %d, Base= 0x%x, Size= 0x%x,paddr=0x%x)\n",
+		xf86Msg(X_INFO,"mapVidMem succeeded: (ScreenNum=%d, Base=0x%x, Size=0x%x, vaddr=0x%x)\n",
 		ScreenNum, Base, Size, dta.addr);
+
 		if (dlen==sizeof(dta)) {
 			return (pointer)dta.addr;
 		}
@@ -132,8 +153,8 @@ mapVidMem(int ScreenNum, unsigned long Base, unsigned long Size, int flags)
 	}
 
 	/* fail */
-	FatalError("mapVidMem FAILED!!: rc = %d (ScreenNum= %d, Base= 0x%x, Size= 0x%x return len %d)\n",
-		rc, ScreenNum, Base, Size,dlen);
+	FatalError("mapVidMem FAILED!!: rc = %d (ScreenNum=%d, Base=0x%x, Size=0x%x, return len=%d, vaddr=0x%x, sel=0x%x)\n",
+		rc, ScreenNum, Base, Size, dlen, dta.addr, dta.sel);
 	return (pointer)0;
 }
 
@@ -143,7 +164,7 @@ unmapVidMem(int ScreenNum, pointer Base, unsigned long Size)
 {
 	DIOParPkt	par;
 	ULONG		plen,vmaddr;
-
+	APIRET		rc;
 /* We need here the VIRTADDR for unmapping, not the physical address      */
 /* This should be taken care of either here by keeping track of allocated */
 /* pointers, but this is also already done in the driver... Thus it would */
@@ -158,11 +179,17 @@ unmapVidMem(int ScreenNum, pointer Base, unsigned long Size)
 	plen 		= sizeof(par);
 
 	if (mapdev != -1)
-	    DosDevIOCtl(mapdev, (ULONG)0x76, (ULONG)0x46,
+	    rc = DosDevIOCtl(mapdev, (ULONG)0x76, (ULONG)0x45,
 	      (PVOID)&par, (ULONG)plen, (PULONG)&plen,
 	      &vmaddr, sizeof(ULONG), &plen);
-        xf86Msg(X_INFO,"unmapVidMem: Unmap phys memory at base %x, virtual address %x\n",Base,vmaddr);
-
+	if (!rc) {
+	    xf86Msg(X_INFO,"unmapVidMem: Unmap phys memory at virtual address 0x%x\n",
+        		vmaddr);
+        }
+        else {
+            xf86Msg(X_ERROR,"unmapVidMem: Unmap phys memory at base 0x%x, virtual address 0x%x, rc=%d\n",
+        		Base,vmaddr,rc);
+        }
 /* Now if more than one region has been allocated and we close the driver,
  * the other pointers will immediately become invalid. We avoid closing
  * driver for now, but this should be fixed for server exit

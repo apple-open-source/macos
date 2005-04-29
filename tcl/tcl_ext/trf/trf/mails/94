@@ -1,0 +1,59 @@
+Return-Path: localhost!smtp_client
+Return-Path: <smtp_client@localhost>
+X-POP3-Rcpt: a.kupries@genesis
+Received: from mailhost.kisters.de (root@[193.23.163.143]) by genesis.westend.com (8.7.5/8.7.3) with SMTP id JAA26307 for <a.kupries@westend.com>; Tue, 17 Dec 1996 09:13:49 +0100 (MET)
+Received: from ramazotti by mailhost.kisters.de with smtp
+	(Smail3.1.29.1 #3) id m0vZvNG-000BseC; Tue, 17 Dec 96 09:59 MET
+Date: Tue, 17 Dec 1996 08:59:31 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+X-Sender: aku@ramazotti
+To: Andreas Kupries <a.kupries@westend.com>
+Subject: Trf, loading on demand (fwd)
+Message-ID: <Pine.ULT.3.91.961217085926.1348F-100000@ramazotti>
+MIME-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+
+
+-------
+Gruesse
+			Andreas Kupries
+			(aku@kisters.de)
+
+---------- Forwarded message ----------
+Date: Tue, 17 Dec 1996 08:58:04 +0100 (MET)
+From: Andreas Kupries <aku@kisters.de>
+To: Jan Nijtmans <nijtmans@nici.kun.nl>
+Subject: Trf, loading on demand
+
+Hello Jan
+
+trf 1.0a3 is nearly complete now.
+I currently try to compile it on ULTRIX 4.4, cc3.0
+The systems choice was 'tclLdAout.c' as dynamic loader.
+
+Problems encountered:
+
+	Did not include the required header	(exec/sys.h)
+	=	Solved, my Makefile did not use @TCL_DEFS@, which 
+		contained the necessary defines.
+
+	Unknown symbol	'tclExecutableName'.
+	=	Solved, was found somewhere in the core, added an
+		extern char* tclExecutableName to the file.
+
+	Unknown symbol	'TclLoadDictionary_Tcl' (line 158 of tclLdAout.c)
+	Unresolved!
+		I grepped the entire tcl tree for this symbol, but to no 
+		avail. Do you have an idea what it is and how it is defined ?
+
+Sincerely
+	Andreas Kupries <aku@kisters.de>
+                        <a.kupries@westend.com> (private)
+----------------------------------------+--------------------------------------
+Don't believe that I'm speaking		| pgp-key:	via keyserver
+for my employer, not even if the	| finger print: 3E C8 C9 6B 2A EC 05 B1
+contrary is stated in message above	|		EE 49 15 0B 62 DC 23 06
+----------------------------------------+--------------------------------------
+
+

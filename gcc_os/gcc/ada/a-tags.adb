@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2002 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -63,8 +62,6 @@ package body Ada.Tags is
 --                                  |      tags         |
 --                                  +-------------------+
 
-   use System;
-
    subtype Cstring is String (Positive);
    type Cstring_Ptr is access all Cstring;
    type Tag_Table is array (Natural range <>) of Tag;
@@ -93,21 +90,20 @@ package body Ada.Tags is
    -------------------------------------------
 
    function To_Type_Specific_Data_Ptr is
-     new Unchecked_Conversion (Address, Type_Specific_Data_Ptr);
+     new Unchecked_Conversion (S.Address, Type_Specific_Data_Ptr);
 
-   function To_Address is new Unchecked_Conversion (Tag, Address);
    function To_Address is
-     new Unchecked_Conversion (Type_Specific_Data_Ptr, Address);
+     new Unchecked_Conversion (Type_Specific_Data_Ptr, S.Address);
 
    ---------------------------------------------
    -- Unchecked Conversions for String Fields --
    ---------------------------------------------
 
    function To_Cstring_Ptr is
-     new Unchecked_Conversion (Address, Cstring_Ptr);
+     new Unchecked_Conversion (S.Address, Cstring_Ptr);
 
    function To_Address is
-     new Unchecked_Conversion (Cstring_Ptr, Address);
+     new Unchecked_Conversion (Cstring_Ptr, S.Address);
 
    -----------------------
    -- Local Subprograms --
@@ -130,8 +126,8 @@ package body Ada.Tags is
    package HTable_Subprograms is
       procedure Set_HT_Link (T : Tag; Next : Tag);
       function  Get_HT_Link (T : Tag) return Tag;
-      function Hash (F : Address) return HTable_Headers;
-      function Equal (A, B : Address) return Boolean;
+      function Hash (F : S.Address) return HTable_Headers;
+      function Equal (A, B : S.Address) return Boolean;
    end HTable_Subprograms;
 
    package External_Tag_HTable is new GNAT.HTable.Static_HTable (
@@ -141,7 +137,7 @@ package body Ada.Tags is
      Null_Ptr   => null,
      Set_Next   => HTable_Subprograms.Set_HT_Link,
      Next       => HTable_Subprograms.Get_HT_Link,
-     Key        => Address,
+     Key        => S.Address,
      Get_Key    => Get_External_Tag,
      Hash       => HTable_Subprograms.Hash,
      Equal      => HTable_Subprograms.Equal);
@@ -158,7 +154,7 @@ package body Ada.Tags is
    -- Equal --
    -----------
 
-      function Equal (A, B : Address) return Boolean is
+      function Equal (A, B : S.Address) return Boolean is
          Str1 : Cstring_Ptr := To_Cstring_Ptr (A);
          Str2 : Cstring_Ptr := To_Cstring_Ptr (B);
          J    : Integer := 1;
@@ -190,7 +186,7 @@ package body Ada.Tags is
       -- Hash --
       ----------
 
-      function Hash (F : Address) return HTable_Headers is
+      function Hash (F : S.Address) return HTable_Headers is
          function H is new GNAT.HTable.Hash (HTable_Headers);
          Str : Cstring_Ptr := To_Cstring_Ptr (F);
          Res : constant HTable_Headers := H (Str (1 .. Length (Str)));
@@ -262,7 +258,7 @@ package body Ada.Tags is
    -- Get_Expanded_Name --
    -----------------------
 
-   function Get_Expanded_Name (T : Tag) return Address is
+   function Get_Expanded_Name (T : Tag) return S.Address is
    begin
       return To_Address (T.TSD.Expanded_Name);
    end Get_Expanded_Name;
@@ -271,7 +267,7 @@ package body Ada.Tags is
    -- Get_External_Tag --
    ----------------------
 
-   function Get_External_Tag (T : Tag) return Address is
+   function Get_External_Tag (T : Tag) return S.Address is
    begin
       return To_Address (T.TSD.External_Tag);
    end Get_External_Tag;
@@ -292,7 +288,7 @@ package body Ada.Tags is
    function Get_Prim_Op_Address
      (T        : Tag;
       Position : Positive)
-      return     Address
+      return     S.Address
    is
    begin
       return T.Prims_Ptr (Position);
@@ -320,7 +316,7 @@ package body Ada.Tags is
    -- Get_TSD --
    -------------
 
-   function Get_TSD  (T : Tag) return Address is
+   function Get_TSD  (T : Tag) return S.Address is
    begin
       return To_Address (T.TSD);
    end Get_TSD;
@@ -345,7 +341,7 @@ package body Ada.Tags is
    -- Inherit_TSD --
    -----------------
 
-   procedure Inherit_TSD (Old_TSD : Address; New_Tag : Tag) is
+   procedure Inherit_TSD (Old_TSD : S.Address; New_Tag : Tag) is
       TSD     : constant Type_Specific_Data_Ptr :=
                   To_Type_Specific_Data_Ptr (Old_TSD);
       New_TSD : Type_Specific_Data renames New_Tag.TSD.all;
@@ -422,14 +418,14 @@ package body Ada.Tags is
 
    type T_Ptr is access all T;
 
-   function To_T_Ptr is new Unchecked_Conversion (Address, T_Ptr);
+   function To_T_Ptr is new Unchecked_Conversion (S.Address, T_Ptr);
 
    --  The profile of the implicitly defined _size primitive
 
-   type Acc_Size is access function (A : Address) return Long_Long_Integer;
-   function To_Acc_Size is new Unchecked_Conversion (Address, Acc_Size);
+   type Acc_Size is access function (A : S.Address) return Long_Long_Integer;
+   function To_Acc_Size is new Unchecked_Conversion (S.Address, Acc_Size);
 
-   function Parent_Size (Obj : Address) return SSE.Storage_Count is
+   function Parent_Size (Obj : S.Address) return SSE.Storage_Count is
 
       --  Get the tag of the object
 
@@ -463,7 +459,7 @@ package body Ada.Tags is
    -- Set_Expanded_Name --
    -----------------------
 
-   procedure Set_Expanded_Name (T : Tag; Value : Address) is
+   procedure Set_Expanded_Name (T : Tag; Value : S.Address) is
    begin
       T.TSD.Expanded_Name := To_Cstring_Ptr (Value);
    end Set_Expanded_Name;
@@ -472,7 +468,7 @@ package body Ada.Tags is
    -- Set_External_Tag --
    ----------------------
 
-   procedure Set_External_Tag (T : Tag; Value : Address) is
+   procedure Set_External_Tag (T : Tag; Value : S.Address) is
    begin
       T.TSD.External_Tag := To_Cstring_Ptr (Value);
    end Set_External_Tag;
@@ -496,7 +492,7 @@ package body Ada.Tags is
    procedure Set_Prim_Op_Address
      (T        : Tag;
       Position : Positive;
-      Value    : Address)
+      Value    : S.Address)
    is
    begin
       T.Prims_Ptr (Position) := Value;
@@ -528,7 +524,7 @@ package body Ada.Tags is
    -- Set_TSD --
    -------------
 
-   procedure Set_TSD (T : Tag; Value : Address) is
+   procedure Set_TSD (T : Tag; Value : S.Address) is
    begin
       T.TSD := To_Type_Specific_Data_Ptr (Value);
    end Set_TSD;

@@ -1,0 +1,3 @@
+%(member)s, %(listname)s listesinden çıkarıldı.
+
+

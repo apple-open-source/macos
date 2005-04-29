@@ -4,6 +4,9 @@
 
 # Client-side
 <client>
+<server>
+ftp
+</server>
  <name>
 FTP upload with --crlf
  </name>
@@ -19,7 +22,7 @@ with
 the
 --crlf option
 </file>
-</test>
+</client>
 
 # Verify data after the test has been "shot"
 <verify>
@@ -30,6 +33,7 @@ PWD
 EPSV
 TYPE I
 STOR 128
+QUIT
 </protocol>
 <upload>
 file

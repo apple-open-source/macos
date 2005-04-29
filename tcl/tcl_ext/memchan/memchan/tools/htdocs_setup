@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# Called in response to changes in the cvs repository of memchan
+# Assumes that the changed files were already retrieved. Uses them to
+# regenerate the whole website.
+
+# pwd = /home/groups/m/me/memchan/
+
+# Remove old temporary information.
+
+rm -rf doc 
+mkdir  doc
+
+cp -r memchan/doc/*    doc/
+cp -r memchan/htdocs/* htdocs/
+
+# Regenerate the external representatons of all manpages, and the site
+# itself. At last generate bundles of the documentation for download.
+
+out=$HOME/logs/crontab
+mkdir -p `dirname $out`
+rm $out ; touch $out
+
+cd doc    ; ../tools/manpage_regen  >>$out ; cd ..
+cd htdocs ; ../tools/htdocs_refresh        ; cd ..
+
+tar cf -  doc/*.n  | gzip -9 > memchan.nroff.tar.gz
+tar cf -  doc/*.n  | bzip2 > memchan.nroff.tar.bz2
+zip     memchan.nroff.tar.zip  doc/*.n		> /dev/null
+tar cf -   doc/*.html  | gzip -9 > memchan.html.tar.gz
+tar cf -   doc/*.html  | bzip2 > memchan.html.tar.bz2
+zip     memchan.html.tar.zip   doc/*.html	> /dev/null
+tar cf -   doc/*.tmml  | gzip -9 > memchan.tmml.tar.gz
+tar cf -   doc/*.tmml  | bzip2 > memchan.tmml.tar.bz2
+zip     memchan.tmml.tar.zip   doc/*.tmml	> /dev/null
+
+mkdir -p     htdocs/doc
+mv memchan.* htdocs/doc/
+
+(sleep 5 ; cp -r memchan/tools/*  tools/) &
+
+exit

@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/aticlock.c,v 1.20 2003/01/01 19:16:31 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/aticlock.c,v 1.22 2004/01/05 16:42:01 tsi Exp $ */
 /*
- * Copyright 1997 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1997 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -499,7 +499,9 @@ ATIMatchClockLine
                     continue;
             }
             else if (Gap > MaximumGap)
+            {
                 MaximumGap = Gap;
+            }
             ClockCount++;
         }
 
@@ -562,13 +564,17 @@ ATIClockPreInit
         /* Check for those that are not (yet) handled */
         if ((pATI->ProgrammableClock == ATI_CLOCK_UNKNOWN) ||
             (pATI->ProgrammableClock > NumberOf(ATIClockDescriptors)))
+        {
             xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_WARNING, 0,
                 "Unknown programmable clock generator type (0x%02X)"
                 " detected.\n", pATI->ProgrammableClock);
+        }
         else if (pATI->ClockDescriptor.MaxN <= 0)
+        {
             xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_WARNING, 0,
                 "Unsupported programmable clock generator detected:  %s.\n",
                 pATI->ClockDescriptor.ClockName);
+        }
         else
         {
             /*
@@ -624,11 +630,13 @@ ATIClockPreInit
                 pScreenInfo->clock[1] = 28322;
             }
             else if (pATI->ProgrammableClock == ATI_CLOCK_INTERNAL)
-            /*
-             * The integrated PLL generates clocks as if the reference
-             * frequency were doubled.
-             */
+            {
+                /*
+                 * The integrated PLL generates clocks as if the reference
+                 * frequency were doubled.
+                 */
                 pATI->ReferenceNumerator <<= 1;
+            }
 
             return;     /* ... to ATIPreInit() */
         }
@@ -759,11 +767,13 @@ ProbeClocks:
             for (ClockIndex = 0;
                  ClockIndex < NumberOfUndividedClocks;
                  ClockIndex++)
+            {
                 if (CalibrationClockValue < pATI->BIOSClocks[ClockIndex])
                 {
                     CalibrationClockNumber = ClockIndex;
                     CalibrationClockValue = pATI->BIOSClocks[ClockIndex];
                 }
+            }
             CalibrationClockNumber =
                 MapClockIndex(pATI->NewHW.ClockUnmap, CalibrationClockNumber);
             CalibrationClockValue *= 10;
@@ -831,8 +841,10 @@ ProbeClocks:
 
                         /* Set high-order bits */
                         if (pATI->Chip <= ATI_CHIP_18800)
+                        {
                             ATIModifyExtReg(pATI, 0xB2U, -1, 0xBFU,
                                 Index << 4);
+                        }
                         else
                         {
                             ATIModifyExtReg(pATI, 0xBEU, -1, 0xEFU,
@@ -1061,7 +1073,9 @@ ProbeClocks:
                  */
                 if (ATIMatchClockLine(pScreenInfo, pATI, InvalidClockLine,
                     NumberOfClocks, -1, 0))
+                {
                     pATI->OptionProbeClocks = TRUE;
+                }
                 else
 
 #ifndef AVOID_CPIO
@@ -1124,17 +1138,23 @@ ProbeClocks:
     }
 
     if (pATI->ProgrammableClock != ATI_CLOCK_FIXED)
+    {
         pATI->ProgrammableClock = ATI_CLOCK_FIXED;
+    }
     else if (pATI->Clock == ATI_CLOCK_NONE)
+    {
         xf86DrvMsgVerb(pScreenInfo->scrnIndex, X_WARNING, 0,
             "Unknown clock generator detected.\n");
+    }
     else
 
 #ifndef AVOID_CPIO
 
     if (pATI->Clock == ATI_CLOCK_CRYSTALS)
+    {
         xf86DrvMsg(pScreenInfo->scrnIndex, X_PROBED,
             "This adapter uses crystals to generate clock frequencies.\n");
+    }
     else if (pATI->Clock != ATI_CLOCK_VGA)
 
 #endif /* AVOID_CPIO */
@@ -1403,8 +1423,10 @@ ATIClockCalculate
             {
                 /* Set ATI clock select bits */
                 if (pATI->Chip <= ATI_CHIP_18800)
+                {
                     pATIHW->b2 = (pATIHW->b2 & 0xBFU) |
                         ((ClockSelect << 4) & 0x40U);
+                }
                 else
                 {
                     pATIHW->be = (pATIHW->be & 0xEFU) |
@@ -1516,31 +1538,31 @@ ATIClockSet
 
         case ATI_CLOCK_INTERNAL:
             /* Reset VCLK generator */
-            ATIPutMach64PLLReg(PLL_VCLK_CNTL, pATIHW->pll_vclk_cntl);
+            ATIMach64PutPLLReg(PLL_VCLK_CNTL, pATIHW->pll_vclk_cntl);
 
             /* Set post-divider */
             tmp2 = pATIHW->clock << 1;
-            tmp = ATIGetMach64PLLReg(PLL_VCLK_POST_DIV);
+            tmp = ATIMach64GetPLLReg(PLL_VCLK_POST_DIV);
             tmp &= ~(0x03U << tmp2);
             tmp |= SetBits(D, 0x03U) << tmp2;
-            ATIPutMach64PLLReg(PLL_VCLK_POST_DIV, tmp);
+            ATIMach64PutPLLReg(PLL_VCLK_POST_DIV, tmp);
 
             /* Set extended post-divider */
-            tmp = ATIGetMach64PLLReg(PLL_XCLK_CNTL);
+            tmp = ATIMach64GetPLLReg(PLL_XCLK_CNTL);
             tmp &= ~(SetBits(1, PLL_VCLK0_XDIV) << pATIHW->clock);
             tmp |= SetBits(D >> 2, PLL_VCLK0_XDIV) << pATIHW->clock;
-            ATIPutMach64PLLReg(PLL_XCLK_CNTL, tmp);
+            ATIMach64PutPLLReg(PLL_XCLK_CNTL, tmp);
 
             /* Set feedback divider */
             tmp = PLL_VCLK0_FB_DIV + pATIHW->clock;
-            ATIPutMach64PLLReg(tmp, SetBits(N, 0xFFU));
+            ATIMach64PutPLLReg(tmp, SetBits(N, 0xFFU));
 
             /* End VCLK generator reset */
-            ATIPutMach64PLLReg(PLL_VCLK_CNTL,
+            ATIMach64PutPLLReg(PLL_VCLK_CNTL,
                 pATIHW->pll_vclk_cntl & ~PLL_VCLK_RESET);
 
             /* Reset write bit */
-            ATIAccessMach64PLLReg(pATI, 0, FALSE);
+            ATIMach64AccessPLLReg(pATI, 0, FALSE);
             break;
 
         case ATI_CLOCK_ATT20C408:

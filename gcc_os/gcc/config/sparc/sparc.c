@@ -1,6 +1,6 @@
 /* Subroutines for insn-output.c for Sun SPARC.
    Copyright (C) 1987, 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998,
-   1999, 2000, 2001 Free Software Foundation, Inc.
+   1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
    64 bit SPARC V9 support by Michael Tiemann, Jim Wilson, and Doug Evans,
    at Cygnus Support.
@@ -80,12 +80,10 @@ rtx sparc_compare_op0, sparc_compare_op1;
    sparc_nonflat_function_epilogue.  */
 bool sparc_emitting_epilogue;
 
-#ifdef LEAF_REGISTERS
-
 /* Vector to say how input registers are mapped to output registers.
    HARD_FRAME_POINTER_REGNUM cannot be remapped by this function to
    eliminate it.  You must use -fomit-frame-pointer to get that.  */
-const char leaf_reg_remap[] =
+char leaf_reg_remap[] =
 { 0, 1, 2, 3, 4, 5, 6, 7,
   -1, -1, -1, -1, -1, -1, 14, -1,
   -1, -1, -1, -1, -1, -1, -1, -1,
@@ -119,8 +117,6 @@ char sparc_leaf_regs[] =
   1, 1, 1, 1, 1, 1, 1, 1,
   1, 1, 1, 1, 1};
 
-#endif
-
 /* Name of where we pretend to think the frame pointer points.
    Normally, this is "%fp", but if we are in a leaf procedure,
    this is "%sp+something".  We record "something" separately as it may be
@@ -140,22 +136,13 @@ static int function_arg_slotno	PARAMS ((const CUMULATIVE_ARGS *,
 
 static int supersparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int hypersparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
-static int ultrasparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 
 static void sparc_output_addr_vec PARAMS ((rtx));
 static void sparc_output_addr_diff_vec PARAMS ((rtx));
 static void sparc_output_deferred_case_vectors PARAMS ((void));
-static void sparc_add_gc_roots    PARAMS ((void));
-static void mark_ultrasparc_pipeline_state PARAMS ((void *));
 static int check_return_regs PARAMS ((rtx));
 static int epilogue_renumber PARAMS ((rtx *, int));
 static bool sparc_assemble_integer PARAMS ((rtx, unsigned int, int));
-static int ultra_cmove_results_ready_p PARAMS ((rtx));
-static int ultra_fpmode_conflict_exists PARAMS ((enum machine_mode));
-static rtx *ultra_find_type PARAMS ((int, rtx *, int));
-static void ultra_build_types_avail PARAMS ((rtx *, int));
-static void ultra_flush_pipeline PARAMS ((void));
-static void ultra_rescan_pipeline_state PARAMS ((rtx *, int));
 static int set_extends PARAMS ((rtx));
 static void output_restore_regs PARAMS ((FILE *, int));
 static void sparc_output_function_prologue PARAMS ((FILE *, HOST_WIDE_INT));
@@ -169,15 +156,28 @@ static void sparc_nonflat_function_prologue PARAMS ((FILE *, HOST_WIDE_INT,
 #ifdef OBJECT_FORMAT_ELF
 static void sparc_elf_asm_named_section PARAMS ((const char *, unsigned int));
 #endif
-static void ultrasparc_sched_reorder PARAMS ((FILE *, int, rtx *, int));
-static int ultrasparc_variable_issue PARAMS ((rtx));
-static void ultrasparc_sched_init PARAMS ((void));
+static void sparc_aout_select_section PARAMS ((tree, int,
+					       unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
+static void sparc_aout_select_rtx_section PARAMS ((enum machine_mode, rtx,
+						   unsigned HOST_WIDE_INT))
+     ATTRIBUTE_UNUSED;
 
 static int sparc_adjust_cost PARAMS ((rtx, rtx, rtx, int));
 static int sparc_issue_rate PARAMS ((void));
-static int sparc_variable_issue PARAMS ((FILE *, int, rtx, int));
 static void sparc_sched_init PARAMS ((FILE *, int, int));
-static int sparc_sched_reorder PARAMS ((FILE *, int, rtx *, int *, int));
+static int sparc_use_dfa_pipeline_interface PARAMS ((void));
+static int sparc_use_sched_lookahead PARAMS ((void));
+
+static void emit_soft_tfmode_libcall PARAMS ((const char *, int, rtx *));
+static void emit_soft_tfmode_binop PARAMS ((enum rtx_code, rtx *));
+static void emit_soft_tfmode_unop PARAMS ((enum rtx_code, rtx *));
+static void emit_soft_tfmode_cvt PARAMS ((enum rtx_code, rtx *));
+static void emit_hard_tfmode_operation PARAMS ((enum rtx_code, rtx *));
+
+static void sparc_encode_section_info PARAMS ((tree, int));
+static void sparc_output_mi_thunk PARAMS ((FILE *, tree, HOST_WIDE_INT,
+					   HOST_WIDE_INT, tree));
 
 /* Option handling.  */
 
@@ -231,12 +231,20 @@ enum processor_type sparc_cpu;
 #define TARGET_SCHED_ADJUST_COST sparc_adjust_cost
 #undef TARGET_SCHED_ISSUE_RATE
 #define TARGET_SCHED_ISSUE_RATE sparc_issue_rate
-#undef TARGET_SCHED_VARIABLE_ISSUE
-#define TARGET_SCHED_VARIABLE_ISSUE sparc_variable_issue
 #undef TARGET_SCHED_INIT
 #define TARGET_SCHED_INIT sparc_sched_init
-#undef TARGET_SCHED_REORDER
-#define TARGET_SCHED_REORDER sparc_sched_reorder
+#undef TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE
+#define TARGET_SCHED_USE_DFA_PIPELINE_INTERFACE sparc_use_dfa_pipeline_interface
+#undef TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD
+#define TARGET_SCHED_FIRST_CYCLE_MULTIPASS_DFA_LOOKAHEAD sparc_use_sched_lookahead
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO sparc_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK sparc_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -273,6 +281,7 @@ sparc_override_options ()
     { TARGET_CPU_supersparc, "supersparc" },
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
+    { TARGET_CPU_ultrasparc3, "ultrasparc3" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -305,6 +314,9 @@ sparc_override_options ()
     /* Although insns using %y are deprecated, it is a clear win on current
        ultrasparcs.  */
     						    |MASK_DEPRECATED_V8_INSNS},
+    /* TI ultrasparc III */
+    /* ??? Check if %y issue still holds true in ultra3.  */
+    { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -417,7 +429,9 @@ sparc_override_options ()
     target_flags &= ~MASK_STACK_BIAS;
     
   /* Supply a default value for align_functions.  */
-  if (align_functions == 0 && sparc_cpu == PROCESSOR_ULTRASPARC)
+  if (align_functions == 0
+      && (sparc_cpu == PROCESSOR_ULTRASPARC
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -430,9 +444,6 @@ sparc_override_options ()
 
   /* Do various machine dependent initializations.  */
   sparc_init_modes ();
-
-  /* Register global variables with the garbage collector.  */
-  sparc_add_gc_roots ();
 }
 
 /* Miscellaneous utilities.  */
@@ -451,7 +462,7 @@ v9_regcmp_p (code)
 
 /* Operand constraints.  */
 
-/* Return non-zero only if OP is a register of mode MODE,
+/* Return nonzero only if OP is a register of mode MODE,
    or const0_rtx.  */
 
 int
@@ -470,6 +481,16 @@ reg_or_0_operand (op, mode)
   if (fp_zero_operand (op, mode))
     return 1;
   return 0;
+}
+
+/* Return nonzero only if OP is const1_rtx.  */
+
+int
+const1_operand (op, mode)
+     rtx op;
+     enum machine_mode mode ATTRIBUTE_UNUSED;
+{
+  return op == const1_rtx;
 }
 
 /* Nonzero if OP is a floating point value with value 0.0.  */
@@ -1372,9 +1393,8 @@ sparc_emit_set_const32 (op0, op1)
 	  && (INTVAL (op1) & 0x80000000) != 0)
 	emit_insn (gen_rtx_SET
 		   (VOIDmode, temp,
-		    gen_rtx_CONST_DOUBLE (VOIDmode,
-					  INTVAL (op1) & ~(HOST_WIDE_INT)0x3ff,
-					  0)));
+		    immed_double_const (INTVAL (op1) & ~(HOST_WIDE_INT)0x3ff,
+					0, DImode)));
       else
 	emit_insn (gen_rtx_SET (VOIDmode, temp,
 				GEN_INT (INTVAL (op1)
@@ -1397,7 +1417,7 @@ sparc_emit_set_const32 (op0, op1)
 }
 
 
-/* Sparc-v9 code-model support.  */
+/* SPARC-v9 code-model support.  */
 void
 sparc_emit_set_symbolic_const64 (op0, op1, temp1)
      rtx op0;
@@ -1552,11 +1572,10 @@ static rtx gen_safe_XOR64 PARAMS ((rtx, HOST_WIDE_INT));
 #define GEN_INT64(__x)			GEN_INT (__x)
 #else
 #define GEN_HIGHINT64(__x) \
-	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & ~(HOST_WIDE_INT)0x3ff, 0)
+	immed_double_const ((__x) & ~(HOST_WIDE_INT)0x3ff, 0, DImode)
 #define GEN_INT64(__x) \
-	gen_rtx_CONST_DOUBLE (VOIDmode, (__x) & 0xffffffff, \
-			      ((__x) & 0x80000000 \
-			       ? -1 : 0))
+	immed_double_const ((__x) & 0xffffffff, \
+			    ((__x) & 0x80000000 ? -1 : 0), DImode)
 #endif
 
 /* The optimizer is not to assume anything about exactly
@@ -2126,9 +2145,9 @@ sparc_emit_set_const64 (op0, op1)
 	  negated_const = GEN_INT (((~low_bits) & 0xfffffc00) |
 				   (((HOST_WIDE_INT)((~high_bits) & 0xffffffff))<<32));
 #else
-	  negated_const = gen_rtx_CONST_DOUBLE (DImode,
-						(~low_bits) & 0xfffffc00,
-						(~high_bits) & 0xffffffff);
+	  negated_const = immed_double_const ((~low_bits) & 0xfffffc00,
+					      (~high_bits) & 0xffffffff,
+					      DImode);
 #endif
 	  sparc_emit_set_const64 (temp, negated_const);
 	}
@@ -2458,6 +2477,312 @@ gen_df_reg (reg, low)
   return gen_rtx_REG (DFmode, regno);
 }
 
+/* Generate a call to FUNC with OPERANDS.  Operand 0 is the return value.
+   Unlike normal calls, TFmode operands are passed by reference.  It is
+   assumed that no more than 3 operands are required.  */
+
+static void
+emit_soft_tfmode_libcall (func_name, nargs, operands)
+     const char *func_name;
+     int nargs;
+     rtx *operands;
+{
+  rtx ret_slot = NULL, arg[3], func_sym;
+  int i;
+
+  /* We only expect to be called for conversions, unary, and binary ops.  */
+  if (nargs < 2 || nargs > 3)
+    abort ();
+
+  for (i = 0; i < nargs; ++i)
+    {
+      rtx this_arg = operands[i];
+      rtx this_slot;
+
+      /* TFmode arguments and return values are passed by reference.  */
+      if (GET_MODE (this_arg) == TFmode)
+	{
+	  int force_stack_temp;
+
+	  force_stack_temp = 0;
+	  if (TARGET_BUGGY_QP_LIB && i == 0)
+	    force_stack_temp = 1;
+
+	  if (GET_CODE (this_arg) == MEM
+	      && ! force_stack_temp)
+	    this_arg = XEXP (this_arg, 0);
+	  else if (CONSTANT_P (this_arg)
+		   && ! force_stack_temp)
+	    {
+	      this_slot = force_const_mem (TFmode, this_arg);
+	      this_arg = XEXP (this_slot, 0);
+	    }
+	  else
+	    {
+	      this_slot = assign_stack_temp (TFmode, GET_MODE_SIZE (TFmode), 0);
+
+	      /* Operand 0 is the return value.  We'll copy it out later.  */
+	      if (i > 0)
+		emit_move_insn (this_slot, this_arg);
+	      else
+		ret_slot = this_slot;
+
+	      this_arg = XEXP (this_slot, 0);
+	    }
+	}
+
+      arg[i] = this_arg;
+    }
+
+  func_sym = gen_rtx_SYMBOL_REF (Pmode, func_name);
+
+  if (GET_MODE (operands[0]) == TFmode)
+    {
+      if (nargs == 2)
+	emit_library_call (func_sym, LCT_NORMAL, VOIDmode, 2,
+			   arg[0], GET_MODE (arg[0]),
+			   arg[1], GET_MODE (arg[1]));
+      else
+	emit_library_call (func_sym, LCT_NORMAL, VOIDmode, 3,
+			   arg[0], GET_MODE (arg[0]),
+			   arg[1], GET_MODE (arg[1]),
+			   arg[2], GET_MODE (arg[2]));
+
+      if (ret_slot)
+	emit_move_insn (operands[0], ret_slot);
+    }
+  else
+    {
+      rtx ret;
+
+      if (nargs != 2)
+	abort ();
+
+      ret = emit_library_call_value (func_sym, operands[0], LCT_NORMAL,
+				     GET_MODE (operands[0]), 1,
+				     arg[1], GET_MODE (arg[1]));
+
+      if (ret != operands[0])
+	emit_move_insn (operands[0], ret);
+    }
+}
+
+/* Expand soft-float TFmode calls to sparc abi routines.  */
+
+static void
+emit_soft_tfmode_binop (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  const char *func;
+
+  switch (code)
+    {
+    case PLUS:
+      func = "_Qp_add";
+      break;
+    case MINUS:
+      func = "_Qp_sub";
+      break;
+    case MULT:
+      func = "_Qp_mul";
+      break;
+    case DIV:
+      func = "_Qp_div";
+      break;
+    default:
+      abort ();
+    }
+
+  emit_soft_tfmode_libcall (func, 3, operands);
+}
+
+static void
+emit_soft_tfmode_unop (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  const char *func;
+
+  switch (code)
+    {
+    case SQRT:
+      func = "_Qp_sqrt";
+      break;
+    default:
+      abort ();
+    }
+
+  emit_soft_tfmode_libcall (func, 2, operands);
+}
+
+static void
+emit_soft_tfmode_cvt (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  const char *func;
+
+  switch (code)
+    {
+    case FLOAT_EXTEND:
+      switch (GET_MODE (operands[1]))
+	{
+	case SFmode:
+	  func = "_Qp_stoq";
+	  break;
+	case DFmode:
+	  func = "_Qp_dtoq";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case FLOAT_TRUNCATE:
+      switch (GET_MODE (operands[0]))
+	{
+	case SFmode:
+	  func = "_Qp_qtos";
+	  break;
+	case DFmode:
+	  func = "_Qp_qtod";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case FLOAT:
+      switch (GET_MODE (operands[1]))
+	{
+	case SImode:
+	  func = "_Qp_itoq";
+	  break;
+	case DImode:
+	  func = "_Qp_xtoq";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case UNSIGNED_FLOAT:
+      switch (GET_MODE (operands[1]))
+	{
+	case SImode:
+	  func = "_Qp_uitoq";
+	  break;
+	case DImode:
+	  func = "_Qp_uxtoq";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case FIX:
+      switch (GET_MODE (operands[0]))
+	{
+	case SImode:
+	  func = "_Qp_qtoi";
+	  break;
+	case DImode:
+	  func = "_Qp_qtox";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    case UNSIGNED_FIX:
+      switch (GET_MODE (operands[0]))
+	{
+	case SImode:
+	  func = "_Qp_qtoui";
+	  break;
+	case DImode:
+	  func = "_Qp_qtoux";
+	  break;
+	default:
+	  abort ();
+	}
+      break;
+
+    default:
+      abort ();
+    }
+
+  emit_soft_tfmode_libcall (func, 2, operands);
+}
+
+/* Expand a hard-float tfmode operation.  All arguments must be in
+   registers.  */
+
+static void
+emit_hard_tfmode_operation (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  rtx op, dest;
+
+  if (GET_RTX_CLASS (code) == '1')
+    {
+      operands[1] = force_reg (GET_MODE (operands[1]), operands[1]);
+      op = gen_rtx_fmt_e (code, GET_MODE (operands[0]), operands[1]);
+    }
+  else
+    {
+      operands[1] = force_reg (GET_MODE (operands[1]), operands[1]);
+      operands[2] = force_reg (GET_MODE (operands[2]), operands[2]);
+      op = gen_rtx_fmt_ee (code, GET_MODE (operands[0]),
+			   operands[1], operands[2]);
+    }
+
+  if (register_operand (operands[0], VOIDmode))
+    dest = operands[0];
+  else
+    dest = gen_reg_rtx (GET_MODE (operands[0]));
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest, op));
+
+  if (dest != operands[0])
+    emit_move_insn (operands[0], dest);
+}
+
+void
+emit_tfmode_binop (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  if (TARGET_HARD_QUAD)
+    emit_hard_tfmode_operation (code, operands);
+  else
+    emit_soft_tfmode_binop (code, operands);
+}
+
+void
+emit_tfmode_unop (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  if (TARGET_HARD_QUAD)
+    emit_hard_tfmode_operation (code, operands);
+  else
+    emit_soft_tfmode_unop (code, operands);
+}
+
+void
+emit_tfmode_cvt (code, operands)
+     enum rtx_code code;
+     rtx *operands;
+{
+  if (TARGET_HARD_QUAD)
+    emit_hard_tfmode_operation (code, operands);
+  else
+    emit_soft_tfmode_cvt (code, operands);
+}
+
 /* Return nonzero if a return peephole merging return with
    setting of output register is ok.  */
 int
@@ -2743,17 +3068,6 @@ check_return_regs (x)
 
 }
 
-/* Return 1 if TRIAL references only in and global registers.  */
-int
-eligible_for_return_delay (trial)
-     rtx trial;
-{
-  if (GET_CODE (PATTERN (trial)) != SET)
-    return 0;
-
-  return check_return_regs (PATTERN (trial));
-}
-
 int
 short_branch (uid1, uid2)
      int uid1, uid2;
@@ -2767,7 +3081,7 @@ short_branch (uid1, uid2)
   return 0;
 }
 
-/* Return non-zero if REG is not used after INSN.
+/* Return nonzero if REG is not used after INSN.
    We assume REG is a reload reg, and therefore does
    not live past labels or calls or jumps.  */
 int
@@ -2803,10 +3117,10 @@ reg_unused_after (reg, insn)
 }
 
 /* The table we use to reference PIC data.  */
-static rtx global_offset_table;
+static GTY(()) rtx global_offset_table;
 
 /* The function we use to get at it.  */
-static rtx get_pc_symbol;
+static GTY(()) rtx get_pc_symbol;
 static char get_pc_symbol_name[256];
 
 /* Ensure that we are not using patterns that are not OK with PIC.  */
@@ -2851,7 +3165,7 @@ pic_address_needs_scratch (x)
 
 /* Legitimize PIC addresses.  If the address is already position-independent,
    we return ORIG.  Newly generated position-independent addresses go into a
-   reg.  This is REG if non zero, otherwise we allocate register(s) as
+   reg.  This is REG if nonzero, otherwise we allocate register(s) as
    necessary.  */
 
 rtx
@@ -4450,7 +4764,7 @@ function_arg_record_value_2 (type, startbitpos, parms)
 }
 
 /* Used by function_arg and function_value to implement the complex
-   Sparc64 structure calling conventions.  */
+   SPARC64 structure calling conventions.  */
 
 static rtx
 function_arg_record_value (type, mode, slotno, named, regbase)
@@ -4937,13 +5251,12 @@ sparc_builtin_saveregs ()
 /* Implement `va_start' for varargs and stdarg.  */
 
 void
-sparc_va_start (stdarg_p, valist, nextarg)
-     int stdarg_p ATTRIBUTE_UNUSED;
+sparc_va_start (valist, nextarg)
      tree valist;
      rtx nextarg;
 {
   nextarg = expand_builtin_saveregs ();
-  std_expand_builtin_va_start (1, valist, nextarg);
+  std_expand_builtin_va_start (valist, nextarg);
 }
 
 /* Implement `va_arg'.  */
@@ -5041,7 +5354,8 @@ sparc_va_arg (valist, type)
       PUT_MODE (tmp, BLKmode);
       set_mem_alias_set (tmp, 0);
       
-      dest_addr = emit_block_move (tmp, addr_rtx, GEN_INT (rsize));
+      dest_addr = emit_block_move (tmp, addr_rtx, GEN_INT (rsize),
+				   BLOCK_OP_NORMAL);
       if (dest_addr != NULL_RTX)
 	addr_rtx = dest_addr;
       else
@@ -5063,11 +5377,11 @@ sparc_va_arg (valist, type)
    XEXP (OP, 0) is assumed to be a condition code register (integer or
    floating point) and its mode specifies what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.
+   NOOP is nonzero if we have to follow this branch by a noop.
 
    INSN, if set, is the insn.  */
 
@@ -5496,11 +5810,11 @@ sparc_emit_floatunsdi (operands)
    operand number of the reg.  OP is the conditional expression.  The mode
    of REG says what kind of comparison we made.
 
-   REVERSED is non-zero if we should reverse the sense of the comparison.
+   REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   ANNUL is non-zero if we should generate an annulling branch.
+   ANNUL is nonzero if we should generate an annulling branch.
 
-   NOOP is non-zero if we have to follow this branch by a noop.  */
+   NOOP is nonzero if we have to follow this branch by a noop.  */
 
 char *
 output_v9branch (op, dest, reg, label, reversed, annul, noop, insn)
@@ -6236,10 +6550,6 @@ sparc_assemble_integer (x, size, aligned_p)
    what kind of result this function returns.  For non-C types, we pick
    the closest C type.  */
 
-#ifndef CHAR_TYPE_SIZE
-#define CHAR_TYPE_SIZE BITS_PER_UNIT
-#endif
-
 #ifndef SHORT_TYPE_SIZE
 #define SHORT_TYPE_SIZE (BITS_PER_UNIT * 2)
 #endif
@@ -6445,7 +6755,8 @@ sparc_initialize_trampoline (tramp, fnaddr, cxt)
   /* On UltraSPARC a flush flushes an entire cache line.  The trampoline is
      aligned on a 16 byte boundary so one flush clears it all.  */
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
-  if (sparc_cpu != PROCESSOR_ULTRASPARC)
+  if (sparc_cpu != PROCESSOR_ULTRASPARC
+      && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 }
@@ -6483,7 +6794,8 @@ sparc64_initialize_trampoline (tramp, fnaddr, cxt)
   emit_move_insn (gen_rtx_MEM (DImode, plus_constant (tramp, 24)), fnaddr);
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
-  if (sparc_cpu != PROCESSOR_ULTRASPARC)
+  if (sparc_cpu != PROCESSOR_ULTRASPARC
+      && sparc_cpu != PROCESSOR_ULTRASPARC3)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 }
 
@@ -7336,157 +7648,6 @@ hypersparc_adjust_cost (insn, link, dep_insn, cost)
 }
 
 static int
-ultrasparc_adjust_cost (insn, link, dep_insn, cost)
-     rtx insn;
-     rtx link;
-     rtx dep_insn;
-     int cost;
-{
-  enum attr_type insn_type, dep_type;
-  rtx pat = PATTERN(insn);
-  rtx dep_pat = PATTERN (dep_insn);
-
-  if (recog_memoized (insn) < 0 || recog_memoized (dep_insn) < 0)
-    return cost;
-
-  insn_type = get_attr_type (insn);
-  dep_type = get_attr_type (dep_insn);
-
-  /* Nothing issues in parallel with integer multiplies, so
-     mark as zero cost since the scheduler can not do anything
-     about it.  */
-  if (insn_type == TYPE_IMUL || insn_type == TYPE_IDIV)
-    return 0;
-
-#define SLOW_FP(dep_type) \
-(dep_type == TYPE_FPSQRTS || dep_type == TYPE_FPSQRTD || \
- dep_type == TYPE_FPDIVS || dep_type == TYPE_FPDIVD)
-
-  switch (REG_NOTE_KIND (link))
-    {
-    case 0:
-      /* Data dependency; DEP_INSN writes a register that INSN reads some
-	 cycles later.  */
-
-      if (dep_type == TYPE_CMOVE)
-	{
-	  /* Instructions that read the result of conditional moves cannot
-	     be in the same group or the following group.  */
-	  return cost + 1;
-	}
-
-      switch (insn_type)
-	{
-	  /* UltraSPARC can dual issue a store and an instruction setting
-	     the value stored, except for divide and square root.  */
-	case TYPE_FPSTORE:
-	  if (! SLOW_FP (dep_type))
-	    return 0;
-	  return cost;
-
-	case TYPE_STORE:
-	  if (GET_CODE (pat) != SET || GET_CODE (dep_pat) != SET)
-	    return cost;
-
-	  if (rtx_equal_p (SET_DEST (dep_pat), SET_SRC (pat)))
-	    /* The dependency between the two instructions is on the data
-	       that is being stored.  Assume that the address of the store
-	       is not also dependent.  */
-	    return 0;
-	  return cost;
-
-	case TYPE_LOAD:
-	case TYPE_SLOAD:
-	case TYPE_FPLOAD:
-	  /* A load does not return data until at least 11 cycles after
-	     a store to the same location.  3 cycles are accounted for
-	     in the load latency; add the other 8 here.  */
-	  if (dep_type == TYPE_STORE || dep_type == TYPE_FPSTORE)
-	    {
-	      /* If the addresses are not equal this may be a false
-		 dependency because pointer aliasing could not be
-		 determined.  Add only 2 cycles in that case.  2 is
-		 an arbitrary compromise between 8, which would cause
-		 the scheduler to generate worse code elsewhere to
-		 compensate for a dependency which might not really
-		 exist, and 0.  */
-	      if (GET_CODE (pat) != SET || GET_CODE (dep_pat) != SET
-		  || GET_CODE (SET_SRC (pat)) != MEM
-		  || GET_CODE (SET_DEST (dep_pat)) != MEM
-		  || ! rtx_equal_p (XEXP (SET_SRC (pat), 0),
-				    XEXP (SET_DEST (dep_pat), 0)))
-		return cost + 2;
-
-	      return cost + 8;
-	    }
-	  return cost;
-
-	case TYPE_BRANCH:
-	  /* Compare to branch latency is 0.  There is no benefit from
-	     separating compare and branch.  */
-	  if (dep_type == TYPE_COMPARE)
-	    return 0;
-	  /* Floating point compare to branch latency is less than
-	     compare to conditional move.  */
-	  if (dep_type == TYPE_FPCMP)
-	    return cost - 1;
-	  return cost;
-
-	case TYPE_FPCMOVE:
-	  /* FMOVR class instructions can not issue in the same cycle
-	     or the cycle after an instruction which writes any
-	     integer register.  Model this as cost 2 for dependent
-	     instructions.  */
-	  if (dep_type == TYPE_IALU
-	      && cost < 2)
-	    return 2;
-	  /* Otherwise check as for integer conditional moves.  */
-
-	case TYPE_CMOVE:
-	  /* Conditional moves involving integer registers wait until
-	     3 cycles after loads return data.  The interlock applies
-	     to all loads, not just dependent loads, but that is hard
-	     to model.  */
-	  if (dep_type == TYPE_LOAD || dep_type == TYPE_SLOAD)
-	    return cost + 3;
-	  return cost;
-
-	default:
-	  break;
-	}
-      break;
-
-    case REG_DEP_ANTI:
-      /* Divide and square root lock destination registers for full latency.  */
-      if (! SLOW_FP (dep_type))
-	return 0;
-      break;
-
-    case REG_DEP_OUTPUT:
-      /* IEU and FPU instruction that have the same destination
-	 register cannot be grouped together.  */
-      return cost + 1;
-
-    default:
-      break;
-    }
-
-  /* Other costs not accounted for:
-     - Single precision floating point loads lock the other half of
-       the even/odd register pair.
-     - Several hazards associated with ldd/std are ignored because these
-       instructions are rarely generated for V9.
-     - The floating point pipeline can not have both a single and double
-       precision operation active at the same time.  Format conversions
-       and graphics instructions are given honorary double precision status.
-     - call and jmpl are always the first instruction in a group.  */
-
-  return cost;
-
-#undef SLOW_FP
-}
-
-static int
 sparc_adjust_cost(insn, link, dep, cost)
      rtx insn;
      rtx link;
@@ -7502,377 +7663,10 @@ sparc_adjust_cost(insn, link, dep, cost)
     case PROCESSOR_SPARCLITE86X:
       cost = hypersparc_adjust_cost (insn, link, dep, cost);
       break;
-    case PROCESSOR_ULTRASPARC:
-      cost = ultrasparc_adjust_cost (insn, link, dep, cost);
-      break;
     default:
       break;
     }
   return cost;
-}
-
-/* This describes the state of the UltraSPARC pipeline during
-   instruction scheduling.  */
-
-#define TMASK(__x)	((unsigned)1 << ((int)(__x)))
-#define UMASK(__x)	((unsigned)1 << ((int)(__x)))
-
-enum ultra_code { NONE=0, /* no insn at all				*/
-		  IEU0,   /* shifts and conditional moves		*/
-		  IEU1,   /* condition code setting insns, calls+jumps	*/
-		  IEUN,   /* all other single cycle ieu insns		*/
-		  LSU,    /* loads and stores				*/
-		  CTI,    /* branches					*/
-		  FPM,    /* FPU pipeline 1, multiplies and divides	*/
-		  FPA,    /* FPU pipeline 2, all other operations	*/
-		  SINGLE, /* single issue instructions			*/
-		  NUM_ULTRA_CODES };
-
-static enum ultra_code ultra_code_from_mask PARAMS ((int));
-static void ultra_schedule_insn PARAMS ((rtx *, rtx *, int, enum ultra_code));
-
-static const char *const ultra_code_names[NUM_ULTRA_CODES] = {
-  "NONE", "IEU0", "IEU1", "IEUN", "LSU", "CTI",
-  "FPM", "FPA", "SINGLE" };
-
-struct ultrasparc_pipeline_state {
-  /* The insns in this group.  */
-  rtx group[4];
-
-  /* The code for each insn.  */
-  enum ultra_code codes[4];
-
-  /* Which insns in this group have been committed by the
-     scheduler.  This is how we determine how many more
-     can issue this cycle.  */
-  char commit[4];
-
-  /* How many insns in this group.  */
-  char group_size;
-
-  /* Mask of free slots still in this group.  */
-  char free_slot_mask;
-
-  /* The slotter uses the following to determine what other
-     insn types can still make their way into this group.  */
-  char contents [NUM_ULTRA_CODES];
-  char num_ieu_insns;
-};
-
-#define ULTRA_NUM_HIST	8
-static struct ultrasparc_pipeline_state ultra_pipe_hist[ULTRA_NUM_HIST];
-static int ultra_cur_hist;
-static int ultra_cycles_elapsed;
-
-#define ultra_pipe	(ultra_pipe_hist[ultra_cur_hist])
-
-/* Given TYPE_MASK compute the ultra_code it has.  */
-static enum ultra_code
-ultra_code_from_mask (type_mask)
-     int type_mask;
-{
-  if (type_mask & (TMASK (TYPE_SHIFT) | TMASK (TYPE_CMOVE)))
-    return IEU0;
-  else if (type_mask & (TMASK (TYPE_COMPARE) |
-			TMASK (TYPE_CALL) |
-			TMASK (TYPE_SIBCALL) |
-			TMASK (TYPE_UNCOND_BRANCH)))
-    return IEU1;
-  else if (type_mask & TMASK (TYPE_IALU))
-    return IEUN;
-  else if (type_mask & (TMASK (TYPE_LOAD) | TMASK (TYPE_SLOAD) |
-			TMASK (TYPE_STORE) | TMASK (TYPE_FPLOAD) |
-			TMASK (TYPE_FPSTORE)))
-    return LSU;
-  else if (type_mask & (TMASK (TYPE_FPMUL) | TMASK (TYPE_FPDIVS) |
-			TMASK (TYPE_FPDIVD) | TMASK (TYPE_FPSQRTS) |
-			TMASK (TYPE_FPSQRTD)))
-    return FPM;
-  else if (type_mask & (TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPCMOVE) |
-			TMASK (TYPE_FP) | TMASK (TYPE_FPCMP)))
-    return FPA;
-  else if (type_mask & TMASK (TYPE_BRANCH))
-    return CTI;
-
-  return SINGLE;
-}
-
-/* Check INSN (a conditional move) and make sure that it's
-   results are available at this cycle.  Return 1 if the
-   results are in fact ready.  */
-static int
-ultra_cmove_results_ready_p (insn)
-     rtx insn;
-{
-  struct ultrasparc_pipeline_state *up;
-  int entry, slot;
-
-  /* If this got dispatched in the previous
-     group, the results are not ready.  */
-  entry = (ultra_cur_hist - 1) & (ULTRA_NUM_HIST - 1);
-  up = &ultra_pipe_hist[entry];
-  slot = 4;
-  while (--slot >= 0)
-    if (up->group[slot] == insn)
-      return 0;
-
-  return 1;
-}
-
-/* Walk backwards in pipeline history looking for FPU
-   operations which use a mode different than FPMODE and
-   will create a stall if an insn using FPMODE were to be
-   dispatched this cycle.  */
-static int
-ultra_fpmode_conflict_exists (fpmode)
-     enum machine_mode fpmode;
-{
-  int hist_ent;
-  int hist_lim;
-
-  hist_ent = (ultra_cur_hist - 1) & (ULTRA_NUM_HIST - 1);
-  if (ultra_cycles_elapsed < 4)
-    hist_lim = ultra_cycles_elapsed;
-  else
-    hist_lim = 4;
-  while (hist_lim > 0)
-    {
-      struct ultrasparc_pipeline_state *up = &ultra_pipe_hist[hist_ent];
-      int slot = 4;
-
-      while (--slot >= 0)
-	{
-	  rtx insn = up->group[slot];
-	  enum machine_mode this_mode;
-	  rtx pat;
-
-	  if (! insn
-	      || GET_CODE (insn) != INSN
-	      || (pat = PATTERN (insn)) == 0
-	      || GET_CODE (pat) != SET)
-	    continue;
-
-	  this_mode = GET_MODE (SET_DEST (pat));
-	  if ((this_mode != SFmode
-	       && this_mode != DFmode)
-	      || this_mode == fpmode)
-	    continue;
-
-	  /* If it is not FMOV, FABS, FNEG, FDIV, or FSQRT then
-	     we will get a stall.  Loads and stores are independent
-	     of these rules.  */
-	  if (GET_CODE (SET_SRC (pat)) != ABS
-	      && GET_CODE (SET_SRC (pat)) != NEG
-	      && ((TMASK (get_attr_type (insn)) &
-		   (TMASK (TYPE_FPDIVS) | TMASK (TYPE_FPDIVD) |
-		    TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPSQRTS) |
-		    TMASK (TYPE_FPSQRTD) |
-                    TMASK (TYPE_LOAD) | TMASK (TYPE_STORE))) == 0))
-	    return 1;
-	}
-      hist_lim--;
-      hist_ent = (hist_ent - 1) & (ULTRA_NUM_HIST - 1);
-    }
-
-  /* No conflicts, safe to dispatch.  */
-  return 0;
-}
-
-/* Find an instruction in LIST which has one of the
-   type attributes enumerated in TYPE_MASK.  START
-   says where to begin the search.
-
-   NOTE: This scheme depends upon the fact that we
-         have less than 32 distinct type attributes.  */
-
-static int ultra_types_avail;
-
-static rtx *
-ultra_find_type (type_mask, list, start)
-     int type_mask;
-     rtx *list;
-     int start;
-{
-  int i;
-
-  /* Short circuit if no such insn exists in the ready
-     at the moment.  */
-  if ((type_mask & ultra_types_avail) == 0)
-    return 0;
-
-  for (i = start; i >= 0; i--)
-    {
-      rtx insn = list[i];
-
-      if (recog_memoized (insn) >= 0
-	  && (TMASK(get_attr_type (insn)) & type_mask))
-	{
-	  enum machine_mode fpmode = SFmode;
-	  rtx pat = 0;
-	  int slot;
-	  int check_depend = 0;
-	  int check_fpmode_conflict = 0;
-
-	  if (GET_CODE (insn) == INSN
-	      && (pat = PATTERN(insn)) != 0
-	      && GET_CODE (pat) == SET
-	      && !(type_mask & (TMASK (TYPE_STORE) |
-				TMASK (TYPE_FPSTORE))))
-	    {
-	      check_depend = 1;
-	      if (GET_MODE (SET_DEST (pat)) == SFmode
-		  || GET_MODE (SET_DEST (pat)) == DFmode)
-		{
-		  fpmode = GET_MODE (SET_DEST (pat));
-		  check_fpmode_conflict = 1;
-		}
-	    }
-
-	  slot = 4;
-	  while(--slot >= 0)
-	    {
-	      rtx slot_insn = ultra_pipe.group[slot];
-	      rtx slot_pat;
-
-	      /* Already issued, bad dependency, or FPU
-		 mode conflict.  */
-	      if (slot_insn != 0
-		  && (slot_pat = PATTERN (slot_insn)) != 0
-		  && ((insn == slot_insn)
-		      || (check_depend == 1
-			  && GET_CODE (slot_insn) == INSN
-			  && GET_CODE (slot_pat) == SET
-			  && ((GET_CODE (SET_DEST (slot_pat)) == REG
-			       && GET_CODE (SET_SRC (pat)) == REG
-			       && REGNO (SET_DEST (slot_pat)) ==
-			            REGNO (SET_SRC (pat)))
-			      || (GET_CODE (SET_DEST (slot_pat)) == SUBREG
-				  && GET_CODE (SET_SRC (pat)) == SUBREG
-				  && REGNO (SUBREG_REG (SET_DEST (slot_pat))) ==
-				       REGNO (SUBREG_REG (SET_SRC (pat)))
-				  && SUBREG_BYTE (SET_DEST (slot_pat)) ==
-				       SUBREG_BYTE (SET_SRC (pat)))))
-		      || (check_fpmode_conflict == 1
-			  && GET_CODE (slot_insn) == INSN
-			  && GET_CODE (slot_pat) == SET
-			  && (GET_MODE (SET_DEST (slot_pat)) == SFmode
-			      || GET_MODE (SET_DEST (slot_pat)) == DFmode)
-			  && GET_MODE (SET_DEST (slot_pat)) != fpmode)))
-		goto next;
-	    }
-
-	  /* Check for peculiar result availability and dispatch
-	     interference situations.  */
-	  if (pat != 0
-	      && ultra_cycles_elapsed > 0)
-	    {
-	      rtx link;
-
-	      for (link = LOG_LINKS (insn); link; link = XEXP (link, 1))
-		{
-		  rtx link_insn = XEXP (link, 0);
-		  if (GET_CODE (link_insn) == INSN
-		      && recog_memoized (link_insn) >= 0
-		      && (TMASK (get_attr_type (link_insn)) &
-			  (TMASK (TYPE_CMOVE) | TMASK (TYPE_FPCMOVE)))
-		      && ! ultra_cmove_results_ready_p (link_insn))
-		    goto next;
-		}
-
-	      if (check_fpmode_conflict
-		  && ultra_fpmode_conflict_exists (fpmode))
-		goto next;
-	    }
-
-	  return &list[i];
-	}
-    next:
-      ;
-    }
-  return 0;
-}
-
-static void
-ultra_build_types_avail (ready, n_ready)
-  rtx *ready;
-  int n_ready;
-{
-  int i = n_ready - 1;
-
-  ultra_types_avail = 0;
-  while(i >= 0)
-    {
-      rtx insn = ready[i];
-
-      if (recog_memoized (insn) >= 0)
-	ultra_types_avail |= TMASK (get_attr_type (insn));
-
-      i -= 1;
-    }
-}
-
-/* Place insn pointed to my IP into the pipeline.
-   Make element THIS of READY be that insn if it
-   is not already.  TYPE indicates the pipeline class
-   this insn falls into.  */
-static void
-ultra_schedule_insn (ip, ready, this, type)
-     rtx *ip;
-     rtx *ready;
-     int this;
-     enum ultra_code type;
-{
-  int pipe_slot;
-  char mask = ultra_pipe.free_slot_mask;
-  rtx temp;
-
-  /* Obtain free slot.  */
-  for (pipe_slot = 0; pipe_slot < 4; pipe_slot++)
-    if ((mask & (1 << pipe_slot)) != 0)
-      break;
-  if (pipe_slot == 4)
-    abort ();
-
-  /* In it goes, and it hasn't been committed yet.  */
-  ultra_pipe.group[pipe_slot] = *ip;
-  ultra_pipe.codes[pipe_slot] = type;
-  ultra_pipe.contents[type] = 1;
-  if (UMASK (type) &
-      (UMASK (IEUN) | UMASK (IEU0) | UMASK (IEU1)))
-    ultra_pipe.num_ieu_insns += 1;
-
-  ultra_pipe.free_slot_mask = (mask & ~(1 << pipe_slot));
-  ultra_pipe.group_size += 1;
-  ultra_pipe.commit[pipe_slot] = 0;
-
-  /* Update ready list.  */
-  temp = *ip;
-  while (ip != &ready[this])
-    {
-      ip[0] = ip[1];
-      ++ip;
-    }
-  *ip = temp;
-}
-
-/* Advance to the next pipeline group.  */
-static void
-ultra_flush_pipeline ()
-{
-  ultra_cur_hist = (ultra_cur_hist + 1) & (ULTRA_NUM_HIST - 1);
-  ultra_cycles_elapsed += 1;
-  memset ((char *) &ultra_pipe, 0, sizeof ultra_pipe);
-  ultra_pipe.free_slot_mask = 0xf;
-}
-
-/* Init our data structures for this current block.  */
-static void
-ultrasparc_sched_init ()
-{
-  memset ((char *) ultra_pipe_hist, 0, sizeof ultra_pipe_hist);
-  ultra_cur_hist = 0;
-  ultra_cycles_elapsed = 0;
-  ultra_pipe.free_slot_mask = 0xf;
 }
 
 static void
@@ -7881,413 +7675,51 @@ sparc_sched_init (dump, sched_verbose, max_ready)
      int sched_verbose ATTRIBUTE_UNUSED;
      int max_ready ATTRIBUTE_UNUSED;
 {
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)
-    ultrasparc_sched_init ();
 }
   
-/* INSN has been scheduled, update pipeline commit state
-   and return how many instructions are still to be
-   scheduled in this group.  */
 static int
-ultrasparc_variable_issue (insn)
-     rtx insn;
+sparc_use_dfa_pipeline_interface ()
 {
-  struct ultrasparc_pipeline_state *up = &ultra_pipe;
-  int i, left_to_fire;
-
-  left_to_fire = 0;
-  for (i = 0; i < 4; i++)
-    {
-      if (up->group[i] == 0)
-	continue;
-
-      if (up->group[i] == insn)
-	{
-	  up->commit[i] = 1;
-	}
-      else if (! up->commit[i])
-	left_to_fire++;
-    }
-
-  return left_to_fire;
+  if ((1 << sparc_cpu) &
+      ((1 << PROCESSOR_ULTRASPARC) | (1 << PROCESSOR_CYPRESS) |
+       (1 << PROCESSOR_SUPERSPARC) | (1 << PROCESSOR_HYPERSPARC) |
+       (1 << PROCESSOR_SPARCLITE86X) | (1 << PROCESSOR_TSC701) |
+       (1 << PROCESSOR_ULTRASPARC3)))
+    return 1;
+  return 0;
 }
 
 static int
-sparc_variable_issue (dump, sched_verbose, insn, cim)
-     FILE *dump ATTRIBUTE_UNUSED;
-     int sched_verbose ATTRIBUTE_UNUSED;
-     rtx insn;
-     int cim;
+sparc_use_sched_lookahead ()
 {
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)
-    return ultrasparc_variable_issue (insn);
-  else
-    return cim - 1;
-}
-
-/* In actual_hazard_this_instance, we may have yanked some
-   instructions from the ready list due to conflict cost
-   adjustments.  If so, and such an insn was in our pipeline
-   group, remove it and update state.  */
-static void
-ultra_rescan_pipeline_state (ready, n_ready)
-     rtx *ready;
-     int n_ready;
-{
-  struct ultrasparc_pipeline_state *up = &ultra_pipe;
-  int i;
-
-  for (i = 0; i < 4; i++)
-    {
-      rtx insn = up->group[i];
-      int j;
-
-      if (! insn)
-	continue;
-
-      /* If it has been committed, then it was removed from
-	 the ready list because it was actually scheduled,
-	 and that is not the case we are searching for here.  */
-      if (up->commit[i] != 0)
-	continue;
-
-      for (j = n_ready - 1; j >= 0; j--)
-	if (ready[j] == insn)
-	  break;
-
-      /* If we didn't find it, toss it.  */
-      if (j < 0)
-	{
-	  enum ultra_code ucode = up->codes[i];
-
-	  up->group[i] = 0;
-	  up->codes[i] = NONE;
-	  up->contents[ucode] = 0;
-	  if (UMASK (ucode) &
-	      (UMASK (IEUN) | UMASK (IEU0) | UMASK (IEU1)))
-	    up->num_ieu_insns -= 1;
-
-	  up->free_slot_mask |= (1 << i);
-	  up->group_size -= 1;
-	  up->commit[i] = 0;
-	}
-    }
-}
-
-static void
-ultrasparc_sched_reorder (dump, sched_verbose, ready, n_ready)
-     FILE *dump;
-     int sched_verbose;
-     rtx *ready;
-     int n_ready;
-{
-  struct ultrasparc_pipeline_state *up = &ultra_pipe;
-  int i, this_insn;
-
-  if (sched_verbose)
-    {
-      int n;
-
-      fprintf (dump, "\n;;\tUltraSPARC Looking at [");
-      for (n = n_ready - 1; n >= 0; n--)
-	{
-	  rtx insn = ready[n];
-	  enum ultra_code ucode;
-
-	  if (recog_memoized (insn) < 0)
-	    continue;
-	  ucode = ultra_code_from_mask (TMASK (get_attr_type (insn)));
-	  if (n != 0)
-	    fprintf (dump, "%s(%d) ",
-		     ultra_code_names[ucode],
-		     INSN_UID (insn));
-	  else
-	    fprintf (dump, "%s(%d)",
-		     ultra_code_names[ucode],
-		     INSN_UID (insn));
-	}
-      fprintf (dump, "]\n");
-    }
-
-  this_insn = n_ready - 1;
-
-  /* Skip over junk we don't understand.  */
-  while ((this_insn >= 0)
-	 && recog_memoized (ready[this_insn]) < 0)
-    this_insn--;
-
-  ultra_build_types_avail (ready, this_insn + 1);
-
-  while (this_insn >= 0) {
-    int old_group_size = up->group_size;
-
-    if (up->group_size != 0)
-      {
-	int num_committed;
-
-	num_committed = (up->commit[0] + up->commit[1] +
-			 up->commit[2] + up->commit[3]);
-	/* If nothing has been commited from our group, or all of
-	   them have.  Clear out the (current cycle's) pipeline
-	   state and start afresh.  */
-	if (num_committed == 0
-	    || num_committed == up->group_size)
-	  {
-	    ultra_flush_pipeline ();
-	    up = &ultra_pipe;
-	    old_group_size = 0;
-	  }
-	else
-	  {
-	    /* OK, some ready list insns got requeued and thus removed
-	       from the ready list.  Account for this fact.  */
-	    ultra_rescan_pipeline_state (ready, n_ready);
-
-	    /* Something "changed", make this look like a newly
-	       formed group so the code at the end of the loop
-	       knows that progress was in fact made.  */
-	    if (up->group_size != old_group_size)
-	      old_group_size = 0;
-	  }
-      }
-
-    if (up->group_size == 0)
-      {
-	/* If the pipeline is (still) empty and we have any single
-	   group insns, get them out now as this is a good time.  */
-	rtx *ip = ultra_find_type ((TMASK (TYPE_RETURN) | TMASK (TYPE_IDIV) |
-				    TMASK (TYPE_IMUL) | TMASK (TYPE_CMOVE) |
-				    TMASK (TYPE_MULTI) | TMASK (TYPE_MISC)),
-				   ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, SINGLE);
-	    break;
-	  }
-
-	/* If we are not in the process of emptying out the pipe, try to
-	   obtain an instruction which must be the first in it's group.  */
-	ip = ultra_find_type ((TMASK (TYPE_CALL) |
-			       TMASK (TYPE_SIBCALL) |
-			       TMASK (TYPE_CALL_NO_DELAY_SLOT) |
-			       TMASK (TYPE_UNCOND_BRANCH)),
-			      ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, IEU1);
-	    this_insn--;
-	  }
-	else if ((ip = ultra_find_type ((TMASK (TYPE_FPDIVS) |
-					 TMASK (TYPE_FPDIVD) |
-					 TMASK (TYPE_FPSQRTS) |
-					 TMASK (TYPE_FPSQRTD)),
-					ready, this_insn)) != 0)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, FPM);
-	    this_insn--;
-	  }
-      }
-
-    /* Try to fill the integer pipeline.  First, look for an IEU0 specific
-       operation.  We can't do more IEU operations if the first 3 slots are
-       all full or we have dispatched two IEU insns already.  */
-    if ((up->free_slot_mask & 0x7) != 0
-	&& up->num_ieu_insns < 2
-	&& up->contents[IEU0] == 0
-	&& up->contents[IEUN] == 0)
-      {
-	rtx *ip = ultra_find_type (TMASK(TYPE_SHIFT), ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, IEU0);
-	    this_insn--;
-	  }
-      }
-
-    /* If we can, try to find an IEU1 specific or an unnamed
-       IEU instruction.  */
-    if ((up->free_slot_mask & 0x7) != 0
-	&& up->num_ieu_insns < 2)
-      {
-	rtx *ip = ultra_find_type ((TMASK (TYPE_IALU) |
-				    (up->contents[IEU1] == 0 ? TMASK (TYPE_COMPARE) : 0)),
-				   ready, this_insn);
-	if (ip)
-	  {
-	    rtx insn = *ip;
-
-	    ultra_schedule_insn (ip, ready, this_insn,
-				 (!up->contents[IEU1]
-				  && get_attr_type (insn) == TYPE_COMPARE)
-				 ? IEU1 : IEUN);
-	    this_insn--;
-	  }
-      }
-
-    /* If only one IEU insn has been found, try to find another unnamed
-       IEU operation or an IEU1 specific one.  */
-    if ((up->free_slot_mask & 0x7) != 0
-	&& up->num_ieu_insns < 2)
-      {
-	rtx *ip;
-	int tmask = TMASK (TYPE_IALU);
-
-	if (!up->contents[IEU1])
-	  tmask |= TMASK (TYPE_COMPARE);
-	ip = ultra_find_type (tmask, ready, this_insn);
-	if (ip)
-	  {
-	    rtx insn = *ip;
-
-	    ultra_schedule_insn (ip, ready, this_insn,
-				 (!up->contents[IEU1]
-				  && get_attr_type (insn) == TYPE_COMPARE)
-				 ? IEU1 : IEUN);
-	    this_insn--;
-	  }
-      }
-
-    /* Try for a load or store, but such an insn can only be issued
-       if it is within' one of the first 3 slots.  */
-    if ((up->free_slot_mask & 0x7) != 0
-        && up->contents[LSU] == 0)
-      {
-	rtx *ip = ultra_find_type ((TMASK (TYPE_LOAD) | TMASK (TYPE_SLOAD) |
-				   TMASK (TYPE_STORE) | TMASK (TYPE_FPLOAD) |
-				   TMASK (TYPE_FPSTORE)), ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, LSU);
-	    this_insn--;
-	  }
-      }
-
-    /* Now find FPU operations, first FPM class.  But not divisions or
-       square-roots because those will break the group up.  Unlike all
-       the previous types, these can go in any slot.  */
-    if (up->free_slot_mask != 0
-	&& up->contents[FPM] == 0)
-      {
-	rtx *ip = ultra_find_type (TMASK (TYPE_FPMUL), ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, FPM);
-	    this_insn--;
-	  }
-      }
-    
-    /* Continue on with FPA class if we have not filled the group already.  */
-    if (up->free_slot_mask != 0
-	&& up->contents[FPA] == 0)
-      {
-	rtx *ip = ultra_find_type ((TMASK (TYPE_FPMOVE) | TMASK (TYPE_FPCMOVE) |
-				    TMASK (TYPE_FP) | TMASK (TYPE_FPCMP)),
-				   ready, this_insn);
-	if (ip)
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, FPA);
-	    this_insn--;
-	  }
-      }
-
-    /* Finally, maybe stick a branch in here.  */
-    if (up->free_slot_mask != 0
-	&& up->contents[CTI] == 0)
-      {
-	rtx *ip = ultra_find_type (TMASK (TYPE_BRANCH), ready, this_insn);
-
-	/* Try to slip in a branch only if it is one of the
-	   next 2 in the ready list.  */
-	if (ip && ((&ready[this_insn] - ip) < 2))
-	  {
-	    ultra_schedule_insn (ip, ready, this_insn, CTI);
-	    this_insn--;
-	  }
-      }
-
-    up->group_size = 0;
-    for (i = 0; i < 4; i++)
-      if ((up->free_slot_mask & (1 << i)) == 0)
-	up->group_size++;
-
-    /* See if we made any progress...  */
-    if (old_group_size != up->group_size)
-      break;
-
-    /* Clean out the (current cycle's) pipeline state
-       and try once more.  If we placed no instructions
-       into the pipeline at all, it means a real hard
-       conflict exists with some earlier issued instruction
-       so we must advance to the next cycle to clear it up.  */
-    if (up->group_size == 0)
-      {
-	ultra_flush_pipeline ();
-	up = &ultra_pipe;
-      }
-    else
-      {
-	memset ((char *) &ultra_pipe, 0, sizeof ultra_pipe);
-	ultra_pipe.free_slot_mask = 0xf;
-      }
-  }
-
-  if (sched_verbose)
-    {
-      int n, gsize;
-
-      fprintf (dump, ";;\tUltraSPARC Launched   [");
-      gsize = up->group_size;
-      for (n = 0; n < 4; n++)
-	{
-	  rtx insn = up->group[n];
-
-	  if (! insn)
-	    continue;
-
-	  gsize -= 1;
-	  if (gsize != 0)
-	    fprintf (dump, "%s(%d) ",
-		     ultra_code_names[up->codes[n]],
-		     INSN_UID (insn));
-	  else
-	    fprintf (dump, "%s(%d)",
-		     ultra_code_names[up->codes[n]],
-		     INSN_UID (insn));
-	}
-      fprintf (dump, "]\n");
-    }
+  if (sparc_cpu == PROCESSOR_ULTRASPARC
+      || sparc_cpu == PROCESSOR_ULTRASPARC3)
+    return 4;
+  if ((1 << sparc_cpu) &
+      ((1 << PROCESSOR_SUPERSPARC) | (1 << PROCESSOR_HYPERSPARC) |
+       (1 << PROCESSOR_SPARCLITE86X)))
+    return 3;
+  return 0;
 }
 
 static int
-sparc_sched_reorder (dump, sched_verbose, ready, n_readyp, clock)
-     FILE *dump;
-     int sched_verbose;
-     rtx *ready;
-     int *n_readyp;
-     int clock ATTRIBUTE_UNUSED;
-{
-  if (sparc_cpu == PROCESSOR_ULTRASPARC)
-    ultrasparc_sched_reorder (dump, sched_verbose, ready, *n_readyp);
-  return sparc_issue_rate ();
-}
-
-static int                                                           
 sparc_issue_rate ()
 {
   switch (sparc_cpu)
     {
-    default:                                 
-      return 1;                                                    
-    case PROCESSOR_V9:                                                
+    default:
+      return 1;
+    case PROCESSOR_V9:
       /* Assume V9 processors are capable of at least dual-issue.  */
       return 2;
-    case PROCESSOR_SUPERSPARC:                                        
-      return 3;                                                      
+    case PROCESSOR_SUPERSPARC:
+      return 3;
     case PROCESSOR_HYPERSPARC:
     case PROCESSOR_SPARCLITE86X:
       return 2;
-    case PROCESSOR_ULTRASPARC:                                            
-      return 4;                                                    
+    case PROCESSOR_ULTRASPARC:
+    case PROCESSOR_ULTRASPARC3:
+      return 4;
     }
 }
 
@@ -8338,7 +7770,6 @@ set_extends (insn)
 	  return INTVAL (op1) >= 0;
 	return (GET_CODE (op1) == REG && sparc_check_64 (op1, insn) == 1);
       }
-    case ASHIFT:
     case LSHIFTRT:
       return GET_MODE (SET_SRC (pat)) == SImode;
       /* Positive integers leave the high bits zero.  */
@@ -8357,8 +7788,8 @@ set_extends (insn)
 }
 
 /* We _ought_ to have only one kind per function, but...  */
-static rtx sparc_addr_diff_list;
-static rtx sparc_addr_list;
+static GTY(()) rtx sparc_addr_diff_list;
+static GTY(()) rtx sparc_addr_list;
 
 void
 sparc_defer_case_vector (lab, vec, diff)
@@ -8568,37 +7999,6 @@ sparc_profile_hook (labelno)
   emit_library_call (fun, LCT_NORMAL, VOIDmode, 1, lab, Pmode);
 }
 
-/* Mark ARG, which is really a struct ultrasparc_pipline_state *, for
-   GC.  */
-
-static void
-mark_ultrasparc_pipeline_state (arg)
-     void *arg;
-{
-  struct ultrasparc_pipeline_state *ups;
-  size_t i;
-
-  ups = (struct ultrasparc_pipeline_state *) arg;
-  for (i = 0; i < sizeof (ups->group) / sizeof (rtx); ++i)
-    ggc_mark_rtx (ups->group[i]);
-}
-
-/* Called to register all of our global variables with the garbage
-   collector.  */
-
-static void
-sparc_add_gc_roots ()
-{
-  ggc_add_rtx_root (&sparc_compare_op0, 1);
-  ggc_add_rtx_root (&sparc_compare_op1, 1);
-  ggc_add_rtx_root (&global_offset_table, 1);
-  ggc_add_rtx_root (&get_pc_symbol, 1);
-  ggc_add_rtx_root (&sparc_addr_diff_list, 1);
-  ggc_add_rtx_root (&sparc_addr_list, 1);
-  ggc_add_root (ultra_pipe_hist, ARRAY_SIZE (ultra_pipe_hist),
-		sizeof (ultra_pipe_hist[0]), &mark_ultrasparc_pipeline_state);
-}
-
 #ifdef OBJECT_FORMAT_ELF
 static void
 sparc_elf_asm_named_section (name, flags)
@@ -8627,6 +8027,36 @@ sparc_elf_asm_named_section (name, flags)
   fputc ('\n', asm_out_file);
 }
 #endif /* OBJECT_FORMAT_ELF */
+
+/* ??? Similar to the standard section selection, but force reloc-y-ness
+   if SUNOS4_SHARED_LIBRARIES.  Unclear why this helps (as opposed to
+   pretending PIC always on), but that's what the old code did.  */
+
+static void
+sparc_aout_select_section (t, reloc, align)
+     tree t;
+     int reloc;
+     unsigned HOST_WIDE_INT align;
+{
+  default_select_section (t, reloc | SUNOS4_SHARED_LIBRARIES, align);
+}
+
+/* Use text section for a constant unless we need more alignment than
+   that offers.  */
+
+static void
+sparc_aout_select_rtx_section (mode, x, align)
+     enum machine_mode mode;
+     rtx x;
+     unsigned HOST_WIDE_INT align;
+{
+  if (align <= MAX_TEXT_ALIGN
+      && ! (flag_pic && (symbolic_operand (x, mode)
+			 || SUNOS4_SHARED_LIBRARIES)))
+    readonly_data_section ();
+  else
+    data_section ();
+}
 
 int
 sparc_extra_constraint_check (op, c, strict)
@@ -8689,3 +8119,405 @@ sparc_extra_constraint_check (op, c, strict)
 
   return reload_ok_mem;
 }
+
+/* ??? This duplicates information provided to the compiler by the
+   ??? scheduler description.  Some day, teach genautomata to output
+   ??? the latencies and then CSE will just use that.  */
+
+int
+sparc_rtx_costs (x, code, outer_code)
+     rtx x;
+     enum rtx_code code, outer_code;
+{
+  switch (code)
+    {
+    case PLUS: case MINUS: case ABS: case NEG:
+    case FLOAT: case UNSIGNED_FLOAT:
+    case FIX: case UNSIGNED_FIX:
+    case FLOAT_EXTEND: case FLOAT_TRUNCATE:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (4);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (5);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	    default:
+	      return COSTS_N_INSNS (1);
+	    }
+	}
+
+      return COSTS_N_INSNS (1);
+
+    case SQRT:
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  if (GET_MODE (x) == SFmode)
+	    return COSTS_N_INSNS (13);
+	  else
+	    return COSTS_N_INSNS (23);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (GET_MODE (x) == SFmode)
+	    return COSTS_N_INSNS (20);
+	  else
+	    return COSTS_N_INSNS (29);
+
+	case PROCESSOR_SUPERSPARC:
+	  return COSTS_N_INSNS (12);
+
+	case PROCESSOR_CYPRESS:
+	  return COSTS_N_INSNS (63);
+
+	case PROCESSOR_HYPERSPARC:
+	case PROCESSOR_SPARCLITE86X:
+	  return COSTS_N_INSNS (17);
+
+	default:
+	  return COSTS_N_INSNS (30);
+	}
+
+    case COMPARE:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (1);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (5);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	    default:
+	      return COSTS_N_INSNS (1);
+	    }
+	}
+
+      /* ??? Maybe mark integer compares as zero cost on
+	 ??? all UltraSPARC processors because the result
+	 ??? can be bypassed to a branch in the same group.  */
+
+      return COSTS_N_INSNS (1);
+
+    case MULT:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	    case PROCESSOR_ULTRASPARC3:
+	      return COSTS_N_INSNS (4);
+
+	    case PROCESSOR_SUPERSPARC:
+	      return COSTS_N_INSNS (3);
+
+	    case PROCESSOR_CYPRESS:
+	      return COSTS_N_INSNS (7);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	      return COSTS_N_INSNS (1);
+
+	    default:
+	      return COSTS_N_INSNS (5);
+	    }
+	}
+
+      /* The latency is actually variable for Ultra-I/II
+	 And if one of the inputs have a known constant
+	 value, we could calculate this precisely.
+
+	 However, for that to be useful we would need to
+	 add some machine description changes which would
+	 make sure small constants ended up in rs1 of the
+	 multiply instruction.  This is because the multiply
+	 latency is determined by the number of clear (or
+	 set if the value is negative) bits starting from
+	 the most significant bit of the first input.
+
+	 The algorithm for computing num_cycles of a multiply
+	 on Ultra-I/II is:
+
+	 	if (rs1 < 0)
+			highest_bit = highest_clear_bit(rs1);
+		else
+			highest_bit = highest_set_bit(rs1);
+		if (num_bits < 3)
+			highest_bit = 3;
+		num_cycles = 4 + ((highest_bit - 3) / 2);
+
+	 If we did that we would have to also consider register
+	 allocation issues that would result from forcing such
+	 a value into a register.
+
+	 There are other similar tricks we could play if we
+	 knew, for example, that one input was an array index.
+
+	 Since we do not play any such tricks currently the
+	 safest thing to do is report the worst case latency.  */
+      if (sparc_cpu == PROCESSOR_ULTRASPARC)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (34) : COSTS_N_INSNS (19));
+
+      /* Multiply latency on Ultra-III, fortunately, is constant.  */
+      if (sparc_cpu == PROCESSOR_ULTRASPARC3)
+	return COSTS_N_INSNS (6);
+
+      if (sparc_cpu == PROCESSOR_HYPERSPARC
+	  || sparc_cpu == PROCESSOR_SPARCLITE86X)
+	return COSTS_N_INSNS (17);
+
+      return (TARGET_HARD_MUL
+	      ? COSTS_N_INSNS (5)
+	      : COSTS_N_INSNS (25));
+
+    case DIV:
+    case UDIV:
+    case MOD:
+    case UMOD:
+      if (FLOAT_MODE_P (GET_MODE (x)))
+	{
+	  switch (sparc_cpu)
+	    {
+	    case PROCESSOR_ULTRASPARC:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (13);
+	      else
+		return COSTS_N_INSNS (23);
+
+	    case PROCESSOR_ULTRASPARC3:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (17);
+	      else
+		return COSTS_N_INSNS (20);
+
+	    case PROCESSOR_SUPERSPARC:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (6);
+	      else
+		return COSTS_N_INSNS (9);
+
+	    case PROCESSOR_HYPERSPARC:
+	    case PROCESSOR_SPARCLITE86X:
+	      if (GET_MODE (x) == SFmode)
+		return COSTS_N_INSNS (8);
+	      else
+		return COSTS_N_INSNS (12);
+
+	    default:
+	      return COSTS_N_INSNS (7);
+	    }
+	}
+
+      if (sparc_cpu == PROCESSOR_ULTRASPARC)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (68) : COSTS_N_INSNS (37));
+      if (sparc_cpu == PROCESSOR_ULTRASPARC3)
+	return (GET_MODE (x) == DImode ?
+		COSTS_N_INSNS (71) : COSTS_N_INSNS (40));
+      return COSTS_N_INSNS (25);
+
+    case IF_THEN_ELSE:
+      /* Conditional moves. */
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  return COSTS_N_INSNS (2);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (FLOAT_MODE_P (GET_MODE (x)))
+	    return COSTS_N_INSNS (3);
+	  else
+	    return COSTS_N_INSNS (2);
+
+	default:
+	  return COSTS_N_INSNS (1);
+	}
+
+    case MEM:
+      /* If outer-code is SIGN/ZERO extension we have to subtract
+	 out COSTS_N_INSNS (1) from whatever we return in determining
+	 the cost.  */
+      switch (sparc_cpu)
+	{
+	case PROCESSOR_ULTRASPARC:
+	  if (outer_code == ZERO_EXTEND)
+	    return COSTS_N_INSNS (1);
+	  else
+	    return COSTS_N_INSNS (2);
+
+	case PROCESSOR_ULTRASPARC3:
+	  if (outer_code == ZERO_EXTEND)
+	    {
+	      if (GET_MODE (x) == QImode
+		  || GET_MODE (x) == HImode
+		  || outer_code == SIGN_EXTEND)
+		return COSTS_N_INSNS (2);
+	      else
+		return COSTS_N_INSNS (1);
+	    }
+	  else
+	    {
+	      /* This handles sign extension (3 cycles)
+		 and everything else (2 cycles).  */
+	      return COSTS_N_INSNS (2);
+	    }
+
+	case PROCESSOR_SUPERSPARC:
+	  if (FLOAT_MODE_P (GET_MODE (x))
+	      || outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (0);
+	  else
+	    return COSTS_N_INSNS (1);
+
+	case PROCESSOR_TSC701:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (2);
+	  else
+	    return COSTS_N_INSNS (3);
+	  
+	case PROCESSOR_CYPRESS:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (1);
+	  else
+	    return COSTS_N_INSNS (2);
+	  
+	case PROCESSOR_HYPERSPARC:
+	case PROCESSOR_SPARCLITE86X:
+	default:
+	  if (outer_code == ZERO_EXTEND
+	      || outer_code == SIGN_EXTEND)
+	    return COSTS_N_INSNS (0);
+	  else
+	    return COSTS_N_INSNS (1);
+	}
+
+    case CONST_INT:
+      if (INTVAL (x) < 0x1000 && INTVAL (x) >= -0x1000)
+	return 0;
+
+    /* fallthru */
+    case HIGH:
+      return 2;
+
+    case CONST:
+    case LABEL_REF:
+    case SYMBOL_REF:
+      return 4;
+
+    case CONST_DOUBLE:
+      if (GET_MODE (x) == DImode)
+	if ((XINT (x, 3) == 0
+	     && (unsigned) XINT (x, 2) < 0x1000)
+	    || (XINT (x, 3) == -1
+		&& XINT (x, 2) < 0
+		&& XINT (x, 2) >= -0x1000))
+	  return 0;
+      return 8;
+
+    default:
+      abort();
+    };
+}
+
+/* If we are referencing a function make the SYMBOL_REF special.  In
+   the Embedded Medium/Anywhere code model, %g4 points to the data
+   segment so we must not add it to function addresses.  */
+
+static void
+sparc_encode_section_info (decl, first)
+     tree decl;
+     int first ATTRIBUTE_UNUSED;
+{
+  if (TARGET_CM_EMBMEDANY && TREE_CODE (decl) == FUNCTION_DECL)
+    SYMBOL_REF_FLAG (XEXP (DECL_RTL (decl), 0)) = 1;
+}
+
+/* Output code to add DELTA to the first argument, and then jump to FUNCTION.
+   Used for C++ multiple inheritance.  */
+
+static void
+sparc_output_mi_thunk (file, thunk_fndecl, delta, vcall_offset, function)
+     FILE *file;
+     tree thunk_fndecl ATTRIBUTE_UNUSED;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
+     tree function;
+{
+  rtx this, insn, funexp, delta_rtx, tmp;
+
+  reload_completed = 1;
+  no_new_pseudos = 1;
+  current_function_uses_only_leaf_regs = 1;
+
+  emit_note (NULL, NOTE_INSN_PROLOGUE_END);
+
+  /* Find the "this" pointer.  Normally in %o0, but in ARCH64 if the function
+     returns a structure, the structure return pointer is there instead.  */
+  if (TARGET_ARCH64 && aggregate_value_p (TREE_TYPE (TREE_TYPE (function))))
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST + 1);
+  else
+    this = gen_rtx_REG (Pmode, SPARC_INCOMING_INT_ARG_FIRST);
+
+  /* Add DELTA.  When possible use a plain add, otherwise load it into
+     a register first.  */
+  delta_rtx = GEN_INT (delta);
+  if (!SPARC_SIMM13_P (delta))
+    {
+      rtx scratch = gen_rtx_REG (Pmode, 1);
+      if (TARGET_ARCH64)
+	sparc_emit_set_const64 (scratch, delta_rtx);
+      else
+	sparc_emit_set_const32 (scratch, delta_rtx);
+      delta_rtx = scratch;
+    }
+
+  tmp = gen_rtx_PLUS (Pmode, this, delta_rtx);
+  emit_insn (gen_rtx_SET (VOIDmode, this, tmp));
+
+  /* Generate a tail call to the target function.  */
+  if (! TREE_USED (function))
+    {
+      assemble_external (function);
+      TREE_USED (function) = 1;
+    }
+  funexp = XEXP (DECL_RTL (function), 0);
+  funexp = gen_rtx_MEM (FUNCTION_MODE, funexp);
+  insn = emit_call_insn (gen_sibcall (funexp));
+  SIBLING_CALL_P (insn) = 1;
+  emit_barrier ();
+
+  /* Run just enough of rest_of_compilation to get the insns emitted.
+     There's not really enough bulk here to make other passes such as
+     instruction scheduling worth while.  Note that use_thunk calls
+     assemble_start_function and assemble_end_function.  */
+  insn = get_insns ();
+  shorten_branches (insn);
+  final_start_function (insn, file, 1);
+  final (insn, file, 1, 0);
+  final_end_function ();
+
+  reload_completed = 0;
+  no_new_pseudos = 0;
+}
+
+#include "gt-sparc.h"

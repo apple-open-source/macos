@@ -12,7 +12,13 @@
 #include <objc/objc.h>
 #include <objc/Object.h>
 #include <objc/Protocol.h>
+
+/* APPLE LOCAL begin objc test suite */
+#ifndef __NEXT_RUNTIME__
 #include <objc/encoding.h>
+#endif
+#include "next_mapping.h"
+/* APPLE LOCAL end objc test suite */
 
 @protocol MyProtocol
 + (bycopy id<MyProtocol>) bycopyMethod;

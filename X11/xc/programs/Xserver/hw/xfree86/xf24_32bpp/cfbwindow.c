@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/xf24_32bpp/cfbwindow.c,v 1.2 1999/02/28 11:19:50 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/xf24_32bpp/cfbwindow.c,v 1.5 2003/11/10 18:22:42 tsi Exp $ */
 
 #include "X.h"
 #include "windowstr.h"
@@ -77,8 +77,6 @@ cfb24_32ChangeWindowAttributes(
     return TRUE;
 }
 
-extern WindowPtr *WindowTable;
-
 void 
 cfb24_32CopyWindow(
     WindowPtr pWin,
@@ -93,7 +91,7 @@ cfb24_32CopyWindow(
 
     pwinRoot = WindowTable[pWin->drawable.pScreen->myNum];
 
-    REGION_INIT(pWin->drawable.pScreen, &rgnDst, NullBox, 0);
+    REGION_NULL(pWin->drawable.pScreen, &rgnDst);
 
     dx = ptOldOrg.x - pWin->drawable.x;
     dy = ptOldOrg.y - pWin->drawable.y;
@@ -118,7 +116,7 @@ cfb24_32CopyWindow(
     }
 
     cfb24_32DoBitblt24To24GXcopy((DrawablePtr)pwinRoot, (DrawablePtr)pwinRoot,
-		GXcopy, &rgnDst, pptSrc, ~0L, 0);
+		GXcopy, &rgnDst, pptSrc, ~0L);
     DEALLOCATE_LOCAL(pptSrc);
     REGION_UNINIT(pWin->drawable.pScreen, &rgnDst);
 }

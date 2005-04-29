@@ -39,7 +39,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: backend.c,v 1.35 2005/02/14 06:39:55 shadow Exp $ */
+/* $Id: backend.c,v 1.5 2005/03/05 00:36:44 dasenbro Exp $ */
 
 #include <config.h>
 

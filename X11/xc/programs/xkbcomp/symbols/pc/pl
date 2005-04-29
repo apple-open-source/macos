@@ -1,7 +1,7 @@
 
 // based on a keyboard map from an 'xkb/symbols/pl' file
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/pl,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/pl,v 1.4 2003/09/04 00:17:45 dawes Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -21,7 +21,5 @@ xkb_symbols "basic" {
     key <AB03>	{ [         c,          C,       cacute,       Cacute ]	};
     key <AB06>	{ [         n,          N,       nacute,       Nacute ]	};
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
+    include "level3(ralt_switch)"
 };

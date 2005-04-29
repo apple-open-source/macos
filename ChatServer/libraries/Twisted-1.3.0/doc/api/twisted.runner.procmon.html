@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.runner.procmon</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.runner.html">Package&nbsp;runner</a> ::
+        Module&nbsp;procmon
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.runner.procmon.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.runner.procmon</h2>
+
+<p>ProcessMonitor: run processes, monitor progress, and restart when they 
+die.</p>
+<p>The ProcessMonitor will not attempt to restart a process that appears 
+to die instantly -- with each &quot;instant&quot; death (less than 1 
+second, by default), it will delay approximately twice as long before 
+restarting it. A successful run will reset the counter.</p>
+<p>The primary interface is &quot;addProcess&quot; and 
+&quot;removeProcess&quot;. When the service is active (that is, when the 
+application it is attached to is running), adding a process automatically 
+starts it.</p>
+<p>Each process has a name (a string). This string must uniquely identify 
+the process. In particular, attempting to add two processes with the same 
+name will result in a key error.</p>
+The arguments to addProcess are:
+<ul>
+  <li>
+    name -- a string, uniquely specifying the process
+  </li>
+  <li>
+    args -- a list of arguments. the first will be used to determine 
+    the executable
+  </li>
+  <li>
+    optionally, the uid and gid this process should be run as (by 
+    default, it does not change uid/gid before running processes).
+  </li>
+</ul>
+<p>Note that args are passed to the system call, not to the shell. If 
+running the shell is desired, the common idiom is to use 
+.addProcess(&quot;name&quot;, ['/bin/sh', '-c', shell_script])</p>
+<p>removeProcess takes just the name argument. If the process is started, 
+it kills it, and will never restart it.</p>
+<p>The &quot;restartAll&quot; method restarts all processes. This is 
+useful for 3rd parties management services to allow a user to restart 
+servers because of an outside circumstances change -- for example, a new 
+version of a library which is installed.</p>
+The following attributes on the monitor can be set to configure 
+behaviour
+<ul>
+  <li>
+    threshold -- how long a process has to live before the death is 
+    considered instant (default 1, measured in seconds)
+  </li>
+  <li>
+    killTime -- how long a process being killed has to get its affairs 
+    in order before it gets killed with an unmaskable signal (default 5, 
+    measured in seconds)
+  </li>
+  <li>
+    consistencyDelay -- time between consistency checks (default 60, 
+    measured in seconds)
+  </li>
+</ul>
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.runner.procmon.DummyTransport.html"><code>DummyTransport</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.runner.procmon.LineLogger.html"><code>LineLogger</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.runner.procmon.LoggingProtocol.html"><code>LoggingProtocol</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.runner.procmon.ProcessMonitor.html"><code>ProcessMonitor</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="main"></a><span class="summary-sig"><span class="summary-sig-name">main</span>()</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><a href="twisted.runner.procmon.DummyTransport.html" 
+          class="link"><code>DummyTransport</code></a></font></td>
+<td><b><a href="twisted.runner.procmon.html#transport"><code>transport</code></a></b> = <span title="&lt;twisted.runner.procmon.DummyTransport instance at 0x8cb7194&gt;"><code>&lt;twisted.runner.procmon.DummyTransport&nbsp;insta<span class="variable-ellipsis">...</span></code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="transport"></a>
+<h3>transport</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <a href="twisted.runner.procmon.DummyTransport.html" 
+          class="link"><code>DummyTransport</code></a>
+
+      </dd>
+<span title="&lt;twisted.runner.procmon.DummyTransport instance at 0x8cb7194&gt;">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+&lt;twisted.runner.procmon.DummyTransport instance at 0x8cb7194&gt;          </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:32 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

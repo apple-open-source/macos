@@ -29,4 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __DNSSEC_H__
+#define __DNSSEC_H__
+
 extern cert_t *dnssec_getcert __P((vchar_t *));
+
+#endif /* __DNSSEC_H__ */
+

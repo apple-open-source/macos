@@ -3,7 +3,7 @@ XCOMM $XConsortium: Imakefile /main/16 1996/10/28 05:13:04 kaleb $
 
 
 
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Imakefile,v 3.83 2003/02/26 21:59:44 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/Imakefile,v 3.87 2004/01/28 02:09:21 dawes Exp $
 
 #include <Server.tmpl>
 #include <lnxdoc.rules>
@@ -19,7 +19,7 @@ RELNOTES=RELNOTES.sgml
 
 SGMLDEPENDS = defs.ent
 MANSGMLDEPENDS = mdefs.ent
-  INDEXLIST = README.sgml $(RELNOTES) Status.sgml LICENSE.sgml Install.sgml \
+  INDEXLIST = README.sgml $(RELNOTES) LICENSE.sgml Install.sgml \
 	      BUILD.sgml DESIGN.sgml Versions.sgml \
 	      mouse.sgml fonts.sgml DRI.sgml DRIcomp.sgml dps.sgml \
 	      XKB-Config.sgml XKB-Enhancing.sgml \
@@ -29,105 +29,47 @@ MANSGMLDEPENDS = mdefs.ent
 	      I128.sgml i740.sgml i810.sgml newport.sgml \
 	      r128.sgml rendition.sgml s3virge.sgml SiS.sgml
 
-#ifdef DEADDOCS
-LinuxDocReadmeTarget(Bsdi)
-#endif
 LinuxDocReadmeTarget(Darwin)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(DGUX)
-LinuxDocReadmeTarget(FreeBSD)
-#endif
 LinuxDocReadmeTarget(isc)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(Linux)
-#endif
 LinuxDocReadmeTarget(LynxOS)
 LinuxDocReadmeTarget(NetBSD)
 LinuxDocReadmeTarget(OpenBSD)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(OS2)
-#endif
 LinuxDocTargetLong(OS2Notes.sgml,OS2.Notes,OS2Notes)
 LinuxDocReadmeTarget(SCO)
 LinuxDocReadmeTarget(Solaris)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(SVR4)
-#endif
 
 /* Hardware docs */
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(3Dlabs)
-#endif
 LinuxDocReadmeTarget(apm)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(ark)
-LinuxDocReadmeTarget(agx)
-#endif
 LinuxDocReadmeTarget(ati)
 LinuxDocReadmeTarget(chips)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(cirrus)
-#endif
 LinuxDocReadmeTarget(cyrix)
 LinuxDocReadmeTarget(DECtga)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(epson)
-LinuxDocReadmeTarget(fbdev)
-#endif
 LinuxDocReadmeTarget(I128)
 LinuxDocReadmeTarget(i740)
 LinuxDocReadmeTarget(i810)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(neomagic)
-#endif
 LinuxDocReadmeTarget(newport)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(Mach32)
-LinuxDocReadmeTarget(Mach64)
-LinuxDocReadmeTarget(MGA)
-LinuxDocReadmeTarget(NVIDIA)
-LinuxDocReadmeTarget(Oak)
-LinuxDocReadmeTarget(P9000)
-#endif
 LinuxDocReadmeTarget(r128)
 LinuxDocReadmeTarget(rendition)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(S3)
-#endif
 LinuxDocReadmeTarget(s3virge)
 LinuxDocReadmeTarget(SiS)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(trident)
-LinuxDocReadmeTarget(tseng)
-LinuxDocReadmeTarget(Video7)
-LinuxDocReadmeTarget(WstDig)
-#endif
 
 /* Main docs */
 LinuxDocTarget(BUILD)
-#ifdef OUTOFDATE
-LinuxDocReadmeTarget(Config)
-#endif
 LinuxDocTarget(DESIGN)
 LinuxDocTarget(Install)
 LinuxDocTarget(LICENSE)
-#ifdef OUTOFDATE
-LinuxDocTargetLong(QuickStart.sgml,QuickStart.doc,QuickStart)
-#endif
 LinuxDocTarget(README)
 #if BuildRelnotes
 LinuxDocTarget(RELNOTES)
 #endif
+#if 0
 LinuxDocTarget(Status)
+#endif
 
 /* Other docs */
 LinuxDocReadmeTarget(fonts)
 LinuxDocReadmeTarget(mouse)
 LinuxDocTarget(Versions)
-#ifdef OUTOFDATE
-LinuxDocTargetLong(VideoModes.sgml,VideoModes.doc,VideoModes)
-LinuxDocTarget(xinput)
-#endif
 LinuxDocReadmeTarget(DRI)
 LinuxDocReadmeTarget(DRIcomp)
 LinuxDocReadmeTarget(dps)
@@ -142,8 +84,12 @@ SGMLMANDEFS=-D__drivermansuffix__='"$(DRIVERMANSUFFIX)"' \
 HTMLMANDEFS=-DHTML_MANPAGES
 #endif
 
+#if BuildSpecsDocs && defined(HTMLroffCmd)
+HTMLSPECDEFS=-DHTML_SPECS
+#endif
+
 AllTarget(mdefs.ent)
-CppRawFileTarget(mdefs.ent,mdefs.cpp,$(SGMLMANDEFS) $(HTMLMANDEFS),NullParameter)
+CppRawFileTarget(mdefs.ent,mdefs.cpp,$(SGMLMANDEFS) $(HTMLMANDEFS) $(HTMLSPECDEFS),NullParameter)
 
 /* Generate the documentation index */
 index.sgml: $(INDEXLIST) index.pre index.post add.sh Imakefile $(SGMLDEPENDS) $(MANSGMLDEPENDS)

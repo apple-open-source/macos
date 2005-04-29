@@ -57,6 +57,7 @@ struct sockaddr_pppoe
 /* flags definition */
 #define PPPOE_FLAG_LOOPBACK	0x00000001	/* loopback mode, for debugging purpose */
 #define PPPOE_FLAG_DEBUG	0x00000002	/* debug mode, send verbose logs to syslog */
+#define PPPOE_FLAG_PROBE	0x00000004	/* just probe to detect presence of servers */
 
 
 #endif

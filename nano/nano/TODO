@@ -1,0 +1,52 @@
+TODO file (? means the feature may be implemented, but not definitely)
+-----------------------------------------------------------------------------
+
+For version 1.4:
+- UTF-8 support.
+- Support for Pico's paragraph searching ability.
+- Undo/Redo key?
+- Rebindable keys?
+- Keystroke to implement "Add next sequence as raw" like vi's ^V.
+- Spell check selected text only.
+- Make "To line" (^W^T) and "Read from Command" (^R^X) re-enter their
+  parent menu when their keystroke is entered a second time (^W^T^T and
+  (^R^X^X)(requires figuring out when to keep cursor pos and when not
+  to).
+- Fix resetstatuspos global which we shouldn't have.
+
+Old requests:
+
+For version 1.2:
+- Single line scroll up/down? [DONE]
+- Color syntax highlighting? (certainly seems like there's a demand for
+  it.) [DONE]
+- .nanorc [DONE]
+- Backup making (filename~)? [DONE]
+- Search (etc.) string history [DONE]
+- Implement Pico's -j and -g flags, as they are pretty easy to do.
+  [DONE]
+- Make mouse support work with clicking on the shortcuts (-m).  Must
+  make global variable pointing to current shortcut list to determine
+  what keystroke to ungetch(). [DONE].
+- Implement -o (chroot of sorts) [DONE]
+- Allow -r to take a negative argument, meaning right margin instead of
+  left (allows resizing that way), formerly -W arg. [DONE]
+
+For version 1.0:
+- Implement Spelling [DONE]
+- Implement Help [DONE]
+- Internationalization [In progress, translators welcome!]
+- Allow nano to be resized in X. [DONE]
+- On page up/down, put the cursor on the first line (like Pico), not the
+  center line [DONE]
+- Rewrite edit_refresh, if at all possible [DONE]
+- Implement justify function [DONE]
+- Cut to end of line [DONE]
+- Built-in speller command [needed for version 1.0] [DONE]
+- Better statusbar interaction (scrolling, tab completion for filename)
+  [needed for version 1.0] [DONE]
+- Now do username completion [DONE].
+- Unjustify command (^U after ^J) [DONE =-].
+- Username completion (~user) [DONE =-].
+
+$Id: TODO,v 1.32 2003/06/14 20:41:34 dolorous Exp $

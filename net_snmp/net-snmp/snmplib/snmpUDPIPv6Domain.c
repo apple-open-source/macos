@@ -1,5 +1,22 @@
 #include <net-snmp/net-snmp-config.h>
 
+#ifdef SNMP_TRANSPORT_UDPIPV6_DOMAIN
+
+/*
+ * hack-o-matic for Cygwin to use winsock2
+*/
+#if defined(cygwin)
+#undef HAVE_UNISTD_H
+#undef HAVE_NETINET_IN_H
+#undef HAVE_ARPA_INET_H
+#undef HAVE_NET_IF_H
+#undef HAVE_NETDB_H
+#undef HAVE_SYS_PARAM_H
+#undef HAVE_SYS_SELECT_H
+#undef HAVE_SYS_SOCKET_H
+#undef HAVE_IN_ADDR_T
+#endif
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <ctype.h>
@@ -19,6 +36,21 @@
 #if HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
+
+#define HAVE_IF_NAMETOINDEX
+#if defined(HAVE_WINSOCK_H) || defined(cygwin)
+    /*
+     *  Windows IPv6 support is part of WinSock2 only
+     */
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#undef  HAVE_IF_NAMETOINDEX
+
+extern int         inet_pton(int, const char*, void*);
+extern const char *inet_ntop(int, const void*, char*, size_t);
+const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+#endif
+
 #if HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
@@ -43,8 +75,14 @@
 #include <net-snmp/library/snmp_transport.h>
 #include <net-snmp/library/snmpUDPIPv6Domain.h>
 
-oid netsnmp_UDPIPv6Domain[10] = { ENTERPRISE_MIB, 3, 3, 4 };
+oid netsnmp_UDPIPv6Domain[] = { TRANSPORT_DOMAIN_UDP_IPV6 };
 static netsnmp_tdomain udp6Domain;
+
+/*
+ * from snmpUDPDomain. not static, but not public, either.
+ * (ie don't put it in a public header.)
+ */
+extern void _netsnmp_udp_sockopt_set(int fd, int server);
 
 /*
  * Return a string representing the address in data, or else the "far end"
@@ -69,7 +107,7 @@ netsnmp_udp6_fmtaddr(netsnmp_transport *t, void *data, int len)
         char addr[INET6_ADDRSTRLEN];
         char tmp[INET6_ADDRSTRLEN + 8];
 
-        sprintf(tmp, "[%s]:%hd",
+        sprintf(tmp, "UDP/IPv6: [%s]:%hd",
                 inet_ntop(AF_INET6, (void *) &(to->sin6_addr), addr,
                           INET6_ADDRSTRLEN), ntohs(to->sin6_port));
         return strdup(tmp);
@@ -188,7 +226,7 @@ netsnmp_transport *
 netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
 {
     netsnmp_transport *t = NULL;
-    int             rc = 0, udpbuf = (1 << 17);
+    int             rc = 0;
     char           *string = NULL;
 
     if (addr == NULL || addr->sin6_family != AF_INET6) {
@@ -217,38 +255,8 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
         netsnmp_transport_free(t);
         return NULL;
     }
-#ifdef  SO_BSDCOMPAT
-    /*
-     * Patch for Linux.  Without this, UDP packets that fail get an ICMP
-     * response.  Linux turns the failed ICMP response into an error message
-     * and return value, unlike all other OS's.  
-     */
-    {
-        int             one = 1;
-        setsockopt(t->sock, SOL_SOCKET, SO_BSDCOMPAT, &one, sizeof(one));
-    }
-#endif                          /*SO_BSDCOMPAT */
 
-    /*
-     * Try to set the send and receive buffers to a reasonably large value, so
-     * that we can send and receive big PDUs (defaults to 8192 bytes (!) on
-     * Solaris, for instance).  Don't worry too much about errors -- just
-     * plough on regardless.  
-     */
-
-#ifdef  SO_SNDBUF
-    if (setsockopt(t->sock, SOL_SOCKET, SO_SNDBUF, &udpbuf, sizeof(int)) != 0){
-        DEBUGMSGTL(("netsnmp_udp6", "couldn't set SO_SNDBUF to %d bytes: %s\n",
-		    udpbuf, strerror(errno)));
-    }
-#endif                          /*SO_SNDBUF */
-
-#ifdef  SO_RCVBUF
-    if (setsockopt(t->sock, SOL_SOCKET, SO_RCVBUF, &udpbuf, sizeof(int)) != 0){
-        DEBUGMSGTL(("netsnmp_udp6", "couldn't set SO_RCVBUF to %d bytes: %s\n",
-		    udpbuf, strerror(errno)));
-    }
-#endif                          /*SO_RCVBUF */
+    _netsnmp_udp_sockopt_set(t->sock, local);
 
     if (local) {
         /*
@@ -278,6 +286,7 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
         if (t->local == NULL) {
             netsnmp_udp6_close(t);
             netsnmp_transport_free(t);
+            return NULL;
         }
         memcpy(t->local, addr->sin6_addr.s6_addr, 16);
         t->local[16] = (addr->sin6_port & 0xff00) >> 8;
@@ -293,6 +302,7 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
 
         t->data = malloc(sizeof(struct sockaddr_in6));
         if (t->data == NULL) {
+            netsnmp_udp6_close(t);
             netsnmp_transport_free(t);
             return NULL;
         }
@@ -401,12 +411,16 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
 	       *
 	       */
 	        char *scope_id;
-		unsigned int if_index = 0;
+#ifdef HAVE_IF_NAMETOINDEX
+	        unsigned int if_index = 0;
+#endif
                 *cp = '\0';
 		scope_id = strchr(peername + 1, '%');
 		if (scope_id != NULL) {
 		    *scope_id = '\0';
+#ifdef HAVE_IF_NAMETOINDEX
 		    if_index = if_nametoindex(scope_id + 1);
+#endif
 		}
                 if (*(cp + 1) == ':') {
                     if (atoi(cp + 2) != 0 &&
@@ -416,7 +430,9 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
                                     "IPv6 address with port suffix :%d\n",
                                     atoi(cp + 2)));
                         addr->sin6_port = htons(atoi(cp + 2));
-			addr->sin6_scope_id = if_index;
+#ifdef HAVE_IF_NAMETOINDEX
+                        addr->sin6_scope_id = if_index;
+#endif
                         goto resolved;
                     }
                 } else {
@@ -426,7 +442,9 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
                         DEBUGMSGTL(("netsnmp_sockaddr_in6",
                                     "IPv6 address with square brankets\n"));
                         addr->sin6_port = htons(SNMP_PORT);
-			addr->sin6_scope_id = if_index;
+#ifdef HAVE_IF_NAMETOINDEX
+                        addr->sin6_scope_id = if_index;
+#endif
                         goto resolved;
                     }
                 }
@@ -440,12 +458,16 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
         cp = strrchr(peername, ':');
         if (cp != NULL) {
 	    char *scope_id;
+#ifdef HAVE_IF_NAMETOINDEX
 	    unsigned int if_index = 0;
-            *cp = '\0';
+#endif
+	    *cp = '\0';
 	    scope_id = strchr(peername + 1, '%');
 	    if (scope_id != NULL) {
-	      *scope_id = '\0';
-	      if_index = if_nametoindex(scope_id + 1);
+	        *scope_id = '\0';
+#ifdef HAVE_IF_NAMETOINDEX
+	        if_index = if_nametoindex(scope_id + 1);
+#endif
 	    }
             if (atoi(cp + 1) != 0 &&
                 inet_pton(AF_INET6, peername,
@@ -454,7 +476,9 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
                             "IPv6 address with port suffix :%d\n",
                             atoi(cp + 1)));
                 addr->sin6_port = htons(atoi(cp + 1));
-		addr->sin6_scope_id = if_index;
+#ifdef HAVE_IF_NAMETOINDEX
+                addr->sin6_scope_id = if_index;
+#endif
                 goto resolved;
             }
 	    if (scope_id != NULL) {
@@ -511,10 +535,16 @@ netsnmp_sockaddr_in6(struct sockaddr_in6 *addr,
             free(peername);
             return 0;
         }
+        if (addrs != NULL) {
         DEBUGMSGTL(("netsnmp_sockaddr_in6", "hostname (resolved okay)\n"));
         memcpy(&addr->sin6_addr,
                &((struct sockaddr_in6 *) addrs->ai_addr)->sin6_addr,
                sizeof(struct in6_addr));
+		freeaddrinfo(addrs);
+        }
+		else {
+        DEBUGMSGTL(("netsnmp_sockaddr_in6", "Failed to resolve IPv6 hostname\n"));
+		}
 #elif HAVE_GETIPNODEBYNAME
         hp = getipnodebyname(peername, AF_INET6, 0, &err);
         if (hp == NULL) {
@@ -612,20 +642,20 @@ inet_make_mask_addr(int pf, void *dst, int masklength)
 
 
         for (i = 0; i < 16; i++) {
-            (*(uint8_t *) (&((struct in6_addr *) dst)->s6_addr[i])) = 0x00;
+            (*(u_char *) (&((struct in6_addr *) dst)->s6_addr[i])) = 0x00;
         }
 
         j = (int) masklength / 8;
         jj = masklength % 8;
 
         for (i = 0; i < j; i++) {
-            (*(uint8_t *) (&((struct in6_addr *) dst)->s6_addr[i])) = 0xff;
+            (*(u_char *) (&((struct in6_addr *) dst)->s6_addr[i])) = 0xff;
         }
         while (jj--) {
             mask |= maskbit;
             maskbit >>= 1;
         }
-        (*(uint8_t *) (&((struct in6_addr *) dst)->s6_addr[j])) = mask;
+        (*(u_char *) (&((struct in6_addr *) dst)->s6_addr[j])) = mask;
         break;
     default:
         return -1;              /* unsupported protocol family */
@@ -660,8 +690,8 @@ inet_addr_complement(int pf, void *src, void *dst)
         break;
     case PF_INET6:
         for (i = 0; i < 16; i++) {
-            (*(uint8_t *) (&((struct in6_addr *) dst)->s6_addr[i])) =
-                (~(*(uint8_t *) (&((struct in6_addr *) src)->s6_addr[i])))
+            (*(u_char *) (&((struct in6_addr *) dst)->s6_addr[i])) =
+                (~(*(u_char *) (&((struct in6_addr *) src)->s6_addr[i])))
                 & 0xff;
         }
         break;
@@ -698,9 +728,9 @@ inet_addr_and(int pf, void *src1, void *src2, void *dst)
 
     case PF_INET6:
         for (i = 0; i < 16; i++) {
-            (*(uint8_t *) (&((struct in6_addr *) dst)->s6_addr[i])) =
-                (*(uint8_t *) (&((struct in6_addr *) src1)->s6_addr[i])) &
-                (*(uint8_t *) (&((struct in6_addr *) src2)->s6_addr[i]));
+            (*(u_char *) (&((struct in6_addr *) dst)->s6_addr[i])) =
+                (*(u_char *) (&((struct in6_addr *) src1)->s6_addr[i])) &
+                (*(u_char *) (&((struct in6_addr *) src2)->s6_addr[i]));
         }
         break;
     default:
@@ -845,6 +875,9 @@ masked_address_are_equal(int af, struct sockaddr_storage *from,
                       &((struct sockaddr_in6 *) from)->sin6_addr,
                       &((struct sockaddr_in6 *) mask)->sin6_addr,
                       &((struct sockaddr_in6 *) &ss)->sin6_addr);
+#ifndef IN6_ARE_ADDR_EQUAL
+#define IN6_ARE_ADDR_EQUAL(a,b) IN6_ADDR_EQUAL(a,b)
+#endif
         if (IN6_ARE_ADDR_EQUAL(&((struct sockaddr_in6 *) &ss)->sin6_addr,
                                &((struct sockaddr_in6 *) network)->
                                sin6_addr) == 1) {
@@ -858,6 +891,7 @@ masked_address_are_equal(int af, struct sockaddr_storage *from,
     }
 }
 
+#if !defined(DISABLE_SNMPV1) || !defined(DISABLE_SNMPV2C)
 /*
  * The following functions provide the "com2sec6" configuration token
  * functionality for compatibility.  
@@ -871,6 +905,7 @@ typedef struct _com2Sec6Entry {
     struct sockaddr_in6 network;
     struct sockaddr_in6 mask;
     char            secName[VACMSTRINGLEN];
+    char            contextName[VACMSTRINGLEN];
     struct _com2Sec6Entry *next;
 } com2Sec6Entry;
 
@@ -881,9 +916,11 @@ void
 memmove_com2Sec6Entry(com2Sec6Entry * c,
                       char *secName,
                       char *community,
-                      struct sockaddr_in6 net, struct sockaddr_in6 mask)
+                      struct sockaddr_in6 net, struct sockaddr_in6 mask,
+                      char *contextName)
 {
     snprintf(c->secName, strlen(secName) + 1, "%s", secName);
+    snprintf(c->contextName, strlen(contextName) + 1, "%s", contextName);
     snprintf(c->community, strlen(community) + 1, "%s", community);
     memmove(&c->network, &net, sizeof(net));
     memmove(&c->mask, &mask, sizeof(mask));
@@ -894,7 +931,10 @@ memmove_com2Sec6Entry(com2Sec6Entry * c,
 void
 netsnmp_udp6_parse_security(const char *token, char *param)
 {
-    char           *secName = NULL, *community = NULL, *source = NULL;
+    char            secName[VACMSTRINGLEN];
+    char            contextName[VACMSTRINGLEN];
+    char            community[VACMSTRINGLEN];
+    char            source[VACMSTRINGLEN];
     char           *cp = NULL, *strnetwork = NULL, *strmask = NULL;
     com2Sec6Entry  *e = NULL;
     struct sockaddr_in6 net, mask;
@@ -911,16 +951,26 @@ netsnmp_udp6_parse_security(const char *token, char *param)
     /*
      * Get security, source address/netmask and community strings.  
      */
-    secName = strtok(param, "\t\n ");
-    if (secName == NULL) {
+    cp = copy_nword( param, secName, sizeof(secName));
+    if (strcmp(secName, "-Cn") == 0) {
+        if (!cp) {
+            config_perror("missing CONTEXT_NAME parameter");
+            return;
+        }
+        cp = copy_nword( cp, contextName, sizeof(contextName));
+        cp = copy_nword( cp, secName, sizeof(secName));
+    } else {
+        contextName[0] = '\0';
+    }
+    if (secName[0] == '\0') {
         config_perror("missing NAME parameter");
         return;
     } else if (strlen(secName) > (VACMSTRINGLEN - 1)) {
         config_perror("security name too long");
         return;
     }
-    source = strtok(NULL, "\t\n ");
-    if (source == NULL) {
+    cp = copy_nword( cp, source, sizeof(source));
+    if (source[0] == '\0') {
         config_perror("missing SOURCE parameter");
         return;
     } else if (strncmp(source, EXAMPLE_NETWORK, strlen(EXAMPLE_NETWORK)) ==
@@ -928,8 +978,8 @@ netsnmp_udp6_parse_security(const char *token, char *param)
         config_perror("example config NETWORK not properly configured");
         return;
     }
-    community = strtok(NULL, "\t\n ");
-    if (community == NULL) {
+    cp = copy_nword( cp, community, sizeof(community));
+    if (community[0] == '\0') {
         config_perror("missing COMMUNITY parameter\n");
         return;
     } else
@@ -984,7 +1034,7 @@ netsnmp_udp6_parse_security(const char *token, char *param)
             DEBUGMSGTL(("netsnmp_udp6_parse_security",
                         "Couldn't allocate enough memory\n"));
         }
-        memmove_com2Sec6Entry(e, secName, community, net, mask);
+        memmove_com2Sec6Entry(e, secName, community, net, mask, contextName);
         if (com2Sec6ListLast != NULL) {
             com2Sec6ListLast->next = e;
             com2Sec6ListLast = e;
@@ -1043,13 +1093,16 @@ netsnmp_udp6_parse_security(const char *token, char *param)
                 DEBUGMSGTL(("netsnmp_udp6_parse_security",
                             "Couldn't allocate enough memory\n"));
             }
-            memmove_com2Sec6Entry(e, secName, community, net, mask);
+            memmove_com2Sec6Entry(e, secName, community, net, mask,
+                                  contextName);
             if (com2Sec6ListLast != NULL) {
                 com2Sec6ListLast->next = e;
                 com2Sec6ListLast = e;
             } else {
                 com2Sec6ListLast = com2Sec6List = e;
             }
+
+#if HAVE_GETADDRINFO
 
         } else {
             /*
@@ -1074,7 +1127,7 @@ netsnmp_udp6_parse_security(const char *token, char *param)
                     config_perror("getnameinfo failed");
                 }
                 memmove(ai->ai_addr, &net, sizeof(struct sockaddr_in6));
-                inet_make_mask_addr(AF_INET6, &mask.sin6_addr, 128);
+                inet_make_mask_addr(AF_INET6, &mask.sin6_addr, 127);
 
                 e = (com2Sec6Entry *) malloc(sizeof(com2Sec6Entry));
                 if (e == NULL) {
@@ -1089,7 +1142,8 @@ netsnmp_udp6_parse_security(const char *token, char *param)
                 DEBUGMSGTL(("netsnmp_udp6_parse_security",
                             "<\"%s\", %s> => \"%s\"\n", community, hbuf,
                             secName));
-                memmove_com2Sec6Entry(e, secName, community, net, mask);
+                memmove_com2Sec6Entry(e, secName, community, net, mask,
+                                      contextName);
                 if (com2Sec6ListLast != NULL) {
                     com2Sec6ListLast->next = e;
                     com2Sec6ListLast = e;
@@ -1099,6 +1153,9 @@ netsnmp_udp6_parse_security(const char *token, char *param)
             }
             if (res != NULL)
                 freeaddrinfo(res);
+
+#endif /* HAVE_GETADDRINFO */
+
         }
         /*
          * free(strnetwork); 
@@ -1118,17 +1175,21 @@ netsnmp_udp6_com2Sec6List_free(void)
     com2Sec6List = com2Sec6ListLast = NULL;
 }
 
+#endif /* support for community based SNMP */
 
 void
 netsnmp_udp6_agent_config_tokens_register(void)
 {
+#if !defined(DISABLE_SNMPV1) || !defined(DISABLE_SNMPV2C)
     register_app_config_handler("com2sec6", netsnmp_udp6_parse_security,
                                 netsnmp_udp6_com2Sec6List_free,
-                                "name IPv6-network-address[/netmask] community");
+                                "[-Cn CONTEXT] secName IPv6-network-address[/netmask] community");
+#endif /* support for community based SNMP */
 }
 
 
 
+#if !defined(DISABLE_SNMPV1) || !defined(DISABLE_SNMPV2C)
 /*
  * Return 0 if there are no com2sec entries, or return 1 if there ARE com2sec 
  * entries.  On return, if a com2sec entry matched the passed parameters,
@@ -1139,12 +1200,16 @@ netsnmp_udp6_agent_config_tokens_register(void)
 int
 netsnmp_udp6_getSecName(void *opaque, int olength,
                         const char *community,
-                        int community_len, char **secName)
+                        int community_len, char **secName, char **contextName)
 {
     com2Sec6Entry  *c;
     struct sockaddr_in6 *from = (struct sockaddr_in6 *) opaque;
     char           *ztcommunity = NULL;
     char            str6[INET6_ADDRSTRLEN];
+
+    if (secName != NULL) {
+        *secName = NULL;  /* Haven't found anything yet */
+    }
 
     /*
      * Special case if there are NO entries (as opposed to no MATCHING
@@ -1153,9 +1218,6 @@ netsnmp_udp6_getSecName(void *opaque, int olength,
 
     if (com2Sec6List == NULL) {
         DEBUGMSGTL(("netsnmp_udp6_getSecName", "no com2sec entries\n"));
-        if (secName != NULL) {
-            *secName = NULL;
-        }
         return 0;
     }
 
@@ -1168,9 +1230,6 @@ netsnmp_udp6_getSecName(void *opaque, int olength,
         || from->sin6_family != PF_INET6) {
         DEBUGMSGTL(("netsnmp_udp6_getSecName",
                     "no IPv6 source address in PDU?\n"));
-        if (secName != NULL) {
-            *secName = NULL;
-        }
         return 1;
     }
 
@@ -1189,7 +1248,7 @@ netsnmp_udp6_getSecName(void *opaque, int olength,
                     "compare <\"%s\", 0x%032/0x%032x>", c->community,
                     c->network, c->mask));
 
-        if ((community_len == strlen(c->community)) &&
+        if ((community_len == (int)strlen(c->community)) &&
             (memcmp(community, c->community, community_len) == 0) &&
             (masked_address_are_equal(from->sin6_family,
                                       (struct sockaddr_storage *) from,
@@ -1199,6 +1258,7 @@ netsnmp_udp6_getSecName(void *opaque, int olength,
             DEBUGMSG(("netsnmp_udp6_getSecName", "... SUCCESS\n"));
             if (secName != NULL) {
                 *secName = c->secName;
+                *contextName = c->contextName;
             }
             break;
         }
@@ -1209,6 +1269,7 @@ netsnmp_udp6_getSecName(void *opaque, int olength,
     }
     return 1;
 }
+#endif /* support for community based SNMP */
 
 netsnmp_transport *
 netsnmp_udp6_create_tstring(const char *string, int local)
@@ -1263,3 +1324,15 @@ netsnmp_udp6_ctor(void)
 
     netsnmp_tdomain_register(&udp6Domain);
 }
+
+#else
+
+#ifdef NETSNMP_DLL
+/* need this hook for win32 MSVC++ DLL build */
+void
+netsnmp_udp6_agent_config_tokens_register(void)
+{ }
+#endif
+
+#endif /* SNMP_TRANSPORT_UDPIPV6_DOMAIN */
+

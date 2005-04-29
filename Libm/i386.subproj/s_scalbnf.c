@@ -13,17 +13,20 @@
  * ====================================================
  */
 
-#include <sys/cdefs.h>
 #if defined(LIBM_SCCS) && !defined(lint)
 __RCSID("$NetBSD: s_scalbnf.c,v 1.7 1999/07/02 15:37:43 simonb Exp $");
 #endif
+
+// Put definition of __DARWIN_ALIAS() in sys/cdefs.h in scope
+#define __DARWIN_UNIX03 1
+#include "sys/cdefs.h"
 
 #include "math.h"
 #include "math_private.h"
 
 static const float
-two25   =  3.355443200e+07,	/* 0x4c000000 */
-twom25  =  2.9802322388e-08,	/* 0x33000000 */
+two25   =  0x1.0p+25, /* 3.355443200e+07, 0x4c000000 */
+twom25  =  0x1.0p-25, /* 2.9802322388e-08, 0x33000000 */
 huge   = 1.0e+30,
 tiny   = 1.0e-30;
 
@@ -52,4 +55,18 @@ float scalbnf (float x, int n)
         k += 25;				/* subnormal result */
 	SET_FLOAT_WORD(x,(ix&0x807fffff)|(k<<23));
         return x*twom25;
+}
+
+// POSIX mandated signature for "scalbf"
+float scalbf ( float x, float n )
+{
+	int m;
+	
+	if ( n > 2098.0 )
+		m = 2098.0;
+	else if ( n < -2099.0 )
+		m = -2099.0;
+	else m = (int) n;
+	
+	return scalbnf( x, m ); 
 }

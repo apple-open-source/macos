@@ -1,7 +1,7 @@
 /* Generic remote debugging interface for simulators.
 
    Copyright 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001,
-   2002 Free Software Foundation, Inc.
+   2002, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
    Steve Chamberlain (sac@cygnus.com).
@@ -42,6 +42,7 @@
 #include "regcache.h"
 #include "gdb_assert.h"
 #include "sim-regno.h"
+#include "arch-utils.h"
 
 /* Prototypes */
 
@@ -220,7 +221,7 @@ gdb_os_write_stderr (host_callback *p, const char *buf, int len)
     {
       b[0] = buf[i];
       b[1] = 0;
-      fputs_unfiltered (b, gdb_stdtarg);
+      fputs_unfiltered (b, gdb_stdtargerr);
     }
   return len;
 }
@@ -230,7 +231,7 @@ gdb_os_write_stderr (host_callback *p, const char *buf, int len)
 static void
 gdb_os_flush_stderr (host_callback *p)
 {
-  gdb_flush (gdb_stderr);
+  gdb_flush (gdb_stdtargerr);
 }
 
 /* GDB version of printf_filtered callback.  */
@@ -304,9 +305,9 @@ gdbsim_fetch_register (int regno)
       {
 	/* For moment treat a `does not exist' register the same way
            as an ``unavailable'' register.  */
-	char *buf = alloca (MAX_REGISTER_RAW_SIZE);
+	char buf[MAX_REGISTER_SIZE];
 	int nr_bytes;
-	memset (buf, 0, MAX_REGISTER_RAW_SIZE);
+	memset (buf, 0, MAX_REGISTER_SIZE);
 	supply_register (regno, buf);
 	set_register_cached (regno, -1);
 	break;
@@ -314,24 +315,24 @@ gdbsim_fetch_register (int regno)
     default:
       {
 	static int warn_user = 1;
-	char *buf = alloca (MAX_REGISTER_RAW_SIZE);
+	char buf[MAX_REGISTER_SIZE];
 	int nr_bytes;
 	gdb_assert (regno >= 0 && regno < NUM_REGS);
-	memset (buf, 0, MAX_REGISTER_RAW_SIZE);
+	memset (buf, 0, MAX_REGISTER_SIZE);
 	nr_bytes = sim_fetch_register (gdbsim_desc,
 				       REGISTER_SIM_REGNO (regno),
-				       buf, REGISTER_RAW_SIZE (regno));
-	if (nr_bytes > 0 && nr_bytes != REGISTER_RAW_SIZE (regno) && warn_user)
+				       buf, DEPRECATED_REGISTER_RAW_SIZE (regno));
+	if (nr_bytes > 0 && nr_bytes != DEPRECATED_REGISTER_RAW_SIZE (regno) && warn_user)
 	  {
 	    fprintf_unfiltered (gdb_stderr,
 				"Size of register %s (%d/%d) incorrect (%d instead of %d))",
 				REGISTER_NAME (regno),
 				regno, REGISTER_SIM_REGNO (regno),
-				nr_bytes, REGISTER_RAW_SIZE (regno));
+				nr_bytes, DEPRECATED_REGISTER_RAW_SIZE (regno));
 	    warn_user = 0;
 	  }
 	/* FIXME: cagney/2002-05-27: Should check `nr_bytes == 0'
-	   indicatingthat GDB and the SIM have different ideas about
+	   indicating that GDB and the SIM have different ideas about
 	   which registers are fetchable.  */
 	/* Else if (nr_bytes < 0): an old simulator, that doesn't
 	   think to return the register size.  Just assume all is ok.  */
@@ -340,7 +341,7 @@ gdbsim_fetch_register (int regno)
 	  {
 	    printf_filtered ("gdbsim_fetch_register: %d", regno);
 	    /* FIXME: We could print something more intelligible.  */
-	    dump_mem (buf, REGISTER_RAW_SIZE (regno));
+	    dump_mem (buf, DEPRECATED_REGISTER_RAW_SIZE (regno));
 	  }
 	break;
       }
@@ -359,23 +360,23 @@ gdbsim_store_register (int regno)
     }
   else if (REGISTER_SIM_REGNO (regno) >= 0)
     {
-      char tmp[MAX_REGISTER_RAW_SIZE];
+      char tmp[MAX_REGISTER_SIZE];
       int nr_bytes;
       deprecated_read_register_gen (regno, tmp);
       nr_bytes = sim_store_register (gdbsim_desc,
 				     REGISTER_SIM_REGNO (regno),
-				     tmp, REGISTER_RAW_SIZE (regno));
-      if (nr_bytes > 0 && nr_bytes != REGISTER_RAW_SIZE (regno))
+				     tmp, DEPRECATED_REGISTER_RAW_SIZE (regno));
+      if (nr_bytes > 0 && nr_bytes != DEPRECATED_REGISTER_RAW_SIZE (regno))
 	internal_error (__FILE__, __LINE__,
 			"Register size different to expected");
       /* FIXME: cagney/2002-05-27: Should check `nr_bytes == 0'
-	 indicatingthat GDB and the SIM have different ideas about
+	 indicating that GDB and the SIM have different ideas about
 	 which registers are fetchable.  */
       if (sr_get_debug ())
 	{
 	  printf_filtered ("gdbsim_store_register: %d", regno);
 	  /* FIXME: We could print something more intelligible.  */
-	  dump_mem (tmp, REGISTER_RAW_SIZE (regno));
+	  dump_mem (tmp, DEPRECATED_REGISTER_RAW_SIZE (regno));
 	}
     }
 }
@@ -504,27 +505,23 @@ gdbsim_open (char *args, int from_tty)
   strcpy (arg_buf, "gdbsim");	/* 7 */
   /* Specify the byte order for the target when it is both selectable
      and explicitly specified by the user (not auto detected). */
-  if (!TARGET_BYTE_ORDER_AUTO)
+  switch (selected_byte_order ())
     {
-      switch (TARGET_BYTE_ORDER)
-	{
-	case BFD_ENDIAN_BIG:
-	  strcat (arg_buf, " -E big");
-	  break;
-	case BFD_ENDIAN_LITTLE:
-	  strcat (arg_buf, " -E little");
-	  break;
-	default:
-	  internal_error (__FILE__, __LINE__,
-			  "Value of TARGET_BYTE_ORDER unknown");
-	}
+    case BFD_ENDIAN_BIG:
+      strcat (arg_buf, " -E big");
+      break;
+    case BFD_ENDIAN_LITTLE:
+      strcat (arg_buf, " -E little");
+      break;
+    case BFD_ENDIAN_UNKNOWN:
+      break;
     }
   /* Specify the architecture of the target when it has been
      explicitly specified */
-  if (!TARGET_ARCHITECTURE_AUTO)
+  if (selected_architecture_name () != NULL)
     {
       strcat (arg_buf, " --architecture=");
-      strcat (arg_buf, TARGET_ARCHITECTURE->printable_name);
+      strcat (arg_buf, selected_architecture_name ());
     }
   /* finally, any explicit args */
   if (args)
@@ -814,46 +811,13 @@ gdbsim_mourn_inferior (void)
 static int
 gdbsim_insert_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
-#ifdef SIM_HAS_BREAKPOINTS
-  SIM_RC retcode;
-
-  retcode = sim_set_breakpoint (gdbsim_desc, addr);
-
-  switch (retcode)
-    {
-    case SIM_RC_OK:
-      return 0;
-    case SIM_RC_INSUFFICIENT_RESOURCES:
-      return ENOMEM;
-    default:
-      return EIO;
-    }
-#else
   return memory_insert_breakpoint (addr, contents_cache);
-#endif
 }
 
 static int
 gdbsim_remove_breakpoint (CORE_ADDR addr, char *contents_cache)
 {
-#ifdef SIM_HAS_BREAKPOINTS
-  SIM_RC retcode;
-
-  retcode = sim_clear_breakpoint (gdbsim_desc, addr);
-
-  switch (retcode)
-    {
-    case SIM_RC_OK:
-    case SIM_RC_UNKNOWN_BREAKPOINT:
-      return 0;
-    case SIM_RC_INSUFFICIENT_RESOURCES:
-      return ENOMEM;
-    default:
-      return EIO;
-    }
-#else
   return memory_remove_breakpoint (addr, contents_cache);
-#endif
 }
 
 /* Pass the command argument through to the simulator verbatim.  The

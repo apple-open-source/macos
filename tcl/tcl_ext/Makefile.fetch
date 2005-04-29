@@ -1,0 +1,12 @@
+##
+# Makefile.fetch for for Tcl extensions
+##
+# Daniel A. Steffen <das@users.sourceforge.net>
+##
+
+include Makefile
+
+fetch wipe:
+	$(_v) $(MAKE) action="-f Makefile.fetch $@" $(subprojects)
+
+.PHONY: fetch wipe

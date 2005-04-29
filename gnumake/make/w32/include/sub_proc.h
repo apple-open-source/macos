@@ -4,14 +4,14 @@
 /*
  * Component Name: 
  *
- * $Date: 2000/05/06 03:03:58 $
+ * $Date: 1997/08/27 20:34:23 $
  *
- * $Source: /cvs/root/gnumake/make/w32/include/sub_proc.h,v $
+ * $Source: /cvsroot/make/make/w32/include/sub_proc.h,v $
  *
- * $Revision: 1.1.1.2 $
+ * $Revision: 1.4 $
  */
 
-/* $Id: sub_proc.h,v 1.1.1.2 2000/05/06 03:03:58 wsanchez Exp $ */
+/* $Id: sub_proc.h,v 1.4 1997/08/27 20:34:23 psmith Exp $ */
 
 #ifdef WINDOWS32
 

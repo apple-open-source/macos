@@ -21,7 +21,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/include/extensions/Xvlib.h,v 1.3 1999/12/11 19:28:48 mvojkovi Exp $ */
+/* $XFree86: xc/include/extensions/Xvlib.h,v 1.4 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef XVLIB_H
 #define XVLIB_H
@@ -164,36 +164,29 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 extern int XvQueryExtension(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   unsigned int*            /* p_version */,
   unsigned int*            /* p_revision */,
   unsigned int*            /* p_requestBase */,
   unsigned int*            /* p_eventBase */, 
   unsigned int*            /* p_errorBase */
-#endif
 );
 
 extern int XvQueryAdaptors(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   Window                   /* window */,
   unsigned int*            /* p_nAdaptors */,
   XvAdaptorInfo**          /* p_pAdaptors */
-#endif
 );
 
 extern int XvQueryEncodings(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   XvPortID                 /* port */,
   unsigned int*            /* p_nEncoding */,
   XvEncodingInfo**         /* p_pEncoding */
-#endif
 );
 
 extern int XvPutVideo(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   XvPortID                 /* port */,
   Drawable                 /* d */,
@@ -206,11 +199,9 @@ extern int XvPutVideo(
   int                      /* dy */,
   unsigned int             /* dw */,
   unsigned int             /* dh */
-#endif
 );
 
 extern int XvPutStill(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   XvPortID                 /* port */,
   Drawable                 /* d */,
@@ -223,11 +214,9 @@ extern int XvPutStill(
   int                      /* dy */,
   unsigned int             /* dw */,
   unsigned int             /* dh */
-#endif
 );
 
 extern int XvGetVideo(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   XvPortID                 /* port */,
   Drawable                 /* d */,
@@ -240,11 +229,9 @@ extern int XvGetVideo(
   int                      /* dy */,
   unsigned int             /* dw */,
   unsigned int             /* dh */
-#endif
 );
 
 extern int XvGetStill(
-#if NeedFunctionPrototypes
   Display*                 /* display */,
   XvPortID                 /* port */,
   Drawable                 /* d */,
@@ -257,69 +244,53 @@ extern int XvGetStill(
   int                      /* dy */,
   unsigned int             /* dw */,
   unsigned int             /* dh */
-#endif
 );
 
 extern int XvStopVideo(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Drawable                /* drawable */
-#endif
 );
 
 extern int XvGrabPort(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Time                    /* time */
-#endif
 );
 
 extern int XvUngrabPort(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Time                    /* time */
-#endif
 );
 
 extern int XvSelectVideoNotify(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   Drawable                /* drawable */,
   Bool                    /* onoff */
-#endif
 );
 
 extern int XvSelectPortNotify(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Bool                    /* onoff */
-#endif
 );
 
 extern int XvSetPortAttribute(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Atom                    /* attribute */,
   int                     /* value */
-#endif
 );
 
 extern int XvGetPortAttribute(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Atom                    /* attribute */,
   int*                    /* p_value */
-#endif
 );
 
 extern int XvQueryBestSize(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   Bool                    /* motion */,
@@ -329,52 +300,40 @@ extern int XvQueryBestSize(
   unsigned int            /* drw_h */,
   unsigned int*           /* p_actual_width */, 
   unsigned int*           /* p_actual_width */
-#endif
 );
 
 extern XvAttribute* XvQueryPortAttributes(
-#if NeedFunctionPrototypes
   Display*                /* display */,
   XvPortID                /* port */,
   int*                    /* number */
-#endif
 );
 
 
 extern void XvFreeAdaptorInfo(
-#if NeedFunctionPrototypes
   XvAdaptorInfo*          /* adaptors */
-#endif
 );
 
 extern void XvFreeEncodingInfo(
-#if NeedFunctionPrototypes
   XvEncodingInfo*         /* encodings */
-#endif
 );
 
 
 extern XvImageFormatValues * XvListImageFormats (
-#if NeedFunctionPrototypes
    Display 	*display,
    XvPortID 	port_id,
    int 		*count_return
-#endif
 );
 
 extern XvImage * XvCreateImage (
-#if NeedFunctionPrototypes
    Display *display,
    XvPortID port,
    int id,
    char *data,
    int width, 
    int height 
-#endif
 );
 
 extern int XvPutImage (
-#if NeedFunctionPrototypes
   Display *display,
    XvPortID id,
    Drawable d,
@@ -388,11 +347,9 @@ extern int XvPutImage (
    int dest_y,
    unsigned int dest_w,
    unsigned int dest_h
-#endif
 );
 
 extern int XvShmPutImage (
-#if NeedFunctionPrototypes
    Display *display,
    XvPortID id,
    Drawable d,
@@ -407,13 +364,11 @@ extern int XvShmPutImage (
    unsigned int dest_w,
    unsigned int dest_h,
    Bool send_event
-#endif
 );
 
 #ifdef _XSHM_H_
 
 extern XvImage * XvShmCreateImage (
-#if NeedFunctionPrototypes
    Display *display,
    XvPortID port,
    int id,
@@ -421,7 +376,6 @@ extern XvImage * XvShmCreateImage (
    int width, 
    int height,
    XShmSegmentInfo *shminfo
-#endif
 );
 
 #endif

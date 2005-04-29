@@ -32,7 +32,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Names to predefine in the preprocessor for this target machine.  */
 
-#define CPP_PREDEFINES "-D__mn10200__ -D__MN10200__ -D__LONG_MAX__=2147483647L -D__LONG_LONG_MAX__=2147483647L -D__INT_MAX__=32767"
+#define CPP_PREDEFINES "-D__mn10200__ -D__MN10200__"
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
 
@@ -81,19 +81,9 @@ extern int target_flags;
    This is not true on the Matsushita MN10200.  */
 #define WORDS_BIG_ENDIAN 0
 
-/* Number of bits in an addressable storage unit */
-#define BITS_PER_UNIT 8
-
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.
-
-   This is a white lie.  Registers are really 24bits, but most operations
+/* This is a white lie.  Registers are really 24bits, but most operations
    only operate on 16 bits.   GCC chokes badly if we set this to a value
    that is not a power of two.  */
-#define BITS_PER_WORD		16
-
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD		2
 
@@ -428,7 +418,7 @@ enum reg_class {
 #undef SIZE_TYPE
 #undef PTRDIFF_TYPE
 #define SIZE_TYPE "long unsigned int"
-#define PTRDIFF_TYPE "long unsigned int"
+#define PTRDIFF_TYPE "long int"
 
 /* Note sizeof (WCHAR_TYPE) must be equal to the value of WCHAR_TYPE_SIZE!  */
 #undef WCHAR_TYPE
@@ -824,28 +814,15 @@ struct cum_arg { int nbytes; };
 #define ASM_OUTPUT_ALIGNED_BSS(FILE, DECL, NAME, SIZE, ALIGN) \
   asm_output_aligned_bss ((FILE), (DECL), (NAME), (SIZE), (ALIGN))
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-
-#define ASM_OUTPUT_LABEL(FILE, NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE, NAME)	\
-  do { fputs ("\t.global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP "\t.global "
 
 /* This is how to output a reference to a user-level label named NAME.
    `assemble_name' uses this.  */
 
 #undef ASM_OUTPUT_LABELREF
-#define ASM_OUTPUT_LABELREF(FILE, NAME)	          \
-  do {                                            \
-  const char* real_name;                          \
-  STRIP_NAME_ENCODING (real_name, (NAME));        \
-  fprintf (FILE, "_%s", real_name);               \
-  } while (0)           
+#define ASM_OUTPUT_LABELREF(FILE, NAME) \
+  fprintf (FILE, "_%s", (*targetm.strip_name_encoding) (NAME))
 
 /* Store in OUTPUT a string (made with alloca) containing
    an assembler-name for a local static variable named NAME.
@@ -886,7 +863,7 @@ struct cum_arg { int nbytes; };
 /* This is how to output an element of a case-vector that is absolute.  */
 
 #define ASM_OUTPUT_ADDR_VEC_ELT(FILE, VALUE) \
-  asm_fprintf (FILE, "\t%s .L%d\n", ".long", VALUE)
+  fprintf (FILE, "\t%s .L%d\n", ".long", VALUE)
 
 /* This is how to output an element of a case-vector that is relative.  */
 
@@ -924,10 +901,6 @@ struct cum_arg { int nbytes; };
 #define DEBUGGER_ARG_OFFSET(OFFSET, X) \
   ((GET_CODE (X) == PLUS ? OFFSET : 0) \
     + (frame_pointer_needed ? 0 : -total_frame_size ()))
-
-/* Define to use software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion. */
-#define REAL_ARITHMETIC
 
 /* Specify the machine mode that this machine uses
    for the index in the tablejump instruction.  */
@@ -1001,5 +974,5 @@ struct cum_arg { int nbytes; };
 				  SYMBOL_REF, LABEL_REF, SUBREG, REG, MEM }}, \
   {"nshift_operator",		{ ASHIFTRT, LSHIFTRT, ASHIFT }},
 
-extern struct rtx_def *zero_dreg;
-extern struct rtx_def *zero_areg;
+extern GTY(()) rtx zero_dreg;
+extern GTY(()) rtx zero_areg;

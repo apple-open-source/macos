@@ -1,4 +1,4 @@
-# Copyright (C) 1992, 1993, 1994, 1996, 1997, 2000, 2001
+# Copyright (C) 1992, 1993, 1994, 1996, 1997, 2000, 2001, 2002
 # Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
@@ -85,12 +85,14 @@ proc objc_version { } {
 set objc_initialized 0
 
 proc objc_init { args } {
+    global rootme
     global tmpdir
     global libdir
     global gluefile wrap_flags
     global objc_initialized
     global OBJC_UNDER_TEST
     global TOOL_EXECUTABLE
+    global objc_libgcc_s_path
 
     if { $objc_initialized == 1 } { return; }
 
@@ -106,7 +108,7 @@ proc objc_init { args } {
 	set tmpdir /tmp
     }
     if { [target_info needs_status_wrapper]!="" && ![info exists gluefile] } {
-	set gluefile ${tmpdir}/testglue.o;
+	set gluefile ${tmpdir}/objc-testglue.o;
 	set result [build_wrapper $gluefile];
 	if { $result != "" } {
 	    set gluefile [lindex $result 0];
@@ -115,17 +117,35 @@ proc objc_init { args } {
 	    unset gluefile
 	}
     }
+
+    set objc_libgcc_s_path "${rootme}"
+    set compiler [lindex $OBJC_UNDER_TEST 0]
+    if { [is_remote host] == 0 && [which $compiler] != 0 } {
+	foreach i "[exec $compiler --print-multi-lib]" {
+	    set mldir ""
+	    regexp -- "\[a-z0-9=/\.-\]*;" $i mldir
+	    set mldir [string trimright $mldir "\;@"]
+	    if { "$mldir" == "." } {
+		continue
+	    }
+	    if { [llength [glob -nocomplain ${rootme}/${mldir}/libgcc_s*.so.*]] == 1 } {
+		append objc_libgcc_s_path ":${rootme}/${mldir}"
+	    }
+	}
+    }
 }
 
 proc objc_target_compile { source dest type options } {
     global rootme;
     global tmpdir;
     global gluefile wrap_flags;
+    global srcdir
     global OBJC_UNDER_TEST
     global TOOL_OPTIONS
     global ld_library_path
+    global objc_libgcc_s_path
 
-    set ld_library_path ".:${rootme}"
+    set ld_library_path ".:${objc_libgcc_s_path}"
     lappend options "libs=-lobjc"
 
     if { [target_info needs_status_wrapper]!="" && [info exists gluefile] } {
@@ -145,12 +165,17 @@ proc objc_target_compile { source dest type options } {
     if [info exists TOOL_OPTIONS] {
 	lappend options "additional_flags=$TOOL_OPTIONS"
     }
-    if [target_info exists objc,no_varargs] {
-	lappend options "additional_flags=-DNO_VARARGS"
-    }
+
+    # APPLE LOCAL DejaGNU
+    # Libobjc header inclusion logic has been moved below.
+
     set objcpath "[get_multilibs]"
     set libobjc_dir [lookfor_file ${objcpath} libobjc/.libs/libobjc.a]
     if { $libobjc_dir != "" } {
+	# APPLE LOCAL begin DejaGNU
+	set objc_include_dir "${srcdir}/../../libobjc"
+	lappend options "additional_flags=-I${objc_include_dir}"
+	# APPLE LOCAL end DejaGNU
 	set libobjc_dir [file dirname ${libobjc_dir}]
 	set objc_link_flags "-L${libobjc_dir}"
 	lappend options "additional_flags=${objc_link_flags}"

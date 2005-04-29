@@ -1,5 +1,5 @@
 /* Simple garbage collection for the GNU compiler.
-   Copyright (C) 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -26,20 +26,17 @@
 #include "flags.h"
 #include "varray.h"
 #include "ggc.h"
+#include "toplev.h"
 #include "timevar.h"
+#include "params.h"
 
 /* Debugging flags.  */
 
 /* Zap memory before freeing to catch dangling pointers.  */
-#define GGC_POISON
+#undef GGC_POISON
 
 /* Collect statistics on how bushy the search tree is.  */
 #undef GGC_BALANCE
-
-/* Perform collection every time ggc_collect is invoked.  Otherwise,
-   collection is performed only when a significant amount of memory
-   has been allocated since the last collection.  */
-#undef GGC_ALWAYS_COLLECT
 
 /* Always verify that the to-be-marked memory is collectable.  */
 #undef GGC_ALWAYS_VERIFY
@@ -47,9 +44,6 @@
 #ifdef ENABLE_GC_CHECKING
 #define GGC_POISON
 #define GGC_ALWAYS_VERIFY
-#endif
-#ifdef ENABLE_GC_ALWAYS_COLLECT
-#define GGC_ALWAYS_COLLECT
 #endif
 
 #ifndef HOST_BITS_PER_PTR
@@ -114,16 +108,6 @@ static struct globals
   /* Current context level.  */
   int context;
 } G;
-
-/* Skip garbage collection if the current allocation is not at least
-   this factor times the allocation at the end of the last collection.
-   In other words, total allocation must expand by (this factor minus
-   one) before collection is performed.  */
-#define GGC_MIN_EXPAND_FOR_GC (1.3)
-
-/* Bound `allocated_last_gc' to 4MB, to prevent the memory expansion
-   test from triggering too often when the heap is small.  */
-#define GGC_MIN_LAST_ALLOCATED (4 * 1024 * 1024)
 
 /* Local function prototypes.  */
 
@@ -251,7 +235,7 @@ size_t
 ggc_get_size (p)
      const void *p;
 {
-  struct ggc_mem *x 
+  struct ggc_mem *x
     = (struct ggc_mem *) ((const char *)p - offsetof (struct ggc_mem, u));
   return x->size;
 }
@@ -324,10 +308,16 @@ sweep_objs (root)
 void
 ggc_collect ()
 {
-#ifndef GGC_ALWAYS_COLLECT
-  if (G.allocated < GGC_MIN_EXPAND_FOR_GC * G.allocated_last_gc)
+  /* Avoid frequent unnecessary work by skipping collection if the
+     total allocations haven't expanded much since the last
+     collection.  */
+  size_t allocated_last_gc =
+    MAX (G.allocated_last_gc, (size_t)PARAM_VALUE (GGC_MIN_HEAPSIZE) * 1024);
+
+  size_t min_expand = allocated_last_gc * PARAM_VALUE (GGC_MIN_EXPAND) / 100;
+
+  if (G.allocated < allocated_last_gc + min_expand)
     return;
-#endif
 
 #ifdef GGC_BALANCE
   debug_ggc_balance ();
@@ -345,8 +335,6 @@ ggc_collect ()
   sweep_objs (&G.root);
 
   G.allocated_last_gc = G.allocated;
-  if (G.allocated_last_gc < GGC_MIN_LAST_ALLOCATED)
-    G.allocated_last_gc = GGC_MIN_LAST_ALLOCATED;
 
   timevar_pop (TV_GC);
 
@@ -360,10 +348,9 @@ ggc_collect ()
 
 /* Called once to initialize the garbage collector.  */
 
-void 
+void
 init_ggc ()
 {
-  G.allocated_last_gc = GGC_MIN_LAST_ALLOCATED;
 }
 
 /* Start a new GGC context.  Memory allocated in previous contexts
@@ -383,7 +370,7 @@ ggc_push_context ()
 /* Finish a GC context.  Any uncollected memory in the new context
    will be merged with the old context.  */
 
-void 
+void
 ggc_pop_context ()
 {
   G.context--;
@@ -425,7 +412,7 @@ debug_ggc_tree (p, indent)
   for (i = 0; i < indent; ++i)
     putc (' ', stderr);
   fprintf (stderr, "%lx %p\n", (unsigned long)PTR_KEY (p), p);
- 
+
   if (p->sub[1])
     debug_ggc_tree (p->sub[1], indent + 1);
 }
@@ -490,7 +477,7 @@ ggc_print_statistics ()
 
   /* Clear the statistics.  */
   memset (&stats, 0, sizeof (stats));
-  
+
   /* Make sure collection will really occur.  */
   G.allocated_last_gc = 0;
 
@@ -502,16 +489,90 @@ ggc_print_statistics ()
 
   fprintf (stderr, "\n\
 Total internal data (bytes)\t%ld%c\n\
-Number of leaves in tree\t%d\n\
+Number of leaves in tree\t%lu\n\
 Average leaf depth\t\t%.1f\n",
 	   SCALE(G.objects * offsetof (struct ggc_mem, u)),
 	   LABEL(G.objects * offsetof (struct ggc_mem, u)),
-	   nleaf, (double)sumdepth / (double)nleaf);
+	   (unsigned long)nleaf, (double)sumdepth / (double)nleaf);
 
   /* Report overall memory usage.  */
   fprintf (stderr, "\n\
-Total objects allocated\t\t%d\n\
+Total objects allocated\t\t%ld\n\
 Total memory in GC arena\t%ld%c\n",
-	   G.objects,
+	   (unsigned long)G.objects,
 	   SCALE(G.allocated), LABEL(G.allocated));
+}
+
+struct ggc_pch_data *
+init_ggc_pch ()
+{
+  sorry ("Generating PCH files is not supported when using ggc-simple.c");
+  /* It could be supported, but the code is not yet written.  */
+  return NULL;
+}
+
+void 
+ggc_pch_count_object (d, x, size)
+     struct ggc_pch_data *d ATTRIBUTE_UNUSED;
+     void *x ATTRIBUTE_UNUSED;
+     size_t size ATTRIBUTE_UNUSED;
+{
+}
+     
+size_t
+ggc_pch_total_size (d)
+     struct ggc_pch_data *d ATTRIBUTE_UNUSED;
+{
+  return 0;
+}
+
+void
+ggc_pch_this_base (d, base)
+     struct ggc_pch_data *d ATTRIBUTE_UNUSED;
+     void *base ATTRIBUTE_UNUSED;
+{
+}
+
+
+char *
+ggc_pch_alloc_object (d, x, size)
+     struct ggc_pch_data *d ATTRIBUTE_UNUSED;
+     void *x ATTRIBUTE_UNUSED;
+     size_t size ATTRIBUTE_UNUSED;
+{
+  return NULL;
+}
+
+void 
+ggc_pch_prepare_write (d, f)
+     struct ggc_pch_data * d ATTRIBUTE_UNUSED;
+     FILE * f ATTRIBUTE_UNUSED;
+{
+}
+
+void
+ggc_pch_write_object (d, f, x, newx, size)
+     struct ggc_pch_data * d ATTRIBUTE_UNUSED;
+     FILE *f ATTRIBUTE_UNUSED;
+     void *x ATTRIBUTE_UNUSED;
+     void *newx ATTRIBUTE_UNUSED;
+     size_t size ATTRIBUTE_UNUSED;
+{
+}
+
+void
+ggc_pch_finish (d, f)
+     struct ggc_pch_data * d ATTRIBUTE_UNUSED;
+     FILE *f ATTRIBUTE_UNUSED;
+{
+}
+
+void
+ggc_pch_read (f, addr)
+     FILE *f ATTRIBUTE_UNUSED;
+     void *addr ATTRIBUTE_UNUSED;
+{
+  /* This should be impossible, since we won't generate any valid PCH
+     files for this configuration.  */
+  abort ();
 }

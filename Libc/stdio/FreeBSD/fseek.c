@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)fseek.c	8.3 (Berkeley) 1/2/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fseek.c,v 1.40 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fseek.c,v 1.41 2004/05/22 15:19:41 tjr Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -259,6 +259,7 @@ _fseeko(fp, offset, whence, ltest)
 		if (HASUB(fp))
 			FREEUB(fp);
 		fp->_flags &= ~__SEOF;
+		memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 		return (0);
 	}
 
@@ -303,6 +304,7 @@ dumb:
 	fp->_r = 0;
 	/* fp->_w = 0; */	/* unnecessary (I think...) */
 	fp->_flags &= ~__SEOF;
+	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
 	if (ltest && ret > LONG_MAX) {
 		fp->_flags |= __SERR;
 		errno = EOVERFLOW;

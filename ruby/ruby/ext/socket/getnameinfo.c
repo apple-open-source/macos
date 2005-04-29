@@ -36,7 +36,7 @@
 
 #include "config.h"
 #include <sys/types.h>
-#ifndef NT
+#ifndef _WIN32
 #if defined(__BEOS__)
 # include <net/socket.h>
 #else
@@ -51,10 +51,13 @@
 #endif
 #include <netdb.h>
 #if defined(HAVE_RESOLV_H)
+#ifdef _SX
+#include <stdio.h>
+#endif
 #include <resolv.h>
 #endif
 #endif
-#ifdef NT
+#ifdef _WIN32
 #include <winsock2.h>
 #include <stdio.h>
 #define snprintf _snprintf
@@ -180,14 +183,14 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 		/* what we should do? */
 	} else if (flags & NI_NUMERICSERV) {
 		snprintf(numserv, sizeof(numserv), "%d", ntohs(port));
-		if (strlen(numserv) > servlen)
+		if (strlen(numserv) + 1 > servlen)
 			return ENI_MEMORY;
 		strcpy(serv, numserv);
 	} else {
 #if defined(HAVE_GETSERVBYPORT)
 		sp = getservbyport(port, (flags & NI_DGRAM) ? "udp" : "tcp");
 		if (sp) {
-			if (strlen(sp->s_name) > servlen)
+			if (strlen(sp->s_name) + 1 > servlen)
 				return ENI_MEMORY;
 			strcpy(serv, sp->s_name);
 		} else
@@ -199,16 +202,20 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 
 	switch (sa->sa_family) {
 	case AF_INET:
-		v4a = ((struct sockaddr_in *)sa)->sin_addr.s_addr;
+		v4a = ntohl(((struct sockaddr_in *)sa)->sin_addr.s_addr);
 		if (IN_MULTICAST(v4a) || IN_EXPERIMENTAL(v4a))
 			flags |= NI_NUMERICHOST;
 		v4a >>= IN_CLASSA_NSHIFT;
-		if (v4a == 0 || v4a == IN_LOOPBACKNET)
+		if (v4a == 0)
 			flags |= NI_NUMERICHOST;			
 		break;
 #ifdef INET6
 	case AF_INET6:
+#ifdef HAVE_ADDR8
 		pfx = ((struct sockaddr_in6 *)sa)->sin6_addr.s6_addr8[0];
+#else
+		pfx = ((struct sockaddr_in6 *)sa)->sin6_addr.s6_addr[0];
+#endif
 		if (pfx == 0 || pfx == 0xfe || pfx == 0xff)
 			flags |= NI_NUMERICHOST;
 		break;
@@ -236,7 +243,7 @@ getnameinfo(sa, salen, host, hostlen, serv, servlen, flags)
 				p = strchr(hp->h_name, '.');
 				if (p) *p = '\0';
 			}
-			if (strlen(hp->h_name) > hostlen) {
+			if (strlen(hp->h_name) + 1 > hostlen) {
 #ifdef INET6
 				freehostent(hp);
 #endif

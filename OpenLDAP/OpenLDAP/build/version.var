@@ -1,13 +1,23 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/build/version.var,v 1.1.2.12 2003/06/26 20:06:59 kurt Exp $
-## Copyright 2000-2003 The OpenLDAP Foundation
-## COPYING RESTRICTIONS APPLY.  See COPYRIGHT File in top level directory
-## of this package for details.
-#
+# $OpenLDAP: pkg/ldap/build/version.var,v 1.1.4.48 2004/11/28 21:20:51 kurt Exp $
+## This work is part of OpenLDAP Software <http://www.openldap.org/>.
+##
+## Copyright 1998-2004 The OpenLDAP Foundation.
+## All rights reserved.
+##
+## Redistribution and use in source and binary forms, with or without
+## modification, are permitted only as authorized by the OpenLDAP
+## Public License.
+##
+## A copy of this license is available in the file LICENSE in the
+## top-level directory of the distribution or, alternatively, at
+## <http://www.OpenLDAP.org/license.html>.
 ol_package=OpenLDAP
 ol_major=2
-ol_minor=1
-ol_patch=22
-ol_api_inc=20122
-ol_api_lib=2:122:0
-ol_release_date="06-26-2003"
+ol_minor=2
+ol_patch=19
+ol_api_inc=20219
+ol_api_current=7
+ol_api_revision=12
+ol_api_age=0
+ol_release_date="2004/11/26"

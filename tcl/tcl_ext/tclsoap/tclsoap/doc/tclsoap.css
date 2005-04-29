@@ -1,0 +1,46 @@
+/* tclsoap.css - Copyright (C) 2001 Pat Thoyts <Pat.Thoyts@bigfoot.com>
+ *
+ * Provide a uniform style for the TclSOAP pages.
+ * Based upon a SourceForge style.
+ *
+ * $Id: tclsoap.css,v 1.1 2001/10/09 21:01:11 patthoyts Exp $
+ */
+
+BODY { background-color: white; color: black}
+TABLE {vertical-align: top; }
+TABLE.globaltable { background-color: steelblue;
+                    text-align: center;
+                    border: 0;
+                    padding: 4;
+                    width: 100%; }
+TD.header {text-align: left; vertical-align: top;}
+TD.logo   {text-align: right; vertical-align: top;}
+TD.sidebar {background-color: LightSteelBlue; width: 15%; vertical-align: top; }
+TD.sidehead {text-align: center; background-color: SteelBlue; font-weight: bold}
+TD.sideelt {text-align: right; }
+TD.body {background-color: white; padding: 4}
+
+A { text-decoration: none; color DarkSlateBlue; }
+A:visited { text-decoration: none; color: SeaGreen; }
+A:link { text-decoration: none; color: navy; }
+A:active { text-decoration: none; color: tomato; }
+A:hover { text-decoration: none; color: red }
+
+P,BODY {
+   text-align: justify;
+   font-family: arial,helvetica,sans-serif;
+   color: black
+   background-color: white;
+}
+
+OL,UL,TD,TR,TH,FORM,SPAN { text-align: left;}
+H1,H2,H3,H4,H5,H6 { font-family: arial,helvetica,sans-serif; text-align: left }
+PRE,TT { font-family: courier,sans-serif; text-align: left }
+PRE { background-color: #c0c0c0; }
+
+SPAN.center { text-align: center }
+SPAN.boxspace { font-size: 2pt; }
+
+TR.footer { font-size: smaller; 
+            font-family: arial,helvetica,sans-serif; }
+TD.footer { font-size: smaller; text-align: right; }

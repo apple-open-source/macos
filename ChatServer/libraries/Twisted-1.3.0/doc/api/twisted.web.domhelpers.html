@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.web.domhelpers</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.web.html">Package&nbsp;web</a> ::
+        Module&nbsp;domhelpers
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.web.domhelpers.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.web.domhelpers</h2>
+
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.web.domhelpers.RawText.html"><code>RawText</code></a></b></td>
+  <td>This is an evil and horrible speed hack.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF EXCEPTIONS =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Exceptions</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.web.domhelpers.NodeLookupError.html"><code>NodeLookupError</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#_get" class="summary-sig-name"><code>_get</code></a>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>nodeId</span>,
+          <span class=summary-sig-arg>nodeAttrs</span>)</span></code>
+<br />
+(internal) Get a node with the specified <code>nodeId</code> as any of 
+the <code>class</code>, <code>id</code> or <code>pattern</code> 
+attributes.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#clearNode" class="summary-sig-name"><code>clearNode</code></a>(<span class=summary-sig-arg>node</span>)</span></code>
+<br />
+Remove all children from the given node.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findElements"></a><span class="summary-sig"><span class="summary-sig-name">findElements</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>matcher</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findElementsWithAttribute"></a><span class="summary-sig"><span class="summary-sig-name">findElementsWithAttribute</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>attribute</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findElementsWithAttributeShallow"></a><span class="summary-sig"><span class="summary-sig-name">findElementsWithAttributeShallow</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>attribute</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findNodes"></a><span class="summary-sig"><span class="summary-sig-name">findNodes</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>matcher</span>,
+          <span class=summary-sig-arg>accum</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findNodesNamed"></a><span class="summary-sig"><span class="summary-sig-name">findNodesNamed</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>name</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findNodesShallow"></a><span class="summary-sig"><span class="summary-sig-name">findNodesShallow</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>matcher</span>,
+          <span class=summary-sig-arg>accum</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="findNodesShallowOnMatch"></a><span class="summary-sig"><span class="summary-sig-name">findNodesShallowOnMatch</span>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>matcher</span>,
+          <span class=summary-sig-arg>recurseMatcher</span>,
+          <span class=summary-sig-arg>accum</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">        str
+</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#gatherTextNodes" class="summary-sig-name"><code>gatherTextNodes</code></a>(<span class=summary-sig-arg>iNode</span>,
+          <span class=summary-sig-arg>dounescape</span>,
+          <span class=summary-sig-arg>joinWith</span>)</span></code>
+<br />
+Visit each child node and collect its text data, if any, into a 
+string.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#get" class="summary-sig-name"><code>get</code></a>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>nodeId</span>)</span></code>
+<br />
+Get a node with the specified <code>nodeId</code> as any of the 
+<code>class</code>, <code>id</code> or <code>pattern</code> 
+attributes.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#getAndClear" class="summary-sig-name"><code>getAndClear</code></a>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>nodeId</span>)</span></code>
+<br />
+Get a node with the specified <code>nodeId</code> as any of the 
+<code>class</code>, <code>id</code> or <code>pattern</code> 
+attributes.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#getIfExists" class="summary-sig-name"><code>getIfExists</code></a>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>nodeId</span>)</span></code>
+<br />
+Get a node with the specified <code>nodeId</code> as any of the 
+<code>class</code>, <code>id</code> or <code>pattern</code> 
+attributes.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getNodeText"></a><span class="summary-sig"><span class="summary-sig-name">getNodeText</span>(<span class=summary-sig-arg>node</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getParents"></a><span class="summary-sig"><span class="summary-sig-name">getParents</span>(<span class=summary-sig-arg>node</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#locateNodes" class="summary-sig-name"><code>locateNodes</code></a>(<span class=summary-sig-arg>nodeList</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>value</span>,
+          <span class=summary-sig-arg>noNesting</span>)</span></code>
+<br />
+Find subnodes in the given node where the given attribute has the 
+given value.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#namedChildren" class="summary-sig-name"><code>namedChildren</code></a>(<span class=summary-sig-arg>parent</span>,
+          <span class=summary-sig-arg>nodeName</span>)</span></code>
+<br />
+namedChildren(parent, nodeName) -&gt; children (not descendants) of 
+parent that have tagName == nodeName</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.web.domhelpers.html#substitute" class="summary-sig-name"><code>substitute</code></a>(<span class=summary-sig-arg>request</span>,
+          <span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>subs</span>)</span></code>
+<br />
+Look through the given node's children for strings, and attempt to do 
+string substitution with the given parameter.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="superAppendAttribute"></a><span class="summary-sig"><span class="summary-sig-name">superAppendAttribute</span>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="superPrependAttribute"></a><span class="summary-sig"><span class="summary-sig-name">superPrependAttribute</span>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="superSetAttribute"></a><span class="summary-sig"><span class="summary-sig-name">superSetAttribute</span>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>key</span>,
+          <span class=summary-sig-arg>value</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="writeNodeData"></a><span class="summary-sig"><span class="summary-sig-name">writeNodeData</span>(<span class=summary-sig-arg>node</span>,
+          <span class=summary-sig-arg>oldio</span>)</span></code>
+</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="_get"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_get</span>(<span class=sig-arg>node</span>,
+          <span class=sig-arg>nodeId</span>,
+          <span class=sig-arg>nodeAttrs</span>=<span class=sig-default>('id',&nbsp;'class',&nbsp;'model',&nbsp;'pattern')</span>)</span>
+  </h3>
+  (internal) Get a node with the specified <code>nodeId</code> as any 
+  of the <code>class</code>, <code>id</code> or <code>pattern</code> 
+  attributes.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="clearNode"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">clearNode</span>(<span class=sig-arg>node</span>)</span>
+  </h3>
+  Remove all children from the given node.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="gatherTextNodes"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">gatherTextNodes</span>(<span class=sig-arg>iNode</span>,
+          <span class=sig-arg>dounescape</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>joinWith</span>=<span class=sig-default>''</span>)</span>
+  </h3>
+  Visit each child node and collect its text data, if any, into a 
+  string. For example:
+<pre class="literalblock">
+   &gt;&gt;&gt; doc=microdom.parseString('&lt;a&gt;1&lt;b&gt;2&lt;c&gt;3&lt;/c&gt;4&lt;/b&gt;&lt;/a&gt;')
+   &gt;&gt;&gt; gatherTextNodes(doc.documentElement)
+   '1234'
+</pre>
+  With dounescape=1, also convert entities back into normal 
+  characters.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        the gathered nodes as a single string
+        <br /><i>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        (type=str)</i>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="get"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">get</span>(<span class=sig-arg>node</span>,
+          <span class=sig-arg>nodeId</span>)</span>
+  </h3>
+  Get a node with the specified <code>nodeId</code> as any of the 
+  <code>class</code>, <code>id</code> or <code>pattern</code> attributes. 
+  If there is no such node, raise <a 
+  href="twisted.web.domhelpers.NodeLookupError.html" 
+  class="link"><code>NodeLookupError</code></a>.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getAndClear"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getAndClear</span>(<span class=sig-arg>node</span>,
+          <span class=sig-arg>nodeId</span>)</span>
+  </h3>
+  Get a node with the specified <code>nodeId</code> as any of the 
+  <code>class</code>, <code>id</code> or <code>pattern</code> attributes. 
+  If there is no such node, raise <a 
+  href="twisted.web.domhelpers.NodeLookupError.html" 
+  class="link"><code>NodeLookupError</code></a>. Remove all child nodes 
+  before returning.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getIfExists"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getIfExists</span>(<span class=sig-arg>node</span>,
+          <span class=sig-arg>nodeId</span>)</span>
+  </h3>
+  Get a node with the specified <code>nodeId</code> as any of the 
+  <code>class</code>, <code>id</code> or <code>pattern</code> attributes. 
+  If there is no such node, return <code>None</code>.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="locateNodes"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">locateNodes</span>(<span class=sig-arg>nodeList</span>,
+          <span class=sig-arg>key</span>,
+          <span class=sig-arg>value</span>,
+          <span class=sig-arg>noNesting</span>=<span class=sig-default>1</span>)</span>
+  </h3>
+  Find subnodes in the given node where the given attribute has the 
+  given value.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="namedChildren"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">namedChildren</span>(<span class=sig-arg>parent</span>,
+          <span class=sig-arg>nodeName</span>)</span>
+  </h3>
+  namedChildren(parent, nodeName) -&gt; children (not descendants) of 
+  parent that have tagName == nodeName
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="substitute"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">substitute</span>(<span class=sig-arg>request</span>,
+          <span class=sig-arg>node</span>,
+          <span class=sig-arg>subs</span>)</span>
+  </h3>
+  Look through the given node's children for strings, and attempt to 
+  do string substitution with the given parameter.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:08:39 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,5 +1,5 @@
-// Build don't link:
-// Special g++ Options:
+// { dg-do assemble  }
+// { dg-options "" }
 
 template <class T, bool B> 
 struct R {
@@ -12,7 +12,7 @@ struct S : public R <T, B> {
 
 template <class T> void f() 
 {
-  S<T>::X();
+  typename S<T>::X();
 }
 
 template void f<int>();

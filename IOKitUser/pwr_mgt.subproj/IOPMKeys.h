@@ -26,7 +26,10 @@
     IOPMKeys.h defines C strings for use accessing power management data.
     Note that all of these C strings must be converted to CFStrings before use. You can wrap
     them with the CFSTR() macro, or create a CFStringRef (that you must later CFRelease()) using CFStringCreateWithCString()
- */  
+ */
+ 
+#ifndef _IOPMKEYS_H_
+#define _IOPMKEYS_H_
  
 /*
  * Types of power event
@@ -86,3 +89,5 @@
     @abstract Key for the type of power event. Value is a CFStringRef, with the c-string value of one of the "kIOPMAuto" strings.
 */
 #define kIOPMPowerEventTypeKey                          "eventtype"
+
+#endif

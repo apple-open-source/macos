@@ -1,0 +1,11 @@
+--- src/funcs.c.orig	2004-08-08 22:43:20.000000000 -0700
++++ src/funcs.c	2004-08-08 23:38:25.000000000 -0700
+@@ -172,7 +172,7 @@
+ 	}
+ 
+ 	for (np = ms->o.pbuf, op = ms->o.buf; *op; op++) {
+-		if (isprint((unsigned char)*op)) {
++		if (isprint((unsigned char)*op) || ((unsigned char)*op) == '\t' || ((unsigned char)*op) == '\n') {
+ 			*np++ = *op;	
+ 		} else {
+ 			*np++ = '\\';

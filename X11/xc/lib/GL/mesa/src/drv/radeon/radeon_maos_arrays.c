@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_maos_arrays.c,v 1.1 2002/10/30 12:51:55 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_maos_arrays.c,v 1.2 2003/09/28 20:15:28 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,37 +6,36 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, TUNGSTEN GRAPHICS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
 
 #include "glheader.h"
+#include "imports.h"
 #include "mtypes.h"
-#include "colormac.h"
-#include "mem.h"
 #include "mmath.h"
 #include "macros.h"
 
@@ -262,7 +261,8 @@ static void emit_vector( GLcontext *ctx,
    radeonContextPtr rmesa = RADEON_CONTEXT(ctx);
 
    if (RADEON_DEBUG & DEBUG_VERTS)
-      fprintf(stderr, "%s %d/%d\n", __FUNCTION__, count, size);
+      fprintf(stderr, "%s count %d size %d stride %d\n",
+	      __FUNCTION__, count, size, stride);
 
    assert (!rvb->buf);
 
@@ -409,7 +409,7 @@ static void emit_tex_vector( GLcontext *ctx,
 
 
 
-/* Emit any changed arrays to new agp memory, re-emit a packet to
+/* Emit any changed arrays to new GART memory, re-emit a packet to
  * update the arrays.  
  */
 void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
@@ -444,7 +444,7 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
    }
    
 
-   if (inputs & VERT_NORM) {
+   if (inputs & VERT_BIT_NORMAL) {
       if (!rmesa->tcl.norm.buf)
 	 emit_vector( ctx, 
 		      &(rmesa->tcl.norm), 
@@ -457,7 +457,7 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
       component[nr++] = &rmesa->tcl.norm;
    }
 
-   if (inputs & VERT_RGBA) {
+   if (inputs & VERT_BIT_COLOR0) {
       if (VB->ColorPtr[0]->Type == GL_UNSIGNED_BYTE) {
 	 if (!rmesa->tcl.rgba.buf)
 	    emit_ubyte_rgba( ctx, 
@@ -483,7 +483,6 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
 	    emitsize = 3;
 	 }
 
-
 	 if (!rmesa->tcl.rgba.buf)
 	    emit_vector( ctx, 
 			 &(rmesa->tcl.rgba), 
@@ -497,7 +496,7 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
    }
 
 
-   if (inputs & VERT_SPEC_RGB) {
+   if (inputs & VERT_BIT_COLOR1) {
       if (!rmesa->tcl.spec.buf) {
 	 if (VB->SecondaryColorPtr[0]->Type != GL_UNSIGNED_BYTE)
 	    radeon_import_float_spec_colors( ctx );
@@ -517,7 +516,7 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
    vtx = (rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] &
 	  ~(RADEON_TCL_VTX_Q0|RADEON_TCL_VTX_Q1));
       
-   if (inputs & VERT_TEX0) {
+   if (inputs & VERT_BIT_TEX0) {
       if (!rmesa->tcl.tex[0].buf)
 	 emit_tex_vector( ctx, 
 			  &(rmesa->tcl.tex[0]), 
@@ -536,7 +535,7 @@ void radeonEmitArrays( GLcontext *ctx, GLuint inputs )
       component[nr++] = &rmesa->tcl.tex[0];
    }
 
-   if (inputs & VERT_TEX1) {
+   if (inputs & VERT_BIT_TEX1) {
       if (!rmesa->tcl.tex[1].buf)
 	 emit_tex_vector( ctx, 
 			  &(rmesa->tcl.tex[1]), 
@@ -572,21 +571,21 @@ void radeonReleaseArrays( GLcontext *ctx, GLuint newinputs )
    if (RADEON_DEBUG & DEBUG_VERTS) 
       _tnl_print_vert_flags( __FUNCTION__, newinputs );
 
-   if (newinputs & VERT_OBJ) 
+   if (newinputs & VERT_BIT_POS) 
      radeonReleaseDmaRegion( rmesa, &rmesa->tcl.obj, __FUNCTION__ );
 
-   if (newinputs & VERT_NORM) 
+   if (newinputs & VERT_BIT_NORMAL) 
       radeonReleaseDmaRegion( rmesa, &rmesa->tcl.norm, __FUNCTION__ );
 
-   if (newinputs & VERT_RGBA) 
+   if (newinputs & VERT_BIT_COLOR0) 
       radeonReleaseDmaRegion( rmesa, &rmesa->tcl.rgba, __FUNCTION__ );
 
-   if (newinputs & VERT_SPEC_RGB) 
+   if (newinputs & VERT_BIT_COLOR1) 
       radeonReleaseDmaRegion( rmesa, &rmesa->tcl.spec, __FUNCTION__ );
 
-   if (newinputs & VERT_TEX0)
+   if (newinputs & VERT_BIT_TEX0)
       radeonReleaseDmaRegion( rmesa, &rmesa->tcl.tex[0], __FUNCTION__ );
 
-   if (newinputs & VERT_TEX1)
+   if (newinputs & VERT_BIT_TEX1)
       radeonReleaseDmaRegion( rmesa, &rmesa->tcl.tex[1], __FUNCTION__ );
 }

@@ -142,7 +142,6 @@ void perl_eat_config_string(cmd_parms *cmd, void *config, SV *sv) {
 
 char *mod_perl_auth_name(request_rec *r, char *val)
 {
-#ifndef WIN32 
     core_dir_config *conf = 
       (core_dir_config *)get_module_config(r->per_dir_config, &core_module); 
 
@@ -153,14 +152,10 @@ char *mod_perl_auth_name(request_rec *r, char *val)
     }
 
     return conf->auth_name;
-#else
-    return (char *) auth_name(r);
-#endif
 }
 
 char *mod_perl_auth_type(request_rec *r, char *val)
 {
-#ifndef WIN32 
     core_dir_config *conf = 
       (core_dir_config *)get_module_config(r->per_dir_config, &core_module); 
 
@@ -171,9 +166,6 @@ char *mod_perl_auth_type(request_rec *r, char *val)
     }
 
     return conf->auth_type;
-#else
-    return (char *) auth_type(r);
-#endif
 }
 
 void mod_perl_dir_env(request_rec *r, perl_dir_config *cld)
@@ -400,7 +392,11 @@ static char *sigsave[] = { "ALRM", NULL };
 
 perl_request_config *perl_create_request_config(pool *p, server_rec *s)
 {
+
+#ifndef WIN32
     int i;
+#endif
+
     perl_request_config *cfg = 
 	(perl_request_config *)pcalloc(p, sizeof(perl_request_config));
     cfg->pnotes = Nullhv;
@@ -445,6 +441,13 @@ static void mp_preload_module(char **name)
 }
 #endif
 
+#define STARTUP_PERL_IF_NOT_RUNNING \
+if(!PERL_RUNNING()) { \
+    perl_startup(parms->server, parms->pool); \
+    require_Apache(parms->server); \
+    MP_TRACE_g(fprintf(stderr, "mod_perl: calling perl_startup()\n")); \
+}
+
 #ifdef PERL_STACKED_HANDLERS
 
 CHAR_P perl_cmd_push_handlers(char *hook, PERL_CMD_TYPE **cmd, char *arg, pool *p)
@@ -464,16 +467,13 @@ CHAR_P perl_cmd_push_handlers(char *hook, PERL_CMD_TYPE **cmd, char *arg, pool *
 }
 
 #define PERL_CMD_PUSH_HANDLERS(hook, cmd) \
-if(!PERL_RUNNING()) { \
-    perl_startup(parms->server, parms->pool); \
-    require_Apache(parms->server); \
-    MP_TRACE_g(fprintf(stderr, "mod_perl: calling perl_startup()\n")); \
-} \
+STARTUP_PERL_IF_NOT_RUNNING \
 return perl_cmd_push_handlers(hook,&cmd,arg,parms->pool)
 
 #else
 
 #define PERL_CMD_PUSH_HANDLERS(hook, cmd) \
+STARTUP_PERL_IF_NOT_RUNNING \
 mp_preload_module(&arg); \
 cmd = arg; \
 return NULL
@@ -1166,6 +1166,8 @@ void perl_section_hash_walk(cmd_parms *cmd, void *cfg, HV *hv)
     char *tmpkey; 
     I32 tmpklen; 
     SV *tmpval;
+    void *old_info = cmd->info;
+
     (void)hv_iterinit(hv); 
     while ((tmpval = hv_iternextsv(hv, &tmpkey, &tmpklen))) { 
 	char line[MAX_STRING_LEN]; 
@@ -1195,6 +1197,9 @@ void perl_section_hash_walk(cmd_parms *cmd, void *cfg, HV *hv)
 	if(errmsg)
 	    log_printf(cmd->server, "<Perl>: %s", errmsg);
     }
+
+    cmd->info = old_info;
+
     /* Emulate the handling of end token for the section */ 
     perl_set_config_vectors(cmd, cfg, &core_module);
 } 
@@ -1511,9 +1516,7 @@ void perl_handle_command_hv(HV *hv, char *key, cmd_parms *cmd, void *config)
     void *dummy = perl_set_config_vectors(cmd, config, &core_module);
     void *old_info = cmd->info;
 
-    if (strstr(key, "Match")) {
-	cmd->info = (void*)key;
-    }
+    cmd->info = (void *)strstr(key, "Match");
 
     if(strnEQ(key, "Location", 8))
 	perl_urlsection(cmd, dummy, hv);
@@ -1533,7 +1536,7 @@ void perl_handle_command_av(AV *av, I32 n, char *key, cmd_parms *cmd, void *conf
 {
     I32 alen = AvFILL(av);
     I32 i, j;
-    I32 oldwarn = dowarn; /*XXX, hmm*/
+    U8 oldwarn = dowarn; /*XXX, hmm*/
     dowarn = FALSE;
 
     if(!n) n = alen+1;
@@ -1671,6 +1674,27 @@ void perl_section_self_boot(cmd_parms *parms, void *dummy, const char *arg)
     }   
 }
 
+static int gvhv_is_stash(GV *gv)
+{
+    int len = GvNAMELEN(gv);
+    char *name = GvNAME(gv);
+
+    if ((len > 2) &&
+        (name[len - 1] == ':') &&
+        (name[len - 2] == ':'))
+    {
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+ * we do not clear symbols within packages, the desired behavior
+ * for directive handler classes.  and there should never be a package
+ * within the %Apache::ReadConfig.  nothing else that i'm aware of calls
+ * this function, so we should be ok.
+ */
 void perl_clear_symtab(HV *symtab) 
 {
     SV *val;
@@ -1689,7 +1713,7 @@ void perl_clear_symtab(HV *symtab)
 	    continue;
 	if((sv = GvSV((GV*)val)))
 	    sv_setsv(GvSV((GV*)val), &sv_undef);
-	if((hv = GvHV((GV*)val)))
+	if((hv = GvHV((GV*)val)) && !gvhv_is_stash((GV*)val))
 	    hv_clear(hv);
 	if((av = GvAV((GV*)val)))
 	    av_clear(av);

@@ -67,41 +67,36 @@ AR = @AR@
 AS = @AS@
 ATOMICITY_INC_SRCDIR = @ATOMICITY_INC_SRCDIR@
 AWK = @AWK@
+BASIC_FILE_CC = @BASIC_FILE_CC@
 BASIC_FILE_H = @BASIC_FILE_H@
-BUILD_INCLUDED_LIBINTL = @BUILD_INCLUDED_LIBINTL@
-CATALOGS = @CATALOGS@
-CATOBJEXT = @CATOBJEXT@
 CC = @CC@
 CCODECVT_C = @CCODECVT_C@
+CCODECVT_CC = @CCODECVT_CC@
 CCODECVT_H = @CCODECVT_H@
+CCOLLATE_CC = @CCOLLATE_CC@
+CCTYPE_CC = @CCTYPE_CC@
+CLOCALE_CC = @CLOCALE_CC@
 CLOCALE_H = @CLOCALE_H@
+CLOCALE_INTERNAL_H = @CLOCALE_INTERNAL_H@
+CMESSAGES_CC = @CMESSAGES_CC@
 CMESSAGES_H = @CMESSAGES_H@
+CMONEY_CC = @CMONEY_CC@
+CNUMERIC_CC = @CNUMERIC_CC@
 CPP = @CPP@
-CPU_LIMITS_INC_SRCDIR = @CPU_LIMITS_INC_SRCDIR@
-CSHADOW_FLAGS = @CSHADOW_FLAGS@
 CSTDIO_H = @CSTDIO_H@
+CTIME_CC = @CTIME_CC@
+CTIME_H = @CTIME_H@
 CXX = @CXX@
 CXXCPP = @CXXCPP@
 C_INCLUDE_DIR = @C_INCLUDE_DIR@
-DATADIRNAME = @DATADIRNAME@
 DEBUG_FLAGS = @DEBUG_FLAGS@
 DLLTOOL = @DLLTOOL@
 EXEEXT = @EXEEXT@
 EXTRA_CXX_FLAGS = @EXTRA_CXX_FLAGS@
 GCJ = @GCJ@
 GCJFLAGS = @GCJFLAGS@
-GENCAT = @GENCAT@
-GLIBC21 = @GLIBC21@
 GLIBCPP_INCLUDES = @GLIBCPP_INCLUDES@
 GLIBCPP_IS_CROSS_COMPILING = @GLIBCPP_IS_CROSS_COMPILING@
-GMOFILES = @GMOFILES@
-GMSGFMT = @GMSGFMT@
-INSTOBJEXT = @INSTOBJEXT@
-INTLBISON = @INTLBISON@
-INTLLIBS = @INTLLIBS@
-INTLOBJS = @INTLOBJS@
-INTL_LIBTOOL_SUFFIX_PREFIX = @INTL_LIBTOOL_SUFFIX_PREFIX@
-LIBICONV = @LIBICONV@
 LIBIO_INCLUDES = @LIBIO_INCLUDES@
 LIBMATHOBJS = @LIBMATHOBJS@
 LIBMATH_INCLUDES = @LIBMATH_INCLUDES@
@@ -112,22 +107,18 @@ LIBUNWIND_FLAG = @LIBUNWIND_FLAG@
 LN_S = @LN_S@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
-MKINSTALLDIRS = @MKINSTALLDIRS@
-MSGFMT = @MSGFMT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
 OPTIMIZE_CXXFLAGS = @OPTIMIZE_CXXFLAGS@
 OPT_LDFLAGS = @OPT_LDFLAGS@
 OS_INC_SRCDIR = @OS_INC_SRCDIR@
 PACKAGE = @PACKAGE@
-POFILES = @POFILES@
-POSUB = @POSUB@
 RANLIB = @RANLIB@
 SECTION_FLAGS = @SECTION_FLAGS@
 SECTION_LDFLAGS = @SECTION_LDFLAGS@
 STRIP = @STRIP@
+SYMVER_MAP = @SYMVER_MAP@
 TOPLEVEL_INCLUDES = @TOPLEVEL_INCLUDES@
-USE_INCLUDED_LIBINTL = @USE_INCLUDED_LIBINTL@
 USE_NLS = @USE_NLS@
 VERSION = @VERSION@
 WARN_FLAGS = @WARN_FLAGS@
@@ -150,7 +141,6 @@ gxx_include_dir = @gxx_include_dir@
 ifGNUmake = @ifGNUmake@
 libio_la = @libio_la@
 libtool_VERSION = @libtool_VERSION@
-release_VERSION = @release_VERSION@
 toplevel_srcdir = @toplevel_srcdir@
 
 AUTOMAKE_OPTIONS = 1.3 cygnus
@@ -160,10 +150,16 @@ SUBDIRS = include libio libmath libsupc++ src po testsuite
 
 mkinstalldirs = $(SHELL) $(toplevel_srcdir)/mkinstalldirs
 
+PWD = $${PWDCMD-pwd}
+
+# Use 'new-abi-baseline' to create an initial symbol file.  Then run
+# 'check-abi' to test for changes against that file.
+baseline_file = @baseline_file@
+
 # Multilib support.
 MAKEOVERRIDES = 
 
-# Multilib variables.
+# Multilib support variables.
 MULTISRCTOP = 
 MULTIBUILDTOP = 
 MULTIDIRS = 
@@ -174,45 +170,11 @@ MULTICLEAN = true
 # Work around what appears to be a GNU make bug handling MAKEFLAGS
 # values defined in terms of make variables, as is the case for CC and
 # friends when we are called from the top level Makefile.
-AM_MAKEFLAGS = \
-	"AR_FLAGS=$(AR_FLAGS)" \
-	"CC_FOR_BUILD=$(CC_FOR_BUILD)" \
-	"CC_FOR_TARGET=$(CC_FOR_TARGET)" \
-	"CFLAGS=$(CFLAGS)" \
-	"CXXFLAGS=$(CXXFLAGS)" \
-	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" \
-	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" \
-	"INSTALL=$(INSTALL)" \
-	"INSTALL_DATA=$(INSTALL_DATA)" \
-	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" \
-	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" \
-	"LDFLAGS=$(LDFLAGS)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" \
-	"MAKE=$(MAKE)" \
-	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" \
-	"SHELL=$(SHELL)" \
-	"RUNTESTFLAGS=$(RUNTESTFLAGS)" \
-	"exec_prefix=$(exec_prefix)" \
-	"infodir=$(infodir)" \
-	"libdir=$(libdir)" \
-	"includedir=$(includedir)" \
-	"prefix=$(prefix)" \
-	"tooldir=$(tooldir)" \
-	"AR=$(AR)" \
-	"AS=$(AS)" \
-	"LD=$(LD)" \
-	"LIBCFLAGS=$(LIBCFLAGS)" \
-	"PICFLAG=$(PICFLAG)" \
-	"RANLIB=$(RANLIB)" \
-	"NM=$(NM)" \
-	"NM_FOR_BUILD=$(NM_FOR_BUILD)" \
-	"NM_FOR_TARGET=$(NM_FOR_TARGET)" \
-	"DESTDIR=$(DESTDIR)" \
-	"WERROR=$(WERROR)" 
+AM_MAKEFLAGS =  	"AR_FLAGS=$(AR_FLAGS)" 	"CC_FOR_BUILD=$(CC_FOR_BUILD)" 	"CC_FOR_TARGET=$(CC_FOR_TARGET)" 	"CFLAGS=$(CFLAGS)" 	"CXXFLAGS=$(CXXFLAGS)" 	"CFLAGS_FOR_BUILD=$(CFLAGS_FOR_BUILD)" 	"CFLAGS_FOR_TARGET=$(CFLAGS_FOR_TARGET)" 	"INSTALL=$(INSTALL)" 	"INSTALL_DATA=$(INSTALL_DATA)" 	"INSTALL_PROGRAM=$(INSTALL_PROGRAM)" 	"INSTALL_SCRIPT=$(INSTALL_SCRIPT)" 	"LDFLAGS=$(LDFLAGS)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"LIBCFLAGS_FOR_TARGET=$(LIBCFLAGS_FOR_TARGET)" 	"MAKE=$(MAKE)" 	"MAKEINFO=$(MAKEINFO) $(MAKEINFOFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"PICFLAG_FOR_TARGET=$(PICFLAG_FOR_TARGET)" 	"SHELL=$(SHELL)" 	"RUNTESTFLAGS=$(RUNTESTFLAGS)" 	"exec_prefix=$(exec_prefix)" 	"infodir=$(infodir)" 	"libdir=$(libdir)" 	"includedir=$(includedir)" 	"prefix=$(prefix)" 	"tooldir=$(tooldir)" 	"AR=$(AR)" 	"AS=$(AS)" 	"LD=$(LD)" 	"LIBCFLAGS=$(LIBCFLAGS)" 	"PICFLAG=$(PICFLAG)" 	"RANLIB=$(RANLIB)" 	"NM=$(NM)" 	"NM_FOR_BUILD=$(NM_FOR_BUILD)" 	"NM_FOR_TARGET=$(NM_FOR_TARGET)" 	"DESTDIR=$(DESTDIR)" 	"WERROR=$(WERROR)" 
 
+
+# Subdir rules rely on $(FLAGS_TO_PASS)
+FLAGS_TO_PASS = $(AM_MAKEFLAGS)
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 CONFIG_HEADER = config.h
 CONFIG_CLEAN_FILES =  mkcheck testsuite_flags
@@ -223,7 +185,7 @@ mkcheck.in testsuite_flags.in
 
 DISTFILES = $(DIST_COMMON) $(SOURCES) $(HEADERS) $(TEXINFOS) $(EXTRA_DIST)
 
-TAR = gtar
+TAR = gnutar
 GZIP_ENV = --best
 all: all-redirect
 .SUFFIXES:
@@ -498,41 +460,57 @@ check-script-install: $(top_builddir)/mkcheck
 	-(chmod + $(top_builddir)/mkcheck; \
 	  cd testsuite; \
 	  @glibcpp_builddir@/mkcheck 1)
+check-abi: $(top_builddir)/testsuite/abi_check
+	-@(cd testsuite; \
+	  @glibcpp_srcdir@/config/abi/extract_symvers \
+	     ../src/.libs/libstdc++.so \
+	     ./current_symbols.txt && \
+	  ./abi_check --check ./current_symbols.txt ${baseline_file})
+
+new-abi-baseline:
+	-@(output=${baseline_file}; \
+	  if test -f $${output}; then \
+	    output=$${output}.new; \
+	    t=`echo $${output} | sed 's=.*config/abi/=='`; \
+	    echo "Baseline file already exists, writing to $${t} instead."; \
+	  fi; \
+	  @glibcpp_srcdir@/config/abi/extract_symvers \
+	     src/.libs/libstdc++.so $${output})
 
 # These rules are messy, but are hella worth it.
 doxygen:
-	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  builddir=`pwd`; \
+	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
+	  builddir=`${PWD}`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=user $${srcdir} $${builddir})
 
 doxygen-maint:
-	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  builddir=`pwd`; \
+	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
+	  builddir=`${PWD}`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=maint $${srcdir} $${builddir})
 
 doxygen-man:
-	-(srcdir=`cd ${top_srcdir}; pwd`; \
-	  builddir=`pwd`; \
+	-(srcdir=`cd ${top_srcdir}; ${PWD}`; \
+	  builddir=`${PWD}`; \
 	  /bin/sh ${srcdir}/docs/doxygen/run_doxygen \
 	            --mode=man $${srcdir} $${builddir})
 
 .PHONY: doxygen doxygen-maint doxygen-man
 
-# Multilib Makefile bits.
+# Multilib support.
 .PHONY: all-multi mostlyclean-multi clean-multi distclean-multi \
 	maintainer-clean-multi
 
-all-am: all-multi
-install-am: install-multi
-mostlyclean-am: mostlyclean-multi
-clean-am: clean-multi
-distclean-am: distclean-multi
-maintainer-clean-am: maintainer-clean-multi
+all-recursive: all-multi
+install-recursive: install-multi
+mostlyclean-recursive: mostlyclean-multi
+clean-recursive: clean-multi
+distclean-recursive: distclean-multi
+maintainer-clean-recursive: maintainer-clean-multi
 
 all-multi:
-	$(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
+	: $(MAKE) ; exec $(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do
 install-multi:
 	$(MULTIDO) $(AM_MAKEFLAGS) DO=install multi-do
 mostlyclean-multi:

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/glx/indirect_wrap.h,v 1.3 2000/02/15 19:19:19 dawes Exp $ */
+/* $XFree86: xc/lib/GL/glx/indirect_wrap.h,v 1.5 2004/01/28 18:11:42 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -380,6 +380,11 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define glTexImage3D __indirect_glTexImage3D
 #define glTexSubImage3D __indirect_glTexSubImage3D
 
+/* 1.4 */
+#define glMultiDrawArrays __indirect_glMultiDrawArrays
+#define glMultiDrawElements __indirect_glMultiDrawElements
+#define glBlendFuncSeparate __indirect_glBlendFuncSeparate
+
 /* GL_ARB_imaging */
 #define glBlendColor __indirect_glBlendColor
 #define glBlendEquation __indirect_glBlendEquation
@@ -416,7 +421,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define glResetMinmax __indirect_glResetMinmax
 #define glSeparableFilter2D __indirect_glSeparableFilter2D
 
-/* GL_ARB_multitexture */
+/* ARB 1. GL_ARB_multitexture */
 #define glActiveTextureARB __indirect_glActiveTextureARB
 #define glClientActiveTextureARB __indirect_glClientActiveTextureARB
 #define glMultiTexCoord1dARB __indirect_glMultiTexCoord1dARB
@@ -451,6 +456,47 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define glMultiTexCoord4ivARB __indirect_glMultiTexCoord4ivARB
 #define glMultiTexCoord4sARB __indirect_glMultiTexCoord4sARB
 #define glMultiTexCoord4svARB __indirect_glMultiTexCoord4svARB
+
+/* ARB 3. ARB_transpose_matrix */
+
+#define glLoadTransposeMatrixdARB __indirect_glLoadTransposeMatrixdARB
+#define glLoadTransposeMatrixfARB __indirect_glLoadTransposeMatrixfARB
+#define glMultTransposeMatrixdARB __indirect_glMultTransposeMatrixdARB
+#define glMultTransposeMatrixfARB __indirect_glMultTransposeMatrixfARB
+
+/* ARB 5. ARB_multisample */
+
+#define glSampleCoverageARB __indirect_glSampleCoverageARB
+
+/* ARB 12. ARB_texture_compression */
+
+/* FIXME: Not yet supported. */
+
+/* ARB 14. ARB_point_parameters / GL 1.4 / NV_point_sprite */
+
+#define glPointParameterfARB __indirect_glPointParameterfARB
+#define glPointParameterfvARB __indirect_glPointParameterfvARB
+#define glPointParameteri __indirect_glPointParameteri
+#define glPointParameteriv __indirect_glPointParameteriv
+
+/* ARB 25. ARB_window_pos */
+
+#define glWindowPos2dARB __indirect_glWindowPos2dARB
+#define glWindowPos2fARB __indirect_glWindowPos2fARB
+#define glWindowPos2iARB __indirect_glWindowPos2iARB
+#define glWindowPos2sARB __indirect_glWindowPos2sARB
+#define glWindowPos2dvARB __indirect_glWindowPos2dvARB
+#define glWindowPos2fvARB __indirect_glWindowPos2fvARB
+#define glWindowPos2ivARB __indirect_glWindowPos2ivARB
+#define glWindowPos2svARB __indirect_glWindowPos2svARB
+#define glWindowPos3dARB __indirect_glWindowPos3dARB
+#define glWindowPos3fARB __indirect_glWindowPos3fARB
+#define glWindowPos3iARB __indirect_glWindowPos3iARB
+#define glWindowPos3sARB __indirect_glWindowPos3sARB
+#define glWindowPos3dvARB __indirect_glWindowPos3dvARB
+#define glWindowPos3fvARB __indirect_glWindowPos3fvARB
+#define glWindowPos3ivARB __indirect_glWindowPos3ivARB
+#define glWindowPos3svARB __indirect_glWindowPos3svARB
 
 /*
  * Extensions
@@ -628,9 +674,57 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define glResizeBuffersMESA __indirect_glResizeBuffersMESA
 
-#define glLoadTransposeMatrixdARB __indirect_glLoadTransposeMatrixdARB
-#define glLoadTransposeMatrixfARB __indirect_glLoadTransposeMatrixfARB
-#define glMultTransposeMatrixdARB __indirect_glMultTransposeMatrixdARB
-#define glMultTransposeMatrixfARB __indirect_glMultTransposeMatrixfARB
+#define glActiveStencilFaceEXT __indirect_glActiveStencilFaceEXT
+
+#define glPointParameterfARB __indirect_glPointParameterfARB
+#define glPointParameterfvARB __indirect_glPointParameterfvARB
+
+#define glActiveStencilFaceEXT __indirect_glActiveStencilFaceEXT
+
+#define glWindowPos2dARB __indirect_glWindowPos2dARB
+#define glWindowPos2iARB __indirect_glWindowPos2iARB
+#define glWindowPos2fARB __indirect_glWindowPos2fARB
+#define glWindowPos2iARB __indirect_glWindowPos2iARB
+#define glWindowPos2sARB __indirect_glWindowPos2sARB
+#define glWindowPos2dvARB __indirect_glWindowPos2dvARB
+#define glWindowPos2fvARB __indirect_glWindowPos2fvARB
+#define glWindowPos2ivARB __indirect_glWindowPos2ivARB
+#define glWindowPos2svARB __indirect_glWindowPos2svARB
+#define glWindowPos3dARB __indirect_glWindowPos3dARB
+#define glWindowPos3fARB __indirect_glWindowPos3fARB
+#define glWindowPos3iARB __indirect_glWindowPos3iARB
+#define glWindowPos3sARB __indirect_glWindowPos3sARB
+#define glWindowPos3dvARB __indirect_glWindowPos3dvARB
+#define glWindowPos3fvARB __indirect_glWindowPos3fvARB
+#define glWindowPos3ivARB __indirect_glWindowPos3ivARB
+#define glWindowPos3svARB __indirect_glWindowPos3svARB
+
+/* 145. GL_EXT_secondary_color / GL 1.4 */
+
+#define glSecondaryColor3b __indirect_glSecondaryColor3b
+#define glSecondaryColor3bv __indirect_glSecondaryColor3bv
+#define glSecondaryColor3d __indirect_glSecondaryColor3d
+#define glSecondaryColor3dv __indirect_glSecondaryColor3dv
+#define glSecondaryColor3f __indirect_glSecondaryColor3f
+#define glSecondaryColor3fv __indirect_glSecondaryColor3fv
+#define glSecondaryColor3i __indirect_glSecondaryColor3i
+#define glSecondaryColor3iv __indirect_glSecondaryColor3iv
+#define glSecondaryColor3s __indirect_glSecondaryColor3s
+#define glSecondaryColor3sv __indirect_glSecondaryColor3sv
+#define glSecondaryColor3ub __indirect_glSecondaryColor3ub
+#define glSecondaryColor3ubv __indirect_glSecondaryColor3ubv
+#define glSecondaryColor3ui __indirect_glSecondaryColor3ui
+#define glSecondaryColor3uiv __indirect_glSecondaryColor3uiv
+#define glSecondaryColor3us __indirect_glSecondaryColor3us
+#define glSecondaryColor3usv __indirect_glSecondaryColor3usv
+#define glSecondaryColorPointer __indirect_glSecondaryColorPointer
+
+/* 149. GL_EXT_fog_coord / GL 1.4 */
+
+#define glFogCoordf __indirect_glFogCoordf
+#define glFogCoordd __indirect_glFogCoordd
+#define glFogCoordfv __indirect_glFogCoordfv
+#define glFogCoorddv __indirect_glFogCoorddv
+#define glFogCoordPointer __indirect_glFogCoordPointer
 
 #endif /* _INDIRECT_WRAP_H_ */

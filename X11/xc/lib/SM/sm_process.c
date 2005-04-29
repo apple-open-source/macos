@@ -25,6 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/lib/SM/sm_process.c,v 1.3 2003/05/27 22:26:25 tsi Exp $ */
 
 /*
  * Author: Ralph Mor, X Consortium
@@ -162,8 +163,10 @@ Bool		 *replyReadyRet;
 	    _SmcRegisterClientReply 	*reply = 
 	        (_SmcRegisterClientReply *) (replyWait->reply);
 
+#if 0 /* No-op */
 	    CHECK_AT_LEAST_SIZE (iceConn, _SmcOpcode, opcode,
 		length, SIZEOF (smRegisterClientReplyMsg), IceFatalToProtocol);
+#endif
 
 	    IceReadCompleteMessage (iceConn, SIZEOF (smRegisterClientReplyMsg),
 		smRegisterClientReplyMsg, pMsg, pStart);
@@ -367,8 +370,10 @@ Bool		 *replyReadyRet;
 	    SmProp			**props = NULL;
 	    _SmcPropReplyWait 		*next;
 
+#if 0 /* No-op */
 	    CHECK_AT_LEAST_SIZE (iceConn, _SmcOpcode, opcode,
 		length, SIZEOF (smPropertiesReplyMsg), IceFatalToProtocol);
+#endif
 
 	    IceReadCompleteMessage (iceConn, SIZEOF (smPropertiesReplyMsg),
 		smPropertiesReplyMsg, pMsg, pStart);
@@ -477,8 +482,10 @@ Bool		 swap;
 	char 			*pData, *pStart;
 	char 			*previousId;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, _SmsOpcode, opcode,
 	    length, SIZEOF (smRegisterClientMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (smRegisterClientMsg),
 	    smRegisterClientMsg, pMsg, pStart);
@@ -733,8 +740,10 @@ Bool		 swap;
 	int 			count, i;
 	char 			**reasonMsgs = NULL;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, _SmsOpcode, opcode,
 	    length, SIZEOF (smCloseConnectionMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (smCloseConnectionMsg),
 	    smCloseConnectionMsg, pMsg, pStart);
@@ -778,8 +787,10 @@ Bool		 swap;
 	SmProp			**props = NULL;
 	int 			numProps;
 	
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, _SmsOpcode, opcode,
 	    length, SIZEOF (smSetPropertiesMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (smSetPropertiesMsg),
 	    smSetPropertiesMsg, pMsg, pStart);
@@ -816,8 +827,10 @@ Bool		 swap;
 	int 			count, i;
 	char 			**propNames = NULL;
 
+#if 0 /* No-op */
 	CHECK_AT_LEAST_SIZE (iceConn, _SmsOpcode, opcode,
 	    length, SIZEOF (smDeletePropertiesMsg), IceFatalToProtocol);
+#endif
 
 	IceReadCompleteMessage (iceConn, SIZEOF (smDeletePropertiesMsg),
 	    smDeletePropertiesMsg, pMsg, pStart);

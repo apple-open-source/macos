@@ -1,9 +1,7 @@
 ## -*-makefile-*-
 ## HPUX/gcc specific setup
-## Copyright (c) 1999-2001, International Business Machines Corporation and
+## Copyright (c) 1999-2004, International Business Machines Corporation and
 ## others. All Rights Reserved.
-##
-## $Id: mh-hpux-gcc,v 1.1.1.1 2003/02/05 21:31:17 avery Exp $
 
 ## Commands to generate dependency files
 GEN_DEPS.c=	$(CC) -E -MM $(DEFS) $(CPPFLAGS)
@@ -35,7 +33,7 @@ LD_RPATH=   -Wl,+b,
 LD_RPATH_PRE=
 
 ## Compiler switch to embed a library name
-LD_SONAME = -Wl,+h,$(MIDDLE_SO_TARGET)
+LD_SONAME = -Wl,+h,$(notdir $(MIDDLE_SO_TARGET))
 
 ## Environment variable to set a runtime search path
 LDLIBRARYPATH_ENVVAR = SHLIB_PATH
@@ -56,8 +54,6 @@ STATIC_O = o
 %.o: $(srcdir)/%.cpp
 	$(COMPILE.cc) $(DYNAMICCPPFLAGS) $(DYNAMICCXXFLAGS) -o $@ $<
 
-../data/%.o: ../data/%.c
-	$(COMPILE.c) $(DYNAMICCPPFLAGS) $(DYNAMICCFLAGS) -o $@ $<
 
 ## Dependency rules
 %.d : $(srcdir)/%.c
@@ -75,9 +71,9 @@ STATIC_O = o
 ## Versioned libraries rules
 
 %.$(SO).$(SO_TARGET_VERSION_MAJOR): %.$(SO).$(SO_TARGET_VERSION)
-	$(RM) $@ && ln -s $< $@
+	$(RM) $@ && ln -s ${<F} $@
 %.$(SO): %.$(SO).$(SO_TARGET_VERSION_MAJOR)
-	$(RM) $@ && ln -s $*.$(SO).$(SO_TARGET_VERSION) $@
+	$(RM) $@ && ln -s ${*F}.$(SO).$(SO_TARGET_VERSION) $@
 
 ## End HPUX/gcc specific setup
 

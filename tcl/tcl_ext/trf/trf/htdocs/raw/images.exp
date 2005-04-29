@@ -1,0 +1,26 @@
+[page_begin trf/images]
+	[nav_link [trf/sf/txt]]
+<br>
+	[site_xref]
+[page_content]
+
+[p] This page displays a series of images all containing the [trf/txt]
+logo in various sizes.
+
+<hr>
+
+[table][trtop]
+[td] 16 x 16 </td>
+[td] 32 x 32 </td>
+[td] 60 x 90 </td>
+[td] 64 x 64</td>
+[td] 120 x 181</td>
+</tr>[trtop]
+[td][trf/logo/16]</td>
+[td][trf/logo/32]</td>
+[td][trf/logo/60]</td>
+[td][trf/logo/64]</td>
+[td][trf/logo/120]</td>
+</tr></table>
+
+[page_end]

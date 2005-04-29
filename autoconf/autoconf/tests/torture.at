@@ -1,6 +1,6 @@
 #							-*- Autotest -*-
 
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,8 +56,8 @@ m4_define([AT_CHECK_AC_ARG_VAR],
 
 # Initial value.
 m4_ifval([$1],
-         [precious='$1'; export precious],
-         [unset precious])
+	 [precious='$1'; export precious],
+	 [unset precious])
 AT_CHECK_CONFIGURE([--config-cache -q])
 AT_CHECK([cat file], [], [`$1'
 ])
@@ -74,8 +74,8 @@ AT_CHECK([cat file], [], [`$1'
 # Second value: we should issue an error here: the value
 # has changed!
 m4_ifval([$2],
-         [precious='$2'; export precious],
-         [unset precious])
+	 [precious='$2'; export precious],
+	 [unset precious])
 AT_CHECK_CONFIGURE([--config-cache], [1], [], [ignore])
 
 ])# AT_CHECK_AC_ARG_VAR
@@ -145,10 +145,10 @@ case $what_to_test in
 
  command)
    AC_CONFIG_COMMANDS(command:input,
-                      [cp input command]);;
+		      [cp input command]);;
  var-command)
    AC_CONFIG_COMMANDS(var-command:$command_in,
-                      [cp $command_in var-command], [command_in=input]);;
+		      [cp $command_in var-command], [command_in=input]);;
 
  link)
    AC_CONFIG_LINKS(link:input);;
@@ -170,7 +170,7 @@ AT_CHECK_AUTOCONF
 m4_define([AT_CHECK_CONFIG_CREATION],
 [AT_CHECK_CONFIGURE([what_to_test=$1])
 AT_CHECK([ls header var-header file var-file command var-command link var-link 2>/dev/null],
-         [ignore], [$1
+	 [ignore], [$1
 ])
 AT_CHECK([grep OK $1], [], [OK
 ])
@@ -180,7 +180,7 @@ AT_CHECK_CONFIGURE([what_to_test=var-$1 --no-create])
 # really broken...
 AT_CHECK([./config.status var-$1 </dev/null], [], [ignore])
 AT_CHECK([ls header var-header file var-file command var-command link var-link 2>/dev/null],
-         [ignore], [var-$1
+	 [ignore], [var-$1
 ])
 AT_CHECK([grep OK var-$1], [], [OK
 ])
@@ -250,19 +250,19 @@ AC_OUTPUT
 AT_CHECK_AUTOCONF
 
 AT_CHECK_CONFIGURE([one=one --enable-two=two --with-three=three |
-                     sed -n -e 's/^result=//p'], 0,
-                   [onetwothree
+		     sed -n -e 's/^result=//p'], 0,
+		   [onetwothree
 ])
 AT_CHECK([./config.status --recheck | sed -n 's/^result=//p'], 0,
-         [onetwothree
+	 [onetwothree
 ])
 
 AT_CHECK_CONFIGURE([one="\"'$ " --enable-two="\" ' $" --with-three=" \"'$"|
-                      sed -n -e 's/^result=//p'], 0,
-                   ["'$ " ' $ "'$
+		      sed -n -e 's/^result=//p'], 0,
+		   ["'$ " ' $ "'$
 ])
 AT_CHECK([./config.status --recheck | sed -n 's/^result=//p'], 0,
-         ["'$ " ' $ "'$
+	 ["'$ " ' $ "'$
 ])
 
 AT_CLEANUP
@@ -297,7 +297,7 @@ AC_CONFIG_FILES(defs)
 # Things included in confdefs.h, but which make no sense in
 # config.h, nor in $DEFS.
 cat <<\EOF >>confdefs.h
-/* Hi Mum! Look, I'm doing C++! */
+/* Hi Mum! Look, I am doing C++! */
 #ifdef __cplusplus
 void exit (int status);
 #endif
@@ -428,7 +428,7 @@ m4_dquote(m4_defn([AT_BIG_VALUE]))[)]]
 m4_defun([AC_DEFUBST],
 [AC_DUMMY_VAR($1)="AC_BIG_VALUE"
 AC_DEFINE_UNQUOTED(AC_DUMMY_VAR($1), "$AC_DUMMY_VAR($1)",
-                   AC_DESCRIPTION)
+		   AC_DESCRIPTION)
 AC_SUBST(AC_DUMMY_VAR($1))])
 
 AC_INIT
@@ -494,7 +494,7 @@ AC_CONFIG_FILES([foo at-dir/bar])
 AC_CONFIG_COMMANDS([report],
 [test -f $srcdir/configure.ac ||
    AC_MSG_ERROR([cannot find $srcdir/configure.ac])],
-                   [srcdir=$srcdir])
+		   [srcdir=$srcdir])
 
 AC_OUTPUT
 rm -rf foo at-dir/bar
@@ -559,7 +559,9 @@ AT_SETUP([Configuring subdirectories])
 AT_KEYWORDS(autoreconf)
 
 # We use aclocal (via autoreconf).
-AT_CHECK([aclocal --version || exit 77], [], [ignore], [ignore])
+AT_CHECK([aclocal --version || exit 77], [], [stdout], [ignore])
+# It should understand configure.ac.
+AT_CHECK([[grep '1.[01234]' stdout && exit 77]], [1], [ignore])
 
 # The contents of `inner/', and `inner/innermost/'.
 AS_MKDIR_P([inner/innermost])
@@ -600,7 +602,9 @@ AC_CONFIG_SUBDIRS([inner])
 AC_OUTPUT
 ]])
 
-AT_CHECK([autoreconf])
+# If there are improperly quoted AC_DEFUN installed in share/aclocal,
+# they trigger warnings from aclocal 1.8, so ignore stderr.
+AT_CHECK([autoreconf], [], [], [ignore])
 AT_CHECK([test -f inner/configure])
 
 # Running the outer configure recursively should provide the innermost

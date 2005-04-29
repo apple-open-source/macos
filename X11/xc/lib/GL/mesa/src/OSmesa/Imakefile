@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/GL/mesa/src/OSmesa/Imakefile,v 1.17 2002/11/27 18:28:02 tsi Exp $
+XCOMM $XFree86: xc/lib/GL/mesa/src/OSmesa/Imakefile,v 1.20 2003/12/12 03:20:33 dawes Exp $
 
 #include <Threads.tmpl>
 
@@ -15,7 +15,7 @@ XCOMM $XFree86: xc/lib/GL/mesa/src/OSmesa/Imakefile,v 1.17 2002/11/27 18:28:02 t
 #include "../tnl/Imakefile.inc"
 #include "../tnl_dd/Imakefile.inc"
 #include "../Imakefile.inc"
-#if defined(i386Architecture) && !SystemV4 && MesaUseX86Asm
+#if defined(i386Architecture) && MesaUseX86Asm
 #include "../X86/Imakefile.inc"
 #endif
 #ifdef SparcArchitecture
@@ -54,8 +54,10 @@ MESA_INCLUDES = -I$(MESASRCDIR)/src/OSmesa -I$(MESASRCDIR)/src \
   THREADOBJS = $(THREADS_LIBS)
 #endif
 
-#if !GlxUseBuiltInDRIDriver
- REQUIREDLIBS = $(LDPRELIB) $(GLXLIB) $(XLIB)
+#ifdef SharedOSMesaReqs
+ REQUIREDLIBS = SharedOSMesaReqs
+#elif !GlxUseBuiltInDRIDriver
+ REQUIREDLIBS = $(LDPRELIB) $(GLXLIB)
 #endif
 
 #include <Library.tmpl>
@@ -66,7 +68,11 @@ SubdirLibraryRule($(OBJS))
 NormalLintTarget($(SRCS))
 
 LIBNAME = OSMesa
+#if !defined(OS2Architecture)
 SOREV = 4.0
+#else
+SOREV =
+#endif
 
 
 #if DoNormalLib

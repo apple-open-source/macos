@@ -1,4 +1,4 @@
-XCOMM platform:  $XFree86: xc/config/cf/darwin.cf,v 1.34 2002/12/04 04:40:15 torrey Exp $
+XCOMM platform:  $XFree86: xc/config/cf/darwin.cf,v 1.51 2004/02/11 00:30:27 torrey Exp $
 
 /* Darwin / Mac OS X configuration by John Carmack <johnc@idsoftware.com> */
 
@@ -37,7 +37,11 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define HasNdbm                 YES
 #if OSMajorVersion >= 6
 # define HasNCurses             YES
+# define HasArc4Random          YES
+# define HasGetIfAddrs          YES
+# define HasStrlcat             YES
 #else
+# define HasBasename            NO
 # define HasNCurses             NO
 #endif
 #ifndef HasGroff
@@ -45,6 +49,11 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 #ifndef HasGcc3
 # define HasGcc3                NO
+#endif
+
+/* Older versions don't really support IPv6, but #define AF_INET6. */
+#if OSMajorVersion < 6
+# define BuildIPv6              NO
 #endif
 
 /* Thread support */
@@ -59,7 +68,7 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #endif
 
 /* Libtool on Darwin always uses minor numbers */
-#define LibtoolMinorVersions	YES
+#define LibtoolMinorVersions    YES
 
 /* The most common file system, HFS+, is not case sensitive. */
 #ifndef CaseSensitiveFileSystem
@@ -83,30 +92,41 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 
 #if DarwinQuartzSupport
 
-# ifndef GlxUseAqua
-#  define GlxUseAqua            YES
+# if OSMajorVersion >= 7
+   PROJ_BUILD = xcodebuild
+# else
+   PROJ_BUILD = pbxbuild
 # endif
 
-/*
- * Before Mac OS X 10.1 a number of features were missing or broken.
- */
-# if (OSMajorVersion == 1 && OSMinorVersion >= 4) || OSMajorVersion >= 5
-#  ifndef HasNSCarbonWindow
-#   define HasNSCarbonWindow    YES
-#  endif
-#  ifndef HasCGMachPort
-#   define HasCGMachPort        YES
-#  endif
-# else
-/* NSWindow(NSCarbonExtensions) is broken. */
-#  ifndef HasNSCarbonWindow
-#   define HasNSCarbonWindow    NO
-#  endif
-/* CGWindowServerCFMachPort() does not exist. */
-#  ifndef HasCGMachPort
-#   define HasCGMachPort        NO
+# ifndef HasXplugin
+#  if OSMajorVersion >= 7
+#   define HasXplugin           YES
+#  else
+#   define HasXplugin           NO
 #  endif
 # endif
+
+# if HasXplugin
+#  define XpluginLibrary        $(XPLUGIN_LIBDIR) -lXplugin
+# else
+#  define XpluginLibrary        /**/
+# endif
+
+XPLUGIN_LIB = XpluginLibrary
+
+# ifndef BuildAppleDRI
+#  if HasXplugin
+#   define BuildAppleDRI        YES
+#  else
+#   define BuildAppleDRI        NO
+#  endif
+# endif
+
+# if BuildAppleDRI
+#  define GlxExtraDefines -DGLX_DIRECT_RENDERING -DGLX_USE_APPLEGL GlxArchDefines
+# endif
+
+#define BuildAppleWMLibrary     YES
 
 #endif  /* DarwinQuartzSupport */
 
@@ -121,8 +141,18 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 
 #define MkdirHierCmd            mkdir -p
 
-/* our cpp isn't in /lib/cpp and early versions don't like -undef */
-#define CppCmd                  /usr/bin/cpp
+/* Use flex -l for compatibility with various versions of flex. */
+#ifndef LexCmd
+# define LexCmd                 flex -l
+#endif
+#define HasFlex                 YES
+
+/*
+ * Our cpp isn't in /lib/cpp and early versions don't like -undef.
+ * The default cpp-3.3 that ships with Panther inserts spurious #pragmas,
+ * so we use the 3.1-based version.
+ */
+#define CppCmd                 /usr/bin/cpp
 #if HasGcc3
 # define RawCppCmd              CppCmd -undef
 #else
@@ -154,8 +184,22 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 # define LibraryCCOptions       DefaultCCOptions -fno-common
 #endif
 
-#define OptimizedCDebugFlags	-g -Os
-#define ByteOrder		UNKNOWN_BYTE_ORDER
+/* The cr implementation does not build with NEED_SCREEN_REGIONS,
+   so play it safe. */
+#ifndef ServerCCOptions
+# define ServerCCOptions        DefaultCCOptions -UNEED_SCREEN_REGIONS
+#endif
+
+#define DarwinMachineDefines
+#define OptimizedCDebugFlags    -g -Os
+#define ByteOrder               UNKNOWN_BYTE_ORDER
+
+#if OSMajorVersion < 7
+# define DarwinLocaleDefines    -DX_LOCALE
+#else
+# define DarwinLocaleDefines    /**/
+# define XawI18nDefines         -DHAS_WCHAR_H
+#endif
 
 /*
  * __DARWIN__ will be used for platform specific #ifdefs that can't
@@ -163,10 +207,9 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
  *
  * Darwin's alloca() seg faults (rather than returning NULL) on failed
  * allocations, so we can't use it.
- *
- * Darwin's setlocale() doesn't work properly, so use X11's instead.
  */
-#define StandardDefines         -D__DARWIN__ -DNO_ALLOCA -DX_LOCALE -DCSRG_BASED
+#define StandardDefines         DarwinMachineDefines -D__DARWIN__ \
+                                -DNO_ALLOCA -DCSRG_BASED DarwinLocaleDefines
 
 /*
  * Set this to NO to just build the client libs, which should work without
@@ -185,6 +228,9 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 # define InstallXserverSetUID   NO
 #endif
 
+/* disable XKB by default as it can cause problems */
+#define DfltDisableXKB          YES
+
 /* no direct graphics extension */
 #define BuildXF86DGA            NO
 
@@ -193,18 +239,37 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 #define BuildXInputLib          YES
 
 /* no Display Power Management extension */
-#define BuildDPMSExt            NO
+#define BuildDPMS               NO
 
 /* no XFree86-Misc extension */
 #define BuildXF86MiscExt        NO
 
 /* no XFree86-VidMode extension */
-#define BuildXF86VidModeExt	NO
+#define BuildXF86VidModeExt     NO
 
 #define BuildLibPathVar         DYLD_LIBRARY_PATH
 
 /* include rules to build shared libraries */
 #include <darwinLib.rules>
+
+/*
+ * BundleProgramTarget - Generate rules for compiling, linking and
+ * installing a bundle executable. 
+ */
+#ifndef BundleProgramTarget
+#define BundleProgramTarget(program,loader,subdirs,objs,deplib,syslib,dstdir) @@\
+                                                                        @@\
+AllTarget(program)							@@\
+									@@\
+program: loader subdirs objs deplib					@@\
+	RemoveTargetProgram($@)						@@\
+	LinkRule($@,-bundle $(LDOPTIONS),objs,deplib $(LDLIBS) syslib -bundle_loader loader) @@\
+									@@\
+InstallProgram(program,dstdir/program.bundle/Contents/MacOS)		@@\
+									@@\
+clean::									@@\
+	RemoveFile(program)
+#endif /* BundleProgramTarget */
 
 /*
  * Darwin specific Imake Config files
@@ -221,17 +286,8 @@ XCOMM operating system:  OSName (OSMajorVersion./**/OSMinorVersion./**/OSTeenyVe
 /* ..and fix some stuff up */
 #if XAppleServer
 
-# undef GlxCoreLibDefines
-# define GlxCoreLibDefines -DGLX_USE_APPLEGL
-
-# undef GlxExtraDefines
-# define GlxExtraDefines -DGLX_DIRECT_RENDERING DRIDefines GlxCoreLibDefines GlxArchDefines
-
 # undef ServerExtraDefines
 # define ServerExtraDefines XFree86ServerDefines -UX_BYTE_ORDER -DROOTLESS -DDDXTIME
-
-/* Also, Imakefiles use XPLUGIN_INCLUDE for include flags */
-XPLUGIN_LIB = $(XPLUGIN_LIBDIR) -lXplugin
 
 #define InstallFlags -c -o root -g wheel
 

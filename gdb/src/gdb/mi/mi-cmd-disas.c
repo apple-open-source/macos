@@ -35,8 +35,13 @@
    START-ADDRESS: address to start the disassembly at.
    END-ADDRESS: address to end the disassembly at.
 
-   or:
+   Optionally, you can leave out END-ADDRESS, in which case it
+   will disassemble the function around START-ADDRESS.  In this
+   case we will also accept the HOW_MANY argument to throttle
+   the disassembly display at that number of assembly lines.
 
+   or:
+   
    FILENAME: The name of the file where we want disassemble from.
    LINE: The line around which we want to disassemble. It will
    disassemble the function that contins that line.
@@ -51,7 +56,6 @@
 enum mi_cmd_result
 mi_cmd_disassemble (char *command, char **argv, int argc)
 {
-  enum mi_cmd_result retval;
 /* APPLE LOCAL: hack to work around bug in our find_line_pc() replacement func */
   CORE_ADDR start = 0;
 
@@ -126,15 +130,22 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
   /* Allow only filename + linenum (with how_many which is not
      required) OR start_addr + and_addr */
 
+  /* APPLE LOCAL: Allow only the start addr, and interpret this to mean 
+     the same thing as in the disassemble command - disassemble the function
+     around the -s address.  */
+
   if (!((line_seen && file_seen && num_seen && !start_seen && !end_seen)
 	|| (line_seen && file_seen && !num_seen && !start_seen && !end_seen)
-	|| (!line_seen && !file_seen && !num_seen && start_seen && end_seen)))
+	|| (!line_seen && !file_seen && !num_seen && start_seen && end_seen)
+	|| (!line_seen && !file_seen && start_seen && !end_seen)))
     error
-      ("mi_cmd_disassemble: Usage: ( [-f filename -l linenum [-n howmany]] | [-s startaddr -e endaddr]) [--] mixed_mode.");
+      ("mi_cmd_disassemble: Usage: ( [-f filename -l linenum [-n howmany]] | [-s startaddr -e endaddr] | "
+       "[-s startaddr [-n howmany]]) [--] mixed_mode.");
 
   if (argc != 1)
     error
-      ("mi_cmd_disassemble: Usage: [-f filename -l linenum [-n howmany]] [-s startaddr -e endaddr] [--] mixed_mode.");
+      ("mi_cmd_disassemble: Usage: [-f filename -l linenum [-n howmany]] [-s startaddr -e endaddr] | "
+       "[-s startaddr [-n howmany]] [--] mixed_mode.");
 
   mixed_source_and_assembly = atoi (argv[0]);
   if ((mixed_source_and_assembly != 0) && (mixed_source_and_assembly != 1))
@@ -152,6 +163,13 @@ mi_cmd_disassemble (char *command, char **argv, int argc)
       if (!find_line_pc (s, line_num, &start))
 	error ("mi_cmd_disassemble: Invalid line number");
       if (find_pc_partial_function (start, NULL, &low, &high) == 0)
+	error ("mi_cmd_disassemble: No function contains specified address");
+    }
+  else if (start_seen && !end_seen)
+    {
+      /* APPLE LOCAL: See above, if only start address, disassemble
+	 the function around the start address.  */
+      if (find_pc_partial_function (low, NULL, &low, &high) == 0)
 	error ("mi_cmd_disassemble: No function contains specified address");
     }
 

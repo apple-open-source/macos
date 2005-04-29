@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgatex.h,v 1.7 2002/10/30 12:51:36 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgatex.h,v 1.8 2003/09/28 20:15:18 alanh Exp $ */
 /*
  * Copyright 2000-2001 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -40,23 +40,12 @@ typedef struct mga_texture_object_s *mgaTextureObjectPtr;
  */
 void mgaUpdateTextureState( GLcontext *ctx );
 
-void mgaConvertTexture( GLuint *dest, int texelBytes,
-			struct gl_texture_image *image,
-			int x, int y, int width, int height );
-
-
-void mgaUploadSubImageLocked( mgaContextPtr mmesa,
-			      mgaTextureObjectPtr t,
-			      int level,
-			      int x, int y, int width, int height );
-
 int mgaUploadTexImages( mgaContextPtr mmesa, mgaTextureObjectPtr t );
 
 void mgaDestroyTexObj( mgaContextPtr mmesa, mgaTextureObjectPtr t );
 
-void mgaAgeTextures( mgaContextPtr mmesa, int heap );
-
 void mgaDDInitTextureFuncs( GLcontext *ctx );
 
+GLboolean mgaUpdateTextureEnvCombine( GLcontext *ctx, int unit );
 
 #endif

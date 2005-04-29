@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/vbe/Imakefile,v 1.1 2003/02/17 17:06:45 dawes Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/xfree86/vbe/Imakefile,v 1.2 2003/04/21 12:32:13 sven Exp $
 
 
 /*
@@ -33,4 +33,5 @@ DependTarget()
 InstallDriverSDKLibraryModule(vbe,$(DRIVERSDKMODULEDIR),.)
 
 InstallDriverSDKNonExecFile(vbe.h,$(DRIVERSDKINCLUDEDIR))
+InstallDriverSDKNonExecFile(vbeModes.h,$(DRIVERSDKINCLUDEDIR))
 

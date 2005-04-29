@@ -1,9 +1,9 @@
 /*
- * "$Id: encode.c,v 1.1.1.10 2003/03/04 19:06:18 jlovell Exp $"
+ * "$Id: encode.c,v 1.5 2005/01/04 22:10:38 jlovell Exp $"
  *
  *   Option encoding routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -77,6 +77,7 @@ static const ipp_option_t ipp_options[] =
 			  { "penwidth",			IPP_TAG_INTEGER },
 			  { "ppi",			IPP_TAG_INTEGER },
 			  { "prettyprint",		IPP_TAG_BOOLEAN },
+			  { "printer-is-shared",	IPP_TAG_BOOLEAN },
 			  { "printer-resolution",	IPP_TAG_RESOLUTION },
 			  { "print-quality",		IPP_TAG_ENUM },
 			  { "saturation",		IPP_TAG_INTEGER },
@@ -290,7 +291,9 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
             break;
 
 	case IPP_TAG_BOOLEAN :
-	    if (strcasecmp(val, "true") == 0)
+	    if (!strcasecmp(val, "true") ||
+	        !strcasecmp(val, "on") ||
+	        !strcasecmp(val, "yes"))
 	    {
 	     /*
 	      * Boolean value - true...
@@ -382,5 +385,5 @@ cupsEncodeOptions(ipp_t         *ipp,		/* I - Request to add to */
 
 
 /*
- * End of "$Id: encode.c,v 1.1.1.10 2003/03/04 19:06:18 jlovell Exp $".
+ * End of "$Id: encode.c,v 1.5 2005/01/04 22:10:38 jlovell Exp $".
  */

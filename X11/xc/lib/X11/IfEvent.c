@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/IfEvent.c,v 1.4 2001/12/14 19:54:01 dawes Exp $ */
+/* $XFree86: xc/lib/X11/IfEvent.c,v 1.5 2003/11/17 22:20:07 dawes Exp $ */
 
 #define NEED_EVENTS
 #include "Xlibint.h"
@@ -38,11 +38,9 @@ int
 XIfEvent (dpy, event, predicate, arg)
 	register Display *dpy;
 	Bool (*predicate)(
-#if NeedNestedPrototypes
 			  Display*			/* display */,
 			  XEvent*			/* event */,
 			  char*				/* arg */
-#endif
 			  );		/* function to call */
 	register XEvent *event;
 	char *arg;

@@ -1,0 +1,11 @@
+--- src/dfa.c.orig	2004-09-03 19:15:33.000000000 -0700
++++ src/dfa.c	2004-09-03 19:16:08.000000000 -0700
+@@ -1092,7 +1092,7 @@
+ 	      setbit_case_fold (c, ccl);
+ 	      return lasttok = CSET + charclass_index(ccl);
+ 	    }
+-	  return c;
++	  return lasttok = c;
+ 	}
+     }
+ 

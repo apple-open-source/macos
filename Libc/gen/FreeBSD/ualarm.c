@@ -35,7 +35,7 @@
 static char sccsid[] = "@(#)ualarm.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/ualarm.c,v 1.3 2002/02/01 01:08:48 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/ualarm.c,v 1.4 2002/12/29 00:59:09 mike Exp $");
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -47,10 +47,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ualarm.c,v 1.3 2002/02/01 01:08:48 obrien E
  * If ``reload'' is non-zero, keep generating SIGALRM
  * every ``reload'' microseconds after the first signal.
  */
-unsigned
+useconds_t
 ualarm(usecs, reload)
-	unsigned usecs;
-	unsigned reload;
+	useconds_t usecs;
+	useconds_t reload;
 {
 	struct itimerval new, old;
 

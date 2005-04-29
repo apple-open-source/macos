@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -62,9 +63,9 @@
 
 #define NIDIR_MACHINES		"/machines"
 
-#ifdef TESTING
+#ifdef TEST_SUBNET_DESCR
 #define DEBUG
-#endif TESTING
+#endif TEST_SUBNET_DESCR
 
 static __inline__ boolean_t
 S_nltoip(ni_namelist * nl_p, struct in_addr * ip)
@@ -84,8 +85,7 @@ S_nltoiprange(ni_namelist * nl_p, ip_range_t * r)
     if (nl_p->ninl_len != 2 
 	|| (r->start.s_addr = inet_addr(nl_p->ninl_val[0])) == -1 
 	|| (r->end.s_addr = inet_addr(nl_p->ninl_val[1])) == -1 
-	|| iptohl(r->end) < iptohl(r->start) 
-	|| inet_netof(r->start) != inet_netof(r->end)) {
+	|| iptohl(r->end) < iptohl(r->start)) {
 	return (FALSE);
     }
     return (TRUE);
@@ -613,37 +613,19 @@ S_strcat(u_char * dest, const u_char * src)
 
 @end /* subnetListNI */
 
-#ifdef TESTING
+#ifdef TEST_SUBNET_DESCR
 int
 main()
 {
-    u_char errorString[256];
-    subnetListNI * subnets;
+    u_char 		errorString[256];
+    NIDomain_t * 	ni_local;
+    subnetListNI * 	subnets;
 
 //    sethostent(1);
+    ni_local = NIDomain_init(".");
     S_timestamp("before init");
-    subnets = [[subnetListNI alloc] init:errorString];
-    S_timestamp("after init");
-    if (subnets == nil) {
-	printf("error: %s\n", errorString);
-    }
-    else {
-	struct in_addr ip;
-
-	ip.s_addr = inet_addr("17.202.40.1");
-	
-	S_timestamp("acquireIp: start");
-	if ([subnets acquireIp:&ip ClientType:"macNC"]) {
-	    printf("allocated a new ip address %s\n", inet_ntoa(ip));
-	}
-	else
-	    printf("couldn't allocate an ip address\n");
-	S_timestamp("acquireIp: end");
-	[subnets print];
-	[subnets free];
-    }
-    S_timestamp("before init");
-    subnets = [[subnetListNI alloc] init:errorString];
+    subnets = [[subnetListNI alloc] 
+		  initFromDomain:ni_local Err:errorString];
     S_timestamp("after init");
     if (subnets == nil) {
 	printf("error: %s\n", errorString);
@@ -652,7 +634,6 @@ main()
 	[subnets print];
 	[subnets free];
     }
-
     exit(0);
 }
 

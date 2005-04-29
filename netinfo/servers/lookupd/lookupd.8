@@ -183,7 +183,7 @@ Additionally, each agent may have category-specific configuration.
 searches for configuration in the local file system first.
 If no configuration is given in the file system,
 .Nm
-checks for a configuration directory in NetInfo, starting at the local domain and climbing to the root domain.
+checks for a configuration directory in the local NetInfo domain.
 .Pp
 The configuration source may be specified on the command line as a startup option.
 The configuration source may be specified using one of the following command-line options:
@@ -665,6 +665,83 @@ Netgroups
 .El
 .Pp
 FFAgent supports a directory path as an optional startup argument, which is used in place of /etc.
+.Pp
+By default, the FFAgent will read in and cache the entire contents of the /etc/hosts file.
+This is a performance optimization.
+The hosts file is frequently consulted since it is in the default
+.Em LookupOrder
+for hosts, between the Cache and the DNS agent.
+Caching the contents of the file has an advantage when a query is made for an entry that can be found in the file,
+but it also has a very important advantage when searching for an entry that is not in the file.
+The advantage in this case is that the agent can very quickly rule out queries that would otherwise require reading through the whole file.
+.Pp
+The FFAgent supports the
+.Em CacheFile
+configuration option, which may be used to specify which files are cached in this manner.
+Computers that act as Web servers, in particular, can derive a performance advantage by enabling the FFAgent's cache for
+the /etc/services file.
+.Pp
+The use of file caches in FFAgent causes
+.Nm
+to use more memory, but performance is improved by a reduction in disk access.
+This may be a worthwhile tradeoff for server systems.
+The increase in memory required for a file is slightly more than the size of the file itself,
+the additional memory used for internal data structures and indexing.
+.Pp
+The 
+.Em CacheFile
+configuration option takes a list of values.
+The special values 
+.Em all
+and
+.Em none
+may be used to turn on or off caches for all files.
+Caches for specific files may be used by using one of the values below.
+A value prefaced with a minus ("-") disables caching for that file.
+For example,
+.Pp
+.Dl all -protocols
+.Pp
+enables all caches, but then disables caching of the /etc/protocols file.
+.Pp
+Values for the 
+.Em CacheFile
+key may be any of the following:
+.Pp
+.Bl -tag -width "user (users, passwd, master.passwd)   " -compact -offset indent
+.It all
+turns on all file caches
+.It none
+turns off all file caches
+.It user (users, passwd, master.passwd)
+/etc/master.passwd
+.It group (groups)
+/etc/groups
+.It host (hosts)
+/etc/hosts
+.It network (networks)
+/etc/networks
+.It service (services)
+/etc/services
+.It protocol (protocols)
+/etc/protocols
+.It rpc (rpcs)
+/etc/rpc
+.It mount (mounts, fstab)
+/etc/fstab
+.It printer (printers, printcap)
+/etc/printcap
+.It bootparam (bootparams)
+/etc/bootparams
+.It bootp (bootptab)
+/etc/bootptab
+.It alias (aliases)
+/etc/aliases
+.It ether (ethers)
+/etc/ethers
+.It netgroup (netgroups)
+/etc/netgroup
+.El
 .Ss DSAgent
 The DSAgent re-directs queries to Mac OS X's Directory Services system.
 See the on-line Help for the 

@@ -1,5 +1,5 @@
 use strict;
-use Apache::test;
+use Apache::testold;
 use Apache::src ();
 use Cwd qw(fastcwd);
 

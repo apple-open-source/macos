@@ -1,0 +1,35 @@
+[page_begin mem/doc]
+	[nav_link [mem/sf/txt]]
+<br>
+	[site_xref]
+<br>
+	[mp_xref]
+[page_content]
+
+[p] Currently only the [mem/txt/old/2] carries documentation.
+
+[p] When the manpages and/or TMML documentation are written they will
+be integrated into this site using some automated conversion to keep
+the raw documentation and the web in sync.
+
+[p] For the people interested in internal details, here is the [mem/clog].
+
+[p]
+
+[table]<tr><td>[nbsp][nbsp]</td><td>[stable]<tr><td>[btable]
+
+[trtop]<td bgcolor=black><font color=lightyellow><b>The manpages in various formats</b></font></td></tr>
+[trtop]<td></td></tr>
+[trtop][td]
+
+[table]
+[trtop][td][nbsp]</td>[td]HTML             </td>[td]nroff             </td>[td]TMML             </td></tr>
+[trtop][td]gzip  </td>[td][mc/doc/html/gz] </td>[td][mc/doc/nroff/gz] </td>[td][mc/doc/tmml/gz] </td></tr>
+[trtop][td]bzip2 </td>[td][mc/doc/html/bz] </td>[td][mc/doc/nroff/bz] </td>[td][mc/doc/tmml/bz] </td></tr>
+[trtop][td]zip   </td>[td][mc/doc/html/zip]</td>[td][mc/doc/nroff/zip]</td>[td][mc/doc/tmml/zip]</td></tr>
+</table>
+
+</td></tr></table></td></tr></table></td></tr></table>
+
+
+[page_end]

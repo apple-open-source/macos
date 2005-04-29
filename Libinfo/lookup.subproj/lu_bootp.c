@@ -43,8 +43,6 @@
 #include "lookup.h"
 #include "lu_utils.h"
 
-extern struct ether_addr *ether_aton(char *);
-
 static pthread_mutex_t _bootp_lock = PTHREAD_MUTEX_INITIALIZER;
 
 struct bootpent
@@ -166,7 +164,7 @@ lu_bootp_getbyether(struct ether_addr *enaddr, char **name,
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return 0;
 
 	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
 
@@ -226,7 +224,7 @@ lu_bootp_getbyip(struct ether_addr *enaddr, char **name,
 	}
 
 	datalen *= BYTES_PER_XDR_UNIT;
-	if ((lookup_buf == NULL) || (datalen == 0)) return NULL;
+	if ((lookup_buf == NULL) || (datalen == 0)) return 0;
 
 	xdrmem_create(&inxdr, lookup_buf, datalen, XDR_DECODE);
 

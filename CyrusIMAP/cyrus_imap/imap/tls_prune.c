@@ -40,7 +40,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: tls_prune.c,v 1.6 2004/01/26 17:46:58 ken3 Exp $ */
+/* $Id: tls_prune.c,v 1.5 2005/03/05 00:37:07 dasenbro Exp $ */
 
 #include <config.h>
 

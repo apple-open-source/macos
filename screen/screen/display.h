@@ -19,25 +19,25 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: display.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: display.h,v 1.9 1994/05/31 12:31:54 mlschroe Exp $ FAU
  */
 
 #ifdef MAPKEYS
-struct kmap
-{
-  char seq[8];
-  char off[8];
-  int  nr;
-};
-
-#define KMAP_SEQ ((int)((struct kmap *)0)->seq)
-#define KMAP_OFF ((int)((struct kmap *)0)->off)
 
 #define KMAP_KEYS (T_OCAPS-T_CAPS)
 #define KMAP_AKEYS (T_OCAPS-T_CURSOR)
 #define KMAP_EXT 50
 
 #define KMAP_NOTIMEOUT 0x4000
+
+struct kmap_ext
+{
+  char *str;
+  int fl;
+  struct action um;
+  struct action dm;
+  struct action mm;
+};
 
 #endif
 
@@ -83,8 +83,8 @@ struct display
   int d_vpxmin, d_vpxmax;	/* min/max used position on display */
   struct win *d_fore;		/* pointer to fore window */
   struct win *d_other;		/* pointer to other window */
-  char  d_nonblock;		/* 1: don't block if obufmax reached */
-				/* 2: obufmax is reached, discard */
+  int   d_nonblock;		/* -1 don't block if obufmax reached */
+				/* >0: block after nonblock secs */
   char  d_termname[20 + 1];	/* $TERM */
   char	*d_tentry;		/* buffer for tgetstr */
   char	d_tcinited;		/* termcap inited flag */
@@ -116,7 +116,7 @@ struct display
   int   d_xtermosc[4];		/* osc used */
 #endif
   struct mchar d_lpchar;	/* missing char */
-  time_t d_status_time;		/* time of status display */
+  struct timeval d_status_time;	/* time of status display */
   int   d_status;		/* is status displayed? */
   char	d_status_bell;		/* is it only a vbell? */
   int	d_status_len;		/* length of status line */
@@ -135,6 +135,7 @@ struct display
   int	d_userfd;		/* fd of the tty */
   struct event d_readev;	/* userfd read event */
   struct event d_writeev;	/* userfd write event */
+  struct event d_blockedev;	/* blocked timeout */
   struct mode d_OldMode;	/* tty mode when screen was started */
   struct mode d_NewMode;	/* New tty mode */
   int	d_flow;			/* tty's flow control on/off flag*/
@@ -150,12 +151,14 @@ struct display
 #endif
 #ifdef MAPKEYS
   int	d_nseqs;		/* number of valid mappings */
-  char *d_seqp;			/* pointer into keymap array */
+  int	d_aseqs;		/* number of allocated mappings */
+  unsigned char  *d_kmaps;	/* keymaps */
+  unsigned char *d_seqp;	/* pointer into keymap array */
   int	d_seql;			/* number of parsed chars */
+  unsigned char *d_seqh;	/* last hit */
   struct event d_mapev;		/* timeout event */
   int	d_dontmap;		/* do not map next */
   int	d_mapdefault;		/* do map next to default */
-  struct kmap d_kmaps[KMAP_KEYS+KMAP_EXT];	/* keymaps */
 #endif
   union	tcu d_tcs[T_N];		/* terminal capabilities */
   char *d_attrtab[NATTR];	/* attrib emulation table */
@@ -176,6 +179,13 @@ struct display
 # ifdef _SEQUENT_
   char	d_loginhost[100+1];
 # endif /* _SEQUENT_ */
+#endif
+  int   d_blocked;
+  int   d_blocked_fuzz;
+  struct event d_idleev;	/* screen blanker */
+#ifdef BLANKER_PRG
+  int   d_blankerpid;
+  struct event d_blankerev;
 #endif
 };
 
@@ -255,8 +265,10 @@ extern struct display TheDisplay;
 #define D_obuffree	DISPLAY(d_obuffree)
 #define D_auto_nuke	DISPLAY(d_auto_nuke)
 #define D_nseqs		DISPLAY(d_nseqs)
+#define D_aseqs		DISPLAY(d_aseqs)
 #define D_seqp		DISPLAY(d_seqp)
 #define D_seql		DISPLAY(d_seql)
+#define D_seqh		DISPLAY(d_seqh)
 #define D_dontmap	DISPLAY(d_dontmap)
 #define D_mapdefault	DISPLAY(d_mapdefault)
 #define D_kmaps		DISPLAY(d_kmaps)
@@ -282,7 +294,13 @@ extern struct display TheDisplay;
 #define D_loginhost	DISPLAY(d_loginhost)
 #define D_readev	DISPLAY(d_readev)
 #define D_writeev	DISPLAY(d_writeev)
+#define D_blockedev	DISPLAY(d_blockedev)
 #define D_mapev		DISPLAY(d_mapev)
+#define D_blocked	DISPLAY(d_blocked)
+#define D_blocked_fuzz	DISPLAY(d_blocked_fuzz)
+#define D_idleev	DISPLAY(d_idleev)
+#define D_blankerev	DISPLAY(d_blankerev)
+#define D_blankerpid	DISPLAY(d_blankerpid)
 
 
 #define GRAIN 4096	/* Allocation grain size for output buffer */

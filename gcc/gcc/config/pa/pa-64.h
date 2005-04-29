@@ -1,21 +1,21 @@
 /* Definitions of target machine for GNU compiler, for HPs using the
    64bit runtime model.
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -55,8 +55,6 @@ Boston, MA 02111-1307, USA.  */
 #define SHORT_TYPE_SIZE 16
 #undef INT_TYPE_SIZE
 #define INT_TYPE_SIZE 32
-#undef MAX_LONG_TYPE_SIZE
-#define MAX_LONG_TYPE_SIZE 64
 #undef LONG_TYPE_SIZE
 #define LONG_TYPE_SIZE 64
 #undef LONG_LONG_TYPE_SIZE
@@ -76,23 +74,18 @@ Boston, MA 02111-1307, USA.  */
    ?!? This may not work reliably.  Keep an eye out for problems.  */
 #undef SECONDARY_MEMORY_NEEDED_RTX
 
-
 /* ?!? This needs to be made compile-time selectable.
 
    The PA64 runtime model has arguments that grow to higher addresses
    (like most other targets).  The older runtime model has arguments
    that grow to lower addresses.  What fun.  */
 #undef ARGS_GROW_DOWNWARD
-#undef ARG_POINTER_REGNUM
-#define ARG_POINTER_REGNUM 29
-#undef STATIC_CHAIN_REGNUM
-#define STATIC_CHAIN_REGNUM 31
 
 /* If defined, a C expression which determines whether the default
    implementation of va_arg will attempt to pad down before reading the
    next argument, if that argument is smaller than its aligned space as
    controlled by PARM_BOUNDARY.  If this macro is not defined, all such
    arguments are padded down when BYTES_BIG_ENDIAN is true.  We don't
-   want aggregrates padded down.  */
+   want aggregates padded down.  */
 
 #define PAD_VARARGS_DOWN (!AGGREGATE_TYPE_P (type))

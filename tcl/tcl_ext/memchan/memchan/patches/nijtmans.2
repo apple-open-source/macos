@@ -1,0 +1,223 @@
+*** configure.in.orig	Mon Jan 13 11:41:06 1997
+--- configure.in	Mon Jan 13 12:57:01 1997
+***************
+*** 11,17 ****
+  VERSION=${MEMCHAN_VERSION}
+  
+  TCL_REQ_MAJOR_VERSION=7
+! TCL_REQ_MINOR_VERSION=5
+  
+  
+  dnl
+--- 11,17 ----
+  VERSION=${MEMCHAN_VERSION}
+  
+  TCL_REQ_MAJOR_VERSION=7
+! TCL_REQ_MINOR_VERSION=6
+  
+  
+  dnl
+***************
+*** 67,91 ****
+  dnl Locate tcl.h
+  dnl Searches:
+  dnl	TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+! dnl	$prefix/include		(--prefix)
+! dnl	/usr/local/include
+! dnl	/usr/include
+  dnl	../tcl7.6/generic	(assume tcl source in sibling directory)
+- dnl	../tcl7.5/generic	(assume tcl source in sibling directory)
+  dnl	../tcl/generic		(see above)
+  dnl	../tcl			(should be old version)
+  dnl
+  AC_CACHE_CHECK(for directory with tcl.h,
+
+  	memchan_cv_path_TCL_INCLUDE_DIR,
+  	[memchan_cv_path_TCL_INCLUDE_DIR=""
+  	 places="$TCL_INCLUDE_DIR \
+! 		$prefix/include \
+! 		/usr/local/include \
+! 		/usr/include \
+  		../tcl7.6/generic \
+- 		../tcl7.5/generic \
+  		../tcl/generic \
+! 		../tcl"
+       for dir in $places; do
+           if test -r $dir/tcl.h ; then
+              memchan_cv_path_TCL_INCLUDE_DIR=$dir
+--- 67,93 ----
+  dnl Locate tcl.h
+  dnl Searches:
+  dnl	TCL_INCLUDE_DIR		(--with-tcl, --with-tcl-include-dir)
+! dnl	../tcl8.0*/generic	(assume tcl source in sibling directory)
+  dnl	../tcl7.6/generic	(assume tcl source in sibling directory)
+  dnl	../tcl/generic		(see above)
+  dnl	../tcl			(should be old version)
++ dnl	$prefix/include		(--prefix)
++ dnl	/usr/local/include
++ dnl	/usr/include
+  dnl
+  AC_CACHE_CHECK(for directory with tcl.h,
+  	memchan_cv_path_TCL_INCLUDE_DIR,
+  	[memchan_cv_path_TCL_INCLUDE_DIR=""
+
+  	 places="$TCL_INCLUDE_DIR \
+! 		../tcl8.0/generic \
+! 		../tcl8.0b*/generic \
+! 		../tcl8.0a*/generic \
+  		../tcl7.6/generic \
+  		../tcl/generic \
+! 		../tcl \
+! 		$prefix/include \
+! 		/usr/local/include \
+! 		/usr/include"
+       for dir in $places; do
+           if test -r $dir/tcl.h ; then
+              memchan_cv_path_TCL_INCLUDE_DIR=$dir
+***************
+*** 109,115 ****
+      CPPFLAGS="-I$TCL_INCLUDE_DIR $CPPFLAGS"
+      AC_EGREP_CPP(good_tcl_version,
+  [#include <tcl.h>
+! #if ((TCL_MAJOR_VERSION == 7) && (TCL_MINOR_VERSION >= 5))
+      good_tcl_version
+  #endif
+  #if (TCL_MAJOR_VERSION > 7)
+--- 111,117 ----
+      CPPFLAGS="-I$TCL_INCLUDE_DIR $CPPFLAGS"
+      AC_EGREP_CPP(good_tcl_version,
+  [#include <tcl.h>
+! #if ((TCL_MAJOR_VERSION == 7) && (TCL_MINOR_VERSION >= 6))
+      good_tcl_version
+  #endif
+  #if (TCL_MAJOR_VERSION > 7)
+***************
+*** 118,124 ****
+      CPPFLAGS=$ac_save_cppflags])
+  
+
+  if test "$memchan_cv_vers_good_tcl_version" = "no"; then
+!     AC_MSG_ERROR(Your Tcl must be at least version 7.5)
+  fi
+  
+  AC_SUBST(TCL_INCLUDE_DIR)
+--- 120,126 ----
+      CPPFLAGS=$ac_save_cppflags])
+  
+  if test "$memchan_cv_vers_good_tcl_version" = "no"; then
+!     AC_MSG_ERROR(Your Tcl must be at least version 7.6)
+  fi
+  
+  AC_SUBST(TCL_INCLUDE_DIR)
+***************
+*** 131,138 ****
+  dnl	$exec_prefix/include		(--exec-prefix)
+  dnl	/usr/local/lib
+  dnl	/usr/lib
+  dnl	../tcl7.6/unix		(assume tcl source in sibling directory)
+- dnl	../tcl7.5/unix		(assume tcl source in sibling directory)
+  dnl	../tcl/unix		(see above)
+  dnl	../tcl			(should be old version)
+  dnl
+--- 133,140 ----
+  dnl	$exec_prefix/include		(--exec-prefix)
+  dnl	/usr/local/lib
+  dnl	/usr/lib
++ dnl	../tcl8.0*/unix		(assume tcl source in sibling directory)
+  dnl	../tcl7.6/unix		(assume tcl source in sibling directory)
+
+  dnl	../tcl/unix		(see above)
+  dnl	../tcl			(should be old version)
+  dnl
+***************
+*** 140,157 ****
+  	memchan_cv_lib_TCL_LIB,
+  	[memchan_cv_lib_TCL_LIB=""
+  	 places="$TCL_LIB_DIR \
+! 	 $prefix/lib \
+! 	 /usr/local/lib \
+! 	 /usr/lib \
+  	../tcl7.6/unix \
+- 	../tcl7.5/unix \
+  	../tcl/unix \
+! 	../tcl"
+      for dir in $places; do
+          if test -n "$memchan_cv_lib_TCL_LIB"; then
+              break
+          fi
+!         for version in 7.6 7.5 ""; do
+              if test -n "$memchan_cv_lib_TCL_LIB"; then
+                  break
+              fi
+--- 142,161 ----
+  	memchan_cv_lib_TCL_LIB,
+  	[memchan_cv_lib_TCL_LIB=""
+  	 places="$TCL_LIB_DIR \
+! 	../tcl8.0/unix \
+! 	../tcl8.0b*/unix \
+! 	../tcl8.0a*/unix \
+  	../tcl7.6/unix \
+  	../tcl/unix \
+! 	../tcl \
+! 	 $prefix/lib \
+! 	 /usr/local/lib \
+! 	 /usr/lib"
+      for dir in $places; do
+          if test -n "$memchan_cv_lib_TCL_LIB"; then
+
+              break
+          fi
+!         for version in 8.0 7.6 ""; do
+              if test -n "$memchan_cv_lib_TCL_LIB"; then
+                  break
+              fi
+***************
+*** 252,257 ****
+--- 256,265 ----
+  dnl non-standard substitutions
+  dnl
+  
++ if test "x${TCL_SHARED_LIB_SUFFIX}" != 'x${VERSION}.a' -o "x${SHLIB_SUFFIX}" != "x.so"; then
++ 	TCL_LIB_SPEC=""
++ fi
++ 
+  AC_SUBST(CC)
+  AC_SUBST(DL_LIBS)
+  AC_SUBST(LD_FLAGS)
+*** Makefile.in.orig	Mon Jan 13 12:14:24 1997
+--- Makefile.in	Mon Jan 13 12:57:44 1997
+***************
+*** 22,28 ****
+  # Directories in which the tcl core can be found
+  TCL_INCLUDE_DIR		=	@TCL_INCLUDE_DIR@
+  TCL_LIB_DIR		=	@TCL_LIB_DIR@
+- TCL_LIB			=	@TCL_LIB@
+  
+  
+  # Default top-level directories in which to install architecture-
+--- 22,27 ----
+***************
+*** 116,125 ****
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! LIBS = @TCL_LIB_SPEC@ @TCL_LIBS@ @LIBS@ -lc
+  
+  MEMCHAN_LIB_FILE = @MEMCHAN_LIB_FILE@
+! #MEMCHAN_LIB_FILE = libMEMCHAN.a
+  
+  #----------------------------------------------------------------
+  # The information below is modified by the configure script when
+--- 115,124 ----
+  # Libraries to use when linking:  must include at least the dynamic
+  # loading library and the math library (in that order).  This
+  # definition is determined by the configure script.
+! LIBS = @TCL_LIB_SPEC@ -lc
+  
+  MEMCHAN_LIB_FILE = @MEMCHAN_LIB_FILE@
+
+! #MEMCHAN_LIB_FILE = libmemchan.a
+  
+  #----------------------------------------------------------------
+  # The information below is modified by the configure script when
+

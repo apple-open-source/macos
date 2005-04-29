@@ -105,7 +105,7 @@ extern int errno;
 
 static void printf_erange __P((char *));
 static void printstr __P((char *, char *, int, int, int));
-static int tescape __P((char *, int, char *, int *));
+static int tescape __P((char *, int, char *, int *, int));
 static char *bexpand __P((char *, int, int *, int *));
 static char *mklong __P((char *, char *, size_t));
 static int getchr __P((void));
@@ -188,7 +188,7 @@ printf_builtin (list)
 	      fmt++;
 	      /* A NULL fourth argument to tescape means to not do special
 		 processing for \c. */
-	      fmt += tescape (fmt, 1, &nextch, (int *)NULL);
+	      fmt += tescape (fmt, 1, &nextch, (int *)NULL, 0);
 	      putchar (nextch);
 	      fmt--;	/* for loop will increment it for us again */
 	      continue;
@@ -443,7 +443,7 @@ printstr (fmt, string, len, fieldwidth, precision)
   int padlen, nc, ljust, i;
   int fw, pr;			/* fieldwidth and precision */
 
-  if (string == 0 || *string == '\0')
+  if (string == 0)		/* Process even with *string == '\0', valid %b data */
     return;
 
 #if 0
@@ -540,13 +540,16 @@ printstr (fmt, string, len, fieldwidth, precision)
    value.  *SAWC is set to 1 if the escape sequence was \c, since that means
    to short-circuit the rest of the processing.  If SAWC is null, we don't
    do the \c short-circuiting, and \c is treated as an unrecognized escape
-   sequence.  */
+   sequence. 
+   %b format must handle \\0[0-7]{1,3} but printf fmt must only handle \\[0-7]{1,3}
+   Use incoming parameter to print \0000 differently for each caller.  */
 static int
-tescape (estart, trans_squote, cp, sawc)
+tescape (estart, trans_squote, cp, sawc, b_format)
      char *estart;
      int trans_squote;
      char *cp;
      int *sawc;
+     int b_format;
 {
   register char *p;
   int temp, c, evalue;
@@ -583,7 +586,11 @@ tescape (estart, trans_squote, cp, sawc)
 	 sequences are supported as well. */
       case '1': case '2': case '3': case '4':
       case '5': case '6': case '7':
-	for (temp = 2+(c=='0'), evalue = c - '0'; ISOCTAL (*p) && temp--; p++)
+        if (b_format)
+     	  temp = 2+(c=='0');
+        else
+          temp = 2;		/* limit to \000 not \0000 like %b */
+	for (evalue = c - '0'; ISOCTAL (*p) && temp--; p++)
 	  evalue = (evalue * 8) + OCTVALUE (*p);
 	*cp = evalue & 0xFF;
 	break;
@@ -657,7 +664,7 @@ bexpand (string, len, sawc, lenp)
 	  continue;
 	}
       temp = 0;
-      s += tescape (s, 0, &c, &temp);
+      s += tescape (s, 0, &c, &temp, 1);
       if (temp)
 	{
 	  if (sawc)

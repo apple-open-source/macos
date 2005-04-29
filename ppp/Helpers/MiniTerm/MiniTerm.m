@@ -66,6 +66,7 @@ int recv_fd(int servfd)
     struct iovec	iov[1];
     struct msghdr	msg;
 
+	newfd = -1;
     status = -1;
     for ( ; ; ) {
         iov[0].iov_base = buf;
@@ -105,6 +106,7 @@ int recv_fd(int servfd)
         if (status >= 0)        /* final data has arrived */
                 return newfd;  /* descriptor, or -status */
     }
+	return -1;
 }
 
 /* ------------------------------------------------------------------------------------------

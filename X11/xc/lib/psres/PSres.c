@@ -35,7 +35,7 @@
  * 
  * Author:  Adobe Systems Incorporated
  */
-/* $XFree86: xc/lib/psres/PSres.c,v 1.4 2001/10/28 03:32:46 tsi Exp $ */
+/* $XFree86: xc/lib/psres/PSres.c,v 1.5 2003/05/27 22:26:51 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,7 +135,6 @@ typedef struct {
 static ResourceDirectory resDir = NULL, lastResDir;
 static char *savedPathOverride = NULL, *savedDefaultPath = NULL;
 static PSResourceSavePolicy currentPolicy = PSSaveByType;
-static int currentWillList;
 static char **currentResourceTypes = NULL;
 static char *resourceTypeBuffer = NULL;
 static time_t lastModifiedTime;
@@ -1040,7 +1039,6 @@ void SetPSResourcePolicy(policy, willList, resourceTypes)
     char **resourceTypes;
 {
     currentPolicy = policy;
-    currentWillList = willList;
 
     if (currentResourceTypes != NULL) FREE((char *) currentResourceTypes);
     if (resourceTypeBuffer != NULL) FREE((char *) resourceTypeBuffer);

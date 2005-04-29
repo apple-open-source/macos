@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -38,18 +35,20 @@ OSDefineMetaClassAndStructors( AppleIntelPIIXATAChannel, IOService )
 #define CastOSString(x) OSDynamicCast( OSString, x )
 
 struct ChannelModeEntry {
-    bool   isSerialATA;
     UInt8  maxDriveCount;
     UInt8  driveUnitToSATAPort[2];
 };
 
 static const ChannelModeEntry gChannelModeTable[ kChannelModeCount ] =
 {
-    { false, 2, { kSerialATAPortX, kSerialATAPortX } },
-    { true,  1, { kSerialATAPort0, kSerialATAPortX } },
-    { true,  1, { kSerialATAPort1, kSerialATAPortX } },
-    { true,  2, { kSerialATAPort0, kSerialATAPort1 } },
-    { true,  2, { kSerialATAPort1, kSerialATAPort0 } }
+    { 0, { kSerialATAPortX, kSerialATAPortX } },
+    { 2, { kSerialATAPortX, kSerialATAPortX } },
+    { 1, { kSerialATAPort0, kSerialATAPortX } },
+    { 1, { kSerialATAPort1, kSerialATAPortX } },
+    { 2, { kSerialATAPort0, kSerialATAPort1 } },
+    { 2, { kSerialATAPort1, kSerialATAPort0 } },
+    { 2, { kSerialATAPort0, kSerialATAPort2 } },
+    { 2, { kSerialATAPort1, kSerialATAPort3 } }
 };
 
 //---------------------------------------------------------------------------
@@ -116,8 +115,8 @@ void AppleIntelPIIXATAChannel::mergeProperties( OSDictionary * properties )
     OSCollectionIterator * propIter =
         OSCollectionIterator::withCollection( properties );
 
-	if ( propIter )
-	{
+    if ( propIter )
+    {
         const OSSymbol * propKey;
         while ((propKey = (const OSSymbol *)propIter->getNextObject()))
             setProperty(propKey, properties->getObject(propKey));
@@ -198,7 +197,7 @@ bool AppleIntelPIIXATAChannel::matchPropertyTable( OSDictionary * table,
 {
     bool drvSATA = ( table->getObject( kSerialATAKey ) == kOSBooleanTrue );
 
-	// Let the PATA driver handle parallel ATA channels, even for the
+    // Let the PATA driver handle parallel ATA channels, even for the
     // parallel ATA channel exposed by the SATA controller in combined
     // mode.
 
@@ -310,11 +309,6 @@ const char * AppleIntelPIIXATAChannel::getControllerName( void ) const
 bool AppleIntelPIIXATAChannel::hasSharedDriveTimings( void ) const
 {
     return _hasSharedDriveTimings;
-}
-    
-bool AppleIntelPIIXATAChannel::isSerialATAChannel( void ) const
-{
-    return gChannelModeTable[_channelMode].isSerialATA;
 }
 
 UInt32 AppleIntelPIIXATAChannel::getMaxDriveUnits( void ) const

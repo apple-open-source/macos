@@ -1,70 +1,71 @@
-XCOMM $XFree86: xc/programs/Xserver/hw/darwin/quartz/Imakefile,v 1.5 2002/12/05 01:07:40 torrey Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/darwin/quartz/Imakefile,v 1.13 2004/02/10 22:51:23 torrey Exp $
 
 #include <Server.tmpl>
+#define IHaveSubdirs
 
 SRCS =  Preferences.m \
         XApplication.m \
         XServer.m \
-        XView.m \
-        aquaPicture.c \
-        aquaWindow.c \
-        fullscreen.c \
+        applewm.c \
+        keysym2ucs.c \
         quartz.c \
         quartzAudio.c \
         quartzCocoa.m \
-        quartzCursor.c \
         quartzPasteboard.c \
-        rootlessAquaGlue.c \
-        rootlessAquaImp.m \
-        rootlessCommon.c \
-        rootlessGC.c \
-        rootlessScreen.c \
-        rootlessValTree.c \
-        rootlessWindow.c \
+        quartzKeyboard.c \
+        quartzStartup.c \
         pseudoramiX.c
 
 OBJS =  Preferences.o \
         XApplication.o \
         XServer.o \
-        XView.o \
-        aquaPicture.o \
-        aquaWindow.o \
-        fullscreen.o \
+        applewm.o \
+        keysym2ucs.o \
         quartz.o \
         quartzAudio.o \
         quartzCocoa.o \
-        quartzCursor.o \
         quartzPasteboard.o \
-        rootlessAquaGlue.o \
-        rootlessAquaImp.o \
-        rootlessCommon.o \
-        rootlessGC.o \
-        rootlessScreen.o \
-        rootlessValTree.o \
-        rootlessWindow.o \
+        quartzKeyboard.o \
+        quartzStartup.o \
         pseudoramiX.o
 
 INCLUDES = -I. -I$(SERVERSRC)/fb -I$(SERVERSRC)/mi -I$(SERVERSRC)/include \
            -I$(XINCLUDESRC) -I$(FONTINCSRC) -I$(SERVERSRC)/render \
-           -I$(SERVERSRC)/miext/shadow -I$(EXTINCSRC) -I.. -I$(SERVERSRC)/Xext
+           -I$(SERVERSRC)/miext/shadow -I$(EXTINCSRC) -I$(SERVERSRC)/Xext \
+           -I.. -I$(APPLEWMLIBSRC)
 
 #if defined(XFree86CustomVersion)
 CUSTOMVERSION = XFree86CustomVersion
 CUSTOMVERDEF =  -DXF86_CUSTOM_VERSION='$(CUSTOMVERSION)'
 #endif
-#if HasCGMachPort
+
+#if XFree86Devel
+BUILDSTYLE = -buildstyle Development
+DEBUGDEFINES = -DROOTLESSDEBUG
+#else
+BUILDSTYLE = -buildstyle Deployment
+#endif
+
+#if OSMajorVersion >= 7
+PROJ_TARGET = -project XDarwin.pbproj -target XDarwin
+#else
+PROJ_TARGET = -target XDarwin
+#endif
+
+#if (OSMajorVersion == 1 && OSMinorVersion >= 4) || OSMajorVersion >= 5
 QUARTZDEFINES = -DHAS_CG_MACH_PORT
 #endif
 
-#if XFree86Devel
-PBXBUILDSTYLE = -buildstyle Development
-DEBUGDEFINES = -DROOTLESSDEBUG
-#else
-PBXBUILDSTYLE = -buildstyle Deployment
+#if HasXplugin
+XPRDEFINES = -DBUILD_XPR
+#endif
+
+#if OSMajorVersion >= 6
+KLDEFINES = -DHAS_KL_API
 #endif
 
 DEFINES = $(CUSTOMVERDEF) -DXBINDIR=$(BINDIR) -DXINITDIR=$(XINITDIR) \
-          $(QUARTZDEFINES) $(DEBUGDEFINES)
+          $(QUARTZDEFINES) $(DEBUGDEFINES) $(XPRDEFINES) $(KLDEFINES)
 EXTRAMANDEFS = -D__XBinDir__=$(BINDIR)
 #if NothingOutsideProjectRoot
 XDARWINROOT = $(BINDIR)
@@ -72,10 +73,14 @@ XDARWINROOT = $(BINDIR)
 XDARWINROOT = /Applications
 #endif
 
+#if HasXplugin
+SUBDIRS = cr fullscreen xpr
+#else
+SUBDIRS = cr fullscreen
+#endif
+
 NormalLibraryObjectRule()
 NormalLibraryTarget(XQuartz,$(OBJS))
-
-AllTarget(quartzStartup.o)
 
 AllTarget(XDarwinStartup)
 NormalProgramTarget(XDarwinStartup,XDarwinStartup.o, \
@@ -87,16 +92,18 @@ install::
 
 AllTarget(XDarwin)
 XDarwin:
-	pbxbuild -target XDarwin $(PBXBUILDSTYLE)
+	$(PROJ_BUILD) $(PROJ_TARGET) $(BUILDSTYLE)
 
 install::
-	pbxbuild install -target XDarwin $(PBXBUILDSTYLE) \
+	$(PROJ_BUILD) install $(PROJ_TARGET) $(BUILDSTYLE) \
 		DSTROOT=$(DESTDIR)$(XDARWINROOT)
 
 InstallManPage(XDarwinStartup,$(MANDIR))
 
 clean::
-	pbxbuild "clean" -target XDarwin $(PBXBUILDSTYLE)
+	$(PROJ_BUILD) "clean" $(PROJ_TARGET) $(BUILDSTYLE)
 
 DependTarget()
 
+MakeSubdirs($(SUBDIRS))
+DependSubdirs($(SUBDIRS))

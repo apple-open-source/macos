@@ -1,3 +1,4 @@
+// { dg-do run  }
 class K {
 public:
   int f(int i) { return i; }
@@ -13,7 +14,7 @@ private:
 
 int Q::g() {
   return (kp->f)(42);
-};
+}
 
 
 int main () {

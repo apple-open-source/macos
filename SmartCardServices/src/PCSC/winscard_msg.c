@@ -25,7 +25,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This is responsible for client/server transport.
 
-$Id: winscard_msg.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
+$Id: winscard_msg.c,v 1.4 2004/10/21 01:17:53 mb Exp $
 
 ********************************************************************/
 
@@ -42,6 +42,7 @@ $Id: winscard_msg.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "config.h"
 
@@ -56,276 +57,9 @@ $Id: winscard_msg.c,v 1.2.22.1 2004/12/10 01:06:37 mb Exp $
 #include "sys_generic.h"
 #include "debuglog.h"
 
-static int commonSocket = 0;
-static int appSocket = 0;
-
-struct _clientSockets
+int MSGSendData(int filedes, int blockAmount, const void *data,
+	unsigned int dataSize)
 {
-	int sd;
-};
-
-static struct _clientSockets clientSockets[PCSCLITE_MAX_APPLICATIONS];
-
-void SHMCleanupSharedSegment(int, char *);
-
-int SHMClientRead(psharedSegmentMsg msgStruct, int blockamount)
-{
-	return SHMMessageReceive(msgStruct, appSocket, blockamount);
-}
-
-int SHMClientSetupSession(int processID)
-{
-
-	struct sockaddr_un svc_addr;
-	int one;
-
-	if ((appSocket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-	{
-		DebugLogB
-			("SHMInitializeSharedSegment: Error: create on client socket: %s",
-			strerror(errno));
-		return -1;
-	}
-
-	svc_addr.sun_family = AF_UNIX;
-	strncpy(svc_addr.sun_path, PCSCLITE_CSOCK_NAME,
-		sizeof(svc_addr.sun_path));
-
-	if (connect(appSocket, (struct sockaddr *) &svc_addr,
-			sizeof(svc_addr.sun_family) + strlen(svc_addr.sun_path) + 1) <
-		0)
-	{
-		DebugLogB
-			("SHMInitializeSharedSegment: Error: connect to client socket: %s",
-			strerror(errno));
-
-		SYS_CloseFile(appSocket);
-		return -1;
-	}
-
-	one = 1;
-	if (ioctl(appSocket, FIONBIO, &one) < 0)
-	{
-		DebugLogB("SHMInitializeSharedSegment: Error: cannot set socket "
-			"nonblocking: %s", strerror(errno));
-		SYS_CloseFile(appSocket);
-		return -1;
-	}
-
-	return 0;
-}
-
-int SHMClientCloseSession()
-{
-	SYS_CloseFile(appSocket);
-	return 0;
-}
-
-int SHMInitializeCommonSegment()
-{
-
-	int i;
-	static struct sockaddr_un serv_adr;
-
-	for (i = 0; i < PCSCLITE_MAX_APPLICATIONS; i++)
-	{
-		clientSockets[i].sd = -1;
-	}
-
-	/*
-	 * Create the common shared connection socket 
-	 */
-	if ((commonSocket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
-	{
-		DebugLogB
-			("SHMInitializeSharedSegment: Unable to create common socket: %s",
-			strerror(errno));
-		return -1;
-	}
-
-	serv_adr.sun_family = AF_UNIX;
-	strncpy(serv_adr.sun_path, PCSCLITE_CSOCK_NAME,
-		sizeof(serv_adr.sun_path));
-	unlink(PCSCLITE_CSOCK_NAME);
-
-	if (bind(commonSocket, (struct sockaddr *) &serv_adr,
-			sizeof(serv_adr.sun_family) + strlen(serv_adr.sun_path) + 1) <
-		0)
-	{
-		DebugLogB
-			("SHMInitializeSharedSegment: Unable to bind common socket: %s",
-			strerror(errno));
-		SHMCleanupSharedSegment(commonSocket, PCSCLITE_CSOCK_NAME);
-		return -1;
-	}
-
-	if (listen(commonSocket, 1) < 0)
-	{
-		DebugLogB
-			("SHMInitializeSharedSegment: Unable to listen common socket: %s",
-			strerror(errno));
-		SHMCleanupSharedSegment(commonSocket, PCSCLITE_CSOCK_NAME);
-		return -1;
-	}
-
-	/*
-	 * Chmod the public entry channel 
-	 */
-	SYS_Chmod(PCSCLITE_CSOCK_NAME,
-		S_IROTH | S_IWOTH | S_IRGRP | S_IWGRP | S_IRUSR | S_IWUSR);
-
-	return 0;
-}
-
-int SHMProcessCommonChannelRequest()
-{
-
-	int i, clnt_len;
-	int new_sock;
-	struct sockaddr_un clnt_addr;
-	int one;
-
-	clnt_len = sizeof(clnt_addr);
-
-	if ((new_sock = accept(commonSocket, (struct sockaddr *) &clnt_addr,
-				&clnt_len)) < 0)
-	{
-		DebugLogB
-			("SHMProcessCommonChannelRequest: ER: Accept on common socket: %s",
-			strerror(errno));
-		return -1;
-	}
-
-	for (i = 0; i < PCSCLITE_MAX_APPLICATIONS; i++)
-	{
-		if (clientSockets[i].sd == -1)
-		{
-			break;
-		}
-	}
-
-	if (i == PCSCLITE_MAX_APPLICATIONS)
-	{
-		SYS_CloseFile(new_sock);
-		return -1;
-	}
-
-	clientSockets[i].sd = new_sock;
-
-	one = 1;
-	if (ioctl(clientSockets[i].sd, FIONBIO, &one) < 0)
-	{
-		DebugLogB("SHMInitializeSharedSegment: Error: cannot set socket "
-			"nonblocking: %s", strerror(errno));
-		SYS_CloseFile(clientSockets[i].sd);
-		clientSockets[i].sd = -1;
-		return -1;
-	}
-
-	return 0;
-}
-
-int SHMProcessEvents(psharedSegmentMsg msgStruct, int blocktime)
-{
-
-	static fd_set read_fd;
-	int i, selret, largeSock, rv;
-	struct timeval tv;
-
-	largeSock = 0;
-
-	tv.tv_sec = 1;
-	tv.tv_usec = 0;
-
-	FD_ZERO(&read_fd);
-
-	/*
-	 * Set up the bit masks for select 
-	 */
-	FD_SET(commonSocket, &read_fd);
-	largeSock = commonSocket;
-
-	for (i = 0; i < PCSCLITE_MAX_APPLICATIONS; i++)
-	{
-		if (clientSockets[i].sd != -1)
-		{
-			FD_SET(clientSockets[i].sd, &read_fd);
-			if (clientSockets[i].sd > largeSock)
-			{
-				largeSock = clientSockets[i].sd;
-			}
-		}
-	}
-
-	selret = select(largeSock + 1, &read_fd, (fd_set *) NULL,
-		(fd_set *) NULL, &tv);
-
-	if (selret < 0)
-	{
-		DebugLogB("SHMProcessEvents: Select returns with failure: %s",
-			strerror(errno));
-		return -1;
-	}
-
-	if (selret == 0)
-		// timeout
-		return 2;
-
-	/*
-	 * A common pipe packet has arrived - it could be a new application or 
-	 * it could be a reader event packet coming from another thread 
-	 */
-
-	if (FD_ISSET(commonSocket, &read_fd))
-	{
-		DebugLogA("SHMProcessEvents: Common channel packet arrival");
-		if (SHMProcessCommonChannelRequest() == -1)
-		{
-			return -1;
-		} else
-		{
-			return 0;
-		}
-	}
-
-	for (i = 0; i < PCSCLITE_MAX_APPLICATIONS; i++)
-	{
-		if (clientSockets[i].sd != -1)
-		{
-			if (FD_ISSET(clientSockets[i].sd, &read_fd))
-			{
-				/*
-				 * Return the current handle 
-				 */
-				rv = SHMMessageReceive(msgStruct, clientSockets[i].sd,
-					PCSCLITE_SERVER_ATTEMPTS);
-
-				if (rv == -1)
-				{	/* The client has died */
-					msgStruct->mtype = CMD_CLIENT_DIED;
-					msgStruct->request_id = clientSockets[i].sd;
-					msgStruct->command = 0;
-					SYS_CloseFile(clientSockets[i].sd);
-					clientSockets[i].sd = -1;
-					return 0;
-				}
-
-				/*
-				 * Set the identifier handle 
-				 */
-				msgStruct->request_id = clientSockets[i].sd;
-				return 1;
-			}
-		}
-	}
-
-	return -1;
-}
-
-int SHMMessageSend(psharedSegmentMsg msgStruct, int filedes,
-	           int blockAmount)
-{
-
 	/*
 	 * default is success 
 	 */
@@ -337,11 +71,11 @@ int SHMMessageSend(psharedSegmentMsg msgStruct, int filedes,
 	/*
 	 * data to be written 
 	 */
-	unsigned char *buffer = (unsigned char *) msgStruct;
+	unsigned char *buffer = (unsigned char *) data;
 	/*
 	 * how many bytes remains to be written 
 	 */
-	size_t remaining = sizeof(sharedSegmentMsg);
+	size_t remaining = dataSize;
 
 	/*
 	 * repeat until all data is written 
@@ -425,7 +159,7 @@ int SHMMessageSend(psharedSegmentMsg msgStruct, int filedes,
 			if (errno != EINTR)
 			{
 				DebugLogB
-					("SHMProcessEvents: Select returns with failure: %s",
+					("MSGServerProcessEvents: Select returns with failure: %s",
 					strerror(errno));
 				retval = -1;
 				break;
@@ -436,10 +170,9 @@ int SHMMessageSend(psharedSegmentMsg msgStruct, int filedes,
 	return retval;
 }
 
-int SHMMessageReceive(psharedSegmentMsg msgStruct, int filedes,
-	              int blockAmount)
+int MSGRecieveData(int filedes, int blockAmount, void *data,
+	unsigned int dataSize)
 {
-
 	/*
 	 * default is success 
 	 */
@@ -451,14 +184,14 @@ int SHMMessageReceive(psharedSegmentMsg msgStruct, int filedes,
 	/*
 	 * buffer where we place the readed bytes 
 	 */
-	unsigned char *buffer = (unsigned char *) msgStruct;
+	unsigned char *buffer = (unsigned char *) data;
 	/*
 	 * how many bytes we must read 
 	 */
-	size_t remaining = sizeof(sharedSegmentMsg);
+	size_t remaining = dataSize;
 
 	/*
-	 * repeate until we get the whole message 
+	 * repeat until we get the whole message 
 	 */
 	while (remaining > 0)
 	{
@@ -539,7 +272,7 @@ int SHMMessageReceive(psharedSegmentMsg msgStruct, int filedes,
 			if (errno != EINTR)
 			{
 				DebugLogB
-					("SHMProcessEvents: Select returns with failure: %s",
+					("MSGServerProcessEvents: Select returns with failure: %s",
 					strerror(errno));
 				retval = -1;
 				break;
@@ -549,31 +282,3 @@ int SHMMessageReceive(psharedSegmentMsg msgStruct, int filedes,
 
 	return retval;
 }
-
-int WrapSHMWrite(unsigned int command, unsigned int pid,
-	unsigned int size, unsigned int blockAmount, void *data)
-{
-
-	sharedSegmentMsg msgStruct;
-
-	/*
-	 * Set the appropriate packet parameters 
-	 */
-
-	msgStruct.mtype = CMD_FUNCTION;
-	msgStruct.user_id = SYS_GetUID();
-	msgStruct.group_id = SYS_GetGID();
-	msgStruct.command = command;
-	msgStruct.request_id = pid;
-	msgStruct.date = time(NULL);
-	memcpy(msgStruct.data, data, size);
-
-	return SHMMessageSend(&msgStruct, appSocket, blockAmount);
-}
-
-void SHMCleanupSharedSegment(int sockValue, char *pcFilePath)
-{
-	SYS_CloseFile(sockValue);
-	SYS_Unlink(pcFilePath);
-}
-

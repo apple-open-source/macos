@@ -40,15 +40,17 @@ finddepth(sub {
     }
     return if $name =~ /(auth|autoindex|digest)/; #a few that screw make test
     push @sh_mods, "LoadModule ${name}_module $full";
-}, $APACHE_SRC);
+}, $APACHE_SRC) if $APACHE_SRC and -d $APACHE_SRC;
 
 my($perl_mod) = grep /perl/, @sh_mods;
 unshift @sh_mods, $perl_mod; #must come before mod_include/USE_PERL_SSI
-  
+
+my %seen;
+
 local *FH;
 open FH, ">$LoadModule_conf" or
     die "can't open $LoadModule_conf $!";
-print FH join "\n", @sh_mods, "";
+print FH join "\n", (grep { !$seen{$_}++ } @sh_mods), "";
 close FH;
 
 system "cat $LoadModule_conf $orig > $tmp && mv $tmp $orig";

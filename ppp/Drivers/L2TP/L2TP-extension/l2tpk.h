@@ -34,8 +34,8 @@
 #define L2TP_DEFAULT_INITIAL_TIMEOUT	1		/* 1 seconds */
 #define L2TP_DEFAULT_TIMEOUT_CAP	8		/* 8 seconds */
 #define L2TP_DEFAULT_RETRY_COUNT	6	
-#define L2TP_DEFAULT_CONNECT_TIMEOUT		3	/* 3 seconds */
-#define L2TP_DEFAULT_CONNECT_RETRY_COUNT	20	/* 20 tries */
+#define L2TP_DEFAULT_CONNECT_TIMEOUT		1	/* 1 seconds */
+#define L2TP_DEFAULT_CONNECT_RETRY_COUNT	60	/* 60 tries */
 
 #define L2TP_OPT_FLAGS			1	/* see flags definition below */
 #define L2TP_OPT_PEERADDRESS		2	/* peer IP address */
@@ -51,6 +51,8 @@
 #define L2TP_OPT_MAX_RETRIES		12	/* reliable connection layer max retries */
 #define L2TP_OPT_ACCEPT			13	/* accept incomming connect request and transfer to new socket */
 #define L2TP_OPT_OURADDRESS		14	/* our IP address */
+#define L2TP_OPT_BAUDRATE		15	/* tunnel baudrate */
+#define L2TP_OPT_RELIABILITY		16	/* turn on/off reliability layer */
 
 /* flags definition */
 #define L2TP_FLAG_DEBUG		0x00000002	/* debug mode, send verbose logs to syslog */

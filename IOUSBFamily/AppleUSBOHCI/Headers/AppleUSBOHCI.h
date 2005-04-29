@@ -33,14 +33,14 @@
 #include <IOKit/pci/IOPCIBridge.h>
 #include <IOKit/pci/IOPCIDevice.h>
 
-#include <IOKit/usb/IOUSBController.h>
+#include <IOKit/usb/IOUSBControllerV2.h>
 #include <IOKit/usb/USB.h>
 #include <IOKit/usb/USBHub.h>
 
 #include "USBOHCI.h"
 #include "USBOHCIRootHub.h"
 
-#define USB_CONSTANT16(x)	((((x) >> 8) & 0x0ff) | ((x & 0xff) << 8))
+#define USB_CONSTANT16(x)	(OSSwapHostToLittleConstInt16(x))
 #define MICROSECOND		(1)
 #define MILLISECOND		(1000)
 
@@ -128,7 +128,7 @@ class AppleUSBOHCIedMemoryBlock;
 class AppleUSBOHCIitdMemoryBlock;
 class AppleUSBOHCIgtdMemoryBlock;
 
-class AppleUSBOHCI : public IOUSBController
+class AppleUSBOHCI : public IOUSBControllerV2
 {
     OSDeclareDefaultStructors(AppleUSBOHCI)
 
@@ -361,6 +361,14 @@ public:
             UInt16				maxPacketSize,
             UInt8				speed);
 
+    virtual IOReturn UIMCreateControlEndpoint(
+                                              UInt8				functionNumber,
+                                              UInt8				endpointNumber,
+                                              UInt16				maxPacketSize,
+                                              UInt8				speed,
+                                              USBDeviceAddress    		highSpeedHub,
+                                              int			                highSpeedPort);
+
     // method in 1.8 and 1.8.1
    virtual IOReturn UIMCreateControlTransfer(
             short				functionNumber,
@@ -408,6 +416,15 @@ public:
             UInt8				speed,
             UInt8				maxPacketSize);
 
+    virtual IOReturn UIMCreateBulkEndpoint(
+                                           UInt8				functionNumber,
+                                           UInt8				endpointNumber,
+                                           UInt8				direction,
+                                           UInt8				speed,
+                                           UInt16				maxPacketSize,
+                                           USBDeviceAddress    		highSpeedHub,
+                                           int			                highSpeedPort);
+
     // method in 1.8 and 1.8.1
     virtual IOReturn UIMCreateBulkTransfer(
             short				functionNumber,
@@ -440,6 +457,16 @@ public:
             UInt16				maxPacketSize,
             short				pollingRate);
 
+    virtual IOReturn UIMCreateInterruptEndpoint(
+                                                short				functionAddress,
+                                                short				endpointNumber,
+                                                UInt8				direction,
+                                                short				speed,
+                                                UInt16				maxPacketSize,
+                                                short				pollingRate,
+                                                USBDeviceAddress    		highSpeedHub,
+                                                int                 		highSpeedPort);
+
     // method in 1.8 and 1.8.1
     virtual IOReturn UIMCreateInterruptTransfer(
             short				functionNumber,
@@ -460,6 +487,14 @@ public:
             UInt32				maxPacketSize,
             UInt8				direction);
 
+    virtual IOReturn 		UIMCreateIsochEndpoint(
+                                              short		functionAddress,
+                                              short		endpointNumber,
+                                              UInt32		maxPacketSize,
+                                              UInt8		direction,
+                                              USBDeviceAddress highSpeedHub,
+                                              int      highSpeedPort);
+    
     virtual IOReturn UIMCreateIsochTransfer(
 	short				functionAddress,
 	short				endpointNumber,

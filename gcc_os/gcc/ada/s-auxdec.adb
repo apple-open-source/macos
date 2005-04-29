@@ -6,7 +6,6 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
 --          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
 --                                                                          --
@@ -29,7 +28,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNAT was Originally developed  by the GNAT team at  New YOrk University. --
--- It is now maintained by Ada COre Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -326,6 +325,8 @@ package body System.Aux_DEC is
       Retry_Count  : in Natural;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := Bit;
@@ -355,6 +356,8 @@ package body System.Aux_DEC is
       Retry_Count  : in Natural;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := Bit;
@@ -408,6 +411,8 @@ package body System.Aux_DEC is
       Old_Value    : out Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;
@@ -433,6 +438,8 @@ package body System.Aux_DEC is
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;
@@ -471,6 +478,8 @@ package body System.Aux_DEC is
       Old_Value    : out Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;
@@ -496,6 +505,8 @@ package body System.Aux_DEC is
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;
@@ -525,6 +536,8 @@ package body System.Aux_DEC is
       Old_Value    : out Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;
@@ -550,6 +563,8 @@ package body System.Aux_DEC is
       Old_Value    : out Long_Integer;
       Success_Flag : out Boolean)
    is
+      pragma Warnings (Off, Retry_Count);
+
    begin
       SSL.Lock_Task.all;
       Old_Value := To.Value;

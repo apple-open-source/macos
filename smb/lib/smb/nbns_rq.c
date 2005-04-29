@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nbns_rq.c,v 1.6 2003/05/06 21:54:47 lindak Exp $
+ * $Id: nbns_rq.c,v 1.9 2005/02/24 02:04:38 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/socket.h>
@@ -140,7 +140,6 @@ nbns_resolvename(const char *name, struct nb_ctx *ctx, struct sockaddr **adpp)
 	return error;
 }
 
-#ifdef APPLE
 static char *
 smb_optstrncpy(char *d, char *s, unsigned maxlen)
 {
@@ -247,7 +246,6 @@ nbns_getnodestatus(struct sockaddr *targethost,
 	nbns_rq_done(rqp);
 	return error;
 }
-#endif
 
 int
 nbns_rq_create(int opcode, struct nb_ctx *ctx, struct nbns_rq **rqpp)
@@ -349,7 +347,16 @@ nbns_rq_prepare(struct nbns_rq *rqp)
 		error = mb_fit(mbp, len, (char**)&cp);
 		if (error)
 			return error;
-		nb_name_encode(rqp->nr_qdname, cp);
+		/* 
+		 * tell nb_name encode NOT to uppercase 
+		 * the name. We know that calls from
+		 * mount_smbfs have uppercased the
+		 * name if appropriate (some codepages
+		 * should not be uppercased). I tested 
+		 * smbutil lookup and it still works
+		 * OK.  
+		 */
+		nb_name_encode(rqp->nr_qdname, cp,0);
 		mb_put_uint16be(mbp, rqp->nr_qdtype);
 		mb_put_uint16be(mbp, rqp->nr_qdclass);
 	}
@@ -446,11 +453,7 @@ again:
 	error = nbns_rq_opensocket(rqp);
 	if (error)
 		return error;
-#ifdef APPLE
 	retrycount = 1;	/* XXX - configurable or adaptive */
-#else
-	retrycount = 3;	/* XXX - configurable */
-#endif
 	for (;;) {
 		error = nbns_rq_send(rqp);
 		if (error)

@@ -1,4 +1,4 @@
-@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+@c Copyright (C) 1988, 1989, 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file install.texi.
 
@@ -34,9 +34,7 @@ See @ref{VMS Install}, for VMS systems.
 If you have chosen a configuration for GNU CC which requires other GNU
 tools (such as GAS or the GNU linker) instead of the standard system
 tools, install the required tools in the build directory under the names
-@file{as}, @file{ld} or whatever is appropriate.  This will enable the
-compiler to find the proper tools for compilation of the program
-@file{enquire}.
+@file{as}, @file{ld} or whatever is appropriate.
 
 Alternatively, you can do subsequent compilation using a value of the
 @code{PATH} environment variable such that the necessary GNU tools come
@@ -107,7 +105,7 @@ Here are the possible CPU types:
 @quotation
 @c gmicro, fx80, spur and tahoe omitted since they don't work.
 1750a, a29k, alpha, arm, avr, c@var{n}, clipper, dsp16xx, elxsi, fr30, h8300,
-hppa1.0, hppa1.1, i370, i386, i486, i586, i686, i786, i860, i960, m32r,
+hppa1.0, hppa1.1, i370, i386, i486, i586, i686, i786, i860, i960, ip2k, m32r,
 m68000, m68k, m6811, m6812, m88k, mcore, mips, mipsel, mips64, mips64el,
 mn10200, mn10300, ns32k, pdp11, powerpc, powerpcle, romp, rs6000, sh, sparc,
 sparclite, sparc64, v850, vax, we32k.
@@ -457,16 +455,6 @@ tar xf tarfile
 
 Now you can proceed just as for compiling a single-machine compiler
 through the step of building stage 1.
-
-If your target is exotic, you may need to provide the header file
-@file{float.h}.One way to do this is to compile @file{enquire} and run
-it on your target machine.  The job of @file{enquire} is to run on the
-target machine and figure out by experiment the nature of its floating
-point representation.  @file{enquire} records its findings in the header
-file @file{float.h}.  If you can't produce this file by running
-@file{enquire} on the target machine, then you will need to come up with
-a suitable @file{float.h} in some other way (or else, avoid using it in
-your programs).
 
 Do not try to build stage 2 for a cross-compiler.  It doesn't work to
 rebuild GNU CC as a cross-compiler using the cross-compiler, because

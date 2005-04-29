@@ -14,9 +14,10 @@
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: unzip.c,v 1.1.1.1 1999/04/23 01:05:58 wsanchez Exp $";
+static char rcsid[] = "$Id: unzip.c,v 0.13 1993/06/10 13:29:00 jloup Exp $";
 #endif
 
+#include <config.h>
 #include "tailor.h"
 #include "gzip.h"
 #include "crypt.h"
@@ -35,6 +36,7 @@ static char rcsid[] = "$Id: unzip.c,v 1.1.1.1 1999/04/23 01:05:58 wsanchez Exp $
 #define LOCEXT 28               /* offset of extra field length */
 #define LOCHDR 30               /* size of local header, including sig */
 #define EXTHDR 16               /* size of extended local header, inc sig */
+#define RAND_HEAD_LEN  12       /* length of encryption random header */
 
 
 /* Globals */
@@ -103,6 +105,7 @@ int unzip(in, out)
     ulg orig_len = 0;       /* original uncompressed length */
     int n;
     uch buf[EXTHDR];        /* extended local header */
+    int err = OK;
 
     ifd = in;
     ofd = out;
@@ -136,9 +139,6 @@ int unzip(in, out)
 	}
 	while (n--) {
 	    uch c = (uch)get_byte();
-#ifdef CRYPT
-	    if (decrypt) zdecode(c);
-#endif
 	    put_ubyte(c);
 	}
 	flush_window();
@@ -172,10 +172,14 @@ int unzip(in, out)
 
     /* Validate decompression */
     if (orig_crc != updcrc(outbuf, 0)) {
-	error("invalid compressed data--crc error");
+	fprintf(stderr, "\n%s: %s: invalid compressed data--crc error\n",
+		progname, ifname);
+	err = ERROR;
     }
-    if (orig_len != (ulg)bytes_out) {
-	error("invalid compressed data--length error");
+    if (orig_len != (ulg)(bytes_out & 0xffffffff)) {
+	fprintf(stderr, "\n%s: %s: invalid compressed data--length error\n",
+		progname, ifname);
+	err = ERROR;
     }
 
     /* Check if there are more entries in a pkzip file */
@@ -189,11 +193,12 @@ int unzip(in, out)
 	    fprintf(stderr,
 		    "%s: %s has more than one entry -- unchanged\n",
 		    progname, ifname);
-	    exit_code = ERROR;
-	    ext_header = pkzip = 0;
-	    return ERROR;
+	    err = ERROR;
 	}
     }
     ext_header = pkzip = 0; /* for next file */
-    return OK;
+    if (err == OK) return OK;
+    exit_code = ERROR;
+    if (!test) abort_gzip();
+    return err;
 }

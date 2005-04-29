@@ -3,7 +3,7 @@
 # V. Abell
 # Purdue University
 #
-# $Id: Makefile,v 1.15 2002/12/20 18:57:49 abe Exp $
+# $Id: Makefile,v 1.16 2004/01/14 11:28:32 abe Exp $
 
 DEBUG=	-O
 CFLAGS=	${DEBUG} -I. -I..
@@ -57,26 +57,12 @@ all:	${CKTSTDB} ${BASTST} ${STDTST} FRC
 	fi;
 	@rm -f config.LT*
 
-auto:	${CKTSTDB} ${BASTST} ${STDTST} FRC
+auto:	ckDB silent FRC
+
+ckDB:	${CKTSTDB} FRC
 	@echo "" | ./${CKTSTDB}; xv=$$?; \
 	if [ $$xv -ne 0 ]; then \
 	  exit 1 ;\
-	fi
-	@rm -f config.LT*
-	@err=0; \
-	./${BASTST} > /dev/null 2>&1; \
-	if [ $$? -ne 0 ]; then \
-	  exit 1; \
-	fi; \
-	for i in ${STDTST}; do \
-	  ./$$i > /dev/null 2>&1; \
-	  if [ $$? -ne 0 ]; then \
-	    err=`expr $$err + 1`; \
-	  fi; \
-	done; \
-	rm -f config.LT*; \
-	if [ $$err -ne 0 ]; then \
-	  exit 1; \
 	fi
 
 clean:	FRC
@@ -144,6 +130,24 @@ opt:	${CKTSTDB} ${OPTTST} FRC
 	@rm -f config.LT*
 
 optional: opt
+
+silent:	${BASTST} ${STDTST} FRC
+	@rm -f config.LT*
+	@err=0; \
+	./${BASTST} > /dev/null 2>&1; \
+	if [ $$? -ne 0 ]; then \
+	  exit 1; \
+	fi; \
+	for i in ${STDTST}; do \
+	  ./$$i > /dev/null 2>&1; \
+	  if [ $$? -ne 0 ]; then \
+	    err=`expr $$err + 1`; \
+	  fi; \
+	done; \
+	rm -f config.LT*; \
+	if [ $$err -ne 0 ]; then \
+	  exit 1; \
+	fi
 
 spotless: clean
 	rm -f config.*

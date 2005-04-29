@@ -1,4 +1,4 @@
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -343,6 +343,11 @@ def bulkdeliver(mlist, msg, msgdata, envsender, failures, conn):
     # Do some final cleanup of the message header.  Start by blowing away
     # any the Sender: and Errors-To: headers so remote MTAs won't be
     # tempted to delivery bounces there instead of our envelope sender
+    #
+    # BAW An interpretation of RFCs 2822 and 2076 could argue for not touching
+    # the Sender header at all.  Brad Knowles points out that MTAs tend to
+    # wipe existing Return-Path headers, and old MTAs may still honor
+    # Errors-To while new ones will at worst ignore the header.
     del msg['sender']
     del msg['errors-to']
     msg['Sender'] = envsender

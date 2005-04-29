@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "June 18, 2003" "zsh 4\&.1\&.1"
+.TH "ZSHEXPN" "1" "January 13, 2005" "zsh 4\&.2\&.3"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -1643,6 +1643,12 @@ A qualifier may be any one of the following:
 \fB/\fP
 directories
 .TP
+\fBF\fP
+`full' (i\&.e\&. non\-empty) directories\&.  Note that the
+opposite sense \fB(^F\fP\fB)\fP expands to empty directories
+and all non\-directories\&.  Use \fB(/^F\fP\fB)\fP for
+empty directories
+.TP
 \fB\&.\fP
 plain files
 .TP
@@ -1748,7 +1754,11 @@ permission, and for which other users don't have read or execute
 permission\&.
 .RE
 .TP
+.PD 0
 \fBe\fP\fIstring\fP
+.TP
+.PD
+\fB+\fP\fIcmd\fP
 The \fIstring\fP will be executed as shell code\&.  The filename will be
 included in the list if and only if the code returns a zero status (usually
 the status of the last command)\&.  The first character after the `\fBe\fP'
@@ -1770,6 +1780,23 @@ For example, suppose a directory contains a single file `\fBlonely\fP'\&.  Then
 the expression `\fB*(e:'reply=(${REPLY}{1,2})':)\fP' will cause the words
 `\fBlonely1 lonely2\fP' to be inserted into the command line\&.  Note the
 quotation marks\&.
+.PP
+The form \fB+\fP\fIcmd\fP has the same effect, but no delimiters appear
+around \fIcmd\fP\&.  Instead, \fIcmd\fP is taken as the longest sequence of
+characters following the \fB+\fP that are alphanumeric or underscore\&.
+Typically \fIcmd\fP will be the name of a shell function that contains the
+appropriate test\&.  For example,
+.PP
+.RS
+.nf
+\fBnt() { [[ $REPLY \-nt $NTREF ]] }
+NTREF=reffile
+ls \-l *(+nt)\fP
+.fi
+.RE
+.PP
+lists all files in the directory that have been modified more recently than
+\fBreffile\fP\&.
 .RE
 .TP
 \fBd\fP\fIdev\fP

@@ -1,0 +1,60 @@
+/*
+ * MW_TclAE.pch --
+ *
+ *  This file is the source for a pre-compilied header that gets used
+ *  for a standard Tcl extension on the Mac.  This make compilies go a bit
+ *  faster.  This file is only intended to be used in the MetroWerks
+ *  CodeWarrior environment.  It essentially acts as a place to set 
+ *  compiler flags.  See MetroWerks documention for more details.
+ *
+ * Copyright (c) 1995-1997 Sun Microsystems, Inc.
+ *
+ * See the file "license.terms" for information on usage and redistribution
+ * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+ *
+ */
+
+/*
+ * To use the compilied header you need to set the "Prefix file" in
+ * the "C/C++ Language" preference panel to point to the created
+ * compilied header.  The name of the header depends on the
+ * architecture we are compiling for (see the code below).  For
+ * example, for a 68k app the prefix file should be: MW_TclHeader68K.
+ */
+
+#include <ConditionalMacros.h>
+
+#if __POWERPC__
+	#if TARGET_API_MAC_CARBON
+	// Carbon
+	#if TARGET_API_MAC_OSX
+	// Carbon on X
+		#pragma precompile_target "MW_TclAEHeaderCarbonX"
+	#else
+	// CarbonLib on Classic
+		#pragma precompile_target "MW_TclAEHeaderCarbon"
+	#endif
+	#else
+	// Classic
+		#pragma precompile_target "MW_TclAEHeaderPPC"
+	#endif
+#elif __CFM68K__
+	#pragma precompile_target "MW_TclAEHeaderCFM68K"
+#else
+	#pragma precompile_target "MW_TclAEHeader68K"
+#endif
+
+#undef		OLDROUTINENAMES
+#include "tclMacCommonPch.h"
+#undef		OLDROUTINENAMES
+
+#define USE_TCL_STUBS
+
+#include <tcl.h>
+
+#ifndef CONST84 // Tcl 8.4 backwards compatibility
+#      define CONST84 
+#      define CONST84_RETURN CONST
+#endif
+
+#include "tclAE.h"

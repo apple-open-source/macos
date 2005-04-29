@@ -33,7 +33,7 @@ extern int child_wait (int, struct target_waitstatus *, void *);
 #define FETCH_INFERIOR_REGISTERS
 
 #define CHILD_PREPARE_TO_STORE() \
-  deprecated_read_register_bytes (0, (char *) NULL, REGISTER_BYTES)
+  deprecated_read_register_bytes (0, (char *) NULL, DEPRECATED_REGISTER_BYTES)
 
 #define DISABLE_UNSETTABLE_BREAK(addr) 1
 
@@ -120,6 +120,10 @@ char **macosx_process_completer (char *text, char *word);
 
 #define ENABLE_INCREDIBLY_INAPPROPRIATE_MACOSX_SPECIFIC_HACKS_IN_GENERIC_CODE
 #define NM_NEXTSTEP
+
+#define PC_SOLIB(addr) \
+  macosx_pc_solib (addr)
+
 
 char *macosx_filename_in_bundle (const char *filename, int mainline);
 

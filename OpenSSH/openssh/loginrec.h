@@ -12,11 +12,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *      This product includes software developed by Markus Friedl.
- * 4. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
  * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
@@ -40,7 +35,7 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 
-/* RCSID("$Id: loginrec.h,v 1.2 2002/05/28 18:15:22 zarzycki Exp $"); */
+/* RCSID("$Id: loginrec.h,v 1.7 2003/06/03 02:18:50 djm Exp $"); */
 
 /**
  ** you should use the login_* calls to work around platform dependencies
@@ -67,7 +62,7 @@ union login_netinfo {
 /* string lengths - set very long */
 #define LINFO_PROGSIZE 64
 #define LINFO_LINESIZE 64
-#define LINFO_NAMESIZE MAXLOGNAME+1
+#define LINFO_NAMESIZE 64
 #define LINFO_HOSTSIZE 256
 
 struct logininfo {

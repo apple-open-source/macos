@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_maos_arrays.c,v 1.3 2003/02/23 23:59:01 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_maos_arrays.c,v 1.5 2004/01/23 03:57:05 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -35,8 +36,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "glheader.h"
 #include "mtypes.h"
 #include "colormac.h"
-#include "mem.h"
-#include "mmath.h"
+#include "imports.h"
 #include "macros.h"
 
 #include "swrast_setup/swrast_setup.h"
@@ -70,7 +70,7 @@ static void emit_ubyte_rgba3( GLcontext *ctx,
 
    if (R200_DEBUG & DEBUG_VERTS)
       fprintf(stderr, "%s count %d stride %d out %p\n",
-	      __FUNCTION__, count, stride, out);
+	      __FUNCTION__, count, stride, (void *)out);
 
    for (i = 0; i < count; i++) {
       out->red   = *data;
@@ -175,6 +175,28 @@ static void emit_ubyte_rgba( GLcontext *ctx,
 }
 
 
+static void emit_vec4( GLcontext *ctx,
+		       struct r200_dma_region *rvb,
+		       char *data,
+		       int stride,
+		       int count )
+{
+   int i;
+   int *out = (int *)(rvb->address + rvb->start);
+
+   if (R200_DEBUG & DEBUG_VERTS)
+      fprintf(stderr, "%s count %d stride %d\n",
+	      __FUNCTION__, count, stride);
+
+   if (stride == 4)
+      COPY_DWORDS( out, data, count );
+   else
+      for (i = 0; i < count; i++) {
+	 out[0] = *(int *)data;
+	 out++;
+	 data += stride;
+      }
+}
 
 
 static void emit_vec8( GLcontext *ctx,
@@ -212,7 +234,7 @@ static void emit_vec12( GLcontext *ctx,
 
    if (R200_DEBUG & DEBUG_VERTS)
       fprintf(stderr, "%s count %d stride %d out %p data %p\n",
-	      __FUNCTION__, count, stride, out, data);
+	      __FUNCTION__, count, stride, (void *)out, data);
 
    if (stride == 12)
       COPY_DWORDS( out, data, count*3 );
@@ -285,6 +307,9 @@ static void emit_vector( GLcontext *ctx,
    /* Emit the data
     */
    switch (size) {
+   case 1:
+      emit_vec4( ctx, rvb, data, stride, count );
+      break;
    case 2:
       emit_vec8( ctx, rvb, data, stride, count );
       break;
@@ -304,7 +329,7 @@ static void emit_vector( GLcontext *ctx,
 
 
 
-/* Emit any changed arrays to new agp memory, re-emit a packet to
+/* Emit any changed arrays to new GART memory, re-emit a packet to
  * update the arrays.  
  */
 void r200EmitArrays( GLcontext *ctx, GLuint inputs )
@@ -339,7 +364,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
    }
    
 
-   if (inputs & VERT_NORM) {
+   if (inputs & VERT_BIT_NORMAL) {
       if (!rmesa->tcl.norm.buf)
 	 emit_vector( ctx, 
 		      &(rmesa->tcl.norm), 
@@ -352,7 +377,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
       component[nr++] = &rmesa->tcl.norm;
    }
 
-   if (inputs & VERT_RGBA) {
+   if (inputs & VERT_BIT_COLOR0) {
       if (VB->ColorPtr[0]->Type == GL_UNSIGNED_BYTE) {
 	 if (!rmesa->tcl.rgba.buf)
 	    emit_ubyte_rgba( ctx, 
@@ -391,7 +416,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
    }
 
 
-   if (inputs & VERT_SPEC_RGB) {
+   if (inputs & VERT_BIT_COLOR1) {
       if (!rmesa->tcl.spec.buf) {
 	 if (VB->SecondaryColorPtr[0]->Type != GL_UNSIGNED_BYTE)
 	    r200_import_float_spec_colors( ctx );
@@ -413,7 +438,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
 /*    vtx = (rmesa->hw.tcl.cmd[TCL_OUTPUT_VTXFMT] & */
 /* 	  ~(R200_TCL_VTX_Q0|R200_TCL_VTX_Q1)); */
       
-   if (inputs & VERT_TEX0) {
+   if (inputs & VERT_BIT_TEX0) {
       if (!rmesa->tcl.tex[0].buf)
 	 emit_vector( ctx, 
 		      &(rmesa->tcl.tex[0]), 
@@ -426,7 +451,7 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
       component[nr++] = &rmesa->tcl.tex[0];
    }
 
-   if (inputs & VERT_TEX1) {
+   if (inputs & VERT_BIT_TEX1) {
       if (!rmesa->tcl.tex[1].buf)
 	 emit_vector( ctx, 
 		      &(rmesa->tcl.tex[1]), 
@@ -446,9 +471,6 @@ void r200EmitArrays( GLcontext *ctx, GLuint inputs )
       rmesa->hw.vtx.cmd[VTX_VTXFMT_1] = vfmt1;
    } 
 
-
-/*    fprintf(stderr, "VTXFMT_0: %x VTXFMT_1: %x\n", vfmt0, vfmt1); */
-    
    rmesa->tcl.nr_aos_components = nr;
    rmesa->tcl.vertex_format = vfmt0;
 }
@@ -461,21 +483,21 @@ void r200ReleaseArrays( GLcontext *ctx, GLuint newinputs )
    if (R200_DEBUG & DEBUG_VERTS) 
       _tnl_print_vert_flags( __FUNCTION__, newinputs );
 
-   if (newinputs & VERT_OBJ) 
+   if (newinputs & VERT_BIT_POS) 
      r200ReleaseDmaRegion( rmesa, &rmesa->tcl.obj, __FUNCTION__ );
 
-   if (newinputs & VERT_NORM) 
+   if (newinputs & VERT_BIT_NORMAL) 
       r200ReleaseDmaRegion( rmesa, &rmesa->tcl.norm, __FUNCTION__ );
 
-   if (newinputs & VERT_RGBA) 
+   if (newinputs & VERT_BIT_COLOR0) 
       r200ReleaseDmaRegion( rmesa, &rmesa->tcl.rgba, __FUNCTION__ );
 
-   if (newinputs & VERT_SPEC_RGB) 
+   if (newinputs & VERT_BIT_COLOR1) 
       r200ReleaseDmaRegion( rmesa, &rmesa->tcl.spec, __FUNCTION__ );
 
-   if (newinputs & VERT_TEX0)
+   if (newinputs & VERT_BIT_TEX0)
       r200ReleaseDmaRegion( rmesa, &rmesa->tcl.tex[0], __FUNCTION__ );
 
-   if (newinputs & VERT_TEX1)
+   if (newinputs & VERT_BIT_TEX1)
       r200ReleaseDmaRegion( rmesa, &rmesa->tcl.tex[1], __FUNCTION__ );
 }

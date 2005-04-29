@@ -28,11 +28,15 @@ help ()
   printf ("          to interpret Java bytecodes, or\n");
   printf ("       gij -jar [OPTION] ... JARFILE [ARGS] ...\n");
   printf ("          to execute a jar file\n\n");
+  printf ("  --cp LIST         set class path\n");
+  printf ("  --classpath LIST  set class path\n");
   printf ("  -DVAR=VAL         define property VAR with value VAL\n");
   printf ("  --help            print this help, then exit\n");
   printf ("  --ms=NUMBER       set initial heap size\n");
   printf ("  --mx=NUMBER       set maximum heap size\n");
+  printf ("  --showversion     print version number, then keep going\n");
   printf ("  --version         print version number, then exit\n");
+  printf ("\nOptions can be specified with `-' or `--'.\n");
   printf ("\nSee http://gcc.gnu.org/java/ for information on reporting bugs\n");
   exit (0);
 }
@@ -44,7 +48,6 @@ version ()
   printf ("Copyright (C) 2002 Free Software Foundation, Inc.\n");
   printf ("This is free software; see the source for copying conditions.  There is NO\n");
   printf ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
-  exit (0);
 }
 
 int
@@ -90,6 +93,11 @@ main (int argc, const char **argv)
       if (! strcmp (arg, "-help"))
 	help ();
       else if (! strcmp (arg, "-version"))
+	{
+	  version ();
+	  exit (0);
+	}
+      else if (! strcmp (arg, "-showversion"))
 	version ();
       /* FIXME: use getopt and avoid the ugliness here.
 	 We at least need to handle the argument in a better way.  */
@@ -114,6 +122,15 @@ main (int argc, const char **argv)
 	  if (i >= argc - 1)
 	    goto no_arg;
 	  _Jv_SetMaximumHeapSize (argv[++i]);
+	}
+      else if (! strcmp (arg, "-cp") || ! strcmp (arg, "-classpath"))
+	{
+	  if (i >= argc - 1)
+	    goto no_arg;
+	  // We set _Jv_Jar_Class_Path.  If the user specified `-jar'
+	  // then the jar code will override this.  This is the
+	  // correct behavior.
+	  _Jv_Jar_Class_Path = argv[++i];
 	}
       else
 	{

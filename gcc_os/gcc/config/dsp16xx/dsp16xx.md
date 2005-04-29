@@ -1935,11 +1935,13 @@
   rtx reg3 = gen_reg_rtx (HImode);
   rtx label1 = gen_label_rtx ();
   rtx label2 = gen_label_rtx ();
-  REAL_VALUE_TYPE offset = REAL_VALUE_LDEXP (1.0, 31);
+  REAL_VALUE_TYPE offset;
+
+  real_2expN (&offset, 31);
 
   if (reg1)			/* turn off complaints about unreached code */
     {
-      emit_move_insn (reg1, immed_real_const_1 (offset, HFmode));
+      emit_move_insn (reg1, CONST_DOUBLE_FROM_REAL_VALUE (offset, HFmode));
       do_pending_stack_adjust ();
 
       emit_insn (gen_cmphf (operands[1], reg1));

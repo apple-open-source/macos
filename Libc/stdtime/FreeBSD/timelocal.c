@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/timelocal.c,v 1.24 2002/08/07 16:49:20 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/timelocal.c,v 1.25 2003/06/13 00:14:07 jkh Exp $");
 
 #include <stddef.h>
 
@@ -111,7 +111,7 @@ int
 __time_load_locale(const char *name)
 {
 	return (__part_load_locale(name, &_time_using_locale,
-			time_locale_buf, "LC_TIME",
+			&time_locale_buf, "LC_TIME",
 			LCTIME_SIZE, LCTIME_SIZE,
 			(const char **)&_time_locale));
 }

@@ -38,7 +38,7 @@
 static char sccsid[] = "@(#)putchar.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/putchar.c,v 1.11 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/putchar.c,v 1.13 2004/03/19 09:04:56 tjr Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -46,14 +46,8 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/putchar.c,v 1.11 2002/08/13 09:30:41 tjr 
 #include "local.h"
 #include "libc_private.h"
 
-/*
- * putchar has traditionally been a macro in <stdio.h>.  That is no
- * longer true because POSIX requires it to be thread-safe.  POSIX
- * does define putchar_unlocked() which is defined as a macro and is
- * probably what you want to use instead.
- *
- * #undef putchar
- */
+#undef putchar
+
 /*
  * A subroutine version of the macro putchar
  */
@@ -65,7 +59,8 @@ putchar(c)
 	FILE *so = stdout;
 
 	FLOCKFILE(so);
-	ORIENT(so, -1);
+	/* Orientation set by __sputc() when buffer is full. */
+	/* ORIENT(so, -1); */
 	retval = __sputc(c, so);
 	FUNLOCKFILE(so);
 	return (retval);

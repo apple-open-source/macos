@@ -1,7 +1,7 @@
 /* Definitions to make GDB run on an Alpha box under OSF1.  This is
    also used by the Alpha/Netware and Alpha GNU/Linux targets.
 
-   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2002 Free
+   Copyright 1993, 1994, 1995, 1996, 1998, 1999, 2000, 2002, 2004 Free
    Software Foundation, Inc.
 
    This file is part of GDB.
@@ -24,19 +24,12 @@
 #ifndef TM_ALPHA_H
 #define TM_ALPHA_H
 
-#define GDB_MULTI_ARCH GDB_MULTI_ARCH_PARTIAL
-
 #include "bfd.h"
 #include "coff/sym.h"		/* Needed for PDR below.  */
 #include "coff/symconst.h"
 
 struct frame_info;
 struct symbol;
-
-/* Number of traps that happen between exec'ing the shell
-   to run an inferior, and when we finally get to
-   the inferior code.  This is 2 on most implementations.  */
-#define START_INFERIOR_TRAPS_EXPECTED 3
 
 /* Special symbol found in blocks associated with routines.  We can hang
    alpha_extra_func_info_t's off of this.  */
@@ -63,11 +56,6 @@ typedef struct alpha_extra_func_info
    and would abstract the mips/alpha interface from ecoff.  */
 #define mips_extra_func_info alpha_extra_func_info
 #define mips_extra_func_info_t alpha_extra_func_info_t
-
-
-#define PRINT_EXTRA_FRAME_INFO(fi) alpha_print_extra_frame_info ((fi))
-extern void alpha_print_extra_frame_info (struct frame_info *);
-
 
 /* It takes two values to specify a frame on the ALPHA.  Sigh.
 

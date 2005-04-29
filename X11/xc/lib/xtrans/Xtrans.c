@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/xtrans/Xtrans.c,v 3.28 2002/11/20 23:00:36 dawes Exp $ */
+/* $XFree86: xc/lib/xtrans/Xtrans.c,v 3.34 2003/12/05 05:12:50 dawes Exp $ */
 
 /* Copyright 1993, 1994 NCR Corporation - Dayton, Ohio, USA
  *
@@ -78,6 +78,7 @@ from The Open Group.
 #define TRANS_LOCAL_NAMED_INDEX		11
 #define TRANS_LOCAL_ISC_INDEX		12
 #define TRANS_LOCAL_SCO_INDEX		13
+#define TRANS_SOCKET_INET6_INDEX	14
 
 
 static
@@ -89,6 +90,9 @@ Xtransport_table Xtransports[] = {
 #endif /* STREAMSCONN */
 #if defined(TCPCONN)
     { &TRANS(SocketTCPFuncs),	TRANS_SOCKET_TCP_INDEX },
+#if defined(IPv6) && defined(AF_INET6)
+    { &TRANS(SocketINET6Funcs),	TRANS_SOCKET_INET6_INDEX },
+#endif /* IPv6 */
     { &TRANS(SocketINETFuncs),	TRANS_SOCKET_INET_INDEX },
 #endif /* TCPCONN */
 #if defined(DNETCONN)
@@ -100,6 +104,9 @@ Xtransport_table Xtransports[] = {
 #endif /* !LOCALCONN */
     { &TRANS(SocketUNIXFuncs),	TRANS_SOCKET_UNIX_INDEX },
 #endif /* UNIXCONN */
+#if defined(OS2PIPECONN)
+    { &TRANS(OS2LocalFuncs),	TRANS_LOCAL_LOCAL_INDEX },
+#endif /* OS2PIPECONN */
 #if defined(LOCALCONN)
     { &TRANS(LocalFuncs),	TRANS_LOCAL_LOCAL_INDEX },
 #ifndef sun
@@ -134,7 +141,7 @@ void
 TRANS(FreeConnInfo) (XtransConnInfo ciptr)
 
 {
-    PRMSG (3,"FreeConnInfo(%x)\n", ciptr, 0, 0);
+    PRMSG (3,"FreeConnInfo(%p)\n", ciptr, 0, 0);
 
     if (ciptr->addr)
 	xfree (ciptr->addr);
@@ -166,6 +173,7 @@ TRANS(SelectTransport) (char *protocol)
      */
 
     strncpy (protobuf, protocol, PROTOBUFSIZE - 1);
+    protobuf[PROTOBUFSIZE-1] = '\0';
 
     for (i = 0; i < PROTOBUFSIZE && protobuf[i] != '\0'; i++)
 	if (isupper (protobuf[i]))
@@ -198,7 +206,7 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
      * Other than fontlib, the address is a string formatted
      * as "protocol/host:port".
      *
-     * If the protocol part is missing, then assume INET.
+     * If the protocol part is missing, then assume TCP.
      * If the protocol part and host part are missing, then assume local.
      * If a "::" is found then assume DNET.
      */
@@ -206,6 +214,7 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
     char	*mybuf, *tmpptr;
     char	*_protocol, *_host, *_port;
     char	hostnamebuf[256];
+    int		_host_len;
 
     PRMSG (3,"ParseAddress(%s)\n", address, 0, 0);
 
@@ -220,9 +229,11 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
 
     _protocol = mybuf;
 
-    if ((mybuf = strpbrk (mybuf,"/:")) == NULL)
-    {
-	/* adress is in a bad format */
+
+   if ( ((mybuf = strchr (mybuf,'/')) == NULL) &&
+      ((mybuf = strrchr (tmpptr,':')) == NULL) )
+   {
+	/* address is in a bad format */
 	*protocol = NULL;
 	*host = NULL;
 	*port = NULL;
@@ -233,7 +244,7 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
     if (*mybuf == ':')
     {
 	/*
-	 * If there is a hostname, then assume inet, otherwise
+	 * If there is a hostname, then assume tcp, otherwise
 	 * it must be local.
 	 */
 	if (mybuf == tmpptr)
@@ -243,8 +254,8 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
 	}
 	else
 	{
-	    /* Ther is a hostname specified */
-	    _protocol = "inet";
+	    /* There is a hostname specified */
+	    _protocol = "tcp";
 	    mybuf = tmpptr;	/* reset to the begining of the host ptr */
 	}
     }
@@ -257,11 +268,11 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
 	if (strlen(_protocol) == 0)
 	{
 	    /*
-	     * If there is a hostname, then assume inet, otherwise
+	     * If there is a hostname, then assume tcp, otherwise
 	     * it must be local.
 	     */
 	    if (*mybuf != ':')
-		_protocol = "inet";
+		_protocol = "tcp";
 	    else
 		_protocol = "local";
 	}
@@ -271,7 +282,7 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
 
     _host = mybuf;
 
-    if ((mybuf = strchr (mybuf,':')) == NULL)
+    if ((mybuf = strrchr (mybuf,':')) == NULL)
     {
 	*protocol = NULL;
 	*host = NULL;
@@ -280,21 +291,51 @@ TRANS(ParseAddress) (char *address, char **protocol, char **host, char **port)
 	return 0;
     }
 
+    /* Check for DECnet */
+
+    if ((mybuf != _host) && (*(mybuf - 1) == ':')
+#if defined(IPv6) && defined(AF_INET6)
+      /* An IPv6 address can end in :: so three : in a row is assumed to be
+	 an IPv6 host and not a DECnet node with a : in it's name, unless
+         DECnet is specifically requested */
+      && ( ((mybuf - 1) == _host) || (*(mybuf - 2) != ':') ||
+	((_protocol != NULL) && (strcmp(_protocol, "dnet") == 0)) )
+#endif
+	)
+    {
+	_protocol = "dnet";
+	*(mybuf - 1) = '\0';
+    }
+
     *mybuf ++= '\0';
 
-    if (strlen(_host) == 0)
+    _host_len = strlen(_host);
+    if (_host_len == 0)
     {
 	TRANS(GetHostname) (hostnamebuf, sizeof (hostnamebuf));
 	_host = hostnamebuf;
     }
+#if defined(IPv6) && defined(AF_INET6)
+    /* hostname in IPv6 [numeric_addr]:0 form? */
+    else if ( (_host_len > 3) && 
+      ((strcmp(_protocol, "tcp") == 0) || (strcmp(_protocol, "inet6") == 0))
+      && (*_host == '[') && (*(_host + _host_len - 1) == ']') ) { 
+	struct sockaddr_in6 sin6;
 
-    /* Check for DECnet */
+	*(_host + _host_len - 1) = '\0';
 
-    if (*mybuf == ':')
-    {
-	_protocol = "dnet";
-	mybuf++;
+	/* Verify address is valid IPv6 numeric form */
+	if (inet_pton(AF_INET6, _host + 1, &sin6) == 1) {
+	    /* It is. Use it as such. */
+	    _host++;
+	    _protocol = "inet6";
+	} else {
+	    /* It's not, restore it just in case some other code can use it. */
+	    *(_host + _host_len - 1) = ']';
+	}
     }
+#endif
+
 
     /* Get the port */
 
@@ -727,10 +768,10 @@ TRANS(SetOption) (XtransConnInfo ciptr, int option, int arg)
 #ifdef TRANS_SERVER
 
 int
-TRANS(CreateListener) (XtransConnInfo ciptr, char *port)
+TRANS(CreateListener) (XtransConnInfo ciptr, char *port, unsigned int flags)
 
 {
-    return ciptr->transptr->CreateListener (ciptr, port);
+    return ciptr->transptr->CreateListener (ciptr, port, flags);
 }
 
 int
@@ -738,17 +779,25 @@ TRANS(NoListen) (char * protocol)
 	
 {
    Xtransport *trans;
+   int i = 0, ret = 0;
    
    if ((trans = TRANS(SelectTransport)(protocol)) == NULL) 
    {
-	PRMSG (1,"TRANS(TransNoListen): unable to find transport: %s\n", 
+	PRMSG (1,"TransNoListen: unable to find transport: %s\n", 
 	       protocol, 0, 0);
 
 	return -1;
    }
-   
+   if (trans->flags & TRANS_ALIAS) {
+       if (trans->nolisten)
+	   while (trans->nolisten[i]) {
+	       ret |= TRANS(NoListen)(trans->nolisten[i]);
+	       i++;
+       }
+   }
+
    trans->flags |= TRANS_NOLISTEN;
-   return 0;
+   return ret;
 }
 
 int
@@ -996,8 +1045,11 @@ TRANS(MakeAllCOTSServerListeners) (char *port, int *partial, int *count_ret,
     char		buffer[256]; /* ??? What size ?? */
     XtransConnInfo	ciptr, temp_ciptrs[NUMTRANS];
     int			status, i, j;
+#if defined(IPv6) && defined(AF_INET6)
+    int		ipv6_succ = 0;
+#endif
 
-    PRMSG (2,"MakeAllCOTSServerListeners(%s,%x)\n",
+    PRMSG (2,"MakeAllCOTSServerListeners(%s,%p)\n",
 	   port ? port : "NULL", ciptrs_ret, 0);
 
     *count_ret = 0;
@@ -1005,6 +1057,7 @@ TRANS(MakeAllCOTSServerListeners) (char *port, int *partial, int *count_ret,
     for (i = 0; i < NUMTRANS; i++)
     {
 	Xtransport *trans = Xtransports[i].transport;
+	unsigned int flags = 0;
 
 	if (trans->flags&TRANS_ALIAS || trans->flags&TRANS_NOLISTEN)
 	    continue;
@@ -1024,8 +1077,13 @@ TRANS(MakeAllCOTSServerListeners) (char *port, int *partial, int *count_ret,
 		  trans->TransName, 0, 0);
 	    continue;
 	}
+#if defined(IPv6) && defined(AF_INET6)
+		if ((Xtransports[i].transport_id == TRANS_SOCKET_INET_INDEX
+		     && ipv6_succ))
+		    flags |= ADDR_IN_USE_ALLOWED;
+#endif
 
-	if ((status = TRANS(CreateListener (ciptr, port))) < 0)
+	if ((status = TRANS(CreateListener (ciptr, port, flags))) < 0)
 	{
 	    if (status == TRANS_ADDR_IN_USE)
 	    {
@@ -1057,6 +1115,11 @@ TRANS(MakeAllCOTSServerListeners) (char *port, int *partial, int *count_ret,
 	    }
 	}
 
+#if defined(IPv6) && defined(AF_INET6)
+	if (Xtransports[i].transport_id == TRANS_SOCKET_INET6_INDEX)
+	    ipv6_succ = 1;
+#endif
+	
 	PRMSG (5,
 	      "MakeAllCOTSServerListeners: opened listener for %s, %d\n",
 	      trans->TransName, ciptr->fd, 0);
@@ -1099,7 +1162,7 @@ TRANS(MakeAllCLTSServerListeners) (char *port, int *partial, int *count_ret,
     XtransConnInfo	ciptr, temp_ciptrs[NUMTRANS];
     int			status, i, j;
 
-    PRMSG (2,"MakeAllCLTSServerListeners(%s,%x)\n",
+    PRMSG (2,"MakeAllCLTSServerListeners(%s,%p)\n",
 	port ? port : "NULL", ciptrs_ret, 0);
 
     *count_ret = 0;
@@ -1124,7 +1187,7 @@ TRANS(MakeAllCLTSServerListeners) (char *port, int *partial, int *count_ret,
 	    continue;
 	}
 
-	if ((status = TRANS(CreateListener (ciptr, port))) < 0)
+	if ((status = TRANS(CreateListener (ciptr, port, 0))) < 0)
 	{
 	    if (status == TRANS_ADDR_IN_USE)
 	    {

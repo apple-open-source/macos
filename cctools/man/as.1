@@ -1,4 +1,4 @@
-.TH AS 1 "September 3, 2003" "Apple Computer, Inc."
+.TH AS 1 "March 2, 2005" "Apple Computer, Inc."
 .SH NAME
 as \- Mac OS X Mach-O GNU-based assemblers
 .SH SYNOPSIS
@@ -87,6 +87,9 @@ the assembler will flag as errors
 instructions that are not supported on that architecture, and it will produce an object
 file with the CPU subtype for that specific implementation (even if no 
 implementation-specific instructions are used).
+The
+.B \-force_cpusubtype_ALL
+flag is the default for all x86 architectures.
 .TP
 .B \-dynamic
 Enables dynamic linking features.

@@ -58,7 +58,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/TMgrab.c,v 1.3 2001/12/14 19:56:30 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/TMgrab.c,v 1.4 2003/04/21 16:34:28 herrb Exp $ */
 
 /*LINTLIBRARY*/
 #include "IntrinsicI.h"
@@ -277,22 +277,12 @@ void _XtRegisterGrabs(widget)
     }
 }
 
-#if NeedFunctionPrototypes
 void XtRegisterGrabAction(
     XtActionProc action_proc, 
     _XtBoolean owner_events,
     unsigned int event_mask,
     int pointer_mode,
-    int keyboard_mode
-    )
-#else
-void XtRegisterGrabAction(action_proc, owner_events, event_mask,
-			  pointer_mode, keyboard_mode)
-    XtActionProc action_proc;
-    Boolean owner_events;
-    unsigned int event_mask;
-    int pointer_mode, keyboard_mode;
-#endif
+    int keyboard_mode)
 {
     GrabActionRec* actionP;
 

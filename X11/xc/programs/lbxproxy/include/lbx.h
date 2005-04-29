@@ -45,7 +45,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
-/* $XFree86: xc/programs/lbxproxy/include/lbx.h,v 1.6 2001/12/14 20:00:55 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/include/lbx.h,v 1.7 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef _LBX_H_
 #define _LBX_H_
@@ -75,11 +75,9 @@ typedef struct proptagdata {
 typedef struct _replystuff *ReplyStuffPtr;
 
 typedef Bool (*ReplyFunc)(
-#if NeedNestedPrototypes
     ClientPtr /*client*/,
     ReplyStuffPtr /*nr*/,
     char * /*data*/
-#endif
 );
 
 typedef struct _replystuff {
@@ -198,11 +196,9 @@ typedef struct _Client {
     pointer     osPrivate;	/* for OS layer, including scheduler */
     Bool        swapped;
     void        (*pSwapReplyFunc) (
-#if NeedNestedPrototypes
 		ClientPtr	/* pClient */,
 		int		/* size */,
 		void *		/* pbuf */
-#endif
 );
     XID         errorValue;
     int         sequence;
@@ -216,9 +212,7 @@ typedef struct _Client {
     pointer    *saveSet;
     int         awaitingSetup;
     int         (**requestVector) (
-#if NeedNestedPrototypes
 		ClientPtr /* pClient */
-#endif
 );
     CARD32	req_len;		/* length of current request */
     Bool	big_requests;		/* supports large requests */
@@ -452,285 +446,203 @@ extern void ZeroCompressionStats();
 
 /* tables.c */
 extern int ProcLBXInternAtom(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXGetAtomName(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXCreateColormap(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXAllocColor(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXAllocNamedColor(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXFreeColormap(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXCopyColormapAndFree(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXFreeColors(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXLookupColor(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXGetModifierMapping(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXGetKeyboardMapping(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXQueryFont(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void FinishLBXRequest(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*yank*/
-#endif
 );
 
 extern void DoLBXReply(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     char * /*data*/,
     int /*len*/
-#endif
 );
 
 extern void WriteError(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     unsigned /*int majorCode*/,
     unsigned /*int minorCode*/,
     XID /*resId*/,
     int /*errorCode*/
-#endif
 );
 
 extern void SendLbxSync(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 /* dispatch.c */
 
 extern int Dispatch(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void SendErrorToClient(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     unsigned int /*majorCode*/,
     unsigned int /*minorCode*/,
     XID /*resId*/,
     int /*errorCode*/
-#endif
 );
 
 extern ClientPtr NextAvailableClient(
-#if NeedFunctionPrototypes
     pointer /*ospriv*/,
     int /* connect_fd */	/* the fd the client connected on */
-#endif
 );
 
 extern int ProcInitialConnection(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcEstablishConnection(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void CloseDownClient(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcStandardRequest(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcBadRequest(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void AdjustProcVector(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 /* lbxutil.c */
 
 extern ReplyStuffPtr NewReply(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*major*/,
     int /*minor*/,
     ReplyFunc /*reply_func*/
-#endif
 );
 
 extern void RemoveReply(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     ReplyStuffPtr /*rp*/
-#endif
 );
 
 extern ReplyStuffPtr GetMatchingReply(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     int /*seqno*/,
     Bool /*flush_older*/
-#endif
 );
 
 extern Bool AnyReplies(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern Bool SaveReplyData(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     xReply * /*rep*/,
     int /*len*/,
     pointer /*data*/
-#endif
 );
 
 extern Bool FlushDelayedReplies(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void BumpSequence(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void ForceSequenceUpdate(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern void LbxFreeTag(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     XID /*tag*/,
     int /*tagtype*/
-#endif
 );
 
 extern void LbxSendTagData(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     XID /*tag*/,
     int /*tagtype*/
-#endif
 );
 
 extern void SendInitLBXPackets(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/
-#endif
 );
 
 extern void LbxCleanupSession(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 /* unsquish.c */
 
 extern int EventLength(
-#if NeedFunctionPrototypes
     xEvent * /*ev*/,
     Bool /* squish */
-#endif
 );
 
 extern Bool UnsquishEvent(
-#if NeedFunctionPrototypes
     xReply * /*rep*/,
     xEvent * /*ev*/,
     int * /*lenp*/
-#endif
 );
 
 /* props.c */
 
 extern int ProcLBXChangeProperty(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 extern int ProcLBXGetProperty(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/
-#endif
 );
 
 #endif

@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmailex.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
+.Id $Id: procmailex.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
 .TH PROCMAILEX 5 \*(Dt BuGless
 .na
 .SH NAME
@@ -286,7 +286,7 @@ the benefits of the unseen sequence.
 | rcvstore +spamfold
 .Ex
 When delivering to emacs folders (i.e., mailfolders managed by any emacs
-mail package, e.g. RMAIL or VM) directly, you should use emacs-compatible
+mail package, e.g., RMAIL or VM) directly, you should use emacs-compatible
 lockfiles.  The emacs mailers are a bit braindamaged in that respect, they get
 very upset if someone delivers to mailfolders which they already have in their
 internal buffers.  The following recipe assumes that $HOME equals /home/john.

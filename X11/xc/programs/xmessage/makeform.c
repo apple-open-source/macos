@@ -28,7 +28,7 @@ other dealings in this Software without prior written authorization
 from the X Consortium.
 
 */
-/* $XFree86: xc/programs/xmessage/makeform.c,v 1.6 2002/11/22 03:56:39 paulo Exp $ */
+/* $XFree86: xc/programs/xmessage/makeform.c,v 1.7 2003/04/14 23:03:13 herrb Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -42,8 +42,7 @@ from the X Consortium.
 #include <X11/Xaw/Label.h>
 #include <X11/Xaw/Scrollbar.h>
 
-extern const char *ProgramName;
-extern int default_exitstatus;
+#include "xmessage.h"
 
 typedef struct _ButtonRecord {
     char *name;
@@ -52,15 +51,14 @@ typedef struct _ButtonRecord {
     Widget widget;
 } ButtonRecord;
 
-static void unquote_pairs (br, n)
-    register ButtonRecord *br;
-    int n;
+static void 
+unquote_pairs (ButtonRecord *br, int n)
 {
     int i;
 
     for (i = 0; i < n; i++) {
-	register char *dst, *src;
-	register int quoted = 0;
+	char *dst, *src;
+	int quoted = 0;
 
 	for (src = dst = br->name; *src; src++) {
 	    if (quoted) {
@@ -82,11 +80,10 @@ static void unquote_pairs (br, n)
  * sets brptr to point to parsed table
  * returns 0 if successful, -1 if not
  */
-static int parse_name_and_exit_code_list (buttonlist, brptr)
-    char *buttonlist;
-    ButtonRecord **brptr;
+static int 
+parse_name_and_exit_code_list (char *buttonlist, ButtonRecord **brptr)
 {
-    register char *cp;
+    char *cp;
     int shouldfind = 0, npairs = 0;
     int default_exitcode = 100;
     int quoted = 0;
@@ -199,10 +196,8 @@ static int parse_name_and_exit_code_list (buttonlist, brptr)
 }
 
 /* ARGSUSED */
-static void handle_button (w, closure, client_data)
-    Widget w;
-    XtPointer closure;
-    XtPointer client_data;
+static void 
+handle_button (Widget w, XtPointer closure, XtPointer client_data)
 {
     ButtonRecord *br = (ButtonRecord *) closure;
 
@@ -211,17 +206,15 @@ static void handle_button (w, closure, client_data)
     exit (br->exitstatus);
 }
 
-Widget make_queryform(parent, msgstr, msglen,
-		      button_list, print_value, default_button,
-		      max_width, max_height)
-    Widget parent;		/* into whom widget should be placed */
-    char *msgstr;		/* message string */
-    int msglen;			/* characters in msgstr */
-    char *button_list;		/* list of button title:status */
-    Boolean print_value;	/* print button string on stdout? */
-    char *default_button;	/* button activated by Return */
-    Dimension max_width;
-    Dimension max_height;
+Widget 
+make_queryform(Widget parent,	/* into whom widget should be placed */
+    char *msgstr,		/* message string */
+    int msglen,			/* characters in msgstr */
+    char *button_list,		/* list of button title:status */
+    Boolean print_value,	/* print button string on stdout? */
+    char *default_button,	/* button activated by Return */
+    Dimension max_width,
+    Dimension max_height)
 {
     ButtonRecord *br;
     int npairs, i;

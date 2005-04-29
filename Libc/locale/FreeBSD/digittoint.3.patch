@@ -1,0 +1,43 @@
+--- digittoint.3.orig	Fri Mar 11 19:44:47 2005
++++ digittoint.3	Fri Mar 11 19:45:48 2005
+@@ -36,7 +36,8 @@
+ .Dt DIGITTOINT 3
+ .Os
+ .Sh NAME
+-.Nm digittoint
++.Nm digittoint ,
++.Nm digittoint_l
+ .Nd convert a numeric character to its integer value
+ .Sh LIBRARY
+ .Lb libc
+@@ -44,12 +45,23 @@
+ .In ctype.h
+ .Ft int
+ .Fn digittoint "int c"
++.In xlocale.h
++.Ft int
++.Fn digittoint_l "int c" "locale_t loc"
+ .Sh DESCRIPTION
+ The
+ .Fn digittoint
+ function converts a numeric character to its corresponding integer value.
+ The character can be any decimal digit or hexadecimal digit.
+ With hexadecimal characters, the case of the values does not matter.
++.Pp
++While the
++.Fn digittoint
++function uses the current locale, the
++.Fn digittoint_l
++function may be passed a locale directly. See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn digittoint
+@@ -60,4 +72,5 @@
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
+ .Xr isdigit 3 ,
+-.Xr isxdigit 3
++.Xr isxdigit 3 ,
++.Xr xlocale 3

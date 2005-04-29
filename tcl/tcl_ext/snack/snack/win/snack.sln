@@ -1,0 +1,39 @@
+Microsoft Visual Studio Solution File, Format Version 7.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "snack", "snack.vcproj", "{C23D5E0D-2248-43AB-A818-F0C5FBBB4297}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "snackstub", "snackstub.vcproj", "{F6421378-4A6A-4E9B-9E1E-89E4F7485A3C}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "sound", "sound.vcproj", "{1221BB14-B53A-4531-9A83-5FC4827288DC}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "square", "..\ext\square.vcproj", "{F4117317-869C-4011-96EE-82C5E5A857EA}"
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		ConfigName.0 = Debug
+		ConfigName.1 = Release
+	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{C23D5E0D-2248-43AB-A818-F0C5FBBB4297}.Debug.ActiveCfg = Debug|Win32
+		{C23D5E0D-2248-43AB-A818-F0C5FBBB4297}.Debug.Build.0 = Debug|Win32
+		{C23D5E0D-2248-43AB-A818-F0C5FBBB4297}.Release.ActiveCfg = Release|Win32
+		{C23D5E0D-2248-43AB-A818-F0C5FBBB4297}.Release.Build.0 = Release|Win32
+		{F6421378-4A6A-4E9B-9E1E-89E4F7485A3C}.Debug.ActiveCfg = Debug|Win32
+		{F6421378-4A6A-4E9B-9E1E-89E4F7485A3C}.Debug.Build.0 = Debug|Win32
+		{F6421378-4A6A-4E9B-9E1E-89E4F7485A3C}.Release.ActiveCfg = Release|Win32
+		{F6421378-4A6A-4E9B-9E1E-89E4F7485A3C}.Release.Build.0 = Release|Win32
+		{1221BB14-B53A-4531-9A83-5FC4827288DC}.Debug.ActiveCfg = Debug|Win32
+		{1221BB14-B53A-4531-9A83-5FC4827288DC}.Debug.Build.0 = Debug|Win32
+		{1221BB14-B53A-4531-9A83-5FC4827288DC}.Release.ActiveCfg = Release|Win32
+		{1221BB14-B53A-4531-9A83-5FC4827288DC}.Release.Build.0 = Release|Win32
+		{F4117317-869C-4011-96EE-82C5E5A857EA}.Debug.ActiveCfg = Debug|Win32
+		{F4117317-869C-4011-96EE-82C5E5A857EA}.Debug.Build.0 = Debug|Win32
+		{F4117317-869C-4011-96EE-82C5E5A857EA}.Release.ActiveCfg = Release|Win32
+		{F4117317-869C-4011-96EE-82C5E5A857EA}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

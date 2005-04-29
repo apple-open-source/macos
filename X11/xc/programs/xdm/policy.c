@@ -33,7 +33,7 @@ from The Open Group.
  *
  * policy.c.  Implement site-dependent policy for XDMCP connections
  */
-/* $XFree86: xc/programs/xdm/policy.c,v 3.8 2002/12/07 20:31:04 herrb Exp $ */
+/* $XFree86: xc/programs/xdm/policy.c,v 3.9 2004/01/01 17:12:34 herrb Exp $ */
 
 # include "dm.h"
 # include "dm_auth.h"
@@ -179,7 +179,28 @@ SelectConnectionTypeIndex (
     ARRAY16Ptr	     connectionTypes,
     ARRAYofARRAY8Ptr connectionAddresses)
 {
-    return 0;
+    int i;
+
+    /* 
+     * Select one supported connection type 
+     */
+
+    for (i = 0; i < connectionTypes->length; i++) {
+	switch (connectionTypes->data[i]) {
+	  case FamilyLocal:
+#if defined(TCPCONN)
+	  case FamilyInternet:
+#if defined(IPv6) && defined(AF_INET6) 
+	  case FamilyInternet6:
+#endif /* IPv6 */
+#endif /* TCPCONN */
+#if defined(DNETCONN)
+	  case FamilyDECnet:
+#endif /* DNETCONN */
+	    return i;
+	}
+    } /* for */
+    return -1;
 }
 
 #endif /* XDMCP */

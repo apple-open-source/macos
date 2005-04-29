@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>Options</key>
+		<string>attempts:4</string>
+		<key>ServerAddresses</key>
+		<array>
+			<string>224.0.0.251</string>
+			<string>ff02::fb</string>
+		</array>
+		<key>ServerPort</key>
+		<integer>5353</integer>
+		<key>ServerTimeout</key>
+		<integer>2</integer>
+		<key>SupplementalMatchDomains</key>
+		<array>
+			<string>local</string>
+			<string>254.169.in-addr.arpa</string>
+			<string>0.8.e.f.ip6.arpa</string>
+		</array>
+	</dict>
+</array>
+</plist>

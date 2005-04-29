@@ -28,6 +28,9 @@
     #define DAEMON_NAME "vpnd"
 #endif
 
+#define SERVER_TYPE_PPP		1
+#define SERVER_TYPE_IPSEC	2
+
 #define OPT_STR_LEN 256
 #define MAXARG 100
 
@@ -135,21 +138,31 @@ typedef struct {
 
 
 struct vpn_params {
-    u_int32_t		max_sessions;
-    int			debug;
-    char		*plugin_path;
-    int			daemonize;
-    CFStringRef		serverSubTypeRef;
-    CFStringRef		serverIDRef;
-    CFPropertyListRef	serverRef;
-    char		*server_id;
-    u_int32_t 		server_subtype;
+    int					debug;
+	int					log_verbose;
+    int					daemonize;
     SCDynamicStoreRef 	storeRef;
-    u_int32_t		next_arg_index;		/* indicates end of argument array */
-    char		log_path[MAXPATHLEN];
-    char		*exec_args[MAXARG];
-};
+    CFStringRef			serverIDRef;
+    CFPropertyListRef	serverRef;
+    char				*server_id;
+	u_int32_t			max_sessions;
+	char				log_path[MAXPATHLEN];
 
+	/* command line arguments used for the give type */
+	u_int32_t			next_arg_index;		/* indicates end of argument array */
+	char				*exec_args[MAXARG];
+
+    int					server_type; /* PPP or IPSEC */
+	
+	/* parameter for type PPP */
+	CFStringRef			serverSubTypeRef;
+	u_int32_t			server_subtype;
+	char				*plugin_path;
+        
+	/* parameter for type IPSEC */
+
+
+};
     
 
 int process_options(struct vpn_params *options, int argc, char *argv[]);
@@ -159,27 +172,14 @@ int process_prefs(struct vpn_params *params);
 int publish_state(struct vpn_params* params);
 int kill_orphans(struct vpn_params* params);
 void open_dynamic_store(struct vpn_params* params);
-
-Boolean isDictionary(CFTypeRef obj);
-Boolean isArray(CFTypeRef obj);
-Boolean isString(CFTypeRef obj);
-Boolean isNumber(CFTypeRef obj);
-int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef property, CFIndex index,
-            u_char *opt, u_int32_t *outlen, u_char *defaultval);
-void get_str_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property, 
-                        u_char *opt, u_int32_t *outlen, u_char *defaultval);
-CFStringRef get_cfstr_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property);
-void get_int_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property,
-        u_int32_t *opt, u_int32_t defaultval);
+void close_dynamic_store(struct vpn_params* params);
+int add_builtin_plugin(struct vpn_params* params, void *channel);
+int plugin_exists(const char *inPath);
+char* validate_ip_string(const char *inIPString, char *outIPString, size_t outSize);
 
 void addparam(char **arg, u_int32_t *argi, char *param);
 void addintparam(char **arg, u_int32_t *argi, char *param, u_int32_t val);
 void addstrparam(char **arg, u_int32_t *argi, char *param, char *val);
-
-Boolean isDictionary (CFTypeRef obj);
-Boolean isArray (CFTypeRef obj);
-Boolean isString (CFTypeRef obj);
-Boolean isNumber (CFTypeRef obj);
 
 #endif
 

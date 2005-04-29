@@ -1,14 +1,6 @@
-/* $Id: zipfile.h,v 1.3 2001/09/17 20:35:56 zlaski Exp $
+/* $Id: zipfile.h,v 1.1.1.1 1999/12/06 03:09:11 toast Exp $
 
    $Log: zipfile.h,v $
-   Revision 1.3  2001/09/17 20:35:56  zlaski
-   Resolve conflicts due to 2001-09-12 FSF import.
-
-   Revision 1.1  2000/12/09 03:08:23  apbianco
-   2000-12-08  Alexandre Petit-Bianco  <apbianco@cygnus.com>
-
-           * fastjar: Imported.
-
    Revision 1.1.1.1  1999/12/06 03:09:11  toast
    initial checkin..
 
@@ -55,6 +47,7 @@
 #define LOC_FNLEN   26 /* filename length */
 #define LOC_EFLEN   28 /* extra-field length */
 
+#define CEN_FLAGS    8
 #define CEN_COMP    10 /* compression method */
 #define CEN_MODTIME 12
 #define CEN_MODDATE 14

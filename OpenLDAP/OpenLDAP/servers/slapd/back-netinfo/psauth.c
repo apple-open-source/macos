@@ -36,11 +36,10 @@ int OLConvertBinaryToHex( const unsigned char *inData, long len, char *outHexStr
 #define kPasswordServerSASLErrPrefixStr		"SASL "
 
 typedef struct sSASLContext {
-	const char *password;
+	sasl_secret_t *secret;
 	char username[35];
 } sSASLContext;
 
-int getnameinfo(const struct sockaddr *, socklen_t, char *, size_t, char *, size_t, int);
 int getrealm(void *context /*__attribute__((unused))*/, 
 		    int id,
 		    const char **availrealms,
@@ -101,10 +100,7 @@ ol_getsecret(sasl_conn_t *conn,
 	  void *context /*__attribute__((unused))*/,
 	  int id,
 	  sasl_secret_t **psecret)
-{
-    size_t len = 0;
-	sasl_secret_t *xsec = NULL;
-    
+{    
 #ifdef DEBUG_PRINTFS
     printf("in getsecret\n");
 #endif
@@ -112,20 +108,7 @@ ol_getsecret(sasl_conn_t *conn,
     if (! conn || ! psecret || id != SASL_CB_PASS)
         return SASL_BADPARAM;
     
-    *psecret = NULL;
-    
-    if (((sSASLContext *)context)->password)
-    {
-        len = strlen(((sSASLContext *)context)->password);
-        xsec = (sasl_secret_t *) malloc(sizeof(sasl_secret_t) + len + 1);
-    	if ( xsec == NULL )
-            return SASL_NOMEM;
-        
-        xsec->len = len;
-        strcpy((char *)xsec->data, ((sSASLContext *)context)->password);
-    }
-    
-    *psecret = xsec;
+    *psecret = ((sSASLContext *)context)->secret;
     return SASL_OK;
 }
 
@@ -617,8 +600,14 @@ int DoSASLAuth(
         strncpy(inSASLContext->username, userName, 35);
         inSASLContext->username[34] = '\0';
         
-        inSASLContext->password = password;
+    
+        inSASLContext->secret = (sasl_secret_t *) malloc(sizeof(sasl_secret_t) + pwdLen + 1);
+        if ( inSASLContext->secret == NULL )
+            return SASL_NOMEM;
         
+        inSASLContext->secret->len = pwdLen;
+        strcpy((char *)inSASLContext->secret->data, password);
+		        
 #ifdef DEBUG_PRINTFS
         const char **gmechs = sasl_global_listmech();
         for (r=0; gmechs[r] != NULL; r++)
@@ -853,11 +842,11 @@ int CleanContextData ( sPSContextData *inContext )
 	}
     else
     {
-//        if (inContext->psName != NULL)
-//        {
-//            free( inContext->psName );
-//            inContext->psName = NULL;
-//        }
+       if (inContext->psName != NULL)
+       {
+           free( inContext->psName );
+           inContext->psName = NULL;
+       }
 		
         inContext->offset = 0;
         
@@ -904,6 +893,44 @@ int CleanContextData ( sPSContextData *inContext )
         }
         
         inContext->mechCount = 0;
+        
+        memset(inContext->last.username, 0, sizeof(inContext->last.username));
+        
+        if (inContext->last.password != NULL)
+        {
+            memset(inContext->last.password, 0, inContext->last.passwordLen);
+            free(inContext->last.password);
+            inContext->last.password = NULL;
+        }
+        inContext->last.passwordLen = 0;
+        inContext->last.successfulAuth = false;
+        
+        memset(inContext->nao.username, 0, sizeof(inContext->nao.username));
+        
+        if (inContext->nao.password != NULL)
+        {
+            memset(inContext->nao.password, 0, inContext->nao.passwordLen);
+            free(inContext->nao.password);
+            inContext->nao.password = NULL;
+        }
+        inContext->nao.passwordLen = 0;
+        inContext->nao.successfulAuth = false;
+		
+        if ( inContext->serverList != NULL )
+        {
+            CFRelease( inContext->serverList );
+            inContext->serverList = NULL;
+        }
+        
+        if ( inContext->syncFilePath != NULL )
+        {
+            remove( inContext->syncFilePath );
+            free( inContext->syncFilePath );
+            inContext->syncFilePath = NULL;
+        }
+        
+        bzero( &inContext->rc5Key, sizeof(RC5_32_KEY) );
+        inContext->madeFirstContact = false;
 	}
 	
     return( siResult );
@@ -1056,8 +1083,14 @@ int DoPSAuth(char* userName, char* password, char* inAuthAuthorityData)
     
     if (result == kAuthNoError)
     	result = DoSASLAuth(&context, &saslContext, userID, password, "CRAM-MD5");
-	} while (0);	
+	} while (0);
 	
+    if (saslContext.secret != NULL) {
+        bzero(saslContext.secret->data,saslContext.secret->len);
+        free(saslContext.secret);
+        saslContext.secret = NULL;
+    }
+    
     OLCloseConnection(&context);
     CleanContextData(&context);
 	if (authDataCopy != NULL)

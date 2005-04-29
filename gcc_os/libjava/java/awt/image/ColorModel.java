@@ -120,10 +120,32 @@ public abstract class ColorModel implements Transparency
 	 Buffers.smallestAppropriateTransferType(bits * 4));
   }
 
+  /**
+   * Constructs a ColorModel that translates pixel values to
+   * color/alpha components.
+   *
+   * @exception IllegalArgumentException If the length of the bit array is less
+   * than the number of color or alpha components in this ColorModel, or if the
+   * transparency is not a valid value, or if the sum of the number of bits in
+   * bits is less than 1 or if any of the elements in bits is less than 0.
+   */
   protected ColorModel(int pixel_bits, int[] bits, ColorSpace cspace,
 		       boolean hasAlpha, boolean isAlphaPremultiplied,
 		       int transparency, int transferType)
   {
+    int bits_sum = 0;
+    for (int i = 0; i < bits.length; i++)
+      {
+        if (bits [i] < 0)
+          throw new IllegalArgumentException ();
+
+        bits_sum |= bits [i];
+      }
+    
+    if ((bits.length < cspace.numComponents)
+        || (bits_sum < 1))
+      throw new IllegalArgumentException ();
+
     this.pixel_bits = pixel_bits;
     this.bits = bits;
     this.cspace = cspace;
@@ -424,7 +446,7 @@ public abstract class ColorModel implements Transparency
     for (int i=0; i<numComponents; i++)
     {
       float in = normComponents[normOffset++];
-      int out = (int) (in * ((2<<getComponentSize(i)) - 1));
+      int out = (int) (in * ((1<<getComponentSize(i)) - 1));
       components[offset++] = out;
     }
     return components;
@@ -447,7 +469,7 @@ public abstract class ColorModel implements Transparency
     for (int i=0; i<numComponents; i++)
     {
       float in = components[offset++];
-      float out = in / ((2<<getComponentSize(i)) - 1);
+      float out = in / ((1<<getComponentSize(i)) - 1);
       normComponents[normOffset++] = out;
     }
     return normComponents;

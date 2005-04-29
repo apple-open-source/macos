@@ -1,5 +1,5 @@
 /* Some code common to C and ObjC front ends.
-   Copyright (C) 2001 Free Software Foundation, Inc.
+   Copyright (C) 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -33,20 +33,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tree-inline.h"
 #include "varray.h"
 #include "ggc.h"
+#include "langhooks.h"
+#include "target.h"
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/c-freeze-thaw.h"
-#endif
-
-static int c_tree_printer PARAMS ((output_buffer *));
+static bool c_tree_printer PARAMS ((output_buffer *, text_info *));
 static tree inline_forbidden_p PARAMS ((tree *, int *, void *));
 static void expand_deferred_fns PARAMS ((void));
 static tree start_cdtor	PARAMS ((int));
 static void finish_cdtor PARAMS ((tree));
 
-static varray_type deferred_fns;
+static GTY(()) varray_type deferred_fns;
 
 int
 c_missing_noreturn_ok_p (decl)
@@ -97,7 +93,7 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
 	{
 	  /* We cannot inline functions that take a variable number of
 	     arguments.  */
-	case BUILT_IN_VARARGS_START:
+	case BUILT_IN_VA_START:
 	case BUILT_IN_STDARG_START:
 #if 0
 	  /* Functions that need information about the address of the
@@ -126,7 +122,7 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
       /* We will not inline a function which uses computed goto.  The
 	 addresses of its local labels, which may be tucked into
 	 global storage, are of course not constant across
-	 instantiations, which causes unexpected behaviour.  */
+	 instantiations, which causes unexpected behavior.  */
       if (TREE_CODE (t) != LABEL_DECL)
 	return node;
 
@@ -137,6 +133,22 @@ inline_forbidden_p (nodep, walk_subtrees, fn)
 	return node;
 
       break;
+
+    case RECORD_TYPE:
+    case UNION_TYPE:
+      /* We cannot inline a function of the form
+
+	   void F (int i) { struct S { int ar[i]; } s; }
+
+	 Attempting to do so produces a catch-22 in tree-inline.c.
+	 If walk_tree examines the TYPE_FIELDS chain of RECORD_TYPE/
+	 UNION_TYPE nodes, then it goes into infinite recursion on a
+	 structure containing a pointer to its own type.  If it doesn't,
+	 then the type node for S doesn't get adjusted properly when
+	 F is inlined, and we abort in find_function_data.  */
+      for (t = TYPE_FIELDS (node); t; t = TREE_CHAIN (t))
+	if (variably_modified_type_p (TREE_TYPE (t)))
+	  return node;
 
     default:
       break;
@@ -156,11 +168,13 @@ c_cannot_inline_tree_fn (fnp)
       && lookup_attribute ("always_inline", DECL_ATTRIBUTES (fn)) == NULL)
     return 1;
 
+  /* Don't auto-inline anything that might not be bound within 
+     this unit of translation.  */
+  if (!DECL_DECLARED_INLINE_P (fn) && !(*targetm.binds_local_p) (fn))
+    goto cannot_inline;
+
   if (! function_attribute_inlinable_p (fn))
-    {
-      DECL_UNINLINABLE (fn) = 1;
-      return 1;
-    }
+    goto cannot_inline;
 
   /* If a function has pending sizes, we must not defer its
      compilation, and we can't inline it as a tree.  */
@@ -170,10 +184,7 @@ c_cannot_inline_tree_fn (fnp)
       put_pending_sizes (t);
 
       if (t)
-	{
-	  DECL_UNINLINABLE (fn) = 1;
-	  return 1;
-	}
+	goto cannot_inline;
     }
 
   if (DECL_CONTEXT (fn))
@@ -181,10 +192,7 @@ c_cannot_inline_tree_fn (fnp)
       /* If a nested function has pending sizes, we may have already
          saved them.  */
       if (DECL_LANG_SPECIFIC (fn)->pending_sizes)
-	{
-	  DECL_UNINLINABLE (fn) = 1;
-	  return 1;
-	}
+	goto cannot_inline;
     }
   else
     {
@@ -207,12 +215,27 @@ c_cannot_inline_tree_fn (fnp)
     }
     
   if (walk_tree (&DECL_SAVED_TREE (fn), inline_forbidden_p, fn, NULL))
-    {
-      DECL_UNINLINABLE (fn) = 1;
-      return 1;
-    }
+    goto cannot_inline;
 
   return 0;
+
+ cannot_inline:
+  DECL_UNINLINABLE (fn) = 1;
+  return 1;
+}
+
+/* Called from check_global_declarations.  */
+
+bool
+c_warn_unused_global_decl (decl)
+     tree decl;
+{
+  if (TREE_CODE (decl) == FUNCTION_DECL && DECL_DECLARED_INLINE_P (decl))
+    return false;
+  if (DECL_IN_SYSTEM_HEADER (decl))
+    return false;
+
+  return true;
 }
 
 /* Initialization common to C and Objective-C front ends.  */
@@ -220,29 +243,12 @@ const char *
 c_objc_common_init (filename)
      const char *filename;
 {
-  /* APPLE LOCAL PFE */
-#ifdef PFE
-  /* Use the precompiled headers, if available.  */
-  if (pfe_operation == PFE_LOAD)
-    {
-      pfe_c_init_decl_processing ();
-      //globals = getdecls ();
-      //pfe_setdecls (pfe_predefined_global_names);
-    }
-  else
-    c_init_decl_processing ();
-#else
   c_init_decl_processing ();
-#endif
 
   filename = c_common_init (filename);
+  if (filename == NULL)
+    return NULL;
 
-  add_c_tree_codes ();
-
-  save_lang_status = &push_c_function_context;
-  restore_lang_status = &pop_c_function_context;
-  mark_lang_status = &mark_c_function_context;
-  lang_expand_expr = c_expand_expr;
   lang_expand_decl_stmt = c_expand_decl_stmt;
 
   /* These were not defined in the Objective-C front end, but I'm
@@ -261,9 +267,7 @@ c_objc_common_init (filename)
 	mesg_implicit_function_declaration = 0;
     }
 
-  /* APPLE LOCAL PFE */
-  VARRAY_TREE_INIT (deferred_fns, 32, PFE_VARRAY "deferred_fns");
-  ggc_add_tree_varray_root (&deferred_fns, 1);
+  VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
 
 /* APPLE LOCAL gdb only used symbols */
 #ifdef DBX_ONLY_USED_SYMBOLS
@@ -294,14 +298,6 @@ expand_deferred_fns ()
 {
   unsigned int i;
 
-  /* APPLE LOCAL begin PFE dpatel */
-#ifdef PFE
-  /* We will expand deferred_fns during load.  */
-  if (pfe_operation == PFE_DUMP)
-    return;
-#endif
-  /* APPLE LOCAL end PFE dpatel */
-
   for (i = 0; i < VARRAY_ACTIVE_SIZE (deferred_fns); i++)
     {
       tree decl = VARRAY_TREE (deferred_fns, i);
@@ -316,7 +312,7 @@ expand_deferred_fns ()
 	}
     }
 
-  VARRAY_FREE (deferred_fns);
+  deferred_fns = 0;
 }
 
 static tree
@@ -368,6 +364,14 @@ finish_cdtor (body)
 void
 c_objc_common_finish_file ()
 {
+  if (pch_file)
+    c_common_write_pch ();
+
+  /* APPLE LOCAL Symbol Separation */
+  /* Write context information.  */
+  if (dbg_dir)
+    c_common_write_context ();
+
   expand_deferred_fns ();
 
   if (static_ctors)
@@ -415,43 +419,29 @@ c_objc_common_finish_file ()
    by the C++ front-end.
    Please notice when called, the `%' part was already skipped by the
    diagnostic machinery.  */
-static int
-c_tree_printer (buffer)
+static bool
+c_tree_printer (buffer, text)
      output_buffer *buffer;
+     text_info *text;
 {
-  tree t = va_arg (output_buffer_format_args (buffer), tree);
+  tree t = va_arg (*text->args_ptr, tree);
 
-  switch (*output_buffer_text_cursor (buffer))
+  switch (*text->format_spec)
     {
     case 'D':
     case 'F':
     case 'T':
       {
         const char *n = DECL_NAME (t)
-          ? (*decl_printable_name) (t, 2)
+          ? (*lang_hooks.decl_printable_name) (t, 2)
           : "({anonymous})";
         output_add_string (buffer, n);
       }
-      return 1;
+      return true;
 
     default:
-      return 0;
+      return false;
     }
 }
 
-/* APPLE LOCAL PFE */
-/*-------------------------------------------------------------------*/
-#ifdef PFE
-
-/* Freeze/thaw static globals from this source.  */
-void
-pfe_freeze_thaw_c_lang_globals (hdr)
-     struct pfe_lang_compiler_state *hdr;
-{
-  /* Freeze/thaw global arrays.  */
-  PFE_GLOBAL_TO_HDR_IF_FREEZING (deferred_fns);
-  pfe_freeze_thaw_varray_tree (&hdr->deferred_fns);
-  PFE_HDR_TO_GLOBAL_IF_THAWING (deferred_fns);
-}
-
-#endif
+#include "gt-c-objc-common.h"

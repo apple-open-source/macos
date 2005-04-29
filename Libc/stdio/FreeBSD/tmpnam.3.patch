@@ -1,0 +1,14 @@
+--- /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/tmpnam.3.orig	2004-06-21 12:38:25.000000000 -0700
++++ /Volumes/XDisk/tmp/Libc/stdio/FreeBSD/tmpnam.3	2004-10-24 17:08:31.000000000 -0700
+@@ -229,11 +229,6 @@
+ .Sh SEE ALSO
+ .Xr mkstemp 3 ,
+ .Xr mktemp 3
+-.Rs
+-.%T "The FreeBSD Security Architecture"
+-.Re
+-(See
+-.Pa "/usr/share/doc/{to be determined}" . )
+ .Sh STANDARDS
+ The
+ .Fn tmpfile

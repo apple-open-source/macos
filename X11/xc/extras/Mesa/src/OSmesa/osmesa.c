@@ -1,6 +1,6 @@
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  5.0
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -21,7 +21,7 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-
+/* $XFree86: xc/extras/Mesa/src/OSmesa/osmesa.c,v 1.16 2003/12/02 14:28:12 alanh Exp $ */
 
 /*
  * Off-Screen Mesa rendering / Rendering into client memory space
@@ -40,9 +40,9 @@
 #include "colormac.h"
 #include "depth.h"
 #include "extensions.h"
+#include "imports.h"
 #include "macros.h"
 #include "matrix.h"
-#include "mem.h"
 #include "mmath.h"
 #include "mtypes.h"
 #include "texformat.h"
@@ -54,7 +54,6 @@
 #include "swrast/s_depth.h"
 #include "swrast/s_lines.h"
 #include "swrast/s_triangle.h"
-#include "swrast/s_trispan.h"
 #include "tnl/tnl.h"
 #include "tnl/t_context.h"
 #include "tnl/t_pipeline.h"
@@ -114,8 +113,9 @@ static void osmesa_register_swrast_functions( GLcontext *ctx );
 GLAPI OSMesaContext GLAPIENTRY
 OSMesaCreateContext( GLenum format, OSMesaContext sharelist )
 {
+   const GLint accumBits = (format == OSMESA_COLOR_INDEX) ? 0 : 16;
    return OSMesaCreateContextExt(format, DEFAULT_SOFTWARE_DEPTH_BITS,
-                                 8, 16, sharelist);
+                                 8, accumBits, sharelist);
 }
 
 
@@ -293,7 +293,8 @@ OSMesaCreateContextExt( GLenum format, GLint depthBits, GLint stencilBits,
                                     osmesa->gl_visual,
                                     sharelist ? &sharelist->gl_ctx
                                               : (GLcontext *) NULL,
-                                    (void *) osmesa, GL_TRUE )) {
+                                    (void *) osmesa,
+                                    GL_FALSE)) {
          _mesa_destroy_visual( osmesa->gl_visual );
          FREE(osmesa);
          return NULL;
@@ -301,6 +302,7 @@ OSMesaCreateContextExt( GLenum format, GLint depthBits, GLint stencilBits,
 
       _mesa_enable_sw_extensions(&(osmesa->gl_ctx));
       _mesa_enable_1_3_extensions(&(osmesa->gl_ctx));
+      _mesa_enable_1_4_extensions(&(osmesa->gl_ctx));
 
       osmesa->gl_buffer = _mesa_create_framebuffer( osmesa->gl_visual,
                            (GLboolean) ( osmesa->gl_visual->depthBits > 0 ),
@@ -473,7 +475,7 @@ OSMesaMakeCurrent( OSMesaContext ctx, void *buffer, GLenum type,
    compute_row_addresses( ctx );
 
    /* init viewport */
-   if (ctx->gl_ctx.Viewport.Width==0) {
+   if (ctx->gl_ctx.Viewport.Width == 0) {
       /* initialize viewport and scissor box to buffer size */
       _mesa_Viewport( 0, 0, width, height );
       ctx->gl_ctx.Scissor.Width = width;
@@ -624,6 +626,39 @@ OSMesaGetColorBuffer( OSMesaContext c, GLint *width,
    }
 }
 
+
+
+struct name_address {
+   const char *Name;
+   GLvoid *Address;
+};
+
+static struct name_address functions[] = {
+   { "OSMesaCreateContext", (void *) OSMesaCreateContext },
+   { "OSMesaCreateContextExt", (void *) OSMesaCreateContextExt },
+   { "OSMesaDestroyContext", (void *) OSMesaDestroyContext },
+   { "OSMesaMakeCurrent", (void *) OSMesaMakeCurrent },
+   { "OSMesaGetCurrentContext", (void *) OSMesaGetCurrentContext },
+   { "OSMesaPixelsStore", (void *) OSMesaPixelStore },
+   { "OSMesaGetIntegerv", (void *) OSMesaGetIntegerv },
+   { "OSMesaGetDepthBuffer", (void *) OSMesaGetDepthBuffer },
+   { "OSMesaGetColorBuffer", (void *) OSMesaGetColorBuffer },
+   { "OSMesaGetProcAddress", (void *) OSMesaGetProcAddress },
+   { NULL, NULL }
+};
+
+GLAPI void * GLAPIENTRY
+OSMesaGetProcAddress( const char *funcName )
+{
+   int i;
+   for (i = 0; functions[i].Name; i++) {
+      if (_mesa_strcmp(functions[i].Name, funcName) == 0)
+         return (void *) functions[i].Address;
+   }
+   return (void *) _glapi_get_proc_address(funcName);
+}
+
+
 /**********************************************************************/
 /*** Device Driver Functions                                        ***/
 /**********************************************************************/
@@ -634,12 +669,12 @@ OSMesaGetColorBuffer( OSMesaContext c, GLint *width,
  */
 
 #if CHAN_TYPE == GL_FLOAT
-#define PACK_RGBA(DST, R, G, B, A)				\
-do {								\
-   (DST)[0] = (R < 0.0f) ? 0.0f : ((R > 1.0f) ? 1.0f : R);	\
-   (DST)[1] = (G < 0.0f) ? 0.0f : ((G > 1.0f) ? 1.0f : G);	\
-   (DST)[2] = (B < 0.0f) ? 0.0f : ((B > 1.0f) ? 1.0f : B);	\
-   (DST)[3] = (A < 0.0f) ? 0.0f : ((A > 1.0f) ? 1.0f : A);	\
+#define PACK_RGBA(DST, R, G, B, A)	\
+do {					\
+   (DST)[0] = MAX2( R, 0.0F );		\
+   (DST)[1] = MAX2( G, 0.0F );		\
+   (DST)[2] = MAX2( B, 0.0F );		\
+   (DST)[3] = CLAMP(A, 0.0F, CHAN_MAXF);\
 } while (0)
 #else
 #define PACK_RGBA(DST, R, G, B, A)	\
@@ -684,19 +719,11 @@ do {									\
 
 
 
-static void set_draw_buffer( GLcontext *ctx, GLenum mode )
-{
-   /* A no-op since there's only one color buffer! */
-   (void) ctx;
-   (void) mode;
-}
-
-
-static void set_read_buffer( GLcontext *ctx, GLframebuffer *buffer, GLenum mode )
+static void set_buffer( GLcontext *ctx, GLframebuffer *buffer, GLuint bufferBit )
 {
    /* separate read buffer not supported */
    ASSERT(buffer == ctx->DrawBuffer);
-   ASSERT(mode == GL_FRONT_LEFT);
+   ASSERT(bufferBit == FRONT_LEFT_BIT);
 }
 
 
@@ -738,9 +765,10 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    }
 	 }
 	 else if (osmesa->format == OSMESA_RGB) {
-	    const GLchan r = ctx->Color.ClearColor[0];
-	    const GLchan g = ctx->Color.ClearColor[1];
-	    const GLchan b = ctx->Color.ClearColor[2];
+            GLchan r, g, b;
+            CLAMPED_FLOAT_TO_CHAN(r, ctx->Color.ClearColor[0]);
+            CLAMPED_FLOAT_TO_CHAN(g, ctx->Color.ClearColor[1]);
+            CLAMPED_FLOAT_TO_CHAN(b, ctx->Color.ClearColor[2]);
 	    if (all) {
 	       /* Clear whole RGB buffer */
 	       GLuint n = osmesa->rowlength * osmesa->height;
@@ -764,9 +792,10 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    }
 	 }
 	 else if (osmesa->format == OSMESA_BGR) {
-	    const GLchan r = ctx->Color.ClearColor[0];
-	    const GLchan g = ctx->Color.ClearColor[1];
-	    const GLchan b = ctx->Color.ClearColor[2];
+            GLchan r, g, b;
+            CLAMPED_FLOAT_TO_CHAN(r, ctx->Color.ClearColor[0]);
+            CLAMPED_FLOAT_TO_CHAN(g, ctx->Color.ClearColor[1]);
+            CLAMPED_FLOAT_TO_CHAN(b, ctx->Color.ClearColor[2]);
 	    if (all) {
 	       /* Clear whole RGB buffer */
 	       const GLint n = osmesa->rowlength * osmesa->height;
@@ -790,10 +819,11 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    }
 	 }
          else if (osmesa->format == OSMESA_RGB_565) {
-	    const GLchan r = ctx->Color.ClearColor[0];
-	    const GLchan g = ctx->Color.ClearColor[1];
-	    const GLchan b = ctx->Color.ClearColor[2];
             GLushort clearPixel;
+            GLchan r, g, b;
+            CLAMPED_FLOAT_TO_CHAN(r, ctx->Color.ClearColor[0]);
+            CLAMPED_FLOAT_TO_CHAN(g, ctx->Color.ClearColor[1]);
+            CLAMPED_FLOAT_TO_CHAN(b, ctx->Color.ClearColor[2]);
             PACK_RGB_565(clearPixel, r, g, b);
             if (all) {
                /* Clear whole RGB buffer */
@@ -822,10 +852,10 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 	    /* 4-byte pixel value */
 	    GLuint clearPixel;
 	    GLchan *clr = (GLchan *) &clearPixel;
-	    clr[osmesa->rInd] = ctx->Color.ClearColor[0];
-	    clr[osmesa->gInd] = ctx->Color.ClearColor[1];
-	    clr[osmesa->bInd] = ctx->Color.ClearColor[2];
-	    clr[osmesa->aInd] = ctx->Color.ClearColor[3];
+            CLAMPED_FLOAT_TO_CHAN(clr[osmesa->rInd], ctx->Color.ClearColor[0]);
+            CLAMPED_FLOAT_TO_CHAN(clr[osmesa->gInd], ctx->Color.ClearColor[1]);
+            CLAMPED_FLOAT_TO_CHAN(clr[osmesa->bInd], ctx->Color.ClearColor[2]);
+            CLAMPED_FLOAT_TO_CHAN(clr[osmesa->aInd], ctx->Color.ClearColor[3]);
 	    if (all) {
 	       /* Clear whole RGBA buffer */
 	       const GLuint n = osmesa->rowlength * osmesa->height;
@@ -837,7 +867,7 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 		  }
 	       }
 	       else {
-		  BZERO(ptr4, n * sizeof(GLuint));
+		  _mesa_bzero(ptr4, n * sizeof(GLuint));
 	       }
 	    }
 	    else {
@@ -851,10 +881,11 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 	       }
 	    }
 #else
-	    const GLchan r = ctx->Color.ClearColor[0];
-	    const GLchan g = ctx->Color.ClearColor[1];
-	    const GLchan b = ctx->Color.ClearColor[2];
-	    const GLchan a = ctx->Color.ClearColor[3];
+            GLchan r, g, b, a;
+            CLAMPED_FLOAT_TO_CHAN(r, ctx->Color.ClearColor[0]);
+            CLAMPED_FLOAT_TO_CHAN(g, ctx->Color.ClearColor[1]);
+            CLAMPED_FLOAT_TO_CHAN(b, ctx->Color.ClearColor[2]);
+            CLAMPED_FLOAT_TO_CHAN(a, ctx->Color.ClearColor[3]);
 	    if (all) {
 	       /* Clear whole RGBA buffer */
 	       const GLuint n = osmesa->rowlength * osmesa->height;
@@ -891,13 +922,8 @@ static void clear( GLcontext *ctx, GLbitfield mask, GLboolean all,
 
 static void buffer_size( GLframebuffer *buffer, GLuint *width, GLuint *height )
 {
-#ifdef WIN32
-   /* Hack to get around problems with exporting glapi_Context from Mesa
-      and importing into OSMesa. */
+   /* don't use GET_CURRENT_CONTEXT(ctx) here - it's a problem on Windows */
    GLcontext *ctx = (GLcontext *) _glapi_get_context();
-#else
-   GET_CURRENT_CONTEXT(ctx);
-#endif
    (void) buffer;
    if (ctx) {
       OSMesaContext osmesa = OSMESA_CONTEXT(ctx);
@@ -1204,7 +1230,7 @@ write_rgba_pixels_RGB( const GLcontext *ctx, GLuint n,
                        const GLint x[], const GLint y[],
                        CONST GLchan rgba[][4], const GLubyte mask[] )
 {
-   const OSMesaContext osmesa = (const OSMesaContext) ctx;
+   const OSMesaContext osmesa = OSMESA_CONTEXT(ctx);
    GLuint i;
    for (i = 0; i < n; i++) {
       if (mask[i]) {
@@ -1219,7 +1245,7 @@ write_rgba_pixels_BGR( const GLcontext *ctx, GLuint n,
                        const GLint x[], const GLint y[],
                        CONST GLchan rgba[][4], const GLubyte mask[] )
 {
-   const OSMesaContext osmesa = (const OSMesaContext) ctx;
+   const OSMesaContext osmesa = OSMESA_CONTEXT(ctx);
    GLuint i;
    for (i = 0; i < n; i++) {
       if (mask[i]) {
@@ -1785,7 +1811,7 @@ osmesa_choose_line_function( GLcontext *ctx )
    if (CHAN_BITS != 8)                    return NULL;
    if (ctx->RenderMode != GL_RENDER)      return NULL;
    if (ctx->Line.SmoothFlag)              return NULL;
-   if (ctx->Texture._ReallyEnabled)       return NULL;
+   if (ctx->Texture._EnabledUnits)        return NULL;
    if (ctx->Light.ShadeModel != GL_FLAT)  return NULL;
    if (ctx->Line.Width != 1.0F)           return NULL;
    if (ctx->Line.StippleFlag)             return NULL;
@@ -1793,7 +1819,6 @@ osmesa_choose_line_function( GLcontext *ctx )
    if (osmesa->format != OSMESA_RGBA &&
        osmesa->format != OSMESA_BGRA &&
        osmesa->format != OSMESA_ARGB)     return NULL;
-
 
    if (swrast->_RasterMask==DEPTH_BIT
        && ctx->Depth.Func==GL_LESS
@@ -1857,7 +1882,6 @@ static void smooth_rgba_z_triangle( GLcontext *ctx,
                                     const SWvertex *v2 )
 {
    const OSMesaContext osmesa = OSMESA_CONTEXT(ctx);
-
 #define INTERP_Z 1
 #define DEPTH_TYPE DEFAULT_SOFTWARE_DEPTH_TYPE
 #define INTERP_RGB 1
@@ -1865,7 +1889,7 @@ static void smooth_rgba_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )					\
    GLuint i;							\
    GLchan *img = PIXELADDR4(span.x, span.y); 			\
-   for (i = 0; i < span.count; i++, img += 4) {			\
+   for (i = 0; i < span.end; i++, img += 4) {			\
       const GLdepth z = FixedToDepth(span.z);			\
       if (z < zRow[i]) {					\
          PACK_RGBA(img, FixedToChan(span.red),			\
@@ -1909,7 +1933,7 @@ static void flat_rgba_z_triangle( GLcontext *ctx,
 #define RENDER_SPAN( span )				\
    GLuint i;						\
    GLuint *img = (GLuint *) PIXELADDR4(span.x, span.y);	\
-   for (i = 0; i < span.count; i++) {			\
+   for (i = 0; i < span.end; i++) {			\
       const GLdepth z = FixedToDepth(span.z);		\
       if (z < zRow[i]) {				\
          img[i] = pixel;				\
@@ -1940,7 +1964,7 @@ osmesa_choose_triangle_function( GLcontext *ctx )
    if (ctx->RenderMode != GL_RENDER)    return (swrast_tri_func) NULL;
    if (ctx->Polygon.SmoothFlag)         return (swrast_tri_func) NULL;
    if (ctx->Polygon.StippleFlag)        return (swrast_tri_func) NULL;
-   if (ctx->Texture._ReallyEnabled)     return (swrast_tri_func) NULL;
+   if (ctx->Texture._EnabledUnits)      return (swrast_tri_func) NULL;
    if (osmesa->format != OSMESA_RGBA &&
        osmesa->format != OSMESA_BGRA &&
        osmesa->format != OSMESA_ARGB)   return (swrast_tri_func) NULL;
@@ -2050,9 +2074,8 @@ static void osmesa_update_state( GLcontext *ctx, GLuint new_state )
 
    ctx->Driver.GetString = get_string;
    ctx->Driver.UpdateState = osmesa_update_state;
-   ctx->Driver.SetDrawBuffer = set_draw_buffer;
-   ctx->Driver.GetBufferSize = buffer_size;
    ctx->Driver.ResizeBuffers = _swrast_alloc_buffers;
+   ctx->Driver.GetBufferSize = buffer_size;
 
    ctx->Driver.Accum = _swrast_Accum;
    ctx->Driver.Bitmap = _swrast_Bitmap;
@@ -2060,6 +2083,7 @@ static void osmesa_update_state( GLcontext *ctx, GLuint new_state )
    ctx->Driver.CopyPixels = _swrast_CopyPixels;
    ctx->Driver.DrawPixels = _swrast_DrawPixels;
    ctx->Driver.ReadPixels = _swrast_ReadPixels;
+   ctx->Driver.DrawBuffer = _swrast_DrawBuffer;
 
    ctx->Driver.ChooseTextureFormat = _mesa_choose_tex_format;
    ctx->Driver.TexImage1D = _mesa_store_teximage1d;
@@ -2069,6 +2093,13 @@ static void osmesa_update_state( GLcontext *ctx, GLuint new_state )
    ctx->Driver.TexSubImage2D = _mesa_store_texsubimage2d;
    ctx->Driver.TexSubImage3D = _mesa_store_texsubimage3d;
    ctx->Driver.TestProxyTexImage = _mesa_test_proxy_teximage;
+
+   ctx->Driver.CompressedTexImage1D = _mesa_store_compressed_teximage1d;
+   ctx->Driver.CompressedTexImage2D = _mesa_store_compressed_teximage2d;
+   ctx->Driver.CompressedTexImage3D = _mesa_store_compressed_teximage3d;
+   ctx->Driver.CompressedTexSubImage1D = _mesa_store_compressed_texsubimage1d;
+   ctx->Driver.CompressedTexSubImage2D = _mesa_store_compressed_texsubimage2d;
+   ctx->Driver.CompressedTexSubImage3D = _mesa_store_compressed_texsubimage3d;
 
    ctx->Driver.CopyTexImage1D = _swrast_copy_teximage1d;
    ctx->Driver.CopyTexImage2D = _swrast_copy_teximage2d;
@@ -2080,9 +2111,7 @@ static void osmesa_update_state( GLcontext *ctx, GLuint new_state )
    ctx->Driver.CopyConvolutionFilter1D = _swrast_CopyConvolutionFilter1D;
    ctx->Driver.CopyConvolutionFilter2D = _swrast_CopyConvolutionFilter2D;
 
-   ctx->Driver.BaseCompressedTexFormat = _mesa_base_compressed_texformat;
-   ctx->Driver.CompressedTextureSize = _mesa_compressed_texture_size;
-   ctx->Driver.GetCompressedTexImage = _mesa_get_compressed_teximage;
+   swdd->SetBuffer = set_buffer;
 
    /* RGB(A) span/pixel functions */
    if (osmesa->format == OSMESA_RGB) {
@@ -2140,8 +2169,6 @@ static void osmesa_update_state( GLcontext *ctx, GLuint new_state )
    swdd->WriteMonoCIPixels = write_monoindex_pixels;
    swdd->ReadCI32Span = read_index_span;
    swdd->ReadCI32Pixels = read_index_pixels;
-
-   swdd->SetReadBuffer = set_read_buffer;
 
    tnl->Driver.RunPipeline = _tnl_run_pipeline;
 

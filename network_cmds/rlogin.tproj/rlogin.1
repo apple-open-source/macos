@@ -39,15 +39,14 @@
 .Nd remote login
 .Sh SYNOPSIS
 .Nm rlogin
-.Op Fl 8EKLdx
+.Op Fl 8ELd
 .Op Fl e Ar char
 .Op Fl k Ar realm
 .Op Fl l Ar username
 .Ar host
 .Nm rlogin
-.Op Fl 8EKLdx
+.Op Fl 8ELd
 .Op Fl e Ar char
-.Op Fl k Ar realm
 .Ar username@host
 .Sh DESCRIPTION
 .Nm Rlogin
@@ -55,10 +54,9 @@ starts a terminal session on a remote host
 .Ar host  .
 .Pp
 .Nm Rlogin
-first attempts to use the Kerberos authorization mechanism, described below.
-If the remote host does not supporting Kerberos the standard Berkeley
+first attempts to use the standard Berkeley
 .Pa rhosts
-authorization mechanism is used.
+authorization mechanism.
 The options are as follows:
 .Bl -tag -width flag
 .It Fl 8
@@ -75,10 +73,6 @@ option stops any character from being recognized as an escape character.
 When used with the
 .Fl 8
 option, this provides a completely transparent connection.
-.It Fl K
-The
-.Fl K
-option turns off all Kerberos authentication.
 .It Fl L
 The
 .Fl L
@@ -98,25 +92,6 @@ option allows user specification of the escape character, which is
 ``~'' by default.
 This specification may be as a literal character, or as an octal
 value in the form \ennn.
-.It Fl k
-The
-.FL k
-option requests rlogin to obtain tickets for the remote host
-in realm
-.Ar realm
-instead of the remote host's realm as determined by
-.Xr krb_realmofhost  3  .
-.It Fl x
-The
-.Fl x
-option turns on
-.Tn DES
-encryption for all data passed via the
-rlogin session.
-This may impact response time and
-.Tn CPU
-utilization, but provides
-increased security.
 .El
 .Pp
 A line of the form ``<escape char>.'' disconnects from the remote host.
@@ -133,35 +108,6 @@ the
 is transparent.
 Flow control via ^S/^Q and flushing of input and output on interrupts
 are handled properly.
-.Sh KERBEROS AUTHENTICATION
-Each user may have a private authorization list in the file
-.Pa .klogin
-in their home directory.
-Each line in this file should contain a Kerberos principal name of the
-form
-.Ar principal.instance@realm  .
-If the originating user is authenticated to one of the principals named
-in
-.Pa .klogin ,
-access is granted to the account.
-The principal
-.Ar accountname.@localrealm
-is granted access if
-there is no
-.Pa .klogin
-file.
-Otherwise a login and password will be prompted for on the remote machine
-as in
-.Xr login  1  .
-To avoid certain security problems, the
-.Pa .klogin
-file must be owned by
-the remote user.
-.Pp
-If Kerberos authentication fails, a warning message is printed and the
-standard Berkeley
-.Nm rlogin
-is used instead.
 .Sh ENVIRONMENT
 The following environment variable is utilized by
 .Nm rlogin :
@@ -170,10 +116,7 @@ The following environment variable is utilized by
 Determines the user's terminal type.
 .El
 .Sh SEE ALSO
-.Xr rsh 1 ,
-.Xr kerberos 3 ,
-.Xr krb_sendauth 3 ,
-.Xr krb_realmofhost 3
+.Xr rsh 1 
 .Sh HISTORY
 The
 .Nm rlogin

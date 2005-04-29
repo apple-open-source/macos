@@ -250,13 +250,6 @@ reuse (fd, baseaddr, flags)
   if (flags & MMALLOC_SHARED)
     mdp->flags |= MMALLOC_SHARED;
 
-#if 0
-  for (i = 0; i < MMALLOC_KEYS; i++)
-    {
-      mdp->keys[i] = ((char *) mdp->keys[i]) + (((char *) base) - ((char *) mtemp.base));
-    }
-#endif
-
   return (mdp);
 }
 

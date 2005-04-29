@@ -1,178 +1,155 @@
 #compdef rsync
 
 _rsync_remote_files() {
-local suf tag=accounts
+local expl remfiles remdispf remdispd remmodules suf ret=1 tag=accounts
 
-if [[ -prefix *::*/ ]]; then
-  local remfiles remdispf remdispd
+if compset -P '*::*/'; then
 
-  compset -P '*::*/'
-
-  remfiles=(${(f)"$(rsync ${words[CURRENT]%/*}/)"})
+  remfiles=(${(f)"$(_call_program files rsync ${words[CURRENT]%/*}/)"})
 
   remdispf=(${remfiles:#d*})
   remdispd=(${(M)remfiles:#d*})
 
-    _wanted files expl 'remote files and directories' \
+  _wanted files expl 'remote file or directory' \
       compadd -d remdispf ${remdispf##* }
-      
-    _wanted files expl 'remote files and directories' \
+
+  _wanted files expl 'remote file or directory' \
       compadd -S/ -d remdispd ${remdispd##* }
 
-elif [[ -prefix 1 *:: ]]; then
-  local remfiles remmodules
+elif compset -P 1 '*::'; then
 
-  compset -P 1 '*::'
-
-  remfiles=(${(f)"$(rsync ${words[CURRENT]%::*}::)"})
+  remfiles=(${(f)"$(_call_program files rsync ${words[CURRENT]%::*}::)"})
 
   remmodules=(${remfiles/[ 	]#/:})
 
   _describe "remote modules" remmodules -S/
 
-elif [[ -prefix 1 *: ]]; then
-  local remfiles remdispf remdispd slash
+elif compset -P 1 '*:'; then
 
-  compset -P 1 '*:'
-
-  if zstyle -T ":completion:${curcontext}:" remote-access; then
-    slash=/
-    remfiles=(${(f)"$(ssh -a -x ${words[CURRENT]%:*} ls -d1F ${${${words[CURRENT
-]#*:}:h}/${slash}(#e)/}/\* 2>/dev/null)"})
+  if zstyle -T ":completion:${curcontext}:files" remote-access; then
+    remfiles=(${(M)${(f)"$(_call_program files ssh -a -x ${IPREFIX%:} ls -d1FL "${(Q)PREFIX%%[^./][^/]#}\*" 2>/dev/null)"}%%[^/]#(|/)})
+    compset -P '*/'
+    compset -S '/*' || suf='remote file'
 
     remdispf=(${remfiles:#*/})
     remdispd=(${(M)remfiles:#*/})
 
-    _wanted files expl 'remote files and directories' \
-      compadd -d remdispf ${${remfiles:#*/}/[*=@|](#e)/}
-      
-    _wanted files expl 'remote files and directories' \
-      compadd -S/ -d remdispd ${${(M)remfiles:#*/}/${slash}(#e)/}
+    _tags files
+    while _tags; do
+      while _next_label files expl ${suf:-remote directory}; do
+        [[ -n $suf ]] && compadd "$@" "$expl[@]" -d remdispf \
+	    ${(q)remdispf%[*=@|]} && ret=0 
+	compadd ${suf:+-S/} "$@" "$expl[@]" -d remdispd \
+	    ${(q)remdispd%/} && ret=0
+      done
+      (( ret )) || return 0
+    done
   else
-    _message -e remote-files 'remote files'
+    _message -e remote-files 'remote file'
   fi
 
-elif [[ -prefix 1 *@ ]]; then
+elif compset -P 1 '*@'; then
   local user=${PREFIX%%@*}
 
-  compset -P 1 '*@'
   compset -S ':*' || suf=":"
 
   _wanted -C user-at hosts expl "host for $user" \
       _combination -s '[:@]' "${tag}" users-hosts users="$user" hosts -S "$suf" "$@" -
 else
-   if compset -S '@*'; then
-      _wanted users expl "user" \
-        _combination -s '[:@]' "${tag}" users-hosts users -q "$@" -
-   else
-	_hosts -S:
-   fi
-
+  if compset -S '@*'; then
+    _wanted users expl "user" \
+	_combination -s '[:@]' "${tag}" users-hosts users -q "$@" -
+  else
+    _alternative 'users:user:_users -S @' 'hosts:host:_hosts -S:'
+  fi
 fi
 
 }
 
 _rsync_files() {
-_files || _rsync_remote_files
+  _alternative "files:file:_files" "remote-files:remote file:_rsync_remote_files"
 }
 
-
-_arguments -C -s \
-	'*:files:_rsync_files' \
- 	'(--verbose)-v[verbose]' \
- 	'(-v)--verbose' \
- 	'(--quiet)-q[quiet]' \
- 	'(-q)--quiet' \
- 	'(--checksum)-c[always checksum]' \
- 	'(-c)--checksum[always checksum]' \
- 	'(--archive)-a[archive mode]' \
- 	'(-a)--archive[archive mode]' \
- 	'(--recursive)-r[recurse into directories]' \
- 	'(-r)--recursive[recurse into directories]' \
- 	'(--relative)-R[use relative path names]' \
- 	'(-R)--relative[use relative path names]' \
- 	'(--backup)-b[make backups]' \
- 	'(-b)--backup[make backups]' \
- 	'--backup-dir[make backups into this directory]:backup directory:_files -/' \
-	'--suffix=[override backup suffix]:suffix:' \
- 	'(--update)-u[update only]' \
- 	'(-u)--update[update only]' \
- 	'(--links)-l[copy symlinks as symlinks]' \
- 	'(-l)--links[copy symlinks as symlinks]' \
- 	'(--copy-links)-L[copy referent of symlinks]' \
- 	'(-L)--copy-links[copy referent of symlinks]' \
- 	'--copy-unsafe-links[copy links outside the source tree]' \
- 	'--safe-links[ignore links outside the destination tree]' \
- 	'(--hard-links)-H[preserve hard links]' \
- 	'(-H)--hard-links[preserve hard links]' \
- 	'(--perms)-p[preserve permissions]' \
- 	'(-p)--perms[preserve permissions]' \
- 	'(--owner)-o[preserve owner]' \
- 	'(-o)--owner[preserve owner]' \
- 	'(--group)-g[preserve group]' \
- 	'(-g)--group[preserve group]' \
- 	'(--devices)-D[preserve devices]' \
- 	'(-D)--devices[preserve devices]' \
- 	'(--times)-t[preserve times]' \
- 	'(-t)--times[preserve times]' \
- 	'(--sparse)-S[handle sparse files efficiently]' \
- 	'(-S)--sparse[handle sparse files efficiently]' \
- 	'(--dry-run)-n[show what would have been transferred]' \
- 	'(-n)--dry-run[show what would have been transferred]' \
- 	'(--whole-file)-W[copy whole files]' \
- 	'(-W)--whole-file[copy whole files]' \
- 	'(--one-file-system)-x[do not cross filesystem boundaries]' \
- 	'(-x)--one-file-system[do not cross filesystem boundaries]' \
- 	'(--block-size)-B[checksum blocking size]:block size:' \
- 	'(-B)--block-size=[checksum blocking size]:block size:' \
- 	'(--rsh)-e[rsh command]:remote command:(rsh ssh)' \
- 	'(-e)--rsh[rsh command]:remote command:(rsh ssh)' \
-	'--rsync-path=[specify path to rsync on the remote machine]:remote command:' \
- 	'(--cvs-exclude)-C[autoignore files in the same way as CVS]' \
- 	'(-C)--cvs-exclude[autoignore files in the same way as CVS]' \
-	'--existing[only update files that already exist]' \
-	'--ignore-existing[ignore files that already exist on the receiving side]' \
-	'--delete[delete files that do not exist on the sending side]' \
-	'--delete-excluded[also delete excluded files on the receiving side]' \
-	'--delete-after[perform delete after transferring]' \
-	'--ignore-errors[delete even if there are IO errors]' \
-	'--max-delete=[do not delete more than NUM files]:number:' \
-	'--partial[keep partially transferred files]' \
-	'--force[force deletion of directories even if not empty]' \
-	'--numeric-ids[do not map uid/gid values by user/group name]' \
-	'--timeout=[set IO timeout in seconds]:seconds:' \
- 	'(--ignore-times)-I[do not exclude files that match length and time]' \
- 	'(-I)--ignore-times[do not exclude files that match length and time]' \
-	'--size-only[only use file size when determining if a file should be transferred]' \
-	'--modify-window=[timestamp window for file match]:seconds:' \
-	'(--temp-dir)-T[create temporary files in specified directory]:directory:_files -/' \
-	'(-T)--temp-dir=[create temporary files in specified directory]:directory:_files -/' \
-	'--compare-dest=[also compare destination files relative to specified directory]:directory:_files -/' \
-	'-P[equivalent to --partial --progress]' \
- 	'(--compress)-z[compress file data]' \
- 	'(-z)--compress[compress file data]' \
-	'--exclude=[exclude files matching pattern]:pattern:' \
-	'--exclude-from=[exclude patterns listed in file]:file:_files' \
-	'--include=[do not exclude files matching pattern]:pattern:' \
-	'--include-from=[do not exclude patterns listed in file]:file:_files' \
-	'--version[print version number]' \
-	'--daemon[run as a rsync daemon]' \
-	'--no-detach[do not detach from the parent]' \
-	'--address=[bind to the specified address]:address:_hosts' \
-	'--config=[specify alternate rsyncd.conf file]:file:_files' \
-	'--port=[specify alternate rsyncd port number]:port:' \
-	'--blocking-io[use blocking IO for the remote shell]' \
-	'--stats[give some file transfer stats]' \
-	'--progress[show progress during transfer]' \
-	'--log-format=[log file transfers using specified format]:format:' \
-	'--password-file=[get password from file]:file:_files' \
-	'--bwlimit=[limit bandwidth]:kbytes per second:' \
-	'--read-batch=[read batch file]:ext:' \
-	'--write-batch[write batch file]' \
- 	'(--help)-h[help]' \
- 	'(-h)--help[help]' \
- 	'-4[prefer IPv4]' \
- 	'-6[prefer IPv6]' \
-	   -- '*=COMMAND*:command:_command' \
-              '*=FILE*:file:_files' \
-              '*=DIR*:directory:_files -/'
+_arguments -s \
+  '*: :_rsync_files' \
+  '*'{-v,--verbose}'[increase verbosity]' \
+  '(-q --quiet)'{-q,--quiet}'[show less information during transfer]' \
+  '(-c --checksum)'{-c,--checksum}'[always checksum]' \
+  '(-a --archive)'{-a,--archive}'[archive mode]' \
+  '(-r --recursive)'{-r,--recursive}'[recurse into directories]' \
+  '(-E --relative)'{-R,--relative}'[use relative path names]' \
+  '--no-relative[turn off --relative]' \
+  '--no-implied-dirs[do not send implied dirs with --relative]' \
+  '(-b --backup)'{-b,--backup}'[make backups]' \
+  '--backup-dir[make backups into specified directory]:backup directory:_directories' \
+  '--suffix=[override backup suffix]:suffix' \
+  '(-u --update)'{-u,--update}'[update only]' \
+  '(-K --keep-dirlinks)'{-K,--keep-dirlinks}'[symlinked dir on receiver matches sender dir]' \
+  '(-l --links)'{-l,--links}'[copy symlinks as symlinks]' \
+  '(-L --copy-links)'{-L,--copy-links}'[treat soft links like regular files]' \
+  '--copy-unsafe-links[copy links outside the source tree]' \
+  '--safe-links[ignore links outside the destination tree]' \
+  '(-H --hard-links)'{-H,--hard-links}'[preserve hard links]' \
+  '(-p --perms)'{-p,--perms}'[preserve permissions]' \
+  '(-o --owner)'{-o,--owner}'[preserve owner]' \
+  '(-g --group)'{-g,--group}'[preserve group]' \
+  '(-D --devices)'{-D,--devices}'[preserve devices]' \
+  '(-t --times)'{-t,--times}'[preserve times]' \
+  '(-S --sparse)'{-S,--sparse}'[handle sparse files efficiently]' \
+  '(-n --dry-run)'{-n,--dry-run}'[show what would have been transferred]' \
+  '(-W --whole-file --no-whole-file)'{-W,--whole-file}'[copy whole files]' \
+  '(-W --whole-file)--no-whole-file[always use incremental rsync algorithm]' \
+  '(-x --one-file-system)'{-x,--one-file-system}'[do not cross filesystem boundaries]' \
+  '(-B --block-size)'{-B,--block-size=}'[checksum blocking size]:block size' \
+  '(-e --rsh)'{-e,--rsh}'[rsh command]:remote command:(rsh ssh)' \
+  '--rsync-path=[specify path to rsync on the remote machine]:remote command:' \
+  '(-C --cvs-exclude)'{-C,--cvs-exclude}'[autoignore files in the same way as CVS]' \
+  '--existing[only update files that already exist]' \
+  '--ignore-existing[ignore files that already exist on the receiving side]' \
+  '--inplace[update destination files inplace (SEE MAN PAGE)]' \
+  '--delete[delete files that do not exist on the sending side]' \
+  '--delete-excluded[also delete excluded files on the receiving side]' \
+  '--delete-after[perform delete after transferring]' \
+  '--ignore-errors[delete even if there are IO errors]' \
+  '--max-delete=[do not delete more than NUM files]:number:' \
+  '(-P)--partial[keep partially transferred files]' \
+  '--partial-dir=[put a partially transferred file in specified directory]:directory:_files -/' \
+  '--force[force deletion of directories even if not empty]' \
+  '--numeric-ids[do not map uid/gid values by user/group name]' \
+  '--timeout=[set IO timeout in seconds]:seconds:' \
+  '(-I --ignore-times)'{-I,--ignore-times}'[do not exclude files that match length and time]' \
+  '--size-only[only use file size when determining if a file should be transferred]' \
+  '--modify-window=[timestamp window for file match]:seconds:' \
+  '(-T --temp-dir)'{-T,--temp-dir=}'[create temporary files in specified directory]:directory:_files -/' \
+  '--compare-dest=[also compare destination files relative to specified directory]:directory:_files -/' \
+  '--link-dest=[create hardlinks relative to specified directory for unchanged files]:directory:_files -/' \
+  '(--partial --progress)-P[equivalent to --partial --progress]' \
+  '(-z --compress)'{-z,--compress}'[compress file data]' \
+  '--exclude=[exclude files matching pattern]:pattern:' \
+  '--exclude-from=[exclude patterns listed in file]:file:_files' \
+  '--include=[do not exclude files matching pattern]:pattern:' \
+  '--include-from=[do not exclude patterns listed in file]:file:_files' \
+  '--version[print version number]' \
+  '--daemon[run as a rsync daemon]' \
+  '--no-detach[do not detach from the parent]' \
+  '--address=[bind to the specified address]:address:_hosts' \
+  '--config=[specify alternate rsyncd.conf file]:file:_files' \
+  '--port=[specify alternate rsyncd port number]:port:' \
+  '--blocking-io[use blocking IO for the remote shell]' \
+  '--no-blocking-io[turn off blocking IO when it is the default]' \
+  '--stats[give some file transfer stats]' \
+  '(-P)--progress[show progress during transfer]' \
+  '--log-format=[log file transfers using specified format]:format:' \
+  '--password-file=[get password from file]:file:_files' \
+  '--bwlimit=[limit bandwidth]:kbytes per second:' \
+  '--read-batch=[read batch file]:ext:' \
+  '--write-batch[write batch file]' \
+  '--files-from=[read list of source-file names from file]:file:_files' \
+  '--checksum-seed=[set block/file checksum seed (advanced users only)]:number:' \
+  '(-)'{-h,--help}'[display help information]' \
+  '(-0 --from0)'{-0,--from0}'[all *-from file lists are delimited by nulls]' \
+  '(-4 --ipv4)'{-4,--ipv4}'[prefer IPv4]' \
+  '(-6 --ipv6)'{-6,--ipv6}'[prefer IPv6]' \
+     -- '*=COMMAND*:command:_command' \
+	'*=FILE*:file:_files' \
+	'*=DIR*:directory:_files -/'

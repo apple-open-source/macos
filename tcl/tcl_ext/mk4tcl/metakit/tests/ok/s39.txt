@@ -1,0 +1,2 @@
+>>> Do not detach empty top-level views
+<<< done.

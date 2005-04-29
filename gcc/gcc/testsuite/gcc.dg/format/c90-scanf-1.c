@@ -4,8 +4,7 @@
 */
 /* Origin: Joseph Myers <jsm28@cam.ac.uk> */
 /* { dg-do compile } */
-/* APPLE LOCAL -Wlong-double */
-/* { dg-options "-std=iso9899:1990 -pedantic -Wformat -Wno-long-double" } */
+/* { dg-options "-std=iso9899:1990 -pedantic -Wformat" } */
 
 #include "format.h"
 

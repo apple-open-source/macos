@@ -27,7 +27,7 @@
  * OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/font/Type1/token.c,v 1.5 2001/01/17 19:43:24 dawes Exp $ */
+/* $XFree86: xc/lib/font/Type1/token.c,v 1.6 2003/05/27 22:26:47 tsi Exp $ */
 /* Authors: Sig Nin & Carol Thompson IBM Almaden Research Laboratory */
 #include "t1stdio.h"
 #include "util.h"
@@ -186,7 +186,7 @@ isWHITE_SPACE(ch)\
 )
 
 #define save_ch_no_inc(ch) \
-((tokenCharP < tokenMaxP) && (*tokenCharP = ch))
+if (tokenCharP < tokenMaxP) *tokenCharP = ch
  
 /*
  * -------------------------------------------------------------------
@@ -253,7 +253,6 @@ static long m_scale;
 /* real number exponent */
 static int e_sign;
 static long e_value;
-static long e_scale;
  
 /* radix number */
 static long r_base;
@@ -362,7 +361,6 @@ add_digits(int ch)
   /* Initialize for possible real */
   e_sign = '+';
   e_value = 0;
-  e_scale = 0;
  
   return(ch);
 }
@@ -476,7 +474,6 @@ add_fraction(int ch)
   /* Initialize for possible real */
   e_sign = '+';
   e_value = 0;
-  e_scale = 0;
  
   return(ch);
 }
@@ -554,7 +551,6 @@ add_exponent(int ch)
  
   /* Store results */
   e_value = value;
-  e_scale = scale;
  
   return(ch);
 }
@@ -692,10 +688,6 @@ REAL(int ch)
   double temp;
  
   back_ch_not_white(ch);
- 
-  /* NOTE: ignore e_scale, since e_value alone will cause
-   *   exponent overflow if e_scale > 0.
-   */
  
   /* HAZARD: exponent overflow of intermediate result
    * (e.g., in 370 floating point); this should not be a problem

@@ -26,5 +26,4 @@ _SQLValidDSN
 _SQLWriteDSNToIni
 _SQLWriteFileDSN
 _SQLWritePrivateProfileString
-_version
-_libname
+_iodbcinst_version

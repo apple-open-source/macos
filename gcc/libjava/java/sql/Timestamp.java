@@ -1,5 +1,5 @@
 /* Time.java -- Wrapper around java.util.Date
-   Copyright (C) 1999, 2000, 2003 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2003, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,6 +38,8 @@ exception statement from your version. */
 
 package java.sql;
 
+import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 
 /**
@@ -57,12 +59,10 @@ public class Timestamp extends java.util.Date
   /**
    * Used for parsing and formatting this date.
    */
-  // Millisecond will have to be close enough for now.
-  private static SimpleDateFormat parse_sdf = 
-    new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSS");
-
-  private static SimpleDateFormat format_sdf =
+  private static SimpleDateFormat dateFormat =
     new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+  private static DecimalFormat decimalFormat = new DecimalFormat("000000000");
+  private static StringBuffer sbuf = new StringBuffer(29);
 
   /**
     * The nanosecond value for this object
@@ -78,14 +78,43 @@ public class Timestamp extends java.util.Date
    */
   public static Timestamp valueOf(String str)
   {
+    int nanos = 0;
+    int dot = str.indexOf('.');
+    if (dot != -1)
+      {
+	if (str.lastIndexOf('.') != dot)
+	  throw new IllegalArgumentException(str);
+
+	int len = str.length() - dot - 1;
+	if (len < 1 || len > 9)
+	  throw new IllegalArgumentException(str);
+
+	nanos = Integer.parseInt(str.substring(dot + 1));
+	for (int i = len; i < 9; i++)
+	  nanos *= 10;
+	
+	str = str.substring(0, dot);
+
+      }
+
     try
       {
-	Date d = (Date) parse_sdf.parseObject(str);
-	return new Timestamp(d.getTime());
+        java.util.Date d;
+        synchronized (dateFormat)
+	  {
+	    d = (java.util.Date) dateFormat.parseObject(str);
+	  }
+
+	if (d == null)
+	  throw new IllegalArgumentException(str);
+
+	Timestamp ts = new Timestamp(d.getTime() + nanos / 1000000);
+	ts.nanos = nanos;
+	return ts;
       }
-    catch (Exception e)
+    catch (ParseException e)
       {
-	return null;
+	throw new IllegalArgumentException(str);
       }
   }
 
@@ -111,14 +140,24 @@ public class Timestamp extends java.util.Date
 
   /**
    * This method initializes a new instance of this class with the
-   * specified time value representing the number of seconds since 
+   * specified time value representing the number of milliseconds since 
    * Jan 1, 1970 at 12:00 midnight GMT.
    *
    * @param time The time value to intialize this <code>Time</code> to.
    */
   public Timestamp(long date)
   {
-    super(date);
+    super(date - (date % 1000));
+    nanos = (int) (date % 1000) * 1000000;
+  }
+
+  /**
+   * Return the value of this Timestamp as the number of milliseconds 
+   * since Jan 1, 1970 at 12:00 midnight GMT.
+   */
+  public long getTime()
+  {
+    return super.getTime() + (nanos / 1000000);
   }
 
   /**
@@ -128,7 +167,17 @@ public class Timestamp extends java.util.Date
    */
   public String toString()
   {
-    return format_sdf.format(this) + "." + getNanos();
+    synchronized (dateFormat)
+      {
+        sbuf.setLength(0);
+	dateFormat.format(this, sbuf, null);
+	sbuf.append('.');
+	decimalFormat.format(nanos, sbuf, null);
+	int end = sbuf.length() - 1;
+	while (end > 20 && sbuf.charAt(end) == '0')
+	  end--;
+	return sbuf.substring(0, end + 1);
+      }
   }
 
   /**
@@ -160,12 +209,10 @@ public class Timestamp extends java.util.Date
    */
   public boolean before(Timestamp ts)
   {
-    if (ts.getTime() > getTime())
+    long time1 = getTime();
+    long time2 = ts.getTime();
+    if (time1 < time2 || (time1 == time2 && getNanos() < ts.getNanos()))
       return true;
-
-    if (ts.getNanos() > getNanos())
-      return true;
-
     return false;
   }
 
@@ -180,12 +227,10 @@ public class Timestamp extends java.util.Date
    */
   public boolean after(Timestamp ts)
   {
-    if (ts.getTime() < getTime())
+    long time1 = getTime();
+    long time2 = ts.getTime();
+    if (time1 > time2 || (time1 == time2 && getNanos() > ts.getNanos()))
       return true;
-
-    if (ts.getNanos() < getNanos())
-      return true;
-
     return false;
   }
 
@@ -202,9 +247,6 @@ public class Timestamp extends java.util.Date
    */
   public boolean equals(Object obj)
   {
-    if (obj == null)
-      return false;
-
     if (!(obj instanceof Timestamp))
       return false;
 

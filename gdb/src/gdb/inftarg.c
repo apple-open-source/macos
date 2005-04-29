@@ -1,7 +1,7 @@
 /* Target-vector operations for controlling Unix child processes, for GDB.
 
    Copyright 1990, 1991, 1992, 1993, 1994, 1995, 1996, 1998, 1999,
-   2000, 2002, 2003 Free Software Foundation, Inc.
+   2000, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support.
 
@@ -37,8 +37,9 @@
 #include "event-loop.h"
 
 #include "gdb_wait.h"
+#include "inflow.h"
 
-extern int child_enable_exception_callback (enum exception_event_kind,
+extern struct symtab_and_line *child_enable_exception_callback (enum exception_event_kind,
 				 int);
 extern struct symtabs_and_lines *
 child_find_exception_catchpoints (enum exception_event_kind,
@@ -224,7 +225,7 @@ child_attach (char *args, int from_tty)
 	  printf_unfiltered ("Attaching to program: %s, %s\n", exec_file,
 			     target_pid_to_str (pid_to_ptid (pid)));
 	else
-	  printf_unfiltered ("Attaching to %s\n", 
+	  printf_unfiltered ("Attaching to %s\n",
 	                     target_pid_to_str (pid_to_ptid (pid)));
 
 	gdb_flush (gdb_stdout);
@@ -308,7 +309,6 @@ child_files_info (struct target_ops *ignore)
       attach_flag ? "attached" : "child", target_pid_to_str (inferior_ptid));
 }
 
-/* ARGSUSED */
 static void
 child_open (char *arg, int from_tty)
 {
@@ -511,8 +511,6 @@ child_can_run (void)
 static void
 child_stop (void)
 {
-  extern pid_t inferior_process_group;
-
   kill (-inferior_process_group, SIGINT);
 }
 
@@ -524,10 +522,10 @@ child_find_exception_catchpoints (enum exception_event_kind kind,
   return (struct symtabs_and_lines *) NULL;
 }
   
-int
+struct symtab_and_line *
 child_enable_exception_callback (enum exception_event_kind kind, int enable)
 {
-  return 0;
+  return (struct symtab_and_line *) NULL;
 }
 #endif
 
@@ -559,7 +557,51 @@ child_core_file_to_sym_file (char *core)
    */
   return NULL;
 }
-
+
+/* Perform a partial transfer to/from the specified object.  For
+   memory transfers, fall back to the old memory xfer functions.  */
+
+static LONGEST
+child_xfer_partial (struct target_ops *ops, enum target_object object,
+		    const char *annex, void *readbuf,
+		    const void *writebuf, ULONGEST offset, LONGEST len)
+{
+  switch (object)
+    {
+    case TARGET_OBJECT_MEMORY:
+      if (readbuf)
+	return child_xfer_memory (offset, readbuf, len, 0/*write*/,
+				  NULL, ops);
+      if (writebuf)
+	return child_xfer_memory (offset, readbuf, len, 1/*write*/,
+				  NULL, ops);
+      return -1;
+
+    case TARGET_OBJECT_UNWIND_TABLE:
+#ifndef NATIVE_XFER_UNWIND_TABLE
+#define NATIVE_XFER_UNWIND_TABLE(OPS,OBJECT,ANNEX,WRITEBUF,READBUF,OFFSET,LEN) (-1)
+#endif
+      return NATIVE_XFER_UNWIND_TABLE (ops, object, annex, readbuf, writebuf,
+				       offset, len);
+
+    case TARGET_OBJECT_AUXV:
+#ifndef NATIVE_XFER_AUXV
+#define NATIVE_XFER_AUXV(OPS,OBJECT,ANNEX,WRITEBUF,READBUF,OFFSET,LEN) (-1)
+#endif
+      return NATIVE_XFER_AUXV (ops, object, annex, readbuf, writebuf,
+			       offset, len);
+
+    case TARGET_OBJECT_WCOOKIE:
+#ifndef NATIVE_XFER_WCOOKIE
+#define NATIVE_XFER_WCOOKIE(OPS,OBJECT,ANNEX,WRITEBUF,READBUF,OFFSET,LEN) (-1)
+#endif
+      return NATIVE_XFER_WCOOKIE (ops, object, annex, readbuf, writebuf,
+				  offset, len);
+
+    default:
+      return -1;
+    }
+}
 
 #if !defined(CHILD_PID_TO_STR)
 char *
@@ -586,6 +628,7 @@ init_child_ops (void)
   child_ops.to_store_registers = store_inferior_registers;
   child_ops.to_prepare_to_store = child_prepare_to_store;
   child_ops.to_xfer_memory = child_xfer_memory;
+  child_ops.to_xfer_partial = child_xfer_partial;
   child_ops.to_files_info = child_files_info;
   child_ops.to_insert_breakpoint = memory_insert_breakpoint;
   child_ops.to_remove_breakpoint = memory_remove_breakpoint;
@@ -627,10 +670,10 @@ init_child_ops (void)
 }
 
 /* Take over the 'find_mapped_memory' vector from inftarg.c. */
-extern void 
-inftarg_set_find_memory_regions (int (*func) (int (*) (CORE_ADDR, 
-						       unsigned long, 
-						       int, int, int, 
+extern void
+inftarg_set_find_memory_regions (int (*func) (int (*) (CORE_ADDR,
+						       unsigned long,
+						       int, int, int,
 						       void *),
 					      void *))
 {
@@ -638,7 +681,7 @@ inftarg_set_find_memory_regions (int (*func) (int (*) (CORE_ADDR,
 }
 
 /* Take over the 'make_corefile_notes' vector from inftarg.c. */
-extern void 
+extern void
 inftarg_set_make_corefile_notes (char * (*func) (bfd *, int *))
 {
   child_ops.to_make_corefile_notes = func;

@@ -25,6 +25,8 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
+#define VersionNumber   "3.1.3"
+
     // USB CDC Common Defintions
 		
 #define kUSBAbstractControlModel	2
@@ -33,6 +35,7 @@
 #define kUSBDeviceManagementModel	9
 #define kUSBMobileDirectLineModel	10
 #define kUSBOBEXModel			11
+#define kUSBEthernetEmulationModel  12
 
 #define kUSBv25				1
 #define kUSBv25PCCA			2
@@ -92,6 +95,7 @@ enum
     WCM_FunctionalDescriptor	= 0x11,
     DMM_FunctionalDescriptor	= 0x14,
     OBEX_FunctionalDescriptor	= 0x15,
+	EEM_Functional_Descriptor	= 0xff,
 		
     CM_ManagementData		= 0x01,
     CM_ManagementOnData		= 0x02,
@@ -155,6 +159,14 @@ enum
     kPACKET_TYPE_MULTICAST =		0x0010
 };
 
+	// EEM packet definitions
+	
+typedef struct
+{
+	UInt16  bmHeader;
+
+} EEMPacketHeader;
+
     // Functional Descriptors
 	
 typedef struct 
@@ -202,6 +214,18 @@ typedef struct
     UInt8 	bNumberPowerFilters;
 } ECMFunctionalDescriptor;
 
+typedef struct
+{
+    UInt8 	bFunctionLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bDescriptorSubtype;
+	UInt8 	iMACAddress;
+    UInt8 	bmEthernetStatistics[4];
+    UInt16 	wMaxSegmentSize;
+    UInt16 	wNumberMCFilters;
+    UInt8 	bNumberPowerFilters;
+} EEMFunctionalDescriptor;
+
 typedef struct 
 {
     UInt8	bFunctionLength;
@@ -210,6 +234,16 @@ typedef struct
     UInt8 	bcdCDC1;
     UInt8 	bcdCDC2;
 } WHCMFunctionalDescriptor;
+
+typedef struct 
+{
+    UInt8	bFunctionLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bDescriptorSubtype;
+    UInt8 	bcdCDC1;
+    UInt8 	bcdCDC2;
+	UInt16  wMaxCommand;
+} DMMFunctionalDescriptor;
 
 typedef struct 
 {

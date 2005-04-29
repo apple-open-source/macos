@@ -15,7 +15,7 @@
 #	I checked the limits using ncurses "captoinfo -CrTv", which prints
 #	the resolved length of each entry in a comment at the end - T.Dickey
 #
-# $XFree86: xc/programs/xterm/termcap,v 3.28 2001/01/17 23:46:39 dawes Exp $
+# $XFree86: xc/programs/xterm/termcap,v 3.31 2003/10/27 01:07:57 dickey Exp $
 #
 xf|xterm-xfree86|XFree86 xterm:\
 	:k1=\EOP:k2=\EOQ:k3=\EOR:k4=\EOS:\
@@ -28,7 +28,7 @@ xf|xterm-xfree86|XFree86 xterm:\
 # This chunk is used for building the VT220/Sun/PC keyboard variants.
 xb|xterm-basic|xterm common (XFree86):\
 	:li#24:co#80:am:kn#12:km:mi:ms:xn:bl=^G:\
-	:is=\E[!p\E[?3;4l\E[4l\E>:rs=\E[!p\E[?3;4l\E[4l\E>:\
+	:is=\E[!p\E[?3;4l\E[4l\E>:rs=\E[!p\E[?3;4l\E[4l\E>:le=^H:\
 	:AL=\E[%dL:DL=\E[%dM:DC=\E[%dP:al=\E[L:dc=\E[P:dl=\E[M:\
 	:UP=\E[%dA:DO=\E[%dB:LE=\E[%dD:RI=\E[%dC:\
 	:ho=\E[H:cd=\E[J:ce=\E[K:cl=\E[H\E[2J:cm=\E[%i%d;%dH:cs=\E[%i%d;%dr:\
@@ -71,17 +71,24 @@ xn|xterm-noapp|xterm with cursor keys in normal mode:\
 #
 # This should work for the commonly used "color xterm" variations (XFree86
 # xterm, color_xterm, nxterm, rxvt).  Note that it does not set 'bce', so for
-# XFree86 and and rxvt, some applications that use colors will be less
-# efficient, and in a few special cases (with "smart" optimization) the wrong
-# color will be painted in spots.
+# XFree86 and rxvt, some applications that use colors will be less efficient,
+# and in a few special cases (with "smart" optimization) the wrong color will
+# be painted in spots.
 vc|xterm-color|generic "ANSI" color xterm:\
-	:Co#8:NC@:pa#64:op=\E[m:AB=\E[4%dm:AF=\E[3%dm:ac@:tc=xterm-r6:
+	:Co#8:NC@:pa#64:op=\E[m:AB=\E[4%dm:AF=\E[3%dm:ac=:tc=xterm-r6:
 #
 # These aliases are for compatibility with the terminfo; termcap cannot provide
-# the extra features, but termcap applications still want the names.
+# the extra features, but termcap applications still want the names.  Note that
+# AF/AB really should be Sf/Sb, but there are applications which expect the
+# former.  The terminfo contains both strings.
 x1|xterm-16color|xterm alias:tc=xterm-xfree86:
-x2|xterm-88color|xterm alias:tc=xterm-256color:
-x3|xterm-256color|xterm alias:tc=xterm-xfree86:
+
+x2|xterm-88color|xterm alias:\
+	:Co#88:pa#88:tc=xterm-256color:
+
+x3|xterm-256color|xterm alias:\
+	:Co#256:pa#256:AF=\E[38;5;%dm:AB=\E[48;5;%dm:tc=xterm-xfree86:
+
 xn|xterm-nrc|xterm alias:tc=xterm:
 xr|xterm-rep|xterm alias:tc=xterm:
 xx|xterm-xmc|xterm alias:sg#1:tc=xterm:
@@ -118,7 +125,7 @@ xS|xterm-sco|XFree86 xterm with SCO function keys:\
 	:F1=\E[W:F2=\E[X:F3=\E[Y:F5=\E[a:F6=\E[b:\
 	:F7=\E[c:F8=\E[d:F9=\E[e:FA=\E[f:FB=\E[g:\
 	:FC=\E[h:FD=\E[i:FE=\E[j:FF=\E[k:\
-	:kh=\E[H:kI=\E[L:kN=\E[G:kP=\E[I:ac@:tc=xterm-basic:
+	:kh=\E[H:kI=\E[L:kN=\E[G:kP=\E[I:ac=:tc=xterm-basic:
 #
 v5|xterm-vt52|xterm emulating vt52:\
 	:bs:\

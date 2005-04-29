@@ -1,0 +1,54 @@
+This directory contains scripts for testing GNU tar using
+star "test archives". The archives themselves may be obtained
+from http://download.berlios.de/pub/star/testscripts.
+
+The tests are ignored unless environment variable STAR_TESTSCRIPTS
+is set and points to the directory where the test archives reside.
+Sample usage:
+
+	make STAR_TESTSCRIPTS=testdir check
+
+The following is a short description of the tests:
+
+* gtarfail.sh and gtarfile2.tar
+
+These tests require gtarfile.tar and gtarfile2.tar, respectively.
+These files are POSIX compliant tar archives that were not accepted
+by previous versions of GNU tar.
+
+* multi-fail.sh
+
+Requires gnu-multi-fail-volume1.gtar and gnu-multi-fail-volume2.gtar.
+These are two parts of a multi-volume archive that previous versions
+of tar refused to read (at least, without -B option). 
+
+* ustar-big-2g.sh
+
+Requires ustar-big-2g.tar.bz2. It is a tar archive containing a file with
+the largest size that a historic tar implementation is able to understand.
+
+* ustar-big-8g.sh
+
+Requires ustar-big-8g.tar.bz2. This is a test for reading an archive containing
+files with the largest size that may be used with ustar (POSIX.1-1990)
+format.
+
+* pax-big-10g.sh
+
+Requires pax-big-10g.tar.bz2. It tests handling pax (POSIX.1-2001) archves
+containing very large files (in this case -- 10 GB).
+
+* qucktest.sh
+
+A test for compliance to POSIX.1-1990 tar specification. It requires
+the files ustar-all-quicktest.tar and quicktest.filelist. Apart
+from them, the `tartest' program from 'star' package is needed.
+The test may be run only with root privileges, so it is a good
+idea to test the contents of ustar-all-quicktest.tar before running
+it.
+
+
+Local variables:
+mode: outline
+paragraph-separate: "[ 	]*$"
+end:

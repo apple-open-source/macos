@@ -1,5 +1,5 @@
 
-use Apache::test;
+use Apache::testold;
 
 $^W=0;
 

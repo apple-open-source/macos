@@ -1,8 +1,22 @@
 XCOMM $Xorg: scoLib.rules,v 1.3 2000/08/17 19:41:48 cpqbld Exp $
-XCOMM $XFree86: xc/config/cf/scoLib.rules,v 1.9 2002/11/20 23:00:34 dawes Exp $
+XCOMM $XFree86: xc/config/cf/scoLib.rules,v 1.11 2004/01/07 04:30:28 dawes Exp $
+
+#ifndef UseExportLists
+# define UseExportLists NO
+#endif
 
 #ifndef ExtraLoadFlags
 #define ExtraLoadFlags -R $(USRLIBDIRPATH)
+#endif
+
+#ifndef SCOAbsShlibPath
+# define SCOAbsShlibPath NO
+#endif
+
+#if SCOAbsShlibPath
+# define SCOShlibFlags -h $(SHLIBDIR)/$@
+#else
+# define SCOShlibFlags -R $(DESTDIR)$(SHLIBDIR) -h $@
 #endif
 
 /*
@@ -18,9 +32,10 @@ AllTarget(Concat(lib,libname.so.rev))					@@\
 									@@\
 Concat(lib,libname.so.rev): solist1 solist2 solist3 $(EXTRALIBRARYDEPS)	@@\
 	$(RM) $@~							@@\
-	echo -n $(LD) -o up/$@~ $(SHLIBLDFLAGS) -R $(DESTDIR)$(SHLIBDIR) -h $@ solist1 " " > Concat(down/lib,cmd) 	@@\
+	echo -n $(LD) -o up/$@~ $(SHLIBLDFLAGS) SCOShlibFlags solist1 " " > Concat(down/lib,cmd) 	@@\
 	echo -n solist2 " " >> Concat(down/lib,cmd)			@@\
-	echo -n solist3  >> Concat(down/lib,cmd)			@@\
+	echo -n solist3 " " >> Concat(down/lib,cmd)			@@\
+	echo -n $(REQUIREDLIBS) >> Concat(down/lib,cmd)			@@\
 	(cd down; $(SHELL) Concat(./lib,cmd))				@@\
 	$(RM) $@ Concat(lib,tmp1) Concat(lib,tmp2)			@@\
 	$(MV) $@~ $@							@@\
@@ -38,16 +53,16 @@ clean::									@@\
 #ifndef LinkWithExports
 # if UseExportLists
 #  define LinkWithExports(libname,rev,solist,down,up) \
-	(cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) -R $(DESTDIR)$(SHLIBDIR) -h $@ solist $(REQUIREDLIBS))	@@\
+	(cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) SCOShlibFlags solist $(REQUIREDLIBS))	@@\
 	if [ -f Concat(lib,libname.elist) ]; then \			@@\
 	    $(RM) down/$@.exports $@.list; \				@@\
 	    $(CPP) $(ALLINCLUDES) $(EXTRA_DEFINES) $(PROTO_DEFINES) $(THREADS_DEFINES) $(DEFINES) Concat(lib,libname.elist) | CppSedMagic >$@.list; \	@@\
 	    $(EXPORTLISTGEN) $@~ $@.list > down/$@.exports; \		@@\
-	    (cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) -h $@ ShlibExportListOpt($@.exports) solist $(REQUIREDLIBS)); \	@@\
+	    (cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) SCOShlibFlags ShlibExportListOpt($@.exports) solist $(REQUIREDLIBS)); \	@@\
 	    $(RM) down/$@.exports $@.list; \				@@\
 	fi;
 # else
 #  define LinkWithExports(libname,rev,solist,down,up) \
-	(cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) -R $(DESTDIR)$(SHLIBDIR) -h $@ solist $(REQUIREDLIBS))
+	(cd down; $(CCENVSETUP) $(LD) -o up/$@~ $(SHLIBLDFLAGS) SCOShlibFlags solist $(REQUIREDLIBS))
 # endif
 #endif

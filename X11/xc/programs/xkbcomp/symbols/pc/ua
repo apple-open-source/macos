@@ -2,9 +2,9 @@
 // based on
 // ukrainian standard keyboard 
 // AEN <aen@logic.ru> & Leon Kanter <leon@geon.donetsk.ua>
-// Last Changes 2001/12/11 by Andriy Rysin <arysin@yahoo.com>
+// Last Changes 2003/09/03 by Andriy Rysin <arysin@yahoo.com>
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/ua,v 1.3 2003/02/15 22:27:05 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/ua,v 1.5 2003/09/04 13:56:48 pascal Exp $
 
 partial default alphanumeric_keys 
 xkb_symbols "basic" {
@@ -77,7 +77,6 @@ xkb_symbols "winkeys" {
     key <AE07> {        [               7,        question      ]       };
     key <AE08> {        [               8,        asterisk      ]       };
     key <AB10> {        [          period,           comma      ]       };
-    key <BKSL> {        [       backslash,           slash      ]       };
 };
 
 partial alphanumeric_keys
@@ -134,7 +133,7 @@ xkb_symbols "phonetic" {
   key <LatK> {   [ Cyrillic_ka,       Cyrillic_KA         ]    };
   key <LatL> {   [ Cyrillic_el,       Cyrillic_EL         ]    };
   key <AC10> {   [ Ukrainian_ghe_with_upturn, Ukrainian_GHE_WITH_UPTURN ] };
-  key <AC11> {   [ quoteright,        quotedbl            ]    };
+  key <AC11> {   [ Cyrillic_che,      Cyrillic_CHE        ]    };
   key <BKSL> {   [ Cyrillic_yu,       Cyrillic_YU         ]    };
 
   key <LatZ> {   [ Cyrillic_ze,       Cyrillic_ZE         ]    };
@@ -144,7 +143,7 @@ xkb_symbols "phonetic" {
   key <LatB> {   [ Cyrillic_be,       Cyrillic_BE         ]    };
   key <LatN> {   [ Cyrillic_en,       Cyrillic_EN         ]    };
   key <LatM> {   [ Cyrillic_em,       Cyrillic_EM         ]    };
-  key <AB08> {   [ comma,             less                ]    };
-  key <AB09> {   [ period,            greater             ]    };
+  key <AB08> {   [ Ukrainian_yi,      Ukrainian_YI	  ]    };
+  key <AB09> {   [ Ukrainian_ie,      Ukrainian_IE	  ]    };
   key <AB10> {   [ slash,             question            ]    };
 };

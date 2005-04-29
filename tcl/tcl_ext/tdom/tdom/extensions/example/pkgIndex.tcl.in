@@ -1,0 +1,5 @@
+# tDOM Tcl package index file
+
+package ifneeded example @VERSION@        \
+    "package require expat; \
+     [list load [file join $dir example@VERSION@[info sharedlibextension] ] example]"

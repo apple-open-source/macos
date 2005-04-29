@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/TextExt.c,v 1.4 2001/12/14 19:54:07 dawes Exp $ */
+/* $XFree86: xc/lib/X11/TextExt.c,v 1.5 2003/11/17 22:20:08 dawes Exp $ */
 /*
  * Copyright 1995 by FUJITSU LIMITED
  * This is source code modified by FUJITSU LIMITED under the Joint
@@ -70,7 +70,6 @@ from The Open Group.
  * what is done in XTextExtents16.
  */
 int
-#if NeedFunctionPrototypes
 XTextExtents (
     XFontStruct *fs,
     _Xconst char *string,
@@ -79,14 +78,6 @@ XTextExtents (
     int *font_ascent,   /* RETURN font information */
     int *font_descent,  /* RETURN font information */
     register XCharStruct *overall)	/* RETURN character information */
-#else
-XTextExtents (fs, string, nchars, dir, font_ascent, font_descent, overall)
-    XFontStruct *fs;
-    char *string;
-    int nchars;
-    int *dir, *font_ascent, *font_descent;  /* RETURN font information */
-    register XCharStruct *overall;	/* RETURN character information */
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */
@@ -152,17 +143,11 @@ XTextExtents (fs, string, nchars, dir, font_ascent, font_descent, overall)
  * XTextWidth - compute the width of a string of eightbit bytes.  This is a 
  * subset of XTextExtents.
  */
-#if NeedFunctionPrototypes
-int XTextWidth (
+int
+XTextWidth (
     XFontStruct *fs,
     _Xconst char *string,
     int count)
-#else
-int XTextWidth (fs, string, count)
-    XFontStruct *fs;
-    char *string;
-    int count;
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */
@@ -204,17 +189,11 @@ int XTextWidth (fs, string, count)
 /*
  * _XTextHeight - compute the height of a string of eightbit bytes.
  */
-#if NeedFunctionPrototypes
-int _XTextHeight (
+int
+_XTextHeight (
     XFontStruct *fs,
     _Xconst char *string,
     int count)
-#else
-int _XTextHeight (fs, string, count)
-    XFontStruct *fs;
-    char *string;
-    int count;
-#endif
 {
     int i;				/* iterator */
     Bool singlerow = (fs->max_byte1 == 0);  /* optimization */

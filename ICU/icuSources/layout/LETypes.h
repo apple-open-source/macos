@@ -1,15 +1,14 @@
 
 /*
- * @(#)LETypes.h	1.2 00/03/15
  *
- * (C) Copyright IBM Corp. 1998-2003 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2004 - All Rights Reserved
  *
  */
 
 #ifndef __LETYPES_H
 #define __LETYPES_H
 
-#if !defined(LE_USE_CMEMORY) && (defined(U_LAYOUT_IMPLEMENTATION) || defined(U_LAYOUTEX_IMPLEMENTATION))
+#if !defined(LE_USE_CMEMORY) && (defined(U_LAYOUT_IMPLEMENTATION) || defined(U_LAYOUTEX_IMPLEMENTATION) || defined(U_STATIC_IMPLEMENTATION) || defined(U_COMBINED_IMPLEMENTATION))
 #define LE_USE_CMEMORY
 #endif
 
@@ -71,24 +70,6 @@ typedef uint8_t le_uint8;
  * @stable ICU 2.4
  */
 typedef UBool le_bool;
-
-#ifndef true
-/**
- * Used for <code>le_bool</code> values which are <code>true</code>.
- *
- * @stable ICU 2.4
- */
-#define true 1
-#endif
-
-#ifndef false
-/**
- * Used for <code>le_bool</code> values which are <code>false</code>.
- *
- * @stable ICU 2.4
- */
-#define false 0
-#endif
 
 #ifndef NULL
 /**

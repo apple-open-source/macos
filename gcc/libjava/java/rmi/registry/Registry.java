@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Registry.java --
+   Copyright (c) 1996, 1997, 1998, 1999, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -35,27 +35,31 @@ this exception to your version of the library, but you are not
 obligated to do so.  If you do not wish to do so, delete this
 exception statement from your version. */
 
+
 package java.rmi.registry;
 
-import java.rmi.RemoteException;
-import java.rmi.NotBoundException;
 import java.rmi.AccessException;
 import java.rmi.AlreadyBoundException;
+import java.rmi.NotBoundException;
 import java.rmi.Remote;
+import java.rmi.RemoteException;
 
-public interface Registry
-	extends Remote {
+public interface Registry extends Remote
+{
+  int REGISTRY_PORT = 1099;
 
-public static int REGISTRY_PORT = 1099;
+  Remote lookup(String name)
+    throws RemoteException, NotBoundException, AccessException;
 
-public Remote lookup(String name) throws RemoteException, NotBoundException, AccessException;
+  void bind(String name, Remote obj)
+    throws RemoteException, AlreadyBoundException, AccessException;
 
-public void bind(String name, Remote obj) throws RemoteException, AlreadyBoundException, AccessException;
+  void unbind(String name)
+    throws RemoteException, NotBoundException, AccessException;
 
-public void unbind(String name) throws RemoteException, NotBoundException, AccessException;
+  void rebind(String name, Remote obj)
+    throws RemoteException, AccessException;
 
-public void rebind(String name, Remote obj) throws RemoteException, AccessException;
-
-public String[] list() throws RemoteException, AccessException;
-
+  String[] list()
+    throws RemoteException, AccessException;
 }

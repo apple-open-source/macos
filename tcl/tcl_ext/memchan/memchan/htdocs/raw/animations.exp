@@ -1,0 +1,15 @@
+[page_begin mem/anim]
+	[nav_link [mem/sf/txt]]
+<br>
+	[site_xref]
+[page_content]
+
+[p] This page shows animations of the [mem/txt] logo in two sizes.
+
+<hr>
+
+[table][trtop][td] 43 x 64 </td>[td] 68 x 100
+</td></tr>[trtop][td][mem/logo/64a]</td>[td]
+[mem/logo/100a]</td></tr></table>
+
+[page_end]

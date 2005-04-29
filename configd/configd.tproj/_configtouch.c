@@ -42,11 +42,6 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 	int				sc_status;
 	CFDataRef			value;
 
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("__SCDynamicStoreTouchValue:"));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  key = %@"), key);
-	}
-
 	if (!store || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
 	}
@@ -74,7 +69,6 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 			/* store entry does not exist, create */
 
 			now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), now);
 			(void) _SCSerialize(now, &value, NULL, NULL);
 			CFRelease(now);
 			break;
@@ -85,13 +79,12 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 
 			/* store entry exists */
 
-			(void) _SCUnserialize((CFPropertyListRef *)&now, value, NULL, NULL);
+			(void) _SCUnserialize((CFPropertyListRef *)&now, value, NULL, 0);
 			if (isA_CFDate(now)) {
 				/* the value is a CFDate, update the time stamp */
 				CFRelease(now);
 				CFRelease(value);
 				now = CFDateCreate(NULL, CFAbsoluteTimeGetCurrent());
-				SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  new time stamp = %@"), now);
 				(void) _SCSerialize(now, &value, NULL, NULL);
 			} /* else, we'll just save the data (again) to bump the instance */
 			CFRelease(now);
@@ -99,7 +92,6 @@ __SCDynamicStoreTouchValue(SCDynamicStoreRef store, CFStringRef key)
 			break;
 		}
 		default :
-			SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  __SCDynamicStoreCopyValue(): %s"), SCErrorString(sc_status));
 			goto done;
 	}
 
@@ -125,34 +117,29 @@ _configtouch(mach_port_t 		server,
 	     int			*sc_status
 )
 {
-	serverSessionRef	mySession = getSession(server);
-	CFStringRef		key;		/* key  (un-serialized) */
-
-	if (_configd_verbose) {
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Touch key in configuration database."));
-		SCLog(TRUE, LOG_DEBUG, CFSTR("  server = %d"), server);
-	}
+	CFStringRef		key		= NULL;		/* key  (un-serialized) */
+	serverSessionRef	mySession	= getSession(server);
 
 	/* un-serialize the key */
 	if (!_SCUnserializeString(&key, NULL, (void *)keyRef, keyLen)) {
 		*sc_status = kSCStatusFailed;
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	if (!isA_CFString(key)) {
 		*sc_status = kSCStatusInvalidArgument;
-		CFRelease(key);
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	if (!mySession) {
 		*sc_status = kSCStatusNoStoreSession;	/* you must have an open session to play */
-		CFRelease(key);
-		return KERN_SUCCESS;
+		goto done;
 	}
 
 	*sc_status = __SCDynamicStoreTouchValue(mySession->store, key);
-	CFRelease(key);
 
+    done :
+
+	if (key)	CFRelease(key);
 	return KERN_SUCCESS;
 }

@@ -1,0 +1,234 @@
+#----------------------------------------------------------------------------
+#   This is derivated from the tcl8.3 win makefile and surely not
+#   perfect. It works for me. 
+#   rolf ade, 2001 (rolf@pointsman.de)
+#   
+#   Changes for 8.0.5 by Sumit Pokhariyal (sumitp@pune.tcs.co.in)
+#
+#   Project directories
+#
+#   ROOT   = top of source tree
+#
+#   TOOLS32 = location of VC++ 32-bit development tools.
+#
+#   INSTALLDIR = location of the Tcl installation
+#
+#----------------------------------------------------------------------------
+
+!if "$(MSVCDIR)" == ""
+MSG = ^
+You'll need to run vcvars32.bat from Developer Studio, first, to setup^
+the environment.
+!error $(MSG)
+!endif
+# emacs: '
+
+# Set this to the appropriate value of /MACHINE: for your platform
+MACHINE                = IX86
+ROOT           = ..
+INSTALLDIR     = c:\Progra~1\Tcl
+
+TOOLS32        = $(MSVCDIR)
+TOOLS32_rc     = $(MSVCDIR)\..\common\MSDev98
+
+# Uncomment the following line to compile with thread support
+#THREADDEFINES = -DTCL_THREADS=1
+
+# Set NODEBUG to 0 to compile with symbols
+NODEBUG = 1
+
+# The following defines can be used to control the amount of debugging
+# code that is added to the compilation.
+#
+#      -DTCL_MEM_DEBUG         Enables the debugging memory allocator.
+#      -DTCL_COMPILE_DEBUG     Enables byte compilation logging.
+#      -DTCL_COMPILE_STATS     Enables byte compilation statistics gathering.
+#      -DUSE_TCLALLOC=0        Disables the Tcl memory allocator in favor
+#                              of the native malloc implementation.  This is
+#
+# DEBUGDEFINES = -DTCL_MEM_DEBUG -DTCL_COMPILE_DEBUG -DTCL_COMPILE_STATS
+# DEBUGDEFINES = -DUSE_TCLALLOC=0
+
+
+#-------------------------------------------------------------------------
+#
+#   Do not modify below this line
+#
+#-------------------------------------------------------------------------
+
+NAMEPREFIX = libtdom
+DOTVERSION = 0.8.0
+VERSION = 080
+
+BINROOT         = .
+!IF "$(NODEBUG)" == "1"
+TMPDIRNAME      =
+DBGX            =
+!ELSE
+TMPDIRNAME      = Debug
+DBGX            = d
+!ENDIF
+TMPDIR          = $(BINROOT)
+OUTDIRNAME      = $(TMPDIRNAME)
+OUTDIR          = $(TMPDIR)
+TOP_DIR         = $(BINROOT)\..
+
+TDOMLIB         = $(OUTDIR)\$(NAMEPREFIX)$(VERSION)$(DBGX).lib
+TDOMDLLNAME     = $(NAMEPREFIX)$(VERSION)$(DBGX).dll
+TDOMDLL         = $(OUTDIR)\$(TDOMDLLNAME)
+
+MKDIR           = .\mkd.bat
+RM              = del
+
+LIB_INSTALL_DIR        = $(INSTALLDIR)\lib
+BIN_INSTALL_DIR        = $(INSTALLDIR)\bin
+SCRIPT_INSTALL_DIR     = $(INSTALLDIR)\lib\tcl$(DOTVERSION)
+INCLUDE_INSTALL_DIR    = $(INSTALLDIR)\include
+
+
+TDOMOBJS = $(TMPDIR)\xmlrole.obj    \
+           $(TMPDIR)\xmltok.obj     \
+           $(TMPDIR)\xmlparse.obj   \
+           $(TMPDIR)\xmlsimple.obj  \
+           $(TMPDIR)\utf8conv.obj   \
+           $(TMPDIR)\dom.obj        \
+           $(TMPDIR)\domalloc.obj   \
+	   $(TMPDIR)\domhtml.obj    \
+	   $(TMPDIR)\domxslt.obj    \
+	   $(TMPDIR)\nodecmd.obj    \
+           $(TMPDIR)\domxpath.obj   \
+           $(TMPDIR)\domlock.obj   \
+           $(TMPDIR)\tclexpat.obj   \
+           $(TMPDIR)\tcldom.obj     \
+           $(TMPDIR)\tdominit.obj
+
+
+cc32           = "$(TOOLS32)\bin\cl.exe"
+link32         = "$(TOOLS32)\bin\link.exe"
+rc32           = "$(TOOLS32_rc)\bin\rc.exe"
+include32      = -I"$(TOOLS32)\include"
+libpath32      = /LIBPATH:"$(TOOLS32)\lib"
+tcllibpath     = /LIBPATH:"$(INSTALLDIR)\lib"
+lib32          = "$(TOOLS32)\bin\lib.exe"
+
+WINDIR         = $(ROOT)\win
+GENERICDIR     = $(ROOT)\generic
+EXPATDIR       = $(ROOT)\expat
+TCLINCDIR      = $(INSTALLDIR)\Include
+
+TCL_INCLUDES   = -I"$(WINDIR)" -I"$(GENERICDIR)" -I"$(EXPATDIR)" -I"$(TCLINCDIR)"
+TCL_DEFINES    = $(DEBUGDEFINES) $(THREADDEFINES)
+
+#-------------------------------------------------------------------------
+#
+#   Compile flags
+#
+#-------------------------------------------------------------------------
+
+!IF "$(NODEBUG)" == "1"
+# This cranks the optimization level to maximize speed
+cdebug = -O2 -Gs -GD
+!ELSE
+!IF "$(MACHINE)" == "IA64"
+cdebug = -Od -Zi
+!ELSE
+cdebug = -Z7 -Od
+!ENDIF
+!ENDIF
+
+# declarations common to all compiler options
+cflags = -c -W3 -nologo -Fp$(TMPDIR)\ -YX -DHAVE_MEMMOVE -DXML_DTD -DXML_NS -DTDOM_NO_UNKNOWN_CMD -DVERSION="\"$(DOTVERSION)\""
+cvarsdll = -MD$(DBGX)
+
+TCL_CFLAGS     = $(cdebug) $(cflags) $(cvarsdll) $(include32) \
+                       $(TCL_INCLUDES) $(TCL_DEFINES)
+CON_CFLAGS     = $(cdebug) $(cflags) $(include32) -DCONSOLE
+
+#-------------------------------------------------------------------------
+#
+#   Link flags
+#
+#-------------------------------------------------------------------------
+
+!IF "$(NODEBUG)" == "1"
+ldebug = /RELEASE
+!ELSE
+ldebug = -debug:full -debugtype:cv
+!ENDIF
+
+# declarations common to all linker options
+lflags = /NODEFAULTLIB /NOLOGO /MACHINE:$(MACHINE) $(libpath32) $(tcllibpath)
+
+# declarations for use on Intel i386, i486, and Pentium systems
+DLLENTRY = @12
+dlllflags = $(lflags) -entry:_DllMainCRTStartup$(DLLENTRY) -dll
+
+
+conlflags = $(lflags) -subsystem:console -entry:mainCRTStartup
+guilflags = $(lflags) -subsystem:windows -entry:WinMainCRTStartup
+
+libc = libc$(DBGX).lib oldnames.lib
+libcdll = msvcrt$(DBGX).lib oldnames.lib
+
+baselibs   = kernel32.lib $(optlibs) advapi32.lib user32.lib tcl80$(DBGX).lib
+#baselibs    = kernel32.lib $(optlibs) advapi32.lib user32.lib tcl83.lib
+winlibs     = $(baselibs) gdi32.lib comdlg32.lib winspool.lib
+
+
+guilibs     = $(libc) $(winlibs)
+conlibs     = $(libc) $(baselibs)
+guilibsdll  = $(libcdll) $(winlibs)
+conlibsdll  = $(libcdll) $(baselibs)
+
+#-------------------------------------------------------------------------
+#
+#   Project specific targets
+#
+#-------------------------------------------------------------------------
+
+all:       dlls 
+dlls:      $(TDOMDLL)
+
+install:   all
+	@echo installing tDOM
+	@$(MKDIR) "$(INSTALLDIR)\lib\tDOM"
+	@xcopy /y $(TDOMDLL) "$(INSTALLDIR)\lib\tDOM"
+	@xcopy /y pkgIndex.tcl "$(INSTALLDIR)\lib\tDOM"
+	@xcopy /y ..\lib\tdom.tcl "$(INSTALLDIR)\lib\tDOM"
+	@xcopy /y ..\lib\domhtml.tcl "$(INSTALLDIR)\lib\tDOM"
+
+$(TDOMLIB): $(TDOMDLL)
+
+$(TDOMDLL): $(TDOMOBJS)
+       $(link32) $(ldebug) $(dlllflags) \
+               -out:$@ $(guilibsdll) @<<
+$(TDOMOBJS)
+<<
+
+
+	$(cc32) $(cdebug) $(cflags) -Zl -DSTATIC_BUILD $(TCL_INCLUDES) -Fo$@ $?
+
+
+#---------------------------------------------------------------------
+# Dedependency rules
+#---------------------------------------------------------------------
+
+
+#-------------------------------------------------------------------------
+#   Implicit rules
+#-------------------------------------------------------------------------
+
+{$(EXPATDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) -DBUILD_tcl $(TCL_CFLAGS) -Fo$(TMPDIR)\ $<
+
+{$(GENERICDIR)}.c{$(TMPDIR)}.obj:
+    $(cc32) -DBUILD_tcl $(TCL_CFLAGS) -Fo$(TMPDIR)\ $<
+
+clean:
+       -@$(RM) $(OUTDIR)\*.exp 2>nul
+       -@$(RM) $(OUTDIR)\*.lib 2>nul
+       -@$(RM) $(OUTDIR)\*.dll 2>nul
+       -@$(RM) $(TMPDIR)\*.pch 2>nul
+       -@$(RM) $(TMPDIR)\*.obj 2>nul
+       -@$(RM) $(TMPDIR)\*.ilk 2>nul
+       -@$(RM) $(TMPDIR)\*.pdb 2>nul

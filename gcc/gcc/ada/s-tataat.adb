@@ -6,8 +6,8 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                                                                          --
---             Copyright (C) 1995-2001 Florida State University             --
+--             Copyright (C) 1991-1994, Florida State University            --
+--             Copyright (C) 1995-2004, Ada Core Technologies               --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,8 +27,8 @@
 -- however invalidate  any other reasons why  the executable file  might be --
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
--- GNARL was developed by the GNARL team at Florida State University. It is --
--- now maintained by Ada Core Technologies, Inc. (http://www.gnat.com).     --
+-- GNARL was developed by the GNARL team at Florida State University.       --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -50,10 +50,6 @@ package body System.Tasking.Task_Attributes is
 
    use Task_Primitives.Operations;
    use Tasking.Initialization;
-
-   function To_Access_Node is new Unchecked_Conversion
-     (Access_Address, Access_Node);
-   --  Tetch pointer to indirect attribute list
 
    function To_Access_Address is new Unchecked_Conversion
      (Access_Node, Access_Address);
@@ -104,7 +100,7 @@ package body System.Tasking.Task_Attributes is
          --  Deallocation does finalization, if necessary.
 
          declare
-            C : System.Tasking.Task_ID := All_Tasks_List;
+            C : System.Tasking.Task_Id := All_Tasks_List;
             P : Access_Node;
 
          begin
@@ -149,7 +145,8 @@ package body System.Tasking.Task_Attributes is
       Undefer_Abortion;
 
    exception
-      when others => null;
+      when others =>
+         null;
          pragma Assert (False,
            "Exception in task attribute instance finalization");
    end Finalize;
@@ -161,7 +158,7 @@ package body System.Tasking.Task_Attributes is
    --  This is to be called just before the ATCB is deallocated.
    --  It relies on the caller holding T.L write-lock on entry.
 
-   procedure Finalize_Attributes (T : Task_ID) is
+   procedure Finalize_Attributes (T : Task_Id) is
       P : Access_Node;
       Q : Access_Node := To_Access_Node (T.Indirect_Attributes);
 
@@ -176,7 +173,8 @@ package body System.Tasking.Task_Attributes is
       T.Indirect_Attributes := null;
 
    exception
-      when others => null;
+      when others =>
+         null;
          pragma Assert (False,
            "Exception in per-task attributes finalization");
    end Finalize_Attributes;
@@ -186,12 +184,11 @@ package body System.Tasking.Task_Attributes is
    ---------------------------
 
    --  This is to be called by System.Tasking.Stages.Create_Task.
-   --  It relies on their being no concurrent access to this TCB,
-   --  so it does not defer abortion nor lock T.L.
 
-   procedure Initialize_Attributes (T : Task_ID) is
+   procedure Initialize_Attributes (T : Task_Id) is
       P : Access_Instance;
    begin
+      Defer_Abortion;
       Lock_RTS;
 
       --  Initialize all the direct-access attributes of this task.
@@ -201,16 +198,19 @@ package body System.Tasking.Task_Attributes is
       while P /= null loop
          if P.Index /= 0 then
             T.Direct_Attributes (P.Index) :=
-              System.Storage_Elements.To_Address (P.Initial_Value);
+              Direct_Attribute_Element
+                (System.Storage_Elements.To_Address (P.Initial_Value));
          end if;
 
          P := P.Next;
       end loop;
 
       Unlock_RTS;
+      Undefer_Abortion;
 
    exception
-      when others => null;
+      when others =>
+         null;
          pragma Assert (False);
    end Initialize_Attributes;
 

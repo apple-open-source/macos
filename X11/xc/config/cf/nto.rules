@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/nto.rules,v 1.4 2002/01/16 00:40:00 keithp Exp $ 
+XCOMM $XFree86: xc/config/cf/nto.rules,v 1.8 2003/10/11 09:40:15 herrb Exp $ 
 XCOMM Rules for QNX/Neutrino
 XCOMM Note that some of these will disappear when we stop cross-compiling
 
@@ -109,13 +109,6 @@ XMULIB = $(XMULIBONLY) $(XTOOLLIB) $(XLIB)
 #endif
 
 #ifndef SharedLibraryTarget
-#ifdef UseInstalled
-#define LinkBuildSonameLibrary(lib) true
-#else
-#define LinkBuildSonameLibrary(lib) (RemoveFile($(BUILDLIBDIR)/lib); \
-	cd $(BUILDLIBDIR); $(LN) $(BUILDINCTOP)/$(CURRENT_DIR)/lib .)
-#endif
-
 #define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
 AllTarget(Concat(lib,libname.so.rev))					@@\
 									@@\
@@ -134,7 +127,7 @@ Concat(lib,libname.so.rev):  solist $(EXTRALIBRARYDEPS)			@@\
 	LinkBuildLibrary(Concat(lib,libname.so))			@@\
 									@@\
 clean::									@@\
-	@MAJREV=`expr rev : '\([^.]*\)'`; \				@@\
+	@MAJREV=`echo rev | sed 's/\.[^\.]*$$//'`; \			@@\
 	set -x; $(RM) Concat(lib,libname.so.$$MAJREV)			@@\
 	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
 #endif
@@ -205,17 +198,6 @@ clean::									@@\
  * SharedDepLibraryTarget - generate rules to create a shared library.
  */
 #ifndef SharedDepLibraryTarget
-#ifdef UseInstalled
-#ifndef LinkBuildSonameLibrary
-#define LinkBuildSonameLibrary(lib) true
-#endif
-#else
-#ifndef LinkBuildSonameLibrary
-#define LinkBuildSonameLibrary(lib) (RemoveFile($(BUILDLIBDIR)/lib); \
-	cd $(BUILDLIBDIR); $(LN) $(BUILDINCTOP)/$(CURRENT_DIR)/lib .)
-#endif
-#endif
-
 #define SharedDepLibraryTarget(libname,rev,deplist,solist,down,up)	@@\
 AllTarget(Concat(lib,libname.so.rev))					@@\
 									@@\
@@ -234,7 +216,7 @@ Concat(lib,libname.so.rev):  deplist $(EXTRALIBRARYDEPS)		@@\
 	LinkBuildLibraryMaybe(Concat(lib,libname.so),$(SOSYMLINK))	@@\
 									@@\
 clean::									@@\
-	@MAJREV=`expr rev : '\([^.]*\)'`; \				@@\
+	@MAJREV=`echo rev | sed 's/\.[^\.]*$$//'`; \			@@\
 	set -x; $(RM) Concat(lib,libname.so.$$MAJREV)			@@\
 	$(RM) Concat(lib,libname.so.rev) Concat(lib,libname.so)
 

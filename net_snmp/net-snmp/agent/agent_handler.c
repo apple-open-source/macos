@@ -1,3 +1,13 @@
+/* Portions of this file are subject to the following copyright(s).  See
+ * the Net-SNMP's COPYING file for more details and other copyrights
+ * that may apply:
+ */
+/*
+ * Portions of this file are copyrighted by:
+ * Copyright © 2003 Sun Microsystems, Inc. All rights reserved.
+ * Use is subject to license terms specified in the COPYING file
+ * distributed with the Net-SNMP package.
+ */
 #include <net-snmp/net-snmp-config.h>
 
 #include <sys/types.h>
@@ -10,6 +20,10 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 
 #include <net-snmp/agent/bulk_to_next.h>
+
+
+static netsnmp_mib_handler *_clone_handler(netsnmp_mib_handler *it);
+
 /***********************************************************************/
 /*
  * New Handler based API 
@@ -73,6 +87,17 @@
 /** creates a netsnmp_mib_handler structure given a name and a access method.
  *  The returned handler should then be @link netsnmp_register_handler()
  *  registered.@endlink
+ *
+ *  @param name is the handler name and is copied then assigned to
+ *              netsnmp_mib_handler->handler_name
+ *
+ *  @param handler_access_method is a function pointer used as the access
+ *	   method for this handler registration instance for whatever required
+ *         needs.
+ *
+ *  @return a pointer to a populated netsnmp_mib_handler struct to be
+ *          registered
+ *
  *  @see netsnmp_create_handler_registration()
  *  @see netsnmp_register_handler()
  */
@@ -81,8 +106,14 @@ netsnmp_create_handler(const char *name,
                        Netsnmp_Node_Handler * handler_access_method)
 {
     netsnmp_mib_handler *ret = SNMP_MALLOC_TYPEDEF(netsnmp_mib_handler);
-    ret->handler_name = strdup(name);
-    ret->access_method = handler_access_method;
+    if (ret) {
+        ret->access_method = handler_access_method;
+        if (NULL != name) {
+            ret->handler_name = strdup(name);
+            if (NULL == ret->handler_name)
+                SNMP_FREE(ret);
+        }
+    }
     return ret;
 }
 
@@ -90,16 +121,49 @@ netsnmp_create_handler(const char *name,
  *  access_method function, a registration location oid and the modes
  *  the handler supports. If modes == 0, then modes will automatically
  *  be set to the default value of only HANDLER_CAN_DEFAULT, which is
- *  by default read-only GET and GETNEXT requests.
+ *  by default read-only GET and GETNEXT requests. A hander which supports
+ *  sets but not row creation should set us a mode of HANDLER_CAN_SET_ONLY.
  *  @note This ends up calling netsnmp_create_handler(name, handler_access_method)
+ *  @param name is the handler name and is copied then assigned to
+ *              netsnmp_handler_registration->handlerName.
+ *
+ *  @param handler_access_method is a function pointer used as the access
+ *	method for this handler registration instance for whatever required
+ *	needs.
+ *
+ *  @param reg_oid is the registration location oid.
+ *
+ *  @param reg_oid_len is the length of reg_oid, can use the macro,
+ *         OID_LENGTH
+ *
+ *  @param modes is used to configure read/write access.  If modes == 0, 
+ *	then modes will automatically be set to the default 
+ *	value of only HANDLER_CAN_DEFAULT, which is by default read-only GET 
+ *	and GETNEXT requests.  The other two mode options are read only, 
+ *	HANDLER_CAN_RONLY, and read/write, HANDLER_CAN_RWRITE.
+ *
+ *		- HANDLER_CAN_GETANDGETNEXT
+ *		- HANDLER_CAN_SET
+ *		- HANDLER_CAN_GETBULK      
+ *
+ *		- HANDLER_CAN_RONLY   (HANDLER_CAN_GETANDGETNEXT)
+ *		- HANDLER_CAN_RWRITE  (HANDLER_CAN_GETANDGETNEXT | 
+ *			HANDLER_CAN_SET)
+ *		- HANDLER_CAN_DEFAULT HANDLER_CAN_RONLY
+ *
+ *  @return Returns a pointer to a netsnmp_handler_registration struct.
+ *          NULL is returned only when memory could not be allocated for the 
+ *          netsnmp_handler_registration struct.
+ *
+ *
  *  @see netsnmp_create_handler()
  *  @see netsnmp_register_handler()
  */
 netsnmp_handler_registration *
-netsnmp_create_handler_registration(const char *name,
-                                    Netsnmp_Node_Handler *
-                                    handler_access_method, oid * reg_oid,
-                                    size_t reg_oid_len, int modes)
+netsnmp_handler_registration_create(const char *name,
+                                    netsnmp_mib_handler *handler,
+                                    oid * reg_oid, size_t reg_oid_len,
+                                    int modes)
 {
     netsnmp_handler_registration *the_reg;
     the_reg = SNMP_MALLOC_TYPEDEF(netsnmp_handler_registration);
@@ -111,7 +175,8 @@ netsnmp_create_handler_registration(const char *name,
     else
         the_reg->modes = HANDLER_CAN_DEFAULT;
 
-    the_reg->handler = netsnmp_create_handler(name, handler_access_method);
+    the_reg->handler = handler;
+    the_reg->priority = DEFAULT_MIB_PRIORITY;
     if (name)
         the_reg->handlerName = strdup(name);
     memdup((u_char **) & the_reg->rootoid, (const u_char *) reg_oid,
@@ -120,18 +185,36 @@ netsnmp_create_handler_registration(const char *name,
     return the_reg;
 }
 
+netsnmp_handler_registration *
+netsnmp_create_handler_registration(const char *name,
+                                    Netsnmp_Node_Handler *
+                                    handler_access_method, oid * reg_oid,
+                                    size_t reg_oid_len, int modes)
+{
+    return
+        netsnmp_handler_registration_create(name,
+                                            netsnmp_create_handler(name, handler_access_method),
+                                            reg_oid, reg_oid_len, modes);
+}
+
 /** register a handler, as defined by the netsnmp_handler_registration pointer. */
 int
 netsnmp_register_handler(netsnmp_handler_registration *reginfo)
 {
     netsnmp_mib_handler *handler;
+    if (reginfo == NULL) {
+        snmp_log(LOG_ERR, "netsnmp_register_handler() called illegally\n");
+        netsnmp_assert(reginfo != NULL);
+        return SNMP_ERR_GENERR;
+    }
+
     DEBUGIF("handler::register") {
-        DEBUGMSGTL(("handler::register", "Registering "));
+        DEBUGMSGTL(("handler::register", "Registering %s (", reginfo->handlerName));
         for (handler = reginfo->handler; handler; handler = handler->next) {
             DEBUGMSG(("handler::register", "::%s", handler->handler_name));
         }
 
-        DEBUGMSG(("handler::register", " at "));
+        DEBUGMSG(("handler::register", ") at "));
         if (reginfo->rootoid && reginfo->range_subid) {
             DEBUGMSGOIDRANGE(("handler::register", reginfo->rootoid,
                               reginfo->rootoid_len, reginfo->range_subid,
@@ -150,6 +233,8 @@ netsnmp_register_handler(netsnmp_handler_registration *reginfo)
      */
     if (0 == reginfo->modes) {
         reginfo->modes = HANDLER_CAN_DEFAULT;
+        snmp_log(LOG_WARNING, "no registration modes specified for %s. "
+                 "Defaulting to %p\n", reginfo->handlerName, reginfo->modes);
     }
 
     /*
@@ -160,7 +245,7 @@ netsnmp_register_handler(netsnmp_handler_registration *reginfo)
                                netsnmp_get_bulk_to_next_handler());
     }
 
-    return netsnmp_register_mib(reginfo->handler->handler_name,
+    return netsnmp_register_mib(reginfo->handlerName,
                                 NULL, 0, 0,
                                 reginfo->rootoid, reginfo->rootoid_len,
                                 reginfo->priority,
@@ -170,11 +255,26 @@ netsnmp_register_handler(netsnmp_handler_registration *reginfo)
                                 reginfo, 1);
 }
 
+/** unregister a handler, as defined by the netsnmp_handler_registration pointer. */
+int
+netsnmp_unregister_handler(netsnmp_handler_registration *reginfo)
+{
+    return unregister_mib_context(reginfo->rootoid, reginfo->rootoid_len,
+                                  reginfo->priority,
+                                  reginfo->range_subid, reginfo->range_ubound,
+                                  reginfo->contextName);
+}
+
 /** register a handler, as defined by the netsnmp_handler_registration pointer. */
 int
 netsnmp_register_handler_nocallback(netsnmp_handler_registration *reginfo)
 {
     netsnmp_mib_handler *handler;
+    if (reginfo == NULL) {
+        snmp_log(LOG_ERR, "netsnmp_register_handler_nocallback() called illegally\n");
+        netsnmp_assert(reginfo != NULL);
+        return SNMP_ERR_GENERR;
+    }
     DEBUGIF("handler::register") {
         DEBUGMSGTL(("handler::register",
                     "Registering (with no callback) "));
@@ -214,6 +314,59 @@ netsnmp_register_handler_nocallback(netsnmp_handler_registration *reginfo)
 }
 
 /** inject a new handler into the calling chain of the handlers
+   definedy by the netsnmp_handler_registration pointer.  The new
+   handler is injected after the before_what handler, or if NULL at
+   the top of the list and hence will be the new handler to be called
+   first.*/
+int
+netsnmp_inject_handler_before(netsnmp_handler_registration *reginfo,
+                              netsnmp_mib_handler *handler,
+                              const char *before_what)
+{
+    if (handler == NULL || reginfo == NULL) {
+        snmp_log(LOG_ERR, "netsnmp_inject_handler() called illegally\n");
+        netsnmp_assert(reginfo != NULL);
+        netsnmp_assert(handler != NULL);
+        return SNMP_ERR_GENERR;
+    }
+    if (reginfo->handler == NULL) {
+        DEBUGMSGTL(("handler:inject", "injecting %s\n", handler->handler_name));
+    }
+    else {
+        DEBUGMSGTL(("handler:inject", "injecting %s before %s\n",
+                    handler->handler_name, reginfo->handler->handler_name));
+    }
+    if (before_what) {
+        netsnmp_mib_handler *nexth, *prevh = NULL;
+        if (reginfo->handler == NULL) {
+            snmp_log(LOG_ERR, "no handler to inject before\n");
+            return SNMP_ERR_GENERR;
+        }
+        for(nexth = reginfo->handler; nexth;
+            prevh = nexth, nexth = nexth->next) {
+            if (strcmp(nexth->handler_name, before_what) == 0)
+                break;
+        }
+        if (!nexth)
+            return SNMP_ERR_GENERR;
+        if (prevh) {
+            /* after prevh and before nexth */
+            prevh->next = handler;
+            handler->next = nexth;
+            handler->prev = prevh;
+            nexth->prev = handler;
+            return SNMPERR_SUCCESS;
+        }
+        /* else we're first, which is what we do next anyway so fall through */
+    }
+    handler->next = reginfo->handler;
+    if (reginfo->handler)
+        reginfo->handler->prev = handler;
+    reginfo->handler = handler;
+    return SNMPERR_SUCCESS;
+}
+
+/** inject a new handler into the calling chain of the handlers
    definedy by the netsnmp_handler_registration pointer.  The new handler is
    injected at the top of the list and hence will be the new handler
    to be called first.*/
@@ -221,13 +374,73 @@ int
 netsnmp_inject_handler(netsnmp_handler_registration *reginfo,
                        netsnmp_mib_handler *handler)
 {
-    DEBUGMSGTL(("handler:inject", "injecting %s before %s\n",
-                handler->handler_name, reginfo->handler->handler_name));
-    handler->next = reginfo->handler;
-    if (reginfo->handler)
-        reginfo->handler->prev = handler;
-    reginfo->handler = handler;
-    return SNMPERR_SUCCESS;
+    return netsnmp_inject_handler_before(reginfo, handler, NULL);
+}
+
+/** calls a handler with with appropriate NULL checking of arguments, etc. */
+NETSNMP_INLINE int
+netsnmp_call_handler(netsnmp_mib_handler *next_handler,
+                     netsnmp_handler_registration *reginfo,
+                     netsnmp_agent_request_info *reqinfo,
+                     netsnmp_request_info *requests)
+{
+    Netsnmp_Node_Handler *nh;
+    int             ret;
+
+    if (next_handler == NULL || reginfo == NULL || reqinfo == NULL ||
+        requests == NULL) {
+        snmp_log(LOG_ERR, "netsnmp_call_handler() called illegally\n");
+        netsnmp_assert(next_handler != NULL);
+        netsnmp_assert(reqinfo != NULL);
+        netsnmp_assert(reginfo != NULL);
+        netsnmp_assert(requests != NULL);
+        return SNMP_ERR_GENERR;
+    }
+
+    do {
+    nh = next_handler->access_method;
+    if (!nh) {
+        if (next_handler->next) {
+            snmp_log(LOG_ERR, "no access method specified in handler %s.",
+                     next_handler->handler_name);
+            return SNMP_ERR_GENERR;
+        }
+        /*
+         * The final handler registration in the chain may well not need
+         * to include a handler routine, if the processing of this object
+         * is handled completely by the agent toolkit helpers.
+         */
+        return SNMP_ERR_NOERROR;
+    }
+
+    DEBUGMSGTL(("handler:calling", "calling handler %s for mode %s\n",
+                next_handler->handler_name,
+                se_find_label_in_slist("agent_mode", reqinfo->mode)));
+
+    /*
+     * XXX: define acceptable return statuses 
+     */
+    ret = (*nh) (next_handler, reginfo, reqinfo, requests);
+
+    DEBUGMSGTL(("handler:returned", "handler %s returned %d\n",
+                next_handler->handler_name, ret));
+
+    if (! (next_handler->flags & MIB_HANDLER_AUTO_NEXT))
+        break;
+
+    /*
+     * did handler signal that it didn't want auto next this time around?
+     */
+    if(next_handler->flags & MIB_HANDLER_AUTO_NEXT_OVERRIDE_ONCE) {
+        next_handler->flags &= ~MIB_HANDLER_AUTO_NEXT_OVERRIDE_ONCE;
+        break;
+    }
+
+    next_handler = next_handler->next;
+
+    } while(next_handler);
+
+    return ret;
 }
 
 /** @internal
@@ -238,12 +451,14 @@ netsnmp_call_handlers(netsnmp_handler_registration *reginfo,
                       netsnmp_agent_request_info *reqinfo,
                       netsnmp_request_info *requests)
 {
-    Netsnmp_Node_Handler *nh;
     netsnmp_request_info *request;
     int             status;
 
     if (reginfo == NULL || reqinfo == NULL || requests == NULL) {
         snmp_log(LOG_ERR, "netsnmp_call_handlers() called illegally\n");
+        netsnmp_assert(reqinfo != NULL);
+        netsnmp_assert(reginfo != NULL);
+        netsnmp_assert(requests != NULL);
         return SNMP_ERR_GENERR;
     }
 
@@ -279,59 +494,16 @@ netsnmp_call_handlers(netsnmp_handler_registration *reginfo,
         snmp_log(LOG_ERR, "unknown mode in netsnmp_call_handlers! bug!\n");
         return SNMP_ERR_GENERR;
     }
-    DEBUGMSGTL(("handler:calling", "calling main handler %s\n",
+    DEBUGMSGTL(("handler:calling", "main handler %s\n",
                 reginfo->handler->handler_name));
 
     for (request = requests ; request; request = request->next) {
         request->processed = 0;
     }
 
-    nh = reginfo->handler->access_method;
-    if (!nh) {
-        snmp_log(LOG_ERR, "no handler access method specified.");
-        return SNMP_ERR_GENERR;
-    }
-
-    /*
-     * XXX: define acceptable return statuses 
-     */
-    status = (*nh) (reginfo->handler, reginfo, reqinfo, requests);
+    status = netsnmp_call_handler(reginfo->handler, reginfo, reqinfo, requests);
 
     return status;
-}
-
-/** calls a handler with with appropriate NULL checking of arguments, etc. */
-NETSNMP_INLINE int
-netsnmp_call_handler(netsnmp_mib_handler *next_handler,
-                     netsnmp_handler_registration *reginfo,
-                     netsnmp_agent_request_info *reqinfo,
-                     netsnmp_request_info *requests)
-{
-    Netsnmp_Node_Handler *nh;
-    int             ret;
-
-    if (next_handler == NULL || reginfo == NULL || reqinfo == NULL ||
-        requests == NULL) {
-        snmp_log(LOG_ERR, "netsnmp_call_handler() called illegally\n");
-        return SNMP_ERR_GENERR;
-    }
-
-    nh = next_handler->access_method;
-    if (!nh) {
-        snmp_log(LOG_ERR, "no access method specified in handler %s.",
-                 next_handler->handler_name);
-        return SNMP_ERR_GENERR;
-    }
-
-    DEBUGMSGTL(("handler:calling", "calling handler %s\n",
-                next_handler->handler_name));
-
-    ret = (*nh) (next_handler, reginfo, reqinfo, requests);
-
-    DEBUGMSGTL(("handler:returned", "handler %s returned %d\n",
-                next_handler->handler_name, ret));
-
-    return ret;
 }
 
 /** calls the next handler in the chain after the current one with
@@ -346,6 +518,10 @@ netsnmp_call_next_handler(netsnmp_mib_handler *current,
     if (current == NULL || reginfo == NULL || reqinfo == NULL ||
         requests == NULL) {
         snmp_log(LOG_ERR, "netsnmp_call_next_handler() called illegally\n");
+        netsnmp_assert(current != NULL);
+        netsnmp_assert(reginfo != NULL);
+        netsnmp_assert(reqinfo != NULL);
+        netsnmp_assert(requests != NULL);
         return SNMP_ERR_GENERR;
     }
 
@@ -365,6 +541,7 @@ netsnmp_call_next_handler_one_request(netsnmp_mib_handler *current,
     
     if (!requests) {
         snmp_log(LOG_ERR, "netsnmp_call_next_handler_ONE_REQUEST() called illegally\n");
+        netsnmp_assert(requests != NULL);
         return SNMP_ERR_GENERR;
     }
 
@@ -381,15 +558,23 @@ netsnmp_handler_free(netsnmp_mib_handler *handler)
 {
     if (handler != NULL) {
         if (handler->next != NULL) {
+            /** make sure we aren't pointing to ourselves.  */
+            netsnmp_assert(handler != handler->next); /* bugs caught: 1 */
             netsnmp_handler_free(handler->next);
             handler->next = NULL;
         }
+        /** XXX : segv here at shutdown if SHUTDOWN_AGENT_CLEANLY
+         *  defined. About 30 functions down the stack, starting
+         *  in clear_context() -> clear_subtree()
+         */
         SNMP_FREE(handler->handler_name);
-        free(handler);
+        SNMP_FREE(handler);
     }
 }
 
-/** dulpicates a handler */
+/** dulpicates a handler and all subsequent handlers
+ * see also _clone_handler
+ */
 netsnmp_mib_handler *
 netsnmp_handler_dup(netsnmp_mib_handler *handler)
 {
@@ -399,27 +584,15 @@ netsnmp_handler_dup(netsnmp_mib_handler *handler)
         return NULL;
     }
 
-    h = (netsnmp_mib_handler *) calloc(1, sizeof(netsnmp_mib_handler));
+    h = _clone_handler(handler);
 
     if (h != NULL) {
         h->myvoid = handler->myvoid;
-        h->access_method = handler->access_method;
-
-        if (handler->handler_name != NULL) {
-            h->handler_name = strdup(handler->handler_name);
-            if (h->handler_name == NULL) {
-                free(h);
-                return NULL;
-            }
-        }
 
         if (handler->next != NULL) {
             h->next = netsnmp_handler_dup(handler->next);
             if (h->next == NULL) {
-                if (h->handler_name) {
-                    free(h->handler_name);
-                }
-                free(h);
+                netsnmp_handler_free(h);
                 return NULL;
             }
             h->next->prev = h;
@@ -439,7 +612,7 @@ netsnmp_handler_registration_free(netsnmp_handler_registration *reginfo)
         SNMP_FREE(reginfo->handlerName);
         SNMP_FREE(reginfo->contextName);
         SNMP_FREE(reginfo->rootoid);
-        free(reginfo);
+        SNMP_FREE(reginfo);
     }
 }
 
@@ -551,7 +724,7 @@ netsnmp_free_delegated_cache(netsnmp_delegated_cache *dcache)
      * right now, no extra data is there that needs to be freed 
      */
     if (dcache)
-        free(dcache);
+        SNMP_FREE(dcache);
 
     return;
 }
@@ -568,7 +741,16 @@ netsnmp_handler_mark_requests_as_delegated(netsnmp_request_info *requests,
     }
 }
 
-/** add data to a request that can be extracted later by submodules */
+/** add data to a request that can be extracted later by submodules
+ *
+ * @param requset the netsnmp request info structure
+ *
+ * @param node this is the data to be added to the linked list
+ *             request->parent_data
+ *
+ * @return void
+ *
+ */
 NETSNMP_INLINE void
 netsnmp_request_add_list_data(netsnmp_request_info *request,
                               netsnmp_data_list *node)
@@ -581,7 +763,36 @@ netsnmp_request_add_list_data(netsnmp_request_info *request,
     }
 }
 
-/** extract data from a request that was added previously by a parent module */
+/** remove data from a request
+ *
+ * @param requset the netsnmp request info structure
+ *
+ * @param name this is the name of the previously added data
+ *
+ * @return 0 on successful find-and-delete, 1 otherwise.
+ *
+ */
+NETSNMP_INLINE int
+netsnmp_request_remove_list_data(netsnmp_request_info *request,
+                                 const char *name)
+{
+    if ((NULL == request) || (NULL ==request->parent_data))
+        return 1;
+
+    return netsnmp_remove_list_node(&request->parent_data, name);
+}
+
+/** extract data from a request that was added previously by a parent module
+ *
+ * @param request the netsnmp request info function
+ *
+ * @param name used to compare against the request->parent_data->name value,
+ *             if a match is found request->parent_data->data is returned
+ *
+ * @return a void pointer(request->parent_data->data), otherwise NULL is
+ *         returned if request is NULL or request->parent_data is NULL or
+ *         request->parent_data object is not found.
+ */
 NETSNMP_INLINE void    *
 netsnmp_request_get_list_data(netsnmp_request_info *request,
                               const char *name)
@@ -637,15 +848,31 @@ netsnmp_find_handler_data_by_name(netsnmp_handler_registration *reginfo,
     return NULL;
 }
 
-/** clones a mib handler (it's name and access methods onlys; not myvoid)
+/** clones a mib handler (name, flags and access methods only; not myvoid)
+ * see also netsnmp_handler_dup
  */
-netsnmp_mib_handler *
-clone_handler(netsnmp_mib_handler *it)
+static netsnmp_mib_handler *
+_clone_handler(netsnmp_mib_handler *it)
 {
-    return netsnmp_create_handler(it->handler_name, it->access_method);
+    netsnmp_mib_handler *dup;
+
+    if(NULL == it)
+        return NULL;
+
+    dup = netsnmp_create_handler(it->handler_name, it->access_method);
+    if(NULL != dup)
+        dup->flags = it->flags;
+
+    return dup;
 }
 
 static netsnmp_data_list *handler_reg = NULL;
+
+void
+handler_free_callback(void *free)
+{
+    netsnmp_handler_free((netsnmp_mib_handler *)free);
+}
 
 /** registers a given handler by name so that it can be found easily later.
  */
@@ -655,8 +882,18 @@ netsnmp_register_handler_by_name(const char *name,
 {
     netsnmp_add_list_data(&handler_reg,
                           netsnmp_create_data_list(name, (void *) handler,
-                                                   NULL));
+                                                   handler_free_callback));
     DEBUGMSGTL(("handler_registry", "registering helper %s\n", name));
+}
+
+/** clears the entire handler-registration list
+ */
+void
+netsnmp_clear_handler_list(void)
+{
+    DEBUGMSGTL(("agent_handler", "netsnmp_clear_handler_list() called\n"));
+    netsnmp_free_all_list_data(handler_reg);
+    handler_reg = NULL;
 }
 
 /** @internal
@@ -665,7 +902,8 @@ netsnmp_register_handler_by_name(const char *name,
  */
 void
 netsnmp_inject_handler_into_subtree(netsnmp_subtree *tp, const char *name,
-                                    netsnmp_mib_handler *handler)
+                                    netsnmp_mib_handler *handler,
+                                    const char *before_what)
 {
     netsnmp_subtree *tptr;
     netsnmp_mib_handler *mh;
@@ -677,20 +915,23 @@ netsnmp_inject_handler_into_subtree(netsnmp_subtree *tp, const char *name,
         if (strcmp(tptr->label_a, name) == 0) {
             DEBUGMSGTL(("injectHandler", "injecting handler %s into %s\n",
                         handler->handler_name, tptr->label_a));
-            netsnmp_inject_handler(tptr->reginfo, clone_handler(handler));
+            netsnmp_inject_handler_before(tptr->reginfo, _clone_handler(handler),
+                                          before_what);
         } else if (tptr->reginfo != NULL &&
 		   tptr->reginfo->handlerName != NULL &&
                    strcmp(tptr->reginfo->handlerName, name) == 0) {
             DEBUGMSGTL(("injectHandler", "injecting handler into %s/%s\n",
                         tptr->label_a, tptr->reginfo->handlerName));
-            netsnmp_inject_handler(tptr->reginfo, clone_handler(handler));
+            netsnmp_inject_handler_before(tptr->reginfo, _clone_handler(handler),
+                                          before_what);
         } else {
             for (mh = tptr->reginfo->handler; mh != NULL; mh = mh->next) {
                 if (mh->handler_name && strcmp(mh->handler_name, name) == 0) {
                     DEBUGMSGTL(("injectHandler", "injecting handler into %s\n",
                                 tptr->label_a));
-                    netsnmp_inject_handler(tptr->reginfo,
-					   clone_handler(handler));
+                    netsnmp_inject_handler_before(tptr->reginfo,
+                                                  _clone_handler(handler),
+                                                  before_what);
                     break;
                 } else {
                     DEBUGMSGTL(("yyyinjectHandler",
@@ -709,7 +950,7 @@ static int      doneit = 0;
 void
 parse_injectHandler_conf(const char *token, char *cptr)
 {
-    char            handler_to_insert[256];
+    char            handler_to_insert[256], reg_name[256];
     subtree_context_cache *stc;
     netsnmp_mib_handler *handler;
 
@@ -730,11 +971,13 @@ parse_injectHandler_conf(const char *token, char *cptr)
         config_perror("no INTONAME specified.  Can't do insertion.");
         return;
     }
+    cptr = copy_nword(cptr, reg_name, sizeof(reg_name));
+
     for (stc = get_top_context_cache(); stc; stc = stc->next) {
-        DEBUGMSGTL(("injectHandler", "Checking context tree %s\n",
-                    stc->context_name));
-        netsnmp_inject_handler_into_subtree(stc->first_subtree, cptr,
-                                            handler);
+        DEBUGMSGTL(("injectHandler", "Checking context tree %s (before=%s)\n",
+                    stc->context_name, (cptr)?cptr:"null"));
+        netsnmp_inject_handler_into_subtree(stc->first_subtree, reg_name,
+                                            handler, cptr);
     }
 }
 
@@ -758,7 +1001,7 @@ netsnmp_init_handler_conf(void)
 {
     snmpd_register_config_handler("injectHandler",
                                   parse_injectHandler_conf,
-                                  NULL, "injectHandler NAME INTONAME");
+                                  NULL, "injectHandler NAME INTONAME [BEFORE_OTHER_NAME]");
     snmp_register_callback(SNMP_CALLBACK_LIBRARY,
                            SNMP_CALLBACK_POST_READ_CONFIG,
                            handler_mark_doneit, NULL);
@@ -779,12 +1022,46 @@ netsnmp_init_handler_conf(void)
     se_add_pair_to_slist("agent_mode", strdup("SET_FREE"), MODE_SET_FREE);
     se_add_pair_to_slist("agent_mode", strdup("SET_UNDO"), MODE_SET_UNDO);
 
+    se_add_pair_to_slist("babystep_mode", strdup("pre-request"),
+                         MODE_BSTEP_PRE_REQUEST);
+    se_add_pair_to_slist("babystep_mode", strdup("object_lookup"),
+                         MODE_BSTEP_OBJECT_LOOKUP);
+    se_add_pair_to_slist("babystep_mode", strdup("check_value"),
+                         MODE_BSTEP_CHECK_VALUE);
+    se_add_pair_to_slist("babystep_mode", strdup("row_create"),
+                         MODE_BSTEP_ROW_CREATE);
+    se_add_pair_to_slist("babystep_mode", strdup("undo_setup"),
+                         MODE_BSTEP_UNDO_SETUP);
+    se_add_pair_to_slist("babystep_mode", strdup("set_value"),
+                         MODE_BSTEP_SET_VALUE);
+    se_add_pair_to_slist("babystep_mode", strdup("check_consistency"),
+                         MODE_BSTEP_CHECK_CONSISTENCY);
+    se_add_pair_to_slist("babystep_mode", strdup("undo_set"),
+                         MODE_BSTEP_UNDO_SET);
+    se_add_pair_to_slist("babystep_mode", strdup("commit"),
+                         MODE_BSTEP_COMMIT);
+    se_add_pair_to_slist("babystep_mode", strdup("undo_commit"),
+                         MODE_BSTEP_UNDO_COMMIT);
+    se_add_pair_to_slist("babystep_mode", strdup("irreversible_commit"),
+                         MODE_BSTEP_IRREVERSIBLE_COMMIT);
+    se_add_pair_to_slist("babystep_mode", strdup("undo_cleanup"),
+                         MODE_BSTEP_UNDO_CLEANUP);
+    se_add_pair_to_slist("babystep_mode", strdup("post_request"),
+                         MODE_BSTEP_POST_REQUEST);
+    se_add_pair_to_slist("babystep_mode", strdup("original"), 0xffff);
+
+    /*
+     * xxx-rks: hmmm.. will this work for modes which are or'd together?
+     *          I'm betting not...
+     */
     se_add_pair_to_slist("handler_can_mode", strdup("GET/GETNEXT"),
                          HANDLER_CAN_GETANDGETNEXT);
     se_add_pair_to_slist("handler_can_mode", strdup("SET"),
                          HANDLER_CAN_SET);
     se_add_pair_to_slist("handler_can_mode", strdup("GETBULK"),
                          HANDLER_CAN_GETBULK);
+    se_add_pair_to_slist("handler_can_mode", strdup("BABY_STEP"),
+                         HANDLER_CAN_BABY_STEP);
 }
 
 /** @} */

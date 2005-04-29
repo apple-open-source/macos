@@ -1,5 +1,5 @@
 # Source preferences dialog for Insight.
-# Copyright 1998, 1999, 2002 Red Hat
+# Copyright 1998, 1999, 2002, 2003 Red Hat
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -159,7 +159,8 @@ itcl::body SrcPref::_build_win {} {
     frame $f.dis
     label $f.dis.l -text "Disassembly Flavor: "
     combobox::combobox $f.dis.combo -maxheight 15 -width 15 \
-      -font global/fixed -editable 0 -command [code $this _set_flavor]
+      -font global/fixed -editable 0 -command [code $this _set_flavor] \
+      -bg $::Colors(textbg)
     
     foreach elem $vals {
       $f.dis.combo list insert end $elem

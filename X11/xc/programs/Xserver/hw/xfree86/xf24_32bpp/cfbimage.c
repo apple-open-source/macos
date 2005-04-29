@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/xf24_32bpp/cfbimage.c,v 1.3 2000/02/25 00:21:00 mvojkovi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/xf24_32bpp/cfbimage.c,v 1.4 2003/07/16 01:38:49 dawes Exp $ */
 
 #include "X.h"
 #include "windowstr.h"
@@ -53,7 +53,7 @@ cfb24_32GetImage (
         box.y2 = h;
         REGION_INIT(pScreen, &rgnDst, &box, 1);
         cfbDoBitblt24To32(pDraw, (DrawablePtr)pPixmap, GXcopy, &rgnDst,
-                    &ptSrc, planemask, 0);
+                    &ptSrc, planemask);
         REGION_UNINIT(pScreen, &rgnDst);
         FreeScratchPixmapHeader(pPixmap);
     } else

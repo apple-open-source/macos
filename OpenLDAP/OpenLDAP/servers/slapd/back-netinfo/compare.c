@@ -34,27 +34,28 @@
 
 int
 netinfo_back_compare(
-	BackendDB	*be,
+	struct slap_op *op, 
+	struct slap_rep *rs)
+/*	BackendDB	*be,
 	Connection	*conn,
 	Operation	*op,
 	struct berval *dn,
 	struct berval *ndn,
-	AttributeAssertion *ava)
+	AttributeAssertion *ava*/
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	dsassertion *assertion;
 	dsrecord *record;
-	int rc;
 	dsstatus status;
 	u_int32_t dsid;
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_compare: DN %s\n", dn->bv_val));
+	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_compare: DN %s\n", op->o_req_dn.bv_val));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_compare dn=%s\n", dn->bv_val, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_compare dn=%s\n", op->o_req_dn.bv_val, 0, 0);
 #endif
 
-	if (netinfo_back_send_referrals(be, conn, op, ndn) == DSStatusOK)
+	if (netinfo_back_send_referrals(op, rs, &op->o_req_ndn) == DSStatusOK)
 	{
 		return 1;
 	}
@@ -62,26 +63,26 @@ netinfo_back_compare(
 	ENGINE_LOCK(di);
 
 	/* get the base dsid */
-	status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+	status = netinfo_back_dn_pathmatch(op->o_bd, &op->o_req_ndn, &dsid);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
 	/* do ACL authorization */
-	status = netinfo_back_access_allowed(be, conn, op, dsid, ava->aa_desc, &ava->aa_value, ACL_COMPARE);
+	status = netinfo_back_access_allowed(op, dsid, op->orc_ava->aa_desc, &op->orc_ava->aa_value, ACL_COMPARE);
 	if (status != DSStatusOK)
 	{
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	assertion = attribute_assertion_to_dsassertion(be, ava, LDAP_FILTER_EQUALITY);
+	assertion = attribute_assertion_to_dsassertion(op->o_bd, op->orc_ava, LDAP_FILTER_EQUALITY);
 	if (assertion == NULL)
 	{
-		send_ldap_result(conn, op, LDAP_OPERATIONS_ERROR, NULL,
-			"Could not translate attribute value assertion", NULL, NULL);
+		send_ldap_error(op, rs, LDAP_OPERATIONS_ERROR,
+			"Could not translate attribute value assertion");
 		ENGINE_UNLOCK(di);
 		return -1;
 	}
@@ -91,20 +92,20 @@ netinfo_back_compare(
 	{
 		dsassertion_release(assertion);
 		ENGINE_UNLOCK(di);
-		return netinfo_back_op_result(be, conn, op, status);
+		return netinfo_back_op_result(op, rs, status);
 	}
 
-	switch (wrapped_assertion_test(assertion, record, (void *)be))
+	switch (wrapped_assertion_test(assertion, record, (void *)op->o_bd))
 	{
 		case L3False:
-			rc = LDAP_COMPARE_FALSE;
+			rs->sr_err = LDAP_COMPARE_FALSE;
 			break;
 		case L3True:
-			rc = LDAP_COMPARE_TRUE;
+			rs->sr_err = LDAP_COMPARE_TRUE;
 			break;
 		default:
 		case L3Undefined:
-			rc = SLAPD_COMPARE_UNDEFINED;
+			rs->sr_err = SLAPD_COMPARE_UNDEFINED;
 			break;
 	}
 
@@ -114,12 +115,12 @@ netinfo_back_compare(
 	ENGINE_UNLOCK(di);
 
 #ifdef NEW_LOGGING
-	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_compare: %d\n", rc));
+	LDAP_LOG(("backend", LDAP_LEVEL_ENTRY, "netinfo_back_compare: %d\n", rs->sr_err));
 #else
-	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_compare rc=%d\n", rc, 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_compare rc=%d\n", rs->sr_err, 0, 0);
 #endif
 
-	send_ldap_result(conn, op, rc, NULL, NULL, NULL, NULL);
+	send_ldap_result(op, rs);
 
 	return 0;
 }

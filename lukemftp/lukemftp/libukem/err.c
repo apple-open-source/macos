@@ -29,8 +29,6 @@
 
 #include "lukemftp.h"
 
-extern char *__progname;
-
 void
 err(int eval, const char *fmt, ...)
 {
@@ -38,7 +36,7 @@ err(int eval, const char *fmt, ...)
         int	sverrno;
 
 	sverrno = errno;
-        (void)fprintf(stderr, "%s: ", __progname);
+        (void)fprintf(stderr, "%s: ", getprogname());
 	va_start(ap, fmt);
         if (fmt != NULL) {
                 (void)vfprintf(stderr, fmt, ap);
@@ -54,7 +52,7 @@ errx(int eval, const char *fmt, ...)
 {
 	va_list	ap;
 
-        (void)fprintf(stderr, "%s: ", __progname);
+        (void)fprintf(stderr, "%s: ", getprogname());
 	va_start(ap, fmt);
         if (fmt != NULL)
                 (void)vfprintf(stderr, fmt, ap);
@@ -70,7 +68,7 @@ warn(const char *fmt, ...)
         int	sverrno;
 
 	sverrno = errno;
-        (void)fprintf(stderr, "%s: ", __progname);
+        (void)fprintf(stderr, "%s: ", getprogname());
 	va_start(ap, fmt);
         if (fmt != NULL) {
                 (void)vfprintf(stderr, fmt, ap);
@@ -85,7 +83,7 @@ warnx(const char *fmt, ...)
 {
 	va_list	ap;
 
-        (void)fprintf(stderr, "%s: ", __progname);
+        (void)fprintf(stderr, "%s: ", getprogname());
 	va_start(ap, fmt);
         if (fmt != NULL)
                 (void)vfprintf(stderr, fmt, ap);

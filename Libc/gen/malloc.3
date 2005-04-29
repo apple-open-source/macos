@@ -22,7 +22,7 @@
 .Dt MALLOC 3
 .Os
 .Sh NAME
-.Nm malloc , calloc , valloc , realloc , free , malloc_size , malloc_good_size
+.Nm malloc , calloc , valloc , realloc , reallocf , free , malloc_size , malloc_good_size
 .Nd memory allocation
 .Sh SYNOPSIS
 .In stdlib.h
@@ -34,6 +34,8 @@
 .Fn valloc "size_t size"
 .Ft void *
 .Fn realloc "void *ptr" "size_t size"
+.Ft void *
+.Fn reallocf "void *ptr" "size_t size"
 .Ft void
 .Fn free "void *ptr"
 .Ft size_t
@@ -45,8 +47,9 @@ The
 .Fn malloc ,
 .Fn calloc ,
 .Fn valloc ,
+.Fn realloc ,
 and
-.Fn realloc
+.Fn reallocf
 functions allocate memory.
 The allocated memory is aligned such that it can be used for any data type,
 including AltiVec-related types.
@@ -118,6 +121,17 @@ pointer if there is an error, and the allocation pointed to by
 is still valid.
 .Pp
 The
+.Fn reallocf
+function is identical to the
+.Fn realloc
+function, except that it
+will free the passed pointer when the requested memory cannot be allocated.
+This is a
+.Fx
+specific API designed to ease the problems with traditional coding styles
+for realloc causing memory leaks in libraries.
+.Pp
+The
 .Fn free
 function deallocates the memory allocation pointed to by
 .Fa ptr .
@@ -152,7 +166,9 @@ to
 .Pp
 If successful, the
 .Fn realloc
-function returns a pointer to allocated memory.
+and
+.Fn reallocf
+functions return a pointer to allocated memory.
 If there is an error, it returns a
 .Dv NULL
 pointer and sets
@@ -196,6 +212,10 @@ can be used.
 If set, record all stacks in a manner that is compatible with the
 .Nm malloc_history
 program.
+.It Ev MallocPreScribble
+If set, fill memory that has been allocated with 0xaa bytes.
+This increases the likelihood that a program making assumptions about the
+contents of freshly allocated memory will fail.
 .It Ev MallocScribble
 If set, fill memory that has been deallocated with 0x55 bytes.
 This increases the likelihood that a program will fail due to accessing memory
@@ -250,4 +270,4 @@ The list should correspond to this documentation.
 .Xr leaks 1 ,
 .Xr malloc_history 1 ,
 .Xr abort 3
-.Pa /Developer/Documentation/ReleaseNotes/MallocOptions.html
+.Pa /Developer/Documentation/ReleaseNotes/DeveloperTools/MallocOptions.html

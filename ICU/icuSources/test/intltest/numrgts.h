@@ -1,8 +1,8 @@
-/********************************************************************
+/***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
+ * Copyright (c) 1997-2004, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ***********************************************************************/
 
 #ifndef _NUMBERFORMATREGRESSIONTEST_
 #define _NUMBERFORMATREGRESSIONTEST_
@@ -93,6 +93,8 @@ public:
 
 protected:
     UBool failure(UErrorCode status, const UnicodeString& msg);
+    UBool failure(UErrorCode status, const UnicodeString& msg, const char *l);
+    UBool failure(UErrorCode status, const UnicodeString& msg, const Locale& l);
 };
 
 class MyNumberFormatTest : public NumberFormat 
@@ -148,7 +150,13 @@ public:
     }
     virtual Format* clone() const 
     { return NULL; }
+
     virtual UnicodeString& format(int32_t, 
+                UnicodeString& foo, 
+                FieldPosition&) const
+    { return foo.remove(); }
+
+    virtual UnicodeString& format(int64_t, 
                 UnicodeString& foo, 
                 FieldPosition&) const
     { return foo.remove(); }

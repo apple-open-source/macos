@@ -187,7 +187,7 @@ Boolean IOHIDEventQueue::isStarted()
 //---------------------------------------------------------------------------
 // Add element to the queue.
 
-void IOHIDEventQueue::addElement( IOHIDElement * element )
+void IOHIDEventQueue::addElement( IOHIDElementPrivate * element )
 {
     UInt32 elementSize;
     
@@ -211,10 +211,10 @@ void IOHIDEventQueue::addElement( IOHIDElement * element )
 //---------------------------------------------------------------------------
 // Remove element from the queue.
 
-void IOHIDEventQueue::removeElement( IOHIDElement * element )
+void IOHIDEventQueue::removeElement( IOHIDElementPrivate * element )
 {
     OSCollectionIterator *      iterator;
-    IOHIDElement *       temp;
+    IOHIDElementPrivate *       temp;
     UInt32                      size        = 0;
     UInt32                      maxSize     = DEFAULT_HID_ENTRY_SIZE;
     
@@ -225,7 +225,7 @@ void IOHIDEventQueue::removeElement( IOHIDElement * element )
     
     if ( iterator = OSCollectionIterator::withCollection(_elementSet) )
     {
-        while ( temp = (IOHIDElement *)iterator->getNextObject() )
+        while ( temp = (IOHIDElementPrivate *)iterator->getNextObject() )
         {
             size = temp->getElementValueSize() + sizeof(void *);
             

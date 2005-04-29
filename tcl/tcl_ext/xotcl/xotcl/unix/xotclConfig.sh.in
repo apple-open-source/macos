@@ -1,0 +1,56 @@
+# xotclConfig.sh --
+# 
+# This shell script (for sh) is generated automatically by XOTcl's
+# configure script.  It will create shell variables for most of
+# the configuration options discovered by the configure script.
+# This script is intended to be included by the configure scripts
+# for XOTcl extensions so that they don't have to figure this all
+# out for themselves.  This file does not duplicate information
+# already provided by tclConfig.sh, so you may need to use that
+# file in addition to this one.
+#
+# The information in this file is specific to a single platform.
+
+# XOTcl's version number.
+XOTCL_VERSION='@VERSION@'
+XOTCL_MAJOR_VERSION='@MAJOR_VERSION@'
+XOTCL_MINOR_VERSION='@MINOR_VERSION@'
+XOTCL_RELEASE_LEVEL='@PATCHLEVEL@'
+
+# The name of the XOTcl library (may be either a .a file or a shared library):
+XOTCL_LIB_FILE=@xotcl_LIB_FILE@
+
+# String to pass to linker to pick up the XOTcl library from its
+# build directory.
+XOTCL_BUILD_LIB_SPEC='@XOTCL_BUILD_LIB_SPEC@'
+
+# String to pass to linker to pick up the XOTcl library from its
+# installed directory.
+XOTCL_LIB_SPEC='@XOTCL_LIB_SPEC@'
+
+# The name of the XOTcl stub library (a .a file):
+XOTCL_STUB_LIB_FILE=@XOTCL_STUB_LIB_FILE@
+
+# String to pass to linker to pick up the XOTcl stub library from its
+# build directory.
+XOTCL_BUILD_STUB_LIB_SPEC='@XOTCL_BUILD_STUB_LIB_SPEC@'
+
+# String to pass to linker to pick up the XOTcl stub library from its
+# installed directory.
+XOTCL_STUB_LIB_SPEC='@XOTCL_STUB_LIB_SPEC@'
+
+# Name of the xotcl stub library with full path in build and install directory
+XOTCL_BUILD_STUB_LIB_PATH='@XOTCL_BUILD_STUB_LIB_PATH@'
+XOTCL_STUB_LIB_PATH='@XOTCL_STUB_LIB_PATH@'
+
+# Location of the top-level source directories from which XOTcl
+# was built.  This is the directory that contains generic, unix, etc.
+# If XOTcl was compiled in a different place than the directory
+# containing the source files, this points to the location of the sources,
+# not the location where XOTcl was compiled.
+XOTCL_SRC_DIR='@XOTCL_SRC_DIR@'
+
+# shared and unshared library suffix
+XOTCL_SHARED_LIB_SUFFIX=@SHARED_LIB_SUFFIX@
+XOTCL_UNSHARED_LIB_SUFFIX=@UNSHARED_LIB_SUFFIX@
+

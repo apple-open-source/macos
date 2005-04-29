@@ -30,7 +30,7 @@
  * 
  * Permedia 2 accelerated options.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_accel.c,v 1.31 2001/10/28 03:33:30 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/glint/pm2_accel.c,v 1.32 2003/10/08 15:48:39 eich Exp $ */
 
 #include "Xarch.h"
 #include "xf86.h"
@@ -283,7 +283,7 @@ Permedia2AccelInit(ScreenPtr pScreen)
         	infoPtr->SubsequentSolidBresenhamLine = 
 				Permedia2SubsequentSolidBresenhamLine;
         }
-	infoPtr->PolySegmentThinSolid = Permedia2PolySegmentThinSolidWrapper;
+ 	infoPtr->PolySegmentThinSolid = Permedia2PolySegmentThinSolidWrapper;
 	infoPtr->PolylinesThinSolid = Permedia2PolylinesThinSolidWrapper;
     	infoPtr->SetupForSolidFill = Permedia2SetupForFillRectSolid;
     	infoPtr->SubsequentSolidFillRect = Permedia2SubsequentFillRectSolid;
@@ -409,6 +409,7 @@ static void
 Permedia2SetClippingRectangle(ScrnInfoPtr pScrn, int x1, int y1, int x2, int y2)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
+    TRACE_ENTER("Permedia2SetClippingRectangle");
     GLINT_WAIT(3);
     GLINT_WRITE_REG(((y1&0x0fff)<<16)|(x1&0x0fff), ScissorMinXY);
     GLINT_WRITE_REG(((y2&0x0fff)<<16)|(x2&0x0fff), ScissorMaxXY);
@@ -430,6 +431,7 @@ Permedia2SetupForScreenToScreenCopy2432bpp(ScrnInfoPtr pScrn,
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SetupForScreenToScreenCopy2432bpp");
     pGlint->BltScanDirection = 0;
     if (xdir == 1) pGlint->BltScanDirection |= XPositive;
     if (ydir == 1) pGlint->BltScanDirection |= YPositive;
@@ -461,6 +463,7 @@ Permedia2SubsequentScreenToScreenCopy2432bpp(ScrnInfoPtr pScrn, int x1,
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SubsequentScreenToScreenCopy2432bpp");
     GLINT_WAIT(4);
     Permedia2LoadCoord(pScrn, x2, y2, w, h);
     GLINT_WRITE_REG(((y1-y2)&0x0FFF)<<16 | ((x1-x2)&0x0FFF), FBSourceDelta);
@@ -473,8 +476,8 @@ Permedia2SetupForScreenToScreenCopy(ScrnInfoPtr pScrn,
 				unsigned int planemask, int transparency_color)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
-    TRACE_ENTER("Permedia2SetupForScreenToScreenCopy");
 
+    TRACE_ENTER("Permedia2SetupForScreenToScreenCopy");
     pGlint->BltScanDirection = 0;
     if (xdir == 1) pGlint->BltScanDirection |= XPositive;
     if (ydir == 1) pGlint->BltScanDirection |= YPositive;
@@ -536,6 +539,7 @@ Permedia2PolylinesThinSolidWrapper(
 ){
     XAAInfoRecPtr infoRec = GET_XAAINFORECPTR_FROM_GC(pGC);
     GLINTPtr pGlint = GLINTPTR(infoRec->pScrn);
+    TRACE("Permedia2PolylinesThinSolidWrapper");
     pGlint->CurrentGC = pGC;
     pGlint->CurrentDrawable = pDraw;
     if(infoRec->NeedToSync) (*infoRec->Sync)(infoRec->pScrn);
@@ -551,6 +555,7 @@ Permedia2PolySegmentThinSolidWrapper(
 ){
     XAAInfoRecPtr infoRec = GET_XAAINFORECPTR_FROM_GC(pGC);
     GLINTPtr pGlint = GLINTPTR(infoRec->pScrn);
+    TRACE("Permedia2PolySegmentThinSolidWrapper");
     pGlint->CurrentGC = pGC;
     pGlint->CurrentDrawable = pDraw;
     if(infoRec->NeedToSync) (*infoRec->Sync)(infoRec->pScrn);
@@ -563,6 +568,7 @@ Permedia2SetupForSolidLine(ScrnInfoPtr pScrn, int color,
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SetupForSolidLine");
     GLINT_WAIT(6);
     DO_PLANEMASK(planemask);
     GLINT_WRITE_REG(UNIT_DISABLE, ColorDDAMode);
@@ -579,7 +585,8 @@ static void
 Permedia2SubsequentHorVertLine(ScrnInfoPtr pScrn,int x,int y,int len,int dir)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
-  
+    
+    TRACE_ENTER("Permedia2SubsequentHorVertLine");
     GLINT_WAIT(6);
     GLINT_WRITE_REG(x<<16, StartXDom);
     GLINT_WRITE_REG(y<<16, StartY);
@@ -601,6 +608,7 @@ Permedia2SubsequentSolidBresenhamLine( ScrnInfoPtr pScrn,
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SubsequentSolidBresenhamLine");
     if(dmaj == dmin) {
 	GLINT_WAIT(6);
 	if(octant & YDECREASING) {
@@ -621,12 +629,12 @@ Permedia2SubsequentSolidBresenhamLine( ScrnInfoPtr pScrn,
 	GLINT_WRITE_REG(PrimitiveLine, Render);
 	return;
     }
-
+    
     fbBres(pGlint->CurrentDrawable, pGlint->CurrentGC, 0,
                 (octant & XDECREASING) ? -1 : 1, 
                 (octant & YDECREASING) ? -1 : 1, 
                 (octant & YMAJOR) ? Y_AXIS : X_AXIS,
-                x, y, dmin + e, dmin, -dmaj, len);
+                x, y, e, dmin, -dmaj, len);
 }
 
 static void
@@ -636,6 +644,7 @@ Permedia2SetupForFillRectSolid24bpp(ScrnInfoPtr pScrn, int color,
     GLINTPtr pGlint = GLINTPTR(pScrn);
     pGlint->ForeGroundColor = color;
 
+    TRACE_ENTER("Permedia2SetupForFillRectSolid24bpp");
     GLINT_WAIT(5);
     GLINT_WRITE_REG(UNIT_ENABLE, ColorDDAMode);
     GLINT_WRITE_REG(color, ConstantColor);
@@ -676,6 +685,7 @@ static void
 Permedia2SubsequentFillRectSolid24bpp(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
+    TRACE_ENTER("Permedia2SubsequentFillRectSolid24bpp");
     GLINT_WAIT(3);
     Permedia2LoadCoord(pScrn, x, y, w, h);
     GLINT_WRITE_REG(PrimitiveRectangle | XPositive | YPositive, Render);
@@ -686,8 +696,8 @@ Permedia2SubsequentFillRectSolid(ScrnInfoPtr pScrn, int x, int y, int w, int h)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
     int speed = 0;
-    TRACE_ENTER("Permedia2SubsequentFillRectSolid");
 
+    TRACE_ENTER("Permedia2SubsequentFillRectSolid");
     if (pGlint->ROP == GXcopy) {
 	GLINT_WAIT(3);
         Permedia2LoadCoord(pScrn, x, y, w, h);
@@ -711,6 +721,7 @@ Permedia2SetupForMono8x8PatternFill24bpp(ScrnInfoPtr pScrn,
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SetupForMono8x8PatternFill24bpp");
     if (bg == -1) pGlint->FrameBufferReadMode = -1;
 	else    pGlint->FrameBufferReadMode = 0;
 
@@ -745,8 +756,8 @@ Permedia2SetupForMono8x8PatternFill(ScrnInfoPtr pScrn,
 					   unsigned int planemask)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
-    TRACE_ENTER("Permedia2SetupForMono8x8PatternFill");
 
+    TRACE_ENTER("Permedia2SetupForMono8x8PatternFill");
     if (bg == -1) pGlint->FrameBufferReadMode = -1;
 	else    pGlint->FrameBufferReadMode = 0;
 
@@ -788,7 +799,8 @@ Permedia2SubsequentMono8x8PatternFillRect24bpp(ScrnInfoPtr pScrn,
 				   int w, int h)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
-  
+
+    TRACE_ENTER("Permedia2SubsequentMono8x8PatternFillRect24bpp");
     GLINT_WAIT(8);
     Permedia2LoadCoord(pScrn, x, y, w, h);
 
@@ -923,6 +935,7 @@ Permedia2SubsequentColorExpandScanline(ScrnInfoPtr pScrn, int bufno)
 {
     GLINTPtr pGlint = GLINTPTR(pScrn);
 
+    TRACE_ENTER("Permedia2SubsequentColorExpandScanline");
     if (pGlint->cpucount--)
     	GLINT_WAIT(pGlint->dwords);
 }
@@ -1056,6 +1069,7 @@ Permedia2WritePixmap8bpp(
     unsigned char *srcpbyte;
     Bool FastTexLoad = FALSE;
 
+    TRACE_ENTER("Permedia2SubsequentMono8x8PatternFillRect24bpp");
     GLINT_WAIT(3);
     DO_PLANEMASK(planemask);
     GLINT_WRITE_REG(pGlint->RasterizerSwap,RasterizerMode);
@@ -1386,7 +1400,8 @@ Permedia2WritePixmap32bpp(
     GLINTPtr pGlint = GLINTPTR(pScrn);
     int skipleft, dwords, count;
     CARD32* srcp;
-
+    
+    TRACE_ENTER("Permedia2WritePixmap32bpp");
     GLINT_WAIT(3);
     DO_PLANEMASK(planemask);
     GLINT_WRITE_REG(pGlint->RasterizerSwap,RasterizerMode);

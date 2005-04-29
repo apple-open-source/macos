@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_driver.c,v 1.34 2003/02/25 04:08:21 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/savage/savage_driver.c,v 1.49 2003/11/06 18:38:06 tsi Exp $ */
 /*
  * vim: sw=4 ts=8 ai ic:
  *
@@ -19,14 +19,10 @@
 #define DPMS_SERVER
 #include "extensions/dpms.h"
 
-#ifdef XvExtension
 #include "xf86xv.h"
-#endif
 
 #include "savage_driver.h"
 #include "savage_bci.h"
-
-
 
 
 /*
@@ -82,10 +78,10 @@ extern ScrnInfoPtr gpScrn;
 #define iabs(a)	((int)(a)>0?(a):(-(a)))
 
 #define DRIVER_NAME	"savage"
-#define DRIVER_VERSION	"1.1.26"
+#define DRIVER_VERSION	"1.1.27"
 #define VERSION_MAJOR	1
 #define VERSION_MINOR	1
-#define PATCHLEVEL	26
+#define PATCHLEVEL	27
 #define SAVAGE_VERSION	((VERSION_MAJOR << 24) | \
 			 (VERSION_MINOR << 16) | \
 			 PATCHLEVEL)
@@ -260,6 +256,7 @@ static const char *vbeSymbols[] = {
     NULL
 };
 
+#ifdef XFree86LOADER
 static const char *vbeOptSymbols[] = {
     "vbeModeInit",
     "VBESetVBEMode",
@@ -267,6 +264,7 @@ static const char *vbeOptSymbols[] = {
     "VBEFreeVBEInfo",
     NULL
 };
+#endif
 
 static const char *ddcSymbols[] = {
     "xf86DoEDID_DDC1",
@@ -287,11 +285,9 @@ static const char *xaaSymbols[] = {
     "XAACopyROP_PM",
     "XAACreateInfoRec",
     "XAADestroyInfoRec",
-    "XAAFillSolidRects",
     "XAAHelpPatternROP",
     "XAAHelpSolidROP",
     "XAAInit",
-    "XAAScreenIndex",
     NULL
 };
 
@@ -377,7 +373,8 @@ ResetBCI2K( SavagePtr psav )
 	! (ALT_STATUS_WORD0 & 0x00200000)
     )
     {
-	ErrorF( "Resetting BCI, stat = %08x...\n", ALT_STATUS_WORD0);
+	ErrorF( "Resetting BCI, stat = %08lx...\n",
+		(unsigned long) ALT_STATUS_WORD0);
 	/* Turn off BCI */
 	OUTREG( 0x48c18, cob & ~8 );
 	usleep(10000);
@@ -627,9 +624,12 @@ static Bool SavageProbe(DriverPtr drv, int flags)
 
     /* sanity checks */
     if ((numDevSections = xf86MatchDevice("savage", &devSections)) <= 0)
-	return FALSE;
-    if (xf86GetPciVideoInfo() == NULL)
-	return FALSE;
+        return FALSE;
+    if (xf86GetPciVideoInfo() == NULL) {
+        if (devSections)
+	    xfree(devSections);
+        return FALSE;
+    }
 
     numUsed = xf86MatchPciInstances("SAVAGE", PCI_VENDOR_S3,
 				    SavageChipsets, SavagePciChipsets,
@@ -647,7 +647,7 @@ static Bool SavageProbe(DriverPtr drv, int flags)
 	for (i=0; i<numUsed; i++) {
 	    ScrnInfoPtr pScrn = xf86AllocateScreen(drv, 0);
 
-	    pScrn->driverVersion = (int)DRIVER_VERSION;
+	    pScrn->driverVersion = SAVAGE_VERSION;
 	    pScrn->driverName = DRIVER_NAME;
 	    pScrn->name = "SAVAGE";
 	    pScrn->Probe = SavageProbe;
@@ -725,7 +725,7 @@ static Bool SavagePreInit(ScrnInfoPtr pScrn, int flags)
      * We support bpp of 8, 16, and 32.
      */
 
-    if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support32bppFb))
+    if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support32bppFb))
 	return FALSE;
     else {
         int requiredBpp;
@@ -1000,6 +1000,7 @@ static Bool SavagePreInit(ScrnInfoPtr pScrn, int flags)
 
 
     if (!SavageMapMMIO(pScrn)) {
+	SavageFreeRec(pScrn);
         vbeFree(psav->pVbe);
 	return FALSE;
     }
@@ -1031,6 +1032,7 @@ static Bool SavagePreInit(ScrnInfoPtr pScrn, int flags)
 
 	if (!xf86SetGamma(pScrn, zeros)) {
 	    vbeFree(psav->pVbe);
+	    SavageFreeRec(pScrn);
 	    return FALSE;
 	}
     }
@@ -1250,10 +1252,9 @@ static Bool SavagePreInit(ScrnInfoPtr pScrn, int flags)
 	    psav->dacSpeedBpp = pScrn->clock[3];
 	else if (pScrn->bitsPerPixel >= 24)
 	    psav->dacSpeedBpp = pScrn->clock[2];
-	else if ((pScrn->bitsPerPixel > 8) && (pScrn->bitsPerPixel < 24))
+	else if (pScrn->bitsPerPixel > 8)
 	    psav->dacSpeedBpp = pScrn->clock[1];
-	else if (pScrn->bitsPerPixel <= 8)
-	    psav->dacSpeedBpp = pScrn->clock[0];
+	else psav->dacSpeedBpp = pScrn->clock[0];
     }
 
     /* Set ramdac limits */
@@ -1683,7 +1684,7 @@ static void SavageSave(ScrnInfoPtr pScrn)
 static void SavageWriteMode(ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr,
 			    SavageRegPtr restore, Bool Entering)
 {
-    unsigned char tmp, cr3a, cr66, cr67;
+    unsigned char tmp, cr3a, cr66;
     vgaHWPtr hwp = VGAHWPTR(pScrn);
     SavagePtr psav = SAVPTR(pScrn);
     int vgaCRIndex, vgaCRReg, vgaIOBase;
@@ -1848,6 +1849,20 @@ static void SavageWriteMode(ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr,
 		break;
 	}
 
+	/* set the correct clock for some BIOSes */
+	VGAOUT8(VGA_MISC_OUT_W, 
+		VGAIN8(VGA_MISC_OUT_R) | 0x0C);
+	/* Some BIOSes turn on clock doubling on non-doubled modes */
+	if (pScrn->bitsPerPixel < 24) {
+	    VGAOUT8(vgaCRIndex, 0x67);
+	    if (!(VGAIN8(vgaCRReg) & 0x10)) {
+		VGAOUT8(0x3c4, 0x15);
+		VGAOUT8(0x3c5, VGAIN8(0x3C5) & ~0x10);
+		VGAOUT8(0x3c4, 0x18);
+		VGAOUT8(0x3c5, VGAIN8(0x3c5) & ~0x80);
+	    }
+	}
+
 	SavageInitialize2DEngine(pScrn);
 	SavageSetGBD(pScrn);
 
@@ -1885,7 +1900,7 @@ static void SavageWriteMode(ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr,
     }
 
     VGAOUT8(vgaCRIndex, 0x67);
-    cr67 = VGAIN8(vgaCRReg);
+    (void) VGAIN8(vgaCRReg);
     VGAOUT8(vgaCRReg, restore->CR67 & ~0x0c); /* no STREAMS yet */
 
     /* restore extended regs */
@@ -2090,8 +2105,18 @@ static void SavageWriteMode(ScrnInfoPtr pScrn, vgaRegPtr vgaSavePtr,
     VGAOUT8(vgaCRIndex, 0x3a);
     VGAOUT8(vgaCRReg, cr3a);
 
-    if( Entering )
+    if( Entering ) {
+    	/* We reinit the engine here just as in the UseBIOS case
+	 * as otherwise we lose performance because the engine
+	 * isn't setup properly (Alan Hourihane - alanh@fairlite.demon.co.uk).
+	 */
+	SavageInitialize2DEngine(pScrn);
 	SavageSetGBD(pScrn);
+
+	VGAOUT16(vgaCRIndex, 0x0140);
+
+	SavageSetGBD(pScrn);
+    }
 
     vgaHWProtect(pScrn, FALSE);
 
@@ -2117,7 +2142,7 @@ static Bool SavageMapMMIO(ScrnInfoPtr pScrn)
     }
 
     xf86DrvMsg( pScrn->scrnIndex, X_PROBED,
-	"mapping MMIO @ 0x%x with size 0x%x\n",
+	"mapping MMIO @ 0x%lx with size 0x%x\n",
 	psav->MmioBase, SAVAGE_NEWMMIO_REGSIZE);
 
     psav->MapBase = xf86MapPciMem(pScrn->scrnIndex, VIDMEM_MMIO, psav->PciTag,
@@ -2151,7 +2176,7 @@ static Bool SavageMapFB(ScrnInfoPtr pScrn)
     TRACE(("SavageMapFB()\n"));
 
     xf86DrvMsg( pScrn->scrnIndex, X_PROBED,
-	"mapping framebuffer @ 0x%x with size 0x%x\n", 
+	"mapping framebuffer @ 0x%lx with size 0x%x\n", 
 	psav->FrameBufferBase, psav->videoRambytes);
 
     if (psav->videoRambytes) {
@@ -2237,8 +2262,8 @@ static Bool SavageScreenInit(int scrnIndex, ScreenPtr pScreen,
 	    (psav->FBBase + psav->CursorKByte*1024 + 4096 - 32);
 	
 	xf86DrvMsg( pScrn->scrnIndex, X_PROBED,
-		    "Shadow area physical %08x, linear %08x\n",
-		    psav->ShadowPhysical, psav->ShadowVirtual );
+		    "Shadow area physical %08lx, linear %p\n",
+		    psav->ShadowPhysical, (void *)psav->ShadowVirtual );
 
 	psav->WaitQueue = ShadowWait1;
 	psav->WaitIdle = ShadowWait;
@@ -2363,10 +2388,8 @@ static Bool SavageScreenInit(int scrnIndex, ScreenPtr pScreen,
     if (xf86DPMSInit(pScreen, SavageDPMS, 0) == FALSE)
 	xf86DrvMsg(pScrn->scrnIndex, X_ERROR, "DPMS initialization failed\n");
 
-#ifdef XvExtension
     if( !psav->NoAccel && !SavagePanningCheck(pScrn) )
 	SavageInitVideo( pScreen );
-#endif
 
     if (serverGeneration == 1)
 	xf86ShowUnusedOptions(pScrn->scrnIndex, pScrn->options);
@@ -2489,22 +2512,7 @@ static Bool SavageModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 
 
 
-    if (pScrn->bitsPerPixel == 8)
-	psav->HorizScaleFactor = 1;
-    else if (pScrn->bitsPerPixel == 16)
-	psav->HorizScaleFactor = 1;	/* I don't think we ever want 2 */
-    else
-	psav->HorizScaleFactor = 1;
-
-    if (psav->HorizScaleFactor == 2)
-	if (!mode->CrtcHAdjusted) {
-	    mode->CrtcHDisplay *= 2;
-	    mode->CrtcHSyncStart *= 2;
-	    mode->CrtcHSyncEnd *= 2;
-	    mode->CrtcHTotal *= 2;
-	    mode->CrtcHSkew *= 2;
-	    mode->CrtcHAdjusted = TRUE;
-	}
+    psav->HorizScaleFactor = 1;
 
     if (!vgaHWInit(pScrn, mode))
 	return FALSE;
@@ -2958,10 +2966,6 @@ void SavageLoadPaletteSavage4(ScrnInfoPtr pScrn, int numColors, int *indicies,
     int i, index;
 
     vgaHWPtr hwp = VGAHWPTR(pScrn);
-    int vgaCRIndex, vgaCRReg, vgaIOBase;
-    vgaIOBase = hwp->IOBase;
-    vgaCRIndex = vgaIOBase + 4;
-    vgaCRReg = vgaIOBase + 5;
     VerticalRetraceWait(psav);
 
     for (i=0; i<numColors; i++) {

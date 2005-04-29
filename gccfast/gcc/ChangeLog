@@ -1,3 +1,125 @@
+2004-09-02  Dale Johannesen  <dalej@apple.com>
+
+	Radar 3775798
+	* config/rs6000/power4.md:  Increase store latency to 12.
+
+2004-07-21  Dale Johannesen  <dalej@apple.com>
+
+	* cgraphunit.c:  Revert to 1.1.2.12 (before Stuart's 7/8 change).
+	Per Ron.
+
+2004-07-16  Stuart Hastings <stuart@apple.com>
+	
+	Radar 3723483
+	* gcc/cgraph.c (cgraph_node): Rebuild hash table after PCH load.
+	
+2004-07-13  Stuart Hastings <stuart@apple.com>
+	
+	Radar 3717771
+	* gcc/cgraphunit.c (cgraph_inlinable_function_p): Fudge
+	current_function_decl, tricking c_cannot_inline_tree_fn() to
+	perform necessary tree-walk.
+	Radar 3723012
+	* gcc/cgraphunit.c (cgraph_call_desirability): Calls inside
+	nested functions are now undesirable for inlining.
+	
+2004-07-12  Matthew Sachs  <msachs@apple.com>
+
+        Radar 3676770
+        * bad cw asm codegen in 3.3
+
+2004-07-12  Caroline Tice  <ctice@apple.com>
+
+       Radar 3258482
+       * config/rs6000/rs6000.c (fix_rbi_next_info_for_blocks): Delete
+       now unused function.  
+       (rs6000_inline_floor_calls): Remove code that generates incorrect
+       old sequence; replace it with code that generates correct new
+       sequence of instructions for calculating floor quickly.
+
+2004-07-10  Andrew Pinski <apinski@apple.com>
+
+       Radar 3658100, 3623788, and 3661615
+       * c-decl.c (c_reset_state): Fix regression caused
+       by doing loop transport. Backported from gcc3.5
+
+2004-07-08  Stuart Hastings <stuart@apple.com>
+	
+	Radar 3717771
+	* gcc/cgraphunit.c (cgraph_inlinable_function_p): Make nested
+	functions undesirable for inlining.
+	
+2004-07-08  Fariborz Jahanian <fjahanian@apple.com>
+	Radar 3715841
+	* config/rs6000/rs6000.h (HARD_REGNO_NREGS): Macro updated.
+	*config/rs6000/rs6000.c (rs6000_function_value): Add support for
+	complex types.
+	(function_arg): Ditto.
+
+2004-07-02  Dale Johannesen  <dalej@apple.com>
+	Radar 3430683
+	* alias.c (struct_field_array_alias):  New.
+	(struct_field_field_alias):  Call above.  Clean up warnings.
+	(struct_pointer_pointer_alias):  Clean up warnings.
+
+2004-06-28  Caroline Tice <ctice@apple.com>
+	Radar 3687746
+	* config/rs6000/rs6000.c (rs6000_inline_floor_calls):  Add code to check 
+	call to floor to see if it contains a parallel return statement, and if 
+	so to generate a corresponding use instruction (to prevent optimizer
+	incorrectly optimizing the whole thing away).
+
+2004-06-26 Fariborz Jahanian <fjahanian@apple.c>
+	
+	Merge of gcc-3.3-panther-release-branch from
+	spec-branchpoint: 1.66.2.38 (2003/04/24 08:06:18)
+	until build 1662.
+
+2004-06-22  Fariborz Jahanian <fjahanian@apple.c>
+	Radars 3430870, 3479718, 3366797, 3384330, 3384356, 3378732
+	* config/rs6000/rs6000.h
+	* config/rs6000/rs6000.c
+	* emit-rtl.c
+	* stor-layout.c
+	* alias.c
+	Backport fixes from gcc-1552.
+
+2004-06-22  Dale Johannesen  <dalej@apple.com>
+	Radars 3455324 (&clones) 3384372 3451856 3344103
+	* calls.c
+	* gcse.c
+	* toplev.c
+	* cfgrtl.c
+	* config/rs6000/rs6000.h
+	* config/rs6000/rs6000.md
+	Backport fixes from gcc-1552.
+
+2004-05-24  Robert Bowdidge <bowdidge@apple.com>
+        Radar 3405101
+        * cse.c: (cse_basic_block): keep large malloc'd block
+        around between calls, rather than reallocating on each
+        entry.
+       
+2004-05-14  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3649357
+	* cppfiles.c (find_include_file_in_hashtable): Restore
+	filename clobbered by call to hmap_lookup_path().
+
+2004-04-27  Geoffrey Keating  <geoffk@apple.com>
+
+	* config/darwin-crt2.c: Only have contents on __ppc__.
+
+2003-07-14  Geoffrey Keating  <geoffk@apple.com>
+
+	* unwind-dw2-fde-darwin.c (live_image_destructor): Get seen_objects
+	and unseen_objects from the global data before calling
+	__deregister_frame_info_bases.
+	(examine_objects): Insert objects into the seen_objects list,
+	not unseen_objects.
+	(_Unwind_Find_FDE): Always unlock the global object lists, even if
+	we couldn't allocate a data structure to put in it.
+
 2003-03-04  Andreas Schwab  <schwab@suse.de>
 
 	* config/m68k/m68k.c (m68k_output_function_prologue): Fix CFA

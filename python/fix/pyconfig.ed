@@ -1,0 +1,10 @@
+/WORDS_BIGENDIAN/c
+#if __BIG_ENDIAN__
+#define WORDS_BIGENDIAN 1
+#endif /* __BIG_ENDIAN__ */
+.
+g,.*\(HAVE_POLL[_A-Z]*\).*,s,,/* #undef \1 */,
+/HAVE_BROKEN_POSIX_SEMAPHORES/c
+#define HAVE_BROKEN_POSIX_SEMAPHORES 1
+.
+w

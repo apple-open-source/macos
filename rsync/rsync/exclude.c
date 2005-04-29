@@ -38,24 +38,23 @@ struct exclude_list_struct local_exclude_list = { 0, 0, "per-dir .cvsignore " };
 struct exclude_list_struct server_exclude_list = { 0, 0, "server " };
 char *exclude_path_prefix = NULL;
 
-/** Build an exclude structure given a exclude pattern */
-static void make_exclude(struct exclude_list_struct *listp, const char *pattern,
-			 int pat_len, int include)
+/** Build an exclude structure given an exclude pattern. */
+static void make_exclude(struct exclude_list_struct *listp, const char *pat,
+			 unsigned int pat_len, unsigned int mflags)
 {
 	struct exclude_struct *ret;
 	const char *cp;
-	int ex_len;
+	unsigned int ex_len;
 
 	ret = new(struct exclude_struct);
 	if (!ret)
 		out_of_memory("make_exclude");
 
 	memset(ret, 0, sizeof ret[0]);
-	ret->include = include;
 
 	if (exclude_path_prefix)
-		ret->match_flags |= MATCHFLG_ABS_PATH;
-	if (exclude_path_prefix && *pattern == '/')
+		mflags |= MATCHFLG_ABS_PATH;
+	if (exclude_path_prefix && *pat == '/')
 		ex_len = strlen(exclude_path_prefix);
 	else
 		ex_len = 0;
@@ -64,26 +63,28 @@ static void make_exclude(struct exclude_list_struct *listp, const char *pattern,
 		out_of_memory("make_exclude");
 	if (ex_len)
 		memcpy(ret->pattern, exclude_path_prefix, ex_len);
-	strlcpy(ret->pattern + ex_len, pattern, pat_len + 1);
+	strlcpy(ret->pattern + ex_len, pat, pat_len + 1);
 	pat_len += ex_len;
 
 	if (strpbrk(ret->pattern, "*[?")) {
-		ret->match_flags |= MATCHFLG_WILD;
+		mflags |= MATCHFLG_WILD;
 		if ((cp = strstr(ret->pattern, "**")) != NULL) {
-			ret->match_flags |= MATCHFLG_WILD2;
+			mflags |= MATCHFLG_WILD2;
 			/* If the pattern starts with **, note that. */
 			if (cp == ret->pattern)
-				ret->match_flags |= MATCHFLG_WILD2_PREFIX;
+				mflags |= MATCHFLG_WILD2_PREFIX;
 		}
 	}
 
 	if (pat_len > 1 && ret->pattern[pat_len-1] == '/') {
 		ret->pattern[pat_len-1] = 0;
-		ret->directory = 1;
+		mflags |= MATCHFLG_DIRECTORY;
 	}
 
 	for (cp = ret->pattern; (cp = strchr(cp, '/')) != NULL; cp++)
 		ret->slash_cnt++;
+
+	ret->match_flags = mflags;
 
 	if (!listp->tail)
 		listp->head = listp->tail = ret;
@@ -99,14 +100,9 @@ static void free_exclude(struct exclude_struct *ex)
 	free(ex);
 }
 
-void free_exclude_list(struct exclude_list_struct *listp)
+void clear_exclude_list(struct exclude_list_struct *listp)
 {
 	struct exclude_struct *ent, *next;
-
-	if (verbose > 2) {
-		rprintf(FINFO, "[%s] clearing %sexclude list\n",
-			who_am_i(), listp->debug_type);
-	}
 
 	for (ent = listp->head; ent; ent = next) {
 		next = ent->next;
@@ -119,9 +115,12 @@ void free_exclude_list(struct exclude_list_struct *listp)
 static int check_one_exclude(char *name, struct exclude_struct *ex,
                              int name_is_dir)
 {
-	char *p;
+	char *p, full_name[MAXPATHLEN];
 	int match_start = 0;
 	char *pattern = ex->pattern;
+
+	if (!*name)
+		return 0;
 
 	/* If the pattern does not have any slashes AND it does not have
 	 * a "**" (which could match a slash), then we just match the
@@ -130,16 +129,14 @@ static int check_one_exclude(char *name, struct exclude_struct *ex,
 		if ((p = strrchr(name,'/')) != NULL)
 			name = p+1;
 	}
-	else if ((ex->match_flags & MATCHFLG_ABS_PATH) && *name != '/') {
-		static char full_name[MAXPATHLEN];
-		int plus = curr_dir[1] == '\0'? 1 : 0;
-		pathjoin(full_name, sizeof full_name, curr_dir+plus, name);
+	else if (ex->match_flags & MATCHFLG_ABS_PATH && *name != '/'
+	    && curr_dir[1]) {
+		pathjoin(full_name, sizeof full_name, curr_dir + 1, name);
 		name = full_name;
 	}
 
-	if (!name[0]) return 0;
-
-	if (ex->directory && !name_is_dir) return 0;
+	if (ex->match_flags & MATCHFLG_DIRECTORY && !name_is_dir)
+		return 0;
 
 	if (*pattern == '/') {
 		match_start = 1;
@@ -151,8 +148,8 @@ static int check_one_exclude(char *name, struct exclude_struct *ex,
 	if (ex->match_flags & MATCHFLG_WILD) {
 		/* A non-anchored match with an infix slash and no "**"
 		 * needs to match the last slash_cnt+1 name elements. */
-		if (!match_start && ex->slash_cnt &&
-		    !(ex->match_flags & MATCHFLG_WILD2)) {
+		if (!match_start && ex->slash_cnt
+		    && !(ex->match_flags & MATCHFLG_WILD2)) {
 			int cnt = ex->slash_cnt + 1;
 			for (p = name + strlen(name) - 1; p >= name; p--) {
 				if (*p == '/' && !--cnt)
@@ -206,9 +203,11 @@ static void report_exclude_result(char const *name,
 
 	if (verbose >= 2) {
 		rprintf(FINFO, "[%s] %scluding %s %s because of %spattern %s%s\n",
-			who_am_i(), ent->include ? "in" : "ex",
+			who_am_i(),
+			ent->match_flags & MATCHFLG_INCLUDE ? "in" : "ex",
 			name_is_dir ? "directory" : "file", name, type,
-			ent->pattern, ent->directory ? "/" : "");
+			ent->pattern,
+			ent->match_flags & MATCHFLG_DIRECTORY ? "/" : "");
 	}
 }
 
@@ -225,7 +224,7 @@ int check_exclude(struct exclude_list_struct *listp, char *name, int name_is_dir
 		if (check_one_exclude(name, ent, name_is_dir)) {
 			report_exclude_result(name, ent, name_is_dir,
 					      listp->debug_type);
-			return ent->include ? 1 : -1;
+			return ent->match_flags & MATCHFLG_INCLUDE ? 1 : -1;
 		}
 	}
 
@@ -236,16 +235,15 @@ int check_exclude(struct exclude_list_struct *listp, char *name, int name_is_dir
 /* Get the next include/exclude arg from the string.  The token will not
  * be '\0' terminated, so use the returned length to limit the string.
  * Also, be sure to add this length to the returned pointer before passing
- * it back to ask for the next token.  This routine will not parse the +/-
- * prefixes or the "!" token when xflags contains XFLG_WORDS_ONLY.  The
- * *incl_ptr value will be 1 for an include, 0 for an exclude, and -1 for
- * the list-clearing "!" token.
+ * it back to ask for the next token.  This routine parses the +/- prefixes
+ * and the "!" token unless xflags contains XFLG_WORDS_ONLY.  The *flag_ptr
+ * value will also be set to the MATCHFLG_* bits for the current token.
  */
-static const char *get_exclude_tok(const char *p, int *len_ptr, int *incl_ptr,
-				   int xflags)
+static const char *get_exclude_tok(const char *p, unsigned int *len_ptr,
+				   unsigned int *flag_ptr, int xflags)
 {
 	const unsigned char *s = (const unsigned char *)p;
-	int len;
+	unsigned int len, mflags = 0;
 
 	if (xflags & XFLG_WORD_SPLIT) {
 		/* Skip over any initial whitespace. */
@@ -258,10 +256,13 @@ static const char *get_exclude_tok(const char *p, int *len_ptr, int *incl_ptr,
 	/* Is this a '+' or '-' followed by a space (not whitespace)? */
 	if (!(xflags & XFLG_WORDS_ONLY)
 	    && (*s == '-' || *s == '+') && s[1] == ' ') {
-		*incl_ptr = *s == '+';
+		if (*s == '+')
+			mflags |= MATCHFLG_INCLUDE;
 		s += 2;
-	} else
-		*incl_ptr = xflags & XFLG_DEF_INCLUDE;
+	} else if (xflags & XFLG_DEF_INCLUDE)
+		mflags |= MATCHFLG_INCLUDE;
+	if (xflags & XFLG_DIRECTORY)
+		mflags |= MATCHFLG_DIRECTORY;
 
 	if (xflags & XFLG_WORD_SPLIT) {
 		const unsigned char *cp = s;
@@ -273,9 +274,10 @@ static const char *get_exclude_tok(const char *p, int *len_ptr, int *incl_ptr,
 		len = strlen(s);
 
 	if (*p == '!' && len == 1 && !(xflags & XFLG_WORDS_ONLY))
-		*incl_ptr = -1;
+		mflags |= MATCHFLG_CLEAR_LIST;
 
 	*len_ptr = len;
+	*flag_ptr = mflags;
 	return (const char *)s;
 }
 
@@ -283,7 +285,7 @@ static const char *get_exclude_tok(const char *p, int *len_ptr, int *incl_ptr,
 void add_exclude(struct exclude_list_struct *listp, const char *pattern,
 		 int xflags)
 {
-	int pat_len, incl;
+	unsigned int pat_len, mflags;
 	const char *cp;
 
 	if (!pattern)
@@ -292,21 +294,26 @@ void add_exclude(struct exclude_list_struct *listp, const char *pattern,
 	cp = pattern;
 	pat_len = 0;
 	while (1) {
-		cp = get_exclude_tok(cp + pat_len, &pat_len, &incl, xflags);
+		cp = get_exclude_tok(cp + pat_len, &pat_len, &mflags, xflags);
 		if (!pat_len)
 			break;
-		/* If we got the special "!" token, clear the list. */
-		if (incl < 0)
-			free_exclude_list(listp);
-		else {
-			make_exclude(listp, cp, pat_len, incl);
 
+		if (mflags & MATCHFLG_CLEAR_LIST) {
 			if (verbose > 2) {
-				rprintf(FINFO, "[%s] add_exclude(%.*s, %s%s)\n",
-					who_am_i(), pat_len, cp,
-					listp->debug_type,
-					incl ? "include" : "exclude");
+				rprintf(FINFO,
+					"[%s] clearing %sexclude list\n",
+					who_am_i(), listp->debug_type);
 			}
+			clear_exclude_list(listp);
+			continue;
+		}
+
+		make_exclude(listp, cp, pat_len, mflags);
+
+		if (verbose > 2) {
+			rprintf(FINFO, "[%s] add_exclude(%.*s, %s%sclude)\n",
+				who_am_i(), (int)pat_len, cp, listp->debug_type,
+				mflags & MATCHFLG_INCLUDE ? "in" : "ex");
 		}
 	}
 }
@@ -316,8 +323,8 @@ void add_exclude_file(struct exclude_list_struct *listp, const char *fname,
 		      int xflags)
 {
 	FILE *fp;
-	char line[MAXPATHLEN];
-	char *eob = line + MAXPATHLEN - 1;
+	char line[MAXPATHLEN+3]; /* Room for "x " prefix and trailing slash. */
+	char *eob = line + sizeof line - 1;
 	int word_split = xflags & XFLG_WORD_SPLIT;
 
 	if (!fname || !*fname)
@@ -340,7 +347,7 @@ void add_exclude_file(struct exclude_list_struct *listp, const char *fname,
 
 	while (1) {
 		char *s = line;
-		int ch;
+		int ch, overflow = 0;
 		while (1) {
 			if ((ch = getc(fp)) == EOF) {
 				if (ferror(fp) && errno == EINTR)
@@ -353,6 +360,12 @@ void add_exclude_file(struct exclude_list_struct *listp, const char *fname,
 				break;
 			if (s < eob)
 				*s++ = ch;
+			else
+				overflow = 1;
+		}
+		if (overflow) {
+			rprintf(FERROR, "discarding over-long exclude: %s...\n", line);
+			s = line;
 		}
 		*s = '\0';
 		/* Skip an empty token and (when line parsing) comments. */
@@ -383,12 +396,12 @@ void send_exclude_list(int f)
 		l = strlcpy(p, ent->pattern, sizeof p);
 		if (l == 0 || l >= MAXPATHLEN)
 			continue;
-		if (ent->directory) {
+		if (ent->match_flags & MATCHFLG_DIRECTORY) {
 			p[l++] = '/';
 			p[l] = '\0';
 		}
 
-		if (ent->include) {
+		if (ent->match_flags & MATCHFLG_INCLUDE) {
 			write_int(f, l + 2);
 			write_buf(f, "+ ", 2);
 		} else if ((*p == '-' || *p == '+') && p[1] == ' ') {
@@ -405,7 +418,7 @@ void send_exclude_list(int f)
 
 void recv_exclude_list(int f)
 {
-	char line[MAXPATHLEN+1]; /* Allows a trailing slash on a max-len dir */
+	char line[MAXPATHLEN+3]; /* Room for "x " prefix and trailing slash. */
 	unsigned int l;
 
 	while ((l = read_int(f)) != 0) {

@@ -14,3 +14,5 @@ EXPORTS
    perl_call_handler
    perl_clear_symtab
    perl_get_startup_pool
+   perl_perl_merge_dir_config
+   array_header2avrv

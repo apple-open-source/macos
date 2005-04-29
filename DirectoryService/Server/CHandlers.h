@@ -29,7 +29,6 @@
 #define __CHandlers_h__ 1
 
 #include "CInternalDispatchThread.h"
-#include "CSrvrEndPoint.h"
 #include "DSTCPEndpoint.h"
 #include "PrivateTypes.h"
 #include "CPlugInList.h"
@@ -40,16 +39,12 @@ class	CServerPlugin;
 
 //Extern
 extern DSMutexSemaphore	   *gTCPHandlerLock;
-extern DSMutexSemaphore	   *gHandlerLock;
-extern DSMutexSemaphore	   *gInternalHandlerLock;
-extern DSMutexSemaphore	   *gCheckpwHandlerLock;
 
 struct sRefEntry;
 
 class CHandlerThread : public CInternalDispatchThread
 {
 public:
-					CHandlerThread			( void );
 					CHandlerThread			( const FourCharCode inThreadSignature, uInt32 iThread );
 	virtual		   ~CHandlerThread			( void );
 	
@@ -62,14 +57,31 @@ public:
 protected:
 	virtual	void	LastChance			( void );
 			
-	CSrvrEndPoint   *fEndPt;
 	DSTCPEndpoint   *fTCPEndPt;
 
 private:
-		sInt32	CreateEndpoint					( void );
 		void	HandleMessage					( void );
+		void	LogQueueDepth					( void );
 
 	uInt32				fThreadIndex;
+};
+
+class CMigHandlerThread : public CInternalDispatchThread
+{
+public:
+					CMigHandlerThread			( void );
+					CMigHandlerThread			( const FourCharCode inThreadSignature, bool bMigHelper );
+	virtual		   ~CMigHandlerThread			( void );
+	
+	virtual	long	ThreadMain			( void );		// we manage our own thread top level
+	virtual	void	StartThread			( void );
+	virtual	void	StopThread			( void );
+
+protected:
+	virtual	void	LastChance			( void );
+			
+private:
+	bool			bMigHelperThread;
 };
 
 class CRequestHandler
@@ -79,7 +91,16 @@ public:
 	
 			bool	HandleRequest		( sComData **inRequest );
             static char*	GetCallName				( sInt32 inType );
-	
+			
+			// for mig handler to be able to call directly
+			sInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
+													  tDirPatternMatch inPatternMatch,
+													  uid_t *outUID, char **outShortName );
+			char*	BuildAPICallDebugDataTag		(	uInt32			inIPAddress,
+														sInt32			inClientPID,
+														char		   *inCallName,
+														char		   *inName);
+			
 protected:
 			sInt32	HandleServerCall	( sComData **inRequest );
 			sInt32	HandlePluginCall	( sComData **inRequest );
@@ -107,6 +128,8 @@ private:
 		void*	DoPlugInCustomCall				( sComData *inRequest, sInt32 *outStatus );
 		void*	DoAttributeValueSearch			( sComData *inRequest, sInt32 *outStatus );
 		void*	DoAttributeValueSearchWithData	( sComData *inRequest, sInt32 *outStatus );
+		void*	DoMultipleAttributeValueSearch			( sComData *inRequest, sInt32 *outStatus );
+		void*	DoMultipleAttributeValueSearchWithData	( sComData *inRequest, sInt32 *outStatus );
 		void*	DoFindDirNodes					( sComData *inRequest, sInt32 *outStatus );
 		void*	DoCloseDirNode					( sComData *inRequest, sInt32 *outStatus );
 		void*	DoGetDirNodeInfo				( sComData *inRequest, sInt32 *outStatus );
@@ -120,6 +143,7 @@ private:
 		void*	DoGetRecRefInfo					( sComData *inRequest, sInt32 *outStatus );
 		void*	DoGetRecAttribInfo				( sComData *inRequest, sInt32 *outStatus );
 		void*	DoGetRecordAttributeValueByIndex( sComData *inRequest, sInt32 *outStatus );
+		void*	DoGetRecordAttributeValueByValue( sComData *inRequest, sInt32 *outStatus );
 		void*	DoGetRecordAttributeValueByID	( sComData *inRequest, sInt32 *outStatus );
 		void*	DoCloseRecord					( sComData *inRequest, sInt32 *outStatus );
 		void*	DoSetRecordName					( sComData *inRequest, sInt32 *outStatus );
@@ -131,36 +155,24 @@ private:
 		void*	DoAddAttributeValue				( sComData *inRequest, sInt32 *outStatus );
 		void*	DoRemoveAttributeValue			( sComData *inRequest, sInt32 *outStatus );
 		void*	DoSetAttributeValue				( sComData *inRequest, sInt32 *outStatus );
+		void*   DoSetAttributeValues			( sComData *inRequest, sInt32 *outStatus );
 		void*	DoAuthentication				( sComData *inRequest, sInt32 *outStatus );
 		void*	DoAuthenticationOnRecordType	( sComData *inRequest, sInt32 *outStatus );
 
 		void*	GetNodeList						( sComData *inRequest, sInt32 *outStatus );
 		void*	FindDirNodes					( sComData *inRequest, sInt32 *outStatus, char *inDebugDataTag );
-		sInt32	DoCheckUserNameAndPassword		( const char *userName, const char *password,
-												  tDirPatternMatch inPatternMatch,
-												  uid_t *outUID, char **outShortName );
 		bool	UserIsAdmin						( const char* shortName );
 		bool	UserIsMemberOfGroup				( tDirReference inDirRef, tDirNodeReference inDirNodeRef,
 												  const char* shortName, const char* groupName );
-		void	GetUIDsForProcessID				( pid_t inPID, uid_t *outUID, uid_t *outEUID );
 		char*	GetNameForProcessID				( pid_t inPID );
 		void	LogAPICall						(	double			inTime,
 													char		   *inDebugDataTag,
 													sInt32			inResult);
-		char*	BuildAPICallDebugDataTag		(	uInt32			inIPAddress,
-													sInt32			inClientPID,
-													char		   *inCallName,
-													char		   *inName);
 		void	DebugAPIPluginCall				(	void		   *inData,
 													char		   *inDebugDataTag );
 		void	DebugAPIPluginResponse			(	void		   *inData,
 													char		   *inDebugDataTag,
 													sInt32			inResult);
-		
-		static uInt32		AuditForThisEvent			( uInt32 inType, void *inData, char **outTextStr );
-		static tDirStatus   AuditUserOrGroupRecord		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr, uInt32 *outEventCode );
-		static tDirStatus   AuditGetRecordRefInfo		( tRecordReference inRecRef, char **outRecNameStr, char **outRecTypeStr );
-		static tDirStatus   AuditGetNameFromAuthBuffer  ( tDataNodePtr inAuthMethod, tDataBufferPtr inAuthBuffer, char **outUserNameStr );
 		
 	CServerPlugin	   *fPluginPtr;
 	bool				bClosePort;

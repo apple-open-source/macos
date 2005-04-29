@@ -34,6 +34,7 @@
 #ifndef __DirServices_h__
 #define __DirServices_h__
 
+#include <AvailabilityMacros.h>
 #include <DirectoryService/DirServicesTypes.h>
 
 #ifdef __cplusplus
@@ -68,7 +69,8 @@ tDirStatus	dsOpenDirServiceProxy 		(	tDirReference	   *outDirRef,
 											tDataNodePtr		inAuthMethod,
 											tDataBufferPtr		inAuthStepData,
 											tDataBufferPtr		outAuthStepDataResponse,
-											tContextData	   *ioContinueData );
+											tContextData	   *ioContinueData )
+AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
 	
 /*!
  * @function dsCloseDirService
@@ -90,41 +92,47 @@ tDirStatus dsAddChildPIDToReference		(	tDirReference		inDirRef,
 tDirStatus dsIsDirServiceRunning		( );
 
 //-------------------------------------------------------------------------
-// register custom allocate/deallocate routines MacOS Classic Applications Only
+// register custom allocate/deallocate routines
 tDirStatus	dsRegisterCustomMemory		(	tDirReference		inDirReference,
 											fpCustomAllocate	inCustomAllocate,
 											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		);
+											tClientData			inClientData		)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 	
 tDirStatus	dsGetCustomAllocate			(	tDirReference		inDirReference,
 											fpCustomAllocate	*outCustomAllocate,
 											fpCustomDeAllocate	*outCustomDeAllocate,
-											tClientData			*outClientData		);
+											tClientData			*outClientData		)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 
 tDirStatus	dsUnRegisterCustomMemory	(	tDirReference		inDirReference,
 											fpCustomAllocate	inCustomAllocate,
 											fpCustomDeAllocate	inCustomDeAllocate,
-											tClientData			inClientData		);
+											tClientData			inClientData		)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 
 //------------------------------------------------------------
-// register custom thread routines MacOS Classic Applications Only
+// register custom thread routines
 tDirStatus	dsRegisterCustomThread		(	tDirReference			inDirReference,
 											fpCustomThreadBlock		inCustomBlock,
 											fpCustomThreadUnBlock	inCustomUnBlock,
 											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	);
+											tClientData				inClientData	)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 
 tDirStatus	dsGetCustomThread			(	tDirReference			inDirReference,
 											fpCustomThreadBlock		*outCustomBlock,
 											fpCustomThreadUnBlock	*outCustomUnBlock,
 											fpCustomThreadYield		*outCustomYield,
-											tClientData				*outClientData	);
+											tClientData				*outClientData	)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 
 tDirStatus	dsUnRegisterCustomThread	(	tDirReference			inDirReference,
 											fpCustomThreadBlock		inCustomBlock,
 											fpCustomThreadUnBlock	inCustomUnBlock,
 											fpCustomThreadYield		inCustomYield,
-											tClientData				inClientData	);
+											tClientData				inClientData	)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED;
 
 //-----------------------------------------------
 
@@ -135,7 +143,8 @@ tDirStatus	dsUnRegisterCustomThread	(	tDirReference			inDirReference,
  * @param outDirectoryNodeCount Contains count of the total number of directory nodes.
  */
 tDirStatus	dsGetDirNodeCount		(	tDirReference	inDirReference,
-										unsigned long	*outDirectoryNodeCount	);
+										unsigned long	*outDirectoryNodeCount	)
+AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
 
 /*!
  * @function dsGetDirNodeCountWithInfo
@@ -171,7 +180,13 @@ tDirStatus	dsGetDirNodeList		(	tDirReference	inDirReference,
  * @discussion If continue data from dsGetDirNodeList or any other Directory Services
  * 		function is non-NULL, then call this routine to release the continue data
  * 		if the client chooses not to continue the directory node listing or other operation.
- * @param inDirReference Directory reference established with dsOpenDirService
+ * @param inDirReference Directory reference established with dsOpenDirService if
+ *		inContinueData was returned by dsGetDirNodeList or dsFindDirNodes, node reference 
+ *		(type tDirNodeReference) established with dsOpenDirNode 
+ *		if inContinueData was returned by a node specific API such as dsGetRecordList,
+ *		dsDoAttributeValueSearch, dsDoAttributeValueSearchWithData, dsDoMultipleAttributeValueSearch,
+ *		dsDoMultipleAttributeValueSearchWithData, dsGetDirNodeInfo, dsDoDirNodeAuth,
+ *		or dsDoDirNodeAuthOnRecordType.
  * @param inContinueData Pointer to a tContextData variable which will be cleaned up by Directory Services
  */
 tDirStatus	dsReleaseContinueData	(	tDirReference	inDirReference,	
@@ -371,6 +386,21 @@ tDirStatus	dsGetRecordAttributeValueByIndex	(	tRecordReference		inRecordReferenc
 													tAttributeValueEntryPtr	*outEntryPtr		);
 
 /*!
+ * @function dsGetRecordAttributeValueByValue
+ * @param inRecordReference Record reference from an opened record.
+ * @param inAttributeType Attribute type to retrieve.
+ * @param inAttributeValue Attribute value whose existence is to be confirmed.
+ * @param outEntryPtr Output data structure.
+ * @discussion
+ * This routine verifies the existence of an attribute value within a record.
+ */
+tDirStatus	dsGetRecordAttributeValueByValue	(	tRecordReference		inRecordReference,
+													tDataNodePtr			inAttributeType,											
+													tDataNodePtr			inAttributeValue,
+													tAttributeValueEntryPtr	*outEntryPtr		)
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+/*!
  * @function dsFlushRecord
  */
 tDirStatus	dsFlushRecord						(	tRecordReference		inRecordReference	);
@@ -391,7 +421,8 @@ tDirStatus	dsSetRecordName			(	tRecordReference	inRecordReference,
  * @function dsSetRecordType
  */
 tDirStatus	dsSetRecordType			(	tRecordReference	inRecordReference,
-										tDataNodePtr		inNewRecordType			);
+										tDataNodePtr		inNewRecordType			)
+AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_2;
 
 /*!
  * @function dsDeleteRecord
@@ -450,6 +481,18 @@ tDirStatus	dsSetAttributeValue		(	tRecordReference		inRecordReference,
 										tDataNodePtr			inAttributeType,
 										tAttributeValueEntryPtr	inAttributeValuePtr			);
 										
+/*!
+ * @function dsSetAttributeValues
+ * @discussion sets an attribute to have the given list of values
+ * @param inRecordReference the record reference of the record to modify
+ * @param inAttributeType the attribute type to set values for
+ * @param inAttributeValuesPtr the list of all values for the attribute
+ */
+tDirStatus dsSetAttributeValues		(   tRecordReference		inRecordReference,
+										tDataNodePtr			inAttributeType,
+										tDataListPtr			inAttributeValuesPtr )
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
 /*!
  * @function dsDoDirNodeAuth
  * @discussion
@@ -538,18 +581,26 @@ tDirStatus dsDoDirNodeAuthOnRecordType	(	tDirNodeReference	inDirNodeReference,
 											tDataBufferPtr		inAuthStepData,
 											tDataBufferPtr		outAuthStepDataResponse,
 											tContextData		*inOutContinueData,
-											tDataNodePtr		inRecordType			);
+											tDataNodePtr		inRecordType			)
+AVAILABLE_MAC_OS_X_VERSION_10_3_AND_LATER;
 
 /*!
  * @function dsDoAttributeValueSearch
  * @discussion Use dsGetRecordEntry, dsGetAttributeEntry, and dsGetAttributeValue
  * 		to parse the inOutDataBuffer parameter for results.
+ * @param inDirNodeReference Directory node reference obtained from dsOpenDirNode.
  * @param inOutDataBuffer A client-allocated buffer to hold the data results.
- * @param inRecordTypeList The list of record types to search within.
- * @param inAttributeType What type of attributes we want for each record.
+ * @param inRecordTypeList The list of record types to search over.
+ * @param inAttributeType Which attribute type we are to match on.
+ * @param inPatternMatchType The matching criteria used.
+ * @param inPattern2Match Value to match for the above attribute type.
  * @param inOutMatchRecordCount How many records we found that met the match criteria.
  * 		However, also a limit of the maximum records returned as provided by the client.
  * 		If zero or less, then assuming no limit on number of records to be returned.
+ * @param inOutContinueData Pointer to a tContextData variable. If (*inOutCountinueData == NULL)
+ * 		there is no more data. Otherwise can be used in the next call to the same routine to get
+ * 		the remainder of the information. If client does not use non-NULL continue data,
+ * 		then dsReleaseContinueData should be called to clean up.
  */
 tDirStatus	dsDoAttributeValueSearch	(	tDirNodeReference	inDirNodeReference,
 											tDataBufferPtr		inOutDataBuffer,
@@ -561,14 +612,39 @@ tDirStatus	dsDoAttributeValueSearch	(	tDirNodeReference	inDirNodeReference,
 											tContextData		*inOutContinueData			);
 
 
+/*!
+ * @function dsDoMultipleAttributeValueSearch
+ * @discussion Use dsGetRecordEntry, dsGetAttributeEntry, and dsGetAttributeValue
+ * 		to parse the inOutDataBuffer parameter for results.
+ * @param inOutDataBuffer A client-allocated buffer to hold the data results.
+ * @param inRecordTypeList The list of record types to search over.
+ * @param inAttributeType Which attribute type we are to match on.
+ * @param inPatternMatchType The matching criteria used.
+ * @param inPatterns2Match The list of values to match for the above attribute type.
+ * @param inOutMatchRecordCount How many records we found that met the match criteria.
+ * 		However, also a limit of the maximum records returned as provided by the client.
+ * 		If zero or less, then assuming no limit on number of records to be returned.
+ */
+tDirStatus	dsDoMultipleAttributeValueSearch	
+										(	tDirNodeReference	inDirNodeReference,
+											tDataBufferPtr		inOutDataBuffer,
+											tDataListPtr		inRecordTypeList,
+											tDataNodePtr		inAttributeType,
+											tDirPatternMatch	inPatternMatchType,
+											tDataListPtr		inPatterns2Match,
+											unsigned long		*inOutMatchRecordCount,
+											tContextData		*inOutContinueData			)
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
+
+
 
 /*!
  * @function dsDoAttributeValueSearchWithData
  * @param inOutDataBuffer A client-allocated buffer to hold the data results.
- * @param inRecordTypeList The type of records to search for.
- * @param inAttributeMatchType Which attribute we are to match on.
- * @param inPatternMatchType Pattern match.
- * @param inPatternToMatch Value to match for the above attribute.
+ * @param inRecordTypeList The list of record types to search over.
+ * @param inAttributeMatchType Which attribute type we are to match on.
+ * @param inPatternMatchType The matching criteria used.
+ * @param inPatternToMatch Value to match for the above attribute type.
  * @param inAttributeTypeRequestList What type of attributes do we want for each record.
  * @param inAttributeInfoOnly Do we want attribute information only, or values too.
  * @param inOutMatchRecordCount How many records we found that met the match criteria.
@@ -585,6 +661,32 @@ tDirStatus	dsDoAttributeValueSearchWithData	(	tDirNodeReference	inDirNodeReferen
 													dsBool				inAttributeInfoOnly,
 													unsigned long		*inOutMatchRecordCount,
 													tContextData		*inOutContinueData			);
+
+/*!
+ * @function dsDoMultipleAttributeValueSearchWithData
+ * @param inOutDataBuffer A client-allocated buffer to hold the data results.
+ * @param inRecordTypeList The list of record types to search over.
+ * @param inAttributeMatchType Which attribute type we are to match on.
+ * @param inPatternMatchType The matching criteria used.
+ * @param inPatternsToMatch The list of values to match for the above attribute type.
+ * @param inAttributeTypeRequestList What type of attributes do we want for each record.
+ * @param inAttributeInfoOnly Do we want attribute information only, or values too.
+ * @param inOutMatchRecordCount How many records we found that met the match criteria.
+ * 		However, also a limit of the maximum records returned as provided by the client.
+ * 		If zero or less, then assuming no limit on number of records to be returned.
+ */
+tDirStatus	dsDoMultipleAttributeValueSearchWithData
+												(	tDirNodeReference	inDirNodeReference,
+													tDataBufferPtr		inOutDataBuffer,
+													tDataListPtr		inRecordTypeList,
+													tDataNodePtr		inAttributeMatchType,
+													tDirPatternMatch	inPatternMatchType,
+													tDataListPtr		inPatternsToMatch,
+													tDataListPtr		inAttributeTypeRequestList,
+													dsBool				inAttributeInfoOnly,
+													unsigned long		*inOutMatchRecordCount,
+													tContextData		*inOutContinueData			)
+AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
 /*!
  * @function dsDoPlugInCustomCall

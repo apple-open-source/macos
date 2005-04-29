@@ -1,11 +1,16 @@
+#include "calc.h"
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
 #include <ctype.h>
 #include <stdio.h>
-#include "calc.h"
 
 static int words();
+
+#define NWORD 10
+#define SIZE 100
+#define VERSION "1.1"
 
 int main()
 {

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_texobj.h,v 1.5 2002/02/22 21:44:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_texobj.h,v 1.6 2003/09/28 20:15:21 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -52,34 +52,18 @@ typedef struct r128_tex_obj r128TexObj, *r128TexObjPtr;
 /* Texture object in locally shared texture space.
  */
 struct r128_tex_obj {
-   r128TexObjPtr next, prev;
+   driTextureObject   base;
 
-   struct gl_texture_object *tObj;	/* Mesa texture object */
-
-   PMemBlock memBlock;			/* Memory block containing texture */
    CARD32 bufAddr;			/* Offset to start of locally
 					   shared texture block */
 
-   CARD32 dirty_images;			/* Flags for whether or not
-					   images need to be uploaded to
-					   local or AGP texture space */
-
    GLuint age;
-   GLint bound;				/* Texture unit currently bound to */
-   GLint heap;				/* Texture heap currently stored in */
    r128TexImage image[R128_MAX_TEXTURE_LEVELS]; /* Image data for all
 						   mipmap levels */
 
-   GLint totalSize;			/* Total size of the texture
-					   including all mipmap levels */
    CARD32 textureFormat;		/* Actual hardware format */
 
    r128_texture_regs_t setup;		/* Setup regs for texture */
-
-   /* texObj->Image[firstLevel] through texObj->Image[lastLevel] are the
-    * images to upload.
-    */
-   GLint firstLevel, lastLevel;
 };
 
 #endif /* _R128_TEXOBJ_H_ */

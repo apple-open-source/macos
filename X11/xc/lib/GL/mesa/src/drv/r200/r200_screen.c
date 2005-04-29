@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_screen.c,v 1.2 2002/12/16 16:18:54 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_screen.c,v 1.7 2003/12/18 21:56:37 dawes Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,7 +25,8 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
@@ -33,14 +34,22 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
 #include <dlfcn.h>
-#include <stdlib.h>
 
+#include "glheader.h"
+#include "imports.h"
+#include "context.h"
+
+#define STANDALONE_MMIO
 #include "r200_screen.h"
 #include "r200_context.h"
 #include "r200_ioctl.h"
+#include "radeon_macros.h"
+#include "radeon_reg.h"
 
-#include "mem.h"
-#include "context.h"
+#include "utils.h"
+#include "vblank.h"
+
+#include "glxextensions.h"
 
 #if 1
 /* Including xf86PciInfo.h introduces a bunch of errors...
@@ -54,64 +63,34 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define PCI_CHIP_R200_LW	0x4C57 
 #define PCI_CHIP_R200_LY	0x4C59
 #define PCI_CHIP_R200_LZ	0x4C5A
-#define PCI_CHIP_RV200_QW	0x5157 
+#define PCI_CHIP_RV200_QW	0x5157 /* Radeon 7500 - not an R200 at all */
 #endif
 
 static r200ScreenPtr __r200Screen;
+
+static int getSwapInfo( __DRIdrawablePrivate *dPriv, __DRIswapInfo * sInfo );
 
 /* Create the device specific screen private data struct.
  */
 static r200ScreenPtr 
 r200CreateScreen( __DRIscreenPrivate *sPriv )
 {
-   r200ScreenPtr r200Screen;
-   RADEONDRIPtr r200DRIPriv = (RADEONDRIPtr)sPriv->pDevPriv;
+   r200ScreenPtr screen;
+   RADEONDRIPtr dri_priv = (RADEONDRIPtr)sPriv->pDevPriv;
+   unsigned char *RADEONMMIO;
 
-   /* Check the DRI version */
-   {
-      int major, minor, patch;
-      if ( XF86DRIQueryVersion( sPriv->display, &major, &minor, &patch ) ) {
-         if ( major != 4 || minor < 0 ) {
-            __driUtilMessage( "R200 DRI driver expected DRI version 4.0.x "
-			      "but got version %d.%d.%d",
-			      major, minor, patch );
-            return NULL;
-         }
-      }
-   }
-
-   /* Check that the DDX driver version is compatible */
-   if ( sPriv->ddxMajor != 4 ||
-	sPriv->ddxMinor < 0 ) {
-      __driUtilMessage( "R200 DRI driver expected DDX driver version 4.0.x "
-			"but got version %d.%d.%d", 
-			sPriv->ddxMajor, sPriv->ddxMinor, sPriv->ddxPatch );
+   if ( ! driCheckDriDdxDrmVersions( sPriv, "R200", 4, 0, 4, 0, 1, 5 ) )
       return NULL;
-   }
-
-   /* Check that the DRM driver version is compatible 
-    *    -- R200 support added at 1.5.0.
-    */
-   if ( sPriv->drmMajor != 1 ||
-	sPriv->drmMinor < 5) {
-      __driUtilMessage( "R200 DRI driver expected DRM driver version 1.5.x "
-			"but got version %d.%d.%d", 
-			sPriv->drmMajor, sPriv->drmMinor, sPriv->drmPatch );
-      return NULL;
-   }
-
-
 
    /* Allocate the private area */
-   r200Screen = (r200ScreenPtr) CALLOC( sizeof(*r200Screen) );
-   if ( !r200Screen ) {
-      __driUtilMessage("%s: CALLOC r200Screen struct failed",
+   screen = (r200ScreenPtr) CALLOC( sizeof(*screen) );
+   if ( !screen ) {
+      __driUtilMessage("%s: Could not allocate memory for screen structure",
 		       __FUNCTION__);
       return NULL;
    }
 
-
-   switch ( r200DRIPriv->deviceID ) {
+   switch ( dri_priv->deviceID ) {
    case PCI_CHIP_R200_QD:
    case PCI_CHIP_R200_QE:
    case PCI_CHIP_R200_QF:
@@ -123,10 +102,10 @@ r200CreateScreen( __DRIscreenPrivate *sPriv )
    case PCI_CHIP_R200_LY:
    case PCI_CHIP_R200_LZ:
       __driUtilMessage("r200CreateScreen(): Device isn't an r200!\n");
-      FREE( r200Screen );
+      FREE( screen );
       return NULL;      
    default:
-      r200Screen->chipset = R200_CHIPSET_R200;
+      screen->chipset = R200_CHIPSET_R200;
       break;
    }
 
@@ -134,142 +113,177 @@ r200CreateScreen( __DRIscreenPrivate *sPriv )
    /* This is first since which regions we map depends on whether or
     * not we are using a PCI card.
     */
-   r200Screen->IsPCI = r200DRIPriv->IsPCI;
+   screen->IsPCI = dri_priv->IsPCI;
 
    {
       int ret;
       drmRadeonGetParam gp;
 
-      gp.param = RADEON_PARAM_AGP_BUFFER_OFFSET;
-      gp.value = &r200Screen->agp_buffer_offset;
+      gp.param = RADEON_PARAM_GART_BUFFER_OFFSET;
+      gp.value = &screen->gart_buffer_offset;
 
       ret = drmCommandWriteRead( sPriv->fd, DRM_RADEON_GETPARAM,
 				 &gp, sizeof(gp));
       if (ret) {
-	 FREE( r200Screen );
-	 fprintf(stderr, "drmR200GetParam: %d\n", ret);
+	 FREE( screen );
+	 fprintf(stderr, "drmRadeonGetParam (RADEON_PARAM_GART_BUFFER_OFFSET): %d\n", ret);
 	 return NULL;
       }
 
-      r200Screen->agp_texture_offset = 
-	 r200Screen->agp_buffer_offset + 2*1024*1024;
-
-
       if (sPriv->drmMinor >= 6) {
-	 gp.param = RADEON_PARAM_AGP_BASE;
-	 gp.value = &r200Screen->agp_base;
+	 gp.param = RADEON_PARAM_GART_BASE;
+	 gp.value = &screen->gart_base;
 
 	 ret = drmCommandWriteRead( sPriv->fd, DRM_RADEON_GETPARAM,
 				    &gp, sizeof(gp));
 	 if (ret) {
-	    FREE( r200Screen );
-	    fprintf(stderr,
-		    "drmR200GetParam (RADEON_PARAM_AGP_BUFFER_OFFSET): %d\n",
-		    ret);
+	    FREE( screen );
+	    fprintf(stderr, "drmR200GetParam (RADEON_PARAM_GART_BASE): %d\n", ret);
 	    return NULL;
 	 }
-      }
 
-      if (sPriv->drmMinor >= 6) {
+
 	 gp.param = RADEON_PARAM_IRQ_NR;
-	 gp.value = &r200Screen->irq;
+	 gp.value = &screen->irq;
 
 	 ret = drmCommandWriteRead( sPriv->fd, DRM_RADEON_GETPARAM,
 				    &gp, sizeof(gp));
 	 if (ret) {
-	    FREE( r200Screen );
-	    fprintf(stderr, "drmR200GetParam (RADEON_PARAM_IRQ_NR): %d\n", ret);
+	    FREE( screen );
+	    fprintf(stderr, "drmRadeonGetParam (RADEON_PARAM_IRQ_NR): %d\n", ret);
 	    return NULL;
 	 }
+
+	 /* Check if kernel module is new enough to support cube maps */
+	 screen->drmSupportsCubeMaps = (sPriv->drmMinor >= 7);
       }
-
    }
 
-   r200Screen->mmio.handle = r200DRIPriv->registerHandle;
-   r200Screen->mmio.size   = r200DRIPriv->registerSize;
+   screen->mmio.handle = dri_priv->registerHandle;
+   screen->mmio.size   = dri_priv->registerSize;
    if ( drmMap( sPriv->fd,
-		r200Screen->mmio.handle,
-		r200Screen->mmio.size,
-		&r200Screen->mmio.map ) ) {
-      FREE( r200Screen );
-      __driUtilMessage("r200CreateScreen(): drmMap failed\n");
+		screen->mmio.handle,
+		screen->mmio.size,
+		&screen->mmio.map ) ) {
+      FREE( screen );
+      __driUtilMessage("%s: drmMap failed\n", __FUNCTION__ );
       return NULL;
    }
 
-   r200Screen->status.handle = r200DRIPriv->statusHandle;
-   r200Screen->status.size   = r200DRIPriv->statusSize;
+   RADEONMMIO = screen->mmio.map;
+
+   screen->status.handle = dri_priv->statusHandle;
+   screen->status.size   = dri_priv->statusSize;
    if ( drmMap( sPriv->fd,
-		r200Screen->status.handle,
-		r200Screen->status.size,
-		&r200Screen->status.map ) ) {
-      drmUnmap( r200Screen->mmio.map, r200Screen->mmio.size );
-      FREE( r200Screen );
-      __driUtilMessage("r200CreateScreen(): drmMap (2) failed\n");
+		screen->status.handle,
+		screen->status.size,
+		&screen->status.map ) ) {
+      drmUnmap( screen->mmio.map, screen->mmio.size );
+      FREE( screen );
+      __driUtilMessage("%s: drmMap (2) failed\n", __FUNCTION__ );
       return NULL;
    }
-   r200Screen->scratch = (__volatile__ CARD32 *)
-      ((GLubyte *)r200Screen->status.map + RADEON_SCRATCH_REG_OFFSET);
+   screen->scratch = (__volatile__ CARD32 *)
+      ((GLubyte *)screen->status.map + RADEON_SCRATCH_REG_OFFSET);
 
-   r200Screen->buffers = drmMapBufs( sPriv->fd );
-   if ( !r200Screen->buffers ) {
-      drmUnmap( r200Screen->status.map, r200Screen->status.size );
-      drmUnmap( r200Screen->mmio.map, r200Screen->mmio.size );
-      FREE( r200Screen );
-      __driUtilMessage("r200CreateScreen(): drmMapBufs failed\n");
+   screen->buffers = drmMapBufs( sPriv->fd );
+   if ( !screen->buffers ) {
+      drmUnmap( screen->status.map, screen->status.size );
+      drmUnmap( screen->mmio.map, screen->mmio.size );
+      FREE( screen );
+      __driUtilMessage("%s: drmMapBufs failed\n", __FUNCTION__ );
       return NULL;
    }
 
-   if ( !r200Screen->IsPCI ) {
-      r200Screen->agpTextures.handle = r200DRIPriv->agpTexHandle;
-      r200Screen->agpTextures.size   = r200DRIPriv->agpTexMapSize;
+   if ( dri_priv->gartTexHandle && dri_priv->gartTexMapSize ) {
+      screen->gartTextures.handle = dri_priv->gartTexHandle;
+      screen->gartTextures.size   = dri_priv->gartTexMapSize;
       if ( drmMap( sPriv->fd,
-		   r200Screen->agpTextures.handle,
-		   r200Screen->agpTextures.size,
-		   (drmAddressPtr)&r200Screen->agpTextures.map ) ) {
-	 drmUnmapBufs( r200Screen->buffers );
-	 drmUnmap( r200Screen->status.map, r200Screen->status.size );
-	 drmUnmap( r200Screen->mmio.map, r200Screen->mmio.size );
-	 FREE( r200Screen );
-         __driUtilMessage("r200CreateScreen(): IsPCI failed\n");
+		   screen->gartTextures.handle,
+		   screen->gartTextures.size,
+		   (drmAddressPtr)&screen->gartTextures.map ) ) {
+	 drmUnmapBufs( screen->buffers );
+	 drmUnmap( screen->status.map, screen->status.size );
+	 drmUnmap( screen->mmio.map, screen->mmio.size );
+	 FREE( screen );
+	 __driUtilMessage("%s: drmMAP failed for GART texture area\n", __FUNCTION__);
 	 return NULL;
       }
+
+      screen->gart_texture_offset = dri_priv->gartTexOffset + ( screen->IsPCI
+		? INREG( RADEON_AIC_LO_ADDR )
+		: ( ( INREG( RADEON_MC_AGP_LOCATION ) & 0x0ffffU ) << 16 ) );
    }
 
+   screen->cpp = dri_priv->bpp / 8;
+   screen->AGPMode = dri_priv->AGPMode;
 
+   screen->fbLocation	= ( INREG( RADEON_MC_FB_LOCATION ) & 0xffff ) << 16;
 
-   r200Screen->cpp = r200DRIPriv->bpp / 8;
-   r200Screen->AGPMode = r200DRIPriv->AGPMode;
+   if ( sPriv->drmMinor >= 10 ) {
+      drmRadeonSetParam sp;
 
-   r200Screen->frontOffset	= r200DRIPriv->frontOffset;
-   r200Screen->frontPitch	= r200DRIPriv->frontPitch;
-   r200Screen->backOffset	= r200DRIPriv->backOffset;
-   r200Screen->backPitch	= r200DRIPriv->backPitch;
-   r200Screen->depthOffset	= r200DRIPriv->depthOffset;
-   r200Screen->depthPitch	= r200DRIPriv->depthPitch;
+      sp.param = RADEON_SETPARAM_FB_LOCATION;
+      sp.value = screen->fbLocation;
 
-   r200Screen->texOffset[RADEON_CARD_HEAP] = r200DRIPriv->textureOffset;
-   r200Screen->texSize[RADEON_CARD_HEAP] = r200DRIPriv->textureSize;
-   r200Screen->logTexGranularity[RADEON_CARD_HEAP] =
-      r200DRIPriv->log2TexGran;
+      drmCommandWrite( sPriv->fd, DRM_RADEON_SETPARAM,
+		       &sp, sizeof( sp ) );
+   }
 
-   if ( r200Screen->IsPCI ) {
-      r200Screen->numTexHeaps = RADEON_NR_TEX_HEAPS - 1;
-      r200Screen->texOffset[RADEON_AGP_HEAP] = 0;
-      r200Screen->texSize[RADEON_AGP_HEAP] = 0;
-      r200Screen->logTexGranularity[RADEON_AGP_HEAP] = 0;
+   screen->frontOffset	= dri_priv->frontOffset;
+   screen->frontPitch	= dri_priv->frontPitch;
+   screen->backOffset	= dri_priv->backOffset;
+   screen->backPitch	= dri_priv->backPitch;
+   screen->depthOffset	= dri_priv->depthOffset;
+   screen->depthPitch	= dri_priv->depthPitch;
+
+   screen->texOffset[RADEON_CARD_HEAP] = dri_priv->textureOffset
+				       + screen->fbLocation;
+   screen->texSize[RADEON_CARD_HEAP] = dri_priv->textureSize;
+   screen->logTexGranularity[RADEON_CARD_HEAP] =
+      dri_priv->log2TexGran;
+
+   if ( !screen->gartTextures.map ) {
+      screen->numTexHeaps = RADEON_NR_TEX_HEAPS - 1;
+      screen->texOffset[RADEON_GART_HEAP] = 0;
+      screen->texSize[RADEON_GART_HEAP] = 0;
+      screen->logTexGranularity[RADEON_GART_HEAP] = 0;
    } else {
-      r200Screen->numTexHeaps = RADEON_NR_TEX_HEAPS;
-      r200Screen->texOffset[RADEON_AGP_HEAP] =
-	 r200DRIPriv->agpTexOffset + R200_AGP_TEX_OFFSET;
-      r200Screen->texSize[RADEON_AGP_HEAP] = r200DRIPriv->agpTexMapSize;
-      r200Screen->logTexGranularity[RADEON_AGP_HEAP] =
-	 r200DRIPriv->log2AGPTexGran;
+      screen->numTexHeaps = RADEON_NR_TEX_HEAPS;
+      screen->texOffset[RADEON_GART_HEAP] = screen->gart_texture_offset;
+      screen->texSize[RADEON_GART_HEAP] = dri_priv->gartTexMapSize;
+      screen->logTexGranularity[RADEON_GART_HEAP] =
+	 dri_priv->log2GARTTexGran;
    }
 
+   screen->driScreen = sPriv;
+   screen->sarea_priv_offset = dri_priv->sarea_priv_offset;
 
-   r200Screen->driScreen = sPriv;
-   r200Screen->sarea_priv_offset = r200DRIPriv->sarea_priv_offset;
-   return r200Screen;
+   if ( driCompareGLXAPIVersion( 20030813 ) >= 0 ) {
+      PFNGLXSCRENABLEEXTENSIONPROC glx_enable_extension =
+          (PFNGLXSCRENABLEEXTENSIONPROC) glXGetProcAddress( (const GLubyte *) "__glXScrEnableExtension" );
+      void * const psc = sPriv->psc->screenConfigs;
+
+      if ( glx_enable_extension != NULL ) {
+	 if ( screen->irq != 0 ) {
+	    (*glx_enable_extension)( psc, "GLX_SGI_swap_control" );
+	    (*glx_enable_extension)( psc, "GLX_SGI_video_sync" );
+	    (*glx_enable_extension)( psc, "GLX_MESA_swap_control" );
+	 }
+
+	 (*glx_enable_extension)( psc, "GLX_MESA_swap_frame_usage" );
+
+	 if ( driCompareGLXAPIVersion( 20030818 ) >= 0 ) {
+	    sPriv->psc->allocateMemory = r200AllocateMemoryMESA;
+	    sPriv->psc->freeMemory     = r200FreeMemoryMESA;
+	    sPriv->psc->memoryOffset   = r200GetMemoryOffsetMESA;
+
+	    (*glx_enable_extension)( psc, "GLX_MESA_allocate_memory" );
+	 }
+      }
+   }
+
+   return screen;
 }
 
 /* Destroy the device specific screen private data struct.
@@ -277,20 +291,19 @@ r200CreateScreen( __DRIscreenPrivate *sPriv )
 static void 
 r200DestroyScreen( __DRIscreenPrivate *sPriv )
 {
-   r200ScreenPtr r200Screen = (r200ScreenPtr)sPriv->private;
+   r200ScreenPtr screen = (r200ScreenPtr)sPriv->private;
 
-   if (!r200Screen)
+   if (!screen)
       return;
 
-   if ( !r200Screen->IsPCI ) {
-      drmUnmap( r200Screen->agpTextures.map,
-		r200Screen->agpTextures.size );
+   if ( screen->gartTextures.map ) {
+      drmUnmap( screen->gartTextures.map, screen->gartTextures.size );
    }
-   drmUnmapBufs( r200Screen->buffers );
-   drmUnmap( r200Screen->status.map, r200Screen->status.size );
-   drmUnmap( r200Screen->mmio.map, r200Screen->mmio.size );
+   drmUnmapBufs( screen->buffers );
+   drmUnmap( screen->status.map, screen->status.size );
+   drmUnmap( screen->mmio.map, screen->mmio.size );
 
-   FREE( r200Screen );
+   FREE( screen );
    sPriv->private = NULL;
 }
 
@@ -313,11 +326,10 @@ r200InitDriver( __DRIscreenPrivate *sPriv )
  * data.
  */
 static GLboolean
-r200CreateBuffer( Display *dpy,
-                    __DRIscreenPrivate *driScrnPriv,
-                    __DRIdrawablePrivate *driDrawPriv,
-                    const __GLcontextModes *mesaVis,
-                    GLboolean isPixmap )
+r200CreateBuffer( __DRIscreenPrivate *driScrnPriv,
+                  __DRIdrawablePrivate *driDrawPriv,
+                  const __GLcontextModes *mesaVis,
+                  GLboolean isPixmap )
 {
    if (isPixmap) {
       return GL_FALSE; /* not implemented */
@@ -362,19 +374,23 @@ r200OpenCloseFullScreen( __DRIcontextPrivate *driContextPriv )
 }
 
 static struct __DriverAPIRec r200API = {
-   r200InitDriver,
-   r200DestroyScreen,
-   r200CreateContext,
-   r200DestroyContext,
-   r200CreateBuffer,
-   r200DestroyBuffer,
-   r200SwapBuffers,
-   r200MakeCurrent,
-   r200UnbindContext,
-   r200OpenCloseFullScreen,
-   r200OpenCloseFullScreen
+   .InitDriver      = r200InitDriver,
+   .DestroyScreen   = r200DestroyScreen,
+   .CreateContext   = r200CreateContext,
+   .DestroyContext  = r200DestroyContext,
+   .CreateBuffer    = r200CreateBuffer,
+   .DestroyBuffer   = r200DestroyBuffer,
+   .SwapBuffers     = r200SwapBuffers,
+   .MakeCurrent     = r200MakeCurrent,
+   .UnbindContext   = r200UnbindContext,
+   .OpenFullScreen  = r200OpenCloseFullScreen,
+   .CloseFullScreen = r200OpenCloseFullScreen,
+   .GetSwapInfo     = getSwapInfo,
+   .GetMSC          = driGetMSC32,
+   .WaitForMSC      = driWaitForMSC32,
+   .WaitForSBC      = NULL,
+   .SwapBuffersMSC  = NULL
 };
-
 
 
 /*
@@ -392,45 +408,57 @@ void *__driCreateScreen(Display *dpy, int scrn, __DRIscreen *psc,
 }
 
 
-/* This function is called by libGL.so as soon as libGL.so is loaded.
- * This is where we'd register new extension functions with the dispatcher.
+/**
+ * This function is called by libGL.so to allow the driver to dynamically
+ * extend libGL.  We can add new GLX functions and/or new GL functions.
+ * Note that _mesa_create_context() will probably add most of the newer
+ * OpenGL extension functions into the dispatcher.
+ *
+ * \todo This interface has been deprecated, so we should probably remove
+ *       this function before the next XFree86 release.
  */
 void
 __driRegisterExtensions( void )
 {
-   /* dlopen ourself */
-   void *dll = dlopen(NULL, RTLD_GLOBAL);
-   if (dll) {
-      typedef void *(*registerFunc)(const char *funcName, void *funcAddr);
-      typedef void (*registerString)(const char *extName);
+   PFNGLXENABLEEXTENSIONPROC glx_enable_extension;
 
-      /* Get pointers to libGL's __glXRegisterGLXFunction
-       * and __glXRegisterGLXExtensionString, if they exist.
-       */
-      registerFunc regFunc = (registerFunc) dlsym(dll, "__glXRegisterGLXFunction");
-      registerString regString = (registerString) dlsym(dll, "__glXRegisterGLXExtensionString");
 
-      if (regFunc) {
-         /* register our GLX extensions with libGL */
-         void *p;
-         p = regFunc("glXAllocateMemoryNV", (void *) r200AllocateMemoryNV);
-         if (p)
-            ;  /* XXX already registered - what to do, wrap? */
+   if ( driCompareGLXAPIVersion( 20030317 ) >= 0 ) {
+      glx_enable_extension = (PFNGLXENABLEEXTENSIONPROC)
+	  glXGetProcAddress( (const GLubyte *) "__glXEnableExtension" );
 
-         p = regFunc("glXFreeMemoryNV", (void *) r200FreeMemoryNV);
-         if (p)
-            ;  /* XXX already registered - what to do, wrap? */
-
-         p = regFunc("glXGetAGPOffsetMESA", (void *) r200GetAGPOffset);
-         if (p)
-            ;  /* XXX already registered - what to do, wrap? */
+      if ( glx_enable_extension != NULL ) {
+	 (*glx_enable_extension)( "GLX_SGI_swap_control", GL_FALSE );
+	 (*glx_enable_extension)( "GLX_SGI_video_sync", GL_FALSE );
+	 (*glx_enable_extension)( "GLX_MESA_swap_control", GL_FALSE );
+	 (*glx_enable_extension)( "GLX_MESA_swap_frame_usage", GL_FALSE );
       }
-
-      if (regString) {
-         regString("GLX_NV_vertex_array_range");
-         regString("GLX_MESA_agp_offset");
-      }
-
-      dlclose(dll);
    }
+}
+
+
+/**
+ * Get information about previous buffer swaps.
+ */
+static int
+getSwapInfo( __DRIdrawablePrivate *dPriv, __DRIswapInfo * sInfo )
+{
+   r200ContextPtr  rmesa;
+
+   if ( (dPriv == NULL) || (dPriv->driContextPriv == NULL)
+	|| (dPriv->driContextPriv->driverPrivate == NULL)
+	|| (sInfo == NULL) ) {
+      return -1;
+   }
+
+   rmesa = (r200ContextPtr) dPriv->driContextPriv->driverPrivate;
+   sInfo->swap_count = rmesa->swap_count;
+   sInfo->swap_ust = rmesa->swap_ust;
+   sInfo->swap_missed_count = rmesa->swap_missed_count;
+
+   sInfo->swap_missed_usage = (sInfo->swap_missed_count != 0)
+       ? driCalculateSwapUsage( dPriv, 0, rmesa->swap_missed_ust )
+       : 0.0;
+
+   return 0;
 }

@@ -1,0 +1,11 @@
+--- ftime.3.orig	Sat Jan  3 18:59:56 2004
++++ ftime.3	Tue Jan 13 17:41:55 2004
+@@ -38,8 +38,6 @@
+ .Sh NAME
+ .Nm ftime
+ .Nd get date and time
+-.Sh LIBRARY
+-.Lb libcompat
+ .Sh SYNOPSIS
+ .In sys/types.h
+ .In sys/timeb.h

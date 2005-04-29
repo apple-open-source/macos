@@ -24,33 +24,33 @@
  *           with modifications by Stephen Blackheath (Aug 2002)
  *          
  * REVISION HISTORY:
- *   December 2001 - Patrick LERDA's original (http://sourceforge.net/projects/i740fb).
- *   27 August 2002 - Patrick's version would run for an hour or two on my machine,
- *     then the screen would go blank (no signal to monitor) and for some reason I
- *     sometimes couldn't even log in through the network.  I had to re-boot my machine.
- *     This version fixes that and makes a few other unnecessary tweaks.  I am not
- *     certain, but I think the problem is that Patrick's code was reading a value from
- *     XRX register 0xD0, and or'ing with 0x10.  When I removed this from the main
- *     loop, it became reliable.  I suspect the hardware (whether just my cheap
- *     clone board only I'm not sure) was sometimes returning bogus values, which were
- *     then programmed back in - but I never checked this.  This register is related to
- *     powering on or off certain subsystems of the i740 chip, so that might explain
- *     the blank screen. - Stephen Blackheath
- *   3 September 2002 - Added software scaling in the situation where the screen size is
- *     smaller than the original video size, since scaling down is not supported by
- *     the hardware.  The implementation of this is not quite complete.
- *   12 September 2002 - Better software scaling with some averaging, giving a nicer
- *     picture.
- *   13 January 2003 - Fixed a minor bug where the video would occasionally stop updating,
- *     which was worked around just by re-sizing the window.
+ *   December 2001 - Patrick LERDA's original i740fb project on SourceForge.
+ *   27 August 2002 - Patrick's version would run for an hour or two on my
+ *     machine, then the screen would go blank (no signal to monitor) and for
+ *     some reason I sometimes couldn't even log in through the network.  I had
+ *     to re-boot my machine.  This version fixes that and makes a few other
+ *     unnecessary tweaks.  I am not certain, but I think the problem is that
+ *     Patrick's code was reading a value from XRX register 0xD0, and or'ing
+ *     with 0x10.  When I removed this from the main loop, it became reliable.
+ *     I suspect the hardware (whether just my cheap clone board only I'm not
+ *     sure) was sometimes returning bogus values, which were then programmed
+ *     back in - but I never checked this.  This register is related to
+ *     powering on or off certain subsystems of the i740 chip, so that might
+ *     explain the blank screen.  - Stephen Blackheath
+ *   3 September 2002 - Added software scaling in the situation where the
+ *     screen size is smaller than the original video size, since scaling down
+ *     is not supported by the hardware.  The implementation of this is not
+ *     quite complete.
+ *   12 September 2002 - Better software scaling with some averaging, giving a
+ *     nicer picture.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i740/i740_video.c,v 1.3 2003/01/17 22:22:52 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/i740/i740_video.c,v 1.6 2003/11/10 18:22:21 tsi Exp $ */
+
 
 /*
  * i740_video.c: i740 Xv driver. Based on the mga Xv driver by Mark Vojkovich.
  */
 
-#ifdef XvExtension
 #include "xf86.h"
 #include "xf86_OSproc.h"
 #include "xf86Resources.h"
@@ -273,36 +273,6 @@ static void I740ResetVideo(ScrnInfoPtr pScrn)
   i740fb_colorkey(pScrn,pPriv->colorKey);
 }
 
-
-
-
-static Bool RegionsEqual(RegionPtr A, RegionPtr B)
-{
-    int *dataA, *dataB;
-    int num;
-
-    num = REGION_NUM_RECTS(A);
-    if(num != REGION_NUM_RECTS(B))
-	return FALSE;
-
-    if((A->extents.x1 != B->extents.x1) ||
-       (A->extents.x2 != B->extents.x2) ||
-       (A->extents.y1 != B->extents.y1) ||
-       (A->extents.y2 != B->extents.y2))
-	return FALSE;
-
-    dataA = (int*)REGION_RECTS(A);
-    dataB = (int*)REGION_RECTS(B);
-
-    while(num--) {
-	if((dataA[0] != dataB[0]) || (dataA[1] != dataB[1]))
-	   return FALSE;
-	dataA += 2; 
-	dataB += 2;
-    }
-
-    return TRUE;
-}
 
 
 /* I740ClipVideo -  
@@ -618,11 +588,11 @@ static FBLinearPtr I740AllocateMemory(ScrnInfoPtr pScrn, FBLinearPtr linear, int
 	return linear;
 
       if(xf86ResizeOffscreenLinear(linear, size)) {
-        xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory resized to %d - %p\n", (int) size, linear);  /* ### */
+        xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory resized to %d - %p\n", (int) size, (void *)linear);  /* ### */
 	return linear;
       }
 
-      xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory free %p - %d < %d\n", linear, (int) linear->size, (int) size);  /* ### */
+      xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory free %p - %d < %d\n", (void *)linear, (int) linear->size, (int) size);  /* ### */
       xf86FreeOffscreenLinear(linear);
     }
 
@@ -646,7 +616,7 @@ static FBLinearPtr I740AllocateMemory(ScrnInfoPtr pScrn, FBLinearPtr linear, int
       new_linear = xf86AllocateOffscreenLinear(pScreen, size, 4, 
 					       NULL, NULL, NULL);
     } 
-  xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory allocated %d - %p\n", (int) size, new_linear);  /* ### */
+  xf86DrvMsg(pScrn->scrnIndex, X_CONFIG, "I740AllocateMemory allocated %d - %p\n", (int) size, (void *)new_linear);  /* ### */
 
   return new_linear;
 }
@@ -659,6 +629,7 @@ static int I740PutImage(ScrnInfoPtr pScrn,
 			Bool sync, RegionPtr clipBoxes, pointer data
 			)
 {
+  ScreenPtr pScreen = pScrn->pScreen;
   I740Ptr pI740 = I740PTR(pScrn);
   I740PortPrivPtr pPriv = (I740PortPrivPtr)data;
   INT32 x1, x2, y1, y2;
@@ -788,11 +759,11 @@ static int I740PutImage(ScrnInfoPtr pScrn,
   }
 
   /* update cliplist */
-  if(!RegionsEqual(&pPriv->clip, clipBoxes))
+  if(!REGION_EQUAL(pScreen, &pPriv->clip, clipBoxes))
     {
       REGION_COPY(pScreen, &pPriv->clip, clipBoxes);
       /* draw these */
-      XAAFillSolidRects(pScrn, pPriv->colorKey, GXcopy, ~0, REGION_NUM_RECTS(clipBoxes), REGION_RECTS(clipBoxes));
+      xf86XVFillKeyHelper(pScreen, pPriv->colorKey, clipBoxes);
     }
 
   {
@@ -1075,9 +1046,7 @@ static int I740DisplaySurface(XF86SurfacePtr surface, short src_x, short src_y,
 		   src_w, src_h, drw_w, drw_h,
 		   0x00);
 
-  XAAFillSolidRects(pScrn, pI740Priv->colorKey, GXcopy, ~0,
-		    REGION_NUM_RECTS(clipBoxes),
-		    REGION_RECTS(clipBoxes));
+  xf86XVFillKeyHelper(pScrn->pScreen, pI740Priv->colorKey, clipBoxes);
 
   pPriv->isOn = TRUE;
   /* we've prempted the XvImage stream so set its free timer */
@@ -1248,7 +1217,7 @@ static XF86VideoAdaptorPtr I740SetupImageVideo(ScreenPtr pScreen)
   pPriv->currentBuf  = 0;
 
   /* gotta uninit this someplace */
-  REGION_INIT(pScreen, &pPriv->clip, NullBox, 0); 
+  REGION_NULL(pScreen, &pPriv->clip);
 
   pI740->adaptor = adapt;
 
@@ -1320,4 +1289,3 @@ void I740InitVideo(ScreenPtr pScreen)
 
   }
 }
-#endif /*XvExtension*/

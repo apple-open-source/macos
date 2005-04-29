@@ -1,6 +1,6 @@
 /*	$NetBSD: rmd160.c,v 1.1.1.1 2001/03/06 11:21:05 agc Exp $	*/
 /*	$RoughId: rmd160.c,v 1.2 2001/07/13 19:49:10 knu Exp $	*/
-/*	$Id: rmd160.c,v 1.2 2003/04/03 05:35:19 melville Exp $	*/
+/*	$Id: rmd160.c,v 1.1 2001/07/13 20:06:14 knu Exp $	*/
 
 /********************************************************************\
  *
@@ -25,12 +25,6 @@
 #ifndef lint
 /* __RCSID("$NetBSD: rmd160.c,v 1.1.1.1 2001/03/06 11:21:05 agc Exp $"); */
 #endif	/* not lint */
-
-#ifdef __BIG_ENDIAN__
-#define WORDS_BIGENDIAN
-#else
-#undef WORDS_BIGENDIAN
-#endif
 
 /* header files */
 

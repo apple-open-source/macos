@@ -28,7 +28,7 @@ int main(int argc, const char * argv[])
     int optchar = 0;
     kern_return_t mach_result = KERN_SUCCESS;
     port_t host_port = PORT_NULL;
-    kmod_info_t * kmod_list;
+    kmod_info_t * kmod_list = NULL;
     int kmod_bytecount;  // not really used
     int kmod_count;
     kmod_info_t * this_kmod;
@@ -231,7 +231,7 @@ finish:
         mach_port_deallocate(mach_task_self(), host_port);
     }
 
-    if (kmod_list) {
+    if (kmod_list != NULL) {
         vm_deallocate(mach_task_self(), (vm_address_t)kmod_list,
             kmod_bytecount);
     }

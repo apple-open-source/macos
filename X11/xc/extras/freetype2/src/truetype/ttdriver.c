@@ -190,39 +190,46 @@
                   FT_UInt     horz_resolution,
                   FT_UInt     vert_resolution )
   {
-    FT_Size_Metrics*  metrics = &size->root.metrics;
-    TT_Face           face    = (TT_Face)size->root.face;
+    FT_Size_Metrics*  metrics  = &size->root.metrics;
+    FT_Size_Metrics*  metrics2 = &size->metrics;
+    TT_Face           face     = (TT_Face)size->root.face;
     FT_Long           dim_x, dim_y;
 
+
+    *metrics2 = *metrics;
 
     /* This bit flag, when set, indicates that the pixel size must be */
     /* truncated to an integer.  Nearly all TrueType fonts have this  */
     /* bit set, as hinting won't work really well otherwise.          */
     /*                                                                */
-    /* However, for those rare fonts who do not set it, we override   */
-    /* the default computations performed by the base layer.  I       */
-    /* really don't know whether this is useful, but hey, that's the  */
-    /* spec :-)                                                       */
-    /*                                                                */
-    if ( ( face->header.Flags & 8 ) == 0 )
+    if ( ( face->header.Flags & 8 ) != 0 )
     {
-      /* Compute pixel sizes in 26.6 units */
-      dim_x = ( char_width  * horz_resolution + 36 ) / 72;
-      dim_y = ( char_height * vert_resolution + 36 ) / 72;
-
-      metrics->x_scale = FT_DivFix( dim_x, face->root.units_per_EM );
-      metrics->y_scale = FT_DivFix( dim_y, face->root.units_per_EM );
-
-      metrics->x_ppem  = (FT_UShort)( dim_x >> 6 );
-      metrics->y_ppem  = (FT_UShort)( dim_y >> 6 );
+     /* we need to use rounding in the following computations. Otherwise,
+      * the resulting hinted outlines will be very slightly distorted
+      */
+      dim_x = ( ( char_width  * horz_resolution + (36+32*72) ) / 72 ) & -64;
+      dim_y = ( ( char_height * vert_resolution + (36+32*72) ) / 72 ) & -64;
     }
+    else
+    {
+      dim_x = ( ( char_width  * horz_resolution + 36 ) / 72 );
+      dim_y = ( ( char_height * vert_resolution + 36 ) / 72 );
+    }
+
+    /* we only modify "metrics2", not "metrics", so these changes have */
+    /* no effect on the result of the auto-hinter when it is used      */
+    /*                                                                 */
+    metrics2->x_ppem  = (FT_UShort)( dim_x >> 6 );
+    metrics2->y_ppem  = (FT_UShort)( dim_y >> 6 );
+    metrics2->x_scale = FT_DivFix( dim_x, face->root.units_per_EM );
+    metrics2->y_scale = FT_DivFix( dim_y, face->root.units_per_EM );
 
     size->ttmetrics.valid = FALSE;
 #ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
     size->strike_index    = 0xFFFF;
 #endif
 
-    return TT_Size_Reset( size );
+    return tt_size_reset( size );
   }
 
 
@@ -256,12 +263,13 @@
 
     /* many things have been pre-computed by the base layer */
 
+    size->metrics         = size->root.metrics;
     size->ttmetrics.valid = FALSE;
 #ifdef TT_CONFIG_OPTION_EMBEDDED_BITMAPS
     size->strike_index    = 0xFFFF;
 #endif
 
-    return TT_Size_Reset( size );
+    return tt_size_reset( size );
   }
 
 
@@ -295,7 +303,7 @@
   Load_Glyph( TT_GlyphSlot  slot,
               TT_Size       size,
               FT_UShort     glyph_index,
-              FT_UInt       load_flags )
+              FT_Int32      load_flags )
   {
     FT_Error  error;
 
@@ -319,7 +327,7 @@
 
       if ( !size->ttmetrics.valid )
       {
-        if ( FT_SET_ERROR( TT_Size_Reset( size ) ) )
+        if ( FT_SET_ERROR( tt_size_reset( size ) ) )
           return error;
       }
     }
@@ -331,112 +339,6 @@
     /* slot->outline.dropout_mode = 2; */
 
     return error;
-  }
-
-
-  /*************************************************************************/
-  /*************************************************************************/
-  /*************************************************************************/
-  /****                                                                 ****/
-  /****                                                                 ****/
-  /****             C H A R A C T E R   M A P P I N G S                 ****/
-  /****                                                                 ****/
-  /****                                                                 ****/
-  /*************************************************************************/
-  /*************************************************************************/
-  /*************************************************************************/
-
-  /*************************************************************************/
-  /*                                                                       */
-  /* <Function>                                                            */
-  /*    Get_Char_Index                                                     */
-  /*                                                                       */
-  /* <Description>                                                         */
-  /*    Uses a charmap to return a given character code's glyph index.     */
-  /*                                                                       */
-  /* <Input>                                                               */
-  /*    charmap  :: A handle to the source charmap object.                 */
-  /*    charcode :: The character code.                                    */
-  /*                                                                       */
-  /* <Return>                                                              */
-  /*    Glyph index.  0 means `undefined character code'.                  */
-  /*                                                                       */
-  static FT_UInt
-  Get_Char_Index( TT_CharMap  charmap,
-                  FT_Long     charcode )
-  {
-    FT_Error      error;
-    TT_Face       face;
-    TT_CMapTable  cmap;
-
-
-    cmap = &charmap->cmap;
-    face = (TT_Face)charmap->root.face;
-
-    /* Load table if needed */
-    if ( !cmap->loaded )
-    {
-      SFNT_Service  sfnt = (SFNT_Service)face->sfnt;
-
-
-      error = sfnt->load_charmap( face, cmap, face->root.stream );
-      if ( error )
-        return 0;
-
-      cmap->loaded = TRUE;
-    }
-
-    if ( cmap->get_index )
-      return cmap->get_index( cmap, charcode );
-    else
-      return 0;
-  }
-
-
-  /*************************************************************************/
-  /*                                                                       */
-  /* <Function>                                                            */
-  /*    Get_Next_Char                                                      */
-  /*                                                                       */
-  /* <Description>                                                         */
-  /*    Uses a charmap to return the next encoded char.                    */
-  /*                                                                       */
-  /* <Input>                                                               */
-  /*    charmap  :: A handle to the source charmap object.                 */
-  /*    charcode :: The character code.                                    */
-  /*                                                                       */
-  /* <Return>                                                              */
-  /*    Next char code.  0 means `no more encoded characters'.             */
-  /*                                                                       */
-  static FT_UInt
-  Get_Next_Char( TT_CharMap  charmap,
-                 FT_Long     charcode )
-  {
-    FT_Error      error;
-    TT_Face       face;
-    TT_CMapTable  cmap;
-
-
-    cmap = &charmap->cmap;
-    face = (TT_Face)charmap->root.face;
-
-    /* Load table if needed */
-    if ( !cmap->loaded )
-    {
-      SFNT_Service  sfnt = (SFNT_Service)face->sfnt;
-
-
-      error = sfnt->load_charmap( face, cmap, face->root.stream );
-      if ( error )
-        return 0;
-
-      cmap->loaded = TRUE;
-    }
-
-    if ( cmap->get_next_char )
-      return cmap->get_next_char ( cmap, charcode );
-    else
-      return 0;
   }
 
 
@@ -496,8 +398,8 @@
 
       (void*)0,        /* driver specific interface */
 
-      (FT_Module_Constructor)TT_Driver_Init,
-      (FT_Module_Destructor) TT_Driver_Done,
+      (FT_Module_Constructor)tt_driver_init,
+      (FT_Module_Destructor) tt_driver_done,
       (FT_Module_Requester)  tt_get_interface,
     },
 
@@ -506,23 +408,20 @@
     sizeof ( FT_GlyphSlotRec ),
 
 
-    (FT_Face_InitFunc)        TT_Face_Init,
-    (FT_Face_DoneFunc)        TT_Face_Done,
-    (FT_Size_InitFunc)        TT_Size_Init,
-    (FT_Size_DoneFunc)        TT_Size_Done,
+    (FT_Face_InitFunc)        tt_face_init,
+    (FT_Face_DoneFunc)        tt_face_done,
+    (FT_Size_InitFunc)        tt_size_init,
+    (FT_Size_DoneFunc)        tt_size_done,
     (FT_Slot_InitFunc)        0,
     (FT_Slot_DoneFunc)        0,
 
     (FT_Size_ResetPointsFunc) Set_Char_Sizes,
     (FT_Size_ResetPixelsFunc) Set_Pixel_Sizes,
     (FT_Slot_LoadFunc)        Load_Glyph,
-    (FT_CharMap_CharIndexFunc)Get_Char_Index,
 
     (FT_Face_GetKerningFunc)  Get_Kerning,
     (FT_Face_AttachFunc)      0,
-    (FT_Face_GetAdvancesFunc) 0,
-    
-    (FT_CharMap_CharNextFunc) Get_Next_Char
+    (FT_Face_GetAdvancesFunc) 0
   };
 
 

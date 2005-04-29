@@ -1,11 +1,19 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8.c,v 1.26.2.3 2003/03/03 17:10:05 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* utf-8.c -- Basic UTF-8 routines */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/utf-8.c,v 1.30.2.4 2004/11/28 21:14:36 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-
-/*
- * Basic UTF-8 routines
+/* Basic UTF-8 routines
  *
  * These routines are "dumb".  Though they understand UTF-8,
  * they don't grok Unicode.  That is, they can push bits,
@@ -29,10 +37,6 @@
 
 #include "ldap-int.h"
 #include "ldap_defaults.h"
-
-/*
- * Basic UTF-8 routines
- */
 
 /*
  * return the number of bytes required to hold the
@@ -135,7 +139,7 @@ int ldap_utf8_charlen2( const char * p )
 /* conv UTF-8 to UCS-4, useful for comparisons */
 ldap_ucs4_t ldap_x_utf8_to_ucs4( const char * p )
 {
-    const unsigned char *c = p;
+    const unsigned char *c = (const unsigned char *) p;
     ldap_ucs4_t ch;
 	int len, i;
 	static unsigned char mask[] = {
@@ -163,7 +167,7 @@ ldap_ucs4_t ldap_x_utf8_to_ucs4( const char * p )
 int ldap_x_ucs4_to_utf8( ldap_ucs4_t c, char *buf )
 {
 	int len=0;
-	unsigned char* p = buf;
+	unsigned char* p = (unsigned char *) buf;
 
 	/* not a valid Unicode character */
 	if ( c < 0 ) return 0;
@@ -298,7 +302,7 @@ ldap_ucs_to_utf8s( struct berval *ucs, int csize, struct berval *utf8s )
 char* ldap_utf8_next( const char * p )
 {
 	int i;
-	const unsigned char *u = p;
+	const unsigned char *u = (const unsigned char *) p;
 
 	if( LDAP_UTF8_ISASCII(u) ) {
 		return (char *) &p[1];
@@ -325,7 +329,7 @@ char* ldap_utf8_next( const char * p )
 char* ldap_utf8_prev( const char * p )
 {
 	int i;
-	const unsigned char *u = p;
+	const unsigned char *u = (const unsigned char *) p;
 
 	for( i=-1; i>-6 ; i-- ) {
 		if ( ( u[i] & 0xc0 ) != 0x80 ) {
@@ -349,7 +353,7 @@ char* ldap_utf8_prev( const char * p )
 int ldap_utf8_copy( char* dst, const char *src )
 {
 	int i;
-	const unsigned char *u = src;
+	const unsigned char *u = (const unsigned char *) src;
 
 	dst[0] = src[0];
 

@@ -174,6 +174,7 @@ void
 delrmconf(rmconf)
 	struct remoteconf *rmconf;
 {
+	
 	if (rmconf->etypes)
 		deletypes(rmconf->etypes);
 	if (rmconf->dhgrp)
@@ -188,7 +189,11 @@ delrmconf(rmconf)
 		racoon_free(rmconf->remote);
 	if (rmconf->shared_secret)
 		vfree(rmconf->shared_secret);
-
+	if (rmconf->keychainCertRef)
+		CFRelease(rmconf->keychainCertRef);
+	if (rmconf->open_dir_auth_group)
+		vfree(rmconf->open_dir_auth_group);
+	
 	racoon_free(rmconf);
 }
 

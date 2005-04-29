@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstForEachFrom.c,v 1.8 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -69,8 +68,8 @@ void
 Lst_ForEachFrom (l, ln, proc, d)
     Lst	    	    	l;
     LstNode    	  	ln;
-    register int	(*proc) __P((ClientData, ClientData));
-    register ClientData	d;
+    register int	(*proc)(void *, void *);
+    register void *	d;
 {
     register ListNode	tln = (ListNode)ln;
     register List 	list = (List)l;
@@ -101,7 +100,7 @@ Lst_ForEachFrom (l, ln, proc, d)
 	 *    doesn't exist.
 	 */
 	done = (next == tln->nextPtr &&
-		(next == NilListNode || next == list->firstPtr));
+		(next == NULL || next == list->firstPtr));
 
 	next = tln->nextPtr;
 

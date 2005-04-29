@@ -3,7 +3,7 @@
 // albanian keyboard layout
 // done by Pablo Saratxaga <pablo@mandrakesoft.com>
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/al,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/al,v 1.3 2003/04/19 12:22:11 pascal Exp $
 
 partial default alphanumeric_keys
 xkb_symbols "basic" {
@@ -39,8 +39,5 @@ xkb_symbols "basic" {
     key <AB09>	{ [    period,      colon,      greater,     division ]	};
     key <AB10>	{ [     slash,   question, dead_belowdot, dead_abovedot ] };
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ]   };
-    modifier_map Mod5   { <RALT> };
-
+    include "level3(ralt_switch_multikey)"
 };

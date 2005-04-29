@@ -46,6 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/* $XFree86: xc/programs/lbxproxy/include/tags.h,v 1.6 2003/11/17 22:20:49 dawes Exp $ */
 
 #ifndef _TAGS_H_
 #define _TAGS_H_
@@ -62,70 +63,54 @@ typedef struct _tagdata {
 typedef struct _tagdata *TagData;
 
 extern void TagsInit(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Bool /*useTags*/
-#endif
 );
 
 extern void FreeTags(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern Bool TagStoreData(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/,
     CacheID /*id*/,
     int /*size*/,
     int /*dtype*/,
     pointer /*data*/
-#endif
 );
 
 extern Bool TagStoreDataNC(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/,
     CacheID /*id*/,
     int /*size*/,
     int /*dtype*/,
     pointer /*data*/
-#endif
 );
 
 extern TagData TagGetTag(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/,
     CacheID /*id*/
-#endif
 );
 
 extern pointer TagGetData(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/,
     CacheID /*id*/
-#endif
 );
 
 extern void TagFreeData(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/,
     CacheID /*id*/,
     Bool /*notify*/
-#endif
 );
 
 extern Bool AnyTagBearingReplies(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     Cache /*cache*/
-#endif
 );
 
 extern Cache global_cache;

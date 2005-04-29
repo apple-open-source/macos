@@ -37,8 +37,8 @@ Boston, MA 02111-1307, USA.  */
       builtin_define ("__i386__");              \
       builtin_define ("__i386");                \
       builtin_define ("__LITTLE_ENDIAN__");     \
-      builtin_define ("__MACH__");              \
-      builtin_define ("__APPLE__");             \
+      /* APPLE LOCAL XJR */                     \
+      SUBTARGET_OS_CPP_BUILTINS ();             \    
     }                                           \
   while (0)
 
@@ -47,10 +47,12 @@ Boston, MA 02111-1307, USA.  */
 
 #undef CC1_SPEC
 /* APPLE LOCAL dynamic-no-pic */
+/* APPLE LOCAL ignore -mcpu=G4 -mcpu=G5 */
 /* When -mdynamic-no-pic finally works, remove the "xx" below.  FIXME!!  */
-#define CC1_SPEC "%{!static:%{!mxxdynamic-no-pic:-fPIC}} %{!<faltivec}"
+#define CC1_SPEC "%{!static:%{!mxxdynamic-no-pic:-fPIC}} %{!<faltivec} %{!<mlong-branch} %{!<mlongcall} %{!<mcpu=G4} %{!<mcpu=G5}"
 
 /* APPLE LOCAL asm flags */
+/* APPLE LOCAL ignore PPC cpu names */
 #define ASM_SPEC "-arch %T \
   %{Zforce_cpusubtype_ALL:-force_cpusubtype_ALL} \
   %{!Zforce_cpusubtype_ALL:%{mmmx:-force_cpusubtype_ALL}\
@@ -248,8 +250,10 @@ enum
 #undef SUBTARGET_OVERRIDE_OPTIONS
 /* Force Darwin/x86 to default as "-march=i686 -mcpu=pentium4".  */
 #define SUBTARGET_OVERRIDE_OPTIONS \
-  ix86_arch_string = "pentiumpro"; \
-  ix86_cpu_string = "pentium4";
+  do { \
+  if (!ix86_arch_string) ix86_arch_string = "pentiumpro"; \
+  if (!ix86_cpu_string) ix86_cpu_string = "pentium4"; \
+  } while (0)
 
 /* APPLE LOCAL SSE stack alignment */
 #define BASIC_STACK_BOUNDARY (128)

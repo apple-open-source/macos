@@ -1,0 +1,24 @@
+--- src/file.h.orig	2004-08-06 17:52:40.000000000 -0700
++++ src/file.h	2004-08-06 18:01:20.000000000 -0700
+@@ -74,11 +74,11 @@
+ #endif
+ #define MAXMAGIS 4096		/* max entries in /etc/magic */
+ #define MAXDESC	64		/* max leng of text description */
+-#define MAXstring 32		/* max leng of "string" types */
++#define MAXstring 256		/* max leng of "string" types */
+ 
+ #define MAGICNO		0xF11E041C
+ #define VERSIONNO	2
+-#define FILE_MAGICSIZE	(32 * 4)
++#define FILE_MAGICSIZE	(32 * 11)
+ 
+ #define	FILE_LOAD	0
+ #define FILE_CHECK	1
+@@ -244,6 +244,7 @@
+ protected int file_printf(struct magic_set *, const char *, ...);
+ protected int file_reset(struct magic_set *);
+ protected int file_tryelf(struct magic_set *, int, const unsigned char *, size_t);
++protected int file_tryfat(struct magic_set *, int, const unsigned char *, size_t, const char *);
+ protected int file_zmagic(struct magic_set *, const unsigned char *, size_t);
+ protected int file_ascmagic(struct magic_set *, const unsigned char *, size_t);
+ protected int file_is_tar(struct magic_set *, const unsigned char *, size_t);

@@ -1,7 +1,7 @@
 /* Internal type definitions for GDB.
 
    Copyright 1992, 1993, 1994, 1995, 1996, 1997, 1998, 1999, 2000,
-   2001, 2002, 2003 Free Software Foundation, Inc.
+   2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    Contributed by Cygnus Support, using pieces from other GDB modules.
 
@@ -26,6 +26,7 @@
 #define GDBTYPES_H 1
 
 /* Forward declarations for prototypes.  */
+struct field;
 struct block;
 
 /* Codes for `fundamental types'.  This is a monstrosity based on the
@@ -133,8 +134,9 @@ enum type_code
 
     TYPE_CODE_TYPEDEF,
     TYPE_CODE_TEMPLATE,		/* C++ template */
-    TYPE_CODE_TEMPLATE_ARG	/* C++ template arg */
+    TYPE_CODE_TEMPLATE_ARG,	/* C++ template arg */
 
+    TYPE_CODE_NAMESPACE,	/* C++ namespace.  */
   };
 
 /* For now allow source to use TYPE_CODE_CLASS for C++ classes, as an
@@ -271,16 +273,36 @@ enum type_code
 #define TYPE_ADDRESS_CLASS_ALL(t) (TYPE_INSTANCE_FLAGS(t) \
 				   & TYPE_FLAG_ADDRESS_CLASS_ALL)
 
+/*  Array bound type.  */
+enum array_bound_type
+{
+  BOUND_SIMPLE = 0,
+  BOUND_BY_VALUE_IN_REG,
+  BOUND_BY_REF_IN_REG,
+  BOUND_BY_VALUE_ON_STACK,
+  BOUND_BY_REF_ON_STACK,
+  BOUND_CANNOT_BE_DETERMINED
+};
+
+/* This structure is space-critical.
+   Its layout has been tweaked to reduce the space used.  */
+
 struct main_type
 {
   /* Code for kind of type */
 
-  enum type_code code;
+  ENUM_BITFIELD(type_code) code : 8;
+
+  /* Array bounds.  These fields appear at this location because
+     they pack nicely here.  */
+
+  ENUM_BITFIELD(array_bound_type) upper_bound_type : 4;
+  ENUM_BITFIELD(array_bound_type) lower_bound_type : 4;
 
   /* Name of this type, or NULL if none.
 
      This is used for printing only, except by poorly designed C++ code.
-     For looking up a name, look for a symbol in the VAR_NAMESPACE.  */
+     For looking up a name, look for a symbol in the VAR_DOMAIN.  */
 
   char *name;
 
@@ -291,51 +313,14 @@ struct main_type
      with this feature.
 
      This is used for printing only, except by poorly designed C++ code.
-     For looking up a name, look for a symbol in the STRUCT_NAMESPACE.
+     For looking up a name, look for a symbol in the STRUCT_DOMAIN.
      One more legitimate use is that if TYPE_FLAG_STUB is set, this is
      the name to use to look for definitions in other files.  */
 
   char *tag_name;
 
-  /* Length of storage for a value of this type.  This is what
-     sizeof(type) would return; use it for address arithmetic,
-     memory reads and writes, etc.  This size includes padding.  For
-     example, an i386 extended-precision floating point value really
-     only occupies ten bytes, but most ABI's declare its size to be
-     12 bytes, to preserve alignment.  A `struct type' representing
-     such a floating-point type would have a `length' value of 12,
-     even though the last two bytes are unused.
-
-     There's a bit of a host/target mess here, if you're concerned
-     about machines whose bytes aren't eight bits long, or who don't
-     have byte-addressed memory.  Various places pass this to memcpy
-     and such, meaning it must be in units of host bytes.  Various
-     other places expect they can calculate addresses by adding it
-     and such, meaning it must be in units of target bytes.  For
-     some DSP targets, in which HOST_CHAR_BIT will (presumably) be 8
-     and TARGET_CHAR_BIT will be (say) 32, this is a problem.
-
-     One fix would be to make this field in bits (requiring that it
-     always be a multiple of HOST_CHAR_BIT and TARGET_CHAR_BIT) ---
-     the other choice would be to make it consistently in units of
-     HOST_CHAR_BIT.  However, this would still fail to address
-     machines based on a ternary or decimal representation.  */
-  
-  unsigned length;
-
-  /* FIXME, these should probably be restricted to a Fortran-specific
-     field in some fashion.  */
-#define BOUND_CANNOT_BE_DETERMINED   5
-#define BOUND_BY_REF_ON_STACK        4
-#define BOUND_BY_VALUE_ON_STACK      3
-#define BOUND_BY_REF_IN_REG          2
-#define BOUND_BY_VALUE_IN_REG        1
-#define BOUND_SIMPLE                 0
-  int upper_bound_type;
-  int lower_bound_type;
-
   /* Every type is now associated with a particular objfile, and the
-     type is allocated on the type_obstack for that objfile.  One problem
+     type is allocated on the objfile_obstack for that objfile.  One problem
      however, is that there are times when gdb allocates new types while
      it is not in the process of reading symbols from a particular objfile.
      Fortunately, these happen when the type being created is a derived
@@ -364,6 +349,15 @@ struct main_type
   /* Number of fields described for this type */
 
   short nfields;
+
+  /* Field number of the virtual function table pointer in
+     VPTR_BASETYPE.  If -1, we were unable to find the virtual
+     function table pointer in initial symbol reading, and
+     fill_in_vptr_fieldno should be called to find it if possible.
+
+     Unused if this type does not have virtual functions.  */
+
+  short vptr_fieldno;
 
   /* For structure and union types, a description of each field.
      For set and pascal array types, there is one "field",
@@ -446,15 +440,6 @@ struct main_type
 
   struct type *vptr_basetype;
 
-  /* Field number of the virtual function table pointer in
-     VPTR_BASETYPE.  If -1, we were unable to find the virtual
-     function table pointer in initial symbol reading, and
-     fill_in_vptr_fieldno should be called to find it if possible.
-
-     Unused if this type does not have virtual functions.  */
-
-  int vptr_fieldno;
-
   /* Slot to point to additional language-specific fields of this type.  */
 
   union type_specific
@@ -489,14 +474,41 @@ struct type
   struct type *reference_type;
 
   /* Variant chain.  This points to a type that differs from this one only
-     in qualifiers.  Currently, the possible qualifiers are const, volatile,
-     code-space, and data-space.  The variants are linked in a circular
-     ring and share MAIN_TYPE.  */
+     in qualifiers and length.  Currently, the possible qualifiers are
+     const, volatile, code-space, data-space, and address class.  The
+     length may differ only when one of the address class flags are set.
+     The variants are linked in a circular ring and share MAIN_TYPE.  */
   struct type *chain;
 
   /* Flags specific to this instance of the type, indicating where
      on the ring we are.  */
   int instance_flags;
+
+  /* Length of storage for a value of this type.  This is what
+     sizeof(type) would return; use it for address arithmetic,
+     memory reads and writes, etc.  This size includes padding.  For
+     example, an i386 extended-precision floating point value really
+     only occupies ten bytes, but most ABI's declare its size to be
+     12 bytes, to preserve alignment.  A `struct type' representing
+     such a floating-point type would have a `length' value of 12,
+     even though the last two bytes are unused.
+
+     There's a bit of a host/target mess here, if you're concerned
+     about machines whose bytes aren't eight bits long, or who don't
+     have byte-addressed memory.  Various places pass this to memcpy
+     and such, meaning it must be in units of host bytes.  Various
+     other places expect they can calculate addresses by adding it
+     and such, meaning it must be in units of target bytes.  For
+     some DSP targets, in which HOST_CHAR_BIT will (presumably) be 8
+     and TARGET_CHAR_BIT will be (say) 32, this is a problem.
+
+     One fix would be to make this field in bits (requiring that it
+     always be a multiple of HOST_CHAR_BIT and TARGET_CHAR_BIT) ---
+     the other choice would be to make it consistently in units of
+     HOST_CHAR_BIT.  However, this would still fail to address
+     machines based on a ternary or decimal representation.  */
+  
+  unsigned length;
 
   /* Core type, shared by a group of qualified types.  */
   struct main_type *main_type;
@@ -736,7 +748,7 @@ struct badness_vector
 /* The default value of TYPE_CPLUS_SPECIFIC(T) points to the
    this shared static structure. */
 
-extern const struct cplus_struct_type cplus_struct_default;
+extern struct cplus_struct_type cplus_struct_default;
 
 extern void allocate_cplus_struct_type (struct type *);
 
@@ -758,7 +770,7 @@ extern void allocate_cplus_struct_type (struct type *);
    But check_typedef does set the TYPE_LENGTH of the TYPEDEF type,
    so you only have to call check_typedef once.  Since allocate_value
    calls check_typedef, TYPE_LENGTH (VALUE_TYPE (X)) is safe.  */
-#define TYPE_LENGTH(thistype) TYPE_MAIN_TYPE(thistype)->length
+#define TYPE_LENGTH(thistype) (thistype)->length
 #define TYPE_OBJFILE(thistype) TYPE_MAIN_TYPE(thistype)->objfile
 #define TYPE_FLAGS(thistype) TYPE_MAIN_TYPE(thistype)->flags
 /* Note that TYPE_CODE can be TYPE_CODE_TYPEDEF, so if you want the real
@@ -957,7 +969,10 @@ extern struct type *builtin_type_CORE_ADDR;
 extern struct type *builtin_type_bfd_vma;
 extern struct type *builtin_type_voidptrfuncptr;
 
-/* Explicit sizes - see C9X <intypes.h> for naming scheme */
+/* Explicit sizes - see C9X <intypes.h> for naming scheme.  The "int0"
+   is for when an architecture needs to describe a register that has
+   no size.  */
+extern struct type *builtin_type_int0;
 extern struct type *builtin_type_int8;
 extern struct type *builtin_type_uint8;
 extern struct type *builtin_type_int16;
@@ -1057,15 +1072,15 @@ extern struct type *builtin_type_f_void;
 /* Allocate space for storing data associated with a particular type.
    We ensure that the space is allocated using the same mechanism that
    was used to allocate the space for the type structure itself.  I.E.
-   if the type is on an objfile's type_obstack, then the space for data
-   associated with that type will also be allocated on the type_obstack.
+   if the type is on an objfile's objfile_obstack, then the space for data
+   associated with that type will also be allocated on the objfile_obstack.
    If the type is not associated with any particular objfile (such as
    builtin types), then the data space will be allocated with xmalloc,
    the same as for the type structure. */
 
 #define TYPE_ALLOC(t,size)  \
    (TYPE_OBJFILE (t) != NULL  \
-    ? obstack_alloc (&TYPE_OBJFILE (t) -> type_obstack, size) \
+    ? obstack_alloc (&TYPE_OBJFILE (t) -> objfile_obstack, size) \
     : xmalloc (size))
 
 extern struct type *alloc_type (struct objfile *);
@@ -1214,10 +1229,6 @@ extern int count_virtual_fns (struct type *);
 #define TOO_FEW_PARAMS_BADNESS       100
 /* Badness if no conversion among types */
 #define INCOMPATIBLE_TYPE_BADNESS    100
-/* Badness of coercing large integer to smaller size */
-#define INTEGER_COERCION_BADNESS     100
-/* Badness of coercing large floating type to smaller size */
-#define FLOAT_COERCION_BADNESS       100
 
 /* Badness of integral promotion */
 #define INTEGER_PROMOTION_BADNESS      1
@@ -1258,7 +1269,7 @@ extern void recursive_dump_type (struct type *, int);
 
 /* printcmd.c */
 
-extern void print_scalar_formatted (char *, struct type *, int, int,
+extern void print_scalar_formatted (void *, struct type *, int, int,
 				    struct ui_file *);
 
 extern int can_dereference (struct type *);

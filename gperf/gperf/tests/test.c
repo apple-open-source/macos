@@ -5,6 +5,7 @@
 */
 
 #include <stdio.h>
+#include <string.h>
 
 #define MAX_LEN 80
 
@@ -16,11 +17,22 @@ main (argc, argv)
   int  verbose = argc > 1 ? 1 : 0;
   char buf[MAX_LEN];
 
-  while (gets (buf))
-    if (in_word_set (buf, strlen (buf)) && verbose)
-      printf ("in word set %s\n", buf);
-    else if (verbose)
-      printf ("NOT in word set %s\n", buf);
+  while (fgets (buf, MAX_LEN, stdin))
+    {
+      if (strlen (buf) > 0 && buf[strlen (buf) - 1] == '\n')
+        buf[strlen (buf) - 1] = '\0';
+
+      if (in_word_set (buf, strlen (buf)))
+        {
+          if (verbose)
+            printf ("in word set %s\n", buf);
+        }
+      else
+        {
+          if (verbose)
+            printf ("NOT in word set %s\n", buf);
+        }
+    }
 
   return 0;
 }

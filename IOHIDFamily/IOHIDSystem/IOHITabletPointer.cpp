@@ -21,13 +21,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <IOKit/hidsystem/IOHITabletPointer.h>
+#include "IOHITabletPointer.h"
 
 OSDefineMetaClassAndStructors(IOHITabletPointer, IOHIDevice)
 
 UInt16 IOHITabletPointer::generateDeviceID()
 {
-    static _nextDeviceID = 0;
+    static UInt16 _nextDeviceID = 0;
     return _nextDeviceID++;
 }
 
@@ -43,7 +43,7 @@ bool IOHITabletPointer::init( OSDictionary *propTable )
     return true;
 }
 
-bool IOService::attach( IOService * provider )
+bool IOHITabletPointer::attach( IOService * provider )
 {
     if (!IOHIDevice::attach(provider)) {
         return false;

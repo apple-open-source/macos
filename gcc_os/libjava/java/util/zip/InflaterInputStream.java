@@ -1,5 +1,5 @@
 /* InflaterInputStream.java - Input stream filter for decompressing
-   Copyright (C) 1999, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1999, 2000, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -90,25 +90,34 @@ public class InflaterInputStream extends FilterInputStream
   {
     if (inf == null)
       throw new IOException ("stream closed");
+    if (len == 0)
+      return 0;
     if (inf.finished())
       return -1;
-    if (inf.needsInput())
-      fill ();
-    int count;
-    try
+
+    int count = 0;
+    while (count == 0)
       {
-	count = inf.inflate(buf, off, len);	
-	if (count == 0)
+	if (inf.needsInput())
+	  fill ();
+	try
 	  {
-	    if (this.len == -1)
-	      return -1; // Couldn't get any more data to feed to the Inflater
-	    if (inf.needsDictionary())
-	      throw new ZipException ("Inflater needs Dictionary");
-	  }	      
-      }
-    catch (DataFormatException dfe)
-      {
-	throw new ZipException (dfe.getMessage());
+	    count = inf.inflate(buf, off, len);	
+	    if (count == 0)
+	      {
+		if (this.len == -1)
+		  {
+		    // Couldn't get any more data to feed to the Inflater
+		    return -1;
+		  }
+		if (inf.needsDictionary())
+		  throw new ZipException ("Inflater needs Dictionary");
+	      }
+	  }
+	catch (DataFormatException dfe)
+	  {
+	    throw new ZipException (dfe.getMessage());
+	  }
       }
     return count;
   }

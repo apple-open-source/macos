@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.              *
+ * Copyright (c) 1998,2001-2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -33,7 +33,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_bkgd.c,v 1.1.1.2 2002/01/03 23:53:36 jevans Exp $")
+MODULE_ID("$Id: lib_bkgd.c,v 1.30 2003/07/05 16:46:49 tom Exp $")
 
 /*
  * Set the window's background information.
@@ -70,7 +70,7 @@ wbkgrndset(WINDOW *win, const ARG_CH_T ch)
 	    int tmp;
 
 	    wgetbkgrnd(win, &wch);
-	    tmp = wctob(CharOf(wch));
+	    tmp = _nc_to_char(CharOf(wch));
 
 	    win->_bkgd = ((tmp == EOF) ? ' ' : (chtype) tmp) | AttrOf(wch);
 	}
@@ -117,7 +117,7 @@ wbkgrnd(WINDOW *win, const ARG_CH_T ch)
 		    win->_line[y].text[x] = win->_nc_bkgd;
 		else {
 		    NCURSES_CH_T wch = win->_line[y].text[x];
-		    RemAttr(wch, ~A_ALTCHARSET);
+		    RemAttr(wch, (~A_ALTCHARSET));
 		    win->_line[y].text[x] = _nc_render(win, wch);
 		}
 	    }
@@ -130,7 +130,7 @@ wbkgrnd(WINDOW *win, const ARG_CH_T ch)
 }
 
 NCURSES_EXPORT(int)
-wbkgd(WINDOW *win, const chtype ch)
+wbkgd(WINDOW *win, chtype ch)
 {
     NCURSES_CH_T wch;
     SetChar2(wch, ch);

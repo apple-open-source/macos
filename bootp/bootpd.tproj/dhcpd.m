@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -140,7 +141,7 @@ DHCPLeases_reclaim(DHCPLeases_t * leases, interface_t * if_p,
 	    if (lease_nl_p->ninl_len == 0) {
 		continue;
 	    }
-	    expiry = strtol(lease_nl_p->ninl_val[0], NULL, NULL);
+	    expiry = strtol(lease_nl_p->ninl_val[0], NULL, 0);
 	    if (expiry == LONG_MAX && errno == ERANGE) {
 		continue;
 	    }
@@ -252,7 +253,7 @@ S_lease_time_expiry(ni_proplist * pl_p)
     ni_name 		str = S_lease_propval(pl_p);
 
     if (str) {
-	expiry = strtol(str, NULL, NULL);
+	expiry = strtol(str, NULL, 0);
 	if (expiry == LONG_MAX && errno == ERANGE) {
 	    my_log(LOG_INFO, "S_lease_time_expiry: lease '%s' bad", str);
 	    return (0);
@@ -275,14 +276,14 @@ lease_from_subnet(id subnet, dhcp_lease_t * min_lease,
     *max_lease = max_lease_length;
     nl_p = [subnet lookup:SUBNETPROP_LEASE_MIN];
     if (nl_p != NULL && nl_p->ninl_len) {
-	*min_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, NULL);
+	*min_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, 0);
 	if (debug)
 	    printf("min_lease is %d\n", *min_lease); 
     }
 
     nl_p = [subnet lookup:SUBNETPROP_LEASE_MAX];
     if (nl_p != NULL && nl_p->ninl_len) {
-	*max_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, NULL);
+	*max_lease = (dhcp_lease_t) strtol(nl_p->ninl_val[0], NULL, 0);
 	if (debug)
 	    printf("max_lease is %d\n", *max_lease); 
     }
@@ -461,9 +462,6 @@ S_find_parameter(u_char * params, int nparams, int param)
 }
 #endif 0
 
-#define TXBUF_SIZE	2048
-static char	txbuf[TXBUF_SIZE];
-
 typedef enum {
     dhcp_binding_none_e = 0,
     dhcp_binding_permanent_e,
@@ -604,7 +602,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     dhcp_lease_t	lease = 0;
     dhcp_time_secs_t	lease_time_expiry = 0;
     int			len;
-    int			max_packet = dhcp_max_message_size(request->options_p);
+    int			max_packet;
     dhcp_lease_t	min_lease = min_lease_length;
     dhcp_lease_t	max_lease = max_lease_length;
     boolean_t		modified = FALSE;
@@ -618,10 +616,14 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     id 			subnet = nil;
     dhcp_lease_t *	suggested_lease = NULL;
     dhcp_cstate_t	state = dhcp_cstate_none_e;
+    char		txbuf[2048];
     boolean_t		use_broadcast = FALSE;
 
     iaddr.s_addr = 0;
-
+    max_packet = dhcp_max_message_size(request->options_p);
+    if (max_packet > sizeof(txbuf)) {
+	max_packet = sizeof(txbuf);
+    }
     /* check for a client identifier */
     cid = dhcpol_find(request->options_p, dhcptag_client_identifier_e, 
 		      &cid_len, NULL);

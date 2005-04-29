@@ -13,11 +13,11 @@ PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
 CLASSES = CacheAgent.m Config.m Controller.m DNSAgent.m Dyna.m LUAgent.m\
-          LUArray.m LUCache.m LUDictionary.m LUServer.m MachRPC.m\
+          LUArray.m LUDictionary.m LUServer.m MachRPC.m\
           MemoryWatchdog.m NILAgent.m Root.m Thread.m
 
 HFILES = CacheAgent.h Config.h Controller.h DNSAgent.h Dyna.h LUAgent.h\
-         LUArray.h LUCache.h LUCachedDictionary.h LUDictionary.h\
+         LUArray.h LUCachedDictionary.h LUDictionary.h\
          LUGlobal.h LUPrivate.h LUServer.h MachRPC.h MemoryWatchdog.h\
 		 NILAgent.h Root.h Thread.h lu_xdr.h sys.h
 
@@ -34,7 +34,7 @@ MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
 WINDOWS_INSTALLDIR = /usr/etc
 PDO_UNIX_INSTALLDIR = /usr/etc
-LIBS = -lobjc -lresolv
+LIBS = -lobjc -lresolv -ldnsinfo
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 

@@ -37,7 +37,7 @@
  */
 #include <curses.priv.h>
 
-MODULE_ID("$Id: make_keys.c,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $")
+MODULE_ID("$Id: make_keys.c,v 1.10 2000/12/10 02:55:08 tom Exp $")
 
 #include <names.c>
 

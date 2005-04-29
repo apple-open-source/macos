@@ -2611,14 +2611,9 @@ struct indr_loop_list *indr_loop)
 	     * primary_image and its sub-images so it is undefined for a
 	     * two-level name space lookup.  Or we were doing a bind at load
 	     * operation and the defined_* return values were set to the first
-	     * unbound definition.
-	     */
-           if(executable_bind_at_load == TRUE && *defined_symbol != NULL) {
-               return;
-	    }
-	    /*
-	     * Or the symbol could have been a weak symbol that is missing and
-	     * if so return the constant values for a weak symbol lookup.
+	     * unbound definition.  Or the symbol could have been a weak symbol
+	     * that is missing and if so return the constant values for a
+	     * weak symbol lookup.
 	     */
 weak_library_symbol:
 	    if(defined_symbol != NULL && weak_symbol == TRUE){

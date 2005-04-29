@@ -55,12 +55,13 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/SetLocale.c,v 3.17 2002/05/31 18:45:41 dawes Exp $ */
+/* $XFree86: xc/lib/X11/SetLocale.c,v 3.21 2004/02/11 00:30:44 torrey Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
 #include <X11/Xlocale.h>
 #include <X11/Xos.h>
+#include "XlcPubI.h"
 
 #define MAXLOCALE	64	/* buffer size of locale name */
 
@@ -68,18 +69,11 @@ from The Open Group.
 
 /* alternative setlocale() for when the OS does not provide one */
 
-#if NeedFunctionPrototypes
 char *
 _Xsetlocale(
     int		  category,
     _Xconst char  *name
 )
-#else
-char *
-_Xsetlocale(category, name)
-    int		category;
-    char       *name;
-#endif
 {
     static char *xsl_name;
     char *old_name;
@@ -99,7 +93,7 @@ _Xsetlocale(category, name)
 	name = getenv("LANG");
     if (name && strlen(name) >= MAXLOCALE)
 	name = NULL;
-    if (!name || !*name || !_XOpenLC(name))
+    if (!name || !*name || !_XOpenLC((char *) name))
 	name = "C";
     old_name = xsl_name;
     xsl_name = (char *)name;
@@ -123,6 +117,17 @@ _Xsetlocale(category, name)
 
 #else /* X_LOCALE */
 
+#ifdef __DARWIN__
+char *
+_Xsetlocale(
+    int           category,
+    _Xconst char  *name
+)
+{
+    return setlocale(category, name);
+}
+#endif /* __DARWIN__ */
+
 /*
  * _XlcMapOSLocaleName is an implementation dependent routine that derives
  * the LC_CTYPE locale name as used in the sample implementation from that
@@ -140,9 +145,9 @@ _Xsetlocale(category, name)
  */
 
 char *
-_XlcMapOSLocaleName(osname, siname)
-    char *osname;
-    char *siname;
+_XlcMapOSLocaleName(
+    char *osname,
+    char *siname)
 {
 #if defined(hpux) || defined(CSRG_BASED) || defined(sun) || defined(SVR4) || defined(sgi) || defined(__osf__) || defined(AIXV3) || defined(ultrix) || defined(WIN32) || defined(__UNIXOS2__) || defined(linux)
 # ifdef hpux

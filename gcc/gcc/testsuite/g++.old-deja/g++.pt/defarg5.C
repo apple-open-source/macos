@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 
 template <int dim>
 class Point {
@@ -21,4 +21,4 @@ template <>
 void bar<2>::foo (Point<2> p) {
   const int dim = 2;
   Point<dim> q = p;
-};
+}

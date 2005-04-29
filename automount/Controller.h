@@ -24,6 +24,8 @@
 #ifndef __CONTROLLER_H__
 #define __CONTROLLER_H__
 
+#import <CoreFoundation/CoreFoundation.h>
+
 #import "RRObject.h"
 
 #import <rpc/types.h>
@@ -38,6 +40,8 @@
 @class Server;
 @class String;
 struct MountProgressRecord;
+struct autofs_userreq;
+struct fsid;
 
 typedef struct
 {
@@ -70,6 +74,7 @@ typedef struct
 	map_table_entry *map_table;
 	unsigned int map_table_count;
 	unsigned int node_id;
+	CFMutableDictionaryRef vnodeHashTable;
 	SVCXPRT *transp;
 	String *hostName;
 	String *hostDNSDomain;
@@ -86,11 +91,14 @@ typedef struct
 
 - (String *)mountDirectory;
 
-- (unsigned int)automount:(Vnode *)n directory:(String *)dir args:(int)mntargs;
+- (int)autofsmount:(Vnode *)v directory:(String *)dir args:(int)mntargs;
+- (int)automount:(Vnode *)n directory:(String *)dir args:(int)mntargs nfsmountoptions:(int)mntoptionflags;
 
-- (BOOL)createPath:(String *)path;
-- (BOOL)createPath:(String *)path withUid:(int)uid;
+- (BOOL)createPath:(String *)path withUid:(int)uid allowAnyExisting:(BOOL)allowAnyExisting;
 
+- (void)hashVnode:(Vnode *)v;
+- (void)unhashVnode:(Vnode *)v;
+- (Vnode *)vnodeWithKey:(void *)vnodeKey;
 - (void)registerVnode:(Vnode *)v;
 - (BOOL)vnodeIsRegistered:(Vnode *)v;
 - (Vnode *)vnodeWithID:(unsigned int)n;
@@ -101,12 +109,15 @@ typedef struct
 
 - (Map *)rootMap;
 
-- (unsigned int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt;
-- (unsigned int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt;
-- (unsigned int)nfsmount:(Vnode *)v withUid:(int)uid;
-- (void)recordMountInProgressFor:(Vnode *)v mountPID:(pid_t)mountPID transactionID:(u_long)transactionID;
+- (int)autoMap:(Map *)map name:(String *)name directory:(String *)dir mountdirectory:(String *)mnt;
+- (int)mountmap:(String *)mapname directory:(String *)dir mountdirectory:(String *)mnt;
+- (int)nfsmount:(Vnode *)v withUid:(int)uid;
+- (void)recordMountInProgressFor:(Vnode *)v uid:(uid_t)uid mountPID:(pid_t)mountPID transactionID:(u_long)transactionID;
+- (BOOL)mountInProgressForVnode:(Vnode *)v forUID:(uid_t)uid;
 - (BOOL)checkMountInProgressForTransaction:(u_long)transactionID;
 - (void)completeMountInProgressBy:(pid_t)mountPID exitStatus:(int)exitStatus;
+
+- (int)dispatch_autofsreq:(struct autofs_userreq *)req forFSID:(struct fsid *)fsid;
 
 - (Server *)serverWithName:(String *)name;
 
@@ -114,7 +125,7 @@ typedef struct
 - (void)unmountAutomounts:(int)use_force;
 - (void)validate;
 - (void)reInit;
-- (unsigned int)attemptUnmount:(Vnode *)v;
+- (int)attemptUnmount:(Vnode *)v usingForce:(int)use_force;
 - (void)checkForUnmounts;
 
 - (void)printTree;
@@ -128,6 +139,8 @@ typedef struct
 - (String *)hostOSVersion;
 - (int)hostOSVersionMajor;
 - (int)hostOSVersionMinor;
+
+- (String *)findDirByMountDir:(String *)findmnt;
 
 #ifndef __APPLE__
 - (void)mtabUpdate:(Vnode *)v;

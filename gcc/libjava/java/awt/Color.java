@@ -319,7 +319,12 @@ public class Color implements Paint, Serializable
   {
     if ((red & 255) != red || (green & 255) != green || (blue & 255) != blue
         || (alpha & 255) != alpha)
-      throw new IllegalArgumentException("Bad RGB values");
+      throw new IllegalArgumentException("Bad RGB values"
+                                        +" red=0x"+Integer.toHexString(red)
+                                        +" green=0x"+Integer.toHexString(green)
+                                        +" blue=0x"+Integer.toHexString(blue)
+                                        +" alpha=0x"+Integer.toHexString(alpha)  );
+
     value = (alpha << 24) | (red << 16) | (green << 8) | blue;
     falpha = 1;
     cs = null;
@@ -496,12 +501,12 @@ public class Color implements Paint, Serializable
   public int getAlpha()
   {
     // Do not inline getRGB() to value, because of SystemColor.
-    return (getRGB() & ALPHA_MASK) >> 24;
+    return (getRGB() & ALPHA_MASK) >>> 24;
   }
 
   /**
    * Returns the RGB value for this color, in the sRGB color space. The blue
-   * value will be in bits 0-7, green in 8-15, red in 6-23, and alpha value in
+   * value will be in bits 0-7, green in 8-15, red in 16-23, and alpha value in
    * 24-31.
    *
    * @return the RGB value for this color
@@ -767,9 +772,9 @@ public class Color implements Paint, Serializable
         if (red == max)
           array[0] = (green - blue) / delta;
         else if (green == max)
-          array[0] = 1 / 3 + (blue - red) / delta;
+          array[0] = 1f / 3 + (blue - red) / delta;
         else
-          array[0] = 2 / 3 + (red - green) / delta;
+          array[0] = 2f / 3 + (red - green) / delta;
         if (array[0] < 0)
           array[0]++;
       }
@@ -950,7 +955,7 @@ public class Color implements Paint, Serializable
    * object, regardless of the parameters. Subclasses, however, may have a
    * mutable result.
    *
-   * @param cm the requested color model, ignored
+   * @param cm the requested color model
    * @param deviceBounds the bounding box in device coordinates, ignored
    * @param userBounds the bounding box in user coordinates, ignored
    * @param xform the bounds transformation, ignored
@@ -962,8 +967,8 @@ public class Color implements Paint, Serializable
                                     AffineTransform xform,
                                     RenderingHints hints)
   {
-    if (context == null)
-      context = new ColorPaintContext(value);
+    if (context == null || !context.getColorModel().equals(cm))
+      context = new ColorPaintContext(cm,value);
     return context;
   }
 

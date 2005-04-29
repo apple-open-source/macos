@@ -9,15 +9,19 @@
   <en>
 
     &lt;b&gt;This page provides data for the IJS driver of the
-    GIMP-Print 4.2.x series, if you are using the GhostScript
-    (&quot;stp&quot;) driver of the GIMP-Print 4.2.x series, go to the
+    Gimp-Print 4.3.x series, if you are using the GhostScript
+    (&quot;stp&quot;) driver of the Gimp-Print 4.3.x series, go to the
     &quot;&lt;a
-    href=&quot;show_driver.cgi?driver=gimp-print&quot;&gt;gimp-print&lt;/a&gt;&quot;
-    page, and if you are using GIMP-Print 4.0.x, go to the &quot;&lt;a
+    href=&quot;show_driver.cgi?driver=gimp-print-unstable&quot;&gt;gimp-print-unstable&lt;/a&gt;&quot;
+    page, if you are using the IJS
+    driver of the Gimp-Print 4.2.x series, go to the
+    &quot;&lt;a
+    href=&quot;show_driver.cgi?driver=gimp-print-ijs&quot;&gt;gimp-print-ijs&lt;/a&gt;&quot;
+    page, and if you are using Gimp-Print 4.0.x, go to the &quot;&lt;a
     href=&quot;show_driver.cgi?driver=stp&quot;&gt;stp&lt;/a&gt;&quot;
     page.&lt;/b&gt;&lt;p&gt;
 
-    GIMP-Print supports a wide variety of Epson Stylus, HP DeskJet,
+    Gimp-Print supports a wide variety of Epson Stylus, HP DeskJet,
     LaserJet, Canon BubbleJet, Lexmark inkjet printers, with the
     primary goal being uncompromising quality.  Epson Stylus printers
     in particular are supported in all resolutions and modes, and the
@@ -28,11 +32,11 @@
 
     The execution information currently here corresponds to driver
     version @@STPVER@@. If you use another version, use the Foomatic
-    data which comes with the GIMP-Print package.&lt;p&gt;
+    data which comes with the Gimp-Print package.&lt;p&gt;
 
     Note that the Foomatic datafiles provided here are only for the
-    IJS driver of GIMP-Print. For the native CUPS driver there
-    are special PPD files provided by the GIMP-Print package.&lt;p&gt;
+    IJS driver of Gimp-Print. For the native CUPS driver there
+    are special PPD files provided by the Gimp-Print package.&lt;p&gt;
 
     This driver does not require patching and rebuilding GhostScript.
     It is enough when you have an IJS enabled GhostScript (GNU

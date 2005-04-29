@@ -24,7 +24,7 @@
  * Authors:
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgaspan.c,v 1.11 2002/10/30 12:51:36 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgaspan.c,v 1.12 2003/09/28 20:15:17 alanh Exp $ */
 
 #include "mtypes.h"
 #include "mgadd.h"
@@ -116,7 +116,7 @@
 
 #undef INIT_MONO_PIXEL
 #define INIT_MONO_PIXEL(p, color) \
-  p = MGAPACKCOLOR565( color[0], color[1], color[2] )
+  p = PACK_COLOR_565( color[0], color[1], color[2] )
 
 
 #define WRITE_RGBA( _x, _y, r, g, b, a )				\
@@ -148,7 +148,7 @@ do {								\
 
 #undef INIT_MONO_PIXEL
 #define INIT_MONO_PIXEL(p, color) \
-  p = MGAPACKCOLOR8888( color[0], color[1], color[2], color[3] )
+  p = PACK_COLOR_8888( color[3], color[0], color[1], color[2] )
 
 
 #define WRITE_RGBA(_x, _y, r, g, b, a)			\
@@ -233,20 +233,28 @@ do {								\
 
 
 
-static void mgaDDSetReadBuffer(GLcontext *ctx, GLframebuffer *buffer,
-			GLenum mode )
+/*
+ * This function is called to specify which buffer to read and write
+ * for software rasterization (swrast) fallbacks.  This doesn't necessarily
+ * correspond to glDrawBuffer() or glReadBuffer() calls.
+ */
+static void mgaDDSetBuffer(GLcontext *ctx, GLframebuffer *buffer,
+                           GLuint bufferBit)
 {
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
 
-   if (mode == GL_FRONT_LEFT) 
+   if (bufferBit == FRONT_LEFT_BIT) 
    {
+      mmesa->drawOffset = mmesa->mgaScreen->frontOffset;
       mmesa->readOffset = mmesa->mgaScreen->frontOffset;
-      mmesa->read_buffer = MGA_FRONT;
    } 
-   else 
+   else if (bufferBit == BACK_LEFT_BIT)
    {
+      mmesa->drawOffset = mmesa->mgaScreen->backOffset;
       mmesa->readOffset = mmesa->mgaScreen->backOffset;
-      mmesa->read_buffer = MGA_BACK;
+   }
+   else {
+      assert(0);
    }
 }
 
@@ -255,7 +263,7 @@ void mgaDDInitSpanFuncs( GLcontext *ctx )
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
    struct swrast_device_driver *swdd = _swrast_GetDeviceDriverReference(ctx);
 
-   swdd->SetReadBuffer = mgaDDSetReadBuffer;
+   swdd->SetBuffer = mgaDDSetBuffer;
 
    switch (mmesa->mgaScreen->cpp) {
    case 2:

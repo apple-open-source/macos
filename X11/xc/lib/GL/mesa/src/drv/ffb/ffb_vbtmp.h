@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vbtmp.h,v 1.1 2002/02/22 21:32:59 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_vbtmp.h,v 1.2 2003/09/28 20:15:08 alanh Exp $ */
 
 static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end)
 {
@@ -13,8 +13,8 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end)
 #endif
 #endif
 #if (IND & FFB_VB_XYZ_BIT)
-	GLfloat (*proj)[4] = VB->ProjectedClipPtr->data;
-	GLuint proj_stride = VB->ProjectedClipPtr->stride;
+	GLfloat (*proj)[4] = VB->NdcPtr->data;
+	GLuint proj_stride = VB->NdcPtr->stride;
 	const GLubyte *mask = VB->ClipMask;
 #endif
 	ffb_vertex *v = &fmesa->verts[start];

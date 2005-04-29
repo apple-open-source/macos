@@ -68,6 +68,11 @@ typedef struct PWServerError {
     PWServerErrorType type;
 } PWServerError;
 
+typedef struct SASLMechInfo {
+	char name[SASL_MECHNAMEMAX + 1];
+	char filename[256];
+	bool requiresPlain;
+} SASLMechInfo;
 
 #ifdef __cplusplus
 	extern "C" {
@@ -112,8 +117,10 @@ char *SendFlushReadAssembleCommand(
 		
 void StripRSAKey( char *inOutUserID );
 long GetPasswordServerList( CFMutableArrayRef *outServerList, int inConfigSearchOptions );
+long GetPasswordServerListForKeyHash( CFMutableArrayRef *outServerList, int inConfigSearchOptions, const char *inKeyHash );
 long GetServerListFromLocalCache( CFMutableArrayRef inOutServerList );
 long GetServerListFromFile( CFMutableArrayRef inOutServerList );
+long GetServerListFromFileForKeyHash( CFMutableArrayRef inOutServerList, const char *inKeyHash );
 long GetServerListFromConfig( CFMutableArrayRef *outServerList, CReplicaFile *inReplicaData );
 long GetServerListFromXML( CReplicaFile *inReplicaFile, CFMutableArrayRef inOutServerList );
 long GetServerFromDict( CFDictionaryRef serverDict, sPSServerEntry *outServerEntry );
@@ -123,6 +130,9 @@ bool ReplicaInIPSet( sPSServerEntry *inReplica, ReplicaIPLevel inLevel );
 long pwsf_LocalIPList( unsigned long **outIPList );
 long getconn_async(const char *host, const char *port, struct timeval *inOpenTimeout, float *outConnectTime, int *inOutSocket);
 long testconn_udp(const char *host, const char *port, int *outSocket);
+pid_t pwsf_ProcessIsRunning( const char *inProcName );
+bool pwsf_GetSASLMechInfo( const char *inMechName, char **outPluginFileName, bool *outRequiresPlainTextOnDisk );
+bool pwsf_SetSASLPluginState( const char *inMechName, bool enabled );
 
 #ifdef __cplusplus
 	};

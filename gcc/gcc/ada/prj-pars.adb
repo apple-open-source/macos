@@ -2,12 +2,11 @@
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
---                             P R J . P A R S                             --
+--                             P R J . P A R S                              --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---             Copyright (C) 2001 Free Software Foundation, Inc.            --
+--             Copyright (C) 2001-2004 Free Software Foundation, Inc.       --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -27,9 +26,10 @@
 
 with Ada.Exceptions; use Ada.Exceptions;
 
-with Errout;   use Errout;
+with Opt;
 with Output;   use Output;
 with Prj.Com;  use Prj.Com;
+with Prj.Err;  use Prj.Err;
 with Prj.Part;
 with Prj.Proc;
 with Prj.Tree; use Prj.Tree;
@@ -42,10 +42,13 @@ package body Prj.Pars is
 
    procedure Parse
      (Project           : out Project_Id;
-      Project_File_Name : String)
+      Project_File_Name : String;
+      Packages_To_Check : String_List_Access := All_Packages;
+      Process_Languages : Languages_Processed := Ada_Language)
    is
       Project_Tree      : Project_Node_Id := Empty_Node;
       The_Project       : Project_Id      := No_Project;
+      Success           : Boolean         := True;
 
    begin
       --  Parse the main project file into a tree
@@ -53,16 +56,24 @@ package body Prj.Pars is
       Prj.Part.Parse
         (Project                => Project_Tree,
          Project_File_Name      => Project_File_Name,
-         Always_Errout_Finalize => False);
+         Always_Errout_Finalize => False,
+         Packages_To_Check      => Packages_To_Check);
 
       --  If there were no error, process the tree
 
       if Project_Tree /= Empty_Node then
          Prj.Proc.Process
            (Project           => The_Project,
+            Success           => Success,
             From_Project_Node => Project_Tree,
-            Report_Error      => null);
-         Errout.Finalize;
+            Report_Error      => null,
+            Process_Languages => Process_Languages,
+            Follow_Links      => Opt.Follow_Links);
+         Prj.Err.Finalize;
+
+         if not Success then
+            The_Project := No_Project;
+         end if;
       end if;
 
       Project := The_Project;

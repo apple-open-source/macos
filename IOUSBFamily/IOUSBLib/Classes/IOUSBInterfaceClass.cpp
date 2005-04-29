@@ -44,7 +44,7 @@ __END_DECLS
 #if IOUSBLIBDEBUG
     #define DEBUGPRINT(x,...)	printf(x, ##__VA_ARGS__)
 #else
-    #define DEBUGPRINT(x,...)
+    #define DEBUGPRINT(x,...)   
 #endif
 
 #define connectCheck() do {	    \
@@ -82,7 +82,7 @@ IOUSBInterfaceClass::IOUSBInterfaceClass()
   fCFSource(0),
   fIsOpen(false)
 {
-    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV197;
+    fUSBInterface.pseudoVTable = (IUnknownVTbl *)  &sUSBInterfaceInterfaceV220;
     fUSBInterface.obj = this;
 }
 
@@ -112,12 +112,13 @@ IOUSBInterfaceClass::queryInterface(REFIID iid, void **ppv)
         *ppv = &iunknown;
         addRef();
     }
-    else if (CFEqual(uuid, kIOUSBInterfaceInterfaceID)
-             || CFEqual(uuid, kIOUSBInterfaceInterfaceID182)
+    else if (   CFEqual(uuid, kIOUSBInterfaceInterfaceID182)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID183)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID190)
              || CFEqual(uuid, kIOUSBInterfaceInterfaceID192)
-             || CFEqual(uuid, kIOUSBInterfaceInterfaceID197)) 
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID197)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID220)
+             || CFEqual(uuid, kIOUSBInterfaceInterfaceID) )
     {
         *ppv = &fUSBInterface;
         addRef();
@@ -153,6 +154,10 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
 
     fService = inService;
     fNextCookie = 0;
+    fConfigDescCacheValid = false;
+    fInterfaceDescriptor = NULL;
+    fConfigPtr = NULL;
+    fConfigLength = 0;
     fUserBufferInfoListHead = NULL;
     res = IOServiceOpen(fService, mach_task_self(), 0, &fConnection);
     if (res != kIOReturnSuccess)
@@ -177,12 +182,28 @@ IOUSBInterfaceClass::start(CFDictionaryRef propertyTable, io_service_t inService
 }
 
 
+
+IOReturn 
+IOUSBInterfaceClass::stop()
+{
+	IOReturn ret = kIOReturnSuccess;
+	
+	connectCheck();
+	if (fIsOpen)
+		ret = USBInterfaceClose();
+	
+	return ret;
+}
+
+
+
 IOReturn
 IOUSBInterfaceClass::GetPropertyInfo(void)
 {
     IOReturn			kr;
     CFMutableDictionaryRef 	entryProperties = 0;
     
+    DEBUGPRINT("IOUSBInterfaceClass::GetPropertyInfo\n");
     kr = IORegistryEntryCreateCFProperties(fService, &entryProperties, NULL, 0);
     
     if (kr)
@@ -191,6 +212,7 @@ IOUSBInterfaceClass::GetPropertyInfo(void)
     if (entryProperties) 
     {
         CFTypeRef val;
+        
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBInterfaceClass));
         if (val)
             CFNumberGetValue((CFNumberRef)val, kCFNumberCharType, (void*)&fClass);
@@ -227,6 +249,28 @@ IOUSBInterfaceClass::GetPropertyInfo(void)
         val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDevicePropertyLocationID));
         if (val)
             CFNumberGetValue((CFNumberRef)val, kCFNumberLongType, (void*)&fLocationID);
+
+        CFDataRef data = (CFDataRef) CFDictionaryGetValue(entryProperties, CFSTR("InterfaceDescriptor"));
+        if ( data )
+        {
+            fInterfaceDescriptor = (IOUSBInterfaceDescriptor *) CFDataGetBytePtr( data );
+        }
+        
+        CFRelease(entryProperties);
+    }
+    
+    // Look at the device's properties
+    //
+    kr = IORegistryEntryCreateCFProperties(fDevice, &entryProperties, NULL, 0);
+    if ( entryProperties )
+    {
+        CFTypeRef val;
+        val = CFDictionaryGetValue(entryProperties, CFSTR(kUSBDeviceNumConfigs));
+        if (val)
+            CFNumberGetValue((CFNumberRef)val, kCFNumberCharType, (void*)&fNumConfigurations);
+        else
+            fNumConfigurations = 0;
+       
         CFRelease(entryProperties);
     }
 
@@ -368,27 +412,25 @@ IOUSBInterfaceClass::USBInterfaceOpen(bool seize)
 IOReturn 
 IOUSBInterfaceClass::USBInterfaceClose()
 {
-    IOReturn		ret;
-#if 0
+    IOReturn		ret = kIOReturnSuccess;
     LowLatencyUserBufferInfo *	buffer;
     LowLatencyUserBufferInfo *	nextBuffer;
-#endif
     
-    allChecks();
-
     mach_msg_type_number_t len = 0;
     fIsOpen = false;
 
-    // kIOCDBUserClientClose,	kIOUCScalarIScalarO,	 0,  0
-    ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientClose, NULL, 0, NULL, &len);
-    if (ret == MACH_SEND_INVALID_DEST)
+    if ( fConnection )
     {
-	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
-	ret = kIOReturnNoDevice;
+        // kIOCDBUserClientClose,	kIOUCScalarIScalarO,	 0,  0
+        ret = io_connect_method_scalarI_scalarO(fConnection, kUSBInterfaceUserClientClose, NULL, 0, NULL, &len);
+        if (ret == MACH_SEND_INVALID_DEST)
+        {
+            fIsOpen = false;
+            fConnection = MACH_PORT_NULL;
+            ret = kIOReturnNoDevice;
+        }
     }
 
-#if 0    
     // Need to free any buffers that has been allocated by the low latency stuff that has not been
     // released!
     //
@@ -414,7 +456,6 @@ IOUSBInterfaceClass::USBInterfaceClose()
         fUserBufferInfoListHead = NULL;
     }
 
-#endif
  
     return ret;
 }
@@ -425,6 +466,7 @@ IOReturn
 IOUSBInterfaceClass::GetInterfaceClass(UInt8 *intfClass)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceClass\n");
     *intfClass = fClass;
     return kIOReturnSuccess;
 }
@@ -434,6 +476,7 @@ IOReturn
 IOUSBInterfaceClass::GetInterfaceSubClass(UInt8 *intfSubClass)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceSubClass\n");
     *intfSubClass = fSubClass;
     return kIOReturnSuccess;
 }
@@ -443,6 +486,7 @@ IOReturn
 IOUSBInterfaceClass::GetInterfaceProtocol(UInt8 *intfProtocol)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceProtocol\n");
     *intfProtocol = fProtocol;
     return kIOReturnSuccess;
 }
@@ -452,6 +496,7 @@ IOReturn
 IOUSBInterfaceClass::GetInterfaceStringIndex(UInt8 *intfSI)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceStringIndex\n");
     *intfSI = fStringIndex;
     return kIOReturnSuccess;
 }
@@ -461,6 +506,7 @@ IOReturn
 IOUSBInterfaceClass::GetDeviceVendor(UInt16 *devVendor)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetDeviceVendor\n");
     *devVendor = fVendor;
     return kIOReturnSuccess;
 }
@@ -470,6 +516,7 @@ IOReturn
 IOUSBInterfaceClass::GetDeviceProduct(UInt16 *devProduct)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetDeviceProduct\n");
     *devProduct = fProduct;
     return kIOReturnSuccess;
 }
@@ -479,6 +526,7 @@ IOReturn
 IOUSBInterfaceClass::GetDeviceReleaseNumber(UInt16 *devRelNum)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetDeviceReleaseNumber\n");
     *devRelNum = fDeviceReleaseNumber;
     return kIOReturnSuccess;
 }
@@ -488,6 +536,7 @@ IOReturn
 IOUSBInterfaceClass::GetConfigurationValue(UInt8 *configVal)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetConfigurationValue\n");
     *configVal = fConfigValue;
     return kIOReturnSuccess;
 }
@@ -497,6 +546,7 @@ IOReturn
 IOUSBInterfaceClass::GetInterfaceNumber(UInt8 *intfNumber)
 {
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetInterfaceNumber\n");
     *intfNumber = fInterfaceNumber;
     return kIOReturnSuccess;
 }
@@ -506,6 +556,7 @@ IOReturn
 IOUSBInterfaceClass::GetAlternateSetting(UInt8 *intfAlternateSetting)
 { 
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetAlternateSetting\n");
     *intfAlternateSetting = fAlternateSetting;
     return kIOReturnSuccess;
 }
@@ -515,6 +566,7 @@ IOReturn
 IOUSBInterfaceClass::GetNumEndpoints(UInt8 *intfNumEndpoints)
 { 
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetNumEndpoints\n");
     *intfNumEndpoints = fNumEndpoints;
     return kIOReturnSuccess;
 }
@@ -524,6 +576,7 @@ IOReturn
 IOUSBInterfaceClass::GetLocationID(UInt32 *locationID)
 { 
     connectCheck();
+    DEBUGPRINT("IOUSBInterfaceClass::GetLocationID\n");
     *locationID = fLocationID;
     return kIOReturnSuccess;
 }
@@ -1376,8 +1429,6 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
     bool			found;
     kern_return_t		ret = kIOReturnSuccess;
     
-    allChecks();
-
     DEBUGPRINT("IOUSBLib::LowLatencyDestroyBuffer, buffer %p\n", buffer);
     
     // We need to find the LowLatencyUserBufferInfo structure that contains
@@ -1402,12 +1453,15 @@ IOUSBInterfaceClass::LowLatencyDestroyBuffer( void * buffer )
         goto ErrorExit;
     }
     
-    // Call into the kernel to release the kernel objects for this buffer data
-    //
-    // kIOUCStructIStructO  io_connect_method_structureI_structureO(..., UInt32 * bufferIn,  UInt32 bufferSizeIn,   UInt32 * bufferOut,  UInt32 * bufferSizeInOut )
-    //
-    result = io_connect_method_structureI_structureO(fConnection, kUSBInterfaceUserClientLowLatencyReleaseBuffer, (char *)bufferData, sizeof(LowLatencyUserBufferInfo), NULL, &outSize);
-
+    if ( fConnection )
+    {
+        // Call into the kernel to release the kernel objects for this buffer data
+        //
+        // kIOUCStructIStructO  io_connect_method_structureI_structureO(..., UInt32 * bufferIn,  UInt32 bufferSizeIn,   UInt32 * bufferOut,  UInt32 * bufferSizeInOut )
+        //
+        result = io_connect_method_structureI_structureO(fConnection, kUSBInterfaceUserClientLowLatencyReleaseBuffer, (char *)bufferData, sizeof(LowLatencyUserBufferInfo), NULL, &outSize);
+    }
+    
     // If there is an error, we still need to free our data
     // Now, free the memory
     //
@@ -1712,6 +1766,203 @@ IOUSBInterfaceClass::GetIOUSBLibVersion(NumVersion *ioUSBLibVersion, NumVersion 
 
 
 
+IOReturn
+IOUSBInterfaceClass::CacheConfigDescriptor()
+{
+    IOReturn		err = kIOReturnSuccess;
+    IOUSBDevRequestTO 	request;
+    IOUSBConfigurationDescHeader	configHdr;
+    UInt32		size = 0;
+
+    for (int i = 0; i < fNumConfigurations; i++)
+    {
+        // First, ask just for the first two bytes
+        //
+        request.bmRequestType = USBmakebmRequestType(kUSBIn, kUSBStandard, kUSBDevice);
+        request.bRequest = kUSBRqGetDescriptor;
+        request.wValue = (kUSBConfDesc << 8) + i;
+        request.wIndex = 0;
+        request.wLength = sizeof(IOUSBConfigurationDescHeader);
+        request.pData = &configHdr;
+        
+        err = ControlRequest(0, &request);
+        if ( kIOReturnSuccess != err )
+        {
+            DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor #1 error: 0x%x\n", err);
+            return err;
+        }
+        
+        size = USBToHostWord(configHdr.wTotalLength);
+        fConfigLength = size+2;
+        fConfigPtr = (IOUSBConfigurationDescriptorPtr) malloc(size+2);
+        DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor fConfigPtr: 0x%lx, size: %ld\n", (UInt32)fConfigPtr, size+2);
+        
+        request.wLength = size;
+        request.pData = fConfigPtr;
+        
+        err = ControlRequest(0, &request);
+        if ( kIOReturnSuccess != err )
+        {
+            DEBUGPRINT("IOUSBInterfaceClass::CacheConfigDescriptor full error: 0x%x\n", err);
+            return err;
+        }
+        
+        // Check to see if this is our configuration by comparing the bConfigurationValue to our fConfigValue
+        if ( fConfigPtr->bConfigurationValue == fConfigValue )
+            break;
+        else
+            free (fConfigPtr);
+    }
+    
+    // Add a dummy empty descriptor on the end
+    *((char*)fConfigPtr + size) = 0;
+    *((char*)fConfigPtr + size + 1) = 0;
+
+    return err;
+}
+
+IOUSBDescriptorHeader *
+IOUSBInterfaceClass::NextDescriptor(const void *desc)
+{
+    const UInt8 *next = (const UInt8 *)desc;
+    UInt8 length = next[0];
+    next = &next[length];
+    return((IOUSBDescriptorHeader *)next);
+}
+
+
+const IOUSBDescriptorHeader*
+IOUSBInterfaceClass::FindNextDescriptor(const void *cur, UInt8 descType)
+{
+    IOUSBDescriptorHeader 		*hdr;
+    UInt8				configIndex;
+    IOUSBConfigurationDescriptor	*curConfDesc;
+    UInt16				curConfLength;
+    UInt8				curConfig;
+
+    curConfDesc = fConfigPtr;
+    if (!curConfDesc)
+        return NULL;
+
+    curConfLength = fConfigLength;
+    if (!cur)
+        hdr = (IOUSBDescriptorHeader*)curConfDesc;
+    else
+    {
+        if ((cur < curConfDesc) || (((int)cur - (int)curConfDesc) >= curConfLength))
+        {
+            return NULL;
+        }
+        hdr = (IOUSBDescriptorHeader *)cur;
+    }
+
+    do
+    {
+        IOUSBDescriptorHeader 		*lasthdr = hdr;
+        hdr = NextDescriptor(hdr);
+        if (lasthdr == hdr)
+        {
+            return NULL;
+        }
+
+        if(((int)hdr - (int)curConfDesc) >= curConfLength)
+        {
+            return NULL;
+        }
+        if(descType == 0)
+        {
+            return hdr;			// type 0 is wildcard.
+        }
+
+        if(hdr->bDescriptorType == descType)
+        {
+            return hdr;
+        }
+    } while(true);
+}
+
+
+
+IOUSBDescriptorHeader *
+IOUSBInterfaceClass::FindNextAssociatedDescriptor(const void * currentDescriptor, UInt8 descriptorType)
+{
+    IOReturn			kr = kIOReturnSuccess;
+    const IOUSBDescriptorHeader *next;
+    IOUSBInterfaceDescriptor	*interfaceDesc = NULL;
+
+    if (!fConnection)
+        return NULL;
+
+    DEBUGPRINT("+IOUSBInterfaceClass::FindNextAssociatedDescriptor %p, type: %d\n", currentDescriptor, descriptorType);
+
+    // Need to first get the current Config Descriptor
+    //
+    if ( ! fConfigDescCacheValid)
+    {
+        kr = CacheConfigDescriptor();
+        if ( kr == kIOReturnSuccess )
+            fConfigDescCacheValid = TRUE;
+    }
+
+    DEBUGPRINT("-IOUSBInterfaceClass::FindNextAssociatedDescriptor %p, type: %d\n", currentDescriptor, descriptorType);
+
+    // Need to find the interface descriptor for THIS interface, not just the first one..
+    // 
+    if ( currentDescriptor == NULL )
+    {
+        while ( true )
+        {
+            currentDescriptor = FindNextDescriptor(currentDescriptor, kUSBInterfaceDesc);
+            if (currentDescriptor == NULL )
+                break;
+            
+            interfaceDesc = (IOUSBInterfaceDescriptor *) currentDescriptor;
+
+            if ( interfaceDesc->bInterfaceNumber == fInterfaceNumber )
+                break;
+            
+        }
+    }
+        
+
+    next = ( const IOUSBDescriptorHeader *) currentDescriptor;
+
+    while (true)
+    {
+        next = FindNextDescriptor(next, kUSBAnyDesc);
+
+        // The Interface Descriptor ends when we find the end of the Config Desc, an Interface Association Descriptor
+        // or an InterfaceDescriptor WITH a different interface number (this will allow us to look for the alternate settings
+        // of Interface descriptors
+        //
+        if (!next || (next->bDescriptorType == kUSBInterfaceAssociationDesc) || ( (next->bDescriptorType == kUSBInterfaceDesc) && ( descriptorType != kUSBInterfaceDesc) ) )
+        {
+            DEBUGPRINT("IOUSBInterfaceClass::FindNextAssociatedDescriptor returning NULL becuase we reached the end or found an IAD\n");
+            return NULL;
+        }
+
+        if ( (next->bDescriptorType == kUSBInterfaceDesc) && ( ( (IOUSBInterfaceDescriptor *)next)->bInterfaceNumber != fInterfaceNumber) )
+        {
+            DEBUGPRINT("IOUSBInterfaceClass::FindNextAssociatedDescriptor returning NULL cause we found a new interface descriptor with a different interface #\n");
+            return NULL;
+        }
+
+        if (next->bDescriptorType == descriptorType || descriptorType == kUSBAnyDesc)
+            break;
+    }
+    DEBUGPRINT("IOUSBInterfaceClass::FindNextAssociatedDescriptor returning %p\n", next);
+
+    return (IOUSBDescriptorHeader *)next;
+}
+
+
+IOUSBDescriptorHeader *
+IOUSBInterfaceClass::FindNextAltInterface(const void * currentDescriptor, IOUSBFindInterfaceRequest *request)
+{
+    return NULL;
+}
+
+
 IOCFPlugInInterface 
 IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
     0,
@@ -1725,8 +1976,8 @@ IOUSBInterfaceClass::sIOCFPlugInInterfaceV1 = {
 };
 
 
-IOUSBInterfaceStruct197 
-IOUSBInterfaceClass::sUSBInterfaceInterfaceV197 = {
+IOUSBInterfaceStruct220 
+IOUSBInterfaceClass::sUSBInterfaceInterfaceV220 = {
     0,
     &IOUSBIUnknown::genericQueryInterface,
     &IOUSBIUnknown::genericAddRef,
@@ -1787,7 +2038,10 @@ IOUSBInterfaceClass::sUSBInterfaceInterfaceV197 = {
     // ---------- new with 1.9.7
     &IOUSBInterfaceClass::interfaceGetBusMicroFrameNumber,
     &IOUSBInterfaceClass::interfaceGetFrameListTime,
-    &IOUSBInterfaceClass::interfaceGetIOUSBLibVersion
+    &IOUSBInterfaceClass::interfaceGetIOUSBLibVersion,
+    // ---------- new with 2.2.0
+    &IOUSBInterfaceClass::interfaceFindNextAssociatedDescriptor,
+    &IOUSBInterfaceClass::interfaceFindNextAltInterface
 };
 
 
@@ -1801,10 +2055,9 @@ IOReturn
 IOUSBInterfaceClass::interfaceStart(void *self, CFDictionaryRef propertyTable, io_service_t inService)
     { return getThis(self)->start(propertyTable, inService); }
     
-
 IOReturn 
 IOUSBInterfaceClass::interfaceStop(void *self)
-    { return getThis(self)->USBInterfaceClose(); }
+	{ return getThis(self)->stop(); }
 
 IOReturn 
 IOUSBInterfaceClass::interfaceCreateInterfaceAsyncEventSource(void *self, CFRunLoopSourceRef *source)
@@ -2049,4 +2302,13 @@ IOUSBInterfaceClass::interfaceGetFrameListTime(void *self, UInt32 *microsecondsI
 IOReturn
 IOUSBInterfaceClass::interfaceGetIOUSBLibVersion( void *self, NumVersion *ioUSBLibVersion, NumVersion *usbFamilyVersion)
 { return getThis(self)->GetIOUSBLibVersion(ioUSBLibVersion, usbFamilyVersion); }
+//--------------- added in 2.2.0
+IOUSBDescriptorHeader *
+IOUSBInterfaceClass::interfaceFindNextAssociatedDescriptor( void *self, const void *currentDescriptor, UInt8 descriptorType)
+{ return getThis(self)->FindNextAssociatedDescriptor(currentDescriptor, descriptorType); }
+
+IOUSBDescriptorHeader *
+IOUSBInterfaceClass::interfaceFindNextAltInterface( void *self, const void *currentDescriptor, IOUSBFindInterfaceRequest *request)
+{ return getThis(self)->FindNextAltInterface(currentDescriptor, request); }
+
 

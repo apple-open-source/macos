@@ -63,7 +63,7 @@ struct SjLj_Function_Context
 #ifdef DONT_USE_BUILTIN_SETJMP
   /* We don't know what sort of alignment requirements the system
      jmp_buf has.  We over estimated in except.c, and now we have
-     to match that here just in case the system *didn't* have more 
+     to match that here just in case the system *didn't* have more
      restrictive requirements.  */
   jmp_buf jbuf __attribute__((aligned));
 #else
@@ -76,7 +76,7 @@ struct _Unwind_Context
   struct SjLj_Function_Context *fc;
 };
 
-typedef struct 
+typedef struct
 {
   _Unwind_Personality_Fn personality;
 } _Unwind_FrameState;
@@ -208,6 +208,12 @@ _Unwind_GetRegionStart (struct _Unwind_Context *context __attribute__((unused)) 
   return 0;
 }
 
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  return NULL;
+}
+
 #ifndef __ia64__
 _Unwind_Ptr
 _Unwind_GetDataRelBase (struct _Unwind_Context *context __attribute__((unused)) )
@@ -244,14 +250,14 @@ uw_update_context (struct _Unwind_Context *context,
   context->fc = context->fc->prev;
 }
 
-static inline void 
+static inline void
 uw_init_context (struct _Unwind_Context *context)
 {
   context->fc = _Unwind_SjLj_GetContext ();
 }
 
 /* ??? There appear to be bugs in integrate.c wrt __builtin_longjmp and
-   virtual-stack-vars.  An inline version of this segfaults on Sparc.  */
+   virtual-stack-vars.  An inline version of this segfaults on SPARC.  */
 #define uw_install_context(CURRENT, TARGET)		\
   do							\
     {							\

@@ -1,0 +1,32 @@
+.\" Man page for whatis
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" edited and translated to danish by Bo Vagner Hoejer 1996
+.\" email bo@petshop.ping.dk - bo@image.dk
+.\"
+.TH whatis 1 "5. Januar 1991" "da" "Linux brugerkommandoer" 
+.LO 1
+.SH NAVN
+whatis \- gennemsøg 'whatis' databasen efter komplette ord.
+.SH SYNTAKS
+.BI whatis
+nøgleord ...
+.SH BESKRIVELSE
+whatis gennemsøger et set af databasefiler, som indeholder korte beskrivelser
+af systemets kommandoer, efter nøgleordet og udskriver resultatet paa standard
+udskriftsenheden. Kun ord der matcher fuldstændigt bliver vist.
+
+whatis databasen oprettes ved at anvende kommandoen @makewhatis@.
+.SH "SE OGSÅ"
+apropos(1), man(1).

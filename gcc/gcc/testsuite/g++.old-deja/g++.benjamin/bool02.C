@@ -1,11 +1,12 @@
+// { dg-do run  }
 //980324 bkoz
 //test for bool and bitwise ands
 
 #include <assert.h>
 
 
-void bar ( bool  x ) {};
-void bars ( short  x ) {};
+void bar ( bool  x ) {}
+void bars ( short  x ) {}
 
 #if 0
 int andb(){

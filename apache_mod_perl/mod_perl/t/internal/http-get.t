@@ -16,7 +16,7 @@ if($] > 5.005_03) {
 
 print "1..$num_tests\n";
 
-use Apache::test;
+use Apache::testold;
 require LWP::UserAgent;
 
 my $ua = new LWP::UserAgent;    # create a useragent to test

@@ -41,13 +41,13 @@
 #include <stdarg.h>
 #endif
 
+#include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <sys/time.h>
 #include <sys/times.h>
 #include <sys/resource.h>
-#include <sys/param.h>
 #include <signal.h>
 #include <sys/time.h>
 #include <sys/stat.h>

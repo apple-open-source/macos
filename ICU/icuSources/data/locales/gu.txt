@@ -1,101 +1,115 @@
-// ***************************************************************************
+﻿// ***************************************************************************
 // *
-// *   Copyright (C) 2001-2003, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2004 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File: ../../../locale/common/main/gu.xml
 // *
 // ***************************************************************************
-
-gu {
-    Version{ "2.0" }
-    LocaleID:int { 0x47 }
-    Languages {
-        gu { "\u0A97\u0AC1\u0A9C\u0AB0\u0ABE\u0AA4\u0AC0" }
+/**
+ *  ICU <specials> source: ../../../locale/icu/main/gu.xml
+ */
+gu{
+    Countries{
+        CN{"ચીન"}
+        DE{"જમિની"}
+        EG{"મિસર"}
+        GE{"જ્યોર્જીયા"}
+        IN{"ભારત"}
+        NP{"નેપાળ"}
+        PK{"કરાંચી"}
+        TM{"તુર્ક્મનિસ્તાન"}
+        TR{"તુર્કસ્તાન"}
+        US{"સંયુકત રાજ્ય અમેરિકા"}
     }
-    Countries {
-        IN { "\u0AAD\u0ABE\u0AB0\u0AA4" }
+    Currencies{
+        INR{
+            "રુ",
+            "INR",
+        }
     }
-    AmPmMarkers{
-        "\u0AAA\u0AC2\u0AB0\u0ACD\u0AB5\u00A0\u0AAE\u0AA7\u0ACD\u0AAF\u0ABE\u0AB9\u0ACD\u0AA8",
-        "\u0A89\u0AA4\u0ACD\u0AA4\u0AB0\u00A0\u0AAE\u0AA7\u0ACD\u0AAF\u0ABE\u0AB9\u0ACD\u0AA8"
+    ExemplarCharacters{"[[:Gujr:]‌‍]"}
+    Languages{
+        gu{"ગુજરાતી"}
     }
-//    ShortLanguage{
-//        "GUJ"
-//    }
-    DayNames{
-        "\u0AB0\u0AB5\u0ABF\u0AB5\u0ABE\u0AB0",
-        "\u0AB8\u0ACB\u0AAE\u0AB5\u0ABE\u0AB0",
-        "\u0AAE\u0A82\u0A97\u0AB3\u0AB5\u0ABE\u0AB0",
-        "\u0AAC\u0AC1\u0AA7\u0AB5\u0ABE\u0AB0",
-        "\u0A97\u0AC1\u0AB0\u0AC1\u0AB5\u0ABE\u0AB0",
-        "\u0AB6\u0AC1\u0A95\u0ACD\u0AB0\u0AB5\u0ABE\u0AB0",
-        "\u0AB6\u0AA8\u0ABF\u0AB5\u0ABE\u0AB0"
+    LocaleScript{
+        "Gujr",
     }
-
-    DayAbbreviations{
-        "\u0AB0\u0AB5\u0ABF",
-        "\u0AB8\u0ACB\u0AAE",
-        "\u0AAE\u0A82\u0A97\u0AB3",
-        "\u0AAC\u0AC1\u0AA7",
-        "\u0A97\u0AC1\u0AB0\u0AC1",
-        "\u0AB6\u0AC1\u0A95\u0ACD\u0AB0",
-        "\u0AB6\u0AA8\u0ABF"
-    }
-
-    MonthNames{
-        "\u0A9C\u0ABE\u0AA8\u0ACD\u0AAF\u0AC1\u0A86\u0AB0\u0AC0",
-        "\u0AAB\u0AC7\u0AAC\u0ACD\u0AB0\u0AC1\u0A86\u0AB0\u0AC0",
-        "\u0AAE\u0ABE\u0AB0\u0ACD\u0A9A",
-        "\u0A8F\u0AAA\u0ACD\u0AB0\u0ABF\u0AB2",
-        "\u0AAE\u0AC7",
-        "\u0A9C\u0AC2\u0AA8",
-        "\u0A9C\u0AC1\u0AB2\u0ABE\u0A88",
-        "\u0A91\u0A97\u0AB8\u0ACD\u0A9F",
-        "\u0AB8\u0AAA\u0ACD\u0A9F\u0AC7\u0AAE\u0ACD\u0AAC\u0AB0",
-        "\u0A91\u0A95\u0ACD\u0A9F\u0ACD\u0AAC\u0AB0",
-        "\u0AA8\u0AB5\u0AC7\u0AAE\u0ACD\u0AAC\u0AB0",
-        "\u0AA1\u0ABF\u0AB8\u0AC7\u0AAE\u0ACD\u0AAC\u0AB0",
-    }
-
-    MonthAbbreviations {
-        "\u0A9C\u0ABE\u0AA8\u0ACD\u0AAF\u0AC1",
-        "\u0AAB\u0AC7\u0AAC\u0ACD\u0AB0\u0AC1",
-        "\u0AAE\u0ABE\u0AB0\u0ACD\u0A9A",
-        "\u0A8F\u0AAA\u0ACD\u0AB0\u0ABF\u0AB2",
-        "\u0AAE\u0AC7",
-        "\u0A9C\u0AC2\u0AA8",
-        "\u0A9C\u0AC1\u0AB2\u0ABE\u0A88",
-        "\u0A91\u0A97\u0AB8\u0ACD\u0A9F",
-        "\u0AB8\u0AAA\u0ACD\u0A9F\u0AC7",
-        "\u0A91\u0A95\u0ACD\u0A9F\u0ACB",
-        "\u0AA8\u0AB5\u0AC7",
-        "\u0AA1\u0ABF\u0AB8\u0AC7",
-    }
-
     NumberElements{
         ".",
         ",",
         ";",
         "%",
-        "\u0AE6",
+        "૦",
         "#",
         "-",
         "E",
-        "\u2030",
-        "\u221E",
-        "\uFFFD",
-        ".",
+        "‰",
+        "∞",
+        "�",
+        "+",
     }
-    LocaleScript:array { "Gujr" }
-    ExemplarCharacters { "[[:Gujr:]\u200c\u200d]" }
-    CollationElements {	    
-        Version { "1.0" }
-        Sequence { 
-            "[normalization on]"
+    Version{"1.2"}
+    calendar{
+        gregorian{
+            AmPmMarkers{
+                "પૂર્વ મધ્યાહ્ન",
+                "ઉત્તર મધ્યાહ્ન",
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "રવિ",
+                        "સોમ",
+                        "મંગળ",
+                        "બુધ",
+                        "ગુરુ",
+                        "શુક્ર",
+                        "શનિ",
+                    }
+                    wide{
+                        "રવિવાર",
+                        "સોમવાર",
+                        "મંગળવાર",
+                        "બુધવાર",
+                        "ગુરુવાર",
+                        "શુક્રવાર",
+                        "શનિવાર",
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "જાન્યુ",
+                        "ફેબ્રુ",
+                        "માર્ચ",
+                        "એપ્રિલ",
+                        "મે",
+                        "જૂન",
+                        "જુલાઈ",
+                        "ઑગસ્ટ",
+                        "સપ્ટે",
+                        "ઑક્ટો",
+                        "નવે",
+                        "ડિસે",
+                    }
+                    wide{
+                        "જાન્યુઆરી",
+                        "ફેબ્રુઆરી",
+                        "માર્ચ",
+                        "એપ્રિલ",
+                        "મે",
+                        "જૂન",
+                        "જુલાઈ",
+                        "ઑગસ્ટ",
+                        "સપ્ટેમ્બર",
+                        "ઑક્ટ્બર",
+                        "નવેમ્બર",
+                        "ડિસેમ્બર",
+                    }
+                }
+            }
         }
-    }
-
-    // Currency display names
-    Currencies {
-        INR { "\u0AB0\u0AC1", "INR" }
     }
 }

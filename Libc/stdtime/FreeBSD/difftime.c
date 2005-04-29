@@ -6,10 +6,10 @@
 #include <sys/cdefs.h>
 #ifndef lint
 #ifndef NOID
-static char	elsieid[] __unused = "@(#)difftime.c	7.7";
+static char	elsieid[] __unused = "@(#)difftime.c	7.9";
 #endif /* !defined NOID */
 #endif /* !defined lint */
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/difftime.c,v 1.7 2003/02/16 17:29:11 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/difftime.c,v 1.8 2004/06/14 10:31:52 stefanf Exp $");
 
 /*LINTLIBRARY*/
 
@@ -36,10 +36,16 @@ const time_t	time0;
 	time_t	delta;
 	time_t	hibit;
 
-	if (sizeof(time_t) < sizeof(double))
-		return (double) time1 - (double) time0;
-	if (sizeof(time_t) < sizeof(long_double))
-		return (long_double) time1 - (long_double) time0;
+	{
+		time_t		tt;
+		double		d;
+		long_double	ld;
+
+		if (sizeof tt < sizeof d)
+			return (double) time1 - (double) time0;
+		if (sizeof tt < sizeof ld)
+			return (long_double) time1 - (long_double) time0;
+	}
 	if (time1 < time0)
 		return -difftime(time0, time1);
 	/*

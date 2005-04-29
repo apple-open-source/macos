@@ -95,13 +95,13 @@ namespace std
 	      __len *= 2;
 
 	      if (__testwrite)
-		__ret = this->sputc(__c);
+		__ret = this->sputc(traits_type::to_char_type(__c));
 	      else if (__len <= _M_string.max_size())
 		{
 		  // Force-allocate, re-sync.
 		  _M_string = this->str();
 		  _M_string.reserve(__len);
-		  _M_buf_size = static_cast<int_type>(__len);
+		  _M_buf_size = __len;
 		  _M_really_sync(_M_in_cur - _M_in_beg, 
 				 _M_out_cur - _M_out_beg);
 		  *_M_out_cur = traits_type::to_char_type(__c);
@@ -184,7 +184,7 @@ namespace std
       
       if (_M_buf_size)
 	{
-	  off_type __pos = __sp._M_position();
+	  off_type __pos = __sp; // Use streamoff operator to do conversion.
 	  char_type* __beg = NULL;
 	  char_type* __end = NULL;
 	  bool __testin = (ios_base::in & _M_mode & __mode) != 0;
@@ -226,13 +226,16 @@ namespace std
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
   extern template class basic_stringbuf<char>;
-  extern template class basic_stringbuf<wchar_t>;
   extern template class basic_istringstream<char>;
-  extern template class basic_istringstream<wchar_t>;
   extern template class basic_ostringstream<char>;
-  extern template class basic_ostringstream<wchar_t>;
   extern template class basic_stringstream<char>;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
+  extern template class basic_stringbuf<wchar_t>;
+  extern template class basic_istringstream<wchar_t>;
+  extern template class basic_ostringstream<wchar_t>;
   extern template class basic_stringstream<wchar_t>;
+#endif
 } // namespace std
 
 #endif

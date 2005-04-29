@@ -1,5 +1,5 @@
 #
-# $Id: Makefile.am,v 1.1.1.1 2002/11/26 19:08:04 zarzycki Exp $
+# $Id: Makefile.am,v 1.1 2001/05/30 04:31:33 crisb Exp $
 #
 
 PKGADD_PKG="@PKGADD_PKG@"

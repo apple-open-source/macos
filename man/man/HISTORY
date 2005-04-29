@@ -1,0 +1,50 @@
+man-1.5o1:
+
+- Fixed man2html array overflow
+
+man-1.5o:
+
+- Polish messages, non-dummy codesets (Jakub Bogusz <qboosh@pld-linux.org>)
+- CYGWIN fix for perl manpages (with :: in filename)
+- Fix for certain awk versions in mansec (NISHIMURA Daisuke)
+- When asked for a nonexisting page in section 1p, do not also try section 1
+
+man-1.5n:
+
+- Added "0p 1p 3p" in sections string
+- Added mess.??.codeset (with dummy content)
+- No funny Russian messages
+- man2html: handle .so with trailing whitespace
+- replace -grepsilent by >/dev/null 2>/dev/null
+
+man-1.5m:
+
+- Greek man pages and messages
+- makewhatis fix
+
+man-1.5k:
+
+- Korean and Romanian man pages and messages
+- makewhatis fixes
+- apropos fix
+- security fix
+
+man-1.5j:
+
+- a few security fixes
+- adapted configure to try awk/gawk/mawk
+- Japanese support, man pages and messages, Russian messages
+- polished makewhatis so that it handles more strange man pages
+- implemented MANDEFOPTIONS for people who always want -a
+
+man-1.5i:
+
+- added man2dvi (Tobias Begalke <tb@lst.de>)
+- polished makewhatis so that it handles more strange man pages
+- improve handling of filenames with embedded spaces
+- man -W gives same output to tty and pipe
+- man2html/scripts/cgi-bin/man/mansearch: change separator so that
+  perl function names like ExtUtils::MakeMaker(3) are handled correctly
+  (Carlos A M dos Santos <casantos@inf.ufrgs.br>)
+- make "man ./foo.3" work, when foo.3 contains ".so man2/bar.2"
+- gencat fix for Unix98 conformance (Stanislav Brabec <utx@k332.feld.cvut.cz>)

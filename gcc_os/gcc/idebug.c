@@ -42,16 +42,6 @@ Boston, MA 02111-1307, USA.  */
 #include "flags.h"
 #include "c-common.h"
 
-/* If we're building with the persistent front-end, some pointers
-   may already be frozen, in which case the RP() macro defined in
-   pfe/pfe.h will uncover their true value.  */
-   
-#ifdef PFE
-#include "pfe/pfe.h"
-#else
-#define RP(p) (p)
-#endif
-
 #define fn_0(name,rt)             rt (name) (void); \
 				  rt (name) (void)                { return name(); }
 #define fn_1(name,rt,p1)          rt (name)(p1); \
@@ -112,7 +102,6 @@ fn_1( TREE_NOTHROW, int, tree )
 fn_1( TREE_PRIVATE, int, tree )
 fn_1( TREE_PROTECTED, int, tree )
 fn_1( TREE_BOUNDED, int, tree )
-/* APPLE LOCAL deprecated (Radar 2637521) ilr */
 fn_1( TREE_DEPRECATED, int, tree )
 /* APPLE LOCAL unavailable (Radar 2809697) ilr */
 fn_1( TREE_UNAVAILABLE, int, tree )
@@ -123,12 +112,15 @@ fn_1( TREE_LANG_FLAG_3, int, tree )
 fn_1( TREE_LANG_FLAG_4, int, tree )
 fn_1( TREE_LANG_FLAG_5, int, tree )
 fn_1( TREE_LANG_FLAG_6, int, tree )
+/* APPLE LOCAL dead code strip.  */
+fn_1( TREE_LIVE, int, tree )
 fn_1( TREE_INT_CST_LOW, unsigned HOST_WIDE_INT, tree )
 fn_1( TREE_INT_CST_HIGH, HOST_WIDE_INT, tree )
 fn_2( INT_CST_LT, int, tree, tree )
 fn_2( INT_CST_LT_UNSIGNED, int, tree, tree )
 fn_1( TREE_CST_RTL, rtx, tree )
-fn_1( TREE_REAL_CST, REAL_VALUE_TYPE, tree )
+     /* APPLE FIXME */
+     /* fn_1( TREE_REAL_CST, REAL_VALUE_TYPE, tree ) */
 fn_1( TREE_STRING_LENGTH, int, tree )
 fn_1( TREE_STRING_POINTER, char*, tree )
 fn_1( TREE_REALPART, tree, tree )

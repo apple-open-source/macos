@@ -1,4 +1,11 @@
-/* { dg-do run } */
+/* AIX gld supports garbage collection. But AIX gcc does not support 
+   -ffunction-sections or -fdata-sections.  */
+/* { dg-do run { xfail rs6000-*-aix* powerpc*-*-aix* } } */
+/* { dg-require-gc-sections "" } */
+
+/* { dg-options "-ffunction-sections -fdata-sections -Wl,--gc-sections -static" } */
+/* { dg-options "-ffunction-sections -fdata-sections -Wl,--gc-sections -static" { target native } } */
+/* { dg-options "-ffunction-sections -fdata-sections -Wl,--gc-sections" { target *-*-netware* } } */
 
 #include <stdlib.h>
 

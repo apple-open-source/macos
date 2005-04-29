@@ -18,6 +18,7 @@
 #define _MATH_PRIVATE_H_
 
 #include <sys/types.h>
+#include <stdint.h>
 
 /* The original fdlibm code used statements like:
 	n0 = ((*(int*)&one)>>29)^1;		* index of high word *

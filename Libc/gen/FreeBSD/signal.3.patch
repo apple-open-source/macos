@@ -1,0 +1,13 @@
+--- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/signal.3.orig	2004-07-03 15:30:08.000000000 -0700
++++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/signal.3	2004-10-24 17:08:28.000000000 -0700
+@@ -48,9 +48,7 @@
+ .Ft void \*(lp*
+ .Fn signal "int sig" "void \*(lp*func\*(rp\*(lpint\*(rp\*(rp\*(rp\*(lpint"
+ .Pp
+-or in
+-.Fx Ns 's
+-equivalent but easier to read typedef'd version:
++or in the equivalent but easier to read typedef'd version:
+ .Ft typedef "void \*(lp*sig_t\*(rp \*(lpint\*(rp" ;
+ .Ft sig_t
+ .Fn signal "int sig" "sig_t func"

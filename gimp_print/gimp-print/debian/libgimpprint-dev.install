@@ -1,8 +1,6 @@
-debian/install/usr/bin/gimpprint-config               usr/bin
-debian/install/usr/lib/libgimpprint.so                usr/lib
-debian/install/usr/lib/libgimpprint.la                usr/lib
-debian/install/usr/lib/libgimpprint.a                 usr/lib
-debian/install/usr/include/gimp-print                 usr/include
-debian/install/usr/share/aclocal/gimpprint.m4         usr/share/aclocal
-debian/install/usr/share/man/man3/gimpprint.3         usr/share/man/man3
-debian/install/usr/share/man/man1/gimpprint-config.1  usr/share/man/man1
+debian/install/usr/lib/libgimpprint.so         usr/lib
+debian/install/usr/lib/libgimpprint.la         usr/lib
+debian/install/usr/lib/libgimpprint.a          usr/lib
+debian/install/usr/lib/pkgconfig/gimpprint.pc  usr/lib/pkgconfig
+debian/install/usr/include/gimp-print          usr/include
+debian/install/usr/share/man/man3/gimpprint.3  usr/share/man/man3

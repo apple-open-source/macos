@@ -1,7 +1,7 @@
 /* m68kelf support, derived from m68kv4.h */
 
 /* Target definitions for GNU compiler for mc680x0 running System V.4
-   Copyright (C) 1991, 1993, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1991, 1993, 2000, 2002 Free Software Foundation, Inc.
 
    Written by Ron Guilmette (rfg@netcom.com) and Fred Fish (fnf@cygnus.com).
 
@@ -73,12 +73,17 @@ Boston, MA 02111-1307, USA.  */
 /* config/m68k.md has an explicit reference to the program counter,
    prefix this by the register prefix.  */
 
-#define ASM_RETURN_CASE_JUMP 			\
-  do {						\
-    if (TARGET_5200)				\
-      return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";	\
-    else					\
-      return "jmp %%pc@(2,%0:w)";		\
+#define ASM_RETURN_CASE_JUMP				\
+  do {							\
+    if (TARGET_5200)					\
+      {							\
+	if (ADDRESS_REG_P (operands[0]))		\
+	  return "jmp %%pc@(2,%0:l)";			\
+	else						\
+	  return "ext%.l %0\n\tjmp %%pc@(2,%0:l)";	\
+      }							\
+    else						\
+      return "jmp %%pc@(2,%0:w)";			\
   } while (0)
 
 /* How to refer to registers in assembler output.
@@ -145,9 +150,6 @@ do {								\
 #define STRUCT_VALUE_REGNUM 8
 
 #define ASM_COMMENT_START "|"
-
-#undef TYPE_OPERAND_FMT
-#define TYPE_OPERAND_FMT      "@%s"
 
 /* Define how the m68k registers should be numbered for Dwarf output.
    The numbering provided here should be compatible with the native
@@ -254,20 +256,6 @@ extern int switch_table_difference_label_flag;
    || (GET_CODE (X) == SYMBOL_REF && SYMBOL_REF_FLAG (X))	\
    || PCREL_GENERAL_OPERAND_OK)
 
-/* Turn off function cse if we are doing PIC. We always want function call
-   to be done as `bsr foo@PLTPC', so it will force the assembler to create 
-   the PLT entry for `foo'. Doing function cse will cause the address of `foo'
-   to be loaded into a register, which is exactly what we want to avoid when
-   we are doing PIC on svr4 m68k.  */
-#undef OVERRIDE_OPTIONS
-#define OVERRIDE_OPTIONS		\
-{					\
-  if (flag_pic) flag_no_function_cse = 1; \
-  if (! TARGET_68020 && flag_pic == 2)	\
-    error("-fPIC is not currently supported on the 68000 or 68010\n");	\
-  if (TARGET_PCREL && flag_pic == 0)	\
-    flag_pic = 1;			\
-}
 /* end of stuff from m68kv4.h */
 
 #undef SGS_CMP_ORDER

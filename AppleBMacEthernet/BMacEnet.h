@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -36,16 +33,20 @@
 #ifndef _BMACENET_H
 #define _BMACENET_H
 
+#define __MBUF_TRANSITION_
+
 #include <IOKit/network/IOEthernetController.h>
 #include <IOKit/network/IOEthernetInterface.h>
 #include <IOKit/network/IOGatedOutputQueue.h>
 #include <IOKit/IOInterruptEventSource.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 #include <IOKit/network/IOMbufMemoryCursor.h>
 #include <IOKit/IODeviceMemory.h>
 #include <IOKit/ppc/IODBDMA.h>
 #include <string.h>            /* bcopy */
 #include "BMacEnetRegisters.h"
+
 
 extern "C" {
 #include <sys/param.h>
@@ -116,10 +117,10 @@ private:
 
     OSDictionary *            mediumDict;
 
-    struct mbuf *             txMbuf[TX_RING_LENGTH];
-    struct mbuf *             rxMbuf[RX_RING_LENGTH];
-    struct mbuf *             txDebuggerPkt;
-    
+	mbuf_t					txMbuf[ TX_RING_LENGTH ];
+	mbuf_t					rxMbuf[ RX_RING_LENGTH ];
+	mbuf_t					txDebuggerPkt;
+
     unsigned int              txCommandHead;    // TX ring descriptor index
     unsigned int              txCommandTail;
     unsigned int              txMaxCommand;        
@@ -130,7 +131,7 @@ private:
     UInt8*					dmaCommands;
     UInt32					dmaCommandsPhys;
     UInt32					dmaCommandsSize;
-	IOMemoryDescriptor*		dmaCommandsDesc;
+	IOBufferMemoryDescriptor*	dmaCommandsDesc;
     enet_txdma_cmd_t *        txDMACommands;    // TX descriptor ring ptr
     unsigned int              txDMACommandsPhys;
 
@@ -159,17 +160,16 @@ private:
     void _enableAdapterInterrupts();
     void _setDuplexMode(bool duplexMode);
     void _startChip();
-    bool _updateDescriptorFromMbuf(struct mbuf * m,  enet_dma_cmd_t * desc,
-                                   bool isReceive);
+    bool _updateDescriptorFromMbuf( mbuf_t m, enet_dma_cmd_t *desc, bool isReceive );
     void _restartTransmitter();
     void _stopTransmitDMA();
-    bool _transmitPacket(struct mbuf * packet);
+    bool _transmitPacket( mbuf_t packet );
     bool _transmitInterruptOccurred();
     bool _debugTransmitInterruptOccurred();
     bool _receiveInterruptOccurred();
     bool _rejectBadUnicastPacket(struct ether_header * etherHeader);
     bool _receivePackets(bool fDebugger);
-    void _packetToDebugger(struct mbuf * packet, u_int size);
+    void _packetToDebugger( mbuf_t packet, u_int size );
     void _restartReceiver();
     void _stopReceiveDMA();
     bool _resetAndEnable( bool enable );
@@ -204,13 +204,12 @@ private:
     bool miiCheckZeroBit();
     void miiOutThreeState();
     bool miiResetPHY(unsigned char phy);
-    bool miiWaitForLink(unsigned char phy);
     bool miiWaitForAutoNegotiation(unsigned char phy);
     void miiRestartAutoNegotiation(unsigned char phy);
     bool miiFindPHY(unsigned char * phy_num);
     bool miiInitializePHY(unsigned char phy);
 
-    UInt32 outputPacket(struct mbuf * m, void * param);
+    UInt32 outputPacket( mbuf_t m, void *param );
 
 	static void	interruptOccurred( OSObject *me, IOInterruptEventSource *src, int count );
 	static void	timerPopped( OSObject *me, IOTimerEventSource* timer );

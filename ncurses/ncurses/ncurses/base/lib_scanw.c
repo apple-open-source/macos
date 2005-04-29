@@ -40,7 +40,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: lib_scanw.c,v 1.1.1.1 2001/11/29 20:40:56 jevans Exp $")
+MODULE_ID("$Id: lib_scanw.c,v 1.11 2001/06/30 23:39:41 tom Exp $")
 
 NCURSES_EXPORT(int)
 vwscanw(WINDOW *win, NCURSES_CONST char *fmt, va_list argp)

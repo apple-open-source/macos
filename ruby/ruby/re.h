@@ -2,11 +2,11 @@
 
   re.h -
 
-  $Author: jkh $
-  $Date: 2002/05/27 17:59:44 $
+  $Author: nobu $
+  $Date: 2003/03/04 14:12:19 $
   created at: Thu Sep 30 14:18:32 JST 1993
 
-  Copyright (C) 1993-2000 Yukihiro Matsumoto
+  Copyright (C) 1993-2003 Yukihiro Matsumoto
 
 **********************************************************************/
 
@@ -28,16 +28,14 @@ struct RMatch {
 
 #define RMATCH(obj)  (R_CAST(RMatch)(obj))
 
-int rb_str_cicmp _((VALUE, VALUE));
 VALUE rb_reg_regcomp _((VALUE));
-int rb_reg_search _((VALUE, VALUE, int, int));
+long rb_reg_search _((VALUE, VALUE, long, long));
 VALUE rb_reg_regsub _((VALUE, VALUE, struct re_registers *));
-int rb_reg_adjust_startpos _((VALUE, VALUE, int, int));
-
-int rb_kcode _((void));
+long rb_reg_adjust_startpos _((VALUE, VALUE, long, long));
 void rb_match_busy _((VALUE));
+VALUE rb_reg_quote _((VALUE));
 
-EXTERN int ruby_ignorecase;
+RUBY_EXTERN int ruby_ignorecase;
 
 int rb_reg_mbclen2 _((unsigned int, VALUE));
 #define mbclen2(c,re) rb_reg_mbclen2((c),(re))

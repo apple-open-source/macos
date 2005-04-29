@@ -6,8 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                                                                          *
- *          Copyright (C) 1992-2001 Free Software Foundation, Inc.          *
+ *          Copyright (C) 1992-2003 Free Software Foundation, Inc.          *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -42,40 +41,6 @@
 
 #include "adaint.h"
 
-#ifdef __RT__
-
-/* Linux kernel modules don't have inputs, so don't define get_int.
-   Simple output can be done via printk. */
-
-void
-put_char (c)
-     int c;
-{
-  printk ("%c", c);
-}
-
-void
-put_char_stderr (c)
-     int c;
-{
-  put_char (c);
-}
-
-void
-put_int (x)
-     int x;
-{
-  printk ("%d", x);
-}
-
-void
-put_int_stderr (int x)
-{
-  put_int (x);
-}
-
-#else
-
 /* Don't use macros on GNU/Linux since they cause incompatible changes between
    glibc 2.0 and 2.1 */
 #ifdef linux
@@ -83,10 +48,11 @@ put_int_stderr (int x)
 #undef getchar
 #undef fputc
 #undef stderr
+#undef stdout
 #endif
 
 int
-get_char ()
+get_char (void)
 {
 #ifdef VMS
   return decc$getchar();
@@ -96,7 +62,7 @@ get_char ()
 }
 
 int
-get_int ()
+get_int (void)
 {
   int x;
 
@@ -105,39 +71,35 @@ get_int ()
 }
 
 void
-put_int (x)
-     int x;
+put_int (int x)
 {
-  printf ("%d", x);
+   /* Use fprintf rather than printf, since the latter is unbuffered
+      on vxworks */
+   fprintf (stdout, "%d", x);
 }
 
 void
-put_int_stderr (x)
-   int x;
+put_int_stderr (int x)
 {
   fprintf (stderr, "%d", x);
 }
 
 void
-put_char (c)
-     int c;
+put_char (int c)
 {
   putchar (c);
 }
 
 void
-put_char_stderr (c)
-     int c;
+put_char_stderr (int c)
 {
   fputc (c, stderr);
 }
-#endif
 
 #ifdef __vxworks
 
 char *
-mktemp (template)
-     char *template;
+mktemp (char *template)
 {
   return tmpnam (NULL);
 }

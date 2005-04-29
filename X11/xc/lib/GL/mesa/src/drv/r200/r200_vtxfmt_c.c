@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_vtxfmt_c.c,v 1.2 2002/12/16 16:18:56 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_vtxfmt_c.c,v 1.3 2003/09/28 20:15:26 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,13 +25,16 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
 
+#include "glheader.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "colormac.h"
 #include "simple_list.h"
@@ -46,65 +49,73 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 static void r200_Vertex3f( GLfloat x, GLfloat y, GLfloat z )
 {
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
    int i;
 
-   *vb.dmaptr++ = *(int *)&x;
-   *vb.dmaptr++ = *(int *)&y;
-   *vb.dmaptr++ = *(int *)&z;
+   *rmesa->vb.dmaptr++ = *(int *)&x;
+   *rmesa->vb.dmaptr++ = *(int *)&y;
+   *rmesa->vb.dmaptr++ = *(int *)&z;
 
-   for (i = 3; i < vb.vertex_size; i++)
-      *vb.dmaptr++ = vb.vertex[i].i;
+   for (i = 3; i < rmesa->vb.vertex_size; i++)
+      *rmesa->vb.dmaptr++ = rmesa->vb.vertex[i].i;
    
-   if (--vb.counter == 0)
-      vb.notify();
+   if (--rmesa->vb.counter == 0)
+      rmesa->vb.notify();
 }
 
 
 static void r200_Vertex3fv( const GLfloat *v )
 {
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
    int i;
 
-   *vb.dmaptr++ = *(int *)&v[0];
-   *vb.dmaptr++ = *(int *)&v[1];
-   *vb.dmaptr++ = *(int *)&v[2];
+   *rmesa->vb.dmaptr++ = *(int *)&v[0];
+   *rmesa->vb.dmaptr++ = *(int *)&v[1];
+   *rmesa->vb.dmaptr++ = *(int *)&v[2];
 
-   for (i = 3; i < vb.vertex_size; i++)
-      *vb.dmaptr++ = vb.vertex[i].i;
+   for (i = 3; i < rmesa->vb.vertex_size; i++)
+      *rmesa->vb.dmaptr++ = rmesa->vb.vertex[i].i;
    
-   if (--vb.counter == 0)
-      vb.notify();
+   if (--rmesa->vb.counter == 0)
+      rmesa->vb.notify();
 }
 
 
 static void r200_Vertex2f( GLfloat x, GLfloat y )
 {
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
    int i;
    
-   *vb.dmaptr++ = *(int *)&x;
-   *vb.dmaptr++ = *(int *)&y;
-   *vb.dmaptr++ = 0;
+   *rmesa->vb.dmaptr++ = *(int *)&x;
+   *rmesa->vb.dmaptr++ = *(int *)&y;
+   *rmesa->vb.dmaptr++ = 0;
 
-   for (i = 3; i < vb.vertex_size; i++)
-      *vb.dmaptr++ = vb.vertex[i].i;
+   for (i = 3; i < rmesa->vb.vertex_size; i++)
+      *rmesa->vb.dmaptr++ = rmesa->vb.vertex[i].i;
 
-   if (--vb.counter == 0)
-      vb.notify();
+   if (--rmesa->vb.counter == 0)
+      rmesa->vb.notify();
 }
 
 
 static void r200_Vertex2fv( const GLfloat *v )
 {
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
    int i;
 
-   *vb.dmaptr++ = *(int *)&v[0];
-   *vb.dmaptr++ = *(int *)&v[1];
-   *vb.dmaptr++ = 0;
+   *rmesa->vb.dmaptr++ = *(int *)&v[0];
+   *rmesa->vb.dmaptr++ = *(int *)&v[1];
+   *rmesa->vb.dmaptr++ = 0;
 
-   for (i = 3; i < vb.vertex_size; i++)
-      *vb.dmaptr++ = vb.vertex[i].i;
+   for (i = 3; i < rmesa->vb.vertex_size; i++)
+      *rmesa->vb.dmaptr++ = rmesa->vb.vertex[i].i;
    
-   if (--vb.counter == 0)
-      vb.notify();
+   if (--rmesa->vb.counter == 0)
+      rmesa->vb.notify();
 }
 
 
@@ -113,7 +124,9 @@ static void r200_Vertex2fv( const GLfloat *v )
  */
 static void r200_Color3ub_ub( GLubyte r, GLubyte g, GLubyte b )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    dest->red	= r;
    dest->green	= g;
    dest->blue	= b;
@@ -122,7 +135,9 @@ static void r200_Color3ub_ub( GLubyte r, GLubyte g, GLubyte b )
 
 static void r200_Color3ubv_ub( const GLubyte *v )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    dest->red	= v[0];
    dest->green	= v[1];
    dest->blue	= v[2];
@@ -131,7 +146,9 @@ static void r200_Color3ubv_ub( const GLubyte *v )
 
 static void r200_Color4ub_ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    dest->red	= r;
    dest->green	= g;
    dest->blue	= b;
@@ -140,13 +157,17 @@ static void r200_Color4ub_ub( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 
 static void r200_Color4ubv_ub( const GLubyte *v )
 {
-   *(GLuint *)vb.colorptr = LE32_TO_CPU(*(GLuint *)v);
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   *(GLuint *)rmesa->vb.colorptr = LE32_TO_CPU(*(GLuint *)v);
 }
 
 
 static void r200_Color3f_ub( GLfloat r, GLfloat g, GLfloat b )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,   r );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, g );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  b );
@@ -155,7 +176,9 @@ static void r200_Color3f_ub( GLfloat r, GLfloat g, GLfloat b )
 
 static void r200_Color3fv_ub( const GLfloat *v )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,   v[0] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, v[1] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  v[2] );
@@ -164,7 +187,9 @@ static void r200_Color3fv_ub( const GLfloat *v )
 
 static void r200_Color4f_ub( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,   r );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, g );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  b );
@@ -173,7 +198,9 @@ static void r200_Color4f_ub( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 
 static void r200_Color4fv_ub( const GLfloat *v )
 {
-   r200_color_t *dest = vb.colorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.colorptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,	  v[0] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, v[1] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  v[2] );
@@ -185,7 +212,9 @@ static void r200_Color4fv_ub( const GLfloat *v )
  */
 static void r200_Color3ub_4f( GLubyte r, GLubyte g, GLubyte b )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(r);
    dest[1] = UBYTE_TO_FLOAT(g);
    dest[2] = UBYTE_TO_FLOAT(b);
@@ -194,7 +223,9 @@ static void r200_Color3ub_4f( GLubyte r, GLubyte g, GLubyte b )
 
 static void r200_Color3ubv_4f( const GLubyte *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(v[0]);
    dest[1] = UBYTE_TO_FLOAT(v[1]);
    dest[2] = UBYTE_TO_FLOAT(v[2]);
@@ -203,7 +234,9 @@ static void r200_Color3ubv_4f( const GLubyte *v )
 
 static void r200_Color4ub_4f( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(r);
    dest[1] = UBYTE_TO_FLOAT(g);
    dest[2] = UBYTE_TO_FLOAT(b);
@@ -212,7 +245,9 @@ static void r200_Color4ub_4f( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 
 static void r200_Color4ubv_4f( const GLubyte *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(v[0]);
    dest[1] = UBYTE_TO_FLOAT(v[1]);
    dest[2] = UBYTE_TO_FLOAT(v[2]);
@@ -222,7 +257,9 @@ static void r200_Color4ubv_4f( const GLubyte *v )
 
 static void r200_Color3f_4f( GLfloat r, GLfloat g, GLfloat b )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = r;
    dest[1] = g;
    dest[2] = b;
@@ -231,7 +268,9 @@ static void r200_Color3f_4f( GLfloat r, GLfloat g, GLfloat b )
 
 static void r200_Color3fv_4f( const GLfloat *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
@@ -240,7 +279,9 @@ static void r200_Color3fv_4f( const GLfloat *v )
 
 static void r200_Color4f_4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = r;
    dest[1] = g;
    dest[2] = b;
@@ -249,7 +290,9 @@ static void r200_Color4f_4f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 
 static void r200_Color4fv_4f( const GLfloat *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
@@ -261,7 +304,9 @@ static void r200_Color4fv_4f( const GLfloat *v )
  */
 static void r200_Color3ub_3f( GLubyte r, GLubyte g, GLubyte b )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(r);
    dest[1] = UBYTE_TO_FLOAT(g);
    dest[2] = UBYTE_TO_FLOAT(b);
@@ -269,7 +314,9 @@ static void r200_Color3ub_3f( GLubyte r, GLubyte g, GLubyte b )
 
 static void r200_Color3ubv_3f( const GLubyte *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(v[0]);
    dest[1] = UBYTE_TO_FLOAT(v[1]);
    dest[2] = UBYTE_TO_FLOAT(v[2]);
@@ -277,26 +324,32 @@ static void r200_Color3ubv_3f( const GLubyte *v )
 
 static void r200_Color4ub_3f( GLubyte r, GLubyte g, GLubyte b, GLubyte a )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(r);
    dest[1] = UBYTE_TO_FLOAT(g);
    dest[2] = UBYTE_TO_FLOAT(b);
-   vb.context->Current.Color[3] = UBYTE_TO_FLOAT(a);
+   ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = UBYTE_TO_FLOAT(a);
 }
 
 static void r200_Color4ubv_3f( const GLubyte *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = UBYTE_TO_FLOAT(v[0]);
    dest[1] = UBYTE_TO_FLOAT(v[1]);
    dest[2] = UBYTE_TO_FLOAT(v[2]);
-   vb.context->Current.Color[3] = UBYTE_TO_FLOAT(v[3]);
+   ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = UBYTE_TO_FLOAT(v[3]);
 }
 
 
 static void r200_Color3f_3f( GLfloat r, GLfloat g, GLfloat b )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = r;
    dest[1] = g;
    dest[2] = b;
@@ -304,7 +357,9 @@ static void r200_Color3f_3f( GLfloat r, GLfloat g, GLfloat b )
 
 static void r200_Color3fv_3f( const GLfloat *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
@@ -312,20 +367,24 @@ static void r200_Color3fv_3f( const GLfloat *v )
 
 static void r200_Color4f_3f( GLfloat r, GLfloat g, GLfloat b, GLfloat a )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = r;
    dest[1] = g;
    dest[2] = b;
-   vb.context->Current.Color[3] = a;
+   ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = a;
 }
 
 static void r200_Color4fv_3f( const GLfloat *v )
 {
-   GLfloat *dest = vb.floatcolorptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatcolorptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
-   vb.context->Current.Color[3] = v[3]; 
+   ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = v[3]; 
 }
 
 
@@ -333,7 +392,9 @@ static void r200_Color4fv_3f( const GLfloat *v )
  */
 static void r200_SecondaryColor3ubEXT_ub( GLubyte r, GLubyte g, GLubyte b )
 {
-   r200_color_t *dest = vb.specptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.specptr;
    dest->red	= r;
    dest->green	= g;
    dest->blue	= b;
@@ -342,7 +403,9 @@ static void r200_SecondaryColor3ubEXT_ub( GLubyte r, GLubyte g, GLubyte b )
 
 static void r200_SecondaryColor3ubvEXT_ub( const GLubyte *v )
 {
-   r200_color_t *dest = vb.specptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.specptr;
    dest->red	= v[0];
    dest->green	= v[1];
    dest->blue	= v[2];
@@ -351,7 +414,9 @@ static void r200_SecondaryColor3ubvEXT_ub( const GLubyte *v )
 
 static void r200_SecondaryColor3fEXT_ub( GLfloat r, GLfloat g, GLfloat b )
 {
-   r200_color_t *dest = vb.specptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.specptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,	  r );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, g );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  b );
@@ -360,7 +425,9 @@ static void r200_SecondaryColor3fEXT_ub( GLfloat r, GLfloat g, GLfloat b )
 
 static void r200_SecondaryColor3fvEXT_ub( const GLfloat *v )
 {
-   r200_color_t *dest = vb.specptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   r200_color_t *dest = rmesa->vb.specptr;
    UNCLAMPED_FLOAT_TO_UBYTE( dest->red,	  v[0] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->green, v[1] );
    UNCLAMPED_FLOAT_TO_UBYTE( dest->blue,  v[2] );
@@ -369,7 +436,9 @@ static void r200_SecondaryColor3fvEXT_ub( const GLfloat *v )
 
 static void r200_SecondaryColor3ubEXT_3f( GLubyte r, GLubyte g, GLubyte b )
 {
-   GLfloat *dest = vb.floatspecptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatspecptr;
    dest[0] = UBYTE_TO_FLOAT(r);
    dest[1] = UBYTE_TO_FLOAT(g);
    dest[2] = UBYTE_TO_FLOAT(b);
@@ -378,7 +447,9 @@ static void r200_SecondaryColor3ubEXT_3f( GLubyte r, GLubyte g, GLubyte b )
 
 static void r200_SecondaryColor3ubvEXT_3f( const GLubyte *v )
 {
-   GLfloat *dest = vb.floatspecptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatspecptr;
    dest[0] = UBYTE_TO_FLOAT(v[0]);
    dest[1] = UBYTE_TO_FLOAT(v[1]);
    dest[2] = UBYTE_TO_FLOAT(v[2]);
@@ -387,7 +458,9 @@ static void r200_SecondaryColor3ubvEXT_3f( const GLubyte *v )
 
 static void r200_SecondaryColor3fEXT_3f( GLfloat r, GLfloat g, GLfloat b )
 {
-   GLfloat *dest = vb.floatspecptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatspecptr;
    dest[0] = r;
    dest[1] = g;
    dest[2] = b;
@@ -396,7 +469,9 @@ static void r200_SecondaryColor3fEXT_3f( GLfloat r, GLfloat g, GLfloat b )
 
 static void r200_SecondaryColor3fvEXT_3f( const GLfloat *v )
 {
-   GLfloat *dest = vb.floatspecptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.floatspecptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
@@ -409,7 +484,9 @@ static void r200_SecondaryColor3fvEXT_3f( const GLfloat *v )
  */
 static void r200_Normal3f( GLfloat n0, GLfloat n1, GLfloat n2 )
 {
-   GLfloat *dest = vb.normalptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.normalptr;
    dest[0] = n0;
    dest[1] = n1;
    dest[2] = n2;
@@ -417,7 +494,9 @@ static void r200_Normal3f( GLfloat n0, GLfloat n1, GLfloat n2 )
 
 static void r200_Normal3fv( const GLfloat *v )
 {
-   GLfloat *dest = vb.normalptr;
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.normalptr;
    dest[0] = v[0];
    dest[1] = v[1];
    dest[2] = v[2];
@@ -428,59 +507,83 @@ static void r200_Normal3fv( const GLfloat *v )
  */
 static void r200_TexCoord1f( GLfloat s )
 {
-   GLfloat *dest = vb.texcoordptr[0];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[0];
    dest[0] = s;
    dest[1] = 0;
 }
 
 static void r200_TexCoord1fv( const GLfloat *v )
 {
-   GLfloat *dest = vb.texcoordptr[0];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[0];
    dest[0] = v[0];
    dest[1] = 0;
 }
 
 static void r200_TexCoord2f( GLfloat s, GLfloat t )
 {
-   GLfloat *dest = vb.texcoordptr[0];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[0];
    dest[0] = s;
    dest[1] = t;
 }
 
 static void r200_TexCoord2fv( const GLfloat *v )
 {
-   GLfloat *dest = vb.texcoordptr[0];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[0];
    dest[0] = v[0];
    dest[1] = v[1];
 }
 
 
 /* MultiTexcoord
+ * 
+ * Technically speaking, these functions should subtract GL_TEXTURE0 from
+ * \c target before masking and using it.  The value of GL_TEXTURE0 is 0x84C0,
+ * which has the low-order 5 bits 0.  For all possible valid values of 
+ * \c target.  Subtracting GL_TEXTURE0 has the net effect of masking \c target
+ * with 0x1F.  Masking with 0x1F and then masking with 0x01 is redundant, so
+ * the subtraction has been omitted.
  */
+
 static void r200_MultiTexCoord1fARB( GLenum target, GLfloat s  )
 {
-   GLfloat *dest = vb.texcoordptr[(target - GL_TEXTURE0_ARB)&1];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[target & 1];
    dest[0] = s;
    dest[1] = 0;
 }
 
 static void r200_MultiTexCoord1fvARB( GLenum target, const GLfloat *v )
 {
-   GLfloat *dest = vb.texcoordptr[(target - GL_TEXTURE0_ARB)&1];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[target & 1];
    dest[0] = v[0];
    dest[1] = 0;
 }
 
 static void r200_MultiTexCoord2fARB( GLenum target, GLfloat s, GLfloat t )
 {
-   GLfloat *dest = vb.texcoordptr[(target - GL_TEXTURE0_ARB)&1];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[target & 1];
    dest[0] = s;
    dest[1] = t;
 }
 
 static void r200_MultiTexCoord2fvARB( GLenum target, const GLfloat *v )
 {
-   GLfloat *dest = vb.texcoordptr[(target - GL_TEXTURE0_ARB)&1];
+   GET_CURRENT_CONTEXT(ctx);
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLfloat *dest = rmesa->vb.texcoordptr[target & 1];
    dest[0] = v[0];
    dest[1] = v[1];
 }
@@ -503,29 +606,30 @@ static struct dynfn *lookup( struct dynfn *l, const int *key )
 #define CHOOSE(FN, FNTYPE, MASK0, MASK1, ARGS1, ARGS2 )			\
 static void choose_##FN ARGS1						\
 {									\
-   r200ContextPtr rmesa = R200_CONTEXT(vb.context);			\
+   GET_CURRENT_CONTEXT(ctx);						\
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);				\
    int key[2];								\
    struct dynfn *dfn;							\
 									\
-   key[0] = rmesa->vb.vtxfmt_0 & MASK0;				\
-   key[1] = rmesa->vb.vtxfmt_1 & MASK1;				\
+   key[0] = rmesa->vb.vtxfmt_0 & MASK0;					\
+   key[1] = rmesa->vb.vtxfmt_1 & MASK1;					\
 									\
    dfn = lookup( &rmesa->vb.dfn_cache.FN, key );			\
    if (dfn == 0)							\
-      dfn = rmesa->vb.codegen.FN( vb.context, key );			\
+      dfn = rmesa->vb.codegen.FN( ctx, key );				\
    else if (R200_DEBUG & DEBUG_CODEGEN)					\
       fprintf(stderr, "%s -- cached codegen\n", __FUNCTION__ );		\
 									\
    if (dfn)								\
-      vb.context->Exec->FN = (FNTYPE)(dfn->code);			\
+      ctx->Exec->FN = (FNTYPE)(dfn->code);				\
    else {								\
       if (R200_DEBUG & DEBUG_CODEGEN)					\
 	 fprintf(stderr, "%s -- generic version\n", __FUNCTION__ );	\
-      vb.context->Exec->FN = r200_##FN;					\
+      ctx->Exec->FN = r200_##FN;					\
    }									\
 									\
-   vb.context->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;		\
-   vb.context->Exec->FN ARGS2;						\
+   ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;			\
+   ctx->Exec->FN ARGS2;							\
 }
 
 
@@ -540,22 +644,22 @@ static void choose_##FN ARGS1						\
 #define CHOOSE_COLOR(FN, FNTYPE, NR, MASK0, MASK1, ARGS1, ARGS2 )	\
 static void choose_##FN ARGS1						\
 {									\
-   GLcontext *ctx = vb.context;						\
-   r200ContextPtr rmesa = R200_CONTEXT(vb.context);			\
+   GET_CURRENT_CONTEXT(ctx);						\
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);			\
    int key[2];								\
    struct dynfn *dfn;							\
 									\
-   key[0] = rmesa->vb.vtxfmt_0 & MASK0;				\
-   key[1] = rmesa->vb.vtxfmt_1 & MASK1;				\
+   key[0] = rmesa->vb.vtxfmt_0 & MASK0;					\
+   key[1] = rmesa->vb.vtxfmt_1 & MASK1;					\
 									\
-   if (VTX_COLOR(rmesa->vb.vtxfmt_0,0) == R200_VTX_PK_RGBA) {	\
+   if (VTX_COLOR(rmesa->vb.vtxfmt_0,0) == R200_VTX_PK_RGBA) {		\
       ctx->Exec->FN = r200_##FN##_ub;					\
    }									\
    else if (VTX_COLOR(rmesa->vb.vtxfmt_0,0) == R200_VTX_FP_RGB) {	\
 									\
       if (rmesa->vb.installed_color_3f_sz != NR) {			\
          rmesa->vb.installed_color_3f_sz = NR;				\
-         if (NR == 3) ctx->Current.Color[3] = 1.0;			\
+         if (NR == 3) ctx->Current.Attrib[VERT_ATTRIB_COLOR0][3] = 1.0;	\
          if (ctx->Driver.NeedFlush & FLUSH_UPDATE_CURRENT) {		\
             r200_copy_to_current( ctx );				\
             _mesa_install_exec_vtxfmt( ctx, &rmesa->vb.vtxfmt );	\
@@ -597,7 +701,8 @@ static void choose_##FN ARGS1						\
 #define CHOOSE_SECONDARY_COLOR(FN, FNTYPE, MASK0, MASK1, ARGS1, ARGS2 )	\
 static void choose_##FN ARGS1						\
 {									\
-   r200ContextPtr rmesa = R200_CONTEXT(vb.context);			\
+   GET_CURRENT_CONTEXT(ctx);						\
+   r200ContextPtr rmesa = R200_CONTEXT(ctx);			\
    int key[2];								\
    struct dynfn *dfn;							\
 									\
@@ -606,21 +711,21 @@ static void choose_##FN ARGS1						\
 									\
    dfn = lookup( &rmesa->vb.dfn_cache.FN, key );			\
    if (dfn == 0)							\
-      dfn = rmesa->vb.codegen.FN( vb.context, key );			\
+      dfn = rmesa->vb.codegen.FN( ctx, key );			\
    else  if (R200_DEBUG & DEBUG_CODEGEN)				\
       fprintf(stderr, "%s -- cached version\n", __FUNCTION__ );		\
 									\
    if (dfn)								\
-      vb.context->Exec->FN = (FNTYPE)(dfn->code);			\
+      ctx->Exec->FN = (FNTYPE)(dfn->code);			\
    else {								\
       if (R200_DEBUG & DEBUG_CODEGEN)					\
          fprintf(stderr, "%s -- generic version\n", __FUNCTION__ );	\
-      vb.context->Exec->FN = (VTX_COLOR(rmesa->vb.vtxfmt_0,1) == R200_VTX_PK_RGBA) \
+      ctx->Exec->FN = (VTX_COLOR(rmesa->vb.vtxfmt_0,1) == R200_VTX_PK_RGBA) \
 	  ? r200_##FN##_ub : r200_##FN##_3f;				\
    }									\
 									\
-   vb.context->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;		\
-   vb.context->Exec->FN ARGS2;						\
+   ctx->Driver.NeedFlush |= FLUSH_UPDATE_CURRENT;		\
+   ctx->Exec->FN ARGS2;						\
 }
 
 

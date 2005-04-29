@@ -1,9 +1,9 @@
 /*
- * "$Id: pstops.c,v 1.33.4.1 2004/01/17 00:42:10 gelphman Exp $"
+ * "$Id: pstops.c,v 1.44 2005/01/04 22:10:43 jlovell Exp $"
  *
  *   PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -70,7 +70,7 @@
 #define LAYOUT_NEGATEX	2		/* definitions above... */
 #define LAYOUT_VERTICAL	4
 
-#if defined(__APPLE__)
+/* Apple addition */
 #define setFirstPageOptionsAndEmit(ppd, specialSlotSel, minOutputOrder) \
     setPageOptionsAndEmit((ppd), (minOutputOrder), (specialSlotSel).firstPgInputSlot, \
     (specialSlotSel).firstPgManualFeed, (specialSlotSel).otherPgManualFeed)
@@ -86,13 +86,12 @@ typedef struct SpecialSlotSel{
                 *otherPgInputSlot, 
                 *otherPgManualFeed;
 }SpecialSlotSel;
-#endif	/* __APPLE__ */
+/* Apple addition end */
 
 #define PROT_STANDARD	0		/* Adobe standard protocol */
 #define PROT_BCP	1		/* Adobe BCP protocol */
 #define PROT_TBCP	2		/* Adobe TBCP protocol */
 
-const char *TBCP_END_PROTOCOL_STRING="\033%-12345X";
 
 /*
  * Globals...
@@ -258,7 +257,8 @@ main(int  argc,			/* I - Number of command-line arguments */
   }
 
   if ((val = cupsGetOption("Collate", num_options, options)) != NULL &&
-      !strcasecmp(val, "True"))
+      (!strcasecmp(val, "true") ||!strcasecmp(val, "on") ||
+       !strcasecmp(val, "yes")))
     Collate = 1;
 
   if ((val = cupsGetOption("OutputOrder", num_options, options)) != NULL){
@@ -329,11 +329,18 @@ main(int  argc,			/* I - Number of command-line arguments */
   if ((val = cupsGetOption("gamma", num_options, options)) != NULL)
     g = atoi(val) * 0.001f;
 
-  if ((val = cupsGetOption("brightness", num_options, options)) != NULL)
+  if ((val = cupsGetOption("brightness", num_options, options)) != NULL){
     b = atoi(val) * 0.01f;
-
+    // If brightness value is too low, ignore it and use default brightness.
+    // This prevents using a transfer function that makes even white painted as
+    // a dark color obscuring any actual content.
+    if(b < 0.1)
+	b = 1.0;
+  }
+  
   if ((val = cupsGetOption("mirror", num_options, options)) != NULL &&
-      !strcasecmp(val, "True"))
+      (!strcasecmp(val, "true") ||!strcasecmp(val, "on") ||
+       !strcasecmp(val, "yes")))
     Flip = 1;
 
   if ((val = cupsGetOption("emit-jcl", num_options, options)) != NULL)
@@ -406,33 +413,30 @@ main(int  argc,			/* I - Number of command-line arguments */
     * Force collated copies when printing a duplexed document to
     * a non-PS printer that doesn't do hardware copy generation.
     * Otherwise the copies will end up on the front/back side of
-    * each page.  Also, set the "slowduplex" option to make sure
-    * that we output an even number of pages...
+    * each page.
     */
-
-    Collate    = 1;
-    slowduplex = 1;
+	Collate    = 1;
   }
-  else
-    slowduplex = 0;
+
 
   if(Collate && Copies > 1)
   {
   	slowcollate = 1;	/* do manual collation */
-    ppd_choice_t *choice = ppdFindMarkedChoice(ppd, "Collate");
+	ppd_choice_t *choice = ppdFindMarkedChoice(ppd, "Collate");
   	if(choice != NULL){
-  		/* is the printer doing collation? */
-  		if(strcasecmp(choice->choice, "True") == 0){
-  			/* if collation is on then let's see if there are any conflicts 
-  				which mean we can't do collation. Mark collation true again
-  				to discover the number of conflicts 
-  			*/
-  			int conflicts = ppdMarkOption(ppd, "Collate", "True");
-  			if(conflicts == 0)
-  				slowcollate = 0; /* printer is doing collation so we won't on host */
-  			else	/* mark collation off in PPD if there are conflicts */
-  				ppdMarkOption(ppd, "Collate", "False");
-  		}
+	    /* is the printer doing collation? */
+	    if(strcasecmp(choice->choice, "True") == 0){
+		/* if collation is on then let's see if there are any conflicts 
+			which mean the printer can't do collation. 
+		*/
+		ppd_option_t *theOption = ppdFindOption(ppd, "Collate");
+		if(theOption){
+		    if(theOption->conflicted)
+			ppdMarkOption(ppd, "Collate", "False");
+		    else
+			slowcollate = 0; /* printer is doing collation so we won't on host */
+		}
+	    }
   	}
   }else
   	  slowcollate = 0;
@@ -442,6 +446,17 @@ main(int  argc,			/* I - Number of command-line arguments */
     sloworder = 1;
   else
     sloworder = 0;
+
+/*
+    Only need to slow duplex if duplexing and there is
+    either manual reverse order printing or manual
+    collation together with duplexing.
+*/
+  if( (slowcollate || sloworder) && Duplex)
+    slowduplex = 1;
+  else
+    slowduplex = 0;
+
 
  /*
   * If we need to filter slowly, then create a temporary file for page data...
@@ -509,16 +524,14 @@ main(int  argc,			/* I - Number of command-line arguments */
     return (1);
   }
 
-  fwrite(line, 1, len, stdout);
-
  /*
   * Handle leading PJL fun...
   */
 
-  while (!strncmp(line, "\033%-12345X", 9))
+  while (!strncmp(line, "\033%-12345X", 9) || !strncmp(line, "@PJL ", 5))
   {
    /*
-    * Yup, we have leading PJL fun, so copy it until we hit the line
+    * Yup, we have leading PJL fun, so skip it until we hit the line
     * with "ENTER LANGUAGE"...
     */
 
@@ -529,8 +542,6 @@ main(int  argc,			/* I - Number of command-line arguments */
       len = sizeof(line);
       if (psgets(line, &len, fp) == NULL)
         break;
-
-      fwrite(line, 1, len, stdout);
     }
 
     len = sizeof(line);
@@ -548,6 +559,8 @@ main(int  argc,			/* I - Number of command-line arguments */
  /*
   * Start sending the document with any commands needed...
   */
+
+  fwrite(line, 1, len, stdout);
 
   saweof      = 0;
   sent_espsp  = 0;
@@ -686,6 +699,12 @@ main(int  argc,			/* I - Number of command-line arguments */
 	*/
 
         fputs(line, stdout);
+
+	if (!sent_prolog)
+	{
+	  sent_prolog = 1;
+          do_prolog(ppd);
+	}
 
 	if (!sent_setup)
 	{
@@ -969,7 +988,7 @@ main(int  argc,			/* I - Number of command-line arguments */
         end_nup(NUp - 1);
       }
 
-      if (Duplex && !(page & 1))
+      if (slowduplex && !(page & 1))
       {
        /*
         * Make sure we have an even number of pages...
@@ -1028,7 +1047,7 @@ main(int  argc,			/* I - Number of command-line arguments */
             end_nup(NUp - 1);
 	  }
 
-	  if (Duplex && !(page & 1))
+	  if (slowduplex && !(page & 1))
 	  {
 	   /*
             * Make sure we have an even number of pages...
@@ -1058,7 +1077,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
         do
 	{
-	  if (Duplex && (page_count & 1))
+	  if (slowduplex && (page_count & 1))
             basepage = page_count;
 	  else
 	    basepage = page_count - 1;
@@ -1122,7 +1141,7 @@ main(int  argc,			/* I - Number of command-line arguments */
       if (psgets(line, &len, fp) == NULL)
         break;
 
-      if ( !((strcmp(line, "\004") == 0) && len == 1) &&
+      if (!(!strcmp(line, "\004") && len == 1) &&
           strncmp(line, "%%Pages:", 8) != 0)
         pswrite(line, len, stdout);
 
@@ -1215,12 +1234,13 @@ main(int  argc,			/* I - Number of command-line arguments */
   {
     if (emit_jcl && ppd->jcl_end)
       fputs(ppd->jcl_end, stdout);
-    else {
-	if (ppd->num_filters == 0)
-	    putchar(0x04);
-	    
-	if(Protocol == PROT_TBCP)
-	    fputs(TBCP_END_PROTOCOL_STRING, stdout);
+    else
+    {
+      if (ppd->num_filters == 0)
+        putchar(0x04);
+
+      if (Protocol == PROT_TBCP)
+        fputs("\033%-12345X", stdout);
     }
   }
 
@@ -1285,7 +1305,7 @@ check_range(int page)	/* I - Page number */
       if (*range == '-')
       {
         range ++;
-	if (!isdigit(*range))
+	if (!isdigit(*range & 255))
 	  upper = 65535;
 	else
 	  upper = strtol(range, (char **)&range, 10);
@@ -1374,8 +1394,8 @@ do_setup(ppd_file_t *ppd,		/* I - PPD file */
 	 float      b)			/* I - Brightness value */
 {
 
-  /* define control D to a no-op */
-  puts("userdict(\\004)cvn{}put");
+  /* define control D to a no-op, define two control-Ds to be a no-op */
+  puts("userdict dup(\\004)cvn{}put (\\004\\004)cvn{}put");
 
  /*
   * Send all the printer-specific setup commands...
@@ -1533,7 +1553,7 @@ psbcp(ppd_file_t *ppd)		/* I - PPD file */
   if (ppd->jcl_end)
     fputs(ppd->jcl_end, stdout);
   else if (ppd->num_filters == 0)
-	putchar(0x04);
+    putchar(0x04);
 }
 
 
@@ -2071,6 +2091,13 @@ start_nup(int number,			/* I - Page number */
   }
 }
 
+
+/* Apple addition */
+
+/*
+ * 'setPageOptionsAndEmit()'
+ */
+
 static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *inputSlotToSet, const char *manualFeedToSet, const char *manualFeedToUnset)
 {
     if(ppd && (inputSlotToSet || manualFeedToSet)){
@@ -2089,7 +2116,8 @@ static void setPageOptionsAndEmit(ppd_file_t *ppd, float minOrder, const char *i
         ppdEmitAfterOrder(ppd, stdout, PPD_ORDER_ANY, limitOrder, minOrder);
     }
 }
+/* Apple addition end */
 
 /*
- * End of "$Id: pstops.c,v 1.33.4.1 2004/01/17 00:42:10 gelphman Exp $".
+ * End of "$Id: pstops.c,v 1.44 2005/01/04 22:10:43 jlovell Exp $".
  */

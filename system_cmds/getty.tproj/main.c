@@ -62,7 +62,7 @@ static char copyright[] =
 
 #ifndef lint
 /*static char sccsid[] = "from: @(#)main.c	8.1 (Berkeley) 6/20/93";*/
-static char rcsid[] = "$Id: main.c,v 1.2 2003/05/30 18:10:02 rbraun Exp $";
+static char rcsid[] = "$Id: main.c,v 1.3 2004/08/26 00:32:22 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
@@ -100,7 +100,7 @@ int crmod, digit, lower, upper;
 
 char	hostname[MAXHOSTNAMELEN];
 struct	utsname kerninfo;
-char	name[16];
+char	name[MAXLOGNAME+1];
 char	dev[] = _PATH_DEV;
 char	ttyn[32];
 char	*portselector();
@@ -394,7 +394,7 @@ getname()
 			return (0);
 		if (c == EOT)
 			exit(1);
-		if (c == '\r' || c == '\n' || np >= &name[sizeof name]) {
+		if (c == '\r' || c == '\n' || np >= &name[sizeof name-1]) {
 			putf("\r\n");
 			break;
 		}

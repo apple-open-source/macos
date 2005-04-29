@@ -8,329 +8,171 @@
 #include "rsync.h"
 #include <time.h>
 
-extern char *batch_prefix;
-extern int csum_length;
-extern int protocol_version;
-extern struct stats stats;
+extern char *batch_name;
+extern int eol_nulls;
+extern int recurse;
+extern int preserve_links;
+extern int preserve_hard_links;
+extern int preserve_devices;
+extern int preserve_uid;
+extern int preserve_gid;
+extern int always_checksum;
 
-struct file_list *batch_flist;
+extern struct exclude_list_struct exclude_list;
 
-static char rsync_flist_file[] = ".rsync_flist";
-static char rsync_csums_file[] = ".rsync_csums";
-static char rsync_delta_file[] = ".rsync_delta";
-static char rsync_argvs_file[] = ".rsync_argvs";
+static int *flag_ptr[] = {
+	&recurse,
+	&preserve_uid,
+	&preserve_gid,
+	&preserve_links,
+	&preserve_devices,
+	&preserve_hard_links,
+	&always_checksum,
+	NULL
+};
 
-static int f_csums = -1;
-static int f_delta = -1;
+static char *flag_name[] = {
+	"--recurse (-r)",
+	"--owner (-o)",
+	"--group (-g)",
+	"--links (-l)",
+	"--devices (-D)",
+	"--hard-links (-H)",
+	"--checksum (-c)",
+	NULL
+};
 
-void write_batch_flist_info(int flist_count, struct file_struct **files)
+void write_stream_flags(int fd)
 {
-	char filename[MAXPATHLEN];
-	int i, f, save_pv;
-	int64 save_written;
+	int i, flags;
 
-	stringjoin(filename, sizeof filename,
-	    batch_prefix, rsync_flist_file, NULL);
-
-	f = do_open(filename, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-	if (f < 0) {
-		rprintf(FERROR, "Batch file %s open error: %s\n",
-		    filename, strerror(errno));
-		exit_cleanup(1);
+	/* Start the batch file with a bitmap of data-stream-affecting
+	 * flags. */
+	for (i = 0, flags = 0; flag_ptr[i]; i++) {
+		if (*flag_ptr[i])
+			flags |= 1 << i;
 	}
-
-	save_written = stats.total_written;
-	save_pv = protocol_version;
-	protocol_version = PROTOCOL_VERSION;
-	write_int(f, protocol_version);
-	write_int(f, flist_count);
-
-	for (i = 0; i < flist_count; i++) {
-		send_file_entry(files[i], f,
-		    files[i]->flags & FLAG_TOP_DIR ?  XMIT_TOP_DIR : 0);
-	}
-	send_file_entry(NULL, f, 0);
-
-	protocol_version = save_pv;
-	stats.total_written = save_written;
-
-	close(f);
+	write_int(fd, flags);
 }
 
-
-void write_batch_argvs_file(int argc, char *argv[])
+void read_stream_flags(int fd)
 {
-	int f;
-	int i;
-	char buff[256]; /* XXX */
-	char buff2[MAXPATHLEN + 6];
-	char filename[MAXPATHLEN];
+	int i, flags;
+
+	for (i = 0, flags = read_int(fd); flag_ptr[i]; i++) {
+		int set = flags & (1 << i) ? 1 : 0;
+		if (*flag_ptr[i] != set) {
+			if (verbose) {
+				rprintf(FINFO,
+					"%sing the %s option to match the batchfile.\n",
+					set ? "Sett" : "Clear", flag_name[i]);
+			}
+			*flag_ptr[i] = set;
+		}
+	}
+}
+
+static void write_arg(int fd, char *arg)
+{
+	char *x, *s;
+
+	if (*arg == '-' && (x = strchr(arg, '=')) != NULL) {
+		write(fd, arg, x - arg + 1);
+		arg += x - arg + 1;
+	}
+
+	if (strpbrk(arg, " \"'&;|[]()$#!*?^\\") != NULL) {
+		write(fd, "'", 1);
+		for (s = arg; (x = strchr(s, '\'')) != NULL; s = x + 1) {
+			write(fd, s, x - s + 1);
+			write(fd, "'", 1);
+		}
+		write(fd, s, strlen(s));
+		write(fd, "'", 1);
+		return;
+	}
+
+	write(fd, arg, strlen(arg));
+}
+
+static void write_excludes(int fd)
+{
+	struct exclude_struct *ent;
+
+	write_sbuf(fd, " <<'#E#'\n");
+	for (ent = exclude_list.head; ent; ent = ent->next) {
+		char *p = ent->pattern;
+		if (ent->match_flags & MATCHFLG_INCLUDE)
+			write_buf(fd, "+ ", 2);
+		else if (((*p == '-' || *p == '+') && p[1] == ' ')
+		    || *p == '#' || *p == ';')
+			write_buf(fd, "- ", 2);
+		write_sbuf(fd, p);
+		if (ent->match_flags & MATCHFLG_DIRECTORY)
+			write_byte(fd, '/');
+		write_byte(fd, eol_nulls ? 0 : '\n');
+	}
+	if (eol_nulls)
+		write_sbuf(fd, ";\n");
+	write_sbuf(fd, "#E#");
+}
+
+/* This routine tries to write out an equivalent --read-batch command
+ * given the user's --write-batch args.  However, it doesn't really
+ * understand most of the options, so it uses some overly simple
+ * heuristics to munge the command line into something that will
+ * (hopefully) work. */
+void write_batch_shell_file(int argc, char *argv[], int file_arg_cnt)
+{
+	int fd, i;
+	char *p, filename[MAXPATHLEN];
 
 	stringjoin(filename, sizeof filename,
-	    batch_prefix, rsync_argvs_file, NULL);
-
-	f = do_open(filename, O_WRONLY | O_CREAT | O_TRUNC,
-	    S_IRUSR | S_IWUSR | S_IEXEC);
-	if (f < 0) {
-		rprintf(FERROR, "Batch file %s open error: %s\n",
-		    filename, strerror(errno));
+		   batch_name, ".sh", NULL);
+	fd = do_open(filename, O_WRONLY | O_CREAT | O_TRUNC,
+		     S_IRUSR | S_IWUSR | S_IEXEC);
+	if (fd < 0) {
+		rsyserr(FERROR, errno, "Batch file %s open error", filename);
 		exit_cleanup(1);
 	}
-	buff[0] = '\0';
 
-	/* Write argvs info to batch file */
-
-	for (i = 0; i < argc; ++i) {
-		if (i == argc - 2) /* Skip source directory on cmdline */
+	/* Write argvs info to BATCH.sh file */
+	write_arg(fd, argv[0]);
+	if (exclude_list.head)
+		write_sbuf(fd, " --exclude-from=-");
+	for (i = 1; i < argc - file_arg_cnt; i++) {
+		p = argv[i];
+		if (strncmp(p, "--files-from", 12) == 0
+		    || strncmp(p, "--include", 9) == 0
+		    || strncmp(p, "--exclude", 9) == 0) {
+			if (strchr(p, '=') == NULL)
+				i++;
 			continue;
-		/*
-		 * FIXME:
-		 * I think directly manipulating argv[] is probably bogus
-		 */
-		if (!strncmp(argv[i], "--write-batch",
-		    strlen("--write-batch"))) {
-			/* Safer to change it here than script */
-			/*
-			 * Change to --read-batch=prefix
-			 * to get ready for remote
-			 */
-			strlcat(buff, "--read-batch=", sizeof buff);
-			strlcat(buff, batch_prefix, sizeof buff);
+		}
+		write(fd, " ", 1);
+		if (strncmp(p, "--write-batch", 13) == 0) {
+			write(fd, "--read-batch", 12);
+			if (p[13] == '=') {
+				write(fd, "=", 1);
+				write_arg(fd, p + 14);
+			}
 		} else
-		if (i == argc - 1) {
-			snprintf(buff2, sizeof buff2, "${1:-%s}", argv[i]);
-			strlcat(buff, buff2, sizeof buff);
-		}
-		else {
-			strlcat(buff, argv[i], sizeof buff);
-		}
-
-		if (i < (argc - 1)) {
-			strlcat(buff, " ", sizeof buff);
-		}
+			write_arg(fd, p);
 	}
-	strlcat(buff, "\n", sizeof buff);
-	if (!write(f, buff, strlen(buff))) {
-		rprintf(FERROR, "Batch file %s write error: %s\n",
-		    filename, strerror(errno));
-		close(f);
+	if ((p = find_colon(argv[argc - 1])) != NULL) {
+		if (*++p == ':')
+			p++;
+	} else
+		p = argv[argc - 1];
+	write(fd, " ${1:-", 6);
+	write_arg(fd, p);
+	write_byte(fd, '}');
+	if (exclude_list.head)
+		write_excludes(fd);
+	if (write(fd, "\n", 1) != 1 || close(fd) < 0) {
+		rsyserr(FERROR, errno, "Batch file %s write error", filename);
 		exit_cleanup(1);
 	}
-	close(f);
-}
-
-struct file_list *create_flist_from_batch(void)
-{
-	char filename[MAXPATHLEN];
-	unsigned short flags;
-	int i, f, save_pv;
-	int64 save_read;
-
-	stringjoin(filename, sizeof filename,
-	    batch_prefix, rsync_flist_file, NULL);
-
-	f = do_open(filename, O_RDONLY, 0);
-	if (f < 0) {
-		rprintf(FERROR, "Batch file %s open error: %s\n",
-		    filename, strerror(errno));
-		exit_cleanup(1);
-	}
-
-	batch_flist = flist_new(WITH_HLINK, "create_flist_from_batch");
-
-	save_read = stats.total_read;
-	save_pv = protocol_version;
-	protocol_version = read_int(f);
-
-	batch_flist->count = read_int(f);
-	flist_expand(batch_flist);
-
-	for (i = 0; (flags = read_byte(f)) != 0; i++) {
-		if (protocol_version >= 28 && (flags & XMIT_EXTENDED_FLAGS))
-			flags |= read_byte(f) << 8;
-		receive_file_entry(&batch_flist->files[i], flags, batch_flist, f);
-	}
-	receive_file_entry(NULL, 0, NULL, 0); /* Signal that we're done. */
-
-	protocol_version = save_pv;
-	stats.total_read = save_read;
-
-	return batch_flist;
-}
-
-void write_batch_csums_file(void *buff, int bytes_to_write)
-{
-	if (write(f_csums, buff, bytes_to_write) < 0) {
-		rprintf(FERROR, "Batch file write error: %s\n",
-		    strerror(errno));
-		close(f_csums);
-		exit_cleanup(1);
-	}
-}
-
-void close_batch_csums_file(void)
-{
-	close(f_csums);
-	f_csums = -1;
-}
-
-
-/**
- * Write csum info to batch file
- *
- * @todo This will break if s->count is ever larger than maxint.  The
- * batch code should probably be changed to consistently use the
- * variable-length integer routines, which is probably a compatible
- * change.
- **/
-void write_batch_csum_info(int *flist_entry, struct sum_struct *s)
-{
-	size_t i;
-	int int_count;
-	char filename[MAXPATHLEN];
-
-	if (f_csums < 0) {
-		stringjoin(filename, sizeof filename,
-		    batch_prefix, rsync_csums_file, NULL);
-
-		f_csums = do_open(filename, O_WRONLY | O_CREAT | O_TRUNC,
-		    S_IRUSR | S_IWUSR);
-		if (f_csums < 0) {
-			rprintf(FERROR, "Batch file %s open error: %s\n",
-			    filename, strerror(errno));
-			close(f_csums);
-			exit_cleanup(1);
-		}
-	}
-
-	write_batch_csums_file(flist_entry, sizeof (int));
-	int_count = s ? (int) s->count : 0;
-	write_batch_csums_file(&int_count, sizeof int_count);
-
-	if (s) {
-		for (i = 0; i < s->count; i++) {
-			write_batch_csums_file(&s->sums[i].sum1,
-			    sizeof (uint32));
-			write_batch_csums_file(s->sums[i].sum2, csum_length);
-		}
-	}
-}
-
-int read_batch_csums_file(char *buff, int len)
-{
-	int bytes_read;
-
-	if ((bytes_read = read(f_csums, buff, len)) < 0) {
-		rprintf(FERROR, "Batch file read error: %s\n", strerror(errno));
-		close(f_csums);
-		exit_cleanup(1);
-	}
-	return bytes_read;
-}
-
-void read_batch_csum_info(int flist_entry, struct sum_struct *s,
-			  int *checksums_match)
-{
-	int i;
-	int file_flist_entry;
-	int file_chunk_ct;
-	uint32 file_sum1;
-	char file_sum2[SUM_LENGTH];
-	char filename[MAXPATHLEN];
-
-	if (f_csums < 0) {
-		stringjoin(filename, sizeof filename,
-		    batch_prefix, rsync_csums_file, NULL);
-
-		f_csums = do_open(filename, O_RDONLY, 0);
-		if (f_csums < 0) {
-			rprintf(FERROR, "Batch file %s open error: %s\n",
-			    filename, strerror(errno));
-			close(f_csums);
-			exit_cleanup(1);
-		}
-	}
-
-	read_batch_csums_file((char *) &file_flist_entry, sizeof (int));
-	if (file_flist_entry != flist_entry) {
-		rprintf(FINFO, "file_flist_entry (%d) != flist_entry (%d)\n",
-		    file_flist_entry, flist_entry);
-		close(f_csums);
-		exit_cleanup(1);
-
-	} else {
-		read_batch_csums_file((char *) &file_chunk_ct, sizeof (int));
-		*checksums_match = 1;
-		for (i = 0; i < file_chunk_ct; i++) {
-			read_batch_csums_file((char *) &file_sum1,
-			    sizeof (uint32));
-			read_batch_csums_file(file_sum2, csum_length);
-
-			if ((s->sums[i].sum1 != file_sum1)
-			    || memcmp(s->sums[i].sum2, file_sum2, csum_length))
-				*checksums_match = 0;
-		}		/*  end for  */
-	}
-}
-
-void write_batch_delta_file(char *buff, int bytes_to_write)
-{
-	char filename[MAXPATHLEN];
-
-	if (f_delta < 0) {
-		stringjoin(filename, sizeof filename,
-		    batch_prefix, rsync_delta_file, NULL);
-
-		f_delta = do_open(filename, O_WRONLY | O_CREAT | O_TRUNC,
-				  S_IRUSR | S_IWUSR);
-		if (f_delta < 0) {
-			rprintf(FERROR, "Batch file %s open error: %s\n",
-				filename, strerror(errno));
-			exit_cleanup(1);
-		}
-	}
-
-	if (write(f_delta, buff, bytes_to_write) < 0) {
-		rprintf(FERROR, "Batch file %s write error: %s\n",
-		    filename, strerror(errno));
-		close(f_delta);
-		exit_cleanup(1);
-	}
-}
-
-void close_batch_delta_file(void)
-{
-	close(f_delta);
-	f_delta = -1;
-}
-
-int read_batch_delta_file(char *buff, int len)
-{
-	int bytes_read;
-	char filename[MAXPATHLEN];
-
-	if (f_delta < 0) {
-		stringjoin(filename, sizeof filename,
-		    batch_prefix, rsync_delta_file, NULL);
-
-		f_delta = do_open(filename, O_RDONLY, 0);
-		if (f_delta < 0) {
-			rprintf(FERROR, "Batch file %s open error: %s\n",
-			    filename, strerror(errno));
-			close(f_delta);
-			exit_cleanup(1);
-		}
-	}
-
-	bytes_read = read(f_delta, buff, len);
-	if (bytes_read < 0) {
-		rprintf(FERROR, "Batch file %s read error: %s\n",
-		    filename, strerror(errno));
-		close(f_delta);
-		exit_cleanup(1);
-	}
-
-	return bytes_read;
 }
 
 void show_flist(int index, struct file_struct **fptr)

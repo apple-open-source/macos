@@ -450,8 +450,6 @@ checkfilesys(filesys, mntpt, auxdata, child)
 		 */
 		if (flags & MNT_RDONLY) {
 			args.fspec = 0;
-			args.export.ex_flags = 0;
-			args.export.ex_root = 0;
 			flags |= MNT_UPDATE | MNT_RELOAD;
 			ret = mount("ufs", "/", flags, &args);
 			if (ret == 0)

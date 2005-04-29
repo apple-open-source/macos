@@ -1,5 +1,5 @@
 XCOMM $XConsortium: Imakefile,v 1.22 91/09/09 16:02:18 rws Exp $
-XCOMM $XFree86: xc/programs/xman/Imakefile,v 1.8 2002/09/21 02:38:25 dawes Exp $
+XCOMM $XFree86: xc/programs/xman/Imakefile,v 1.10 2003/08/02 17:35:48 herrb Exp $
 
 #ifdef XmanSearchPath
 XMANSYSPATH = XmanSearchPath
@@ -44,7 +44,7 @@ GROFF = -DHAS_GROFF
 #if HasSnprintf
 SNPDEFINES = -DHAS_SNPRINTF
 #else
-SNPINCLUDES = $(LIBSRC)/misc
+SNPDEFINES = -Dsnprintf=XmuSnprintf
 #endif
 
  OSMAJORVERSION = OSMajorVersion
@@ -53,7 +53,6 @@ SNPINCLUDES = $(LIBSRC)/misc
 		  -DOSMINORVERSION=$(OSMINORVERSION) \
 		  $(SNPDEFINES) $(HELPFILE) $(MANPATHS) $(MKSTEMP) $(GROFF) \
 		  $(MANCONFIGSTYLE) $(MANCONF)
-       INCLUDES = -I$(SNPINCLUDES)
         DEPLIBS = XawClientDepLibs
 LOCAL_LIBRARIES = XawClientLibs
            SRCS = ScrollByL.c handler.c man.c buttons.c help.c \

@@ -42,13 +42,20 @@
 *      September19 1994: revamp of the algorithm for performance.	       *
 *                                                                              *
 *******************************************************************************/
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
 
 #include      "math.h"
 #include      "fenv.h"
 #include      "fp_private.h"
 #include      "fenv_private.h"
+#include <System/ppc/cpu_capabilities.h>
+
+inline static uint32_t __attribute__((always_inline))
+_get_cpu_capabilities(void) 
+{
+        uint32_t caps;
+        asm("lwz %0, %1(0)" : "=r" (caps) : "I" (_COMM_PAGE_CPU_CAPABILITIES));
+        return caps;
+}
 
 /*******************************************************************************
 *            Functions needed for the computation.                             *
@@ -63,56 +70,6 @@
 #pragma fenv_access on
 
 static const hexdouble Huge = HEXDOUBLE(0x7FF00000, 0x00000000);
-
-#ifdef notdef
-      {
-        register double temp;
-	hexdouble OldEnvironment, CurrentEnvironment;
-      
-/*******************************************************************************
-*     If argument is SNaN then a QNaN has to be returned and the invalid       *
-*     flag signaled.                                                           * 
-*******************************************************************************/
-	
-	if ( ( x == Huge.d ) || ( y == Huge.d ) || ( x == - Huge.d ) || ( y == - Huge.d ) )
-            {
-            return Huge.d;
-            }
-                
-        if ( ( x != x ) || ( y != y ) )
-            {
-            x = __FABS ( x + y );
-            return x;
-            }
-            
-        FEGETENVD( OldEnvironment.d );              // save environment, set default
-        FESETENVD( 0.0 );
-
-        if ( ( x = __FABS ( x ) ) > ( y = __FABS ( y ) ) )  /* make sure |x| <= |y| */
-            {
-            temp = x;
-            x = y;
-            y = temp;
-            }
-            
-        if ( ( y != 0.0 ) && ( y != INFINITY ) )
-            {
-            temp = x / y;
-            temp = sqrt ( 1.0 + temp * temp );
-            FEGETENVD( CurrentEnvironment.d );
-            CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;
-            FESETENVD( CurrentEnvironment.d );
-            y = y * temp;
-            }
-            
-        FEGETENVD( CurrentEnvironment.d );
-        OldEnvironment.i.lo |= CurrentEnvironment.i.lo;
-        FESETENVD( OldEnvironment.d );         //   restore caller's environment
-
-        return y;
-      }
-#else
-
 static const hexdouble NegHuge = HEXDOUBLE(0xFFF00000, 0x00000000);
 
 double hypot ( double x, double y )
@@ -132,10 +89,10 @@ double hypot ( double x, double y )
 *     flag signaled.                                                           * 
 *******************************************************************************/
 	
-	if ( ( x == FPR_inf ) || ( y == FPR_inf ) || ( x == FPR_Minf ) || ( y == FPR_Minf ) )
+	if (unlikely( ( x == FPR_inf ) || ( y == FPR_inf ) || ( x == FPR_Minf ) || ( y == FPR_Minf ) ))
             return FPR_inf;
                 
-        if ( ( x != x ) || ( y != y ) )
+        if (unlikely( ( x != x ) || ( y != y ) ))
         {
             x = __FABS ( x + y );
             return x;
@@ -154,31 +111,30 @@ double hypot ( double x, double y )
         
         // Now +0.0 <= FPR_small <= FPR_big < INFINITY
         
-        if ( FPR_small == FPR_z )
+        if (unlikely( FPR_small == FPR_z ))
             return FPR_big;
             
         FEGETENVD( FPR_env );				// save environment, set default
         FESETENVD( FPR_z );
 
-        temp = FPR_small / FPR_big;			OldEnvironment.d = FPR_env;
-        temp = sqrt ( FPR_one + temp * temp );	   
+        temp = FPR_small / FPR_big;			
+	OldEnvironment.d = FPR_env;
+	
+	temp = FPR_one + temp * temp;	   
+	if (likely((_get_cpu_capabilities() & kHasFsqrt)))
+	    temp = __fsqrt ( temp );
+	else
+	    temp = sqrt ( temp );	   
         
-        FEGETENVD( CurrentEnvironment.d );
+        FEGETENVD_GRP( CurrentEnvironment.d );
         CurrentEnvironment.i.lo &= ~FE_UNDERFLOW;	// Clear any inconsequential underflow
-        FESETENVD( CurrentEnvironment.d );
+        FESETENVD_GRP( CurrentEnvironment.d );
         
         temp = FPR_big * temp;				// Might raise UNDERFLOW or OVERFLOW
             
-        FEGETENVD( CurrentEnvironment.d );
+        FEGETENVD_GRP( CurrentEnvironment.d );
         OldEnvironment.i.lo |= CurrentEnvironment.i.lo; // Pick up any UF or OF
-        FESETENVD( OldEnvironment.d );        		// restore caller's environment
+        FESETENVD_GRP( OldEnvironment.d );        		// restore caller's environment
 
         return temp;
 }
-#endif
-
-
-#else       /* __APPLE_CC__ version */
-#error Version gcc-932 or higher required.  Compilation terminated.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

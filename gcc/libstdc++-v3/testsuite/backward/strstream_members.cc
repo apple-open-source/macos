@@ -1,3 +1,4 @@
+// { dg-options "-Wno-deprecated" }
 // Copyright (C) 2002 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -21,19 +22,16 @@
 #include <strstream>
 #include <testsuite_hooks.h>
 
-// { dg-options "-Wno-deprecated" }
-
-int test01()
+void test01()
 {
    std::strstream s;
    for (unsigned i=0 ; i!= 1000 ; ++i)
       s << i << std::endl;
    s << std::ends;
-   return 0;
 }
 
 
-int test02()
+void test02()
 {
   std::ostrstream buf;
   buf << std::ends;

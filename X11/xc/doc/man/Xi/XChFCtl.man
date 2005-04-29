@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChFCtl.man,v 1.2 2001/01/27 18:20:20 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChFCtl.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -17,25 +17,12 @@
 .SH NAME
 XGetFeedbackControl, XChangeFeedbackControl \- query and change input device feedbacks
 .SH SYNTAX
-XFeedbackState *
-XGetFeedbackControl\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fInum_feedbacks\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      int *\fInum_feedbacks\fP\^; 
-.br
-.sp 
-int XChangeFeedbackControl\^(\^\fIdisplay\fP, \fIdevice\fP\^, \fImask\fP\^, \fIcontrol\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XDevice *\fIdevice\fP\^; 
-.br
-      Mask \fImask\fP\^; 
-.br
-      XFeedbackControl *\fIcontrol\fP\^; 
+.HP
+XFeedbackState *XGetFeedbackControl\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, int *\fInum_feedbacks\fP\^); 
+.HP
+int XChangeFeedbackControl\^(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, Mask \fImask\fP\^, XFeedbackControl *\fIcontrol\fP\^); 
 .SH ARGUMENTS
 .TP 15
 .I display

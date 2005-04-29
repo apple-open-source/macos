@@ -185,6 +185,8 @@ main(argc, argv)
 			gBlockSize = atoi(optarg);
 			if (gBlockSize < HFSMINBSIZE)
 				fatal("%s: bad allocation block size (too small)", optarg);
+			if (gBlockSize > MAXBSIZE) 
+				fatal("%s: bad allocation block size (too large)", optarg);
 			break;
 
 		case 'c':
@@ -565,7 +567,7 @@ hfs_newfs(char *device, int forceHFS, int isRaw)
 		 * this large should be 4K aligned for performance.
 		 */
 		if ((dip.totalSectors >= 0x40000000) && (dip.totalSectors & 7))
-			fatal("%s: partition size must be a multiple of 4K", device);
+		    fatal("%s: partition size not a multiple of 4K.", device);
 
 		hfsplus_params(dip.totalSectors, dip.sectorSize, &defaults);
 		if (gNoCreate == 0) {

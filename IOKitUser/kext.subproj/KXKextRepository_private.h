@@ -9,11 +9,11 @@ extern "C" {
 #include "KXKextManager_private.h"
 #include "KXKext_private.h"
 
-#define _CACHE_VERSION_KEY  CFSTR("KextCacheVersion")
-#define _CACHE_PATH_KEY     CFSTR("RepositoryPath")
-#define _CACHE_SCANS_KEY    CFSTR("ScansForKexts")
-#define _CACHE_KEXTS_KEY    CFSTR("Kexts")
-
+#define _CACHE_VERSION_KEY  		CFSTR("KextCacheVersion")
+#define _CACHE_PATH_KEY     		CFSTR("RepositoryPath")
+#define _CACHE_SCANS_KEY    		CFSTR("ScansForKexts")
+#define _CACHE_KEXTS_KEY    		CFSTR("Kexts")
+#define _CACHE_PERSONALITIES_KEY        CFSTR("Personalities")
 
 /*******************************************************************************
 * This file is for declaring private  API used by code other than

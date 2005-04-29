@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2001-2002
+ * Copyright (c) 2001-2003
  *      Sleepycat Software.  All rights reserved.
  *
- * $Id: RpcDbEnv.java,v 1.1.1.1 2003/02/15 04:56:13 zarzycki Exp $
+ * $Id: RpcDbEnv.java,v 1.2 2004/03/30 01:24:00 jtownsen Exp $
  */
 
 package com.sleepycat.db.rpcserver;
@@ -46,14 +46,16 @@ public class RpcDbEnv extends Timer
 		}
 
 		try {
+			server.delEnv(this, false);
 			dbenv.close(args.flags);
-			dbenv = null;
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
+		} catch (IllegalArgumentException e) {
+			reply.status = DbServer.EINVAL;
 		} finally {
-			server.delEnv(this);
+			dbenv = null;
 		}
 	}
 
@@ -68,7 +70,7 @@ public class RpcDbEnv extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -81,11 +83,13 @@ public class RpcDbEnv extends Timer
 
 			RpcDbTxn rtxn = server.getTxn(args.txnpcl_id);
 			DbTxn txn = (rtxn != null) ? rtxn.txn : null;
-			dbenv.dbremove(txn, args.name, args.subdb, args.flags);
+			dbenv.dbRemove(txn, args.name, args.subdb, args.flags);
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
+		} catch(FileNotFoundException fnfe) {
+			reply.status = Db.DB_NOTFOUND;
 		}
 	}
 
@@ -99,11 +103,13 @@ public class RpcDbEnv extends Timer
 
 			RpcDbTxn rtxn = server.getTxn(args.txnpcl_id);
 			DbTxn txn = (rtxn != null) ? rtxn.txn : null;
-			dbenv.dbrename(txn, args.name, args.subdb, args.newname, args.flags);
+			dbenv.dbRename(txn, args.name, args.subdb, args.newname, args.flags);
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
+		} catch(FileNotFoundException fnfe) {
+			reply.status = Db.DB_NOTFOUND;
 		}
 	}
 
@@ -145,6 +151,30 @@ public class RpcDbEnv extends Timer
 		return matchFound;
 	}
 
+	public  void get_home(DbDispatcher server,
+		__env_get_home_msg args, __env_get_home_reply reply)
+	{
+		try {
+			reply.home = dbenv.getDbEnvHome();
+			reply.status = 0;
+		} catch(DbException e) {
+			e.printStackTrace(DbServer.err);
+			reply.status = e.getErrno();
+		}
+	}
+
+	public  void get_open_flags(DbDispatcher server,
+		__env_get_open_flags_msg args, __env_get_open_flags_reply reply)
+	{
+		try {
+			reply.flags = dbenv.getOpenFlags();
+			reply.status = 0;
+		} catch(DbException e) {
+			e.printStackTrace(DbServer.err);
+			reply.status = e.getErrno();
+		}
+	}
+
 	public  void open(DbDispatcher server,
 		__env_open_msg args, __env_open_reply reply)
 	{
@@ -152,11 +182,11 @@ public class RpcDbEnv extends Timer
 			home = (args.home.length() > 0) ? args.home : null;
 
 			/*
-			 * If they are using locking do deadlock detection for them,
-			 * internally.
+			 * If they are using locking do deadlock detection for
+			 * them, internally.
 			 */
 			if ((args.flags & Db.DB_INIT_LOCK) != 0)
-				dbenv.set_lk_detect(Db.DB_LOCK_DEFAULT);
+				dbenv.setLockDetect(Db.DB_LOCK_DEFAULT);
 
 			// adjust flags for RPC
 			int newflags = (args.flags & ~DbServer.DB_SERVER_FLAGMASK);
@@ -165,16 +195,15 @@ public class RpcDbEnv extends Timer
 			if (findSharedDbEnv(server, reply)) {
 				dbenv.close(0);
 				dbenv = null;
-				server.delEnv(this);
-			} else {
-				// TODO: check home?
+			} else if (DbServer.check_home(home)) {
 				dbenv.open(home, newflags, args.mode);
 				reply.status = 0;
 				reply.envcl_id = args.dbenvcl_id;
-			}
+			} else
+				reply.status = Db.DB_NOSERVER_HOME;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		} catch(FileNotFoundException e) {
 			reply.status = Db.DB_NOTFOUND;
 		}
@@ -194,11 +223,26 @@ public class RpcDbEnv extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		} catch(FileNotFoundException e) {
 			reply.status = Db.DB_NOTFOUND;
 		} finally {
-			server.delEnv(this);
+			server.delEnv(this, false);
+		}
+	}
+
+	public  void get_cachesize(DbDispatcher server,
+		__env_get_cachesize_msg args, __env_get_cachesize_reply reply)
+	{
+		try {
+			long cachesize = dbenv.getCacheSize();
+			reply.gbytes = (int)(cachesize / 1073741824);
+			reply.bytes = (int)(cachesize % 1073741824);
+			reply.ncache = dbenv.getCacheSizeNcache();
+			reply.status = 0;
+		} catch(DbException e) {
+			e.printStackTrace(DbServer.err);
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -206,11 +250,25 @@ public class RpcDbEnv extends Timer
 		__env_cachesize_msg args, __env_cachesize_reply reply)
 	{
 		try {
-			dbenv.set_cachesize(args.gbytes, args.bytes, args.ncache);
+			long bytes = (long)args.gbytes * 1024*1024*1024;
+			bytes += args.bytes;
+			dbenv.setCacheSize(bytes, args.ncache);
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
+		}
+	}
+
+	public  void get_encrypt_flags(DbDispatcher server,
+		__env_get_encrypt_flags_msg args, __env_get_encrypt_flags_reply reply)
+	{
+		try {
+			reply.flags = dbenv.getEncryptFlags();
+			reply.status = 0;
+		} catch(DbException e) {
+			e.printStackTrace(DbServer.err);
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -218,11 +276,23 @@ public class RpcDbEnv extends Timer
 		__env_encrypt_msg args, __env_encrypt_reply reply)
 	{
 		try {
-			dbenv.set_encrypt(args.passwd, args.flags);
+			dbenv.setEncrypted(args.passwd, args.flags);
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
+		}
+	}
+
+	public  void get_flags(DbDispatcher server,
+		__env_get_flags_msg args, __env_get_flags_reply reply)
+	{
+		try {
+			reply.flags = dbenv.getFlags();
+			reply.status = 0;
+		} catch(DbException e) {
+			e.printStackTrace(DbServer.err);
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -230,7 +300,7 @@ public class RpcDbEnv extends Timer
 		__env_flags_msg args, __env_flags_reply reply)
 	{
 		try {
-			dbenv.set_flags(args.flags, args.onoff != 0);
+			dbenv.setFlags(args.flags, args.onoff != 0);
 			if (args.onoff != 0)
 				onflags |= args.flags;
 			else
@@ -238,7 +308,7 @@ public class RpcDbEnv extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		}
 	}
 
@@ -247,7 +317,7 @@ public class RpcDbEnv extends Timer
 		__txn_recover_msg args, __txn_recover_reply reply)
 	{
 		try {
-			DbPreplist[] prep_list = dbenv.txn_recover(args.count, args.flags);
+			DbPreplist[] prep_list = dbenv.txnRecover(args.count, args.flags);
 			if (prep_list != null && prep_list.length > 0) {
 				int count = prep_list.length;
 				reply.retcount = count;
@@ -263,7 +333,7 @@ public class RpcDbEnv extends Timer
 			reply.status = 0;
 		} catch(DbException e) {
 			e.printStackTrace(DbServer.err);
-			reply.status = e.get_errno();
+			reply.status = e.getErrno();
 		}
 	}
 }

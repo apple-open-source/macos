@@ -32,8 +32,11 @@ DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
 
-NEXTSTEP_PB_CFLAGS = -I../bootplib
-FRAMEWORKS = -framework CoreFoundation -framework IOKit
+LIBRARY_PATHS =\
+                -L/System/Library/Frameworks/SystemConfiguration.framework/Versions/A
+NEXTSTEP_PB_CFLAGS = -I../bootplib -fconstant-cfstrings
+FRAMEWORKS = -framework CoreFoundation -framework IOKit\
+             -framework SystemConfiguration
 
 
 WINDOWS_PUBLIC_HEADERS_DIR = /Developer/Headers/$(NAME)

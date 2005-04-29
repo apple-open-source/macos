@@ -40,6 +40,7 @@ Boston, MA 02111-1307, USA.  */
 #include "output.h"
 #include "target.h"
 #include "target-def.h"
+#include "ggc.h"
 
 /* Usable when we have an amount to add or subtract, and want the
    optimal size of the insn.  */
@@ -63,7 +64,7 @@ Boston, MA 02111-1307, USA.  */
     } while (0)
 
 /* Per-function machine data.  */
-struct machine_function
+struct machine_function GTY(())
  {
    int needs_return_address_on_stack;
  };
@@ -85,7 +86,7 @@ static void cris_print_base PARAMS ((rtx, FILE *));
 
 static void cris_print_index PARAMS ((rtx, FILE *));
 
-static void cris_init_machine_status PARAMS ((struct function *));
+static struct machine_function * cris_init_machine_status PARAMS ((void));
 
 static int cris_initial_frame_pointer_offset PARAMS ((void));
 
@@ -97,7 +98,12 @@ static void cris_target_asm_function_prologue
 static void cris_target_asm_function_epilogue
   PARAMS ((FILE *, HOST_WIDE_INT));
 
+static void cris_encode_section_info PARAMS ((tree, int));
 static void cris_operand_lossage PARAMS ((const char *, rtx));
+
+static void cris_asm_output_mi_thunk
+  PARAMS ((FILE *, tree, HOST_WIDE_INT, HOST_WIDE_INT, tree));
+
 
 /* The function cris_target_asm_function_epilogue puts the last insn to
    output here.  It always fits; there won't be a symbol operand.  Used in
@@ -147,6 +153,14 @@ int cris_cpu_version = CRIS_DEFAULT_CPU_VERSION;
 
 #undef TARGET_ASM_FUNCTION_EPILOGUE
 #define TARGET_ASM_FUNCTION_EPILOGUE cris_target_asm_function_epilogue
+
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO cris_encode_section_info
+
+#undef TARGET_ASM_OUTPUT_MI_THUNK
+#define TARGET_ASM_OUTPUT_MI_THUNK cris_asm_output_mi_thunk
+#undef TARGET_ASM_CAN_OUTPUT_MI_THUNK
+#define TARGET_ASM_CAN_OUTPUT_MI_THUNK default_can_output_mi_thunk_no_vcall
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -859,9 +873,9 @@ cris_target_asm_function_prologue (file, size)
 
   /* Set up the PIC register.  */
   if (current_function_uses_pic_offset_table)
-    asm_fprintf (file, "\tmove.d $pc,$%s\n\tsub.d .:GOTOFF,$%s\n",
-		 reg_names[PIC_OFFSET_TABLE_REGNUM],
-		 reg_names[PIC_OFFSET_TABLE_REGNUM]);
+    fprintf (file, "\tmove.d $pc,$%s\n\tsub.d .:GOTOFF,$%s\n",
+	     reg_names[PIC_OFFSET_TABLE_REGNUM],
+	     reg_names[PIC_OFFSET_TABLE_REGNUM]);
 
   if (TARGET_PDEBUG)
     fprintf (file,
@@ -1264,7 +1278,7 @@ cris_print_operand (file, x, code)
   rtx operand = x;
 
   /* Size-strings corresponding to MULT expressions.  */
-  static const char *mults[] = { "BAD:0", ".b", ".w", "BAD:3", ".d" };
+  static const char *const mults[] = { "BAD:0", ".b", ".w", "BAD:3", ".d" };
 
   /* New code entries should just be added to the switch below.  If
      handling is finished, just return.  If handling was just a
@@ -2310,7 +2324,7 @@ cris_legitimate_pic_operand (x)
   return ! cris_symbol (x) || cris_got_symbol (x);
 }
 
-/* Return non-zero if there's a SYMBOL_REF or LABEL_REF hiding inside this
+/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
    CONSTANT_P.  */
 
 int
@@ -2347,7 +2361,7 @@ cris_symbol (x)
   return 1;
 }
 
-/* Return non-zero if there's a SYMBOL_REF or LABEL_REF hiding inside this
+/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
    CONSTANT_P, and the symbol does not need a GOT entry.  Also set
    current_function_uses_pic_offset_table if we're generating PIC and ever
    see something that would need one.  */
@@ -2405,7 +2419,7 @@ cris_gotless_symbol (x)
   return 1;
 }
 
-/* Return non-zero if there's a SYMBOL_REF or LABEL_REF hiding inside this
+/* Return nonzero if there's a SYMBOL_REF or LABEL_REF hiding inside this
    CONSTANT_P, and the symbol needs a GOT entry.  */
 
 int
@@ -2565,29 +2579,34 @@ cris_override_options ()
   init_machine_status = cris_init_machine_status;
 }
 
-/* The ASM_OUTPUT_MI_THUNK worker.  */
+/* The TARGET_ASM_OUTPUT_MI_THUNK worker.  */
 
-void
-cris_asm_output_mi_thunk (stream, thunkdecl, delta, funcdecl)
+static void
+cris_asm_output_mi_thunk (stream, thunkdecl, delta, vcall_offset, funcdecl)
      FILE *stream;
      tree thunkdecl ATTRIBUTE_UNUSED;
-     int delta;
+     HOST_WIDE_INT delta;
+     HOST_WIDE_INT vcall_offset ATTRIBUTE_UNUSED;
      tree funcdecl;
 {
   if (delta > 0)
-    asm_fprintf (stream, "\tadd%s %d,$%s\n",
-		 ADDITIVE_SIZE_MODIFIER (delta), delta,
-		 reg_names[CRIS_FIRST_ARG_REG]);
+    {
+      fprintf (stream, "\tadd%s ", ADDITIVE_SIZE_MODIFIER (delta));
+      fprintf (stream, HOST_WIDE_INT_PRINT_DEC, delta);
+      fprintf (stream, ",$%s\n", reg_names[CRIS_FIRST_ARG_REG]);
+    }
   else if (delta < 0)
-    asm_fprintf (stream, "\tsub%s %d,$%s\n",
-		 ADDITIVE_SIZE_MODIFIER (-delta), -delta,
-		 reg_names[CRIS_FIRST_ARG_REG]);
+    {
+      fprintf (stream, "\tsub%s ", ADDITIVE_SIZE_MODIFIER (-delta));
+      fprintf (stream, HOST_WIDE_INT_PRINT_DEC, -delta);
+      fprintf (stream, ",$%s\n", reg_names[CRIS_FIRST_ARG_REG]);
+    }
 
   if (flag_pic)
     {
       const char *name = XSTR (XEXP (DECL_RTL (funcdecl), 0), 0);
 
-      STRIP_NAME_ENCODING (name, name);
+      name = (* targetm.strip_name_encoding) (name);
       fprintf (stream, "add.d ");
       assemble_name (stream, name);
       fprintf (stream, "%s,$pc\n", CRIS_PLT_PCOFFSET_SUFFIX);
@@ -2693,11 +2712,10 @@ cris_init_expanders ()
 
 /* Zero initialization is OK for all current fields.  */
 
-static void
-cris_init_machine_status (p)
-     struct function *p;
+static struct machine_function *
+cris_init_machine_status ()
 {
-  p->machine = xcalloc (1, sizeof (struct machine_function));
+  return ggc_alloc_cleared (sizeof (struct machine_function));
 }
 
 /* Split a 2 word move (DI or presumably DF) into component parts.
@@ -2851,7 +2869,7 @@ cris_split_movdx (operands)
   else
     abort ();
 
-  val = gen_sequence ();
+  val = get_insns ();
   end_sequence ();
   return val;
 }
@@ -2885,7 +2903,7 @@ restart:
 	  const char *origstr = XSTR (x, 0);
 	  const char *str;
 
-	  STRIP_NAME_ENCODING (str, origstr);
+	  str = (* targetm.strip_name_encoding) (origstr);
 
 	  if (is_plt)
 	    {
@@ -3033,29 +3051,21 @@ restart:
     }
 }
 
-/* The ENCODE_SECTION_INFO worker.  Code-in whether we can get away
-   without a GOT entry (needed for externally visible objects but not for
-   functions) into SYMBOL_REF_FLAG and add the PLT suffix for global
-   functions.  */
+/* Code-in whether we can get away without a GOT entry (needed for
+   externally visible objects but not for functions) into
+   SYMBOL_REF_FLAG and add the PLT suffix for global functions.  */
 
-void
-cris_encode_section_info (exp)
+static void
+cris_encode_section_info (exp, first)
      tree exp;
+     int first ATTRIBUTE_UNUSED;
 {
   if (flag_pic)
     {
-      if (DECL_P (exp))
-	{
-	  if (TREE_CODE (exp) == FUNCTION_DECL
-	      && (TREE_PUBLIC (exp) || DECL_WEAK (exp)))
-	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0)) = 0;
-	  else
-	    SYMBOL_REF_FLAG (XEXP (DECL_RTL (exp), 0))
-	      = ! TREE_PUBLIC (exp) && ! DECL_WEAK (exp);
-	}
-      else
-	/* Others are local entities.  */
-	SYMBOL_REF_FLAG (XEXP (TREE_CST_RTL (exp), 0)) = 1;
+      rtx rtl = DECL_P (exp) ? DECL_RTL (exp) : TREE_CST_RTL (exp);
+
+      if (GET_CODE (rtl) == MEM && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+	SYMBOL_REF_FLAG (XEXP (rtl, 0)) = (*targetm.binds_local_p) (exp);
     }
 }
 
@@ -3132,6 +3142,8 @@ Prev_insn (insn)
   return PREV_INSN (insn);
 }
 #endif
+
+#include "gt-cris.h"
 
 /*
  * Local variables:

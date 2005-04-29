@@ -28,7 +28,7 @@ in this Software without prior written authorization from The Open Group.
  * Updated for R4:  Chris D. Peterson,  MIT X Consortium.
  * Reauthored by: Keith Packard, MIT X Consortium.
  */
-/* $XFree86: xc/programs/xclipboard/xclipboard.c,v 1.8 2001/12/14 20:01:16 dawes Exp $ */
+/* $XFree86: xc/programs/xclipboard/xclipboard.c,v 1.9 2003/05/27 22:26:59 tsi Exp $ */
 
 #include <stdio.h>
 #include <X11/Intrinsic.h>
@@ -605,7 +605,7 @@ main(int argc, char *argv[])
     Arg args[4];
     Cardinal n;
     XtAppContext xtcontext;
-    Widget parent, quit, delete, new, save;
+    Widget parent;
 
     XtSetLanguageProc(NULL, NULL, NULL);
 
@@ -624,10 +624,10 @@ main(int argc, char *argv[])
 	XtError("another clipboard is already running\n");
 
     parent = XtCreateManagedWidget("form", formWidgetClass, top, NULL, ZERO);
-    quit = XtCreateManagedWidget("quit", Command, parent, NULL, ZERO);
-    delete = XtCreateManagedWidget("delete", Command, parent, NULL, ZERO);
-    new = XtCreateManagedWidget("new", Command, parent, NULL, ZERO);
-    save = XtCreateManagedWidget("save", Command, parent, NULL, ZERO);
+    (void) XtCreateManagedWidget("quit", Command, parent, NULL, ZERO);
+    (void) XtCreateManagedWidget("delete", Command, parent, NULL, ZERO);
+    (void) XtCreateManagedWidget("new", Command, parent, NULL, ZERO);
+    (void) XtCreateManagedWidget("save", Command, parent, NULL, ZERO);
     nextButton = XtCreateManagedWidget("next", Command, parent, NULL, ZERO);
     prevButton = XtCreateManagedWidget("prev", Command, parent, NULL, ZERO);
     indexLabel = XtCreateManagedWidget("index", Label, parent, NULL, ZERO);

@@ -1,0 +1,15 @@
+: cc wrapper for aix risc xlc : 2004-02-29 :
+
+HOSTTYPE=ibm.risc
+
+case $* in
+-dumpmachine) echo $HOSTTYPE; exit ;;
+esac
+
+case " $@ " in
+*" -G "*)      
+	set x -berok "$@"
+	shift
+	;;
+esac
+PATH=/bin:$PATH LIBPATH=/usr/lib:/lib xlc -brtl -blibpath:/usr/lib:/lib -qhalt=e -qsuppress=1506-224:1506-507 "$@"

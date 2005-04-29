@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -85,6 +85,7 @@ static void * __DAThreadFunction( void * context )
     if ( job )
     {
         mach_msg_header_t message;
+        kern_return_t     status;
 
         job->execute.status = ( ( DAThreadFunction ) job->execute.function )( job->execute.functionContext );
 
@@ -101,7 +102,12 @@ static void * __DAThreadFunction( void * context )
         message.msgh_reserved    = 0;
         message.msgh_size        = sizeof( message );
 
-        mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+        status = mach_msg( &message, MACH_SEND_MSG | MACH_SEND_TIMEOUT, message.msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL );
+
+        if ( status == MACH_SEND_TIMED_OUT )
+        {
+            mach_msg_destroy( &message );
+        }
     }
 
     pthread_detach( pthread_self( ) );

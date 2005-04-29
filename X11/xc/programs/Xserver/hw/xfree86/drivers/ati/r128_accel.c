@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/r128_accel.c,v 1.16 2002/11/15 03:01:35 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/r128_accel.c,v 1.18 2003/11/10 18:41:20 tsi Exp $ */
 /*
  * Copyright 1999, 2000 ATI Technologies Inc., Markham, Ontario,
  *                      Precision Insight, Inc., Cedar Park, Texas, and
@@ -82,7 +82,6 @@
 				/* Driver data structures */
 #include "r128.h"
 #include "r128_reg.h"
-#include "r128_sarea.h"
 #ifdef XF86DRI
 #include "r128_sarea.h"
 #define _XF86DRI_SERVER_
@@ -1101,7 +1100,7 @@ static void R128CCESetupForSolidFill(ScrnInfoPtr pScrn,
 
     OUT_RING_REG( R128_DP_BRUSH_FRGD_CLR,  color );
     OUT_RING_REG( R128_DP_WRITE_MASK,	   planemask );
-    OUT_RING_REG( R128_DP_CNTL,	           (R128_DST_X_LEFT_TO_RIGHT |
+    OUT_RING_REG( R128_DP_CNTL,		   (R128_DST_X_LEFT_TO_RIGHT |
 					    R128_DST_Y_TOP_TO_BOTTOM));
     ADVANCE_RING();
 }
@@ -1576,7 +1575,7 @@ drmBufPtr R128CCEGetBuffer( ScrnInfoPtr pScrn )
 	xf86DrvMsg( pScrn->scrnIndex, X_ERROR,
 		    "GetBuffer timed out, resetting engine...\n");
 	R128EngineReset( pScrn );
- 	/* R128EngineRestore( pScrn ); FIXME ??? */
+	/* R128EngineRestore( pScrn ); FIXME ??? */
 
 	/* Always restart the engine when doing CCE 2D acceleration */
 	R128CCE_RESET( pScrn, info );
@@ -1656,7 +1655,7 @@ static void R128CCEAccelInit(ScrnInfoPtr pScrn, XAAInfoRecPtr a)
     a->PolyFillRectSolidFlags           = 0;
     a->SetupForSolidFill                = R128CCESetupForSolidFill;
     a->SubsequentSolidFillRect          = R128CCESubsequentSolidFillRect;
-    
+
 				/* Screen-to-screen Copy */
 				/* Transparency uses the wrong colors for
 				   24 bpp mode -- the transparent part is

@@ -59,7 +59,7 @@ void
 f_print_type (struct type *type, char *varstring, struct ui_file *stream,
 	      int show, int level)
 {
-  register enum type_code code;
+  enum type_code code;
   int demangled_args;
 
   f_type_print_base (type, stream, show, level);
@@ -326,6 +326,11 @@ f_type_print_base (struct type *type, struct ui_file *stream, int show,
 
     case TYPE_CODE_PTR:
       fprintf_filtered (stream, "PTR TO -> ( ");
+      f_type_print_base (TYPE_TARGET_TYPE (type), stream, 0, level);
+      break;
+
+    case TYPE_CODE_REF:
+      fprintf_filtered (stream, "REF TO -> ( ");
       f_type_print_base (TYPE_TARGET_TYPE (type), stream, 0, level);
       break;
 

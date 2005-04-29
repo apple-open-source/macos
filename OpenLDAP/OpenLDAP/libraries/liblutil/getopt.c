@@ -1,14 +1,24 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/getopt.c,v 1.8.2.2 2003/03/03 17:10:06 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* getopt.c -- replacement getopt(3) routines */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/getopt.c,v 1.11.2.4 2004/01/01 18:16:31 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1998-2003 Kurt D. Zeilenga.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/*
-	getopt.c
-
-	modified public-domain AT&T getopt(3)
-	modified by Kurt Zeilenga for inclusion into OpenLDAP
-*/
+/* This work is based upon the public-domain getopt(3) routines
+ * developed by AT&T.  Modified by Kurt D. Zeilenga for inclusion
+ * into OpenLDAP Software.  Significant contributors include:
+ *   Howard Chu
+ */
 
 #include "portable.h"
 
@@ -90,7 +100,7 @@ printf("DF_TRACE_DEBUG: 	int getopt () in getopt.c\n");
 	optopt = (int) c;
 	if (c == arg || (cp = strchr(opts,c)) == NULL)
 	{
-		ERR(argv,": illegal option--",c);
+		ERR(argv,_(": illegal option--"),c);
 		if (argv[optind][++sp] == eos)
 		{
 			optind++;
@@ -104,7 +114,7 @@ printf("DF_TRACE_DEBUG: 	int getopt () in getopt.c\n");
 			optarg = &argv[optind++][sp + 1];
 		else if (++optind >= argc)
 		{
-			ERR(argv,": option requires an argument--",c);
+			ERR(argv,_(": option requires an argument--"),c);
 			sp = 1;
 			return error;
 		}

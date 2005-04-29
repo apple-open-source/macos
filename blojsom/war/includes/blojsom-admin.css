@@ -1,0 +1,29 @@
+body{margin:0px;padding:0px;background:#ffffff;color:#000000;font:0.9em "Trebuchet MS",Trebuchet,Verdana,Sans-Serif;}
+a{color:#DE7008;}
+a:hover{color:#E0AD12;}
+#logo{padding:0px;margin:0px;}
+div#mainClm{float:left;padding:13px 0px 10px 5%;width:68%;}
+div#sideBar{margin:0px 1em 0px 0px;padding:0px;text-align:right;}
+#header{padding:0px 0px 8px 0px;margin:0px 0px 20px 0px;border-bottom:solid 1px #eeeeee;border-top:solid 2px #FFEBCD;background:#FFEBCD;color:#8B4513;}
+h1,h2,h3,h4,h5,h6{padding:0px;margin:0px;}
+h1{padding:18px 0px 10px 5%;margin:0px 0px 8px 0px;border-top:solid 9px #FF7F50;border-bottom:solid 1px #DEB887;color:#FFFAFA;background:#FF4500;font:bold 266% Verdana,Sans-Serif;}
+h2{margin:0px 0px 10px 0px;padding:2px 0px 2px 5px;border-right:solid 1px #f5f5f5;border-bottom:solid 1px #dddddd;border-top:solid 1px #f5f5f5;border-left:solid 1px #f5f5f5;color:#555555;background:#eeeeee;font:bold 110% Verdana,Sans-Serif;}
+h3{margin:10px 0px 0px 0px;padding:0px 0px 0px 2%;border-bottom:dotted 1px #cccccc;color:#777777;font-size:90%;text-align:left;}
+h4{color:#aa0033;}
+h6{color:#FF4500;font:bold 125% Verdana,Sans-Serif;}
+#sideBar ul{margin:0px 0px 33px 0px;padding:0px 0px 0px 0px;list-style-type:none;font-size:95%;}
+#sideBar li{margin:0px 0px 0px 0px;padding:0px 0px 0px 0px;list-style-type:none;font-size:105%;}
+#description{padding:0px 0px 0px 5%;margin:0px;color:#9E5205;background:transparent;font:bold 85% Verdana,Sans-Serif;}
+.blogPost{margin:0px 6px 30px 5px;font-size:100%;}
+.blogPost strong{color:#000000;font-weight:bold;}
+#sideBar ul a{padding:2px;margin:1px;width:100%;border:none;color:#999999;text-decoration:none;}
+#sideBar ul a:link{color:#999999;}
+#sideBar ul a:visited{color:#999999;}
+#sideBar ul a:active{color:#ff0000;}
+#sideBar ul a:hover{color:#DE7008;text-decoration:none;}
+pre,code{color:#999999;}
+strike{color:#999999;}
+.bug{padding:5px;border:0px;}
+.byline{padding:0px;margin:0px;color:#444444;font-size:80%;}
+.byline a{border:none;color:#FF4500;text-decoration:none;}
+.byline a:hover{text-decoration:underline;}

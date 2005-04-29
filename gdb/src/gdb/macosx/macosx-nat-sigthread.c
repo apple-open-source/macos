@@ -42,38 +42,45 @@ static FILE *sigthread_stderr_re = NULL;
 static int sigthread_debugflag = 0;
 
 #if 0
-static int sigthread_debug (const char *fmt, ...)
+static int
+sigthread_debug (const char *fmt, ...)
 {
   va_list ap;
-  if (sigthread_debugflag) {
-    va_start (ap, fmt);
-    fprintf (sigthread_stderr, "[%d sigthread]: ", getpid ());
-    vfprintf (sigthread_stderr, fmt, ap);
-    va_end (ap);
-    return 0;
-  } else {
-    return 0;
-  }
+  if (sigthread_debugflag)
+    {
+      va_start (ap, fmt);
+      fprintf (sigthread_stderr, "[%d sigthread]: ", getpid ());
+      vfprintf (sigthread_stderr, fmt, ap);
+      va_end (ap);
+      return 0;
+    }
+  else
+    {
+      return 0;
+    }
 }
 #endif
 
 /* A re-entrant version for use by the signal handling thread */
 
-void sigthread_debug_re (const char *fmt, ...)
+void
+sigthread_debug_re (const char *fmt, ...)
 {
   va_list ap;
-  if (sigthread_debugflag) {
-    va_start (ap, fmt);
-    fprintf (sigthread_stderr_re, "[%d sigthread]: ", getpid ());
-    vfprintf (sigthread_stderr_re, fmt, ap);
-    va_end (ap);
-    fflush (sigthread_stderr_re);
-  }
+  if (sigthread_debugflag)
+    {
+      va_start (ap, fmt);
+      fprintf (sigthread_stderr_re, "[%d sigthread]: ", getpid ());
+      vfprintf (sigthread_stderr_re, fmt, ap);
+      va_end (ap);
+      fflush (sigthread_stderr_re);
+    }
 }
 
 static void macosx_signal_thread (void *arg);
 
-void macosx_signal_thread_init (macosx_signal_thread_status *s)
+void
+macosx_signal_thread_init (macosx_signal_thread_status *s)
 {
   s->transmit_fd = -1;
   s->receive_fd = -1;
@@ -82,11 +89,12 @@ void macosx_signal_thread_init (macosx_signal_thread_status *s)
   s->signal_thread = THREAD_NULL;
 }
 
-void macosx_signal_thread_create (macosx_signal_thread_status *s, int pid)
+void
+macosx_signal_thread_create (macosx_signal_thread_status *s, int pid)
 {
   int fd[2];
   int ret;
- 
+
   ret = pipe (fd);
   CHECK_FATAL (ret == 0);
 
@@ -95,98 +103,129 @@ void macosx_signal_thread_create (macosx_signal_thread_status *s, int pid)
 
   s->inferior_pid = pid;
 
-  s->signal_thread = gdb_thread_fork ((gdb_thread_fn_t) &macosx_signal_thread, s);
+  s->signal_thread =
+    gdb_thread_fork ((gdb_thread_fn_t) &macosx_signal_thread, s);
 }
 
-void macosx_signal_thread_destroy (macosx_signal_thread_status *s)
+void
+macosx_signal_thread_destroy (macosx_signal_thread_status *s)
 {
-  if (s->signal_thread != THREAD_NULL) {
-    gdb_thread_kill (s->signal_thread);
-  }
+  if (s->signal_thread != THREAD_NULL)
+    {
+      gdb_thread_kill (s->signal_thread);
+    }
 
   if (s->receive_fd > 0)
     {
       delete_file_handler (s->receive_fd);
       close (s->receive_fd);
     }
-  if (s->transmit_fd > 0) 
+  if (s->transmit_fd > 0)
     close (s->transmit_fd);
 
   macosx_signal_thread_init (s);
 }
 
-void macosx_signal_thread_debug (FILE *f, macosx_signal_thread_status *s)
+void
+macosx_signal_thread_debug (FILE *f, macosx_signal_thread_status *s)
 {
   fprintf (f, "                [SIGNAL THREAD]\n");
 }
 
-void macosx_signal_thread_debug_status (FILE *f, WAITSTATUS status)
+void
+macosx_signal_thread_debug_status (FILE *f, WAITSTATUS status)
 {
-  if (WIFEXITED (status)) {
-    fprintf (f, "process exited with status %d\n", WEXITSTATUS (status));
-  } else if (WIFSIGNALED (status)) {
-    fprintf (f, "process terminated with signal %d (%s)\n", WTERMSIG (status),
-	     target_signal_to_string (WTERMSIG (status)));
-  } else if (WIFSTOPPED (status)) {
-    fprintf (f, "process stopped with signal %d (%s)\n", WSTOPSIG (status),
-	     target_signal_to_string (WSTOPSIG (status)));
-  } else {
-    fprintf (f, "macosx_debug_status: unknown status value %d\n", status);
-  }
+  if (WIFEXITED (status))
+    {
+      fprintf (f, "process exited with status %d\n", WEXITSTATUS (status));
+    }
+  else if (WIFSIGNALED (status))
+    {
+      fprintf (f, "process terminated with signal %d (%s)\n",
+               WTERMSIG (status),
+               target_signal_to_string (WTERMSIG (status)));
+    }
+  else if (WIFSTOPPED (status))
+    {
+      fprintf (f, "process stopped with signal %d (%s)\n", WSTOPSIG (status),
+               target_signal_to_string (WSTOPSIG (status)));
+    }
+  else
+    {
+      fprintf (f, "macosx_debug_status: unknown status value %d\n", status);
+    }
 }
 
-static void macosx_signal_thread (void *arg)
+static void
+macosx_signal_thread (void *arg)
 {
   macosx_signal_thread_status *s = (macosx_signal_thread_status *) arg;
   CHECK_FATAL (s != NULL);
 
-  for (;;) {
+  for (;;)
+    {
 
-    macosx_signal_thread_message msg;
-    WAITSTATUS status = 0;
-    pid_t pid = 0;
+      macosx_signal_thread_message msg;
+      WAITSTATUS status = 0;
+      pid_t pid = 0;
 
-    pthread_testcancel ();
+      pthread_testcancel ();
 
-    sigthread_debug_re ("macosx_signal_thread: waiting for signals for pid %d\n", s->inferior_pid);
-    pid = waitpid (s->inferior_pid, &status, 0);
-    sigthread_debug_re ("macosx_signal_thread: done waiting for signals for pid %d\n", s->inferior_pid);
+      sigthread_debug_re
+        ("macosx_signal_thread: waiting for signals for pid %d\n",
+         s->inferior_pid);
+      pid = waitpid (s->inferior_pid, &status, 0);
+      sigthread_debug_re
+        ("macosx_signal_thread: done waiting for signals for pid %d\n",
+         s->inferior_pid);
 
-    if ((pid < 0) && (errno == ECHILD)) {
-      sigthread_debug_re ("macosx_signal_thread: no children present: waiting for parent\n");
-      for (;;) {
-	pthread_testcancel ();
-	sched_yield ();
-      }
+      if ((pid < 0) && (errno == ECHILD))
+        {
+          sigthread_debug_re
+            ("macosx_signal_thread: no children present: waiting for parent\n");
+          for (;;)
+            {
+              pthread_testcancel ();
+              sched_yield ();
+            }
+        }
+
+      if ((pid < 0) && (errno == EINTR))
+        {
+          sigthread_debug_re
+            ("macosx_signal_thread: wait interrupted; continuing\n");
+          continue;
+        }
+
+      if (pid < 0)
+        {
+          fprintf (sigthread_stderr_re,
+                   "macosx_signal_thread: unexpected error: %s\n",
+                   strerror (errno));
+          abort ();
+        }
+
+      if (sigthread_debugflag)
+        {
+          sigthread_debug_re
+            ("macosx_signal_thread: got status %d for pid %d (expected inferior is %d)\n",
+             status, pid, s->inferior_pid);
+          sigthread_debug_re ("macosx_signal_thread: got signal ");
+          macosx_signal_thread_debug_status (sigthread_stderr_re, status);
+        }
+
+      if (pid != s->inferior_pid)
+        {
+          fprintf (sigthread_stderr_re,
+                   "macosx_signal_thread: got status value %d for unexpected pid %d\n",
+                   status, pid);
+          abort ();
+        }
+
+      msg.pid = pid;
+      msg.status = status;
+      write (s->transmit_fd, &msg, sizeof (msg));
     }
-
-    if ((pid < 0) && (errno == EINTR)) {
-      sigthread_debug_re ("macosx_signal_thread: wait interrupted; continuing\n");
-      continue;
-    }
-
-    if (pid < 0) {
-      fprintf (sigthread_stderr_re, "macosx_signal_thread: unexpected error: %s\n", strerror (errno));
-      abort ();
-    }
-
-    if (sigthread_debugflag) {
-      sigthread_debug_re ("macosx_signal_thread: got status %d for pid %d (expected inferior is %d)\n",
-			  status, pid, s->inferior_pid);
-      sigthread_debug_re ("macosx_signal_thread: got signal ");
-      macosx_signal_thread_debug_status (sigthread_stderr_re, status);
-    }
-
-    if (pid != s->inferior_pid) {
-      fprintf (sigthread_stderr_re,
-	       "macosx_signal_thread: got status value %d for unexpected pid %d\n", status, pid);
-      abort ();
-    }
-
-    msg.pid = pid;
-    msg.status = status;
-    write (s->transmit_fd, &msg, sizeof (msg));
-  }
 }
 
 void
@@ -197,9 +236,9 @@ _initialize_macosx_nat_sigthread ()
   sigthread_stderr = fdopen (fileno (stderr), "w+");
   sigthread_stderr_re = fdopen (fileno (stderr), "w+");
 
-  cmd = add_set_cmd ("signals", no_class, var_boolean, 
-		     (char *) &sigthread_debugflag,
-		     "Set if printing signal thread debugging statements.",
-		     &setdebuglist);
-  add_show_from_set (cmd, &showdebuglist);		
+  cmd = add_set_cmd ("signals", no_class, var_boolean,
+                     (char *) &sigthread_debugflag,
+                     "Set if printing signal thread debugging statements.",
+                     &setdebuglist);
+  add_show_from_set (cmd, &showdebuglist);
 }

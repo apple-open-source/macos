@@ -598,11 +598,19 @@ do_rlogin(dest)
 	getstr(term+ENVSIZE, sizeof(term)-ENVSIZE, "Terminal type too long");
 
 	pwd = getpwnam(lusername);
-	if (pwd == NULL)
+	if (pwd == NULL) {
+		syslog(LOG_ERR,
+		       "rlogin denied for user %s: getpwnam() failed\n",
+		       lusername);
 		return (-1);
-	if (pwd->pw_uid == 0)
+	}
+	if (pwd->pw_uid == 0 && strcmp("root", lusername))
+	{
+		syslog(LOG_ALERT,
+		       "rlogin denied for non-root user %s with uid 0\n",
+		       lusername);
 		return (-1);
-	/* XXX why don't we syslog() failure? */
+	}
 	return (iruserok(dest->sin_addr.s_addr, 0, rusername, lusername));
 }
 

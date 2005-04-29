@@ -1,26 +1,19 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.23.2.3 2003/03/13 01:09:09 kurt Exp $ */
-/*
- *	 Copyright 1999, John C. Quillan, All rights reserved.
- *	 Portions Copyright 2002, myinternet Limited. All rights reserved.
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-perl/init.c,v 1.30.2.6 2004/04/28 23:23:16 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- *	 Redistribution and use in source and binary forms are permitted only
- *	 as authorized by the OpenLDAP Public License.	A copy of this
- *	 license is available at http://www.OpenLDAP.org/license.html or
- *	 in file LICENSE in the top-level directory of the distribution.
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 1999 John C. Quillan.
+ * Portions Copyright 2002 myinternet Limited.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-
-#include "portable.h"
- /* init.c - initialize shell backend */
-	
-#include <stdio.h>
-
-#include "slap.h"
-#ifdef HAVE_WIN32_ASPERL
-#include "asperl_undefs.h"
-#endif
-
-#include <EXTERN.h>
-#include <perl.h>
 
 #include "perl_back.h"
 
@@ -31,9 +24,9 @@ EXT void boot_DynaLoader LDAP_P((PERL_BACK_BOOT_DYNALOADER_PARAMS));
 PerlInterpreter *PERL_INTERPRETER = NULL;
 ldap_pvt_thread_mutex_t	perl_interpreter_mutex;
 
-#ifdef SLAPD_PERL_DYNAMIC
+#if SLAPD_PERL == SLAPD_MOD_DYNAMIC
 
-int back_perl_LTX_init_module(int argc, char *argv[])
+int init_module(int argc, char *argv[])
 {
 	BackendInfo bi;
 
@@ -45,7 +38,7 @@ int back_perl_LTX_init_module(int argc, char *argv[])
 	return 0;
 }
 
-#endif /* SLAPD_PERL_DYNAMIC */
+#endif /* SLAPD_PERL */
 
 
 /**********************************************************
@@ -97,8 +90,6 @@ perl_back_initialize(
 
 	bi->bi_extended = 0;
 
-	bi->bi_acl_group = 0;
-	bi->bi_acl_attribute = 0;
 	bi->bi_chk_referrals = 0;
 
 	bi->bi_connection_init = 0;

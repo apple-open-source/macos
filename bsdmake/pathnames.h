@@ -30,8 +30,8 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- *	from: @(#)pathnames.h	5.2 (Berkeley) 6/1/90
- * $FreeBSD: src/usr.bin/make/pathnames.h,v 1.9 1999/08/28 01:03:36 peter Exp $
+ *	@(#)pathnames.h	8.2 (Berkeley) 4/28/95
+ * $FreeBSD: src/usr.bin/make/pathnames.h,v 1.12 2002/05/24 15:51:27 ru Exp $
  */
 
 #ifndef _PATH_OBJDIR

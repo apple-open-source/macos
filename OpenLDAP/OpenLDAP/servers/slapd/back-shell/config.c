@@ -1,8 +1,31 @@
 /* config.c - shell backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/config.c,v 1.9.2.3 2003/03/03 17:10:10 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-shell/config.c,v 1.12.2.4 2004/01/01 18:16:39 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
  */
 
 #include "portable.h"
@@ -112,21 +135,9 @@ shell_back_db_config(
 		}
 		si->si_delete = ldap_charray_dup( &argv[1] );
 
-	/* command + args to exec for abandon */
-	} else if ( strcasecmp( argv[0], "abandon" ) == 0 ) {
-		if ( argc < 2 ) {
-			fprintf( stderr,
-	"%s: line %d: missing executable in \"abandon <executable>\" line\n",
-			    fname, lineno );
-			return( 1 );
-		}
-		si->si_abandon = ldap_charray_dup( &argv[1] );
-
 	/* anything else */
 	} else {
-		fprintf( stderr,
-"%s: line %d: unknown directive \"%s\" in shell database definition (ignored)\n",
-		    fname, lineno, argv[0] );
+		return SLAP_CONF_UNKNOWN;
 	}
 
 	return 0;

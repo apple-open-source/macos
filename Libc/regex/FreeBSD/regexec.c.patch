@@ -1,6 +1,51 @@
---- regexec.c.orig	Sun Feb 16 09:29:10 2003
-+++ regexec.c	Sat May  3 14:21:16 2003
-@@ -137,6 +137,8 @@
+--- regexec.c.orig	2004-11-25 11:38:33.000000000 -0800
++++ regexec.c	2005-02-24 14:20:50.000000000 -0800
+@@ -43,6 +43,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.6 2004/07/12 07:35:59 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ /*
+  * the outer shell of regexec()
+  *
+@@ -66,17 +68,18 @@
+ static int nope __unused = 0;	/* for use in asserts; shuts lint up */
+ 
+ static __inline size_t
+-xmbrtowc(wi, s, n, mbs, dummy)
++xmbrtowc(wi, s, n, mbs, dummy, loc)
+ wint_t *wi;
+ const char *s;
+ size_t n;
+ mbstate_t *mbs;
+ wint_t dummy;
++locale_t loc;
+ {
+ 	size_t nr;
+ 	wchar_t wc;
+ 
+-	nr = mbrtowc(&wc, s, n, mbs);
++	nr = mbrtowc_l(&wc, s, n, mbs, loc);
+ 	if (wi != NULL)
+ 		*wi = wc;
+ 	if (nr == 0)
+@@ -91,12 +94,13 @@
+ }
+ 
+ static __inline size_t
+-xmbrtowc_dummy(wi, s, n, mbs, dummy)
++xmbrtowc_dummy(wi, s, n, mbs, dummy, loc)
+ wint_t *wi;
+ const char *s;
+ size_t n __unused;
+ mbstate_t *mbs __unused;
+ wint_t dummy __unused;
++locale_t loc;
+ {
+ 
+ 	if (wi != NULL)
+@@ -186,6 +190,8 @@
  /* function names */
  #define	LNAMES			/* flag */
  
@@ -8,4 +53,14 @@
 +#define __FBSDID(x)
  #include "engine.c"
  
- /*
+ /* multibyte character & large states version */
+@@ -235,7 +241,8 @@
+ 		return(REG_BADPAT);
+ 	eflags = GOODFLAGS(eflags);
+ 
+-	if (MB_CUR_MAX > 1)
++	g->loc = __current_locale();
++	if (MB_CUR_MAX_L(g->loc) > 1)
+ 		return(mmatcher(g, (char *)string, nmatch, pmatch, eflags));
+ 	else if (g->nstates <= CHAR_BIT*sizeof(states1) && !(eflags&REG_LARGE))
+ 		return(smatcher(g, (char *)string, nmatch, pmatch, eflags));

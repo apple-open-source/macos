@@ -1,0 +1,38 @@
+diff -Naur /tmp/apache_mod_php/php-4.3.8/configure ./configure
+--- /tmp/apache_mod_php/php-4.3.8/configure	2004-07-13 07:53:07.000000000 -0700
++++ ./configure	2004-12-14 12:44:15.000000000 -0800
+@@ -2589,10 +2589,6 @@
+     CPPFLAGS="$CPPFLAGS -D_BSD_TIMEOFDAY_FLAVOR";;
+ *darwin*|*rhapsody*)
+     CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
+-    cat >> confdefs.h <<\EOF
+-#define BIND_8_COMPAT 1
+-EOF
+-
+     php_multiple_shlib_versions_ok=yes;;
+ *beos*)
+     beos_threads=1
+diff -Naur /tmp/apache_mod_php/php-4.3.8/configure.in ./configure.in
+--- /tmp/apache_mod_php/php-4.3.8/configure.in	2004-07-13 06:15:25.000000000 -0700
++++ ./configure.in	2004-12-14 12:42:28.000000000 -0800
+@@ -189,7 +189,6 @@
+     CPPFLAGS="$CPPFLAGS -D_BSD_TIMEOFDAY_FLAVOR";;
+ *darwin*|*rhapsody*)
+     CPPFLAGS="$CPPFLAGS -no-cpp-precomp"
+-    AC_DEFINE(BIND_8_COMPAT, 1, [Enabling BIND8 compatibility for Panther])
+     php_multiple_shlib_versions_ok=yes;;
+ *beos*)
+     beos_threads=1
+diff -Naur /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c ./ext/standard/dns.c
+--- /tmp/apache_mod_php/php-4.3.8/ext/standard/dns.c	2003-09-01 15:37:46.000000000 -0700
++++ ./ext/standard/dns.c	2004-12-14 12:37:22.000000000 -0800
+@@ -55,6 +55,9 @@
+ #undef STATUS
+ #undef T_UNSPEC
+ #endif
++#if !defined BIND_8_COMPAT
++#include <arpa/nameser_compat.h>
++#endif
+ #if HAVE_ARPA_NAMESER_H
+ #include <arpa/nameser.h>
+ #endif

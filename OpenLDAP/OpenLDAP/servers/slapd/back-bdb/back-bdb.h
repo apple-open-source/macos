@@ -1,8 +1,17 @@
 /* back-bdb.h - bdb back-end header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.54.2.15 2003/03/29 15:45:43 kurt Exp $ */
-/*
- * Copyright 2000-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/back-bdb.h,v 1.92.2.11 2004/11/24 05:02:18 hyc Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 2000-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
 
 #ifndef _BACK_BDB_H_
@@ -14,7 +23,9 @@
 
 LDAP_BEGIN_DECL
 
-/* #define BDB_HIER		1 */
+#define DB_VERSION_FULL ((DB_VERSION_MAJOR << 24) | (DB_VERSION_MINOR << 16) | DB_VERSION_PATCH)
+
+#define BDB_SUBENTRIES 1
 
 #define DN_BASE_PREFIX		SLAP_INDEX_EQUALITY_PREFIX
 #define DN_ONE_PREFIX	 	'%'
@@ -38,11 +49,7 @@ LDAP_BEGIN_DECL
 
 #define BDB_SUFFIX		".bdb"
 #define BDB_ID2ENTRY	0
-#ifdef BDB_HIER
-#define BDB_ID2PARENT		1
-#else
 #define BDB_DN2ID		1
-#endif
 #define BDB_NDB			2
 
 /* The bdb on-disk entry format is pretty space-inefficient. Average
@@ -63,10 +70,9 @@ LDAP_BEGIN_DECL
 /* The default search IDL stack cache depth */
 #define DEFAULT_SEARCH_STACK_DEPTH	16
 
-/* for the IDL cache */
-#define SLAP_IDL_CACHE	1
+/* The minimum we can function with */
+#define MINIMUM_SEARCH_STACK_DEPTH	8
 
-#ifdef SLAP_IDL_CACHE
 typedef struct bdb_idl_cache_entry_s {
 	struct berval kstr;
 	ldap_pvt_thread_rdwr_t idl_entry_rwlock;
@@ -75,18 +81,58 @@ typedef struct bdb_idl_cache_entry_s {
 	struct bdb_idl_cache_entry_s* idl_lru_prev;
 	struct bdb_idl_cache_entry_s* idl_lru_next;
 } bdb_idl_cache_entry_t;
+
+/* BDB backend specific entry info */
+typedef struct bdb_entry_info {
+	struct bdb_entry_info *bei_parent;
+	ID bei_id;
+
+	/* we use the bei_id as a lockobj, but we need to make the size != 4
+	 * to avoid conflicting with BDB's internal locks. So add a byte here
+	 * that is always zero.
+	 */
+	char bei_lockpad;
+						
+	short bei_state;
+#define	CACHE_ENTRY_DELETED	1
+#define	CACHE_ENTRY_NO_KIDS	2
+#define	CACHE_ENTRY_NOT_LINKED	4
+#define CACHE_ENTRY_NO_GRANDKIDS	8
+#define	CACHE_ENTRY_LOADING	0x10
+
+	/*
+	 * remaining fields require backend cache lock to access
+	 */
+	struct berval bei_nrdn;
+#ifdef BDB_HIER
+	struct berval bei_rdn;
+	int	bei_modrdns;	/* track renames */
+	int	bei_ckids;	/* number of kids cached */
+	int	bei_dkids;	/* number of kids on-disk, plus 1 */
 #endif
+	Entry	*bei_e;
+	Avlnode	*bei_kids;
+	ldap_pvt_thread_mutex_t	bei_kids_mutex;
+	
+	struct bdb_entry_info	*bei_lrunext;	/* for cache lru list */
+	struct bdb_entry_info	*bei_lruprev;
+} EntryInfo;
+#undef BEI
+#define BEI(e)	((EntryInfo *) ((e)->e_private))
 
 /* for the in-core cache of entries */
 typedef struct bdb_cache {
-        int             c_maxsize;
-        int             c_cursize;
-        Avlnode         *c_dntree;
-        Avlnode         *c_idtree;
-        Entry           *c_lruhead;     /* lru - add accessed entries here */
-        Entry           *c_lrutail;     /* lru - rem lru entries from here */
-        ldap_pvt_thread_rdwr_t c_rwlock;
-        ldap_pvt_thread_mutex_t lru_mutex;
+	int             c_maxsize;
+	int             c_cursize;
+	int		c_eiused;	/* EntryInfo's in use */
+	EntryInfo	c_dntree;
+	EntryInfo	*c_eifree;	/* free list */
+	Avlnode         *c_idtree;
+	EntryInfo	*c_lruhead;	/* lru - add accessed entries here */
+	EntryInfo	*c_lrutail;	/* lru - rem lru entries from here */
+	ldap_pvt_thread_rdwr_t c_rwlock;
+	ldap_pvt_thread_mutex_t lru_mutex;
+	u_int32_t	c_locker;	/* used by lru cleaner */
 } Cache;
  
 #define CACHE_READ_LOCK                0
@@ -110,6 +156,7 @@ struct bdb_info {
 
 	int			bi_ndatabases;
 	struct bdb_db_info **bi_databases;
+	ldap_pvt_thread_mutex_t	bi_database_mutex;
 	int		bi_db_opflags;	/* db-specific flags */
 
 	slap_mask_t	bi_defaultmask;
@@ -117,39 +164,36 @@ struct bdb_info {
 	Avlnode		*bi_attrs;
 	void		*bi_search_stack;
 	int		bi_search_stack_depth;
-#ifdef BDB_HIER
-	Avlnode		*bi_tree;
-	ldap_pvt_thread_rdwr_t	bi_tree_rdwr;
-	void		*bi_troot;
-#endif
 
 	int			bi_txn_cp;
 	u_int32_t	bi_txn_cp_min;
 	u_int32_t	bi_txn_cp_kbyte;
 
 	int			bi_lock_detect;
+	long		bi_shm_key;
 
 	ID			bi_lastid;
 	ldap_pvt_thread_mutex_t	bi_lastid_mutex;
-#if defined(LDAP_CLIENT_UPDATE) || defined(LDAP_SYNC)
-	LDAP_LIST_HEAD(pl, slap_op) psearch_list;
-#endif
-#ifdef SLAP_IDL_CACHE
+	LDAP_LIST_HEAD(pl, slap_op) bi_psearch_list;
+	ldap_pvt_thread_rdwr_t bi_pslist_rwlock;
+	LDAP_LIST_HEAD(se, slap_session_entry) bi_session_list;
 	int		bi_idl_cache_max_size;
 	int		bi_idl_cache_size;
 	Avlnode		*bi_idl_tree;
 	bdb_idl_cache_entry_t	*bi_idl_lru_head;
 	bdb_idl_cache_entry_t	*bi_idl_lru_tail;
-	ldap_pvt_thread_mutex_t bi_idl_tree_mutex;
-#endif
+	ldap_pvt_thread_rdwr_t bi_idl_tree_rwlock;
+	ldap_pvt_thread_mutex_t bi_idl_tree_lrulock;
 };
 
 #define bi_id2entry	bi_databases[BDB_ID2ENTRY]
-#ifdef BDB_HIER
-#define bi_id2parent	bi_databases[BDB_ID2PARENT]
-#else
 #define bi_dn2id	bi_databases[BDB_DN2ID]
-#endif
+
+struct bdb_lock_info {
+	struct bdb_lock_info *bli_next;
+	ID		bli_id;
+	DB_LOCK	bli_lock;
+};
 
 struct bdb_op_info {
 	BackendDB*	boi_bdb;
@@ -157,9 +201,10 @@ struct bdb_op_info {
 	u_int32_t	boi_err;
 	u_int32_t	boi_locker;
 	int		boi_acl_cache;
+	struct bdb_lock_info *boi_locks;	/* used when no txn */
 };
 
-#define	DB_OPEN(db, txn, file, name, type, flags, mode) \
+#define	DB_OPEN(db, file, name, type, flags, mode) \
 	(db)->open(db, file, name, type, flags, mode)
 
 #if DB_VERSION_MAJOR < 4
@@ -188,23 +233,19 @@ struct bdb_op_info {
 #define XLOCK_ID_FREE(env, locker)	(env)->lock_id_free(env, locker)
 
 /* BDB 4.1.17 adds txn arg to db->open */
-#if DB_VERSION_MINOR > 1 || DB_VERSION_PATCH >= 17
+#if DB_VERSION_FULL >= 0x04010011
 #undef DB_OPEN
-#define	DB_OPEN(db, txn, file, name, type, flags, mode) \
-	(db)->open(db, txn, file, name, type, flags, mode)
+#define	DB_OPEN(db, file, name, type, flags, mode) \
+	(db)->open(db, NULL, file, name, type, (flags)|DB_AUTO_COMMIT, mode)
+#endif
+
 #endif
 
 #define BDB_REUSE_LOCKERS
 
-#ifdef BDB_REUSE_LOCKERS
-#define	LOCK_ID_FREE(env, locker)
-#define	LOCK_ID(env, locker)	bdb_locker_id(op, env, locker)
-#else
-#define	LOCK_ID_FREE(env, locker)	XLOCK_ID_FREE(env, locker)
-#define	LOCK_ID(env, locker)		XLOCK_ID(env, locker)
-#endif
-
-#endif
+#define BDB_CSN_COMMIT	0
+#define BDB_CSN_ABORT	1
+#define BDB_CSN_RETRY	2
 
 LDAP_END_DECL
 

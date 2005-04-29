@@ -1,0 +1,5 @@
+2002-11-25  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Start of logging.
+	* tkimg/ppm: PPM photo image type. Provided by Paul Obermeier
+	  <obermeier@users.sourceforge.net>

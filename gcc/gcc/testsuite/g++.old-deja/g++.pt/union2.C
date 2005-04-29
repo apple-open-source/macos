@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: David Mazieres <dm@amsterdam.lcs.mit.edu>
 
 template<class T> struct vector_base {
@@ -12,7 +12,7 @@ protected:
 };
 
 template<class T> struct vector : public vector_base<T> {
-  vector () { def_basep (); }
+  vector () { this->def_basep (); }
 };
 
 vector<int> iv;

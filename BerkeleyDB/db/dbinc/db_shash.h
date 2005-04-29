@@ -1,10 +1,10 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 1996-2002
+ * Copyright (c) 1996-2003
  *	Sleepycat Software.  All rights reserved.
  *
- * $Id: db_shash.h,v 1.1.1.1 2003/02/15 04:55:42 zarzycki Exp $
+ * $Id: db_shash.h,v 1.2 2004/03/30 01:21:28 jtownsen Exp $
  */
 
 #ifndef	_DB_SHASH_H_

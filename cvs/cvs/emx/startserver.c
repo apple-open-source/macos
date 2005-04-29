@@ -16,8 +16,6 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
-#include "options.h"
-
 static char *cvs_server;
 static char *command;
 

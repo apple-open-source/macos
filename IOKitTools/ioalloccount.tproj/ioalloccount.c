@@ -16,7 +16,7 @@ static void printNumber( CFDictionaryRef dict, CFStringRef name )
     if( num) {
         assert( CFNumberGetTypeID() == CFGetTypeID(num) );
         CFNumberGetValue(num, kCFNumberSInt32Type, &num32);
-	printf("%22s = %08lx = %ld K\n",
+	printf("%22s = 0x%08lx = %4ld K\n",
                 CFStringGetCStringPtr(name, kCFStringEncodingMacRoman),
                 num32, num32 / 1024);
     }
@@ -24,23 +24,17 @@ static void printNumber( CFDictionaryRef dict, CFStringRef name )
 
 int main(int argc, char **argv)
 {
-    mach_port_t		   masterPort;
     io_registry_entry_t	   root;
-    CFDictionaryRef        props;
+    CFDictionaryRef 	   props;
     kern_return_t          status;
-
-    // Obtain the I/O Kit communication handle.
-
-    status = IOMasterPort(bootstrap_port, &masterPort);
-    assert(status == KERN_SUCCESS);
 
     // Obtain the registry root entry.
 
-    root = IORegistryGetRootEntry(masterPort);
+    root = IORegistryGetRootEntry(kIOMasterPortDefault);
     assert(root);
 
     status = IORegistryEntryCreateCFProperties(root,
-			&props,
+			(CFMutableDictionaryRef *) &props,
 			kCFAllocatorDefault, kNilOptions );
     assert( KERN_SUCCESS == status );
     assert( CFDictionaryGetTypeID() == CFGetTypeID(props));
@@ -53,6 +47,7 @@ int main(int argc, char **argv)
     printNumber(props, CFSTR("Instance allocation"));
     printNumber(props, CFSTR("Container allocation"));
     printNumber(props, CFSTR("IOMalloc allocation"));
+    printNumber(props, CFSTR("Pageable allocation"));
 
     CFRelease(props);
     IOObjectRelease(root);

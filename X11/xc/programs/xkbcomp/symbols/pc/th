@@ -1,64 +1,63 @@
 
 // based on a keyboard map from an 'xkb/symbols/th' file
 //
-// $XFree86: xc/programs/xkbcomp/symbols/pc/th,v 1.2 2002/11/22 04:03:28 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/th,v 1.4 2003/04/19 12:22:12 pascal Exp $
 
 partial default alphanumeric_keys 
 xkb_symbols "basic" {
-    name[Group1]= "Thai";
+    name[Group1]= "Thai (Kedmanee)";
 
     // converted to THai keysysms - Pablo Saratxaga <pablo@mandrakesoft.com>
 
-    key <TLDE> { [  underscore,	percent		]	};
-    key <AE01> { [ Thai_lakkhangyao,  plus 	]	};
-    key <AE02> { [       slash,   Thai_leknung	]	};
-    key <AE03> { [       minus,	  Thai_leksong	]	};
-    key <AE04> { [ Thai_phosamphao,Thai_leksam	]	};
-    key <AE05> { [ Thai_thothung, Thai_leksi	]	};
-    key <AE06> { [  Thai_sarau,   Thai_sarauu	]	};
-    key <AE07> { [ Thai_saraue,	  Thai_baht	]	};
-    key <AE08> { [ Thai_khokhwai, Thai_lekha	]	};
-    key <AE09> { [  Thai_totao,   Thai_lekhok	]	};
-    key <AE10> { [ Thai_chochan,  Thai_lekchet	]	};
-    key <AE11> { [ Thai_khokhai,  Thai_lekpaet	]	};
-    key <AE12> { [ Thai_chochang, Thai_lekkao	]	};
+    key <TLDE> { [ underscore,		percent		]	};
+    key <AE01> { [ Thai_lakkhangyao,	plus		]	};
+    key <AE02> { [ slash,		Thai_leknung	]	};
+    key <AE03> { [ minus,		Thai_leksong	]	};
+    key <AE04> { [ Thai_phosamphao,	Thai_leksam	]	};
+    key <AE05> { [ Thai_thothung,	Thai_leksi	]	};
+    key <AE06> { [ Thai_sarau,		Thai_sarauu	]	};
+    key <AE07> { [ Thai_saraue,		Thai_baht	]	};
+    key <AE08> { [ Thai_khokhwai,	Thai_lekha	]	};
+    key <AE09> { [ Thai_totao,		Thai_lekhok	]	};
+    key <AE10> { [ Thai_chochan,	Thai_lekchet	]	};
+    key <AE11> { [ Thai_khokhai,	Thai_lekpaet	]	};
+    key <AE12> { [ Thai_chochang,	Thai_lekkao	]	};
 
-    key <AD01> { [ Thai_maiyamok,Thai_leksun	]	};
-    key <AD02> { [ Thai_saraaimaimalai, quotedbl]	};
-    key <AD03> { [ Thai_saraam, Thai_dochada	]	};
-    key <AD04> { [ Thai_phophan,Thai_thonangmontho ]	};
-    key <AD05> { [  Thai_saraa,	Thai_thothong	]	};
-    key <AD06> { [ Thai_maihanakat,Thai_nikhahit]	};
-    key <AD07> { [ Thai_saraii,	Thai_maitri	]	};
-    key <AD08> { [  Thai_rorua,	Thai_nonen	]	};
-    key <AD09> { [   Thai_nonu,	Thai_paiyannoi	]	};
-    key <AD10> { [  Thai_yoyak,	Thai_yoying	]	};
-    key <AD11> { [ Thai_bobaimai, Thai_thothan	]	};
-    key <AD12> { [ Thai_loling,	comma		]	};
+    key <AD01> { [ Thai_maiyamok,	Thai_leksun	]	};
+    key <AD02> { [ Thai_saraaimaimalai,	quotedbl	]	};
+    key <AD03> { [ Thai_saraam,		Thai_dochada	]	};
+    key <AD04> { [ Thai_phophan,	Thai_thonangmontho ]	};
+    key <AD05> { [ Thai_saraa,		Thai_thothong	]	};
+    key <AD06> { [ Thai_maihanakat,	Thai_nikhahit	]	};
+    key <AD07> { [ Thai_saraii,		Thai_maitri	]	};
+    key <AD08> { [ Thai_rorua,		Thai_nonen	]	};
+    key <AD09> { [ Thai_nonu,		Thai_paiyannoi	]	};
+    key <AD10> { [ Thai_yoyak,		Thai_yoying	]	};
+    key <AD11> { [ Thai_bobaimai,	Thai_thothan	]	};
+    key <AD12> { [ Thai_loling,		comma		]	};
 
-    key <AC01> { [  Thai_fofan,	Thai_ru		]	};
-    key <AC02> { [  Thai_hohip,	Thai_khorakhang	]	};
-    key <AC03> { [  Thai_kokai,	Thai_topatak	]	};
-    key <AC04> { [  Thai_dodek,	Thai_sarao	]	};
-    key <AC05> { [  Thai_sarae,	Thai_chochoe	]	};
-    key <AC06> { [ Thai_maitho,	Thai_maitaikhu	]	};
-    key <AC07> { [  Thai_maiek,	Thai_maichattawa ]	};
-    key <AC08> { [ Thai_saraaa,	Thai_sorusi	]	};
-    key <AC09> { [  Thai_sosua,	Thai_sosala	]	};
-    key <AC10> { [ Thai_wowaen,	Thai_soso	]	};
-    key <AC11> { [ Thai_ngongu,	period		]	};
+    key <AC01> { [ Thai_fofan,		Thai_ru		]	};
+    key <AC02> { [ Thai_hohip,		Thai_khorakhang	]	};
+    key <AC03> { [ Thai_kokai,		Thai_topatak	]	};
+    key <AC04> { [ Thai_dodek,		Thai_sarao	]	};
+    key <AC05> { [ Thai_sarae,		Thai_chochoe	]	};
+    key <AC06> { [ Thai_maitho,		Thai_maitaikhu	]	};
+    key <AC07> { [ Thai_maiek,		Thai_maichattawa ]	};
+    key <AC08> { [ Thai_saraaa,		Thai_sorusi	]	};
+    key <AC09> { [ Thai_sosua,		Thai_sosala	]	};
+    key <AC10> { [ Thai_wowaen,		Thai_soso	]	};
+    key <AC11> { [ Thai_ngongu,		period		]	};
 
-    key <AB01> { [ Thai_phophung, parenleft	]	};
-    key <AB02> { [  Thai_popla,	parenright	]	};
-    key <AB03> { [ Thai_saraae,	Thai_choching	]	};
-    key <AB04> { [   Thai_oang,	Thai_honokhuk	]	};
-    key <AB05> { [  Thai_sarai,	Thai_phinthu	]	};
-    key <AB06> { [ Thai_sarauee,Thai_thanthakhat ]	};
-    key <AB07> { [ Thai_thothahan, question	]	};
-    key <AB08> { [   Thai_moma,	Thai_thophuthao	]	};
-    key <AB09> { [ Thai_saraaimaimuan, Thai_lochula ]	};
-    key <AB10> { [   Thai_fofa,	Thai_lu		]	};
+    key <AB01> { [ Thai_phophung,	parenleft	]	};
+    key <AB02> { [ Thai_popla,		parenright	]	};
+    key <AB03> { [ Thai_saraae,		Thai_choching	]	};
+    key <AB04> { [ Thai_oang,		Thai_honokhuk	]	};
+    key <AB05> { [ Thai_sarai,		Thai_phinthu	]	};
+    key <AB06> { [ Thai_sarauee,	Thai_thanthakhat ]	};
+    key <AB07> { [ Thai_thothahan,	question	]	};
+    key <AB08> { [ Thai_moma,		Thai_thophuthao	]	};
+    key <AB09> { [ Thai_saraaimaimuan,	Thai_lochula	]	};
+    key <AB10> { [ Thai_fofa,		Thai_lu		]	};
 
-    key <BKSL> { [ Thai_khokhuat, Thai_khokhon	]	};
-
+    key <BKSL> { [ Thai_khokhuat,	Thai_khokhon	]	};
 };

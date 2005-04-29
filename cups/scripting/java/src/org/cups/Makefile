@@ -1,5 +1,5 @@
 #
-# "$Id: Makefile,v 1.1.1.1 2003/04/11 21:07:50 jlovell Exp $"
+# "$Id: Makefile,v 1.1.1.3 2004/10/31 16:15:49 jlovell Exp $"
 #
 #   Java Makefile for the Common UNIX Printing System (CUPS).
 #
@@ -88,5 +88,5 @@ docs:
 
 
 #
-# End of "$Id: Makefile,v 1.1.1.1 2003/04/11 21:07:50 jlovell Exp $".
+# End of "$Id: Makefile,v 1.1.1.3 2004/10/31 16:15:49 jlovell Exp $".
 #

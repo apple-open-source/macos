@@ -15,7 +15,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/sun/sunInit.c,v 3.12 2002/12/06 02:11:44 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sun/sunInit.c,v 3.13 2003/11/17 22:20:36 dawes Exp $ */
 
 /************************************************************
 Copyright 1987 by Sun Microsystems, Inc. Mountain View, CA.
@@ -63,12 +63,10 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define BW2I NULL
 #else /* }{ */
 extern Bool sunBW2Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define BW2I sunBW2Init
 #endif /* } */
@@ -86,12 +84,10 @@ extern Bool sunBW2Init(
 #define TCXI NULL
 #else /* }{ */
 extern Bool sunCG3Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG3I sunCG3Init
 #if defined(i386) || defined(__bsdi__) /* { */
@@ -100,33 +96,27 @@ extern Bool sunCG3Init(
 #else /* }{ */
 #ifdef INCLUDE_CG2_HEADER
 extern Bool sunCG2Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG2I sunCG2Init
 #endif /* INCLUDE_CG2_HEADER */
 extern Bool sunCG4Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG4I sunCG4Init
 #endif /* } */
 #ifdef FBTYPE_SUNFAST_COLOR /* { */
 extern Bool sunCG6Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG6I sunCG6Init
 #else /* }{ */
@@ -134,12 +124,10 @@ extern Bool sunCG6Init(
 #endif /* } */
 #ifdef XFBTYPE_TCX  /* { */
 extern Bool sunTCXInit(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define TCXI sunTCXInit
 #else /* }{ */
@@ -148,12 +136,10 @@ extern Bool sunTCXInit(
 #if SUNMAXDEPTH > 8 /* { */
 #ifdef FBTYPE_MEMCOLOR /* { */
 extern Bool sunCG8Init(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 #define CG8I sunCG8Init
 #else /* }{ */
@@ -418,12 +404,10 @@ static void SigIOHandler(sig)
  *-----------------------------------------------------------------------
  */
 void sunNonBlockConsoleOff(
-#if NeedFunctionPrototypes
 #if defined(SVR4) || defined(CSRG_BASED)
     void
 #else
     char* arg
-#endif
 #endif
 )
 {
@@ -526,9 +510,7 @@ static void getKbdType()
 }
 
 void OsVendorInit(
-#if NeedFunctionPrototypes
     void
-#endif
 )
 {
     static int inited;

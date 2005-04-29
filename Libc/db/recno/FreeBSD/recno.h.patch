@@ -1,0 +1,10 @@
+--- recno.h.orig	Fri Mar 22 15:41:40 2002
++++ recno.h	Sat Oct 18 19:48:16 2003
+@@ -36,5 +36,5 @@
+ 
+ enum SRCHOP { SDELETE, SINSERT, SEARCH};	/* Rec_search operation. */
+ 
+-#include "../btree/btree.h"
+-#include "extern.h"
++#include "btree.h"
++#include "rec_extern.h"

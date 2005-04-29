@@ -1,9 +1,6 @@
-/* $Id: zipfile.h,v 1.3 2001/09/17 20:35:56 zlaski Exp $
+/* $Id: zipfile.h,v 1.1 2000/12/09 03:08:23 apbianco Exp $
 
    $Log: zipfile.h,v $
-   Revision 1.3  2001/09/17 20:35:56  zlaski
-   Resolve conflicts due to 2001-09-12 FSF import.
-
    Revision 1.1  2000/12/09 03:08:23  apbianco
    2000-12-08  Alexandre Petit-Bianco  <apbianco@cygnus.com>
 

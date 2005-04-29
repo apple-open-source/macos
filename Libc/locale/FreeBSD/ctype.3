@@ -30,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ctype.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/locale/ctype.3,v 1.12 2002/12/18 13:33:03 ru Exp $
+.\" $FreeBSD: src/lib/libc/locale/ctype.3,v 1.15 2004/06/30 20:09:08 ru Exp $
 .\"
-.Dd June 4, 1993
+.Dd March 30, 2004
 .Dt CTYPE 3
 .Os
 .Sh NAME
@@ -112,7 +112,7 @@
 The above functions perform character tests and conversions on the integer
 .Fa c .
 They are available as macros, defined in the include file
-.Aq Pa ctype.h ,
+.In ctype.h ,
 or as true functions in the C library.
 See the specific manual pages for more information.
 .Sh SEE ALSO
@@ -124,15 +124,20 @@ See the specific manual pages for more information.
 .Xr iscntrl 3 ,
 .Xr isdigit 3 ,
 .Xr isgraph 3 ,
+.Xr isideogram 3 ,
 .Xr islower 3 ,
+.Xr isphonogram 3 ,
 .Xr isprint 3 ,
 .Xr ispunct 3 ,
+.Xr isrune 3 ,
 .Xr isspace 3 ,
+.Xr isspecial 3 ,
 .Xr isupper 3 ,
 .Xr isxdigit 3 ,
 .Xr toascii 3 ,
 .Xr tolower 3 ,
 .Xr toupper 3 ,
+.Xr wctype 3 ,
 .Xr ascii 7
 .Sh STANDARDS
 These functions, except for

@@ -38,7 +38,7 @@
 # AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
 # OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: imapcollate.pl,v 1.5 2002/05/25 19:57:50 leg Exp $
+# $Id: imapcollate.pl,v 1.5 2005/03/05 00:37:32 dasenbro Exp $
 
 use Getopt::Long;
 use Cyrus::IMAP;

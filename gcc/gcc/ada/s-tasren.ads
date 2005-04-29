@@ -6,8 +6,7 @@
 --                                                                          --
 --                                  S p e c                                 --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -28,7 +27,7 @@
 -- covered by the  GNU Public License.                                      --
 --                                                                          --
 -- GNARL was developed by the GNARL team at Florida State University.       --
--- Extensive contributions were provided by Ada Core Technologies Inc.      --
+-- Extensive contributions were provided by Ada Core Technologies, Inc.     --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -46,7 +45,7 @@ package System.Tasking.Rendezvous is
    package STPE renames System.Tasking.Protected_Objects.Entries;
 
    procedure Task_Entry_Call
-     (Acceptor              : Task_ID;
+     (Acceptor              : Task_Id;
       E                     : Task_Entry_Index;
       Uninterpreted_Data    : System.Address;
       Mode                  : Call_Modes;
@@ -62,7 +61,7 @@ package System.Tasking.Rendezvous is
    --  Rendezvous_Successful is set to True on return if the call was serviced.
 
    procedure Timed_Task_Entry_Call
-     (Acceptor              : Task_ID;
+     (Acceptor              : Task_Id;
       E                     : Task_Entry_Index;
       Uninterpreted_Data    : System.Address;
       Timeout               : Duration;
@@ -75,7 +74,7 @@ package System.Tasking.Rendezvous is
    --  Mode determines whether the delay is relative or absolute.
 
    procedure Call_Simple
-     (Acceptor           : Task_ID;
+     (Acceptor           : Task_Id;
       E                  : Task_Entry_Index;
       Uninterpreted_Data : System.Address);
    --  Simple entry call.
@@ -101,7 +100,7 @@ package System.Tasking.Rendezvous is
    --  See Exp_Ch9.Expand_N_Asynchronous_Select for code expansion.
 
    procedure Requeue_Task_Entry
-     (Acceptor   : Task_ID;
+     (Acceptor   : Task_Id;
       E          : Task_Entry_Index;
       With_Abort : Boolean);
    --  Requeue from a task entry to a task entry.
@@ -137,7 +136,7 @@ package System.Tasking.Rendezvous is
 
    procedure Requeue_Protected_To_Task_Entry
      (Object     : STPE.Protection_Entries_Access;
-      Acceptor   : Task_ID;
+      Acceptor   : Task_Id;
       E          : Task_Entry_Index;
       With_Abort : Boolean);
    --  Requeue from a protected entry to a task entry.
@@ -295,7 +294,7 @@ package System.Tasking.Rendezvous is
    --  Return number of tasks waiting on the entry E (of current task)
    --  Compiler interface only. Do not call from within the RTS.
 
-   function Callable (T : Task_ID) return Boolean;
+   function Callable (T : Task_Id) return Boolean;
    --  Return T'Callable
    --  Compiler interface. Do not call from within the RTS, except for body of
    --  Ada.Task_Identification.
@@ -303,7 +302,7 @@ package System.Tasking.Rendezvous is
    type Task_Entry_Nesting_Depth is new Task_Entry_Index
      range 0 .. Max_Task_Entry;
 
-   function Task_Entry_Caller (D : Task_Entry_Nesting_Depth) return Task_ID;
+   function Task_Entry_Caller (D : Task_Entry_Nesting_Depth) return Task_Id;
    --  Return E'Caller. This will only work if called from within an
    --  accept statement that is handling E, as required by the LRM (C.7.1(14)).
    --  Compiler interface only. Do not call from within the RTS.
@@ -319,7 +318,7 @@ package System.Tasking.Rendezvous is
    --  For internal use only:
 
    function Task_Do_Or_Queue
-     (Self_ID    : Task_ID;
+     (Self_ID    : Task_Id;
       Entry_Call : Entry_Call_Link;
       With_Abort : Boolean) return Boolean;
    --  Call this only with abort deferred and holding no locks, except

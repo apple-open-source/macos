@@ -1,3 +1,4 @@
+// { dg-do run  }
 // Copyright (C) 1999 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 5 Sep 1999 <nathan@acm.org>
 
@@ -5,7 +6,7 @@
 // means things like the rhs of a comma operator mustn't decay. This will make
 // a difference if it is an array or function.
 
-extern void abort();
+extern "C" void abort();
 
 int main (int argc, char **argv)
 {

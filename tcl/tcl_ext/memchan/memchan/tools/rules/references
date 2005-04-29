@@ -1,0 +1,57 @@
+# -*- tcl -*-
+# Helper rules for the creation of the memchan website from the .exp files.
+
+proc releases/url {} {return http://sourceforge.net/project/showfiles.php?group_id=[sfgroup]}
+
+img sf/logo  "SourceForge Logo" http://sourceforge.net/sflogo.php?group_id=34191
+img tcl/logo "Tcl Logo"         http://tcl.sourceforge.net/images/logo125.gif
+
+img mem/logo/520  "Memchan Logo"              art/logo520.jpg
+img mem/logo/100  "Memchan Logo"              art/logo100.gif
+img mem/logo/64   "Memchan Logo"              art/logo64.gif
+img mem/logo/100a "Animated Memchan Logo"     art/logo100a.gif
+img mem/logo/64a  "Animated Memchan Logo"     art/logo64a.gif
+
+url sf/img     [sf/logo]  http://sourceforge.net
+url tcl/sf/img [tcl/logo] http://sourceforge.net/projects/tcl
+url tcl/sf/txt Tcl        http://sourceforge.net/projects/tcl
+url tcl/sf/txt/home "Tcl Homepage"        http://sourceforge.net/projects/tcl
+url trf/txt    Trf        http://www.purl.org/net/akupries/soft/trf
+url trf/txt/home    "Trf Homepage"        http://www.purl.org/net/akupries/soft/trf
+
+url mem/sf/txt "Memchan SF Project" http://sourceforge.net/projects/memchan
+url mem/txt    Memchan    http://www.purl.org/net/akupries/soft/memchan
+url mem/txt/old    "Old Memchan page"    http://www.purl.org/net/akupries/soft/memchan
+url mem/txt/old/2  "old Memchan homepage"    http://www.purl.org/net/akupries/soft/memchan
+
+url copyright    "&#169;"        disclaimer.html
+
+if {0} {
+    url mem/images   "Logos"         images.html
+    url mem/home     "Homepage"      index.html
+    url mem/anim     "Animations"    animations.html
+    url mem/releases "Releases"      [releases/url]
+    url mem/doc      "Documentation" documentation.html
+    url mem/clog     "ChangeLog"     changelog.html
+}
+
+url tcl/foundry  "Tcl Foundry" http://sourceforge.net/foundry/tcl-foundry/
+
+
+url me                   "Andreas Kupries"  http://www.purl.org/net/akupries/
+
+## Future ## Try to make this automatic ...
+
+url andreas_kupries/home "Andreas Kupries"  http://www.purl.org/net/akupries/
+url stevel/home          "Steve Landers"    http://www.digital-smarties.com/
+url pat/home             "Pat Thoyts"       http://sourceforge.net/users/patthoyts
+
+
+url jo      "John Ousterhout"     http://www.scriptics.com/people/john.ousterhout
+url jcw     "Jean-Claude Wippler" http://www.equi4.com/jcw/
+url tclwiki "Tcl'ers Wiki"        http://www.purl.org/tcl/wiki/
+url lvirden "Larry W. Virden"     http://www.purl.org/net/lvirden/
+url jan     "Jan Nijtmans"        http://www.purl.org/net/nijtmans/
+
+url tcl/io/fevent "Interaction of I/O system and notifier in the Tcl core" \
+	http://sourceforge.net/docman/display_doc.php?docid=6710&group_id=10894

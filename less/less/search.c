@@ -146,7 +146,7 @@ cvt_text(odst, osrc, ops)
  * Determine which conversions to perform.
  */
 	static int
-get_cvt_ops(void)
+get_cvt_ops()
 {
 	int ops = 0;
 	if (is_caseless || bs_mode == BS_SPECIAL)
@@ -925,7 +925,7 @@ search_range(pos, endpos, search_type, matches, maxlines, plinepos, pendpos)
 	POSITION *pendpos;
 {
 	char *line;
-	int linenum;
+	LINENUM linenum;
 	char *sp, *ep;
 	int line_match;
 	int cvt_ops;

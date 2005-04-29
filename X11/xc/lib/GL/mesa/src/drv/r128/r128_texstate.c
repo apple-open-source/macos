@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_texstate.c,v 1.1 2002/02/22 21:44:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_texstate.c,v 1.4 2004/01/23 03:57:05 dawes Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -33,17 +33,18 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
  *   Brian Paul <brianp@valinux.com>
  */
 
+#include "glheader.h"
+#include "imports.h"
+#include "context.h"
+#include "macros.h"
+#include "texformat.h"
+
 #include "r128_context.h"
 #include "r128_state.h"
 #include "r128_ioctl.h"
 #include "r128_vb.h"
 #include "r128_tris.h"
 #include "r128_tex.h"
-
-#include "context.h"
-#include "macros.h"
-#include "mem.h"
-#include "texformat.h"
 
 
 static void r128SetTexImages( r128ContextPtr rmesa,
@@ -60,7 +61,7 @@ static void r128SetTexImages( r128ContextPtr rmesa,
    assert(baseImage);
 
    if ( R128_DEBUG & DEBUG_VERBOSE_API )
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, tObj );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)tObj );
 
    switch (baseImage->TexFormat->MesaFormat) {
    case MESA_FORMAT_ARGB8888:
@@ -78,29 +79,29 @@ static void r128SetTexImages( r128ContextPtr rmesa,
    case MESA_FORMAT_CI8:
       t->textureFormat = R128_DATATYPE_CI8;
       break;
+   case MESA_FORMAT_YCBCR:
+      t->textureFormat = R128_DATATYPE_YVYU422;
+      break;
+   case MESA_FORMAT_YCBCR_REV:
+      t->textureFormat = R128_DATATYPE_VYUY422;
+      break;
    default:
-      _mesa_problem(rmesa->glCtx, "Bad texture format in r128SetTexImages");
+      _mesa_problem(rmesa->glCtx, "Bad texture format in %s", __FUNCTION__);
    };
 
    /* Compute which mipmap levels we really want to send to the hardware.
-    * This depends on the base image size, GL_TEXTURE_MIN_LOD,
-    * GL_TEXTURE_MAX_LOD, GL_TEXTURE_BASE_LEVEL, and GL_TEXTURE_MAX_LEVEL.
-    * Yes, this looks overly complicated, but it's all needed.
     */
-   firstLevel = tObj->BaseLevel + (GLint) (tObj->MinLod + 0.5);
-   firstLevel = MAX2(firstLevel, tObj->BaseLevel);
-   lastLevel = tObj->BaseLevel + (GLint) (tObj->MaxLod + 0.5);
-   lastLevel = MAX2(lastLevel, tObj->BaseLevel);
-   lastLevel = MIN2(lastLevel, tObj->BaseLevel + baseImage->MaxLog2);
-   lastLevel = MIN2(lastLevel, tObj->MaxLevel);
-   lastLevel = MAX2(firstLevel, lastLevel); /* need at least one level */
+
+   driCalculateTextureFirstLastLevel( (driTextureObject *) t );
+   firstLevel = t->base.firstLevel;
+   lastLevel  = t->base.lastLevel;
 
    log2Pitch = tObj->Image[firstLevel]->WidthLog2;
    log2Height = tObj->Image[firstLevel]->HeightLog2;
    log2Size = MAX2(log2Pitch, log2Height);
    log2MinSize = log2Size;
 
-   t->dirty_images = 0;
+   t->base.dirty_images[0] = 0;
    totalSize = 0;
    for ( i = firstLevel; i <= lastLevel; i++ ) {
       const struct gl_texture_image *texImage;
@@ -117,7 +118,7 @@ static void r128SetTexImages( r128ContextPtr rmesa,
       t->image[i - firstLevel].width  = tObj->Image[i]->Width;
       t->image[i - firstLevel].height = tObj->Image[i]->Height;
 
-      t->dirty_images |= (1 << i);
+      t->base.dirty_images[0] |= (1 << i);
 
       totalSize += (tObj->Image[i]->Height *
 		    tObj->Image[i]->Width *
@@ -127,9 +128,9 @@ static void r128SetTexImages( r128ContextPtr rmesa,
       totalSize = (totalSize + 31) & ~31;
    }
 
-   t->totalSize = totalSize;
-   t->firstLevel = firstLevel;
-   t->lastLevel = lastLevel;
+   t->base.totalSize = totalSize;
+   t->base.firstLevel = firstLevel;
+   t->base.lastLevel = lastLevel;
 
    /* Set the texture format */
    t->setup.tex_cntl &= ~(0xf << 16);
@@ -151,9 +152,7 @@ static void r128SetTexImages( r128ContextPtr rmesa,
    else
       t->setup.tex_cntl &= ~R128_MIP_MAP_DISABLE;
 
-   /* XXX this is done in r128EmitHwStateLocked():
-   r128UploadTexImages( rmesa, t );
-   */
+   /* FYI: r128UploadTexImages( rmesa, t ); used to be called here */
 }
 
 
@@ -194,7 +193,7 @@ static void r128SetTexImages( r128ContextPtr rmesa,
 #define INPUT_PREVIOUS			(R128_INPUT_FACTOR_PREV_COLOR |	\
 					 R128_INP_FACTOR_A_PREV_ALPHA)
 
-static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
+static GLboolean r128UpdateTextureEnv( GLcontext *ctx, int unit )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
    GLint source = rmesa->tmu_source[unit];
@@ -205,7 +204,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 
    if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
       fprintf( stderr, "%s( %p, %d )\n",
-	       __FUNCTION__, ctx, unit );
+	       __FUNCTION__, (void *)ctx, unit );
    }
 
    if ( unit == 0 ) {
@@ -235,7 +234,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 break;
       case GL_COLOR_INDEX:
       default:
-	 return;
+	 return GL_FALSE;
       }
       break;
 
@@ -258,7 +257,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 break;
       case GL_COLOR_INDEX:
       default:
-	 return;
+	 return GL_FALSE;
       }
       break;
 
@@ -282,7 +281,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 break;
       case GL_COLOR_INDEX:
       default:
-	 return;
+	 return GL_FALSE;
       }
       break;
 
@@ -318,14 +317,13 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	    default:
 	       combine |= (COLOR_COMB_MODULATE |	/* C = fallback      */
 			   ALPHA_COMB_MODULATE);	/* A = fallback      */
-	       FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-	       break;
+	       return GL_FALSE;
 	    }
 	    break;
 
 	 case GL_COLOR_INDEX:
 	 default:
-	    return;
+	    return GL_FALSE;
 	 }
 	 break;
       }
@@ -334,7 +332,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
        * to software rendering.
        */
       if ( rmesa->blend_flags ) {
-	 FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
+	 return GL_FALSE;
       }
       switch ( format ) {
       case GL_RGBA:
@@ -359,8 +357,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 default:
 	    combine |= (COLOR_COMB_MODULATE |		/* C = fallback      */
 			ALPHA_COMB_MODULATE);		/* A = fallback      */
-	    FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-	    break;
+	    return GL_FALSE;
 	 }
 	 break;
       case GL_RGB:
@@ -385,8 +382,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 default:
 	    combine |= (COLOR_COMB_MODULATE |		/* C = fallback      */
 			ALPHA_COMB_COPY_INPUT);		/* A = fallback      */
-	    FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-	    break;
+	    return GL_FALSE;
 	 }
 	 break;
       case GL_ALPHA:
@@ -416,8 +412,7 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 default:
 	    combine |= (COLOR_COMB_MODULATE |		/* C = fallback      */
 			ALPHA_COMB_MODULATE);		/* A = fallback      */
-	    FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-	    break;
+	    return GL_FALSE;
 	 }
 	 switch ( rmesa->env_color & 0xff000000 ) {
 	 case 0x00000000:
@@ -436,13 +431,12 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 default:
 	    combine |= (COLOR_COMB_MODULATE |		/* C = fallback      */
 			ALPHA_COMB_MODULATE);		/* A = fallback      */
-	    FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-	    break;
+	    return GL_FALSE;
 	 }
 	 break;
       case GL_COLOR_INDEX:
       default:
-	 return;
+	 return GL_FALSE;
       }
       break;
 
@@ -468,69 +462,159 @@ static void r128UpdateTextureEnv( GLcontext *ctx, int unit )
 	 break;
       case GL_COLOR_INDEX:
       default:
-	 return;
+	 return GL_FALSE;
       }
       break;
 
    default:
-      return;
+      return GL_FALSE;
    }
 
-   rmesa->tex_combine[unit] = combine;
+   if ( rmesa->tex_combine[unit] != combine ) {
+     rmesa->tex_combine[unit] = combine;
+     rmesa->dirty |= R128_UPLOAD_TEX0 << unit;
+   }
+   return GL_TRUE;
 }
 
-static void r128UpdateTextureUnit( GLcontext *ctx, int unit )
+static void disable_tex( GLcontext *ctx, int unit )
+{
+   r128ContextPtr rmesa = R128_CONTEXT(ctx);
+
+   FLUSH_BATCH( rmesa );
+
+   if ( rmesa->CurrentTexObj[unit] ) {
+      rmesa->CurrentTexObj[unit]->base.bound &= ~(1 << unit);
+      rmesa->CurrentTexObj[unit] = NULL;
+   }
+
+   rmesa->setup.tex_cntl_c &= ~(R128_TEXMAP_ENABLE << unit);
+   rmesa->setup.tex_size_pitch_c &= ~(R128_TEX_SIZE_PITCH_MASK << 
+				      (R128_SEC_TEX_SIZE_PITCH_SHIFT * unit));
+   rmesa->dirty |= R128_UPLOAD_CONTEXT;
+
+   /* If either texture unit is disabled, then multitexturing is not
+    * happening.
+    */
+
+   rmesa->blend_flags &= ~R128_BLEND_MULTITEX;
+}
+
+static GLboolean enable_tex_2d( GLcontext *ctx, int unit )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
    const int source = rmesa->tmu_source[unit];
    const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[source];
-   const struct gl_texture_object *tObj = ctx->Texture.Unit[source]._Current;
-   r128TexObjPtr t = tObj->DriverData;
+   const struct gl_texture_object *tObj = texUnit->_Current;
+   r128TexObjPtr t = (r128TexObjPtr) tObj->DriverData;
 
-   assert(unit == 0 || unit == 1);  /* only two tex units */
+   /* Need to load the 2d images associated with this unit.
+    */
+   if ( t->base.dirty_images[0] ) {
+      /* FIXME: For Radeon, RADEON_FIREVERTICES is called here.  Should
+       * FIXME: something similar be done for R128?
+       */
+      /*  FLUSH_BATCH( rmesa ); */
 
-   if (texUnit->_ReallyEnabled & (TEXTURE0_1D | TEXTURE0_2D)) {
-
-      assert(t);  /* should have driver tex data by now */
-
-      /* Fallback if there's a texture border */
-      if ( tObj->Image[tObj->BaseLevel]->Border > 0 ) {
-         FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
-         return;
-      }
-
-      /* Upload teximages */
-      if (t->dirty_images) {
-         r128SetTexImages( rmesa, tObj );
-      }
-
-      /* Bind to the given texture unit */
-      rmesa->CurrentTexObj[unit] = t;
-      t->bound |= (1 << unit);
-
-      if ( t->memBlock )
-         r128UpdateTexLRU( rmesa, t );
-
-      /* register setup */
-      if ( unit == 0 ) {
-         rmesa->setup.tex_cntl_c       |= R128_TEXMAP_ENABLE;
-         rmesa->setup.tex_size_pitch_c |= t->setup.tex_size_pitch << 0;
-         rmesa->setup.scale_3d_cntl    &= ~R128_TEX_CACHE_SPLIT;
-         t->setup.tex_cntl             &= ~R128_SEC_SELECT_SEC_ST;
-      }
-      else {
-         rmesa->setup.tex_cntl_c       |= R128_SEC_TEXMAP_ENABLE;
-         rmesa->setup.tex_size_pitch_c |= t->setup.tex_size_pitch << 16;
-         rmesa->setup.scale_3d_cntl    |= R128_TEX_CACHE_SPLIT;
-         t->setup.tex_cntl             |=  R128_SEC_SELECT_SEC_ST;
-      }
+      r128SetTexImages( rmesa, tObj );
+      r128UploadTexImages( rmesa, t );
+      if ( !t->base.memBlock ) 
+	  return GL_FALSE;
    }
-   else if (texUnit->_ReallyEnabled) {
-      /* 3D or cube map texture enabled - fallback */
-      FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_TRUE );
+
+   return GL_TRUE;
+}
+
+static GLboolean update_tex_common( GLcontext *ctx, int unit )
+{
+   r128ContextPtr rmesa = R128_CONTEXT(ctx);
+   const int source = rmesa->tmu_source[unit];
+   const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[source];
+   const struct gl_texture_object *tObj = texUnit->_Current;
+   r128TexObjPtr t = (r128TexObjPtr) tObj->DriverData;
+
+
+   /* Fallback if there's a texture border */
+   if ( tObj->Image[tObj->BaseLevel]->Border > 0 ) {
+      return GL_FALSE;
+   }
+
+
+   /* Update state if this is a different texture object to last
+    * time.
+    */
+   if ( rmesa->CurrentTexObj[unit] != t ) {
+      if ( rmesa->CurrentTexObj[unit] != NULL ) {
+	 /* The old texture is no longer bound to this texture unit.
+	  * Mark it as such.
+	  */
+
+	 rmesa->CurrentTexObj[unit]->base.bound &= 
+	     ~(1UL << unit);
+      }
+
+      rmesa->CurrentTexObj[unit] = t;
+      t->base.bound |= (1UL << unit);
+      rmesa->dirty |= R128_UPLOAD_TEX0 << unit;
+
+      driUpdateTextureLRU( (driTextureObject *) t ); /* XXX: should be locked! */
+   }
+
+   /* FIXME: We need to update the texture unit if any texture parameters have
+    * changed, but this texture was already bound.  This could be changed to
+    * work like the Radeon driver where the texture object has it's own
+    * dirty state flags
+    */
+   rmesa->dirty |= R128_UPLOAD_TEX0 << unit;
+
+   /* register setup */
+   rmesa->setup.tex_size_pitch_c &= ~(R128_TEX_SIZE_PITCH_MASK << 
+				      (R128_SEC_TEX_SIZE_PITCH_SHIFT * unit));
+
+   if ( unit == 0 ) {
+      rmesa->setup.tex_cntl_c       |= R128_TEXMAP_ENABLE;
+      rmesa->setup.tex_size_pitch_c |= t->setup.tex_size_pitch << 0;
+      rmesa->setup.scale_3d_cntl    &= ~R128_TEX_CACHE_SPLIT;
+      t->setup.tex_cntl             &= ~R128_SEC_SELECT_SEC_ST;
    }
    else {
-      /* texture unit disabled */
+      rmesa->setup.tex_cntl_c       |= R128_SEC_TEXMAP_ENABLE;
+      rmesa->setup.tex_size_pitch_c |= t->setup.tex_size_pitch << 16;
+      rmesa->setup.scale_3d_cntl    |= R128_TEX_CACHE_SPLIT;
+      t->setup.tex_cntl             |=  R128_SEC_SELECT_SEC_ST;
+
+      /* If the second TMU is enabled, then multitexturing is happening.
+       */
+      if ( R128_IS_PLAIN( rmesa ) )
+	  rmesa->blend_flags            |= R128_BLEND_MULTITEX;
+   }
+
+   rmesa->dirty |= R128_UPLOAD_CONTEXT;
+
+
+   /* FIXME: The Radeon has some cached state so that it can avoid calling
+    * FIXME: UpdateTextureEnv in some cases.  Is that possible here?
+    */
+   return r128UpdateTextureEnv( ctx, unit );
+}
+
+static GLboolean updateTextureUnit( GLcontext *ctx, int unit )
+{
+   r128ContextPtr rmesa = R128_CONTEXT(ctx);
+   const int source = rmesa->tmu_source[unit];
+   const struct gl_texture_unit *texUnit = &ctx->Texture.Unit[source];
+
+
+   if (texUnit->_ReallyEnabled & (TEXTURE_1D_BIT | TEXTURE_2D_BIT)) {
+      return (enable_tex_2d( ctx, unit ) &&
+	      update_tex_common( ctx, unit ));
+   }
+   else if ( texUnit->_ReallyEnabled ) {
+      return GL_FALSE;
+   }
+   else {
+      disable_tex( ctx, unit );
+      return GL_TRUE;
    }
 }
 
@@ -538,60 +622,25 @@ static void r128UpdateTextureUnit( GLcontext *ctx, int unit )
 void r128UpdateTextureState( GLcontext *ctx )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
+   GLboolean ok;
 
-   if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
-      fprintf( stderr, "%s( %p ) enabled=0x%x\n",
-	       __FUNCTION__, ctx, ctx->Texture._ReallyEnabled );
-   }
 
-   /* Clear any texturing fallbacks */
-   FALLBACK( rmesa, R128_FALLBACK_TEXTURE, GL_FALSE );
-
-   /* Unbind any currently bound textures */
-   if ( rmesa->CurrentTexObj[0] )  rmesa->CurrentTexObj[0]->bound = 0;
-   if ( rmesa->CurrentTexObj[1] )  rmesa->CurrentTexObj[1]->bound = 0;
-   rmesa->CurrentTexObj[0] = NULL;
-   rmesa->CurrentTexObj[1] = NULL;
-
-   /* Disable all texturing until it is known to be good */
-   rmesa->setup.tex_cntl_c &= ~(R128_TEXMAP_ENABLE |
-				R128_SEC_TEXMAP_ENABLE);
-   rmesa->setup.tex_size_pitch_c = 0x00000000;
-
-   /*
-    * Now examine texture enable state to do rest of setup.
+   /* This works around a quirk with the R128 hardware.  If only OpenGL 
+    * TEXTURE1 is enabled, then the hardware TEXTURE0 must be used.  The
+    * hardware TEXTURE1 can ONLY be used when hardware TEXTURE0 is also used.
     */
+
    rmesa->tmu_source[0] = 0;
    rmesa->tmu_source[1] = 1;
-   rmesa->blend_flags &= ~R128_BLEND_MULTITEX;
 
-   if (ctx->Texture._ReallyEnabled & TEXTURE1_ANY) {
-      if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY) {
-         /* both texture 0 and 1 enabled */
-	 if ( R128_IS_PLAIN( rmesa ) )
-	    rmesa->blend_flags |= R128_BLEND_MULTITEX;
-	 r128UpdateTextureUnit( ctx, 0 );
-	 r128UpdateTextureEnv( ctx, 0 );
-	 r128UpdateTextureUnit( ctx, 1 );
-	 r128UpdateTextureEnv( ctx, 1 );
-         rmesa->dirty |= (R128_UPLOAD_TEX0IMAGES | R128_UPLOAD_TEX0 |
-                          R128_UPLOAD_TEX1IMAGES | R128_UPLOAD_TEX1);
-      }
-      else {
-         /* only texture 1 enabled */
-	 rmesa->tmu_source[0] = 1;
-	 rmesa->tmu_source[1] = 0;
-	 r128UpdateTextureUnit( ctx, 0 );
-	 r128UpdateTextureEnv( ctx, 0 );
-         rmesa->dirty |= (R128_UPLOAD_TEX0IMAGES | R128_UPLOAD_TEX0);
-      }
-   }
-   else if (ctx->Texture._ReallyEnabled & TEXTURE0_ANY) {
-      /* only texture 0 enabled */
-      r128UpdateTextureUnit( ctx, 0 );
-      r128UpdateTextureEnv( ctx, 0 );
-      rmesa->dirty |= (R128_UPLOAD_TEX0IMAGES | R128_UPLOAD_TEX0);
+   if ((ctx->Texture._EnabledUnits & 0x03) == 0x02) {
+      /* only texture 1 enabled */
+      rmesa->tmu_source[0] = 1;
+      rmesa->tmu_source[1] = 0;
    }
 
-   rmesa->dirty |= R128_UPLOAD_CONTEXT;
+   ok = (updateTextureUnit( ctx, 0 ) &&
+	 updateTextureUnit( ctx, 1 ));
+
+   FALLBACK( rmesa, R128_FALLBACK_TEXTURE, !ok );
 }

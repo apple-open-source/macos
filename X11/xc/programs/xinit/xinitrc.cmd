@@ -1,5 +1,5 @@
 /* OS/2 REXX */
-/* $XFree86: xc/programs/xinit/xinitrc.cmd,v 3.5 1997/01/27 08:26:14 dawes Exp $ */
+/* $XFree86: xc/programs/xinit/xinitrc.cmd,v 3.6 2003/11/12 00:10:31 dawes Exp $ */
 '@echo off'
 env = 'OS2ENVIRONMENT'
 x11root = VALUE('X11ROOT',,env)
@@ -12,9 +12,9 @@ IF home = '' THEN home = x11root
 
 userresources = home'\.Xresources'
 usermodmap    = home'\.Xmodmap'
-sysresources  = x11root'\XFree86\lib\X11\xinit\.Xresources'
-sysmodmap     = x11root'\XFree86\lib\X11\xinit\.Xmodmap'
-xbitmapdir    = x11root'\XFree86\include\X11\bitmaps'
+sysresources  = x11root'\usr\X11R6\lib\X11\xinit\.Xresources'
+sysmodmap     = x11root'\usr\X11R6\lib\X11\xinit\.Xmodmap'
+xbitmapdir    = x11root'\usr\X11R6\include\X11\bitmaps'
 manpath       = VALUE('MANPATH',,env)
 
 /* merge in defaults */

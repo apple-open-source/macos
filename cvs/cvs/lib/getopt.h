@@ -14,6 +14,30 @@
 #ifndef _GETOPT_H
 #define _GETOPT_H 1
 
+/* CVS - DRP
+ *
+ * If the OS defines this, just redefine the names to avoid namespace
+ * clashes.  In theory, we should be testing the built in functions to
+ * see if they do what we want and use them if possible, but this is
+ * easier...
+ *
+ * Namely, this was occurring under Mac OS X.  This is a Mac OS X (or
+ * OS X related) bug.
+ *
+ * Oops.  We avoid compiling this with ifdefs because pretty much all of
+ * getopt.c is switched on the same macros...  this isn't right, but I think
+ * this isn't our file.  Probably best not to mess with it too much.
+ */
+#if defined (_LIBC) || !defined (__GNU_LIBRARY__)
+# ifdef HAVE_GETOPT
+#   define getopt		cvs_getopt
+#   define optarg		cvs_optarg
+#   define opterr		cvs_opterr
+#   define optind		cvs_optind
+#   define optopt		cvs_optopt
+# endif /* HAVE_GETOPT */
+#endif	/* _LIBC or not __GNU_LIBRARY__.  */
+
 #ifdef	__cplusplus
 extern "C" {
 #endif
@@ -91,14 +115,14 @@ struct option
 #define optional_argument	2
 
 #if __STDC__
-#if defined(__GNU_LIBRARY__)
 /* Many other libraries have conflicting prototypes for getopt, with
-   differences in the consts, in stdlib.h.  To avoid compilation
-   errors, only prototype getopt for the GNU C library.  */
-extern int getopt (int argc, char *const *argv, const char *shortopts);
-#else /* not __GNU_LIBRARY__ */
+   differences in the consts, in stdlib.h.  We used to try to prototype
+   it if __GNU_LIBRARY__ but that wasn't problem free either (I'm not sure
+   exactly why), and there is no particular need to prototype it.
+   We really shouldn't be trampling on the system's namespace at all by
+   declaring getopt() but that is a bigger issue.  */
 extern int getopt ();
-#endif /* not __GNU_LIBRARY__ */
+
 extern int getopt_long (int argc, char *const *argv, const char *shortopts,
 		        const struct option *longopts, int *longind);
 extern int getopt_long_only (int argc, char *const *argv,

@@ -529,7 +529,11 @@ static void unexec_doit(int infd,int outfd)
 	      section_pointer = (struct section *)(segment_pointer + 1);
 	      for (l = 0; l < segment_pointer->nsects; l++)
 		{
-		  if (!strncmp (section_pointer->sectname, "__la_symbol_ptr", 16))
+		  if (!strncmp (section_pointer->sectname, "__la_symbol_ptr", 16)
+		      || !strncmp (section_pointer->sectname, "__nl_symbol_ptr", 16)
+		      || !strncmp (section_pointer->sectname, "__la_sym_ptr2", 16)
+		      || !strncmp (section_pointer->sectname, "__la_sym_ptr3", 16)
+		      || !strncmp (section_pointer->sectname, "__dyld", 16))
 		    {
 		      section_item = alloca (sizeof (section_list_t));
 		      section_item->next = *sect_ptr;
@@ -537,23 +541,6 @@ static void unexec_doit(int infd,int outfd)
 		      *sect_ptr = section_item;
 		      sect_ptr = &(section_item->next);
 		    }
-		  else if (!strncmp (section_pointer->sectname, "__nl_symbol_ptr", 16))
-		    {
-		      section_item = alloca (sizeof (section_list_t));
-		      section_item->next = *sect_ptr;
-		      section_item->section = *section_pointer;
-		      *sect_ptr = section_item;
-		      sect_ptr = &(section_item->next);
-		    }
-		  else if (!strncmp (section_pointer->sectname, "__dyld", 16))
-		    {
-		      section_item = alloca (sizeof (section_list_t));
-		      section_item->next = *sect_ptr;
-		      section_item->section = *section_pointer;
-		      *sect_ptr = section_item;
-		      sect_ptr = &(section_item->next);
-		    }
-
 		  section_pointer++;
 		}
 

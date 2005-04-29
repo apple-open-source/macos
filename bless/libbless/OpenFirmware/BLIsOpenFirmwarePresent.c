@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,23 @@
  *  bless
  *
  *  Created by Shantonu Sen on Tue Jul 22 2003.
- *  Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2003-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLIsOpenFirmwarePresent.c,v 1.5 2003/08/26 00:39:09 ssen Exp $
+ *  $Id: BLIsOpenFirmwarePresent.c,v 1.9 2005/02/03 00:42:29 ssen Exp $
  *
  *  $Log: BLIsOpenFirmwarePresent.c,v $
+ *  Revision 1.9  2005/02/03 00:42:29  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.8  2005/01/16 02:11:53  ssen
+ *  misc changes to support updating booters
+ *
+ *  Revision 1.7  2004/04/20 21:40:45  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.6  2003/10/24 22:46:36  ssen
+ *  don't try to compare IOKit objects to NULL, since they are really mach port integers
+ *
  *  Revision 1.5  2003/08/26 00:39:09  ssen
  *  new minibless target
  *
@@ -71,7 +81,7 @@ int BLIsOpenFirmwarePresent(BLContextPtr context) {
 
     const char path[] = kIODeviceTreePlane ":" kBootRomPath;
     kern_return_t ret;
-    io_registry_entry_t entry = NULL;
+    io_registry_entry_t entry = 0;
     CFMutableDictionaryRef props = NULL;
     CFDataRef model = NULL;
     mach_port_t	masterPort;
@@ -81,7 +91,7 @@ int BLIsOpenFirmwarePresent(BLContextPtr context) {
     
     entry = IORegistryEntryFromPath(masterPort, path);
 
-    if(entry == NULL) {
+    if(entry == 0) {
 	contextprintf(context, kBLLogLevelVerbose,  "%s not present in IORegistry. OpenFirmware not present\n", path);
 	return 0;
     }
@@ -107,7 +117,7 @@ int BLIsOpenFirmwarePresent(BLContextPtr context) {
 
     contextprintf(context, kBLLogLevelVerbose, "%s found\n", path);
 
-    contextprintf(context, kBLLogLevelVerbose, "OpenFirmware model is \"%*s\"\n", CFDataGetLength(model), CFDataGetBytePtr(model));
+    contextprintf(context, kBLLogLevelVerbose, "OpenFirmware model is \"%*s\"\n", (int)CFDataGetLength(model), CFDataGetBytePtr(model));
     
     CFRelease(props);
     IOObjectRelease(entry);

@@ -41,6 +41,9 @@
  * Author: Kurt Shoens (UCB) March 25, 1978
  */
 
+#ifndef DEF_H
+#define DEF_H
+
 #include <sys/param.h>
 #include <sys/stat.h>
 
@@ -276,3 +279,5 @@ struct ignoretab {
 	(void)fflush(stream); 						\
 	(void)ftruncate(fileno(stream), (off_t)ftell(stream));		\
 }
+
+#endif /* DEF_H */

@@ -127,3 +127,5 @@ pagesize: pagesize.sh
 after_install::
 	$(CP) -p ${SYM_DIR}/pagesize $(DSTROOT)$(INSTALLDIR)/pagesize
 	$(CHMOD) 555 $(DSTROOT)$(INSTALLDIR)/pagesize
+	mkdir -p $(DSTROOT)/usr/share/man/man1
+	install -c -m 444 pagesize.1 $(DSTROOT)/usr/share/man/man1

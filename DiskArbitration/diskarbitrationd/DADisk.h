@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,6 +24,7 @@
 #ifndef __DISKARBITRATIOND_DADISK__
 #define __DISKARBITRATIOND_DADISK__
 
+#include <sys/mount.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 #include <IOKit/IOKitLib.h>
@@ -62,7 +63,7 @@ typedef UInt32 DADiskState;
 
 extern CFComparisonResult DADiskCompareDescription( DADiskRef disk, CFStringRef description, CFTypeRef value );
 extern DADiskRef          DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media );
-extern DADiskRef          DADiskCreateFromVolumePath( CFAllocatorRef allocator, CFURLRef path );
+extern DADiskRef          DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct statfs * fs );
 extern CFAbsoluteTime     DADiskGetBusy( DADiskRef disk );
 extern io_object_t        DADiskGetBusyNotification( DADiskRef disk );
 extern CFURLRef           DADiskGetBypath( DADiskRef disk );

@@ -31,6 +31,7 @@
 #include <IOKit/IOCommandGate.h>
 #include <IOKit/IOTypes.h>
 #include <IOKit/IOTimerEventSource.h>
+#include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include "IOATATypes.h"
 #include "IOATAController.h"
 #include "IOATACommand.h"
@@ -39,6 +40,7 @@
 #include "IOATADevConfig.h"
 #include "IOATABusCommand.h"
 #include "ATATimerEventSource.h"
+
 
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
@@ -168,6 +170,12 @@ IOATAController::start(IOService *provider)
         return false;
 	}
 
+	OSObject * prop = getProperty ( kIOPropertyPhysicalInterconnectTypeKey, gIOServicePlane );
+	if ( prop == NULL )
+	{
+		setProperty ( kIOPropertyPhysicalInterconnectTypeKey, kIOPropertyPhysicalInterconnectTypeATA);
+	}
+
 	if( !configureTFPointers() )
 	{
 		DLOG("IOATA TF Pointers failed\n");
@@ -216,7 +224,11 @@ IOATAController::start(IOService *provider)
         return false;
 	}
 
-    DLOG("IOATAController::start() done\n");
+	//3643376 make it easier for ASP to find disk drives in the system. 
+	
+	registerService();
+    
+	DLOG("IOATAController::start() done\n");
     return true;
 }
 
@@ -2344,6 +2356,7 @@ IOATAController::txDataIn (IOLogicalAddress buf, IOByteCount length)
 		OSSynchronizeIO(); 
 		*buf16++ = *_tfDataReg;
 		length -= 32;							// update the length count
+		OSSynchronizeIO();	
 	}
 
 	while (length >= 2)

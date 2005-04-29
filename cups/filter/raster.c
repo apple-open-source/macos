@@ -1,23 +1,25 @@
 /*
- * "$Id: raster.c,v 1.1.1.7.4.1 2003/12/12 20:50:55 jlovell Exp $"
+ * "$Id: raster.c,v 1.7 2005/01/04 22:10:43 jlovell Exp $"
  *
  *   Raster file routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
+ *
+ *   This file is part of the CUPS Imaging library.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
- *   copyright law.  Distribution and use rights for the CUPS Raster source
- *   files are outlined in the GNU Library General Public License, located
- *   in the "pstoraster" directory.  If this file is missing or damaged
- *   please contact Easy Software Products at:
+ *   copyright law.  Distribution and use rights are outlined in the file
+ *   "LICENSE.txt" which should have been included with this file.  If this
+ *   file is missing or damaged please contact Easy Software Products
+ *   at:
  *
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -150,7 +152,7 @@ cupsRasterReadHeader(cups_raster_t      *r,	/* I - Raster stream */
              s = (union swap_s *)&(h->AdvanceDistance);
 	 len > 0;
 	 len --, s ++)
-      s->v = (((((s->b[3] << 8) | s->b[2]) << 8) | s->b[1]) << 8) | s->b[0];
+      s->v = (((((s->b[0] << 8) | s->b[1]) << 8) | s->b[2]) << 8) | s->b[3];
 
   return (1);
 }
@@ -179,14 +181,13 @@ cupsRasterReadPixels(cups_raster_t *r,	/* I - Raster stream */
     bytes = read(r->fd, p, remaining);
 
     if (bytes == 0)
-        return (0);
-
-    if (bytes < 0)
+      return (0);
+    else if (bytes < 0)
     {
-      if (errno == EAGAIN || errno == EINTR)
-        continue;
-      else
+      if (errno != EINTR)
         return (0);
+      else
+        continue;
     }
 
     remaining -= bytes;
@@ -236,9 +237,11 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
   {
     bytes = write(r->fd, p, remaining);
 
-    if (bytes <= 0)
+    if (bytes == 0)
+      return (0);
+    else if (bytes < 0)
     {
-      if (errno != EAGAIN && errno != EINTR)
+      if (errno != EINTR)
         return (0);
       else
         continue;
@@ -253,5 +256,5 @@ cupsRasterWritePixels(cups_raster_t *r,	/* I - Raster stream */
 
 
 /*
- * End of "$Id: raster.c,v 1.1.1.7.4.1 2003/12/12 20:50:55 jlovell Exp $".
+ * End of "$Id: raster.c,v 1.7 2005/01/04 22:10:43 jlovell Exp $".
  */

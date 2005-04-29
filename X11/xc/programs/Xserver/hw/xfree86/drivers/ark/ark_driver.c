@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ark/ark_driver.c,v 1.21 2002/07/24 01:47:24 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ark/ark_driver.c,v 1.23 2003/09/24 02:43:18 dawes Exp $ */
 /*
  *	Copyright 2000	Ani Joshi <ajoshi@unixbox.com>
  *
@@ -285,7 +285,7 @@ static Bool ARKPreInit(ScrnInfoPtr pScrn, int flags)
 
 	pScrn->monitor = pScrn->confScreen->monitor;
 
-	if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb))
+	if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb))
 		return FALSE;
 	else {
 		switch (pScrn->depth) {
@@ -391,8 +391,8 @@ static Bool ARKPreInit(ScrnInfoPtr pScrn, int flags)
 	pARK->FBAddress = (rdinx(hwp->PIOOffset + 0x3c4, 0x13) << 16) +
 			  (rdinx(hwp->PIOOffset + 0x3c4, 0x14) << 24);
 
-	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Framebuffer @ 0x%x\n",
-		   pARK->FBAddress);
+	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Framebuffer @ 0x%lx\n",
+		   (unsigned long)pARK->FBAddress);
 
 	if (!xf86SetGamma(pScrn, gzeros))
 		return FALSE;

@@ -6,7 +6,6 @@
 --                                                                          --
 --                                  B o d y                                 --
 --                                                                          --
---                             $Revision: 1.1.1.1 $
 --                                                                          --
 --             Copyright (C) 1991-2001 Florida State University             --
 --                                                                          --
@@ -66,8 +65,6 @@ package body System.Tasking is
    ---------------------
    -- Initialize_ATCB --
    ---------------------
-
-   --  Call this only with abort deferred and holding All_Tasks_L.
 
    procedure Initialize_ATCB
      (Self_ID          : Task_ID;

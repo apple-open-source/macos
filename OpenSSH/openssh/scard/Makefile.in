@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.5 2002/05/28 23:32:22 zarzycki Exp $
+# $Id: Makefile.in,v 1.4 2002/04/26 01:25:41 djm Exp $
 
 prefix=@prefix@
 datadir=@datadir@

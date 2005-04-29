@@ -1,0 +1,165 @@
+{\rtf1\mac\ansicpg10000\cocoartf100
+{\fonttbl\f0\fswiss\fcharset77 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+\margl1440\margr1440\vieww9000\viewh9000\viewkind0
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural
+
+\f0\fs24 \cf0 \
+Overview of the Classic ticket sharing implementation\
+`````````````````````````````````````````````````````\
+\
+meeroh@mit.edu\
+\
+\
+See the general implementation overview for a rough sketch of how \
+various layers of the ccache implementation interact with each other.\
+This document only describes the layers involved in Classic ticket\
+sharing on Mac OS X.\
+\
+\
+The intent of Classic ticket sharing is to allow applications\
+running in the Classic environment on Mac OS X to share tickets\
+with native Mac OS X application. Classic apps should be able\
+to use tickets acquired by native apps, and vice versa.\
+\
+\
+The only mechanism of inter-process communication which can \
+cross the boundary between native and Classic apps (and\
+is supported by Apple) is the AppleEvent manager.\
+\
+The simplest possible implementation of Classic ticket sharing with\
+AppleEvents would make a ccache client and ccache server communicate\
+onlu using AppleEvents, using one AppleEvent per message. The entire\
+server state would thus be stored in a native application (as it\
+already is on Mac OS X), and the only difference between native Mac OS\
+X ccache clients and Classic Mac OS ccache clients would be in the\
+mode of comunication (Mach IPC vs. AppleEvents).\
+\
+Unfortunately, the latency of AppleEvents is much higher than that of \
+Mach IPC. An implementation using AppleEvents for Classic ticket sharing\
+can see up to 500 ms latency per message, which makes the communication\
+unacceptably slow for two reasons: first, Classic is blocked during this\
+time, waiting for the AE response; second, ccache uses a lot of small\
+messages, and high-latency communications thus makes ccache operations\
+painfully slow.\
+\
+This implementation was actually written and the observed performance \
+was abysmal.\
+\
+\
+Further analysing the behavior of ccache reveals that most of the \
+messages sent from the client to the servers are requests to read the\
+ccache; very few are requests to modify the ccache. This opens the\
+possibility for an optimization which bring performance to a reasonable\
+level while allowing us to use supported and documented mechanisms.\
+\
+\
+The main idea is to keep a copy of the entire ccache inside Classic, \
+and access this copy using the CFM shared memory mechanism which is\
+used on Mac OS 9. This allows us to make extremely fast read requests,\
+if we give up the requirement to synchronize the Classic ccache and the\
+master (Mac OS X) cache on every request. This means that the Classic\
+ccache will fall behind the master cache over time, and therefore we\
+have to come up with a good way of updating the Classic ccache periodically,\
+without significantly degrading performance and without making the user\
+experience terrible.\
+\
+In order to maintain the consistency of the cache, we must never allow\
+the Classic clients to make changes to the Classic cache without\
+synchronizing with the master cache. If we did allow the Classic cliens\
+to modify the cache without synchronizing, the Classic cache and the master\
+would fall out of sync in a way that makes it impossible to combine the\
+changes. \
+\
+\
+To solve the sync-on-write problem, we make the master ccache contain not only\
+the current state of the ccache, but also a history of changes to the ccache.\
+Each entry in the history has a sequence number. To the Classic ccache we\
+add one piece of information, which is the sequence number of the last item in\
+ccache change history which has been applied to the Classic ccache.\
+\
+When a Classic client needs to make a change to the ccache, it forms a\
+request which contains both the change request, and the sequence number of\
+the last history item applied to the Classic ccache. Upon receiving the request,\
+the server makes the requested change if possible, and includes in the response\
+every  history item since the last one applied to Classic, including the \
+history item corresponding to the change just made. This allows the Classic\
+client to fully synchronize the Classic ccache.\
+\
+Example:\
+\
+     Classic and master ccache empty initially\
+[#1] ccache for meeroh@MIT.EDU created in master ccache\
+[#2] credentials for zephyr/zephyr stored for meeroh@MIT.EDU in master ccache\
+[#3] credentials for pop/pop stored for meeroh@MIT.EDU in master ccache\
+\
+Now, a classic client makes a request to store imap/imap credentials for \
+meeroh@MIT.EDU, and includes in the request the seqno of the last item\
+applied to the Classic ccache (0). The server executes the request, generating\
+item #4 in the change history for that request. The response includes history\
+items #1 - #4, and the result code for the request. The Classic client applies\
+all those items to the Classic ccache, incrementing the last seqno to 4.\
+\
+Duplicate sequence numbers are discarded by the Classic client. Missing sequence\
+numbers are treated as errors by the Classic client. That ensures that if two \
+Classic clients make near-simultaneous requests, their responses (which will \
+usually contain overlapping sequence numbers) can both be applied appropriately.\
+\
+For example, \
+\
+     Classic and master ccache empty initially\
+[#1] ccache for meeroh@MIT.EDU created in master ccache\
+[#2] credentials for zephyr/zephyr stored for meeroh@MIT.EDU in master ccache\
+[#3] credentials for pop/pop stored for meeroh@MIT.EDU in master ccache\
+\
+Now, two clasic clients make the following requests:\
+\
+[ A] store imap/imap credentials for meeroh@MIT.EDU, last seqno = 0\
+[ B] remove zephyr/zephyr credentials for meeroh@MIT.EDU, last seqno = 0\
+     \
+The server receives request A, makes the change #4. and replies with\
+[#1, #2, #3, #4]. The server then receives request B, makes the change #5,\
+and replies with [#1, #2, #3, #4, #5].\
+\
+This is a perfectly reasonable situation, and in order to handle this, the \
+Classic client will first apply changes #1-#4 from response to A, and then\
+discard everything but the change #5 from the response to B. This leaves\
+the Classic ccache consistent throughout.\
+\
+In order to avoid the history growing beyond bound, when the native server\
+receives a request with a given last seqno, it discards all saved history\
+items with older seqnos. \
+\
+Now, to keep the two ccaches in sync when Classic clients are not making\
+and changes, it is sufficient to periodically send updates from the\
+master ccache to the Classic ccache, without making any changes. The current\
+implementation has Ticket Keeper sending a periodic message which contains a\
+request for an update without making any changes to the ccache. A better\
+implementation would have the master ccache send the changes when they are made,\
+rather than having the Classic poll.\
+\
+There are two other edge cases that have to be properly handled: the Classic\
+environment begin restarted, and the native server being restarted.\
+\
+When the Classic environment is restarted, the changes which have been applied\
+to the Classic ccache are lost. However, the native server discards changes\
+which have been confirmed by the Classic client (as described above), and\
+therefore resynching the Classic cache is not directly possible. Instead, \
+there is a special request ('fabricate initial diffs') which causes the\
+native server to discard the entire change history it has stored, and \
+generate new history items whose net effect is to recreate the ccache in its\
+present state. When starting up, Classic makes a 'fabricate initial diffs'\
+request to synchronize the initial state, and then proceeds as above.\
+\
+When the native server is restarted, it loses all the state and all the\
+history items, and therefore the Classic clients have to be able to \
+determine this has occurred and reset the Classic ccache to the same state.\
+In order for Classic clients to be able to determine this, every message going\
+from the native server to a Classic client includes the BSD pid of the server.\
+The Classic clients cache this pid and compare it with the pid from the previous \
+message. If the pid changed, the Classic client assumes the native server has \
+been restarted, resets the ccache to the initial state, sends a message to the\
+server requesting it to fabricate initial diffs as above, and then retries\
+the request if possible.\
+\
+}

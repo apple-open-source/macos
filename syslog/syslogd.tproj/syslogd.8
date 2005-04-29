@@ -1,0 +1,277 @@
+.\" Copyright (c) 2004 Apple Computer
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 4. Neither the name of Apple Computer nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"
+.Dd October 18, 2004
+.Dt SYSLOGD 8
+.Os "Mac OS X"
+.Sh NAME
+.Nm syslogd
+.Nd Apple System Log server
+.Sh SYNOPSIS
+.Nm
+.Op Fl d
+.Op Fl D
+.Op Fl m Ar mark_interval
+.Op Fl p Ar prune_days
+.Op Fl c Ar log_cutoff
+.Op Fl l Ar lib_path
+.Op Fl u
+.Op Fl module_name Li {0|1}
+.Sh DESCRIPTION
+The
+.Nm
+server receives and processes log messages.
+Several modules receive input messages through various channels,
+including UNIX domain sockets associated with the
+.Xr syslog 3 ,
+.Xr asl 3 ,
+and kernel printf APIs, 
+and optionally from a UDP socket if the
+.Dq udp_in
+module is enabled.
+.Pp
+The Apple System Log facility comprises the 
+.Xr asl 3
+API, a new 
+.Nm
+server, and the
+.Xr syslog 1
+command-line utility.
+The system supports structured and extensible messages, 
+permitting advanced message browsing and management through search APIs and
+other components of the Apple system log facility.
+.Pp
+Log messages are retained in a data store,
+subject to pruning and input filtering as described below,
+to simplify the task of locating log messages and to facilitate browsing and searching.
+The data store is intended to become a replacement for the numerous log files that are currently
+found in various locations on the system.
+Those files will be phased out in future versions of Mac OS.
+.Pp
+The following options are recognized:
+.Bl -tag -width indent
+.It Fl d
+Run
+.Nm
+in debugging mode.
+The server stays attached to the controlling terminal and prints debugging messages.
+.It Fl D
+Start as a daemon.
+This option forces 
+.Nm
+to fork and have the child process become a daemon.
+Since
+.Nm
+is started by
+.Nm launchd ,
+this is not normally required.
+.It Fl m
+Set the number of minutes between
+.Dq mark
+messages.
+The default is 20 minutes.
+The 
+.Dq mark
+facility is disabled if the setting is zero minutes.
+.It Fl p
+.Nm
+saves log messages in a data store that may be searched using the
+.Xr syslog 1
+utility or with the
+.Xr asl 3
+API.
+The data store is pruned daily by the /etc/daily cron job to keep it from growing without bound.
+Since many systems are shut down overnight (when the daily cron job runs),
+the data store is also pruned shortly after
+.Nm
+starts up as the system boots.
+By default, log messages in the data store that are more than 7 days old are removed.
+The setting of the
+.Fl p Ar prune_days
+overrides the default.
+A setting of zero days disables pruning of the data store when
+.Nm
+starts up.
+.It Fl c
+Sets a cutoff filter for log priorities for messages to be retained in the log message data store.
+The value of 
+.Ar log_cutoff
+must be between 0 and 7, corresponding to log priorities LOG_EMERG or ASL_LEVEL_EMERG
+and LOG_DEBUG or ASL_LEVEL_DEBUG as defined in the 
+.Xr syslog 3
+and
+.Xr asl 3
+header files.
+Received messages with a priority or level value greater than the cutoff will not be saved in the data store.
+The default filter will retain messages in the range 0 (Emergency) to 5 (Notice) inclusive.
+.Pp
+Note that a this filter value may be adjusted while
+.Nm
+is running using the
+.Nm syslog
+command-line utility.
+See the
+.Xr syslog 1
+manual.
+The filter may be adjusted using the
+.Dq -c
+option, e.g.
+.Pp
+.Li		sudo syslog -c syslogd -d
+.Pp
+will set the filter to retain messages in the range 0 (Emergency) to 7 (Debug).
+.It Fl l
+Specifies an alternate path for loading plug-in modules.
+By default,
+.Nm
+checks for plug-in modules in the directory /usr/lib/asl.
+.It Fl u
+Enables the
+.Dq udp_in
+module, configuring
+.Nm
+to act as a network log message receiver.
+The server will receive messages on the standard 
+.Dq syslog
+UDP port.
+Note that this opens the server to potential denial-of-service attacks,
+as a malicious remote sender can flood the server with messages.
+The 
+.Fl u
+option is equivalent to using the
+.Fl udp_in Li 1
+option.
+.El
+.Pp
+The remaining options of the form
+.Fl module_name Li {0|1}
+may be used to disable (0) or enable (1) the action of several of
+.Mn 's
+internal modules.
+.Bl -tag -width "-asl_action"
+.It Fl asl_in
+The 
+.Dq asl_in
+module receives log messages on the UNIX domain socket associated with the 
+.Xr asl 3
+API.
+The module may be disabled using
+.Fl asl_in Li 0 .
+The module is normally enabled.
+.It Fl asl_action
+The 
+.Dq asl_action
+module examines the stream of received log messages and acts upon them according to the rules specified
+in the file /etc/asl.conf.
+See 
+.Xr asl.conf 5
+for details.
+.It Fl klog_in
+The 
+.Dq klog_in
+module receives log messages on the UNIX domain socket associated with the kernel logging API.
+The module may be disabled using
+.Fl klog_in Li 0 .
+The module is normally enabled.
+.It Fl bsd_in
+The 
+.Dq bsd_in
+module receives log messages on the UNIX domain socket associated with the 
+.Xr syslog 3
+API.
+The module may be disabled using
+.Fl bsd_in Li 0 .
+The module is normally enabled.
+.It Fl bsd_out
+The 
+.Dq bsd_out
+module examines the stream of received log messages and acts upon them according to the rules specified
+in the file /etc/syslog.conf.
+See 
+.Xr syslog.conf 5
+for details.
+This module exists for backward compatibility with previous
+.Nm
+implementations.
+Apple encourages use of the
+.Xr syslog 1
+and
+.Xr asl 3
+search APIs over the use of the log files that are specified in the /etc/syslog.conf file.
+Future versions of Mac OS will move functions that are currently handled by the 
+.Dq bsd_out
+module to the 
+.Dq asl_action
+module.
+.It Fl udp_in
+The 
+.Dq udp_in
+module receives log messages on the UDP socket associated with the Internet syslog message protocol.
+The module may be enabled using
+.Fl udp_in Li 1 .
+The module is normally disabled.
+This module may also be enabled using the
+.Fl u
+option.
+.El
+.Pp
+.Nm
+initializes its built-in modules and loads plug-ins during its start-up.
+The data store is pruned approximately 5 minutes after startup.
+.Pp
+.Nm
+reinitializes in response to a HUP signal.
+.Sh FILES
+.Bl -tag -width /var/run/syslog.pid -compact
+.It Pa /etc/syslog.conf
+bsd_out module configuration file
+.It Pa /etc/asl.conf
+asl_action module configuration file
+.It Pa /var/run/syslog.pid
+process ID file
+.It Pa /var/run/log
+name of the
+.Ux
+domain datagram log socket
+.It Pa /dev/klog
+kernel log device
+.El
+.Sh SEE ALSO
+.Xr syslog 1 ,
+.Xr logger 1 ,
+.Xr asl 3 ,
+.Xr syslog 3 ,
+.Xr asl.conf 5
+.Xr syslog.conf 5
+.Sh HISTORY
+The
+.Nm
+utility appeared in
+.Bx 4.3 .
+.Pp
+The Apple System Log facility was introduced in Mac OS X 10.4.

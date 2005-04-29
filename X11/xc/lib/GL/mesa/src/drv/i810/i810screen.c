@@ -24,7 +24,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810screen.c,v 1.2 2002/10/30 12:51:33 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i810/i810screen.c,v 1.3 2003/09/28 20:15:12 alanh Exp $ */
 
 /*
  * Authors:
@@ -32,9 +32,6 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
-
-#include <X11/Xlibint.h>
-#include <stdio.h>
 
 #include "glheader.h"
 #include "context.h"
@@ -90,15 +87,12 @@ i810InitDriver(__DRIscreenPrivate *sPriv)
    i810ScreenPrivate *i810Screen;
    I810DRIPtr         gDRIPriv = (I810DRIPtr)sPriv->pDevPriv;
 
-   /* Check the DRI version */
-   {
-      int major, minor, patch;
-      if (XF86DRIQueryVersion(sPriv->display, &major, &minor, &patch)) {
-         if (major != 4 || minor < 0) {
-            __driUtilMessage("i810 DRI driver expected DRI version 4.0.x but got version %d.%d.%d", major, minor, patch);
-            return GL_FALSE;
-         }
-      }
+   /* Check the DRI externsion version */
+   if ( sPriv->driMajor != 4 || sPriv->driMinor < 0 ) {
+      __driUtilMessage( "i810 DRI driver expected DRI version 4.0.x "
+                        "but got version %d.%d.%d",
+                        sPriv->driMajor, sPriv->driMinor, sPriv->driPatch );
+      return GL_FALSE;
    }
 
    /* Check that the DDX driver version is compatible */
@@ -217,8 +211,7 @@ i810DestroyScreen(__DRIscreenPrivate *sPriv)
 
 
 static GLboolean
-i810CreateBuffer( Display *dpy,
-                  __DRIscreenPrivate *driScrnPriv,
+i810CreateBuffer( __DRIscreenPrivate *driScrnPriv,
                   __DRIdrawablePrivate *driDrawPriv,
                   const __GLcontextModes *mesaVis,
                   GLboolean isPixmap )
@@ -245,66 +238,29 @@ i810DestroyBuffer(__DRIdrawablePrivate *driDrawPriv)
 }
 
 
-#if 0
-/* Initialize the fullscreen mode.
- */
-GLboolean
-XMesaOpenFullScreen( __DRIcontextPrivate *driContextPriv )
-{
-   i810ContextPtr imesa = (i810ContextPtr)driContextPriv->driverPrivate;
-   imesa->doPageFlip = 1;
-   imesa->currentPage = 0;
-   return GL_TRUE;
-}
-
-/* Shut down the fullscreen mode.
- */
-GLboolean
-XMesaCloseFullScreen( __DRIcontextPrivate *driContextPriv )
-{
-   i810ContextPtr imesa = (i810ContextPtr)driContextPriv->driverPrivate;
-
-   if (imesa->currentPage == 1) {
-      /* Move the frontbuffer image to page zero? */
-/*        i810SwapBuffers( imesa ); */
-      i810PageFlip( imesa );
-      imesa->currentPage = 0;
-   }
-
-   imesa->doPageFlip = GL_FALSE;
-   imesa->Setup[I810_DESTREG_DI0] = imesa->driScreen->front_offset;
-   return GL_TRUE;
-}
-
-#else
-
 static GLboolean
-i810OpenFullScreen(__DRIcontextPrivate *driContextPriv)
+i810OpenCloseFullScreen(__DRIcontextPrivate *driContextPriv)
 {
     return GL_TRUE;
 }
 
-static GLboolean
-i810CloseFullScreen(__DRIcontextPrivate *driContextPriv)
-{
-    return GL_TRUE;
-}
-
-#endif
-
-
-static struct __DriverAPIRec i810API = {
-   i810InitDriver,
-   i810DestroyScreen,
-   i810CreateContext,
-   i810DestroyContext,
-   i810CreateBuffer,
-   i810DestroyBuffer,
-   i810SwapBuffers,
-   i810MakeCurrent,
-   i810UnbindContext,
-   i810OpenFullScreen,
-   i810CloseFullScreen
+static const struct __DriverAPIRec i810API = {
+   .InitDriver      = i810InitDriver,
+   .DestroyScreen   = i810DestroyScreen,
+   .CreateContext   = i810CreateContext,
+   .DestroyContext  = i810DestroyContext,
+   .CreateBuffer    = i810CreateBuffer,
+   .DestroyBuffer   = i810DestroyBuffer,
+   .SwapBuffers     = i810SwapBuffers,
+   .MakeCurrent     = i810MakeCurrent,
+   .UnbindContext   = i810UnbindContext,
+   .OpenFullScreen  = i810OpenCloseFullScreen,
+   .CloseFullScreen = i810OpenCloseFullScreen,
+   .GetSwapInfo     = NULL,
+   .GetMSC          = NULL,
+   .WaitForMSC      = NULL,
+   .WaitForSBC      = NULL,
+   .SwapBuffersMSC  = NULL
 };
 
 

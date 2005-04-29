@@ -1,0 +1,4 @@
+
+Due to changes between the 2.7 and 3.1 release you may need to remove escapes in your class patterns.  This is due to my former inproper use of quotes, which I have now replaced with lists.  The escaping is no longer necessary.
+
+Some fonts don't display a bitmap properly.  The size of the bitmap seems to be the issue.   This seems to be a bug with the text widget.

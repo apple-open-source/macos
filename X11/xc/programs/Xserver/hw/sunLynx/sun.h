@@ -13,7 +13,7 @@
  * software for any purpose.  It is provided "as is" without
  * express or implied warranty.
  */
-/* $XFree86: xc/programs/Xserver/hw/sunLynx/sun.h,v 3.7 2001/07/25 15:05:02 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/sunLynx/sun.h,v 3.8 2003/11/17 22:20:37 dawes Exp $ */
 
 #ifndef _SUN_H_ 
 #define _SUN_H_
@@ -293,12 +293,10 @@ typedef struct {
 } fbFd;
 
 typedef Bool (*sunFbInitProc)(
-#if NeedFunctionPrototypes
     int /* screen */,
     ScreenPtr /* pScreen */,
     int /* argc */,
     char** /* argv */
-#endif
 );
 
 typedef struct {
@@ -325,91 +323,66 @@ extern int		sunScreenIndex;
 extern int*		sunProtected;
 
 extern Bool sunCursorInitialize(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */
-#endif
 );
 
 extern void sunDisableCursor(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */
-#endif
 );
 
 extern int sunChangeKbdTranslation(
-#if NeedFunctionPrototypes
     int /* fd */,
     Bool /* makeTranslated */
-#endif
 );
 
 extern void sunNonBlockConsoleOff(
-#if NeedFunctionPrototypes
 #if defined(SVR4) || defined(CSRG_BASED) || defined(Lynx)
     void
 #else
     char* /* arg */
 #endif
-#endif
 );
 
 extern void sunEnqueueEvents(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void sunEnqueueKbdEvents(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern void sunEnqueueMseEvents(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern int sunGXInit(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     fbFd* /* fb */
-#endif
 );
 
 extern Bool sunSaveScreen(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     int /* on */
-#endif
 );
 
 extern Bool sunScreenInit(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */
-#endif
 );
 
 extern pointer sunMemoryMap(
-#if NeedFunctionPrototypes
     size_t /* len */,
     off_t /* off */,
     int /* fd */
 #ifdef Lynx
     , char * /* name */
 #endif
-#endif
 );
 
 extern Bool sunScreenAllocate(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */
-#endif
 );
 
 extern Bool sunInitCommon(
-#if NeedFunctionPrototypes
     int /* scrn */,
     ScreenPtr /* pScrn */,
     off_t /* offset */,
@@ -418,59 +391,44 @@ extern Bool sunInitCommon(
     Bool (* /* cr_cm */)(),
     Bool (* /* save */)(),
     int /* fb_off */
-#endif
 );
 
 extern Firm_event* sunKbdGetEvents(
-#if NeedFunctionPrototypes
     int /* fd */,
     Bool /* on */,
     int* /* pNumEvents */,
     Bool* /* pAgain */
-#endif
 );
 
 extern Firm_event* sunMouseGetEvents(
-#if NeedFunctionPrototypes
     int /* fd */,
     Bool /* on */,
     int* /* pNumEvents */,
     Bool* /* pAgain */
-#endif
 );
 
 extern void sunKbdEnqueueEvent(
-#if NeedFunctionPrototypes
     DeviceIntPtr /* device */,
     Firm_event* /* fe */
-#endif
 );
 
 extern void sunMouseEnqueueEvent(
-#if NeedFunctionPrototypes
     DeviceIntPtr /* device */,
     Firm_event* /* fe */
-#endif
 );
 
 extern int sunKbdProc(
-#if NeedFunctionPrototypes
     DeviceIntPtr /* pKeyboard */,
     int /* what */
-#endif
 );
 
 extern int sunMouseProc(
-#if NeedFunctionPrototypes
     DeviceIntPtr /* pMouse */,
     int /* what */
-#endif
 );
 
 extern void sunKbdWait(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 /*-
@@ -480,7 +438,6 @@ extern void sunKbdWait(
 #define TVTOMILLI(tv)	(((tv).tv_usec/1000)+((tv).tv_sec*1000))
 
 extern Bool sunCfbSetupScreen(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     pointer /* pbits */,	/* pointer to screen bitmap */
     int /* xsize */,		/* in pixels */
@@ -489,11 +446,9 @@ extern Bool sunCfbSetupScreen(
     int /* dpiy */,		/* dots per inch */
     int /* width */,		/* pixel width of frame buffer */
     int	/* bpp */		/* bits per pixel of root */
-#endif
 );
 
 extern Bool sunCfbFinishScreenInit(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     pointer /* pbits */,	/* pointer to screen bitmap */
     int /* xsize */,		/* in pixels */
@@ -502,11 +457,9 @@ extern Bool sunCfbFinishScreenInit(
     int /* dpiy */,		/* dots per inch */
     int /* width */,		/* pixel width of frame buffer */
     int	/* bpp */		/* bits per pixel of root */
-#endif
 );
 
 extern Bool sunCfbScreenInit(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     pointer /* pbits */,	/* pointer to screen bitmap */
     int /* xsize */,		/* in pixels */
@@ -515,26 +468,19 @@ extern Bool sunCfbScreenInit(
     int /* dpiy */,		/* dots per inch */
     int /* width */,		/* pixel width of frame buffer */
     int	/* bpp */		/* bits per pixel of root */
-#endif
 );
 
 extern void sunInstallColormap(
-#if NeedFunctionPrototypes
     ColormapPtr /* cmap */
-#endif
 );
 
 extern void sunUninstallColormap(
-#if NeedFunctionPrototypes
     ColormapPtr /* cmap */
-#endif
 );
 
 extern int sunListInstalledColormaps(
-#if NeedFunctionPrototypes
     ScreenPtr /* pScreen */,
     Colormap* /* pCmapList */
-#endif
 );
 
 #endif

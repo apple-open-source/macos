@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XGrKey.man,v 1.2 2001/01/27 18:19:59 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XGrKey.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,31 +144,13 @@
 .SH NAME
 XGrabKey, XUngrabKey \- grab keyboard keys
 .SH SYNTAX
-XGrabKey\^(\^\fIdisplay\fP, \fIkeycode\fP\^, \fImodifiers\fP\^, \fIgrab_window\fP\^, \fIowner_events\fP\^, \fIpointer_mode\fP\^, 
-.br
-             \fIkeyboard_mode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fIkeycode\fP\^;
-.br
-      unsigned int \fImodifiers\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
-.br
-      Bool \fIowner_events\fP\^;
-.br
-      int \fIpointer_mode\fP\^, \fIkeyboard_mode\fP\^;
-.LP
-XUngrabKey\^(\^\fIdisplay\fP, \fIkeycode\fP\^, \fImodifiers\fP\^, \fIgrab_window\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      int \fIkeycode\fP\^;
-.br
-      unsigned int \fImodifiers\fP\^;
-.br
-      Window \fIgrab_window\fP\^;
+.HP
+int XGrabKey\^(\^Display *\fIdisplay\fP\^, int \fIkeycode\fP\^, unsigned int
+\fImodifiers\fP\^, Window \fIgrab_window\fP\^, Bool \fIowner_events\fP\^, int
+\fIpointer_mode\fP\^, int \fIkeyboard_mode\fP\^); 
+.HP
+int XUngrabKey\^(\^Display *\fIdisplay\fP\^, int \fIkeycode\fP\^, unsigned int
+\fImodifiers\fP\^, Window \fIgrab_window\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

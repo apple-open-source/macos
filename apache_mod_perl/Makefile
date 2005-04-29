@@ -53,9 +53,15 @@ build:: configure
 	@echo "Building $(Project)..."
 	$(_v) make -C $(BuildDirectory) $(Environment)
 
+# Places to clean after install
+CLEAN_HERE = $(DSTROOT)/usr/libexec/httpd $(DSTROOT)/System/Library/Perl
+
 install:: build
 	@echo "Installing $(Project)..."
 	$(_v) umask $(Install_Mask) ; make -C $(BuildDirectory)				\
 		$(Environment) $(Install_Flags) $(Install_Target)
-	$(_v) $(FIND) $(DSTROOT) '(' -name '*.so' -o -name '*.bundle' ')' -print0 |	\
+	$(_v) $(FIND) $(CLEAN_HERE) '(' -name '*.so' -o -name '*.bundle' ')' -print0 |	\
 		$(XARGS) -0 strip -S
+	$(_v) $(FIND) $(CLEAN_HERE) -name ".packlist" -delete
+	$(_v) $(FIND) $(CLEAN_HERE) -name "perllocal.pod" -delete
+	$(_V) $(FIND) $(DSTROOT) -name "ap_config_auto.h" -delete

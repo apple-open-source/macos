@@ -26,21 +26,11 @@
 #define _IOKIT_HID_IOHIDKEYBOARD_H
 
 #include <IOKit/hidsystem/IOHIDTypes.h>
-#include <IOKit/hidsystem/IOHIKeyboard.h>
+#include "IOHIKeyboard.h"
 #include "IOHIDDevice.h"
 #include "IOHIDConsumer.h"
-
-enum {
-    kUSB_LEFT_CONTROL_BIT = 0x01,
-    kUSB_LEFT_SHIFT_BIT = 0x02,
-    kUSB_LEFT_ALT_BIT = 0x04,
-    kUSB_LEFT_FLOWER_BIT = 0x08,
-
-    kUSB_RIGHT_CONTROL_BIT = 0x10,
-    kUSB_RIGHT_SHIFT_BIT = 0x20,
-    kUSB_RIGHT_ALT_BIT = 0x040,
-    kUSB_RIGHT_FLOWER_BIT = 0x80
-};
+#include "IOHIDElement.h"
+#include "IOHIDEventService.h"
 
 enum {
     kUSB_CAPSLOCKLED_SET = 2,
@@ -50,54 +40,57 @@ enum {
 /* Following table is used to convert Apple USB keyboard IDs into a numbering
    scheme that can be combined with ADB handler IDs for both Cocoa and Carbon */
 enum {
-    kgestUSBCosmoANSIKbd      = 198,     /* (0xC6) Gestalt Cosmo USB Domestic (ANSI) Keyboard */
-    kprodUSBCosmoANSIKbd      = 0x201,   // The actual USB product ID in hardware
-    kgestUSBCosmoISOKbd       = 199,     /* (0xC7) Cosmo USB International (ISO) Keyboard */
-    kprodUSBCosmoISOKbd       = 0x202,
-    kgestUSBCosmoJISKbd       = 200,     /* (0xC8) Cosmo USB Japanese (JIS) Keyboard */
-    kprodUSBCosmoJISKbd       = 0x203,
+    kgestUSBUnknownANSIkd   = 3,       /* Unknown ANSI keyboard */
+    kgestUSBGenericANSIkd   = 40,      /* Generic ANSI keyboard */
+    kgestUSBGenericISOkd    = 41,      /* Generic ANSI keyboard */
+    kgestUSBGenericJISkd    = 42,      /* Generic ANSI keyboard */
+
+    kgestUSBCosmoANSIKbd    = 198,     /* (0xC6) Gestalt Cosmo USB Domestic (ANSI) Keyboard */
+    kprodUSBCosmoANSIKbd    = 0x201,   // The actual USB product ID in hardware
+    kgestUSBCosmoISOKbd     = 199,     /* (0xC7) Cosmo USB International (ISO) Keyboard */
+    kprodUSBCosmoISOKbd     = 0x202,
+    kgestUSBCosmoJISKbd     = 200,     /* (0xC8) Cosmo USB Japanese (JIS) Keyboard */
+    kprodUSBCosmoJISKbd     = 0x203,
     kgestUSBAndyANSIKbd       = 204,      /* (0xCC) Andy USB Keyboard Domestic (ANSI) Keyboard */
-    kprodUSBAndyANSIKbd       = 0x204,
-    kgestUSBAndyISOKbd        = 205,      /* (0xCD) Andy USB Keyboard International (ISO) Keyboard */
-    kprodUSBAndyISOKbd	      = 0x205,
-    kgestUSBAndyJISKbd        = 206,      /* (0xCE) Andy USB Keyboard Japanese (JIS) Keyboard */
-    kprodUSBAndyJISKbd	      = 0x206,
+    kprodUSBAndyANSIKbd     = 0x204,
+    kgestUSBAndyISOKbd      = 205,      /* (0xCD) Andy USB Keyboard International (ISO) Keyboard */
+    kprodUSBAndyISOKbd      = 0x205,
+    kgestUSBAndyJISKbd      = 206,      /* (0xCE) Andy USB Keyboard Japanese (JIS) Keyboard */
+    kprodUSBAndyJISKbd      = 0x206,
 
-    kgestQ6ANSIKbd	      = 31,      /* (031) Apple Q6 Keyboard Domestic (ANSI) Keyboard */
-    kprodQ6ANSIKbd	      = 0x208,
-    kgestQ6ISOKbd	      = 32,      /* (32) Apple Q6 Keyboard International (ISO) Keyboard */
-    kprodQ6ISOKbd	      = 0x209,
-    kgestQ6JISKbd	      = 33,      /* (33) Apple Q6 Keyboard Japanese (JIS) Keyboard */
-    kprodQ6JISKbd	      = 0x20a,
+    kgestQ6ANSIKbd          = 31,      /* (031) Apple Q6 Keyboard Domestic (ANSI) Keyboard */
+    kprodQ6ANSIKbd          = 0x208,
+    kgestQ6ISOKbd           = 32,      /* (32) Apple Q6 Keyboard International (ISO) Keyboard */
+    kprodQ6ISOKbd           = 0x209,
+    kgestQ6JISKbd           = 33,      /* (33) Apple Q6 Keyboard Japanese (JIS) Keyboard */
+    kprodQ6JISKbd           = 0x20a,
     
-    kgestQ30ANSIKbd	      = 34,      /* (34) Apple Q30 Keyboard Domestic (ANSI) Keyboard */
-    kprodQ30ANSIKbd	      = 0x20b,
-    kgestQ30ISOKbd	      = 35,      /* (35) Apple Q30 Keyboard International (ISO) Keyboard */
-    kprodQ30ISOKbd	      = 0x20c,
-    kgestQ30JISKbd	      = 36,      /* (36) Apple Q30 Keyboard Japanese (JIS) Keyboard */
-    kprodQ30JISKbd	      = 0x20d,
+    kgestQ30ANSIKbd         = 34,      /* (34) Apple Q30 Keyboard Domestic (ANSI) Keyboard */
+    kprodQ30ANSIKbd         = 0x20b,
+    kgestQ30ISOKbd          = 35,      /* (35) Apple Q30 Keyboard International (ISO) Keyboard */
+    kprodQ30ISOKbd          = 0x20c,
+    kgestQ30JISKbd          = 36,      /* (36) Apple Q30 Keyboard Japanese (JIS) Keyboard */
+    kprodQ30JISKbd          = 0x20d,
     
-    kgestFountainANSIKbd      = 37,      /* (37) Apple Fountain Keyboard Domestic (ANSI) Keyboard */
-    kprodFountainANSIKbd      = 0x20e,
-    kgestFountainISOKbd	      = 38,      /* (38) Apple Fountain Keyboard International (ISO) Keyboard */
-    kprodFountainISOKbd	      = 0x20f,
-    kgestFountainJISKbd	      = 39,      /* (39) Apple Fountain Keyboard Japanese (JIS) Keyboard */
-    kprodFountainJISKbd	      = 0x210,
+    kgestFountainANSIKbd    = 37,      /* (37) Apple Fountain Keyboard Domestic (ANSI) Keyboard */
+    kprodFountainANSIKbd    = 0x20e,
+    kgestFountainISOKbd     = 38,      /* (38) Apple Fountain Keyboard International (ISO) Keyboard */
+    kprodFountainISOKbd     = 0x20f,
+    kgestFountainJISKbd     = 39,      /* (39) Apple Fountain Keyboard Japanese (JIS) Keyboard */
+    kprodFountainJISKbd     = 0x210,
 
-    kgestSantaANSIKbd	      = 37,      /* (37) Apple Santa Keyboard Domestic (ANSI) Keyboard */
-    kprodSantaANSIKbd         = 0x211,
-    kgestSantaISOKbd	      = 38,      /* (38) Apple Santa Keyboard International (ISO) Keyboard */
-    kprodSantaISOKbd	      = 0x212,
-    kgestSantaJISKbd	      = 39,      /* (39) Apple Santa Keyboard Japanese (JIS) Keyboard */
-    kprodSantaJISKbd	      = 0x213,
-            
-
+    kgestSantaANSIKbd       = 37,      /* (37) Apple Santa Keyboard Domestic (ANSI) Keyboard */
+    kprodSantaANSIKbd       = 0x211,
+    kgestSantaISOKbd        = 38,      /* (38) Apple Santa Keyboard International (ISO) Keyboard */
+    kprodSantaISOKbd        = 0x212,
+    kgestSantaJISKbd        = 39,      /* (39) Apple Santa Keyboard Japanese (JIS) Keyboard */
+    kprodSantaJISKbd        = 0x213,
 };
 
 enum {
-    kSecondaryKeyFnSpecial	= 0x01,
-    kSecondaryKeyFnNonSpecial	= 0x02,
-    kSecondaryKeyNumPad		= 0x04
+    kSecondaryKeyFnSpecial      = 0x01,
+    kSecondaryKeyFnNonSpecial   = 0x02,
+    kSecondaryKeyNumPad         = 0x04
 };
 
 typedef struct _SecondaryKey {
@@ -114,82 +107,60 @@ class IOHIDKeyboard : public IOHIKeyboard
 {
     OSDeclareDefaultStructors(IOHIDKeyboard)
 
-    IOHIDDevice	*		_provider;
-    IOHIDConsumer *		_consumer;
-    IONotifier *		_publishNotify;
-    
-    IORecursiveLock *		_keyboardLock;
-
-    // Values from the provider
-    OSNumber*			_productID;
-    OSNumber*			_vendorID;
-    OSNumber*			_locationID;
-    OSString *			_transport;
+    IOHIDEventService *     _provider;
+    	
+	bool					_repeat;
         
     // LED Specific Members
-    IOHIDElementCookie  	_ledCookies[2];
-    UInt32 *			_ledValuePtrs[2];
-    UInt8			_numLeds;
-    UInt8			_ledState;
-    thread_call_t		_asyncLEDThread;
+    UInt8                   _ledState;
+    thread_call_t           _asyncLEDThread;
 
-
-    // Modifier Specific Members
-    UInt32 *			_modifierValuePtrs[8];
-    UInt8			_oldmodifier;
-    
     // Scan Code Array Specific Members
-    OSArray *			_keyCodeArrayValuePtrArray;
-    UInt32 *			_oldArraySelectors;
-    UInt8                       _usb_2_adb_keymap[ADB_CONVERTER_LEN + 1];
+    UInt8                   _usb_2_adb_keymap[ADB_CONVERTER_LEN + 1];
     
     // FN Key Member
-    UInt32 *			_fKeyValuePtr;
-    UInt32			_lastFKeyValue;
-    UInt8			_fKeyMode;
-    bool			_stickyKeysOn;
-    SecondaryKey    		_secondaryKeys[255];
+    bool                    _containsFKey;
+    bool                    _isDispatcher;
     
     // *** PRIVATE HELPER METHODS ***
-    void   			Set_LED_States(UInt8);
-    UInt32 			handlerID();
-    bool			determineKeyboard(IOHIDDevice *owner);
-    bool			findDesiredElements(OSArray *elements, IOHIDDevice *owner);
-    void			findSecondaryKeys();
-    bool			filterSecondaryNumPadKey(int * usage, bool down, AbsoluteTime ts);
-    bool			filterSecondaryFnSpecialKey(int * usage, bool down, AbsoluteTime ts);
-    bool			filterSecondaryFnNonSpecialKey(int * usage, bool down, AbsoluteTime ts);
+    void                    Set_LED_States(UInt8);
+    UInt32                  handlerID();
 
     // *** END PRIVATE HELPER METHODS ***
     
     // static methods for callbacks, the command gate, new threads, etc.
-    static void 		_asyncLED (OSObject *target);
-    static bool 		_publishNotificationHandler(void * target, void * ref, IOService * newService );
+    static void             _asyncLED (OSObject *target);
                                 
 public:    
     // Allocator
-    static IOHIDKeyboard * 	Keyboard(OSArray *elements, IOHIDDevice *owner);
+    static IOHIDKeyboard * 	Keyboard(UInt32 supportedModifiers, bool isDispatcher = false);
     
     // IOService methods
-    virtual bool		init(OSDictionary * properties = 0);
-    virtual bool		start(IOService * provider);
-    virtual void 		stop(IOService *  provider);
-    virtual void 		free();
-    virtual bool 		matchPropertyTable(OSDictionary * table, SInt32 * score);    
+    virtual bool            init(OSDictionary * properties = 0);
+    virtual bool            start(IOService * provider);
+    virtual void            stop(IOService *  provider);
+    virtual void            free();
 
-    virtual void 		handleReport();
+    inline bool             isDispatcher() { return _isDispatcher;};
 
     // IOHIDevice methods
-    UInt32 			interfaceID();
-    UInt32 			deviceType();
+    UInt32                  interfaceID();
+    UInt32                  deviceType();
 
     // IOHIKeyboard methods
-    UInt32 			maxKeyCodes();
+    UInt32                  maxKeyCodes();
     const unsigned char * 	defaultKeymapOfLength(UInt32 * length);
-    void 			setAlphaLockFeedback(bool LED_state);
-    void 			setNumLockFeedback(bool LED_state);
-    unsigned 			getLEDStatus();
-    IOReturn 			setParamProperties( OSDictionary * dict );
+    void                    setAlphaLockFeedback(bool LED_state);
+    void                    setNumLockFeedback(bool LED_state);
+    unsigned                getLEDStatus();
+    IOReturn                setParamProperties( OSDictionary * dict );
+
+	void                    dispatchKeyboardEvent(
+                                AbsoluteTime                timeStamp,
+                                UInt32                      usagePage,
+                                UInt32                      usage,
+                                bool                        keyDown,
+                                IOOptionBits                options = 0);
 
 };
 

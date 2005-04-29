@@ -143,7 +143,7 @@ typedef struct unw_state_record
   unsigned int any_spills : 1;		/* got any register spills? */
   unsigned int in_body : 1;	/* are we inside a body? */
   unsigned int no_reg_stack_frame : 1;	/* Don't adjust bsp for i&l regs */
-  unsigned char *imask;		/* imask of of spill_mask record or NULL */
+  unsigned char *imask;		/* imask of spill_mask record or NULL */
   unsigned long pr_val;		/* predicate values */
   unsigned long pr_mask;	/* predicate mask */
   long spill_offset;		/* psp-relative offset for spill base */
@@ -1401,7 +1401,7 @@ unw_decode_b3_x4 (unsigned char *dp, unsigned char code, void *arg)
 
 typedef unsigned char *(*unw_decoder) (unsigned char *, unsigned char, void *);
 
-static unw_decoder unw_decode_table[2][8] =
+static const unw_decoder unw_decode_table[2][8] =
 {
   /* prologue table: */
   {
@@ -1640,6 +1640,12 @@ _Unwind_Ptr
 _Unwind_GetRegionStart (struct _Unwind_Context *context)
 {
   return context->region_start;
+}
+
+void *
+_Unwind_FindEnclosingFunction (void *pc)
+{
+  return NULL;
 }
 
 

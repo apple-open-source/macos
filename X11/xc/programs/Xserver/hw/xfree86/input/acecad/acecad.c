@@ -23,7 +23,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/acecad/acecad.c,v 1.2 2001/11/26 16:25:52 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/acecad/acecad.c,v 1.5 2003/11/05 20:56:29 alanh Exp $ */
 
 #define _ACECAD_C_
 /*****************************************************************************
@@ -72,7 +72,7 @@
 #define MAX_EVENTS 50
 
 
-static InputDriverRec ACECAD = 
+InputDriverRec ACECAD = 
 {
 	1,
 	"acecad",
@@ -83,7 +83,7 @@ static InputDriverRec ACECAD =
 	0
 };
 
-
+#ifdef XFree86LOADER
 static XF86ModuleVersionInfo VersionRec =
 {
 	"acecad",
@@ -98,18 +98,6 @@ static XF86ModuleVersionInfo VersionRec =
 	{0, 0, 0, 0}
 };
 
-
-static const char *default_options[] =
-{
-	"BaudRate", "9600",
-	"StopBits", "1",
-	"DataBits", "8",
-	"Parity", "Odd",
-	"Vmin", "1",
-	"Vtime", "10",
-	"FlowControl", "Xoff",
-	NULL
-};
 
 XF86ModuleData acecadModuleData = { &VersionRec, SetupProc, TearDownProc};
 
@@ -143,7 +131,21 @@ TearDownProc( pointer p )
 	xfree (local);
 #endif
 }
+#endif
 
+static const char *default_options[] =
+{
+	"BaudRate", "9600",
+	"StopBits", "1",
+	"DataBits", "8",
+	"Parity", "Odd",
+	"Vmin", "1",
+	"Vtime", "10",
+	"FlowControl", "Xoff",
+	NULL
+};
+
+#ifdef LINUX_INPUT
 static int
 IsUSBLine(int fd)
 {
@@ -160,7 +162,7 @@ IsUSBLine(int fd)
 	return 0;
     }
 }
-
+#endif
 
 static InputInfoPtr
 AceCadPreInit(InputDriverPtr drv, IDevPtr dev, int flags)
@@ -205,6 +207,7 @@ AceCadPreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	}
 	xf86ErrorFVerb( 6, "tty port opened successfully\n" );
 
+#ifdef LINUX_INPUT
 	if(IsUSBLine(local->fd)){
 		priv->acecadUSB=1;
 
@@ -215,8 +218,9 @@ AceCadPreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 			ErrorF ("Unable to query/initialize AceCad hardware.\n");
 			goto SetupProc_fail;
 		}
-	}
-	else{
+	} else
+#endif
+	{
 		priv->acecadUSB=0;
 
 		local->read_input = ReadInput;
@@ -297,7 +301,7 @@ AceCadPreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	if ((local) && (local->fd))
 		xf86CloseSerial (local->fd);
 	if (local)
-		xfree (local);
+		xf86DeleteInput (local, 0);
 
 	if ((priv) && (priv->buffer))
 		XisbFree (priv->buffer);
@@ -609,6 +613,7 @@ ReadInput (LocalDevicePtr local)
 	/*xf86Msg(X_CONFIG, "Acecad Tablet Sortie Read Input\n");*/
 }
 
+#ifdef LINUX_INPUT
 #define set_bit(byte,nb,bit)	(bit ? byte | (1<<nb) : byte & (~(1<<nb)))
 static void
 USBReadInput (LocalDevicePtr local)
@@ -730,6 +735,7 @@ USBReadInput (LocalDevicePtr local)
 	}
 	/*xf86Msg(X_CONFIG, "Acecad Tablet Sortie Read Input\n");*/
 }
+#endif
 
 static void
 CloseProc (LocalDevicePtr local)
@@ -826,6 +832,7 @@ QueryHardware (AceCadPrivatePtr priv)
 #define OFF(x)  ((x)%BITS_PER_LONG)
 #define LONG(x) ((x)/BITS_PER_LONG)
 
+#ifdef LINUX_INPUT
 static Bool
 USBQueryHardware (LocalDevicePtr local)
 {	
@@ -868,6 +875,7 @@ USBQueryHardware (LocalDevicePtr local)
 	xf86Msg(X_CONFIG, "Acecad Tablet MaxX:%d MaxY:%d MaxZ:%d\n",priv->acecadMaxX,priv->acecadMaxY,priv->acecadMaxZ);
 	return (Success);
 }
+#endif
 
 static void
 NewPacket (AceCadPrivatePtr priv)

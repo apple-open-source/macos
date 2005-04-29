@@ -1,6 +1,7 @@
 // javaprims.h - Main external header file for libgcj.  -*- c++ -*-
 
-/* Copyright (C) 1998, 1999, 2000, 2001, 2002  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation
 
    This file is part of libgcj.
 
@@ -124,7 +125,7 @@ extern "Java"
       class ValidatorAndPriority;
       class WriteAbortedException;
       class Writer;
-    };
+    }
 
     namespace lang
     {
@@ -150,6 +151,8 @@ extern "Java"
       class Comparable;
       class Compiler;
       class ConcreteProcess;
+      class ConcreteProcess$EOFInputStream;
+      class ConcreteProcess$ProcessManager;
       class Double;
       class Error;
       class Exception;
@@ -223,7 +226,7 @@ extern "Java"
         class ReferenceQueue;
         class SoftReference;
         class WeakReference;
-      };
+      }
 
       namespace reflect
       {
@@ -243,8 +246,8 @@ extern "Java"
         class Proxy$ProxyType;
         class ReflectPermission;
         class UndeclaredThrowableException;
-      };
-    };
+      }
+    }
 
     namespace util
     {
@@ -291,6 +294,7 @@ extern "Java"
       class Collections$UnmodifiableSortedSet;
       class Comparator;
       class ConcurrentModificationException;
+      class Currency;
       class Date;
       class Dictionary;
       class EmptyStackException;
@@ -337,6 +341,7 @@ extern "Java"
       class RandomAccess;
       class RandomAccessSubList;
       class ResourceBundle;
+      class ResourceBundle$BundleKey;
       class Set;
       class SimpleTimeZone;
       class SortedMap;
@@ -355,6 +360,7 @@ extern "Java"
       class TreeMap$SubMap;
       class TreeMap$TreeIterator;
       class TreeSet;
+      class VMTimeZone;
       class Vector;
       class WeakHashMap;
       class WeakHashMap$WeakBucket;
@@ -371,14 +377,47 @@ extern "Java"
         class JarInputStream;
         class JarOutputStream;
         class Manifest;
-      };
+      }
+
+      namespace logging
+      {
+        class ConsoleHandler;
+        class ErrorManager;
+        class FileHandler;
+        class Filter;
+        class Formatter;
+        class Handler;
+        class Level;
+        class LogManager;
+        class LogRecord;
+        class Logger;
+        class LoggingPermission;
+        class MemoryHandler;
+        class SimpleFormatter;
+        class SocketHandler;
+        class StreamHandler;
+        class XMLFormatter;
+      }
+
+      namespace prefs
+      {
+        class AbstractPreferences;
+        class BackingStoreException;
+        class InvalidPreferencesFormatException;
+        class NodeChangeEvent;
+        class NodeChangeListener;
+        class PreferenceChangeEvent;
+        class PreferenceChangeListener;
+        class Preferences;
+        class PreferencesFactory;
+      }
 
       namespace regex
       {
         class Matcher;
         class Pattern;
         class PatternSyntaxException;
-      };
+      }
 
       namespace zip
       {
@@ -402,10 +441,10 @@ extern "Java"
         class ZipFile$ZipEntryEnumeration;
         class ZipInputStream;
         class ZipOutputStream;
-      };
-    };
-  };
-};
+      }
+    }
+  }
+}
   
 typedef struct java::lang::Object* jobject;
 typedef class java::lang::Class* jclass;
@@ -416,17 +455,17 @@ struct _Jv_JNIEnv;
 typedef struct _Jv_Field *jfieldID;
 typedef struct _Jv_Method *jmethodID;
 
-extern "C" jobject _Jv_AllocObject (jclass, jint) __attribute__((__malloc__));
-extern "C" jobject _Jv_AllocObjectNoFinalizer (jclass, jint) __attribute__((__malloc__));
-extern "C" jobject _Jv_AllocObjectNoInitNoFinalizer (jclass, jint) __attribute__((__malloc__));
+extern "C" jobject _Jv_AllocObject (jclass) __attribute__((__malloc__));
+extern "C" jobject _Jv_AllocObjectNoFinalizer (jclass) __attribute__((__malloc__));
+extern "C" jobject _Jv_AllocObjectNoInitNoFinalizer (jclass) __attribute__((__malloc__));
 #ifdef JV_HASH_SYNCHRONIZATION
-  extern "C" jobject _Jv_AllocPtrFreeObject (jclass, jint)
+  extern "C" jobject _Jv_AllocPtrFreeObject (jclass)
   			    __attribute__((__malloc__));
 #else
   // Collector still needs to scan sync_info
-  static inline jobject _Jv_AllocPtrFreeObject (jclass klass, jint sz)
+  static inline jobject _Jv_AllocPtrFreeObject (jclass klass)
   {
-    return _Jv_AllocObject(klass, sz);
+    return _Jv_AllocObject(klass);
   }
 #endif
 extern "C" jboolean _Jv_IsInstanceOf(jobject, jclass);
@@ -437,10 +476,13 @@ extern jint _Jv_FormatInt (jchar* bufend, jint num);
 extern "C" jchar* _Jv_GetStringChars (jstring str);
 extern "C" void _Jv_MonitorEnter (jobject);
 extern "C" void _Jv_MonitorExit (jobject);
+extern "C" jstring _Jv_NewStringUTF (const char *bytes)
+  __attribute__((__malloc__));
 extern "C" jstring _Jv_NewStringLatin1(const char*, jsize)
   __attribute__((__malloc__));
 extern "C" jsize _Jv_GetStringUTFLength (jstring);
 extern "C" jsize _Jv_GetStringUTFRegion (jstring, jsize, jsize, char *);
+extern "C" jint _Jv_hashUtf8String (char*, int);
 
 extern jint _Jv_CreateJavaVM (void* /*vm_args*/);
 
@@ -463,12 +505,42 @@ extern "C" void _Jv_RegisterClassHookDefault (jclass);
 
 typedef unsigned short _Jv_ushort __attribute__((__mode__(__HI__)));
 typedef unsigned int _Jv_uint __attribute__((__mode__(__SI__)));
+typedef unsigned int _Jv_ulong __attribute__((__mode__(__DI__)));
 
-struct _Jv_Utf8Const
+class _Jv_Utf8Const
 {
   _Jv_ushort hash;
   _Jv_ushort length;	/* In bytes, of data portion, without final '\0'. */
   char data[1];		/* In Utf8 format, with final '\0'. */
+ public:
+  /** Return same value of java.lang.String's hashCode. */
+  jint hash32() { return _Jv_hashUtf8String(data, length); }
+  /** Return a hash code that has at least 16 bits of information. */
+  _Jv_ushort hash16 () { return hash; }
+  /** Return a hash code that has at least 8 bits of information. */
+  _Jv_ushort hash8 () { return hash; }
+  /** Length in bytes of the UTF8-encoding. */
+  _Jv_ushort len () const { return length; }
+  /** Pointer to the first byte in the NUL-terminated UTF8-encoding. */
+  char* chars() { return data; }
+  /** Pointer to the NUL byte that terminated the UTF8-encoding. */
+  char* limit() { return data+length; }
+  /** Return the first byte in the UTF8-encoding. */
+  char first() const { return data[0]; }
+  /** Create a (non-interned) java.lang.String from this UTF8Const. */
+  jstring toString() { return _Jv_NewStringUTF(data); }
+  /** Given an UTF8 string, how many bytes needed for a UTF8Const,
+      including struct header, and final NUL.  I.e. what to pas to malloc. */
+  static int space_needed (char *, int len)
+  { return sizeof (_Jv_Utf8Const) + len + 1; }
+  /** Given an allocated _Jv_Utf8Const, copy / fill it in. */
+  void init (char *s, int len);
+  friend jboolean _Jv_equalUtf8Consts (const _Jv_Utf8Const*, const _Jv_Utf8Const *);
+  friend jboolean _Jv_equal (_Jv_Utf8Const*, jstring, jint);
+  friend jboolean _Jv_equaln (_Jv_Utf8Const*, jstring, jint);
+  friend _Jv_Utf8Const *_Jv_makeUtf8Const (char*, int);
+  friend _Jv_Utf8Const *_Jv_makeUtf8Const (jstring);
+  friend jstring _Jv_NewStringUtf8Const (_Jv_Utf8Const*);
 };
 
 

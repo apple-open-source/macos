@@ -1,6 +1,0 @@
-Package: cron
-Maintainer: Rob Braun <rbraun@apple.com>
-Vendor: FreeBSD
-Version: 2001.06.26
-Build-Depends: build-base, bsdmake, misc-cmds, shell-cmds, gnuzip
-Description: Execution scheduler

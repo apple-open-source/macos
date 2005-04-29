@@ -823,29 +823,35 @@ proc gdbtk_tcl_exec_file_display {filename} {
 #  6: shared library name if the pc is in a shared lib
 #
 # ------------------------------------------------------------------
-proc gdbtk_locate_main {} {
-  set result {}
-  set main_names [pref get gdb/main_names]
-  debug "Searching $main_names"
+proc gdbtk_locate_main {{init ""}} {
+  global _main_cache gdb_exe_name
+  debug
 
+  if {$init == "" && $_main_cache != ""} {
+    #debug "returning $_main_cache from cache"
+    return $_main_cache
+  }
+  set _main_cache {}
+
+  set main_names [pref get gdb/main_names]
   foreach main $main_names {
-    if {![catch {gdb_search functions $main -static 1}] \
-        && ![catch {gdb_loc $main} linespec]} {
-      set result $linespec
+    if {![catch {gdb_loc $main} linespec]} {
+      set _main_cache $linespec
       break
     }
   }
-  if {$result == {} 
+  if {$_main_cache == {} 
       && ![catch gdb_entry_point entry_point]
       && ![catch {gdb_loc "*$entry_point"} linespec]} {
-    set result $linespec
+    set _main_cache $linespec
   }
   
   # need to see if result is valid
-  lassign $result file func ffile line addr rest
-  if {$addr == 0x0 && $func == {}} { set result {} }
+  lassign $_main_cache file func ffile line addr rest
+  if {$addr == 0x0 && $func == {}} { set _main_cache {} }
 
-  return $result
+  #debug "returning $_main_cache"
+  return $_main_cache
 }
 
 ##############################################
@@ -1585,7 +1591,7 @@ proc gdbtk_attach_native {} {
     if {[AttachDlg::last_button]} {
 	set pid [AttachDlg::pid]
 	set symbol_file [AttachDlg::symbol_file]
-	if {![_open_file $symbol_file]} {
+	if {$symbol_file != "" && ![_open_file $symbol_file]} {
 	    ManagedWin::open WarningDlg -transient \
 		    -message "Could not load symbols from $symbol_file."
 	    return
@@ -1770,6 +1776,9 @@ proc initialize_gdbtk {} {
     set gdbtk_state(console) ""
     set gdbtk_state(readlineShowUser) 1
   }
+
+  # flush cache for gdbtk_locate_main
+  gdbtk_locate_main 1
 
   # check for existence of a kod command and get it's name and
   # text for menu entry

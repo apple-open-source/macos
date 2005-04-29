@@ -21,16 +21,25 @@ comments should be in a separate comment.
 You may also isolate Apple's changes by diffing with the FSF mainline
 sources as of the date mentioned in gcc/version.c; this date is
 updated in the FSF repository daily, and is preserved when we import
-FSF sources into Apple's repository.
+FSF sources into Apple's repository (the tag for the imported source
+is "fsf-cvs").
 
-NOTE!  Until stated otherwise, assume that this code has been updated
-from FSF development sources recently, and has received very little
-testing before being imported.  There is a good chance that your
-favorite program will not compile or run when compiled with this
-program.  The version of 2.95.2 that ships with OS X is the standard
-for correctness; any time something works with that compiler but fails
+The primary purpose of this version of GCC is to be the main system
+compiler for Darwin and Mac OS X.  However, since additions such as
+PFE precompiled headers and Objective-C++ are of interest on other
+platforms, we have generally conditionalized Mac-specific code so that
+the compiler will build and run elsewhere.  You may however run into
+mistakes; please let us know about them and we will
+fix these if possible.
+
+NOTE!  It's best to assume that this code has been updated from FSF
+development sources recently, and has received very little testing
+before being imported.  There is a good chance that your favorite
+program will not compile or run when compiled with this program.  The
+version of the compiler that ships with OS X is the standard for
+correctness; any time something works with that compiler but fails
 with this one is probably a bug, and should be reported to
-darwin-development@lists.apple.com asap.
+darwin-development@lists.apple.com.
 
 PREREQUISITES
 
@@ -42,9 +51,8 @@ yet.
 
 If you want C++ exception handling to work, you will need a modified
 crt1.o. (crt1.o is the bit of code that sets up for execution and
-calls your program's main().) The modified crt1.o will be a standard
-part of a future OS X release, but as of January 2002, you will need
-to set it up yourself.
+calls your program's main().) The modified crt1.o is standard in 10.2,
+but 10.1, you will need to set it up yourself.
 
 If you can't get a modified crt1.o from somebody else, you can patch a
 copy of the sources to the "Csu" project and build it yourself.  The
@@ -88,7 +96,10 @@ all to work.
 You can set the four *ROOT variables to point anywhere, but they must
 always be absolute pathnames.
 
-BUILDING, THE GNU WAY
+This way of building may or may not work on non-Macs, and if it
+doesn't, you're on your own.
+
+BUILDING, THE FSF WAY
 
 In general, standard GCC procedures work for building this version.
 We recommend that you build in a separate objdir; create a sibling
@@ -101,32 +112,34 @@ the GNUmakefile that supports the Apple build process (see above) will
 shadow your makefile, and you will need to override this behavior by
 saying "make -f Makefile" (or by moving GNUmakefile out of the way).
 
-Apple's precompiled-header-using preprocessor cpp-precomp has all
-kinds of problems with GCC sources.  The disabling flag
--no-cpp-precomp is automatically added when you build in the GCC
-directory, but if you build from the top, it does not get set, so
-instead add a CC='cc -no-cpp-precomp' to your make.  For instance:
+For instance:
 
 	mkdir darwin
 	cd darwin
 	../gcc3/configure --prefix=/tmp/testplace
-	make CC='cc -no-cpp-precomp' bootstrap
+	make bootstrap
 	make install
 
 does a full build, plus two generations of self-compilation for
 GCC proper, then an install.
 
 To avoid building every language, use --enable-languages argument to
-configure.  For instance, '--enable-languages=objc,c++' skips the
-Fortran and Java compilers.  (The C compiler will always be built.)
+configure.  For instance, '--enable-languages=objc,c++,objc++' skips
+the Fortran and Java compilers.  (The C compiler will always be
+built.)
 
 To build an x86 cross-compiler, add "--target=i386-darwin" to the
 configure line.  The x86 compiler works, but to make it useful you
 will need libraries and such from x86 Darwin.
 
-There is a PB project also, but at the moment it's only useful for
-browsing.  We expect to make it useful for building eventually.  To
-keep it out of the way until then, it's in "pbproj/gcc3.pbproj".
+There is a ProjectBuilder (PB) project also, but at the moment it's
+only useful for browsing.  We expect to make it useful for building
+eventually.  To keep it out of the way until then, it's in
+"pbproj/gcc3.pbproj".
+
+Tools built the FSF way are *not* usually going to be dropin
+replacements for already-installed tools built the Apple way, because
+search paths and other details will be different.
 
 TESTING
 
@@ -142,14 +155,9 @@ check-g77" for Fortran tests, which take less time.
 
 USING
 
-In theory, you can use this compiler in place of the modified 2.95.2
-that is standard in Darwin.  In practice, there are a number of
-missing options and functionality.  We're not even sure what all of
-them are, because the existing compiler has many undocumented changes
-inherited from 10 years of NeXT and Apple hacking, and nobody knows
-what some of them are for.  So our new policy is not to add anything
-unless we can explain why, which means that your code may be the
-evidence for the value of some feature.
+While this compiler can be used with 10.1, it is aimed at 10.2
+(Jaguar) and later releases.  Built correctly, using the "Apple way",
+it can be a dropin replacement for the 10.2 system compiler.
 
 * Compatibility Issues
 
@@ -215,12 +223,13 @@ with Darwin.
 libobjc not built
 
 Since GNU libobjc and its headers would mask the system library
-and headers, this version of GCC does not build or install them.
+and headers, this version of GCC does not build or install them
+if targeting Darwin.
 
 Objective-C structure returns
 
-Methods returning structures will work, while they will fail when
-using FSF GCC.
+When using the NeXT runtime, methods returning structures will work,
+while they will fail when using FSF GCC.
 
 All assembly files are preprocessed
 
@@ -237,6 +246,13 @@ error to Apple, rather than to the FSF.
 
 This section briefly describes Apple's extensions to GCC.  Further
 details may be found in the GCC manual (usually).
+
+__APPLE_CC__
+
+The preprocessor symbol __APPLE_CC__ identifies a specific "build
+number" of the compiler.  These numbers are finer-grained than the
+generic GCC version numbers, and for gcc3 they range from 1000 up
+(2.95.2 versions are in the 900s).
 
 Framework includes
 
@@ -296,8 +312,9 @@ extern, add "__private_extern__" where you might normally say
 Coalescing
 
 Using "-fcoalesce", "-fcoalesce-templates" and "-fweak-coalesced"
-flags can reduce the amount of duplicated code.  Coalescing and
-C++ template coalescing are enabled by default.
+flags can reduce the amount of duplicated code.  Coalescing and C++
+template coalescing are enabled by default, at least if a
+recent-enough cctools version (10.2 or later) has been installed.
 
 -dynamiclib
 
@@ -318,22 +335,11 @@ AltiVec
 The complete AltiVec programming interface, as defined in the PIM, is
 available.  Use -faltivec to enable it.
 
-Note, that the PIM, section 2.1 mentions that AltiVec data types using
+Note that the PIM, section 2.1 mentions that AltiVec data types using
 the 'long' keyword (i.e., vector [un]signed long) are deprecated and
 that the 'int' should be used.  The compiler will thus issue a warning
 for these cases.  The warning may be suppressed by specifying
 -Wno-altivec-long-deprecated.
-
-cpp-precomp
-
-By default, this version does C and Objective-C preprocessing with
-cpp-precomp, which is good if you're using Cocoa, and maybe a problem
-if you're not.  As with the standard Apple compiler, -no-cpp-precomp
-switches back to the standard integrated preprocessor, and if you want
-to use cpp-precomp for C++, -cpp-precomp enables it.  The option
--precomp is available to create precomps.
-
-The compiler option -precomp-trustfile is used by PB.
 
 -mdynamic-no-pic
 
@@ -390,13 +396,6 @@ At present, only "i386" and "ppc" may be used as architecture names.
 Note that building for a specific arch will only work if you have
 assembler and libraries for that arch.
 
-PFE (Persistent Front End)
-
-Apple GCC includes a mechanism to save and restore compiler state.
-Currently, this is being used to implement precompiled headers.  To
-create a precompiled header, use the -dump-pch <filename> option, then
-to reload it, say -load-pch <filename>.
-
 -ObjC, -ObjC++
 
 These options set the default language to be Objective-C and
@@ -409,8 +408,8 @@ deprecated.)
 
 -Wmost
 
-The option -Wmost is equivalent to -Wall -Wno-parentheses.  It is only
-present for compatibility with some old projects.
+The option -Wmost is equivalent to -Wall -Wno-parentheses.  It is
+present for compatibility with some existing Mac OS X projects.
 
 -Wno-#warnings
 
@@ -458,7 +457,7 @@ TO DO
 
 This section lists specific features that we're still working on.
 
-Make fat building work when the compiler is built the GNU way.
+Make fat building work when the compiler is built the FSF way.
 
 Implement floating point precision control (-ffppc) for i386.
 

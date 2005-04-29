@@ -29,11 +29,14 @@
 
 Notice===
  */
+/* $XFree86: xc/extras/X-TrueType/KOI8/main.c,v 1.3 2003/10/22 16:25:45 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"
@@ -112,7 +115,7 @@ cc_koi8_u_to_ucs2(ft_char_code_t codeSrc)
     case 0xA6: codeDst = 0x0456; break;
     case 0xA7: codeDst = 0x0457; break;
     case 0xAD: codeDst = 0x0491; break;
-    case 0xB4: codeDst = 0x0403; break;
+    case 0xB4: codeDst = 0x0404; break;
     case 0xB6: codeDst = 0x0406; break;
     case 0xB7: codeDst = 0x0407; break;
     case 0xBD: codeDst = 0x0490; break;

@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -36,7 +36,6 @@
 #ifndef __LIBSAIO_UFS_BYTEORDER_H
 #define __LIBSAIO_UFS_BYTEORDER_H
 
-#include <sys/disktab.h>
 #include <sys/vnode.h>
 #include <sys/buf.h>
 #include <sys/disk.h>
@@ -45,15 +44,11 @@
 #include <ufs/ufs/dir.h>
 #include <ufs/ffs/fs.h>
 
-#include <IOKit/storage/IONeXTPartitionScheme.h>
-
 void byte_swap_ints(int *array, int count);
 void byte_swap_shorts(short *array, int count);
 void byte_swap_longlongs(unsigned long long *array, int count);
 
 void byte_swap_superblock(struct fs *sb);
-void byte_swap_disklabel_in(disk_label_t *dl);
-void byte_swap_disktab_in(struct disktab *dt);
 void byte_swap_partition(struct partition *part);
 void byte_swap_dinode_in(struct dinode *di);
 void byte_swap_dir_block_in(char *addr, int count);

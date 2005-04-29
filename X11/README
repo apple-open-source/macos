@@ -3,9 +3,9 @@ README
 ======
 
 To compile this X distribution you need the X11LibApple binary package
-installed on the root volume. This can be found in the subdirectory on
-one of the Mac OS X installation CDs. Note that for X11 1.0 the
-X11LibApple package from Mac OS X 10.3 is required.
+installed on the root volume. This can be found on one of the Mac OS X
+installation CDs. Note that for X11 1.1 the X11LibApple package from
+Mac OS X 10.4 is required.
 
 (To check if this package is already installed, look for files
 /usr/include/Xplugin.h and /usr/lib/libXplugin*.dylib)

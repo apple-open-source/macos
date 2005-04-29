@@ -46,9 +46,7 @@ static char sccsid[] = "@(#)sprint.c	8.3 (Berkeley) 4/28/95";
 #include <sys/socket.h>
 #include <db.h>
 #include <err.h>
-#ifndef __APPLE__
 #include <langinfo.h>
-#endif
 #include <pwd.h>
 #include <stdio.h>
 #include <string.h>
@@ -70,9 +68,7 @@ sflag_print(void)
 	struct tm *lc;
 
 	if (d_first < 0)
-#ifndef __APPLE__
 		d_first = (*nl_langinfo(D_MD_ORDER) == 'd');
-#endif
 	/*
 	 * short format --
 	 *	login name

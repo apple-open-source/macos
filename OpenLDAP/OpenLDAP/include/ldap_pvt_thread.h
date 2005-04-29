@@ -1,15 +1,18 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt_thread.h,v 1.32.2.6 2003/02/09 17:02:17 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, Redwood City, California, USA
+/* ldap_pvt_thread.h - ldap threads header file */
+/* $OpenLDAP: pkg/ldap/include/ldap_pvt_thread.h,v 1.39.2.2 2004/01/01 18:16:28 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ * 
+ * Copyright 1998-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted only as authorized by the OpenLDAP
- * Public License.  A copy of this license is available at
- * http://www.OpenLDAP.org/license.html or in file LICENSE in the
- * top-level directory of the distribution.
+ * Public License.
+ *
+ * A copy of this license is available in file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* ldap_pvt_thread.h - ldap threads header file NG */
 
 #ifndef _LDAP_PVT_THREAD_H
 #define _LDAP_PVT_THREAD_H
@@ -188,8 +191,7 @@ ldap_pvt_thread_pool_setkey LDAP_P((
 	ldap_pvt_thread_pool_keyfree_t *kfree ));
 
 LDAP_F( void *)
-ldap_pvt_thread_pool_context LDAP_P((
-	ldap_pvt_thread_pool_t *pool ));
+ldap_pvt_thread_pool_context LDAP_P(( void ));
 
 LDAP_END_DECL
 

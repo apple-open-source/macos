@@ -1,0 +1,71 @@
+<html><head>
+	<title>Metakit sample code - Dump</title>
+</head><body bgcolor=white>
+
+<font face=Helvetica size=3>
+
+<!--begin-->
+<h2><img src="e4app.gif" alt="App Icon" border=0 align=left>
+Metakit sample code - Dump</h2><br clear=left>
+
+<p>This application is a generic utility for the Metakit library. </p>
+
+<p><b>What it does</b>: Dump is a utility program which displays the contents
+of a Metakit datafile on standard output. The output shows all the information
+which is stored in the datafile, which can be quite useful while developing
+and debugging applications based on Metakit. </p>
+
+<p><b>What it illustrates</b>: Dump is a so-called &quot;32-bit console
+application&quot;, this is the modern version of the classical MS-DOS command-line
+executables. It shows how you can extract structural information from a
+Metakit datafile without knowing anything about it. The basic trick is
+to simply open the file, and then to step through each of the properties
+(using the members NumProperties and NthProperty). The executable file
+is tiny, because both Metakit and MFC have been linked as DLLs. </p>
+
+<p><b>How to use it</b>: To dump a datafile, you can start DUMP.EXE from
+the MS-DOS prompt with the filename as argument (or drop a file on it in
+the Explorer). Since datafiles can store arbitrarily nested data structures,
+you may need to examine the output to understand how the information is
+presented on standard output. Dump adds quite a bit of detail to guide
+you (including all the property names). Basically, the data structure is
+traversed recursively, with indentation added to reflect the current nesting
+level. There are a number of command-line options to modify the default
+output style: </p>
+
+<ul>
+<dl>
+	<dt><b>-s</b> </dt> <dd>List all tables and subtable, but omit the actual data values. </dd>
+	<dt><b>-d</b> </dt> <dd>List all tables and subtables, including a low-level data dump. </dd>
+	<dt><b>-f </b></dt> <dd>Only list all the fields (properties) and their structure. </dd>
+	<dt><b>-w</b> </dt> <dd>Wait for the RETURN key just before exiting. </dd>
+</dl>
+</ul>
+
+<p>You can redirect the output to file, just like any other console application.
+</p>
+
+<p><b>Known problems</b>: None. Note that this is a 32-bit application
+which requires Windows 95 (or perhaps Windows NT or Win32s), and that the
+Metakit DLLs are used. </p>
+
+<p><b>Files in EXAMPLES\DUMP</b>: </p>
+
+<p>DUMP.CPP - Dump main program 
+<br>DUMP.MAK, DUMP.MDP - MSVC 4.2 project makefiles for Win32 </p>
+<!--end-->
+
+<center><p><hr size=1>
+||
+&nbsp; <a href="index.html" target="_top">Roadmap</a>
+&nbsp; <a href="classes.html">Class Index</a>
+&nbsp; <a href="samples.html">Sample Index</a>
+&nbsp; ||
+&nbsp; <a href="intro.html">Introduction</a>
+&nbsp; <a href="tips.html">Tips and Tricks</a>
+&nbsp; || 
+
+</center>
+</font>
+
+</body></html>

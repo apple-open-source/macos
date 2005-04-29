@@ -29,16 +29,14 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: iconv_xlat.c,v 1.5 2003/05/06 21:54:41 lindak Exp $
+ * $Id: iconv_xlat.c,v 1.8 2004/12/13 00:25:16 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/kernel.h>
 #include <sys/systm.h>
 #include <sys/malloc.h>
-#ifdef APPLE
 #include <sys/smb_apple.h>
-#endif
-#include <sys/iconv.h>
+#include <sys/smb_iconv.h>
 
 #include "iconv_converter_if.h"
 
@@ -66,7 +64,7 @@ iconv_xlat_open(struct iconv_converter_class *dcp,
 	#pragma unused(cspf)
 	struct iconv_xlat *dp;
 
-	dp = (struct iconv_xlat *)kobj_create((struct kobj_class*)dcp, M_ICONV, M_WAITOK);
+	dp = (struct iconv_xlat *)kobj_create((struct kobj_class*)dcp, M_ICONV);
 	dp->d_table = csp->cp_data;
 	dp->d_csp = csp;
 	csp->cp_refcount++;

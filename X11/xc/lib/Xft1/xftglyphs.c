@@ -1,5 +1,5 @@
 /*
- * $XFree86: xc/lib/Xft1/xftglyphs.c,v 1.2 2002/03/02 22:09:05 keithp Exp $
+ * $XFree86: xc/lib/Xft1/xftglyphs.c,v 1.4 2003/11/20 22:36:34 dawes Exp $
  *
  * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
@@ -26,7 +26,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "xftint.h"
-#include <freetype/ftoutln.h>
+#include <ft2build.h>
+#include FT_OUTLINE_H
 
 static const int    filters[3][3] = {
     /* red */
@@ -58,7 +59,6 @@ XftGlyphLoad (Display		*dpy,
     Glyph	    g;
     unsigned char   bufLocal[4096];
     unsigned char   *bufBitmap = bufLocal;
-    unsigned char   *b;
     int		    bufSize = sizeof (bufLocal);
     int		    size, pitch;
     unsigned char   bufLocalRgba[4096];
@@ -67,7 +67,6 @@ XftGlyphLoad (Display		*dpy,
     int		    sizergba, pitchrgba, widthrgba;
     int		    width;
     int		    height;
-    int		    i;
     int		    left, right, top, bottom;
     int		    hmul = 1;
     int		    vmul = 1;
@@ -232,8 +231,7 @@ XftGlyphLoad (Display		*dpy,
 	    FT_Outline_Translate ( &glyph->outline, -left*hmul, -bottom*vmul );
 
 	    FT_Outline_Get_Bitmap( _XftFTlibrary, &glyph->outline, &ftbit );
-	    i = size;
-	    b = (unsigned char *) bufBitmap;
+
 	    /*
 	     * swap bit order around
 	     */

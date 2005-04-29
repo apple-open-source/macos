@@ -1,5 +1,5 @@
 /* Subroutines needed for unwinding stack frames for exception handling.  */
-/* Copyright (C) 1997, 1998, 1999, 2000, 2001 Free Software Foundation, Inc.
+/* Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Jason Merrill <jason@cygnus.com>.
 
 This file is part of GCC.
@@ -38,204 +38,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "unwind-dw2-fde.h"
 #include "gthr.h"
 #endif
-/* APPLE LOCAL FSF candidate */
-#include <string.h>
 
-/* APPLE LOCAL  */
-#ifdef DWARF2_OBJECT_END_PTR_EXTENSION
-static inline int VALID_FDE_P(struct object *OB, struct dwarf_fde *FDE)
-{
-  if ((char *)FDE < OB->dwarf_fde_end) 
-    {
-      if (FDE->length <= 0)
-	{
-	  printf ("####\n#### FDE %p (OB %p, fde_end %p) has zero length!"
-		  "Aborting.\n####\n", FDE, OB, OB->dwarf_fde_end);
-	  abort();
-	}
-      else
-	return 1;
-    }
-  return 0;
-}
-#else
-#define VALID_FDE_P(OB, FDE)	((FDE)->length != 0)
-#endif
-
-/* APPLE LOCAL  */
-
-#define Dprintf if (0) printf
-
-/* APPLE LOCAL begin EH runtime  turly 20020208  */
-#ifdef __APPLE__
-
-#undef __GTHREAD_MUTEX_INIT
-#undef __GTHREAD_MUTEX_INIT_FUNCTION
-
-/* KeyMgr stuff  */
-#define KEYMGR_GCC3_LIVE_IMAGE_LIST     301     /* loaded images  */
-#define KEYMGR_GCC3_DW2_OBJ_LIST        302     /* Dwarf2 object list  */
-
-extern void *_keymgr_get_and_lock_processwide_ptr (int);
-extern void _keymgr_set_and_unlock_processwide_ptr (int, void *);
-extern void _keymgr_unlock_processwide_ptr (int); 
-
-extern char *getsectdatafromheader (struct mach_header*, const char*,
-			const char *, unsigned long *);
-
-static struct km_object_info {
-  struct object *seen_objects;
-  struct object *unseen_objects;
-  unsigned spare[2];
-} *the_obj_info = 0;
-
-/* Bits in the examined_p field of struct __live_images.  */
-enum {
-  EXAMINED_IMAGE_MASK = 1,	/* We've seen this one.  */
-  ALLOCED_IMAGE_MASK = 2,	/* We had to alloc a duplicate FDE  */
-				/* (there was a missing NULL terminator!)  */
-  IMAGE_IS_TEXT_MASK = 4	/* This image is in the TEXT segment.  */
-};
-
-/* Now just redefine the SEEN_OBJECTS and UNSEEN_OBJECTS vars to be
-   accessed via "the_obj_info".  */
-#define seen_objects  the_obj_info->seen_objects
-#define unseen_objects the_obj_info->unseen_objects
-
-/* IMAGE has already been removed from the KEYMGR_GCC3_LIVE_IMAGE_LIST.
-   Called by KeyMgr (which will delete the struct after we return.)  */
-
-static void live_image_destructor (struct __live_images *image)
-{
-  if (image->object_info)
-    {
-      /* Free any sorted arrays.  */
-      __deregister_frame_info_bases (image->fde);
-
-      free (image->object_info);
-      image->object_info = NULL;
-      if (image->examined_p & ALLOCED_IMAGE_MASK)
-	free (image->fde);
-    }
-}
-
-/* This is called just before the call to __gthread_mutex_lock () every time
-   we want to lock access to the "seen" and "unseen" variables.
-   We scan the live image list and use it to populate these vars.  */
- 
-static void init_object_mutex_once (void)  
-{
-  struct __live_images *image;
-  the_obj_info = (struct km_object_info *)
-	    _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST);
-  if (! the_obj_info)
-    {
-#ifndef DWARF2_OBJECT_END_PTR_EXTENSION
-      extern int __gcc3_EH_FRAME_END__[];
-      /* Refer to this to force it to be brought in.  */
-      if (__gcc3_EH_FRAME_END__[0] != 0)
-	abort ();
-#endif
-      the_obj_info = (struct km_object_info *)
-				calloc (1, sizeof (*the_obj_info));
-    }
-  image = (struct __live_images *)
-	    _keymgr_get_and_lock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
-
-  while (image != NULL)
-    {
-      /* For future expansion (read: bug-fix patches :-), we only use
-	 the lowest bit to hold the EXAMINED status.  */
-
-      if (! (image->examined_p & EXAMINED_IMAGE_MASK))
-	{
-	  char *fde;
-	  unsigned long sz;
-
-	  image->examined_p |= EXAMINED_IMAGE_MASK;
-
-	  fde = getsectdatafromheader (image->mh, "__DATA", "__eh_frame", &sz);
-	  if (fde == NULL)
-	    {
-	      fde = getsectdatafromheader (image->mh, "__TEXT",
-					   "__eh_frame", &sz);
-	      if (fde != NULL)
-		image->examined_p |= IMAGE_IS_TEXT_MASK;
-	    }
-
-	  /* If .eh_frame is empty, don't register at all.  */
-	  if (fde != NULL && sz > 0
-#ifndef DWARF2_OBJECT_END_PTR_EXTENSION
-		&& *(uword *)(fde + image->vm_slide) != 0
-#endif
-	     )
-	    {
-	      void *real_fde = (fde + image->vm_slide);
-	      struct object *ob = (struct object *)
-					calloc (1, sizeof (struct object));
-  
-#ifndef DWARF2_OBJECT_END_PTR_EXTENSION
-	      if (*(uword *) ((char *)real_fde + sz - sizeof (uword)) != 0)
-		{
-		  char *new_fde;
-
-		  /* For now, just malloc an extra 4 bytes and stuff in
-		     the zero terminator.  This "should never happen" so it's
-		     probably OK to do this.  */
-		  Dprintf ("\n#### missing NULL FDE terminator for FDE %p. "
-			  "Reallocating, copying, and adding one.\n",
-			  real_fde);
-		  new_fde = (char *)malloc (sz + sizeof (uword));
-		  memcpy (new_fde, real_fde, sz);
-		  *(uword *)(new_fde + sz) = 0;
-		  real_fde = new_fde;
-		  image->examined_p |= ALLOCED_IMAGE_MASK;
-		}
-#else
-	     ob->dwarf_fde_end = real_fde + sz;
-#endif
-	      /* Inline a call to __register_frame_info_bases () below.
-		 (We can't call it unless we relinquish the lock.  */
-
-	      ob->pc_begin = (void *)-1;
-	      ob->tbase = 0;
-	      ob->dbase = 0;
-	      ob->u.single = real_fde;
-	      ob->s.i = 0;
-	      ob->s.b.encoding = DW_EH_PE_omit;
-  
-	      ob->next = unseen_objects;
-	      unseen_objects = ob;
-
-	      Dprintf ("Adding image %p (slide %lx) FDE %p, ob %p\n",
-			image->mh, image->vm_slide, real_fde, ob);
-
-	      image->destructor = live_image_destructor;
-	      image->fde = real_fde;
-	      image->object_info = ob;
-	    }
-	}
-      image = image->next;
-    }
-  _keymgr_unlock_processwide_ptr (KEYMGR_GCC3_LIVE_IMAGE_LIST);
-}
-
-#undef __gthread_mutex_lock
-#undef __gthread_mutex_unlock
-
-#define __gthread_mutex_lock(X)		/* nothing  */
-#define __gthread_mutex_unlock(X)	keymgr_unlocker ()
-static void keymgr_unlocker (void)
-{  
-  if (!the_obj_info) abort ();
-  Dprintf ("## the_obj_info %p (seen: %p, unseen: %p)\n",
-		the_obj_info, seen_objects, unseen_objects);
-
-  _keymgr_set_and_unlock_processwide_ptr (KEYMGR_GCC3_DW2_OBJ_LIST,
-							the_obj_info);
-}
-
-#else	/* ! __APPLE__  */
 /* The unseen_objects list contains objects that have been registered
    but not yet categorized in any way.  The seen_objects list has had
    it's pc_begin and count fields initialized at minimum, and is sorted
@@ -250,7 +53,7 @@ static __gthread_mutex_t object_mutex;
 #endif
 
 #ifdef __GTHREAD_MUTEX_INIT_FUNCTION
-static void 
+static void
 init_object_mutex (void)
 {
   __GTHREAD_MUTEX_INIT_FUNCTION (&object_mutex);
@@ -265,8 +68,6 @@ init_object_mutex_once (void)
 #else
 #define init_object_mutex_once()
 #endif
-/* APPLE LOCAL end EH runtime  turly 20020208  */
-#endif  /* __APPLE__  */
 
 /* Called from crtbegin.o to register the unwind info for an object.  */
 
@@ -284,6 +85,9 @@ __register_frame_info_bases (void *begin, struct object *ob,
   ob->u.single = begin;
   ob->s.i = 0;
   ob->s.b.encoding = DW_EH_PE_omit;
+#ifdef DWARF2_OBJECT_END_PTR_EXTENSION
+  ob->fde_end = NULL;
+#endif
 
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
@@ -310,7 +114,7 @@ __register_frame (void *begin)
     return;
 
   ob = (struct object *) malloc (sizeof (struct object));
-  __register_frame_info (begin, ob);                       
+  __register_frame_info (begin, ob);
 }
 
 /* Similar, but BEGIN is actually a pointer to a table of unwind entries
@@ -360,7 +164,7 @@ __register_frame_table (void *begin)
    Since the registration did not happen there, we'll abort.
 
    Therefore, declare a new deregistration entry point that does the
-   exact same thing, but will resolve to the same library as 
+   exact same thing, but will resolve to the same library as
    implements __register_frame_info_bases.  */
 
 void *
@@ -381,7 +185,6 @@ __deregister_frame_info_bases (void *begin)
       {
 	ob = *p;
 	*p = ob->next;
-	Dprintf ("## deregister: FDE %p was on unseen\n", begin);
 	goto out;
       }
 
@@ -391,7 +194,6 @@ __deregister_frame_info_bases (void *begin)
 	if ((*p)->u.sort->orig_data == begin)
 	  {
 	    ob = *p;
-	    Dprintf ("## deregister: FDE %p was on seen (sorted)\n", begin);
 	    *p = ob->next;
 	    free (ob->u.sort);
 	    goto out;
@@ -401,14 +203,12 @@ __deregister_frame_info_bases (void *begin)
       {
 	if ((*p)->u.single == begin)
 	  {
-	    Dprintf ("## deregister: FDE %p was on seen (unsorted)\n", begin);
 	    ob = *p;
 	    *p = ob->next;
 	    goto out;
 	  }
       }
 
-  Dprintf ("## deregister: FDE %p was not in seen_objects - abort!\n", begin);
   __gthread_mutex_unlock (&object_mutex);
   abort ();
 
@@ -467,7 +267,6 @@ get_cie_encoding (struct dwarf_cie *cie)
   _Unwind_Word utmp;
   _Unwind_Sword stmp;
 
-  Dprintf("get cie encoding for %p\n", cie);
   aug = cie->augmentation;
   if (aug[0] != 'z')
     return DW_EH_PE_absptr;
@@ -602,7 +401,7 @@ start_fde_sort (struct fde_accumulator *accu, size_t count)
       return 1;
     }
   else
-    return 0;  
+    return 0;
 }
 
 static inline void
@@ -615,7 +414,7 @@ fde_insert (struct fde_accumulator *accu, fde *this_fde)
 /* Split LINEAR into a linear sequence with low values and an erratic
    sequence with high values, put the linear one (of longest possible
    length) into LINEAR and the erratic one into ERRATIC. This is O(N).
-   
+
    Because the longest linear sequence we are trying to locate within the
    incoming LINEAR array can be interspersed with (high valued) erratic
    entries.  We construct a chain indicating the sequenced entries.
@@ -638,18 +437,18 @@ fde_split (struct object *ob, fde_compare_t fde_compare,
      them and the overlaying onto ERRATIC will not work.  */
   if (sizeof (fde *) != sizeof (fde **))
     abort ();
-  
+
   for (i = 0; i < count; i++)
     {
       fde **probe;
-      
+
       for (probe = chain_end;
-           probe != &marker && fde_compare (ob, linear->array[i], *probe) < 0;
-           probe = chain_end)
-        {
-          chain_end = (fde **) erratic->array[probe - linear->array];
-          erratic->array[probe - linear->array] = NULL;
-        }
+	   probe != &marker && fde_compare (ob, linear->array[i], *probe) < 0;
+	   probe = chain_end)
+	{
+	  chain_end = (fde **) erratic->array[probe - linear->array];
+	  erratic->array[probe - linear->array] = NULL;
+	}
       erratic->array[i] = (fde *) chain_end;
       chain_end = &linear->array[i];
     }
@@ -690,22 +489,22 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
       /* Invariant: a[m..n-1] is a heap.  */
       m--;
       for (i = m; 2*i+1 < n; )
-        {
-          if (2*i+2 < n
-              && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-              && fde_compare (ob, a[2*i+2], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+2]);
-              i = 2*i+2;
-            }
-          else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+1]);
-              i = 2*i+1;
-            }
-          else
-            break;
-        }
+	{
+	  if (2*i+2 < n
+	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
+	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+2]);
+	      i = 2*i+2;
+	    }
+	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+1]);
+	      i = 2*i+1;
+	    }
+	  else
+	    break;
+	}
     }
   while (n > 1)
     {
@@ -713,22 +512,22 @@ frame_heapsort (struct object *ob, fde_compare_t fde_compare,
       n--;
       SWAP (a[0], a[n]);
       for (i = 0; 2*i+1 < n; )
-        {
-          if (2*i+2 < n
-              && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
-              && fde_compare (ob, a[2*i+2], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+2]);
-              i = 2*i+2;
-            }
-          else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
-            {
-              SWAP (a[i], a[2*i+1]);
-              i = 2*i+1;
-            }
-          else
-            break;
-        }
+	{
+	  if (2*i+2 < n
+	      && fde_compare (ob, a[2*i+2], a[2*i+1]) > 0
+	      && fde_compare (ob, a[2*i+2], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+2]);
+	      i = 2*i+2;
+	    }
+	  else if (fde_compare (ob, a[2*i+1], a[i]) > 0)
+	    {
+	      SWAP (a[i], a[2*i+1]);
+	      i = 2*i+1;
+	    }
+	  else
+	    break;
+	}
     }
 #undef SWAP
 }
@@ -754,7 +553,7 @@ fde_merge (struct object *ob, fde_compare_t fde_compare,
 	      v1->array[i1+i2] = v1->array[i1-1];
 	      i1--;
 	    }
-        v1->array[i1+i2] = fde2;
+	  v1->array[i1+i2] = fde2;
 	}
       while (i2 > 0);
       v1->count += v2->count;
@@ -794,7 +593,7 @@ end_fde_sort (struct object *ob, struct fde_accumulator *accu, size_t count)
 }
 
 
-/* Update encoding, mixed_encoding, and pc_begin for OB for the 
+/* Update encoding, mixed_encoding, and pc_begin for OB for the
    fde array beginning at THIS_FDE.  Return the number of fdes
    encountered along the way.  */
 
@@ -806,16 +605,10 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
   int encoding = DW_EH_PE_absptr;
   _Unwind_Ptr base = 0;
 
-  Dprintf("classify object %p fde %p\n", ob, this_fde);
-  /* APPLE LOCAL EH VALID_FDE_P  */
-  for (; VALID_FDE_P (ob, this_fde); this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
       _Unwind_Ptr mask, pc_begin;
-
-      Dprintf ("this_fde now %p, CIE delta %x\n", this_fde, this_fde->CIE_delta);
-      Dprintf ("next_fde is %p, length %d\n",
-	      next_fde (this_fde), next_fde (this_fde)->length);
 
       /* Skip CIEs.  */
       if (this_fde->CIE_delta == 0)
@@ -824,14 +617,11 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
       /* Determine the encoding for this FDE.  Note mixed encoded
 	 objects for later.  */
       this_cie = get_cie (this_fde);
-      Dprintf ("this_cie now %p\n", this_cie);
       if (this_cie != last_cie)
 	{
-	  Dprintf("not the last cie (%p)\n", last_cie);
 	  last_cie = this_cie;
 	  encoding = get_cie_encoding (this_cie);
 	  base = base_from_object (encoding, ob);
-	  Dprintf("encoding is %d, base is %x\n", encoding, base);
 	  if (ob->s.b.encoding == DW_EH_PE_omit)
 	    ob->s.b.encoding = encoding;
 	  else if (ob->s.b.encoding != encoding)
@@ -840,7 +630,7 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
 
       read_encoded_value_with_base (encoding, base, this_fde->pc_begin,
 				    &pc_begin);
-      Dprintf("pc_begin is %x\n", pc_begin);
+
       /* Take care to ignore link-once functions that were removed.
 	 In these cases, the function address will be NULL, but if
 	 the encoding is smaller than a pointer a true NULL may not
@@ -859,7 +649,6 @@ classify_object_over_fdes (struct object *ob, fde *this_fde)
 	ob->pc_begin = (void *) pc_begin;
     }
 
-  Dprintf("  return %d\n", (unsigned int)count);
   return count;
 }
 
@@ -870,14 +659,9 @@ add_fdes (struct object *ob, struct fde_accumulator *accu, fde *this_fde)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (ob->s.b.encoding, ob);
 
-  Dprintf("add this_fde %p, ob %p, accu %p\n", this_fde, ob, accu);
-  /* APPLE LOCAL EH VALID_FDE_P  */
-  for (; VALID_FDE_P (ob, this_fde); this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
-
-      Dprintf ("next_fde is %p, length %d\n",
-	      next_fde (this_fde), next_fde (this_fde)->length);
 
       /* Skip CIEs.  */
       if (this_fde->CIE_delta == 0)
@@ -938,13 +722,11 @@ init_object (struct object* ob)
   size_t count;
 
   count = ob->s.b.count;
-  Dprintf("init object %p, count %d, u.array %p\n", ob, (unsigned int)count, ob->u.array);
   if (count == 0)
     {
       if (ob->s.b.from_array)
 	{
 	  fde **p = ob->u.array;
-	  Dprintf ("doing array\n");
 	  for (count = 0; *p; ++p)
 	    count += classify_object_over_fdes (ob, *p);
 	}
@@ -963,18 +745,17 @@ init_object (struct object* ob)
 
   if (!start_fde_sort (&accu, count))
     return;
-  Dprintf("fde sort started OK\n");
+
   if (ob->s.b.from_array)
     {
       fde **p;
       for (p = ob->u.array; *p; ++p)
-        add_fdes (ob, &accu, *p);
+	add_fdes (ob, &accu, *p);
     }
   else
     add_fdes (ob, &accu, ob->u.single);
 
   end_fde_sort (ob, &accu, count);
-  Dprintf("fde sort ended OK\n");
 
   /* Save the original fde pointer, since this is the key by which the
      DSO will deregister the object.  */
@@ -982,7 +763,6 @@ init_object (struct object* ob)
   ob->u.sort = accu.linear;
 
   ob->s.b.sorted = 1;
-  Dprintf("init_object done\n");
 }
 
 /* A linear search through a set of FDEs for the given PC.  This is
@@ -996,14 +776,10 @@ linear_search_fdes (struct object *ob, fde *this_fde, void *pc)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (ob->s.b.encoding, ob);
 
-  /* APPLE LOCAL EH VALID_FDE_P  */
-  for (; VALID_FDE_P (ob, this_fde); this_fde = next_fde (this_fde))
+  for (; ! last_fde (ob, this_fde); this_fde = next_fde (this_fde))
     {
       struct dwarf_cie *this_cie;
       _Unwind_Ptr pc_begin, pc_range;
-
-      Dprintf ("next_fde is %p, length %d\n",
-	      next_fde (this_fde), next_fde (this_fde)->length);
 
       /* Skip CIEs.  */
       if (this_fde->CIE_delta == 0)
@@ -1053,7 +829,7 @@ linear_search_fdes (struct object *ob, fde *this_fde, void *pc)
 	}
 
       if ((_Unwind_Ptr) pc - pc_begin < pc_range)
-        return this_fde;
+	return this_fde;
     }
 
   return NULL;
@@ -1067,8 +843,7 @@ binary_search_unencoded_fdes (struct object *ob, void *pc)
 {
   struct fde_vector *vec = ob->u.sort;
   size_t lo, hi;
-      
-  Dprintf ("binary search unenc obj %p pc_begin %p, pc=%p, %d count\n", ob, ob->pc_begin, pc, (unsigned int)vec->count);
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -1079,7 +854,6 @@ binary_search_unencoded_fdes (struct object *ob, void *pc)
       pc_begin = ((void **) f->pc_begin)[0];
       pc_range = ((uaddr *) f->pc_begin)[1];
 
-      Dprintf("testing range %p + %x\n", pc_begin, pc_range);
       if (pc < pc_begin)
 	hi = i;
       else if (pc >= pc_begin + pc_range)
@@ -1098,8 +872,7 @@ binary_search_single_encoding_fdes (struct object *ob, void *pc)
   int encoding = ob->s.b.encoding;
   _Unwind_Ptr base = base_from_object (encoding, ob);
   size_t lo, hi;
-      
-  Dprintf ("binary search single enc obj %p pc_begin %p, pc=%p\n", ob, ob->pc_begin, pc);
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -1111,7 +884,6 @@ binary_search_single_encoding_fdes (struct object *ob, void *pc)
 					&pc_begin);
       read_encoded_value_with_base (encoding & 0x0F, 0, p, &pc_range);
 
-      Dprintf("testing range %x + %x\n", pc_begin, pc_range);
       if ((_Unwind_Ptr) pc < pc_begin)
 	hi = i;
       else if ((_Unwind_Ptr) pc >= pc_begin + pc_range)
@@ -1128,8 +900,7 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 {
   struct fde_vector *vec = ob->u.sort;
   size_t lo, hi;
-      
-  Dprintf ("binary search mixed end obj %p pc_begin %p, pc=%p\n", ob, ob->pc_begin, pc);
+
   for (lo = 0, hi = vec->count; lo < hi; )
     {
       size_t i = (lo + hi) / 2;
@@ -1158,7 +929,6 @@ binary_search_mixed_encoding_fdes (struct object *ob, void *pc)
 static fde *
 search_object (struct object* ob, void *pc)
 {
-  Dprintf ("searching obj %p pc_begin %p, pc=%p\n", ob, ob->pc_begin, pc);
   /* If the data hasn't been sorted, try to do this now.  We may have
      more memory available than last time we tried.  */
   if (! ob->s.b.sorted)
@@ -1185,14 +955,14 @@ search_object (struct object* ob, void *pc)
     {
       /* Long slow labourious linear search, cos we've no memory.  */
       if (ob->s.b.from_array)
-        {
-          fde **p;
+	{
+	  fde **p;
 	  for (p = ob->u.array; *p ; p++)
 	    {
 	      fde *f = linear_search_fdes (ob, *p, pc);
-              if (f)
+	      if (f)
 		return f;
-            }
+	    }
 	  return NULL;
 	}
       else
@@ -1209,9 +979,6 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
   init_object_mutex_once ();
   __gthread_mutex_lock (&object_mutex);
 
-  Dprintf("in _Unwind_Find_FDE pc %p\n", pc);
-  Dprintf("seen_objects %p, unseen_objects %p\n", seen_objects, unseen_objects);
-
   /* Linear search through the classified objects, to find the one
      containing the pc.  Note that pc_begin is sorted descending, and
      we expect objects to be non-overlapping.  */
@@ -1219,7 +986,6 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
     if (pc >= ob->pc_begin)
       {
 	f = search_object (ob, pc);
-	Dprintf("a. seen_objects %p, ob %p, f %p\n", seen_objects, ob, f);
 	if (f)
 	  goto fini;
 	break;
@@ -1232,7 +998,6 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 
       unseen_objects = ob->next;
       f = search_object (ob, pc);
-      Dprintf("b. seen_objects %p, ob %p, f %p\n", seen_objects, ob, f);
 
       /* Insert the object into the classified list.  */
       for (p = &seen_objects; *p ; p = &(*p)->next)
@@ -1264,4 +1029,3 @@ _Unwind_Find_FDE (void *pc, struct dwarf_eh_bases *bases)
 
   return f;
 }
-

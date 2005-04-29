@@ -1,0 +1,19 @@
+XCOMM $XFree86: xc/programs/Xserver/hw/darwin/quartz/fullscreen/Imakefile,v 1.1 2003/09/16 00:36:14 torrey Exp $
+
+#include <Server.tmpl>
+
+SRCS =  fullscreen.c \
+        quartzCursor.c
+
+OBJS =  fullscreen.o \
+        quartzCursor.o
+
+INCLUDES = -I. -I$(SERVERSRC)/mi -I$(SERVERSRC)/include -I$(XINCLUDESRC) \
+           -I$(FONTINCSRC) -I$(SERVERSRC)/render -I$(SERVERSRC)/miext/shadow \
+           -I$(EXTINCSRC) -I.. -I../..
+
+NormalLibraryObjectRule()
+NormalLibraryTarget(fullscreen,$(OBJS))
+
+DependTarget()
+

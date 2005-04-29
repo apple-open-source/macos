@@ -65,14 +65,29 @@
 #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-bin_PROGRAMS		= odbctest
+bin_PROGRAMS		= iodbctest iodbctestw
 INCLUDES		= -I$(top_srcdir)/include -DNO_FRAMEWORKS
 
 #
 #  Build odbctest program
 #
-odbctest_SOURCES	= odbctest.c
-odbctest_LDADD		= ../iodbc/libiodbc.la 
-#SEM OpenLink had this commented out
-#odbctest_LDFLAGS	= # -static
-odbctest_LDFLAGS	= -static
+iodbctest_SOURCES	= iodbctest.c
+iodbctest_LDADD		= ../iodbc/libiodbc.la
+iodbctest_LDFLAGS	= # -static
+
+iodbctestw_CFLAGS	= -DUNICODE
+iodbctestw_SOURCES	= iodbctest.c
+iodbctestw_LDADD	= ../iodbc/libiodbc.la
+iodbctestw_LDFLAGS	= # -static
+
+EXTRA_DIST		= Makefile.sample 
+
+install-exec-hook:
+	$(mkinstalldirs) ${pkgdatadir}/samples
+	cp $(srcdir)/iodbctest.c ${pkgdatadir}/samples/iodbctest.c
+	cp $(srcdir)/Makefile.sample ${pkgdatadir}/samples/Makefile
+
+uninstall-hook:
+	rm -f ${pkgdatadir}/samples/iodbctest.c
+	rm -f ${pkgdatadir}/samples/Makefile
+	rmdir ${pkgdatadir}/samples

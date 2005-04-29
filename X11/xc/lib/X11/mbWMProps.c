@@ -26,15 +26,15 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/mbWMProps.c,v 1.5 2001/12/14 19:54:10 dawes Exp $ */
+/* $XFree86: xc/lib/X11/mbWMProps.c,v 1.6 2003/11/17 22:20:12 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/Xlocale.h>
 
-#if NeedFunctionPrototypes
-void XmbSetWMProperties (
+void
+XmbSetWMProperties (
     Display *dpy,
     Window w,
     _Xconst char *windowName,
@@ -44,19 +44,6 @@ void XmbSetWMProperties (
     XSizeHints *sizeHints,
     XWMHints *wmHints,
     XClassHint *classHints)
-#else
-void XmbSetWMProperties (dpy, w, windowName, iconName, argv, argc, sizeHints,
-			 wmHints, classHints)
-     Display *dpy;
-     Window w;			/* window to decorate */
-     _Xconst char *windowName;	/* name of application */
-     _Xconst char *iconName;	/* name string for icon */
-     char **argv;		/* command line */
-     int argc;			/* size of command line */
-     XSizeHints *sizeHints;	/* size hints for window in its normal state */
-     XWMHints *wmHints;		/* miscelaneous window manager hints */
-     XClassHint *classHints;	/* resource name and class */
-#endif
 {
     XTextProperty wname, iname;
     XTextProperty *wprop = NULL;

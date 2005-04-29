@@ -1,0 +1,57 @@
+2004-11-01  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 2810013 (fix from mainline)
+	* objc-act.c (objc_lookup_ivar): The new OTHER parameter
+	contains the result of the ID lookup by the C or C++
+	front-end; in class methods, use OTHER if it exists;
+	in instance methods, use OTHER only if it is locally
+	declared.
+
+2004-10-27  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3854155
+	* objc-act.c (generate_shared_structures): Add a CLS_FLAGS
+	parameter whose value gets ORed into the INFO field of
+	the class descriptor.
+	(CLS_HAS_CXX_STRUCTORS): New metadata bit.
+	(objc_generate_cxx_cdtors): Set flag in current imp_entry
+	if either '-.cxx_construct' or '-.cxx_destruct' were
+	synthesized...
+	(continue_class): ...after initially clearing it herre.
+	(finish_objc): Adjust call to generate_shared_structures(),
+	passing in CLS_HAS_CXX_STRUCTORS for classes with non-POD
+	ivars.
+	* objc-act.h (struct imp_entry): New has_cxx_cdtors field.
+
+2004-10-26  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3833116 (fix from mainline)
+	* objc-act.c (finish_class): Do not synthesize bogus
+	'extern objc_object *_Foo;' declarations for @interface Foo.
+
+2004-10-21  Andrew Pinski  <pinskia@physics.uc.edu>
+
+	Radar 3845826 (PR objc/17923)
+	* objc-act.c (objc_build_string_object): Create a CONST_DECL
+	for the NeXT runtime case.
+
+2004-10-21  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3540965
+	* objc-act.c (objc_generate_cxx_ctor_or_dtor,
+	objc_generate_cxx_cdtors): New functions.
+	(TAG_CXX_CONSTRUCT, TAG_CXX_DESTRUCT): New macros.
+	(objc_finish_implementation): Call objc_generate_cxx_cdtors()
+	if -fobjc-call-cxx-cdtors has been specified.
+	(add_instance_variable): Emit different diagnostics for
+	-fobjc-call-cxx-cdtors than for -fno-objc-call-cxx-cdtors.
+
+2004-10-13  Ziemowit Laski  <zlaski@apple.com>
+
+	Radar 3677258
+	* objc-act.c (add_class): Add a 'name' parameter, and point it
+	back at 'class' via IDENTIFIER_INTERFACE_VALUE accessor.
+	(lookup_interface): Look in IDENTIFIER_INTERFACE_VALUE accessor
+	instead of searching for class in a list.
+	(start_class): Adjust calls to add_class().
+	* objc-act.h (IDENTIFIER_INTERFACE_VALUE): Reformat.

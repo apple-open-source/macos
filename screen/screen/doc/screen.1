@@ -1,5 +1,5 @@
 .\" vi:set wm=5
-.TH SCREEN 1 "Mar 2003"
+.TH SCREEN 1 "Aug 2003"
 .if n .ds Q \&"
 .if n .ds U \&"
 .if t .ds Q ``
@@ -1063,6 +1063,24 @@ a shell process (See also chapter \*QWINDOW TYPES\*U). The maximum duration of
 a break signal is limited to 15 seconds.
 .sp
 .ne 3
+.B blanker
+.PP
+Activate the screen blanker. First the screen is cleared. If no blanker
+program is defined, the cursor is turned off, otherwise, the 
+program is started and it's output is written to the screen.
+The screen blanker is killed with the first keypress, the read key
+is discarded.
+.br
+This command is normally used together with the \*Qidle\*U command.
+.sp
+.ne 3
+.B blankerprg
+.RI [ "program args" ]
+.PP
+Defines a blanker program. Disables the blanker program if no
+arguments are given.
+.sp
+.ne 3
 .B breaktype
 .RI [ tcsendbreak | TIOCSBRK
 .RI | TCSBRK ]
@@ -1517,6 +1535,13 @@ Same as the \fBmonitor\fP command except that the default setting for new
 windows is changed. Initial setting is `off'.
 .sp
 .ne 3
+.B defnonblock 
+.BR on | off | \fInumsecs
+.PP
+Same as the \fBnonblock\fP command except that the default setting for
+displays is changed. Initial setting is `off'.
+.sp
+.ne 3
 .BI "defobuflimit " limit
 .PP
 Same as the \fBobuflimit\fP command except that the default setting for new displays is changed. Initial setting is 256 bytes.
@@ -1648,6 +1673,27 @@ day'. Typically installed in a global /local/etc/screenrc.
 The option \*Q-n\*U may be used to suppress the line feed.
 See also \*Qsleep\*U.
 Echo is also useful for online checking of environment variables.
+.sp
+.ne 3
+.BI "encoding " enc
+.RI [ enc ]
+.PP
+Tell 
+.I screen 
+how to interpret the input/output. The first argument
+sets the encoding of the current window. Each window can emulate
+a different encoding. The optional second parameter overwrites
+the encoding of the connected terminal. It should never be
+needed as screen uses the locale setting to detect the encoding.
+There is also a way to select a terminal encoding depending on
+the terminal type by using the \*QKJ\*U termcap entry.
+
+Supported encodings are eucJP, SJIS, eucKR, eucCN, Big5, GBK, KOI8-R,
+CP1251, UTF-8, ISO8859-2, ISO8859-3, ISO8859-4, ISO8859-5, ISO8859-6,
+ISO8859-7, ISO8859-8, ISO8859-9, ISO8859-10, ISO8859-15, jis.
+
+See also \*Qdefencoding\*U, which changes the default setting of a new
+window.
 .sp
 .ne 3
 .BI "escape " xy
@@ -1932,6 +1978,18 @@ scrollback buffer).
 Change the window's hardstatus line to the string \fIstatus\fP.
 .sp
 .ne 3
+.B idle
+.RI [ timeout
+.RI [ "cmd args" ]]
+.PP
+Sets a command that is run after the specified number of seconds
+inactivity is reached. This command will normally be the \*Qblanker\*U
+command to create a screen blanker, but it can be any screen command.
+If no command is specified, only the timeout is set. A timeout of
+zero (ot the special timeout \fBoff\fP) disables the timer.
+If no arguments are given, the current settings are displayed.
+.sp
+.ne 3
 .BR "ignorecase " [ on | off ]
 .PP
 Tell screen to ignore the case of characters in searches. Default is
@@ -1977,27 +2035,6 @@ For system information use the \*Qtime\*U command.
 .BR ins_reg " [" \fIkey ]
 .PP
 No longer exists, use \*Qpaste\*U instead.
-.sp
-.ne 3
-.BI "encoding " enc
-.RI [ enc ]
-.PP
-Tell 
-.I screen 
-how to interpret the input/output. The first argument
-sets the encoding of the current window. Each window can emulate
-a different encoding. The optional second parameter overwrites
-the encoding of the connected terminal. It should never be
-needed as screen uses the locale setting to detect the encoding.
-There is also a way to select a terminal encoding depending on
-the terminal type by using the \*QKJ\*U termcap entry.
-
-Supported encodings are eucJP, SJIS, eucKR, eucCN, Big5, GBK, KOI8-R,
-CP1251, UTF-8, ISO8859-2, ISO8859-3, ISO8859-4, ISO8859-5, ISO8859-6,
-ISO8859-7, ISO8859-8, ISO8859-9, ISO8859-10, ISO8859-15, jis.
-
-See also \*Qdefencoding\*U, which changes the default setting of a new
-window.
 .sp
 .ne 3
 .B kill
@@ -2233,12 +2270,18 @@ This command can be used repeatedly to cycle through the list of windows.
 .sp
 .ne 3
 .B nonblock 
-.RB [ on | off ]
+.RB [ on | off | \fInumsecs ]
 .PP
-Enable or disable flow control for the current user interface (display).
-It is used to prevent a slow display from slowing down the processing of
-data output by a window. This command may be helpful when multiple displays
-show the same window. Nonblock is initially off for all displays.
+Tell screen how to deal with user interfaces (displays) that cease to
+accept output. This can happen if a user presses ^S or a TCP/modem
+connection gets cut but no hangup is received. If nonblock is
+\fBoff\fP (this is the default) screen waits until the display
+restarts to accept the output. If nonblock is \fBon\fP, screen
+waits until the timeout is reached (\fBon\fP is treated as 1s). If the
+display still doesn't receive characters, screen will consider
+it \*Qblocked\*U and stop sending characters to it. If at
+some time it restarts to accept characters, screen will unblock
+the display and redisplay the updated window contents.
 .sp
 .ne 3
 .BR "number " [ \fIn ]
@@ -2535,14 +2578,17 @@ current setting.
 .BR "select " [ \fIWindowID ]
 .PP
 Switch to the window identified by \fIWindowID\fP.
-This can be a prefix of a window title (alphanumeric window name) or a window 
-number.
+This can be a prefix of a window title (alphanumeric window name) or a
+window number.
 The parameter is optional and if omitted, you get prompted for an identifier. 
 When a new window is established, the first available number
 is assigned to this window.
 Thus, the first window can be activated by \*Qselect 0\*U.
 The number of windows is limited at compile-time by the MAXWIN
 configuration parameter.
+There are two special WindowIDs, \*Q-\*U selects the
+internal blank window and \*Q.\*U selects the current window. The
+latter is useful if used with screen's \*Q-X\*U option.
 .sp
 .ne
 .BR "sessionname " [ \fIname ]
@@ -2927,9 +2973,14 @@ vice versa.
 .sp
 .ne 3
 .B windowlist
-.RB [ -b "] |"
+.RB [ -b ]
+.RB [ -m ]
+.br
+.B windowlist
 .B string
-.RI [ string "] |"
+.RI [ string ]
+.br
+.B windowlist
 .B title
 .RI [ title ]
 .PP
@@ -2940,6 +2991,10 @@ If the
 .B -b
 option is given, screen will switch to the blank window before
 presenting the list, so that the current window is also selectable.
+The
+.B -m
+option changes the order of the windows, instead of sorting by
+window numbers screen uses its internal most-recently-used list.
 
 The table format can be changed with the \fBstring\fP and
 \fBtitle\fP option, the title is displayed as table heading, while
@@ -3010,6 +3065,30 @@ to other windows.
 .PP
 Insert a CTRL-s / CTRL-q character to the stdin queue of the
 current window.
+.sp
+.ne 3
+.B zmodem
+.RB [ off\fR|\fPauto\fR|\fPcatch\fR|\fPpass ]
+.br
+.B "zmodem sendcmd"
+.RI [ string ]
+.br
+.B "zmodem recvcmd"
+.RI [ string ]
+.PP
+Define zmodem support for screen. Screen understands two different
+modes when it detects a zmodem request: \*Qpass\*U and \*Qcatch\*U.
+If the mode is set to \*Qpass\*U, screen will relay all data
+to the attacher until the end of the transmission is reached.
+In \*Qcatch\*U mode screen acts as a zmodem endpoint and starts
+the corresponding rz/sz commands. If the mode is set to \*Qauto\*U,
+screen will use \*Qcatch\*U if the window is a tty (e.g. a serial line),
+otherwise it will use \*Qpass\*U.
+.br
+You can define the templates screen uses in \*Qcatch\*U mode
+via the second and the third form.
+.br
+Note also that this is an experimental feature.
 .sp
 .ne 3
 .BR "zombie " [\fIkeys\fP]
@@ -4331,8 +4410,8 @@ Window number of a window (at creation time).
 
 .SH FILES
 .PD 0
-.IP .../screen-3.?.??/etc/screenrc 34
-.IP .../screen-3.?.??/etc/etcscreenrc
+.IP .../screen-4.?.??/etc/screenrc 34
+.IP .../screen-4.?.??/etc/etcscreenrc
 Examples in the 
 .I screen
 distribution package for private and global initialization files.
@@ -4433,7 +4512,7 @@ Pablo Averbuj (pablo@averbuj.com).
 
 
 .SH VERSION
-This is version 3.9.15. Its roots are a merge of a custom version
+This is version 4.0.2. Its roots are a merge of a custom version
 2.3PR7 by Wayne Davison
 and several enhancements to Oliver Laumann's version 2.0. Note that all versions
 numbered 2.x are copyright by Oliver Laumann. 

@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:2621: Origin of test
+dnl ../doc/m4.texinfo:2622: Origin of test
 define(`upcase', `translit(`$*', `a-z', `A-Z')')dnl
 define(`downcase', `translit(`$*', `A-Z', `a-z')')dnl
 define(`capitalize1',

@@ -1,12 +1,12 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Portions Copyright (c) 2002 Apple Computer, Inc.  All Rights
+ * Portions Copyright (c) 2002-2003 Apple Computer, Inc.  All Rights
  * Reserved.  This file contains Original Code and/or Modifications of
  * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.2 (the "License").  You may not use this file
+ * Source License Version 2.0 (the "License").  You may not use this file
  * except in compliance with the License.  Please obtain a copy of the
  * License at http://www.apple.com/publicsource and read it before using
  * this file.
@@ -56,12 +56,10 @@ static const char * biosbuf = (char *) ptov(BIOS_ADDR);
 
 #define ECC_CORRECTED_ERR 0x11
 
-//#undef DEBUG_DISK
-//#define DEBUG_DISK(x)    printf x
-
 extern void   bios(biosBuf_t *bb);
 
 static biosBuf_t bb;
+
 int ebiosread(int dev, long sec, int count)
 {
     int i;
@@ -172,6 +170,7 @@ int diskRead( BVRef bvr, long addr, long length )
                       (void *) addr );
 }
 
+
 int
 findUFSPartition(int dev, struct fdisk_part *_fp)
 {
@@ -179,32 +178,43 @@ findUFSPartition(int dev, struct fdisk_part *_fp)
     struct fdisk_part *fp;
     int i, cc;
     unsigned long offset = 0;
+    unsigned long firstoff = 0;
+    int ext_index = -1;
 
     db = (struct disk_blk0 *)biosbuf;
-    for (i=0; i<FDISK_NPART; i++) {
-    DEBUG_DISK(("i=%d, %ld\n", i, offset));
-      if (i==0) {
-      DEBUG_DISK(("reading\n"));
+    do {
+        DEBUG_DISK(("reading at offset %d\n", offset));
         cc = Biosread(dev, offset);
         if (cc < 0) {
-	    return cc;
+            return cc;
         }
-      }
-      fp = (struct fdisk_part *)&db->parts[i];
-      DEBUG_DISK(("systid %x\n", fp->systid));
-      if (fp->systid == 0xA8) {
-        bcopy(fp, _fp, sizeof(struct fdisk_part));
-	_fp->relsect += offset;
-        DEBUG_DISK(("found %d\n", i));
-	return 0;
-      } else if (fp->systid == 0x05 ||
-		fp->systid == 0x0F ||
-		fp->systid == 0x85) {
-        offset += fp->relsect;
-	i = -1;
-	continue;
-      }
-    }
+        for (i=0; i<FDISK_NPART; i++) {
+            DEBUG_DISK(("i=%d, offset %ld\n", i, offset));
+            fp = (struct fdisk_part *)&db->parts[i];
+            DEBUG_DISK(("systid %x\n", fp->systid));
+            if (fp->systid == FDISK_UFS) {
+                bcopy(fp, _fp, sizeof(struct fdisk_part));
+                _fp->relsect += offset;
+                DEBUG_DISK(("** found UFS at partition %d\n", i));
+                return 0;
+            } else if (fp->systid == FDISK_DOSEXT ||
+                       fp->systid == 0x0F ||
+                       fp->systid == 0x85) {
+                ext_index = i;
+            }
+        }
+        if (ext_index != -1) {
+            DEBUG_DISK(("Found ext part at %d\n", ext_index));
+            fp = (struct fdisk_part *)&db->parts[ext_index];
+            ext_index = -1;
+            offset = firstoff + fp->relsect;
+            if (firstoff == 0) {
+                firstoff = fp->relsect;
+            }
+            continue;
+        }
+        break;
+    } while (1);
     return -1;
 }
 
@@ -212,13 +222,13 @@ findUFSPartition(int dev, struct fdisk_part *_fp)
 void
 initUFSBVRef( BVRef bvr, int biosdev, const struct fdisk_part * part)
 {
-        bvr->biosdev        = biosdev;
-        bvr->part_no        = 0;
-        bvr->part_boff      = part->relsect + UFS_FRONT_PORCH/BPS,
+    bvr->biosdev        = biosdev;
+    bvr->part_no        = 0;
+    bvr->part_boff      = part->relsect + UFS_FRONT_PORCH/BPS,
         bvr->part_type      = part->systid;
-        bvr->fs_loadfile    = UFSLoadFile;
-        bvr->fs_getdirentry = UFSGetDirEntry;
-        bvr->description    = 0;
+    bvr->fs_loadfile    = UFSLoadFile;
+    //bvr->fs_getdirentry = UFSGetDirEntry;
+    bvr->description    = 0;
 }
 
 void putc(int ch)

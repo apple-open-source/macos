@@ -1,4 +1,7 @@
-.TH mergelib 1 __xorgversion__
+.\" $XFree86: xc/config/util/mergelib.man,v 1.2 2003/04/07 22:03:49 herrb Exp $
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH MERGELIB 1 __xorgversion__
 .SH NAME
 mergelib \- merge one library into another
 .SH SYNOPSIS
@@ -14,7 +17,7 @@ The names of object files in
 .I from-library
 will be prefixed by
 .I object-filename-prefix
-(\(oq_\(cq by default) to avoid name clashes.
+(\*q_\*q by default) to avoid name clashes.
 The merged library will be left in
 .IR to-library .
 .SH AUTHOR

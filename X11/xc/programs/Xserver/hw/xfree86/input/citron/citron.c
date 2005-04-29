@@ -1,4 +1,4 @@
-/* Id: citron.c,v 1.8 2001/03/28 08:24:38 pk Exp $
+/* $Id: citron.c,v 1.12 2003/04/14 08:42:27 pk Exp $
  * Copyright (c) 1998  Metro Link Incorporated
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
@@ -25,13 +25,13 @@
  *
  */
 
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/citron/citron.c,v 1.7 2001/07/02 17:29:20 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/citron/citron.c,v 1.12 2003/11/06 18:38:11 tsi Exp $ */
 
 /*
  * Based, in part, on code with the following copyright notice:
  *
  * Copyright 1999-2001 by Thomas Thanner, Citron GmbH, Germany. <support@citron.de>
- * Copyright 1999-2001 by Peter Kunzmann, Citron GmbH, Germany. <kunzmann@citron.de>
+ * Copyright 1999-2003 by Peter Kunzmann, Citron GmbH, Germany. <kunzmann@citron.de>
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is  hereby granted without fee, provided that
@@ -109,7 +109,11 @@
 					debuglevel, entercount(z) from external now poss.
 					enter_touched not reset by coord_exit				pk
  2.09	25.03.01	enter_touched also reset by press_exit, a new 
- 					command (SetPWMFreq) for backlight dimming added	pk
+ 					command (SetPWMFreq) for backlight dimming added
+ 2.10	24.04.01
+					command (SendLockZ) for 3-D support added
+					userstring commands added							pk
+ 2.11	07.02.03	Blockduration time raised to 1sec					pk
  ============================================================================
 
 */
@@ -120,8 +124,8 @@
 #define INITT 0		/* Initialisation of touch in first loop */
 
 
-#define CITOUCH_VERSION	0x209
-char version[]="Touch Driver V2.09  (c) 1999-2001 Citron GmbH";
+#define CITOUCH_VERSION	0x211
+char version[]="Touch Driver V2.1.1  (c) 1999-2003 Citron GmbH";
 
 #define CITOUCH_VERSION_MAJOR ((CITOUCH_VERSION >> 8) & 0xf)
 #define CITOUCH_VERSION_MINOR ((CITOUCH_VERSION >> 4) & 0xf)
@@ -139,8 +143,13 @@ char version[]="Touch Driver V2.09  (c) 1999-2001 Citron GmbH";
 #include "xf86_OSproc.h"
 #include "xf86Xinput.h"
 #include "xisb.h"
-#include "exevents.h"		/* Needed for InitValuator/Proximity stuff*/
+#include "exevents.h"				/* Needed for InitValuator/Proximity stuff*/
 
+
+/* I have to explicit declare this function, because I get an error if I compile */
+/* with "#define XF86_OS_PRIVS". I also have to put a "SYMVAR(xf86SoundKbdBell)" */
+/* statement into the  "/loader/xf86sym.c file" to be able to access this function (PK) */
+/* extern void xf86SoundKbdBell(int loudness, int pitch, int duration); */
 
 /* #define CIT_TIM	*/	/* Enable timer */
 #define CIT_BEEP		/* enable beep feature */
@@ -238,6 +247,20 @@ InputDriverRec CITRON = {
 	0
 };
 
+static char *UserStrNames[] =
+{
+	"NAME",
+	"REV",
+	"RECEIVERBOARD",
+	"TOUCH",
+	"DISPLAY",
+	"INVERTER",
+	"MECHANICS",
+	"PAR1",
+	"PAR2",
+	NULL
+};
+
 #ifdef XFree86LOADER
 
 
@@ -265,7 +288,6 @@ static XF86ModuleVersionInfo VersionRec =
 	MOD_CLASS_XINPUT,
 	{0, 0, 0, 0}				/* signature of the version info structure */
 };
-
 
 /* ************************************************************************
  * [SetupProc] --
@@ -364,6 +386,9 @@ static const char *default_options[] =
 /*****************************************************************************
  *	Function Definitions
  ****************************************************************************/
+static void cit_SendLockZ(cit_PrivatePtr priv);
+static int cit_SendString(XISBuffer *b, unsigned char cmd, int cnt, char *ustr);
+static Bool cit_GetUserString(cit_PrivatePtr priv, char *ustr_name, char *ustr_cont, Bool scan_flg);
 
 
 
@@ -381,8 +406,13 @@ cit_SendtoTouch(DeviceIntPtr dev)
 	int i,j;
 	unsigned char buf[MAX_BYTES_TO_TRANSFER*2+2];
 
-	DBG(DDS, ErrorF("%scit_SendtoTouch(numbytes=0x%02X, data[0]=%02x, data[1]=%02x, data[2]=%02x, data[3]=%02x, ...)\n", CI_INFO, priv->dds.numbytes,
-		priv->dds.data[0], priv->dds.data[1], priv->dds.data[2], priv->dds.data[3]));
+	DBG(DDS, ErrorF("%scit_SendtoTouch(numbytes=0x%02X, ", CI_INFO,	priv->dds.numbytes));
+	
+	for(i=0; i<priv->dds.numbytes; i++)
+	{
+		DBG(DDS, ErrorF("%02x ", priv->dds.data[i]));
+	}
+	DBG(DDS, ErrorF(")\n"));
 
 	j=0;
 	buf[j++] = CTS_STX;			/* transmit start of packet	*/
@@ -403,7 +433,14 @@ cit_SendtoTouch(DeviceIntPtr dev)
 
 	for(i=0; i<j; i++)
 	{
-		if(i%16 == 0) DBG(DDS, ErrorF("\n"));
+		if(i == 0)
+		{
+			DBG(DDS, ErrorF("%s sent=", CI_INFO));
+		}
+		else if(i%16 == 0)
+		{
+			DBG(DDS, ErrorF("\n"));
+		}
 		DBG(DDS, ErrorF("%02x ",buf[i]));
 	}
 
@@ -419,7 +456,7 @@ cit_ParseCommand(DeviceIntPtr dev)
     cit_PrivatePtr		priv  = (cit_PrivatePtr)(local->private);
 	int i;
 
-	DBG(DDS, ErrorF("%scit_ParseCommand(numbytes=0x%02X, data= ", CI_INFO, priv->dds.numbytes));
+	DBG(DDS, ErrorF("%scit_ParseCommand: numbytes=0x%02X, data= ", CI_INFO, priv->dds.numbytes));
 
 	for(i=0; i<priv->dds.numbytes; i++)
 		DBG(DDS, ErrorF("%02x ", priv->dds.data[i]));
@@ -431,7 +468,10 @@ cit_ParseCommand(DeviceIntPtr dev)
 		case C_SETPWM:
 			priv->pwm_active = priv->dds.data[1];
 			priv->pwm_sleep = priv->dds.data[2];
-			DBG(DDS, ErrorF("%scit_ParseCommand(PWM Active:%d PWM Sleep:%d \n", CI_INFO, priv->pwm_active, priv->pwm_sleep));
+			/* And now a dirty hack */
+			priv->dds.data[1] = cit_AdjustBright(priv, priv->dds.data[1]);
+			priv->dds.data[2] = cit_AdjustBright(priv, priv->dds.data[2]);
+			DBG(DDS, ErrorF("%scit_ParseCommand: PWM Active:%d PWM Sleep:%d \n", CI_INFO, priv->dds.data[1], priv->dds.data[2]));
 		break;
 		
 		case C_SETPWMFREQ:
@@ -459,9 +499,17 @@ cit_ParseCommand(DeviceIntPtr dev)
 			priv->button_threshold = priv->dds.data[1];
 			DBG(DDS, ErrorF("%scit_ParseCommand: Button Threshold:%d \n", CI_INFO, priv->button_threshold));
 		break;
-		
+
+		case C_SETLOCKZ:
+			priv->lockz_enter_time = priv->dds.data[1];
+			priv->lockz_exit_time = priv->dds.data[2];
+			priv->lockz_lock_time = priv->dds.data[3];
+			DBG(DDS, ErrorF("%scit_ParseCommand: LockZ: enter %d, exit %d, lock %d \n", CI_INFO,
+				priv->lockz_enter_time, priv->lockz_exit_time, priv->lockz_lock_time));
+		break;
+
 		default:
-			DBG(DDS, ErrorF("%scit_ParseCommand: Command %d not found\n", CI_INFO, priv->dds.data[0]));
+			DBG(DDS, ErrorF("%scit_ParseCommand: Command %d [0x%02x] not found\n", CI_INFO, priv->dds.data[0], priv->dds.data[0]));
 		break;
 
 	}
@@ -528,9 +576,16 @@ cit_DriverComm(DeviceIntPtr dev)
 			cit_SetEnterCount(priv);	/* set enter_count according click_mode */
 			ErrorF("%sZEnterCount set to %d \n", CI_INFO, priv->enter_count_Z);
 		break;
+
+		case D_PWMADJ:
+			priv->pwm_src = priv->dds.data[i++];
+			priv->pwm_dst = priv->dds.data[i++];
+			cit_SendPWM(priv);				/* Set PWM for active and sleep mode */
+			ErrorF("%spwm_src=%d, pwm_dst=%d \n", CI_INFO, priv->pwm_src, priv->pwm_dst);
+		break;
 		
 		default:
-			ErrorF("%sNot known command: %d - Get a recent driver\n", CI_WARNING, priv->dds.data[1]);
+			ErrorF("%sNot known command: %d [0x%02x] - Get a recent driver\n", CI_WARNING, priv->dds.data[1], priv->dds.data[1]);
 		break;		
 	}
 }
@@ -541,8 +596,10 @@ xf86CitronPrint (int nr, LedCtrl *ctrl)
 {
 	DBG(8, ErrorF("%s------------------------------------------\n", CI_INFO));
 	DBG(8, ErrorF("%sxf86CitronFeedback%d(dev, ctrl)\n", CI_INFO, nr));
-	DBG(8, ErrorF("%s  ctrl->led_values.......:%d [0x%08lX]\n", CI_INFO, ctrl->led_values, ctrl->led_values));
-	DBG(8, ErrorF("%s  ctrl->led_mask.........:%d [0x%08lX]\n", CI_INFO, ctrl->led_mask, ctrl->led_mask));
+	DBG(8, ErrorF("%s  ctrl->led_values.......:%ld [0x%08lX]\n", CI_INFO,
+		ctrl->led_values, ctrl->led_values));
+	DBG(8, ErrorF("%s  ctrl->led_mask.........:%ld [0x%08lX]\n", CI_INFO,
+		(unsigned long)ctrl->led_mask, (unsigned long)ctrl->led_mask));
 	DBG(8, ErrorF("%s  ctrl->id...............:%d\n", CI_INFO, ctrl->id));
 }
 
@@ -597,9 +654,9 @@ xf86CitronFeedback0 (DeviceIntPtr dev, LedCtrl *ctrl)
 		}
 	}
 
-	DBG(DDS, ErrorF("%s 1 led_values = %08x\n", CI_INFO, ctrl->led_values));
-	ctrl->led_values = 0x12345678;
-	DBG(DDS, ErrorF("%s 2 led_values = %08x\n", CI_INFO, ctrl->led_values));
+	DBG(DDS, ErrorF("%s 1 led_values = %08lx\n", CI_INFO, ctrl->led_values));
+	ctrl->led_values = (unsigned long)GetTimeInMillis();
+	DBG(DDS, ErrorF("%s 2 led_values = %08lx\n", CI_INFO, ctrl->led_values));
 
 }
 
@@ -658,7 +715,7 @@ cit_StartTimer(cit_PrivatePtr priv, int nr)
 {
 	priv->timer_ptr[nr] = TimerSet(priv->timer_ptr[nr], 0, priv->timer_val1[nr],
 			 priv->timer_callback[nr], (pointer)priv);
-	DBG(5, ErrorF ("%scit_StartTimer[%d] called PTR=%08x\n", CI_INFO, nr, priv->timer_ptr));
+	DBG(5, ErrorF ("%scit_StartTimer[%d] called PTR=%p\n", CI_INFO, nr, (void *)priv->timer_ptr));
 }
 
 
@@ -669,7 +726,7 @@ static void
 cit_CloseTimer(cit_PrivatePtr priv, int nr)
 {
 
-	DBG(5, ErrorF ("%scit_CloseTimer[%d] called PTR=%08x\n", CI_INFO, nr, priv->timer_ptr));
+	DBG(5, ErrorF ("%scit_CloseTimer[%d] called PTR=%p\n", CI_INFO, nr, (void *)priv->timer_ptr));
 	if(priv->timer_ptr[nr])
 	{
 		TimerFree(priv->timer_ptr[nr]);
@@ -690,7 +747,8 @@ cit_SuperVisionTimer(OsTimerPtr timer, CARD32 now, pointer arg)
 	cit_PrivatePtr priv = (cit_PrivatePtr) arg;
     int	sigstate;
 
-	DBG(5, ErrorF ("%scit_SuperVisionTimer called %d\n", CI_INFO, GetTimeInMillis()));
+	DBG(5, ErrorF ("%scit_SuperVisionTimer called %ld\n", CI_INFO,
+			(unsigned long)GetTimeInMillis()));
 
     sigstate = xf86BlockSIGIO ();
 	
@@ -748,7 +806,8 @@ CitronPreInit (InputDriverPtr drv, IDevPtr dev, int flags)
 	int errmaj, errmin;
 #endif
 
-	ErrorF ("%sCitronPreInit called - xcalloc=%d\n", CI_INFO, sizeof(cit_PrivateRec));
+	ErrorF ("%sCitronPreInit called - xcalloc=%d\n", CI_INFO,
+		(int)sizeof(cit_PrivateRec));
 /*	DBG(2, ErrorF("\txf86Verbose=%d\n", xf86Verbose));*/
 	if ((!local) || (!priv))
 	{
@@ -836,6 +895,10 @@ CitronPreInit (InputDriverPtr drv, IDevPtr dev, int flags)
 	ErrorF("%sSleep Time: %d\n", CI_CONFIG, priv->sleep_time_act);
 	priv->sleep_time_scan = xf86SetIntOption(local->options, "SleepScan", 65535);
 	ErrorF("%sSleep Scan: %d\n", CI_CONFIG, priv->sleep_time_scan);
+	priv->pwm_src = xf86SetIntOption(local->options, "PWMAdjSrc", -1);
+	ErrorF("%sPWMAdjSrc: %d\n", CI_CONFIG, priv->pwm_src);
+	priv->pwm_dst = xf86SetIntOption(local->options, "PWMAdjDst", -1);
+	ErrorF("%sPWMAdjDst: %d\n", CI_CONFIG, priv->pwm_dst);
 	priv->pwm_active = xf86SetIntOption(local->options, "PWMActive", 255);
 	ErrorF("%sPWM Active: %d\n", CI_CONFIG, priv->pwm_active);
 	priv->pwm_sleep = xf86SetIntOption(local->options, "PWMSleep", 255);
@@ -880,6 +943,12 @@ CitronPreInit (InputDriverPtr drv, IDevPtr dev, int flags)
 	ErrorF("%sZEnterCount: %d\n", CI_CONFIG, priv->enter_count_Z);
 	priv->pwm_freq = xf86SetIntOption(priv->local->options, "PWMFreq", -1);
 	ErrorF("%sPWMFreq: %d\n", CI_CONFIG, priv->pwm_freq);
+	priv->lockz_enter_time = xf86SetIntOption(priv->local->options, "LockZEnterTime", 1);
+	ErrorF("%sLockZEnterTime: %d\n", CI_CONFIG, priv->lockz_enter_time);
+	priv->lockz_exit_time = xf86SetIntOption(priv->local->options, "LockZExitTime", 1);
+	ErrorF("%sLockZExitTime: %d\n", CI_CONFIG, priv->lockz_exit_time);
+	priv->lockz_lock_time = xf86SetIntOption(priv->local->options, "LockZLockTime", 10);
+	ErrorF("%sLockLockTime: %d\n", CI_CONFIG, priv->lockz_lock_time);
 
 	cit_SetEnterCount(priv);	/* set enter_count according click_mode */
 
@@ -1525,7 +1594,7 @@ QueryHardware (LocalDevicePtr local, int *errmaj, int *errmin)
 	unsigned char	x;
 	int		i, cnt;
 	int err;		/* for WAIT */
-
+	char UsrStr[CTS_USERSTRING_LEN+1];
 
 	/* Reset the IRT from any mode and wait for end of warmstart */
 	DBG(5, ErrorF("%sQueryHardware called\n", CI_INFO));
@@ -1660,10 +1729,6 @@ QueryHardware (LocalDevicePtr local, int *errmaj, int *errmin)
 													LOBYTE(CIT_DEF_MAX_Y),
 													HIBYTE(CIT_DEF_MAX_Y));
 
-	cit_SendCommand(priv->buffer, C_SETPWM, 2,
-													LOBYTE(priv->pwm_active),
-													LOBYTE(priv->pwm_sleep));
-
 	cit_SendCommand(priv->buffer, C_SETBEAMTIMEOUT, 2,
 													LOBYTE(priv->beam_timeout),
 													HIBYTE(priv->beam_timeout));
@@ -1686,9 +1751,11 @@ QueryHardware (LocalDevicePtr local, int *errmaj, int *errmin)
 													HIBYTE(priv->doze_time_scan));
 
 	cit_SendCommand(priv->buffer, C_SETTRANSMISSION, 1, TM_TRANSMIT);
-	cit_SendCommand(priv->buffer, C_SETSCANNING, 1, 1);
+/*	cit_SendCommand(priv->buffer, C_SETSCANNING, 1, SC_ENABLE); */
 
+	cit_SendPWM(priv);				/* Set PWM for active and sleep mode */
 	cit_SendPWMFreq(priv);			/* Set PWM Frequency */
+	cit_SendLockZ(priv);			/* LockZ timing */
 
 	if(priv->query_state == 0)		/* do error reporting only 1 time */
 	{
@@ -1745,8 +1812,25 @@ QueryHardware (LocalDevicePtr local, int *errmaj, int *errmin)
 			*errmaj = LDR_NOHARDWARE;
 			return (!Success);
 		}
+
+		i=0;
+		while(UserStrNames[i] != NULL)
+		{
+			if (cit_GetUserString(priv, UserStrNames[i], UsrStr, FALSE) != Success)	/* scanning is still disabled */
+			{
+				ErrorF("%sNo UserString read from Touch.\n",CI_NOTICE);
+				break;
+			}
+			else
+				ErrorF("%sUserString: %s=%s\n",CI_INFO, UserStrNames[i], UsrStr);
+			i++;
+		}
+
 	}
 	
+	/* now we can start beam scanning */
+	cit_SendCommand(priv->buffer, C_SETSCANNING, 1, SC_ENABLE);
+
 	DBG(6, ErrorF("%s\t+ Touch initialized - %d\n",CI_INFO, priv->query_state));
 	
 	return (Success);
@@ -1981,6 +2065,60 @@ cit_SendCommand (XISBuffer *b, unsigned char cmd, int cnt, ...)
 	va_end(ap);
 }
 
+/*****************************************************************************
+ *	[cit_SendString]
+ ****************************************************************************/
+static int
+cit_SendString(XISBuffer *b, unsigned char cmd, int cnt, char *ustr)
+{
+	int i,j;
+	unsigned char buf[CTS_OEMSTRING_LEN];
+
+	if(((strlen((char *)ustr)+1) > cnt) || (cnt > sizeof(buf)))
+	{
+		DBG(5, ErrorF("%scit_SendString: String too long\n", CI_ERROR));
+		return(!Success);
+	}
+
+	
+	DBG(9, ErrorF("%scit_SendString(cmd=0x%02x numbytes=0x%02X, %s\n", CI_INFO,	cmd, cnt, ustr));
+	
+
+	j=0;
+	buf[j++] = CTS_STX;			/* transmit start of packet	*/
+	buf[j++] = cmd;				/* Transmit command */
+	
+	for(i=0; i<cnt; i++)
+	{
+		if ((ustr[i] >= CTS_CTRLMIN) && (ustr[i] <= CTS_CTRLMAX))
+		{	/* data has to be encoded	*/
+			buf[j++] = CTS_ESC;
+			buf[j++] = ustr[i] | CTS_ENCODE;
+		}
+		else buf[j++] = ustr[i];
+	}
+	buf[j++] = CTS_ETX;		/* end of packet */
+
+	XisbWrite(b, buf, j);
+
+
+	for(i=0; i<j; i++)
+	{
+		if(i == 0)
+		{
+			DBG(9, ErrorF("%s sent=", CI_INFO));
+		}
+		else if(i%16 == 0)
+		{
+			DBG(9, ErrorF("\n"));
+		}
+		DBG(9, ErrorF("%02x ",buf[i]));
+	}
+
+
+	DBG(9, ErrorF("\n"));
+	return(Success);
+}
 
 /*****************************************************************************
  *	[cit_GetInitialErrors]
@@ -2033,6 +2171,7 @@ static Bool cit_GetInitialErrors(cit_PrivatePtr priv)
 			+ 0x00010000UL * (unsigned long)priv->packet[4]
 			+ 0x10000000UL * (unsigned long)priv->packet[5];
 	DBG(6, ErrorF("%sinitial errors = 0x%08lX\n", CI_NOTICE, errors));
+
 	if (errors == 0x00000000UL)
 	{
 	    ErrorF("%sNo initialization errors detected.\n", CI_INFO);
@@ -2318,6 +2457,86 @@ static Bool cit_GetRevision(cit_PrivatePtr priv, int selection)
 }
 
 
+
+/*****************************************************************************
+ *	[cit_GetUserString]
+ ****************************************************************************/
+static Bool cit_GetUserString(cit_PrivatePtr priv, char *ustr_name, char *ustr_cont, Bool scan_flg)
+{
+	int ustrlen;
+	int err;
+	Bool res;
+
+	DBG(8, ErrorF("%scit_GetUserString called\n", CI_INFO));
+
+	ustrlen = strlen((char *)ustr_name);
+	
+	/* Test if there is a string at all and that this string is not too long */
+	if((ustrlen <= 0) || (ustrlen > CTS_USERNAME_LEN))
+	{
+		DBG(5, ErrorF("%scit_GetUserString: No strname specified or string too long\n", CI_ERROR));
+		return (!Success);
+	}
+
+/* switch off scanning to get no further coordinate packets if scanning is enabled*/
+	if(scan_flg)
+	{
+		cit_SendCommand(priv->buffer, C_SETSCANNING, 1, SC_DISABLE);
+	
+		WAIT(150);		/* wait for 150ms to enshure the command has been sent */
+	}	
+	cit_Flush(priv);	/* now flush the buffer in order to get the userstring */
+
+	cit_SendString(priv->buffer, C_GETUSERSTRING, ustrlen+1, ustr_name);
+	/*
+	    touch responds within 1 millisecond,
+	    but it takes some time, until the command is sent and received!
+		This time was measured with serial logger and is according to commands up to
+		628ms, so we set duration time to 1 sec
+	*/
+	cit_SetBlockDuration(priv, 1000000);	/* 1 sec */
+	while (((res = cit_GetPacket(priv)) != Success) && (priv->lex_mode != cit_idle));
+
+	if(scan_flg)
+		cit_SendCommand(priv->buffer, C_SETSCANNING, 1, SC_ENABLE);
+
+	if (res != Success)
+	{
+		DBG(5, ErrorF("%sNo packet received!\n", CI_NOTICE));
+		return (!Success);
+	}
+	/* examine packet */
+	if (priv->packeti < 2)
+	{
+		DBG(5, ErrorF("%sWrong packet length (expected >= %d, received %d bytes)\n", CI_NOTICE,
+		    2, priv->packeti));
+		return (!Success);
+	}
+	if (priv->packet[0] != (C_GETUSERSTRING & CMD_REP_CONV))
+	{
+		DBG(5, ErrorF("%sWrong packet identifier (expected 0x%02X, received 0x%02X)\n", CI_NOTICE,
+						(C_GETUSERSTRING & CMD_REP_CONV), priv->packet[0]));
+		return (!Success);
+	}
+
+	/* this is our packet! check contents */
+	if(strncmp(ustr_name, (char *)&priv->packet[1], CTS_USERNAME_LEN) == 0)	/* Name is ok */
+	{
+		strncpy(ustr_cont, (char *)&priv->packet[strlen((char *)&priv->packet[1])+2], CTS_USERSTRING_LEN);
+		DBG(5, ErrorF("%s cit_GetUserString: %s=%s  \n", CI_INFO, ustr_name, ustr_cont));
+	}
+	else
+	{
+		DBG(5, ErrorF("%s cit_GetUserString: %s != %s\n", CI_ERROR,
+						 ustr_name, &priv->packet[1]));
+		return (!Success);
+	}
+
+	return (Success);
+}
+
+
+
 /*****************************************************************************
  *	[cit_ProcessPacket]
  ****************************************************************************/
@@ -2579,6 +2798,22 @@ static void cit_SetEnterCount(cit_PrivatePtr priv)
 
 
 /*****************************************************************************
+ *	[cit_SendPWM] send pwm for acive and sleep
+ ****************************************************************************/
+static void cit_SendPWM(cit_PrivatePtr priv)
+{
+	int pwm_active, pwm_sleep;
+	
+	pwm_active = cit_AdjustBright(priv, priv->pwm_active);
+	pwm_sleep = cit_AdjustBright(priv, priv->pwm_sleep);
+
+	cit_SendCommand(priv->buffer, C_SETPWM, 2,	LOBYTE(pwm_active),
+												LOBYTE(pwm_sleep));
+
+	DBG(3,ErrorF("%scit_SendPWM: active=%d, sleep=%d\n", CI_CONFIG, pwm_active, pwm_sleep));
+}
+
+/*****************************************************************************
  *	[cit_SendPWMFreq] send pwm frequency of PWM signal to the touch
  ****************************************************************************/
 static void cit_SendPWMFreq(cit_PrivatePtr priv)
@@ -2592,6 +2827,51 @@ static void cit_SendPWMFreq(cit_PrivatePtr priv)
 	}
 	else
 		DBG(3,ErrorF("%scit_SendPWMFreq: Frequency not set\n", CI_CONFIG));
+}
+
+
+/*****************************************************************************
+ *	[cit_SendLockZ] send LockZ timing to the touch
+ ****************************************************************************/
+static void cit_SendLockZ(cit_PrivatePtr priv)
+{
+	cit_SendCommand(priv->buffer, C_SETLOCKZ, 3,	LOBYTE(priv->lockz_enter_time),
+													LOBYTE(priv->lockz_exit_time),
+													LOBYTE(priv->lockz_lock_time));
+	DBG(3,ErrorF("%scit_SendLockZ: enter=%d, exit=%d, lock=%d\n", CI_CONFIG, 
+		priv->lockz_enter_time,priv->lockz_exit_time, priv->lockz_lock_time));
+}
+
+
+/*****************************************************************************
+ *	[cit_AdjustBright] Adjust Brightness according to the brightness table
+ *  if you have a AC and want to adjust it that it works like a TDK you have
+ *	to set src to BL_TDK and dst to BL_AC
+ ****************************************************************************/
+static int cit_AdjustBright(cit_PrivatePtr priv, int val)
+{
+	int i;
+	int src_val;
+
+	DBG(9,ErrorF("%scit_AdjustBright entered val=%d, src=%d, dst=%d\n", CI_CONFIG, val, priv->pwm_src, priv->pwm_dst)); 
+
+	if((priv->pwm_src < 0) || (priv->pwm_dst < 0))
+		return(val);			/* No adjust */
+	
+	if((priv->pwm_src <= BL_AC) && (priv->pwm_dst <= BL_MAX) && (val < 256))		/* test if value is ok */
+		src_val = cit_bright_adjust[priv->pwm_src][val];	/* get value in candela */
+	else
+	{
+		DBG(3,ErrorF("%scit_AdjustBright: Wrong value src=%d dst=%d\n", CI_CONFIG, priv->pwm_src, priv->pwm_dst)); 
+		return(-1);
+	}
+	
+	for(i=0; i<256; i++)
+	{
+		if(cit_bright_adjust[priv->pwm_dst][i] >= src_val)
+			return (i);
+	}
+	return (255);
 }
 
 

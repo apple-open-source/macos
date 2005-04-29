@@ -1,5 +1,5 @@
-/* Document.java -- 
-   Copyright (C) 2002 Free Software Foundation, Inc.
+/* Document.java --
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,26 +37,51 @@ exception statement from your version. */
 
 package javax.swing.text;
 
+import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditListener;
 
-import javax.swing.event.*;
 
 public interface Document
-{ 
-    void addDocumentListener(DocumentListener listener);
-    void addUndoableEditListener(UndoableEditListener listener);
-    Position createPosition(int offs);
-    Element getDefaultRootElement();
-    Position getEndPosition();
-    int getLength();
-    Object getProperty(Object key);
-    Element[] getRootElements();
-    Position getStartPosition();
-    String getText(int offset, int length);
-    void getText(int offset, int length, Segment txt);
-    void insertString(int offset, String str, AttributeSet a);
-    void putProperty(Object key, Object value);
-    void remove(int offs, int len);
-    void removeDocumentListener(DocumentListener listener);
-    void removeUndoableEditListener(UndoableEditListener listener);
-    void render(Runnable r);
+{
+  String StreamDescriptionProperty = "stream";
+  String TitleProperty = "text";
+
+  void addDocumentListener(DocumentListener listener);
+
+  void addUndoableEditListener(UndoableEditListener listener);
+
+  Position createPosition(int offs)
+    throws BadLocationException;
+
+  Element getDefaultRootElement();
+
+  Position getEndPosition();
+
+  int getLength();
+
+  Object getProperty(Object key);
+
+  Element[] getRootElements();
+
+  Position getStartPosition();
+
+  String getText(int offset, int length)
+    throws BadLocationException;
+
+  void getText(int offset, int length, Segment txt)
+    throws BadLocationException;
+
+  void insertString(int offset, String str, AttributeSet a)
+    throws BadLocationException;
+
+  void putProperty(Object key, Object value);
+
+  void remove(int offs, int len)
+    throws BadLocationException;
+
+  void removeDocumentListener(DocumentListener listener);
+
+  void removeUndoableEditListener(UndoableEditListener listener);
+
+  void render(Runnable r);
 }

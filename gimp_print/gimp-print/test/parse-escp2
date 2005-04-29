@@ -51,7 +51,7 @@ sub do_remote_command {
 	}
     }
     substr($stuff, 0, $skipchars) = "";
-    $curpos += skipchars;
+    $curpos += $skipchars;
     while (substr($stuff, 0, 2) =~ /[A-Z0-9][A-Z0-9]/) {
 	print "\n";
 	printf "%08x    ", $curpos;

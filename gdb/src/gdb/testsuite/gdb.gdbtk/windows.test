@@ -1,5 +1,5 @@
 # Basic window tests
-# Copyright 2001 Red Hat, Inc.
+# Copyright 2001, 2003 Red Hat, Inc.
 #
 # This Program Is Free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ global objdir test_ran
 
 # Windows to test
 # FIXME: TfindArgs needs to be updated before it can go in the list...
-set windows [list BpWin BrowserWin Console DebugWin HtmlViewer KodWin LocalsWin \
+set windows [list BpWin BrowserWin Console DebugWin KodWin LocalsWin \
 	     MemWin ProcessWin RegWin StackWin TdumpWin WatchWin]
 
 # Dialogs to test

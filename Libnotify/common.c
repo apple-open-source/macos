@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -26,6 +25,7 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
@@ -35,7 +35,6 @@
 #include <errno.h>
 #include <pthread.h>
 #include "notify.h"
-#include "notify_ipc.h"
 #include "common.h"
 
 /* Required to prevent deadlocks */
@@ -53,11 +52,8 @@ _notify_lib_notify_state_new(uint32_t flags)
 
 	if (ns->flags & NOTIFY_STATE_USE_LOCKS) 
 	{
-		ns->name_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-		pthread_mutex_init(ns->name_lock, NULL);
-
-		ns->client_lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-		pthread_mutex_init(ns->client_lock, NULL);
+		ns->lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+		pthread_mutex_init(ns->lock, NULL);
 	}
 
 	ns->name_table = _nc_table_new(8192);
@@ -79,8 +75,11 @@ _notify_lib_notify_state_free(notify_state_t *ns)
 	_nc_table_free(ns->name_table);
 	_nc_table_free(ns->client_table);
 
-	if (ns->name_lock != NULL) free(ns->name_lock);
-	if (ns->client_lock != NULL) free(ns->client_lock);
+	if (ns->lock != NULL)
+	{
+		pthread_mutex_destroy(ns->lock);
+		free(ns->lock);
+	}
 
 	c = ns->free_client_list;
 	while (c != NULL)
@@ -102,11 +101,13 @@ _notify_lib_notify_state_free(notify_state_t *ns)
 }
 
 static client_t *
-_notify_lib_client_new(notify_state_t *ns)
+_internal_client_new(notify_state_t *ns)
 {
 	client_t *c;
 
 	if (ns == NULL) return NULL;
+
+	c = NULL;
 
 	if (ns->free_client_list != NULL)
 	{
@@ -116,11 +117,17 @@ _notify_lib_client_new(notify_state_t *ns)
 	else
 	{
 		c = calloc(1, sizeof(client_t));
+		if (c == NULL) return NULL;
+
 		ns->client_id++;
 		c->client_id = ns->client_id;
 	}
-	
+
+	if (c == NULL) return NULL;
+
 	c->info = (client_info_t *)calloc(1, sizeof(client_info_t));
+	if (c->info == NULL) return NULL;
+
 	c->info->lastval = 0;
 
 	_nc_table_insert_n(ns->client_table, c->client_id, c);
@@ -129,7 +136,7 @@ _notify_lib_client_new(notify_state_t *ns)
 }
 
 static void
-free_client_info(client_info_t *info)
+_internal_free_client_info(client_info_t *info)
 {
 	if (info == NULL) return;
 
@@ -148,14 +155,14 @@ free_client_info(client_info_t *info)
 			}
 			break;
 		default:
-			break;	
+			break;
 	}
 
 	free(info);
 }
 
 static void
-_notify_lib_client_release(notify_state_t *ns, client_t *c)
+_internal_client_release(notify_state_t *ns, client_t *c)
 {
 	client_t *p;
 	uint32_t x;
@@ -164,7 +171,7 @@ _notify_lib_client_release(notify_state_t *ns, client_t *c)
 	if (ns == NULL) return;
 	if (c == NULL) return;
 
-	free_client_info(c->info);
+	_internal_free_client_info(c->info);
 	x = c->client_id;
 	_nc_table_delete_n(ns->client_table, x);
 
@@ -227,7 +234,7 @@ _notify_lib_client_release(notify_state_t *ns, client_t *c)
 }
 
 static name_info_t *
-_notify_lib_new_name(notify_state_t *ns, const char *name)
+_internal_new_name(notify_state_t *ns, const char *name)
 {
 	name_info_t *n;
 
@@ -244,40 +251,13 @@ _notify_lib_new_name(notify_state_t *ns, const char *name)
 	n->slot = (uint32_t)-1;
 	n->val = 1;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS)
-	{
-		n->lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
-		pthread_mutex_init(n->lock, NULL);
-
-		pthread_mutex_lock(ns->name_lock);
-	}
-
 	_nc_table_insert(ns->name_table, name, n);
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(ns->name_lock);
-
 	return n;
 }
 
-static name_info_t *
-_notify_lib_lookup_name_info(notify_state_t *ns, const char *name)
-{
-	name_info_t *n;
-
-	if (ns == NULL) return NULL;
-	if (name == NULL) return NULL;
-
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(ns->name_lock);
-
-	n = (name_info_t *)_nc_table_find(ns->name_table, name);
-
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(ns->name_lock);
-
-	return n;
-}
-
-uint32_t
-_notify_lib_check_controlled_access(notify_state_t *ns, char *name, uint32_t uid, uint32_t gid, int req)
+static uint32_t
+_internal_check_controlled_access(notify_state_t *ns, char *name, uint32_t uid, uint32_t gid, int req)
 {
 	uint32_t i, len, plen;
 	name_info_t *p;
@@ -318,8 +298,20 @@ _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uint32_t uid
 	return NOTIFY_STATUS_OK;
 }
 
+uint32_t
+_notify_lib_check_controlled_access(notify_state_t *ns, char *name, uint32_t uid, uint32_t gid, int req)
+{
+	int status;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+	status = _internal_check_controlled_access(ns, name, uid, gid, req);
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+
+	return status;
+}
+
 static uint32_t
-_notify_lib_check_access(notify_state_t *ns, name_info_t *n, uint32_t uid, uint32_t gid, int req)
+_internal_check_access(notify_state_t *ns, name_info_t *n, uint32_t uid, uint32_t gid, int req)
 {
 	uint32_t status;
 
@@ -329,7 +321,7 @@ _notify_lib_check_access(notify_state_t *ns, name_info_t *n, uint32_t uid, uint3
 	/* root can do anything */
 	if (uid == 0) return NOTIFY_STATUS_OK;
 
-	status = _notify_lib_check_controlled_access(ns, n->name, uid, gid, req);
+	status = _internal_check_controlled_access(ns, n->name, uid, gid, req);
 	if (status != NOTIFY_STATUS_OK) return status;
 
 	/* check user access rights */
@@ -348,7 +340,7 @@ _notify_lib_check_access(notify_state_t *ns, name_info_t *n, uint32_t uid, uint3
  * Notify a client.
  */
 static void
-_notify_lib_send(notify_state_t *ns, client_t *c)
+_internal_send(notify_state_t *ns, client_t *c)
 {
 	uint32_t cid, status;
 	struct sockaddr_in sin;
@@ -363,12 +355,8 @@ _notify_lib_send(notify_state_t *ns, client_t *c)
 			kill(c->info->pid, c->info->sig);
 			break;
 		case NOTIFY_TYPE_FD:
-			if (ns->sock == -1)
-			{
-				if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(ns->name_lock);
-				if (ns->sock == -1) ns->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-				if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(ns->name_lock);
-			}
+			if (ns->sock == -1) ns->sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+			if (ns->sock == -1) return;
 
 			memset(&sin, 0, sizeof(struct sockaddr_in));
 			sin.sin_family = AF_INET;
@@ -392,7 +380,7 @@ _notify_lib_send(notify_state_t *ns, client_t *c)
 			}
 			break;
 		default:
-			break;	
+			break;
 	}
 }
 
@@ -409,35 +397,42 @@ _notify_lib_post(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gi
 
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_INVALID_NAME;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
-	auth = _notify_lib_check_access(ns, n, uid, gid, NOTIFY_ACCESS_WRITE);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_NAME;
+	}
+
+	auth = _internal_check_access(ns, n, uid, gid, NOTIFY_ACCESS_WRITE);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	n->val++;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
-
 	l = n->client_list;
-
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
 
 	while (l != NULL)
 	{
 		c = _nc_list_data(l);
-		_notify_lib_send(ns, c);
+		_internal_send(ns, c);
 		l = _nc_list_next(l);
 	}
 
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 /*
  * Cancel (delete) a client
  */
-void
-_notify_lib_cancel(notify_state_t *ns, uint32_t cid)
+static void
+_internal_cancel(notify_state_t *ns, uint32_t cid)
 {
 	client_t *c;
 	name_info_t *n;
@@ -454,23 +449,27 @@ _notify_lib_cancel(notify_state_t *ns, uint32_t cid)
 	n = c->info->name_info;
 	if (n == NULL) return;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
-
 	n->refcount--;
 
 	n->client_list = _nc_list_find_release(n->client_list, c);
 
-	_notify_lib_client_release(ns, c);
-
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
+	_internal_client_release(ns, c);
 
 	if (n->refcount == 0)
 	{
 		_nc_table_delete(ns->name_table, n->name);
-		if (n->lock != NULL) free(n->lock);
 		free(n->name);
 		free(n);
 	}
+
+}
+
+void
+_notify_lib_cancel(notify_state_t *ns, uint32_t cid)
+{
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+	_internal_cancel(ns, cid);
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
 
 /*
@@ -487,6 +486,8 @@ _notify_lib_cancel_session(notify_state_t *ns, task_t t)
 	a = NULL;
 	x = NULL;
 	p = NULL;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
 	tt = _nc_table_traverse_start(ns->name_table);
 	while (tt != NULL)
@@ -512,11 +513,13 @@ _notify_lib_cancel_session(notify_state_t *ns, task_t t)
 	for (l = x; l != NULL; l = _nc_list_next(l))
 	{
 		c = _nc_list_data(l);
-		_notify_lib_cancel(ns, c->client_id);
+		_internal_cancel(ns, c->client_id);
 		free(c);
 	}
 
 	_nc_list_release_list(x);
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
 
 /*
@@ -531,24 +534,38 @@ _notify_lib_check(notify_state_t *ns, uint32_t cid, int *check)
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
 
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
 	c = _nc_table_find_n(ns->client_table, cid);
 
-	if (c == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
-	if (c->info->name_info == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
 
 	if (c->info->name_info->val == c->info->lastval)
 	{
 		*check = 0;
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return NOTIFY_STATUS_OK;
 	}
 
 	c->info->lastval = c->info->name_info->val;
 	*check = 1;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 /*
- * SPI: get velue for a name.
+ * SPI: get value for a name.
  */
 uint32_t
 _notify_lib_peek(notify_state_t *ns, uint32_t cid, int *val)
@@ -558,13 +575,57 @@ _notify_lib_peek(notify_state_t *ns, uint32_t cid, int *val)
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
 
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
 	c = _nc_table_find_n(ns->client_table, cid);
 
-	if (c == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
-	if (c->info->name_info == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
 
 	*val = c->info->name_info->val;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
+}
+
+int *
+_notify_lib_check_addr(notify_state_t *ns, uint32_t cid)
+{
+	client_t *c;
+	int *addr;
+
+	if (ns == NULL) return 0;
+	if (cid == 0) return 0;
+	
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+	
+	c = _nc_table_find_n(ns->client_table, cid);
+	
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
+	
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
+	
+	addr = (int *)&(c->info->name_info->val);
+	
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+	return addr;
 }
 
 /*
@@ -580,12 +641,25 @@ _notify_lib_get_state(notify_state_t *ns, uint32_t cid, int *state)
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
 
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
 	c = _nc_table_find_n(ns->client_table, cid);
 
-	if (c == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
-	if (c->info->name_info == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
 
 	*state = c->info->name_info->state;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -601,15 +675,108 @@ _notify_lib_set_state(notify_state_t *ns, uint32_t cid, int state, uint32_t uid,
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
 
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
 	c = _nc_table_find_n(ns->client_table, cid);
 
-	if (c == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
-	if (c->info->name_info == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
 
-	auth = _notify_lib_check_access(ns, c->info->name_info, uid, gid, NOTIFY_ACCESS_WRITE);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	auth = _internal_check_access(ns, c->info->name_info, uid, gid, NOTIFY_ACCESS_WRITE);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	c->info->name_info->state = state;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+	return NOTIFY_STATUS_OK;
+}
+
+/*
+ * Get value for a name.
+ */
+uint32_t
+_notify_lib_get_val(notify_state_t *ns, uint32_t cid, int *val)
+{
+	client_t *c;
+
+	*val = 0;
+
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	c = _nc_table_find_n(ns->client_table, cid);
+
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	*val = c->info->name_info->val;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+	return NOTIFY_STATUS_OK;
+}
+
+/*
+ * Set value for a name.
+ */
+uint32_t
+_notify_lib_set_val(notify_state_t *ns, uint32_t cid, int val, uint32_t uid, uint32_t gid)
+{
+	client_t *c;
+	int auth;
+
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (cid == 0) return NOTIFY_STATUS_INVALID_TOKEN;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	c = _nc_table_find_n(ns->client_table, cid);
+
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	if (c->info->name_info == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_TOKEN;
+	}
+
+	auth = _internal_check_access(ns, c->info->name_info, uid, gid, NOTIFY_ACCESS_WRITE);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
+
+	c->info->name_info->val = val;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -618,16 +785,7 @@ _notify_lib_set_state(notify_state_t *ns, uint32_t cid, int state, uint32_t uid,
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_signal
-(
-	notify_state_t *ns,
-	const char *name,
-	task_t task,
-	uint32_t sig,
-	uint32_t uid,
-	uint32_t gid,
-	uint32_t *out_token
-)
+_notify_lib_register_signal(notify_state_t *ns, const char *name, task_t task, uint32_t sig, uint32_t uid, uint32_t gid, uint32_t *out_token)
 {
 	name_info_t *n;
 	client_t *c;
@@ -637,20 +795,38 @@ _notify_lib_register_signal
 	if (ns == NULL) return 0;
 	if (name == NULL) return 0;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) n = _notify_lib_new_name(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_FAILED;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
-	auth = _notify_lib_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL) n = _internal_new_name(ns, name);
+	if (n == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_FAILED;
+	}
+
+	auth = _internal_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	ks = pid_for_task(task, &pid);
-	if (ks != KERN_SUCCESS) return 0;
+	if (ks != KERN_SUCCESS)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
 
 	n->refcount++;
 
-	c = _notify_lib_client_new(ns);
-	if (c == NULL) return 0;
+	c = _internal_client_new(ns);
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
 
 	c->info->name_info = n;
 	c->info->notify_type = NOTIFY_TYPE_SIGNAL;
@@ -658,11 +834,11 @@ _notify_lib_register_signal
 	c->info->sig = sig;
 	c->info->session = task;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
 	n->client_list = _nc_list_prepend(n->client_list, _nc_list_new(c));
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
 
 	*out_token = c->client_id;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -671,17 +847,7 @@ _notify_lib_register_signal
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_file_descriptor
-(
-	notify_state_t *ns,
-	const char *name,
-	task_t task,
-	uint32_t port,
-	uint32_t token,
-	uint32_t uid,
-	uint32_t gid,
-	uint32_t *out_token
-)
+_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_t task, uint32_t port, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token)
 {
 	name_info_t *n;
 	client_t *c;
@@ -690,17 +856,31 @@ _notify_lib_register_file_descriptor
 	if (ns == NULL) return 0;
 	if (name == NULL) return 0;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) n = _notify_lib_new_name(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_FAILED;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
-	auth = _notify_lib_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL) n = _internal_new_name(ns, name);
+	if (n == NULL) 
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_FAILED;
+	}
+
+	auth = _internal_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	n->refcount++;
 
-	c = _notify_lib_client_new(ns);
-	if (c == NULL) return 0;
+	c = _internal_client_new(ns);
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
 
 	c->info->name_info = n;
 	c->info->notify_type = NOTIFY_TYPE_FD;
@@ -708,11 +888,11 @@ _notify_lib_register_file_descriptor
 	c->info->token = token;
 	c->info->session = task;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
 	n->client_list = _nc_list_prepend(n->client_list, _nc_list_new(c));
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
 
 	*out_token = c->client_id;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -721,17 +901,7 @@ _notify_lib_register_file_descriptor
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_mach_port
-(
-	notify_state_t *ns,
-	const char *name,
-	task_t task,
-	mach_port_t port,
-	uint32_t token,
-	uint32_t uid,
-	uint32_t gid,
-	uint32_t *out_token
-)
+_notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_t task, mach_port_t port, uint32_t token, uint32_t uid, uint32_t gid, uint32_t *out_token)
 {
 	name_info_t *n;
 	client_t *c;
@@ -740,17 +910,31 @@ _notify_lib_register_mach_port
 	if (ns == NULL) return 0;
 	if (name == NULL) return 0;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) n = _notify_lib_new_name(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_FAILED;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
-	auth = _notify_lib_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL) n = _internal_new_name(ns, name);
+	if (n == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_FAILED;
+	}
+
+	auth = _internal_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	n->refcount++;
 
-	c = _notify_lib_client_new(ns);
-	if (c == NULL) return 0;
+	c = _internal_client_new(ns);
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return 0;
+	}
 
 	c->info->name_info = n;
 	c->info->notify_type = NOTIFY_TYPE_PORT;
@@ -763,11 +947,11 @@ _notify_lib_register_mach_port
 	c->info->token = token;
 	c->info->session = task;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
 	n->client_list = _nc_list_prepend(n->client_list, _nc_list_new(c));
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
 
 	*out_token = c->client_id;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
@@ -776,16 +960,7 @@ _notify_lib_register_mach_port
  * Returns the client_id.
  */
 uint32_t
-_notify_lib_register_plain
-(
-	notify_state_t *ns,
-	const char *name,
-	task_t task,
-	uint32_t slot,
-	uint32_t uid,
-	uint32_t gid,
-	uint32_t *out_token
-)
+_notify_lib_register_plain(notify_state_t *ns, const char *name, task_t task, uint32_t slot, uint32_t uid, uint32_t gid, uint32_t *out_token)
 {
 	name_info_t *n;
 	client_t *c;
@@ -795,34 +970,48 @@ _notify_lib_register_plain
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 	if (out_token == NULL) return NOTIFY_STATUS_INVALID_TOKEN;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) n = _notify_lib_new_name(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_FAILED;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
-	auth = _notify_lib_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
-	if (auth != 0) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL) n = _internal_new_name(ns, name);
+	if (n == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_FAILED;
+	}
+
+	auth = _internal_check_access(ns, n, uid, gid, NOTIFY_ACCESS_READ);
+	if (auth != 0)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	n->refcount++;
 	if (slot != (uint32_t)-1) n->slot = slot;
 
-	c = _notify_lib_client_new(ns);
-	if (c == NULL) return NOTIFY_STATUS_FAILED;
+	c = _internal_client_new(ns);
+	if (c == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_FAILED;
+	}
 
 	c->info->name_info = n;
 	if (slot == (uint32_t)-1) c->info->notify_type = NOTIFY_TYPE_PLAIN;
 	else c->info->notify_type = NOTIFY_TYPE_MEMORY;
 	c->info->session = task;
 
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_lock(n->lock);
 	n->client_list = _nc_list_prepend(n->client_list, _nc_list_new(c));
-	if (ns->flags & NOTIFY_STATE_USE_LOCKS) pthread_mutex_unlock(n->lock);
 
 	*out_token = c->client_id;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 static void
-insert_controlled_name(notify_state_t *ns, name_info_t *n)
+_internal_insert_controlled_name(notify_state_t *ns, name_info_t *n)
 {
 	int i, j;
 
@@ -862,24 +1051,20 @@ insert_controlled_name(notify_state_t *ns, name_info_t *n)
 }
 
 uint32_t
-_notify_lib_set_owner
-(
-	notify_state_t *ns,
-	const char *name,
-	uint32_t uid,
-	uint32_t gid
-)
+_notify_lib_set_owner(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid)
 {
 	name_info_t *n;
 
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	n = _notify_lib_lookup_name_info(ns, name);
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
 	if (n == NULL)
 	{
 		/* create new name */
-		n = _notify_lib_new_name(ns, name);
+		n = _internal_new_name(ns, name);
 		if (n == NULL) return NOTIFY_STATUS_FAILED;
 
 		n->access = NOTIFY_ACCESS_DEFAULT;
@@ -889,28 +1074,26 @@ _notify_lib_set_owner
 	n->uid = uid;
 	n->gid = gid;
 
-	insert_controlled_name(ns, n);
+	_internal_insert_controlled_name(ns, n);
 
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 uint32_t
-_notify_lib_get_owner
-(
-	notify_state_t *ns,
-	const char *name,
-	uint32_t *uid,
-	uint32_t *gid
-)
+_notify_lib_get_owner(notify_state_t *ns, const char *name, uint32_t *uid, uint32_t *gid)
 {
 	name_info_t *n;
 	int i, nlen, len;
 
-	n = _notify_lib_lookup_name_info(ns, name);
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
 	if (n != NULL)
 	{
 		*uid = n->uid;
 		*gid = n->gid;
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return NOTIFY_STATUS_OK;
 	}
 
@@ -936,59 +1119,67 @@ _notify_lib_get_owner
 
 		*uid = n->uid;
 		*gid = n->gid;
+
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return NOTIFY_STATUS_OK;
 	}
 
 	*uid = 0;
 	*gid = 0;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 uint32_t
-_notify_lib_set_access
-(
-	notify_state_t *ns,
-	const char *name,
-	uint32_t mode
-)
+_notify_lib_set_access(notify_state_t *ns, const char *name, uint32_t mode)
 {
 	name_info_t *n;
 
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	n = _notify_lib_lookup_name_info(ns, name);
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
 	if (n == NULL)
 	{
 		/* create new name */
-		n = _notify_lib_new_name(ns, name);
-		if (n == NULL) return NOTIFY_STATUS_FAILED;
+		n = _internal_new_name(ns, name);
+		if (n == NULL)
+		{
+			if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+			return NOTIFY_STATUS_FAILED;
+		}
 
 		n->refcount++;
 	}
 
 	n->access = mode;
 
-	insert_controlled_name(ns, n);
+	_internal_insert_controlled_name(ns, n);
 
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 uint32_t
-_notify_lib_get_access
-(
-	notify_state_t *ns,
-	const char *name,
-	uint32_t *mode
-)
+_notify_lib_get_access(notify_state_t *ns, const char *name, uint32_t *mode)
 {
 	name_info_t *n;
 	int i, nlen, len;
 
-	n = _notify_lib_lookup_name_info(ns, name);
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
 	if (n != NULL)
 	{
 		*mode = n->access;
+
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return NOTIFY_STATUS_OK;
 	}
 
@@ -1004,6 +1195,8 @@ _notify_lib_get_access
 		if (!strcmp(n->name, name))
 		{
 			*mode = n->access;
+
+			if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 			return NOTIFY_STATUS_OK;
 		}
 
@@ -1012,21 +1205,19 @@ _notify_lib_get_access
 		if (strncmp(n->name, name, nlen)) continue;
 
 		*mode = n->access;
+
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 		return NOTIFY_STATUS_OK;
 	}
 
 	*mode = NOTIFY_ACCESS_DEFAULT;
+
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
 
 uint32_t
-_notify_lib_release_name
-(
-	notify_state_t *ns,
-	const char *name,
-	uint32_t uid,
-	uint32_t gid
-)
+_notify_lib_release_name(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid)
 {
 	name_info_t *n;
 	uint32_t i, j;
@@ -1034,11 +1225,21 @@ _notify_lib_release_name
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
-	n = _notify_lib_lookup_name_info(ns, name);
-	if (n == NULL) return NOTIFY_STATUS_INVALID_NAME;
+	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
+
+	n = (name_info_t *)_nc_table_find(ns->name_table, name);
+	if (n == NULL)
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_INVALID_NAME;
+	}
 
 	/* Owner and root may release */
-	if ((n->uid != uid) && (uid != 0)) return NOTIFY_STATUS_NOT_AUTHORIZED;
+	if ((n->uid != uid) && (uid != 0))
+	{
+		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
+	}
 
 	for (i = 0; i < ns->controlled_name_count; i++)
 	{
@@ -1070,10 +1271,9 @@ _notify_lib_release_name
 	{
 		_nc_table_delete(ns->name_table, n->name);
 		free(n->name);
-		if (n->lock != NULL) free(n->lock);
 		free(n);
 	}
 
+	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 	return NOTIFY_STATUS_OK;
 }
-

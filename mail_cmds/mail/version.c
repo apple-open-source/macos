@@ -36,8 +36,10 @@
 static char sccsid[] = "@(#)version.c	8.1 (Berkeley) 6/6/93";
 #endif
 static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/mail/version.c,v 1.3 2001/05/27 20:26:22 mikeh Exp $";
+  "$FreeBSD: src/usr.bin/mail/version.c,v 1.4 2002/06/30 05:25:06 obrien Exp $";
 #endif /* not lint */
+
+#include <sys/cdefs.h>
 
 /*
  * Just keep track of the date/sid of this version of Mail.

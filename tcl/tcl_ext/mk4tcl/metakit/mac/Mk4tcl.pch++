@@ -1,0 +1,19 @@
+#if __POWERPC__
+#pragma precompile_target "Mk4tclHeaderPPC++"
+#elif __CFM68K__
+#pragma precompile_target "Mk4tclHeaderCFM68K++"
+#else
+#pragma precompile_target "Mk4tclHeader68K++"
+#endif
+
+#include "tclMacCommonPch.h"
+
+#define USE_TCL_STUBS 1
+
+#include "Mk4release.h"
+
+//#pragma export on
+#include "mk4.h"
+#include "tcl.h"
+//#pragma export reset
+

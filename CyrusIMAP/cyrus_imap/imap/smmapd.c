@@ -72,7 +72,7 @@
  * may contain an explanatory message.
  *
  *
- * $Id: smmapd.c,v 1.11 2004/12/17 16:32:22 ken3 Exp $
+ * $Id: smmapd.c,v 1.4 2005/03/05 00:37:05 dasenbro Exp $
  */
 
 #include <config.h>

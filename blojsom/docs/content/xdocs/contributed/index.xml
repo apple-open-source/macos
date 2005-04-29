@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "http://cvs.apache.org/viewcvs.cgi/*checkout*/xml-forrest/src/resources/schema/dtd/document-v12.dtd?rev=HEAD&content-type=text/plain">
+<document>
+    <header>
+        <title>External contributions</title>
+    </header>
+    <body>
+        <section>
+            <title>Contributed code and tools</title>
+            <section>
+                <title>Roller to blojsom conversion</title>
+                <p>
+
+                    The source code to the
+                    <link href="http://blog.xesoft.com/jon.lipsky/blog/Java/?permalink=roller_to_blojsom_tool.html">Roller
+                        to blojsom conversion tool</link>
+                    is available
+                    <link href="http://blog.xesoft.com/page/jon.lipsky/RollerToBlojsom.java">here</link>.
+                </p>
+
+            </section>
+            <section>
+                <title>Movable Type entry export to blojsom conversion</title>
+                <p>
+
+                    The source to the Perl script to convert a Movable Type export file to a blojsom (or blosxom)
+                    directory tree is available
+                    <link href="mt2blojsom.pl">here</link>. Perl script courtesy of
+                    Pierre-Alexandre Losson. These were his instructions from his e-mail.
+                </p>
+                <source>
+                    It handles TITLE, BODY, DATE, and CATEGORY ..
+
+                    It can be called like this :
+
+                    perl mt2blojsom.pl [MT EXPORT FILE] [BLOJSOM DATA DIR]
+
+                    ex : perl mt2blojsom.pl mt.txt /var/blojsom/data
+                </source>
+            </section>
+            <section>
+                <title>pop2blog, blucene, blauth, bledit</title>
+                <p>
+                    A number of plugins are being developed by Pierre-Alexander Losson over at
+                    <link href="http://sourceforge.net/projects/pop2blog">pop2blog</link>.
+                    pop2blog handles moblogging support. blucene provides for Lucene-backed
+                    searching for your blog. blauth handles authorization and makes some
+                    authorization information available to the templates. Finally, bledit will
+                    allow you to edit your blog through your web browser.
+                </p>
+            </section>
+        </section>
+        <section>
+            <title>Share your contributions</title>
+            <p>
+                Have you written a plugin, extension, or any other piece of nifty source code you're willing to
+                share with the
+                <link href="http://blojsom.sf.net">blojsom</link> community? Well, then
+                <link href="mailto:czarneckid@users.sourceforge.net">drop me an e-mail</link>
+                and I'll get you added to this page.
+            </p>
+        </section>
+    </body>
+</document>

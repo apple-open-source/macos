@@ -1,7 +1,7 @@
 .\"
 .\" Copyright (c) 2000 Apple Computer, Inc.  All rights reserved.
 .\"
-.\"	$Id: ioclasscount.8,v 1.3 2002/11/08 03:28:02 lindak Exp $
+.\"	$Id: ioclasscount.8,v 1.4 2003/11/06 19:16:54 sdouglas Exp $
 .\"
 .Dd February 29, 2000
 .Dt IOCLASSCOUNT 8
@@ -10,12 +10,12 @@
 .Nm ioclasscount
 .Sh SYNOPSIS
 .Nm
-.Ar classname
+.Op classname
 .Op ...
 .Sh DESCRIPTION
 .Pp
 .Nm
-displays the instance count, offset by the number of direct subclasses that have at least one instance allocated, for the classes specified. Useful for tracking leaks. This information can also found in the Root of the IORegistry.
+displays the instance count, offset by the number of direct subclasses that have at least one instance allocated, for the classes specified. Useful for tracking leaks. This information can also found in the Root of the IORegistry. If no classes are specified, display the instance counts for all classes, one per line of output and sorted by name.
 .Sh EXAMPLES
 .Pp
 Count of instances for IOPCIDevices and AppleTestPCIs.

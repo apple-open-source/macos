@@ -1,0 +1,20 @@
+Identifier: vfs
+Version: 1.3.0
+Title: Interface to Virtual File Systems for Tcl 8.4
+Creator: Vince Darley
+Description: The goal of this extension is to expose Tcl 8.4's new
+	     filesystem C API to the Tcl level.
+Rights: BSD
+URL: http://sourceforge.net/projects/tclvfs
+Date: 2003-10-08
+Architecture: tcl
+Architecture: Linux-x86
+Require: tcl 8.4
+Recommend: tcl 8.5
+Recommend: Trf
+Recommend: http 2.6
+Recommend: base64
+Recommend: Memchan
+Recommend: Mk4tcl
+Recommend: ftp
+Subject: filesystem

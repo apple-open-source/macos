@@ -1,4 +1,4 @@
-#$Id: Makefile,v 1.1.1.2 2001/07/20 19:38:12 bbraun Exp $
+#$Id: Makefile,v 1.1.1.3 2003/10/14 23:13:22 rbraun Exp $
 
 # BASENAME should point to where the whole lot will be installed
 # change BASENAME to your home directory if need be
@@ -110,6 +110,9 @@ SUBDIRS = src man
 BINSS	= procmail lockfile formail mailstat
 MANS1S	= procmail formail lockfile
 MANS5S	= procmailrc procmailsc procmailex
+
+# Possible locations for the sendmail.cf file
+SENDMAILCFS = /etc/mail/sendmail.cf /etc/sendmail.cf /usr/lib/sendmail.cf
 
 # Makefile - mark, don't (re)move this, a sed script needs it
 

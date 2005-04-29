@@ -37,7 +37,7 @@
 # if	!defined(lint)
 static char copyright[] =
 "@(#) Copyright 1997 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: prfp.c,v 1.8 2003/03/21 17:43:28 abe Exp $";
+static char *rcsid = "$Id: prfp.c,v 1.9 2004/03/10 23:46:34 abe Exp $";
 # endif	/* !defined(lint) */
 
 #include "../lsof.h"
@@ -158,6 +158,18 @@ process_file(fp)
 		process_kqueue((KA_T)f.f_data);
 		return;
 #endif	/* defined(HASKQUEUE) */
+
+#if	defined(HASPSXSEM)
+	    case DTYPE_PSXSEM:
+		process_psxsem((KA_T)f.f_data);
+		return;
+#endif	/* defined(HASPSXSEM) */
+
+#if	defined(HASPSXSHM)
+	    case DTYPE_PSXSHM:
+		process_psxshm((KA_T)f.f_data);
+		return;
+#endif	/* defined(HASPSXSHM) */
 
 #if	defined(HASPRIVFILETYPE)
 	    case PRIVFILETYPE:

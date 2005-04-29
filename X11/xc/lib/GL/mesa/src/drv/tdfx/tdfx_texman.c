@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_texman.c,v 1.5 2002/02/22 21:45:04 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_texman.c,v 1.7 2004/01/23 03:57:07 dawes Exp $ */
 
 /*
  * Original rewrite:
@@ -504,7 +504,7 @@ FindStartAddr(tdfxContextPtr fxMesa, FxU32 tmu, FxU32 size)
 #if 0
         discardedCount++;
         if (discardedCount > MAX_DISCARDS + 1) {
-            _mesa_problem(NULL, "tdfx driver: extreme texmem fragmentation");
+            _mesa_problem(NULL, "%s: extreme texmem fragmentation", __FUNCTION__);
             _glthread_UNLOCK_MUTEX(mesaShared->Mutex);
             return BAD_ADDRESS;
         }
@@ -521,7 +521,7 @@ FindStartAddr(tdfxContextPtr fxMesa, FxU32 tmu, FxU32 size)
                 fxMesa->stats.texSwaps++;
             }
             else {
-                _mesa_problem(NULL, "tdfx driver: extreme texmem fragmentation");
+                _mesa_problem(NULL, "%s: extreme texmem fragmentation", __FUNCTION__);
                 _glthread_UNLOCK_MUTEX(mesaShared->Mutex);
                 return BAD_ADDRESS;
             }
@@ -621,10 +621,8 @@ AllocTexMem(tdfxContextPtr fxMesa, FxU32 tmu, FxU32 texmemsize)
     FxU32 startAddr;
     startAddr = FindStartAddr(fxMesa, tmu, texmemsize);
     if (startAddr == BAD_ADDRESS) {
-        char err[100];
-        sprintf(err, "AllocTexMem returned NULL!  tmu=%d texmemsize=%d\n",
-               (int) tmu, (int) texmemsize);
-        _mesa_problem(fxMesa->glCtx, err);
+        _mesa_problem(fxMesa->glCtx, "%s returned NULL!  tmu=%d texmemsize=%d",
+               __FUNCTION__, (int) tmu, (int) texmemsize);
         return NULL;
     }
     else {
@@ -721,7 +719,7 @@ tdfxTMDownloadTexture(tdfxContextPtr fxMesa, struct gl_texture_object *tObj)
         }
         break;
     default:
-        _mesa_problem(NULL, "error in tdfxTMDownloadTexture: bad tmu");
+        _mesa_problem(NULL, "%s: bad tmu (%d)", __FUNCTION__, (int)targetTMU);
         return;
     }
 }
@@ -794,7 +792,7 @@ tdfxTMReloadMipMapLevel(GLcontext *ctx, struct gl_texture_object *tObj,
         break;
 
     default:
-        _mesa_problem(ctx, "error in tdfxTMReloadMipMapLevel(): wrong tmu");
+        _mesa_problem(ctx, "%s: bad tmu (%d)", __FUNCTION__, (int)tmu);
         break;
     }
     UNLOCK_HARDWARE(fxMesa);
@@ -859,7 +857,7 @@ tdfxTMMoveInTM_NoLock( tdfxContextPtr fxMesa, struct gl_texture_object *tObj,
         ti->tm[TDFX_TMU1] = AllocTexMem(fxMesa, TDFX_TMU1, texmemsize);
         break;
     default:
-        _mesa_problem(NULL, "error in tdfxTMMoveInTM() -> bad tmu (%d)");
+        _mesa_problem(NULL, "%s: bad tmu (%d)", __FUNCTION__, (int)targetTMU);
         return;
     }
 
@@ -882,7 +880,7 @@ tdfxTMMoveOutTM_NoLock( tdfxContextPtr fxMesa, struct gl_texture_object *tObj )
     tdfxTexInfo *ti = TDFX_TEXTURE_DATA(tObj);
 
     if (MESA_VERBOSE & VERBOSE_DRIVER) {
-        fprintf(stderr, "fxmesa: fxTMMoveOutTM(%p (%d))\n", tObj, tObj->Name);
+        fprintf(stderr, "fxmesa: %s(%p (%d))\n", __FUNCTION__, (void *)tObj, tObj->Name);
     }
 
     /*
@@ -905,7 +903,7 @@ tdfxTMMoveOutTM_NoLock( tdfxContextPtr fxMesa, struct gl_texture_object *tObj )
         RemoveRange_NoLock(fxMesa, TDFX_TMU1, ti->tm[TDFX_TMU1]);
         break;
     default:
-        _mesa_problem(NULL, "tdfx driver: bad tmu in tdfxTMMOveOutTM()");
+        _mesa_problem(NULL, "%s: bad tmu (%d)", __FUNCTION__, (int)ti->whichTMU);
         return;
     }
 

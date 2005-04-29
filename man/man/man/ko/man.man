@@ -1,0 +1,264 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.TH man 1 "September 2, 1995"
+.LO 1
+.SH 이름
+man \- 온라인 매뉴얼 페이지를 형식화하고 표시
+.br
+manpath \- 맨 페이지를 위해 사용자의 검색 경로를 결정
+.SH 사용법
+man [\-acdfFhkKtwW] [\-m system] [\-p string] [\-C config_file] [\-M path]
+[\-P pager] [\-S section_list] [section] name ...
+.SH 설명
+.B man
+은 온라인 매뉴얼 페이지를 형식화하고 표시한다.
+이 버전은 
+.B MANPATH
+와
+.B (MAN)PAGER
+환경 변수를 인식한다. 그러므로 자신의 개인적인 맨 페이지 집합을 가질 수 있고
+형식화된 페이지를 표시하기 위해 좋아하는 프로그램을 선택할 수 있다. 만약
+.I section
+이 지정되면, 
+.B man
+은 단지 그 섹션에서만 매뉴얼을 찾아 보여준다. 명령행 옵션이나 환경 변수를 통해서섹션 검색 순서와 소스 파일에 대해 어느 전처리기를 사용할 것인지 지정할 수 있다.
+만약
+.I name
+이 / 을 포함하면, 이것은 파일명으로 먼저 처리된다. 그래서 
+.B "man ./foo.5"
+혹은
+.B "man /cd/foo/bar.1.gz"
+처럼 지정 할 수 있다.
+.SH 옵션
+.TP
+.B \-\^C " config_file"
+사용 할 man.conf 파일을 지정; 기본 값은
+.B @man_config_file@
+이다.
+(
+.BR man.config (5) 보라.)
+.TP
+.B \-\^M " path"
+맨 페이지 검색을 위한 디렉토리 리스트를 지정한다.
+이 옵션이 주어지지 않으면, 환경 변수
+.B MANPATH
+를 사용한다. 만약 환경 변수를 발견하지 못하면 
+.B @man_config_file@
+에 의한 기본 리스트를 사용한다.
+.B MANPATH
+가 비여 있으면 기본 리스트이다.
+.TP
+.B \-\^P " pager"
+사용할 페이지를 지정한다.
+이 옵션은 
+.B MANPAGER
+환경 변수보다 우선한다. 
+environment variable,
+.B PAGER
+변수 보다도 우선한다. 기본 설정으로 
+.B man
+은
+.BR @pager@ 를 이용한다.
+.TP
+.B \-\^S " section_list"
+검색을 위한 매뉴얼 섹션의 리스트를 콜론으로 구분한 리스트.
+이 옵션은 
+.B MANSECT
+환경 변수 보다 우선한다.
+.TP
+.B \-\^a
+기본 설정으로,
+.B man
+은 첫번째 발견된 매뉴얼 페이지를 표시한 뒤 종료한다.
+이 옵션을 사용하면, 
+.B man
+은 첫번째 뿐만 아니라 
+.B name 
+에 맞는 모든 매뉴얼 페이지를 표시한다.
+.TP
+.B \-\^c
+최신의 cat 페이지가 존재하여도 소스 맨 페이지를 재 형식화한다.
+만일 cat 페이지가 다른 수의 칼럼을 가진 스크린에 맞게 형식화되었거나,
+혹은, 만일 이전에 형식화된 페이지가 손상되면 이것은 의미가 있을 수 있다. 
+.TP
+.B \-\^d
+실제로 맨 페이지를 표시하지 않고, 디버깅 정보의 덩어리를 프린트한다.
+.TP
+.B \-\^D
+표시와 디버깅 정보 둘다 출력한다.
+.TP
+.B \-\^f
+.BR whatis
+와 같다.
+.TP
+.BR \-\^F " or " \-\-preformat
+형식화만 하고 표시하지 않는다.
+.TP
+.B \-\^h
+간단한 도움말 메시지를 출력하고 종료한다.
+.TP
+.B \-\^k
+.BR apropos 
+와 같다.
+.TP
+.B \-\^K
+*모든* 맨 페이지에서 지정한 문자열을 찾는다. 경고: 이 것은 매우 느리다!
+섹션을 지정하는 것이 좋다.(대체로, 나의 기계에서 500 페이지를 검색하는데
+1분 걸린다.)
+.TP
+.B \-\^m " system"
+주어진 시스템 이름에 의해서 검색하기 위해 대체 맨 페이지 집합을 지정한다.
+.TP
+.B \-\^p " string"
+.B nroff
+or
+.BR troff 
+의 앞에 실행하는 전처리기의 차례를 지정한다.
+모든 설치는 전처리기의 완전한 집합을 가지지 않을 것이다
+그들을 지적하기 위해 사용되는 몇개의 천처리기와 문자 : 
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+이 옵션은
+.B MANROFFSEQ
+환경 변수보다 우선한다.
+.TP
+.B \-\^t
+맨 페이지의 형식화를 위해
+.B @troff@
+를 사용하고, 
+.B stdout
+에 출력한다.
+.B @troff@
+에서의 출력은 인쇄하기 전에 필터를 통과시킬 필요가 있을지도 모른다.
+.TP
+.B \-\^w \fRor\fP \-\-path
+실제로 맨 페이지를 표시하지 않고, 형식화 혹은 표시된 파일의 위치를 출력한다.
+만약 인자가 없으면: 
+.B man
+은 맨 페이지를 검색하는 디렉토리의 리스트를 표시(표준 출력에)한다.
+만약 
+.B manpath
+가 man에 연결되어 있으면, "manpath"는 "man --path"와 같다.
+.TP
+.B \-\^W
+\-\^w와 비슷하지만, 추가 정보없이 한 행에 한 개씩 표시한다.
+이것은 다음과 같이 쉘 명령에서 사용하면 편리하다.
+.ft CW
+.B "man -aW man | xargs ls -l"
+.ft
+
+.SH "CAT 페이지"
+Man은 형식화된 맨 페이지를 다음에 그 페이지가 필요하게 되었을 때 형식화
+시간을 줄이기 위해 저장한다. 전통적으로, DIR/manX의 형식화된 페이지 버전은
+DIR/catX에 저장된다. 하지만 man dir을 다른 cat dir에 매핑하는 방법으로
+.BR @man_config_file@
+에 다른 값을 지정할 수 있다.
+cat 디렉토리가 존재하지 않으면 cat 페이지를 저장하지 않는다.
+.PP
+.B man
+를 사용자 man에 suid 할 수 있다. 그러면, cat 디렉토리의 소유자가 man과 
+모드 0755(단지 man에 의해 쓰기가능), cat 파일 소유자가 man과 모드 0644 혹은
+0444(단지 man에 의해 쓰기가능, 혹은 모두 쓰기불가)면, 보통 유저는 cat 페이지를
+변경하거나, 다른 파일을 cat 디렉토리에 두거나 하는 것을 할 수 없다. 만약
+.B man
+이 suid 가 아니면, 모든 유저가 cat 페이지를 cat 디렉토리에 둘 수 있는 것처럼
+cat 디렉토리의 모드를 0777로 해야 한다.
+.PP
+비록 최근의 cat 페이지가 존재하더라도
+.B \-c
+을 사용하면 페이지를 재 형식화한다.
+
+.SH 환경
+.TP
+.B MANPATH
+.B MANPATH
+가 설정되면, 이것을 매뉴얼 페이지 검색을 위한 경로로 사용한다.
+.TP
+.B MANROFFSEQ
+.B MANROFFSEQ
+가 설정되면, 이것을 
+.B nroff
+와
+.BR troff 
+의 앞에 실행하는 전처리기의 집합으로 결정하여 사용한다.
+기본 설정은, 
+.BR nroff 
+앞에 데이블 전처리기를 통과시킨다.
+.TP
+.B MANSECT
+.B MANSECT
+가 설정되면, 이것을 검색을 위한 매뉴얼 섹션으로 결정한다.
+.TP
+.B MANWIDTH
+.B MANWIDTH
+가 설정되면, 이것을 표시하는 맨페이지의 폭으로 사용한다.
+그렇지 않으면, 화면의 전체 폭 이상으로 표시될 수도 있다.
+.TP
+.B MANPAGER
+.B MANPAGER
+가 설정되면, 이것을 맨페이지 표시기로 사용한다. 만약 없다면, 
+.B PAGER
+가 사용된다. 만약 둘다 값을 가지고 있지 않으면
+.B @pager@
+를 사용한다.
+.TP
+.B LANG
+.B LANG
+가 설정되면, 이값을 man은 맨페이지를 첫번째로 보여주기 위한 하위
+디렉토리의 이름으로 지정한다. 따라서, `LANG=dk man 1 foo' 명령은
+.../dk/man1/foo.1에서 for 맨페이지를 보여 줄려고 할 것이고,
+만약 file이 발견되지 않으면, .../man1/for.1을 찾는다. ...은 검색
+경로의 디렉토리이다.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+환경 변수
+.B NLSPATH
+와
+.B LC_MESSAGES
+(또는 후자가 지정되어 있지 않으면
+.B LANG
+)는 메시지 카탈로그의 위치를 지정한다. (하지만 영어 메시지는 컴파일될때 
+지정되고, 영어를 위한 카탈로그는 필요하지 않다.)
+man에 의해 호출되는 col(1)과 같은 프로그램은 LC_CTYPE를 사용하는 점에 주의해라.
+.TP
+.B PATH
+.B PATH
+는 맨페이지를 위한 기본 검색 경로의 구성에 사용된다.
+.TP
+.B SYSTEM
+.B SYSTEM
+은 기본 설정을 가져오는 대신에 시스템 이름을 사용한다.
+(
+.B \-m
+옵션과 함께 사용)
+.SH 관련 항목
+apropos(1), whatis(1), less(1), groff(1).
+.SH 버그
+.B \-t
+옵션은 troff와 같은 프로그램이 설치되어 있는 경우에만 수행한다.
+.br
+만약 하이픈 대신에 \e255 혹은 <AD>의 깜박임을 보면,
+`LESSCHARSET=latin1'을 환경에 넣어라.
+.SH 팁
+  (global-set-key [(f1)] (lambda () (interactive) (manual-entry (current-word))))
+
+를 
+.IR .emacs 
+파일에 추가하면, F1를 누를 때 현재의 커서 위치에서 라이브러리 호출을 위한 맨
+페이지를 보여 줄 것이다.
+.SH 역자
+배성훈 <plodder@kldp.org>, 2000년 5월 5일
+

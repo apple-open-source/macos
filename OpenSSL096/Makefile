@@ -25,9 +25,21 @@ Environment     = CFLAG="$(CFLAGS) -DNO_IDEA"									\
 		  AR="$(SRCROOT)/ar.sh r"								\
 		  PERL='/usr/bin/perl'									\
 		  INCLUDEDIR="$(USRDIR)/include/openssl"						\
-		  MANDIR="/usr/share/man"
+		  MANDIR="/usr/share/man"								\
+		  PATH=$$PATH:/usr/X11R6/bin								\
+		  LIBCRYPTO=../libcrypto.a LIBSSL=../libssl.a
 
 Install_Target  = install
+
+ORDERFILE_CRYPTO=/AppleInternal/OrderFiles/libcrypto.order
+ifeq "$(shell test -f $(ORDERFILE_CRYPTO) && echo YES )" "YES"
+       ORDERFLAGS_CRYPTO=-sectorder __TEXT __text $(ORDERFILE_CRYPTO)
+endif
+
+ORDERFILE_SSL=/AppleInternal/OrderFiles/libssl.order
+ifeq "$(shell test -f $(ORDERFILE_SSL) && echo YES )" "YES"
+        ORDERFLAGS_SSL=-sectorder __TEXT __text $(ORDERFILE_SSL)
+endif
 
 
 # Shadow the source tree
@@ -44,7 +56,7 @@ test:: build
 	$(MAKE) -C "$(BuildDirectory)" test
 
 configure::
-	$(MAKE) -C "$(BuildDirectory)" depend
+	$(MAKE) -C "$(BuildDirectory)" PATH=$$PATH:/usr/X11R6/bin depend
 
 
 #Version      := $(shell $(GREP) 'VERSION=' $(Sources)/Makefile.ssl | $(SED) 's/VERSION=//')
@@ -57,12 +69,12 @@ shlibs:
 	@echo "Building shared libraries..."
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libcrypto.a"						\
 		-install_name "$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"				\
-		-sectorder __TEXT __text /AppleInternal/OrderFiles/libcrypto.order			\
+		$(ORDERFLAGS_CRYPTO)									\
 		-o "$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"
 	$(_v) $(CC_Shlib) "$(DSTROOT)$(USRLIBDIR)/libssl.a"						\
 		"$(DSTROOT)$(USRLIBDIR)/libcrypto.$(FileVersion).dylib"					\
 		-install_name "$(USRLIBDIR)/libssl.$(FileVersion).dylib"				\
-		-sectorder __TEXT __text /AppleInternal/OrderFiles/libssl.order				\
+		$(ORDERFLAGS_SSL)									\
 		-o "$(DSTROOT)$(USRLIBDIR)/libssl.$(FileVersion).dylib"
 	$(_v) for lib in crypto ssl; do								\
 		$(LN) -fs "lib$${lib}.$(FileVersion).dylib" "$(DSTROOT)$(USRLIBDIR)/lib$${lib}.dylib";	\

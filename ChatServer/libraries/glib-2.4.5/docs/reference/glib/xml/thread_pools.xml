@@ -1,0 +1,405 @@
+<refentry id="glib-Thread-Pools">
+<refmeta>
+<refentrytitle>Thread Pools</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Thread Pools</refname><refpurpose>pools of threads to execute work concurrently.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GThreadPool">GThreadPool</link>;
+<link linkend="GThreadPool">GThreadPool</link>* <link linkend="g-thread-pool-new">g_thread_pool_new</link>              (<link linkend="GFunc">GFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data,
+                                             <link linkend="gint">gint</link> max_threads,
+                                             <link linkend="gboolean">gboolean</link> exclusive,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="void">void</link>        <link linkend="g-thread-pool-push">g_thread_pool_push</link>              (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="void">void</link>        <link linkend="g-thread-pool-set-max-threads">g_thread_pool_set_max_threads</link>   (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gint">gint</link> max_threads,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="gint">gint</link>        <link linkend="g-thread-pool-get-max-threads">g_thread_pool_get_max_threads</link>   (<link linkend="GThreadPool">GThreadPool</link> *pool);
+<link linkend="guint">guint</link>       <link linkend="g-thread-pool-get-num-threads">g_thread_pool_get_num_threads</link>   (<link linkend="GThreadPool">GThreadPool</link> *pool);
+<link linkend="guint">guint</link>       <link linkend="g-thread-pool-unprocessed">g_thread_pool_unprocessed</link>       (<link linkend="GThreadPool">GThreadPool</link> *pool);
+<link linkend="void">void</link>        <link linkend="g-thread-pool-free">g_thread_pool_free</link>              (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gboolean">gboolean</link> immediate,
+                                             <link linkend="gboolean">gboolean</link> wait);
+<link linkend="void">void</link>        <link linkend="g-thread-pool-set-max-unused-threads">g_thread_pool_set_max_unused_threads</link>
+                                            (<link linkend="gint">gint</link> max_threads);
+<link linkend="gint">gint</link>        <link linkend="g-thread-pool-get-max-unused-threads">g_thread_pool_get_max_unused_threads</link>
+                                            (void);
+<link linkend="guint">guint</link>       <link linkend="g-thread-pool-get-num-unused-threads">g_thread_pool_get_num_unused_threads</link>
+                                            (void);
+<link linkend="void">void</link>        <link linkend="g-thread-pool-stop-unused-threads">g_thread_pool_stop_unused_threads</link>
+                                            (void);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+Sometimes you wish to asyncronously fork out the execution of work and
+continue working in your own thread. If that will happen often, the
+overhead of starting and destroying a thread each time might be to
+high. In such cases reusing already started threads seems like a good
+idea. And it indeed is, but implementing this can be tedious and
+error-prone.
+</para>
+
+<para>
+Therefore GLib provides thread pools for your convenience. An added
+advantage is, that the threads can be shared between the different
+subsystems of your program, when they are using GLib.
+</para>
+
+<para>
+To create a new thread pool, you use <link linkend="g-thread-pool-new"><function>g_thread_pool_new()</function></link>. It is
+destroyed by <link linkend="g-thread-pool-free"><function>g_thread_pool_free()</function></link>.
+</para>
+
+<para>
+If you want to execute a certain task within a thread pool, you call
+<link linkend="g-thread-pool-push"><function>g_thread_pool_push()</function></link>.
+</para>
+
+<para>
+To get the current number of running threads you call
+<link linkend="g-thread-pool-get-num-threads"><function>g_thread_pool_get_num_threads()</function></link>. To get the number of still
+unprocessed tasks you call <link linkend="g-thread-pool-unprocessed"><function>g_thread_pool_unprocessed()</function></link>. To control the
+maximal number of threads for a thread pool, you use
+<link linkend="g-thread-pool-get-max-threads"><function>g_thread_pool_get_max_threads()</function></link> and <link linkend="g-thread-pool-set-max-threads"><function>g_thread_pool_set_max_threads()</function></link>.
+</para>
+
+<para>
+Finally you can control the number of unused threads, that are kept
+alive by GLib for future use. The current number can be fetched with
+<link linkend="g-thread-pool-get-num-unused-threads"><function>g_thread_pool_get_num_unused_threads()</function></link>. The maximal number can be
+controlled by <link linkend="g-thread-pool-get-max-unused-threads"><function>g_thread_pool_get_max_unused_threads()</function></link> and
+<link linkend="g-thread-pool-set-max-unused-threads"><function>g_thread_pool_set_max_unused_threads()</function></link>. All currently unused threads
+can be stopped by calling <link linkend="g-thread-pool-stop-unused-threads"><function>g_thread_pool_stop_unused_threads()</function></link>.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GThreadPool"/>struct GThreadPool</title>
+<indexterm><primary>GThreadPool</primary></indexterm><programlisting>struct GThreadPool {
+
+  GFunc func;
+  gpointer user_data;
+  gboolean exclusive;
+};
+</programlisting>
+<para>
+The <link linkend="GThreadPool"><type>GThreadPool</type></link> struct represents a thread pool. It has six public
+read-only members, but the underlying struct is bigger, so you must not copy
+this struct.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GFunc">GFunc</link> <structfield>func</structfield></term>
+<listitem><simpara>the function to execute in the threads of this pool
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gpointer">gpointer</link> <structfield>user_data</structfield></term>
+<listitem><simpara>the user data for the threads of this pool
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="gboolean">gboolean</link> <structfield>exclusive</structfield></term>
+<listitem><simpara>are all threads exclusive to this pool
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-new"/>g_thread_pool_new ()</title>
+<indexterm><primary>g_thread_pool_new</primary></indexterm><programlisting><link linkend="GThreadPool">GThreadPool</link>* g_thread_pool_new              (<link linkend="GFunc">GFunc</link> func,
+                                             <link linkend="gpointer">gpointer</link> user_data,
+                                             <link linkend="gint">gint</link> max_threads,
+                                             <link linkend="gboolean">gboolean</link> exclusive,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+This function creates a new thread pool.
+</para>
+<para>
+Whenever you call <link linkend="g-thread-pool-push"><function>g_thread_pool_push()</function></link>, either a new thread is
+created or an unused one is reused. At most <parameter>max_threads</parameter> threads
+are running concurrently for this thread pool. <parameter>max_threads</parameter> = -1
+allows unlimited threads to be created for this thread pool. The
+newly created or reused thread now executes the function <parameter>func</parameter> with
+the two arguments. The first one is the parameter to
+<link linkend="g-thread-pool-push"><function>g_thread_pool_push()</function></link> and the second one is <parameter>user_data</parameter>.
+</para>
+<para>
+The parameter <parameter>exclusive</parameter> determines, whether the thread pool owns
+all threads exclusive or whether the threads are shared
+globally. If <parameter>exclusive</parameter> is <literal>TRUE</literal>, <parameter>max_threads</parameter> threads are started
+immediately and they will run exclusively for this thread pool until
+it is destroyed by <link linkend="g-thread-pool-free"><function>g_thread_pool_free()</function></link>. If <parameter>exclusive</parameter> is <literal>FALSE</literal>,
+threads are created, when needed and shared between all
+non-exclusive thread pools. This implies that <parameter>max_threads</parameter> may not
+be -1 for exclusive thread pools.
+</para>
+<para>
+<parameter>error</parameter> can be <literal>NULL</literal> to ignore errors, or non-<literal>NULL</literal> to report
+errors. An error can only occur when <parameter>exclusive</parameter> is set to <literal>TRUE</literal> and
+not all <parameter>max_threads</parameter> threads could be created.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>func</parameter>&nbsp;:</term>
+<listitem><simpara> a function to execute in the threads of the new thread pool
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara> user data that is handed over to <parameter>func</parameter> every time it 
+  is called
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>max_threads</parameter>&nbsp;:</term>
+<listitem><simpara> the maximal number of threads to execute concurrently in 
+  the new thread pool, -1 means no limit
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>exclusive</parameter>&nbsp;:</term>
+<listitem><simpara> should this thread pool be exclusive?
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> return location for error
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the new <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-push"/>g_thread_pool_push ()</title>
+<indexterm><primary>g_thread_pool_push</primary></indexterm><programlisting><link linkend="void">void</link>        g_thread_pool_push              (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gpointer">gpointer</link> data,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Inserts <parameter>data</parameter> into the list of tasks to be executed by <parameter>pool</parameter>. When
+the number of currently running threads is lower than the maximal
+allowed number of threads, a new thread is started (or reused) with
+the properties given to <link linkend="g-thread-pool-new"><function>g_thread_pool_new()</function></link>. Otherwise <parameter>data</parameter> stays
+in the queue until a thread in this pool finishes its previous task
+and processes <parameter>data</parameter>. 
+</para>
+<para>
+<parameter>error</parameter> can be <literal>NULL</literal> to ignore errors, or non-<literal>NULL</literal> to report
+errors. An error can only occur when a new thread couldn't be
+created. In that case <parameter>data</parameter> is simply appended to the queue of work
+to do.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara> a new task for <parameter>pool</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> return location for error
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-set-max-threads"/>g_thread_pool_set_max_threads ()</title>
+<indexterm><primary>g_thread_pool_set_max_threads</primary></indexterm><programlisting><link linkend="void">void</link>        g_thread_pool_set_max_threads   (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gint">gint</link> max_threads,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Sets the maximal allowed number of threads for <parameter>pool</parameter>. A value of -1
+means, that the maximal number of threads is unlimited.
+</para>
+<para>
+Setting <parameter>max_threads</parameter> to 0 means stopping all work for <parameter>pool</parameter>. It is
+effectively frozen until <parameter>max_threads</parameter> is set to a non-zero value
+again.
+</para>
+<para>
+A thread is never terminated while calling <parameter>func</parameter>, as supplied by
+<link linkend="g-thread-pool-new"><function>g_thread_pool_new()</function></link>. Instead the maximal number of threads only
+has effect for the allocation of new threads in <link linkend="g-thread-pool-push"><function>g_thread_pool_push()</function></link>. 
+A new thread is allocated, whenever the number of currently
+running threads in <parameter>pool</parameter> is smaller than the maximal number.
+</para>
+<para>
+<parameter>error</parameter> can be <literal>NULL</literal> to ignore errors, or non-<literal>NULL</literal> to report
+errors. An error can only occur when a new thread couldn't be
+created.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>max_threads</parameter>&nbsp;:</term>
+<listitem><simpara> a new maximal number of threads for <parameter>pool</parameter>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> return location for error
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-get-max-threads"/>g_thread_pool_get_max_threads ()</title>
+<indexterm><primary>g_thread_pool_get_max_threads</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_thread_pool_get_max_threads   (<link linkend="GThreadPool">GThreadPool</link> *pool);</programlisting>
+<para>
+Returns the maximal number of threads for <parameter>pool</parameter>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the maximal number of threads
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-get-num-threads"/>g_thread_pool_get_num_threads ()</title>
+<indexterm><primary>g_thread_pool_get_num_threads</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_thread_pool_get_num_threads   (<link linkend="GThreadPool">GThreadPool</link> *pool);</programlisting>
+<para>
+Returns the number of threads currently running in <parameter>pool</parameter>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the number of threads currently running
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-unprocessed"/>g_thread_pool_unprocessed ()</title>
+<indexterm><primary>g_thread_pool_unprocessed</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_thread_pool_unprocessed       (<link linkend="GThreadPool">GThreadPool</link> *pool);</programlisting>
+<para>
+Returns the number of tasks still unprocessed in <parameter>pool</parameter>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the number of unprocessed tasks
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-free"/>g_thread_pool_free ()</title>
+<indexterm><primary>g_thread_pool_free</primary></indexterm><programlisting><link linkend="void">void</link>        g_thread_pool_free              (<link linkend="GThreadPool">GThreadPool</link> *pool,
+                                             <link linkend="gboolean">gboolean</link> immediate,
+                                             <link linkend="gboolean">gboolean</link> wait);</programlisting>
+<para>
+Frees all resources allocated for <parameter>pool</parameter>.
+</para>
+<para>
+If <parameter>immediate</parameter> is <literal>TRUE</literal>, no new task is processed for
+<parameter>pool</parameter>. Otherwise <parameter>pool</parameter> is not freed before the last task is
+processed. Note however, that no thread of this pool is
+interrupted, while processing a task. Instead at least all still
+running threads can finish their tasks before the <parameter>pool</parameter> is freed.
+</para>
+<para>
+If <parameter>wait</parameter> is <literal>TRUE</literal>, the functions does not return before all tasks
+to be processed (dependent on <parameter>immediate</parameter>, whether all or only the
+currently running) are ready. Otherwise the function returns immediately.
+</para>
+<para>
+After calling this function <parameter>pool</parameter> must not be used anymore.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>pool</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GThreadPool"><type>GThreadPool</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>immediate</parameter>&nbsp;:</term>
+<listitem><simpara> should <parameter>pool</parameter> shut down immediately?
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>wait</parameter>&nbsp;:</term>
+<listitem><simpara> should the function wait for all tasks to be finished?
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-set-max-unused-threads"/>g_thread_pool_set_max_unused_threads ()</title>
+<indexterm><primary>g_thread_pool_set_max_unused_threads</primary></indexterm><programlisting><link linkend="void">void</link>        g_thread_pool_set_max_unused_threads
+                                            (<link linkend="gint">gint</link> max_threads);</programlisting>
+<para>
+Sets the maximal number of unused threads to <parameter>max_threads</parameter>. If
+<parameter>max_threads</parameter> is -1, no limit is imposed on the number of unused
+threads.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>max_threads</parameter>&nbsp;:</term>
+<listitem><simpara> maximal number of unused threads
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-get-max-unused-threads"/>g_thread_pool_get_max_unused_threads ()</title>
+<indexterm><primary>g_thread_pool_get_max_unused_threads</primary></indexterm><programlisting><link linkend="gint">gint</link>        g_thread_pool_get_max_unused_threads
+                                            (void);</programlisting>
+<para>
+Returns the maximal allowed number of unused threads.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the maximal number of unused threads
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-get-num-unused-threads"/>g_thread_pool_get_num_unused_threads ()</title>
+<indexterm><primary>g_thread_pool_get_num_unused_threads</primary></indexterm><programlisting><link linkend="guint">guint</link>       g_thread_pool_get_num_unused_threads
+                                            (void);</programlisting>
+<para>
+Returns the number of currently unused threads.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the number of currently unused threads
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-thread-pool-stop-unused-threads"/>g_thread_pool_stop_unused_threads ()</title>
+<indexterm><primary>g_thread_pool_stop_unused_threads</primary></indexterm><programlisting><link linkend="void">void</link>        g_thread_pool_stop_unused_threads
+                                            (void);</programlisting>
+<para>
+Stops all currently unused threads. This does not change the
+maximal number of unused threads. This function can be used to
+regularly stop all unused threads e.g. from <link linkend="g-timeout-add"><function>g_timeout_add()</function></link>.</para>
+<para>
+
+</para></refsect2>
+
+</refsect1>
+
+
+
+<refsect1>
+<title>See Also</title>
+<para>
+<variablelist>
+
+<varlistentry>
+<term><link linkend="GThread"><type>GThread</type></link></term>
+<listitem><para>GLib thread system.</para></listitem>
+</varlistentry>
+
+</variablelist>
+</para>
+</refsect1>
+
+</refentry>

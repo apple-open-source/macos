@@ -1,9 +1,9 @@
 /*
- * "$Id: common.c,v 1.1.1.10 2003/04/18 19:52:30 jlovell Exp $"
+ * "$Id: common.c,v 1.1.1.15 2005/01/04 19:15:55 jlovell Exp $"
  *
  *   Common filter routines for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products.
+ *   Copyright 1997-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -104,7 +104,12 @@ SetCommonOptions(int           num_options,	/* I - Number of options */
   {
     if (strcasecmp(val, "no") != 0 && strcasecmp(val, "off") != 0 &&
         strcasecmp(val, "false") != 0)
-      Orientation = 1;
+    {
+      if (ppd && ppd->landscape > 0)
+        Orientation = 1;
+      else
+        Orientation = 3;
+    }
   }
   else if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
   {
@@ -358,6 +363,8 @@ WriteLabelProlog(const char *label,	/* I - Page label */
     for (ptr = classification; *ptr; ptr ++)
       if (*ptr < 32 || *ptr > 126)
         printf("\\%03o", *ptr);
+      else if (*ptr == '_')
+        putchar(' ');
       else
       {
 	if (*ptr == '(' || *ptr == ')' || *ptr == '\\')
@@ -460,5 +467,5 @@ WriteLabels(int orient)	/* I - Orientation of the page */
 
 
 /*
- * End of "$Id: common.c,v 1.1.1.10 2003/04/18 19:52:30 jlovell Exp $".
+ * End of "$Id: common.c,v 1.1.1.15 2005/01/04 19:15:55 jlovell Exp $".
  */

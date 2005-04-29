@@ -50,7 +50,7 @@
 # endif
 #endif /* HAVE_STRING_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
-# include <malloc.h>   
+# include <malloc.h>
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -74,16 +74,12 @@
 
 #include "compat.h"
 
-#ifndef dirfd
-#  define dirfd(dirp)	((dirp)->dd_fd)
-#endif
-
 #define	ISDOT(dp) \
 	(dp->d_name[0] == '.' && (dp->d_name[1] == '\0' || \
 	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
 
 #ifndef lint
-static const char rcsid[] = "$Sudo: getcwd.c,v 1.22 2001/12/14 19:52:47 millert Exp $";
+static const char rcsid[] = "$Sudo: getcwd.c,v 1.25 2004/06/06 23:58:10 millert Exp $";
 #endif /* lint */
 
 char *
@@ -131,7 +127,7 @@ getcwd(pt, size)
 	 */
 	if ((up = malloc(upsize = 1024 - 4)) == NULL)
 		goto err;
-	eup = up + MAXPATHLEN;
+	eup = up + PATH_MAX;
 	bup = up;
 	up[0] = '.';
 	up[1] = '\0';

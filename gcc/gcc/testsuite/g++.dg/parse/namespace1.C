@@ -1,10 +1,7 @@
-namespace a {
-    namespace b {
-        void foo();
-    }
+namespace foo {
+void baz(int);
 }
 
-void
-a::b:foo() // { dg-error "" }
-{
+int bar(int foo) {
+  foo::baz (3);
 }

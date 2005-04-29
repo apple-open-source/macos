@@ -67,7 +67,7 @@ bool IOFireWireSBP2Target::start( IOService *provider )
     fProviderUnit = OSDynamicCast(IOFireWireUnit, provider);
     if (fProviderUnit == NULL)
         return false;
-
+	
 	// we want the expansion data member to be zeroed if it's available 
 	// so create and zero in a local then assign to the member when were done
 	

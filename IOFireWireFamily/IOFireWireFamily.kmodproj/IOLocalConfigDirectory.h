@@ -30,11 +30,14 @@
 
 class OSArray;
 class OSData;
+class IOFireWireController;
 
 /*! @class IOLocalConfigDirectory
 */
 class IOLocalConfigDirectory : public IOConfigDirectory
 {
+	friend class IOFireWireController;
+
 	OSDeclareDefaultStructors(IOLocalConfigDirectory);
 
 protected:
@@ -92,6 +95,8 @@ protected:
 
 	// call eats a retain count
 	virtual IOReturn addEntry(OSString *desc);
+
+	IOReturn incrementGeneration( void );
 		
 private:
 	OSMetaClassDeclareReservedUsed(IOLocalConfigDirectory, 0);

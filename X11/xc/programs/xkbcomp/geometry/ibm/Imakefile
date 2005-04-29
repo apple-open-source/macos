@@ -1,0 +1,8 @@
+XCOMM $XFree86: xc/programs/xkbcomp/geometry/ibm/Imakefile,v 1.1 2003/05/29 12:41:57 pascal Exp $
+
+     DATAFILES = thinkpad
+
+all::
+
+InstallMultiple($(DATAFILES),$(LIBDIR)/xkb/geometry/ibm)
+DependTarget()

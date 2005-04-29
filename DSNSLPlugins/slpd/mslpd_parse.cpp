@@ -242,7 +242,9 @@ int daadvert_out(SAState *ps, SLPBoolean viaTCP, Slphdr *pslph, char **ppc, int 
     char*			scopeListToAdvertise = (char*)malloc( strlen(SLPGetProperty("com.apple.slp.daScopeList")) + 1 );	// start out with a copy
     SLPBoolean		needToSetOverflow = SLP_FALSE;
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "daadvert_out called");
+#endif
     
     if ( SLPGetProperty("com.apple.slp.daAttributeList") )
         pcAttributeList = SLPGetProperty("com.apple.slp.daAttributeList");
@@ -263,10 +265,12 @@ int daadvert_out(SAState *ps, SLPBoolean viaTCP, Slphdr *pslph, char **ppc, int 
 
     *ppc = advertMessage;
     
+#ifdef ENABLE_SLP_LOGGING
     if ( strlen(scopeListToAdvertise) < strlen(SLPGetProperty("com.apple.slp.daScopeList")) )
     {
         SLP_LOG( SLP_LOG_DEBUG, "daadvert_out, advertising scopelist of size:%d out of original size:%d", strlen(scopeListToAdvertise), strlen(SLPGetProperty("com.apple.slp.daScopeList")) );
     }        
+#endif
 
     if ( scopeListToAdvertise )
         free( scopeListToAdvertise );

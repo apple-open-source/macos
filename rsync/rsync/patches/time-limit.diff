@@ -1,19 +1,19 @@
 John Taylor's patch for implementing --time-limit and --stop-at, reworked
 to be simpler and more efficient by Wayne Davison.
 
-Do we need configure support for mktime() and strptime()?
+Do we need configure support for mktime()?
 
---- io.c	16 Jan 2004 16:31:47 -0000	1.119
-+++ io.c	27 Apr 2004 02:56:33 -0000
-@@ -44,6 +44,7 @@ static int io_multiplexing_in;
- static int multiplex_in_fd = -1;
- static int multiplex_out_fd = -1;
- static time_t last_io;
+--- orig/io.c	2004-08-02 02:44:26
++++ io.c	2004-07-17 15:28:36
+@@ -49,6 +49,7 @@ extern int am_sender;
+ extern int eol_nulls;
+ extern int checksum_seed;
+ extern int protocol_version;
 +extern time_t stop_at_utime;
- static int no_flush;
+ extern char *remote_filesfrom_file;
+ extern struct stats stats;
  
- extern int bwlimit;
-@@ -125,15 +126,20 @@ static void check_timeout(void)
+@@ -135,17 +136,22 @@ static void check_timeout(void)
  {
  	time_t t;
  
@@ -33,40 +33,42 @@ Do we need configure support for mktime() and strptime()?
 +		last_io = t;
  		return;
  	}
--
--	t = time(NULL);
  
- 	if (last_io && io_timeout && (t-last_io) >= io_timeout) {
+-	t = time(NULL);
+-
+-	if (t - last_io >= io_timeout) {
++	if (io_timeout && t - last_io >= io_timeout) {
  		if (!am_server && !am_daemon) {
---- options.c	17 Apr 2004 17:07:23 -0000	1.147
-+++ options.c	27 Apr 2004 02:56:33 -0000
-@@ -92,6 +92,7 @@ int modify_window = 0;
- int blocking_io = -1;
+ 			rprintf(FERROR, "io timeout after %d seconds - exiting\n",
+ 				(int)(t-last_io));
+--- orig/options.c	2004-09-23 17:42:07
++++ options.c	2004-07-15 17:06:09
+@@ -96,6 +96,7 @@ int blocking_io = -1;
  int checksum_seed = 0;
+ int inplace = 0;
  unsigned int block_size = 0;
 +time_t stop_at_utime = 0;
  
  
  /** Network address family. **/
-@@ -288,6 +289,8 @@ void usage(enum logcode F)
+@@ -301,6 +302,8 @@ void usage(enum logcode F)
    rprintf(F,"     --log-format=FORMAT     log file transfers using specified format\n");
    rprintf(F,"     --password-file=FILE    get password from FILE\n");
    rprintf(F,"     --bwlimit=KBPS          limit I/O bandwidth, KBytes per second\n");
-+  rprintf(F,"     --stop-at=YY-MM-DD@HH:MM Stop rsync at year-month-day@hour:minute\n");
-+  rprintf(F,"     --time-limit=TIME       Stop rsync after TIME minutes have elapsed\n");
-   rprintf(F,"     --write-batch=PREFIX    write batch fileset starting with PREFIX\n");
-   rprintf(F,"     --read-batch=PREFIX     read batch fileset starting with PREFIX\n");
-   rprintf(F," -h, --help                  show this help screen\n");
-@@ -305,7 +308,7 @@ void usage(enum logcode F)
- enum {OPT_VERSION = 1000, OPT_SENDER, OPT_EXCLUDE, OPT_EXCLUDE_FROM,
++  rprintf(F,"     --stop-at=y-m-dTh:m     Stop rsync at year-month-dayThour:minute\n");
++  rprintf(F,"     --time-limit=MINS       Stop rsync after MINS minutes have elapsed\n");
+   rprintf(F,"     --write-batch=FILE      write a batch to FILE\n");
+   rprintf(F,"     --read-batch=FILE       read a batch from FILE\n");
+   rprintf(F,"     --checksum-seed=NUM     set block/file checksum seed\n");
+@@ -320,6 +323,7 @@ enum {OPT_VERSION = 1000, OPT_SENDER, OP
        OPT_DELETE_AFTER, OPT_DELETE_EXCLUDED, OPT_LINK_DEST,
        OPT_INCLUDE, OPT_INCLUDE_FROM, OPT_MODIFY_WINDOW,
--      OPT_READ_BATCH, OPT_WRITE_BATCH,
-+      OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_STOP_AT, OPT_TIME_LIMIT,
+       OPT_READ_BATCH, OPT_WRITE_BATCH, OPT_TIMEOUT,
++      OPT_STOP_AT, OPT_TIME_LIMIT,
        OPT_REFUSED_BASE = 9000};
  
  static struct poptOption long_options[] = {
-@@ -377,6 +380,8 @@ static struct poptOption long_options[] 
+@@ -394,6 +398,8 @@ static struct poptOption long_options[] 
    {"port",             0,  POPT_ARG_INT,    &rsync_port, 0, 0, 0 },
    {"log-format",       0,  POPT_ARG_STRING, &log_format, 0, 0, 0 },
    {"bwlimit",          0,  POPT_ARG_INT,    &bwlimit, 0, 0, 0 },
@@ -75,28 +77,19 @@ Do we need configure support for mktime() and strptime()?
    {"address",          0,  POPT_ARG_STRING, &bind_address, 0, 0, 0 },
    {"backup-dir",       0,  POPT_ARG_STRING, &backup_dir, 0, 0, 0 },
    {"hard-links",      'H', POPT_ARG_NONE,   &preserve_hard_links, 0, 0, 0 },
-@@ -471,6 +476,7 @@ int parse_arguments(int *argc, const cha
- {
- 	int opt;
- 	char *ref = lp_refuse_options(module_id);
-+	struct tm stop_at_tm;
- 	const char *arg;
- 	poptContext pc;
- 
-@@ -584,6 +590,37 @@ int parse_arguments(int *argc, const cha
+@@ -616,6 +622,36 @@ int parse_arguments(int *argc, const cha
  			return 0;
  #endif
  
 +		case OPT_STOP_AT:
 +			arg = poptGetOptArg(pc);
-+			if (!strptime(arg, "%y-%m-%d@%H:%M", &stop_at_tm)) {
++			if ((stop_at_utime = parse_time(arg)) == (time_t)-1) {
 +				snprintf(err_buf, sizeof err_buf,
 +				    "invalid --stop-at format: %s\n",
 +				    arg);
 +				rprintf(FERROR, "ERROR: %s", err_buf);
 +				return 0;
 +			}
-+			stop_at_utime = mktime(&stop_at_tm);
 +			if (stop_at_utime < time(NULL)) {
 +				snprintf(err_buf, sizeof err_buf,
 +				    "--stop-at time is in the past: %s\n",
@@ -121,44 +114,185 @@ Do we need configure support for mktime() and strptime()?
  		default:
  			/* A large opt value means that set_refuse_options()
  			 * turned this option off (opt-BASE is its index). */
-@@ -881,6 +918,15 @@ void server_options(char **args,int *arg
+@@ -1005,6 +1041,15 @@ void server_options(char **args,int *arg
+ 		args[ac++] = arg;
+ 	}
  
- 	if (bwlimit) {
- 		if (asprintf(&arg, "--bwlimit=%d", bwlimit) < 0)
-+			goto oom;
-+		args[ac++] = arg;
-+	}
-+
 +	if (stop_at_utime) {
 +		long mins = (stop_at_utime - time(NULL)) / 60;
 +		if (mins <= 0)
 +			mins = 1;
 +		if (asprintf(&arg, "--time-limit=%ld", mins) < 0)
- 			goto oom;
- 		args[ac++] = arg;
- 	}
---- rsync.yo	24 Apr 2004 06:16:04 -0000	1.164
-+++ rsync.yo	27 Apr 2004 02:56:35 -0000
-@@ -346,6 +346,8 @@ verb(
++			goto oom;
++		args[ac++] = arg;
++	}
++
+ 	if (backup_dir) {
+ 		args[ac++] = "--backup-dir";
+ 		args[ac++] = backup_dir;
+--- orig/rsync.yo	2004-09-24 16:42:30
++++ rsync.yo	2004-07-15 02:44:40
+@@ -378,6 +378,8 @@ verb(
       --log-format=FORMAT     log file transfers using specified format
       --password-file=FILE    get password from FILE
       --bwlimit=KBPS          limit I/O bandwidth, KBytes per second
-+     --stop-at=YY-MM-DD@HH:MM Stop rsync at year-month-day@hour:minute
-+     --time-limit=TIME       Stop rsync after TIME minutes have elapsed
-      --write-batch=PREFIX    write batch fileset starting with PREFIX
-      --read-batch=PREFIX     read batch fileset starting with PREFIX
-  -h, --help                  show this help screen
-@@ -888,6 +890,13 @@ of rsync transfers, blocks of data are s
- transfer was too fast, it will wait before sending the next data block. The
++     --stop-at=y-m-dTh:m     Stop rsync at year-month-dayThour:minute
++     --time-limit=MINS       Stop rsync after MINS minutes have elapsed
+      --write-batch=FILE      write a batch to FILE 
+      --read-batch=FILE       read a batch from FILE
+      --checksum-seed=NUM     set block/file checksum seed
+@@ -1001,6 +1003,19 @@ transfer was too fast, it will wait befo
  result is an average transfer rate equaling the specified limit. A value
  of zero specifies no limit.
-+
-+dit(bf(--stop-at=YY-MM-DD@HH:MM)) This option allows you to specify at what
-+time to stop rsync, in year-month-day@hour:minute numeric format (e.g.
-+04-12-3l@23:59).
-+
-+dit(bf(--time-limit=TIME)) This option allows you to specify the maximum
-+number of minutes rsync will run for.
  
- dit(bf(--write-batch=PREFIX)) Generate a set of files that can be
- transferred as a batch update. Each filename in the set starts with
++dit(bf(--stop-at=y-m-dTh:m)) This option allows you to specify at what
++time to stop rsync, in year-month-dayThour:minute numeric format (e.g.
++2004-12-31T23:59).  You can specify a 2 or 4-digit year.  You can also
++leave off various items and the result will be the next possible time
++that matches the specified data.  For example, "1-30" specifies the next
++January 30th (at midnight), "04:00" specifies the next 4am, "1"
++specifies the next 1st of the month at midnight, and ":59" specifies the
++next 59th minute after the hour.  If you prefer, you may separate the
++date numbers using slashes instead of dashes.
++
++dit(bf(--time-limit=MINS)) This option allows you to specify the maximum
++number of minutes rsync will run for.
++
+ dit(bf(--write-batch=FILE)) Record a file that can later be applied to
+ another identical destination with --read-batch. See the "BATCH MODE"
+ section for details.
+--- orig/util.c	2004-09-07 21:45:30
++++ util.c	2004-07-03 20:23:22
+@@ -126,6 +126,132 @@ void overflow(char *str)
+ 	exit_cleanup(RERR_MALLOC);
+ }
+ 
++/* Allow the user to specify a time in the format yyyy-mm-ddThh:mm while
++ * also allowing abbreviated data.  For instance, if the time is omitted,
++ * it defaults to midnight.  If the date is omitted, it defaults to the
++ * next possible date in the future with the specified time.  Even the
++ * year or year-month can be omitted, again defaulting to the next date
++ * in the future that matches the specified information.  A 2-digit year
++ * is also OK, as is using '/' instead of '-'. */
++time_t parse_time(const char *arg)
++{
++	const char *cp;
++	time_t val, now = time(NULL);
++	struct tm t, *today = localtime(&now);
++	int in_date, n;
++
++	memset(&t, 0, sizeof t);
++	t.tm_year = t.tm_mon = t.tm_mday = -1;
++	t.tm_hour = t.tm_min = t.tm_isdst = -1;
++	cp = arg;
++	if (*cp == 'T' || *cp == 't' || *cp == ':') {
++		cp++;
++		in_date = 0;
++	} else
++		in_date = 1;
++	for ( ; ; cp++) {
++		if (!isdigit(*cp))
++			return -1;
++
++		n = 0;
++		do {
++			n = n * 10 + *cp++ - '0';
++		} while (isdigit(*cp));
++
++		if (*cp == ':')
++			in_date = 0;
++		if (in_date) {
++			if (t.tm_year != -1)
++				return -1;
++			t.tm_year = t.tm_mon;
++			t.tm_mon = t.tm_mday;
++			t.tm_mday = n;
++			if (!*cp)
++				break;
++			if (*cp == 'T' || *cp == 't') {
++				if (!cp[1])
++					break;
++				in_date = 0;
++			} else if (*cp != '-' && *cp != '/')
++				return -1;
++			continue;
++		}
++		if (t.tm_hour != -1)
++			return -1;
++		t.tm_hour = t.tm_min;
++		t.tm_min = n;
++		if (!*cp)
++			break;
++		if (*cp != ':')
++			return -1;
++	}
++
++	in_date = 0;
++	if (t.tm_year < 0) {
++		t.tm_year = today->tm_year;
++		in_date = 1;
++	} else if (t.tm_year < 100) {
++		while (t.tm_year < today->tm_year)
++			t.tm_year += 100;
++	} else
++		t.tm_year -= 1900;
++	if (t.tm_mon < 0) {
++		t.tm_mon = today->tm_mon;
++		in_date = 2;
++	} else
++		t.tm_mon--;
++	if (t.tm_mday < 0) {
++		t.tm_mday = today->tm_mday;
++		in_date = 3;
++	}
++
++	n = 0;
++	if (t.tm_min < 0) {
++		t.tm_hour = t.tm_min = 0;
++	} else if (t.tm_hour < 0) {
++		if (in_date != 3)
++			return -1;
++		in_date = 0;
++		t.tm_hour = today->tm_hour;
++		n = 60*60;
++	}
++
++	if (t.tm_hour > 23 || t.tm_min > 59
++	    || t.tm_mon < 0 || t.tm_mon >= 12
++	    || t.tm_mday < 1 || t.tm_mday > 31
++	    || (val = mktime(&t)) == (time_t)-1)
++		return -1;
++
++	if (val <= now && in_date) {
++	    tweak_date:
++		switch (in_date) {
++		case 3:
++			t.tm_mday++;
++			break;
++		case 2:
++			if (++t.tm_mon == 12)
++				t.tm_mon = 0;
++			else
++				break;
++		case 1:
++			t.tm_year++;
++			break;
++		}
++		if ((val = mktime(&t)) == (time_t)-1) {
++			if (in_date == 3 && t.tm_mday > 28) {
++				t.tm_mday = 1;
++				in_date = 2;
++				goto tweak_date;
++			}
++			return -1;
++		}
++	}
++	if (n) {
++		while (val <= now)
++			val += n;
++	}
++	return val;
++}
+ 
+ 
+ int set_modtime(char *fname, time_t modtime)

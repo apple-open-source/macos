@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/GL/mesa/src/X/xf86glx.c,v 1.18 2002/12/17 05:03:24 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/GL/mesa/src/X/xf86glx.c,v 1.21 2003/10/28 22:50:18 tsi Exp $ */
 /**************************************************************************
 
 Copyright 1998-1999 Precision Insight, Inc., Cedar Park, Texas.
@@ -33,7 +33,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  */
 
-#include <miscstruct.h>
+#include <regionstr.h>
 #include <resource.h>
 #include <GL/gl.h>
 #include <GL/glxint.h>
@@ -97,7 +97,6 @@ __GLXextensionInfo __glDDXExtensionInfo = {
 };
 
 static __MESA_screen  MESAScreens[MAXSCREENS];
-static __GLcontext   *MESA_CC        = NULL;
 
 static int                 numConfigs     = 0;
 static __GLXvisualConfig  *visualConfigs  = NULL;
@@ -134,11 +133,10 @@ static XMesaVisual find_mesa_visual(int screen, VisualID vid)
 
 
 /*
- * In the case the driver has no GLX visuals we'll use these.
- * One thing is funny here: the bufferSize field doesn't always include
- * the alpha bits.  That is, bufferSize may be 24 when we have 8 bits
- * of red, green, blue and alpha.  If set set bufferSize to 32 we may
- * foul-up the visual matching code below (search for bufferSize).
+ * In the case the driver defines no GLX visuals we'll use these.
+ * Note that for TrueColor and DirectColor visuals, bufferSize is the 
+ * sum of redSize, greenSize, blueSize and alphaSize, which may be larger 
+ * than the nplanes/rootDepth of the server's X11 visuals
  */
 #define NUM_FALLBACK_CONFIGS 5
 static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
@@ -157,8 +155,8 @@ static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
     0,                  /* stencilSize */
     0,                  /* auxBuffers */
     0,                  /* level */
-    GLX_NONE_EXT,       /* visualRating */
-    0,                  /* transparentPixel */
+    GLX_NONE,           /* visualRating */
+    GLX_NONE,           /* transparentPixel */
     0, 0, 0, 0,         /* transparent rgba color (floats scaled to ints) */
     0                   /* transparentIndex */
   },
@@ -177,8 +175,8 @@ static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
     8,                  /* stencilSize */
     0,                  /* auxBuffers */
     0,                  /* level */
-    GLX_NONE_EXT,       /* visualRating */
-    0,                  /* transparentPixel */
+    GLX_NONE,           /* visualRating */
+    GLX_NONE,           /* transparentPixel */
     0, 0, 0, 0,         /* transparent rgba color (floats scaled to ints) */
     0                   /* transparentIndex */
   },
@@ -197,8 +195,8 @@ static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
     8,                  /* stencilSize */
     0,                  /* auxBuffers */
     0,                  /* level */
-    GLX_NONE_EXT,       /* visualRating */
-    0,                  /* transparentPixel */
+    GLX_NONE,           /* visualRating */
+    GLX_NONE,           /* transparentPixel */
     0, 0, 0, 0,         /* transparent rgba color (floats scaled to ints) */
     0                   /* transparentIndex */
   },
@@ -217,8 +215,8 @@ static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
     8,                  /* stencilSize */
     0,                  /* auxBuffers */
     0,                  /* level */
-    GLX_NONE_EXT,       /* visualRating */
-    0,                  /* transparentPixel */
+    GLX_NONE,           /* visualRating */
+    GLX_NONE,           /* transparentPixel */
     0, 0, 0, 0,         /* transparent rgba color (floats scaled to ints) */
     0                   /* transparentIndex */
   },
@@ -237,8 +235,8 @@ static __GLXvisualConfig FallbackConfigs[NUM_FALLBACK_CONFIGS] = {
     0,                  /* stencilSize */
     0,                  /* auxBuffers */
     0,                  /* level */
-    GLX_NONE_EXT,       /* visualRating */
-    0,                  /* transparentPixel */
+    GLX_NONE,           /* visualRating */
+    GLX_NONE,           /* transparentPixel */
     0, 0, 0, 0,         /* transparent rgba color (floats scaled to ints) */
     0                   /* transparentIndex */
   },
@@ -405,7 +403,14 @@ static Bool init_visuals(int *nvisualp, VisualPtr *visualp,
 		glXVisualPtr[j].greenMask  = pVisual[i].greenMask;
 		glXVisualPtr[j].blueMask   = pVisual[i].blueMask;
 		glXVisualPtr[j].alphaMask  = glXVisualPtr[j].alphaMask;
-		glXVisualPtr[j].bufferSize = rootDepth;
+		if (is_rgb) {
+		    glXVisualPtr[j].bufferSize = glXVisualPtr[j].redSize +
+		                                 glXVisualPtr[j].greenSize +
+		                                 glXVisualPtr[j].blueSize +
+		                                 glXVisualPtr[j].alphaSize;
+		} else {
+		    glXVisualPtr[j].bufferSize = rootDepth;
+		}
 	    }
 
 	    /* Save the device-dependent private for this visual */
@@ -505,7 +510,7 @@ static void fixup_visuals(int screen)
 	/* Find a visual that matches the GLX visual's class and size */
 	for (j = 0; j < pScreen->numVisuals; j++, pVis++) {
 	    if (pVis->class == pGLXVis->class &&
-		pVis->nplanes == pGLXVis->bufferSize) {
+		pVis->nplanes == (pGLXVis->bufferSize - pGLXVis->alphaSize)) {
 
 		/* Fixup the masks */
 		pGLXVis->redMask   = pVis->redMask;
@@ -545,7 +550,7 @@ static void init_screen_visuals(int screen)
 	for (j = 0; j < pScreen->numVisuals; j++, pVis++) {
 
 	    if (pVis->class == pGLXVis->class &&
-		pVis->nplanes == pGLXVis->bufferSize &&
+		pVis->nplanes == (pGLXVis->bufferSize - pGLXVis->alphaSize) &&
 		!used[j]) {
 
 		if (pVis->redMask   == pGLXVis->redMask &&
@@ -639,7 +644,6 @@ extern void __MESA_resetExtension(void)
 	MESAScreens[i].num_vis = 0;
     }
     __glDDXScreenInfo.pGlxVisual = NULL;
-    MESA_CC = NULL;
 }
 
 void __MESA_createBuffer(__GLXdrawablePrivate *glxPriv)
@@ -767,20 +771,19 @@ GLboolean __MESA_destroyContext(__GLcontext *gc)
 GLboolean __MESA_loseCurrent(__GLcontext *gc)
 {
     XMesaContext xmesa = (XMesaContext) gc->DriverCtx;
-    MESA_CC = NULL;
     __glXLastContext = NULL;
     return XMesaLoseCurrent(xmesa);
 }
 
-GLboolean __MESA_makeCurrent(__GLcontext *gc, __GLdrawablePrivate *oldglPriv)
+GLboolean __MESA_makeCurrent(__GLcontext *gc)
 {
-    /* We don't use oldglPriv - kept for backwards compatibility */
-    __GLdrawablePrivate *glPriv = gc->imports.getDrawablePrivate( gc );
-    __MESA_buffer buf = (__MESA_buffer)glPriv->private;
+    __GLdrawablePrivate *drawPriv = gc->imports.getDrawablePrivate( gc );
+    __MESA_buffer drawBuf = (__MESA_buffer)drawPriv->private;
+    __GLdrawablePrivate *readPriv = gc->imports.getReadablePrivate( gc );
+    __MESA_buffer readBuf = (__MESA_buffer)readPriv->private;
     XMesaContext xmesa = (XMesaContext) gc->DriverCtx;
 
-    MESA_CC = gc;
-    return XMesaMakeCurrent(xmesa, buf->xm_buf);
+    return XMesaMakeCurrent2(xmesa, drawBuf->xm_buf, readBuf->xm_buf);
 }
 
 GLboolean __MESA_shareContext(__GLcontext *gc, __GLcontext *gcShare)
@@ -795,7 +798,7 @@ GLboolean __MESA_copyContext(__GLcontext *dst, const __GLcontext *src,
 			     GLuint mask)
 {
     XMesaContext xm_dst = (XMesaContext) dst->DriverCtx;
-    const XMesaContext xm_src = (const XMesaContext) src->DriverCtx;
+    const XMesaContext xm_src = (XMesaContext) src->DriverCtx;
     _mesa_copy_context(xm_src->gl_ctx, xm_dst->gl_ctx, mask);
     return GL_TRUE;
 }
@@ -803,7 +806,6 @@ GLboolean __MESA_copyContext(__GLcontext *dst, const __GLcontext *src,
 GLboolean __MESA_forceCurrent(__GLcontext *gc)
 {
     XMesaContext xmesa = (XMesaContext) gc->DriverCtx;
-    MESA_CC = gc;
     return XMesaForceCurrent(xmesa);
 }
 
@@ -823,9 +825,7 @@ void __MESA_notifyDestroy(__GLcontext *gc)
 
 void __MESA_notifySwapBuffers(__GLcontext *gc)
 {
-    /* NOT_DONE */
-    ErrorF("__MESA_notifySwapBuffers\n");
-    return;
+    _mesa_notifySwapBuffers(gc);
 }
 
 struct __GLdispatchStateRec *__MESA_dispatchExec(__GLcontext *gc)
@@ -848,6 +848,12 @@ void __MESA_endDispatchOverride(__GLcontext *gc)
     ErrorF("__MESA_endDispatchOverride\n");
     return;
 }
+
+
+/*
+ * Server-side GLX uses these functions which are normally defined
+ * in the OpenGL SI.
+ */
 
 GLint __glEvalComputeK(GLenum target)
 {

@@ -2,16 +2,17 @@
  * Date:  1997/03/17
  * From:  bayern@morpheus.cis.yale.edu
  *
- * $Id: testscanw.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: testscanw.c,v 1.10 2002/10/19 22:11:24 tom Exp $
  */
 #include <test.priv.h>
-#include <ctype.h>
 
 int
 main(int argc, char *argv[])
 {
     long badanswer = 1;
     long *response = &badanswer;
+
+    setlocale(LC_ALL, "");
 
     initscr();
     scrollok(stdscr, TRUE);

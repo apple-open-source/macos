@@ -1,0 +1,78 @@
+--- gbk.c.orig	Thu Nov 25 11:38:17 2004
++++ gbk.c	Fri Feb 18 15:46:58 2005
+@@ -38,6 +38,8 @@
+ #include <sys/param.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/gbk.c,v 1.11 2004/05/17 11:16:14 tjr Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <errno.h>
+ #include <runetype.h>
+ #include <stdlib.h>
+@@ -45,30 +47,29 @@
+ #include <wchar.h>
+ #include "mblocal.h"
+ 
+-int	_GBK_init(_RuneLocale *);
+-size_t	_GBK_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
+-	    mbstate_t * __restrict);
+-int	_GBK_mbsinit(const mbstate_t *);
+-size_t	_GBK_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
++__private_extern__ int	_GBK_init(struct __xlocale_st_runelocale *);
++static size_t	_GBK_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
++	    mbstate_t * __restrict, locale_t);
++static int	_GBK_mbsinit(const mbstate_t *, locale_t);
++static size_t	_GBK_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+ 
+ typedef struct {
+ 	wchar_t	ch;
+ } _GBKState;
+ 
+-int
+-_GBK_init(_RuneLocale *rl)
++__private_extern__ int
++_GBK_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 
+-	__mbrtowc = _GBK_mbrtowc;
+-	__wcrtomb = _GBK_wcrtomb;
+-	__mbsinit = _GBK_mbsinit;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 2;
++	xrl->__mbrtowc = _GBK_mbrtowc;
++	xrl->__wcrtomb = _GBK_wcrtomb;
++	xrl->__mbsinit = _GBK_mbsinit;
++	xrl->__mb_cur_max = 2;
+ 	return (0);
+ }
+ 
+-int
+-_GBK_mbsinit(const mbstate_t *ps)
++static int
++_GBK_mbsinit(const mbstate_t *ps, locale_t loc)
+ {
+ 
+ 	return (ps == NULL || ((const _GBKState *)ps)->ch == 0);
+@@ -82,9 +83,9 @@
+ 	return ((c >= 0x81 && c <= 0xfe) ? 2 : 1);
+ }
+ 
+-size_t
++static size_t
+ _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps)
++    mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_GBKState *gs;
+ 	wchar_t wc;
+@@ -143,8 +144,8 @@
+ 	}
+ }
+ 
+-size_t
+-_GBK_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
++static size_t
++_GBK_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+ {
+ 	_GBKState *gs;
+ 

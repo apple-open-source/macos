@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>libedit</string>
+        <key>OpenSourceVersion</key>
+        <string>2.6.9</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>ftp://ftp.astron.com/pub/libedit/</string>
+        <key>OpenSourceURL</key>
+        <string>ftp://ftp.astron.com/pub/libedit/libedit-2.6.9.tar.gz</string>
+        <key>OpenSourceMD5</key>
+        <string>a007a8134d9daf4340c985085441ca6d</string>
+        <key>OpenSourceImportDate</key>
+        <string>2004-10-27</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>libedit.txt</string>
+</dict>
+</array>
+</plist>

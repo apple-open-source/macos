@@ -1,7 +1,7 @@
 /*
  * object_monitor.c
  *
- * $Id: object_monitor.c,v 1.1.1.1 2003/05/29 00:03:05 rbraun Exp $
+ * $Id: object_monitor.c,v 1.6 2002/07/23 19:02:56 rstory Exp $
  *
  * functions and data structures for cooperating code to monitor objects.
  *
@@ -562,7 +562,7 @@ check_registered(unsigned int event, oid * o, int o_l,
 /**
  *@internal
  */
-NETSNMP_INLINE void
+inline void
 insert_ready(callback_placeholder * new_cbr)
 {
     callback_placeholder *current_cbr, *last_cbr;

@@ -1,4 +1,4 @@
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,20 +15,49 @@
 # Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-dejagnu@prep.ai.mit.edu
+# bug-dejagnu@gnu.org
 
-# This file was written by Rob Savoye. (rob@cygnus.com)
+# This file was written by Rob Savoye. (rob@welcomehome.org)
 
 # These variables are local to this file.
 # This or more warnings and a test fails.
 set warning_threshold 3
 # This or more errors and a test fails.
 set perror_threshold 1
-
+
 proc mail_file { file to subject } {
     if [file readable $file] {
 	catch "exec mail -s \"$subject\" $to < $file"
     }
+}
+
+#
+# Check for xml output flag or environment variable
+#
+proc check_xml { } {
+    global env
+
+    set x "RUNTESTFLAGS"
+    return [format "%s" $env($x)]
+}
+
+#
+# Insert DTD for xml format checking
+#
+proc insertdtd { } {
+    xml_output "<!DOCTYPE testsuite \[
+<!-- testsuite.dtd -->
+<!ELEMENT testsuite (test | summary)+>
+<!ELEMENT test (input, output, result, name, prms_id )>
+  <!ELEMENT input              (#PCDATA)>
+  <!ELEMENT output             (#PCDATA)>
+  <!ELEMENT result             (#PCDATA)>
+  <!ELEMENT name               (#PCDATA)>
+  <!ELEMENT prms_id            (#PCDATA)>
+  <!ELEMENT summary 	(result, description, total)>
+  <!ELEMENT description        (#PCDATA)>
+  <!ELEMENT total              (#PCDATA)>
+\]>"
 }
 
 #
@@ -38,12 +67,21 @@ proc open_logs { } {
     global outdir
     global tool
     global sum_file
+    global xml_file
+    global xml
     
     if { ${tool} ==  "" } {
 	set tool testrun
     }
     catch "exec rm -f $outdir/$tool.sum"
     set sum_file [open "$outdir/$tool.sum" w]
+    if { $xml } {
+       catch "exec rm -f $outdir/$tool.xml"
+       set xml_file [open "$outdir/$tool.xml" w]
+        xml_output "<?xml version=\"1.0\"?>"
+        insertdtd
+        xml_output "<testsuite>"
+    }
     catch "exec rm -f $outdir/$tool.log"
     log_file -a "$outdir/$tool.log"
     verbose "Opening log files in $outdir"
@@ -58,7 +96,14 @@ proc open_logs { } {
 #
 proc close_logs { } {
     global sum_file
-    
+    global xml
+    global xml_file
+   
+    if { $xml } {
+        xml_output "</testsuite>"
+        catch "close $xml_file"
+    }
+
     catch "close $sum_file"
 }
 
@@ -251,8 +296,8 @@ proc unknown { args } {
 # Without this, all messages that start with a keyword are written only to the
 # detail log file.  All messages that go to the screen will also appear in the
 # detail log.  This should only be used by the framework itself using pass,
-# fail, xpass, xfail, warning, perror, note, untested, unresolved, or
-# unsupported procedures.
+# fail, xpass, xfail, kpass, kfail, warning, perror, note, untested, unresolved,
+# or unsupported procedures.
 #
 proc clone_output { message } {
     global sum_file
@@ -264,7 +309,7 @@ proc clone_output { message } {
 
     regsub "^\[ \t\]*(\[^ \t\]+).*$" "$message" "\\1" firstword;
     case "$firstword" in {
-	{"PASS:" "XFAIL:" "UNRESOLVED:" "UNSUPPORTED:" "UNTESTED:"} {
+	{"PASS:" "XFAIL:" "KFAIL:" "UNRESOLVED:" "UNSUPPORTED:" "UNTESTED:"} {
 	    if $all_flag {
 		send_user "$message\n"
 		return "$message"
@@ -330,12 +375,22 @@ proc log_and_exit {} {
     remote_close target
     exit $exit_status
 }
+
+proc xml_output { message } {
+    global xml_file
+    if { $xml_file != "" } {
+       puts $xml_file "$message"
+    }
+}
+
 #
 # Print summary of all pass/fail counts
 #
 proc log_summary { args } {
     global tool
     global sum_file
+    global xml_file
+    global xml
     global exit_status
     global mail_logs
     global outdir
@@ -364,7 +419,7 @@ proc log_summary { args } {
 	if { $testcnt > 0 } {
 	    set totlcnt 0;
 	    # total all the testcases reported
-	    foreach x { FAIL PASS XFAIL XPASS UNTESTED UNRESOLVED UNSUPPORTED } {
+	    foreach x { FAIL PASS XFAIL KFAIL XPASS KPASS UNTESTED UNRESOLVED UNSUPPORTED } {
 		incr totlcnt test_counts($x,$which);
 	    }
 	    set testcnt test_counts(total,$which);
@@ -388,10 +443,17 @@ proc log_summary { args } {
 	    }
 	}
     }
-    foreach x { PASS FAIL XPASS XFAIL UNRESOLVED UNTESTED UNSUPPORTED } {
+    foreach x { PASS FAIL XPASS XFAIL KPASS KFAIL UNRESOLVED UNTESTED UNSUPPORTED } {
 	set val $test_counts($x,$which);
 	if { $val > 0 } {
 	    set mess "# of $test_counts($x,name)";
+            if { $xml } {
+                xml_output "  <summary>"
+                xml_output "    <result>$x</result>"
+                xml_output "    <description>$mess</description>"
+                xml_output "    <total>$val</total>"
+                xml_output "  </summary>"
+            }
 	    if { [string length $mess] < 24 } {
 		append mess "\t";
 	    }
@@ -412,7 +474,7 @@ proc cleanup {} {
     #catch "exec rm -f [glob xgdb core *.x *.o *_soc a.out]"
     #catch "exec rm -f [glob -nocomplain $subdir/*.o $subdir/*.x $subdir/*_soc]"
 }
-
+
 #
 # Setup a flag to control whether a failure is expected or not
 #
@@ -437,6 +499,43 @@ proc setup_xfail { args } {
 	    set xfail_flag 1
 	    continue
 	}
+    }
+}
+
+
+#
+# Setup a flag to control whether it is a known failure
+#
+# A bug report ID _MUST_ be specified, and is the first argument.
+# It still must be a string without '-' so we can be sure someone
+# did not just forget it and we end-up using a taget triple as
+# bug id.
+#
+# Multiple target triplet patterns can be specified for targets
+# for which the test is known to fail.  
+#
+#
+proc setup_kfail { args } {
+    global kfail_flag
+    global kfail_prms
+    
+    set kfail_prms 0
+    set argc [ llength $args ]
+    for { set i 0 } { $i < $argc } { incr i } {
+	set sub_arg [ lindex $args $i ]
+	# is a prms number. we assume this is a string with no '-' characters
+	if [regexp "^\[^\-\]+$" $sub_arg] { 
+	    set kfail_prms $sub_arg
+	    continue
+	}
+	if [istarget $sub_arg] {
+	    set kfail_flag 1
+	    continue
+	}
+    }
+
+    if {$kfail_prms == 0} {
+	perror "Attempt to set a kfail without specifying bug tracking id"
     }
 }
 
@@ -557,14 +656,38 @@ proc clear_xfail { args } {
 }
 
 #
+# Clear the kfail flag for a particular target
+#
+proc clear_kfail { args } {
+    global kfail_flag
+    global kfail_prms
+    
+    set argc [ llength $args ]
+    for { set i 0 } { $i < $argc } { incr i } {
+	set sub_arg [ lindex $args $i ]
+	case $sub_arg in {
+	    "*-*-*" {			# is a configuration triplet
+		if [istarget $sub_arg] {
+		    set kfail_flag 0
+		    set kfail_prms 0
+		}
+		continue
+	    }
+	}
+    }
+}
+
+#
 # Record that a test has passed or failed (perhaps unexpectedly)
 #
 # This is an internal procedure, only used in this file.
 #
 proc record_test { type message args } {
     global exit_status
+    global xml
     global prms_id bug_id
     global xfail_flag xfail_prms
+    global kfail_flag kfail_prms
     global errcnt warncnt
     global warning_threshold perror_threshold
     global pf_prefix
@@ -589,7 +712,30 @@ proc record_test { type message args } {
 
     incr_count $type;
 
-    switch $type {
+    if { $xml } {
+	global errorInfo
+        set error ""
+        if [info exists errorInfo] {
+	    set error $errorInfo
+        }
+        global expect_out 
+	set rio { "" "" }
+	if { [catch { set rio [split $expect_out(buffer) "\n"] } result]} {
+		#do nothing - leave as { "" "" }
+	}
+	
+        set output ""
+	set output "expect_out(buffer)"
+        xml_output "  <test>"
+        xml_output "    <input>[string trimright [lindex $rio 0]]</input>"
+        xml_output "    <output>[string trimright [lindex $rio 1]]</output>"
+        xml_output "    <result>$type</result>"
+        xml_output "    <name>$message</name>"
+        xml_output "    <prms_id>$prms_id</prms_id>"
+        xml_output "  </test>"
+    }
+
+   switch $type {
 	PASS {
 	    if $prms_id {
 		set message [concat $message "\t(PRMS $prms_id)"]
@@ -612,10 +758,23 @@ proc record_test { type message args } {
 		set message [concat $message "\t(PRMS $xfail_prms)"]
 	    }
 	}
+	KPASS {
+	    set exit_status 1
+	    if { $kfail_prms != 0 } {
+		set message [concat $message "\t(PRMS $kfail_prms)"]
+	    }
+	}
+	KFAIL {
+	    if { $kfail_prms != 0 } {
+		set message [concat $message "\t(PRMS: $kfail_prms)"]
+	    }
+	}
 	UNTESTED {
-	    # The only reason we look at the xfail stuff is to pick up
+	    # The only reason we look at the xfail/kfail stuff is to pick up
 	    # `xfail_prms'.
-	    if { $xfail_flag && $xfail_prms != 0 } {
+	    if { $kfail_flag && $kfail_prms != 0 } {
+		set message [concat $message "\t(PRMS $kfail_prms)"]
+	    } elseif { $xfail_flag && $xfail_prms != 0 } {
 		set message [concat $message "\t(PRMS $xfail_prms)"]
 	    } elseif $prms_id {
 		set message [concat $message "\t(PRMS $prms_id)"]
@@ -623,18 +782,22 @@ proc record_test { type message args } {
 	}
 	UNRESOLVED {
 	    set exit_status 1
-	    # The only reason we look at the xfail stuff is to pick up
+	    # The only reason we look at the xfail/kfail stuff is to pick up
 	    # `xfail_prms'.
-	    if { $xfail_flag && $xfail_prms != 0 } {
+	    if { $kfail_flag && $kfail_prms != 0 } {
+		set message [concat $message "\t(PRMS $kfail_prms)"]
+	    } elseif { $xfail_flag && $xfail_prms != 0 } {
 		set message [concat $message "\t(PRMS $xfail_prms)"]
 	    } elseif $prms_id {
 		set message [concat $message "\t(PRMS $prms_id)"]
 	    }
 	}
 	UNSUPPORTED {
-	    # The only reason we look at the xfail stuff is to pick up
+	    # The only reason we look at the xfail/kfail stuff is to pick up
 	    # `xfail_prms'.
-	    if { $xfail_flag && $xfail_prms != 0 } {
+	    if { $kfail_flag && $kfail_prms != 0 } {
+		set message [concat $message "\t(PRMS $kfail_prms)"]
+	    } elseif { $xfail_flag && $xfail_prms != 0 } {
 		set message [concat $message "\t(PRMS $xfail_prms)"]
 	    } elseif $prms_id {
 		set message [concat $message "\t(PRMS $prms_id)"]
@@ -653,9 +816,19 @@ proc record_test { type message args } {
 
     global multipass_name
     if { $multipass_name != "" } {
-	clone_output "$type: $multipass_name: $message"
+	set message [format "$type: %s: $message" "$multipass_name"]
     } else {
-	clone_output "$type: $message"
+	set message "$type: $message"
+    }
+    clone_output "$message"
+
+    # If a command name exists in the $local_record_procs associative
+    # array for this type of result, then invoke it.
+
+    set lowcase_type [string tolower $type]
+    global local_record_procs
+    if {[info exists local_record_procs($lowcase_type)]} {
+	$local_record_procs($lowcase_type) "$message"
     }
     
     # Reset these so they're ready for the next test case.  We don't reset
@@ -665,14 +838,16 @@ proc record_test { type message args } {
     set warncnt 0
     set errcnt 0
     set xfail_flag 0
+    set kfail_flag 0
     set xfail_prms 0
+    set kfail_prms 0
 }
 
 #
 # Record that a test has passed
 #
 proc pass { message } {
-    global xfail_flag compiler_conditional_xfail_data
+    global xfail_flag kfail_flag compiler_conditional_xfail_data
 
     # if we have a conditional xfail setup, then see if our compiler flags match
     if [ info exists compiler_conditional_xfail_data ] {
@@ -682,7 +857,9 @@ proc pass { message } {
 	unset compiler_conditional_xfail_data
     }
     
-    if $xfail_flag {
+    if $kfail_flag {
+	record_test KPASS $message
+    } elseif $xfail_flag {
 	record_test XPASS $message
     } else {
 	record_test PASS $message
@@ -693,7 +870,7 @@ proc pass { message } {
 # Record that a test has failed
 #
 proc fail { message } {
-    global xfail_flag compiler_conditional_xfail_data
+    global xfail_flag kfail_flag compiler_conditional_xfail_data
 
     # if we have a conditional xfail setup, then see if our compiler flags match
     if [ info exists compiler_conditional_xfail_data ] {
@@ -703,7 +880,9 @@ proc fail { message } {
 	unset compiler_conditional_xfail_data
     }
 
-    if $xfail_flag {
+    if $kfail_flag {
+	record_test KFAIL $message
+    } elseif $xfail_flag {
 	record_test XFAIL $message
     } else {
 	record_test FAIL $message
@@ -711,19 +890,39 @@ proc fail { message } {
 }
 
 #
-# Record that a test has passed unexpectedly
+# Record that a test that was expected to fail has passed unexpectedly
 #
 proc xpass { message } {
     record_test XPASS $message
 }
 
 #
-# Record that a test has failed unexpectedly
+# Record that a test that was expected to fail did indeed fail
 #
 proc xfail { message } {
     record_test XFAIL $message
 }
-
+
+#
+# Record that a test for a known bug has passed unexpectedly
+#
+proc kpass { bugid message } {
+    global kfail_flag kfail_prms
+    set kfail_flag 1
+    set kfail_prms $bugid
+    record_test KPASS $message
+}
+
+#
+# Record that a test has failed due to a known bug
+#
+proc kfail { bugid message } {
+    global kfail_flag kfail_prms
+    set kfail_flag 1
+    set kfail_prms $bugid
+    record_test KFAIL $message
+}
+
 #
 # Set warning threshold
 #
@@ -801,7 +1000,7 @@ proc note { message } {
     #	unset errorInfo
     #}
 }
-
+
 #
 # untested -- mark the test case as untested
 #
@@ -835,6 +1034,8 @@ proc init_testcounts { } {
     set test_counts(FAIL,name) "unexpected failures"
     set test_counts(XFAIL,name) "expected failures"
     set test_counts(XPASS,name) "unexpected successes"
+    set test_counts(KFAIL,name) "known failures"
+    set test_counts(KPASS,name) "unknown successes"
     set test_counts(WARNING,name) "warnings"
     set test_counts(ERROR,name) "errors"
     set test_counts(UNSUPPORTED,name) "unsupported tests"
@@ -873,7 +1074,7 @@ proc incr_count { name args } {
     }
 }
 
-
+
 #
 # Create an exp_continue proc if it doesn't exist
 #

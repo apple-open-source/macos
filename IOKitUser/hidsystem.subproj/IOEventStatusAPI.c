@@ -103,12 +103,12 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
     NXEventSystemDevice * info = (NXEventSystemDevice *) evs_info;
     int	maxDeviceCount = (*evs_info_cnt) * sizeof( int) / sizeof( NXEventSystemDevice);
     int deviceCount = 0;
+    int i;
 
-    io_iterator_t iter;
     io_registry_entry_t hidsystem;
-    io_registry_entry_t hiddevice;
 
-    CFDictionaryRef	dict;
+    CFArrayRef	array;
+    CFDictionaryRef dict;
     CFNumberRef		num;
     SInt32		val;
 
@@ -124,47 +124,47 @@ NXEventSystemInfoType NXEventSystemInfo(NXEventHandle handle,
 	if( KERN_SUCCESS != kr )
 	    break;
 
-	kr = IORegistryEntryGetParentIterator( hidsystem,
-			kIOServicePlane, &iter );
+    array = IORegistryEntryCreateCFProperty(hidsystem, CFSTR("NXSystemInfo"),
+                                kCFAllocatorDefault, kNilOptions);
+                                
+    IOObjectRelease( hidsystem );
 
-        IOObjectRelease( hidsystem );
-
-	if( KERN_SUCCESS != kr )
+	if( !array )
 	    break;
+    
+    deviceCount = CFArrayGetCount(array);
+    
+    if ( deviceCount > maxDeviceCount )
+        deviceCount = maxDeviceCount;
 
-	while( (deviceCount < maxDeviceCount)
-	    && (hiddevice = IOIteratorNext( iter ))) {
-
-	    kr = IORegistryEntryCreateCFProperties(hiddevice, &dict,
-                                    kCFAllocatorDefault, kNilOptions);
-	    IOObjectRelease( hiddevice );
-            if( KERN_SUCCESS != kr )
-                continue;
+    for ( i=0; i<deviceCount; i++) {
+        dict = CFArrayGetValueAtIndex(array, i);
+        
+        if( !dict )
+            continue;
 
 	    if( (num = CFDictionaryGetValue( dict, CFSTR(kIOHIDKindKey )))) {
 
 		CFNumberGetValue( num, kCFNumberSInt32Type, &val );
-                info[ deviceCount ].dev_type = val;
+                info[ i ].dev_type = val;
 
                 if( (num = CFDictionaryGetValue( dict, CFSTR(kIOHIDInterfaceIDKey ))))
                     CFNumberGetValue( num, kCFNumberSInt32Type, &val );
 		else
 		    val = 0;
-                info[ deviceCount ].interface = val;
+                info[ i ].interface = val;
 
                 if( (num = CFDictionaryGetValue( dict, CFSTR(kIOHIDSubinterfaceIDKey ))))
                     CFNumberGetValue( num, kCFNumberSInt32Type, &val );
 		else
 		    val = 0;
-                info[ deviceCount ].id = val;
+                info[ i ].id = val;
 
-                info[ deviceCount ].interface_addr = 0;
+                info[ i ].interface_addr = 0;
 
-		deviceCount++;
 	    }
-	    CFRelease(dict);
 	}
-	IOObjectRelease( iter );
+    CFRelease(array);
 
     } while( false );
 
@@ -308,7 +308,6 @@ kern_return_t IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key, CF
     kern_return_t	kr;
     io_service_t	hidsystem;
     CFDictionaryRef	paramDict;
-    CFDictionaryRef	dict;
     CFTypeRef		tempParameter = NULL;
 
     if (!parameter)
@@ -318,39 +317,28 @@ kern_return_t IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key, CF
     if( KERN_SUCCESS != kr )
         return( kr );
 
-    kr = IORegistryEntryCreateCFProperties( hidsystem, &dict,
-                                            kCFAllocatorDefault, kNilOptions);
-    IOObjectRelease( hidsystem );
+    if( (paramDict = IORegistryEntryCreateCFProperty( hidsystem, CFSTR(kIOHIDParametersKey), kCFAllocatorDefault, kNilOptions)))
+    {
+        if ( (tempParameter = CFDictionaryGetValue( paramDict, key)) )
+            CFRetain(tempParameter);
+        
+        CFRelease(paramDict);
+    }
+        
+    if ( !tempParameter )
+        tempParameter = IORegistryEntryCreateCFProperty( hidsystem, key, kCFAllocatorDefault, kNilOptions);
 
-    if( kr != KERN_SUCCESS)
-        return( kr );
-
-    if( (paramDict = CFDictionaryGetValue( dict, CFSTR(kIOHIDParametersKey))))
-        tempParameter = CFDictionaryGetValue( paramDict, key);
-    if( !tempParameter )
-        tempParameter = CFDictionaryGetValue( dict, key);
-
-    if ( tempParameter )
-        CFRetain(tempParameter);
-    else
+    if ( !tempParameter )
         kr = kIOReturnBadArgument;
     
     *parameter = tempParameter;
 
-    CFRelease(dict);
+    IOObjectRelease( hidsystem );
 
     return( kr );
 }
 
 
-/*
-#define NXEvSetParameterInt( h,n,p,sz )	 IOHIDSetParameter( h,n,	\
-					(unsigned char *)p,sz * 4 )
-#define NXEvGetParameterInt( h,n,mx,p,sz )	 IOHIDGetParameter( h,n, mx * 4, \
-					(unsigned char *)p,sz ); \
-			*sz /= 4
-#define NXEvSetParameterChar( h,n,p,sz ) IOHIDSetParameter( h,n,p,sz )
-*/
 #define NXEvGetParameterChar( h,n,mx,p,sz ) IOHIDGetParameter( h, n,mx,p,sz )
 
 static inline int NXEvSetParameterChar( io_connect_t 	handle,
@@ -606,59 +594,6 @@ void NXGetClickSpace(NXEventHandle handle, _NXSize_ *area)
 	area->height = params[EVSIOCCS_Y];
 }
 
-void NXSetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
-{
-	double accl;
-
-	accl = scaling->scaleFactors[scaling->numScaleLevels - 1] - 1.0;
-	if( accl > 18.0)
-	    accl = 1.0;
-	else
-	    accl /= 18.0;
-
-	IOHIDSetMouseAcceleration( handle, accl );
-}
-
-void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
-{
-	kern_return_t	kr;
-	double		acceleration;
-	int		factor, i;
-	const unsigned char * table;
-	const unsigned char * nextTable;
-	static const unsigned char nextToAccl[] = {
-		1,  1, 1,
-		5,  1, 1, 6, 2, 7, 3, 8, 5, 9, 7,
-		5,  2, 2, 3, 4, 4, 6, 5, 8, 6, 10,
-		5,  2, 2, 3, 6, 4, 10, 5, 15, 6, 22,
-		0 };
-
-	kr = IOHIDGetMouseAcceleration( handle, &acceleration );
-	if ( kr != kIOReturnSuccess ) {
-		scaling->numScaleLevels = 0;
-		return;
-	}
-
-	factor = (int) (18.0 * acceleration + 1.0);
-	table = nextToAccl;
-	do {
-	    nextTable = table + (table[0] * 2) + 1;
-	    if( factor <= nextTable[-1])
-		break;
-	    if( nextTable[0])
-                table = nextTable;
-	    else
-		break;
-	} while( true );
-
-        scaling->numScaleLevels = table[0];
-	for( i = 0; i < scaling->numScaleLevels; i++ )
-	{
-            scaling->scaleThresholds[i] = table[ i * 2 + 1 ];
-            scaling->scaleFactors[i] = table[ i * 2 + 2 ];
-	}
-}
-
 kern_return_t IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration )
 {
     kern_return_t	kr;
@@ -748,157 +683,67 @@ kern_return_t IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key,
 				(unsigned char *) &fixed, sizeof( fixed)) );
 }
 
+/* DEPRECATED API */
+void NXSetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+{
+}
 
-/* Screen Brightness and Auto-dimming */
+void NXGetMouseScaling(NXEventHandle handle, NXMouseScaling *scaling)
+{
+}
 
 void NXSetAutoDimThreshold(NXEventHandle handle, double threshold)
 {
-	UInt64 params;
-
-	secs_to_packed_nsecs( threshold, &params );
-	IOHIDSetParameter(handle, CFSTR(EVSIOSADT), &params, sizeof(UInt64));
 }
 
 double NXAutoDimThreshold(NXEventHandle handle)
 {
-	UInt64 params;
-        IOByteCount rcnt = sizeof(UInt64);
-	int r;
-
-	r = IOHIDGetParameter(handle, CFSTR(EVSIOCADT), sizeof(UInt64),
-				&params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return 0.0;
-	return packed_nsecs_to_secs( params );
+    return 0.0;
 }
 
 double NXAutoDimTime(NXEventHandle handle)
 {
-        UInt64 params;
-        IOByteCount rcnt = sizeof(UInt64);
-	int r;
-
-        r = IOHIDGetParameter( handle, CFSTR(EVSIOGDADT), sizeof(UInt64),
-				&params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return 0.0;
-	return packed_nsecs_to_secs( params );
+    return 0.0;
 }
 
 double NXIdleTime(NXEventHandle handle)
 {
-        UInt64 params;
-        IOByteCount rcnt = sizeof(UInt64);
-        int r;
+    UInt64 params;
+    IOByteCount rcnt = sizeof(UInt64);
+    int r;
 
-        r = IOHIDGetParameter( handle, CFSTR(EVSIOIDLE), sizeof(UInt64),
-                                &params, &rcnt );
-        if ( r != kIOReturnSuccess )
-                return 0.0;
-        return packed_nsecs_to_secs( params );
-
+    r = IOHIDGetParameter( handle, CFSTR(EVSIOIDLE), sizeof(UInt64),
+                            &params, &rcnt );
+    if ( r != kIOReturnSuccess )
+            return 0.0;
+    return packed_nsecs_to_secs( params );
 }
 
 void NXSetAutoDimState(NXEventHandle handle, boolean_t dimmed)
 {
-	UInt32 params = dimmed;
-
-	IOHIDSetParameter(handle, CFSTR(EVSIOSADS), &params, sizeof(UInt32));
 }
 
 boolean_t NXAutoDimState(NXEventHandle handle)
 {
-        UInt32 params;
-	IOByteCount rcnt = sizeof(UInt32);
-	int r;
-
-        r = IOHIDGetParameter( handle, CFSTR(EVSIOCADS), sizeof(UInt32),
-				&params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return false;
-	return (params != 0);
+	return false;
 }
 
 void NXSetAutoDimBrightness(NXEventHandle handle, double brightness)
 {
-	UInt32 params;
-
-	params = (int) (brightness * BRIGHT_MAX);
-	IOHIDSetParameter(handle, CFSTR(EVSIOSADB), &params, sizeof(UInt32));
 }
 
 double NXAutoDimBrightness(NXEventHandle handle)
 {
-	UInt32 params;
-        IOByteCount rcnt = sizeof(UInt32);
-	int r;
-
-        r = IOHIDGetParameter( handle, CFSTR(EVSIOSADB), sizeof(UInt32),
-				&params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return 1.0;
-	return ((double)params
-		/ (double)BRIGHT_MAX);
+    return 1.0;
 }
 
 void NXSetScreenBrightness(NXEventHandle handle, double brightness)
 {
-	UInt32 params;
-	params = (int) (brightness * BRIGHT_MAX);
-        IOHIDSetParameter(handle, CFSTR(EVSIOSB), &params, sizeof(UInt32));
 }
 
 double NXScreenBrightness(NXEventHandle handle)
 {
-	UInt32 params;
-        IOByteCount rcnt = sizeof(UInt32);
-	int r;
-
-        r = IOHIDGetParameter( handle, CFSTR(EVSIOSB), sizeof(UInt32),
-				&params, &rcnt );
-	if ( r != kIOReturnSuccess )
-		return 1.0;
-	return ((double)params / (double)BRIGHT_MAX);
+    return 1.0;
 }
-
-/* Generic entry points */
-
-#ifdef _undef
-
-int NXEvSetParameterInt(NXEventHandle handle,
-			char *parameterName,
-			unsigned int *parameterArray,
-			unsigned int count)
-{
-    return( kIOReturnUnsupported );
-}
-
-int NXEvSetParameterChar(NXEventHandle handle,
-			char *parameterName,
-			unsigned char *parameterArray,
-			unsigned int count)
-{
-    return( kIOReturnUnsupported );
-}
-
-int NXEvGetParameterInt(NXEventHandle handle,
-			char *parameterName,
-			unsigned int maxCount,
-			unsigned int *parameterArray,
-			unsigned int *returnedCount)
-{
-    return( kIOReturnUnsupported );
-}
-
-int NXEvGetParameterChar(NXEventHandle handle,
-			char *parameterName,
-			unsigned int maxCount,
-			unsigned char *parameterArray,
-			unsigned int *returnedCount)
-{
-    return( kIOReturnUnsupported );
-}
-
-#endif
-
+/* END DEPRECATED API */
 

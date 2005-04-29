@@ -1,0 +1,55 @@
+To use cygwin for building TEA extensions, there are a couple of things
+you will need to do.
+
+USING MICROSOFT VISUAL C++:
+
+1.  Make sure you have a working Visual C++ (version 5.0 or later) compiler.
+
+2.  Download and install the free Cygnus Cywgin full tools package from
+	http://sources.redhat.com/cygwin/
+
+3.  Ensure your environment variable "MAKE_MODE" has the value "unix"
+    This will set up the "make" program to operate in a more sane manner.
+
+4.  Run vcvars32.bat.  You must do this every time you wish to
+    perform a build of an extension.  It is strongly recommended
+    that you modify your sytem environment so that you don't have to
+    run vcvars32.bat all the time.  If you look in the vcvars32.bat
+    file you will see what system environment variables need to be
+    set in order to make this work.
+
+5.  If you are authoring a TEA extension, you will also want the GNU
+    autoconf package.  This can be obtained from http://www.gnu.org
+    Autoconf version 2.13 or later is required.
+
+USING CYGWIN (gcc)
+
+1.  At this time, cygwin gcc is not supported due to compatibility issues
+    that have not been resolved.  Use mingw gcc instead.
+
+USING MINGW32 (gcc)
+
+1.  Download and install the free Cygnus Cywgin full tools package from
+	http://sources.redhat.com/cygwin/
+
+2.  Download and install the mingw compiler:
+
+    The 1.1 version you can find at mingw's site will NOT work with Tcl,
+    you'd better use:
+
+ftp://ftp.nanotech.wisc.edu/pub/khan/gnu-win32/mingw32/snapshots/gcc-2.95.2-1/
+
+    Files: mingw-msvcrt-20000203.zip
+	   binutils-19990818-1-msvcrt.zip
+	   gcc-2.95.2-1-msvcrt.zip
+
+    Extract the contents of these zip files into /usr/local/mingw and
+    place /usr/local/mingw/bin at the front of your PATH env var.
+
+3.  Download and install Tcl
+
+4.  To compile the sample extension:
+
+	CC=gcc ./configure
+	make
+	make install

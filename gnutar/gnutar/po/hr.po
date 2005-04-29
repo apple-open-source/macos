@@ -1,0 +1,1600 @@
+# GNU tar .po message translation file for hr_HR locale
+# Copyright (C) 2002 Free Software Foundation, Inc.
+# Mirsad Todorovac <mtodorov_69@yahoo.com>, 2002.
+#     ... wishes to thank everybody who helped in good faith.
+#
+# Well, in 03:12 hrs (for 1st pass)!! who beats me I owe him a pizza ;-) -- TM
+msgid ""
+msgstr ""
+"Project-Id-Version: tar 1.13.25\n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-05-10 14:53+0300\n"
+"PO-Revision-Date: 2002-04-26 10:49+MET(DST)(UTC+2)\n"
+"Last-Translator: Mirsad Todorovac <mtodorov_69@yahoo.com>\n"
+"Language-Team: Croatian <lokalizacija@linux.hr>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-2\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: lib/argmatch.c:133
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr "pogre¹an argument %s za %s"
+
+#: lib/argmatch.c:134
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr "nejednoznaèan argument %s za %s"
+
+#: lib/argmatch.c:153
+#, c-format
+msgid "Valid arguments are:"
+msgstr "Ispravni argumenti su:"
+
+#: lib/error.c:127 src/rmt.c:92
+msgid "Unknown system error"
+msgstr "Nepoznata pogre¹ka u sistemu"
+
+#: lib/getopt.c:570 lib/getopt.c:589
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: opcija `%s' nije jednoznaèna\n"
+
+#: lib/getopt.c:622 lib/getopt.c:626
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: opcija `--%s' ne dozvoljava argument\n"
+
+#: lib/getopt.c:635 lib/getopt.c:640
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: opcija `%c%s' ne dozvoljava argument\n"
+
+#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: za opciju `%s' neophodan je argument\n"
+
+#: lib/getopt.c:746 lib/getopt.c:749
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: ne prepoznajem opciju `--%s'\n"
+
+#: lib/getopt.c:757 lib/getopt.c:760
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: ne prepoznajem opciju `%c%s'\n"
+
+#: lib/getopt.c:815 lib/getopt.c:818
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: ilegalna opcija -- %c\n"
+
+#: lib/getopt.c:824 lib/getopt.c:827
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: pogre¹na opcija -- %c\n"
+
+#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: opcija zahtijeva neophodan argument -- %c\n"
+
+#: lib/getopt.c:954 lib/getopt.c:973
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: opcija `-W %s' nije jednoznaèna\n"
+
+#: lib/getopt.c:997 lib/getopt.c:1018
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: opcija `-W %s' ne dozvoljava argument\n"
+
+#: lib/human.c:483
+msgid "block size"
+msgstr "velièina bloka"
+
+#
+# MT -- FIXME -- for now this is left untranslated, until we
+# come to UTF-8 or something alike (20020412)
+#: lib/quotearg.c:238
+msgid "`"
+msgstr "`"
+
+#: lib/quotearg.c:239
+msgid "'"
+msgstr "'"
+
+#: lib/xmalloc.c:53
+msgid "memory exhausted"
+msgstr "iscrpljena memorija"
+
+# FIXME -- ovo neæe raditi ako je prevedeno -- Denis?
+#: src/buffer.c:139
+#, fuzzy, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "Ukupno ispisano bajtova: %s (%sB, %sB/s)\n"
+
+#: src/buffer.c:216
+msgid "(pipe)"
+msgstr "(cjevovod - pipe)"
+
+#: src/buffer.c:264
+msgid "Invalid value for record_size"
+msgstr "Pogre¹na vrijednost za record_size"
+
+#: src/buffer.c:267
+msgid "No archive name given"
+msgstr "Nije dano ime arhive"
+
+# FIXME -- blocking factor -- can't translate (ask others) -- TM
+#: src/buffer.c:282
+#, c-format
+msgid "Cannot allocate memory for blocking factor %d"
+msgstr "Ne mogu alocirati memoriju za faktor pakiranja u blokove %d"
+
+#: src/buffer.c:316
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Ne mogu verificirati stdin/stdout arhive"
+
+# FIXME -- clean against source! (TM)
+#: src/buffer.c:392
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "Arhiva nije oznaèena labelom da odgovara %s"
+
+#: src/buffer.c:395 src/buffer.c:752
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "Dio arhive %s ne odgovara %s"
+
+#: src/buffer.c:433
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Toèka provjere ispisa %d"
+
+#: src/buffer.c:592
+msgid "At beginning of tape, quitting now"
+msgstr "Poèetak trake, zavr¹avam"
+
+#: src/buffer.c:598
+msgid "Too many errors, quitting"
+msgstr "Previ¹e pogre¹aka, zavr¹avam"
+
+#: src/buffer.c:622
+#, fuzzy, c-format
+msgid "Read %s bytes from %s"
+msgstr "Preimenovao %s u %s"
+
+#: src/buffer.c:633
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "Neporavnat (unaligned) blok (%lu bajtova) unutar arhive"
+msgstr[1] "Neporavnat (unaligned) blok (%lu bajtova) unutar arhive"
+
+#: src/buffer.c:653
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "Velièina sloga = %lu blokova"
+msgstr[1] "Velièina sloga = %lu blokova"
+
+#: src/buffer.c:670
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Toèka provjere èitanja %d"
+
+#: src/buffer.c:761 src/extract.c:1082
+#, c-format
+msgid "Reading %s\n"
+msgstr "Èitam %s\n"
+
+#: src/buffer.c:765
+msgid "WARNING: No volume header"
+msgstr "UPOZORENJE: Nema zaglavlja za dio arhive"
+
+#: src/buffer.c:773
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s nije nastavljen za ovom dijelu arhive"
+
+#: src/buffer.c:787
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s je pogre¹ne velièine (%s != %s + %s)"
+
+#: src/buffer.c:799
+msgid "This volume is out of sequence"
+msgstr "Ovaj dio arhive je izvan slijeda"
+
+#: src/buffer.c:881
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr "Ne mogu se pomicati unazad unutar arhive; mo¾e biti neèitljiva bez -i"
+
+#: src/buffer.c:927
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: sadr¾i pogre¹an broj dijela arhive"
+
+#: src/buffer.c:979
+msgid "Volume number overflow"
+msgstr "Prekoraèenje u broju dijela arhive"
+
+#: src/buffer.c:998
+#, c-format
+msgid "`%s' command failed"
+msgstr "Neuspjela `%s' naredba"
+
+#: src/buffer.c:1007
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Pripremite dio arhive #%d za %s i pritisni <RETURN>:"
+
+#: src/buffer.c:1013
+msgid "EOF where user reply was expected"
+msgstr "Naðen EOF gdje sam oèekivao odgovor korisnika"
+
+#: src/buffer.c:1018 src/buffer.c:1048
+msgid "WARNING: Archive is incomplete"
+msgstr "UPOZORENJE: Arhiva nije kompletirana"
+
+#: src/buffer.c:1032
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [ime]    Daj novo ime datoteke za slijedeæi (i nadovezujuæe) dijelove\n"
+" q          Zavr¹i tar\n"
+" !          Pokreni podljusku operativnog sistema\n"
+" ?          Ispi¹i ovu listu\n"
+
+#: src/buffer.c:1043
+msgid "No new volume; exiting.\n"
+msgstr "Nema novog dijela arhive; zavr¹avam.\n"
+
+#: src/compare.c:106
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "Uspio proèitati samo %lu od %lu bajtova"
+msgstr[1] "Uspio proèitati samo %lu od %lu bajtova"
+
+#: src/compare.c:117 src/compare.c:133
+msgid "Contents differ"
+msgstr "Sadr¾aji se razlikuju"
+
+#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
+#: src/list.c:398 src/list.c:1244
+msgid "Unexpected EOF in archive"
+msgstr "Neoèekivani EOF u arhivi"
+
+#: src/compare.c:213
+#, c-format
+msgid "Verify "
+msgstr "Verificiraj "
+
+#: src/compare.c:220
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s: Nepoznat tip datoteke '%c', diff-iran kao normalna datoteka"
+
+#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
+msgid "File type differs"
+msgstr "Tipovi datoteka se razlikuju"
+
+#: src/compare.c:250 src/compare.c:379 src/compare.c:423
+msgid "Mode differs"
+msgstr "Mod se razlikuje"
+
+#: src/compare.c:253
+msgid "Uid differs"
+msgstr "Uid se razlikuje"
+
+#: src/compare.c:255
+msgid "Gid differs"
+msgstr "Gid se razlikuje"
+
+#: src/compare.c:258
+msgid "Mod time differs"
+msgstr "Mod time (vrijeme modifikacije) se razlikuje"
+
+#: src/compare.c:262 src/compare.c:452
+msgid "Size differs"
+msgstr "Velièina se razlikuje"
+
+# FIXME -- language purists might lynch me for this "polinkan" -- TM
+#: src/compare.c:320
+#, c-format
+msgid "Not linked to %s"
+msgstr "Nije polinkan na %s"
+
+#: src/compare.c:343
+msgid "Symlink differs"
+msgstr "Simbolièki link se razlikuje"
+
+#: src/compare.c:373
+msgid "Device number differs"
+msgstr "Broj ureðaja (device number) se razlikuje"
+
+#: src/compare.c:564
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "NEUSPJELA VERIFIKACIJA: detektirano %d pogre¹nih zaglavlja"
+msgstr[1] "NEUSPJELA VERIFIKACIJA: detektirano %d pogre¹nih zaglavlja"
+
+# FIXME -- find `pade¾' here from source
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "Generiram negativna oktalna zaglavlja"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "vrijednost %s izvan %s raspona %s..%s; substituiram %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "vrijednost %s izvan %s raspona %s..%s"
+
+#: src/create.c:462 src/create.c:525
+#, fuzzy, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: datoteka nepromijenjena; ne arhiviram ju"
+
+#: src/create.c:472
+#, fuzzy, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: datoteka nepromijenjena; ne arhiviram ju"
+
+#: src/create.c:499
+#, fuzzy, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: datoteka nepromijenjena; ne arhiviram ju"
+
+#: src/create.c:865
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: Datoteka se skratila za %s bajtova; nadopunjujemo nulama"
+msgstr[1] "%s: Datoteka se skratila za %s bajtova; nadopunjujemo nulama"
+
+#: src/create.c:891
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: datoteka se promijenila dok smo ju èitali"
+
+#: src/create.c:991
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: datoteka je na drugom datoteènom sustavu; ne arhiviram ju"
+
+#: src/create.c:1151
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Nepoznat tip datoteke; datoteka ignorirana"
+
+#: src/create.c:1250
+#, fuzzy, c-format
+msgid "Missing links to '%s'.\n"
+msgstr " link do %s\n"
+
+#: src/create.c:1313
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: datoteka nepromijenjena; ne arhiviram ju"
+
+#: src/create.c:1322
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s: datoteka je arhiva; ne arhiviram ju"
+
+#: src/create.c:1357
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: Datoteka uklonjena (removed) prije nego ¹to smo ju proèitali"
+
+#: src/create.c:1450
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: socket ignoriran"
+
+#: src/create.c:1455
+#, c-format
+msgid "%s: door ignored"
+msgstr "%s: door ignoriran"
+
+#: src/delete.c:209 src/list.c:169 src/update.c:160
+msgid "This does not look like a tar archive"
+msgstr "Ovo ne izgleda kao tar arhiva"
+
+#: src/delete.c:215 src/list.c:183 src/update.c:165
+msgid "Skipping to next header"
+msgstr "Preskaèem do slijedeæeg zaglavlja"
+
+# FIXME -- non-header dubious -- clean against source! -- TM
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "Bri¹em neispravno zaglavlje iz arhive"
+
+#: src/extract.c:195
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:198
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: oznaka vremena %s je %lu sekundi u buduænost"
+
+#: src/extract.c:346
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: Neoèekivana nekonzistentnost kod otvaranja direktorija"
+
+#: src/extract.c:463
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:575
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: Direktoriju promijenjeno ime prije nego ¹to mu je dobavljen status"
+
+#: src/extract.c:640
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Nisam uspio napraviti backup ove datoteke"
+
+#: src/extract.c:707
+msgid "Extracting contiguous files as regular files"
+msgstr "Ekstrahiram neprekinute datoteke kao regularne datoteke"
+
+# FIXME -- 'hard links' -- TM
+#: src/extract.c:894
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Poku¹avam ekstrakciju simbolièkih linkova kao hard linkova"
+
+#: src/extract.c:1091
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr ""
+"%s: Ne mogu ekstrahirati -- datoteka se nastavlja iz drugog dijela arhive"
+
+# FIXME -- clarify this against source -- TM -- didn't help
+# Paul E. said this means:
+#
+# "tar" read a LONGNAME or LONGLINK header from the archive in a context
+# where it was not expected.
+#: src/extract.c:1100
+msgid "Visible long name error"
+msgstr "Vidljiva pogre¹ka u dugom imenu"
+
+#: src/extract.c:1108
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: Nepoznat tip datoteke '%c', ekstrahiran kao normalna datoteka"
+
+#: src/extract.c:1193
+msgid "Error is not recoverable: exiting now"
+msgstr "Gre¹ka iz koje se ne mogu oporaviti: zavr¹avam s radom"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: Direktoriju promijenjeno ime"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: Novi direktorij"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "Pogre¹na oznaka vremena"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "Oznaka vremena izvan opsega"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "Pogre¹an broj ureðaja"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "Broj ureðaja izvan opsega"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "Pogre¹an inode broj"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "Inode broj izvan opsega"
+
+#: src/incremen.c:523
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Bri¹em %s\n"
+
+#: src/incremen.c:528
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: Ne mogu obrisati"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: Izostavljam"
+
+#: src/list.c:133
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "blok %s: ** Blok ispunjen NULama **\n"
+
+#: src/list.c:146
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:157
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "blok %s: ** Kraj datoteke **\n"
+
+#: src/list.c:180 src/list.c:994 src/list.c:1219
+#, c-format
+msgid "block %s: "
+msgstr "blok %s: "
+
+#: src/list.c:625
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "Razmaci u zaglavlju gdje se oèekuje numerièka %s vrijednost"
+
+#: src/list.c:678
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"Oktalna vrijednost %.*s iz arhive je izvan %s opsega; pretpostavljam dvojni "
+"komplement"
+
+#: src/list.c:688
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "Oktalna vrijednost iz arhive %.*s je izvan %s opsega"
+
+# FIXME -- obsolescent -- TM
+#: src/list.c:704
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "Arhiva sadr¾i base-64 zaglavlja zastarjelog formata"
+
+# FIXME??
+#: src/list.c:717
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr "Base-64 vrijednost s predznakom %s iz arhive je izvan %s opsega"
+
+#: src/list.c:748
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "Base-256 vrijednost iz arhive je izvan %s opsega"
+
+#: src/list.c:775
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "Arhiva sadr¾i %.*s gdje je oèekivana numerièka %s vrijednost"
+
+#: src/list.c:796
+#, fuzzy, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "Vrijednost %s iz arhive je izvan %s opsega %s..%s"
+
+#: src/list.c:1025
+msgid "Visible longname error"
+msgstr "Vidljiva pogre¹ka u dugom imenu"
+
+#: src/list.c:1150
+#, c-format
+msgid " link to %s\n"
+msgstr " link do %s\n"
+
+#: src/list.c:1158
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " nepoznat tip datoteke %s\n"
+
+#: src/list.c:1176
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1180
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1184
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--Zaglavlje dijela arhive--\n"
+
+# FIXME -- clarify against source -- TM
+#: src/list.c:1192
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Nastavljeno s bajtom %s--\n"
+
+# FIXME -- 'mangled filenames'???
+#: src/list.c:1196
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--Manglirana imena datoteka--\n"
+
+#: src/list.c:1224
+msgid "Creating directory:"
+msgstr "Kreiram direktorij:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "Neoèekivan EOF u mangliranim imenima"
+
+#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: Ne mogu preimenovati u %s"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "Preimenovao %s u %s"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: Ne mogu napraviti simbolièki link prema %s"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "Napravio simbolièki link %s prema %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Nepoznata naredba za demangliranje %s"
+
+#: src/misc.c:378
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Preimenujem %s u %s\n"
+
+#: src/misc.c:410
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "Preimenujem %s natrag u %s\n"
+
+#: src/misc.c:490
+msgid "Cannot save working directory"
+msgstr "Ne mogu pohraniti radni direktorij"
+
+#: src/misc.c:496
+msgid "Cannot change working directory"
+msgstr "Ne mogu promijeniti radni direktorij"
+
+#: src/misc.c:540 src/misc.c:549
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: Ne mogu %s"
+
+#: src/misc.c:558
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Upozorenje: Ne mogu %s"
+
+#: src/misc.c:573
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Ne mogu promijeniti mod u %s"
+
+#: src/misc.c:581
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Ne mogu promijeniti vlasni¹tvo na uid %lu, gid %lu"
+
+#: src/misc.c:616
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Ne mogu napraviti hard link na %s"
+
+#: src/misc.c:677 src/misc.c:718
+#, fuzzy, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Pogre¹ka u èitanju na bajtu %s, èitam %lu bajtova"
+msgstr[1] "%s: Pogre¹ka u èitanju na bajtu %s, èitam %lu bajtova"
+
+#: src/misc.c:690
+#, fuzzy, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Upozorenje: Pogre¹ka u èitanju na bajtu %s, èitam %lu bajtova"
+msgstr[1] "%s: Upozorenje: Pogre¹ka u èitanju na bajtu %s, èitam %lu bajtova"
+
+#: src/misc.c:778
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Neuspjeli seek na %s"
+
+#: src/misc.c:794
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Upozorenje: Neuspjeli seek na %s"
+
+#: src/misc.c:812
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Ne mogu kreirati simbolièki link prema %s"
+
+#: src/misc.c:880
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Upsje¹no zapisao samo %lu od %lu bajtova"
+msgstr[1] "%s: Upsje¹no zapisao samo %lu od %lu bajtova"
+
+#: src/misc.c:906
+msgid "child process"
+msgstr "podproces"
+
+#: src/misc.c:915
+msgid "interprocess channel"
+msgstr "meðuprocesni kanal"
+
+#: src/names.c:368 src/names.c:417 src/names.c:461
+msgid "Missing file name after -C"
+msgstr "Nedostaje ime datoteke nakon -C"
+
+#: src/names.c:638 src/names.c:654
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Nije naðeno u arhivi"
+
+#: src/names.c:641
+#, fuzzy, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: Nije naðeno u arhivi"
+
+#: src/names.c:1053
+#, fuzzy, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Uklanjam vodeæe `%.*s' iz imena èlanova"
+
+#: src/names.c:1054
+#, fuzzy, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Uklanjam vodeæe `%.*s' iz imena èlanova"
+
+#: src/names.c:1067
+#, fuzzy
+msgid "Substituting `.' for empty member name"
+msgstr "Uklanjam vodeæe `%.*s' iz imena èlanova"
+
+#: src/names.c:1068
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Ne mogu alocirati prostor za meðuspremnik\n"
+
+#: src/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr "Ne mogu alocirati prostor za meðuspremnik"
+
+#: src/rmt.c:256 src/tar.c:349
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "Poku¹ajte `%s --help' za vi¹e informacija.\n"
+
+#: src/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+"Kori¹tenje: %s [OPCIJA]\n"
+"Upravljaj jedinicom trake, prihvaæajuæi naredbe od udaljenih procesa.\n"
+"\n"
+"  --version  Informacije o verziji programskih ispisa.\n"
+"  --help  Ispi¹i ovu pomoæ.\n"
+
+#: src/rmt.c:267 src/tar.c:542
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+"\n"
+"Prijavi gre¹ke i bugove na <bug-tar@gnu.org>.\n"
+
+#: src/rmt.c:300 src/tar.c:1300
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+"Ovaj program dolazi BEZ GARANCIJA, do granica dozvoljenih zakonom.\n"
+"Mo¾ete ga redistribuirati pod uvjetima GNU General Public License;\n"
+"vidi datoteku imena COPYING za detalje."
+
+# FIXME -- find xlation for 'seek offset' -- TM
+#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+msgid "Seek offset out of range"
+msgstr "Seek ofset izvan opsega"
+
+#: src/rmt.c:412
+msgid "Seek direction out of range"
+msgstr "Seek smjer izvan opsega"
+
+#: src/rmt.c:451
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: Prerani eof\n"
+
+#: src/rmt.c:453
+msgid "Premature end of file"
+msgstr "Prerani kraj datoteke"
+
+# FIXME -- now this is supposed to be funny
+#: src/rmt.c:561
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: %c je neispravna naredba\n"
+
+#: src/rmt.c:563
+msgid "Garbage command"
+msgstr "Neispravna naredba"
+
+#: src/rtapelib.c:292
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Servis nije dostupan"
+
+# FIXME -- verify against source
+#: src/rtapelib.c:296
+msgid "stdin"
+msgstr "stdin -- standardni ulaz"
+
+#: src/rtapelib.c:299
+msgid "stdout"
+msgstr "stdout -- standardni ulaz"
+
+#: src/rtapelib.c:506
+msgid "Cannot execute remote shell"
+msgstr "Ne mogu pokrenuti udaljenu (remote) ljusku"
+
+#: src/tar.c:70
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Opcije `-%s' i `-%s' obje zahtijevaju standardni ulaz"
+
+#: src/tar.c:141
+#, fuzzy, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: Pogre¹na grupa"
+
+#: src/tar.c:165
+msgid "GNU features wanted on incompatible archive format"
+msgstr "GNU specijalne pogodnosti zatra¾ene na nekompatibilnom formatu arhive"
+
+#: src/tar.c:353
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"GNU `tar' sprema mnogo datoteka zajedno u jednu arhivu na traci ili disku, "
+"i\n"
+"mo¾e povratiti pojedinaène datoteke iz arhive.\n"
+
+#: src/tar.c:357
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+"\n"
+"Examples:\n"
+"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+msgstr ""
+"\n"
+"Usage: %s [OPCIJA]... [DATOTEKA]...\n"
+"\n"
+"Primjeri:\n"
+"  %s -cf arhiva.tar foo bar   # Kreiraj arhiva.tar od datoteka foo i bar.\n"
+"  %s -tvf arhiva.tar          # Ispi¹i redom sve datoteke iz arhiva.tar "
+"op¹irno.\n"
+"  %s -xf arhiva.tar           # Ekstrahiraj sve datoteke iz arhiva.tar.\n"
+
+#: src/tar.c:364
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"Ako duga opcija pokazuje agument kao obavezan, onda je obavezan\n"
+"i za ekvivalentnu kratku opciju takoðer.  Jednako vrijedi i za opcionalne\n"
+"argumente.\n"
+
+#: src/tar.c:369
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"Glavni mod rada:\n"
+"  -t, --list              ispi¹i sadr¾aje arhive\n"
+"  -x, --extract, --get    ekstrahiraj datoteke iz arhive\n"
+"  -c, --create            kreiraj novu arhivu\n"
+"  -d, --diff, --compare   naði razlike izmeðu arhive i datoteènog sustava\n"
+"  -r, --append            nadodaj datoteke na kraj arhive\n"
+"  -u, --update            nadodaj samo datoteke novije od kopije u arhivi\n"
+"  -A, --catenate          nadodaj tar datoteke na arhivu\n"
+"      --concatenate       isto kao -A\n"
+"      --delete            izbri¹i iz arhive (ne radi na magnetskim "
+"trakama!)\n"
+
+#: src/tar.c:382
+#, fuzzy
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't replace existing files when extracting\n"
+"      --keep-newer-files     don't replace existing files that are newer\n"
+"                             than their archive copies\n"
+"      --overwrite            overwrite existing files when extracting\n"
+"      --no-overwrite-dir     preserve metadata of existing directories\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental=FILE\n"
+"                             handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
+"in\n"
+"                             the archive. This option is valid only in\n"
+"                             conjunction with one of the subcommands --"
+"delete,\n"
+"                             --diff, --extract or --list and when a list of\n"
+"                             files is given either on the command line or\n"
+"                             via -T option.\n"
+"                             NUM defaults to 1.\n"
+msgstr ""
+"\n"
+"Modifikatori operacija:  -W, --verify             poku¹aj verificirati "
+"arhivu nakon pisanja\n"
+"      --remove-files       obri¹i datoteke nakon njihovog dodavanja arhivi\n"
+"  -k, --keep-old-files     ne zamjenjuj postojeæe datoteke kod ekstrakcije\n"
+"      --overwrite          prepisuj postojeæe datoteke kod ekstrakcije\n"
+"      --overwrite-dir      prepisuj meta-podatke direktorija kod "
+"ekstrakcije\n"
+"  -U, --unlink-first       obri¹i svaku datoteku prije ekstrakcije preko "
+"nje\n"
+"      --recursive-unlink   isprazni hijerarhije prije ekstrahiranja u\n"
+"                               direktorij\n"
+"  -S, --sparse             tretiraj efikasno 'sparse' datoteke\n"
+"                               (slabo popunjene datoteke)\n"
+"  -O, --to-stdout          ekstrahiraj datoteke na standardni izlaz\n"
+"  -G, --incremental        obradi inkrementalni backup starog GNU-formata\n"
+"  -g, --listed-incremental=FILE\n"
+"                           obradi inkrementalni backup novog GNU-formata\n"
+"      --ignore-failed-read\n"
+"                           ne zavr¹avaj uz ne-nula izlazni kod na\n"
+"                               neèitljivim datotekama\n"
+
+# FIXME -- 'volume number' -- TM
+#: src/tar.c:408
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --no-same-owner          extract files as yourself\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract permissions information\n"
+"      --no-same-permissions    do not extract permissions information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"Tretiranje atributa datoteka:\n"
+"      --owner=NAME             forsiraj NAME za vlasnika dodanih datoteka\n"
+"      --group=NAME             forsiraj NAME za grupu dodanih datoteka\n"
+"      --mode=CHANGES           forsiraj (symbolièke) promjene pristupnog\n"
+"                                   moda za dodane datoteke\n"
+"      --atime-preserve         ne mijenjaj vremena pristupa (access time)\n"
+"                                   pohranjenim datotekama\n"
+"  -m, --modification-time      ne ekstrahiraj vremena modifikacije\n"
+"      --same-owner             poku¹aj postaviti vlasni¹tvo datoteka\n"
+"                                   kao u arhivi\n"
+"      --no-same-owner          ekstrahiraj datoteke pod svojim vlasni¹tvom\n"
+"      --numeric-owner          uvijek koristi numerièka imena\n"
+"                                   korisnika/grupa\n"
+"  -p, --same-permissions       ekstrahiraj informacije o dozvolama\n"
+"      --no-same-permissions    ne ekstrahiraj informacije o dozvolama\n"
+"      --preserve-permissions   isto kao -p\n"
+"  -s, --same-order             sortiraj imena kod ekstrakcije da odgovaraju\n"
+"                                   arhivi\n"
+"      --preserve-order         isto kao -s\n"
+"      --preserve               isto kao -p i -s zajedno\n"
+
+#: src/tar.c:426
+#, fuzzy
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies -"
+"M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"Selektiranje i mijenjanje ureðaja:\n"
+"  -f, --file=ARCHIVE             koristi datoteku ili ureðaj za arhiviranje\n"
+"                                     ARCHIVE\n"
+"      --force-local              ime arhive je lokalno èak i ako sadr¾i\n"
+"                                     dvotoèku\n"
+"      --rsh-command=COMMAND      koristi remote COMMAND umjesto rsh\n"
+"  -[0-7][lmh]                    specificiraj drive i density\n"
+"  -M, --multi-volume             kreiraj/izlistaj/ekstrahiraj vi¹edjelne\n"
+"                                     arhive\n"
+"  -L, --tape-length=NUM          promijeni traku nakon ispisivanja\n"
+"                                     NUM x 1024 bajtova\n"
+"  -F, --info-script=FILE         pokreni skriptu na kraju svake trake\n"
+"                                     (podrazumijeva -M)\n"
+"      --new-volume-script=FILE   isto kao -F FILE\n"
+"      --volno-file=FILE          koristi/nadopuni volume number u FILE\n"
+
+# FIXME -- clear this 'device blocking' xlation -- TM
+# FIXME -- vidi ovaj 'znaèi EOF' u man -- TM
+#: src/tar.c:440
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"Faktor grupiranja u blokove na ureðaju (device blocking):\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bajtova po zapisu (record)\n"
+"      --record-size=SIZE         SIZE bajtova po zapisu, vi¹ekratnik od 512\n"
+"  -i, --ignore-zeros             ignoriraj blokove ispunjene nulama u "
+"arhivi\n"
+"                                     (koji inaèe znaèe EOF)\n"
+"  -B, --read-full-records        pregrupiraj blokove dok èita¹\n"
+"                                     (za 4.2BSD cjevovode -- pipes)\n"
+
+#: src/tar.c:448
+msgid ""
+"\n"
+"Archive format selection:\n"
+"      --format=FMTNAME               create archive of the given format.\n"
+"                                     FMTNAME is one of the following:\n"
+"                                     v7        old V7 tar format\n"
+"                                     oldgnu    GNU format as per tar <= "
+"1.12\n"
+"                                     gnu       GNU tar 1.13 format\n"
+"                                     ustar     POSIX 1003.1-1988 (ustar) "
+"format\n"
+"                                     posix     POSIX 1003.1-2001 (pax) "
+"format\n"
+"      --old-archive, --portability   same as --format=v7\n"
+"      --posix                        same as --format=posix\n"
+"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+"                                     control pax keywords\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -j, --bzip2                        filter the archive through bzip2\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+
+#: src/tar.c:469
+#, fuzzy
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+"      --anchored               exclude patterns match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns are plain strings\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+"      --strip-path=NUM         strip NUM leading components from file names\n"
+"                               before extraction\n"
+msgstr ""
+"\n"
+"Selekcija lokalnih datoteka:\n"
+"  -C, --directory=DIR          promijeni direktorij u DIR\n"
+"  -T, --files-from=NAME        dobavi imena za ekstrahirati ili kreirati\n"
+"                                   iz datoteke NAME\n"
+"      --null                   -T èita nul-terminirana imena, onemoguæi -C\n"
+"      --exclude=PATTERN        izostavi datoteke, dane s PATTERN\n"
+"  -X, --exclude-from=FILE      izostavi uzorak datoteka: pobrojane u FILE\n"
+"      --anchored                - koje zapoèinju tim imenom (default)\n"
+"      --no-anchored             - koje se podudaraju s uzorkom nakon nekog "
+"'/'\n"
+"      --ignore-case            izostavljanje ignorira razliku\n"
+"                                   izmeðu velikih i malih slova\n"
+"      --no-ignore-case         izostavljanje uzima u obzir razliku\n"
+"                                   izmeðu malih i velikih slova (default)\n"
+"      --wildcards              izostavi uzorke koristi wildcard (default)\n"
+"      --no-wildcards           uzorci za izostavljanje su obièni nizovi\n"
+"      --wildcards-match-slash  izostavi uzorak wildcard podudara '/'\n"
+"                                                                (default)\n"
+"      --no-wildcards-match-slash\n"
+"                               izostavi uzorak - wildcard ne podudara '/'\n"
+"  -P, --absolute-names         ne bri¹i vodeæe `/' iz imena datoteka\n"
+"  -h, --dereference            ne arhiviraj simbolièki link nego datoteku\n"
+"                                   na koju pokazuje\n"
+"      --no-recursion           ne idi rekurzivno u poddirektorije\n"
+"  -l, --one-file-system        ne prelazi na drugi datoteèni sustav\n"
+"                                   kod kreiranja datoteka\n"
+"  -K, --starting-file=NAME     poèni s imenom NAME u arhivi kod ekstrakcije\n"
+
+#: src/tar.c:494
+#, fuzzy
+msgid ""
+"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+"      --newer-mtime=DATE       compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=DATE             pohranjuj samo datoteke novije od DATE\n"
+"      --newer-mtime=DATE       usporedi datum i vrijeme samo\n"
+"                                   ako su se promijenili podaci\n"
+"      --after-date=DATE        isto kao -N\n"
+
+#: src/tar.c:500
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
+msgstr ""
+"      --backup[=CONTROL]       backup-iraj prije brisanja, izaberi "
+"mehanizam\n"
+"                                   kontrole verzije\n"
+"      --suffix=SUFFIX          backup-iraj prije brisanja, promijeni\n"
+"                                   standardni sufiks.\n"
+
+#: src/tar.c:504
+#, fuzzy
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --check-links     print a message if not all links are dumped\n"
+"      --totals          print total bytes written while creating archive\n"
+"      --index-file=FILE send verbose output to FILE\n"
+"      --utc             print file modification dates in UTC\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"Informativni ispis:\n"
+"      --help            ispi¹i ovu pomoæ, potom zavr¹i\n"
+"      --version         ispi¹i broj verzije tar programa, potom zavr¹i\n"
+"  -v, --verbose         op¹irno izlistaj imena datoteka kod procesiranja\n"
+"      --checkpoint      ispisuj imena direktorija dok èita¹ arhivu\n"
+"      --totals          ispisuj ukupan broj ispisanih bajtova dok kreira¹\n"
+"                            arhivu\n"
+"  -R, --block-number    prika¾i broj bloka unutar arhive uz svaku poruku\n"
+"  -w, --interactive     tra¾i odobrenje za svaku akciju\n"
+"      --confirmation    isto kao -w\n"
+
+#: src/tar.c:519
+msgid ""
+"\n"
+"Compatibility options:\n"
+"  -o                                 when creating, same as --old-archive\n"
+"                                     when extracting, same as --no-same-"
+"owner\n"
+msgstr ""
+
+#: src/tar.c:526
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"Backup sufiks je `~', osim ako je postavljen drugi s --suffix ili\n"
+"SIMPLE_BACKUP_SUFFIX. Kontrola verzije mo¾e biti postavljena s --backup\n"
+"ili s VERSION_CONTROL, vrijednosti su:\n"
+"\n"
+"  t, numbered     radi pobrojane (numbered) backup-e\n"
+"  nil, existing   pobrojani ako pobrojani veæ postoje, inaèe jednostavni\n"
+"  never, simple   uvijek radi jednostavne backupe\n"
+
+#: src/tar.c:535
+#, fuzzy, c-format
+msgid ""
+"\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+"date\n"
+"or a file name starting with `/' or `.', in which case the file's date is "
+"used.\n"
+"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+msgstr ""
+"\n"
+"GNU tar ne mo¾e èitati ili proizvoditi `--posix' arhive.  Ako je\n"
+"POSIXLY_CORRECT definirano u environment okolini, GNU ekstenzije se\n"
+"onemoguæuju pomoæu `--posix'. Podr¹ka za POSIX je samo djelomièno\n"
+"implementirana, ne raèunajte jo¹ na nju.\n"
+"ARCHIVE mo¾e biti FILE, HOST:FILE ili USER@HOST:FILE; DATE mo¾e biti\n"
+"tekstualni datum ili ime datoteke koje zapoèinje s `/' ili `.',\n"
+"u kojem sluèaju je kori¹ten datum datoteke.\n"
+"*Ovaj* `tar' podrazumijeva `-f%s -b%d'.\n"
+
+#: src/tar.c:568
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Ne mo¾ete navesti vi¹e od jedne od `-Acdtrux' opcija"
+
+#: src/tar.c:577
+msgid "Conflicting compression options"
+msgstr "Konfliktne opcije za kompresiju"
+
+#: src/tar.c:649
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Stara opcija `%c' zahtijeva obavezan argument."
+
+# FIXME -- clarify this against source and man -- TM
+#: src/tar.c:702
+msgid "Invalid blocking factor"
+msgstr "Pogre¹an faktor pakiranja u blokove"
+
+#: src/tar.c:777
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr "Upozorenje: opcija -I nije podr¾ana; mo¾da ste mislili -j ili -T?"
+
+#: src/tar.c:807
+msgid "Invalid tape length"
+msgstr "Pogre¹na duljina trake"
+
+#: src/tar.c:831
+msgid "More than one threshold date"
+msgstr "Vi¹e od jednog datuma s pragom (threshold)"
+
+#: src/tar.c:841
+msgid "Date file not found"
+msgstr "Datoteka s datumom nije pronaðena"
+
+#: src/tar.c:850
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr "Substituiram %s za nepoznat format datuma %s"
+
+#: src/tar.c:955
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr "Upozorenje: opcija -y nije podr¾ana; mo¾da ste ¾eljeli -j?"
+
+#: src/tar.c:1027
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: Pogre¹na grupa"
+
+#: src/tar.c:1036
+msgid "Invalid mode given on option"
+msgstr "Pogre¹an mod dan opcijom"
+
+#: src/tar.c:1079
+#, fuzzy
+msgid "Invalid number"
+msgstr "Pogre¹an inode broj"
+
+#: src/tar.c:1097
+msgid "Invalid owner"
+msgstr "Pogre¹an vlasnik"
+
+#: src/tar.c:1121
+msgid "Invalid record size"
+msgstr "Pogre¹na velièina sloga (record)"
+
+#: src/tar.c:1124
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Velièina sloga (record) mora biti vi¹ekratnik %d."
+
+#: src/tar.c:1158
+#, fuzzy
+msgid "Invalid number of elements"
+msgstr "Pogre¹na duljina trake"
+
+#: src/tar.c:1259
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "Opcije `-[0-7][lmh]' nisu podr¾ane od strane *ovog* tar-a"
+
+#: src/tar.c:1305
+msgid "Written by John Gilmore and Jay Fenlason."
+msgstr "Napisali John Gilmore i Jay Fenlason."
+
+#: src/tar.c:1340
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1346
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1364
+#, fuzzy
+msgid "Multiple archive files require `-M' option"
+msgstr "Vi¹edjelne arhive zahtijevaju `-M' opciju"
+
+#: src/tar.c:1369
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "Ne mogu kombinirati --listed-incremental s --newer"
+
+#: src/tar.c:1384
+#, fuzzy, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] "%s: Oznaka dijela arhive je predugaèka (limit je %lu bajtova)"
+msgstr[1] "%s: Oznaka dijela arhive je predugaèka (limit je %lu bajtova)"
+
+# FIXME -- volume -- find more suitable (ask others) -- TM
+#: src/tar.c:1394
+msgid "Cannot verify multi-volume archives"
+msgstr "Ne mogu verificirati vi¹edjelne arhive"
+
+#: src/tar.c:1396
+msgid "Cannot verify compressed archives"
+msgstr "Ne mogu verificirati komprimirane arhive"
+
+#: src/tar.c:1402
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Ne mogu koristiti vi¹edjelne komprimirane arhive"
+
+#: src/tar.c:1404
+msgid "Cannot update compressed archives"
+msgstr "Ne mogu a¾urirati komprimirane arhive"
+
+#: src/tar.c:1416
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+# LOL -- TM
+#: src/tar.c:1436
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Kukavièki odbijam kreirati praznu arhivu!"
+
+#: src/tar.c:1457
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Opcije `-Aru' nisu kompatibilne s `-f -'"
+
+#: src/tar.c:1479
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanoseconds"
+msgstr ""
+
+#: src/tar.c:1532
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Morate specificirati jednu od `-Acdtrux' opcija"
+
+#: src/tar.c:1584
+msgid "Error in writing to standard output"
+msgstr "Pogre¹ka u pisanju na standardni izlaz"
+
+#: src/tar.c:1586
+msgid "Error exit delayed from previous errors"
+msgstr "Pogre¹an izlaz (naknadno) zbog prija¹njih pogre¹aka"
+
+#: src/update.c:86
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] "%s: Datoteka se skratila za %s bajtova"
+msgstr[1] "%s: Datoteka se skratila za %s bajtova"
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""
+
+#~ msgid "Cannot close"
+#~ msgstr "Ne mogu zatvoriti"
+
+#~ msgid "Cannot dup"
+#~ msgstr "Neuspjeli dup"
+
+#~ msgid "Cannot use compressed or remote archives"
+#~ msgstr "Ne mogu koristiti komprimirane ili udaljene (remote) arhive"
+
+#~ msgid "tar (child)"
+#~ msgstr "tar (podproces)"
+
+#~ msgid "tar (grandchild)"
+#~ msgstr "tar (pod-podproces)"
+
+#~ msgid "Child died with signal %d"
+#~ msgstr "Potproces zavr¹io uz signal %d"
+
+#~ msgid "Child returned status %d"
+#~ msgstr "Podproces zavr¹io uz status %d"
+
+#~ msgid "Member names contain `..'"
+#~ msgstr "Imena èlanova sadr¾e `..'"
+
+#~ msgid "%s: Member name contains `..'"
+#~ msgstr "%s: Ime èlana sadr¾i `..'"
+
+#~ msgid ""
+#~ "\n"
+#~ "Archive format selection:\n"
+#~ "  -V, --label=NAME                   create archive with volume name "
+#~ "NAME\n"
+#~ "              PATTERN                at list/extract time, a globbing "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
+#~ "      --posix                        write a POSIX format archive\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
+#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
+#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
+#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
+#~ "d)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Selekcija formata arhive:\n"
+#~ "  -V, --label=NAME                   kreiraj arhivu s imenom dijela "
+#~ "arhive NAME\n"
+#~ "              PATTERN                u vrijeme izlistavanja/ekstrakcije,\n"
+#~ "                                         koristi PATTERN za globbing\n"
+#~ "  -o, --old-archive, --portability   ispi¹i V7 format arhivu\n"
+#~ "      --posix                        ispi¹i POSIX format arhivu\n"
+#~ "  -j, --bzip2                        filtriraj arhivu kroz bzip2\n"
+#~ "  -z, --gzip, --ungzip               filtriraj arhivu kroz gzip\n"
+#~ "  -Z, --compress, --uncompress       filtriraj arhivu kroz compress\n"
+#~ "      --use-compress-program=PROG    filtriraj kroz program PROG (moji "
+#~ "mora\n"
+#~ "                                         prihvaæati opciju -d)\n"
+
+#~ msgid "Obsolete option, now implied by --blocking-factor"
+#~ msgstr "Zastarjela opcija, sada podrazumijevana s --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --blocking-factor"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --read-full-records"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --read-full-records"
+
+#~ msgid "Obsolete option name replaced by --touch"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --touch"
+
+#~ msgid "Conflicting archive format options"
+#~ msgstr "Konfliktne opcije formata arhive"
+
+#~ msgid "Obsolete option name replaced by --absolute-names"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --absolute-names"
+
+#~ msgid "Obsolete option name replaced by --block-number"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --block-number"
+
+#~ msgid "Obsolete option name replaced by --backup"
+#~ msgstr "Zastarjelo ime opcije zamijenjeno s --backup"
+
+#~ msgid "Generate data files for GNU tar test suite.\n"
+#~ msgstr "Generiraj podatkovne datoteke za GNU tar skup test programa.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Usage: %s [OPTION]...\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Kori¹tenje: %s [OPCIJA]...\n"
+
+#~ msgid ""
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.\n"
+#~ "\n"
+#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
+#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+#~ "      --help                 display this help and exit\n"
+#~ "      --version              output version information and exit\n"
+#~ msgstr ""
+#~ "Ako duga opcija pokazuje argument kao obavezan, tada je on obavezan\n"
+#~ "takoðer i za ekvivalentnu kratku verziju opcije.\n"
+#~ "\n"
+#~ "  -l, --file-length=LENGTH   LENGTH (duljina) generirane datoteke\n"
+#~ "  -p, --pattern=PATTERN      PATTERN je `default' ili `zeros'\n"
+#~ "      --help                 ispi¹i ovu pomoæ i zavr¹i\n"
+#~ "      --version              ispi¹i informaciju o verziji i zavr¹i\n"
+
+#~ msgid "Written by F. Pinard."
+#~ msgstr "Napisao François Pinard."

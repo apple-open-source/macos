@@ -1,9 +1,9 @@
 /*
- * "$Id: hpgltops.h,v 1.1.1.7 2002/12/24 00:06:59 jlovell Exp $"
+ * "$Id: hpgltops.h,v 1.1.1.12 2005/01/04 19:15:58 jlovell Exp $"
  *
  *   HP-GL/2 to PostScript filter for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1993-2003 by Easy Software Products.
+ *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -60,10 +60,14 @@ typedef struct
 
 typedef struct
 {
-  int	typeface,	/* Typeface number */
+  int	symbol_set,	/* Symbol set */
+	spacing,	/* Spacing (0 = fixed, 1 = proportional) */
 	posture,	/* Posture number */
-	weight;		/* Weight number */
-  float	height;		/* Height/size of font */
+	weight,		/* Weight number */
+	typeface;	/* Typeface number */
+  float	pitch,		/* Characters per inch */
+	height,		/* Height/size of font */
+	xpitch;		/* X pitch scaling value */
   float	x, y;		/* X and Y direction/scaling */
 } font_t;
 
@@ -115,6 +119,7 @@ VAR float	PenPosition[2]	VALUE2(0.0f, 0.0f),
 		PenWidth	VALUE(1.0f);	/* Default pen width */
 VAR pen_t	Pens[1024];			/* State of each pen */
 VAR int		PenMotion	VALUE(0), 	/* 0 = absolute, 1 = relative */
+		PenValid	VALUE(0),	/* 1 = valid position, 0 = undefined */
 		PenNumber	VALUE(1),	/* Current pen number */
 		PenCount	VALUE(8),	/* Number of pens */
 		PenDown		VALUE(0),	/* 0 = pen up, 1 = pen down */
@@ -192,6 +197,7 @@ extern void	RR_fill_rect_relative(int num_params, param_t *params);
 extern void	WG_fill_wedge(int num_params, param_t *params);
 
 /* hpgl-char.c */
+extern void	define_font(int f);
 extern void	AD_define_alternate(int num_params, param_t *params);
 extern void	CF_character_fill(int num_params, param_t *params);
 extern void	CP_character_plot(int num_params, param_t *params);
@@ -231,5 +237,5 @@ extern void	OutputTrailer(void);
 extern int	Outputf(const char *format, ...);
 
 /*
- * End of "$Id: hpgltops.h,v 1.1.1.7 2002/12/24 00:06:59 jlovell Exp $".
+ * End of "$Id: hpgltops.h,v 1.1.1.12 2005/01/04 19:15:58 jlovell Exp $".
  */

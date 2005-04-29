@@ -40,7 +40,7 @@
 
 #include <curses.h>
 
-MODULE_ID("$Id: clear.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: clear.c,v 1.8 1998/09/26 11:42:50 tom Exp $")
 
 static int putch(int c)
 {

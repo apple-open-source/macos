@@ -33,7 +33,6 @@
  *      Created.
  */
 #import <sys/disktab.h>
-#import <sys/vnode.h>
 #import <sys/buf.h>
 #import <sys/disk.h>
 #import <ufs/fs.h>

@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XOpenIM.man,v 1.2 2001/01/27 18:20:02 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XOpenIM.man,v 1.3 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,63 +144,27 @@
 .SH NAME
 XOpenIM, XCloseIM, XSetIMValues, XGetIMValues, XDisplayOfIM, XLocaleOfIM, XRegisterIMInstantiateCallback, XUnregisterIMInstantiateCallback \- open, close, and otain input method information
 .SH SYNTAX
-XIM XOpenIM\^(\^\fIdisplay\fP\^, \fIdb\fP\^, \fIres_name\fP\^, \fIres_class\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XrmDatabase \fIdb\fP\^;
-.br
-      char *\fIres_name\fP\^;
-.br
-      char *\fIres_class\fP\^;
-.LP
-Status XCloseIM\^(\^\fIim\fP\^)
-.br
-      XIM \fIim\fP\^;
-.LP
-char * XSetIMValues\^(\^\fIim\fP\^, ...)
-.br
-      XIM \fIim\fP\^; 
-.LP
-char * XGetIMValues\^(\^\fIim\fP\^, ...)
-.br
-      XIM \fIim\fP\^; 
-.LP
-Display * XDisplayOfIM\^(\^\fIim\fP\^)
-.br
-	XIM \fIim\fP\^;
-.LP
-char * XLocaleOfIM\^(\^\fIim\fP\^)
-.br
-      XIM \fIim\fP\^; 
-.LP
-Bool XRegisterIMInstantiateCallback\^(\^\fIdisplay\fP\^, \fIdb\fP\^, \fIres_name\fP\^, \fIres_class\fP\^, \fIcallback\fP\^, \fIclient_data\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XrmDatabase \fIdb\fP\^;
-.br
-      char *\fIres_name\fP\^;
-.br
-      char *\fIres_class\fP\^;
-.br
-      XIMProc  \fIcallback\fP\^;
-.br
-      XPointer *\fIclient_data\fP\^;
-.LP
-Bool XUnregisterIMInstantiateCallback\^(\^\fIdisplay\fP\^, \fIdb\fP\^, \fIres_name\fP\^, \fIres_class\fP\^, \fIcallback\fP\^, \fIclient_data\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XrmDatabase \fIdb\fP\^;
-.br
-      char *\fIres_name\fP\^;
-.br
-      char *\fIres_class\fP\^;
-.br
-      XIMProc  \fIcallback\fP\^;
-.br
-      XPointer *\fIclient_data\fP\^;
+.HP
+XIM XOpenIM\^(\^Display *\fIdisplay\fP\^, XrmDatabase \fIdb\fP\^, char
+*\fIres_name\fP\^, char *\fIres_class\fP\^); 
+.HP
+Status XCloseIM\^(\^XIM \fIim\fP\^); 
+.HP
+char *XSetIMValues\^(\^XIM \fIim\fP\^, ...); 
+.HP
+char *XGetIMValues\^(\^XIM \fIim\fP\^, ...); 
+.HP
+Display *XDisplayOfIM\^(\^XIM \fIim\fP\^); 
+.HP
+char *XLocaleOfIM\^(\^XIM \fIim\fP\^); 
+.HP
+Bool XRegisterIMInstantiateCallback\^(\^Display *\fIdisplay\fP\^, XrmDatabase
+\fIdb\fP\^, char *\fIres_name\fP\^, char *\fIres_class\fP\^, XIMProc
+\fIcallback\fP\^, XPointer *\fIclient_data\fP\^); 
+.HP
+Bool XUnregisterIMInstantiateCallback\^(\^Display *\fIdisplay\fP\^,
+XrmDatabase \fIdb\fP\^, char *\fIres_name\fP\^, char *\fIres_class\fP\^,
+XIMProc  \fIcallback\fP\^, XPointer *\fIclient_data\fP\^); 
 .LP
 .SH ARGUMENTS
 .IP \fIcallback\fP 1i

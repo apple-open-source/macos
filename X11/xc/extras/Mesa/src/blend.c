@@ -1,9 +1,9 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  3.5
+ * Version:  4.1
  *
- * Copyright (C) 1999-2001  Brian Paul   All Rights Reserved.
+ * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,9 +24,6 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "blend.h"
 #include "colormac.h"
@@ -34,7 +31,6 @@
 #include "enums.h"
 #include "macros.h"
 #include "mtypes.h"
-#endif
 
 
 void
@@ -45,9 +41,9 @@ _mesa_BlendFunc( GLenum sfactor, GLenum dfactor )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & (VERBOSE_API|VERBOSE_TEXTURE))
-      fprintf(stderr, "glBlendFunc %s %s\n",
-	      _mesa_lookup_enum_by_nr(sfactor),
-	      _mesa_lookup_enum_by_nr(dfactor));
+      _mesa_debug(ctx, "glBlendFunc %s %s\n",
+                  _mesa_lookup_enum_by_nr(sfactor),
+                  _mesa_lookup_enum_by_nr(dfactor));
 
    switch (sfactor) {
       case GL_SRC_COLOR:
@@ -126,11 +122,11 @@ _mesa_BlendFuncSeparateEXT( GLenum sfactorRGB, GLenum dfactorRGB,
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & (VERBOSE_API|VERBOSE_TEXTURE))
-      fprintf(stderr, "glBlendFuncSeparate %s %s %s %s\n",
-	      _mesa_lookup_enum_by_nr(sfactorRGB),
-	      _mesa_lookup_enum_by_nr(dfactorRGB),
-	      _mesa_lookup_enum_by_nr(sfactorA),
-	      _mesa_lookup_enum_by_nr(dfactorA));
+      _mesa_debug(ctx, "glBlendFuncSeparate %s %s %s %s\n",
+                  _mesa_lookup_enum_by_nr(sfactorRGB),
+                  _mesa_lookup_enum_by_nr(dfactorRGB),
+                  _mesa_lookup_enum_by_nr(sfactorA),
+                  _mesa_lookup_enum_by_nr(dfactorA));
 
    switch (sfactorRGB) {
       case GL_SRC_COLOR:
@@ -267,8 +263,8 @@ _mesa_BlendEquation( GLenum mode )
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & (VERBOSE_API|VERBOSE_TEXTURE))
-      fprintf(stderr, "glBlendEquation %s\n",
-	      _mesa_lookup_enum_by_nr(mode));
+      _mesa_debug(ctx, "glBlendEquation %s\n",
+                  _mesa_lookup_enum_by_nr(mode));
 
    switch (mode) {
       case GL_FUNC_ADD_EXT:
@@ -309,8 +305,9 @@ _mesa_BlendEquation( GLenum mode )
    /* This is needed to support 1.1's RGB logic ops AND
     * 1.0's blending logicops.
     */
-   ctx->Color.ColorLogicOpEnabled = (mode==GL_LOGIC_OP &&
-				     ctx->Color.BlendEnabled);
+   ctx->Color._LogicOpEnabled = (ctx->Color.ColorLogicOpEnabled ||
+                                 (ctx->Color.BlendEnabled &&
+                                  mode == GL_LOGIC_OP));
 
    if (ctx->Driver.BlendEquation)
       (*ctx->Driver.BlendEquation)( ctx, mode );
@@ -345,7 +342,6 @@ void
 _mesa_AlphaFunc( GLenum func, GLclampf ref )
 {
    GET_CURRENT_CONTEXT(ctx);
-   GLchan cref;
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    switch (func) {
@@ -357,18 +353,17 @@ _mesa_AlphaFunc( GLenum func, GLclampf ref )
    case GL_NOTEQUAL:
    case GL_GEQUAL:
    case GL_ALWAYS:
-      /* convert float alpha ref to GLchan type */
-      UNCLAMPED_FLOAT_TO_CHAN(cref, ref);
+      ref = CLAMP(ref, 0.0F, 1.0F);
 
-      if (ctx->Color.AlphaFunc == func && ctx->Color.AlphaRef == cref)
-         return;
+      if (ctx->Color.AlphaFunc == func && ctx->Color.AlphaRef == ref)
+         return; /* no change */
 
       FLUSH_VERTICES(ctx, _NEW_COLOR);
       ctx->Color.AlphaFunc = func;
-      ctx->Color.AlphaRef = cref;
+      ctx->Color.AlphaRef = ref;
 
       if (ctx->Driver.AlphaFunc)
-         ctx->Driver.AlphaFunc(ctx, func, cref);
+         ctx->Driver.AlphaFunc(ctx, func, ref);
       return;
 
    default:
@@ -444,7 +439,7 @@ _mesa_ColorMask( GLboolean red, GLboolean green,
    ASSERT_OUTSIDE_BEGIN_END(ctx);
 
    if (MESA_VERBOSE & VERBOSE_API)
-      fprintf(stderr, "glColorMask %d %d %d %d\n", red, green, blue, alpha);
+      _mesa_debug(ctx, "glColorMask %d %d %d %d\n", red, green, blue, alpha);
 
    /* Shouldn't have any information about channel depth in core mesa
     * -- should probably store these as the native booleans:

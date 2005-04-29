@@ -29,8 +29,12 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_trantcp.c,v 1.25 2003/09/06 20:27:15 lindak Exp $
+ * $Id: smb_trantcp.c,v 1.39 2005/03/02 01:27:44 lindak Exp $
  */
+
+#define ABSOLUTETIME_SCALAR_TYPE
+#define APPLE_PRIVATE 1
+
 #include <sys/param.h>
 #include <sys/systm.h>
 #include <sys/kernel.h>
@@ -39,7 +43,6 @@
 #include <sys/proc.h>
 #include <sys/protosw.h>
 #include <sys/socket.h>
-#include <sys/socketvar.h>
 #include <sys/poll.h>
 #include <sys/uio.h>
 #include <sys/sysctl.h>
@@ -50,10 +53,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#ifdef APPLE
 #include <sys/user.h>
 #include <sys/smb_apple.h>
-#endif
 
 #include <sys/mchain.h>
 
@@ -64,9 +65,6 @@
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_trantcp.h>
 #include <netsmb/smb_subr.h>
-
-extern unsigned int wait_queue_set_size(void);
-extern unsigned int wait_queue_link_size(void);
 
 #define M_NBDATA	M_PCB
 
@@ -80,142 +78,14 @@ SYSCTL_DECL(_net_smb);
 SYSCTL_INT(_net_smb, OID_AUTO, tcpsndbuf, CTLFLAG_RW, &smb_tcpsndbuf, 0, "");
 SYSCTL_INT(_net_smb, OID_AUTO, tcprcvbuf, CTLFLAG_RW, &smb_tcprcvbuf, 0, "");
 
-#ifdef APPLE
-#define nb_sosend(so,m,flags,p)	(so)->so_proto->pr_usrreqs->pru_sosend( \
-				    so, NULL, 0, m, 0, flags)
-#else
-#define nb_sosend(so,m,flags,p)	(so)->so_proto->pr_usrreqs->pru_sosend( \
-				    so, NULL, 0, m, 0, flags, p)
-#endif
-
 static int  nbssn_recv(struct nbpcb *nbp, struct mbuf **mpp, int *lenp,
-	u_int8_t *rpcodep, struct proc *p);
+	u_int8_t *rpcodep, struct proc *p, struct timespec *tsp);
 static int  smb_nbst_disconnect(struct smb_vc *vcp, struct proc *p);
 
 static int
-nb_setsockopt_int(struct socket *so, int level, int name, int val)
+nb_setsockopt_int(socket_t so, int level, int name, int val)
 {
-	struct sockopt sopt;
-
-	bzero(&sopt, sizeof(sopt));
-	sopt.sopt_dir = SOPT_SET;
-	sopt.sopt_level = level;
-	sopt.sopt_name = name;
-	sopt.sopt_val = &val;
-	sopt.sopt_valsize = sizeof(val);
-	return sosetopt(so, &sopt);
-}
-
-static __inline int
-nb_poll(struct nbpcb *nbp, int events, struct proc *p)
-{
-#ifdef APPLE
-	#pragma unused(p)
-	struct uthread *uth;
-	thread_act_t th_act;
-	struct _select *sel;
-
-	th_act = current_act();
-	uth = get_bsdthread_info(th_act);
-	sel = &uth->uu_state.ss_select;
-#endif /* APPLE */
-
-	return nbp->nbp_tso->so_proto->pr_usrreqs->pru_sopoll(nbp->nbp_tso,
-#ifdef APPLE
-	    events, NULL, sel->wql);
-#else
-	    events, NULL, p);
-#endif
-}
-
-static int
-nbssn_rselect(struct nbpcb *nbp, struct timeval *tv, int events, struct proc *p)
-{
-	struct timeval atv, rtv, ttv;
-	int s, timo, error;
-#ifdef APPLE
-	struct uthread *uth = NULL;
-	thread_act_t th_act;
-	struct _select *sel = NULL;
-	char mywq[SIZEOF_WAITQUEUE_SUB + SIZEOF_WAITQUEUE_LINK];
-	int wqsetup = 0;
-#endif
-
-	if (tv) {
-		atv = *tv;
-		if (itimerfix(&atv)) {
-			error = EINVAL;
-			goto done;
-		}
-		getmicrouptime(&rtv);
-		timevaladd(&atv, &rtv);
-	}
-	timo = 0;
-#ifdef APPLE
-	th_act = current_act();
-	uth = get_bsdthread_info(th_act);
-	sel = &uth->uu_state.ss_select;
-
-	bzero(&mywq, SIZEOF_WAITQUEUE_SUB + SIZEOF_WAITQUEUE_LINK);
-	wait_queue_sub_init((wait_queue_sub_t)&mywq, (SYNC_POLICY_FIFO | SYNC_POLICY_PREPOST));
-	uth->uu_wqsub = (wait_queue_sub_t)&mywq;
-	sel->count = 1;
-	sel->wql = (char *)&mywq + SIZEOF_WAITQUEUE_SUB;
-	wqsetup = 1;
-#endif
-retry:
-	p->p_flag |= P_SELECT;
-	error = nb_poll(nbp, events, p);
-	if (error) {
-		error = 0;
-		goto done;
-	}
-	if (tv) {
-		getmicrouptime(&rtv);
-		if (timevalcmp(&rtv, &atv, >=))
-			goto done;
-		ttv = atv;
-		timevalsub(&ttv, &rtv);
-		timo = tvtohz(&ttv);
-	}
-	s = splhigh();
-	if ((p->p_flag & P_SELECT) == 0) {
-		splx(s);
-		goto retry;
-	}
-	p->p_flag &= ~P_SELECT;
-#ifdef APPLE
-	if (wait_queue_assert_wait((wait_queue_t)uth->uu_wqsub, &selwait, THREAD_ABORTSAFE)) {
-		/* If it is true then there are no preposted events */
-		error = tsleep(NULL, PSOCK, "nbsel", timo);
-	}
-	if (error == 0) {
-		splx(s);
-		goto retry;
-	}
-/*
- * B4BP (7/23/01 sent to BP) collisions give premature selwait wakeups
- * thus EGAINs on mounts
- * (.../smb_nbst_connect/nbssn_rq_request/nbssn_recv/.../soreceive)
- */
-#else
-	error = tsleep((caddr_t)&selwait, PSOCK, "nbsel", timo);
-#endif
-	splx(s);
-
-done:
-	p->p_flag &= ~P_SELECT;
-#ifdef APPLE
-	if (wqsetup) {
-		wait_subqueue_unlink_all(uth->uu_wqsub);
-		uth->uu_wqsub = 0;
-		sel->wql = 0;
-		sel->count = 1;
-	}
-#endif /* APPLE */
-	if (error == ERESTART)
-		return 0;
-	return error;
+	return (sock_setsockopt(so, level, name, &val, sizeof(val)));
 }
 
 static int
@@ -226,38 +96,28 @@ nb_intr(struct nbpcb *nbp, struct proc *p)
 }
 
 static void
-#ifdef APPLE
-nb_upcall(struct socket *so, caddr_t arg, int waitflag)
-#else
-nb_upcall(struct socket *so, void *arg, int waitflag)
-#endif
+nb_upcall(socket_t so, void *arg, int waitflag)
 {
 	#pragma unused(so, waitflag)
 	struct nbpcb *nbp = (struct nbpcb *)arg;
-
-	/*
-	 * careful: this upcall is run on the network funnel
-	 */
 
 	/* sanity */
 	if (arg == NULL)
 		return;
 
+	lck_mtx_lock(&nbp->nbp_lock);
+
+	nbp->nbp_flags |= NBF_UPCALLED;
 	/*
-	 * If there's an upcall, pass it the selectid
+	 * If there's an upcall, pass it the selectid,
+	 * otherwise wakeup on the selectid
 	 */
 	if (nbp->nbp_upcall) {
 		nbp->nbp_upcall(nbp->nbp_selectid);
-		return;
-	}
-
-	/*
-	 * If we have a selectid, wake it up.
-	 */
-	if (nbp->nbp_selectid) {
-	wakeup(nbp->nbp_selectid);
-		return;
-}
+	} else if (nbp->nbp_selectid)
+		wakeup(nbp->nbp_selectid);
+	lck_mtx_unlock(&nbp->nbp_lock);
+	return;
 }
 
 static int
@@ -277,13 +137,13 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 
 	cp = snb->snb_name;
 	if (*cp == 0)
-		return EINVAL;
+		return (EINVAL);
 	NBDEBUG("[%s]\n", cp);
 	for (;;) {
 		seglen = (*cp) + 1;
 		error = mb_put_mem(mbp, cp, seglen, MB_MSYSTEM);
 		if (error)
-			return error;
+			return (error);
 		if (seglen == 1)
 			break;
 		cp += seglen;
@@ -294,57 +154,56 @@ nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 static int
 nb_connect_in(struct nbpcb *nbp, struct sockaddr_in *to, struct proc *p)
 {
-	struct socket *so;
-	int error, s;
+	socket_t so;
+	int error;
+	struct timeval  tv;
 
-#ifdef APPLE
-	error = socreate(AF_INET, &so, SOCK_STREAM, IPPROTO_TCP);
-#else
-	error = socreate(AF_INET, &so, SOCK_STREAM, IPPROTO_TCP, p);
-#endif
+	error = sock_socket(AF_INET, SOCK_STREAM, IPPROTO_TCP, nb_upcall, nbp,
+			    &so);
 	if (error)
-		return error;
+		return (error);
 	nbp->nbp_tso = so;
-	so->so_upcallarg = (caddr_t)nbp;
-	so->so_upcall = nb_upcall;
-	so->so_rcv.sb_flags |= SB_UPCALL;
-	so->so_rcv.sb_timeo = (SMBSBTIMO * hz);
-	so->so_snd.sb_timeo = (SMBSBTIMO * hz);
-	error = soreserve(so, nbp->nbp_sndbuf, nbp->nbp_rcvbuf);
+	tv.tv_sec = SMBSBTIMO;
+	tv.tv_usec = 0;
+	error = sock_setsockopt(so, SOL_SOCKET, SO_RCVTIMEO, &tv,
+				sizeof(tv));
 	if (error)
 		goto bad;
-	nb_setsockopt_int(so, SOL_SOCKET, SO_KEEPALIVE, 1);
-	nb_setsockopt_int(so, IPPROTO_TCP, TCP_NODELAY, 1);
-	so->so_rcv.sb_flags &= ~SB_NOINTR;
-	so->so_snd.sb_flags &= ~SB_NOINTR;
-#ifdef APPLE
-	error = soconnect(so, (struct sockaddr*)to);
-#else
-	error = soconnect(so, (struct sockaddr*)to, p);
-#endif
+	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDTIMEO, &tv,
+				sizeof(tv));
 	if (error)
 		goto bad;
-	s = splnet();
-	while ((so->so_state & SS_ISCONNECTING) && so->so_error == 0) {
-		tsleep(&so->so_timeo, PSOCK, "nbcon", 2 * hz);
-		if ((so->so_state & SS_ISCONNECTING) && so->so_error == 0 &&
-			(error = nb_intr(nbp, p)) != 0) {
-			so->so_state &= ~SS_ISCONNECTING;
-			splx(s);
-			goto bad;
-		}
-	}
-	if (so->so_error) {
-		error = so->so_error;
-		so->so_error = 0;
-		splx(s);
+	error = sock_setsockopt(so, SOL_SOCKET, SO_SNDBUF, &nbp->nbp_sndbuf,
+				sizeof(nbp->nbp_sndbuf));
+	if (error)
 		goto bad;
+	error = sock_setsockopt(so, SOL_SOCKET, SO_RCVBUF, &nbp->nbp_rcvbuf,
+				sizeof(nbp->nbp_rcvbuf));
+	if (error)
+		goto bad;
+	error = nb_setsockopt_int(so, SOL_SOCKET, SO_KEEPALIVE, 1);
+	if (error)
+		goto bad;
+	error = nb_setsockopt_int(so, IPPROTO_TCP, TCP_NODELAY, 1);
+	if (error)
+		goto bad;
+	error = sock_nointerrupt(so, 0);
+	if (error)
+		goto bad;
+	error = sock_connect(so, (struct sockaddr*)to, MSG_DONTWAIT);
+	if (error && error != EINPROGRESS)
+		goto bad;
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+	while ((error = sock_connectwait(so, &tv)) == EINPROGRESS) {
+		if ((error = nb_intr(nbp, p)))
+			break;
 	}
-	splx(s);
-	return 0;
+	if (!error)
+		return (0);
 bad:
 	smb_nbst_disconnect(nbp->nbp_vc, p);
-	return error;
+	return (error);
 }
 
 static int
@@ -353,7 +212,6 @@ nbssn_rq_request(struct nbpcb *nbp, struct proc *p)
 	struct mbchain mb, *mbp = &mb;
 	struct mdchain md, *mdp = &md;
 	struct mbuf *m0;
-	struct timeval tv;
 	struct sockaddr_in sin;
 	u_short port;
 	u_int8_t rpcode;
@@ -361,31 +219,26 @@ nbssn_rq_request(struct nbpcb *nbp, struct proc *p)
 
 	error = mb_init(mbp);
 	if (error)
-		return error;
+		return (error);
 	mb_put_uint32le(mbp, 0);
 	nb_put_name(mbp, nbp->nbp_paddr);
 	nb_put_name(mbp, nbp->nbp_laddr);
 	nb_sethdr(mbp->mb_top, NB_SSN_REQUEST, mb_fixhdr(mbp) - 4);
-	error = nb_sosend(nbp->nbp_tso, mbp->mb_top, 0, p);
-	if (!error) {
+	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)mbp->mb_top, 0, NULL);
+	if (!error)
 		nbp->nbp_state = NBST_RQSENT;
-	}
 	mb_detach(mbp);
 	mb_done(mbp);
 	if (error)
-		return error;
-	TIMESPEC_TO_TIMEVAL(&tv, &nbp->nbp_timo);
-	error = nbssn_rselect(nbp, &tv, POLLIN, p);
+		return (error);
+	error = nbssn_recv(nbp, &m0, &rplen, &rpcode, p, &nbp->nbp_timo);
 	if (error == EWOULDBLOCK) {	/* Timeout */
 		NBDEBUG("initial request timeout\n");
-		return ETIMEDOUT;
+		return (ETIMEDOUT);
 	}
-	if (error)			/* restart or interrupt */
-		return error;
-	error = nbssn_recv(nbp, &m0, &rplen, &rpcode, p);
 	if (error) {
 		NBDEBUG("recv() error %d\n", error);
-		return error;
+		return (error);
 	}
 	/*
 	 * Process NETBIOS reply
@@ -395,8 +248,10 @@ nbssn_rq_request(struct nbpcb *nbp, struct proc *p)
 	error = 0;
 	do {
 		if (rpcode == NB_SSN_POSRESP) {
+			lck_mtx_lock(&nbp->nbp_lock);
 			nbp->nbp_state = NBST_SESSION;
 			nbp->nbp_flags |= NBF_CONNECTED;
+			lck_mtx_unlock(&nbp->nbp_lock);
 			break;
 		}
 		if (rpcode != NB_SSN_RTGRESP) {
@@ -422,87 +277,169 @@ nbssn_rq_request(struct nbpcb *nbp, struct proc *p)
 	} while(0);
 	if (m0)
 		md_done(mdp);
-	return error;
+	return (error);
 }
 
 static int
 nbssn_recvhdr(struct nbpcb *nbp, int *lenp,
-	u_int8_t *rpcodep, int flags, struct proc *p)
+	u_int8_t *rpcodep, u_int64_t abstime, struct proc *p)
 {
-	struct socket *so = nbp->nbp_tso;
-	struct uio auio;
 	struct iovec aio;
 	u_int32_t len;
+	u_int8_t *bytep;
 	int error;
+	size_t resid, recvdlen;
+	struct msghdr msg;
+	struct smbiod *iod = nbp->nbp_vc->vc_iod;
 
-	aio.iov_base = (caddr_t)&len;
-	aio.iov_len = sizeof(len);
-	auio.uio_iov = &aio;
-	auio.uio_iovcnt = 1;
-	auio.uio_segflg = UIO_SYSSPACE;
-	auio.uio_rw = UIO_READ;
-	auio.uio_offset = 0;
-	auio.uio_resid = sizeof(len);
-	auio.uio_procp = p;
-	error = so->so_proto->pr_usrreqs->pru_soreceive
-	    (so, (struct sockaddr **)NULL, &auio,
-	    (struct mbuf **)NULL, (struct mbuf **)NULL, &flags);
-	if (error)
-		return error;
-	if (auio.uio_resid > 0) {
-		SMBSDEBUG("short reply\n");
-		return EPIPE;
+	resid = sizeof(len);
+	bytep = (char *)&len;
+	while (resid != 0) {
+		aio.iov_base = bytep;
+		aio.iov_len = resid;
+		bzero(&msg, sizeof(msg));
+		msg.msg_iov = &aio;
+		msg.msg_iovlen = 1;
+		/*
+		 * We don't wait for all the data to be available; we
+		 * want to know when the first bit of data arrives, so
+		 * we can get the network-layer round-trip time, which
+		 * we use as the basis for other timeouts.  (Note
+		 * that even if we *did* wait for all the data to
+		 * be available, we still might not get all the data,
+		 * as there might be a timeout, e.g. due to the machine
+		 * going to sleep and waking up later.)
+		 */
+		error = sock_receive(nbp->nbp_tso, &msg, MSG_DONTWAIT,
+		    &recvdlen);
+		if (error) {
+			/*
+			 * If we've gotten a socket timeout, and if we were
+			 * given a deadline (which is presumably further in
+			 * the future than the socket receive timeout, so
+			 * that we'd get a socket receive timeout before the
+			 * deadline expires), check whether we've been
+			 * upcalled (to deliver more data) and, if not,
+			 * wait for the deadline to expire or for an
+			 * upcall with more data.
+			 */
+			if (error == EWOULDBLOCK && abstime) {
+				lck_mtx_lock(&nbp->nbp_lock);
+				if (!(nbp->nbp_flags & NBF_UPCALLED)) {
+					msleep1(&iod->iod_flags,
+					    &nbp->nbp_lock, PWAIT, "nbssn",
+					    abstime);
+
+					/*
+					 * The only reason for the deadline
+					 * is to get an initial round-trip
+					 * time estimate, so we only want
+					 * the deadline for the first sleep
+					 * (note that the deadline might
+					 * have passed by the time the first
+					 * sleep finishes).
+					 */
+					abstime = 0;
+				}
+				lck_mtx_unlock(&nbp->nbp_lock);
+				continue;
+			}
+			if (error == EWOULDBLOCK && resid != sizeof(len))
+				continue;
+			return (error);
+		}
+		if (recvdlen > resid) {
+			/* This "shouldn't happen" */
+			SMBERROR("got more data than we asked for!\n");
+			return (EPIPE);
+		}
+		if (!sock_isconnected(nbp->nbp_tso)) {
+			nbp->nbp_state = NBST_CLOSED;
+			NBDEBUG("session closed by peer\n");
+			return (ECONNRESET);
+		}
+		if (recvdlen == 0) {
+			SMBERROR("connection closed out from under us\n");
+			return (EPIPE);
+		}
+		resid -= recvdlen;
+		bytep += recvdlen;
 	}
 	len = ntohl(len);
+	if ((len >> 16) & 0xFE) {
+		SMBERROR("bad nb header received 0x%x (MBZ flag set)\n", len);
+		return (EPIPE);
+	}
 	*rpcodep = (len >> 24) & 0xFF;
+	switch (*rpcodep) {
+	    case NB_SSN_MESSAGE:
+	    case NB_SSN_REQUEST:
+	    case NB_SSN_POSRESP:
+	    case NB_SSN_NEGRESP:
+	    case NB_SSN_RTGRESP:
+	    case NB_SSN_KEEPALIVE:
+		break;
+	    default:
+		SMBERROR("bad nb header received 0x%x (bogus type)\n", len);
+		return (EPIPE);
+	}
 	len &= 0x1ffff;
 	if (len > SMB_MAXPKTLEN) {
 		SMBERROR("packet too long (%d)\n", len);
-		return EFBIG;
+		return (EFBIG);
 	}
 	*lenp = len;
-	return 0;
+	return (0);
 }
 
 static int
 nbssn_recv(struct nbpcb *nbp, struct mbuf **mpp, int *lenp,
-	u_int8_t *rpcodep, struct proc *p)
+	u_int8_t *rpcodep, struct proc *p, struct timespec *tsp)
 {
-	struct socket *so = nbp->nbp_tso;
-	struct uio auio;
-	struct mbuf *m, *tm, *im;
+	socket_t so = nbp->nbp_tso;
+	struct mbuf *m, *im;
+	mbuf_t tm;
 	u_int8_t rpcode;
-	int len, resid;
-	int error, rcvflg;
+	int len, resid, error;
+	size_t recvdlen;
+	uint64_t	abstime = 0;
 
 	if (so == NULL)
-		return ENOTCONN;
-
+		return (ENOTCONN);
 	if (mpp)
 		*mpp = NULL;
 	m = NULL;
+	if (tsp) {
+		nanoseconds_to_absolutetime(tsp->tv_nsec +
+					    NSEC_PER_SEC*(uint64_t)tsp->tv_sec,
+					    &abstime);
+		clock_absolutetime_interval_to_deadline(abstime, &abstime);
+	}
 	for(;;) {
 		/*
-		 * Poll for a response header.
-		 * If we don't have one waiting, return.
+		 * Read the response header.
 		 */
-		error = nbssn_recvhdr(nbp, &len, &rpcode, MSG_DONTWAIT, p);
-		if (so->so_state &
-		    (SS_ISDISCONNECTING | SS_ISDISCONNECTED | SS_CANTRCVMORE)) {
-			nbp->nbp_state = NBST_CLOSED;
-			NBDEBUG("session closed by peer\n");
-			return ECONNRESET;
-		}
+		lck_mtx_lock(&nbp->nbp_lock);
+		nbp->nbp_flags &= ~NBF_UPCALLED;
+		lck_mtx_unlock(&nbp->nbp_lock);
+		error = nbssn_recvhdr(nbp, &len, &rpcode, abstime, p);
 		if (error)
-			return error;
-		if (len == 0 && nbp->nbp_state != NBST_SESSION)
-			break;
-		/* no data, try again */
-		if (rpcode == NB_SSN_KEEPALIVE)
-			continue;
+			return (error);
 
 		/*
-		 * Loop, blocking, for data following the response header.
+		 * Warn about keepalives with data - they're not
+		 * supposed to have any, and if we have a problem
+		 * at this point, perhaps the length didn't
+		 * reflect the actual data in the packet.
+		 */
+		if (rpcode == NB_SSN_KEEPALIVE && len != 0) {
+			SMBERROR("Keepalive received with non-zero length %d\n",
+			    len);
+		}
+
+		/*
+		 * Loop, blocking, for data following the response header,
+		 * if any.
 		 *
 		 * Note that we can't simply block here with MSG_WAITALL for the
 		 * entire response size, as it may be larger than the TCP
@@ -517,50 +454,88 @@ nbssn_recv(struct nbpcb *nbp, struct mbuf **mpp, int *lenp,
 		resid = len;
 		while (resid > 0) {
 			tm = NULL;
-			rcvflg = MSG_WAITALL;
-			bzero(&auio, sizeof(auio));
-			auio.uio_procp = p;
-			auio.uio_resid = min(resid, NB_SORECEIVE_CHUNK);
-			resid -= auio.uio_resid;
 			/*
-			 * Spin until we have collected everything in
-			 * this chunk.
+			 * Spin until we either succeed or get a hard error.
 			 */
 			do {
-				rcvflg = MSG_WAITALL;
-				error = so->so_proto->pr_usrreqs->pru_soreceive
-				    (so, (struct sockaddr **)NULL,
-				    &auio, &tm, (struct mbuf **)NULL, &rcvflg);
-			} while (error == EWOULDBLOCK ||
-			    error == EINTR ||
-			    error == ERESTART);
+				recvdlen = min(resid, NB_SORECEIVE_CHUNK);
+				error = sock_receivembuf(so, NULL, &tm,
+				    MSG_WAITALL, &recvdlen);
+			} while (error == EWOULDBLOCK || error == EINTR ||
+				 error == ERESTART);
 			if (error)
 				goto out;
-			/* short return guarantees unhappiness */
-			if (auio.uio_resid > 0) {
-				SMBERROR("packet is shorter than expected\n");
+			if (recvdlen > resid) {
+				/* This "shouldn't happen" */
+				SMBERROR("got more data than we asked for!\n");
 				error = EPIPE;
 				goto out;
 			}
+			resid -= recvdlen;
 			/* append received chunk to previous chunk(s) */
 			if (!m) {
-				m = tm;
+				m = (struct mbuf *)tm;
 			} else {
 				/*
 				 * Just glue the new chain on the end.
 				 * Consumer will pullup as required.
 				 */
-				for (im = m; im->m_next != NULL; im = im->m_next)
+				for (im = m; im->m_next; im = im->m_next)
 					;
-				im->m_next = tm;
+				im->m_next = (struct mbuf *)tm;
 			}
 		}
-		/* got a session/message packet? */
-		if (nbp->nbp_state == NBST_SESSION &&
-		    rpcode == NB_SSN_MESSAGE)
+
+		/*
+		 * If it's a keepalive, discard any data in it
+		 * (there's not supposed to be any, but that
+		 * doesn't mean some server won't send some)
+		 * and get the next packet.
+		 */
+		if (rpcode == NB_SSN_KEEPALIVE) {
+			if (m) {
+				m_freem(m);
+				m = NULL;
+			}
+			continue;
+		}
+
+		if (nbp->nbp_state != NBST_SESSION) {
+			/*
+			 * No session is established.
+			 * Return whatever packet we got.
+			 */
 			break;
-		/* drop packet and try for another */
-		NBDEBUG("non-session packet %x\n", rpcode);
+		}
+
+		/*
+		 * A session is established; the only packets
+		 * we should see are session message and
+		 * keep-alive packets.
+		 */
+		if (rpcode == NB_SSN_MESSAGE) {
+			/*
+			 * Session message.  Does it have any data?
+			 */
+			if (!m) {
+				/*
+				 * No - complain and continue.
+				 */
+				SMBERROR("empty session packet\n");
+				continue;
+			}
+
+			/*
+			 * Yes - return it to our caller.
+			 */
+			break;
+		}
+
+		/*
+		 * Ignore other types of packets - drop packet
+		 * and try for another.
+		 */
+		SMBERROR("non-session packet %x\n", rpcode);
 		if (m) {
 			m_freem(m);
 			m = NULL;
@@ -570,7 +545,7 @@ out:
 	if (error) {
 		if (m)
 			m_freem(m);
-		return error;
+		return (error);
 	}
 	if (mpp)
 		*mpp = m;
@@ -578,7 +553,7 @@ out:
 		m_freem(m);
 	*lenp = len;
 	*rpcodep = rpcode;
-	return 0;
+	return (0);
 }
 
 /*
@@ -597,6 +572,7 @@ smb_nbst_create(struct smb_vc *vcp, struct proc *p)
 	nbp->nbp_vc = vcp;
 	nbp->nbp_sndbuf = smb_tcpsndbuf;
 	nbp->nbp_rcvbuf = smb_tcprcvbuf;
+	lck_mtx_init(&nbp->nbp_lock, nbp_lck_group, nbp_lck_attr);
 	vcp->vc_tdata = nbp;
 	return 0;
 }
@@ -607,12 +583,13 @@ smb_nbst_done(struct smb_vc *vcp, struct proc *p)
 	struct nbpcb *nbp = vcp->vc_tdata;
 
 	if (nbp == NULL)
-		return ENOTCONN;
+		return (ENOTCONN);
 	smb_nbst_disconnect(vcp, p);
 	if (nbp->nbp_laddr)
 		free(nbp->nbp_laddr, M_SONAME);
 	if (nbp->nbp_paddr)
 		free(nbp->nbp_paddr, M_SONAME);
+	lck_mtx_destroy(&nbp->nbp_lock, nbp_lck_group);
 	free(nbp, M_NBDATA);
 	return 0;
 }
@@ -639,16 +616,18 @@ smb_nbst_bind(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 		slen = sap->sa_len;
 		if (slen < (int)NB_MINSALEN)
 			break;
-		snb = (struct sockaddr_nb*)dup_sockaddr(sap, 1);
+		snb = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
 		if (snb == NULL) {
 			error = ENOMEM;
 			break;
 		}
+		lck_mtx_lock(&nbp->nbp_lock);
 		nbp->nbp_laddr = snb;
 		nbp->nbp_flags |= NBF_LOCADDR;
+		lck_mtx_unlock(&nbp->nbp_lock);
 		error = 0;
 	} while(0);
-	return error;
+	return (error);
 }
 
 static int
@@ -662,19 +641,19 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 
 	NBDEBUG("\n");
 	if (nbp->nbp_tso != NULL)
-		return EISCONN;
+		return (EISCONN);
 	if (nbp->nbp_laddr == NULL)
-		return EINVAL;
+		return (EINVAL);
 	slen = sap->sa_len;
 	if (slen < (int)NB_MINSALEN)
-		return EINVAL;
+		return (EINVAL);
 	if (nbp->nbp_paddr) {
 		free(nbp->nbp_paddr, M_SONAME);
 		nbp->nbp_paddr = NULL;
 	}
-	snb = (struct sockaddr_nb*)dup_sockaddr(sap, 1);
+	snb = (struct sockaddr_nb*)smb_dup_sockaddr(sap, 1);
 	if (snb == NULL)
-		return ENOMEM;
+		return (ENOMEM);
 	nbp->nbp_paddr = snb;
 	sin = snb->snb_addrin;
 	/*
@@ -685,11 +664,11 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 	 * round trip is very fast the subsequent 4 sec
 	 * timeouts are simply too short.
 	 */
-	getnanotime(&ts1);
+	nanotime(&ts1);
 	error = nb_connect_in(nbp, &sin, p);
 	if (error)
-		return error;
-	getnanotime(&ts2);
+		return (error);
+	nanotime(&ts2);
 	timespecsub(&ts2, &ts1);
 	timespecadd(&ts2, &ts2);
 	timespecadd(&ts2, &ts2);	/*  * 4 */
@@ -698,7 +677,7 @@ smb_nbst_connect(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 	error = nbssn_rq_request(nbp, p);
 	if (error)
 		smb_nbst_disconnect(vcp, p);
-	return error;
+	return (error);
 }
 
 static int
@@ -706,15 +685,17 @@ smb_nbst_disconnect(struct smb_vc *vcp, struct proc *p)
 {
 	#pragma unused(p)
 	struct nbpcb *nbp = vcp->vc_tdata;
-	struct socket *so;
+	socket_t so;
 
 	if (nbp == NULL || nbp->nbp_tso == NULL)
-		return ENOTCONN;
+		return (ENOTCONN);
 	if ((so = nbp->nbp_tso) != NULL) {
+		lck_mtx_lock(&nbp->nbp_lock);
 		nbp->nbp_flags &= ~NBF_CONNECTED;
-		nbp->nbp_tso = (struct socket *)NULL;
-		soshutdown(so, 2);
-		soclose(so);
+		nbp->nbp_tso = (socket_t) NULL;
+		lck_mtx_unlock(&nbp->nbp_lock);
+		sock_shutdown(so, 2);
+		sock_close(so);
 	}
 	if (nbp->nbp_state != NBST_RETARGET) {
 		nbp->nbp_state = NBST_CLOSED;
@@ -735,14 +716,14 @@ smb_nbst_send(struct smb_vc *vcp, struct mbuf *m0, struct proc *p)
 	}
 	M_PREPEND(m0, 4, M_WAITOK);
 	if (m0 == NULL)
-		return ENOBUFS;
+		return (ENOBUFS);
 	nb_sethdr(m0, NB_SSN_MESSAGE, m_fixhdr(m0) - 4);
-	error = nb_sosend(nbp->nbp_tso, m0, 0, p);
-	return error;
+	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)m0, 0, NULL);
+	return (error);
 abort:
 	if (m0)
 		m_freem(m0);
-	return error;
+	return (error);
 }
 
 
@@ -753,14 +734,19 @@ smb_nbst_recv(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p)
 	u_int8_t rpcode;
 	int error, rplen;
 
+	lck_mtx_lock(&nbp->nbp_lock);
 	if (nbp->nbp_flags & NBF_RECVLOCK) {
-		SMBERROR("attempt to reenter session layer!");
+		SMBERROR("attempt to reenter session layer!\n");
+		lck_mtx_unlock(&nbp->nbp_lock);
 		return (EWOULDBLOCK);
 	}
 	nbp->nbp_flags |= NBF_RECVLOCK;
-	error = nbssn_recv(nbp, mpp, &rplen, &rpcode, p);
+	lck_mtx_unlock(&nbp->nbp_lock);
+	error = nbssn_recv(nbp, mpp, &rplen, &rpcode, p, NULL);
+	lck_mtx_lock(&nbp->nbp_lock);
 	nbp->nbp_flags &= ~NBF_RECVLOCK;
-	return error;
+	lck_mtx_unlock(&nbp->nbp_lock);
+	return (error);
 }
 
 static void
@@ -777,11 +763,11 @@ smb_nbst_intr(struct smb_vc *vcp)
 
 	if (nbp == NULL || nbp->nbp_tso == NULL)
 		return;
-#ifdef APPLE
-	/* careful: these call sowakeup, which switches funnels */
+	SMBERROR("so[rw]wakeup unimplemented!\n");
+#if XXX
+	sorwakeup((struct socket *)nbp->nbp_tso);
+	sowwakeup((struct socket *)nbp->nbp_tso);
 #endif
-	sorwakeup(nbp->nbp_tso);
-	sowwakeup(nbp->nbp_tso);
 }
 
 static int
@@ -806,7 +792,7 @@ smb_nbst_getparam(struct smb_vc *vcp, int param, void *data)
 		*(void **)data = nbp->nbp_upcall;
 		break;
 	    default:
-		return EINVAL;
+		return (EINVAL);
 	}
 	return 0;
 }
@@ -824,7 +810,7 @@ smb_nbst_setparam(struct smb_vc *vcp, int param, void *data)
 		nbp->nbp_upcall = data;
 		break;
 	    default:
-		return EINVAL;
+		return (EINVAL);
 	}
 	return 0;
 }
@@ -840,21 +826,19 @@ smb_nbst_fatal(struct smb_vc *vcp, int error)
 	    case ENOTCONN:
 	    case ENETRESET:
 	    case ECONNABORTED:
+	    case EPIPE:
 		return 1;
 	}
 	return 0;
 }
 
 
-#ifdef APPLE
 static int
 smb_nbst_create0(struct smb_vc *vcp, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_create(vcp, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -864,9 +848,7 @@ smb_nbst_done0(struct smb_vc *vcp, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_done(vcp, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -876,9 +858,7 @@ smb_nbst_bind0(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_bind(vcp, sap, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -888,9 +868,7 @@ smb_nbst_connect0(struct smb_vc *vcp, struct sockaddr *sap, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_connect(vcp, sap, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -900,9 +878,7 @@ smb_nbst_disconnect0(struct smb_vc *vcp, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_disconnect(vcp, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -912,9 +888,7 @@ smb_nbst_send0(struct smb_vc *vcp, struct mbuf *m0, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_send(vcp, m0, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -924,9 +898,7 @@ smb_nbst_recv0(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_recv(vcp, mpp, p);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -934,18 +906,14 @@ smb_nbst_recv0(struct smb_vc *vcp, struct mbuf **mpp, struct proc *p)
 static void
 smb_nbst_timo0(struct smb_vc *vcp)
 {
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	smb_nbst_timo(vcp);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 }
 
 
 static void
 smb_nbst_intr0(struct smb_vc *vcp)
 {
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	smb_nbst_intr(vcp);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 }
 
 
@@ -954,9 +922,7 @@ smb_nbst_getparam0(struct smb_vc *vcp, int param, void *data)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_getparam(vcp, param, data);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -966,9 +932,7 @@ smb_nbst_setparam0(struct smb_vc *vcp, int param, void *data)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_setparam(vcp, param, data);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
 
@@ -978,31 +942,18 @@ smb_nbst_fatal0(struct smb_vc *vcp, int error)
 {
 	int rv;
 
-	thread_funnel_switch(KERNEL_FUNNEL, NETWORK_FUNNEL);
 	rv = smb_nbst_fatal(vcp, error);
-	thread_funnel_switch(NETWORK_FUNNEL, KERNEL_FUNNEL);
 	return (rv);
 }
-#endif /* APPLE */
 
 
 struct smb_tran_desc smb_tran_nbtcp_desc = {
 	SMBT_NBTCP,
-#ifdef APPLE
 	smb_nbst_create0, smb_nbst_done0,
 	smb_nbst_bind0, smb_nbst_connect0, smb_nbst_disconnect0,
 	smb_nbst_send0, smb_nbst_recv0,
 	smb_nbst_timo0, smb_nbst_intr0,
 	smb_nbst_getparam0, smb_nbst_setparam0,
 	smb_nbst_fatal0,
-#else /* APPLE */
-	smb_nbst_create, smb_nbst_done,
-	smb_nbst_bind, smb_nbst_connect, smb_nbst_disconnect,
-	smb_nbst_send, smb_nbst_recv,
-	smb_nbst_timo, smb_nbst_intr,
-	smb_nbst_getparam, smb_nbst_setparam,
-	smb_nbst_fatal,
-#endif /* APPLE */
 	{NULL, NULL}
 };
-

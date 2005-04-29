@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,7 +23,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 
@@ -72,11 +72,11 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
       }
    }
 
-   proj = VB->ProjectedClipPtr->data[0];
-   proj_stride = VB->ProjectedClipPtr->stride;
+   proj = VB->NdcPtr->data[0];
+   proj_stride = VB->NdcPtr->stride;
 
    if (IND & FOG) {
-      fog = VB->FogCoordPtr->data;
+      fog = (GLfloat *) VB->FogCoordPtr->data;
       fog_stride = VB->FogCoordPtr->stride;
    }
    if (IND & COLOR) {
@@ -98,7 +98,7 @@ static void TAG(emit)(GLcontext *ctx, GLuint start, GLuint end,
       index_stride = VB->IndexPtr[0]->stride;
    }
    if (IND & POINT) {
-      pointSize = VB->PointSizePtr->data;
+      pointSize = (GLfloat *) VB->PointSizePtr->data;
       pointSize_stride = VB->PointSizePtr->stride;
    }
 
@@ -214,6 +214,7 @@ static void TAG(interp)( GLcontext *ctx,
       INTERP_UI( t, dst->index, out->index, in->index );
    }
 
+   /* XXX Point size interpolation??? */
    if (IND & POINT) {
       INTERP_F( t, dst->pointSize, out->pointSize, in->pointSize );
    }

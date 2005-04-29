@@ -109,4 +109,11 @@ STRIPFLAGS =
 # owned by the top-level Makefile API and no context has been set up for where 
 # derived files should go.
 
-VPATH += :../tftp.tproj
+after_install:
+	mkdir -p "$(DSTROOT)/usr/share/man/man8"
+	cp tftpd.8 "$(DSTROOT)/usr/share/man/man8/"
+	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
+	cp tftp.plist "$(DSTROOT)/System/Library/LaunchDaemons/"
+	cp tftp.plist-SERVER "$(DSTROOT)/System/Library/LaunchDaemons/"
+	mkdir -p "$(DSTROOT)/private/tftpboot/private"
+	ln -s / "$(DSTROOT)/private/tftpboot/private/tftpboot"

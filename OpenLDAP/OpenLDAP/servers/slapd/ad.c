@@ -1,9 +1,18 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.41.2.10 2003/05/22 22:22:42 kurt Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
- */
 /* ad.c - routines for dealing with attribute descriptions */
+/* $OpenLDAP: pkg/ldap/servers/slapd/ad.c,v 1.59.2.5 2004/07/16 19:26:05 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
 
 #include "portable.h"
 
@@ -17,6 +26,7 @@
 
 #include "ldap_pvt.h"
 #include "slap.h"
+#include "lutil.h"
 
 typedef struct Attr_option {
 	struct berval name;	/* option name or prefix */
@@ -36,7 +46,7 @@ static int ad_keystring(
 {
 	ber_len_t i;
 
-	if( !AD_CHAR( bv->bv_val[0] ) ) {
+	if( !AD_LEADCHAR( bv->bv_val[0] ) ) {
 		return 1;
 	}
 
@@ -127,14 +137,14 @@ int slap_bv2ad(
 	assert( ad != NULL );
 	assert( *ad == NULL ); /* temporary */
 
-	if( bv == NULL || bv->bv_len == 0 ) {
-		*text = "empty attribute description";
+	if( bv == NULL || BER_BVISNULL( bv ) || BER_BVISEMPTY( bv ) ) {
+		*text = "empty AttributeDescription";
 		return rtn;
 	}
 
 	/* make sure description is IA5 */
 	if( ad_keystring( bv ) ) {
-		*text = "attribute description contains inappropriate characters";
+		*text = "AttributeDescription contains inappropriate characters";
 		return rtn;
 	}
 
@@ -191,8 +201,7 @@ int slap_bv2ad(
 			desc.ad_flags |= SLAP_DESC_BINARY;
 			continue;
 
-		} else if ( ad_find_option_definition( opt, optlen ) )
-		{
+		} else if ( ad_find_option_definition( opt, optlen ) ) {
 			int i;
 
 			if( opt[optlen-1] == '-' ) {
@@ -353,16 +362,13 @@ done:;
 						j = (lp
 						     ? lp - desc.ad_tags.bv_val - 1
 						     : strlen( desc.ad_tags.bv_val ));
-						strncpy(cp, desc.ad_tags.bv_val, j);
-						cp += j;
+						cp = lutil_strncopy(cp, desc.ad_tags.bv_val, j);
 					}
 				}
-				strcpy(cp, ";binary");
-				cp += sizeof(";binary")-1;
+				cp = lutil_strcopy(cp, ";binary");
 				if( lp != NULL ) {
 					*cp++ = ';';
-					strcpy(cp, lp);
-					cp += strlen( cp );
+					cp = lutil_strcopy(cp, lp);
 				}
 				d2->ad_cname.bv_len = cp - d2->ad_cname.bv_val;
 				if( desc.ad_tags.bv_len )
@@ -413,9 +419,6 @@ static int is_ad_subtags(
 	const char *subtags, *subp, *subdelimp;
 	int  suplen, sublen;
 
-	if( suptagsbv->bv_len == 0 ) return 1;
-	if( subtagsbv->bv_len == 0 ) return 0;
-
 	subtags =subtagsbv->bv_val;
 	suptags =suptagsbv->bv_val;
 
@@ -448,9 +451,13 @@ int is_ad_subtype(
 	AttributeDescription *super
 )
 {
+	AttributeType *a;
 	int lr;
 
-	if( !is_at_subtype( sub->ad_type, super->ad_type ) ) {
+	for ( a = sub->ad_type; a; a=a->sat_sup ) {
+		if ( a == super->ad_type ) break;
+	}
+	if( !a ) {
 		return 0;
 	}
 
@@ -461,11 +468,12 @@ int is_ad_subtype(
 	}
 
 	/* check for tagging options */
-	if ( !is_ad_subtags( &sub->ad_tags, &super->ad_tags )) {
+	if ( super->ad_tags.bv_len == 0 )
+		return 1;
+	if ( sub->ad_tags.bv_len == 0 )
 		return 0;
-	}
 
-	return 1;
+	return is_ad_subtags( &sub->ad_tags, &super->ad_tags );
 }
 
 int ad_inlist(
@@ -475,46 +483,114 @@ int ad_inlist(
 	if (! attrs ) return 0;
 
 	for( ; attrs->an_name.bv_val; attrs++ ) {
+		AttributeType *a;
 		ObjectClass *oc;
-		int rc;
 		
 		if ( attrs->an_desc ) {
+			int lr;
+
 			if ( desc == attrs->an_desc ) {
 				return 1;
 			}
 
 			/*
-			 * EXTENSION: if requested description is preceeded by an
+			 * EXTENSION: if requested description is preceeded by
 			 * a '-' character, do not match on subtypes.
 			 */
-			if ( attrs->an_name.bv_val[0] != '-' &&
-				is_ad_subtype( desc, attrs->an_desc ))
-			{
+			if ( attrs->an_name.bv_val[0] == '-' ) {
+				continue;
+			}
+			
+			/* Is this a subtype of the requested attr? */
+			for (a = desc->ad_type; a; a=a->sat_sup) {
+				if ( a == attrs->an_desc->ad_type )
+					break;
+			}
+			if ( !a ) {
+				continue;
+			}
+			/* Does desc support all the requested flags? */
+			lr = desc->ad_tags.bv_len ? SLAP_DESC_TAG_RANGE : 0;
+			if(( attrs->an_desc->ad_flags & (desc->ad_flags | lr))
+				!= attrs->an_desc->ad_flags ) {
+				continue;
+			}
+			/* Do the descs have compatible tags? */
+			if ( attrs->an_desc->ad_tags.bv_len == 0 ) {
 				return 1;
 			}
-
+			if ( desc->ad_tags.bv_len == 0) {
+				continue;
+			}
+			if ( is_ad_subtags( &desc->ad_tags,
+				&attrs->an_desc->ad_tags ) ) {
+				return 1;
+			}
 			continue;
 		}
 
 		/*
-		 * EXTENSION: see if requested description is +objectClass
+		 * EXTENSION: see if requested description is @objectClass
 		 * if so, return attributes which the class requires/allows
+		 * else if requested description is !objectClass, return
+		 * attributes which the class does not require/allow
 		 */
 		oc = attrs->an_oc;
 		if( oc == NULL && attrs->an_name.bv_val ) {
 			switch( attrs->an_name.bv_val[0] ) {
-			case '+': { /* new way */
+			case '@': /* @objectClass */
+			case '+': /* +objectClass (deprecated) */
+			case '!': { /* exclude */
 					struct berval ocname;
 					ocname.bv_len = attrs->an_name.bv_len - 1;
 					ocname.bv_val = &attrs->an_name.bv_val[1];
 					oc = oc_bvfind( &ocname );
+					attrs->an_oc_exclude = 0;
+					if ( oc && attrs->an_name.bv_val[0] == '!' ) {
+						attrs->an_oc_exclude = 1;
+					}
 				} break;
+
 			default: /* old (deprecated) way */
 				oc = oc_bvfind( &attrs->an_name );
 			}
 			attrs->an_oc = oc;
 		}
 		if( oc != NULL ) {
+			if ( attrs->an_oc_exclude ) {
+				if ( oc == slap_schema.si_oc_extensibleObject ) {
+					/* extensibleObject allows the return of anything */
+					return 0;
+				}
+
+				if( oc->soc_required ) {
+					/* allow return of required attributes */
+					int i;
+				
+   					for ( i = 0; oc->soc_required[i] != NULL; i++ ) {
+						for (a = desc->ad_type; a; a=a->sat_sup) {
+							if ( a == oc->soc_required[i] ) {
+								return 0;
+							}
+						}
+					}
+				}
+
+				if( oc->soc_allowed ) {
+					/* allow return of allowed attributes */
+					int i;
+   					for ( i = 0; oc->soc_allowed[i] != NULL; i++ ) {
+						for (a = desc->ad_type; a; a=a->sat_sup) {
+							if ( a == oc->soc_allowed[i] ) {
+								return 0;
+							}
+						}
+					}
+				}
+
+				return 1;
+			}
+			
 			if ( oc == slap_schema.si_oc_extensibleObject ) {
 				/* extensibleObject allows the return of anything */
 				return 1;
@@ -523,10 +599,13 @@ int ad_inlist(
 			if( oc->soc_required ) {
 				/* allow return of required attributes */
 				int i;
+				
    				for ( i = 0; oc->soc_required[i] != NULL; i++ ) {
-					rc = is_at_subtype( desc->ad_type,
-						oc->soc_required[i] );
-					if( rc ) return 1;
+					for (a = desc->ad_type; a; a=a->sat_sup) {
+						if ( a == oc->soc_required[i] ) {
+							return 1;
+						}
+					}
 				}
 			}
 
@@ -534,9 +613,11 @@ int ad_inlist(
 				/* allow return of allowed attributes */
 				int i;
    				for ( i = 0; oc->soc_allowed[i] != NULL; i++ ) {
-					rc = is_at_subtype( desc->ad_type,
-						oc->soc_allowed[i] );
-					if( rc ) return 1;
+					for (a = desc->ad_type; a; a=a->sat_sup) {
+						if ( a == oc->soc_allowed[i] ) {
+							return 1;
+						}
+					}
 				}
 			}
 
@@ -579,13 +660,13 @@ int slap_bv2undef_ad(
 	assert( ad != NULL );
 
 	if( bv == NULL || bv->bv_len == 0 ) {
-		*text = "empty attribute description";
+		*text = "empty AttributeDescription";
 		return LDAP_UNDEFINED_TYPE;
 	}
 
 	/* make sure description is IA5 */
 	if( ad_keystring( bv ) ) {
-		*text = "attribute description contains inappropriate characters";
+		*text = "AttributeDescription contains inappropriate characters";
 		return LDAP_UNDEFINED_TYPE;
 	}
 
@@ -647,15 +728,16 @@ an_find(
 }
 
 /*
- * Convert a delimited string into a list of AttributeNames; 
- * add on to an existing list if it was given.  If the string
- * is not a valid attribute name, if a '-' is prepended it is 
- * skipped and the remaining name is tried again; if a '+' is
- * prepended, an objectclass name is searched instead.
+ * Convert a delimited string into a list of AttributeNames; add
+ * on to an existing list if it was given.  If the string is not
+ * a valid attribute name, if a '-' is prepended it is skipped
+ * and the remaining name is tried again; if a '@' (or '+') is
+ * prepended, an objectclass name is searched instead; if a '!'
+ * is prepended, the objectclass name is negated.
  * 
- * NOTE: currently, if a valid attribute name is not found,
- * the same string is also checked as valid objectclass name;
- * however, this behavior is deprecated.
+ * NOTE: currently, if a valid attribute name is not found, the
+ * same string is also checked as valid objectclass name; however,
+ * this behavior is deprecated.
  */
 AttributeName *
 str2anlist( AttributeName *an, char *in, const char *brkstr )
@@ -689,6 +771,7 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 	{
 		anew->an_desc = NULL;
 		anew->an_oc = NULL;
+		anew->an_oc_exclude = 0;
 		ber_str2bv(s, 0, 1, &anew->an_name);
 		slap_bv2ad(&anew->an_name, &anew->an_desc, &text);
 		if ( !anew->an_desc ) {
@@ -709,7 +792,9 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 					}
 				} break;
 
-			case '+': {
+			case '@':
+			case '+': /* (deprecated) */
+			case '!': {
 					struct berval ocname;
 					ocname.bv_len = anew->an_name.bv_len - 1;
 					ocname.bv_val = &anew->an_name.bv_val[1];
@@ -722,6 +807,10 @@ str2anlist( AttributeName *an, char *in, const char *brkstr )
 						 */
 						strcpy( in, s );
 						return NULL;
+					}
+
+					if ( anew->an_name.bv_val[0] == '!' ) {
+						anew->an_oc_exclude = 1;
 					}
 				} break;
 
@@ -843,6 +932,28 @@ ad_find_option_definition( const char *opt, int optlen )
 			bot = mid;
 		else
 			top = mid + 1;
+	}
+	return NULL;
+}
+
+MatchingRule *ad_mr(
+	AttributeDescription *ad,
+	unsigned usage )
+{
+	switch( usage & SLAP_MR_TYPE_MASK ) {
+	case SLAP_MR_NONE:
+	case SLAP_MR_EQUALITY:
+		return ad->ad_type->sat_equality;
+		break;
+	case SLAP_MR_ORDERING:
+		return ad->ad_type->sat_ordering;
+		break;
+	case SLAP_MR_SUBSTR:
+		return ad->ad_type->sat_substr;
+		break;
+	case SLAP_MR_EXT:
+	default:
+		assert( 0 /* ad_mr: bad usage */);
 	}
 	return NULL;
 }

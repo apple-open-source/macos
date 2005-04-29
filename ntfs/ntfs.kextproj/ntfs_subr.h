@@ -1,3 +1,27 @@
+/*
+ * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
 /*	$NetBSD: ntfs_subr.h,v 1.8 1999/10/10 14:48:37 jdolecek Exp $	*/
 
 /*-
@@ -35,7 +59,7 @@ struct ntvattr {
 	LIST_ENTRY(ntvattr) 	va_list;
 
 	u_int32_t		va_vflag;
-	struct vnode	       *va_vp;
+	vnode_t			va_vp;
 	struct ntnode 	       *va_ip;
 
 	u_int32_t		va_flag;
@@ -74,48 +98,27 @@ struct componentname;
 struct fnode;
 struct uio;
 
-int ntfs_procfixups( struct ntfsmount *, u_int32_t, caddr_t, size_t );
 int ntfs_parserun( cn_t *, cn_t *, u_int8_t *, u_long, u_long *);
 int ntfs_runtocn( cn_t *, struct ntfsmount *, u_int8_t *, u_long, cn_t);
-int ntfs_readntvattr_plain( struct ntfsmount *, struct ntnode *, struct ntvattr *, off_t, size_t, void *,size_t *, struct uio *);
-int ntfs_readattr_plain( struct ntfsmount *, struct ntnode *, u_int32_t, char *, off_t, size_t, void *,size_t *, struct uio *);
-int ntfs_readattr( struct ntfsmount *, struct ntnode *, u_int32_t, char *, off_t, size_t, void *, struct uio *);
-int ntfs_filesize( struct ntfsmount *, struct fnode *, u_int64_t *, u_int64_t *);
-int ntfs_times( struct ntfsmount *, struct ntnode *, ntfs_times_t *);
+int ntfs_readattr( struct ntfsmount *, struct ntnode *, u_int32_t, char *, off_t, size_t, void *, struct uio *, proc_t);
+int ntfs_filesize( struct ntfsmount *, struct fnode *, proc_t, u_int64_t *, u_int64_t *);
+int ntfs_times( struct ntfsmount *, struct ntnode *, vfs_context_t, ntfs_times_t *);
 struct timespec	ntfs_nttimetounix( u_int64_t );
-int ntfs_ntreaddir( struct ntfsmount *, struct fnode *, u_int32_t, struct attr_indexentry **);
-int ntfs_runtovrun( cn_t **, cn_t **, u_long *, u_int8_t *);
-int ntfs_attrtontvattr( struct ntfsmount *, struct ntvattr **, struct attr * );
-void ntfs_freentvattr( struct ntvattr * );
-int ntfs_loadntvattrs( struct ntfsmount *, struct vnode *, caddr_t, struct ntvattr **);
+int ntfs_ntreaddir( struct ntfsmount *, struct fnode *, u_int32_t, struct attr_indexentry **, proc_t);
+int ntfs_loadntvattrs( struct ntfsmount *, vnode_t, caddr_t, struct ntvattr **);
 struct ntvattr * ntfs_findntvattr( struct ntfsmount *, struct ntnode *, u_int32_t, cn_t );
-int ntfs_ntlookupfile(struct ntfsmount *, struct vnode *, struct componentname *, struct vnode **);
+int ntfs_ntlookupfile(struct ntfsmount *, vnode_t, struct componentname *, proc_t, vnode_t *);
 int ntfs_isnamepermitted(struct ntfsmount *, struct attr_indexentry * );
 int ntfs_ntvattrrele(struct ntvattr * );
-int ntfs_ntvattrget(struct ntfsmount *, struct ntnode *, u_int32_t, const char *, cn_t , struct ntvattr **);
+int ntfs_ntvattrget(struct ntfsmount *, struct ntnode *, u_int32_t, const char *, cn_t , proc_t, struct ntvattr **);
 int ntfs_ntlookup(struct ntfsmount *, ino_t, struct ntnode **);
 int ntfs_ntget(struct ntnode *);
-void ntfs_ntref(struct ntnode *);
-void ntfs_ntrele(struct ntnode *);
 void ntfs_ntput(struct ntnode *);
-int ntfs_loadntnode( struct ntfsmount *, struct ntnode * );
+int ntfs_loadntnode(struct ntfsmount *, struct ntnode *, proc_t);
 int ntfs_writentvattr_plain(struct ntfsmount *, struct ntnode *, struct ntvattr *, off_t, size_t, void *, size_t *, struct uio *);
 int ntfs_writeattr_plain(struct ntfsmount *, struct ntnode *, u_int32_t, char *, off_t, size_t, void *, size_t *, struct uio *);
 void ntfs_toupper_init(void);
-void ntfs_toupper_destroy(void);
-int ntfs_toupper_use(struct mount *, struct ntfsmount *);
+int ntfs_toupper_use(mount_t, struct ntfsmount *, proc_t);
 void ntfs_toupper_unuse(void);
 int ntfs_fget(struct ntfsmount *, struct ntnode *, int, char *, struct fnode **);
 void ntfs_frele(struct fnode *);
-
-int ntfs_u28_init(struct ntfsmount *ntmp, wchar *u2w);
-int ntfs_u28_uninit(struct ntfsmount *ntmp);
-int ntfs_82u_init(struct ntfsmount *ntmp, u_int16_t *u2w);
-int ntfs_82u_uninit(struct ntfsmount *ntmp);
-char ntfs_u28(struct ntfsmount *ntmp, wchar wc);
-#define NTFS_U28(ch)		ntfs_u28(ntmp, (ch))
-#define NTFS_82U(ch)		(ntmp->ntm_82u[(ch)&0xFF])
-#define	NTFS_UASTRCMP(ustr, ustrlen, astr, astrlen)	\
-	ntfs_uastrcmp(ntmp, (ustr), (ustrlen), (astr), (astrlen))
-#define	NTFS_UASTRICMP(ustr, ustrlen, astr, astrlen)	\
-	ntfs_uastricmp(ntmp, (ustr), (ustrlen), (astr), (astrlen))

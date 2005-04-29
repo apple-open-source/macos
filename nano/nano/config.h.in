@@ -1,0 +1,185 @@
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
+/* Define this if your regexec() function segfaults when passed an empty
+   string under certain conditions. */
+#undef BROKEN_REGEXEC
+
+/* Define this to enable nano debug messages and assert warnings. */
+#undef DEBUG
+
+/* Define this to disable the built-in (crappy) file browser. */
+#undef DISABLE_BROWSER
+
+/* Define this to disable the ^G help menu. */
+#undef DISABLE_HELP
+
+/* Define this to disable the justify routine. */
+#undef DISABLE_JUSTIFY
+
+/* Define this to disable the mouse functions. */
+#undef DISABLE_MOUSE
+
+/* Define this to disable setting of the operating directory (chroot of
+   sorts). */
+#undef DISABLE_OPERATINGDIR
+
+/* Define this to disable wrapping as root by default. */
+#undef DISABLE_ROOTWRAP
+
+/* Define this to disable the use(full|less) spelling functions. */
+#undef DISABLE_SPELLER
+
+/* Define to disable the tab completion code Chris worked so hard on! */
+#undef DISABLE_TABCOMP
+
+/* Define this to disable any and all text wrapping. */
+#undef DISABLE_WRAPPING
+
+/* Define this to have syntax highlighting, requires ENABLE_NANORC too! */
+#undef ENABLE_COLOR
+
+/* Define this to enable multiple file buffers. */
+#undef ENABLE_MULTIBUFFER
+
+/* Define this to use the .nanorc file. */
+#undef ENABLE_NANORC
+
+/* Define to 1 if translation of program messages to the user's native
+   language is requested. */
+#undef ENABLE_NLS
+
+/* Define to 1 if you have the <curses.h> header file. */
+#undef HAVE_CURSES_H
+
+/* Define if the GNU dcgettext() function is already present or preinstalled.
+   */
+#undef HAVE_DCGETTEXT
+
+/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
+#undef HAVE_DOPRNT
+
+/* Define to 1 if you have the <fcntl.h> header file. */
+#undef HAVE_FCNTL_H
+
+/* Define to 1 if you have the <getopt.h> header file. */
+#undef HAVE_GETOPT_H
+
+/* Define to 1 if you have the `getopt_long' function. */
+#undef HAVE_GETOPT_LONG
+
+/* Define if the GNU gettext() function is already present or preinstalled. */
+#undef HAVE_GETTEXT
+
+/* Define if you have the iconv() function. */
+#undef HAVE_ICONV
+
+/* Define to 1 if you have the <inttypes.h> header file. */
+#undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the <libintl.h> header file. */
+#undef HAVE_LIBINTL_H
+
+/* Define to 1 if you have the <limits.h> header file. */
+#undef HAVE_LIMITS_H
+
+/* Define to 1 if you have the <memory.h> header file. */
+#undef HAVE_MEMORY_H
+
+/* Define to 1 if you have the <ncurses.h> header file. */
+#undef HAVE_NCURSES_H
+
+/* Define to 1 if you have the <regex.h> header file. */
+#undef HAVE_REGEX_H
+
+/* Define to 1 if you have the `snprintf' function. */
+#undef HAVE_SNPRINTF
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdlib.h> header file. */
+#undef HAVE_STDLIB_H
+
+/* Define to 1 if you have the `strcasecmp' function. */
+#undef HAVE_STRCASECMP
+
+/* Define to 1 if you have the <strings.h> header file. */
+#undef HAVE_STRINGS_H
+
+/* Define to 1 if you have the <string.h> header file. */
+#undef HAVE_STRING_H
+
+/* Define to 1 if you have the `strncasecmp' function. */
+#undef HAVE_STRNCASECMP
+
+/* Define to 1 if you have the <sys/stat.h> header file. */
+#undef HAVE_SYS_STAT_H
+
+/* Define to 1 if you have the <sys/types.h> header file. */
+#undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <termios.h> header file. */
+#undef HAVE_TERMIOS_H
+
+/* Define to 1 if you have the <termio.h> header file. */
+#undef HAVE_TERMIO_H
+
+/* Define to 1 if you have the <unistd.h> header file. */
+#undef HAVE_UNISTD_H
+
+/* Define this if your curses lib has the _use_keypad flag. */
+#undef HAVE_USEKEYPAD
+
+/* Define this if your curses library has the use_default_colors command. */
+#undef HAVE_USE_DEFAULT_COLORS
+
+/* Define to 1 if you have the `vprintf' function. */
+#undef HAVE_VPRINTF
+
+/* Define to 1 if you have the `vsnprintf' function. */
+#undef HAVE_VSNPRINTF
+
+/* Define this to enable the extra stuff. */
+#undef NANO_EXTRA
+
+/* Define this to make the nano executable as small as possible. */
+#undef NANO_SMALL
+
+/* Shut up the assert warnings :-) */
+#undef NDEBUG
+
+/* Name of package */
+#undef PACKAGE
+
+/* Define to the address where bug reports for this package should be sent. */
+#undef PACKAGE_BUGREPORT
+
+/* Define to the full name of this package. */
+#undef PACKAGE_NAME
+
+/* Define to the full name and version of this package. */
+#undef PACKAGE_STRING
+
+/* Define to the one symbol short name of this package. */
+#undef PACKAGE_TARNAME
+
+/* Define to the version of this package. */
+#undef PACKAGE_VERSION
+
+/* Define as the return type of signal handlers (`int' or `void'). */
+#undef RETSIGTYPE
+
+/* Define to 1 if you have the ANSI C header files. */
+#undef STDC_HEADERS
+
+/* Define to use the slang wrappers for curses instead of native curses. */
+#undef USE_SLANG
+
+/* Version number of package */
+#undef VERSION
+
+/* Number of bits in a file offset, on hosts where this is settable. */
+#undef _FILE_OFFSET_BITS
+
+/* Define for large files, on AIX-style hosts. */
+#undef _LARGE_FILES

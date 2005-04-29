@@ -3,22 +3,21 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
+ * Reserved.  This file contains Original Code and/or Modifications of
+ * Original Code as defined in and that are subject to the Apple Public
+ * Source License Version 1.0 (the 'License').  You may not use this file
+ * except in compliance with the License.  Please obtain a copy of the
+ * License at http://www.apple.com/publicsource and read it before using
+ * this file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License."
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -216,11 +215,16 @@ WriteBogusDefines(file)
     fprintf(file, "#endif\t/* mig_external */\n");
     fprintf(file, "\n");
 
-    fprintf(file, "#ifndef\tTypeCheck\n");
-    fprintf(file, "#define\tTypeCheck 0\n");
-    fprintf(file, "#endif\t/* TypeCheck */\n");
+    fprintf(file, "#if\t!defined(__MigTypeCheck) && defined(TypeCheck)\n");
+    fprintf(file, "#define\t__MigTypeCheck\t\tTypeCheck\t/* Legacy setting */\n");
+    fprintf(file, "#endif\t/* !defined(__MigTypeCheck) */\n");
     fprintf(file, "\n");
 
+    fprintf(file, "#if\t!defined(__MigKernelSpecificCode) && defined(_MIG_KERNEL_SPECIFIC_CODE_)\n");
+    fprintf(file, "#define\t__MigKernelSpecificCode\t_MIG_KERNEL_SPECIFIC_CODE_\t/* Legacy setting */\n");
+    fprintf(file, "#endif\t/* !defined(__MigKernelSpecificCode) */\n");
+    fprintf(file, "\n");
+    
     fprintf(file, "#ifndef\tLimitCheck\n");
     fprintf(file, "#define\tLimitCheck 0\n");
     fprintf(file, "#endif\t/* LimitCheck */\n");
@@ -480,6 +484,7 @@ WriteStructDecl(file, args, func, mask, name, simple, trailer, trailer_t, templa
     boolean_t simple, trailer;
     boolean_t trailer_t, template_only;
 {
+    fprintf(file, "\n#ifdef  __MigPackStructs\n#pragma pack(%lu)\n#endif\n",sizeof(natural_t));
     fprintf(file, "\ttypedef struct {\n");
     fprintf(file, "\t\tmach_msg_header_t Head;\n");
     if (simple == FALSE) {
@@ -501,7 +506,7 @@ WriteStructDecl(file, args, func, mask, name, simple, trailer, trailer_t, templa
 	    WriteTrailerDecl(file, trailer_t);    
     }
     fprintf(file, "\t} %s;\n", name);
-    fprintf(file, "\n");
+    fprintf(file, "#ifdef  __MigPackStructs\n#pragma pack()\n#endif\n");
 }
 
 void
@@ -967,7 +972,7 @@ WriteLogMsg(file, rt, where, what)
 	if (rt->rtNumRequestVar)
 	    fprintf(file, "\t\tmsgh_size,\n");
 	else
-	    fprintf(file, "\t\tsizeof(Request),\n");
+	    fprintf(file, "\t\t(mach_msg_size_t)sizeof(Request),\n");
     } else 
 	fprintf(file, "\t\t%s->Head.msgh_size,\n", ptr_str);
     if ((what == LOG_REQUEST && rt->rtSimpleRequest == FALSE) ||
@@ -1042,7 +1047,7 @@ WriteReturnMsgError(file, rt, isuser, arg, error)
 
     if (isuser) {
    	if (! rtMessOnStack(rt))
-		fprintf(file, "%s((char *) Mess, sizeof(*Mess)); ", MessFreeRoutine);
+		fprintf(file, "%s((char *) Mess, (mach_msg_size_t)sizeof(*Mess)); ", MessFreeRoutine);
 
         fprintf(file, "%sreturn %s; }\n", string, error);
     }
@@ -1067,10 +1072,10 @@ WriteCheckTrailerHead(file, rt, isuser)
     else
       fprintf(file, "\t\t{ MIG_RETURN_ERROR(%s, MIG_TRAILER_ERROR); }\n", who);
     
-    fprintf(file, "#if\tTypeCheck\n");
+    fprintf(file, "#if\t__MigTypeCheck\n");
     fprintf(file, "\ttrailer_size = TrailerP->msgh_trailer_size -\n");
-    fprintf(file, "\t\tsizeof(mach_msg_trailer_type_t) - sizeof(mach_msg_trailer_size_t);\n");
-    fprintf(file, "#endif\t/* TypeCheck */\n");
+    fprintf(file, "\t\t(mach_msg_size_t)(sizeof(mach_msg_trailer_type_t) - sizeof(mach_msg_trailer_size_t));\n");
+    fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 }
 
 /* executed iff elements are defined */
@@ -1080,29 +1085,29 @@ WriteCheckTrailerSize(file, isuser, arg)
     boolean_t isuser;
     register argument_t *arg;
 {
-    fprintf(file, "#if\tTypeCheck\n");
+    fprintf(file, "#if\t__MigTypeCheck\n");
     if (akIdent(arg->argKind) == akeMsgSeqno) {
-	fprintf(file, "\tif (trailer_size < sizeof(mach_port_seqno_t))\n");
+	fprintf(file, "\tif (trailer_size < (mach_msg_size_t)sizeof(mach_port_seqno_t))\n");
 	if (isuser)
 		fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
 	else
 		fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
-	fprintf(file, "\ttrailer_size -= sizeof(mach_port_seqno_t);\n");
+	fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(mach_port_seqno_t);\n");
     } else if (akIdent(arg->argKind) == akeSecToken) {
-		fprintf(file, "\tif (trailer_size < sizeof(security_token_t))\n");
+		fprintf(file, "\tif (trailer_size < (mach_msg_size_t)sizeof(security_token_t))\n");
 		if (isuser)
 			fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
 		else
 			fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
-		fprintf(file, "\ttrailer_size -= sizeof(security_token_t);\n");
+		fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(security_token_t);\n");
     } else if (akIdent(arg->argKind) == akeAuditToken) {
-		fprintf(file, "\tif (trailer_size < sizeof(audit_token_t))\n");
+		fprintf(file, "\tif (trailer_size < (mach_msg_size_t)sizeof(audit_token_t))\n");
 		if (isuser)
 			fprintf(file, "\t\t{ return MIG_TRAILER_ERROR ; }\n");
 		else
 			fprintf(file, "\t\t{ MIG_RETURN_ERROR(OutP, MIG_TRAILER_ERROR); }\n");
-		fprintf(file, "\ttrailer_size -= sizeof(audit_token_t);\n");
+		fprintf(file, "\ttrailer_size -= (mach_msg_size_t)sizeof(audit_token_t);\n");
     }
-    fprintf(file, "#endif\t/* TypeCheck */\n");
+    fprintf(file, "#endif\t/* __MigTypeCheck */\n");
 }
 

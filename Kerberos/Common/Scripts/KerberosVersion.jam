@@ -1,0 +1,24 @@
+KERBEROSVERSION = "$(SRCROOT)/../Scripts/KerberosVersion.pl" ;
+APPLEVERSION = "5.5.19" ;
+KFMVERSION = "5.5" ;
+
+# KerberosVersion <target> : <searchdir>
+rule KerberosVersion
+{
+    NOTFILE "$(1)" ;
+    ALWAYS "$(1)" ;
+    DEPENDS "$(1)" : "$(2)" ;
+}
+actions KerberosVersion
+{
+    /usr/bin/perl "$(KERBEROSVERSION)" --version $(APPLEVERSION) --versionString $(KFMVERSION) "$(2)"
+}
+
+KerberosVersion install : "$(DSTROOT)" ;
+KerberosVersion all : "$(BUILT_PRODUCTS_DIR)" ;
+
+NOCARE installhdrs ;
+NOTFILE installhdrs ;
+
+NOCARE clean ;
+NOTFILE clean ;

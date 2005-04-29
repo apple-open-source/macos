@@ -1,4 +1,4 @@
-/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/sampleCompTop.cc,v 1.2 2001/04/01 13:59:57 tsi Exp $ */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/sampleCompTop.cc,v 1.3 2003/10/22 19:20:58 tsi Exp $ */
 /*
 ** License Applicability. Except to the extent portions of this file are
 ** made subject to an alternative license as permitted in the SGI Free
@@ -324,7 +324,6 @@ void sampleTopLeftWithGridLine(Real* topVertex,
 				pStream);   
 }
  
-                
 //return 1 if saprator exits, 0 otherwise
 Int findTopSeparator(vertexArray* leftChain,
 		     Int leftStartIndex,
@@ -335,7 +334,6 @@ Int findTopSeparator(vertexArray* leftChain,
 		     Int& ret_sep_left,
 		     Int& ret_sep_right)
 {
-  
   Int oldLeftI, oldRightI, newLeftI, newRightI;
   Int i,j,k;
   Real leftMax /*= leftChain->getVertex(leftEndIndex)[0]*/;
@@ -467,7 +465,6 @@ Int findTopSeparator(vertexArray* leftChain,
     }
 }
 
-        
 void sampleCompTop(Real* topVertex,
                    vertexArray* leftChain,
                    Int leftStartIndex,
@@ -514,6 +511,7 @@ void sampleCompTop(Real* topVertex,
     }
   else if(up_rightCornerWhere != 2)
     {
+/*
       Real* tempTop;
       Int tempLeftStart;
       if(up_rightCornerWhere == 1)
@@ -521,12 +519,11 @@ void sampleCompTop(Real* topVertex,
 	  tempLeftStart = leftStartIndex;
 	  tempTop = topVertex;
 	}
-      else //0
+      else
 	{
 	  tempLeftStart = up_rightCornerIndex+1;
 	  tempTop = leftChain->getVertex(up_rightCornerIndex);
 	}
-/*
       sampleTopLeftWithGridLine(tempTop, leftChain, tempLeftStart, up_leftCornerIndex,
 				leftGridChain->getGrid(),
 				 leftGridChain->getVlineIndex(gridIndex1),
@@ -770,7 +767,6 @@ void sampleCompTop(Real* topVertex,
     }//end if 0,2
 }//end if the function
 
-		   
 static void sampleCompTopSimpleOpt(gridWrap* grid,
 				   Int gridV,
 				   Real* topVertex, Real* botVertex,
@@ -1005,7 +1001,6 @@ void sampleCompTopSimple(Real* topVertex,
 			    0,
 			    ActualRightChain.getNumElements()-1,
 			    pStream);
-    
   }
   else
     {
@@ -1023,11 +1018,7 @@ void sampleCompTopSimple(Real* topVertex,
 			  &ActualRightChain,
 			  0, ActualRightChain.getNumElements()-2, //the last is the bot.
 			  pStream);
-
-   
   }
 
   free(gridPoints);
-      
 }		  
-						   

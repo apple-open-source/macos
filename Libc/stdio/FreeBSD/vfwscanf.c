@@ -34,14 +34,13 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #if 0
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
-__FBSDID("FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.32 2003/06/28 09:03:05 das Exp ");
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.6 2003/07/05 03:39:23 tjr Exp $");
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.12 2004/05/02 20:13:29 obrien Exp $");
 
 #include "namespace.h"
 #include <ctype.h>
@@ -58,9 +57,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.6 2003/07/05 03:39:23 tjr 
 #include "libc_private.h"
 #include "local.h"
 
-#define FLOATING_POINT
-
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 #include <locale.h>
 #endif
 
@@ -90,6 +87,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfwscanf.c,v 1.6 2003/07/05 03:39:23 tjr 
 #define	NDIGITS		0x80	/* no digits detected */
 #define	PFXOK		0x100	/* 0x prefix is (still) legal */
 #define	NZDIGITS	0x200	/* no zero digits detected */
+#define	HAVESIGN	0x10000	/* sign detected */
 
 /*
  * Conversion types.
@@ -146,8 +144,9 @@ __vfwscanf(FILE * __restrict fp, const wchar_t * __restrict fmt, va_list ap)
 	wint_t wi;		/* handy wint_t */
 	char *mbp;		/* multibyte string pointer for %c %s %[ */
 	size_t nconv;		/* number of bytes in mb. conversion */
-	mbstate_t mbs;		/* multibyte state */
 	char mbbuf[MB_LEN_MAX];	/* temporary mb. character buffer */
+	static const mbstate_t initial;
+	mbstate_t mbs;
 
 	/* `basefix' is used to avoid `if' tests in the integer scanner */
 	static short basefix[17] =
@@ -261,7 +260,7 @@ literal:
 			base = 16;
 			break;
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 		case 'A': case 'E': case 'F': case 'G':
 		case 'a': case 'e': case 'f': case 'g':
 			c = CT_FLOAT;
@@ -379,7 +378,7 @@ literal:
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
 				n = 0;
-				memset(&mbs, 0, sizeof(mbs));
+				mbs = initial;
 				while (width != 0 &&
 				    (wi = __fgetwc(fp)) != WEOF) {
 					if (width >= MB_CUR_MAX &&
@@ -444,7 +443,7 @@ literal:
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
 				n = 0;
-				memset(&mbs, 0, sizeof(mbs));
+				mbs = initial;
 				while ((wi = __fgetwc(fp)) != WEOF &&
 				    width != 0 && INCCL(wi)) {
 					if (width >= MB_CUR_MAX &&
@@ -505,7 +504,7 @@ literal:
 			} else {
 				if (!(flags & SUPPRESS))
 					mbp = va_arg(ap, char *);
-				memset(&mbs, 0, sizeof(mbs));
+				mbs = initial;
 				while ((wi = __fgetwc(fp)) != WEOF &&
 				    width != 0 &&
 				    !iswspace(wi)) {
@@ -607,13 +606,18 @@ literal:
 				case '+': case '-':
 					if (flags & SIGNOK) {
 						flags &= ~SIGNOK;
+						flags |= HAVESIGN;
 						goto ok;
 					}
 					break;
-
-				/* x ok iff flag still set & 2nd char */
+					
+				/*
+				 * x ok iff flag still set & 2nd char (or
+				 * 3rd char if we have a sign).
+				 */
 				case 'x': case 'X':
-					if (flags & PFXOK && p == buf + 1) {
+					if (flags & PFXOK && p ==
+					    buf + 1 + !!(flags & HAVESIGN)) {
 						base = 16;	/* if %i */
 						flags &= ~PFXOK;
 						goto ok;
@@ -683,7 +687,7 @@ literal:
 			nconversions++;
 			break;
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 		case CT_FLOAT:
 			/* scan a floating point number as if by strtod */
 			if (width == 0 || width > sizeof(buf) /
@@ -709,7 +713,7 @@ literal:
 			nread += width;
 			nconversions++;
 			break;
-#endif /* FLOATING_POINT */
+#endif /* !NO_FLOATING_POINT */
 		}
 	}
 input_failure:
@@ -718,7 +722,7 @@ match_failure:
 	return (nassigned);
 }
 
-#ifdef FLOATING_POINT
+#ifndef NO_FLOATING_POINT
 static int
 parsefloat(FILE *fp, wchar_t *buf, wchar_t *end)
 {
@@ -820,7 +824,7 @@ reswitch:
 				goto reswitch;
 			}
 		case S_DIGITS:
-			if (ishex && iswxdigit(c) || iswdigit(c))
+			if ((ishex && iswxdigit(c)) || iswdigit(c))
 				gotmantdig = 1;
 			else {
 				state = S_FRAC;
@@ -831,13 +835,13 @@ reswitch:
 				commit = p;
 			break;
 		case S_FRAC:
-			if ((c == 'E' || c == 'e') && !ishex ||
-			    (c == 'P' || c == 'p') && ishex) {
+			if (((c == 'E' || c == 'e') && !ishex) ||
+			    ((c == 'P' || c == 'p') && ishex)) {
 				if (!gotmantdig)
 					goto parsedone;
 				else
 					state = S_EXP;
-			} else if (ishex && iswxdigit(c) || iswdigit(c)) {
+			} else if ((ishex && iswxdigit(c)) || iswdigit(c)) {
 				commit = p;
 				gotmantdig = 1;
 			} else

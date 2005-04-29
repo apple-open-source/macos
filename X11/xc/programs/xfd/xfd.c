@@ -26,7 +26,7 @@ in this Software without prior written authorization from The Open Group.
  * *
  * Author:  Jim Fulton, MIT X Consortium
  */
-/* $XFree86: xc/programs/xfd/xfd.c,v 1.8 2003/02/20 02:56:40 dawes Exp $ */
+/* $XFree86: xc/programs/xfd/xfd.c,v 1.9 2003/04/19 23:49:27 herrb Exp $ */
 
 #include <X11/Intrinsic.h>
 #include <X11/StringDefs.h>
@@ -127,7 +127,10 @@ static XtResource Resources[] = {
 static void
 usage(void)
 {
-    fprintf (stderr, "usage:  %s [-options ...] -fn font\n\n", ProgramName);
+    fprintf (stderr, "usage:  %s [-options ...] -fn font\n", ProgramName);
+#ifdef XRENDER
+    fprintf (stderr, "        %s [-options ...] -fa font\n", ProgramName);
+#endif
     fprintf (stderr, "where options include:\n");
     fprintf (stderr,
 	"    -display dpy           X server to contact\n");

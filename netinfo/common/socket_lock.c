@@ -86,6 +86,8 @@ static struct timeval timeout = { 4, 0 };
 static struct timeval tottimeout = { 20, 0 };
 static struct timeval bind_retry = {0, 250 * 1000};	/* 1/4 second */
 
+extern void pmap_wakeup(void);
+
 /*
  * Find the mapped port for program,version.
  * Calls the pmap service remotely to do the lookup.
@@ -108,17 +110,17 @@ sl_pmap_getport(address, program, version, protocol)
 	socket_unlock();
 	if (sock < 0) return (0);
 
+	pmap_wakeup();
+
 	address->sin_port = htons(PMAPPORT);
-	client = clntudp_bufcreate(address, PMAPPROG,
-	    PMAPVERS, timeout, &sock, RPCSMALLMSGSIZE, RPCSMALLMSGSIZE);
+	client = clntudp_bufcreate(address, PMAPPROG, PMAPVERS, timeout, &sock, RPCSMALLMSGSIZE, RPCSMALLMSGSIZE);
 	if (client != (CLIENT *)NULL)
 	{
 		parms.pm_prog = program;
 		parms.pm_vers = version;
 		parms.pm_prot = protocol;
 		parms.pm_port = 0;  /* not needed or used */
-		if (CLNT_CALL(client, PMAPPROC_GETPORT, xdr_pmap, &parms,
-		    xdr_u_short, &port, tottimeout) != RPC_SUCCESS)
+		if (CLNT_CALL(client, PMAPPROC_GETPORT, (void *)xdr_pmap, &parms, (void *)xdr_u_short, &port, tottimeout) != RPC_SUCCESS)
 		{
 			rpc_createerr.cf_stat = RPC_PMAPFAILURE;
 			clnt_geterr(client, &rpc_createerr.cf_error);

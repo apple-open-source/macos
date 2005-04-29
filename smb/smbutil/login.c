@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: login.c,v 1.7 2003/05/14 15:06:01 lindak Exp $
+ * $Id: login.c,v 1.8 2004/03/19 01:49:48 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/errno.h>
@@ -49,175 +49,6 @@
 #include "common.h"
 
 
-#ifndef APPLE
-int
-cmd_login(int argc, char *argv[])
-{
-	struct smb_ctx sctx, *ctx = &sctx;
-	int error, opt, setprimary = 0, level;
-
-	if (argc < 2)
-		login_usage();
-	error = smb_ctx_init(ctx, argc, argv, SMBL_VC, SMBL_SHARE, SMB_ST_ANY);
-	if (error)
-		exit(error);
-	error = smb_ctx_readrc(ctx);
-	if (error)
-		exit(error);
-	if (smb_rc)
-		rc_close(smb_rc);
-	while ((opt = getopt(argc, argv, STDPARAM_OPT"D")) != EOF) {
-		switch(opt){
-		    case STDPARAM_ARGS:
-			error = smb_ctx_opt(ctx, opt, optarg);
-			if (error)
-				exit(error);
-			break;
-		    case 'D':
-			setprimary = 1;
-			break;
-		    default:
-			login_usage();
-			/*NOTREACHED*/
-		}
-	}
-#ifdef APPLE
-	if (loadsmbvfs())
-		errx(EX_OSERR, "SMB filesystem is not available");
-reauth:
-#endif
-	error =  smb_ctx_resolve(ctx);
-		exit(error);
-	level = ctx->ct_parsedlevel;
-	error = smb_ctx_lookup(ctx, level, 0);
-	if (error == 0) {
-		smb_error("connection already exists", error);
-		exit(0);
-	}
-	error = smb_ctx_lookup(ctx, level, SMBLK_CREATE);
-	if (error) {
-		smb_error("could not login to server %s", error, ctx->ct_ssn.ioc_srvname);
-		exit(error);
-	}
-#ifdef APPLE
-	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-		ctx->ct_ssn.ioc_password[0] = '\0';
-		goto reauth;
-	}
-#endif
-	switch (level) {
-	    case SMBL_VC:
-		opt = SMBV_PERMANENT;
-		break;
-	    case SMBL_SHARE:
-		opt = SMBS_PERMANENT;
-		break;
-	    default:
-		smb_error("unknown connection level %d", 0, level);
-		exit(1);
-	}
-	error = smb_ctx_setflags(ctx, level, opt, opt);
-	if (error && error != EACCES) {
-		smb_error("Can't make connection permanent", error);
-		exit(error);
-	}
-#ifdef APPLE
-	smb_save2keychain(ctx);
-#endif
-	printf("Connected to %s%s%s\n", ctx->ct_ssn.ioc_user,
-	    level == SMBL_SHARE ? "@" : "",
-	    level == SMBL_SHARE ? ctx->ct_sh.ioc_share : "");
-	return 0;
-}
-
-int
-cmd_logout(int argc, char *argv[])
-{
-	struct smb_ctx sctx, *ctx = &sctx;
-	int error, opt, level;
-
-	if (argc < 2)
-		logout_usage();
-	error = smb_ctx_init(ctx, argc, argv, SMBL_VC, SMBL_SHARE, SMB_ST_ANY);
-	if (error)
-		exit(error);
-	error = smb_ctx_readrc(ctx);
-	if (error)
-		exit(error);
-	if (smb_rc)
-		rc_close(smb_rc);
-	while ((opt = getopt(argc, argv, STDPARAM_OPT)) != EOF){
-		switch (opt) {
-		    case STDPARAM_ARGS:
-			error = smb_ctx_opt(ctx, opt, optarg);
-			if (error)
-				exit(error);
-			break;
-		    default:
-			logout_usage();
-			/*NOTREACHED*/
-		}
-	}
-#ifdef APPLE
-	error = loadsmbvfs();
-	if (error)
-		errx(EX_OSERR, "SMB filesystem is not available");
-reauth:
-#endif
-	ctx->ct_ssn.ioc_opt &= ~SMBVOPT_CREATE;
-	ctx->ct_sh.ioc_opt &= ~SMBSOPT_CREATE;
-	error =  smb_ctx_resolve(ctx);
-	if (error)
-		exit(error);
-	level = ctx->ct_parsedlevel;
-	error = smb_ctx_lookup(ctx, level, 0);
-#ifdef APPLE
-	if (ctx->ct_flags & SMBCF_KCFOUND && smb_autherr(error)) {
-		ctx->ct_ssn.ioc_password[0] = '\0';
-		goto reauth;
-	}
-#endif
-	if (error == ENOENT) {
-/*		ctx->ct_ssn.ioc_opt |= SMBCOPT_SINGLE;
-		error = smb_ctx_login(ctx);
-		if (error == ENOENT) {
-			ctx->ct_ssn.ioc_opt |= SMBCOPT_PRIVATE;
-			error = smb_ctx_login(ctx);
-			if (error == ENOENT) {
-				ctx->ct_ssn.ioc_opt &= ~SMBCOPT_SINGLE;
-				error = smb_ctx_login(ctx);
-			}
-		}*/
-		if (error) {
-			smb_error("There is no connection to %s", error, ctx->ct_ssn.ioc_srvname);
-			exit(error);
-		}
-	}
-	if (error)
-		exit(error);
-	switch (level) {
-	    case SMBL_VC:
-		opt = SMBV_PERMANENT;
-		break;
-	    case SMBL_SHARE:
-		opt = SMBS_PERMANENT;
-		break;
-	    default:
-		smb_error("unknown connection level %d", 0, level);
-		exit(1);
-	}
-	error = smb_ctx_setflags(ctx, level, opt, 0);
-	if (error && error != EACCES) {
-		smb_error("Can't release connection", error);
-		exit(error);
-	}
-#ifdef APPLE
-	smb_save2keychain(ctx);
-#endif
-	printf("Connection unmarked as permanent and will be closed when possible\n");
-	exit(0);
-}
-#endif /* APPLE */
 
 void
 login_usage(void)
@@ -227,11 +58,7 @@ login_usage(void)
 	"               [-N cowner:cgroup/sowner:sgroup] [-P]\n"
 	"               [-R retrycount] [-T timeout]\n"
 	"               [-W workgroup] //"
-#ifdef APPLE
 		"[workgroup;][user[:password]@]"
-#else
-		"[user@]"
-#endif
 		"server[/share]\n");
 	exit(1);
 }
@@ -240,11 +67,7 @@ void
 logout_usage(void)
 {
 	printf("usage: smbutil logout //"
-#ifdef APPLE
 		"[workgroup;][user[:password]@]"
-#else
-		"[user@]"
-#endif
 		"server[/share]\n");
 	exit(1);
 }

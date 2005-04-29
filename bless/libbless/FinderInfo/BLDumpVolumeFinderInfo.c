@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -27,11 +25,31 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Thu Apr 19 2001.
- *  Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: BLDumpVolumeFinderInfo.c,v 1.15 2003/07/22 15:58:30 ssen Exp $
+ *  $Id: BLDumpVolumeFinderInfo.c,v 1.21 2005/02/26 09:03:05 ssen Exp $
  *
  *  $Log: BLDumpVolumeFinderInfo.c,v $
+ *  Revision 1.21  2005/02/26 09:03:05  ssen
+ *  compile with gcc 4.0. Turn of signed pointer warnings, and
+ *  use packed alignment
+ *
+ *  Revision 1.20  2005/02/03 00:42:24  ssen
+ *  Update copyrights to 2005
+ *
+ *  Revision 1.19  2004/09/21 16:44:51  ssen
+ *  delete comment
+ *
+ *  Revision 1.18  2004/09/20 20:59:57  ssen
+ *  <rdar://problem/3808101> bless (open source) shouldn't use CoreServices.h
+ *
+ *  Revision 1.17  2004/04/20 21:40:41  ssen
+ *  Update copyrights to 2004
+ *
+ *  Revision 1.16  2003/10/16 23:50:05  ssen
+ *  Partially finish cleanup of headers to add "const" to char[] arguments
+ *  that won't be modified.
+ *
  *  Revision 1.15  2003/07/22 15:58:30  ssen
  *  APSL 2.0
  *
@@ -93,17 +111,31 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 
-#include "dumpFI.h"
 #include "bless.h"
 #include "bless_private.h"
 
+struct BootBlocks {
+  short   id;
+  long    entryPoint;
+  short   version;
+  short   pageFlags;
+  Str15   system;
+  Str15   shellApplication;
+  Str15   debugger1;
+  Str15   debugger2;
+  Str15   startupScreen;
+  Str15   startupApplication;
+  char    otherStuff[1024 - (2+4+2+2+16+16+16+16+16+16)];
+} __attribute__((packed));
+
+typedef struct BootBlocks BootBlocks;
 
 /*
  * 1. getattrlist on the mountpoint to get the volume id
  * 2. read in the finder words
  * 3. for the directories we're interested in, get the entries in /.vol
  */
-int BLCreateVolumeInformationDictionary(BLContextPtr context, unsigned char mount[],
+int BLCreateVolumeInformationDictionary(BLContextPtr context, const unsigned char mount[],
 					CFDictionaryRef *outDict) {
     uint32_t finderinfo[8];
     int err;

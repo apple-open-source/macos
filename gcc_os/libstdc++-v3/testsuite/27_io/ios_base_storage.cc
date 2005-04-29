@@ -1,6 +1,6 @@
 // 2000-12-19 bkoz
 
-// Copyright (C) 2000, 2002 Free Software Foundation
+// Copyright (C) 2000, 2002, 2003 Free Software Foundation
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,6 +19,12 @@
 // USA.
 
 // 27.4.2.5 ios_base storage functions
+
+// XXX This test will not work for some versions of irix6 because of
+// XXX bug(s) in libc malloc for very large allocations.  However
+// XXX -lmalloc seems to work.
+// See http://gcc.gnu.org/ml/gcc/2002-05/msg01012.html
+// { dg-options "-lmalloc" { target mips*-*-irix6* } }
 
 #include <sstream>
 #include <iostream>
@@ -45,7 +51,7 @@ void test01()
 void test02()
 {
   bool test = true;
-  int max = std::numeric_limits<int>::max();
+  int max = std::numeric_limits<int>::max() - 1;
   std::stringbuf        strbuf;
   std::ios              ios(&strbuf);
 
@@ -87,6 +93,7 @@ void test02()
 
 int main(void)
 {
+  __gnu_cxx_test::set_memory_limits();
   test01();
   test02();
   return 0;

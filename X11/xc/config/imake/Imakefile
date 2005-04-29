@@ -3,14 +3,14 @@ XCOMM
 XCOMM
 XCOMM
 XCOMM
-XCOMM $XFree86: xc/config/imake/Imakefile,v 3.17 2002/11/20 21:48:46 herrb Exp $
+XCOMM $XFree86: xc/config/imake/Imakefile,v 3.19 2003/11/29 01:31:19 dawes Exp $
 
 XCOMM Some compilers generate fatal errors if an -L directory does
 XCOMM not exist.  Since BUILDLIBDIR may not exist yet suppress its use.
          LDPRELIB =
         LDPRELIBS =
 
-DEPLIBS = 
+DEPLIBS =
 
 INCLUDES = -I$(TOP)/include $(TOP_X_INCLUDES)/X11
 CPP_PROGRAM = CppCmd
@@ -29,7 +29,8 @@ BOOTSTRAPDEFINES =
 
 DEFINES = $(SIGNAL_DEFINES) $(BOOTSTRAPCFLAGS) $(CPP_DEFINES) $(GCC_DEFINES) \
 	 $(CROSSCOMPILEDEFINES)
-EXTRAMANDEFS = -D__cpp__=CppCmd
+
+EXTRAMANDEFS = -D__cpp__="\"$(CPP_PROGRAM)\""
 
 #if defined(MacIIArchitecture) || defined(SequentArchitecture) || defined(i386ScoArchitecture)
 XBSDLIB = /**/
@@ -37,7 +38,7 @@ XBSDLIB = /**/
 
 #ifdef CrossCompileDir
 # ifdef TargetPreProcessCmd
-CPP = TargetPreProcessCmd 
+CPP = TargetPreProcessCmd
 # else
 CPP = CrossCompileDir/cc -E -
 # endif
@@ -56,6 +57,9 @@ SimpleHostProgramTarget(imake)
 #else
 SimpleProgramTarget(imake)
 #endif
+
+imakeonly:: $(PROGRAM)
+
 InstallDriverSDKNamedProg(imake,imake,$(DRIVERSDKDIR)/config/imake)
 
 #if HasClearmake
@@ -69,3 +73,9 @@ clean::
 	RemoveFile(Makefile.proto)
 	RemoveFile(imakemdep_cpp.h)
 	$(RM) -r bootstrap
+
+#ifdef OS2Architecture
+clean::
+	RemoveFiles(imake ccimake)
+
+#endif

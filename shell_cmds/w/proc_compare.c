@@ -114,12 +114,5 @@ proc_compare(p1, p2)
 		return (0);
 	if (p1->p_slptime > p2->p_slptime)
 		return (1);
-	/*
-	 * favor one sleeping in a non-interruptible sleep
-	 */
-	if (p1->p_flag & P_SINTR && (p2->p_flag & P_SINTR) == 0)
-		return (1);
-	if (p2->p_flag & P_SINTR && (p1->p_flag & P_SINTR) == 0)
-		return (0);
 	return (p2->p_pid > p1->p_pid);	/* tie - return highest pid */
 }

@@ -1,7 +1,50 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86str.h,v 1.90 2002/11/25 14:04:56 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/xf86str.h,v 1.98 2004/02/13 23:58:39 dawes Exp $ */
 
 /*
- * Copyright (c) 1997-2000 by The XFree86 Project, Inc.
+ * Copyright (c) 1997-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -16,6 +59,7 @@
 #include "input.h"
 #include "scrnintstr.h"
 #include "pixmapstr.h"
+#include "colormapst.h"
 #include "xf86Module.h"
 #include "xf86Opt.h"
 #include "xf86Pci.h"
@@ -452,23 +496,9 @@ typedef struct _confdrirec {
 /* These values should be adjusted when new fields are added to ScrnInfoRec */
 #define NUM_RESERVED_INTS		16
 #define NUM_RESERVED_POINTERS		15
-#define NUM_RESERVED_FUNCS		16
+#define NUM_RESERVED_FUNCS		12
 
 typedef pointer (*funcPointer)(void);
-
-/* Flags for driver messages */
-typedef enum {
-    X_PROBED,			/* Value was probed */
-    X_CONFIG,			/* Value was given in the config file */
-    X_DEFAULT,			/* Value is a default */
-    X_CMDLINE,			/* Value was given on the command line */
-    X_NOTICE,			/* Notice */
-    X_ERROR,			/* Error message */
-    X_WARNING,			/* Warning message */
-    X_INFO,			/* Informational message */
-    X_NONE,			/* No prefix */
-    X_NOT_IMPLEMENTED		/* Not implemented */
-} MessageType;
 
 /* flags for depth 24 pixmap options */
 typedef enum {
@@ -747,12 +777,16 @@ typedef void xf86AdjustFrameProc          (int, int, int, int);
 typedef Bool xf86EnterVTProc              (int, int);
 typedef void xf86LeaveVTProc              (int, int);
 typedef void xf86FreeScreenProc           (int, int);
-typedef int  xf86ValidModeProc            (int, DisplayModePtr, Bool, int);
+typedef ModeStatus xf86ValidModeProc      (int, DisplayModePtr, Bool, int);
 typedef void xf86EnableDisableFBAccessProc(int, Bool);
 typedef int  xf86SetDGAModeProc           (int, int, DGADevicePtr);
 typedef int  xf86ChangeGammaProc          (int, Gamma);
 typedef void xf86PointerMovedProc         (int, int, int);
 typedef Bool xf86PMEventProc              (int, pmEvent, Bool);
+typedef int  xf86HandleMessageProc     (int, const char*, const char*, char**);
+typedef void xf86DPMSSetProc		  (ScrnInfoPtr, int, int);
+typedef void xf86LoadPaletteProc   (ScrnInfoPtr, int, int *, LOCO *, VisualPtr);
+typedef void xf86SetOverscanProc          (ScrnInfoPtr, int);
 
 /*
  * ScrnInfoRec
@@ -903,6 +937,10 @@ typedef struct _ScrnInfoRec {
     xf86ChangeGammaProc			*ChangeGamma;
     xf86PointerMovedProc		*PointerMoved;
     xf86PMEventProc			*PMEvent;
+    xf86HandleMessageProc		*HandleMessage;
+    xf86DPMSSetProc			*DPMSSet;
+    xf86LoadPaletteProc			*LoadPalette;
+    xf86SetOverscanProc			*SetOverscan;
     
     /*
      * This can be used when the minor ABI version is incremented.
@@ -1023,7 +1061,32 @@ typedef enum {
     ACTION_CLOSECLIENT,			/* Kill client holding grab */
     ACTION_SWITCHSCREEN		= 100,	/* VT switch */
     ACTION_SWITCHSCREEN_NEXT,
-    ACTION_SWITCHSCREEN_PREV
+    ACTION_SWITCHSCREEN_PREV,
+    ACTION_MESSAGE		= 9999  /* Generic message passing */
 } ActionEvent;
+
+/* xf86Versions.c */
+/*
+ * Never change existing values, and always assign values explicitly.
+ * NUM_BUILTIN_IFS must always be the last entry.
+ */
+typedef enum {
+    BUILTIN_IF_OSMOUSE = 0,
+    BUILTIN_IF_OSKBD = 1,
+    NUM_BUILTIN_IFS
+} BuiltinInterface;
+
+/*
+ * These are intentionally the same as the module version macros.
+ * It is possible to register a module as providing a specific interface,
+ * in which case the module's version is used.  This feature isn't
+ * really ready for use yet though.
+ */
+
+#define BUILTIN_INTERFACE_VERSION_NUMERIC(maj, min, patch) \
+	((((maj) & 0xFF) << 24) | (((min) & 0xFF) << 16) | (patch & 0xFFFF))
+#define GET_BUILTIN_INTERFACE_MAJOR_VERSION(vers)	(((vers) >> 24) & 0xFF)
+#define GET_BUILTIN_INTERFACE_MINOR_VERSION(vers)	(((vers) >> 16) & 0xFF)
+#define GET_BUILTIN_INTERFACE_PATCH_VERSION(vers)	((vers) & 0xFFFF)
 
 #endif /* _XF86STR_H */

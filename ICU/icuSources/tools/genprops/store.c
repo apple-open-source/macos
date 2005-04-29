@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -291,12 +291,12 @@ static UDataInfo dataInfo={
 
     { 0x55, 0x50, 0x72, 0x6f },                 /* dataFormat="UPro" */
     { 3, 2, UTRIE_SHIFT, UTRIE_INDEX_SHIFT },   /* formatVersion */
-    { 4, 0, 0, 0 }                              /* dataVersion */
+    { 4, 0, 1, 0 }                              /* dataVersion */
 };
 
 /* definitions of expected data size limits */
 enum {
-    MAX_PROPS_COUNT=25000,
+    MAX_PROPS_COUNT=26000,
     MAX_UCHAR_COUNT=10000
 };
 
@@ -341,7 +341,7 @@ setUnicodeVersion(const char *v) {
 
 extern void
 initStore() {
-    pTrie=utrie_open(NULL, NULL, MAX_PROPS_COUNT, 0, TRUE);
+    pTrie=utrie_open(NULL, NULL, MAX_PROPS_COUNT, 0, 0, TRUE);
     if(pTrie==NULL) {
         fprintf(stderr, "error: unable to create a UNewTrie\n");
         exit(U_MEMORY_ALLOCATION_ERROR);
@@ -458,9 +458,10 @@ makeProps(Props *p) {
                 */
             } else if(value<UPROPS_MIN_VALUE || UPROPS_MAX_VALUE<value) {
                 printf("*** U+%04x needs an exception because its value is out-of-bounds at %ld (not [%ld..%ld]\n",
-                    p->code, (long)value, (long)UPROPS_MIN_VALUE, (long)UPROPS_MAX_VALUE);
+                    (int)p->code, (long)value, (long)UPROPS_MIN_VALUE, (long)UPROPS_MAX_VALUE);
             } else {
-                printf("*** U+%04x needs an exception because it has %u values\n", p->code, count);
+                printf("*** U+%04x needs an exception because it has %u values\n",
+                    (int)p->code, count);
             }
         }
 
@@ -471,7 +472,7 @@ makeProps(Props *p) {
         value=exceptionsTop;
         if(value>=UPROPS_MAX_EXCEPTIONS_COUNT) {
             fprintf(stderr, "genprops: out of exceptions memory at U+%06x. (%d exceeds allocated space)\n",
-                    p->code, value);
+                    (int)p->code, (int)value);
             exit(U_MEMORY_ALLOCATION_ERROR);
         } else {
             uint32_t first=0;
@@ -707,7 +708,8 @@ compactProps(void) {
 
     /* we saved some space */
     if(beVerbose) {
-        printf("compactProps() reduced propsTop from %u to %u\n", propsTop, newIndex);
+        printf("compactProps() reduced propsTop from %u to %u\n",
+            (int)propsTop, (int)newIndex);
     }
     propsTop=newIndex;
 
@@ -738,7 +740,7 @@ compareProps(const void *l, const void *r) {
 /* generate output data ----------------------------------------------------- */
 
 /* folding value: just store the offset (16 bits) if there is any non-0 entry */
-U_CAPI uint32_t U_EXPORT2
+U_CFUNC uint32_t U_EXPORT2
 getFoldedPropsValue(UNewTrie *trie, UChar32 start, int32_t offset) {
     uint32_t value;
     UChar32 limit;
@@ -802,11 +804,11 @@ generateData(const char *dataDir) {
     indexes[UPROPS_ADDITIONAL_TRIE_INDEX]=offset;
 
     if(beVerbose) {
-        printf("trie size in bytes:                    %5u\n", trieSize);
-        printf("number of unique properties values:    %5u\n", propsTop);
+        printf("trie size in bytes:                    %5u\n", (int)trieSize);
+        printf("number of unique properties values:    %5u\n", (int)propsTop);
         printf("number of code points with exceptions: %5u\n", exceptionsCount);
         printf("size in bytes of exceptions:           %5u\n", 4*exceptionsTop);
-        printf("number of UChars for special mappings: %5u\n", ucharsTop);
+        printf("number of UChars for special mappings: %5u\n", (int)ucharsTop);
     }
 
     additionalPropsSize=writeAdditionalData(additionalProps, sizeof(additionalProps), indexes);
@@ -817,7 +819,7 @@ generateData(const char *dataDir) {
     }
 
     /* write the data */
-    pData=udata_create(dataDir, DATA_TYPE, U_ICUDATA_NAME "_" DATA_NAME, &dataInfo,
+    pData=udata_create(dataDir, DATA_TYPE, DATA_NAME, &dataInfo,
                        haveCopyright ? U_COPYRIGHT_STRING : NULL, &errorCode);
     if(U_FAILURE(errorCode)) {
         fprintf(stderr, "genprops: unable to create data memory, %s\n", u_errorName(errorCode));

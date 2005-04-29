@@ -6,21 +6,52 @@
 Project               = screen
 UserType              = Administrator
 ToolType              = Commands
-GnuAfterInstall       = install-strip
+GnuAfterInstall       = install-strip install-plist
 Extra_Configure_Flags = --with-sys-screenrc=$(ETCDIR)/screenrc
+Extra_Install_Flags   = DSTROOT="$(DSTROOT)"
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-Install_Target = install
-# Function prototype detection in osdef.sh quitely breaks
-# with cpp-precomp enabled, causing a later build failure.
-Environment += CPPFLAGS=-no-cpp-precomp
+Install_Target        = install
 
-Install_Flags = DESTDIR=$(DSTROOT)
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = $(Project)
+AEP_Version    = 4.0.2
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.gz
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = Makefile.in.diff
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(AEP_Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+	done
+endif
 
 install-strip:
-	strip $(DSTROOT)/usr/bin/screen-*
-	rm $(DSTROOT)/usr/bin/screen
-	mv $(DSTROOT)/usr/bin/screen-* $(DSTROOT)/usr/bin/screen
-	rm $(DSTROOT)/usr/share/info/dir
+	$(STRIP) $(DSTROOT)/usr/bin/screen-*
+	$(RM) $(DSTROOT)/usr/bin/screen
+	$(MV) $(DSTROOT)/usr/bin/screen-* $(DSTROOT)/usr/bin/screen
+	$(RM) $(DSTROOT)/usr/share/info/dir
+
+OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
+OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt

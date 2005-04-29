@@ -24,7 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ConnDis.c,v 3.24 2001/12/14 19:53:58 dawes Exp $ */
+/* $XFree86: xc/lib/X11/ConnDis.c,v 3.29 2003/12/19 02:05:37 dawes Exp $ */
 
 /* 
  * This file contains operating system dependencies.
@@ -35,6 +35,7 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/Xlibint.h>
 #include <X11/Xtrans.h>
 #include <X11/Xauth.h>
+#include <X11/Xdmcp.h>
 #include <stdio.h>
 #include <ctype.h>
 
@@ -54,11 +55,22 @@ in this Software without prior written authorization from The Open Group.
 #include <sys/utsname.h>
 #endif
 
-static void GetAuthorization();
+#include "Xintconn.h"
 
-static char *copystring (src, len)
-    char *src;
-    int len;
+/* prototyes */
+static void GetAuthorization(
+    XtransConnInfo trans_conn,
+    int family,
+    char *saddr,
+    int saddrlen,
+    int idisplay,
+    char **auth_namep,
+    int *auth_namelenp,
+    char **auth_datap,
+    int *auth_datalenp);
+
+/* functions */
+static char *copystring (char *src, int len)
 {
     char *dst = Xmalloc (len + 1);
 
@@ -78,7 +90,16 @@ static char *copystring (src, len)
  *
  *     [protocol/] [hostname] : [:] displaynumber [.screennumber]
  *
- * The second colon indicates a DECnet style name.  No hostname is interpretted
+ * A string with exactly two colons seperating hostname from the display
+ * indicates a DECnet style name.  Colons in the hostname may occur if an
+ * IPv6 numeric address is used as the hostname.  An IPv6 numeric address
+ * may also end in a double colon, so three colons in a row indicates an
+ * IPv6 address ending in :: followed by :display.  To make it easier for
+ * people to read, an IPv6 numeric address hostname may be surrounded by
+ * [ ] in a similar fashion to the IPv6 numeric address URL syntax defined
+ * by IETF RFC 2732.
+ *
+ * If no hostname and no protocol is specified, the string is interpreted
  * as the most efficient local connection to a server on the same machine.  
  * This is usually:
  *
@@ -94,16 +115,15 @@ static char *copystring (src, len)
  *
  */
 XtransConnInfo
-_X11TransConnectDisplay (display_name, fullnamep, dpynump, screenp,
-		      auth_namep, auth_namelenp, auth_datap, auth_datalenp)
-    char *display_name;
-    char **fullnamep;			/* RETURN */
-    int *dpynump;			/* RETURN */
-    int *screenp;			/* RETURN */
-    char **auth_namep;			/* RETURN */
-    int *auth_namelenp;			/* RETURN */
-    char **auth_datap;			/* RETURN */
-    int *auth_datalenp;			/* RETURN */
+_X11TransConnectDisplay (
+    char *display_name,
+    char **fullnamep,			/* RETURN */
+    int *dpynump,			/* RETURN */
+    int *screenp,			/* RETURN */
+    char **auth_namep,			/* RETURN */
+    int *auth_namelenp,			/* RETURN */
+    char **auth_datap,			/* RETURN */
+    int *auth_datalenp)			/* RETURN */
 {
     int family;
     int saddrlen;
@@ -154,7 +174,8 @@ _X11TransConnectDisplay (display_name, fullnamep, dpynump, screenp,
     /*
      * Step 1, find the hostname.  This is delimited by either one colon,
      * or two colons in the case of DECnet (DECnet Phase V allows a single
-     * colon in the hostname).
+     * colon in the hostname).  (See note above regarding IPv6 numeric 
+     * addresses with triple colons or [] brackets.)
      */
 
     lastp = p;
@@ -165,7 +186,11 @@ _X11TransConnectDisplay (display_name, fullnamep, dpynump, screenp,
 
     if (!lastc) return NULL;		/* must have a colon */
 
-    if ((lastp != lastc) && (*(lastc - 1) == ':')) {
+    if ((lastp != lastc) && (*(lastc - 1) == ':') 
+#if defined(IPv6) && defined(AF_INET6)
+      && ( ((lastc - 1) == lastp) || (*(lastc - 2) != ':'))
+#endif
+	) {
 	/* DECnet display specified */
 
 #ifndef DNETCONN
@@ -438,16 +463,15 @@ _X11TransConnectDisplay (display_name, fullnamep, dpynump, screenp,
  *
  */
 
-int _XConnectDisplay (display_name, fullnamep, dpynump, screenp,
-		      auth_namep, auth_namelenp, auth_datap, auth_datalenp)
-    char *display_name;
-    char **fullnamep;			/* RETURN */
-    int *dpynump;			/* RETURN */
-    int *screenp;			/* RETURN */
-    char **auth_namep;			/* RETURN */
-    int *auth_namelenp;			/* RETURN */
-    char **auth_datap;			/* RETURN */
-    int *auth_datalenp;			/* RETURN */
+int _XConnectDisplay (
+    char *display_name,
+    char **fullnamep,			/* RETURN */
+    int *dpynump,			/* RETURN */
+    int *screenp,			/* RETURN */
+    char **auth_namep,			/* RETURN */
+    int *auth_namelenp,			/* RETURN */
+    char **auth_datap,			/* RETURN */
+    int *auth_datalenp)			/* RETURN */
 {
    XtransConnInfo trans_conn;
 
@@ -692,7 +716,11 @@ auth_ezencode(servername, window, cred_out, len)
         AUTH           *a;
         XDR             xdr;
 
+#if defined(SVR4) && defined(sun)
+        a = authdes_seccreate(servername, window, NULL, NULL);
+#else
         a = (AUTH *)authdes_create(servername, window, NULL, NULL);
+#endif
         if (a == (AUTH *)NULL) {
                 perror("auth_create");
                 return 0;
@@ -966,17 +994,16 @@ static int k5_clientauth(dpy, sprefix)
 #endif /* K5AUTH */
 
 static void
-GetAuthorization(trans_conn, family, saddr, saddrlen, idisplay,
-		 auth_namep, auth_namelenp, auth_datap, auth_datalenp)
-    XtransConnInfo trans_conn;
-    int family;
-    int saddrlen;
-    int idisplay;
-    char *saddr;
-    char **auth_namep;			/* RETURN */
-    int *auth_namelenp;			/* RETURN */
-    char **auth_datap;			/* RETURN */
-    int *auth_datalenp;			/* RETURN */
+GetAuthorization(
+    XtransConnInfo trans_conn,
+    int family,
+    char *saddr,
+    int saddrlen,
+    int idisplay,
+    char **auth_namep,			/* RETURN */
+    int *auth_namelenp,			/* RETURN */
+    char **auth_datap,			/* RETURN */
+    int *auth_datalenp)			/* RETURN */
 {
 #ifdef SECURE_RPC
     char rpc_cred[MAX_AUTH_BYTES];
@@ -1055,6 +1082,32 @@ GetAuthorization(trans_conn, family, saddr, saddrlen, idisplay,
 	    break;
 	}
 #endif /* AF_INET */
+#if defined(IPv6) && defined(AF_INET6)
+	case AF_INET6:
+	  /* XXX This should probably never happen */
+	{
+	    unsigned char ipv4mappedprefix[] = {
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff };
+	    
+	    /* In the case of v4 mapped addresses send the v4 
+	       part of the address - addr is already in network byte order */
+	    if (memcmp(addr+8, ipv4mappedprefix, 12) == 0) {
+		for (i = 20 ; i < 24; i++)
+		    xdmcp_data[j++] = ((char *)addr)[i];
+	    
+		/* Port number */
+		for (i=2; i<4; i++)
+		    xdmcp_data[j++] = ((char *)addr)[i];
+		break;
+	    } else {
+		/* Fake data to keep the data aligned. Otherwise the 
+		   the server will bail about incorrect timing data */
+		for (i = 0; i < 8; i++) {
+		    xdmcp_data[j++] = 0;
+		}
+	    }
+	}
+#endif /* AF_INET6 */
 #ifdef AF_UNIX
 	case AF_UNIX:
 	{

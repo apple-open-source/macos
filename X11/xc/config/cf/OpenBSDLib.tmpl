@@ -1,17 +1,15 @@
-XCOMM platform:	$OpenBSD: OpenBSDLib.tmpl,v 1.2 2002/12/04 03:49:30 todd Exp $
-XCOMM platform: $XFree86: xc/config/cf/OpenBSDLib.tmpl,v 1.1 2002/12/16 22:48:27 herrb Exp $
+XCOMM platform:	$OpenBSD: OpenBSDLib.tmpl,v 1.6 2003/04/04 19:48:58 matthieu Exp $
+XCOMM platform: $XFree86: xc/config/cf/OpenBSDLib.tmpl,v 1.9 2004/01/10 09:09:51 herrb Exp $
 XCOMM
+
+/* Shared libraries dependencies */
+#if HasGcc && GccMajorVersion >= 3
+# define SharedGLUReqs	$(LDPRELIB) $(XLIB) $(GLXLIB) -lsupc++
+#endif 
+
 /* Shared Library Revisions. Crank major on API Changes */
 
 #if OverrideShlibRevs
-
-/*
- * Don't build libXaw.6 - the major numbering scheme on OpenBSD
- * makes it useless
- */
-#ifndef BuildXaw6
-#  define BuildXaw6	NO
-#endif 
 
 #if OSMajorVersion > 3 || ( OSMajorVersion == 3 && OSMinorVersion > 1)
 # ifndef SharedX11Rev
@@ -26,8 +24,8 @@ XCOMM
 # ifndef SharedXssRev
 #  define SharedXssRev 2.0
 # endif
-# ifndef SharedXf86miscRev
-#  define SharedXf86miscRev 2.0
+# ifndef SharedXxf86miscRev
+#  define SharedXxf86miscRev 2.0
 # endif
 # ifndef SharedXxf86vmRev
 #  define SharedXxf86vmRev 2.0
@@ -57,7 +55,12 @@ XCOMM
 #  define SharedPSResRev 2.0
 # endif
 # ifndef SharedGluRev
-#  define SharedGluRev 2.0
+#  if HasGcc && GccMajorVersion >= 3
+    /* Gcc 3 changes the name mangling scheme on OpenBSD */
+#   define SharedGluRev	3.0
+#  else
+#   define SharedGluRev 2.0
+#  endif
 # endif
 # ifndef SharedGlxRev
 #  define SharedGlxRev 2.0
@@ -66,10 +69,13 @@ XCOMM
 #  define SharedGLwRev 2.0
 # endif
 # ifndef SharedXrenderRev
-#  define SharedXrenderRev 2.0
+#  define SharedXrenderRev 2.1
 # endif
 # ifndef SharedXrandrRev
-#  define SharedXrandrRev 2.0
+#  define SharedXrandrRev 3.0
+# endif
+# ifndef SharedXcursorRev
+#  define SharedXcursorRev 1.0
 # endif
 # ifndef SharedXfontcacheRev
 #  define SharedXfontcacheRev 2.0
@@ -101,20 +107,14 @@ XCOMM
 # ifndef SharedXawRev
 #  define SharedXawRev 8.0
 # endif
+# ifndef SharedXaw6Rev
+#  define SharedXaw6Rev 7.1
+# endif
 # ifndef SharedXiRev
 #  define SharedXiRev 7.0
 # endif
 # ifndef SharedXtstRev
 #  define SharedXtstRev 7.0
-# endif
-# ifndef SharedPexRev
-#  define SharedPexRev 7.0
-# endif
-# ifndef SharedXieRev
-#  define SharedXieRev 7.0
-# endif
-# ifndef SharedPhigsRev
-#  define SharedPhigsRev 7.0
 # endif
 # ifndef SharedICERev
 #  define SharedICERev 7.0
@@ -138,10 +138,19 @@ XCOMM
 #  define SharedXpmRev 5.0
 # endif
 # ifndef SharedFreetype2Rev
-#  define SharedFreetype2Rev 9.0
+#  define SharedFreetype2Rev 11.0
+# endif
+# ifndef SharedExpatRev
+#  define SharedExpatRev 4.0
+# endif
+# ifndef SharedXft1Rev
+#  define SharedXft1Rev 1.2
 # endif
 # ifndef SharedXftRev
-#  define SharedXftRev 2.0
+#  define SharedXftRev 3.0
+# endif
+# ifndef SharedXfontconfigRev
+#  define SharedXfontconfigRev 1.0
 # endif
 # ifndef SharedXTrapRev
 #  define SharedXTrapRev 7.0

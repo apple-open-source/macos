@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2002-2003, International Business Machines
+ *   Copyright (C) 2002-2004, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  */
@@ -103,6 +103,17 @@ public:
          * @draft ICU 2.6
          */
         le_int32 getLeading() const;
+
+        /**
+         * Get the width of the line. This is a convenience method
+         * which returns the last X position of the last visual run
+         * in the line.
+         *
+         * @return the width of the line.
+         *
+         * @draft ICU 2.8
+         */
+        le_int32 getWidth() const;
     
         /**
          * Get a <code>ParagraphLayout::VisualRun</code> object for a given
@@ -155,8 +166,8 @@ public:
         VisualRun **fRuns;
 
         Line();
-		Line(const Line &other);
-		Line &operator=(const Line & /*other*/) { return *this; };
+        Line(const Line &other);
+        Line &operator=(const Line & /*other*/) { return *this; };
 
         void computeMetrics();
 
@@ -172,7 +183,7 @@ public:
      * a table which maps indices into the glyph array to indices into
      * the original character array which was used to create the paragraph.
      *
-     * These objects are only created by <code>ParagraphLayout::Line<code> objects,
+     * These objects are only created by <code>ParagraphLayout::Line</code> objects,
      * so their constructors and destructors are private.
      *
      * @see ParagraphLayout::Line
@@ -318,8 +329,8 @@ public:
         friend class Line;
 
         VisualRun();
-		VisualRun(const VisualRun &other);
-		VisualRun &operator=(const VisualRun &other) { return *this; };
+        VisualRun(const VisualRun &other);
+        VisualRun &operator=(const VisualRun &other) { return *this; };
 
         VisualRun(const LEFontInstance *font, UBiDiDirection direction, le_int32 glyphCount,
                   const LEGlyphID glyphs[], const float positions[], const le_int32 glyphToCharMap[]);
@@ -335,6 +346,9 @@ public:
      *
      * Clients can optionally specify directional runs and / or script runs. If these aren't specified
      * they will be computed.
+     *
+     * If any errors are encountered during construction, <code>status</code> will be set, and the object
+     * will be set to be empty.
      *
      * @param chars is an array of the characters in the paragraph
      *
@@ -356,21 +370,24 @@ public:
      *
      * @param paragraphLevel is the directionality of the paragraph, as in the UBiDi object.
      *
-     * @param vertical is <code>true</code> if the paragraph should be set vertically.
+     * @param vertical is <code>TRUE</code> if the paragraph should be set vertically.
+     *
+     * @param status will be set to any error code encountered during construction.
      *
      * @see ubidi.h
      * @see LEFontInstance.h
      * @see LayoutEngine.h
      * @see RunArrays.h
      *
-     * @draft ICU 2.6
+     * @draft ICU 2.8
      */
     ParagraphLayout(const LEUnicode chars[], le_int32 count,
                     const FontRuns *fontRuns,
                     const ValueRuns *levelRuns,
                     const ValueRuns *scriptRuns,
                     const LocaleRuns *localeRuns,
-                    UBiDiLevel paragraphLevel, le_bool vertical);
+                    UBiDiLevel paragraphLevel, le_bool vertical,
+                    LEErrorCode &status);
 
     /**
      * The destructor. Virtual so that it works correctly with
@@ -395,7 +412,7 @@ public:
      *
      * @param fontRuns is a pointer to a <code>FontRuns</code> object representing the font runs.
      *
-     * @return <code>true</code> if the paragraph contains complex text.
+     * @return <code>TRUE</code> if the paragraph contains complex text.
      *
      * @draft ICU 2.6
      */
@@ -409,7 +426,7 @@ public:
      *
      * @param count is the number of characters in the paragraph.
      *
-     * @return <code>true</code> if any of the text requires complex processing.
+     * @return <code>TRUE</code> if any of the text requires complex processing.
      *
      * @draft ICU 2.6
      */
@@ -488,7 +505,7 @@ public:
      *
      * @return a <code>ParagraphLayout::Line</code> object which represents the line. The caller
      *         is responsible for deleting the object. Returns <code>NULL</code> if there are no
-	 *         more lines in the paragraph.
+     *         more lines in the paragraph.
      *
      * @see ParagraphLayout::Line
      *
@@ -547,7 +564,7 @@ private:
 
     void computeLocales();
 
-    void computeSubFonts(const FontRuns *fontRuns);
+    void computeSubFonts(const FontRuns *fontRuns, LEErrorCode &status);
 
     void computeMetrics();
 
@@ -580,7 +597,8 @@ private:
           le_int32 fLeading;
 
           le_int32 *fGlyphToCharMap;
-          le_int32 *fCharToGlyphMap;
+          le_int32 *fCharToMinGlyphMap;
+          le_int32 *fCharToMaxGlyphMap;
           float    *fGlyphWidths;
           le_int32  fGlyphCount;
 
@@ -697,13 +715,6 @@ inline ParagraphLayout::VisualRun::VisualRun(const LEFontInstance *font, UBiDiDi
       fGlyphs(glyphs), fPositions(positions), fGlyphToCharMap(glyphToCharMap)
 {
     // nothing else needs to be done!
-}
-
-inline ParagraphLayout::VisualRun::~VisualRun()
-{
-    LE_DELETE_ARRAY(fGlyphToCharMap);
-    LE_DELETE_ARRAY(fPositions);
-    LE_DELETE_ARRAY(fGlyphs);
 }
 
 U_NAMESPACE_END

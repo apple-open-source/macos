@@ -22,7 +22,7 @@
  *
  * Author:  Keith Packard, SuSE, Inc.
  */
-/* $XFree86: xc/programs/Xserver/hw/kdrive/savage/s3.c,v 1.6 2000/09/03 05:11:18 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/kdrive/savage/s3.c,v 1.7 2003/11/10 18:22:03 tsi Exp $ */
 
 #include "s3.h"
 
@@ -341,7 +341,7 @@ s3ScreenInit (KdScreenInfo *screen)
 	screen->fb[fb].frameBuffer = s3c->frameBuffer + screen_size;
 	screen_size += screen->fb[fb].byteStride * screen->height;
 	
-	REGION_INIT(pScreen, (&s3s->region[fb]), NullBox, 0);
+	REGION_NULL(pScreen, (&s3s->region[fb]));
 	if (screen->fb[fb].bitsPerPixel == 8)
 	    s3s->fb[ma].chroma_key = 0xff;
 	else

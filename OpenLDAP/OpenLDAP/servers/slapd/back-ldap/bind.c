@@ -1,38 +1,24 @@
 /* bind.c - ldap backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/bind.c,v 1.24.2.9 2003/05/07 22:29:11 hyc Exp $ */
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-ldap/bind.c,v 1.57.2.9 2004/07/09 16:32:00 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2000-2003 Pierangelo Masarati.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
  */
-/* This is an altered version */
-/*
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- * 
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- * 
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- * 
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- * 
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- *
- *
- * Copyright 2000, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
- * 
- * This software is being modified by Pierangelo Masarati.
- * The previously reported conditions apply to the modified code as well.
- * Changes in the original code are highlighted where required.
- * Credits for the original code go to the author, Howard Chu.
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
@@ -53,91 +39,90 @@ static LDAP_REBIND_PROC	ldap_back_rebind;
 
 int
 ldap_back_bind(
-    Backend		*be,
-    Connection		*conn,
     Operation		*op,
-    struct berval	*dn,
-    struct berval	*ndn,
-    int			method,
-    struct berval	*cred,
-    struct berval	*edn
-)
+    SlapReply		*rs )
 {
-	struct ldapinfo	*li = (struct ldapinfo *) be->be_private;
+	struct ldapinfo	*li = (struct ldapinfo *) op->o_bd->be_private;
 	struct ldapconn *lc;
 
-	struct berval mdn = { 0, NULL };
+	struct berval mdn = BER_BVNULL;
 	int rc = 0;
+	ber_int_t msgid;
+	dncookie dc;
 
-	lc = ldap_back_getconn(li, conn, op);
+	lc = ldap_back_getconn(op, rs);
 	if ( !lc ) {
 		return( -1 );
 	}
 
-	if ( op->o_ctrls ) {
-		if ( ldap_set_option( lc->ld, LDAP_OPT_SERVER_CONTROLS,
-					op->o_ctrls ) != LDAP_SUCCESS ) {
-			ldap_back_op_result( lc, op );
-			return( -1 );
-		}
-	}
-	
 	/*
 	 * Rewrite the bind dn if needed
 	 */
+	dc.rwmap = &li->rwmap;
 #ifdef ENABLE_REWRITE
-	switch ( rewrite_session( li->rwinfo, "bindDn", dn->bv_val, conn, &mdn.bv_val ) ) {
-	case REWRITE_REGEXEC_OK:
-		if ( mdn.bv_val == NULL ) {
-			mdn.bv_val = ( char * )dn->bv_val;
-		}
-#ifdef NEW_LOGGING
-		LDAP_LOG( BACK_LDAP, DETAIL1, 
-			"[rw] bindDn: \"%s\" -> \"%s\"\n", dn->bv_val, mdn.bv_val, 0 );
-#else /* !NEW_LOGGING */
-		Debug( LDAP_DEBUG_ARGS, "rw> bindDn: \"%s\" -> \"%s\"\n%s",
-				dn->bv_val, mdn.bv_val, "" );
-#endif /* !NEW_LOGGING */
-		break;
-		
-	case REWRITE_REGEXEC_UNWILLING:
-		send_ldap_result( conn, op, LDAP_UNWILLING_TO_PERFORM,
-				NULL, "Operation not allowed", NULL, NULL );
-		return( -1 );
-
-	case REWRITE_REGEXEC_ERR:
-		send_ldap_result( conn, op, LDAP_OTHER,
-				NULL, "Rewrite error", NULL, NULL );
-		return( -1 );
-	}
-#else /* !ENABLE_REWRITE */
-	ldap_back_dn_massage( li, dn, &mdn, 0, 1 );
-#endif /* !ENABLE_REWRITE */
-
-	rc = ldap_bind_s(lc->ld, mdn.bv_val, cred->bv_val, method);
-	if (rc != LDAP_SUCCESS) {
-		rc = ldap_back_op_result( lc, op );
-	} else {
-		lc->bound = 1;
+	dc.conn = op->o_conn;
+	dc.rs = rs;
+	dc.ctx = "bindDN";
+#else
+	dc.tofrom = 1;
+	dc.normalized = 0;
+#endif
+	if ( ldap_back_dn_massage( &dc, &op->o_req_dn, &mdn ) ) {
+		send_ldap_result( op, rs );
+		return -1;
 	}
 
-	if ( li->savecred ) {
-		if ( lc->cred.bv_val ) {
-			memset( lc->cred.bv_val, 0, lc->cred.bv_len );
-			ch_free( lc->cred.bv_val );
-		}
-		ber_dupbv( &lc->cred, cred );
-		ldap_set_rebind_proc( lc->ld, ldap_back_rebind, lc );
-	}
-
-	if ( lc->bound_dn.bv_val )
+	if ( lc->bound_dn.bv_val ) {
 		ch_free( lc->bound_dn.bv_val );
-	if ( mdn.bv_val != dn->bv_val ) {
-		lc->bound_dn = mdn;
-	} else {
-		ber_dupbv( &lc->bound_dn, dn );
+		lc->bound_dn.bv_len = 0;
+		lc->bound_dn.bv_val = NULL;
 	}
-	
+	lc->bound = 0;
+	/* method is always LDAP_AUTH_SIMPLE if we got here */
+	rs->sr_err = ldap_sasl_bind(lc->ld, mdn.bv_val, LDAP_SASL_SIMPLE,
+		&op->oq_bind.rb_cred, op->o_ctrls, NULL, &msgid);
+	rc = ldap_back_op_result( lc, op, rs, msgid, 1 );
+	if (rc == LDAP_SUCCESS) {
+		lc->bound = 1;
+		if ( mdn.bv_val != op->o_req_dn.bv_val ) {
+			lc->bound_dn = mdn;
+		} else {
+			ber_dupbv( &lc->bound_dn, &op->o_req_dn );
+		}
+		mdn.bv_val = NULL;
+
+		if ( li->savecred ) {
+			if ( lc->cred.bv_val ) {
+				memset( lc->cred.bv_val, 0, lc->cred.bv_len );
+				ch_free( lc->cred.bv_val );
+			}
+			ber_dupbv( &lc->cred, &op->oq_bind.rb_cred );
+			ldap_set_rebind_proc( lc->ld, ldap_back_rebind, lc );
+		}
+	}
+
+	/* must re-insert if local DN changed as result of bind */
+	if ( lc->bound && !bvmatch(&op->o_req_ndn, &lc->local_dn ) ) {
+		int lerr;
+
+		ldap_pvt_thread_mutex_lock( &li->conn_mutex );
+		lc = avl_delete( &li->conntree, (caddr_t)lc,
+				ldap_back_conn_cmp );
+		if ( lc->local_dn.bv_val )
+			ch_free( lc->local_dn.bv_val );
+		ber_dupbv( &lc->local_dn, &op->o_req_ndn );
+		lerr = avl_insert( &li->conntree, (caddr_t)lc,
+			ldap_back_conn_cmp, ldap_back_conn_dup );
+		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
+		if ( lerr == -1 ) {
+			ldap_back_conn_free( lc );
+		}
+	}
+
+	if ( mdn.bv_val && mdn.bv_val != op->o_req_dn.bv_val ) {
+		free( mdn.bv_val );
+	}
+
 	return( rc );
 }
 
@@ -155,7 +140,15 @@ ldap_back_conn_cmp(
 {
 	const struct ldapconn *lc1 = (const struct ldapconn *)c1;
 	const struct ldapconn *lc2 = (const struct ldapconn *)c2;
+	int rc;
 	
+	/* If local DNs don't match, it is definitely not a match */
+	if ( ( rc = ber_bvcmp( &lc1->local_dn, &lc2->local_dn )) )
+		return rc;
+
+	/* For shared sessions, conn is NULL. Only explicitly
+	 * bound sessions will have non-NULL conn.
+	 */
 	return SLAP_PTRCMP(lc1->conn, lc2->conn);
 }
 
@@ -174,13 +167,18 @@ ldap_back_conn_dup(
 	struct ldapconn *lc1 = (struct ldapconn *)c1;
 	struct ldapconn *lc2 = (struct ldapconn *)c2;
 
-	return( ( lc1->conn == lc2->conn ) ? -1 : 0 );
+	/* Cannot have more than one shared session with same DN */
+	if ( dn_match( &lc1->local_dn, &lc2->local_dn ) &&
+		 lc1->conn == lc2->conn ) return -1;
+		
+	return 0;
 }
 
 #if PRINT_CONNTREE > 0
 static void ravl_print( Avlnode *root, int depth )
 {
 	int     i;
+	struct ldapconn *lc;
 	
 	if ( root == 0 )
 		return;
@@ -190,7 +188,9 @@ static void ravl_print( Avlnode *root, int depth )
 	for ( i = 0; i < depth; i++ )
 		printf( "   " );
 
-	printf( "c(%ld) %d\n", ((struct ldapconn *) root->avl_data)->conn->c_connid, root->avl_bf );
+	lc = root->avl_data;
+	printf( "lc(%lx) local(%s) conn(%lx) %d\n",
+			lc, lc->local_dn.bv_val, lc->conn, root->avl_bf );
 	
 	ravl_print( root->avl_left, depth+1 );
 }
@@ -209,14 +209,48 @@ static void myprint( Avlnode *root )
 }
 #endif /* PRINT_CONNTREE */
 
-struct ldapconn *
-ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
+int
+ldap_back_freeconn( Operation *op, struct ldapconn *lc )
 {
+	struct ldapinfo	*li = (struct ldapinfo *) op->o_bd->be_private;
+
+	ldap_pvt_thread_mutex_lock( &li->conn_mutex );
+	lc = avl_delete( &li->conntree, (caddr_t)lc,
+			ldap_back_conn_cmp );
+	ldap_back_conn_free( (void *)lc );
+	ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
+
+	return 0;
+}
+
+struct ldapconn *
+ldap_back_getconn(Operation *op, SlapReply *rs)
+{
+	struct ldapinfo *li = (struct ldapinfo *)op->o_bd->be_private;
 	struct ldapconn *lc, lc_curr;
 	LDAP *ld;
+	int is_priv = 0;
 
 	/* Searches for a ldapconn in the avl tree */
-	lc_curr.conn = conn;
+
+	/* Explicit binds must not be shared */
+	if ( op->o_tag == LDAP_REQ_BIND
+		|| (op->o_conn
+		  && (op->o_bd == op->o_conn->c_authz_backend ))) {
+		lc_curr.conn = op->o_conn;
+	} else {
+		lc_curr.conn = NULL;
+	}
+	
+	/* Internal searches are privileged and shared. So is root. */
+	if ( op->o_do_not_cache || be_isroot( op ) ) {
+		lc_curr.local_dn = op->o_bd->be_rootndn;
+		lc_curr.conn = NULL;
+		is_priv = 1;
+	} else {
+		lc_curr.local_dn = op->o_ndn;
+	}
+
 	ldap_pvt_thread_mutex_lock( &li->conn_mutex );
 	lc = (struct ldapconn *)avl_find( li->conntree, 
 		(caddr_t)&lc_curr, ldap_back_conn_cmp );
@@ -224,132 +258,122 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
 
 	/* Looks like we didn't get a bind. Open a new session... */
 	if (!lc) {
-		int vers = conn->c_protocol;
-		int err = ldap_initialize(&ld, li->url);
+		int vers = op->o_protocol;
+		rs->sr_err = ldap_initialize(&ld, li->url);
 		
-		if (err != LDAP_SUCCESS) {
-			err = ldap_back_map_result(err);
-			send_ldap_result( conn, op, err,
-				NULL, "ldap_initialize() failed", NULL, NULL );
+		if (rs->sr_err != LDAP_SUCCESS) {
+			rs->sr_err = slap_map_api2result( rs );
+			if (rs->sr_text == NULL) {
+				rs->sr_text = "ldap_initialize() failed";
+			}
+			if (op->o_conn) send_ldap_result( op, rs );
+			rs->sr_text = NULL;
 			return( NULL );
 		}
 		/* Set LDAP version. This will always succeed: If the client
 		 * bound with a particular version, then so can we.
 		 */
-		ldap_set_option(ld, LDAP_OPT_PROTOCOL_VERSION, &vers);
+		ldap_set_option(ld, LDAP_OPT_PROTOCOL_VERSION,
+				(const void *)&vers);
+		/* FIXME: configurable? */
+		ldap_set_option(ld, LDAP_OPT_REFERRALS, LDAP_OPT_ON);
 
 		lc = (struct ldapconn *)ch_malloc(sizeof(struct ldapconn));
-		lc->conn = conn;
+		lc->conn = lc_curr.conn;
 		lc->ld = ld;
-
-		lc->cred.bv_len = 0;
-		lc->cred.bv_val = NULL;
+		ber_dupbv( &lc->local_dn, &lc_curr.local_dn );
 
 #ifdef ENABLE_REWRITE
 		/*
 		 * Sets a cookie for the rewrite session
+		 *
+		 * FIXME: the o_conn might be no longer valid,
+		 * since we may have different entries
+		 * for the same connection
 		 */
-		( void )rewrite_session_init( li->rwinfo, conn );
+		( void )rewrite_session_init( li->rwmap.rwm_rw, op->o_conn );
 #endif /* ENABLE_REWRITE */
 
-		if ( lc->conn->c_dn.bv_len != 0 ) {
-			
-			/*
-			 * Rewrite the bind dn if needed
-			 */
-#ifdef ENABLE_REWRITE			
-			lc->bound_dn.bv_val = NULL;
-			lc->bound_dn.bv_len = 0;
-			switch ( rewrite_session( li->rwinfo, "bindDn",
-						lc->conn->c_dn.bv_val, conn,
-						&lc->bound_dn.bv_val ) ) {
-			case REWRITE_REGEXEC_OK:
-				if ( lc->bound_dn.bv_val == NULL ) {
-					ber_dupbv( &lc->bound_dn,
-							&lc->conn->c_dn );
-				}
-#ifdef NEW_LOGGING
-				LDAP_LOG( BACK_LDAP, DETAIL1, 
-						"[rw] bindDn: \"%s\" ->" 
-						" \"%s\"\n%s",
-						lc->conn->c_dn.bv_val, 
-						lc->bound_dn.bv_val, "" );
-#else /* !NEW_LOGGING */
-				Debug( LDAP_DEBUG_ARGS,
-					       	"rw> bindDn: \"%s\" ->"
-						" \"%s\"\n%s",
-						lc->conn->c_dn.bv_val,
-						lc->bound_dn.bv_val, "" );
-#endif /* !NEW_LOGGING */
-				break;
-				
-			case REWRITE_REGEXEC_UNWILLING:
-				send_ldap_result( conn, op,
-						LDAP_UNWILLING_TO_PERFORM,
-						NULL, "Operation not allowed",
-						NULL, NULL );
-				return( NULL );
-				
-			case REWRITE_REGEXEC_ERR:
-				send_ldap_result( conn, op,
-						LDAP_OTHER,
-						NULL, "Rewrite error",
-						NULL, NULL );
-				return( NULL );
-			}
+		ldap_pvt_thread_mutex_init( &lc->lc_mutex );
 
-#else /* !ENABLE_REWRITE */
-			struct berval bv;
-			ldap_back_dn_massage( li, &lc->conn->c_dn, &bv, 0, 1 );
-			if ( bv.bv_val == lc->conn->c_dn.bv_val ) {
-				ber_dupbv( &lc->bound_dn, &bv );
-			} else {
-				lc->bound_dn = bv;
-			}
-#endif /* !ENABLE_REWRITE */
-
+		if ( is_priv ) {
+			ber_dupbv( &lc->cred, &li->bindpw );
+			ber_dupbv( &lc->bound_dn, &li->binddn );
 		} else {
+			lc->cred.bv_len = 0;
+			lc->cred.bv_val = NULL;
 			lc->bound_dn.bv_val = NULL;
 			lc->bound_dn.bv_len = 0;
+			if ( op->o_conn && op->o_conn->c_dn.bv_len != 0
+					&& ( op->o_bd == op->o_conn->c_authz_backend ) ) {
+				
+				dncookie dc;
+				struct berval bv;
+
+				/*
+				 * Rewrite the bind dn if needed
+				 */
+				dc.rwmap = &li->rwmap;
+#ifdef ENABLE_REWRITE
+				dc.conn = op->o_conn;
+				dc.rs = rs;
+				dc.ctx = "bindDN";
+#else
+				dc.tofrom = 1;
+				dc.normalized = 0;
+#endif
+
+				if ( ldap_back_dn_massage( &dc, &op->o_conn->c_dn, &bv ) ) {
+					send_ldap_result( op, rs );
+					return NULL;
+				}
+
+				if ( bv.bv_val == op->o_conn->c_dn.bv_val ) {
+					ber_dupbv( &lc->bound_dn, &bv );
+				} else {
+					lc->bound_dn = bv;
+				}
+			}
 		}
+
 		lc->bound = 0;
 
 		/* Inserts the newly created ldapconn in the avl tree */
 		ldap_pvt_thread_mutex_lock( &li->conn_mutex );
-		err = avl_insert( &li->conntree, (caddr_t)lc,
+		rs->sr_err = avl_insert( &li->conntree, (caddr_t)lc,
 			ldap_back_conn_cmp, ldap_back_conn_dup );
 
 #if PRINT_CONNTREE > 0
 		myprint( li->conntree );
 #endif /* PRINT_CONNTREE */
-		
+	
 		ldap_pvt_thread_mutex_unlock( &li->conn_mutex );
 
 #ifdef NEW_LOGGING
 		LDAP_LOG( BACK_LDAP, INFO, 
-			"ldap_back_getconn: conn %ld inserted\n", lc->conn->c_connid, 0, 0);
+			"ldap_back_getconn: conn %p inserted\n", (void *) lc, 0, 0);
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
-			"=>ldap_back_getconn: conn %ld inserted\n%s%s",
-			lc->conn->c_connid, "", "" );
+			"=>ldap_back_getconn: conn %p inserted\n", (void *) lc, 0, 0 );
 #endif /* !NEW_LOGGING */
-		
+	
 		/* Err could be -1 in case a duplicate ldapconn is inserted */
-		if ( err != 0 ) {
-			send_ldap_result( conn, op, LDAP_OTHER,
-			NULL, "internal server error", NULL, NULL );
-			/* better destroy the ldapconn struct? */
+		if ( rs->sr_err != 0 ) {
+			ldap_back_conn_free( lc );
+			if (op->o_conn) {
+				send_ldap_error( op, rs, LDAP_OTHER,
+				"internal server error" );
+			}
 			return( NULL );
 		}
 	} else {
 #ifdef NEW_LOGGING
 		LDAP_LOG( BACK_LDAP, INFO, 
-			"ldap_back_getconn: conn %ld inserted\n", 
-			lc->conn->c_connid, 0, 0 );
+			"ldap_back_getconn: conn %p fetched\n", 
+			(void *) lc, 0, 0 );
 #else /* !NEW_LOGGING */
 		Debug( LDAP_DEBUG_TRACE,
-			"=>ldap_back_getconn: conn %ld fetched%s%s\n",
-			lc->conn->c_connid, "", "" );
+			"=>ldap_back_getconn: conn %p fetched\n", (void *) lc, 0, 0 );
 #endif /* !NEW_LOGGING */
 	}
 	
@@ -364,26 +388,61 @@ ldap_back_getconn(struct ldapinfo *li, Connection *conn, Operation *op)
  * it can be used to simplify the check.
  */
 int
-ldap_back_dobind( struct ldapconn *lc, Operation *op )
+ldap_back_dobind( struct ldapconn *lc, Operation *op, SlapReply *rs )
 {	
-	if ( op->o_ctrls ) {
-		if ( ldap_set_option( lc->ld, LDAP_OPT_SERVER_CONTROLS,
-				op->o_ctrls ) != LDAP_SUCCESS ) {
-			ldap_back_op_result( lc, op );
-			return( 0 );
+	struct ldapinfo *li = (struct ldapinfo *)op->o_bd->be_private;
+	int rc;
+	ber_int_t msgid;
+
+	ldap_pvt_thread_mutex_lock( &lc->lc_mutex );
+	if ( !lc->bound ) {
+#ifdef LDAP_BACK_PROXY_AUTHZ
+		int	gotit = 0;
+#if 0
+		/*
+		 * FIXME: we need to let clients use proxyAuthz
+		 * otherwise we cannot do symmetric pools of servers;
+		 * we have to live with the fact that a user can
+		 * authorize itself as any ID that is allowed
+		 * by the saslAuthzTo directive of the "proxyauthzdn".
+		 */
+		/*
+		 * NOTE: current Proxy Authorization specification
+		 * and implementation do not allow proxy authorization
+		 * control to be provided with Bind requests
+		 */
+		gotit = op->o_proxy_authz;
+#endif
+
+		/*
+		 * if no bind took place yet, but the connection is bound
+		 * and the "proxyauthzdn" is set, then bind as 
+		 * "proxyauthzdn" and explicitly add the proxyAuthz 
+		 * control to every operation with the dn bound 
+		 * to the connection as control value.
+		 */
+		if ( ( lc->bound_dn.bv_val == NULL || lc->bound_dn.bv_len == 0 )
+	      			&& ( op->o_conn && op->o_conn->c_dn.bv_val != NULL && op->o_conn->c_dn.bv_len != 0 )
+	      			&& ( li->proxyauthzdn.bv_val != NULL && li->proxyauthzdn.bv_len != 0 ) 
+	      			&& ! gotit ) {
+			rs->sr_err = ldap_sasl_bind(lc->ld, li->proxyauthzdn.bv_val,
+				LDAP_SASL_SIMPLE, &li->proxyauthzpw, NULL, NULL, &msgid);
+
+		} else
+#endif /* LDAP_BACK_PROXY_AUTHZ */
+		{
+			rs->sr_err = ldap_sasl_bind(lc->ld, lc->bound_dn.bv_val,
+				LDAP_SASL_SIMPLE, &lc->cred, NULL, NULL, &msgid);
+		}
+		
+		rc = ldap_back_op_result( lc, op, rs, msgid, 0 );
+		if (rc == LDAP_SUCCESS) {
+			lc->bound = 1;
 		}
 	}
-	
-	if ( lc->bound ) {
-		return( lc->bound );
-	}
-
-	if ( ldap_bind_s( lc->ld, lc->bound_dn.bv_val, lc->cred.bv_val, 
-				LDAP_AUTH_SIMPLE ) != LDAP_SUCCESS ) {
-		ldap_back_op_result( lc, op );
-		return( 0 );
-	} /* else */
-	return( lc->bound = 1 );
+	rc = lc->bound;
+	ldap_pvt_thread_mutex_unlock( &lc->lc_mutex );
+	return rc;
 }
 
 /*
@@ -401,12 +460,12 @@ ldap_back_rebind( LDAP *ld, LDAP_CONST char *url, ber_tag_t request,
 	return ldap_bind_s( ld, lc->bound_dn.bv_val, lc->cred.bv_val, LDAP_AUTH_SIMPLE );
 }
 
+#if 0 /* deprecated in favour of slap_map_api2result() */
 /* Map API errors to protocol errors... */
-
 int
-ldap_back_map_result(int err)
+ldap_back_map_result( SlapReply *rs )
 {
-	switch(err)
+	switch(rs->sr_err)
 	{
 	case LDAP_SERVER_DOWN:
 		return LDAP_UNAVAILABLE;
@@ -420,8 +479,10 @@ ldap_back_map_result(int err)
 	case LDAP_AUTH_UNKNOWN:
 		return LDAP_AUTH_METHOD_NOT_SUPPORTED;
 	case LDAP_FILTER_ERROR:
+		rs->sr_text = "Filter error";
 		return LDAP_OTHER;
 	case LDAP_USER_CANCELLED:
+		rs->sr_text = "User cancelled";
 		return LDAP_OTHER;
 	case LDAP_PARAM_ERROR:
 		return LDAP_PROTOCOL_ERROR;
@@ -436,52 +497,184 @@ ldap_back_map_result(int err)
 	case LDAP_NO_RESULTS_RETURNED:
 		return LDAP_NO_SUCH_OBJECT;
 	case LDAP_MORE_RESULTS_TO_RETURN:
+		rs->sr_text = "More results to return";
 		return LDAP_OTHER;
 	case LDAP_CLIENT_LOOP:
 	case LDAP_REFERRAL_LIMIT_EXCEEDED:
 		return LDAP_LOOP_DETECT;
 	default:
-		if LDAP_API_ERROR(err)
+		if ( LDAP_API_ERROR(rs->sr_err) )
 			return LDAP_OTHER;
-		else
-			return err;
+		return rs->sr_err;
 	}
 }
+#endif
 
 int
-ldap_back_op_result(struct ldapconn *lc, Operation *op)
+ldap_back_op_result(struct ldapconn *lc, Operation *op, SlapReply *rs,
+	ber_int_t msgid, int sendok)
 {
-	int err = LDAP_SUCCESS;
-	char *msg = NULL;
+	struct ldapinfo *li = (struct ldapinfo *)op->o_bd->be_private;
 	char *match = NULL;
+	LDAPMessage *res = NULL;
+	char *text = NULL;
 
-	ldap_get_option(lc->ld, LDAP_OPT_ERROR_NUMBER, &err);
-	ldap_get_option(lc->ld, LDAP_OPT_ERROR_STRING, &msg);
-	ldap_get_option(lc->ld, LDAP_OPT_MATCHED_DN, &match);
-	err = ldap_back_map_result(err);
+#define	ERR_OK(err) ((err) == LDAP_SUCCESS || (err) == LDAP_COMPARE_FALSE || (err) == LDAP_COMPARE_TRUE)
 
+	rs->sr_text = NULL;
+	rs->sr_matched = NULL;
+
+	/* if the error recorded in the reply corresponds
+	 * to a successful state, get the error from the
+	 * remote server response */
+	if ( ERR_OK( rs->sr_err ) ) {
+		/* if result parsing fails, note the failure reason */
+		if ( ldap_result( lc->ld, msgid, 1, NULL, &res ) == -1 ) {
+			ldap_get_option( lc->ld, LDAP_OPT_ERROR_NUMBER,
+					&rs->sr_err );
+
+		/* otherwise get the result; if it is not
+		 * LDAP_SUCCESS, record it in the reply
+		 * structure (this includes 
+		 * LDAP_COMPARE_{TRUE|FALSE}) */
+		} else {
+			int rc = ldap_parse_result( lc->ld, res, &rs->sr_err,
+					&match, &text, NULL, NULL, 1 );
+			rs->sr_text = text;
+			if ( rc != LDAP_SUCCESS ) rs->sr_err = rc;
+		}
+	}
+
+	/* if the error in the reply structure is not
+	 * LDAP_SUCCESS, try to map it from client 
+	 * to server error */
+	if ( !ERR_OK( rs->sr_err ) ) {
+		rs->sr_err = slap_map_api2result( rs );
+
+		/* internal ops ( op->o_conn == NULL ) 
+		 * must not reply to client */
+		if ( op->o_conn && !op->o_do_not_cache && match ) {
+			struct berval dn, mdn;
+			dncookie dc;
+
+			dc.rwmap = &li->rwmap;
 #ifdef ENABLE_REWRITE
-	
-	/*
-	 * FIXME: need rewrite info for match; mmmh ...
-	 */
-	send_ldap_result( lc->conn, op, err, match, msg, NULL, NULL );
-	/* better test the pointers before freeing? */
-	if ( match ) {
-		free( match );
+			dc.conn = op->o_conn;
+			dc.rs = rs;
+			dc.ctx = "matchedDN";
+#else
+			dc.tofrom = 0;
+			dc.normalized = 0;
+#endif
+			ber_str2bv(match, 0, 0, &dn);
+			ldap_back_dn_massage(&dc, &dn, &mdn);
+
+			/* record the (massaged) matched
+			 * DN into the reply structure */
+			rs->sr_matched = mdn.bv_val;
+				
+		}
 	}
-
-#else /* !ENABLE_REWRITE */
-
-	send_ldap_result( lc->conn, op, err, match, msg, NULL, NULL );
-	/* better test the pointers before freeing? */
-	if ( match ) {
-		free( match );
+	if ( op->o_conn && ( sendok || rs->sr_err != LDAP_SUCCESS ) ) {
+		send_ldap_result( op, rs );
 	}
-
-#endif /* !ENABLE_REWRITE */
-
-	if ( msg ) free( msg );
-	return( (err==LDAP_SUCCESS) ? 0 : -1 );
+	if ( match ) {
+		if ( rs->sr_matched != match ) {
+			free( (char *)rs->sr_matched );
+		}
+		rs->sr_matched = NULL;
+		ldap_memfree( match );
+	}
+	if ( text ) {
+		ldap_memfree( text );
+	}
+	rs->sr_text = NULL;
+	return( ERR_OK( rs->sr_err ) ? 0 : -1 );
 }
 
+#ifdef LDAP_BACK_PROXY_AUTHZ
+/*
+ * ldap_back_proxy_authz_ctrl() prepends a proxyAuthz control
+ * to existing server-side controls if required; if not,
+ * the existing server-side controls are placed in *pctrls.
+ * The caller, after using the controls in client API 
+ * operations, if ( *pctrls != op->o_ctrls ), should
+ * free( (*pctrls)[ 0 ] ) and free( *pctrls ).
+ * The function returns success if the control could
+ * be added if required, or if it did nothing; in the future,
+ * it might return some error if it failed.
+ * 
+ * if no bind took place yet, but the connection is bound
+ * and the "proxyauthzdn" is set, then bind as "proxyauthzdn" 
+ * and explicitly add proxyAuthz the control to every operation
+ * with the dn bound to the connection as control value.
+ *
+ * If no server-side controls are defined for the operation,
+ * simply add the proxyAuthz control; otherwise, if the
+ * proxyAuthz control is not already set, add it as
+ * the first one (FIXME: is controls order significant
+ * for security?).
+ */
+int
+ldap_back_proxy_authz_ctrl(
+		struct ldapconn	*lc,
+		Operation	*op,
+		SlapReply	*rs,
+		LDAPControl	***pctrls )
+{
+	struct ldapinfo	*li = (struct ldapinfo *) op->o_bd->be_private;
+	LDAPControl	**ctrls = NULL;
+
+	*pctrls = NULL;
+
+	if ( ( lc->bound_dn.bv_val == NULL || lc->bound_dn.bv_len == 0 )
+	      		&& ( op->o_conn && op->o_conn->c_dn.bv_val != NULL && op->o_conn->c_dn.bv_len != 0 )
+	      		&& ( li->proxyauthzdn.bv_val != NULL && li->proxyauthzdn.bv_len != 0 ) ) {
+		int	i = 0;
+
+		if ( !op->o_proxy_authz ) {
+			ctrls = ch_malloc( sizeof( LDAPControl * ) * (i + 2) );
+			ctrls[ 0 ] = ch_malloc( sizeof( LDAPControl ) );
+			
+			ctrls[ 0 ]->ldctl_oid = LDAP_CONTROL_PROXY_AUTHZ;
+			ctrls[ 0 ]->ldctl_iscritical = 1;
+			ctrls[ 0 ]->ldctl_value.bv_len = op->o_conn->c_dn.bv_len + 3;
+			ctrls[ 0 ]->ldctl_value.bv_val = ch_malloc( ctrls[ 0 ]->ldctl_value.bv_len + 1 );
+			AC_MEMCPY( ctrls[ 0 ]->ldctl_value.bv_val, "dn:", sizeof( "dn:" ) - 1 );
+			AC_MEMCPY( ctrls[ 0 ]->ldctl_value.bv_val + sizeof( "dn:") - 1,
+					op->o_conn->c_dn.bv_val, op->o_conn->c_dn.bv_len + 1 );
+
+			if ( op->o_ctrls ) {
+				for ( i = 0; op->o_ctrls[ i ]; i++ ) {
+					ctrls[ i + 1 ] = op->o_ctrls[ i ];
+				}
+			}
+			ctrls[ i + 1 ] = NULL;
+
+		} else {
+			/*
+			 * FIXME: we do not want to perform proxyAuthz
+			 * on behalf of the client, because this would
+			 * be performed with "proxyauthzdn" privileges.
+			 *
+			 * This might actually be too strict, since
+			 * the "proxyauthzdn" saslAuthzTo, and each entry's
+			 * saslAuthzFrom attributes may be crafted
+			 * to avoid unwanted proxyAuthz to take place.
+			 */
+#if 0
+			rs->sr_err = LDAP_UNWILLING_TO_PERFORM;
+			rs->sr_text = "proxyAuthz not allowed within namingContext";
+#endif
+		}
+	}
+
+	if ( ctrls == NULL ) {
+		ctrls = op->o_ctrls;
+	}
+
+	*pctrls = ctrls;
+	
+	return rs->sr_err;
+}
+#endif /* LDAP_BACK_PROXY_AUTHZ */

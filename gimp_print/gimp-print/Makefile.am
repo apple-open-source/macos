@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.3 2004/07/23 06:26:24 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -18,42 +18,48 @@
 
 ## Process this file with automake to produce Makefile.in.
 
-AUTOMAKE_OPTIONS = 1.4 gnu
+AUTOMAKE_OPTIONS = 1.5 dist-bzip2 check-news gnu no-dependencies
 
 @SET_MAKE@
 
 MAINT_CHARSET = latin1
+ACLOCAL_AMFLAGS = -I m4 -I m4local
+
+include $(top_srcdir)/scripts/global.mk
 
 
 ## Variables
 
-NONGIMP_SUBDIRS =
-NONGIMP_DISTDIRS =
-## @-@-@-@-@ NO-GIMP @-@-@-@-@
-NONGIMP_SUBDIRS = test
-NONGIMP_DISTDIRS = debian
-## @-@-@-@-@ YES-GIMP @-@-@-@-@
-SUBDIRS = include intl lib man src samples $(NONGIMP_SUBDIRS) po doc
-DISTDIRS = scripts $(NONGIMP_DISTDIRS)
-
-EXTRA_DIST = configure.in.in autogen.sh
-
-if MAINTAINER_MODE
-MAINT_MODE = true
-endif
+SUBDIRS = include src samples test po man doc debian scripts
+DISTDIRS = m4 m4extra
 
 
 ## Rules
 
-## Libtool dependency
+# Libtool dependency
 libtool: $(LIBTOOL_DEPS)
+	cd $(srcdir); \
 	$(SHELL) ./config.status --recheck
 
-## @-@-@-@-@ NO-GIMP @-@-@-@-@
-ChangeLog:
+# This rather strange-looking code ensures that the change log is only
+# rebuilt if any of the CVS/Entries files have changed since the change log
+# was last built.
+
+ChangeLogPhony:
 	@cd $(top_srcdir) ; \
-	echo `pwd`
-	if test -f .noupdate ; then \
+	for f in `find . -name Entries -print | grep CVS` ; do \
+	  if /usr/bin/test ! -f ChangeLogStamp -o ChangeLogStamp -ot $$f ; then \
+	    rm -f ChangeLogStamp ; \
+	    touch ChangeLogStamp ; \
+	  fi ; \
+	done
+
+ChangeLogStamp: ChangeLogPhony
+	@/bin/true
+
+ChangeLog: ChangeLogStamp
+	@cd $(top_srcdir) ; \
+	if test -f $(top_builddir)/.noupdate ; then \
 	  echo "ChangeLog: .noupdate found: NOT updating ChangeLog from CVS" ; \
 	elif test -d CVS ; then \
 	  echo "ChangeLog: Updating ChangeLog from CVS" ; \
@@ -66,7 +72,7 @@ ChangeLog:
 	    exit 1 ; \
 	  fi \
 	elif test -s ChangeLog ; then \
-	  echo "ChangeLog: This is not a CVS version of GIMP-Print" ; \
+	  echo "ChangeLog: This is not a CVS version of Gimp-Print" ; \
 	  echo "ChangeLog: Not updating ChangeLog from CVS!" ; \
 	else \
 	  echo "ChangeLog: No ChangeLog or ChangeLog of zero size found!" ; \
@@ -74,20 +80,19 @@ ChangeLog:
 	  exit 1 ; \
 	fi
 
-## @-@-@-@-@ YES-GIMP @-@-@-@-@
+configure.in:
+	$(LN_S) $(srcdir)/configure.ac $(srcdir)/configure.in
 
-# Rebuild configure.in from configure.in.in if configure.in.in is available.
-# If not, don't do anything.
-
-configure.in: configure.in.in
-	if test -f configure.in.in ; then \
-	  sed "s/XXXRELEASE_DATE=XXX/RELEASE_DATE=\"`date '+%d %b %Y'`\"/" configure.in.in > configure.in ; \
+dist-time-check:
+	@current_date=`date +%Y%m%d`; \
+	configure_date=`ls -l --time-style=+%Y%m%d $(top_builddir)/configure | awk '{print $$6}'`; \
+	echo "Checking that 'configure' was built today."; \
+	if test "$$current_date" != "$$configure_date" ; then \
+	  echo "configure is out of date -- rerun ./autogen.sh first!"; \
+	  exit 1; \
 	fi
 
-configure.in.in:
-	true
-
-dist-hook:
+dist-hook: dist-time-check
 	for dir in $(DISTDIRS) ; do \
 	  if test -d $(srcdir)/$$dir ; then \
 	    mkdir $(distdir)/$$dir; \
@@ -98,34 +103,12 @@ dist-hook:
 	    done \
 	  fi \
 	done
-## @-@-@-@-@ NO-GIMP @-@-@-@-@
-# Create debian/control
-	DEBIAN_VERSION=`grep "(" debian/changelog | head -1l | sed "s/^[^(]*(//" | sed "s/).*$$//"` ; \
-	UPSTREAM_VERSION=`echo $$DEBIAN_VERSION | sed "s/-[^-]*$$//"` ; \
-	LIBRARY_VERSION=$$(($(LT_CURRENT) - $(LT_AGE))) ; \
-	sed -e "s/#UPSTREAM_VERSION#/$${UPSTREAM_VERSION}/g" -e "s/#LIBRARY_VERSION#/$${LIBRARY_VERSION}/g" <debian/control.in >$(distdir)/debian/control
-# Do some extra magic to make a distribution for GIMP CVS
-	status=0 ; \
-	if test -f .gimp-dist ; then \
-	  $(RM) -r $(distdir)/src/cups $(distdir)/src/foomatic $(distdir)/src/ghost ; \
-	  $(RM) -r $(distdir)/debian $(distdir)/scripts/* $(distdir)/test ; \
-	  $(RM) -r $(distdir)/intl $(distdir)/po/Makefile.in.in $(distdir)/po/*.gmo ; \
-	  $(RM) -r $(distdir)/ABOUT-NLS $(distdir)/INSTALL $(distdir)/aclocal.m4 $(distdir)/config.h.in $(distdir)/configure $(distdir)/cups-gimpprint.list.in $(distdir)/stamp-h.in ; \
-	  find $(distdir) -name Makefile.in -print | xargs --no-run-if-empty $(RM) ; \
-	  cd $(distdir) ; \
-	  $(PERL) ../scripts/patch-gimp configure.in ; \
-	  $(PERL) ../scripts/patch-gimp Makefile.am ; \
-	  $(PERL) ../scripts/patch-gimp src/Makefile.am ; \
-	  $(PERL) ../scripts/patch-gimp po/POTFILES.in ; \
-	  status=$$? ; \
-	  cd .. ; \
-	  $(RM) .gimp-dist ; \
-	fi ; \
-	exit $$status
-
-gimp-dist:
-	touch .gimp-dist
-	$(MAKE) dist distdir=$(PACKAGE)-$(VERSION)-GIMP-DIST
+# Remove configure.in (libtool bug workaround)
+	$(RM) -f $(distdir)/configure.in
+# Remove any backup files found in distdir
+	$(FIND) $(distdir) -name '.*' -print | xargs $(RM) -rf
+	$(FIND) $(distdir) -name '#*' -print | xargs $(RM) -rf
+	$(FIND) $(distdir) -name '*~' -print | xargs $(RM) -rf
 
 install-cups: all
 	cd src/cups ; \
@@ -135,7 +118,6 @@ install-ghost: all
 	cd src/ghost ; \
 	$(MAKE) install
 
-## @-@-@-@-@ YES-GIMP @-@-@-@-@
 install-gimp: all
 	cd src/gimp ; \
 	$(MAKE) install
@@ -179,19 +161,61 @@ debian/control:
 ## Clean
 
 CLEANSCRIPTS = \
-	config.guess \
-	config.sub \
+	depcomp \
 	install-sh \
 	ltconfig \
-	ltmain.sh \
+	mdate-sh \
 	missing \
 	mkinstalldirs
 
-CLEANFILES = .gimp-dist .noupdate
-MAINTAINERCLEANFILES = ABOUT-NLS INSTALL aclocal.m4 config.h.in configure Makefile.in stamp-h.in $(addprefix scripts/, $(CLEANSCRIPTS))
+CLEANMFOUR = \
+	codeset.m4 \
+	gettext.m4 \
+	glibc21.m4 \
+	iconv.m4 \
+	intdiv0.m4 \
+	inttypes_h.m4 \
+	inttypes.m4 \
+	inttypes-pri.m4 \
+	isc-posix.m4 \
+	lcmessage.m4 \
+	lib-ld.m4 \
+	lib-link.m4 \
+	lib-prefix.m4 \
+	progtest.m4 \
+	stdint_h.m4 \
+	uintmax_t.m4 \
+	ulonglong.m4
 
-## @-@-@-@-@ NO-GIMP @-@-@-@-@
-.PHONY: deb gimp-dist install-cups install-ghost snapshot ChangeLog
-## @-@-@-@-@ YES-GIMP @-@-@-@-@
+CLEANPO = \
+	boldquot.sed \
+	en@boldquot.header \
+	en@quot.header \
+	insert-header.sin \
+	Makevars.template \
+	quot.sed \
+	remove-potcdate.sin \
+	Rules-quot
 
-.PHONY: install-gimp html
+CLEANFILES = .noupdate
+
+MAINTAINERCLEANFILES = \
+	ABOUT-NLS \
+	INSTALL \
+	aclocal.m4 \
+	config.h.in \
+	configure \
+	configure.in \
+	Makefile.in \
+	stamp-h.in \
+	stamp-h1.in \
+	stamp-h2.in \
+	stamp-h3.in \
+	stamp-h4.in \
+	$(addprefix scripts/, $(CLEANSCRIPTS)) \
+	$(addprefix m4/, $(CLEANMFOUR)) \
+	$(addprefix po/, $(CLEANPO))
+
+EXTRA_DIST = autogen.sh ChangeLogStamp
+
+.PHONY: deb html install-cups install-gimp install-ghost snapshot ChangeLogPhony dist-time-check

@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgastate.h,v 1.5 2002/10/30 12:51:36 alanh Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgastate.h,v 1.6 2003/09/28 20:15:17 alanh Exp $ */
 /*
  * Copyright 2000-2001 VA Linux Systems, Inc.
  * All Rights Reserved.
@@ -29,14 +29,11 @@
 #ifndef _MGA_STATE_H
 #define _MGA_STATE_H
 
-
 extern void mgaInitState( mgaContextPtr mmesa );
 extern void mgaDDInitStateFuncs(GLcontext *ctx);
-extern void mgaDDUpdateHwState( GLcontext *ctx );
 extern void mgaUpdateClipping(const GLcontext *ctx);
 extern void mgaUpdateCull( GLcontext *ctx );
 extern void mgaCalcViewport( GLcontext *ctx );
-
-
+extern void mgaUpdateRects( mgaContextPtr mmesa, GLuint buffers );
 
 #endif

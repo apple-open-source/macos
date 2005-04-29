@@ -1,8 +1,8 @@
 #
 #   shell/command-controller.rb - 
 #   	$Release Version: 0.6.0 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Revision: 1.8.2.2 $
+#   	$Date: 2004/04/18 23:20:33 $
 #   	by Keiju ISHITSUKA(Nippon Rational Inc.)
 #
 # --
@@ -21,6 +21,7 @@ require "shell/builtin-command"
 
 class Shell
   class CommandProcessor
+#    include Error
 
     #
     # initialize of Shell and related classes.
@@ -31,7 +32,7 @@ class Shell
       install_builtin_commands
 
       # define CommandProccessor#methods to Shell#methods and Filter#methods
-      for m in CommandProcessor.instance_methods - NoDelegateMethods
+      for m in CommandProcessor.instance_methods(false) - NoDelegateMethods
 	add_delegate_command_to_shell(m)
       end
       
@@ -49,7 +50,7 @@ class Shell
       rescue LoadError, Errno::ENOENT
       rescue
 	print "load error: #{rc}\n"
-	print $!.type, ": ", $!, "\n"
+	print $!.class, ": ", $!, "\n"
 	for err in $@[0, $@.size - 2]
 	  print "\t", err, "\n"
 	end
@@ -145,7 +146,7 @@ class Shell
     #	  file2:   String(optional)
     #	  return: Boolean
     #	same as:
-    #	  test()	   (when command is char or length 1 string or sumbol)
+    #	  test()	   (when command is char or length 1 string or symbol)
     #	  FileTest.command (others)
     #	example:
     #	  sh[?e, "foo"]
@@ -205,7 +206,7 @@ class Shell
     #	  
     def rmdir(*path)
       for dir in path
-	Dir.rmdir(expand_path(path))
+	Dir.rmdir(expand_path(dir))
       end
     end
 
@@ -213,13 +214,20 @@ class Shell
     # CommandProcessor#system(command, *opts)
     #	  command: String
     #	  opts:	   String
-    #	  retuen:  SystemCommand
+    #	  return:  SystemCommand
     #	Same as system() function
     #	example:
     #	  print sh.system("ls", "-l")
     #	  sh.system("ls", "-l") | sh.head > STDOUT
     # 
     def system(command, *opts)
+      if opts.empty?
+	if command =~ /\*|\?|\{|\}|\[|\]|<|>|\(|\)|~|&|\||\\|\$|;|'|`|"|\n/
+	  return SystemCommand.new(@shell, find_system_command("sh"), "-c", command)
+	else
+	  command, *opts = command.split(/\s+/)
+	end
+      end
       SystemCommand.new(@shell, find_system_command(command), *opts)
     end
 
@@ -277,7 +285,7 @@ class Shell
       when IO
 	AppendIO.new(@shell, to, filter)
       else
-	Shell.Fail CanNotMethodApply, "append", to.type
+	Shell.Fail Error::CantApplyMethod, "append", to.class
       end
     end
 
@@ -327,10 +335,10 @@ class Shell
 	if exists?(path)
 	  return path
 	else
-	  Shell.Fail CommandNotFound, command
+	  Shell.Fail Error::CommandNotFound, command
 	end
       when false
-	Shell.Fail CommandNotFound, command
+	Shell.Fail Error::CommandNotFound, command
       end
 
       for p in @shell.system_path
@@ -341,7 +349,7 @@ class Shell
 	end
       end
       @system_commands[command] = false
-      Shell.Fail CommandNotFound, command
+      Shell.Fail Error::CommandNotFound, command
     end
 
     #
@@ -393,7 +401,7 @@ class Shell
 	                end]), nil, __FILE__, __LINE__ - 1)
     
 	else
-           args = opts.collect{|opt| '"' + opt + '"'}.join ","
+           args = opts.collect{|opt| '"' + opt + '"'}.join(",")
            eval((d = %Q[def #{ali}(*opts)
                           @shell.__send__(:#{command}, #{args}, *opts)
                         end]), nil, __FILE__, __LINE__ - 1)
@@ -558,7 +566,7 @@ class Shell
 
       # method related FileTest
       def_builtin_commands(FileTest, 
-		   FileTest.singleton_methods.collect{|m| [m, ["FILENAME"]]})
+		   FileTest.singleton_methods(false).collect{|m| [m, ["FILENAME"]]})
 
       # method related ftools
       normal_delegation_ftools_methods = [

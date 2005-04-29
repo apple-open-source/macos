@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_state.c,v 1.4 2003/02/23 23:59:01 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r200/r200_state.c,v 1.7 2003/12/02 13:02:39 alanh Exp $ */
 /*
 Copyright (C) The Weather Channel, Inc.  2002.  All Rights Reserved.
 
@@ -25,12 +25,27 @@ IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
+
+**************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
  */
+
+#include "glheader.h"
+#include "imports.h"
+#include "api_arrayelt.h"
+#include "enums.h"
+#include "colormac.h"
+#include "state.h"
+
+#include "swrast/swrast.h"
+#include "array_cache/acache.h"
+#include "tnl/tnl.h"
+#include "tnl/t_pipeline.h"
+#include "swrast_setup/swrast_setup.h"
+
 
 #include "r200_context.h"
 #include "r200_ioctl.h"
@@ -40,33 +55,23 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include "r200_swtcl.h"
 #include "r200_vtxfmt.h"
 
-#include "mem.h"
-#include "mmath.h"
-#include "enums.h"
-#include "colormac.h"
-#include "light.h"
-#include "api_arrayelt.h"
-
-#include "swrast/swrast.h"
-#include "array_cache/acache.h"
-#include "tnl/tnl.h"
-#include "tnl/t_pipeline.h"
-#include "swrast_setup/swrast_setup.h"
-
 
 /* =============================================================
  * Alpha blending
  */
 
-static void r200AlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
+static void r200AlphaFunc( GLcontext *ctx, GLenum func, GLfloat ref )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
    int pp_misc = rmesa->hw.ctx.cmd[CTX_PP_MISC];
+   GLubyte refByte;
+
+   CLAMPED_FLOAT_TO_UBYTE(refByte, ref);
 
    R200_STATECHANGE( rmesa, ctx );
 
    pp_misc &= ~(R200_ALPHA_TEST_OP_MASK | R200_REF_ALPHA_MASK);
-   pp_misc |= (ref & R200_REF_ALPHA_MASK);
+   pp_misc |= (refByte & R200_REF_ALPHA_MASK);
 
    switch ( func ) {
    case GL_NEVER:
@@ -94,7 +99,7 @@ static void r200AlphaFunc( GLcontext *ctx, GLenum func, GLchan ref )
       pp_misc |= R200_ALPHA_TEST_PASS;
       break;
    }
-   
+
    rmesa->hw.ctx.cmd[CTX_PP_MISC] = pp_misc;
 }
 
@@ -104,24 +109,24 @@ static void r200BlendEquation( GLcontext *ctx, GLenum mode )
    GLuint b = rmesa->hw.ctx.cmd[CTX_RB3D_BLENDCNTL] & ~R200_COMB_FCN_MASK;
 
    switch ( mode ) {
-   case GL_FUNC_ADD_EXT:
+   case GL_FUNC_ADD:
    case GL_LOGIC_OP:
       b |= R200_COMB_FCN_ADD_CLAMP;
       break;
 
-   case GL_FUNC_SUBTRACT_EXT:
+   case GL_FUNC_SUBTRACT:
       b |= R200_COMB_FCN_SUB_CLAMP;
       break;
 
-   case GL_FUNC_REVERSE_SUBTRACT_EXT:
+   case GL_FUNC_REVERSE_SUBTRACT:
       b |= R200_COMB_FCN_RSUB_CLAMP;
       break;
 
-   case GL_MIN_EXT:
+   case GL_MIN:
       b |= R200_COMB_FCN_MIN;
       break;
 
-   case GL_MAX_EXT:
+   case GL_MAX:
       b |= R200_COMB_FCN_MAX;
       break;
 
@@ -156,6 +161,12 @@ static void r200BlendFunc( GLcontext *ctx, GLenum sfactor, GLenum dfactor )
       break;
    case GL_ONE_MINUS_DST_COLOR:
       b |= R200_SRC_BLEND_GL_ONE_MINUS_DST_COLOR;
+      break;
+   case GL_SRC_COLOR:
+      b |= R200_SRC_BLEND_GL_SRC_COLOR;
+      break;
+   case GL_ONE_MINUS_SRC_COLOR:
+      b |= R200_SRC_BLEND_GL_ONE_MINUS_SRC_COLOR;
       break;
    case GL_SRC_ALPHA:
       b |= R200_SRC_BLEND_GL_SRC_ALPHA;
@@ -207,6 +218,12 @@ static void r200BlendFunc( GLcontext *ctx, GLenum sfactor, GLenum dfactor )
    case GL_ONE_MINUS_SRC_ALPHA:
       b |= R200_DST_BLEND_GL_ONE_MINUS_SRC_ALPHA;
       break;
+   case GL_DST_COLOR:
+      b |= R200_DST_BLEND_GL_DST_COLOR;
+      break;
+   case GL_ONE_MINUS_DST_COLOR:
+      b |= R200_DST_BLEND_GL_ONE_MINUS_DST_COLOR;
+      break;
    case GL_DST_ALPHA:
       b |= R200_DST_BLEND_GL_DST_ALPHA;
       break;
@@ -248,7 +265,7 @@ static void r200BlendFuncSeparate( GLcontext *ctx,
 static void r200DepthFunc( GLcontext *ctx, GLenum func )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   
+
    R200_STATECHANGE( rmesa, ctx );
    rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] &= ~R200_Z_TEST_MASK;
 
@@ -430,7 +447,7 @@ void r200RecalcScissorRects( r200ContextPtr rmesa )
 	 MALLOC( rmesa->state.scissor.numAllocedClipRects * 
 		 sizeof(XF86DRIClipRectRec) );
 
-      if (!rmesa->state.scissor.numAllocedClipRects) {
+      if ( rmesa->state.scissor.pClipRects == NULL ) {
 	 rmesa->state.scissor.numAllocedClipRects = 0;
 	 return;
       }
@@ -552,8 +569,7 @@ static void r200FrontFace( GLcontext *ctx, GLenum mode )
  */
 static void r200PointSize( GLcontext *ctx, GLfloat size )
 {
-   if (R200_DEBUG & DEBUG_STATE)
-      fprintf(stderr, "%s: %f\n", __FUNCTION__, size );
+   if (0) fprintf(stderr, "%s: %f\n", __FUNCTION__, size );
 }
 
 /* =============================================================
@@ -704,6 +720,7 @@ static void r200UpdateSpecular( GLcontext *ctx )
    rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_COMPSEL] &= ~R200_OUTPUT_COLOR_0;
    rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_COMPSEL] &= ~R200_OUTPUT_COLOR_1;
    rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL_0] &= ~R200_LIGHTING_ENABLE;
+
    p &= ~R200_SPECULAR_ENABLE;
 
    rmesa->hw.tcl.cmd[TCL_LIGHT_MODEL_CTL_0] |= R200_DIFFUSE_SPECULAR_COMBINE;
@@ -737,9 +754,9 @@ static void r200UpdateSpecular( GLcontext *ctx )
    }
 
    if (ctx->Fog.Enabled) {
-       rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_VTXFMT_0] |= 
-	  ((R200_VTX_FP_RGBA << R200_VTX_COLOR_1_SHIFT));	
-       rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_COMPSEL] |= R200_OUTPUT_COLOR_1;
+      rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_VTXFMT_0] |= 
+	 ((R200_VTX_FP_RGBA << R200_VTX_COLOR_1_SHIFT));	
+      rmesa->hw.vtx.cmd[VTX_TCL_OUTPUT_COMPSEL] |= R200_OUTPUT_COLOR_1;
    }
 
    if ( rmesa->hw.ctx.cmd[CTX_PP_CNTL] != p ) {
@@ -1000,7 +1017,6 @@ static void update_light( GLcontext *ctx )
    }
 
 
-/*     R200_STATECHANGE( rmesa, glt ); */
 
    if (ctx->Light.Enabled) {
       GLint p;
@@ -1050,8 +1066,14 @@ static void r200Lightfv( GLcontext *ctx, GLenum light,
 
    case GL_POSITION: {
       /* positions picked up in update_light, but can do flag here */	
-      GLuint flag = (p&1)? R200_LIGHT_1_IS_LOCAL : R200_LIGHT_0_IS_LOCAL;
+      GLuint flag;
       GLuint idx = TCL_PER_LIGHT_CTL_0 + p/2;
+
+      /* FIXME: Set RANGE_ATTEN only when needed */
+      if (p&1) 
+	 flag = R200_LIGHT_1_IS_LOCAL;
+      else
+	 flag = R200_LIGHT_0_IS_LOCAL;
 
       R200_STATECHANGE(rmesa, tcl);
       if (l->EyePosition[3] != 0.0F)
@@ -1098,6 +1120,31 @@ static void r200Lightfv( GLcontext *ctx, GLenum light,
       return;
    }
 
+   /* Set RANGE_ATTEN only when needed */
+   switch (pname) {
+   case GL_POSITION:
+   case GL_LINEAR_ATTENUATION:
+   case GL_QUADRATIC_ATTENUATION:
+   {
+      GLuint flag;
+      GLuint idx = TCL_PER_LIGHT_CTL_0 + p/2;
+
+      if (p&1) 
+	 flag = R200_LIGHT_1_ENABLE_RANGE_ATTEN;
+      else
+	 flag = R200_LIGHT_0_ENABLE_RANGE_ATTEN;
+
+      R200_STATECHANGE(rmesa, tcl);
+      if (l->EyePosition[3] != 0.0F &&
+	  (l->LinearAttenuation != 0.0F || l->QuadraticAttenuation != 0.0F))
+	 rmesa->hw.tcl.cmd[idx] |= flag;
+      else
+	 rmesa->hw.tcl.cmd[idx] &= ~flag;
+      break;
+   }
+   default:
+      break;
+   }
 }
 
 		  
@@ -1202,7 +1249,7 @@ static void r200UpdateClipPlanes( GLcontext *ctx )
    GLuint p;
 
    for (p = 0; p < ctx->Const.MaxClipPlanes; p++) {
-      if (ctx->Transform.ClipEnabled[p]) {
+      if (ctx->Transform.ClipPlanesEnabled & (1 << p)) {
 	 GLint *ip = (GLint *)ctx->Transform._ClipUserPlane[p];
 
 	 R200_STATECHANGE( rmesa, ucp[p] );
@@ -1223,8 +1270,8 @@ static void r200StencilFunc( GLcontext *ctx, GLenum func,
 			       GLint ref, GLuint mask )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
-   GLuint refmask = ((ctx->Stencil.Ref << R200_STENCIL_REF_SHIFT) |
-		     (ctx->Stencil.ValueMask << R200_STENCIL_MASK_SHIFT));
+   GLuint refmask = ((ctx->Stencil.Ref[0] << R200_STENCIL_REF_SHIFT) |
+		     (ctx->Stencil.ValueMask[0] << R200_STENCIL_MASK_SHIFT));
 
    R200_STATECHANGE( rmesa, ctx );
    R200_STATECHANGE( rmesa, msk );
@@ -1233,7 +1280,7 @@ static void r200StencilFunc( GLcontext *ctx, GLenum func,
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] &= ~(R200_STENCIL_REF_MASK|
 						   R200_STENCIL_VALUE_MASK);
 
-   switch ( ctx->Stencil.Function ) {
+   switch ( ctx->Stencil.Function[0] ) {
    case GL_NEVER:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= R200_STENCIL_TEST_NEVER;
       break;
@@ -1270,7 +1317,7 @@ static void r200StencilMask( GLcontext *ctx, GLuint mask )
    R200_STATECHANGE( rmesa, msk );
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] &= ~R200_STENCIL_WRITE_MASK;
    rmesa->hw.msk.cmd[MSK_RB3D_STENCILREFMASK] |=
-      (ctx->Stencil.WriteMask << R200_STENCIL_WRITEMASK_SHIFT);
+      (ctx->Stencil.WriteMask[0] << R200_STENCIL_WRITEMASK_SHIFT);
 }
 
 static void r200StencilOp( GLcontext *ctx, GLenum fail,
@@ -1283,7 +1330,7 @@ static void r200StencilOp( GLcontext *ctx, GLenum fail,
 					       R200_STENCIL_ZFAIL_MASK |
 					       R200_STENCIL_ZPASS_MASK);
 
-   switch ( ctx->Stencil.FailFunc ) {
+   switch ( ctx->Stencil.FailFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= R200_STENCIL_FAIL_KEEP;
       break;
@@ -1310,7 +1357,7 @@ static void r200StencilOp( GLcontext *ctx, GLenum fail,
       break;
    }
 
-   switch ( ctx->Stencil.ZFailFunc ) {
+   switch ( ctx->Stencil.ZFailFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= R200_STENCIL_ZFAIL_KEEP;
       break;
@@ -1337,7 +1384,7 @@ static void r200StencilOp( GLcontext *ctx, GLenum fail,
       break;
    }
 
-   switch ( ctx->Stencil.ZPassFunc ) {
+   switch ( ctx->Stencil.ZPassFunc[0] ) {
    case GL_KEEP:
       rmesa->hw.ctx.cmd[CTX_RB3D_ZSTENCILCNTL] |= R200_STENCIL_ZPASS_KEEP;
       break;
@@ -1372,7 +1419,7 @@ static void r200ClearStencil( GLcontext *ctx, GLint s )
    rmesa->state.stencil.clear = 
       ((GLuint) ctx->Stencil.Clear |
        (0xff << R200_STENCIL_MASK_SHIFT) |
-       (ctx->Stencil.WriteMask << R200_STENCIL_WRITEMASK_SHIFT));
+       (ctx->Stencil.WriteMask[0] << R200_STENCIL_WRITEMASK_SHIFT));
 }
 
 
@@ -1483,11 +1530,17 @@ void r200UpdateViewportOffset( GLcontext *ctx )
  * Miscellaneous
  */
 
-static void r200ClearColor( GLcontext *ctx, const GLchan c[4] )
+static void r200ClearColor( GLcontext *ctx, const GLfloat c[4] )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
+   GLubyte color[4];
+   CLAMPED_FLOAT_TO_UBYTE(color[0], c[0]);
+   CLAMPED_FLOAT_TO_UBYTE(color[1], c[1]);
+   CLAMPED_FLOAT_TO_UBYTE(color[2], c[2]);
+   CLAMPED_FLOAT_TO_UBYTE(color[3], c[3]);
    rmesa->state.color.clear = r200PackColor( rmesa->r200Screen->cpp,
-					       c[0], c[1], c[2], c[3] );
+                                             color[0], color[1],
+                                             color[2], color[3] );
 }
 
 
@@ -1560,7 +1613,7 @@ void r200SetCliprects( r200ContextPtr rmesa, GLenum mode )
 }
 
 
-static void r200SetDrawBuffer( GLcontext *ctx, GLenum mode )
+static void r200DrawBuffer( GLcontext *ctx, GLenum mode )
 {
    r200ContextPtr rmesa = R200_CONTEXT(ctx);
 
@@ -1570,40 +1623,41 @@ static void r200SetDrawBuffer( GLcontext *ctx, GLenum mode )
 
    R200_FIREVERTICES(rmesa);	/* don't pipeline cliprect changes */
 
-   switch ( mode ) {
-   case GL_FRONT_LEFT:
+   /*
+    * _DrawDestMask is easier to cope with than <mode>.
+    */
+   switch ( ctx->Color._DrawDestMask ) {
+   case FRONT_LEFT_BIT:
       FALLBACK( rmesa, R200_FALLBACK_DRAW_BUFFER, GL_FALSE );
-      if ( rmesa->doPageFlip && rmesa->sarea->pfCurrentPage == 1 ) {
-        rmesa->state.color.drawOffset = rmesa->r200Screen->backOffset;
-        rmesa->state.color.drawPitch  = rmesa->r200Screen->backPitch;
-      } else {
-      	rmesa->state.color.drawOffset = rmesa->r200Screen->frontOffset;
-      	rmesa->state.color.drawPitch  = rmesa->r200Screen->frontPitch;
-      }
       r200SetCliprects( rmesa, GL_FRONT_LEFT );
       break;
-   case GL_BACK_LEFT:
+   case BACK_LEFT_BIT:
       FALLBACK( rmesa, R200_FALLBACK_DRAW_BUFFER, GL_FALSE );
-      if ( rmesa->doPageFlip && rmesa->sarea->pfCurrentPage == 1 ) {
-      	rmesa->state.color.drawOffset = rmesa->r200Screen->frontOffset;
-      	rmesa->state.color.drawPitch  = rmesa->r200Screen->frontPitch;
-      } else {
-        rmesa->state.color.drawOffset = rmesa->r200Screen->backOffset;
-        rmesa->state.color.drawPitch  = rmesa->r200Screen->backPitch;
-      }
       r200SetCliprects( rmesa, GL_BACK_LEFT );
       break;
    default:
+      /* GL_NONE or GL_FRONT_AND_BACK or stereo left&right, etc */
       FALLBACK( rmesa, R200_FALLBACK_DRAW_BUFFER, GL_TRUE );
       return;
    }
 
+   /* We want to update the s/w rast state too so that r200SetBuffer()
+    * gets called.
+    */
+   _swrast_DrawBuffer(ctx, mode);
+
    R200_STATECHANGE( rmesa, ctx );
-   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = (rmesa->state.color.drawOffset &
-					    R200_COLOROFFSET_MASK);
+   rmesa->hw.ctx.cmd[CTX_RB3D_COLOROFFSET] = ((rmesa->state.color.drawOffset +
+					       rmesa->r200Screen->fbLocation)
+					      & R200_COLOROFFSET_MASK);
    rmesa->hw.ctx.cmd[CTX_RB3D_COLORPITCH] = rmesa->state.color.drawPitch;
 }
 
+
+static void r200ReadBuffer( GLcontext *ctx, GLenum mode )
+{
+   /* nothing, until we implement h/w glRead/CopyPixels or CopyTexImage */
+}
 
 /* =============================================================
  * State enable/disable
@@ -1706,6 +1760,7 @@ static void r200Enable( GLcontext *ctx, GLenum cap, GLboolean state )
 	 rmesa->hw.tcl.cmd[TCL_UCP_VERT_BLEND_CTL] &= ~R200_TCL_FOG_MASK;
       }
       r200UpdateSpecular( ctx ); /* for PK_SPEC */
+      _mesa_allow_light_in_model( ctx, !state );
       break;
 
    case GL_LIGHT0:
@@ -1934,7 +1989,7 @@ static void upload_matrix( r200ContextPtr rmesa, GLfloat *src, int idx )
    R200_DB_STATECHANGE( rmesa, &rmesa->hw.mat[idx] );
 }
 
-static void upload_matrix_t( r200ContextPtr rmesa, GLfloat *src, int idx )
+static void upload_matrix_t( r200ContextPtr rmesa, const GLfloat *src, int idx )
 {
    float *dest = ((float *)R200_DB_STATE( mat[idx] ))+MAT_ELT_0;
    memcpy(dest, src, 16*sizeof(float));
@@ -1960,7 +2015,7 @@ static void update_texturematrix( GLcontext *ctx )
       if (!ctx->Texture.Unit[unit]._ReallyEnabled) 
 	 continue;
 
-      if (ctx->TextureMatrix[unit].type != MATRIX_IDENTITY) {
+      if (ctx->TextureMatrixStack[unit].Top->type != MATRIX_IDENTITY) {
 	 rmesa->TexMatEnabled |= (R200_TEXGEN_TEXMAT_0_ENABLE|
 				  R200_TEXMAT_0_ENABLE) << unit;
 
@@ -1972,11 +2027,11 @@ static void update_texturematrix( GLcontext *ctx )
 	     */
 	    _math_matrix_mul_matrix( &rmesa->tmpmat, 
 				     &rmesa->TexGenMatrix[unit],
-				     &ctx->TextureMatrix[unit] );
+				     ctx->TextureMatrixStack[unit].Top );
 	    upload_matrix( rmesa, rmesa->tmpmat.m, R200_MTX_TEX0+unit );
 	 } 
 	 else {
-	    upload_matrix( rmesa, ctx->TextureMatrix[unit].m, 
+	    upload_matrix( rmesa, ctx->TextureMatrixStack[unit].Top->m, 
 			   R200_MTX_TEX0+unit );
 	 }
       }
@@ -2022,8 +2077,8 @@ void r200ValidateState( GLcontext *ctx )
    /* Need these for lighting (shouldn't upload otherwise)
     */
    if (new_state & (_NEW_MODELVIEW)) {
-      upload_matrix( rmesa, ctx->ModelView.m, R200_MTX_MV );
-      upload_matrix_t( rmesa, ctx->ModelView.inv, R200_MTX_IMV );
+      upload_matrix( rmesa, ctx->ModelviewMatrixStack.Top->m, R200_MTX_MV );
+      upload_matrix_t( rmesa, ctx->ModelviewMatrixStack.Top->inv, R200_MTX_IMV );
    }
 
    /* Does this need to be triggered on eg. modelview for
@@ -2040,7 +2095,7 @@ void r200ValidateState( GLcontext *ctx )
    /* emit all active clip planes if projection matrix changes.
     */
    if (new_state & (_NEW_PROJECTION)) {
-      if (ctx->Transform._AnyClip) 
+      if (ctx->Transform.ClipPlanesEnabled) 
 	 r200UpdateClipPlanes( ctx );
    }
 
@@ -2095,7 +2150,8 @@ void r200InitStateFuncs( GLcontext *ctx )
    ctx->Driver.UpdateState		= r200InvalidateState;
    ctx->Driver.LightingSpaceChange      = r200LightingSpaceChange;
 
-   ctx->Driver.SetDrawBuffer		= r200SetDrawBuffer;
+   ctx->Driver.DrawBuffer		= r200DrawBuffer;
+   ctx->Driver.ReadBuffer		= r200ReadBuffer;
 
    ctx->Driver.AlphaFunc		= r200AlphaFunc;
    ctx->Driver.BlendEquation		= r200BlendEquation;

@@ -66,8 +66,6 @@ static void arm_rdi_fetch_registers (int regno);
 static void arm_rdi_resume (ptid_t pid, int step,
                             enum target_signal siggnal);
 
-static int arm_rdi_start_remote (char *dummy);
-
 static void arm_rdi_open (char *name, int from_tty);
 
 static void arm_rdi_create_inferior (char *exec_file, char *args, char **env);
@@ -76,21 +74,11 @@ static void arm_rdi_close (int quitting);
 
 static void arm_rdi_store_registers (int regno);
 
-static void arm_rdi_mourn (void);
-
-static void arm_rdi_send (char *buf);
-
 static ptid_t arm_rdi_wait (ptid_t ptid, struct target_waitstatus *status);
 
 static void arm_rdi_kill (void);
 
 static void arm_rdi_detach (char *args, int from_tty);
-
-static void arm_rdi_interrupt (int signo);
-
-static void arm_rdi_interrupt_twice (int signo);
-
-static void interrupt_query (void);
 
 static int arm_rdi_insert_breakpoint (CORE_ADDR, char *);
 
@@ -134,19 +122,10 @@ static struct local_bp_list_entry
   }
  *local_bp_list;
 
-
-/* Stub for catch_errors.  */
-
-static int
-arm_rdi_start_remote (char *dummy)
-{
-  return 1;
-}
-
 /* Helper callbacks for the "host interface" structure.  RDI functions call
    these to forward output from the target system and so forth.  */
 
-void
+static void
 voiddummy (void *dummy)
 {
   fprintf_unfiltered (gdb_stdout, "void dummy\n");
@@ -483,29 +462,6 @@ arm_rdi_resume (ptid_t ptid, int step, enum target_signal siggnal)
     }
 }
 
-/* Send ^C to target to halt it.  Target will respond, and send us a
-   packet.  */
-
-static void
-arm_rdi_interrupt (int signo)
-{
-}
-
-static void (*ofunc) ();
-
-/* The user typed ^C twice.  */
-static void
-arm_rdi_interrupt_twice (int signo)
-{
-}
-
-/* Ask the user what to do when an interrupt is received.  */
-
-static void
-interrupt_query (void)
-{
-}
-
 /* Wait until the remote machine stops, then return, storing status in
    STATUS just as `wait' would.  Returns "pid" (though it's not clear
    what, if anything, that means in the case of this target).  */
@@ -524,7 +480,6 @@ arm_rdi_wait (ptid_t ptid, struct target_waitstatus *status)
 
 /* Read the remote registers into the block REGS.  */
 
-/* ARGSUSED */
 static void
 arm_rdi_fetch_registers (int regno)
 {
@@ -624,7 +579,6 @@ arm_rdi_store_registers (int regno)
    if SHOULD_WRITE is nonzero.  Returns length of data written or
    read; 0 for error.  TARGET is unused.  */
 
-/* ARGSUSED */
 static int
 arm_rdi_xfer_memory (CORE_ADDR memaddr, char *myaddr, int len,
 		     int should_write, struct mem_attrib *attrib,
@@ -1009,6 +963,8 @@ rdilogenable_command (char *args, int from_tty)
 		     "              try y or n\n", args);
 }
 
+extern initialize_file_ftype _initialize_remote_rdi; /* -Wmissing-prototypes */
+
 void
 _initialize_remote_rdi (void)
 {
@@ -1063,8 +1019,8 @@ _initialize_remote_rdi (void)
 
 /* A little dummy to make linking with the library succeed. */
 
-int
-Fail (void)
+void
+Fail (const char *ignored, ...)
 {
-  return 0;
+  
 }

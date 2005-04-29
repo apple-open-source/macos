@@ -95,6 +95,8 @@ static int	get_media_options __P((int, const char *));
 static int	lookup_media_word __P((struct ifmedia_description *, const char *));
 static void	print_media_word __P((int));
 
+extern int supmedia;
+
 void
 media_status(s, info)
 	int s;
@@ -117,14 +119,6 @@ media_status(s, info)
 	    	//warnx("%s: no media types?", name);
 	    	return;
 	}
-
-	media_list = (int *)malloc(ifmr.ifm_count * sizeof(int));
-	if (media_list == NULL)
-		err(1, "malloc");
-	ifmr.ifm_ulist = media_list;
-
-	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
-		err(1, "SIOCGIFMEDIA");
 
 	printf("\tmedia: ");
 	print_media_word(ifmr.ifm_current);
@@ -160,8 +154,20 @@ media_status(s, info)
 		else
 		    printf("inactive");
 	}
-
 	putchar('\n');
+
+#if 0
+	if (supmedia == 0) {
+		return;
+	}
+#endif 0
+	media_list = (int *)malloc(ifmr.ifm_count * sizeof(int));
+	if (media_list == NULL)
+		err(1, "malloc");
+	ifmr.ifm_ulist = media_list;
+
+	if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifmr) < 0)
+		err(1, "SIOCGIFMEDIA");
 
 	if (ifmr.ifm_count > 0) {
 		printf("\tsupported media:");

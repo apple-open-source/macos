@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+ * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -493,6 +490,7 @@ samp_p_header_print(void)
 	unsigned long long mem_free;
 	unsigned long long n_ipackets, n_opackets, n_ibytes, n_obytes;
 	unsigned long long d_rops, d_wops, d_rbytes, d_wbytes;
+	unsigned long long purgeable_mem;
 	/* Make big enough for 100 years: " (HHHHHH:MM:SS)". */
 	char		time_acc[16];
 	/* Make strings large enough for ", NNNNN <MAXLEN>\0". */
@@ -504,9 +502,12 @@ samp_p_header_print(void)
 	char		vprvt[6], fw_private[6], rshrd[6];
 	char		wired[6], active[6], inactive[6], used[6], free[6];
 	char		vsize[6], fw_vsize[6];
-	unsigned	pageins, pageouts;
+	natural_t	pageins, pageouts;
 	char		net_ibytes[6], net_obytes[6];
 	char		disk_rbytes[6], disk_wbytes[6];
+	char		xsu_total[6], xsu_used[6], xsu_avail[6];
+	char		purgeable[6];
+
 
 	/* Get the date and time. */
 	gettimeofday(&tval, NULL);
@@ -697,6 +698,42 @@ VirtMem: %5s, %10u pagein%s %10u pageout%s.",
 		    pageins, pageins == 1 ? ", " : "s,",
 		    pageouts, pageouts == 1 ? "" : "s")
 		    ) {
+			retval = TRUE;
+			goto RETURN;
+		}
+	}
+
+	if (top_opt_S) {
+		purgeable_mem = (samp_tsamp->vm_stat.purgeable_count *
+				 samp_tsamp->pagesize);
+
+		if (samp_println("Swap: %5s total, %5s used, %5s free.  "
+				 "Purgeable: %5s  %10u purges",
+				 (samp_tsamp->xsu_is_valid ?
+				  samp_p_vm_size_render(
+					  samp_tsamp->xsu.xsu_total,
+					  xsu_total,
+					  sizeof (xsu_total)) :
+				  "n/a"),
+				 (samp_tsamp->xsu_is_valid ?
+				  samp_p_vm_size_render(
+					  samp_tsamp->xsu.xsu_used,
+					  xsu_used,
+					  sizeof (xsu_used)) :
+				  "n/a"),
+				 (samp_tsamp->xsu_is_valid ?
+				  samp_p_vm_size_render(
+					  samp_tsamp->xsu.xsu_avail,
+					  xsu_avail,
+					  sizeof (xsu_avail)) :
+				  "n/a"),
+				 (samp_tsamp->purgeable_is_valid ?
+				  samp_p_vm_size_render(
+					  purgeable_mem,
+					  purgeable,
+					  sizeof (purgeable)) :
+				  "n/a"),
+				 samp_tsamp->vm_stat.purges)) {
 			retval = TRUE;
 			goto RETURN;
 		}
@@ -1414,7 +1451,8 @@ samp_p_vm_size_render(unsigned long long a_size, char *a_buf,
 			snprintf(a_buf, a_bufsize, "%4lluM",
 			    a_size / (1024ULL * 1024ULL));
 		}
-	} else {
+	} else if (a_size < (1024ULL * 1024ULL * 1024ULL * 1024ULL)) {
+		/* G. */
 		if (a_size < 10ULL * 1024ULL * 1024ULL * 1024ULL) {
 			/* 9.99G. */
 			snprintf(a_buf, a_bufsize, "%1.2fG",
@@ -1425,8 +1463,50 @@ samp_p_vm_size_render(unsigned long long a_size, char *a_buf,
 			    ((double)a_size) / (1024 * 1024 * 1024));
 		} else {
 			/* 1023G */
-			snprintf(a_buf, a_bufsize, "%4lluM",
+			snprintf(a_buf, a_bufsize, "%4lluG",
 			    a_size / (1024ULL * 1024ULL * 1024ULL));
+		}
+	} else if (a_size < (1024ULL * 1024ULL * 1024ULL * 1024ULL)) {
+		/* T. */
+		if (a_size < 10ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL) {
+			/* 9.99T. */
+			snprintf(a_buf, a_bufsize, "%1.2fT",
+				 ((double)a_size) /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL));
+		} else if (a_size < (100ULL * 1024ULL * 1024ULL * 1024ULL
+				     * 1024ULL)) {
+			/* 99.9T. */
+			snprintf(a_buf, a_bufsize, "%2.1fT",
+				 ((double)a_size) /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL));
+		} else {
+			/* 1023T */
+			snprintf(a_buf, a_bufsize, "%4lluT",
+				 a_size /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL));
+		}
+	} else {
+		/* P. */
+		if (a_size < (10ULL * 1024ULL * 1024ULL * 1024ULL * 1024ULL
+			      * 1024ULL)) {
+			/* 9.99P. */
+			snprintf(a_buf, a_bufsize, "%1.2fP",
+				 ((double)a_size) /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL
+				  * 1024ULL));
+		} else if (a_size < (100ULL * 1024ULL * 1024ULL * 1024ULL
+				     * 1024ULL)) {
+			/* 99.9P. */
+			snprintf(a_buf, a_bufsize, "%2.1fP",
+				 ((double)a_size) /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL
+				  * 1024ULL));
+		} else {
+			/* 1023P */
+			snprintf(a_buf, a_bufsize, "%4lluP",
+				 a_size /
+				 (1024ULL * 1024ULL * 1024ULL * 1024ULL
+				  * 1024ULL));
 		}
 	}
 
@@ -1539,6 +1619,7 @@ samp_p_deprecated_header_print(void)
 	unsigned long long mem_free;
 	unsigned long long n_ipackets, n_opackets, n_ibytes, n_obytes;
 	unsigned long long d_rops, d_wops, d_rbytes, d_wbytes;
+	unsigned long long purgeable_mem;
 	/* Make strings large enough for ", NNNNN <MAXLEN>\0". */
 	char		sstr[LIBTOP_NSTATES][LIBTOP_STATE_MAXLEN + 9];
 	char		nstr[LIBTOP_NSTATES][6];
@@ -1546,6 +1627,8 @@ samp_p_deprecated_header_print(void)
 	char		vprvt[6], fw_private[6], rshrd[6];
 	char		wired[6], active[6], inactive[6], used[6], free[6];
 	char		vsize[6], fw_vsize[6];
+	char		xsu_used[6], xsu_avail[6];
+	char		purgeable[6];
 
 	/* Get the date and time. */
 	gettimeofday(&tval, NULL);
@@ -1596,6 +1679,12 @@ samp_p_deprecated_header_print(void)
 	default:
 		assert(0);
 	}
+	if(userticks < 0)
+	    userticks = 0;
+	if(systicks < 0)
+	    systicks = 0;
+	if(idleticks < 0)
+	    idleticks = 0;
 	totalticks = userticks + systicks + idleticks;
 	if (totalticks != 0) {
 		cpu_user = ((float)(100 * userticks)) / ((float)totalticks);
@@ -1838,8 +1927,8 @@ PhysMem:  %s wired, %s active, %s inactive, %s used, %s free",
 			goto RETURN;
 		}
 
-		if (samp_println("\
-VM: %s + %s   %u(%u) pageins, %u(%u) pageouts",
+		if (samp_println(
+		    "VM: %s + %s   %u(%u) pageins, %u(%u) pageouts",
 		    samp_p_vm_size_render(samp_tsamp->vsize, vsize,
 		    sizeof(vsize)),
 		    samp_p_vm_size_render(samp_tsamp->fw_vsize, fw_vsize,
@@ -1851,6 +1940,36 @@ VM: %s + %s   %u(%u) pageins, %u(%u) pageouts",
 		    - samp_tsamp->p_vm_stat.pageouts)) {
 			retval = TRUE;
 			goto RETURN;
+		}
+		if (top_opt_S) {
+			purgeable_mem = (samp_tsamp->vm_stat.purgeable_count *
+					 samp_tsamp->pagesize);
+			if (samp_println("Swap: %s + %s free       "
+					 "Purgeable: %s  %u(%u) pages purged",
+					 (samp_tsamp->xsu_is_valid ?
+					  samp_p_vm_size_render(
+						  samp_tsamp->xsu.xsu_used,
+						  xsu_used,
+						  sizeof (xsu_used)) :
+					  "n/a"),
+					 (samp_tsamp->xsu_is_valid ?
+					  samp_p_vm_size_render(
+						  samp_tsamp->xsu.xsu_avail,
+						  xsu_avail,
+						  sizeof (xsu_avail)) :
+					  "n/a"),
+					 (samp_tsamp->purgeable_is_valid ?
+					  samp_p_vm_size_render(
+						  purgeable_mem,
+						  purgeable,
+						  sizeof (purgeable)) :
+					  "n/a"),
+					 samp_tsamp->vm_stat.purges,
+					 (samp_tsamp->vm_stat.purges
+					  - samp_tsamp->p_vm_stat.purges))) {
+				retval = TRUE;
+				goto RETURN;
+			}
 		}
 		break;
 	default:

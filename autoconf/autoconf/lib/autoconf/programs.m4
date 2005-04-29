@@ -233,8 +233,8 @@ AC_DEFUN([AC_CHECK_TOOLS],
   for ac_prog in $2
   do
     AC_CHECK_PROG([$1],
-                  [$ac_tool_prefix$ac_prog], [$ac_tool_prefix$ac_prog],,
-                  [$4])
+		  [$ac_tool_prefix$ac_prog], [$ac_tool_prefix$ac_prog],,
+		  [$4])
     test -n "$$1" && break
   done
 fi
@@ -307,6 +307,7 @@ AC_DEFUN([AC_PROG_INSTALL],
 # AIX 4 /usr/bin/installbsd, which doesn't work without a -g flag
 # AFS /usr/afsws/bin/install, which mishandles nonexistent args
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
+# OS/2's system install, which has a completely different semantic
 # ./install, which can be erroneously created by make from ./install.sh.
 AC_MSG_CHECKING([for a BSD-compatible install])
 if test -z "$INSTALL"; then
@@ -316,6 +317,7 @@ AC_CACHE_VAL(ac_cv_path_install,
 case $as_dir/ in
   ./ | .// | /[cC]/* | \
   /etc/* | /usr/sbin/* | /usr/etc/* | /sbin/* | /usr/afsws/bin/* | \
+  ?:[\\/]os2[\\/]install[\\/]* | ?:[\\/]OS2[\\/]INSTALL[\\/]* | \
   /usr/ucb/* ) ;;
   *)
     # OSF1 and SCO ODT 3.0 have their own names for install.
@@ -323,20 +325,20 @@ case $as_dir/ in
     # by default.
     for ac_prog in ginstall scoinst install; do
       for ac_exec_ext in '' $ac_executable_extensions; do
-        if AS_EXECUTABLE_P(["$as_dir/$ac_prog$ac_exec_ext"]); then
-          if test $ac_prog = install &&
-            grep dspmsg "$as_dir/$ac_prog$ac_exec_ext" >/dev/null 2>&1; then
-            # AIX install.  It has an incompatible calling convention.
-            :
-          elif test $ac_prog = install &&
-            grep pwplus "$as_dir/$ac_prog$ac_exec_ext" >/dev/null 2>&1; then
-            # program-specific install script used by HP pwplus--don't use.
-            :
-          else
-            ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
-            break 3
-          fi
-        fi
+	if AS_EXECUTABLE_P(["$as_dir/$ac_prog$ac_exec_ext"]); then
+	  if test $ac_prog = install &&
+	    grep dspmsg "$as_dir/$ac_prog$ac_exec_ext" >/dev/null 2>&1; then
+	    # AIX install.  It has an incompatible calling convention.
+	    :
+	  elif test $ac_prog = install &&
+	    grep pwplus "$as_dir/$ac_prog$ac_exec_ext" >/dev/null 2>&1; then
+	    # program-specific install script used by HP pwplus--don't use.
+	    :
+	  else
+	    ac_cv_path_install="$as_dir/$ac_prog$ac_exec_ext -c"
+	    break 3
+	  fi
+	fi
       done
     done
     ;;
@@ -426,8 +428,8 @@ rm -f "${LEX_OUTPUT_ROOT}.c"
 dnl
 if test $ac_cv_prog_lex_yytext_pointer = yes; then
   AC_DEFINE(YYTEXT_POINTER, 1,
-            [Define to 1 if `lex' declares `yytext' as a `char *' by default,
-             not a `char[]'.])
+	    [Define to 1 if `lex' declares `yytext' as a `char *' by default,
+	     not a `char[]'.])
 fi
 ])# _AC_PROG_LEX_YYTEXT_DECL
 
@@ -458,7 +460,7 @@ AN_MAKEVAR([MAKE], [AC_PROG_MAKE_SET])
 AN_PROGRAM([make], [AC_PROG_MAKE_SET])
 AC_DEFUN([AC_PROG_MAKE_SET],
 [AC_MSG_CHECKING([whether ${MAKE-make} sets \$(MAKE)])
-set dummy ${MAKE-make}; ac_make=`echo "$[2]" | sed 'y,./+-,__p_,'`
+set dummy ${MAKE-make}; ac_make=`echo "$[2]" | sed 'y,:./+-,___p_,'`
 AC_CACHE_VAL(ac_cv_prog_make_${ac_make}_set,
 [cat >conftest.make <<\_ACEOF
 all:

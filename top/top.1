@@ -1,5 +1,5 @@
 .ig \" -*-mode:nroff-*-
-Copyright (c) 2002, Apple Computer, Inc.  All rights reserved.
+Copyright (c) 2002-2004, Apple Computer, Inc.  All rights reserved.
 
 @APPLE_LICENSE_HEADER_START@
 
@@ -56,6 +56,8 @@ top - display and update sorted information about processes
 .RB [ \-R
 | 
 .BR \-r ]
+.br
+.RB [ \-S ]
 .br
 .RB [ \-s
 .IR <delay> ]
@@ -248,6 +250,9 @@ consumes.
 .B \-r
 Traverse and report the memory object map for each process (default).
 .TP
+.B \-S
+Display information about swap usage and purgeable memory.
+.TP
 .BI \-s " " "" <delay>
 Set the delay between updates to
 .I <delay>
@@ -351,6 +356,13 @@ printed in parentheses in H:MM:SS format.
 .B VirtMem
 Total virtual memory, virtual memory consumed by shared libraries, and number of
 pageins and pageouts.
+.TP 12
+.B Swap
+Swap usage: total size of swap areas, amount of swap space in use and amount
+of swap space available.
+.TP 12
+.B Purgeable
+Number of pages purged and number of pages currently purgeable.
 .PP
 Below the global state fields, a list of processes is displayed.
 The fields that are displayed depend on the options that are set.

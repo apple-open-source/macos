@@ -1,6 +1,6 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiregs.h,v 1.23 2003/01/10 17:43:40 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/ati/atiregs.h,v 1.25 2004/01/05 16:42:04 tsi Exp $ */
 /*
- * Copyright 1994 through 2003 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
+ * Copyright 1994 through 2004 by Marc Aurele La France (TSI @ UQV), tsi@xfree86.org
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -2308,7 +2308,7 @@
 #define FORCE_DAC_DATA_X		0xff000000ul
 #define LCD_TMDS_CNTL		0x15u			/* XC/XL */
 #define LCD_SCRATCH_PAD_4M	0x15u			/* Mobility */
-#define LCD_TMDS_SYNC_CHAR_SETA 0x16u			/* XC/XL */
+#define LCD_TMDS_SYNC_CHAR_SETA	0x16u			/* XC/XL */
 #define LCD_SCRATCH_PAD_5M	0x16u			/* Mobility */
 #define LCD_TMDS_SYNC_CHAR_SETB	0x17u			/* XC/XL */
 #define LCD_SCRATCH_PAD_6M	0x17u			/* Mobility */
@@ -2714,5 +2714,15 @@
 #define MIX_HALF__SRC_MINUS_DST_SAT	0x001eu
 #define MIX_AVERAGE_SAT			0x001fu
 #define MIX_FN_PAINT			MIX_SRC
+
+/* Video/Graphics mix functions for overlay */
+#define OVERLAY_MIX_FALSE		0x00u
+#define OVERLAY_MIX_TRUE		0x01u
+/*	?				0x02u */
+/*	?				0x03u */
+#define OVERLAY_MIX_NOT_EQUAL		0x04u
+#define OVERLAY_MIX_EQUAL		0x05u
+/*	?				0x06u */
+/*	?				0x07u */
 
 #endif /* ___ATIREGS_H___ */

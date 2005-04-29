@@ -2,6 +2,14 @@
 # Makefile for testing
 #
 
+# use GNU vpath, if available, to only set a path for source and headers
+# VPATH will pick up objects too, which is bad if you are sharing a
+# source dir...
+@GNU_vpath@ %.h $(srcdir)
+@GNU_vpath@ %.c $(srcdir)
+# fallback to regular VPATH for non-gnu...
+@NON_GNU_VPATH@ $(srcdir)
+
 #TARG		= etest ktest misctest stest
 
 USELIBS		= ../snmplib/libsnmp.$(LIB_EXTENSION)$(LIB_VERSION)
@@ -9,13 +17,13 @@ LIBS		= -L../snmplib $(CC_RUNTIME_ARG) -lsnmp @LIBS@
 
 PARSEOBJS	=
 
-CPPFLAGS	= -I.. -I$(srcdir)/.. -I$(srcdir)/../snmplib @CPPFLAGS@
+CPPFLAGS	= $(SNMPLIB_INCLUDES) @CPPFLAGS@
 CC		= @CC@ $(CPPFLAGS)
 
 all: $(TARG)
 
 test:
-	$(srcdir)/RUNTESTS -a -D `pwd`/..
+	$(srcdir)/RUNTESTS -a -D `pwd`/.. $(TESTOPTS)
 
 etest:    etimetest.o $(PARSEOBJS) $(USELIBS)
 	${CC} -o $@ etimetest.o $(PARSEOBJS) ${LDFLAGS} ${LIBS} 
@@ -37,12 +45,12 @@ testclean:
 
 install: installdirs $(TARG)
 	@for i in $(TARG) ; \
-		do $(INSTALL) $$i $(bindir) ; \
-		echo "install:  installed $$i in $(bindir)" ; \
+		do $(INSTALL) $$i $(INSTALL_PREFIX)$(bindir) ; \
+		echo "install:  installed $$i in $(INSTALL_PREFIX)$(bindir)" ; \
 	done
 
 installdirs:
-	@$(SHELL) $(srcdir)/../mkinstalldirs $(snmplibdir) $(bindir)
+	@$(SHELL) $(srcdir)/../mkinstalldirs $(INSTALL_PREFIX)$(snmplibdir) $(INSTALL_PREFIX)$(bindir)
 
 dependlocal: 
 	makedepend $(CPPFLAGS) -o.lo $(srcdir)/*.c

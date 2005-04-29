@@ -21,13 +21,12 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: termcap.c,v 1.1.1.2 2003/03/19 21:16:19 landonf Exp $ FAU")
-
 #include <sys/types.h>
 #include "config.h"
 #include "screen.h"
 #include "extern.h"
+
+#undef DEBUGG
 
 extern struct display *display, *displays;
 extern int real_uid, real_gid, eff_uid, eff_gid;
@@ -40,8 +39,8 @@ extern int hardstatusemu;
 extern struct action umtab[];
 extern struct action mmtab[];
 extern struct action dmtab[];
-extern char *kmap_extras[];
-extern int kmap_extras_fl[];
+extern struct kmap_ext *kmap_exts;
+extern int kmap_extn;
 extern int DefaultEsc;
 #endif
 
@@ -55,8 +54,10 @@ static char *e_tgetstr __P((char *, char **));
 static int   e_tgetflag __P((char *));
 static int   e_tgetnum __P((char *));
 #ifdef MAPKEYS
-static int   addmapseq __P((char *, int));
-static int   remmapseq __P((char *));
+static int   findseq_ge __P((char *, int, unsigned char **));
+static void  setseqoff __P((unsigned char *, int, int));
+static int   addmapseq __P((char *, int, int));
+static int   remmapseq __P((char *, int));
 #ifdef DEBUGG
 static void  dumpmap __P((void));
 #endif
@@ -471,9 +472,11 @@ int he;
   D_nseqs = 0;
   for (i = 0; i < T_OCAPS - T_CAPS; i++)
     remap(i, 1);
-  for (i = 0; i < KMAP_EXT; i++)
+  for (i = 0; i < kmap_extn; i++)
     remap(i + (KMAP_KEYS+KMAP_AKEYS), 1);
-  D_seqp = D_kmaps[0].seq;
+  D_seqp = D_kmaps + 3;
+  D_seql = 0;
+  D_seqh = 0;
 #endif
 
   D_tcinited = 1;
@@ -491,29 +494,36 @@ remap(n, map)
 int n;
 int map;
 {
-  char *s;
+  char *s = 0;
   int fl = 0, domap = 0;
   struct action *a1, *a2, *tab;
+  int l = 0;
+  struct kmap_ext *kme = 0;
 
+  a1 = 0;
+  if (n >= KMAP_KEYS+KMAP_AKEYS)
+    {
+      kme = kmap_exts + (n - (KMAP_KEYS+KMAP_AKEYS));
+      s = kme->str;
+      l = kme->fl & ~KMAP_NOTIMEOUT;
+      fl = kme->fl & KMAP_NOTIMEOUT;
+      a1 = &kme->um;
+    }
   tab = umtab;
   for (;;)
     {
-      a1 = &tab[n];
       a2 = 0;
       if (n < KMAP_KEYS+KMAP_AKEYS)
 	{
+	  a1 = &tab[n];
 	  if (n >= KMAP_KEYS)
 	    n -= T_OCAPS-T_CURSOR;
 	  s = D_tcs[n + T_CAPS].str;
+          l = s ? strlen(s) : 0;
 	  if (n >= T_CURSOR-T_CAPS)
 	    a2 = &tab[n + (T_OCAPS-T_CURSOR)];
 	}
-      else
-	{
-	  s = kmap_extras[n - (KMAP_KEYS+KMAP_AKEYS)];
-	  fl |= kmap_extras_fl[n - (KMAP_KEYS+KMAP_AKEYS)];
-	}
-      if (s == 0)
+      if (s == 0 || l == 0)
 	return 0;
       if (a1 && a1->nr == RC_ILLEGAL)
 	a1 = 0;
@@ -525,9 +535,15 @@ int map;
 	a2 = 0;
       domap |= (a1 || a2);
       if (tab == umtab)
-	tab = dmtab;
+	{
+	  tab = dmtab;
+	  a1 = kme ? &kme->dm : 0;
+	}
       else if (tab == dmtab)
-	tab = mmtab;
+	{
+	  tab = mmtab;
+	  a1 = kme ? &kme->mm : 0;
+	}
       else
 	break;
     }
@@ -538,9 +554,9 @@ int map;
     return 0;
   debug3("%smapping %s %#x\n", map? "" :"un",s,n);
   if (map)
-    return addmapseq(s, n | fl);
+    return addmapseq(s, l, n | fl);
   else
-    return remmapseq(s);
+    return remmapseq(s, l);
 }
 
 void
@@ -555,23 +571,32 @@ CheckEscape()
   odisplay = display;
   for (display = displays; display; display = display->d_next)
     {
-      for (i = 0; i < D_nseqs; i++)
+      for (i = 0; i < D_nseqs; i += D_kmaps[i + 2] * 2 + 4)
         {
-          nr = D_kmaps[i].nr & ~KMAP_NOTIMEOUT;
-          if (umtab[nr].nr == RC_COMMAND)
-            break;
-          if (umtab[nr].nr == RC_ILLEGAL && dmtab[nr].nr == RC_COMMAND)
-            break;
+	  nr = (D_kmaps[i] << 8 | D_kmaps[i + 1]) & ~KMAP_NOTIMEOUT;
+	  if (nr < KMAP_KEYS+KMAP_AKEYS)
+	    {
+	      if (umtab[nr].nr == RC_COMMAND)
+		break;
+	      if (umtab[nr].nr == RC_ILLEGAL && dmtab[nr].nr == RC_COMMAND)
+		break;
+	    }
+	  else
+	    {
+	      struct kmap_ext *kme = kmap_exts + nr - (KMAP_KEYS+KMAP_AKEYS);
+	      if (kme->um.nr == RC_COMMAND)
+		break;
+	      if (kme->um.nr == RC_ILLEGAL && kme->dm.nr == RC_COMMAND)
+		break;
+	    }
         }
-      if (i >= D_nseqs)
-        break;
     }
   if (display == 0)
     {
       display = odisplay;
       return;
     }
-  ParseEscape((struct acluser *)0, "^aa");
+  SetEscape((struct acluser *)0, Ctrl('a'), 'a');
   if (odisplay->d_user->u_Esc == -1)
     odisplay->d_user->u_Esc = DefaultEsc;
   if (odisplay->d_user->u_MetaEsc == -1)
@@ -582,59 +607,135 @@ CheckEscape()
 }
 
 static int
-addmapseq(seq, nr)
+findseq_ge(seq, k, sp)
 char *seq;
+int k;
+unsigned char **sp;
+{
+  unsigned char *p;
+  int j, l;
+
+  p = D_kmaps;
+  while (p - D_kmaps < D_nseqs)
+    {
+      l = p[2];
+      p += 3;
+      for (j = 0; ; j++)
+	{
+	  if (j == k || j == l)
+	    j = l - k;
+          else if (p[j] != ((unsigned char *)seq)[j])
+	    j = p[j] - ((unsigned char *)seq)[j];
+	  else
+	    continue;
+	  break;
+	}
+      if (j >= 0)
+	{
+	  *sp = p - 3;
+	  return j;
+	}
+      p += 2 * l + 1;
+    }
+  *sp = p;
+  return -1;
+}
+
+static void
+setseqoff(p, i, o)
+unsigned char *p;
+int i;
+int o;
+{
+  unsigned char *q;
+  int l, k;
+
+  k = p[2];
+  if (o < 256)
+    {
+      p[k + 4 + i] = o;
+      return;
+    }
+  /* go for the biggest offset */
+  for (q = p + k * 2 + 4; ; q += l * 2 + 4)
+    {
+      l = q[2];
+      if ((q + l * 2 - p) / 2 >= 256)
+	{
+	  p[k + 4 + i] = (q - p - 4) / 2;
+	  return;
+	}
+    }
+}
+
+static int
+addmapseq(seq, k, nr)
+char *seq;
+int k;
 int nr;
 {
-  int i, j = 0, k, mo, m;
-  char *p, *o;
+  int i, j, l, mo, m;
+  unsigned char *p, *q;
 
-  k = strlen(seq);
-  if (k > sizeof(D_kmaps[0].seq) - 1)
+  if (k >= 254)
     return -1;
-  for (i = 0; i < D_nseqs; i++)
-    if ((j = strcmp(D_kmaps[i].seq, seq)) >= 0)
-      break;
-  if (i < D_nseqs && j == 0)
+  j = findseq_ge(seq, k, &p);
+  if (j == 0)
     {
-      D_kmaps[i].nr = nr;
+      p[0] = nr >> 8;
+      p[1] = nr;
       return 0;
     }
-  if (D_nseqs >= sizeof(D_kmaps)/sizeof(*D_kmaps)) /* just in case... */
-    return -1;
-  for (j = D_nseqs - 1; j >= i; j--)
-    D_kmaps[j + 1] = D_kmaps[j];
-  p = D_kmaps[i].seq;
-  o = D_kmaps[i].off;
-  strcpy(p, seq);
-  bzero(o, k + 1);
-  D_kmaps[i].nr = nr;
-  D_nseqs++;
-
-  if (i + 1 < D_nseqs)
-    for (j = 0; *p; p++, o++, j++)
-      {
-        if (D_kmaps[i + 1].seq[j] != *p)
-          {
-            if (D_kmaps[i + 1].seq[j])
-	      *o = 1;
-	    break;
-	  }
-        *o = D_kmaps[i + 1].off[j] ? D_kmaps[i + 1].off[j] + 1 : 0;
-      }
-
-  for (k = 0; k < i; k++)
-    for (m = j = 0, p = D_kmaps[k].seq, o = D_kmaps[k].off; *p; p++, o++, j++)
-      {
-	mo = m;
-	if (!m && *p != D_kmaps[i].seq[j])
-	  m = 1;
-	if (*o == 0 && mo == 0 && m)
-	  *o = i - k;
-	if (*o < i - k || (*o == i - k && m))
-	  continue;
-	(*o)++;
-      }
+  i = p - D_kmaps;
+  if (D_nseqs + 2 * k + 4 >= D_aseqs)
+    {
+      D_kmaps = (unsigned char *)xrealloc((char *)D_kmaps, D_aseqs + 256);
+      D_aseqs += 256;
+      p = D_kmaps + i;
+    }
+  D_seqp = D_kmaps + 3;
+  D_seql = 0;
+  D_seqh = 0;
+  evdeq(&D_mapev);
+  if (j > 0)
+    bcopy((char *)p, (char *)p + 2 * k + 4, D_nseqs - i);
+  p[0] = nr >> 8;
+  p[1] = nr;
+  p[2] = k;
+  bcopy(seq, (char *)p + 3, k);
+  bzero(p + k + 3, k + 1);
+  D_nseqs += 2 * k + 4;
+  if (j > 0)
+    {
+      q = p + 2 * k + 4;
+      l = q[2];
+      for (i = 0; i < k; i++)
+        {
+	  if (p[3 + i] != q[3 + i])
+	    {
+	      p[k + 4 + i] = k;
+	      break;
+	    }
+	  setseqoff(p, i, q[l + 4 + i] ? q[l + 4 + i] + k + 2: 0);
+	}
+    }
+  for (q = D_kmaps; q < p; q += 2 * l + 4)
+    {
+      l = q[2];
+      for (m = j = 0; j < l; j++)
+	{
+	  mo = m;
+	  if (!m && q[3 + j] != seq[j])
+	    m = 1;
+	  if (q[l + 4 + j] == 0)
+	    {
+	      if (!mo && m)
+	        setseqoff(q, j, (p - q - 4) / 2);
+	    }
+	  else if (q + q[l + 4 + j] * 2 + 4 > p || (q + q[l + 4 + j] * 2 + 4 == p && !m))
+	    setseqoff(q, j, q[l + 4 + j] + k + 2);
+	}
+    }
 #ifdef DEBUGG
   dumpmap();
 #endif
@@ -642,28 +743,33 @@ int nr;
 }
 
 static int
-remmapseq(seq)
+remmapseq(seq, k)
 char *seq;
+int k;
 {
-  int i, j = 0, k;
-  char *p, *o;
+  int j, l;
+  unsigned char *p, *q;
 
-  for (i = 0; i < D_nseqs; i++)
-    if ((j = strcmp(D_kmaps[i].seq, seq)) >= 0)
-      break;
-  if (i == D_nseqs || j)
+  if (k >= 254 || (j = findseq_ge(seq, k, &p)) != 0)
     return -1;
-  for (k = 0; k < i; k++)
-    for (j = 0, p = D_kmaps[k].seq, o = D_kmaps[k].off; *p; p++, o++, j++)
-      {
-	if (k + *o == i)
-          *o = D_kmaps[i].off[j] ? D_kmaps[i].off[j] + *o - 1 : 0;
-	else if (k + *o > i)
-          (*o)--;
-      }
-  for (j = i + 1; j < D_nseqs; j++)
-    D_kmaps[j - 1] = D_kmaps[j];
-  D_nseqs--;
+  for (q = D_kmaps; q < p; q += 2 * l + 4)
+    {
+      l = q[2];
+      for (j = 0; j < l; j++)
+        {
+	  if (q + q[l + 4 + j] * 2 + 4 == p)
+	    setseqoff(q, j, p[k + 4 + j] ? q[l + 4 + j] + p[k + 4 + j] - k : 0);
+	  else if (q + q[l + 4 + j] * 2 + 4 > p)
+	    q[l + 4 + j] -= k + 2;
+        }
+    }
+  if (D_kmaps + D_nseqs > p + 2 * k + 4)
+    bcopy((char *)p + 2 * k + 4, (char *)p, (D_kmaps + D_nseqs) - (p + 2 * k + 4));
+  D_nseqs -= 2 * k + 4;
+  D_seqp = D_kmaps + 3;
+  D_seql = 0;
+  D_seqh = 0;
+  evdeq(&D_mapev);
 #ifdef DEBUGG
   dumpmap();
 #endif
@@ -674,22 +780,31 @@ char *seq;
 static void
 dumpmap()
 {
-  char *p, *o;
-  int i,j,n;
+  unsigned char *p;
+  int j, n, l, o, oo;
   debug("Mappings:\n");
-  for (i = 0; i < D_nseqs; i++)
+  p = D_kmaps;
+  if (!p)
+    return;
+  while (p < D_kmaps + D_nseqs)
     {
-      for (j = 0, p = D_kmaps[i].seq, o = D_kmaps[i].off; *p; p++, o++, j++)
+      l = p[2];
+      debug1("%d: ", p - D_kmaps + 3);
+      for (j = 0; j < l; j++)
 	{
-	  if (*p > ' ' && (unsigned char)*p < 0177)
+	  o = oo = p[l + 4 + j];
+	  if (o)
+	    o = 2 * o + 4 + (p + 3 + j - D_kmaps);
+	  if (p[j + 3] > ' ' && p[j + 3] < 0177)
 	    {
-              debug2("%c[%d] ", *p, *o);
+              debug3("%c[%d:%d] ", p[j + 3], oo, o);
 	    }
           else
-            debug2("\\%03o[%d] ", (unsigned char)*p, *o);
+            debug3("\\%03o[%d:%d] ", p[j + 3], oo, o);
 	}
-      n = D_kmaps[i].nr;
+      n = p[0] << 8 | p[1];
       debug2(" ==> %d%s\n", n & ~KMAP_NOTIMEOUT, (n & KMAP_NOTIMEOUT) ? " (no timeout)" : "");
+      p += 2 * l + 4;
     }
 }
 #endif /* DEBUGG */
@@ -731,7 +846,10 @@ int aflag;
 {
   char buf[TERMCAP_BUFSIZE];
   register char *p, *cp, *s, ch, *tname;
-  int i, wi, he, found;
+  int i, wi, he;
+#if 0
+  int found;
+#endif
 
   if (display)
     {
@@ -761,7 +879,9 @@ int aflag;
       debug("MakeTermcap sets screenterm=screen\n");
       strcpy(screenterm, "screen");
     }
+#if 0
   found = 1;
+#endif
   do
     {
       strcpy(Term, "TERM=");
@@ -792,7 +912,9 @@ int aflag;
       if (e_tgetent(buf, p) == 1)
 	break;
       strcpy(p, "vt100");
+#if 0
       found = 0;
+#endif
     }
   while (0);		/* Goto free programming... */
 

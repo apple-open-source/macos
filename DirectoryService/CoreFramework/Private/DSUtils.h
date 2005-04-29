@@ -28,8 +28,7 @@
 #ifndef __DSUtils_h__
 #define __DSUtils_h__	1
 
-#include "DirServicesTypes.h"
-#include "PrivateTypes.h"
+#include <DirectoryServiceCore/PrivateTypes.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -60,6 +59,8 @@ void			BinaryToHexConversion			( const unsigned char *inBinary, unsigned long in
 void			HexToBinaryConversion			( const char *inHexStr, unsigned long *outLength, unsigned char *outBinary );
 
 double			dsTimestamp						(void);
+tDirStatus		dsGetAuthMethodEnumValue		( tDataNode *inData, unsigned long *outAuthMethod );
+const char*		dsGetPatternMatchName			( tDirPatternMatch inPatternMatchEnum );
 
 #ifdef __cplusplus
 }

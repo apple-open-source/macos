@@ -1,7 +1,8 @@
+// { dg-do run  }
+// { dg-options "-fms-extensions" }
 // Test that an object-dependent reference to a member function can be
 // used to produce a pointer to member function, as in VC++.
 // Contributed by Jason Merrill <jason@cygnus.com>
-// Special g++ Options: -fms-extensions
 
 struct A
 {
@@ -21,4 +22,4 @@ int main()
   fn1 = a.f; 
   fn1 = (pmf1)a.f;
   fn2 = (pmf2)a.f;
-};
+}

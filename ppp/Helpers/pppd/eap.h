@@ -34,7 +34,7 @@
  * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
  * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
- * $Id: eap.h,v 1.5 2003/08/14 00:00:29 callie Exp $
+ * $Id: eap.h,v 1.7 2004/08/03 23:11:15 lindak Exp $
  */
 
 #ifndef __EAP_INCLUDE__
@@ -69,6 +69,7 @@ typedef struct eap_ext {
     int (*attribute) __P((void *context, EAP_Attribute *eap_attr));
     int (*interactive_ui) __P((void *data_in, int data_in_len, void **data_out, int *data_out_len));
     void (*print_packet) __P((void (*printer)(void *, char *, ...), void *arg, u_char code, char *inbuf, int insize));
+    int (*identity) __P((char *identity, int maxlen));
 
 } eap_ext;
 
@@ -88,6 +89,7 @@ typedef struct eap_state {
     char peer_identity[MAX_NAME_LENGTH];	/* peer name discovered with identity request */
 
     u_char req_id;		/* ID of last challenge */
+    u_char resp_id;		/* ID of last response */
     u_char req_type;		/* last request type  */
     int req_interval;		/* Time until we challenge peer again */
     int timeouttime;		/* Timeout time in seconds */
@@ -144,6 +146,8 @@ extern eap_state eap[];
 void EapAuthWithPeer __P((int, char *));
 void EapAuthPeer __P((int, char *));
 void EapGenChallenge __P((eap_state *));
+void EapLostSuccess __P((int));
+void EapLostFailure __P((int));
 
 int EapGetClientSecret(void *cookie, u_char *our_name, u_char *peer_name, u_char *secret, int *secretlen);
 int EapGetServerSecret(void *cookie, u_char *our_name, u_char *peer_name, u_char *secret, int *secretlen);

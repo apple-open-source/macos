@@ -25,6 +25,7 @@
  * @header DirServicesUtils
  */
 
+#include "DirServicesConst.h"
 #include "DirServicesUtils.h"
 #include "DirServicesPriv.h"
 #include "DirServices.h"
@@ -475,6 +476,67 @@ char* dsGetPathFromList ( tDirReference	inDirRef, const tDataList *inDataList, c
 	return( outStr );
 
 } // dsGetPathFromList
+
+
+
+//--------------------------------------------------------------------------------------------------
+//	Name:	dsBuildStringsFromList
+//
+//--------------------------------------------------------------------------------------------------
+
+char** dsAllocStringsFromList( tDirReference inDirRef, const tDataList *inDataList )
+{
+#pragma unused ( inDirRef )
+	tDataNode		   *pCurrNode		= nil;
+	tDataBufferPriv	   *pPrivData		= nil;
+	char			  **listOfStrings   = nil;
+
+	if (inDataList == nil)
+	{
+		LOG2( kStdErr, "*** DS NULL Error: File: %s. Line: %d.\n", __FILE__, __LINE__ );
+		return( nil );
+	}
+
+	if ( (inDataList->fDataNodeCount == 0) || (inDataList->fDataListHead == nil) )
+	{
+		LOG2( kStdErr, "*** DS Parameter Error: File: %s. Line: %d.\n", __FILE__, __LINE__ );
+		return( nil );
+	}
+
+	listOfStrings = (char **)calloc(inDataList->fDataNodeCount + 1, sizeof(char *));
+	pCurrNode = inDataList->fDataListHead;
+	uInt32 strCount = 0;
+	while ( pCurrNode != nil )
+	{
+		pPrivData = (tDataBufferPriv *)pCurrNode;
+
+		listOfStrings[strCount] = (char *)calloc(1, strlen((const char *)pPrivData->fBufferData) + 1);
+		strcpy(listOfStrings[strCount], (const char *)pPrivData->fBufferData);
+
+		pCurrNode = pPrivData->fNextPtr;
+
+		strCount++;
+
+		if ( strCount == inDataList->fDataNodeCount )
+		{
+			// Yes, we are done
+			pCurrNode = nil;
+
+			if ( pPrivData->fNextPtr != nil )
+			{
+				LOG2( kStdErr, "*** DS Parameter Corrupt Data Error: File: %s. Line: %d.\n", __FILE__, __LINE__ );
+			}
+		}
+	}
+
+	if ( strCount != inDataList->fDataNodeCount )
+	{
+		LOG2( kStdErr, "*** DS Parameter Corrupt Index Error: File: %s. Line: %d.\n", __FILE__, __LINE__ );
+	}
+
+	return( listOfStrings );
+
+} // dsBuildStringsFromList
 
 
 
@@ -1097,7 +1159,7 @@ tDirStatus dsDataListInsertAfter (	tDirReference		inDirRef,
 	}
 
 	pNewNode = ::dsAllocListNodeFromBuffPriv( inDataNode->fBufferData, inDataNode->fBufferLength );
-	if ( pNewNode != nil )
+	if ( pNewNode == nil )
 	{
 		LOG2( kStdErr, "*** DS NULL Error: File: %s. Line: %d.\n", __FILE__, __LINE__ );
 		return( eMemoryAllocError );
@@ -1106,9 +1168,8 @@ tDirStatus dsDataListInsertAfter (	tDirReference		inDirRef,
 	if ( inIndex == 0 )
 	{
 		pNextNode = inDataList->fDataListHead;
-		inDataList->fDataListHead = pNewNode;
+        inDataList->fDataListHead = pNewNode;
 
-		pNextNode = pCurNodePriv->fNextPtr;
 		if ( pNextNode != nil )
 		{
 			pNextNodeHdr = (tDataBufferPriv *)pNextNode;
@@ -1664,7 +1725,12 @@ tDirStatus dsGetRecordNameFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outR
 	char		   *pData	 	= nil;
 	char		   *pOutData 	= nil;
 
-	if ( inRecEntryPtr )
+	if (outRecName == nil)
+	{
+		tResult = eDSNullParameter;
+		LOG3( kStdErr, "*** DS OSError: File: %s. Line: %d. Error = %d.\n", __FILE__, __LINE__, tResult );
+	}
+	else if ( inRecEntryPtr != nil )
 	{
 		dataNode = &inRecEntryPtr->fRecordNameAndType;
 		if ( (dataNode->fBufferSize != 0) &&
@@ -1726,7 +1792,12 @@ tDirStatus dsGetRecordTypeFromEntry ( tRecordEntryPtr inRecEntryPtr, char **outR
 	char		   *pData	 	= nil;
 	char		   *pOutData	= nil;
 
-	if ( inRecEntryPtr != nil )
+	if (outRecType == nil)
+	{
+		tResult = eDSNullParameter;
+		LOG3( kStdErr, "*** DS OSError: File: %s. Line: %d. Error = %d.\n", __FILE__, __LINE__, tResult );
+	}
+	else if ( inRecEntryPtr != nil )
 	{
 		dataNode = &inRecEntryPtr->fRecordNameAndType;
 		if ( (dataNode->fBufferSize != 0) &&
@@ -2012,4 +2083,712 @@ tDirStatus dsParseAuthAuthority( const char *inAuthAuthority, char **outVersion,
 	}
 	return result;
 } // dsParseAuthAuthority
+
+
+//--------------------------------------------------------------------------------------------------
+//	Name:	dsCopyDirStatusName
+//
+//--------------------------------------------------------------------------------------------------
+
+char* dsCopyDirStatusName ( long inDirStatus )
+{
+	char		   *outString   = nil;
+	unsigned long   caseIndex   = (-1 * inDirStatus) - 14000;
+	
+	if (inDirStatus == 0)
+	{
+		outString = strdup("eDSNoErr");
+	}
+	else if ( (caseIndex < 1000) && (caseIndex > 0) )
+	{
+		switch (caseIndex)
+		{
+			case 0:
+				outString = strdup("eDSOpenFailed");
+				break;
+			case 1:
+				outString = strdup("eDSCloseFailed");
+				break;
+			case 2:
+				outString = strdup("eDSOpenNodeFailed");
+				break;
+			case 3:
+				outString = strdup("eDSBadDirRefences");
+				break;
+			case 4:
+				outString = strdup("eDSNullRecordReference");
+				break;
+			case 5:
+				outString = strdup("eDSMaxSessionsOpen");
+				break;
+			case 6:
+				outString = strdup("eDSCannotAccessSession");
+				break;
+			case 7:
+				outString = strdup("eDSDirSrvcNotOpened");
+				break;
+			case 8:
+				outString = strdup("eDSNodeNotFound");
+				break;
+			case 9:
+				outString = strdup("eDSUnknownNodeName");
+				break;
+			case 10:
+				outString = strdup("eDSRegisterCustomFailed");
+				break;
+			case 11:
+				outString = strdup("eDSGetCustomFailed");
+				break;
+			case 12:
+				outString = strdup("eDSUnRegisterFailed");
+				break;
+			case 50:
+				outString = strdup("eDSAllocationFailed");
+				break;
+			case 51:
+				outString = strdup("eDSDeAllocateFailed");
+				break;
+			case 52:
+				outString = strdup("eDSCustomBlockFailed");
+				break;
+			case 53:
+				outString = strdup("eDSCustomUnblockFailed");
+				break;
+			case 54:
+				outString = strdup("eDSCustomYieldFailed");
+				break;
+			case 60:
+				outString = strdup("eDSCorruptBuffer");
+				break;
+			case 61:
+				outString = strdup("eDSInvalidIndex");
+				break;
+			case 62:
+				outString = strdup("eDSIndexOutOfRange");
+				break;
+			case 63:
+				outString = strdup("eDSIndexNotFound");
+				break;
+			case 65:
+				outString = strdup("eDSCorruptRecEntryData");
+				break;
+			case 69:
+				outString = strdup("eDSRefSpaceFull");
+				break;
+			case 70:
+				outString = strdup("eDSRefTableAllocError");
+				break;
+			case 71:
+				outString = strdup("eDSInvalidReference");
+				break;
+			case 72:
+				outString = strdup("eDSInvalidRefType");
+				break;
+			case 73:
+				outString = strdup("eDSInvalidDirRef");
+				break;
+			case 74:
+				outString = strdup("eDSInvalidNodeRef");
+				break;
+			case 75:
+				outString = strdup("eDSInvalidRecordRef");
+				break;
+			case 76:
+				outString = strdup("eDSInvalidAttrListRef");
+				break;
+			case 77:
+				outString = strdup("eDSInvalidAttrValueRef");
+				break;
+			case 78:
+				outString = strdup("eDSInvalidContinueData");
+				break;
+			case 79:
+				outString = strdup("eDSInvalidBuffFormat");
+				break;
+			case 80:
+				outString = strdup("eDSInvalidPatternMatchType");
+				break;
+			case 81:
+				outString = strdup("eDSRefTableError");
+				break;
+			case 82:
+				outString = strdup("eDSRefTableNilError");
+				break;
+			case 83:
+				outString = strdup("eDSRefTableIndexOutOfBoundsError");
+				break;
+			case 84:
+				outString = strdup("eDSRefTableEntryNilError");
+				break;
+			case 85:
+				outString = strdup("eDSRefTableCSBPAllocError");
+				break;
+			case 86:
+				outString = strdup("eDSRefTableFWAllocError");
+				break;
+			case 90:
+				outString = strdup("eDSAuthFailed");
+				break;
+			case 91:
+				outString = strdup("eDSAuthMethodNotSupported");
+				break;
+			case 92:
+				outString = strdup("eDSAuthResponseBufTooSmall");
+				break;
+			case 93:
+				outString = strdup("eDSAuthParameterError");
+				break;
+			case 94:
+				outString = strdup("eDSAuthInBuffFormatError");
+				break;
+			case 95:
+				outString = strdup("eDSAuthNoSuchEntity");
+				break;
+			case 96:
+				outString = strdup("eDSAuthBadPassword");
+				break;
+			case 97:
+				outString = strdup("eDSAuthContinueDataBad");
+				break;
+			case 98:
+				outString = strdup("eDSAuthUnknownUser");
+				break;
+			case 99:
+				outString = strdup("eDSAuthInvalidUserName");
+				break;
+			case 100:
+				outString = strdup("eDSAuthCannotRecoverPasswd");
+				break;
+			case 101:
+				outString = strdup("eDSAuthFailedClearTextOnly");
+				break;
+			case 102:
+				outString = strdup("eDSAuthNoAuthServerFound");
+				break;
+			case 103:
+				outString = strdup("eDSAuthServerError");
+				break;
+			case 104:
+				outString = strdup("eDSInvalidContext");
+				break;
+			case 105:
+				outString = strdup("eDSBadContextData");
+				break;
+			case 120:
+				outString = strdup("eDSPermissionError");
+				break;
+			case 121:
+				outString = strdup("eDSReadOnly");
+				break;
+			case 122:
+				outString = strdup("eDSInvalidDomain");
+				break;
+			case 123:
+				outString = strdup("eNetInfoError");
+				break;
+			case 130:
+				outString = strdup("eDSInvalidRecordType");
+				break;
+			case 131:
+				outString = strdup("eDSInvalidAttributeType");
+				break;
+			case 133:
+				outString = strdup("eDSInvalidRecordName");
+				break;
+			case 134:
+				outString = strdup("eDSAttributeNotFound");
+				break;
+			case 135:
+				outString = strdup("eDSRecordAlreadyExists");
+				break;
+			case 136:
+				outString = strdup("eDSRecordNotFound");
+				break;
+			case 137:
+				outString = strdup("eDSAttributeDoesNotExist");
+				break;
+			case 140:
+				outString = strdup("eDSNoStdMappingAvailable");
+				break;
+			case 141:
+				outString = strdup("eDSInvalidNativeMapping");
+				break;
+			case 142:
+				outString = strdup("eDSSchemaError");
+				break;
+			case 143:
+				outString = strdup("eDSAttributeValueNotFound");
+				break;
+			case 149:
+				outString = strdup("eDSVersionMismatch");
+				break;
+			case 150:
+				outString = strdup("eDSPlugInConfigFileError");
+				break;
+			case 151:
+				outString = strdup("eDSInvalidPlugInConfigData");
+				break;
+			case 161:
+				outString = strdup("eDSAuthNewPasswordRequired");
+				break;
+			case 162:
+				outString = strdup("eDSAuthPasswordExpired");
+				break;
+			case 165:
+				outString = strdup("eDSAuthPasswordQualityCheckFailed");
+				break;
+			case 167:
+				outString = strdup("eDSAuthAccountDisabled");
+				break;
+			case 168:
+				outString = strdup("eDSAuthAccountExpired");
+				break;
+			case 169:
+				outString = strdup("eDSAuthAccountInactive");
+				break;
+			case 170:
+				outString = strdup("eDSAuthPasswordTooShort");
+				break;
+			case 171:
+				outString = strdup("eDSAuthPasswordTooLong");
+				break;
+			case 172:
+				outString = strdup("eDSAuthPasswordNeedsLetter");
+				break;
+			case 173:
+				outString = strdup("eDSAuthPasswordNeedsDigit");
+				break;
+			case 174:
+				outString = strdup("eDSAuthPasswordChangeTooSoon");
+				break;
+			case 175:
+				outString = strdup("eDSAuthInvalidLogonHours");
+				break;
+			case 176:
+				outString = strdup("eDSAuthInvalidComputer");
+				break;
+			case 177:
+				outString = strdup("eDSAuthMasterUnreachable");
+				break;
+			case 200:
+				outString = strdup("eDSNullParameter");
+				break;
+			case 201:
+				outString = strdup("eDSNullDataBuff");
+				break;
+			case 202:
+				outString = strdup("eDSNullNodeName");
+				break;
+			case 203:
+				outString = strdup("eDSNullRecEntryPtr");
+				break;
+			case 204:
+				outString = strdup("eDSNullRecName");
+				break;
+			case 205:
+				outString = strdup("eDSNullRecNameList");
+				break;
+			case 206:
+				outString = strdup("eDSNullRecType");
+				break;
+			case 207:
+				outString = strdup("eDSNullRecTypeList");
+				break;
+			case 208:
+				outString = strdup("eDSNullAttribute");
+				break;
+			case 209:
+				outString = strdup("eDSNullAttributeAccess");
+				break;
+			case 210:
+				outString = strdup("eDSNullAttributeValue");
+				break;
+			case 211:
+				outString = strdup("eDSNullAttributeType");
+				break;
+			case 212:
+				outString = strdup("eDSNullAttributeTypeList");
+				break;
+			case 213:
+				outString = strdup("eDSNullAttributeControlPtr");
+				break;
+			case 214:
+				outString = strdup("eDSNullAttributeRequestList");
+				break;
+			case 215:
+				outString = strdup("eDSNullDataList");
+				break;
+			case 216:
+				outString = strdup("eDSNullDirNodeTypeList");
+				break;
+			case 217:
+				outString = strdup("eDSNullAutMethod");
+				break;
+			case 218:
+				outString = strdup("eDSNullAuthStepData");
+				break;
+			case 219:
+				outString = strdup("eDSNullAuthStepDataResp");
+				break;
+			case 220:
+				outString = strdup("eDSNullNodeInfoTypeList");
+				break;
+			case 221:
+				outString = strdup("eDSNullPatternMatch");
+				break;
+			case 222:
+				outString = strdup("eDSNullNodeNamePattern");
+				break;
+			case 223:
+				outString = strdup("eDSNullTargetArgument");
+				break;
+			case 230:
+				outString = strdup("eDSEmptyParameter");
+				break;
+			case 231:
+				outString = strdup("eDSEmptyBuffer");
+				break;
+			case 232:
+				outString = strdup("eDSEmptyNodeName");
+				break;
+			case 233:
+				outString = strdup("eDSEmptyRecordName");
+				break;
+			case 234:
+				outString = strdup("eDSEmptyRecordNameList");
+				break;
+			case 235:
+				outString = strdup("eDSEmptyRecordType");
+				break;
+			case 236:
+				outString = strdup("eDSEmptyRecordTypeList");
+				break;
+			case 237:
+				outString = strdup("eDSEmptyRecordEntry");
+				break;
+			case 238:
+				outString = strdup("eDSEmptyPatternMatch");
+				break;
+			case 239:
+				outString = strdup("eDSEmptyNodeNamePattern");
+				break;
+			case 240:
+				outString = strdup("eDSEmptyAttribute");
+				break;
+			case 241:
+				outString = strdup("eDSEmptyAttributeType");
+				break;
+			case 242:
+				outString = strdup("eDSEmptyAttributeTypeList");
+				break;
+			case 243:
+				outString = strdup("eDSEmptyAttributeValue");
+				break;
+			case 244:
+				outString = strdup("eDSEmptyAttributeRequestList");
+				break;
+			case 245:
+				outString = strdup("eDSEmptyDataList");
+				break;
+			case 246:
+				outString = strdup("eDSEmptyNodeInfoTypeList");
+				break;
+			case 247:
+				outString = strdup("eDSEmptyAuthMethod");
+				break;
+			case 248:
+				outString = strdup("eDSEmptyAuthStepData");
+				break;
+			case 249:
+				outString = strdup("eDSEmptyAuthStepDataResp");
+				break;
+			case 250:
+				outString = strdup("eDSEmptyPattern2Match");
+				break;
+			case 255:
+				outString = strdup("eDSBadDataNodeLength");
+				break;
+			case 256:
+				outString = strdup("eDSBadDataNodeFormat");
+				break;
+			case 257:
+				outString = strdup("eDSBadSourceDataNode");
+				break;
+			case 258:
+				outString = strdup("eDSBadTargetDataNode");
+				break;
+			case 260:
+				outString = strdup("eDSBufferTooSmall");
+				break;
+			case 261:
+				outString = strdup("eDSUnknownMatchType");
+				break;
+			case 262:
+				outString = strdup("eDSUnSupportedMatchType");
+				break;
+			case 263:
+				outString = strdup("eDSInvalDataList");
+				break;
+			case 264:
+				outString = strdup("eDSAttrListError");
+				break;
+			case 270:
+				outString = strdup("eServerNotRunning");
+				break;
+			case 271:
+				outString = strdup("eUnknownAPICall");
+				break;
+			case 272:
+				outString = strdup("eUnknownServerError");
+				break;
+			case 273:
+				outString = strdup("eUnknownPlugIn");
+				break;
+			case 274:
+				outString = strdup("ePlugInDataError");
+				break;
+			case 275:
+				outString = strdup("ePlugInNotFound");
+				break;
+			case 276:
+				outString = strdup("ePlugInError");
+				break;
+			case 277:
+				outString = strdup("ePlugInInitError");
+				break;
+			case 278:
+				outString = strdup("ePlugInNotActive");
+				break;
+			case 279:
+				outString = strdup("ePlugInFailedToInitialize");
+				break;
+			case 280:
+				outString = strdup("ePlugInCallTimedOut");
+				break;
+			case 290:
+				outString = strdup("eNoSearchNodesFound");
+				break;
+			case 291:
+				outString = strdup("eSearchPathNotDefined");
+				break;
+			case 292:
+				outString = strdup("eNotHandledByThisNode");
+				break;
+			case 330:
+				outString = strdup("eIPCSendError");
+				break;
+			case 331:
+				outString = strdup("eIPCReceiveError");
+				break;
+			case 332:
+				outString = strdup("eServerReplyError");
+				break;
+			case 350:
+				outString = strdup("eDSTCPSendError");
+				break;
+			case 351:
+				outString = strdup("eDSTCPReceiveError");
+				break;
+			case 352:
+				outString = strdup("eDSTCPVersionMismatch");
+				break;
+			case 353:
+				outString = strdup("eDSIPUnreachable");
+				break;
+			case 354:
+				outString = strdup("eDSUnknownHost");
+				break;
+			case 400:
+				outString = strdup("ePluginHandlerNotLoaded");
+				break;
+			case 402:
+				outString = strdup("eNoPluginsLoaded");
+				break;
+			case 404:
+				outString = strdup("ePluginAlreadyLoaded");
+				break;
+			case 406:
+				outString = strdup("ePluginVersionNotFound");
+				break;
+			case 408:
+				outString = strdup("ePluginNameNotFound");
+				break;
+			case 410:
+				outString = strdup("eNoPluginFactoriesFound");
+				break;
+			case 412:
+				outString = strdup("ePluginConfigAvailNotFound");
+				break;
+			case 414:
+				outString = strdup("ePluginConfigFileNotFound");
+				break;
+			case 450:
+				outString = strdup("eCFMGetFileSysRepErr");
+				break;
+			case 452:
+				outString = strdup("eCFPlugInGetBundleErr");
+				break;
+			case 454:
+				outString = strdup("eCFBndleGetInfoDictErr");
+				break;
+			case 456:
+				outString = strdup("eCFDictGetValueErr");
+				break;
+			case 470:
+				outString = strdup("eDSServerTimeout");
+				break;
+			case 471:
+				outString = strdup("eDSContinue");
+				break;
+			case 472:
+				outString = strdup("eDSInvalidHandle");
+				break;
+			case 473:
+				outString = strdup("eDSSendFailed");
+				break;
+			case 474:
+				outString = strdup("eDSReceiveFailed");
+				break;
+			case 475:
+				outString = strdup("eDSBadPacket");
+				break;
+			case 476:
+				outString = strdup("eDSInvalidTag");
+				break;
+			case 477:
+				outString = strdup("eDSInvalidSession");
+				break;
+			case 478:
+				outString = strdup("eDSInvalidName");
+				break;
+			case 479:
+				outString = strdup("eDSUserUnknown");
+				break;
+			case 480:
+				outString = strdup("eDSUnrecoverablePassword");
+				break;
+			case 481:
+				outString = strdup("eDSAuthenticationFailed");
+				break;
+			case 482:
+				outString = strdup("eDSBogusServer");
+				break;
+			case 483:
+				outString = strdup("eDSOperationFailed");
+				break;
+			case 484:
+				outString = strdup("eDSNotAuthorized");
+				break;
+			case 485:
+				outString = strdup("eDSNetInfoError");
+				break;
+			case 486:
+				outString = strdup("eDSContactMaster");
+				break;
+			case 487:
+				outString = strdup("eDSServiceUnavailable");
+				break;
+			case 501:
+				outString = strdup("eFWGetDirNodeNameErr1");
+				break;
+			case 502:
+				outString = strdup("eFWGetDirNodeNameErr2");
+				break;
+			case 503:
+				outString = strdup("eFWGetDirNodeNameErr3");
+				break;
+			case 504:
+				outString = strdup("eFWGetDirNodeNameErr4");
+				break;
+			case 700:
+				outString = strdup("eParameterSendError");
+				break;
+			case 720:
+				outString = strdup("eParameterReceiveError");
+				break;
+			case 740:
+				outString = strdup("eServerSendError");
+				break;
+			case 760:
+				outString = strdup("eServerReceiveError");
+				break;
+			case 900:
+				outString = strdup("eMemoryError");
+				break;
+			case 901:
+				outString = strdup("eMemoryAllocError");
+				break;
+			case 910:
+				outString = strdup("eServerError");
+				break;
+			case 915:
+				outString = strdup("eParameterError");
+				break;
+			case 950:
+				outString = strdup("eDataReceiveErr_NoDirRef");
+				break;
+			case 951:
+				outString = strdup("eDataReceiveErr_NoRecRef");
+				break;
+			case 952:
+				outString = strdup("eDataReceiveErr_NoAttrListRef");
+				break;
+			case 953:
+				outString = strdup("eDataReceiveErr_NoAttrValueListRef");
+				break;
+			case 954:
+				outString = strdup("eDataReceiveErr_NoAttrEntry");
+				break;
+			case 955:
+				outString = strdup("eDataReceiveErr_NoAttrValueEntry");
+				break;
+			case 956:
+				outString = strdup("eDataReceiveErr_NoNodeCount");
+				break;
+			case 957:
+				outString = strdup("eDataReceiveErr_NoAttrCount");
+				break;
+			case 958:
+				outString = strdup("eDataReceiveErr_NoRecEntry");
+				break;
+			case 959:
+				outString = strdup("eDataReceiveErr_NoRecEntryCount");
+				break;
+			case 960:
+				outString = strdup("eDataReceiveErr_NoRecMatchCount");
+				break;
+			case 961:
+				outString = strdup("eDataReceiveErr_NoDataBuff");
+				break;
+			case 962:
+				outString = strdup("eDataReceiveErr_NoContinueData");
+				break;
+			case 963:
+				outString = strdup("eDataReceiveErr_NoNodeChangeToken");
+				break;
+			case 986:
+				outString = strdup("eNoLongerSupported");
+				break;
+			case 987:
+				outString = strdup("eUndefinedError");
+				break;
+			case 988:
+				outString = strdup("eNotYetImplemented");
+				break;
+			case 999:
+				outString = strdup("eDSLastValue");
+				break;
+			default:
+				break;
+		}
+	}
+	else
+	{
+		outString = strdup("Not a known DirStatus");
+	}
+	
+	return(outString);
+} // dsCopyDirStatusName
+
+
 

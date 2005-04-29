@@ -37,12 +37,12 @@
 <FONT COLOR=green><EM>-- sale, use or other dealings in this Software without prior written       --</EM></FONT>
 <FONT COLOR=green><EM>-- authorization.                                                           --</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<FONT COLOR=green><EM>--  Author: <A HREF="http://home.t-online.de/home/Juergen.Pfeifer">J&uuml;rgen Pfeifer</A> &lt;<A HREF="mailto:juergen.pfeifer@gmx.net">&lt;juergen.pfeifer@gmx.net&gt;</A>&gt; 1996</EM></FONT>
+<FONT COLOR=green><EM>--  Author:  Juergen Pfeifer, 1996</EM></FONT>
 <FONT COLOR=green><EM>--  Version Control:</EM></FONT>
-<FONT COLOR=green><EM>--  @Revision: 1.8 @</EM></FONT>
+<FONT COLOR=green><EM>--  @Revision: 1.10 @</EM></FONT>
 <FONT COLOR=green><EM>--  Binding Version 01.00</EM></FONT>
 <FONT COLOR=green><EM>------------------------------------------------------------------------------</EM></FONT>
-<b>package</b> <b>body</b> Terminal_Interface.Curses.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A><FONT COLOR=red><A NAME="41_40"></A></FONT> <b>is</b>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A> <b>is</b>
    <FONT COLOR=green><EM>--</EM></FONT>
    <FONT COLOR=green><EM>--  Some helpers</EM></FONT>
    <b>procedure</b> <A HREF="terminal_interface-curses-aux__ads.htm#116_14">Fill_String</A><FONT COLOR=red><A NAME="44_14"></A></FONT> (<A HREF="terminal_interface-curses-aux__ads.htm#116_27">Cp</A>  : <b>in</b>  chars_ptr;
@@ -72,9 +72,9 @@
          <A HREF="terminal_interface-curses-aux__ads.htm#117_27">Str</A> ((<A HREF="terminal_interface-curses-aux__ads.htm#117_27">Str</A>'First + <A HREF="terminal_interface-curses-aux__adb.htm#50_7">Len</A>) .. <A HREF="terminal_interface-curses-aux__ads.htm#117_27">Str</A>'Last) := (<b>others</b> =&gt; ' ');
       <b>end</b> <b>if</b>;
 
-   <b>end</b> Fill_String;
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#116_14">Fill_String</A><A HREF="terminal_interface-curses-aux__ads.htm#116_14">;</A>
 
-   <b>function</b> <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A><FONT COLOR=red><A NAME="73_13"></A></FONT> (<A HREF="terminal_interface-curses-aux__ads.htm#121_26">Cp</A> : chars_ptr) <b>return</b> String
+   <b>function</b> <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-aux__ads.htm#121_26">Cp</A> : chars_ptr) <b>return</b> String
    <b>is</b>
       <FONT COLOR=red><A NAME="75_7">Len</A></FONT> : Natural;
    <b>begin</b>
@@ -86,14 +86,14 @@
             <b>declare</b>
                <FONT COLOR=red><A NAME="83_16">S</A></FONT> : String (1 .. <A HREF="terminal_interface-curses-aux__adb.htm#75_7">Len</A>);
             <b>begin</b>
-               <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A> (<A HREF="terminal_interface-curses-aux__ads.htm#121_26">Cp</A>, <A HREF="terminal_interface-curses-aux__adb.htm#83_16">S</A>);
+               <A HREF="terminal_interface-curses-aux__ads.htm#116_14">Fill_String</A> (<A HREF="terminal_interface-curses-aux__ads.htm#121_26">Cp</A>, <A HREF="terminal_interface-curses-aux__adb.htm#83_16">S</A>);
                <b>return</b> <A HREF="terminal_interface-curses-aux__adb.htm#83_16">S</A>;
             <b>end</b>;
          <b>end</b> <b>if</b>;
       <b>else</b>
          <b>return</b> "";
       <b>end</b> <b>if</b>;
-   <b>end</b> Fill_String;
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#121_13">Fill_String</A><A HREF="terminal_interface-curses-aux__ads.htm#121_13">;</A>
 
    <b>procedure</b> <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A><FONT COLOR=red><A NAME="94_14"></A></FONT> (<A HREF="terminal_interface-curses-aux__ads.htm#96_29">Code</A> : <A HREF="terminal_interface-curses-aux__ads.htm#78_12">Eti_Error</A>)
    <b>is</b>
@@ -115,7 +115,7 @@
          <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#93_4">E_Invalid_Field</A>   =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#400_4">Eti_Invalid_Field</A>;
          <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#94_4">E_Current</A>         =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#401_4">Eti_Current</A>;
       <b>end</b> <b>case</b>;
-   <b>end</b> Eti_Exception;
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#96_14">Eti_Exception</A><A HREF="terminal_interface-curses-aux__ads.htm#96_14">;</A>
 
-<b>end</b> Terminal_Interface.Curses.Aux;
+<b>end</b> <A HREF="terminal_interface__ads.htm#41_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#50_35">Aux</A><A HREF="terminal_interface-curses-aux__ads.htm#50_35">;</A>
 </PRE></BODY></HTML>

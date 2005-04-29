@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ftpgetresp.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: ftpgetresp.c,v 1.2 2003/12/08 14:13:19 bagder Exp $
  */
 
 #include <stdio.h>
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
   if(curl) {
     /* Get a file listing from sunet */
     curl_easy_setopt(curl, CURLOPT_URL, "ftp://ftp.sunet.se/");
-    curl_easy_setopt(curl, CURLOPT_FILE, ftpfile);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, ftpfile);
     curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, write_response);
     curl_easy_setopt(curl, CURLOPT_WRITEHEADER, respfile);
     res = curl_easy_perform(curl);

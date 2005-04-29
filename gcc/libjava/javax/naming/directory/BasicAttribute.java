@@ -1,5 +1,5 @@
 /* BasicAttribute.java --
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004  Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,15 +38,21 @@ exception statement from your version. */
 
 package javax.naming.directory;
 
-import javax.naming.*;
-import java.util.*;
+import java.util.NoSuchElementException;
+import java.util.Vector;
+
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.OperationNotSupportedException;
 
 /**
- * @author Tom Tromey <tromey@redhat.com>
+ * @author Tom Tromey (tromey@redhat.com)
  * @date June 20, 2001
  */
 public class BasicAttribute implements Attribute
 {
+  private static final long serialVersionUID = 6743528196119291326L;
+  
   /** The ID of this attribute.  */
   protected String attrID;
   /** True if this attribute's values are ordered.  */
@@ -159,6 +165,7 @@ public class BasicAttribute implements Attribute
   }
 
   public Object get ()
+    throws NamingException
   {
     if (values.size () == 0)
       throw new NoSuchElementException ("no values");
@@ -166,11 +173,13 @@ public class BasicAttribute implements Attribute
   }
 
   public Object get (int index)
+    throws NamingException
   {
     return values.get (index);
   }
 
   public NamingEnumeration getAll ()
+    throws NamingException
   {
     return new BasicAttributeEnumeration ();
   }

@@ -130,6 +130,7 @@ smbfs_setlock(lock)
 		 * involve us. MAXDEPTH is set just to make sure we
 		 * do not go off into neverland.
 		 */
+#if 0	/* XXXX */
 		if ((lock->lf_flags & F_POSIX) &&
 		    (block->lf_flags & F_POSIX)) {
 			register struct proc *wproc;
@@ -153,6 +154,7 @@ smbfs_setlock(lock)
 				}
 			}
 		}
+#endif 
 		/*
 		 * For flock type locks, we must first remove
 		 * any shared locks that we hold before we sleep
@@ -176,7 +178,7 @@ smbfs_setlock(lock)
 			smbfs_lprintlist("smbfs_setlock", block);
 		}
 #endif /* LOCKF_DEBUG */
-		if ((error = tsleep((caddr_t)lock, priority, lockstr, 0))) {
+		if ((error = msleep((caddr_t)lock, 0, priority, lockstr, 0))) {
 			/*
 			 * We may have been awakened by a signal (in
 			 * which case we must remove ourselves from the
@@ -414,7 +416,7 @@ smbfs_getlock(lock, fl)
 		else
 			fl->l_len = block->lf_end - block->lf_start + 1;
 		if (block->lf_flags & F_POSIX)
-			fl->l_pid = ((struct proc *)(block->lf_id))->p_pid;
+			fl->l_pid = proc_pid((struct proc *)(block->lf_id));
 		else
 			fl->l_pid = -1;
 	} else {
@@ -641,7 +643,7 @@ void smbfs_lprint(tag, lock)
 {
 	printf("%s: lock 0x%lx for ", tag, (unsigned long)lock);
 	if (lock->lf_flags & F_POSIX)
-		printf("proc %d", ((struct proc *)(lock->lf_id))->p_pid);
+		printf("proc %d", proc_pid((struct proc *)(lock->lf_id)));
 	else
 		printf("id 0x%lx", (unsigned long)lock->lf_id);
 	printf(" in ino %ld on mount 0x%lx, %s, start 0x%lx, end 0x%lx",
@@ -669,7 +671,7 @@ void smbfs_lprintlist(tag, lock)
 	for (lf = lock->lf_smbnode->smb_lockf; lf; lf = lf->lf_next) {
 		printf("\tlock 0x%lx for ", (unsigned long)lf);
 		if (lf->lf_flags & F_POSIX)
-			printf("proc %d", ((struct proc *)(lf->lf_id))->p_pid);
+			printf("proc %d", proc_pid((struct proc *)(lf->lf_id)));
 		else
 			printf("id 0x%lx", (unsigned long)lf->lf_id);
 		printf(", %s, start 0x%lx, end 0x%lx",
@@ -682,7 +684,7 @@ void smbfs_lprintlist(tag, lock)
 			printf("\n\t\tlock request 0x%lx for ", (unsigned long)blk);
 			if (blk->lf_flags & F_POSIX)
 				printf("proc %d",
-				    ((struct proc *)(blk->lf_id))->p_pid);
+				    proc_pid((struct proc *)(blk->lf_id)));
 			else
 				printf("id 0x%lx", (unsigned long)blk->lf_id);
 			printf(", %s, start 0x%lx, end 0x%lx",

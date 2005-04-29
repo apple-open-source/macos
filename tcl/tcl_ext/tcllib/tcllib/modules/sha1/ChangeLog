@@ -1,0 +1,81 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-04-10  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl:
+	* sha1.man:
+	* sha1.tcl: Fixed bug #614591. Set version of the package to to
+	  1.0.3
+
+2003-03-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* sha1.tcl (sha1::sha1): Applied patch #637770 submitted by Donal
+	  Fellows to fix problems on Mac OS X machines. This possibly
+	  related to 64/32 bit arithmetic. See changes by Don Porter
+	  below.
+
+2003-02-07  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* sha1.tcl: Check that we have a _working_ C implementation.
+
+2003-02-06  David N. Welton  <davidw@dedasys.com>
+
+	* sha1.tcl (sha1::time): Use 'lindex' instead of regexp to fetch
+	  number from 'time' results.
+
+2002-02-20  Don Porter  <dgp@users.sf.net>
+
+	* sha1.tcl (sha1): Force 32-bit register arithmetic so that
+	the right answers are computed even on 64-bit platforms. [446997]
+
+2002-02-20  Donal K. Fellows  <fellowsd@cs.man.ac.uk>
+
+	* sha1.tcl (initK,sha1): Force 32-bit interpretation of constants
+	larger than INT_MAX on 32-bit processors, due to TIP#72.
+
+2002-02-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+	
+	* Version up to 1.0.2 to differentiate development from the
+	  version in the tcllib 1.2 release.
+
+	* sha1.tcl: Adding -- to hex/sha1 commands to prevent
+	  misinterpretation of data if starting with -.
+
+2001-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* sha1.n:
+	* sha1.tcl:
+	* pkgIndex.tcl: Version up to 1.0.1
+
+2001-08-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* sha1.test: Fixed broken error messages for 8.4. Using
+	  [tcltest::getErrorMessage] now to get the correct message for
+	  all versions of the core. Bug [440051] reported by Larry Virden.
+
+2001-06-22  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* sha1.tcl: Fixed dubious code reported by frink.
+
+2001-06-21  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* New module, 'sha1'. The code is Don Libes's <libes@nist.gov>
+	  sha1pure, with Donal K. Fellows's patches to speed it up, and
+	  extended with a soft dependency on Trf to allow higher speed if
+	  the environment is right.

@@ -5,11 +5,8 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: sepheaders.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: sepheaders.c,v 1.6 2003/11/19 08:21:34 bagder Exp $
  */
-
-/* to make this work under windows, use the win32-functions from the
-   win32socket.c file as well */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -21,7 +18,7 @@
 
 size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-  written = fwrite(ptr, size, nmemb, (FILE *)stream);
+  int written = fwrite(ptr, size, nmemb, (FILE *)stream);
   return written;
 }
 
@@ -32,6 +29,8 @@ int main(int argc, char **argv)
   FILE *headerfile;
   char *bodyfilename = "body.out";
   FILE *bodyfile;
+
+  curl_global_init(CURL_GLOBAL_ALL);
 
   /* init the curl session */
   curl_handle = curl_easy_init();

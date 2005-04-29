@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tex.c,v 1.14 2002/11/05 17:46:08 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tex.c,v 1.16 2004/01/23 03:57:05 dawes Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -43,12 +43,12 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include "context.h"
 #include "macros.h"
-#include "mmath.h"
 #include "simple_list.h"
 #include "enums.h"
 #include "texstore.h"
 #include "texformat.h"
-#include "mem.h"
+#include "imports.h"
+#include "colormac.h"
 
 #define TEX_0	1
 #define TEX_1	2
@@ -68,6 +68,12 @@ static void r128SetTexWrap( r128TexObjPtr t, GLenum swrap, GLenum twrap )
    case GL_REPEAT:
       t->setup.tex_cntl |= R128_TEX_CLAMP_S_WRAP;
       break;
+   case GL_CLAMP_TO_BORDER:
+      t->setup.tex_cntl |= R128_TEX_CLAMP_S_BORDER_COLOR;
+      break;
+   case GL_MIRRORED_REPEAT:
+      t->setup.tex_cntl |= R128_TEX_CLAMP_S_MIRROR;
+      break;
    }
 
    switch ( twrap ) {
@@ -79,6 +85,12 @@ static void r128SetTexWrap( r128TexObjPtr t, GLenum swrap, GLenum twrap )
       break;
    case GL_REPEAT:
       t->setup.tex_cntl |= R128_TEX_CLAMP_T_WRAP;
+      break;
+   case GL_CLAMP_TO_BORDER:
+      t->setup.tex_cntl |= R128_TEX_CLAMP_T_BORDER_COLOR;
+      break;
+   case GL_MIRRORED_REPEAT:
+      t->setup.tex_cntl |= R128_TEX_CLAMP_T_MIRROR;
       break;
    }
 }
@@ -129,24 +141,27 @@ static r128TexObjPtr r128AllocTexObj( struct gl_texture_object *texObj )
    r128TexObjPtr t;
 
    if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
-      fprintf( stderr, "%s( %p )\n", __FUNCTION__, texObj );
+      fprintf( stderr, "%s( %p )\n", __FUNCTION__, (void *)texObj );
    }
 
    t = (r128TexObjPtr) CALLOC_STRUCT( r128_tex_obj );
-   if (!t)
-      return NULL;
+   texObj->DriverData = t;
+   if ( t != NULL ) {
 
-   /* Initialize non-image-dependent parts of the state:
-    */
-   t->tObj = texObj;
-   t->dirty_images = ~0;
+      /* Initialize non-image-dependent parts of the state:
+       */
+      t->base.tObj = texObj;
 
-   make_empty_list( t );
+      /* FIXME Something here to set initial values for other parts of
+       * FIXME t->setup?
+       */
+  
+      make_empty_list( (driTextureObject *) t );
 
-   r128SetTexWrap( t, texObj->WrapS, texObj->WrapT );
-   /*r128SetTexMaxAnisotropy( t, texObj->MaxAnisotropy );*/
-   r128SetTexFilter( t, texObj->MinFilter, texObj->MagFilter );
-   r128SetTexBorderColor( t, texObj->BorderColor );
+      r128SetTexWrap( t, texObj->WrapS, texObj->WrapT );
+      r128SetTexFilter( t, texObj->MinFilter, texObj->MagFilter );
+      r128SetTexBorderColor( t, texObj->_BorderChan );
+   }
 
    return t;
 }
@@ -167,6 +182,7 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_ALPHA8:
    case GL_ALPHA12:
    case GL_ALPHA16:
+   case GL_COMPRESSED_ALPHA:
    case 2:
    case GL_LUMINANCE_ALPHA:
    case GL_LUMINANCE4_ALPHA4:
@@ -175,8 +191,10 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_LUMINANCE12_ALPHA4:
    case GL_LUMINANCE12_ALPHA12:
    case GL_LUMINANCE16_ALPHA16:
+   case GL_COMPRESSED_LUMINANCE_ALPHA:
    case 4:
    case GL_RGBA:
+   case GL_COMPRESSED_RGBA:
    case GL_RGBA2:
    case GL_RGB5_A1:
    case GL_RGBA8:
@@ -192,6 +210,7 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
 
    case 3:
    case GL_RGB:
+   case GL_COMPRESSED_RGB:
    case GL_R3_G3_B2:
    case GL_RGB4:
    case GL_RGB5:
@@ -210,6 +229,7 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_LUMINANCE8:
    case GL_LUMINANCE12:
    case GL_LUMINANCE16:
+   case GL_COMPRESSED_LUMINANCE:
       if (rmesa->r128Screen->cpp == 4)
          return &_mesa_texformat_argb8888; /* inefficient but accurate */
       else
@@ -221,6 +241,7 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_INTENSITY8:
    case GL_INTENSITY12:
    case GL_INTENSITY16:
+   case GL_COMPRESSED_INTENSITY:
       if (rmesa->r128Screen->cpp == 4)
          return &_mesa_texformat_argb8888; /* inefficient but accurate */
       else
@@ -235,8 +256,15 @@ r128ChooseTextureFormat( GLcontext *ctx, GLint internalFormat,
    case GL_COLOR_INDEX16_EXT:
       return &_mesa_texformat_ci8;
 
+   case GL_YCBCR_MESA:
+      if (type == GL_UNSIGNED_SHORT_8_8_APPLE ||
+          type == GL_UNSIGNED_BYTE)
+         return &_mesa_texformat_ycbcr;
+      else
+         return &_mesa_texformat_ycbcr_rev;
+
    default:
-      _mesa_problem( ctx, "unexpected format in r128ChooseTextureFormat" );
+      _mesa_problem( ctx, "unexpected format in %s", __FUNCTION__ );
       return NULL;
    }
 }
@@ -250,19 +278,17 @@ static void r128TexImage1D( GLcontext *ctx, GLenum target, GLint level,
 			    struct gl_texture_object *texObj,
 			    struct gl_texture_image *texImage )
 {
-   r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   r128TexObjPtr t = (r128TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    if ( t ) {
-      r128SwapOutTexObj( R128_CONTEXT(ctx), t );
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r128AllocTexObj(texObj);
+      t = (driTextureObject *) r128AllocTexObj(texObj);
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage1D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    /* Note, this will call r128ChooseTextureFormat */
@@ -270,8 +296,7 @@ static void r128TexImage1D( GLcontext *ctx, GLenum target, GLint level,
 			   width, border, format, type,
 			   pixels, packing, texObj, texImage );
 
-   t->dirty_images |= (1 << level);
-   rmesa->new_state |= R128_NEW_TEXTURE;
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -286,29 +311,25 @@ static void r128TexSubImage1D( GLcontext *ctx,
 			       struct gl_texture_object *texObj,
 			       struct gl_texture_image *texImage )
 {
-   r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   r128TexObjPtr t = (r128TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    assert( t ); /* this _should_ be true */
    if ( t ) {
-      r128SwapOutTexObj( R128_CONTEXT(ctx), t );
-      t->dirty_images |= (1 << level);
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r128AllocTexObj(texObj);
+      t = (driTextureObject *) r128AllocTexObj(texObj);
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexSubImage1D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    _mesa_store_texsubimage1d(ctx, target, level, xoffset, width,
 			     format, type, pixels, packing, texObj,
 			     texImage);
 
-   t->dirty_images |= (1 << level);
-   rmesa->new_state |= R128_NEW_TEXTURE;
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -320,19 +341,17 @@ static void r128TexImage2D( GLcontext *ctx, GLenum target, GLint level,
 			    struct gl_texture_object *texObj,
 			    struct gl_texture_image *texImage )
 {
-   r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   r128TexObjPtr t = (r128TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    if ( t ) {
-      r128SwapOutTexObj( R128_CONTEXT(ctx), t );
+      driSwapOutTextureObject( (driTextureObject *) t );
    }
    else {
-      t = r128AllocTexObj(texObj);
+      t = (driTextureObject *) r128AllocTexObj(texObj);
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    /* Note, this will call r128ChooseTextureFormat */
@@ -340,8 +359,7 @@ static void r128TexImage2D( GLcontext *ctx, GLenum target, GLint level,
                           width, height, border, format, type, pixels,
                           &ctx->Unpack, texObj, texImage);
 
-   t->dirty_images |= (1 << level);
-   rmesa->new_state |= R128_NEW_TEXTURE;
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -356,27 +374,24 @@ static void r128TexSubImage2D( GLcontext *ctx,
 			       struct gl_texture_object *texObj,
 			       struct gl_texture_image *texImage )
 {
-   r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   r128TexObjPtr t = (r128TexObjPtr) texObj->DriverData;
+   driTextureObject * t = (driTextureObject *) texObj->DriverData;
 
    assert( t ); /* this _should_ be true */
    if ( t ) {
-      r128SwapOutTexObj( R128_CONTEXT(ctx), t );
+      driSwapOutTextureObject( t );
    }
    else {
-      t = r128AllocTexObj(texObj);
+      t = (driTextureObject *) r128AllocTexObj(texObj);
       if (!t) {
          _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexImage2D");
          return;
       }
-      texObj->DriverData = t;
    }
 
    _mesa_store_texsubimage2d(ctx, target, level, xoffset, yoffset, width,
 			     height, format, type, pixels, packing, texObj,
 			     texImage);
-   t->dirty_images |= (1 << level);
-   rmesa->new_state |= R128_NEW_TEXTURE;
+   t->dirty_images[0] |= (1 << level);
 }
 
 
@@ -395,7 +410,7 @@ static void r128DDTexEnv( GLcontext *ctx, GLenum target,
    switch ( pname ) {
    case GL_TEXTURE_ENV_MODE:
       FLUSH_BATCH( rmesa );
-      rmesa->new_state |= R128_NEW_TEXTURE | R128_NEW_ALPHA;
+      rmesa->new_state |= R128_NEW_ALPHA;
       break;
 
    case GL_TEXTURE_ENV_COLOR:
@@ -408,8 +423,6 @@ static void r128DDTexEnv( GLcontext *ctx, GLenum target,
       if ( rmesa->setup.constant_color_c != rmesa->env_color ) {
 	 FLUSH_BATCH( rmesa );
 	 rmesa->setup.constant_color_c = rmesa->env_color;
-
-	 rmesa->new_state |= R128_NEW_TEXTURE;
 
 	 /* More complex multitexture/multipass fallbacks for GL_BLEND
 	  * can be done later, but this allows a single pass GL_BLEND
@@ -485,31 +498,22 @@ static void r128DDTexParameter( GLcontext *ctx, GLenum target,
    if ( ( target != GL_TEXTURE_2D ) && ( target != GL_TEXTURE_1D ) )
       return;
 
-   if (!t) {
-      t = r128AllocTexObj(tObj);
-      if (!t) {
-         _mesa_error(ctx, GL_OUT_OF_MEMORY, "glTexParameter");
-         return;
-      }
-      tObj->DriverData = t;
-   }
-
    switch ( pname ) {
    case GL_TEXTURE_MIN_FILTER:
    case GL_TEXTURE_MAG_FILTER:
-      if ( t->bound ) FLUSH_BATCH( rmesa );
+      if ( t->base.bound ) FLUSH_BATCH( rmesa );
       r128SetTexFilter( t, tObj->MinFilter, tObj->MagFilter );
       break;
 
    case GL_TEXTURE_WRAP_S:
    case GL_TEXTURE_WRAP_T:
-      if ( t->bound ) FLUSH_BATCH( rmesa );
+      if ( t->base.bound ) FLUSH_BATCH( rmesa );
       r128SetTexWrap( t, tObj->WrapS, tObj->WrapT );
       break;
 
    case GL_TEXTURE_BORDER_COLOR:
-      if ( t->bound ) FLUSH_BATCH( rmesa );
-      r128SetTexBorderColor( t, tObj->BorderColor );
+      if ( t->base.bound ) FLUSH_BATCH( rmesa );
+      r128SetTexBorderColor( t, tObj->_BorderChan );
       break;
 
    case GL_TEXTURE_BASE_LEVEL:
@@ -521,70 +525,50 @@ static void r128DDTexParameter( GLcontext *ctx, GLenum target,
        * we just have to rely on loading the right subset of mipmap levels
        * to simulate a clamped LOD.
        */
-      if ( t->bound ) FLUSH_BATCH( rmesa );
-      r128SwapOutTexObj( rmesa, t );
+      if ( t->base.bound ) FLUSH_BATCH( rmesa );
+      driSwapOutTextureObject( (driTextureObject *) t );
       break;
 
    default:
       return;
    }
-
-   rmesa->new_state |= R128_NEW_TEXTURE;
 }
 
 static void r128DDBindTexture( GLcontext *ctx, GLenum target,
 			       struct gl_texture_object *tObj )
 {
-   r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   GLint unit = ctx->Texture.CurrentUnit;
-
    if ( R128_DEBUG & DEBUG_VERBOSE_API ) {
-      fprintf( stderr, "%s( %p ) unit=%d\n",
-	       __FUNCTION__, tObj, unit );
+      fprintf( stderr, "%s( %p ) unit=%d\n", __FUNCTION__, (void *)tObj,
+	       ctx->Texture.CurrentUnit );
    }
 
-   FLUSH_BATCH( rmesa );
-
-   if ( rmesa->CurrentTexObj[unit] ) {
-      rmesa->CurrentTexObj[unit]->bound &= ~(1 << unit);
-      rmesa->CurrentTexObj[unit] = NULL;
+   if ( target == GL_TEXTURE_2D || target == GL_TEXTURE_1D ) {
+      if ( tObj->DriverData == NULL ) {
+	 r128AllocTexObj( tObj );
+      }
    }
-
-   rmesa->new_state |= R128_NEW_TEXTURE;
 }
 
 static void r128DDDeleteTexture( GLcontext *ctx,
 				 struct gl_texture_object *tObj )
 {
    r128ContextPtr rmesa = R128_CONTEXT(ctx);
-   r128TexObjPtr t = (r128TexObjPtr)tObj->DriverData;
+   driTextureObject * t = (driTextureObject *) tObj->DriverData;
 
    if ( t ) {
-      if ( t->bound ) {
+      if ( t->bound && rmesa ) {
 	 FLUSH_BATCH( rmesa );
-
-	 if ( t->bound & TEX_0 ) rmesa->CurrentTexObj[0] = NULL;
-	 if ( t->bound & TEX_1 ) rmesa->CurrentTexObj[1] = NULL;
-	 rmesa->new_state |= R128_NEW_TEXTURE;
       }
 
-      r128DestroyTexObj( rmesa, t );
-      tObj->DriverData = NULL;
+      driDestroyTextureObject( t );
    }
 }
 
-static GLboolean r128DDIsTextureResident( GLcontext *ctx,
-					  struct gl_texture_object *tObj )
-{
-   r128TexObjPtr t = (r128TexObjPtr)tObj->DriverData;
-
-   return ( t && t->memBlock );
-}
-
-
-
 void r128DDInitTextureFuncs( GLcontext *ctx )
 {
+   r128ContextPtr rmesa = R128_CONTEXT(ctx);
+
+
    ctx->Driver.TexEnv			= r128DDTexEnv;
    ctx->Driver.ChooseTextureFormat	= r128ChooseTextureFormat;
    ctx->Driver.TexImage1D		= r128TexImage1D;
@@ -604,6 +588,10 @@ void r128DDInitTextureFuncs( GLcontext *ctx )
    ctx->Driver.DeleteTexture		= r128DDDeleteTexture;
    ctx->Driver.UpdateTexturePalette	= NULL;
    ctx->Driver.ActiveTexture		= NULL;
-   ctx->Driver.IsTextureResident	= r128DDIsTextureResident;
+   ctx->Driver.IsTextureResident	= driIsTextureResident;
    ctx->Driver.PrioritizeTexture	= NULL;
+
+   driInitTextureObjects( ctx, & rmesa->swapped,
+			  DRI_TEXMGR_DO_TEXTURE_1D
+			  | DRI_TEXMGR_DO_TEXTURE_2D );
 }

@@ -1,5 +1,5 @@
 // Test rtti pointer flags
-// Copyright (C) 2000 Free Software Foundation, Inc.
+// Copyright (C) 2000, 2002 Free Software Foundation, Inc.
 // Contributed by Nathan Sidwell 15 Apr 2000 <nathan@nathan@codesourcery.com>
 
 #include <typeinfo>
@@ -18,7 +18,7 @@ int expect (int flags, std::type_info const &info)
       dynamic_cast <abi::__pbase_type_info const *> (&info);
   if (!ptr)
     return 0;
-  if (ptr->__qualifier_flags != flags)
+  if (ptr->__flags != flags)
     return 0;
   return 1;
 }

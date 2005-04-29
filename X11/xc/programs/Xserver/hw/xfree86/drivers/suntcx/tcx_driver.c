@@ -20,7 +20,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/suntcx/tcx_driver.c,v 1.6 2001/08/07 07:04:51 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/suntcx/tcx_driver.c,v 1.7 2003/10/30 17:37:12 tsi Exp $ */
 
 #include "xf86.h"
 #include "xf86_OSproc.h"
@@ -53,8 +53,8 @@ static void	TCXAdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 static void	TCXFreeScreen(int scrnIndex, int flags);
-static int	TCXValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus TCXValidMode(int scrnIndex, DisplayModePtr mode,
+			       Bool verbose, int flags);
 
 void TCXSync(ScrnInfoPtr pScrn);
 
@@ -720,7 +720,7 @@ TCXFreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 TCXValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

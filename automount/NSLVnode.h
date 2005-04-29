@@ -15,7 +15,7 @@
     NetworkObjectType NSLObjectType;
 	union {
 		NSLNeighborhood neighborhood;
-		NSLService service;
+		NSLServiceRef service;
 	} NSLObject;
 	BOOL fixedEntry;
 	BOOL beingPopulated;
@@ -35,13 +35,11 @@
 	unsigned long currentContentGeneration;
 }
 
-- (NSLVnode *)init;
-
 - (String *)apparentName;
 - (void)setApparentName:(String *)n;
 
 - (NSLVnode *)newNeighborhoodWithName:(String *)newNeighborhoodname neighborhood:(NSLNeighborhood)neighborhood;
-- (NSLVnode *)newServiceWithName:(String *)newServiceName service:(NSLService)service serviceURL:(char *)serverURL;
+- (NSLVnode *)newServiceWithName:(String *)newServiceName service:(NSLServiceRef)service serviceURL:(char *)serverURL;
 - (NSLVnode *)newSymlinkWithName:(String *)newSymlink target:(char *)target;
 
 - (void)triggerDeferredNotifications:(SearchContext *)searchContext;
@@ -57,7 +55,7 @@
 
 - (NSLNeighborhood)getNSLNeighborhood;
 
-- (NSLService)getNSLService;
+- (NSLServiceRef)getNSLService;
 
 - (void)stopSearchesInProgress;
 

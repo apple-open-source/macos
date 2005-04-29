@@ -1,0 +1,3 @@
+package ifneeded xotcl::store::gdbm 1.2 \
+   [list load [file join $dir libxotclgdbm1.2[info sharedlibextension]]]
+

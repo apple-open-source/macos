@@ -1,0 +1,878 @@
+<html><head>
+    <title>Snit -- Snit's Not Incr Tcl</title>
+</head>
+
+<BODY>
+
+<h1>Snit -- Snit's Not Incr Tcl</h1>
+
+<ul>
+  <li> <a href="#synopsis">SYNOPSIS</a>
+  <li> <a href="#overview">OVERVIEW</a>
+  <li> <a href="#reference">REFERENCE</a>
+       <ul>
+         <li> <a href="#type_and_widget_definitions">Type and Widget Definitions</a>
+         <li> <a href="#the_type_command">The Type Command</a>
+         <li> <a href="#standard_type_methods">Standard Type Methods</a>
+         <li> <a href="#the_instance_command">The Instance Command</a>
+         <li> <a href="#standard_instance_methods">Standard Instance Methods</a>
+         <li> <a href="#commands_for_use_in_object_code">Commands for use in Object Code</a>
+         <li> <a href="#components_and_delegation">Components and Delegation</a>
+       </ul>
+  <li> <a href="#history">HISTORY</a>
+  <li> <a href="#credits">CREDITS</a>
+</ul>
+
+<h2><a name="synopsis">SYNOPSIS</a></h2>
+
+<pre>
+    package require snit 0.93
+    ::snit::type <i>name</i> <i>definition</i>
+    ::snit::widget <i>name</i> <i>definition</i>
+    ::snit::widgetadaptor <i>name</i> <i>definition</i>
+</pre><p>
+
+<h2><a name="overview">OVERVIEW</a></h2>
+
+Snit is yet another pure Tcl object and megawidget system.  It's
+unique among Tcl object systems (so far as I know) in that it's a
+system based not on inheritance but on delegation.  Object systems
+based on inheritance only allow you to inherit from classes defined
+using the same system, and that's a shame.  In Tcl, an object
+is anything that acts like an object; it shouldn't matter how the
+object was implemented.  I designed Snit to help me build applications
+out of the materials at hand; thus, Snit is designed to be able to
+incorporate and build on any object, whether it's a hand-coded object,
+a Tk widget, an Incr Tcl object, a BWidget or almost anything else.<p>
+
+This man page is intended to be a reference only; see the accompanying
+<a href="faq.html">Snit FAQ list</a> for a gentler, more tutorial
+introduction to Snit concepts.<p>
+
+
+<h2><a name="reference">REFERENCE</a></h2>
+
+<h3><a name="type_and_widget_definitions">Type and Widget Definitions</a></h3>
+
+Snit provides the following commands for defining new types:<p>
+
+<dl>
+  <dt> <code><a name="snit::type">snit::type <i>name</i> <i>definition</i></a></code>
+  <dd> Defines a new abstract data type called
+       <i>name</i>.  If <i>name</i> is not a fully qualified command
+       name, it is assumed to be a name in the namespace in which the
+       <code>snit::type</code> command appears (usually the global namespace).  It
+       returns the fully qualified type name.<p>
+
+       The type name is then a command which is used to
+       create objects of the new type, along with other
+       activities.<p>
+
+       The <code>snit::type</code> <i>definition</i> block may contain the
+       following definitions:<p>
+
+       <dl>
+         <dt> <code><a name="typevariable">typevariable <i>name</i> ?<i>value</i>?</a></code>
+         <dd> Defines a type variable with the specified name, and
+              optionally the specified value.  Type variables are
+              shared by all instances of the type.  This definition
+              can be used to define array variables, but cannot
+              initialize their elements.<p>
+       
+         <dt> <code><a name="typemethod">typemethod <i>name</i> <i>arglist</i> <i>body</i></a></code>
+         <dd> Defines a type method with the specified name, argument
+              list, and body.  The variable "type" is automatically defined in
+              the <i>body</i> to the type's fully-qualified name.<p>
+
+              The <i>arglist</i> is a normal Tcl argument list and may
+              contain default arguments and the "args" argument;
+              however, it may not contain the argument names "type",
+              "self", "selfns", or "win".<p>
+
+              Type variables defined in the type <i>definition</i> are
+              automatically visible in the <i>body</i> of every type method.<p>
+              
+         <dt> <code><a name="typeconstructor">typeconstructor <i>body</i></a></code>
+         <dd> The type constructor's <i>body</i> is executed once when the
+              type is first defined; it is typically used to
+              initialize array-valued type-variables and to add
+              entries to the Tk option database.<p>
+
+              The variable "type" is
+              automatically defined in the <i>body</i> to the type's
+              fully-qualified name.<p>
+
+              Type variables defined in the type <i>definition</i> are
+              automatically visible in the <i>body</i> of every type method.<p>
+
+              A type may define at most one type constructor.<p>
+
+         <dt> <code><a name="option">option <i>namespec</i> ?<i>defaultValue</i>?</a></code>
+         <dd> Defines an option for instances of this type, and
+              optionally gives it an initial value.  (The option's
+              value defaults to "" if no initial value is specified.)
+              An option defined in this way is said to be "locally
+              defined".<p>
+
+              The <i>namespec</i> is a list defining the option's
+              name, resource name, and class name, e.g.:<p>
+
+              <pre>option {-font font Font} {Courier 12}</pre><p>
+
+              The option name must begin with a hyphen, and must not
+              contain any upper case letters. The resource name and
+              class name are optional; if not specified, the resource
+              name defaults to the option name, minus the hyphen, and
+              the class name defaults to the resource name with the
+              first letter capitalized.  Thus, the following
+              statement is equivalent to the previous example:<p>
+
+              <pre>option -font {Courier 12}</pre><p>
+              
+              See the <a href="faq.html">Snit FAQ list</a> for more
+              information about resource and class names.<p>
+              
+              Options are normally set and retrieved using the
+              standard <code><a href="#configure">configure</a></code>
+              and <code><a href="#cget">cget</a></code> instance
+              methods.<p>
+
+         <dt> <code><a name="variable">variable <i>name</i> ?<i>value</i>?</a></code>
+         <dd> Defines an instance variable, a private variable
+              associated with each instance of this type, and
+              optionally its initial value.  This definition can be
+              used to define array instance variables, but cannot
+              initialize their elements.<p>
+
+              Note that the <code>delegate</code> statement implicitly
+              defines an instance variable for the named component.<p>
+       
+         <dt> <code><a name="method">method <i>name</i> <i>arglist</i> <i>body</i></a></code>
+         <dd> Defines an instance method, a subcommand of each
+              instance of this type, with the specified name, argument list
+              and body.  The <i>arglist</i> is a standard Tcl argument
+              list, and may contain default values and the
+              <code>args</code> 
+
+              The <i>arglist</i> is a normal Tcl argument list and may
+              contain default arguments and the "args" argument.  In
+              addition, the method is implicitly passed the following
+              arguments as well: "type", which contains the
+              fully-qualified type name; "self", which contains the
+              current instance command name; "selfns", which contains
+              the name of the instance's private namespace; and
+              "win", which contains the original instance name.
+              Consequently, the <i>arglist</i> may not contain the
+              argument names "type", "self", "selfns", or "win".<p>
+
+              An instance method defined in this way is said to be
+              "locally defined".<p>
+
+              Type and instance variables defined in the type
+              <i>definition</i> are automatically visible in all
+              instance methods.  If the type has locally defined
+              options, the "options" array is also visible.<p>
+
+         <dt> <code><a name="constructor">constructor <i>arglist</i> <i>body</i></a></code>
+         <dd> The constructor definition specifies a <i>body</i> of
+              code to be executed when a new instance is created.<p>
+
+              The <i>arglist</i> is a normal Tcl argument list and may
+              contain default arguments and the "args" argument.
+              As with methods, the arguments "type",
+              "self", "selfns", and "win", are defined implicitly.<p>
+
+              If the constructor is not defined, it defaults to this:<p>
+
+              <pre>
+              constructor {args} {
+                  $self configurelist $args
+              }
+              </pre><p>
+
+              For standard Tk widget behavior (or to achieve the
+              behavior of previous versions of snit) the argument list
+              should be the single name "args", as shown.<p>
+
+         <dt> <code><a name="destructor">destructor <i>body</i></a></code>
+         <dd> The destructor is used to code any actions which must
+              take place when an instance of the type is destroyed:
+              typically, the destruction of anything created in the
+              constructor.<p>
+
+              As with arguments, the parameters "type",
+              "self", "selfns", and "win", are defined implicitly.<p>
+              
+         <dt> <code><a name="onconfigure">onconfigure <i>name</i> <i>arglist</i> <i>body</i></a></code>
+         <dd> Every locally-defined option has an "onconfigure"
+              handler which is called when the option is set to a new
+              value by the "configure" or "configurelist" instance
+              method.<p>
+
+              The <i>arglist</i> may contain exactly one
+              argument name. As with methods, the arguments "type",
+              "self", "selfns", and "win", are defined implicitly.<p>
+
+              If no explicit onconfigure handler is defined for an
+              option, the handler is defined as follows:<p>
+
+              <pre>
+              onconfigure <i>name</i> {value} {
+                  set options(<i>name</i>) $value
+              }
+              </pre>
+
+              If an explicit onconfigure handler is defined, the
+              options array will be updated with the new value only if
+              the handler so updates it.<p>
+              
+         <dt> <code><a name="oncget">oncget <i>name</i> <i>body</i></a></code>
+         <dd> Every locally-defined option has an "oncget" handler
+              which is called when the option's value is retrieved.
+
+              Although there is no explicit argument list, the
+              arguments "type", "self", "selfns", and "win", are
+              defined implicitly, just as they are for methods.<p> 
+
+              The variables "type", "self", "selfns", and "win" are
+              defined as usual in the handler's <i>body</i>.  Whatever
+              the handler returns will be the return value of the call
+              to the <code><a href="#cget">cget</a></code> instance method.<p>
+
+              If no explicit oncget handler is defined for an option,
+              the handler is defined as follows:<p>
+
+              <pre>
+              oncget <i>name</i> {
+                  return $options(<i>name</i>)
+              }
+              </pre>
+              
+         <dt> <code><a name="proc">proc <i>name</i> <i>args</i> <i>body</i></a></code>
+         <dd> Defines a new Tcl procedure in the type's namespace.
+              The new proc differs from a normal Tcl proc in that
+              all type variables defined in the type
+              <i>definition</i> are automatically
+              visible.<p>
+
+              Although they are not implicitly defined for procs, the
+              argument names "type", "self", "selfns", and "win"
+              should be avoided.<p>
+              
+         <dt> <code><a name="delegate_method">delegate method <i>name</i> to <i>comp</i></a></code>
+         <dt> <code>delegate method <i>name</i> to <i>comp</i> as <i>target</i></code>
+         <dt> <code>delegate method * to <i>comp</i></code>
+         <dt> <code>delegate method * to <i>comp</i> except <i>exceptions</i></code>
+         <dd> Delegates one or more instance methods to a component of
+              the object.  When a method <i>name</i> is explicitly stated,
+              it will automatically be delegated to the named
+              component as though the method were defined as follows:<p>
+
+              <pre>
+              method <i>name</i> {<i>args...</i>} {
+                  $<i>comp</i> mymethod <i>args...</i>
+              }
+              </pre>
+
+              If desired, the delegated method may <i>target</i> a method
+              with a different name by using the "as" clause; the
+              <i>target</i> may also include arguments to add to the
+              beginning of the argument list.<p>
+
+              The form "delegate method *" delegates all
+              unknown method names to the specified <i>comp</i>.  The "except"
+              clause can be used to specify a list of
+              <i>exceptions</i>, i.e., method names that will not be
+              so delegated.<p>
+
+              A method cannot be both locally defined and delegated.<p>
+              
+         <dt> <code><a name="delegate_option">delegate option <i>namespec</i> to <i>comp</i></a></code>
+         <dt> <code>delegate option <i>namespec</i> to <i>comp</i> as <i>target</i></code>
+         <dt> <code>delegate option * to <i>comp</i></code>
+         <dt> <code>delegate option * to <i>comp</i> except <i>exceptions</i></code>
+         <dd> Defines a delegated option; the <i>namespec</i> is
+              defined as for the <code><a href="#option">option</a></code>
+              statement.   When the
+              <code><a href="#configure">configure</a></code>,
+              <code><a href="#configurelist">configurelist</a></code>, or
+              <code><a href="#cget">cget</a></code> instance method is used to set or
+              retrieve the option's value, the equivalent configure or
+              cget command will be applied to the component as though
+              these <code><a href="#onconfigure">onconfigure</a></code> and
+              <code><a href="#oncget">oncget</a></code> handlers were
+              defined, where <i>name</i> is the option name from the
+              <i>namespec</i>:<p>
+
+              <pre>
+              onconfigure <i>name</i> {value} {
+                  $<i>comp</i> configure <i>name</i> $value
+              }
+              
+              oncget <i>name</i> {
+                  return [$<i>comp</i> cget <i>name</i>]
+              }
+              </pre>
+
+              If the "as" clause is specified, then the <i>target</i>
+              option name is used in place of <i>name</i>.<p>
+
+              The form "delegate option *" delegates all
+              unknown method names to the specified <i>comp</i>.  The "except"
+              clause can be used to specify a list of
+              <i>exceptions</i>, i.e., option names that will not be
+              so delegated.<p>
+
+              Warning: options can only be delegated to a component if
+              it supports the "configure" and "cget" instance
+              methods.<p>
+
+              Note that an option cannot be both locally defined and delegated.<p>
+
+         <dt> <code>expose <i>comp</i></code>
+         <dt> <code>expose <i>comp</i> as <i>method</i></code>
+         <dd> Exposes component <i>comp</i> as a method of the type.
+              In the first form, the method name is <i>comp</i>; in
+              the second form, the method name is <i>method</i>.<p>
+
+              This differs from delegation in that it maps an instance method to
+              the component itself instead of to one of
+              the component's methods.<p>
+
+              Calling the new instance method is just like calling the
+              component, except that if the method is called
+              with no arguments it returns the component.<p>
+       </dl>
+  <dt> <code><a name="snit::widget">snit::widget <i>name</i> <i>definition</i></a></code>
+  <dd> This command defines a Snit megawidget type with the specified
+       <i>name</i>.  The <i>definition</i> is defined identically to
+       that for <code>snit::type</code>.  A <code>snit::widget</code>
+       differs from a <code>snit::type</code> in these ways:<p>
+
+       <ul>
+         <li> Every snit::widget instance has an automatically-created
+              component called <code>hull</code>, which is normally
+              a Tk frame widget.  Other widgets created as part of the megawidget
+              will be created within this frame.<p>
+
+              The hull component is initially created with the
+              requested widget name; then Snit does some magic,
+              renaming the hull component and installing its own
+              instance command in its place.  The hull component's new
+              name is saved in an instance variable called
+              <code>hull</code>.<p>
+
+         <li> The name of an instance must be valid Tk window name,
+              and the parent window must exist.<p>
+       </ul>
+
+       A <code>snit::widget</code> definition can include any of
+       statements allowed in a <code>snit::type</code> definition,
+       and may also include these as well:<p>
+
+       <dl>
+         <dt> <code><a name="widgetclass">widgetclass <i>name</i></a></code>
+         <dd> Sets the <code>snit::widget</code>'s widget class
+              to <i>name</i>, overriding the default.  See
+              the <a href="faq.html">Snit FAQ list</a> for more
+              information about the Tk option database.<p>
+
+         <dt> <code><a name="hulltype">hulltype <i>type</i></a></code>
+         <dd> Determined the kind of widget used as the
+              <code>snit::widget</code>'s hull.  The <i>type</i> may
+              be <code>frame</code> (the default) or
+              <code>toplevel</code>.<p>
+       </dl>
+       
+  <dt> <code><a name="snit::widgetadaptor">snit::widgetadaptor <i>name</i> <i>definition</i></a></code>
+  <dd> This command defines a Snit megawidget type with the specified
+       name.  It differs from <code>snit::widget</code> in that the
+       instance's <code>hull</code> component is not created
+       automatically, but is created in the constructor and installed
+       using the <code><a href="#installhull">installhull</a></code> command.  Once the hull is
+       installed, its instance command is renamed and replaced as with
+       normal <code>snit::widgets</code>.  The original command is
+       again accessible in the instance variable <code>hull</code>.<p>
+
+       Note that in general it is not possible to change the
+       <a href="#widgetclass">widget class</a> of a
+       <code>snit::widgetadaptor</code>'s hull widget.  See
+       the <a href="faq.html">Snit FAQ list</a> for more information
+       on how <code>snit::widgetadaptors</code> 
+       interact with the Tk option database.<p>
+
+  <dt> <code><a name="snit::typemethod">snit::typemethod</a> <i>type</i>
+       <i>name</i> <i>arglist</i> <i>body</i></code>
+  <dd> Defines a new typemethod (or redefines an existing typemethod)
+       for a previously existing <i>type</i>.<p>
+
+  <dt> <code><a name="snit::method">snit::method</a> <i>type</i>
+       <i>name</i> <i>arglist</i> <i>body</i></code>
+  <dd> Defines a new instance method (or redefines an existing
+       instance method) for a previously existing <i>type</i>.
+       Note that delegated instance methods can't be redefined.<p>
+</dl>
+
+<h3><a name="the_type_command">The Type Command</a></h3>
+
+A type or widget definition creates a type command, which is used to
+create instances of the type.  The type command this form.<p>
+
+<dl>
+  <dt> <code>$type <i>typemethod</i> <i>args....</i></code>
+  <dd> The <i>typemethod</i> can be any of the standard type methods
+       defined in the next section, or any type method defined in the
+       type definition.  The subsequent <i>args</i> depend on the
+       specific <i>typemethod</i> chosen.<p>
+</dl>
+
+<h3><a name="standard_type_methods">Standard Type Methods</a></h3>
+
+In addition to any typemethods in the type's definition, all types and
+widgets will have at least the following method:<p>
+
+<dl>
+  <dt> <code><a name="$type">$type create <i>name</i> ?<i>option</i> <i>value</i> ...?</a></code>
+  <dd> Creates a new instance of the type, giving it the specified
+       <i>name</i> and calling the type's constructor.<p>
+
+       For <code>snit::types</code>, if <i>name</i> is not a fully-qualified
+       command name, it is assumed to be a name in the namespace in
+       which the call to <code>snit::type</code> appears.  The method returns the
+       fully-qualified instance name.<p>
+
+       For <code>snit::widgets</code> and
+       <code>snit::widgetadaptors</code>, <i>name</i> must be a valid
+       widget name; the method returns the widget name.<p>
+
+       So long as <i>name</i> does not conflict with any defined type
+       method name, the "create" keyword may be omitted.<p>
+
+       If the <i>name</i> includes the string "%AUTO%", it will be
+       replaced with the string "$type$counter" where "$type" is the
+       type name and "$counter" is a counter that increments each time
+       "%AUTO%" is used for this type.<p>
+
+       By default, any arguments following the <i>name</i> will be a
+       list of <i>option</i> names and their <i>value</i>s; however, a
+       type's constructor can specify a different argument list.<p>
+
+  <dt> <code><a name="$type">$type info typevars ?<i>pattern</i>?</a></code>
+  <dd> Returns a list of the type's type variables (excluding Snit
+       internal variables); all variable names are fully-qualified.<p>
+
+       If <i>pattern</i> is given, it's used as a <code>string
+       match</code> pattern; only names which match the pattern are
+       returned.<p>
+
+  <dt> <code><a name="$type">$type info instances ?<i>pattern</i>?</a></code>
+  <dd> Returns a list of the type's instances.  For
+       <code>snit::type</code>s, it 
+       will be a list of fully-qualified instance names; for
+       snit::widgets, it will be a list of Tk widget names.<p>
+
+       If <i>pattern</i> is given, it's used as a <code>string
+       match</code> pattern; only names which match the pattern are
+       returned.<p>
+
+  <dt> <code><a name="$type">$type destroy</a></code>
+  <dd> Destroys the type's instances, the type's namespace, and the
+       type command itself.  This method is defined only for
+       <code>snit::types</code>; <code>snit::widgets</code> use the Tk
+       <code>destroy</code> command instead.<p>
+</dl>
+
+<h3><a name="the_instance_command">The Instance Command</a></h3>
+
+A Snit type or widget's <code><a href="#create">create</a></code> type method creates
+objects of the type; each object has a unique name which is also a
+Tcl command.  This command is used to access the object's methods and
+data, and has this form:<p>
+
+<dl>
+  <dt> <code>$object <i>method</i> <i>args...</i></code>
+  <dd> The <i>method</i> can be any of the standard instance methods
+       defined in the next section, or any instance method defined in
+       the type definition. The subsequent <i>args</i> depend on the
+       specific <i>method</i> chosen.<p>
+</dl>
+
+<h3><a name="standard_instance_methods">Standard Instance Methods</a></h3>
+
+In addition to any delegated or locally-defined instance methods in
+the type's definition, all Snit objects will have at least the
+following methods:<p>
+
+<dl>
+  <dt> <code><a name="$object">$object configure ?<i>option</i>? ?<i>value</i>? ...</a></code>
+  <dd> Assigns new values to one or more options.  If called with one
+       argument, an <i>option</i> name, returns a list describing the
+       option, as Tk widgets do; if called with no arguments, returns
+       a list of lists describing all options, as Tk widgets do.<p>
+
+       Warning: this information will be available for
+       delegated options only if the component to which they are
+       delegated has a "configure" method that returns this same kind
+       of information.<p>
+
+  <dt> <code><a name="$object">$object configurelist <i>optionlist</i></a></code>
+  <dd> Like <code><a href="#configure">configure</a></code>, but takes
+       one argument, a list of options and 
+       their values.  It's mostly useful in the type constructor, but
+       can be used anywhere.<p>
+
+  <dt> <code><a name="$object">$object cget <i>option</i></a></code>
+  <dd> Returns the option's value.<p>
+
+  <dt> <code><a name="$object">$object destroy</a></code>
+  <dd> Destroys the object, calling the <code><a href="#destructor">destructor</a></code> and
+       freeing all related memory.<p>
+
+       <b>Note:</b> The "destroy" method isn't defined for
+       <code><a href="#snit::widget">snit::widget</a></code> or
+       <code><a href="#snit::widgetadaptor">snit::widgetadaptor</a></code> 
+       objects; instances of these are destroyed by calling the Tk
+       "destroy" command, just as a normal widget is.<p>
+
+  <dt> <code><a name="$object">$object info type</a></code>
+  <dd> Returns the instance's type.<p>
+
+  <dt> <code><a name="$object">$object info vars ?<i>pattern</i>?</a></code>
+  <dd> Returns a list of the object's instance variables (excluding
+       Snit internal variables).  The names are fully qualified.<p>
+
+       If <i>pattern</i> is given, it's used as a <code>string
+       match</code> pattern; only names which match the pattern are
+       returned.<p>
+
+  <dt> <code><a name="$object">$object info typevars ?<i>pattern</i>?</a></code>
+  <dd> Returns a list of the object's type's type variables (excluding
+       Snit internal variables).  The names are fully qualified.<p>
+
+       If <i>pattern</i> is given, it's used as a <code>string
+       match</code> pattern; only names which match the pattern are
+       returned.<p>
+
+  <dt> <code><a name="$object">$object info options ?<i>pattern</i>?</a></code>
+  <dd> Returns a list of the object's option names.  This always
+       includes local options and explicitly delegated options.  If
+       unknown options are delegated as well, and if the component to
+       which they are delegated responds to "$object configure" like Tk
+       widgets do, then the result will include all possible unknown
+       options which could be delegated to the component.<p>
+
+       If <i>pattern</i> is given, it's used as a <code>string
+       match</code> pattern; only names which match the pattern are
+       returned.<p>
+
+       Note that the return value might be different for different
+       instances of the same type, if component object types can vary
+       from one instance to another.<p>
+</dl>
+
+<h3><a name="commands_for_use_in_object_code">Commands for use in Object Code</a></h3>
+
+Snit defines the following commands for use in your object code:
+that is, for use in type methods, instance methods, constructors,
+destructors, onconfigure handlers, oncget handlers, and procs.
+They do not reside in the ::snit:: namespace; instead, they are
+created with the type, and can be used without qualification.
+
+<dl>
+  <dt> <code><a name="varname">varname <i>name</i></a></code>
+  <dd> Given an instance variable name, returns the fully qualified
+       name.  Use this if you're passing the variable to some other
+       object, e.g., as a -textvariable to a Tk label widget.<p>
+
+  <dt> <code><a name="typevarname">typevarname <i>name</i></a></code>
+  <dd> Given an type variable name, returns the fully qualified
+       name.  Use this if you're passing the variable to some other
+       object, e.g., as a -textvariable to a Tk label widget.<p>
+
+  <dt> <code><a name="codename">codename <i>name</i></a></code>
+  <dd> Given the name of a proc (but not a type or instance
+       method), returns the fully-qualified command name,
+       suitable for passing as a callback.<p>
+
+  <dt> <code><a name="from">from <i>argvName</i> <i>option</i> ?<i>defvalue</i>?</a></code>
+  <dd> The <code><a href="#from">from</a></code> command plucks an
+       option value from a list of options and their values, such as
+       is passed into a type's
+       <code><a href="#constructor">constructor</a></code>.
+       <i>argvName</i> must be the name of a variable containing such
+       a list; <i>option</i> is the name of the specific option.<p>
+
+       <code><a href="#from">from</a></code> looks for <i>option</i> in the option list.  If
+       it is found, it and its value are removed from the list, and
+       the value is returned.  If <i>option</i> doesn't appear in the
+       list, then the <i>defvalue</i> is returned.  If the option is a
+       normal (undelegated) option, and <i>defvalue</i> is not
+       specified, then the option's default value as specified in the
+       type definition will be returned instead.<p>
+       
+  <dt> <code><a name="variable">variable <i>name</i></a></code>
+  <dd> Normally, instance variables are defined in the type definition
+       along with the options, methods, and so forth; such instance
+       variables are automatically visible in all instance-specific
+       code.  However, instance code (e.g., method bodies) can declare
+       such variables explicitly using the
+       <code><a href="#variable">variable</a></code> command, if
+       desired; or, instance code can use the
+       <code><a href="#variable">variable</a></code>
+       command to declare instance variables that don't appear in the
+       type definition.<p>
+
+       It's generally best to define all instance variables in the
+       type definition, and omit declaring them in methods and so forth.<p>
+
+       Note that this is not the same as the standard Tcl "::variable"
+       command.<p>
+
+  <dt> <code><a name="typevariable">typevariable <i>name</i></a></code>
+  <dd> Normally, type variables are defined in the type definition,
+       along with the instance variables; such type variables are
+       automatically visible in all of the type's code.  However, type
+       methods, instance methods and so forth can use
+       <code><a href="#typevariable">typevariable</a></code> to
+       declare type variables explicitly, if
+       desired; or, they can use <code><a href="#typevariable">typevariable</a></code>
+       to declare type variables that don't appear in the type definition.<p>
+
+       It's generally best to declare all type variables in the type
+       definition, and omit declaring them in methods, type methods,
+       and so forth.<p>
+
+  <dt> <code><a name="install">install <i>compName</i> using
+       <i>objType</i> <i>objName</i> <i>args...</i></a></code>
+  <dd> Creates a new object and installs it as a component, as
+       described under <a href="#components_and_delegation">Components
+       and Delegation.</a><p>
+
+       If this is a <code>snit::type</code>, then the following two
+       commands are equivalent:<p>
+
+       <pre>
+       install myComp using myObjType $self.myComp <i>options...</i>
+       
+       set myComp [myObjType $self.myComp <i>options...</i>]
+       </pre>
+
+       Note that whichever method is used, <i>compName</i> must still
+       be declared in the type definition using <i>variable</i>, or
+       must be referenced in at least one <code>delegate</code> statement.<p>
+       
+       If this is a <code>snit::widget</code> or
+       <code>snit::widgetadaptor</code>, and if options have been
+       delegated to component <i>compName</i>, then those options
+       will receive default values from the Tk option database.  Note
+       that it doesn't matter whether the component to be installed is
+       a widget or not.  See the <a href="faq.html">Snit FAQ list</a>
+       for more information about the Tk
+       Option Database.<p>
+
+  <dt> <code>installhull using <i>widgetType</i> <i>args...</i></a></code>
+  <dt> <code><a name="installhull">installhull <i>name</i></a></code>
+  <dd> The constructor of a <code><a
+       href="#snit::widgetadaptor">snit::widgetadaptor</a></code> must
+       create a widget to be the object's hull component; the widget is
+       installed as the hull component using this command.<p>
+
+       This command has two forms.  The first form specifies the
+       <i>widgetType</i> and the <i>args...</i> (that is, the
+       hardcoded option list) to use in creating the hull.  Given
+       this form, <code>installhull</code> creates the hull widget,
+       and initializes any options delegated to the hull from the Tk
+       option database.<p>
+
+       In the second form, the hull widget has already been created;
+       note that its name must be "$win".  In this case, the Tk
+       option database is <b>not</b> queried for any options
+       delegated to the hull.  See the <a href="faq.html">Snit FAQ
+       list</a> for more information about
+       <code>snit::widgetadaptors</code> and the Tk option database.<p>
+
+       The longer form is preferred; however, the shorter form allows
+       the programmer to adapt a widget created elsewhere, which is
+       sometimes useful.  For example, it can be used to adapt a
+       "page" widget created by a BWidgets tabbed notebook or pages
+       manager widget.<p>
+
+  <dt> <code><a name="mymethod">mymethod <i>name</i> ?<i>args...</i>?</a></code>
+  <dd> The <code>mymethod</code> command is used for formatting
+       callback commands to be passed to other objects.  It returns a
+       command that when called will invoke method <i>name</i> with
+       the specified arguments, plus of course any arguments added by
+       the caller.  In other words, both of the following commands
+       will cause my object's <code>dosomething</code> method to be
+       called when <code>$button</code> is pressed:<p>
+
+<pre>
+       $button configure -command [list $self dosomething myargument]
+       
+       $button configure -command [mymethod dosomething myargument]
+</pre>
+
+       The chief distinction between the two is that the latter form
+       will not break if the creator of my object renames its object
+       command.<p>
+</dl>
+
+<h3><a name="components_and_delegation">Components and Delegation</a></h3>
+
+When an object includes other objects, as when a toolbar contains
+buttons or a GUI object contains an object that references a database,
+the included object is called a component.  The standard way to handle
+component objects owned by a Snit object is to assign their names to a
+instance variable.  In the following example, a <code>dog</code> object
+has a <code>tail</code> object:<p>
+
+<pre>
+snit::type dog {
+    variable mytail
+
+    constructor {args} {
+        set mytail [tail %AUTO% -partof $self]
+        $self configurelist $args
+    }
+
+    method wag {} {
+        $mytail wag
+    }
+}
+
+snit::type tail {
+    option -length 5
+    option -partof
+    method wag {} { return "Wag, wag, wag."}
+}
+</pre>
+
+Because the <code>tail</code> object's name is stored in an instance
+variable, it's easily accessible in any method.<p>
+
+As of Snit 0.84, the <code><a href="#install">install</a></code>
+command provides an alternate way to create and install the
+component:<p>
+
+<pre>
+snit::type dog {
+    variable mytail
+
+    constructor {args} {
+        install mytail using tail %AUTO% -partof $self
+        $self configurelist $args
+    }
+
+    method wag {} {
+        $mytail wag
+    }
+}
+</pre>
+
+For <code>snit::types</code>, the two methods are equivalent; for
+<code>snit::widgets</code> and <code>snit::widgetadaptors</code>,
+the "install" command properly initializes delegated options by
+querying the Tk option database.  See the <a href="faq.html">Snit FAQ
+list</a> for more information.
+
+In the above examples, the <code>dog</code> object's "wag" method
+simply calls the <code>tail</code> component's "wag" method.  In OO
+circles, this is called delegation.  Snit provides an easier way to do
+this, as shown:<p>
+
+<pre>
+snit::type dog {
+    delegate method wag to mytail
+
+    constructor {args} {
+        set mytail [tail %AUTO% -partof $self]
+        $self configurelist $args
+    }
+}
+</pre>
+
+The <code>delegate</code> statement in the type definition implicitly
+defines the instance variable <code>mytail</code> to hold the
+component's name; it also defines the <code>dog</code> object's "wag"
+method, delegating it to the <code>tail</code> component.<p>
+
+If desired, all otherwise unknown methods can be delegated to a
+specific component:<p>
+
+<pre>
+snit::type dog {
+    delegate method * to mytail
+
+    constructor {args} {
+        set mytail [tail %AUTO% -partof $self]
+        $self configurelist $args
+    }
+
+    method bark { return "Bark, bark, bark!" }
+}
+</pre>
+
+In this case, a <code>dog</code> object will handle its own
+"bark" method; but "wag" will be passed along to <code>mytail</code>.
+Any other method, being recognized by neither <code>dog</code> nor
+<code>tail</code>, will simply raise an error.<p>
+
+Option delegation is similar to method delegation, except for the
+interactions with the Tk option database; this is described in the
+<a href="faq.html">Snit FAQ
+list</a>.<p>
+
+<h2><a name="history">HISTORY</a></h2>
+
+During the course of developing
+<a href="http://www.wjduquette.com/notebook">Notebook</a>, my Tcl-based personal
+notebook application, I found I was writing it as a collection of
+objects.  I wasn't using any particular object-oriented framework; I
+was just writing objects in pure Tcl following the guidelines in my
+<a href="http://www.wjduquette.com/tcl/objects.html">Guide to Object Commands</a>,
+along with a few other tricks I'd picked up since.  And it was working
+very well.  But on the other hand, it was getting tiresome.  Writing
+objects in pure Tcl is straightforward, once you figure it out, but
+there's a fair amount of boilerplate code to write for each one,
+especially if you're trying to create megawidgets or create objects
+with options, like Tk widgets have..<p>
+
+So that was one thing--tedium is a powerful motivator.  But the other
+thing I noticed is that I wasn't using inheritance at all, and I
+wasn't missing it.  Instead, I was using delegation: objects that
+created other objects and delegated methods to them.<p>
+
+And I said to myself, "This is getting tedious...there has got to be
+a better way."  And one afternoon, on a whim, I started working on Snit,
+an object system that works the way Tcl works.  Snit doesn't support
+inheritance, but it's great at delegation, and it makes creating
+megawidgets easy.<p>
+
+I should add, I'm not particularly down on Incr Tcl.  But "Snit's Not
+Incr Tcl" occurred to me while I was casting about for a name, and I
+guess there was a certainly inevitability about it.<p>
+
+If you have any comments or suggestions (or bug reports!) don't
+hesitate to send me e-mail at <a href="mailto:will@wjduquette.com">will@wjduquette.com</a>.  In
+addition, there's now a Snit mailing list; you can find out more about
+it at the Snit home page, <a
+href="http://www.wjduquette.com/snit">http://www.wjduquette.com/snit</a>.
+Finally, Snit is now part of tcllib, the standard Tcl library; you can
+also add bug reports to the tcllib bug database at SourceForge.<p>
+
+<h2><a name="credits">CREDITS</a></h2>
+
+Snit has been designed and implemented from the very beginning by
+William H. Duquette.  However, much credit belongs to the following
+people for using Snit and providing me with valuable feedback: Rolf
+Ade, Colin McCormack, Jose Nazario, Jeff Godfrey, Maurice Diamanti,
+Egon Pasztor, David S. Cargo, Tom Krehbiel, Michael Cleverly, 
+Andreas Kupries, Marty Backe, Andy Goth, Jeff Hobbs, and Brian Griffin.
+
+
+<p><hr><p>
+Copyright &copy; 2004, by William H. Duquette.  All rights reserved.<p>
+
+
+</body>
+</html>

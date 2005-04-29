@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XDrPoint.man,v 1.2 2001/01/27 18:19:58 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XDrPoint.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,29 +144,12 @@
 .SH NAME
 XDrawPoint, XDrawPoints, XPoint \- draw points and points structure
 .SH SYNTAX
-XDrawPoint\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIx\fP\^, \fIy\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      int \fIx\fP\^, \fIy\fP\^;
-.LP
-XDrawPoints\^(\^\fIdisplay\fP, \fId\fP\^, \fIgc\fP\^, \fIpoints\fP\^, \fInpoints\fP\^, \fImode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Drawable \fId\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      XPoint *\fIpoints\fP\^;
-.br
-      int \fInpoints\fP\^;
-.br
-      int \fImode\fP\^; 
+.HP
+int XDrawPoint\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, int \fIx\fP\^, int \fIy\fP\^); 
+.HP
+int XDrawPoints\^(\^Display *\fIdisplay\fP\^, Drawable \fId\fP\^, GC
+\fIgc\fP\^, XPoint *\fIpoints\fP\^, int \fInpoints\fP\^, int \fImode\fP\^); 
 .SH ARGUMENTS
 .IP \fId\fP 1i
 Specifies the drawable. 

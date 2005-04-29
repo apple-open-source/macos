@@ -1,18 +1,18 @@
 /*
-*******************************************************************************
-*
-*   Copyright (C) 2001, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-*
-*******************************************************************************
-*   file name:  oldcol.cpp
-*   encoding:   US-ASCII
-*   tab size:   8 (not used)
-*   indentation:4
-*
-*   created on: 2001jul24
-*   created by: Vladimir Weinstein
-*/
+ *******************************************************************************
+ *
+ *   Copyright (C) 2001-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ *
+ *******************************************************************************
+ *   file name:  oldcol.cpp
+ *   encoding:   US-ASCII
+ *   tab size:   8 (not used)
+ *   indentation:4
+ *
+ *   created on: 2001jul24
+ *   created by: Vladimir Weinstein
+ */
 
 /******************************************************************************
  * This is the module that uses old collation
@@ -20,6 +20,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unicode/putil.h>
 #include <unicode/ucol.h>
 
 // Very simple example code - sticks a sortkey in the buffer

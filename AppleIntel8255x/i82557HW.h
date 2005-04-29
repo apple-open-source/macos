@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -34,6 +31,8 @@
 
 #ifndef _I82557HW_H
 #define _I82557HW_H
+
+#pragma pack(1) /* use 8-bit struct packing */
 
 //-------------------------------------------------------------------------
 // Misc definitions.
@@ -74,7 +73,7 @@ typedef UInt16 scb_status_t;
 #define SCB_STATUS_SWI				BIT(10)	// software interrupt.
 #define SCB_STATUS_ER				BIT(9)	// early receive interrupt.
 #define SCB_STATUS_FCP				BIT(8)	// flow control pause interrupt.
-#define SCB_STATUS_INT_MASK			0xff00	// mask for all interrupt bits.
+#define SCB_STATUS_INT_MASK			0xfc00	// mask for all interrupt bits.
 
 #define SCB_STATUS_CUS_SHIFT		6
 #define SCB_STATUS_CUS_MASK			CSR_MASK(SCB_STATUS_CUS, 0x3)
@@ -225,9 +224,9 @@ CUCommandString(int cmd)
 }
 
 typedef struct {
-	volatile cb_status_t	status;
-	volatile cb_command_t			command;
-	IOPhysicalAddress		link;
+    volatile cb_status_t     status;
+    volatile cb_command_t    command;
+    IOPhysicalAddress        link;
 } cbHeader_t;
 
 //-------------------------------------------------------------------------
@@ -385,6 +384,10 @@ typedef enum {
 #define PORT_SELFTEST_DIAGNOSE		BIT(5)
 #define PORT_SELFTEST_REGISTER		BIT(3)
 #define PORT_SELFTEST_ROM			BIT(2)
+#define PORT_SELFTEST_MASK          (PORT_SELFTEST_GENERAL  | \
+                                     PORT_SELFTEST_DIAGNOSE | \
+                                     PORT_SELFTEST_REGISTER | \
+                                     PORT_SELFTEST_ROM)
 
 typedef struct port_selftest_t {
 	UInt32			signature;
@@ -468,17 +471,16 @@ typedef UInt32 rbd_size_t;
 // RBD - receive buffer descriptor definition.
 //-------------------------------------------------------------------------
 typedef struct rbd {
-	volatile rbd_count_t			count;
-	volatile IOPhysicalAddress		link;
-	volatile IOPhysicalAddress		buffer;
-	volatile rbd_size_t				size;
-	
-	/* driver private */
-	
-	struct rbd *					_next;
-	IOPhysicalAddress				_paddr;
-	struct mbuf *					_mbuf;
-	UInt32							_pad;
+    volatile rbd_count_t            count;
+    IOPhysicalAddress               link;
+    IOPhysicalAddress               buffer;
+    rbd_size_t                      size;
+
+    /* driver private */
+    struct rbd *                    _next;
+    IOPhysicalAddress               _paddr;
+    mbuf_t                          _mbuf;
+    UInt32                          _pad;
 } rbd_t;
 
 //-------------------------------------------------------------------------
@@ -525,32 +527,30 @@ typedef UInt32 rfd_misc_t;
 // RFD - receive frame descriptor definition.
 //-------------------------------------------------------------------------
 typedef struct rfd {
-    volatile rfd_status_t			status;
-    volatile rfd_command_t			command;
-    volatile IOPhysicalAddress		link;
-    volatile IOPhysicalAddress		rbdAddr;
-	volatile rfd_misc_t				misc;		// 16 bytes
+    volatile rfd_status_t           status;
+    volatile rfd_command_t          command;
+    IOPhysicalAddress               link;
+    IOPhysicalAddress               rbdAddr;
+    volatile rfd_misc_t             misc;
 
-	UInt32							_pad[2];	// pad it to 64 bytes
-
-	/* driver private */
-
-	struct rfd *					_next;
-	IOPhysicalAddress				_paddr;
-	rbd_t							_rbd;		// 32 bytes
+    /* driver private */
+    UInt32                          _pad[2];    // pad it to 64 bytes
+    struct rfd *                    _next;
+    IOPhysicalAddress               _paddr;
+    rbd_t                           _rbd;       // rbd_t is 32 bytes
 } rfd_t;
 
 //-------------------------------------------------------------------------
 // TBD - Transmit Buffer Descriptor.
 //-------------------------------------------------------------------------
-typedef UInt16	tbd_size_t;
+typedef UInt32	tbd_size_t;
 #define TBD_SIZE_EL					BIT(15)	// end of list
 #define TBD_SIZE_SHIFT				0
 #define TBD_SIZE_MASK				CSR_MASK(TBD_SIZE, 0x3fff)
 
 typedef struct tbd {
-	volatile IOPhysicalAddress		addr;
-	volatile tbd_size_t				size;
+    IOPhysicalAddress               addr;
+    tbd_size_t                      size;
 } tbd_t;
 
 //-------------------------------------------------------------------------
@@ -591,22 +591,22 @@ typedef UInt16 tcb_count_t;
 #define TCB_TX_THRESHOLD	0xe0
 
 typedef struct tcb {
-	volatile tcb_status_t			status;
-	volatile tcb_command_t			command;
-    volatile IOPhysicalAddress		link;
-    volatile IOPhysicalAddress		tbdAddr;
-	volatile tcb_count_t			count;
-	volatile UInt8					threshold;
-	volatile UInt8					number;
-	
-    /* driver private */
+    volatile tcb_status_t           status;
+    volatile tcb_command_t          command;
+    IOPhysicalAddress               link;
+    IOPhysicalAddress               tbdAddr;
+    tcb_count_t                     count;
+    UInt8                           threshold;
+    UInt8                           number;
 
-	tbd_t				_tbds[TBDS_PER_TCB];
-	struct tcb *		_next;
-    IOPhysicalAddress	_paddr;
-    struct mbuf *		_mbuf;
-	unsigned			_pad;
+    /* driver private */
+    tbd_t                           _tbds[TBDS_PER_TCB];
+    struct tcb *                    _next;
+    IOPhysicalAddress               _paddr;
+    mbuf_t                          _mbuf;
+    UInt32                          _interruptFlag;
 } tcb_t;
 
-#endif /* !_I82557HW_H */
+#pragma options align=reset /* reset to default struct packing */
 
+#endif /* !_I82557HW_H */

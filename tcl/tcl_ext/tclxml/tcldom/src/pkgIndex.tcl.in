@@ -1,0 +1,19 @@
+#
+# @configure_input@
+#
+
+# There is some uncertainty over what this package should be called -- 
+# tcldom, dom, or dom::c -- so for now provide all three.
+#
+package ifneeded @PACKAGE@ @VERSION@ \
+    [list load [file join $dir @tcldom_LIB_FILE@]]
+
+package ifneeded dom @VERSION@ \
+    "load [file join $dir @tcldom_LIB_FILE@] Tcldom ;
+     package provide dom @VERSION@"
+
+package ifneeded dom::c @VERSION@ \
+    "load [file join $dir @tcldom_LIB_FILE@] Tcldom ;
+     package provide dom::c @VERSION@"
+
+#*EOF*

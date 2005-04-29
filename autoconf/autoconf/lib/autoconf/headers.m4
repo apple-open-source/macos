@@ -1,7 +1,7 @@
 # This file is part of Autoconf.                       -*- Autoconf -*-
 # Checking for headers.
 #
-# Copyright (C) 2000, 2001, 2002 Free Software Foundation, Inc.
+# Copyright (C) 2000, 2001, 2002, 2003 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -85,9 +85,9 @@
 # semantics only.
 AC_DEFUN([AC_CHECK_HEADER],
 [m4_case([$4],
-         [],  [_AC_CHECK_HEADER_MONGREL($@)],
-         [-], [_AC_CHECK_HEADER_OLD($@)],
-              [_AC_CHECK_HEADER_NEW($@)])
+	 [],  [_AC_CHECK_HEADER_MONGREL($@)],
+	 [-], [_AC_CHECK_HEADER_OLD($@)],
+	      [_AC_CHECK_HEADER_NEW($@)])
 ])# AC_CHECK_HEADER
 
 
@@ -104,44 +104,46 @@ AC_DEFUN([AC_CHECK_HEADER],
 m4_define([_AC_CHECK_HEADER_MONGREL],
 [AS_VAR_PUSHDEF([ac_Header], [ac_cv_header_$1])dnl
 AS_VAR_SET_IF(ac_Header,
-              [AC_CACHE_CHECK([for $1], ac_Header, [])],
-              [# Is the header compilable?
+	      [AC_CACHE_CHECK([for $1], ac_Header, [])],
+	      [# Is the header compilable?
 AC_MSG_CHECKING([$1 usability])
 AC_COMPILE_IFELSE([AC_LANG_SOURCE([AC_INCLUDES_DEFAULT([$4])
 @%:@include <$1>])],
-                  [ac_header_compiler=yes],
-                  [ac_header_compiler=no])
+		  [ac_header_compiler=yes],
+		  [ac_header_compiler=no])
 AC_MSG_RESULT([$ac_header_compiler])
 
 # Is the header present?
 AC_MSG_CHECKING([$1 presence])
 AC_PREPROC_IFELSE([AC_LANG_SOURCE([@%:@include <$1>])],
-                  [ac_header_preproc=yes],
-                  [ac_header_preproc=no])
+		  [ac_header_preproc=yes],
+		  [ac_header_preproc=no])
 AC_MSG_RESULT([$ac_header_preproc])
 
 # So?  What about this header?
-case $ac_header_compiler:$ac_header_preproc in
-  yes:no )
+case $ac_header_compiler:$ac_header_preproc:$ac_[]_AC_LANG_ABBREV[]_preproc_warn_flag in
+  yes:no: )
     AC_MSG_WARN([$1: accepted by the compiler, rejected by the preprocessor!])
-    AC_MSG_WARN([$1: proceeding with the preprocessor's result])
-    (
-      AS_BOX([Report this to bug-autoconf@gnu.org.])
-    ) |
-      sed "s/^/$as_me: WARNING:     /" >&2
+    AC_MSG_WARN([$1: proceeding with the compiler's result])
+    ac_header_preproc=yes
     ;;
-  no:yes )
+  no:yes:* )
     AC_MSG_WARN([$1: present but cannot be compiled])
-    AC_MSG_WARN([$1: check for missing prerequisite headers?])
+    AC_MSG_WARN([$1:     check for missing prerequisite headers?])
+    AC_MSG_WARN([$1: see the Autoconf documentation])
+    AC_MSG_WARN([$1:     section "Present But Cannot Be Compiled"])
     AC_MSG_WARN([$1: proceeding with the preprocessor's result])
+    AC_MSG_WARN([$1: in the future, the compiler will take precedence])
     (
-      AS_BOX([Report this to bug-autoconf@gnu.org.])
+      AS_BOX([Report this to ]m4_ifset([AC_PACKAGE_BUGREPORT],
+				       [AC_PACKAGE_BUGREPORT],
+				       [the AC_PACKAGE_NAME lists. ]))
     ) |
       sed "s/^/$as_me: WARNING:     /" >&2
     ;;
 esac
 AC_CACHE_CHECK([for $1], ac_Header,
-               [AS_VAR_SET(ac_Header, $ac_header_preproc)])
+	       [AS_VAR_SET(ac_Header, $ac_header_preproc)])
 ])dnl ! set ac_HEADER
 AS_IF([test AS_VAR_GET(ac_Header) = yes], [$2], [$3])[]dnl
 AS_VAR_POPDEF([ac_Header])dnl
@@ -156,10 +158,10 @@ AS_VAR_POPDEF([ac_Header])dnl
 m4_define([_AC_CHECK_HEADER_NEW],
 [AS_VAR_PUSHDEF([ac_Header], [ac_cv_header_$1])dnl
 AC_CACHE_CHECK([for $1], ac_Header,
-               [AC_COMPILE_IFELSE([AC_LANG_SOURCE([AC_INCLUDES_DEFAULT([$4])
+	       [AC_COMPILE_IFELSE([AC_LANG_SOURCE([AC_INCLUDES_DEFAULT([$4])
 @%:@include <$1>])],
-                                  [AS_VAR_SET(ac_Header, yes)],
-                                  [AS_VAR_SET(ac_Header, no)])])
+				  [AS_VAR_SET(ac_Header, yes)],
+				  [AS_VAR_SET(ac_Header, no)])])
 AS_IF([test AS_VAR_GET(ac_Header) = yes], [$2], [$3])[]dnl
 AS_VAR_POPDEF([ac_Header])dnl
 ])# _AC_CHECK_HEADER_NEW
@@ -172,9 +174,9 @@ AS_VAR_POPDEF([ac_Header])dnl
 m4_define([_AC_CHECK_HEADER_OLD],
 [AS_VAR_PUSHDEF([ac_Header], [ac_cv_header_$1])dnl
 AC_CACHE_CHECK([for $1], ac_Header,
-               [AC_PREPROC_IFELSE([AC_LANG_SOURCE([@%:@include <$1>])],
-                                         [AS_VAR_SET(ac_Header, yes)],
-                                         [AS_VAR_SET(ac_Header, no)])])
+	       [AC_PREPROC_IFELSE([AC_LANG_SOURCE([@%:@include <$1>])],
+					 [AS_VAR_SET(ac_Header, yes)],
+					 [AS_VAR_SET(ac_Header, no)])])
 AS_IF([test AS_VAR_GET(ac_Header) = yes], [$2], [$3])[]dnl
 AS_VAR_POPDEF([ac_Header])dnl
 ])# _AC_CHECK_HEADER_OLD
@@ -185,7 +187,7 @@ AS_VAR_POPDEF([ac_Header])dnl
 m4_define([AH_CHECK_HEADERS],
 [AC_FOREACH([AC_Header], [$1],
   [AH_TEMPLATE(AS_TR_CPP(HAVE_[]AC_Header),
-               [Define to 1 if you have the <]AC_Header[> header file.])])])
+	       [Define to 1 if you have the <]AC_Header[> header file.])])])
 
 
 # AC_CHECK_HEADERS(HEADER-FILE...
@@ -197,9 +199,9 @@ AC_DEFUN([AC_CHECK_HEADERS],
 for ac_header in $1
 do
 AC_CHECK_HEADER($ac_header,
-                [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_$ac_header)) $2],
-                [$3],
-                [$4])dnl
+		[AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_$ac_header)) $2],
+		[$3],
+		[$4])dnl
 done
 ])# AC_CHECK_HEADERS
 
@@ -260,8 +262,8 @@ ac_includes_default="\
 AC_REQUIRE([AC_HEADER_STDC])dnl
 # On IRIX 5.3, sys/types and inttypes.h are conflicting.
 AC_CHECK_HEADERS([sys/types.h sys/stat.h stdlib.h string.h memory.h strings.h \
-                  inttypes.h stdint.h unistd.h],
-                 [], [], $ac_includes_default)
+		  inttypes.h stdint.h unistd.h],
+		 [], [], $ac_includes_default)
 ])# _AC_INCLUDES_DEFAULT_REQUIREMENTS
 
 
@@ -277,7 +279,7 @@ AC_CHECK_HEADERS([sys/types.h sys/stat.h stdlib.h string.h memory.h strings.h \
 AC_DEFUN([AC_INCLUDES_DEFAULT],
 [m4_ifval([$1], [$1
 ],
-          [AC_REQUIRE([_AC_INCLUDES_DEFAULT_REQUIREMENTS])dnl
+	  [AC_REQUIRE([_AC_INCLUDES_DEFAULT_REQUIREMENTS])dnl
 $ac_includes_default])])
 
 
@@ -367,10 +369,10 @@ AC_CACHE_CHECK([for $1 that defines DIR], ac_Header,
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([#include <sys/types.h>
 #include <$1>
 ],
-                                    [if ((DIR *) 0)
+				    [if ((DIR *) 0)
 return 0;])],
-                   [AS_VAR_SET(ac_Header, yes)],
-                   [AS_VAR_SET(ac_Header, no)])])
+		   [AS_VAR_SET(ac_Header, yes)],
+		   [AS_VAR_SET(ac_Header, no)])])
 AS_IF([test AS_VAR_GET(ac_Header) = yes], [$2], [$3])[]dnl
 AS_VAR_POPDEF([ac_Header])dnl
 ])# _AC_CHECK_HEADER_DIRENT
@@ -381,8 +383,8 @@ AS_VAR_POPDEF([ac_Header])dnl
 m4_define([AH_CHECK_HEADERS_DIRENT],
 [AC_FOREACH([AC_Header], [$1],
   [AH_TEMPLATE(AS_TR_CPP(HAVE_[]AC_Header),
-               [Define to 1 if you have the <]AC_Header[> header file, and
-                it defines `DIR'.])])])
+	       [Define to 1 if you have the <]AC_Header[> header file, and
+		it defines `DIR'.])])])
 
 
 # AC_HEADER_DIRENT
@@ -396,7 +398,7 @@ AC_DEFUN([AC_HEADER_DIRENT],
 ac_header_dirent=no
 for ac_hdr in dirent.h sys/ndir.h sys/dir.h ndir.h; do
   _AC_CHECK_HEADER_DIRENT($ac_hdr,
-                          [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_$ac_hdr), 1)
+			  [AC_DEFINE_UNQUOTED(AS_TR_CPP(HAVE_$ac_hdr), 1)
 ac_header_dirent=$ac_hdr; break])
 done
 # Two versions of opendir et al. are in -ldir and -lx on SCO Xenix.
@@ -416,24 +418,24 @@ AN_FUNCTION([minor],     [AC_HEADER_MAJOR])
 AN_HEADER([sys/mkdev.h], [AC_HEADER_MAJOR])
 AC_DEFUN([AC_HEADER_MAJOR],
 [AC_CACHE_CHECK(whether sys/types.h defines makedev,
-                ac_cv_header_sys_types_h_makedev,
+		ac_cv_header_sys_types_h_makedev,
 [AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <sys/types.h>]],
-                                 [[return makedev(0, 0);]])],
-                [ac_cv_header_sys_types_h_makedev=yes],
-                [ac_cv_header_sys_types_h_makedev=no])
+				 [[return makedev(0, 0);]])],
+		[ac_cv_header_sys_types_h_makedev=yes],
+		[ac_cv_header_sys_types_h_makedev=no])
 ])
 
 if test $ac_cv_header_sys_types_h_makedev = no; then
 AC_CHECK_HEADER(sys/mkdev.h,
-                [AC_DEFINE(MAJOR_IN_MKDEV, 1,
-                           [Define to 1 if `major', `minor', and `makedev' are
-                            declared in <mkdev.h>.])])
+		[AC_DEFINE(MAJOR_IN_MKDEV, 1,
+			   [Define to 1 if `major', `minor', and `makedev' are
+			    declared in <mkdev.h>.])])
 
   if test $ac_cv_header_sys_mkdev_h = no; then
     AC_CHECK_HEADER(sys/sysmacros.h,
-                    [AC_DEFINE(MAJOR_IN_SYSMACROS, 1,
-                               [Define to 1 if `major', `minor', and `makedev'
-                                are declared in <sysmacros.h>.])])
+		    [AC_DEFINE(MAJOR_IN_SYSMACROS, 1,
+			       [Define to 1 if `major', `minor', and `makedev'
+				are declared in <sysmacros.h>.])])
   fi
 fi
 ])# AC_HEADER_MAJOR
@@ -481,8 +483,8 @@ You lose.
 ], ac_cv_header_stat_broken=yes, ac_cv_header_stat_broken=no)])
 if test $ac_cv_header_stat_broken = yes; then
   AC_DEFINE(STAT_MACROS_BROKEN, 1,
-            [Define to 1 if the `S_IS*' macros in <sys/stat.h> do not
-             work properly.])
+	    [Define to 1 if the `S_IS*' macros in <sys/stat.h> do not
+	     work properly.])
 fi
 ])# AC_HEADER_STAT
 
@@ -518,17 +520,17 @@ AC_DEFUN([AC_HEADER_STDBOOL],
 # error __bool_true_false_are_defined is not defined
 #endif
 
-        struct s { _Bool s: 1; _Bool t; } s;
+	struct s { _Bool s: 1; _Bool t; } s;
 
-        char a[true == 1 ? 1 : -1];
-        char b[false == 0 ? 1 : -1];
-        char c[__bool_true_false_are_defined == 1 ? 1 : -1];
-        char d[(bool) -0.5 == true ? 1 : -1];
-        bool e = &s;
-        char f[(_Bool) -0.0 == false ? 1 : -1];
-        char g[true];
-        char h[sizeof (_Bool)];
-        char i[sizeof s.t];
+	char a[true == 1 ? 1 : -1];
+	char b[false == 0 ? 1 : -1];
+	char c[__bool_true_false_are_defined == 1 ? 1 : -1];
+	char d[(bool) -0.5 == true ? 1 : -1];
+	bool e = &s;
+	char f[(_Bool) -0.0 == false ? 1 : -1];
+	char g[true];
+	char h[sizeof (_Bool)];
+	char i[sizeof s.t];
       ]],
       [[ return !a + !b + !c + !d + !e + !f + !g + !h + !i; ]])],
       [ac_cv_header_stdbool_h=yes],
@@ -571,8 +573,8 @@ AC_DEFUN([AC_HEADER_STDC],
 #include <string.h>
 #include <float.h>
 ]])],
-                    [ac_cv_header_stdc=yes],
-                    [ac_cv_header_stdc=no])
+		    [ac_cv_header_stdc=yes],
+		    [ac_cv_header_stdc=no])
 
 if test $ac_cv_header_stdc = yes; then
   # SunOS 4.x string.h does not declare mem*, contrary to ANSI.
@@ -593,9 +595,9 @@ if test $ac_cv_header_stdc = yes; then
 # define TOUPPER(c) (ISLOWER(c) ? 'A' + ((c) - 'a') : (c))
 #else
 # define ISLOWER(c) \
-                   (('a' <= (c) && (c) <= 'i') \
-                     || ('j' <= (c) && (c) <= 'r') \
-                     || ('s' <= (c) && (c) <= 'z'))
+		   (('a' <= (c) && (c) <= 'i') \
+		     || ('j' <= (c) && (c) <= 'r') \
+		     || ('s' <= (c) && (c) <= 'z'))
 # define TOUPPER(c) (ISLOWER(c) ? ((c) | 0x40) : (c))
 #endif
 
@@ -606,14 +608,14 @@ main ()
   int i;
   for (i = 0; i < 256; i++)
     if (XOR (islower (i), ISLOWER (i))
-        || toupper (i) != TOUPPER (i))
+	|| toupper (i) != TOUPPER (i))
       exit(2);
   exit (0);
 }]])], , ac_cv_header_stdc=no, :)
 fi])
 if test $ac_cv_header_stdc = yes; then
   AC_DEFINE(STDC_HEADERS, 1,
-            [Define to 1 if you have the ANSI C header files.])
+	    [Define to 1 if you have the ANSI C header files.])
 fi
 ])# AC_HEADER_STDC
 
@@ -637,11 +639,11 @@ AC_DEFUN([AC_HEADER_SYS_WAIT],
 [  int s;
   wait (&s);
   s = WIFEXITED (s) ? WEXITSTATUS (s) : 1;])],
-                 [ac_cv_header_sys_wait_h=yes],
-                 [ac_cv_header_sys_wait_h=no])])
+		 [ac_cv_header_sys_wait_h=yes],
+		 [ac_cv_header_sys_wait_h=no])])
 if test $ac_cv_header_sys_wait_h = yes; then
   AC_DEFINE(HAVE_SYS_WAIT_H, 1,
-            [Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible.])
+	    [Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible.])
 fi
 ])# AC_HEADER_SYS_WAIT
 
@@ -658,12 +660,12 @@ AC_DEFUN([AC_HEADER_TIME],
 ],
 [if ((struct tm *) 0)
 return 0;])],
-                   [ac_cv_header_time=yes],
-                   [ac_cv_header_time=no])])
+		   [ac_cv_header_time=yes],
+		   [ac_cv_header_time=no])])
 if test $ac_cv_header_time = yes; then
   AC_DEFINE(TIME_WITH_SYS_TIME, 1,
-            [Define to 1 if you can safely include both <sys/time.h>
-             and <time.h>.])
+	    [Define to 1 if you can safely include both <sys/time.h>
+	     and <time.h>.])
 fi
 ])# AC_HEADER_TIME
 
@@ -672,16 +674,16 @@ fi
 # ----------------------------------
 m4_define([_AC_HEADER_TIOCGWINSZ_IN_TERMIOS_H],
 [AC_CACHE_CHECK([whether termios.h defines TIOCGWINSZ],
-                ac_cv_sys_tiocgwinsz_in_termios_h,
+		ac_cv_sys_tiocgwinsz_in_termios_h,
 [AC_EGREP_CPP([yes],
-              [#include <sys/types.h>
+	      [#include <sys/types.h>
 #include <termios.h>
 #ifdef TIOCGWINSZ
   yes
 #endif
 ],
-                ac_cv_sys_tiocgwinsz_in_termios_h=yes,
-                ac_cv_sys_tiocgwinsz_in_termios_h=no)])
+		ac_cv_sys_tiocgwinsz_in_termios_h=yes,
+		ac_cv_sys_tiocgwinsz_in_termios_h=no)])
 ])# _AC_HEADER_TIOCGWINSZ_IN_TERMIOS_H
 
 
@@ -689,16 +691,16 @@ m4_define([_AC_HEADER_TIOCGWINSZ_IN_TERMIOS_H],
 # ----------------------------------
 m4_define([_AC_HEADER_TIOCGWINSZ_IN_SYS_IOCTL],
 [AC_CACHE_CHECK([whether sys/ioctl.h defines TIOCGWINSZ],
-                ac_cv_sys_tiocgwinsz_in_sys_ioctl_h,
+		ac_cv_sys_tiocgwinsz_in_sys_ioctl_h,
 [AC_EGREP_CPP([yes],
-              [#include <sys/types.h>
+	      [#include <sys/types.h>
 #include <sys/ioctl.h>
 #ifdef TIOCGWINSZ
   yes
 #endif
 ],
-                ac_cv_sys_tiocgwinsz_in_sys_ioctl_h=yes,
-                ac_cv_sys_tiocgwinsz_in_sys_ioctl_h=no)])
+		ac_cv_sys_tiocgwinsz_in_sys_ioctl_h=yes,
+		ac_cv_sys_tiocgwinsz_in_sys_ioctl_h=no)])
 ])# _AC_HEADER_TIOCGWINSZ_IN_SYS_IOCTL
 
 
@@ -713,7 +715,7 @@ if test $ac_cv_sys_tiocgwinsz_in_termios_h != yes; then
   _AC_HEADER_TIOCGWINSZ_IN_SYS_IOCTL
   if test $ac_cv_sys_tiocgwinsz_in_sys_ioctl_h = yes; then
     AC_DEFINE(GWINSZ_IN_SYS_IOCTL,1,
-              [Define to 1 if `TIOCGWINSZ' requires <sys/ioctl.h>.])
+	      [Define to 1 if `TIOCGWINSZ' requires <sys/ioctl.h>.])
   fi
 fi
 ])# AC_HEADER_TIOCGWINSZ
@@ -734,13 +736,13 @@ AU_DEFUN([AC_USG],
 when you adjust your code to use HAVE_STRING_H.])dnl
 AC_MSG_CHECKING([for BSD string and memory functions])
 AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@include <strings.h>]],
-                                [[rindex(0, 0); bzero(0, 0);]])],
-               [AC_MSG_RESULT(yes)],
-               [AC_MSG_RESULT(no)
-                AC_DEFINE(USG, 1,
-                          [Define to 1 if you do not have <strings.h>, index,
-                           bzero, etc... This symbol is obsolete, you should
-                           not depend upon it.])])
+				[[rindex(0, 0); bzero(0, 0);]])],
+	       [AC_MSG_RESULT(yes)],
+	       [AC_MSG_RESULT(no)
+		AC_DEFINE(USG, 1,
+			  [Define to 1 if you do not have <strings.h>, index,
+			   bzero, etc... This symbol is obsolete, you should
+			   not depend upon it.])])
 AC_CHECK_HEADERS(string.h)
 ])# AU::AC_USG
 
@@ -753,7 +755,7 @@ AC_CHECK_HEADERS(string.h)
 #   | AC_EGREP_HEADER(memchr, string.h, ac_found=yes, ac_found=no)
 #   | AC_MSG_RESULT($ac_found)
 #   | if test $ac_found = no; then
-#   | 	AC_CHECK_HEADER(memory.h, [AC_DEFINE(NEED_MEMORY_H)])
+#   |	AC_CHECK_HEADER(memory.h, [AC_DEFINE(NEED_MEMORY_H)])
 #   | fi
 #
 # But it is better to check for both headers, and alias NEED_MEMORY_H to
@@ -763,8 +765,8 @@ AU_DEFUN([AC_MEMORY_H],
 `AC_CHECK_HEADER(memory.h, AC_DEFINE(...))' when you adjust your code to
 use and HAVE_STRING_H and HAVE_MEMORY_H, not NEED_MEMORY_H.])dnl
 AC_CHECK_HEADER(memory.h,
-                [AC_DEFINE([NEED_MEMORY_H], 1,
-                           [Same as `HAVE_MEMORY_H', don't depend on me.])])
+		[AC_DEFINE([NEED_MEMORY_H], 1,
+			   [Same as `HAVE_MEMORY_H', don't depend on me.])])
 AC_CHECK_HEADERS(string.h memory.h)
 ])
 

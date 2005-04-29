@@ -36,16 +36,16 @@
  */
 
 #include "global.h"
+#include "build.h"		/* for rebuild() */
 #include <stdlib.h>
 #if defined(USE_NCURSES) && !defined(RENAMED_NCURSES)
 #include <ncurses.h>
 #else
 #include <curses.h>
 #endif
-#include <fcntl.h>	/* O_RDONLY */
 #include <ctype.h>
 
-static char const rcsid[] = "$Id: command.c,v 1.4 2002/01/09 19:04:03 umeshv Exp $";
+static char const rcsid[] = "$Id: command.c,v 1.5 2004/07/09 21:34:44 nicolai Exp $";
 
 
 int	selecting;
@@ -62,11 +62,11 @@ static	char	pipeprompt[] = "Pipe to shell command: ";
 static	char	readprompt[] = "Read from file: ";
 static	char	toprompt[] = "To: ";
 
-void	atchange(void);
-BOOL	changestring(void);
-void	clearprompt(void);
-void	mark(int i);
-void	scrollbar(MOUSE *p);
+/* Internal prototypes: */
+static	BOOL	changestring(void);
+static	void	clearprompt(void);
+static	void	mark(int i);
+static	void	scrollbar(MOUSE *p);
 static	void	countrefs(void);
 
 /* execute the command */
@@ -111,6 +111,7 @@ command(int commandc)
 		entercurses();
 		postmsg("");		/* clear any previous message */
 		totallines = 0;
+		disprefs = 0;	
 		topline = nextline = 1;
 		selecting = 0;
 		break;
@@ -376,6 +377,12 @@ command(int commandc)
 		/* if the ^ command, redirect output to a temp file */
 		if (commandc == '^') {
 			(void) strcat(strcat(newpat, " >"), temp2);
+			/* HBB 20020708: somebody might have even
+			 * their non-interactive default shells
+			 * complain about clobbering
+			 * redirections... --> delete before
+			 * overwriting */
+			remove(temp2);
 		}
 		exitcurses();
 		if ((file = mypopen(newpat, "w")) == NULL) {
@@ -387,11 +394,7 @@ command(int commandc)
 				(void) putc(c, file);
 			}
 			seekline(topline);
-#if Darwin
 			(void) mypclose(file);
-#else
-			(void) pclose(file);
-#endif
 		}
 		if (commandc == '^') {
 			if (readrefs(temp2) == NO) {
@@ -419,9 +422,6 @@ command(int commandc)
 
 	case '?':	/* help */
 		(void) clear();
-#if Darwin
-		move(0, 0);
-#endif
 		help();
 		(void) clear();
 		seekline(topline);
@@ -544,7 +544,7 @@ command(int commandc)
 
 /* clear the prompt line */
 
-void
+static void
 clearprompt(void)
 {
 	(void) move(PRLINE, 0);
@@ -567,6 +567,7 @@ readrefs(char *filename)
 		return(NO);
 	}
 	totallines = 0;
+	disprefs = 0;
 	nextline = 1;
 	if (writerefsfound() == YES) {
 		(void) putc(c, refsfound);
@@ -574,7 +575,11 @@ readrefs(char *filename)
 			(void) putc(c, refsfound);
 		}
 		(void) fclose(file);
-		(void) freopen(temp1, "rb", refsfound);
+		(void) fclose(refsfound);
+		if ( (refsfound = myfopen(temp1, "rb")) == NULL) {
+			cannotopen(temp1);
+			return(NO);
+		}
 		countrefs();
 	}
 	return(YES);
@@ -582,7 +587,7 @@ readrefs(char *filename)
 
 /* change one text string to another */
 
-BOOL
+static BOOL
 changestring(void)
 {
 	char	newfile[PATHLEN + 1];	/* new file name */
@@ -783,7 +788,7 @@ nochange:
 
 /* mark/unmark this displayed line to be changed */
 
-void
+static void
 mark(int i)
 {
 	int	j;
@@ -805,7 +810,7 @@ mark(int i)
 
 /* scrollbar actions */
 
-void
+static void
 scrollbar(MOUSE *p)
 {
 	/* reposition list if it makes sense */
@@ -869,6 +874,7 @@ countrefs(void)
 		    !isdigit((unsigned char)*linenum)) {
 			postmsg("File does not have expected format");
 			totallines = 0;
+			disprefs = 0;
 			return;
 		}
 		if ((i = strlen(pathcomponents(file, dispcomponents))) > filelen) {

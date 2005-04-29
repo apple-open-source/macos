@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/bitmap/bitscale.c,v 3.29 2003/01/12 03:55:46 tsi Exp $ */
+/* $XFree86: xc/lib/font/bitmap/bitscale.c,v 3.30 2003/05/27 22:26:48 tsi Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -900,12 +900,10 @@ ScaleFont(FontPtr opf,            /* originating font */
                 opci;
     int         nchars = 0;	/* how many characters in the font */
     int         i;
-    int         glyph;
     int		firstCol, lastCol, firstRow, lastRow;
     double	xform[4], inv_xform[4];
     double	xmult, ymult;
     int		totalwidth = 0, totalchars = 0;
-    int		inkindex1, inkindex2;
 #define OLDINDEX(i) (((i)/(lastCol - firstCol + 1) + \
 		      firstRow - opf->info.firstRow) * \
 		     (opf->info.lastCol - opf->info.firstCol + 1) + \
@@ -915,7 +913,6 @@ ScaleFont(FontPtr opf,            /* originating font */
     *sWidth = 0;
 
     opfi = &opf->info;
-    glyph = opf->glyph;
     obitmapFont = (BitmapFontPtr) opf->fontPrivate;
 
     bitmapFont = 0;
@@ -1056,11 +1053,9 @@ ScaleFont(FontPtr opf,            /* originating font */
     /* Compute the transformation and inverse transformation matrices.
        Can fail if the determinant is zero. */
 
-    inkindex1 = 0;
     pci = bitmapFont->metrics;
     for (i = 0; i < nchars; i++)
     {
-        inkindex2 = OLDINDEX(i);
 	if ((opci = ACCESSENCODING(obitmapFont->encoding,OLDINDEX(i))))
 	{
 	    double newlsb, newrsb, newdesc, newasc, point[2];
@@ -1693,8 +1688,7 @@ PrinterScaleBitmaps(FontPtr pf,         /* scaled font */
     char       *glyphBytes;
     BitmapFontPtr  bitmapFont,
 		   obitmapFont;
-    CharInfoPtr pci,
-		opci;
+    CharInfoPtr pci;
     FontInfoPtr pfi;
     int         glyph;
     unsigned    bytestoalloc = 0;
@@ -1739,7 +1733,7 @@ PrinterScaleBitmaps(FontPtr pf,         /* scaled font */
     for (i = 0; i < nchars; i++)
     {
 	if ((pci = ACCESSENCODING(bitmapFont->encoding, i)) &&
-	    (opci = ACCESSENCODING(obitmapFont->encoding, OLDINDEX(i))))
+	    (ACCESSENCODING(obitmapFont->encoding, OLDINDEX(i))))
 	{
 	    pci->bits = glyphBytes;
 	}

@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002
+// Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003
 // Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -45,6 +45,18 @@
 
 namespace std
 {
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(_Type* __ptr)
+    { return __ptr == 0; }
+
+  template<typename _Type>
+    inline bool
+    __is_null_pointer(const _Type&)
+    { return false; }
+  /* APPLE LOCAL end libstdc++ debug mode */
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     const typename basic_string<_CharT, _Traits, _Alloc>::size_type 
     basic_string<_CharT, _Traits, _Alloc>::
@@ -137,15 +149,17 @@ namespace std
       _S_construct(_InIter __beg, _InIter __end, const _Alloc& __a, 
 		   forward_iterator_tag)
       {
-	size_type __dnew = static_cast<size_type>(distance(__beg, __end));
-
-	// NB: Not required, but considered best practice.
-	if (__builtin_expect(__beg == _InIter(0), 0))
-	  __throw_logic_error("attempt to create string with null pointer");
-	
 	if (__beg == __end && __a == _Alloc())
 	  return _S_empty_rep()._M_refcopy();
 
+	// NB: Not required, but considered best practice.
+	/* APPLE LOCAL begin libstdc++ debug mode bug fix */
+	if (__builtin_expect(std::__is_null_pointer(__beg), 0))
+	  __throw_logic_error("attempt to create string with null pointer");
+	/* APPLE LOCAL end libstdc++ debug mode bug fix */
+
+	size_type __dnew = static_cast<size_type>(std::distance(__beg, __end));
+	
 	// Check for out_of_range and length_error exceptions.
 	_Rep* __r = _Rep::_S_create(__dnew, __a);
 	try 
@@ -223,8 +237,8 @@ namespace std
   template<typename _CharT, typename _Traits, typename _Alloc>
     basic_string<_CharT, _Traits, _Alloc>::
     basic_string(const _CharT* __s, const _Alloc& __a)
-    : _M_dataplus(_S_construct(__s, __s ? __s + traits_type::length(__s) : 0, 
-			       __a), __a)
+    : _M_dataplus(_S_construct(__s, __s ? __s + traits_type::length(__s) :
+			       __s + npos, __a), __a)
     { }
 
   template<typename _CharT, typename _Traits, typename _Alloc>
@@ -232,7 +246,7 @@ namespace std
     basic_string(size_type __n, _CharT __c, const _Alloc& __a)
     : _M_dataplus(_S_construct(__n, __c, __a), __a)
     { }
- 
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _InputIter>
     basic_string<_CharT, _Traits, _Alloc>::
@@ -497,14 +511,10 @@ namespace std
 	this->erase(__n);
       // else nothing (in particular, avoid calling _M_mutate() unnecessarily.)
     }
-  
-  // This is the general replace helper, which gets instantiated both
-  // for input-iterators and forward-iterators. It buffers internally and
-  // then calls _M_replace_safe. For input-iterators this is almost the
-  // best we can do, but for forward-iterators many optimizations could be
-  // conceived: f.i., when source and destination ranges do not overlap
-  // buffering is not really needed. In order to easily implement them, it
-  // could become useful to add an _M_replace(forward_iterator_tag)
+
+  // This is the general replace helper, which currently gets instantiated both
+  // for input iterators and reverse iterators. It buffers internally and then
+  // calls _M_replace_safe.
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _InputIter>
       basic_string<_CharT, _Traits, _Alloc>&
@@ -518,10 +528,8 @@ namespace std
       }
 
   // This is a special replace helper, which does not buffer internally
-  // and can be used in the "safe" situations involving forward-iterators,
+  // and can be used in "safe" situations involving forward iterators,
   // i.e., when source and destination ranges are known to not overlap.
-  // Presently, is called by _M_replace, by the various append and by
-  // the assigns.
   template<typename _CharT, typename _Traits, typename _Alloc>
     template<typename _ForwardIter>
       basic_string<_CharT, _Traits, _Alloc>&
@@ -529,7 +537,7 @@ namespace std
       _M_replace_safe(iterator __i1, iterator __i2, _ForwardIter __k1, 
 		      _ForwardIter __k2)
       {
-	size_type __dnew = static_cast<size_type>(distance(__k1, __k2));
+	size_type __dnew = static_cast<size_type>(std::distance(__k1, __k2));
 	size_type __dold = __i2 - __i1;
 	size_type __dmax = this->max_size();
 
@@ -584,7 +592,7 @@ namespace std
       // Iff appending itself, string needs to pre-reserve the
       // correct size so that _M_mutate does not clobber the
       // iterators formed here.
-      size_type __len = min(__str.size() - __pos, __n) + this->size();
+      size_type __len = std::min(__str.size() - __pos, __n) + this->size();
       if (__len > this->capacity())
 	this->reserve(__len);
       return _M_replace_safe(_M_iend(), _M_iend(), __str._M_check(__pos),
@@ -596,6 +604,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     append(const _CharT* __s, size_type __n)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __len = __n + this->size();
       if (__len > this->capacity())
 	this->reserve(__len);
@@ -618,6 +630,10 @@ namespace std
     operator+(const _CharT* __lhs,
 	      const basic_string<_CharT, _Traits, _Alloc>& __rhs)
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__lhs);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       typedef basic_string<_CharT, _Traits, _Alloc> __string_type;
       typedef typename __string_type::size_type	  __size_type;
       __size_type __len = _Traits::length(__lhs);
@@ -647,17 +663,21 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     replace(iterator __i1, iterator __i2, size_type __n2, _CharT __c)
     {
-      size_type __n1 = __i2 - __i1;
-      size_type __off1 = __i1 - _M_ibegin();
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      _GLIBCXX_DEBUG_PEDASSERT(_M_ibegin() <= __i1 && __i1 <= __i2
+			       && __i2 <= _M_iend());
+      /* APPLE LOCAL end libstdc++ debug mode */
+      const size_type __n1 = __i2 - __i1;
+      const size_type __off1 = __i1 - _M_ibegin();
       if (max_size() - (this->size() - __n1) <= __n2)
-	__throw_length_error("basic_string::replace");
+      __throw_length_error("basic_string::replace");
       _M_mutate (__off1, __n1, __n2);
       // Invalidated __i1, __i2
       if (__n2)
-	traits_type::assign(_M_data() + __off1, __n2, __c);
+      traits_type::assign(_M_data() + __off1, __n2, __c);
       return *this;
     }
-  
+
   template<typename _CharT, typename _Traits, typename _Alloc>
     typename basic_string<_CharT, _Traits, _Alloc>::size_type
     basic_string<_CharT, _Traits, _Alloc>::
@@ -668,7 +688,11 @@ namespace std
       
       if (__n > this->size() - __pos)
 	__n = this->size() - __pos;
-      
+
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       traits_type::copy(__s, _M_data() + __pos, __n);
       // 21.3.5.7 par 3: do not append null.  (good.)
       return __n;
@@ -679,6 +703,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       size_t __xpos = __pos;
       const _CharT* __data = _M_data();
@@ -712,6 +740,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     rfind(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__n <= __size)
 	{
@@ -751,6 +783,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_first_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       for (; __n && __pos < this->size(); ++__pos)
 	{
 	  const _CharT* __p = traits_type::find(__s, __n, _M_data()[__pos]);
@@ -765,6 +801,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_last_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__size && __n)
 	{ 
@@ -785,6 +825,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_first_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_t __xpos = __pos;
       for (; __xpos < this->size(); ++__xpos)
 	if (!traits_type::find(__s, __n, _M_data()[__xpos]))
@@ -809,6 +853,10 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     find_last_not_of(const _CharT* __s, size_type __pos, size_type __n) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__size)
 	{ 
@@ -854,8 +902,8 @@ namespace std
       if (__pos > __size)
 	__throw_out_of_range("basic_string::compare");
       
-      size_type __rsize= min(__size - __pos, __n);
-      size_type __len = min(__rsize, __osize);
+      size_type __rsize= std::min(__size - __pos, __n);
+      size_type __len = std::min(__rsize, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __str.data(), __len);
       if (!__r)
 	__r = __rsize - __osize;
@@ -873,9 +921,9 @@ namespace std
       if (__pos1 > __size || __pos2 > __osize)
 	__throw_out_of_range("basic_string::compare");
       
-      size_type __rsize = min(__size - __pos1, __n1);
-      size_type __rosize = min(__osize - __pos2, __n2);
-      size_type __len = min(__rsize, __rosize);
+      size_type __rsize = std::min(__size - __pos1, __n1);
+      size_type __rosize = std::min(__osize - __pos2, __n2);
+      size_type __len = std::min(__rsize, __rosize);
       int __r = traits_type::compare(_M_data() + __pos1, 
 				     __str.data() + __pos2, __len);
       if (!__r)
@@ -889,10 +937,16 @@ namespace std
     basic_string<_CharT, _Traits, _Alloc>::
     compare(const _CharT* __s) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__s);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
-      int __r = traits_type::compare(_M_data(), __s, __size);
+      size_type __osize = traits_type::length(__s);
+      size_type __len = std::min(__size, __osize);
+      int __r = traits_type::compare(_M_data(), __s, __len);
       if (!__r)
-	__r = __size - traits_type::length(__s);
+	__r = __size - __osize;
       return __r;
     }
 
@@ -902,13 +956,17 @@ namespace std
     basic_string <_CharT, _Traits, _Alloc>::
     compare(size_type __pos, size_type __n1, const _CharT* __s) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string(__s);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__pos > __size)
 	__throw_out_of_range("basic_string::compare");
       
       size_type __osize = traits_type::length(__s);
-      size_type __rsize = min(__size - __pos, __n1);
-      size_type __len = min(__rsize, __osize);
+      size_type __rsize = std::min(__size - __pos, __n1);
+      size_type __len = std::min(__rsize, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
 	__r = __rsize - __osize;
@@ -921,13 +979,17 @@ namespace std
     compare(size_type __pos, size_type __n1, const _CharT* __s, 
 	    size_type __n2) const
     {
+      /* APPLE LOCAL begin libstdc++ debug mode */
+      __glibcxx_requires_string_len(__s, __n2);
+      /* APPLE LOCAL end libstdc++ debug mode */
+
       size_type __size = this->size();
       if (__pos > __size)
 	__throw_out_of_range("basic_string::compare");
       
-      size_type __osize = min(traits_type::length(__s), __n2);
-      size_type __rsize = min(__size - __pos, __n1);
-      size_type __len = min(__rsize, __osize);
+      size_type __osize = std::min(traits_type::length(__s), __n2);
+      size_type __rsize = std::min(__size - __pos, __n1);
+      size_type __len = std::min(__rsize, __osize);
       int __r = traits_type::compare(_M_data() + __pos, __s, __len);
       if (!__r)
 	__r = __rsize - __osize;
@@ -941,7 +1003,7 @@ namespace std
     {
       typedef typename _Alloc::size_type size_type;
       size_type __strsize = __str.size();
-      size_type __bytes = min(__strsize, __bufsiz - 1);
+      size_type __bytes = std::min(__strsize, __bufsiz - 1);
       _Traits::copy(__buf, __str.data(), __bytes);
       __buf[__bytes] = _CharT();
     }
@@ -949,6 +1011,7 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB: This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_string<char>;
   extern template 
     basic_istream<char>& 
@@ -963,6 +1026,7 @@ namespace std
     basic_istream<char>& 
     getline(basic_istream<char>&, string&);
 
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_string<wchar_t>;
   extern template 
     basic_istream<wchar_t>& 
@@ -976,6 +1040,8 @@ namespace std
   extern template 
     basic_istream<wchar_t>& 
     getline(basic_istream<wchar_t>&, wstring&);
+#endif
+#endif
 } // namespace std
 
 #endif

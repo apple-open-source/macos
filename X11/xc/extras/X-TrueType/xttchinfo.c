@@ -31,11 +31,14 @@
 
 Notice===
 */
+/* $XFree86: xc/extras/X-TrueType/xttchinfo.c,v 1.2 2003/10/22 16:25:23 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "fntfilst.h"

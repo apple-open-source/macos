@@ -293,6 +293,9 @@ typedef struct
 #ifdef WITH_OPENDIRECTORY
   	BOOL bOpenDirectory;
 #endif
+#ifdef WITH_BRLM
+	BOOL bBRLM;
+#endif
 	int restrict_anonymous;
 	int name_cache_timeout;
 	int client_signing;
@@ -1191,6 +1194,9 @@ static struct parm_struct parm_table[] = {
 #ifdef WITH_OPENDIRECTORY
 	{"opendirectory", P_BOOL, P_GLOBAL, &Globals.bOpenDirectory, NULL, NULL, FLAG_ADVANCED}, 
 #endif
+#ifdef WITH_BRLM
+	{"brlm", P_BOOL, P_GLOBAL, &Globals.bBRLM, NULL, NULL, FLAG_ADVANCED}, 
+#endif
 
 	{NULL,  P_BOOL,  P_NONE,  NULL,  NULL,  NULL,  0}
 };
@@ -1543,6 +1549,9 @@ static void init_globals(void)
 
 #ifdef WITH_OPENDIRECTORY
 	Globals.bOpenDirectory = True;
+#endif
+#ifdef WITH_BRLM
+	Globals.bBRLM = False;
 #endif
 }
 
@@ -1931,6 +1940,9 @@ FN_GLOBAL_INTEGER(lp_client_signing, &Globals.client_signing)
 FN_GLOBAL_INTEGER(lp_server_signing, &Globals.server_signing)
 #ifdef WITH_OPENDIRECTORY
 FN_GLOBAL_BOOL(lp_opendirectory, &Globals.bOpenDirectory)
+#endif
+#ifdef WITH_BRLM
+FN_GLOBAL_BOOL(lp_BRLM, &Globals.bBRLM)
 #endif
 
 /* local prototypes */

@@ -25,9 +25,9 @@
 #ifndef __PPP_CLIENT_H__
 #define __PPP_CLIENT_H__
 
-// current version of the pppconfd api
-#define CURRENT_VERSION 1
+#include "ppp_msg.h"
 
+#include <sys/queue.h>
 
 #define MAXDATASIZE 2048
 
@@ -43,26 +43,42 @@ struct client_opts {
     CFMutableDictionaryRef	opts;		// options to apply
 };
 
+#define CLIENT_FLAG_PRIVILEDGED			0x1		// client can send priviledged commands
+#define CLIENT_FLAG_UI_CONTROLLER		0x2		// client is UI controller
+#define CLIENT_FLAG_NOTIFY_EVENT		0x4		// client wants notifications for events
+#define CLIENT_FLAG_NOTIFY_STATUS		0x8		// client wants notifications for status
+#define CLIENT_FLAG_IS_SOCKET			0x10	// client uses socket API (instead of Mach)
+
 struct client {
 
     TAILQ_ENTRY(client) next;
 
-    CFSocketRef	 	ref;		// socket we talk with
-
-    u_int8_t		*msg;		// message in pogress from client
-    u_int32_t		msglen;		// current message length
+	/* socket API */
+    CFSocketRef	 	socketRef;		// socket we talk with
+	
+	/* Mach API */
+    CFMachPortRef   sessionPortRef;	// session mach port ref
+    mach_port_t		notify_port;	// session mach port ref
+    CFRunLoopSourceRef   sessionRls;	// session mach port ref
+    CFStringRef		serviceID;		// service used by the client
+	mach_port_t		bootstrap_port;		// bootstrap port use by client
+	
+	uid_t			uid;			// user uid at the end of the control api
+	uid_t			gid;			// user gid at the end of the control api
+	
+    u_int8_t		*msg;			// message in pogress from client
+    u_int32_t		msglen;			// current message length
     u_int32_t		msgtotallen;	// total expected len
     struct ppp_msg_hdr	msghdr;		// message header read 
-    
+
+	u_int32_t		flags;			//flags for this structure
+
     /* 
         event notification
         events can be for event transition of status change
         Event/Status are generated for ALL the services or for a unique service
         Service is the same for both status and events
     */
-    u_char	 	notify; 		// 0x0 = do not notify, 
-                                                // 0x1 = event notification active, 0x2 = status notification active 
-    u_char	 	notify_useserviceid;	// add service id in the notification
     u_char	 	*notify_serviceid;	// add service id in the notification
     u_long	 	notify_link; 		// link ref we want notification (or 0xFFFFFFFF for all links)
     
@@ -74,14 +90,15 @@ struct client {
 
 
 u_long client_init_all ();
-struct client *client_new (CFSocketRef ref);
+struct client *client_new_socket (CFSocketRef ref, int priviledged, uid_t uid, gid_t gid);
+struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, mach_port_t bootstrap, mach_port_t notify_port);
 void client_dispose (struct client *client);
 CFMutableDictionaryRef client_newoptset (struct client *client, CFStringRef serviceid);
 CFMutableDictionaryRef client_findoptset (struct client *client, CFStringRef serviceid);
-u_long client_notify (u_char* sid, u_int32_t link, u_long state, u_long error, int notification);
+u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long state, u_long error, int notification);
+
 struct client *client_findbysocketref(CFSocketRef ref);
-int readn(int ref, void *data, int len);
-int writen(int ref, void *data, int len);
+struct client *client_findbymachport(mach_port_t port);
 
 
 #endif

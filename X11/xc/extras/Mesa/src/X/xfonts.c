@@ -32,19 +32,9 @@
 #include <GL/vms_x_fix.h>
 #endif
 
-#ifdef HAVE_CONFIG_H
-#include "conf.h"
-#endif
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#include "GL/gl.h"
-#include "GL/glx.h"
+#include "glxheader.h"
 #include "context.h"
-#include "mem.h"
+#include "imports.h"
 #include "xfonts.h"
 
 

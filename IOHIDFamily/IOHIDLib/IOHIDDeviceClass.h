@@ -36,12 +36,12 @@ class IOHIDQueueClass;
 struct IOHIDElementStruct
 {
     unsigned long	cookie;
-    long		type;
-    long		min;
-    long		max;
-    long		usage;
-    long		usagePage;
-    long		bytes;
+    long            type;
+    long            min;
+    long            max;
+    long            usage;
+    long            usagePage;
+    long            bytes;
     unsigned long	valueLocation;
     CFDictionaryRef	elementDictionaryRef;
 };
@@ -94,7 +94,7 @@ protected:
     void *			fRemovalRefcon;
     
     CFMutableSetRef		fQueues;
-    CFMutableSetRef		fDeviceElements;
+    CFMutableArrayRef	fDeviceElements;
     
     // ptr to shared memory for current values of elements
     vm_address_t 	fCurrentValuesMappedMemory;
@@ -378,10 +378,10 @@ protected:
     static void		StaticCountElements (const void * value, void * parameter);
     static void		StaticCreateLeafElements (const void * value, void * parameter);
 
-    kern_return_t	BuildElements (CFDictionaryRef properties, CFMutableSetRef set);
+    kern_return_t	BuildElements (CFDictionaryRef properties, CFMutableArrayRef set);
     long		CountElements (CFDictionaryRef properties, CFTypeRef element, CFStringRef key);
     kern_return_t	CreateLeafElements (CFDictionaryRef properties,
-                                            CFMutableSetRef set,
+                                            CFMutableArrayRef array,
                                             CFTypeRef element, 
                                             long * allocatedElementCount,
                                             CFStringRef key,

@@ -33,7 +33,7 @@ Equipment Corporation.
  * @(#)RCSfile: dpms.c,v Revision: 1.1.4.5  (DEC) Date: 1996/03/04 15:27:00
  */
 
-/* $XFree86: xc/programs/Xserver/Xext/dpms.c,v 3.9 2001/10/28 03:32:50 tsi Exp $ */
+/* $XFree86: xc/programs/Xserver/Xext/dpms.c,v 3.12 2004/02/17 15:30:23 eich Exp $ */
 
 #include "X.h"
 #include "Xproto.h"
@@ -46,8 +46,11 @@ Equipment Corporation.
 #include "dpms.h"
 #include "dpmsstr.h"
 #include "dpmsproc.h"
+#include "modinit.h"
 
+#if 0
 static unsigned char DPMSCode;
+#endif
 static DISPATCH_PROC(ProcDPMSDispatch);
 static DISPATCH_PROC(SProcDPMSDispatch);
 static DISPATCH_PROC(ProcDPMSGetVersion);
@@ -69,15 +72,20 @@ static DISPATCH_PROC(SProcDPMSCapable);
 static void DPMSResetProc(ExtensionEntry* extEntry);
 
 void
-DPMSExtensionInit()
+DPMSExtensionInit(INITARGS)
 {
+#if 0
     ExtensionEntry *extEntry;
     
     if ((extEntry = AddExtension(DPMSExtensionName, 0, 0,
 				ProcDPMSDispatch, SProcDPMSDispatch,
 				DPMSResetProc, StandardMinorOpcode)))
 	DPMSCode = (unsigned char)extEntry->base;
-    return;
+#else
+    (void) AddExtension(DPMSExtensionName, 0, 0,
+			ProcDPMSDispatch, SProcDPMSDispatch,
+			DPMSResetProc, StandardMinorOpcode);
+#endif
 }
 
 /*ARGSUSED*/
@@ -181,7 +189,8 @@ ProcDPMSSetTimeouts(client)
     DPMSStandbyTime = stuff->standby * MILLI_PER_SECOND;
     DPMSSuspendTime = stuff->suspend * MILLI_PER_SECOND;
     DPMSOffTime = stuff->off * MILLI_PER_SECOND;
-
+    SetDPMSTimers();
+    
     return(client->noClientException);
 }
 

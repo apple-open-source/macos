@@ -24,6 +24,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
+/* $XFree86: xc/include/extensions/Xcup.h,v 3.6 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _XCUP_H_
 #define _XCUP_H_
@@ -41,29 +42,23 @@ in this Software without prior written authorization from The Open Group.
 _XFUNCPROTOBEGIN
 
 Bool XcupQueryVersion(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int*			/* major_version */,
     int*			/* minor_version */
-#endif
 );
 
 Status XcupGetReservedColormapEntries(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     int				/* screen */,
     XColor**			/* colors_out */,
     int*			/* ncolors */
-#endif
 );
 
 Status XcupStoreColors(
-#if NeedFunctionPrototypes
     Display*			/* dpy */,
     Colormap			/* colormap */,
     XColor*			/* colors */,
     int				/* ncolors */
-#endif
 );
 
 _XFUNCPROTOEND

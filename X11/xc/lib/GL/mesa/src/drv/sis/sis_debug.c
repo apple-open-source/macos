@@ -18,13 +18,13 @@ of the Software.
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
 OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
+IN NO EVENT SHALL SILICON INTEGRATED SYSTEMS CORP BE LIABLE FOR
 ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_debug.c,v 1.5 2000/09/26 15:56:48 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_debug.c,v 1.7 2003/12/09 00:15:22 alanh Exp $ */
 
 /*
  * Authors:
@@ -40,8 +40,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <fcntl.h>
 #include <assert.h>
 
-#include "sis_ctx.h"
-#include "sis_mesa.h"
+#include "sis_context.h"
 
 /* for SiS 300/630/540 */
 #define MMIOLength (0x8FFF-0x8800+1)
@@ -53,7 +52,7 @@ char *IOBase4Debug = 0;
 char *prevLockFile = NULL;
 int prevLockLine = 0;
 
-DWORD _empty[0x10000];
+GLint _empty[0x10000];
 
 void
 dump_agp (void *addr, int dword_count)
@@ -81,14 +80,14 @@ void
 d2f_once (GLcontext * ctx)
 {
   XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
+  sisContextPtr smesa = SIS_CONTEXT(ctx);
 
   static int serialNumber = -1;
 
-  if (serialNumber == hwcx->serialNumber)
+  if (serialNumber == smesa->serialNumber)
     return;
   else
-    serialNumber = hwcx->serialNumber;
+    serialNumber = smesa->serialNumber;
 
   d2f();
 }

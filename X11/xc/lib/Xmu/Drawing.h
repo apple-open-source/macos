@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xmu/Drawing.h,v 1.6 2001/12/14 19:55:42 dawes Exp $ */
+/* $XFree86: xc/lib/Xmu/Drawing.h,v 1.7 2003/11/17 22:20:22 dawes Exp $ */
 
 /*
  * The interfaces described by this header file are for miscellaneous utilities
@@ -38,11 +38,9 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/Xlib.h>
 #include <X11/Xfuncproto.h>
 
-#if NeedFunctionPrototypes
 #include <stdio.h>
 #if ! defined(_XtIntrinsic_h) && ! defined(PIXEL_ALREADY_TYPEDEFED)
 typedef unsigned long Pixel;
-#endif
 #endif
 
 _XFUNCPROTOBEGIN

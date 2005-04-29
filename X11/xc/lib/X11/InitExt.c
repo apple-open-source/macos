@@ -26,7 +26,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/InitExt.c,v 1.7 2001/12/14 19:54:02 dawes Exp $ */
+/* $XFree86: xc/lib/X11/InitExt.c,v 1.8 2003/11/17 22:20:07 dawes Exp $ */
 
 #include <X11/Xlibint.h>
 #include <X11/Xos.h>
@@ -37,15 +37,9 @@ from The Open Group.
  * at appropriate times.
  */
 
-#if NeedFunctionPrototypes
 XExtCodes *XInitExtension (
 	Display *dpy,
 	_Xconst char *name)
-#else
-XExtCodes *XInitExtension (dpy, name)
-	Display *dpy;
-	char *name;
-#endif
 {
 	XExtCodes codes;	/* temp. place for extension information. */
 	register _XExtension *ext;/* need a place to build it all */
@@ -239,11 +233,9 @@ CloseDisplayType XESetCloseDisplay(dpy, extension, proc)
 }
 
 typedef Bool (*WireToEventType) (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     XEvent*	/* re */,
     xEvent*	/* event */
-#endif
 );
 
 WireToEventType XESetWireToEvent(dpy, event_number, proc)
@@ -261,11 +253,9 @@ WireToEventType XESetWireToEvent(dpy, event_number, proc)
 }
 
 typedef Status (*EventToWireType) (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     XEvent*	/* re */,
     xEvent*	/* event */
-#endif
 );
 
 EventToWireType XESetEventToWire(dpy, event_number, proc)
@@ -283,11 +273,9 @@ EventToWireType XESetEventToWire(dpy, event_number, proc)
 }
 
 typedef Bool (*WireToErrorType) (
-#if NeedFunctionPrototypes
     Display*	/* display */,
     XErrorEvent* /* he */,
     xError*	/* we */
-#endif
 );
 
 WireToErrorType XESetWireToError(dpy, error_number, proc)

@@ -25,6 +25,5 @@
  */
 #include "SYS.h"
 
-PSEUDO(geteuid, getuid, 0)
-	movl	%edx, %eax
-	ret			// euid = geteuid();
+UNIX_SYSCALL(geteuid, 0)
+	ret

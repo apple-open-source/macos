@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XSeLAttr.man,v 1.2 2001/01/27 18:20:04 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XSeLAttr.man,v 1.3 2003/04/28 22:17:57 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,31 +144,13 @@
 .SH NAME
 XSetLineAttributes, XSetDashes \- GC convenience routines
 .SH SYNTAX
-XSetLineAttributes\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIline_width\fP\^, \fIline_style\fP\^, \fIcap_style\fP\^, \fIjoin_style\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      GC \fIgc\fP\^;
-.br
-      unsigned int \fIline_width\fP\^;
-.br
-      int \fIline_style\fP\^;
-.br
-      int \fIcap_style\fP\^;
-.br
-      int \fIjoin_style\fP\^;
-.LP
-XSetDashes\^(\^\fIdisplay\fP, \fIgc\fP\^, \fIdash_offset\fP\^, \fIdash_list\fP\^, \fIn\fP\^)
-.br
-        Display *\fIdisplay\fP\^;
-.br
-        GC \fIgc\fP\^;
-.br
-        int \fIdash_offset\fP\^;
-.br
-        char \fIdash_list\fP[]\^;
-.br
-        int \fIn\fP\^;
+.HP
+int XSetLineAttributes\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, unsigned
+int \fIline_width\fP\^, int \fIline_style\fP\^, int \fIcap_style\fP\^, int
+\fIjoin_style\fP\^); 
+.HP
+int XSetDashes\^(\^Display *\fIdisplay\fP\^, GC \fIgc\fP\^, int
+\fIdash_offset\fP\^, char \fIdash_list\fP[]\^, int \fIn\fP\^); 
 .SH ARGUMENTS
 .IP \fIcap_style\fP 1i
 Specifies the line-style and cap-style you want to set for the specified GC.

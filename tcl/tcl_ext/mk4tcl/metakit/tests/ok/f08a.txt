@@ -1,0 +1,6 @@
+ VIEW     1 rows = dict:V
+    0: subview 'dict'
+   VIEW     3 rows = p1:S p2:S
+      0: 'One' 'Two'
+      1: '' ''
+      2: 'One' 'Two'

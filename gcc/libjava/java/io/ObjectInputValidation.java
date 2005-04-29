@@ -1,5 +1,5 @@
 /* ObjectInputValidation.java -- Validate an object 
-   Copyright (C) 1998 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -39,23 +39,29 @@ exception statement from your version. */
 package java.io; 
 
 /**
-  * What does this interface really do?
+  * This class allows an object to validate that it is valid after
+  * deserialization has run completely for it and all dependent objects.
+  * This allows an object to determine if it is invalid even if all
+  * state data was correctly deserialized from the stream.  It can also
+  * be used to perform re-initialization type activities on an object
+  * after it has been completely deserialized.
   *
-  * @version 0.0
+  * Since this method functions as a type of callback, it must be 
+  * registered through <code>ObjectInputStream.registerValidation</code>
+  * in order to be invoked.  This is typically done in the
+  * <code>readObject</code> method.
   *
   * @author Aaron M. Renn (arenn@urbanophile.com)
+  *
+  * @see ObjectInputStream#registerValidation
   */
 public interface ObjectInputValidation
 {
-
-/**
-  * This method is called to validate an object.  If the object is invalid
-  * an exception is thrown.
-  *
-  * @exception InvalidObjectException If the object is invalid
-  */
-public abstract void
-validateObject() throws InvalidObjectException;
-
-} // interface ObjectInputValidation
-
+  /**
+    * This method is called to validate an object after serialization
+    * is complete.  If the object is invalid an exception is thrown.
+    *
+    * @exception InvalidObjectException If the object is invalid
+    */
+  void validateObject() throws InvalidObjectException;
+}

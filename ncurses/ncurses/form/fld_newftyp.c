@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 1998,2000 Free Software Foundation, Inc.                   *
+ * Copyright (c) 1998-2002,2003 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -27,12 +27,12 @@
  ****************************************************************************/
 
 /****************************************************************************
- *   Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1995,1997            *
+ *   Author:  Juergen Pfeifer, 1995,1997                                    *
  ****************************************************************************/
 
 #include "form.priv.h"
 
-MODULE_ID("$Id: fld_newftyp.c,v 1.1.1.1 2001/11/29 20:40:52 jevans Exp $")
+MODULE_ID("$Id: fld_newftyp.c,v 1.9 2003/11/08 20:45:36 tom Exp $")
 
 static FIELDTYPE const default_fieldtype = {
   0,                   /* status                                      */
@@ -63,7 +63,7 @@ NCURSES_EXPORT_VAR(const FIELDTYPE*) _nc_Default_FieldType = &default_fieldtype;
 |                       E_BAD_ARGUMENT  - invalid arguments
 |                       E_SYSTEM_ERROR  - system error (no memory)
 |
-|   Return Values :  Fieldtype pointer or NULL if error occured
+|   Return Values :  Fieldtype pointer or NULL if error occurred
 +--------------------------------------------------------------------------*/
 NCURSES_EXPORT(FIELDTYPE *)
 new_fieldtype (

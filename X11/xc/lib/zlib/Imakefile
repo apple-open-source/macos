@@ -4,21 +4,20 @@ XCOMM $Xorg: Imakefile,v 1.3 2000/08/17 19:46:46 cpqbld Exp $
 
 
 
-XCOMM $XFree86: xc/lib/zlib/Imakefile,v 1.8 2001/01/17 19:43:50 dawes Exp $
+XCOMM $XFree86: xc/lib/zlib/Imakefile,v 1.10 2003/10/28 18:09:31 tsi Exp $
 
-#ifndef cygwinArchitecture
 #define DoNormalLib   YES
 #define DoSharedLib   NO
-#else
-#define DoNormalLib   NO
-#define DoSharedLib   YES
-#endif
 #define DoExtraLib    NO
 #define DoDebugLib    NO
 #define DoProfileLib  NO
 #define HasSharedData NO
 #define LibName       z
 #define SoRev         SOZLIBREV
+
+ ZLIBDIR = $(TOP)/extras/zlib
+INCLUDES = -I$(ZLIBDIR)
+
 #if OsNeedZlibHeaders
 #define LibHeaders    YES
 HEADERS = zconf.h zlib.h
@@ -35,5 +34,23 @@ OBJS = adler32.o compress.o crc32.o gzio.o uncompr.o deflate.o \
        infcodes.o infutil.o inffast.o
 
 #include <Library.tmpl>
+
+LinkSourceFile(adler32.c,$(ZLIBDIR))
+LinkSourceFile(compress.c,$(ZLIBDIR))
+LinkSourceFile(crc32.c,$(ZLIBDIR))
+LinkSourceFile(gzio.c,$(ZLIBDIR))
+LinkSourceFile(uncompr.c,$(ZLIBDIR))
+LinkSourceFile(deflate.c,$(ZLIBDIR))
+LinkSourceFile(trees.c,$(ZLIBDIR))
+LinkSourceFile(zutil.c,$(ZLIBDIR))
+LinkSourceFile(inflate.c,$(ZLIBDIR))
+LinkSourceFile(infblock.c,$(ZLIBDIR))
+LinkSourceFile(inftrees.c,$(ZLIBDIR))
+LinkSourceFile(infcodes.c,$(ZLIBDIR))
+LinkSourceFile(infutil.c,$(ZLIBDIR))
+LinkSourceFile(inffast.c,$(ZLIBDIR))
+
+LinkSourceFile(zconf.h,$(ZLIBDIR))
+LinkSourceFile(zlib.h,$(ZLIBDIR))
 
 DependTarget()

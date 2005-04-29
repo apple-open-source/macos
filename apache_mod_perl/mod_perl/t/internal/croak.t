@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 
 my $i = 0;
 print "1..12\n";

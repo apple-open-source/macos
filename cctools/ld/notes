@@ -23,6 +23,31 @@ Build problems:
 - For m68k builds -finline-functions crashes the compiler (used in the Makefile
   on the ld_build target).
 
+Changes for the 5.17 release (the cctools-575 release):
+- Made a additional change for the original change to "Don't search indirect
+  libraries when linking two-level" that was made for Radar bug #3737622.
+  The problem was when building a two-level namespace image that was linking
+  against flat-namespace images the link could fail with undefined symbol
+  references.  This happened because the undefined references from a
+  flat-namespace dylib were being looked up but the indirect dylibs that
+  defined those symbols were removed from the list of libraries to be searched.
+  The "Architect" of the original change intended that "when linking two-level
+  only undefines from dylibs should be ignored".  So to match that intent
+  another change is needed when linking in a module from a flat namespace dylib.
+  - In merge_dylib_module_symbols() in symbols.c, in the second loop where
+    the symbols referenced by a dylib module are merged as undefined references,
+    a test was added when resolving with flat namespace semantics.  So that if
+    the output file was being built as a two-level namespace image then
+    the reference from the dylib is skipped.  And that undefined symbol will
+    not be searched for.
+  This of course leaves the architectural flaw that error checking is lost and
+  will allow broken binaries to be built.  Radar bug #4022543.
+
+Changes for the 5.17 release (the cctools-573 release):
+- Changed main() in ld.c and check_cur_obj() in pass1.c to call the new function
+  force_cpusubtype_ALL_for_cputype() with the cputype being linked.  And if it
+  returns TRUE sets force_cpusubtype_ALL.  Radar bug #4002756.
+
 Changes for the 5.17 release (the cctools-572 release):
 - Fixed a problem when MallocScribble was on that caused a crash.  The problem
   was enter_symbol() in symbols.c was assumed to return pointers to
@@ -245,6 +270,20 @@ Changes for the 5.16 release (the cctools-528.4 release):
 
 Changes for the 5.16 release (the cctools-528.3 release):
 - Don't search indirect libraries when linking two-level.  Radar bug #3737622.
+  - In search_dynamic_libs() in pass1.c after the library ordinals for libraries
+    are set up, a loop was added to remove some dynamic libraries from the
+    dynamic_libs list.  The logic that triggers this seems flawed in cases
+    involving linking against flat-namespace libraries or the use of
+    -force_flat_namespace.  The loop removes indirectly referenced dylibs.
+  - Also in search_dynamic_libs() in pass1.c in the case of searching an
+    MH_DYLIB on the dynamic_libs list, when looping through the dylib's
+    sub_images a test is made to see of the sub_image dylib does not have
+    a library_ordinal assigned to it, and if not it is not searched.
+  - In merge_dylib_module_symbols() in symbols.c, in the second loop where
+    the symbols referenced by a dylib module are merged as undefined references,
+    code was added when resolving a two-level reference from a dylib such that
+    if the dependent_image does not have an library ordinal it is skipped.  And
+    that undefined symbol will not be searched for.
 
 Changes for the 5.16 release (the cctools-528.2 release):
 - Let kld accept duplicate symbols silently if they are absolute and

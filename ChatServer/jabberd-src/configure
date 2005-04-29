@@ -1,0 +1,218 @@
+#!/bin/sh
+##
+# Copyright 2000 Thomas "temas" Muldowney and The Jabber Team
+#   Feel free to take parts of this and use it.  It's a quicky
+#   so who knows if it's any good at all.  I'm not a super duper
+#   shell hacker.
+##
+# THINGS I'VE LEARNED:
+#   1)  echo is yucky, use printf
+#   2)  test is cool, learn the XP version though
+##
+# You only need to run this once to setup your platforms options
+##
+WANT_SSL=0;
+WANT_IPV6=0;
+
+for x in $@; do
+    case x$x in
+      x--enable-ssl)
+        WANT_SSL=1;;
+      x--enable-ipv6)
+        WANT_IPV6=1;;
+    esac;
+done;
+##
+# Setup our initial flags
+##
+if [ -n "$CC" ]; then
+    CC="$CC";
+else
+    CC="gcc";
+fi;
+CFLAGS="$2 -g -Wall -I. -I.."
+MCFLAGS="$MCFLAGS -shared"
+LDFLAGS="$LDFLAGS"
+LIBS="$LIBS"
+XLDFLAGS="$XLDFLAGS "
+JHOME="./"
+
+##
+# Print a cool header
+##
+printf "Running Jabber Configure\n"
+printf "========================\n\n"
+
+##
+# SSL Check
+##
+printf "Searching for SSL...";
+if [ $WANT_SSL -eq 1 ]; then
+    for dir in ${prefix} /usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg /usr/local /usr; do
+        ssldir="$dir"
+        if test -f "$dir/include/openssl/ssl.h"; then
+            found_ssl="yes";
+            printf "            Found.\n";
+    	    CFLAGS="$CFLAGS -I$ssldir/include/openssl -DHAVE_SSL";
+	        LIBS="$LIBS -lssl -lcrypto";
+            LDFLAGS="$LDFLAGS -L$ssldir/lib";
+            break;
+        fi
+        if test -f "$dir/include/ssl.h"; then
+            found_ssl="yes";
+            printf "            Found.\n";
+    	    CFLAGS="$CFLAGS -I$ssldir/include/ -DHAVE_SSL";
+	        LIBS="$LIBS -lssl -lcrypto";
+            LDFLAGS="$LDFLAGS -L$ssldir/lib";
+            break
+        fi
+    done
+    if test x_$found_ssl != x_yes; then
+        printf "            Not Found.\n"
+    fi
+else
+    printf "            Disabled.\n";
+fi;
+
+##
+# IPv6 check
+##
+printf "Support for IPv6...";
+if [ $WANT_IPV6 -eq 1 ]; then
+    # we should add some checks if all the needed functions are available
+    printf "             Enabled.\n";
+    CFLAGS="$CFLAGS -DWITH_IPV6";
+else
+    printf "             Disabled.\n";
+fi;
+
+##
+# Resolv Settings
+##
+
+##
+# Pth check
+##
+printf "Getting pth settings...\n"
+if test -f "pth-config"; then
+	PTH_CFLAGS=`pth-config --cflags`
+	PTH_LDFLAGS=`pth-config --ldflags`
+	PTH_LIBS=`pth-config --libs`
+	PTH_LIBDIR=`pth-config --libdir`
+fi
+
+if [ -n "$PTH_CFLAGS" ]; then
+    CFLAGS="$CFLAGS $PTH_CFLAGS";
+    LDFLAGS="$LDFLAGS $PTH_LDFLAGS";
+    LIBS="$LIBS $PTH_LIBS";
+    SLIBS="$SLIBS $PTH_LIBDIR/libpth.a";
+    printf "         Done.\n";
+else
+    printf "____________________________________________________________\n";
+    printf "GNU Pth (1.4.0 or newer) is not currently installed.\n";
+    printf "GNU Pth is required for building Jabberd.\n";
+    printf "____________________________________________________________\n";
+    if [ -d "jabberd/pth-1.4.0" ]; then
+        printf "pth-1.4.0 found.  Configuring...\n";
+        opwd=`pwd`
+        cd jabberd/pth-1.4.0;
+        ./configure --host=ppc --cflags="$CFLAGS" || (printf "Error Configuring pth"; exit 1);
+        ./configure --host=i386 --cflags="$CFLAGS" || (printf "Error Configuring pth"; exit 1);
+        cd $opwd;
+        PSUBDIR="pth-1.4.0";
+        PTHP=`pwd`"/jabberd/pth-1.4.0";
+        PLINK="$PTHP/pth_*.o";
+        CFLAGS="$CFLAGS -I`pwd`/jabberd/pth-1.4.0";
+        printf "\nGNU Pth 1.4.0 configured.  To install:\n\n";
+        printf "\t________________________________________\n";
+        printf "\tcd $PTHP\n";
+        printf "\tmake\n";
+        printf "\tmake test\n";
+        printf "\tmake install\n";
+        printf "\t________________________________________\n";
+        printf "\nNOTE:  If installing under Cygwin, it may be necessary to";
+        printf "\n       install Pth first, then redo ./configure before";
+        printf "\n       doing a make on jabberd.\n";
+        printf "____________________________________________________________\n";
+    else
+        printf "          Error.\n\n No version of Pth is available on this system\nhttp://www.gnu.org/software/pth/";
+    fi
+fi
+
+
+
+##
+# Check the host type and change flags as necessary
+##
+printf "Setting Build Parameters..."
+hosttype=`uname -s`
+case $hosttype in
+    Linux)
+        CFLAGS="$CFLAGS -fPIC"
+        LIBS="$LIBS -ldl -lresolv"
+        SLIBS="$SLIBS /usr/lib/libresolv.a";
+        XLDFLAGS="$XLDFLAGS -Wl,--export-dynamic";;
+    SunOS)
+        LDTEST=`gcc -Wl,-V 2>&1 | grep GNU`
+        if [ -n "$LDTEST" ]; then
+            XLDFLAGS="$XLDFLAGS -Wl,-export-dynamic"
+        fi
+        CFLAGS="$CFLAGS -fPIC -D_REENTRANT"
+        SLIBS="$SLIBS /usr/lib/libresolv.a";
+        LIBS="$LIBS -ldl -lsocket -lnsl -lresolv";;
+    FreeBSD)
+	CFLAGS="$CFLAGS -fPIC"
+        XLDFLAGS="$XLDFLAGS -Wl,-E";;
+    NetBSD)
+        if echo __ELF__ | $CC -E - | grep __ELF__ >/dev/null; then
+            MCFLAGS='-nostdlib -Wl,-Bshareable' # hack to make old gcc on a.out work
+        else
+            XLDFLAGS="$XLDFLAGS -Wl,--export-dynamic" # ELFism
+        fi
+        CFLAGS="$CFLAGS -fPIC"
+        LIBS="$LIBS -lresolv"
+        SLIBS="$SLIBS /usr/lib/libresolv.a";;
+    CYGWIN*)
+        sh ./cygwin/setup.sh
+        CYGWIN="1";;
+    Darwin)
+        CC="cc"
+        CFLAGS="$CFLAGS -fPIC -DTMZONE"
+        MCFLAGS="-bundle -undefined suppress -flat_namespace";
+        LIBS="$LIBS -ldl";;
+    AIX)
+        # create an export file for AIX:
+cat <<EOF >jabberd/jabberd.exp
+#!
+_mio_xml_parser
+_pool_new
+_pool_new_heap
+EOF
+CFLAGS="$CFLAGS -fPIC -DMAXDNAME=1025"
+MCFLAGS="$MCFLAGS -Wl,-G"
+XLDFLAGS="$XLDFLAGS -Wl,-brtl,-bexpall,-bE:jabberd.exp";;
+
+esac
+printf "     Done.\n"
+##
+# Output our settings for usage
+##
+printf "Generating Settings Script..."
+cat << EOF > platform-settings
+#!/bin/sh
+CC=$CC
+CFLAGS=$CFLAGS
+CCFLAGS=$CFLAGS
+MCFLAGS=$MCFLAGS
+LDFLAGS=$LDFLAGS
+LIBS=$LIBS
+SLIBS=$SLIBS
+XLDFLAGS=$XLDFLAGS
+PSUBDIR=$PSUBDIR
+PLINK=$PLINK
+JHOME=$JHOME
+__CYGWIN__=$CYGWIN
+EOF
+chmod 0700 platform-settings
+printf "   Done.\n\n"
+printf "You may now type 'make' to build your new Jabber system.\n\n"

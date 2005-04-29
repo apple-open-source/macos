@@ -1,24 +1,21 @@
 /*
- * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -53,12 +50,12 @@ Apple3Com3C90x::setStationAddress( const IOEthernetAddress * addr )
     // Clear station address mask.
 
     for ( int i = 0 ; i < kIOEthernetAddressSize ; i++ )
-        outb( _ioBase + kStationAddressMaskOffset + i, 0 );    
+        writeRegister8( kStationAddressMaskOffset + i, 0 );    
     
     // Set the station address.
 
     for ( int i = 0 ; i < kIOEthernetAddressSize ; i++ )
-        outb( _ioBase + kStationAddressOffset + i, addr->bytes[i] );
+        writeRegister8( kStationAddressOffset + i, addr->bytes[i] );
 }
 
 //---------------------------------------------------------------------------
@@ -76,14 +73,26 @@ Apple3Com3C90x::sendCommand( UInt16 cmd, UInt16 arg )
 void
 Apple3Com3C90x::sendCommandWait( UInt16 cmd, UInt16 arg )
 {
-    SInt32 i = 1000 * 1000 * 10;
+    UInt32 us = 0;
 
     setCommandStatus( cmd | (arg & 0x7ff) );
 
     // Wait for command to complete
-    while ( ( i-- > 0 ) &&
+    
+    while ( ( us < 1000000 ) &&
             ( getCommandStatus() & kCommandStatusCmdInProgressMask ) )
-        ; // Busy Loop
+    {
+        if ( us < 5000 )
+        {
+            IODelay( 1 );
+            us++;
+        }
+        else
+        {
+            IOSleep( 10 );
+            us += 10000;
+        }
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -96,10 +105,10 @@ void
 Apple3Com3C90x::selectTransceiverPort( MediaPort port )
 {
     UInt32 internalConfig = getInternalConfig();
-    
+
     internalConfig &= ~kInternalConfigXcvrSelectMask;
     internalConfig |= SetBitField( InternalConfig, XcvrSelect, port );
-    
+
     setInternalConfig( internalConfig );
 }
 
@@ -124,7 +133,7 @@ Apple3Com3C90x::hashMulticastAddress( UInt8 * Address )
     UInt32 Crc, Carry;
     UInt32 i, j;
     UInt8  ThisByte;
-    
+
     /* Compute the CRC for the address value. */
     Crc = 0xffffffff;    /* initial value */
     
@@ -141,7 +150,7 @@ Apple3Com3C90x::hashMulticastAddress( UInt8 * Address )
                 Crc = (Crc ^ 0x04c11db6) | Carry;
         }
     }
-        
+
     /* Return the filter bit position. */
     return Crc & 0x000000FF;
 }
@@ -157,7 +166,7 @@ Apple3Com3C90x::waitForTransmitterIdle()
     // Poll dnInProg bit in PktStatus register.
     
     for ( int i = maxPollLoops; i > 0; i-- )
-	{
+    {
         if ( ( getDMACtrl() & kDMACtrlDnInProgMask ) == 0 )
             break;
         IODelay(1);
@@ -166,7 +175,7 @@ Apple3Com3C90x::waitForTransmitterIdle()
     // Poll txInProg bit in MediaStatus register.
 
     for ( int i = maxPollLoops; i > 0; i-- )
-	{
+    {
         if ( ( getMediaStatus() & kMediaStatusTxInProgMask ) == 0 )
             break;
         IODelay(1);
@@ -184,7 +193,7 @@ Apple3Com3C90x::readEEPROM( UInt8 offset )
 {
     UInt16 word;
 
-	// Wait for EEPROM not busy.
+    // Wait for EEPROM not busy.
 
     for ( int i = kEEPROMPollLoops; i > 0; i-- )
     {
@@ -197,7 +206,7 @@ Apple3Com3C90x::readEEPROM( UInt8 offset )
 
     setEEPROMCommand( word );
 
-	// Wait for EEPROM not busy.
+    // Wait for EEPROM not busy.
 
     for ( int i = kEEPROMPollLoops; i > 0; i-- )
     {
@@ -254,8 +263,8 @@ start:
         addr->bytes[i*2+1] = (word & 0xff);
     }
 
-	// If the OEM fields are all zeroes, then try the 3Com node
-	// address fields.
+    // If the OEM fields are all zeroes, then try the 3Com node
+    // address fields.
 
     if ( retry )
     {

@@ -25,7 +25,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
 
-/* $XFree86: xc/lib/X11/XKBGetMap.c,v 1.7 2003/02/04 03:49:33 dawes Exp $ */
+/* $XFree86: xc/lib/X11/XKBGetMap.c,v 1.10 2003/11/17 22:20:09 dawes Exp $ */
 
 #define NEED_REPLIES
 #define NEED_EVENTS
@@ -35,14 +35,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "XKBlibint.h"
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadKeyTypes(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadKeyTypes(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr 		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 int		 i,n,lastMapCount;
 XkbKeyTypePtr	type;
@@ -152,14 +145,7 @@ XkbKeyTypePtr	type;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadKeySyms(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadKeySyms(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr 		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 register int i;
 XkbClientMapPtr	map;
@@ -254,14 +240,7 @@ XkbClientMapPtr	map;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadKeyActions(XkbReadBufferPtr buf,XkbDescPtr info,xkbGetMapReply *rep)
-#else
-_XkbReadKeyActions(buf,info,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr		info;
-    xkbGetMapReply *	rep;
-#endif
 {
 int		i;
 CARD8		numDescBuf[248];
@@ -313,14 +292,7 @@ done:
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadKeyBehaviors(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadKeyBehaviors(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr 		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 register int i;
 xkbBehaviorWireDesc	*wire;
@@ -349,14 +321,7 @@ xkbBehaviorWireDesc	*wire;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadVirtualMods(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadVirtualMods(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
     if ( rep->virtualMods ) {
 	register int i,bit,nVMods;
@@ -380,16 +345,9 @@ _XkbReadVirtualMods(buf,xkb,rep)
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadExplicitComponents(	XkbReadBufferPtr	buf,
 				XkbDescPtr 		xkb,
 				xkbGetMapReply *	rep)
-#else
-_XkbReadExplicitComponents(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 register int i;
 unsigned char *wire;
@@ -417,14 +375,7 @@ unsigned char *wire;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadModifierMap(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadModifierMap(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 register int i;
 unsigned char *wire;
@@ -449,14 +400,7 @@ unsigned char *wire;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbReadVirtualModMap(XkbReadBufferPtr buf,XkbDescPtr xkb,xkbGetMapReply *rep)
-#else
-_XkbReadVirtualModMap(buf,xkb,rep)
-    XkbReadBufferPtr	buf;
-    XkbDescPtr		xkb;
-    xkbGetMapReply *	rep;
-#endif
 {
 register int 		i;
 xkbVModMapWireDesc *	wire;
@@ -488,13 +432,7 @@ XkbServerMapPtr		srv;
 }
 
 static xkbGetMapReq *
-#if NeedFunctionPrototypes
 _XkbGetGetMapReq(Display *dpy,XkbDescPtr xkb)
-#else
-_XkbGetGetMapReq(dpy,xkb)
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 xkbGetMapReq *req;
 
@@ -515,18 +453,10 @@ xkbGetMapReq *req;
 }
 
 Status
-#if NeedFunctionPrototypes
 _XkbReadGetMapReply(	Display *	dpy,
 			xkbGetMapReply *rep,
 			XkbDescPtr	xkb,
 			int *		nread_rtrn)
-#else
-_XkbReadGetMapReply(dpy,rep,xkb,nread_rtrn)
-    Display *		dpy;
-    xkbGetMapReply *	rep;
-    XkbDescPtr		xkb;
-    int *		nread_rtrn;
-#endif
 {
 int		extraData;
 unsigned	mask;
@@ -581,13 +511,7 @@ unsigned	mask;
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XkbHandleGetMapReply(Display *dpy,XkbDescPtr xkb)
-#else
-_XkbHandleGetMapReply(dpy,xkb)
-    Display *	dpy;
-    XkbDescPtr	xkb;
-#endif
 {
 xkbGetMapReply	rep;
 
@@ -600,14 +524,7 @@ xkbGetMapReply	rep;
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetUpdatedMap(Display *dpy,unsigned which,XkbDescPtr xkb)
-#else
-XkbGetUpdatedMap(dpy,which,xkb)
-    Display *	dpy;
-    unsigned 	which;
-    XkbDescPtr	xkb;
-#endif
 {
     if ((dpy->flags & XlibDisplayNoXkb) ||
 	(!dpy->xkb_info && !XkbUseExtension(dpy,NULL,NULL)))
@@ -630,14 +547,7 @@ XkbGetUpdatedMap(dpy,which,xkb)
 }
 
 XkbDescPtr
-#if NeedFunctionPrototypes
 XkbGetMap(Display *dpy,unsigned which,unsigned deviceSpec)
-#else
-XkbGetMap(dpy,which,deviceSpec)
-    Display *dpy;
-    unsigned which;
-    unsigned deviceSpec;
-#endif
 {
 XkbDescPtr xkb;
 
@@ -660,15 +570,7 @@ XkbDescPtr xkb;
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyTypes(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeyTypes(dpy,first,num,xkb)
-    Display *dpy;
-    unsigned first;
-    unsigned num;
-    XkbDescPtr xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -692,15 +594,7 @@ XkbGetKeyTypes(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyActions(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeyActions(dpy,first,num,xkb)
-    Display *dpy;
-    unsigned first;
-    unsigned num;
-    XkbDescPtr xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -725,15 +619,7 @@ XkbGetKeyActions(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeySyms(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeySyms(dpy,first,num,xkb)
-    Display *dpy;
-    unsigned first;
-    unsigned num;
-    XkbDescPtr xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -759,15 +645,7 @@ XkbGetKeySyms(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyBehaviors(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeyBehaviors(dpy,first,num,xkb)
-    Display *	dpy;
-    unsigned 	first;
-    unsigned 	num;
-    XkbDescPtr	xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -792,14 +670,7 @@ XkbGetKeyBehaviors(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetVirtualMods(Display *dpy,unsigned which,XkbDescPtr xkb)
-#else
-XkbGetVirtualMods(dpy,which,xkb)
-    Display *	dpy;
-    unsigned 	which;
-    XkbDescPtr	xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -820,18 +691,10 @@ XkbGetVirtualMods(dpy,which,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyExplicitComponents(	Display *	dpy,
 				unsigned	first,
 				unsigned 	num,
 				XkbDescPtr	xkb)
-#else
-XkbGetKeyExplicitComponents(dpy,first,num,xkb)
-    Display *dpy;
-    unsigned first;
-    unsigned num;
-    XkbDescPtr xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -860,15 +723,7 @@ XkbGetKeyExplicitComponents(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyModifierMap(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeyModifierMap(dpy,first,num,xkb)
-    Display *	dpy;
-    unsigned 	first;
-    unsigned 	num;
-    XkbDescPtr	xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -897,15 +752,7 @@ XkbGetKeyModifierMap(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetKeyVirtualModMap(Display *dpy,unsigned first,unsigned num,XkbDescPtr xkb)
-#else
-XkbGetKeyVirtualModMap(dpy,first,num,xkb)
-    Display *dpy;
-    unsigned first;
-    unsigned num;
-    XkbDescPtr xkb;
-#endif
 {
     register xkbGetMapReq *req;
     Status status;
@@ -934,14 +781,7 @@ XkbGetKeyVirtualModMap(dpy,first,num,xkb)
 }
 
 Status
-#if NeedFunctionPrototypes
 XkbGetMapChanges(Display *dpy,XkbDescPtr xkb,XkbMapChangesPtr changes)
-#else
-XkbGetMapChanges(dpy,xkb,changes)
-    Display *		dpy;
-    XkbDescPtr		xkb;
-    XkbMapChangesPtr	changes;
-#endif
 {
     xkbGetMapReq *req;
 

@@ -68,6 +68,8 @@ bool IOHIDevice::start(IOService * provider)
         setProperty(kIOHIDVirtualHIDevice, kOSBooleanFalse);
     }
     
+    updateProperties();
+    
     return true;
 }
 

@@ -42,6 +42,7 @@
 #include "gdbcore.h"
 #include "gdbthread.h"
 #include "regcache.h"
+#include "bfd.h"
 
 #include <errno.h>
 #include <signal.h>
@@ -52,7 +53,7 @@ struct target_ops macho_core_ops;
 static struct sec *
 lookup_section (bfd *abfd, unsigned int n)
 {
-  struct sec *sect = NULL;
+  struct bfd_section *sect = NULL;
 
   CHECK_FATAL (abfd != NULL);
   CHECK_FATAL (n < bfd_count_sections (abfd));
@@ -79,16 +80,18 @@ check_thread (bfd *abfd, asection *asect, unsigned int num)
 #error "unsupported architecture"
 #endif
 
-  if (strncmp (sname, expected, strlen (expected)) != 0) {
-    return;
-  }
+  if (strncmp (sname, expected, strlen (expected)) != 0)
+    {
+      return;
+    }
 
   i = strtol (sname + strlen (expected), NULL, 0);
 
   add_thread (ptid_build (1, i, num));
-  if (ptid_equal (inferior_ptid, null_ptid)) {
-    inferior_ptid = ptid_build (1, i, num);
-  }
+  if (ptid_equal (inferior_ptid, null_ptid))
+    {
+      inferior_ptid = ptid_build (1, i, num);
+    }
 }
 
 static void
@@ -96,14 +99,17 @@ core_close_1 (void *arg)
 {
   char *name;
 
-  if (core_bfd == NULL) {
-    return;
-  }
-  
+  if (core_bfd == NULL)
+    {
+      return;
+    }
+
   name = bfd_get_filename (core_bfd);
-  if (! bfd_close (core_bfd)) {
-    warning ("Unable to close \"%s\": %s", name, bfd_errmsg (bfd_get_error ()));
-  }
+  if (!bfd_close (core_bfd))
+    {
+      warning ("Unable to close \"%s\": %s", name,
+               bfd_errmsg (bfd_get_error ()));
+    }
 
   core_bfd = NULL;
   inferior_ptid = null_ptid;
@@ -112,11 +118,12 @@ core_close_1 (void *arg)
   CLEAR_SOLIB ();
 #endif
 
-  if (macho_core_ops.to_sections) {
-    xfree (macho_core_ops.to_sections);
-    macho_core_ops.to_sections = NULL;
-    macho_core_ops.to_sections_end = NULL;
-  }
+  if (macho_core_ops.to_sections)
+    {
+      xfree (macho_core_ops.to_sections);
+      macho_core_ops.to_sections = NULL;
+      macho_core_ops.to_sections_end = NULL;
+    }
 }
 
 static void
@@ -135,15 +142,15 @@ core_open (char *filename, int from_tty)
   bfd *temp_bfd;
   int ontop;
   int scratch_chan;
-  struct sec *sect;
+  struct bfd_section *sect;
   unsigned int i;
 
   target_preopen (from_tty);
   if (!filename)
     {
-      error (core_bfd ? 
-       "No core file specified.  (Use `detach' to stop debugging a core file.)"
-     : "No core file specified.");
+      error (core_bfd ?
+             "No core file specified.  (Use `detach' to stop debugging a core file.)"
+             : "No core file specified.");
     }
 
   filename = tilde_expand (filename);
@@ -168,16 +175,16 @@ core_open (char *filename, int from_tty)
     {
       /* Do it after the err msg */
       /* FIXME: should be checking for errors from bfd_close (for one thing,
-	 on error it does not free all the storage associated with the
-	 bfd).  */
+         on error it does not free all the storage associated with the
+         bfd).  */
       make_cleanup_bfd_close (temp_bfd);
       error ("\"%s\" is not a core dump: %s",
-	     filename, bfd_errmsg (bfd_get_error ()));
+             filename, bfd_errmsg (bfd_get_error ()));
     }
 
   /* Looks semi-reasonable.  Toss the old core file and work on the new.  */
 
-  discard_cleanups (old_chain);		/* Don't free filename any more */
+  discard_cleanups (old_chain); /* Don't free filename any more */
   unpush_target (&macho_core_ops);
   core_bfd = temp_bfd;
   old_chain = make_cleanup (core_close_1, core_bfd);
@@ -186,9 +193,9 @@ core_open (char *filename, int from_tty)
 
   /* Find the data section */
   if (build_section_table (core_bfd, &macho_core_ops.to_sections,
-			   &macho_core_ops.to_sections_end))
+                           &macho_core_ops.to_sections_end))
     error ("\"%s\": Can't find sections: %s",
-	   bfd_get_filename (core_bfd), bfd_errmsg (bfd_get_error ()));
+           bfd_get_filename (core_bfd), bfd_errmsg (bfd_get_error ()));
 
   ontop = !push_target (&macho_core_ops);
   discard_cleanups (old_chain);
@@ -200,7 +207,8 @@ core_open (char *filename, int from_tty)
   siggy = bfd_core_file_failing_signal (core_bfd);
   if (siggy > 0)
     printf_filtered ("Program terminated with signal %d, %s.\n", siggy,
-		     target_signal_to_string (target_signal_from_host (siggy)));
+                     target_signal_to_string (target_signal_from_host
+                                              (siggy)));
 
   /* Build up thread list from BFD sections. */
 
@@ -211,13 +219,14 @@ core_open (char *filename, int from_tty)
 
   for (sect = core_bfd->sections; sect != NULL; i++, sect = sect->next)
     check_thread (core_bfd, sect, i);
-  
+
   CHECK_FATAL (i == core_bfd->section_count);
 
-  if (ptid_equal (inferior_ptid, null_ptid)) {
-    error ("Core file contained no thread-specific data\n");
-  }
-  
+  if (ptid_equal (inferior_ptid, null_ptid))
+    {
+      error ("Core file contained no thread-specific data\n");
+    }
+
   if (ontop)
     {
       /* Fetch all registers from core file.  */
@@ -227,12 +236,13 @@ core_open (char *filename, int from_tty)
       flush_cached_frames ();
       select_frame (get_current_frame ());
       print_stack_frame (deprecated_selected_frame,
-			 frame_relative_level (deprecated_selected_frame), 1);
+                         frame_relative_level (deprecated_selected_frame), 1);
     }
   else
     {
-      warning ("you won't be able to access this core file until you terminate\n"
-	       "your %s; do ``info files''", target_longname);
+      warning
+        ("you won't be able to access this core file until you terminate\n"
+         "your %s; do ``info files''", target_longname);
     }
 }
 
@@ -255,13 +265,17 @@ core_fetch_section_registers (asection *sec, int regno)
 
   size = bfd_section_size (core_bfd, sec);
   regs = (unsigned char *) alloca (size);
-  if (regs == NULL) {
-    fprintf_filtered (gdb_stderr, "Unable to allocate space to read registers\n");
-  }
-  if (bfd_get_section_contents (core_bfd, sec, regs, (file_ptr) 0, size) != 1) {
-    fprintf_filtered (gdb_stderr, "Unable to read register data from core file\n");
-  }    
-  
+  if (regs == NULL)
+    {
+      fprintf_filtered (gdb_stderr,
+                        "Unable to allocate space to read registers\n");
+    }
+  if (bfd_get_section_contents (core_bfd, sec, regs, (file_ptr) 0, size) != 1)
+    {
+      fprintf_filtered (gdb_stderr,
+                        "Unable to read register data from core file\n");
+    }
+
 #if defined (TARGET_POWERPC)
   ppc_macosx_fetch_gp_registers ((gdb_ppc_thread_state_t *) regs);
 #elif defined (TARGET_I386)
@@ -285,16 +299,28 @@ core_files_info (struct target_ops *t)
   print_section_info (t, core_bfd);
 }
 
-static char *macosx_core_ptid_to_str (ptid_t pid)
+static char *
+macosx_core_ptid_to_str (ptid_t pid)
 {
   static char buf[128];
   sprintf (buf, "core thread %lu", ptid_get_lwp (pid));
   return buf;
 }
 
-static int core_thread_alive (ptid_t pid)
+static int
+core_thread_alive (ptid_t pid)
 {
   return 1;
+}
+
+static void
+core_prepare_to_store (void)
+{
+}
+
+static void
+core_store_registers (int regno)
+{
 }
 
 static void
@@ -302,12 +328,15 @@ init_macho_core_ops ()
 {
   macho_core_ops.to_shortname = "core-macho";
   macho_core_ops.to_longname = "Mach-O core dump file";
-  macho_core_ops.to_doc = "Use a core file as a target.  Specify the filename of the core file.";
+  macho_core_ops.to_doc =
+    "Use a core file as a target.  Specify the filename of the core file.";
   macho_core_ops.to_open = core_open;
   macho_core_ops.to_close = core_close;
   macho_core_ops.to_attach = find_default_attach;
   macho_core_ops.to_detach = core_detach;
   macho_core_ops.to_fetch_registers = core_fetch_registers;
+  macho_core_ops.to_prepare_to_store = core_prepare_to_store;
+  macho_core_ops.to_store_registers = core_store_registers;
   macho_core_ops.to_xfer_memory = xfer_memory;
   macho_core_ops.to_files_info = core_files_info;
   macho_core_ops.to_create_inferior = find_default_create_inferior;

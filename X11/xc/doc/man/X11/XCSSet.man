@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XCSSet.man,v 1.2 2001/01/27 18:19:57 dawes Exp $
+.\" $XFree86: xc/doc/man/X11/XCSSet.man,v 1.3 2003/04/28 22:17:54 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,25 +144,12 @@
 .SH NAME
 XChangeSaveSet, XAddToSaveSet, XRemoveFromSaveSet \- change a client's save set
 .SH SYNTAX
-XChangeSaveSet\^(\^\fIdisplay\fP, \fIw\fP\^, \fIchange_mode\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIchange_mode\fP\^;
-.LP
-XAddToSaveSet\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.LP
-XRemoveFromSaveSet\^(\^\fIdisplay\fP, \fIw\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
+.HP
+int XChangeSaveSet\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int \fIchange_mode\fP\^);
+.HP
+int XAddToSaveSet\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^);
+.HP
+int XRemoveFromSaveSet\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^);
 .SH ARGUMENTS
 .IP \fIchange_mode\fP 1i
 Specifies the mode.

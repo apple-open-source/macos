@@ -32,12 +32,22 @@
 #include <IOKit/IOMemoryCursor.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
+//permanently enabled for Tiger and later
+//#ifdef _FN_KPRINTF_DECLARED  
+#include <IOKit/IOPolledInterface.h>
+#define __KAUAI_POLLED__
+#define kPolledPropertyKey "has-safe-sleep"
+//#endif
+
+
 /*! @class AppleKauaiATA : public MacIOATA
     @abstract The specific driver for AppleKauai-ata controllers.
     @discussion class contains all of the code specific to matching and
     running AppleKauai ata controllers.
 
 */    
+
+class KauaiPolledAdapter;
 
 class AppleKauaiATA : public MacIOATA
 {
@@ -90,6 +100,9 @@ protected:
 	
 	ATABusTimings busTimings[2];
 	bool _needsResync;
+	
+	IOService *myProvider;
+	
 	// calculate the correct binary configuration for the desired bus timings.
 	virtual IOReturn selectIOTimerValue( IOATADevConfig* configRequest, UInt32 unitNumber);
 
@@ -137,6 +150,55 @@ protected:
 	
 	virtual void handleTimeout( void );
 
+#ifdef __KAUAI_POLLED__	
+protected:
+	//override for polling
+	virtual IOReturn startTimer( UInt32 inMS);
+	//disable and clear a running timer.
+	virtual void stopTimer( void );
+
+	KauaiPolledAdapter* polledAdapter;
+	bool polledMode;
+
+public:
+	void pollEntry( void );
+	void transitionFixup( void );
+
+#endif
+
 };
+
+#ifdef __KAUAI_POLLED__
+class KauaiPolledAdapter : public IOPolledInterface
+
+{
+    OSDeclareDefaultStructors(KauaiPolledAdapter)
+
+public:
+	virtual IOReturn probe(IOService * target);
+
+    virtual IOReturn open( IOOptionBits state, IOMemoryDescriptor * buffer);
+    virtual IOReturn close(IOOptionBits state);
+
+    virtual IOReturn startIO(uint32_t 	        operation,
+                             uint32_t           bufferOffset,
+                             uint64_t	        deviceOffset,
+                             uint64_t	        length,
+                             IOPolledCompletion completion) ;
+
+    virtual IOReturn checkForWork(void);
+	
+	bool isPolling( void );
+	
+	void setOwner( AppleKauaiATA* owner );
+
+protected:
+	AppleKauaiATA* owner;
+	bool pollingActive;
+
+
+};
+
+#endif
 
 #endif	// _DRV_AAPL_KAUAI_ATA_H

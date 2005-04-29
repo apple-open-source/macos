@@ -1,21 +1,26 @@
-# Copyright (C) 2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 2001-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
 # as published by the Free Software Foundation; either version 2
 # of the License, or (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software 
+# along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 """User description class/structure, for ApprovedAddMember and friends."""
 
+
+from types import UnicodeType
+
+
+
 class UserDesc:
     def __init__(self, address=None, fullname=None, password=None,
                  digest=None, lang=None):
@@ -53,5 +58,10 @@ class UserDesc:
         elif digest == 1:
             digest = 'yes'
         language = getattr(self, 'language', 'n/a')
+        # Make sure fullname and password are encoded if they're strings
+        if isinstance(fullname, UnicodeType):
+            fullname = fullname.encode('ascii', 'replace')
+        if isinstance(password, UnicodeType):
+            password = password.encode('ascii', 'replace')
         return '<UserDesc %s (%s) [%s] [digest? %s] [%s]>' % (
             address, fullname, password, digest, language)

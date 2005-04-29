@@ -1310,6 +1310,11 @@ defer_fn (fn)
   if (!deferred_fns)
     VARRAY_TREE_INIT (deferred_fns, 32, "deferred_fns");
 
+  if (! DECL_ARTIFICIAL (fn)
+      && ! DECL_SAVED_TREE (fn)
+      && (! DECL_DECLARED_INLINE_P (fn) || ! TREE_USED (fn)))
+    abort ();
+
   VARRAY_PUSH_TREE (deferred_fns, fn);
 }
 
@@ -3030,9 +3035,7 @@ cxx_finish_file_rest ()
       for (i = 0; i < deferred_fns_used; ++i)
 	{
 	  tree decl = VARRAY_TREE (deferred_fns, i);
-	  
-	  import_export_decl (decl);
-	  
+
 	  /* Does it need synthesizing?  */
 	  if (DECL_ARTIFICIAL (decl) && ! DECL_INITIAL (decl)
 	      && TREE_USED (decl)
@@ -3048,6 +3051,17 @@ cxx_finish_file_rest ()
 	      pop_from_top_level ();
 	      reconsider = 1;
 	    }
+
+	  /* If the function has no body, avoid calling
+	     import_export_decl.  On a system without weak symbols,
+	     calling import_export_decl will make an inline template
+	     instantiation "static", which will result in errors about
+	     the use of undefined functions if there is no body for
+	     the function.  */
+	  if (!DECL_SAVED_TREE (decl))
+	    continue;
+
+	  import_export_decl (decl);
 
 	  /* We lie to the back-end, pretending that some functions
 	     are not defined when they really are.  This keeps these
@@ -5046,7 +5060,10 @@ handle_class_head (tag_kind, scope, id, attributes, defn_p, new_type_p)
   
   if (!decl)
     {
-      decl = TYPE_MAIN_DECL (xref_tag (tag_kind, id, attributes, !defn_p));
+      decl = xref_tag (tag_kind, id, attributes, !defn_p);
+      if (decl == error_mark_node)
+	return error_mark_node;
+      decl = TYPE_MAIN_DECL (decl);
       xrefd_p = true;
     }
 

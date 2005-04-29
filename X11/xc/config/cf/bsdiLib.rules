@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/config/cf/bsdiLib.rules,v 3.1 2000/05/18 00:33:16 dawes Exp $
+XCOMM $XFree86: xc/config/cf/bsdiLib.rules,v 3.4 2003/10/11 09:40:12 herrb Exp $
 
 /*
  * BSDI shared library rules (converted from SVr4/Linux rules)
@@ -68,13 +68,6 @@ install:: Concat(lib,libname.so.rev) 					@@\
  * the library gone for long periods.
  */
 #ifndef SharedLibraryTarget
-#ifdef UseInstalled  
-#define LinkBuildSonameLibrary(lib) true
-#else
-#define LinkBuildSonameLibrary(lib) (RemoveFile($(BUILDLIBDIR)/lib); \
-	cd $(BUILDLIBDIR); $(LN) $(BUILDINCTOP)/$(CURRENT_DIR)/lib .)
-#endif
-
 #define SharedLibraryTarget(libname,rev,solist,down,up)			@@\
 AllTarget(Concat(lib,libname.so.rev))					@@\
 									@@\

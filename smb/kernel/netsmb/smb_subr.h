@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: smb_subr.h,v 1.4 2003/05/14 15:05:57 lindak Exp $
+ * $Id: smb_subr.h,v 1.13 2004/09/14 22:59:08 lindak Exp $
  */
 #ifndef _NETSMB_SMB_SUBR_H_
 #define _NETSMB_SMB_SUBR_H_
@@ -42,20 +42,13 @@
 MALLOC_DECLARE(M_SMBTEMP);
 #endif
 
-#if __FreeBSD_version >= 500000
-#  error "smbfs module is included in this version of FreeBSD"
-#else
-#  if __FreeBSD_version >= 400000
-#    define	FB_RELENG4
-#  else
-#  ifndef APPLE
-#  error "Unsupported version of FreeBSD"
-#  endif
-#  endif
-#endif
-
 #define SMBERROR(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
 #define SMBPANIC(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
+#define SMBASSERT(expr) \
+	((expr) ? 1 \
+		: (printf("%s, line %d, assert failure: %s\n", __FILE__, \
+			  __LINE__, #expr), \
+		   0))
 
 #ifdef SMB_SOCKET_DEBUG
 #define SMBSDEBUG(format, args...) printf("%s: "format, __FUNCTION__ ,## args)
@@ -75,51 +68,21 @@ void m_dumpm(struct mbuf *m);
 #define m_dumpm(m)
 #endif
 
-#if __FreeBSD_version > 400009
-#define	SMB_SIGMASK(set) 						\
-	(SIGISMEMBER(set, SIGINT) || SIGISMEMBER(set, SIGTERM) ||	\
-	 SIGISMEMBER(set, SIGHUP) || SIGISMEMBER(set, SIGKILL) ||	\
-	 SIGISMEMBER(set, SIGQUIT))
-
-#define	smb_suser(cred)	suser_xxx(cred, NULL, 0)
-#else
 #define	SMB_SIGMASK	(sigmask(SIGINT)|sigmask(SIGTERM)|sigmask(SIGKILL)| \
 			 sigmask(SIGHUP)|sigmask(SIGQUIT))
-
-#define	smb_suser(cred)	suser((cred), NULL)
-#endif
 
 /*
  * Compatibility wrappers for simple locks
  */
-#if defined(APPLE) || __FreeBSD_version < 500000
 
 #include <sys/lock.h>
 
 #define	lockdestroy(lock)
-#define	smb_slock			simplelock
-#define	smb_sl_init(mtx, desc)		simple_lock_init(mtx)
-#define	smb_sl_destroy(mtx)
-#define	smb_sl_lock(mtx)		simple_lock(mtx)
-#define	smb_sl_unlock(mtx)		simple_unlock(mtx)
-/*
-#define	mtx				lock
-#define	mtx_init(mtx, desc, flags)	lockinit(mtx, PWAIT, desc, 0, 0)
-#define	mtx_lock(mtx)			lockmgr(mtx, LK_EXCLUSIVE, NULL, curproc)
-#define	mtx_unlock(mtx)			lockmgr(mtx, LK_RELEASE, NULL, curproc)
-#define	mtx_destroy(mtx)
-*/
-#else
-
-#include <sys/mutex.h>
-
-#define	smb_slock			mtx
-#define	smb_sl_init(mtx, desc)		mtx_init(mtx, desc, MTX_DEF)
-#define	smb_sl_destroy(mtx)		mtx_destroy(mtx)
-#define	smb_sl_lock(mtx)		mtx_lock(mtx)
-#define	smb_sl_unlock(mtx)		mtx_unlock(mtx)
-
-#endif
+#define	smb_slock			lck_mtx_t
+#define	smb_sl_init(mtx, grp, attr)	lck_mtx_init((mtx), (grp), (attr))
+#define	smb_sl_destroy(mtx, grp)	lck_mtx_destroy((mtx), (grp))
+#define	smb_sl_lock(mtx)		lck_mtx_lock(mtx)
+#define	smb_sl_unlock(mtx)		lck_mtx_unlock(mtx)
 
 #define SMB_STRFREE(p)	do { if (p) smb_strfree(p); } while(0)
 
@@ -166,8 +129,7 @@ typedef	smb_unichar	*smb_uniptr;
  * Crediantials of user/process being processing in the connection procedures
  */
 struct smb_cred {
-	struct proc *	scr_p;
-	struct ucred *	scr_cred;
+	vfs_context_t	scr_vfsctx;
 };
 
 extern smb_unichar smb_unieol;
@@ -176,31 +138,33 @@ struct mbchain;
 struct smb_vc;
 struct smb_rq;
 
-void smb_makescred(struct smb_cred *scred, struct proc *p, struct ucred *cred);
-int  smb_proc_intr(struct proc *);
+#define EMOREDATA (0x7fff)
+
+void smb_scred_init(struct smb_cred *scred, vfs_context_t vfsctx);
+int  smb_sigintr(vfs_context_t);
 char *smb_strdup(const char *s);
 void *smb_memdup(const void *umem, int len);
 char *smb_strdupin(char *s, int maxlen);
 void *smb_memdupin(void *umem, int len);
-void smb_strtouni(u_int16_t *dst, const char *src);
+size_t smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags);
 void smb_strfree(char *s);
 void smb_memfree(void *s);
-#ifdef APPLE
 void *smb_zmalloc(unsigned long size, int type, int flags);
-#else
-void *smb_zmalloc(unsigned long size, struct malloc_type *type, int flags);
-#endif
 
-int  smb_encrypt(const u_char *apwd, u_char *C8, u_char *RN);
-int  smb_ntencrypt(const u_char *apwd, u_char *C8, u_char *RN);
+int  smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN);
+int  smb_ntlmresponse(const u_char *apwd, u_char *C8, u_char *RN);
+int  smb_ntlmv2response(const u_char *apwd, const u_char *user,
+	const u_char *destination, u_char *C8, const u_char *blob,
+	size_t bloblen, u_char **RN, size_t *RNlen);
 int  smb_maperror(int eclass, int eno);
 u_int32_t  smb_maperr32(u_int32_t eno);
 int  smb_put_dmem(struct mbchain *mbp, struct smb_vc *vcp,
-	const char *src, int len, int caseopt);
+	const char *src, int len, int caseopt, int *lenp);
 int  smb_put_dstring(struct mbchain *mbp, struct smb_vc *vcp,
 	const char *src, int caseopt);
 int  smb_put_string(struct smb_rq *rqp, const char *src);
 int  smb_put_asunistring(struct smb_rq *rqp, const char *src);
 int  smb_checksmp(void);
+struct sockaddr *smb_dup_sockaddr(struct sockaddr *sa, int canwait);
 
 #endif /* !_NETSMB_SMB_SUBR_H_ */

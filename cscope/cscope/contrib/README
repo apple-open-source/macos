@@ -1,5 +1,5 @@
 Contributed addons and wrappers for cscope
-$Id: README,v 1.1.1.2 2002/01/09 18:50:29 umeshv Exp $
+$Id: README,v 1.2 2004/07/09 21:34:43 nicolai Exp $
 
 ocs - wrapper for cscope providing database generation through recursive
        directory set (among other things) - docced in script itself.

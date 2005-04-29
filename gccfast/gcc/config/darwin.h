@@ -114,6 +114,9 @@ Boston, MA 02111-1307, USA.  */
    name, that also takes an argument, needs to be modified so the
    prefix is different, otherwise a '*' after the shorter option will
    match with the longer one.  */
+/* APPLE LOCAL begin dead code strip */
+/* Support -dead_strip and -no_dead_strip_inits_and_termps.  */
+/* APPLE LOCAL end dead code strip */
 #define TARGET_OPTION_TRANSLATE_TABLE \
   { "-all_load", "-Zall_load" },  \
   { "-allowable_client", "-Zallowable_client" },  \
@@ -122,6 +125,8 @@ Boston, MA 02111-1307, USA.  */
   { "-bundle", "-Zbundle" },  \
   { "-bundle_loader", "-Zbundle_loader" },  \
   { "-weak_reference_mismatches", "-Zweak_reference_mismatches" },  \
+  { "-dead_strip", "-Zdead_strip" }, \
+  { "-no_dead_strip_inits_and_terms", "-Zno_dead_strip_inits_and_terms" }, \
   { "-dependency-file", "-MF" }, \
   { "-dylib_file", "-Zdylib_file" }, \
   { "-dynamic", "-Zdynamic" },  \
@@ -141,6 +146,37 @@ Boston, MA 02111-1307, USA.  */
   { "-static", "-static -Wa,-static" },  \
   { "-single_module", "-Zsingle_module" },  \
   { "-unexported_symbols_list", "-Zunexported_symbols_list" }
+
+/* APPLE LOCAL begin backport 3721776 fix from FSF mainline. */
+/* Nonzero if the user has chosen to force sizeof(bool) to be 1
+   by providing the -mone-byte-bool switch.  It would be better
+   to use SUBTARGET_SWITCHES for this instead of SUBTARGET_OPTIONS,
+   but there are no more bits in rs6000 TARGET_SWITCHES.  Note
+   that this switch has no "no-" variant. */
+extern const char *darwin_one_byte_bool;
+
+#undef  SUBTARGET_OPTIONS
+#define SUBTARGET_OPTIONS						\
+   {"one-byte-bool", &darwin_one_byte_bool, N_("Set sizeof(bool) to 1"), 0 }
+/* APPLE LOCAL end backport 3721776 fix from FSF mainline. */
+
+/* APPLE LOCAL begin XJR */
+#define SUBTARGET_OS_CPP_BUILTINS()					\
+  do									\
+    {									\
+      extern int flag_objc, flag_objc_gc;				\
+      builtin_define ("__MACH__");					\
+      builtin_define ("__APPLE__");					\
+      if (flag_objc && flag_objc_gc)					\
+	{                                                               \
+	  builtin_define ("__strong=__attribute__((objc_gc(strong)))"); \
+	  builtin_define ("__OBJC_GC__");				\
+	}								\
+      else								\
+	builtin_define ("__strong=");					\
+    }									\
+  while (0)
+/* APPLE LOCAL end XJR */
 
 /* These compiler options take n arguments.  */
 
@@ -217,7 +253,7 @@ Boston, MA 02111-1307, USA.  */
     %{!Zdynamiclib:%{!A:%{!nostdlib:%{!nostartfiles:%S}}}} \
     %{L*} %(link_libgcc) %o %{!nostdlib:%{!nodefaultlibs:%G %L}} \
     %{!A:%{!nostdlib:%{!nostartfiles:%E}}} %{T*} %{F*} \
-    %{!--help:%{!no-c++filt|c++filt:| c++filt3 }} }}}}}}}}}"
+    %{!--help:%{!no-c++filt|c++filt:| c++filt }} }}}}}}}}}"
 
 /* Note that the linker
    output is always piped through c++filt (unless -no-c++filt is
@@ -234,6 +270,9 @@ Boston, MA 02111-1307, USA.  */
 /* Note that options taking arguments may appear multiple times on a
    command line with different arguments each time, so put a * after
    their names so all of them get passed.  */
+/* APPLE LOCAL begin dead code strip */
+/* Support -dead_strip and -no_dead_strip_inits_and_termps.  */
+/* APPLE LOCAL end dead code strip */
 #define LINK_SPEC  \
   "%{static}%{!static:-dynamic} \
    %{!Zdynamiclib: \
@@ -265,6 +304,8 @@ Boston, MA 02111-1307, USA.  */
    %{Zallowable_client*:-allowable_client %*} \
    %{Zbind_at_load:-bind_at_load} \
    %{Zarch_errors_fatal:-arch_errors_fatal} \
+   %{Zdead_strip:-dead_strip} \
+   %{Zno_dead_strip_inits_and_terms:-no_dead_strip_inits_and_terms} \
    %{Zdylib_file*:-dylib_file %*} \
    %{Zdynamic:-dynamic}\
    %{Zexported_symbols_list*:-exported_symbols_list %*} \
@@ -396,6 +437,9 @@ do { text_section ();							\
 	  destructor_section ();					\
 	  ASM_OUTPUT_ALIGN (FILE, 1);					\
 	}								\
+      /* APPLE LOCAL begin radar 3563020 */                             \
+       fprintf (asm_out_file, "\t.subsections_via_symbols\n");          \
+      /* APPLE LOCAL begin radar 3563020 */                             \
     } while (0)
 
 #define ASM_OUTPUT_SKIP(FILE,SIZE)  \
@@ -644,7 +688,8 @@ SECTION_FUNCTION (objc_selector_refs_section,	\
 		  ".objc_message_refs", 1)	\
 SECTION_FUNCTION (objc_selector_fixup_section,	\
 		  in_objc_selector_fixup,	\
-		  ".section __OBJC, __sel_fixup", 1)	\
+		  /* APPLE LOCAL dead code stripping */		\
+		  ".section __OBJC, __sel_fixup, regular, no_dead_strip", 1)	\
 SECTION_FUNCTION (objc_symbols_section,		\
 		  in_objc_symbols,		\
 		  ".objc_symbols", 1)	\
@@ -659,7 +704,8 @@ SECTION_FUNCTION (objc_string_object_section,	\
 		  ".objc_string_object", 1)	\
 SECTION_FUNCTION (objc_constant_string_object_section,	\
 		  in_objc_constant_string_object,	\
-		  ".section __OBJC, __cstring_object", 1)	\
+		  /* APPLE LOCAL dead code stripping */		\
+		  ".section __OBJC, __cstring_object, regular, no_dead_strip", 1)	\
 /* APPLE LOCAL begin constant cfstrings */	\
 /* Unlike constant NSStrings, constant CFStrings do not live */\
 /* in the __OBJC segment since they may also occur in pure C */\
@@ -671,7 +717,8 @@ SECTION_FUNCTION (cfstring_constant_object_section,	\
 /* APPLE LOCAL begin fix and continue */	\
 SECTION_FUNCTION (objc_image_info_section,	\
 		  in_objc_image_info,		\
-		  ".section __OBJC, __image_info", 1)	\
+		  /* APPLE LOCAL dead code stripping */		\
+		  ".section __OBJC, __image_info, regular, no_dead_strip", 1)	\
 /* APPLE LOCAL end fix and continue */	\
 SECTION_FUNCTION (objc_class_names_section,	\
 		in_objc_class_names,		\
@@ -937,6 +984,12 @@ enum machopic_addr_class {
 #define EH_FRAME_SECTION_ATTR \
         ",coalesced" APPLE_EH_FRAME_WEAK_DEFINITIONS ",no_toc" APPLE_EH_FRAME_STRIP_STATIC
 
+#define EH_FRAME_SECTION_ATTR 			  \
+        ",coalesced"				  \
+        APPLE_EH_FRAME_WEAK_DEFINITIONS		  \
+	",no_toc"				  \
+	APPLE_EH_FRAME_STRIP_STATIC		  \
+	"+live_support"
 
 /* Implicit or explicit template instantiations' EH info are GLOBAL
    symbols.  ("Implicit" here implies "coalesced".)
@@ -984,6 +1037,10 @@ enum machopic_addr_class {
     fprintf ((FILE),							   \
 	     (name_needs_quotes(LAB) 					   \
 	      ? "\t\"%s.eh\" = 0\n" : "\t%s.eh = 0\n"),			   \
+	     (LAB));							   \
+    fprintf ((FILE),							   \
+	     (name_needs_quotes(LAB) 					   \
+	      ? ".no_dead_strip \"%s.eh\"\n" : ".no_dead_strip %s.eh\n"),  \
 	     (LAB));							   \
   } while (0)
 
@@ -1082,6 +1139,16 @@ extern int flag_export_coalesced;
     }							\
   } while (0)
 
+/* APPLE LOCAL begin dead code strip */
+#undef ASM_DECL_MARK_LIVE
+#define ASM_DECL_MARK_LIVE(name)                                        \
+  do {                                                                  \
+       fprintf (asm_out_file, ".no_dead_strip ");                       \
+       assemble_name (asm_out_file, name);                              \
+       fputc ('\n', asm_out_file);                                      \
+  } while (0)                                   
+/* APPLE LOCAL end dead code strip */
+
 #undef TARGET_ASM_NAMED_SECTION
 #define TARGET_ASM_NAMED_SECTION darwin_asm_named_section
 #undef TARGET_SECTION_TYPE_FLAGS
@@ -1121,7 +1188,9 @@ extern void abort_assembly_and_exit (int status) ATTRIBUTE_NORETURN;
    kext model. */
 #define SUBTARGET_ATTRIBUTE_TABLE					      \
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler } */  \
-  { "apple_kext_compatibility", 0, 0, 0, 1, 0, darwin_handle_odd_attribute },
+  { "apple_kext_compatibility", 0, 0, 0, 1, 0, darwin_handle_odd_attribute }, \
+  /* APPLE LOCAL XJR */ \
+  { "objc_gc", 1, 1, 0, 0, 0, darwin_handle_objc_gc_attribute },
 
 /* APPLE KEXT stuff -- only applies with pure static C++ code.  */
 /* NB: Can't use flag_apple_kext as it's in the C++ FE, and this macro

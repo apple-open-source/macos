@@ -1,0 +1,30 @@
+#$Id: s.Script.xotcl 1.6 01/03/23 22:07:19+01:00 neumann@somewhere.wu-wien.ac.at $
+package provide xotcl::script 0.9
+
+@ @File {description {
+  A small package to instantiate an object, that 
+  represents a script.
+  }
+}
+@ Class Script {
+  description {
+    An object of type Script becomes automatically the command
+    line arguments evaluated as "-" method calls during creation, e.g.
+    <@pre>
+      Script s -set r 5
+    </@pre>
+    and a call with cmd-line "-set v 6" of the script, results in an
+    object s with two vars set: r to 5, and v to 6.
+  }
+}
+
+
+
+Class Script
+Script proc create args {
+  eval lappend args $::argv
+  eval next $args
+}
+Script instproc unknown args {
+  puts stderr "$::argv0: Unknown option ´-$args´ provided"
+}

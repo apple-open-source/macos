@@ -1,0 +1,268 @@
+Return-Path: bluepeak.westend.com!popeye
+Return-Path: <popeye@bluepeak.westend.com>
+Received: from popeye.bluepeak.westend.com by bluepeak  with smtp
+	(Smail3.2 #1) id m11mO4k-00027DC; Fri, 12 Nov 1999 22:17:42 +0100 (MET)
+Received: from genesis for a.kupries
+ with Cubic Circle's cucipop (v1.10 1996/09/06) Fri Nov 12 22:10:56 1999
+X-From_: lvirden@cas.org  Fri Nov 12 19:59:32 1999
+Received: from srv01.cas.org (srv01s4.cas.org [134.243.50.9])
+	by genesis.westend.com (8.8.6/8.8.6) with ESMTP id TAA00266
+	for <a.kupries@westend.com>; Fri, 12 Nov 1999 19:59:28 +0100 (MET)
+Received: (from lwv26@localhost)
+	by cas.org (8.8.8+Sun/8.8.8/CAS-1.04) id NAA20586;
+	Fri, 12 Nov 1999 13:58:55 -0500 (EST)
+Date: Fri, 12 Nov 1999 13:58:55 -0500 (EST)
+From: "Larry W. Virden" <lvirden@cas.org>
+Message-Id: <9911121358.AA20497@cas.org>
+Subject: trf 2.0 problems
+To: a.kupries@westend.com
+
+Seems like something's wrong...
+
+$ /vol/tclsrcsol/tcl82/trf2.0/tea/configure  --prefix=/usr/tcl82 --exec-prefix=/usr/tcl82/sun4 --with-cc=cc --with-x --x-includes=/usr/openwin/include --x-libraries=/usr/openwin/lib --enable-shared --with-zlib-include=/usr/tcl82/include --with-zlib-lib=/usr/tcl82/sun4/lib --with-ssl=/projects/intranet/ssl --with-bz2-lib-dir=/projects/gnu/sparc-sun-solaris2.6/lib
+
+creating cache ./config.cache
+checking for gcc... cc
+checking whether the C compiler (cc  ) works... yes
+checking whether the C compiler (cc  ) is a cross-compiler... no
+checking whether we are using GNU C... no
+checking whether cc accepts -g... yes
+checking for a BSD compatible install... /projects/gnu/sparc-sun-solaris2.6/bin/ginstall -c
+checking whether make sets ${MAKE}... yes
+checking for ranlib... ranlib
+checking for Cygwin environment... no
+checking for object suffix... o
+checking for mingw32 environment... no
+checking for executable suffix... no
+checking whether byte ordering is bigendian... yes
+checking for Tcl public headers... /usr/tcl82/include
+checking for Tcl configuration... found /vol/tclsrcsol/tcl82/tcl8.2.2/unix/tclConfig.sh
+checking for existence of /vol/tclsrcsol/tcl82/tcl8.2.2/unix/tclConfig.sh... loading
+checking for building with threads... no (default)
+checking how to build libraries... shared
+checking for build with symbols... no
+checking for ltoa... no
+checking for md5_init_ctx in -lcrypt... no
+checking for tclsh8.2... /usr/tcl82/sun4/bin/tclsh8.2
+checking how to run the C preprocessor... cc -E
+checking for directory with zlib.h... /usr/tcl82/include
+checking for libz library... /usr/tcl82/sun4/lib
+checking for directory with ssl.h... /projects/intranet/ssl/include
+checking for ssl libcrypto library (for message digests)... /projects/intranet/ssl/lib
+checking for bz2 compressor library... /projects/gnu/sparc-sun-solaris2.6/lib
+checking for dlfcn.h... yes
+checking for stdlib.h... yes
+updating cache ./config.cache
+creating ./config.status
+creating Makefile
+creating mkIndex.tcl
+creating test.setup
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2lib.c` -o bz2lib.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/zlib.c` -o zlib.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/loadman.c` -o loadman.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/init.c` -o init.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/registry.c` -o registry.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/registry.c", line 2487: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/unstack.c` -o unstack.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/load.c` -o load.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/crypt.c` -o crypt.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/crypt.c", line 86: warning: improper pointer/integer combination: arg #1
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/trfStubInit.c` -o trfStubInit.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/trfStubInit.c", line 19: warning: initializer does not fit or is out of range: 0xfca3bacf
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/trfStubInit.c", line 28: warning: initializer does not fit or is out of range: 0xfca3bacf
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/convert.c` -o convert.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/util.c` -o util.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/ref_opt.c` -o ref_opt.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bincode.c` -o bincode.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bincode.c", line 380: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bincode.c", line 623: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bincode.c", line 670: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/hexcode.c` -o hexcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/hexcode.c", line 347: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/hexcode.c", line 590: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/hexcode.c", line 638: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/octcode.c` -o octcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/octcode.c", line 369: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/octcode.c", line 611: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/octcode.c", line 655: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/uucode.c` -o uucode.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/b64code.c` -o b64code.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/b64code.c", line 377: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/b64code.c", line 428: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/asc85code.c` -o asc85code.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpcode.c` -o otpcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpcode.c", line 2355: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpcode.c", line 2474: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpcode.c", line 2476: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpcode.c", line 2813: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c` -o qpcode.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 320: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 326: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to const char : "/usr/include/string.h", line 45
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 327: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 352: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/stdio.h", line 258
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 444: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/string.h", line 38
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 452: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to char : "/usr/include/string.h", line 38
+	argument : pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/qpcode.c", line 609: warning: argument #2 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/reflect.c` -o reflect.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/reflect.c", line 653: warning: argument #1 is incompatible with prototype:
+	prototype: pointer to uchar : "unknown", line 0
+	argument : pointer to char
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/dig_opt.c` -o dig_opt.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/digest.c` -o digest.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/crc.c` -o crc.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/md5dig.c` -o md5dig.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/haval.c` -o haval.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/sha.c` -o sha.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/adler.c` -o adler.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/crc_zlib.c` -o crc_zlib.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/md2.c` -o md2.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/sha1.c` -o sha1.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/rmd160.c` -o rmd160.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/rmd128.c` -o rmd128.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpmd5.c` -o otpmd5.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/otpsha1.c` -o otpsha1.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/rs_ecc.c` -o rs_ecc.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/zip_opt.c` -o zip_opt.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/zip.c` -o zip.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2_opt.c` -o bz2_opt.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c` -o bz2.o
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 307: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 311: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 375: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 379: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 441: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 445: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 635: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 639: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 704: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 708: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 776: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+"/vol/tclsrcsol/tcl82/trf2.0/tea/../generic/bz2.c", line 780: warning: assignment type mismatch:
+	pointer to char "=" pointer to uchar
+rm -f libTrf2.0.so
+/usr/ccs/bin/ld -G -z text -o libTrf2.0.so bz2lib.o zlib.o loadman.o init.o registry.o unstack.o load.o crypt.o trfStubInit.o convert.o util.o ref_opt.o bincode.o hexcode.o octcode.o uucode.o b64code.o asc85code.o otpcode.o qpcode.o reflect.o dig_opt.o digest.o crc.o md5dig.o haval.o sha.o adler.o crc_zlib.o md2.o sha1.o rmd160.o rmd128.o otpmd5.o otpsha1.o rs_ecc.o zip_opt.o zip.o bz2_opt.o bz2.o  -L/usr/tcl82/sun4/lib -ltclstub8.2
+: libTrf2.0.so
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include     -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../generic/trfStubLib.c` -o trfStubLib.o
+ar cr libTrfstub2.0.a trfStubLib.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include  -I/vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt    -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../compat/stpncpy.c` -o stpncpy.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include  -I/vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt    -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt/crypt-entry.c` -o crypt-entry.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include  -I/vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt    -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt/md5-crypt.c` -o md5-crypt.o
+cc -DVERSION=\"2.0\" -DTRF_VERSION=\"2.0\" -DWORDS_BIGENDIAN=1 -DUSE_TCL_STUBS=1 -DHAVE_ZLIB_H=1 -DHAVE_SSL_H=1 -DHAVE_MD2_H=1 -DHAVE_SHA_H=1 -DHAVE_DLFCN_H=1 -DHAVE_STDLIB_H=1  -DHAVE_UNISTD_H=1 -DHAVE_LIMITS_H=1 -DHAVE_GETCWD=1 -DHAVE_OPENDIR=1 -DHAVE_STRSTR=1 -DHAVE_STRTOL=1 -DHAVE_TMPNAM=1 -DHAVE_WAITPID=1 -DHAVE_UNISTD_H=1 -DHAVE_SYS_PARAM_H=1 -DHAVE_SYS_TIME_H=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_TZNAME=1 -DHAVE_TIMEZONE_VAR=1 -DHAVE_ST_BLKSIZE=1 -DSTDC_HEADERS=1 -DNO_UNION_WAIT=1 -DNEED_MATHERR=1 -DRETSIGTYPE=void -DHAVE_SIGNED_CHAR=1 -DHAVE_SYS_IOCTL_H=1 -DHAVE_SYS_FILIO_H=1       -I"/usr/tcl82/include" -I/usr/tcl82/include -I/projects/intranet/ssl/include  -I/vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt    -O  -KPIC -c `echo /vol/tclsrcsol/tcl82/trf2.0/tea/../md5-crypt/md5.c` -o md5.o
+rm -f libcrypt.so
+/usr/ccs/bin/ld -G -z text -o libcrypt.so stpncpy.o crypt-entry.o md5-crypt.o md5.o  -L/usr/tcl82/sun4/lib -ltclstub8.2
+: libcrypt.so
+LD_LIBRARY_PATH="/vol/tclsrcsol/tcl82/trf2.0/tea:../tea/";	\
+export LD_LIBRARY_PATH; SHLIB_PATH="D_LIBRARY_PATH"; export SHLIB_PATH ;	\
+echo load ./libTrf2.0.so \; cd /vol/tclsrcsol/tcl82/trf2.0/tea/../tests \; source defs \; defConstraints \"hasZlib hasSSL hasBz\" \; source all | /usr/tcl82/sun4/bin/tclsh8.2
+adler.test
+ascii85.test
+base64.test
+bin.test
+binio.test
+	Skipping 'binio' tests, as the command is not compiled into the package
+bz2.test
+common.all.test
+common.conv.test
+common.md.test
+common_seek.test
+crc.test
+crc_zlib.test
+haval.test
+hex.test
+md2.test
+md5.test
+oct.test
+otp_words.test
+otpmd5.test
+otpsha1.test
+rmd128.test
+rmd160.test
+rs_ecc.test
+sha.test
+sha1.test
+transform.test
+uu.test
+zip.test
+
+
+==== zip-1.2-8.x zip compression with nowrap
+==== Contents of test case:
+
+	hex -mode encode [zip -mode compress -nowrap true $text]
+    
+==== Test generated error:
+cannot open libz.so: ld.so.1: /usr/tcl82/sun4/bin/tclsh8.2: fatal: libz.so: open failed: No such file or directory
+
+
+==== zip-1.3-8.x zip decompression with nowrap
+==== Contents of test case:
+
+	zip -mode decompress -nowrap true [hex -mode decode $text_compressed_as_hex_with_nowrap]
+    
+==== Test generated error:
+cannot open libz.so
+cannot open libz.so
+
+
+$ ls -l /usr/tcl82/sun4/lib/libz*
+lrwxrwxrwx   1 lwv26    dept26          9 Nov  6 02:15 /usr/tcl82/sun4/lib/libz.so -> libz.so.1
+lrwxrwxrwx   1 lwv26    dept26         13 Nov  6 02:15 /usr/tcl82/sun4/lib/libz.so.1 -> libz.so.1.1.3
+lrwxrwxrwx   1 lwv26    dept26         13 Nov  6 02:15 /usr/tcl82/sun4/lib/libz.so.1.1 -> libz.so.1.1.3
+-r-xr-xr-x   1 lwv26    dept26     121212 Nov  6 02:15 /usr/tcl82/sun4/lib/libz.so.1.1.3
+-- 
+Larry W. Virden                 <URL: mailto:lvirden@cas.org>
+<URL: http://www.purl.org/NET/lvirden/> <*> O- 
+Unless explicitly stated to the contrary, nothing in this posting should 
+be construed as representing my employer's opinions.
+-><-

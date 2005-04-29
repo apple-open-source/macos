@@ -242,11 +242,3 @@ char **explode(char *s, char c)
 	}
 	return l;
 }
-
-char *itoa(int n)
-{
-	char s[32];
-
-	sprintf(s, "%d", n);
-	return copyString(s);
-}

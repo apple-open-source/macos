@@ -1,6 +1,6 @@
 Please read the README file in this directory first.
 .ex
-.Id $Id: procmail.man,v 1.1.1.2 2001/07/20 19:38:13 bbraun Exp $
+.Id $Id: procmail.man,v 1.1.1.3 2003/10/14 23:13:23 rbraun Exp $
 .TH PROCMAIL 1 \*(Dt BuGless
 .na
 .SH NAME
@@ -355,7 +355,7 @@ or didn't start with a file separator.
 .TP
 Excessive output quenched from "x"
 The program or filter "x" tried to produce too much output for the current
-LINEBUF, the rest was discarded.
+LINEBUF, the rest was discarded and PROCMAIL_OVERFLOW has been set.
 .TP
 Extraneous x ignored
 The action line or other flags on this recipe makes flag x meaningless.
@@ -591,7 +591,7 @@ domain. It can be done if you manage to configure your MTA to add some
 headers with the envelope recipient data in order to tell Procmail who
 a message is for, but this is usually not the right thing to do.
 Perhaps you want to investigate if your MTA offers `virtual user
-tables', or see check out the `multidrop' facility of Fetchmail.
+tables', or check out the `multidrop' facility of Fetchmail.
 .SH BUGS
 After removing a lockfile by force, procmail waits $SUSPEND seconds before
 creating a new lockfile so that another process that decides to remove the
@@ -631,8 +631,8 @@ If the destination name used in explicit delivery mode is not in /etc/passwd,
 procmail will proceed as if explicit delivery mode was not in effect.
 If not in explicit delivery mode and
 should the uid procmail is running under, have no corresponding /etc/passwd
-entry, then HOME will default to @ROOT_DIR@, LOGNAME will default to the
-numeric uid, SHELL will default to @BinSh@, and ORGMAIL will default to
+entry, then HOME will default to @ROOT_DIR@, LOGNAME will default to #uid,
+SHELL will default to @BinSh@, and ORGMAIL will default to
 @DEAD_LETTER@.
 .PP
 When in explicit delivery mode, procmail will generate a leading `@FROM@'
@@ -701,7 +701,7 @@ Calling up procmail with the \-@HELPOPT1@ or \-@HELPOPT2@ options will cause
 it to display a command-line help and recipe flag quick-reference page.
 .PP
 There exists an excellent newbie FAQ about mailfilters (and procmail
-in particular); it is being maintained by Nancy McGough <nancym@ii.com>
+in particular); it is maintained by Nancy McGough <nancym@ii.com>
 and can be obtained by sending a mail to mail-server@rtfm.mit.edu with
 the following in the body:
 .RS

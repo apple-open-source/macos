@@ -32,6 +32,6 @@ int NXIsPunct(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_P)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_P)));
 	return 0;
 }

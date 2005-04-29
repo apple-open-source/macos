@@ -1,0 +1,27 @@
+# Commands covered:  the 'zip' vfs.
+#
+# This file contains a collection of tests for one or more of the Tcl
+# built-in commands.  Sourcing this file into Tcl runs the tests and
+# generates output for errors.  No output means no errors were found.
+#
+# Copyright (c) 2001-2002 by Vince Darley.
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+package require vfs::zip
+
+test vfsZip-1.1 {mount with error} {
+    set f [file join [temporaryDirectory] vfszip.zip]
+    close [open $f w]
+    set res [catch {vfs::zip::Mount $f localmount} err]
+    #lappend res $err
+    lappend res [catch {file delete $f}]
+    set res
+} {1 0}

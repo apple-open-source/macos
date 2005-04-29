@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>XML-RPC</title>
+    </header>
+    <body>
+        <section>
+            <title>XML-RPC</title>
+
+        </section>
+        <section>
+            <title>Installation and default configuration</title>
+            <p>
+                Starting with blojsom 1.4, an XML-RPC servlet is included with blojsom that provides
+                support for the
+                <link href="http://plant.blogger.com/api/index.html">Blogger API</link> and the
+                <link href="http://www.xmlrpc.com/metaweblogAPI">MetaWeblog API</link>.
+            </p>
+            <p>
+                Edit the contents of
+                <code>/WEB-INF/(user-id)/authorization.properties</code> to setup all the valid
+                username/password pairs to control who can post via XML-RPC. And you're done ;)
+            </p>
+            <p>
+
+                To send a message to the service, point your blogger tool or XML-RPC client at
+                your http://www.your.blog.com/xmlrpc/(user-id) </p>
+            <p>
+                Replace
+                <em>www.your.blog.com</em> with the url for your blog and get blogging!
+            </p>
+
+        </section>
+        <section>
+            <title>Setting a default XML-RPC handler</title>
+            <p>
+                A special key, <code>$default</code> is used to specify which of the registered XML-RPC handlers
+                will be used as the default XML-RPC handler if one is not specified in an XML-RPC call. For example,
+                the following shows what the <code>/WEB-INF/xmlrpc.properties</code> looks like where the default
+                XML-RPC handler is set to the Blogger API handler.
+                <source>
+                    #
+                    # blojsom XML-RPC API Handlers
+                    #
+                    blogger=org.blojsom.extension.xmlrpc.handlers.BloggerAPIHandler
+                    metaWeblog=org.blojsom.extension.xmlrpc.handlers.MetaWeblogAPIHandler
+                    $default=blogger
+                </source>
+            </p>
+        </section>
+        <section>
+            <title>Writing a custom XML-RPC handler</title>
+            <p>
+                If you are writing a custom XML-RPC handler for blojsom, you must write your class to implement
+                the
+                <a href="javadoc/org/blojsom/extension/xmlrpc/handlers/AbstractBlojsomAPIHandler.html">AbstractBlojsomAPIHandler</a> interface.
+                Take a look at the source code for the
+                <a href="javadoc/org/blojsom/extension/xmlrpc/handlers/BloggerAPIHandler.html">BloggerAPIHandler</a>
+                and the
+                <a href="javadoc/org/blojsom/extension/xmlrpc/handlers/MetaWeblogAPIHandler.html">MetaWeblogAPIHandler</a> to see how it's
+                done.
+            </p>
+
+        </section>
+        <section>
+            <title>Registering a custom XML-RPC handler</title>
+            <p>
+                To register your custom XML-RPC handler with blojsom, you must modify the
+                <code>/WEB-INF/xmlrpc.properties</code>
+                file. The name of this file can be configured via the
+                <em>blog-xmlrpc-configuration</em> initialization
+                parameter in your
+                <code>/WEB-INF/web.xml</code> file.
+            </p>
+            <p>
+                The contents of the file looks similar to the following:
+            </p>
+            <source>
+                #
+                # blojsom XML-RPC API Handlers
+                #
+                blogger=org.blojsom.extension.xmlrpc.handlers.BloggerAPIHandler
+                metaWeblog=org.blojsom.extension.xmlrpc.handlers.MetaWeblogAPIHandler
+            </source>
+            <p>You simply register a particular API handler under a given name. In the first case above, the "blogger"
+                API handler is handled by the
+                <code>org.blojsom.extension.xmlrpc.handlers.BloggerAPIHandler</code>
+                class.
+
+            </p>
+        </section>
+    </body>
+</document>

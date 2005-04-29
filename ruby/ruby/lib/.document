@@ -1,0 +1,33 @@
+# We only run RDoc on the top-level files in here: we skip
+# all the helper stuff in sub-directories
+
+# Eventually, we hope to see...
+# *.rb
+
+# But for now
+
+abbrev.rb
+base64.rb
+benchmark.rb
+cgi.rb
+cgi
+complex.rb
+date.rb
+English.rb
+fileutils.rb
+find.rb
+generator.rb
+logger.rb
+matrix.rb
+observer.rb
+optionparser.rb
+pathname.rb
+set.rb
+shellwords.rb
+singleton.rb
+tempfile.rb
+test/unit.rb
+thread.rb
+thwait.rb
+time.rb
+yaml.rb

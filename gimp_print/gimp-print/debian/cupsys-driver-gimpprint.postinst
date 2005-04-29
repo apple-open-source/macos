@@ -1,5 +1,5 @@
 #! /bin/sh
-# postinst script for gimp-print
+# postinst script for cupsys-driver-gimpprint
 #
 # see: dh_installdeb(1)
 
@@ -24,7 +24,12 @@ set -e
 
 #s/^if\s+\[\s+"\$1"\s+=\s+"configure"\s+\];\s+then\s+ldconfig\b//m;
 
-if [ "$1" = "configure" ]; then /etc/init.d/cupsys reload
+if [ "$1" = "configure" ]; then
+# Upgrade in-use PPD files
+  /usr/sbin/cups-genppdconfig.5.0 -u
+  /usr/sbin/cups-genppdupdate.5.0
+# Restart CUPSys (to register new and updated PPDs)
+  /etc/init.d/cupsys reload
 elif [ "$1" = "abort-upgrade" -o "$1" = "abort-remove" -o "$1" = "abort-deconfigure" ]; then :
 else
   echo "postinst called with unknown argument \`$1'" >&2

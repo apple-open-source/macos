@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_points.c,v 1.2 2002/02/22 21:32:59 dawes Exp $
+/* $XFree86: xc/lib/GL/mesa/src/drv/ffb/ffb_points.c,v 1.3 2003/09/28 20:15:08 alanh Exp $
  *
  * GLX Hardware Device Driver for Sun Creator/Creator3D
  * Copyright (C) 2000, 2001 David S. Miller
@@ -26,21 +26,14 @@
  */
 
 #include "mtypes.h"
-
-#include <stdio.h>
-#include <stdlib.h>
-
-#include "mm.h"
+#include "mmath.h"
 #include "ffb_dd.h"
-#include "ffb_span.h"
-#include "ffb_depth.h"
 #include "ffb_context.h"
 #include "ffb_vb.h"
-#include "ffb_lines.h"
 #include "ffb_points.h"
 #include "ffb_tris.h"
 #include "ffb_lock.h"
-#include "extensions.h"
+
 
 #undef FFB_POINT_TRACE
 

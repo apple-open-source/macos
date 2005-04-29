@@ -1,6 +1,6 @@
 /* GDB CLI commands.
 
-   Copyright 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright 2000, 2001, 2002, 2003, 2004 Free Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -20,12 +20,14 @@
    Boston, MA 02111-1307, USA.  */
 
 #include "defs.h"
-#include <readline/tilde.h>
+#include "readline/readline.h"
+#include "readline/tilde.h"
 #include "completer.h"
 #include "target.h"	 /* For baud_rate, remote_debug and remote_timeout */
 #include "gdb_wait.h"		/* For shell escape implementation */
 #include "gdb_regex.h"		/* Used by apropos_command */
 #include "gdb_string.h"
+#include "gdb_vfork.h"
 #include "linespec.h"
 #include "expression.h"
 #include "frame.h"
@@ -44,21 +46,13 @@
 #include "cli/cli-setshow.h"
 #include "cli/cli-cmds.h"
 
+#ifdef TUI
+#include "tui/tui.h"		/* For tui_active et.al.   */
+#endif
+
 #ifndef GDBINIT_FILENAME
 #define GDBINIT_FILENAME        ".gdbinit"
 #endif
-
-/* From gdb/top.c */
-
-extern void dont_repeat (void);
-
-extern void set_verbose (char *, int, struct cmd_list_element *);
-
-extern void show_history (char *, int);
-
-extern void set_history (char *, int);
-
-extern void show_commands (char *, int);
 
 /* Prototypes for local command functions */
 
@@ -69,8 +63,6 @@ static void echo_command (char *, int);
 static void pwd_command (char *, int);
 
 static void show_version (char *, int);
-
-static void validate_comname (char *);
 
 static void help_command (char *, int);
 
@@ -195,7 +187,6 @@ error_no_arg (char *why)
 /* The "info" command is defined as a prefix, with allow_unknown = 0.
    Therefore, its own definition is called only for "info" with no args.  */
 
-/* ARGSUSED */
 static void
 info_command (char *arg, int from_tty)
 {
@@ -205,7 +196,6 @@ info_command (char *arg, int from_tty)
 
 /* The "show" command with no arguments shows all the settings.  */
 
-/* ARGSUSED */
 static void
 show_command (char *arg, int from_tty)
 {
@@ -215,7 +205,6 @@ show_command (char *arg, int from_tty)
 /* Provide documentation on command or list given by COMMAND.  FROM_TTY
    is ignored.  */
 
-/* ARGSUSED */
 static void
 help_command (char *command, int from_tty)
 {
@@ -233,21 +222,37 @@ compare_strings (const void *arg1, const void *arg2)
 
 /* The "complete" command is used by Emacs to implement completion.  */
 
-/* ARGSUSED */
 static void
 complete_command (char *arg, int from_tty)
 {
-  int i;
   int argpoint;
-  char **completions;
 
   dont_repeat ();
 
   if (arg == NULL)
     arg = "";
   argpoint = strlen (arg);
+  cli_interpreter_complete (NULL, arg, arg, argpoint);
 
-  completions = complete_line (arg, arg, argpoint);
+}
+
+/* This is the completer function for the cli interpreter.  This is
+   like the "complete" command, except that it can be used from
+   another interpreter more conveniently.  Pass it WORD as a pointer
+   into the COMMAND_BUFFER where you think completion should start,
+   and CURSOR as the logical end of input, and it will output the set
+   of completions to the current uiout.  */
+
+int
+cli_interpreter_complete (void *data, char *word, char *command_buffer, 
+			  int cursor)
+{
+  char **completions;
+  struct cleanup *old_chain;
+
+  completions = complete_line (word, command_buffer, cursor);
+
+  old_chain = make_cleanup_ui_out_list_begin_end (uiout, "completions");
 
   if (completions)
     {
@@ -263,7 +268,8 @@ complete_command (char *arg, int from_tty)
       while (item < size)
 	{
 	  int next_item;
-	  printf_unfiltered ("%s\n", completions[item]);
+	  ui_out_field_string (uiout, "c", completions[item]);
+	  ui_out_text (uiout, "\n");
 	  next_item = item + 1;
 	  while (next_item < size
 		 && ! strcmp (completions[item], completions[next_item]))
@@ -278,6 +284,10 @@ complete_command (char *arg, int from_tty)
 
       xfree (completions);
     }
+
+  do_cleanups (old_chain);
+
+  return 1;
 }
 
 int
@@ -286,7 +296,6 @@ is_complete_command (struct cmd_list_element *c)
   return cmd_cfunc_eq (c, complete_command);
 }
 
-/* ARGSUSED */
 static void
 show_version (char *args, int from_tty)
 {
@@ -305,8 +314,9 @@ quit_command (char *args, int from_tty)
     error ("Not confirmed.");
   quit_force (args, from_tty);
 }
+  char **argv;
+  struct cleanup *old_cleanups;
 
-/* ARGSUSED */
 static void
 pwd_command (char *args, int from_tty)
 {
@@ -314,7 +324,7 @@ pwd_command (char *args, int from_tty)
     error ("The \"pwd\" command does not take an argument: %s", args);
   getcwd (gdb_dirbuf, sizeof (gdb_dirbuf));
 
-  if (!STREQ (gdb_dirbuf, current_directory))
+  if (strcmp (gdb_dirbuf, current_directory) != 0)
     printf_unfiltered ("Working directory %s\n (canonically %s).\n",
 		       current_directory, gdb_dirbuf);
   else
@@ -336,8 +346,14 @@ cd_command (char *dir, int from_tty)
   if (dir == 0)
     error_no_arg ("new working directory");
 
-  dir = tilde_expand (dir);
-  make_cleanup (xfree, dir);
+  argv = buildargv (dir);
+  if (argv == NULL)
+    nomem (0);
+
+  make_cleanup_freeargv (argv);
+
+  dir = tilde_expand (*argv);
+  old_cleanups = make_cleanup (xfree, dir);
 
   if (chdir (dir) < 0)
     perror_with_name (dir);
@@ -419,23 +435,48 @@ cd_command (char *dir, int from_tty)
 
   if (from_tty)
     pwd_command ((char *) 0, 1);
+  
+  do_cleanups (old_cleanups);
 }
 
 void
 source_command (char *args, int from_tty)
 {
-  FILE *stream;
+  char *file;
+  char **argv;
   struct cleanup *old_cleanups;
-  char *file = args;
 
-  if (file == NULL)
+  if (args == NULL)
     {
       error ("source command requires pathname of file to source.");
     }
 
-  file = tilde_expand (file);
-  old_cleanups = make_cleanup (xfree, file);
+  argv = buildargv (args);
+  if (argv == NULL)
+    nomem (0);
 
+  make_cleanup_freeargv (argv);
+
+  file = tilde_expand (*argv);
+  old_cleanups = make_cleanup (xfree, file);
+  source_file (file, from_tty);  /* APPLE LOCAL */
+  do_cleanups (old_cleanups);
+}
+
+/* APPLE LOCAL: We split the file-source code out of the CLI command
+   that sources the file so that main.c can call source_file_attach with
+   a filename with embedded whitespace and the argv expander won't
+   expand it into multiple arguments.  I just copied Klee's scheme
+   from corefile.c and core_file_command -> core_file_attach.  
+   This would more properly be up in ../top.c because it's specifically
+   not the CLI command, but that would probably make FSF<->Apple merging
+   more work, so here it stays.  */
+
+void
+source_file (char *file, int from_tty)
+{
+  FILE *stream;
+  
   stream = fopen (file, FOPEN_RT);
   if (!stream)
     {
@@ -446,16 +487,13 @@ source_command (char *args, int from_tty)
     }
 
   script_from_file (stream, file);
-
-  do_cleanups (old_cleanups);
 }
 
-/* ARGSUSED */
 static void
 echo_command (char *text, int from_tty)
 {
   char *p = text;
-  register int c;
+  int c;
 
   if (text)
     while ((c = *p++) != '\0')
@@ -480,7 +518,6 @@ echo_command (char *text, int from_tty)
   gdb_flush (gdb_stdout);
 }
 
-/* ARGSUSED */
 static void
 shell_escape (char *arg, int from_tty)
 {
@@ -510,23 +547,24 @@ shell_escape (char *arg, int from_tty)
 #endif
 #else /* Can fork.  */
   int rc, status, pid;
-  char *p, *user_shell;
 
-  if ((user_shell = (char *) getenv ("SHELL")) == NULL)
-    user_shell = "/bin/sh";
-
-  /* Get the name of the shell for arg0 */
-  if ((p = strrchr (user_shell, '/')) == NULL)
-    p = user_shell;
-  else
-    p++;			/* Get past '/' */
-
-  if ((pid = fork ()) == 0)
+  if ((pid = vfork ()) == 0)
     {
-      if (!arg)
-	execl (user_shell, p, 0);
+      char *p, *user_shell;
+
+      if ((user_shell = (char *) getenv ("SHELL")) == NULL)
+	user_shell = "/bin/sh";
+
+      /* Get the name of the shell for arg0 */
+      if ((p = strrchr (user_shell, '/')) == NULL)
+	p = user_shell;
       else
-	execl (user_shell, p, "-c", arg, 0);
+	p++;			/* Get past '/' */
+
+      if (!arg)
+	execl (user_shell, p, (char *) 0);
+      else
+	execl (user_shell, p, "-c", arg, (char *) 0);
 
       fprintf_unfiltered (gdb_stderr, "Cannot execute %s: %s\n", user_shell,
 			  safe_strerror (errno));
@@ -575,7 +613,7 @@ edit_command (char *arg, int from_tty)
       /* Now should only be one argument -- decode it in SAL */
 
       arg1 = arg;
-      sals = decode_line_1 (&arg1, 0, 0, 0, 0);
+      sals = decode_line_1 (&arg1, 0, 0, 0, 0, 0);
 
       if (! sals.nelts) return;  /*  C++  */
       if (sals.nelts > 1) {
@@ -605,7 +643,7 @@ edit_command (char *arg, int from_tty)
 	    {
 	      print_address_numeric (sal.pc, 1, gdb_stdout);
 	      printf_filtered (" is in ");
-	      fputs_filtered (SYMBOL_SOURCE_NAME (sym), gdb_stdout);
+	      fputs_filtered (SYMBOL_PRINT_NAME (sym), gdb_stdout);
 	      printf_filtered (" (%s:%d).\n", sal.symtab->filename, sal.line);
 	    }
           else
@@ -669,7 +707,7 @@ list_command (char *arg, int from_tty)
 
   /* "l" or "l +" lists next ten lines.  */
 
-  if (arg == 0 || STREQ (arg, "+"))
+  if (arg == 0 || strcmp (arg, "+") == 0)
     {
       print_source_lines (cursal.symtab, cursal.line,
 			  get_lines_to_list (), 0);
@@ -677,7 +715,7 @@ list_command (char *arg, int from_tty)
     }
 
   /* "l -" lists previous ten lines, the ones before the ten just listed.  */
-  if (STREQ (arg, "-"))
+  if (strcmp (arg, "-") == 0)
     {
       int first = max (get_first_line_listed () - get_lines_to_list (), 1);
       print_source_lines (cursal.symtab, first,
@@ -699,7 +737,7 @@ list_command (char *arg, int from_tty)
     dummy_beg = 1;
   else
     {
-      sals = decode_line_1 (&arg1, 0, 0, 0, 0);
+      sals = decode_line_1 (&arg1, 0, 0, 0, 0, 0);
 
       if (!sals.nelts)
 	return;			/*  C++  */
@@ -732,9 +770,9 @@ list_command (char *arg, int from_tty)
       else
 	{
 	  if (dummy_beg)
-	    sals_end = decode_line_1 (&arg1, 0, 0, 0, 0);
+	    sals_end = decode_line_1 (&arg1, 0, 0, 0, 0, 0);
 	  else
-	    sals_end = decode_line_1 (&arg1, 0, sal.symtab, sal.line, 0);
+	    sals_end = decode_line_1 (&arg1, 0, sal.symtab, sal.line, 0, 0);
 	  if (sals_end.nelts == 0)
 	    return;
 	  if (sals_end.nelts > 1)
@@ -772,7 +810,7 @@ list_command (char *arg, int from_tty)
 	{
 	  print_address_numeric (sal.pc, 1, gdb_stdout);
 	  printf_filtered (" is in ");
-	  fputs_filtered (SYMBOL_SOURCE_NAME (sym), gdb_stdout);
+	  fputs_filtered (SYMBOL_PRINT_NAME (sym), gdb_stdout);
 	  printf_filtered (" (%s:%d).\n", sal.symtab->filename, sal.line);
 	}
       else
@@ -829,7 +867,6 @@ list_command (char *arg, int from_tty)
    Two arguments are interpeted as bounds within which to dump
    assembly.  */
 
-/* ARGSUSED */
 static void
 disassemble_command (char *arg, int from_tty)
 {
@@ -851,8 +888,11 @@ disassemble_command (char *arg, int from_tty)
       if (find_pc_partial_function (pc, &name, &low, &high) == 0)
 	error ("No function contains program counter for selected frame.\n");
 #if defined(TUI)
-      else if (tui_version)
-	low = tuiGetLowDisassemblyAddress (low, pc);
+      /* NOTE: cagney/2003-02-13 The `tui_active' was previously
+	 `tui_version'.  */
+      if (tui_active)
+	/* FIXME: cagney/2004-02-07: This should be an observer.  */
+	low = tui_get_low_disassembly_address (low, pc);
 #endif
       low += FUNCTION_START_OFFSET;
     }
@@ -863,8 +903,11 @@ disassemble_command (char *arg, int from_tty)
       if (find_pc_partial_function (pc, &name, &low, &high) == 0)
 	error ("No function contains specified address.\n");
 #if defined(TUI)
-      else if (tui_version)
-	low = tuiGetLowDisassemblyAddress (low, pc);
+      /* NOTE: cagney/2003-02-13 The `tui_active' was previously
+	 `tui_version'.  */
+      if (tui_active)
+	/* FIXME: cagney/2004-02-07: This should be an observer.  */
+	low = tui_get_low_disassembly_address (low, pc);
 #endif
       low += FUNCTION_START_OFFSET;
     }
@@ -925,7 +968,6 @@ make_command (char *arg, int from_tty)
   shell_escape (p, from_tty);
 }
 
-/* ARGSUSED */
 static void
 show_user (char *args, int from_tty)
 {
@@ -979,8 +1021,9 @@ apropos_command (char *searchstr, int from_tty)
 
 /* Print a list of files and line numbers which a user may choose from
    in order to list a function which was specified ambiguously (as with
-   `list classname::overloadedfuncname', for example).  The vector in
-   SALS provides the filenames and line numbers.  */
+   `list classname::overloadedfuncname', or 'list objectiveCSelector:).
+   The vector in SALS provides the filenames and line numbers.
+   NOTE: some of the SALS may have no filename or line information! */
 
 static void
 ambiguous_line_spec (struct symtabs_and_lines *sals)
@@ -988,8 +1031,13 @@ ambiguous_line_spec (struct symtabs_and_lines *sals)
   int i;
 
   for (i = 0; i < sals->nelts; ++i)
-    printf_filtered ("file: \"%s\", line number: %d\n",
-		     sals->sals[i].symtab->filename, sals->sals[i].line);
+    if (sals->sals[i].symtab != 0)
+      printf_filtered ("file: \"%s\", line number: %d\n",
+		       sals->sals[i].symtab->filename != NULL 
+		       ? sals->sals[i].symtab->filename : "<Unknown File>",
+		       sals->sals[i].line);
+    else
+      printf_filtered ("No file and line information for pc: 0x%s.\n", paddr_nz (sals->sals[i].pc));
 }
 
 static void

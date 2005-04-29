@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <ext/stdio_filebuf.h>
 #include <testsuite_hooks.h>
 
 const char name_01[] = "filebuf_members-1.tst";
@@ -89,7 +90,7 @@ void test_02()
   FILE* f2 = fopen(name_01, "r");
   VERIFY( f2 != NULL );
   {
-    std::filebuf fb(f2, std::ios_base::in, 512);
+    __gnu_cxx::stdio_filebuf<char> fb(f2, std::ios_base::in, 512);
   }
   close_num = fclose(f2);
   VERIFY( close_num == 0 );
@@ -115,7 +116,7 @@ void test_03()
   VERIFY( first_fd != -1 );
   FILE* first_file = ::fdopen(first_fd, "r");
   VERIFY( first_file != NULL );
-  std::filebuf fb (first_file, std::ios_base::in);
+  __gnu_cxx::stdio_filebuf<char> fb(first_file, std::ios_base::in);
 
   int second_fd = fb.fd();
 
@@ -171,7 +172,6 @@ test_04()
     }
 
   unlink("xxx");
-  exit(0);
 }
 
 // Charles Leggett <CGLeggett@lbl.gov>
@@ -190,6 +190,33 @@ void test_05()
   scratch_file.close();
 }
 
+// libstdc++/9507
+void test_06()
+{
+  bool test = true;
+
+  signal(SIGPIPE, SIG_IGN);
+
+  unlink("yyy");
+  mkfifo("yyy", S_IRWXU);
+	
+  if (!fork())
+    {
+      std::filebuf fbuf;
+      fbuf.open("yyy", std::ios_base::in);
+      fbuf.sgetc();
+      fbuf.close();
+
+      exit(0);
+    }
+
+  std::filebuf fbuf;
+  std::filebuf* r =
+    fbuf.open("yyy", std::ios_base::out | std::ios_base::ate);
+  VERIFY( !fbuf.is_open() );
+  VERIFY( r == NULL );
+}
+
 int
 main()
 {
@@ -198,6 +225,7 @@ main()
   test_03();
   test_04();
   test_05();
+  test_06();
   return 0;
 }
 

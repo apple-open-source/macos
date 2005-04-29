@@ -1,6 +1,7 @@
 #include <ctype.h>		/* ANSI C */
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdarg.h> 
 #include <time.h>
@@ -86,7 +87,7 @@ const char *setCopyright(const char *copyright)
     static const char *sCopyright = NULL;
     
     if (copyright != NULL) {
-        if (sCopyright != NULL) free(sCopyright);
+        if (sCopyright != NULL) free((char*)sCopyright);
         sCopyright = strdup(copyright);
     }
     
@@ -125,7 +126,7 @@ int msg ( char *fmt, ... )
     logfile[0] = stderr ;
     logfile[1] = stdout ;
     for ( i=0 ; i<NLOG ; i++ )
-      setvbuf ( logfile[i], msgbuf[i], _IOFBF, MAXMSGBUF ) ;
+      setvbuf ( logfile[i], msgbuf[i], _IOLBF, MAXMSGBUF ) ;
     cname ( 0 ) ;
     init = 1 ;
   }

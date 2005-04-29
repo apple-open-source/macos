@@ -1,0 +1,289 @@
+img {
+    border: 0px;
+}
+
+body
+{
+	color: #333333;
+	background-color: white;
+	margin-top: 14pt;
+	margin-left: 25pt;
+	margin-right: 25pt;
+	margin-bottom: 36pt;
+	font-family: Georgia, "Times New Roman", Times, serif;
+	background-image: url("images/small-grid.gif");
+}
+
+h1
+{
+	font-family: Helvetica, Arial, sans-serif;
+	color: #000000;
+	margin-top: 0pt;
+	margin-bottom: 2pt;
+	padding-top: 0pt;
+}
+
+h3
+{
+	font-family: Helvetica, Arial, sans-serif;
+	color: #000000;
+	margin-top: 0pt;
+	margin-bottom: 4pt;
+	padding-top: 0pt;
+}
+
+
+h2
+{
+	font-family: Helvetica, Arial, sans-serif;
+	color: #000000;
+}
+
+a
+{
+	color: #FFA500;
+	text-decoration: none;
+}
+
+a:hover
+{
+	color: #AA0000;
+	text-decoration: underline;
+}
+
+blockquote {
+    border: 2px dotted;
+    background-color: #eee;
+    padding: 15px;
+    margin: 10px 10px;
+    color: #333
+}
+
+
+.navigation
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: smaller;
+	margin-bottom: 0pt;
+	padding-bottom: 0pt;
+}
+
+.copyright
+{
+	color: #AAAAAA;
+	font-size: smaller;
+	margin-top: 36pt;
+}
+
+.weblognav
+{
+	float: right;
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: smaller;
+}
+
+.weblogtitle
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: bold;
+	font-size: larger;
+	margin-bottom: 0pt;
+	padding-bottom: 0pt;
+}
+
+.weblogtitle2
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: bold;
+	font-size: larger;
+	margin-bottom: 0pt;
+	margin-top: 1pt;
+	padding-bottom: 0pt;
+}
+.weblogdateline
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: normal;
+	font-size: smaller;
+	color: #555555;
+	margin-top: 0pt;
+	padding-top: 0pt;
+}
+
+.refererhistory
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-weight: normal;
+	font-size: 75%;
+	color: #555555;
+	margin-top: 0pt;
+	padding-top: 0pt;
+}
+
+
+
+.weblogpostedbyline
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: smaller;
+	color: #000000;
+	margin-top: 0pt;
+	padding-top: 0pt;
+}
+
+.weblogbottomline
+{
+	font-family: Helvetica, Arial, sans-serif;
+	font-size: smaller;
+	margin-top: 0pt;
+	padding-top: 0pt;
+	margin-bottom: 5px;
+	text-align: right;
+}
+
+.entrystyle
+{
+	margin-bottom: 20px;
+	text-align: left;
+	background-color: #EEEEEE;
+}
+
+.entrystyle2
+{
+	margin-bottom: 20px;
+	text-align: left;
+	background-color: #FFFFFF;
+	border-left:1px solid #000000;
+	border-right:1px solid #000000;
+	border-bottom:2px solid #000000;
+	border-top:1px solid #000000;
+	padding:10px;
+}
+
+.commentstyle
+{
+	margin-bottom: 20px;
+	text-align: left;
+	background-color: #EEEEEE;
+}
+
+.commentstyle2
+{
+	margin-bottom: 15px;
+	text-align: left;
+	background-color: #EEEEEE;
+	border-left:1px solid #000000;
+	border-right:1px solid #000000;
+	border-bottom:2px solid #000000;
+	border-top:1px solid #000000;
+	padding:10px;
+
+}
+
+
+
+.smalltext
+{
+	font-size: 50%;
+	font-weight: bold;
+}
+
+
+.categorylist
+{
+	margin-bottom: 10px;
+}
+
+
+.searchtext
+{
+    margin-top: 0px;
+	margin-bottom: 0px;
+	text-align: right;
+}
+.searchimage
+{
+    margin-top: 0px;
+	margin-bottom: 0px;
+	vertical-align: middle;
+}
+
+#searchbox{
+	float:right;
+	width : 200px;
+	background-color: #FFFFFF;
+	border-left:0px solid #000000;
+	border-right:0px solid #000000;
+	border-bottom:0px solid #000000;
+	border-top:0px solid #000000;
+	padding:0px;
+	margin-top:5px;
+	margin-bottom:0px;
+	margin-right:0px;
+}
+
+.searchform {
+    margin-top: 2px;
+	margin-bottom: 2px;
+}
+
+
+.calendarcaption {
+   font-family: Helvetica, Arial, sans-serif;
+   text-align:center;
+   font-weight: bold;
+   font-size: larger;
+   margin-bottom: 0pt;
+   margin-top: 1pt;
+   padding-bottom: 0pt;
+}
+
+.calendarbox {
+   background-color:#FFFFFF;
+   border-left:1px solid #000000;
+   border-right:1px solid #000000;
+   border-bottom:1px solid #000000;
+   border-top:1px solid #000000;
+   padding:1px;
+   margin-bottom: 15px;
+}
+
+.calendarcolumn {
+    font-family: Helvetica, Arial, sans-serif;
+	font-size: 9px;
+	text-align: center;
+}
+
+.tablemaxwidth {
+   width: 100%;
+   vertical-align: top;
+}
+
+.tablemaxpxwidth {
+   padding:1px;
+}
+
+
+.mastertable {
+      border:  0px;
+      width: 100%;
+}
+
+.calendartable {
+   border: 0px;
+   width: 165px;
+}
+
+.searchhighlight {
+   background-color:#FFFF00;
+   color: #000000;
+}
+
+.searchhighlight {
+   background-color:#FFFF00;
+   color: #000000;
+}
+
+code {
+	color: green;
+}

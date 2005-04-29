@@ -36,11 +36,14 @@ Notice===
 	and an actual X11 font using iso8859-11 encoding.
 
  */
+/* $XFree86: xc/extras/X-TrueType/ISO8859.11/ISO8859_11toUCS2.c,v 1.2 2003/10/22 16:25:37 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

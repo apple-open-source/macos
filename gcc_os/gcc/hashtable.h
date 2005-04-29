@@ -1,5 +1,5 @@
 /* Hash tables.
-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 2000, 2001, 2004 Free Software Foundation, Inc.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -23,7 +23,7 @@ Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
 /* This is what each hash table entry points to.  It may be embedded
    deeply within another object.  */
 typedef struct ht_identifier ht_identifier;
-struct ht_identifier
+struct ht_identifier GTY(())
 {
   unsigned int len;
   const unsigned char *str;
@@ -49,8 +49,11 @@ struct ht
   struct obstack stack;
 
   hashnode *entries;
-  /* Call back.  */
-  hashnode (*alloc_node) PARAMS ((hash_table *));
+  /* Call back, allocate a node.  */
+  hashnode (*alloc_node) (hash_table *);
+  /* Call back, allocate something that hangs off a node like a cpp_macro.  
+     NULL means use the usual allocator.  */
+  void * (*alloc_subobject) (size_t);
 
   unsigned int nslots;		/* Total slots in the entries array.  */
   unsigned int nelements;	/* Number of live elements.  */
@@ -61,11 +64,14 @@ struct ht
   /* Table usage statistics.  */
   unsigned int searches;
   unsigned int collisions;
+
+  /* Should 'entries' be freed when it is no longer needed?  */
+  bool entries_owned;
 };
 
 extern void gcc_obstack_init PARAMS ((struct obstack *));
 
-/* Initialise the hashtable with 2 ^ order entries.  */
+/* Initialize the hashtable with 2 ^ order entries.  */
 extern hash_table *ht_create PARAMS ((unsigned int order));
 
 /* Frees all memory associated with a hash table.  */
@@ -79,6 +85,10 @@ extern hashnode ht_lookup PARAMS ((hash_table *, const unsigned char *,
    if the callback returns zero.  */
 typedef int (*ht_cb) PARAMS ((struct cpp_reader *, hashnode, const void *));
 extern void ht_forall PARAMS ((hash_table *, ht_cb, const void *));
+
+/* Restore the hash table.  */
+extern void ht_load (hash_table *ht, hashnode *entries,
+		     unsigned int nslots, unsigned int nelements, bool own);
 
 /* Dump allocation statistics to stderr.  */
 extern void ht_dump_statistics PARAMS ((hash_table *));

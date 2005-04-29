@@ -10,6 +10,9 @@ if test -z "$srcdir"; then
   srcdir=.
 fi
 
+LC_ALL=C
+export LC_ALL
+
 rm -f comm.h
 cat << EOF > comm.h
 /*
@@ -57,6 +60,7 @@ struct action
 {
   int nr;
   char **args;
+  int *argl;
 };
 
 #define RC_ILLEGAL -1
@@ -70,7 +74,7 @@ $AWK < ${srcdir}/comm.c >> comm.h '
 	old = $2;
 	}
 '
-cc -E -I. -I${srcdir} ${srcdir}/comm.c > comm.cpp
+$CC -E -I. -I${srcdir} ${srcdir}/comm.c > comm.cpp
 sed < comm.cpp \
   -n \
   -e '/^ *{ "/y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' \

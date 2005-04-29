@@ -37,7 +37,7 @@
 
 #include "global.h"
 
-static char const rcsid[] = "$Id: history.c,v 1.1.1.1 2001/02/07 01:24:31 wsanchez Exp $";
+static char const rcsid[] = "$Id: history.c,v 1.2 2004/07/09 21:34:44 nicolai Exp $";
 
 static	struct cmd *tail, *current;
 

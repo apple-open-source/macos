@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtGetAres.man,v 1.3 2001/02/09 03:47:51 tsi Exp $
+.\" $XFree86: xc/doc/man/Xt/XtGetAres.man,v 1.4 2003/04/28 22:18:18 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,31 +131,13 @@
 .SH NAME
 XtGetApplicationResources, XtVaGetApplicationResources \- obtain application resources
 .SH SYNTAX
-void XtGetApplicationResources(\fIw\fP, \fIbase\fP, \fIresources\fP,
-\fInum_resources\fP, \fIargs\fP, \fInum_args\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtPointer \fIbase\fP;
-.br
-      XtResourceList \fIresources\fP;
-.br
-      Cardinal \fInum_resources\fP;
-.br
-      ArgList \fIargs\fP;
-.br
-      Cardinal \fInum_args\fP;
-.LP
-void XtVaGetApplicationResources(\fIw\fP, \fIbase\fP, \fIresources\fP,
-\fInum_resources\fP,\fI...\fP)
-.br
-      Widget \fIw\fP;
-.br
-      XtPointer \fIbase\fP;
-.br
-      XtResourceList \fIresources\fP;
-.br
-      Cardinal \fInum_resources\fP;
+.HP
+void XtGetApplicationResources(Widget \fIw\fP, XtPointer \fIbase\fP,
+XtResourceList \fIresources\fP, Cardinal \fInum_resources\fP, ArgList
+\fIargs\fP, Cardinal \fInum_args\fP); 
+.HP
+void XtVaGetApplicationResources(Widget \fIw\fP, XtPointer \fIbase\fP,
+XtResourceList \fIresources\fP, Cardinal \fInum_resources\fP, ...\^);
 .SH ARGUMENTS
 .ds Al to override resources obtained from the resource database
 .IP \fIargs\fP 1i

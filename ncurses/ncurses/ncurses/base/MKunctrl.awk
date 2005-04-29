@@ -1,4 +1,4 @@
-# $Id: MKunctrl.awk,v 1.1.1.1 2001/11/29 20:40:57 jevans Exp $
+# $Id: MKunctrl.awk,v 1.9 2001/06/02 23:59:20 skimo Exp $
 ##############################################################################
 # Copyright (c) 1998,2000,2001 Free Software Foundation, Inc.                #
 #                                                                            #

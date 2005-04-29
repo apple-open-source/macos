@@ -1,0 +1,382 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.python.util</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.python.html">Package&nbsp;python</a> ::
+        Module&nbsp;util
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.python.util.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.python.util</h2>
+
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util._IntervalDifferentialIterator.html"><code>_IntervalDifferentialIterator</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.FancyEqMixin.html"><code>FancyEqMixin</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.FancyStrMixin.html"><code>FancyStrMixin</code></a></b></td>
+  <td>Set showAttributes to a sequence of strings naming attributes, OR 
+sequences of (attributeName, displayName, formatCharacter)</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.InsensitiveDict.html"><code>InsensitiveDict</code></a></b></td>
+  <td>Dictionary, that has case-insensitive keys.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.IntervalDifferential.html"><code>IntervalDifferential</code></a></b></td>
+  <td>Given a list of intervals, generate the amount of time to sleep between
+&quot;instants&quot;.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.LineLog.html"><code>LineLog</code></a></b></td>
+  <td>A limited-size line-based log, useful for logging line-based protocols 
+such as SMTP.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.python.util.OrderedDict.html"><code>OrderedDict</code></a></b></td>
+  <td>A UserDict that preserves insert order whenever possible.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#_getpass" class="summary-sig-name"><code>_getpass</code></a>(<span class=summary-sig-arg>prompt</span>)</span></code>
+<br />
+Helper to turn IOErrors into KeyboardInterrupts</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="addPluginDir"></a><span class="summary-sig"><span class="summary-sig-name">addPluginDir</span>()</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="dict"></a><span class="summary-sig"><span class="summary-sig-name">dict</span>(<span class="summary-sig-vararg">*a</span>,
+          <span class="summary-sig-kwarg">**k</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="dsu"></a><span class="summary-sig"><span class="summary-sig-name">dsu</span>(<span class=summary-sig-arg>list</span>,
+          <span class=summary-sig-arg>key</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#getPassword" class="summary-sig-name"><code>getPassword</code></a>(<span class=summary-sig-arg>prompt</span>,
+          <span class=summary-sig-arg>confirm</span>,
+          <span class=summary-sig-arg>forceTTY</span>)</span></code>
+<br />
+Obtain a password by prompting or from stdin.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="getPluginDirs"></a><span class="summary-sig"><span class="summary-sig-name">getPluginDirs</span>()</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="initgroups"></a><span class="summary-sig"><span class="summary-sig-name">initgroups</span>(<span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>primaryGid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#keyed_md5" class="summary-sig-name"><code>keyed_md5</code></a>(<span class=summary-sig-arg>secret</span>,
+          <span class=summary-sig-arg>challenge</span>)</span></code>
+<br />
+Create the keyed MD5 string for the given secret and challenge.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#makeStatBar" class="summary-sig-name"><code>makeStatBar</code></a>(<span class=summary-sig-arg>width</span>,
+          <span class=summary-sig-arg>maxPosition</span>,
+          <span class=summary-sig-arg>doneChar</span>,
+          <span class=summary-sig-arg>undoneChar</span>,
+          <span class=summary-sig-arg>currentChar</span>)</span></code>
+<br />
+Creates a function that will return a string representing a progress 
+bar.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#padTo" class="summary-sig-name"><code>padTo</code></a>(<span class=summary-sig-arg>n</span>,
+          <span class=summary-sig-arg>seq</span>,
+          <span class=summary-sig-arg>default</span>)</span></code>
+<br />
+Pads a sequence out to n elements,</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="println"></a><span class="summary-sig"><span class="summary-sig-name">println</span>(<span class="summary-sig-vararg">*a</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#raises" class="summary-sig-name"><code>raises</code></a>(<span class=summary-sig-arg>exception</span>,
+          <span class=summary-sig-arg>f</span>,
+          <span class="summary-sig-vararg">*args</span>,
+          <span class="summary-sig-kwarg">**kwargs</span>)</span></code>
+<br />
+Determine whether the given call raises the given exception</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#searchupwards" class="summary-sig-name"><code>searchupwards</code></a>(<span class=summary-sig-arg>start</span>,
+          <span class=summary-sig-arg>files</span>,
+          <span class=summary-sig-arg>dirs</span>)</span></code>
+<br />
+Walk upwards from start, looking for a directory containing all files 
+and directories given as arguments:</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#sibpath" class="summary-sig-name"><code>sibpath</code></a>(<span class=summary-sig-arg>path</span>,
+          <span class=summary-sig-arg>sibling</span>)</span></code>
+<br />
+Return the path to a sibling of a file in the filesystem.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#spewer" class="summary-sig-name"><code>spewer</code></a>(<span class=summary-sig-arg>frame</span>,
+          <span class=summary-sig-arg>s</span>,
+          <span class=summary-sig-arg>ignored</span>)</span></code>
+<br />
+A trace function for sys.settrace that prints every function or method 
+call.</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="str_xor"></a><span class="summary-sig"><span class="summary-sig-name">str_xor</span>(<span class=summary-sig-arg>s</span>,
+          <span class=summary-sig-arg>b</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="switchUID"></a><span class="summary-sig"><span class="summary-sig-name">switchUID</span>(<span class=summary-sig-arg>uid</span>,
+          <span class=summary-sig-arg>gid</span>,
+          <span class=summary-sig-arg>euid</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.python.util.html#uniquify" class="summary-sig-name"><code>uniquify</code></a>(<span class=summary-sig-arg>lst</span>)</span></code>
+<br />
+Make the elements of a list unique by inserting them into a 
+dictionary.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF VARIABLE SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Variable Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1"><code>str</code></font></td>
+<td><b><a href="twisted.python.util.html#__version__"><code>__version__</code></a></b> = <span title="'1.51'"><code><span class="variable-quote">'</span>1.51<span class="variable-quote">'</span>                                     </code>
+</span></td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="_getpass"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">_getpass</span>(<span class=sig-arg>prompt</span>)</span>
+  </h3>
+  Helper to turn IOErrors into KeyboardInterrupts
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="getPassword"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">getPassword</span>(<span class=sig-arg>prompt</span>=<span class=sig-default>'Password:&nbsp;'</span>,
+          <span class=sig-arg>confirm</span>=<span class=sig-default>0</span>,
+          <span class=sig-arg>forceTTY</span>=<span class=sig-default>0</span>)</span>
+  </h3>
+  <p>Obtain a password by prompting or from stdin.</p>
+  <p>If stdin is a terminal, prompt for a new password, and confirm (if 
+  <code>confirm</code> is true) by asking again to make sure the user 
+  typed the same thing, as keystrokes will not be echoed.</p>
+  If stdin is not a terminal, and <code>forceTTY</code> is not true, 
+  read in a line and use it as the password, less the trailing newline, 
+  if any. If <code>forceTTY</code> is true, attempt to open a tty and 
+  prompt for the password using it. Raise a RuntimeException if this is 
+  not possible.
+  <dl><dt></dt><dd>
+    <dl><dt><b>Returns:</b></dt>
+      <dd>
+        <code>str</code>
+      </dd>
+    </dl>
+  </dd></dl>
+</td></tr></table>
+
+<a name="keyed_md5"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">keyed_md5</span>(<span class=sig-arg>secret</span>,
+          <span class=sig-arg>challenge</span>)</span>
+  </h3>
+  Create the keyed MD5 string for the given secret and challenge.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="makeStatBar"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">makeStatBar</span>(<span class=sig-arg>width</span>,
+          <span class=sig-arg>maxPosition</span>,
+          <span class=sig-arg>doneChar</span>=<span class=sig-default>'='</span>,
+          <span class=sig-arg>undoneChar</span>=<span class=sig-default>'-'</span>,
+          <span class=sig-arg>currentChar</span>=<span class=sig-default>'&gt;'</span>)</span>
+  </h3>
+  Creates a function that will return a string representing a progress 
+  bar.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="padTo"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">padTo</span>(<span class=sig-arg>n</span>,
+          <span class=sig-arg>seq</span>,
+          <span class=sig-arg>default</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+  <p>Pads a sequence out to n elements,</p>
+  <p>filling in with a default value if it is not long enough.</p>
+  <p>If the input sequence is longer than n, raises ValueError.</p>
+  Details, details: This returns a new list; it does not extend the 
+  original sequence. The new list contains the values of the original 
+  sequence, not copies.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="raises"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">raises</span>(<span class=sig-arg>exception</span>,
+          <span class=sig-arg>f</span>,
+          <span class="sig-vararg">*args</span>,
+          <span class="sig-kwarg">**kwargs</span>)</span>
+  </h3>
+  Determine whether the given call raises the given exception
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="searchupwards"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">searchupwards</span>(<span class=sig-arg>start</span>,
+          <span class=sig-arg>files</span>=<span class=sig-default>[]</span>,
+          <span class=sig-arg>dirs</span>=<span class=sig-default>[]</span>)</span>
+  </h3>
+  Walk upwards from start, looking for a directory containing all 
+  files and directories given as arguments:
+<pre class="literalblock">
+&gt;&gt; searchupwards('.', ['foo.txt'], ['bar', 'bam'])
+</pre>
+  If not found, return None
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="sibpath"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">sibpath</span>(<span class=sig-arg>path</span>,
+          <span class=sig-arg>sibling</span>)</span>
+  </h3>
+  <p>Return the path to a sibling of a file in the filesystem.</p>
+  This is useful in conjunction with the special __file__ attribute 
+  that Python provides for modules, so modules can load associated 
+  resource files.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="spewer"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">spewer</span>(<span class=sig-arg>frame</span>,
+          <span class=sig-arg>s</span>,
+          <span class=sig-arg>ignored</span>)</span>
+  </h3>
+  A trace function for sys.settrace that prints every function or 
+  method call.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+
+<a name="uniquify"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">uniquify</span>(<span class=sig-arg>lst</span>)</span>
+  </h3>
+  Make the elements of a list unique by inserting them into a 
+  dictionary. This must not change the order of the input lst.
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF VARIABLE DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Variable Details</th></tr>
+</table>
+<table width="100%" class="var-details" bgcolor="#e0e0e0"><tr><td>
+<a name="__version__"></a>
+<h3>__version__</h3>
+<dl>
+  <dt></dt>
+  <dd>
+    <dl>
+      <dt><b>Type:</b></dt>
+      <dd>
+          <code>str</code>
+
+      </dd>
+<span title="'1.51'">      <dt><b>Value:</b></dt>
+      <dd><table><tr><td>
+<pre class="variable">
+<span class="variable-quote">'</span>1.51<span class="variable-quote">'</span>                                                                 </pre>
+        </td></tr></table></dd>
+</span>    </dl>
+  </dd>
+</dl></td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:53 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

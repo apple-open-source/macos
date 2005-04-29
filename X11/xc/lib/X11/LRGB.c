@@ -35,28 +35,14 @@
  *		    4. RGB intensity to CIE XYZ
  *
  */
-/* $XFree86: xc/lib/X11/LRGB.c,v 3.5 2001/07/25 15:04:44 dawes Exp $ */
+/* $XFree86: xc/lib/X11/LRGB.c,v 3.7 2003/11/03 03:46:26 dawes Exp $ */
 
 #include <stdio.h>
 #include <X11/Xos.h>
 #include <X11/Xatom.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
-
-/*
- *      EXTERNS
- *              External declarations required locally to this package
- *              that are not already declared in any of the included header
- *		files (external includes or internal includes).
- */
-extern char _XcmsRGB_prefix[];
-extern char _XcmsRGBi_prefix[];
-extern unsigned long _XcmsGetElement();
-extern void _XcmsFreeIntensityMaps();
-
-/* cmsProp.c */
-extern int _XcmsGetProperty();
-
+#include "Cv.h"
 
 /*
  *      LOCAL DEFINES
@@ -85,12 +71,23 @@ extern int _XcmsGetProperty();
 /*
  *      FORWARD DECLARATIONS
  */
-static void LINEAR_RGB_FreeSCCData();
-static int LINEAR_RGB_InitSCCData();
-static int XcmsLRGB_RGB_ParseString();
-static int XcmsLRGB_RGBi_ParseString();
-Status _XcmsGetTableType0();
-Status _XcmsGetTableType1();
+static void LINEAR_RGB_FreeSCCData(XPointer pScreenDataTemp);
+static int LINEAR_RGB_InitSCCData(Display *dpy,
+    int screenNumber, XcmsPerScrnInfo *pPerScrnInfo);
+static int XcmsLRGB_RGB_ParseString(register char *spec, XcmsColor *pColor);
+static int XcmsLRGB_RGBi_ParseString(register char *spec, XcmsColor *pColor);
+static Status
+_XcmsGetTableType0(
+    IntensityTbl *pTbl,
+    int	  format,
+    char **pChar,
+    unsigned long *pCount);
+static Status
+_XcmsGetTableType1(
+    IntensityTbl *pTbl,
+    int	  format,
+    char **pChar,
+    unsigned long *pCount);
 
 /*
  *      LOCALS VARIABLES
@@ -126,8 +123,8 @@ static unsigned short const MASK[17] = {
      * to XcmsCIEXYZFormat.
      */
 static XcmsConversionProc Fl_RGB_to_CIEXYZ[] = {
-    XcmsRGBToRGBi,
-    XcmsRGBiToCIEXYZ,
+    (XcmsConversionProc)XcmsRGBToRGBi,
+    (XcmsConversionProc)XcmsRGBiToCIEXYZ,
     NULL
 };
 
@@ -137,8 +134,8 @@ static XcmsConversionProc Fl_RGB_to_CIEXYZ[] = {
      * to XcmsRGBFormat.
      */
 static XcmsConversionProc Fl_CIEXYZ_to_RGB[] = {
-    XcmsCIEXYZToRGBi,
-    XcmsRGBiToRGB,
+    (XcmsConversionProc)XcmsCIEXYZToRGBi,
+    (XcmsConversionProc)XcmsRGBiToRGB,
     NULL
 };
 
@@ -148,7 +145,7 @@ static XcmsConversionProc Fl_CIEXYZ_to_RGB[] = {
      * to XcmsCIEXYZFormat.
      */
 static XcmsConversionProc Fl_RGBi_to_CIEXYZ[] = {
-    XcmsRGBiToCIEXYZ,
+    (XcmsConversionProc)XcmsRGBiToCIEXYZ,
     NULL
 };
 
@@ -158,7 +155,7 @@ static XcmsConversionProc Fl_RGBi_to_CIEXYZ[] = {
      * to XcmsRGBiFormat.
      */
 static XcmsConversionProc Fl_CIEXYZ_to_RGBi[] = {
-    XcmsCIEXYZToRGBi,
+    (XcmsConversionProc)XcmsCIEXYZToRGBi,
     NULL
 };
 
@@ -453,10 +450,10 @@ static LINEAR_RGB_SCCData Default_RGB_SCCData = {
  *	SYNOPSIS
  */
 static Status
-LINEAR_RGB_InitSCCData(dpy, screenNumber, pPerScrnInfo)
-    Display *dpy;
-    int screenNumber;
-    XcmsPerScrnInfo *pPerScrnInfo;
+LINEAR_RGB_InitSCCData(
+    Display *dpy,
+    int screenNumber,
+    XcmsPerScrnInfo *pPerScrnInfo)
 /*
  *	DESCRIPTION
  *
@@ -835,8 +832,8 @@ FreeSCCData:
  *	SYNOPSIS
  */
 static void
-LINEAR_RGB_FreeSCCData(pScreenDataTemp)
-    XPointer pScreenDataTemp;
+LINEAR_RGB_FreeSCCData(
+    XPointer pScreenDataTemp)
 /*
  *	DESCRIPTION
  *
@@ -895,12 +892,12 @@ LINEAR_RGB_FreeSCCData(pScreenDataTemp)
  *
  *	SYNOPSIS
  */
-Status
-_XcmsGetTableType0(pTbl, format, pChar, pCount)
-    IntensityTbl *pTbl;
-    int	  format;
-    char **pChar;
-    unsigned long *pCount;
+static Status
+_XcmsGetTableType0(
+    IntensityTbl *pTbl,
+    int	  format,
+    char **pChar,
+    unsigned long *pCount)
 /*
  *	DESCRIPTION
  *
@@ -956,12 +953,12 @@ _XcmsGetTableType0(pTbl, format, pChar, pCount)
  *
  *	SYNOPSIS
  */
-Status
-_XcmsGetTableType1(pTbl, format, pChar, pCount)
-    IntensityTbl *pTbl;
-    int	  format;
-    char **pChar;
-    unsigned long *pCount;
+static Status
+_XcmsGetTableType1(
+    IntensityTbl *pTbl,
+    int	  format,
+    char **pChar,
+    unsigned long *pCount)
 /*
  *	DESCRIPTION
  *
@@ -1018,9 +1015,9 @@ _XcmsGetTableType1(pTbl, format, pChar, pCount)
  *
  *	SYNOPSIS
  */
-int
-_XcmsValueCmp (p1, p2)
-    IntensityRec *p1, *p2;
+static int
+_XcmsValueCmp(
+    IntensityRec *p1, IntensityRec *p2)
 /*
  *	DESCRIPTION
  *		Compares the value component of two IntensityRec
@@ -1043,9 +1040,9 @@ _XcmsValueCmp (p1, p2)
  *
  *	SYNOPSIS
  */
-int
-_XcmsIntensityCmp (p1, p2)
-    IntensityRec *p1, *p2;
+static int
+_XcmsIntensityCmp(
+    IntensityRec *p1, IntensityRec *p2)
 /*
  *	DESCRIPTION
  *		Compares the intensity component of two IntensityRec
@@ -1074,10 +1071,10 @@ _XcmsIntensityCmp (p1, p2)
  *	SYNOPSIS
  */
 /* ARGSUSED */
-int
-_XcmsValueInterpolation (key, lo, hi, answer, bitsPerRGB)
-    IntensityRec *key, *lo, *hi, *answer;
-    int bitsPerRGB;
+static int
+_XcmsValueInterpolation(
+    IntensityRec *key, IntensityRec *lo, IntensityRec *hi, IntensityRec *answer,
+    int bitsPerRGB)
 /*
  *	DESCRIPTION
  *		Based on a given value, performs a linear interpolation
@@ -1104,10 +1101,10 @@ _XcmsValueInterpolation (key, lo, hi, answer, bitsPerRGB)
  *
  *	SYNOPSIS
  */
-int
-_XcmsIntensityInterpolation (key, lo, hi, answer, bitsPerRGB)
-    IntensityRec *key, *lo, *hi, *answer;
-    int bitsPerRGB;
+static int
+_XcmsIntensityInterpolation(
+    IntensityRec *key, IntensityRec *lo, IntensityRec *hi, IntensityRec *answer,
+    int bitsPerRGB)
 /*
  *	DESCRIPTION
  *		Based on a given intensity, performs a linear interpolation
@@ -1146,22 +1143,40 @@ _XcmsIntensityInterpolation (key, lo, hi, answer, bitsPerRGB)
 }
 
 
+
+typedef int (*comparProcp)(
+    char *p1,
+    char *p2);
+typedef int (*interpolProcp)(
+    char *key,
+    char *lo,
+    char *hi,
+    char *answer,
+    int bitsPerRGB);
+
 /*
  *	NAME
  *		_XcmsTableSearch
  *
  *	SYNOPSIS
  */
-int
-_XcmsTableSearch (key, bitsPerRGB, base, nel, nKeyPtrSize, compar, interpol, answer)
-    char *key;
-    int bitsPerRGB;
-    char *base;
-    unsigned nel;
-    unsigned nKeyPtrSize;
-    int (*compar)();
-    int (*interpol)();
-    char *answer;
+static int
+_XcmsTableSearch(
+    char *key,
+    int bitsPerRGB,
+    char *base,
+    unsigned nel,
+    unsigned nKeyPtrSize,
+    int (*compar)(
+        char *p1,
+        char *p2),
+    int (*interpol)(
+        char *key,
+        char *lo,
+        char *hi,
+        char *answer,
+        int bitsPerRGB),
+    char *answer)
 
 /*
  *	DESCRIPTION
@@ -1219,8 +1234,8 @@ _XcmsTableSearch (key, bitsPerRGB, base, nel, nKeyPtrSize, compar, interpol, ans
  *
  *	SYNOPSIS
  */
-void _XcmsMatVec(pMat, pIn, pOut)
-    XcmsFloat *pMat, *pIn, *pOut;
+static void _XcmsMatVec(
+    XcmsFloat *pMat, XcmsFloat *pIn, XcmsFloat *pOut)
 /*
  *      DESCRIPTION
  *		Multiply the passed vector by the passed matrix to return a 
@@ -1254,9 +1269,9 @@ void _XcmsMatVec(pMat, pIn, pOut)
  *	SYNOPSIS
  */
 static int
-XcmsLRGB_RGB_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+XcmsLRGB_RGB_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -1372,9 +1387,9 @@ XcmsLRGB_RGB_ParseString(spec, pColor)
  *	SYNOPSIS
  */
 static int
-XcmsLRGB_RGBi_ParseString(spec, pColor)
-    register char *spec;
-    XcmsColor *pColor;
+XcmsLRGB_RGBi_ParseString(
+    register char *spec,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		This routines takes a string and attempts to convert
@@ -1652,7 +1667,7 @@ XcmsRGBiToRGB(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pRedTbl->pBase,
 		(unsigned)pScreenData->pRedTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsIntensityCmp, _XcmsIntensityInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsIntensityCmp, (interpolProcp)_XcmsIntensityInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGB.red = answerIRec.value;
@@ -1662,7 +1677,7 @@ XcmsRGBiToRGB(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pGreenTbl->pBase,
 		(unsigned)pScreenData->pGreenTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsIntensityCmp, _XcmsIntensityInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsIntensityCmp, (interpolProcp)_XcmsIntensityInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGB.green = answerIRec.value;
@@ -1672,7 +1687,7 @@ XcmsRGBiToRGB(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pBlueTbl->pBase,
 		(unsigned)pScreenData->pBlueTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsIntensityCmp, _XcmsIntensityInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsIntensityCmp, (interpolProcp)_XcmsIntensityInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGB.blue = answerIRec.value;
@@ -1692,11 +1707,11 @@ XcmsRGBiToRGB(ccc, pXcmsColors_in_out, nColors, pCompressed)
  */
 /* ARGSUSED */
 Status 
-XcmsRGBToRGBi(ccc, pXcmsColors_in_out, nColors, pCompressed)
-    XcmsCCC ccc;
-    XcmsColor *pXcmsColors_in_out;/* pointer to XcmsColors to convert 	*/
-    unsigned int nColors;	/* Number of colors			*/
-    Bool *pCompressed;		/* pointer to a bit array		*/
+XcmsRGBToRGBi(
+    XcmsCCC ccc,
+    XcmsColor *pXcmsColors_in_out,/* pointer to XcmsColors to convert 	*/
+    unsigned int nColors,	/* Number of colors			*/
+    Bool *pCompressed)		/* pointer to a bit array		*/
 /*
  *	DESCRIPTION
  *		Converts color specifications in an array of XcmsColor
@@ -1733,7 +1748,7 @@ XcmsRGBToRGBi(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pRedTbl->pBase,
 		(unsigned)pScreenData->pRedTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsValueCmp, _XcmsValueInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsValueCmp, (interpolProcp)_XcmsValueInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGBi.red = answerIRec.intensity;
@@ -1743,7 +1758,7 @@ XcmsRGBToRGBi(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pGreenTbl->pBase,
 		(unsigned)pScreenData->pGreenTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsValueCmp, _XcmsValueInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsValueCmp, (interpolProcp)_XcmsValueInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGBi.green = answerIRec.intensity;
@@ -1753,7 +1768,7 @@ XcmsRGBToRGBi(ccc, pXcmsColors_in_out, nColors, pCompressed)
 		(char *)pScreenData->pBlueTbl->pBase,
 		(unsigned)pScreenData->pBlueTbl->nEntries,
 		(unsigned)sizeof(IntensityRec),
-		_XcmsValueCmp, _XcmsValueInterpolation, (char *)&answerIRec)) {
+		(comparProcp)_XcmsValueCmp, (interpolProcp)_XcmsValueInterpolation, (char *)&answerIRec)) {
 	    return(XcmsFailure);
 	}
 	tmpRGBi.blue = answerIRec.intensity;
@@ -1772,10 +1787,10 @@ XcmsRGBToRGBi(ccc, pXcmsColors_in_out, nColors, pCompressed)
  */
 /* ARGSUSED */
 int
-_XcmsLRGB_InitScrnDefault(dpy, screenNumber, pPerScrnInfo)
-    Display *dpy;
-    int screenNumber;
-    XcmsPerScrnInfo *pPerScrnInfo;
+_XcmsLRGB_InitScrnDefault(
+    Display *dpy,
+    int screenNumber,
+    XcmsPerScrnInfo *pPerScrnInfo)
 /*
  *	DESCRIPTION
  *		Given a display and screen number, this routine attempts

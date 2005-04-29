@@ -24,29 +24,20 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/X11/ParseCol.c,v 1.5 2002/12/04 23:18:32 paulo Exp $ */
+/* $XFree86: xc/lib/X11/ParseCol.c,v 1.7 2003/11/17 22:20:08 dawes Exp $ */
 
 #define NEED_REPLIES
 #include <stdio.h>
 #include "Xlibint.h"
 #include "Xcmsint.h"
 
-extern void _XcmsRGB_to_XColor();
-extern Status _XcmsResolveColorString();
 
-#if NeedFunctionPrototypes
-Status XParseColor (
+Status
+XParseColor (
 	register Display *dpy,
         Colormap cmap,
 	_Xconst char *spec,
 	XColor *def)
-#else
-Status XParseColor (dpy, cmap, spec, def)
-	register Display *dpy;
-        Colormap cmap;
-	char *spec;
-	XColor *def;
-#endif
 {
 	register int n, i;
 	int r, g, b;

@@ -1,0 +1,6 @@
+TclDOM Test Suite
+-----------------
+
+To run the tests, type "tclsh all.tcl"
+See tcltest(n) for details.
+

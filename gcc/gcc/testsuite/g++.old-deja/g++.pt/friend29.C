@@ -1,4 +1,8 @@
-// Build don't link:
+// { dg-do assemble  }
+
+template <class T> class a;
+
+template <class T> void foo( a<T>& thea );
 
 template <class T> class a {
 public:

@@ -21,14 +21,20 @@
 
 /** @defgroup watcher watcher: watch a specified variable and process
  *   it as an instance or scalar object
- *  @ingroup handler
+ *  @ingroup leaf
  *  @{
  */
 netsnmp_mib_handler *
 netsnmp_get_watcher_handler(void)
 {
-    return netsnmp_create_handler("watcher",
-                                  netsnmp_watcher_helper_handler);
+    netsnmp_mib_handler *ret = NULL;
+    
+    ret = netsnmp_create_handler("watcher",
+                                 netsnmp_watcher_helper_handler);
+    if (ret) {
+        ret->flags |= MIB_HANDLER_AUTO_NEXT;
+    }
+    return ret;
 }
 
 netsnmp_watcher_info *
@@ -165,9 +171,8 @@ netsnmp_watcher_helper_handler(netsnmp_mib_handler *handler,
         break;
 
     }
-    if (handler->next && handler->next->access_method)
-        return netsnmp_call_next_handler(handler, reginfo, reqinfo,
-                                         requests);
+
+    /* next handler called automatically - 'AUTO_NEXT' */
     return SNMP_ERR_NOERROR;
 }
 
@@ -182,13 +187,19 @@ netsnmp_watcher_helper_handler(netsnmp_mib_handler *handler,
 netsnmp_mib_handler *
 netsnmp_get_watched_timestamp_handler(void)
 {
-    return netsnmp_create_handler("watcher",
-                                  netsnmp_watched_timestamp_handler);
+    netsnmp_mib_handler *ret = NULL;
+    
+    ret = netsnmp_create_handler("watcher",
+                                 netsnmp_watched_timestamp_handler);
+    if (ret) {
+        ret->flags |= MIB_HANDLER_AUTO_NEXT;
+    }
+    return ret;
 }
 
 int
 netsnmp_register_watched_timestamp(netsnmp_handler_registration *reginfo,
-                                   marker_t *timestamp)
+                                   marker_t timestamp)
 {
     netsnmp_mib_handler *whandler;
 
@@ -238,9 +249,97 @@ netsnmp_watched_timestamp_handler(netsnmp_mib_handler *handler,
          * Timestamps are inherently Read-Only,
          *  so don't need to support SET requests.
          */
+    case MODE_SET_RESERVE1:
+        netsnmp_set_request_error(reqinfo, requests,
+                                  SNMP_ERR_NOTWRITABLE);
+        return SNMP_ERR_NOTWRITABLE;
     }
-    if (handler->next && handler->next->access_method)
-        return netsnmp_call_next_handler(handler, reginfo, reqinfo,
-                                         requests);
+
+    /* next handler called automatically - 'AUTO_NEXT' */
+    return SNMP_ERR_NOERROR;
+}
+
+    /***************************
+     *
+     * Another specialised form of the above,
+     *   implementing a 'TestAndIncr' spinlock
+     *
+     ***************************/
+
+netsnmp_mib_handler *
+netsnmp_get_watched_spinlock_handler(void)
+{
+    netsnmp_mib_handler *ret = NULL;
+    
+    ret = netsnmp_create_handler("watcher",
+                                 netsnmp_watched_spinlock_handler);
+    if (ret) {
+        ret->flags |= MIB_HANDLER_AUTO_NEXT;
+    }
+    return ret;
+}
+
+int
+netsnmp_register_watched_spinlock(netsnmp_handler_registration *reginfo,
+                                   int *spinlock)
+{
+    netsnmp_mib_handler  *whandler;
+    netsnmp_watcher_info *winfo;
+
+    whandler         = netsnmp_get_watched_spinlock_handler();
+    whandler->myvoid = (void *)spinlock;
+    winfo            = netsnmp_create_watcher_info((void *)spinlock,
+		           sizeof(int), ASN_INTEGER, WATCHER_FIXED_SIZE);
+    netsnmp_inject_handler(reginfo, whandler);
+    return netsnmp_register_watched_scalar(reginfo, winfo);
+}
+
+
+int
+netsnmp_watched_spinlock_handler(netsnmp_mib_handler *handler,
+                               netsnmp_handler_registration *reginfo,
+                               netsnmp_agent_request_info *reqinfo,
+                               netsnmp_request_info *requests)
+{
+    int     *spinlock = (int *) handler->myvoid;
+    netsnmp_request_info *request;
+    int      cmp;
+
+    DEBUGMSGTL(("helper:watcher:spinlock",
+                               "Got request:  %d\n", reqinfo->mode));
+    cmp = snmp_oid_compare(requests->requestvb->name,
+                           requests->requestvb->name_length,
+                           reginfo->rootoid, reginfo->rootoid_len);
+
+    DEBUGMSGTL(( "helper:watcher:spinlock", "  oid:", cmp));
+    DEBUGMSGOID(("helper:watcher:spinlock", requests->requestvb->name,
+                                   requests->requestvb->name_length));
+    DEBUGMSG((   "helper:watcher:spinlock", "\n"));
+
+
+
+    switch (reqinfo->mode) {
+        /*
+         * Ensure the assigned value matches the current one
+         */
+    case MODE_SET_RESERVE1:
+        for (request=requests; request; request=request->next) {
+            if (*request->requestvb->val.integer != *spinlock) {
+                netsnmp_set_request_error(reqinfo, requests, SNMP_ERR_WRONGVALUE);
+                return SNMP_ERR_WRONGVALUE;
+
+            }
+        }
+        break;
+
+        /*
+         * Everything else worked, so increment the spinlock
+         */
+    case MODE_SET_COMMIT:
+	(*spinlock)++;
+	break;
+    }
+
+    /* next handler called automatically - 'AUTO_NEXT' */
     return SNMP_ERR_NOERROR;
 }

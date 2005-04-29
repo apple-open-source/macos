@@ -1,6 +1,6 @@
 /*
  * table_array.h
- * $Id: table_array.h,v 1.1.1.1 2003/05/29 00:03:09 rbraun Exp $
+ * $Id: table_array.h,v 5.11 2004/09/14 02:29:15 rstory Exp $
  */
 #ifndef _TABLE_ARRAY_HANDLER_H_
 #define _TABLE_ARRAY_HANDLER_H_
@@ -146,7 +146,7 @@ extern          "C" {
                                          long *rs_new, long *rs_old);
 
 #ifdef __cplusplus
-};
+}
 #endif
 
 #endif                          /* _TABLE_ARRAY_HANDLER_H_ */

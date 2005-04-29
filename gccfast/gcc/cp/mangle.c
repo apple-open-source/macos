@@ -165,6 +165,10 @@ static void write_unscoped_template_name PARAMS ((tree));
 static void write_nested_name PARAMS ((tree));
 static void write_prefix PARAMS ((tree));
 static void write_template_prefix PARAMS ((tree));
+/* APPLE LOCAL begin libstdc++ debug mode */
+static const char* link_name PARAMS ((tree));
+static int  write_link_name PARAMS ((tree));
+/* APPLE LOCAL end libstdc++ debug mode */
 static void write_unqualified_name PARAMS ((tree));
 static void write_conversion_operator_name (tree);
 static void write_source_name PARAMS ((tree));
@@ -405,11 +409,15 @@ is_std_substitution (node, index)
     /* These are not the droids you're looking for.  */
     return 0;
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+  const char* name = link_name (decl);
   return (DECL_NAMESPACE_STD_P (CP_DECL_CONTEXT (decl))
 	  && TYPE_LANG_SPECIFIC (type) 
 	  && TYPE_TEMPLATE_INFO (type)
-	  && (DECL_NAME (TYPE_TI_TEMPLATE (type)) 
-	      == subst_identifiers[index]));
+	  && ((name && get_identifier(name) == subst_identifiers[index])
+	      || (!name && (DECL_NAME (TYPE_TI_TEMPLATE (type)) 
+			    == subst_identifiers[index]))));
+/* APPLE LOCAL end libstdc++ debug mode */
 }
 
 /* Helper function for find_substitution.  Returns nonzero if NODE,
@@ -987,6 +995,57 @@ write_template_prefix (node)
   add_substitution (substitution);
 }
 
+/* APPLE LOCAL begin libstdc++ debug mode */
+/* If there is a link_name attribute, return the linking
+   name. Otherwise, return NULL. */
+static const char*
+link_name (decl)
+     tree decl;
+{
+  if (!decl)
+    return NULL;
+
+  if (TREE_CODE (decl) == TEMPLATE_DECL)
+    decl = DECL_TEMPLATE_RESULT (decl);
+
+  if (!decl || TREE_CODE (decl) != TYPE_DECL)
+    return NULL;
+
+  /* Find the __link_name__ attribute. */
+  tree attributes = TYPE_ATTRIBUTES ( TYPE_MAIN_VARIANT( TREE_TYPE (decl)));
+  while (attributes 
+	 && strcmp(IDENTIFIER_POINTER (TREE_PURPOSE (attributes)),
+		   "__link_name__")
+	 && strcmp(IDENTIFIER_POINTER (TREE_PURPOSE (attributes)),
+		   "link_name"))
+    attributes = TREE_CHAIN(attributes);
+
+  if (attributes)
+    /* Name buried in a STRING_CST node. */
+    return TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attributes)));
+  else
+    return NULL;
+}
+
+/* If there is a link_name attribute, write it and return
+   nonzero. Otherwise, return zero. */
+static int
+write_link_name (decl)
+     tree decl;
+{
+  const char* name = link_name (decl);
+
+  if (name)
+    {
+      write_unsigned_number (strlen (name));
+      write_identifier (name);
+      return 1;
+    }
+  else
+    return 0;
+}
+/* APPLE LOCAL end libstdc++ debug mode */
+
 /* We don't need to handle thunks, vtables, or VTTs here.  Those are
    mangled through special entry points.  
 
@@ -1028,8 +1087,10 @@ write_unqualified_name (decl)
       
       write_string (oni[DECL_OVERLOADED_OPERATOR_P (decl)].mangled_name);
     }
-  else
+  /* APPLE LOCAL begin libstdc++ debug mode */
+  else if (write_link_name (decl) == 0)
     write_source_name (DECL_NAME (decl));
+  /* APPLE LOCAL end libstdc++ debug mode */
 }
 
 /* Write the unqualified-name for a conversion operator to TYPE.  */

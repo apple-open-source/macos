@@ -1,0 +1,272 @@
+info mam static 00000 1994-07-17 make (AT&T Research) 4.4 2004-02-29
+setv INSTALLROOT ../../..
+setv PACKAGE_ast ${INSTALLROOT}
+setv PACKAGE_ast_INCLUDE ${PACKAGE_ast}/include/ast
+setv PACKAGE_ast_LIB ${PACKAGE_ast}/lib
+setv PACKAGEROOT ../../../../..
+setv AR ar
+setv ARFLAGS cr
+setv AS as
+setv ASFLAGS
+setv CC cc
+setv mam_cc_FLAGS ${mam_cc_DLL}
+setv CCFLAGS ${debug?1?${mam_cc_DEBUG} -D_BLD_DEBUG?${mam_cc_OPTIMIZE}?}
+setv COTEMP $$
+setv CPIO cpio
+setv CPIOFLAGS
+setv CPP "${CC} -E"
+setv F77 f77
+setv HOSTCC ${CC}
+setv IGNORE
+setv LD ld
+setv LDFLAGS 
+setv LEX lex
+setv LEXFLAGS
+setv LPR lpr
+setv LPRFLAGS
+setv M4FLAGS 
+setv NMAKE nmake
+setv NMAKEFLAGS
+setv PR pr
+setv PRFLAGS
+setv SHELL /bin/sh
+setv SILENT
+setv TAR tar
+setv YACC yacc
+setv YACCFLAGS -d
+make ../../../lib/package/ast.lic
+done ../../../lib/package/ast.lic
+make install
+make dll
+make libdll.a archive
+make dll.req
+exec - set -
+exec - echo 'main(){return(0);}' > 1.${COTEMP}.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}    -c 1.${COTEMP}.c &&
+exec - x=`${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o -l'*' 2>&1 | sed -e 's/[][()+@?]/#/g' || :` &&
+exec - {
+exec - case "" in
+exec - *?)	echo " " ;;
+exec - esac
+exec - for i in dll dl dld ast
+exec - do	case $i in
+exec - 	"dll"|dll)
+exec - 		;;
+exec - 	*)	if	test ! -f ${INSTALLROOT}/lib/lib$i.a
+exec - 		then	case `{ ${CC} ${mam_cc_FLAGS} ${CCFLAGS}     ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o  -l$i 2>&1 || echo '' $x ;} | sed -e 's/[][()+@?]/#/g' || :` in
+exec - 			*$x*)	case `{ ${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o  -l$i 2>&1 || echo '' $x ;} | sed -e 's/[][()+@?]/#/g' || :` in
+exec - 				*$x*) continue ;;
+exec - 				esac
+exec - 				;;
+exec - 			esac
+exec - 		fi
+exec - 		;;
+exec - 	esac
+exec - 	echo " -l$i"
+exec - done
+exec - } > dll.req
+exec - rm -f 1.${COTEMP}.*
+done dll.req generated
+make dlfcn.o
+make dlfcn.c
+make dll.h implicit
+done dll.h dontcare virtual
+make xcoff.h implicit
+done xcoff.h dontcare virtual
+make dl.h implicit
+done dl.h dontcare virtual
+make ../../../include/ast/error.h implicit
+make ../../../include/ast/option.h implicit
+make ../../../include/ast/ast.h implicit
+make ../../../include/ast/vmalloc.h implicit
+make ../../../include/ast/ast_common.h implicit
+done ../../../include/ast/ast_common.h dontcare
+make ../../../include/ast/ast_std.h implicit
+make ../../../include/ast/ast_botch.h implicit
+done ../../../include/ast/ast_botch.h dontcare
+make ../../../include/ast/ast_unistd.h implicit
+done ../../../include/ast/ast_unistd.h dontcare
+make ../../../include/ast/re_comp.h implicit
+make ../../../include/ast/prototyped.h implicit
+make ../../../include/prototyped.h implicit
+done ../../../include/prototyped.h dontcare
+done ../../../include/ast/prototyped.h dontcare
+done ../../../include/ast/re_comp.h dontcare
+make ../../../include/ast/getopt.h implicit
+make ../../../include/ast/ast_getopt.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_getopt.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/getopt.h dontcare
+make ../../../include/ast/ast_fcntl.h implicit
+make ../../../include/ast/ls.h implicit
+make ../../../include/ast/ast_mode.h implicit
+done ../../../include/ast/ast_mode.h dontcare
+make ../../../include/ast/ast_fs.h implicit
+make error?--?old?ethernet?address?at?wrong?offset implicit
+done error?--?old?ethernet?address?at?wrong?offset dontcare virtual
+done ../../../include/ast/ast_fs.h dontcare
+prev ../../../include/ast/ast_std.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ls.h dontcare
+prev ../../../include/ast/ast_fs.h implicit
+done ../../../include/ast/ast_fcntl.h dontcare
+make ../../../include/ast/ast_types.h implicit
+done ../../../include/ast/ast_types.h dontcare
+make ../../../include/ast/ast_map.h implicit
+done ../../../include/ast/ast_map.h dontcare
+make ../../../include/ast/stdio.h implicit
+make ../../../include/ast/ast_stdio.h implicit
+make ../../../include/ast/sfio_s.h implicit
+done ../../../include/ast/sfio_s.h dontcare
+prev ../../../include/ast/ast_common.h implicit
+done ../../../include/ast/ast_stdio.h dontcare
+done ../../../include/ast/stdio.h dontcare
+prev ../../../include/ast/getopt.h implicit
+make ../../../include/ast/limits.h implicit
+make ../../../include/ast/ast_limits.h implicit
+done ../../../include/ast/ast_limits.h dontcare
+done ../../../include/ast/limits.h dontcare
+make ../../../include/ast/ast_hdr.h implicit
+done ../../../include/ast/ast_hdr.h dontcare
+prev ../../../include/ast/ast_getopt.h implicit
+make ../../../include/ast/ast_lib.h implicit
+done ../../../include/ast/ast_lib.h dontcare
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_std.h dontcare
+done ../../../include/ast/vmalloc.h dontcare
+make ../../../include/ast/sfio.h implicit
+prev ../../../include/ast/sfio_s.h implicit
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/ast_std.h implicit
+done ../../../include/ast/sfio.h dontcare
+prev ../../../include/ast/ast_std.h implicit
+make ../../../include/ast/ast_version.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_version.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/option.h dontcare
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/error.h
+make dlldefs.h implicit
+make FEATURE/dll
+make features/dll
+done features/dll
+prev dll.req
+bind -last
+exec - iffe -v -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS} '  ref ${mam_cc_L+-L${PACKAGE_ast_LIB}} -I${PACKAGE_ast_INCLUDE} -I${INSTALLROOT}/include ${mam_libast} ${mam_libast} : run features/dll
+done FEATURE/dll generated
+exec - cmp 2>/dev/null -s FEATURE/dll dlldefs.h || { rm -f dlldefs.h; silent test -d . || mkdir .; cp FEATURE/dll dlldefs.h; }
+done dlldefs.h generated
+prev ../../../include/ast/ast.h implicit
+done dlfcn.c
+prev dlfcn.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_dll -D_PACKAGE_ast -c dlfcn.c
+done dlfcn.o generated
+make dllfind.o
+make dllfind.c
+prev ../../../include/ast/error.h implicit
+prev dlldefs.h implicit
+prev ../../../include/ast/ast.h implicit
+done dllfind.c
+prev dllfind.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_dll -c dllfind.c
+done dllfind.o generated
+make dllplug.o
+make dllplug.c
+prev dlldefs.h implicit
+prev ../../../include/ast/ast.h implicit
+done dllplug.c
+prev dllplug.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_dll -D_PACKAGE_ast -c dllplug.c
+done dllplug.o generated
+make dllnext.o
+make dllnext.c
+make link.h implicit
+done link.h dontcare virtual
+prev dlldefs.h implicit
+prev ../../../include/ast/ast.h implicit
+done dllnext.c
+prev dllnext.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_dll -D_PACKAGE_ast -c dllnext.c
+done dllnext.o generated
+make dlllook.o
+make dlllook.c
+prev dlldefs.h implicit
+prev ../../../include/ast/ast.h implicit
+done dlllook.c
+prev dlllook.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_dll -D_PACKAGE_ast -c dlllook.c
+done dlllook.o generated
+make dllscan.o
+make dllscan.c
+prev dlldefs.h implicit
+prev ../../../include/ast/vmalloc.h implicit
+make ../../../include/ast/sfstr.h implicit
+prev ../../../include/ast/sfio.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/sfstr.h
+make ../../../include/ast/fts.h implicit
+prev ../../../include/ast/ls.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/fts.h
+prev ../../../include/ast/error.h implicit
+make ../../../include/ast/cdt.h implicit
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/ast_std.h implicit
+done ../../../include/ast/cdt.h
+prev ../../../include/ast/ast.h implicit
+done dllscan.c
+prev dllscan.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_dll -D_PACKAGE_ast -c dllscan.c
+done dllscan.o generated
+exec - ${AR} cr libdll.a dlfcn.o dllfind.o dllplug.o dllnext.o dlllook.o dllscan.o
+exec - (ranlib libdll.a) >/dev/null 2>&1 || true
+done libdll.a generated
+done dll virtual
+prev libdll.a archive
+make ../../../lib
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_LIB}
+exec - then	set -x && mkdir -p ${PACKAGE_ast_LIB} 		    		   
+exec - fi
+done ../../../lib generated
+make ../../../lib/libdll.a archive
+prev ../../../lib
+prev libdll.a archive
+exec - test '' = 'libdll.a' || ${STDCMP} 2>/dev/null -s libdll.a ${PACKAGE_ast_LIB}/libdll.a || { ${STDMV} ${PACKAGE_ast_LIB}/libdll.a ${PACKAGE_ast_LIB}/libdll.a.old 2>/dev/null || true; ${STDCP} libdll.a ${PACKAGE_ast_LIB}/libdll.a  		    		    ;}
+exec - (ranlib ${PACKAGE_ast_LIB}/libdll.a) >/dev/null 2>&1 || true
+done ../../../lib/libdll.a generated
+make ../../../lib/lib
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_LIB}/lib
+exec - then	set -x && mkdir -p ${PACKAGE_ast_LIB}/lib 		    		   
+exec - fi
+done ../../../lib/lib generated
+make ../../../lib/lib/dll
+prev ../../../lib/lib
+prev dll.req
+exec - test '' = 'dll.req' || ${STDCMP} 2>/dev/null -s dll.req ${PACKAGE_ast_LIB}/lib/dll || { ${STDMV} ${PACKAGE_ast_LIB}/lib/dll ${PACKAGE_ast_LIB}/lib/dll.old 2>/dev/null || true; ${STDCP} dll.req ${PACKAGE_ast_LIB}/lib/dll  		    		    ;}
+done ../../../lib/lib/dll generated
+make ../../../include/ast
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_INCLUDE}
+exec - then	set -x && mkdir -p ${PACKAGE_ast_INCLUDE} 		    		   
+exec - fi
+done ../../../include/ast generated
+make ../../../include/ast/dlldefs.h
+prev ../../../include/ast
+prev dlldefs.h
+exec - proto -p -s -l ${PACKAGE_ast_LIB}/package/ast.lic '-o since=1997,author=gsf'  dlldefs.h > 1.${COTEMP}.x
+exec - if	cmp 2>/dev/null -s ${PACKAGE_ast_INCLUDE}/dlldefs.h 1.${COTEMP}.x
+exec - then	rm -f 1.${COTEMP}.x
+exec - else	mv 1.${COTEMP}.x ${PACKAGE_ast_INCLUDE}/dlldefs.h
+exec - fi
+done ../../../include/ast/dlldefs.h generated
+done install virtual
+make test
+done test dontcare virtual

@@ -36,6 +36,10 @@
 
 #include "local.h"
 
+#ifdef WITH_BRLM
+#include <ByteRangeLocking/BRLM.h>
+#endif
+
 #ifdef AIX
 #define DEFAULT_PRINTING PRINT_AIX
 #define PRINTCAP_NAME "/etc/qconfig"

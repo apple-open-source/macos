@@ -37,7 +37,7 @@
  * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: version.c,v 1.18 2004/06/21 15:31:13 rjs3 Exp $
+ * $Id: version.c,v 1.5 2005/03/05 00:37:08 dasenbro Exp $
  */
 
 #include <config.h>

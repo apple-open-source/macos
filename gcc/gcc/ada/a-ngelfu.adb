@@ -6,8 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2004, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -54,19 +53,12 @@ package body Ada.Numerics.Generic_Elementary_Functions is
    subtype T is Float_Type'Base;
    subtype Double is Aux.Double;
 
-   Two_Pi     : constant T := 2.0 * Pi;
-   Half_Pi    : constant T := Pi / 2.0;
-   Fourth_Pi  : constant T := Pi / 4.0;
+   Two_Pi  : constant T := 2.0 * Pi;
+   Half_Pi : constant T := Pi / 2.0;
 
-   Epsilon             : constant T := 2.0 ** (1 - T'Model_Mantissa);
-   IEpsilon            : constant T := 2.0 ** (T'Model_Mantissa - 1);
-   Log_Epsilon         : constant T := T (1 - T'Model_Mantissa) * Log_Two;
    Half_Log_Epsilon    : constant T := T (1 - T'Model_Mantissa) * Half_Log_Two;
    Log_Inverse_Epsilon : constant T := T (T'Model_Mantissa - 1) * Log_Two;
    Sqrt_Epsilon        : constant T := Sqrt_Two ** (1 - T'Model_Mantissa);
-
-   DEpsilon    : constant Double := Double (Epsilon);
-   DIEpsilon   : constant Double := Double (IEpsilon);
 
    -----------------------
    -- Local Subprograms --
@@ -564,7 +556,7 @@ package body Ada.Numerics.Generic_Elementary_Functions is
    function Cosh (X : Float_Type'Base) return Float_Type'Base is
       Lnv      : constant Float_Type'Base := 8#0.542714#;
       V2minus1 : constant Float_Type'Base := 0.13830_27787_96019_02638E-4;
-      Y        : Float_Type'Base := abs X;
+      Y        : constant Float_Type'Base := abs X;
       Z        : Float_Type'Base;
 
    begin
@@ -623,7 +615,7 @@ package body Ada.Numerics.Generic_Elementary_Functions is
 
       else
          T := T / Cycle * Two_Pi;
-         return  Cos (T) / Sin (T);
+         return Cos (T) / Sin (T);
       end if;
    end Cot;
 
@@ -862,7 +854,7 @@ package body Ada.Numerics.Generic_Elementary_Functions is
       --  an exact value in those cases. It is not clear that
       --  this is worth the extra test though.
 
-      return  Float_Type'Base (Aux.Sin (Double (T / Cycle * Two_Pi)));
+      return Float_Type'Base (Aux.Sin (Double (T / Cycle * Two_Pi)));
    end Sin;
 
    ----------
@@ -872,7 +864,7 @@ package body Ada.Numerics.Generic_Elementary_Functions is
    function Sinh (X : Float_Type'Base) return Float_Type'Base is
       Lnv      : constant Float_Type'Base := 8#0.542714#;
       V2minus1 : constant Float_Type'Base := 0.13830_27787_96019_02638E-4;
-      Y        : Float_Type'Base := abs X;
+      Y        : constant Float_Type'Base := abs X;
       F        : constant Float_Type'Base := Y * Y;
       Z        : Float_Type'Base;
 
@@ -1000,20 +992,20 @@ package body Ada.Numerics.Generic_Elementary_Functions is
    ----------
 
    function Tanh (X : Float_Type'Base) return Float_Type'Base is
-      P0 : constant Float_Type'Base := -0.16134_11902E4;
-      P1 : constant Float_Type'Base := -0.99225_92967E2;
-      P2 : constant Float_Type'Base := -0.96437_49299E0;
+      P0 : constant Float_Type'Base := -0.16134_11902_39962_28053E+4;
+      P1 : constant Float_Type'Base := -0.99225_92967_22360_83313E+2;
+      P2 : constant Float_Type'Base := -0.96437_49277_72254_69787E+0;
 
-      Q0 : constant Float_Type'Base :=  0.48402_35707E4;
-      Q1 : constant Float_Type'Base :=  0.22337_72071E4;
-      Q2 : constant Float_Type'Base :=  0.11274_47438E3;
-      Q3 : constant Float_Type'Base :=  0.10000000000E1;
+      Q0 : constant Float_Type'Base :=  0.48402_35707_19886_88686E+4;
+      Q1 : constant Float_Type'Base :=  0.22337_72071_89623_12926E+4;
+      Q2 : constant Float_Type'Base :=  0.11274_47438_05349_49335E+3;
+      Q3 : constant Float_Type'Base :=  0.10000_00000_00000_00000E+1;
 
-      Half_Ln3 : constant Float_Type'Base := 0.54930_61443;
+      Half_Ln3 : constant Float_Type'Base := 0.54930_61443_34054_84570;
 
       P, Q, R : Float_Type'Base;
-      Y : Float_Type'Base := abs X;
-      G : Float_Type'Base := Y * Y;
+      Y : constant Float_Type'Base := abs X;
+      G : constant Float_Type'Base := Y * Y;
 
       Float_Type_Digits_15_Or_More : constant Boolean :=
                                        Float_Type'Digits > 14;

@@ -1,0 +1,47 @@
+.\" @(#)man.conf
+.\"
+.\" Japanese Version Copyright (c) 1997 HANATAKA Shinya
+.\"         all rights reserved.
+.\" Translated Thu Jan 29 01:49:33 JST 1998
+.\"         by HANATAKA Shinya <hanataka@abyss.rim.or.jp>
+.\"
+.TH MAN.CONF 5 "30 Mar 1994"
+.SH 名前
+man.conf \- man コマンドのための設定ファイル
+.SH 説明
+.LP
+このファイルは
+.BR man (1)
+コマンドに読み込まれ、(a) man のため検索パスをどのやって構築するかの情報、
+(b) nroff, eqn, tbl などのような man によって使用されるいくつかの
+プログラムの完全なパス名、(c) ファイルの拡張子ごとの展開方法、などの
+情報を含んでいる。このファイルの別のバージョンを以下のように
+指定することができる。
+.LP
+.RS
+man -C private_man.conf ...
+.RE
+.LP
+コマンド名にはオプションを付けることができる。
+nroff に関しての便利なオプションを grotty(1) に見つけることができる。
+例えば、デフォルトの
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+のかわりに
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+と書き込むことができ、下線や重ね打ちを抑制することができる。
+.SH 関連項目
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1), compress(1), gzip(1).
+

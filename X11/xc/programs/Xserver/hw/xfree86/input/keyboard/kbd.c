@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/input/keyboard/kbd.c,v 1.7 2003/02/17 16:08:29 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/input/keyboard/kbd.c,v 1.9 2003/12/18 21:53:45 dawes Exp $ */
 
 /*
  * Copyright (c) 2002 by The XFree86 Project, Inc.
@@ -92,6 +92,8 @@ typedef enum {
     OPTION_CUSTOM_KEYCODES
 } KeyboardOpts;
 
+#ifdef XFree86LOADER
+/* These aren't actually used ... */
 static const OptionInfoRec KeyboardOptions[] = {
     { OPTION_ALWAYS_CORE,	"AlwaysCore",	  OPTV_BOOLEAN,	{0}, FALSE },
     { OPTION_SEND_CORE_EVENTS,	"SendCoreEvents", OPTV_BOOLEAN,	{0}, FALSE },
@@ -116,6 +118,7 @@ static const OptionInfoRec KeyboardOptions[] = {
     { OPTION_CUSTOM_KEYCODES,   "CustomKeycodes", OPTV_BOOLEAN,	{0}, FALSE },
     { -1,			NULL,		  OPTV_NONE,	{0}, FALSE }
 };
+#endif
 
 static const char *kbdDefaults[] = {
     "Protocol",		"standard",
@@ -421,7 +424,8 @@ InitKBD(InputInfoPtr pInfo, Bool init)
       else if (pKbd->rate >= 30)   rad |= 0x00;
       else                         rad |= ((58 / pKbd->rate) - 2);
       pKbd->SetKbdRepeat(pInfo, rad);
-    }
+  } else
+      UpdateLeds(pInfo);
 }
 
 static int

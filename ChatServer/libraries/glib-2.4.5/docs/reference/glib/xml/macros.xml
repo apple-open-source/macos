@@ -1,0 +1,373 @@
+<refentry id="glib-Standard-Macros">
+<refmeta>
+<refentrytitle>Standard Macros</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Standard Macros</refname><refpurpose>commonly-used macros.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+#define     <link linkend="GLIB-MAJOR-VERSION-CAPS">GLIB_MAJOR_VERSION</link>
+#define     <link linkend="GLIB-MINOR-VERSION-CAPS">GLIB_MINOR_VERSION</link>
+#define     <link linkend="GLIB-MICRO-VERSION-CAPS">GLIB_MICRO_VERSION</link>
+
+#define     <link linkend="G-OS-WIN32-CAPS">G_OS_WIN32</link>
+#define     <link linkend="G-OS-BEOS-CAPS">G_OS_BEOS</link>
+#define     <link linkend="G-OS-UNIX-CAPS">G_OS_UNIX</link>
+
+#define     <link linkend="GLIB-CHECK-VERSION-CAPS">GLIB_CHECK_VERSION</link>              (major,minor,micro)
+
+#define     <link linkend="G-DIR-SEPARATOR-CAPS">G_DIR_SEPARATOR</link>
+#define     <link linkend="G-DIR-SEPARATOR-S-CAPS">G_DIR_SEPARATOR_S</link>
+#define     <link linkend="G-SEARCHPATH-SEPARATOR-CAPS">G_SEARCHPATH_SEPARATOR</link>
+#define     <link linkend="G-SEARCHPATH-SEPARATOR-S-CAPS">G_SEARCHPATH_SEPARATOR_S</link>
+
+#define     <link linkend="TRUE-CAPS">TRUE</link>
+#define     <link linkend="FALSE-CAPS">FALSE</link>
+
+#define     <link linkend="NULL-CAPS">NULL</link>
+
+#define     <link linkend="MIN-CAPS">MIN</link>                             (a, b)
+#define     <link linkend="MAX-CAPS">MAX</link>                             (a, b)
+
+#define     <link linkend="ABS-CAPS">ABS</link>                             (a)
+#define     <link linkend="CLAMP-CAPS">CLAMP</link>                           (x, low, high)
+
+#define     <link linkend="G-STRUCT-MEMBER-CAPS">G_STRUCT_MEMBER</link>                 (member_type, struct_p, struct_offset)
+#define     <link linkend="G-STRUCT-MEMBER-P-CAPS">G_STRUCT_MEMBER_P</link>               (struct_p, struct_offset)
+#define     <link linkend="G-STRUCT-OFFSET-CAPS">G_STRUCT_OFFSET</link>                 (struct_type, member)
+
+#define     <link linkend="G-MEM-ALIGN-CAPS">G_MEM_ALIGN</link>
+
+#define     <link linkend="G-CONST-RETURN-CAPS">G_CONST_RETURN</link>
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+These macros provide a few commonly-used features.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GLIB-MAJOR-VERSION-CAPS"/>GLIB_MAJOR_VERSION</title>
+<indexterm><primary>GLIB_MAJOR_VERSION</primary></indexterm><programlisting>#define GLIB_MAJOR_VERSION 2
+</programlisting>
+<para>
+The major version number of the GLib library.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GLIB-MINOR-VERSION-CAPS"/>GLIB_MINOR_VERSION</title>
+<indexterm><primary>GLIB_MINOR_VERSION</primary></indexterm><programlisting>#define GLIB_MINOR_VERSION 4
+</programlisting>
+<para>
+The minor version number of the GLib library.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GLIB-MICRO-VERSION-CAPS"/>GLIB_MICRO_VERSION</title>
+<indexterm><primary>GLIB_MICRO_VERSION</primary></indexterm><programlisting>#define GLIB_MICRO_VERSION 5
+</programlisting>
+<para>
+The micro version number of the GLib library.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-OS-WIN32-CAPS"/>G_OS_WIN32</title>
+<indexterm><primary>G_OS_WIN32</primary></indexterm><programlisting>#define G_OS_WIN32
+</programlisting>
+<para>
+This macro is defined only on Windows. So you can bracket
+Windows-specific code in "&num;ifdef G_OS_WIN32".
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-OS-BEOS-CAPS"/>G_OS_BEOS</title>
+<indexterm><primary>G_OS_BEOS</primary></indexterm><programlisting>#define G_OS_BEOS
+</programlisting>
+<para>
+This macro is defined only on BeOS. So you can bracket
+BeOS-specific code in "&num;ifdef G_OS_BEOS".
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-OS-UNIX-CAPS"/>G_OS_UNIX</title>
+<indexterm><primary>G_OS_UNIX</primary></indexterm><programlisting>#define G_OS_UNIX
+</programlisting>
+<para>
+This macro is defined only on UNIX. So you can bracket
+UNIX-specific code in "&num;ifdef G_OS_UNIX".
+</para></refsect2>
+<refsect2>
+<title><anchor id="GLIB-CHECK-VERSION-CAPS"/>GLIB_CHECK_VERSION()</title>
+<indexterm><primary>GLIB_CHECK_VERSION</primary></indexterm><programlisting>#define     GLIB_CHECK_VERSION(major,minor,micro)</programlisting>
+<para>
+Checks the version of the GLib library.
+It returns <literal>TRUE</literal> if the GLib library is the same or newer than the given
+version.
+
+<example>
+<title>Checking the version of the GLib library</title>
+<programlisting>
+  if (!GLIB_CHECK_VERSION (1, 2, 0))
+    g_error ("GLib version 1.2.0 or above is needed");
+</programlisting>
+</example>
+</para><variablelist role="params">
+<varlistentry><term><parameter>major</parameter>&nbsp;:</term>
+<listitem><simpara>the major version number.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>minor</parameter>&nbsp;:</term>
+<listitem><simpara>the minor version number.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>micro</parameter>&nbsp;:</term>
+<listitem><simpara>the micro version number.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-DIR-SEPARATOR-CAPS"/>G_DIR_SEPARATOR</title>
+<indexterm><primary>G_DIR_SEPARATOR</primary></indexterm><programlisting>#define     G_DIR_SEPARATOR</programlisting>
+<para>
+The directory separator character.
+This is '/' on UNIX machines and '\' under Windows.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-DIR-SEPARATOR-S-CAPS"/>G_DIR_SEPARATOR_S</title>
+<indexterm><primary>G_DIR_SEPARATOR_S</primary></indexterm><programlisting>#define     G_DIR_SEPARATOR_S</programlisting>
+<para>
+The directory separator as a string.
+This is "/" on UNIX machines and "\" under Windows.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-SEARCHPATH-SEPARATOR-CAPS"/>G_SEARCHPATH_SEPARATOR</title>
+<indexterm><primary>G_SEARCHPATH_SEPARATOR</primary></indexterm><programlisting>#define     G_SEARCHPATH_SEPARATOR</programlisting>
+<para>
+The search path separator character.
+This is ':' on UNIX machines and ';' under Windows.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-SEARCHPATH-SEPARATOR-S-CAPS"/>G_SEARCHPATH_SEPARATOR_S</title>
+<indexterm><primary>G_SEARCHPATH_SEPARATOR_S</primary></indexterm><programlisting>#define     G_SEARCHPATH_SEPARATOR_S</programlisting>
+<para>
+The search path separator as a string.
+This is ":" on UNIX machines and ";" under Windows.
+</para></refsect2>
+<refsect2>
+<title><anchor id="TRUE-CAPS"/>TRUE</title>
+<indexterm><primary>TRUE</primary></indexterm><programlisting>#define	TRUE	(!FALSE)
+</programlisting>
+<para>
+Defines the <literal>TRUE</literal> value for the <link linkend="gboolean"><type>gboolean</type></link> type.
+</para></refsect2>
+<refsect2>
+<title><anchor id="FALSE-CAPS"/>FALSE</title>
+<indexterm><primary>FALSE</primary></indexterm><programlisting>#define	FALSE	(0)
+</programlisting>
+<para>
+Defines the <literal>FALSE</literal> value for the <link linkend="gboolean"><type>gboolean</type></link> type.
+</para></refsect2>
+<refsect2>
+<title><anchor id="NULL-CAPS"/>NULL</title>
+<indexterm><primary>NULL</primary></indexterm><programlisting>#define     NULL</programlisting>
+<para>
+Defines the standard <literal>NULL</literal> pointer.
+</para></refsect2>
+<refsect2>
+<title><anchor id="MIN-CAPS"/>MIN()</title>
+<indexterm><primary>MIN</primary></indexterm><programlisting>#define MIN(a, b)  (((a) &lt; (b)) ? (a) : (b))
+</programlisting>
+<para>
+Calculates the minimum of <parameter>a</parameter> and <parameter>b</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a numeric value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>b</parameter>&nbsp;:</term>
+<listitem><simpara>a numeric value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the minimum of <parameter>a</parameter> and <parameter>b</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="MAX-CAPS"/>MAX()</title>
+<indexterm><primary>MAX</primary></indexterm><programlisting>#define MAX(a, b)  (((a) &gt; (b)) ? (a) : (b))
+</programlisting>
+<para>
+Calculates the maximum of <parameter>a</parameter> and <parameter>b</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a numeric value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>b</parameter>&nbsp;:</term>
+<listitem><simpara>a numeric value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the maximum of <parameter>a</parameter> and <parameter>b</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="ABS-CAPS"/>ABS()</title>
+<indexterm><primary>ABS</primary></indexterm><programlisting>#define ABS(a)	   (((a) &lt; 0) ? -(a) : (a))
+</programlisting>
+<para>
+Calculates the absolute value of <parameter>a</parameter>.
+The absolute value is simply the number with any negative sign taken away.
+</para>
+<para>
+For example,
+<itemizedlist>
+<listitem><para>
+ABS(-10) is 10.
+</para></listitem>
+<listitem><para>
+ABS(10) is also 10.
+</para></listitem>
+</itemizedlist>
+</para><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a numeric value.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the absolute value of <parameter>a</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="CLAMP-CAPS"/>CLAMP()</title>
+<indexterm><primary>CLAMP</primary></indexterm><programlisting>#define CLAMP(x, low, high)  (((x) &gt; (high)) ? (high) : (((x) &lt; (low)) ? (low) : (x)))
+</programlisting>
+<para>
+Ensures that <parameter>x</parameter> is between the limits set by <parameter>low</parameter> and <parameter>high</parameter>.
+</para>
+<para>
+For example,
+<itemizedlist>
+<listitem><para>
+CLAMP(5, 10, 15) is 10.
+</para></listitem>
+<listitem><para>
+CLAMP(15, 5, 10) is 10.
+</para></listitem>
+<listitem><para>
+CLAMP(20, 15, 25) is 20.
+</para></listitem>
+</itemizedlist>
+</para><variablelist role="params">
+<varlistentry><term><parameter>x</parameter>&nbsp;:</term>
+<listitem><simpara>the value to clamp.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>low</parameter>&nbsp;:</term>
+<listitem><simpara>the minimum value allowed.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>high</parameter>&nbsp;:</term>
+<listitem><simpara>the maximum value allowed.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the value of <parameter>x</parameter> clamped to the range between <parameter>low</parameter> and <parameter>high</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-STRUCT-MEMBER-CAPS"/>G_STRUCT_MEMBER()</title>
+<indexterm><primary>G_STRUCT_MEMBER</primary></indexterm><programlisting>#define     G_STRUCT_MEMBER(member_type, struct_p, struct_offset)</programlisting>
+<para>
+Returns a member of a structure at a given offset, using the given type.
+</para><variablelist role="params">
+<varlistentry><term><parameter>member_type</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the struct field.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>struct_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a struct.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>struct_offset</parameter>&nbsp;:</term>
+<listitem><simpara>the offset of the field from the start of the struct, in bytes.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the struct member.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-STRUCT-MEMBER-P-CAPS"/>G_STRUCT_MEMBER_P()</title>
+<indexterm><primary>G_STRUCT_MEMBER_P</primary></indexterm><programlisting>#define     G_STRUCT_MEMBER_P(struct_p, struct_offset)</programlisting>
+<para>
+Returns an untyped pointer to a given offset of a struct.
+</para><variablelist role="params">
+<varlistentry><term><parameter>struct_p</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to a struct.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>struct_offset</parameter>&nbsp;:</term>
+<listitem><simpara>the offset from the start of the struct, in bytes.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>an untyped pointer to <parameter>struct_p</parameter> plus <parameter>struct_offset</parameter> bytes.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-STRUCT-OFFSET-CAPS"/>G_STRUCT_OFFSET()</title>
+<indexterm><primary>G_STRUCT_OFFSET</primary></indexterm><programlisting>#define     G_STRUCT_OFFSET(struct_type, member)</programlisting>
+<para>
+Returns the offset, in bytes, of a member of a struct.
+</para><variablelist role="params">
+<varlistentry><term><parameter>struct_type</parameter>&nbsp;:</term>
+<listitem><simpara>a structure type, e.g. <structname>GtkWidget</structname>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>member</parameter>&nbsp;:</term>
+<listitem><simpara>a field in the structure, e.g. <structfield>window</structfield>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the offset of <parameter>member</parameter> from the start of <parameter>struct_type</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-MEM-ALIGN-CAPS"/>G_MEM_ALIGN</title>
+<indexterm><primary>G_MEM_ALIGN</primary></indexterm><programlisting>#define     G_MEM_ALIGN</programlisting>
+<para>
+Indicates the number of bytes to which memory will be aligned on the
+current platform.
+</para></refsect2>
+<refsect2>
+<title><anchor id="G-CONST-RETURN-CAPS"/>G_CONST_RETURN</title>
+<indexterm><primary>G_CONST_RETURN</primary></indexterm><programlisting>#define     G_CONST_RETURN</programlisting>
+<para>
+If <literal>G_DISABLE_CONST_RETURNS</literal> is defined, this macro expands to nothing.
+By default, the macro expands to <literal>const</literal>. The macro 
+should be used in place of <literal>const</literal> for functions that 
+return a value that should not be modified. The purpose of this macro is 
+to allow us to turn on <literal>const</literal> for returned constant 
+strings by default, while allowing programmers who find that annoying to 
+turn it off. This macro should only be used for return values and for
+<emphasis>out</emphasis> parameters, it doesn't make sense for 
+<emphasis>in</emphasis> parameters. 
+</para></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

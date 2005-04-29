@@ -1,0 +1,108 @@
+%{
+#pragma prototyped
+#include "graphsearch/gscmds.h"
+%}
+
+%token <i> T_graph T_node T_edge T_view T_pattern T_search T_input
+%token <i> T_open T_close T_insert T_delete T_modify T_lock T_unlock T_segue T_define
+%token <str> T_id
+%token <i> T_edgeop T_subgraph
+%type <str> viewid
+
+%union	{
+			int				i;
+			char			*str;
+}
+
+%%
+
+session		:  commands 
+//			|  /* empty */
+			;
+
+commands	:	commands command '\n'
+			|	/* empty */
+			;
+
+command		:
+			ins_node | ins_edge
+			| mod_node | mod_edge
+			| del_node | del_edge
+			| open_view | close_view | mod_view
+			| lock_view | unlock_view
+			| segue
+			| define_pattern | define_search | define_input
+			| nop
+			|  error	{gs_abort(IF_ERR_SYNTAX);}
+			;
+
+nop			:	/* empty */
+			;
+
+open_view	:	T_open T_view open_view2 {}
+			;
+
+open_view2 : viewid attrlist	{gs_open_view($1);}
+			;
+
+close_view	:	T_close T_view viewid		{gs_close_view($3);}
+			;
+
+mod_view	:	T_modify T_view viewid attrlist {gs_mod_view($3);}
+			;
+
+lock_view : T_lock T_view viewid {gs_lock($3);}
+			;
+
+unlock_view : T_unlock T_view viewid {gs_unlock($3);}
+			;
+
+segue : T_segue T_view viewid {gs_segue($3);}
+			;
+
+define_pattern : T_define T_pattern { gs_define_pattern(); }
+			;
+
+define_search : T_define T_search { gs_define_search(); }
+			;
+
+define_input : T_define T_input { gs_define_input(); }
+			;
+
+ins_node	:	T_insert viewid T_node T_id attrlist	{gs_ins_node($2,$4);}
+			;
+
+mod_node	:	T_modify viewid T_node T_id attrlist	{gs_mod_node($2,$4);}
+			;
+
+del_node	:	T_delete viewid T_node T_id	{gs_del_node($2,$4);}
+			;
+
+ins_edge	:	T_insert viewid T_edge T_id T_id T_id attrlist {gs_ins_edge($2,$4,$5,$6);}
+			;
+
+mod_edge	:	T_modify viewid T_edge T_id attrlist {gs_mod_edge($2,$4);}
+			;
+
+del_edge	:	T_delete viewid T_edge T_id	{gs_del_edge($2,$4);}
+			;
+
+attrlist	: 	'[' {gs_reset_attrs();} optattrdefs ']'
+			|	{gs_reset_attrs();} /* empty */
+			;
+
+optattrdefs	: 	attrdefs
+			| /* empty */
+			;
+
+attrdefs	:  attritem
+			|  attrdefs optsep attritem
+			;
+
+attritem	:  T_id '=' T_id			{gs_append_attr($1,$3);}
+			;
+
+optsep 		:  ';' | ',' | /*empty*/ ;
+ 
+viewid		:	T_id {$$ = $1; }	
+			;

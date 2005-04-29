@@ -28,10 +28,17 @@ proc gcj_jacks_write {filename} {
   puts $fd "set JAVA_CLASSPATH \"$libgcj_jar\""
   puts $fd "set JAVAC_FLAGS [list $rest]"
   puts $fd "set JAVA [list [libjava_find_gij]]"
-  puts $fd "set JAVA_FLAGS \"\""
+
+  # Without an explicit limit on the heap size, tests depending on
+  # an OutOfMemoryError (e.g. "15.9.4-runtime-creation-2") can result
+  # in a lot of unnecessary thrashing.
+  puts $fd "set JAVA_FLAGS \"-mx=64m\""
+
   puts $fd "set JAVAC_ENCODING_FLAG --encoding="
+  puts $fd "set JAVAC_DEPRECATION_FLAG -Wdeprecated"
   puts $fd "set tcltest::testConstraints(encoding) 1"
   puts $fd "set tcltest::testConstraints(gcj) 1"
+  puts $fd "set tcltest::testConstraints(assert) 1"
   # "Time-consuming JVM limitation tests".
   # puts $fd "set tcltest::testConstraints(jvm) 1"
   close $fd
@@ -89,13 +96,21 @@ proc gcj_jacks_run {} {
   gcj_jacks_write gcj_setup
 
   verbose "Running Jacks..."
-  if {[catch {exec ./jacks gcj} msg]} {
-    verbose "jacks invocation failure: $msg"
-    fail "running jacks"
-  } else {
-    pass "running jacks"
-
+  # Just ignore error exits from the jacks program.
+  # It will always error exit for us, since don't completely pass.
+  # At the moment jacks has a hardcoded call to tclsh8.3. To override this,
+  # we check here on the version and launch the script directly with the
+  # tclsh$tcl_ver.
+  set tcl_ver [info tclversion]
+  if {[package vcompare  $tcl_ver 8.3] >= 0 } {
+    if {[catch {exec tclsh$tcl_ver jacks gcj} msg]} {
+	send_log "Couldn't run jacks: $msg\n"
+	return
+    }
     gcj_jacks_parse logging/gcj.log
+  } else {
+      send_log "No suitable tclsh found, you need at least version 8.3 or up.\n"
+      return
   }
 
   cd $here

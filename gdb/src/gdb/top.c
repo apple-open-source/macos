@@ -1,7 +1,7 @@
 /* Top level stuff for GDB, the GNU debugger.
 
    Copyright 1986, 1987, 1988, 1989, 1990, 1991, 1992, 1993, 1994,
-   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003
+   1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
    This file is part of GDB.
@@ -45,11 +45,10 @@
 #include "serial.h"
 #include "doublest.h"
 #include "gdb_assert.h"
-#include "interpreter.h"
 
 /* readline include files */
-#include <readline/readline.h>
-#include <readline/history.h>
+#include "readline/readline.h"
+#include "readline/history.h"
 
 /* readline defines this.  */
 #undef savestring
@@ -153,7 +152,7 @@ int baud_rate = -1;
    In mid-1996, remote_timeout was moved from remote.c to top.c and 
    it began being used in other remote-* targets.  It appears that the
    default was changed to 20 seconds at that time, perhaps because the
-   Hitachi E7000 ICE didn't always respond in a timely manner.
+   Renesas E7000 ICE didn't always respond in a timely manner.
 
    But if 5 seconds is a long time to sit and wait for retransmissions,
    20 seconds is far worse.  This demonstrates the difficulty of using 
@@ -180,8 +179,10 @@ int target_executing = 0;
    that you don't need to do when gdb is going away. */
 int gdb_quitting = 0;
 
-/* Level of control structure.  */
-static int control_level;
+/* Sbrk location on entry to main.  Used for statistics only.  */
+#ifdef HAVE_SBRK
+char *lim_at_start;
+#endif
 
 /* Signal to catch ^Z typed while reading a command: SIGTSTP or SIGCONT.  */
 
@@ -347,7 +348,7 @@ int (*run_command_hook) (void);
 #endif
 
 /* Where to go for throw_exception().  */
-SIGJMP_BUF *catch_return;
+static SIGJMP_BUF *catch_return;
 
 /* Return for reason REASON to the nearest containing catch_errors().  */
 
@@ -362,6 +363,16 @@ throw_exception (enum return_reason reason)
   bpstat_clear_actions (stop_bpstat);	/* Clear queued breakpoint commands */
 
   disable_current_display ();
+
+  /* APPLE LOCAL: Just a comment: If you add any more cleanups to the
+     cleanups done by throw_exception, you have to make sure that you
+     save & restore them in the catcher.  Otherwise somebody may be
+     left holding a bad pointer into the cleanup chain.  
+     FIXME: There probably ought to be some more automatic way of
+     doing this.  
+     FIXME: However DON'T try to save exec_error_cleanups.  See note
+     in the catcher function.  */
+
   do_cleanups (ALL_CLEANUPS);
   if (event_loop_p && target_can_async_p () && !target_executing)
     do_exec_cleanups (ALL_CLEANUPS);
@@ -425,6 +436,7 @@ catcher (catch_exceptions_ftype *func,
 	 int *func_val,
 	 enum return_reason *func_caught,
 	 char *errstring,
+	 char **gdberrmsg,
 	 return_mask mask)
 {
   SIGJMP_BUF *saved_catch;
@@ -458,10 +470,9 @@ catcher (catch_exceptions_ftype *func,
   uiout = func_uiout;
 
   /* Prevent error/quit during FUNC from calling cleanups established
-     prior to here. */
+     prior to here.  */
 
   saved_cleanup_chain = save_cleanups ();
-
   /* Call FUNC, catching error/quit events. */
 
   saved_catch = catch_return;
@@ -470,7 +481,14 @@ catcher (catch_exceptions_ftype *func,
   if (!caught)
     val = (*func) (func_uiout, func_args);
   else
-    val = 0;
+    {
+      val = 0;
+      /* If caller wants a copy of the low-level error message, make one.  
+         This is used in the case of a silent error whereby the caller
+         may optionally want to issue the message.  */
+      if (gdberrmsg)
+	*gdberrmsg = error_last_message ();
+    }
   catch_return = saved_catch;
 
   /* FIXME: cagney/1999-11-05: A correct FUNC implementation will
@@ -484,7 +502,6 @@ catcher (catch_exceptions_ftype *func,
      builder, to their original states. */
 
   restore_cleanups (saved_cleanup_chain);
-
 
   /* But what if I *want* a command to change the current uiout? */
 
@@ -524,7 +541,25 @@ catch_exceptions (struct ui_out *uiout,
 {
   int val;
   enum return_reason caught;
-  catcher (func, uiout, func_args, &val, &caught, errstring, mask);
+  catcher (func, uiout, func_args, &val, &caught, errstring, NULL, mask);
+  gdb_assert (val >= 0);
+  gdb_assert (caught <= 0);
+  if (caught < 0)
+    return caught;
+  return val;
+}
+
+int
+catch_exceptions_with_msg (struct ui_out *uiout,
+		  	   catch_exceptions_ftype *func,
+		  	   void *func_args,
+		  	   char *errstring,
+			   char **gdberrmsg,
+		  	   return_mask mask)
+{
+  int val;
+  enum return_reason caught;
+  catcher (func, uiout, func_args, &val, &caught, errstring, gdberrmsg, mask);
   gdb_assert (val >= 0);
   gdb_assert (caught <= 0);
   if (caught < 0)
@@ -538,7 +573,7 @@ struct catch_errors_args
   void *func_args;
 };
 
-int
+static int
 do_catch_errors (struct ui_out *uiout, void *data)
 {
   struct catch_errors_args *args = data;
@@ -554,7 +589,8 @@ catch_errors (catch_errors_ftype *func, void *func_args, char *errstring,
   struct catch_errors_args args;
   args.func = func;
   args.func_args = func_args;
-  catcher (do_catch_errors, uiout, &args, &val, &caught, errstring, mask);
+  catcher (do_catch_errors, uiout, &args, &val, &caught, errstring, 
+	   NULL, mask);
   if (caught != 0)
     return 0;
   return val;
@@ -640,7 +676,6 @@ disconnect (int signo)
    gdb to use the event loop as the default command loop and we merge
    event-top.c into this file, top.c */
 /* static */ char *source_error;
-static int source_error_allocated;
 
 /* Something to glom on to the start of error_pre_print if source_file_name
    is set.  */
@@ -667,6 +702,18 @@ read_command_file (FILE *stream)
 
   cleanups = make_cleanup (do_restore_instream_cleanup, instream);
   instream = stream;
+
+  /* APPLE LOCAL: You can't run command files for gdb asynchronously.
+     If there were a "wait till done" gdb command that you could put
+     in a command file, then this would make sense.  But otherwise
+     things like:
+
+     step
+     print somevar
+
+     won't work correctly.  So for command files, we temporarily force
+     the target to run synchronously.  */
+
   if (target_can_async_p ()) 
     { 
       gdb_set_async_override (1); 
@@ -693,8 +740,8 @@ do_chdir_cleanup (void *old_dir)
 void
 execute_command (char *p, int from_tty)
 {
-  register struct cmd_list_element *c;
-  register enum language flang;
+  struct cmd_list_element *c;
+  enum language flang;
   static int warned = 0;
   char *line;
   
@@ -722,10 +769,10 @@ execute_command (char *p, int from_tty)
       /* If the target is running, we allow only a limited set of
          commands. */
       if (event_loop_p && target_can_async_p () && target_executing)
-	if (!strcmp (c->name, "help")
-	    && !strcmp (c->name, "pwd")
-	    && !strcmp (c->name, "show")
-	    && !strcmp (c->name, "stop"))
+	if (strcmp (c->name, "help") != 0
+	    && strcmp (c->name, "pwd") != 0
+	    && strcmp (c->name, "show") != 0
+	    && strcmp (c->name, "stop") != 0)
 	  error ("Cannot execute this command while the target is running.");
 
       /* Pass null arg rather than an empty one.  */
@@ -840,10 +887,8 @@ command_loop (void)
       if (display_space)
 	{
 #ifdef HAVE_SBRK
-	  extern char **environ;
 	  char *lim = (char *) sbrk (0);
-
-	  space_at_cmd_start = (long) (lim - (char *) &environ);
+	  space_at_cmd_start = lim - lim_at_start;
 #endif
 	}
 
@@ -863,9 +908,8 @@ command_loop (void)
       if (display_space)
 	{
 #ifdef HAVE_SBRK
-	  extern char **environ;
 	  char *lim = (char *) sbrk (0);
-	  long space_now = lim - (char *) &environ;
+	  long space_now = lim - lim_at_start;
 	  long space_diff = space_now - space_at_cmd_start;
 
 	  printf_unfiltered ("Space used: %ld (%c%ld for this command)\n",
@@ -1119,7 +1163,7 @@ static int operate_saved_history = -1;
 
 /* This is put on the appropriate hook and helps operate-and-get-next
    do its work.  */
-void
+static void
 gdb_rl_operate_and_get_next_completion (void)
 {
   int delta = where_history () - operate_saved_history;
@@ -1193,7 +1237,7 @@ command_line_input (char *prompt_arg, int repeat, char *annotation_suffix)
 {
   static char *linebuffer = 0;
   static unsigned linelength = 0;
-  register char *p;
+  char *p;
   char *p1;
   char *rl;
   char *local_prompt = prompt_arg;
@@ -1203,6 +1247,9 @@ command_line_input (char *prompt_arg, int repeat, char *annotation_suffix)
   /* The annotation suffix must be non-NULL.  */
   if (annotation_suffix == NULL)
     annotation_suffix = "";
+
+  /* APPLE LOCAL: run this to give a UI driving gdb to field
+     command input while we wait for the result.  */
 
   if (command_line_input_hook && (instream == stdin)) 
     { 
@@ -1266,9 +1313,9 @@ command_line_input (char *prompt_arg, int repeat, char *annotation_suffix)
 
       if (annotation_level > 1 && instream == stdin)
 	{
-	  printf_unfiltered ("\n\032\032pre-");
-	  printf_unfiltered (annotation_suffix);
-	  printf_unfiltered ("\n");
+	  puts_unfiltered ("\n\032\032pre-");
+	  puts_unfiltered (annotation_suffix);
+	  puts_unfiltered ("\n");
 	}
 
       /* Don't use fancy stuff if not talking to stdin.  */
@@ -1287,9 +1334,9 @@ command_line_input (char *prompt_arg, int repeat, char *annotation_suffix)
 
       if (annotation_level > 1 && instream == stdin)
 	{
-	  printf_unfiltered ("\n\032\032post-");
-	  printf_unfiltered (annotation_suffix);
-	  printf_unfiltered ("\n");
+	  puts_unfiltered ("\n\032\032post-");
+	  puts_unfiltered (annotation_suffix);
+	  puts_unfiltered ("\n");
 	}
 
       if (!rl || rl == (char *) EOF)
@@ -1331,7 +1378,7 @@ command_line_input (char *prompt_arg, int repeat, char *annotation_suffix)
 #define SERVER_COMMAND_LENGTH 7
   server_command =
     (p - linebuffer > SERVER_COMMAND_LENGTH)
-    && STREQN (linebuffer, "server ", SERVER_COMMAND_LENGTH);
+    && strncmp (linebuffer, "server ", SERVER_COMMAND_LENGTH) == 0;
   if (server_command)
     {
       /* Note that we don't set `line'.  Between this and the check in
@@ -1424,7 +1471,7 @@ print_gdb_version (struct ui_file *stream)
 
   /* Second line is a copyright notice. */
 
-  fprintf_filtered (stream, "Copyright 2003 Free Software Foundation, Inc.\n");
+  fprintf_filtered (stream, "Copyright 2004 Free Software Foundation, Inc.\n");
 
   /* Following the copyright is a brief statement that the program is
      free software, that users are free to copy and change it on
@@ -1440,7 +1487,7 @@ There is absolutely no warranty for GDB.  Type \"show warranty\" for details.\n"
   /* After the required info we print the configuration information. */
 
   fprintf_filtered (stream, "This GDB was configured as \"");
-  if (!STREQ (host_name, target_name))
+  if (strcmp (host_name, target_name) != 0)
     {
       fprintf_filtered (stream, "--host=%s --target=%s", host_name, target_name);
     }
@@ -1453,267 +1500,13 @@ There is absolutely no warranty for GDB.  Type \"show warranty\" for details.\n"
 
 /* get_prompt: access method for the GDB prompt string.  */
 
-#define MAX_PROMPT_SIZE 256
-
-/*
- * int get_prompt_1 (char * buf);
- *
- * Work-horse for get_prompt (called via catch_errors).
- * Argument is buffer to hold the formatted prompt.
- *
- * Returns: 1 for success (use formatted prompt)
- *          0 for failure (use gdb_prompt_string).
- */
-
-static int gdb_prompt_escape;
-
-static int
-get_prompt_1 (void *data)
-{
-  char *formatted_prompt = data;
-  char *local_prompt;
-
-  if (event_loop_p)
-    local_prompt = PROMPT (0);
-  else
-    local_prompt = gdb_prompt_string;
-
-
-  if (gdb_prompt_escape == 0)
-    {
-      return 0;			/* do no formatting */
-    }
-  else
-    /* formatted prompt */
-    {
-      char fmt[40], *promptp, *outp, *tmp;
-      struct value *arg_val;
-      DOUBLEST doubleval;
-      LONGEST longval;
-      CORE_ADDR addrval;
-
-      int i, len;
-      struct type *arg_type, *elt_type;
-
-      promptp = local_prompt;
-      outp = formatted_prompt;
-
-      while (*promptp != '\0')
-	{
-	  int available = MAX_PROMPT_SIZE - (outp - formatted_prompt) - 1;
-
-	  if (*promptp != gdb_prompt_escape)
-	    {
-	      if (available >= 1)	/* overflow protect */
-		*outp++ = *promptp++;
-	    }
-	  else
-	    {
-	      /* GDB prompt string contains escape char.  Parse for arg.
-	         Two consecutive escape chars followed by arg followed by
-	         a comma means to insert the arg using a default format.
-	         Otherwise a printf format string may be included between
-	         the two escape chars.  eg:
-	         %%foo, insert foo using default format
-	         %2.2f%foo,     insert foo using "%2.2f" format
-	         A mismatch between the format string and the data type
-	         of "foo" is an error (which we don't know how to protect
-	         against).  */
-
-	      fmt[0] = '\0';	/* assume null format string */
-	      if (promptp[1] == gdb_prompt_escape)	/* double esc char */
-		{
-		  promptp += 2;	/* skip past two escape chars. */
-		}
-	      else
-		{
-		  /* extract format string from between two esc chars */
-		  i = 0;
-		  do
-		    {
-		      fmt[i++] = *promptp++;	/* copy format string */
-		    }
-		  while (i < sizeof (fmt) - 1 &&
-			 *promptp != gdb_prompt_escape &&
-			 *promptp != '\0');
-
-		  if (*promptp != gdb_prompt_escape)
-		    error ("Syntax error at prompt position %d",
-			   (int) (promptp - local_prompt));
-		  else
-		    {
-		      promptp++;	/* skip second escape char */
-		      fmt[i++] = '\0';	/* terminate the format string */
-		    }
-		}
-
-	      arg_val = parse_to_comma_and_eval (&promptp);
-	      if (*promptp == ',')
-		promptp++;	/* skip past the comma */
-	      arg_type = check_typedef (VALUE_TYPE (arg_val));
-	      switch (TYPE_CODE (arg_type))
-		{
-		case TYPE_CODE_ARRAY:
-		  elt_type = check_typedef (TYPE_TARGET_TYPE (arg_type));
-		  if (TYPE_LENGTH (arg_type) > 0 &&
-		      TYPE_LENGTH (elt_type) == 1 &&
-		      TYPE_CODE (elt_type) == TYPE_CODE_INT)
-		    {
-		      int len = TYPE_LENGTH (arg_type);
-
-		      if (VALUE_LAZY (arg_val))
-			value_fetch_lazy (arg_val);
-		      tmp = VALUE_CONTENTS (arg_val);
-
-		      if (len > available)
-			len = available;	/* overflow protect */
-
-		      /* FIXME: how to protect GDB from crashing
-		         from bad user-supplied format string? */
-		      if (fmt[0] != 0)
-			sprintf (outp, fmt, tmp);
-		      else
-			strncpy (outp, tmp, len);
-		      outp[len] = '\0';
-		    }
-		  break;
-		case TYPE_CODE_PTR:
-		  elt_type = check_typedef (TYPE_TARGET_TYPE (arg_type));
-		  addrval = value_as_address (arg_val);
-
-		  if (TYPE_LENGTH (elt_type) == 1 &&
-		      TYPE_CODE (elt_type) == TYPE_CODE_INT &&
-		      addrval != 0)
-		    {
-		      /* display it as a string */
-		      char *default_fmt = "%s";
-		      char *tmp;
-		      int err = 0;
-
-		      /* Limiting the number of bytes that the following call
-		         will read protects us from sprintf overflow later. */
-		      i = target_read_string (addrval,	/* src */
-					      &tmp,	/* dest */
-					      available,	/* len */
-					      &err);
-		      if (err)	/* read failed */
-			error ("%s on target_read", safe_strerror (err));
-
-		      tmp[i] = '\0';	/* force-terminate string */
-		      /* FIXME: how to protect GDB from crashing
-		         from bad user-supplied format string? */
-		      sprintf (outp, fmt[0] == 0 ? default_fmt : fmt,
-			       tmp);
-		      xfree (tmp);
-		    }
-		  else
-		    {
-		      /* display it as a pointer */
-		      char *default_fmt = "0x%x";
-
-		      /* FIXME: how to protect GDB from crashing
-		         from bad user-supplied format string? */
-		      if (available >= 16 /*? */ )	/* overflow protect */
-			sprintf (outp, fmt[0] == 0 ? default_fmt : fmt,
-				 (long) addrval);
-		    }
-		  break;
-		case TYPE_CODE_FLT:
-		  {
-		    char *default_fmt = "%g";
-
-		    doubleval = value_as_double (arg_val);
-		    /* FIXME: how to protect GDB from crashing
-		       from bad user-supplied format string? */
-		    if (available >= 16 /*? */ )	/* overflow protect */
-		      sprintf (outp, fmt[0] == 0 ? default_fmt : fmt,
-			       (double) doubleval);
-		    break;
-		  }
-		case TYPE_CODE_INT:
-		  {
-		    char *default_fmt = "%d";
-
-		    longval = value_as_long (arg_val);
-		    /* FIXME: how to protect GDB from crashing
-		       from bad user-supplied format string? */
-		    if (available >= 16 /*? */ )	/* overflow protect */
-		      sprintf (outp, fmt[0] == 0 ? default_fmt : fmt,
-			       (long) longval);
-		    break;
-		  }
-		case TYPE_CODE_BOOL:
-		  {
-		    /* no default format for bool */
-		    longval = value_as_long (arg_val);
-		    if (available >= 8 /*? */ )		/* overflow protect */
-		      {
-			if (longval)
-			  strcpy (outp, "<true>");
-			else
-			  strcpy (outp, "<false>");
-		      }
-		    break;
-		  }
-		case TYPE_CODE_ENUM:
-		  {
-		    /* no default format for enum */
-		    longval = value_as_long (arg_val);
-		    len = TYPE_NFIELDS (arg_type);
-		    /* find enum name if possible */
-		    for (i = 0; i < len; i++)
-		      if (TYPE_FIELD_BITPOS (arg_type, i) == longval)
-			break;	/* match -- end loop */
-
-		    if (i < len)	/* enum name found */
-		      {
-			char *name = TYPE_FIELD_NAME (arg_type, i);
-
-			strncpy (outp, name, available);
-			/* in casel available < strlen (name), */
-			outp[available] = '\0';
-		      }
-		    else
-		      {
-			if (available >= 16 /*? */ )	/* overflow protect */
-			  sprintf (outp, "%ld", (long) longval);
-		      }
-		    break;
-		  }
-		case TYPE_CODE_VOID:
-		  *outp = '\0';
-		  break;	/* void type -- no output */
-		default:
-		  error ("bad data type at prompt position %d",
-			 (int) (promptp - local_prompt));
-		  break;
-		}
-	      outp += strlen (outp);
-	    }
-	}
-      *outp++ = '\0';		/* terminate prompt string */
-      return 1;
-    }
-}
-
 char *
 get_prompt (void)
 {
-  static char buf[MAX_PROMPT_SIZE];
-
-  if (catch_errors (get_prompt_1, buf, "bad formatted prompt: ",
-		    RETURN_MASK_ALL))
-    {
-      return &buf[0];		/* successful formatted prompt */
-    }
+  if (event_loop_p)
+    return PROMPT (0);
   else
-    {
-      /* Prompt could not be formatted.  */
-      if (event_loop_p)
-	return PROMPT (0);
-      else
-	return gdb_prompt_string;
-    }
+    return gdb_prompt_string;
 }
 
 void
@@ -1751,11 +1544,47 @@ quit_confirm (void)
       else
 	s = "The program is running.  Exit anyway? ";
 
-      if (!query (s))
+      if (!query ("%s", s))
 	return 0;
     }
 
   return 1;
+}
+
+/* Helper routine for quit_force that requires error handling.  */
+
+struct qt_args
+{
+  char *args;
+  int from_tty;
+};
+
+static int
+quit_target (void *arg)
+{
+  struct qt_args *qt = (struct qt_args *)arg;
+
+  if (! ptid_equal (inferior_ptid, null_ptid) && target_has_execution)
+    {
+      if (attach_flag)
+        target_detach (qt->args, qt->from_tty);
+      else
+        target_kill ();
+    }
+
+  /* UDI wants this, to kill the TIP.  */
+  target_close (&current_target, 1);
+
+  /* Save the history information if it is appropriate to do so.  */
+  if (write_history_p && history_filename)
+    write_history (history_filename);
+
+  if (state_change_hook) 
+    state_change_hook (STATE_NOT_ACTIVE); 
+
+  do_final_cleanups (ALL_CLEANUPS);	/* Do any final cleanups before exiting */
+
+  return 0;
 }
 
 /* Quit without asking for confirmation.  */
@@ -1764,7 +1593,9 @@ void
 quit_force (char *args, int from_tty)
 {
   int exit_code = 0;
-  
+  struct qt_args qt;
+
+  /* APPLE LOCAL: See comments on gdb_quitting def'n above.  */
   gdb_quitting = 1;
 
   /* An optional expression may be used to cause gdb to terminate with the 
@@ -1776,25 +1607,12 @@ quit_force (char *args, int from_tty)
       exit_code = (int) value_as_long (val);
     }
 
-  if (! ptid_equal (inferior_ptid, null_ptid) && target_has_execution)
-    {
-      if (attach_flag)
-	target_detach (args, from_tty);
-      else
-	target_kill ();
-    }
+  qt.args = args;
+  qt.from_tty = from_tty;
 
-  /* UDI wants this, to kill the TIP.  */
-  target_close (1);
-
-  /* Save the history information if it is appropriate to do so.  */
-  if (write_history_p && history_filename)
-    write_history (history_filename);
-
-  if (state_change_hook) 
-    state_change_hook (STATE_NOT_ACTIVE); 
-
-  do_final_cleanups (ALL_CLEANUPS);	/* Do any final cleanups before exiting */
+  /* We want to handle any quit errors and exit regardless.  */
+  catch_errors (quit_target, &qt,
+	        "Quitting: ", RETURN_MASK_ALL);
 
   exit (exit_code);
 }
@@ -1808,7 +1626,6 @@ input_from_terminal_p (void)
   return gdb_has_a_terminal () && (instream == stdin) & caution;
 }
 
-/* ARGSUSED */
 static void
 dont_repeat_command (char *ignored, int from_tty)
 {
@@ -1894,7 +1711,6 @@ show_commands (char *args, int from_tty)
 }
 
 /* Called by do_setshow_command.  */
-/* ARGSUSED */
 static void
 set_history_size_command (char *args, int from_tty, struct cmd_list_element *c)
 {
@@ -1909,7 +1725,6 @@ set_history_size_command (char *args, int from_tty, struct cmd_list_element *c)
     }
 }
 
-/* ARGSUSED */
 void
 set_history (char *args, int from_tty)
 {
@@ -1917,7 +1732,6 @@ set_history (char *args, int from_tty)
   help_list (sethistlist, "set history ", -1, gdb_stdout);
 }
 
-/* ARGSUSED */
 void
 show_history (char *args, int from_tty)
 {
@@ -1927,7 +1741,6 @@ show_history (char *args, int from_tty)
 int info_verbose = 0;		/* Default verbose msgs off */
 
 /* Called by do_setshow_command.  An elaborate joke.  */
-/* ARGSUSED */
 void
 set_verbose (char *args, int from_tty, struct cmd_list_element *c)
 {
@@ -2019,7 +1832,6 @@ init_main (void)
       if (annotation_level > 1)
         set_async_annotation_level (NULL, 0, NULL);
     }
-  gdb_prompt_escape = 0;	/* default to none.  */
 
   /* Set the important stuff up for command editing.  */
   command_editing_p = 1;
@@ -2028,8 +1840,7 @@ init_main (void)
 
   /* Setup important stuff for command line editing.  */
   rl_completion_entry_function = readline_line_completion_function;
-  rl_completer_word_break_characters =
-				 get_gdb_completer_word_break_characters ();
+  rl_completer_word_break_characters = default_word_break_characters ();
   rl_completer_quote_characters = get_gdb_completer_quote_characters ();
   rl_readline_name = "gdb";
   rl_terminal_name = getenv ("TERM");
@@ -2058,13 +1869,6 @@ init_main (void)
       add_show_from_set (c, &showlist);
       set_cmd_sfunc (c, set_async_prompt);
     }
-
-  add_show_from_set
-    (add_set_cmd ("prompt-escape-char", class_support, var_zinteger,
-		  (char *) &gdb_prompt_escape,
-		  "Set escape character for formatting of gdb's prompt",
-		  &setlist),
-     &showlist);
 
   add_com ("dont-repeat", class_support, dont_repeat_command, "Don't repeat this command.\n\
 Primarily used inside of user-defined commands that should not be repeated when\n\
@@ -2196,32 +2000,6 @@ gdb_init (char *argv0)
   set_language (language_c);
   expected_language = current_language;		/* don't warn about the change.  */
 
-  /* Install the default UI */ 
-  /* All the interpreters should have had a look at things by now. 
-     Initialize the selected interpreter. */ 
-  if (!init_ui_hook)
-    { 
-      struct gdb_interpreter *interp; 
-      if (interpreter_p == NULL) 
-	interpreter_p = xstrdup ("console"); 
- 
-      interp = gdb_lookup_interpreter (interpreter_p); 
- 
-      if (interp == NULL) 
-	{ 
-	  fprintf_unfiltered (gdb_stderr, "Interpreter `%s' unrecognized.\n", 
-			      interpreter_p); 
-	  exit (1); 
-	} 
-      if (!gdb_set_interpreter (interp))   
-	{ 
-	  fprintf_unfiltered (gdb_stderr, "Interpreter `%s' failed to initialize.\n", 
-			      interpreter_p); 
-	  exit (1); 
-	} 
-    } 
-
   if (init_ui_hook)
     init_ui_hook (argv0);
 }
-

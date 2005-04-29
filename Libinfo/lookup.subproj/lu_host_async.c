@@ -374,7 +374,7 @@ _gethostbyaddr_async_start(const char *addr, int len, int type, a_request_callou
 			if (len != sizeof(struct in_addr))
 			{
 				*error = NO_RECOVERY;
-				return NULL;
+				return MACH_PORT_NULL;
 			}
 
 			v4addr = malloc(len);
@@ -400,7 +400,7 @@ _gethostbyaddr_async_start(const char *addr, int len, int type, a_request_callou
 			if (len != sizeof(struct in6_addr))
 			{
 				*error = NO_RECOVERY;
-				return NULL;
+				return MACH_PORT_NULL;
 			}
 
 			v6addr = malloc(len);
@@ -784,7 +784,7 @@ _gethostbyname_async_start(const char *name, int want, int *error, a_request_cal
 		free(request->request.data);
 		free(request);
 		*error = NO_RECOVERY;
-		mp = NULL;
+		mp = MACH_PORT_NULL;
 	}
 
 	xdr_destroy(&outxdr);

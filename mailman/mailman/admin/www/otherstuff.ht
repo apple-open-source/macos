@@ -14,12 +14,24 @@ authors of the articles only.
 
 <h3>Papers</h3>
 
-<p>A number of papers and other material presented at
-<a href="http://www.foretec.com/python/workshops/1998-11/proceedings.html">
-the 7th International Python Conference</a> and the 12th Usenix LISA
-conference are available
-<a href="http://sourceforge.net/project/showfiles.php?group_id=103"
->here</a>.
+<ul>
+<li><a href="http://www.usenix.org/events/usenix03/tech/freenix03/warsaw.html"
+>GNU Mailman, Internationalized</a>, Warsaw, USENIX 2003 Annual
+Technical Conference, FREENIX Track.  <em>Note: requires USENIX membership to
+access full text until June 2004.</em>
+
+<li><a href="http://www.foretec.com/python/workshops/1998-11/proceedings/papers/manheimer/manheimer.html"
+>Mailman - An Extensible Mailing List Manager Using Python</a>, Manheimer,
+Warsaw, Viega,
+<a href="http://www.foretec.com/python/workshops/1998-11/proceedings.html"
+>7th International Python Conference</a> in Houston, TX.
+
+<li><a href="http://www.usenix.org/publications/library/proceedings/lisa98/full_papers/viega/viega_html/viega.html"
+>Mailman: The GNU Mailing List Manager</a>, Viega, Warsaw, Manheimer,
+<a href="http://www.usenix.org/publications/library/proceedings/lisa98/technical.html"
+>12th Usenix Systems Administration Conference (LISA '98)</a>.
+
+</ul>
 
 <h3>Logos</h3>
 

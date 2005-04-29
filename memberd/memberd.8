@@ -1,0 +1,51 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd Wed Nov 24 2004               \" DATE 
+.Dt memberd 8      \" Program name and manual section number 
+.Os Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm memberd
+.Nd group membership resolution daemon
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op options
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+.Nm
+is a daemon process used by the system to resolve group memberships.  It should always be running and responds to messages from the kernel or other processes using membership API calls.  All resolution is done using Open Directory calls for both legacy and new group formats, including support for nested group resolution.
+.Pp                      \" Inserts a space
+A list of flags and their descriptions:
+.Bl -tag -width -indent  \" Differs from above in tag removed 
+.It Fl h                 \"-a flag as a list item
+Lists the options for calling
+.Nm
+.It Fl v
+Prints the build version
+.It Fl x
+Prevents memberd from daemonizing
+.It Fl d
+Same as
+.Fl x
+but enables output to terminal
+.It Fl s
+Prints usage statistics for the running daemon
+.It Fl c
+Clears existing statistics for running daemon
+.It Fl t
+Runs a self test against the running daemon
+.It Fl r
+Resets the memberd cache
+.It Fl u
+Ar name Determines the UUID for the provided username
+.It Fl g
+Ar group Determins the UUID for the provided group name
+.It Fl l
+Dumps log to a file in /Library/Logs/memberd_dump.log
+.It Fl L
+Dumps log and cache to log file in /Library/Logs/memberd_dump.log
+.El
+.Sh SEE ALSO
+.Pp
+DirectoryService(8), initgroups(3), getgroups(3), mbr_check_membership(3), mbr_uid_to_uuid(3)

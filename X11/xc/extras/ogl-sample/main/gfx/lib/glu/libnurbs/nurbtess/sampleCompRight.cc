@@ -33,6 +33,7 @@
 **
 ** $Date$ $Revision$
 */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/nurbtess/sampleCompRight.cc,v 1.2 2003/10/22 19:20:58 tsi Exp $ */
 /*
 ** $Header: //depot/main/gfx/lib/glu/libnurbs/nurbtess/sampleCompRight.cc#4 $
 */
@@ -497,7 +498,8 @@ void sampleRightOneGridStep(vertexArray* rightChain,
 
     return;
   }
-	   
+
+#if 0
   //this following code cannot be reached, but leave it for debuggig purpose.
   Int i;
   //find the maximal U-monotone chain of beginRightIndex, beginRightIndex+1,...
@@ -575,6 +577,7 @@ void sampleRightOneGridStep(vertexArray* rightChain,
 		     j+1,
 		     0, ///a decreae chain
 		     pStream);
+#endif
 }
 		  
 #endif    

@@ -1,4 +1,11 @@
+// Copyright 1997-2004 The OpenLDAP Foundation, All Rights Reserved.
+//  COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+
 // (c) Copyright 1999-2001 TimesTen Performance Software. All rights reserved.
+
+//// Note: This file was contributed by Sam Drake of TimesTen Performance
+////       Software for use and redistribution as an intregal part of
+////       OpenLDAP Software.  -Kdz
 
 #include <stdlib.h>
 

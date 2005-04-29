@@ -1,0 +1,42 @@
+.\" @(#)man.conf
+.TH MAN.CONF 5 "30 Mar 1994"
+.SH NAAM
+man.conf \- configuratie bestand voor man
+.SH BESCHRIJVING
+.LP
+Dit bestand wordt door
+.BR man (1)
+gelezen, en bevat (a) informatie over hoe het zoekpad voor man
+gemaakt moet worden, (b) volledige padnamen voor de benodigde
+programma's, zoals nroff, eqn, tbl enz., en (c) een lijst
+van decomprimeerprogramma's voor bestanden met een gegeven extensie.
+Een prive versie van dit bestand kan gebruikt worden door
+man de -C optie mee te geven:
+.LP
+.RS
+man -C prive_man.conf ...
+.RE
+.LP
+Aan de programmanamen kunnen opties worden meegegeven.
+Nuttige opties om bij nroff te gebruiken kunnen in grotty(1)
+gevonden worden. Bijvoorbeeld, in plaats van het gebruikelijke
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+kan men
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+schrijven, teneinde onderstrepingen en overprintingen weg te halen.
+.SH "ZIE OOK"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) en compress(1), gzip(1).
+

@@ -1,6 +1,6 @@
 /* This is a software floating point library which can be used
    for targets without hardware floating point. 
-   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003
+   Copyright (C) 1994, 1995, 1996, 1997, 1998, 2000, 2001, 2002, 2003, 2004
    Free Software Foundation, Inc.
 
 This file is free software; you can redistribute it and/or modify it
@@ -44,7 +44,9 @@ Boston, MA 02111-1307, USA.  */
    to one copy, then compile both copies and add them to libgcc.a.  */
 
 #include "tconfig.h"
-#include "fp-bit.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "config/fp-bit.h"
 
 /* The following macros can be defined to change the behavior of this file:
    FLOAT: Implement a `float', aka SFmode, fp library.  If this is not
@@ -208,7 +210,11 @@ pack_d ( fp_number_type *  src)
       exp = EXPMAX;
       if (src->class == CLASS_QNAN || 1)
 	{
+#ifdef QUIET_NAN_NEGATED
+	  fraction |= QUIET_NAN - 1;
+#else
 	  fraction |= QUIET_NAN;
+#endif
 	}
     }
   else if (isinf (src))
@@ -324,58 +330,76 @@ pack_d ( fp_number_type *  src)
 #else
 # if defined TFLOAT && defined HALFFRACBITS
  {
-   halffractype high, low;
+   halffractype high, low, unity;
+   int lowsign, lowexp;
 
-   high = (fraction >> (FRACBITS - HALFFRACBITS));
-   high &= (((fractype)1) << HALFFRACBITS) - 1;
-   high |= ((fractype) (exp & ((1 << EXPBITS) - 1))) << HALFFRACBITS;
-   high |= ((fractype) (sign & 1)) << (HALFFRACBITS | EXPBITS);
+   unity = (halffractype) 1 << HALFFRACBITS;
 
-   low = (halffractype)fraction &
-     ((((halffractype)1) << (FRACBITS - HALFFRACBITS)) - 1);
+   /* Set HIGH to the high double's significand, masking out the implicit 1.
+      Set LOW to the low double's full significand.  */
+   high = (fraction >> (FRACBITS - HALFFRACBITS)) & (unity - 1);
+   low = fraction & (unity * 2 - 1);
+
+   /* Get the initial sign and exponent of the low double.  */
+   lowexp = exp - HALFFRACBITS - 1;
+   lowsign = sign;
+
+   /* HIGH should be rounded like a normal double, making |LOW| <=
+      0.5 ULP of HIGH.  Assume round-to-nearest.  */
+   if (exp < EXPMAX)
+     if (low > unity || (low == unity && (high & 1) == 1))
+       {
+	 /* Round HIGH up and adjust LOW to match.  */
+	 high++;
+	 if (high == unity)
+	   {
+	     /* May make it infinite, but that's OK.  */
+	     high = 0;
+	     exp++;
+	   }
+	 low = unity * 2 - low;
+	 lowsign ^= 1;
+       }
+
+   high |= (halffractype) exp << HALFFRACBITS;
+   high |= (halffractype) sign << (HALFFRACBITS + EXPBITS);
 
    if (exp == EXPMAX || exp == 0 || low == 0)
      low = 0;
    else
      {
-       exp -= HALFFRACBITS + 1;
-
-       while (exp > 0
-	      && low < ((halffractype)1 << HALFFRACBITS))
+       while (lowexp > 0 && low < unity)
 	 {
 	   low <<= 1;
-	   exp--;
+	   lowexp--;
 	 }
 
-       if (exp <= 0)
+       if (lowexp <= 0)
 	 {
 	   halffractype roundmsb, round;
+	   int shift;
 
-	   exp = -exp + 1;
-
-	   roundmsb = (1 << (exp - 1));
+	   shift = 1 - lowexp;
+	   roundmsb = (1 << (shift - 1));
 	   round = low & ((roundmsb << 1) - 1);
 
-	   low >>= exp;
-	   exp = 0;
+	   low >>= shift;
+	   lowexp = 0;
 
-	   if (round > roundmsb || (round == roundmsb && (low & 1)))
+	   if (round > roundmsb || (round == roundmsb && (low & 1) == 1))
 	     {
 	       low++;
-	       if (low >= ((halffractype)1 << HALFFRACBITS))
-		 /* We don't shift left, since it has just become the
-		    smallest normal number, whose implicit 1 bit is
-		    now indicated by the non-zero exponent.  */
-		 exp++;
+	       if (low == unity)
+		 /* LOW rounds up to the smallest normal number.  */
+		 lowexp++;
 	     }
 	 }
 
-       low &= ((halffractype)1 << HALFFRACBITS) - 1;
-       low |= ((fractype) (exp & ((1 << EXPBITS) - 1))) << HALFFRACBITS;
-       low |= ((fractype) (sign & 1)) << (HALFFRACBITS | EXPBITS);
+       low &= unity - 1;
+       low |= (halffractype) lowexp << HALFFRACBITS;
+       low |= (halffractype) lowsign << (HALFFRACBITS + EXPBITS);
      }
-
-   dst.value_raw = (((fractype) high) << HALFSHIFT) | low;
+   dst.value_raw = ((fractype) high << HALFSHIFT) | low;
  }
 # else
   dst.value_raw = fraction & ((((fractype)1) << FRACBITS) - (fractype)1);
@@ -453,6 +477,7 @@ unpack_d (FLO_union_type * src, fp_number_type * dst)
    if (exp != EXPMAX && exp != 0 && low != 0)
      {
        int lowexp = ((int)(low >> HALFFRACBITS)) & ((1 << EXPBITS) - 1);
+       int lowsign = ((int)(low >> (((HALFFRACBITS + EXPBITS))))) & 1;
        int shift;
        fractype xlow;
 
@@ -466,7 +491,18 @@ unpack_d (FLO_union_type * src, fp_number_type * dst)
 	 xlow <<= shift;
        else if (shift < 0)
 	 xlow >>= -shift;
-       fraction += xlow;
+       if (sign == lowsign)
+	 fraction += xlow;
+       else if (fraction >= xlow)
+	 fraction -= xlow;
+       else
+	 {
+	   /* The high part is a power of two but the full number is lower.
+	      This code will leave the implicit 1 in FRACTION, but we'd
+	      have added that below anyway.  */
+	   fraction = (((fractype) 1 << FRACBITS) - xlow) << 1;
+	   exp--;
+	 }
      }
  }
 # else
@@ -519,7 +555,11 @@ unpack_d (FLO_union_type * src, fp_number_type * dst)
       else
 	{
 	  /* Nonzero fraction, means nan */
+#ifdef QUIET_NAN_NEGATED
+	  if ((fraction & QUIET_NAN) == 0)
+#else
 	  if (fraction & QUIET_NAN)
+#endif
 	    {
 	      dst->class = CLASS_QNAN;
 	    }
@@ -859,32 +899,28 @@ _fpmul_parts ( fp_number_type *  a,
 	high |= 1;
       low <<= 1;
     }
-  /* rounding is tricky. if we only round if it won't make us round later.  */
-#if 0
-  if (low & FRACHIGH2)
-    {
-      if (((high & GARDMASK) != GARDMSB)
-	  && (((high + 1) & GARDMASK) == GARDMSB))
-	{
-	  /* don't round, it gets done again later.  */
-	}
-      else
-	{
-	  high++;
-	}
-    }
-#endif
+
   if (!ROUND_TOWARDS_ZERO && (high & GARDMASK) == GARDMSB)
     {
       if (high & (1 << NGARDS))
 	{
-	  /* half way, so round to even */
-	  high += GARDROUND + 1;
+	  /* Because we're half way, we would round to even by adding
+	     GARDROUND + 1, except that's also done in the packing
+	     function, and rounding twice will lose precision and cause
+	     the result to be too far off.  Example: 32-bit floats with
+	     bit patterns 0xfff * 0x3f800400 ~= 0xfff (less than 0.5ulp
+	     off), not 0x1000 (more than 0.5ulp off).  */
 	}
       else if (low)
 	{
-	  /* but we really weren't half way */
+	  /* We're a further than half way by a small amount corresponding
+	     to the bits set in "low".  Knowing that, we round here and
+	     not in pack_d, because there we don't have "low" available
+	     anymore.  */
 	  high += GARDROUND + 1;
+
+	  /* Avoid further rounding in pack_d.  */
+	  high &= ~(fractype) GARDMASK;
 	}
     }
   tmp->fraction.ll = high;
@@ -988,13 +1024,21 @@ _fpdiv_parts (fp_number_type * a,
       {
 	if (quotient & (1 << NGARDS))
 	  {
-	    /* half way, so round to even */
-	    quotient += GARDROUND + 1;
+	    /* Because we're half way, we would round to even by adding
+	       GARDROUND + 1, except that's also done in the packing
+	       function, and rounding twice will lose precision and cause
+	       the result to be too far off.  */
 	  }
 	else if (numerator)
 	  {
-	    /* but we really weren't half way, more bits exist */
+	    /* We're a further than half way by the small amount
+	       corresponding to the bits set in "numerator".  Knowing
+	       that, we round here and not in pack_d, because there we
+	       don't have "numerator" available anymore.  */
 	    quotient += GARDROUND + 1;
+
+	    /* Avoid further rounding in pack_d.  */
+	    quotient &= ~(fractype) GARDMASK;
 	  }
       }
 

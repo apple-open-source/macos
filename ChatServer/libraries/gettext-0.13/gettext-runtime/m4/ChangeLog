@@ -1,0 +1,123 @@
+2003-11-30  Bruno Haible  <bruno@clisp.org>
+
+	* gettext-0.13 released.
+
+2003-11-23  Bruno Haible  <bruno@clisp.org>
+
+	* ssize_t.m4: Remove file, moved to ../../gettext-tools/m4/.
+	* gettext.m4 (AM_INTL_SUBDIR): Don't require gt_TYPE_SSIZE_T.
+	* Makefile.am (EXTRA_DIST): Remove ssize_t.m4.
+
+2003-11-19  Bruno Haible  <bruno@clisp.org>
+
+	* size_max.m4 (gl_SIZE_MAX): Don't use the _ONCE macros here.
+
+2003-11-16  Bruno Haible  <bruno@clisp.org>
+
+	* size_max.m4: New file, moved here from ../../gettext-tools/m4/.
+	* ssize_t.m4: New file, moved here from ../../gettext-tools/m4/.
+	* xsize.m4: New file, moved here from ../../gettext-tools/m4/.
+	* gettext.m4 (AM_INTL_SUBDIR): Require gt_TYPE_SSIZE_T, gl_XSIZE.
+	Improve ptrdiff_t test.
+	* Makefile.am (EXTRA_DIST): Add size_max.m4, ssize_t.m4, xsize.m4.
+
+2003-11-09  Bruno Haible  <bruno@clisp.org>
+
+	* po.m4 (AM_POSTPROCESS_PO_MAKEFILE): New macro.
+
+2003-09-17  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_INTL_SUBDIR): Test for fwprintf, not wprintf. Needed
+	because cygwin-1.3.22 has a broken definition of wprintf in
+	winsup/cygwin/syscalls.cc and lacks 1. the declaration of this function
+	and 2. the other wide-char I/O functions fwprintf, fwscanf, wprintf,
+	wscanf, swprintf, swscanf, vfwprintf, vwprintf, vwsprintf, fgetwc,
+	fgetwc, fputwc, fputws, getwc, getwchar, putwc, putwchar, ungetwc.
+
+2003-08-29  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_INTL_SUBDIR): Test whether _snprintf and _snwprintf
+	are declared, not only existent as functions.
+
+2003-08-24  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_INTL_SUBDIR): Also check for _snprintf, _snwprintf.
+
+2003-08-11  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_INTL_SUBDIR): Also check for wcslen.
+
+2003-06-27  Bruno Haible  <bruno@clisp.org>
+
+	Avoid use of *_unlocked functions on Solaris 2.5.1.
+	* gettext.m4 (AM_INTL_SUBDIR): Don't test for the functions
+	feof_unlocked, fgets_unlocked, getc_unlocked. Test for their
+	declaration instead.
+	(gt_CHECK_DECL): New macro.
+	Reported by Eric Botcazou <ebotcazou@libertysurf.fr>.
+
+2003-06-19  Bruno Haible  <bruno@clisp.org>
+
+	* printf-posix.m4: New file.
+	* Makefile.am (EXTRA_DIST): Add printf-posix.m4.
+	* gettext.m4 (AM_INTL_SUBDIR): Require bh_C_SIGNED,
+	jm_AC_TYPE_LONG_LONG, gt_TYPE_LONGDOUBLE, gt_TYPE_WCHAR_T,
+	gt_TYPE_WINT_T, jm_AC_HEADER_INTTYPES_H, jm_AC_HEADER_STDINT_H,
+	gt_TYPE_INTMAX_T, gt_PRINTF_POSIX. Check for ptrdiff_t, asprintf,
+	snprintf, wprintf.
+	* longlong.m4: Update from gnulib.
+	(jm_AC_TYPE_LONG_LONG): Replaces gt_TYPE_LONGLONG.
+
+2003-01-11  Bruno Haible  <bruno@clisp.org>
+
+	* ulonglong.m4 (jm_AC_TYPE_UNSIGNED_LONG_LONG): Also test the ULL
+	suffix.
+
+2003-05-22  Bruno Haible  <bruno@clisp.org>
+
+	* gettext-0.12.1 released.
+
+2003-05-17  Bruno Haible  <bruno@clisp.org>
+
+	* gettext-0.12 released.
+
+2003-04-29  Bruno Haible  <bruno@clisp.org>
+
+	* nls.m4: New file, extracted from gettext.m4.
+	* po.m4: New file, extracted from gettext.m4.
+	* gettext.m4 (AM_GNU_GETTEXT): Use AM_NLS.
+	(AM_PO_SUBDIRS, AM_MKINSTALLDIRS): Remove macros.
+	* Makefile.am (EXTRA_DIST): Add them.
+
+2003-03-16  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_INTL_SUBDIR): Also test for __fsetlocking.
+
+2003-02-28  Bruno Haible  <bruno@clisp.org>
+
+	* error.m4: Remove file. Use ../../gettext-tools/m4/error.m4 instead.
+	* Makefile.am (EXTRA_DIST): Remove it.
+
+2003-02-28  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_MKINSTALLDIRS): Fix MKINSTALLDIRS for when AC_AUX_DIR
+	is given and $srcdir is a relative directory.
+
+2003-02-16  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_PO_SUBDIRS): Require an xgettext that supports the
+	--msgid-bugs-address option.
+
+2003-02-16  Bruno Haible  <bruno@clisp.org>
+
+	* gettext.m4 (AM_GNU_GETTEXT): Move INTLOBJS to backward compatibility
+	section.
+
+2003-02-12  Bruno Haible  <bruno@clisp.org>
+
+	Restructure gettext package.
+	* ansi-c++.m4: New file.
+	* gettext.m4 (AM_GNU_GETTEXT): Special case the packages
+	'gettext-runtime' and 'gettext-tools'.
+	* Makefile.am: New file.
+

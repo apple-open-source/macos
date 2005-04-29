@@ -1,0 +1,144 @@
+'\" t
+.\" Man page for man2html
+.\" aeb, 980101
+.\"
+.\" Traducere de Ovidiu Constantin <ovidiu.soft@xnet.ro>
+.TH man2html 1 "1 Ianuarie 1998"
+.LO 1
+.SH NUME
+man2html \- formateazã o paginã de manual în html
+.SH SUMAR
+man2html [opþuni] [fiºier]
+.SH DESCRIERE
+.B man2html
+converteºte o paginã de manual aºa cum se gãseºte în
+.I fiºier
+(sau intrarea standard (stdin), în caz cã argumentul fiºier lipseºte,
+sau argumentul "-" este folosit) din stilul man nroff în html, ºi
+tipãreºte rezultatul la ieºirea standard (stdout). Suportã tbl dar nu
+ºtie de eqn.  Starea de ieºire este 0.  Dacã ceva merge eronat, o paginã
+de eroare este tipãritã la ieºirea standard (stdout).
+
+Poate fi folosit ca un utilitar de sine stãtãtor, dar este în principal
+conceput ca un auxiliar, pentru a permite utilizatorilor sã navigheze
+prin paginile de manual folosind un navigator html ca
+.BR lynx (1),
+.BR xmosaic (1)
+sau
+.BR netscape (1).
+./" (Vezi
+./" .BR man (1)
+./" pentru informaþii despre cum sã navighezi prin paginile de manual cu
+./" .BR man2html .
+./" De obicei este suficientã adãugarea "MANHTMLPAGER=/usr/bin/lynx"
+./" la mediu.)
+
+Partea principalã a
+.B man2html
+este motorul troff-to-html scris de Richard Verhoeven (rcb5@win.tue.nl).
+Adaugã legãturi pentru urmãtoarele construcþii:
+.LP
+.TS
+l l.
+foo(3x)	"http://localhost/cgi-bin/man/man2html?3x+foo"
+method://ºir	"method://ºir"
+www.nume.gazdã	"http://www.nume.gazdã"
+ftp.nume.gazdã	"ftp://ftp.nume.gazdã"
+nume@gazdã	"mailto:nume@gazdã"
+<string.h>	"file:/usr/include/string.h"
+.TE
+.LP
+(Primele din acestea pot fi modificate cu opþiuni - vezi mai jos.)  Nici
+o verificare nu este fãcutã - legãturile generate nu trebuie sã existe.
+De asemenea, este generat un cuprins cu legãturi interne spre diverse
+secþiuni, astfel încât este mai uºor pentru cineva sã se descurce în
+paginile mari de manual ca
+.BR bash (1).
+
+.SH OPÞIUNI
+Când se citeºte de la intrarea standard, nu este întotdeauna clar cum sã
+se facã expansiunea .so. Opþiunea \-D permite unui script sã defineascã
+directorul de lucru.
+.LP
+.TP
+.B \-\^D cale
+Eliminã ultimele douã pãrþi din cale, ºi face un
+\fIchdir\fP(\fIdir\fP) înainte de a începe conversia.
+.LP
+Opþiunea \-E permite generarea uºoarã a mesajelor de eroare dintr-un
+script cgi.
+.LP
+.TP
+.B \-\^E ºir
+Produce o paginã de eroare conþinând mesajul de eroare dat.
+.LP
+Forma generalã a unei legãturi generate pentru o referinþã la o paginã
+de manual este
+.IP
+<metodã:cale_cgi><cale_man2html><separator><paginã_man>
+.LP
+cu o formã implicitã ca mai sus. Pãrþile acestei legãturi sunt
+configurate folosind diverse opþiuni.
+.TP
+.B \-\^h
+Configureazã metodã:cele_cgi ca http://localhost. Aceastã opþiune este implicitã.
+.TP
+.BI \-\^H " gazdã[.domeniu][:port]"
+Configureazã metodã:cale_cgi ca
+.RI http:// gazdã.domeniu:port .
+.TP
+.B \-\^l
+Configureazã metodã:cale_cgi ca
+.RI lynxcgi: /home/httpd .
+.TP
+.BI \-\^L " dir"
+Configureazã metodã:cale_cgi ca
+.RI lynxcgi: dir .
+.TP
+.BI \-\^M " cale_man2html"
+Configureazã cale_man2html care va fi folositã. Implicit ea este
+.IR /cgi-bin/man/man2html .
+.TP
+.B \-\^p
+Configureazã separatorul ca '/'.
+.TP
+.B \-\^q
+Configureazã separatorul ca '?'. Aceastã opþiune este implicitã.
+.LP
+Pe o maºinã care nu ruleazã
+.BR httpd ,
+se poate folosi
+.B lynx
+pentru a naviga prin paginile de manual, folosind metoda lynxcgi. Când
+un demon http ruleazã, lynx, sau orice alt navigator, poate fi folosit
+pentru a naviga prin paginile de manual, folosind metoda http. Opþiunea
+\-l (pentru `lynxcgi') selecteazã comportamentul precedent. Cu ea,
+cale_cgi este \fI/home/httpd\fP.
+
+În general, un script cgi poate fi apelat prin
+.IP
+<cale_la_script>/<mai_multã_cale>?<cerere>
+.LP
+ºi variabilele de mediu PATH_INFO ºi QUERY_STRING vor fi configurate ca
+<mai_multã_cale> ºi respectiv <cere>. Din moment ce lynxcgi nu trateazã
+partea PATH_INFO, generãm legãturi cu `?' drept separator în mod
+implicit. Opþiunea \-p (de la eng. `path' (cale)) selecteazã '/' ca
+separator, în timp ce opþiunea \-q (de la eng. `query'(cerere))
+selecteazã '?' ca separator.
+
+Opþiunea \-H \fIgazdã\fP va specifica gazda care va fi folositã (în loc
+de \fIlocalhost\fP). Un script cgi ar putea folosi
+.IP
+man2html -H $SERVER_NAME
+.LP
+dacã variabila SERVER_NAME este configuratã. Aceasta ar permite maºinii
+sã se comporte ca un server ºi sã exporte pagini de manual.
+
+.SH ERORI
+Sunt multe euristici. Rezultatul nu va fi întotdeauna perfect. Metoda
+lynxcgi nu va funcþiona dacã lynx a fost compilat fãrã a selecta suport
+pentru ea. Ar putea fi probleme de securitate.
+
+.SH "VEZI ªI"
+.BR lynx (1),
+.BR man (1)

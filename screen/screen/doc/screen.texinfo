@@ -7,7 +7,7 @@
 @finalout
 @setchapternewpage odd
 @c %**end of header
-@set version 3.9.15
+@set version 4.0.2
 
 @direntry
 * Screen: (screen).             Full-screen window manager.
@@ -52,7 +52,7 @@ by the Foundation.
 @title Screen
 @subtitle The virtual terminal manager
 @subtitle for Version @value{version}
-@subtitle Mar 2003
+@subtitle Aug 2003
 
 @page
 @vskip 0pt plus 1filll
@@ -846,6 +846,10 @@ Set the bell notification message.  @xref{Bell}.
 Bind a command to a key.  @xref{Bind}.
 @item bindkey [@var{opts}] [@var{string} [@var{cmd args}]]
 Bind a string to a series of keystrokes. @xref{Bindkey}.
+@item blanker
+Blank the screen.  @xref{Screen Saver}.
+@item blankerprg
+Define a blanker program.  @xref{Screen Saver}.
 @item break [@var{duration}]
 Send a break signal to the current window.  @xref{Break}.
 @item breaktype [@var{tcsendbreak} | @var{TCSBRK} | @var{TIOCSBRK}]
@@ -908,6 +912,8 @@ Select default utmp logging behavior.  @xref{Login}.
 Select default file mode for ptys.  @xref{Mode}.
 @item defmonitor @var{state}
 Select default activity monitoring behavior.  @xref{Monitor}.
+@item defnonblock @var{state}|@var{numsecs}
+Select default nonblock mode.  @xref{Nonblock}.
 @item defobuflimit @var{limit}
 Select default output buffer limit.  @xref{Obuflimit}.
 @item defscrollback @var{num}
@@ -970,6 +976,8 @@ Display current key bindings.  @xref{Help}.
 Find previous command beginning @dots{}.  @xref{History}.
 @item hstatus @var{status}
 Change the window's hardstatus line.  @xref{Hardstatus}.
+@item idle [@var{timeout} [@var{cmd} @var{args}]]
+Define a screen saver command.  @xref{Screen Saver}.
 @item ignorecase [@var{state}]
 Ignore character case in searches.  @xref{Searching}.
 @item info
@@ -1016,8 +1024,8 @@ Go into single or multi user mode. @xref{Multiuser Session}.
 Use @code{nethack}-like error messages.  @xref{Nethack}.
 @item next
 Switch to the next window.  @xref{Selecting}.
-@item nonblock @var{state}
-Disable flow control to the current display. @xref{Nonblock}.
+@item nonblock [@var{state}|@var{numsecs}]
+Disable flow control to the current display. @xref{Nonblock}.|@var{numsecs}]
 @item number [@var{n}]
 Change/display the current window's number.  @xref{Number}.
 @item obuflimit [@var{limit}]
@@ -1146,6 +1154,8 @@ Grant exclusive write permission.  @xref{Multiuser Session}.
 Send an XOFF character.  @xref{XON/XOFF}.
 @item xon
 Send an XON character.  @xref{XON/XOFF}.
+@item zmodem [off|auto|catch|pass]
+Define how screen treats zmodem requests.  @xref{Zmodem}.
 @item zombie [@var{keys}]
 Keep dead windows.  @xref{Zombie}.
 @end table
@@ -1438,13 +1448,19 @@ is assigned to this window.
 Thus, the first window can be activated by @code{select 0}; there
 can be no more than 10 windows present simultaneously (unless screen is
 compiled with a higher MAXWIN setting).
-The special command @code{select -} switches to a blank window.
+There are two special arguments, @code{select -} switches to the
+internal blank window and @code{select .} switches to the
+current window. The latter is useful if used with screen's
+@code{-X} option.
+
 @end deffn
 
 @node Windowlist, , Select, Selecting
 @section Windowlist
 @kindex "
-@deffn Command windowlist [-b] | string [@var{string}] | title [@var{title}]
+@deffn Command windowlist [-b] [-m]
+@deffnx Command windowlist string [@var{string}]
+@deffnx Command windowlist title [@var{title}]
 (@kbd{C-a "})@*
 Display all windows in a table for visual window selection.
 The desired window can be selected via the standard
@@ -1452,6 +1468,9 @@ movement keys (@pxref{Movement}) and activated via
 the return key.  If the @code{-b} option is given, screen will
 switch to the blank window before presenting the list, so
 that the current window is also selectable.
+The @code{-m} option changes the order of the windows, instead of
+sorting by window numbers screen uses its internal most-recently-used
+list.
 
 The table format can be changed with the string and title
 option, the title is displayed as table heading, while the
@@ -1521,7 +1540,7 @@ password checking.
 
 @kindex D
 @deffn Command pow_detach
-(@kbd{C-a D})@*
+(@kbd{C-a D D})@*
 Mainly the same as @code{detach}, but also sends a HANGUP signal
 to the parent process of @code{screen}.@*
 @emph{Caution}: This will result in a
@@ -4311,10 +4330,12 @@ categories.
 * Printcmd::                    Set command for VT100 printer port emulation.
 * Sorendition::			Change the text highlighting method.
 * Attrcolor::			Map attributes to colors.
-* Setsid::			Change process group management
-* Eval::			Parse and execute arguments
-* Maxwin::			Set the maximum window number
+* Setsid::			Change process group management.
+* Eval::			Parse and execute arguments.
+* Maxwin::			Set the maximum window number.
 * Backtick::			Program a command for a backtick string escape.
+* Screen Saver::		Define a screen safer.
+* Zmodem::			Define how screen treats zmodem requests.
 @end menu
 
 @node At, Break,  , Miscellaneous
@@ -4426,12 +4447,22 @@ determined by the presence of the environment variable
 
 @node Nonblock, Number, Nethack, Miscellaneous
 @section Nonblock
-@deffn Command nonblock @var{state}
-Enable or disable flow control for the current  user  interface
-(display). It is used to prevent a slow display from slowing
-down the processing of data output by a window. This command
-may be helpful when multiple displays show the same window.
-@code{Nonblock} is initially off for all displays.
+@deffn Command nonblock [@var{state}|@var{numsecs}]
+Tell screen how to deal with user interfaces (displays) that cease to
+accept output. This can happen if a user presses ^S or a TCP/modem
+connection gets cut but no hangup is received. If nonblock is
+@code{off} (this is the default) screen waits until the display 
+restarts to accept the output. If nonblock is @code{on}, screen
+waits until the timeout is reached (@code{on} is treated as 1s). If the
+display still doesn't receive characters, screen will consider
+it ``blocked'' and stop sending characters to it. If at
+some time it restarts to accept characters, screen will unblock 
+the display and redisplay the updated window contents.
+@end deffn
+
+@deffn Command defnonblock @var{state}|@var{numsecs}
+Same as the @code{nonblock} command except that the default setting for
+displays is changed. Initial setting is @code{off}.
 @end deffn
 
 @node Number, Silence, Nonblock, Miscellaneous
@@ -4601,7 +4632,7 @@ Set the maximum window number screen will create. Doesn't affect
 already existing windows. The number may only be decreased.
 @end deffn
 
-@node Backtick, , Maxwin, Miscellaneous
+@node Backtick, Screen Saver, Maxwin, Miscellaneous
 @section Backtick
 @deffn Command backtick @var{id} @var{lifespan} @var{autorefresh} @var{command} [@var{args}]
 @deffnx Command backtick @var{id}
@@ -4626,6 +4657,58 @@ automatically refresh the hardstatus or the captions.
 
 The second form of the command deletes the backtick command 
 with the numerical id @var{id}.
+@end deffn
+
+@node Screen Saver, Zmodem, Backtick, Miscellaneous
+@section Screen Saver
+@deffn Command idle [@var{timeout} [@var{cmd} @var{args}]]
+(none)@*
+Sets a command that is run after the specified number of
+seconds inactivity is reached. This command will normally
+be the @code{blanker} command to create a screen blanker, but
+it can be any screen command. If no command is specified,
+only the timeout is set. A timeout of zero (ot the special
+timeout @code{off}) disables the timer. If no arguments are
+given, the current settings are displayed.
+@end deffn
+
+@deffn Command blanker
+(none)@*
+Activate the screen blanker. First the screen is cleared.
+If no blanker program is defined, the cursor is turned
+off, otherwise, the program is started and it's output is
+written to the screen. The screen blanker is killed with
+the first keypress, the read key is discarded.
+
+This command is normally used together with the @code{idle}
+command.
+@end deffn
+
+@deffn Command blankerprg [@var{program args}]
+Defines a blanker program. Disables the blanker program if
+no arguments are given.
+@end deffn
+
+@node Zmodem, , Screen Saver, Miscellaneous
+@section Zmodem
+@deffn Command zmodem [off|auto|catch|pass]
+@deffnx Command zmodem sendcmd [string]
+@deffnx Command zmodem recvcmd [string]
+(none)@*
+Define zmodem support for screen. Screen understands two
+different modes when it detects a zmodem request: @code{pass}
+and @code{catch}. If the mode is set to @code{pass}, screen will
+relay all data to the attacher until the end of the
+transmission is reached. In @code{catch} mode screen acts as a
+zmodem endpoint and starts the corresponding rz/sz commands.
+If the mode is set to @code{auto}, screen will use @code{catch} if
+the window is a tty (e.g. a serial line), otherwise it
+will use @code{pass}.
+
+You can define the templates screen uses in @code{catch} mode
+via the second and the third form.
+
+Note also that this is an experimental feature.
 @end deffn
 
 @node String Escapes, Environment, Miscellaneous, Top
@@ -4873,8 +4956,8 @@ Window number of a window (at creation time).
 @cindex files
 
 @table @file
-@item .../screen-3.?.??/etc/screenrc
-@itemx .../screen-3.?.??/etc/etcscreenrc
+@item .../screen-4.?.??/etc/screenrc
+@itemx .../screen-4.?.??/etc/etcscreenrc
 Examples in the @code{screen} distribution package for private and
 global initialization files.
 

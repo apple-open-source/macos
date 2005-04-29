@@ -45,7 +45,18 @@
 .Fl m | P
 .Oc
 .Op Fl ailn
+.Op Fl t
+.Op Fl T Ar type
+.Op Ar file | filesystem ...
+.Sh LEGACY SYNOPSIS
+.Nm
+.Oo
+.Fl b | h | H | k |
+.Fl m | P
+.Oc
+.Op Fl ailn
 .Op Fl t Ar type
+.Op Fl T Ar type
 .Op Ar file | filesystem ...
 .Sh DESCRIPTION
 The
@@ -115,6 +126,12 @@ Note that this overrides the
 .Ev BLOCKSIZE
 specification from the environment.
 .It Fl t
+In legacy mode (see
+.Xr compat 5
+for details) acts like
+.Fl T
+otherwise it is a no-op.
+.It Fl T
 Only print out statistics for filesystems of the specified types.
 More than one type may be specified in a comma separated list.
 The list of filesystem types can be prefixed with
@@ -158,6 +175,7 @@ flags are ignored if a file or filesystem is specified.
 .Xr getfsstat 2 ,
 .Xr statfs 2 ,
 .Xr getmntinfo 3 ,
+.Xr compat 5
 .Xr fstab 5 ,
 .Xr mount 8 ,
 .Xr quot 8

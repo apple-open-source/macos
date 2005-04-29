@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,11 +20,12 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: netrc.h,v 1.1.1.2 2002/11/26 19:07:58 zarzycki Exp $
+ * $Id: netrc.h,v 1.11 2004/01/07 09:19:35 bagder Exp $
  ***************************************************************************/
 int Curl_parsenetrc(char *host,
                     char *login,
-                    char *password);
+                    char *password,
+                    char *filename);
   /* Assume: password[0]=0, host[0] != 0.
    * If login[0] = 0, search for login and password within a machine section
    * in the netrc.

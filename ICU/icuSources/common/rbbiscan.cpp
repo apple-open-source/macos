@@ -2,7 +2,7 @@
 //
 //  file:  rbbiscan.cpp
 //
-//  Copyright (C) 2002-2003, International Business Machines Corporation and others.
+//  Copyright (C) 2002-2004, International Business Machines Corporation and others.
 //  All Rights Reserved.
 //
 //  This file contains the Rule Based Break Iterator Rule Builder functions for
@@ -32,6 +32,7 @@
 #include "rbbirb.h"
 #include "rbbinode.h"
 #include "rbbiscan.h"
+#include "rbbitblb.h"
 
 #include "uassert.h"
 
@@ -113,6 +114,8 @@ RBBIRuleScanner::RBBIRuleScanner(RBBIRuleBuilder *rb)
     fCharNum    = 0;
     fQuoteMode  = FALSE;
 
+    // Do not check status until after all critical fields are sufficiently initialized
+    //   that the destructor can run cleanly.
     if (U_FAILURE(*rb->fStatus)) {
         return;
     }
@@ -320,10 +323,11 @@ UBool RBBIRuleScanner::doParseActions(EParseAction action)
         // The ';' that terminates an expression really just functions as a '|' with
         //   a low operator prededence.
         //
-        // Forward and reverse rules are collected separately.  Or this rule into
-        //  the appropriate group of them.
+        // Each of the four sets of rules are collected separately.
+        //  (forward, reverse, safe_forward, safe_reverse)
+        //  OR this rule into the appropriate group of them.
         //
-        RBBINode **destRules = (fReverseRule? &fRB->fReverseTree : &fRB->fForwardTree);
+        RBBINode **destRules = (fReverseRule? &fRB->fReverseTree : fRB->fDefaultTree);
 
         if (*destRules != NULL) {
             // This is not the first rule encounted.
@@ -459,7 +463,38 @@ UBool RBBIRuleScanner::doParseActions(EParseAction action)
         fRB->fRules.extractBetween(n->fFirstPos, n->fLastPos, n->fText);
         break;
 
+    case doTagExpectedError:
+        error(U_BRK_MALFORMED_RULE_TAG);
+        returnVal = FALSE;
+        break;
 
+    case doOptionStart:
+        // Scanning a !!option.   At the start of string.
+        fOptionStart = fScanIndex;
+        break;
+
+    case doOptionEnd:
+        {
+            UnicodeString opt(fRB->fRules, fOptionStart, fScanIndex-fOptionStart);
+            if (opt == UNICODE_STRING("chain", 5)) {
+                fRB->fChainRules = TRUE;
+            } else if (opt == UNICODE_STRING("LBCMNoChain", 11)) {
+                fRB->fLBCMNoChain = TRUE;
+            } else if (opt == UNICODE_STRING("forward", 7)) {
+                fRB->fDefaultTree   = &fRB->fForwardTree;
+            } else if (opt == UNICODE_STRING("reverse", 7)) {
+                fRB->fDefaultTree   = &fRB->fReverseTree;
+            } else if (opt == UNICODE_STRING("safe_forward", 12)) {
+                fRB->fDefaultTree   = &fRB->fSafeFwdTree;
+            } else if (opt == UNICODE_STRING("safe_reverse", 12)) {
+                fRB->fDefaultTree   = &fRB->fSafeRevTree;
+            } else if (opt == UNICODE_STRING("lookAheadHardBreak", 18)) {
+                fRB->fLookAheadHardBreak = TRUE;
+            } else {
+                error(U_BRK_UNRECOGNIZED_OPTION);
+            }
+        }
+        break;
 
     case doReverseDir:
         fReverseRule = TRUE;
@@ -563,7 +598,7 @@ void RBBIRuleScanner::fixOpStack(RBBINode::OpPrecedence p) {
     for (;;) {
         n = fNodeStack[fNodeStackPtr-1];   // an operator node
         if (n->fPrecedence == 0) {
-            RBBIDebugPrintf("RBBIRuleScanner::fixOpStack, bad operator node\n");
+            RBBIDebugPuts("RBBIRuleScanner::fixOpStack, bad operator node");
             error(U_BRK_INTERNAL_ERROR);
             return;
         }
@@ -853,7 +888,7 @@ void RBBIRuleScanner::nextChar(RBBIRuleChar &c) {
 //---------------------------------------------------------------------------------
 //
 //  Parse RBBI rules.   The state machine for rules parsing is here.
-//                      The state tables are hand-written in the file TODO.txt,
+//                      The state tables are hand-written in the file rbbirpt.txt,
 //                      and converted to the form used here by a perl
 //                      script rbbicst.pl
 //
@@ -896,10 +931,12 @@ void RBBIRuleScanner::parse() {
         //    the search will stop there, if not before.
         //
         tableEl = &gRuleParseStateTable[state];
-        if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "scan")) {
-            RBBIDebugPrintf("char, line, col = (\'%c\', %d, %d)    state=%s ",
-                fC.fChar, fLineNum, fCharNum, RBBIRuleStateNames[state]);
-        }
+        #ifdef RBBI_DEBUG
+            if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "scan")) {
+                RBBIDebugPrintf("char, line, col = (\'%c\', %d, %d)    state=%s ",
+                    fC.fChar, fLineNum, fCharNum, RBBIRuleStateNames[state]);
+            }
+        #endif
 
         for (;;) {
             if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "scan")) { RBBIDebugPrintf(".");}
@@ -958,7 +995,7 @@ void RBBIRuleScanner::parse() {
             fStackPtr++;
             if (fStackPtr >= kStackSize) {
                 error(U_BRK_INTERNAL_ERROR);
-                RBBIDebugPrintf("RBBIRuleScanner::parse() - state stack overflow.\n");
+                RBBIDebugPuts("RBBIRuleScanner::parse() - state stack overflow.");
                 fStackPtr--;
             }
             fStack[fStackPtr] = tableEl->fPushState;
@@ -977,7 +1014,7 @@ void RBBIRuleScanner::parse() {
             fStackPtr--;
             if (fStackPtr < 0) {
                 error(U_BRK_INTERNAL_ERROR);
-                RBBIDebugPrintf("RBBIRuleScanner::parse() - state stack underflow.\n");
+                RBBIDebugPuts("RBBIRuleScanner::parse() - state stack underflow.");
                 fStackPtr++;
             }
         }
@@ -1002,15 +1039,20 @@ void RBBIRuleScanner::parse() {
     // We now have a parse tree for the rule expressions
     // and a list of all UnicodeSets that are referenced.
     //
-    if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "symbols")) {fSymbolTable->print();}
+#ifdef RBBI_DEBUG
+    if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "symbols")) {fSymbolTable->rbbiSymtablePrint();}
     if (fRB->fDebugEnv && uprv_strstr(fRB->fDebugEnv, "ptree"))
     {
         RBBIDebugPrintf("Completed Forward Rules Parse Tree...\n");
-        fRB->fForwardTree->printTree();
+        fRB->fForwardTree->printTree(TRUE);
         RBBIDebugPrintf("\nCompleted Reverse Rules Parse Tree...\n");
-        fRB->fReverseTree->printTree();
+        fRB->fReverseTree->printTree(TRUE);
+        RBBIDebugPrintf("\nCompleted Safe Point Forward Rules Parse Tree...\n");
+        fRB->fSafeFwdTree->printTree(TRUE);
+        RBBIDebugPrintf("\nCompleted Safe Point Reverse Rules Parse Tree...\n");
+        fRB->fSafeRevTree->printTree(TRUE);
     }
-
+#endif
 }
 
 
@@ -1019,11 +1061,15 @@ void RBBIRuleScanner::parse() {
 //  printNodeStack     for debugging...
 //
 //---------------------------------------------------------------------------------
+#ifdef RBBI_DEBUG
+void RBBIRuleScanner::printNodeStack(const char *) {}
+#else
 void RBBIRuleScanner::printNodeStack(const char *title) {
     int i;
     RBBIDebugPrintf("%s.  Dumping node stack...\n", title);
-    for (i=fNodeStackPtr; i>0; i--) {fNodeStack[i]->printTree();}
+    for (i=fNodeStackPtr; i>0; i--) {fNodeStack[i]->printTree(TRUE);}
 }
+#endif
 
 
 
@@ -1038,7 +1084,7 @@ RBBINode  *RBBIRuleScanner::pushNewNode(RBBINode::NodeType  t) {
     fNodeStackPtr++;
     if (fNodeStackPtr >= kStackSize) {
         error(U_BRK_INTERNAL_ERROR);
-        RBBIDebugPrintf("RBBIRuleScanner::pushNewNode - stack overflow.\n");
+        RBBIDebugPuts("RBBIRuleScanner::pushNewNode - stack overflow.");
         *fRB->fStatus = U_BRK_INTERNAL_ERROR;
         return NULL;
     }
@@ -1078,8 +1124,8 @@ void RBBIRuleScanner::scanSet() {
     pos.setIndex(fScanIndex);
     startPos = fScanIndex;
     UErrorCode localStatus = U_ZERO_ERROR;
-    uset = new UnicodeSet(fRB->fRules, pos,
-                         *fSymbolTable,
+    uset = new UnicodeSet(fRB->fRules, pos, USET_IGNORE_SPACE,
+                         fSymbolTable,
                          localStatus);
     if (U_FAILURE(localStatus)) {
         //  TODO:  Get more accurate position of the error from UnicodeSet's return info.

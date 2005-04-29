@@ -1,0 +1,55 @@
+#! /bin/sh
+
+# Do common operations after a particular test.
+
+# This file is part of GNU tar testsuite.
+# Copyright (C) 2004 Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+# 02111-1307, USA.
+
+cd ..
+exec 1> /dev/null
+exec 2> /dev/null
+
+compare() {
+    eval tempfile=tmp-$$/std${1}
+    eval echo \""\${$1}"\" | sed '$d' > ${tempfile}0
+    
+    sedscript=tmp-$$/${1}.sed
+    if eval test \".\${${1}_ignore}\" = .; then
+	:
+    else
+	eval echo \"\${${1}_ignore}\" | sed 's,^.*$,/&/d,;' > $sedscript
+	sed -f $sedscript ${tempfile} > ${tempfile}.1
+	mv ${tempfile}.1 ${tempfile}
+    fi
+    
+    if eval test -z \"\${${1}_regex}\" ; then
+	cmp -s ${tempfile}0 ${tempfile} || exit 1
+    else
+	awk '{print NR " " $0}' ${tempfile}0 > ${tempfile}.1
+	awk '{print NR " " $0}' ${tempfile} | join ${tempfile}.1 - |
+	while read NUM RE LINE
+	do
+	  echo "$LINE" | grep -- "$RE" >/dev/null || exit 1
+	done 
+    fi
+}
+
+compare out
+compare err
+
+rm -rf tmp-$$

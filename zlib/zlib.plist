@@ -1,0 +1,24 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>zlib</string>
+	<key>OpenSourceVersion</key>
+	<string>1.2.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://www.zlib.net/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.zlib.net/zlib-1.2.2.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>1b8aab042d40979e456194c468fd72c5</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-12-28</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Minor changes to configure script.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>zlib.txt</string>
+</dict>
+</plist>

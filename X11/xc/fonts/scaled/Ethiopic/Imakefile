@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/fonts/scaled/Ethiopic/Imakefile,v 1.1 2003/02/04 02:18:19 dawes Exp $
+XCOMM $XFree86: xc/fonts/scaled/Ethiopic/Imakefile,v 1.2 2003/12/31 19:30:36 dawes Exp $
 
 TTFFONTS = GohaTibebZemen.ttf
 OTFFONTS = GohaTibebZemen.otf
@@ -17,4 +17,7 @@ InstallMultipleFlags($(OTFFONTS),$(OTFINSTDIR),$(INSTDATFLAGS))
 MakeSubdirs($(SUBDIRS))
 DependSubdirs($(SUBDIRS))
 #endif
+
+InstallFontsDir($(TTFINSTDIR))
+InstallFontsDir($(OTFINSTDIR))
 

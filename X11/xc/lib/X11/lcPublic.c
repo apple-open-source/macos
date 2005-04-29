@@ -23,7 +23,7 @@
  * Author: Katsuhisa Yano	TOSHIBA Corp.
  *			   	mopi@osa.ilab.toshiba.co.jp
  */
-/* $XFree86: xc/lib/X11/lcPublic.c,v 1.11 2001/11/16 00:52:28 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcPublic.c,v 1.12 2003/04/13 19:22:21 dawes Exp $ */
 
 #include <stdio.h>
 #include "Xlibint.h"
@@ -206,7 +206,6 @@ initialize(
     int len;
     char sinamebuf[256];
     char* siname;
-    char *_XlcMapOSLocaleName();
 #endif
 
     _XlcInitCTInfo();

@@ -149,7 +149,7 @@ UInt32 IOPacketQueue::getCapacity() const
 //---------------------------------------------------------------------------
 // Peek at the head of the queue without dequeueing the packet.
 
-const struct mbuf * IOPacketQueue::peek() const
+const mbuf_t IOPacketQueue::peek() const
 {
     return IOMbufQueuePeek(_queue);
 }
@@ -157,7 +157,7 @@ const struct mbuf * IOPacketQueue::peek() const
 //---------------------------------------------------------------------------
 // Add a packet chain to the head of the queue.
 
-void IOPacketQueue::prepend(struct mbuf * m)
+void IOPacketQueue::prepend(mbuf_t m)
 {
     IOMbufQueuePrepend(_queue, m);
 }
@@ -170,7 +170,7 @@ void IOPacketQueue::prepend(IOPacketQueue * queue)
 //---------------------------------------------------------------------------
 // Add a packet chain to the tail of the queue.
 
-bool IOPacketQueue::enqueue(struct mbuf * m)
+bool IOPacketQueue::enqueue(mbuf_t m)
 {
     return IOMbufQueueEnqueue(_queue, m);
 }
@@ -180,7 +180,7 @@ bool IOPacketQueue::enqueue(IOPacketQueue * queue)
     return IOMbufQueueEnqueue(_queue, queue->_queue);
 }
 
-UInt32 IOPacketQueue::enqueueWithDrop(struct mbuf * m)
+UInt32 IOPacketQueue::enqueueWithDrop(mbuf_t m)
 {
     return IOMbufQueueEnqueue(_queue, m) ? 0 : IOMbufFree(m);
 }
@@ -188,7 +188,7 @@ UInt32 IOPacketQueue::enqueueWithDrop(struct mbuf * m)
 //---------------------------------------------------------------------------
 // Remove a single packet from the head of the queue.
 
-struct mbuf * IOPacketQueue::dequeue()
+mbuf_t IOPacketQueue::dequeue()
 {
     return IOMbufQueueDequeue(_queue);
 }
@@ -196,7 +196,7 @@ struct mbuf * IOPacketQueue::dequeue()
 //---------------------------------------------------------------------------
 // Remove all packets from the queue and return the chain of packet(s).
 
-struct mbuf * IOPacketQueue::dequeueAll()
+mbuf_t IOPacketQueue::dequeueAll()
 {
     return IOMbufQueueDequeueAll(_queue);
 }
@@ -214,14 +214,14 @@ UInt32 IOPacketQueue::flush()
 // Locked forms of prepend/enqueue/dequeue/dequeueAll methods.
 // A spinlock will enforce mutually exclusive queue access.
 
-void IOPacketQueue::lockPrepend(struct mbuf * m)
+void IOPacketQueue::lockPrepend(mbuf_t m)
 {
     LOCK;
     IOMbufQueuePrepend(_queue, m);
     UNLOCK;
 }
 
-bool IOPacketQueue::lockEnqueue(struct mbuf * m)
+bool IOPacketQueue::lockEnqueue(mbuf_t m)
 {
     bool ok;
     LOCK;
@@ -230,7 +230,7 @@ bool IOPacketQueue::lockEnqueue(struct mbuf * m)
     return ok;
 }
 
-UInt32 IOPacketQueue::lockEnqueueWithDrop(struct mbuf * m)
+UInt32 IOPacketQueue::lockEnqueueWithDrop(mbuf_t m)
 {
     bool ok;
     LOCK;
@@ -239,18 +239,18 @@ UInt32 IOPacketQueue::lockEnqueueWithDrop(struct mbuf * m)
     return ok ? 0 : IOMbufFree(m);
 }
 
-struct mbuf * IOPacketQueue::lockDequeue()
+mbuf_t IOPacketQueue::lockDequeue()
 {
-    struct mbuf * m;
+    mbuf_t m;
     LOCK;
     m = IOMbufQueueDequeue(_queue);
     UNLOCK;
     return m;
 }
 
-struct mbuf * IOPacketQueue::lockDequeueAll()
+mbuf_t IOPacketQueue::lockDequeueAll()
 {
-    struct mbuf * m;
+    mbuf_t m;
     LOCK;
     m = IOMbufQueueDequeueAll(_queue);
     UNLOCK;
@@ -259,7 +259,7 @@ struct mbuf * IOPacketQueue::lockDequeueAll()
 
 UInt32 IOPacketQueue::lockFlush()
 {
-    struct mbuf * m;
+    mbuf_t m;
     LOCK;
     m = IOMbufQueueDequeueAll(_queue);
     UNLOCK;

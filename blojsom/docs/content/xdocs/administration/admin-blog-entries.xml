@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Entries Administation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The Categories Administration plugin allows you to add new entries, modify existing entries,
+                and delete entries from your blog. You are also allowed to delete comments and trackbacks when
+                editing entries.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                edit-blog-entries=org.blojsom.plugin.admin.EditBlogEntriesPlugin
+            </source>
+        </section>
+        <section>
+            <title>Usage</title>
+            <p>
+                After logging into the administration console, you may click on the link to "Edit Blog Entries"
+                and you will be able to add, modify, and delete entries.
+            </p>
+        </section>
+    </body>
+</document>
+

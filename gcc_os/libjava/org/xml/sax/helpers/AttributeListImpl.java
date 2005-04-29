@@ -1,6 +1,7 @@
 // SAX default implementation for AttributeList.
+// http://www.saxproject.org
 // No warranty; no copyright -- use this as you will.
-// $Id: AttributeListImpl.java,v 1.3 2001/09/17 20:38:12 zlaski Exp $
+// $Id: AttributeListImpl.java,v 1.1.1.2 2003/01/21 21:21:26 gkeating Exp $
 
 package org.xml.sax.helpers;
 
@@ -15,6 +16,8 @@ import java.util.Vector;
  * <blockquote>
  * <em>This module, both source code and documentation, is in the
  * Public Domain, and comes with <strong>NO WARRANTY</strong>.</em>
+ * See <a href='http://www.saxproject.org'>http://www.saxproject.org</a>
+ * for further information.
  * </blockquote>
  *
  * <p>AttributeList implements the deprecated SAX1 {@link
@@ -55,9 +58,8 @@ import java.util.Vector;
  *             {@link org.xml.sax.helpers.AttributesImpl 
  *            AttributesImpl} helper class.
  * @since SAX 1.0
- * @author David Megginson, 
- *         <a href="mailto:sax@megginson.com">sax@megginson.com</a>
- * @version 2.0
+ * @author David Megginson
+ * @version 2.0.1 (sax2r2)
  * @see org.xml.sax.AttributeList
  * @see org.xml.sax.DocumentHandler#startElement 
  */

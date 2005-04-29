@@ -1,0 +1,239 @@
+Sjeng 11.x
+
+Bugfixes and portability improvements
+
+Sjeng 11
+
+New suicide mode
+New losers mode
+perft reports leaf nodes (like crafty)
+Suicide endgame databases
+Fix to movegen (>300 possible moves)
+No nullmove on pv 
+
+Sjeng 10.0
+
+Lots of stability improvements
+Minor fix to legal move detection
+Constrain book learning a little
+Updated losers and suicide OPN books
+
+Sjeng 9.2
+
+Endgame tablebase support (Nalimov up to 6 man)
+Castling in giveaway is now recognized
+Fixes some lockups in suicide/giveaway
+More standard chess knowledge (mobility, passed pawns)
+Smaller aspiration window
+Fix to 'st' command
+Updated docs
+Fixes to draw detection
+Cull very rare book lines
+Full losers support
+Detect when nullmove is probably bad
+Less futility pruning in qsearch
+
+Sjeng 9.1
+
+Bugfix to time allocation
+Improved speed benchmark
+Bugfix: may not castle in suicide (dunno about giveaway)
+Optimized legal move and incheck tests
+Added bonus for doubled rooks on (half)open file
+King tropisms for normal chess
+Updated suicide opening book
+
+Sjeng 9.0
+
+More output during analysis
+Support for future winboard protocols
+Tecumseh pruning, smarter check extensions
+Delay in ptells for mating pieces
+Smarter handling of depth-preferenced stores
+Free hash/ecache before bookbuild
+Tweaks and bugfixes to movegen
+Fix in bookbuilding
+Platform independent hashes
+Extend time on fail-low
+Got rid of suicide learning (not used anyway)
+Display settings code on servers
+Static Exchange Evaluation sorting and pruning
+Root move sort based on nodecount
+Use ghost piece to anticipate trades
+Aggressive backpropagating booklearning
+Tweaks to kingsafety in standard chess
+Reply immediately on a forced move
+Partly merged Dawson eval
+Allow setting SmartEval and Attackeval
+Support st command
+Inform partner when trades are bad
+Fixed fast mode
+Fixed warnings in source
+Allowing switching to PN2 via a #define
+Squares macros added for easy eval editing
+Workaround for WinBoard/XBoard zippy bug
+Fixes for losers movegen
+
+Sjeng 8.6
+
+Pick new move if search fails high and times out
+Optimized QSearch ttable usage
+
+Sjeng 8.5
+
+Quiescent hashing
+Fixed book learning
+Support for losers's chess
+Extension tweaks
+
+Sjeng 8.3
+
+Fixed serious hashing bug
+Improved moveordering
+Improved handling of failed searches
+More book randomness
+More aggressive book learning
+Fixes to Winboard support
+Detection of Chessbase Winboard adapter
+Recapture extensions
+Cleaned up some internal structures
+Recognizes 50-move and 3-rep draws
+
+Sjeng 8.0
+
+Much improved crazyhouse evaluation
+Support for v2 of xboard/Winboard protocol
+New suicide mode (no more alpha-beta)
+Simple book learning
+Tweaked search & extensions
+Fixes to xboard/Winboard support (setboard, undo)
+Use a configuration file
+Use SAN for move output
+Small suicide opening book
+
+Sjeng 7.5
+
+Suicide opening book
+Fixes to 'test' command
+Tweaked zh piece/square tables
+Tweaked suicide eval
+Optimized movegenerator
+Tweaked bookbuilding code
+Faster proof-number search
+Fixed MVV/LVA move ordering
+Better extension control
+Passed pawn extensions
+Don't nullmove in endgames
+More carefull R=4 usage
+
+Sjeng 7.4 (2000 WCCC Version)
+
+Support for suicide
+Faster movegenerator
+Faster search
+Supports analysis mode for zh games
+2-level transposition table
+Full proof-number and proof-number^2 implementation
+
+Sjeng 7.3
+
+Faster move generation/Cleaner code
+Better handling of failed searches at root
+Binary book with transpositions
+Automatic bookbuilder
+Better time usage
+Built-in benchmark
+Partial support for SAN moves
+Improved evaluation, bad trade, drawn endgames
+Positional learning fixes
+Improved forward pruning in search
+
+Sjeng 7.2
+
+Fixed an out-of-bounds bug
+Better support for systems that lack ftime()
+
+Sjeng 7.1
+
+Books and tests were added to distribution
+
+Sjeng VII
+
+Modified piece values as per Gnejs request
+Faster fast mode
+more bonusses on partner tells
+penalty for pawns blocking development
+Marginal Gnejs book support
+Removed extra book-loading call
+removed depth checks from search timing code
+no interruptions in fast mode
+narrower ext fut windows again
+book selection is no longer fixed for zh/bug
+more random book selection
+Nullmove R factor is dynamic again
+more strict check limiter, but quiescent lock is now added for all
+variants
+Re-enabled internal iterative deepening
+Go fast if fellow sjeng is dead
+Sit if losing a --- piece
+Automatically tell other sjeng to go if no longer mates us
+Automatically resign if both dead
+Fixed serious bug in DPVS
+Major bugfix to loading of learned data
+R=3 used if depth > 6
+Disable nullmove in endgame near root
+Fix infinite hi-hi bug
+-/+ p implies b, q
+-/+ r implies q
+-/+ b implies b
+
+Sjeng VI
+
+Check whether allocated time is smaller than 1 sec in fast mode
+Disable the bug/zh check-qsearch lock
+Fixed R=2
+Disable internal iterative deepening
+Wider ext-fut pruning window
+Improved TTable, mate correction, threat and no-null
+Capture ordering with king
+Set f5 to bughouse or crazyhouse depending on whether we have a partner
+Limit check extensions
+Fixes to variant-switching code
+
+Sjeng Vb-Vc
+
+Don't try to print search results if mated
+Enable the EPD parser
+Disable razoring at root
+Fix/reorder ptell for bugs
+
+Sjeng V
+
+abort and flag ptell commands added
+Only sit if mated in 2 or 1
+Don't whisper while playing bug
+Give warning on + or -piece commands (temporary)
+'time' aliased to 'fast'
+Fixed a bug with the '.' command while analyzing
+Fixed bugs in edit mode (don't change side to move)
+Removed early-mate-breaking
+Fix : dont reset pondering status on newgame
+Added move-now support (main search may be interrupted now)
+Added periodic update support 
+Added support for 'st' command (untested)
+Fixed bug with changing material values & variants
+Fixed bug with king values (missing sign)
+Added status output after searching PV at root level
+Allow qsearch while in check if standard chess
+Fix to move ordering in internal deepening nodes
+Severe bugfix in history move ordering
+Speedups to makemove/unmakemove in standard chess
+Root PVS uses an aspiration window now (REMOVED)
+Don't razor the PV
+More bonus for pawn @f7 and less for king stepping there
+Alias "move" to "go"
+Don't accept ptells in standard mode
+Alias "=" to "x"
+Futility pruing, extended futility pruning and limited razoring can be toggled
+Fixed longstanding bug with ep squares
+Made pawn bonusses more dynamic

@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.5
+ * Version:  5.0
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -30,9 +30,6 @@
  */
 
 
-#ifdef PC_HEADER
-#include "all.h"
-#else
 #include "glheader.h"
 #include "accum.h"
 #include "api_loopback.h"
@@ -68,17 +65,19 @@
 #include "texstate.h"
 #include "mtypes.h"
 #include "varray.h"
+#if FEATURE_NV_vertex_program
+#include "vpstate.h"
+#endif
 
 #include "math/m_matrix.h"
 #include "math/m_xform.h"
-#endif
 
 
 static int
 generic_noop(void)
 {
 #ifdef DEBUG
-   _mesa_problem(NULL, "undefined function dispatch");
+   _mesa_problem(NULL, "User called no-op dispatch function");
 #endif
    return 0;
 }
@@ -439,6 +438,10 @@ _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
    exec->LockArraysEXT = _mesa_LockArraysEXT;
    exec->UnlockArraysEXT = _mesa_UnlockArraysEXT;
 
+   /* 148. GL_EXT_multi_draw_arrays */
+   exec->MultiDrawArraysEXT = _mesa_MultiDrawArraysEXT;
+   exec->MultiDrawElementsEXT = _mesa_MultiDrawElementsEXT;
+
    /* 173. GL_INGR_blend_func_separate */
    exec->BlendFuncSeparateEXT = _mesa_BlendFuncSeparateEXT;
 
@@ -471,6 +474,42 @@ _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
    exec->WindowPos4sMESA = _mesa_WindowPos4sMESA;
    exec->WindowPos4svMESA = _mesa_WindowPos4svMESA;
 
+   /* 233. GL_NV_vertex_program */
+#if FEATURE_NV_vertex_program
+   exec->BindProgramNV = _mesa_BindProgramNV;
+   exec->DeleteProgramsNV = _mesa_DeleteProgramsNV;
+   exec->ExecuteProgramNV = _mesa_ExecuteProgramNV;
+   exec->GenProgramsNV = _mesa_GenProgramsNV;
+   exec->AreProgramsResidentNV = _mesa_AreProgramsResidentNV;
+   exec->RequestResidentProgramsNV = _mesa_RequestResidentProgramsNV;
+   exec->GetProgramParameterfvNV = _mesa_GetProgramParameterfvNV;
+   exec->GetProgramParameterdvNV = _mesa_GetProgramParameterdvNV;
+   exec->GetProgramivNV = _mesa_GetProgramivNV;
+   exec->GetProgramStringNV = _mesa_GetProgramStringNV;
+   exec->GetTrackMatrixivNV = _mesa_GetTrackMatrixivNV;
+   exec->GetVertexAttribdvNV = _mesa_GetVertexAttribdvNV;
+   exec->GetVertexAttribfvNV = _mesa_GetVertexAttribfvNV;
+   exec->GetVertexAttribivNV = _mesa_GetVertexAttribivNV;
+   exec->GetVertexAttribPointervNV = _mesa_GetVertexAttribPointervNV;
+   exec->IsProgramNV = _mesa_IsProgramNV;
+   exec->LoadProgramNV = _mesa_LoadProgramNV;
+   exec->ProgramParameter4dNV = _mesa_ProgramParameter4dNV;
+   exec->ProgramParameter4dvNV = _mesa_ProgramParameter4dvNV;
+   exec->ProgramParameter4fNV = _mesa_ProgramParameter4fNV;
+   exec->ProgramParameter4fvNV = _mesa_ProgramParameter4fvNV;
+   exec->ProgramParameters4dvNV = _mesa_ProgramParameters4dvNV;
+   exec->ProgramParameters4fvNV = _mesa_ProgramParameters4fvNV;
+   exec->TrackMatrixNV = _mesa_TrackMatrixNV;
+   exec->VertexAttribPointerNV = _mesa_VertexAttribPointerNV;
+#endif
+
+   /* 262. GL_NV_point_sprite */
+   exec->PointParameteriNV = _mesa_PointParameteriNV;
+   exec->PointParameterivNV = _mesa_PointParameterivNV;
+
+   /* 268. GL_EXT_stencil_two_side */
+   exec->ActiveStencilFaceEXT = _mesa_ActiveStencilFaceEXT;
+
    /* ARB 1. GL_ARB_multitexture */
    exec->ActiveTextureARB = _mesa_ActiveTextureARB;
    exec->ClientActiveTextureARB = _mesa_ClientActiveTextureARB;
@@ -493,6 +532,8 @@ _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
    exec->CompressedTexSubImage1DARB = _mesa_CompressedTexSubImage1DARB;
    exec->GetCompressedTexImageARB = _mesa_GetCompressedTexImageARB;
 
+   /* ARB 14. GL_ARB_point_parameters */
+   /* reuse EXT_point_parameters functions */
 }
 
 
@@ -502,6 +543,10 @@ _mesa_init_exec_table(struct _glapi_table *exec, GLuint tableSize)
 /**********************************************************************/
 
 
+/*
+ * Check polygon state and set DD_TRI_CULL_FRONT_BACK and/or DD_TRI_OFFSET
+ * in ctx->_TriangleCaps if needed.
+ */
 static void
 update_polygon( GLcontext *ctx )
 {
@@ -511,36 +556,32 @@ update_polygon( GLcontext *ctx )
       ctx->_TriangleCaps |= DD_TRI_CULL_FRONT_BACK;
 
    /* Any Polygon offsets enabled? */
-   ctx->Polygon._OffsetAny = GL_FALSE;
-   ctx->_TriangleCaps &= ~DD_TRI_OFFSET;
-
    if (ctx->Polygon.OffsetPoint ||
        ctx->Polygon.OffsetLine ||
        ctx->Polygon.OffsetFill) {
       ctx->_TriangleCaps |= DD_TRI_OFFSET;
-      ctx->Polygon._OffsetAny = GL_TRUE;
    }
 }
 
 static void
 calculate_model_project_matrix( GLcontext *ctx )
 {
-      _math_matrix_mul_matrix( &ctx->_ModelProjectMatrix,
-			       &ctx->ProjectionMatrix,
-			       &ctx->ModelView );
+   _math_matrix_mul_matrix( &ctx->_ModelProjectMatrix,
+                            ctx->ProjectionMatrixStack.Top,
+                            ctx->ModelviewMatrixStack.Top );
 
-      _math_matrix_analyse( &ctx->_ModelProjectMatrix );
+   _math_matrix_analyse( &ctx->_ModelProjectMatrix );
 }
 
 static void
 update_modelview_scale( GLcontext *ctx )
 {
    ctx->_ModelViewInvScale = 1.0F;
-   if (ctx->ModelView.flags & (MAT_FLAG_UNIFORM_SCALE |
+   if (ctx->ModelviewMatrixStack.Top->flags & (MAT_FLAG_UNIFORM_SCALE |
 			       MAT_FLAG_GENERAL_SCALE |
 			       MAT_FLAG_GENERAL_3D |
 			       MAT_FLAG_GENERAL) ) {
-      const GLfloat *m = ctx->ModelView.inv;
+      const GLfloat *m = ctx->ModelviewMatrixStack.Top->inv;
       GLfloat f = m[2] * m[2] + m[6] * m[6] + m[10] * m[10];
       if (f < 1e-12) f = 1.0;
       if (ctx->_NeedEyeCoords)
@@ -610,23 +651,23 @@ update_drawbuffer( GLcontext *ctx )
 /* NOTE: This routine references Tranform attribute values to compute
  * userclip positions in clip space, but is only called on
  * _NEW_PROJECTION.  The _mesa_ClipPlane() function keeps these values
- * uptodate across changes to the Transform attributes.
+ * up to date across changes to the Transform attributes.
  */
 static void
 update_projection( GLcontext *ctx )
 {
-   _math_matrix_analyse( &ctx->ProjectionMatrix );
+   _math_matrix_analyse( ctx->ProjectionMatrixStack.Top );
 
    /* Recompute clip plane positions in clipspace.  This is also done
     * in _mesa_ClipPlane().
     */
-   if (ctx->Transform._AnyClip) {
+   if (ctx->Transform.ClipPlanesEnabled) {
       GLuint p;
       for (p = 0; p < ctx->Const.MaxClipPlanes; p++) {
-	 if (ctx->Transform.ClipEnabled[p]) {
+	 if (ctx->Transform.ClipPlanesEnabled & (1 << p)) {
 	    _mesa_transform_vector( ctx->Transform._ClipUserPlane[p],
 				 ctx->Transform.EyeUserPlane[p],
-				 ctx->ProjectionMatrix.inv );
+				 ctx->ProjectionMatrixStack.Top->inv );
 	 }
       }
    }
@@ -676,7 +717,7 @@ update_image_transfer_state(GLcontext *ctx)
    if (ctx->Pixel.PostConvolutionColorTableEnabled)
       mask |= IMAGE_POST_CONVOLUTION_COLOR_TABLE_BIT;
 
-   if (ctx->ColorMatrix.type != MATRIX_IDENTITY ||
+   if (ctx->ColorMatrixStack.Top->type != MATRIX_IDENTITY ||
        ctx->Pixel.PostColorMatrixScale[0] != 1.0F ||
        ctx->Pixel.PostColorMatrixBias[0]  != 0.0F ||
        ctx->Pixel.PostColorMatrixScale[1] != 1.0F ||
@@ -718,15 +759,15 @@ update_texture_matrices( GLcontext *ctx )
    ctx->Texture._TexMatEnabled = 0;
 
    for (i=0; i < ctx->Const.MaxTextureUnits; i++) {
-      if (ctx->TextureMatrix[i].flags & MAT_DIRTY) {
-	 _math_matrix_analyse( &ctx->TextureMatrix[i] );
+      if (ctx->TextureMatrixStack[i].Top->flags & MAT_DIRTY) {
+	 _math_matrix_analyse( ctx->TextureMatrixStack[i].Top );
 
 	 if (ctx->Texture.Unit[i]._ReallyEnabled &&
-	     ctx->TextureMatrix[i].type != MATRIX_IDENTITY)
+	     ctx->TextureMatrixStack[i].Top->type != MATRIX_IDENTITY)
 	    ctx->Texture._TexMatEnabled |= ENABLE_TEXMAT(i);
 
 	 if (ctx->Driver.TextureMatrix)
-	    ctx->Driver.TextureMatrix( ctx, i, &ctx->TextureMatrix[i] );
+	    ctx->Driver.TextureMatrix( ctx, i, ctx->TextureMatrixStack[i].Top);
       }
    }
 }
@@ -743,9 +784,9 @@ update_texture_matrices( GLcontext *ctx )
 static void
 update_texture_state( GLcontext *ctx )
 {
-   GLuint i;
+   GLuint unit;
 
-   ctx->Texture._ReallyEnabled = 0;
+   ctx->Texture._EnabledUnits = 0;
    ctx->Texture._GenFlags = 0;
    ctx->_NeedNormals &= ~NEED_NORMALS_TEXGEN;
    ctx->_NeedEyeCoords &= ~NEED_EYE_TEXGEN;
@@ -754,8 +795,8 @@ update_texture_state( GLcontext *ctx )
 
    /* Update texture unit state.
     */
-   for (i=0; i < ctx->Const.MaxTextureUnits; i++) {
-      struct gl_texture_unit *texUnit = &ctx->Texture.Unit[i];
+   for (unit = 0; unit < ctx->Const.MaxTextureUnits; unit++) {
+      struct gl_texture_unit *texUnit = &ctx->Texture.Unit[unit];
 
       texUnit->_ReallyEnabled = 0;
       texUnit->_GenFlags = 0;
@@ -763,60 +804,60 @@ update_texture_state( GLcontext *ctx )
       if (!texUnit->Enabled)
 	 continue;
 
-      /* Find the texture of highest dimensionality that is enabled
-       * and complete.  We'll use it for texturing.
+      /* Look for the highest-priority texture target that's enabled and
+       * complete.  That's the one we'll use for texturing.
        */
-      if (texUnit->Enabled & TEXTURE0_CUBE) {
+      if (texUnit->Enabled & TEXTURE_CUBE_BIT) {
          struct gl_texture_object *texObj = texUnit->CurrentCubeMap;
          if (!texObj->Complete) {
             _mesa_test_texobj_completeness(ctx, texObj);
          }
          if (texObj->Complete) {
-            texUnit->_ReallyEnabled = TEXTURE0_CUBE;
+            texUnit->_ReallyEnabled = TEXTURE_CUBE_BIT;
             texUnit->_Current = texObj;
          }
       }
 
-      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE0_3D)) {
+      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE_3D_BIT)) {
          struct gl_texture_object *texObj = texUnit->Current3D;
          if (!texObj->Complete) {
             _mesa_test_texobj_completeness(ctx, texObj);
          }
          if (texObj->Complete) {
-            texUnit->_ReallyEnabled = TEXTURE0_3D;
+            texUnit->_ReallyEnabled = TEXTURE_3D_BIT;
             texUnit->_Current = texObj;
          }
       }
 
-      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE0_RECT)) {
+      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE_RECT_BIT)) {
          struct gl_texture_object *texObj = texUnit->CurrentRect;
          if (!texObj->Complete) {
             _mesa_test_texobj_completeness(ctx, texObj);
          }
          if (texObj->Complete) {
-            texUnit->_ReallyEnabled = TEXTURE0_RECT;
+            texUnit->_ReallyEnabled = TEXTURE_RECT_BIT;
             texUnit->_Current = texObj;
          }
       }
 
-      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE0_2D)) {
+      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE_2D_BIT)) {
          struct gl_texture_object *texObj = texUnit->Current2D;
          if (!texObj->Complete) {
             _mesa_test_texobj_completeness(ctx, texObj);
          }
          if (texObj->Complete) {
-            texUnit->_ReallyEnabled = TEXTURE0_2D;
+            texUnit->_ReallyEnabled = TEXTURE_2D_BIT;
             texUnit->_Current = texObj;
          }
       }
 
-      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE0_1D)) {
+      if (!texUnit->_ReallyEnabled && (texUnit->Enabled & TEXTURE_1D_BIT)) {
          struct gl_texture_object *texObj = texUnit->Current1D;
          if (!texObj->Complete) {
             _mesa_test_texobj_completeness(ctx, texObj);
          }
          if (texObj->Complete) {
-            texUnit->_ReallyEnabled = TEXTURE0_1D;
+            texUnit->_ReallyEnabled = TEXTURE_1D_BIT;
             texUnit->_Current = texObj;
          }
       }
@@ -826,10 +867,8 @@ update_texture_state( GLcontext *ctx )
 	 continue;
       }
 
-      {
-	 GLuint flag = texUnit->_ReallyEnabled << (i * NUM_TEXTURE_TARGETS);
-	 ctx->Texture._ReallyEnabled |= flag;
-      }
+      if (texUnit->_ReallyEnabled)
+         ctx->Texture._EnabledUnits |= (1 << unit);
 
       if (texUnit->TexGenEnabled) {
 	 if (texUnit->TexGenEnabled & S_BIT) {
@@ -845,12 +884,12 @@ update_texture_state( GLcontext *ctx )
 	    texUnit->_GenFlags |= texUnit->_GenBitR;
 	 }
 
-	 ctx->Texture._TexGenEnabled |= ENABLE_TEXGEN(i);
+	 ctx->Texture._TexGenEnabled |= ENABLE_TEXGEN(unit);
 	 ctx->Texture._GenFlags |= texUnit->_GenFlags;
       }
 
-      if (ctx->TextureMatrix[i].type != MATRIX_IDENTITY)
-	 ctx->Texture._TexMatEnabled |= ENABLE_TEXMAT(i);
+      if (ctx->TextureMatrixStack[unit].Top->type != MATRIX_IDENTITY)
+	 ctx->Texture._TexMatEnabled |= ENABLE_TEXMAT(unit);
    }
 
    if (ctx->Texture._GenFlags & TEXGEN_NEED_NORMALS) {
@@ -862,6 +901,7 @@ update_texture_state( GLcontext *ctx )
       ctx->_NeedEyeCoords |= NEED_EYE_TEXGEN;
    }
 }
+
 
 
 /*
@@ -890,7 +930,7 @@ void _mesa_update_state( GLcontext *ctx )
       _mesa_print_state("_mesa_update_state", new_state);
 
    if (new_state & _NEW_MODELVIEW)
-      _math_matrix_analyse( &ctx->ModelView );
+      _math_matrix_analyse( ctx->ModelviewMatrixStack.Top );
 
    if (new_state & _NEW_PROJECTION)
       update_projection( ctx );
@@ -899,7 +939,7 @@ void _mesa_update_state( GLcontext *ctx )
       update_texture_matrices( ctx );
 
    if (new_state & _NEW_COLOR_MATRIX)
-      _math_matrix_analyse( &ctx->ColorMatrix );
+      _math_matrix_analyse( ctx->ColorMatrixStack.Top );
 
    /* References ColorMatrix.type (derived above).
     */
@@ -928,16 +968,28 @@ void _mesa_update_state( GLcontext *ctx )
    if (new_state & (_NEW_MODELVIEW|_NEW_LIGHT)) {
       ctx->_NeedEyeCoords &= ~NEED_EYE_LIGHT_MODELVIEW;
       if (ctx->Light.Enabled &&
-	  !TEST_MAT_FLAGS( &ctx->ModelView, MAT_FLAGS_LENGTH_PRESERVING))
+	  !TEST_MAT_FLAGS( ctx->ModelviewMatrixStack.Top, MAT_FLAGS_LENGTH_PRESERVING))
 	    ctx->_NeedEyeCoords |= NEED_EYE_LIGHT_MODELVIEW;
    }
+
+
+#if 0
+   /* XXX this is a bit of a hack.  We should be checking elsewhere if
+    * vertex program mode is enabled.  We set _NeedEyeCoords to zero to
+    * ensure that the combined modelview/projection matrix is computed
+    * in calculate_model_project_matrix().
+    */
+   if (ctx->VertexProgram.Enabled)
+      ctx->_NeedEyeCoords = 0;
+   /* KW: it's now always computed.
+    */
+#endif
 
    /* Keep ModelviewProject uptodate always to allow tnl
     * implementations that go model->clip even when eye is required.
     */
    if (new_state & (_NEW_MODELVIEW|_NEW_PROJECTION))
       calculate_model_project_matrix(ctx);
-
 
    /* ctx->_NeedEyeCoords is now uptodate.
     *
@@ -972,7 +1024,6 @@ void _mesa_update_state( GLcontext *ctx )
    ASSERT(ctx->Driver.GetString);
    ASSERT(ctx->Driver.UpdateState);
    ASSERT(ctx->Driver.Clear);
-   ASSERT(ctx->Driver.SetDrawBuffer);
    ASSERT(ctx->Driver.GetBufferSize);
    if (ctx->Visual.accumRedBits > 0) {
       ASSERT(ctx->Driver.Accum);
@@ -994,9 +1045,6 @@ void _mesa_update_state( GLcontext *ctx )
    ASSERT(ctx->Driver.CopyTexSubImage2D);
    ASSERT(ctx->Driver.CopyTexSubImage3D);
    if (ctx->Extensions.ARB_texture_compression) {
-      ASSERT(ctx->Driver.BaseCompressedTexFormat);
-      ASSERT(ctx->Driver.CompressedTextureSize);
-      ASSERT(ctx->Driver.GetCompressedTexImage);
 #if 0  /* HW drivers need these, but not SW rasterizers */
       ASSERT(ctx->Driver.CompressedTexImage1D);
       ASSERT(ctx->Driver.CompressedTexImage2D);

@@ -1,0 +1,253 @@
+.\" Man page for man (and the former manpath)
+.\"
+.\" Copyright (c) 1990, 1991, John W. Eaton.
+.\"
+.\" You may distribute under the terms of the GNU General Public
+.\" License as specified in the README file that comes with the man 1.0
+.\" distribution.  
+.\"
+.\" John W. Eaton
+.\" jwe@che.utexas.edu
+.\" Department of Chemical Engineering
+.\" The University of Texas at Austin
+.\" Austin, Texas  78712
+.\"
+.\" Many changes - aeb
+.\"
+.\" edited and translated to danish by Bo Vagner Hoejer 1996
+.\" email bo@petshop.ping.dk
+.\"
+.TH man 1 "2. September 1995" "da" "Linux brugerkommandoer" 
+.LO 1
+.SH NAVN
+man \- formaterer og viser online manual siderne
+.br
+manpath \- udskriver brugerens søgesti for manual siderne
+.SH SYNTAKS
+man [\-acdfhkKtwW] [\-m system] [\-p streng] [\-C konfigurationsfil] [\-M sti]
+[\-P pager] [\-S kapitelliste] [kapitel] opslagsord ...
+.SH BESKRIVELSE
+.B man
+formaterer og viser online manual siderne.  Denne version genkender
+.B MANPATH
+og
+.B (MAN)PAGER
+variablerne, så du kan derfor fastsætte dit personlige
+set manual sider og vælge hvilket program du fortrækker til at vise de formaterede
+sider med. Hvis
+.I kapitel
+er angivet vil
+.B man
+kun gennemsøge dette kapitel af manualen.
+Man kan også angive hvilken rækkefølge kapitlerne gennemsøges for opslag i
+og hvilke preprocessore, som køres på kildeteksten, via kommandolinie parametre
+eller skalvariabler.
+Hvis
+.I opslagsordet
+indeholder en skråstreg ('/') bliver det først testet som et filnavn, 
+så man kan anføre
+.I "man ./foo.5"
+eller selv
+.I "man /cd/foo/bar.1.gz\fR.\fP"
+.SH PARAMETRE
+.TP
+.B \-\^C " konfigurations_fil"
+Angiver hvilken konfigurations_fil som bruges. Normalt anvendes
+@man_config_file@. (Se man.conf(5).)
+.TP
+.B \-\^M " sti"
+Angiver hvilke kataloger som gennemsøges efter manualsider.
+Hvis en sådan parameter ikke er angivet bruges skalvariablen
+.BR MANPATH .
+Hvis ingen sådan skalvariabel findes, konsulteres
+.I @man_config_file@
+for at opbygge en standardliste.
+Hvis MANPATH indeholder et tom delstreng bruges standardlisten.
+.TP
+.B \-\^P " pager"
+Angiver hvilket 'pager' program, som skal bruges. 
+Denne parameter tilsidesætter
+.B MANPAGER
+skalvariablen, som igen overskygger
+.B PAGER
+variablen.  Normalt bruger 'man'
+.IR @pager@ .
+.TP
+.B \-\^S " kapitel_liste"
+Kapitel_liste er en kolon sepereret liste af kapiteller 
+som skal gennemsøges.
+Denne parameter tilsidesætter 
+.B MANSECT
+skalvariablen.
+.TP
+.B \-\^a
+Normalt vil man afslutte efter visning af den første fundne manualside
+Brug af denne parameter tvinger 'man' til ikke kun at vise den først fundne
+side, men alle sider der matcher 
+.BR opslagsord . 
+.TP
+.B \-\^c 
+Reformater kildesiden, selvom der findes en preformateret side,
+som er up to date.
+Denne mulighed bruges, hvis for eksempel manualsiden er preformateret
+til en skærm med en anden bredde end den, man aktuelt anvender.
+.TP
+.B \-\^d
+Siden vises ikke; men der udskrives adskillige fejlfindingsinformationer
+i stedet.
+.TP
+.B \-\^D
+Udskiver både siden og fejlfindingsinformation.
+.TP
+.B \-\^f
+Ækvivalent med
+.B whatis.
+.TP
+.B \-\^h
+Udskriv en kort hjælpetekst og afslut programmet.
+.TP
+.B \-\^k
+Ækvivalent med
+.B apropos.
+.TP
+.B \-\^K
+Gennemsøger *alle* manualsiderne efter den angivne streng. Advarsel: det
+kan godt gå meget langsomt. Det hjæper at specifisere et kapitel. På
+en typisk maskine tager det omkring 1 minut at gennemsøge 500 manualsider.
+.TP
+.B \-\^m " system"
+System angiver et alternativt set manualsider. 
+.TP
+.B \-\^p " string"
+Angiver den sekvens af preprocessore som køres før nroff eller troff.
+Ikke alle installationer har et fuldt set preprocessore.
+Bogstaverne som betegner nogle af preprocessorene er: 
+eqn (e), grap (g), pic (p), tbl (t), vgrind (v), refer (r).
+Denne parameter tilsidesætter
+.B MANROFFSEQ
+skalvariablen.
+.TP
+.B u-\^t
+Brug
+.B @troff@
+til formattering af manualside, uddata sendes til  
+.B stdout.
+Uddata fra
+.B @troff@
+må muligvis viderebearbejdes gennem et filter før udskrift.
+.TP
+.BR \-\^w or \-\-path
+Manualsiderne vises ikke, men findestedet for filerne ,som ville blive 
+formateret eller vist, udskrives. Hvis ingen argumenter er angivet
+udskrives hvilke kataloger som 
+.B man
+gennemsøger efter manualsider.
+Hvis
+.B manpath
+er et link til man, så er 'manpath' ækvivalent med 'man --path'.
+.TP
+.B \-\^W
+Som \-\^w, men udskriver filnavne en per linie, uden yderligere information.
+Dette er smart i skal kommandoer såsom
+.ft CW
+man -aW man | xargs ls -l
+.ft
+
+.SH "PREFORMATEREDE SIDER"
+.B man
+vil prøve på at gemme de formaterede manualsider, for at spare
+formatteringstid næste gang der er brug for siderne.
+Traditionelt bliver de formatterede sider fra KATALOG/manX gemt i
+KATALOG/catX, men rute fra manual kataloget til preformat kataloget
+kan angives i
+.I @man_config_file@.
+Ingen preformaterede sider bliver gemt, hvis det forlangte katalog ikke eksisterer.
+.TP
+Det er muligt at sætte 'man' suid til bruger man. Hvis cat kataloget har ejer
+man og tilgangsrettighed 0755 (kum skrivetilladelse for man),
+og cat-filerne har ejer man og tilgangsrettighed 0644 eller 0444
+(kun skrivetilladelse for man, eller ingen skriveltilladelse overhovedet),
+kan ingen ordinær bruger ændre de preformaterede sider eller
+anbringe andre filer i katalog for preformaterede sider. 
+Hvis 'man' ikke er suid, skal kataloget for preformaterede sider have 
+tilgangrettighed 0777 hvis alle brugere skal have mulighed for at gemme 
+preformaterede sider.
+.TP
+Parameteren -c gennemtvinger reformattering af en side,
+selvom en frisk preformateret side eksisterer.
+
+
+.SH SKALVARIABLE
+.TP
+.B MANPATH
+Hvis
+.B MANPATH
+er sat, bruges dens værdi som søgesti til manualsiderne.
+.TP
+.B MANROFFSEQ
+Hvis
+.B MANROFFSEQ
+is sat, bruges dennes værdi til at bestemme hvilke preprocessore som 
+gennemkøres før nroff eller troff. Normalt bliver siderne sendt gennem 
+tabel preprocessoren før nroff.
+.TP
+.B MANSECT
+Hvis
+.B MANSECT
+er sat, bruges dens værdi til at fastsætte hvilken manualsektioner 
+som gennemsøges.
+.TP
+.B MANWIDTH
+Hvis
+.B MANWIDTH
+is sat, bruges dens værdi; som den brede manualsiderne bliver vist med.
+Hvis ikke 
+.B MANWIDTH 
+er sat, bruges hele skærmens bredde.
+.TP
+.B MANPAGER
+Hvis
+.B MANPAGER
+is sat, anvendes dets værdi som navnet på det program som bruges til at vise
+manualsiderne med. Hvis ikke så bruges
+.BR PAGER .
+Hvis denne heller ikke har nogen værdi bruges
+.BR @pager@ .
+.TP
+.B LANG
+Hvis
+.B LANG
+er sat, bruges dets værdi til at definere i hvilket underkatalog man
+først kigger efter manualsider. Således vil kommandoen `LANG=da man 1 foo'
+få man til at lede efter foo manualsiden i .../da/man1/foo.1,
+og hvis der ikke kan finde en sådan fil fortsættes der i .../man1/foo.1,
+hvor ... er et katalog på søgestien.
+.TP
+.B "NLSPATH, LC_MESSAGES, LANG"
+Skalvariablerne 
+.B NLSPATH
+og
+.B LC_MESSAGES
+(eller
+.B LANG
+når den sidste ikke findes)
+spiller en rolle i at lokalisere meddelelses kataloget.
+(Engelske meddelelser er oversat direkte ind i programmet,
+så derfor behøves intet katalog.)
+Bemærk at nogle programmer, så som col(1), kaldt af man også bruger LC_CTYPE.
+.TP
+.B STI
+.B STI
+bliver brugt til konstruktion af den normale søgesti for manualsiderne.
+.TP
+.B SYSTEM
+.B SYSTEM
+bliver brugt til at angive et andet system navn med (for brug
+med 
+.B \-m
+parametren). 
+.SH "SE OGSÅ"
+apropos(1), whatis(1), less(1), groff(1).
+.SH FEJL
+.B \-t
+parametren virker kun, hvis der er installeret et troff-lignende program.

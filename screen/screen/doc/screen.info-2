@@ -1,4 +1,4 @@
-This is screen.info, produced by makeinfo version 4.2 from
+This is screen.info, produced by makeinfo version 4.5 from
 ./screen.texinfo.
 
 INFO-DIR-SECTION General Commands
@@ -23,6 +23,110 @@ permission notice identical to this one.
 manual into another language, under the above conditions for modified
 versions, except that this permission notice may be stated in a
 translation approved by the Foundation.
+
+
+File: screen.info,  Node: Window Types,  Prev: Term,  Up: New Window
+
+Window Types
+============
+
+   Screen provides three different window types. New windows are created
+with `screen''s `screen' command (*note Screen Command::).  The first
+parameter to the `screen' command defines which type of window is
+created. The different window types are all special cases of the normal
+type. They have been added in order to allow `screen' to be used
+efficiently as a console with 100 or more windows.
+   * The normal window contains a shell (default, if no parameter is
+     given) or any other system command that could be executed from a
+     shell.  (e.g. `slogin', etc...).
+
+   * If a tty (character special device) name (e.g. `/dev/ttya') is
+     specified as the first parameter, then the window is directly
+     connected to this device.  This window type is similar to `screen
+     cu -l /dev/ttya'.  Read and write access is required on the device
+     node, an exclusive open is attempted on the node to mark the
+     connection line as busy.  An optional parameter is allowed
+     consisting of a comma separated list of flags in the notation used
+     by `stty(1)':
+    `<baud_rate>'
+          Usually 300, 1200, 9600 or 19200. This affects transmission
+          as well as receive speed.
+
+    `cs8 or cs7'
+          Specify the transmission of eight (or seven) bits per byte.
+
+    `ixon or -ixon'
+          Enables (or disables) software flow-control (CTRL-S/CTRL-Q)
+          for sending data.
+
+    `ixoff or -ixoff'
+          Enables (or disables) software flow-control for receiving
+          data.
+
+    `istrip or -istrip'
+          Clear (or keep) the eight bit in each received byte.
+
+     You may want to specify as many of these options as applicable.
+     Unspecified options cause the terminal driver to make up the
+     parameter values of the connection. These values are system
+     dependant and may be in defaults or values saved from a previous
+     connection.
+
+     For tty windows, the `info' command shows some of the modem
+     control lines in the status line.  These may include `RTS', `CTS',
+     `DTR', `CD' and more. This depends rather on on the available
+     `ioctl()''s and system header files than on the physical
+     capabilities of the serial board.  The name of a logical low
+     (inactive) signal is preceded by an exclamation mark (`!'),
+     otherwise the signal is logical high (active).  Unsupported but
+     shown signals are usually shown low.  When the `CLOCAL' status bit
+     is true, the whole set of modem signals is placed inside curly
+     braces (`{' and `}').  When the `CRTSCTS' or `TIOCSOFTCAR' bit is
+     true, the signals `CTS' or `CD' are shown in parenthesis,
+     respectively.
+
+     For tty windows, the command `break' causes the Data transmission
+     line (TxD) to go low for a specified period of time. This is
+     expected to be interpreted as break signal on the other side.  No
+     data is sent and no modem control line is changed when a `break'
+     is issued.
+
+   * If the first parameter is `//telnet', the second parameter is
+     expected to be a host name, and an optional third parameter may
+     specify a TCP port number (default decimal 23). Screen will
+     connect to a server listening on the remote host and use the
+     telnet protocol to communicate with that server.
+
+     For telnet windows, the command `info' shows details about the
+     connection in square brackets (`[' and `]') at the end of the
+     status line.
+    `b'
+          BINARY. The connection is in binary mode.
+
+    `e'
+          ECHO. Local echo is disabled.
+
+    `c'
+          SGA. The connection is in `character mode' (default: `line
+          mode').
+
+    `t'
+          TTYPE. The terminal type has been requested by the remote
+          host. Screen sends the name `screen' unless instructed
+          otherwise (see also the command `term').
+
+    `w'
+          NAWS. The remote site is notified about window size changes.
+
+    `f'
+          LFLOW. The remote host will send flow control information.
+          (Ignored at the moment.)
+     Additional flags for debugging are `x', `t' and `n' (XDISPLOC,
+     TSPEED and NEWENV).
+
+     For telnet windows, the command `break' sends the telnet code `IAC
+     BREAK' (decimal 243) to the remote host.
+
 
 
 File: screen.info,  Node: Selecting,  Next: Session Management,  Prev: New Window,  Up: Top
@@ -85,8 +189,11 @@ Select
      established, the lowest available number is assigned to this
      window.  Thus, the first window can be activated by `select 0';
      there can be no more than 10 windows present simultaneously
-     (unless screen is compiled with a higher MAXWIN setting).  The
-     special command `select -' switches to a blank window.
+     (unless screen is compiled with a higher MAXWIN setting).  There
+     are two special arguments, `select -' switches to the internal
+     blank window and `select .' switches to the current window. The
+     latter is useful if used with screen's `-X' option.
+
 
 
 File: screen.info,  Node: Windowlist,  Prev: Select,  Up: Selecting
@@ -94,13 +201,18 @@ File: screen.info,  Node: Windowlist,  Prev: Select,  Up: Selecting
 Windowlist
 ==========
 
- - Command: windowlist [-b] | string [STRING] | title [TITLE]
+ - Command: windowlist [-b] [-m]
+ - Command: windowlist string [STRING]
+ - Command: windowlist title [TITLE]
      (`C-a "')
      Display all windows in a table for visual window selection.  The
      desired window can be selected via the standard movement keys
      (*note Movement::) and activated via the return key.  If the `-b'
      option is given, screen will switch to the blank window before
      presenting the list, so that the current window is also selectable.
+     The `-m' option changes the order of the windows, instead of
+     sorting by window numbers screen uses its internal
+     most-recently-used list.
 
      The table format can be changed with the string and title option,
      the title is displayed as table heading, while the lines are made
@@ -171,7 +283,7 @@ Power Detach
 ============
 
  - Command: pow_detach
-     (`C-a D')
+     (`C-a D D')
      Mainly the same as `detach', but also sends a HANGUP signal to the
      parent process of `screen'.
      _Caution_: This will result in a logout if `screen' was started
@@ -1056,168 +1168,4 @@ functions, respectively.
      ESC [ x                 (V)     Send Terminal Parameter Report
      ESC [ > c                       Send Secondary Device Attributes String
      ESC [ 6 n                       Send Cursor Position Report
-
-
-File: screen.info,  Node: Input Translation,  Next: Digraph,  Prev: Control Sequences,  Up: Virtual Terminal
-
-Input Translation
-=================
-
-   In order to do a full VT100 emulation `screen' has to detect that a
-sequence of characters in the input stream was generated by a keypress
-on the user's keyboard and insert the VT100 style escape sequence.
-`Screen' has a very flexible way of doing this by making it possible to
-map arbitrary commands on arbitrary sequences of characters. For
-standard VT100 emulation the command will always insert a string in the
-input buffer of the window (see also command `stuff', *note Paste::).
-Because the sequences generated by a keypress can change after a
-reattach from a different terminal type, it is possible to bind
-commands to the termcap name of the keys.  `Screen' will insert the
-correct binding after each reattach. See *Note Bindkey:: for further
-details on the syntax and examples.
-
-   Here is the table of the default key bindings. (A) means that the
-command is executed if the keyboard is switched into application mode.
-
-     Key name        Termcap name    Command
-     -----------------------------------------------------
-     Cursor up            ku         stuff \033[A
-                                     stuff \033OA      (A)
-     Cursor down          kd         stuff \033[B
-                                     stuff \033OB      (A)
-     Cursor right         kr         stuff \033[C
-                                     stuff \033OC      (A)
-     Cursor left          kl         stuff \033[D
-                                     stuff \033OD      (A)
-     Function key 0       k0         stuff \033[10~
-     Function key 1       k1         stuff \033OP
-     Function key 2       k2         stuff \033OQ
-     Function key 3       k3         stuff \033OR
-     Function key 4       k4         stuff \033OS
-     Function key 5       k5         stuff \033[15~
-     Function key 6       k6         stuff \033[17~
-     Function key 7       k7         stuff \033[18~
-     Function key 8       k8         stuff \033[19~
-     Function key 9       k9         stuff \033[20~
-     Function key 10      k;         stuff \033[21~
-     Function key 11      F1         stuff \033[23~
-     Function key 12      F2         stuff \033[24~
-     Home                 kh         stuff \033[1~
-     End                  kH         stuff \033[4~
-     Insert               kI         stuff \033[2~
-     Delete               kD         stuff \033[3~
-     Page up              kP         stuff \033[5~
-     Page down            kN         stuff \033[6~
-     Keypad 0             f0         stuff 0
-                                     stuff \033Op      (A)
-     Keypad 1             f1         stuff 1
-                                     stuff \033Oq      (A)
-     Keypad 2             f2         stuff 2
-                                     stuff \033Or      (A)
-     Keypad 3             f3         stuff 3
-                                     stuff \033Os      (A)
-     Keypad 4             f4         stuff 4
-                                     stuff \033Ot      (A)
-     Keypad 5             f5         stuff 5
-                                     stuff \033Ou      (A)
-     Keypad 6             f6         stuff 6
-                                     stuff \033Ov      (A)
-     Keypad 7             f7         stuff 7
-                                     stuff \033Ow      (A)
-     Keypad 8             f8         stuff 8
-                                     stuff \033Ox      (A)
-     Keypad 9             f9         stuff 9
-                                     stuff \033Oy      (A)
-     Keypad +             f+         stuff +
-                                     stuff \033Ok      (A)
-     Keypad -             f-         stuff -
-                                     stuff \033Om      (A)
-     Keypad *             f*         stuff *
-                                     stuff \033Oj      (A)
-     Keypad /             f/         stuff /
-                                     stuff \033Oo      (A)
-     Keypad =             fq         stuff =
-                                     stuff \033OX      (A)
-     Keypad .             f.         stuff .
-                                     stuff \033On      (A)
-     Keypad ,             f,         stuff ,
-                                     stuff \033Ol      (A)
-     Keypad enter         fe         stuff \015
-                                     stuff \033OM      (A)
-
-
-File: screen.info,  Node: Digraph,  Next: Bell,  Prev: Input Translation,  Up: Virtual Terminal
-
-Digraph
-=======
-
- - Command: digraph [preset]
-     (none)
-     This command prompts the user for a digraph sequence. The next two
-     characters typed are looked up in a builtin table and the
-     resulting character is inserted in the input stream. For example,
-     if the user enters `a"', an a-umlaut will be inserted. If the
-     first character entered is a 0 (zero), `screen' will treat the
-     following characters (up to three) as an octal number instead.
-     The optional argument PRESET is treated as user input, thus one
-     can create an "umlaut" key.  For example the command `bindkey ^K
-     digraph '"'' enables the user to generate an a-umlaut by typing
-     `CTRL-K a'.
-
-
-File: screen.info,  Node: Bell,  Next: Clear,  Prev: Digraph,  Up: Virtual Terminal
-
-Bell
-====
-
- - Command: bell_msg [message]
-     (none)
-     When a bell character is sent to a background window, `screen'
-     displays a notification in the message line.  The notification
-     message can be re-defined by this command.  Each occurrence of `%'
-     in MESSAGE is replaced by the number of the window to which a bell
-     has been sent, and each occurrence of `^G' is replaced by the
-     definition for bell in your termcap (usually an audible bell).
-     The default message is
-
-          'Bell in window %n'
-
-     An empty message can be supplied to the `bell_msg' command to
-     suppress output of a message line (`bell_msg ""').  Without
-     parameter, the current message is shown.
-
- - Command: vbell [state]
-     (`C-a C-g')
-     Sets or toggles the visual bell setting for the current window. If
-     `vbell' is switched to `on', but your terminal does not support a
-     visual bell, the visual bell message is displayed in the status
-     line when the bell character is received.  Visual bell support of
-     a terminal is defined by the termcap variable `vb'. *Note Visual
-     Bell: (termcap)Bell, for more information on visual bells.  The
-     equivalent terminfo capability is `flash'.
-
-     Per  default, `vbell' is `off', thus the audible bell is used.
-
- - Command: vbell_msg [message]
-     (none)
-     Sets the visual bell message. MESSAGE is printed to the status
-     line if the window receives a bell character (^G), `vbell' is set
-     to `on' and the terminal does not support a visual bell.  The
-     default message is `Wuff, Wuff!!'.  Without parameter, the current
-     message is shown.
-
- - Command: vbellwait sec
-     (none)
-     Define a delay in seconds after each display of `screen' 's visual
-     bell message. The default is 1 second.
-
-
-File: screen.info,  Node: Clear,  Next: Info,  Prev: Bell,  Up: Virtual Terminal
-
-Clear
-=====
-
- - Command: clear
-     (`C-a C')
-     Clears the screen and saves its contents to the scrollback buffer.
 

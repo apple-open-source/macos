@@ -112,3 +112,5 @@ STRIPFLAGS =
 after_install:
 	install -o root -g wheel -m 755 -d $(DSTROOT)/usr/share/man/man8
 	install -o root -g wheel -m 644 -c telnetd.8 $(DSTROOT)/usr/share/man/man8
+	mkdir -p "$(DSTROOT)/System/Library/LaunchDaemons"
+	cp telnet.plist "$(DSTROOT)/System/Library/LaunchDaemons/"

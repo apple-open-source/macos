@@ -1,0 +1,42 @@
+.\" @(#)man.conf
+.\" Traducere de Ovidiu Constantin <ovidiu.soft@xnet.ro>
+.TH MAN.CONF 5 "30 Mar 1994"
+.SH NUME
+man.conf \- date de configurare pentru man
+.SH DESCRIERE
+.LP
+Acest fiºier este citit de
+.BR man (1)
+ºi conþine (a) informaþii despre cum se construieºte calea de cãutare
+pentru man, (b) cãi complete pentru diferite programe ca nroff, eqn, tbl
+etc. folosite de man, ºi (c) o listã cu decomprimatoare pentru fiºierele
+cu o anumitã extensie. O versiune alternativã  a acestui fiºier poate fi
+specificatã cu
+.LP
+.RS
+man -C man_privat.conf ...
+.RE
+.LP
+Numele de comenzi pot fi completate cu opþiuni.  Opþiuni folositoare
+pentru nroff pot fi gãsite în grotty(1). De exemplu, în loc de linia
+implicitã
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1
+.fi
+.RE
+.LP
+se poate scrie
+.LP
+.RS
+.nf
+NROFF /usr/bin/groff -mandoc -Tlatin1 -P-u -P-b
+.fi
+.RE
+.LP
+pentru a elimina sublinierea ºi tãierea.
+.SH "VEZI ªI"
+col(1), (g)eqn(1), (g)pic(1), groff(1), grotty(1), (g)refer(1), (g)tbl(1),
+less(1), man (1) ºi compress(1), gzip(1).
+

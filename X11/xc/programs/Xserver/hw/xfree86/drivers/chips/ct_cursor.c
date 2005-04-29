@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_cursor.c,v 1.27 2002/11/25 14:04:58 eich Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/chips/ct_cursor.c,v 1.28 2003/07/17 08:19:34 eich Exp $ */
 
 /*
  * Copyright 1994  The XFree86 Project
@@ -156,10 +156,7 @@ CHIPSSetCursorPosition(ScrnInfoPtr pScrn, int x, int y)
     CHIPSPtr cPtr = CHIPSPTR(pScrn);
     
     CURSOR_SYNC(pScrn);
-
-    if (pScrn->currentMode->Flags & V_DBLSCAN)
-	y *= 2;
-
+    
     if (x < 0)
 	x = ~(x-1) | 0x8000;
     if (y < 0)
@@ -429,10 +426,13 @@ CHIPSLoadCursorImage(ScrnInfoPtr pScrn, unsigned char *src)
 }
 
 static Bool
-CHIPSUseHWCursor(ScreenPtr pScr, CursorPtr pCurs)
+CHIPSUseHWCursor(ScreenPtr pScreen, CursorPtr pCurs)
 {
-    CHIPSPtr cPtr = CHIPSPTR(xf86Screens[pScr->myNum]);
-    return ((cPtr->Flags & ChipsHWCursor) != 0);
+    ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
+    CHIPSPtr cPtr = CHIPSPTR(pScrn);
+    
+    return (((cPtr->Flags & ChipsHWCursor) != 0)
+	    && !(pScrn->currentMode->Flags & V_DBLSCAN));
 }
 
 Bool

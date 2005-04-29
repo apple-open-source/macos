@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -233,11 +233,14 @@
  * Media is available, but not ready for operations.
  */
 
-typedef UInt32 IOMediaState;
+enum
+{
+    kIOMediaStateOffline = 0,
+    kIOMediaStateOnline  = 1,
+    kIOMediaStateBusy    = 2
+};
 
-#define kIOMediaStateOffline 0
-#define kIOMediaStateOnline  1
-#define kIOMediaStateBusy    2
+typedef UInt32 IOMediaState;
 
 #ifdef KERNEL
 #ifdef __cplusplus

@@ -116,12 +116,14 @@ basic_file.cc: ${glibcpp_srcdir}/@BASIC_FILE_CC@
 	@LN_S@ ${glibcpp_srcdir}/@BASIC_FILE_CC@ ./$@ || true
 
 # Sources present in the src directory.
+# APPLE LOCAL libstdc++ debug mode
 sources = \
 	bitset.cc \
 	codecvt.cc \
 	complex_io.cc \
 	concept-inst.cc \
 	ctype.cc \
+	debug.cc \
 	ext-inst.cc \
 	fstream.cc \
 	fstream-inst.cc \

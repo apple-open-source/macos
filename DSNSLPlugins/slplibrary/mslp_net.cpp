@@ -97,7 +97,9 @@ EXPORT int readn(SOCKET fd, void *pv, size_t n)
         {
             if ( errno == EINTR )
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP, "propogate_registrations readn msg received EINTR");
+#endif
                 continue;
             }
             else
@@ -113,7 +115,9 @@ EXPORT int readn(SOCKET fd, void *pv, size_t n)
             {
                 if (errno == EINTR) 
                 {
+#ifdef ENABLE_SLP_LOGGING
                     SLP_LOG( SLP_LOG_DROP, "readn SDread received EINTR");
+#endif
                     nread = 0; /* and call read() again */
                 }
                 else 
@@ -144,7 +148,9 @@ EXPORT int writen(SOCKET fd, void *pv, size_t n)
         {
             if (errno == EINTR)
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DROP, "writen SDwrite received EINTR");
+#endif
                 nwritten = 0; /* call write() again */
             }
 			else
@@ -188,8 +194,10 @@ EXPORT int CalculateOurIPAddress( struct in_addr* ourIPAddr, const char** pcInte
         // find out what the current primary active interface is:
         interfaceRef = CopyCurrentActivePrimaryInterfaceName();
         
+#ifdef ENABLE_SLP_LOGGING
         if ( interfaceRef && CFStringGetCStringPtr( interfaceRef, CFStringGetSystemEncoding() ) )
             SLP_LOG( SLP_LOG_DEBUG, "Primary Interface is: %s", CFStringGetCStringPtr( interfaceRef, CFStringGetSystemEncoding() ) );
+#endif
     }
         
     for ( ifihead = ifi = get_ifi_info(family, doaliases); ifi != NULL; ifi = ifi->ifi_next)
@@ -201,7 +209,7 @@ EXPORT int CalculateOurIPAddress( struct in_addr* ourIPAddr, const char** pcInte
                 Boolean			skipInterface = false;
                 CFStringRef		curInterfaceRef = CFStringCreateWithCString( NULL, ifi->ifi_name, kCFStringEncodingUTF8 );
                 
-                if ( kCFCompareEqualTo != CFStringCompare( interfaceRef, curInterfaceRef, NULL ) )
+                if ( kCFCompareEqualTo != CFStringCompare( interfaceRef, curInterfaceRef, 0 ) )
                     skipInterface = true;
                     
                 CFRelease( curInterfaceRef );
@@ -221,10 +229,11 @@ EXPORT int CalculateOurIPAddress( struct in_addr* ourIPAddr, const char** pcInte
 
             err = 0;
             
+#ifdef ENABLE_SLP_LOGGING
             pthread_mutex_lock( &sock_ntopLock );	// sock_ntop is not reentrant or threadsafe!
             SLP_LOG( SLP_LOG_DEBUG, "Returning our IP Address as: %s, on interface: %s", sock_ntop(ifi->ifi_addr, sizeof(ifi->ifi_addr)), ifi->ifi_name );
             pthread_mutex_unlock( &sock_ntopLock );
-
+#endif
             break;		// we are just grabbing the first one.  If we want all, we should continue and fill an in_addr array
         }
     }
@@ -320,8 +329,9 @@ struct ifi_info* get_ifi_info( int family, int doaliases )
     
     if ( sockfd < 0 )
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG( SLP_LOG_DEBUG, "Couldn't create a network socket: %s while trying to get interface information", strerror(errno) );
-        
+#endif        
         return NULL;
     }
     
@@ -334,9 +344,10 @@ struct ifi_info* get_ifi_info( int family, int doaliases )
         ifc.ifc_buf = buf;
         if ( ioctl(sockfd, SIOCGIFCONF, &ifc) < 0 )
         {
+#ifdef ENABLE_SLP_LOGGING
             if ( errno != EINVAL || lastlen != 0 )
                 SLP_LOG( SLP_LOG_DEBUG, "System error: %s while trying to determine network information.", strerror(errno));
-
+#endif
             break;	// can't continue
         }
         else

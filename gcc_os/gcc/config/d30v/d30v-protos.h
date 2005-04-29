@@ -105,7 +105,7 @@ extern void d30v_setup_incoming_varargs	PARAMS ((CUMULATIVE_ARGS *,
 						 tree, int *, int));
 extern tree d30v_build_va_list		PARAMS ((void));
 #ifdef RTX_CODE
-extern void d30v_expand_builtin_va_start PARAMS ((int, tree, rtx));
+extern void d30v_expand_builtin_va_start PARAMS ((tree, rtx));
 extern rtx d30v_expand_builtin_va_arg	PARAMS ((tree, tree));
 #endif	/* RTX_CODE */
 #endif	/* TREE_CODE */
@@ -140,8 +140,8 @@ extern void debug_stack_info		PARAMS ((d30v_stack_t *));
 /* Define the information needed to generate branch and scc insns.  This is
    stored from the compare operation.  */
 
-extern struct rtx_def *d30v_compare_op0;
-extern struct rtx_def *d30v_compare_op1;
+extern GTY(()) rtx d30v_compare_op0;
+extern GTY(()) rtx d30v_compare_op1;
 
 /* Define the information needed to modify the epilogue for EH.  */
 

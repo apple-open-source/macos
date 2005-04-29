@@ -24,43 +24,67 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "system.h"
 #include "tree.h"
 #include "c-tree.h"
+#include "c-common.h"
+#include "ggc.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
 
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#include "pfe/c-freeze-thaw.h"
-#endif
-
-static const char *c_init PARAMS ((const char *));
 static void c_init_options PARAMS ((void));
-static void c_post_options PARAMS ((void));
 
 /* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU C"
 #undef LANG_HOOKS_INIT
-#define LANG_HOOKS_INIT c_init
+#define LANG_HOOKS_INIT c_objc_common_init
 #undef LANG_HOOKS_FINISH
 #define LANG_HOOKS_FINISH c_common_finish
+/* APPLE LOCAL begin Objective-C++ */
+#undef LANG_HOOKS_FINISH_FILE
+#define LANG_HOOKS_FINISH_FILE c_objc_common_finish_file
+/* APPLE LOCAL end Objective-C++ */
 #undef LANG_HOOKS_INIT_OPTIONS
 #define LANG_HOOKS_INIT_OPTIONS c_init_options
 #undef LANG_HOOKS_DECODE_OPTION
-#define LANG_HOOKS_DECODE_OPTION c_decode_option
+#define LANG_HOOKS_DECODE_OPTION c_common_decode_option
 #undef LANG_HOOKS_POST_OPTIONS
-#define LANG_HOOKS_POST_OPTIONS c_post_options
+#define LANG_HOOKS_POST_OPTIONS c_common_post_options
 #undef LANG_HOOKS_GET_ALIAS_SET
 #define LANG_HOOKS_GET_ALIAS_SET c_common_get_alias_set
 #undef LANG_HOOKS_SAFE_FROM_P
 #define LANG_HOOKS_SAFE_FROM_P c_safe_from_p
+#undef LANG_HOOKS_EXPAND_EXPR
+#define LANG_HOOKS_EXPAND_EXPR c_expand_expr
+#undef LANG_HOOKS_MARK_ADDRESSABLE
+#define LANG_HOOKS_MARK_ADDRESSABLE c_mark_addressable
+#undef LANG_HOOKS_PARSE_FILE
+#define LANG_HOOKS_PARSE_FILE c_common_parse_file
+#undef LANG_HOOKS_TRUTHVALUE_CONVERSION
+#define LANG_HOOKS_TRUTHVALUE_CONVERSION c_common_truthvalue_conversion
+#undef LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES
+#define LANG_HOOKS_INSERT_DEFAULT_ATTRIBUTES c_insert_default_attributes
+#undef LANG_HOOKS_FINISH_INCOMPLETE_DECL
+#define LANG_HOOKS_FINISH_INCOMPLETE_DECL c_finish_incomplete_decl
+#undef LANG_HOOKS_UNSAFE_FOR_REEVAL
+#define LANG_HOOKS_UNSAFE_FOR_REEVAL c_common_unsafe_for_reeval
 #undef LANG_HOOKS_STATICP
 #define LANG_HOOKS_STATICP c_staticp
+#undef LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL c_warn_unused_global_decl
 #undef LANG_HOOKS_PRINT_IDENTIFIER
 #define LANG_HOOKS_PRINT_IDENTIFIER c_print_identifier
-#undef LANG_HOOKS_SET_YYDEBUG
-#define LANG_HOOKS_SET_YYDEBUG c_set_yydebug
+#undef LANG_HOOKS_FUNCTION_ENTER_NESTED
+#define LANG_HOOKS_FUNCTION_ENTER_NESTED c_push_function_context
+#undef LANG_HOOKS_FUNCTION_LEAVE_NESTED
+#define LANG_HOOKS_FUNCTION_LEAVE_NESTED c_pop_function_context
+#undef LANG_HOOKS_DUP_LANG_SPECIFIC_DECL
+#define LANG_HOOKS_DUP_LANG_SPECIFIC_DECL c_dup_lang_specific_decl
+
+/* Attribute hooks.  */
+#undef LANG_HOOKS_COMMON_ATTRIBUTE_TABLE
+#define LANG_HOOKS_COMMON_ATTRIBUTE_TABLE c_common_attribute_table
+#undef LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE
+#define LANG_HOOKS_FORMAT_ATTRIBUTE_TABLE c_common_format_attribute_table
 
 #undef LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN
 #define LANG_HOOKS_TREE_INLINING_CANNOT_INLINE_TREE_FN \
@@ -74,18 +98,118 @@ static void c_post_options PARAMS ((void));
 #undef LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING
 #define LANG_HOOKS_TREE_INLINING_CONVERT_PARM_FOR_INLINING \
   c_convert_parm_for_inlining
+#undef LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN
+#define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN c_dump_tree
 
-/* APPLE LOCAL Objective-C++  */
-static void lang_init_options PARAMS ((void));
+#undef LANG_HOOKS_TYPE_FOR_MODE
+#define LANG_HOOKS_TYPE_FOR_MODE c_common_type_for_mode
+#undef LANG_HOOKS_TYPE_FOR_SIZE
+#define LANG_HOOKS_TYPE_FOR_SIZE c_common_type_for_size
+#undef LANG_HOOKS_SIGNED_TYPE
+#define LANG_HOOKS_SIGNED_TYPE c_common_signed_type
+#undef LANG_HOOKS_UNSIGNED_TYPE
+#define LANG_HOOKS_UNSIGNED_TYPE c_common_unsigned_type
+#undef LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE
+#define LANG_HOOKS_SIGNED_OR_UNSIGNED_TYPE c_common_signed_or_unsigned_type
+#undef LANG_HOOKS_INCOMPLETE_TYPE_ERROR
+#define LANG_HOOKS_INCOMPLETE_TYPE_ERROR c_incomplete_type_error
+#undef LANG_HOOKS_TYPE_PROMOTES_TO
+#define LANG_HOOKS_TYPE_PROMOTES_TO c_type_promotes_to
 
-/* APPLE LOCAL Objective-C++  */
-#include "c-lang.h"
+/* APPLE LOCAL begin new tree dump */
+#undef LANG_HOOKS_DUMP_DECL
+#define LANG_HOOKS_DUMP_DECL c_dump_decl
+#undef LANG_HOOKS_DUMP_TYPE
+#define LANG_HOOKS_DUMP_TYPE c_dump_type
+#undef LANG_HOOKS_DUMP_IDENTIFIER
+#define LANG_HOOKS_DUMP_IDENTIFIER c_dump_identifier
+#undef LANG_HOOKS_DUMP_BLANK_LINE_P
+#define LANG_HOOKS_DUMP_BLANK_LINE_P c_dump_blank_line_p
+#undef LANG_HOOKS_DUMP_LINENO_P
+#define LANG_HOOKS_DUMP_LINENO_P c_dump_lineno_p
+#undef LANG_HOOKS_DMP_TREE3
+#define LANG_HOOKS_DMP_TREE3 c_dmp_tree3
+/* APPLE LOCAL end new tree dump */
+
+/* ### When changing hooks, consider if ObjC needs changing too!! ### */
 
 /* Each front end provides its own.  */
 const struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
+/* Tree code classes.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) TYPE,
+
+const char tree_code_type[] = {
+#include "tree.def"
+  'x',
+#include "c-common.def"
+};
+#undef DEFTREECODE
+
+/* Table indexed by tree code giving number of expression
+   operands beyond the fixed part of the node structure.
+   Not used for types or decls.  */
+
+#define DEFTREECODE(SYM, NAME, TYPE, LENGTH) LENGTH,
+
+const unsigned char tree_code_length[] = {
+#include "tree.def"
+  0,
+#include "c-common.def"
+};
+#undef DEFTREECODE
+
+/* Names of tree components.
+   Used for printing out the tree and error messages.  */
+#define DEFTREECODE(SYM, NAME, TYPE, LEN) NAME,
+
+const char *const tree_code_name[] = {
+#include "tree.def"
+  "@@dummy",
+#include "c-common.def"
+};
+#undef DEFTREECODE
+
 static void
-lang_init_options ()
+c_init_options ()
 {
   c_common_init_options (clk_c);
 }
+
+/* APPLE LOCAL move lookup_interface to stub-objc.c */
+
+/* APPLE LOCAL move is_class_name to stub-objc.c */
+
+/* APPLE LOCAL move objc_is_id to stub-objc.c.  */
+
+void
+objc_check_decl (decl)
+     tree decl ATTRIBUTE_UNUSED;
+{
+}
+
+int
+objc_comptypes (lhs, rhs, reflexive)
+     tree lhs ATTRIBUTE_UNUSED;
+     tree rhs ATTRIBUTE_UNUSED;
+     int reflexive ATTRIBUTE_UNUSED;
+{
+  return -1;
+}
+
+tree
+objc_message_selector ()
+{
+  return 0;
+}
+
+/* APPLE LOCAL move lookup_objc_ivar to stub-objc.c */
+
+void
+finish_file ()
+{
+  c_objc_common_finish_file ();
+}
+
+#include "gtype-c.h"

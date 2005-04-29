@@ -58,8 +58,8 @@ do_command(e, u)
 	static mach_port_t master = 0;
 	static io_connect_t pmcon = 0;
 
-	Debug(DPROC, ("[%d] do_command(%s, (%s,%d,%d))\n",
-		getpid(), e->cmd, u->name, e->uid, e->gid))
+	Debug(DPROC, ("[%d] do_command(%s, (%s,%s,%s))\n",
+		getpid(), e->cmd, u->name, e->uname, e->gname))
 
 	if( e->flags & NOT_BATTERY ) {
 		if( master == 0 ) {
@@ -115,11 +115,13 @@ child_process(e, u)
 {
 	int		stdin_pipe[2], stdout_pipe[2];
 	char		*input_data;
-	char		*usernm, *mailto;
+	char		*mailto;
 	int		children = 0;
-# if defined(LOGIN_CAP)
+	uid_t		uid = -1;
+	gid_t		gid = -1;
 	struct passwd	*pwd;
-	login_cap_t *lc;
+# if defined(LOGIN_CAP)
+	login_cap_t *lc = NULL;
 # endif
 
 	Debug(DPROC, ("[%d] child_process('%s')\n", getpid(), e->cmd))
@@ -127,20 +129,10 @@ child_process(e, u)
 	/* mark ourselves as different to PS command watchers by upshifting
 	 * our program name.  This has no effect on some kernels.
 	 */
-#ifdef __APPLE__
-        /*local*/{
-                register char   *pch;
-
-                for (pch = ProgramName;  *pch;  pch++)
-                        *pch = MkUpper(*pch);
-        }
-#else
-	setproctitle("running job");
-#endif
+	setprogname("running job");
 
 	/* discover some useful and important environment settings
 	 */
-	usernm = env_get("LOGNAME", e->envp);
 	mailto = env_get("MAILTO", e->envp);
 
 #ifdef USE_SIGCHLD
@@ -202,13 +194,13 @@ child_process(e, u)
 
 	/* fork again, this time so we can exec the user's command.
 	 */
-	switch (vfork()) {
+	switch (fork()) {
 	case -1:
-		log_it("CRON",getpid(),"error","can't vfork");
+		log_it("CRON",getpid(),"error","can't fork");
 		exit(ERROR_EXIT);
 		/*NOTREACHED*/
 	case 0:
-		Debug(DPROC, ("[%d] grandchild process Vfork()'ed\n",
+		Debug(DPROC, ("[%d] grandchild process fork()'ed\n",
 			      getpid()))
 
 		/* write a log message.  we've waited this long to do it
@@ -219,7 +211,7 @@ child_process(e, u)
 		/*local*/{
 			char *x = mkprints((u_char *)e->cmd, strlen(e->cmd));
 
-			log_it(usernm, getpid(), "CMD", x);
+			log_it(e->uname, getpid(), "CMD", x);
 			free(x);
 		}
 
@@ -260,20 +252,46 @@ child_process(e, u)
 		 */
 		do_univ(u);
 
-# if defined(LOGIN_CAP)
 		/* Set user's entire context, but skip the environment
 		 * as cron provides a separate interface for this
 		 */
-		if ((pwd = getpwnam(usernm)) == NULL)
-			pwd = getpwuid(e->uid);
-		lc = NULL;
-		if (pwd != NULL) {
-			pwd->pw_gid = e->gid;
-			if (e->class != NULL)
-				lc = login_getclass(e->class);
+		if ((pwd = getpwnam(e->uname))) {
+			char envstr[MAXPATHLEN + sizeof "HOME="];
+
+			uid = pwd->pw_uid;
+			gid = pwd->pw_gid;
+
+			if (pwd->pw_expire && time(NULL) >= pwd->pw_expire) {
+				warn("user account expired: %s", e->uname);
+				_exit(ERROR_EXIT);
+			}
+
+			sprintf(envstr, "HOME=%s", pwd->pw_dir);
+			e->envp = env_set(e->envp, envstr);
+			if (e->envp == NULL) {
+				warn("env_set(%s)", envstr);
+				_exit(ERROR_EXIT);
+			}       
+		} else {
+			warn("getpwnam(\"%s\")", e->uname);
+			_exit(ERROR_EXIT);
 		}
-		if (pwd &&
-		    setusercontext(lc, pwd, e->uid,
+
+		if (strlen(e->gname) > 0) {
+			struct group *gr = getgrnam(e->gname);
+			if (gr) {
+				gid = gr->gr_gid;
+			} else {
+				warn("getgrnam(\"%s\")", e->gname);
+				_exit(ERROR_EXIT);
+			}
+		}
+
+# if defined(LOGIN_CAP)
+		if (e->class != NULL)
+			lc = login_getclass(e->class);
+
+		if (setusercontext(lc, pwd, uid,
 			    LOGIN_SETALL & ~(LOGIN_SETPATH|LOGIN_SETENV)) == 0)
 			(void) endpwent();
 		else {
@@ -283,17 +301,19 @@ child_process(e, u)
 			/* set our directory, uid and gid.  Set gid first,
 			 * since once we set uid, we've lost root privledges.
 			 */
-			setgid(e->gid);
+			setgid(gid);
 # if defined(BSD)
-			initgroups(usernm, e->gid);
+			initgroups(e->uname, gid);
 # endif
-			setlogin(usernm);
-			setuid(e->uid);		/* we aren't root after this..*/
+			setlogin(e->uname);
+			setuid(uid);		/* we aren't root after this..*/
 #if defined(LOGIN_CAP)
 		}
 		if (lc != NULL)
 			login_close(lc);
 #endif
+
+
 		chdir(env_get("HOME", e->envp));
 
 		/* exec the command.
@@ -444,7 +464,7 @@ child_process(e, u)
 			} else {
 				/* MAILTO not present, set to USER.
 				 */
-				mailto = usernm;
+				mailto = e->uname;
 			}
 
 			/* if we are supposed to be mailing, MAILTO will
@@ -464,10 +484,10 @@ child_process(e, u)
 					warn("%s", MAILCMD);
 					(void) _exit(ERROR_EXIT);
 				}
-				fprintf(mail, "From: %s (Cron Daemon)\n", usernm);
+				fprintf(mail, "From: %s (Cron Daemon)\n", e->uname);
 				fprintf(mail, "To: %s\n", mailto);
 				fprintf(mail, "Subject: Cron <%s@%s> %s\n",
-					usernm, first_word(hostname, "."),
+					e->uname, first_word(hostname, "."),
 					e->cmd);
 # if defined(MAIL_DATE)
 				fprintf(mail, "Date: %s\n",
@@ -521,7 +541,7 @@ child_process(e, u)
 			"mailed %d byte%s of output but got status 0x%04x\n",
 					bytes, (bytes==1)?"":"s",
 					status);
-				log_it(usernm, getpid(), "MAIL", buf);
+				log_it(e->uname, getpid(), "MAIL", buf);
 			}
 
 		} /*if data from grandchild*/

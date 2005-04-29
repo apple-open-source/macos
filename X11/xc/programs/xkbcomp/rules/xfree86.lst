@@ -4,7 +4,7 @@
 //  Rules descriptions for XFree86
 //  Copyright 1996 by Joseph Moss
 //
-//  $XFree86: xc/programs/xkbcomp/rules/xfree86.lst,v 3.64 2003/02/27 05:07:39 dawes Exp $
+//  $XFree86: xc/programs/xkbcomp/rules/xfree86.lst,v 3.81 2004/01/17 14:59:36 pascal Exp $
 
 ! model
   pc101		Generic 101-key PC
@@ -22,6 +22,7 @@
   abnt2		Brazilian ABNT2
   airkey	Acer AirKey V
   acpi		ACPI Standard
+  azonaRF2300	Azona RF2300 wireless Internet Keyboard
   scorpius	Advance Scorpius KI
   brother	Brother Internet Keyboard
   btc5113rf	BTC 5113RF Multimedia
@@ -36,15 +37,17 @@
   compaqik7	Compaq Internet Keyboard (7 keys)
   compaqik13	Compaq Internet Keyboard (13 keys)
   compaqik18	Compaq Internet Keyboard (18 keys)
-  armada	Laptop/notebook Compaq (eg. Armada) Laptop Keyboard
+  armada	Laptop/notebook Compaq (eg. Armada, Evo) Laptop Keyboard
   presario	Laptop/notebook Compaq (eg. Presario) Internet Keyboard
   ipaq		Compaq iPaq Keyboard
   dell		Dell
   inspiron	Laptop/notebook Dell Inspiron 8xxx
   dexxa		Dexxa Wireless Desktop Keyboard
   diamond	Diamond 9801 / 9802 series
+  dtk2000	DTK2000
   ennyah_dkb1008 Ennyah DKB-1008
   genius	Genius Comfy KB-16M / Genius MM Keyboard KWD-910
+  geniuscomfy2	Genius Comfy KB-21e-Scroll
   hpi6		Hewlett-Packard Internet Keyboard
   hp2501	Hewlett-Packard SK-2501 Multimedia Keyboard
   hp2505	Hewlett-Packard SK-2505 Internet Keyboard
@@ -56,32 +59,32 @@
   hpzt11xx	Hewlett-Packard Pavilion ZT11xx
   hp500fa	Hewlett-Packard Omnibook 500 FA
   hp5xx		Hewlett-Packard Omnibook 5xx
+  hp6000	Hewlett-Packard Omnibook 6000/6100
+  hp5185	Hewlett-Packard 5185 Internet Keyboard
   honeywell_euroboard Honeywell Euroboard
   rapidaccess	IBM Rapid Access
   rapidaccess2	IBM Rapid Access II
   rapidaccess2a	IBM Rapid Access II (alternate option)
+  thinkpad	IBM ThinkPad 560Z/600/600E/A22E
   ltcd		Logitech Cordless Desktop
-  logicdit	Logitech Cordless Desktop iTouch
   logicdp	Logitech Cordless Desktop Pro
   logicdpa	Logitech Cordless Desktop Pro (alternate option)
-  logicdpa2	Logitech Cordless Desktop Pro (alternate option2)
-  logicdo	Logitech Cordless Desktop Optical
-  logicfn	Logitech Cordless Freedom/Desktop Navigator
-  logicdn	Logitech Cordless Desktop Navigator
-  logidak	Logitech Deluxe Access Keyboard
+  logiaccess	Logitech Access Keyboard
+  logicink	Logitech Internet Navigator Keyboard
+  logiciink	Logitech iTouch Internet Navigator Keyboard
+  logiinkse	Logitech iTouch Internet Navigator Keyboard SE
+  logiinkseusb	Logitech iTouch Internet Navigator Keyboard SE (USB)
   logiik	Logitech Internet Keyboard
   itouch	Logitech iTouch
-  logiitc	Logitech iTouch Cordless Keyboard (model Y-RB6)
-  logiik	Logitech Internet Keyboard
-  logiink	Logitech Internet Navigator Keyboard
-  itouchin	Logitech iTouch keyboard Internet Navigator
   mx1998	Memorex MX1998
   mx2500	Memorex MX2500 EZ-Access Keyboard
   mx2750	Memorex MX2750
   microsoftinet	Microsoft Internet Keyboard
   microsoftpro	Microsoft Natural Keyboard Pro / Microsoft Internet Keyboard Pro
+  microsoftprooem Microsoft Natural Keyboard Pro OEM
   microsoftprose Microsoft Internet Keyboard Pro, Swedish
   microsoftoffice Microsoft Office Keyboard
+  microsoftmult Microsoft Wireless Multimedia Keyboard
   oretec	Oretec MCK-800 MM/Internet keyboard
   propeller	Propeller Voyager (KTEZ-1000)
   qtronix	QTronix Scorpius 98N+
@@ -122,12 +125,15 @@
   ca		Canadian
   ca_enhanced	French Canadian
   hr		Croatian
+  hr_US		Croatian (US)
   cz		Czech
   cz_qwerty	Czech (qwerty)
   dk		Danish
   nl		Dutch
   dvorak	Dvorak
+  dz		Dzongkha / Tibetan
   ee		Estonian
+  fo		Faroese 
   fi		Finnish
   fr		French
   fr-latin9	French (alternative)
@@ -147,6 +153,7 @@
   it		Italian
   jp		Japanese
   kan		Kannada
+  ko		Korean
   lo		Lao
   la		Latin America
   lt		Lithuanian qwerty "numeric"
@@ -165,11 +172,11 @@
   pt		Portuguese
   ro		Romanian
   ru		Russian
-  ru_yawerty	Russian (cyrillic phonetic)
   se_FI		Northern Saami (Finland)
   se_NO		Northern Saami (Norway)
   se_SE		Northern Saami (Sweden)
-  sr		Serbian
+  sr		Serbian (Cyrillic)
+  yu		Serbian (Latin)
   si		Slovenian
   sk		Slovak
   sk_qwerty	Slovak (qwerty)
@@ -181,13 +188,15 @@
   tj		Tajik
   tml		Tamil
   tel		Telugu
-  th		Thai
+  th		Thai (Kedmanee)
+  th_tis	Thai (TIS-820.2538)
+  th_pat	Thai (Pattachote)
   tr		Turkish 
   tr_f		Turkish (F)
   ua		Ukrainian 
   gb		United Kingdom
+  uz            Uzbek
   vn		Vietnamese
-  yu		Yugoslavian
   nec/jp	PC-98xx Series
 
 ! variant
@@ -195,13 +204,15 @@
 
 ! option
   grp			Group Shift/Lock behavior
-  grp:switch		R-Alt switches group while pressed
+  grp:switch		Right Alt key switches group while pressed
+  grp:lswitch		Left Alt key switches group while pressed
   grp:lwin_switch	Left Win-key switches group while pressed
   grp:rwin_switch	Right Win-key switches group while pressed
   grp:win_switch	Both Win-keys switch group while pressed
   grp:toggle		Right Alt key changes group
   grp:lalt_toggle       Left Alt key changes group
   grp:caps_toggle	Caps Lock key changes group
+  grp:shift_caps_toggle	Shift+CapsLock changes group
   grp:shift_toggle 	Both Shift keys together change group
   grp:alts_toggle 	Both Alt keys together change group
   grp:ctrls_toggle 	Both Ctrl keys together change group
@@ -217,6 +228,9 @@
   grp:rctrl_toggle      Right Ctrl key changes group
   lv3			Third level choosers
   lv3:switch		Press Right Control to choose 3rd level
+  lv3:lalt_switch	Press Left Alt key to choose 3rd level
+  lv3:ralt_switch	Press Right Alt key to choose 3rd level
+  lv3:alt_switch	Press any of Alt keys to choose 3rd level
   lv3:menu_switch	Press Menu key to choose 3rd level
   lv3:win_switch	Press any of Win-keys to choose 3rd level
   lv3:lwin_switch	Press Left Win-key to choose 3rd level
@@ -226,6 +240,7 @@
   ctrl:swapcaps		Swap Control and Caps Lock
   ctrl:ctrl_ac		Control key at left of 'A'
   ctrl:ctrl_aa		Control key at bottom left
+  ctrl:ctrl_ra		Right Control key works as Right Alt
   grp_led		Use keyboard LED to show alternative group
   grp_led:num		Num_Lock LED shows alternative group
   grp_led:caps		Caps_Lock LED shows alternative group
@@ -247,3 +262,7 @@
   compose:ralt		Right Alt is Compose
   compose:rwin		Right Win-key is Compose
   compose:menu		Menu is Compose
+
+  numpad:microsoft	Shift with numpad keys works as in MS Windows.
+
+  srvrkeys:none		Special keys (Ctrl+Alt+<key>) handled in a server.

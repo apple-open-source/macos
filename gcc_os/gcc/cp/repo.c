@@ -1,5 +1,5 @@
 /* Code to maintain a C++ template repository.
-   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1995, 1996, 1997, 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
    Contributed by Jason Merrill (jason@cygnus.com)
 
 This file is part of GNU CC.
@@ -32,7 +32,6 @@ Boston, MA 02111-1307, USA.  */
 #include "input.h"
 #include "obstack.h"
 #include "toplev.h"
-#include "ggc.h"
 #include "diagnostic.h"
 
 static tree repo_get_id PARAMS ((tree));
@@ -42,15 +41,14 @@ static void open_repo_file PARAMS ((const char *));
 static char *afgets PARAMS ((FILE *));
 static void reopen_repo_file_for_write PARAMS ((void));
 
-static tree pending_repo;
-static tree original_repo;
+static GTY(()) tree pending_repo;
+static GTY(()) tree original_repo;
 static char *repo_name;
 static FILE *repo_file;
 
-static char *old_args, *old_dir, *old_main;
+static const char *old_args, *old_dir, *old_main;
 
 static struct obstack temporary_obstack;
-extern struct obstack permanent_obstack;
 
 #define IDENTIFIER_REPO_USED(NODE)   (TREE_LANG_FLAG_3 (NODE))
 #define IDENTIFIER_REPO_CHOSEN(NODE) (TREE_LANG_FLAG_4 (NODE))
@@ -292,8 +290,9 @@ open_repo_file (filename)
   if (! p)
     p = s + strlen (s);
 
-  obstack_grow (&permanent_obstack, s, p - s);
-  repo_name = obstack_copy0 (&permanent_obstack, ".rpo", 4);
+  repo_name = xmalloc (p - s + 5);
+  memcpy (repo_name, s, p - s);
+  memcpy (repo_name + (p - s), ".rpo", 5);
 
   repo_file = fopen (repo_name, "r");
 }
@@ -320,8 +319,6 @@ init_repo (filename)
   if (! flag_use_repository)
     return;
 
-  ggc_add_tree_root (&pending_repo, 1);
-  ggc_add_tree_root (&original_repo, 1);
   gcc_obstack_init (&temporary_obstack);
 
   open_repo_file (filename);
@@ -334,16 +331,13 @@ init_repo (filename)
       switch (buf[0])
 	{
 	case 'A':
-	  old_args = obstack_copy0 (&permanent_obstack, buf + 2,
-				    strlen (buf + 2));
+	  old_args = ggc_strdup (buf + 2);
 	  break;
 	case 'D':
-	  old_dir = obstack_copy0 (&permanent_obstack, buf + 2,
-				   strlen (buf + 2));
+	  old_dir = ggc_strdup (buf + 2);
 	  break;
 	case 'M':
-	  old_main = obstack_copy0 (&permanent_obstack, buf + 2,
-				    strlen (buf + 2));
+	  old_main = ggc_strdup (buf + 2);
 	  break;
 	case 'C':
 	case 'O':
@@ -458,3 +452,5 @@ finish_repo ()
   if (repo_file)
     fclose (repo_file);
 }
+
+#include "gt-cp-repo.h"

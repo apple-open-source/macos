@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/X11/lcUniConv/jisx0212.h,v 1.4 2001/08/09 19:14:08 dawes Exp $ */
+/* $XFree86: xc/lib/X11/lcUniConv/jisx0212.h,v 1.5 2003/05/27 22:26:31 tsi Exp $ */
 
 /*
  * JISX0212.1990-0
@@ -2135,7 +2135,7 @@ jisx0212_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;
-    if (wc >= 0x0000 && wc < 0x0460)
+    if (wc < 0x0460)
       summary = &jisx0212_uni2indx_page00[(wc>>4)];
     else if (wc >= 0x2100 && wc < 0x2130)
       summary = &jisx0212_uni2indx_page21[(wc>>4)-0x210];

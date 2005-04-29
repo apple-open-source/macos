@@ -1,0 +1,402 @@
+# $Id: s.predefined.xotcl 1.22 01/05/15 18:05:33+02:00 neumann@mohegan.wu-wien.ac.at $
+
+# init must exist on Object. per default it is empty.
+::xotcl::Object instproc init args {}
+
+# documentation stub object -> just ignore 
+# all documentations if xoDoc is not loaded
+::xotcl::Object create ::xotcl::@
+::xotcl::@ proc unknown args {}
+namespace eval ::xotcl { namespace export @ }
+
+#::xotcl::Object instproc recreate args {
+#  ::xotcl::my cleanup
+#  ::set cl [::xotcl::my info class]
+#  ::set pcl [$cl info parameterclass]
+#  $pcl searchDefaults [::xotcl::self]
+#  if {![eval ::xotcl::my initmethods $args]} {
+#    eval ::xotcl::my init $args
+#  }
+#  return [::xotcl::self]
+#}
+
+# provide some Tcl-commands as methods for Objects
+foreach cmd {array append lappend trace eval} {
+  ::xotcl::Object insttclcmd $cmd
+}
+
+::xotcl::Object instproc self {} {return [::xotcl::self]}
+::xotcl::Object instproc defaultmethod {} {
+  #if {[string compare "::" [::xotcl::my info parent]]} {
+  #  [::xotcl::my info parent] __next
+  #}
+  return [::xotcl::self]
+}
+
+# support for XOTcl specifics
+::xotcl::Object instproc filterappend f {
+  ::xotcl::my filter [concat [::xotcl::my info filter -guards] $f]
+}
+::xotcl::Object instproc mixinappend m {
+  ::xotcl::my mixin [concat [::xotcl::my info mixin] $m]
+}
+::xotcl::Class instproc instfilterappend f {
+  ::xotcl::my instfilter [concat [::xotcl::my info instfilter -guards] $f]
+}
+::xotcl::Class instproc instmixinappend m {
+  ::xotcl::my instmixin [concat [::xotcl::my info instmixin] $m]
+}
+::xotcl::Object instproc hasclass cl {
+  if {[::xotcl::my ismixin $cl]} {return 1}
+  ::xotcl::my istype $cl
+}
+
+# Exit Handler
+::xotcl::Object proc unsetExitHandler {} {
+  ::xotcl::Object proc __exitHandler {} {
+    # clients should append exit handlers to this proc body
+    ;
+  }
+}
+# pre-defined as empty method
+::xotcl::Object unsetExitHandler
+::xotcl::Object proc setExitHandler {newbody} {
+  ::xotcl::Object proc __exitHandler {} $newbody
+}
+::xotcl::Object proc getExitHandler {} {
+  ::xotcl::Object info body __exitHandler
+}
+::xotcl::Class::Parameter superclass ::xotcl::Class
+::xotcl::Class::Parameter instproc mkParameter {obj name args} {
+  #puts "[::xotcl::self proc] $obj $name <$args>"
+  if {[$obj exists $name]} {
+    eval [$obj set $name] configure $args
+  } else {
+    $obj set $name [eval ::xotcl::my new -childof $obj $args]
+  }
+}
+::xotcl::Class::Parameter instproc getParameter {obj name args} {
+  #puts "[::xotcl::self proc] $obj $name <$args>"
+  [$obj set $name]
+}
+
+
+::xotcl::Class::Parameter proc Class {param args} {
+  #puts "*** [::xotcl::self] parameter: [::xotcl::self proc] '$param' <$args>"
+  ::xotcl::my set access [lindex $param 0]
+  ::xotcl::my set setter mkParameter
+  ::xotcl::my set getter getParameter
+  ::xotcl::my set extra {[::xotcl::self]}
+  ::xotcl::my set defaultParam [lrange $param 1 end]
+}
+::xotcl::Class::Parameter proc default {val} {
+  [::xotcl::my set cl] set __defaults([::xotcl::my set name]) $val
+}
+::xotcl::Class::Parameter proc setter x {
+  ::xotcl::my set setter $x
+}
+::xotcl::Class::Parameter proc getter x {
+  ::xotcl::my set getter $x
+}
+::xotcl::Class::Parameter proc access obj {
+  ::xotcl::my set access $obj
+  ::xotcl::my set extra \[::xotcl::self\]
+  foreach v [$obj info vars] {::xotcl::my set $v [$obj set $v]}
+}
+::xotcl::Class::Parameter proc mkGetterSetter {cl name args} {
+  #puts stderr "[::xotcl::self proc] $cl $name <$args> [llength $args]"
+  set l [llength $args]
+  if {$l == 0} {
+    $cl instparametercmd $name
+  } elseif {$l == 1} {
+    $cl set __defaults($name) [lindex $args 0]
+    $cl instparametercmd $name
+  } else {
+    ::xotcl::my set name $name
+    ::xotcl::my set cl $cl
+    ::eval ::xotcl::my configure $args
+    if {[::xotcl::my exists extra] || [::xotcl::my exists setter] || 
+	[::xotcl::my exists getter] || [::xotcl::my exists access]} {
+      ::xotcl::my instvar extra setter getter access defaultParam
+      if {![info exists extra]} {set extra ""}
+      if {![info exists defaultParam]} {set defaultParam ""}
+      if {![info exists setter]} {set setter set}
+      if {![info exists getter]} {set getter set}
+      if {![info exists access]} {set access ::xotcl::my}
+      $cl instproc $name args "
+       if {\[llength \$args] == 0} {
+         return \[$access $getter $extra $name\]
+       } else {
+         return \[eval $access $setter $extra $name \$args $defaultParam \]
+       }"
+      foreach instvar {extra defaultParam setter getter access} {
+	if {[::xotcl::my exists $instvar]} {::xotcl::my unset $instvar}
+      }
+    } else {
+      $cl instparametercmd $name
+    }
+  }
+}
+::xotcl::Class::Parameter proc values {param args} {
+  set cl [::xotcl::my set cl]
+  set ci [$cl info instinvar]
+  set valueTest {}
+  foreach a $args {
+    ::lappend valueTest "\[\$cl set $param\] == [list $a]"
+  }
+  ::lappend ci [join $valueTest " || "]
+  $cl instinvar $ci
+}
+
+::xotcl::Object instproc abstract {methtype methname arglist} {
+  if {$methtype  != "proc" && $methtype != "instproc"} {
+    error "invalid method type '$methtype', \
+	must be either 'proc' or 'instproc'."
+  }
+  ::xotcl::my $methtype $methname $arglist "
+    if {\[::xotcl::self callingproc\] != \[::xotcl::self proc\] && 
+	\[::xotcl::self callingobject\] != \[::xotcl::self\]} {
+      error \"Abstract method $methname $arglist called\"
+    } else {::xotcl::next}
+  "
+}
+
+#
+# copy/move implementation 
+#
+::xotcl::Class create ::xotcl::Object::CopyHandler -parameter {
+  {targetList ""}
+  {dest ""}
+  objLength
+}
+
+# targets are all namspaces and objs part-of the copied obj
+::xotcl::Object::CopyHandler instproc makeTargetList t {
+  ::xotcl::my lappend targetList $t
+  # if it is an object without namespace, it is a leaf
+  if {[::xotcl::my isobject $t]} {
+    if {[$t info hasNamespace]} {
+      # make target list from all children
+      set children [$t info children]
+    } else {
+      # ok, no namespace -> no more children 
+      return
+    }
+  }
+  # now append all namespaces that are in the obj, but that
+  # are not objects
+  foreach c [namespace children $t] {
+    if {![::xotcl::my isobject $c]} {
+      lappend children [namespace children $t]
+    }
+  }
+
+  # a namespace or an obj with namespace may have children
+  # itself
+  foreach c $children {
+    ::xotcl::my makeTargetList $c
+  }
+}
+
+::xotcl::Object::CopyHandler instproc copyNSVarsAndCmds {orig dest} {
+  ::xotcl::namespace_copyvars $orig $dest
+  ::xotcl::namespace_copycmds $orig $dest
+}
+
+# construct destination obj name from old qualified ns name
+::xotcl::Object::CopyHandler instproc getDest origin {
+  set tail [string range $origin [::xotcl::my set objLength] end]
+  return ::[string trimleft [::xotcl::my set dest]$tail :]
+}
+
+::xotcl::Object::CopyHandler instproc copyTargets {} {
+  foreach origin [::xotcl::my set targetList] {
+    set dest [::xotcl::my getDest $origin]
+    if {[::xotcl::my isobject $origin]} {
+      # copy class information
+      if {[::xotcl::my isclass $origin]} {
+	set cl [[$origin info class] create $dest -noinit]
+	# class object
+	set obj $cl
+	$cl superclass [$origin info superclass]
+	$cl parameterclass [$origin info parameterclass]
+	$cl parameter [$origin info parameter]
+	$cl instinvar [$origin info instinvar]
+	$cl instfilter [$origin info instfilter -guards]
+	$cl instmixin [$origin info instmixin]
+	my copyNSVarsAndCmds ::xotcl::classes::$origin ::xotcl::classes::$dest
+      } else {
+	# create obj
+	set obj [[$origin info class] create $dest -noinit]
+      }
+      # copy object -> may be a class obj
+      $obj invar [$origin info invar]
+      $obj check [$origin info check]
+      $obj mixin [$origin info mixin]
+      $obj filter [$origin info filter -guards]
+      # set md [$origin info metadata]
+      # $obj metadata add $md
+      # foreach m $md { $obj metadata $m [$origin metadata $m] }
+      if {[$origin info hasNamespace]} {
+	$obj requireNamespace
+      }
+    } else {
+      namespace eval $dest {}
+    }
+    ::xotcl::my copyNSVarsAndCmds $origin $dest
+  }
+}
+
+::xotcl::Object::CopyHandler instproc copy {obj dest} {
+  #puts stderr "[::xotcl::self] copy <$obj> <$dest>"
+  ::xotcl::my set objLength [string length $obj]
+  ::xotcl::my set dest $dest
+  ::xotcl::my makeTargetList $obj
+  ::xotcl::my copyTargets
+}
+
+#Class create ::xotcl::NoInit
+#::xotcl::NoInit instproc init args {;}
+
+
+::xotcl::Object instproc copy newName {
+  if {[string compare [string trimleft $newName :] [string trimleft [::xotcl::self] :]]} {
+    [[::xotcl::self class]::CopyHandler new -volatile] copy [::xotcl::self] $newName
+  }
+}
+
+::xotcl::Object instproc move newName {
+    if {[string compare [string trimleft $newName :] [string trimleft [::xotcl::self] :]]} {
+	if {$newName != ""} {
+	    ::xotcl::my copy $newName
+	}
+	### let all subclasses get the copied class as superclass
+	if {[::xotcl::my isclass [::xotcl::self]] && $newName != ""} {
+	    foreach subclass [::xotcl::my info subclass] {
+		set scl [$subclass info superclass]
+		if {[set index [lsearch -exact $scl [::xotcl::self]]] != -1} {
+		    set scl [lreplace $scl $index $index $newName]
+		    $subclass superclass $scl
+		}
+	    }	     
+	}
+	::xotcl::my destroy
+  }
+}
+
+::xotcl::Object create ::xotcl::config
+::xotcl::config proc load {obj file} {
+  source $file
+  foreach i [array names ::auto_index [list $obj *proc *]] {
+    set type [lindex $i 1]
+    set meth [lindex $i 2]
+    if {[$obj info ${type}s $meth] == {}} {
+      $obj $type $meth auto $::auto_index($i)
+    }
+  }
+}
+
+::xotcl::config proc mkindex {meta dir args} {
+  set sp {[ 	]+}
+  set st {^[ 	]*}
+  set wd {([^ 	;]+)}
+  foreach creator $meta {
+    ::lappend cp $st$creator${sp}create$sp$wd
+    ::lappend ap $st$creator$sp$wd
+  }
+  foreach method {proc instproc} {
+    ::lappend mp $st$wd${sp}($method)$sp$wd
+  }
+  foreach cl [concat ::xotcl::Class [::xotcl::Class info heritage]] {
+    eval ::lappend meths [$cl info instcommands]
+  }
+  set old [pwd]
+  cd $dir
+  ::append idx "# Tcl autoload index file, version 2.0\n"
+  ::append idx "# xotcl additions generated with "
+  ::append idx "\"::xotcl::config::mkindex [list $meta] [list $dir] $args\"\n"
+  set oc 0
+  set mc 0
+  foreach file [eval glob -nocomplain -- $args] {
+    if {[catch {set f [open $file]} msg]} then {
+      catch {close $f}
+      cd $old
+      error $msg
+    }
+    while {[gets $f line] >= 0} {
+      foreach c $cp {
+	if {[regexp $c $line x obj]==1 &&
+	    [string index $obj 0]!={$}} then {
+	  ::incr oc
+	  ::append idx "set auto_index($obj) "
+	  ::append idx "\"::xotcl::config::load $obj \$dir/$file\"\n"
+	}
+      }
+      foreach a $ap {
+	if {[regexp $a $line x obj]==1 &&
+	    [string index $obj 0]!={$} &&
+	    [lsearch -exact $meths $obj]==-1} {
+	  ::incr oc
+	  ::append idx "set auto_index($obj) "
+	  ::append idx "\"::xotcl::config::load $obj \$dir/$file\"\n"
+	}
+      }
+      foreach m $mp {
+	if {[regexp $m $line x obj ty pr]==1 &&
+	    [string index $obj 0]!={$} &&
+	    [string index $pr 0]!={$}} then {
+	  ::incr mc
+	  ::append idx "set \{auto_index($obj "
+	  ::append idx "$ty $pr)\} \"source \$dir/$file\"\n"
+	}
+      }
+    }
+    close $f
+  }
+  set t [open tclIndex a+]
+  puts $t $idx nonewline
+  close $t
+  cd $old
+  return "$oc objects, $mc methods"
+}
+
+#
+# if cutTheArg not 0, it cut from upvar argsList
+# 
+xotcl::Object instproc extractConfigureArg {al name {cutTheArg 0}} {
+  set value ""
+  upvar $al argList
+  set largs [llength $argList]
+  for {set i 0} {$i < $largs} {incr i} {
+    if {[lindex $argList $i] == $name && $i + 1 < $largs} {
+      set startIndex $i
+      set endIndex [expr {$i + 1}]
+      while {$endIndex < $largs &&
+	     [string first - [lindex $argList $endIndex]] != 0} {
+	lappend value [lindex $argList $endIndex]
+	incr endIndex
+      }
+    }
+  }
+  if {[info exists startIndex] && $cutTheArg != 0} {
+    set argList [lreplace $argList $startIndex [expr {$endIndex - 1}]]
+  }
+  return $value
+}
+
+::xotcl::Object create ::xotcl::rcs
+::xotcl::rcs proc date string {
+  lreplace [lreplace $string 0 0] end end
+} 
+::xotcl::rcs proc version string {
+  lindex $string 2
+} 
+
+set ::xotcl::confdir ~/.xotcl
+set ::xotcl::logdir $::xotcl::confdir/log
+
+::xotcl::Class proc __unknown name {
+  #unknown $name
+}
+
+

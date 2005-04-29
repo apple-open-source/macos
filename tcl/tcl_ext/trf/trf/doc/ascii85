@@ -1,0 +1,51 @@
+Encode 4 bytes in 5
+~~~~~~~~~~~~~~~~~~~
+
+The result contains only characters in the range !...u,z + '~>' as EOD marker
+
+	b1*256^3 + b2*256^2 + b3*256^1 + b4
+=	c1*85^4 + c2*85^3 + c3*85^2 + c4*85^1 + c5
+
+	(b1,b2,b3,b4) is a base 256 number
+	(c1,c2,c3,c4,c5) is equivalent base 85 representation
+
+A sequence !!!!! is represented by single character 'z'
+
+
+for a partial tuple at the end of the input the following rules apply:
+
+	for a n-tuple (n in {1,2,3}) append 4-n zero bytes
+	encode as usual, but without !!!!!->z transformation
+	write first n+1 bytes to output
+
+encoding violations are:
+	(c1,c2,c3,c4,c5) > 2^32-1
+	z inside a 5-tuple
+	a partial tuple with a single character
+
+
+
+binary data 	= 	Hello World
+		=	0x48 0x65 0x6c 0x6c 0x6f 0x20 0x57 0x6f 0x72 0x6c 0x64
+
+		=	0x48656c6c 0x6f57206f 0x726c64/00
+		=	1214606444 1867980911 1919706112
+
+		=	23 22 66 52 49		36 65 78 22 67
+
+		=	56 55 99 85 82        	69 98 111 55 100
+		=	87cUR		DJi,"	Ebo7d
+
+36 65 78 22 67
+E b o 7 d
+
+
+
+(((((23*85)+22)*85+66)*85)+52)*85+49
+
+
+1919706112
+
+
+87cURDJi,";Xe-Z
+

@@ -1,0 +1,73 @@
+typ dev_t,nlink_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef short $v;"
+	echo "#endif"
+}end
+typ gid_t,mode_t,uid_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef unsigned short $v;"
+	echo "#endif"
+}end
+typ wchar_t stdio.h wchar.h fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef unsigned short $v;"
+	echo "#endif"
+}end
+typ pid_t,ssize_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef int $v;"
+	echo "#endif"
+}end
+typ wint_t stdio.h wchar.h fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef int $v;"
+	echo "#endif"
+}end
+typ size_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef unsigned int $v;"
+	echo "#endif"
+}end
+typ clock_t,ino_t,off_t,ptrdiff_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef long $v;"
+	echo "#endif"
+}end
+typ time_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef unsigned long $v;"
+	echo "#endif"
+}end
+typ div_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef struct { int quot; int rem; } $v;"
+	echo "#endif"
+}end
+typ ldiv_t fail{
+	echo "#ifndef $m"
+	echo "#define $m	1"
+	echo "typedef struct { long quot; long rem; } $v;"
+	echo "#endif"
+}end
+
+tst	typ_signed_size_t output{
+	#include <sys/types.h>
+	main()
+	{
+		unsigned long u = ~0;
+		size_t s = ~0;
+		if (s >= 0)
+			return 1;
+		printf("#if !defined(__cplusplus) && !defined(c_plusplus) && !defined(_typ_signed_size_t)\n/* what dipsticks made size_t signed? sun. */\ntypedef unsigned %s _ast_size_t;\n#undef\tsize_t\n#define size_t\t_ast_size_t\n#endif\n", u == (unsigned long)s ? "long" : "int");
+		return 0;
+	}
+}end

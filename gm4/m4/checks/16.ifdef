@@ -1,4 +1,4 @@
-dnl ../doc/m4.texinfo:1343: Origin of test
+dnl ../doc/m4.texinfo:1344: Origin of test
 ifdef(`foo', ``foo' is defined', ``foo' is not defined')
 dnl @result{}foo is not defined
 define(`foo', `')

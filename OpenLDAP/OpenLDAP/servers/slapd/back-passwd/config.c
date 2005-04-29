@@ -1,5 +1,32 @@
 /* config.c - passwd backend configuration file routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/config.c,v 1.7 1999/09/08 17:06:38 kdz Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/config.c,v 1.8.2.3 2004/01/01 18:16:38 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1995 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was originally developed by the University of Michigan
+ * (as part of U-MICH LDAP).
+ */
 
 #include "portable.h"
 
@@ -39,9 +66,7 @@ passwd_back_db_config(
 
 	/* anything else */
 	} else {
-		fprintf( stderr,
-"%s: line %d: unknown directive \"%s\" in passwd database definition (ignored)\n",
-		    fname, lineno, argv[0] );
+		return SLAP_CONF_UNKNOWN;
 	}
 
 	return( 0 );

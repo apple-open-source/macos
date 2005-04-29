@@ -1,0 +1,204 @@
+<refentry id="glib-String-Chunks">
+<refmeta>
+<refentrytitle>String Chunks</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>String Chunks</refname><refpurpose>efficient storage of groups of strings.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GStringChunk">GStringChunk</link>;
+<link linkend="GStringChunk">GStringChunk</link>* <link linkend="g-string-chunk-new">g_string_chunk_new</link>            (<link linkend="gsize">gsize</link> size);
+<link linkend="gchar">gchar</link>*      <link linkend="g-string-chunk-insert">g_string_chunk_insert</link>           (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string);
+<link linkend="gchar">gchar</link>*      <link linkend="g-string-chunk-insert-const">g_string_chunk_insert_const</link>     (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string);
+<link linkend="gchar">gchar</link>*      <link linkend="g-string-chunk-insert-len">g_string_chunk_insert_len</link>       (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string,
+                                             <link linkend="gssize">gssize</link> len);
+<link linkend="void">void</link>        <link linkend="g-string-chunk-free">g_string_chunk_free</link>             (<link linkend="GStringChunk">GStringChunk</link> *chunk);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+String chunks are used to store groups of strings.
+Memory is allocated in blocks, and as strings are added to the <link linkend="GStringChunk"><type>GStringChunk</type></link>
+they are copied into the next free position in a block. When a block is
+full a new block is allocated.
+</para>
+<para>
+When storing a large number of strings, string chunks are more efficient
+than using <link linkend="g-strdup"><function>g_strdup()</function></link> since fewer calls to <function><link linkend="malloc"><function>malloc()</function></link></function>
+are needed, and less memory is wasted in memory allocation overheads.
+</para>
+<para>
+By adding strings with <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link> it is also possible
+to remove duplicates.
+</para>
+<para>
+To create a new <link linkend="GStringChunk"><type>GStringChunk</type></link> use <link linkend="g-string-chunk-new"><function>g_string_chunk_new()</function></link>.
+</para>
+<para>
+To add strings to a <link linkend="GStringChunk"><type>GStringChunk</type></link> use <link linkend="g-string-chunk-insert"><function>g_string_chunk_insert()</function></link>.
+</para>
+<para>
+To add strings to a <link linkend="GStringChunk"><type>GStringChunk</type></link>, but without duplicating strings which are
+already in the <link linkend="GStringChunk"><type>GStringChunk</type></link>, use <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link>.
+</para>
+<para>
+To free the entire <link linkend="GStringChunk"><type>GStringChunk</type></link> use <link linkend="g-string-chunk-free"><function>g_string_chunk_free()</function></link>.
+It is not possible to free individual strings.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GStringChunk"/>struct GStringChunk</title>
+<indexterm><primary>GStringChunk</primary></indexterm><programlisting>struct GStringChunk;</programlisting>
+<para>
+An opaque data structure representing String Chunks.
+It should only be accessed by using the following functions.
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-string-chunk-new"/>g_string_chunk_new ()</title>
+<indexterm><primary>g_string_chunk_new</primary></indexterm><programlisting><link linkend="GStringChunk">GStringChunk</link>* g_string_chunk_new            (<link linkend="gsize">gsize</link> size);</programlisting>
+<para>
+Creates a new <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>size</parameter>&nbsp;:</term>
+<listitem><simpara>the default size of the blocks of memory which are allocated to store
+the strings. If a particular string is larger than this default size, a larger
+block of memory will be allocated for it.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a new <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-string-chunk-insert"/>g_string_chunk_insert ()</title>
+<indexterm><primary>g_string_chunk_insert</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_string_chunk_insert           (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string);</programlisting>
+<para>
+Adds a copy of <parameter>string</parameter> to the <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+It returns a pointer to the new copy of the string in the <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+The characters in the string can be changed, if necessary, though you
+should not change anything after the end of the string.
+</para>
+<para>
+Unlike <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link>, this function does not check for
+duplicates. Also strings added with <link linkend="g-string-chunk-insert"><function>g_string_chunk_insert()</function></link> will not be
+searched by <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link> when looking for duplicates.
+</para><variablelist role="params">
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>string</parameter>&nbsp;:</term>
+<listitem><simpara>the string to add.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the copy of <parameter>string</parameter> within the <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-string-chunk-insert-const"/>g_string_chunk_insert_const ()</title>
+<indexterm><primary>g_string_chunk_insert_const</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_string_chunk_insert_const     (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string);</programlisting>
+<para>
+Adds a copy of <parameter>string</parameter> to the <link linkend="GStringChunk"><type>GStringChunk</type></link>, unless the same string has
+already been added to the <link linkend="GStringChunk"><type>GStringChunk</type></link> with <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link>.
+</para>
+<para>
+This function is useful if you need to copy a large number of strings
+but do not want to waste space storing duplicates. But you must remember
+that there may be several pointers to the same string, and so any changes
+made to the strings should be done very carefully.
+</para>
+<para>
+Note that <link linkend="g-string-chunk-insert-const"><function>g_string_chunk_insert_const()</function></link> will not return a pointer to a string
+added with <link linkend="g-string-chunk-insert"><function>g_string_chunk_insert()</function></link>, even if they do match.
+</para><variablelist role="params">
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>string</parameter>&nbsp;:</term>
+<listitem><simpara>the string to add.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>a pointer to the new or existing copy of <parameter>string</parameter> within the
+<link linkend="GStringChunk"><type>GStringChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-string-chunk-insert-len"/>g_string_chunk_insert_len ()</title>
+<indexterm role="2.4"><primary>g_string_chunk_insert_len</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_string_chunk_insert_len       (<link linkend="GStringChunk">GStringChunk</link> *chunk,
+                                             const <link linkend="gchar">gchar</link> *string,
+                                             <link linkend="gssize">gssize</link> len);</programlisting>
+<para>
+Adds a copy of the first <parameter>len</parameter> bytes of <parameter>string</parameter> to the <link linkend="GStringChunk"><type>GStringChunk</type></link>. The
+copy is nul-terminated.
+</para>
+<para>
+The characters in the string can be changed, if necessary, though you
+should not change anything after the end of the string.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GStringChunk"><type>GStringChunk</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>string</parameter>&nbsp;:</term>
+<listitem><simpara> bytes to insert
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara> number of bytes of <parameter>string</parameter> to insert, or -1 to insert a 
+    nul-terminated string. 
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a pointer to the copy of <parameter>string</parameter> within the <link linkend="GStringChunk"><type>GStringChunk</type></link>
+
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.4
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-string-chunk-free"/>g_string_chunk_free ()</title>
+<indexterm><primary>g_string_chunk_free</primary></indexterm><programlisting><link linkend="void">void</link>        g_string_chunk_free             (<link linkend="GStringChunk">GStringChunk</link> *chunk);</programlisting>
+<para>
+Frees all memory allocated by the <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+After calling <link linkend="g-string-chunk-free"><function>g_string_chunk_free()</function></link> it is not safe to
+access any of the strings which were contained within it.
+</para><variablelist role="params">
+<varlistentry><term><parameter>chunk</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GStringChunk"><type>GStringChunk</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

@@ -47,10 +47,10 @@
 //static plugin name and version strings
 static const char *sStaticPluginList[ kNumStaticPlugins ][ 2 ] =
 {
-	{ "Configure",	"1.6" },
-	{ "NetInfo",	"1.6" },
-	{ "LDAPv3",		"1.6.5" },
-	{ "Search",		"1.6.1" }
+	{ "Configure",	"1.7" },
+	{ "NetInfo",	"1.7" },
+	{ "LDAPv3",		"1.7" },
+	{ "Search",		"1.7" }
 };
 
 //--------------------------------------------------------------------------------------------------

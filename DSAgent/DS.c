@@ -151,7 +151,7 @@ doWeUseDS()
 	/*
 	 * ONLY if custom search policy is set then use DirectoryService
 	 */
-	if (stat("/Library/Preferences/DirectoryService/.DSRunningSP3", &statResult) == 0)
+	if (stat("/var/run/.DSRunningSP3", &statResult) == 0)
 	{
 		return 1;
 	}
@@ -283,18 +283,6 @@ canWeWork(agent_private *ap, int forceReCheck)
 			return 0;
 		}
 
-		/* Allocate the tDataList to retrieve the search node name */
-		pDataList = dsDataListAllocate(gDirRef);
-		if (pDataList == NULL)
-		{
-			dsDataBufferDeAllocate(gDirRef, pDataBuff);
-			dsCloseDirService(gDirRef);
-			gDirRef = 0;
-			gDSRunState = 0;
-			syslock_unlock(gDSInitLock);
-			return 0;
-		}
-
 		/* Now get the search node name so we can open it - index is one based */
 		status = dsGetDirNodeName(gDirRef, pDataBuff, 1, &pDataList);
 		if (status != eDSNoErr)
@@ -358,8 +346,7 @@ mapDSAttrToNetInfoType(const char *inAttrType)
 		{
 			if (strcmp(inAttrType, sAttrMap[i][0]) == 0)
 			{
-				outResult = (char *)malloc(strlen(sAttrMap[i][1]) + 1);
-				strcpy(outResult, sAttrMap[i][1]);
+				outResult = (char *)sAttrMap[i][1];
 				break;
 			}
 		}
@@ -380,8 +367,7 @@ mapNetInfoAttrToDSType(const char *inAttrType)
 	{
 		if (strcmp(inAttrType, sAttrMap[i][1]) == 0)
 		{
-			outResult = (char *)malloc(strlen(sAttrMap[i][0]) + 1);
-			strcpy(outResult, sAttrMap[i][0]);
+			outResult = (char *)sAttrMap[i][0];
 			break;
 		}
 	}
@@ -462,7 +448,6 @@ dsrecordFromDS(agent_private *ap, tDataBuffer *buf, int which)
 		d = cstring_to_dsdata(pNIKey);
 		a = dsattribute_new(d);
 		dsdata_release(d);
-		free(pNIKey);
 
 		dsrecord_append_attribute(item, a, SELECT_ATTRIBUTE);
 
@@ -474,6 +459,7 @@ dsrecordFromDS(agent_private *ap, tDataBuffer *buf, int which)
 
 			d = cstring_to_dsdata(pValueEntry->fAttributeValueData.fBufferData);
 			dsattribute_append(a, d);
+			dsdata_release(d);
 
 			dsDeallocAttributeValueEntry(gDirRef, pValueEntry);
 		}
@@ -682,7 +668,7 @@ DS_query(void *c, dsrecord *pattern, dsrecord **list)
 								}
 							}
 							/* grab the attr type as well - make sure it is a DS type*/
-							pAttrSearchType = dsDataNodeAllocateString(gDirRef, mapNetInfoAttrToDSType(a->key->data));
+								pAttrSearchType = dsDataNodeAllocateString(gDirRef, mapNetInfoAttrToDSType(a->key->data));
 							if (pAttrSearchType == NULL)
 							{
 								if (pAttrSearchValue == NULL)
@@ -705,6 +691,8 @@ DS_query(void *c, dsrecord *pattern, dsrecord **list)
 		/* case where "name" was found in pattern but can't extract string out of value */
 		if (dsDataListGetNodeCount(pRecName) == 0)
 		{
+			dsDataListDeallocate(gDirRef, pRecName);
+			free(pRecName);
 			pRecName = dsBuildListFromStrings(gDirRef, kDSRecordsAll, NULL);
 		}
 	}

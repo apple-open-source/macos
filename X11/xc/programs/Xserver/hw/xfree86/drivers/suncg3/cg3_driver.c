@@ -20,7 +20,7 @@
  * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/suncg3/cg3_driver.c,v 1.4 2001/05/16 06:48:10 keithp Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/suncg3/cg3_driver.c,v 1.5 2003/10/30 17:37:12 tsi Exp $ */
 
 #define PSZ 8
 #include "xf86.h"
@@ -53,8 +53,8 @@ static void	CG3AdjustFrame(int scrnIndex, int x, int y, int flags);
 
 /* Optional functions */
 static void	CG3FreeScreen(int scrnIndex, int flags);
-static int	CG3ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose,
-			     int flags);
+static ModeStatus CG3ValidMode(int scrnIndex, DisplayModePtr mode,
+			       Bool verbose, int flags);
 
 void CG3Sync(ScrnInfoPtr pScrn);
 
@@ -565,7 +565,7 @@ CG3FreeScreen(int scrnIndex, int flags)
 /* Checks if a mode is suitable for the selected chipset. */
 
 /* Optional */
-static int
+static ModeStatus
 CG3ValidMode(int scrnIndex, DisplayModePtr mode, Bool verbose, int flags)
 {
     if (mode->Flags & V_INTERLACE)

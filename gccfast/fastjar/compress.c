@@ -1,9 +1,6 @@
-/* $Id: compress.c,v 1.4 2002/01/06 23:23:52 shebs Exp $
+/* $Id: compress.c,v 1.1.1.2 2002/01/06 21:18:30 shebs Exp $
 
    $Log: compress.c,v $
-   Revision 1.4  2002/01/06 23:23:52  shebs
-   Resolve conflicts due to import of 2002-01-06.
-
    Revision 1.1.1.2  2002/01/06 21:18:30  shebs
    Import GCC mainline sources as of midnight 2002-01-06.
 

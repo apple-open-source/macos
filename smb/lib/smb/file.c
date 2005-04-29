@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: file.c,v 1.2 2003/05/14 15:05:59 lindak Exp $
+ * $Id: file.c,v 1.4 2004/12/13 00:25:21 lindak Exp $
  */
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -46,11 +46,13 @@
 #include <grp.h>
 #include <unistd.h>
 
+#include <sys/types.h>
+extern uid_t real_uid, eff_uid;
+
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
 #include <cflib.h>
 
-#ifndef APPLE
 int
 smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count, char *dst)
 {
@@ -60,8 +62,12 @@ smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count, char *dst)
 	rwrq.ioc_base = dst;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	if (ioctl(ctx->ct_fd, SMBIOC_READ, &rwrq) == -1)
+	seteuid(eff_uid);
+	if (ioctl(ctx->ct_fd, SMBIOC_READ, &rwrq) == -1) {
+		seteuid(real_uid); /* and back to real user */
 		return -1;
+	}
+	seteuid(real_uid); /* and back to real user */
 	return rwrq.ioc_cnt;
 }
 
@@ -72,11 +78,14 @@ smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, size_t count,
 	struct smbioc_rw rwrq;
 
 	rwrq.ioc_fh = fh;
-	(const char*)rwrq.ioc_base = src;
+	rwrq.ioc_base = (char *)src;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
-	if (ioctl(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1)
+	seteuid(eff_uid);
+	if (ioctl(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1) {
+		seteuid(real_uid); /* and back to real user */
 		return -1;
+	}
+	seteuid(real_uid); /* and back to real user */
 	return rwrq.ioc_cnt;
 }
-#endif /* !APPLE */

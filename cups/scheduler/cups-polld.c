@@ -1,9 +1,9 @@
 /*
- * "$Id: cups-polld.c,v 1.1.1.12 2003/05/07 01:11:58 jlovell Exp $"
+ * "$Id: cups-polld.c,v 1.4 2005/01/04 22:10:45 jlovell Exp $"
  *
  *   Polling daemon for the Common UNIX Printing System (CUPS).
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -31,39 +31,12 @@
  * Include necessary headers...
  */
 
+#include <cups/http-private.h>
 #include <cups/cups.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <cups/language.h>
 #include <cups/string.h>
-
-
-/*
- * Some OS's don't have hstrerror(), most notably Solaris...
- */
-
-#ifndef HAVE_HSTRERROR
-#  define hstrerror cups_hstrerror
-
-const char *					/* O - Error string */
-cups_hstrerror(int error)			/* I - Error number */
-{
-  static const char * const errors[] =
-		{
-		  "OK",
-		  "Host not found.",
-		  "Try again.",
-		  "Unrecoverable lookup error.",
-		  "No data associated with name."
-		};
-
-
-  if (error < 0 || error > 4)
-    return ("Unknown hostname lookup error.");
-  else
-    return (errors[error]);
-}
-#endif /* !HAVE_HSTRERROR */
 
 
 /*
@@ -186,8 +159,6 @@ main(int  argc,				/* I - Number of command-line arguments */
     if (remain > 0) 
       sleep(remain);
   }
-
-  return (0);
 }
 
 
@@ -216,17 +187,21 @@ poll_server(http_t      *http,		/* I - HTTP connection */
 			*make_model;	/* printer-make-and-model */
   cups_ptype_t		type;		/* printer-type */
   ipp_pstate_t		state;		/* printer-state */
+  int			shared;		/* printer-is-shared */
+  int			accepting;	/* printer-is-accepting-jobs */
   struct sockaddr_in	addr;		/* Broadcast address */
   char			packet[1540];	/* Data packet */
   static const char * const attrs[] =	/* Requested attributes */
 			{
 			  "printer-info",
+			  "printer-is-accepting-jobs",
 			  "printer-location",
 			  "printer-make-and-model",
 			  "printer-name",
 			  "printer-state",
 			  "printer-type",
-			  "printer-uri-supported"
+			  "printer-uri-supported",
+			  "printer-is-shared"
 			};
 
 
@@ -316,7 +291,9 @@ poll_server(http_t      *http,		/* I - HTTP connection */
       location   = "";
       make_model = "";
       type       = CUPS_PRINTER_REMOTE;
+      accepting  = 1;
       state      = IPP_PRINTER_IDLE;
+      shared     = 1;
 
       while (attr != NULL && attr->group_tag == IPP_TAG_PRINTER)
       {
@@ -327,6 +304,10 @@ poll_server(http_t      *http,		/* I - HTTP connection */
         if (strcmp(attr->name, "printer-info") == 0 &&
 	    attr->value_tag == IPP_TAG_TEXT)
 	  info = attr->values[0].string.text;
+
+        if (strcmp(attr->name, "printer-is-accepting-jobs") == 0 &&
+	    attr->value_tag == IPP_TAG_BOOLEAN)
+	  accepting = attr->values[0].boolean;
 
         if (strcmp(attr->name, "printer-location") == 0 &&
 	    attr->value_tag == IPP_TAG_TEXT)
@@ -343,6 +324,10 @@ poll_server(http_t      *http,		/* I - HTTP connection */
         if (strcmp(attr->name, "printer-type") == 0 &&
 	    attr->value_tag == IPP_TAG_ENUM)
 	  type = (cups_ptype_t)attr->values[0].integer;
+
+        if (strcmp(attr->name, "printer-is-shared") == 0 &&
+	    attr->value_tag == IPP_TAG_BOOLEAN)
+	  shared = attr->values[0].boolean;
 
         attr = attr->next;
       }
@@ -363,15 +348,19 @@ poll_server(http_t      *http,		/* I - HTTP connection */
       * See if this is a local printer or class...
       */
 
-      if (!(type & (CUPS_PRINTER_REMOTE | CUPS_PRINTER_IMPLICIT)))
+      if (!(type & (CUPS_PRINTER_REMOTE | CUPS_PRINTER_IMPLICIT)) && shared)
       {
        /*
 	* Send the printer information...
 	*/
 
+        type |= CUPS_PRINTER_REMOTE;
+
+	if (!accepting)
+	  type |= CUPS_PRINTER_REJECTING;
+
 	snprintf(packet, sizeof(packet), "%x %x %s \"%s\" \"%s\" \"%s\"\n",
-        	 type | CUPS_PRINTER_REMOTE, state, uri,
-		 location, info, make_model);
+        	 type, state, uri, location, info, make_model);
 
         fprintf(stderr, "DEBUG2: %s Sending %s", prefix, packet);
 
@@ -423,5 +412,5 @@ poll_server(http_t      *http,		/* I - HTTP connection */
 
 
 /*
- * End of "$Id: cups-polld.c,v 1.1.1.12 2003/05/07 01:11:58 jlovell Exp $".
+ * End of "$Id: cups-polld.c,v 1.4 2005/01/04 22:10:45 jlovell Exp $".
  */

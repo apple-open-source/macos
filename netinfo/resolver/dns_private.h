@@ -4,6 +4,9 @@
 #include <sys/cdefs.h>
 
 #define DNS_FLAG_DEBUG 0x00000001
+#define DNS_FLAG_CHECK_RESOLVER_DIR 0x00000002
+#define DNS_FLAG_HAVE_IPV6_SERVER 0x00000004
+#define DNS_FLAG_OK_TO_SKIP_AAAA 0x00000008
 
 typedef struct
 {
@@ -11,8 +14,12 @@ typedef struct
 	char *source;
 	char *name;
 	uint32_t search_count;
-	uint32_t modtime;
-	uint32_t stattime;
+	char **search_list;
+	uint16_t port;
+	uint32_t flags;
+	uint32_t total_timeout;
+	uint32_t send_timeout;
+	uint32_t search_order;
 	uint32_t reserved1;
 	void *reserved_pointer1;
 } pdns_handle_t;

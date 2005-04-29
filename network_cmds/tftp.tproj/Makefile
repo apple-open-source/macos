@@ -12,11 +12,11 @@ NAME = tftp
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-HFILES = extern.h tftpsubs.h
+HFILES = extern.h tftpsubs.h tftp.h
 
 CFILES = main.c tftp.c tftpsubs.c
 
-OTHERSRCS = Makefile.preamble Makefile tftp.1
+OTHERSRCS = Makefile.preamble Makefile tftp.1 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

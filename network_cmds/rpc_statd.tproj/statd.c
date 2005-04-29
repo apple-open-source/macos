@@ -53,6 +53,7 @@ static const char rcsid[] =
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include "statd.h"
 
 int debug = 0;		/* Controls syslog() calls for debug messages	*/
@@ -71,7 +72,11 @@ main(int argc, char **argv)
   SVCXPRT *transp;
   struct sigaction sa;
   int c;
-  struct timespec ts;
+  int mib[6];
+  int oldstate;
+  int oldsize;
+  int newstate;
+
 
   while ((c = getopt(argc, argv, "dn")) != EOF)
     switch (c) {
@@ -104,16 +109,20 @@ main(int argc, char **argv)
   /* protocol assumes that it will run immediately at boot time.	*/
   daemon(0, 0);
 
+  mib[0] = CTL_KERN;
+  mib[1] = KERN_PROCDELAYTERM;
+
+  oldstate = 0;
+  oldsize = 4;
+  newstate  = 1;
+
+  if (sysctl(mib, 2, &oldstate, &oldsize,  &newstate, 4) < 0) {
+     syslog(LOG_INFO, "cannot mark pid for delayed termination");
+  }
+
+
   if (claim_pid_file("/var/run/statd.pid", 0) < 0)
     errx(1, "rpc.statd already running");
-
-  /* start portmapper, in case it hasn't been started yet */
-  system("portmap");
-  /* sleep a little to give portmap a chance to start */
-  /* (better to sleep 50ms now than to timeout on portmap calls) */
-  ts.tv_sec = 0;
-  ts.tv_nsec = 50*1000*1000;
-  nanosleep(&ts, NULL);
 
   (void)pmap_unset(SM_PROG, SM_VERS);
 

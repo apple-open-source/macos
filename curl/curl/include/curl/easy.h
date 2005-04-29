@@ -1,18 +1,18 @@
 #ifndef __CURL_EASY_H
 #define __CURL_EASY_H
 /***************************************************************************
- *                                  _   _ ____  _     
- *  Project                     ___| | | |  _ \| |    
- *                             / __| | | | |_) | |    
- *                            | (__| |_| |  _ <| |___ 
+ *                                  _   _ ____  _
+ *  Project                     ___| | | |  _ \| |
+ *                             / __| | | | |_) | |
+ *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2002, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2004, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
  * are also available at http://curl.haxx.se/docs/copyright.html.
- * 
+ *
  * You may opt to use, copy, modify, merge, publish, distribute and/or sell
  * copies of the Software, and permit persons to whom the Software is
  * furnished to do so, under the terms of the COPYING file.
@@ -20,16 +20,16 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: easy.h,v 1.1.1.2 2002/11/26 19:07:46 zarzycki Exp $
+ * $Id: easy.h,v 1.13 2004/11/09 14:02:58 giva Exp $
  ***************************************************************************/
 #ifdef  __cplusplus
 extern "C" {
 #endif
 
-CURL *curl_easy_init(void);
-CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...);
-CURLcode curl_easy_perform(CURL *curl);
-void curl_easy_cleanup(CURL *curl);
+CURL_EXTERN CURL *curl_easy_init(void);
+CURL_EXTERN CURLcode curl_easy_setopt(CURL *curl, CURLoption option, ...);
+CURL_EXTERN CURLcode curl_easy_perform(CURL *curl);
+CURL_EXTERN void curl_easy_cleanup(CURL *curl);
 
 /*
  * NAME curl_easy_getinfo()
@@ -44,7 +44,7 @@ void curl_easy_cleanup(CURL *curl);
  * performed transfer, all results from this function are undefined until the
  * transfer is completed.
  */
-CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...);
+CURL_EXTERN CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...);
 
 
 /*
@@ -59,7 +59,20 @@ CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...);
  * curl_easy_duphandle() for each new thread to avoid a series of identical
  * curl_easy_setopt() invokes in every thread.
  */
-CURL* curl_easy_duphandle(CURL *curl);
+CURL_EXTERN CURL* curl_easy_duphandle(CURL *curl);
+
+/*
+ * NAME curl_easy_reset()
+ *
+ * DESCRIPTION
+ *
+ * Re-initializes a CURL handle to the default values. This puts back the
+ * handle to the same state as it was in when it was just created.
+ *
+ * It does keep: live connections, the Session ID cache, the DNS cache and the
+ * cookies.
+ */
+CURL_EXTERN void curl_easy_reset(CURL *curl);
 
 #ifdef  __cplusplus
 }

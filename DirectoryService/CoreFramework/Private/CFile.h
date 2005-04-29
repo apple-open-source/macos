@@ -30,8 +30,8 @@
 #ifndef __CFile_h__
 #define __CFile_h__	1
 
-#include "DSCThread.h"	// for CThread::Yield()
-#include "DSMutexSemaphore.h"
+#include <DirectoryServiceCore/DSCThread.h>	// for CThread::Yield()
+#include <DirectoryServiceCore/DSMutexSemaphore.h>
 
 #include <unistd.h>		// for sync()
 #include <limits.h>		// for PATH_MAX
@@ -105,6 +105,7 @@ protected:
 	bool			fReadPosOK;
 	bool			fWritePosOK;
 	struct stat		fStatStruct;
+	bool			fWroteData;
 };
 
 inline CFile& CFile::flush ( void ) throw( OSErr )

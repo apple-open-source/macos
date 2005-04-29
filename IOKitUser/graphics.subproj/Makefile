@@ -17,7 +17,7 @@ HFILES = IOGraphicsLibPrivate.h IOGraphicsLibInternal.h IOGraphicsLib.h\
 
 CFILES = PEFSupport.c IOAccelSurfaceControl.c IOGraphicsLib.c IODisplayLib.c
 
-OTHERSRCS = Makefile.preamble Makefile IOGraphicsProperties.plist
+OTHERSRCS = Makefile.preamble Makefile
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

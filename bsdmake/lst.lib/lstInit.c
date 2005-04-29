@@ -38,7 +38,6 @@
 
 #ifndef lint
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/make/lst.lib/lstInit.c,v 1.7 2000/07/09 00:08:47 wsanchez Exp $");
 #endif /* not lint */
 
 /*-
@@ -69,8 +68,8 @@ Lst_Init(circ)
 
     PAlloc (nList, List);
 
-    nList->firstPtr = NilListNode;
-    nList->lastPtr = NilListNode;
+    nList->firstPtr = NULL;
+    nList->lastPtr = NULL;
     nList->isOpen = FALSE;
     nList->isCirc = circ;
     nList->atEnd = Unknown;

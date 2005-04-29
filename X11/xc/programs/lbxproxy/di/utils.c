@@ -45,7 +45,7 @@ ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
 SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/programs/lbxproxy/di/utils.c,v 1.15 2002/12/09 04:10:58 tsi Exp $ */
+/* $XFree86: xc/programs/lbxproxy/di/utils.c,v 1.18 2003/11/17 22:20:48 dawes Exp $ */
 
 #include "lbx.h"
 #include <stdio.h>
@@ -87,8 +87,6 @@ static void VErrorF(const char*, va_list);
 /*
  * External declarations not in header files
  */
-extern char *display_name;
-extern char *display;
 extern Bool PartialNetwork;
 extern int lbxDebug;
 
@@ -110,7 +108,6 @@ extern Bool compStats;
  */
 static Bool CoreDump;
 static Bool Must_have_memory = FALSE;
-static char *dev_tty_from_init = NULL;	/* since we need to parse it anyway */
 
 /*
  * Debug stuff
@@ -519,8 +516,7 @@ char	*argv[];
 	}
 	else if (strncmp (argv[i], "tty", 3) == 0)
 	{
-	    /* just in case any body is interested */
-	    dev_tty_from_init = argv[i];
+	    /* Ignored */
 	}
  	else
 	    ShowHelpAndExit (1);
@@ -712,10 +708,8 @@ strnalloc(str, len)
 typedef struct _WorkQueue {
     struct _WorkQueue *next;
     Bool        (*function) (
-#if NeedNestedPrototypes
 		ClientPtr	/* pClient */,
 		pointer		/* closure */
-#endif
 );
     ClientPtr   client;
     pointer     closure;

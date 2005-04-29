@@ -1,67 +1,23 @@
-/*
- * Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
- * COPYING RESTRICTIONS APPLY, see COPYRIGHT file
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/config.c,v 1.27.2.5 2004/03/17 20:59:58 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
+ * Copyright 1999-2004 The OpenLDAP Foundation.
+ * Portions Copyright 2001-2003 Pierangelo Masarati.
+ * Portions Copyright 1999-2003 Howard Chu.
+ * All rights reserved.
  *
- * This work has been developed to fulfill the requirements
- * of SysNet s.n.c. <http:www.sys-net.it> and it has been donated
- * to the OpenLDAP Foundation in the hope that it may be useful
- * to the Open Source community, but WITHOUT ANY WARRANTY.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author and SysNet s.n.c. are not responsible for the consequences
- *    of use of this software, no matter how awful, even if they arise from 
- *    flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the documentation.
- *    SysNet s.n.c. cannot be responsible for the consequences of the
- *    alterations.
- *
- * 4. This notice may not be removed or altered.
- *
- *
- * This software is based on the backend back-ldap, implemented
- * by Howard Chu <hyc@highlandsun.com>, and modified by Mark Valence
- * <kurash@sassafras.com>, Pierangelo Masarati <ando@sys-net.it> and other
- * contributors. The contribution of the original software to the present
- * implementation is acknowledged in this copyright statement.
- *
- * A special acknowledgement goes to Howard for the overall architecture
- * (and for borrowing large pieces of code), and to Mark, who implemented
- * from scratch the attribute/objectclass mapping.
- *
- * The original copyright statement follows.
- *
- * Copyright 1999, Howard Chu, All rights reserved. <hyc@highlandsun.com>
- *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
- *
- * 1. The author is not responsible for the consequences of use of this
- *    software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- *    explicit claim or by omission.  Since few users ever read sources,
- *    credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- *    misrepresented as being the original software.  Since few users
- *    ever read sources, credits should appear in the
- *    documentation.
- *
- * 4. This notice may not be removed or altered.
- *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENTS:
+ * This work was initially developed by the Howard Chu for inclusion
+ * in OpenLDAP Software and subsequently enhanced by Pierangelo
+ * Masarati.
  */
 
 #include "portable.h"
@@ -73,7 +29,7 @@
 
 #include "slap.h"
 #include "../back-ldap/back-ldap.h"
-#undef ldap_debug	/* silence a warning in ldap-int.h */
+#undef ldap_debug       /* silence a warning in ldap-int.h */
 #include "../../../libraries/libldap/ldap-int.h"
 #include "back-meta.h"
 
@@ -88,13 +44,34 @@ new_target( void )
 		return NULL;
 	}
 
-	lt->rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
-	if ( lt->rwinfo == NULL ) {
+	lt->rwmap.rwm_rw = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
+	if ( lt->rwmap.rwm_rw == NULL ) {
 		free( lt );
                 return NULL;
 	}
 
-	ldap_back_map_init( &lt->at_map, &mapping );
+	{
+		char	*rargv[3];
+
+		/*
+		 * the filter rewrite as a string must be disabled
+		 * by default; it can be re-enabled by adding rules;
+		 * this creates an empty rewriteContext
+		 */
+		rargv[ 0 ] = "rewriteContext";
+		rargv[ 1 ] = "searchFilter";
+		rargv[ 2 ] = NULL;
+		rewrite_parse( lt->rwmap.rwm_rw, "<suffix massage>", 
+				1, 2, rargv );
+
+		rargv[ 0 ] = "rewriteContext";
+		rargv[ 1 ] = "default";
+		rargv[ 2 ] = NULL;
+		rewrite_parse( lt->rwmap.rwm_rw, "<suffix massage>", 
+				1, 2, rargv );
+	}
+
+	ldap_back_map_init( &lt->rwmap.rwm_at, &mapping );
 
 	return lt;
 }
@@ -184,7 +161,7 @@ meta_back_db_config(
 		dn.bv_len = strlen( ludp->lud_dn );
 
 		rc = dnPrettyNormal( NULL, &dn, &li->targets[ i ]->psuffix,
-			&li->targets[ i ]->suffix );
+			&li->targets[ i ]->suffix, NULL );
 		if( rc != LDAP_SUCCESS ) {
 			fprintf( stderr, "%s: line %d: "
 					"target '%s' DN is invalid\n",
@@ -197,8 +174,9 @@ meta_back_db_config(
 		for ( tmpludp = ludp->lud_next; tmpludp; tmpludp = tmpludp->lud_next ) {
 			if ( tmpludp->lud_dn != NULL && tmpludp->lud_dn[ 0 ] != '\0' ) {
 				fprintf( stderr, "%s: line %d: "
-						"multiple URIs must have no DN part\n",
-					fname, lineno, argv[ 1 ] );
+						"multiple URIs must have "
+						"no DN part\n",
+					fname, lineno );
 				return( 1 );
 
 			}
@@ -312,6 +290,16 @@ meta_back_db_config(
 			li->cache.ttl = atol( argv[ 1 ] );
 		}
 
+	/* network timeout when connecting to ldap servers */
+	} else if ( strcasecmp( argv[ 0 ], "network-timeout" ) == 0 ) {
+		if ( argc != 2 ) {
+			fprintf( stderr,
+	"%s: line %d: missing network timeout in \"network-timeout <seconds>\" line\n",
+				fname, lineno );
+			return 1;
+		}
+		li->network_timeout = atol(argv[ 1 ]);
+
 	/* name to use for meta_back_group */
 	} else if ( strcasecmp( argv[ 0 ], "binddn" ) == 0 ) {
 		int 		i = li->ntargets-1;
@@ -321,6 +309,7 @@ meta_back_db_config(
 			fprintf( stderr,
 	"%s: line %d: need \"uri\" directive first\n",
 				fname, lineno );
+			return 1;
 		}
 		
 		if ( argc != 2 ) {
@@ -332,7 +321,9 @@ meta_back_db_config(
 
 		dn.bv_val = argv[ 1 ];
 		dn.bv_len = strlen( argv[ 1 ] );
-		if ( dnNormalize2( NULL, &dn, &li->targets[ i ]->binddn ) != LDAP_SUCCESS ) {
+		if ( dnNormalize( 0, NULL, NULL, &dn, &li->targets[ i ]->binddn,
+			NULL ) != LDAP_SUCCESS )
+		{
 			fprintf( stderr, "%s: line %d: "
 					"bind DN '%s' is invalid\n",
 					fname, lineno, argv[ 1 ] );
@@ -347,6 +338,7 @@ meta_back_db_config(
 			fprintf( stderr,
 	"%s: line %d: need \"uri\" directive first\n",
 				fname, lineno );
+			return 1;
 		}
 		
 		if ( argc != 2 ) {
@@ -376,6 +368,7 @@ meta_back_db_config(
 			fprintf( stderr,
 	"%s: line %d: need \"uri\" directive first\n",
 				fname, lineno );
+			return 1;
 		}
 		
 		if ( argc != 2 ) {
@@ -387,7 +380,9 @@ meta_back_db_config(
 
 		dn.bv_val = argv[ 1 ];
 		dn.bv_len = strlen( argv[ 1 ] );
-		if ( dnNormalize2( NULL, &dn, &li->targets[ i ]->pseudorootdn ) != LDAP_SUCCESS ) {
+		if ( dnNormalize( 0, NULL, NULL, &dn,
+			&li->targets[ i ]->pseudorootdn, NULL ) != LDAP_SUCCESS )
+		{
 			fprintf( stderr, "%s: line %d: "
 					"pseudoroot DN '%s' is invalid\n",
 					fname, lineno, argv[ 1 ] );
@@ -402,6 +397,7 @@ meta_back_db_config(
 			fprintf( stderr,
 	"%s: line %d: need \"uri\" directive first\n",
 				fname, lineno );
+			return 1;
 		}
 		
 		if ( argc != 2 ) {
@@ -445,7 +441,7 @@ meta_back_db_config(
 
 		dn.bv_val = argv[ 1 ];
 		dn.bv_len = strlen( argv[ 1 ] );
-		if ( dnPrettyNormal( NULL, &dn, &pvnc, &nvnc ) != LDAP_SUCCESS ) {
+		if ( dnPrettyNormal( NULL, &dn, &pvnc, &nvnc, NULL ) != LDAP_SUCCESS ) {
 			fprintf( stderr, "%s: line %d: "
 					"suffix '%s' is invalid\n",
 					fname, lineno, argv[ 1 ] );
@@ -465,7 +461,7 @@ meta_back_db_config(
 
 		dn.bv_val = argv[ 2 ];
 		dn.bv_len = strlen( argv[ 2 ] );
-		if ( dnPrettyNormal( NULL, &dn, &prnc, &nrnc ) != LDAP_SUCCESS ) {
+		if ( dnPrettyNormal( NULL, &dn, &prnc, &nrnc, NULL ) != LDAP_SUCCESS ) {
 			fprintf( stderr, "%s: line %d: "
 					"massaged suffix '%s' is invalid\n",
 					fname, lineno, argv[ 2 ] );
@@ -495,7 +491,7 @@ meta_back_db_config(
 		 * FIXME: no extra rewrite capabilities should be added
 		 * to the database
 		 */
-	 	return suffix_massage_config( li->targets[ i ]->rwinfo,
+	 	return suffix_massage_config( li->targets[ i ]->rwmap.rwm_rw,
 				&pvnc, &nvnc, &prnc, &nrnc );
 		
 	/* rewrite stuff ... */
@@ -503,103 +499,33 @@ meta_back_db_config(
 		int 		i = li->ntargets-1;
 
 		if ( i < 0 ) {
-			fprintf( stderr,
-	"%s: line %d: need \"uri\" directive first\n",
-				fname, lineno );
+ 			if ( strcasecmp( argv[0], "rewriteEngine" ) == 0 ) {
+				li->rwinfo = rewrite_info_init( REWRITE_MODE_USE_DEFAULT );
+			}
+			return rewrite_parse(li->rwinfo, fname, lineno,
+					argc, argv); 
 		}
 		
- 		return rewrite_parse( li->targets[ i ]->rwinfo, fname, lineno,
+ 		return rewrite_parse( li->targets[ i ]->rwmap.rwm_rw, fname, lineno,
 				argc, argv );
 
 	/* objectclass/attribute mapping */
 	} else if ( strcasecmp( argv[ 0 ], "map" ) == 0 ) {
-		struct ldapmap *map;
-		struct ldapmapping *mapping;
-		char *src, *dst;
 		int 		i = li->ntargets-1;
 
 		if ( i < 0 ) {
 			fprintf( stderr,
 	"%s: line %d: need \"uri\" directive first\n",
 				fname, lineno );
-		}
-		
-
-		if ( argc < 3 || argc > 4 ) {
-			fprintf( stderr,
-	"%s: line %d: syntax is \"map {objectclass | attribute} [<local> | *] {<foreign> | *}\"\n",
-				fname, lineno );
 			return 1;
 		}
 
-		if ( strcasecmp( argv[ 1 ], "objectClass" ) == 0 ) {
-			map = &li->targets[ i ]->oc_map;
-		} else if ( strcasecmp( argv[ 1 ], "attribute" ) == 0 ) {
-			map = &li->targets[ i ]->at_map;
-		} else {
-			fprintf( stderr,
-	"%s: line %d: syntax is \"map {objectclass | attribute} [<local> | *] {<foreign> | *}\"\n",
-				fname, lineno );
-			return 1;
-		}
-
-		if ( strcmp( argv[ 2 ], "*" ) == 0 ) {
-			if ( argc < 4 || strcmp( argv[ 3 ], "*" ) == 0 ) {
-				map->drop_missing = ( argc < 4 );
-				return 0;
-			}
-			src = dst = argv[ 3 ];
-		} else if ( argc < 4 ) {
-			src = "";
-			dst = argv[ 2 ];
-		} else {
-			src = argv[ 2 ];
-			dst = ( strcmp( argv[ 3 ], "*" ) == 0 ? src : argv[ 3 ] );
-		}
-
-		if ( ( map == &li->targets[ i ]->at_map )
-			&& ( strcasecmp( src, "objectclass" ) == 0
-				|| strcasecmp( dst, "objectclass" ) == 0 ) ) {
-			fprintf( stderr,
-	"%s: line %d: objectclass attribute cannot be mapped\n",
-				fname, lineno );
-		}
-
-		mapping = ch_calloc( 2, sizeof( struct ldapmapping ) );
-		if ( mapping == NULL ) {
-			fprintf( stderr,
-				"%s: line %d: out of memory\n",
-				fname, lineno );
-			return 1;
-		}
-		ber_str2bv( src, 0, 1, &mapping->src );
-		ber_str2bv( dst, 0, 1, &mapping->dst );
-		mapping[ 1 ].src = mapping->dst;
-		mapping[ 1 ].dst = mapping->src;
-
-		if ( (*src != '\0' &&
-			  avl_find( map->map, ( caddr_t )mapping,
-				mapping_cmp ) != NULL)
-			|| avl_find( map->remap, ( caddr_t )&mapping[ 1 ],
-				mapping_cmp ) != NULL) {
-			fprintf( stderr,
-	"%s: line %d: duplicate mapping found (ignored)\n",
-				fname, lineno );
-			return 0;
-		}
-
-		if ( *src != '\0' )
-			avl_insert( &map->map, ( caddr_t )mapping,
-						mapping_cmp, mapping_dup );
-		avl_insert( &map->remap, ( caddr_t )&mapping[ 1 ],
-					mapping_cmp, mapping_dup );
-
+		return ldap_back_map_config( &li->targets[ i ]->rwmap.rwm_oc, 
+				&li->targets[ i ]->rwmap.rwm_at,
+				fname, lineno, argc, argv );
 	/* anything else */
 	} else {
-		fprintf( stderr,
-	"%s: line %d: unknown directive \"%s\" in meta database definition"
-	" (ignored)\n",
-		    fname, lineno, argv[0] );
+		return SLAP_CONF_UNKNOWN;
 	}
 	return 0;
 }

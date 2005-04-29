@@ -1,0 +1,10 @@
+[vset    digest crc]
+[include digest/header.inc]
+
+[section NOTES]
+
+This command uses the same CRC polynomial as the CRC algorithm used by
+PGP ([uri http://www.pgp.com]).
+
+[keywords pgp]
+[include digest/footer.inc]

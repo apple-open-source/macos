@@ -1,3 +1,4 @@
+// { dg-do run  }
 template <class X> class TC {
 public:
   X aaa;
@@ -8,8 +9,8 @@ public:
 };
 
 
-long TC<long>::sss;
-float TC<float>::sss;
+template <> long TC<long>::sss = 0;
+template <> float TC<float>::sss = 0.0;
 
 TC<long> xjj(1,2);
 

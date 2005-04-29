@@ -1,30 +1,31 @@
 #!/usr/bin/perl
 #
-# $Id: ftpsserver.pl,v 1.1.1.1 2002/11/26 19:08:09 zarzycki Exp $
+# $Id: ftpsserver.pl,v 1.5 2003/10/29 16:27:43 bagder Exp $
 # This is the FTPS server designed for the curl test suite.
 #
 # It is actually just a layer that runs stunnel properly.
 
 use strict;
 
-use stunnel;
-
-my $stunnel = &checkstunnel;
-
-if(!$stunnel) {
-    exit;
-}
+my $stunnel = "stunnel";
 
 #
 # -p pemfile
 # -P pid dir
 # -d listen port
 # -r target port
+# -s stunnel path
 
 my $verbose=0; # set to 1 for debugging
 
 my $port = 8821;		# just our default, weird enough
 my $remote_port = 8921;		# test ftp-server port
+
+my $path = `pwd`;
+chomp $path;
+
+my $srcdir=$path;
+
 do {
     if($ARGV[0] eq "-v") {
         $verbose=1;
@@ -33,16 +34,21 @@ do {
         $remote_port=$ARGV[1];
         shift @ARGV;
     }
+    elsif($ARGV[0] eq "-d") {
+        $srcdir=$ARGV[1];
+        shift @ARGV;
+    }
+    elsif($ARGV[0] eq "-s") {
+        $stunnel=$ARGV[1];
+        shift @ARGV;
+    }
     elsif($ARGV[0] =~ /^(\d+)$/) {
         $port = $1;
     }
 } while(shift @ARGV);
 
-my $path = `pwd`;
-chomp $path;
-
 my $conffile="$path/stunnel.conf";	# stunnel configuration data
-my $certfile="$path/stunnel.pem";	# stunnel server certificate
+my $certfile="$srcdir/stunnel.pem";	# stunnel server certificate
 my $pidfile="$path/.ftps.pid";		# stunnel process pid file
 
 open(CONF, ">$conffile") || return 1;
@@ -60,7 +66,7 @@ print CONF "
 	connect = $remote_port
 ";
 close CONF; 
-system("chmod go-rwx $conffile $path/stunnel.pem");	# secure permissions
+#system("chmod go-rwx $conffile $certfile");	# secure permissions
 
 		# works only with stunnel versions < 4.00
 my $cmd="$stunnel -p $certfile -P $pidfile -d $port -r $remote_port 2>/dev/null";

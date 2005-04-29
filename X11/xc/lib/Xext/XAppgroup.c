@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/Xext/XAppgroup.c,v 1.11 2002/10/16 02:19:22 dawes Exp $ */
+/* $XFree86: xc/lib/Xext/XAppgroup.c,v 1.12 2003/11/17 22:20:21 dawes Exp $ */
 /*
 
 Copyright 1996, 1998  The Open Group
@@ -164,7 +164,6 @@ StuffToWire (Display *dpy, struct xagstuff *stuff, xXagCreateReq *req)
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XagCreateEmbeddedApplicationGroup(
     Display* dpy,
     VisualID root_visual,
@@ -172,14 +171,6 @@ XagCreateEmbeddedApplicationGroup(
     unsigned long black_pixel,
     unsigned long white_pixel,
     XAppGroup* app_group_return)
-#else
-XagCreateEmbeddedApplicationGroup(dpy, root_visual, default_colormap, black_pixel, white_pixel, app_group_return)
-    Display* dpy;
-    VisualID root_visual;
-    Colormap default_colormap;
-    unsigned long black_pixel, white_pixel;
-    XAppGroup* app_group_return;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     xXagCreateReq *req;
@@ -214,15 +205,9 @@ XagCreateEmbeddedApplicationGroup(dpy, root_visual, default_colormap, black_pixe
 }
 
 Bool 
-#if NeedFunctionPrototypes
 XagCreateNonembeddedApplicationGroup(
     Display* dpy,
     XAppGroup* app_group_return)
-#else
-XagCreateNonembeddedApplicationGroup(dpy, app_group_return)
-    Display* dpy;
-    XAppGroup* app_group_return;
-#endif
 {
     XExtDisplayInfo *info = find_display (dpy);
     xXagCreateReq *req;

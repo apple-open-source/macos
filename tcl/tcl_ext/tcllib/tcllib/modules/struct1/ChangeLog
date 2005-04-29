@@ -1,0 +1,583 @@
+2004-05-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6.1 ========================
+	* 
+
+2004-02-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.6 ========================
+	* 
+
+2004-02-11  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.test: Sorted some dict responses for reliable comparison.
+
+2004-01-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.man: Documented method links.
+
+	* matrix.test: Updated test to cover for method links.
+	* matrix.tcl: Changed the code to determine the list of available
+	  methods automatically for use in the error message when an
+	  unknown method is called.
+
+	* matrix.test:
+	* matrix.tcl: Namespaces of objects now standalone, and not inside
+	  of struct::matrix anymore. Arbitrary placement of objects is now
+	  possible, including nested namespaces. Cleanup of all references
+	  to instance variables.
+
+	* matrix.tcl: Made the return of errors more regular.
+
+	* matrix.tcl: Changed a number of eval calls to the more proper
+	  'uplevel 1'. This means that an implementation of a method can
+	  now assume that it is called on the same stack level as the
+	  method itself.
+
+2004-01-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl: Typo in comments fixed.
+	* matrix.tcl (__set_rect): Fixed typos in var names causing the
+	  system to retain bogus cache data.
+
+2003-12-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* V1 of 'struct' added back to the tcllib codebase for backward
+	  compatibility. The documentation is _not_ installed.
+
+	* matrix.tcl:     Applied patch in file 64215 of [SF Tcllib Bug 822850].
+	* pool.tcl:	  This cleans up a number of dangerous uses of [eval]   
+	* prioqueue.tcl:  and makes them more robust.
+	* queue.tcl:
+	* record.tcl:
+	* skiplist.tcl:
+	* stack.tcl:
+
+2003-07-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.test:	
+	* tree.tcl: Reworked node attribute storage. Name of array to
+	  store the information is now dissociated from the name of the
+	  node. This enables the use of arbitrary node names, i.e. ':' in
+	  node names. The second benefit is that nodes without attribute
+	  data (normal) require less memory than before. Removed the now
+	  irrelevant validation of node names and updated the testsuite.
+
+	* tree.test:
+	* tree.tcl: Changed way of mapping from tree object commands to
+	  associoated namespaces. The object namespace now has the same
+	  name and location of the object command. Adapted all tests to
+	  account for this change.
+
+	* tree.test:
+	* tree.tcl: Changed dispatcher to auto-generate the list of tree
+	  commands when a wrong one is given. Updated tests to account for
+	  the now correct sort order. Changed dispatcher to uplevel 1 the
+	  method execution, updated walking system to reflect this change.
+
+2003-07-04  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* list.tcl: The changes in the list dispatcher required
+	  corresponding changes in a number of methods: upvar/level 2 =>
+	  upvar/level 1. Detected by testsuite. Bad me, should have run it
+	  immediately. Bugs fixed.
+
+	* list.test: Extended the testsuite.
+	* list.tcl (lcsInvertMerge2): Fixed problem with extending the
+	  result with an chunk of type unchanged, for the case that this
+	  happens at the very beginning, i.e. for an empty result. This
+	  fixes SF tcllib bug [765321].
+
+2003-05-20  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* list.tcl (dispatcher): eval => uplevel so that upvar's in the
+	  method commands do not need to know about the dispatcher frame
+	  in the stack.
+
+	* list.man:
+	* list.tcl (dbJoin(Keyed)): Extended the commands with an option
+	  -keys. Argument is the name of a variable to store the actual
+	  list of keys into, independent of the output table. As the
+	  latter may not contain all the keys, depending on how and where
+	  key columns are present or not. Additionally cleanups in the use
+	  of loop variables in the keyed helper commands frink complained
+	  about.
+
+2003-05-16  Andreas Kupries  <andreask@activestate.com>
+
+	* Extension of the package functionality warrants version bump to 1.4.
+	
+	* list.man: Added descriptions of the db join commands, and
+	  section explaining the table joins.
+
+	* list.test: Added tests for the db join functionality. Adapted
+	  existing tests to changed (fixed) error messages.
+
+	* list.tcl: Rewrote the main dispatcher a bit to make it simpler,
+	  and to allow us to hide internal functions from it. Added
+	  'dbJoin(Keyed)' for relational table join (inner, lef/right/full
+	  outer). Fixed function name in some error messages.
+
+2003-05-14  Andreas Kupries  <andreask@activestate.com>
+
+	* tree.tcl: Added some [list]'s to show node names containing
+	  spaces properly in error messages.
+
+	* tree.test: Reworked to test handling of item nodes
+	  containing spaces.
+
+	* tree.bench: Reworked, added helper procedures, testcases are now
+	  simpler.
+
+	* struct_list.man: Fixed typos in the examples.
+
+2003-05-06  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tree.test: 
+	* tree.tcl: allow node names with space chars and single :.
+	  Double :: may be OK, but the check against it is still in.
+
+2003-05-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.4 ========================
+	* 
+
+2003-05-05  Andreas Kupries  <andreask@activestate.com>
+
+	* prioqueue.tcl: Applied patch by author Michael Schlenker
+	  <mic42@users.sourceforge.net>. Refactors internals for
+	  speed. Passes the prioqueue testsuite.
+
+2003-04-25  Andreas Kupries  <andreask@activestate.com>
+
+	* queue.man: Documentation fix. peek/get throw errors if more was
+	  requested than in the queue. The documentation talked about
+	  returning empty strings. Thanks to Michael Schlenker
+	  <mic42@users.sourceforge.net> for the report.
+
+	* prioqueue.test: Extended to check for stable insertion.
+	* prioqueue.tcl (__elementcompare): Bugfix, makes insertion stable.
+	* prioqueue.man: New, documentation.
+
+	* skiplist.man: Typo fix. Thanks to Michael Schlenker
+	  <mic42@users.sourceforge.net> for the report.
+
+2003-04-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.bench: New file, beginnings of a benchmark suite for the
+	  data structure 'struct::tree'.
+
+2003-04-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.man: Changed name to struct_tree.man. Was in conflict with
+	  tree manpage of BLT.
+
+2003-04-22  Andreas Kupries  <andreask@activestate.com>
+
+	* graph.man: Switched cgraph reference to a purl supplied by the
+	  cgraph author, and added wiki reference.
+
+2003-04-16  Andreas Kupries  <andreask@activestate.com>
+
+	* prioqueue.tcl (__elementcompare): Failures in testsuite fixed,
+	  patch provided by original author, Michael Schlenker
+	  <mic42@users.sourceforge.net>.
+
+2003-04-15  Andreas Kupries  <andreask@activestate.com>
+
+	* skiplist.man:
+	* skiplist.tcl:
+	* skiplist.test: New files. Patch #553980 submitted by Eric Melski
+	  <ericm@users.sourceforge.net> on behalf of Keith Vetter.
+
+	* prioqueue.tcl:
+	* prioqueue.test: New files. Patch #607085 submitted by Michael
+	  Schlenker <mic42@users.sourceforge.net>.
+
+2003-04-15  Andreas Kupries  <andreask@activestate.com>
+
+	* tcllib_list.man: Changed name to struct_list.man. Allows for
+	  usage of struct outside of tcllib, not as big a coupling.
+
+	* graph.tcl: Redone the setting up of namespace a bit to prevent
+	  problem with the generation of a master package
+	  index. strcut.tcl bailed out with an error because the namespace
+	  was net set up when using [pkg_mkIndex] in this directory.
+
+2003-04-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.test:
+	* graph.man:
+	* graph.tcl: Added code to look for the C-implementation, cgraph,
+	  first, and to fall back to the Tcl implementation if cgraph is
+	  not present (#720348). The documentation links to the place
+	  where cgraph can be had from. Note presence of cgraph when
+	  executing the testsuite.
+
+2003-04-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* list.man: Changed name to tcllib_list.man to prevent a clash
+	  with tcl's manpages.
+
+2003-04-11  Andreas Kupries  <andreask@activestate.com>
+
+	* struct.tcl:
+	* list.man:
+	* matrix.man:
+	* pool.man:
+	* queue.man:
+	* record.man:
+	* stack.man:
+	* tree.man:
+	* pkgIndex.tcl:  Set version of the package to 1.3.
+
+2003-04-09  Andreas Kupries  <andreask@activestate.com>
+
+	* list.man:
+	* list.test:
+	* list.tcl: Added 'lcsInvertMerge'.
+
+2003-04-08  Andreas Kupries  <andreask@activestate.com>
+
+	* list.man:
+	* list.test:
+	* list.tcl: Added and documented commands [iota], [equal], and
+	  [repeat]. Extended the testsuite.
+
+2003-04-02  Andreas Kupries  <andreask@activestate.com>
+
+	* list.cl:
+	* list.test: Fixed SF tcllib bug #714209.
+
+	* ../../../examples/struct: Added example applications for usage
+	  of longestCommonSubsequence and lcsInvert.
+
+	* struct.tcl: Integrated new list commands.
+
+	* list.tcl:  Added commands 'reverse', 'assign', 'flatten',
+	* list.man:  'map', and 'fold' to the suite of list functions.
+	* list.test: 
+
+2003-04-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* list.man:  New files, extended list manipulation
+	* list.tcl:  facilities. Started out with Kevin Kenny's
+	* list.test: implementation of the algorithm to find the longest
+	             common subsequence of two sequences, aka lists.
+		     Added myself a method to invert a LCS into a
+		     description of differences instead.
+
+2003-04-01  Andreas Kupries  <andreask@activestate.com>
+
+	* record.test: Applied changes provided by Brett Schwarz
+	  <schwarzkopf@users.sourceforge.net>. His comments: I had changed
+	  the return when encountering a circular record; previously I
+	  returned "", but now I return an error. This fixes record.test
+	  to reflect the change. Part of fix for Tcllib SF Bug #709375.
+
+	  Additional changes by myself: Reformatted (proper tcl
+	  indentations). Renumbered so that all tests have unique id
+	  numbers (Before all tests had id 0.1).
+
+2003-02-25  David N. Welton  <davidw@dedasys.com>
+
+	* matrix.tcl: Require Tcl 8.2 because of string map.  Use string
+	map instead of regexp.
+
+2003-01-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.man: More semantic markup, less visual one.
+	* matrix.man:
+	* pool.man:
+	* record.man:
+	* tree.man:
+
+2002-11-06  Brett Schwarz  <schwarzkopf@users.sourceforge.net>
+
+        * record.tcl: cleaned up code based on output from frink
+
+2002-11-05  Brett Schwarz  <schwarzkopf@users.sourceforge.net>
+
+        * struct.tcl: modified to include record.tcl
+
+        * record.man:
+        * record.html:
+        * record.n:
+        * record.test:
+        * record.tcl: new data structure
+
+2002-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.test: 
+	* graph.man:
+	* graph.tcl: Implemented FR 603924. getall, keys, keyexists
+	  methods for keys of the whole graph.
+
+2002-08-08  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.test: Followup to fix for bug SF #587533. Had to update the
+	  test suite too.
+
+2002-08-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.tcl (lappend): Fixed bug SF #587533 reported by Evan Rempel
+	  <erempel@users.sourceforge.net>.
+
+	* pool.tcl: Fixed bug SF #585093, reported by Michael Cleverly
+	  <cleverly@users.sourceforge.net>. Patch provided by Michael too.
+
+2002-07-08  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* tree.man: Updated the documentation to clarify the behaviour.
+
+	* test.tcl: Updated testsuite, part of the patch below.
+
+	* tree.tcl (_move): Accepted patch by Brian Theado
+	  <btheado@users.sourceforge.net> fixing the behaviour of mov, SF
+	  bug #578460. The command now also validates all nodes before
+	  trying to move any of them.
+
+2002-05-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.man: Fixed typo (graph -> matrix).
+
+	* struct.tcl: Added pool files to list of files to source.
+
+	* pool.man: New documentation for pool based upon the original
+	  HTML manpage.
+
+	* pool.html:
+	* pooltest.tcl:
+	* pool.tcl: New data structure, pool, by Erik Leunissen
+	  <e.leunissen@hccnet.nl>. Modified code to be a sub-namespace of
+	  ::struct, made it a part of the struct package. No regular
+	  testsuite yet (see pooltest.tcl for the irregular testsuite).
+
+2002-05-08  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.n: This file is out of sync.
+	* graph.man:
+	* graph.test:
+	* graph.tcl: See tree, for arcs and nodes.
+
+	* tree.man:
+	* tree.n:
+	* tree.test:
+	* tree.tcl: Accepted FR #552972 (new methods append, lappend,
+	  getall, keys, keyexists) for tree structures.
+
+2002-04-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl: Fixed SF Tcllib #532791 about unsetting of elements
+	  in linked arrays as reported by Ken Jones
+	  <kenj@users.sourceforge.net>. Unsetting an element in a linked
+	  array now sets the corresponding cell in the matrix to the empty
+	  string, and the corresponding elements in other linked arrays
+	  are now unset too.
+
+	* tree.man: New file, doctools manpage.
+
+2002-03-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl: Fixed bug #532783 reported by Ken Jones
+	  <kenj@users.sourceforge.net>. Any operation adding new material
+	  to a linked matrix causes a circular trace (op -> "MatTraceOut"
+	  -> "MatTraceIn" -> set cell) and the inbound trace fails because
+	  the data structures are not uptodate causing the range checks in
+	  "set cell" to fail. Fixed by breaking the cycle. Calls to
+	  "MatTraceIn" are now disabled while we are in "MatTraceOut".
+
+2002-03-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.man: Added example of formatting a matrix using tabular
+	  reports (See tcllib module "reports" too.). Fixes #530207.
+
+2002-03-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.n:
+	* matrix.man:
+	* matrix.test:
+	* matrix.tcl: Accepted FR #524430 and added option -nocase to the
+	  'search' method.
+
+	* matrix.man: Added doctools manpage.
+
+2002-03-02  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.man: Added doctools manpage.
+
+2002-02-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl: Frink run.
+
+2002-02-01  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Version up to 1.2.1 to differentiate development from the
+	  version in the tcllib 1.2 release.
+
+	* matrix.test:
+	* matrix.tcl: See below, but not complete.
+	* queue.test
+	* stack.test:
+	* graph.tcl: 
+	* graph.test: 
+	* tree.tcl: 
+	* tree.test: Updated code and tests to cover all paths through the
+	  code.
+
+2002-01-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* Bumped version to 1.2
+
+2001-11-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl (add rows): Indices were transposed. Fixed.
+
+2001-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* matrix.test:
+	* matrix.n:
+	* matrix.tcl: Implementation of FR #481022: matrix printing and
+	  searching.
+
+2001-11-19  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph.test:
+	* graph.n:
+	* graph.tcl: Applied patch #483125 provided by Frank Pilhofer
+	  <fp@fpx.de>. The patch adds key/value information for the whole
+	  graph and extends the selection methods 'arcs' and 'nodes' to
+	  allow selection based on keys and their values.
+
+2001-10-16  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* pkgIndex.tcl:
+	* struct.tcl:
+	* graph.n:
+	* matrix.n:
+	* queue.n:
+	* stack.n:
+	* tree.n: Version up to 1.1.1
+
+2001-09-05  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* The changes below fix bug [458011].
+
+	* tree.test (6.16): New test. Checks verificator of forbidden names.
+
+	* tree.tcl (::struct::tree::_insert): Added verification that node
+	  names do not contain forbidden characters.
+
+	* tree.n: Documented limitations on node names. Documented allowed
+	  index "end" for insert.
+
+2001-07-10  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl: Frink 2.2 run, fixed dubious code.
+
+2001-06-21  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* tree.tcl:
+	* graph.tcl: Fixed dubious code reported by frink.
+
+2001-06-19  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* matrix.n: Fixed nroff trouble.
+
+2001-05-20  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* matrix.tcl (insert row/column): Fixed wrong references to the
+	  internal add row/column procedures.
+
+	* modules/struct/matrix.test: Added 8.11 and 8.12 to test the case
+	  of 'insert FOO' devolving to 'add FOO'.
+
+2001-05-01  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* Committed changes (matrix) to CVS head at SF.
+
+2001-04-17  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* matrix.n: updated and completed documentation
+	* matrix:test: Added testsuite
+	* matrix.tcl: Added the implementation.
+
+2001-04-12  Andreas Kupries <andreas_kupries@users.sourceforge.net>
+
+	* struct.tcl: Added loading of the matrix definition.
+
+	* matrix.n: Adding matrix structure.
+
+2000-04-07  Eric Melski  <ericm@scriptics.com>
+
+	* stack.test: 
+	* queue.test: Changed "package require struct" to "source [file
+	  join [file dirname [info script]] xxxx.tcl]", which is more reliable.
+
+	* tree.test: 
+	* tree.tcl: Added support for different walk orders (post,
+	  in, and both) [RFE: 4420].  Added support for percent substitution
+	  on walk command.  (WalkCall) Added protection against node/tree
+	  names with spaces.
+
+	* graph.tcl: 
+	* graph.test: 
+	* graph.n: Graph implementation from Andreas Kupries.
+
+2000-03-20  Eric Melski  <ericm@scriptics.com>
+
+	* tree.test: 
+	* tree.n: 
+	* tree.tcl: Added support for inserting/moving multiple nodes at
+	  once.  Changed behavior of insert with respect to inserting nodes
+	  that already exist; instead of an error, it will move the node.
+
+2000-03-14  Eric Melski  <ericm@scriptics.com>
+
+	* tree.n: Added a brief description of what a tree is.
+
+2000-03-10  Eric Melski  <ericm@scriptics.com>
+
+	* tree.n: 
+	* tree.tcl: 
+	* tree.test: Applied patch from [RFE: 4337], with enhancements for
+	  better efficiency, and additional test cases; adds cut and splice
+	  functions to tree.
+
+2000-03-09  Eric Melski  <ericm@scriptics.com>
+
+	* tree.n: 
+	* tree.tcl: 
+	* tree.test: Applied patch from [RFE: 4338]; adds index function to
+	  tree.  Applied patch from [RFE: 4339], with slight modification; adds
+	  numchildren function to tree.  Applied patch from [RFE: 4336],
+	  with additional error checks and test cases; adds next, previous
+	  functions to tree.  Added extra tests for walk command.
+
+	* tree.tcl: Added isleaf function and tests [RFE: 4340]
+
+	* struct.tcl: Changed order of namespace import/namespace export
+	  calls.  Added -force to namespace import calls.
+
+	* tree.test: 
+	* stack.test: 
+	* queue.test: Adapted tests to run in/out of tcllib test framework.
+
+	* tree.test:
+	* tree.tcl: Added code to auto-generate node names on insert if no
+	  name is given [RFE: 4345]
+
+2000-03-08  Eric Melski  <ericm@scriptics.com>
+
+	* tree.test:
+	* tree.tcl: Added check for node existance in children function
+	  [Bug: 4341]
+
+2000-03-03  Eric Melski  <ericm@scriptics.com>
+
+	* tree.tcl: Changed usage information for tree::_walk.
+
+	* tree.n: Enhanced description of walk function, fixed a typo.

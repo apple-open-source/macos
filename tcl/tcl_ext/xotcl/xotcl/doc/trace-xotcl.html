@@ -1,0 +1,431 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN" "http://www.w3.org/TR/REC-html40/frameset.dtd">
+
+<HTML>
+<HEAD>
+  <TITLE>XOTcl - Documentation -- ./../library/lib/trace.xotcl</TITLE>
+</HEAD>
+
+<BODY BGCOLOR="FFFFFF">
+  <h1>
+    <IMG SRC="./logo-100.jpg" ALT="./../library/lib/trace.xotcl" ALIGN="MIDDLE">
+  ./../library/lib/trace.xotcl</h1>
+  <HR>
+  <P>
+    <h2> Package/File Information </h2>
+    <b> Package provided: </b> xotcl::trace 0.91
+    <BR>
+    <BR>
+    <b>Defined Objects/Classes: </b>
+    <UL>
+      <LI>
+        <A HREF="#Object">
+          <em>Object</em>:
+        </A>
+        <a href="#Object-lintFilter">lintFilter</a>, <a href="#Object-showCall">showCall</a>, <a href="#Object-showClass">showClass</a>, <a href="#Object-showMsg">showMsg</a>, <a href="#Object-showStack">showStack</a>, <a href="#Object-showTimeEnd">showTimeEnd</a>, <a href="#Object-showTimeStart">showTimeStart</a>, <a href="#Object-showVars">showVars</a>, <a href="#Object-statFilter">statFilter</a>, <a href="#Object-traceFilter">traceFilter</a>.
+        <BR>
+      </LI>
+      <LI>
+        <A HREF="#Trace">
+          <em>Trace</em>:
+        </A>
+        <a href="#Trace-closeTraceFile">closeTraceFile</a>, <a href="#Trace-openTraceFile">openTraceFile</a>, <a href="#Trace-puts">puts</a>.
+        <BR>
+      </LI>
+    </UL>
+    <BR>
+    <b> Filename: </b>
+    <A HREF="./../library/lib/trace.xotcl">
+      ./../library/lib/trace.xotcl
+    </A>
+    <BR>
+    <BR>
+    <TABLE BORDER="0">
+      <TR VALIGN="top">
+        <TD VALIGN="top">
+          <em> Description:</em>
+        </TD>
+        <TD VALIGN="top">
+          
+  Various tracing tools for the XOTcl language.
+  
+        </TD>
+      </TR>
+    </TABLE>
+    <BR>
+    <HR>
+    <P>
+      <A NAME="Object">
+        
+      </A>
+      <h2> Class: <em> Object </em> </h2>
+      <b> Procs/Instprocs: </b> 
+      <a href="#Object-lintFilter">lintFilter</a>, <a href="#Object-showCall">showCall</a>, <a href="#Object-showClass">showClass</a>, <a href="#Object-showMsg">showMsg</a>, <a href="#Object-showStack">showStack</a>, <a href="#Object-showTimeEnd">showTimeEnd</a>, <a href="#Object-showTimeStart">showTimeStart</a>, <a href="#Object-showVars">showVars</a>, <a href="#Object-statFilter">statFilter</a>, <a href="#Object-traceFilter">traceFilter</a>.
+      <TABLE BORDER="0">
+      </TABLE>
+      <h3>Instprocs</h3>
+      <UL>
+        <LI>
+          <A NAME="Object-traceFilter">
+            
+          </A>
+          <b>traceFilter </b>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: arbitrary args
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+      Filter to trace every method call on an object or class hierarchy.
+      Outputs a message befora and after each call of the traced object.
+    
+              </TD>
+            </TR>
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Return:</em>
+              </TD>
+              <TD VALIGN="top">
+                empty string
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-lintFilter">
+            
+          </A>
+          <b>lintFilter </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Experimental lint filter
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-statFilter">
+            
+          </A>
+          <b>statFilter </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Experimental statistics filter
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showVars">
+            
+          </A>
+          <b>showVars </b>
+          <em>args</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>args</b>: ist of variables
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Show the values of the specified variables (or of all variables)
+    of an object on stderr.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showMsg">
+            
+          </A>
+          <b>showMsg </b>
+          <em>msg</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>msg</b>: optional output
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Show a message msg with the form "[self] $cls->$method $msg" on stderr.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showClass">
+            
+          </A>
+          <b>showClass </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Show classes and mixins of the object
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showStack">
+            
+          </A>
+          <b>showStack </b>
+          <em>maxDepth</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>maxDepth</b>: max stack depth, default=100
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Show callstack up to the specified calldepth.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showCall">
+            
+          </A>
+          <b>showCall </b>
+          <TABLE BORDER="0">
+            
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                Show the current call with the form "[self] $cls->$method $args" on stderr.
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showTimeStart">
+            
+          </A>
+          <b>showTimeStart </b>
+          <em>?handle?</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>?handle?</b>: Handle object name, optional
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                start a timer
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Object-showTimeEnd">
+            
+          </A>
+          <b>showTimeEnd </b>
+          <em>?handle?</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>?handle?</b>: Handle object name, optional
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                end a timer and show result
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <HR>
+    <P>
+      <A NAME="Trace">
+        
+      </A>
+      <h2> Object: <em> Trace </em> </h2>
+      <b>Class</b>: Object
+      <BR>
+      <b> Procs </b> 
+      <a href="#Trace-closeTraceFile">closeTraceFile</a>, <a href="#Trace-openTraceFile">openTraceFile</a>, <a href="#Trace-puts">puts</a>.
+      <TABLE BORDER="0">
+        <TR VALIGN="top">
+          <TD VALIGN="top">
+            <em> Description:</em>
+          </TD>
+          <TD VALIGN="top">
+            
+    Write trace outputs and produce statistics. Variable traceStream
+    defines where to write trace output (default: stderr).
+  
+          </TD>
+        </TR>
+      </TABLE>
+      <h3>Procs</h3>
+      <UL>
+        <LI>
+          <A NAME="Trace-puts">
+            
+          </A>
+          <b>puts </b>
+          <em>line</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>line</b>: output line
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Define how traceFilter writes to the output stream. Default:
+    write to trace stream.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Trace-openTraceFile">
+            
+          </A>
+          <b>openTraceFile </b>
+          <em>name</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>name</b>: file name
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Redirect trace output to file.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+        <LI>
+          <A NAME="Trace-closeTraceFile">
+            
+          </A>
+          <b>closeTraceFile </b>
+          <em>name</em>
+          <TABLE BORDER="0">
+                      <TR VALIGN="top">
+            <TD VALIGN="top">
+              <em>Arguments:</em>
+            </TD>
+            <TD VALIGN="top">
+              <b>name</b>: file name
+            </TD>
+          </TR>
+
+            <TR VALIGN="top">
+              <TD VALIGN="top">
+                <em> Description:</em>
+              </TD>
+              <TD VALIGN="top">
+                
+    Close trace  file and redirect output to stderr.
+  
+              </TD>
+            </TR>
+          </TABLE>
+        </LI>
+      </UL>
+    </P>
+    <BR>
+  </P>
+  <HR>
+  <P>
+  </P>
+  <A HREF="./index.html">
+    Back to index page.
+  </A>
+  <BR>
+  <HR>
+  <P>
+  </P>
+</BODY>
+</HTML>
+

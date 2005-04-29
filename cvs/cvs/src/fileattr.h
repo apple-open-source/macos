@@ -12,28 +12,24 @@
 
 #ifndef FILEATTR_H
 
-/* File containing per-file attributes.  Format is a series of entries:
+/* File containing per-file attributes.  The format of this file is in
+   cvs.texinfo but here is a quick summary.  The file contains a
+   series of entries:
 
    ENT-TYPE FILENAME <tab> ATTRNAME = ATTRVAL
      {; ATTRNAME = ATTRVAL} <linefeed>
 
-   ENT-TYPE is 'F' for a file, in which case the entry specifies the
-   attributes for that file.
+   ENT-TYPE is 'F' for a file.
 
-   ENT-TYPE is 'D', and FILENAME empty, to specify default attributes
-   to be used for newly added files.
+   ENT-TYPE is 'D', and FILENAME empty, for default attributes.
 
-   Other ENT-TYPE are reserved for future expansion.  CVS 1.9 and older
-   will delete them any time it writes file attributes.  Current versions
-   of CVS will preserve them.
+   Other ENT-TYPE are reserved for future expansion.
 
    Note that the order of the line is not significant; CVS is free to
    rearrange them at its convenience.
 
-   There is currently no way of quoting tabs or linefeeds in the
-   filename, '=' in ATTRNAME, ';' in ATTRVAL, etc.  I'm not sure
-   whether I think we need one.  Note: the current implementation also
-   doesn't handle '\0' in any of the fields.
+   FIXME: this implementation doesn't handle '\0' in any of the
+   fields.  We are encouraged to fix this (by cvs.texinfo).
 
    By convention, ATTRNAME starting with '_' is for an attribute given
    special meaning by CVS; other ATTRNAMEs are for user-defined attributes
@@ -60,7 +56,7 @@
 /* Prepare for a new directory with repository REPOS.  If REPOS is NULL,
    then prepare for a "non-directory"; the caller can call fileattr_write
    and fileattr_free, but must not call fileattr_get or fileattr_set.  */
-extern void fileattr_startdir PROTO ((char *repos));
+extern void fileattr_startdir PROTO ((const char *repos));
 
 /* Get the attribute ATTRNAME for file FILENAME.  The return value
    points into memory managed by the fileattr_* routines, should not

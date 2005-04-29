@@ -1,0 +1,564 @@
+<refentry id="glib-Simple-XML-Subset-Parser">
+<refmeta>
+<refentrytitle>Simple XML Subset Parser</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Simple XML Subset Parser</refname><refpurpose>parses a subset of XML.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+enum        <link linkend="GMarkupError">GMarkupError</link>;
+#define     <link linkend="G-MARKUP-ERROR-CAPS">G_MARKUP_ERROR</link>
+enum        <link linkend="GMarkupParseFlags">GMarkupParseFlags</link>;
+struct      <link linkend="GMarkupParseContext">GMarkupParseContext</link>;
+struct      <link linkend="GMarkupParser">GMarkupParser</link>;
+<link linkend="gchar">gchar</link>*      <link linkend="g-markup-escape-text">g_markup_escape_text</link>            (const <link linkend="gchar">gchar</link> *text,
+                                             <link linkend="gssize">gssize</link> length);
+<link linkend="gchar">gchar</link>*      <link linkend="g-markup-printf-escaped">g_markup_printf_escaped</link>         (const <link linkend="char">char</link> *format,
+                                             ...);
+<link linkend="gchar">gchar</link>*      <link linkend="g-markup-vprintf-escaped">g_markup_vprintf_escaped</link>        (const <link linkend="char">char</link> *format,
+                                             <link linkend="va-list">va_list</link> args);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-markup-parse-context-end-parse">g_markup_parse_context_end_parse</link>
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             <link linkend="GError">GError</link> **error);
+<link linkend="void">void</link>        <link linkend="g-markup-parse-context-free">g_markup_parse_context_free</link>     (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context);
+<link linkend="void">void</link>        <link linkend="g-markup-parse-context-get-position">g_markup_parse_context_get_position</link>
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             <link linkend="gint">gint</link> *line_number,
+                                             <link linkend="gint">gint</link> *char_number);
+G_CONST_RETURN <link linkend="gchar">gchar</link>* <link linkend="g-markup-parse-context-get-element">g_markup_parse_context_get_element</link>
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context);
+<link linkend="GMarkupParseContext">GMarkupParseContext</link>* <link linkend="g-markup-parse-context-new">g_markup_parse_context_new</link>
+                                            (const <link linkend="GMarkupParser">GMarkupParser</link> *parser,
+                                             <link linkend="GMarkupParseFlags">GMarkupParseFlags</link> flags,
+                                             <link linkend="gpointer">gpointer</link> user_data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> user_data_dnotify);
+<link linkend="gboolean">gboolean</link>    <link linkend="g-markup-parse-context-parse">g_markup_parse_context_parse</link>    (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             const <link linkend="gchar">gchar</link> *text,
+                                             <link linkend="gssize">gssize</link> text_len,
+                                             <link linkend="GError">GError</link> **error);
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+The "GMarkup" parser is intended to parse a simple markup format
+that's a subset of XML. This is a small, efficient, easy-to-use
+parser. It should not be used if you expect to interoperate with other 
+applications generating full-scale XML. However, it's very useful for
+application data files, config files, etc. where you know your
+application will be the only one writing the file. Full-scale XML
+parsers should be able to parse the subset used by GMarkup, so you can
+easily migrate to full-scale XML at a later time if the need arises.
+</para>
+
+<para>
+GMarkup is not guaranteed to signal an error on all invalid XML; the
+parser may accept documents that an XML parser would not. However, invalid XML 
+documents are not considered valid GMarkup documents. 
+</para>
+
+<para>
+Simplifications to XML include:
+<itemizedlist>
+<listitem>
+<para>
+Only UTF-8 encoding is allowed.
+</para>
+</listitem>
+<listitem>
+<para>
+No user-defined entities.
+</para>
+</listitem>
+<listitem>
+<para>
+Processing instructions, comments and the doctype declaration are "passed through" but are not 
+interpreted in any way.
+</para>
+</listitem>
+<listitem>
+<para>
+No DTD or validation.
+</para>
+</listitem>
+</itemizedlist>
+</para>
+
+<para>
+The markup format does support:
+<itemizedlist>
+<listitem>
+<para>
+Elements
+</para>
+</listitem>
+<listitem>
+<para>
+Attributes
+</para>
+</listitem>
+<listitem>
+<para>
+5 standard entities: <literal>&amp;amp; &amp;lt; &amp;gt; &amp;quot; &amp;apos;</literal>
+</para>
+</listitem>
+<listitem>
+<para>
+Character references
+</para>
+</listitem>
+<listitem>
+<para>
+Sections marked as CDATA
+</para>
+</listitem>
+</itemizedlist>
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GMarkupError"/>enum GMarkupError</title>
+<indexterm><primary>GMarkupError</primary></indexterm><programlisting>typedef enum
+{
+  G_MARKUP_ERROR_BAD_UTF8,
+  G_MARKUP_ERROR_EMPTY,
+  G_MARKUP_ERROR_PARSE,
+  /* These three are primarily intended for specific GMarkupParser
+   * implementations to set.
+   */
+  G_MARKUP_ERROR_UNKNOWN_ELEMENT,
+  G_MARKUP_ERROR_UNKNOWN_ATTRIBUTE,
+  G_MARKUP_ERROR_INVALID_CONTENT
+} GMarkupError;
+</programlisting>
+<para>
+Error codes returned by markup parsing.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_BAD_UTF8</literal></term>
+<listitem><simpara>text being parsed was not valid UTF-8
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_EMPTY</literal></term>
+<listitem><simpara>document contained nothing, or only whitespace
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_PARSE</literal></term>
+<listitem><simpara>document was ill-formed
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_UNKNOWN_ELEMENT</literal></term>
+<listitem><simpara>error should be set by <link linkend="GMarkupParser"><type>GMarkupParser</type></link> functions; element wasn't known
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_UNKNOWN_ATTRIBUTE</literal></term>
+<listitem><simpara>error should be set by <link linkend="GMarkupParser"><type>GMarkupParser</type></link> functions; attribute wasn't known
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><literal>G_MARKUP_ERROR_INVALID_CONTENT</literal></term>
+<listitem><simpara>error should be set by <link linkend="GMarkupParser"><type>GMarkupParser</type></link> functions; something was wrong with contents of the document, e.g. invalid attribute value
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-MARKUP-ERROR-CAPS"/>G_MARKUP_ERROR</title>
+<indexterm><primary>G_MARKUP_ERROR</primary></indexterm><programlisting>#define G_MARKUP_ERROR g_markup_error_quark ()
+</programlisting>
+<para>
+Error domain for markup parsing. Errors in this domain will
+be from the <link linkend="GMarkupError"><type>GMarkupError</type></link> enumeration. See <link linkend="GError"><type>GError</type></link> for information on 
+error domains.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GMarkupParseFlags"/>enum GMarkupParseFlags</title>
+<indexterm><primary>GMarkupParseFlags</primary></indexterm><programlisting>typedef enum
+{
+  /* Hmm, can't think of any at the moment */
+  G_MARKUP_DO_NOT_USE_THIS_UNSUPPORTED_FLAG = 1 &lt;&lt; 0
+  
+} GMarkupParseFlags;
+</programlisting>
+<para>
+There are no flags right now. Pass "0" for the flags argument to all 
+functions.
+</para><variablelist role="enum">
+<varlistentry>
+<term><literal>G_MARKUP_DO_NOT_USE_THIS_UNSUPPORTED_FLAG</literal></term>
+<listitem><simpara>flag you should not use.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GMarkupParseContext"/>struct GMarkupParseContext</title>
+<indexterm><primary>GMarkupParseContext</primary></indexterm><programlisting>struct GMarkupParseContext;</programlisting>
+<para>
+A parse context is used to parse a stream of bytes that you expect to
+contain marked-up text. See <link linkend="g-markup-parse-context-new"><function>g_markup_parse_context_new()</function></link>,
+<link linkend="GMarkupParser"><type>GMarkupParser</type></link>, and so on for more details.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GMarkupParser"/>struct GMarkupParser</title>
+<indexterm><primary>GMarkupParser</primary></indexterm><programlisting>struct GMarkupParser {
+
+  /* Called for open tags &lt;foo bar="baz"&gt; */
+  void (*start_element)  (GMarkupParseContext *context,
+                          const gchar         *element_name,
+                          const gchar        **attribute_names,
+                          const gchar        **attribute_values,
+                          gpointer             user_data,
+                          GError             **error);
+
+  /* Called for close tags &lt;/foo&gt; */
+  void (*end_element)    (GMarkupParseContext *context,
+                          const gchar         *element_name,
+                          gpointer             user_data,
+                          GError             **error);
+
+  /* Called for character data */
+  /* text is not nul-terminated */
+  void (*text)           (GMarkupParseContext *context,
+                          const gchar         *text,
+                          gsize                text_len,  
+                          gpointer             user_data,
+                          GError             **error);
+
+  /* Called for strings that should be re-saved verbatim in this same
+   * position, but are not otherwise interpretable.  At the moment
+   * this includes comments and processing instructions.
+   */
+  /* text is not nul-terminated. */
+  void (*passthrough)    (GMarkupParseContext *context,
+                          const gchar         *passthrough_text,
+                          gsize                text_len,  
+                          gpointer             user_data,
+                          GError             **error);
+
+  /* Called on error, including one set by other
+   * methods in the vtable. The GError should not be freed.
+   */
+  void (*error)          (GMarkupParseContext *context,
+                          GError              *error,
+                          gpointer             user_data);
+};
+</programlisting>
+<para>
+Any of the fields in <link linkend="GMarkupParser"><type>GMarkupParser</type></link> can be <literal>NULL</literal>, in which case they
+will be ignored. Except for the <parameter>error</parameter> function, any of these
+callbacks can set an error; in particular the
+<literal>G_MARKUP_ERROR_UNKNOWN_ELEMENT</literal>, <literal>G_MARKUP_ERROR_UNKNOWN_ATTRIBUTE</literal>,
+and <literal>G_MARKUP_ERROR_INVALID_CONTENT</literal> errors are intended to be set 
+from these callbacks. If you set an error from a callback,
+<link linkend="g-markup-parse-context-parse"><function>g_markup_parse_context_parse()</function></link> will report that error back to its caller.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>start_element</structfield>) (GMarkupParseContext *context,
+                          const gchar         *element_name,
+                          const gchar        **attribute_names,
+                          const gchar        **attribute_values,
+                          gpointer             user_data,
+                          GError             **error)</term>
+<listitem><simpara>Callback to invoke when the opening tag of an element
+is seen.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>end_element</structfield>) (GMarkupParseContext *context,
+                          const gchar         *element_name,
+                          gpointer             user_data,
+                          GError             **error)</term>
+<listitem><simpara>Callback to invoke when the closing tag of an element is seen
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>text</structfield>) (GMarkupParseContext *context,
+                          const gchar         *text,
+                          gsize                text_len,  
+                          gpointer             user_data,
+                          GError             **error)</term>
+<listitem><simpara>Callback to invoke when some text is seen (text is always
+inside an element)
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>passthrough</structfield>) (GMarkupParseContext *context,
+                          const gchar         *passthrough_text,
+                          gsize                text_len,  
+                          gpointer             user_data,
+                          GError             **error)</term>
+<listitem><simpara>Callback to invoke for comments, processing
+instructions and doctype declarations; if you're re-writing the parsed document, write the
+passthrough text back out in the same position
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="void">void</link> (*<structfield>error</structfield>) (GMarkupParseContext *context,
+                          GError              *error,
+                          gpointer             user_data)</term>
+<listitem><simpara>Callback to invoke when an error occurs
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-escape-text"/>g_markup_escape_text ()</title>
+<indexterm><primary>g_markup_escape_text</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_markup_escape_text            (const <link linkend="gchar">gchar</link> *text,
+                                             <link linkend="gssize">gssize</link> length);</programlisting>
+<para>
+Escapes text so that the markup parser will parse it verbatim.
+Less than, greater than, ampersand, etc. are replaced with the
+corresponding entities. This function would typically be used
+when writing out a file to be parsed with the markup parser.
+</para>
+<para>
+Note that this function doesn't protect whitespace and line endings
+from being processed according to the XML rules for normalization
+of line endings and attribute values.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>text</parameter>&nbsp;:</term>
+<listitem><simpara> some valid UTF-8 text
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>length</parameter>&nbsp;:</term>
+<listitem><simpara> length of <parameter>text</parameter> in bytes
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> escaped text
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-printf-escaped"/>g_markup_printf_escaped ()</title>
+<indexterm role="2.4"><primary>g_markup_printf_escaped</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_markup_printf_escaped         (const <link linkend="char">char</link> *format,
+                                             ...);</programlisting>
+<para>
+Formats arguments according to <parameter>format</parameter>, escaping
+all string and character arguments in the fashion
+of <link linkend="g-markup-escape-text"><function>g_markup_escape_text()</function></link>. This is useful when you
+want to insert literal strings into XML-style markup
+output, without having to worry that the strings
+might themselves contain markup.
+</para>
+<para>
+<informalexample><programlisting>
+const char *store = "Fortnum &amp; Mason";
+const char *item = "Tea";
+char *output;
+&nbsp;
+output = g_markup_printf_escaped ("&lt;purchase&gt;"
+                                  "&lt;store&gt;&percnt;s&lt;/store&gt;"
+                                  "&lt;item&gt;&percnt;s&lt;/item&gt;"
+                                  "&lt;/purchase&gt;",
+                                  store, item);
+</programlisting></informalexample></para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>format</parameter>&nbsp;:</term>
+<listitem><simpara> <link linkend="printf"><function>printf()</function></link> style format string
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>...</parameter>&nbsp;:</term>
+<listitem><simpara> the arguments to insert in the format string
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> newly allocated result from formatting
+ operation. Free with <link linkend="g-free"><function>g_free()</function></link>.
+
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.4
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-markup-vprintf-escaped"/>g_markup_vprintf_escaped ()</title>
+<indexterm role="2.4"><primary>g_markup_vprintf_escaped</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_markup_vprintf_escaped        (const <link linkend="char">char</link> *format,
+                                             <link linkend="va-list">va_list</link> args);</programlisting>
+<para>
+Formats the data in <parameter>args</parameter> according to <parameter>format</parameter>, escaping
+all string and character arguments in the fashion
+of <link linkend="g-markup-escape-text"><function>g_markup_escape_text()</function></link>. See <link linkend="g-markup-printf-escaped"><function>g_markup_printf_escaped()</function></link>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>format</parameter>&nbsp;:</term>
+<listitem><simpara> <link linkend="printf"><function>printf()</function></link> style format string
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>args</parameter>&nbsp;:</term>
+<listitem><simpara> variable argument list, similar to <link linkend="vprintf"><function>vprintf()</function></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> newly allocated result from formatting
+ operation. Free with <link linkend="g-free"><function>g_free()</function></link>.
+
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.4
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-end-parse"/>g_markup_parse_context_end_parse ()</title>
+<indexterm><primary>g_markup_parse_context_end_parse</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_markup_parse_context_end_parse
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Signals to the <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link> that all data has been
+fed into the parse context with <link linkend="g-markup-parse-context-parse"><function>g_markup_parse_context_parse()</function></link>.
+This function reports an error if the document isn't complete,
+for example if elements are still open.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>context</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> return location for a <link linkend="GError"><type>GError</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> <literal>TRUE</literal> on success, <literal>FALSE</literal> if an error was set
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-free"/>g_markup_parse_context_free ()</title>
+<indexterm><primary>g_markup_parse_context_free</primary></indexterm><programlisting><link linkend="void">void</link>        g_markup_parse_context_free     (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context);</programlisting>
+<para>
+Frees a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>. Can't be called from inside
+one of the <link linkend="GMarkupParser"><type>GMarkupParser</type></link> functions.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>context</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-get-position"/>g_markup_parse_context_get_position ()</title>
+<indexterm><primary>g_markup_parse_context_get_position</primary></indexterm><programlisting><link linkend="void">void</link>        g_markup_parse_context_get_position
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             <link linkend="gint">gint</link> *line_number,
+                                             <link linkend="gint">gint</link> *char_number);</programlisting>
+<para>
+Retrieves the current line number and the number of the character on
+that line. Intended for use in error messages; there are no strict
+semantics for what constitutes the "current" line number other than
+"the best number we could come up with for error messages."</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>context</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>line_number</parameter>&nbsp;:</term>
+<listitem><simpara> return location for a line number, or <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>char_number</parameter>&nbsp;:</term>
+<listitem><simpara> return location for a char-on-line number, or <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-get-element"/>g_markup_parse_context_get_element ()</title>
+<indexterm role="2.2"><primary>g_markup_parse_context_get_element</primary></indexterm><programlisting>G_CONST_RETURN <link linkend="gchar">gchar</link>* g_markup_parse_context_get_element
+                                            (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context);</programlisting>
+<para>
+Retrieves the name of the currently open element.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>context</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> the name of the currently open element, or <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+</variablelist><para>Since  2.2
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-new"/>g_markup_parse_context_new ()</title>
+<indexterm><primary>g_markup_parse_context_new</primary></indexterm><programlisting><link linkend="GMarkupParseContext">GMarkupParseContext</link>* g_markup_parse_context_new
+                                            (const <link linkend="GMarkupParser">GMarkupParser</link> *parser,
+                                             <link linkend="GMarkupParseFlags">GMarkupParseFlags</link> flags,
+                                             <link linkend="gpointer">gpointer</link> user_data,
+                                             <link linkend="GDestroyNotify">GDestroyNotify</link> user_data_dnotify);</programlisting>
+<para>
+Creates a new parse context. A parse context is used to parse
+marked-up documents. You can feed any number of documents into
+a context, as long as no errors occur; once an error occurs,
+the parse context can't continue to parse text (you have to free it
+and create a new parse context).</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>parser</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParser"><type>GMarkupParser</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>flags</parameter>&nbsp;:</term>
+<listitem><simpara> one or more <link linkend="GMarkupParseFlags"><type>GMarkupParseFlags</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara> user data to pass to <link linkend="GMarkupParser"><type>GMarkupParser</type></link> functions
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data_dnotify</parameter>&nbsp;:</term>
+<listitem><simpara> user data destroy notifier called when the parse context is freed
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a new <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-markup-parse-context-parse"/>g_markup_parse_context_parse ()</title>
+<indexterm><primary>g_markup_parse_context_parse</primary></indexterm><programlisting><link linkend="gboolean">gboolean</link>    g_markup_parse_context_parse    (<link linkend="GMarkupParseContext">GMarkupParseContext</link> *context,
+                                             const <link linkend="gchar">gchar</link> *text,
+                                             <link linkend="gssize">gssize</link> text_len,
+                                             <link linkend="GError">GError</link> **error);</programlisting>
+<para>
+Feed some data to the <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>. The data need not
+be valid UTF-8; an error will be signaled if it's invalid.
+The data need not be an entire document; you can feed a document
+into the parser incrementally, via multiple calls to this function.
+Typically, as you receive data from a network connection or file,
+you feed each received chunk of data into this function, aborting
+the process if an error occurs. Once an error is reported, no further
+data may be fed to the <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>; all errors are fatal.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>context</parameter>&nbsp;:</term>
+<listitem><simpara> a <link linkend="GMarkupParseContext"><type>GMarkupParseContext</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>text</parameter>&nbsp;:</term>
+<listitem><simpara> chunk of text to parse
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>text_len</parameter>&nbsp;:</term>
+<listitem><simpara> length of <parameter>text</parameter> in bytes
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> return location for a <link linkend="GError"><type>GError</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> <literal>FALSE</literal> if an error occurred, <literal>TRUE</literal> on success
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

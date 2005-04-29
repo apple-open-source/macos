@@ -29,6 +29,9 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
+	Revision 1.12  2005/02/18 03:19:03  niels
+	fix isight
+	
 	Revision 1.11  2003/09/20 00:54:17  collin
 	*** empty log message ***
 	
@@ -597,7 +600,8 @@ IOFWUserPseudoAddressSpace::doPacket(
 					currentHeader->CommonHeader.next,
 					destOffset,
 					& fSkippedPacketAsyncNotificationRef ) ;
-	
+			
+			fLastWrittenHeader = currentHeader ;
 		}
 
 		// if we can't handle the packet, and the hardware hasn't already responded,

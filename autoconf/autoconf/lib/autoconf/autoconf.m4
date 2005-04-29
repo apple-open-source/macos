@@ -104,10 +104,10 @@ m4_copy_unm4([m4_undivert])
 # Yet some people have started to use m4_patsubst and m4_regexp.
 m4_define([m4_patsubst],
 [m4_expand_once([m4_warn([syntax],
-                 [do not use m4_patsubst: use patsubst or m4_bpatsubst])])dnl
+		 [do not use m4_patsubst: use patsubst or m4_bpatsubst])])dnl
 patsubst($@)])
 
 m4_define([m4_regexp],
 [m4_expand_once([m4_warn([syntax],
-                 [do not use m4_regexp: use regexp or m4_bregexp])])dnl
+		 [do not use m4_regexp: use regexp or m4_bregexp])])dnl
 regexp($@)])

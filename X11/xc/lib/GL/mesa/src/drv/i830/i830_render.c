@@ -26,7 +26,7 @@
  * Adapted for use on the I830:
  *    Jeff Hartmann <jhartmann@2d3d.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_render.c,v 1.2 2002/12/10 01:26:53 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/i830/i830_render.c,v 1.3 2003/09/28 20:15:14 alanh Exp $ */
 
 /*
  * Render unclipped vertex buffers by emitting vertices directly to
@@ -36,10 +36,9 @@
 #include "glheader.h"
 #include "context.h"
 #include "macros.h"
-#include "mem.h"
+#include "imports.h"
 #include "mtypes.h"
 #include "enums.h"
-#include "mmath.h"
 
 #include "tnl/t_context.h"
 
@@ -123,7 +122,7 @@ static void VERT_FALLBACK( GLcontext *ctx,
    tnl->Driver.Render.BuildVertices( ctx, start, count, ~0 );
    tnl->Driver.Render.PrimTabVerts[flags&PRIM_MODE_MASK]( ctx, start, 
 							  count, flags );
-   I830_CONTEXT(ctx)->SetupNewInputs = VERT_CLIP;
+   I830_CONTEXT(ctx)->SetupNewInputs = VERT_BIT_CLIP;
 }
 
 
@@ -206,7 +205,7 @@ static GLboolean i830_run_render( GLcontext *ctx,
       return GL_TRUE;
    }
 
-   imesa->SetupNewInputs = VERT_CLIP;
+   imesa->SetupNewInputs = VERT_BIT_CLIP;
 
    tnl->Driver.Render.Start( ctx );
    
@@ -227,19 +226,19 @@ static GLboolean i830_run_render( GLcontext *ctx,
 static void i830_check_render( GLcontext *ctx, 
 			       struct gl_pipeline_stage *stage )
 {
-   GLuint inputs = VERT_CLIP|VERT_RGBA;
+   GLuint inputs = VERT_BIT_CLIP | VERT_BIT_COLOR0;
    if (ctx->RenderMode == GL_RENDER) {
       if (ctx->_TriangleCaps & DD_SEPARATE_SPECULAR)
-	 inputs |= VERT_SPEC_RGB;
+	 inputs |= VERT_BIT_COLOR1;
 
       if (ctx->Texture.Unit[0]._ReallyEnabled)
-	 inputs |= VERT_TEX(0);
+	 inputs |= VERT_BIT_TEX0;
 
       if (ctx->Texture.Unit[1]._ReallyEnabled)
-	 inputs |= VERT_TEX(1);
+	 inputs |= VERT_BIT_TEX1;
 
       if (ctx->Fog.Enabled)
-	 inputs |= VERT_FOG_COORD;
+	 inputs |= VERT_BIT_FOG;
    }
 
    stage->inputs = inputs;

@@ -1,0 +1,26 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>man</string>
+	<key>OpenSourceVersion</key>
+	<string>1.5o1</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>ftp://ftp.kernel.org/pub/linux/utils/man/</string>
+	<key>OpenSourceURL</key>
+	<string>ftp://ftp.kernel.org/pub/linux/utils/man/man-1.5o1.tar.bz2</string>
+	<key>OpenSourceMD5</key>
+	<string>ead468e61db27ffb4e416a15bc40aaeb</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-29</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Disabled makewhatis, man2html, and man2dvi.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>GPL</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>man.txt</string>
+</dict>
+</array>
+</plist>

@@ -1,0 +1,228 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		406F0EF2072F143A0000E40A = {
+			children = (
+				406F0F00072F162A0000E40A,
+			);
+			isa = PBXGroup;
+			path = doc;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		406F0EFF072F15F50000E40A = {
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				406F0F01072F162A0000E40A,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		406F0F00072F162A0000E40A = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = text;
+			path = security_authtrampoline.8;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		406F0F01072F162A0000E40A = {
+			fileRef = 406F0F00072F162A0000E40A;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		407C1B2705645F8E00E61071 = {
+			children = (
+				407C1B2805645F8E00E61071,
+			);
+			isa = PBXGroup;
+			path = src;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		407C1B2805645F8E00E61071 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = AuthorizationTrampoline.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		407C1B2905645F8E00E61071 = {
+			fileRef = 407C1B2805645F8E00E61071;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		407C1B450564601C00E61071 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Security.framework;
+			path = /System/Library/Frameworks/Security.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		407C1B4A0564602600E61071 = {
+			children = (
+				407C1B450564601C00E61071,
+				407C1B66056461C200E61071,
+			);
+			isa = PBXGroup;
+			name = Frameworks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		407C1B66056461C200E61071 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = security_utilities.framework;
+			path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+//400
+//401
+//402
+//403
+//404
+//4C0
+//4C1
+//4C2
+//4C3
+//4C4
+		4CA1FEAC052A3C5800F22E42 = {
+			children = (
+				406F0EF2072F143A0000E40A,
+				407C1B2705645F8E00E61071,
+				4CA1FEB7052A3C6D00F22E42,
+				407C1B4A0564602600E61071,
+			);
+			isa = PBXGroup;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4CA1FEAE052A3C5800F22E42 = {
+			buildSettings = {
+				BUILD_VARIANTS = debug;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		4CA1FEAF052A3C5800F22E42 = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+		4CA1FEB0052A3C5800F22E42 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				4CA1FEAE052A3C5800F22E42,
+				4CA1FEAF052A3C5800F22E42,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 4CA1FEAC052A3C5800F22E42;
+			productRefGroup = 4CA1FEB7052A3C6D00F22E42;
+			projectDirPath = "";
+			targets = (
+				4CA1FEB5052A3C6D00F22E42,
+			);
+		};
+		4CA1FEB1052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB2052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+				407C1B2905645F8E00E61071,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB3052A3C6D00F22E42 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4CA1FEB5052A3C6D00F22E42 = {
+			buildPhases = (
+				4CA1FEB1052A3C6D00F22E42,
+				4CA1FEB2052A3C6D00F22E42,
+				4CA1FEB3052A3C6D00F22E42,
+				406F0EFF072F15F50000E40A,
+			);
+			buildSettings = {
+				BUILD_VARIANTS = "normal debug profile";
+				CURRENT_PROJECT_VERSION = 4;
+				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = 4711;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = /usr/libexec;
+				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_ASFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CFLAGS = "";
+				OTHER_CFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_CPLUSPLUSFLAGS_debug = "$(OTHER_CFLAGS) -O0 -fno-inline";
+				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
+				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
+				OTHER_LDFLAGS = "";
+				OTHER_LDFLAGS_debug = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_debug\" \"-framework\" \"security_utilities,_debug\"";
+				OTHER_LDFLAGS_normal = "$(OTHER_LDFLAGS)  \"-framework\" \"Security\" \"-framework\" \"security_utilities\"";
+				OTHER_LDFLAGS_profile = "$(OTHER_LDFLAGS)  \"-framework\" \"Security,_profile\" \"-framework\" \"security_utilities,_profile\"-pg";
+				PRODUCT_NAME = security_authtrampoline;
+				SECTORDER_FLAGS = "";
+				VERSIONING_SYSTEM = "apple-generic";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+			);
+			isa = PBXToolTarget;
+			name = security_authtrampoline;
+			productInstallPath = /System/Library/CoreServices;
+			productName = security_authtrampoline;
+			productReference = 4CA1FEB6052A3C6D00F22E42;
+		};
+		4CA1FEB6052A3C6D00F22E42 = {
+			explicitFileType = "compiled.mach-o.executable";
+			isa = PBXFileReference;
+			path = security_authtrampoline;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4CA1FEB7052A3C6D00F22E42 = {
+			children = (
+				4CA1FEB6052A3C6D00F22E42,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 4CA1FEB0052A3C5800F22E42;
+}

@@ -25,9 +25,6 @@
  * 3DLabs Gamma driver.
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "gamma_context.h"
 #include "gamma_vb.h"
 #include "gamma_tris.h"
@@ -154,6 +151,7 @@ gamma_fallback_line( gammaContextPtr gmesa,
 }
 
 
+#if 0
 static void 
 gamma_fallback_point( gammaContextPtr gmesa, 
 		      const gammaVertex *v0 )
@@ -163,6 +161,7 @@ gamma_fallback_point( gammaContextPtr gmesa,
    gamma_translate_vertex( ctx, v0, &v[0] );
    _swrast_Point( ctx, &v[0] );
 }
+#endif
 
 
 /***********************************************************************
@@ -180,7 +179,7 @@ gamma_fallback_point( gammaContextPtr gmesa,
 #define LINE_FALLBACK (0)
 #define TRI_FALLBACK (0)
 
-void gammaChooseRasterState(GLcontext *ctx)
+static void gammaChooseRasterState(GLcontext *ctx)
 {
    gammaContextPtr gmesa = GAMMA_CONTEXT(ctx);
    GLuint flags = ctx->_TriangleCaps;
@@ -193,7 +192,7 @@ void gammaChooseRasterState(GLcontext *ctx)
    else
       gmesa->Begin &= ~B_AntiAliasEnable;
 
-   if ( ctx->Texture._ReallyEnabled ) {
+   if ( ctx->Texture.Unit[0]._ReallyEnabled ) {
       ind |= GAMMA_RAST_TEX_BIT;
       gmesa->Begin |= B_TextureEnable;
    } else

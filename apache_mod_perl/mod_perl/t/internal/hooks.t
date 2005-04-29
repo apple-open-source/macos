@@ -7,6 +7,7 @@ undef &cp, *cp = sub { system "cp @_"; } if $File::Copy::VERSION < 2.0;
 use ExtUtils::testlib;
 BEGIN { require "net/config.pl"; }
 require LWP::UserAgent;
+require URI::URL;
 
 #first one queries httpd for enabled hooks, 
 #generating a hook::handler() for each and writing t/docs/.htaccess

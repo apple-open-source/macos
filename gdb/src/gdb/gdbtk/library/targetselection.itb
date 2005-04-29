@@ -1,5 +1,5 @@
 # Target selection dialog for Insight.
-# Copyright 1997, 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
+# Copyright 1997, 1998, 1999, 2000, 2001, 2002, 2003 Red Hat, Inc.
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License (GPL) as published by
@@ -400,13 +400,13 @@ itcl::body TargetSelection::build_win {} {
   # target name
   label $fr.tarl -text [gettext "Target:"]
   combobox::combobox $fr.tar -editable 0 -command [code $this change_target] \
-    -width $Width -maxheight 10
+    -width $Width -maxheight 10 -bg $::Colors(textbg)
 
   # baud rate combobox
   label $fr.cbl -text [gettext "Baud Rate:"]
   combobox::combobox $fr.cb -editable 0 -command [code $this change_baud] \
     -textvariable [pref varname gdb/load/$target-baud] -width $Width \
-    -maxheight 10
+    -maxheight 10 -bg $::Colors(textbg)
 
   if {[catch {gdb_cmd "show remotebaud"} res]} {
     set baud [pref get gdb/load/$target-baud]
@@ -436,7 +436,7 @@ itcl::body TargetSelection::build_win {} {
   label $fr.portl -text [gettext "Port:"]
   combobox::combobox $fr.port -editable $editable \
     -textvariable [pref varname gdb/load/$target-port] \
-    -width $Width -maxheight 10
+    -width $Width -maxheight 10 -bg $::Colors(textbg)
 
   # load baud rates into combobox
   fill_rates
@@ -547,7 +547,6 @@ itcl::body TargetSelection::build_win {} {
   set rm_frame [iwidgets::labeledframe $frame.run_method -labelpos nw -labeltext "Run Method" ]
   set RunMethod [ $rm_frame childsite ]
 
-  set rm_label [label $frame.label -text "Run Method:"]
   set var [pref varname gdb/src/run_cont]
   radiobutton $RunMethod.cont -text {Continue from Last Stop} -value 1 -variable $var \
     -command [code $this set_run run]
@@ -560,9 +559,8 @@ itcl::body TargetSelection::build_win {} {
   set _after_entry [entry $frame.aftere]
   label $frame.afterl -text {Command to issue after attaching:}
 
-  grid $frame.label -column 1 -row 0 -sticky w
-  grid $frame.attach -column 0 -row 1 -ipady 2
-  grid $frame.load -column 0 -row 2 -ipady 2
+  grid $frame.attach -column 0 -row 1 -padx 10 -sticky w
+  grid $frame.load -column 0 -row 2 -padx 10 -sticky w
 
   grid $RunMethod.run -column 0 -row 1 -sticky w -ipady 2
   grid $RunMethod.cont -column 0 -row 2 -sticky w -ipady 2
@@ -877,12 +875,16 @@ itcl::body TargetSelection::port_list {} {
   # which is OK because we may be using it or the user
   # may be setting up the remote target manually with
   # a terminal program.
-  for {set i 1} {$i < 9} { incr i} {
+  set quit 0
+  for {set i 1} {!$quit} {incr i} {
     if {[catch { set fd [::open COM$i: RDWR] } msg]} {
       # Failed.  Find out why.
       if {[string first "permission denied" $msg] != -1} {
 	# Port is there, but busy right now. That's OK.
 	lappend plist com$i
+      } elseif {$i > 4} {
+	# if we've scanned the first 4 ports, then quit when we find no more 
+	set quit 1
       }
     } else {
       # We got it.  Now close it and add to list.

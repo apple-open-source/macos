@@ -3,12 +3,10 @@
 /* { dg-do compile } */
 #include <objc/objc.h>
 
-/* APPLE LOCAL begin test suite */
 /* The NeXT runtime headers do not define NULL.  */
 #ifndef NULL
 #define NULL ((void *)0)
 #endif
-/* APPLE LOCAL end test suite */
 
 @protocol MyProtocol
 - (void) method;

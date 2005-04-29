@@ -1,0 +1,141 @@
+
+SCP=bash admin/aapscp
+HERE=`os.getcwd()`
+:python
+    from __future__ import generators
+    import winreg
+    from aapwin import quickdict, getValueFromReg, pathdb
+
+    sys.path.insert(0, os.getcwd())
+
+    def renderDatafilesToIss(data_files):
+        """Iterate a distutils-style data_files list, yielding strings
+        suitable for inserting into the [Files] section of a .iss
+        """
+        itemtmpl=r'Source: "%(twhome)s\%(what)s"; DestDir: "{app}\%(where)s"; Flags: ignoreversion'
+        for dirset in data_files:
+            dirname=dirset[0]
+            idct=quickdict(where=dirname, twhome=_recipe.HERE)
+            filenames=dirset[1]
+            for f in filenames:
+                normf=os.path.normpath(f)
+                i2dct=quickdict(idct, what=normf)
+                yield itemtmpl % i2dct
+
+
+    def geniss(iss_template, dodocs):
+        """Return the inno setup file"""
+        tdct=quickdict(setupbase=_top.setupbase, version=_top.Version,
+                       pyversion=_top.pyversion)
+        template='%(setupbase)s-%(version)s.win32-py%(pyversion)s' % tdct
+
+        import setup
+        df=list(renderDatafilesToIss(setup.setup_args['data_files']))
+        data_files='\n'.join(df)
+
+        docdct=quickdict(pyversion=_top.pyversion, twversion=_top.Version, 
+                         twhome=_recipe.HERE, 
+                         docfile=r'Source: "%s\doc\twisteddoc.zip"; DestDir: "{app}"' % _recipe.HERE,
+                         outputbasefilename=template,
+                         datafiles=data_files,
+                         )
+        nodocdct=quickdict(docdct, docfile='')
+
+        if dodocs:
+            dct=docdct
+        else:
+            dct=nodocdct
+
+        return iss_template % dct
+
+    def getBuildingTwistedVersion():
+        """Return the version of Twisted in $HERE, which may be
+        different from the version of Twisted in sys.path.
+        """
+        globs=globals().copy()
+        execfile("./twisted/copyright.py", globs)
+        return globs['version']
+
+# get the version of twisted from the tree being built, not sys.path
+Version=`getBuildingTwistedVersion()`
+
+# PyVersion is variant rather than a regular string variable so the script
+# will accept only one of these two values
+:variant PyVersion
+    py2.2
+        pyversion=2.2
+        pyhome=`_no.pathdb["python22"]`
+        pyexe=$(pyhome)\python.exe
+    py2.3
+        pyversion=2.3
+        pyhome=`_no.pathdb["python23"]`
+        pyexe=$(pyhome)\python.exe
+
+:variant DoDocs
+    nodocs
+        setupbase=Twisted_NoDocs
+    withdocs
+        setupbase=Twisted
+
+
+all: dist/$(setupbase)-$(Version).win32-py$(pyversion).exe
+    :print : Done building $(target)
+
+# find all the files that can cause a rebuild with setup.py
+:syseval find twisted -name '*.c' -o -name '*.h' | :assign CSources
+# don't try to build the .c files automatically...
+:attr {filetype = ignore} $(CSources)
+
+:syseval find twisted -name '*.py' -o -name '*.sql' -o -name '*.glade*'  | :assign TwSources
+TwSources+=twisted/plugins.tml
+           twisted/lore/template.mgp
+           twisted/test/process.alias.sh
+           twisted/test/rfc822.message
+           twisted/test/server.pem
+           twisted/web/woven/FlashConduit*
+           twisted/web/woven/WebConduit*
+           twisted/xish/xpathparser.g
+           $(CSources)
+           win32/twisted_postinstall.py
+
+# publish to sf.net
+:attr {publish=scp://shell.sf.net//home/groups/t/tw/twisted/htdocs/$(setupbase)-$(Version).win32-py$(pyversion).exe} dist/$(setupbase)-$(Version).win32-py$(pyversion).exe
+
+# only run setup.py when needed
+build/scripts-$(pyversion) build/lib.win32-$(pyversion): $TwSources
+    :sys $(pyexe) setup.py -q  clean --all build --compiler=mingw32
+
+# build with inno
+ExeDeps=py$(pyversion)-$(DoDocs).iss
+        build/lib.win32-$(pyversion)
+        build/scripts-$(pyversion)
+        $(TwSources)
+
+iscc=`pathdb["iscc"]`
+dist/Twisted-$(Version).win32-py$(pyversion).exe: doc/twisteddoc.zip $(ExeDeps)
+    :sys "$(iscc)" py$(pyversion)-withdocs.iss
+
+# build with inno
+dist/Twisted_NoDocs-$(Version).win32-py$(pyversion).exe: $(ExeDeps)
+    :sys "$(iscc)" py$(pyversion)-nodocs.iss
+
+
+# fetch docs from latest release (this better be there)
+:attr {fetch=http://twisted.sf.net/TwistedDocs-$(Version).tar.bz2} doc/TwistedDocs-$(Version).tar.bz2
+
+# uncompress and rezip doc
+doc/twisteddoc.zip: doc/TwistedDocs-$(Version).tar.bz2
+    :chdir doc
+    @if not os.path.isdir('TwistedDocs-%s' % _no.Version):
+        :sys tar xfj TwistedDocs-$(Version).tar.bz2
+    :chdir TwistedDocs-$(Version)
+    :sys zip -rq ../twisteddoc.zip *
+
+# generate iss files
+py$(pyversion)-$(DoDocs).iss: win32/pyx.x-foo.iss.template twisted/copyright.py
+    @docs=(_top.DoDocs == 'withdocs')
+    # file2string is fucked, don't use
+    @tmpl=file('win32/pyx.x-foo.iss.template').read()
+    @iss=_top.geniss(tmpl, docs)
+    @file(target, 'w').write(iss)
+

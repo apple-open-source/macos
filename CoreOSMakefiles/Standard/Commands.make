@@ -94,6 +94,9 @@ ifneq ($(USER),root)
 INSTALL_DIRECTORY = $(INSTALL) -m $(Install_Directory_Mode) -d
 INSTALL_FILE      = $(INSTALL) -m $(Install_File_Mode)
 INSTALL_PROGRAM   = $(INSTALL) -m $(Install_Program_Mode)   -s
+INSTALL_DYLIB     = $(INSTALL) -m $(Install_Program_Mode)   -S "-S"
+INSTALL_LIBRARY   = $(INSTALL) -m $(Install_File_Mode)      -S "-S"
+INSTALL_SCRIPT    = $(INSTALL) -m $(Install_Program_Mode)
 endif
 
 ##

@@ -1,3 +1,55 @@
+Version 1.3b7 changes
+---------------------
+- implemented RTS flow control in checkQueue
+- can't do RTS in dbdma chain w/out race w/workloop() writeReg
+- cleaned up dbdma read program to remove RTS set/clear
+- fixed DTR flow to pay attn to low-water mark instead of just !high-water
+- fixed CTS handling to pay attn to CTS signal value
+- fixed flow-control mode setting to clear blocked i/o's if needed
+
+Version 1.3b6 changes
+---------------------
+- deleted a large amount of unused variables out of the classes
+- rewrote dbdma command allocation to use a common pool for rx/tx
+- rewrote rx to use a simple double-buffer chain instead of a loop
+- added RTS set/clear in the rx dbdma chain
+- <rdar://problem/3999457> serial driver dma loops instead of providing a 'stop' at the end
+
+Version 1.3b5 changes
+---------------------
+- merge changes from branch PR-3999521
+- nuke remaining IOLocks
+- pass in workloop to queue creation for debugging gate lock
+- put requestEvent work on the command gate
+- put interrupt work on the command gate
+- some debugging updates
+
+- merge changes from branch PR-4000732
+- create our own workloop since our provider's is blocked a lot
+- <rdar://problem/4000732> serial driver needs its own workloop
+
+Version 1.3b4 changes
+---------------------
+- <rdar://problem/3822193> Use of obsolete and unsupported thread_call_func
+
+Version 1.3b3 changes
+---------------------
+- <rdar://problem/3866434> Removing CFBundleShortVersionString and CFBundleGetInfoString keys from your localizable content
+- <rdar://problem/3840202> specifies "-mno-string" in wrong place in XCode
+- <rdar://problem/3822193> Use of obsolete and unsupported thread_call_func* interfaces
+
+Version 1.3b2 changes
+---------------------
+- <rdar://problem/3748295> AppleRS232Serial KPI: Remove import of <kern/cpu_data.h>
+- sanity: added -mno-string to compiler opts (<rdar://problem/3509006>)
+
+Version 1.3b1 changes
+---------------------
+- matched on AAPL,connector=DB9 instead of name
+- removed matching checks in start() per above
+- <rdar://problem/3321808>: AppleRS574Serial.kext should only load on machines w/ a serial port
+- todo: figure out why matching needs STRING DB9 instead of DATA like the ch-a actually has.
+
 Version 1.2.4f1 changes
 ------------------------
 - switch to xcode
@@ -22,9 +74,6 @@ Misc Notes
 ---------------------------------------------------------------------------------------------
 
 Version number checklist
-    Resources/InfoPlist.strings
-	1) CFBundleShortVersionString (*)
-	2) CFBundleGetInfoString
     Target
 	Settings/Expert View
 	    3) MODULE_VERSION
@@ -36,6 +85,4 @@ Version number checklist
     (*) strip build info off these
 
 NameRevs
-    cvs tag AppleRS232Serial-1-2-4f1
-
- 	    
+    cvs tag AppleRS232Serial-1-3b7

@@ -1,175 +1,190 @@
 /**************************************************************************
 
 Copyright 2000 Silicon Integrated Systems Corp, Inc., HsinChu, Taiwan.
+Copyright 2003 Eric Anholt
 All Rights Reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the
-"Software"), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sub license, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+on the rights to use, copy, modify, merge, publish, distribute, sub
+license, and/or sell copies of the Software, and to permit persons to whom
+the Software is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice (including the
-next paragraph) shall be included in all copies or substantial portions
-of the Software.
+The above copyright notice and this permission notice (including the next
+paragraph) shall be included in all copies or substantial portions of the
+Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
-IN NO EVENT SHALL PRECISION INSIGHT AND/OR ITS SUPPLIERS BE LIABLE FOR
-ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
+ERIC ANHOLT OR SILICON INTEGRATED SYSTEMS CORP BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
+USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
-/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_fog.c,v 1.3 2000/09/26 15:56:48 tsi Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/sis/sis_fog.c,v 1.5 2003/12/09 00:15:22 alanh Exp $ */
 
 /*
  * Authors:
- *    Sung-Ching Lin <sclin@sis.com.tw>
- *
+ *   Sung-Ching Lin <sclin@sis.com.tw>
+ *   Eric Anholt <anholt@FreeBSD.org>
  */
 
-#include "sis_ctx.h"
-#include "sis_mesa.h"
+#include "sis_context.h"
+#include "sis_state.h"
+#include "swrast/swrast.h"
 
-static DWORD convertFtToFogFt (DWORD dwInValue);
+#include "mmath.h"
+
+static GLint convertFtToFogFt( GLfloat dwInValue );
 
 void
-sis_Fogfv (GLcontext * ctx, GLenum pname, const GLfloat * params)
+sisDDFogfv( GLcontext *ctx, GLenum pname, const GLfloat *params )
 {
-  XMesaContext xmesa = (XMesaContext) ctx->DriverCtx;
-  __GLSiScontext *hwcx = (__GLSiScontext *) xmesa->private;
-  __GLSiSHardware *current = &hwcx->current;
+   sisContextPtr smesa = SIS_CONTEXT(ctx);
+   __GLSiSHardware *prev = &smesa->prev;
+   __GLSiSHardware *current = &smesa->current;
 
-  GLubyte dwFogColor[4];
-  DWORD dwArg;
-  float fArg;
+   float fArg;
+   GLint fogColor;
 
-  switch (pname)
-    {
-    case GL_FOG_MODE:
-      current->hwFog &= ~(FOGMODE_LINEAR | FOGMODE_EXP | FOGMODE_EXP2);
+   switch (pname)
+   {
+   case GL_FOG_MODE:
+      current->hwFog &= ~MASK_FogMode;
       switch (ctx->Fog.Mode)
-	{
-	case GL_LINEAR:
-	  current->hwFog |= FOGMODE_LINEAR;
-	  break;
-	case GL_EXP:
-	  current->hwFog |= FOGMODE_EXP;
-	  break;
-	case GL_EXP2:
-	  current->hwFog |= FOGMODE_EXP2;
-	  break;
-	}
+      {
+      case GL_LINEAR:
+         current->hwFog |= FOGMODE_LINEAR;
+         break;
+      case GL_EXP:
+         current->hwFog |= FOGMODE_EXP;
+         break;
+      case GL_EXP2:
+         current->hwFog |= FOGMODE_EXP2;
+         break;
+      }
+      if (current->hwFog != prev->hwFog) {
+         prev->hwFog = current->hwFog;
+         smesa->GlobalFlag |= GFLAG_FOGSETTING;
+      }
       break;
-    case GL_FOG_DENSITY:
-      dwArg = *(DWORD *) (&(ctx->Fog.Density));
-      current->hwFogDensity = 0;
-      current->hwFogDensity |= convertFtToFogFt (dwArg);
+   case GL_FOG_DENSITY:
+      current->hwFogDensity = convertFtToFogFt( ctx->Fog.Density );
+      if (current->hwFogDensity != prev->hwFogDensity) {
+         prev->hwFogDensity = current->hwFogDensity;
+         smesa->GlobalFlag |= GFLAG_FOGSETTING;
+      }
       break;
-    case GL_FOG_START:
-    case GL_FOG_END:
+   case GL_FOG_START:
+   case GL_FOG_END:
       fArg = 1.0 / (ctx->Fog.End - ctx->Fog.Start);
-      current->hwFogInverse = doFPtoFixedNoRound (*(DWORD *) (&fArg), 10);
+      current->hwFogInverse = doFPtoFixedNoRound( fArg, 10 );
       if (pname == GL_FOG_END)
-	{
-	  dwArg = *(DWORD *) (&(ctx->Fog.End));
-	  if (hwcx->Chipset == PCI_CHIP_SIS300)
-	    {
-	      current->hwFogFar = doFPtoFixedNoRound (dwArg, 10);
-	    }
-	  else
-	    {
-	      current->hwFogFar = doFPtoFixedNoRound (dwArg, 6);
-	    }
-	}
+      {
+         if (smesa->Chipset == PCI_CHIP_SIS300)
+            current->hwFogFar = doFPtoFixedNoRound( ctx->Fog.End, 10 );
+         else
+            current->hwFogFar = doFPtoFixedNoRound( ctx->Fog.End, 6 );
+      }
+      if (current->hwFogFar != prev->hwFogFar ||
+          current->hwFogInverse != prev->hwFogInverse)
+      {
+         prev->hwFogFar = current->hwFogFar;
+         prev->hwFogInverse = current->hwFogInverse;
+         smesa->GlobalFlag |= GFLAG_FOGSETTING;
+      }
       break;
-    case GL_FOG_INDEX:
+   case GL_FOG_INDEX:
       /* TODO */
       break;
-    case GL_FOG_COLOR:
-      *((DWORD *) dwFogColor) = 0;
-      dwFogColor[2] =  (GLubyte)((ctx->Fog.Color[0]) * 255.0);
-      dwFogColor[1] =  (GLubyte)((ctx->Fog.Color[1]) * 255.0);
-      dwFogColor[0] =  (GLubyte)((ctx->Fog.Color[2]) * 255.0);
+   case GL_FOG_COLOR:
+      fogColor  = FLOAT_TO_UBYTE( ctx->Fog.Color[0] ) << 16;
+      fogColor |= FLOAT_TO_UBYTE( ctx->Fog.Color[1] ) << 8;
+      fogColor |= FLOAT_TO_UBYTE( ctx->Fog.Color[2] );
       current->hwFog &= 0xff000000;
-      current->hwFog |= *((DWORD *) dwFogColor);
+      current->hwFog |= fogColor;
+      if (current->hwFog != prev->hwFog) {
+          prev->hwFog = current->hwFog;
+         smesa->GlobalFlag |= GFLAG_FOGSETTING;
+      }
       break;
-    }
+   }
 }
 
-DWORD
-doFPtoFixedNoRound (DWORD dwInValue, int nFraction)
+GLint
+doFPtoFixedNoRound( GLfloat dwInValue, int nFraction )
 {
-  DWORD dwMantissa;
-  int nTemp;
+   GLint dwMantissa;
+   int nTemp;
+   union { int i; float f; } u;
+   GLint val;
 
-  if (dwInValue == 0)
-    return 0;
-  nTemp = (int) (dwInValue & 0x7F800000) >> 23;
-  nTemp = nTemp - 127 + nFraction - 23;
-  dwMantissa = (dwInValue & 0x007FFFFF) | 0x00800000;
+   u.f = dwInValue;
+   val = u.i;
 
-  if (nTemp < -25)
-    return 0;
-  if (nTemp > 0)
-    {
+   if (val == 0)
+      return 0;
+   nTemp = (int) (val & 0x7F800000) >> 23;
+   nTemp = nTemp - 127 + nFraction - 23;
+   dwMantissa = (val & 0x007FFFFF) | 0x00800000;
+
+   if (nTemp < -25)
+       return 0;
+   if (nTemp > 0)
       dwMantissa <<= nTemp;
-    }
-  else
-    {
+   else {
       nTemp = -nTemp;
       dwMantissa >>= nTemp;
-    }
-  if (dwInValue & 0x80000000)
-    {
+   }
+   if (val & 0x80000000)
       dwMantissa = ~dwMantissa + 1;
-    }
-  return (dwMantissa);
+   return dwMantissa;
 }
 
 /* s[8].23->s[7].10 */
-static DWORD
-convertFtToFogFt (DWORD dwInValue)
+static GLint
+convertFtToFogFt( GLfloat dwInValue )
 {
-  DWORD dwMantissa, dwExp;
-  DWORD dwRet;
+   GLint dwMantissa, dwExp;
+   GLint dwRet;
+   union { int i; float f; } u;
+   GLint val;
 
-  if (dwInValue == 0)
-    return 0;
+   u.f = dwInValue;
+   val = u.i;
 
-  /* ----- Standard float Format: s[8].23                          -----
-   * -----     = (-1)^S * 2^(E      - 127) * (1 + M        / 2^23) -----
-   * -----     = (-1)^S * 2^((E-63) -  64) * (1 + (M/2^13) / 2^10) -----
-   * ----- Density float Format:  s[7].10                          -----
-   * -----     New Exponential = E - 63                            -----
-   * -----     New Mantissa    = M / 2^13                          -----
-   * -----                                                         -----
-   */
+   if (val == 0)
+      return 0;
 
-  dwExp = (dwInValue & 0x7F800000) >> 23;
-  dwExp -= 63;
+   /* ----- Standard float Format: s[8].23                          -----
+    * -----     = (-1)^S * 2^(E      - 127) * (1 + M        / 2^23) -----
+    * -----     = (-1)^S * 2^((E-63) -  64) * (1 + (M/2^13) / 2^10) -----
+    * ----- Density float Format:  s[7].10                          -----
+    * -----     New Exponential = E - 63                            -----
+    * -----     New Mantissa    = M / 2^13                          -----
+    * -----                                                         -----
+    */
 
-  if ((LONG) dwExp < 0)
-    return 0;
+   dwExp = (val & 0x7F800000) >> 23;
+   dwExp -= 63;
 
-  if (dwExp <= 0x7F)
-    {
-      dwMantissa = (dwInValue & 0x007FFFFF) >> (23 - 10);
-    }
-  else
-    {
+   if (dwExp < 0)
+      return 0;
+
+   if (dwExp <= 0x7F)
+      dwMantissa = (val & 0x007FFFFF) >> (23 - 10);
+   else {
       /* ----- To Return +Max(or -Max) ----- */
       dwExp = 0x7F;
       dwMantissa = 0x3FF;
-    }
+   }
 
-  dwRet = (dwInValue & 0x80000000) >> (31 - 17);  /* Shift Sign Bit */
+   dwRet = (val & 0x80000000) >> (31 - 17);  /* Shift Sign Bit */
 
-  dwRet |= (dwExp << 10) | dwMantissa;
+   dwRet |= (dwExp << 10) | dwMantissa;
 
-  return (dwRet);
+   return dwRet;
 }

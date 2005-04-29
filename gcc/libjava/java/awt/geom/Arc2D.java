@@ -1,5 +1,5 @@
 /* Arc2D.java -- represents an arc in 2-D space
-   Copyright (C) 2002 Free Software Foundation
+   Copyright (C) 2002, 2003 Free Software Foundation
 
 This file is part of GNU Classpath.
 
@@ -50,7 +50,7 @@ import java.util.NoSuchElementException;
  * and while the angle can be any value, the path iterator only traverses the
  * first 360 degrees. Storage is up to the subclasses.
  *
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.2
  * @status updated to 1.4, but still missing functionality
  */
@@ -126,9 +126,11 @@ public abstract class Arc2D extends RectangularShape
    */
   public Point2D getStartPoint()
   {
-    double angle = getAngleStart() * (-180 / Math.PI);
-    double x = (Math.cos(angle) * getWidth() + getX()) / 2;
-    double y = (Math.sin(angle) * getHeight() + getY()) / 2;
+    double angle = Math.toRadians(getAngleStart());
+    double rx = getWidth() / 2;
+    double ry = getHeight() / 2;
+    double x = getX() + rx + rx * Math.cos(angle);
+    double y = getY() + ry - ry * Math.sin(angle);
     return new Point2D.Double(x, y);
   }
 
@@ -139,9 +141,11 @@ public abstract class Arc2D extends RectangularShape
    */
   public Point2D getEndPoint()
   {
-    double angle = (getAngleStart() + getAngleExtent()) * (-180 / Math.PI);
-    double x = (Math.cos(angle) * getWidth() + getX()) / 2;
-    double y = (Math.sin(angle) * getHeight() + getY()) / 2;
+    double angle = Math.toRadians(getAngleStart() + getAngleExtent());
+    double rx = getWidth() / 2;
+    double ry = getHeight() / 2;
+    double x = getX() + rx + rx * Math.cos(angle);
+    double y = getY() + ry - ry * Math.sin(angle);
     return new Point2D.Double(x, y);
   }
 
@@ -280,9 +284,10 @@ public abstract class Arc2D extends RectangularShape
    */
   public void setAngleStart(Point2D p)
   {
-    double x = ((p.getX() * 2) - getX()) / getWidth();
-    double y = ((p.getY() * 2) - getY()) / getHeight();
-    setAngleStart(Math.atan2(y, x) * (-180 / Math.PI));
+    // Normalize.
+    double x = p.getX() - (getX() + getWidth() / 2);
+    double y = p.getY() - (getY() + getHeight() / 2);
+    setAngleStart(Math.toDegrees(Math.atan2(y, x)));
   }
 
   /**
@@ -303,12 +308,12 @@ public abstract class Arc2D extends RectangularShape
     double my = getY();
     double mw = getWidth();
     double mh = getHeight();
-    x1 = ((x1 * 2) - mx) / mw;
-    y1 = ((y1 * 2) - my) / mh;
-    x2 = ((x2 * 2) - mx) / mw;
-    y2 = ((y2 * 2) - my) / mh;
-    double start = Math.atan2(y1, x1) * (-180 / Math.PI);
-    double extent = Math.atan2(y2, x2) * (-180 / Math.PI) - start;
+    x1 = x1 - (mx + mw / 2);
+    y1 = y1 - (my + mh / 2);
+    x2 = x2 - (mx + mw / 2);
+    y2 = y2 - (my + mh / 2);
+    double start = Math.toDegrees(Math.atan2(y1, x1));
+    double extent = Math.toDegrees(Math.atan2(y2, x2)) - start;
     if (extent < 0)
       extent += 360;
     setAngleStart(start);
@@ -372,8 +377,31 @@ public abstract class Arc2D extends RectangularShape
     double extent = getAngleExtent();
     if (Math.abs(extent) >= 360)
       return makeBounds(getX(), getY(), getWidth(), getHeight());
-    // XXX Finish implementing.
-    throw new Error("not implemented");
+
+    // Find the minimal bounding box.  This determined by its extrema,
+    // which are the center, the endpoints of the arc, and any local
+    // maximum contained by the arc.
+    double rX = getWidth() / 2;
+    double rY = getHeight() / 2;
+    double centerX = getX() + rX;
+    double centerY = getY() + rY;
+
+    Point2D p1 = getStartPoint();
+    Rectangle2D result = makeBounds(p1.getX(), p1.getY(), 0, 0);
+    result.add(getEndPoint());
+
+    if (type == PIE)
+      result.add(centerX, centerY);
+    if (containsAngle(0))
+      result.add(centerX + rX, centerY);
+    if (containsAngle(90))
+      result.add(centerX, centerY - rY);
+    if (containsAngle(180))
+      result.add(centerX - rX, centerY);
+    if (containsAngle(270))
+      result.add(centerX, centerY + rY);
+
+    return result;
   }
 
   /**
@@ -390,16 +418,29 @@ public abstract class Arc2D extends RectangularShape
 
   /**
    * Tests if the given angle, in degrees, is included in the arc.
-   *
-   * XXX Does this normalize all angles to -180 - 180 first?
+   * All angles are normalized to be between 0 and 360 degrees.
    *
    * @param a the angle to test
    * @return true if it is contained
    */
   public boolean containsAngle(double a)
   {
-    // XXX Implement.
-    throw new Error("not implemented");
+    double start = getAngleStart();
+    double end = start + getAngleExtent();
+
+    start %= 360;
+    if (start < 0)
+      start += 360;
+
+    end %= 360;
+    if (end < 0)
+      end += 360;
+
+    a %= 360;
+    if (a < 0)
+      a += 360;
+
+    return a >= start && a <= end;
   }
 
   /**
@@ -486,7 +527,7 @@ public abstract class Arc2D extends RectangularShape
    * This class is used to iterate over an arc. Since ellipses are a subclass
    * of arcs, this is used by Ellipse2D as well.
    *
-   * @author Eric Blake <ebb9@email.byu.edu>
+   * @author Eric Blake (ebb9@email.byu.edu)
    */
   static final class ArcIterator implements PathIterator
   {
@@ -541,11 +582,11 @@ public abstract class Arc2D extends RectangularShape
         limit = -1;
       else if (e == 0)
         limit = type;
-      else if (e <= 90)
+      else if (e <= Math.PI / 2.0)
         limit = type + 1;
-      else if (e <= 180)
+      else if (e <= Math.PI)
         limit = type + 2;
-      else if (e <= 270)
+      else if (e <= 3.0 * (Math.PI / 2.0))
         limit = type + 3;
       else
         limit = type + 4;
@@ -608,36 +649,11 @@ public abstract class Arc2D extends RectangularShape
      */
     public int currentSegment(float[] coords)
     {
-      if (current > limit)
-        throw new NoSuchElementException("arc iterator out of bounds");
-      if (current == 0)
-        {
-          coords[0] = (float) (Math.cos(start) * w + x) / 2;
-          coords[1] = (float) (Math.sin(start) * h + y) / 2;
-          if (xform != null)
-            xform.transform(coords, 0, coords, 0, 1);
-          return SEG_MOVETO;
-        }
-      if (type != OPEN && current == limit)
-        return SEG_CLOSE;
-      if (type == PIE && current == limit - 1)
-        {
-          coords[0] = (float) (x + w / 2);
-          coords[1] = (float) (y + h / 2);
-          if (xform != null)
-            xform.transform(coords, 0, coords, 0, 1);
-          return SEG_LINETO;
-        }
-      // XXX Fill coords with 2 control points and next quarter point
-      coords[0] = (float) 0;
-      coords[1] = (float) 0;
-      coords[2] = (float) 0;
-      coords[3] = (float) 0;
-      coords[4] = (float) 0;
-      coords[5] = (float) 0;
-      if (xform != null)
-        xform.transform(coords, 0, coords, 0, 3);
-      return SEG_CUBICTO;
+      double[] double_coords = new double[6];
+      int code = currentSegment (double_coords);
+      for (int i = 0; i < 6; ++i)
+        coords[i] = (float) double_coords[i];
+      return code;
     }
 
     /**
@@ -650,35 +666,99 @@ public abstract class Arc2D extends RectangularShape
      */
     public int currentSegment(double[] coords)
     {
+      double rx = w/2;
+      double ry = h/2;
+      double xmid = x + rx;
+      double ymid = y + ry;
+     
       if (current > limit)
         throw new NoSuchElementException("arc iterator out of bounds");
+
       if (current == 0)
         {
-          coords[0] = (Math.cos(start) * w + x) / 2;
-          coords[1] = (Math.sin(start) * h + y) / 2;
+          coords[0] = xmid + rx * Math.cos(start);
+          coords[1] = ymid - ry * Math.sin(start);
           if (xform != null)
             xform.transform(coords, 0, coords, 0, 1);
           return SEG_MOVETO;
         }
+
       if (type != OPEN && current == limit)
         return SEG_CLOSE;
-      if (type == PIE && current == limit - 1)
+
+      if ((current == limit - 1) &&
+          (type == PIE) || (type == CHORD))
         {
-          coords[0] = (float) (x + w / 2);
-          coords[1] = (float) (y + h / 2);
+          if (type == PIE)
+            {
+              coords[0] = xmid;
+              coords[1] = ymid;
+            }
+          else if (type == CHORD)
+            {
+              coords[0] = xmid + rx * Math.cos(start);
+              coords[1] = ymid - ry * Math.sin(start);
+            }
           if (xform != null)
             xform.transform(coords, 0, coords, 0, 1);
           return SEG_LINETO;
         }
-      // XXX Fill coords with 2 control points and next quarter point
-      coords[0] = 0;
-      coords[1] = 0;
-      coords[2] = 0;
-      coords[3] = 0;
-      coords[4] = 0;
-      coords[5] = 0;
+
+      // note that this produces a cubic approximation of the arc segment,
+      // not a true ellipsoid. there's no ellipsoid path segment code,
+      // unfortunately. the cubic approximation looks about right, though.
+
+      double kappa = (Math.sqrt(2.0) - 1.0) * (4.0 / 3.0);
+      double quad = (Math.PI / 2.0);
+
+      double curr_begin = start + (current - 1) * quad;
+      double curr_extent = Math.min((start + extent) - curr_begin, quad);
+      double portion_of_a_quadrant = curr_extent / quad;
+
+      double x0 = xmid + rx * Math.cos(curr_begin);
+      double y0 = ymid - ry * Math.sin(curr_begin);
+      
+      double x1 = xmid + rx * Math.cos(curr_begin + curr_extent);
+      double y1 = ymid - ry * Math.sin(curr_begin + curr_extent);
+
+      AffineTransform trans = new AffineTransform ();
+      double [] cvec = new double[2];
+      double len = kappa * portion_of_a_quadrant; 
+      double angle = curr_begin; 
+
+      // in a hypothetical "first quadrant" setting, our first control
+      // vector would be sticking up, from [1,0] to [1,kappa].
+      //
+      // let us recall however that in java2d, y coords are upside down
+      // from what one would consider "normal" first quadrant rules, so we
+      // will *subtract* the y value of this control vector from our first
+      // point.
+      
+      cvec[0] = 0;
+      cvec[1] = len;
+      trans.scale (rx, ry);
+      trans.rotate (angle);
+      trans.transform(cvec, 0, cvec, 0, 1);
+      coords[0] = x0 + cvec[0];
+      coords[1] = y0 - cvec[1];
+
+      // control vector #2 would, ideally, be sticking out and to the
+      // right, in a first quadrant arc segment. again, subtraction of y.
+
+      cvec[0] = 0;
+      cvec[1] = -len;
+      trans.rotate (curr_extent);
+      trans.transform(cvec, 0, cvec, 0, 1);
+      coords[2] = x1 + cvec[0];
+      coords[3] = y1 - cvec[1];
+      
+      // end point
+      coords[4] = x1;
+      coords[5] = y1;
+
       if (xform != null)
         xform.transform(coords, 0, coords, 0, 3);
+
       return SEG_CUBICTO;
     }
   } // class ArcIterator
@@ -686,7 +766,7 @@ public abstract class Arc2D extends RectangularShape
   /**
    * This class implements an arc in double precision.
    *
-   * @author Eric Blake <ebb9@email.byu.edu
+   * @author Eric Blake (ebb9@email.byu.edu)
    * @since 1.2
    */
   public static class Double extends Arc2D
@@ -905,7 +985,7 @@ public abstract class Arc2D extends RectangularShape
   /**
    * This class implements an arc in float precision.
    *
-   * @author Eric Blake <ebb9@email.byu.edu
+   * @author Eric Blake (ebb9@email.byu.edu)
    * @since 1.2
    */
   public static class Float extends Arc2D

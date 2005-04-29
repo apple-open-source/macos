@@ -24,7 +24,7 @@
  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS 
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/FS/FSOpenFont.c,v 1.6 2001/12/14 19:53:33 dawes Exp $ */
+/* $XFree86: xc/lib/FS/FSOpenFont.c,v 1.7 2003/12/22 17:48:02 tsi Exp $ */
 
 /*
 
@@ -62,7 +62,7 @@ FSOpenBitmapFont(svr, hint, fmask, name, otherid)
     char       *name;
     Font       *otherid;
 {
-    unsigned char nbytes;
+    unsigned int nbytes;
     fsOpenBitmapFontReq *req;
     fsOpenBitmapFontReply reply;
     Font        fid;

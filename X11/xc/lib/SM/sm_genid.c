@@ -1,8 +1,8 @@
 /* $Xorg: sm_genid.c,v 1.4 2001/02/09 02:03:30 xorgcvs Exp $ */
-
 /*
 
 Copyright 1993, 1998  The Open Group
+Copyright 2002 Sun Microsystems, Inc.
 
 Permission to use, copy, modify, distribute, and sell this software and its
 documentation for any purpose is hereby granted without fee, provided that
@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/SM/sm_genid.c,v 3.15 2001/12/14 19:53:55 dawes Exp $ */
+/* $XFree86: xc/lib/SM/sm_genid.c,v 3.18 2004/01/20 03:36:27 dawes Exp $ */
 
 /*
  * Author: Ralph Mor, X Consortium
@@ -120,7 +120,7 @@ SmsGenerateClientID (smsConn)
 {
 #if defined(TCPCONN) || defined(STREAMSCONN)
     char hostname[256];
-    char address[14];
+    char address[64];
     char temp[256];
     char *id;
     static int sequence = 0;
@@ -133,15 +133,46 @@ SmsGenerateClientID (smsConn)
     char temp[4], *ptr1, *ptr2;
     unsigned char decimal[4];
     int i, len;
+    struct in_addr *haddr = NULL;
+#if defined(IPv6) && defined(AF_INET6)
+    struct addrinfo *ai, *first_ai;
+    if (getaddrinfo(hostname,NULL,NULL,&ai) != 0)
+	return NULL;
+
+    for (first_ai = ai; ai != NULL; ai = ai->ai_next) {
+	if ( (ai->ai_family == AF_INET) || (ai->ai_family == AF_INET6) ) 
+	    break;
+    }
+    if (ai == NULL) {
+	freeaddrinfo(first_ai);
+	return NULL;
+    } 
+
+    if (ai->ai_family == AF_INET6) {
+	unsigned char *cp = (unsigned char *) &((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr.s6_addr;
+	
+	address[0] = '6';	/* IPv6 address code */
+	address[1] = '\0';
+
+	for (i = 0 ; i < 16 ; i++) {
+	    strcat(address, hex_table[cp[i]]);
+	}
+
+    } else { /* Fall through to IPv4 address handling */
+	haddr = &((struct sockaddr_in *)ai->ai_addr)->sin_addr;
+#else
 #ifdef XTHREADS_NEEDS_BYNAMEPARAMS
     _Xgethostbynameparams hparams;
 #endif
     struct hostent *hostp;
 
     if ((hostp = _XGethostbyname (hostname,hparams)) != NULL)
-	inet_addr = inet_ntoa (*(struct in_addr *)(hostp->h_addr));
+	haddr = (struct in_addr *)(hostp->h_addr);
     else
 	return NULL;
+#endif
+
+    inet_addr = inet_ntoa (*haddr);
     for (i = 0, ptr1 = inet_addr; i < 3; i++)
     {
 	ptr2 = strchr (ptr1, '.');
@@ -160,10 +191,14 @@ SmsGenerateClientID (smsConn)
     address[1] = '\0';
     for (i = 0; i < 4; i++)
 	strcat (address, hex_table[decimal[i]]);
+#if defined(IPv6) && defined(AF_INET6)
+    }
+    freeaddrinfo(first_ai);
+#endif
     }
 
-    sprintf (temp, "1%s%.13ld%.10ld%.4d", address, time((Time_t*)0),
-        (long)getpid(), sequence);
+    sprintf (temp, "1%s%.13ld%.10ld%.4d", address, (long)time((Time_t*)0),
+	     (long)getpid(), sequence);
 
     if (++sequence > 9999)
 	sequence = 0;

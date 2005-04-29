@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: mark.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>
 
 #include "config.h"
@@ -1373,6 +1370,7 @@ struct paster *pa;
     free(pa->pa_pastebuf);
   pa->pa_pastebuf = 0;
   pa->pa_pasteptr = 0;
+  pa->pa_pastelen = 0;
   pa->pa_pastelayer = 0;
   evdeq(&pa->pa_slowev);
 }

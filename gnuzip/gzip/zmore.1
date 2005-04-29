@@ -42,7 +42,7 @@ Other sequences which may be typed when
 pauses, and their effects, are as follows (\fIi\fP is an optional integer
 argument, defaulting to 1) :
 .PP
-.IP \fIi\|\fP<space>
+.IP \fIi\^\fP<space>
 display
 .I i
 more lines, (or another screenful if no argument is given)
@@ -51,20 +51,20 @@ more lines, (or another screenful if no argument is given)
 display 11 more lines (a ``scroll'').
 If
 .I i
-is given, then the scroll size is set to \fIi\|\fP.
+is given, then the scroll size is set to \fIi\fP.
 .PP
 .IP d
 same as ^D (control-D)
 .PP
-.IP \fIi\|\fPz
-same as typing a space except that \fIi\|\fP, if present, becomes the new
+.IP \fIi\^\fPz
+same as typing a space except that \fIi\fP, if present, becomes the new
 window size.  Note that the window size reverts back to the default at the
 end of the current file.
 .PP
-.IP \fIi\|\fPs
-skip \fIi\|\fP lines and print a screenful of lines
+.IP \fIi\^\fPs
+skip \fIi\fP lines and print a screenful of lines
 .PP
-.IP \fIi\|\fPf
+.IP \fIi\^\fPf
 skip \fIi\fP screenfuls and print a screenful of lines
 .PP
 .IP "q or Q"
@@ -83,8 +83,8 @@ is printed, this command causes zmore to skip the next file and continue.
 .IP =
 Display the current line number.
 .PP
-.IP \fIi\|\fP/expr
-search for the \fIi\|\fP-th occurrence of the regular expression \fIexpr.\fP
+.IP \fIi\fP/expr
+search for the \fIi\^\fP-th occurrence of the regular expression \fIexpr.\fP
 If the pattern is not found,
 .I zmore
 goes on to the next file (if any).
@@ -94,12 +94,12 @@ The user's erase and kill characters may be used to edit the regular
 expression.
 Erasing back past the first column cancels the search command.
 .PP
-.IP \fIi\|\fPn
-search for the \fIi\|\fP-th occurrence of the last regular expression entered.
+.IP \fIi\^\fPn
+search for the \fIi\^\fP-th occurrence of the last regular expression entered.
 .PP
 .IP !command
-invoke a shell with \fIcommand\|\fP. 
-The character `!' in "command" are replaced with the
+invoke a shell with \fIcommand\fP. 
+The character `!' in "command" is replaced with the
 previous shell command.  The sequence "\\!" is replaced by "!".
 .PP
 .IP ":q or :Q"
@@ -139,7 +139,8 @@ acts just like
 .I zcat,
 except that a header is printed before each file.
 .SH FILES
-.DT
-/etc/termcap		Terminal data base
+.TP
+/etc/termcap
+Terminal data base
 .SH "SEE ALSO"
 more(1), gzip(1), zdiff(1), zgrep(1), znew(1), zforce(1), gzexe(1)

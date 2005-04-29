@@ -664,9 +664,9 @@ int gdb_is_var_defined(char *theVariable);
     /* Returns 1 if the specified convenience variable is defined and 0 if it is not. */       
 
 /*--------------------------------------------------------------------------------------*/
-		       /*---------------------------------------*
-		        | Direct Register Manipulation Routines |
-			*---------------------------------------*/
+		   /*----------------------------------------------*
+		    | Direct Register and PC Manipulation Routines |
+		    *----------------------------------------------*/
 
 char *gdb_set_register(char *theRegister, void *value, int size);
     /* Set the value of theRegister (e.g., "$r0") from the size bytes in the specified
@@ -687,26 +687,39 @@ char *gdb_set_register(char *theRegister, void *value, int size);
        32-bit registers.  The gdb_set_register() routine is intended mainly for setting
        larger register data types like the AltiVec 16-byte registers. */
 
-void *gdb_get_register(char *theRegister, void *value, int *size);
+void *gdb_get_register(char *theRegister, void *value);
     /* Returns the value of theRegister (e.g., "$r0") in the provided value buffer.  The
-       value pointer is returned as the function result and the value is copied (size
-       bytes) to the specified buffer.  If the register is invalid, or its value cannot
-       be obtained, NULL is returned and the value buffer is set with a character string
-       appropriate to the error.
- 
-       The following errors are possible:
+       value pointer is returned as the function result and the value is copied to the
+       specified buffer (assumed large enough to hold the value and at least 4 bytes). If
+       the register is invalid, or its value cannot be obtained, NULL is returned and the
+       value buffer (treated as a long* pointer) is set with one of the following error
+       codes:
+											*/
+       typedef enum {
+	  Gdb_GetReg_NoRegs = 1,		/* no registers available at this time		*/
+	  Gdb_GetReg_NoFrame,		/* no frame selected				*/
+	  Gdb_GetReg_BadReg,		/* bad register (gdb doesn't know this register)*/
+	  Gdb_GetReg_NoValue,		/* value not available				*/
+       } Gdb_GetReg_Error;
+       											/*
+       Note, that it is recommended that the more general gdb_get_int() be used for 32-bit
+       registers WHEN EFFICIENCY IS NOT CRITICAL!.  The gdb_get_register() routine is
+       intended mainly for reading larger register data types like the AltiVec 16-byte
+       registers and in places where a lot of registers need to be read in a minimum 
+       amount of time.
+       
+       The reason for the emphasis on efficiency is that it has been discovered that
+       expression evaluation (i.e., like that done by gdb_get_int()) can get relatively
+       slow on certain targets (where there are many active symbol tables) due to a large
+       amount of table searches. So if you wanted a whole set of registers at once, that
+       operation is noticably slow(er).  Using this routine doesn't involve expression
+       evaluation and is quite a bit faster. */
 
-	 no registers available at this time
-	 no frame selected
-	 bad register
-	 value not available
-
-       Obviously the buffer should be large enough to hold these error messages (for
-       safety make it at least 50 bytes long).
+unsigned long gdb_get_sp(void);
+    /* Returns the value of the stack pointer.
  
-       Note, that it is recommended that the more general gdb_get_int() be used for
-       32-bit registers.  The gdb_get_register() routine is intended mainly for reading
-       larger register data types like the AltiVec 16-byte registers. */
+       Note, you can also use gdb_get_int("$sp") but this is provided as a more
+       efficient alternative.  See above comment. */
 
 /*--------------------------------------------------------------------------------------*/
 			     /*----------------------------*
@@ -714,13 +727,13 @@ void *gdb_get_register(char *theRegister, void *value, int *size);
 			      *----------------------------*/
     
 unsigned long gdb_read_memory(void *dst, char *src, int n);
-    /* The n bytes in the target's memory represented by the src expression string are
-       copied to the plugin memory specified by dst.  The dst is returned as the
-       function result. The target actual address is returned as the function result. */
+    /* The abs(n) bytes in the target's memory represented by the src expression 
+       *string* (n >= 0) or src *value* (n < 0) are copied to the plugin memory specified
+       by dst.  The target actual address is returned as the function result. */
 
 void gdb_write_memory(char *dst, void *src, int n);
-    /* The n bytes from the (plugin) src are written to the target memory represented by
-       the dst expression string. */
+    /* The abs(n) bytes from the (plugin) src are written to the target memory address 
+       represented by the dst expression *string* (n > = 0) or dst *value* (n < 0). */
 
 /*--------------------------------------------------------------------------------------*/
 				   /*----------------*

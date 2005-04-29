@@ -10,10 +10,9 @@ PRTYPE=ps
 PRCMD="lpr"
 DIALPREFIX="T"
 DIALSUFFIX=""
-LOCK='-x /var/spool/lock/LCK..$DEV'
+LOCK=''
 OWNER=
 MODE=
-UMASK=027
 DCMD=
 VCMD=
 
@@ -25,6 +24,7 @@ fi
 ANSRINGS=`defaults read /Library/Preferences/com.apple.print.FaxPrefs RingCount`
 if [ "x$ANSRINGS" = "x" ]; then
 	echo "$0: can't read FaxPrefs RingCount" >&2
+	ANSRINGS="0"
 fi
 
 # HOME must be defined to get sites.py to add /Library... to sitedirs

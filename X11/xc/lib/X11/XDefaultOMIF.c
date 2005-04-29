@@ -41,7 +41,7 @@ interest in or to any trademark, service mark, logo or trade name of
 Sun Microsystems, Inc. or its licensors is granted.
 
 */
-/* $XFree86: xc/lib/X11/XDefaultOMIF.c,v 1.3 2002/09/18 17:11:42 tsi Exp $ */
+/* $XFree86: xc/lib/X11/XDefaultOMIF.c,v 1.6 2003/11/17 22:20:09 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xlcint.h"
@@ -99,8 +99,8 @@ typedef struct _XOCGenericRec {
 } XOCGenericRec, *XOCGeneric;
 
 static Bool
-init_fontset(oc)
-    XOC oc;
+init_fontset(
+    XOC oc)
 {
     XOCGenericPart *gen;
     FontSet font_set;
@@ -123,9 +123,9 @@ init_fontset(oc)
 }
 
 static char *
-get_prop_name(dpy, fs)
-    Display *dpy;
-    XFontStruct	*fs;
+get_prop_name(
+    Display *dpy,
+    XFontStruct	*fs)
 {
     unsigned long fp;
 
@@ -136,9 +136,9 @@ get_prop_name(dpy, fs)
 }
 
 static FontData
-check_charset(font_set, font_name)
-    FontSet font_set;
-    char *font_name;
+check_charset(
+    FontSet font_set,
+    char *font_name)
 {
     FontData font_data;
     char *last;
@@ -165,9 +165,9 @@ check_charset(font_set, font_name)
 
 #if 0 /* Unused */
 static int
-check_fontname(oc, name)
-XOC oc;
-char *name;
+check_fontname(
+    XOC oc,
+    char *name)
 {
     Display *dpy = oc->core.om->core.display;
     XOCGenericPart *gen = XOC_GENERIC(oc);
@@ -220,8 +220,8 @@ char *name;
 #endif
 
 static Bool
-load_font(oc)
-    XOC oc;
+load_font(
+    XOC oc)
 {
     Display *dpy = oc->core.om->core.display;
     XOCGenericPart *gen = XOC_GENERIC(oc);
@@ -238,9 +238,10 @@ load_font(oc)
     return True;
 }
 
+#if 0
 static Bool
-load_font_info(oc)
-    XOC oc;
+load_font_info(
+    XOC oc)
 {
     Display *dpy = oc->core.om->core.display;
     XOCGenericPart *gen = XOC_GENERIC(oc);
@@ -263,10 +264,11 @@ load_font_info(oc)
     }
     return True;
 }
+#endif
 
 static void
-set_fontset_extents(oc)
-    XOC oc;
+set_fontset_extents(
+    XOC oc)
 {
     XRectangle *ink = &oc->core.font_set_extents.max_ink_extent;
     XRectangle *logical = &oc->core.font_set_extents.max_logical_extent;
@@ -293,8 +295,8 @@ set_fontset_extents(oc)
 }
 
 static Bool
-init_core_part(oc)
-    XOC oc;
+init_core_part(
+    XOC oc)
 {
     XOCGenericPart *gen = XOC_GENERIC(oc);
     FontSet font_set;
@@ -355,9 +357,9 @@ err:
 }
 
 static char *
-get_font_name(oc, pattern)
-    XOC oc;
-    char *pattern;
+get_font_name(
+    XOC oc,
+    char *pattern)
 {
     char **list, *name, *prop_name;
     int count;
@@ -388,8 +390,8 @@ get_font_name(oc, pattern)
 }
 
 static int
-parse_fontname(oc)
-    XOC oc;
+parse_fontname(
+    XOC oc)
 {
     XOCGenericPart *gen = XOC_GENERIC(oc);
     FontSet font_set;
@@ -550,8 +552,8 @@ err:
 }
 
 static Bool
-set_missing_list(oc)
-    XOC oc;
+set_missing_list(
+    XOC oc)
 {
     XOCGenericPart *gen = XOC_GENERIC(oc);
     FontSet font_set;
@@ -592,8 +594,8 @@ set_missing_list(oc)
 }
 
 static Bool
-create_fontset(oc)
-    XOC oc;
+create_fontset(
+    XOC oc)
 {
     int found_num;
 
@@ -620,8 +622,8 @@ create_fontset(oc)
 }
 
 static void
-destroy_oc(oc)
-    XOC oc;
+destroy_oc(
+    XOC oc)
 {
     Display *dpy = oc->core.om->core.display;
     XOCGenericPart *gen = XOC_GENERIC(oc);
@@ -660,10 +662,10 @@ destroy_oc(oc)
 }
 
 static char *
-set_oc_values(oc, args, num_args)
-    XOC oc;
-    XlcArgList args;
-    int num_args;
+set_oc_values(
+    XOC oc,
+    XlcArgList args,
+    int num_args)
 {
     if (oc->core.resources == NULL)
 	return NULL;
@@ -673,10 +675,10 @@ set_oc_values(oc, args, num_args)
 }
 
 static char *
-get_oc_values(oc, args, num_args)
-    XOC oc;
-    XlcArgList args;
-    int num_args;
+get_oc_values(
+    XOC oc,
+    XlcArgList args,
+    int num_args)
 {
     if (oc->core.resources == NULL)
 	return NULL;
@@ -686,11 +688,11 @@ get_oc_values(oc, args, num_args)
 }
 
 static Bool
-wcs_to_mbs(oc, to, from, length)
-    XOC oc;
-    char *to;
-    _Xconst wchar_t *from;
-    int length;
+wcs_to_mbs(
+    XOC oc,
+    char *to,
+    _Xconst wchar_t *from,
+    int length)
 {
     XlcConv conv = XOC_GENERIC(oc)->wcs_to_cs;
     XLCd lcd;
@@ -714,27 +716,13 @@ wcs_to_mbs(oc, to, from, length)
 }
 
 static int
-#if NeedFunctionPrototypes
 _XmbDefaultTextEscapement(XOC oc, _Xconst char *text, int length)
-#else
-_XmbDefaultTextEscapement(oc, text, length)
-    XOC oc;
-    char *text;
-    int length;
-#endif
 {
     return XTextWidth(*oc->core.font_info.font_struct_list, text, length);
 }
 
 static int
-#if NeedFunctionPrototypes
 _XwcDefaultTextEscapement(XOC oc, _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultTextEscapement(oc, text, length)
-    XOC oc;
-    wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -755,17 +743,8 @@ err:
 }
 
 static int
-#if NeedFunctionPrototypes
 _XmbDefaultTextExtents(XOC oc, _Xconst char *text, int length,
 		       XRectangle *overall_ink, XRectangle *overall_logical)
-#else
-_XmbDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
-    XOC oc;
-    char *text;
-    int length;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     int direction, logical_ascent, logical_descent;
     XCharStruct overall;
@@ -791,17 +770,8 @@ _XmbDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
 }
 
 static int
-#if NeedFunctionPrototypes
 _XwcDefaultTextExtents(XOC oc, _Xconst wchar_t *text, int length,
 		       XRectangle *overall_ink, XRectangle *overall_logical)
-#else
-_XwcDefaultTextExtents(oc, text, length, overall_ink, overall_logical)
-    XOC oc;
-    wchar_t *text;
-    int length;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -822,25 +792,11 @@ err:
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XmbDefaultTextPerCharExtents(XOC oc, _Xconst char *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XmbDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
-			      num_chars, overall_ink, overall_logical)
-    XOC oc;
-    char *text;	
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     XFontStruct *font = *oc->core.font_info.font_struct_list;
     XCharStruct *def, *cs, overall;
@@ -905,25 +861,11 @@ _XmbDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
 }
 
 static Status
-#if NeedFunctionPrototypes
 _XwcDefaultTextPerCharExtents(XOC oc, _Xconst wchar_t *text, int length,
 			      XRectangle *ink_buf, XRectangle *logical_buf,
 			      int buf_size, int *num_chars,
 			      XRectangle *overall_ink,
 			      XRectangle *overall_logical)
-#else
-_XwcDefaultTextPerCharExtents(oc, text, length, ink_buf, logical_buf, buf_size,
-			      num_chars, overall_ink, overall_logical)
-    XOC oc;
-    wchar_t *text;
-    int length;
-    XRectangle *ink_buf;
-    XRectangle *logical_buf;
-    int buf_size;
-    int *num_chars;
-    XRectangle *overall_ink;
-    XRectangle *overall_logical;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -946,19 +888,8 @@ err:
 }
 
 static int
-#if NeedFunctionPrototypes
 _XmbDefaultDrawString(Display *dpy, Drawable d, XOC oc, GC gc, int x, int y,
 		      _Xconst char *text, int length)
-#else
-_XmbDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    char *text;
-    int length;
-#endif
 {
     XFontStruct *font = *oc->core.font_info.font_struct_list;
 
@@ -969,19 +900,8 @@ _XmbDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
 }
 
 static int
-#if NeedFunctionPrototypes
 _XwcDefaultDrawString(Display *dpy, Drawable d, XOC oc, GC gc, int x, int y,
 		      _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultDrawString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -1002,38 +922,16 @@ err:
 }
 
 static void
-#if NeedFunctionPrototypes
 _XmbDefaultDrawImageString(Display *dpy, Drawable d, XOC oc, GC gc, int x,
 			   int y, _Xconst char *text, int length)
-#else
-_XmbDefaultDrawImageString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    char *text;
-    int length;
-#endif
 {
     XSetFont(dpy, gc, (*oc->core.font_info.font_struct_list)->fid);
     XDrawImageString(dpy, d, gc, x, y, text, length);
 }
 
 static void
-#if NeedFunctionPrototypes
 _XwcDefaultDrawImageString(Display *dpy, Drawable d, XOC oc, GC gc, int x,
 			   int y, _Xconst wchar_t *text, int length)
-#else
-_XwcDefaultDrawImageString(dpy, d, oc, gc, x, y, text, length)
-    Display *dpy;
-    Drawable d;
-    XOC oc;
-    GC gc;
-    int x, y;
-    wchar_t *text;
-    int length;
-#endif
 {
     DefineLocalBuf;
     char *buf = AllocLocalBuf(length);
@@ -1086,10 +984,10 @@ static XlcResource oc_resources[] = {
 };
 
 static XOC
-create_oc(om, args, num_args)
-    XOM om;
-    XlcArgList args;
-    int num_args;
+create_oc(
+    XOM om,
+    XlcArgList args,
+    int num_args)
 {
     XOC oc;
 
@@ -1127,8 +1025,8 @@ err:
 }
 
 static Status
-close_om(om)
-    XOM om;
+close_om(
+    XOM om)
 {
     XOMGenericPart *gen = XOM_GENERIC(om);
     OMData data;
@@ -1164,10 +1062,10 @@ close_om(om)
 }
 
 static char *
-set_om_values(om, args, num_args)
-    XOM om;
-    XlcArgList args;
-    int num_args;
+set_om_values(
+    XOM om,
+    XlcArgList args,
+    int num_args)
 {
     if (om->core.resources == NULL)
 	return NULL;
@@ -1177,10 +1075,10 @@ set_om_values(om, args, num_args)
 }
 
 static char *
-get_om_values(om, args, num_args)
-    XOM om;
-    XlcArgList args;
-    int num_args;
+get_om_values(
+    XOM om,
+    XlcArgList args,
+    int num_args)
 {
     if (om->core.resources == NULL)
 	return NULL;
@@ -1208,8 +1106,8 @@ static XlcResource om_resources[] = {
 };
 
 static OMData
-add_data(om)
-    XOM om;
+add_data(
+    XOM om)
 {
     XOMGenericPart *gen = XOM_GENERIC(om);
     OMData new;
@@ -1238,8 +1136,8 @@ static _Xconst char *supported_charset_list[] = {
 };
     
 static Bool
-init_om(om)
-    XOM om;
+init_om(
+    XOM om)
 {
     XOMGenericPart *gen = XOM_GENERIC(om);
     OMData data;
@@ -1320,17 +1218,8 @@ supported_charset_list[].
 }
 
 XOM
-#if NeedFunctionPrototypes
 _XDefaultOpenOM(XLCd lcd, Display *dpy, XrmDatabase rdb,
 		_Xconst char *res_name, _Xconst char *res_class)
-#else
-_XDefaultOpenOM(lcd, dpy, rdb, res_name, res_class)
-XLCd lcd;
-Display *dpy;
-XrmDatabase rdb;
-char *res_name;
-char *res_class;
-#endif
 {
     XOM om;
 

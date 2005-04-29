@@ -1,4 +1,4 @@
-// Build don't link:
+// { dg-do assemble  }
 // Origin: Steven Parkes <parkes@sierravista.com>
 
 typedef __SIZE_TYPE__ size_t;
@@ -50,6 +50,7 @@ public:
 				: MetaClassGeneric( TypeIDInit<T>::info ) {}
 };
 
+template <>
 class MetaClass<UUId>
 : public NameInfo<UUId>
 {

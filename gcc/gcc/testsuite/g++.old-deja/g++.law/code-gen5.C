@@ -1,3 +1,4 @@
+// { dg-do run  }
 // GROUPS passed code-generation
 // code-gen file
 // From: "David" <norman@pi14.arc.umn.edu>
@@ -33,7 +34,7 @@ class VectorInt
 
 	VectorInt *refer();
 	void unrefer();
-	int count;				/* Number of Vector's refering to me */
+	int count;				/* Number of Vector's referring to me */
 
 	VEC *vec;
 
@@ -248,7 +249,7 @@ operator double()
 {
 	assert( v.r->vec != 0 );
 	return *v.r->vec;
-};
+}
 
 double VecElem::
 operator=( double d )

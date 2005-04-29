@@ -26,7 +26,7 @@ in this Software without prior written authorization from the X Consortium.
  *
  * Author:  Keith Packard, MIT X Consortium
  */
-/* $XFree86: xc/programs/beforelight/b4light.c,v 3.6 2003/02/17 23:43:25 herrb Exp $ */
+/* $XFree86: xc/programs/beforelight/b4light.c,v 3.7 2003/10/24 20:38:10 tsi Exp $ */
 
 #include <X11/Xatom.h>
 #include <X11/Intrinsic.h>
@@ -60,7 +60,6 @@ static Colormap	cmap;
 static GC gc, black_gc, erase_gc;
 static int  screen_saved;
 static XtAppContext app_con;
-static XtIntervalId interval;
 static GC   bit_1_gc, bit_0_gc;
 static Bool	filled = False;
 
@@ -247,7 +246,7 @@ Timeout (XtPointer closure, XtIntervalId *id)
     if (screen_saved)
     {
 	StepPoints ();
-	interval = XtAppAddTimeOut (app_con, 50, Timeout, NULL);
+	(void) XtAppAddTimeOut (app_con, 50, Timeout, NULL);
     }
 }
 
@@ -259,7 +258,7 @@ StartSaver (void)
     screen_saved = True;
     StartPoints ();
     StepPoints ();
-    interval = XtAppAddTimeOut (app_con, 50, Timeout, NULL);
+    (void) XtAppAddTimeOut (app_con, 50, Timeout, NULL);
 }
 
 static void

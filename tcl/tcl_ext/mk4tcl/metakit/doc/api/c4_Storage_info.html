@@ -1,0 +1,353 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+The storage class uses a view, with additional functionality to be able 
+to store and reload the data it contains (including nested subviews).
+<P>
+
+By default, data is loaded on demand, i.e. whenever data which has
+not yet been referenced is used for the first time.  Loading is limited
+to the lifetime of this storage object, since the storage object carries
+the file descriptor with it that is needed to access the data file.
+<P>
+
+To save changes, call the Commit member.  This is the only time
+that data is written to file - when using a read-only file simply avoid
+calling Commit.
+<P>
+
+The LoadFromStream and SaveToStream members can be used to
+serialize the contents of this storage row using only sequential I/O
+(no seeking, only read or write calls).
+<P>
+
+The data storage mechanism implementation provides fail-safe operation:
+if anything prevents Commit from completing its task, the last
+succesfully committed version of the saved data will be recovered on
+the next open. This also includes changes made to the table structure. 
+<P>
+
+The following code creates a view with 1 row and stores it on file:
+<P>
+
+
+<PRE>    <A HREF="c4_StringProp.html" >c4_StringProp</A> pName ("Name");
+    <A HREF="c4_IntProp.html" >c4_IntProp</A> pAge ("Age");</PRE>
+<P>
+
+
+<PRE>    <A HREF="c4_Storage.html" >c4_Storage</A> storage ("myfile.dat", true);
+    <A HREF="c4_View.html" >c4_View</A> myView = storage.GetAs("Musicians[Name:S,Age:I]");</PRE>
+<P>
+
+
+<PRE>    myView.Add(pName ["John Williams"] + pAge [43]);</PRE>
+<P>
+
+
+<PRE>    storage.Commit();
+</PRE>
+<P>
+
+
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_Storage_AutoCommit___"><dt>
+	  <nobr>
+	  void 
+	  <b>AutoCommit</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Set storage up to always call Commit in the destructor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Commit___"><dt>
+	  <nobr>
+	  bool 
+	  <b>Commit</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Flush pending changes to file right now</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Contents___const"><dt>
+	  <nobr>
+	  <A HREF="c4_RowRef.html" >c4_RowRef</A> 
+	  <b>Contents</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Give access to the stored data as a single row</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Description_const__"><dt>
+	  <nobr>
+	  const char* 
+	  <b>Description</b> (const char* name_ =0);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return a description of the view structure (default is all)</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_GetAs_const__"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>GetAs</b> (const char* description_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get a named view, redefining it to match the given structure</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Initialize_constbool__"><dt>
+	  <nobr>
+	  void 
+	  <b>Initialize</b> (const char*, bool);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_LoadFrom_c4_Stream___"><dt>
+	  <nobr>
+	  void 
+	  <b>LoadFrom</b> (<A HREF="c4_Stream.html" >c4_Stream</A>&#38; stream_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Load contents from the specified input stream</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Rollback___"><dt>
+	  <nobr>
+	  bool 
+	  <b>Rollback</b> ();
+	  </nobr>
+	<dd>
+	  
+	   Calling Rollback will cancel all uncommitted changes.
+<br>
+	  
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_RootTable___const"><dt>
+	  <nobr>
+	  c4_HandlerSeq&#38; 
+	  <b>RootTable</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the root table entry</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_SaveTo_c4_Stream___"><dt>
+	  <nobr>
+	  void 
+	  <b>SaveTo</b> (<A HREF="c4_Stream.html" >c4_Stream</A>&#38; stream_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Save contents to the specified output stream</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_SetStructure_const__"><dt>
+	  <nobr>
+	  void 
+	  <b>SetStructure</b> (const char*);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Store_constconst__"><dt>
+	  <nobr>
+	  <A HREF="c4_View.html" >c4_View</A> 
+	  <b>Store</b> (const char* name_, const <A HREF="c4_View.html" >c4_View</A>&#38; view_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Attach a view using specified name in this storage object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_Strategy___const"><dt>
+	  <nobr>
+	  <A HREF="c4_Strategy.html" >c4_Strategy</A>&#38; 
+	  <b>Strategy</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return the strategy object associated with this storage</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_View_const__"><dt>
+	  <nobr>
+	  <A HREF="c4_ViewRef.html" >c4_ViewRef</A> 
+	  <b>View</b> (const char* name_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get or set a named view in this storage object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage__persist"><dt>
+	  <nobr>
+	  c4_Persist* 
+	  <b>_persist</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_c4_Storage__"><dt>
+	  <nobr>
+	  
+	  <b>c4_Storage</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct streaming-only storage object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_c4_Storage_c4_Strategy_bool_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Storage</b> (<A HREF="c4_Strategy.html" >c4_Strategy</A>&#38; strategy_, bool owned_ =false);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a storage using the specified strategy handler</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_c4_Storage_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Storage</b> (const <A HREF="c4_Storage.html" >c4_Storage</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Copy constructor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_c4_Storage_constbool_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Storage</b> (const char* filename_, bool canModify_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a storage object, keeping the current structure</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_c4_Storage_constconst_"><dt>
+	  <nobr>
+	  
+	  <b>c4_Storage</b> (const char* filename_, const char* description_);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Construct a storage object for given file and format</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_Storage.html" >c4_Storage</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_Storage.html" >c4_Storage</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assignment of storage implements reference semantics</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Storage__c4_Storage__"><dt>
+	  <nobr>
+	  
+	  <b>~c4_Storage</b> ();
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Destructor, usually closes file, but does not commit by default</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_Storage</b>
+</font>
+
+</body></html>

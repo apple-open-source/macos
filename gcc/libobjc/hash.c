@@ -1,20 +1,20 @@
 /* Hash tables for Objective C internal structures
-   Copyright (C) 1993, 1996, 1997 Free Software Foundation, Inc.
+   Copyright (C) 1993, 1996, 1997, 2004 Free Software Foundation, Inc.
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.  */
 
@@ -154,7 +154,7 @@ hash_add (cache_ptr *cachep, const void *key, void *value)
 			      (*cachep)->compare_func);
 
     DEBUG_PRINTF ("Expanding cache %#x from %d to %d\n",
-		  *cachep, (*cachep)->size, new->size);
+		  (int) *cachep, (*cachep)->size, new->size);
 
     /* Copy the nodes from the first hash table to the new one.  */
     while ((node1 = hash_next (*cachep, node1)))

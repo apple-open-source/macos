@@ -26,13 +26,14 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
 */
-/* $XFree86: xc/programs/xlogo/Logo.c,v 1.6 2002/05/23 23:53:59 keithp Exp $ */
+/* $XFree86: xc/programs/xlogo/Logo.c,v 1.7 2003/12/19 02:05:40 dawes Exp $ */
 
 #include <X11/StringDefs.h>
 #include <X11/IntrinsicP.h>
 #include <X11/Xmu/Drawing.h>
 #include "LogoP.h"
 #include <X11/extensions/shape.h>
+#include <X11/Xos.h>
 
 #ifdef XRENDER
 #include "RenderLogo.h"

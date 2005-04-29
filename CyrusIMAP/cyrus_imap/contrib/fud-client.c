@@ -38,7 +38,7 @@
  * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: fud-client.c,v 1.5 2003/02/13 20:15:18 rjs3 Exp $ */
+/* $Id: fud-client.c,v 1.5 2005/03/05 00:36:15 dasenbro Exp $ */
 
 /*  This is an example client for the experimental fud service. 
     For this to work, the mailbox must have the local ACL bit 0 enabled

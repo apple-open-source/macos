@@ -8,7 +8,7 @@ También puede visitar la página web:
     %(confirmurl)s
 
 O puede incluir la línea siguiente -- y solo la línea siguiente -- en un
-mensaje dirijido a %(requestaddr)s:
+mensaje dirigido a %(requestaddr)s:
 
     confirm %(cookie)s
 

@@ -1,4 +1,4 @@
-# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -151,17 +151,20 @@ class Bouncer:
         # Now that we've adjusted the bounce score for this bounce, let's
         # check to see if the disable-by-bounce threshold has been reached.
         if info.score >= self.bounce_score_threshold:
-            self.disableBouncingMember(member, info, msg)
+            syslog('bounce', 'sending %s list probe to: %s (score %s >= %s)',
+                   self.internal_name(), member, info.score,
+                   self.bounce_score_threshold)
+            self.sendProbe(member, msg)
+            info.reset(0, info.date, info.noticesleft)
 
     def disableBouncingMember(self, member, info, msg):
         # Initialize their confirmation cookie.  If we do it when we get the
         # first bounce, it'll expire by the time we get the disabling bounce.
-        cookie = Pending.new(Pending.RE_ENABLE, self.internal_name(), member)
+        cookie = self.pend_new(Pending.RE_ENABLE, self.internal_name(), member)
         info.cookie = cookie
         # Disable them
-        syslog('bounce', '%s: %s disabling due to bounce score %s >= %s',
-               self.internal_name(), member,
-               info.score, self.bounce_score_threshold)
+        syslog('bounce', '%s: %s disabling due to probe bounce received',
+               self.internal_name(), member)
         self.setDeliveryStatus(member, MemberAdaptor.BYBOUNCE)
         self.sendNextNotification(member)
         if self.bounce_notify_owner_on_disable:
@@ -212,7 +215,7 @@ class Bouncer:
                 userack=1)
             # Expunge the pending cookie for the user.  We throw away the
             # returned data.
-            Pending.confirm(info.cookie)
+            self.pend_confirm(info.cookie)
             if reason == MemberAdaptor.BYBOUNCE:
                 syslog('bounce', '%s: %s deleted after exhausting notices',
                        self.internal_name(), member)

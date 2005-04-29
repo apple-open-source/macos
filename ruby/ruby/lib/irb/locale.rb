@@ -1,8 +1,8 @@
 #
 #   irb/locale.rb - internationalization module
-#   	$Release Version: 0.7.4$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:49 $
+#   	$Release Version: 0.9$
+#   	$Revision: 1.6 $
+#   	$Date: 2003/07/24 05:18:47 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -15,33 +15,32 @@ autoload :Kconv, "kconv"
 
 module IRB
   class Locale
-    @RCS_ID='-$Id: locale.rb,v 1.1.1.1 2002/05/27 17:59:49 jkh Exp $-'
+    @RCS_ID='-$Id: locale.rb,v 1.6 2003/07/24 05:18:47 matz Exp $-'
 
     JPDefaultLocale = "ja"
     LOCALE_DIR = "/lc/"
 
     def initialize(locale = nil)
-      @lang = locale || ENV["IRB_LANG"] || ENV["LC_MESSAGES"] || ENV["LC_ALL"] || ENV["LANG"]
-      @lang = "C" unless @lang
+      @lang = locale || ENV["IRB_LANG"] || ENV["LC_MESSAGES"] || ENV["LC_ALL"] || ENV["LANG"] || "C" 
     end
 
     attr_reader :lang
+
+    def lc2kconv(lang)
+      case lang
+      when "ja_JP.ujis", "ja_JP.euc", "ja_JP.eucJP"
+        Kconv::EUC
+      when "ja_JP.sjis", "ja_JP.SJIS"
+        Kconv::SJIS
+      end
+    end
+    private :lc2kconv
 
     def String(mes)
       mes = super(mes)
       case @lang
       when /^ja/
-	@@LC2KCONV = {
-	  #      "ja" => Kconv::JIS,
-	  #      "ja_JP" => Kconv::JIS,
-	  "ja_JP.ujis" => Kconv::EUC,
-	  "ja_JP.euc" => Kconv::EUC,
-	  "ja_JP.eucJP" => Kconv::EUC,
-	  "ja_JP.sjis" => Kconv::SJIS,
-	  "ja_JP.SJIS" => Kconv::SJIS,
-	  } unless defined? @@LC2KCONV
-	
-	mes = Kconv::kconv(mes, @@LC2KCONV[@lang])
+	mes = Kconv::kconv(mes, lc2kconv(@lang))
       else
 	mes
       end
@@ -135,6 +134,7 @@ module IRB
       end
       lc_file.close
       toplevel_load lc_file.path, priv
+      lc_file.close(true)
     end
     private :real_load
 

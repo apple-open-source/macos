@@ -14,4 +14,4 @@ install::
 install::
 	@echo "Installing $(Destination)"
 	$(_v) $(INSTALL_DIRECTORY) "$(Destination)"
-	$(_v) $(INSTALL_FILE) -c intro.5          "$(Destination)/intro.5"
+	$(_v) $(INSTALL_FILE) -c *.5 $(Destination)

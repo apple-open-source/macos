@@ -1,5 +1,5 @@
 /* MutableAttributeSet.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,56 +37,49 @@ exception statement from your version. */
 
 package javax.swing.text;
 
-// Imports
-import java.util.*;
+import java.util.Enumeration;
 
 /**
  * MutableAttributeSet
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public interface MutableAttributeSet extends AttributeSet {
+public interface MutableAttributeSet extends AttributeSet
+{
+  /**
+   * addAttribute
+   * @param name TODO
+   * @param value TODO
+   */
+  void addAttribute(Object name, Object value);
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * addAttributes
+   * @param attributes TODO
+   */
+  void addAttributes(AttributeSet attributes);
 
-	/**
-	 * addAttribute
-	 * @param name TODO
-	 * @param value TODO
-	 */
-	public void addAttribute(Object name, Object value);
+  /**
+   * removeAttribute
+   * @param name TODO
+   */
+  void removeAttribute(Object name);
 
-	/**
-	 * addAttributes
-	 * @param attributes TODO
-	 */
-	public void addAttributes(AttributeSet attributes);
+  /**
+   * removeAttributes
+   * @param names TODO
+   */
+  void removeAttributes(Enumeration names);
 
-	/**
-	 * removeAttribute
-	 * @param name TODO
-	 */
-	public void removeAttribute(Object name);
+  /**
+   * removeAttributes
+   * @param attributes TODO
+   */
+  void removeAttributes(AttributeSet attributes);
 
-	/**
-	 * removeAttributes
-	 * @param names TODO
-	 */
-	public void removeAttributes(Enumeration names);
-
-	/**
-	 * removeAttributes
-	 * @param attributes TODO
-	 */
-	public void removeAttributes(AttributeSet attributes);
-
-	/**
-	 * setResolveParent
-	 * @param parent TODO
-	 */
-	public void setResolveParent(AttributeSet parent);
-
-
-} // MutableAttributeSet
+  /**
+   * setResolveParent
+   * @param parent TODO
+   */
+  void setResolveParent(AttributeSet parent);
+}

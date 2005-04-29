@@ -1,0 +1,70 @@
+#!/usr/local/bin/tclsh
+# -*- tcl -*-
+# this one needs no path.
+# fixes the '#!... path' for the given script
+
+#argv = {tclsh_path wish_path appscript}
+foreach {tclsh_path wish_path appscript} $argv {break;}
+
+
+set fail [catch {set fin [open $appscript r]}]
+if {$fail} {
+    # appscript does not exist
+    exit 1
+}
+
+
+if {[gets $fin ipPath] < 0} {
+    # appscript is empty
+    exit 2
+}
+
+
+if {![regexp {^#!} $ipPath]} {
+    # appscript is no application
+    close $fin
+    exit 3
+}
+
+
+if {[regexp {wish} $ipPath]} {
+    # wish application
+
+    if {{} == $wish_path} {
+	# wish was not found
+	exit 5
+    }
+
+    set    fout [open $appscript.[pid] w]
+    puts  $fout "#!$wish_path"
+    fcopy $fin $fout
+
+    close $fin
+    close $fout
+
+    file rename -force $appscript.[pid] $appscript
+    exit 0
+}
+
+
+if {[regexp {tclsh} $ipPath]} {
+    # tclsh application
+
+    if {{} == $wish_path} {
+	# tclsh was not found
+	exit 6
+    }
+
+    set    fout [open $appscript.[pid] w]
+    puts  $fout "#!$tclsh_path"
+    fcopy $fin $fout
+
+    close $fin
+    close $fout
+
+    file rename -force $appscript.[pid] $appscript
+    exit 0
+}
+
+# appscript is no tclsh/wish application
+exit 4

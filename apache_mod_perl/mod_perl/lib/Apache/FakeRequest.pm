@@ -1,6 +1,7 @@
 package Apache::FakeRequest;
 
 $Apache::FakeRequest::VERSION = "1.00";
+@Apache::FakeRequest::ISA = qw(Apache);
 
 sub new {
     my $class = shift;

@@ -45,7 +45,7 @@
 *     02 Nov 01  ram added stubs for i386 routines.                            *
 *     08 Oct 01  ram removed <Limits.h> and <CoreServices/CoreServices.h>.     *
 *                    changed compiler errors to warnings.                      *
-*     05 Oct 01  ram added defines for LONG_MAX and LONG_MIN                   *
+*     05 Oct 01  ram added defines for INT32_MAX and INT32_MIN                   *
 *     18 Sep 01  ali <CoreServices/CoreServices.h> replaced "fp.h" & "fenv.h". *
 *     10 Sep 01  ali added more comments.                                      *
 *     09 Sep 01  ali added macros to detect PowerPC and correct compiler.      *
@@ -92,17 +92,11 @@
 *                                                                              *
 *******************************************************************************/
 
-#ifdef      __APPLE_CC__
-#if         __APPLE_CC__ > 930
-
 #include	"math.h"
 #include	"fenv.h"
-#include        "fp_private.h"
+#include	"fp_private.h"
+#include	"limits.h"
 
-#define  LONG_MAX    2147483647
-#define  LONG_MIN    (-LONG_MAX - 1)
-
-static const double zero	 = 0.0;
 static const hexdouble Huge = HEXDOUBLE(0x7ff00000, 0x00000000);
 #undef HUGE
 #define HUGE Huge.d
@@ -110,7 +104,7 @@ static const hexsingle HugeF = { 0x7F800000 };
 #undef HUGEF
 #define HUGEF HugeF.fval
 
-static const double twoTo52  = 4503599627370496.0;
+static const double twoTo52  = 0x1.0p+52; // 4503599627370496.0;
 
 /*******************************************************************************
 *                                                                              *
@@ -126,14 +120,14 @@ double round ( double x )
 {      
       hexdouble argument;
       register double y, z;
-      register unsigned long int xHead;
-      register long int target;
+      register uint32_t xHead;
+      register int target;
       
       argument.d = x;
       xHead = argument.i.hi & 0x7fffffff;              // xHead <- high half of |x|
       target = ( argument.i.hi < 0x80000000 );         // flag positive sign
       
-      if ( xHead < 0x43300000ul ) 
+      if ( xHead < 0x43300000u ) 
 /*******************************************************************************
 *     Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
@@ -143,12 +137,12 @@ double round ( double x )
 *     Is |x| < 1.0?                                                           *
 *******************************************************************************/
               {
-                  if ( xHead < 0x3fe00000ul ) 
+                  if ( xHead < 0x3fe00000u ) 
 /*******************************************************************************
 *     Is |x| < 0.5?                                                           *
 *******************************************************************************/
                      {
-                        if ( ( xHead | argument.i.lo ) != 0ul )
+                        if ( ( xHead | argument.i.lo ) != 0u )
                         {
                             if (HUGE + x > 1.0) // always true, INEXACT as side effect
                                 return target ? 0.0 : -0.0;
@@ -204,29 +198,29 @@ float roundf ( float x )
 {      
       hexsingle argument;
       register float y, z;
-      register unsigned long int xHead;
-      register long int target;
+      register uint32_t xHead;
+      register int target;
       
       argument.fval = x;
       xHead = argument.lval & 0x7fffffff;              // xHead <- |x|
-      target = ( (unsigned long)argument.lval < 0x80000000ul );         // flag positive sign
+      target = ( (uint32_t)argument.lval < 0x80000000u );         // flag positive sign
       
-      if ( xHead < 0x4b000000ul ) 
+      if ( xHead < 0x4b000000u ) 
 /*******************************************************************************
 *     Is |x| < 2.0^52?                                                        *
 *******************************************************************************/
        {
-            if ( xHead < 0x3f800000ul ) 
+            if ( xHead < 0x3f800000u ) 
 /*******************************************************************************
 *     Is |x| < 1.0?                                                           *
 *******************************************************************************/
               {
-                  if ( xHead < 0x3f000000ul ) 
+                  if ( xHead < 0x3f000000u ) 
 /*******************************************************************************
 *     Is |x| < 0.5?                                                           *
 *******************************************************************************/
                      {
-                        if ( xHead != 0ul )
+                        if ( xHead != 0u )
                         {
                             if (HUGEF + x > 1.0F) // always true, INEXACT as side effect
                                 return target ? 0.0F : -0.0F;
@@ -291,180 +285,161 @@ float roundf ( float x )
 *                                                                              *
 *******************************************************************************/
 
+// These work just as well for the LP64 ABI
 long int lround ( double x )
-{       
-       register double y, z;
-       hexdouble argument;
-       register unsigned long int xhi;
-       register long int target;
-       
-       argument.d = x;
-       xhi = argument.i.hi & 0x7fffffff;                    // high 32 bits of x
-       target = ( argument.i.hi < 0x80000000 );             // flag positive sign
-       
-       if ( xhi > 0x41e00000ul ) 
-/*******************************************************************************
-*     Is x is out of long range or NaN?                                        *
-*******************************************************************************/
-       {
-              if (!(zero/zero > zero)) // always true, INVALID as side effect
-                return target ? LONG_MAX : LONG_MIN; // pin result
-       }
-       
-       if ( target ) 
-/*******************************************************************************
-*     Is sign of x "+"?                                                        *
-*******************************************************************************/
-       {
-              if ( x < 2147483647.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-                     register long signed int result;
-                     
-                     y = ( x + twoTo52 ) - twoTo52;    // round at binary point
-                     if ( y != x )       
-                     {                                           // inexact case
-                            int r = fegetround();
-                            (void)fesetround ( FE_TOWARDZERO );
-                            z = x + 0.5;                         // truncate x + 0.5
-                            result = z;				 // convert to int
-                            (void)fesetround ( r );
-                            return result;
-                     }
-                     
-                     result = y;
-                     return result;
-              }
-/*******************************************************************************
-*     Rounded positive x is out of the range of a long.                        *
-*******************************************************************************/
-              if (!(zero/zero > zero)) // always true, INVALID as side effect
-                return ( LONG_MAX );                             // return pinned result
-       }
-/*******************************************************************************
-*     x < 0.0 and may or may not be out of the range of a long.                *
-*******************************************************************************/
-       if ( x > -2147483648.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-       {
-              register long signed int result;
-              
-              y = ( x - twoTo52 ) + twoTo52;           // round at binary point
-              if ( y != x ) 
-              {                                                  // inexact case
-                     int r = fegetround();
-                     (void)fesetround ( FE_UPWARD );
-                     z = x - 0.5;                                // truncate x - 0.5
-                     result = z;				 // convert to int
-                     (void)fesetround ( r );
-                     return result;
-              }
-              
-              result = y;
-              return result;
-       }
-/*******************************************************************************
-*     Rounded negative x is out of the range of a long.                        *
-*******************************************************************************/
-       if (!(zero/zero > zero)) // always true, INVALID as side effect
-        return ( LONG_MIN );                                      // return pinned result
+{
+	double t;
+	long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MAX;
+	}
+	
+	(void)fegetenv(&env);
+	t = round ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (double)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (double)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
 }
 
 long int lroundf ( float x )
 {       
-       register float y, z;
-       hexsingle argument;
-       register unsigned long int xhi;
-       register long int target;
-       
-       argument.fval = x;
-       xhi = argument.lval & 0x7fffffff;                    // high 32 bits of x
-       target = ( (unsigned long)argument.lval < 0x80000000ul );             // flag positive sign
- 
-       if ( xhi > 0x4f800000ul ) 
-/*******************************************************************************
-*     Is x is out of long range or NaN?                                        *
-*******************************************************************************/
-       {
-              if (!(zero/zero > zero)) // always true, INVALID as side effect
-                return target ? LONG_MAX : LONG_MIN; // pin result
-       }
-       
-       if ( target ) 
-/*******************************************************************************
-*     Is sign of x is "+"?                                                     *
-*******************************************************************************/
-       {
-              if ( x < 2147483647.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-                     register long signed int result;
-
-                     y = ( x + twoTo52 ) - twoTo52;    // round at binary point
-                     if ( y != x )       
-                     {                                           // inexact case
-                            int r = fegetround();
-                            (void)fesetround ( FE_TOWARDZERO );
-                            z = x + 0.5;                         // truncate x + 0.5
-                            result = z;			 	 // convert float to int
-                            (void)fesetround ( r );
-                            return result;
-                     }
-                     
-                     result = y;			 	    // convert float to int
-                     return result;             		    // return long result
-              }
-/*******************************************************************************
-*     Rounded positive x is out of the range of a long.                        *
-*******************************************************************************/
-              if (!(zero/zero > zero)) // always true, INVALID as side effect
-                return ( LONG_MAX );                             // return pinned result
-              }
-/*******************************************************************************
-*     x < 0.0 and may or may not be out of the range of a long.                *
-*******************************************************************************/
-       if ( x > -2147483648.5 ) 
-/*******************************************************************************
-*     x is in the range of a long.                                             *
-*******************************************************************************/
-              {
-              register long signed int result;
-              
-              y = ( x - twoTo52 ) + twoTo52;           // round at binary point
-              if ( y != x ) 
-              {                                                  // inexact case
-                     int r = fegetround();
-                     (void)fesetround ( FE_UPWARD );
-                     z = x - 0.5;                                // truncate x - 0.5
-                     result = z;			 	 // convert float to int
-                     (void)fesetround ( r );
-                     return result;
-              }
-              
-              result = y;		     // convert float to int
-              return result;                 //  return long result
-       }
-/*******************************************************************************
-*     Rounded negative x is out of the range of a long.                        *
-*******************************************************************************/
-       if (!(zero/zero > zero)) // always true, INVALID as side effect
-        return ( LONG_MIN );                                      // return pinned result
-}
-
+	float t;
+	long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_MAX;
+	}
+	
+	(void)fegetenv(&env);
+	t = roundf ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (float)LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MIN;
+	}
+	else if ( t > (float)LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long int) t;
+	}
+	else
+	{
+		result = (long int) t;
+	}
+	
+    return result;
+} 
+      
 long long int llround ( double x )
 {
-    return (long long int)round ( x );
+	double t;
+	long long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MAX;
+	}
+	
+	(void)fegetenv(&env);
+	t = round ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (double)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (double)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 long long int llroundf ( float x )
-{
-    return (long long int)roundf ( x );
+{       
+	float t;
+	long long int result;
+	fenv_t env;
+	
+	if (unlikely(x != x))
+	{
+		feraiseexcept(FE_INVALID);
+		return LONG_LONG_MAX;
+	}
+	
+	(void)fegetenv(&env);
+	t = roundf ( x );
+	(void)fesetenv(&env);
+	
+	if ( t < (float)LONG_LONG_MIN )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MIN;
+	}
+	else if ( t > (float)LONG_LONG_MAX )
+	{
+		feraiseexcept(FE_INVALID);
+		result = LONG_LONG_MAX;
+	}
+	else if (t != x)
+	{
+		feraiseexcept(FE_INEXACT);
+		result = (long long int) t;
+	}
+	else
+	{
+		result = (long long int) t;
+	}
+	
+    return result;
 }
 
 /*******************************************************************************
@@ -479,24 +454,24 @@ double trunc ( double x )
 {       
        hexdouble argument;
        register double y;
-       register unsigned long int xhi;
-       register long int target;
+       register uint32_t xhi;
+       register int target;
        
        argument.d = x;
        xhi = argument.i.hi & 0x7fffffff;                         // xhi <- high half of |x|
        target = ( argument.i.hi < 0x80000000 );                  // flag positive sign
        
-       if ( xhi < 0x43300000ul ) 
+       if ( xhi < 0x43300000u ) 
 /*******************************************************************************
 *     Is |x| < 2.0^53?                                                         *
 *******************************************************************************/
        {
-              if ( xhi < 0x3ff00000ul ) 
+              if ( xhi < 0x3ff00000u ) 
 /*******************************************************************************
 *     Is |x| < 1.0?                                                            *
 *******************************************************************************/
               {
-                     if ( ( xhi | argument.i.lo ) != 0ul ) 
+                     if ( ( xhi | argument.i.lo ) != 0u ) 
                         {
                             if (HUGE + x > 1.0) // always true, INEXACT as side effect
                                 return target ? 0.0 : -0.0;
@@ -534,14 +509,14 @@ float truncf ( float x )
 {       
        hexsingle argument;
        register float y;
-       register unsigned long int xhi;
-       register long int target;
+       register uint32_t xhi;
+       register int target;
        
        argument.fval = x;
        xhi = argument.lval & 0x7fffffff;                         // xhi <- |x|
-       target = ( (unsigned long)argument.lval < 0x80000000ul );                  // flag positive sign
+       target = ( (uint32_t)argument.lval < 0x80000000u );                  // flag positive sign
        
-       if ( xhi < 0x4b000000ul ) 
+       if ( xhi < 0x4b000000u ) 
 /*******************************************************************************
 *     Is |x| < 2.0^23?                                                         *
 *******************************************************************************/
@@ -551,7 +526,7 @@ float truncf ( float x )
 *     Is |x| < 1.0?                                                            *
 *******************************************************************************/
               {
-                     if ( xhi != 0ul ) 
+                     if ( xhi != 0u ) 
                         {
                             if (HUGEF + x > 1.0F) // always true, INEXACT as side effect
                                 return target ? 0.0F : -0.0F;
@@ -584,8 +559,3 @@ float truncf ( float x )
 *******************************************************************************/
        return ( x );
 }
-
-#else       /* __APPLE_CC__ version */
-#warning A higher version than gcc-932 is required.
-#endif      /* __APPLE_CC__ version */
-#endif      /* __APPLE_CC__ */

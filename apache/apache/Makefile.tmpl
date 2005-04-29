@@ -492,8 +492,6 @@ install-config:
 			-e 's;Group #-1;Group $(conf_group);' \
 			-e 's;^Group "#-1";Group $(conf_group);' \
 			-e 's;Port 80;Port $(conf_port);' \
-			-e 's;ServerAdmin you@your.address;ServerAdmin $(conf_serveradmin);' \
-			-e 's;ServerName new.host.name;ServerName $(conf_servername);' \
 			> $(TOP)/$(SRC)/.apaci.install.tmp && \
 		echo "$(INSTALL_DATA) $(TOP)/conf/$${conf}-dist[*] $(root)$(sysconfdir)/$${target_conf}.default"; \
 		$(INSTALL_DATA) $(TOP)/$(SRC)/.apaci.install.tmp $(root)$(sysconfdir)/$${target_conf}.default; \

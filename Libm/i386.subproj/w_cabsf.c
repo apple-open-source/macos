@@ -20,7 +20,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <math.h>
-#define complex _Complex
+#include <complex.h>
 
 float cabsf( float complex z ){ return (float) cabs((double complex) z); }

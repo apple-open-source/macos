@@ -1,5 +1,5 @@
 /* ComboBoxEditor.java --
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,55 +37,61 @@ exception statement from your version. */
 
 package javax.swing;
 
-// Imports
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.Component;
+import java.awt.event.ActionListener;
 
 /**
  * ComboBoxEditor
- * @author	Andrew Selkirk
- * @version	1.0
+ *
+ * @author Andrew Selkirk
+ * @author Olga Rodimina
+ * @version 1.0
  */
-public interface ComboBoxEditor {
+public interface ComboBoxEditor
+{
+  /**
+   * This method returns component that will be used by the combo box to
+   * display/edit currently selected item in the combo box.
+   *
+   * @return Component that will be used by the combo box to display/edit
+   *         currently selected item
+   */
+  Component getEditorComponent();
 
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  /**
+   * Sets item that should be editted when any editting operation is performed
+   * by the user. The value is always equal to the currently selected value
+   * in the combo box. Thus, whenever a different value is selected from the
+   * combo box list then this method should be called to change editting item
+   * to the new selected item.
+   *
+   * @param selectedItem item that is currently selected in the combo box
+   */
+  void setItem(Object item);
 
-	/**
-	 * getEditorComponent
-	 * @returns Component
-	 */
-	public Component getEditorComponent();
+  /**
+   * This method returns item that is currently editable.
+   *
+   * @return Item in the combo box that is currently editable
+   */
+  Object getItem();
 
-	/**
-	 * setItem
-	 * @param item TODO
-	 */
-	public void setItem(Object item);
+  /**
+   * selectAll
+   */
+  void selectAll();
 
-	/**
-	 * getItem
-	 * @returns Object
-	 */
-	public Object getItem();
+  /**
+   * This method adds specified ActionListener to this ComboBoxEditor.
+   *
+   * @param listener
+   */
+  void addActionListener(ActionListener listener);
 
-	/**
-	 * selectAll
-	 */
-	public void selectAll();
-
-	/**
-	 * addActionListener
-	 * @param listener TODO
-	 */
-	public void addActionListener(ActionListener listener);
-
-	/**
-	 * removeActionListener
-	 * @param listener TODO
-	 */
-	public void removeActionListener(ActionListener listener);
-
-
+  /**
+   * This method removes given ActionListener from this ComboBoxEditor.
+   *
+   * @param listener TODO
+   */
+  void removeActionListener(ActionListener listener);
 } // ComboBoxEditor

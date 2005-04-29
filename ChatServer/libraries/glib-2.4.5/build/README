@@ -1,0 +1,29 @@
+This directory contains various stuff that is used when building
+software from the GNOME CVS (and dependent software) on uncommon
+platforms. So far, it contains:
+
+- makefile snippets and scripts used when building GLib, GTk+,
+  and related software for Win32 with gcc or .with MSVC's command line
+  tools, when not using the GNU auto*/configure/libtool mechanism
+
+- some auxiliary scripts that are used when using libtool, for things
+  that libtool doesn't handle currently.
+
+- the <dirent.h> implementation from (the public domain) mingw
+  runtime, separated for the benefit of MSVC builds.
+
+In order to generate DLLs with version resources included (a nice
+touch, and more Windows style), we need support for compiling and
+including resources with DLL version number. Currently this knowledge
+is not in libtool, but in the compile-resource and lt-compile-resource
+scripts here in the win32 subdirectory.
+
+(Originally, this directory was intended to be used by a build system
+for GNOME, written in Python. See CVS for the original README
+text. Apparently this concept never was taken into use, and this
+directory hadn't been touched for two years, when I got the idea to
+use this suitably named directory for another purpose. The original
+author, Jay Painter, has okayed this.)
+
+Tor Lillqvist
+tml@iki.fi

@@ -18,7 +18,7 @@ HFILES = externs.h fdset.h general.h krb4-proto.h ring.h types.h\
 CFILES = authenc.c commands.c main.c network.c ring.c sys_bsd.c\
          telnet.c terminal.c tn3270.c utilities.c
 
-OTHERSRCS = Makefile.preamble Makefile README telnet.1 Makefile.dist
+OTHERSRCS = Makefile.preamble Makefile README telnet.1 Makefile.dist Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

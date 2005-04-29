@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/fontfile/fontdir.c,v 3.19 2002/05/31 18:45:50 dawes Exp $ */
+/* $XFree86: xc/lib/font/fontfile/fontdir.c,v 3.23 2003/12/02 19:50:40 dawes Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -629,6 +629,9 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
     FontScalableExtraPtr    extra;
     FontEntryPtr	    bitmap = 0, scalable;
     Bool		    isscale;
+#ifdef FONTDIRATTRIB
+    Bool		    scalable_xlfd;
+#endif
 
     renderer = FontFileMatchRenderer (fileName);
     if (!renderer)
@@ -656,8 +659,15 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
 	      !(vals.values_supplied & ENHANCEMENT_SPECIFY_MASK);
 #ifdef FONTDIRATTRIB
 #define UNSCALED_ATTRIB "unscaled"
-    /* For scalable fonts, check if the "unscaled" attribute is present */
-    if (isscale && dir->attributes && dir->attributes[0] == ':') {
+    scalable_xlfd = (isscale &&
+		(((vals.values_supplied & PIXELSIZE_MASK) == 0) ||
+		 ((vals.values_supplied & POINTSIZE_MASK) == 0)));
+    /*
+     * For scalable fonts without a scalable XFLD, check if the "unscaled"
+     * attribute is present.
+     */
+    if (isscale && !scalable_xlfd &&
+	    dir->attributes && dir->attributes[0] == ':') {
 	char *ptr1 = dir->attributes + 1;
 	char *ptr2;
 	int length;
@@ -678,11 +688,10 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
 #endif
     if (!isscale || (vals.values_supplied & SIZE_SPECIFY_MASK))
     {
-      /* If the fontname says it is nonScalable, make sure that the
-       * renderer supports OpenBitmap and GetInfoBitmap.
+      /*
+       * If the renderer doesn't support OpenBitmap, FontFileOpenFont
+       * will still do the right thing.
        */
-      if (renderer->OpenBitmap && renderer->GetInfoBitmap)
-      {
 	entry.type = FONT_ENTRY_BITMAP;
 	entry.u.bitmap.renderer = renderer;
 	entry.u.bitmap.pFont = NullFont;
@@ -693,7 +702,6 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
 	    xfree (entry.u.bitmap.fileName);
 	    return FALSE;
 	}
-      }
     }
     /*
      * Parse out scalable fields from XLFD names - a scalable name
@@ -701,11 +709,6 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
      */
     if (isscale)
     {
-      /* If the fontname says it is scalable, make sure that the
-       * renderer supports OpenScalable and GetInfoScalable.
-       */
-      if (renderer->OpenScalable && renderer->GetInfoScalable)
-      {
 	if (vals.values_supplied & SIZE_SPECIFY_MASK)
 	{
 	    bzero((char *)&zeroVals, sizeof(zeroVals));
@@ -728,10 +731,13 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
 		    if (!(existing->u.scalable.fileName = FontFileSaveString (fileName)))
 			return FALSE;
 		}
-		FontFileCompleteXLFD(&vals, &vals);
-		FontFileAddScaledInstance (existing, &vals, NullFont,
-					   bitmap->name.name);
-		return TRUE;
+                if(bitmap)
+                {
+                    FontFileCompleteXLFD(&vals, &vals);
+                    FontFileAddScaledInstance (existing, &vals, NullFont,
+                                               bitmap->name.name);
+                    return TRUE;
+                }
 	    }
 	}
 	if (!(entry.u.scalable.fileName = FontFileSaveString (fileName)))
@@ -795,11 +801,13 @@ FontFileAddFontFile (FontDirectoryPtr dir, char *fontName, char *fileName)
 	}
 	if (vals.values_supplied & SIZE_SPECIFY_MASK)
 	{
-	    FontFileCompleteXLFD(&vals, &vals);
-	    FontFileAddScaledInstance (scalable, &vals, NullFont,
-				       bitmap->name.name);
+            if(bitmap)
+            {
+                FontFileCompleteXLFD(&vals, &vals);
+                FontFileAddScaledInstance (scalable, &vals, NullFont,
+                                           bitmap->name.name);
+            }
 	}
-      }
     }
     return TRUE;
 }

@@ -101,7 +101,10 @@ char* objectTypes[] =
 	"ktGenericRef",
 	"kNodeChangeToken",
 	"ktEffectiveUID",
-	"ktUID"
+	"ktUID",
+	
+	"kAttrMatches",
+	"kAttrValueList"
 };
 
 FILE* gDumpFile = NULL;
@@ -261,6 +264,8 @@ void DSTCPEndian::SwapObjectData(uInt32 type, char* data, uInt32 size, bool swap
         case kRecNameList:
         case kNodeInfoTypeList:
         case kNodeNamePatt:
+        case kAttrMatches:
+        case kAttrValueList:
         {
             uInt32 totalLen = 0;
             while (totalLen < size)
@@ -328,7 +333,7 @@ void DSTCPEndian::SwapStandardBuf(char* data, uInt32 size)
         return;
         
     uInt32 type = GetLong(data);
-    if ((type == 'StdA') || (type == 'StdB') || (type == 'Gdni'))
+    if ((type == 'StdA') || (type == 'DbgA') || (type == 'StdB') || (type == 'DbgB') || (type == 'Gdni'))
     {
         // these buffers contain an array of offsets at the beginning, with the record data
         // packed in reverse order at the end of the buffer        
@@ -400,7 +405,7 @@ void DSTCPEndian::SwapRecordEntry(char* data, uInt32 type)
     {
         uInt32 attrLen;
         char* attrEnd = data;
-        if (type != 'stdB')
+        if ( (type != 'StdB') || (type != 'DbgB') )
         {
             // 4 byte attribute length
             attrLen = GetAndSwapLong(data);
@@ -429,7 +434,7 @@ void DSTCPEndian::SwapRecordEntry(char* data, uInt32 type)
         for (short j = 0; j < attrValCount; j++)
         {
             uInt32 attrValueLen;
-            if (type != 'stdB')
+            if ( (type != 'StdB') || (type != 'DbgB') )
             {
                 // 4 byte attribute length
                 attrValueLen = GetAndSwapLong(data);

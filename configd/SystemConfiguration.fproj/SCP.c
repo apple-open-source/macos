@@ -1,5 +1,5 @@
 /*
- * Copyright(c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright(c) 2000-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -160,14 +160,19 @@ __SCPreferencesPath(CFAllocatorRef	allocator,
 
 
 CFDataRef
-SCPreferencesGetSignature(SCPreferencesRef session)
+SCPreferencesGetSignature(SCPreferencesRef prefs)
 {
-	SCPreferencesPrivateRef	sessionPrivate	= (SCPreferencesPrivateRef)session;
+	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
-	SCLog(_sc_verbose, LOG_DEBUG, CFSTR("SCPreferencesGetSignature:"));
+	if (prefs == NULL) {
+		/* sorry, you must provide a session */
+		_SCErrorSet(kSCStatusNoPrefsSession);
+		return NULL;
+	}
 
-	sessionPrivate->accessed = TRUE;
-	return sessionPrivate->signature;
+	__SCPreferencesAccess(prefs);
+
+	return prefsPrivate->signature;
 }
 
 
@@ -178,39 +183,45 @@ _SCPNotificationKey(CFAllocatorRef	allocator,
 		    CFStringRef		user,
 		    int			keyType)
 {
-	CFStringRef	key		= NULL;
-	char		*pathStr;
-	char		*typeStr;
+	CFStringRef	keyStr;
+	char		*path;
+	CFStringRef	pathStr;
+	CFStringRef	storeKey;
 
-	pathStr = __SCPreferencesPath(allocator, prefsID, perUser, user, TRUE);
-	if (pathStr == NULL) {
+	switch (keyType) {
+		case kSCPreferencesKeyLock :
+			keyStr = CFSTR("lock");
+			break;
+		case kSCPreferencesKeyCommit :
+			keyStr = CFSTR("commit");
+			break;
+		case kSCPreferencesKeyApply :
+			keyStr = CFSTR("apply");
+			break;
+		default :
+			return NULL;
+	}
+
+	path = __SCPreferencesPath(allocator, prefsID, perUser, user, TRUE);
+	if (path == NULL) {
 		return NULL;
 	}
 
-	/* create notification key */
-	switch (keyType) {
-		case kSCPreferencesKeyLock :
-			typeStr = "lock";
-			break;
-		case kSCPreferencesKeyCommit :
-			typeStr = "commit";
-			break;
-		case kSCPreferencesKeyApply :
-			typeStr = "apply";
-			break;
-		default :
-			typeStr = "?";
-	}
+	pathStr = CFStringCreateWithCStringNoCopy(allocator,
+						  path,
+						  kCFStringEncodingASCII,
+						  kCFAllocatorNull);
 
-	key = CFStringCreateWithFormat(allocator,
-				       NULL,
-				       CFSTR("%@%s:%s"),
-				       kSCDynamicStoreDomainPrefs,
-				       typeStr,
-				       pathStr);
+	storeKey = CFStringCreateWithFormat(allocator,
+					    NULL,
+					    CFSTR("%@%@:%@"),
+					    kSCDynamicStoreDomainPrefs,
+					    keyStr,
+					    pathStr);
 
-	CFAllocatorDeallocate(NULL, pathStr);
-	return key;
+	CFRelease(pathStr);
+	CFAllocatorDeallocate(NULL, path);
+	return storeKey;
 }
 
 

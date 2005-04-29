@@ -99,8 +99,10 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 #include <sys/wait.h>
 #include <sys/signal.h>
 #include <sys/resource.h>
+#include <sys/un.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <launch.h>
 #ifdef USE_RENDEZVOUS
 #include <DNSServiceDiscovery/DNSServiceDiscovery.h>
 #endif
@@ -110,9 +112,9 @@ static char sccsid[] = "@(#)portmap.c 1.32 87/08/06 Copyr 1984 Sun Micro";
 extern void get_myaddress(struct sockaddr_in *);
 
 static void reg_service __P((struct svc_req *, SVCXPRT *));
-static void reap __P((int));
 static void callit __P((struct svc_req *, SVCXPRT *));
 static void usage __P((void));
+static bool should_timeout(void);
 
 struct pmaprlist {
 	struct pmaplist pl;
@@ -123,6 +125,9 @@ struct pmaprlist {
 
 struct pmaprlist *pmaplist;
 int debugging = 0;
+static bool use_launchd = false;
+
+extern int svc_maxfd;
 
 #ifdef USE_RENDEZVOUS
 static void mdns_callback(DNSServiceRegistrationReplyErrorType err, void *d)
@@ -137,12 +142,47 @@ main(argc, argv)
 	char **argv;
 {
 	SVCXPRT *xprt;
-	int sock, c;
+	int sock, c, l_on_d_fd = -1, sock_opt = 1;
 	char **hosts = NULL;
 	int nhosts = 0;
 	struct sockaddr_in addr;
 	int len = sizeof(struct sockaddr_in);
 	register struct pmaplist *pml;
+	launch_data_t msg, resp;
+        fd_set readfds;
+
+	openlog(getprogname(), LOG_PID | LOG_PERROR, LOG_DAEMON);
+
+	if (1 == getppid()) {
+		use_launchd = true;
+	} else {
+		msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+		launch_data_dict_insert(msg, launch_data_new_string("com.apple.portmap"), LAUNCH_KEY_GETJOB);
+
+		resp = launch_msg(msg);
+		if (resp == NULL) {
+			syslog(LOG_ERR, "launch_msg(): %m");
+			exit(1);
+		}
+		launch_data_free(msg);
+		switch (launch_data_get_type(resp)) {
+		case LAUNCH_DATA_DICTIONARY:
+			syslog(LOG_ERR, "PID %d started this second instance of portmap (the first instance may not be running, as it launches on demand via launchd), exiting!", getppid());
+			exit(1);
+		case LAUNCH_DATA_ERRNO:
+			errno = launch_data_get_errno(resp);
+			/* if we couldn't find the job, then portmap really isn't running via launchd and we can proceed */
+			if (ESRCH != errno) {
+				syslog(LOG_ERR, "launch_msg(GETJOB...): %m");
+				exit(1);
+			}
+			break;
+		default:
+			syslog(LOG_ERR, "unknown response while attempting to find out if portmap is registered with launchd");
+			exit(1);
+		}
+		launch_data_free(resp);
+	}
 
 	while ((c = getopt(argc, argv, "dvh:")) != -1) {
 		switch (c) {
@@ -166,11 +206,40 @@ main(argc, argv)
 		}
 	}
 
-	if (!debugging && daemon(0, 0))
+	closelog();
+
+	if (!debugging && !use_launchd && daemon(0, 0))
 		err(1, "fork");
 
-	openlog("portmap", debugging ? LOG_PID | LOG_PERROR : LOG_PID,
-	    LOG_DAEMON);
+	openlog(getprogname(), debugging ? LOG_PID | LOG_PERROR : LOG_PID,
+			LOG_DAEMON);
+
+	if (use_launchd) {
+		msg = launch_data_alloc(LAUNCH_DATA_STRING);
+		launch_data_set_string(msg, LAUNCH_KEY_CHECKIN);
+
+		resp = launch_msg(msg);
+		if (resp == NULL) {
+			syslog(LOG_ERR, "launch_msg(): %m");
+			exit(1);
+		}
+		launch_data_free(msg);
+		if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY) {
+			msg = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SOCKETS);
+			msg = launch_data_dict_lookup(msg, "OnDemandTickler");
+			msg = launch_data_array_get_index(msg, 0);
+			l_on_d_fd = launch_data_get_fd(msg);
+		} else if (launch_data_get_type(resp) == LAUNCH_DATA_STRING) {
+			syslog(LOG_ERR, "launch_msg(): %s", launch_data_get_string(resp));
+			exit(1);
+		} else if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
+			syslog(LOG_ERR, "launch_msg(): resp == %s", strerror(launch_data_get_errno(resp)));
+			exit(1);
+		} else {
+			syslog(LOG_ERR, "unknown response to launch_msg()");
+		}
+		launch_data_free(resp);
+	}
 
 	bzero(&addr, sizeof(addr));
 	addr.sin_family = AF_INET;
@@ -199,6 +268,10 @@ main(argc, argv)
 	    }
 	    if ((sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
 		    syslog(LOG_ERR, "cannot create udp socket: %m");
+		    exit(1);
+	    }
+	    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt, sizeof(sock_opt)) == -1) {
+		    syslog(LOG_ERR, "setsockopt(SO_REUSEADDR): %m");
 		    exit(1);
 	    }
 
@@ -230,6 +303,10 @@ main(argc, argv)
 		syslog(LOG_ERR, "cannot create tcp socket: %m");
 		exit(1);
 	}
+	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&sock_opt, sizeof(sock_opt)) == -1) {
+		syslog(LOG_ERR, "setsockopt(SO_REUSEADDR): %m");
+		exit(1);
+	}
 	if (bind(sock, (struct sockaddr *)&addr, len) != 0) {
 		syslog(LOG_ERR, "cannot bind tcp: %m");
 		exit(1);
@@ -255,10 +332,44 @@ main(argc, argv)
 
 	/* additional initializations */
 	check_startup();
-	(void)signal(SIGCHLD, reap);
-	svc_run();
-	syslog(LOG_ERR, "svc_run returned unexpectedly");
-	abort();
+	signal(SIGCHLD, SIG_IGN);
+
+	for (;;) {
+		struct timeval timeout = { 30, 0 };
+		int r, maxfd;
+		readfds = svc_fdset;
+		if (l_on_d_fd != -1) {
+			maxfd = (svc_maxfd > l_on_d_fd ? svc_maxfd : l_on_d_fd) + 1;
+			FD_SET(l_on_d_fd, &readfds);
+		} else {
+			maxfd = svc_maxfd;
+		}
+		r = select(maxfd, &readfds, NULL, NULL, should_timeout() ? &timeout : NULL);
+		if (r == -1) {
+                        if (errno == EINTR)
+                                continue;
+                        syslog(LOG_ERR, "cannot bind tcp: %m");
+			abort();
+		} else if (r > 0) {
+			if (l_on_d_fd != -1 && FD_ISSET(l_on_d_fd, &readfds)) {
+				struct sockaddr_un sun;
+				socklen_t sl = sizeof(sun);
+				char b = '\0';
+				int j = accept(l_on_d_fd, (struct sockaddr *)&sun, &sl);
+
+				if (j == -1) {
+					syslog(LOG_WARNING, "accept(): %m");
+				} else {
+					write(j, &b, sizeof(b));
+					close(j);
+				}
+				FD_CLR(l_on_d_fd, &readfds);
+			}
+                        svc_getreqset(&readfds);
+                } else {
+			exit(EXIT_SUCCESS);
+		}
+        }
 }
 
 static void
@@ -294,6 +405,24 @@ find_service(prog, vers, prot)
 		    break;
 	}
 	return (hit);
+}
+
+static bool
+should_timeout(void)
+{
+	bool r = true;
+	struct pmaprlist *pml;
+
+	if (!use_launchd)
+		return false;
+
+	for (pml = pmaplist; pml != NULL; (struct pmaplist *)pml = pml->pl.pml_next) {
+		if (pml->pl.pml_map.pm_prog != PMAPPROG) {
+			r = false;
+			break;
+		}
+	}
+	return r;
 }
 
 /*
@@ -675,15 +804,4 @@ callit(rqstp, xprt)
 	}
 	(void)close(so);
 	exit(0);
-}
-
-static void
-reap(sig)
-	int sig;
-{
-	int save_errno;
-
-	save_errno = errno;
-	while (wait3((int *)NULL, WNOHANG, (struct rusage *)NULL) > 0);
-	errno = save_errno;
 }

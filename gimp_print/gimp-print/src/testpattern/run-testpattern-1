@@ -1,0 +1,286 @@
+#!/bin/sh
+
+retval=0;
+
+if [ -z "$STP_DATA_PATH" ] ; then
+    STP_DATA_PATH=`pwd`/../main
+    export STP_DATA_PATH
+fi
+
+if [ -z "$STP_MODULE_PATH" ] ; then
+    STP_MODULE_PATH=`pwd`/../main:`pwd`/../main/.libs
+    export STP_MODULE_PATH
+fi
+
+valgrind=0
+valopts=''
+extra=''
+dontrun=
+
+set_opt() {
+    opt=`echo $1 | awk -F= '{print $1}'`
+    val=`echo $1 | awk -F= '{print $2}'`
+    extra="`printf '%s\nparameter \"%s\" \"%s\";' \"$extra\" $opt $val`"
+}
+
+set_message() {
+    the_message="`printf '%s\nmessage \"%s\";' \"$the_message\" \"$@\"`"
+}
+
+usage() {
+    echo "Usage: run-testpattern [-v|--valgrind]"
+    echo "                       [-p|--parameter parameter=value]"
+    echo "                       [-n|--dontrun]"
+    echo "                       [--] [printers...]"
+    exit 0;
+}
+
+print_command=cat
+
+set_args() {
+    while true ; do
+	case "$1" in
+	    -h*|--h*) usage ;;
+	    -v|--valgrind) valgrind=`expr $valgrind + 1` ;;
+	    -c|--cachegrind) valopts='--skin=cachegrind'; valgrind=4 ;;
+	    -g|--gdb-attach) valopts='--gdb-attach=yes' ;;
+	    -p|--parameter) shift; set_opt "$1" ;;
+    	    -n|--dontrun) dontrun=1 ;;
+	    -o|--one) print_command=run_testpattern; dontrun=1 ;;
+	    --) shift; args="$@"; return ;;
+	    *) return ;;
+	esac
+    shift
+    done
+}
+
+print_one_testpattern() {
+    printer=$1
+    mode=$2
+    bits=$3
+    inktype=$4
+    correction=$5
+    printingmode=$6
+    shift
+    shift
+    shift
+    shift
+    shift
+    shift
+    stuff="$@"
+    cat <<EOF
+printer "$printer";
+$stuff
+parameter "InkType" "$inktype";
+parameter "ColorCorrection" "$correction";
+parameter "PrintingMode" "$printingmode";
+parameter "DitherAlgorithm" "VeryFast";
+hsize 0.1;
+vsize 0.1;
+left 0.15;
+top 0.15;
+blackline 0;
+steps 16;
+mode $mode $bits;
+pattern 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0 ;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 -2.0 1.0 0.0 -2.0 1.0 0.0 -2.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+end;
+EOF
+}
+
+print_one_raw_testpattern() {
+    printer=$1
+    mode=$2
+    bits=$3
+    inktype=$4
+    correction=$5
+    printingmode=$6
+    shift
+    shift
+    shift
+    shift
+    shift
+    shift
+    stuff="$@"
+    cat <<EOF
+printer "$printer";
+$stuff
+parameter "InkType" "$inktype";
+parameter "ColorCorrection" "$correction";
+parameter "PrintingMode" "$printingmode";
+page_size 256 256;
+blackline 0;
+steps 256;
+mode $mode $bits;
+pattern 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0  0.0 0.0 1.0 ;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 -2.0 1.0 0.0 -2.0 1.0 0.0 -2.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.3 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.7 1.0 1.0 1.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.1 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.3 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 0.5 0.999 -2.0 -2.0 -2.0 0.0 1.0 1.0  0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 0.0 1.0 0.0 1.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.0 1.0 0.0 0.75 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.0 1.0 0.0 0.5 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.0 1.0 0.0 0.25 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.0 1.0 0.0 0.1 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 0.0 1.0 0.0 1.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.0 1.0 0.0 0.75 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.0 1.0 0.0 0.5 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.0 1.0 0.0 0.25 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.0 1.0 0.0 0.1 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.0 1.0  0.0 1.0 1.0 0.0 1.0 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.25 1.0  0.0 0.75 1.0 0.0 0.75 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.5 1.0  0.0 0.5 1.0 0.0 0.5 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.75 1.0  0.0 0.25 1.0 0.0 0.25 1.0 0.0 0.0 1.0;
+pattern 1.0 1.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+pattern 0.0 0.0 1.0 1.0 1.0 0.0 0.9 1.0  0.0 0.1 1.0 0.0 0.1 1.0 0.0 0.0 1.0;
+end;
+EOF
+}
+
+run_testpattern() {
+    case "$valgrind" in
+	1) valgrind $valopts -q --num-callers=100 --leak-check=yes ./testpattern -n ;;
+	2) valgrind $valopts --num-callers=100 --show-reachable=yes --leak-resolution=high --leak-check=yes ./testpattern -n ;;
+	3) valgrind $valopts --error-limit=no --num-callers=100 --show-reachable=yes --leak-resolution=high --leak-check=yes ./testpattern -n ;;
+	4) valgrind $valopts ./testpattern -n ;;
+	5) LD_PRELOAD=libefence.so.0.0 ./testpattern -n ;;
+	*) ./testpattern -n ;;
+    esac
+    if [ $? -ne 0 ] ; then
+	retval=1
+    fi
+}
+
+set_args `getopt hgvp:nco "$@"`
+
+if [ -z "$args" ] ; then
+    args=`./printers`
+fi
+
+StandardBitDepths="8 16"
+StandardModes="rgb kcmy cmyk cmy gray white"
+StandardColorCorrections="None Density Desaturated Accurate Bright Uncorrected Threshold Raw Predithered"
+StandardInkTypes="CMYKRB CMYK RGB"
+StandardPrintingModes="BW Color"
+
+RawBitDepths="8 16"
+RawTypes="raw-data-8 raw-data-16"
+RawModes="rgb kcmy cmyk cmy gray white"
+RawColorCorrections="None Density Desaturated Accurate Bright Uncorrected Threshold Raw Predithered"
+RawInkTypes="CMYK RGB CMY KCMY RGBGray CMYGray"
+RawPrintingModes="Color BW"
+
+the_message=''
+
+print_all_testpatterns() {
+    for a in $RawPrintingModes ; do
+	for b in $RawInkTypes ; do
+	    for c in $RawColorCorrections ; do
+		for d in $RawModes ; do
+		    for e in $RawBitDepths ; do
+			set_message "$a $b $c $d $e"
+			print_one_raw_testpattern "raw-data-8" $d $e $b $c $a "$extra" "$the_message" | $print_command
+			the_message=""
+		    done
+		done
+	    done
+	done
+    done
+    for a in $StandardPrintingModes ; do
+	for b in $StandardInkTypes ; do
+	    for c in $StandardColorCorrections ; do
+		for d in $StandardModes ; do
+		    for e in $StandardBitDepths ; do
+			set_message "$a $b $c $d $e"
+			print_one_testpattern "escp2-r800" $d $e $b $c $a "$extra" "$the_message" | $print_command
+			the_message=""
+		    done
+		done
+	    done
+	done
+    done
+    for a in $StandardColorCorrections ; do
+	for b in $StandardBitDepths ; do
+	    set_message "Color extended 8 CMYKRB $a $b"
+	    print_one_testpattern "escp2-r800" "extended 8" $b CMYKRB $a Color "$extra" "$the_message" | $print_command
+	    the_message=""
+	done
+    done
+}
+
+if [ -z "$dontrun" ] ; then
+    (print_all_testpatterns | run_testpattern)
+else
+    (print_all_testpatterns)
+fi
+
+exit $?

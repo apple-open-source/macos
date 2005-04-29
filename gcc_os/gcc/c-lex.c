@@ -1,6 +1,6 @@
-/* Lexical analyzer for C and Objective C.
+/* Mainly the interface between cpplib and the C front ends.
    Copyright (C) 1987, 1988, 1989, 1992, 1994, 1995, 1996, 1997
-   1998, 1999, 2000 Free Software Foundation, Inc.
+   1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,13 +22,14 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "config.h"
 #include "system.h"
 
+#include "real.h"
 #include "rtl.h"
 #include "tree.h"
 #include "expr.h"
 #include "input.h"
 #include "output.h"
-#include "c-lex.h"
 #include "c-tree.h"
+#include "c-common.h"
 #include "flags.h"
 #include "timevar.h"
 #include "cpplib.h"
@@ -38,27 +39,12 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 #include "tm_p.h"
 #include "splay-tree.h"
 #include "debug.h"
-
-/* APPLE LOCAL PFE */
-#ifdef PFE
-#include "pfe/pfe.h"
-#endif
-
-/* MULTIBYTE_CHARS support only works for native compilers.
-   ??? Ideally what we want is to model widechar support after
-   the current floating point support.  */
-/* APPLE LOCAL fat builds  */
-#if defined (CROSS_COMPILE) && !defined (PHAT)
-#undef MULTIBYTE_CHARS
-#endif
+#include "genindex.h"
 
 #ifdef MULTIBYTE_CHARS
 #include "mbchar.h"
 #include <locale.h>
 #endif /* MULTIBYTE_CHARS */
-#ifndef GET_ENVIRONMENT
-#define GET_ENVIRONMENT(ENV_VALUE,ENV_NAME) ((ENV_VALUE) = getenv (ENV_NAME))
-#endif
 
 /* The current line map.  */
 static const struct line_map *map;
@@ -70,9 +56,6 @@ static unsigned int src_lineno;
 static int header_time, body_time;
 static splay_tree file_info_tree;
 
-/* Cause the `yydebug' variable to be defined.  */
-#define YYDEBUG 1
-
 /* File used for outputting assembler code.  */
 extern FILE *asm_out_file;
 
@@ -82,15 +65,18 @@ extern FILE *asm_out_file;
 /* Number of bytes in a wide character.  */
 #define WCHAR_BYTES (WCHAR_TYPE_SIZE / BITS_PER_UNIT)
 
-int indent_level;        /* Number of { minus number of }.  */
 int pending_lang_change; /* If we need to switch languages - C++ only */
 int c_header_level;	 /* depth in C headers - C++ only */
 
 /* Nonzero tells yylex to ignore \ in string constants.  */
 static int ignore_escape_flag;
 
-static void parse_float		PARAMS ((PTR));
-static tree lex_number		PARAMS ((const char *, unsigned int));
+static tree interpret_integer	PARAMS ((const cpp_token *, unsigned int));
+static tree interpret_float	PARAMS ((const cpp_token *, unsigned int));
+static enum integer_type_kind
+  narrowest_unsigned_type	PARAMS ((tree, unsigned int));
+static enum integer_type_kind
+  narrowest_signed_type		PARAMS ((tree, unsigned int));
 static tree lex_string		PARAMS ((const unsigned char *, unsigned int,
 					 int));
 static tree lex_charconst	PARAMS ((const cpp_token *));
@@ -137,6 +123,10 @@ init_c_lex (filename)
   cb->ident = cb_ident;
   cb->file_change = cb_file_change;
   cb->def_pragma = cb_def_pragma;
+  /* APPLE LOCAL begin PCH */
+  cb->valid_pch = c_common_valid_pch;
+  cb->read_pch = c_common_read_pch;
+  /* APPLE LOCAL end PCH */
 
   /* Set the debug callbacks if we can use them.  */
   if (debug_info_level == DINFO_LEVEL_VERBOSE
@@ -147,43 +137,79 @@ init_c_lex (filename)
       cb->undef = cb_undef;
     }
 
+  /* APPLE LOCAL begin Symbol Separation */
+  /* Set up call back routines. These routines are used when separate symbol
+     repositories are used.  */
+  if (write_symbols != NO_DEBUG)
+    {
+      cb->restore_write_symbols = cb_restore_write_symbols;
+      cb->clear_write_symbols = cb_clear_write_symbols;
+      cb->is_builtin_identifier = cb_is_builtin_identifier;
+      cb->start_symbol_repository = cb_start_symbol_repository;
+      cb->end_symbol_repository = cb_end_symbol_repository;
+      if (flag_grepository)
+	{
+	  cpp_options *options = cpp_get_options (parse_in);
+	  options->use_ss = 1;
+	}
+    }
+  /* APPLE LOCAL end Symbol Separation */
+
   /* Start it at 0.  */
   lineno = 0;
 
-  if (filename == NULL || !strcmp (filename, "-"))
-    filename = "";
-
   return cpp_read_main_file (parse_in, filename, ident_hash);
 }
+
+/* APPLE LOCAL begin jet */
+/* This is only here because of the backport: in 3.5 there's a
+   better way to do things.  Conceptually this should be C++-only.
+   It's here because there's no other convenient place to do
+   initialization after pch initialization but before the C++
+   yacc-based parser is invoked.
+*/
+void initialize_jet (void);
+/* APPLE LOCAL end jet */
 
 /* A thin wrapper around the real parser that initializes the 
    integrated preprocessor after debug output has been initialized.
    Also, make sure the start_source_file debug hook gets called for
    the primary source file.  */
 
-int
-yyparse()
+void
+c_common_parse_file (set_yydebug)
+     int set_yydebug ATTRIBUTE_UNUSED;
 {
-  /* APPLE LOCAL begin PFE */
-#ifdef PFE
-  /* During a PFE load, we emit the SO stabs entry before we thaw
-     prefix header stabs info.  */
-  if (pfe_operation != PFE_LOAD)
+#if YYDEBUG != 0
+  yydebug = set_yydebug;
+#else
+  warning ("YYDEBUG not defined");
 #endif
-  /* APPLE LOCAL end PFE */
-  (*debug_hooks->start_source_file) (lineno, input_filename);
+
+  /* APPLE LOCAL begin */
+  /* Do not call start_source_file debug hook */
+  /* APPLE LOCAL end */
   cpp_finish_options (parse_in);
 
-  /* APPLE LOCAL begin PFE validation dpatel */
-#ifdef PFE
-  /* Check command line macros, which were defined (and undefined)
-     when the PFE was built, are consistent with current macro
-     definitions.  */
-     if (pfe_macro_validation && pfe_operation == PFE_LOAD)
-       pfe_check_cmd_ln_macros ();
-#endif
-  /* APPLE LOCAL end PFE validation dpatel */
-  return yyparse_1();
+  /* APPLE LOCAL PCH */
+  pch_init();
+
+  /* APPLE LOCAL begin Symbol Separation */
+  /* Initialize Symbol Sepration. Create .cinfo file and save current cpp state.  */
+  dbg_dir = cpp_symbol_separation_init (parse_in, dbg_dir, input_filename);
+  if (dbg_dir)
+  (*debug_hooks->start_symbol_repository) (lineno, input_filename, 
+					   cpp_get_stabs_checksum ());
+  /* APPLE LOCAL end Symbol Separation */
+
+  /* APPLE LOCAL begin jet */
+  /* 3.3 backport only. */
+  if (flag_jet)
+    initialize_jet ();
+  /* APPLE LOCAL end jet */
+
+  yyparse ();
+  free_parser_stacks ();
 }
 
 struct c_fileinfo *
@@ -249,9 +275,6 @@ dump_time_statistics ()
   splay_tree_foreach (file_info_tree, dump_one_header, 0);
 }
 
-/* Not yet handled: #pragma, #define, #undef.
-   No need to deal with linemarkers under normal conditions.  */
-
 static void
 cb_ident (pfile, line, str)
      cpp_reader *pfile ATTRIBUTE_UNUSED;
@@ -298,7 +321,6 @@ cb_file_change (pfile, new_map)
 
 	  lineno = included_at;
 	  push_srcloc (new_map->to_file, 1);
-	  input_file_stack->indent_level = indent_level;
 	  (*debug_hooks->start_source_file) (included_at, new_map->to_file);
 #ifndef NO_IMPLICIT_EXTERN_C
 	  if (c_header_level)
@@ -321,16 +343,6 @@ cb_file_change (pfile, new_map)
 	  --pending_lang_change;
 	}
 #endif
-#if 0
-      if (indent_level != input_file_stack->indent_level)
-	{
-	  warning_with_file_and_line
-	    (input_filename, lineno,
-	     "this file contains more '%c's than '%c's",
-	     indent_level > input_file_stack->indent_level ? '{' : '}',
-	     indent_level > input_file_stack->indent_level ? '}' : '{');
-	}
-#endif
       pop_srcloc ();
       
       (*debug_hooks->end_source_file) (to_line);
@@ -342,8 +354,7 @@ cb_file_change (pfile, new_map)
 
   update_header_times (new_map->to_file);
   in_system_header = new_map->sysp != 0;
-  /* APPLE LOCAL PFE - PFE_SAVESTRING is null when not building for pfe.  */
-  input_filename = PFE_SAVESTRING (new_map->to_file);
+  input_filename = new_map->to_file;
   lineno = to_line;
   map = new_map;
 
@@ -361,20 +372,21 @@ cb_def_pragma (pfile, line)
      -Wunknown-pragmas has been given.  */
   if (warn_unknown_pragmas > in_system_header)
     {
-      const unsigned char *space, *name = 0;
+      const unsigned char *space, *name;
       const cpp_token *s;
 
+      space = name = (const unsigned char *) "";
       s = cpp_get_token (pfile);
-      space = cpp_token_as_text (pfile, s);
-      s = cpp_get_token (pfile);
-      if (s->type == CPP_NAME)
-	name = cpp_token_as_text (pfile, s);
+      if (s->type != CPP_EOF)
+	{
+	  space = cpp_token_as_text (pfile, s);
+	  s = cpp_get_token (pfile);
+	  if (s->type == CPP_NAME)
+	    name = cpp_token_as_text (pfile, s);
+	}
 
       lineno = SOURCE_LINE (map, line);
-      if (name)
-	warning ("ignoring #pragma %s %s", space, name);
-      else
-	warning ("ignoring #pragma %s", space);
+      warning ("ignoring #pragma %s %s", space, name);
     }
 }
 
@@ -708,93 +720,48 @@ utf8_extend_token (c)
   while (shift);
 }
 #endif
-
-#if 0
-struct try_type
-{
-  tree *const node_var;
-  const char unsigned_flag;
-  const char long_flag;
-  const char long_long_flag;
-};
-
-struct try_type type_sequence[] =
-{
-  { &integer_type_node, 0, 0, 0},
-  { &unsigned_type_node, 1, 0, 0},
-  { &long_integer_type_node, 0, 1, 0},
-  { &long_unsigned_type_node, 1, 1, 0},
-  { &long_long_integer_type_node, 0, 1, 1},
-  { &long_long_unsigned_type_node, 1, 1, 1}
-};
-#endif /* 0 */
 
-struct pf_args
-{
-  /* Input */
-  const char *str;
-  int fflag;
-  int lflag;
-  int base;
-  /* Output */
-  int conversion_errno;
-  REAL_VALUE_TYPE value;
-  tree type;
-};
- 
-static void
-parse_float (data)
-  PTR data;
-{
-  struct pf_args * args = (struct pf_args *) data;
-  const char *typename;
+/* APPLE LOCAL begin CW asm blocks */
+/* This points to the token that we're going to save briefly while
+   returning EOL/BOL tokens.  (This is global but static instead
+   static in c_lex() so as to avoid pointless init in non-asm
+   case.)  */
+static cpp_token *cw_asm_saved_token = NULL;
+/* This tracks recursion in c_lex calls.  Lexer recursion can happen
+   in pragma processing for instance, but we don't any of the asm
+   special handling to be active then.  */
+static int c_lex_depth;
+/* APPLE LOCAL end CW asm blocks */
 
-  args->conversion_errno = 0;
-  args->type = double_type_node;
-  typename = "double";
-
-  /* The second argument, machine_mode, of REAL_VALUE_ATOF
-     tells the desired precision of the binary result
-     of decimal-to-binary conversion.  */
-
-  if (args->fflag)
-    {
-      if (args->lflag)
-	error ("both 'f' and 'l' suffixes on floating constant");
-
-      args->type = float_type_node;
-      typename = "float";
-    }
-  else if (args->lflag)
-    {
-      args->type = long_double_type_node;
-      typename = "long double";
-    }
-  else if (flag_single_precision_constant)
-    {
-      args->type = float_type_node;
-      typename = "float";
-    }
-
-  errno = 0;
-  if (args->base == 16)
-    args->value = REAL_VALUE_HTOF (args->str, TYPE_MODE (args->type));
-  else
-    args->value = REAL_VALUE_ATOF (args->str, TYPE_MODE (args->type));
-
-  args->conversion_errno = errno;
-  /* A diagnostic is required here by some ISO C testsuites.
-     This is not pedwarn, because some people don't want
-     an error for this.  */
-  if (REAL_VALUE_ISINF (args->value) && pedantic)
-    warning ("floating point number exceeds range of '%s'", typename);
-}
- 
 int
 c_lex (value)
      tree *value;
 {
   const cpp_token *tok;
+  /* APPLE LOCAL pch */
+  static bool no_more_pch;
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* Make a local copy of the flag for efficiency, since the compiler can't
+     figure that it won't change during a compilation.  */
+  int flag_cw_asm_blocks_local = flag_cw_asm_blocks;
+  if (flag_cw_asm_blocks_local)
+    ++c_lex_depth;
+  /* If there's a token we saved while returning the special BOL
+     token, return it now.  */
+  if (cw_asm_saved_token)
+    {
+      if (cw_asm_at_bol)
+	{
+	  cw_asm_at_bol = 0;
+	  --c_lex_depth;
+	  return CPP_BOL;
+	}
+      tok = cw_asm_saved_token;
+      cw_asm_saved_token = NULL;
+      goto bypass;
+    }
+  /* APPLE LOCAL end CW asm blocks */
 
   retry:
   timevar_push (TV_CPP);
@@ -802,6 +769,66 @@ c_lex (value)
     tok = cpp_get_token (parse_in);
   while (tok->type == CPP_PADDING);
   timevar_pop (TV_CPP);
+
+  /* APPLE LOCAL begin CW asm blocks */
+  /* This test should be as efficient as possible, because it affects
+     all lexing with or without CW asm enabled.  */
+  if (flag_cw_asm_blocks_local && cw_asm_state != cw_asm_none && c_lex_depth == 1)
+    {
+      /* "}" switches us out of our special mode.  */
+      if (tok->type == CPP_CLOSE_BRACE && cw_asm_state >= cw_asm_decls)
+	{
+	  cw_asm_state = cw_asm_none;
+	  cw_asm_saved_token = tok;
+	  cw_asm_at_bol = 0;
+	  *value = NULL_TREE;
+	  --c_lex_depth;
+	  return CPP_EOL;
+	}
+
+      /* This is tricky.  We're only ready to start parsing assembly
+	 instructions if we're in the asm block, we're not in the
+	 middle of parsing a C decl, and the next token is plausibly
+	 the beginning of an asm line.  This works because if we have
+	 a "typedef int nop", a nop at the beginning of a line should
+	 be taken as an instruction rather than a declaration of type
+	 nop.  (Doesn't have to go this way, but it's how CW works.)
+	 We're not quite as good as CW yet, because CW knows about the
+	 complete list of valid opcodes, and will try to take anything
+	 as a decl that is not in the opcode list.  */
+      if (cw_asm_state == cw_asm_decls
+	  && !cw_asm_in_decl)
+	{
+	  if ((tok->flags & BOL)
+	      && (tok->type == CPP_ATSIGN
+		  || (tok->type == CPP_NAME
+		      && (*value = HT_IDENT_TO_GCC_IDENT (HT_NODE (tok->val.node)))
+		      && !C_IS_RESERVED_WORD (*value))))
+	    {
+	      cw_asm_state = cw_asm_asm;
+	      cw_asm_block = 1;
+	      cw_asm_at_bol = 1;
+	      clear_cw_asm_labels ();
+	    }
+	  else
+	    {
+	      cw_asm_in_decl = 1;
+	    }
+	}
+      /* If we're in the asm block, save the token at the beginning of the
+	 line and return a beginning-of-line token instead.  */
+      if (cw_asm_state == cw_asm_asm && (tok->flags & BOL))
+	{
+	  cw_asm_saved_token = tok;
+	  *value = NULL_TREE;
+	  cw_asm_at_bol = !cw_asm_at_bol;
+	  --c_lex_depth;
+	  /* In between lines, return first the EOL.  */
+	  return (cw_asm_at_bol ? CPP_EOL : CPP_BOL);
+	}
+    }
+ bypass:
+  /* APPLE LOCAL end CW asm blocks */
 
   /* The C++ front end does horrible things with the current line
      number.  To ensure an accurate line number, we must reset it
@@ -811,9 +838,6 @@ c_lex (value)
   *value = NULL_TREE;
   switch (tok->type)
     {
-    case CPP_OPEN_BRACE:  indent_level++;  break;
-    case CPP_CLOSE_BRACE: indent_level--;  break;
-
     /* Issue this error here, where we can get at tok->val.c.  */
     case CPP_OTHER:
       if (ISGRAPH (tok->val.c))
@@ -827,7 +851,28 @@ c_lex (value)
       break;
 
     case CPP_NUMBER:
-      *value = lex_number ((const char *)tok->val.str.text, tok->val.str.len);
+      {
+	unsigned int flags = cpp_classify_number (parse_in, tok);
+
+	switch (flags & CPP_N_CATEGORY)
+	  {
+	  case CPP_N_INVALID:
+	    /* cpplib has issued an error.  */
+	    *value = error_mark_node;
+	    break;
+
+	  case CPP_N_INTEGER:
+	    *value = interpret_integer (tok, flags);
+	    break;
+
+	  case CPP_N_FLOATING:
+	    *value = interpret_float (tok, flags);
+	    break;
+
+	  default:
+	    abort ();
+	  }
+      }
       break;
 
     case CPP_CHAR:
@@ -850,479 +895,219 @@ c_lex (value)
     default: break;
     }
 
+  /* APPLE LOCAL begin CW asm blocks */
+  if (flag_cw_asm_blocks_local)
+    --c_lex_depth;
+
+  /* APPLE LOCAL end CW asm blocks */
+  /* APPLE LOCAL begin pch */
+  if (! no_more_pch)
+    {
+      no_more_pch = true;
+      c_common_no_more_pch ();
+    }
+
+  /* APPLE LOCAL end pch */
   return tok->type;
 }
 
-#define ERROR(msgid) do { error(msgid); goto syntax_error; } while(0)
-
-static tree
-lex_number (str, len)
-     const char *str;
-     unsigned int len;
+/* Returns the narrowest C-visible unsigned type, starting with the
+   minimum specified by FLAGS, that can fit VALUE, or itk_none if
+   there isn't one.  */
+static enum integer_type_kind
+narrowest_unsigned_type (value, flags)
+     tree value;
+     unsigned int flags;
 {
-  int base = 10;
-  int count = 0;
-  int largest_digit = 0;
-  int numdigits = 0;
-  int overflow = 0;
-  int c;
-  tree value;
-  const char *p;
-  enum anon1 { NOT_FLOAT = 0, AFTER_POINT, AFTER_EXPON } floatflag = NOT_FLOAT;
-  
-  /* We actually store only HOST_BITS_PER_CHAR bits in each part.
-     The code below which fills the parts array assumes that a host
-     int is at least twice as wide as a host char, and that 
-     HOST_BITS_PER_WIDE_INT is an even multiple of HOST_BITS_PER_CHAR.
-     Two HOST_WIDE_INTs is the largest int literal we can store.
-     In order to detect overflow below, the number of parts (TOTAL_PARTS)
-     must be exactly the number of parts needed to hold the bits
-     of two HOST_WIDE_INTs.  */
-#define TOTAL_PARTS ((HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR) * 2)
-  unsigned int parts[TOTAL_PARTS];
-  
-  /* Optimize for most frequent case.  */
-  if (len == 1)
+  enum integer_type_kind itk;
+
+  if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+    itk = itk_unsigned_int;
+  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+    itk = itk_unsigned_long;
+  else
+    itk = itk_unsigned_long_long;
+
+  /* int_fits_type_p must think the type of its first argument is
+     wider than its second argument, or it won't do the proper check.  */
+  TREE_TYPE (value) = widest_unsigned_literal_type_node;
+
+  for (; itk < itk_none; itk += 2 /* skip unsigned types */)
+    if (int_fits_type_p (value, integer_types[itk]))
+      return itk;
+
+  return itk_none;
+}
+
+/* Ditto, but narrowest signed type.  */
+static enum integer_type_kind
+narrowest_signed_type (value, flags)
+     tree value;
+     unsigned int flags;
+{
+  enum integer_type_kind itk;
+
+  if ((flags & CPP_N_WIDTH) == CPP_N_SMALL)
+    itk = itk_int;
+  else if ((flags & CPP_N_WIDTH) == CPP_N_MEDIUM)
+    itk = itk_long;
+  else
+    itk = itk_long_long;
+
+  /* int_fits_type_p must think the type of its first argument is
+     wider than its second argument, or it won't do the proper check.  */
+  TREE_TYPE (value) = widest_unsigned_literal_type_node;
+
+  for (; itk < itk_none; itk += 2 /* skip signed types */)
+    if (int_fits_type_p (value, integer_types[itk]))
+      return itk;
+
+  return itk_none;
+}
+
+/* Interpret TOKEN, an integer with FLAGS as classified by cpplib.  */
+static tree
+interpret_integer (token, flags)
+     const cpp_token *token;
+     unsigned int flags;
+{
+  tree value, type;
+  enum integer_type_kind itk;
+  cpp_num integer;
+  cpp_options *options = cpp_get_options (parse_in);
+
+  integer = cpp_interpret_integer (parse_in, token, flags);
+  integer = cpp_num_sign_extend (integer, options->precision);
+  value = build_int_2_wide (integer.low, integer.high);
+
+  /* The type of a constant with a U suffix is straightforward.  */
+  if (flags & CPP_N_UNSIGNED)
+    itk = narrowest_unsigned_type (value, flags);
+  else
     {
-      if (*str == '0')
-	return integer_zero_node;
-      else if (*str == '1')
-	return integer_one_node;
+      /* The type of a potentially-signed integer constant varies
+	 depending on the base it's in, the standard in use, and the
+	 length suffixes.  */
+      enum integer_type_kind itk_u = narrowest_unsigned_type (value, flags);
+      enum integer_type_kind itk_s = narrowest_signed_type (value, flags);
+
+      /* In both C89 and C99, octal and hex constants may be signed or
+	 unsigned, whichever fits tighter.  We do not warn about this
+	 choice differing from the traditional choice, as the constant
+	 is probably a bit pattern and either way will work.  */
+      if ((flags & CPP_N_RADIX) != CPP_N_DECIMAL)
+	itk = MIN (itk_u, itk_s);
       else
-	return build_int_2 (*str - '0', 0);
-    }
-
-  for (count = 0; count < TOTAL_PARTS; count++)
-    parts[count] = 0;
-
-  /* len is known to be >1 at this point.  */
-  p = str;
-
-  if (len > 2 && str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
-    {
-      base = 16;
-      p = str + 2;
-    }
-  /* The ISDIGIT check is so we are not confused by a suffix on 0.  */
-  else if (str[0] == '0' && ISDIGIT (str[1]))
-    {
-      base = 8;
-      p = str + 1;
-    }
-
-  do
-    {
-      c = *p++;
-
-      if (c == '.')
 	{
-	  if (floatflag == AFTER_POINT)
-	    ERROR ("too many decimal points in floating constant");
-	  else if (floatflag == AFTER_EXPON)
-	    ERROR ("decimal point in exponent - impossible!");
-	  else
-	    floatflag = AFTER_POINT;
+	  /* In C99, decimal constants are always signed.
+	     In C89, decimal constants that don't fit in long have
+	     undefined behavior; we try to make them unsigned long.
+	     In GCC's extended C89, that last is true of decimal
+	     constants that don't fit in long long, too.  */
 
-	  if (base == 8)
-	    base = 10;
-	}
-      else if (c == '_')
-	/* Possible future extension: silently ignore _ in numbers,
-	   permitting cosmetic grouping - e.g. 0x8000_0000 == 0x80000000
-	   but somewhat easier to read.  Ada has this?  */
-	ERROR ("underscore in number");
-      else
-	{
-	  int n;
-	  /* It is not a decimal point.
-	     It should be a digit (perhaps a hex digit).  */
-
-	  if (ISDIGIT (c)
-	      || (base == 16 && ISXDIGIT (c)))
+	  itk = itk_s;
+	  if (itk_s > itk_u && itk_s > itk_long)
 	    {
-	      n = hex_value (c);
-	    }
-	  else if (base <= 10 && (c == 'e' || c == 'E'))
-	    {
-	      base = 10;
-	      floatflag = AFTER_EXPON;
-	      break;
-	    }
-	  else if (base == 16 && (c == 'p' || c == 'P'))
-	    {
-	      floatflag = AFTER_EXPON;
-	      break;   /* start of exponent */
-	    }
-	  else
-	    {
-	      p--;
-	      break;  /* start of suffix */
-	    }
-
-	  if (n >= largest_digit)
-	    largest_digit = n;
-	  numdigits++;
-
-	  for (count = 0; count < TOTAL_PARTS; count++)
-	    {
-	      parts[count] *= base;
-	      if (count)
+	      if (!flag_isoc99)
 		{
-		  parts[count]
-		    += (parts[count-1] >> HOST_BITS_PER_CHAR);
-		  parts[count-1]
-		    &= (1 << HOST_BITS_PER_CHAR) - 1;
+		  if (itk_u < itk_unsigned_long)
+		    itk_u = itk_unsigned_long;
+		  itk = itk_u;
+		  warning ("this decimal constant is unsigned only in ISO C90");
 		}
-	      else
-		parts[0] += n;
-	    }
-
-	  /* If the highest-order part overflows (gets larger than
-	     a host char will hold) then the whole number has 
-	     overflowed.  Record this and truncate the highest-order
-	     part.  */
-	  if (parts[TOTAL_PARTS - 1] >> HOST_BITS_PER_CHAR)
-	    {
-	      overflow = 1;
-	      parts[TOTAL_PARTS - 1] &= (1 << HOST_BITS_PER_CHAR) - 1;
+	      else if (warn_traditional)
+		warning ("this decimal constant would be unsigned in ISO C90");
 	    }
 	}
     }
-  while (p < str + len);
 
-  /* This can happen on input like `int i = 0x;' */
-  if (numdigits == 0)
-    ERROR ("numeric constant with no digits");
+  if (itk == itk_none)
+    /* cpplib has already issued a warning for overflow.  */
+    type = ((flags & CPP_N_UNSIGNED)
+	    ? widest_unsigned_literal_type_node
+	    : widest_integer_literal_type_node);
+  else
+    type = integer_types[itk];
 
-  if (largest_digit >= base)
-    ERROR ("numeric constant contains digits beyond the radix");
+  if (itk > itk_unsigned_long
+      && (flags & CPP_N_WIDTH) != CPP_N_LARGE
+      && ! in_system_header && ! flag_isoc99)
+    pedwarn ("integer constant is too large for \"%s\" type",
+	     (flags & CPP_N_UNSIGNED) ? "unsigned long" : "long");
 
-  if (floatflag != NOT_FLOAT)
+  TREE_TYPE (value) = type;
+
+  /* Convert imaginary to a complex type.  */
+  if (flags & CPP_N_IMAGINARY)
+    value = build_complex (NULL_TREE, convert (type, integer_zero_node), value);
+
+  return value;
+}
+
+/* Interpret TOKEN, a floating point number with FLAGS as classified
+   by cpplib.  */
+static tree
+interpret_float (token, flags)
+     const cpp_token *token;
+     unsigned int flags;
+{
+  tree type;
+  tree value;
+  REAL_VALUE_TYPE real;
+  char *copy;
+  size_t copylen;
+  const char *typename;
+
+  /* FIXME: make %T work in error/warning, then we don't need typename.  */
+  if ((flags & CPP_N_WIDTH) == CPP_N_LARGE)
     {
-      tree type;
-      int imag, fflag, lflag, conversion_errno;
-      REAL_VALUE_TYPE real;
-      struct pf_args args;
-      char *copy;
-
-      if (base == 16 && pedantic && !flag_isoc99)
-	pedwarn ("floating constant may not be in radix 16");
-
-      if (base == 16 && floatflag != AFTER_EXPON)
-	ERROR ("hexadecimal floating constant has no exponent");
-
-      /* Read explicit exponent if any, and put it in tokenbuf.  */
-      if ((base == 10 && ((c == 'e') || (c == 'E')))
-	  || (base == 16 && (c == 'p' || c == 'P')))
-	{
-	  if (p < str + len)
-	    c = *p++;
-	  if (p < str + len && (c == '+' || c == '-'))
-	    c = *p++;
-	  /* Exponent is decimal, even if string is a hex float.  */
-	  if (! ISDIGIT (c))
-	    ERROR ("floating constant exponent has no digits");
-	  while (p < str + len && ISDIGIT (c))
-	    c = *p++;
-	  if (! ISDIGIT (c))
-	    p--;
-	}
-
-      /* Copy the float constant now; we don't want any suffixes in the
-	 string passed to parse_float.  */
-      copy = alloca (p - str + 1);
-      memcpy (copy, str, p - str);
-      copy[p - str] = '\0';
-
-      /* Now parse suffixes.  */
-      fflag = lflag = imag = 0;
-      while (p < str + len)
-	switch (*p++)
-	  {
-	  case 'f': case 'F':
-	    if (fflag)
-	      ERROR ("more than one 'f' suffix on floating constant");
-	    else if (warn_traditional && !in_system_header
-		     && ! cpp_sys_macro_p (parse_in))
-	      warning ("traditional C rejects the 'f' suffix");
-
-	    fflag = 1;
-	    break;
-
-	  case 'l': case 'L':
-	    if (lflag)
-	      ERROR ("more than one 'l' suffix on floating constant");
-	    else if (warn_traditional && !in_system_header
-		     && ! cpp_sys_macro_p (parse_in))
-	      warning ("traditional C rejects the 'l' suffix");
-
-	    lflag = 1;
-	    break;
-
-	  case 'i': case 'I':
-	  case 'j': case 'J':
-	    if (imag)
-	      ERROR ("more than one 'i' or 'j' suffix on floating constant");
-	    else if (pedantic)
-	      pedwarn ("ISO C forbids imaginary numeric constants");
-	    imag = 1;
-	    break;
-
-	  default:
-	    ERROR ("invalid suffix on floating constant");
-	  }
-
-      /* Setup input for parse_float() */
-      args.str = copy;
-      args.fflag = fflag;
-      args.lflag = lflag;
-      args.base = base;
-
-      /* Convert string to a double, checking for overflow.  */
-      if (do_float_handler (parse_float, (PTR) &args))
-	{
-	  /* Receive output from parse_float() */
-	  real = args.value;
-	}
-      else
-	  /* We got an exception from parse_float() */
-	  ERROR ("floating constant out of range");
-
-      /* Receive output from parse_float() */
-      conversion_errno = args.conversion_errno;
-      type = args.type;
-	    
-#ifdef ERANGE
-      /* ERANGE is also reported for underflow,
-	 so test the value to distinguish overflow from that.  */
-      if (conversion_errno == ERANGE && !flag_traditional && pedantic
-	  && (REAL_VALUES_LESS (dconst1, real)
-	      || REAL_VALUES_LESS (real, dconstm1)))
-	warning ("floating point number exceeds range of 'double'");
-#endif
-
-      /* Create a node with determined type and value.  */
-      if (imag)
-	value = build_complex (NULL_TREE, convert (type, integer_zero_node),
-			       build_real (type, real));
-      else
-	value = build_real (type, real);
+      type = long_double_type_node;
+      typename = "long double";
+    }
+  else if ((flags & CPP_N_WIDTH) == CPP_N_SMALL
+	   || flag_single_precision_constant)
+    {
+      type = float_type_node;
+      typename = "float";
     }
   else
     {
-      tree trad_type, ansi_type, type;
-      HOST_WIDE_INT high, low;
-      int spec_unsigned = 0;
-      int spec_long = 0;
-      int spec_long_long = 0;
-      int spec_imag = 0;
-      int suffix_lu = 0;
-      int warn = 0, i;
-
-      trad_type = ansi_type = type = NULL_TREE;
-      while (p < str + len)
-	{
-	  c = *p++;
-	  switch (c)
-	    {
-	    case 'u': case 'U':
-	      if (spec_unsigned)
-		error ("two 'u' suffixes on integer constant");
-	      else if (warn_traditional && !in_system_header
-		       && ! cpp_sys_macro_p (parse_in))
-		warning ("traditional C rejects the 'u' suffix");
-
-	      spec_unsigned = 1;
-	      if (spec_long)
-		suffix_lu = 1;
-	      break;
-
-	    case 'l': case 'L':
-	      if (spec_long)
-		{
-		  if (spec_long_long)
-		    error ("three 'l' suffixes on integer constant");
-		  else if (suffix_lu)
-		    error ("'lul' is not a valid integer suffix");
-		  else if (c != spec_long)
-		    error ("'Ll' and 'lL' are not valid integer suffixes");
-		  else if (pedantic && ! flag_isoc99
-			   && ! in_system_header && warn_long_long)
-		    pedwarn ("ISO C89 forbids long long integer constants");
-		  spec_long_long = 1;
-		}
-	      spec_long = c;
-	      break;
-
-	    case 'i': case 'I': case 'j': case 'J':
-	      if (spec_imag)
-		error ("more than one 'i' or 'j' suffix on integer constant");
-	      else if (pedantic)
-		pedwarn ("ISO C forbids imaginary numeric constants");
-	      spec_imag = 1;
-	      break;
-
-	    default:
-	      ERROR ("invalid suffix on integer constant");
-	    }
-	}
-
-      /* If the literal overflowed, pedwarn about it now.  */
-      if (overflow)
-	{
-	  warn = 1;
-	  pedwarn ("integer constant is too large for this configuration of the compiler - truncated to %d bits", HOST_BITS_PER_WIDE_INT * 2);
-	}
-
-      /* This is simplified by the fact that our constant
-	 is always positive.  */
-
-      high = low = 0;
-
-      for (i = 0; i < HOST_BITS_PER_WIDE_INT / HOST_BITS_PER_CHAR; i++)
-	{
-	  high |= ((HOST_WIDE_INT) parts[i + (HOST_BITS_PER_WIDE_INT
-					      / HOST_BITS_PER_CHAR)]
-		   << (i * HOST_BITS_PER_CHAR));
-	  low |= (HOST_WIDE_INT) parts[i] << (i * HOST_BITS_PER_CHAR);
-	}
-
-      value = build_int_2 (low, high);
-      TREE_TYPE (value) = long_long_unsigned_type_node;
-
-      /* If warn_traditional, calculate both the ISO type and the
-	 traditional type, then see if they disagree.
-	 Otherwise, calculate only the type for the dialect in use.  */
-      if (warn_traditional || flag_traditional)
-	{
-	  /* Calculate the traditional type.  */
-	  /* Traditionally, any constant is signed; but if unsigned is
-	     specified explicitly, obey that.  Use the smallest size
-	     with the right number of bits, except for one special
-	     case with decimal constants.  */
-	  if (! spec_long && base != 10
-	      && int_fits_type_p (value, unsigned_type_node))
-	    trad_type = spec_unsigned ? unsigned_type_node : integer_type_node;
-	  /* A decimal constant must be long if it does not fit in
-	     type int.  I think this is independent of whether the
-	     constant is signed.  */
-	  else if (! spec_long && base == 10
-		   && int_fits_type_p (value, integer_type_node))
-	    trad_type = spec_unsigned ? unsigned_type_node : integer_type_node;
-	  else if (! spec_long_long)
-	    trad_type = (spec_unsigned
-			 ? long_unsigned_type_node
-			 : long_integer_type_node);
-	  else if (int_fits_type_p (value,
-				    spec_unsigned 
-				    ? long_long_unsigned_type_node
-				    : long_long_integer_type_node)) 
-	    trad_type = (spec_unsigned
-			 ? long_long_unsigned_type_node
-			 : long_long_integer_type_node);
-	  else
-	    trad_type = (spec_unsigned
-			 ? widest_unsigned_literal_type_node
-			 : widest_integer_literal_type_node);
-	}
-      if (warn_traditional || ! flag_traditional)
-	{
-	  /* Calculate the ISO type.  */
-	  if (! spec_long && ! spec_unsigned
-	      && int_fits_type_p (value, integer_type_node))
-	    ansi_type = integer_type_node;
-	  else if (! spec_long && (base != 10 || spec_unsigned)
-		   && int_fits_type_p (value, unsigned_type_node))
-	    ansi_type = unsigned_type_node;
-	  else if (! spec_unsigned && !spec_long_long
-		   && int_fits_type_p (value, long_integer_type_node))
-	    ansi_type = long_integer_type_node;
-	  else if (! spec_long_long
-		   && int_fits_type_p (value, long_unsigned_type_node))
-	    ansi_type = long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, long_long_integer_type_node))
-	    ansi_type = long_long_integer_type_node;
-	  else if (int_fits_type_p (value, long_long_unsigned_type_node))
-	    ansi_type = long_long_unsigned_type_node;
-	  else if (! spec_unsigned
-		   && int_fits_type_p (value, widest_integer_literal_type_node))
-	    ansi_type = widest_integer_literal_type_node;
-	  else
-	    ansi_type = widest_unsigned_literal_type_node;
-	}
-
-      type = flag_traditional ? trad_type : ansi_type;
-
-      /* We assume that constants specified in a non-decimal
-	 base are bit patterns, and that the programmer really
-	 meant what they wrote.  */
-      if (warn_traditional && !in_system_header
-	  && base == 10 && trad_type != ansi_type)
-	{
-	  if (TYPE_PRECISION (trad_type) != TYPE_PRECISION (ansi_type))
-	    warning ("width of integer constant changes with -traditional");
-	  else if (TREE_UNSIGNED (trad_type) != TREE_UNSIGNED (ansi_type))
-	    warning ("integer constant is unsigned in ISO C, signed with -traditional");
-	  else
-	    warning ("width of integer constant may change on other systems with -traditional");
-	}
-
-      if (pedantic && !flag_traditional && (flag_isoc99 || !spec_long_long)
-	  && !warn
-	  && ((flag_isoc99
-	       ? TYPE_PRECISION (long_long_integer_type_node)
-	       : TYPE_PRECISION (long_integer_type_node)) < TYPE_PRECISION (type)))
-	{
-	  warn = 1;
-	  pedwarn ("integer constant larger than the maximum value of %s",
-		   (flag_isoc99
-		    ? (TREE_UNSIGNED (type)
-		       ? _("an unsigned long long int")
-		       : _("a long long int"))
-		    : _("an unsigned long int")));
-	}
-
-      if (base == 10 && ! spec_unsigned && TREE_UNSIGNED (type))
-	warning ("decimal constant is so large that it is unsigned");
-
-      if (spec_imag)
-	{
-	  if (TYPE_PRECISION (type)
-	      <= TYPE_PRECISION (integer_type_node))
-	    value = build_complex (NULL_TREE, integer_zero_node,
-				   convert (integer_type_node, value));
-	  else
-	    ERROR ("complex integer constant is too wide for 'complex int'");
-	}
-      else if (flag_traditional && !int_fits_type_p (value, type))
-	/* The traditional constant 0x80000000 is signed
-	   but doesn't fit in the range of int.
-	   This will change it to -0x80000000, which does fit.  */
-	{
-	  TREE_TYPE (value) = unsigned_type (type);
-	  value = convert (type, value);
-	  TREE_OVERFLOW (value) = TREE_CONSTANT_OVERFLOW (value) = 0;
-	}
-      else
-	TREE_TYPE (value) = type;
-
-      /* If it's still an integer (not a complex), and it doesn't
-	 fit in the type we choose for it, then pedwarn.  */
-
-      if (! warn
-	  && TREE_CODE (TREE_TYPE (value)) == INTEGER_TYPE
-	  && ! int_fits_type_p (value, TREE_TYPE (value)))
-	pedwarn ("integer constant is larger than the maximum value for its type");
+      type = double_type_node;
+      typename = "double";
     }
 
-  if (p < str + len)
-    error ("missing white space after number '%.*s'", (int) (p - str), str);
+  /* Copy the constant to a nul-terminated buffer.  If the constant
+     has any suffixes, cut them off; REAL_VALUE_ATOF/ REAL_VALUE_HTOF
+     can't handle them.  */
+  copylen = token->val.str.len;
+  if ((flags & CPP_N_WIDTH) != CPP_N_MEDIUM)
+    /* Must be an F or L suffix.  */
+    copylen--;
+  if (flags & CPP_N_IMAGINARY)
+    /* I or J suffix.  */
+    copylen--;
+
+  copy = alloca (copylen + 1);
+  memcpy (copy, token->val.str.text, copylen);
+  copy[copylen] = '\0';
+
+  real_from_string (&real, copy);
+  real_convert (&real, TYPE_MODE (type), &real);
+
+  /* A diagnostic is required for "soft" overflow by some ISO C
+     testsuites.  This is not pedwarn, because some people don't want
+     an error for this.
+     ??? That's a dubious reason... is this a mandatory diagnostic or
+     isn't it?   -- zw, 2001-08-21.  */
+  if (REAL_VALUE_ISINF (real) && pedantic)
+    warning ("floating constant exceeds range of \"%s\"", typename);
+
+  /* Create a node with determined type and value.  */
+  value = build_real (type, real);
+  if (flags & CPP_N_IMAGINARY)
+    value = build_complex (NULL_TREE, convert (type, integer_zero_node), value);
 
   return value;
-
- syntax_error:
-  return integer_zero_node;
 }
 
 static tree
@@ -1335,12 +1120,9 @@ lex_string (str, len, wide)
   char *buf = alloca ((len + 1) * (wide ? WCHAR_BYTES : 1));
   char *q = buf;
   const unsigned char *p = str, *limit = str + len;
-  unsigned int c;
-  unsigned width = wide ? WCHAR_TYPE_SIZE
-			: TYPE_PRECISION (char_type_node);
-  /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+  cppchar_t c;
+  /* APPLE LOCAL Pascal strings 2001-07-05 zll */
   int is_pascal_string = 0, is_pascal_escape = 0;
-  /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
 
 #ifdef MULTIBYTE_CHARS
   /* Reset multibyte conversion state.  */
@@ -1369,34 +1151,21 @@ lex_string (str, len, wide)
       c = *p++;
 #endif
 
-      /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+      /* APPLE LOCAL Pascal strings 2001-07-05 zll */
       is_pascal_escape = 0;
-      /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
       if (c == '\\' && !ignore_escape_flag)
+	/* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
 	{
-	  unsigned int mask;
-
-	  if (width < HOST_BITS_PER_INT)
-	    mask = ((unsigned int) 1 << width) - 1;
-	  else
-	    mask = ~0;
-
-          /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
 	  if (flag_pascal_strings && *p == 'p')
 	    {
 	      is_pascal_escape = 1;
 	      p++;
 	    }
 	  else
-	    c = cpp_parse_escape (parse_in, &p, limit,
-				  mask, flag_traditional);
-          /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
+	    c = cpp_parse_escape (parse_in, &p, limit, wide);
 	}
-	
-
-      /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
-      /* Pascal string-length escape (\p) may appear only as first char of a string
-	 literal, and never in wide strings. */
+      /* Pascal string-length escape (\p) may appear only as first
+	 char of a string literal, and never in wide strings. */
       if (is_pascal_escape)
 	{
 	  if (wide || q != buf)
@@ -1409,10 +1178,10 @@ lex_string (str, len, wide)
 	  else
 	    is_pascal_string = 1;
 	}
-      /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
+      /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
 
-      /* Add this single character into the buffer either as a wchar_t
-	 or as a single byte.  */
+      /* Add this single character into the buffer either as a wchar_t,
+	 a multibyte sequence, or as a single byte.  */
       if (wide)
 	{
 	  unsigned charwidth = TYPE_PRECISION (char_type_node);
@@ -1433,13 +1202,23 @@ lex_string (str, len, wide)
 	    }
 	  q += WCHAR_BYTES;
 	}
+#ifdef MULTIBYTE_CHARS
+      else if (char_len > 1)
+	{
+	  /* We're dealing with a multibyte character.  */
+	  for ( ; char_len >0; --char_len)
+	    {
+	      *q++ = *(p - char_len);
+	    }
+	}
+#endif
       else
 	{
 	  *q++ = c;
 	}
     }
 
-  /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+  /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
   /* Truncate pascal string to 255 chars. */
   if (is_pascal_string)
     {
@@ -1448,9 +1227,10 @@ lex_string (str, len, wide)
 	  error ("Pascal string too long");
 	  q = buf + 255 + 1;
 	}
-      *buf = q - buf - 1;   /* initialize length byte */
+      /* Initialize length byte.  */
+      *buf = q - buf - 1;
     }
-  /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
+  /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
 
   /* Terminate the string value, either with a single byte zero
      or with a wide zero.  */
@@ -1469,10 +1249,10 @@ lex_string (str, len, wide)
 
   if (wide)
     TREE_TYPE (value) = wchar_array_type_node;
-  /* APPLE LOCAL begin Pascal Strings 2001-07-05 zll */
+  /* APPLE LOCAL begin Pascal strings 2001-07-05 zll */
   else if (is_pascal_string)
     TREE_TYPE (value) = pascal_string_type_node;
-  /* APPLE LOCAL end Pascal Strings 2001-07-05 zll */
+  /* APPLE LOCAL end Pascal strings 2001-07-05 zll */
   else
     TREE_TYPE (value) = char_array_type_node;
   return value;
@@ -1483,37 +1263,31 @@ static tree
 lex_charconst (token)
      const cpp_token *token;
 {
-  HOST_WIDE_INT result;
-  tree value;
+  cppchar_t result;
+  tree type, value;
   unsigned int chars_seen;
- 
-  result = cpp_interpret_charconst (parse_in, token, warn_multichar,
-				    /* APPLE LOCAL -Wfour-char-constants */
-				    warn_four_char_constants,
-				    /* APPLE LOCAL -funsigned-char */
-				    TREE_UNSIGNED (char_type_node),
- 				    flag_traditional, &chars_seen);
+  int unsignedp;
+
+  result = cpp_interpret_charconst (parse_in, token,
+ 				    &chars_seen, &unsignedp);
+
+  /* Cast to cppchar_signed_t to get correct sign-extension of RESULT
+     before possibly widening to HOST_WIDE_INT for build_int_2.  */
+  if (unsignedp || (cppchar_signed_t) result >= 0)
+    value = build_int_2 (result, 0);
+  else
+    value = build_int_2 ((cppchar_signed_t) result, -1);
 
   if (token->type == CPP_WCHAR)
-    {
-      value = build_int_2 (result, 0);
-      TREE_TYPE (value) = wchar_type_node;
-    }
+    type = wchar_type_node;
+  /* In C, a character constant has type 'int'.
+     In C++ 'char', but multi-char charconsts have type 'int'.  */
+  else if ((c_language == clk_c) || chars_seen > 1)
+    type = integer_type_node;
   else
-    {
-      if (result < 0)
- 	value = build_int_2 (result, -1);
-      else
- 	value = build_int_2 (result, 0);
- 
-      /* In C, a character constant has type 'int'.
- 	 In C++ 'char', but multi-char charconsts have type 'int'.  */
-      if (c_language == clk_cplusplus && chars_seen <= 1)
- 	TREE_TYPE (value) = char_type_node;
-      else
- 	TREE_TYPE (value) = integer_type_node;
-    }
- 
+    type = char_type_node;
+
+  TREE_TYPE (value) = type;
   return value;
 }
 
@@ -1557,3 +1331,15 @@ altivec_treat_as_keyword (rid)
 	  || *IDENTIFIER_POINTER (rid) == '_');
 }
 /* APPLE LOCAL end AltiVec */
+
+/* APPLE LOCAL begin Symbol Separation */
+
+/* Write context information in .cinfo file.
+   Use PCH routines directly. But set and restore cinfo_state before using them.  */
+void
+c_common_write_context ()
+{
+  (*debug_hooks->end_symbol_repository) (lineno);
+  cpp_write_symbol_deps (parse_in);
+}
+/* APPLE LOCAL end Symbol Separation */

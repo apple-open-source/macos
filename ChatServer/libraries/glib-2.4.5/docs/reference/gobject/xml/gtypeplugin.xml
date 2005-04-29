@@ -1,0 +1,357 @@
+<refentry id="GTypePlugin">
+<refmeta>
+<refentrytitle>GTypePlugin</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GOBJECT Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>GTypePlugin</refname><refpurpose>An interface for dynamically loadable types</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib-object.h&gt;
+
+
+struct      <link linkend="GTypePlugin-struct">GTypePlugin</link>;
+struct      <link linkend="GTypePluginClass">GTypePluginClass</link>;
+<link linkend="void">void</link>        (<link linkend="GTypePluginUse">*GTypePluginUse</link>)               (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);
+<link linkend="void">void</link>        (<link linkend="GTypePluginUnuse">*GTypePluginUnuse</link>)             (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);
+<link linkend="void">void</link>        (<link linkend="GTypePluginCompleteTypeInfo">*GTypePluginCompleteTypeInfo</link>)  (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> g_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             <link linkend="GTypeValueTable">GTypeValueTable</link> *value_table);
+<link linkend="void">void</link>        (<link linkend="GTypePluginCompleteInterfaceInfo">*GTypePluginCompleteInterfaceInfo</link>)
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GType">GType</link> interface_type,
+                                             <link linkend="GInterfaceInfo">GInterfaceInfo</link> *info);
+<link linkend="void">void</link>        <link linkend="g-type-plugin-use">g_type_plugin_use</link>               (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);
+<link linkend="void">void</link>        <link linkend="g-type-plugin-unuse">g_type_plugin_unuse</link>             (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);
+<link linkend="void">void</link>        <link linkend="g-type-plugin-complete-type-info">g_type_plugin_complete_type_info</link>
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> g_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             <link linkend="GTypeValueTable">GTypeValueTable</link> *value_table);
+<link linkend="void">void</link>        <link linkend="g-type-plugin-complete-interface-info">g_type_plugin_complete_interface_info</link>
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GType">GType</link> interface_type,
+                                             <link linkend="GInterfaceInfo">GInterfaceInfo</link> *info);
+
+</synopsis>
+</refsynopsisdiv>
+
+<refsect1>
+<title>Object Hierarchy</title>
+<synopsis>
+
+  <link linkend="GInterface">GInterface</link>
+   +----GTypePlugin
+</synopsis>
+
+</refsect1>
+
+
+
+
+<refsect1>
+<title>Known Implementations</title>
+<para>
+GTypePlugin is implemented by
+ <link linkend="GTypeModule">GTypeModule</link>.</para>
+
+</refsect1>
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+The GObject type system supports dynamic loading of types. The <link linkend="GTypePlugin"><type>GTypePlugin</type></link> 
+interface is used to handle the lifecycle of dynamically loaded types. 
+It goes as follows:
+</para>
+<para>
+<orderedlist>
+<listitem><para>
+  The type is initially introduced (usually upon loading the module
+  the first time, or by your main application that knows what modules
+  introduces what types), like this:
+<literal>new_type_id = g_type_register_dynamic (parent_type_id,
+                                                "TypeName",
+                                                new_type_plugin,
+                                                type_flags);
+</literal>
+  where <literal>new_type_plugin</literal> is an implementation of the
+  <link linkend="GTypePlugin"><type>GTypePlugin</type></link> interface.
+</para></listitem>
+<listitem><para>  
+   The type's implementation is referenced, e.g. through
+   <link linkend="g-type-class-ref"><function>g_type_class_ref()</function></link> or through <link linkend="g-type-create-instance"><function>g_type_create_instance()</function></link> (this is 
+   being called by <link linkend="g-object-new"><function>g_object_new()</function></link>) or through one of the above done on 
+   a type derived from <literal>new_type_id</literal>.
+</para></listitem>
+<listitem><para>  
+   This causes the type system to load the type's implementation by calling
+   <link linkend="g-type-plugin-use"><function>g_type_plugin_use()</function></link> and <link linkend="g-type-plugin-complete-type-info"><function>g_type_plugin_complete_type_info()</function></link> on 
+   <literal>new_type_plugin</literal>.
+</para></listitem>
+<listitem><para>  
+   At some point the type's implementation isn't required anymore, e.g. after
+   <link linkend="g-type-class-unref"><function>g_type_class_unref()</function></link> or <link linkend="g-type-free-instance"><function>g_type_free_instance()</function></link> (called when the reference
+   count of an instance drops to zero).
+</para></listitem>
+<listitem><para>  
+   This causes the type system to throw away the information retrieved from
+   <link linkend="g-type-plugin-complete-type-info"><function>g_type_plugin_complete_type_info()</function></link> and then it calls
+   <link linkend="g-type-plugin-unuse"><function>g_type_plugin_unuse()</function></link> on <literal>new_type_plugin</literal>.
+</para></listitem>
+<listitem><para>  
+   Things may repeat from the second step.
+</para></listitem>
+</orderedlist>
+</para>
+<para>
+So basically, you need to implement a <link linkend="GTypePlugin"><type>GTypePlugin</type></link> type that carries a
+use_count, once use_count goes from zero to one, you need to load the 
+implementation to successfully handle the upcoming 
+<link linkend="g-type-plugin-complete-type-info"><function>g_type_plugin_complete_type_info()</function></link> call. Later, maybe after succeeding 
+use/unuse calls, once use_count drops to zero, you can unload the 
+implementation again. The type system makes sure to call <link linkend="g-type-plugin-use"><function>g_type_plugin_use()</function></link> 
+and <link linkend="g-type-plugin-complete-type-info"><function>g_type_plugin_complete_type_info()</function></link> again when the type is needed again.
+</para>
+<para>
+<link linkend="GTypeModule"><type>GTypeModule</type></link> is an implementation of <link linkend="GTypePlugin"><type>GTypePlugin</type></link> that already implements 
+most of this except for the actual module loading and unloading. It even 
+handles multiple registered types per module.
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GTypePlugin-struct"/>struct GTypePlugin</title>
+<indexterm><primary>GTypePlugin</primary></indexterm><programlisting>struct GTypePlugin;</programlisting>
+<para>
+The <structname>GTypePlugin</structname> typedef is used as a placeholder 
+for objects that implement the <structname>GTypePlugin</structname> 
+interface.
+</para></refsect2>
+<refsect2>
+<title><anchor id="GTypePluginClass"/>struct GTypePluginClass</title>
+<indexterm><primary>GTypePluginClass</primary></indexterm><programlisting>struct GTypePluginClass {
+
+  GTypePluginUse		   use_plugin;
+  GTypePluginUnuse		   unuse_plugin;
+  GTypePluginCompleteTypeInfo	   complete_type_info;
+  GTypePluginCompleteInterfaceInfo complete_interface_info;
+};
+</programlisting>
+<para>
+The <link linkend="GTypePlugin"><type>GTypePlugin</type></link> interface is used by the type system in order to handle
+the lifecycle of dynamically loaded types.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="GTypePluginUse">GTypePluginUse</link> <structfield>use_plugin</structfield></term>
+<listitem><simpara>Increases the use count of the plugin.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GTypePluginUnuse">GTypePluginUnuse</link> <structfield>unuse_plugin</structfield></term>
+<listitem><simpara>Decreases the use count of the plugin.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GTypePluginCompleteTypeInfo">GTypePluginCompleteTypeInfo</link> <structfield>complete_type_info</structfield></term>
+<listitem><simpara>Fills in the <link linkend="GTypeInfo"><type>GTypeInfo</type></link> and 
+  <link linkend="GTypeValueTable"><type>GTypeValueTable</type></link> structs for the type. The structs are initialized
+  with <literal>memset(s, 0, sizeof (s))</literal> before calling 
+  this function.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="GTypePluginCompleteInterfaceInfo">GTypePluginCompleteInterfaceInfo</link> <structfield>complete_interface_info</structfield></term>
+<listitem><simpara>Fills in missing parts of the <link linkend="GInterfaceInfo"><type>GInterfaceInfo</type></link> 
+  for the interface. The structs is initialized with 
+  <literal>memset(s, 0, sizeof (s))</literal> before calling
+  this function.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GTypePluginUse"/>GTypePluginUse ()</title>
+<indexterm><primary>GTypePluginUse</primary></indexterm><programlisting><link linkend="void">void</link>        (*GTypePluginUse)               (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);</programlisting>
+<para>
+The type of the <parameter>use_plugin</parameter> function of <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link>, which gets called
+to increase the use count of <parameter>plugin</parameter>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypePlugin"><type>GTypePlugin</type></link> whose use count should be increased
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GTypePluginUnuse"/>GTypePluginUnuse ()</title>
+<indexterm><primary>GTypePluginUnuse</primary></indexterm><programlisting><link linkend="void">void</link>        (*GTypePluginUnuse)             (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);</programlisting>
+<para>
+The type of the <parameter>unuse_plugin</parameter> function of <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypePlugin"><type>GTypePlugin</type></link> whose use count should be decreased
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GTypePluginCompleteTypeInfo"/>GTypePluginCompleteTypeInfo ()</title>
+<indexterm><primary>GTypePluginCompleteTypeInfo</primary></indexterm><programlisting><link linkend="void">void</link>        (*GTypePluginCompleteTypeInfo)  (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> g_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             <link linkend="GTypeValueTable">GTypeValueTable</link> *value_table);</programlisting>
+<para>
+The type of the <parameter>complete_type_info</parameter> function of <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>g_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> whose info is completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeInfo"><type>GTypeInfo</type></link> struct to fill in
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value_table</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeValueTable"><type>GTypeValueTable</type></link> to fill in
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="GTypePluginCompleteInterfaceInfo"/>GTypePluginCompleteInterfaceInfo ()</title>
+<indexterm><primary>GTypePluginCompleteInterfaceInfo</primary></indexterm><programlisting><link linkend="void">void</link>        (*GTypePluginCompleteInterfaceInfo)
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GType">GType</link> interface_type,
+                                             <link linkend="GInterfaceInfo">GInterfaceInfo</link> *info);</programlisting>
+<para>
+The type of the <parameter>complete_interface_info</parameter> function of <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>instance_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> of an instantiable type to which the interface
+  is added
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>interface_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> of the interface whose info is completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GInterfaceInfo"><type>GInterfaceInfo</type></link> to fill in
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-type-plugin-use"/>g_type_plugin_use ()</title>
+<indexterm><primary>g_type_plugin_use</primary></indexterm><programlisting><link linkend="void">void</link>        g_type_plugin_use               (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);</programlisting>
+<para>
+Calls the <parameter>use_plugin</parameter> function from the <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link> of <parameter>plugin</parameter>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-type-plugin-unuse"/>g_type_plugin_unuse ()</title>
+<indexterm><primary>g_type_plugin_unuse</primary></indexterm><programlisting><link linkend="void">void</link>        g_type_plugin_unuse             (<link linkend="GTypePlugin">GTypePlugin</link> *plugin);</programlisting>
+<para>
+Calls the <parameter>unuse_plugin</parameter> function from the <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link> of <parameter>plugin</parameter>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-type-plugin-complete-type-info"/>g_type_plugin_complete_type_info ()</title>
+<indexterm><primary>g_type_plugin_complete_type_info</primary></indexterm><programlisting><link linkend="void">void</link>        g_type_plugin_complete_type_info
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> g_type,
+                                             <link linkend="GTypeInfo">GTypeInfo</link> *info,
+                                             <link linkend="GTypeValueTable">GTypeValueTable</link> *value_table);</programlisting>
+<para>
+Calls the <parameter>complete_type_info</parameter> function from the <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link> of <parameter>plugin</parameter>.
+There should be no need to use this function outside of the GObject 
+type system itself.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>g_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> whose info is completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeInfo"><type>GTypeInfo</type></link> struct to fill in
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>value_table</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypeValueTable"><type>GTypeValueTable</type></link> to fill in
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-type-plugin-complete-interface-info"/>g_type_plugin_complete_interface_info ()</title>
+<indexterm><primary>g_type_plugin_complete_interface_info</primary></indexterm><programlisting><link linkend="void">void</link>        g_type_plugin_complete_interface_info
+                                            (<link linkend="GTypePlugin">GTypePlugin</link> *plugin,
+                                             <link linkend="GType">GType</link> instance_type,
+                                             <link linkend="GType">GType</link> interface_type,
+                                             <link linkend="GInterfaceInfo">GInterfaceInfo</link> *info);</programlisting>
+<para>
+Calls the <parameter>complete_interface_info</parameter> function from the <link linkend="GTypePluginClass"><type>GTypePluginClass</type></link> 
+of <parameter>plugin</parameter>. There should be no need to use this function outside of the 
+GObject type system itself.
+</para><variablelist role="params">
+<varlistentry><term><parameter>plugin</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GTypePlugin"><type>GTypePlugin</type></link>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>instance_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> of an instantiable type to which the interface
+  is added
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>interface_type</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GType"><type>GType</type></link> of the interface whose info is completed
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>info</parameter>&nbsp;:</term>
+<listitem><simpara>the <link linkend="GInterfaceInfo"><type>GInterfaceInfo</type></link> to fill in
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+<refsect1>
+<title>See Also</title>
+<para>
+<link linkend="GTypeModule"><type>GTypeModule</type></link> and <link linkend="g-type-register-dynamic"><function>g_type_register_dynamic()</function></link>.
+</para>
+</refsect1>
+
+</refentry>

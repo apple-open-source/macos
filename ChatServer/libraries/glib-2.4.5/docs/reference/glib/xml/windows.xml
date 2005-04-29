@@ -1,0 +1,236 @@
+<refentry id="glib-Windows-Compatability-Functions">
+<refmeta>
+<refentrytitle>Windows Compatibility Functions</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Windows Compatibility Functions</refname><refpurpose>UNIX emulation on Windows.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+#define     <link linkend="MAXPATHLEN-CAPS">MAXPATHLEN</link>
+typedef     <link linkend="pid-t">pid_t</link>;
+#define     <link linkend="pipe">pipe</link>                            (phandles)
+#define     <link linkend="ftruncate">ftruncate</link>                       (fd, size)
+<link linkend="gchar">gchar</link>*      <link linkend="g-win32-error-message">g_win32_error_message</link>           (<link linkend="gint">gint</link> error);
+<link linkend="gchar">gchar</link>*      <link linkend="g-win32-getlocale">g_win32_getlocale</link>               (void);
+<link linkend="gchar">gchar</link>*      <link linkend="g-win32-get-package-installation-directory">g_win32_get_package_installation_directory</link>
+                                            (<link linkend="gchar">gchar</link> *package,
+                                             <link linkend="gchar">gchar</link> *dll_name);
+<link linkend="gchar">gchar</link>*      <link linkend="g-win32-get-package-installation-subdirectory">g_win32_get_package_installation_subdirectory</link>
+                                            (<link linkend="gchar">gchar</link> *package,
+                                             <link linkend="gchar">gchar</link> *dll_name,
+                                             <link linkend="gchar">gchar</link> *subdir);
+#define     <link linkend="G-WIN32-DLLMAIN-FOR-DLL-NAME-CAPS">G_WIN32_DLLMAIN_FOR_DLL_NAME</link>    (static, dll_name)
+
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+
+</para>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="MAXPATHLEN-CAPS"/>MAXPATHLEN</title>
+<indexterm><primary>MAXPATHLEN</primary></indexterm><programlisting>#define MAXPATHLEN 1024
+</programlisting>
+<para>
+Provided for UNIX emulation on Windows; equivalent to UNIX 
+macro <literal>MAXPATHLEN</literal>, which is the maximum length of a filename
+(including full path).
+</para></refsect2>
+<refsect2>
+<title><anchor id="pid-t"/>pid_t</title>
+<indexterm><primary>pid_t</primary></indexterm><programlisting>typedef int pid_t;
+</programlisting>
+<para>
+Provided for UNIX emulation on Windows; process ID type.
+</para></refsect2>
+<refsect2>
+<title><anchor id="pipe"/>pipe()</title>
+<indexterm><primary>pipe</primary></indexterm><programlisting>#define pipe(phandles)	_pipe (phandles, 4096, _O_BINARY)
+</programlisting>
+<para>
+Provided for UNIX emulation on Windows; see documentation for <function><link linkend="pipe"><function>pipe()</function></link></function>
+in any UNIX manual.
+</para><variablelist role="params">
+<varlistentry><term><parameter>phandles</parameter>&nbsp;:</term>
+<listitem><simpara>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="ftruncate"/>ftruncate()</title>
+<indexterm><primary>ftruncate</primary></indexterm><programlisting>#    define ftruncate(fd, size)	g_win32_ftruncate (fd, size)
+</programlisting>
+<para>
+Provided for UNIX emulation on Windows; see documentation for <function><link linkend="ftruncate"><function>ftruncate()</function></link></function>
+in any UNIX manual.
+</para><variablelist role="params">
+<varlistentry><term><parameter>fd</parameter>&nbsp;:</term>
+<listitem><simpara>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>size</parameter>&nbsp;:</term>
+<listitem><simpara>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-win32-error-message"/>g_win32_error_message ()</title>
+<indexterm><primary>g_win32_error_message</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_win32_error_message           (<link linkend="gint">gint</link> error);</programlisting>
+<para>
+Translate a Win32 error code (as returned by <link linkend="GetLastError"><function>GetLastError()</function></link>) into
+the corresponding message. The message is either language neutral,
+or in the thread's language, or the user's language, the system's
+language, or US English (see docs for <link linkend="FormatMessage"><function>FormatMessage()</function></link>). *
+The returned string should be deallocated with <link linkend="g-free"><function>g_free()</function></link>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>error</parameter>&nbsp;:</term>
+<listitem><simpara> error code.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> newly-allocated error message
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-win32-getlocale"/>g_win32_getlocale ()</title>
+<indexterm><primary>g_win32_getlocale</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_win32_getlocale               (void);</programlisting>
+<para>
+The setlocale in the Microsoft C library uses locale names of the
+form "English_United States.1252" etc. We want the UNIXish standard
+form "en_US", "zh_TW" etc. This function gets the current thread
+locale from Windows - without any encoding info - and returns it as
+a string of the above form for use in forming file names etc. The
+returned string should be deallocated with <link linkend="g-free"><function>g_free()</function></link>.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> newly-allocated locale name.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-win32-get-package-installation-directory"/>g_win32_get_package_installation_directory ()</title>
+<indexterm><primary>g_win32_get_package_installation_directory</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_win32_get_package_installation_directory
+                                            (<link linkend="gchar">gchar</link> *package,
+                                             <link linkend="gchar">gchar</link> *dll_name);</programlisting>
+<para>
+Try to determine the installation directory for a software package.
+Typically used by GNU software packages.
+</para>
+<para>
+<parameter>package</parameter> should be a short identifier for the package. Typically it
+is the same identifier as used for
+<literal>GETTEXT_PACKAGE</literal> in software configured according
+to GNU standards. The function first looks in the Windows Registry
+for the value <literal>&num;InstallationDirectory</literal> in the key
+<literal>&num;HKLM\Software\<parameter>package</parameter></literal>, and if that value
+exists and is a string, returns that.
+</para>
+<para>
+If <parameter>package</parameter> is <literal>NULL</literal>, or the above value isn't found in the
+Registry, but <parameter>dll_name</parameter> is non-<literal>NULL</literal>, it should name a DLL loaded
+into the current process. Typically that would be the name of the
+DLL calling this function, looking for its installation
+directory. The function then asks Windows what directory that DLL
+was loaded from. If that directory's last component is "bin" or
+"lib", the parent directory is returned, otherwise the directory
+itself. If that DLL isn't loaded, the function proceeds as if
+<parameter>dll_name</parameter> was <literal>NULL</literal>.
+</para>
+<para>
+If both <parameter>package</parameter> and <parameter>dll_name</parameter> are <literal>NULL</literal>, the directory from where
+the main executable of the process was loaded is uses instead in
+the same way as above.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>package</parameter>&nbsp;:</term>
+<listitem><simpara> An identifier for a software package, or <literal>NULL</literal>
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>dll_name</parameter>&nbsp;:</term>
+<listitem><simpara> The name of a DLL that a package provides, or <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a string containing the installation directory for <parameter>package</parameter>.
+The return value should be freed with <link linkend="g-free"><function>g_free()</function></link> when not needed any longer.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-win32-get-package-installation-subdirectory"/>g_win32_get_package_installation_subdirectory ()</title>
+<indexterm><primary>g_win32_get_package_installation_subdirectory</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_win32_get_package_installation_subdirectory
+                                            (<link linkend="gchar">gchar</link> *package,
+                                             <link linkend="gchar">gchar</link> *dll_name,
+                                             <link linkend="gchar">gchar</link> *subdir);</programlisting>
+<para>
+Returns a newly-allocated string containing the path of the
+subdirectory <parameter>subdir</parameter> in the return value from calling
+<link linkend="g-win32-get-package-installation-directory"><function>g_win32_get_package_installation_directory()</function></link> with the <parameter>package</parameter> and
+<parameter>dll_name</parameter> parameters.</para>
+<para>
+
+</para><variablelist role="params">
+<varlistentry><term><parameter>package</parameter>&nbsp;:</term>
+<listitem><simpara> An identifier for a software package, or <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>dll_name</parameter>&nbsp;:</term>
+<listitem><simpara> The name of a DLL that a package provides, or <literal>NULL</literal>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>subdir</parameter>&nbsp;:</term>
+<listitem><simpara> A subdirectory of the package installation directory.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara> a string containing the complete path to <parameter>subdir</parameter> inside the 
+installation directory of <parameter>package</parameter>. The return value should be freed with
+<link linkend="g-free"><function>g_free()</function></link> when no longer needed.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="G-WIN32-DLLMAIN-FOR-DLL-NAME-CAPS"/>G_WIN32_DLLMAIN_FOR_DLL_NAME()</title>
+<indexterm><primary>G_WIN32_DLLMAIN_FOR_DLL_NAME</primary></indexterm><programlisting>#define     G_WIN32_DLLMAIN_FOR_DLL_NAME(static, dll_name)</programlisting>
+<para>
+On Windows, this macro defines a <function><link linkend="DllMain"><function>DllMain()</function></link></function> function 
+that stores the actual DLL name that the code being compiled will be 
+included in.
+</para>
+<para>
+On non-Windows platforms, expands to nothing.
+</para><variablelist role="params">
+<varlistentry><term><parameter>static</parameter>&nbsp;:</term>
+<listitem><simpara>empty or "static".
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>dll_name</parameter>&nbsp;:</term>
+<listitem><simpara>the name of the (pointer to the) char array where the DLL name 
+   will be stored. If this is used, you must also include 
+   <filename>windows.h</filename>. If you need a more complex DLL entry 
+   point function, you cannot use this.
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

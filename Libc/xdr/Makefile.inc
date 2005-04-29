@@ -2,7 +2,7 @@
 # $FreeBSD: src/lib/libc/xdr/Makefile.inc,v 1.12 2001/03/27 17:26:57 ru Exp $
 
 .PATH: ${.CURDIR}/../libc/xdr ${.CURDIR}/.
-SRCS+=	xdr.c xdr_array.c xdr_float.c xdr_mem.c \
+MISRCS+= xdr.c xdr_array.c xdr_float.c xdr_mem.c \
 	xdr_rec.c xdr_reference.c xdr_stdio.c
 
 .if ${LIB} == "c"

@@ -27,11 +27,11 @@ installhdrs::
 shlibs: 
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -compatibility_version 1 -current_version 1 -all_load -install_name /usr/lib/libpcap.A.dylib -o $(OBJROOT)/libpcap.A.dylib $(OBJROOT)/libpcap.a
 	$(RM) $(DSTROOT)/usr/include/net/bpf.h
+	$(RM) $(DSTROOT)/usr/lib/libpcap.a
 	$(RMDIR) $(DSTROOT)/usr/include/net
 
 install-shlibs: 
 	$(MKDIR) -p $(DSTROOT)/$(USRLIBDIR)
 	$(INSTALL) -c $(OBJROOT)/libpcap.A.dylib $(DSTROOT)/$(USRLIBDIR)/
 	$(STRIP) -S $(DSTROOT)/$(USRLIBDIR)/libpcap.A.dylib
-	$(STRIP) -S $(DSTROOT)/$(USRLIBDIR)/libpcap.a
 	$(LN) -sf libpcap.A.dylib $(DSTROOT)/$(USRLIBDIR)/libpcap.dylib

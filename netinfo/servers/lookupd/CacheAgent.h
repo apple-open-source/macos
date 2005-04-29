@@ -35,36 +35,28 @@
 #import <time.h>
 #import "LUGlobal.h"
 #import "LUPrivate.h"
-#import "LUCache.h"
 #import "LUAgent.h"
 #import <NetInfo/syslock.h>
-
-/* The number of caches maintained by the CacheAgent */
-#define NCACHE 26
+#import <NetInfo/cache.h>
 
 @interface CacheAgent : LUAgent
 {
 	struct
 	{
-		LUCache *cache;
-		unsigned int capacity;
 		time_t ttl;
 		BOOL validate;
 		BOOL enabled;
-	} cacheStore[NCACHE];
-
-	struct {
-		LUArray *all;
-		BOOL validate;
-		BOOL enabled;
-	} allStore[NCATEGORIES];
+	} cacheParams[NCATEGORIES];
 
 	LUDictionary *stats;
 
+	cache_t *cache;
 	syslock *cacheLock;
 
-	unsigned int lastSweep;
-	unsigned int sweepTime;
+	uint32_t cache_size;
+
+	time_t lastSweep;
+	time_t sweepTime;
 	id cserver;
 }
 
@@ -78,7 +70,6 @@
 - (void)setInitgroups:(LUDictionary *)item forUser:(char *)name;
 
 - (void)flushCache;
-- (void)flushCacheForCategory:(LUCategory)cat;
 
 - (BOOL)containsObject:(id)obj;
 - (void)sweepCache;

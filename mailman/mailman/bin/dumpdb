@@ -1,6 +1,6 @@
 #! @PYTHON@
 #
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,21 +45,26 @@ Python pickle.  In either case, if you want to override the default assumption
 -- or if the file ends in neither suffix -- use the -p or -m flags.
 """
 
-import sys
 import os
+import sys
 import getopt
 import pprint
-import cPickle as pickle
+from cPickle import load
+from types import StringType
 
 import paths
 # Import this /after/ paths so that the sys.path is properly hacked
 from email.Generator import Generator
-
-from Mailman.Queue.Switchboard import DumperSwitchboard
 from Mailman.i18n import _
 
 PROGRAM = sys.argv[0]
 COMMASPACE = ', '
+
+try:
+    True, False
+except NameError:
+    True = 1
+    False = 0
 
 
 
@@ -85,7 +90,7 @@ def main():
     # Options.
     # None == guess, 0 == pickle, 1 == marshal
     filetype = None
-    doprint = 1
+    doprint = True
 
     for opt, arg in opts:
         if opt in ('-h', '--help'):
@@ -95,7 +100,7 @@ def main():
         elif opt in ('-m', '--marshal'):
             filetype = 1
         elif opt in ('-n', '--noprint'):
-            doprint = 0
+            doprint = False
 
     if len(args) < 1:
         usage(1, _('No filename given.'))
@@ -123,9 +128,26 @@ def main():
             pp.pprint(d)
         return d
     else:
-        m = pickle.load(open(filename))
-        if doprint:
-            pp.pprint(m)
+        fp = open(filename)
+        m = []
+        try:
+            cnt = 1
+            print _('[----- start pickle file -----]')
+            while True:
+                try:
+                    obj = load(fp)
+                except EOFError:
+                    print _('[----- end pickle file -----]')
+                    break
+                print _('<----- start object %(cnt)s ----->')
+                if isinstance(obj, StringType):
+                    print obj
+                else:
+                    pp.pprint(obj)
+                cnt += 1
+                m.append(obj)
+        finally:
+            fp.close()
         return m
 
 

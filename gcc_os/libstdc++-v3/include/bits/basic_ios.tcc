@@ -1,6 +1,6 @@
 // basic_ios locale and locale-related member functions -*- C++ -*-
 
-// Copyright (C) 1999, 2001, 2002 Free Software Foundation, Inc.
+// Copyright (C) 1999, 2001, 2002, 2003 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -156,7 +156,7 @@ namespace std
       // unformatted input and output with non-required basic_ios
       // instantiations is possible even without imbuing the expected
       // ctype<char_type> facet.
-      _M_fill = 0;
+      _M_fill = _CharT();
       _M_fill_init = false;
 
       _M_exception = goodbit;
@@ -186,8 +186,13 @@ namespace std
   // Inhibit implicit instantiations for required instantiations,
   // which are defined via explicit instantiations elsewhere.  
   // NB:  This syntax is a GNU extension.
+#if _GLIBCPP_EXTERN_TEMPLATE
   extern template class basic_ios<char>;
+
+#ifdef _GLIBCPP_USE_WCHAR_T
   extern template class basic_ios<wchar_t>;
+#endif
+#endif
 } // namespace std
 
 #endif 

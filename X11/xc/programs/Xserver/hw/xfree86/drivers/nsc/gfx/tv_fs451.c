@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/tv_fs451.c,v 1.1 2002/12/10 15:12:27 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/gfx/tv_fs451.c,v 1.2 2003/11/03 05:11:23 tsi Exp $ */
 /*
  * $Workfile: tv_fs451.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  *
  * This file contains routines to control the FS451 tvout encoder.
  *
@@ -139,10 +139,10 @@
  */
 #if GFX_TV_DYNAMIC
 int
-fs451_set_tv_format(int format, int resolution)
+fs451_set_tv_format(TVStandardType format, GfxOnTVType resolution)
 #else
 int
-gfx_set_tv_format(int format, int resolution)
+gfx_set_tv_format(TVStandardType format, GfxOnTVType resolution)
 #endif
 {
    /* ### ADD ### IMPLEMENTATION */

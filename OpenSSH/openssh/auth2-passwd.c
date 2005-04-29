@@ -23,7 +23,7 @@
  */
 
 #include "includes.h"
-RCSID("$OpenBSD: auth2-passwd.c,v 1.2 2002/05/31 11:35:15 markus Exp $");
+RCSID("$OpenBSD: auth2-passwd.c,v 1.5 2003/12/31 00:24:50 dtucker Exp $");
 
 #include "xmalloc.h"
 #include "packet.h"
@@ -38,20 +38,28 @@ extern ServerOptions options;
 static int
 userauth_passwd(Authctxt *authctxt)
 {
-	char *password;
+	char *password, *newpass;
 	int authenticated = 0;
 	int change;
-	u_int len;
+	u_int len, newlen;
+
 	change = packet_get_char();
-	if (change)
-		log("password change not supported");
 	password = packet_get_string(&len);
+	if (change) {
+		/* discard new password from packet */
+		newpass = packet_get_string(&newlen);
+		memset(newpass, 0, newlen);
+		xfree(newpass);
+	}
 	packet_check_eom();
-	if (authctxt->valid &&
+
+	if (change)
+		logit("password change not supported");
+	else if (PRIVSEP(auth_password(authctxt, password)) == 1
 #ifdef HAVE_CYGWIN
-	    check_nt_auth(1, authctxt->pw) &&
+	    && check_nt_auth(1, authctxt->pw)
 #endif
-	    PRIVSEP(auth_password(authctxt, password)) == 1)
+	    )
 		authenticated = 1;
 	memset(password, 0, len);
 	xfree(password);

@@ -43,7 +43,7 @@ in this Software without prior written authorization from The Open Group.
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/fstobdf/fstobdf.c,v 1.6 2001/12/14 20:00:46 dawes Exp $ */
+/* $XFree86: xc/programs/fstobdf/fstobdf.c,v 1.7 2003/07/09 15:27:36 tsi Exp $ */
 
 #include	<stdio.h>
 #include	<stdlib.h>
@@ -104,8 +104,13 @@ main(int argc, char *argv[])
 
     fontServer = FSOpenServer(serverName);
     if (!fontServer) {
-	fprintf(stderr, "can't open font server \"%s\"\n",
-		FSServerName(serverName));
+	char *sn = FSServerName(serverName);
+	if (sn)
+	    fprintf(stderr, "%s: can't open font server \"%s\"\n",
+	      	    argv[0], sn);
+	else
+	    fprintf(stderr, "%s:  No font server specified.\n",
+		    argv[0]);
 	exit(0);
     }
     bitmapFormat = 0;

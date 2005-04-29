@@ -1,5 +1,5 @@
-// Special g++ Options: -fexceptions
-// excess errors test - XFAIL a29k-*-* sparc64-*-elf arm-*-pe
+// { dg-do run { xfail sparc64-*-elf arm-*-pe } }
+// { dg-options "-fexceptions" }
 
 int fail = 0;
 
@@ -26,4 +26,4 @@ int main () {
     return 0;
   }
   return 1;
-};
+}

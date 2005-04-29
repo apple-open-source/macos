@@ -27,13 +27,13 @@
  * Author: Paulo César Pereira de Andrade
  */
 
-/* $XFree86: xc/programs/xedit/lisp/stream.c,v 1.21 2002/12/10 03:59:03 paulo Exp $ */
+/* $XFree86: xc/programs/xedit/lisp/stream.c,v 1.22 2003/04/27 18:17:34 tsi Exp $ */
 
-#include "read.h"
-#include "stream.h"
-#include "pathname.h"
-#include "write.h"
-#include "private.h"
+#include "lisp/read.h"
+#include "lisp/stream.h"
+#include "lisp/pathname.h"
+#include "lisp/write.h"
+#include "lisp/private.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

@@ -25,37 +25,52 @@
 #define _SCDYNAMICSTORE_H
 
 #include <sys/cdefs.h>
-#include <sys/syslog.h>
-#include <mach/message.h>
 #include <CoreFoundation/CoreFoundation.h>
-
 
 /*!
 	@header SCDynamicStore
-	The SystemConfiguration framework provides access to the
-	data used to configure a running system.  The APIs provided
-	by this framework communicate with the "configd" daemon.
+	@discussion The SCDynamicStore API provides access to the key-value
+		pairs in the dynamic store of a running system.  The dynamic
+		store contains, among other items, a copy of the configuration
+		settings for the currently active set (which is sometimes
+		refered to as the location) and information about the current
+		network state.
 
-	The "configd" daemon manages a "dynamic store" reflecting the
-	desired configuration settings as well as the current state
-	of the system.  The daemon provides a notification mechanism
-	for user-level processes that need to be aware of changes
-	made to the data.  Lastly, the daemon loads a number of
-	bundles (or plug-ins) that monitor low-level kernel events
-	and, via a set of policy modules, keep the state data up
-	to date.
+		The functions in the SCDynamicStore API allow you to find
+		key-value pairs, add or remove key-value pairs, add or change
+		values, and request notifications.
+
+		To use the functions of the SCDynamicStore API, you must first
+		establish a dynamic store session using the SCDynamicStoreCreate
+		function.  When you are finished with the session, use CFRelease
+		to close it.
  */
 
 
 /*!
 	@typedef SCDynamicStoreRef
-	@discussion This is the handle to an open "dynamic store" session
+	@discussion This is the handle to an open a dynamic store session
 		with the system configuration daemon.
  */
 typedef const struct __SCDynamicStore *	SCDynamicStoreRef;
 
 /*!
 	@typedef SCDynamicStoreContext
+	Structure containing user-specified data and callbacks for an
+	SCDynamicStore session.
+	@field version The version number of the structure type being passed
+		in as a parameter to the SCDynamicStore creation function.
+		This structure is version 0.
+	@field info A C pointer to a user-specified block of data.
+	@field retain The callback used to add a retain for the info field.
+		If this parameter is not a pointer to a function of the correct
+		prototype, the behavior is undefined.  The value may be NULL.
+	@field release The calllback used to remove a retain previously added
+		for the info field.  If this parameter is not a pointer to a
+		function of the correct prototype, the behavior is undefined.
+		The value may be NULL.
+	@field copyDescription The callback used to provide a description of
+		the info field.
  */
 typedef struct {
 	CFIndex		version;
@@ -67,11 +82,11 @@ typedef struct {
 
 /*!
 	@typedef SCDynamicStoreCallBack
-	@discussion Type of the callback function used when a
-		dynamic store change is delivered.
-	@param store The "dynamic store" session.
+	@discussion Type of callback function used when notification of
+		changes to the dynamic store is delivered.
+	@param store The dynamic store session.
 	@param changedKeys The list of changed keys.
-	@param info ....
+	@param info A C pointer to a user-specified block of data.
  */
 typedef void (*SCDynamicStoreCallBack)	(
 					SCDynamicStoreRef	store,
@@ -84,7 +99,7 @@ __BEGIN_DECLS
 
 /*!
 	@function SCDynamicStoreGetTypeID
-	Returns the type identifier of all SCDynamicStore instances.
+	@discussion Returns the type identifier of all SCDynamicStore instances.
  */
 CFTypeID
 SCDynamicStoreGetTypeID			(void);
@@ -93,21 +108,21 @@ SCDynamicStoreGetTypeID			(void);
 /*!
 	@function SCDynamicStoreCreate
 	@discussion Creates a new session used to interact with the dynamic
-		store maintained by the SystemConfiguration server.
-	@param allocator The CFAllocator which should be used to allocate
-		memory for the local "dynamic store" and its storage for
-		values.
+		store maintained by the System Configuration server.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for the local dynamic store object.
 		This parameter may be NULL in which case the current
 		default CFAllocator is used. If this reference is not
 		a valid CFAllocator, the behavior is undefined.
 	@param name A string that describes the name of the calling
 		process or plug-in of the caller.
 	@param callout The function to be called when a watched value
-		in the "dynamic store" is changed.
+		in the dynamic store is changed.
 		A NULL value can be specified if no callouts are
 		desired.
 	@param context The SCDynamicStoreContext associated with the callout.
-	@result A reference to the new SCDynamicStore.
+	@result Returns a reference to the new SCDynamicStore session.
+		You must release the returned value.
  */
 SCDynamicStoreRef
 SCDynamicStoreCreate			(
@@ -118,23 +133,71 @@ SCDynamicStoreCreate			(
 					);
 
 /*!
-	@function SCDynamicStoreCreateRunLoopSource
+	@function SCDynamicStoreCreateWithOptions
 	@discussion Creates a new session used to interact with the dynamic
-		store maintained by the SystemConfiguration server.
-	@param allocator The CFAllocator which should be used to allocate
-		memory for the local "dynamic store" and its storage for
-		values.
+		store maintained by the System Configuration server.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for the local dynamic store object.
 		This parameter may be NULL in which case the current
 		default CFAllocator is used. If this reference is not
 		a valid CFAllocator, the behavior is undefined.
-	@param store The "dynamic store" session.
-	@param order On platforms which support it, this parameter
-		determines the order in which the sources which are
-		ready to be processed are handled.  A lower order
-		number causes processing before higher order number
-		sources. It is inadvisable to depend on the order
-		number for any architectural or design aspect of
-		code. In the absence of any reason to do otherwise,
+	@param name A string that describes the name of the calling
+		process or plug-in of the caller.
+	@param storeOptions A CFDictionary containing options for the
+		dynamic store session (such as whether all keys added or set
+		into the dynamic store should be per-session keys).
+
+		Currently available options include:
+
+		<TABLE BORDER>
+		<TR>
+			<TH>key</TD>
+			<TH>value</TD>
+		</TR>
+		<TR>
+			<TD>kSCDynamicStoreUseSessionKeys</TD>
+			<TD>CFBooleanRef</TD>
+		</TR>
+		</TABLE>
+
+		A NULL value can be specified if no options are desired.
+	@param callout The function to be called when a watched value
+		in the dynamic store is changed.
+		A NULL value can be specified if no callouts are
+		desired.
+	@param context The SCDynamicStoreContext associated with the callout.
+	@result Returns a reference to the new SCDynamicStore session.
+		You must release the returned value.
+ */
+SCDynamicStoreRef
+SCDynamicStoreCreateWithOptions		(
+					CFAllocatorRef			allocator,
+					CFStringRef			name,
+					CFDictionaryRef			storeOptions,
+					SCDynamicStoreCallBack		callout,
+					SCDynamicStoreContext		*context
+					);
+
+extern const CFStringRef	kSCDynamicStoreUseSessionKeys;	/* CFBoolean */
+
+/*!
+	@function SCDynamicStoreCreateRunLoopSource
+	@discussion Creates a CFRunLoopSource object that can be added to the
+		application's run loop.  All dynamic store notifications are
+		delivered using this run loop source.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this run loop source.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param store A reference to the dynamic store session.
+	@param order On platforms which support it, for source versions
+		which support it, this parameter determines the order in
+		which the sources which are ready to be processed are
+		handled. A lower order number causes processing before
+		higher order number sources. It is inadvisable to depend
+		on the order number for any architectural or design aspect
+		of code. In the absence of any reason to do otherwise,
 		zero should be used.
 	@result A reference to the new CFRunLoopSource.
 		You must release the returned value.
@@ -150,14 +213,13 @@ SCDynamicStoreCreateRunLoopSource	(
 /*!
 	@function SCDynamicStoreCopyKeyList
 	@discussion Returns an array of CFString keys representing the
-		configuration "dynamic store" entries that match a
-		specified pattern.
-	@param store The "dynamic store" session.
-	@param pattern A regex(3) regular expression pattern that
-		will be used to match the "dynamic store" keys.
-	@result The list of matching keys.
+		current dynamic store entries that match a specified pattern.
+	@param store The dynamic store session.
+	@param pattern A regex(3) regular expression pattern
+		used to match the dynamic store keys.
+	@result Returns the list of matching keys; NULL if an error was
+		encountered.
 		You must release the returned value.
-		A NULL value will be returned if the list could not be obtained.
  */
 CFArrayRef
 SCDynamicStoreCopyKeyList		(
@@ -167,13 +229,13 @@ SCDynamicStoreCopyKeyList		(
 
 /*!
 	@function SCDynamicStoreAddValue
-	@discussion Adds the key-value pair to the "dynamic store" if no
+	@discussion Adds the key-value pair to the dynamic store if no
 		such key already exists.
-	@param store The "dynamic store" session.
-	@param key The key of the value to add to the "dynamic store".
-	@param value The value to add to the "dynamic store".
-	@result TRUE if the key was added; FALSE if the key was already
-		present in the "dynamic store" or if an error was encountered.
+	@param store The dynamic store session.
+	@param key The key of the value to add to the dynamic store.
+	@param value The value to add to the dynamic store.
+	@result Returns TRUE if the key was added; FALSE if the key was already
+		present in the dynamic store or if an error was encountered.
  */
 Boolean
 SCDynamicStoreAddValue			(
@@ -184,15 +246,15 @@ SCDynamicStoreAddValue			(
 
 /*!
 	@function SCDynamicStoreAddTemporaryValue
-	@discussion Adds the key-value pair on a temporary basis to the
-		"dynamic store" if no such key already exists.  This entry
-		will, unless updated by another session, automatically be
-		removed when the session is closed.
-	@param store The "dynamic store" session.
-	@param key The key of the value to add to the "dynamic store".
-	@param value The value to add to the "dynamic store".
-	@result TRUE if the key was added; FALSE if the key was already
-		present in the "dynamic store" or if an error was encountered.
+	@discussion Temporarily adds the key-value pair to the dynamic store
+		if no such key already exists.  Unless the key is updated by another
+		session, the key-value pair will be removed automatically when the
+		session is closed.
+	@param store The dynamic store session.
+	@param key The key of the value to add to the dynamic store.
+	@param value The value to add to the dynamic store.
+	@result Returns TRUE if the key was added; FALSE if the key was already
+		present in the dynamic store or if an error was encountered.
  */
 Boolean
 SCDynamicStoreAddTemporaryValue		(
@@ -203,15 +265,12 @@ SCDynamicStoreAddTemporaryValue		(
 
 /*!
 	@function SCDynamicStoreCopyValue
-	@discussion Obtains a value from the "dynamic store" for the
-		specified key.
-	@param store The "dynamic store" session.
-	@param key The key you wish to obtain.
-	@result The value from the store that is associated with the
-		given key.  The value is returned as a Core Foundation
-		Property List data type.
+	@discussion Gets the value of the specified key from the dynamic store.
+	@param store The dynamic store session.
+	@param key The key associated with the value you want to get.
+	@result Returns the value from the dynamic store that is associated with the given
+		key; NULL if no value was located or an error was encountered.
 		You must release the returned value.
-		If no value was located, NULL is returned.
  */
 CFPropertyListRef
 SCDynamicStoreCopyValue			(
@@ -221,15 +280,15 @@ SCDynamicStoreCopyValue			(
 
 /*!
 	@function SCDynamicStoreCopyMultiple
-	@discussion Fetches multiple values in the "dynamic store".
-	@param store The "dynamic store" session.
-	@param keys The keys to be fetched; NULL if no specific keys
-		are requested.
-	@param patterns The regex(3) pattern strings to be fetched; NULL
+	@discussion Gets the values of multiple keys in the dynamic store.
+	@param store The dynamic store session.
+	@param keys The keys associated with the values you want to get; NULL if no specific
+		keys are requested.
+	@param patterns An array of regex(3) pattern strings used to match the keys; NULL
 		if no key patterns are requested.
-	@result A dictionary containing the specific keys which were found
-		in the "dynamic store" and any keys which matched the specified
-		patterns; NULL is returned if an error was encountered.
+	@result Returns a dictionary containing the key-value pairs of specific keys and the
+		key-value pairs of keys that matched the specified patterns;
+		NULL if an error was encountered.
 		You must release the returned value.
  */
 CFDictionaryRef
@@ -241,12 +300,12 @@ SCDynamicStoreCopyMultiple		(
 
 /*!
 	@function SCDynamicStoreSetValue
-	@discussion Adds or replaces a value in the "dynamic store" for
+	@discussion Adds or replaces a value in the dynamic store for
 		the specified key.
-	@param store The "dynamic store" session.
-	@param key The key you wish to set.
-	@param value The value to add to or replace in the "dynamic store".
-	@result TRUE if the key was updated; FALSE if an error was encountered.
+	@param store The dynamic store session.
+	@param key The key you want to set.
+	@param value The value to add to or replace in the dynamic store.
+	@result Returns TRUE if the key was updated; FALSE if an error was encountered.
  */
 Boolean
 SCDynamicStoreSetValue			(
@@ -257,12 +316,12 @@ SCDynamicStoreSetValue			(
 
 /*!
 	@function SCDynamicStoreSetMultiple
-	@discussion Updates multiple values in the "dynamic store".
-	@param store The "dynamic store" session.
-	@param keysToSet Key/value pairs you wish to set into the "dynamic store".
-	@param keysToRemove A list of keys you wish to remove from the "dynamic store".
-	@param keysToNotify A list of keys to flag as changed (without actually changing the data).
-	@result TRUE if the dynamic store updates were successful; FALSE if an error was encountered.
+	@discussion Updates multiple values in the dynamic store.
+	@param store The dynamic store session.
+	@param keysToSet A dictionary of key-value pairs you want to set into the dynamic store.
+	@param keysToRemove An array of keys you want to remove from the dynamic store.
+	@param keysToNotify An array of keys to flag as changed (without changing their values).
+	@result Returns TRUE if the dynamic store updates were successful; FALSE if an error was encountered.
  */
 Boolean
 SCDynamicStoreSetMultiple		(
@@ -275,10 +334,10 @@ SCDynamicStoreSetMultiple		(
 /*!
 	@function SCDynamicStoreRemoveValue
 	@discussion Removes the value of the specified key from the
-		"dynamic store".
-	@param store The "dynamic store" session.
-	@param key The key of the value you wish to remove.
-	@result TRUE if the key was removed; FALSE if no value was
+		dynamic store.
+	@param store The dynamic store session.
+	@param key The key of the value you want to remove.
+	@result Returns TRUE if the key was removed; FALSE if no value was
 		located or an error was encountered.
  */
 Boolean
@@ -291,9 +350,11 @@ SCDynamicStoreRemoveValue		(
 	@function SCDynamicStoreNotifyValue
 	@discussion Triggers a notification to be delivered for the
 		specified key in the dynamic store.
-	@param store The "dynamic store" session.
-	@param key The key which should be flagged as changed (without actually changing the data).
-	@result TRUE if the value was updated; FALSE if an error was encountered.
+	@param store The dynamic store session.
+	@param key The key that should be flagged as changed.  Any dynamic store sessions
+		that are monitoring this key will received a notification.  Note that the
+		key's value is not updated.
+	@result Returns TRUE if the notification was processed; FALSE if an error was encountered.
  */
 Boolean
 SCDynamicStoreNotifyValue		(
@@ -304,14 +365,14 @@ SCDynamicStoreNotifyValue		(
 /*!
 	@function SCDynamicStoreSetNotificationKeys
 	@discussion Specifies a set of specific keys and key patterns
-		which should be monitored for changes.
-	@param store The "dynamic store" session being watched.
-	@param keys The keys to be monitored; NULL if no specific keys
+		that should be monitored for changes.
+	@param store The dynamic store session being watched.
+	@param keys An array of keys to be monitored; NULL if no specific keys
 		are to be monitored.
-	@param patterns The regex(3) pattern strings to be monitored; NULL
-		if no key patterns are to be monitored.
-	@result TRUE if the monitored keys were set; FALSE if an error
-		was encountered.
+	@param patterns An array of regex(3) pattern strings used to match keys to be monitored;
+		NULL if no key patterns are to be monitored.
+	@result Returns TRUE if the set of notification keys and patterns was successfully
+		updated; FALSE if an error was encountered.
  */
 Boolean
 SCDynamicStoreSetNotificationKeys	(
@@ -323,12 +384,14 @@ SCDynamicStoreSetNotificationKeys	(
 /*!
 	@function SCDynamicStoreCopyNotifiedKeys
 	@discussion Returns an array of CFString keys representing the
-		"dynamic store" entries that have changed since this
-		function was last called.
-	@param store The "dynamic store" session.
-	@result The list of changed keys.
+		dynamic store entries that have changed since this
+		function was last called.  If possible, your application should
+		use the notification functions instead of polling for the list
+		of changed keys returned by this function.
+	@param store The dynamic store session.
+	@result Returns the list of changed keys;
+		NULL if an error was encountered.
 		You must release the returned value.
-		A NULL value will be returned if the list could not be obtained.
  */
 CFArrayRef
 SCDynamicStoreCopyNotifiedKeys		(

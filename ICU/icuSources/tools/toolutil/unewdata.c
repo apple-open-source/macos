@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999,2001, International Business Machines
+*   Copyright (C) 1999,2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -167,7 +167,7 @@ udata_writeBlock(UNewDataMemory *pData, const void *s, int32_t length) {
 
 U_CAPI void U_EXPORT2
 udata_writePadding(UNewDataMemory *pData, int32_t length) {
-    static uint8_t padding[16]={
+    static const uint8_t padding[16]={
         0xaa, 0xaa, 0xaa, 0xaa,
         0xaa, 0xaa, 0xaa, 0xaa,
         0xaa, 0xaa, 0xaa, 0xaa,

@@ -77,6 +77,10 @@ main(argc, argv)
 {
 	int exit_status;
 
+	if (argc > 1 && !strcmp(argv[1], "--")) {
+		argv++;
+		argc--;
+	}
 	if (argc < 2)
 		usage();
 

@@ -1,4 +1,4 @@
-use Apache::test;
+use Apache::testold;
 #we're testing an experimental feature that doesn't work for some folks
 #will revisit later
 unless (defined $ENV{USER} and $ENV{USER} eq 'dougm') {

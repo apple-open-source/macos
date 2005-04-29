@@ -1,7 +1,7 @@
 #
 #  Makefile.am
 #
-#  $Id: Makefile.am,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+#  $Id: Makefile.am,v 1.2 2004/08/10 22:20:22 luesang Exp $
 #
 #  The iODBC driver manager.
 #  
@@ -68,20 +68,22 @@
 #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 if GTK
-lib_LTLIBRARIES		= libdrvproxy-gtk.la
+noinst_LTLIBRARIES		= libdrvproxy-gtk.la
 endif
 
-INCLUDES		= -I$(top_srcdir)/include -I$(top_srcdir)/iodbc \
+INCLUDES			= \
+	-I$(top_srcdir)/include -I$(top_srcdir)/iodbc \
 	@GTK_CFLAGS@ -D __GTK__
 
-libdrvproxy_gtk_la_LDFLAGS	= -static
+libdrvproxy_gtk_la_LDFLAGS	= #-static
 
 libdrvproxy_gtk_la_LIBADD	= @GTK_LIBS@
 
 libdrvproxy_gtk_la_SOURCES	= \
 	confirm.c \
-	gensetup.c
+	gensetup.c \
+	loginbox.c
 
-noinst_HEADERS		= \
+noinst_HEADERS			= \
 	gui.h \
 	question.xpm

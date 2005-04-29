@@ -25,7 +25,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/font/fontfile/dirfile.c,v 3.15 2002/05/31 18:45:50 dawes Exp $ */
+/* $XFree86: xc/lib/font/fontfile/dirfile.c,v 3.18 2004/02/11 21:11:18 dawes Exp $ */
 
 /*
  * Author:  Keith Packard, MIT X Consortium
@@ -68,6 +68,9 @@ FontFileReadDirectory (char *directory, FontDirectoryPtr *pdir)
 
     FontDirectoryPtr	dir = NullFontDirectory;
 
+    if (strlen(directory) + 1 + sizeof(FontDirFile) > sizeof(dir_file))
+	return BadFontPath;
+
 #ifdef FONTDIRATTRIB
     /* Check for font directory attributes */
 #ifndef __UNIXOS2__
@@ -90,6 +93,8 @@ FontFileReadDirectory (char *directory, FontDirectoryPtr *pdir)
     strcat(dir_file, FontDirFile);
     file = fopen(dir_file, "r");
     if (file) {
+	Bool found_font = FALSE;
+	
 	if (fstat (fileno(file), &statb) == -1)
 	    return BadFontPath;
 	count = fscanf(file, "%d\n", &i);
@@ -106,6 +111,7 @@ FontFileReadDirectory (char *directory, FontDirectoryPtr *pdir)
 	if (format[0] == '\0')
 	    sprintf(format, "%%%ds %%%d[^\n]\n",
 		MAXFONTFILENAMELEN-1, MAXFONTNAMELEN-1);
+
 	while ((count = fscanf(file, format, file_name, font_name)) != EOF) {
 #ifdef __UNIXOS2__
 	    /* strip any existing trailing CR */
@@ -118,14 +124,16 @@ FontFileReadDirectory (char *directory, FontDirectoryPtr *pdir)
 		fclose(file);
 		return BadFontPath;
 	    }
-	    if (!FontFileAddFontFile (dir, font_name, file_name))
-	    {
-		FontFileFreeDir (dir);
-		fclose(file);
-		return BadFontPath;
-	    }
+	    if (FontFileAddFontFile (dir, font_name, file_name))
+		found_font = TRUE;
+	}
+	if (!found_font) {
+	    FontFileFreeDir (dir);
+	    fclose(file);
+	    return BadFontPath;
 	}
 	fclose(file);
+	
     } else if (errno != ENOENT) {
 	return BadFontPath;
     }
@@ -153,6 +161,9 @@ FontFileDirectoryChanged(FontDirectoryPtr dir)
 {
     char	dir_file[MAXFONTFILENAMELEN];
     struct stat	statb;
+
+    if (strlen(dir->directory) + sizeof(FontDirFile) > sizeof(dir_file))
+	return FALSE;
 
     strcpy (dir_file, dir->directory);
     strcat (dir_file, FontDirFile);
@@ -202,6 +213,8 @@ AddFileNameAliases(FontDirectoryPtr dir)
 	    continue;
 	
 	len = strlen (fileName) - renderer->fileSuffixLen;
+	if (len >= sizeof(copy))
+	    continue;
 	CopyISOLatin1Lowered (copy, fileName, len);
 	copy[len] = '\0';
 	name.name = copy;
@@ -251,9 +264,13 @@ ReadFontAlias(char *directory, Bool isFile, FontDirectoryPtr *pdir)
     int			status = Successful;
     struct stat		statb;
 
+    if (strlen(directory) >= sizeof(alias_file))
+	return BadFontPath;
     dir = *pdir;
     strcpy(alias_file, directory);
     if (!isFile) {
+	if (strlen(directory) + 1 + sizeof(FontAliasFile) > sizeof(alias_file))
+	    return BadFontPath;
 	if (directory[strlen(directory) - 1] != '/')
 	    strcat(alias_file, "/");
 	strcat(alias_file, FontAliasFile);
@@ -286,6 +303,10 @@ ReadFontAlias(char *directory, Bool isFile, FontDirectoryPtr *pdir)
 	    status = AllocError;
 	    break;
 	case NAME:
+	    if (strlen(lexToken) >= sizeof(alias)) {
+		status = BadFontPath;
+		break;
+	    }
 	    strcpy(alias, lexToken);
 	    token = lexAlias(file, &lexToken);
 	    switch (token) {
@@ -302,6 +323,10 @@ ReadFontAlias(char *directory, Bool isFile, FontDirectoryPtr *pdir)
 		status = AllocError;
 		break;
 	    case NAME:
+		if (strlen(lexToken) >= sizeof(font_name)) {
+		    status = BadFontPath;
+		    break;
+		}
 		CopyISOLatin1Lowered(alias, alias, strlen(alias));
 		CopyISOLatin1Lowered(font_name, lexToken, strlen(lexToken));
 		if (!FontFileAddFontAlias (dir, alias, font_name))

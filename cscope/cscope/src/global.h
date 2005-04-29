@@ -30,12 +30,15 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: global.h,v 1.1.1.2 2002/01/09 18:50:32 umeshv Exp $ */
+/* $Id: global.h,v 1.2 2004/07/09 21:34:44 nicolai Exp $ */
 
 /*	cscope - interactive C symbol cross-reference
  *
  *	global type, data, and function definitions
  */
+
+#ifndef CSCOPE_GLOBAL_H
+#define CSCOPE_GLOBAL_H
 
 #include "config.h"
 #include <unistd.h>
@@ -44,11 +47,35 @@
 #include <signal.h>	/* SIGINT and SIGQUIT */
 #include <stdio.h>	/* standard I/O package */
 #include <stdlib.h>     /* standard library functions */
-#include <string.h>	/* string functions */
+
+/* Replace most of the #if BSD stuff. Taken straight from the autoconf
+ * manual, with an extension for handling memset(). */
+#if STDC_HEADERS
+# include <string.h>	/* string functions */
+#else
+# ifndef HAVE_STRCHR
+#  define strchr index
+#  define strrchr rindex
+# endif
+char *strchr (), *strrchr ();
+# ifndef HAVE_MEMCPY
+#  define memcpy(d, s, n) bcopy ((s), (d), (n))
+#  define memmove(d, s, n) bcopy ((s), (d), (n))
+# endif
+# ifndef HAVE_MEMSET
+#  ifndef HAVE_MEMORY_H
+char	*memset();
+#  else 
+#   include <memory.h>	/* memset */
+#  endif /*V9*/
+# endif /* HAVE_MEMSET */
+#endif /* STDC_HEADERS */
+
 #include "constants.h"	/* misc. constants */
 #include "invlib.h"	/* inverted index library */
 #include "library.h"	/* library function return values */
 
+/* Fallback, in case 'configure' failed to do its part of the job */
 #ifndef RETSIGTYPE
 #if SVR2 || BSD && !sun
 #define RETSIGTYPE int
@@ -57,7 +84,86 @@
 #endif
 #endif /* RETSIGTYPE */
 
+#if BSD
+# undef	tolower		/* BSD toupper and tolower don't test the character */
+# undef	toupper
+# define	tolower(c)	(islower(c) ? (c) : (c) - 'A' + 'a')	
+# define	toupper(c)	(isupper(c) ? (c) : (c) - 'a' + 'A')	
+# if !sun 
+#  if !__FreeBSD__
+/* in traditional BSD, *printf() doesn't return the number of bytes
+ * written */
+#   define PRINTF_RETVAL_BROKEN 1
+#  endif /* !FreeBSD */
+# endif /* !sun */
+#endif
 
+/* Un-comment this if you're on a filesystem that doesn't support
+ * filenames longer than 14 characters */
+/* HBB FIXME 20030302: should have an autoconf test for this: */
+/* #define SHORT_NAMES_ONLY */
+
+/* Just in case autoconf didn't correctly flag HAVE_FIXKEYPAD */
+#ifndef HAVE_FIXKEYPAD 
+# if SVR2 && !BSD && !V9 && !u3b2 && !sun
+#  define HAVE_FIXKEYPAD
+# endif
+#endif
+
+/* HBB 20020728: if <fcntl.h> is there, #include it here, since that's
+ * where the system definitions of O_TEXT should be coming from */
+#ifdef HAVE_FCNTL_H
+# include <fcntl.h>
+#endif
+
+/* HBB 20020103: Need to force text or binary mode opens on Cygwins,
+ * because of their "binary/text mode mount" silliness :-( */
+#ifndef O_TEXT
+# ifdef _O_TEXT
+#  define O_TEXT _O_TEXT
+# else
+#  define O_TEXT 0x00
+# endif
+#endif
+/* Same for binary mode --- moved here from vp.h */
+#ifndef O_BINARY
+# ifdef _O_BINARY
+#  define O_BINARY _O_BINARY
+# else
+#  define O_BINARY 0x00
+# endif
+#endif 
+
+#undef SETMODE
+#if O_BINARY || O_TEXT
+/* OK, looks like we are on an MSDOS-ish platform ---> define SETMODE
+ * to actually do something */
+# ifdef HAVE_SETMODE
+#  define SETMODE(fildes, mode) setmode(fildes,mode)
+# else 
+#  ifdef HAVE__SETMODE
+#   define SETMODE(fildes, mode) _setmode(fildes,mode)
+#  endif
+# endif
+#endif
+
+/* access(2) parameters. Only make assumptions about their values if
+ * <unistd.h> fails to define them. */
+#ifdef R_OK
+# define	READ	R_OK
+#else
+# define	READ	4	
+#endif
+#ifdef W_OK
+# define	WRITE	W_OK
+#else
+# define	WRITE	2
+#endif
+
+/* This can happen on only vaguely Unix-ish platforms... */
+#ifndef HAVE_LSTAT
+# define	lstat(file,buf)	stat(file,buf)
+#endif
 
 typedef	enum	{		/* boolean data type */
 	NO,
@@ -103,6 +209,7 @@ extern	char	dicode2[];	/* digraph second character code */
 
 /* main.c global data */
 extern	char	*editor, *home, *shell, *lineflag;	/* environment variables */
+extern	char	*home;		/* Home directory */
 extern 	BOOL	lineflagafterfile;
 extern	char	*argv0;		/* command name */
 extern	BOOL	compress;	/* compress the characters in the crossref */
@@ -120,21 +227,21 @@ extern	BOOL	invertedindex;	/* the database has an inverted index */
 extern	BOOL	isuptodate;	/* consider the crossref up-to-date */
 extern	BOOL	kernelmode;	/* don't use DFLT_INCDIR - bad for kernels */
 extern	BOOL	linemode;	/* use line oriented user interface */
+extern	BOOL	verbosemode;	/* print extra information on line mode */
 extern	BOOL	recurse_dir;	/* recurse dirs when searching for src files */
 extern	char	*namefile;	/* file of file names */
-extern	char	*newreffile;	/* new cross-reference file name */
-extern	FILE	*newrefs;	/* new cross-reference */
 extern	BOOL	ogs;		/* display OGS book and subsystem names */
-extern	FILE	*postings;	/* new inverted index postings */
 extern	char	*prependpath;	/* prepend path to file names */
 extern	FILE	*refsfound;	/* references found file */
+#if 0 /* HBB 20010705: flag no longer used */
 extern	BOOL	select_large;	/* enable more than 9 select lines */
-extern	int	symrefs;	/* cross-reference file */
+#endif
 extern	char	temp1[];	/* temporary file name */
 extern	char	temp2[];	/* temporary file name */
 extern	long	totalterms;	/* total inverted index terms */
 extern	BOOL	trun_syms;	/* truncate symbols to 8 characters */
 extern	char	tempstring[8192]; /* global dummy string buffer */
+extern	char	*tmpdir;	/* temporary directory */
 
 /* command.c global data */
 extern	BOOL	caseless;	/* ignore letter case when searching */
@@ -148,7 +255,6 @@ extern	char	pattern[];	/* symbol or text pattern */
 /* crossref.c global data */
 extern	long	dboffset;	/* new database offset */
 extern	BOOL	errorsfound;	/* prompt before clearing error messages */
-extern	long	fileindex;	
 extern	long	lineoffset;	/* source line database offset */
 extern	long	npostings;	/* number of postings */
 extern	int	symbols;	/* number of symbols */
@@ -217,16 +323,16 @@ char	*findregexp(char *egreppat);
 char	*findstring(char *pattern);
 char	*inviewpath(char *file);
 char	*lookup(char *ident);
-char	*mygetenv(char *variable, char *deflt);
 char	*pathcomponents(char *path, int components);
 char	*readblock(void);
 char	*scanpast(char c);
 
 
 void	addcmd(int f, char *s);
-void	addsrcfile(char *name, char *path);
+void	addsrcfile(char *path);
 void	askforchar(void);
 void	askforreturn(void);
+void	atchange(void);
 void	atfield(void);
 void	cannotwrite(char *file);
 void	cannotopen(char *file);
@@ -247,7 +353,7 @@ void    freecrossref(void);
 void	freefilelist(void);
 void	help(void);
 void	incfile(char *file, char *type);
-void    includedir(char *dirname);
+void    includedir(char *_dirname);
 void    initsymtab(void);
 void	makefilelist(void);
 void	mousecleanup(void);
@@ -264,7 +370,6 @@ void	postmsg2(char *msg);
 void	posterr(char *msg,...);
 void	putposting(char *term, int type);
 void	putstring(char *s);
-void	rebuild(void);
 void	resetcmd(void);
 void	seekline(int line);
 void	setfield(void);
@@ -280,7 +385,6 @@ BOOL	readrefs(char *filename);
 BOOL	search(void);
 BOOL	writerefsfound(void);
 
-FILE	*myfopen(char *path, char *mode);
 FINDINIT findinit(char *pattern);
 MOUSE	*getmouseaction(char leading_char);
 struct	cmd *currentcmd(void);
@@ -290,9 +394,9 @@ struct	cmd *nextcmd(void);
 int	egrep(char *file, FILE *output, char *format);
 int	getline(char s[], unsigned size, int firstchar, BOOL iscaseless);
 int	mygetch(void);
-int	myopen(char *path, int flag, int mode);
 int	hash(char *ss);
 int	execute(char *a, ...);
 long	dbseek(long offset);
 
 
+#endif /* CSCOPE_GLOBAL_H */

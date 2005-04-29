@@ -1488,7 +1488,7 @@ public final class Character implements Serializable, Comparable
    * @return a String containing the character
    * @since 1.4
    */
-  public String toString(char ch)
+  public static String toString(char ch)
   {
     // This assumes that String.valueOf(char) can create a single-character
     // String more efficiently than through the public API.
@@ -2079,8 +2079,8 @@ public final class Character implements Serializable, Comparable
    */
   public static char forDigit(int digit, int radix)
   {
-    if (radix < MIN_RADIX || radix > MAX_RADIX ||
-        digit < 0 || digit >= radix)
+    if (radix < MIN_RADIX || radix > MAX_RADIX
+	|| digit < 0 || digit >= radix)
       return '\0';
     return (char) (digit < 10 ? ('0' + digit) : ('a' - 10 + digit));
   }

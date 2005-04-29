@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>User Administation Plugin</title>
+    </header>
+
+    <body>
+        <section>
+            <title>Description</title>
+            <p>
+                The User Administration plugin allows a defined set of "administrators" to add and delete
+                users dynamically to their blojsom installation. This means that a restart of the server
+                is no longer required when adding or removing users from the system.
+            </p>
+        </section>
+        <section>
+            <title>Installation and Setup</title>
+            <p>
+                In your global
+                <code>plugin.properties</code> file, add the following line:
+            </p>
+            <source>
+                edit-blog-users=org.blojsom.plugin.admin.EditBlogUsersPlugin
+            </source>
+            <p>
+                Add the following to your <code>/WEB-INF/web.xml</code> file under the init-params for
+                BlojsomServlet.
+                <source>
+                    &lt;init-param&gt;
+                    &lt;param-name&gt;plugin-admin-edit-users&lt;/param-name&gt;
+                    &lt;param-value&gt;/WEB-INF/plugin-admin-edit-users.properties&lt;/param-value&gt;
+                    &lt;/init-param&gt;
+                </source>
+            </p>
+            <p>
+                Add the following file to your <code>/WEB-INF</code> directory under the
+                filename, <code>plugin-admin-edit-users.properties</code>.
+                <source>
+                    bootstrap-directory=/bootstrap
+                    blog-home-base-directory=/change/me/please
+                    administrators=default
+                </source>
+            </p>
+            <p>
+                <code>bootstrap-directory</code> is the location off your <code>/WEB-INF</code> directory
+                where the bootstrap properties and templates directory is. This precludes you from adding a
+                user named "bootstrap". If you would like to add a user named "bootstrap", change the directory
+                name here and on disk appropriately. <code>blog-home-base-directory</code> is the directory
+                where users blogs will be stored. A directory with the new user id will be created under this
+                directory for users you add dynamically to your blojsom installation. <code>administrators</code>
+                is a comma-separated list of users who are enabled to add and delete users from your
+                blojsom installation.
+            </p>
+            <p>
+                Copy the <code>bootstrap</code> directory under your <code>/WEB-INF</code> directory so
+                that you have a <code>/WEB-INF/bootstrap</code> directory and a <code>/WEB-INF/bootstrap/templates</code>
+                directory. This is the directory that contains a bootstrap set of properties files and templates for
+                adding new users to your blojsom installation.
+            </p>
+        </section>
+        <section>
+            <title>Usage</title>
+            <p>
+                After logging into the administration console, you may click on the link to "Edit Blog Users"
+                and you will be able to add and delete users.
+            </p>
+        </section>
+    </body>
+</document>
+

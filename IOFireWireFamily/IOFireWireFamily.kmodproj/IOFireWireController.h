@@ -251,7 +251,47 @@ struct IOFWNodeScan {
     int							fRead;
     IOFWReadQuadCommand 	* 	fCmd;
     UInt32						generation;
+    UInt32						fIRMBitBucket;
+    bool						fIRMisBad;
     bool						speedChecking;
+    bool						fIRMChecking;
+	int							fRetriesBumped;
+};
+
+
+typedef struct IOFWDuplicateGUIDStruct IOFWDuplicateGUIDRec;
+struct IOFWDuplicateGUIDStruct
+ {
+	IOFWDuplicateGUIDRec		* 	fNextGUID;
+	CSRNodeUniqueID				fGUID;
+	UInt32						fLastGenSeen;
+};
+	
+
+// IOFireWireDuplicateGUIDList
+//
+// A little class for keeping track of GUIDs which where we have observed 2 nodes with
+// the same GUID
+
+class IOFireWireDuplicateGUIDList : public OSObject
+{
+    OSDeclareDefaultStructors(IOFireWireDuplicateGUIDList);
+
+private:
+    IOFWDuplicateGUIDRec		* 	fFirstGUID;
+    
+protected:
+    virtual void free();
+    
+public:
+
+	static IOFireWireDuplicateGUIDList * create( void );
+
+	void addDuplicateGUID( CSRNodeUniqueID guid, UInt32 gen );
+	void removeDuplicateGUID( CSRNodeUniqueID guid );
+	
+	bool findDuplicateGUID( CSRNodeUniqueID guid, UInt32 gen );
+	
 };
 
 #define kMaxPendingTransfers kFWAsynchTTotal
@@ -274,6 +314,11 @@ protected:
 	
 	IOFireWireController * 		fPrimary;
 	
+	UInt8						fMaxRec;
+	
+	UInt8						fPadding;
+	UInt16						fPadding2;
+	
 	/*! 
 		@struct ExpansionData
 		@discussion This structure will be used to expand the capablilties of the class in the future.
@@ -291,8 +336,9 @@ protected:
     virtual bool 									init ( 
 																IOFireWireController * 	primary );
 	virtual	void 									free ();
-	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const ;
-//	virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort () const ;
+	virtual IOFWDCLPool *							createDCLPool ( unsigned capacity ) const ;	
+	virtual UInt8									getMaxRec( void );
+	virtual IOFWBufferFillIsochPort *				createBufferFillIsochPort() const ;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireControllerAux, 0);
@@ -360,7 +406,8 @@ protected:
 	friend class IOFWCommand;
 	friend class IOFireWireDevice;
 	friend class IOFireWireDeviceAux;
-    friend class IOFireWirePCRSpace;
+    friend class IOFireWireUnit;
+	friend class IOFireWirePCRSpace;
     friend class IOFireWireROMCache;
     friend class IOFWAsyncStreamCommand;
 	friend class IOFWAddressSpaceAux;
@@ -371,7 +418,9 @@ protected:
 	friend class IOFWWriteQuadCommand;
 	friend class IOFWWriteCommand;
 	friend class IOFWCompareAndSwapCommand;
-
+	friend class IOFWAsyncCommand;
+	friend class IOFireWireAVCTargetSpace ;
+	
 #if FIRELOGCORE
 	friend class IOFireLog;
 #endif
@@ -395,6 +444,7 @@ protected:
     IORegistryEntry *			fNodes[kFWMaxNodesPerBus];	// FireWire nodes on this bus
     UInt32 *					fNodeIDs[kFWMaxNodesPerBus+1];	// Pointer to SelfID list for each node
 							// +1 so we know how many selfIDs the last node has
+							
     UInt32						fGapCount;		// What we think the gap count should be
     UInt8						fSpeedCodes[(kFWMaxNodesPerBus+1)*kFWMaxNodesPerBus];
 						// Max speed between two nodes
@@ -462,6 +512,14 @@ protected:
 
 	bool						fUseHalfSizePackets;
 	bool						fRequestedHalfSizePackets;
+
+	IOFWNodeScan *					fScans[kFWMaxNodesPerBus];
+	IOFireWireDuplicateGUIDList	*	fGUIDDups;
+	
+	bool						fDelegateCycleMaster;
+	bool						fBadIRMsKnown;
+	
+	UInt32						fPreviousGap;
 	
 /*! @struct ExpansionData
     @discussion This structure will be used to expand the capablilties of the class in the future.
@@ -510,7 +568,7 @@ protected:
     virtual void buildTopology(bool doFWPlane);
 
     virtual void readDeviceROM(IOFWNodeScan *refCon, IOReturn status);
-
+    
     virtual IOReturn UpdateROM();
     virtual IOReturn allocAddress(IOFWAddressSpace *space);
     virtual void freeAddress(IOFWAddressSpace *space);
@@ -776,12 +834,18 @@ protected:
 	
 	virtual UInt32 getPortNumberFromIndex( UInt16 index );
 												
+    virtual bool checkForDuplicateGUID(IOFWNodeScan *scan, CSRNodeUniqueID *currentGUIDs );
+    virtual void updateDevice(IOFWNodeScan *scan );
+    virtual bool AssignCycleMaster();
+
 public:
 
  	IOReturn clipMaxRec2K(Boolean clipMaxRec );
 	void setNodeSpeed( UInt16 nodeAddress, IOFWSpeed speed );
 	void useHalfSizePackets( void );
 	void disablePhyPortOnSleepForNodeID( UInt32 nodeID );
+
+	IOReturn handleAsyncCompletion( IOFWCommand *cmd, IOReturn status );
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireController, 0);

@@ -26,10 +26,10 @@
 # authorization.                                                             #
 ##############################################################################
 #
-#  Author: Juergen Pfeifer <juergen.pfeifer@gmx.net> 1996
+#  Author:  Juergen Pfeifer, 1996
 #
 #  Version Control
-#  $Revision: 1.1.1.1 $
+#  $Revision: 1.15 $
 #
 SHELL		= /bin/sh
 THIS		= Makefile

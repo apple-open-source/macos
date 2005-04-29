@@ -1,5 +1,5 @@
 /* SocketPermission.java -- Class modeling permissions for socket operations
-   Copyright (C) 1998, 2000, 2001 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2000, 2001, 2002 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,6 +37,7 @@ exception statement from your version. */
 
 package java.net;
 
+import java.io.Serializable;
 import java.security.Permission;
 import java.security.PermissionCollection;
 
@@ -87,7 +88,8 @@ import java.security.PermissionCollection;
  * SocketPermission("www.urbanophile.com:80", "connect,accept");
  *   Can connect to or accept connections from www.urbanophile.com on port 80
  * SocketPermission("localhost:1024-", "listen,accept,connect");
- *   Can connect to, accept from, an listen on any local port number 1024 and up.
+ *   Can connect to, accept from, an listen on any local port number 1024
+ *   and up.
  * SocketPermission("*.edu", "connect");
  *   Can connect to any host in the edu domain
  * SocketPermission("197.197.20.1", "accept");
@@ -99,8 +101,9 @@ import java.security.PermissionCollection;
  * @author Aaron M. Renn (arenn@urbanophile.com)
  */
 public final class SocketPermission extends Permission
-  implements java.io.Serializable
+  implements Serializable
 {
+  static final long serialVersionUID = -7204263841984476862L;
 
 // FIXME: Needs serialization work, including readObject/writeObject methods.
   /**
@@ -118,7 +121,7 @@ public final class SocketPermission extends Permission
    * specified host/port combination and actions string.
    *
    * @param hostport The hostname/port number combination
-   * @param perms The actions string
+   * @param actions The actions string
    */
   public SocketPermission(String hostport, String actions)
   {
@@ -163,12 +166,11 @@ public final class SocketPermission extends Permission
   public int hashCode()
   {
     int hash = 100;
-
-    // FIXME: Get a real hash function
-    for (int i = 0; i < hostport.length(); i++)
-      hash = hash + (int) hostport.charAt(i) * 7;
-
-    return (hash);
+    if (hostport != null)
+      hash += hostport.hashCode();
+    if (actions != null)
+      hash += actions.hashCode();
+    return hash;
   }
 
   /**
@@ -241,7 +243,8 @@ public final class SocketPermission extends Permission
    * <p><ul>
    * <li>The argument's hostname or IP address is equal to this object's.
    * <li>The argument's canonical hostname is equal to this object's.
-   * <li>The argument's canonical name matches this domains hostname with wildcards
+   * <li>The argument's canonical name matches this domains hostname with
+   * wildcards
    * </ul>
    *
    * @param perm The Permission to check against
@@ -273,62 +276,62 @@ public final class SocketPermission extends Permission
     // Get ours
     if (hostport.indexOf(":") == -1)
       {
-	ourfirstport = 0;
-	ourlastport = 65535;
+        ourfirstport = 0;
+        ourlastport = 65535;
       }
     else
       {
-	// FIXME:  Needs bulletproofing.
-	// This will dump if hostport if all sorts of bad data was passed to
-	// the constructor
-	String range = hostport.substring(hostport.indexOf(":") + 1);
-	if (range.startsWith("-"))
-	  ourfirstport = 0;
-	else if (range.indexOf("-") == -1)
-	  ourfirstport = Integer.parseInt(range);
-	else
-	  ourfirstport =
-	    Integer.parseInt(range.substring(0, range.indexOf("-")));
+        // FIXME:  Needs bulletproofing.
+        // This will dump if hostport if all sorts of bad data was passed to
+        // the constructor
+        String range = hostport.substring(hostport.indexOf(":") + 1);
+        if (range.startsWith("-"))
+          ourfirstport = 0;
+        else if (range.indexOf("-") == -1)
+          ourfirstport = Integer.parseInt(range);
+        else
+          ourfirstport =
+            Integer.parseInt(range.substring(0, range.indexOf("-")));
 
-	if (range.endsWith("-"))
-	  ourlastport = 65535;
-	else if (range.indexOf("-") == -1)
-	  ourlastport = Integer.parseInt(range);
-	else
-	  ourlastport =
-	    Integer.parseInt(range.
-			     substring(range.indexOf("-") + 1,
-				       range.length()));
+        if (range.endsWith("-"))
+          ourlastport = 65535;
+        else if (range.indexOf("-") == -1)
+          ourlastport = Integer.parseInt(range);
+        else
+          ourlastport =
+            Integer.parseInt(range.
+                             substring(range.indexOf("-") + 1,
+                                       range.length()));
       }
 
     // Get theirs
     if (p.hostport.indexOf(":") == -1)
       {
-	theirfirstport = 0;
-	ourlastport = 65535;
+        theirfirstport = 0;
+        ourlastport = 65535;
       }
     else
       {
-	// This will dump if hostport if all sorts of bad data was passed to
-	// the constructor
-	String range = p.hostport.substring(hostport.indexOf(":") + 1);
-	if (range.startsWith("-"))
-	  theirfirstport = 0;
-	else if (range.indexOf("-") == -1)
-	  theirfirstport = Integer.parseInt(range);
-	else
-	  theirfirstport =
-	    Integer.parseInt(range.substring(0, range.indexOf("-")));
+        // This will dump if hostport if all sorts of bad data was passed to
+        // the constructor
+        String range = p.hostport.substring(hostport.indexOf(":") + 1);
+        if (range.startsWith("-"))
+          theirfirstport = 0;
+        else if (range.indexOf("-") == -1)
+          theirfirstport = Integer.parseInt(range);
+        else
+          theirfirstport =
+            Integer.parseInt(range.substring(0, range.indexOf("-")));
 
-	if (range.endsWith("-"))
-	  theirlastport = 65535;
-	else if (range.indexOf("-") == -1)
-	  theirlastport = Integer.parseInt(range);
-	else
-	  theirlastport =
-	    Integer.parseInt(range.
-			     substring(range.indexOf("-") + 1,
-				       range.length()));
+        if (range.endsWith("-"))
+          theirlastport = 65535;
+        else if (range.indexOf("-") == -1)
+          theirlastport = Integer.parseInt(range);
+        else
+          theirlastport =
+            Integer.parseInt(range.
+                             substring(range.indexOf("-") + 1,
+                                       range.length()));
       }
 
     // Now check them
@@ -358,17 +361,17 @@ public final class SocketPermission extends Permission
     String ourcanonical = null, theircanonical = null;
     try
       {
-	ourcanonical = InetAddress.getByName(ourhost).getHostName();
-	theircanonical = InetAddress.getByName(theirhost).getHostName();
+        ourcanonical = InetAddress.getByName(ourhost).getHostName();
+        theircanonical = InetAddress.getByName(theirhost).getHostName();
       }
     catch (UnknownHostException e)
       {
-	// Who didn't resolve?  Just assume current address is canonical enough
-	// Is this ok to do?
-	if (ourcanonical == null)
-	  ourcanonical = ourhost;
-	if (theircanonical == null)
-	  theircanonical = theirhost;
+        // Who didn't resolve?  Just assume current address is canonical enough
+        // Is this ok to do?
+        if (ourcanonical == null)
+          ourcanonical = ourhost;
+        if (theircanonical == null)
+          theircanonical = theirhost;
       }
 
     if (ourcanonical.equals(theircanonical))
@@ -377,9 +380,9 @@ public final class SocketPermission extends Permission
     // Well, last chance.  Try for a wildcard
     if (ourhost.indexOf("*.") != -1)
       {
-	String wild_domain = ourhost.substring(ourhost.indexOf("*" + 1));
-	if (theircanonical.endsWith(wild_domain))
-	  return (true);
+        String wild_domain = ourhost.substring(ourhost.indexOf("*" + 1));
+        if (theircanonical.endsWith(wild_domain))
+          return (true);
       }
 
     // Didn't make it

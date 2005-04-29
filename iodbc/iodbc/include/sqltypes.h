@@ -1,20 +1,20 @@
 /*
  *  sqltypes.h
  *
- *  $Id: sqltypes.h,v 1.1.1.1 2002/04/08 22:48:10 miner Exp $
+ *  $Id: sqltypes.h,v 1.5 2004/11/18 23:23:46 luesang Exp $
  *
  *  ODBC typedefs
  *
  *  The iODBC driver manager.
- *  
- *  Copyright (C) 1995 by Ke Jin <kejin@empress.com> 
- *  Copyright (C) 1996-2002 by OpenLink Software <iodbc@openlinksw.com>
+ *
+ *  Copyright (C) 1995 by Ke Jin <kejin@empress.com>
+ *  Copyright (C) 1996-2003 by OpenLink Software <iodbc@openlinksw.com>
  *  All Rights Reserved.
  *
  *  This software is released under the terms of either of the following
  *  licenses:
  *
- *      - GNU Library General Public License (see LICENSE.LGPL) 
+ *      - GNU Library General Public License (see LICENSE.LGPL)
  *      - The BSD License (see LICENSE.BSD).
  *
  *  While not mandated by the BSD license, any patches you make to the
@@ -73,11 +73,12 @@
 #ifndef _SQLTYPES_H
 #define _SQLTYPES_H
 
-/* 
- *  Set default specification to  ODBC 3.50 
+
+/*
+ *  Set default specification to  ODBC 3.51
  */
 #ifndef ODBCVER
-#define ODBCVER	0x0350
+#define ODBCVER		0x0351
 #endif
 
 #ifdef __cplusplus
@@ -88,14 +89,6 @@ extern "C" {
 /*
  *  Environment specific definitions
  */
-#ifndef NEAR
-#define NEAR
-#endif
-
-#ifndef FAR
-#define FAR
-#endif
-
 #ifndef EXPORT
 #define EXPORT
 #endif
@@ -108,69 +101,15 @@ extern "C" {
 
 
 /*
- *  Boolean support
- */
-#ifndef TRUE
-#define TRUE	1
-#endif
-
-#ifndef FALSE
-#define FALSE	0
-#endif
-
-#if !defined(__MWERKS__) && \
-    !defined(bool) && \
-    !defined(__cplusplus) && \
-    !defined(__APPLE__)
-enum bool { false, true };
-#endif
-
-
-/*
- * Windows style typedefs for UNIX machines
- */
-#ifndef WIN32
-typedef unsigned char BYTE;
-typedef unsigned short WORD;
-typedef unsigned long DWORD;
-
-typedef DWORD * LPDWORD;
-typedef char * LPSTR;
-typedef const char * LPCSTR;
-typedef	WORD WPARAM;
-typedef	DWORD LPARAM;
-#ifndef BOOL
-typedef int BOOL;
-#endif
-#endif
-
-
-/* 
- *  SQL portable types for C 
- */
-typedef unsigned char           UCHAR;
-typedef signed char             SCHAR;
-typedef unsigned short          USHORT;
-typedef signed short            SSHORT;
-typedef unsigned long 		UDWORD;
-typedef signed long 		SDWORD;
-typedef unsigned short 		UWORD;
-typedef signed short 		SWORD;
-typedef unsigned long           ULONG;
-typedef signed long             SLONG;
-typedef float                   SFLOAT;
-typedef double                  SDOUBLE;
-typedef double            	LDOUBLE; 
-
-
-/*
  *  API declaration data types
  */
 typedef unsigned char		SQLCHAR;
 typedef signed short		SQLSMALLINT;
 typedef unsigned short		SQLUSMALLINT;
-typedef signed long		SQLINTEGER;
-typedef unsigned long		SQLUINTEGER;
+typedef signed int		SQLINTEGER;
+typedef unsigned int		SQLUINTEGER;
+typedef void *              	SQLPOINTER;
+
 #if (ODBCVER >= 0x0300)
 typedef signed char		SQLSCHAR;
 typedef unsigned char		SQLDATE;
@@ -186,20 +125,45 @@ typedef unsigned char		SQLVARCHAR;
 
 
 /*
+ *  New Win64 datatypes
+ */
+#ifdef _WIN64
+typedef INT64			SQLLEN;
+typedef UINT64			SQLULEN;
+typedef UINT64			SQLSETPOSIROW;
+#elif defined(STRICT_ODBC_TYPES)
+typedef long			SQLLEN;
+typedef unsigned long		SQLULEN;
+typedef unsigned short		SQLSETPOSIROW;
+#else
+#define SQLLEN			long
+#define SQLULEN 		unsigned long
+#define SQLSETPOSIROW		unsigned short
+#endif
+
+
+/*
+ *  Backward compatibility with older platform sdks
+ */
+typedef SQLULEN 		SQLROWCOUNT;
+typedef SQLULEN 		SQLROWSETSIZE;
+typedef SQLULEN 		SQLTRANSID;
+typedef SQLLEN			SQLROWOFFSET;
+
+
+/*
  *  Generic pointer types
  */
-typedef void FAR *              PTR;
-typedef void FAR *              SQLPOINTER;
-typedef void FAR *		SQLHANDLE;
-/* typedef SQLINTEGER		SQLHANDLE; */
+typedef void *              	PTR;
+typedef void *			SQLHANDLE;
 
 
 /*
  *  Handles
  */
-typedef void FAR *		HENV;
-typedef void FAR *		HDBC;
-typedef void FAR *		HSTMT;
+typedef void *			HENV;
+typedef void *			HDBC;
+typedef void *			HSTMT;
 
 typedef SQLHANDLE		SQLHENV;
 typedef SQLHANDLE		SQLHDBC;
@@ -212,28 +176,48 @@ typedef SQLHANDLE		SQLHDESC;
 /*
  *  Window Handle
  */
-#if defined(WIN32) || defined(OS2)
+#if defined(WIN32) || defined (_WIN64) || defined(OS2)
 typedef HWND			SQLHWND;
 #elif defined(macintosh)
-typedef WindowPtr		HWND;
-typedef HWND	 		SQLHWND;
+#include <Dialogs.h>
+typedef WindowPtr 		HWND;
+typedef HWND 			SQLHWND;
 #else
-typedef SQLPOINTER		HWND;
-typedef SQLPOINTER		SQLHWND;
+typedef SQLPOINTER 		HWND;
+typedef SQLPOINTER 		SQLHWND;
 #endif
+
+
+/*
+ *  SQL portable types for C
+ */
+typedef unsigned char		UCHAR;
+typedef signed char		SCHAR;
+typedef short int		SWORD;
+typedef unsigned short int	UWORD;
+typedef long int		SDWORD;
+typedef unsigned long int	UDWORD;
+
+typedef signed short		SSHORT;
+typedef unsigned short		USHORT;
+typedef signed long		SLONG;
+typedef unsigned long		ULONG;
+typedef float			SFLOAT;
+typedef double			SDOUBLE;
+typedef double			LDOUBLE;
 
 
 /*
  *  Return type for functions
  */
-typedef SQLSMALLINT           	RETCODE;
-typedef SQLSMALLINT            	SQLRETURN;
+typedef signed short		RETCODE;
+typedef SQLSMALLINT		SQLRETURN;
 
 
 /*
  *  SQL portable types for C - DATA, TIME, TIMESTAMP, and BOOKMARK
  */
-typedef unsigned long int BOOKMARK;
+typedef SQLULEN			BOOKMARK;
 
 
 typedef struct tagDATE_STRUCT
@@ -281,25 +265,25 @@ typedef TIMESTAMP_STRUCT	SQL_TIMESTAMP_STRUCT;
 
 /*
  *  Enumeration for DATETIME_INTERVAL_SUBCODE values for interval data types
- *  
+ *
  *  These values are from SQL-92
  */
 #if (ODBCVER >= 0x0300)
 typedef enum
   {
-    SQL_IS_YEAR = 1,
-    SQL_IS_MONTH = 2,
-    SQL_IS_DAY = 3,
-    SQL_IS_HOUR = 4,
-    SQL_IS_MINUTE = 5,
-    SQL_IS_SECOND = 6,
-    SQL_IS_YEAR_TO_MONTH = 7,
-    SQL_IS_DAY_TO_HOUR = 8,
-    SQL_IS_DAY_TO_MINUTE = 9,
-    SQL_IS_DAY_TO_SECOND = 10,
-    SQL_IS_HOUR_TO_MINUTE = 11,
-    SQL_IS_HOUR_TO_SECOND = 12,
-    SQL_IS_MINUTE_TO_SECOND = 13
+    SQL_IS_YEAR			= 1,
+    SQL_IS_MONTH		= 2,
+    SQL_IS_DAY			= 3,
+    SQL_IS_HOUR			= 4,
+    SQL_IS_MINUTE		= 5,
+    SQL_IS_SECOND		= 6,
+    SQL_IS_YEAR_TO_MONTH	= 7,
+    SQL_IS_DAY_TO_HOUR		= 8,
+    SQL_IS_DAY_TO_MINUTE	= 9,
+    SQL_IS_DAY_TO_SECOND	= 10,
+    SQL_IS_HOUR_TO_MINUTE	= 11,
+    SQL_IS_HOUR_TO_SECOND	= 12,
+    SQL_IS_MINUTE_TO_SECOND	= 13
   }
 SQLINTERVAL;
 
@@ -338,21 +322,28 @@ SQL_INTERVAL_STRUCT;
 #endif	/* ODBCVER >= 0x0300 */
 
 
-/* 
- *  The ODBC C types for SQL_C_SBIGINT and SQL_C_UBIGINT 
+/*
+ *  The ODBC C types for SQL_C_SBIGINT and SQL_C_UBIGINT
  */
 #if (ODBCVER >= 0x0300)
 
 #if (_MSC_VER >= 900)
 #  define ODBCINT64 	__int64
-#else
-#  define ODBCINT64	long long
 #endif
+
+#ifndef ODBCINT64
+# if (SIZEOF_LONG == 8)
+#   define ODBCINT64		long
+# else
+#  define ODBCINT64	long long
+# endif
+#endif /* ODBCINT64 */
 
 #if defined (ODBCINT64)
 typedef signed   ODBCINT64	SQLBIGINT;
 typedef unsigned ODBCINT64	SQLUBIGINT;
-#endif
+#endif	/* ODBCINT64 */
+
 #endif	/* ODBCVER >= 0x0300 */
 
 
@@ -363,10 +354,10 @@ typedef unsigned ODBCINT64	SQLUBIGINT;
 #define SQL_MAX_NUMERIC_LEN	16
 typedef struct tagSQL_NUMERIC_STRUCT
   {
-    SQLCHAR precision;
-    SQLSCHAR scale;
-    SQLCHAR sign;		/* 0 for negative, 1 for positive */
-    SQLCHAR val[SQL_MAX_NUMERIC_LEN];
+    SQLCHAR	precision;
+    SQLSCHAR	scale;
+    SQLCHAR	sign;		/* 0 for negative, 1 for positive */
+    SQLCHAR	val[SQL_MAX_NUMERIC_LEN];
   }
 SQL_NUMERIC_STRUCT;
 #endif	/* ODBCVER >= 0x0300 */
@@ -378,14 +369,50 @@ typedef GUID SQLGUID;
 #else
 typedef struct tagSQLGUID
   {
-    DWORD Data1;
-    WORD Data2;
-    WORD Data3;
-    BYTE Data4[8];	/* BYTE */
+    unsigned int	Data1;
+    unsigned short	Data2;
+    unsigned short	Data3;
+    unsigned char	Data4[8];	/* BYTE */
   }
 SQLGUID;
 #endif	/* GUID_DEFINED */
 #endif	/* ODBCVER >= 0x0350 */
+
+
+#if defined(WIN32)
+typedef unsigned short SQLWCHAR;
+#else
+#  include <stdlib.h>
+
+// RDLS changed to add __cplusplus because of radar# 3779905
+#  if defined(__cplusplus) || \
+      defined(_WCHAR_T) || \
+      defined(_WCHAR_T_DEFINED)		|| \
+      defined(_WCHAR_T_DECLARED)	|| \
+      defined(_BSD_WCHAR_T_DEFINED_)
+typedef wchar_t SQLWCHAR;
+#  else
+#    error Please make sure your system supports the wchar_t type
+#  endif
+#endif /* WIN32 */
+
+      /* RDLS original
+#  if defined(_WCHAR_T)			|| \
+      defined(_WCHAR_T_DEFINED)		|| \
+          defined(_WCHAR_T_DECLARED)	|| \
+          defined(_BSD_WCHAR_T_DEFINED_)
+          typedef wchar_t SQLWCHAR;
+#  else
+#    error Please make sure your system supports the wchar_t type
+#  endif*/
+/*#endif*/ /* WIN32 */
+      
+
+#ifdef UNICODE
+typedef SQLWCHAR        SQLTCHAR;
+#else
+typedef SQLCHAR         SQLTCHAR;
+#endif  /* UNICODE */
 
 #ifdef __cplusplus
 }

@@ -631,6 +631,7 @@
 #define LINUXID 10
 #define BSDIID 11
 #define OPENBSDID 12
+#define WIN32ID 13
 #define UNKNOWNID 255
 
 #ifdef hpux9
@@ -645,7 +646,7 @@
 #ifdef solaris2
 #define OSTYPE SOLARISID
 #endif
-#if defined(osf3) || defined(osf4)
+#if defined(osf3) || defined(osf4) || defined(osf5)
 #define OSTYPE OSFID
 #endif
 #ifdef ultrix4
@@ -669,6 +670,7 @@
 #ifdef openbsd2
 #define OSTYPE OPENBSDID
 #endif
+#define OSTYPE WIN32ID
 /* unknown */
 #ifndef OSTYPE
 #define OSTYPE UNKNOWNID

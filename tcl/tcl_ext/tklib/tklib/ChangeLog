@@ -1,0 +1,58 @@
+2004-07-22  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* installed_modules.tcl: added ico to list of installed modules.
+	* modules/ico/*: new 'ico' module for extracting icos from exe/ico
+	files - works x-platform.
+
+2004-06-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* install_action.tcl:    Added ctext and style to list of
+	* installed_modules.tcl: installed modules.
+
+2004-05-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'tkpiechart'. This has been donated by Jean-Luc
+	  Fontaine. Thanks. It is based on his stoop OO package, found in
+	  our sibling 'Tcllib'.
+	
+	* installed_modules.tcl: Added tkpiechart to the list of installed
+	  modules.
+
+2004-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'plotchart', by Arjen Markus. Thanks for this
+	  donation.
+
+2004-04-04  David N. Welton  <davidw@dedasys.com>
+
+	* New module 'style'. Various Tk styles/themes.
+
+2004-04-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'ctext', by George Peter Staplin. Thanks for this
+	  donation.
+
+2003-11-28  Andreas Kupries  <andreask@activestate.com>
+
+	* Reworked the entire build system to use the same framework as
+	  tcllib does. IOW tklib now uses a swiss army knife tool
+	  (sak.tcl, with all attendant files), and configure/Makefile are
+	  based on that. Generation of distributions, and installer now
+	  also work in the same way as for tcllib.
+
+	* Replaced existing nroff documentation with doctools manpages,
+	  and wrote doctools manpages for the modules which had none. All
+	  (four) modules now have documentation.
+
+2003-07-21 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* imported ipentry into tklib
+
+2002-09-25  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* Makefile.in: better DESTDIR/libdir support (steffen)
+
+2001-11-07  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* created tklib in CVS
+

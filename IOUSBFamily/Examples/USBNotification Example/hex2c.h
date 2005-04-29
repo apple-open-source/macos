@@ -67,3 +67,4 @@ typedef struct _INTEL_HEX_RECORD
 } INTEL_HEX_RECORD, *PINTEL_HEX_RECORD;
 
 #endif
+

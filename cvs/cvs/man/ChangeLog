@@ -1,3 +1,172 @@
+2004-04-30  Derek Price  <derek@ximbiot.com>
+
+	First pass at closing issue #3 from cvshome.org.
+	* Makefile.am (man_MANS): Remove cvs.1.
+	* cvs.1: Removed.
+	* Makefile.in: Regenerated.
+
+2004-02-12  Derek Price  <derek@ximbiot.com>
+
+	Close issue #162.
+	* cvs.1: Remove references to the removed global -l option.
+	(Original patch from Ville Skyttä <scop@cvshome.org>.)
+
+2004-02-12  Derek Price  <derek@ximbiot.com>
+
+	Close issue #161.
+	* cvs.1, cvs.5: A couple of spelling fixes.
+	(Patch from Ville Skyttä <scop@cvshome.org>.)
+
+2004-01-30  Derek Price  <derek@ximbiot.com>
+
+	Close issue #146.
+	* cvs.1: Reference `cvs --help diff' rather than the rcsdiff man page.
+	Use consistent spelling of `initialization'.
+	(Patch from Ville Skyttä <scop@cvshome.org>.)
+
+2003-05-21  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerate with Automake version 1.7.5.
+
+2003-04-10  Larry Jones  <lawrence.jones@eds.com>
+
+	* Makefile.in: Regenerated.
+
+2003-03-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.am: Update copyright notice.
+
+	* Makefile.in: Regenerated.
+
+2003-03-05  Mark D. Baushke  <mdb@cvshome.org>
+
+	* cvs.1 (CVS_LOCAL_BRANCH_NUM): Backout CVS_LOCAL_BRANCH_NUM feature.
+
+	* cvs.1 (CVS_LOCAL_BRANCH_NUM): Document new environment variable.
+
+2003-02-26  Larry Jones  <lawrence.jones@eds.com>
+
+	* cvs.1: Note using "cvs" in .cvsrc for global options.
+	(Patch from "Mark D. Baushke" <mdb@cvshome.org>).
+
+2003-02-25  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated using Automake 1.6.3.
+
+2002-09-24  Derek Price  <derek@ximbiot.com>
+
+	* Makefile.in: Regenerated.
+
+2002-04-30  Derek Price  <oberon@umich.edu>
+
+	* Makefile.in: Regenerated with automake 1.6.
+
+2002-04-17  Derek Price  <oberon@umich.edu>
+
+	* cvs.1(cvs tag): Mention -c option.
+	(Correction from Michael Richardson <mcr@sandelman.ottawa.on.ca>.)
+
+2002-04-17  Derek Price  <oberon@umich.edu>
+
+	* cvs.1(cvs commit): It's '-F' now, not '-f'.
+	(Correction from Norikatsu Shigemura <nork@cityfujisawa.ne.jp>.)
+
+2002-04-17  Derek Price  <oberon@umich.edu>
+
+	* cvs.1: Claim to be out of date and direct users to the Cederqvist.
+	Replace www.cyclic.com with cvshome.org.
+	* cvs.5: Ditto.
+
+2001-11-27  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvsbug.8: Fixed typo.
+	(Correction from Mark D. Baushke <mdb@cvshome.org>.)
+
+2001-09-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with automake 1.5.
+
+2001-08-06  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated.
+
+2001-07-04  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new Automake release candidate 1.4h.
+
+2001-06-28  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated with new version of Automake.
+
+2001-05-21  Derek Price  <dprice@collab.net>
+
+	* cvs.1: Correct a quoting error.
+	(Patch from Alexey Mahotkin <alexm@hsys.msk.ru>).
+
+2001-05-18  Derek Price  <dprice@collab.net>
+
+	* cvs.1: Add note about 'P' file status from update.
+	(Reported by Jani Averbach <jaa@cc.jyu.fi>).
+
+2001-04-25  Derek Price  <dprice@collab.net>
+
+	* Makefile.in: Regenerated using AM 1.4e as of today at 18:10 -0400.
+
+2001-03-14  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2000-12-22  Derek Price  <derek.price@openavenue.com>
+
+        * Makefile.in: Regenerated
+
+2000-12-21  Derek Price  <derek.price@openavenue.com>
+
+	* Makefile.am: New file needed by Automake
+	* Makefile.in: Regenerated
+
+2000-09-07  Larry Jones  <larry.jones@sdrc.com>
+
+	* Makefile.in: Use @bindir@, @libdir@, @infodir@, and @mandir@
+	from autoconf.
+
+2000-05-03  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvs.1: Correct CVSEDITOR/VISUAL/EDITOR documentation.
+	Correct KJ's botched patch application.
+
+2000-01-02  John P Cavanaugh <cavanaug@sr.hp.com>
+
+	* cvs.texinfo: document new -C option to update, now that it works
+	both remotely and locally.
+	(Re-applied by Karl Fogel <kfogel@red-bean.com>.)
+
+1999-12-11  Karl Fogel  <kfogel@red-bean.com>
+
+	* Revert previous change -- it doesn't work remotely yet.
+
+1999-12-10  John P Cavanaugh <cavanaug@sr.hp.com>
+
+	* cvs.1: document new -C option to update.
+	(Applied by Karl Fogel <kfogel@red-bean.com>.)
+
+1999-11-29  Larry Jones  <larry.jones@sdrc.com>
+
+	* cvsbug.8: Change .TH from section 1 to section 8.
+
+1999-11-10  Jim Kingdon  <http://developer.redhat.com/>
+
+	* cvs.1: Don't document -H as a command option; it has been a
+	while since that worked.
+
+1999-01-19  Vitaly V Fedrushkov  <willy@snowyowl.csu.ac.ru>
+
+	* Makefile.in (INSTALL_DATA): Wrong manpage permissions fixed.
+
 1998-06-28  Jim Kingdon  <kingdon@harvey.cyclic.com>
 
 	* cvs.1: Update various items which were out of date.  Mostly

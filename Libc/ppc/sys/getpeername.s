@@ -22,5 +22,12 @@
  */
 #include "SYS.h"
 
+#ifdef __LP64__
 SYSCALL(getpeername, 3)
+#else /* !__LP64__ */
+PSEUDO(getpeername$UNIX2003, getpeername, 3)
+	blr
+
+SYSCALL_ERR(getpeername, 3, cerror_cvt)
+#endif /* __LP64__ */
 

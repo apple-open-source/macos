@@ -1,4 +1,4 @@
-#   Copyright (C) 1997, 1999, 2000 Free Software Foundation, Inc.
+#   Copyright (C) 1997, 1999, 2000, 2003 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -19,6 +19,9 @@ load_lib file-format.exp
 load_lib target-supports.exp
 load_lib scanasm.exp
 load_lib prune.exp
+# APPLE LOCAL begin
+load_lib langutils-dg.exp
+# APPLE LOCAL end
 
 if ![info exists TORTURE_OPTIONS] {
     # It is theoretically beneficial to group all of the O2/O3 options together,
@@ -51,59 +54,7 @@ foreach option $TORTURE_OPTIONS {
     }
 }
 
-# Define g77 callbacks for dg.exp.
-
-proc g77-dg-test { prog do_what extra_tool_flags } {
-    # Set up the compiler flags, based on what we're going to do.
-
-    switch $do_what {
-	"preprocess" {
-	    set compile_type "preprocess"
-	    set output_file "[file rootname [file tail $prog]].i"
-	}
-	"compile" {
-	    set compile_type "assembly"
-	    set output_file "[file rootname [file tail $prog]].s"
-	}
-	"assemble" {
-	    set compile_type "object"
-	    set output_file "[file rootname [file tail $prog]].o"
-	}
-	"link" {
-	    set compile_type "executable"
-	    set output_file "[file rootname [file tail $prog]].exe"
-	    # The following line is needed for targets like the i960 where
-	    # the default output file is b.out.  Sigh.
-	}
-	"run" {
-	    set compile_type "executable"
-	    # FIXME: "./" is to cope with "." not being in $PATH.
-	    # Should this be handled elsewhere?
-	    # YES.
-	    set output_file "./[file rootname [file tail $prog]].exe"
-	    # This is the only place where we care if an executable was
-	    # created or not.  If it was, dg.exp will try to run it.
-	    remote_file build delete $output_file;
-	}
-	default {
-	    perror "$do_what: not a valid dg-do keyword"
-	    return ""
-	}
-    }
-    set options ""
-    if { $extra_tool_flags != "" } {
-	lappend options "additional_flags=$extra_tool_flags"
-    }
-
-    set comp_output [g77_target_compile "$prog" "$output_file" "$compile_type" $options];
-
-    # Put the error message on the same line as the line number
-    # Remove the line of source code with the error and
-    # the "     ^" that points to error
-    regsub -all "\n\[^\n\]*\n *\\^\n" $comp_output "" comp_output 
-
-    return [list $comp_output $output_file]
-}
+# APPLE LOCAL move proc g77-dg-test to langutils-dg.exp proc ${tool}-dg-test
 
 proc g77-dg-prune { system text } {
     set text [prune_gcc_output $text]
@@ -121,20 +72,7 @@ proc g77-dg-prune { system text } {
 
 # Utility routines.
 
-#
-# search_for -- looks for a string match in a file
-#
-proc search_for { file pattern } {
-    set fd [open $file r]
-    while { [gets $fd cur_line]>=0 } {
-	if [string match "*$pattern*" $cur_line] then {
-	    close $fd
-	    return 1
-	}
-    }
-    close $fd
-    return 0
-}
+# APPLE LOCAL move proc search_for to langutils-dg.exp
 
 # Modified dg-runtest that can cycle through a list of optimization options
 # as c-torture does.

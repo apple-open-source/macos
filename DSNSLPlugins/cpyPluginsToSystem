@@ -2,8 +2,8 @@ sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plug
 sudo cp -r ./build/SMB.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
 sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/AppleTalk.dsplug
 sudo cp -r ./build/AppleTalk.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
-sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/Rendezvous.dsplug
-sudo cp -r ./build/Rendezvous.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
+sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/Bonjour.dsplug
+sudo cp -r ./build/Bonjour.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
 sudo rm -rf /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/SLP.dsplug
 sudo cp -r ./build/SLP.dsplug /System/Library/Frameworks/DirectoryService.framework/Resources/Plugins/
 

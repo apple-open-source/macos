@@ -2,7 +2,7 @@
 # Makefile for emacs
 ##
 
-Extra_CC_Flags = -no-cpp-precomp
+Extra_CC_Flags = -no-cpp-precomp -mdynamic-no-pic
 Extra_LD_Flags = -Wl,-headerpad,0x1000
 Extra_Configure_Flags = --without-x
 

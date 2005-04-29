@@ -37,11 +37,14 @@ Notice===
    This table data derived from Unicode, Inc.
    (ftp://ftp.unicode.org/Public/MAPPING/EASTASIA/JIS/JIS0201.TXT)
  */
+/* $XFree86: xc/extras/X-TrueType/ISO8859.1/ISO8859_1toAROMAN.c,v 1.2 2003/10/22 16:25:35 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 #include "xttcommon.h"
 #include "xttcap.h"

@@ -10,18 +10,14 @@
 
 #import <Foundation/NSString.h>
 #import <CoreFoundation/CFString.h>
-extern void abort(void);
-
-#ifdef __CONSTANT_CFSTRINGS__
-#undef CFSTR
-#define CFSTR(STR)  ((CFStringRef) __builtin___CFStringMakeConstantString (STR))
-#else
-#error The -fconstant-cfstrings option is not functioning properly
-#endif
+#include <stdlib.h>
 
 void printOut(NSString *str) {
   NSLog(@"The value of str is: %@", str);
 }
+
+CFStringRef s0a = CFSTR("Compile-time string literal");
+CFStringRef s0b = CFSTR("Compile-time string literal");
 
 void checkNSRange(NSRange r) {
   if (r.location != 6 || r.length != 5) {
@@ -38,15 +34,8 @@ void checkCFRange(CFRange r) {
 }
 
 int main(void) {
-  NSString *s1 = @"Compile-time string literal";
+  const NSString *s1 = @"Compile-time string literal";
   CFStringRef s2 = CFSTR("Compile-time string literal");
-  NSString *s3 = @"Compile-time string literal";
-  CFStringRef s4 = CFSTR("Compile-time string literal");
-
-  if (!(s1 == (id)s2 && (id)s2 == s3 && s3 == (id)s4)) {
-    NSLog(@"String comparison failed");
-    abort ();
-  }
 
   checkNSRange([@"Hello World" rangeOfString:@"World"]);
   checkNSRange([(id)CFSTR("Hello World") rangeOfString:@"World"]);
@@ -57,6 +46,12 @@ int main(void) {
   checkCFRange(CFStringFind(CFSTR("Hello World"), (CFStringRef)@"World", 0));
   checkCFRange(CFStringFind((CFStringRef)@"Hello World", CFSTR("World"), 0));
   checkCFRange(CFStringFind(CFSTR("Hello World"), CFSTR("World"), 0));
+
+  /* Check for string uniquing.  */
+  if (s0a != s0b || s0a != s2 || s1 != (id)s2) {
+    NSLog(@"String uniquing failed");
+    abort ();
+  }
 
   return 0;
 }

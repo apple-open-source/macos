@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,6 @@
  * Memory allocation routine for MiG interfaces.
  */
 #include <mach/mach.h>
-#include <mach/vm_statistics.h>
-#include "externs.h"
 
 void
 mig_allocate(vm_address_t *addr_p, vm_size_t size)

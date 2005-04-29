@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2002, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  * Modification History:
  *
@@ -15,6 +15,7 @@
 #include "unicode/schriter.h"
 #include "unicode/uchriter.h"
 #include "unicode/uiter.h"
+#include "unicode/putil.h"
 #include "citrtest.h"
 
 
@@ -36,7 +37,7 @@ public:
         text = newText;
     }
 
-    virtual void getText(UnicodeString& result){
+    virtual void getText(UnicodeString& result) {
         text.extract(0,text.length(),result);
     }
     virtual UClassID getDynamicClassID(void) const{ 
@@ -58,7 +59,7 @@ public:
     }
     virtual UChar nextPostInc(void){ return text.charAt(pos++);}
     virtual UChar32 next32PostInc(void){return text.char32At(pos++);}
-    virtual UBool hasNext(){ return TRUE;};
+    virtual UBool hasNext() { return TRUE;};
     virtual UChar first(){return DONE;};
     virtual UChar32 first32(){return DONE;};
     virtual UChar last(){return DONE;};
@@ -121,7 +122,7 @@ public:
 
         return pos;
     };
-    virtual UBool hasPrevious(){return TRUE;};
+    virtual UBool hasPrevious() {return TRUE;};
 
   SCharacterIterator&  operator=(const SCharacterIterator&    that){
      text = that.text;
@@ -222,9 +223,9 @@ void CharIterTest::TestConstructionAndEquality() {
     if (test1->hashCode() != test5->hashCode())
         errln("hashCode() failed:  identical objects have different hash codes");
 
-	if(test1->getLength() != testText.length()){
-		errln("getLength of CharacterIterator failed");
-	}
+    if(test1->getLength() != testText.length()){
+        errln("getLength of CharacterIterator failed");
+    }
     test1->getText(result1);
     test1b->getText(result2);
     test1c->getText(result3);

@@ -1,9 +1,9 @@
 /*
- * "$Id: client.c,v 1.11.4.2 2004/09/23 22:42:27 jlovell Exp $"
+ * "$Id: client.c,v 1.24 2005/01/10 23:40:51 jlovell Exp $"
  *
  *   Client routines for the Common UNIX Printing System (CUPS) scheduler.
  *
- *   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+ *   Copyright 1997-2005 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Easy Software Products and are protected by Federal
@@ -15,9 +15,9 @@
  *       Attn: CUPS Licensing Information
  *       Easy Software Products
  *       44141 Airport View Drive, Suite 204
- *       Hollywood, Maryland 20636-3111 USA
+ *       Hollywood, Maryland 20636 USA
  *
- *       Voice: (301) 373-9603
+ *       Voice: (301) 373-9600
  *       EMail: cups-info@cups.org
  *         WWW: http://www.cups.org
  *
@@ -33,15 +33,16 @@
  *   SendError()           - Send an error message via HTTP.
  *   SendFile()            - Send a file via HTTP.
  *   SendHeader()          - Send an HTTP request.
- *   ShutdownClient()      - Shutdown the receiving end of a connection.
  *   UpdateCGI()           - Read status messages from CGI scripts and programs.
  *   WriteClient()         - Write data to a client as needed.
- *   SanitizeURI()         - Remove any username and password from a uri.
  *   check_if_modified()   - Decode an "If-Modified-Since" line.
  *   decode_auth()         - Decode an authorization string.
  *   get_file()            - Get a filename and state info.
  *   install_conf_file()   - Install a configuration file.
+ *   is_path_absolute()    - Is a path absolute and free of relative elements.
  *   pipe_command()        - Pipe the output of a command to the remote client.
+ *   CDSAGetServerCerts()  - Convert a keychain name into the CFArrayRef
+ *                           required by SSLSetCertificate.
  *   CDSAReadFunc()        - Read function for CDSA decryption code.
  *   CDSAWriteFunc()       - Write function for CDSA encryption code.
  */
@@ -53,7 +54,43 @@
 #include <cups/http-private.h>
 #include "cupsd.h"
 #include <grp.h>
+#include <sys/param.h>
+#ifdef HAVE_INTTYPES_H
+#  include <inttypes.h>
+#endif /* HAVE_INTTYPES_H */
 
+#  include <pthread.h>
+#ifdef HAVE_DLFCN_H
+#  include <dlfcn.h>
+#endif /* HAVE_DLFCN_H */
+
+/*
+ * Globals...
+ */
+
+#ifdef HAVE_CDSASSL
+static OSStatus (*SSLCloseProc)(SSLContextRef context) = NULL;
+static OSStatus (*SSLDisposeContextProc)(SSLContextRef context) = NULL;
+static OSStatus (*SSLGetBufferedReadSizeProc)(SSLContextRef context, size_t *bufSize) = NULL;
+static OSStatus (*SSLHandshakeProc)(SSLContextRef context) = NULL;
+static OSStatus (*SSLNewContextProc)(Boolean isServer, SSLContextRef *contextPtr) = NULL;
+static OSStatus (*SSLReadProc)(SSLContextRef context, void *data, size_t dataLength, size_t *processed) = NULL;
+static OSStatus (*SSLSetCertificateProc)(SSLContextRef context, CFArrayRef certRefs);
+static OSStatus (*SSLSetConnectionProc)(SSLContextRef context, SSLConnectionRef connection) = NULL;
+static OSStatus (*SSLSetEnableCertVerifyProc)(SSLContextRef context, Boolean enableVerify) = NULL;
+static OSStatus (*SSLSetIOFuncsProc)(SSLContextRef context, SSLReadFunc read, SSLWriteFunc write) = NULL;
+static OSStatus (*SSLSetPeerDomainNameProc)(SSLContextRef context, const char *peerName, size_t peerNameLen);
+static OSStatus (*SSLSetProtocolVersionProc)(SSLContextRef context, SSLProtocol version);
+static OSStatus (*SSLWriteProc)(SSLContextRef context, const void *data, size_t dataLength, size_t *processed) = NULL;
+
+CFTypeID (*SecIdentityGetTypeIDProc)(void) = NULL;
+OSStatus (*SecIdentitySearchCopyNextProc)(SecIdentitySearchRef searchRef, SecIdentityRef *identity) = NULL;
+OSStatus (*SecIdentitySearchCreateProc)(CFTypeRef keychainOrArray, CSSM_KEYUSE keyUsage, SecIdentitySearchRef *searchRef) = NULL;
+OSStatus (*SecKeychainOpenProc)(const char *pathName, SecKeychainRef *keychain) = NULL;
+
+static pthread_once_t	cdsa_key_once = PTHREAD_ONCE_INIT;
+					/* One-time initialization object */
+#endif	/* HAVE_CDSASSL */
 
 /*
  * Local functions...
@@ -65,10 +102,12 @@ static void		decode_auth(client_t *con);
 static char		*get_file(client_t *con, struct stat *filestats, 
 			          char *filename, int len);
 static http_status_t	install_conf_file(client_t *con);
+static int		is_path_absolute(const char *path);
 static int		pipe_command(client_t *con, int infile, int *outfile,
 			             char *command, char *options);
 
 #ifdef HAVE_CDSASSL
+static CFArrayRef CDSAGetServerCerts();
 static OSStatus		CDSAReadFunc(SSLConnectionRef connection, void *data,
 			             size_t *dataLength);
 static OSStatus		CDSAWriteFunc(SSLConnectionRef connection,
@@ -86,14 +125,15 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   int			i;	/* Looping var */
   int			count;	/* Count of connections on a host */
   int			val;	/* Parameter value */
-  client_t		*con;	/* New client pointer */
+  client_t		*con,	/* New client pointer */
+			*current;/* Temporary client pointer */
   unsigned		address;/* Address of client */
   struct hostent	*host;	/* Host entry for address */
   static time_t		last_dos = 0;
 				/* Time of last DoS attack */
 
 
-  LogMessage(L_DEBUG2, "AcceptClient(%p) %d NumClients = %d",
+  LogMessage(L_DEBUG2, "AcceptClient(lis=%p) %d NumClients = %d",
              lis, lis->fd, NumClients);
 
  /*
@@ -104,13 +144,27 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
     return;
 
  /*
-  * Get a pointer to the next available client...
+  * Create a new client entity...
   */
 
-  con = Clients + NumClients;
+  if ((con = calloc(1, sizeof(client_t))) == NULL)
+  {
+    LogMessage(L_ERROR, "Unable to allocate memory for client - %s",
+               strerror(errno));
+    return;
+  }
 
-  memset(con, 0, sizeof(client_t));
+ /*
+  * Insert it in the client list...
+  */
+
+  con->next = Clients;
+  Clients = con;
+
+  NumClients ++;
+
   con->http.activity = time(NULL);
+  con->file          = -1;
 
  /*
   * Accept the client and get the remote address...
@@ -123,6 +177,7 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   {
     LogMessage(L_ERROR, "Unable to accept client connection - %s.",
                strerror(errno));
+    CloseClient(con);
     return;
   }
 
@@ -132,8 +187,8 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   * Check the number of clients on the same address...
   */
 
-  for (i = 0, count = 0; i < NumClients; i ++)
-    if (memcmp(&(Clients[i].http.hostaddr), &(con->http.hostaddr),
+  for (count = 0, current = Clients; current != NULL; current = current->next)
+    if (current != con && memcmp(&(current->http.hostaddr), &(con->http.hostaddr),
                sizeof(con->http.hostaddr)) == 0)
     {
       count ++;
@@ -147,15 +202,10 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
     {
       last_dos = time(NULL);
       LogMessage(L_WARN, "Possible DoS attack - more than %d clients connecting from %s!",
-        	 MaxClientsPerHost, Clients[i].http.hostname);
+        	 MaxClientsPerHost, con->http.hostname);
     }
 
-#ifdef WIN32
-    closesocket(con->http.fd);
-#else
-    close(con->http.fd);
-#endif /* WIN32 */
-
+    CloseClient(con);
     return;
   }
 
@@ -163,18 +213,28 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   * Get the hostname or format the IP address as needed...
   */
 
-  address = ntohl(con->http.hostaddr.sin_addr.s_addr);
-
-  if (HostNameLookups)
-#ifndef __sgi
-    host = gethostbyaddr((char *)&(con->http.hostaddr.sin_addr),
-                         sizeof(struct in_addr), AF_INET);
-#else
-    host = gethostbyaddr(&(con->http.hostaddr.sin_addr),
-                         sizeof(struct in_addr), AF_INET);
-#endif /* !__sgi */
-  else
+#ifdef HAVE_DOMAINSOCKETS
+  if (con->http.hostaddr.sin_family == AF_LOCAL)
+  {
+    address = 0x7f000001;
     host = NULL;
+  }
+  else
+#endif /* HAVE_DOMAINSOCKETS */
+  {
+    address = ntohl(con->http.hostaddr.sin_addr.s_addr);
+
+    if (HostNameLookups)
+#ifndef __sgi
+      host = gethostbyaddr((char *)&(con->http.hostaddr.sin_addr),
+                           sizeof(struct in_addr), AF_INET);
+#else
+      host = gethostbyaddr(&(con->http.hostaddr.sin_addr),
+                           sizeof(struct in_addr), AF_INET);
+#endif /* !__sgi */
+    else
+      host = NULL;
+  }
 
   if (address == 0x7f000001)
   {
@@ -203,21 +263,16 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
       * Can't have an unresolved IP address with double-lookups enabled...
       */
 
-#ifdef WIN32
-      closesocket(con->http.fd);
-#else
-      close(con->http.fd);
-#endif /* WIN32 */
-
       LogMessage(L_WARN, "Name lookup failed - connection from %s closed!",
                  con->http.hostname);
+      CloseClient(con);
       return;
     }
   }
   else
     strlcpy(con->http.hostname, host->h_name, sizeof(con->http.hostname));
 
-  if (HostNameLookups == 2)
+  if (HostNameLookups == 2 && con->http.hostaddr.sin_family == AF_INET)
   {
    /*
     * Do double lookups as needed...
@@ -259,19 +314,14 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
       * with double-lookups enabled...
       */
 
-#ifdef WIN32
-      closesocket(con->http.fd);
-#else
-      close(con->http.fd);
-#endif /* WIN32 */
-
       LogMessage(L_WARN, "IP lookup failed - connection from %s closed!",
                  con->http.hostname);
+      CloseClient(con);
       return;
     }
   }
 
-  LogMessage(L_DEBUG, "AcceptClient() %d from %s:%d.", con->http.fd,
+  LogMessage(L_DEBUG, "AcceptClient: %d from %s:%d.", con->http.fd,
              con->http.hostname, ntohs(con->http.hostaddr.sin_port));
 
  /*
@@ -297,8 +347,6 @@ AcceptClient(listener_t *lis)	/* I - Listener socket */
   LogMessage(L_DEBUG2, "AcceptClient: Adding fd %d to InputSet...",
              con->http.fd);
   FD_SET(con->http.fd, InputSet);
-
-  NumClients ++;
 
  /*
   * Temporarily suspend accept()'s until we lose a client...
@@ -342,9 +390,12 @@ CloseAllClients(void)
  * 'CloseClient()' - Close a remote client.
  */
 
-void
+int				/* O - 1 if partial close, 0 if fully closed */
 CloseClient(client_t *con)	/* I - Client to close */
 {
+  int		partial;	/* Do partial close for SSL? */
+  client_t	*current,	/* Current client pointer */
+		*prev;		/* Previous client pointer */
 #if defined(HAVE_LIBSSL)
   SSL_CTX	*context;	/* Context for encryption */
   SSL		*conn;		/* Connection for encryption */
@@ -354,19 +405,14 @@ CloseClient(client_t *con)	/* I - Client to close */
   int            error;		/* Error code */
   gnutls_certificate_server_credentials *credentials;
 				/* TLS credentials */
-#endif /* HAVE_GNUTLS */
+#elif defined(HAVE_CDSASSL)
+  OSStatus	 status;	/* Error code */
+#endif /* HAVE_CDSASSL */
 
 
-  LogMessage(L_DEBUG, "CloseClient() %d", con->http.fd);
+  LogMessage(L_DEBUG, "CloseClient: %d", con->http.fd);
 
-  if (con->http.input_set)
-    free(con->http.input_set);
-
-  httpClearCookie(HTTP(con));
-
-  ClearString(&con->filename);
-  ClearString(&con->command);
-  ClearString(&con->options);
+  partial = 0;
 
 #ifdef HAVE_SSL
  /*
@@ -375,6 +421,8 @@ CloseClient(client_t *con)	/* I - Client to close */
 
   if (con->http.tls)
   {
+    partial = 1;
+
 #  ifdef HAVE_LIBSSL
     conn    = (SSL *)(con->http.tls);
     context = SSL_get_SSL_CTX(conn);
@@ -416,8 +464,8 @@ CloseClient(client_t *con)	/* I - Client to close */
     free(conn);
 
 #  elif defined(HAVE_CDSASSL)
-    status = SSLClose((SSLContextRef)con->http.tls);
-    SSLDisposeContext((SSLContextRef)con->http.tls);
+    status = (*SSLCloseProc)((SSLContextRef)con->http.tls);
+    (*SSLDisposeContextProc)((SSLContextRef)con->http.tls);
 #  endif /* HAVE_LIBSSL */
 
     con->http.tls = NULL;
@@ -430,74 +478,122 @@ CloseClient(client_t *con)	/* I - Client to close */
 
   if (con->http.fd > 0)
   {
-    LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from InputSet and OutputSet...",
-               con->http.fd);
-    close(con->http.fd);
-    FD_CLR(con->http.fd, InputSet);
-    FD_CLR(con->http.fd, OutputSet);
-    con->http.fd = 0;
+    if (partial)
+    {
+     /*
+      * Only do a partial close so that the encrypted client gets everything.
+      */
+
+      LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from OutputSet...",
+        	 con->http.fd);
+      shutdown(con->http.fd, 0);
+      FD_CLR(con->http.fd, OutputSet);
+    }
+    else
+    {
+     /*
+      * Shut the socket down fully...
+      */
+
+      LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from InputSet and OutputSet...",
+        	 con->http.fd);
+      close(con->http.fd);
+      FD_CLR(con->http.fd, InputSet);
+      FD_CLR(con->http.fd, OutputSet);
+      con->http.fd = 0;
+    }
   }
 
   if (con->pipe_pid != 0)
   {
-    LogMessage(L_DEBUG2, "CloseClient: Removing fd %d from InputSet...",
-               con->file);
-    FD_CLR(con->file, InputSet);
-  }
-
-  if (con->file)
-  {
    /*
-    * Close the open data file...
+    * Stop any CGI process...
     */
 
-    if (con->pipe_pid)
-      kill(con->pipe_pid, SIGKILL);
+    LogMessage(L_DEBUG2, "CloseClient: %d Killing process ID %d...",
+               con->http.fd, con->pipe_pid);
+    kill(con->pipe_pid, SIGKILL);
+  }
+
+  if (con->file >= 0)
+  {
+    if (FD_ISSET(con->file, InputSet))
+    {
+      LogMessage(L_DEBUG2, "CloseClient: %d Removing fd %d from InputSet...",
+        	 con->http.fd, con->file);
+      FD_CLR(con->file, InputSet);
+    }
 
     LogMessage(L_DEBUG2, "CloseClient: %d Closing data file %d.",
                con->http.fd, con->file);
-    LogMessage(L_DEBUG2, "CloseClient: %d Removing fd %d from InputSet.",
-               con->http.fd, con->file);
 
-    FD_CLR(con->file, InputSet);
     close(con->file);
-    con->file = 0;
+    con->file = -1;
   }
 
-  if (con->request)
+  if (!partial)
   {
-    ippDelete(con->request);
-    con->request = NULL;
+   /*
+    * Free memory...
+    */
+
+    if (con->http.input_set)
+      free(con->http.input_set);
+
+    httpClearCookie(HTTP(con));
+
+    ClearString(&con->filename);
+    ClearString(&con->command);
+    ClearString(&con->options);
+
+    if (con->request)
+    {
+      ippDelete(con->request);
+      con->request = NULL;
+    }
+
+    if (con->response)
+    {
+      ippDelete(con->response);
+      con->response = NULL;
+    }
+
+    if (con->language)
+    {
+      cupsLangFree(con->language);
+      con->language = NULL;
+    }
+
+   /*
+    * Re-enable new client connections if we are going back under the
+    * limit...
+    */
+
+    if (NumClients == MaxClients)
+      ResumeListening();
+
+   /*
+    * Remove the client from the linked list...
+    */
+
+    for (current = Clients, prev = NULL; current != NULL; current = current->next)
+    {
+      if (current == con)
+      {
+        if (prev)
+	  prev->next = current->next;
+	else
+	  Clients = current->next;
+	break;
+      }
+      prev = current;
+    }
+
+    NumClients --;
+    free(con);
   }
 
-  if (con->response)
-  {
-    ippDelete(con->response);
-    con->response = NULL;
-  }
-
-  if (con->language)
-  {
-    cupsLangFree(con->language);
-    con->language = NULL;
-  }
-
- /*
-  * Re-enable new client connections if we are going back under the
-  * limit...
-  */
-
-  if (NumClients == MaxClients)
-    ResumeListening();
-
- /*
-  * Compact the list of clients as necessary...
-  */
-
-  NumClients --;
-
-  if (con < (Clients + NumClients))
-    memmove(con, con + 1, (Clients + NumClients - con) * sizeof(client_t));
+  return (partial);
 }
 
 
@@ -528,6 +624,9 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
   SSL_set_fd(conn, con->http.fd);
   if (SSL_accept(conn) != 1)
   {
+    LogMessage(L_ERROR, "EncryptClient: Unable to encrypt connection from %s!",
+               con->http.hostname);
+
     while ((error = ERR_get_error()) != 0)
       LogMessage(L_ERROR, "EncryptClient: %s", ERR_error_string(error, NULL));
 
@@ -536,8 +635,8 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
     return (0);
   }
 
-  LogMessage(L_DEBUG, "EncryptClient() %d Connection now encrypted.",
-             con->http.fd);
+  LogMessage(L_DEBUG, "EncryptClient: %d Connection from %s now encrypted.",
+             con->http.fd, con->http.hostname);
 
   con->http.tls = conn;
   return (1);
@@ -561,6 +660,10 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
                     malloc(sizeof(gnutls_certificate_server_credentials));
   if (credentials == NULL)
   {
+    LogMessage(L_ERROR, "EncryptClient: Unable to encrypt connection from %s!",
+               con->http.hostname);
+    LogMessage(L_ERROR, "EncryptClient: %s", strerror(errno));
+
     free(conn);
     return (0);
   }
@@ -578,7 +681,10 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
 
   if (error != GNUTLS_E_SUCCESS)
   {
+    LogMessage(L_ERROR, "EncryptClient: Unable to encrypt connection from %s!",
+               con->http.hostname);
     LogMessage(L_ERROR, "EncryptClient: %s", gnutls_strerror(error));
+
     gnutls_deinit(conn->session);
     gnutls_certificate_free_credentials(*credentials);
     free(conn);
@@ -586,8 +692,8 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
     return (0);
   }
 
-  LogMessage(L_DEBUG, "EncryptClient() %d Connection now encrypted.",
-             con->http.fd);
+  LogMessage(L_DEBUG, "EncryptClient: %d Connection from %s now encrypted.",
+             con->http.fd, con->http.hostname);
 
   conn->credentials = credentials;
   con->http.tls = conn;
@@ -596,70 +702,78 @@ EncryptClient(client_t *con)	/* I - Client to encrypt */
 #elif defined(HAVE_CDSASSL)
   OSStatus		error;		/* Error info */
   SSLContextRef		conn;		/* New connection */
-  SSLProtocol		tryVersion;	/* Protocol version */
-  const char		*hostName;	/* Local hostname */
-  int			allowExpired;	/* Allow expired certificates? */
-  int			allowAnyRoot;	/* Allow any root certificate? */
-  SSLProtocol		*negVersion;	/* Negotiated protocol version */
-  SSLCipherSuite	*negCipher;	/* Negotiated cypher */
-  CFArrayRef		*peerCerts;	/* Certificates */
+  char			hostName[MAXHOSTNAMELEN];
+					/* Local hostname */
 
+  conn		= NULL;
+  error		= 0;
 
-  conn         = NULL;
-  error        = SSLNewContext(true, &conn);
-  allowExpired = 1;
-  allowAnyRoot = 1;
+  if (ServerCertificatesArray == NULL)
+    ServerCertificatesArray = CDSAGetServerCerts();
 
-  if (!error)
-    error = SSLSetIOFuncs(conn, CDSAReadFunc, CDSAWriteFunc);
-
-  if (!error)
-    error = SSLSetProtocolVersion(conn, kSSLProtocol3);
+  if (ServerCertificatesArray == NULL)
+  {
+    LogMessage(L_ERROR,
+               "EncryptClient: Could not find signing key in keychain \"%s\"",
+               ServerCertificate);
+    error = errSSLBadConfiguration;
+  }
 
   if (!error)
-    error = SSLSetConnection(conn, (SSLConnectionRef)con->http.fd);
+    error = (*SSLNewContextProc)(true, &conn);
+
+  if (!error)
+    error = (*SSLSetIOFuncsProc)(conn, CDSAReadFunc, CDSAWriteFunc);
+
+  if (!error)
+    error = (*SSLSetProtocolVersionProc)(conn, kSSLProtocol3);
+
+  if (!error)
+    error = (*SSLSetConnectionProc)(conn, (SSLConnectionRef)con->http.fd);
 
   if (!error)
   {
-    hostName = ServerName;	/* MRS: ??? */
-    error    = SSLSetPeerDomainName(conn, hostName, strlen(hostName) + 1);
+    gethostname(hostName, sizeof(hostName));
+    error = (*SSLSetPeerDomainNameProc)(conn, hostName, strlen(hostName) + 1);
   }
 
-  /* have to do these options befor setting server certs */
-  if (!error && allowExpired)
-    error = SSLSetAllowsExpiredCerts(conn, true);
+  if (!error)
+    error = (*SSLSetEnableCertVerifyProc)(conn, SSLVerifyCertificates);
 
-  if (!error && allowAnyRoot)
-    error = SSLSetAllowsAnyRoot(conn, true);
+  if (!error)
+    error = (*SSLSetCertificateProc)(conn, ServerCertificatesArray);
 
-  if (!error && ServerCertificatesArray != NULL)
-    error = SSLSetCertificate(conn, ServerCertificatesArray);
-
- /*
-  * Perform SSL/TLS handshake
-  */
-
-  do
+  if (!error)
   {
-    error = SSLHandshake(conn);
+   /*
+    * Perform SSL/TLS handshake
+    */
+
+    do
+    {
+      error = (*SSLHandshakeProc)(conn);
+    }
+    while (error == errSSLWouldBlock);
   }
-  while (error == errSSLWouldBlock);
 
   if (error)
   {
-    LogMessage(L_ERROR, "EncryptClient: %d", error);
+    LogMessage(L_ERROR, "EncryptClient: Unable to encrypt connection from %s!",
+               con->http.hostname);
+      LogMessage(L_ERROR, "EncryptClient: SSL Error %d", (int)error);
 
     con->http.error  = error;
     con->http.status = HTTP_ERROR;
 
     if (conn != NULL)
-      SSLDisposeContext(conn);
+      (*SSLDisposeContextProc)(conn);
 
     return (0);
   }
 
-  LogMessage(L_DEBUG, "EncryptClient() %d Connection now encrypted.",
-             con->http.fd);
+  LogMessage(L_DEBUG, "EncryptClient: %d Connection from %s now encrypted.",
+             con->http.fd, con->http.hostname);
+
   con->http.tls = conn;
   return (1);
 
@@ -697,7 +811,7 @@ IsCGI(client_t    *con,				/* I - Client connection */
   * Check for known types...
   */
 
-  if (strcasecmp(type->super, "application"))
+  if (!type || strcasecmp(type->super, "application"))
   {
     LogMessage(L_DEBUG2, "IsCGI: Returning 0...");
     return (0);
@@ -815,35 +929,36 @@ IsCGI(client_t    *con,				/* I - Client connection */
  * 'ReadClient()' - Read data from a client.
  */
 
-int				/* O - 1 on success, 0 on error */
-ReadClient(client_t *con)	/* I - Client to read from */
+int					/* O - 1 on success, 0 on error */
+ReadClient(client_t *con)		/* I - Client to read from */
 {
-  char		line[32768],	/* Line from client... */
-		operation[64],	/* Operation code from socket */
-		version[64],	/* HTTP version number string */
-		locale[64];	/* DefaultLanguage + DefaultCharset */
-  int		major, minor;	/* HTTP version numbers */
-  http_status_t	status;		/* Transfer status */
-  ipp_state_t   ipp_state;	/* State of IPP transfer */
-  int		bytes;		/* Number of bytes to POST */
-  char		*filename;	/* Name of file for GET/HEAD */
-  char		buf[1024];	/* Buffer for real filename */
-  struct stat	filestats;	/* File information */
-  mime_type_t	*type;		/* MIME type of file */
-  printer_t	*p;		/* Printer */
-  location_t	*best;		/* Best match for authentication */
-  static unsigned request_id = 0;/* Request ID for temp files */
+  char		line[32768],		/* Line from client... */
+		operation[64],		/* Operation code from socket */
+		version[64],		/* HTTP version number string */
+		locale[64],		/* Locale */
+		*ptr;			/* Pointer into strings */
+  int		major, minor;		/* HTTP version numbers */
+  http_status_t	status;			/* Transfer status */
+  ipp_state_t   ipp_state;		/* State of IPP transfer */
+  int		bytes;			/* Number of bytes to POST */
+  char		*filename;		/* Name of file for GET/HEAD */
+  char		buf[1024];		/* Buffer for real filename */
+  struct stat	filestats;		/* File information */
+  mime_type_t	*type;			/* MIME type of file */
+  printer_t	*p;			/* Printer */
+  location_t	*best;			/* Best match for authentication */
+  static unsigned request_id = 0;	/* Request ID for temp files */
 
 
   status = HTTP_CONTINUE;
 
-  LogMessage(L_DEBUG2, "ReadClient() %d, used=%d", con->http.fd,
-             con->http.used);
+  LogMessage(L_DEBUG2, "ReadClient: %d, used=%d, file=%d", con->http.fd,
+             con->http.used, con->file);
 
   if (con->http.error)
   {
-    CloseClient(con);
-    return (0);
+    LogMessage(L_DEBUG2, "ReadClient: http error seen...");
+    return (CloseClient(con));
   }
 
   switch (con->http.state)
@@ -855,8 +970,8 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
         if (httpGets(line, sizeof(line) - 1, HTTP(con)) == NULL)
 	{
-          CloseClient(con);
-	  return (0);
+	  LogMessage(L_DEBUG2, "ReadClient: httpGets returned EOF...");
+          return (CloseClient(con));
 	}
 
        /*
@@ -877,9 +992,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	con->http.keep_alive     = HTTP_KEEPALIVE_OFF;
 	con->http.data_encoding  = HTTP_ENCODE_LENGTH;
 	con->http.data_remaining = 0;
+	con->http.deprecated_data_remaining = 0;
 	con->operation           = HTTP_WAITING;
 	con->bytes               = 0;
-	con->file                = 0;
+	con->file                = -1;
+	con->file_ready          = 0;
 	con->pipe_pid            = 0;
 	con->username[0]         = '\0';
 	con->password[0]         = '\0';
@@ -901,20 +1018,20 @@ ReadClient(client_t *con)	/* I - Client to read from */
         switch (sscanf(line, "%63s%1023s%63s", operation, con->uri, version))
 	{
 	  case 1 :
-	      LogMessage(L_ERROR, "Bad request line \"%s\"!", line);
+	      LogMessage(L_ERROR, "Bad request line \"%s\" from %s!", line,
+	                 con->http.hostname);
 	      SendError(con, HTTP_BAD_REQUEST);
-	      ShutdownClient(con);
-	      return (1);
+	      return (CloseClient(con));
 	  case 2 :
 	      con->http.version = HTTP_0_9;
 	      break;
 	  case 3 :
 	      if (sscanf(version, "HTTP/%d.%d", &major, &minor) != 2)
 	      {
-		LogMessage(L_ERROR, "Bad request line \"%s\"!", line);
+		LogMessage(L_ERROR, "Bad request line \"%s\" from %s!", line,
+	                   con->http.hostname);
 		SendError(con, HTTP_BAD_REQUEST);
-		ShutdownClient(con);
-		return (1);
+		return (CloseClient(con));
 	      }
 
 	      if (major < 2)
@@ -928,8 +1045,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      else
 	      {
 	        SendError(con, HTTP_NOT_SUPPORTED);
-	        ShutdownClient(con);
-	        return (1);
+	        return (CloseClient(con));
 	      }
 	      break;
 	}
@@ -968,8 +1084,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
 	    LogMessage(L_ERROR, "Bad URI \"%s\" in request!", con->uri);
 	    SendError(con, HTTP_METHOD_NOT_ALLOWED);
-	    ShutdownClient(con);
-	    return (1);
+	    return (CloseClient(con));
 	  }
 
          /*
@@ -1002,14 +1117,13 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	{
 	  LogMessage(L_ERROR, "Bad operation \"%s\"!", operation);
 	  SendError(con, HTTP_BAD_REQUEST);
-	  ShutdownClient(con);
-	  return (1);
+	  return (CloseClient(con));
 	}
 
         con->start     = time(NULL);
         con->operation = con->http.state;
 
-        LogMessage(L_DEBUG, "ReadClient() %d %s %s HTTP/%d.%d", con->http.fd,
+        LogMessage(L_DEBUG, "ReadClient: %d %s %s HTTP/%d.%d", con->http.fd,
 	           operation, con->uri,
 		   con->http.version / 100, con->http.version % 100);
 
@@ -1031,8 +1145,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	if (status != HTTP_OK && status != HTTP_CONTINUE)
 	{
 	  SendError(con, HTTP_BAD_REQUEST);
-	  ShutdownClient(con);
-	  return (1);
+	  return (CloseClient(con));
 	}
 	break;
 
@@ -1047,12 +1160,39 @@ ReadClient(client_t *con)	/* I - Client to read from */
   if (status == HTTP_OK)
   {
     if (con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE][0])
-      con->language = cupsLangGet(con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE]);
-    else
     {
-      snprintf(locale, sizeof(locale), "%s.%s", DefaultLanguage, DefaultCharset);
+     /*
+      * Figure out the locale from the Accept-Language and Content-Type
+      * fields...
+      */
+
+      if ((ptr = strchr(con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE], ',')) != NULL)
+        *ptr = '\0';
+
+      if ((ptr = strchr(con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE], ';')) != NULL)
+        *ptr = '\0';
+
+      if ((ptr = strstr(con->http.fields[HTTP_FIELD_CONTENT_TYPE], "charset=")) != NULL)
+      {
+       /*
+        * Combine language and charset, and trim any extra params in the
+	* content-type.
+	*/
+
+        snprintf(locale, sizeof(locale), "%s.%s",
+	         con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE], ptr + 8);
+
+	if ((ptr = strchr(locale, ',')) != NULL)
+	  *ptr = '\0';
+      }
+      else
+        snprintf(locale, sizeof(locale), "%s.%s",
+	         con->http.fields[HTTP_FIELD_ACCEPT_LANGUAGE], DefaultCharset);
+        
       con->language = cupsLangGet(locale);
     }
+    else
+      con->language = cupsLangGet(DefaultLocale);
 
     decode_auth(con);
 
@@ -1068,10 +1208,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
       */
 
       if (!SendError(con, HTTP_BAD_REQUEST))
-      {
-	CloseClient(con);
-	return (0);
-      }
+	return (CloseClient(con));
     }
     else if (con->operation == HTTP_OPTIONS)
     {
@@ -1083,10 +1220,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
           best->type != AUTH_NONE)
       {
 	if (!SendHeader(con, HTTP_UNAUTHORIZED, NULL))
-	{
-	  CloseClient(con);
-	  return (0);
-	}
+	  return (CloseClient(con));
       }
 
       if (strcasecmp(con->http.fields[HTTP_FIELD_CONNECTION], "Upgrade") == 0 &&
@@ -1098,10 +1232,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	*/
 
 	if (!SendHeader(con, HTTP_SWITCHING_PROTOCOLS, NULL))
-	{
-	  CloseClient(con);
-	  return (0);
-	}
+	  return (CloseClient(con));
 
 	httpPrintf(HTTP(con), "Connection: Upgrade\r\n");
 	httpPrintf(HTTP(con), "Upgrade: TLS/1.0,HTTP/1.1\r\n");
@@ -1111,34 +1242,25 @@ ReadClient(client_t *con)	/* I - Client to read from */
         EncryptClient(con);
 #else
 	if (!SendError(con, HTTP_NOT_IMPLEMENTED))
-	{
-	  CloseClient(con);
-          return (0);
-	}
+	  return (CloseClient(con));
 #endif /* HAVE_SSL */
       }
 
       if (!SendHeader(con, HTTP_OK, NULL))
-      {
-	CloseClient(con);
-	return (0);
-      }
+	return (CloseClient(con));
 
       httpPrintf(HTTP(con), "Allow: GET, HEAD, OPTIONS, POST, PUT\r\n");
       httpPrintf(HTTP(con), "Content-Length: 0\r\n");
       httpPrintf(HTTP(con), "\r\n");
     }
-    else if (strstr(con->uri, "..") != NULL)
+    else if (!is_path_absolute(con->uri))
     {
      /*
       * Protect against malicious users!
       */
 
       if (!SendError(con, HTTP_FORBIDDEN))
-      {
-	CloseClient(con);
-        return (0);
-      }
+	return (CloseClient(con));
     }
     else
     {
@@ -1151,10 +1273,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	*/
 
 	if (!SendHeader(con, HTTP_SWITCHING_PROTOCOLS, NULL))
-	{
-	  CloseClient(con);
-	  return (0);
-	}
+	  return (CloseClient(con));
 
 	httpPrintf(HTTP(con), "Connection: Upgrade\r\n");
 	httpPrintf(HTTP(con), "Upgrade: TLS/1.0,HTTP/1.1\r\n");
@@ -1164,10 +1283,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
         EncryptClient(con);
 #else
 	if (!SendError(con, HTTP_NOT_IMPLEMENTED))
-	{
-	  CloseClient(con);
-          return (0);
-	}
+	  return (CloseClient(con));
 #endif /* HAVE_SSL */
       }
 
@@ -1176,8 +1292,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
         LogMessage(L_DEBUG2, "ReadClient: Unauthorized request for %s...\n",
 	           con->uri);
 	SendError(con, status);
-        ShutdownClient(con);
-	return (1);
+	return (CloseClient(con));
       }
 
       switch (con->http.state)
@@ -1198,10 +1313,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      else
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 
 		break;
 	      }
@@ -1220,7 +1332,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
               if (strncmp(con->uri, "/admin", 6) == 0)
 	      {
 		SetStringf(&con->command, "%s/cgi-bin/admin.cgi", ServerBin);
-		SetString(&con->options, con->uri + 6);
+
+		if ((ptr = strchr(con->uri + 6, '?')) != NULL)
+		  SetStringf(&con->options, "admin%s", ptr);
+		else
+		  SetString(&con->options, "admin");
 	      }
               else if (strncmp(con->uri, "/printers", 9) == 0)
 	      {
@@ -1235,19 +1351,16 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      else
 	      {
 		SetStringf(&con->command, "%s/cgi-bin/jobs.cgi", ServerBin);
-		SetString(&con->options, con->uri + 5);
+                SetString(&con->options, con->uri + 5);
 	      }
 
-	      if (con->options[0] == '/')
-		cups_strcpy(con->options, con->options + 1);
+              if (con->options[0] == '/')
+	        cups_strcpy(con->options, con->options + 1);
 
               if (!SendCommand(con, con->command, con->options))
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
               }
 	      else
         	LogRequest(con, HTTP_OK);
@@ -1265,10 +1378,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
 	      if (!SendError(con, HTTP_FORBIDDEN))
-	      {
-	        CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
 	    }
@@ -1282,10 +1392,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	                               sizeof(buf))) == NULL)
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 
 		break;
 	      }
@@ -1294,13 +1401,15 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
               if (IsCGI(con, filename, &filestats, type))
 	      {
+	       /*
+	        * Note: con->command and con->options were set by
+		* IsCGI()...
+		*/
+
         	if (!SendCommand(con, con->command, con->options))
 		{
 		  if (!SendError(con, HTTP_NOT_FOUND))
-		  {
-	            CloseClient(con);
-		    return (0);
-		  }
+		    return (CloseClient(con));
         	}
 		else
         	  LogRequest(con, HTTP_OK);
@@ -1313,10 +1422,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      if (!check_if_modified(con, &filestats))
               {
         	if (!SendError(con, HTTP_NOT_MODIFIED))
-		{
-		  CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 	      }
 	      else
               {
@@ -1326,10 +1432,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	          snprintf(line, sizeof(line), "%s/%s", type->super, type->type);
 
         	if (!SendFile(con, HTTP_OK, filename, line, &filestats))
-		{
-		  CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 	      }
 	    }
             break;
@@ -1344,7 +1447,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	    LogMessage(L_DEBUG2, "CONTENT_TYPE = %s", con->http.fields[HTTP_FIELD_CONTENT_TYPE]);
 
             if (con->http.fields[HTTP_FIELD_CONTENT_LENGTH][0] &&
-		atoi(con->http.fields[HTTP_FIELD_CONTENT_LENGTH]) > MaxRequestSize &&
+		strtoimax(con->http.fields[HTTP_FIELD_CONTENT_LENGTH], (char **)NULL, 10) > MaxRequestSize &&
 		MaxRequestSize > 0)
 	    {
 	     /*
@@ -1352,24 +1455,18 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
               if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
             }
-	    else if (atoi(con->http.fields[HTTP_FIELD_CONTENT_LENGTH]) < 0)
+	    else if (strtoimax(con->http.fields[HTTP_FIELD_CONTENT_LENGTH], (char **)NULL, 10) < 0)
 	    {
 	     /*
 	      * Negative content lengths are invalid!
 	      */
 
               if (!SendError(con, HTTP_BAD_REQUEST))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
 	    }
@@ -1394,7 +1491,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
               if (strncmp(con->uri, "/admin", 6) == 0)
 	      {
 		SetStringf(&con->command, "%s/cgi-bin/admin.cgi", ServerBin);
-		SetString(&con->options, con->uri + 6);
+
+		if ((ptr = strchr(con->uri + 6, '?')) != NULL)
+		  SetStringf(&con->options, "admin%s", ptr);
+		else
+		  SetString(&con->options, "admin");
 	      }
               else if (strncmp(con->uri, "/printers", 9) == 0)
 	      {
@@ -1415,7 +1516,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      if (con->options[0] == '/')
 		cups_strcpy(con->options, con->options + 1);
 
-              LogMessage(L_DEBUG2, "ReadClient() %d command=\"%s\", options = \"%s\"",
+              LogMessage(L_DEBUG2, "ReadClient: %d command=\"%s\", options = \"%s\"",
 	        	 con->http.fd, con->command, con->options);
 
 	      if (con->http.version <= HTTP_1_0)
@@ -1431,10 +1532,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	                               sizeof(buf))) == NULL)
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 
 		break;
 	      }
@@ -1448,10 +1546,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 		*/
 
 		if (!SendError(con, HTTP_UNAUTHORIZED))
-		{
-		  CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 	      }
 	    }
 	    break;
@@ -1471,10 +1566,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
 	      if (!SendError(con, HTTP_FORBIDDEN))
-	      {
-	        CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
 	    }
@@ -1488,7 +1580,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	    LogMessage(L_DEBUG2, "CONTENT_TYPE = %s", con->http.fields[HTTP_FIELD_CONTENT_TYPE]);
 
             if (con->http.fields[HTTP_FIELD_CONTENT_LENGTH][0] &&
-		atoi(con->http.fields[HTTP_FIELD_CONTENT_LENGTH]) > MaxRequestSize &&
+		strtoimax(con->http.fields[HTTP_FIELD_CONTENT_LENGTH], (char **)NULL, 10) > MaxRequestSize &&
 		MaxRequestSize > 0)
 	    {
 	     /*
@@ -1496,13 +1588,21 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
               if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
             }
+	    else if (atoi(con->http.fields[HTTP_FIELD_CONTENT_LENGTH]) < 0)
+	    {
+	     /*
+	      * Negative content lengths are invalid!
+	      */
+
+              if (!SendError(con, HTTP_BAD_REQUEST))
+		return (CloseClient(con));
+
+	      break;
+	    }
 
            /*
 	    * Open a temporary file to hold the request...
@@ -1510,27 +1610,25 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
             SetStringf(&con->filename, "%s/%08x", RequestRoot, request_id ++);
 	    con->file = open(con->filename, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-	    fchmod(con->file, 0640);
-	    fchown(con->file, getuid(), Group);
 
-            LogMessage(L_DEBUG2, "ReadClient() %d REQUEST %s=%d", con->http.fd,
+            LogMessage(L_DEBUG2, "ReadClient: %d REQUEST %s=%d", con->http.fd,
 	               con->filename, con->file);
 
 	    if (con->file < 0)
 	    {
 	      if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 	    }
+
+	    fchmod(con->file, 0640);
+	    fchown(con->file, RunUser, Group);
+	    fcntl(con->file, F_SETFD, fcntl(con->file, F_GETFD) | FD_CLOEXEC);
 	    break;
 
 	case HTTP_DELETE :
 	case HTTP_TRACE :
             SendError(con, HTTP_NOT_IMPLEMENTED);
-            ShutdownClient(con);
-	    return (1);
+	    return (CloseClient(con));
 
 	case HTTP_HEAD :
             if (strncmp(con->uri, "/printers/", 10) == 0 &&
@@ -1548,10 +1646,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      else
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
 
 		break;
 	      }
@@ -1568,16 +1663,10 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
               if (!SendHeader(con, HTTP_OK, "text/html"))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      if (httpPrintf(HTTP(con), "\r\n") < 0)
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
               LogRequest(con, HTTP_OK);
 	    }
@@ -1591,10 +1680,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      */
 
 	      if (!SendError(con, HTTP_FORBIDDEN))
-	      {
-	        CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      break;
 	    }
@@ -1602,20 +1688,14 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	                                  sizeof(buf))) == NULL)
 	    {
 	      if (!SendHeader(con, HTTP_NOT_FOUND, "text/html"))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
               LogRequest(con, HTTP_NOT_FOUND);
 	    }
 	    else if (!check_if_modified(con, &filestats))
             {
               if (!SendError(con, HTTP_NOT_MODIFIED))
-	      {
-        	CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
               LogRequest(con, HTTP_NOT_MODIFIED);
 	    }
@@ -1632,33 +1712,21 @@ ReadClient(client_t *con)	/* I - Client to read from */
 		snprintf(line, sizeof(line), "%s/%s", type->super, type->type);
 
               if (!SendHeader(con, HTTP_OK, line))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
 	      if (httpPrintf(HTTP(con), "Last-Modified: %s\r\n",
 	                     httpGetDateString(filestats.st_mtime)) < 0)
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 
-	      if (httpPrintf(HTTP(con), "Content-Length: %lu\r\n",
-	                     (unsigned long)filestats.st_size) < 0)
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+	      if (httpPrintf(HTTP(con), "Content-Length: %" PRIdMAX "\r\n",
+	                     (intmax_t)filestats.st_size) < 0)
+		return (CloseClient(con));
 
               LogRequest(con, HTTP_OK);
 	    }
 
             if (httpPrintf(HTTP(con), "\r\n") < 0)
-	    {
-	      CloseClient(con);
-	      return (0);
-	    }
+	      return (CloseClient(con));
 
             con->http.state = HTTP_WAITING;
             break;
@@ -1676,21 +1744,18 @@ ReadClient(client_t *con)	/* I - Client to read from */
   switch (con->http.state)
   {
     case HTTP_PUT_RECV :
-        LogMessage(L_DEBUG2, "ReadClient() %d con->data_encoding = %s, con->data_remaining = %d, con->file = %d",
+        LogMessage(L_DEBUG2, "ReadClient() %d con->data_encoding = %s, con->data_remaining = %" PRIdMAX ", con->file = %d",
 		   con->http.fd,
 		   con->http.data_encoding == HTTP_ENCODE_CHUNKED ? "chunked" : "length",
-		   con->http.data_remaining, con->file);
+		   (intmax_t)con->http.data_remaining, con->file);
 
         if ((bytes = httpRead(HTTP(con), line, sizeof(line))) < 0)
-	{
-	  CloseClient(con);
-	  return (0);
-	}
+	  return (CloseClient(con));
 	else if (bytes > 0)
 	{
 	  con->bytes += bytes;
 
-          LogMessage(L_DEBUG2, "ReadClient() %d writing %d bytes to %d",
+          LogMessage(L_DEBUG2, "ReadClient: %d writing %d bytes to %d",
 	             con->http.fd, bytes, con->file);
 
           if (write(con->file, line, bytes) < bytes)
@@ -1699,15 +1764,12 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	               bytes, con->filename, strerror(errno));
 
 	    close(con->file);
-	    con->file = 0;
+	    con->file = -1;
 	    unlink(con->filename);
 	    ClearString(&con->filename);
 
             if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	    {
-	      CloseClient(con);
-	      return (0);
-	    }
+	      return (CloseClient(con));
 	  }
 	}
 
@@ -1719,11 +1781,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
 	  fstat(con->file, &filestats);
 
-          LogMessage(L_DEBUG2, "ReadClient() %d Closing data file %d, size = %d.",
-                     con->http.fd, con->file, (int)filestats.st_size);
+          LogMessage(L_DEBUG2, "ReadClient() %d Closing data file %d, size = %" PRIdMAX ".",
+                     con->http.fd, con->file, (intmax_t)filestats.st_size);
 
 	  close(con->file);
-	  con->file = 0;
+	  con->file = -1;
 
           if (filestats.st_size > MaxRequestSize &&
 	      MaxRequestSize > 0)
@@ -1732,16 +1794,13 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	    * Request is too big; remove it and send an error...
 	    */
 
-            LogMessage(L_DEBUG2, "ReadClient() %d Removing temp file %s",
+            LogMessage(L_DEBUG2, "ReadClient: %d Removing temp file %s",
 	               con->http.fd, con->filename);
 	    unlink(con->filename);
 	    ClearString(&con->filename);
 
             if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	    {
-	      CloseClient(con);
-	      return (0);
-	    }
+	      return (CloseClient(con));
 	  }
 
          /*
@@ -1755,18 +1814,15 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	  */
 
           if (!SendError(con, status))
-	  {
-	    CloseClient(con);
-	    return (0);
-	  }
+	    return (CloseClient(con));
 	}
         break;
 
     case HTTP_POST_RECV :
-        LogMessage(L_DEBUG2, "ReadClient() %d con->data_encoding = %s, con->data_remaining = %d, con->file = %d",
+        LogMessage(L_DEBUG2, "ReadClient() %d con->data_encoding = %s, con->data_remaining = %" PRIdMAX ", con->file = %d",
 		   con->http.fd,
 		   con->http.data_encoding == HTTP_ENCODE_CHUNKED ? "chunked" : "length",
-		   con->http.data_remaining, con->file);
+		   (intmax_t)con->http.data_remaining, con->file);
 
         if (con->request != NULL)
 	{
@@ -1776,17 +1832,11 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
 	  if ((ipp_state = ippRead(&(con->http), con->request)) == IPP_ERROR)
 	  {
-            LogMessage(L_ERROR, "ReadClient() %d IPP Read Error!",
+            LogMessage(L_ERROR, "ReadClient: %d IPP Read Error!",
 	               con->http.fd);
 
-	    if (!SendError(con, HTTP_BAD_REQUEST))
-	    {
-	      CloseClient(con);
-	      return (0);
-	    }
-
-	    ShutdownClient(con);
-	    return (1);
+	    SendError(con, HTTP_BAD_REQUEST);
+	    return (CloseClient(con));
 	  }
 	  else if (ipp_state != IPP_DATA)
 	    break;
@@ -1794,7 +1844,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	    con->bytes += ippLength(con->request);
 	}
 
-        if (con->file == 0 && con->http.state != HTTP_POST_SEND)
+        if (con->file < 0 && con->http.state != HTTP_POST_SEND)
 	{
          /*
 	  * Create a file as needed for the request data...
@@ -1802,34 +1852,30 @@ ReadClient(client_t *con)	/* I - Client to read from */
 
           SetStringf(&con->filename, "%s/%08x", RequestRoot, request_id ++);
 	  con->file = open(con->filename, O_WRONLY | O_CREAT | O_TRUNC, 0640);
-	  fchmod(con->file, 0640);
-	  fchown(con->file, getuid(), Group);
 
-          LogMessage(L_DEBUG2, "ReadClient() %d REQUEST %s=%d", con->http.fd,
+          LogMessage(L_DEBUG2, "ReadClient: %d REQUEST %s=%d", con->http.fd,
 	             con->filename, con->file);
 
 	  if (con->file < 0)
 	  {
 	    if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	    {
-	      CloseClient(con);
-	      return (0);
-	    }
+	      return (CloseClient(con));
 	  }
+
+	  fchmod(con->file, 0640);
+	  fchown(con->file, RunUser, Group);
+          fcntl(con->file, F_SETFD, fcntl(con->file, F_GETFD) | FD_CLOEXEC);
 	}
 
 	if (con->http.state != HTTP_POST_SEND)
 	{
           if ((bytes = httpRead(HTTP(con), line, sizeof(line))) < 0)
-	  {
-	    CloseClient(con);
-	    return (0);
-	  }
+	    return (CloseClient(con));
 	  else if (bytes > 0)
 	  {
 	    con->bytes += bytes;
 
-            LogMessage(L_DEBUG2, "ReadClient() %d writing %d bytes to %d",
+            LogMessage(L_DEBUG2, "ReadClient: %d writing %d bytes to %d",
 	               con->http.fd, bytes, con->file);
 
             if (write(con->file, line, bytes) < bytes)
@@ -1838,39 +1884,31 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	        	 bytes, con->filename, strerror(errno));
 
 	      close(con->file);
-	      con->file = 0;
+	      con->file = -1;
 	      unlink(con->filename);
 	      ClearString(&con->filename);
 
               if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 	    }
 	  }
 	  else if (con->http.state == HTTP_POST_RECV)
-	  {
-            return (0);
-	  }
+            return (1); /* ??? */
 	  else if (con->http.state != HTTP_POST_SEND)
-	  {
-	    CloseClient(con);
-	    return (0);
-	  }
+	    return (CloseClient(con));
 	}
 
 	if (con->http.state == HTTP_POST_SEND)
 	{
-	  if (con->file)
+	  if (con->file >= 0)
 	  {
 	    fstat(con->file, &filestats);
 
-            LogMessage(L_DEBUG2, "ReadClient() %d Closing data file %d, size = %d.",
-                       con->http.fd, con->file, (int)filestats.st_size);
+            LogMessage(L_DEBUG2, "ReadClient() %d Closing data file %d, size = %" PRIdMAX ".",
+                       con->http.fd, con->file, (intmax_t)filestats.st_size);
 
 	    close(con->file);
-	    con->file = 0;
+	    con->file = -1;
 
             if (filestats.st_size > MaxRequestSize &&
 	        MaxRequestSize > 0)
@@ -1879,7 +1917,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      * Request is too big; remove it and send an error...
 	      */
 
-              LogMessage(L_DEBUG2, "ReadClient() %d Removing temp file %s",
+              LogMessage(L_DEBUG2, "ReadClient: %d Removing temp file %s",
 	                 con->http.fd, con->filename);
 	      unlink(con->filename);
 	      ClearString(&con->filename);
@@ -1895,10 +1933,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
               }
 
               if (!SendError(con, HTTP_REQUEST_TOO_LARGE))
-	      {
-		CloseClient(con);
-		return (0);
-	      }
+		return (CloseClient(con));
 	    }
 
 	    if (con->command)
@@ -1906,10 +1941,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
 	      if (!SendCommand(con, con->command, con->options))
 	      {
 		if (!SendError(con, HTTP_NOT_FOUND))
-		{
-	          CloseClient(con);
-		  return (0);
-		}
+		  return (CloseClient(con));
               }
 	      else
         	LogRequest(con, HTTP_OK);
@@ -1926,10 +1958,7 @@ ReadClient(client_t *con)	/* I - Client to read from */
   }
 
   if (!con->http.keep_alive && con->http.state == HTTP_WAITING)
-  {
-    CloseClient(con);
-    return (0);
-  }
+    return (CloseClient(con));
   else
     return (1);
 }
@@ -1952,13 +1981,23 @@ SendCommand(client_t      *con,
   else
     fd = open("/dev/null", O_RDONLY);
 
+  if (fd < 0)
+  {
+    LogMessage(L_ERROR, "SendCommand: %d Unable to open \"%s\" for reading: %s",
+               con->http.fd, con->filename ? con->filename : "/dev/null",
+	       strerror(errno));
+    return (0);
+  }
+
+  fcntl(fd, F_SETFD, fcntl(fd, F_GETFD) | FD_CLOEXEC);
+
   con->pipe_pid = pipe_command(con, fd, &(con->file), command, options);
 
   close(fd);
 
   LogMessage(L_INFO, "Started \"%s\" (pid=%d)", command, con->pipe_pid);
 
-  LogMessage(L_DEBUG, "SendCommand() %d file=%d", con->http.fd, con->file);
+  LogMessage(L_DEBUG, "SendCommand: %d file=%d", con->http.fd, con->file);
 
   if (con->pipe_pid == 0)
     return (0);
@@ -1983,6 +2022,7 @@ SendCommand(client_t      *con,
       return (0);
   }
 
+  con->file_ready = 0;
   con->got_fields = 0;
   con->field_col  = 0;
 
@@ -2005,10 +2045,10 @@ SendError(client_t      *con,	/* I - Connection */
   * Put the request in the access_log file...
   */
 
-  if (con->operation > HTTP_WAITING)
-    LogRequest(con, code);
+  LogRequest(con, code);
 
-  LogMessage(L_DEBUG, "SendError() %d code=%d", con->http.fd, code);
+  LogMessage(L_DEBUG, "SendError: %d code=%d (%s)", con->http.fd, code,
+             httpStatus(code));
 
  /*
   * To work around bugs in some proxies, don't use Keep-Alive for some
@@ -2087,7 +2127,7 @@ SendFile(client_t    *con,
 {
   con->file = open(filename, O_RDONLY);
 
-  LogMessage(L_DEBUG, "SendFile() %d file=%d", con->http.fd, con->file);
+  LogMessage(L_DEBUG, "SendFile: %d file=%d", con->http.fd, con->file);
 
   if (con->file < 0)
     return (0);
@@ -2101,8 +2141,8 @@ SendFile(client_t    *con,
 
   if (httpPrintf(HTTP(con), "Last-Modified: %s\r\n", httpGetDateString(filestats->st_mtime)) < 0)
     return (0);
-  if (httpPrintf(HTTP(con), "Content-Length: %lu\r\n",
-                 (unsigned long)filestats->st_size) < 0)
+  if (httpPrintf(HTTP(con), "Content-Length: %" PRIdMAX "\r\n",
+                 (intmax_t)filestats->st_size) < 0)
     return (0);
   if (httpPrintf(HTTP(con), "\r\n") < 0)
     return (0);
@@ -2132,8 +2172,9 @@ SendHeader(client_t    *con,	/* I - Client to send to */
     return (0);
   if (httpPrintf(HTTP(con), "Date: %s\r\n", httpGetDateString(time(NULL))) < 0)
     return (0);
-  if (httpPrintf(HTTP(con), "Server: CUPS/1.1\r\n") < 0)
-    return (0);
+  if (ServerHeader)
+    if (httpPrintf(HTTP(con), "Server: %s\r\n", ServerHeader) < 0)
+      return (0);
   if (con->http.keep_alive && con->http.version >= HTTP_1_0)
   {
     if (httpPrintf(HTTP(con), "Connection: Keep-Alive\r\n") < 0)
@@ -2160,7 +2201,7 @@ SendHeader(client_t    *con,	/* I - Client to send to */
     }
     else
     {
-      if (httpPrintf(HTTP(con), "WWW-Authenticate: Digest realm=\"CUPS\" "
+      if (httpPrintf(HTTP(con), "WWW-Authenticate: Digest realm=\"CUPS\", "
                                 "nonce=\"%s\"\r\n", con->http.hostname) < 0)
 	return (0);
     }
@@ -2181,36 +2222,6 @@ SendHeader(client_t    *con,	/* I - Client to send to */
       return (0);
 
   return (1);
-}
-
-
-/*
- * 'ShutdownClient()' - Shutdown the receiving end of a connection.
- */
-
-void
-ShutdownClient(client_t *con)		/* I - Client connection */
-{
- /*
-  * Shutdown the receiving end of the socket, since the client
-  * still needs to read the error message...
-  */
-
-  shutdown(con->http.fd, 0);
-  con->http.used = 0;
-
- /*
-  * Update the activity time so that we timeout after 30 seconds rather
-  * then the current Timeout setting (300 by default).  This prevents
-  * some DoS situations...
-  */
-
-  con->http.activity = time(NULL) - Timeout + 30;
-
-  LogMessage(L_DEBUG2, "ShutdownClient: Removing fd %d from InputSet...",
-             con->http.fd);
-
-  FD_CLR(con->http.fd, InputSet);
 }
 
 
@@ -2362,6 +2373,11 @@ WriteClient(client_t *con)		/* I - Client connection */
   ipp_state_t	ipp_state;		/* IPP state value */
 
 
+#ifdef DEBUG
+  LogMessage(L_DEBUG2, "WriteClient(con=%p) %d response=%p, file=%d pipe_pid=%d",
+             con, con->http.fd, con->response, con->file, con->pipe_pid);
+#endif /* DEBUG */
+
   if (con->http.state != HTTP_GET_SEND &&
       con->http.state != HTTP_POST_SEND)
     return (1);
@@ -2373,6 +2389,11 @@ WriteClient(client_t *con)		/* I - Client connection */
   }
   else if ((bytes = read(con->file, buf, HTTP_MAX_BUFFER)) > 0)
   {
+#ifdef DEBUG
+    LogMessage(L_DEBUG2, "WriteClient: Read %d bytes from file %d...",
+               bytes, con->file);
+#endif /* DEBUG */
+
     if (con->pipe_pid && !con->got_fields)
     {
      /*
@@ -2393,14 +2414,14 @@ WriteClient(client_t *con)		/* I - Client connection */
 	  *bufptr++ = '\0';
 
 	  httpPrintf(HTTP(con), "%s\r\n", buf);
-	  LogMessage(L_DEBUG2, "WriteClient() %d %s", con->http.fd, buf);
+	  LogMessage(L_DEBUG2, "WriteClient: %d %s", con->http.fd, buf);
 
          /*
 	  * Update buffer...
 	  */
 
 	  bytes -= (bufptr - buf);
-	  memcpy(buf, bufptr, bytes + 1);
+	  memmove(buf, bufptr, bytes + 1);
 	  bufptr = buf - 1;
 
          /*
@@ -2462,11 +2483,14 @@ WriteClient(client_t *con)		/* I - Client connection */
 
     FD_CLR(con->http.fd, OutputSet);
 
-    if (con->file)
+    if (con->file >= 0)
     {
-      LogMessage(L_DEBUG2, "WriteClient: Removing fd %d from InputSet...",
-                 con->file);
-      FD_CLR(con->file, InputSet);
+      if (FD_ISSET(con->file, InputSet))
+      {
+	LogMessage(L_DEBUG2, "WriteClient: Removing fd %d from InputSet...",
+                   con->file);
+	FD_CLR(con->file, InputSet);
+      }
 
       if (con->pipe_pid)
 	kill(con->pipe_pid, SIGTERM);
@@ -2475,7 +2499,7 @@ WriteClient(client_t *con)		/* I - Client connection */
                  con->http.fd, con->file);
 
       close(con->file);
-      con->file     = 0;
+      con->file     = -1;
       con->pipe_pid = 0;
     }
 
@@ -2508,40 +2532,23 @@ WriteClient(client_t *con)		/* I - Client connection */
       return (0);
     }
   }
+  else
+  {
+    con->file_ready = 0;
+
+    if (con->pipe_pid && !FD_ISSET(con->file, InputSet))
+    {
+      LogMessage(L_DEBUG2, "WriteClient: Adding fd %d to InputSet...", con->file);
+      FD_SET(con->file, InputSet);
+    }
+  }
 
   if (bytes >= 1024)
-    LogMessage(L_DEBUG2, "WriteClient() %d %d bytes", con->http.fd, bytes);
+    LogMessage(L_DEBUG2, "WriteClient: %d %d bytes", con->http.fd, bytes);
 
   con->http.activity = time(NULL);
 
   return (1);
-}
-
-
-/*
- * 'SanitizeURI()' - Remove any username and password from a uri.
- */
-
-char *					/* O - sanitized uri */
-SanitizeURI(char *buf,			/* O - buffer for sanitized uri */
-	    int bufsize,		/* I - buffer size */
-	    const char *uri)		/* I - uri to sanitize */
-{
-  char	method[HTTP_MAX_URI],		/* Method portion of URI */
-	username[HTTP_MAX_URI],		/* Username portion of URI */
-	host[HTTP_MAX_URI],		/* Host portion of URI */
-	resource[HTTP_MAX_URI];		/* Resource portion of URI */
-  int	port;				/* Port portion of URI */
-
-
-  httpSeparate(uri, method, username, host, &port, resource);
-
-  if (port)
-    snprintf(buf, bufsize, "%s://%s:%d%s", method, host, port, resource);
-  else
-    snprintf(buf, bufsize, "%s://%s%s", method, host, resource);
-
-  return buf;
 }
 
 
@@ -2565,7 +2572,7 @@ check_if_modified(client_t    *con,		/* I - Client connection */
   if (*ptr == '\0')
     return (1);
 
-  LogMessage(L_DEBUG2, "check_if_modified() %d If-Modified-Since=\"%s\"",
+  LogMessage(L_DEBUG2, "check_if_modified: %d If-Modified-Since=\"%s\"",
              con->http.fd, ptr);
 
   while (*ptr != '\0')
@@ -2589,8 +2596,8 @@ check_if_modified(client_t    *con,		/* I - Client connection */
     }
   }
 
-  LogMessage(L_DEBUG2, "check_if_modified() %d sizes=%d,%d dates=%d,%d",
-             con->http.fd, size, (int)filestats->st_size, (int)date,
+  LogMessage(L_DEBUG2, "check_if_modified() %d sizes=%d,%" PRIdMAX " dates=%d,%d",
+             con->http.fd, size, (intmax_t)filestats->st_size, (int)date,
 	     (int)filestats->st_mtime);
 
   return ((size != filestats->st_size && size != 0) ||
@@ -2634,7 +2641,7 @@ decode_auth(client_t *con)		/* I - Client to decode to */
 
     if ((s = strchr(value, ':')) == NULL)
     {
-      LogMessage(L_DEBUG, "decode_auth() %d no colon in auth string \"%s\"",
+      LogMessage(L_DEBUG, "decode_auth: %d no colon in auth string \"%s\"",
         	 con->http.fd, value);
       return;
     }
@@ -2668,7 +2675,7 @@ decode_auth(client_t *con)		/* I - Client to decode to */
       strlcpy(con->password, value, sizeof(con->password));
   }
 
-  LogMessage(L_DEBUG2, "decode_auth() %d username=\"%s\"",
+  LogMessage(L_DEBUG2, "decode_auth: %d username=\"%s\"",
              con->http.fd, con->username);
 }
 
@@ -2677,14 +2684,15 @@ decode_auth(client_t *con)		/* I - Client to decode to */
  * 'get_file()' - Get a filename and state info.
  */
 
-static char *			/* O  - Real filename */
-get_file(client_t    *con,	/* I  - Client connection */
-         struct stat *filestats,/* O  - File information */
-         char        *filename,	/* IO - Filename buffer */
-         int         len)	/* I  - Buffer length */
+static char *				/* O  - Real filename */
+get_file(client_t    *con,		/* I  - Client connection */
+         struct stat *filestats,	/* O  - File information */
+         char        *filename,		/* IO - Filename buffer */
+         int         len)		/* I  - Buffer length */
 {
-  int		status;		/* Status of filesystem calls */
-  char		*params;	/* Pointer to parameters in URI */
+  int		status;			/* Status of filesystem calls */
+  char		*ptr;			/* Pointer info filename */
+  int		plen;			/* Remaining length after pointer */
 
 
  /*
@@ -2701,8 +2709,8 @@ get_file(client_t    *con,	/* I  - Client connection */
   else
     snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
 
-  if ((params = strchr(filename, '?')) != NULL)
-    *params = '\0';
+  if ((ptr = strchr(filename, '?')) != NULL)
+    *ptr = '\0';
 
  /*
   * Grab the status for this language; if there isn't a language-specific file
@@ -2720,6 +2728,9 @@ get_file(client_t    *con,	/* I  - Client connection */
     {
       snprintf(filename, len, "%s%s", DocumentRoot, con->uri);
 
+      if ((ptr = strchr(filename, '?')) != NULL)
+	*ptr = '\0';
+
       status = stat(filename, filestats);
     }
   }
@@ -2730,16 +2741,56 @@ get_file(client_t    *con,	/* I  - Client connection */
 
   if (!status && S_ISDIR(filestats->st_mode))
   {
-    if (filename[strlen(filename) - 1] == '/')
-      strlcat(filename, "index.html", len);
-    else
-      strlcat(filename, "/index.html", len);
+    if (filename[strlen(filename) - 1] != '/')
+      strlcat(filename, "/", len);
 
+    ptr  = filename + strlen(filename);
+    plen = len - (ptr - filename);
+
+    strlcpy(ptr, "index.html", plen);
     status = stat(filename, filestats);
+
+#ifdef HAVE_JAVA
+    if (status)
+    {
+      strlcpy(ptr, "index.class", plen);
+      status = stat(filename, filestats);
+    }
+#endif /* HAVE_JAVA */
+
+#ifdef HAVE_PERL
+    if (status)
+    {
+      strlcpy(ptr, "index.pl", plen);
+      status = stat(filename, filestats);
+    }
+#endif /* HAVE_PERL */
+
+#ifdef HAVE_PHP
+    if (status)
+    {
+      strlcpy(ptr, "index.php", plen);
+      status = stat(filename, filestats);
+    }
+#endif /* HAVE_PHP */
+
+#ifdef HAVE_PYTHON
+    if (status)
+    {
+      strlcpy(ptr, "index.pyc", plen);
+      status = stat(filename, filestats);
+    }
+
+    if (status)
+    {
+      strlcpy(ptr, "index.py", plen);
+      status = stat(filename, filestats);
+    }
+#endif /* HAVE_PYTHON */
   }
 
-  LogMessage(L_DEBUG2, "get_file() %d filename=%s size=%d",
-             con->http.fd, filename, status ? -1 : (int)filestats->st_size);
+  LogMessage(L_DEBUG2, "get_file() %d filename=%s size=%" PRIdMAX "",
+             con->http.fd, filename, status ? -1 : (intmax_t)filestats->st_size);
 
   if (status)
     return (NULL);
@@ -2896,11 +2947,48 @@ install_conf_file(client_t *con)	/* I - Connection */
   else
     NeedReload = RELOAD_ALL;
 
+  ReloadTime = time(NULL);
+
  /*
   * Return that the file was created successfully...
   */
 
   return (HTTP_CREATED);
+}
+
+
+/*
+ * 'is_path_absolute()' - Is a path absolute and free of relative elements (i.e. "..").
+ */
+
+static int				/* O - 0 if relative, 1 if absolute */
+is_path_absolute(const char *path)	/* I - Input path */
+{
+ /*
+  * Check for a leading slash...
+  */
+
+  if (path[0] != '/')
+    return (0);
+
+ /*
+  * Check for "/.." in the path...
+  */
+
+  while ((path = strstr(path, "/..")) != NULL)
+  {
+    if (!path[3] || path[3] == '/')
+      return (0);
+
+    path ++;
+  }
+
+ /*
+  * If we haven't found any relative paths, return 1 indicating an
+  * absolute path...
+  */
+
+  return (1);
 }
 
 
@@ -2919,7 +3007,6 @@ pipe_command(client_t *con,		/* I - Client connection */
   int		pid;			/* Process ID */
   char		*commptr;		/* Command string pointer */
   char		*uriptr;		/* URI string pointer */
-  int		fd;			/* Looping var */
   int		fds[2];			/* Pipe FDs */
   int		argc;			/* Number of arguments */
   int		envc;			/* Number of environment variables */
@@ -2939,7 +3026,7 @@ pipe_command(client_t *con,		/* I - Client connection */
 		dyld_library_path[1024],/* DYLD_LIBRARY_PATH environment variable */
 		shlib_path[1024],	/* SHLIB_PATH environment variable */
 		nlspath[1024],		/* NLSPATH environment variable */
-		query_string[10240],	/* QUERY_STRING env variable */
+		*query_string,		/* QUERY_STRING env variable */
 		remote_addr[1024],	/* REMOTE_ADDR environment variable */
 		remote_host[1024],	/* REMOTE_HOST environment variable */
 		remote_user[1024],	/* REMOTE_USER environment variable */
@@ -2953,39 +3040,119 @@ pipe_command(client_t *con,		/* I - Client connection */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* POSIX signal handler */
 #endif /* HAVE_SIGACTION && !HAVE_SIGSET */
+  static const char * const locale_encodings[] =
+		{			/* Locale charset names */
+		  "ASCII",
+		  "ISO8859-1",
+		  "ISO8859-2",
+		  "ISO8859-3",
+		  "ISO8859-4",
+		  "ISO8859-5",
+		  "ISO8859-6",
+		  "ISO8859-7",
+		  "ISO8859-8",
+		  "ISO8859-9",
+		  "ISO8859-10",
+		  "UTF-8",
+		  "ISO8859-13",
+		  "ISO8859-14",
+		  "ISO8859-15",
+		  "CP874",
+		  "CP1250",
+		  "CP1251",
+		  "CP1252",
+		  "CP1253",
+		  "CP1254",
+		  "CP1255",
+		  "CP1256",
+		  "CP1257",
+		  "CP1258",
+		  "KOI8R",
+		  "KOI8U"
+		};
+  static const char * const encryptions[] =
+		{
+		  "CUPS_ENCRYPTION=IfRequested",
+		  "CUPS_ENCRYPTION=Never",
+		  "CUPS_ENCRYPTION=Required",
+		  "CUPS_ENCRYPTION=Always"
+		};
 
 
  /*
-  * Copy the command string...
+  * Parse a copy of the options string, which is of the form:
+  *
+  *     name argument+argument+argument
+  *     name?argument+argument+argument
+  *     name param=value&param=value
+  *     name?param=value&param=value
+  *
+  * If the string contains an "=" character after the initial name,
+  * then we treat it as a HTTP GET form request and make a copy of
+  * the remaining string for the environment variable.
+  *
+  * The string is always parsed out as command-line arguments, to
+  * be consistent with Apache...
   */
+
+  LogMessage(L_DEBUG2, "pipe_command: command=\"%s\", options=\"%s\"",
+             command, options);
 
   strlcpy(argbuf, options, sizeof(argbuf));
 
- /*
-  * Parse the string; arguments can be separated by + and are terminated
-  * by ?...
-  */
-
-  argv[0] = argbuf;
+  argv[0]      = argbuf;
+  query_string = NULL;
 
   for (commptr = argbuf, argc = 1; *commptr != '\0' && argc < 99; commptr ++)
-    if (*commptr == ' ' || *commptr == '+')
+  {
+   /*
+    * Break arguments whenever we see a + or space...
+    */
+
+    if (*commptr == ' ' || *commptr == '+' || (*commptr == '?' && argc == 1))
     {
+     /*
+      * Terminate the current string and skip trailing whitespace...
+      */
+
       *commptr++ = '\0';
 
       while (*commptr == ' ')
         commptr ++;
 
-      if (*commptr != '\0')
+     /*
+      * If we don't have a blank string, save it as another argument...
+      */
+
+      if (*commptr)
       {
         argv[argc] = commptr;
 	argc ++;
       }
+      else
+        break;
+
+     /*
+      * If we see an "=" in the remaining string, make a copy of it since
+      * it will be query data...
+      */
+
+      if (argc == 2 && strchr(commptr, '=') && con->operation == HTTP_GET)
+	SetStringf(&query_string, "QUERY_STRING=%s", commptr);
+
+     /*
+      * Don't skip the first non-blank character...
+      */
 
       commptr --;
     }
-    else if (*commptr == '%')
+    else if (*commptr == '%' && isxdigit(commptr[1] & 255) &&
+             isxdigit(commptr[2] & 255))
     {
+     /*
+      * Convert the %xx notation to the individual character.
+      */
+
       if (commptr[1] >= '0' && commptr[1] <= '9')
         *commptr = (commptr[1] - '0') << 4;
       else
@@ -2997,9 +3164,15 @@ pipe_command(client_t *con,		/* I - Client connection */
         *commptr |= tolower(commptr[2]) - 'a' + 10;
 
       cups_strcpy(commptr + 1, commptr + 3);
+
+     /*
+      * Check for a %00 and break if that is the case...
+      */
+
+      if (!*commptr)
+        break;
     }
-    else if (*commptr == '?')
-      break;
+  }
 
   argv[argc] = NULL;
 
@@ -3012,8 +3185,12 @@ pipe_command(client_t *con,		/* I - Client connection */
 
   address = ntohl(con->http.hostaddr.sin_addr.s_addr);
 
-  snprintf(lang, sizeof(lang), "LANG=%s",
-           con->language ? con->language->language : "C");
+  if (con->language)
+    snprintf(lang, sizeof(lang), "LANG=%s.%s", con->language->language,
+             locale_encodings[con->language->encoding]);
+  else
+    strcpy(lang, "LANG=C");
+
   sprintf(ipp_port, "IPP_PORT=%d", LocalPort);
   sprintf(server_port, "SERVER_PORT=%d", ntohs(con->http.hostaddr.sin_port));
   if (!strcmp(con->http.hostname, "localhost"))
@@ -3124,15 +3301,12 @@ pipe_command(client_t *con,		/* I - Client connection */
   {
     envp[envc ++] = "REQUEST_METHOD=GET";
 
-    if (*commptr)
+    if (query_string)
     {
      /*
       * Add GET form variables after ?...
       */
 
-      *commptr++ = '\0';
-
-      snprintf(query_string, sizeof(query_string), "QUERY_STRING=%s", commptr);
       envp[envc ++] = query_string;
     }
   }
@@ -3152,27 +3326,32 @@ pipe_command(client_t *con,		/* I - Client connection */
   */
 
   if (con->http.encryption == HTTP_ENCRYPT_ALWAYS)
-  {
     envp[envc ++] = "HTTPS=ON";
-    envp[envc ++] = "CUPS_ENCRYPTION=Always";
-  }
+
+  envp[envc ++] = (char *)encryptions[LocalEncryption];
+
+ /*
+  * Terminate the environment array...
+  */
 
   envp[envc] = NULL;
 
   if (LogLevel == L_DEBUG2)
   {
     for (i = 0; i < argc; i ++)
-      LogMessage(L_DEBUG2, "argv[%d] = \"%s\"", i, argv[i]);
+      LogMessage(L_DEBUG2, "pipe_command: argv[%d] = \"%s\"", i, argv[i]);
     for (i = 0; i < envc; i ++)
-      LogMessage(L_DEBUG2, "envp[%d] = \"%s\"", i, envp[i]);
+      LogMessage(L_DEBUG2, "pipe_command: envp[%d] = \"%s\"", i, envp[i]);
   }
 
  /*
   * Create a pipe for the output...
   */
 
-  if (pipe(fds))
+  if (cupsdOpenPipe(fds))
   {
+    ClearString(&query_string);
+
     LogMessage(L_ERROR, "Unable to create pipes for CGI %s - %s",
                argv[0], strerror(errno));
     return (0);
@@ -3194,7 +3373,7 @@ pipe_command(client_t *con,		/* I - Client connection */
     * Child comes here...  Close stdin if necessary and dup the pipe to stdout.
     */
 
-    if (getuid() == 0)
+    if (!RunUser)
     {
      /*
       * Running as root, so change to a non-priviledged user...
@@ -3235,13 +3414,6 @@ pipe_command(client_t *con,		/* I - Client connection */
 
     close(2);
     dup(CGIPipes[1]);
-
-   /*
-    * Close extra file descriptors...
-    */
-
-    for (fd = 3; fd < MaxFDs; fd ++)
-      close(fd);
 
    /*
     * Change umask to restrict permissions on created files...
@@ -3288,8 +3460,7 @@ pipe_command(client_t *con,		/* I - Client connection */
     LogMessage(L_ERROR, "Unable to fork for CGI %s - %s", argv[0],
                strerror(errno));
 
-    close(fds[0]);
-    close(fds[1]);
+    cupsdClosePipe(fds);
     pid = 0;
   }
   else
@@ -3308,11 +3479,171 @@ pipe_command(client_t *con,		/* I - Client connection */
 
   ReleaseSignals();
 
+  ClearString(&query_string);
+
   return (pid);
 }
 
 
 #if defined(HAVE_CDSASSL)
+/*
+ * 'cups_cdsa_once_init()' - One-time initialization routine used with 
+ *			the pthread_once control block.
+ */
+
+static const char SecurityLibPath[]	    = "/System/Library/Frameworks/Security.framework/Security";
+
+static
+void cups_cdsa_once_init()
+{
+#ifdef HAVE_DLFCN_H
+ /*
+  * If we have dlopen then weak-link the library and load it when needed.
+  */
+
+  void *cdsa_lib = NULL;
+
+  cdsa_lib = dlopen(SecurityLibPath, RTLD_LAZY);
+
+  SSLCloseProc			= dlsym(cdsa_lib, "SSLClose");
+  SSLDisposeContextProc		= dlsym(cdsa_lib, "SSLDisposeContext");
+  SSLGetBufferedReadSizeProc	= dlsym(cdsa_lib, "SSLGetBufferedReadSizeName");
+  SSLHandshakeProc		= dlsym(cdsa_lib, "SSLHandshake");
+  SSLNewContextProc		= dlsym(cdsa_lib, "SSLNewContext");
+  SSLReadProc			= dlsym(cdsa_lib, "SSLRead");
+  SSLSetCertificateProc		= dlsym(cdsa_lib, "SSLSetCertificate");
+  SSLSetConnectionProc		= dlsym(cdsa_lib, "SSLSetConnection");
+  SSLSetEnableCertVerifyProc	= dlsym(cdsa_lib, "SSLSetEnableCertVerify");
+  SSLSetIOFuncsProc		= dlsym(cdsa_lib, "SSLSetIOFuncs");
+  SSLSetPeerDomainNameProc	= dlsym(cdsa_lib, "SSLSetPeerDomainName");
+  SSLSetProtocolVersionProc	= dlsym(cdsa_lib, "SSLSetProtocolVersionEnabled");
+  SSLWriteProc			= dlsym(cdsa_lib, "SSLWrite");
+
+  SecIdentityGetTypeIDProc	= dlsym(cdsa_lib, "SecIdentityGetTypeID");
+  SecIdentitySearchCopyNextProc	= dlsym(cdsa_lib, "SecIdentitySearchCopyNext");
+  SecIdentitySearchCreateProc	= dlsym(cdsa_lib, "SecIdentitySearchCreate");
+  SecKeychainOpenProc		= dlsym(cdsa_lib, "SecKeychainOpen");
+#else
+  SSLGetBufferedReadSizeProc	= SSLGetBufferedReadSize;
+  SSLNewContextProc		= SSLNewContext;
+  SSLSetIOFuncsProc		= SSLSetIOFuncs;
+  SSLSetConnectionProc		= SSLSetConnection;
+  SSLSetEnableCertVerifyProc	= SSLSetEnableCertVerify;
+  SSLHandshakeProc		= SSLHandshake;
+  SSLDisposeContextProc		= SSLDisposeContext;
+  SSLCloseProc			= SSLClose;
+  SSLReadProc			= SSLRead;
+  SSLWriteProc			= SSLWrite;
+
+  SecKeychainOpenProc		= SecKeychainOpen;
+  SecIdentitySearchCreateProc	= SecIdentitySearchCreate;
+  SecIdentitySearchCopyNextProc	= SecIdentitySearchCopyNext;
+#endif /* HAVE_DLFCN_H */
+}
+
+
+/*
+ * 'cupsd_cdsa_init()' - Initialize cdsa ssl.
+ */
+
+void cupsd_cdsa_init(void)
+{
+  pthread_once(&cdsa_key_once, cups_cdsa_once_init);
+
+  return;
+}
+
+
+/*
+ * 'CDSAGetServerCerts()' - Convert a keychain name into the CFArrayRef
+ *                          required by SSLSetCertificate.
+ *
+ * For now we assumes that there is exactly one SecIdentity in the
+ * keychain - i.e. there is exactly one matching cert/private key pair.
+ * In the future we will search a keychain for a SecIdentity matching a
+ * specific criteria.  We also skip the operation of adding additional
+ * non-signing certs from the keychain to the CFArrayRef.
+ *
+ * To create a self-signed certificate for testing use the certtool.
+ * Executing the following as root will do it:
+ *
+ *     certtool c c v k=CUPS
+ */
+
+static CFArrayRef
+CDSAGetServerCerts(void)
+{
+  OSStatus		err;		/* Error info */
+  SecKeychainRef 	kcRef;		/* Keychain reference */
+  SecIdentitySearchRef	srchRef;	/* Search reference */
+  SecIdentityRef	identity;	/* Identity */
+  CFArrayRef		ca;		/* Certificate array */
+
+
+  kcRef    = NULL;
+  srchRef  = NULL;
+  identity = NULL;
+  ca       = NULL;
+
+  cupsd_cdsa_init();
+
+  err = (*SecKeychainOpenProc)(ServerCertificate, &kcRef);
+
+  if (err)
+    LogMessage(L_ERROR, "Cannot open keychain \"%s\", error %d.",
+               ServerCertificate, (int)err);
+  else
+  {
+   /*
+    * Search for "any" identity matching specified key use; 
+    * in this app, we expect there to be exactly one. 
+    */
+
+    err = (*SecIdentitySearchCreateProc)(kcRef, CSSM_KEYUSE_SIGN, &srchRef);
+
+    if (err)
+      LogMessage(L_DEBUG2,
+                 "Cannot find signing key in keychain \"%s\", error %d",
+                 ServerCertificate, (int)err);
+    else
+    {
+      err = (*SecIdentitySearchCopyNextProc)(srchRef, &identity);
+
+      if (err)
+	LogMessage(L_DEBUG2,
+	           "Cannot find signing key in keychain \"%s\", error %d",
+	           ServerCertificate, (int)err);
+      else
+      {
+	if (CFGetTypeID(identity) != (*SecIdentityGetTypeIDProc)())
+	  LogMessage(L_ERROR, "SecIdentitySearchCopyNext CFTypeID failure!");
+	else
+	{
+	 /* 
+	  * Found one. Place it in a CFArray. 
+	  * TBD: snag other (non-identity) certs from keychain and add them
+	  * to array as well.
+	  */
+
+	  ca = CFArrayCreate(NULL, (const void **)&identity, 1, NULL);
+
+	  if (ca == nil)
+	    LogMessage(L_ERROR, "CFArrayCreate error");
+	}
+
+	/*CFRelease(identity);*/
+      }
+
+      /*CFRelease(srchRef);*/
+    }
+
+    /*CFRelease(kcRef);*/
+  }
+
+  return ca;
+}
+
+
 /*
  * 'CDSAReadFunc()' - Read function for CDSA decryption code.
  */
@@ -3361,5 +3692,5 @@ CDSAWriteFunc(SSLConnectionRef connection,	/* I  - SSL/TLS connection */
 
 
 /*
- * End of "$Id: client.c,v 1.11.4.2 2004/09/23 22:42:27 jlovell Exp $".
+ * End of "$Id: client.c,v 1.24 2005/01/10 23:40:51 jlovell Exp $".
  */

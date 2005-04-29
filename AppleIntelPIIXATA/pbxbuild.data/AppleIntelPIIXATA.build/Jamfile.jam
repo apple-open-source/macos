@@ -7,7 +7,7 @@ JAVAC_SOURCE_FILE_ENCODING default = MacRoman ;
 export deferred DEVELOPMENT_LANGUAGE = English ;
 export deferred PROJECT = $(PROJECT_NAME) ;
 export deferred PROJECT_NAME = AppleIntelPIIXATA ;
-export deferred SRCROOT = /automount/Servers/riemann/homes/aragorn/jliu/Projects/AppleIntelPIIXATA ;
+export deferred SRCROOT = /remote/925x/AppleIntelPIIXATA ;
 
 # User-defined project-wide settings for project
 
@@ -26,12 +26,12 @@ export deferred TARGET_NAME = AppleIntelPIIXATA ;
 # User-defined build settings for target "AppleIntelPIIXATA"
 export deferred FRAMEWORK_SEARCH_PATHS =  ;
 export deferred HEADER_SEARCH_PATHS =  ;
-export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions" ;
+export deferred INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOATAFamily.kext/Contents/PlugIns" ;
 export deferred KERNEL_MODULE = YES ;
 export deferred LIBRARY_SEARCH_PATHS =  ;
 export deferred MODULE_IOKIT = YES ;
 export deferred MODULE_NAME = com.apple.driver.AppleIntelPIIXATA ;
-export deferred MODULE_VERSION = 1.3.0 ;
+export deferred MODULE_VERSION = 1.6 ;
 export deferred OTHER_CFLAGS =  ;
 export deferred OTHER_LDFLAGS =  ;
 export deferred OTHER_REZFLAGS =  ;

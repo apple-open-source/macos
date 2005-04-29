@@ -1,0 +1,132 @@
+srcdir = @srcdir@
+prefix = @prefix@
+
+CC = gcc
+CFLAGS = @CFLAGS@
+
+INSTALL_DIR = @prefix@
+SNACK_INSTALL_DIR = $(INSTALL_DIR)/lib/snack@SNACK_VERSION@
+
+# NOTE: You will need to update this path if DX6 is not installed in /mingw/dx6!
+# DX6 for Mingw: http://people.montana.com/%7Ebowman/Software/ming.zip
+DX6_DIR = /mingw/dx6
+DX6_INC_DIR = $(DX6_DIR)/include
+DX6_LIB_DIR = $(DX6_DIR)/lib
+
+INCLUDES = @TCL_INCLUDE_SPEC@ @TK_INCLUDE_SPEC@ -I$(DX6_INC_DIR) -I$(srcdir)/../generic
+
+# stupid autoconf messes up the VPATH variable!
+WORKAROUND = $(srcdir)/../generic $(srcdir)
+VPATH = $(WORKAROUND)
+
+DEFINES = -DWIN -DUSE_TCL_STUBS -DUSE_TK_STUBS -DBUILD_snack -DTCL_81_API
+
+TCL_LIB_SPEC = @TCL_LIB_SPEC@
+TK_LIB_SPEC = @TK_LIB_SPEC@
+
+SNACK_DLL = libsnack.dll
+SOUND_DLL = libsound.dll
+SNACK_STUB = @SNACK_STUB_LIB_FILE@
+SNACK_STUB_OBJS = snackStubInit.o
+
+SNACK_TCL_FILE = $(srcdir)/../unix/snack.tcl
+SNACK_PKG_FILE = $(srcdir)/../unix/pkgIndex.tcl.dll
+SNACK_PKG_FILE_DEST = pkgIndex.tcl
+
+SOURCES = \
+ffa.c \
+g711.c \
+jkAudio.c \
+jkAudIO_win.c \
+jkCanvSect.c \
+jkCanvSpeg.c \
+jkCanvWave.c \
+jkFilter.c \
+jkFilterIIR.c \
+jkFormatMP3.c \
+jkMixer.c \
+jkPitchCmd.c \
+jkSound.c \
+jkSoundEdit.c \
+jkSoundEngine.c \
+jkSoundFile.c \
+jkSoundProc.c \
+jkSynthesis.c \
+shape.c \
+jkGetF0.c \
+jkFormant.c \
+sigproc.c \
+sigproc2.c \
+sound.c \
+snack.c \
+snackStubInit.c
+
+
+COMMON_OBJS = \
+ffa.o \
+g711.o \
+jkAudio.o \
+jkAudIO_win.o \
+jkFilter.o \
+jkFilterIIR.o \
+jkFormatMP3.o \
+jkMixer.o \
+jkPitchCmd.o \
+jkSound.o \
+jkSoundEdit.o \
+jkSoundEngine.o \
+jkSoundFile.o \
+jkSoundProc.o \
+jkSynthesis.o \
+shape.o \
+jkGetF0.o \
+jkFormant.o \
+sigproc.o \
+sigproc2.o
+
+SNACK_OBJS = \
+$(COMMON_OBJS) \
+jkCanvSect.o \
+jkCanvSpeg.o \
+jkCanvWave.o \
+snack.o
+
+SOUND_OBJS = \
+$(COMMON_OBJS) \
+sound.o
+
+
+SNACK_LIBS = $(TCL_LIB_SPEC) $(TK_LIB_SPEC) $(SNACK_STUB) -lwinmm
+SOUND_LIBS = $(TCL_LIB_SPEC) $(SNACK_STUB) -lwinmm
+
+.SUFFIXES: .o .c
+
+.c.o:
+	$(CC) $(CFLAGS) $(INCLUDES) $(DEFINES) -c -o $@ $<
+
+all: $(SNACK_STUB) $(SNACK_DLL) $(SOUND_DLL)
+
+clean:
+	rm -f *.o *.dll *.a
+
+install:
+	@if test ! -d "$(SNACK_INSTALL_DIR)" ; then \
+	    echo "mkdir $(SNACK_INSTALL_DIR)" ; \
+	    mkdir "$(SNACK_INSTALL_DIR)" ; \
+	fi
+	cp $(SNACK_STUB) "$(SNACK_INSTALL_DIR)"
+	cp $(SNACK_DLL) "$(SNACK_INSTALL_DIR)"
+	cp $(SOUND_DLL) "$(SNACK_INSTALL_DIR)"
+	cp $(SNACK_TCL_FILE) "$(SNACK_INSTALL_DIR)"
+	cp $(SNACK_PKG_FILE) "$(SNACK_INSTALL_DIR)/$(SNACK_PKG_FILE_DEST)"
+
+$(SNACK_DLL): $(SNACK_OBJS)
+	gcc -shared -o $@ $(SNACK_OBJS) $(SNACK_LIBS)
+
+$(SOUND_DLL): $(SOUND_OBJS)
+	gcc -shared -o $@ $(SOUND_OBJS) $(SOUND_LIBS)
+
+$(SNACK_STUB) : $(SNACK_STUB_OBJS)
+	ar cr $@ $(SNACK_STUB_OBJS)
+	ranlib $@
+

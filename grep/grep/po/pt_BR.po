@@ -5,9 +5,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: GNU grep 2.4a\n"
-"POT-Creation-Date: 2000-03-01 22:44-0500\n"
-"PO-Revision-Date: 2000-01-21 22:08-02:00\n"
+"Project-Id-Version: GNU grep 2.4f\n"
+"POT-Creation-Date: 2000-02-02 01:04-0500\n"
+"PO-Revision-Date: 2000-10-27 16:55-02:00\n"
 "Last-Translator: Rodrigo Stulzer Lopes <rodrigo@conectiva.com.br>\n"
 "Language-Team: Brazilian Portuguese <ldp-br@bazar.conectiva.com.br>\n"
 "MIME-Version: 1.0\n"
@@ -157,7 +157,7 @@ msgid "Usage: %s [OPTION]... PATTERN [FILE] ...\n"
 msgstr "Uso: %s [opção]... padrão [arquivo]...\n"
 
 #: src/grep.c:944
-#, fuzzy, c-format
+#, c-format
 msgid ""
 "Search for PATTERN in each FILE or standard input.\n"
 "Example: %s -i 'hello world' menu.h main.c\n"
@@ -165,7 +165,7 @@ msgid ""
 "Regexp selection and interpretation:\n"
 msgstr ""
 "Procura por PADRÃO em cada ARQUIVO ou entrada padrão.\n"
-"Exemplo: %s -i 'hello.*world' menu.h main.c\n"
+"Exemplo: %s -i 'hello world' menu.h main.c\n"
 "\n"
 "Seleção de expressão regular e interpretação:\n"
 
@@ -176,8 +176,7 @@ msgid ""
 "  -G, --basic-regexp        PATTERN is a basic regular expression\n"
 msgstr ""
 "  -E, --extended-regexp     PADRÃO é um expressão regular extendida\n"
-"  -F, --fixed-strings       PADRÃO é uma cadeia fixa separada por nova "
-"linha\n"
+"  -F, --fixed-strings       PADRÃO é uma cadeia fixa separada por nova linha\n"
 "  -G, --basic-regexp        PADRÃO é um expressão regular básica\n"
 
 #: src/grep.c:953
@@ -194,8 +193,7 @@ msgstr ""
 "  -i, --ignore-case        ignora caixa do texto\n"
 "  -w, --word-regexp        força PADRÃO encontrar apenas palavras inteiras\n"
 "  -x, --line-regexp        força PADRÃO encontrar apenas linhas inteiras\n"
-"  -z, --null-data          uma linha de dados acaba com 0 bytes, não nova "
-"linha\n"
+"  -z, --null-data          uma linha de dados acaba com 0 bytes, não nova linha\n"
 
 #: src/grep.c:960
 msgid ""
@@ -216,7 +214,6 @@ msgstr ""
 "      --mmap                usa entrada de memória mapeada se possível\n"
 
 #: src/grep.c:968
-#, fuzzy
 msgid ""
 "\n"
 "Output control:\n"
@@ -249,17 +246,14 @@ msgstr ""
 "      --binary-files=TIPO   assume que arquivos binários são TIPO\n"
 "                            TIPO é 'binary'. 'text', ou 'without-match'.\n"
 "  -d, --directories=AÇÃO    como tratar diretórios\n"
-"                            AÇÃO pode ser: 'read' (ler), 'recurse' "
-"(recursivo),\n"
+"                            AÇÃO pode ser: 'read' (ler), 'recurse' (recursivo),\n"
 "                            ou 'skip' (não considerar).\n"
 "  -r, --recursive           equivalente a --directories=recurse.\n"
-"  -L, --files-without-match exibe somente os nomes dos arquivos onde não "
-"foi\n"
+"  -L, --files-without-match exibe somente os nomes dos arquivos onde não foi\n"
 "                            encontrado o padrão\n"
 "  -l, --files-with-matches  exibe somente os nomes dos arquivos onde foi\n"
 "                            encontrado o padrão\n"
-"  -c, --count               exibe o número de padrões encontrados por "
-"arquivo\n"
+"  -c, --count               exibe o número de padrões encontrados por arquivo\n"
 "  -Z, --null                mostra 0 bytes depois do nome do ARQUIVO\n"
 
 #: src/grep.c:987
@@ -298,12 +292,8 @@ msgstr ""
 "Retorna 2 se houver erro de sintaxe ou erros do sistema.\n"
 
 #: src/grep.c:1002
-msgid ""
-"\n"
-"Report bugs to <bug-gnu-utils@gnu.org>.\n"
-msgstr ""
-"\n"
-"Informe problemas para <bug-gnu-utils@gnu.org>.\n"
+msgid "\nReport bugs to <bug-gnu-utils@gnu.org>.\n"
+msgstr "\nInforme problemas para <bug-gnu-utils@gnu.org>.\n"
 
 #: src/grep.c:1012
 msgid "conflicting matchers specified"
@@ -328,9 +318,8 @@ msgid "%s (GNU grep) %s\n"
 msgstr "%s (GNU grep) %s\n"
 
 #: src/grep.c:1380
-#, fuzzy
 msgid "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
-msgstr "Copyright (C) 1988, 1992-1998, 1999 Free Software Foundation, Inc.\n"
+msgstr "Copyright 1988, 1992-1999, 2000 Free Software Foundation, Inc.\n"
 
 #: src/grep.c:1382
 msgid ""

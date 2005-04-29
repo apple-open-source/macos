@@ -1,5 +1,5 @@
 /* java.lang.Math -- common mathematical functions, native allowed
-   Copyright (C) 1998, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1998, 2001, 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -38,8 +38,9 @@ exception statement from your version. */
 
 package java.lang;
 
-import java.util.Random;
 import gnu.classpath.Configuration;
+
+import java.util.Random;
 
 /**
  * Helper class containing useful mathematical functions and constants.
@@ -50,7 +51,7 @@ import gnu.classpath.Configuration;
  *
  * @author Paul Fisher
  * @author John Keiser
- * @author Eric Blake <ebb9@email.byu.edu>
+ * @author Eric Blake (ebb9@email.byu.edu)
  * @since 1.0
  */
 public final class Math
@@ -297,7 +298,7 @@ public final class Math
    * @param a the angle (in radians)
    * @return sin(a)
    */
-  public native static double sin(double a);
+  public static native double sin(double a);
 
   /**
    * The trigonometric function <em>cos</em>. The cosine of NaN or infinity is
@@ -306,7 +307,7 @@ public final class Math
    * @param a the angle (in radians)
    * @return cos(a)
    */
-  public native static double cos(double a);
+  public static native double cos(double a);
 
   /**
    * The trigonometric function <em>tan</em>. The tangent of NaN or infinity
@@ -316,7 +317,7 @@ public final class Math
    * @param a the angle (in radians)
    * @return tan(a)
    */
-  public native static double tan(double a);
+  public static native double tan(double a);
 
   /**
    * The trigonometric function <em>arcsin</em>. The range of angles returned
@@ -327,7 +328,7 @@ public final class Math
    * @param a the sin to turn back into an angle
    * @return arcsin(a)
    */
-  public native static double asin(double a);
+  public static native double asin(double a);
 
   /**
    * The trigonometric function <em>arccos</em>. The range of angles returned
@@ -338,7 +339,7 @@ public final class Math
    * @param a the cos to turn back into an angle
    * @return arccos(a)
    */
-  public native static double acos(double a);
+  public static native double acos(double a);
 
   /**
    * The trigonometric function <em>arcsin</em>. The range of angles returned
@@ -350,7 +351,7 @@ public final class Math
    * @return arcsin(a)
    * @see #atan2(double, double)
    */
-  public native static double atan(double a);
+  public static native double atan(double a);
 
   /**
    * A special version of the trigonometric function <em>arctan</em>, for
@@ -399,7 +400,7 @@ public final class Math
    * @return <em>theta</em> in the conversion of (x, y) to (r, theta)
    * @see #atan(double)
    */
-  public native static double atan2(double y, double x);
+  public static native double atan2(double y, double x);
 
   /**
    * Take <em>e</em><sup>a</sup>.  The opposite of <code>log()</code>. If the
@@ -413,7 +414,7 @@ public final class Math
    * @see #log(double)
    * @see #pow(double, double)
    */
-  public native static double exp(double a);
+  public static native double exp(double a);
 
   /**
    * Take ln(a) (the natural log).  The opposite of <code>exp()</code>. If the
@@ -429,7 +430,7 @@ public final class Math
    * @return the natural log of <code>a</code>
    * @see #exp(double)
    */
-  public native static double log(double a);
+  public static native double log(double a);
 
   /**
    * Take a square root. If the argument is NaN or negative, the result is
@@ -443,7 +444,7 @@ public final class Math
    * @return the square root of the argument
    * @see #pow(double, double)
    */
-  public native static double sqrt(double a);
+  public static native double sqrt(double a);
 
   /**
    * Raise a number to a power. Special cases:<ul>
@@ -513,7 +514,7 @@ public final class Math
    * @param b the power to raise it to
    * @return a<sup>b</sup>
    */
-  public native static double pow(double a, double b);
+  public static native double pow(double a, double b);
 
   /**
    * Get the IEEE 754 floating point remainder on two numbers. This is the
@@ -521,7 +522,7 @@ public final class Math
    * double to <code>x / y</code> (ties go to the even n); for a zero
    * remainder, the sign is that of <code>x</code>. If either argument is NaN,
    * the first argument is infinite, or the second argument is zero, the result
-   * is NaN; if x is finite but y is infinte, the result is x. This is
+   * is NaN; if x is finite but y is infinite, the result is x. This is
    * accurate within the limits of doubles.
    *
    * @param x the dividend (the top half)
@@ -529,7 +530,7 @@ public final class Math
    * @return the IEEE 754-defined floating point remainder of x/y
    * @see #rint(double)
    */
-  public native static double IEEEremainder(double x, double y);
+  public static native double IEEEremainder(double x, double y);
 
   /**
    * Take the nearest integer that is that is greater than or equal to the
@@ -540,7 +541,7 @@ public final class Math
    * @param a the value to act upon
    * @return the nearest integer &gt;= <code>a</code>
    */
-  public native static double ceil(double a);
+  public static native double ceil(double a);
 
   /**
    * Take the nearest integer that is that is less than or equal to the
@@ -550,7 +551,7 @@ public final class Math
    * @param a the value to act upon
    * @return the nearest integer &lt;= <code>a</code>
    */
-  public native static double floor(double a);
+  public static native double floor(double a);
 
   /**
    * Take the nearest integer to the argument.  If it is exactly between
@@ -560,11 +561,11 @@ public final class Math
    * @param a the value to act upon
    * @return the nearest integer to <code>a</code>
    */
-  public native static double rint(double a);
+  public static native double rint(double a);
 
   /**
    * Take the nearest integer to the argument.  This is equivalent to
-   * <code>(int) Math.floor(a + 0.5f). If the argument is NaN, the result
+   * <code>(int) Math.floor(a + 0.5f)</code>. If the argument is NaN, the result
    * is 0; otherwise if the argument is outside the range of int, the result
    * will be Integer.MIN_VALUE or Integer.MAX_VALUE, as appropriate.
    *
@@ -575,6 +576,9 @@ public final class Math
    */
   public static int round(float a)
   {
+    // this check for NaN, from JLS 15.21.1, saves a method call
+    if (a != a)
+      return 0;
     return (int) floor(a + 0.5f);
   }
 
@@ -591,6 +595,9 @@ public final class Math
    */
   public static long round(double a)
   {
+    // this check for NaN, from JLS 15.21.1, saves a method call
+    if (a != a)
+      return 0;
     return (long) floor(a + 0.5d);
   }
 
@@ -624,7 +631,7 @@ public final class Math
    */
   public static double toRadians(double degrees)
   {
-    return degrees * (PI / 180);
+    return (degrees * PI) / 180;
   }
 
   /**
@@ -638,6 +645,6 @@ public final class Math
    */
   public static double toDegrees(double rads)
   {
-    return rads * (180 / PI);
+    return (rads * 180) / PI;
   }
 }

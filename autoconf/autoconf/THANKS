@@ -56,10 +56,12 @@ Enrique Robledo Arnuncio    enrique.robledo@wanadoo.es
 Erez Zadok                  ezk@cs.columbia.edu
 Eric Backus                 ericb@lsid.hp.com
 Eric Mumpower               nocturne@mit.edu
+Eric Sunshine               sunshine@sunshineco.com
 Ezra Peisach                epeisach@zif.mit.edu
 Felix Lee                   flee@cygnus.com
 Franc,ois Pinard            pinard@iro.umontreal.ca
 Frank Denis                 j@jedi.claranet.fr
+Gareth McCaughan            gareth.mccaughan@pobox.com
 Gary V. Vaughan             gvaughan@oranda.demon.co.uk
 Geir Ove Myhr               myhr@stud.fim.ntnu.no
 Gerrit P. Haase             gp@familiehaase.de
@@ -75,14 +77,18 @@ Guido Flohr                 gufl0000@stud.uni-sb.de
 Guillermo Gomez             gomez@mi.uni-erlangen.de
 Hans Olsson                 Hans.Olsson@dna.lth.se
 Harlan Stenn                stenn@whimsy.udel.edu
+Henk Krus                   h.krus@cyclone.nl
 H.J. Lu                     hjl@gnu.org
 H. Merijn Brand             h.m.brand@hccnet.nl
 Ian Lance Taylor            ian@cygnus.com
+Ian Redfern		    Ian.Redfern@logicacmg.com
+Ilya Zakharevich            ilya@Math.Berkeley.EDU
 James A. Lupo               lupoja@feynman.ml.wpafb.af.mil
 Jason Molenda               jsm@cygnus.com
 Jeff Garzik                 jgarzik@pobox.com
 Jeffrey A Law               law@cygnus.com
 Jens Petersen               petersen@redhat.com
+Jeremy Yallop               jeremy@yallop.org
 Jim Blandy                  jimb@wookumz.gnu.ai.mit.edu
 Jim Meyering                meyering@ascend.com
 Jiro Takabatake             jiro@din.or.jp
@@ -103,8 +109,10 @@ Kelly Anderson              tgcorp@attglobal.net
 Ken Pizzini                 ken@halcyon.com
 Ken Raeburn                 raeburn@cygnus.com
 Kevin Ryde                  user42@zip.com.au
+Klee Dienes                 kdienes@apple.com
 Koji Arai                   JCA02266@nifty.ne.jp
 Kurt D. Zeilenga            kurt@openldap.org
+Larry Jones                 larry.jones@sdrc.com
 Larry Schmitt               larry@mail.haleakalawebdesigns.com
 Larry Schwimmer             rosebud@cyclone.stanford.edu
 Lars Hecking                lhecking@nmrc.ucc.ie
@@ -118,9 +126,11 @@ Markku Savela               msa@msa.tte.vtt.fi
 Markus Oberhumer            markus.oberhumer@jk.uni-linz.ac.at
 Martin Buchholz             martin@xemacs.org
 Martin Frydl                martin@systinet.com
+Martin Mokrejs              mmokrejs@natur.cuni.cz
 Martin Wilck                martin@tropos.de
 Martyn Johnson              Martyn.Johnson@cl.cam.ac.uk
 Matthew D. Langston         langston@SLAC.Stanford.EDU
+Matthias Andree             matthias.andree@gmx.de
 Michael Elizabeth Chastain  chastain@cygnus.com
 Michael Schoene             mrs@mlc.de
 Michael Matz                matz@kde.org
@@ -146,6 +156,7 @@ Paul Jarc                   prj@po.cwru.edu
 Paul Martinolich            martinol@datasync.com
 Pavel Roskin                pavel_roskin@geocities.com
 Peter Eisentraut            peter_e@gmx.net
+Peter Hendrickson           pdh@wiredyne.com
 Peter Simons                simons@research.cys.de
 Peter Stephenson            pws@csr.com
 Philipp Thomas              kthomas@gwdg.de
@@ -154,23 +165,25 @@ Rainer Orth                 ro@TechFak.Uni-Bielefeld.DE
 Raja R Harinath             harinath@cs.umn.edu
 Ralf Corsepius              corsepiu@faw.uni-ulm.de
 Ralf S. Engelschall         rse@engelschall.com
+Richard Dawe                rich@phekda.freeserve.co.uk
 Richard Stallman            rms@gnu.org
 Robert Lipe                 robertlipe@usa.net
 Robert S. Maier             rsm@math.arizona.edu
 Roberto Bagnara             bagnara@cs.unipr.it
 Roland McGrath              roland@gnu.org
-Rüdiger Kuhlmann            info@ruediger-kuhlmann.de
-Ruediger Kuhlmann           uck4@rz.uni-karlsruhe.de
+Ruediger Kuhlmann           info@ruediger-kuhlmann.de
 Russ Allbery                rra@stanford.edu
 Ryuji Abe                   raeva@t3.rim.or.jp
 Sam Varshavchik             mrsam@courier-mta.com
+Sander Niemeijer            niemeijer@science-and-technology.nl
 Scott Bambrough             scottb@corelcomputer.com
 Scott Stanton               stanton@scriptics.com
 Simon Leinen                simon@lia.di.epfl.ch
-Stephen Gildea              gildea@alum.mit.edu
+Stephen Gildea              filtered@against.spam
 Steve Chamberlain           sac@cygnus.com
-Steven G. Johnson           stevenj@alum.mit.edu
+Steve Huston                shuston@riverace.com
 Steve Robbins               steve@nyongwa.montreal.qc.ca
+Steven G. Johnson           stevenj@alum.mit.edu
 Stu Grossman                grossman@cygnus.com
 Syd Polk                    spolk@cygnus.com
 T.E. Dickey                 dickey@clark.net
@@ -185,6 +198,7 @@ Tom Yu                      tlyu@mit.edu
 Tony Leneis                 tony@plaza.ds.adp.com
 Uwe Seimet                  us@orbacus.com
 Vance Shipley               vances@motivity.ca
+Ville Karaila               karaila@iki.fi
 Viktor Dukhovni             viktor@anaheim.esm.com
 Vladimir Volovich           vvv@vsu.ru
 Volker Borchert             bt@teknon.de

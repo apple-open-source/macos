@@ -1,5 +1,5 @@
 /****************************************************************************
- * Copyright (c) 2000,2001 Free Software Foundation, Inc.                   *
+ * Copyright (c) 2000-2001,2002 Free Software Foundation, Inc.              *
  *                                                                          *
  * Permission is hereby granted, free of charge, to any person obtaining a  *
  * copy of this software and associated documentation files (the            *
@@ -29,14 +29,10 @@
 /*
  * Author: Thomas E. Dickey <dickey@clark.net> 2000
  *
- * $Id: railroad.c,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: railroad.c,v 1.11 2002/10/19 22:11:24 tom Exp $
  *
  * A simple demo of the termcap interface.
  */
-#include <termcap.h>
-#include <ctype.h>
-#include <signal.h>
-
 #include <test.priv.h>
 
 static char *wipeit;

@@ -26,7 +26,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from the X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtStrCW.man,v 1.2 2001/01/27 18:20:30 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtStrCW.man,v 1.3 2003/04/28 22:18:21 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -131,9 +131,8 @@
 .SH NAME
 XtStringConversionWarning \- issue a conversion warning message
 .SH SYNTAX
-void XtStringConversionWarning(\fIsrc\fP, \fIdst_type\fP)
-.br
-	String \fIsrc\fP, \fIdst_type\fP;
+.HP
+void XtStringConversionWarning(String \fIsrc\fP, String \fIdst_type\fP); 
 .SH ARGUMENTS
 .IP \fIsrc\fP 1i
 Specifies the string that could not be converted.

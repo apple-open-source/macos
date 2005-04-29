@@ -1,4 +1,4 @@
-## $Id: Makefile.am,v 1.1.1.1 2003/01/27 19:05:32 jlovell Exp $
+## $Id: Makefile.am,v 1.1.1.4 2004/12/22 23:49:34 jlovell Exp $
 ## Copyright (C) 2000 Roger Leigh
 ##
 ## This program is free software; you can redistribute it and/or modify
@@ -23,12 +23,16 @@ AUTOMAKE_OPTIONS = 1.4 gnu
 
 MAINT_CHARSET = latin1
 
+include $(top_srcdir)/scripts/global.mk
+
 
 ## Variables
 
+empty=
 PACKAGE = cups
 
 bindir = @cups_bindir@
+sbindir = @cups_sbindir@
 
 pkgdatadir = $(cups_conf_datadir)
 pkglibdir = $(cups_conf_serverbin)
@@ -36,65 +40,72 @@ pkgsysconfdir = $(cups_conf_serverroot)
 
 cupsexec_backenddir = $(pkglibdir)/backend
 cupsexec_filterdir = $(pkglibdir)/filter
-cups_modeldir = $(pkgdatadir)/model
+if CUPS_PPDS_AT_TOP_LEVEL
+cups_modeldir = $(pkgdatadir)/model/
+DONT_UNINSTALL_PPDS=true
+else
+cups_modeldir = $(pkgdatadir)/model/gimp-print/@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@/
+endif
 
-AM_CFLAGS = $(GNUCFLAGS)
-DEFS = @CUPS_CFLAGS@ @DEFS@ -I. -I$(srcdir) -I../.. -DCUPS_DATADIR=\"$(pkgdatadir)\" -DGIMP_PRINT_VERSION=\"$(VERSION)\"
-INCLUDES = @INCLUDES@ $(LIBGIMPPRINT_CFLAGS)
-LIBPRINTUT = $(top_builddir)/lib/libprintut.la
-LIBS = $(INTLLIBS) @LIBS@
+LOCAL_CPPFLAGS = $(GIMPPRINT_CFLAGS) $(CUPS_CFLAGS)
 
 
 ## Programs
 
-CUPS_BIN = cups-calibrate
-CUPS_BACKEND_BIN = epson canon
-CUPS_FILTER_BIN = rastertoprinter commandtoepson commandtocanon
-CUPS_NOINST_BIN = genppd
+if BUILD_CUPS
+bin_PROGRAMS = cups-calibrate
+sbin_PROGRAMS = cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
+sbin_SCRIPTS = cups-genppdconfig.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ cups-genppdupdate.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
+cupsexec_backend_PROGRAMS = epson canon
+cupsexec_filter_PROGRAMS = rastertogimpprint.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ commandtoepson commandtocanon
+endif
 
-bin_PROGRAMS = @CUPS_BIN@
-cupsexec_backend_PROGRAMS = @CUPS_BACKEND_BIN@
-cupsexec_filter_PROGRAMS = @CUPS_FILTER_BIN@
-noinst_PROGRAMS = @CUPS_NOINST_BIN@
-
-EXTRA_PROGRAMS = cups-calibrate commandtoepson epson genppd rastertoprinter commandtocanon canon
-
-CUPS_LIBS = @CUPS_LIBS@
+if BUILD_GENPPD_STATIC
+STATIC_LDOPTS=-static -export-dynamic
+endif
 
 cups_calibrate_SOURCES = cups-calibrate.c
-cups_calibrate_LDADD = $(LIBPRINTUT) -lm
+cups_calibrate_LDADD = -lm
 
 commandtoepson_SOURCES = commandtoepson.c
-commandtoepson_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+commandtoepson_LDADD = $(CUPS_LIBS)
 
 canon_SOURCES = canon.c
-canon_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+canon_LDADD = $(CUPS_LIBS)
 
 epson_SOURCES = epson.c
-epson_LDADD = $(LIBPRINTUT) $(CUPS_LIBS)
+epson_LDADD = $(CUPS_LIBS)
 
-genppd_SOURCES = genppd.c
-genppd_LDADD = $(LIBPRINTUT) $(CUPS_LIBS) $(LIBGIMPPRINT_LIBS)
-genppd_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+cups_genppd_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_SOURCES = genppd.c
+cups_genppd_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_LDADD = $(CUPS_LIBS) $(GENPPD_LIBS) $(GIMPPRINT_LIBS)
+cups_genppd_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_LDFLAGS = $(STATIC_LDOPTS)
 
-rastertoprinter_SOURCES = rastertoprinter.c
-rastertoprinter_LDADD = $(LIBPRINTUT) $(CUPS_LIBS) $(LIBGIMPPRINT_LIBS)
-rastertoprinter_DEPENDENCIES = $(LIBGIMPPRINT_LIBS)
+rastertogimpprint_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_SOURCES = rastertoprinter.c
+rastertogimpprint_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_LDADD = $(CUPS_LIBS) $(GIMPPRINT_LIBS)
+rastertogimpprint_@GIMPPRINT_MAJOR_VERSION@_@GIMPPRINT_MINOR_VERSION@_LDFLAGS = $(STATIC_LDOPTS)
 
+cups-genppdconfig.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@: $(top_builddir)/config.status cups-genppdconfig.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/cups-genppdconfig
+cups-genppdupdate.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@: $(top_builddir)/config.status cups-genppdupdate.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/cups-genppdupdate
 
 ## Data
 
-CUPS_PKG = calibrate.ppm
-CUPS_CONF = command.types
-
-pkgdata_DATA = @CUPS_PKG@
-pkgsysconf_DATA = @CUPS_CONF@
-
 if BUILD_CUPS
-INSTALL_DATA_LOCAL_DEPS = ppd
+CUPS_PKG = calibrate.ppm
+endif
+if BUILD_CUPS
+CUPS_CONF = command.types
 endif
 
-if BUILD_TRANSLATED_PPDS
+pkgdata_DATA = $(CUPS_PKG)
+pkgsysconf_DATA = $(CUPS_CONF)
+
+if BUILD_CUPS_PPDS
+INSTALL_DATA_LOCAL_DEPS = ppd-stamp
+endif
+
+if BUILD_TRANSLATED_CUPS_PPDS
 PPD_NLS = $(PPD_NLS_1)
 LINGUAS = $(ALL_LINGUAS)
 endif
@@ -102,6 +113,9 @@ endif
 if USE_NLS
 PPD_NLS_1 = ppd-nls
 endif
+
+
+## Rules
 
 install-data-local: $(INSTALL_DATA_LOCAL_DEPS)
 	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
@@ -119,34 +133,12 @@ install-data-local: $(INSTALL_DATA_LOCAL_DEPS)
 	fi
 
 uninstall-local: $(INSTALL_DATA_LOCAL_DEPS)
-	if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
-	  for language in C $(LINGUAS) ; do \
-	    echo "Removing $$language locale PPD files..." ; \
-	    for ppdfile in ppd/$$language/* ; do \
-	      if test -f "$(DESTDIR)$(cups_modeldir)/$$language/`basename $$ppdfile`" ; then \
-	        $(RM) -f $(DESTDIR)$(cups_modeldir)/$$language/`basename $$ppdfile` ; \
-	      fi ; \
-	    done; \
-	  done \
+# Remove PPDs installed in new PPD location
+	if test -z "DONT_UNINSTALL_PPDS" ; then \
+	  if test -n "$(INSTALL_DATA_LOCAL_DEPS)" ; then \
+	    $(RM) -fr $(DESTDIR)$(cups_modeldir)/* ; \
+	  fi \
 	fi
-
-refresh-data-local: ppd
-	cd ppd ; \
-	files=`find . -name '*.ppd*' -exec basename '{}' \; | sort | uniq` ; \
-	for language in . de en es fr it ; do \
-	  for f in $$files ; do \
-	    ff="$(DESTDIR)/$(cups_modeldir)/$$language/$$f" ; \
-	    if [ -f "$$ff" ] ; then \
-	      echo "Removing $$ff" ; \
-	      $(RM) "$$ff" ; \
-	    fi ; \
-	    if [ -f "$$ff" ] ; then \
-	      echo "Unable to remove $$ff" 1>&2 ; \
-	      exit 1 ; \
-	    fi ; \
-	  done; \
-	done
-
 
 install-data-hook:
 # Remove unused directories in install tree
@@ -163,16 +155,13 @@ install-data-hook:
 	-rmdir `dirname $(DESTDIR)$(pkglibdir)`
 	-rmdir `dirname $(DESTDIR)$(pkgsysconfdir)`
 
-
-## Rules
-
 .PHONY: ppd ppd-stamp-pre ppd-stamp-nonls ppd-stamp-nls ppd-stamp-phony
 
 all-local: $(INSTALL_DATA_LOCAL_DEPS)
 
 ppd: ppd-stamp
 
-ppd-stamp: genppd
+ppd-stamp: cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ $(top_srcdir)/src/main/printers.xml $(top_srcdir)/src/main/papers.xml
 	$(MAKE) ppd-stamp-phony
 	touch ppd-stamp
 
@@ -182,28 +171,24 @@ ppd-stamp-pre:
 	-$(RM) -r ppd
 	-mkdir ppd
 
-ppd-nonls: genppd
+ppd-nonls: cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
 	for language in C ; do \
 	  mkdir ppd/$$language ; \
 	  echo "$$language:" ; \
-	 ./genppd --prefix=ppd/$$language ; \
+	 ./cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ -p ppd/$$language ; \
 	done
 
-ppd-nls: genppd
+ppd-nls: cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
 	wdir=`pwd` ; \
 	cd $(top_builddir)/po ; \
 	$(MAKE) ; \
 	$(MAKE) DESTDIR= prefix=$${wdir}/catalog datadir=$${wdir}/catalog/share install
-	for language in $(LINGUAS) ; do \
+	for language in `./cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ -L -c \`pwd\`/catalog/share/locale` ; do \
 	  mkdir ppd/$$language ; \
 	  echo "$$language:" ; \
-	  LANGUAGE=$$language ./genppd --prefix=ppd/$$language --catalog=`pwd`/catalog/share/locale ; \
+	  LANGUAGE=$$language ./cups-genppd.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ -p ppd/$$language -c `pwd`/catalog/share/locale ; \
 	done
 	$(RM) -r catalog
-
-$(LIBGIMPPRINT_LIBS):
-	cd ../main ; \
-	$(MAKE)
 
 dist-hook:
 	for dir in commands ; do \
@@ -223,7 +208,8 @@ clean-local:
 
 ## Clean
 
-CLEANFILES = $(EXTRA_PROGRAMS) ppd-stamp
+CLEANFILES = ppd-stamp
+DISTCLEANFILES = cups-genppdconfig.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@ cups-genppdupdate.@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@
 MAINTAINERCLEANFILES = Makefile.in
 
 EXTRA_DIST = \

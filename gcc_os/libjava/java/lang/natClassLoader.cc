@@ -41,14 +41,6 @@ details.  */
 #include <java/io/Serializable.h>
 #include <java/lang/Cloneable.h>
 
-// FIXME: remove these.
-#define CloneableClass java::lang::Cloneable::class$
-#define ObjectClass java::lang::Object::class$
-#define ClassClass java::lang::Class::class$
-#define VMClassLoaderClass gnu::gcj::runtime::VMClassLoader::class$
-#define ClassLoaderClass java::lang::ClassLoader::class$
-#define SerializableClass java::io::Serializable::class$
-
 /////////// java.lang.ClassLoader native methods ////////////
 
 java::lang::Class *
@@ -60,20 +52,22 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 {
 #ifdef INTERPRETER
   jclass klass;
-  klass = (jclass) JvAllocObject (&ClassClass, sizeof (_Jv_InterpClass));
+  klass = (jclass) JvAllocObject (&java::lang::Class::class$,
+				  sizeof (_Jv_InterpClass));
   _Jv_InitNewClassFields (klass);
 
-  // synchronize on the class, so that it is not
-  // attempted initialized until we're done loading.
-  _Jv_MonitorEnter (klass);
+  // Synchronize on the class, so that it is not attempted initialized
+  // until we're done loading.
+  JvSynchronize sync (klass);
 
-  // record which is the defining loader
-  klass->loader = this;
+  // Record the defining loader.  For the system class loader, we
+  // record NULL.
+  if (this != java::lang::ClassLoader::getSystemClassLoader())
+    klass->loader = this;
 
-  // register that we are the initiating loader...
   if (name != 0)
     {
-      _Jv_Utf8Const *   name2 = _Jv_makeUtf8Const (name);
+      _Jv_Utf8Const *name2 = _Jv_makeUtf8Const (name);
 
       if (! _Jv_VerifyClassName (name2))
 	throw new java::lang::ClassFormatError
@@ -93,16 +87,8 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 
       _Jv_UnregisterClass (klass);
 
-      _Jv_MonitorExit (klass);
-
-      // FIXME: Here we may want to test that EX does
-      // indeed represent a valid exception.  That is,
-      // anything but ClassNotFoundException, 
-      // or some kind of Error.
-
-      // FIXME: Rewrite this as a cleanup instead of
-      // as a catch handler.
-
+      // If EX is not a ClassNotFoundException, that's ok, because we
+      // account for the possibility in defineClass().
       throw ex;
     }
     
@@ -110,10 +96,6 @@ java::lang::ClassLoader::defineClass0 (jstring name,
 
   // if everything proceeded sucessfully, we're loaded.
   JvAssert (klass->state == JV_STATE_LOADED);
-
-  // if an exception is generated, this is initially missed.
-  // however, we come back here in handleException0 below...
-  _Jv_MonitorExit (klass);
 
   return klass;
 
@@ -178,62 +160,22 @@ java::lang::ClassLoader::markClassErrorState0 (java::lang::Class *klass)
 }
 
 jclass
+java::lang::VMClassLoader::defineClass (java::lang::ClassLoader *cl, 
+					jstring name,
+					jbyteArray data, 
+					jint offset,
+					jint length)
+{
+  return cl->defineClass (name, data, offset, length);
+}
+
+jclass
 java::lang::VMClassLoader::getPrimitiveClass (jchar type)
 {
   char sig[2];
   sig[0] = (char) type;
   sig[1] = '\0';
   return _Jv_FindClassFromSignature (sig, NULL);
-}
-
-// This is the findClass() implementation for the System classloader. It is 
-// the only native method in VMClassLoader, so we define it here.
-jclass
-gnu::gcj::runtime::VMClassLoader::findClass (jstring name)
-{
-  _Jv_Utf8Const *name_u = _Jv_makeUtf8Const (name);
-  jclass klass = _Jv_FindClassInCache (name_u, 0);
-
-  if (! klass)
-    {
-      // Turn `gnu.pkg.quux' into `lib-gnu-pkg-quux'.  Then search for
-      // a module named (eg, on Linux) `lib-gnu-pkg-quux.so', followed
-      // by `lib-gnu-pkg.so' and `lib-gnu.so'.  If loading one of
-      // these causes the class to appear in the cache, then use it.
-      java::lang::StringBuffer *sb = new java::lang::StringBuffer (JvNewStringLatin1("lib-"));
-      jstring so_base_name = (sb->append (name)->toString ())->replace ('.', '-');
-
-      // Compare against `3' because that is the length of "lib".
-      while (! klass && so_base_name && so_base_name->length() > 3)
-	{
-	  using namespace ::java::lang;
-	  Runtime *rt = Runtime::getRuntime();
-	  jboolean loaded = rt->loadLibraryInternal (so_base_name);
-
-	  jint nd = so_base_name->lastIndexOf ('-');
-	  if (nd == -1)
-	    so_base_name = NULL;
-	  else
-	    so_base_name = so_base_name->substring (0, nd);
-
-	  if (loaded)
-	    klass = _Jv_FindClassInCache (name_u, 0);
-	}
-    }
-
-  // Now try loading using the interpreter.
-  if (! klass)
-    {
-      klass = java::net::URLClassLoader::findClass (name);
-    }
-
-  return klass;
-}
-
-jclass
-java::lang::ClassLoader::findLoadedClass (jstring name)
-{
-  return _Jv_FindClassInCache (_Jv_makeUtf8Const (name), this);
 }
 
 /** This function does class-preparation for compiled classes.  
@@ -267,7 +209,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  if (! found)
 	    {
 	      jstring str = _Jv_NewStringUTF (name->data);
-	      throw new java::lang::ClassNotFoundException (str);
+	      throw new java::lang::NoClassDefFoundError (str);
 	    }
 
 	  pool->data[index].clazz = found;
@@ -276,6 +218,7 @@ _Jv_PrepareCompiledClass (jclass klass)
       else if (pool->tags[index] == JV_CONSTANT_String)
 	{
 	  jstring str;
+
 	  str = _Jv_NewStringUtf8Const (pool->data[index].utf8);
 	  pool->data[index].o = str;
 	  pool->tags[index] |= JV_CONSTANT_ResolvedFlag;
@@ -295,7 +238,7 @@ _Jv_PrepareCompiledClass (jclass klass)
 	  int mod = f->getModifiers ();
 	  // If we have a static String field with a non-null initial
 	  // value, we know it points to a Utf8Const.
-	  if (f->getClass () == &StringClass
+	  if (f->getClass () == &java::lang::String::class$
 	      && java::lang::reflect::Modifier::isStatic (mod))
 	    {
 	      jstring *strp = (jstring *) f->u.addr;
@@ -315,6 +258,8 @@ _Jv_PrepareCompiledClass (jclass klass)
     _Jv_LinkOffsetTable(klass);
 
   klass->notifyAll ();
+
+  _Jv_PushClass (klass);
 }
 
 
@@ -337,10 +282,11 @@ _Jv_PrepareCompiledClass (jclass klass)
 // Hash function for Utf8Consts.
 #define HASH_UTF(Utf) (((Utf)->hash) % HASH_LEN)
 
-struct _Jv_LoaderInfo {
-    _Jv_LoaderInfo          *next;
-    java::lang::Class       *klass;
-    java::lang::ClassLoader *loader;
+struct _Jv_LoaderInfo
+{
+  _Jv_LoaderInfo          *next;
+  java::lang::Class       *klass;
+  java::lang::ClassLoader *loader;
 };
 
 static _Jv_LoaderInfo *initiated_classes[HASH_LEN];
@@ -353,8 +299,11 @@ static jclass loaded_classes[HASH_LEN];
 jclass
 _Jv_FindClassInCache (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 {
-  _Jv_MonitorEnter (&ClassClass);
+  JvSynchronize sync (&java::lang::Class::class$);
   jint hash = HASH_UTF (name);
+
+  if (loader && loader == java::lang::ClassLoader::getSystemClassLoader())
+    loader = NULL;
 
   // first, if LOADER is a defining loader, then it is also initiating
   jclass klass;
@@ -381,15 +330,13 @@ _Jv_FindClassInCache (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	}
     }
 
-  _Jv_MonitorExit (&ClassClass);
-
   return klass;
 }
 
 void
 _Jv_UnregisterClass (jclass the_class)
 {
-  _Jv_MonitorEnter (&ClassClass);
+  JvSynchronize sync (&java::lang::Class::class$);
   jint hash = HASH_UTF(the_class->name);
 
   jclass *klass = &(loaded_classes[hash]);
@@ -407,29 +354,32 @@ _Jv_UnregisterClass (jclass the_class)
     {
       while (*info && (*info)->klass == the_class)
 	{
+	  _Jv_LoaderInfo *old = *info;
 	  *info = (*info)->next;
+	  _Jv_Free (old);
 	}
 
       if (*info == NULL)
 	break;
     }
-
-  _Jv_MonitorExit (&ClassClass);
 }
 
 void
 _Jv_RegisterInitiatingLoader (jclass klass, java::lang::ClassLoader *loader)
 {
-  // non-gc alloc!
-  _Jv_LoaderInfo *info = (_Jv_LoaderInfo *) _Jv_Malloc (sizeof(_Jv_LoaderInfo));
+  if (loader && loader == java::lang::ClassLoader::getSystemClassLoader())
+    loader = NULL;
+
+  // This information can't be visible to the GC.
+  _Jv_LoaderInfo *info
+    = (_Jv_LoaderInfo *) _Jv_Malloc (sizeof(_Jv_LoaderInfo));
   jint hash = HASH_UTF(klass->name);
 
-  _Jv_MonitorEnter (&ClassClass);
+  JvSynchronize sync (&java::lang::Class::class$);
   info->loader = loader;
   info->klass  = klass;
   info->next   = initiated_classes[hash];
   initiated_classes[hash] = info;
-  _Jv_MonitorExit (&ClassClass);
 }
 
 // This function is called many times during startup, before main() is
@@ -515,6 +465,9 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
     {
       jstring sname = _Jv_NewStringUTF (name->data);
 
+      java::lang::ClassLoader *sys
+	= java::lang::ClassLoader::getSystemClassLoader ();
+
       if (loader)
 	{
 	  // Load using a user-defined loader, jvmspec 5.3.2
@@ -523,14 +476,14 @@ _Jv_FindClass (_Jv_Utf8Const *name, java::lang::ClassLoader *loader)
 	  // If "loader" delegated the loadClass operation to another
 	  // loader, explicitly register that it is also an initiating
 	  // loader of the given class.
-	  if (klass && (klass->getClassLoader () != loader))
+	  java::lang::ClassLoader *delegate = (loader == sys
+					       ? NULL
+					       : loader);
+	  if (klass && klass->getClassLoaderInternal () != delegate)
 	    _Jv_RegisterInitiatingLoader (klass, loader);
 	}
       else 
 	{
-	  java::lang::ClassLoader *sys
-	    = java::lang::ClassLoader::getSystemClassLoader ();
-
 	  // Load using the bootstrap loader jvmspec 5.3.1.
 	  klass = sys->loadClass (sname, false); 
 
@@ -576,13 +529,15 @@ _Jv_InitNewClassFields (jclass ret)
   ret->ancestors = NULL;
   ret->idt = NULL;
   ret->arrayclass = NULL;
+  ret->protectionDomain = NULL;
+  ret->chain = NULL;
 }
 
 jclass
 _Jv_NewClass (_Jv_Utf8Const *name, jclass superclass,
 	      java::lang::ClassLoader *loader)
 {
-  jclass ret = (jclass) JvAllocObject (&ClassClass);
+  jclass ret = (jclass) JvAllocObject (&java::lang::Class::class$);
   _Jv_InitNewClassFields (ret);
   ret->name = name;
   ret->superclass = superclass;
@@ -646,13 +601,14 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   }
 
   // Create new array class.
-  jclass array_class = _Jv_NewClass (array_name, &ObjectClass,
+  jclass array_class = _Jv_NewClass (array_name, &java::lang::Object::class$,
   				     element->loader);
 
   // Note that `vtable_method_count' doesn't include the initial
   // gc_descr slot.
-  JvAssert (ObjectClass.vtable_method_count == NUM_OBJECT_METHODS);
-  int dm_count = ObjectClass.vtable_method_count;
+  JvAssert (java::lang::Object::class$.vtable_method_count
+	    == NUM_OBJECT_METHODS);
+  int dm_count = java::lang::Object::class$.vtable_method_count;
 
   // Create a new vtable by copying Object's vtable.
   _Jv_VTable *vtable;
@@ -661,18 +617,23 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
   else
     vtable = _Jv_VTable::new_vtable (dm_count);
   vtable->clas = array_class;
-  vtable->gc_descr = ObjectClass.vtable->gc_descr;
+  vtable->gc_descr = java::lang::Object::class$.vtable->gc_descr;
   for (int i = 0; i < dm_count; ++i)
-    vtable->set_method (i, ObjectClass.vtable->get_method (i));
+    vtable->set_method (i, java::lang::Object::class$.vtable->get_method (i));
 
   array_class->vtable = vtable;
-  array_class->vtable_method_count = ObjectClass.vtable_method_count;
+  array_class->vtable_method_count
+    = java::lang::Object::class$.vtable_method_count;
 
   // Stash the pointer to the element type.
   array_class->methods = (_Jv_Method *) element;
 
   // Register our interfaces.
-  static jclass interfaces[] = { &CloneableClass, &SerializableClass };
+  static jclass interfaces[] =
+    {
+      &java::lang::Cloneable::class$,
+      &java::io::Serializable::class$
+    };
   array_class->interfaces = interfaces;
   array_class->interface_count = sizeof interfaces / sizeof interfaces[0];
 
@@ -714,4 +675,32 @@ _Jv_NewArrayClass (jclass element, java::lang::ClassLoader *loader,
     _Jv_RegisterInitiatingLoader (array_class, loader);
 
   element->arrayclass = array_class;
+}
+
+static jclass stack_head;
+
+// These two functions form a stack of classes.   When a class is loaded
+// it is pushed onto the stack by the class loader; this is so that
+// StackTrace can quickly determine which classes have been loaded.
+
+jclass
+_Jv_PopClass (void)
+{
+  JvSynchronize sync (&java::lang::Class::class$);
+  if (stack_head)
+    {
+      jclass tmp = stack_head;
+      stack_head = tmp->chain;
+      return tmp;
+    }
+  return NULL;
+}
+
+void
+_Jv_PushClass (jclass k)
+{
+  JvSynchronize sync (&java::lang::Class::class$);
+  jclass tmp = stack_head;
+  stack_head = k;
+  k->chain = tmp;
 }

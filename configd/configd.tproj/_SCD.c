@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,7 +32,11 @@
  */
 
 
+#include <unistd.h>
+
 #include "configd.h"
+#include "configd_server.h"
+#include "session.h"
 
 
 __private_extern__ CFMutableDictionaryRef	sessionData		= NULL;
@@ -133,7 +137,7 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	i = CFArrayGetFirstIndexOfValue(newWatchers,
 					CFRangeMake(0, CFArrayGetCount(newWatchers)),
 					sessionNum);
-	if (i == -1) {
+	if (i == kCFNotFound) {
 		/* if this is the first instance of this session watching this key */
 		CFArrayAppendValue(newWatchers, sessionNum);
 		refCnt = 1;
@@ -164,7 +168,9 @@ _addWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	CFDictionarySetValue(storeData, watchedKey, newDict);
 	CFRelease(newDict);
 
+#ifdef	DEBUG
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _addWatcher: %@, %@"), sessionNum, watchedKey);
+#endif	/* DEBUG */
 
 	return;
 }
@@ -190,7 +196,9 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	dict = CFDictionaryGetValue(storeData, watchedKey);
 	if ((dict == NULL) || (CFDictionaryContainsKey(dict, kSCDWatchers) == FALSE)) {
 		/* key doesn't exist (isn't this really fatal?) */
+#ifdef	DEBUG
 		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@, key not watched"), sessionNum, watchedKey);
+#endif	/* DEBUG */
 		return;
 	}
 	newDict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
@@ -209,8 +217,10 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	i = CFArrayGetFirstIndexOfValue(newWatchers,
 					CFRangeMake(0, CFArrayGetCount(newWatchers)),
 					sessionNum);
-	if (i == -1) {
+	if (i == kCFNotFound) {
+#ifdef	DEBUG
 		SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@, session not watching"), sessionNum, watchedKey);
+#endif	/* DEBUG */
 		CFRelease(newDict);
 		CFRelease(newWatchers);
 		CFRelease(newWatcherRefs);
@@ -251,7 +261,159 @@ _removeWatcher(CFNumberRef sessionNum, CFStringRef watchedKey)
 	}
 	CFRelease(newDict);
 
+#ifdef	DEBUG
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("  _removeWatcher: %@, %@"), sessionNum, watchedKey);
+#endif	/* DEBUG */
+
+	return;
+}
+
+
+__private_extern__
+void
+pushNotifications()
+{
+	const void			**sessionsToNotify;
+	CFIndex				notifyCnt;
+	int				server;
+	serverSessionRef		theSession;
+	SCDynamicStorePrivateRef	storePrivate;
+
+	if (needsNotification == NULL)
+		return;		/* if no sessions need to be kicked */
+
+	notifyCnt = CFSetGetCount(needsNotification);
+	sessionsToNotify = malloc(notifyCnt * sizeof(CFNumberRef));
+	CFSetGetValues(needsNotification, sessionsToNotify);
+	while (--notifyCnt >= 0) {
+		(void) CFNumberGetValue(sessionsToNotify[notifyCnt],
+					kCFNumberIntType,
+					&server);
+		theSession = getSession(server);
+		storePrivate = (SCDynamicStorePrivateRef)theSession->store;
+
+		/*
+		 * deliver notifications to client sessions
+		 */
+		if ((storePrivate->notifyStatus == Using_NotifierInformViaMachPort) &&
+		    (storePrivate->notifyPort != MACH_PORT_NULL)) {
+			mach_msg_empty_send_t	msg;
+			mach_msg_option_t	options;
+			kern_return_t		status;
+			/*
+			 * Post notification as mach message
+			 */
+#ifdef	DEBUG
+			if (_configd_verbose) {
+				SCLog(TRUE, LOG_DEBUG, CFSTR("sending mach message notification."));
+				SCLog(TRUE, LOG_DEBUG, CFSTR("  port  = %d"), storePrivate->notifyPort);
+				SCLog(TRUE, LOG_DEBUG, CFSTR("  msgid = %d"), storePrivate->notifyPortIdentifier);
+			}
+#endif	/* DEBUG */
+			msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
+			msg.header.msgh_size = sizeof(msg);
+			msg.header.msgh_remote_port = storePrivate->notifyPort;
+			msg.header.msgh_local_port = MACH_PORT_NULL;
+			msg.header.msgh_id = storePrivate->notifyPortIdentifier;
+			options = MACH_SEND_TIMEOUT;
+			status = mach_msg(&msg.header,			/* msg */
+					  MACH_SEND_MSG|options,	/* options */
+					  msg.header.msgh_size,		/* send_size */
+					  0,				/* rcv_size */
+					  MACH_PORT_NULL,		/* rcv_name */
+					  0,				/* timeout */
+					  MACH_PORT_NULL);		/* notify */
+			if (status == MACH_SEND_TIMED_OUT) {
+				mach_msg_destroy(&msg.header);
+			}
+		}
+
+		if ((storePrivate->notifyStatus == Using_NotifierInformViaFD) &&
+		    (storePrivate->notifyFile >= 0)) {
+			ssize_t		written;
+
+#ifdef	DEBUG
+			if (_configd_verbose) {
+				SCLog(TRUE, LOG_DEBUG, CFSTR("sending (UNIX domain) socket notification"));
+				SCLog(TRUE, LOG_DEBUG, CFSTR("  fd    = %d"), storePrivate->notifyFile);
+				SCLog(TRUE, LOG_DEBUG, CFSTR("  msgid = %d"), storePrivate->notifyFileIdentifier);
+			}
+#endif	/* DEBUG */
+
+			written = write(storePrivate->notifyFile,
+					&storePrivate->notifyFileIdentifier,
+					sizeof(storePrivate->notifyFileIdentifier));
+			if (written == -1) {
+				if (errno == EWOULDBLOCK) {
+#ifdef	DEBUG
+					SCLog(_configd_verbose, LOG_DEBUG,
+					      CFSTR("sorry, only one outstanding notification per session."));
+#endif	/* DEBUG */
+				} else {
+#ifdef	DEBUG
+					SCLog(_configd_verbose, LOG_DEBUG,
+					      CFSTR("could not send notification, write() failed: %s"),
+					      strerror(errno));
+#endif	/* DEBUG */
+					storePrivate->notifyFile = -1;
+				}
+			} else if (written != sizeof(storePrivate->notifyFileIdentifier)) {
+#ifdef	DEBUG
+				SCLog(_configd_verbose, LOG_DEBUG,
+				      CFSTR("could not send notification, incomplete write()"));
+#endif	/* DEBUG */
+				storePrivate->notifyFile = -1;
+			}
+		}
+
+		if ((storePrivate->notifyStatus == Using_NotifierInformViaSignal) &&
+		    (storePrivate->notifySignal > 0)) {
+			kern_return_t	status;
+			pid_t		pid;
+			/*
+			 * Post notification as signal
+			 */
+			status = pid_for_task(storePrivate->notifySignalTask, &pid);
+			if (status == KERN_SUCCESS) {
+#ifdef	DEBUG
+				if (_configd_verbose) {
+					SCLog(TRUE, LOG_DEBUG, CFSTR("sending signal notification"));
+					SCLog(TRUE, LOG_DEBUG, CFSTR("  pid    = %d"), pid);
+					SCLog(TRUE, LOG_DEBUG, CFSTR("  signal = %d"), storePrivate->notifySignal);
+				}
+#endif	/* DEBUG */
+				if (kill(pid, storePrivate->notifySignal) != 0) {
+#ifdef	DEBUG
+					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal: %s"), strerror(errno));
+#endif	/* DEBUG */
+					status = KERN_FAILURE;
+				}
+			} else {
+				mach_port_type_t	pt;
+
+				if ((mach_port_type(mach_task_self(), storePrivate->notifySignalTask, &pt) == KERN_SUCCESS) &&
+				    (pt & MACH_PORT_TYPE_DEAD_NAME)) {
+					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal, process died"));
+				} else {
+					SCLog(_configd_verbose, LOG_DEBUG, CFSTR("could not send signal: %s"), mach_error_string(status));
+				}
+			}
+
+			if (status != KERN_SUCCESS) {
+				/* don't bother with any more attempts */
+				(void) mach_port_destroy(mach_task_self(), storePrivate->notifySignalTask);
+				storePrivate->notifySignal     = 0;
+				storePrivate->notifySignalTask = TASK_NULL;
+			}
+	       }
+	}
+	free(sessionsToNotify);
+
+	/*
+	 * this list of notifications have been posted, wait for some more.
+	 */
+	CFRelease(needsNotification);
+	needsNotification = NULL;
 
 	return;
 }

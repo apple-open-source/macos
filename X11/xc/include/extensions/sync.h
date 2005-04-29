@@ -48,7 +48,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/include/extensions/sync.h,v 1.4 2001/12/20 19:40:59 tsi Exp $ */
+/* $XFree86: xc/include/extensions/sync.h,v 1.5 2003/11/17 22:20:03 dawes Exp $ */
 
 #ifndef _SYNC_H_
 #define _SYNC_H_
@@ -139,113 +139,81 @@ typedef struct _XSyncValue {
 /* have to put these prototypes before the corresponding macro definitions */
 
 extern void XSyncIntToValue(
-#if NeedFunctionPrototypes
     XSyncValue* /*pv*/,
     int /*i*/
-#endif
 );
 
 extern void XSyncIntsToValue(
-#if NeedFunctionPrototypes
     XSyncValue* /*pv*/,
     unsigned int /*l*/,
     int /*h*/
-#endif
 );
 
 extern Bool XSyncValueGreaterThan(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/,
     XSyncValue /*b*/
-#endif
 );
 
 extern Bool XSyncValueLessThan(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/,
     XSyncValue /*b*/
-#endif
 );
 
 extern Bool XSyncValueGreaterOrEqual(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/,
     XSyncValue /*b*/
-#endif
 );
 
 extern Bool XSyncValueLessOrEqual(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/,
     XSyncValue /*b*/
-#endif
 );
 
 extern Bool XSyncValueEqual(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/,
     XSyncValue /*b*/
-#endif
 );
 
 extern Bool XSyncValueIsNegative(
-#if NeedFunctionPrototypes
     XSyncValue /*v*/
-#endif
 );
 
 extern Bool XSyncValueIsZero(
-#if NeedFunctionPrototypes
     XSyncValue /*a*/
-#endif
 );
 
 extern Bool XSyncValueIsPositive(
-#if NeedFunctionPrototypes
     XSyncValue /*v*/
-#endif
 );
 
 extern unsigned int XSyncValueLow32(
-#if NeedFunctionPrototypes
     XSyncValue /*v*/
-#endif
 );
 
 extern int XSyncValueHigh32(
-#if NeedFunctionPrototypes
     XSyncValue /*v*/
-#endif
 );
 
 extern void XSyncValueAdd(
-#if NeedFunctionPrototypes
     XSyncValue* /*presult*/,
     XSyncValue /*a*/,
     XSyncValue /*b*/,
     int* /*poverflow*/
-#endif
 );
 
 extern void XSyncValueSubtract(
-#if NeedFunctionPrototypes
     XSyncValue* /*presult*/,
     XSyncValue /*a*/,
     XSyncValue /*b*/,
     int* /*poverflow*/
-#endif
 );
 
 extern void XSyncMaxValue(
-#if NeedFunctionPrototypes
     XSyncValue* /*pv*/
-#endif
 );
 
 extern void XSyncMinValue(
-#if NeedFunctionPrototypes
     XSyncValue* /*pv*/
-#endif
 );
 
 _XFUNCPROTOEND
@@ -404,126 +372,94 @@ typedef struct {
 _XFUNCPROTOBEGIN
 
 extern Status XSyncQueryExtension(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     int* /*event_base_return*/,
     int* /*error_base_return*/
-#endif
 );
 
 extern Status XSyncInitialize(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     int* /*major_version_return*/,
     int* /*minor_version_return*/
-#endif
 );
 
 extern XSyncSystemCounter *XSyncListSystemCounters(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     int* /*n_counters_return*/
-#endif
 );
 
 extern void XSyncFreeSystemCounterList(
-#if NeedFunctionPrototypes
     XSyncSystemCounter* /*list*/
-#endif
 );
 
 extern XSyncCounter XSyncCreateCounter(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncValue /*initial_value*/
-#endif
 );
 
 extern Status XSyncSetCounter(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncCounter /*counter*/,
     XSyncValue /*value*/
-#endif
 );
 
 extern Status XSyncChangeCounter(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncCounter /*counter*/,
     XSyncValue /*value*/
-#endif
 );
 
 extern Status XSyncDestroyCounter(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncCounter /*counter*/
-#endif
 );
 
 extern Status XSyncQueryCounter(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncCounter /*counter*/,
     XSyncValue* /*value_return*/
-#endif
 );
 
 extern Status XSyncAwait(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncWaitCondition* /*wait_list*/,
     int /*n_conditions*/
-#endif
 );
 
 extern XSyncAlarm XSyncCreateAlarm(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     unsigned long /*values_mask*/,
     XSyncAlarmAttributes* /*values*/
-#endif
 );
 
 extern Status XSyncDestroyAlarm(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncAlarm /*alarm*/
-#endif
 );
 
 extern Status XSyncQueryAlarm(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncAlarm /*alarm*/,
     XSyncAlarmAttributes* /*values_return*/
-#endif
 );
 
 extern Status XSyncChangeAlarm(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XSyncAlarm /*alarm*/,
     unsigned long /*values_mask*/,
     XSyncAlarmAttributes* /*values*/
-#endif
 );
 
 extern Status XSyncSetPriority(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XID /*client_resource_id*/,
     int /*priority*/
-#endif
 );
 
 extern Status XSyncGetPriority(
-#if NeedFunctionPrototypes
     Display* /*dpy*/,
     XID /*client_resource_id*/,
     int* /*return_priority*/
-#endif
 );
 
 #endif /* _SYNC_SERVER */

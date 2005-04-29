@@ -52,7 +52,7 @@
 	<key>Version</key>\
 	<string>1.1</string>\
 	<key>AppleTalk</key>\
-	<string>Active</string>\
+	<string>Inactive</string>\
 	<key>Active Directory</key>\
 	<string>Inactive</string>\
 </dict>"
@@ -77,6 +77,10 @@
 
 #define	kActiveValue		"Active"
 #define kInactiveValue		"Inactive"
+
+#define kTooManyReferencesWarningCount				"Too Many References Warning Count"
+#define kDelayFailedLocalAuthReturnsDeltaInSeconds  "Delay Failed Local Auth Returns Delta In Seconds"
+#define kMaxHandlerThreadCount						"Maximum Number of Handler Threads"
 
 class CPluginConfig
 {

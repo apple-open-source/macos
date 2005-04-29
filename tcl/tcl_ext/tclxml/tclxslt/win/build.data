@@ -1,0 +1,24 @@
+# build.data --
+#
+
+    macro exec_prefix            {${prefix}}
+    macro program_transform_name {s,x,x,}
+    macro bindir                 {${exec_prefix}/bin}
+    macro sbindir                {${exec_prefix}/sbin}
+    macro libexecdir             {${exec_prefix}/libexec}
+    macro datadir                {${prefix}/share}
+    macro sysconfdir             {${prefix}/etc}
+    macro sharedstatedir         {${prefix}/com}
+    macro localstatedir          {${prefix}/var}
+    macro libdir                 {${exec_prefix}/lib}
+    macro includedir             {${prefix}/include}
+    macro infodir                {${prefix}/info}
+    macro mandir                 {${prefix}/man}
+
+    macro PACKAGE {tclxslt}
+    macro VERSION {$::Installer::Version}
+
+    macro OBJEXT {obj}
+
+    macro RELPATH            {..}
+    macro TCLXSLT_LIB_FILE    {tclxslt.dll}

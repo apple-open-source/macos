@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleADBKeyboard</string>
 	<key>CFBundleGetInfoString</key>
-	<string>AppleADBKeyboard, version 2.3.7f3, Copyright 2001-2004 Apple Computer, Inc.</string>
+	<string>AppleADBKeyboard, version 2.3.8f2, Copyright 2001-2004 Apple Computer, Inc.</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.driver.AppleADBKeyboard</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,11 +17,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.3.7</string>
+	<string>2.3.8</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>2.3.7f3</string>
+	<string>2.3.8f2</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleADBKeyboard</key>

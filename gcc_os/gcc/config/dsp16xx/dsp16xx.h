@@ -31,29 +31,29 @@ extern const char *const_seg_name;
 extern const char *rsect_const;
 extern const char *chip_name;
 extern const char *save_chip_name;
-extern struct rtx_def *dsp16xx_compare_op0, *dsp16xx_compare_op1;
-extern struct rtx_def *dsp16xx_addhf3_libcall;
-extern struct rtx_def *dsp16xx_subhf3_libcall;
-extern struct rtx_def *dsp16xx_mulhf3_libcall;
-extern struct rtx_def *dsp16xx_divhf3_libcall;
-extern struct rtx_def *dsp16xx_cmphf3_libcall;
-extern struct rtx_def *dsp16xx_fixhfhi2_libcall;
-extern struct rtx_def *dsp16xx_floathihf2_libcall;
-extern struct rtx_def *dsp16xx_neghf2_libcall;
-extern struct rtx_def *dsp16xx_umulhi3_libcall;
-extern struct rtx_def *dsp16xx_mulhi3_libcall;
-extern struct rtx_def *dsp16xx_udivqi3_libcall;
-extern struct rtx_def *dsp16xx_udivhi3_libcall;
-extern struct rtx_def *dsp16xx_divqi3_libcall;
-extern struct rtx_def *dsp16xx_divhi3_libcall;
-extern struct rtx_def *dsp16xx_modqi3_libcall;
-extern struct rtx_def *dsp16xx_modhi3_libcall;
-extern struct rtx_def *dsp16xx_umodqi3_libcall;
-extern struct rtx_def *dsp16xx_umodhi3_libcall;
+extern GTY(()) rtx dsp16xx_compare_op0;
+extern GTY(()) rtx dsp16xx_compare_op1;
+extern GTY(()) rtx dsp16xx_addhf3_libcall;
+extern GTY(()) rtx dsp16xx_subhf3_libcall;
+extern GTY(()) rtx dsp16xx_mulhf3_libcall;
+extern GTY(()) rtx dsp16xx_divhf3_libcall;
+extern GTY(()) rtx dsp16xx_cmphf3_libcall;
+extern GTY(()) rtx dsp16xx_fixhfhi2_libcall;
+extern GTY(()) rtx dsp16xx_floathihf2_libcall;
+extern GTY(()) rtx dsp16xx_neghf2_libcall;
+extern GTY(()) rtx dsp16xx_mulhi3_libcall;
+extern GTY(()) rtx dsp16xx_udivqi3_libcall;
+extern GTY(()) rtx dsp16xx_udivhi3_libcall;
+extern GTY(()) rtx dsp16xx_divqi3_libcall;
+extern GTY(()) rtx dsp16xx_divhi3_libcall;
+extern GTY(()) rtx dsp16xx_modqi3_libcall;
+extern GTY(()) rtx dsp16xx_modhi3_libcall;
+extern GTY(()) rtx dsp16xx_umodqi3_libcall;
+extern GTY(()) rtx dsp16xx_umodhi3_libcall;
 
-extern struct rtx_def *dsp16xx_ashrhi3_libcall;
-extern struct rtx_def *dsp16xx_ashlhi3_libcall;
-extern struct rtx_def *dsp16xx_lshrhi3_libcall;
+extern GTY(()) rtx dsp16xx_ashrhi3_libcall;
+extern GTY(()) rtx dsp16xx_ashlhi3_libcall;
+extern GTY(()) rtx dsp16xx_lshrhi3_libcall;
 
 /* RUN-TIME TARGET SPECIFICATION */
 #define DSP16XX   1
@@ -71,12 +71,8 @@ extern struct rtx_def *dsp16xx_lshrhi3_libcall;
   (!strcmp (STR, "ifile") ? 1 :                 \
    0)
 
-#ifdef  CC1_SPEC
 #undef  CC1_SPEC
-#endif
 #define CC1_SPEC       "%{!O*:-O}"
-
-#define CPP_SPEC       "%{!O*:-D__OPTIMIZE__}"
 
 /* Define this as a spec to call the AT&T assembler */
 
@@ -138,10 +134,29 @@ extern struct rtx_def *dsp16xx_lshrhi3_libcall;
 }
 
 /* Names to predefine in the preprocessor for this target machine.  */
+#define TARGET_CPU_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1600");		\
+      builtin_define_std ("DSP1600");		\
+    }						\
+  while (0)
+
 #ifdef __MSDOS__
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -DMSDOS"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("MSDOS");		\
+    }						\
+  while (0)
 #else
-#define CPP_PREDEFINES "-Ddsp1600 -DDSP1600 -Ddsp1610 -DDSP1610"
+# define TARGET_OS_CPP_BUILTINS()		\
+  do						\
+    {						\
+      builtin_define_std ("dsp1610");		\
+      builtin_define_std ("DSP1610");		\
+    }						\
+  while (0)
 #endif
 
 /* Run-time compilation parameters selecting different hardware subsets.  */
@@ -294,11 +309,6 @@ extern int target_flags;
 
 /* STORAGE LAYOUT */
 
-/* Define if you don't want extended real, but do want to use the
-   software floating point emulator for REAL_ARITHMETIC and
-   decimal <-> binary conversion.  */
-#define REAL_ARITHMETIC
-
 /* Define this if most significant bit is lowest numbered
    in instructions that operate on numbered bit-fields.
  */
@@ -316,21 +326,11 @@ extern int target_flags;
 /* number of bits in an addressable storage unit */
 #define BITS_PER_UNIT 16
 
-/* Width in bits of a "word", which is the contents of a machine register.
-   Note that this is not necessarily the width of data type `int';
-   if using 16-bit ints on a 68000, this would still be 32.
-   But on a machine with 16-bit registers, this would be 16.  */
-#define BITS_PER_WORD 16
-
 /* Maximum number of bits in a word.  */
 #define MAX_BITS_PER_WORD 16
 
 /* Width of a word, in units (bytes).  */
 #define UNITS_PER_WORD 1
-
-/* Width in bits of a pointer.
-   See also the macro `Pmode' defined below.  */
-#define POINTER_SIZE 16
 
 /* Allocation boundary (in *bits*) for storing pointers in memory.  */
 #define POINTER_BOUNDARY 16
@@ -368,7 +368,6 @@ extern int target_flags;
 
 /* LAYOUT OF SOURCE LANGUAGE DATA TYPES */
 
-#define CHAR_TYPE_SIZE         16
 #define SHORT_TYPE_SIZE        16
 #define INT_TYPE_SIZE          16
 #define LONG_TYPE_SIZE         32
@@ -1218,17 +1217,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 #define FUNCTION_PROFILER(FILE, LABELNO)        \
   internal_error ("profiling not implemented yet")
 
-/* Output assembler code to FILE to initialize this source file's
-   basic block profiling info, if that has not already been done.  */
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)  \
-  internal_error ("profiling not implemented yet")
-
-/* Output assembler code to FILE to increment the entry-count for
-   the BLOCKNO'th basic block in this source file.  */
-#define BLOCK_PROFILER(FILE, BLOCKNO)	        \
-  internal_error ("profiling not implemented yet")
-
-
 /* EXIT_IGNORE_STACK should be nonzero if, when returning from a function,
    the stack pointer does not matter.  The value is tested only in
    functions that have frame pointers.
@@ -1564,8 +1552,7 @@ extern struct dsp16xx_frame_info current_frame_info;
 
 /* Output before constants and strings */
 #define DEFAULT_CONST_SEG_NAME  ".const"
-#define READONLY_SECTION_ASM_OP rsect_const
-#define READONLY_DATA_SECTION   const_section
+#define READONLY_DATA_SECTION_ASM_OP rsect_const
 
 /* Output before writable data.  */
 #define DEFAULT_DATA_SEG_NAME ".data"
@@ -1577,22 +1564,6 @@ extern struct dsp16xx_frame_info current_frame_info;
 /* We will default to using 1610 if the user doesn't
    specify it.  */
 #define DEFAULT_CHIP_NAME "1610"
-
-/* A list of names for sections other than the standard ones, which are
-   'in_text' and 'in_data' (and .bss if BSS_SECTION_ASM_OP is defined).  */
-#define EXTRA_SECTIONS in_const
-
-#define EXTRA_SECTION_FUNCTIONS  \
-extern void const_section PARAMS ((void));                         \
-void                                                               \
-const_section ()                                                   \
-{                                                                  \
-    if (in_section != in_const)                                    \
-    {                                                              \
-        fprintf (asm_out_file, "%s\n", READONLY_SECTION_ASM_OP);   \
-	in_section = in_const;                                     \
-    }                                                              \
-}
 
 /* THE OVERALL FRAMEWORK OF AN ASSEMBLER FILE */
 
@@ -1648,7 +1619,7 @@ const_section ()                                                   \
 	      fprintf (asm_out_file, "%d", c);			              \
 	      /* After an octal-escape, if a digit follows,		      \
 		 terminate one string constant and start another.	      \
-		 The Vax assembler fails to stop reading the escape	      \
+		 The VAX assembler fails to stop reading the escape	      \
 		 after three digits, so this is the only way we		      \
 		 can get it to parse the data properly.  		      \
 	      if (i < thissize - 1 && ISDIGIT (p[i + 1]))		      \
@@ -1704,16 +1675,8 @@ const_section ()                                                   \
 
 /* OUTPUT AND GENERATION OF LABELS */
 
-/* This is how to output the definition of a user-level label named NAME,
-   such as the label on a static function or variable NAME.  */
-#define ASM_OUTPUT_LABEL(FILE,NAME)	\
-  do { assemble_name (FILE, NAME); fputs (":\n", FILE); } while (0)
-
-/* This is how to output a command to make the user-level label named NAME
-   defined for reference from other files.  */
-
-#define ASM_GLOBALIZE_LABEL(FILE,NAME)	\
-  do { fputs (".global ", FILE); assemble_name (FILE, NAME); fputs ("\n", FILE);} while (0)
+/* Globalizing directive for a label.  */
+#define GLOBAL_ASM_OP ".global "
 
 /* A C statement to output to the stdio stream any text necessary
    for declaring the name of an external symbol named name which

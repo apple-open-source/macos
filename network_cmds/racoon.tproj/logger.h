@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __LOGGER_H__
+#define __LOGGER_H__
+
 struct log {
 	int head;
 	int siz;
@@ -44,3 +47,6 @@ extern int log_vprint __P((struct log *, const char *, ...));
 extern int log_vaprint __P((struct log *, const char *, va_list));
 extern int log_close __P((struct log *));
 extern void log_free __P((struct log *));
+
+#endif /* __LOGGER_H__ */
+

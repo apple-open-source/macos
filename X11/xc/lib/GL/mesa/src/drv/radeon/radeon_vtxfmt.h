@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_vtxfmt.h,v 1.3 2002/12/21 17:02:16 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/radeon/radeon_vtxfmt.h,v 1.4 2003/09/28 20:15:31 alanh Exp $ */
 /**************************************************************************
 
 Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
@@ -6,31 +6,31 @@ Copyright 2000, 2001 ATI Technologies Inc., Ontario, Canada, and
 
 All Rights Reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a
-copy of this software and associated documentation files (the "Software"),
-to deal in the Software without restriction, including without limitation
-on the rights to use, copy, modify, merge, publish, distribute, sub
-license, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-The above copyright notice and this permission notice (including the next
-paragraph) shall be included in all copies or substantial portions of the
-Software.
+The above copyright notice and this permission notice (including the
+next paragraph) shall be included in all copies or substantial
+portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL
-ATI, TUNGSTEN GRAPHICS AND/OR THEIR SUPPLIERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
-OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT OWNER(S) AND/OR ITS SUPPLIERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 **************************************************************************/
 
 /*
  * Authors:
  *   Keith Whitwell <keith@tungstengraphics.com>
- *
  */
 
 #ifndef __RADEON_VTXFMT_H__
@@ -39,10 +39,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifdef GLX_DIRECT_RENDERING
 
 #include "radeon_context.h"
-
-
-
-extern struct radeon_vb vb;
 
 
 extern void radeonVtxfmtUpdate( GLcontext *ctx );
@@ -77,13 +73,13 @@ do {						\
 
 /* Useful for figuring out the offsets:
  */
-#define FIXUP2( CODE, OFFSET, CHECKVAL, NEWVAL )				\
-do {										\
-   while (*(int *)(CODE+OFFSET) != CHECKVAL) OFFSET++;				\
-   /* fprintf(stderr, "%s/%d CVAL %x OFFSET %d VAL %x\n", __FUNCTION__, */	\
-/* 	   __LINE__, CHECKVAL, OFFSET, (int)(NEWVAL)); */			\
-   *(int *)(CODE+OFFSET) = (int)(NEWVAL);					\
-   OFFSET += 4;									\
+#define FIXUP2( CODE, OFFSET, CHECKVAL, NEWVAL )		\
+do {								\
+   while (*(int *)(CODE+OFFSET) != CHECKVAL) OFFSET++;		\
+   fprintf(stderr, "%s/%d CVAL %x OFFSET %d VAL %x\n", __FUNCTION__,	\
+	   __LINE__, CHECKVAL, OFFSET, (int)(NEWVAL));			\
+   *(int *)(CODE+OFFSET) = (int)(NEWVAL);				\
+   OFFSET += 4;							\
 } while (0)
 
 /* 

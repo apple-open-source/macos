@@ -1,7 +1,6 @@
 /* Contributed by Nicola Pero - Thu Mar  8 16:27:46 CET 2001 */
 #include <objc/objc.h>
 #include <objc/objc-api.h>
-/* APPLE LOCAL objc test suite */
 #include <stdarg.h>
 
 /* Test method with variable number of arguments */
@@ -33,11 +32,9 @@
 
   return sum;
 }
-/* APPLE LOCAL begin objc test suite */
 #ifdef __NEXT_RUNTIME__                                   
 + initialize { return self; }
 #endif
-/* APPLE LOCAL end objc test suite */
 @end
 
 int main (void)

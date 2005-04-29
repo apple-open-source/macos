@@ -25,7 +25,7 @@
 .\" dealing in this Software without prior written authorization from the 
 .\" X Consortium.
 .\"
-.\" $XFree86: xc/doc/man/Xt/XtSetWMC.man,v 1.2 2001/01/27 18:20:30 dawes Exp $
+.\" $XFree86: xc/doc/man/Xt/XtSetWMC.man,v 1.3 2003/04/28 22:18:21 herrb Exp $
 .\"
 .ds tk X Toolkit
 .ds xT X Toolkit Intrinsics \- C Language Interface
@@ -130,13 +130,9 @@
 .SH NAME
 XtSetWMColormapWindows \- Set the value of the WM_COLORMAP_WINDOWS property
 .SH SYNTAX
-void XtSetWMColormapWindows(\fIwidget\fP, \fIlist\fP, \fIcount\fP)
-.br
-      Widget \fIwidget\fP;
-.br
-      Widget* \fIlist\fP;
-.br
-      Cardinal \fIcount\fP;
+.HP
+void XtSetWMColormapWindows(Widget \fIwidget\fP, Widget* \fIlist\fP, Cardinal
+\fIcount\fP); 
 .SH ARGUMENTS
 .IP \fIwidget\fP 1i
 Specifies the widget on whose window the WM_COLORMAP_WINDOWS property

@@ -14,7 +14,7 @@
 /*  understand and accept it fully.                                        */
 /*                                                                         */
 /***************************************************************************/
-
+/* $XFree86: xc/extras/freetype2/src/base/ftmac.c,v 1.5 2003/05/29 02:13:03 dawes Exp $ */
 
   /*
     Notes
@@ -534,11 +534,11 @@
       return error;
     }
 
-    args.flags = ft_open_stream;
+    args.flags = FT_OPEN_STREAM;
     args.stream = stream;
     if ( driver_name )
     {
-      args.flags = args.flags | ft_open_driver;
+      args.flags = args.flags | FT_OPEN_DRIVER;
       args.driver = FT_Get_Module( library, driver_name );
     }
 
@@ -909,7 +909,7 @@
 #endif
 
     /* let it fall through to normal loader (.ttf, .otf, etc.) */
-    args.flags    = ft_open_pathname;
+    args.flags    = FT_OPEN_PATHNAME;
     args.pathname = (char*)pathname;
     return FT_Open_Face( library, &args, face_index, aface );
   }

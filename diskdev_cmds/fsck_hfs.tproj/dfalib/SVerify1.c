@@ -107,8 +107,10 @@ CheckIfJournaled(SGlobPtr GPtr)
 		// even if journaling is enabled for this volume, we'll return
 		// false if it wasn't unmounted cleanly and it was previously
 		// mounted by someone that doesn't know about journaling.
-		if (   vhp->lastMountedVersion != kHFSJMountVersion
-			&& (vhp->attributes & kHFSVolumeUnmountedMask) == 0) {
+		// or if lastMountedVersion is kFSKMountVersion
+		if ( vhp->lastMountedVersion == kFSKMountVersion || 
+			((vhp->lastMountedVersion != kHFSJMountVersion) && 
+			(vhp->attributes & kHFSVolumeUnmountedMask) == 0)) {
 			result = 0;
 		}
 	} else {
@@ -167,8 +169,33 @@ CheckForClean(SGlobPtr GPtr, Boolean markClean)
 	if ( VolumeObjectIsHFSPlus( ) ) {
 		vhp = (HFSPlusVolumeHeader *) block.buffer;
 		
-		result = (vhp->attributes & kHFSVolumeUnmountedMask) != 0;
-		if (markClean && (result == 0)) {
+		result = 1;  // clean unmount
+		if ( ((vhp->attributes & kHFSVolumeUnmountedMask) == 0) )
+			result = 0;  // dirty unmount
+
+		// if we are to mark volume clean and lastMountedVersion shows journaled we invalidate
+		// the journal by setting lastMountedVersion to 'fsck'
+		if ( markClean && ((vhp->lastMountedVersion == kHFSJMountVersion) || 
+						   (vhp->lastMountedVersion == kFSKMountVersion)) ) {
+			result = 0;  // force dirty unmount path
+			vhp->lastMountedVersion = kFSCKMountVersion;
+		}
+		
+		if (vhp->lastMountedVersion == kFSKMountVersion) {
+			GPtr->JStat |= S_BadJournal;
+			if ( GPtr->logLevel >= kDebugLog ) 
+				printf ("\t%s - found bad journal signature \n", __FUNCTION__);
+			/* XXX This is not correct error code for bad journal.  
+			 * E_InvalidVolumeHeader is negative error.  Change ErrCode
+			 * to non-negative, else it might indicate non-fixable error
+			 * in scavenge process 
+			 */
+			RcdError (GPtr, E_InvalidVolumeHeader);
+			GPtr->ErrCode = -E_InvalidVolumeHeader;
+			result = 0;	//dirty unmount
+		}
+		
+		if ( markClean && (result == 0) ) {
 			vhp->attributes |= kHFSVolumeUnmountedMask;
 			rbOptions = kForceWriteBlock;
 		}
@@ -286,6 +313,13 @@ OSErr IVChk( SGlobPtr GPtr )
 			}
 
 			GetVolumeObjectBlockNum( &blockNum ); // get the new Volume header block number
+		}
+		else {
+			if ( GPtr->logLevel >= kDebugLog )
+				printf( "\t%s - bad volume header - err %d \n", __FUNCTION__, err );
+			WriteError( GPtr, E_InvalidVolumeHeader, 1, 0 );
+			err = E_InvalidVolumeHeader;
+			goto ReleaseAndBail;
 		}
 	}
 
@@ -1184,8 +1218,20 @@ OSErr	CreateExtendedAllocationsFCB( SGlobPtr GPtr )
 		err = CheckFileExtents( GPtr, kHFSAllocationFileID, 0, (void *)fcb->fcbExtents32, &numABlks );
 		if (err) goto exit;
 
-		(void) SetFileBlockSize (fcb, vcb->vcbBlockSize);
-
+		//
+		// The allocation file will get processed in whole allocation blocks, or
+		// maximal-sized cache blocks, whichever is smaller.  This means the cache
+		// doesn't need to cope with buffers that are larger than a cache block.
+		//
+		// The definition of CACHE_IOSIZE below matches the definition in fsck_hfs.c.
+		// If you change it here, then change it there, too.  Or else put it in some
+		// common header file.
+		#define CACHE_IOSIZE 32768
+		if (vcb->vcbBlockSize < CACHE_IOSIZE)
+			(void) SetFileBlockSize (fcb, vcb->vcbBlockSize);
+		else
+			(void) SetFileBlockSize (fcb, CACHE_IOSIZE);
+	
 		if ( volumeHeader->allocationFile.totalBlocks != numABlks )
 		{
 			RcdError( GPtr, E_CatPEOF );
@@ -1771,7 +1817,7 @@ Output:		int		-	function result:
 ------------------------------------------------------------------------------*/
 
 static int 
-CheckAttributeRecord(SGlobPtr GPtr, const AttributeKey *key, const HFSPlusAttrRecord *rec, UInt16 reclen)
+CheckAttributeRecord(SGlobPtr GPtr, const HFSPlusAttrKey *key, const HFSPlusAttrRecord *rec, UInt16 reclen)
 {
 	int result = 0;
 	Boolean isHFSPlus;
@@ -1789,7 +1835,7 @@ CheckAttributeRecord(SGlobPtr GPtr, const AttributeKey *key, const HFSPlusAttrRe
 	/* Convert unicode attribute name to char */
 	(void) utf_encodestr(key->attrName, key->attrNameLen * 2, attrName, &len);
 	attrName[len] = '\0';
-	printf ("%s(%s,%d): fileID=%d AttributeName=%s\n", __FUNCTION__, __FILE__, __LINE__, key->cnid, attrName);
+	printf ("%s(%s,%d): fileID=%d AttributeName=%s\n", __FUNCTION__, __FILE__, __LINE__, key->fileID, attrName);
 #endif
 	
 	/* 3984119 - Do not include extended attributes for file IDs less
@@ -1797,23 +1843,23 @@ CheckAttributeRecord(SGlobPtr GPtr, const AttributeKey *key, const HFSPlusAttrRe
 	 * in prime modulus checksum.  These file IDs do not have 
 	 * any catalog record
 	 */
-	if ((key->cnid < kHFSFirstUserCatalogNodeID) && 
-	    (key->cnid != kHFSRootFolderID)) {
+	if ((key->fileID < kHFSFirstUserCatalogNodeID) && 
+	    (key->fileID != kHFSRootFolderID)) {
 		goto out;
 	}
 	
-	if (GPtr->lastAttrFileID.fileID != key->cnid) {
+	if (GPtr->lastAttrFileID.fileID != key->fileID) {
 		/* fsck is seeing this fileID in Attribute BTree for first time */
-		GPtr->lastAttrFileID.fileID = key->cnid;
+		GPtr->lastAttrFileID.fileID = key->fileID;
 		GPtr->lastAttrFileID.hasSecurity = false;
 		
 		if (!bcmp(key->attrName, GPtr->securityAttrName, GPtr->securityAttrLen)) {
 			/* file has both extended attribute and ACL */
-			RecordXAttrBits(GPtr, kHFSHasAttributesMask | kHFSHasSecurityMask, key->cnid, kCalculatedAttributesRefNum);
+			RecordXAttrBits(GPtr, kHFSHasAttributesMask | kHFSHasSecurityMask, key->fileID, kCalculatedAttributesRefNum);
 			GPtr->lastAttrFileID.hasSecurity = true;
 		} else {
 			/* file only has extended attribute */
-			RecordXAttrBits(GPtr, kHFSHasAttributesMask, key->cnid, kCalculatedAttributesRefNum);
+			RecordXAttrBits(GPtr, kHFSHasAttributesMask, key->fileID, kCalculatedAttributesRefNum);
 		}
 	} else {
 		/* fsck has seen this fileID before */
@@ -1821,7 +1867,7 @@ CheckAttributeRecord(SGlobPtr GPtr, const AttributeKey *key, const HFSPlusAttrRe
 			/* If GPtr->lastAttrFileID did not have security AND current xattr is ACL, 
 			 * we ONLY record ACL (as we have already recorded extended attribute
 			 */
-			RecordXAttrBits(GPtr, kHFSHasSecurityMask, key->cnid, kCalculatedAttributesRefNum);
+			RecordXAttrBits(GPtr, kHFSHasSecurityMask, key->fileID, kCalculatedAttributesRefNum);
 			GPtr->lastAttrFileID.hasSecurity = true;
 		}
 	}
@@ -1865,7 +1911,7 @@ OSErr AttrBTChk( SGlobPtr GPtr )
 
 	err = BTCheck( GPtr, kCalculatedAttributesRefNum, (CheckLeafRecordProcPtr)CheckAttributeRecord);
 	ReturnIfError( err );														//	invalid attributes file BTree
-	
+
 	//	compare the attributes prime buckets calculated from catalog btree and attribute btree 
 	err = ComparePrimeBuckets(GPtr, kHFSHasAttributesMask);
 	ReturnIfError( err );
@@ -2089,7 +2135,7 @@ OSErr VInfoChk( SGlobPtr GPtr )
 	UInt16					recSize;
 	Boolean					isHFSPlus;
 	UInt32					hint;
-	UInt32					maxClump;
+	UInt64					maxClump;
 	SVCB					*vcb;
 	VolumeObjectPtr			myVOPtr;
 	CatalogRecord			record;
@@ -2187,18 +2233,15 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		alternateVolumeHeader = (HFSPlusVolumeHeader *) altBlock.buffer;
 		volumeHeader = (HFSPlusVolumeHeader *) priBlock.buffer;
 	
-		maxClump = (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
+		maxClump = (UInt64) (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
 
 		//	check out creation and last mod dates
 		vcb->vcbCreateDate	= alternateVolumeHeader->createDate;	// use creation date in alt MDB
 		vcb->vcbModifyDate	= volumeHeader->modifyDate;		// don't change last mod date
 		vcb->vcbCheckedDate	= volumeHeader->checkedDate;		// don't change checked date
 
-		//	verify volume attribute flags
-		if ( ((UInt16)volumeHeader->attributes & VAtrb_Msk) == 0 )
-			vcb->vcbAttributes = (UInt16)volumeHeader->attributes;
-		else 
-			vcb->vcbAttributes = VAtrb_DFlt;
+		// 3882639: Removed check for volume attributes in HFS Plus 
+		vcb->vcbAttributes = volumeHeader->attributes;
 	
 		//	verify allocation map ptr
 		if ( volumeHeader->nextAllocation < vcb->vcbTotalBlocks )
@@ -2234,9 +2277,14 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		if ( vcb->vcbDataClumpSize > kMaxClumpSize )
 			vcb->vcbDataClumpSize = vcb->vcbBlockSize;	/* for very large volumes, just use 1 allocation block */
 
-		//	verify next CNode ID
-		if ( (volumeHeader->nextCatalogID > vcb->vcbNextCatalogID) && 
-			 (volumeHeader->nextCatalogID <= (vcb->vcbNextCatalogID + 4096)) )
+		/* Verify next CNode ID.
+		 * If volumeHeader->nextCatalogID < vcb->vcbNextCatalogID, probably 
+		 * nextCatalogID has wrapped around.
+		 * If volumeHeader->nextCatalogID > vcb->vcbNextCatalogID, probably 
+		 * many files were created and deleted, followed by no new file 
+		 * creation.
+		 */
+		if ( (volumeHeader->nextCatalogID > vcb->vcbNextCatalogID) ) 
 			vcb->vcbNextCatalogID = volumeHeader->nextCatalogID;
 			
 		//¥¥TBD location and unicode? volumename
@@ -2267,7 +2315,7 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		else if ( ((alternateVolumeHeader->catalogFile.clumpSize % vcb->vcbBlockSize) == 0) && 
 				  (alternateVolumeHeader->catalogFile.clumpSize <= maxClump) )
 			vcb->vcbCatalogFile->fcbClumpSize = alternateVolumeHeader->catalogFile.clumpSize;
-		else
+		else 
 			vcb->vcbCatalogFile->fcbClumpSize = 
 			(alternateVolumeHeader->catalogFile.extents[0].blockCount * vcb->vcbBlockSize);
 			
@@ -2312,7 +2360,7 @@ OSErr VInfoChk( SGlobPtr GPtr )
 		alternateMDB = (HFSMasterDirectoryBlock	*) altBlock.buffer;
 		mdbP = (HFSMasterDirectoryBlock	*) priBlock.buffer;
 
-		maxClump = (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
+		maxClump = (UInt64) (vcb->vcbTotalBlocks / 4) * vcb->vcbBlockSize; /* max clump = 1/4 volume size */
 
 		//	check out creation and last mod dates
 		vcb->vcbCreateDate	= alternateMDB->drCrDate;		/* use creation date in alt MDB */	
@@ -2591,7 +2639,6 @@ OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
 	
 			if ( extentBlockCount == 0 )
 				break;
-
 			err = CaptureBitmapBits(extentStartBlock, extentBlockCount);
 			if (err == E_OvlExt) {
 				err = AddExtentToOverlapList(GPtr, fileNumber, extentStartBlock, extentBlockCount, forkType);

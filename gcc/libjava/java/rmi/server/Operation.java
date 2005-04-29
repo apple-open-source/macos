@@ -1,5 +1,5 @@
-/*
-  Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
+/* Operation.java --
+   Copyright (c) 1996, 1997, 1998, 1999 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -37,20 +37,34 @@ exception statement from your version. */
 
 package java.rmi.server;
 
-public class Operation {
+/**
+ * @deprecated
+ */
+public class Operation
+{
+  private String operation;
 
-private String operation;
+  /**
+   * @deprecated
+   */
+  public Operation (String op)
+  {
+    operation = op;
+  }
 
-public Operation(String op) {
-	operation = op;
-}
+  /**
+   * @deprecated
+   */
+  public String getOperation ()
+  {
+    return operation;
+  }
 
-public String getOperation() {
-	return (operation);
-}
-
-public String toString() {
-	return (operation);
-}
-
+  /**
+   * @deprecated
+   */
+  public String toString ()
+  {
+    return operation;
+  }
 }

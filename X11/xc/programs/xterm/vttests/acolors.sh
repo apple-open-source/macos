@@ -1,5 +1,5 @@
 #!/bin/sh
-# $XFree86: xc/programs/xterm/vttests/acolors.sh,v 1.1 2002/09/30 00:39:08 dickey Exp $
+# $XFree86: xc/programs/xterm/vttests/acolors.sh,v 1.2 2003/05/19 00:52:30 dickey Exp $
 #
 # -- Thomas Dickey (1999/3/27)
 # Demonstrate the use of the control sequence for changing ANSI colors.
@@ -36,7 +36,13 @@ read original
 stty $old
 original=${original}${SUF}
 
-trap '$CMD $OPT "$original" >/dev/tty; exit' 0 1 2 5 15
+if ( trap "echo exit" EXIT 2>/dev/null ) >/dev/null
+then
+    trap '$CMD $OPT "$original" >/dev/tty; exit' EXIT HUP INT TRAP TERM
+else
+    trap '$CMD $OPT "$original" >/dev/tty; exit' 0    1   2   5    15
+fi
+
 $CMD "${ESC}[0;1;34mThis message is BLUE"
 $CMD "${ESC}[0;1;31mThis message is RED ${ESC}[0;31m(sometimes)"
 $CMD "${ESC}[0;1;32mThis message is GREEN${ESC}[0m"

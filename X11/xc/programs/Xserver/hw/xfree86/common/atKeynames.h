@@ -1,4 +1,4 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/common/atKeynames.h,v 3.18 2001/09/29 20:40:30 herrb Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/common/atKeynames.h,v 3.22 2004/02/13 23:58:35 dawes Exp $ */
 /*
  * Copyright 1990,91 by Thomas Roell, Dinkelscherben, Germany.
  *
@@ -21,6 +21,53 @@
  * PERFORMANCE OF THIS SOFTWARE.
  *
  */
+/*
+ * Copyright (c) 1994-2003 by The XFree86 Project, Inc.
+ * All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * "Software"), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
+ *
+ *   1.  Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions, and the following disclaimer.
+ *
+ *   2.  Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer
+ *       in the documentation and/or other materials provided with the
+ *       distribution, and in the same place and form as other copyright,
+ *       license and disclaimer information.
+ *
+ *   3.  The end-user documentation included with the redistribution,
+ *       if any, must include the following acknowledgment: "This product
+ *       includes software developed by The XFree86 Project, Inc
+ *       (http://www.xfree86.org/) and its contributors", in the same
+ *       place and form as other third-party acknowledgments.  Alternately,
+ *       this acknowledgment may appear in the software itself, in the
+ *       same form and location as other such third-party acknowledgments.
+ *
+ *   4.  Except as contained in this notice, the name of The XFree86
+ *       Project, Inc shall not be used in advertising or otherwise to
+ *       promote the sale, use or other dealings in this Software without
+ *       prior written authorization from The XFree86 Project, Inc.
+ *
+ * THIS SOFTWARE IS PROVIDED ``AS IS'' AND ANY EXPRESSED OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE XFREE86 PROJECT, INC OR ITS CONTRIBUTORS BE
+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY,
+ * OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT
+ * OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 /* $XConsortium: atKeynames.h /main/11 1996/03/09 11:17:41 kaleb $ */
 
 #ifndef _ATKEYNAMES_H
@@ -198,6 +245,71 @@
 #define KEY_XFER         /* Kanji Transfer        0x79  */  121
 #define KEY_NFER         /* No Kanji Transfer     0x7b  */  123
 #define KEY_Yen          /* Yen                   0x7d  */  125
+
+#define KEY_Power        /* Power Key             0x84  */  132
+#define KEY_Mute         /* Audio Mute            0x85  */  133
+#define KEY_AudioLower   /* Audio Lower           0x86  */  134
+#define KEY_AudioRaise   /* Audio Raise           0x87  */  135
+#define KEY_Help         /* Help                  0x88  */  136
+#define KEY_L1           /* Stop                  0x89  */  137
+#define KEY_L2           /* Again                 0x8a  */  138
+#define KEY_L3           /* Props                 0x8b  */  139
+#define KEY_L4           /* Undo                  0x8c  */  140
+#define KEY_L5           /* Front                 0x8d  */  141
+#define KEY_L6           /* Copy                  0x8e  */  142
+#define KEY_L7           /* Open                  0x8f  */  143
+#define KEY_L8           /* Paste                 0x90  */  144
+#define KEY_L9           /* Find                  0x91  */  145
+#define KEY_L10          /* Cut                   0x92  */  146
+
+/*
+ * Fake 'scancodes' in the following ranges are generated for 2-byte
+ * codes not handled elsewhere.  These correspond to most extended keys
+ * on so-called "Internet" keyboards:
+ *
+ *	0x79-0x93
+ *	0x96-0xa1
+ *	0xa3-0xac
+ *	0xb1-0xb4
+ *	0xba-0xbd
+ *	0xc2
+ *	0xcc-0xd2
+ *	0xd6-0xf7
+ */
+
+/*
+ * Remapped 'scancodes' are generated for single-byte codes in the range
+ * 0x59-0x5f,0x62-0x76.  These are used for some extra keys on some keyboards.
+ */
+
+#define KEY_0x59		0x95
+#define KEY_0x5A		0xA2
+#define KEY_0x5B		0xAD
+#define KEY_0x5C		KEY_KP_EQUAL
+#define KEY_0x5D		0xAE
+#define KEY_0x5E		0xAF
+#define KEY_0x5F		0xB0
+#define KEY_0x62		0xB5
+#define KEY_0x63		0xB6
+#define KEY_0x64		0xB7
+#define KEY_0x65		0xB8
+#define KEY_0x66		0xB9
+#define KEY_0x67		0xBE
+#define KEY_0x68		0xBF
+#define KEY_0x69		0xC0
+#define KEY_0x6A		0xC1
+#define KEY_0x6B		0xC3
+#define KEY_0x6C		0xC4
+#define KEY_0x6D		0xC5
+#define KEY_0x6E		0xC6
+#define KEY_0x6F		0xC7
+#define KEY_0x70		0xC8
+#define KEY_0x71		0xC9
+#define KEY_0x72		0xCA
+#define KEY_0x73		0xCB
+#define KEY_0x74		0xD3
+#define KEY_0x75		0xD4
+#define KEY_0x76		0xD5
 
 /* These are for "notused" and "unknown" entries in translation maps. */
 #define KEY_NOTUSED	  0

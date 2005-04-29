@@ -6,9 +6,8 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---                            $Revision: 1.1.1.1 $
 --                                                                          --
---          Copyright (C) 1992-1999, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2002, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -22,7 +21,7 @@
 -- MA 02111-1307, USA.                                                      --
 --                                                                          --
 -- GNAT was originally developed  by the GNAT team at  New York University. --
--- It is now maintained by Ada Core Technologies Inc (http://www.gnat.com). --
+-- Extensive contributions were provided by Ada Core Technologies Inc.      --
 --                                                                          --
 ------------------------------------------------------------------------------
 
@@ -67,7 +66,8 @@ package Sprint is
    --    Multiply wi Treat_Fixed_As_Integer  x #* y
    --    Multiply wi Rounded_Result          x @* y
    --    Others choice for cleanup           when all others
-   --    Raise xxx error                     [xxx_error [when condition]]
+   --    Raise xxx error                     [xxx_error [when cond]]
+   --    Raise xxx error with msg            [xxx_error [when cond], "msg"]
    --    Rational literal                    See UR_Write for details
    --    Rem wi Treat_Fixed_As_Integer       x #rem y
    --    Reference                           expression'reference
@@ -133,15 +133,18 @@ package Sprint is
    --  Same as normal Sprint_Node procedure, except that one leading
    --  blank is output before the node if it is non-empty.
 
-   procedure PG (Node : Node_Id);
+   procedure pg (Node : Node_Id);
+   pragma Export (Ada, pg);
    --  Print generated source for node N (like -gnatdg output). This is
    --  intended only for use from gdb for debugging purposes.
 
-   procedure PO (Node : Node_Id);
+   procedure po (Node : Node_Id);
+   pragma Export (Ada, po);
    --  Print original source for node N (like -gnatdo output). This is
    --  intended only for use from gdb for debugging purposes.
 
-   procedure PS (Node : Node_Id);
+   procedure ps (Node : Node_Id);
+   pragma Export (Ada, ps);
    --  Print generated and original source for node N (like -gnatds output).
    --  This is intended only for use from gdb for debugging purposes.
 

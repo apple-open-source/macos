@@ -40,7 +40,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\" 
-.\" $XFree86: xc/doc/man/X11/XIcWin.man,v 1.3 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XIcWin.man,v 1.4 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -144,34 +144,16 @@
 .SH NAME
 XIconifyWindow, XWithdrawWindow, XReconfigureWMWindow \- manipulate top-level windows
 .SH SYNTAX
-Status XIconifyWindow\^(\^\fIdisplay\fP, \fIw\fP, \fIscreen_number\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP;
-.br
-      int \fIscreen_number\fP\^;
-.LP
-Status XWithdrawWindow\^(\^\fIdisplay\fP, \fIw\fP, \fIscreen_number\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIscreen_number\fP\^;
-.LP
-Status XReconfigureWMWindow\^(\^\fIdisplay\fP, \fIw\fP, \fIscreen_number\fP,
-\fIvalue_mask\fP, \fIvalues\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      Window \fIw\fP\^;
-.br
-      int \fIscreen_number\fP\^;
-.br
-      unsigned int \fIvalue_mask\fP\^;
-.br
-      XWindowChanges *\fIvalues\fP;
+.HP
+Status XIconifyWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP, int
+\fIscreen_number\fP\^); 
+.HP
+Status XWithdrawWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^, int
+\fIscreen_number\fP\^); 
+.HP
+Status XReconfigureWMWindow\^(\^Display *\fIdisplay\fP\^, Window \fIw\fP\^,
+int \fIscreen_number\fP\^, unsigned int \fIvalue_mask\fP\^, XWindowChanges
+*\fIvalues\fP); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

@@ -1,5 +1,5 @@
 /* bsearch.h -- binary search
-	$Id: bsearch.h,v 1.7 2003/02/13 20:15:39 rjs3 Exp $
+	$Id: bsearch.h,v 1.5 2005/03/05 00:37:12 dasenbro Exp $
 	
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

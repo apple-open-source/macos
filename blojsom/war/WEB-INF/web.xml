@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<!DOCTYPE web-app
+    PUBLIC "-//Sun Microsystems, Inc.//DTD Web Application 2.3//EN"
+    "http://java.sun.com/dtd/web-app_2_3.dtd">
+
+<web-app>
+
+    <filter>
+        <filter-name>CompressionFilter</filter-name>
+        <filter-class>org.blojsom.filter.CompressionFilter</filter-class>
+    </filter>
+
+    <filter>
+        <filter-name>PermalinkFilter</filter-name>
+        <filter-class>org.blojsom.filter.PermalinkFilter</filter-class>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>PermalinkFilter</filter-name>
+        <servlet-name>blojsom</servlet-name>
+    </filter-mapping>
+
+    <filter-mapping>
+        <filter-name>CompressionFilter</filter-name>
+        <servlet-name>blojsom</servlet-name>
+    </filter-mapping>
+
+    <!-- blojsom servlet initialization -->
+    <servlet>
+        <servlet-name>blojsom</servlet-name>
+        <servlet-class>org.blojsom.servlet.BlojsomServlet</servlet-class>
+        <init-param>
+            <param-name>blojsom-configuration</param-name>
+            <param-value>/WEB-INF/blojsom.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>flavor-configuration</param-name>
+            <param-value>flavor.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>dispatcher-configuration</param-name>
+            <param-value>/WEB-INF/dispatcher.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>velocity-properties</param-name>
+            <param-value>/WEB-INF/velocity.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-configuration</param-name>
+            <param-value>plugin.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>blog-authorization</param-name>
+            <param-value>authorization.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>smtp-server</param-name>
+            <param-value>localhost</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-macros-expansion</param-name>
+            <param-value>macros.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-showmemore</param-name>
+            <param-value>showmemore.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-emoticons</param-name>
+            <param-value>emoticons.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-referer</param-name>
+            <param-value>referer.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-admin-upload</param-name>
+            <param-value>/WEB-INF/plugin-admin-upload.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-admin-edit-users</param-name>
+            <param-value>/WEB-INF/plugin-admin-edit-users.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>plugin-contextloader</param-name>
+            <param-value>contextloader.properties</param-value>
+        </init-param>
+        <load-on-startup>1</load-on-startup>
+    </servlet>
+
+    <servlet>
+        <servlet-name>blojsomxmlrpc</servlet-name>
+        <servlet-class>org.blojsom.extension.xmlrpc.BlojsomXMLRPCServlet</servlet-class>
+        <init-param>
+            <param-name>blojsom-configuration</param-name>
+            <param-value>/WEB-INF/blojsom.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>blog-xmlrpc-configuration</param-name>
+            <param-value>/WEB-INF/xmlrpc.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>blog-authorization</param-name>
+            <param-value>authorization.properties</param-value>
+        </init-param>
+        <load-on-startup>2</load-on-startup>
+    </servlet>
+
+    <servlet>
+        <servlet-name>blojsomcommentapi</servlet-name>
+        <servlet-class>org.blojsom.extension.comment.CommentAPIServlet</servlet-class>
+        <init-param>
+            <param-name>blojsom-configuration</param-name>
+            <param-value>/WEB-INF/blojsom.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>smtp-server</param-name>
+            <param-value>localhost</param-value>
+        </init-param>
+        <load-on-startup>3</load-on-startup>
+    </servlet>
+
+    <servlet>
+        <servlet-name>blojsomatomapi</servlet-name>
+        <servlet-class>org.blojsom.extension.atomapi.AtomAPIServlet</servlet-class>
+        <init-param>
+            <param-name>blojsom-configuration</param-name>
+            <param-value>/WEB-INF/blojsom.properties</param-value>
+        </init-param>
+        <init-param>
+            <param-name>blog-authorization</param-name>
+            <param-value>authorization.properties</param-value>
+        </init-param>
+        <load-on-startup>4</load-on-startup>
+    </servlet>
+
+    <!-- blojsom servlet mappings -->
+    <servlet-mapping>
+        <servlet-name>blojsom</servlet-name>
+        <url-pattern>/weblog/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>blojsomxmlrpc</servlet-name>
+        <url-pattern>/weblog/xmlrpc/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>blojsomcommentapi</servlet-name>
+        <url-pattern>/weblog/commentapi/*</url-pattern>
+    </servlet-mapping>
+
+    <servlet-mapping>
+        <servlet-name>blojsomatomapi</servlet-name>
+        <url-pattern>/weblog/atomapi/*</url-pattern>
+    </servlet-mapping>
+
+</web-app>

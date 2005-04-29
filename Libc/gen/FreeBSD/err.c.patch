@@ -1,0 +1,121 @@
+--- err.c.orig	2004-08-30 09:45:37.000000000 -0700
++++ err.c	2004-08-30 09:58:06.000000000 -0700
+@@ -48,8 +48,15 @@
+ 
+ #include "libc_private.h"
+ 
+-static FILE *err_file; /* file to use for error output */
+-static void (*err_exit)(int);
++#ifdef BUILDING_VARIANT
++
++__private_extern__ FILE *_e_err_file; /* file to use for error output */
++__private_extern__ void (*_e_err_exit)(int);
++
++#else /* !BUILDING_VARIANT */
++
++__private_extern__ FILE *_e_err_file = NULL; /* file to use for error output */
++__private_extern__ void (*_e_err_exit)(int) = NULL;
+ 
+ /*
+  * This is declared to take a `void *' so that the caller is not required
+@@ -60,16 +67,17 @@
+ err_set_file(void *fp)
+ {
+ 	if (fp)
+-		err_file = fp;
++		_e_err_file = fp;
+ 	else
+-		err_file = stderr;
++		_e_err_file = stderr;
+ }
+ 
+ void
+ err_set_exit(void (*ef)(int))
+ {
+-	err_exit = ef;
++	_e_err_exit = ef;
+ }
++#endif /* !BUILDING_VARIANT */
+ 
+ __weak_reference(_err, err);
+ 
+@@ -107,16 +115,16 @@
+ 	const char *fmt;
+ 	va_list ap;
+ {
+-	if (err_file == 0)
++	if (_e_err_file == 0)
+ 		err_set_file((FILE *)0);
+-	fprintf(err_file, "%s: ", _getprogname());
++	fprintf(_e_err_file, "%s: ", _getprogname());
+ 	if (fmt != NULL) {
+-		vfprintf(err_file, fmt, ap);
+-		fprintf(err_file, ": ");
++		vfprintf(_e_err_file, fmt, ap);
++		fprintf(_e_err_file, ": ");
+ 	}
+-	fprintf(err_file, "%s\n", strerror(code));
+-	if (err_exit)
+-		err_exit(eval);
++	fprintf(_e_err_file, "%s\n", strerror(code));
++	if (_e_err_exit)
++		_e_err_exit(eval);
+ 	exit(eval);
+ }
+ 
+@@ -135,14 +143,14 @@
+ 	const char *fmt;
+ 	va_list ap;
+ {
+-	if (err_file == 0)
++	if (_e_err_file == 0)
+ 		err_set_file((FILE *)0);
+-	fprintf(err_file, "%s: ", _getprogname());
++	fprintf(_e_err_file, "%s: ", _getprogname());
+ 	if (fmt != NULL)
+-		vfprintf(err_file, fmt, ap);
+-	fprintf(err_file, "\n");
+-	if (err_exit)
+-		err_exit(eval);
++		vfprintf(_e_err_file, fmt, ap);
++	fprintf(_e_err_file, "\n");
++	if (_e_err_exit)
++		_e_err_exit(eval);
+ 	exit(eval);
+ }
+ 
+@@ -180,14 +188,14 @@
+ 	const char *fmt;
+ 	va_list ap;
+ {
+-	if (err_file == 0)
++	if (_e_err_file == 0)
+ 		err_set_file((FILE *)0);
+-	fprintf(err_file, "%s: ", _getprogname());
++	fprintf(_e_err_file, "%s: ", _getprogname());
+ 	if (fmt != NULL) {
+-		vfprintf(err_file, fmt, ap);
+-		fprintf(err_file, ": ");
++		vfprintf(_e_err_file, fmt, ap);
++		fprintf(_e_err_file, ": ");
+ 	}
+-	fprintf(err_file, "%s\n", strerror(code));
++	fprintf(_e_err_file, "%s\n", strerror(code));
+ }
+ 
+ void
+@@ -204,10 +212,10 @@
+ 	const char *fmt;
+ 	va_list ap;
+ {
+-	if (err_file == 0)
++	if (_e_err_file == 0)
+ 		err_set_file((FILE *)0);
+-	fprintf(err_file, "%s: ", _getprogname());
++	fprintf(_e_err_file, "%s: ", _getprogname());
+ 	if (fmt != NULL)
+-		vfprintf(err_file, fmt, ap);
+-	fprintf(err_file, "\n");
++		vfprintf(_e_err_file, fmt, ap);
++	fprintf(_e_err_file, "\n");
+ }

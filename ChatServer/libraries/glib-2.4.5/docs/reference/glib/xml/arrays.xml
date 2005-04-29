@@ -1,0 +1,529 @@
+<refentry id="glib-Arrays">
+<refmeta>
+<refentrytitle>Arrays</refentrytitle>
+<manvolnum>3</manvolnum>
+<refmiscinfo>GLIB Library</refmiscinfo>
+</refmeta>
+
+<refnamediv>
+<refname>Arrays</refname><refpurpose>arrays of arbitrary elements which grow automatically as elements are added.</refpurpose>
+</refnamediv>
+
+<refsynopsisdiv><title>Synopsis</title>
+
+<synopsis>
+
+#include &lt;glib.h&gt;
+
+
+struct      <link linkend="GArray">GArray</link>;
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-new">g_array_new</link>                     (<link linkend="gboolean">gboolean</link> zero_terminated,
+                                             <link linkend="gboolean">gboolean</link> clear_,
+                                             <link linkend="guint">guint</link> element_size);
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-sized-new">g_array_sized_new</link>               (<link linkend="gboolean">gboolean</link> zero_terminated,
+                                             <link linkend="gboolean">gboolean</link> clear_,
+                                             <link linkend="guint">guint</link> element_size,
+                                             <link linkend="guint">guint</link> reserved_size);
+#define     <link linkend="g-array-append-val">g_array_append_val</link>              (a,v)
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-append-vals">g_array_append_vals</link>             (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);
+#define     <link linkend="g-array-prepend-val">g_array_prepend_val</link>             (a,v)
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-prepend-vals">g_array_prepend_vals</link>            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);
+#define     <link linkend="g-array-insert-val">g_array_insert_val</link>              (a,i,v)
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-insert-vals">g_array_insert_vals</link>             (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-remove-index">g_array_remove_index</link>            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_);
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-remove-index-fast">g_array_remove_index_fast</link>       (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_);
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-remove-range">g_array_remove_range</link>            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_,
+                                             <link linkend="guint">guint</link> length);
+<link linkend="void">void</link>        <link linkend="g-array-sort">g_array_sort</link>                    (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> compare_func);
+<link linkend="void">void</link>        <link linkend="g-array-sort-with-data">g_array_sort_with_data</link>          (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);
+#define     <link linkend="g-array-index">g_array_index</link>                   (a,t,i)
+<link linkend="GArray">GArray</link>*     <link linkend="g-array-set-size">g_array_set_size</link>                (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> length);
+<link linkend="gchar">gchar</link>*      <link linkend="g-array-free">g_array_free</link>                    (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gboolean">gboolean</link> free_segment);
+</synopsis>
+</refsynopsisdiv>
+
+
+
+
+
+
+
+
+
+<refsect1>
+<title>Description</title>
+<para>
+Arrays are similar to standard C arrays, except that they grow automatically
+as elements are added.
+</para>
+<para>
+Array elements can be of any size (though all elements of one array are the
+same size), and the array can be automatically cleared to '0's and
+zero-terminated.
+</para>
+<para>
+To create a new array use <link linkend="g-array-new"><function>g_array_new()</function></link>.
+</para>
+<para>
+To add elements to an array, use <link linkend="g-array-append-val"><function>g_array_append_val()</function></link>, <link linkend="g-array-append-vals"><function>g_array_append_vals()</function></link>,
+<link linkend="g-array-prepend-val"><function>g_array_prepend_val()</function></link>, and <link linkend="g-array-prepend-vals"><function>g_array_prepend_vals()</function></link>.
+</para>
+<para>
+To access an element of an array, use <link linkend="g-array-index"><function>g_array_index()</function></link>.
+</para>
+<para>
+To set the size of an array, use <link linkend="g-array-set-size"><function>g_array_set_size()</function></link>.
+</para>
+<para>
+To free an array, use <link linkend="g-array-free"><function>g_array_free()</function></link>.
+</para>
+<example>
+<title>Using a <structname>GArray</structname> to store <type>gint</type> values</title>
+<programlisting>
+  GArray *garray;
+  gint i;
+
+  /* We create a new array to store gint values.
+     We don't want it zero-terminated or cleared to 0's. */
+  garray = g_array_new (FALSE, FALSE, sizeof (gint));
+  for (i = 0; i &lt; 10000; i++)
+    g_array_append_val (garray, i);
+
+  for (i = 0; i &lt; 10000; i++)
+    if (g_array_index (garray, gint, i) != i)
+      g_print ("ERROR: got &percnt;d instead of &percnt;d\n",
+               g_array_index (garray, gint, i), i);
+
+  g_array_free (garray, TRUE);
+</programlisting></example>
+</refsect1>
+
+<refsect1>
+<title>Details</title>
+<refsect2>
+<title><anchor id="GArray"/>struct GArray</title>
+<indexterm><primary>GArray</primary></indexterm><programlisting>struct GArray {
+
+  gchar *data;
+  guint len;
+};
+</programlisting>
+<para>
+Contains the public fields of an <link linkend="glib-arrays">Array</link>.
+</para><variablelist role="struct">
+<varlistentry>
+<term><link linkend="gchar">gchar</link> *<structfield>data</structfield></term>
+<listitem><simpara>a pointer to the element data. The data may be moved as elements are
+added to the <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem>
+</varlistentry>
+<varlistentry>
+<term><link linkend="guint">guint</link> <structfield>len</structfield></term>
+<listitem><simpara>the number of elements in the <link linkend="GArray"><type>GArray</type></link>.
+
+</simpara></listitem>
+</varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-new"/>g_array_new ()</title>
+<indexterm><primary>g_array_new</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_new                     (<link linkend="gboolean">gboolean</link> zero_terminated,
+                                             <link linkend="gboolean">gboolean</link> clear_,
+                                             <link linkend="guint">guint</link> element_size);</programlisting>
+<para>
+Creates a new <link linkend="GArray"><type>GArray</type></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>zero_terminated</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> if the array should have an extra element at the end
+which is set to 0.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>clear_</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> if <link linkend="GArray"><type>GArray</type></link> elements should be automatically cleared to 0
+when they are allocated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>element_size</parameter>&nbsp;:</term>
+<listitem><simpara>the size of each element in bytes.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-sized-new"/>g_array_sized_new ()</title>
+<indexterm><primary>g_array_sized_new</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_sized_new               (<link linkend="gboolean">gboolean</link> zero_terminated,
+                                             <link linkend="gboolean">gboolean</link> clear_,
+                                             <link linkend="guint">guint</link> element_size,
+                                             <link linkend="guint">guint</link> reserved_size);</programlisting>
+<para>
+Creates a new <link linkend="GArray"><type>GArray</type></link> with <parameter>reserved_size</parameter> elements
+preallocated. This avoids frequent reallocation, if you are going to
+add many elements to the array. Note however that the size of the
+array is still 0.
+</para><variablelist role="params">
+<varlistentry><term><parameter>zero_terminated</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> if the array should have an extra element at the end with all bits cleared.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>clear_</parameter>&nbsp;:</term>
+<listitem><simpara><literal>TRUE</literal> if all bits in the array should be cleared to 0 on allocation.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>element_size</parameter>&nbsp;:</term>
+<listitem><simpara>size of each element in the array.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>reserved_size</parameter>&nbsp;:</term>
+<listitem><simpara>number of elements preallocated.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the new <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-append-val"/>g_array_append_val()</title>
+<indexterm><primary>g_array_append_val</primary></indexterm><programlisting>#define     g_array_append_val(a,v)</programlisting>
+<para>
+Adds the value on to the end of the array.
+The array will grow in size automatically if necessary.
+</para>
+<note>
+<para>
+<link linkend="g-array-append-val"><function>g_array_append_val()</function></link> is a macro which uses a reference to the value
+parameter <parameter>v</parameter>. This means that you cannot use it with literal values
+such as "27". You must use variables.
+</para>
+</note><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>v</parameter>&nbsp;:</term>
+<listitem><simpara>the value to append to the <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-append-vals"/>g_array_append_vals ()</title>
+<indexterm><primary>g_array_append_vals</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_append_vals             (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);</programlisting>
+<para>
+Adds <parameter>len</parameter> elements onto the end of the array.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to the elements to append to the end of the array.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>the number of elements to append.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-prepend-val"/>g_array_prepend_val()</title>
+<indexterm><primary>g_array_prepend_val</primary></indexterm><programlisting>#define     g_array_prepend_val(a,v)</programlisting>
+<para>
+Adds the value on to the start of the array.
+The array will grow in size automatically if necessary.
+</para>
+<para>
+This operation is slower than <link linkend="g-array-append-val"><function>g_array_append_val()</function></link> since the existing elements
+in the array have to be moved to make space for the new element.
+</para>
+<note>
+<para>
+<link linkend="g-array-prepend-val"><function>g_array_prepend_val()</function></link> is a macro which uses a reference to the value
+parameter <parameter>v</parameter>. This means that you cannot use it with literal values
+such as "27". You must use variables.
+</para>
+</note><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>v</parameter>&nbsp;:</term>
+<listitem><simpara>the value to prepend to the <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-prepend-vals"/>g_array_prepend_vals ()</title>
+<indexterm><primary>g_array_prepend_vals</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_prepend_vals            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);</programlisting>
+<para>
+Adds <parameter>len</parameter> elements onto the start of the array.
+</para>
+<para>
+This operation is slower than <link linkend="g-array-append-vals"><function>g_array_append_vals()</function></link> since the existing elements
+in the array have to be moved to make space for the new elements.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to the elements to prepend to the start of the array.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>the number of elements to prepend.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-insert-val"/>g_array_insert_val()</title>
+<indexterm><primary>g_array_insert_val</primary></indexterm><programlisting>#define     g_array_insert_val(a,i,v)</programlisting>
+<para>
+Inserts an element into an array at the given index.
+</para>
+<note>
+<para>
+<link linkend="g-array-insert-val"><function>g_array_insert_val()</function></link> is a macro which uses a reference to the value
+parameter <parameter>v</parameter>. This means that you cannot use it with literal values
+such as "27". You must use variables.
+</para>
+</note><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>i</parameter>&nbsp;:</term>
+<listitem><simpara>the index to place the element at.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>v</parameter>&nbsp;:</term>
+<listitem><simpara>the value to insert into the array.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-insert-vals"/>g_array_insert_vals ()</title>
+<indexterm><primary>g_array_insert_vals</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_insert_vals             (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_,
+                                             <link linkend="gconstpointer">gconstpointer</link> data,
+                                             <link linkend="guint">guint</link> len);</programlisting>
+<para>
+Inserts <parameter>len</parameter> elements into a <link linkend="GArray"><type>GArray</type></link> at the given index.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>index_</parameter>&nbsp;:</term>
+<listitem><simpara>the index to place the elements at.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>data</parameter>&nbsp;:</term>
+<listitem><simpara>a pointer to the elements to insert.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>len</parameter>&nbsp;:</term>
+<listitem><simpara>the number of elements to insert.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-remove-index"/>g_array_remove_index ()</title>
+<indexterm><primary>g_array_remove_index</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_remove_index            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_);</programlisting>
+<para>
+Removes the element at the given index from a <link linkend="GArray"><type>GArray</type></link>.
+The following elements are moved down one place.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>index_</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the element to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-remove-index-fast"/>g_array_remove_index_fast ()</title>
+<indexterm><primary>g_array_remove_index_fast</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_remove_index_fast       (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_);</programlisting>
+<para>
+Removes the element at the given index from a <link linkend="GArray"><type>GArray</type></link>.
+The last element in the array is used to fill in the space, so this function
+does not preserve the order of the <link linkend="GArray"><type>GArray</type></link>. But it is faster than
+<link linkend="g-array-remove-index"><function>g_array_remove_index()</function></link>.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <parameter>GArray</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>index_</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the element to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-remove-range"/>g_array_remove_range ()</title>
+<indexterm role="2.4"><primary>g_array_remove_range</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_remove_range            (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> index_,
+                                             <link linkend="guint">guint</link> length);</programlisting>
+<para>
+Removes the given number of elements starting at the given index from a
+<link linkend="GArray"><type>GArray</type></link>.  The following elements are moved to close the gap.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <parameter>GArray</parameter>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>index_</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the first element to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>length</parameter>&nbsp;:</term>
+<listitem><simpara>the number of elements to remove.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+</variablelist><para>Since 2.4
+
+
+</para></refsect2>
+<refsect2>
+<title><anchor id="g-array-sort"/>g_array_sort ()</title>
+<indexterm><primary>g_array_sort</primary></indexterm><programlisting><link linkend="void">void</link>        g_array_sort                    (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="GCompareFunc">GCompareFunc</link> compare_func);</programlisting>
+<para>
+Sorts a <link linkend="GArray"><type>GArray</type></link> using <parameter>compare_func</parameter> which should be a <link linkend="qsort"><function>qsort()</function></link>-style comparison
+function (returns -1 for first arg is less than second arg, 0 for equal, 1 if
+first arg is greater than second arg).
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>compare_func</parameter>&nbsp;:</term>
+<listitem><simpara>comparison function.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-sort-with-data"/>g_array_sort_with_data ()</title>
+<indexterm><primary>g_array_sort_with_data</primary></indexterm><programlisting><link linkend="void">void</link>        g_array_sort_with_data          (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="GCompareDataFunc">GCompareDataFunc</link> compare_func,
+                                             <link linkend="gpointer">gpointer</link> user_data);</programlisting>
+<para>
+Like <link linkend="g-array-sort"><function>g_array_sort()</function></link>, but the comparison function receives a user data
+argument.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>compare_func</parameter>&nbsp;:</term>
+<listitem><simpara>comparison function.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>user_data</parameter>&nbsp;:</term>
+<listitem><simpara>data to pass to <parameter>compare_func</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-index"/>g_array_index()</title>
+<indexterm><primary>g_array_index</primary></indexterm><programlisting>#define     g_array_index(a,t,i)</programlisting>
+<para>
+Returns the element of a <link linkend="GArray"><type>GArray</type></link> at the given index.
+The return value is cast to the given type.
+
+<example>
+<title>Getting a pointer to an element in a <structname>GArray</structname></title>
+<programlisting>
+  EDayViewEvent *event;
+
+  /* This gets a pointer to the 3rd element in the array of EDayViewEvent
+     structs. */
+  event = &amp;g_array_index (events, EDayViewEvent, 3);
+</programlisting>
+</example>
+</para><variablelist role="params">
+<varlistentry><term><parameter>a</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>t</parameter>&nbsp;:</term>
+<listitem><simpara>the type of the elements.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>i</parameter>&nbsp;:</term>
+<listitem><simpara>the index of the element to return.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element of the <link linkend="GArray"><type>GArray</type></link> at the index given by <parameter>i</parameter>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-set-size"/>g_array_set_size ()</title>
+<indexterm><primary>g_array_set_size</primary></indexterm><programlisting><link linkend="GArray">GArray</link>*     g_array_set_size                (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="guint">guint</link> length);</programlisting>
+<para>
+Sets the size of the array, expanding it if necessary.
+If the array was created with <parameter>clear_</parameter> set to <literal>TRUE</literal>, the new elements are set to 0.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>length</parameter>&nbsp;:</term>
+<listitem><simpara>the new size of the <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the <link linkend="GArray"><type>GArray</type></link>.
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+<refsect2>
+<title><anchor id="g-array-free"/>g_array_free ()</title>
+<indexterm><primary>g_array_free</primary></indexterm><programlisting><link linkend="gchar">gchar</link>*      g_array_free                    (<link linkend="GArray">GArray</link> *array,
+                                             <link linkend="gboolean">gboolean</link> free_segment);</programlisting>
+<para>
+Frees the memory allocated for the <link linkend="GArray"><type>GArray</type></link>.
+If <parameter>free_segment</parameter> is <literal>TRUE</literal> it frees the actual element data as well.
+</para><variablelist role="params">
+<varlistentry><term><parameter>array</parameter>&nbsp;:</term>
+<listitem><simpara>a <link linkend="GArray"><type>GArray</type></link>.
+</simpara></listitem></varlistentry>
+<varlistentry><term><parameter>free_segment</parameter>&nbsp;:</term>
+<listitem><simpara>if <literal>TRUE</literal> the actual element data is freed as well.
+</simpara></listitem></varlistentry>
+<varlistentry><term><emphasis>Returns</emphasis> :</term><listitem><simpara>the element data if <parameter>free_segment</parameter> is <literal>FALSE</literal>, otherwise <literal>NULL</literal>
+
+
+</simpara></listitem></varlistentry>
+</variablelist></refsect2>
+
+</refsect1>
+
+
+
+
+</refentry>

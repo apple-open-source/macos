@@ -1,4 +1,4 @@
-XCOMM $XFree86: xc/lib/expat/Imakefile,v 1.5 2002/02/26 05:09:53 tsi Exp $
+XCOMM $XFree86: xc/lib/expat/Imakefile,v 1.9 2003/05/27 16:34:35 tsi Exp $
 
 #define DoNormalLib NormalLibExpat
 #define DoSharedLib SharedLibExpat
@@ -8,13 +8,12 @@ XCOMM $XFree86: xc/lib/expat/Imakefile,v 1.5 2002/02/26 05:09:53 tsi Exp $
 #define HasSharedData YES
 #define LibName expat
 #define SoRev SOEXPATREV
+#ifdef SharedLibtoolExpatRev
+#define SharedLibtoolRev SharedLibtoolExpatRev
+#endif
 #define LibHeaders YES
 
 #include <Threads.tmpl>
-
-MAJOR_VERSION = 1
-MINOR_VERSION = 95
-MICRO_VERSION = 2
 
 EXPATTOP = $(TOP)/extras/expat
 EXPATSRC = $(EXPATTOP)/lib
@@ -29,7 +28,7 @@ INCLUDES = -I$(EXPATINC) -I$(EXPATTOP) -I.
  * XML_BYTE_ORDER == 21			little endian
  * XML_BYTE_ORDER == anything else	determined at run-time.
  */
-DEFINES = -DVERSION=\"ExpatVersion\" -DXML_BYTE_ORDER=0
+DEFINES = -DXML_BYTE_ORDER=0 -DX_BYTE_ORDER=$(X_BYTE_ORDER)
 REQUIREDLIBS=$(LDPRELIBS)
 
 SRCS = xmlparse.c xmltok.c xmlrole.c
@@ -43,21 +42,12 @@ HEADERS = expat.h
 SpecialCObjectRule(sharedlib,NullParameter,$(SHLIBDEF))
 #endif
 
-clean::
-	$(RM) expat.h
-
-depend:: expat.h
 
 DependTarget()
-
-expat.h: expat.h.in
-	sed -e 's/@EXPAT_MAJOR_VERSION@/$(MAJOR_VERSION)/' \
-	    -e 's/@EXPAT_MINOR_VERSION@/$(MINOR_VERSION)/' \
-	    -e 's/@EXPAT_EDIT@/$(MICRO_VERSION)/' expat.h.in > $@
 
 LinkSourceFile(xmlparse.c,$(EXPATSRC))
 LinkSourceFile(xmltok.c,$(EXPATSRC))
 LinkSourceFile(xmlrole.c,$(EXPATSRC))
-LinkSourceFile(expat.h.in,$(EXPATINC))
+LinkSourceFile(expat.h,$(EXPATINC))
 
 

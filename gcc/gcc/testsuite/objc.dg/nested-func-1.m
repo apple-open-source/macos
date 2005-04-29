@@ -1,10 +1,10 @@
-/* APPLE LOCAL file nested functions */
 /* Test basic nested C function functionality within ObjC
    methods.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
 /* { dg-options "-lobjc" } */
 /* { dg-do run } */
 #include <stdio.h>
+#include <stdlib.h>
 #include <objc/objc.h>
 #include <objc/Object.h>
 

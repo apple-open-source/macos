@@ -3,22 +3,19 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -42,13 +39,15 @@ extern "C"
 #include <machine/machine_routines.h>
 };
 
+#define DEBUG_PCI_PWR_MGMT 0
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 #define super IOService
 OSDefineMetaClassAndAbstractStructorsWithInit( IOPCIBridge, IOService, IOPCIBridge::initialize() )
 
-OSMetaClassDefineReservedUnused(IOPCIBridge,  1);
+OSMetaClassDefineReservedUsed(IOPCIBridge, 0);
+OSMetaClassDefineReservedUsed(IOPCIBridge, 1);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  2);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  3);
 OSMetaClassDefineReservedUnused(IOPCIBridge,  4);
@@ -202,10 +201,15 @@ void IOPCIBridge::free( void )
 IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
         unsigned long whatToDo )
 {
-    if (whatToDo == 1)
-        return (restoreDeviceState(device));
-    if (whatToDo == 0)
-        return (saveDeviceState(device));
+    if ((kSaveDeviceState == whatToDo) || (kRestoreDeviceState == whatToDo))
+    {
+        if (kOSBooleanFalse == device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
+            return (kIOReturnSuccess);
+        if (kRestoreDeviceState == whatToDo)
+            return (restoreDeviceState(device));
+        else
+            return (saveDeviceState(device));
+    }
 
     // Special for pci/pci-bridge devices - 2 to save immediately, 3 to restore immediately
 
@@ -217,7 +221,7 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
 	{
 	    if (gIOAllPCI2PCIBridges[i])
 	    {
-		if (whatToDo == 2)
+		if (kSaveBridgeState == whatToDo)
 		    gIOAllPCI2PCIBridges[i]->saveBridgeState();
 		else
 		    gIOAllPCI2PCIBridges[i]->restoreBridgeState();
@@ -234,19 +238,21 @@ IOReturn IOPCIBridge::setDevicePowerState( IOPCIDevice * device,
 IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
                                        IOOptionBits options )
 {
+    UInt32 flags;
     int i;
 
     if (!device->savedConfig)
         return (kIOReturnNotReady);
 
-    if (kOSBooleanFalse != device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
-    {
-        for (i = 0; i < kIOPCIConfigShadowRegs; i++)
-	    if (kIOPCIVolatileRegsMask & (1 << i))
-		device->savedConfig[i] = device->configRead32( i * 4 );
-    }
+    flags = device->savedConfig[kIOPCIConfigShadowFlags];
+    if ((kIOPCIConfigShadowValid | kIOPCIConfigShadowBridge) & flags)
+        return (kIOReturnSuccess);
+    flags |= kIOPCIConfigShadowValid;
+    device->savedConfig[kIOPCIConfigShadowFlags] = flags;
 
-    device->savedConfig[kIOPCIConfigShadowFlags] = true;
+    for (i = 0; i < kIOPCIConfigShadowRegs; i++)
+        if (kIOPCIVolatileRegsMask & (1 << i))
+            device->savedConfig[i] = device->configRead32( i * 4 );
 
     return (kIOReturnSuccess);
 }
@@ -254,21 +260,25 @@ IOReturn IOPCIBridge::saveDeviceState( IOPCIDevice * device,
 IOReturn IOPCIBridge::restoreDeviceState( IOPCIDevice * device,
         IOOptionBits options )
 {
+    UInt32 flags;
     int i;
 
-    if (!device->savedConfig || !device->savedConfig[kIOPCIConfigShadowFlags])
+    if (!device->savedConfig)
         return (kIOReturnNotReady);
 
-    if (kOSBooleanFalse != device->getProperty(kIOPMPCIConfigSpaceVolatileKey))
-    {
-        for (i = (kIOPCIConfigRevisionID >> 2); i < kIOPCIConfigShadowRegs; i++)
-	    if (kIOPCIVolatileRegsMask & (1 << i))
-		device->configWrite32( i * 4, device->savedConfig[ i ]);
+    flags = device->savedConfig[kIOPCIConfigShadowFlags];
+    if (kIOPCIConfigShadowBridge & flags)
+        return (kIOReturnSuccess);
+    if (!(kIOPCIConfigShadowValid & flags))
+        return (kIOReturnNotReady);
+    flags &= ~kIOPCIConfigShadowValid;
+    device->savedConfig[kIOPCIConfigShadowFlags] = flags;
 
-        device->configWrite32( kIOPCIConfigCommand, device->savedConfig[1]);
-    }
+    for (i = (kIOPCIConfigRevisionID >> 2); i < kIOPCIConfigShadowRegs; i++)
+        if (kIOPCIVolatileRegsMask & (1 << i))
+            device->configWrite32( i * 4, device->savedConfig[ i ]);
 
-    device->savedConfig[kIOPCIConfigShadowFlags] = false;
+    device->configWrite32( kIOPCIConfigCommand, device->savedConfig[1]);
 
     return (kIOReturnSuccess);
 }
@@ -583,7 +593,7 @@ bool IOPCIBridge::publishNub( IOPCIDevice * nub, UInt32 /* index */ )
 	nub->savedConfig = IONew( UInt32, kIOPCIConfigShadowSize );
 	if (nub->savedConfig)
 	{
-	    nub->savedConfig[kIOPCIConfigShadowFlags] = false;
+	    nub->savedConfig[kIOPCIConfigShadowFlags] = 0;
 	    for (int i = 0; i < kIOPCIConfigShadowRegs; i++)
 		if (!(kIOPCIVolatileRegsMask & (1 << i)))
 		    nub->savedConfig[i] = nub->configRead32( i << 2 );
@@ -1080,8 +1090,6 @@ bool IOPCIBridge::addBridgeMemoryRange( IOPhysicalAddress start,
     return addBridgePrefetchableMemoryRange( start, length, host );
 }
 
-OSMetaClassDefineReservedUsed(IOPCIBridge, 0);
-
 bool IOPCIBridge::addBridgePrefetchableMemoryRange( IOPhysicalAddress start,
                                                     IOPhysicalLength length,
                                                     bool host )
@@ -1491,6 +1499,39 @@ UInt32 IOPCIBridge::findPCICapability( IOPCIAddressSpace space,
     return (offset ? data : 0);
 }
 
+UInt32 IOPCIBridge::extendedFindPCICapability( IOPCIAddressSpace space,
+						UInt32 capabilityID, IOByteCount * found )
+{
+    UInt32	data = 0;
+    IOByteCount	offset = 0;
+    IOByteCount	firstOffset = 0;
+
+    if (found)
+    {
+	firstOffset = *found;
+        *found = 0;
+    }
+
+    if (0 == ((kIOPCIStatusCapabilities << 16)
+              & (configRead32(space, kIOPCIConfigCommand))))
+        return (0);
+
+    offset = configRead32( space, kIOPCIConfigCapabilitiesPtr );
+    while (offset)
+    {
+        data = configRead32( space, offset );
+        if (offset > firstOffset && (capabilityID == (data & 0xff)))
+        {
+            if (found)
+                *found = offset;
+            break;
+        }
+        offset = (data >> 8) & 0xfc;
+    }
+
+    return (offset ? data : 0);
+}
+
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 IOReturn IOPCIBridge::createAGPSpace( IOAGPDevice * master,
@@ -1606,7 +1647,8 @@ bool IOPCI2PCIBridge::configure( IOService * provider )
     }
 
     saveBridgeState();
-    provider->setProperty(kIOPMPCIConfigSpaceVolatileKey, kOSBooleanFalse);
+    if (bridgeDevice->savedConfig)
+        bridgeDevice->savedConfig[kIOPCIConfigShadowFlags] |= kIOPCIConfigShadowBridge;
 
     IOSimpleLockLock(gIOAllPCI2PCIBridgesLock);
 

@@ -1,5 +1,6 @@
 // -*- C++ -*-
-/* Copyright (C) 1989, 1990, 1991, 1992, 2002 Free Software Foundation, Inc.
+/* Copyright (C) 1989, 1990, 1991, 1992, 2002, 2004
+   Free Software Foundation, Inc.
      Written by James Clark (jjc@jclark.com)
 
 This file is part of groff.
@@ -163,9 +164,9 @@ struct segment {
   segment(const position &, int, segment *);
 };
 
-struct rectangle_object;
-struct graphic_object;
-struct linear_object;
+class rectangle_object;
+class graphic_object;
+class linear_object;
 
 struct object_spec {
   unsigned long flags;

@@ -30,7 +30,7 @@
  * Project.
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/newport/newport_driver.c,v 1.24 2003/02/18 19:10:36 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/newport/newport_driver.c,v 1.26 2003/08/23 15:03:08 dawes Exp $ */
 
 /* function prototypes, common data structures & generic includes */
 #include "newport.h"
@@ -297,7 +297,7 @@ NewportPreInit(ScrnInfoPtr pScrn, int flags)
 	/* Fill in the monitor field */
 	pScrn->monitor = pScrn->confScreen->monitor;
 
-	if (!xf86SetDepthBpp(pScrn, 8, 8, 8, 
+	if (!xf86SetDepthBpp(pScrn, 24, 0, 0, 
 			Support24bppFb | SupportConvert32to24 | 
 				PreferConvert32to24 ))
 		return FALSE;
@@ -570,8 +570,6 @@ NewportScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
 		return FALSE;
 	}
 
-
-#ifdef XvExtension
 	{
 		XF86VideoAdaptorPtr *ptr;
 		int n;
@@ -581,8 +579,6 @@ NewportScreenInit(int index, ScreenPtr pScreen, int argc, char **argv)
 			xf86XVScreenInit(pScreen, ptr, n);
 	        }
         }
-#endif
-
 
 	pScreen->SaveScreen = NewportSaveScreen;
 	/* Wrap the current CloseScreen function */

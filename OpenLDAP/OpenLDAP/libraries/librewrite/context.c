@@ -1,26 +1,21 @@
-/******************************************************************************
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/context.c,v 1.5.2.5 2004/07/25 20:49:24 ando Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright (C) 2000 Pierangelo Masarati, <ando@sys-net.it>
+ * Copyright 2000-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * 1. The author is not responsible for the consequences of use of this
- * software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- * explicit claim or by omission.  Since few users ever read sources,
- * credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- * misrepresented as being the original software.  Since few users
- * ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- ******************************************************************************/
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENT:
+ * This work was initially developed by Pierangelo Masarati for
+ * inclusion in OpenLDAP Software.
+ */
 
 #include <portable.h>
 
@@ -144,6 +139,7 @@ rewrite_context_create(
 		free( context );
 		return NULL;
 	}
+	memset( context->lc_rule, 0, sizeof( struct rewrite_rule ) );
 	
 	/*
 	 * Add context to tree
@@ -222,10 +218,10 @@ rewrite_context_apply(
 	assert( op->lo_depth > 0 );
 
 	Debug( LDAP_DEBUG_TRACE, "==> rewrite_context_apply"
-			" [depth=%d] string='%s'\n%s",
-			op->lo_depth, string, "" );
+			" [depth=%d] string='%s'\n",
+			op->lo_depth, string, 0 );
 	
-	s = strdup( string );
+	s = (char *)string;
 	
 	for ( rule = context->lc_rule->lr_next;
 			rule != NULL && op->lo_num_passes < info->li_max_passes;
@@ -250,7 +246,7 @@ rewrite_context_apply(
 			
 		case REWRITE_REGEXEC_ERR:
 			Debug( LDAP_DEBUG_ANY, "==> rewrite_context_apply"
-					" error ...\n%s%s%s", "", "",  "");
+					" error ...\n", 0, 0, 0);
 
 			/*
 			 * Checks for special actions to be taken
@@ -272,8 +268,7 @@ rewrite_context_apply(
 					case REWRITE_ACTION_IGNORE_ERR:
 						Debug( LDAP_DEBUG_ANY,
 					"==> rewrite_context_apply"
-					" ignoring error ...\n%s%s%s",
-							"", "", "" );
+					" ignoring error ...\n", 0, 0, 0 );
 						do_continue = 1;
 						break;
 
@@ -301,7 +296,7 @@ rewrite_context_apply(
 
 				if ( do_continue ) {
 					if ( rule->lr_next == NULL ) {
-						res = s;
+						res = ( s == string ? strdup( s ) : s );
 					}
 					goto rc_continue;
 				}
@@ -326,7 +321,9 @@ rewrite_context_apply(
 			if ( res != NULL ) {
 				struct rewrite_action *action;
 				
-				free( s );
+				if (s != string ) {
+					free( s );
+				}
 				s = res;
 
 				for ( action = rule->lr_action;
@@ -362,6 +359,15 @@ rewrite_context_apply(
 							goto rc_end_of_context;
 						}
 						break;
+
+					/*
+					 * This ends the rewrite context
+					 * and returns a user-defined
+					 * error code
+					 */
+					case REWRITE_ACTION_USER:
+						return_code = ((int *)action->la_args)[ 0 ];
+						goto rc_end_of_context;
 					
 					default:
 						/* ... */
@@ -375,7 +381,7 @@ rewrite_context_apply(
 			 * result back to the string
 			 */
 			} else if ( rule->lr_next == NULL ) {
-				res = s;
+				res = ( s == string ? strdup( s ) : s );
 			}
 			
 			break;
@@ -390,8 +396,15 @@ rewrite_context_apply(
 		 * This will instruct the server to return
 		 * an `unwilling to perform' error message
 		 */
-		 case REWRITE_REGEXEC_UNWILLING:
+		case REWRITE_REGEXEC_UNWILLING:
 			return_code = REWRITE_REGEXEC_UNWILLING;
+			goto rc_end_of_context;
+
+		/*
+		 * A user-defined error code has propagated ...
+		 */
+		default:
+			assert( rc >= REWRITE_REGEXEC_USER );
 			goto rc_end_of_context;
 
 		}
@@ -413,3 +426,49 @@ rc_end_of_context:;
 	return return_code;
 }
 
+void
+rewrite_context_free(
+		void *tmp
+)
+{
+	struct rewrite_context *context = (struct rewrite_context *)tmp;
+
+	assert( tmp );
+
+	rewrite_context_destroy( &context );
+}
+
+int
+rewrite_context_destroy(
+		struct rewrite_context **pcontext
+)
+{
+	struct rewrite_context *context;
+	struct rewrite_rule *r;
+
+	assert( pcontext );
+	assert( *pcontext );
+
+	context = *pcontext;
+
+	assert( context->lc_rule );
+
+	for ( r = context->lc_rule->lr_next; r; ) {
+		struct rewrite_rule *cr = r;
+
+		r = r->lr_next;
+		rewrite_rule_destroy( &cr );
+	}
+
+	free( context->lc_rule );
+	context->lc_rule = NULL;
+
+	assert( context->lc_name );
+	free( context->lc_name );
+	context->lc_name = NULL;
+
+	free( context );
+	*pcontext = NULL;
+	
+	return 0;
+}

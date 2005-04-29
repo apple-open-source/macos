@@ -13,11 +13,11 @@
 	<key>CFBundlePackageType</key>
 	<string>fs  </string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.3.1</string>
+	<string>1.4</string>
 	<key>FSMediaTypes</key>
 	<dict>
 		<key>CD</key>
@@ -79,6 +79,30 @@
 			<string>../../../../../../sbin/mount_cd9660</string>
 			<key>FSName</key>
 			<string>ISO 9660 File System</string>
+			<key>FSSubType</key>
+			<integer>0</integer>
+		</dict>
+		<key>ISO Joliet</key>
+		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_cd9660</string>
+			<key>FSName</key>
+			<string>ISO 9660 File System (Joliet)</string>
+			<key>FSSubType</key>
+			<integer>1</integer>
+		</dict>
+		<key>ISO Rockridge</key>
+		<dict>
+			<key>FSMountArguments</key>
+			<string></string>
+			<key>FSMountExecutable</key>
+			<string>../../../../../../sbin/mount_cd9660</string>
+			<key>FSName</key>
+			<string>ISO 9660 File System (Rockridge)</string>
+			<key>FSSubType</key>
+			<integer>2</integer>
 		</dict>
 	</dict>
 </dict>

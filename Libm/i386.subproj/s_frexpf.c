@@ -22,7 +22,7 @@ __RCSID("$NetBSD: s_frexpf.c,v 1.7 1999/07/02 15:37:42 simonb Exp $");
 #include "math_private.h"
 
 static const float
-two25 =  3.3554432000e+07; /* 0x4c000000 */
+two25 =  0x1.0p+25; /* 3.3554432000e+07 0x4c000000 */
 
 float frexpf(float x, int *eptr)
 {

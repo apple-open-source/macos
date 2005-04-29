@@ -40,7 +40,7 @@
  *
  */
 
-/* $Id: quota.c,v 1.57 2004/06/30 19:23:26 ken3 Exp $ */
+/* $Id: quota.c,v 1.9 2005/03/05 00:37:03 dasenbro Exp $ */
 
 
 #include <config.h>

@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2003, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -37,6 +37,36 @@ U_CDECL_BEGIN
  */
 
 /**
+ * Character used to separate package names from tree names 
+ * @internal ICU 3.0
+ */
+#define U_TREE_SEPARATOR '-'
+
+/**
+ * String used to separate package names from tree names 
+ * @internal ICU 3.0
+ */
+#define U_TREE_SEPARATOR_STRING "-"
+
+/**
+ * Character used to separate parts of entry names
+ * @internal ICU 3.0
+ */
+#define U_TREE_ENTRY_SEP_CHAR '/'
+
+/**
+ * String used to separate parts of entry names
+ * @internal ICU 3.0
+ */
+#define U_TREE_ENTRY_SEP_STRING "/"
+
+/**
+ * Alias for standard ICU data 
+ * @internal ICU 3.0
+ */
+#define U_ICUDATA_ALIAS "ICUDATA"
+
+/**
  * UDataInfo contains the properties about the requested data.
  * This is meta data.
  *
@@ -70,40 +100,40 @@ U_CDECL_BEGIN
  * @stable ICU 2.0
  */
 typedef struct {
-    /** @memo sizeof(UDataInfo)
+    /** sizeof(UDataInfo)
      *  @stable ICU 2.0 */
     uint16_t size;
 
-    /** @memo unused, set to 0 
+    /** unused, set to 0 
      *  @stable ICU 2.0*/
     uint16_t reservedWord;
 
     /* platform data properties */
-    /** @memo 0 for little-endian machine, 1 for big-endian
+    /** 0 for little-endian machine, 1 for big-endian
      *  @stable ICU 2.0 */
     uint8_t isBigEndian;
 
-    /** @memo see U_CHARSET_FAMILY values in utypes.h 
+    /** see U_CHARSET_FAMILY values in utypes.h 
      *  @stable ICU 2.0*/
     uint8_t charsetFamily;
 
-    /** @memo sizeof(UChar), one of { 1, 2, 4 } 
+    /** sizeof(UChar), one of { 1, 2, 4 } 
      *  @stable ICU 2.0*/
     uint8_t sizeofUChar;
 
-    /** @memo unused, set to 0 
+    /** unused, set to 0 
      *  @stable ICU 2.0*/
     uint8_t reservedByte;
 
-    /** @memo data format identifier 
+    /** data format identifier 
      *  @stable ICU 2.0*/
     uint8_t dataFormat[4];
 
-    /** @memo versions: [0] major [1] minor [2] milli [3] micro 
+    /** versions: [0] major [1] minor [2] milli [3] micro 
      *  @stable ICU 2.0*/
     uint8_t formatVersion[4];
 
-    /** @memo versions: [0] major [1] minor [2] milli [3] micro 
+    /** versions: [0] major [1] minor [2] milli [3] micro 
      *  @stable ICU 2.0*/
     uint8_t dataVersion[4];
 } UDataInfo;
@@ -156,7 +186,7 @@ UDataMemoryIsAcceptable(void *context,
  * @see udata_openChoice
  * @stable ICU 2.0
  */
-U_CAPI UDataMemory * U_EXPORT2
+U_STABLE UDataMemory * U_EXPORT2
 udata_open(const char *path, const char *type, const char *name,
            UErrorCode *pErrorCode);
 
@@ -208,7 +238,7 @@ udata_open(const char *path, const char *type, const char *name,
  *         to get a pointer to the actual data.
  * @stable ICU 2.0
  */
-U_CAPI UDataMemory * U_EXPORT2
+U_STABLE UDataMemory * U_EXPORT2
 udata_openChoice(const char *path, const char *type, const char *name,
                  UDataMemoryIsAcceptable *isAcceptable, void *context,
                  UErrorCode *pErrorCode);
@@ -220,7 +250,7 @@ udata_openChoice(const char *path, const char *type, const char *name,
  * @param pData The pointer to data memory object
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2
+U_STABLE void U_EXPORT2
 udata_close(UDataMemory *pData);
 
 /**
@@ -229,7 +259,7 @@ udata_close(UDataMemory *pData);
  * @param pData The pointer to data memory object
  * @stable ICU 2.0
  */
-U_CAPI const void * U_EXPORT2
+U_STABLE const void * U_EXPORT2
 udata_getMemory(UDataMemory *pData);
 
 /**
@@ -250,7 +280,7 @@ udata_getMemory(UDataMemory *pData);
  * adjusted and only part of the structure will be filled.
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2
+U_STABLE void U_EXPORT2
 udata_getInfo(UDataMemory *pData, UDataInfo *pInfo);
 
 /**
@@ -287,7 +317,7 @@ udata_getInfo(UDataMemory *pData, UDataInfo *pInfo);
  * @stable ICU 2.0
  */
 
-U_CAPI void U_EXPORT2
+U_STABLE void U_EXPORT2
 udata_setCommonData(const void *data, UErrorCode *err);
 
 
@@ -315,7 +345,7 @@ udata_setCommonData(const void *data, UErrorCode *err);
  * @see udata_setCommonData
  * @stable ICU 2.0
  */
-U_CAPI void U_EXPORT2
+U_STABLE void U_EXPORT2
 udata_setAppData(const char *packageName, const void *data, UErrorCode *err);
 
 U_CDECL_END

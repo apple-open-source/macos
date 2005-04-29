@@ -20,8 +20,8 @@
 // Software Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307,
 // USA.
 
-// { dg-do run { target *-*-freebsd* *-*-linux* *-*-solaris* *-*-cygwin } }
-// { dg-options "-pthread" { target *-*-freebsd* *-*-linux* } }
+// { dg-do run { target *-*-freebsd* *-*-netbsd* *-*-linux* *-*-solaris* *-*-cygwin } }
+// { dg-options "-pthread" { target *-*-freebsd* *-*-netbsd* *-*-linux* } }
 // { dg-options "-pthreads" { target *-*-solaris* } }
 
 #include <vector>
@@ -32,6 +32,10 @@
 // configured for the port, then it is picked up free from STL headers.
 
 #if __GTHREADS
+#ifdef _GLIBCPP_HAVE_UNISTD_H
+#include <unistd.h>	// To test for _POSIX_THREAD_PRIORITY_SCHEDULING
+#endif
+
 using namespace std;
 
 #define NTHREADS 8
@@ -97,7 +101,9 @@ main (int argc, char *argv[])
 
   pthread_attr_t tattr;
   int ret = pthread_attr_init (&tattr);
+#ifdef _POSIX_THREAD_PRIORITY_SCHEDULING
   ret = pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
+#endif
 
   for (worker = 0; worker < NTHREADS; worker++)
     {

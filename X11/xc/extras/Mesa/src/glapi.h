@@ -32,6 +32,8 @@
 
 struct _glapi_table;
 
+typedef void (*_glapi_warning_func)(void *ctx, const char *str, ...);
+
 
 extern void *_glapi_Context;
 
@@ -41,6 +43,8 @@ extern struct _glapi_table *_glapi_Dispatch;
 extern void
 _glapi_noop_enable_warnings(GLboolean enable);
 
+extern void
+_glapi_set_warning_func(_glapi_warning_func func);
 
 extern void
 _glapi_check_multithread(void);

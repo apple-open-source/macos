@@ -1,8 +1,8 @@
 #
 #   irb.rb - irb main module
-#   	$Release Version: 0.7.4 $
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
+#   	$Release Version: 0.9 $
+#   	$Revision: 1.7 $
+#   	$Date: 2003/06/10 05:22:16 $
 #   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
@@ -14,7 +14,7 @@ require "e2mmap"
 require "irb/init"
 require "irb/context"
 require "irb/extend-command"
-require "irb/workspace"
+#require "irb/workspace"
 
 require "irb/ruby-lex"
 require "irb/input-method"
@@ -23,7 +23,7 @@ require "irb/locale"
 STDOUT.sync = true
 
 module IRB
-  @RCS_ID='-$Id: irb.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  @RCS_ID='-$Id: irb.rb,v 1.7 2003/06/10 05:22:16 matz Exp $-'
 
   class Abort < Exception;end
 
@@ -43,13 +43,15 @@ module IRB
     @CONF[:VERSION] = format("irb %s(%s)", rv, @LAST_UPDATE_DATE)
   end
 
+  def IRB.CurrentContext
+    IRB.conf[:MAIN_CONTEXT]
+  end
+
   # initialize IRB and start TOP_LEVEL irb
   def IRB.start(ap_path = nil)
     $0 = File::basename(ap_path, ".rb") if ap_path
 
-    IRB.initialize(ap_path)
-    IRB.parse_opts
-    IRB.load_modules
+    IRB.setup(ap_path)
 
     if @CONF[:SCRIPT]
       irb = Irb.new(nil, @CONF[:SCRIPT])
@@ -67,7 +69,7 @@ module IRB
     catch(:IRB_EXIT) do
       irb.eval_input
     end
-    print "\n"
+#    print "\n"
   end
 
   def IRB.irb_exit(irb, ret)
@@ -88,7 +90,7 @@ module IRB
   class Irb
     def initialize(workspace = nil, input_method = nil)
       @context = Context.new(self, workspace, input_method)
-      @context.main.extend ExtendCommand
+      @context.main.extend ExtendCommandBundle
       @signal_status = :IN_IRB
 
       @scanner = RubyLex.new
@@ -98,9 +100,36 @@ module IRB
     attr_accessor :scanner
 
     def eval_input
+      @scanner.set_prompt do
+	|ltype, indent, continue, line_no|
+	if ltype
+	  f = @context.prompt_s
+	elsif continue
+	  f = @context.prompt_c
+	else @context.prompt_i
+	  f = @context.prompt_i
+	end
+	f = "" unless f
+	if @context.prompting?
+	  @context.io.prompt = p = prompt(f, ltype, indent, line_no)
+	else
+	  @context.io.prompt = p = ""
+	end
+	if @context.auto_indent_mode
+	  unless ltype
+	    ind = prompt(@context.prompt_i, ltype, indent, line_no).size + 
+	      indent * 2 - p.size
+	    ind += 2 if continue
+	    @context.io.prompt = p + " " * ind if ind > 0
+	  end
+	end
+      end
+       
       @scanner.set_input(@context.io) do
 	signal_status(:IN_INPUT) do
-	  unless l = @context.io.gets
+	  if l = @context.io.gets
+	    print l if @context.verbose?
+	  else
 	    if @context.ignore_eof? and @context.io.readable_atfer_eof?
 	      l = "\n"
 	      if @context.verbose?
@@ -112,47 +141,16 @@ module IRB
 	end
       end
 
-      @scanner.set_prompt do
-	|ltype, indent, continue, line_no|
-	if ltype
-	  f = @context.prompt_s
-	elsif continue
-	  f = @context.prompt_c
-	else @context.prompt_i
-	  f = @context.prompt_i
-	end
-	f = "" unless f
-	@context.io.prompt = p = prompt(f, ltype, indent, line_no)
-	if @context.auto_indent_mode
-	  unless ltype
-	    ind = prompt(@context.prompt_i, ltype, indent, line_no).size + 
-	      indent * 2 - p.size
-	    ind += 2 if continue
-	    @context.io.prompt = p + " " * ind if ind > 0
-	  end
-	end
-      end
-       
-      @scanner.each_top_level_statement do
-	|line, line_no|
+      @scanner.each_top_level_statement do |line, line_no|
 	signal_status(:IN_EVAL) do
 	  begin
-	    trace_in do
-	      @context._ = @context.workspace.evaluate(line, 
-						       @context.irb_path, 
-						       line_no)
-#	      @context._ = irb_eval(line, @context.bind, @context.irb_path, line_no)
-	    end
-
-	    if @context.inspect?
-	      printf @context.return_format, @context._.inspect
-	    else
-	      printf @context.return_format, @context._
-	    end
+            line.untaint
+	    @context.evaluate(line, line_no)
+	    output_value if @context.echo?
 	  rescue StandardError, ScriptError, Abort
 	    $! = RuntimeError.new("unknown exception raised") unless $!
-	    print $!.type, ": ", $!, "\n"
-	    if  $@[0] =~ /irb(2)?(\/.*|-.*|\.rb)?:/ && $!.type.to_s !~ /^IRB/
+	    print $!.class, ": ", $!, "\n"
+	    if  $@[0] =~ /irb(2)?(\/.*|-.*|\.rb)?:/ && $!.class.to_s !~ /^IRB/
 	      irb_bug = true 
 	    else
 	      irb_bug = false
@@ -182,23 +180,52 @@ module IRB
 	    end
 	    print "Maybe IRB bug!!\n" if irb_bug
 	  end
+          if $SAFE > 2
+            warn "Error: irb does not work for $SAFE level higher than 2"
+            exit 1
+          end
 	end
       end
     end
 
-#     def irb_eval(line, bind, path, line_no)
-#       id, str = catch(:IRB_TOPLEVEL_EVAL){
-# 	return eval(line, bind, path, line_no)
-#       }
-#       case id
-#       when :EVAL_TOPLEVEL
-# 	eval(str, bind, "(irb_internal)", 1)
-#       when :EVAL_CONTEXT
-# 	@context.instance_eval(str)
-#       else
-# 	IRB.fail IllegalParameter
-#       end
-#     end
+    def suspend_name(path = nil, name = nil)
+      @context.irb_path, back_path = path, @context.irb_path if path
+      @context.irb_name, back_name = name, @context.irb_name if name
+      begin
+	yield back_path, back_name
+      ensure
+	@context.irb_path = back_path if path
+	@context.irb_name = back_name if name
+      end
+    end
+
+    def suspend_workspace(workspace)
+      @context.workspace, back_workspace = workspace, @context.workspace
+      begin
+	yield back_workspace
+      ensure
+	@context.workspace = back_workspace
+      end
+    end
+
+    def suspend_input_method(input_method)
+      back_io = @context.io
+      @context.instance_eval{@io = input_method}
+      begin
+	yield back_io
+      ensure
+	@context.instance_eval{@io = back_io}
+      end
+    end
+
+    def suspend_context(context)
+      @context, back_context = context, @context
+      begin
+	yield back_context
+      ensure
+	@context = back_context
+      end
+    end
 
     def signal_handle
       unless @context.ignore_sigint?
@@ -233,15 +260,6 @@ module IRB
       end
     end
 
-    def trace_in
-      Tracer.on if @context.use_tracer?
-      begin
-	yield
-      ensure
-	Tracer.off if @context.use_tracer?
-      end
-    end
-
     def prompt(prompt, ltype, indent, line_no)
       p = prompt.dup
       p.gsub!(/%([0-9]+)?([a-zA-Z])/) do
@@ -273,6 +291,14 @@ module IRB
       p
     end
 
+    def output_value
+      if @context.inspect?
+        printf @context.return_format, @context.last_value.inspect
+      else
+        printf @context.return_format, @context.last_value
+      end
+    end
+
     def inspect
       ary = []
       for iv in instance_variables
@@ -285,7 +311,7 @@ module IRB
 	  ary.push format("%s=%s", iv, eval(iv))
 	end
       end
-      format("#<%s: %s>", type, ary.join(", "))
+      format("#<%s: %s>", self.class, ary.join(", "))
     end
   end
 
@@ -296,8 +322,8 @@ module IRB
     array = []
     for k, v in sort{|a1, a2| a1[0].id2name <=> a2[0].id2name}
       case k
-      when :MAIN_CONTEXT
-	next
+      when :MAIN_CONTEXT, :__TMP__EHV__
+	array.push format("CONF[:%s]=...myself...", k.id2name)
       when :PROMPT
 	s = v.collect{
 	  |kk, vv|

@@ -1,7 +1,7 @@
 dnl kerberos_v5.m4--Kerberos 5 libraries and includes
 dnl Derrick Brashear
 dnl from KTH krb and Arla
-dnl $Id: heimdal.m4,v 1.8 2004/04/07 06:34:36 shadow Exp $
+dnl $Id: heimdal.m4,v 1.5 2005/03/05 00:36:09 dasenbro Exp $
 
 AC_DEFUN([CMU_LIBHEIMDAL_INC_WHERE1], [
 saved_CPPFLAGS=$CPPFLAGS

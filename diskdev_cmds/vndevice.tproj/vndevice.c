@@ -32,9 +32,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/ioccom.h>
-#define KERNEL_PRIVATE
 #include <sys/vnioctl.h>
-#undef KERNEL_PRIVATE
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 #include <mach/boolean.h>

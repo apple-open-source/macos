@@ -21,9 +21,6 @@
  ****************************************************************
  */
 
-#include "rcs.h"
-RCS_ID("$Id: attacher.c,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU")
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
@@ -660,7 +657,7 @@ LockTerminal()
   sigret_t (*sigs[NSIG])__P(SIGPROTOARG);
 
   for (sig = 1; sig < NSIG; sig++)
-    sigs[sig] = signal(sig, SIG_IGN);
+    sigs[sig] = signal(sig, sig == SIGCHLD ? SIG_DFL : SIG_IGN);
   signal(SIGHUP, LockHup);
   printf("\n");
 

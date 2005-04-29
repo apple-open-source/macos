@@ -25,8 +25,8 @@ endif
 AS = as
 LD = ld
 # LIBS= -lc_static
-LIBS= -L$(SYMDIR) -lsaio -lsa -lrcz 
-LIBDEP= $(SYMDIR)/libsaio.a $(SYMDIR)/libsa.a $(SYMDIR)/librcz.a
+LIBS= -L$(SYMDIR) -lsaio -lsa
+LIBDEP= $(SYMDIR)/libsaio.a $(SYMDIR)/libsa.a
 
 OTHER_FILES =
 
@@ -53,7 +53,7 @@ all: $(DIRS_NEEDED) boot
 
 boot: machOconv $(OBJS) $(LIBDEP)
 	$(LD) -static -preload -segaddr __TEXT $(BOOT2ADDR) -segalign 20 \
-		-o $(SYMROOT)/boot.sys $(OBJS) $(LIBS) -lcc_kext
+		-o $(SYMROOT)/boot.sys $(filter %.o,$^) $(LIBS) -lcc_kext
 	machOconv $(SYMROOT)/boot.sys $(SYMROOT)/boot
 	size $(SYMROOT)/boot.sys
 	ls -l $(SYMROOT)/boot
@@ -75,7 +75,7 @@ install_i386:: all $(INSTALLDIR)
 	cd $(INSTALLDIR); chmod u+w boot $(OTHER_FILES)
 
 clean::
-	rm -f $(SYMROOT)/boot.sys $(SYMROOT)/boot
+	rm -f $(SYMROOT)/boot.sys $(SYMROOT)/boot $(SYMROOT)/vers.h
 
 include ../MakeInc.dir
 

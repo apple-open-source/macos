@@ -27,7 +27,7 @@ in this Software without prior written authorization from the X Consortium.
  * *
  * Author:  Jim Fulton, MIT X Consortium
  */
-/* $XFree86: xc/programs/viewres/viewres.c,v 1.5 2000/09/26 15:57:23 tsi Exp $ */
+/* $XFree86: xc/programs/viewres/viewres.c,v 1.7 2003/09/08 20:49:47 herrb Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -216,7 +216,7 @@ static struct _nametable {
 };
 
 static Widget treeWidget;
-static Widget quitButton, viewButton, viewMenu, selectButton, selectMenu;
+static Widget viewButton, viewMenu, selectButton, selectMenu;
 static Widget view_widgets[VIEW_number];
 static Widget select_widgets[SELECT_number];
 static XmuWidgetNode *topnode;
@@ -228,7 +228,8 @@ static Arg true_args[1] = {{ XtNstate, (XtArgVal) TRUE }};
 /*
  * routines
  */
-static void usage ()
+static void 
+usage (void)
 {
     const char **cpp;
     fprintf (stderr, "usage:  %s [-options...]\n", ProgramName);
@@ -241,11 +242,11 @@ static void usage ()
 }
 
 
-static XmuWidgetNode *widget_to_node (gw)
-    register Widget gw;
+static XmuWidgetNode *
+widget_to_node (Widget gw)
 {
-    register XmuWidgetNode *node;
-    register int i;
+    XmuWidgetNode *node;
+    int i;
 
     if (XtIsSubclass (gw, toggleWidgetClass)) {
 	for (i = 0, node = widget_list; i < nwidgets; i++, node++) {
@@ -260,13 +261,11 @@ static XmuWidgetNode *widget_to_node (gw)
 }
 
 
-static void initialize_widgetnode_list (listp, sizep, n)
-    XmuWidgetNode ***listp;
-    int *sizep;
-    int n;
+static void 
+initialize_widgetnode_list (XmuWidgetNode ***listp, int *sizep, int n)
 {
-    register int i;
-    register XmuWidgetNode **l;
+    int i;
+    XmuWidgetNode **l;
 
     if (!*listp) {
         *listp = (XmuWidgetNode **)
@@ -290,8 +289,8 @@ static void initialize_widgetnode_list (listp, sizep, n)
 }
 
 
-static Boolean set_resource_labels (node)
-    XmuWidgetNode *node;
+static Boolean 
+set_resource_labels (XmuWidgetNode *node)
 {
     int i;
     const char **cur;
@@ -336,10 +335,10 @@ static Boolean set_resource_labels (node)
 }
 
 
-static ViewresData *create_viewres_data (node)
-    XmuWidgetNode *node;
+static ViewresData *
+create_viewres_data (XmuWidgetNode *node)
 {
-    register ViewresData *d =
+    ViewresData *d =
       (ViewresData *) malloc ((unsigned) sizeof(ViewresData));
 
     if (d) {
@@ -355,12 +354,12 @@ static ViewresData *create_viewres_data (node)
     return d;
 }
 
-static int copydown (start)
-    register int start;
+static int 
+copydown (int start)
 {
-    register XmuWidgetNode **src = &selected_list.elements[start];
-    register XmuWidgetNode **dst = src;
-    register int cur;
+    XmuWidgetNode **src = &selected_list.elements[start];
+    XmuWidgetNode **dst = src;
+    int cur;
 
     for (cur = start; start < selected_list.n_elements; start++, src++) {
 	if (*src) {
@@ -372,9 +371,8 @@ static int copydown (start)
 }
 
 
-static void add_to_selected_list (node, updatewidget)
-    XmuWidgetNode *node;
-    Boolean updatewidget;
+static void 
+add_to_selected_list (XmuWidgetNode *node, Boolean updatewidget)
 {
     ViewresData *d = VData(node);
     if (!d->instance || d->selection_index >= 0) return;
@@ -390,9 +388,8 @@ static void add_to_selected_list (node, updatewidget)
     if (updatewidget) XtSetValues (d->instance, true_args, ONE);
 }
 
-static Boolean remove_from_selected_list (node, updatewidget)
-    XmuWidgetNode *node;
-    Boolean updatewidget;
+static Boolean 
+remove_from_selected_list (XmuWidgetNode *node, Boolean updatewidget)
 {
     int i, skips;
     ViewresData *d = VData(node);
@@ -413,14 +410,13 @@ static Boolean remove_from_selected_list (node, updatewidget)
     return TRUE;
 }
 
-static void remove_nodes_from_selected_list (start, count, updatewidget)
-    int start, count;
-    Boolean updatewidget;
+static void 
+remove_nodes_from_selected_list (int start, int count, Boolean updatewidget)
 {
     int i;
 
     for (i = 0; i < count; i++) {
-	register XmuWidgetNode *p = selected_list.elements[start+i];
+	XmuWidgetNode *p = selected_list.elements[start+i];
 	ViewresData *d = VData(p);
 	REMOVE_NODE (p);
 	if (updatewidget) XtSetValues (d->instance, false_args, ONE);
@@ -428,9 +424,8 @@ static void remove_nodes_from_selected_list (start, count, updatewidget)
     selected_list.n_elements -= copydown (start);
 }
 	    
-static void add_subtree_to_selected_list (node, updatewidget)
-    XmuWidgetNode *node;
-    Boolean updatewidget;
+static void 
+add_subtree_to_selected_list (XmuWidgetNode *node, Boolean updatewidget)
 {
     if (!node) return;
 
@@ -442,26 +437,26 @@ static void add_subtree_to_selected_list (node, updatewidget)
 
 
 /* ARGSUSED */
-static void variable_labeltype_callback (gw, closure, data)
-    Widget gw;
-    XtPointer closure;			/* TRUE or FALSE */
-    XtPointer data;
+static void 
+variable_labeltype_callback (Widget gw, 
+    XtPointer closure,		/* TRUE or FALSE */
+    XtPointer data)
 {
     set_labeltype_menu ((Boolean) (long) closure, True);
 }
 
 /* ARGSUSED */
-static void gravity_callback (gw, closure, data)
-    Widget gw;
-    XtPointer closure;			/* TRUE or FALSE */
-    XtPointer data;
+static void 
+gravity_callback (Widget gw, 
+    XtPointer closure,		/* TRUE or FALSE */ 
+    XtPointer data)
 {
     set_orientation_menu ((XtGravity) (long) closure, True);
 }
 
 
-static Boolean create_resource_lw (node)
-    XmuWidgetNode *node;
+static Boolean 
+create_resource_lw (XmuWidgetNode *node)
 {
     Arg args[4];
     Cardinal n;
@@ -484,9 +479,10 @@ static Boolean create_resource_lw (node)
     return TRUE;
 }
 
-static void update_selection_items ()
+static void 
+update_selection_items (void)
 {
-    register int i;
+    int i;
     static Arg args[1] = {{ XtNsensitive, (XtArgVal) FALSE }};
     Boolean show = FALSE, hide = FALSE, ancestors = FALSE;
     Boolean descendants = FALSE;
@@ -528,10 +524,8 @@ static void update_selection_items ()
 }
 
 
-static void do_resources (node, op, updatewidget)
-    XmuWidgetNode *node;
-    Boolean op;
-    Boolean updatewidget;
+static void 
+do_resources (XmuWidgetNode *node, Boolean op, Boolean updatewidget)
 {
     ViewresData *d = VData(node);
     if (op == BOOL_TOGGLE) op = (IsShowing(node) ? BOOL_OFF : BOOL_ON);
@@ -557,10 +551,11 @@ static void do_resources (node, op, updatewidget)
 
 
 /* ARGSUSED */
-static void show_resources_callback (gw, closure, data)
-    Widget gw;				/* menu or toggle button */
-    XtPointer closure;			/* BOOL_OFF, BOOL_ON, BOOL_TOGGLE */
-    XtPointer data;			/* undefined */
+static void 
+show_resources_callback (
+    Widget gw,				/* menu or toggle button */
+    XtPointer closure,			/* BOOL_OFF, BOOL_ON, BOOL_TOGGLE */
+    XtPointer data)			/* undefined */
 {
     int op = (long) closure;
     XmuWidgetNode *node = widget_to_node (gw);
@@ -585,12 +580,13 @@ static void show_resources_callback (gw, closure, data)
 
 
 /* ARGSUSED */
-static void select_callback (gw, closure, data)
-    Widget gw;				/* entry widget */
-    XtPointer closure;			/* TRUE or FALSE */
-    XtPointer data;			/* undefined */
+static void 
+select_callback (
+    Widget gw,				/* entry widget */
+    XtPointer closure,			/* TRUE or FALSE */
+    XtPointer data)			/* undefined */
 {
-    register int i;
+    int i;
     int nselected = selected_list.n_elements;
     XmuWidgetNode *node;
 
@@ -702,10 +698,10 @@ static void select_callback (gw, closure, data)
 }
 
 /* ARGSUSED */
-static void toggle_callback (gw, closure, data)
-    Widget gw;
-    XtPointer closure;		/* XmuWidgetNode for this widget */
-    XtPointer data;		/* on or off */
+static void 
+toggle_callback (Widget gw, 
+    XtPointer closure,		/* XmuWidgetNode for this widget */
+    XtPointer data)		/* on or off */
 {
     XmuWidgetNode *node = (XmuWidgetNode *) closure;
     Boolean selected = (Boolean) (long) data;
@@ -724,10 +720,11 @@ static void toggle_callback (gw, closure, data)
  * panner/porthole controls - called when the other changes
  */
 /* ARGSUSED */
-static void panner_callback (gw, closure, data)
-    Widget gw;				/* panner widget */
-    XtPointer closure;			/* porthole widget */
-    XtPointer data;			/* report */
+static void 
+panner_callback (
+    Widget gw,				/* panner widget */
+    XtPointer closure,			/* porthole widget */
+    XtPointer data)			/* report */
 {
     XawPannerReport *rep = (XawPannerReport *) data;
     Arg args[2];
@@ -740,10 +737,11 @@ static void panner_callback (gw, closure, data)
 }
 
 /* ARGSUSED */
-static void porthole_callback (gw, closure, data)
-    Widget gw;				/* porthole widget */
-    XtPointer closure;			/* panner widget */
-    XtPointer data;			/* report */
+static void 
+porthole_callback (
+    Widget gw,				/* porthole widget */
+    XtPointer closure,			/* panner widget */
+    XtPointer data)			/* report */
 {
     Widget panner = (Widget) closure;
     XawPannerReport *rep = (XawPannerReport *) data;
@@ -764,10 +762,8 @@ static void porthole_callback (gw, closure, data)
 
 
 
-static void build_tree (node, tree, super)
-    XmuWidgetNode *node;
-    Widget tree;
-    Widget super;
+static void 
+build_tree (XmuWidgetNode *node, Widget tree, Widget super)
 {
     ViewresData *d = VData (node);
     Widget box, w;			/* widget for this Class */
@@ -800,9 +796,8 @@ static void build_tree (node, tree, super)
 }
 
 
-static void set_node_labels (node, depth)
-    XmuWidgetNode *node;
-    int depth;
+static void 
+set_node_labels (XmuWidgetNode *node, int depth)
 {
     Arg args[1];
     XmuWidgetNode *child;
@@ -819,9 +814,8 @@ static void set_node_labels (node, depth)
 }
 
 
-static void oneof_sensitive (choosea, a, b)
-    Boolean choosea;
-    Widget a, b;
+static void 
+oneof_sensitive (Boolean choosea, Widget a, Widget b)
 {
     static Arg args[1] = { { XtNsensitive, (XtArgVal) NULL } };
 
@@ -831,7 +825,8 @@ static void oneof_sensitive (choosea, a, b)
     XtSetValues (choosea ? b : a, args, ONE);
 }
 
-static void set_labeltype_menu (Boolean isvar, Boolean doall)
+static void 
+set_labeltype_menu (Boolean isvar, Boolean doall)
 {
     options.show_variable = isvar;
     oneof_sensitive (isvar, view_widgets[VIEW_CLASSES],
@@ -845,7 +840,8 @@ static void set_labeltype_menu (Boolean isvar, Boolean doall)
     }
 }
 
-static void set_orientation_menu (XtGravity grav, Boolean dosetvalues)
+static void 
+set_orientation_menu (XtGravity grav, Boolean dosetvalues)
 {
 #define CHOOSE(val) (sensitiveargs + (grav != (val)))
     XtSetValues (view_widgets[VIEW_HORIZONTAL], CHOOSE(WestGravity), ONE);
@@ -870,9 +866,7 @@ static void set_orientation_menu (XtGravity grav, Boolean dosetvalues)
  *****************************************************************************/
 
 int
-main (argc, argv)
-    int argc;
-    char **argv;
+main (int argc, char *argv[])
 {
     Widget toplevel, pane, box, dummy, porthole, panner, form;
     XmuWidgetNode *rootNode; /* always the root of the resource hierarchy */
@@ -930,8 +924,8 @@ main (argc, argv)
 
     box = XtCreateManagedWidget ("buttonbox", boxWidgetClass, pane,
 				 (ArgList) NULL, ZERO);
-    quitButton = XtCreateManagedWidget ("quit", commandWidgetClass, box,
-					(ArgList) NULL, ZERO);
+    (void) XtCreateManagedWidget ("quit", commandWidgetClass, box,
+				  (ArgList) NULL, ZERO);
 
     /*
      * Format menu
@@ -1071,21 +1065,17 @@ main (argc, argv)
  *****************************************************************************/
 
 /* ARGSUSED */
-static void ActionQuit (w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+static void 
+ActionQuit (Widget w, XEvent *event, 
+    String *params, Cardinal *num_params)
 {
     exit (0);
 }
 
 /* ARGSUSED */
-static void ActionSetLableType (w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+static void 
+ActionSetLableType (Widget w, XEvent *event, 
+    String *params, Cardinal *num_params)
 {
     const char *cmd;
     Boolean oldvar = options.show_variable, newvar;
@@ -1118,11 +1108,9 @@ static void ActionSetLableType (w, event, params, num_params)
 }
 
 /* ARGSUSED */
-static void ActionSetOrientation (w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+static void 
+ActionSetOrientation (Widget w, XEvent *event, 
+    String *params, Cardinal *num_params)
 {
     XtGravity newgrav = ForgetGravity;
 
@@ -1164,13 +1152,9 @@ static void ActionSetOrientation (w, event, params, num_params)
 }
 
 
-static void do_single_arg (w, params, nparams, table, nentries, proc)
-    Widget w;
-    String *params;
-    Cardinal nparams;
-    struct _nametable table[];
-    int nentries;
-    void (*proc)();
+static void 
+do_single_arg (Widget w, String *params, Cardinal nparams, 
+    struct _nametable table[] , int nentries, XtCallbackProc proc)
 {
     int obj;
     int i;
@@ -1198,11 +1182,9 @@ static void do_single_arg (w, params, nparams, table, nentries, proc)
 
 
 /* ARGSUSED */
-static void ActionSelect (w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+static void 
+ActionSelect (Widget w, XEvent *event, 
+    String *params, Cardinal *num_params)
 {
     do_single_arg (w, params, *num_params, select_nametable, 
 		   (int) XtNumber(select_nametable), select_callback);
@@ -1210,11 +1192,8 @@ static void ActionSelect (w, event, params, num_params)
 
 
 /* ARGSUSED */
-static void ActionResources (w, event, params, num_params)
-    Widget w;
-    XEvent *event;
-    String *params;
-    Cardinal *num_params;
+static void ActionResources (Widget w, XEvent *event, 
+    String *params, Cardinal *num_params)
 {
     if (*num_params == 0) {
 	show_resources_callback (w, (XtPointer) BOOL_TOGGLE, (XtPointer) NULL);

@@ -1,0 +1,23 @@
+<plist version="1.0">
+<dict>
+	<key>OpenSourceProject</key>
+	<string>zsh</string>
+	<key>OpenSourceVersion</key>
+	<string>4.2.3</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://zsh.org/</string>
+	<key>OpenSourceURL</key>
+	<string>http://www.zsh.org/pub/zsh-4.2.3.tar.bz2</string>
+	<key>OpenSourceSHA1</key>
+	<string>ebeb991bb4783e95bd6f4aeb1218cd94d035a1fa</string>
+	<key>OpenSourceImportDate</key>
+	<string>2005-01-15</string>
+	<key>OpenSourceModifications</key>
+	<array>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>BSD</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>zsh.txt</string>
+</dict>
+</plist>

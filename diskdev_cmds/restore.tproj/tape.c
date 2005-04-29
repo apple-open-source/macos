@@ -60,6 +60,7 @@
 #include <sys/ioctl.h>
 #include <sys/mtio.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #include <ufs/ufs/dinode.h>
 #include <protocols/dumprestore.h>

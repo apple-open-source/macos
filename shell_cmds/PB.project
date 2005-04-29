@@ -3,6 +3,7 @@
     FILESTABLE = {
         OTHER_SOURCES = (PROJECT, Makefile.preamble, Makefile, Makefile.postamble); 
         SUBPROJECTS = (
+            alias,
             apply, 
             basename, 
             chroot, 

@@ -3,19 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -60,37 +61,35 @@
  * en[0] <-> ip[0]
  */
 
-#import <unistd.h>
-#import <stdlib.h>
-#import <stdio.h>
-#import <sys/stat.h>
-#import <sys/socket.h>
-#import <sys/ioctl.h>
-#import <sys/file.h>
-#import <sys/time.h>
-#import <sys/types.h>
-#import <net/if.h>
-#import <netinet/in.h>
-#import <netinet/in_systm.h>
-#import <netinet/ip.h>
-#import <netinet/udp.h>
-#import <netinet/bootp.h>
-#import <net/ethernet.h>
-#import <netinet/if_ether.h>
-#import <net/if_arp.h>
-#import <mach/boolean.h>
-#import <errno.h>
-#import <ctype.h>
-#import <arpa/inet.h>
-#import <netinfo/ni.h>
-#import <string.h>
-#import <syslog.h>
-#import "dprintf.h"
-#import "NICache.h"
-#import "NICachePrivate.h"
-#import "util.h"
-
-extern struct ether_addr *	ether_aton(char *);
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/file.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/bootp.h>
+#include <net/ethernet.h>
+#include <netinet/if_ether.h>
+#include <net/if_arp.h>
+#include <mach/boolean.h>
+#include <errno.h>
+#include <ctype.h>
+#include <arpa/inet.h>
+#include <netinfo/ni.h>
+#include <string.h>
+#include <syslog.h>
+#include "dprintf.h"
+#include "NICache.h"
+#include "NICachePrivate.h"
+#include "util.h"
 
 #ifdef NICACHE_TEST
 #define TIMESTAMPS
@@ -100,6 +99,25 @@ extern struct ether_addr *	ether_aton(char *);
 #endif READ_TEST
 
 #ifdef TIMESTAMPS
+static void
+timestamp_printf(char * msg)
+{
+    static struct timeval	tvp = {0,0};
+    struct timeval		tv;
+
+    gettimeofday(&tv, 0);
+    if (tvp.tv_sec) {
+	struct timeval result;
+	
+	timeval_subtract(tv, tvp, &result);
+	printf("%d.%06d (%d.%06d): %s\n", 
+	       tv.tv_sec, tv.tv_usec, result.tv_sec, result.tv_usec, msg);
+    }
+    else 
+	printf("%d.%06d (%d.%06d): %s\n", 
+	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
+    tvp = tv;
+}
 static __inline__ void
 S_timestamp(char * msg)
 {

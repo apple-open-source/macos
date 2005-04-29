@@ -1,7 +1,7 @@
 /* Target-dependent code for the Matsushita MN10300 for GDB, the GNU debugger.
 
-   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003 Free Software
-   Foundation, Inc.
+   Copyright 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004 Free
+   Software Foundation, Inc.
 
    This file is part of GDB.
 
@@ -28,9 +28,11 @@
 #include "bfd.h"
 #include "gdb_string.h"
 #include "gdbcore.h"
-#include "symfile.h"
+#include "objfiles.h"
 #include "regcache.h"
 #include "arch-utils.h"
+#include "gdb_assert.h"
+#include "dis-asm.h"
 
 #define D0_REGNUM 0
 #define D2_REGNUM 2
@@ -123,26 +125,19 @@ static void
 mn10300_extract_return_value (struct type *type, char *regbuf, char *valbuf)
 {
   if (TYPE_CODE (type) == TYPE_CODE_PTR)
-    memcpy (valbuf, regbuf + REGISTER_BYTE (4), TYPE_LENGTH (type));
+    memcpy (valbuf, regbuf + DEPRECATED_REGISTER_BYTE (4), TYPE_LENGTH (type));
   else
-    memcpy (valbuf, regbuf + REGISTER_BYTE (0), TYPE_LENGTH (type));
-}
-
-static CORE_ADDR
-mn10300_extract_struct_value_address (char *regbuf)
-{
-  return extract_address (regbuf + REGISTER_BYTE (4),
-			  REGISTER_RAW_SIZE (4));
+    memcpy (valbuf, regbuf + DEPRECATED_REGISTER_BYTE (0), TYPE_LENGTH (type));
 }
 
 static void
 mn10300_store_return_value (struct type *type, char *valbuf)
 {
   if (TYPE_CODE (type) == TYPE_CODE_PTR)
-    deprecated_write_register_bytes (REGISTER_BYTE (4), valbuf,
+    deprecated_write_register_bytes (DEPRECATED_REGISTER_BYTE (4), valbuf,
 				     TYPE_LENGTH (type));
   else
-    deprecated_write_register_bytes (REGISTER_BYTE (0), valbuf,
+    deprecated_write_register_bytes (DEPRECATED_REGISTER_BYTE (0), valbuf,
 				     TYPE_LENGTH (type));
 }
 
@@ -150,25 +145,16 @@ static struct frame_info *analyze_dummy_frame (CORE_ADDR, CORE_ADDR);
 static struct frame_info *
 analyze_dummy_frame (CORE_ADDR pc, CORE_ADDR frame)
 {
-  static struct frame_info *dummy = NULL;
-  if (dummy == NULL)
-    {
-      struct frame_extra_info *extra_info;
-      CORE_ADDR *saved_regs;
-      dummy = deprecated_frame_xmalloc ();
-      saved_regs = xmalloc (SIZEOF_FRAME_SAVED_REGS);
-      deprecated_set_frame_saved_regs_hack (dummy, saved_regs);
-      extra_info = XMALLOC (struct frame_extra_info);
-      deprecated_set_frame_extra_info_hack (dummy, extra_info);
-    }
-  deprecated_set_frame_next_hack (dummy, NULL);
-  deprecated_set_frame_prev_hack (dummy, NULL);
+  struct cleanup *old_chain = make_cleanup (null_cleanup, NULL);
+  struct frame_info *dummy
+    = deprecated_frame_xmalloc_with_cleanup (SIZEOF_FRAME_SAVED_REGS,
+					     sizeof (struct frame_extra_info));
   deprecated_update_frame_pc_hack (dummy, pc);
   deprecated_update_frame_base_hack (dummy, frame);
   get_frame_extra_info (dummy)->status = 0;
   get_frame_extra_info (dummy)->stack_size = 0;
-  memset (get_frame_saved_regs (dummy), '\000', SIZEOF_FRAME_SAVED_REGS);
-  mn10300_analyze_prologue (dummy, 0);
+  mn10300_analyze_prologue (dummy, pc);
+  do_cleanups (old_chain);
   return dummy;
 }
 
@@ -235,59 +221,59 @@ set_movm_offsets (struct frame_info *fi, int movm_args)
       /* The `other' bit leaves a blank area of four bytes at the
          beginning of its block of saved registers, making it 32 bytes
          long in total.  */
-      get_frame_saved_regs (fi)[LAR_REGNUM]    = get_frame_base (fi) + offset + 4;
-      get_frame_saved_regs (fi)[LIR_REGNUM]    = get_frame_base (fi) + offset + 8;
-      get_frame_saved_regs (fi)[MDR_REGNUM]    = get_frame_base (fi) + offset + 12;
-      get_frame_saved_regs (fi)[A0_REGNUM + 1] = get_frame_base (fi) + offset + 16;
-      get_frame_saved_regs (fi)[A0_REGNUM]     = get_frame_base (fi) + offset + 20;
-      get_frame_saved_regs (fi)[D0_REGNUM + 1] = get_frame_base (fi) + offset + 24;
-      get_frame_saved_regs (fi)[D0_REGNUM]     = get_frame_base (fi) + offset + 28;
+      deprecated_get_frame_saved_regs (fi)[LAR_REGNUM]    = get_frame_base (fi) + offset + 4;
+      deprecated_get_frame_saved_regs (fi)[LIR_REGNUM]    = get_frame_base (fi) + offset + 8;
+      deprecated_get_frame_saved_regs (fi)[MDR_REGNUM]    = get_frame_base (fi) + offset + 12;
+      deprecated_get_frame_saved_regs (fi)[A0_REGNUM + 1] = get_frame_base (fi) + offset + 16;
+      deprecated_get_frame_saved_regs (fi)[A0_REGNUM]     = get_frame_base (fi) + offset + 20;
+      deprecated_get_frame_saved_regs (fi)[D0_REGNUM + 1] = get_frame_base (fi) + offset + 24;
+      deprecated_get_frame_saved_regs (fi)[D0_REGNUM]     = get_frame_base (fi) + offset + 28;
       offset += 32;
     }
   if (movm_args & movm_a3_bit)
     {
-      get_frame_saved_regs (fi)[A3_REGNUM] = get_frame_base (fi) + offset;
+      deprecated_get_frame_saved_regs (fi)[A3_REGNUM] = get_frame_base (fi) + offset;
       offset += 4;
     }
   if (movm_args & movm_a2_bit)
     {
-      get_frame_saved_regs (fi)[A2_REGNUM] = get_frame_base (fi) + offset;
+      deprecated_get_frame_saved_regs (fi)[A2_REGNUM] = get_frame_base (fi) + offset;
       offset += 4;
     }
   if (movm_args & movm_d3_bit)
     {
-      get_frame_saved_regs (fi)[D3_REGNUM] = get_frame_base (fi) + offset;
+      deprecated_get_frame_saved_regs (fi)[D3_REGNUM] = get_frame_base (fi) + offset;
       offset += 4;
     }
   if (movm_args & movm_d2_bit)
     {
-      get_frame_saved_regs (fi)[D2_REGNUM] = get_frame_base (fi) + offset;
+      deprecated_get_frame_saved_regs (fi)[D2_REGNUM] = get_frame_base (fi) + offset;
       offset += 4;
     }
   if (AM33_MODE)
     {
       if (movm_args & movm_exother_bit)
         {
-          get_frame_saved_regs (fi)[MCVF_REGNUM]   = get_frame_base (fi) + offset;
-          get_frame_saved_regs (fi)[MCRL_REGNUM]   = get_frame_base (fi) + offset + 4;
-          get_frame_saved_regs (fi)[MCRH_REGNUM]   = get_frame_base (fi) + offset + 8;
-          get_frame_saved_regs (fi)[MDRQ_REGNUM]   = get_frame_base (fi) + offset + 12;
-          get_frame_saved_regs (fi)[E0_REGNUM + 1] = get_frame_base (fi) + offset + 16;
-          get_frame_saved_regs (fi)[E0_REGNUM + 0] = get_frame_base (fi) + offset + 20;
+          deprecated_get_frame_saved_regs (fi)[MCVF_REGNUM]   = get_frame_base (fi) + offset;
+          deprecated_get_frame_saved_regs (fi)[MCRL_REGNUM]   = get_frame_base (fi) + offset + 4;
+          deprecated_get_frame_saved_regs (fi)[MCRH_REGNUM]   = get_frame_base (fi) + offset + 8;
+          deprecated_get_frame_saved_regs (fi)[MDRQ_REGNUM]   = get_frame_base (fi) + offset + 12;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 1] = get_frame_base (fi) + offset + 16;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 0] = get_frame_base (fi) + offset + 20;
           offset += 24;
         }
       if (movm_args & movm_exreg1_bit)
         {
-          get_frame_saved_regs (fi)[E0_REGNUM + 7] = get_frame_base (fi) + offset;
-          get_frame_saved_regs (fi)[E0_REGNUM + 6] = get_frame_base (fi) + offset + 4;
-          get_frame_saved_regs (fi)[E0_REGNUM + 5] = get_frame_base (fi) + offset + 8;
-          get_frame_saved_regs (fi)[E0_REGNUM + 4] = get_frame_base (fi) + offset + 12;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 7] = get_frame_base (fi) + offset;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 6] = get_frame_base (fi) + offset + 4;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 5] = get_frame_base (fi) + offset + 8;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 4] = get_frame_base (fi) + offset + 12;
           offset += 16;
         }
       if (movm_args & movm_exreg0_bit)
         {
-          get_frame_saved_regs (fi)[E0_REGNUM + 3] = get_frame_base (fi) + offset;
-          get_frame_saved_regs (fi)[E0_REGNUM + 2] = get_frame_base (fi) + offset + 4;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 3] = get_frame_base (fi) + offset;
+          deprecated_get_frame_saved_regs (fi)[E0_REGNUM + 2] = get_frame_base (fi) + offset + 4;
           offset += 8;
         }
     }
@@ -400,8 +386,13 @@ mn10300_analyze_prologue (struct frame_info *fi, CORE_ADDR pc)
   char *name;
 
   /* Use the PC in the frame if it's provided to look up the
-     start of this function.  */
-  pc = (fi ? get_frame_pc (fi) : pc);
+     start of this function.
+
+     Note: kevinb/2003-07-16: We used to do the following here:
+	pc = (fi ? get_frame_pc (fi) : pc);
+     But this is (now) badly broken when called from analyze_dummy_frame().
+  */
+  pc = (pc ? pc : get_frame_pc (fi));
 
   /* Find the start of this function.  */
   status = find_pc_partial_function (pc, &name, &func_addr, &func_end);
@@ -431,6 +422,9 @@ mn10300_analyze_prologue (struct frame_info *fi, CORE_ADDR pc)
   if (status != 0)
     return pc;
 
+#if 0
+  /* Note: kevinb/2003-07-16: We shouldn't be making these sorts of
+     changes to the frame in prologue examination code.  */
   /* If we're physically on an "rets" instruction, then our frame has
      already been deallocated.  Note this can also be true for retf
      and ret if they specify a size of zero.
@@ -451,9 +445,10 @@ mn10300_analyze_prologue (struct frame_info *fi, CORE_ADDR pc)
 	deprecated_update_frame_base_hack (fi, read_sp ());
       return get_frame_pc (fi);
     }
+#endif
 
   /* Figure out where to stop scanning.  */
-  stop = fi ? get_frame_pc (fi) : func_end;
+  stop = fi ? pc : func_end;
 
   /* Don't walk off the end of the function.  */
   stop = stop > func_end ? func_end : stop;
@@ -637,14 +632,14 @@ saved_regs_size (struct frame_info *fi)
 
   /* Reserve four bytes for every register saved.  */
   for (i = 0; i < NUM_REGS; i++)
-    if (get_frame_saved_regs (fi)[i])
+    if (deprecated_get_frame_saved_regs (fi)[i])
       adjust += 4;
 
   /* If we saved LIR, then it's most likely we used a `movm'
      instruction with the `other' bit set, in which case the SP is
      decremented by an extra four bytes, "to simplify calculation
      of the transfer area", according to the processor manual.  */
-  if (get_frame_saved_regs (fi)[LIR_REGNUM])
+  if (deprecated_get_frame_saved_regs (fi)[LIR_REGNUM])
     adjust += 4;
 
   return adjust;
@@ -688,14 +683,15 @@ mn10300_frame_chain (struct frame_info *fi)
   /* The easiest way to get that info is to analyze our caller's frame.
      So we set up a dummy frame and call mn10300_analyze_prologue to
      find stuff for us.  */
-  dummy = analyze_dummy_frame (FRAME_SAVED_PC (fi), get_frame_base (fi));
+  dummy = analyze_dummy_frame (DEPRECATED_FRAME_SAVED_PC (fi), get_frame_base (fi));
 
   if (get_frame_extra_info (dummy)->status & MY_FRAME_IN_FP)
     {
       /* Our caller has a frame pointer.  So find the frame in $a3 or
          in the stack.  */
-      if (get_frame_saved_regs (fi)[A3_REGNUM])
-	return (read_memory_integer (get_frame_saved_regs (fi)[A3_REGNUM], REGISTER_SIZE));
+      if (deprecated_get_frame_saved_regs (fi)[A3_REGNUM])
+	return (read_memory_integer (deprecated_get_frame_saved_regs (fi)[A3_REGNUM],
+				     DEPRECATED_REGISTER_SIZE));
       else
 	return read_register (A3_REGNUM);
     }
@@ -728,16 +724,16 @@ mn10300_pop_frame_regular (struct frame_info *frame)
 {
   int regnum;
 
-  write_register (PC_REGNUM, FRAME_SAVED_PC (frame));
+  write_register (PC_REGNUM, DEPRECATED_FRAME_SAVED_PC (frame));
 
   /* Restore any saved registers.  */
   for (regnum = 0; regnum < NUM_REGS; regnum++)
-    if (get_frame_saved_regs (frame)[regnum] != 0)
+    if (deprecated_get_frame_saved_regs (frame)[regnum] != 0)
       {
         ULONGEST value;
 
-        value = read_memory_unsigned_integer (get_frame_saved_regs (frame)[regnum],
-                                              REGISTER_RAW_SIZE (regnum));
+        value = read_memory_unsigned_integer (deprecated_get_frame_saved_regs (frame)[regnum],
+                                              DEPRECATED_REGISTER_RAW_SIZE (regnum));
         write_register (regnum, value);
       }
 
@@ -851,7 +847,7 @@ mn10300_push_return_address (CORE_ADDR pc, CORE_ADDR sp)
 {
   unsigned char buf[4];
 
-  store_unsigned_integer (buf, 4, CALL_DUMMY_ADDRESS ());
+  store_unsigned_integer (buf, 4, entry_point_address ());
   write_memory (sp - 4, buf, 4);
   return sp - 4;
 }
@@ -879,7 +875,8 @@ mn10300_frame_saved_pc (struct frame_info *fi)
 {
   int adjust = saved_regs_size (fi);
 
-  return (read_memory_integer (get_frame_base (fi) + adjust, REGISTER_SIZE));
+  return (read_memory_integer (get_frame_base (fi) + adjust,
+			       DEPRECATED_REGISTER_SIZE));
 }
 
 /* Function: mn10300_init_extra_frame_info
@@ -892,15 +889,16 @@ mn10300_frame_saved_pc (struct frame_info *fi)
    always be correct.  mn10300_analyze_prologue will fix fi->frame if
    it's not valid.
 
-   We can be called with the PC in the call dummy under two circumstances.
-   First, during normal backtracing, second, while figuring out the frame
-   pointer just prior to calling the target function (see run_stack_dummy).  */
+   We can be called with the PC in the call dummy under two
+   circumstances.  First, during normal backtracing, second, while
+   figuring out the frame pointer just prior to calling the target
+   function (see call_function_by_hand).  */
 
 static void
 mn10300_init_extra_frame_info (int fromleaf, struct frame_info *fi)
 {
   if (get_next_frame (fi))
-    deprecated_update_frame_pc_hack (fi, FRAME_SAVED_PC (get_next_frame (fi)));
+    deprecated_update_frame_pc_hack (fi, DEPRECATED_FRAME_SAVED_PC (get_next_frame (fi)));
 
   frame_saved_regs_zalloc (fi);
   frame_extra_info_zalloc (fi, sizeof (struct frame_extra_info));
@@ -1007,7 +1005,7 @@ mn10300_dwarf2_reg_to_regnum (int dwarf2)
 static void
 mn10300_print_register (const char *name, int regnum, int reg_width)
 {
-  char *raw_buffer = alloca (MAX_REGISTER_RAW_SIZE);
+  char raw_buffer[MAX_REGISTER_SIZE];
 
   if (reg_width)
     printf_filtered ("%*s: ", reg_width, name);
@@ -1025,14 +1023,14 @@ mn10300_print_register (const char *name, int regnum, int reg_width)
       int byte;
       if (TARGET_BYTE_ORDER == BFD_ENDIAN_BIG)
 	{
-	  for (byte = REGISTER_RAW_SIZE (regnum) - REGISTER_VIRTUAL_SIZE (regnum);
-	       byte < REGISTER_RAW_SIZE (regnum);
+	  for (byte = DEPRECATED_REGISTER_RAW_SIZE (regnum) - DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum);
+	       byte < DEPRECATED_REGISTER_RAW_SIZE (regnum);
 	       byte++)
 	    printf_filtered ("%02x", (unsigned char) raw_buffer[byte]);
 	}
       else
 	{
-	  for (byte = REGISTER_VIRTUAL_SIZE (regnum) - 1;
+	  for (byte = DEPRECATED_REGISTER_VIRTUAL_SIZE (regnum) - 1;
 	       byte >= 0;
 	       byte--)
 	    printf_filtered ("%02x", (unsigned char) raw_buffer[byte]);
@@ -1086,6 +1084,14 @@ mn10300_do_registers_info (int regnum, int fpregs)
 	    printf_filtered ("\n");
 	}
     }
+}
+
+static CORE_ADDR
+mn10300_read_fp (void)
+{
+  /* That's right, we're using the stack pointer as our frame pointer.  */
+  gdb_assert (SP_REGNUM >= 0);
+  return read_register (SP_REGNUM);
 }
 
 /* Dump out the mn10300 speciic architecture information. */
@@ -1143,68 +1149,56 @@ mn10300_gdbarch_init (struct gdbarch_info info,
   /* Registers.  */
   set_gdbarch_num_regs (gdbarch, num_regs);
   set_gdbarch_register_name (gdbarch, register_name);
-  set_gdbarch_register_size (gdbarch, 4);
-  set_gdbarch_register_bytes (gdbarch, 
-                              num_regs * gdbarch_register_size (gdbarch));
-  set_gdbarch_max_register_raw_size (gdbarch, 4);
-  set_gdbarch_register_raw_size (gdbarch, mn10300_register_raw_size);
-  set_gdbarch_register_byte (gdbarch, mn10300_register_byte);
-  set_gdbarch_max_register_virtual_size (gdbarch, 4);
-  set_gdbarch_register_virtual_size (gdbarch, mn10300_register_virtual_size);
-  set_gdbarch_register_virtual_type (gdbarch, mn10300_register_virtual_type);
+  set_gdbarch_deprecated_register_size (gdbarch, 4);
+  set_gdbarch_deprecated_register_bytes (gdbarch, num_regs * gdbarch_deprecated_register_size (gdbarch));
+  set_gdbarch_deprecated_max_register_raw_size (gdbarch, 4);
+  set_gdbarch_deprecated_register_raw_size (gdbarch, mn10300_register_raw_size);
+  set_gdbarch_deprecated_register_byte (gdbarch, mn10300_register_byte);
+  set_gdbarch_deprecated_max_register_virtual_size (gdbarch, 4);
+  set_gdbarch_deprecated_register_virtual_size (gdbarch, mn10300_register_virtual_size);
+  set_gdbarch_deprecated_register_virtual_type (gdbarch, mn10300_register_virtual_type);
   set_gdbarch_dwarf2_reg_to_regnum (gdbarch, mn10300_dwarf2_reg_to_regnum);
   set_gdbarch_deprecated_do_registers_info (gdbarch, mn10300_do_registers_info);
   set_gdbarch_sp_regnum (gdbarch, 8);
   set_gdbarch_pc_regnum (gdbarch, 9);
-  set_gdbarch_fp_regnum (gdbarch, 31);
+  set_gdbarch_deprecated_fp_regnum (gdbarch, 31);
   set_gdbarch_virtual_frame_pointer (gdbarch, mn10300_virtual_frame_pointer);
 
   /* Breakpoints.  */
   set_gdbarch_breakpoint_from_pc (gdbarch, mn10300_breakpoint_from_pc);
-  set_gdbarch_function_start_offset (gdbarch, 0);
-  set_gdbarch_decr_pc_after_break (gdbarch, 0);
 
   /* Stack unwinding.  */
   set_gdbarch_inner_than (gdbarch, core_addr_lessthan);
-  set_gdbarch_saved_pc_after_call (gdbarch, mn10300_saved_pc_after_call);
-  set_gdbarch_init_extra_frame_info (gdbarch, mn10300_init_extra_frame_info);
-  set_gdbarch_deprecated_init_frame_pc (gdbarch, init_frame_pc_noop);
-  set_gdbarch_frame_init_saved_regs (gdbarch, mn10300_frame_init_saved_regs);
-  set_gdbarch_frame_chain (gdbarch, mn10300_frame_chain);
-  set_gdbarch_frame_saved_pc (gdbarch, mn10300_frame_saved_pc);
+  set_gdbarch_deprecated_saved_pc_after_call (gdbarch, mn10300_saved_pc_after_call);
+  set_gdbarch_deprecated_init_extra_frame_info (gdbarch, mn10300_init_extra_frame_info);
+  set_gdbarch_deprecated_frame_init_saved_regs (gdbarch, mn10300_frame_init_saved_regs);
+  set_gdbarch_deprecated_frame_chain (gdbarch, mn10300_frame_chain);
+  set_gdbarch_deprecated_frame_saved_pc (gdbarch, mn10300_frame_saved_pc);
   set_gdbarch_deprecated_extract_return_value (gdbarch, mn10300_extract_return_value);
-  set_gdbarch_deprecated_extract_struct_value_address
-    (gdbarch, mn10300_extract_struct_value_address);
   set_gdbarch_deprecated_store_return_value (gdbarch, mn10300_store_return_value);
-  set_gdbarch_store_struct_return (gdbarch, mn10300_store_struct_return);
-  set_gdbarch_pop_frame (gdbarch, mn10300_pop_frame);
+  set_gdbarch_deprecated_store_struct_return (gdbarch, mn10300_store_struct_return);
+  set_gdbarch_deprecated_pop_frame (gdbarch, mn10300_pop_frame);
   set_gdbarch_skip_prologue (gdbarch, mn10300_skip_prologue);
-  set_gdbarch_frame_args_skip (gdbarch, 0);
-  set_gdbarch_frame_num_args (gdbarch, frame_num_args_unknown);
   /* That's right, we're using the stack pointer as our frame pointer.  */
-  set_gdbarch_read_fp (gdbarch, generic_target_read_sp);
+  set_gdbarch_deprecated_target_read_fp (gdbarch, mn10300_read_fp);
 
   /* Calling functions in the inferior from GDB.  */
-  set_gdbarch_call_dummy_p (gdbarch, 1);
-  set_gdbarch_call_dummy_breakpoint_offset_p (gdbarch, 1);
-  set_gdbarch_call_dummy_breakpoint_offset (gdbarch, 0);
-  set_gdbarch_call_dummy_stack_adjust_p (gdbarch, 0);
-  set_gdbarch_call_dummy_address (gdbarch, entry_point_address);
-  set_gdbarch_call_dummy_words (gdbarch, mn10300_call_dummy_words);
-  set_gdbarch_sizeof_call_dummy_words (gdbarch, 
-                                       sizeof (mn10300_call_dummy_words));
-  set_gdbarch_call_dummy_length (gdbarch, 0);
-  set_gdbarch_fix_call_dummy (gdbarch, generic_fix_call_dummy);
-  set_gdbarch_call_dummy_start_offset (gdbarch, 0);
+  set_gdbarch_deprecated_call_dummy_words (gdbarch, mn10300_call_dummy_words);
+  set_gdbarch_deprecated_sizeof_call_dummy_words (gdbarch, sizeof (mn10300_call_dummy_words));
   set_gdbarch_deprecated_pc_in_call_dummy (gdbarch, deprecated_pc_in_call_dummy_at_entry_point);
-  set_gdbarch_push_dummy_frame (gdbarch, generic_push_dummy_frame);
-  set_gdbarch_push_arguments (gdbarch, mn10300_push_arguments);
-  set_gdbarch_reg_struct_has_addr (gdbarch, mn10300_reg_struct_has_addr);
-  set_gdbarch_push_return_address (gdbarch, mn10300_push_return_address);
-  set_gdbarch_save_dummy_frame_tos (gdbarch, generic_save_dummy_frame_tos);
+  set_gdbarch_deprecated_push_arguments (gdbarch, mn10300_push_arguments);
+  set_gdbarch_deprecated_reg_struct_has_addr
+    (gdbarch, mn10300_reg_struct_has_addr);
+  set_gdbarch_deprecated_push_return_address (gdbarch, mn10300_push_return_address);
+  set_gdbarch_deprecated_save_dummy_frame_tos (gdbarch, generic_save_dummy_frame_tos);
   set_gdbarch_use_struct_convention (gdbarch, mn10300_use_struct_convention);
 
   tdep->am33_mode = am33_mode;
+
+  /* Should be using push_dummy_call.  */
+  set_gdbarch_deprecated_dummy_write_sp (gdbarch, deprecated_write_sp);
+
+  set_gdbarch_print_insn (gdbarch, print_insn_mn10300);
 
   return gdbarch;
 }
@@ -1213,8 +1207,5 @@ void
 _initialize_mn10300_tdep (void)
 {
 /*  printf("_initialize_mn10300_tdep\n"); */
-
-  tm_print_insn = print_insn_mn10300;
-
-  register_gdbarch_init (bfd_arch_mn10300, mn10300_gdbarch_init);
+  gdbarch_register (bfd_arch_mn10300, mn10300_gdbarch_init, mn10300_dump_tdep);
 }

@@ -621,6 +621,7 @@ C_TREE_H = c-tree.h $(C_COMMON_H)
 SYSTEM_H = system.h hwint.h $(srcdir)/../include/libiberty.h
 PREDICT_H = predict.h predict.def
 CPPLIB_H = cpplib.h line-map.h
+CPP_ID_DATA_H = cpp-id-data.h
 
 # sed inserts variable overrides after the following line.
 ####target overrides
@@ -1354,7 +1355,8 @@ c-dump.o : c-dump.c $(CONFIG_H) $(SYSTEM_H) $(TREE_H) $(C_TREE_H) tree-dump.h
 
 # APPLE LOCAL PCH
 c-pch.o : c-pch.c $(CONFIG_H) $(SYSTEM_H) $(CPPLIB_H) $(TREE_H) c-common.h \
-	output.h toplev.h c-pragma.h $(GGC_H) debug.h langhooks.h flags.h
+	output.h toplev.h c-pragma.h $(GGC_H) debug.h langhooks.h flags.h \
+	hosthooks.h
 
 # Language-independent files.
 
@@ -1434,10 +1436,11 @@ version.o: version.c version.h
 gtype-desc.o: gtype-desc.c $(CONFIG_H) $(SYSTEM_H) varray.h $(HASHTAB_H) \
 	$(TREE_H) $(RTL_H) function.h insn-config.h $(EXPR_H) $(OPTABS_H) \
 	libfuncs.h debug.h $(GGC_H) bitmap.h $(BASIC_BLOCK_H) hard-reg-set.h \
-	ssa.h cselib.h insn-addr.h cgraph.h
+	ssa.h cselib.h insn-addr.h cgraph.h $(CPP_ID_DATA_H)
 
+# APPLE LOCAL pch
 ggc-common.o: ggc-common.c $(CONFIG_H) $(SYSTEM_H) $(GGC_H) $(HASHTAB_H) \
-	toplev.h
+	toplev.h hosthooks.h
 
 ggc-simple.o: ggc-simple.c $(CONFIG_H) $(SYSTEM_H) $(RTL_H) $(TREE_H) flags.h \
 	$(GGC_H) varray.h $(TIMEVAR_H) $(TM_P_H) $(PARAMS_H)
@@ -1995,7 +1998,7 @@ s-preds: genpreds$(build_exeext) $(srcdir)/move-if-change
 
 # APPLE LOCAL callgraph inlining: add cgraph.h, cgraph.c, cgraphunit.c
 GTFILES = $(GCONFIG_H) \
-  $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/cpplib.h \
+  $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/cpplib.h $(srcdir)/cpp-id-data.h \
   $(srcdir)/location.h $(srcdir)/bitmap.h $(srcdir)/function.h \
   $(srcdir)/rtl.h $(srcdir)/optabs.h $(srcdir)/tree.h $(srcdir)/libfuncs.h \
   $(srcdir)/hashtable.h $(srcdir)/real.h \
@@ -3405,12 +3408,12 @@ check-objc: $(TESTSUITEDIR)/site.exp
 
 # APPLE LOCAL begin Objective-C++
 check-objc++: $(TESTSUITEDIR)/site.exp
-	-(rootme=`pwd`; export rootme; \
-	srcdir=`cd ${srcdir}; pwd` ; export srcdir ; \
+	-(rootme=`${PWD}`; export rootme; \
+	srcdir=`cd ${srcdir}; ${PWD}` ; export srcdir ; \
 	cd $(TESTSUITEDIR); \
 	EXPECT=${EXPECT} ; export EXPECT ; \
 	if [ -f $${rootme}/../expect/expect ] ; then  \
-	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; pwd` ; \
+	   TCL_LIBRARY=`cd .. ; cd ${srcdir}/../tcl/library ; ${PWD}` ; \
 	    export TCL_LIBRARY ; fi ; \
 	$(RUNTEST) --tool obj-c++ $(RUNTESTFLAGS))
 # APPLE LOCAL end Objective-C++

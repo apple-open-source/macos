@@ -1,10 +1,10 @@
 #
-# "$Id: cups.list,v 1.34 2003/07/23 23:14:45 jlovell Exp $"
+# "$Id: cups.list,v 1.48 2005/01/06 19:39:07 jlovell Exp $"
 #
 #   ESP Package Manager (EPM) file list for the Common UNIX Printing
 #   System (CUPS).
 #
-#   Copyright 1997-2003 by Easy Software Products, all rights reserved.
+#   Copyright 1997-2005 by Easy Software Products, all rights reserved.
 #
 #   These coded instructions, statements, and computer programs are the
 #   property of Easy Software Products and are protected by Federal
@@ -16,20 +16,20 @@
 #       Attn: CUPS Licensing Information
 #       Easy Software Products
 #       44141 Airport View Drive, Suite 204
-#       Hollywood, Maryland 20636-3111 USA
+#       Hollywood, Maryland 20636 USA
 #
-#       Voice: (301) 373-9603
+#       Voice: (301) 373-9600
 #       EMail: cups-info@cups.org
 #         WWW: http://www.cups.org
 #
 
 # Product information
 %product Common UNIX Printing System
-%copyright 1993-2003 by Easy Software Products, All Rights Reserved.
+%copyright 1993-2005 by Easy Software Products, All Rights Reserved.
 %vendor Easy Software Products
 %license LICENSE.txt
 %readme README.txt
-%version 1.1.20rc1
+%version 1.1.23
 %description The Common UNIX Printing System provides a portable printing
 %description layer for UNIX® operating systems.  It has been developed by
 %description Easy Software Products to promote a standard printing solution
@@ -86,7 +86,7 @@ $LIBDIR=${libdir}
 $LOCALEDIR=/usr/share/locale
 $LOGDIR=/private/var/log/cups
 $MANDIR=/usr/share/man
-$PAMDIR=
+$PAMDIR=/private/etc/pam.d
 $PMANDIR=/usr/share/man
 $REQUESTS=/private/var/spool/cups
 $SBINDIR=${exec_prefix}/sbin
@@ -129,7 +129,7 @@ f 0555 root sys $SERVERBIN/backend/lpd backend/lpd
 #f 0555 root sys $SERVERBIN/backend/scsi backend/scsi
 f 0555 root sys $SERVERBIN/backend/serial backend/serial
 f 0555 root sys $SERVERBIN/backend/socket backend/socket
-#f 0555 root sys $SERVERBIN/backend/usb backend/usb
+f 0555 root sys $SERVERBIN/backend/usb backend/usb
 d 0555 root sys $SERVERBIN/cgi-bin -
 f 0555 root sys $SERVERBIN/cgi-bin/admin.cgi cgi-bin/admin.cgi
 f 0555 root sys $SERVERBIN/cgi-bin/classes.cgi cgi-bin/classes.cgi
@@ -141,8 +141,8 @@ f 0555 root sys $SERVERBIN/daemon/cups-polld scheduler/cups-polld
 d 0555 root sys $SERVERBIN/filter -
 f 0555 root sys $SERVERBIN/filter/gziptoany filter/gziptoany
 f 0555 root sys $SERVERBIN/filter/hpgltops filter/hpgltops
-f 0555 root sys $SERVERBIN/filter/imagetops filter/imagetops
-f 0555 root sys $SERVERBIN/filter/imagetoraster filter/imagetoraster
+#f 0555 root sys $SERVERBIN/filter/imagetops filter/imagetops
+#f 0555 root sys $SERVERBIN/filter/imagetoraster filter/imagetoraster
 #f 0555 root sys $SERVERBIN/filter/pdftops pdftops/pdftops
 f 0555 root sys $SERVERBIN/filter/pstops filter/pstops
 f 0555 root sys $SERVERBIN/filter/rastertodymo filter/rastertodymo
@@ -151,11 +151,14 @@ f 0555 root sys $SERVERBIN/filter/rastertohp filter/rastertohp
 #f 0555 root sys $SERVERBIN/filter/texttops filter/texttops
 
 # Admin commands
+d 0555 root sys $BINDIR -
 l 0555 root sys $BINDIR/disable $SBINDIR/accept
 l 0555 root sys $BINDIR/enable $SBINDIR/accept
 l 0555 root sys $LIBDIR/accept $SBINDIR/accept
+d 0555 root sys $LIBDIR -
 l 0555 root sys $LIBDIR/lpadmin $SBINDIR/lpadmin
 l 0555 root sys $LIBDIR/reject accept
+d 0555 root sys $SBINDIR -
 f 0555 root sys $SBINDIR/accept systemv/accept
 f 0555 root sys $SBINDIR/cupsaddsmb systemv/cupsaddsmb
 f 0555 root sys $SBINDIR/lpadmin systemv/lpadmin
@@ -222,6 +225,7 @@ f 0444 root sys $LOCALEDIR/en/cups_en locale/en/cups_en
 f 0444 root sys $LOCALEDIR/en_US/cups_en_US locale/en_US/cups_en_US
 f 0444 root sys $LOCALEDIR/es/cups_es locale/es/cups_es
 f 0444 root sys $LOCALEDIR/fr/cups_fr locale/fr/cups_fr
+f 0444 root sys $LOCALEDIR/he/cups_he locale/he/cups_he
 f 0444 root sys $LOCALEDIR/it/cups_it locale/it/cups_it
 f 0444 root sys $LOCALEDIR/ru_RU/cups_ru_RU locale/ru_RU/cups_ru_RU
 f 0444 root sys $LOCALEDIR/sv/cups_sv locale/sv/cups_sv
@@ -280,8 +284,14 @@ f 0444 root sys $DATADIR/model ppd/*.ppd
 d 0555 root sys $DATADIR/templates -
 c 0444 root sys $DATADIR/templates templates/*.tmpl
 
+d 0555 root sys $DATADIR/templates/be -
+c 0444 root sys $DATADIR/templates/be templates/be/*.tmpl
+
 d 0555 root sys $DATADIR/templates/de -
 c 0444 root sys $DATADIR/templates/de templates/de/*.tmpl
+
+d 0555 root sys $DATADIR/templates/es -
+c 0444 root sys $DATADIR/templates/es templates/es/*.tmpl
 
 d 0555 root sys $DATADIR/templates/fr -
 c 0444 root sys $DATADIR/templates/fr templates/fr/*.tmpl
@@ -291,23 +301,17 @@ d 0555 root sys $SERVERROOT -
 d 0711 $CUPS_USER $CUPS_GROUP $SERVERROOT/certs -
 d 0755 root sys $SERVERROOT/interfaces -
 d 0755 root sys $SERVERROOT/ppd -
-c 0644 root sys $SERVERROOT conf/*.conf
+c 0644 root sys $SERVERROOT/classes.conf conf/classes.conf
+c 0644 root sys $SERVERROOT/cupsd.conf conf/cupsd.conf
+c 0644 root sys $SERVERROOT/printers.conf conf/printers.conf
+c 0644 root sys $SERVERROOT/client.conf conf/client.conf
+
 c 0644 root sys $SERVERROOT/mime.convs conf/mime.convs
 c 0644 root sys $SERVERROOT/mime.types conf/mime.types
 
 %if PAMDIR
 d 0555 root sys $PAMDIR -
-
-%system linux
-# Linux almost always supports PAM...
-c 0644 root sys $PAMDIR/cups conf/pam.conf
-
-%system irix
-# IRIX doesn't normally support PAM, but the freeware project
-# includes a version of PAM that can be used...
-c 0644 root sys $PAMDIR/cups conf/pam.irix
-
-%system all
+c 0644 root sys $PAMDIR/cups conf/pam.darwin
 %endif
 
 # Developer files
@@ -331,18 +335,37 @@ f 0444 root sys $DOCDIR doc/*.css
 f 0444 root sys $DOCDIR doc/*.html
 f 0444 root sys $DOCDIR doc/*.pdf
 f 0444 root sys $DOCDIR/robots.txt doc/robots.txt
-#d 0555 root sys $DOCDIR/de -
-#f 0444 root sys $DOCDIR/de doc/de/*.css
-#f 0444 root sys $DOCDIR/de doc/de/*.html
-#f 0444 root sys $DOCDIR/de doc/de/*.pdf
-#d 0555 root sys $DOCDIR/fr -
-#f 0444 root sys $DOCDIR/fr doc/fr/*.css
-#f 0444 root sys $DOCDIR/fr doc/fr/*.html
-#f 0444 root sys $DOCDIR/fr doc/fr/*.pdf
+%system !darwin
+d 0555 root sys $DOCDIR/be -
+f 0444 root sys $DOCDIR/be doc/be/*.css
+f 0444 root sys $DOCDIR/be doc/be/*.html
+f 0444 root sys $DOCDIR/be doc/be/*.pdf
+d 0555 root sys $DOCDIR/de -
+f 0444 root sys $DOCDIR/de doc/de/*.css
+f 0444 root sys $DOCDIR/de doc/de/*.html
+f 0444 root sys $DOCDIR/de doc/de/*.pdf
+d 0555 root sys $DOCDIR/es -
+f 0444 root sys $DOCDIR/es doc/es/*.css
+f 0444 root sys $DOCDIR/es doc/es/*.html
+f 0444 root sys $DOCDIR/es doc/es/*.pdf
+d 0555 root sys $DOCDIR/fr -
+f 0444 root sys $DOCDIR/fr doc/fr/*.css
+f 0444 root sys $DOCDIR/fr doc/fr/*.html
+f 0444 root sys $DOCDIR/fr doc/fr/*.pdf
+%system all
 d 0555 root sys $DOCDIR/images -
 f 0444 root sys $DOCDIR/images doc/images/*.gif
 
 # Man pages
+%system darwin
+d 0555 root sys $AMANDIR -
+d 0555 root sys $AMANDIR/man$MAN8DIR -
+d 0555 root sys $MANDIR -
+d 0555 root sys $MANDIR/man1 -
+d 0555 root sys $MANDIR/man5 -
+d 0555 root sys $PMANDIR -
+d 0555 root sys $PMANDIR/man3 -
+%system !darwin
 d 0555 root sys $AMANDIR -
 d 0555 root sys $AMANDIR/cat$MAN8DIR -
 d 0555 root sys $AMANDIR/man$MAN8DIR -
@@ -356,6 +379,7 @@ d 0555 root sys $PMANDIR/cat3 -
 d 0555 root sys $PMANDIR/man3 -
 
 f 0444 root sys $MANDIR/cat1/backend.$CAT1EXT man/backend.$CAT1EXT
+f 0444 root sys $MANDIR/cat1/cups-config.$CAT1EXT man/cups-config.$CAT1EXT
 f 0444 root sys $MANDIR/cat1/cupstestppd.$CAT1EXT man/cupstestppd.$CAT1EXT
 f 0444 root sys $MANDIR/cat1/filter.$CAT1EXT man/filter.$CAT1EXT
 f 0444 root sys $MANDIR/cat1/lpoptions.$CAT1EXT man/lpoptions.$CAT1EXT
@@ -366,8 +390,6 @@ f 0444 root sys $MANDIR/cat1/lpr.$CAT1EXT man/lpr.$CAT1EXT
 f 0444 root sys $MANDIR/cat1/lpstat.$CAT1EXT man/lpstat.$CAT1EXT
 f 0444 root sys $MANDIR/cat1/lp.$CAT1EXT man/lp.$CAT1EXT
 l 0444 root sys $MANDIR/cat1/cancel.$CAT1EXT lp.$CAT1EXT
-
-f 0444 root sys $PMANDIR/cat3/cups-config.$CAT3EXT man/cups-config.$CAT3EXT
 
 f 0444 root sys $MANDIR/cat5/classes.conf.$CAT5EXT man/classes.conf.$CAT5EXT
 f 0444 root sys $MANDIR/cat5/cupsd.conf.$CAT5EXT man/cupsd.conf.$CAT5EXT
@@ -388,7 +410,9 @@ f 0444 root sys $AMANDIR/cat$MAN8DIR/lpc.$CAT8EXT man/lpc.$CAT8EXT
 f 0444 root sys $AMANDIR/cat$MAN8DIR/lpinfo.$CAT8EXT man/lpinfo.$CAT8EXT
 f 0444 root sys $AMANDIR/cat$MAN8DIR/lpmove.$CAT8EXT man/lpmove.$CAT8EXT
 
+%system all
 f 0444 root sys $MANDIR/man1/backend.1 man/backend.man
+f 0444 root sys $MANDIR/man1/cups-config.1 man/cups-config.man
 f 0444 root sys $MANDIR/man1/cupstestppd.1 man/cupstestppd.man
 f 0444 root sys $MANDIR/man1/filter.1 man/filter.man
 f 0444 root sys $MANDIR/man1/lpoptions.1 man/lpoptions.man
@@ -399,8 +423,6 @@ f 0444 root sys $MANDIR/man1/lpr.1 man/lpr.man
 f 0444 root sys $MANDIR/man1/lpstat.1 man/lpstat.man
 f 0444 root sys $MANDIR/man1/lp.1 man/lp.man
 l 0444 root sys $MANDIR/man1/cancel.1 lp.1
-
-f 0444 root sys $PMANDIR/man3/cups-config.3 man/cups-config.man
 
 f 0444 root sys $MANDIR/man5/classes.conf.5 man/classes.conf.man
 f 0444 root sys $MANDIR/man5/cupsd.conf.5 man/cupsd.conf.man
@@ -421,6 +443,83 @@ f 0444 root sys $AMANDIR/man$MAN8DIR/lpc.$MAN8EXT man/lpc.man
 f 0444 root sys $AMANDIR/man$MAN8DIR/lpinfo.$MAN8EXT man/lpinfo.man
 f 0444 root sys $AMANDIR/man$MAN8DIR/lpmove.$MAN8EXT man/lpmove.man
 
+%system !darwin
+d 0555 root sys $AMANDIR/es -
+d 0555 root sys $AMANDIR/es/cat$MAN8DIR -
+d 0555 root sys $AMANDIR/es/man$MAN8DIR -
+d 0555 root sys $MANDIR/es -
+d 0555 root sys $MANDIR/es/cat1 -
+d 0555 root sys $MANDIR/es/cat5 -
+d 0555 root sys $MANDIR/es/man1 -
+d 0555 root sys $MANDIR/es/man5 -
+d 0555 root sys $PMANDIR/es -
+d 0555 root sys $PMANDIR/es/cat3 -
+d 0555 root sys $PMANDIR/es/man3 -
+
+f 0444 root sys $MANDIR/es/cat1/backend.$CAT1EXT man/es/backend.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/filter.$CAT1EXT man/es/filter.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lpoptions.$CAT1EXT man/es/lpoptions.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lppasswd.$CAT1EXT man/es/lppasswd.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lpq.$CAT1EXT man/es/lpq.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lprm.$CAT1EXT man/es/lprm.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lpr.$CAT1EXT man/es/lpr.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lpstat.$CAT1EXT man/es/lpstat.$CAT1EXT
+f 0444 root sys $MANDIR/es/cat1/lp.$CAT1EXT man/es/lp.$CAT1EXT
+l 0444 root sys $MANDIR/es/cat1/cancel.$CAT1EXT lp.$CAT1EXT
+
+f 0444 root sys $PMANDIR/es/cat1/cups-config.$CAT1EXT man/es/cups-config.$CAT1EXT
+
+f 0444 root sys $MANDIR/es/cat5/classes.conf.$CAT5EXT man/es/classes.conf.$CAT5EXT
+f 0444 root sys $MANDIR/es/cat5/cupsd.conf.$CAT5EXT man/es/cupsd.conf.$CAT5EXT
+f 0444 root sys $MANDIR/es/cat5/mime.convs.$CAT5EXT man/es/mime.convs.$CAT5EXT
+f 0444 root sys $MANDIR/es/cat5/mime.types.$CAT5EXT man/es/mime.types.$CAT5EXT
+f 0444 root sys $MANDIR/es/cat5/printers.conf.$CAT5EXT man/es/printers.conf.$CAT5EXT
+
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/accept.$CAT8EXT man/es/accept.$CAT8EXT
+l 0444 root sys $AMANDIR/es/cat$MAN8DIR/reject.$CAT8EXT accept.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/cupsaddsmb.$CAT8EXT man/es/cupsaddsmb.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/cups-lpd.$CAT8EXT man/es/cups-lpd.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/cups-polld.$CAT8EXT man/es/cups-polld.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/cupsd.$CAT8EXT man/es/cupsd.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/enable.$CAT8EXT man/es/enable.$CAT8EXT
+l 0444 root sys $AMANDIR/es/cat$MAN8DIR/disable.$CAT8EXT enable.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/lpadmin.$CAT8EXT man/es/lpadmin.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/lpc.$CAT8EXT man/es/lpc.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/lpinfo.$CAT8EXT man/es/lpinfo.$CAT8EXT
+f 0444 root sys $AMANDIR/es/cat$MAN8DIR/lpmove.$CAT8EXT man/es/lpmove.$CAT8EXT
+
+f 0444 root sys $MANDIR/es/man1/backend.1 man/es/backend.man
+f 0444 root sys $MANDIR/es/man1/filter.1 man/es/filter.man
+f 0444 root sys $MANDIR/es/man1/lpoptions.1 man/es/lpoptions.man
+f 0444 root sys $MANDIR/es/man1/lppasswd.1 man/es/lppasswd.man
+f 0444 root sys $MANDIR/es/man1/lpq.1 man/es/lpq.man
+f 0444 root sys $MANDIR/es/man1/lprm.1 man/es/lprm.man
+f 0444 root sys $MANDIR/es/man1/lpr.1 man/es/lpr.man
+f 0444 root sys $MANDIR/es/man1/lpstat.1 man/es/lpstat.man
+f 0444 root sys $MANDIR/es/man1/lp.1 man/es/lp.man
+l 0444 root sys $MANDIR/es/man1/cancel.1 lp.1
+
+f 0444 root sys $PMANDIR/es/man1/cups-config.1 man/es/cups-config.man
+
+f 0444 root sys $MANDIR/es/man5/classes.conf.5 man/es/classes.conf.man
+f 0444 root sys $MANDIR/es/man5/cupsd.conf.5 man/es/cupsd.conf.man
+f 0444 root sys $MANDIR/es/man5/mime.convs.5 man/es/mime.convs.man
+f 0444 root sys $MANDIR/es/man5/mime.types.5 man/es/mime.types.man
+f 0444 root sys $MANDIR/es/man5/printers.conf.5 man/es/printers.conf.man
+
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/accept.$MAN8EXT man/es/accept.man
+l 0444 root sys $AMANDIR/es/man$MAN8DIR/reject.$MAN8EXT accept.$MAN8EXT
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/cupsaddsmb.$MAN8EXT man/es/cupsaddsmb.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/cups-lpd.$MAN8EXT man/es/cups-lpd.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/cups-polld.$MAN8EXT man/es/cups-polld.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/cupsd.$MAN8EXT man/es/cupsd.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/enable.$MAN8EXT man/es/enable.man
+l 0444 root sys $AMANDIR/es/man$MAN8DIR/disable.$MAN8EXT enable.$MAN8EXT
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/lpadmin.$MAN8EXT man/es/lpadmin.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/lpc.$MAN8EXT man/es/lpc.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/lpinfo.$MAN8EXT man/es/lpinfo.man
+f 0444 root sys $AMANDIR/es/man$MAN8DIR/lpmove.$MAN8EXT man/es/lpmove.man
+
 d 0555 root sys $AMANDIR/fr -
 d 0555 root sys $AMANDIR/fr/cat$MAN8DIR -
 d 0555 root sys $AMANDIR/fr/man$MAN8DIR -
@@ -433,77 +532,82 @@ d 0555 root sys $PMANDIR/fr -
 d 0555 root sys $PMANDIR/fr/cat3 -
 d 0555 root sys $PMANDIR/fr/man3 -
 
-f 0444 root sys $MANDIR/fr/cat1/backend.$CAT1EXT man/backend.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/filter.$CAT1EXT man/filter.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lpoptions.$CAT1EXT man/lpoptions.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lppasswd.$CAT1EXT man/lppasswd.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lpq.$CAT1EXT man/lpq.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lprm.$CAT1EXT man/lprm.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lpr.$CAT1EXT man/lpr.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lpstat.$CAT1EXT man/lpstat.$CAT1EXT
-f 0444 root sys $MANDIR/fr/cat1/lp.$CAT1EXT man/lp.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/backend.$CAT1EXT man/fr/backend.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/filter.$CAT1EXT man/fr/filter.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lpoptions.$CAT1EXT man/fr/lpoptions.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lppasswd.$CAT1EXT man/fr/lppasswd.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lpq.$CAT1EXT man/fr/lpq.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lprm.$CAT1EXT man/fr/lprm.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lpr.$CAT1EXT man/fr/lpr.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lpstat.$CAT1EXT man/fr/lpstat.$CAT1EXT
+f 0444 root sys $MANDIR/fr/cat1/lp.$CAT1EXT man/fr/lp.$CAT1EXT
 l 0444 root sys $MANDIR/fr/cat1/cancel.$CAT1EXT lp.$CAT1EXT
 
-f 0444 root sys $PMANDIR/fr/cat3/cups-config.$CAT3EXT man/cups-config.$CAT3EXT
+f 0444 root sys $PMANDIR/fr/cat1/cups-config.$CAT1EXT man/fr/cups-config.$CAT1EXT
 
-f 0444 root sys $MANDIR/fr/cat5/classes.conf.$CAT5EXT man/classes.conf.$CAT5EXT
-f 0444 root sys $MANDIR/fr/cat5/cupsd.conf.$CAT5EXT man/cupsd.conf.$CAT5EXT
-f 0444 root sys $MANDIR/fr/cat5/mime.convs.$CAT5EXT man/mime.convs.$CAT5EXT
-f 0444 root sys $MANDIR/fr/cat5/mime.types.$CAT5EXT man/mime.types.$CAT5EXT
-f 0444 root sys $MANDIR/fr/cat5/printers.conf.$CAT5EXT man/printers.conf.$CAT5EXT
+f 0444 root sys $MANDIR/fr/cat5/classes.conf.$CAT5EXT man/fr/classes.conf.$CAT5EXT
+f 0444 root sys $MANDIR/fr/cat5/cupsd.conf.$CAT5EXT man/fr/cupsd.conf.$CAT5EXT
+f 0444 root sys $MANDIR/fr/cat5/mime.convs.$CAT5EXT man/fr/mime.convs.$CAT5EXT
+f 0444 root sys $MANDIR/fr/cat5/mime.types.$CAT5EXT man/fr/mime.types.$CAT5EXT
+f 0444 root sys $MANDIR/fr/cat5/printers.conf.$CAT5EXT man/fr/printers.conf.$CAT5EXT
 
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/accept.$CAT8EXT man/accept.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/accept.$CAT8EXT man/fr/accept.$CAT8EXT
 l 0444 root sys $AMANDIR/fr/cat$MAN8DIR/reject.$CAT8EXT accept.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cupsaddsmb.$CAT8EXT man/cupsaddsmb.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cups-lpd.$CAT8EXT man/cups-lpd.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cups-polld.$CAT8EXT man/cups-polld.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cupsd.$CAT8EXT man/cupsd.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/enable.$CAT8EXT man/enable.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cupsaddsmb.$CAT8EXT man/fr/cupsaddsmb.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cups-lpd.$CAT8EXT man/fr/cups-lpd.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cups-polld.$CAT8EXT man/fr/cups-polld.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/cupsd.$CAT8EXT man/fr/cupsd.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/enable.$CAT8EXT man/fr/enable.$CAT8EXT
 l 0444 root sys $AMANDIR/fr/cat$MAN8DIR/disable.$CAT8EXT enable.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpadmin.$CAT8EXT man/lpadmin.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpc.$CAT8EXT man/lpc.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpinfo.$CAT8EXT man/lpinfo.$CAT8EXT
-f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpmove.$CAT8EXT man/lpmove.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpadmin.$CAT8EXT man/fr/lpadmin.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpc.$CAT8EXT man/fr/lpc.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpinfo.$CAT8EXT man/fr/lpinfo.$CAT8EXT
+f 0444 root sys $AMANDIR/fr/cat$MAN8DIR/lpmove.$CAT8EXT man/fr/lpmove.$CAT8EXT
 
-f 0444 root sys $MANDIR/fr/man1/backend.1 man/backend.man
-f 0444 root sys $MANDIR/fr/man1/filter.1 man/filter.man
-f 0444 root sys $MANDIR/fr/man1/lpoptions.1 man/lpoptions.man
-f 0444 root sys $MANDIR/fr/man1/lppasswd.1 man/lppasswd.man
-f 0444 root sys $MANDIR/fr/man1/lpq.1 man/lpq.man
-f 0444 root sys $MANDIR/fr/man1/lprm.1 man/lprm.man
-f 0444 root sys $MANDIR/fr/man1/lpr.1 man/lpr.man
-f 0444 root sys $MANDIR/fr/man1/lpstat.1 man/lpstat.man
-f 0444 root sys $MANDIR/fr/man1/lp.1 man/lp.man
+f 0444 root sys $MANDIR/fr/man1/backend.1 man/fr/backend.man
+f 0444 root sys $MANDIR/fr/man1/filter.1 man/fr/filter.man
+f 0444 root sys $MANDIR/fr/man1/lpoptions.1 man/fr/lpoptions.man
+f 0444 root sys $MANDIR/fr/man1/lppasswd.1 man/fr/lppasswd.man
+f 0444 root sys $MANDIR/fr/man1/lpq.1 man/fr/lpq.man
+f 0444 root sys $MANDIR/fr/man1/lprm.1 man/fr/lprm.man
+f 0444 root sys $MANDIR/fr/man1/lpr.1 man/fr/lpr.man
+f 0444 root sys $MANDIR/fr/man1/lpstat.1 man/fr/lpstat.man
+f 0444 root sys $MANDIR/fr/man1/lp.1 man/fr/lp.man
 l 0444 root sys $MANDIR/fr/man1/cancel.1 lp.1
 
-f 0444 root sys $PMANDIR/fr/man3/cups-config.3 man/cups-config.man
+f 0444 root sys $PMANDIR/fr/man1/cups-config.1 man/fr/cups-config.man
 
-f 0444 root sys $MANDIR/fr/man5/classes.conf.5 man/classes.conf.man
-f 0444 root sys $MANDIR/fr/man5/cupsd.conf.5 man/cupsd.conf.man
-f 0444 root sys $MANDIR/fr/man5/mime.convs.5 man/mime.convs.man
-f 0444 root sys $MANDIR/fr/man5/mime.types.5 man/mime.types.man
-f 0444 root sys $MANDIR/fr/man5/printers.conf.5 man/printers.conf.man
+f 0444 root sys $MANDIR/fr/man5/classes.conf.5 man/fr/classes.conf.man
+f 0444 root sys $MANDIR/fr/man5/cupsd.conf.5 man/fr/cupsd.conf.man
+f 0444 root sys $MANDIR/fr/man5/mime.convs.5 man/fr/mime.convs.man
+f 0444 root sys $MANDIR/fr/man5/mime.types.5 man/fr/mime.types.man
+f 0444 root sys $MANDIR/fr/man5/printers.conf.5 man/fr/printers.conf.man
 
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/accept.$MAN8EXT man/accept.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/accept.$MAN8EXT man/fr/accept.man
 l 0444 root sys $AMANDIR/fr/man$MAN8DIR/reject.$MAN8EXT accept.$MAN8EXT
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cupsaddsmb.$MAN8EXT man/cupsaddsmb.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cups-lpd.$MAN8EXT man/cups-lpd.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cups-polld.$MAN8EXT man/cups-polld.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cupsd.$MAN8EXT man/cupsd.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/enable.$MAN8EXT man/enable.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cupsaddsmb.$MAN8EXT man/fr/cupsaddsmb.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cups-lpd.$MAN8EXT man/fr/cups-lpd.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cups-polld.$MAN8EXT man/fr/cups-polld.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/cupsd.$MAN8EXT man/fr/cupsd.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/enable.$MAN8EXT man/fr/enable.man
 l 0444 root sys $AMANDIR/fr/man$MAN8DIR/disable.$MAN8EXT enable.$MAN8EXT
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpadmin.$MAN8EXT man/lpadmin.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpc.$MAN8EXT man/lpc.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpinfo.$MAN8EXT man/lpinfo.man
-f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpmove.$MAN8EXT man/lpmove.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpadmin.$MAN8EXT man/fr/lpadmin.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpc.$MAN8EXT man/fr/lpc.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpinfo.$MAN8EXT man/fr/lpinfo.man
+f 0444 root sys $AMANDIR/fr/man$MAN8DIR/lpmove.$MAN8EXT man/fr/lpmove.man
 
 # Startup script
 %system all
 
 # Apple files
 %system darwin
-f 0755 root sys /System/Library/Printers/Libraries/convert test/convert
+f 0555 root wheel $SERVERBIN/backend/pap backend/pap
+c 0644 root wheel $SERVERROOT/cupsd.conf.default conf/cupsd.conf
+f 0755 root wheel /System/Library/Printers/Libraries/convert test/convert
+c 0755 root wheel /System/Library/StartupItems/PrintingServices/PrintingServices cups.osx
+c 0644 root wheel /System/Library/StartupItems/PrintingServices/StartupParameters.plist cups.plist
+c 0644 root wheel /System/Library/StartupItems/PrintingServices/Resources/English.lproj/Localizable.strings cups.strings
 
 #
-# End of "$Id: cups.list,v 1.34 2003/07/23 23:14:45 jlovell Exp $".
+# End of "$Id: cups.list,v 1.48 2005/01/06 19:39:07 jlovell Exp $".
 #

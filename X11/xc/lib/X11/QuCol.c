@@ -32,15 +32,11 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/QuCol.c,v 1.3 2001/01/17 19:41:42 dawes Exp $ */
+/* $XFree86: xc/lib/X11/QuCol.c,v 1.4 2003/04/13 19:22:17 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
-
-/* EXTERN */
-
-/* SetGetCols.c */
-extern Status _XcmsSetGetColors();
+#include "Cv.h"
 
 
 /************************************************************************
@@ -76,6 +72,6 @@ XcmsQueryColor(dpy, colormap, pXcmsColor_in_out, result_format)
  *		specified pixel.
  */
 {
-    return(_XcmsSetGetColors (XQueryColor, dpy, colormap,
-	    pXcmsColor_in_out, 1, result_format, (Bool *) NULL));
+    return(_XcmsSetGetColor(XQueryColor, dpy, colormap,
+	    pXcmsColor_in_out, result_format, (Bool *) NULL));
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1998-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,13 +24,13 @@
 #include <sys/types.h>                       // (miscfs/devfs/devfs.h, ...)
 
 #include <miscfs/devfs/devfs.h>              // (devfs_make_node, ...)
-#include <sys/buf.h>                         // (struct buf, ...)
+#include <sys/buf.h>                         // (buf_t, ...)
 #include <sys/conf.h>                        // (bdevsw_add, ...)
 #include <sys/fcntl.h>                       // (FWRITE, ...)
 #include <sys/ioccom.h>                      // (IOCGROUP, ...)
 #include <sys/stat.h>                        // (S_ISBLK, ...)
-#include <sys/systm.h>                       // (kernel_flock, ...)
-#include <sys/uio.h>                         // (struct uio, ...)
+#include <sys/systm.h>                       // (DEV_BSIZE, ...)
+#include <sys/uio_internal.h>                // (uio_t, ...)
 #include <IOKit/assert.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IODeviceTreeSupport.h>
@@ -38,10 +38,10 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOMemoryDescriptor.h>
 #include <IOKit/IOMessage.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOMediaBSDClient.h>
-#include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
 #define super IOService
 OSDefineMetaClassAndStructors(IOMediaBSDClient, IOService)
@@ -66,14 +66,14 @@ const UInt32 kAnchorsMaxCount    = kMinorsMaxCount;
 
 extern "C"
 {
-    int  dkclose(dev_t dev, int flags, int devtype, struct proc *);
-    int  dkioctl(dev_t dev, u_long cmd, caddr_t data, int, struct proc *);
-    int  dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int, struct proc *);
-    int  dkopen(dev_t dev, int flags, int devtype, struct proc *);
-    int  dkread(dev_t dev, struct uio * uio, int flags);
+    int  dkclose(dev_t dev, int flags, int devtype, proc_t);
+    int  dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t);
+    int  dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t);
+    int  dkopen(dev_t dev, int flags, int devtype, proc_t);
+    int  dkread(dev_t dev, uio_t uio, int flags);
     int  dksize(dev_t dev);    
-    void dkstrategy(struct buf * bp);
-    int  dkwrite(dev_t dev, struct uio * uio, int flags);
+    void dkstrategy(buf_t bp);
+    int  dkwrite(dev_t dev, uio_t uio, int flags);
 } // extern "C"
 
 static struct bdevsw bdevswFunctions =
@@ -107,15 +107,14 @@ struct cdevsw cdevswFunctions =
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-struct dio { dev_t dev; struct uio * uio; void * drvdata; };
+struct dio { dev_t dev; uio_t uio; void * drvdata; };
 
+typedef struct dio *                      dio_t;
 typedef void *                            dkr_t;       /* dkreadwrite request */
 typedef enum { DKRTYPE_BUF, DKRTYPE_DIO } dkrtype_t;
 
 static int  dkreadwrite(dkr_t dkr, dkrtype_t dkrtype);
 static void dkreadwritecompletion(void *, void *, IOReturn, UInt64);
-
-extern "C" task_t get_aiotask(void);
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
@@ -175,12 +174,12 @@ struct MinorSlot
 
     UInt64             bdevBlockSize; // (block device's preferred block size)
     void *             bdevNode;      // (block device's devfs node)
-    UInt32             bdevOpen:16;   // (block device's open count)
-    UInt32             bdevWriter:1;  // (block device's open writer flag)
+    UInt32             bdevOpen;      // (block device's open count)
+    IOStorageAccess    bdevOpenLevel; // (block device's open level)
 
     void *             cdevNode;      // (character device's devfs node)
-    UInt32             cdevOpen:16;   // (character device's open count)
-    UInt32             cdevWriter:1;  // (character device's open writer flag)
+    UInt32             cdevOpen;      // (character device's open count)
+    IOStorageAccess    cdevOpenLevel; // (character device's open level)
 };
 
 class MinorTable
@@ -631,11 +630,11 @@ IOMedia * IOMediaBSDClient::getProvider() const
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int IOMediaBSDClient::ioctl( dev_t         dev,
-                             u_long        cmd,
-                             caddr_t       data,
-                             int           flags,
-                             struct proc * proc )
+int IOMediaBSDClient::ioctl( dev_t   dev,
+                             u_long  cmd,
+                             caddr_t /* data */,
+                             int     /* flags */,
+                             proc_t  /* proc */ )
 {
     //
     // Process a foreign ioctl.
@@ -734,6 +733,30 @@ OSMetaClassDefineReservedUnused(IOMediaBSDClient, 15);
 // =============================================================================
 // BSD Functions
 
+static IOStorageAccess DK_ADD_ACCESS(IOStorageAccess a1, IOStorageAccess a2)
+{
+    static UInt8 table[4][4] =
+    {            /* Rea, Wri, R|S, W|S */
+        /* Rea */ { 000, 001, 002, 003 },
+        /* Wri */ { 001, 001, 001, 001 },
+        /* R|S */ { 002, 001, 002, 003 },
+        /* W|S */ { 003, 001, 003, 003 }
+    };
+
+    if ( a1 == kIOStorageAccessNone )  return a2;
+    if ( a2 == kIOStorageAccessNone )  return a1;
+
+    a1 = (a1 - 1) >> 1;
+    a2 = (a2 - 1) >> 1;
+
+    if ( a1 > 003 )  return kIOStorageAccessNone;
+    if ( a2 > 003 )  return kIOStorageAccessNone;
+
+    return (table[a1][a2] << 1) + 1;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
 static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
 {
     UInt32 index;
@@ -751,14 +774,16 @@ static bool DKIOC_IS_RESERVED(caddr_t data, u_int16_t reserved)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkopen(dev_t dev, int flags, int devtype, struct proc * p)
+int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
 {
     //
     // dkopen opens the device (called on each open).
     //
 
+    IOStorageAccess access;
     int             error;
     IOStorageAccess level;
+    IOStorageAccess levelOut;
     IOMedia *       media;
     MinorSlot *     minor;
 
@@ -767,9 +792,12 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc * p)
     gIOMediaBSDClientGlobals.lockOpen();    // (disable access to opens, closes)
     gIOMediaBSDClientGlobals.lockState();   // (disable access to state, tables)
 
+    access  = kIOStorageAccessReader;
+    access |= (flags &   FWRITE) ? kIOStorageAccessReaderWriter  : 0;
+    access |= (flags & O_SHLOCK) ? kIOStorageAccessSharedLock    : 0;
+    access |= (flags & O_EXLOCK) ? kIOStorageAccessExclusiveLock : 0;
+
     error = 0;
-    level = (flags & FWRITE) ? kIOStorageAccessReaderWriter
-                             : kIOStorageAccessReader;
     media = 0;
     minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
 
@@ -785,63 +813,73 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc * p)
     {
         error = EBUSY;
     }
-    else if ( (flags & FWRITE) )                        // (is client a writer?)
+    else
     {
-        if ( minor->media->isWritable() == false )
-            error = EACCES;
+        level    = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
+        levelOut = DK_ADD_ACCESS(level, access);
 
-        if ( minor->bdevWriter || minor->cdevWriter )
-            level = kIOStorageAccessNone;
-    }
-    else                                                // (is client a reader?)
-    {
-        if ( minor->bdevOpen || minor->cdevOpen )
-            level = kIOStorageAccessNone;
+        if ( levelOut == kIOStorageAccessNone )            // (is access valid?)
+        {
+            error = EBUSY;
+        }
+        else if ( (flags & FWRITE) )                    // (is client a writer?)
+        {
+            if ( minor->media->isWritable() == false )
+            {
+                error = EACCES;
+            }
+        }
     }
 
     if ( error == 0 )                                                   // (go?)
     {
-        bool wasWriter;
+        IOStorageAccess wasOpenLevel;
 
         if ( S_ISBLK(devtype) )                                // (update state)
         {
             minor->bdevOpen++;
-            wasWriter = minor->bdevWriter;
-            if ( (flags & FWRITE) )  minor->bdevWriter = true;
+            wasOpenLevel = minor->bdevOpenLevel;
+            minor->bdevOpenLevel = DK_ADD_ACCESS(wasOpenLevel, access);
         }
         else
         {
             minor->cdevOpen++;
-            wasWriter = minor->cdevWriter;
-            if ( (flags & FWRITE) )  minor->cdevWriter = true;
+            wasOpenLevel = minor->cdevOpenLevel;
+            minor->cdevOpenLevel = DK_ADD_ACCESS(wasOpenLevel, access);
         }
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
 
-        if ( level != kIOStorageAccessNone )            // (issue open/upgrade?)
+        if ( level != levelOut )                        // (issue open/upgrade?)
         {
+            bool success;
+
             media = minor->media;
             minor->media->retain();
 
-            if ( minor->media->open(minor->client, 0, level) == false )  // (go)
+            success = minor->media->open(minor->client, 0, levelOut);    // (go)
+
+            if ( success == false )
             {
                 gIOMediaBSDClientGlobals.lockState();        // (disable access)
 
                 if ( S_ISBLK(devtype) )                          // (undo state)
                 {
                     minor->bdevOpen--;
-                    minor->bdevWriter = wasWriter;
+                    minor->bdevOpenLevel = wasOpenLevel;
                 }
                 else
                 {
                     minor->cdevOpen--;
-                    minor->cdevWriter = wasWriter;
+                    minor->cdevOpenLevel = wasOpenLevel;
                 }
 
                 assert(minor->isOrphaned == false);
 
                 if ( !minor->bdevOpen && !minor->cdevOpen && minor->isObsolete )
+                {
                     gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+                }
 
                 gIOMediaBSDClientGlobals.unlockState();       // (enable access)
 
@@ -874,36 +912,40 @@ int dkopen(dev_t dev, int flags, int devtype, struct proc * p)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
+int dkclose(dev_t dev, int /* flags */, int devtype, proc_t /* proc */)
 {
     //
     // dkclose closes the device (called on last close).
     //
 
-    IOMedia *   media;
-    MinorSlot * minor;
-    bool        wasWriter;
+    IOStorageAccess level;
+    IOStorageAccess levelOut;
+    IOMedia *       media;
+    MinorSlot *     minor;
 
     assert(S_ISBLK(devtype) || S_ISCHR(devtype));
 
     gIOMediaBSDClientGlobals.lockOpen();    // (disable access to opens, closes)
     gIOMediaBSDClientGlobals.lockState();   // (disable access to state, tables)
 
-    media     = 0;
-    minor     = gIOMediaBSDClientGlobals.getMinor(minor(dev));
-    wasWriter = (minor->bdevWriter || minor->cdevWriter); 
+    media = 0;
+    minor = gIOMediaBSDClientGlobals.getMinor(minor(dev));
+
+    level = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
 
     if ( S_ISBLK(devtype) )                                    // (update state)
     {
         minor->bdevBlockSize = minor->media->getPreferredBlockSize();
         minor->bdevOpen      = 0;
-        minor->bdevWriter    = false;
+        minor->bdevOpenLevel = kIOStorageAccessNone;
     }
     else
     {
         minor->cdevOpen      = 0;
-        minor->cdevWriter    = false;
+        minor->cdevOpenLevel = kIOStorageAccessNone;
     }
+
+    levelOut = DK_ADD_ACCESS(minor->bdevOpenLevel, minor->cdevOpenLevel);
 
     if ( minor->isOrphaned )                              // (is minor in flux?)
     {
@@ -924,7 +966,9 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
         assert(minor->cdevOpen == 0);
 
         if ( minor->isObsolete )
+        {
             gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+        }
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
     }
@@ -948,7 +992,9 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
         // from the table -- remove it now.
 
         if ( minor->isObsolete )
+        {
             gIOMediaBSDClientGlobals.getMinors()->remove(minor(dev));
+        }
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
 
@@ -956,11 +1002,10 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
 
         client->release();
     }
-    else if ( !minor->bdevWriter && !minor->cdevWriter && wasWriter )
+    else if ( level != levelOut )
     {
         //
-        // We communicate a downgrade down to the media object once all writers
-        // are gone and while readers still exist. 
+        // We communicate the downgrade down to the media object.
         //
 
         media = minor->media;
@@ -968,7 +1013,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
 
         gIOMediaBSDClientGlobals.unlockState();     // (enable access to tables)
 
-        minor->media->open(minor->client, 0, kIOStorageAccessReader);
+        minor->media->open(minor->client, 0, levelOut);                  // (go)
     }
     else
     {
@@ -994,7 +1039,7 @@ int dkclose(dev_t dev, int /* flags */, int devtype, struct proc *)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkread(dev_t dev, struct uio * uio, int /* flags */)
+int dkread(dev_t dev, uio_t uio, int /* flags */)
 {
     //
     // dkread reads data from a device.
@@ -1007,7 +1052,7 @@ int dkread(dev_t dev, struct uio * uio, int /* flags */)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkwrite(dev_t dev, struct uio * uio, int /* flags */)
+int dkwrite(dev_t dev, uio_t uio, int /* flags */)
 {
     //
     // dkwrite writes data to a device.
@@ -1020,12 +1065,12 @@ int dkwrite(dev_t dev, struct uio * uio, int /* flags */)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-void dkstrategy(struct buf * bp)
+void dkstrategy(buf_t bp)
 {
     //
     // dkstrategy starts an asynchronous read or write operation.  It returns
     // to the caller as soon as the operation is queued, and completes it via
-    // the biodone function.
+    // the buf_biodone function.
     //
 
     dkreadwrite(bp, DKRTYPE_BUF);
@@ -1033,7 +1078,7 @@ void dkstrategy(struct buf * bp)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
+int dkioctl(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 {
     //
     // dkioctl performs operations other than a read or write.
@@ -1234,36 +1279,6 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
-        case DKIOCGETISVIRTUAL:                                 // (u_int32_t *)
-        {
-            //
-            // This ioctl returns the whether the storage is virtual (disk images).
-            //
-
-	    *(u_int32_t *)data = false;
-
-            OSDictionary * dict = OSDynamicCast(
-                         /* class  */ OSDictionary,
-                         /* object */ minor->media->getProperty(
-                                 /* key   */ kIOPropertyProtocolCharacteristicsKey,
-                                 /* plane */ gIOServicePlane ) );
-
-
-	    if ( dict )
-	    {
-		OSString * connect  = OSDynamicCast(OSString,
-				       dict->getObject(kIOPropertyPhysicalInterconnectTypeKey));
-		OSString * location = OSDynamicCast(OSString,
-				       dict->getObject(kIOPropertyPhysicalInterconnectLocationKey));
-
-		if (connect && location
-		  && connect->isEqualTo("Virtual Interface")
-		  && location->isEqualTo("File"))
-		    *(u_int32_t *)data = true;
-	    }
-
-        } break;
-
         case DKIOCISFORMATTED:                                  // (u_int32_t *)
         {
             //
@@ -1281,22 +1296,6 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
             //
 
             *(u_int32_t *)data = minor->media->isWritable();
-
-        } break;
-
-        case DKIOCGETFIRMWAREPATH:                     // (dk_firmware_path_t *)
-        {
-            //
-            // This ioctl returns the open firmware path for this media object.
-            //
-
-            int    l = sizeof(((dk_firmware_path_t *)data)->path);
-            char * p = ((dk_firmware_path_t *)data)->path;
-
-            if ( minor->media->getPath(p, &l, gIODTPlane) && strchr(p, ':') )
-                strcpy(p, strchr(p, ':') + 1);         // (strip the plane name)
-            else
-                error = EINVAL;
 
         } break;
 
@@ -1502,11 +1501,11 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
             // Obtain the format capacities list from the block storage driver.
 
             capacitiesCount    = request->capacitiesCount;
-            capacitiesMaxCount = driver->getFormatCapacities(NULL, 0);
+            capacitiesMaxCount = driver->getFormatCapacities(0, 0);
 
             if ( capacitiesCount )
             {
-                if ( request->capacities == NULL )  { error = EINVAL;  break; }
+                if ( request->capacities == 0 )  { error = EINVAL;  break; }
 
                 capacitiesCount = min(capacitiesCount, capacitiesMaxCount);
                 capacities      = IONew(UInt64, capacitiesCount);
@@ -1527,9 +1526,10 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
                     capacity.blockCount = capacities[index] / blockSize;
                     capacity.blockSize  = blockSize;
 
-                    error = copyout( /* kaddr */ &capacity,
-                                     /* uaddr */ request->capacities + index,
-                                     /* len   */ sizeof(dk_format_capacity_t) );
+                    error = copyout(
+                      /* kaddr */ &capacity,
+                      /* uaddr */ CAST_USER_ADDR_T(request->capacities + index),
+                      /* len   */ sizeof(dk_format_capacity_t) );
                     if ( error )  break; 
                 }
 
@@ -1574,13 +1574,66 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
         } break;
 
+        case DKIOCGETFIRMWAREPATH:                     // (dk_firmware_path_t *)
+        {
+            //
+            // This ioctl returns the open firmware path for this media object.
+            //
+
+            int    l = sizeof(((dk_firmware_path_t *)data)->path);
+            char * p = ((dk_firmware_path_t *)data)->path;
+
+            if ( minor->media->getPath(p, &l, gIODTPlane) && strchr(p, ':') )
+                strcpy(p, strchr(p, ':') + 1);         // (strip the plane name)
+            else
+                error = EINVAL;
+
+        } break;
+
+        case DKIOCISVIRTUAL:                                    // (u_int32_t *)
+        {
+            //
+            // This ioctl returns truth if the device is virtual.
+            //
+
+            OSDictionary * dictionary = OSDynamicCast(
+                         /* class  */ OSDictionary,
+                         /* object */ minor->media->getProperty(
+                                 /* key   */ kIOPropertyProtocolCharacteristicsKey,
+                                 /* plane */ gIOServicePlane ) );
+
+            *(u_int32_t *)data = false;
+
+            if ( dictionary )
+            {
+                OSString * string = OSDynamicCast( 
+                         /* class  */ OSString,
+                         /* object */ dictionary->getObject(
+                                 /* key   */ kIOPropertyPhysicalInterconnectTypeKey ) );
+
+                if ( string && string->isEqualTo( kIOPropertyPhysicalInterconnectTypeVirtual ) )
+                    *(u_int32_t *)data = true;
+            }
+
+        } break;
+
+        case DKIOCGETBASE:                                      // (u_int64_t *)
+        {
+            //
+            // This ioctl returns the base of the media object.
+            //
+
+            *(u_int64_t *)data = minor->media->getBase();
+
+        } break;
+
         default:
         {
             //
             // Call the foreign ioctl handler for all other ioctls.
             //
 
-            error = minor->client->ioctl(dev, cmd, data, f, p);
+            error = minor->client->ioctl(dev, cmd, data, flags, proc);
 
         } break;
     }
@@ -1590,7 +1643,7 @@ int dkioctl(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
+int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int flags, proc_t proc)
 {
     //
     // dkioctl_bdev performs operations other than a read or write, specific to
@@ -1669,7 +1722,7 @@ int dkioctl_bdev(dev_t dev, u_long cmd, caddr_t data, int f, struct proc * p)
             // Call the common ioctl handler for all other ioctls.
             //
 
-            error = dkioctl(dev, cmd, data, f, p);
+            error = dkioctl(dev, cmd, data, flags, proc);
 
         } break;
     }
@@ -1699,22 +1752,35 @@ int dksize(dev_t dev)
 // =============================================================================
 // Support For BSD Functions
 
-inline task_t get_user_task(void)
-{
-    task_t	utask;
+extern "C" task_t get_aiotask();
 
-    utask = get_aiotask();
-    if (utask == TASK_NULL) 
-	return current_task();
-    else
-    	return utask;
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+inline task_t get_kernel_task()
+{
+    return kernel_task;
 }
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+inline task_t get_user_task()
+{
+    task_t task;
+
+    task = get_aiotask();
+
+    if ( task == 0 )  task = current_task();
+
+    return task;
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
 inline dev_t DKR_GET_DEV(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
-           ? ((struct buf *)dkr)->b_dev
-           : ((struct dio *)dkr)->dev;
+           ? buf_device((buf_t)dkr)
+           : ((dio_t)dkr)->dev;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1722,8 +1788,8 @@ inline dev_t DKR_GET_DEV(dkr_t dkr, dkrtype_t dkrtype)
 inline UInt64 DKR_GET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
-           ? ((struct buf *)dkr)->b_bcount
-           : ((struct dio *)dkr)->uio->uio_resid;
+           ? buf_count((buf_t)dkr)
+           : uio_resid(((dio_t)dkr)->uio);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1732,14 +1798,15 @@ inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
 {
     if (dkrtype == DKRTYPE_BUF)
     {
-        struct buf * bp = (struct buf *)dkr;
-        MinorSlot *  minor;
+        buf_t       bp = (buf_t)dkr;
+        MinorSlot * minor;
 
-        minor = gIOMediaBSDClientGlobals.getMinor(minor(bp->b_dev));
+        minor = gIOMediaBSDClientGlobals.getMinor(minor(buf_device(bp)));
 
-        return (UInt64)((unsigned)bp->b_blkno) * minor->bdevBlockSize;
+        return (UInt64)buf_blkno(bp) * minor->bdevBlockSize;
     }
-    return ((struct dio *)dkr)->uio->uio_offset;
+
+    return uio_offset(((dio_t)dkr)->uio);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1747,8 +1814,8 @@ inline UInt64 DKR_GET_BYTE_START(dkr_t dkr, dkrtype_t dkrtype)
 inline bool DKR_IS_READ(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
-           ? ((((struct buf *)dkr)->b_flags & B_READ) == B_READ)
-           : ((((struct dio *)dkr)->uio->uio_rw) == UIO_READ);
+           ? ((buf_flags((buf_t)dkr) & B_READ) == B_READ)
+           : ((uio_rw(((dio_t)dkr)->uio)) == UIO_READ);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1775,9 +1842,9 @@ inline bool DKR_IS_RAW(dkr_t dkr, dkrtype_t dkrtype)
 inline void DKR_SET_BYTE_COUNT(dkr_t dkr, dkrtype_t dkrtype, UInt64 bcount)
 {
     if (dkrtype == DKRTYPE_BUF)
-        ((struct buf *)dkr)->b_resid = ((struct buf *)dkr)->b_bcount - bcount;
+        buf_setresid((buf_t)dkr, buf_count((buf_t)dkr) - bcount);
     else
-        ((struct dio *)dkr)->uio->uio_resid -= bcount;
+        uio_setresid(((dio_t)dkr)->uio, uio_resid(((dio_t)dkr)->uio) - bcount);
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1786,14 +1853,13 @@ inline void DKR_RUN_COMPLETION(dkr_t dkr, dkrtype_t dkrtype, IOReturn status)
 {
     if (dkrtype == DKRTYPE_BUF)
     {
-        struct buf * bp = (struct buf *)dkr;
-        MinorSlot *  minor;
+        buf_t       bp = (buf_t)dkr;
+        MinorSlot * minor;
 
-        minor = gIOMediaBSDClientGlobals.getMinor(minor(bp->b_dev));
+        minor = gIOMediaBSDClientGlobals.getMinor(minor(buf_device(bp)));
 
-        bp->b_error  = minor->media->errnoFromReturn(status);        // (error?)
-        bp->b_flags |= (status != kIOReturnSuccess) ? B_ERROR : 0;   // (error?)
-        biodone(bp);                                       // (complete request)
+        buf_seterror(bp, minor->media->errnoFromReturn(status));     // (error?)
+        buf_biodone(bp);                                   // (complete request)
     }
 }
 
@@ -1803,38 +1869,42 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
 {
     if (dkrtype == DKRTYPE_BUF)
     {
-        struct buf * bp = (struct buf *)dkr;
+        buf_t bp = (buf_t)dkr;
+        int   flags;
 
-        if ( (bp->b_flags & B_VECTORLIST) )
+        flags = buf_flags(bp);
+
+        if ( (flags & B_CLUSTER) )
         {
-            IOOptionBits mdopts = kIOMemoryTypeUPL | kIOMemoryAsReference;
-
-            mdopts |= (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut;
+            IOOptionBits options = kIOMemoryTypeUPL | kIOMemoryAsReference;
+            options |= (flags & B_READ) ? kIODirectionIn : kIODirectionOut;
 
             return IOMemoryDescriptor::withOptions(          // (multiple-range)
-                bp->b_pagelist,
-                bp->b_bcount,
-                bp->b_uploffset,
+                buf_upl(bp),
+                buf_count(bp),
+                buf_uploffset(bp),
                 0,
-                mdopts );
+                options );
         }
 
         return IOMemoryDescriptor::withAddress(                // (single-range)
-          (vm_address_t) bp->b_data,
-          (vm_size_t)    bp->b_bcount,
-          (bp->b_flags & B_READ) ? kIODirectionIn : kIODirectionOut,
-          (bp->b_flags & B_PHYS) ? get_user_task() : kernel_task);
+            (vm_address_t) buf_dataptr(bp),
+            (vm_size_t)    buf_count(bp),
+            (flags & B_READ) ? kIODirectionIn : kIODirectionOut,
+            (flags & B_PHYS) ? get_user_task() : get_kernel_task() );
     }
     else
     {
-        struct uio * uio = ((struct dio *)dkr)->uio;
+	// Create a type uio memory descriptor, this will support 64bit UIOs
+        uio_t uio = ((dio_t)dkr)->uio;
+	task_t task = (uio_isuserspace(uio))
+			    ? get_user_task() : get_kernel_task(); 
 
-        return IOMemoryDescriptor::withRanges(               // (multiple-range)
-        (IOVirtualRange *) uio->uio_iov,
-        (UInt32)           uio->uio_iovcnt,
-        (uio->uio_rw     == UIO_READ    ) ? kIODirectionIn  : kIODirectionOut,
-        (uio->uio_segflg != UIO_SYSSPACE) ? get_user_task() : kernel_task,
-        true );
+	IOOptionBits options = kIOMemoryTypeUIO | kIOMemoryAsReference;
+	options |= uio_rw(uio) == UIO_READ ? kIODirectionIn : kIODirectionOut;
+
+	return IOMemoryDescriptor::
+	    withOptions(uio, uio_iovcnt(uio), 0, task, options);
     }
 }
 
@@ -1843,8 +1913,8 @@ inline IOMemoryDescriptor * DKR_GET_BUFFER(dkr_t dkr, dkrtype_t dkrtype)
 inline void * DKR_GET_DRIVER_DATA(dkr_t dkr, dkrtype_t dkrtype)
 {
     return (dkrtype == DKRTYPE_BUF)
-           ? ((struct buf *)dkr)->b_drvdata
-           : ((struct dio *)dkr)->drvdata;
+           ? buf_drvdata((buf_t)dkr)
+           : ((dio_t)dkr)->drvdata;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1852,9 +1922,9 @@ inline void * DKR_GET_DRIVER_DATA(dkr_t dkr, dkrtype_t dkrtype)
 inline void DKR_SET_DRIVER_DATA(dkr_t dkr, dkrtype_t dkrtype, void * drvdata)
 {
     if (dkrtype == DKRTYPE_BUF)
-        ((struct buf *)dkr)->b_drvdata = drvdata;
+        buf_setdrvdata((buf_t)dkr, drvdata);
     else
-        ((struct dio *)dkr)->drvdata = drvdata;
+        ((dio_t)dkr)->drvdata = drvdata;
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -1871,10 +1941,6 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
     UInt64               mediaSize;
     MinorSlot *          minor;
     IOReturn             status;
-    boolean_t funnel_state = FALSE;
-
-    if (dkrtype == DKRTYPE_BUF)
-        funnel_state = thread_funnel_set(kernel_flock, FALSE);
 
     DKR_SET_DRIVER_DATA(dkr, dkrtype, 0);
 
@@ -2030,15 +2096,9 @@ int dkreadwrite(dkr_t dkr, dkrtype_t dkrtype)
         dkreadwritecompletion(dkr, (void *)dkrtype, status, byteCount);
     }
 
-    if (funnel_state == TRUE)
-        funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
     return minor->media->errnoFromReturn(status);       // (return error status)
 
 dkreadwriteErr:
-
-    if (funnel_state == TRUE)
-        funnel_state = thread_funnel_set(kernel_flock, TRUE);
 
     dkreadwritecompletion(dkr, (void *)dkrtype, status, 0);
 
@@ -2077,14 +2137,8 @@ void dkreadwritecompletion( void *   target,
 
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
-        boolean_t funnel_state;
-
-        funnel_state = thread_funnel_set(kernel_flock, TRUE);
-
         DKR_SET_BYTE_COUNT(dkr, dkrtype, actualByteCount);   // (set byte count)
         DKR_RUN_COMPLETION(dkr, dkrtype, status);            // (run completion)
-
-        thread_funnel_set(kernel_flock, funnel_state);
     }
     else
     {
@@ -2477,7 +2531,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
     bdevNode = devfs_make_node( /* dev        */ makedev(kMajor, minorID),
                                 /* type       */ DEVFS_BLOCK, 
                                 /* owner      */ UID_ROOT,
-                                /* group      */ GID_OPERATOR, 
+                                /* group      */ GID_OPERATOR,
                                 /* permission */ media->isWritable()?0640:0440, 
                                 /* name (fmt) */ "disk%d%s",
                                 /* name (arg) */ anchorID,
@@ -2486,7 +2540,7 @@ UInt32 MinorTable::insert( IOMedia *          media,
     cdevNode = devfs_make_node( /* dev        */ makedev(kMajor, minorID),
                                 /* type       */ DEVFS_CHAR, 
                                 /* owner      */ UID_ROOT,
-                                /* group      */ GID_OPERATOR, 
+                                /* group      */ GID_OPERATOR,
                                 /* permission */ media->isWritable()?0640:0440,
                                 /* name (fmt) */ "rdisk%d%s",
                                 /* name (arg) */ anchorID,
@@ -2520,8 +2574,10 @@ UInt32 MinorTable::insert( IOMedia *          media,
     _table[minorID].bdevBlockSize = media->getPreferredBlockSize();
     _table[minorID].bdevNode      = bdevNode;
     _table[minorID].bdevOpen      = 0;
+    _table[minorID].bdevOpenLevel = kIOStorageAccessNone;
     _table[minorID].cdevNode      = cdevNode;
     _table[minorID].cdevOpen      = 0;
+    _table[minorID].cdevOpenLevel = kIOStorageAccessNone;
 
     _table[minorID].client->retain();              // (retain client)
     _table[minorID].media->retain();               // (retain media)

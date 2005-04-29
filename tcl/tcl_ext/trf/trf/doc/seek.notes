@@ -1,0 +1,209 @@
+
+Configuration
+-------------
+Natural ratio between input and output:	n:m
+Unseekable <=== (n == 0 || m == 0)
+
+Configurational state
+---------------------
+Chosen ratio, without user intervention
+Flag, possible to overide ratio above or not ?
+Chosen ratio, after possible intervention by user
+
+State
+-----
+Stream location of transformation.			UpLoc
+Stream location of start and end of the read buffer.	UpLocBS, UpLocBE
+Stream location of downstream channel.			DwLoc
+
+"End" = Location of the character behind the last character in the buffer.
+
+!Integrity condition:	(1)	DwLoc "equivalent to" UpLocBE
+			(2)	UpLocBS = UpLocBE = UpLoc for an empty buffer.
+			(3)	UpLoc* % n == 0, i.e. a multiple of n.
+
+Derived state
+-------------
+	(up * m) / n = down (Position relative to starting point)
+
+	Zero = Position downstream "equivalent to" Zero position upward.
+
+(1)	DwLoc "equivalent to" UpLocBE
+
+===>	(UpLocBE * m) / n + Zero = DwLoc
+
+===>	Zero = (UpLocBE * m) / n - DwLoc
+
+
+Actions
+-------
+
+Tell	/done/
+....
+	Report stream location of transformation.
+
+
+Seek, general	/done/
+.............
+	[Tell]
+
+	Unseekable
+
+	===>	Error
+		STOP_____________________________
+
+	Identity
+
+	===>	discard read/write buffers,
+		pass request
+
+		set flag "changed"
+		STOP_____________________________
+
+
+
+Seek, relative to start of stream (as seen by the transformation)	/done/
+.................................................................
+	Delta = NewPos - UpLoc
+	Seek (Delta, relative to current position)
+	STOP_____________________________
+
+
+Seek, relative to current position (as seen by the transformation)	/done/
+..................................................................
+
+	(Delta % n) != 0
+
+	===>	Error
+
+	NewUpLoc  := UpLoc + Delta
+
+	NewUpLoc < 0
+
+	===>	Error
+
+		NewUpLoc <  UpLocBS
+	||	NewUpLoc >= UpLocBE
+
+	===>	Discard read buffer
+
+		DeltaDown := ((NewUpLoc - UpLocBE) * m) / n
+
+		DeltaDown != 0
+
+		===>	Seek down, relative to current: DeltaDown.
+
+		DwLoc := DwLoc + DeltaDown
+		UpLoc,UpLocBS,UpLocBE := NewUpLoc
+		STOP_____________________________
+
+	UpLoc := NewUpLoc
+	STOP_____________________________
+
+
+Seek, relative to end of stream
+...............................
+
+	??? not yet
+	STOP_____________________________
+
+
+Write	/done/
+.....
+//	Partial writes (incomplete tuple?, seek effect)
+//	no seek!, no change of location
+//	next read discards incomplete information.
+//	next seek discards incomplete information! too.
+
+UpLoc != UpLocBE
+
+===>	Get Zero
+	Discard read buffer.
+
+	DeltaDown := ((UpLocBE - UpLoc) * m) / n
+
+	Seek down, relative: DeltaDown.
+	DwLoc := DwLoc + DeltaDown
+
+	-- Now UpLoc "equivalent to" DwLoc
+	-- IOW Positions up and down are now in sync.
+	-- Phase == 0 now!
+
+	UpLoc,UpLocBS,UpLocBE := UpLoc += toWrite
+	DwLoc += (toWrite * m)/n
+
+	Write complete transformation results.
+	STOP_____________________________
+
+//	Handle only complete writes, in writer proc, do the above.
+//	Automatic handling of incomplete tuples as described //above
+
+UpLoc == UpLocBE
+
+--	No read buffer existing, positions are in sync.
+
+	Write complete transformation results.
+	STOP_____________________________
+
+
+Read
+....
+	Discard incomplete tuples in write buffer!
+
+Repeat
+	Data in read buffer
+
+	===>	Copy x from read buffer
+		UpLoc += x
+		Remove x from buffer
+		LOOP
+
+	Satisified
+
+	===>	STOP
+
+	(Integrity: UpLoc == UpLocBE)
+
+	got := Read from down
+	transform
+	//	got % m == 0 not assertable, can be fract
+	//	maintain phase! value as last ditch correction value
+
+	DwLoc += got
+	UpLocBS := UpLocBE
+	UpLocBE += (got-phase) / m * n
+
+endrepeat
+STOP_____________________________
+
+
+Stack	/done/
+.....
+	UpLoc,UpLocBS,UpLocBE := 0
+	DwLoc	:=	Tell down.
+	Phase == 0.
+	Empty read/write buffers.
+	STOP_____________________________
+
+
+Force identity
+..............
+
+	Set flag	"identity"
+	Unset flag	"changed"
+	STOP_____________________________
+
+
+Unforce identity
+................
+	Changed
+
+	===>	See "Stack"
+
+	STOP_____________________________
+
+
+
+...
+handling force unseekable ? for seekable transforms.
+

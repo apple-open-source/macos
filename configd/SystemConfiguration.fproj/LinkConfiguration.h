@@ -28,6 +28,9 @@
 #include <sys/cdefs.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+/*!
+	@header LinkConfiguration
+*/
 
 __BEGIN_DECLS
 

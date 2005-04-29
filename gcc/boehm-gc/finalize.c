@@ -207,7 +207,8 @@ signed_word * log_size_ptr;
 	UNLOCK();
     	ENABLE_SIGNALS();
 #     endif
-      new_dl = GC_oom_fn(sizeof(struct disappearing_link));
+      new_dl = (struct disappearing_link *)
+	      GC_oom_fn(sizeof(struct disappearing_link));
       if (0 == new_dl) {
 	GC_finalization_failures++;
 	return(0);
@@ -433,7 +434,8 @@ finalization_mark_proc * mp;
 	UNLOCK();
     	ENABLE_SIGNALS();
 #     endif
-      new_fo = GC_oom_fn(sizeof(struct finalizable_object));
+      new_fo = (struct finalizable_object *)
+	      GC_oom_fn(sizeof(struct finalizable_object));
       if (0 == new_fo) {
 	GC_finalization_failures++;
 	return;
@@ -759,8 +761,9 @@ int GC_should_invoke_finalizers GC_PROTO((void))
 /* Should be called without allocation lock.				*/
 int GC_invoke_finalizers()
 {
-    register struct finalizable_object * curr_fo;
-    register int count = 0;
+    struct finalizable_object * curr_fo;
+    int count = 0;
+    word mem_freed_before;
     DCL_LOCK_STATE;
     
     while (GC_finalize_now != 0) {
@@ -768,6 +771,9 @@ int GC_invoke_finalizers()
 	    DISABLE_SIGNALS();
 	    LOCK();
 #	endif
+	if (count == 0) {
+	    mem_freed_before = GC_mem_freed;
+	}
     	curr_fo = GC_finalize_now;
 #	ifdef THREADS
  	    if (curr_fo != 0) GC_finalize_now = fo_next(curr_fo);
@@ -789,6 +795,11 @@ int GC_invoke_finalizers()
     	    GC_free((GC_PTR)curr_fo);
 #	endif
     }
+    if (count != 0 && mem_freed_before != GC_mem_freed) {
+        LOCK();
+	GC_finalizer_mem_freed += (GC_mem_freed - mem_freed_before);
+	UNLOCK();
+    }
     return count;
 }
 
@@ -798,10 +809,42 @@ static GC_word last_finalizer_notification = 0;
 
 void GC_notify_or_invoke_finalizers GC_PROTO((void))
 {
+    /* This is a convenient place to generate backtraces if appropriate, */
+    /* since that code is not callable with the allocation lock.	 */
+#   if defined(KEEP_BACK_PTRS) || defined(MAKE_BACK_GRAPH)
+      static word last_back_trace_gc_no = 1;	/* Skip first one. */
+
+      if (GC_gc_no > last_back_trace_gc_no) {
+	word i;
+
+#	ifdef KEEP_BACK_PTRS
+	  LOCK();
+	  /* Stops when GC_gc_no wraps; that's OK.	*/
+	  last_back_trace_gc_no = (word)(-1);  /* disable others. */
+	  for (i = 0; i < GC_backtraces; ++i) {
+	      /* FIXME: This tolerates concurrent heap mutation,	*/
+	      /* which may cause occasional mysterious results.		*/
+	      /* We need to release the GC lock, since GC_print_callers	*/
+	      /* acquires it.  It probably shouldn't.			*/
+	      UNLOCK();
+	      GC_generate_random_backtrace_no_gc();
+	      LOCK();
+	  }
+	  last_back_trace_gc_no = GC_gc_no;
+	  UNLOCK();
+#	endif
+#       ifdef MAKE_BACK_GRAPH
+	  if (GC_print_back_height)
+            GC_print_back_graph_stats();
+#	endif
+      }
+#   endif
     if (GC_finalize_now == 0) return;
     if (!GC_finalize_on_demand) {
 	(void) GC_invoke_finalizers();
-	GC_ASSERT(GC_finalize_now == 0);
+#	ifndef THREADS
+	  GC_ASSERT(GC_finalize_now == 0);
+#	endif	/* Otherwise GC can run concurrently and add more */
 	return;
     }
     if (GC_finalizer_notifier != (void (*) GC_PROTO((void)))0
@@ -839,3 +882,17 @@ void GC_notify_or_invoke_finalizers GC_PROTO((void))
     return(result);
 }
 
+#if !defined(NO_DEBUGGING)
+
+void GC_print_finalization_stats()
+{
+    struct finalizable_object *fo = GC_finalize_now;
+    size_t ready = 0;
+
+    GC_printf2("%lu finalization table entries; %lu disappearing links\n",
+	       GC_fo_entries, GC_dl_entries);
+    for (; 0 != fo; fo = fo_next(fo)) ++ready;
+    GC_printf1("%lu objects are eligible for immediate finalization\n", ready);
+}
+
+#endif /* NO_DEBUGGING */

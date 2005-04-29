@@ -67,7 +67,7 @@ extern int equality_op PARAMS ((rtx, enum machine_mode));
 extern int pc_or_label_ref PARAMS ((rtx, enum machine_mode));
 extern int symbolic_operand PARAMS ((rtx, enum machine_mode));
 #ifdef TREE_CODE
-extern void m88k_va_start PARAMS ((int, tree, rtx));
+extern void m88k_va_start PARAMS ((tree, rtx));
 #endif /* TREE_CODE */
 #endif /* RTX_CODE */
 
@@ -86,8 +86,6 @@ extern void m88k_layout_frame PARAMS ((void));
 extern void m88k_expand_prologue PARAMS ((void));
 extern void m88k_expand_epilogue PARAMS ((void));
 extern void output_function_profiler PARAMS ((FILE *, int, const char *, int));
-extern void output_function_block_profiler PARAMS ((FILE *, int));
-extern void output_block_profiler PARAMS ((FILE *, int));
 extern void output_ascii PARAMS ((FILE *, const char *, int,
 				  const char *, int));
 extern void output_label PARAMS ((int));

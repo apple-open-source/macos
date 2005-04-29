@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_VAR_H__
+#define __ISAKMP_VAR_H__
+
 #define PORT_ISAKMP 500
 #define PORT_ISAKMP_NATT	4500
 
@@ -65,6 +68,8 @@ extern int isakmp_init __P((void));
 extern const char *isakmp_pindex __P((const isakmp_index *, const u_int32_t));
 extern int isakmp_open __P((void));
 extern void isakmp_close __P((void));
+extern void isakmp_close_sockets __P((void));
+extern void isakmp_close_unused __P((void));
 extern int isakmp_send __P((struct ph1handle *, vchar_t *));
 
 extern void isakmp_ph1resend_stub __P((void *));
@@ -107,3 +112,7 @@ extern void isakmp_printpacket __P((vchar_t *, struct sockaddr *,
 extern int copy_ph1addresses __P(( struct ph1handle *,
 	struct remoteconf *, struct sockaddr *, struct sockaddr *));
 extern void log_ph1established __P((const struct ph1handle *));
+
+
+#endif /* __ISAKMP_VAR_H__ */
+

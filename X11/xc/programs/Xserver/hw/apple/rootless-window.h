@@ -62,4 +62,7 @@ void RootlessPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion,
 void RootlessChangeBorderWidth(WindowPtr pWin, unsigned int width);
 void RootlessPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
 
+void RootlessNativeWindowStateChanged (xp_window_id id, unsigned int state);
+void RootlessNativeWindowMoved (xp_window_id id);
+
 #endif

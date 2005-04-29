@@ -1,4 +1,28 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/setproctitle.c,v 1.9.2.1 2002/09/17 02:45:09 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/setproctitle.c,v 1.11.2.2 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
+ *
+ * Copyright 1998-2004 The OpenLDAP Foundation.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
+ *
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* Portions Copyright (c) 1990,1991 Regents of the University of Michigan.
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms are permitted
+ * provided that this notice is preserved and that due credit is given
+ * to the University of Michigan at Ann Arbor. The name of the University
+ * may not be used to endorse or promote products derived from this
+ * software without specific prior written permission. This software
+ * is provided ``as is'' without express or implied warranty.
+ */
+
 #include "portable.h"
 
 #ifndef HAVE_SETPROCTITLE
@@ -10,18 +34,6 @@
 #include <ac/setproctitle.h>
 #include <ac/string.h>
 #include <ac/stdarg.h>
-
-/*
- * Copyright (c) 1990,1991 Regents of the University of Michigan.
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms are permitted
- * provided that this notice is preserved and that due credit is given
- * to the University of Michigan at Ann Arbor. The name of the University
- * may not be used to endorse or promote products derived from this
- * software without specific prior written permission. This software
- * is provided ``as is'' without express or implied warranty.
- */
 
 char	**Argv;		/* pointer to original (main's) argv */
 int	Argc;		/* original argc */

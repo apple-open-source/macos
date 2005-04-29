@@ -37,5 +37,5 @@ diff_excludes="-x cp-parse.c -x cp-parse.h"
 
 target_libs="${libstdcxx_version} target-gperf"
 
-# APPLE LOCAL Objective-C++
-gtfiles="\$(srcdir)/cp/cp-root.h \$(srcdir)/cp/mangle.c \$(srcdir)/cp/cp-tree.h \$(srcdir)/cp/decl.h \$(srcdir)/cp/lex.h \$(srcdir)/cp/call.c \$(srcdir)/cp/decl.c \$(srcdir)/cp/decl2.c \$(srcdir)/cp/cp-parse.in \$(srcdir)/cp/pt.c \$(srcdir)/cp/repo.c \$(srcdir)/cp/spew.c \$(srcdir)/cp/tree.c \$(srcdir)/c-common.c \$(srcdir)/c-common.h \$(srcdir)/c-pragma.c \$(srcdir)/c-feedback.c"
+# APPLE LOCAL Objective-C++ and jet
+gtfiles="\$(srcdir)/cp/cp-root.h \$(srcdir)/cp/mangle.c \$(srcdir)/cp/cp-tree.h \$(srcdir)/cp/decl.h \$(srcdir)/cp/lex.h \$(srcdir)/cp/call.c \$(srcdir)/cp/decl.c \$(srcdir)/cp/decl2.c \$(srcdir)/cp/cp-parse.in \$(srcdir)/cp/pt.c \$(srcdir)/cp/repo.c \$(srcdir)/cp/spew.c \$(srcdir)/cp/tree.c \$(srcdir)/c-common.c \$(srcdir)/c-common.h \$(srcdir)/c-pragma.c \$(srcdir)/cp/jet.c"

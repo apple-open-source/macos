@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+          "DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <title>twisted.mail.alias</title>
+  <link rel="stylesheet" href="epydoc.css" type="text/css"></link>
+</head>
+<body bgcolor="white" text="black" link="blue" vlink="#204080"
+      alink="#204080">
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+<table width="100%" cellpadding="0" cellspacing="0">
+  <tr valign="top">
+    <td width="100%">
+      <font size="-1"><b class="breadcrumbs">
+        <a href="twisted.html">Package&nbsp;twisted</a> ::
+        <a href="twisted.mail.html">Package&nbsp;mail</a> ::
+        Module&nbsp;alias
+      </b></font></br>
+    </td>
+    <td><table cellpadding="0" cellspacing="0">
+      <tr><td align="right"><font size="-2">[<a href="frames.html"target="_top">frames</a>&nbsp;|&nbsp;<a href="twisted.mail.alias.html" target="_top">no&nbsp;frames</a>]</font></td></tr>
+    </table></td>
+</tr></table>
+
+<!-- =========== START OF MODULE DESCRIPTION =========== -->
+<h2 class="module">Module twisted.mail.alias</h2>
+
+<pre class="literalblock">
+Support for aliases(5) configuration files
+
+API Stability: Unstable
+
+&#64;author: U{Jp Calderone&lt;exarkun&#64;twistedmatrix.com&gt;}
+
+TODO: Monitor files for reparsing
+      Handle non-local alias targets
+      Handle maildir alias targets
+</pre>
+<hr/>
+
+<!-- =========== START OF CLASSES =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Classes</th></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.AddressAlias.html"><code>AddressAlias</code></a></b></td>
+  <td>The simplest alias, translating one email address into another.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.AliasBase.html"><code>AliasBase</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.AliasGroup.html"><code>AliasGroup</code></a></b></td>
+  <td>An alias which points to more than one recipient</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.FileAlias.html"><code>FileAlias</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.FileWrapper.html"><code>FileWrapper</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.IAlias.html"><code>IAlias</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.MessageWrapper.html"><code>MessageWrapper</code></a></b></td>
+  <td>&nbsp;</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.MultiWrapper.html"><code>MultiWrapper</code></a></b></td>
+  <td>Wrapper to deliver a single message to multiple recipients</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.ProcessAlias.html"><code>ProcessAlias</code></a></b></td>
+  <td>An alias for a program.</td></tr>
+<tr><td width="15%">
+  <b><a href="twisted.mail.alias.ProcessAliasProtocol.html"><code>ProcessAliasProtocol</code></a></b></td>
+  <td>&nbsp;</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION SUMMARY =========== -->
+<table class="summary" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="summary">
+  <th colspan="2">Function Summary</th></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><a name="handle"></a><span class="summary-sig"><span class="summary-sig-name">handle</span>(<span class=summary-sig-arg>result</span>,
+          <span class=summary-sig-arg>line</span>,
+          <span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>lineNo</span>)</span></code>
+</td></tr>
+<tr><td align="right" valign="top" width="15%"><font size="-1">&nbsp;</font></td>
+  <td><code><span class="summary-sig"><a href="twisted.mail.alias.html#loadAliasFile" class="summary-sig-name"><code>loadAliasFile</code></a>(<span class=summary-sig-arg>domains</span>,
+          <span class=summary-sig-arg>filename</span>,
+          <span class=summary-sig-arg>fp</span>)</span></code>
+<br />
+Load a file containing email aliases.</td></tr>
+</table><br />
+
+
+<!-- =========== START OF FUNCTION DETAILS =========== -->
+<table class="details" border="1" cellpadding="3" cellspacing="0" width="100%" bgcolor="white">
+<tr bgcolor="#70b0f0" class="details">
+  <th colspan="2">Function Details</th></tr>
+</table>
+
+<a name="loadAliasFile"></a>
+<table width="100%" class="func-details" bgcolor="#e0e0e0"><tr><td>
+  <h3><span class="sig"><span class="sig-name">loadAliasFile</span>(<span class=sig-arg>domains</span>,
+          <span class=sig-arg>filename</span>=<span class=sig-default>None</span>,
+          <span class=sig-arg>fp</span>=<span class=sig-default>None</span>)</span>
+  </h3>
+<pre class="literalblock">
+Load a file containing email aliases.
+
+Lines in the file should be formatted like so:
+
+    username: alias1,alias2,...,aliasN
+
+Aliases beginning with a | will be treated as programs, will be run, and
+the message will be written to their stdin.
+
+Aliases without a host part will be assumed to be addresses on localhost.
+
+If a username is specified multiple times, the aliases for each are joined
+together as if they had all been on one line.
+
+&#64;type domains: C{dict} of implementor of C{IDomain}
+&#64;param domains: The domains to which these aliases will belong.
+
+&#64;type filename: C{str}
+&#64;param filename: The filename from which to load aliases.
+
+&#64;type fp: Any file-like object.
+&#64;param fp: If specified, overrides C{filename}, and aliases are read from
+it.
+
+&#64;rtype: C{dict}
+&#64;return: A dictionary mapping usernames to C{AliasGroup} objects.
+</pre>
+  <dl><dt></dt><dd>
+  </dd></dl>
+</td></tr></table>
+<br />
+
+
+<!-- =========== START OF NAVBAR =========== -->
+<table class="navbar" border="0" width="100%" cellpadding="0" bgcolor="#a0c0ff" cellspacing="0">
+  <tr valign="center">
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="twisted.html">Home</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="trees.html">Trees</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="indices.html">Index</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar">&nbsp;&nbsp;&nbsp;<a class="navbar" href="help.html">Help</a>&nbsp;&nbsp;&nbsp;</th>
+    <th class="navbar" align="right" width="100%">
+      <table border="0" cellpadding="0" cellspacing="0">
+      <tr><th class="navbar" align="center">
+        <p class="nomargin">
+          <a class="navbar" target="_top" href="http://twistedmatrix.com/">Twisted&nbsp;1.3.0rc1</a>
+      </p></th></tr></table>
+    </th>
+  </tr>
+</table>
+
+<table border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td align="left"><font size="-2">Generated by Epydoc 2.0 on Sat May 15 20:07:50 2004</font></td>
+    <td align="right"><a href="http://epydoc.sourceforge.net"
+                      ><font size="-2">http://epydoc.sf.net</font></a></td>
+  </tr>
+</table>
+</body>
+</html>

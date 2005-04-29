@@ -1,0 +1,1540 @@
+# Estonian translations for GNU tar.
+# Copyright (C) 2001 Free Software Foundation, Inc.
+# Toomas Soome <tsoome@ut.ee>, 2001.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: GNU tar 1.13.25\n"
+"Report-Msgid-Bugs-To: bug-tar@gnu.org\n"
+"POT-Creation-Date: 2004-05-10 14:53+0300\n"
+"PO-Revision-Date: 2001-11-26 18:45+0200\n"
+"Last-Translator: Toomas Soome <tsoome@ut.ee>\n"
+"Language-Team: Estonian <et@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=iso-8859-15\n"
+"Content-Transfer-Encoding: 8-bit\n"
+
+#: lib/argmatch.c:133
+#, c-format
+msgid "invalid argument %s for %s"
+msgstr "vigane argument %s (`%s')"
+
+#: lib/argmatch.c:134
+#, c-format
+msgid "ambiguous argument %s for %s"
+msgstr "segane argument %s (`%s')"
+
+#: lib/argmatch.c:153
+#, c-format
+msgid "Valid arguments are:"
+msgstr "Lubatud argumendid on:"
+
+#: lib/error.c:127 src/rmt.c:92
+msgid "Unknown system error"
+msgstr "Tundmatu süsteemi viga"
+
+#: lib/getopt.c:570 lib/getopt.c:589
+#, c-format
+msgid "%s: option `%s' is ambiguous\n"
+msgstr "%s: võti `%s' on segane\n"
+
+#: lib/getopt.c:622 lib/getopt.c:626
+#, c-format
+msgid "%s: option `--%s' doesn't allow an argument\n"
+msgstr "%s: võtmel `--%s' pole argumente\n"
+
+#: lib/getopt.c:635 lib/getopt.c:640
+#, c-format
+msgid "%s: option `%c%s' doesn't allow an argument\n"
+msgstr "%s: võtmel `%c%s' pole argumente\n"
+
+#: lib/getopt.c:686 lib/getopt.c:708 lib/getopt.c:1039 lib/getopt.c:1061
+#, c-format
+msgid "%s: option `%s' requires an argument\n"
+msgstr "%s: võti `%s' nõuab argumenti\n"
+
+#: lib/getopt.c:746 lib/getopt.c:749
+#, c-format
+msgid "%s: unrecognized option `--%s'\n"
+msgstr "%s: tundmatu võti `--%s'\n"
+
+#: lib/getopt.c:757 lib/getopt.c:760
+#, c-format
+msgid "%s: unrecognized option `%c%s'\n"
+msgstr "%s: tundmatu võti `%c%s'\n"
+
+#: lib/getopt.c:815 lib/getopt.c:818
+#, c-format
+msgid "%s: illegal option -- %c\n"
+msgstr "%s: vigane võti -- %c\n"
+
+#: lib/getopt.c:824 lib/getopt.c:827
+#, c-format
+msgid "%s: invalid option -- %c\n"
+msgstr "%s: vigane võti -- %c\n"
+
+#: lib/getopt.c:882 lib/getopt.c:901 lib/getopt.c:1114 lib/getopt.c:1135
+#, c-format
+msgid "%s: option requires an argument -- %c\n"
+msgstr "%s: võti nõuab argumenti -- %c\n"
+
+#: lib/getopt.c:954 lib/getopt.c:973
+#, c-format
+msgid "%s: option `-W %s' is ambiguous\n"
+msgstr "%s: võti `-W %s' on segane\n"
+
+#: lib/getopt.c:997 lib/getopt.c:1018
+#, c-format
+msgid "%s: option `-W %s' doesn't allow an argument\n"
+msgstr "%s: võti `-W %s' ei luba argumenti\n"
+
+#: lib/human.c:483
+msgid "block size"
+msgstr "bloki suurus"
+
+#: lib/quotearg.c:238
+msgid "`"
+msgstr "`"
+
+#: lib/quotearg.c:239
+msgid "'"
+msgstr "'"
+
+#: lib/xmalloc.c:53
+msgid "memory exhausted"
+msgstr "mälu on otsas"
+
+#: src/buffer.c:139
+#, fuzzy, c-format
+msgid "Total bytes written: %s (%s, %s/s)\n"
+msgstr "Baite kirjutatud kokku: %s (%sB, %sB/s)\n"
+
+#: src/buffer.c:216
+msgid "(pipe)"
+msgstr "(toru)"
+
+#: src/buffer.c:264
+msgid "Invalid value for record_size"
+msgstr "Kirje suuruse väärtus on vigane"
+
+#: src/buffer.c:267
+msgid "No archive name given"
+msgstr "Arhiivi nime pole"
+
+#: src/buffer.c:282
+#, c-format
+msgid "Cannot allocate memory for blocking factor %d"
+msgstr "Blokkimis faktorile %d ei jätku mälu"
+
+#: src/buffer.c:316
+msgid "Cannot verify stdin/stdout archive"
+msgstr "Ei saa kontrollida sisend/väljund arhiive"
+
+#: src/buffer.c:392
+#, c-format
+msgid "Archive not labeled to match %s"
+msgstr "Arhiivi märgend ei sobi `%s'"
+
+#: src/buffer.c:395 src/buffer.c:752
+#, c-format
+msgid "Volume %s does not match %s"
+msgstr "Volüüm `%s' ei sobi volüümiga `%s'"
+
+#: src/buffer.c:433
+#, c-format
+msgid "Write checkpoint %d"
+msgstr "Kirjutamise kontrollpunkt %d"
+
+#: src/buffer.c:592
+msgid "At beginning of tape, quitting now"
+msgstr "Lindi alguses, lõpetan töö"
+
+#: src/buffer.c:598
+msgid "Too many errors, quitting"
+msgstr "Liig palju vigu, jätan töö pooleli"
+
+#: src/buffer.c:622
+#, fuzzy, c-format
+msgid "Read %s bytes from %s"
+msgstr "%s nimetatud %s-ks"
+
+#: src/buffer.c:633
+#, fuzzy, c-format
+msgid "Unaligned block (%lu byte) in archive"
+msgid_plural "Unaligned block (%lu bytes) in archive"
+msgstr[0] "Joondamata blokk (%lu baiti) arhiivis"
+msgstr[1] "Joondamata blokk (%lu baiti) arhiivis"
+
+#: src/buffer.c:653
+#, fuzzy, c-format
+msgid "Record size = %lu block"
+msgid_plural "Record size = %lu blocks"
+msgstr[0] "Kirje suurus = %lu blokki"
+msgstr[1] "Kirje suurus = %lu blokki"
+
+#: src/buffer.c:670
+#, c-format
+msgid "Read checkpoint %d"
+msgstr "Lugemise kontrollpunkt %d"
+
+#: src/buffer.c:761 src/extract.c:1082
+#, c-format
+msgid "Reading %s\n"
+msgstr "Loen %s\n"
+
+#: src/buffer.c:765
+msgid "WARNING: No volume header"
+msgstr "HOIATUD: Puudub volüümi päis"
+
+#: src/buffer.c:773
+#, c-format
+msgid "%s is not continued on this volume"
+msgstr "%s ei jätku sellel volüümil"
+
+#: src/buffer.c:787
+#, c-format
+msgid "%s is the wrong size (%s != %s + %s)"
+msgstr "%s on vale suurusega (%s != %s + %s)"
+
+#: src/buffer.c:799
+msgid "This volume is out of sequence"
+msgstr "See volüüm on väljaspoolt järjekorda"
+
+#: src/buffer.c:881
+msgid "Cannot backspace archive file; it may be unreadable without -i"
+msgstr ""
+"Arhiivi ei õnnestu tagasi kerida; lugemiseks võib olla vajalik kasutada "
+"võtit -i"
+
+#: src/buffer.c:927
+#, c-format
+msgid "%s: contains invalid volume number"
+msgstr "%s: sisaldab vigast volüümi numbrit"
+
+#: src/buffer.c:979
+msgid "Volume number overflow"
+msgstr "Volüümi number on liiga suur"
+
+#: src/buffer.c:998
+#, c-format
+msgid "`%s' command failed"
+msgstr "`%s' käsklus sai vea"
+
+#: src/buffer.c:1007
+#, c-format
+msgid "Prepare volume #%d for %s and hit return: "
+msgstr "Otsi volüüm #%d %s'le ja vajuta return klahvi: "
+
+#: src/buffer.c:1013
+msgid "EOF where user reply was expected"
+msgstr "EOF kasutaja vastuse asemel"
+
+#: src/buffer.c:1018 src/buffer.c:1048
+msgid "WARNING: Archive is incomplete"
+msgstr "HOIATUS: Arhiiv pole täielik"
+
+#: src/buffer.c:1032
+#, c-format
+msgid ""
+" n [name]   Give a new file name for the next (and subsequent) volume(s)\n"
+" q          Abort tar\n"
+" !          Spawn a subshell\n"
+" ?          Print this list\n"
+msgstr ""
+" n [nimi]   Anna järgmistele volüümidele uus nimi\n"
+" q          Katkesta tar\n"
+" !          Käivita käsuinterpretaator\n"
+" ?          Trüki see info\n"
+
+#: src/buffer.c:1043
+msgid "No new volume; exiting.\n"
+msgstr "Pole uus volüüm; lõpetan töö.\n"
+
+#: src/compare.c:106
+#, fuzzy, c-format
+msgid "Could only read %lu of %lu byte"
+msgid_plural "Could only read %lu of %lu bytes"
+msgstr[0] "Sain lugeda ainult %lu baiti (sooviti %lu)"
+msgstr[1] "Sain lugeda ainult %lu baiti (sooviti %lu)"
+
+#: src/compare.c:117 src/compare.c:133
+msgid "Contents differ"
+msgstr "Sisu on erinev"
+
+#: src/compare.c:159 src/extract.c:748 src/incremen.c:497 src/list.c:233
+#: src/list.c:398 src/list.c:1244
+msgid "Unexpected EOF in archive"
+msgstr "Ootamatu arhiivi lõpp"
+
+#: src/compare.c:213
+#, c-format
+msgid "Verify "
+msgstr "Kontroll "
+
+#: src/compare.c:220
+#, c-format
+msgid "%s: Unknown file type '%c', diffed as normal file"
+msgstr "%s: Tundmatu failitüüp '%c', võrdlen tavaliste failidena"
+
+#: src/compare.c:243 src/compare.c:365 src/compare.c:417 src/compare.c:444
+msgid "File type differs"
+msgstr "Failitüübid on erinevad"
+
+#: src/compare.c:250 src/compare.c:379 src/compare.c:423
+msgid "Mode differs"
+msgstr "Moodid erinevad"
+
+#: src/compare.c:253
+msgid "Uid differs"
+msgstr "UID on erinevad"
+
+#: src/compare.c:255
+msgid "Gid differs"
+msgstr "GID on erinevad"
+
+#: src/compare.c:258
+msgid "Mod time differs"
+msgstr "Muutmise ajad erinevad"
+
+#: src/compare.c:262 src/compare.c:452
+msgid "Size differs"
+msgstr "Suurused erinevad"
+
+#: src/compare.c:320
+#, c-format
+msgid "Not linked to %s"
+msgstr "ei viita %s-le"
+
+#: src/compare.c:343
+msgid "Symlink differs"
+msgstr "Nimeviited erinevad"
+
+#: src/compare.c:373
+msgid "Device number differs"
+msgstr "Seadme numbrid on erinevad"
+
+#: src/compare.c:564
+#, fuzzy, c-format
+msgid "VERIFY FAILURE: %d invalid header detected"
+msgid_plural "VERIFY FAILURE: %d invalid headers detected"
+msgstr[0] "VIGA KONTROLLIMISEL: leiti %d vigast päist"
+msgstr[1] "VIGA KONTROLLIMISEL: leiti %d vigast päist"
+
+#: src/create.c:145
+msgid "Generating negative octal headers"
+msgstr "Genereerin negatiivsed kaheksand päised"
+
+#: src/create.c:196
+#, c-format
+msgid "value %s out of %s range %s..%s; substituting %s"
+msgstr "väärtus %s on %s piiridest %s..%s väljas; asendan %s"
+
+#: src/create.c:202
+#, c-format
+msgid "value %s out of %s range %s..%s"
+msgstr "väärtus %s on %s piiridest %s..%s väljas"
+
+#: src/create.c:462 src/create.c:525
+#, fuzzy, c-format
+msgid "%s: file name is too long (max %d); not dumped"
+msgstr "%s: pole muutunud; ei salvesta"
+
+#: src/create.c:472
+#, fuzzy, c-format
+msgid "%s: file name is too long (cannot be split); not dumped"
+msgstr "%s: pole muutunud; ei salvesta"
+
+#: src/create.c:499
+#, fuzzy, c-format
+msgid "%s: link name is too long; not dumped"
+msgstr "%s: pole muutunud; ei salvesta"
+
+#: src/create.c:865
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte; padding with zeros"
+msgid_plural "%s: File shrank by %s bytes; padding with zeros"
+msgstr[0] "%s: Fail lühenes %s baiti; täidan nullidega"
+msgstr[1] "%s: Fail lühenes %s baiti; täidan nullidega"
+
+#: src/create.c:891
+#, c-format
+msgid "%s: file changed as we read it"
+msgstr "%s: fail muutus lugemisel"
+
+#: src/create.c:991
+#, c-format
+msgid "%s: file is on a different filesystem; not dumped"
+msgstr "%s: fail on teises failisüsteemis; ei salvesta"
+
+#: src/create.c:1151
+#, c-format
+msgid "%s: Unknown file type; file ignored"
+msgstr "%s: Tundmatu failitüüp; ignoreerin seda faili"
+
+#: src/create.c:1250
+#, fuzzy, c-format
+msgid "Missing links to '%s'.\n"
+msgstr " viide %s-le\n"
+
+#: src/create.c:1313
+#, c-format
+msgid "%s: file is unchanged; not dumped"
+msgstr "%s: pole muutunud; ei salvesta"
+
+#: src/create.c:1322
+#, c-format
+msgid "%s: file is the archive; not dumped"
+msgstr "%s on arhiiv; ei salvesta"
+
+#: src/create.c:1357
+#, c-format
+msgid "%s: File removed before we read it"
+msgstr "%s: Fail kustutati enne lugemist"
+
+#: src/create.c:1450
+#, c-format
+msgid "%s: socket ignored"
+msgstr "%s: ignoreerin pesa"
+
+#: src/create.c:1455
+#, c-format
+msgid "%s: door ignored"
+msgstr "%s: ignoreerin ust"
+
+#: src/delete.c:209 src/list.c:169 src/update.c:160
+msgid "This does not look like a tar archive"
+msgstr "Hmm.... see ei tundu olema tar arhiiv"
+
+#: src/delete.c:215 src/list.c:183 src/update.c:165
+msgid "Skipping to next header"
+msgstr "Hüppan järgmise päiseni"
+
+#: src/delete.c:280
+msgid "Deleting non-header from archive"
+msgstr "Kustutan arhiivist mitte-päise"
+
+#: src/extract.c:195
+#, c-format
+msgid "%s: implausibly old time stamp %s"
+msgstr ""
+
+#: src/extract.c:198
+#, c-format
+msgid "%s: time stamp %s is %lu s in the future"
+msgstr "%s: ajatempel %s on %lu sekundit tulevikus"
+
+#: src/extract.c:346
+#, c-format
+msgid "%s: Unexpected inconsistency when making directory"
+msgstr "%s: Ootamatu kooskõlalisuse probleem kataloogi loomisel"
+
+#: src/extract.c:463
+#, c-format
+msgid "Current `%s' is newer"
+msgstr ""
+
+#: src/extract.c:575
+#, c-format
+msgid "%s: Directory renamed before its status could be extracted"
+msgstr "%s: Kataloog nimetati ümber, enne kui sai loetud tema olek"
+
+#: src/extract.c:640
+#, c-format
+msgid "%s: Was unable to backup this file"
+msgstr "%s: Selle faili varundamine ebaõnnestus"
+
+#: src/extract.c:707
+msgid "Extracting contiguous files as regular files"
+msgstr "Taastan jätkuvad failid kui tavalised"
+
+#: src/extract.c:894
+msgid "Attempting extraction of symbolic links as hard links"
+msgstr "Üritan taastada nimeviiteid viidetena"
+
+#: src/extract.c:1091
+#, c-format
+msgid "%s: Cannot extract -- file is continued from another volume"
+msgstr "%s: Ei saa taastada -- fail jätkub teisel volüümil"
+
+#: src/extract.c:1100
+msgid "Visible long name error"
+msgstr "Ilmne liiga pikk nimi"
+
+#: src/extract.c:1108
+#, c-format
+msgid "%s: Unknown file type '%c', extracted as normal file"
+msgstr "%s: Tundmatu failitüüp %c, taastan tavalise failina"
+
+#: src/extract.c:1193
+msgid "Error is not recoverable: exiting now"
+msgstr "Ületamatu tõrge: lõpetan töö"
+
+#: src/incremen.c:193
+#, c-format
+msgid "%s: Directory has been renamed"
+msgstr "%s: Kataloog on ümber nimetatud"
+
+#: src/incremen.c:205
+#, c-format
+msgid "%s: Directory is new"
+msgstr "%s: Kataloog on uus"
+
+#: src/incremen.c:354
+msgid "Invalid time stamp"
+msgstr "Vigane ajatempel"
+
+#: src/incremen.c:357
+msgid "Time stamp out of range"
+msgstr "Ajatempel on piiridest väljas"
+
+#: src/incremen.c:381
+msgid "Invalid device number"
+msgstr "Vigane seadmenumber"
+
+#: src/incremen.c:385
+msgid "Device number out of range"
+msgstr "Seadmenumber on piiridest väljas"
+
+#: src/incremen.c:393
+msgid "Invalid inode number"
+msgstr "Vigane i-kirje number"
+
+#: src/incremen.c:397
+msgid "Inode number out of range"
+msgstr "I-kirje number on piiridest väljas"
+
+#: src/incremen.c:523
+#, c-format
+msgid "%s: Deleting %s\n"
+msgstr "%s: Kustutan %s\n"
+
+#: src/incremen.c:528
+#, c-format
+msgid "%s: Cannot remove"
+msgstr "%s: Ei saa eemaldada"
+
+#: src/list.c:117
+#, c-format
+msgid "%s: Omitting"
+msgstr "%s: Jätan vahele"
+
+#: src/list.c:133
+#, c-format
+msgid "block %s: ** Block of NULs **\n"
+msgstr "blokk %s: ** NULlide blokk **\n"
+
+#: src/list.c:146
+#, c-format
+msgid "A lone zero block at %s"
+msgstr ""
+
+#: src/list.c:157
+#, c-format
+msgid "block %s: ** End of File **\n"
+msgstr "blokk %s: ** Faili lõpp **\n"
+
+#: src/list.c:180 src/list.c:994 src/list.c:1219
+#, c-format
+msgid "block %s: "
+msgstr "blokk %s: "
+
+#: src/list.c:625
+#, c-format
+msgid "Blanks in header where numeric %s value expected"
+msgstr "Tühjad väljad päises kohtadel, kus eeldati numbrit %s"
+
+#: src/list.c:678
+#, c-format
+msgid "Archive octal value %.*s is out of %s range; assuming two's complement"
+msgstr ""
+"Arhiivi kaheksandväärtus %.*s on %s piiridest väljas; eeldan kahe täiendit"
+
+#: src/list.c:688
+#, c-format
+msgid "Archive octal value %.*s is out of %s range"
+msgstr "Arhiivi kaheksandväärtus %.*s on %s piiridest väljas"
+
+#: src/list.c:704
+msgid "Archive contains obsolescent base-64 headers"
+msgstr "Arhiiv sisaldab aegunuid base-64 päiseid"
+
+#: src/list.c:717
+#, c-format
+msgid "Archive signed base-64 string %s is out of %s range"
+msgstr "Arhiivi märgiga base-64 sõne %s on %s piiridest väljas"
+
+#: src/list.c:748
+#, c-format
+msgid "Archive base-256 value is out of %s range"
+msgstr "Arhiivi base-256 väärtus on %s piiridest väljas"
+
+#: src/list.c:775
+#, c-format
+msgid "Archive contains %.*s where numeric %s value expected"
+msgstr "Arhiiv sisaldab %.*s, eeldati numbrit %s"
+
+#: src/list.c:796
+#, fuzzy, c-format
+msgid "Archive value %s is out of %s range %s.%s"
+msgstr "Arhiivi väärtus %s on %s piiridest väljas %s..%s"
+
+#: src/list.c:1025
+msgid "Visible longname error"
+msgstr "Ilmne liiga pikk nimi"
+
+#: src/list.c:1150
+#, c-format
+msgid " link to %s\n"
+msgstr " viide %s-le\n"
+
+#: src/list.c:1158
+#, c-format
+msgid " unknown file type %s\n"
+msgstr " tundmatu failitüüp %s\n"
+
+#: src/list.c:1176
+#, c-format
+msgid "--Long Link--\n"
+msgstr ""
+
+#: src/list.c:1180
+#, c-format
+msgid "--Long Name--\n"
+msgstr ""
+
+#: src/list.c:1184
+#, c-format
+msgid "--Volume Header--\n"
+msgstr "--Volüümi päis--\n"
+
+#: src/list.c:1192
+#, c-format
+msgid "--Continued at byte %s--\n"
+msgstr "--Jätkub baidilt %s--\n"
+
+#: src/list.c:1196
+#, c-format
+msgid "--Mangled file names--\n"
+msgstr "--Tükeldatud failinimed--\n"
+
+#: src/list.c:1224
+msgid "Creating directory:"
+msgstr "Loon kataloogi:"
+
+#: src/mangle.c:54
+msgid "Unexpected EOF in mangled names"
+msgstr "Tükeldatud nimedel ootamatu faililõpp"
+
+#: src/mangle.c:90 src/misc.c:387 src/misc.c:405
+#, c-format
+msgid "%s: Cannot rename to %s"
+msgstr "%s: ei õnnestu ümber nimetada %s-ks"
+
+#: src/mangle.c:93
+#, c-format
+msgid "Renamed %s to %s"
+msgstr "%s nimetatud %s-ks"
+
+#: src/mangle.c:110
+#, c-format
+msgid "%s: Cannot symlink to %s"
+msgstr "%s: Ei saa luua %s nimeviidet"
+
+#: src/mangle.c:113
+#, c-format
+msgid "Symlinked %s to %s"
+msgstr "Loodud %s nimeviide %s"
+
+#: src/mangle.c:117
+#, c-format
+msgid "Unknown demangling command %s"
+msgstr "Tundmatu kokkusobitamise käsk %s"
+
+#: src/misc.c:378
+#, c-format
+msgid "Renaming %s to %s\n"
+msgstr "Annan %s uueks nimeks %s\n"
+
+#: src/misc.c:410
+#, c-format
+msgid "Renaming %s back to %s\n"
+msgstr "Nimetan `%s' tagasi `%s'\n"
+
+#: src/misc.c:490
+msgid "Cannot save working directory"
+msgstr "Töökataloogi ei õnnestu salvestada"
+
+#: src/misc.c:496
+msgid "Cannot change working directory"
+msgstr "Ei õnnestu vahetada töökataloogi"
+
+#: src/misc.c:540 src/misc.c:549
+#, c-format
+msgid "%s: Cannot %s"
+msgstr "%s: %s ei õnnestu"
+
+#: src/misc.c:558
+#, c-format
+msgid "%s: Warning: Cannot %s"
+msgstr "%s: Hoiatus: %s ei õnnestu"
+
+#: src/misc.c:573
+#, c-format
+msgid "%s: Cannot change mode to %s"
+msgstr "%s: Ei õnnestu seada uueks moodiks %s"
+
+#: src/misc.c:581
+#, c-format
+msgid "%s: Cannot change ownership to uid %lu, gid %lu"
+msgstr "%s: Ei õnnestu seada omanikuks uid %lu, gid %lu"
+
+#: src/misc.c:616
+#, c-format
+msgid "%s: Cannot hard link to %s"
+msgstr "%s: Viidet %s ei saa luua"
+
+#: src/misc.c:677 src/misc.c:718
+#, fuzzy, c-format
+msgid "%s: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Lugemisviga baidil %s, loen %lu baiti"
+msgstr[1] "%s: Lugemisviga baidil %s, loen %lu baiti"
+
+#: src/misc.c:690
+#, fuzzy, c-format
+msgid "%s: Warning: Read error at byte %s, reading %lu byte"
+msgid_plural "%s: Warning: Read error at byte %s, reading %lu bytes"
+msgstr[0] "%s: Hoiatus: Lugemisviga baidil %s, loen %lu baiti"
+msgstr[1] "%s: Hoiatus: Lugemisviga baidil %s, loen %lu baiti"
+
+#: src/misc.c:778
+#, c-format
+msgid "%s: Cannot seek to %s"
+msgstr "%s: Ei õnnestu liikuda positsioonile %s"
+
+#: src/misc.c:794
+#, c-format
+msgid "%s: Warning: Cannot seek to %s"
+msgstr "%s: Hoiatus: Ei saa positsioneerida %s"
+
+#: src/misc.c:812
+#, c-format
+msgid "%s: Cannot create symlink to %s"
+msgstr "%s: Ei saa luua %s nimeviidet"
+
+#: src/misc.c:880
+#, fuzzy, c-format
+msgid "%s: Wrote only %lu of %lu byte"
+msgid_plural "%s: Wrote only %lu of %lu bytes"
+msgstr[0] "%s: Sain kirjutada ainult %lu baiti (soovisin %lu)"
+msgstr[1] "%s: Sain kirjutada ainult %lu baiti (soovisin %lu)"
+
+#: src/misc.c:906
+msgid "child process"
+msgstr "alamprotsess"
+
+#: src/misc.c:915
+msgid "interprocess channel"
+msgstr "protsessidevaheline kanal"
+
+#: src/names.c:368 src/names.c:417 src/names.c:461
+msgid "Missing file name after -C"
+msgstr "Faili nimi peale -C on puudu"
+
+#: src/names.c:638 src/names.c:654
+#, c-format
+msgid "%s: Not found in archive"
+msgstr "%s: Puudub arhiivis"
+
+#: src/names.c:641
+#, fuzzy, c-format
+msgid "%s: Required occurrence not found in archive"
+msgstr "%s: Puudub arhiivis"
+
+#: src/names.c:1053
+#, fuzzy, c-format
+msgid "Removing leading `%s' from member names"
+msgstr "Eemaldan nimedelt prefiksi `%.*s'"
+
+#: src/names.c:1054
+#, fuzzy, c-format
+msgid "Removing leading `%s' from hard link targets"
+msgstr "Eemaldan nimedelt prefiksi `%.*s'"
+
+#: src/names.c:1067
+#, fuzzy
+msgid "Substituting `.' for empty member name"
+msgstr "Eemaldan nimedelt prefiksi `%.*s'"
+
+#: src/names.c:1068
+msgid "Substituting `.' for empty hard link target"
+msgstr ""
+
+#: src/rmt.c:144
+msgid "rmtd: Cannot allocate buffer space\n"
+msgstr "rmtd: Ei saa võtta buhvritele mälu\n"
+
+#: src/rmt.c:146
+msgid "Cannot allocate buffer space"
+msgstr "Buhvritele ei jätku mälu"
+
+#: src/rmt.c:256 src/tar.c:349
+#, c-format
+msgid "Try `%s --help' for more information.\n"
+msgstr "`%s --help' annab rohkem infot.\n"
+
+#: src/rmt.c:260
+#, c-format
+msgid ""
+"Usage: %s [OPTION]\n"
+"Manipulate a tape drive, accepting commands from a remote process.\n"
+"\n"
+"  --version  Output version info.\n"
+"  --help  Output this help.\n"
+msgstr ""
+"Kasuta: %s [võti]\n"
+"Manipuleeri lindiseadmega, lubades käske teistest protsessidest.\n"
+"\n"
+"  --version  Väljasta versiooniinfo.\n"
+"  --help     Väljasta abiinfo.\n"
+
+#: src/rmt.c:267 src/tar.c:542
+#, fuzzy, c-format
+msgid ""
+"\n"
+"Report bugs to <%s>.\n"
+msgstr ""
+"\n"
+"Teated vigadest saatke palun aadressil <bug-tar@gnu.org>.\n"
+
+#: src/rmt.c:300 src/tar.c:1300
+msgid ""
+"This program comes with NO WARRANTY, to the extent permitted by law.\n"
+"You may redistribute it under the terms of the GNU General Public License;\n"
+"see the file named COPYING for details."
+msgstr ""
+"See programm ei anna mingeid garantiisid, seaduste piirides.\n"
+"Programmi võib levitada vastavalt GNU General Public License tingimustele;\n"
+"detailne info on failis COPYING."
+
+#: src/rmt.c:399 src/rmt.c:519 src/rmt.c:529
+msgid "Seek offset out of range"
+msgstr "Otsimise indeks on piiridest väljas"
+
+#: src/rmt.c:412
+msgid "Seek direction out of range"
+msgstr "Otsimise suund on piiridest väljas"
+
+#: src/rmt.c:451
+msgid "rmtd: Premature eof\n"
+msgstr "rmtd: Ootamatu faili lõpp\n"
+
+#: src/rmt.c:453
+msgid "Premature end of file"
+msgstr "Ootamatu faili lõpp"
+
+#: src/rmt.c:561
+#, c-format
+msgid "rmtd: Garbage command %c\n"
+msgstr "rmtd: Rämpskäsk %c\n"
+
+#: src/rmt.c:563
+msgid "Garbage command"
+msgstr "Rämpskäsk"
+
+#: src/rtapelib.c:292
+msgid "exec/tcp: Service not available"
+msgstr "exec/tcp: Teenus pole kasutatav"
+
+#: src/rtapelib.c:296
+msgid "stdin"
+msgstr "standard sisend"
+
+#: src/rtapelib.c:299
+msgid "stdout"
+msgstr "standard väljund"
+
+#: src/rtapelib.c:506
+msgid "Cannot execute remote shell"
+msgstr "Ei saa käivitada kaug käsuinterpretaatorit"
+
+#: src/tar.c:70
+#, c-format
+msgid "Options `-%s' and `-%s' both want standard input"
+msgstr "Mõlemad võtmed - `-%s' ja `-%s' eeldavad standard sisendit"
+
+#: src/tar.c:141
+#, fuzzy, c-format
+msgid "%s: Invalid archive format"
+msgstr "%s: Vigane grupp"
+
+#: src/tar.c:165
+msgid "GNU features wanted on incompatible archive format"
+msgstr "Arhiivi formaat ei toeta GNU laiendusi"
+
+#: src/tar.c:353
+msgid ""
+"GNU `tar' saves many files together into a single tape or disk archive, and\n"
+"can restore individual files from the archive.\n"
+msgstr ""
+"GNU `tar' salvestab mitu faili kokku ühte ainsasse lindi või ketta arhiivi,\n"
+"ja on võimeline taastama arhiivist ka üksikuid faile.\n"
+
+#: src/tar.c:357
+#, c-format
+msgid ""
+"\n"
+"Usage: %s [OPTION]... [FILE]...\n"
+"\n"
+"Examples:\n"
+"  %s -cf archive.tar foo bar  # Create archive.tar from files foo and bar.\n"
+"  %s -tvf archive.tar         # List all files in archive.tar verbosely.\n"
+"  %s -xf archive.tar          # Extract all files from archive.tar.\n"
+msgstr ""
+"\n"
+"Kasuta: %s [VÕTI]... [FAIL]...\n"
+"\n"
+"Näiteid:\n"
+"  %s -cf arhiiv.tar foo bar # Loo failidest foo ja bar arhiiv.tar.\n"
+"  %s -tvf arhiiv.tar        # Näita arhiiv.tar täielikku failinimekirja.\n"
+"  %s -xf arhiiv.tar         # Taasta kõik failid arhiivist arhiiv.tar.\n"
+
+#: src/tar.c:364
+msgid ""
+"\n"
+"If a long option shows an argument as mandatory, then it is mandatory\n"
+"for the equivalent short option also.  Similarly for optional arguments.\n"
+msgstr ""
+"\n"
+"Kui pikk võti ütleb, et argument on kohustuslik, siis on see\n"
+"argument kohustuslik ka vastavale lühi võtmele.\n"
+"Sama kehtib ka lisa argumentidele.\n"
+
+#: src/tar.c:369
+msgid ""
+"\n"
+"Main operation mode:\n"
+"  -t, --list              list the contents of an archive\n"
+"  -x, --extract, --get    extract files from an archive\n"
+"  -c, --create            create a new archive\n"
+"  -d, --diff, --compare   find differences between archive and file system\n"
+"  -r, --append            append files to the end of an archive\n"
+"  -u, --update            only append files newer than copy in archive\n"
+"  -A, --catenate          append tar files to an archive\n"
+"      --concatenate       same as -A\n"
+"      --delete            delete from the archive (not on mag tapes!)\n"
+msgstr ""
+"\n"
+"Põhiline töö:\n"
+"  -t, --list              näita arhiivi sisukorda\n"
+"  -x, --extract, --get    taasta failid arhiivist\n"
+"  -c, --create            loo uus arhiiv\n"
+"  -d, --diff, --compare   otsi arhiivi ja failisüsteemi erinevusi\n"
+"  -r, --append            lisa failid arhiivi lõppu\n"
+"  -u, --update            lisa arhiivi ainult failid uuemad kui arhiivis\n"
+"  -A, --catenate          lisa tar failid arhiivi\n"
+"      --concatenate       sama kui -A\n"
+"      --delete            kustuta arhiivist (mitte magnetlindilt!)\n"
+
+#: src/tar.c:382
+#, fuzzy
+msgid ""
+"\n"
+"Operation modifiers:\n"
+"  -W, --verify               attempt to verify the archive after writing it\n"
+"      --remove-files         remove files after adding them to the archive\n"
+"  -k, --keep-old-files       don't replace existing files when extracting\n"
+"      --keep-newer-files     don't replace existing files that are newer\n"
+"                             than their archive copies\n"
+"      --overwrite            overwrite existing files when extracting\n"
+"      --no-overwrite-dir     preserve metadata of existing directories\n"
+"  -U, --unlink-first         remove each file prior to extracting over it\n"
+"      --recursive-unlink     empty hierarchies prior to extracting "
+"directory\n"
+"  -S, --sparse               handle sparse files efficiently\n"
+"  -O, --to-stdout            extract files to standard output\n"
+"  -G, --incremental          handle old GNU-format incremental backup\n"
+"  -g, --listed-incremental=FILE\n"
+"                             handle new GNU-format incremental backup\n"
+"      --ignore-failed-read   do not exit with nonzero on unreadable files\n"
+"      --occurrence[=NUM]     process only the NUMth occurrence of each file "
+"in\n"
+"                             the archive. This option is valid only in\n"
+"                             conjunction with one of the subcommands --"
+"delete,\n"
+"                             --diff, --extract or --list and when a list of\n"
+"                             files is given either on the command line or\n"
+"                             via -T option.\n"
+"                             NUM defaults to 1.\n"
+msgstr ""
+"\n"
+"Töö täpsustamine:\n"
+"  -W, --verify               kontrolli arhiivi peale arhiivi kirjutamist\n"
+"      --remove-files         kustuta failid peale arhiveerimist\n"
+"  -k, --keep-old-files       olemasolevaid faile taastamisel üle ei kirjuta\n"
+"      --overwrite            taastamisel kirjuta olemasolevad failid üle\n"
+"      --overwrite-dir        taastamisel kirjuta üle kataloogide metainfo\n"
+"  -U, --unlink-first         kustuta fail enne taastamist\n"
+"      --recursive-unlink     kustuta hierarhia enne kataloogi taastamist\n"
+"  -S, --sparse               tööta aukudega failidega efektiivsemalt\n"
+"  -O, --to-stdout            taasta failid standard väljundisse\n"
+"  -G, --incremental          käsitle vana GNU-formaadiga arhiivi\n"
+"  -g, --listed-incremental=FAIL\n"
+"                             käsitle uue GNU-formaadiga arhiivi\n"
+"      --ignore-failed-read   lugemisvigade korral ära lõpeta tööd "
+"veakoodiga\n"
+
+#: src/tar.c:408
+msgid ""
+"\n"
+"Handling of file attributes:\n"
+"      --owner=NAME             force NAME as owner for added files\n"
+"      --group=NAME             force NAME as group for added files\n"
+"      --mode=CHANGES           force (symbolic) mode CHANGES for added "
+"files\n"
+"      --atime-preserve         don't change access times on dumped files\n"
+"  -m, --modification-time      don't extract file modified time\n"
+"      --same-owner             try extracting files with the same ownership\n"
+"      --no-same-owner          extract files as yourself\n"
+"      --numeric-owner          always use numbers for user/group names\n"
+"  -p, --same-permissions       extract permissions information\n"
+"      --no-same-permissions    do not extract permissions information\n"
+"      --preserve-permissions   same as -p\n"
+"  -s, --same-order             sort names to extract to match archive\n"
+"      --preserve-order         same as -s\n"
+"      --preserve               same as both -p and -s\n"
+msgstr ""
+"\n"
+"Faili atribuutide käsitlemine:\n"
+"      --owner=NIMI             kasuta NIMEe kui lisatud failide omanikku\n"
+"      --group=NIMI             kasuta NIMEe kui lisatud failide gruppi\n"
+"      --mode=MUUTUSED          kasuta lisatud failidel sümbol moodi "
+"MUUTUSED\n"
+"      --atime-preserve         ära muuda arhiveeritud failidel kasutusaega\n"
+"  -m, --modification-time      ära taasta faili muutmise aega\n"
+"      --same-owner             säilita taastamisel failide omanikud\n"
+"      --numeric-owner          kasuta kasutaja/grupp numbreid\n"
+"  -p, --same-permissions       taasta kõik õigused\n"
+"      --preserve-permissions   sama kui -p\n"
+"  -s, --same-order             taasta failid arhiveerimis järjekorras\n"
+"      --preserve-order         sama kui -s\n"
+"      --preserve               sama kui nii -p kui -s\n"
+
+#: src/tar.c:426
+#, fuzzy
+msgid ""
+"\n"
+"Device selection and switching:\n"
+"  -f, --file=ARCHIVE             use archive file or device ARCHIVE\n"
+"      --force-local              archive file is local even if has a colon\n"
+"      --rmt-command=COMMAND      use given rmt COMMAND instead of /etc/rmt\n"
+"      --rsh-command=COMMAND      use remote COMMAND instead of rsh\n"
+"  -[0-7][lmh]                    specify drive and density\n"
+"  -M, --multi-volume             create/list/extract multi-volume archive\n"
+"  -L, --tape-length=NUM          change tape after writing NUM x 1024 bytes\n"
+"  -F, --info-script=FILE         run script at end of each tape (implies -"
+"M)\n"
+"      --new-volume-script=FILE   same as -F FILE\n"
+"      --volno-file=FILE          use/update the volume number in FILE\n"
+msgstr ""
+"\n"
+"Seadme valik:\n"
+"  -f, --file=ARHIIV            kasuta arhiivi faili või seadet ARHIIV\n"
+"      --force-local            arhiivi fail on lokaalne ka kooloniga\n"
+"      --rsh-command=KÄSK       kasuta rsh asemel käsku KÄSK\n"
+"  -[0-7][lmh]                  määratle seade ja tihedus\n"
+"  -M, --multi-volume           loo/näita/taasta mitme-volüümiga arhiiv\n"
+"  -L, --tape-length=NUM        vaheta lint peale NUM x 1024 baidi "
+"kirjutamist\n"
+"  -F, --info-script=FAIL       käivita skript pärast iga lindi lõppu (eeldab "
+"-M)\n"
+"      --new-volume-script=FAIL sama kui -F FAIL\n"
+"      --volno-file=FAIL        kasuta/uuenda volüümi mumber failis FAIL\n"
+
+#: src/tar.c:440
+msgid ""
+"\n"
+"Device blocking:\n"
+"  -b, --blocking-factor=BLOCKS   BLOCKS x 512 bytes per record\n"
+"      --record-size=SIZE         SIZE bytes per record, multiple of 512\n"
+"  -i, --ignore-zeros             ignore zeroed blocks in archive (means "
+"EOF)\n"
+"  -B, --read-full-records        reblock as we read (for 4.2BSD pipes)\n"
+msgstr ""
+"\n"
+"Seadme blokkimine:\n"
+"  -b, --blocking-factor=BLOKKE   BLOKKE x 512 baiti kirjele\n"
+"      --record-size=NUMBER       NUMBER baiti kirjele, 512 kordne\n"
+"  -i, --ignore-zeros             ignoreeri null blokke arhiivis (tähistab "
+"EOF)\n"
+"  -B, --read-full-records        bloki lugemisel uuesti (4.2BSD torude "
+"jaoks)\n"
+
+#: src/tar.c:448
+msgid ""
+"\n"
+"Archive format selection:\n"
+"      --format=FMTNAME               create archive of the given format.\n"
+"                                     FMTNAME is one of the following:\n"
+"                                     v7        old V7 tar format\n"
+"                                     oldgnu    GNU format as per tar <= "
+"1.12\n"
+"                                     gnu       GNU tar 1.13 format\n"
+"                                     ustar     POSIX 1003.1-1988 (ustar) "
+"format\n"
+"                                     posix     POSIX 1003.1-2001 (pax) "
+"format\n"
+"      --old-archive, --portability   same as --format=v7\n"
+"      --posix                        same as --format=posix\n"
+"  --pax-option keyword[[:]=value][,keyword[[:]=value], ...]\n"
+"                                     control pax keywords\n"
+"  -V, --label=NAME                   create archive with volume name NAME\n"
+"              PATTERN                at list/extract time, a globbing "
+"PATTERN\n"
+"  -j, --bzip2                        filter the archive through bzip2\n"
+"  -z, --gzip, --ungzip               filter the archive through gzip\n"
+"  -Z, --compress, --uncompress       filter the archive through compress\n"
+"      --use-compress-program=PROG    filter through PROG (must accept -d)\n"
+msgstr ""
+
+#: src/tar.c:469
+#, fuzzy
+msgid ""
+"\n"
+"Local file selection:\n"
+"  -C, --directory=DIR          change to directory DIR\n"
+"  -T, --files-from=NAME        get names to extract or create from file "
+"NAME\n"
+"      --null                   -T reads null-terminated names, disable -C\n"
+"      --exclude=PATTERN        exclude files, given as a PATTERN\n"
+"  -X, --exclude-from=FILE      exclude patterns listed in FILE\n"
+"      --anchored               exclude patterns match file name start "
+"(default)\n"
+"      --no-anchored            exclude patterns match after any /\n"
+"      --ignore-case            exclusion ignores case\n"
+"      --no-ignore-case         exclusion is case sensitive (default)\n"
+"      --wildcards              exclude patterns use wildcards (default)\n"
+"      --no-wildcards           exclude patterns are plain strings\n"
+"      --wildcards-match-slash  exclude pattern wildcards match "
+"'/' (default)\n"
+"      --no-wildcards-match-slash exclude pattern wildcards do not match '/'\n"
+"  -P, --absolute-names         don't strip leading `/'s from file names\n"
+"  -h, --dereference            dump instead the files symlinks point to\n"
+"      --no-recursion           avoid descending automatically in "
+"directories\n"
+"  -l, --one-file-system        stay in local file system when creating "
+"archive\n"
+"  -K, --starting-file=NAME     begin at file NAME in the archive\n"
+"      --strip-path=NUM         strip NUM leading components from file names\n"
+"                               before extraction\n"
+msgstr ""
+"\n"
+"Lokaalse faili valik:\n"
+"  -C, --directory=DIR         jooksvaks kataloogiks DIR\n"
+"  -T, --files-from=NIMI       taastamiseks/kirjutamiseks nimed failist NIMI\n"
+"      --null                  -T loeb nulliga-lõpetatud nimed, blokeeri -C\n"
+"      --exclude=MUSTER        välista failid, antakse mustrina MUSTER\n"
+"  -X, --exclude-from=FAIL     välistavad mustrid failist FAIL\n"
+"      --anchored              välistavad mustrid alustavad faili nimest\n"
+"      --no-anchored           välistavad mustrid toimivad iga / järel\n"
+"      --ignore-case           tõstutundetu välistamine\n"
+"      --no-ignore-case        tõstutundlik välistamine (vaikimisi)\n"
+"      --wildcards             välistavad mustrid kasutavad jokkersümboleid "
+"(vaikimisi)\n"
+"      --no-wildcards          välistavad mustrid on lihtsad sõned\n"
+"      --wildcards-match-slash välistavad mustrid leiavad '/' (vaikimisi)\n"
+"      --no-wildcards-match-slash välistavad mustrid ei leia '/'\n"
+"  -P, --absolute-names        ära eemalda `/' faili nime algusest\n"
+"  -h, --dereference           salvesta nimeviidete asemel failid\n"
+"      --no-recursion          ära sisene kataloogidesse\n"
+"  -l, --one-file-system       arhiivi loomisel jää lokaalsesse "
+"failisysteemi\n"
+"  -K, --starting-file=NIMI    alusta arhiivist nimega NIMI\n"
+
+#: src/tar.c:494
+#, fuzzy
+msgid ""
+"  -N, --newer=DATE-OR-FILE     only store files newer than DATE-OR-FILE\n"
+"      --newer-mtime=DATE       compare date and time when data changed only\n"
+"      --after-date=DATE        same as -N\n"
+msgstr ""
+"  -N, --newer=KUUP             salvesta ainult failid uuemad kui KUUP\n"
+"      --newer-mtime            võrdle aegu ainult kui andmed on muutunud\n"
+"      --after-date=KUUP        sama kui -N\n"
+
+#: src/tar.c:500
+msgid ""
+"      --backup[=CONTROL]       backup before removal, choose version "
+"control\n"
+"      --suffix=SUFFIX          backup before removal, override usual suffix\n"
+msgstr ""
+"      --backup[=CONTROL]       varunda enne kustutamist, kasuta versiooni "
+"kontrolli\n"
+"      --suffix=SUFFIX          varunda enne kustutamist, kasuta uut lõppu\n"
+
+#: src/tar.c:504
+#, fuzzy
+msgid ""
+"\n"
+"Informative output:\n"
+"      --help            print this help, then exit\n"
+"      --version         print tar program version number, then exit\n"
+"  -v, --verbose         verbosely list files processed\n"
+"      --checkpoint      print directory names while reading the archive\n"
+"      --check-links     print a message if not all links are dumped\n"
+"      --totals          print total bytes written while creating archive\n"
+"      --index-file=FILE send verbose output to FILE\n"
+"      --utc             print file modification dates in UTC\n"
+"  -R, --block-number    show block number within archive with each message\n"
+"  -w, --interactive     ask for confirmation for every action\n"
+"      --confirmation    same as -w\n"
+msgstr ""
+"\n"
+"Informatsioon:\n"
+"      --help            trüki see info, lõpeta töö\n"
+"      --version         trüki versiooni number, lõpeta töö\n"
+"  -v, --verbose         trüki töödeldavate failide nimed\n"
+"      --checkpoint      arhiivi lugedes trüki kataloogide nimed\n"
+"      --totals          arhiivi luues trüki kirjutatud baitide koguarv\n"
+"  -R, --block-number    näita iga teatega arhiivi bloki numbrit\n"
+"  -w, --interactive     küsi iga tegevuse kinnitust\n"
+"      --confirmation    sama kui -w\n"
+
+#: src/tar.c:519
+msgid ""
+"\n"
+"Compatibility options:\n"
+"  -o                                 when creating, same as --old-archive\n"
+"                                     when extracting, same as --no-same-"
+"owner\n"
+msgstr ""
+
+#: src/tar.c:526
+msgid ""
+"\n"
+"The backup suffix is `~', unless set with --suffix or SIMPLE_BACKUP_SUFFIX.\n"
+"The version control may be set with --backup or VERSION_CONTROL, values "
+"are:\n"
+"\n"
+"  t, numbered     make numbered backups\n"
+"  nil, existing   numbered if numbered backups exist, simple otherwise\n"
+"  never, simple   always make simple backups\n"
+msgstr ""
+"\n"
+"arhiivi lõpp on `~', kui pole antud --suffix või SIMPLE_BACKUP_SUFFIX.\n"
+"Versiooni kontrolli võib määrata --backup või VERSION_CONTROL, väärtused "
+"on:\n"
+"\n"
+"  t, numbered     tee nummerdatud arhiive\n"
+"  nil, existing   nummerdatud kui arhiiv on nummerdatud, muidu lihtne\n"
+"  never, simple   tee ainult lihtne arhiiv\n"
+
+#: src/tar.c:535
+#, fuzzy, c-format
+msgid ""
+"\n"
+"ARCHIVE may be FILE, HOST:FILE or USER@HOST:FILE; DATE may be a textual "
+"date\n"
+"or a file name starting with `/' or `.', in which case the file's date is "
+"used.\n"
+"*This* `tar' defaults to `--format=%s -f%s -b%d'.\n"
+msgstr ""
+"\n"
+"GNU tar ei loe ega loo `--posix' arhiive.  Kui keskkonnas on määratud "
+"muutuja\n"
+"POSIXLY_CORRECT, on GNU laiendused `--posix' võtme kasutamisel blokeeritud.\n"
+"POSIX tugi on vaid osaliselt toetatud.\n"
+"ARHIIV võib olla FAIL, HOST:FAIL või KASUTAJA@HOST:FAIL; ja KUUP võib olla \n"
+"tekstiline kuupäev või failinimi, mis algab sümboliga `/' või `.'. Viimasel\n"
+"juhul kasutatakse kuupäevana antud faili muutmise aega.\n"
+"*See* `tar' kasutab vaikimisi `-f%s -b%d'.\n"
+
+#: src/tar.c:568
+msgid "You may not specify more than one `-Acdtrux' option"
+msgstr "Korraga ainult üks võtmetest `-Acdtrux'"
+
+#: src/tar.c:577
+msgid "Conflicting compression options"
+msgstr "Konfliktsed pakkimisvõtmed"
+
+#: src/tar.c:649
+#, c-format
+msgid "Old option `%c' requires an argument."
+msgstr "Vana võti `%c' nõuab argumenti."
+
+#: src/tar.c:702
+msgid "Invalid blocking factor"
+msgstr "Vigane blokkimisfaktor"
+
+#: src/tar.c:777
+msgid "Warning: the -I option is not supported; perhaps you meant -j or -T?"
+msgstr "Hoiatus: võtit -I ei toetata; võibolla te pidasite silmas -j või -T?"
+
+#: src/tar.c:807
+msgid "Invalid tape length"
+msgstr "Vigane lindi pikkus"
+
+#: src/tar.c:831
+msgid "More than one threshold date"
+msgstr "Rohkem kui üks etteantud aeg"
+
+#: src/tar.c:841
+msgid "Date file not found"
+msgstr "Kuupäeva fail puudub"
+
+#: src/tar.c:850
+#, c-format
+msgid "Substituting %s for unknown date format %s"
+msgstr "Kasutan %s tundmatu ajaformaadi %s asemel"
+
+#: src/tar.c:955
+msgid "Warning: the -y option is not supported; perhaps you meant -j?"
+msgstr "Hoiatus: võtit -y ei toetata; võibolla te pidasite silmas -j?"
+
+#: src/tar.c:1027
+#, c-format
+msgid "%s: Invalid group"
+msgstr "%s: Vigane grupp"
+
+#: src/tar.c:1036
+msgid "Invalid mode given on option"
+msgstr "Võtmega anti vigane mood"
+
+#: src/tar.c:1079
+#, fuzzy
+msgid "Invalid number"
+msgstr "Vigane i-kirje number"
+
+#: src/tar.c:1097
+msgid "Invalid owner"
+msgstr "Vigane omanik"
+
+#: src/tar.c:1121
+msgid "Invalid record size"
+msgstr "Vigane kirje suurus"
+
+#: src/tar.c:1124
+#, c-format
+msgid "Record size must be a multiple of %d."
+msgstr "Kirje suurus peab olema %d kordne."
+
+#: src/tar.c:1158
+#, fuzzy
+msgid "Invalid number of elements"
+msgstr "Vigane lindi pikkus"
+
+#: src/tar.c:1259
+msgid "Options `-[0-7][lmh]' not supported by *this* tar"
+msgstr "*See* tar ei toeta võtmeid `-[0-7][lmh]'"
+
+#: src/tar.c:1305
+msgid "Written by John Gilmore and Jay Fenlason."
+msgstr "Kirjutanud: John Gilmore ja Jay Fenlason."
+
+#: src/tar.c:1340
+msgid "--occurrence is meaningless without a file list"
+msgstr ""
+
+#: src/tar.c:1346
+msgid "--occurrence cannot be used in the requested operation mode"
+msgstr ""
+
+#: src/tar.c:1364
+#, fuzzy
+msgid "Multiple archive files require `-M' option"
+msgstr "Mitu arhiivifaili nõuab `-M' võtit"
+
+#: src/tar.c:1369
+msgid "Cannot combine --listed-incremental with --newer"
+msgstr "--listed-incremental ja --newer ei saa koos kasutada"
+
+#: src/tar.c:1384
+#, fuzzy, c-format
+msgid "%s: Volume label is too long (limit is %lu byte)"
+msgid_plural "%s: Volume label is too long (limit is %lu bytes)"
+msgstr[0] "%s: Volüümi märgend on liiga pikk (piirang on %lu baiti)"
+msgstr[1] "%s: Volüümi märgend on liiga pikk (piirang on %lu baiti)"
+
+#: src/tar.c:1394
+msgid "Cannot verify multi-volume archives"
+msgstr "Ei suuda kontrollida mitme volüümilisi arhiive"
+
+#: src/tar.c:1396
+msgid "Cannot verify compressed archives"
+msgstr "Ei saa kontrollida pakitud arhiive"
+
+#: src/tar.c:1402
+msgid "Cannot use multi-volume compressed archives"
+msgstr "Ei saa kasutada mitme volüümilisi pakitud arhiive"
+
+#: src/tar.c:1404
+msgid "Cannot update compressed archives"
+msgstr "Ei saa uuendada pakitud arhiive"
+
+#: src/tar.c:1416
+msgid "--pax-option can be used only on POSIX archives"
+msgstr ""
+
+#: src/tar.c:1436
+msgid "Cowardly refusing to create an empty archive"
+msgstr "Ega ikka ei tee küll tühja arhiivi"
+
+#: src/tar.c:1457
+msgid "Options `-Aru' are incompatible with `-f -'"
+msgstr "Võtmeid `-Aru' ei saa kasutada võtmega `-f -'"
+
+#: src/tar.c:1479
+#, c-format
+msgid "Treating date `%s' as %s + %ld nanoseconds"
+msgstr ""
+
+#: src/tar.c:1532
+msgid "You must specify one of the `-Acdtrux' options"
+msgstr "Peab kasutama vähemalt üht võtmetest `-Acdtrux'"
+
+#: src/tar.c:1584
+msgid "Error in writing to standard output"
+msgstr "Viga standardväljundisse kirjutamisel"
+
+#: src/tar.c:1586
+msgid "Error exit delayed from previous errors"
+msgstr "Eelnevad vead ei lõpetanud veel programmi tööd, lõpetan veaga"
+
+#: src/update.c:86
+#, fuzzy, c-format
+msgid "%s: File shrank by %s byte"
+msgid_plural "%s: File shrank by %s bytes"
+msgstr[0] "%s: Fail on %s baiti lühem"
+msgstr[1] "%s: Fail on %s baiti lühem"
+
+#: src/xheader.c:140
+#, c-format
+msgid "Keyword %s is unknown or not yet imlemented"
+msgstr ""
+
+#: src/xheader.c:166
+#, c-format
+msgid "Pattern %s cannot be used"
+msgstr ""
+
+#: src/xheader.c:176
+#, c-format
+msgid "Keyword %s cannot be overridden"
+msgstr ""
+
+#: src/xheader.c:490
+msgid "Malformed extended header: missing whitespace after the length"
+msgstr ""
+
+#: src/xheader.c:501
+msgid "Malformed extended header: missing equal sign"
+msgstr ""
+
+#~ msgid "Cannot close"
+#~ msgstr "Faili ei õnnestu sulgeda"
+
+#~ msgid "Cannot dup"
+#~ msgstr "Failipideme dubleerimine ebaõnnestus"
+
+#~ msgid "Cannot use compressed or remote archives"
+#~ msgstr "Ei saa kasutada pakitud või kaugeid arhiive"
+
+#~ msgid "tar (child)"
+#~ msgstr "tar (laps)"
+
+#~ msgid "tar (grandchild)"
+#~ msgstr "tar (lapselaps)"
+
+#~ msgid "Child died with signal %d"
+#~ msgstr "Alamprotsess suri signaaliga %d"
+
+#~ msgid "Child returned status %d"
+#~ msgstr "Laps tagastas staatuse %d"
+
+#~ msgid "Member names contain `..'"
+#~ msgstr "Liikmete nimed sisaldavad `..'"
+
+#~ msgid "%s: Member name contains `..'"
+#~ msgstr "%s: Liikme nimi sisaldab `..'"
+
+#~ msgid ""
+#~ "\n"
+#~ "Archive format selection:\n"
+#~ "  -V, --label=NAME                   create archive with volume name "
+#~ "NAME\n"
+#~ "              PATTERN                at list/extract time, a globbing "
+#~ "PATTERN\n"
+#~ "  -o, --old-archive, --portability   write a V7 format archive\n"
+#~ "      --posix                        write a POSIX format archive\n"
+#~ "  -j, --bzip2                        filter the archive through bzip2\n"
+#~ "  -z, --gzip, --ungzip               filter the archive through gzip\n"
+#~ "  -Z, --compress, --uncompress       filter the archive through compress\n"
+#~ "      --use-compress-program=PROG    filter through PROG (must accept -"
+#~ "d)\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Arhiivi formaadi valik:\n"
+#~ "  -V, --label=NIMI                   loo arhiiv volüümi nimega NIMI\n"
+#~ "              MUSTER                 näitamisel/taastamisel, kasuta "
+#~ "MUSTER\n"
+#~ "  -o, --old-archive, --portability   kirjuta V7 formaadis arhiiv\n"
+#~ "      --posix                        kirjuta POSIX ühilduv arhiiv\n"
+#~ "  -j, --bzip2                        filtreeri läbi bzip2 käsu\n"
+#~ "  -z, --gzip, --ungzip               filtreeri läbi gzip käsu\n"
+#~ "  -Z, --compress, --uncompress       filtreeri läbi compress käsu\n"
+#~ "      --use-compress-program=PROG    filtreeri läbi PROG (peab lubama -"
+#~ "d)\n"
+
+#~ msgid "Obsolete option, now implied by --blocking-factor"
+#~ msgstr "Aegunud võti, uus võti on --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --blocking-factor"
+#~ msgstr "Aegunud võti, kasuta --blocking-factor"
+
+#~ msgid "Obsolete option name replaced by --read-full-records"
+#~ msgstr "Aegunud võti, asendatud võtmega --read-full-records"
+
+#~ msgid "Obsolete option name replaced by --touch"
+#~ msgstr "Aegunud võti, asendatud võtmega --touch"
+
+#~ msgid "Conflicting archive format options"
+#~ msgstr "Konfliktsed arhiivi formaadi võtmed"
+
+#~ msgid "Obsolete option name replaced by --absolute-names"
+#~ msgstr "Aegunud võti, kasuta --absolute-names"
+
+#~ msgid "Obsolete option name replaced by --block-number"
+#~ msgstr "Aegunud võti, kasuta --block-number"
+
+#~ msgid "Obsolete option name replaced by --backup"
+#~ msgstr "Aegunud võti, kasuta --backup"
+
+#~ msgid "Generate data files for GNU tar test suite.\n"
+#~ msgstr "Genereeri andmefailid GNU tar test süsteemile.\n"
+
+#~ msgid ""
+#~ "\n"
+#~ "Usage: %s [OPTION]...\n"
+#~ msgstr ""
+#~ "\n"
+#~ "Kasuta: %s [VÕTI]...\n"
+
+#~ msgid ""
+#~ "If a long option shows an argument as mandatory, then it is mandatory\n"
+#~ "for the equivalent short option also.\n"
+#~ "\n"
+#~ "  -l, --file-length=LENGTH   LENGTH of generated file\n"
+#~ "  -p, --pattern=PATTERN      PATTERN is `default' or `zeros'\n"
+#~ "      --help                 display this help and exit\n"
+#~ "      --version              output version information and exit\n"
+#~ msgstr ""
+#~ "Kui pikk võti ütleb, et argument on kohustuslik, siis on see\n"
+#~ "argument kohustuslik ka vastavale lühi võtmele.\n"
+#~ "\n"
+#~ "  -l, --file-length=PIKKUS   genereeritud faili PIKKUS\n"
+#~ "  -p, --pattern=MUSTER       MUSTER on `default' või `zeros'\n"
+#~ "      --help                 anna antud abiinfo ja lõpeta töö\n"
+#~ "      --version              trüki versioon ja lõpeta töö\n"
+
+#~ msgid "Written by F. Pinard."
+#~ msgstr "Kirjutanud: François Pinard <pinard@iro.umontreal.ca>."

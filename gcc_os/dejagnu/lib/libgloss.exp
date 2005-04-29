@@ -1,5 +1,5 @@
-# Copyright (C) 92, 93, 94, 95, 96, 97, 98, 1999 Free Software Foundation, Inc.
-
+# Copyright (C) 1992 - 2002, 2003 Free Software Foundation, Inc.
+#
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -18,6 +18,7 @@
 # bug-dejagnu@prep.ai.mit.edu
 
 # This file was written by Rob Savoye. (rob@cygnus.com)
+#	(now rob@welcomehome.org)
 
 # this contains a list of gcc options and their respective directories.
 
@@ -69,6 +70,9 @@ proc libgloss_link_flags { args } {
 	}
 	"d10v*" {
 	    set cpu libnosys
+	}
+	"xscale*" {
+	    set cpu arm
 	}
 	default {
 	    set cpu $target_cpu
@@ -155,7 +159,7 @@ proc newlib_include_flags { args } {
 	if { ${newlib_dir} != "" } {
 	    set newlib_dir [file dirname ${newlib_dir}]
 	}
-	return " -I$gccpath/newlib/targ-include -I${newlib_dir}"
+	return " -isystem $gccpath/newlib/targ-include -isystem ${newlib_dir}"
     } else {
 	verbose "No newlib support for this target"
     }
@@ -187,7 +191,7 @@ proc libio_include_flags { args } {
     if { $libio_bin_dir != "" && $libio_src_dir != "" } {
 	set libio_src_dir [file dirname ${libio_src_dir}]
 	set libio_bin_dir [file dirname ${libio_bin_dir}];
-	return " -I${libio_src_dir} -I${libio_bin_dir}"
+	return " -isystem ${libio_src_dir} -isystem ${libio_bin_dir}"
     } else {
 	return ""
     }
@@ -210,6 +214,7 @@ proc libio_link_flags { args } {
 
 proc g++_include_flags { args } {
     global srcdir
+    global target_alias
 
     if [is_remote host] {
 	return ""
@@ -221,12 +226,25 @@ proc g++_include_flags { args } {
 
     set dir [lookfor_file ${srcdir} libg++]
     if { ${dir} != "" } {
-	append flags "-I${dir} -I${dir}/src "
+	append flags " -isystem ${dir} -isystem ${dir}/src"
     }
+
+    set dir [lookfor_file ${srcdir} libstdc++-v3]
+    if { ${dir} != "" } {
+	append flags " -isystem ${dir}/include -isystem ${dir}/include/std"
+	append flags " -isystem ${dir}/include/c_std -isystem ${dir}/libsupc++"
+    }
+
+    set dir [lookfor_file ${gccpath} libstdc++-v3]
+    if { ${dir} != "" } {
+	append flags " -isystem ${dir}/include -isystem ${dir}/include/${target_alias}"
+    }
+
     set dir [lookfor_file ${srcdir} libstdc++]
     if { ${dir} != "" } {
-	append flags "-I${dir} -I${dir}/stl"
+	append flags " -isystem ${dir} -isystem ${dir}/stl"
     }
+
     return "$flags"
 }
 
@@ -250,6 +268,10 @@ proc g++_link_flags { args } {
 	if [file exists "${gccpath}/libstdc++/libstdc++.a"] {
 	    append flags "-L${gccpath}/libstdc++ "
 	    append ld_library_path ":${gccpath}/libstdc++"
+	}
+	if [file exists "${gccpath}/libstdc++-v3/src/.libs/libstdc++.a"] {
+	    append flags "-L${gccpath}/libstdc++-v3/src/.libs "
+	    append ld_library_path ":${gccpath}/libstdc++-v3/src/.libs"
 	}
 	if [file exists "${gccpath}/libiberty/libiberty.a"] {
 	    append flags "-L${gccpath}/libiberty "
@@ -284,6 +306,7 @@ proc g++_link_flags { args } {
 
 proc libstdc++_include_flags { args } {
     global srcdir
+    global target_alias
 
     if [is_remote host] {
 	return ""
@@ -293,10 +316,24 @@ proc libstdc++_include_flags { args } {
     set libio_dir ""
     set flags ""
 
+    set dir [lookfor_file ${srcdir} libstdc++-v3]
+    if { ${dir} != "" } {
+	append flags " -isystem ${dir}/include -isystem ${dir}/include/std"
+	append flags " -isystem ${dir}/include/c_std -isystem ${dir}/libsupc++"
+    }
+
+    set gccpath [get_multilibs]
+
+    set dir [lookfor_file ${gccpath} libstdc++-v3]
+    if { ${dir} != "" } {
+	append flags " -isystem ${dir}/include -isystem ${dir}/include/${target_alias}"
+    }
+
     set dir [lookfor_file ${srcdir} libstdc++]
     if { ${dir} != "" } {
-	append flags "-I${dir} -I${dir}/stl"
+	append flags " -isystem ${dir} -isystem ${dir}/stl"
     }
+
     return "$flags"
 }
 
@@ -387,6 +424,15 @@ proc get_multilibs { args } {
 	    break;
 	}
     }
+
+    regexp "/.* " $compiler compiler
+    set compiler [string trimright $compiler " "]
+    verbose "compiler is $compiler"
+
+    if { [which $compiler] == 0 } {
+	return "";
+    }
+
     if { [llength $args] > 0 } {
 	set mopts [lindex $args 0];
     } else {
@@ -394,6 +440,38 @@ proc get_multilibs { args } {
 	    set mopts [board_info $target_board multilib_flags];
 	} else {
 	    set mopts ""
+	}
+    }
+
+    set default_multilib [exec $compiler --print-multi-lib]
+    set default_multilib [lindex $default_multilib 0];
+    set extra [string trimleft $default_multilib ".;@@"]
+
+    # extract the options and their directory names as know by gcc
+    foreach i "[exec $compiler --print-multi-lib]" {
+    	if {$extra != ""} {
+          # string trimright would do the wrong thing if we included
+          # the leading @@ in $extra
+ 	  set i [string trimright $i $extra]
+          set i [string trimright $i "@@"]
+	}
+	set opts ""
+	set dir ""
+	regexp -- "\[a-z0-9=/\.-\]*;" $i dir
+	set dir [string trimright $dir "\;@"]
+	regexp -- "\;@*\[\@a-zA-Z0-9=/\.-\]*" $i opts
+	set opts [split [string trimleft $opts "\;@@"] "@@"]
+	lappend multilibs "$dir {$opts }"
+
+	# If args contains arguments don't use the first one as
+	# multilib option unless it qualifies as a multilib option.
+	if { [llength $args] > 0 } {
+	    set override_opt [lindex $args 0]
+	    foreach j $opts {
+	        if {$j == $override_opt} {
+	    	    set mopts $override_opt
+	        }
+	    }
 	}
     }
 
@@ -406,35 +484,32 @@ proc get_multilibs { args } {
 	}
     }
 
-    regexp "/.* " $compiler compiler
-    set compiler [string trimright $compiler " "]
-    verbose "compiler is $compiler"
-
-    if { [which $compiler] == 0 } {
-	return "";
-    }
-
     if ![info exists comp_base_dir] {
 	set comp_base_dir [file dirname [file dirname [file dirname [file dirname [file dirname [exec $compiler --print-prog-name=cc1]]]]]];
     }
 
-    # set output [exec $objdump_name --file-headers objfmtst.o ]
-    set default_multilib [exec $compiler --print-multi-lib]
-    set default_multilib [lindex $default_multilib 0];
-    set extra [string trimleft $default_multilib "."]
-
-    # extract the options and their directory names as know by gcc
-    foreach i "[exec $compiler --print-multi-lib]" {
-    	if {$extra != ""} {
-	  set i [string trimright $i $extra"]
+    # search for the top level multilib directory
+    set multitop [lookfor_file "${comp_base_dir}" "${target_alias}"]
+    if { $multitop == "" } {
+	set multitop [lookfor_file "${comp_base_dir}" "libraries"]
+	if { $multitop == "" } {
+	    set multitop "[lookfor_file ${comp_base_dir} gcc/xgcc]"
+	    if { $multitop != "" } {
+		set multitop [file dirname [file dirname $multitop]];
+	    } else {
+		return ""
+	    }
 	}
-	set opts ""
-	set dir ""
-	regexp -- "\[a-z0-9=/\.-\]*;" $i dir
-	set dir [string trimright $dir "\;@"]
-	regexp -- "\;@*\[\@a-zA-Z0-9=/\.-\]*" $i opts
-	set opts [split [string trimleft $opts "\;@"] "@"]
-	lappend multilibs "$dir {$opts }"
+    }
+
+    set gccpath [eval exec "$compiler" --print-multi-directory $mopts];
+    set gccpath [lindex $gccpath 0];
+    if { $gccpath != "" } {
+	verbose "GCC path is $gccpath";
+	if { [llength $args] == 0 } {
+	    set board_info($target_board,multitop) "$multitop/$gccpath"
+	}
+	return "$multitop/$gccpath";
     }
 
     # extract the MULTILIB_MATCHES from dumpspecs
@@ -471,20 +546,6 @@ proc get_multilibs { args } {
 	    }
 	}
 	verbose "options after multimatches: $moptions" 3
-    }
-
-    # search for the top level multilib directory
-    set multitop [lookfor_file "${comp_base_dir}" "${target_alias}"]
-    if { $multitop == "" } {
-	set multitop [lookfor_file "${comp_base_dir}" "libraries"]
-	if { $multitop == "" } {
-	    set multitop "[lookfor_file ${comp_base_dir} gcc/xgcc]"
-	    if { $multitop != "" } {
-		set multitop [file dirname [file dirname $multitop]];
-	    } else {
-		return ""
-	    }
-	}
     }
 
     # make a list of -m<foo> options from the various compiler config variables
@@ -764,6 +825,7 @@ proc find_ld { } {
 
 proc build_wrapper { gluefile } {
     global libdir
+    global tool
 
     if [target_info exists wrap_m68k_aout] {
 	set flags "additional_flags=-DWRAP_M68K_AOUT";
@@ -775,14 +837,16 @@ proc build_wrapper { gluefile } {
 	set flags "";
 	if [target_info exists is_vxworks] {
 	    set flags "additional_flags=-DVXWORKS";
+	    set result "-Wl,-wrap,exit -Wl,-wrap,main -Wl,-wrap,abort";
+	} else {
+	    set result "-Wl,-wrap,exit -Wl,-wrap,_exit -Wl,-wrap,main -Wl,-wrap,abort";
 	}
-	set result "-Wl,-wrap,exit -Wl,-wrap,main -Wl,-wrap,abort";
     }
     if [target_info exists wrap_compile_flags] {
 	lappend flags "additional_flags=[target_info wrap_compile_flags]";
     }
     if { [target_compile ${libdir}/testglue.c ${gluefile} object $flags] == "" } {
-	set gluefile [remote_download host ${gluefile} testglue.o];
+      set gluefile [remote_download host ${gluefile} ${tool}_tg.o];
 	return [list $gluefile $result];
     } else {
 	return ""
@@ -809,7 +873,7 @@ proc winsup_include_flags { args } {
 	set winsup_dir [lookfor_file ${srcdir} winsup/include/windows.h]
 	if { ${winsup_dir} != "" } {
 	    set winsup_dir [file dirname ${winsup_dir}]
-	    return " -I${winsup_dir}"
+	    return " -isystem ${winsup_dir}"
 	}
     }
     verbose "No winsup support for this target"

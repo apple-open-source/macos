@@ -65,15 +65,15 @@ char const copyright[] =
 static char sccsid[] = "@(#)main.c	8.4 (Berkeley) 3/1/94";
 #endif
 static const char rcsid[] =
-	"$Id: main.c,v 1.5 2003/07/08 22:49:49 lindak Exp $";
+	"$Id: main.c,v 1.8 2004/10/14 22:24:09 lindak Exp $";
 #endif /* not lint */
 
 #include <sys/param.h>
 #include <sys/file.h>
-#include <sys/protosw.h>
 #include <sys/socket.h>
 
 #include <netinet/in.h>
+#include <net/pfkeyv2.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -100,10 +100,9 @@ static const char rcsid[] =
  * this stuff is worth it, you can buy me a beer in return.   Poul-Henning Kamp
  * ----------------------------------------------------------------------------
  *
- * $Id: main.c,v 1.5 2003/07/08 22:49:49 lindak Exp $
+ * $Id: main.c,v 1.8 2004/10/14 22:24:09 lindak Exp $
  *
  */
-
 
 static struct nlist nl[] = {
 #define	N_IFNET		0
@@ -144,12 +143,6 @@ static struct nlist nl[] = {
 	{ "_nfile" },
 #define	N_FILE		18
 	{ "_file" },
-#define N_MRTSTAT	19
-	{ "_mrtstat" },
-#define N_MFCTABLE	20
-	{ "_mfctable" },
-#define N_VIFTABLE	21
-	{ "_viftable" },
 #define N_IPX		22
 	{ "_ipxpcb"},
 #define N_IPXSTAT	23
@@ -196,7 +189,6 @@ static struct nlist nl[] = {
 };
 
 
-
 struct protox {
 	u_char	pr_index;		/* index into nlist of cb head */
 	u_char	pr_sindex;		/* index into nlist of stat block */
@@ -222,8 +214,8 @@ struct protox {
 	{ -1,		-1,		1,	protopr,
 	  igmp_stats,	NULL,		"igmp",	IPPROTO_IGMP },
 #ifdef IPSEC
-	{ -1,		N_IPSECSTAT,	1,	0,
-	  ipsec_stats,	NULL,		"ipsec",	0},
+	{ -1,		-1,	1,	0,
+	  ipsec_stats,	NULL,		"ipsec",	IPPROTO_ESP},
 #endif
 #if 0
 	{ -1,		-1,		1,	0,
@@ -245,14 +237,14 @@ struct protox ip6protox[] = {
 	  icmp6_stats,	icmp6_ifstats,	"icmp6",IPPROTO_ICMPV6 },
 #ifdef IPSEC
 	{ -1,		N_IPSEC6STAT,	1,	0,
-	  ipsec_stats,	NULL,		"ipsec6",0 },
+	  ipsec_stats,	NULL,		"ipsec6",IPPROTO_ESP },
 #endif
 #ifdef notyet
 	{ -1,		N_PIM6STAT,	1,	0,
 	  pim6_stats,	NULL,		"pim6",	0 },
 #endif
 	{ -1,		-1,		1,	0,
-	  rip6_stats,	NULL,		"rip6",	0 },
+	  rip6_stats,	NULL,		"rip6",	IPPROTO_RAW },
 #if 0
 	{ -1,		-1,		1,	0,
 	  bdg_stats,	NULL,		"bdg",	1 /* bridging... */ },
@@ -265,7 +257,7 @@ struct protox ip6protox[] = {
 #ifdef IPSEC
 struct protox pfkeyprotox[] = {
 	{ -1,		N_PFKEYSTAT,	1,	0,
-	  pfkey_stats,	NULL,		"pfkey", 0 },
+	  pfkey_stats,	NULL,		"pfkey", PF_KEY_V2 },
 	{ -1,		-1,		0,	0,
 	  0,		NULL,		0,	0 }
 };
@@ -351,7 +343,9 @@ static struct protox *knownname (char *);
 extern void _serv_cache_close();
 #endif
 
+#if 0
 static kvm_t *kvmd;
+#endif
 static char *nlistf = NULL, *memf = NULL;
 
 int	Aflag;		/* show addresses of protocol control block */
@@ -387,7 +381,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlM:mN:np:rstuWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlM:mN:np:rRstuWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -529,16 +523,7 @@ main(argc, argv)
 		setgid(getgid());
 
 	if (mflag) {
-		 //if (memf != NULL) {
-			if (kread(0, 0, 0) == 0)
-				mbpr(nl[N_MBSTAT].n_value);
-				//mbpr(nl[N_MBSTAT].n_value,
-				    // nl[N_MBTYPES].n_value,
-				    // nl[N_NMBCLUSTERS].n_value,
-				    // nl[N_NMBUFS].n_value);
-		//} else
-		//	mbpr(0, 0, 0, 0);
-			//mbpr(0) ;
+		mbpr();
 		exit(0);
 	}
 #if 0
@@ -556,41 +541,35 @@ main(argc, argv)
 	 */
 #endif
 	if (iflag && !sflag) {
-		kread(0, 0, 0);
-		intpr(interval, nl[N_IFNET].n_value, NULL);
+		intpr(NULL);
 		exit(0);
 	}
 	if (rflag) {
-		kread(0, 0, 0);
 		if (sflag)
-			rt_stats(nl[N_RTSTAT].n_value, nl[N_RTTRASH].n_value);
+			rt_stats();
 		else
 			routepr(nl[N_RTREE].n_value);
 		exit(0);
 	}
 	if (gflag) {
-		kread(0, 0, 0);
 		if (sflag) {
 			if (af == AF_INET || af == AF_UNSPEC)
-				mrt_stats(nl[N_MRTSTAT].n_value);
+				mrt_stats();
 #ifdef INET6
 			if (af == AF_INET6 || af == AF_UNSPEC)
-				mrt6_stats(nl[N_MRT6STAT].n_value);
+				mrt6_stats();
 #endif
 		} else {
 			if (af == AF_INET || af == AF_UNSPEC)
-				mroutepr(nl[N_MFCTABLE].n_value,
-					 nl[N_VIFTABLE].n_value);
+				mroutepr();
 #ifdef INET6
 			if (af == AF_INET6 || af == AF_UNSPEC)
-				mroute6pr(nl[N_MF6CTABLE].n_value,
-					  nl[N_MIF6TABLE].n_value);
+				mroute6pr();
 #endif
 		}
 		exit(0);
 	}
 
-	kread(0, 0, 0);
 	if (tp) {
 		printproto(tp, tp->pr_name);
 		exit(0);
@@ -610,7 +589,6 @@ main(argc, argv)
 #endif /*IPSEC*/
 #ifndef __APPLE__
 	if (af == AF_IPX || af == AF_UNSPEC) {
-		kread(0, 0, 0);
 		for (tp = ipxprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 	}
@@ -655,8 +633,7 @@ printproto(tp, name)
 	if (sflag) {
 		if (iflag) {
 			if (tp->pr_istats)
-				intpr(interval, nl[N_IFNET].n_value,
-				      tp->pr_istats);
+				intpr(tp->pr_istats);
 			else if (pflag)
 				printf("%s: no per-interface stats routine\n",
 				    tp->pr_name);
@@ -685,11 +662,14 @@ printproto(tp, name)
 	}
 	if (pr != NULL && (off || af != AF_UNSPEC))
 		(*pr)(off, name, af);
+	else
+		printf("### no stats for %s\n", name);
 }
 
 /*
  * Read kernel memory, return 0 on success.
  */
+#if 0
 int
 kread(u_long addr, char *buf, int size)
 {
@@ -726,6 +706,7 @@ kread(u_long addr, char *buf, int size)
 	}
 	return (0);
 }
+#endif
 
 char *
 plural(int n)
@@ -787,7 +768,7 @@ name2protox(char *name)
 static void
 usage(void)
 {
-	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n",
+	(void)fprintf(stderr, "%s\n%s\n%s\n%s\n%s\n",
 "usage: netstat [-Aan] [-f address_family] [-M core] [-N system]",
 "       netstat [-bdghimnrs] [-f address_family] [-M core] [-N system]",
 "       netstat [-bdn] [-I interface] [-M core] [-N system] [-w wait]",

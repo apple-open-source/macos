@@ -1,4 +1,4 @@
-#   Copyright (C) 2001 Free Software Foundation, Inc.
+#   Copyright (C) 2001, 2004 Free Software Foundation, Inc.
 #   Written By Nick Clifton
 # 
 # This file is free software; you can redistribute it and/or modify it
@@ -39,31 +39,29 @@
 	# in crti.asm.  If you change this macro you must also change
 	# that macro match.
 	#
-	# Note - we do not try any fancy optimisations of the return
+	# Note - we do not try any fancy optimizations of the return
 	# sequences here, it is just not worth it.  Instead keep things
 	# simple.  Restore all the save resgisters, including the link
 	# register and then perform the correct function return instruction.
+	# We also save/restore r3 to ensure stack alignment.
 .macro FUNC_END
 #ifdef __thumb__
 	.thumb
 	
-	pop	{r4, r5, r6, r7}
+	pop	{r3, r4, r5, r6, r7}
 	pop	{r3}
 	mov	lr, r3
 #else
 	.arm
 	
-	ldmdb	fp, {r4, r5, r6, r7, r8, r9, sl, fp, sp, lr}
+	sub	sp, fp, #40
+	ldmfd	sp, {r4, r5, r6, r7, r8, r9, sl, fp, sp, lr}
 #endif
 	
 #if defined __THUMB_INTERWORK__ || defined __thumb__
 	bx	lr
 #else
-#ifdef __APCS_26__
-	movs	pc, lr
-#else
 	mov	pc, lr
-#endif
 #endif
 .endm
 		

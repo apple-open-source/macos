@@ -4,51 +4,96 @@
 # tarball to create the project source directory
 ##---------------------------------------------------------------------
 PROJECT = perl
-VERSION = 5.8.1-RC3
+VERSION = 5.8.6
+BASE = $(basename $(VERSION))
+ARCHLIB = darwin-thread-multi-2level
 FIX = $(SRCROOT)/fix
 PROJVERS = $(PROJECT)-$(VERSION)
-TARBALL = $(PROJVERS).tar.bz
+TARBALL = $(PROJVERS).tar.bz2
+EXTRAS = $(DSTROOT)/System/Library/Perl/Extras
+EXTRASPERL = $(EXTRAS)/$(VERSION)
+LIBRARYPERL = $(DSTROOT)/Library/Perl/$(VERSION)
+APPENDFILE = AppendToPath
+PREPENDFILE = PrependToPath
+PERL = $(DSTROOT)/System/Library/Perl
+CORE = $(ARCHLIB)/CORE
+LIBPERL = libperl.dylib
+LIBBASE = lib/$(BASE)
+LIBPERLLINK = ../../$(VERSION)/$(CORE)/$(LIBPERL)
+SLP = $(PERL)/$(VERSION)
+EXTRAOBJROOT=$(OBJROOT)/Extras-objroot
+COMPATVERSIONS = 5.8.1
 
-no_target:
-	@$(MAKE) -f Makefile
+no_target: $(OBJROOT)/$(PROJECT) build
+
+build:
+	$(MAKE) -C $(OBJROOT) -f Makefile SRCROOT=$(OBJROOT) \
+		OBJROOT="$(OBJROOT)/$(PROJECT)" _VERSION=$(VERSION) \
+		PREPENDFILE=$(PREPENDFILE) APPENDFILE=$(APPENDFILE)
+
+##---------------------------------------------------------------------
+# buildextras expects perl to be installed in root and that the
+# Carbon frameworks are available.  This won't work on pure darwin.
+##---------------------------------------------------------------------
+buildextras:
+	$(MAKE) -C Extras EXTRAS=$(EXTRAS) EXTRASPERL=$(EXTRASPERL) \
+	    SLP=$(SLP) ARCHLIB=$(ARCHLIB) OBJROOT=$(EXTRAOBJROOT)
+
+install: $(OBJROOT)/$(PROJECT) installperl
+
+installperl:
+	$(MAKE) -C $(OBJROOT) -f Makefile install SRCROOT=$(OBJROOT) \
+		OBJROOT="$(OBJROOT)/$(PROJECT)" _VERSION=$(VERSION) \
+		PREPENDFILE=$(PREPENDFILE) APPENDFILE=$(APPENDFILE)
+	install -d $(LIBRARYPERL)
+	install -d $(EXTRASPERL)/$(ARCHLIB)
+	echo '$(subst $(DSTROOT),,$(EXTRASPERL))' > $(LIBRARYPERL)/$(APPENDFILE)
+	@for i in $(COMPATVERSIONS); do \
+		echo echo /Library/Perl/$$i \>\> $(LIBRARYPERL)/$(APPENDFILE); \
+		echo /Library/Perl/$$i >> $(LIBRARYPERL)/$(APPENDFILE); \
+	done
+	install -d $(PERL)/$(LIBBASE)
+	ln -s $(LIBPERLLINK) $(PERL)/$(LIBBASE)/$(LIBPERL)
+	install_name_tool -id /System/Library/Perl/$(LIBBASE)/$(LIBPERL) $(SLP)/$(CORE)/$(LIBPERL)
+
+##---------------------------------------------------------------------
+# installextras expects perl to be installed in root and that the
+# Carbon frameworks are available.  This won't work on pure darwin.
+##---------------------------------------------------------------------
+installextras:
+	$(MAKE) -C Extras install EXTRAS=$(EXTRAS) EXTRASPERL=$(EXTRASPERL) \
+	    SLP=$(SLP) ARCHLIB=$(ARCHLIB) OBJROOT=$(EXTRAOBJROOT)
 
 ##---------------------------------------------------------------------
 # We patch hints/darwin.sh to install in $(DSTROOT), and to force putting
-# things in the right place.  We also patch lib/ExtUtils/MM_Unix.pm to
-# fix a problem where it sometimes loses a slash (this bug has been reported
-# so hopefully it will be fix in final 5.8.1).
-#
-# For pre-release versions of perl, patch perl.c and Config.pm.  For RC3,
-# we need to replace CPAN.pm with a regressed version.
+# things in the right place.
 ##---------------------------------------------------------------------
-install:
-	@if [ ! -d $(OBJROOT)/$(TARBALL) ]; then \
-	    echo ditto $(SRCROOT) $(OBJROOT); \
-	    ditto $(SRCROOT) $(OBJROOT); \
-	    echo cd $(OBJROOT); \
-	    cd $(OBJROOT); \
-	    echo bzcat $(TARBALL) \| gnutar xf -; \
-	    bzcat $(TARBALL) | gnutar xf -; \
-	    echo rm -rf $(PROJECT); \
-	    rm -rf $(PROJECT); \
-	    echo mv $(PROJVERS) $(PROJECT); \
-	    mv $(PROJVERS) $(PROJECT); \
-	    echo Patching lib/ExtUtils/MM_Unix.pm; \
-	    ed - $(PROJECT)/lib/ExtUtils/MM_Unix.pm < MM_Unix.pm.ed; \
-	    echo Patching hints/darwin.sh; \
-	    cat hints.append >> $(PROJECT)/hints/darwin.sh; \
-	    echo Patching perl.c; \
-	    ed - $(PROJECT)/perl.c < pre-perl.c.ed; \
-	    echo cp CPAN.pm $(PROJECT)/lib/CPAN.pm; \
-	    cp CPAN.pm $(PROJECT)/lib/CPAN.pm; \
-	    for i in `find $(PROJECT) -type f | xargs fgrep -l DARWIN`; do \
-		echo Patching $$i; \
-		ed - $$i < $(OBJROOT)/fix-DARWIN.ed; \
-	    done; \
-	fi
-	$(MAKE) -C $(OBJROOT) -f Makefile install SRCROOT=$(OBJROOT) \
-		OBJROOT="$(OBJROOT)/$(PROJECT)"
-	ed - $(DSTROOT)/System/Library/Perl/5.8.1/darwin-thread-multi-2level/Config.pm < $(OBJROOT)/pre-Config.pm.ed
+$(OBJROOT)/$(PROJECT):
+	cd $(SRCROOT) && pax -r -w . $(OBJROOT)
+	echo cd $(OBJROOT)
+	@cd $(OBJROOT); \
+	echo bzcat $(TARBALL) \| gnutar xf -; \
+	bzcat $(TARBALL) | gnutar xf -; \
+	echo rm -rf $(PROJECT); \
+	rm -rf $(PROJECT); \
+	echo mv $(PROJVERS) $(PROJECT); \
+	mv $(PROJVERS) $(PROJECT); \
+	echo Patching hints/darwin.sh; \
+	cat hints.append >> $(PROJECT)/hints/darwin.sh; \
+	echo Patching perl.c; \
+	chmod u+w $(PROJECT)/perl.c; \
+	ed - $(PROJECT)/perl.c < perl.c.ed; \
+	echo Patching Path.pm '(#23953)'; \
+	chmod u+w $(PROJECT)/lib/File/Path.pm; \
+	patch $(PROJECT)/lib/File/Path.pm perl-23953.patch; \
+	chmod u-w $(PROJECT)/lib/File/Path.pm; \
+	echo Patching perlio.c '(#33990)'; \
+	chmod u+w $(PROJECT)/perlio.c; \
+	patch $(PROJECT)/perlio.c perl-33990.patch; \
+	echo Patching patchlevel.h; \
+	chmod u+w $(PROJECT)/patchlevel.h; \
+	ed - $(PROJECT)/patchlevel.h < patchlevel.h.ed; \
+	chmod u-w $(PROJECT)/patchlevel.h
 
 .DEFAULT:
 	@$(MAKE) -f Makefile $@

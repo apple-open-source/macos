@@ -1,6 +1,7 @@
 /* Definitions of target machine for GNU compiler.
    For NCR Tower 32/4x0 and 32/6x0 running System V Release 3.
-   Copyright (C) 1990, 1993, 1994, 1996, 1997, 2000 Free Software Foundation, Inc.
+   Copyright (C) 1990, 1993, 1994, 1996, 1997, 2000, 2002
+   Free Software Foundation, Inc.
    Contributed by Robert Andersson (ra@intsys.no), International Systems,
    Oslo, Norway.
 
@@ -29,7 +30,6 @@ Boston, MA 02111-1307, USA.  */
    1.37.1 version.  */
 
 #include "m68k/tower.h"
-#undef SELECT_RTX_SECTION
 
 /* Use default settings for system V.3.  */
 
@@ -68,7 +68,7 @@ Boston, MA 02111-1307, USA.  */
 
 /* Turn on SDB debugging info.  */
 
-#define SDB_DEBUGGING_INFO
+#define SDB_DEBUGGING_INFO 1
 
 /* All the ASM_OUTPUT macros need to conform to the Tower as syntax.  */
 
@@ -156,26 +156,6 @@ Boston, MA 02111-1307, USA.  */
 
 #undef TARGET_VERSION
 #define TARGET_VERSION fprintf (stderr, " (68k, Motorola/SGS/Tower32 syntax)");
-
-#undef FUNCTION_BLOCK_PROFILER
-#define FUNCTION_BLOCK_PROFILER(FILE, LABELNO)				\
-  do {									\
-    char label1[20], label2[20];					\
-    ASM_GENERATE_INTERNAL_LABEL (label1, "LPBX", 0);			\
-    ASM_GENERATE_INTERNAL_LABEL (label2, "LPI", LABELNO);		\
-    fprintf (FILE, "\ttst.l %s\n\tbne %s\n\tpea %s\n\tjsr __bb_init_func\n\taddq.l &4,%%sp\n",	\
-	     label1, label2, label1);					\
-    ASM_OUTPUT_INTERNAL_LABEL (FILE, "LPI", LABELNO);			\
-    putc ('\n', FILE);						\
-    } while (0)
-
-#undef BLOCK_PROFILER
-#define BLOCK_PROFILER(FILE, BLOCKNO)				\
-  do {								\
-    char label[20];						\
-    ASM_GENERATE_INTERNAL_LABEL (label, "LPBX", 2);		\
-    fprintf (FILE, "\taddq.l &1,%s+%d\n", label, 4 * BLOCKNO);	\
-    } while (0)
 
 #undef FUNCTION_PROFILER
 #define FUNCTION_PROFILER(FILE, LABEL_NO)	\
@@ -543,8 +523,8 @@ do { fprintf (asm_out_file, "\ttag\t");	\
 #define INIT_SECTION_ASM_OP	"\tsection\t~init"
 #undef FINI_SECTION_ASM_OP
 #define FINI_SECTION_ASM_OP	"\tsection\t~fini"
-#undef CONST_SECTION_ASM_OP
-#define CONST_SECTION_ASM_OP	"\tsection\t~rodata"
+#undef READONLY_DATA_SECTION_ASM_OP
+#define READONLY_DATA_SECTION_ASM_OP	"\tsection\t~rodata"
 
 #define CTOR_LIST_BEGIN				\
   asm (INIT_SECTION_ASM_OP);			\

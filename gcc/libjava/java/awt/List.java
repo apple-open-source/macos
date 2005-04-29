@@ -38,13 +38,12 @@ exception statement from your version. */
 
 package java.awt;
 
-import java.io.Serializable;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.peer.ListPeer;
-import java.awt.peer.ComponentPeer;
+import java.util.EventListener;
 import java.util.Vector;
 import javax.accessibility.Accessible;
 
@@ -54,7 +53,7 @@ import javax.accessibility.Accessible;
   * @author Aaron M. Renn (arenn@urbanophile.com)
   */
 public class List extends Component
-  implements ItemSelectable, Serializable, Accessible
+  implements ItemSelectable, Accessible
 {
 
 /*
@@ -176,7 +175,7 @@ List(int rows, boolean multipleMode)
 public int
 getItemCount()
 {
-  return(items.size());
+  return countItems ();
 }
 
 /*************************************************************************/
@@ -192,7 +191,7 @@ getItemCount()
 public int
 countItems()
 {
-  return(getItemCount());
+  return items.size ();
 }
 
 /*************************************************************************/
@@ -250,7 +249,7 @@ getRows()
 public boolean
 isMultipleMode()
 {
-  return(multipleMode);
+  return allowsMultipleSelections ();
 }
 
 /*************************************************************************/
@@ -267,7 +266,7 @@ isMultipleMode()
 public boolean
 allowsMultipleSelections()
 {
-  return(multipleMode);
+  return multipleMode;
 }
 
 /*************************************************************************/
@@ -282,12 +281,7 @@ allowsMultipleSelections()
 public void
 setMultipleMode(boolean multipleMode)
 {
-  this.multipleMode = multipleMode;
-  if (peer != null)
-    {
-      ListPeer l = (ListPeer) peer;
-      l.setMultipleMode (multipleMode);
-    }
+  setMultipleSelections (multipleMode);
 }
 
 /*************************************************************************/
@@ -298,11 +292,17 @@ setMultipleMode(boolean multipleMode)
   *
   * @param multipleMode <code>true</code> to enable multiple mode,
   * <code>false</code> otherwise.
+  *
+  * @deprecated
   */
 public void
 setMultipleSelections(boolean multipleMode)
 {
-  setMultipleMode(multipleMode);
+  this.multipleMode = multipleMode;
+
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    peer.setMultipleMode (multipleMode);
 }
 
 /*************************************************************************/
@@ -315,7 +315,7 @@ setMultipleSelections(boolean multipleMode)
 public Dimension
 getMinimumSize()
 {
-  return(getMinimumSize(rows));
+  return getMinimumSize (getRows ());
 }
 
 /*************************************************************************/
@@ -331,7 +331,7 @@ getMinimumSize()
 public Dimension
 minimumSize()
 {
-  return(getMinimumSize(rows));
+  return minimumSize (getRows ());
 }
 
 /*************************************************************************/
@@ -347,11 +347,7 @@ minimumSize()
 public Dimension
 getMinimumSize(int rows)
 {
-  ListPeer lp = (ListPeer)getPeer();
-  if (lp != null)
-    return(lp.minimumSize(rows));
-  else
-    return(new Dimension(0,0));
+  return minimumSize (rows);
 }
 
 /*************************************************************************/
@@ -370,7 +366,11 @@ getMinimumSize(int rows)
 public Dimension
 minimumSize(int rows)
 {
-  return(getMinimumSize(rows));
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    return peer.minimumSize (rows);
+  else
+    return new Dimension (0, 0);
 }
 
 /*************************************************************************/
@@ -383,7 +383,7 @@ minimumSize(int rows)
 public Dimension
 getPreferredSize()
 {
-  return(getPreferredSize(rows));
+  return getPreferredSize (getRows ());
 }
 
 /*************************************************************************/
@@ -399,7 +399,7 @@ getPreferredSize()
 public Dimension
 preferredSize()
 {
-  return(getPreferredSize(rows));
+  return preferredSize (getRows ());
 }
 
 /*************************************************************************/
@@ -415,11 +415,7 @@ preferredSize()
 public Dimension
 getPreferredSize(int rows)
 {
-  ListPeer lp = (ListPeer)getPeer();
-  if (lp != null)
-    return(lp.preferredSize(rows));
-  else
-    return(new Dimension(0,0));
+  return preferredSize (rows);
 }
 
 /*************************************************************************/
@@ -438,7 +434,11 @@ getPreferredSize(int rows)
 public Dimension
 preferredSize(int rows)
 {
-  return(getPreferredSize(rows));
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    return peer.preferredSize (rows);
+  else
+    return new Dimension (0, 0);
 }
 
 /*************************************************************************/
@@ -451,7 +451,7 @@ preferredSize(int rows)
 public void
 add(String item)
 {
-  add(item, -1);
+  add (item, -1);
 }
 
 /*************************************************************************/
@@ -466,7 +466,7 @@ add(String item)
 public void
 addItem(String item)
 {
-  addItem(item, -1);
+  addItem (item, -1);
 }
 
 /*************************************************************************/
@@ -483,16 +483,7 @@ addItem(String item)
 public void
 add(String item, int index)
 {
-  if ((index == -1) || (index >= items.size()))
-    items.addElement(item);
-  else
-    items.insertElementAt(item, index);
-
-  if (peer != null)
-    {
-      ListPeer l = (ListPeer) peer;
-      l.add (item, index);
-    }
+  addItem (item, index);
 }
 
 /*************************************************************************/
@@ -511,7 +502,14 @@ add(String item, int index)
 public void
 addItem(String item, int index)
 {
-  add(item, index);
+  if ((index == -1) || (index >= items.size ()))
+    items.addElement (item);
+  else
+    items.insertElementAt (item, index);
+
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    peer.add (item, index);
 }
 
 /*************************************************************************/
@@ -522,11 +520,17 @@ addItem(String item, int index)
   * @param index The index of the item to delete.
   *
   * @exception IllegalArgumentException If the index is not valid
+  *
+  * @deprecated
   */
 public void
 delItem(int index) throws IllegalArgumentException
 {
-  remove(index);
+  items.removeElementAt (index);
+
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    peer.delItems (index, index);
 }
 
 /*************************************************************************/
@@ -541,12 +545,7 @@ delItem(int index) throws IllegalArgumentException
 public void
 remove(int index) throws IllegalArgumentException
 {
-  items.removeElementAt (index);
-  if (peer != null)
-    {
-      ListPeer l = (ListPeer) peer;
-      l.delItems (index, index);
-    }
+  delItem (index);
 }
 
 /*************************************************************************/
@@ -610,12 +609,7 @@ remove(String item) throws IllegalArgumentException
 public synchronized void
 removeAll()
 {
-  items.clear();
-  if (peer != null)
-    {
-      ListPeer l = (ListPeer) peer;
-      l.removeAll ();
-    }
+  clear ();
 }
 
 /*************************************************************************/
@@ -628,7 +622,11 @@ removeAll()
 public void
 clear()
 {
-  removeAll();
+  items.clear();
+
+  ListPeer peer = (ListPeer) getPeer ();
+  if (peer != null)
+    peer.removeAll ();
 }
 
 /*************************************************************************/
@@ -644,8 +642,21 @@ clear()
 public synchronized void
 replaceItem(String item, int index) throws IllegalArgumentException
 {
-  remove(index);
-  addItem(item, index);
+  if ((index < 0) || (index >= items.size()))
+    throw new IllegalArgumentException("Bad list index: " + index);
+
+  items.insertElementAt(item, index + 1);
+  items.removeElementAt (index);
+
+  if (peer != null)
+    {
+      ListPeer l = (ListPeer) peer;
+
+      /* We add first and then remove so that the selected
+	 item remains the same */
+      l.add (item, index + 1);
+      l.delItems (index, index);
+    }
 }
 
 /*************************************************************************/
@@ -665,7 +676,7 @@ getSelectedIndex()
       selected = l.getSelectedIndexes ();
     }
 
-  if (selected == null || selected.length > 1)
+  if (selected == null || selected.length != 1)
     return -1;
   return selected[0];
 }
@@ -766,13 +777,7 @@ getSelectedObjects()
 public boolean
 isIndexSelected(int index)
 {
-  int[] indexes = getSelectedIndexes();
-
-  for (int i = 0; i < indexes.length; i++)
-    if (indexes[i] == index)
-      return(true);
-
-  return(false);
+  return isSelected (index);
 }
 
 /*************************************************************************/
@@ -791,7 +796,13 @@ isIndexSelected(int index)
 public boolean
 isSelected(int index)
 {
-  return(isIndexSelected(index));
+  int[] indexes = getSelectedIndexes ();
+
+  for (int i = 0; i < indexes.length; i++)
+    if (indexes[i] == index)
+      return true;
+
+  return false;
 }
 
 /*************************************************************************/
@@ -1030,4 +1041,38 @@ paramString()
   return "multiple=" + multipleMode + ",rows=" + rows + super.paramString();
 }
 
+  /**
+   * Returns an array of all the objects currently registered as FooListeners
+   * upon this <code>List</code>. FooListeners are registered using the 
+   * addFooListener method.
+   *
+   * @exception ClassCastException If listenerType doesn't specify a class or
+   * interface that implements java.util.EventListener.
+   */
+  public EventListener[] getListeners (Class listenerType)
+  {
+    if (listenerType == ActionListener.class)
+      return AWTEventMulticaster.getListeners (action_listeners, listenerType);
+    
+    if (listenerType == ItemListener.class)
+      return AWTEventMulticaster.getListeners (item_listeners, listenerType);
+
+    return super.getListeners (listenerType);
+  }
+
+  /**
+   * Returns all action listeners registered to this object.
+   */
+  public ActionListener[] getActionListeners ()
+  {
+    return (ActionListener[]) getListeners (ActionListener.class);
+  }
+  
+  /**
+   * Returns all action listeners registered to this object.
+   */
+  public ItemListener[] getItemListeners ()
+  {
+    return (ItemListener[]) getListeners (ItemListener.class);
+  }
 } // class List

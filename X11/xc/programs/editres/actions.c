@@ -23,7 +23,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
  */
-/* $XFree86: xc/programs/editres/actions.c,v 1.6 2001/12/14 20:00:42 dawes Exp $ */
+/* $XFree86: xc/programs/editres/actions.c,v 1.7 2003/05/27 22:26:55 tsi Exp $ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -133,7 +133,7 @@ Cardinal * num_params;
     case SelectAll:
     case SelectNone:
     case SelectInvert:
-	_TreeSelect(global_tree_info, type);
+	_TreeSelect(global_tree_info, (SelectTypes)type);
 	break;
     case SelectWidget:
 	_FindWidget(XtParent(w));
@@ -141,9 +141,9 @@ Cardinal * num_params;
     default:
 	node = FindTreeNodeFromWidget(w);
 	if (node)
-	    _TreeActivateNode(node, type);	
+	    _TreeActivateNode(node, (SelectTypes)type);	
 	else
-	    _TreeSelect(global_tree_info, type);
+	    _TreeSelect(global_tree_info, (SelectTypes)type);
 	break;
     }
 }
@@ -175,10 +175,10 @@ Cardinal * num_params;
 	return;
 
     if ((node = FindTreeNodeFromWidget(w)) == NULL) 
-	_TreeRelabel(global_tree_info, type);
+	_TreeRelabel(global_tree_info, (LabelTypes)type);
     else {
 	PrepareToLayoutTree(global_tree_info->tree_widget); 
-	_TreeRelabelNode(node, type, FALSE);
+	_TreeRelabelNode(node, (LabelTypes)type, FALSE);
 	LayoutTree(global_tree_info->tree_widget); 
     }
 }

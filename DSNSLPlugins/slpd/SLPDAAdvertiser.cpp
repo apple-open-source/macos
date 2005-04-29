@@ -97,7 +97,9 @@ SLPDAAdvertiser::~SLPDAAdvertiser()
 {
 	mSelfPtr = NULL;
     CLOSESOCKET(mSocket);
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "DA Advertiser has been killed" );
+#endif
 }
 
 SLPInternalError SLPDAAdvertiser::Initialize( void )
@@ -110,8 +112,9 @@ SLPInternalError SLPDAAdvertiser::Initialize( void )
 
     if (mSocket < 0 || mSocket == SOCKET_ERROR)
     {
+#ifdef ENABLE_SLP_LOGGING
         SLP_LOG(SLP_LOG_DEBUG,"SLPDAAdvertiser: socket",SLP_NETWORK_INIT_FAILED);
-        
+#endif        
         err = SLP_NETWORK_INIT_FAILED;
     }
     else
@@ -124,7 +127,9 @@ SLPInternalError SLPDAAdvertiser::Initialize( void )
         if ((err = set_multicast_sender_interf(mSocket)) != SLP_OK) 
         {
             CLOSESOCKET(mSocket);
+#ifdef ENABLE_SLP_LOGGING
             SLP_LOG(SLP_LOG_DEBUG,"SLPDAAdvertiser: set_multicast_sender_interf %s",slperror(err));
+#endif
         }
     }
     
@@ -133,10 +138,13 @@ SLPInternalError SLPDAAdvertiser::Initialize( void )
 
 void SLPDAAdvertiser::RestartAdvertisements( void )
 {
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "DA Advertiser restarted" );
+#endif
     mTimeToMakeNextAdvert = SDGetTime();
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_DEBUG, "setting mTimeToMakeNextAdvert to %ld", mTimeToMakeNextAdvert );
-
+#endif
 }
 
 #define	kNumDAAdvertsToMake						3
@@ -148,7 +156,9 @@ void* SLPDAAdvertiser::Run()
     int 			piOutSz = 0;
     Boolean			isFirstTime = true;
     
+#ifdef ENABLE_SLP_LOGGING
     SLP_LOG( SLP_LOG_MSG, "DA Advertiser is running" );
+#endif
     do
     {
         if ( AreWeADirectoryAgent() && mTimeToMakeNextAdvert < SDGetTime() )
@@ -164,7 +174,9 @@ void* SLPDAAdvertiser::Run()
                 strcpy( scopeListToAdvertise, SLPGetProperty("com.apple.slp.daScopeList") );
             else
             {
+#ifdef ENABLE_SLP_LOGGING
                 SLP_LOG( SLP_LOG_DEBUG, "We are trying to advertise an empty scope list!" );
+#endif
                 scopeListToAdvertise[0] = '\0';
             }
                 
@@ -189,18 +201,22 @@ void* SLPDAAdvertiser::Run()
             
             for ( int i=0; i<numDAAdvertsToMake; i++ )
             {
+#ifdef ENABLE_SLP_LOGGING
                 if ( needToSetOverflow == SLP_TRUE )
                     SLP_LOG( SLP_LOG_DEBUG, "Sending out Truncated DAAdvert for scopelist: ", scopeListToAdvertise );
                 else
                     SLP_LOG( SLP_LOG_DEBUG, "Sending out DAAdvert for scopelist: %s", scopeListToAdvertise );
-                
+#endif                
                 if (sendto(mSocket, advertMessage, piOutSz, 0, (struct sockaddr*) &mSockAddr_in, sizeof(struct sockaddr_in)) < 0)
                 {
+#ifdef ENABLE_SLP_LOGGING
                     mslplog(SLP_LOG_DA,"SLPDAAdvertiser: multicast sendto",strerror(errno));
+#endif
                 }
+#ifdef ENABLE_SLP_LOGGING
                 else
                     SLP_LOG( SLP_LOG_DA, "Unsolicited DA Advertisement Sent" );
-                
+#endif                
                 SmartSleep( 3*USEC_PER_SEC );	// just wait a few of seconds between advertisements
             }
         

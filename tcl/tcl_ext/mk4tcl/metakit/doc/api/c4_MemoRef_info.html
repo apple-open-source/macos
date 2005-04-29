@@ -1,0 +1,161 @@
+<html><head><base target=k-main></head><body bgcolor=white>
+
+<font face=Times size=3>
+
+<b>class c4_MemoRef</b> - Used to get or set memo values (growable large binary objects).
+
+<hr size=1>
+
+<dl>
+  
+  <if !private>
+	<a name="c4_MemoRef_Access_t4_u32int__const"><dt>
+	  <nobr>
+	  <A HREF="c4_Bytes.html" >c4_Bytes</A> 
+	  <b>Access</b> (t4_u32 off_, int len_ =0) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Fetch data from the memo field, up to end if length is zero</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_MemoRef_Modify_constt4_u32int__const"><dt>
+	  <nobr>
+	  bool 
+	  <b>Modify</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38; buf_, t4_u32 off_, int diff_ =0) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Store data, resize by diff_ bytes, return true if successful</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_MemoRef_c4_Bytes___const"><dt>
+	  <nobr>
+	  operator 
+	  <b>c4_Bytes</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Get the value as binary object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_MemoRef_c4_MemoRef_const_"><dt>
+	  <nobr>
+	  
+	  <b>c4_MemoRef</b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Constructor</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_MemoRef_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_MemoRef.html" >c4_MemoRef</A>&#38; 
+	  <b>operator= </b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Set the value to the specified binary object</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference_GetData_c4_Bytes___const"><dt>
+	  <nobr>
+	  bool 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::GetData</b> (<A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Retrieve the value of the referenced data item</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference_GetSize___const"><dt>
+	  <nobr>
+	  int 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::GetSize</b> () <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Return width of the referenced data item</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference_SetData_const__const"><dt>
+	  <nobr>
+	  void 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::SetData</b> (const <A HREF="c4_Bytes.html" >c4_Bytes</A>&#38;) <i>const</i>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Store a value into the referenced data item</font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference__cursor"><dt>
+	  <nobr>
+	  <A HREF="c4_Cursor.html" >c4_Cursor</A> 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::_cursor</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference__property"><dt>
+	  <nobr>
+	  const <A HREF="c4_Property.html" >c4_Property</A>&#38; 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::_property</b>;
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1></font>
+	<p>
+  
+  
+  <if !private>
+	<a name="c4_Reference_operator___const__"><dt>
+	  <nobr>
+	  <A HREF="c4_Reference.html" >c4_Reference</A>&#38; 
+	  <b><A HREF='c4_Reference.html'>c4_Reference</A>::operator= </b> (const <A HREF="c4_Reference.html" >c4_Reference</A>&#38;);
+	  </nobr>
+	<dd>
+	  
+	  
+	  <font face=Helvetica size=-1>Assignment of one data item</font>
+	<p>
+  
+  
+</dl>
+
+<hr size=1 width=50 align=left>
+class 
+<b>c4_MemoRef</b>
+</font>
+
+</body></html>

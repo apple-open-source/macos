@@ -1,0 +1,27 @@
+<plist version="1.0">
+<array>
+<dict>
+	<key>OpenSourceProject</key>
+	<string>awk</string>
+	<key>OpenSourceVersion</key>
+	<string>20040207</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>http://cm.bell-labs.com/cm/cs/awkbook/</string>
+	<key>OpenSourceURL</key>
+	<string>http://cm.bell-labs.com/cm/cs/who/bwk/awk.tar.gz</string>
+	<key>OpenSourceMD5</key>
+	<string>e529168ac32cf43cb7ff8901e9cee785</string>
+	<key>OpenSourceImportDate</key>
+	<string>2004-09-29</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>3668527</string>
+		<string>Fix build warnings.</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>Other</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>awk.txt</string>
+</dict>
+</array>
+</plist>

@@ -25,8 +25,12 @@
 #ifndef PPP_MSG_H
 #define PPP_MSG_H
 
+#include <sys/types.h>
 #include <machine/types.h>
 
+
+// current version of the pppconfd api
+#define CURRENT_VERSION 1
 
 /* local socket path */
 #define PPP_PATH 	"/var/run/pppconfd\0"
@@ -214,7 +218,8 @@ enum {
     PPP_INITIALIZE,
     PPP_CONNECTLINK,
     PPP_STATERESERVED,
-    PPP_ESTABLISH,
+    PPP_DORMANT=3,
+    PPP_ESTABLISH=4,
     PPP_AUTHENTICATE,
     PPP_CALLBACK,
     PPP_NETWORK,

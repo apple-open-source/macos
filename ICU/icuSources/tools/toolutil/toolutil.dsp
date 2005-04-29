@@ -56,7 +56,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:I386
-# ADD LINK32 kernel32.lib /nologo /dll /machine:I386 /out:"..\..\..\bin\icutu26.dll" /implib:"..\..\..\lib/icutu.lib" /libpath:"..\..\..\lib"
+# ADD LINK32 kernel32.lib /nologo /dll /machine:I386 /out:"..\..\..\bin\icutu32.dll" /implib:"..\..\..\lib/icutu.lib" /libpath:"..\..\..\lib"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "toolutil - Win32 Debug"
@@ -84,7 +84,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:I386 /pdbtype:sept
-# ADD LINK32 kernel32.lib /nologo /dll /debug /machine:I386 /out:"..\..\..\bin\icutu26d.dll" /implib:"..\..\..\lib/icutud.lib" /pdbtype:sept /libpath:"..\..\..\lib"
+# ADD LINK32 kernel32.lib /nologo /dll /debug /machine:I386 /out:"..\..\..\bin\icutu32d.dll" /implib:"..\..\..\lib/icutud.lib" /pdbtype:sept /libpath:"..\..\..\lib"
 # SUBTRACT LINK32 /pdb:none
 
 !ELSEIF  "$(CFG)" == "toolutil - Win64 Release"
@@ -101,7 +101,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MT /W3 /GX /O2 /D "WIN64" /D "NDEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "TOOLUTIL_EXPORTS" /FD /c
-# ADD CPP /nologo /MD /W3 /GX /Zi /O2 /Op /I "..\..\common" /D "NDEBUG" /D "WIN64" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MD /W3 /GX /Zi /O2 /Op /I "..\..\common" /D "NDEBUG" /D "WIN64" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /Zm600 /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "NDEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win64
@@ -112,7 +112,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /machine:IX86 /machine:IA64
-# ADD LINK32 kernel32.lib /nologo /dll /machine:IX86 /out:"..\..\..\bin\icutu26.dll" /implib:"..\..\..\lib/icutu.lib" /libpath:"..\..\..\lib" /machine:IA64
+# ADD LINK32 kernel32.lib /nologo /dll /machine:IX86 /out:"..\..\..\bin\icutu32.dll" /implib:"..\..\..\lib/icutu.lib" /libpath:"..\..\..\lib" /machine:IA64
 
 !ELSEIF  "$(CFG)" == "toolutil - Win64 Debug"
 
@@ -128,7 +128,7 @@ LINK32=link.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MTd /W3 /Gm /GX /ZI /Od /D "WIN64" /D "_DEBUG" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "TOOLUTIL_EXPORTS" /FD /GZ /c
-# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /Op /I "..\..\common" /D "_DEBUG" /D "WIN64" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /GZ /QIA64_fmaopt /Zm600 /c
+# ADD CPP /nologo /MDd /W3 /Gm /GX /Zi /Od /Op /I "..\..\common" /D "_DEBUG" /D "WIN64" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "_IA64_" /D "WIN32" /D "_AFX_NO_DAO_SUPPORT" /FD /GZ /Zm600 /c
 # SUBTRACT CPP /YX
 # ADD BASE MTL /nologo /D "_DEBUG" /mktyplib203 /win64
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win64
@@ -139,7 +139,7 @@ BSC32=bscmake.exe
 # ADD BSC32 /nologo
 LINK32=link.exe
 # ADD BASE LINK32 kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /nologo /dll /debug /machine:IX86 /pdbtype:sept /machine:IA64
-# ADD LINK32 kernel32.lib /nologo /dll /incremental:no /debug /machine:IX86 /out:"..\..\..\bin\icutu26d.dll" /implib:"..\..\..\lib/icutud.lib" /pdbtype:sept /libpath:"..\..\..\lib" /machine:IA64
+# ADD LINK32 kernel32.lib /nologo /dll /incremental:no /debug /machine:IX86 /out:"..\..\..\bin\icutu32d.dll" /implib:"..\..\..\lib/icutud.lib" /pdbtype:sept /libpath:"..\..\..\lib" /machine:IA64
 
 !ENDIF 
 
@@ -154,6 +154,10 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\propsvec.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\toolutil.c
 # ADD CPP /Ze
 # End Source File
@@ -163,7 +167,15 @@ SOURCE=.\ucbuf.c
 # End Source File
 # Begin Source File
 
+SOURCE=.\ucm.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\ucmpwrit.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\ucmstate.c
 # End Source File
 # Begin Source File
 
@@ -187,11 +199,19 @@ SOURCE=.\uperf.cpp
 # PROP Default_Filter "h;hpp;hxx;hm;inl"
 # Begin Source File
 
+SOURCE=.\propsvec.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\toolutil.h
 # End Source File
 # Begin Source File
 
 SOURCE=.\ucbuf.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\ucm.h
 # End Source File
 # Begin Source File
 

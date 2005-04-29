@@ -29,6 +29,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __VENDORID_H__
+#define __VENDORID_H__
+
 /* The unknown vendor ID. */
 #define	VENDORID_UNKNOWN	-1
 
@@ -62,3 +65,7 @@ extern const char *vendorid_strings[];
 
 vchar_t *set_vendorid __P((int));
 int check_vendorid __P((struct isakmp_gen *));
+
+
+#endif /* __VENDORID_H__ */
+

@@ -3,7 +3,7 @@ XCOMM
 XCOMM
 XCOMM
 XCOMM
-XCOMM $XFree86: xc/programs/rstart/Imakefile,v 3.11 2002/05/31 18:46:08 dawes Exp $
+XCOMM $XFree86: xc/programs/rstart/Imakefile,v 3.13 2004/01/09 00:28:50 dawes Exp $
 XCOMM
 XCOMM Copyright (c) 1993 Quarterdeck Office Systems
 XCOMM
@@ -72,7 +72,7 @@ InstallProgram($(RSERVERNAME),$(MYLIBDIR))
 SpecialCObjectRule(server,NullParameter,$(SRVDEFS) $(PEDEFS))
 
 AllTarget($(SSERVERNAME))
-CppScriptTarget($(SSERVERNAME),$(SSERVERSRC),$(OS) -DLIBDIR=$(MYLIBDIR) -DSERVERNAME=$(SERVERNAME),NullParameter)
+CppScriptTarget($(SSERVERNAME),$(SSERVERSRC),$(OS) -DLIBDIR=$(MYLIBDIR) -DSERVERNAME=$(SERVERNAME) -DBINDIR=$(MYLIBDIR),NullParameter)
 InstallNamedProg($(SSERVERNAME),$(SSERVERNAME),$(BINDIR))
 
 AllTarget($(CLIENTNAME))
@@ -82,6 +82,8 @@ InstallNamedProg($(CLIENTNAME),$(CLIENTNAME),$(BINDIR))
 AllTarget(config)
 CppFileTarget(config,config.cpp,-DBINDIR=$(BINDIR) -DLIBDIR=$(MYLIBDIR) -DPACKAGEname=$(PACKAGEname) -DENVPREFIX=$(ENVPREFIX),NullParameter)
 InstallNonExecFile(config,$(MYLIBDIR))
+
+DependTarget()
 
 #ifdef	ProjectRoot
 DEFAULT_X_MANPATH=$(MANPATH):SystemManDirectory

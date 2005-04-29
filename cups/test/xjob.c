@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <libc.h>
 #include <unistd.h>
+#include <libgen.h>
 
 #include <sys/fcntl.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -315,7 +316,7 @@ static int ConvertJob(const char *filename, mime_type_t *inMimeType, const char 
     * Local jobs get filtered...
     */
 
-    filters = mimeFilter(mimeDatabase, inMimeType, outMimeType, &num_filters, MAX_FILTERS);
+    filters = mimeFilter(mimeDatabase, inMimeType, outMimeType, &num_filters, NULL);
 
     if (num_filters == 0)
     {
@@ -556,10 +557,23 @@ static int ConvertJob(const char *filename, mime_type_t *inMimeType, const char 
    /*
     * Setting CFProcessPath lets OS X's Core Foundation code find
     * the bundle that may be associated with a filter or backend.
+    * If the file is a symbolic link we need to resolve it first
+    * (Bug 3549523).
     */
+    {
+      char linkbuf[1024];
+      int linkbufbytes;
 
-    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
-    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+      if ((linkbufbytes = readlink(command, linkbuf, sizeof(linkbuf) - 1)) > 0)
+      {
+        linkbuf[linkbufbytes] = '\0';
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s/%s", dirname(command), linkbuf);
+      }
+      else
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+
+      LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    }
 #endif	/* __APPLE__ */
 
     if (i < (num_filters - 1) ||
@@ -617,10 +631,23 @@ static int ConvertJob(const char *filename, mime_type_t *inMimeType, const char 
    /*
     * Setting CFProcessPath lets OS X's Core Foundation code find
     * the bundle that may be associated with a filter or backend.
+    * If the file is a symbolic link we need to resolve it first
+    * (Bug 3549523).
     */
+    {
+      char linkbuf[1024];
+      int linkbufbytes;
 
-    snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
-    LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+      if ((linkbufbytes = readlink(command, linkbuf, sizeof(linkbuf) - 1)) > 0)
+      {
+        linkbuf[linkbufbytes] = '\0';
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s/%s", dirname(command), linkbuf);
+      }
+      else
+        snprintf(processPath, sizeof(processPath), "CFProcessPath=%s", command);
+
+      LogMessage(L_DEBUG, "StartJob: %s\n", processPath);
+    }
 #endif	/* __APPLE__ */
 
     argv[0] = (char*)outputURL;

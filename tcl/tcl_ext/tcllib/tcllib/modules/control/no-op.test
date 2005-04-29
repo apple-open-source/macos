@@ -1,0 +1,37 @@
+# Tests for [control::no-op].
+#
+# This file contains a collection of tests for the command [control::no-op]
+# of the package control in tcllib, the Standard Tcl Library. Sourcing this
+# file into Tcl runs the tests and generates output for errors.  No output
+# means no errors were found.
+#
+# RCS: @(#) $Id: no-op.test,v 1.2 2004/01/15 06:36:12 andreas_kupries Exp $
+
+package forget control
+catch {namespace delete control}
+
+# Direct loading of provide script -- support testing even
+# when not installed.  And be sure we test the local copy
+# and not some later version that may be installed.
+source [file join [file dirname [info script]] control.tcl]
+namespace import ::control::no-op
+
+package require tcltest
+# Use of -force because [namespace import] is braindead.
+namespace import -force ::tcltest::test ::tcltest::cleanupTests
+
+test no-op-0.0 {no-op return value} {
+    no-op
+} {}
+
+test no-op-1.0 {no-op argument substitution} {
+    set bcount 0
+    set b x
+    trace variable b r {incr bcount ;#}
+    set acount 0
+    proc a args {incr ::acount}
+    list [no-op a $b {a} {a $b} [a] [a $b] {[a]}] $acount $bcount
+} {{} 2 2}
+
+cleanupTests
+return

@@ -1,0 +1,31 @@
+
+xml(file:../tests/data/mondial-europe.xml)/country[name='Germany']
+xml(file:../tests/data/mondial-europe.xml) contains(//country[name='Germany']/name,"any")
+
+xml(file:../tests/data/mondial-europe.xml)//country[name='Germany']/province[population>5000000]/name
+
+xml(file:../tests/data/mondial-europe.xml)count(//country[name='Germany']/province)
+
+xml(file:../tests/data/mondial-europe.xml)
+    //mountain[in_country[@ref = string(//country[name='Germany']/@id)]]
+
+xml(file:../tests/data/mondial-europe.xml)//country[name='France']/province/name
+xml(file:../tests/data/mondial-europe.xml)//country[name='Germany']//city[population>1000000]
+xml(file:../tests/data/mondial-europe.xml)//country[name='France']/province/city[population<100000]
+
+xml(file:../tests/data/mondial-europe.xml)//river[length>4000]
+xml(file:../tests/data/mondial-europe.xml)//river/name
+
+xml(file:../tests/data/mondial-europe.xml) //country/car_code/text()
+
+
+xml(file:../tests/data/books.xml) //book[@style="novel"]
+
+xml(file:../doc/domNode.xml) //method/text()
+
+xml(http://www.fernweh.com/wap/info.wml)
+xml(http://www.fernweh.com/wap/categories.wml)
+
+xml(http://wap.is.danet.de/lh/flugplan/index.wml)
+xml(http://wap.t-d1-wap.de/t-online/)
+xml(http://www.vbxml.com/downloads/files/dropdown_xsl.txt) 

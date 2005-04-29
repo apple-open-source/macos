@@ -2,24 +2,21 @@
  * Copyright (c) 1998-2001 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
+ *
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
- * 
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #ifndef _IP_FIREWIRE_H_
@@ -58,8 +55,6 @@ typedef struct FWUnsignedWideStruct FWUnsignedWide;
 /* Macros for convenience */
 #undef LAST
 #define LAST(array) ((sizeof(array) / sizeof(array[0])) - 1)
-// #define MAX(x, y) (((x) > (y)) ? (x) : (y))
-// #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 /*
  * Miscellanaeous constants from IEEE Std 1394a-2000, ISO/IEC 13213:1994
@@ -123,11 +118,13 @@ typedef union {
 
 /* NOTE: The link fragment type (lf) field is not shown above. It is the most
  significant two bits of the encapsulation header, with values as follows. */
-
-#define UNFRAGMENTED 0
-#define FIRST_FRAGMENT 1
-#define LAST_FRAGMENT 2
-#define INTERIOR_FRAGMENT 3
+typedef enum
+{
+	UNFRAGMENTED = 0,
+	FIRST_FRAGMENT,
+	LAST_FRAGMENT,
+	INTERIOR_FRAGMENT
+} FragmentType;
 
 /* IEEE Std 1394a-2000 defines a global asynchronous stream packet (GASP)
  format that is used by RFC 2734 for the broadcast and multicast datagrams
@@ -319,36 +316,21 @@ typedef struct {
    VOID *passThru2;
 } ARP_HOLD;
 
-/* Miscellaneous "small" control structures are all grouped under the aegis of
- "control block" (CBLK) and allocated from a common pool. For this reason, it
- is VERY important to set MAX_CBLK_SIZE to the size of the largest structure.
- The free CBLKs are linked by their next pointers. */
-
-typedef struct cblk {
-   struct cblk *next;
-} CBLK;
-
-#define MAX_CBLK_SIZE		sizeof(ARB)
-#define N_CBLK 				256
-#define CBLK_MEMORY_SIZE	(MAX_CBLK_SIZE * N_CBLK)+1000
-
-
 /* Address resolution block (ARB) contains all of the information necessary to
  map, in either direction, between an IPv4 address and a link-level "hardware"
  address */
 
-typedef struct arb {          /* Used by both ARP 1394 and MCAP */
-	struct arb	*next;          /* Link to next structure in the chain */
-	ULONG		ipAddress;      /* IP address */
+class ARB : public OSObject		/* Used by both ARP 1394 and MCAP */
+{      
+	OSDeclareDefaultStructors(ARB);
+public:
 	UWIDE		eui64;          /* EUI-64 obtained from ARP response */
 	UCHAR		fwaddr[8];
-	TNF_HANDLE	handle;         /* Pseudo "hardware" address used internally */
 	USHORT		timer;          /* Permits the ARB to be "aged" */
-	BOOLEAN		datagramPending;   /* Information in arpHold is valid */
-	BOOLEAN		deletionPending;   /* Delete when MCAP channel released */
-	ARP_HOLD	arpHold;        /* Platform-dependent */
+	ULONG		ipAddress;      /* IP address */
+	TNF_HANDLE	handle;         /* Pseudo "hardware" address used internally */
 	BOOLEAN		itsMac;   		/* Indicates whether the destination Macintosh or not */
-} ARB;
+};
 
 /* Device reference block (DRB) correlates an EUI-64 with a IOFireWireNub
  reference ID acquired with a kGUIDType parameter. A pointer to the LCB is
@@ -359,24 +341,27 @@ typedef struct arb {          /* Used by both ARP 1394 and MCAP */
  reference as soon as the node disappears. Instead, an expiration timer is
  started. If the device has not reappeared within the specified number of
  seconds, then the device reference ID is released. */
-
-typedef struct drb {
-	struct drb *next;
-	ULONG deviceID;   		/* Stable "handle" for the IP-capable device */
-	struct lcb *lcb;        /* Pertinent link control block for the device */
-	ULONG timer;            /* If nonzero, decrement and release upon zero */
-	UWIDE eui64;            /* EUI-64 of the IP-capable device */
-	UCHAR fwaddr[8];
-	USHORT maxPayload;      /* Maximum payload and... */
-	IOFWSpeed maxSpeed;     /* ...speed to device in current topology */
-	BOOLEAN		itsMac;   	/* Indicates whether the destination Macintosh or not */
-} DRB;
+ 
+class DRB : public OSObject
+{
+	OSDeclareDefaultStructors(DRB);
+public:
+	UWIDE		eui64;			/* EUI-64 of the IP-capable device */
+	UCHAR		fwaddr[8];
+	ULONG		timer;			/* If nonzero, decrement and release upon zero */
+	ULONG		deviceID;		/* Stable "handle" for the IP-capable device */
+	USHORT		maxPayload;		/* Maximum payload and... */
+	IOFWSpeed	maxSpeed;		/* ...speed to device in current topology */
+	BOOLEAN		itsMac;			/* Indicates whether the destination Macintosh or not */
+};
 
 /* Multicast control block (MCB) permits the management of multicast channel
  assignments, whether we are the owner or simply one of the participants in
  the multicast group. */
 
-typedef struct mcb {
+class MCB : public OSObject 
+{
+public:
    ULONG ownerNodeID;         /* Channel owner (it may be us!) */
    ULONG groupCount;          /* IP address groups active (this channel )*/
    ULONG asyncStreamID;
@@ -384,7 +369,7 @@ typedef struct mcb {
    UCHAR expiration;          /* Seconds remaining in valid channel mapping */
    UCHAR nextTransmit;        /* Seconds 'til MCAP advertisement transmitted */
    UCHAR finalWarning;        /* Channel deallocation warning messages */
-} MCB;
+};
 
 #define MCAP_UNOWNED 0        /* No channel owner */
 
@@ -395,18 +380,19 @@ typedef struct mcb {
  fragment is copied to its correct location; the residual count is decremented.
  This process repeats with successive fragments until residual is zero. */
 
-typedef struct rcb {
-   struct rcb *next;
-   USHORT sourceID;           /* Saved from LK_DATA.indication */
-   USHORT dgl;                /* Obtained from the fragment header */
-   USHORT etherType;          /* Saved from first fraagment header */
-   USHORT datagramSize;       /* Total size of the reassembled datagram */
-   USHORT residual;           /* Bytes still outstanding */
-   USHORT reserved;
-   ULONG timer;            /* If nonzero, decrement and release upon zero */
-   VOID *datagram;            /* Start of the datagram buffer */
-   struct mbuf *mBuf;                /* MBUF eventually passed to OS code */
-} RCB;
+class RCB : public OSObject
+{
+	OSDeclareDefaultStructors(RCB);
+public:
+	USHORT sourceID;           /* Saved from LK_DATA.indication */
+	USHORT dgl;                /* Obtained from the fragment header */
+	USHORT etherType;          /* Saved from first fraagment header */
+	USHORT datagramSize;       /* Total size of the reassembled datagram */
+	USHORT residual;           /* Bytes still outstanding */
+	ULONG  timer;			  /* If nonzero, decrement and release upon zero */
+	UInt8  *datagram;
+	mbuf_t mBuf;               /* MBUF eventually passed to OS code */
+};
 
 /* End of the type definitions for the miscellaneous control structures */
 
@@ -415,28 +401,16 @@ typedef struct rcb {
  structure. */
 #define MAX_CHANNEL_DES			64
 
-typedef struct lcb {          /* Link Control Block (LCB) for each link */
-   ULONG			ownIpAddress;       /* Single IP address per IP1394 interface */
-   TNF_UNICAST_HANDLE		ownHandle;          /* Our own "pseudo MAC" address */
+typedef struct lcb /* Link Control Block (LCB) for each link */
+{          
    IP1394_HDW_ADDR		ownHardwareAddress; /* Our external address on Serial Bus */
    USHORT			ownMaxPayload;      /* From this link's bus information block */
    USHORT			ownMaxSpeed;        /* Link/PHY hardware capability */
    USHORT			ownNodeID;          /* Management information, only */
    USHORT			maxBroadcastPayload;/* Updated when topology changes */
    IOFWSpeed		maxBroadcastSpeed;  /* Ditto */
-   UCHAR			reserved;
    USHORT			datagramLabel;
    ULONG			busGeneration;      /* Current as of most recent bus reset */
-   VOID				*driverObject;      /* Opaque object inherited from platform code */
-   CBLK				*freeCBlk;          /* Pool of free CBLKs */
-   ARB				*unicastArb;        /* Address information from ARP */
-   ARB				*multicastArb;      /* Address information from MCAP */
-   DRB				*activeDrb;         /* Devices with valid device IDs */
-   RCB				*activeRcb;         /* Linked list of datagrams in reassembly */
-   MCB				mcapState[MAX_CHANNEL_DES];      /* Per channel MCAP descriptors */
-   USHORT			cFreeCBlk;          /* Count of available CBLKs */
-   USHORT			nCBlk;              /* Total size of CBLK pool */
-   USHORT			minFreeCBlk;        /* Low water mark for CBLK allocation */
 } LCB;
 
 #endif /* _IP_FIREWIRE_H_ */

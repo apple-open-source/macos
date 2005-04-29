@@ -1,0 +1,183 @@
+# -*- tcl -*-
+#
+# $Id: manpage.tmml,v 1.1 2002/08/27 03:51:51 tcl Exp $
+#
+# [expand] definitions to convert a tcl based manpage definition
+# into TMML.
+#
+# Copyright (C) 2001 Joe English <jenglish@sourceforge.net>.
+# Freely redistributable.
+#
+# See also <URL: http://tmml.sourceforge.net>
+#
+# BUGS:
+#	+ XML markup characters in [expand] macro arguments
+#	  are not properly escaped.  (Plain text outside of
+#	  [...] is handled correctly however.)
+#
+#	+ Text must be preceded by [para] or one of the
+#	  list item macros, or else the output will be invalid.
+#
+######################################################################
+
+proc here {} [list return [file dirname [info script]]]
+source [file join [here] manpage.api]
+source [file join [here] xmlrules.tcl]
+
+######################################################################
+# Utilities.
+#
+
+proc NOP {args} { }		;# do nothing
+proc NYI {{message {}}} {
+    return -code error [append $message " Not Yet Implemented"]
+}
+
+set this [file tail [info script]]
+proc provenance {} {
+    return "Generated from [expand::expfile] by EXPAND with $::this"
+}
+
+######################################################################
+# Expand hooks.
+#
+proc init_hook {} 		{ setpasses 2 }
+proc raw_text_hook {text} 	{ xmlEscape $text }
+proc begin_hook {} 		{ setPassProcs [expand::exppass] }
+
+######################################################################
+# Conversion specification.
+#
+# Two-pass processing.  The first pass collects text for the
+# SYNOPSIS, SEE ALSO, and KEYWORDS sections, and the second pass
+# produces output.
+#
+
+holdBuffers synopsis see_also keywords
+
+proc nl  	{}	{ emptyElement br }
+proc arg 	{text}	{ wrap $text m }
+proc cmd	{text}	{ wrap $text cmd }
+proc emph	{text}	{ wrap $text emph }
+proc strong	{text}	{ wrap $text emph }
+proc opt 	{text}	{ wrap $text o }
+
+pass 1 manpage_begin {args} NOP
+pass 2 manpage_begin {command section version module shortdesc description} {
+    sequence \
+	[xmlComment [provenance]] \
+	[start manpage \
+	    id  	[file root [file tail [expand::expfile]]] \
+	    cat 	cmd \
+	    title	$command \
+	    version	$version \
+	    package	$module] \
+	[start namesection] \
+	[wrap $command name] \
+	[wrap $description desc] \
+	[end namesection] \
+	;
+}
+
+pass 1 description {} NOP
+pass 2 description {} {
+    sequence \
+	[xmlContext manpage] \
+	[wrapLines? [held synopsis] syntax synopsis] \
+	[start section] \
+	[wrap "DESCRIPTION" title] \
+	;
+}
+
+pass 1 section {name} NOP
+pass 2 section {name} {
+    sequence \
+	[xmlContext manpage] \
+    	[start section] \
+	[wrap [string toupper $name] title] \
+	;
+}
+pass 1 para {} NOP
+pass 2 para {} { sequence [xmlContext section] [start p] }
+
+array set listTypes {
+    bullet	ul
+    enum	ol
+    definitions	dl
+}
+pass 1 list_begin {what} NOP
+pass 1 list_end {} NOP
+pass 2 list_begin {what} {
+    sequence \
+    	[xmlContext {section dd li}] \
+	[start $::listTypes($what)] \
+	;
+}
+pass 2 list_end {} {
+    sequence \
+	[xmlContext {ul ol dl}] \
+	[end] \
+	;
+}
+
+pass 1 bullet {}	NOP
+pass 1 enum {} 		NOP
+pass 2 bullet {} 	{ sequence [xmlContext {ul ol}] [start li] }
+pass 2 enum {} 		{ sequence [xmlContext {ul ol}] [start li] }
+
+pass 1 lst_item {text} NOP
+pass 2 lst_item {text} {
+    sequence \
+    	[xmlContext dl] \
+	[start dle] \
+	[wrap $text dt] \
+	[start dd] \
+	;
+}
+
+pass 1 call {cmd args} { hold synopsis [formatCall $cmd $args] }
+pass 2 call {cmd args} {
+    sequence \
+    	[xmlContext dl] \
+	[start dle] \
+	[wrap [formatCall $cmd $args] dt] \
+	[start dd] \
+	;
+}
+proc formatCall {cmd arglist} {
+    return "$cmd [join $arglist { }]"	;# OR: wrap "..." command
+}
+
+pass 1 require {pkg {version {}}} {
+    hold synopsis [formatRequire $pkg $version]
+}
+pass 2 require {pkg {version {}}} NOP
+proc formatRequire {pkg version} {
+    return "package require [wrap $pkg package] [wrap? $version l]"
+}
+
+pass 1 see_also	{args} { holdWrapped see_also  $args ref }
+pass 1 keywords {args} { holdWrapped keywords $args keyword }
+pass 2 see_also	{args} NOP
+pass 2 keywords	{args} NOP
+
+# holdWrapped --
+#	Common factor of [see_also] and [keywords].
+#
+proc holdWrapped {buffer arglist gi} {
+    foreach arg $arglist { hold $buffer [wrap $arg $gi] }
+    return
+}
+
+pass 1 manpage_end {} NOP
+pass 2 manpage_end {} {
+    sequence \
+	[xmlContext manpage] \
+	[wrapLines? [held see_also] seealso] \
+	[wrapLines? [held keywords] keywords] \
+	[end manpage] \
+	;
+}
+
+#*EOF*
+

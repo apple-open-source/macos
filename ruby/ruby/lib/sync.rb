@@ -1,10 +1,9 @@
 #
 #   sync.rb - 2 phase lock with counter
-#   	$Release Version: 0.2$
-#   	$Revision: 1.1.1.1 $
-#   	$Date: 2002/05/27 17:59:48 $
-#   	by Keiju ISHITSUKA
-#   	modified by matz
+#   	$Release Version: 1.0$
+#   	$Revision: 1.4 $
+#   	$Date: 2001/06/06 14:19:33 $
+#   	by Keiju ISHITSUKA(keiju@ishitsuka.com)
 #
 # --
 #  Sync_m, Synchronizer_m
@@ -12,7 +11,7 @@
 #   obj.extend(Sync_m)
 #   or
 #   class Foo
-#	Sync_m.include_to self
+#	include Sync_m
 #	:
 #   end
 #
@@ -45,7 +44,7 @@ unless defined? Thread
 end
 
 module Sync_m
-  RCS_ID='-$Header: /cvs/Darwin/ruby/ruby/lib/sync.rb,v 1.1.1.1 2002/05/27 17:59:48 jkh Exp $-'
+  RCS_ID='-$Header: /src/ruby/lib/sync.rb,v 1.4 2001/06/06 14:19:33 keiju Exp $-'
   
   # lock mode
   UN = :UN
@@ -76,29 +75,32 @@ module Sync_m
     end
   end
   
+  def Sync_m.define_aliases(cl)
+    cl.module_eval %q{
+      alias locked? sync_locked?
+      alias shared? sync_shared?
+      alias exclusive? sync_exclusive?
+      alias lock sync_lock
+      alias unlock sync_unlock
+      alias try_lock sync_try_lock
+      alias synchronize sync_synchronize
+    }
+  end
+  
   def Sync_m.append_features(cl)
     super
     unless cl.instance_of?(Module)
       # do nothing for Modules
       # make aliases and include the proper module.
-      cl.module_eval %q{
-	alias locked? sync_locked?
-	alias shared? sync_shared?
-	alias exclusive? sync_exclusive?
-	alias lock sync_lock
-	alias unlock sync_unlock
-	alias try_lock sync_try_lock
-	alias synchronize sync_synchronize
-      }
+      define_aliases(cl)
     end
-    return self
   end
   
   def Sync_m.extend_object(obj)
     super
     obj.sync_extended
   end
-  
+
   def sync_extended
     unless (defined? locked? and
 	    defined? shared? and
@@ -107,19 +109,11 @@ module Sync_m
 	    defined? unlock and
 	    defined? try_lock and
 	    defined? synchronize)
-      eval "class << self
-	alias locked? sync_locked?
-        alias shared? sync_shared?
-        alias exclusive? sync_exclusive?
-	alias lock sync_lock
-	alias unlock sync_unlock
-	alias try_lock sync_try_lock
-	alias synchronize sync_synchronize
-      end"
+      Sync_m.define_aliases(class<<self;self;end)
     end
-    initialize
+    sync_initialize
   end
-  
+
   # accessing
   def sync_locked?
     sync_mode != UN
@@ -230,34 +224,38 @@ module Sync_m
   end
   
   def sync_synchronize(mode = EX)
-    sync_lock(mode)
     begin
+      sync_lock(mode)
       yield
     ensure
       sync_unlock
     end
   end
-  
+
   attr :sync_mode, true
+    
   attr :sync_waiting, true
   attr :sync_upgrade_waiting, true
   attr :sync_sh_locker, true
   attr :sync_ex_locker, true
   attr :sync_ex_count, true
-
+    
   private
 
-  def initialize(*args)
-    ret = super
+  def sync_initialize
     @sync_mode = UN
     @sync_waiting = []
     @sync_upgrade_waiting = []
     @sync_sh_locker = Hash.new
     @sync_ex_locker = nil
     @sync_ex_count = 0
-    return ret
   end
-  
+
+  def initialize(*args)
+    sync_initialize
+    super
+  end
+    
   def sync_try_lock_sub(m)
     case m
     when SH
@@ -302,12 +300,12 @@ end
 Synchronizer_m = Sync_m
 
 class Sync
+  #Sync_m.extend_class self
   include Sync_m
-  
-  private
     
   def initialize
     super
   end
+    
 end
 Synchronizer = Sync

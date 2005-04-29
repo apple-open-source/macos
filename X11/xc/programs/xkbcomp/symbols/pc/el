@@ -1,4 +1,4 @@
-// $XFree86: xc/programs/xkbcomp/symbols/pc/el,v 1.2 2002/11/15 02:26:41 dawes Exp $
+// $XFree86: xc/programs/xkbcomp/symbols/pc/el,v 1.3 2003/04/19 12:22:11 pascal Exp $
 //
 // Hellenic keyboard map for XFree86
 // Original version:
@@ -93,10 +93,7 @@ xkb_symbols "extended" {
     key <AB08> { [	comma,		less,		guillemotleft	] };
     key <AB09> { [	period,		greater,	guillemotright	] };
 
-    key <RALT> {	[	ISO_Level3_Shift	]	};
-
-    modifier_map Mod5 { ISO_Level3_Shift };
-
+    include "level3(ralt_switch)"
 };
 
 partial alphanumeric_keys alternate_group

@@ -1,0 +1,29 @@
+.Dd 29 September 2004
+.Dt CREATE_NIDB 8
+.Os Darwin
+.Sh NAME
+.Nm create_nidb
+.Nd creates a NetInfo database from flat files
+.Sh SYNOPSIS
+.Nm
+.Op Ar tag Op Ar masterhostname Op Ar root
+.Sh DESCRIPTION
+.Nm
+creates a NetInfo database from flat files. By default, it will read from from /etc and write to /var/db/netinfo/<tag>.nidb. This location is adjustable with the
+.Ar root
+argument.
+.Sh OPTIONS
+.Bl -tag -width -indent 
+.It Ar tag
+NetInfo database tag. (Default: local)
+.It Ar masterhostname
+NetInfo master hostname. Defaults to 'localhost' for tag 'local'. For other tags, the default is the system hostname.
+.It Ar root
+Location of your root filesystem. (Default: /)
+.El
+.Sh SEE ALSO 
+.Xr nicl 1 ,
+.Xr group 5 ,
+.Xr hosts 5 ,
+.Xr networks 5 ,
+.Xr passwd 5

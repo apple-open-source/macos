@@ -65,14 +65,12 @@ protected:
     virtual ~IOHIDUPSClass();
 
     static IOCFPlugInInterface		sIOCFPlugInInterfaceV1;
-    static IOUPSPlugInInterface		sUPSPlugInInterface;
+    static IOUPSPlugInInterface_v140		sUPSPlugInInterface_v140;
 
     struct InterfaceMap 		_upsDevice;
     io_service_t 			_service;
 
-    CFRunLoopRef 			_runLoop;
-    CFRunLoopSourceRef 			_eventSource;
-    CFRunLoopTimerRef			_eventTimer;
+    CFTypeRef                   _asyncEventSource;
     
     IOHIDDeviceInterface122 **		_hidDeviceInterface;
     IOHIDQueueInterface **		_hidQueueInterface;
@@ -129,7 +127,10 @@ protected:
     static IOReturn _sendCommand(
                             void * 			self,
                             CFDictionaryRef		command);
-    
+                            
+    static IOReturn _createAsyncEventSource(
+                            void *          self,
+                            CFTypeRef *     eventSource);
 
     static void _queueCallbackFunction(
                             void * 			target, 
@@ -195,6 +196,8 @@ public:
                             UPSHIDElement * 		elementRef, 
                             SInt32 			value);
 
+    virtual IOReturn createAsyncEventSource(
+                            CFTypeRef *       eventSource);
 
 };
 

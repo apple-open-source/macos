@@ -513,6 +513,11 @@ db_store(FILE *fp, FILE *oldfp, DB *edp, DB *dp, struct passwd *pw,
 	key.data = (u_char *)tbuf;
 	for (cnt = 1; scan(fp, pw, &flags); ++cnt) {
 
+#ifdef __APPLE__
+		if (pw->pw_name == NULL)
+			continue;
+#endif
+
 		if (firsttime) {
 			/* Look like YP? */
 			if ((pw->pw_name[0] == '+') || (pw->pw_name[0] == '-'))

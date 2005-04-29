@@ -1,7 +1,7 @@
 /*
  *  inifile.c
  *
- *  $Id: inifile.c,v 1.1.1.1 2002/04/08 22:48:11 miner Exp $
+ *  $Id: inifile.c,v 1.3 2004/11/11 01:52:41 luesang Exp $
  *
  *  Configuration File Management
  *
@@ -955,8 +955,6 @@ _iodbcdm_cfg_commit (PCONFIG pconfig)
 int
 _iodbcdm_cfg_next_section(PCONFIG pconfig)
 {
-  PCFGENTRY e;
-
   do
     if (0 != _iodbcdm_cfg_nextentry (pconfig))
       return -1;

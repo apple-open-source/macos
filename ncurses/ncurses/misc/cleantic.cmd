@@ -1,5 +1,5 @@
 /*
- * $Id: cleantic.cmd,v 1.1.1.1 2001/11/29 20:40:55 jevans Exp $
+ * $Id: cleantic.cmd,v 1.3 1998/08/29 21:43:19 tom Exp $
  *
  * Author:  Juan Jose Garcia Ripoll <worm@arrakis.es>.
  * Webpage: http://www.arrakis.es/~worm/

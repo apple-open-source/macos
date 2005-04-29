@@ -1,0 +1,451 @@
+.\" Copyright (c) 2004 Apple Computer
+.\" All rights reserved.
+.\"
+.\" Redistribution and use in source and binary forms, with or without
+.\" modification, are permitted provided that the following conditions
+.\" are met:
+.\" 1. Redistributions of source code must retain the above copyright
+.\"    notice, this list of conditions and the following disclaimer.
+.\" 2. Redistributions in binary form must reproduce the above copyright
+.\"    notice, this list of conditions and the following disclaimer in the
+.\"    documentation and/or other materials provided with the distribution.
+.\" 4. Neither the name of Apple Computer nor the names of its contributors
+.\"    may be used to endorse or promote products derived from this software
+.\"    without specific prior written permission.
+.\"
+.\" THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER AND CONTRIBUTORS ``AS IS'' AND
+.\" ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+.\" IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+.\" ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+.\" FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+.\" DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+.\" OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+.\" HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+.\" LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+.\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+.\" SUCH DAMAGE.
+.\"
+.\"
+.Dd October 18, 2004
+.Dt SYSLOG 1
+.Os "Mac OS X"
+.Sh NAME
+.Nm syslog
+.Nd Apple System Log utility
+.Sh SYNOPSIS
+.Nm
+.Fl help
+.D1 ""
+.Nm
+.Fl s
+.Op Fl r Ar host
+.Op Fl l Ar level
+message...
+.D1 ""
+.Nm
+.Fl s
+.Op Fl r Ar host
+.Fl k
+key val
+.Op key val 
+.Li ...
+.D1 ""
+.Nm
+.Op Fl w
+.Op Fl F Ar format
+.Ar expression
+.D1 ""
+.Nm
+.Fl p Ar expression
+.D1 ""
+.Nm
+.Fl c Ar process Op filter
+.Sh DESCRIPTION
+.Nm
+is a command-line utility for a variety of tasks relating to the Apple System Log facility.
+It provides mechanisms for sending and viewing log messages,
+pruning the contents of the system's log message data store,
+and for controlling the flow of log messages from client processes.
+.Pp
+When invoked with the
+.Fl help
+option, 
+.Nm 
+prints a usage message.
+.Ss SENDING MESSAGES
+The
+.Fl s
+option is used send log messages to the
+.Xr syslogd 8
+log message daemon,
+either locally or to a remote server if the
+.Fl r Ar host
+option in used.
+.Pp
+There are two main forms of the command.
+If the 
+.Fl k
+option is used, then it must be followed by a list of keys and values.
+A structured message will be sent to the server with the keys and values given as arguments.
+If a key or a value has embedded white space, it must be enclosed in quotes.
+.Pp
+If the 
+.Fl k
+option is not specified, then the rest of the command line is treated as the message text.
+The text may be preceded by 
+.Fl l Ar level
+to set the log level (priority) of the message.
+Levels may be an integer value corresponding the the log levels specified in 
+.Xr syslog 3
+or
+.Xr asl 3 ,
+or they may be a string.
+String values are case insensitive, and should be one of:
+.Pp
+.Bl -tag -compact
+.It Emergency
+(level 0)
+.It Alert
+(level 1)
+.It Critical
+(level 2)
+.It Error
+(level 3)
+.It Warning
+(level 4)
+.It Notice
+(level 5)
+.It Info
+(level 6)
+.It Debug
+(level 7)
+.El
+.Pp
+The string 
+.Dq Panic
+is an alias for 
+.Dq Emergency .
+.Nm
+only requires one or two leading characters for a level specification.
+A single character suffices in most cases.
+Use 
+.Dq P
+or 
+.Dq \&Em
+for Panic / Emergency, and
+.Dq \&Er
+or
+.Dq X
+for Error).
+.Ss READING MESSAGES
+The 
+.Nm syslogd
+daemon receives messages from a variety of input sources.
+Received messages are processed by a set of output modules,
+each of which may act on messages in different ways.
+.Pp
+Two of the standard modules filter messages using criteria like the sender and the priority level of the message,
+and write copies of these messages to different output streams.
+One module does this filtering and filing task using the configuration specified in the
+.Xr syslog.conf 5
+file.
+The output files specified in that configuration may be examined by any file printing or editing utility, 
+e.g.
+.Pp
+.Dl cat /var/log/system.log
+.Pp
+Another module saves messages in a data store, which may be searched using the
+.Nm
+command.
+.Pp
+If invoked with no arguments,
+.Nm
+simply prints all of the messages saved in the data store.  If the
+.Fl w
+option is used, 
+.Nm
+waits for new messages to be added to the data store.
+Messages already in the store are ignored.
+This usage is similar to watching a log file using, e.g.
+.Pp
+.Dl tail -f /var/log/system.log
+.Pp
+Messages are printed in a format similar to that used in the system.log file,
+except that the message priority level is printed between angle-brackets.
+.Pp
+The 
+.Fl u
+option forces all time stamps to be printed using UTC.
+This overrides printing of time stamps using the local time zone.
+.Pp
+The output format may by changed by specifying the
+.Fl F Ar format
+option.
+The value of
+.Ar format 
+may be one of the following:
+.Pp
+.Bl -tag -width "xxxx"
+.It bsd
+Format used by the
+.Nm syslogd
+daemon for system log files, e.g. /var/log/system.log.
+.It std
+Standard (default) format.
+Similar to 
+.Dq bsd ,
+but includes the message priority level.
+.It raw
+Prints the complete message structure.
+Each key/value pair is enclosed in square brackets.
+Embedded closing brackets and white space are escaped.
+Time stamps are printed using UTC rather than being converted to the local time zone.
+.El
+.Pp
+The value of the
+.Ar format
+argument may also be a custom print format string.  
+A custom format should in most cases be enclosed in single quotes to prevent the shell from substituting
+special characters and breaking at white space.
+.Pp
+Custom format strings may include variables of the form
+.Dq $Name
+(or
+.Dq $(Name)
+if the variable is not delimited by whitespace)
+which will be expanded to the associated with the named key.
+For example, the command:
+.Pp
+.Dl syslog -F '$Time $Host $(Sender)[$(PID)]: $Message'
+.Pp
+produces output similar to the 
+.Dq bsd
+format.
+.Pp
+If no further command line options are specified,
+.Nm
+displays all messages,
+either all those saved in the data store,
+or all new messages if
+.Fl w
+is used.
+However, an expression may be specified using the
+.Fl k
+and
+.Fl o
+options.
+.Ss EXPRESSIONS
+Expressions specify matching criteria.
+They may be used when reading messages to filter for messages of interest.
+Expressions are also required when pruning the system log file with the
+.Fl p
+option.
+.Pp
+A simple expression is a list of one or more key/value pairs.
+A match is made when a message has the given value for the specified key.
+For example, to find all messages send by the portmap process:
+.Pp
+.Dl syslog -k Sender portmap
+.Pp
+The
+.Fl k
+option may be followed by one, two, or three arguments. 
+A single argument causes a match to occur if a message has the specified key, regardless of value.
+If a pair of arguments is specified, a match occurs when a message has exactly the specified value for a given key.
+If three arguments are given, they are of the form
+.Fl k Ar key operation value .
+.Nm
+supports the following matching operators:
+.Pp
+.Bl -tag -width "xxx" -compact 
+.It eq
+equal
+.It ne
+not equal
+.It gt
+greater than
+.It ge
+greater than or equal to
+.It lt
+less than
+.It le
+less than or equal to
+.El
+.Pp
+Additionally, the operator may be preceded by one or more of the following modifiers:
+.Pp
+.Bl -tag -width "xxx" -compact 
+.It C
+case-fold
+.It R
+regular expression (see 
+.Xr regex 3 )
+.It S
+substring
+.It A
+prefix
+.It Z
+suffix
+.It N
+numeric comparison
+.El
+.Pp
+An simple expression matches a message if all of the key-value operations match.
+Logically, the result is an AND of all of key-value operations.
+The 
+.Fl o
+option separates simple expressions and provides an OR operation.
+If two or more simple expressions are given, separated by
+.Fl o
+options, then a match occurs is a message matches any of the simple expressions.
+For example, to find all messages which have either a 
+.Dq Sender
+value of
+.Dq portmap
+or that have a numeric priority level of 4 or less:
+.Pp
+.Dl syslog -k Sender portmap -o -k Level Nle 4
+.Pp
+A special convention exists for matching time stamps.
+An unsigned integer value is regarded as the given number of seconds since
+0 hours, 0 minutes, 0 seconds, January 1, 1970, Coordinated Universal Time.
+An negative integer value is regarded as the given number of seconds before the current time.
+For example, to find all messages of priority level 3 (error) or less which were logged in the last 30 seconds:
+.Pp
+.Dl syslog -k Level Nle 3 -k Time ge -30
+.Pp
+a relative time value may be optionally followed by one of the characters 
+.Dq s ,
+.Dq m ,
+.Dq h ,
+.Dq d ,
+or
+.Dq w
+to specify seconds, minutes, hours, days, or weeks respectively.
+Upper case may be used equivalently.
+A week is taken to be 7 complete days (i.e. 604800 seconds).
+.Ss PRUNING
+The Apple System Log facility saves received messages, subject to filtering criteria described in the 
+FILTERING CONTROLS section below.  
+Pruning is required to prevent unlimited growth of the data store.
+.Pp
+The 
+.Nm syslogd
+daemon itself will prune the data store shortly after it starts up.
+See the 
+.Xr syslogd 8
+manual for more details on startup pruning.
+During extended operation of
+.Nm syslogd ,
+pruning is accomplished by using the
+.Fl p
+option of 
+.Nm syslog .
+The 
+.Fl p 
+option must be followed by an expression (see above).
+The contents of the data store are filtered using the given expression.
+Messages that match the expression are deleted.
+.Pp
+A daily pruning operation is performed by the
+.Nm cron
+utility.
+The command is specified in the /etc/periodic/daily/500.daily file.
+.Ss FILTERING CONTROLS
+Clients of the Apple System Log facility using either the
+.Xr asl 3
+or
+.Xr syslog 3
+interfaces may specify a log filter mask.
+The mask specifies which messages should be sent to the
+.Nm syslogd
+daemon by specifying a yes/no setting for each priority level.
+Many clients set a filter mask to avoid sending relatively unimportant messages.
+Debug or Info priority level messages are generally only useful for debugging operations.
+By setting a filter mask, a process can improve performance by avoiding spending
+time sending messages that are in most cases unnecessary.
+.Pp
+The
+.Fl c
+option may be used to control filtering.
+In addition to the internal filter value that processes may set as described above,
+the system maintains a global 
+.Dq master
+filter.
+This filter is normally 
+.Dq off , 
+meaning that it has no effect.
+If a value is set for the master filter, it overrides the local filter for all processes. 
+Root user access is required to set the master filter value.
+.Pp
+The current setting of the master filter mask may be inspected using:
+.Pp
+.Dl syslog -c 0
+.Pp
+The value of the master filter mask my be set by providing a second argument following
+.Fl c Ar 0 .
+The value may a set of characters from the set 
+.Dq pacewnid .
+These correspond to the priority levels Emergency (Panic), Alert, Critical, Error, Warning, Notice, Info, and Debug.
+The character 
+.Dq x
+may be used for Error, as it is used for sending messages.
+The master filter may be unset with:
+.Pp
+.Dl syslog -c 0 off
+.Pp
+Since it is common to use the filter as a 
+.Dq cutoff
+mechanism, for example to cut off messages with Debug and Info priority,
+a single character from the list above may be specified, preceded by a minus sign.
+In this case,
+.Nm
+uses a filter mask starting at level 0 (Emergency)
+.Dq up to
+the given level.
+For example, to set the master filter level to cause all processes to log messages from Emergency up to Debug:
+.Pp
+.Dl syslog -c 0 -d
+.Pp
+While the master filter level may be set to control the messages produced by all processes,
+another filter mask may be specified for an individual process. 
+If a per-process filter mask is set, it overrides both the local filter mask and the master filter mask.
+The current setting for a per-process filter mask may be inspected using
+.Fl c Ar process ,
+where
+.Ar process
+is either a PID or the name of a process.
+If a name is used, it must uniquely identify a process.
+To set a per-process filter mask, an second argument may be supplied following
+.Fl c Ar process
+as described above for the master filter mask.
+Root access is required to set the per-process filter mask for system (UID 0) processes.
+.Pp
+The filtering described above takes place in the client library to determine which messages are sent to the
+.Nm syslogd
+daemon.
+The daemon also contains a filter which determines which messages are saved in the data store.
+Note that this additionally determines which messages are seen when reading messages using the
+.Nm
+utility.
+.Pp
+The default data store filter mask saves messages with priority levels from Emergency to Notice (level 0 to 5).
+The level may be inspected using:
+.Pp
+.Dl syslog -c syslogd 
+.Pp
+To set the data store filter mask, an second argument may be supplied following
+.Fl c Li syslog
+as described above.
+For example, to save messages with priority level Error or less in the data store:
+.Pp
+.Dl syslog -c syslog -e
+.Sh SEE ALSO
+.Xr syslogd 8 ,
+.Xr logger 1 ,
+.Xr asl 3 ,
+.Xr syslog 3 ,
+.Sh HISTORY
+The
+.Nm
+utility appeared in Mac OS X 10.4.

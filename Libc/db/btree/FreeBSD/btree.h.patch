@@ -1,0 +1,8 @@
+--- btree.h.orig	Fri Mar 22 15:41:40 2002
++++ btree.h	Sat Oct 18 18:14:05 2003
+@@ -381,4 +381,4 @@
+ 	u_int32_t flags;
+ } BTREE;
+ 
+-#include "extern.h"
++#include "bt_extern.h"

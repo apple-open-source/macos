@@ -55,14 +55,14 @@ file (or specified using \fB-c\fR \fIfile\fR).
 
 When a smart card is inserted into a reader, pcscd uses the ATR string from 
 the card to identify this card.  The 
-.I /usr/local/pcsc/services 
+.I /usr/libexec/SmartCardServices/services 
 directory contains plug-ins for the card.  These plug-ins are searched.  If 
 the ATR string matches, the client library loads that plug-in for that 
 token.
 
 .SH "USB SMART CARD READER DRIVERS"
 USB Smart card reader drivers are placed in the 
-.I /usr/local/pcsc/drivers 
+.I /usr/libexec/SmartCardServices/drivers 
 directory. Each driver is simply a 
 bundle.  The bundle contains an XML file Info.plist
 which is parsed by pcscd.  This file contains the vendor
@@ -72,10 +72,10 @@ or removed.
 
 .SH "SERIAL SMART CARD READER DRIVERS"
 Serial Smart card reader drivers are placed in the 
-.I /usr/local/pcsc/drivers 
+.I /usr/libexec/SmartCardServices/drivers 
 directory. Each driver is simply a 
 .I shared object
-file.  The pcscd locates the driver with the 
+file.  The pcscd locates serial drivers with the 
 .I /etc/reader.conf 
 file.  The file has the following format:
 
@@ -112,7 +112,7 @@ Example:
  
  FRIENDLYNAME "My Smartcard Reader"
  DEVICENAME   GEN_SMART_RDR
- LIBPATH      /usr/local/pcsc/drivers/my_reader.so
+ LIBPATH      /usr/libexec/SmartCardServices/drivers/my_reader.so
  CHANNELID    0x0103F8
  
  # End of file
@@ -124,7 +124,7 @@ Drivers are available at \fIhttp://www.musclecard.com/drivers.html\fR.
 .SH "SMART CARD PLUG-INS"
 pcsc-lite uses plug-ins to handle different types of smart cards. There is 
 a plug-in for each smart-card type. Plug-ins are installed in the 
-.I /usr/local/pcsc/services 
+.I /usr/libexec/SmartCardServices/services 
 directory.  Plug-ins for cards/tokens are available from the MUSCLE
 web site \fIhttp://www.musclecard.com\fR.
 .SH FILES
@@ -137,7 +137,7 @@ web site \fIhttp://www.musclecard.com\fR.
 .I /var/run/pcscd.pid
 : process id of the running pcscd
 .br
-.I /usr/local/pcsc/drivers/
+.I /usr/libexec/SmartCardServices/drivers/
 : directory containing bundles for USB
 drivers"
 .SH BUGS
@@ -145,5 +145,5 @@ None known.
 .SH "SEE ALSO"
 .BR pcsctool (1),
 .SH AUTHORS
-David Corcoran <corcoran@linuxnet.com> and Ludovic Rousseau
+David Corcoran <corcoran@identityalliance.com> and Ludovic Rousseau
 <ludovic.rousseau@free.fr>

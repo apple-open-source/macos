@@ -1,5 +1,5 @@
 .\"
-.\" $XFree86: xc/doc/man/Xi/XChMMap.man,v 1.2 2001/01/27 18:20:21 dawes Exp $
+.\" $XFree86: xc/doc/man/Xi/XChMMap.man,v 1.3 2003/04/28 22:18:14 herrb Exp $
 .\"
 .\"
 .\" Copyright ([\d,\s]*) by Hewlett-Packard Company, Ardent Computer, 
@@ -18,15 +18,12 @@
 XGetDeviceModifierMapping, XSetDeviceModifierMapping \- query or change device modifier mappings
 .SH SYNTAX
 \fB
-XSetDeviceModifierMapping(\^\fIdisplay\fP, \fIdevice\fP, \fImodmap\fP\^)
-.nf
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
-      XModifierKeymap  *\fImodmap\fP\^;
-
-XModifierKeymap *XGetDeviceModifierMapping(\^\fIdisplay\fP, \fIdevice\fP\^)
-      Display *\fIdisplay\fP\^;
-      XDevice *\fIdevice\fP\^;
+.HP
+int XSetDeviceModifierMapping(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^, XModifierKeymap  *\fImodmap\fP\^); 
+.HP
+XModifierKeymap *XGetDeviceModifierMapping(\^Display *\fIdisplay\fP\^, XDevice
+*\fIdevice\fP\^);
 .fi
 \fP
 .SH ARGUMENTS

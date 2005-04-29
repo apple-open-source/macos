@@ -2417,6 +2417,9 @@ elif test x${DLL} = xdl.h; then
 fi
 AC_CHECK_HEADERS(setjmp.h)
 
+AC_CHECK_HEADERS(copyfile.h)
+AC_CHECK_FUNCS(copyfile)
+
 dnl write output files
 AC_OUTPUT(auto/config.mk:config.mk.in)
 

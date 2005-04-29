@@ -37,6 +37,7 @@
 #include <sys/vmmeter.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
+#include <sys/ioctl.h>
 
 #include <sys/disk.h>
 #include <sys/loadable_fs.h>
@@ -120,27 +121,217 @@ int hide_file(const char * file)
     return (result == -1 ? errno : result);
 }
 
-int
-get_start_block(const char *file)
+off_t
+get_start_block(const char *file, uint32_t fs_block_size)
 {
-    struct attrlist alist = {0};
-    ExtentsAttrBuf extentsbuf = {0};
+    off_t cur_pos, phys_start, len;
+    int fd, err;
+    struct log2phys l2p;
+    struct stat st;
 
-    alist.bitmapcount = ATTR_BIT_MAP_COUNT;
-    alist.fileattr = ATTR_FILE_DATAEXTENTS;
-
-    if (getattrlist(file, &alist, &extentsbuf, sizeof(extentsbuf), 0)) {
-	fprintf(stderr, "could not get attrlist for %s (%s)", file, strerror(errno));
+    fd = open(file, O_RDONLY);
+    if (fd < 0) {
 	return -1;
     }
 
-    if (extentsbuf.extents[1].startBlock != 0) {
-	fprintf(stderr, "Journal File not contiguous!\n");
+    if (fstat(fd, &st) < 0) {
+	fprintf(stderr, "can't stat %s (%s)\n", file, strerror(errno));
+	close(fd);
 	return -1;
     }
 
-    return extentsbuf.extents[0].startBlock;
+    fs_block_size = st.st_blksize; // XXXdbg quick hack for now
+
+    phys_start = len = 0;
+    for(cur_pos=0; cur_pos < st.st_size; cur_pos += fs_block_size) {
+	memset(&l2p, 0, sizeof(l2p));
+	lseek(fd, cur_pos, SEEK_SET);
+	err = fcntl(fd, F_LOG2PHYS, &l2p);
+
+	if (phys_start == 0) {
+	    phys_start = l2p.l2p_devoffset;
+	    len = fs_block_size;
+	} else if (l2p.l2p_devoffset != (phys_start + len)) {
+	    // printf("    %lld : %lld - %lld\n", cur_pos, phys_start / fs_block_size, len / fs_block_size);
+	    fprintf(stderr, "%s : is not contiguous!\n", file);
+	    close(fd);
+	    return -1;
+	    // phys_start = l2p.l2p_devoffset;
+	    // len = fs_block_size;
+	} else {
+	    len += fs_block_size;
+	}
+    }
+
+    close(fd);
+
+    //printf("%s start offset %lld; byte len %lld (blksize %d)\n",
+    // file, phys_start, len, fs_block_size);
+
+    if ((phys_start / (unsigned)fs_block_size) & 0xffffffff00000000LL) {
+	fprintf(stderr, "%s : starting block is > 32bits!\n", file);
+	return -1;
+    }
+	
+    return phys_start;
 }
+
+
+//
+// Get the embedded offset (if any) for an hfs+ volume.
+// This is pretty skanky that we have to do this but
+// that's life...
+//
+#include <sys/disk.h>
+#include <hfs/hfs_format.h>
+
+#include <machine/endian.h>
+
+#define HFS_PRI_SECTOR(blksize)          (1024 / (blksize))
+#define HFS_PRI_OFFSET(blksize)          ((blksize) > 1024 ? 1024 : 0)
+
+#define SWAP_BE16(x) ntohs(x)
+#define SWAP_BE32(x) ntohl(x)
+
+
+off_t
+get_embedded_offset(char *devname)
+{
+    int fd = -1;
+    off_t ret = 0;
+    char *buff = NULL, rawdev[256];
+    u_int64_t blkcnt;
+    u_int32_t blksize;
+    HFSMasterDirectoryBlock *mdbp;
+    off_t embeddedOffset;
+    struct statfs sfs;
+    struct stat   st;
+	
+  restart:
+    if (stat(devname, &st) != 0) {
+	fprintf(stderr, "Could not access %s (%s)\n", devname, strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    if (S_ISCHR(st.st_mode) == 0) {
+	// hmmm, it's not the character special raw device so we
+	// should try to figure out the real device.
+	if (statfs(devname, &sfs) != 0) {
+	    fprintf(stderr, "Can't find out any info about the fs for path %s (%s)\n",
+		devname, strerror(errno));
+	    ret = -1;
+	    goto out;
+	}
+
+	// copy the "/dev/"
+	strncpy(rawdev, sfs.f_mntfromname, 5);
+	rawdev[5] = 'r';
+	strcpy(&rawdev[6], &sfs.f_mntfromname[5]);
+	devname = &rawdev[0];
+	goto restart;
+    }
+
+    fd = open(devname, O_RDONLY);
+    if (fd < 0) {
+	fprintf(stderr, "can't open: %s (%s)\n", devname, strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    /* Get the real physical block size. */
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, (caddr_t)&blksize) != 0) {
+	fprintf(stderr, "can't get the device block size (%s). assuming 512\n", strerror(errno));
+	blksize = 512;
+	ret = -1;
+	goto out;
+    }
+
+    /* Get the number of physical blocks. */
+    if (ioctl(fd, DKIOCGETBLOCKCOUNT, (caddr_t)&blkcnt)) {
+	struct stat st;
+	fprintf(stderr, "failed to get block count. trying stat().\n");
+	if (fstat(fd, &st) != 0) {
+	    ret = -1;
+	    goto out;
+	}
+
+	blkcnt = st.st_size / blksize;
+    }
+
+    /*
+     * There are only 31 bits worth of block count in
+     * the buffer cache.  So for large volumes a 4K
+     * physical block size is needed.
+     */
+    if (blksize == 512 && blkcnt > (u_int64_t)0x000000007fffffff) {
+	blksize = 4096;
+    }
+
+    /*
+     * At this point:
+     *   blksize has our prefered physical block size
+     *   blkcnt has the total number of physical blocks
+     */
+
+    buff = (char *)malloc(blksize);
+	
+    if (pread(fd, buff, blksize, HFS_PRI_SECTOR(blksize)*blksize) != blksize) {
+	fprintf(stderr, "failed to read volume header @ offset %d (%s)\n",
+	    HFS_PRI_SECTOR(blksize), strerror(errno));
+	ret = -1;
+	goto out;
+    }
+
+    mdbp = (HFSMasterDirectoryBlock *)buff;
+    if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord) 
+        && (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+        && (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+	ret = -1;
+	goto out;
+    }
+
+    if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
+	ret = -1;
+	goto out;
+    } else if (SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord) {
+	/* Get the embedded Volume Header */
+	embeddedOffset = SWAP_BE16(mdbp->drAlBlSt) * 512;
+	embeddedOffset += (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.startBlock) *
+                          (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
+
+	/*
+	 * If the embedded volume doesn't start on a block
+	 * boundary, then switch the device to a 512-byte
+	 * block size so everything will line up on a block
+	 * boundary.
+	 */
+	if ((embeddedOffset % blksize) != 0) {
+	    fprintf(stderr, "HFS Mount: embedded volume offset not"
+		" a multiple of physical block size (%d);"
+		" switching to 512\n", blksize);
+		
+	    blkcnt  *= (blksize / 512);
+	    blksize  = 512;
+	}
+
+    } else { /* pure HFS+ */ 
+	embeddedOffset = 0;
+    }
+
+    ret = embeddedOffset;
+
+  out:
+    if (buff) {
+	free(buff);
+    }
+    if (fd >= 0) 
+	close(fd);
+
+    return ret;
+}
+
+
 
 static const char *journal_fname = ".journal";
 static const char *jib_fname = ".journal_info_block";
@@ -152,10 +343,12 @@ DoMakeJournaled(char *volname, int jsize)
     char            *buf;
     int              ret;
     fstore_t         fst;
-    int              jstart_block, jinfo_block, sysctl_info[8];
+    int32_t          jstart_block, jinfo_block;
+    int              sysctl_info[8];
     JournalInfoBlock jib;
     struct statfs    sfs;
     static char      tmpname[MAXPATHLEN];
+    off_t            start_block, embedded_offset;
 
     if (statfs(volname, &sfs) != 0) {
 	fprintf(stderr, "Can't stat volume %s (%s).\n", volname, strerror(errno));
@@ -201,6 +394,15 @@ DoMakeJournaled(char *volname, int jsize)
 		volname, strerror(errno));
 	return 10;
     }
+
+
+    embedded_offset = get_embedded_offset(volname);
+    if (embedded_offset < 0) {
+	fprintf(stderr, "Can't calculate the embedded offset (if any) for %s.\n", volname);
+	fprintf(stderr, "Journal creation failure.\n");
+	return 15;
+    }
+    // printf("Embedded offset == 0x%llx\n", embedded_offset);
 
     fd = open(journal_fname, O_CREAT|O_TRUNC|O_RDWR, 000);
     if (fd < 0) {
@@ -270,9 +472,16 @@ DoMakeJournaled(char *volname, int jsize)
     close(fd);
     hide_file(journal_fname);
 
-    jstart_block = get_start_block(journal_fname);
+    start_block = get_start_block(journal_fname, block_size);
+    if (start_block == (off_t)-1) {
+	fprintf(stderr, "Failed to get start block for %s (%s)\n",
+		journal_fname, strerror(errno));
+	unlink(journal_fname);
+	return 20;
+    }
+    jstart_block = (start_block / block_size) - (embedded_offset / block_size);
 
-    memset(&jib, 0, sizeof(jib));
+    memset(&jib, 'Z', sizeof(jib));
     jib.flags  = kJIJournalInFSMask;
     jib.offset = (off_t)((unsigned)jstart_block) * (off_t)((unsigned)block_size);
     jib.size   = (off_t)((unsigned)journal_size);
@@ -308,7 +517,15 @@ DoMakeJournaled(char *volname, int jsize)
     close(fd);
     hide_file(jib_fname);
 
-    jinfo_block = get_start_block(jib_fname);
+    start_block = get_start_block(jib_fname, block_size);
+    if (start_block == (off_t)-1) {
+	fprintf(stderr, "Failed to get start block for %s (%s)\n",
+		jib_fname, strerror(errno));
+	unlink(journal_fname);
+	unlink(jib_fname);
+	return 20;
+    }
+    jinfo_block = (start_block / block_size) - (embedded_offset / block_size);
 
 
     //

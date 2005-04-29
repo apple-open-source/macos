@@ -6,32 +6,11 @@
 #
 # CALLS: eval_oneprogram.sh [-h][-lk] <program>
 #
-# SOURCES: TESTCONF.sh
 #
-#
-
-								USAGE_LONG='
-#
-# HOW TO ENTER A NEW TEST
-#
-# Copy the template file (T2.sh) XXX to the tests directory, and have
-# the file begin with a 'T'.  All files in the tests directory
-# begining with a 'T' are assumed to be a test.  See the file for
-# further instructions
-#
-# HOW TESTS ARE RUN AND EVALUATED
-#
-# ...
-# 
-'
 
 #
 # Suggested improvement(s):
 #	Run a given test against a running agent.
-#	Display errors
-#	interactively pick tests to run.
-#	options arguments to pick tests to run.
-#
 #
 # Variables:  (* = exported)
 #  *SNMP_BASEDIR:  	  the source base directory for tests
@@ -41,20 +20,36 @@
 
 # Usage mess.  (No, it works.)
 #
-USAGE="Usage: `basename $0` [-h] [-i] [-v] [-V] [-s] [-T TESTNUMS] [-D bindir] [-S seconds]"
 
 usage() { 
-    echo; 
-    echo $USAGE;
-    #cat <<BLIK | sed 's/^#//' | sed '1d' | $PAGER
-    #$USAGE_LONG
-    #BLIK
+    cat << BLIK
+
+Usage: `basename $0` [-a] [-S SLEEPTIME] [-h] [-i] [-v] [-V] [-s] [-XM]
+       [-T TESTNUMS] [-D bindir] [-S seconds] [-P <udp|tcp|udp6|tcp6|unix>]
+
+  -a        run all tests.
+  -T NUMS   run particular tests (command separated list of numbers)
+  -i        run interactively
+  -v        be verbose
+  -V        be very verbose
+  -S TIME   TIME should be used as the timeout when waiting for a
+            response from the agent.
+  -A FLAGS  Extra flags to pass to the agent.
+  -t FLAGS  Extra flags to pass to the trapd.
+  -s        Don't erase the runtime data directory for successful tests
+  -XM       Don't set MIBDIRS environment unless absolutely necessary
+  -x        Turn on SH output debugging for tests.
+  -P TRANS  Specify on which transport domain to run the tests.Default is udp.
+
+BLIK
     exit 0
 }
 
 trap "exit 1;" 1 2 3 9 13 15 17
 
 SNMP_BASEDIR=`dirname $0`
+SNMP_PREFER_NEAR_MIBS=1	## prefer MIB files found in source hierarchy
+export SNMP_PREFER_NEAR_MIBS
 
 ### Check for the configuration script.
 ##if [ ! -s "${SNMP_BASEDIR}/TESTCONF.sh"  ] ; then 
@@ -66,7 +61,7 @@ ORIGDIR=`pwd`		## this script may be invoked with relative path
 SNMP_UPDIR=..		## building from the source tree
 interactive=no
 SNMP_VERBOSE=0
-SNMP_SLEEP=${SNMP_SLEEP:=1}	## default seconds to sleep
+SNMP_SLEEP=${SNMP_SLEEP:=1} 	## default seconds to sleep
 SH_DEBUG=0
 
 while [ -n "$1" ]; do
@@ -93,9 +88,22 @@ while [ -n "$1" ]; do
 	    shift
 	    SNMP_UPDIR="$1"
 	    ;;
+	-P)
+		shift
+		SNMP_TRANSPORT_SPEC="$1"
+		export SNMP_TRANSPORT_SPEC
+		if [ "x$SNMP_TRANSPORT_SPEC" = "xunix" ];then
+			SNMP_SNMPD_PORT="/var/tmp/unixsnmpd"
+			SNMP_SNMPTRAPD_PORT="/var/tmp/unixsnmptrapd"
+			SNMP_TEST_DEST=""
+			export SNMP_SNMPD_PORT
+			export SNMP_SNMPTRAPD_PORT
+			export SNMP_TEST_DEST
+		fi
+		;;
 	-T)
 	    shift
-	    test_nums="$1"
+	    test_nums=`echo $1 | sed 's/,/ /g'`
 	    ;;
 	-a)
 	    test_nums="all"
@@ -110,9 +118,18 @@ while [ -n "$1" ]; do
 	    shift
 	    SNMP_SLEEP="$1"
 	    ;;
+	-t)
+	    shift
+	    TRAPD_FLAGS="$1"
+	    export TRAPD_FLAGS
+	    ;;
 
 	-x)
 	    SH_DEBUG=1
+	    ;;
+
+	-XM)
+	    SNMP_PREFER_NEAR_MIBS=0
 	    ;;
 
     esac
@@ -122,24 +139,41 @@ done
 
 export SNMP_SLEEP
 
+# Make sure MinGW / MSYS users have the kill.exe program to stop the agent and snmptrapd
+if [ "x$OSTYPE" = "xmsys" ]; then
+  kill_command=`which kill.exe`
+  if [ "x$kill_command" = "x" ]; then
+    echo Could not find kill.exe.  Aborting tests
+    echo Kill.exe is available from the Support Tools package availble on the
+    echo Windows 2000 CDROM under SUPPORT\\TOOLS.
+    exit
+  fi
+fi
+
 # Find executables in source first, then build, then existing PATH.
 ## Add to PATH if a binary is found.
 
 cd $SNMP_UPDIR
 SNMP_UPDIR=`pwd`
 bf=snmpget
-if [ -f "$bf" ] ; then
+if [ -x "$bf" ] ; then
    PATH=$SNMP_UPDIR:$PATH
 else
-   bf=apps/snmpget
-   if [ -f "$bf" ] ; then
-      PATH=$SNMP_UPDIR/apps:$PATH
+  for dd in apps bin ; do
+   bf=$dd/snmpget
+   if [ -x "$bf" ] ; then
+      PATH=$SNMP_UPDIR/$dd:$PATH
+      break
    fi
+  done
 fi
-bf=agent/snmpd
-if [ -f "$bf" ] ; then
-   PATH=$SNMP_UPDIR/agent:$PATH
-fi
+for dd in agent bin sbin ; do
+   bf=$dd/snmpd
+   if [ -x "$bf" ] ; then
+      PATH=$SNMP_UPDIR/$dd:$PATH
+      break
+   fi
+done
 
 bf=include/net-snmp/net-snmp-config.h
 if [ ! -s "$bf" ] ; then
@@ -199,6 +233,24 @@ fi
 rmdir $SNMP_TMPDIR
 unset SNMP_TMPDIR
 export SNMP_TMPDIR
+
+if [ "x$SNMP_PREFER_NEAR_MIBS" = "x0" ]; then
+    # try the compiled MIBDIRS directory first.
+    # if MIB files are not found, fallback to the source base
+
+    snmptranslate -On -IR sysDescr > /dev/null 2>&1
+    if [ $? -ne 0 ] ; then
+        if [ "x$MIBDIRS" = "x" ]; then
+    	MIBDIRS=${SNMP_BASEDIR}/../mibs
+    	export MIBDIRS
+        fi
+    fi
+    snmptranslate -On -IR sysDescr > /dev/null 2>&1
+    if [ $? -ne 0 ] ; then
+        echo "Could not resolve sysDescr in $MIBDIRS. Exiting"
+        exit 1
+    fi
+fi ## SNMP_PREFER_NEAR_MIBS
 
 #
 # Switch to the testing directory, for ease of the client test packages.
@@ -267,7 +319,6 @@ if [ "x$do_tests" = "x" ]; then
 		if echo " $inp " | grep " $a " > /dev/null; then
 		    do_tests="$do_tests $1"
 		    if [ "x$test_nums" = "x" ] ; then
-			# actually broken.  sets only the first num correctly.
 			test_nums=$a
 		    fi
 		fi
@@ -288,8 +339,16 @@ if [ "x$test_nums" = "xall" -o "x$test_nums" = "x" ] ; then
 else
     num="$test_nums"
 fi
+cntr=0
 for testfile in $do_tests; do
-    dothisone="yes";
+    dothisone="yes"
+    id_x=0
+    for itest in $inp; do
+        if [ "$cntr" = "$id_x" ] ; then
+            num="$itest"
+        fi
+    id_x=`expr $id_x + 1`
+    done
     if [ "x$interactive" = "xyes" ]; then
 
         if [ $SH_DEBUG = 1 ] ; then
@@ -299,8 +358,8 @@ for testfile in $do_tests; do
 	fi
 
 	ECHO "  Run test #$num (y/n) [y]? "
-	read inp
-	if [ "x$inp" = "xn" ]; then
+	read inp2
+	if [ "x$inp2" = "xn" ]; then
 	    dothisone=no
 	fi
     fi
@@ -318,6 +377,7 @@ for testfile in $do_tests; do
 	fi
     fi
     num=`expr $num + 1`
+    cntr=`expr $cntr + 1`
 done
 
 echo Summary: $success_count / `expr $failed_count + $success_count` succeeded.

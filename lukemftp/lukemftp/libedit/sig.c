@@ -1,4 +1,4 @@
-/*	$NetBSD: sig.c,v 1.6 2000/09/04 22:06:32 lukem Exp $	*/
+/*	$NetBSD: sig.c,v 1.9 2002/03/18 16:00:58 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,17 +36,20 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * sig.c: Signal handling stuff.
  *	  our policy is to trap all signals, set a good state
  *	  and pass the ball to our caller.
  */
-#include "sys.h"
 #include "el.h"
+#include <stdlib.h>
 
 private EditLine *sel = NULL;
 
-private int sighdl[] = {
+private const int sighdl[] = {
 #define	_DO(a)	(a),
 	ALLSIGS
 #undef	_DO
@@ -107,7 +110,7 @@ sig_init(EditLine *el)
 	sigset_t nset, oset;
 
 	(void) sigemptyset(&nset);
-#define	_DO(a) (void) sigaddset(&nset, SIGWINCH);
+#define	_DO(a) (void) sigaddset(&nset, a);
 	ALLSIGS
 #undef	_DO
 	    (void) sigprocmask(SIG_BLOCK, &nset, &oset);
@@ -115,6 +118,8 @@ sig_init(EditLine *el)
 #define	SIGSIZE (sizeof(sighdl) / sizeof(sighdl[0]) * sizeof(sigfunc))
 
 	el->el_signal = (sigfunc *) el_malloc(SIGSIZE);
+	if (el->el_signal == NULL)
+		return (-1);
 	for (i = 0; sighdl[i] != -1; i++)
 		el->el_signal[i] = SIG_ERR;
 
@@ -146,7 +151,7 @@ sig_set(EditLine *el)
 	sigset_t nset, oset;
 
 	(void) sigemptyset(&nset);
-#define	_DO(a) (void) sigaddset(&nset, SIGWINCH);
+#define	_DO(a) (void) sigaddset(&nset, a);
 	ALLSIGS
 #undef	_DO
 	    (void) sigprocmask(SIG_BLOCK, &nset, &oset);
@@ -172,7 +177,7 @@ sig_clr(EditLine *el)
 	sigset_t nset, oset;
 
 	(void) sigemptyset(&nset);
-#define	_DO(a) (void) sigaddset(&nset, SIGWINCH);
+#define	_DO(a) (void) sigaddset(&nset, a);
 	ALLSIGS
 #undef	_DO
 	    (void) sigprocmask(SIG_BLOCK, &nset, &oset);

@@ -1,6 +1,6 @@
 # -*- python -*-
 
-# Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+# Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -587,6 +587,10 @@ VERP_FORMAT = '%(bounces)s+%(mailbox)s=%(host)s'
 # compiled case-insensitively.
 VERP_REGEXP = r'^(?P<bounces>[^+]+?)\+(?P<mailbox>[^=]+)=(?P<host>[^@]+)@.*$'
 
+# VERP format and regexp for probe messages
+VERP_PROBE_FORMAT = '%(bounces)s+%(token)s'
+VERP_PROBE_REGEXP = r'^(?P<bounces>[^+]+?)\+(?P<token>[^@]+)@.*$'
+
 # A perfect opportunity for doing VERP is the password reminders, which are
 # already addressed individually to each recipient.  Set this to Yes to enable
 # VERPs on all password reminders.
@@ -748,22 +752,6 @@ OWNERS_CAN_ENABLE_PERSONALIZATION = No
 # parse/generate roundtrip each time, but the latter might be preferred if you
 # want to edit the held message on disk.
 HOLD_MESSAGES_AS_PICKLES = Yes
-
-# These define the available types of external message metadata formats, and
-# the one to use by default.  MARSHAL format uses Python's built-in marshal
-# module.  BSDDB_NATIVE uses the bsddb module compiled into Python, which
-# links with whatever version of Berkeley db you've got on your system (in
-# Python 2.0 this is included by default if configure can find it).  ASCII
-# format is a dumb repr()-based format with "key = value" Python assignments.
-# It is human readable and editable (as Python source code) and is appropriate
-# for execfile() food.
-#
-# Note!  Make sure your queues are empty before you change this.
-METAFMT_MARSHAL      = 1
-METAFMT_BSDDB_NATIVE = 2
-METAFMT_ASCII        = 3
-
-METADATA_FORMAT = METAFMT_MARSHAL
 
 # This variable controls the order in which list-specific category options are
 # presented in the admin cgi page.
@@ -995,6 +983,9 @@ PLAIN_DIGEST_KEEP_HEADERS = [
 # Should we do any bounced mail response at all?
 DEFAULT_BOUNCE_PROCESSING = Yes
 
+# How often should the bounce qrunner process queued detected bounces?
+REGISTER_BOUNCES_EVERY = minutes(15)
+
 # Bounce processing works like this: when a bounce from a member is received,
 # we look up the `bounce info' for this member. If there is no bounce info,
 # this is the first bounce we've received from this member.  In that case, we
@@ -1051,8 +1042,8 @@ DEFAULT_BOUNCE_NOTIFY_OWNER_ON_REMOVAL = Yes
 # General time limits
 #####
 
-# How long should subscriptions requests await confirmation before being
-# dropped?
+# Default length of time a pending request is live before it is evicted from
+# the pending database.
 PENDING_REQUEST_LIFE = days(3)
 
 # How long should messages which have delivery failures continue to be
@@ -1098,19 +1089,6 @@ LIST_LOCK_TIMEOUT = seconds(10)
 # lock problems, or just want to tune the locks for your system, turn on lock
 # debugging.
 PENDINGDB_LOCK_DEBUGGING = Off
-
-# This variable specifies how long an attempt will be made to acquire a
-# pendingdb lock by the incoming qrunner process.  If the lock acquisition
-# times out, the message will be re-queued for later delivery.
-PENDINGDB_LOCK_TIMEOUT = seconds(30)
-
-# The pendingdb is shared among all lists, and handles all list
-# (un)subscriptions, admin approvals and otherwise held messages, so it is
-# potentially locked a lot more often than single lists.  Mailman deals with
-# this by re-trying any attempts to alter the pendingdb that failed because of
-# locking errors.  This variable indicates how many attempt should be made
-# before abandoning all hope.
-PENDINGDB_LOCK_ATTEMPTS = 10
 
 
 
@@ -1294,6 +1272,7 @@ add_language('ru',    _('Russian'),             'koi8-r')
 add_language('sr',    _('Serbian'),             'utf-8')
 add_language('sl',    _('Slovenian'),           'iso-8859-2')
 add_language('sv',    _('Swedish'),             'iso-8859-1')
+add_language('tr',    _('Turkish'),             'iso-8859-9')
 add_language('uk',    _('Ukrainian'),           'utf-8')
 add_language('zh_CN', _('Chinese (China)'),     'gb2312')
 add_language('zh_TW', _('Chinese (Taiwan)'),    'big5')

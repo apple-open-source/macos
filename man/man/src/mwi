@@ -1,0 +1,19 @@
+#!/bin/sh
+# test which words in all caps end a NAME section in a (compressed) cat page
+#
+# Found so far:
+#
+# SYNOPSIS
+# SYNOPOSIS
+# SYSTEM V SYNOPSIS
+# SYNTAX
+# DESCRIPTION
+# COMMAND
+# OVERVIEW
+# STRUCTURES
+# INTRODUCTION
+#
+	for i in *
+	do
+		zcat $i | col -bx | sed '1,/^NAME/d; /^[A-Z][A-Z]/q' | tail -1
+	done

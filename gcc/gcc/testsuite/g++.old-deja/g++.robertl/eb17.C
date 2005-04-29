@@ -1,5 +1,4 @@
-// excess errors test - XFAIL
-// covariant return types in are currently not support for complex inheritance
+// { dg-do run  }
 #include <stdio.h>
 
 class A {

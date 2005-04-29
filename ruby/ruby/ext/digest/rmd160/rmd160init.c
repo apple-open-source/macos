@@ -1,8 +1,12 @@
 /* $RoughId: rmd160init.c,v 1.3 2001/07/13 20:00:43 knu Exp $ */
-/* $Id: rmd160init.c,v 1.1.1.1 2002/05/27 17:59:45 jkh Exp $ */
+/* $Id: rmd160init.c,v 1.3 2002/09/26 17:26:46 knu Exp $ */
 
 #include "digest.h"
+#if defined(HAVE_OPENSSL_RIPEMD_H)
+#include "rmd160ossl.h"
+#else
 #include "rmd160.h"
+#endif
 
 static algo_t rmd160 = {
     RMD160_DIGEST_LENGTH,
@@ -29,6 +33,6 @@ Init_rmd160()
 
     id_metadata = rb_intern("metadata");
 
-    rb_cvar_declare(cDigest_RMD160, id_metadata,
-		    Data_Wrap_Struct(rb_cObject, 0, 0, &rmd160));
+    rb_cvar_set(cDigest_RMD160, id_metadata,
+		Data_Wrap_Struct(rb_cObject, 0, 0, &rmd160), Qtrue);
 }

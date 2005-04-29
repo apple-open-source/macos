@@ -30,7 +30,7 @@
  *  Author: Thomas E. Dickey <dickey@clark.net> 1998                        *
  ****************************************************************************/
 /*
- * $Id: ncurses_tst.hin,v 1.1.1.1 2001/11/29 20:41:00 jevans Exp $
+ * $Id: ncurses_tst.hin,v 1.2 1998/02/11 12:14:05 tom Exp $
  *
  * This is a template-file used to generate the "ncurses_cfg.h" file.
  *

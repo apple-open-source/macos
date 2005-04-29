@@ -35,12 +35,12 @@
 #undef long
 
 #if L'\u1234' != 0x1234
-#error bad short ucs	/* { dg-bogus "bad" "bad \u1234 evaluation" } */
+#error bad short ucs	/* { dg-bogus "bad" "bad \\u1234 evaluation" } */
 #endif
 
 #if WCHAR_MAX >= 0x7ffffff
 # if L'\U1234abcd' != 0x1234abcd
-#  error bad long ucs	/* { dg-bogus "bad" "bad \U1234abcd evaluation" } */
+#  error bad long ucs	/* { dg-bogus "bad" "bad \\U1234abcd evaluation" } */
 # endif
 #endif
 

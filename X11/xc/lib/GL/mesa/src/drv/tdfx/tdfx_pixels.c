@@ -23,7 +23,7 @@
  * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_pixels.c,v 1.4 2002/02/22 21:45:03 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/tdfx/tdfx_pixels.c,v 1.5 2003/09/28 20:15:36 alanh Exp $ */
 
 /*
  * Original rewrite:
@@ -64,6 +64,7 @@
   } while (0);
 
 
+#if 0
 static FxBool
 FX_grLfbLock(tdfxContextPtr fxMesa, GrLock_t type, GrBuffer_t buffer,
              GrLfbWriteMode_t writeMode, GrOriginLocation_t origin,
@@ -76,7 +77,7 @@ FX_grLfbLock(tdfxContextPtr fxMesa, GrLock_t type, GrBuffer_t buffer,
    UNLOCK_HARDWARE(fxMesa);
    return result;
 }
-
+#endif
 
 
 #define FX_grLfbUnlock(fxMesa, t, b)	\
@@ -511,7 +512,7 @@ tdfx_readpixels_R5G6B5(GLcontext * ctx, GLint x, GLint y,
 	     GL_FRONT) ? (fxMesa->screen_width) : (info.strideInBytes / 2);
 	 const GLushort *src = (const GLushort *) info.lfbPtr
 	    + scrY * srcStride + scrX;
-	 const GLubyte *dst = (GLubyte *) _mesa_image_address(packing,
+	 GLubyte *dst = (GLubyte *) _mesa_image_address(packing,
             dstImage, width, height, format, type, 0, 0, 0);
 	 const GLint dstStride = _mesa_image_row_stride(packing,
             width, format, type);
@@ -572,7 +573,7 @@ tdfx_readpixels_R8G8B8A8(GLcontext * ctx, GLint x, GLint y,
             + scrY * srcStride + scrX;
          const GLint dstStride =
             _mesa_image_row_stride(packing, width, format, type);
-         const GLubyte *dst = (GLubyte *) _mesa_image_address(packing,
+         GLubyte *dst = (GLubyte *) _mesa_image_address(packing,
             dstImage, width, height, format, type, 0, 0, 0);
          const GLint widthInBytes = width * 4;
 
@@ -616,7 +617,7 @@ tdfx_drawpixels_R8G8B8A8(GLcontext * ctx, GLint x, GLint y,
        !ctx->Color.ColorMask[2] ||
        !ctx->Color.ColorMask[3] ||
        ctx->Color.ColorLogicOpEnabled ||
-       ctx->Texture._ReallyEnabled ||
+       ctx->Texture._EnabledUnits ||
        ctx->Depth.OcclusionTest ||
        fxMesa->Fallback)       
    {
@@ -662,7 +663,7 @@ tdfx_drawpixels_R8G8B8A8(GLcontext * ctx, GLint x, GLint y,
       {
          const GLint dstStride = (fxMesa->glCtx->Color.DrawBuffer == GL_FRONT)
             ? (fxMesa->screen_width * 4) : (info.strideInBytes);
-         const GLubyte *dst = (const GLubyte *) info.lfbPtr
+         GLubyte *dst = (GLubyte *) info.lfbPtr
             + scrY * dstStride + scrX * 4;
          const GLint srcStride =
             _mesa_image_row_stride(unpack, width, format, type);

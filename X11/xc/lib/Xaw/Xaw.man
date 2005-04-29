@@ -26,7 +26,7 @@
 .\"
 .\" Author: Paulo César Pereira de Andrade
 .\"
-.\" $XFree86: xc/lib/Xaw/Xaw.man,v 1.7 2001/11/04 21:16:39 paulo Exp $
+.\" $XFree86: xc/lib/Xaw/Xaw.man,v 1.8 2003/05/29 21:48:05 herrb Exp $
 .\"
 .de TQ
 .br
@@ -60,7 +60,7 @@ or \fI*\fP; or a constant name, including \fImine\fP (event->xany.window
 and \fIfalse\fP (0).
 .PP
 \fBArguments\fP are self-explanatory; when starting with a \fI$\fP they name
-a variable, otherise, they indicate a resource name.
+a variable, otherwise, they indicate a resource name.
 .TP 8
 .B call-proc \fP(\fIboolean-expression\fP, \fIprocedure-name\fP)
 This action allows the evaluation of a boolean expression in the first
@@ -293,7 +293,7 @@ respectively.  Example:
 .B image \fP{pixmap-spec},xs,ys,[xe,ye]
 This function is implemented as a way to quickly compose complex
 decorations in widgets.  \fIPixmap-spec\fP is as defined in the
-\fBPIXMAPS\fP section below. \fIxs\fP and \fIys\fP are the coodinates from
+\fBPIXMAPS\fP section below. \fIxs\fP and \fIys\fP are the coordinates from
 where to start copying the pixmap; \fIxe\fP and \fIye\fP are optional (they
 default to xs + pixmap.width and ys + pixmap.height, respectively).  If the
 pixmap has a mask, the copy is masked accordingly.  Example:
@@ -516,10 +516,10 @@ an alphanumeric character will automatically end at this column.
 .B scrollVertical (\fPClass\fB Scroll)
 These resources control the placement of scrollbars on the left and bottom
 edges of the Text widget.  They accept the values \fIXawtextScrollAlways\fP
-and \fIXawtextScrollNever\fP.  A converter is registerd for this resource
+and \fIXawtextScrollNever\fP.  A converter is registered for this resource
 that will convert the following strings: \fIalways\fP and \fInever\fP.  The
 value \fIXawtextScrollWhenNeeded\fP (and \fIwhenNeeded\fP, recognized by
-the converter), is accepted for backwards compatibilty with resource
+the converter), is accepted for backwards compatibility with resource
 specifications written for the Xaw6 Text widget, but ignored (effectively
 treated as \fIXawtextScrollNever\fP).
 .SH TEXT SOURCE OBJECT

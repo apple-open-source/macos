@@ -1,6 +1,6 @@
 dnl nana.m4--nana macro
 dnl Rob Earhart
-dnl $Id: nana.m4,v 1.5 2003/10/08 20:35:25 rjs3 Exp $
+dnl $Id: nana.m4,v 1.5 2005/03/05 00:36:12 dasenbro Exp $
 
 AC_DEFUN([CMU_NANA], [
   AC_REQUIRE([AC_PROG_CC])

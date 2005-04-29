@@ -1,25 +1,62 @@
 ##
-# Makefile for tar
+# gnutar Makefile
 ##
 
 # Project info
-Project               = tar
-UserType              = Administration
+Project               = gnutar
+UserType              = Administrator
 ToolType              = Commands
-Extra_Configure_Flags = --program-prefix="gnu"
-GnuAfterInstall       = install-man
-Extra_Environment     = STRIP='strip'
+Extra_Configure_Flags = --program-prefix=gnu --includedir=/usr/local/include
+Extra_CC_Flags        = -mdynamic-no-pic
+GnuAfterInstall       = remove-dir link-bin install-man install-plist
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
+# Automatic Extract & Patch
+AEP            = YES
+AEP_Project    = tar
+AEP_Version    = 1.14
+AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
+AEP_Filename   = $(AEP_ProjVers).tar.bz2
+AEP_ExtractDir = $(AEP_ProjVers)
+AEP_Patches    = src__extract.diff PR3885704.diff EA.diff
+
+ifeq ($(suffix $(AEP_Filename)),.bz2)
+AEP_ExtractOption = j
+else
+AEP_ExtractOption = z
+endif
+
+# Extract the source.
+install_source::
+ifeq ($(AEP),YES)
+	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
+	$(RMDIR) $(SRCROOT)/$(Project)
+	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
+	for patchfile in $(AEP_Patches); do \
+		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile; \
+	done
+endif
+
+remove-dir:
+	$(RM) $(DSTROOT)/usr/share/info/dir
+
+link-bin:
+	$(LN) $(DSTROOT)/usr/bin/gnutar $(DSTROOT)/usr/bin/tar
+
 install-man:
-	mkdir -p "$(DSTROOT)/usr/share/man/man1"
-	install -c -m 644 "$(SRCROOT)/gnutar.1" "$(DSTROOT)/usr/share/man/man1/gnutar.1"
-	ln -f "$(DSTROOT)/usr/bin/gnutar" "$(DSTROOT)/usr/bin/tar" 
-	ln -f "$(DSTROOT)/usr/share/man/man1/gnutar.1" "$(DSTROOT)/usr/share/man/man1/tar.1"
-	rm -f "$(DSTROOT)/usr/lib/charset.alias"
-	rm -f "$(DSTROOT)/usr/share/info/dir"
-	rm -f "$(DSTROOT)/usr/share/locale/locale.alias"
-	mkdir -p "$(DSTROOT)/private/etc"
-	ln -s /usr/sbin/rmt "$(DSTROOT)/private/etc"
+	$(MKDIR) $(DSTROOT)$(MANDIR)/man1/
+	$(INSTALL_FILE) $(SRCROOT)/gnutar.1 $(DSTROOT)$(MANDIR)/man1/gnutar.1
+	$(LN) $(DSTROOT)$(MANDIR)/man1/gnutar.1 $(DSTROOT)$(MANDIR)/man1/tar.1
+	$(MKDIR) $(DSTROOT)$(MANDIR)/man8/
+	$(INSTALL_FILE) $(SRCROOT)/gnurmt.8 $(DSTROOT)$(MANDIR)/man8/gnurmt.8
+
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+
+install-plist:
+	$(MKDIR) $(OSV)
+	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt

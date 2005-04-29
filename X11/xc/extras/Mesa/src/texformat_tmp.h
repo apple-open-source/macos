@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.4
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,9 +23,16 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Gareth Hughes <gareth@valinux.com>
+ *    Gareth Hughes
  *    Brian Paul
  */
+
+
+/*
+ * This template file generates texel fetch functions for 1-D, 2-D and 3-D
+ * texture images.
+ */
+
 
 #if DIM == 1
 
@@ -346,6 +353,103 @@ static void FETCH(ycbcr_rev)( const struct gl_texture_image *texImage,
    rgba[BCOMP] = CLAMP(b, 0, CHAN_MAX);
    rgba[ACOMP] = CHAN_MAX;
 }
+
+
+/* big-endian */
+
+#if 0
+static void FETCH(abgr8888)( const struct gl_texture_image *texImage,
+			     GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLubyte *src = UBYTE_SRC( texImage, i, j, k, 4 );
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( src[3] );
+   rgba[GCOMP] = UBYTE_TO_CHAN( src[2] );
+   rgba[BCOMP] = UBYTE_TO_CHAN( src[1] );
+   rgba[ACOMP] = UBYTE_TO_CHAN( src[0] );
+}
+
+static void FETCH(bgra8888)( const struct gl_texture_image *texImage,
+			     GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLubyte *src = UBYTE_SRC( texImage, i, j, k, 4 );
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( src[2] );
+   rgba[GCOMP] = UBYTE_TO_CHAN( src[1] );
+   rgba[BCOMP] = UBYTE_TO_CHAN( src[0] );
+   rgba[ACOMP] = UBYTE_TO_CHAN( src[3] );
+}
+
+static void FETCH(bgr888)( const struct gl_texture_image *texImage,
+			   GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLubyte *src = UBYTE_SRC( texImage, i, j, k, 3 );
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( src[2] );
+   rgba[GCOMP] = UBYTE_TO_CHAN( src[1] );
+   rgba[BCOMP] = UBYTE_TO_CHAN( src[0] );
+   rgba[ACOMP] = CHAN_MAX;
+}
+
+static void FETCH(bgr565)( const struct gl_texture_image *texImage,
+			   GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLushort *src = USHORT_SRC( texImage, i, j, k );
+   const GLushort s = *src;
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( ((s >> 8) & 0xf8) * 255 / 0xf8 );
+   rgba[GCOMP] = UBYTE_TO_CHAN( ((s >> 3) & 0xfc) * 255 / 0xfc );
+   rgba[BCOMP] = UBYTE_TO_CHAN( ((s << 3) & 0xf8) * 255 / 0xf8 );
+   rgba[ACOMP] = CHAN_MAX;
+}
+
+static void FETCH(bgra4444)( const struct gl_texture_image *texImage,
+			     GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLushort *src = USHORT_SRC( texImage, i, j, k );
+   const GLushort s = *src;
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( ((s >>  8) & 0xf) * 255 / 0xf );
+   rgba[GCOMP] = UBYTE_TO_CHAN( ((s >>  4) & 0xf) * 255 / 0xf );
+   rgba[BCOMP] = UBYTE_TO_CHAN( ((s      ) & 0xf) * 255 / 0xf );
+   rgba[ACOMP] = UBYTE_TO_CHAN( ((s >> 12) & 0xf) * 255 / 0xf );
+}
+
+static void FETCH(bgra5551)( const struct gl_texture_image *texImage,
+			     GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLushort *src = USHORT_SRC( texImage, i, j, k );
+   const GLushort s = *src;
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( ((s >> 10) & 0x1f) * 255 / 0x1f );
+   rgba[GCOMP] = UBYTE_TO_CHAN( ((s >>  5) & 0x1f) * 255 / 0x1f );
+   rgba[BCOMP] = UBYTE_TO_CHAN( ((s      ) & 0x1f) * 255 / 0x1f );
+   rgba[ACOMP] = UBYTE_TO_CHAN( ((s >> 15) & 0x01) * 255 );
+}
+
+static void FETCH(la88)( const struct gl_texture_image *texImage,
+			 GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLubyte *src = UBYTE_SRC( texImage, i, j, k, 2 );
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( src[0] );
+   rgba[GCOMP] = UBYTE_TO_CHAN( src[0] );
+   rgba[BCOMP] = UBYTE_TO_CHAN( src[0] );
+   rgba[ACOMP] = UBYTE_TO_CHAN( src[1] );
+}
+
+static void FETCH(bgr233)( const struct gl_texture_image *texImage,
+			   GLint i, GLint j, GLint k, GLvoid *texel )
+{
+   const GLubyte *src = UBYTE_SRC( texImage, i, j, k, 1 );
+   const GLubyte s = *src;
+   GLchan *rgba = (GLchan *) texel;
+   rgba[RCOMP] = UBYTE_TO_CHAN( ((s     ) & 0xe0) * 255 / 0xe0 );
+   rgba[GCOMP] = UBYTE_TO_CHAN( ((s << 3) & 0xe0) * 255 / 0xe0 );
+   rgba[BCOMP] = UBYTE_TO_CHAN( ((s << 5) & 0xc0) * 255 / 0xc0 );
+   rgba[ACOMP] = CHAN_MAX;
+}
+#endif
 
 
 #undef CHAN_SRC

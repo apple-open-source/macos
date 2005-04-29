@@ -1,0 +1,612 @@
+#! @PERL@ -w
+# $Id: cups-genppdconfig.in,v 1.1.1.1 2004/07/23 06:26:31 jlovell Exp $
+# A user-friendly dialog-based wrapper for cups-genppd(8).
+# Copyright (C) 2002 Roger Leigh <rleigh@debian.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+use strict;
+use File::Basename;
+use File::Find;
+use File::Temp qw(tempfile unlink0);
+use IO::Handle;
+use Getopt::Std;
+use POSIX;
+use Locale::gettext;
+
+sub init_data();
+sub init_defaults();
+sub main_menu();
+sub display_help;
+sub choose_printers;
+sub choose_languages;
+sub choose_location;
+sub create_ppds;
+sub create_dir($);
+sub dialog_read($$);
+sub dialog_read_list (\%\@$$);
+sub perl_menu ($$$$@);
+sub perl_menu_read_list (\%\@$$);
+sub perl_menu_mult ($$@);
+
+my $DIALOG = "@DIALOG@";                        # version of dialog to call
+my $use_dialog = 0;                             # whether to use dialog
+my $BACKTITLE = "Gimp-Print CUPS PPD creation"; # dialog screen title
+my %printers;                                   # master list of printers
+my %languages;                                  # master list of languages
+my @used_printers;                              # printer PPDs on system
+my @used_languages;                             # languages used on system
+my @chosen_printers = ();                       # chosen printers
+my @chosen_languages = ();                      # chosen languages
+my $version = "@GIMPPRINT_MAJOR_VERSION@.@GIMPPRINT_MINOR_VERSION@";
+my $chosen_location = "@cups_conf_datadir@/model/gimp-print/$version";
+                                                # chosen PPD prefix
+my $silent = 0;                                 # no dialog
+
+
+# Set chosen_location from command-line.
+our $opt_d;
+our $opt_u;
+getopts('d:u');
+if ($opt_d) {
+    $chosen_location = create_dir($opt_d);
+}
+
+# Initialise everything
+init_data();
+init_defaults();
+
+# Run non-interactively if `-u' was specified.
+if ( $opt_u ) {
+    $silent = 1;
+    create_ppds;
+    exit 0;
+}
+
+# Can we use dialog?
+if (-x $DIALOG) {
+    $use_dialog = 1;
+} else {
+    BEGIN { $Curses::OldCurses = 1; }
+    use Curses;
+    use perlmenu;
+    perl_menu_defaults();
+}
+
+while (my $option = main_menu()) { # Display main menu and run selection
+    if ($option eq "Help") {
+	display_help();
+    } elsif ($option eq "Printers") {
+	choose_printers();
+    } elsif ($option eq "Languages") {
+	choose_languages();
+    } elsif ($option eq "Directory") {
+	choose_location();
+    } elsif ($option eq "Create") {
+	create_ppds();
+    } elsif ($option eq "Exit") {
+	exit 0;
+    } else {
+	die "Invalid menu option: $option";
+    }
+}
+
+exit 0;
+
+
+#
+# init_data() - Populate master printer and language hashes.
+#
+sub init_data() {
+    my $model;
+    my $desc;
+    my $lang;
+# Get printer drivers and descriptions, then store in a hash.
+    open GENPPD, "cups-genppd.$version -M -v |" or die "can't fork cups-genppd.$version: $!";
+    while (<GENPPD>) {
+	($model, $desc) = /([\w-]+)\W+(.*)/;
+	chomp ($model);
+	chomp ($desc);
+	$printers{$model} = $desc;
+    }
+    close GENPPD or die "can't close cups-genppd.$version pipe: $!";
+# Get available languages, then store in hash.
+    open GENPPD, "cups-genppd.$version -L |" or die "can't fork cups-genppd.$version: $!";
+    while (<GENPPD>) {
+	$lang = $_;
+	chomp ($lang);
+	$languages{$lang} = "(No description)";
+    }
+    $languages{"en"} = "US English";
+    close GENPPD or die "can't close cups-genppd.$version pipe: $!";
+# Set defaults
+    @chosen_languages = ("en");
+}
+
+
+#
+# init_defaults() - Get defaults from PPD files and directories.
+#
+sub init_defaults() {
+    # Find all PPD files that we could regenerate
+    my %found_ppds;
+    find({wanted => \&find_printers}, $chosen_location);
+    foreach (@used_printers) {
+	my $tmp;
+	$tmp = basename($_);
+	chomp ($tmp);
+	$tmp =~ s/(^.*)\.ppd.*/$1/;
+	$found_ppds{$tmp} = "" if $printers{$tmp};
+    }
+	@chosen_printers = ();
+    foreach (sort keys %found_ppds) {
+	push @chosen_printers, $_;
+    }
+
+    # Find all language directories that could be used
+    my %found_langs;
+    find({wanted => \&find_languages}, $chosen_location);
+    foreach (@used_languages) {
+	my $tmp;
+	$tmp = basename($_);
+	chomp ($tmp);
+	$found_langs{$tmp} = "" if $languages{$tmp};
+    }
+	@chosen_languages = ();
+    foreach (sort keys %found_langs) {
+	push @chosen_languages, $_;
+    }
+    if (! @chosen_languages) {
+	push @chosen_languages, "en";
+    }
+}
+
+
+#
+# find-*() - callbacks for File::Find::find().
+#
+sub find_printers {
+    my ($dev,$ino,$mode,$nlink,$uid,$gid);
+
+    (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+    -f _ &&
+    /^.*\.ppd.*\z/s && push @used_printers, $_;
+}
+
+sub find_languages {
+    my ($dev,$ino,$mode,$nlink,$uid,$gid);
+
+    (($dev,$ino,$mode,$nlink,$uid,$gid) = lstat($_)) &&
+    -d _ && push @used_languages, $_;
+}
+
+
+# string
+# main_menu() - Display main menu.
+#               Return string containing selection.
+#
+sub main_menu() {
+    my $option;
+    my @menu_options;
+    my $menu_desc = << "END";
+Generate Gimp-Print PPD files for use with CUPS.  This program is a user-friendly interface for cups-genppd(8).
+
+Current PPD directory: $chosen_location
+
+Hint: if the cursor keys cause problems, you may have more luck with +/- and TAB.
+END
+    @menu_options = (
+	[ "Help", "Display help text" ],
+	[ "Directory", "Choose PPD location" ],
+	[ "Printers", "Choose printers" ],
+	[ "Languages", "Choose languages" ],
+	[ "Create", "Create PPDs" ],
+	[ "Exit", "Exit the program" ]
+    );
+    if ($use_dialog) {
+	my $dialog_options;
+	for my $i ( 0 .. $#menu_options) {
+	    for my $j ( 0 .. $#{$menu_options[$i]}) {
+		$dialog_options .= "\"$menu_options[$i][$j]\" ";
+	    }
+	}
+	while (defined($option = dialog_read("cups-genppdconfig", "--no-cancel --default-item Printers --menu \"$menu_desc\" 20 70 6 $dialog_options"))) {
+	    chomp ($option);
+	    return $option;
+	}
+    } else {
+	$option = perl_menu(1, "Main menu", "Choose an option.",
+			    "Current PPD directory: $chosen_location",
+			    @menu_options);
+	return $option;
+    }
+}
+
+
+#
+# display_help() - Display help text.
+#
+sub display_help {
+    my $help_text = <<"END";
+cups-genppdconfig is a program to generate PPD files which enable the
+Gimp-Print printer drivers to be used with CUPS, the Common UNIX
+Printing System.  A PPD file is a PostScript Printer Description,
+which describes the capabilities of a printer.  For each printer model
+that you wish to use, you will have to generate the corresponding PPD
+file.
+
+There are three steps to generating the PPDs:
+
+
+[0. Directory]
+
+The default base directory to create PPD files in is
+@cups_conf_datadir@/model/gimp-print, and this is displayed on the
+main menu.  Choose the "Directory" option to change this, but in
+almost every case the default should be used.  Don\'t alter the default
+unless you know what you are doing.
+
+
+1. Printers
+
+Choose the "Printers" menu option.  The dialog box shows a complete
+list of all the printers supported by Gimp-Print.  Use the up and down
+cursor keys to move between the printers and SPACE to select the
+models you want.  Next, press ENTER to confirm the selections.
+
+If no printers are chosen, then a PPD file will be created for *every*
+model.
+
+
+2. Languages
+
+PPD files can be produced in several languages.  Choose the
+"Languages" menu option and, as for the "Printers" menu, select the
+languages that you wish to use and press ENTER to confirm the
+selections.
+
+Since a PPD file can only be translated into one language, selecting
+multiple languages is posible, but of limited usefulness (for each
+printer, a separate PPD file for each language will be produced).
+
+
+3. Save the selections
+
+Choose the "Save" menu option to generate the PPD files you requested.
+The files will be created in the default CUPS data directory
+\$cups_prefix/share/model/gimp-print.  Translations will be saved in
+subdirectories named according to the locale/language.
+
+
+Note that unselecting already selected entries in the Printer and
+Language Selection dialogs will *not* remove these from the
+filesystem; it will simply not cause them to be generated when you
+choose "Save".  To remove a printer, delete the PPD file from each
+language directory it appears in.  To remove a language, delete the
+directory named with the corresponding language code, and all its
+contents.
+
+Once you have finished, choose the "Exit" menu option, to leave the
+program.  Note that your selections will be lost, so make sure you
+saved your selections first, if you wanted to keep them.
+END
+    my($HELPFILE, $helpfilename) = tempfile("cups-genppdconfig-helpXXXXXX",
+					    UNLINK => 1)
+    or die "can't open temporary help file";
+    print $HELPFILE "$help_text";
+    $HELPFILE->flush();
+    if ($use_dialog) {
+        dialog_read("Help", "--textbox $helpfilename 18 76");
+    } else {
+        &menu_init(0, "Help", 0);
+        open(TEMP,$helpfilename);
+        while (<TEMP>) {
+            s/^(\t+)/'        ' x length($1)/e;
+            &expand($_) if /\t/;
+            &menu_item($_,"", -1);
+        }
+       close(TEMP);
+       &menu_display("Help viewer: (RET/u/t) exit  (n/p) next/previous page (b) beginning (e) end");
+    }
+    unlink0($HELPFILE, $helpfilename) or die "Error unlinking help file $helpfilename safely: $!";
+    close($HELPFILE) or die "can't close help file $helpfilename: $!";
+    return;
+}
+
+
+#
+# choose_printers() - Select printers from master list.
+#                     Default none (so create all printers).
+#
+sub choose_printers {
+    my $title = "Printer selection";
+    my $options = "--checklist \"Choose the printer models you wish to use with CUPS.\" 18 54 11";
+    if ($use_dialog) {
+	dialog_read_list(%printers, @chosen_printers, $title, $options);
+    } else {
+	perl_menu_read_list(%printers, @chosen_printers, $title,
+			    "Choose the printer models you wish to use with CUPS.");
+    }
+}
+
+
+#
+# choose_languages() - Select languages from master list.
+#                      Default is US English (en).
+#
+sub choose_languages {
+    my $title = "Language selection";
+    my $options = "--checklist \"Choose the languages you wish to use with CUPS.\" 18 54 11";
+    if ($use_dialog) {
+	dialog_read_list(%languages, @chosen_languages, $title, $options);
+    } else {
+	perl_menu_read_list(%languages, @chosen_languages, $title,
+			    "Choose the languages you wish to use with CUPS.");
+    }
+}
+
+
+#
+# choosen_location() - Select PPD prefix directory and create it if
+#                      not present.
+#
+sub choose_location {
+    my $location;
+    if ($use_dialog) {
+	$location = dialog_read("Location selection",
+				"--inputbox \"Choose a directory to create the PPD files in.\" 8 61 $chosen_location");
+    } else {
+	$location = &menu_getstr(5,12,"Directory:", 1, $chosen_location);
+    }
+    if (!defined($location)) {
+	$location = "";
+    }
+    $chosen_location = create_dir($location); # make sure directory exists
+    init_defaults; # use new location to get default selections
+}
+
+
+#
+# create_dir($dir) - Create named directory.
+#                    $dir will have excess `/'s pruned.
+#
+sub create_dir ($) {
+    my $location = $_[0];
+    my $dir;
+    my $count = 0;
+    if ($location =~ m/^\//) {
+	$dir = "/";
+    }
+    foreach (split /\//, $location) {
+	if ($_ eq "") {
+	    next;
+	}
+	if ($count == 1) {
+	    $dir .= "/";
+	}
+	$count = 1;
+	$dir .= $_;
+	if (!-d $dir) # directory does not exist, so create it
+	{
+	    mkdir $dir || die "can't create directory \`$dir\': $!";
+	}
+    }
+    return $dir;
+}
+
+
+#
+# create_ppds() - Create PPD files.
+#
+sub create_ppds {
+    create_dir($chosen_location); # make the destination directory
+    my $total = scalar(@chosen_printers);
+    my $printers;
+    my $count;
+    my $language;
+    my $percent;
+    my $file;
+    if (!@chosen_printers) { # calculate total files for guage
+	$total = scalar(keys(%printers));
+    }
+    $total = $total * scalar(@chosen_languages);
+    if (@chosen_printers) { # construct printer list for dialog
+	foreach (@chosen_printers) {
+	    $printers .= "$_ ";
+	}
+    } else {
+	$printers = "";
+    }
+    if (! $silent && $use_dialog) {
+	open DIALOG, "| $DIALOG --sleep 2 --backtitle \"$BACKTITLE\" --title \"Creating PPD files\" --guage \"Language: \nPPD files: \" 10 72 0"
+	    or die "can't fork dialog: $!";
+    }
+    $count = 0;
+    foreach $language (@chosen_languages) { # loop through languages
+	open GENPPD,
+	"LANGUAGE=$language cups-genppd.$version -v -p $chosen_location/$language $printers 2>&1 |"
+	    or die "can't fork cups-genppd: $!";
+	$file = "";
+	while ( defined($file = <GENPPD>)) { # dump genppd stats into guage
+	    chomp($file);
+	    $count++;
+	    $percent = int (($count/$total)*100);
+	    if ($percent > 100) {
+		$percent = 100;
+	    }
+	    if (! $silent && $use_dialog) {
+		print DIALOG "$percent\n";
+		print DIALOG "XXX\nLanguage: $language\nPPD files: $count/$total\n\n$file\nXXX\n";
+		DIALOG->flush();
+	    } else {
+		print "$file\n";
+		STDOUT->flush();
+	    }
+	}
+	close GENPPD or die "can't close cups-genppd pipe: $!";
+    }
+    if (! $silent && $use_dialog) {
+	print DIALOG "100\nXXX\nLanguage: \nPPD files: $total/$total\n\nCompleted\nXXX\n";
+	close DIALOG or die "can't close dialog pipe";
+    }
+}
+
+
+# scalar
+# dialog($title, $command) - Create a dialog.
+#                            Returns dialog results.
+sub dialog_read ($$) {
+    my($title, $command) = @_;
+    my $result = ""; # must not be undefined, just empty
+    my $status;
+    my $line;
+    open DIALOG, "$DIALOG --backtitle \"$BACKTITLE\" --title \"$title\" $command 2>&1 |";
+    while (defined($line = <DIALOG>)) {
+	$result .= $line;
+    }
+    close DIALOG or ($! == 0) or die "can't close dialog pipe: $!";
+    if ($? >> 8)
+    {
+	return undef;
+    }
+    return $result;
+}
+
+
+#
+# dialog_read_list(%masterlist
+#                  @chosenlist
+#                  $title
+#                  $dialog) - Construct list dialog, entries from %masterlist,
+#                             defaults from @chosenlist.
+#
+sub dialog_read_list (\%\@$$) {
+    my $masterlist = $_[0];
+    my $list = $_[1];
+    my $title = $_[2];
+    my $dialogoptions = $_[3];
+    my $tmplist;
+    my $dialoglist = "";
+    my $item;
+    my $selected;
+# Make a list for use with dialog.
+    foreach $item (sort keys %$masterlist) {
+	$selected = "off";
+	foreach (@$list) {
+	    if ($item eq $_) {
+		$selected = "on";
+		last;
+	    }
+	}
+	$dialoglist .= "$item \"$masterlist->{$item}\" $selected ";
+    }
+    $tmplist = dialog_read("$title", "$dialogoptions $dialoglist");
+    if (defined($tmplist)) {
+	$tmplist =~ s/\"//g;
+	@$list=split(/ /, $tmplist);
+    }
+}
+
+
+# scalar
+# perl_menu($title)
+#
+sub perl_menu ($$$$@) {
+    my ($top, $title, $question, $subtitle, @items) = @_;
+    my $selection;
+    &menu_init(1, "cups-genppdconfig", $top, $title, "$BACKTITLE\n-<$subtitle");
+
+    for my $i ( 0 .. $#items) {
+	&menu_item($items[$i][1], $items[$i][0]);
+    }
+
+    $selection = &menu_display($question);
+    return $selection;
+}
+
+# scalar
+# perl_menu_mult($title, $question, @items)
+#
+sub perl_menu_mult ($$@) {
+    my ($title, $question, @items) = @_;
+    my $selection;
+    &menu_init(1, "cups-genppdconfig", 0, $title, $BACKTITLE);
+
+    for my $i ( 0 .. $#items) {
+	&menu_item($items[$i][1], $items[$i][0], $items[$i][2]);
+    }
+
+    perl_menu_sel_defaults();
+    $selection = &menu_display_mult($question);
+    perl_menu_defaults();
+    if ($selection eq "%UP%" or $selection eq "%NONE%") {
+	return undef;
+    }
+    return $selection;
+}
+
+
+#
+# perl_menu_read_list(%masterlist
+#                     @chosenlist
+#                     $title
+#                     $question
+#                     - Construct list dialog, entries from %masterlist,
+#                             defaults from @chosenlist.
+#
+sub perl_menu_read_list (\%\@$$) {
+    my $masterlist = $_[0];
+    my $list = $_[1];
+    my $title = $_[2];
+    my $question = $_[3];
+    my $tmplist;
+    my @menulist = ();
+    my $item;
+    my $selected;
+# Make a list for use with perlmenu.
+    foreach $item (sort keys %$masterlist) {
+	$selected = 0;
+	foreach (@$list) {
+	    if ($item eq $_) {
+		$selected = 1;
+		last;
+	    }
+	}
+	my $formatstring = sprintf "%-14s - %s", $item, $masterlist->{$item};
+	push @menulist, [ $item, $formatstring, $selected ] ;
+    }
+    $tmplist = perl_menu_mult("$title", "RET=toggle selection (u/t) exit  (n/p) next/previous page (b) beginning (e) end", @menulist);
+    if (defined($tmplist)) {
+	$tmplist =~ s/\"//g;
+	@$list=split(/,/, $tmplist);
+    }
+}
+
+
+#
+# perl_menu_defaults - set menu defaults
+#
+sub perl_menu_defaults {
+    &menu_prefs(1, 0, 1, 0, "y", 0, 0);
+}
+
+
+#
+# perl_menu_sel_defaults - set menu defaults for multiple selections
+#
+sub perl_menu_sel_defaults {
+    &menu_prefs(1, 0, 1, 0, "y", 1, 0);
+}
+

@@ -46,7 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
  * THIS SOFTWARE.
  */
-/* $XFree86: xc/programs/xfs/difs/fonts.c,v 3.13 2001/12/14 20:01:34 dawes Exp $ */
+/* $XFree86: xc/programs/xfs/difs/fonts.c,v 3.14 2003/11/08 02:02:07 dawes Exp $ */
 
 #include        "FS.h"
 #include        "FSproto.h"
@@ -1195,7 +1195,11 @@ do_list_fonts_with_info(ClientPtr client, pointer data)
 		cPtr->saved = cPtr->current;
 		cPtr->haveSaved = TRUE;
 		cPtr->savedNumFonts = numFonts;
-		cPtr->savedName = (char *) pFontInfo;
+		if (cPtr->savedName)
+		  fsfree(cPtr->savedName);
+		cPtr->savedName = (char *)fsalloc(namelen + 1);
+		if (cPtr->savedName)
+		  memmove(cPtr->savedName, name, namelen + 1);
 		aliascount = 20;
 	    }
 	    memmove(cPtr->current.pattern, name, namelen);
@@ -1319,6 +1323,7 @@ bail:
     for (i = 0; i < cPtr->num_fpes; i++)
 	FreeFPE(cPtr->fpe_list[i]);
     fsfree(cPtr->fpe_list);
+    if (cPtr->savedName) fsfree(cPtr->savedName);
     fsfree(cPtr->reply);
     fsfree(cPtr);
     return TRUE;
@@ -1370,6 +1375,7 @@ StartListFontsWithInfo(
     c->savedNumFonts = 0;
     c->haveSaved = FALSE;
     c->slept = FALSE;
+    c->savedName = 0;
     do_list_fonts_with_info(client, (pointer) c);
     return TRUE;
 badAlloc:

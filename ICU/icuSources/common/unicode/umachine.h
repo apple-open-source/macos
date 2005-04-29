@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2002, International Business Machines
+*   Copyright (C) 1999-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -43,13 +43,15 @@
 
 #if defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
 #   include "unicode/pwin32.h"
-#elif defined(__OS400__)
-#   include "unicode/pos400.h"
-#elif defined(__MWERKS__)
-#   include "unicode/pmacos.h"
 #else
 #   include "unicode/platform.h"
 #endif
+
+/*
+ * ANSI C headers:
+ * stddef.h defines wchar_t
+ */
+#include <stddef.h>
 
 /*==========================================================================*/
 /* XP_CPLUSPLUS is a cross-platform symbol which should be defined when     */
@@ -65,9 +67,9 @@
 #endif
 
 /*==========================================================================*/
-/* For C wrappers, we use the symbol U_CAPI.                                */
+/* For C wrappers, we use the symbol U_STABLE.                                */
 /* This works properly if the includer is C or C++.                         */
-/* Functions are declared   U_CAPI return-type U_EXPORT2 function-name()... */
+/* Functions are declared   U_STABLE return-type U_EXPORT2 function-name()... */
 /*==========================================================================*/
 
 /**
@@ -143,6 +145,11 @@
 
 /** This is used to declare a function as a public ICU C API @stable ICU 2.0*/
 #define U_CAPI U_CFUNC U_EXPORT
+#define U_STABLE U_CAPI
+#define U_DRAFT  U_CAPI
+#define U_DEPRECATED U_CAPI
+#define U_OBSOLETE U_CAPI
+#define U_INTERNAL U_CAPI
 
 /*==========================================================================*/
 /* limits for int32_t etc., like in POSIX inttypes.h                        */
@@ -188,37 +195,36 @@
 #endif
 
 #if defined(U_INT64_T_UNAVAILABLE)
-#   ifndef INTMAX_MIN
-#       define INTMAX_MIN      INT32_MIN
-#   endif
-#   ifndef INTMAX_MAX
-#       define INTMAX_MAX      INT32_MAX
-#   endif
-#   ifndef UINTMAX_MAX
-#       define UINTMAX_MAX     UINT32_MAX
-#   endif
+# error int64_t is required for decimal format and rule-based number format.
 #else
-#   ifndef INT64_MIN
-/** The smallest value a 64 bit signed integer can hold @stable ICU 2.0 */
-#       define INT64_MIN       ((int64_t)(-9223372036854775807-1))
-#   endif
-#   ifndef INT64_MAX
-/** The largest value a 64 bit signed integer can hold @stable ICU 2.0 */
-#       define INT64_MAX       ((int64_t)(9223372036854775807))
-#   endif
-#   ifndef UINT64_MAX
-/** The largest value a 64 bit unsigned integer can hold @stable ICU 2.0 */
-#       define UINT64_MAX      ((uint64_t)(18446744073709551615))
-#   endif
-#   ifndef INTMAX_MIN
-#       define INTMAX_MIN      INT64_MIN
-#   endif
-#   ifndef INTMAX_MAX
-#       define INTMAX_MAX      INT64_MAX
-#   endif
-#   ifndef UINTMAX_MAX
-#       define UINTMAX_MAX     UINT64_MAX
-#   endif
+# ifndef INT64_C
+/**
+ * Provides a platform independent way to specify a signed 64-bit integer constant.
+ * note: may be wrong for some 64 bit platforms - ensure your compiler provides INT64_C
+ * @draft ICU 2.8
+ */
+#   define INT64_C(c) c ## LL
+# endif
+# ifndef UINT64_C
+/**
+ * Provides a platform independent way to specify an unsigned 64-bit integer constant.
+ * note: may be wrong for some 64 bit platforms - ensure your compiler provides UINT64_C
+ * @draft ICU 2.8
+ */
+#   define UINT64_C(c) c ## ULL
+# endif
+# ifndef U_INT64_MIN
+/** The smallest value a 64 bit signed integer can hold @stable ICU 2.8 */
+#     define U_INT64_MIN       ((int64_t)(INT64_C(-9223372036854775807)-1))
+# endif
+# ifndef U_INT64_MAX
+/** The largest value a 64 bit signed integer can hold @stable ICU 2.8 */
+#     define U_INT64_MAX       ((int64_t)(INT64_C(9223372036854775807)))
+# endif
+# ifndef U_UINT64_MAX
+/** The largest value a 64 bit unsigned integer can hold @stable ICU 2.8 */
+#     define U_UINT64_MAX      ((uint64_t)(UINT64_C(18446744073709551615)))
+# endif
 #endif
 
 /*==========================================================================*/
@@ -237,6 +243,107 @@ typedef int8_t UBool;
 #   define FALSE 0
 #endif
 
+
+/*==========================================================================*/
+/* Unicode data types                                                       */
+/*==========================================================================*/
+
+/* wchar_t-related definitions -------------------------------------------- */
+
+/**
+ * \def U_HAVE_WCHAR_H
+ * Indicates whether <wchar.h> is available (1) or not (0). Set to 1 by default.
+ *
+ * @stable ICU 2.0
+ */
+#ifndef U_HAVE_WCHAR_H
+#   define U_HAVE_WCHAR_H 1
+#endif
+
+/**
+ * \def U_SIZEOF_WCHAR_T
+ * U_SIZEOF_WCHAR_T==sizeof(wchar_t) (0 means it is not defined or autoconf could not set it)
+ *
+ * @stable ICU 2.0
+ */
+#if U_SIZEOF_WCHAR_T==0
+#   undef U_SIZEOF_WCHAR_T
+#   define U_SIZEOF_WCHAR_T 4
+#endif
+
+/*
+ * \def U_WCHAR_IS_UTF16
+ * Defined if wchar_t uses UTF-16.
+ *
+ * @stable ICU 2.0
+ */
+/*
+ * \def U_WCHAR_IS_UTF32
+ * Defined if wchar_t uses UTF-32.
+ *
+ * @stable ICU 2.0
+ */
+#if !defined(U_WCHAR_IS_UTF16) && !defined(U_WCHAR_IS_UTF32)
+#   ifdef __STDC_ISO_10646__ 
+#       if (U_SIZEOF_WCHAR_T==2)
+#           define U_WCHAR_IS_UTF16
+#       elif (U_SIZEOF_WCHAR_T==4)
+#           define  U_WCHAR_IS_UTF32
+#       endif
+#   elif defined __UCS2__
+#       if (__OS390__ || __OS400__) && (U_SIZEOF_WCHAR_T==2)
+#           define U_WCHAR_IS_UTF16
+#       endif
+#   elif defined __UCS4__
+#       if (U_SIZEOF_WCHAR_T==4)
+#           define U_WCHAR_IS_UTF32
+#       endif
+#   elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#       define U_WCHAR_IS_UTF16    
+#   endif
+#endif
+
+/* UChar and UChar32 definitions -------------------------------------------- */
+
+/** Number of bytes in a UChar. @stable ICU 2.0 */
+#define U_SIZEOF_UCHAR 2
+
+/**
+ * \var UChar
+ * Define UChar to be wchar_t if that is 16 bits wide; always assumed to be unsigned.
+ * If wchar_t is not 16 bits wide, then define UChar to be uint16_t.
+ * This makes the definition of UChar platform-dependent
+ * but allows direct string type compatibility with platforms with
+ * 16-bit wchar_t types.
+ *
+ * @stable ICU 2.0
+ */
+
+/* Define UChar to be compatible with wchar_t if possible. */
+#if U_SIZEOF_WCHAR_T==2
+    typedef wchar_t UChar;
+#else
+    typedef uint16_t UChar;
+#endif
+
+/**
+ * Define UChar32 as a type for single Unicode code points.
+ * UChar32 is a signed 32-bit integer (same as int32_t).
+ *
+ * The Unicode code point range is 0..0x10ffff.
+ * All other values (negative or >=0x110000) are illegal as Unicode code points.
+ * They may be used as sentinel values to indicate "done", "error"
+ * or similar non-code point conditions.
+ *
+ * Before ICU 2.4 (Jitterbug 2146), UChar32 was defined
+ * to be wchar_t if that is 32 bits wide (wchar_t may be signed or unsigned)
+ * or else to be uint32_t.
+ * That is, the definition of UChar32 was platform-dependent.
+ *
+ * @see U_SENTINEL
+ * @stable ICU 2.4
+ */
+typedef int32_t UChar32;
 
 /*==========================================================================*/
 /* U_INLINE and U_ALIGN_CODE   Set default values if these are not already  */

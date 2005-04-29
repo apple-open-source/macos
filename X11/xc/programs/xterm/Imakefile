@@ -7,7 +7,7 @@ XCOMM Xterm assumes that bcopy can handle overlapping arguments.  If your
 XCOMM bcopy (or memcpy) cannot, write a routine called bcopy and link it in
 XCOMM or add -Dbcopy=mybcopy to the DEFINES list below.
 XCOMM
-XCOMM $XFree86: xc/programs/xterm/Imakefile,v 3.49 2002/11/22 22:56:06 tsi Exp $
+XCOMM $XFree86: xc/programs/xterm/Imakefile,v 3.53 2003/12/12 03:22:02 dawes Exp $
 XCOMM
 
 /* Uncomment SCROLLBAR_RIGHT if you want the scroll bar to be on the right */
@@ -63,6 +63,11 @@ module.o: ; $(CC) -c defines $(CFLAGS) module.c
          PTYLIB = -lutil
 #endif
 
+#ifdef DarwinArchitecture
+/* dyld can deadlock if a signal comes in when it is looking up a symbol */
+  LOCAL_LDFLAGS = -Wl,-bind_at_load
+#endif
+
 #ifdef OS2Architecture
 /*
  * Only used in os2main.c, see ptyx.h for OPT_I18N_SUPPORT
@@ -96,10 +101,10 @@ module.o: ; $(CC) -c defines $(CFLAGS) module.c
 #define XRenderSupport
 #endif
 #ifdef XRenderSupport
-         XRFDEF = -DXRENDERFONT
-        XRFLIBS = XftClientLibs $(XRENDERLIB)
-     XRFDEPLIBS = XftClientDepLibs $(DEPXRENDERLIB)
-    XRFINCLUDES = $(XFTINCLUDES)
+         XRFDEF = -DXRENDERFONT -DXFREE86_FT2
+        XRFLIBS = XftClientLibs
+     XRFDEPLIBS = XftClientDepLibs
+    XRFINCLUDES = $(XFTINCLUDES) -I$(XBUILDINCDIR)
 #endif
 #ifdef TraceXTerm
    TRACEDEF = -DOPT_TRACE=1
@@ -110,8 +115,8 @@ module.o: ; $(CC) -c defines $(CFLAGS) module.c
    MISC_DEFINES = /* -DALLOWLOGGING -DALLOWLOGFILEEXEC */
     XKB_DEFINES = XkbClientDefines
    PATH_DEFINES = -DPROJECTROOT=$(PROJECTROOT)
-        DEFINES = -I. $(XKB_DEFINES) $(TERMCAPDEFINES) $(FEATURE_DEFINES) $(SCROLLBAR_RIGHT) $(UTF8_OPTION) $(XRFDEF) $(PATH_DEFINES) $(TRACEDEF)
-       INCLUDES = $(XRFINCLUDES)
+        DEFINES = $(XKB_DEFINES) $(TERMCAPDEFINES) $(FEATURE_DEFINES) $(SCROLLBAR_RIGHT) $(UTF8_OPTION) $(XRFDEF) $(PATH_DEFINES) $(TRACEDEF)
+       INCLUDES = -I. $(XRFINCLUDES)
 
 #ifdef OS2Architecture
         MAINSRC = os2main.c

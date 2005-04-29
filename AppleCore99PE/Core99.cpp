@@ -3,33 +3,36 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  * Copyright (c) 1999-2003 Apple Computer, Inc.  All rights reserved.
  *
- *  File: $Id: Core99.cpp,v 1.22 2003/03/12 03:11:21 galcher Exp $
+ *  File: $Id: Core99.cpp,v 1.23 2003/08/16 22:34:54 galcher Exp $
  *
  *  DRI: Bill Galcher
  *
  *      $Log: Core99.cpp,v $
+ *      Revision 1.23  2003/08/16 22:34:54  galcher
+ *      [3258963] Modify ::platformAdjustService() to add a property to 'cpu' nodes
+ *      so that when passive matching happens, this won't match against the generic
+ *      'name' == 'cpu', but instead will have a 'cpu-device-type' == 'Core99CPU',
+ *      and will only match when one actually has one of those.
+ *
  *      Revision 1.22  2003/03/12 03:11:21  galcher
  *      [3122869] Remove old C-style implementation of power tree XML and move it into IOKitPersonalities in the project, where it will get auto-created for us when matching occurs.  Then fetch it in ::PMInstantiatePowerDomains() and move to it its provider as was previously done.  This allows us to remove Core99PowerTree.cpp from the build entirely, fixing the original complaint of the bug.
  *
@@ -213,6 +216,16 @@ bool Core99PE::platformAdjustService(IOService *service)
   const OSSymbol *tmpSymbol, *keySymbol;
   bool           result;
   
+  if (IODTMatchNubWithKeys(service, "cpu"))
+  {
+	// previously, the Core99CPU has been matching against
+	// a IONameMatch property of "cpu", which is not very specific.
+	// create a more specific name to match against.
+	service->setProperty ("cpu-device-type", "Core99CPU");
+	return true;
+
+  }
+
   if (IODTMatchNubWithKeys(service, "open-pic"))
   {
         keySymbol = OSSymbol::withCStringNoCopy("InterruptControllerName");

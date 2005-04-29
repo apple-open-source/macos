@@ -1,0 +1,1036 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		00F0F431FFCA255711CE233C = {
+			buildSettings = {
+			};
+			buildStyles = (
+				00F2509BFFCB3F9811CE233C,
+				00F2509CFFCB3F9811CE233C,
+				F59DA0840357872A01444BF0,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 00F0F432FFCA255711CE233C;
+			productRefGroup = 00F0F450FFCA255711CE233C;
+			projectDirPath = "";
+			targets = (
+				4D0AF45006389034001DAB44,
+				4D0AF47B06389034001DAB44,
+				4D0AF45306389034001DAB44,
+			);
+		};
+		00F0F432FFCA255711CE233C = {
+			children = (
+				02848069FFCB4D3D11CE233C,
+				00F0F477FFCA2A5011CE233C,
+				00F0F439FFCA255711CE233C,
+				00F0F450FFCA255711CE233C,
+				4D0AF47906389034001DAB44,
+				4D0AF49106389035001DAB44,
+			);
+			isa = PBXGroup;
+			name = IOFireWireSBP2;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		00F0F439FFCA255711CE233C = {
+			children = (
+				02848073FFCB4D3D11CE233C,
+				02848072FFCB4D3D11CE233C,
+				0284806DFFCB4D3D11CE233C,
+				0284806CFFCB4D3D11CE233C,
+				015B61D900A36AE011CE233E,
+				015B61DA00A36AE011CE233E,
+				0284806BFFCB4D3D11CE233C,
+				0284806AFFCB4D3D11CE233C,
+				0284806FFFCB4D3D11CE233C,
+				0284806EFFCB4D3D11CE233C,
+				02848071FFCB4D3D11CE233C,
+				02848070FFCB4D3D11CE233C,
+				02848075FFCB4D3D11CE233C,
+				02848074FFCB4D3D11CE233C,
+				043801560002B0C411CE2282,
+				043801570002B0C411CE2282,
+				F5D1B4A603F8C1BB01126B9C,
+				F5D1B4A703F8C1BB01126B9C,
+				F5278E6100D571A901CE2124,
+			);
+			isa = PBXGroup;
+			path = IOFireWireSBP2;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		00F0F450FFCA255711CE233C = {
+			children = (
+				4D0AF47A06389034001DAB44,
+				4D0AF49206389035001DAB44,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		00F0F477FFCA2A5011CE233C = {
+			children = (
+				02848083FFCB4DC711CE233C,
+				02848085FFCB4DC711CE233C,
+				02848084FFCB4DC711CE233C,
+				02848087FFCB4DC711CE233C,
+				02848086FFCB4DC711CE233C,
+				02848089FFCB4DC711CE233C,
+				02848088FFCB4DC711CE233C,
+				0284808BFFCB4DC711CE233C,
+				0284808AFFCB4DC711CE233C,
+				00F0F48EFFCA2ACA11CE233C,
+				F5278E6000D571A901CE2124,
+			);
+			isa = PBXGroup;
+			name = IOFireWireSBP2Lib.plugin;
+			path = IOFireWireSBP2Lib;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		00F0F48EFFCA2ACA11CE233C = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		00F2509BFFCB3F9811CE233C = {
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		00F2509CFFCB3F9811CE233C = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//000
+//001
+//002
+//003
+//004
+//010
+//011
+//012
+//013
+//014
+		015B61D900A36AE011CE233E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2Diagnostics.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		015B61DA00A36AE011CE233E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2Diagnostics.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//010
+//011
+//012
+//013
+//014
+//020
+//021
+//022
+//023
+//024
+		02848066FFCB4CC111CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = FWDebugging.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848069FFCB4D3D11CE233C = {
+			children = (
+				02848066FFCB4CC111CE233C,
+				02848082FFCB4DC711CE233C,
+			);
+			isa = PBXGroup;
+			path = Common;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806AFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2Login.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806BFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2Login.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806CFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LUN.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806DFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LUN.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806EFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2ManagementORB.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284806FFFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2ManagementORB.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848070FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2ORB.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848071FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2ORB.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848072FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2Target.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848073FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2Target.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848074FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2UserClient.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848075FFCB4D3D11CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2UserClient.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848082FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireSBP2UserClientCommon.h;
+			path = Common/IOFireWireSBP2UserClientCommon.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		02848083FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireSBP2Lib.h;
+			path = IOFireWireSBP2Lib/IOFireWireSBP2Lib.h;
+			refType = 2;
+			sourceTree = SOURCE_ROOT;
+		};
+		02848084FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LibLogin.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848085FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LibLogin.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848086FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LibLUN.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848087FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LibLUN.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848088FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LibMgmtORB.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		02848089FFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LibMgmtORB.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284808AFFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LibORB.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		0284808BFFCB4DC711CE233C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LibORB.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//020
+//021
+//022
+//023
+//024
+//040
+//041
+//042
+//043
+//044
+		043801560002B0C411CE2282 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFireWireSBP2LSIWorkaroundDescriptor.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		043801570002B0C411CE2282 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFireWireSBP2LSIWorkaroundDescriptor.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//040
+//041
+//042
+//043
+//044
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4D0AF45006389034001DAB44 = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = all;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				4D0AF49606389035001DAB44,
+				4D0AF49406389035001DAB44,
+			);
+			isa = PBXAggregateTarget;
+			name = all;
+			productName = all;
+		};
+		4D0AF45306389034001DAB44 = {
+			buildPhases = (
+				4D0AF45406389034001DAB44,
+				4D0AF45506389034001DAB44,
+				4D0AF45E06389034001DAB44,
+				4D0AF46A06389034001DAB44,
+				4D0AF46B06389034001DAB44,
+				4D0AF47506389034001DAB44,
+				4D0AF47606389034001DAB44,
+				4D0AF47706389034001DAB44,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /System/Library/Extensions;
+				KERNEL_MODULE = YES;
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
+				MODULE_VERSION = 1.7.5;
+				OTHER_CFLAGS = "-Wno-format";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOFireWireSBP2;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = IOFireWireSBP2;
+			productInstallPath = /System/Library/Extensions;
+			productName = "IOFireWireSBP2 (Bundle)";
+			productReference = 4D0AF47A06389034001DAB44;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		4D0AF45406389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		4D0AF45506389034001DAB44 = {
+			buildActionMask = 12;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
+			dstSubfolderSpec = 0;
+			files = (
+				4D0AF45606389034001DAB44,
+				4D0AF45706389034001DAB44,
+				4D0AF45806389034001DAB44,
+				4D0AF45906389034001DAB44,
+				4D0AF45A06389034001DAB44,
+				4D0AF45B06389034001DAB44,
+				4D0AF45C06389034001DAB44,
+				4D0AF45D06389034001DAB44,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF45606389034001DAB44 = {
+			fileRef = 0284806BFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45706389034001DAB44 = {
+			fileRef = 0284806DFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45806389034001DAB44 = {
+			fileRef = 0284806FFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45906389034001DAB44 = {
+			fileRef = 02848071FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45A06389034001DAB44 = {
+			fileRef = 02848073FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45B06389034001DAB44 = {
+			fileRef = 02848075FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45C06389034001DAB44 = {
+			fileRef = 043801560002B0C411CE2282;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45D06389034001DAB44 = {
+			fileRef = 02848082FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF45E06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+				4D0AF45F06389034001DAB44,
+				4D0AF46006389034001DAB44,
+				4D0AF46106389034001DAB44,
+				4D0AF46206389034001DAB44,
+				4D0AF46306389034001DAB44,
+				4D0AF46406389034001DAB44,
+				4D0AF46506389034001DAB44,
+				4D0AF46606389034001DAB44,
+				4D0AF46706389034001DAB44,
+				4D0AF46806389034001DAB44,
+				4D0AF46906389034001DAB44,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF45F06389034001DAB44 = {
+			fileRef = 02848066FFCB4CC111CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46006389034001DAB44 = {
+			fileRef = 0284806BFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46106389034001DAB44 = {
+			fileRef = 0284806DFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46206389034001DAB44 = {
+			fileRef = 0284806FFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46306389034001DAB44 = {
+			fileRef = 02848071FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46406389034001DAB44 = {
+			fileRef = 02848073FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46506389034001DAB44 = {
+			fileRef = 02848075FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46606389034001DAB44 = {
+			fileRef = 02848082FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46706389034001DAB44 = {
+			fileRef = 043801560002B0C411CE2282;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46806389034001DAB44 = {
+			fileRef = 015B61D900A36AE011CE233E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46906389034001DAB44 = {
+			fileRef = F5D1B4A603F8C1BB01126B9C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF46A06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF46B06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+				4D0AF46C06389034001DAB44,
+				4D0AF46D06389034001DAB44,
+				4D0AF46E06389034001DAB44,
+				4D0AF46F06389034001DAB44,
+				4D0AF47006389034001DAB44,
+				4D0AF47106389034001DAB44,
+				4D0AF47206389034001DAB44,
+				4D0AF47306389034001DAB44,
+				4D0AF47406389034001DAB44,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF46C06389034001DAB44 = {
+			fileRef = 0284806AFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46D06389034001DAB44 = {
+			fileRef = 0284806CFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46E06389034001DAB44 = {
+			fileRef = 0284806EFFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF46F06389034001DAB44 = {
+			fileRef = 02848070FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47006389034001DAB44 = {
+			fileRef = 02848072FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47106389034001DAB44 = {
+			fileRef = 02848074FFCB4D3D11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47206389034001DAB44 = {
+			fileRef = 043801570002B0C411CE2282;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47306389034001DAB44 = {
+			fileRef = 015B61DA00A36AE011CE233E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF47406389034001DAB44 = {
+			fileRef = F5D1B4A703F8C1BB01126B9C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF47506389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF47606389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF47706389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		4D0AF47906389034001DAB44 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "Info-IOFireWireSBP2.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4D0AF47A06389034001DAB44 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOFireWireSBP2.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4D0AF47B06389034001DAB44 = {
+			buildPhases = (
+				4D0AF47C06389034001DAB44,
+				4D0AF48406389034001DAB44,
+				4D0AF48606389034001DAB44,
+				4D0AF48706389034001DAB44,
+				4D0AF48C06389034001DAB44,
+				4D0AF48F06389034001DAB44,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined error";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOFireWireSBP2Lib;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas";
+				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
+				WRAPPER_EXTENSION = plugin;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = IOFireWireSBP2Lib;
+			productInstallPath = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
+			productName = IOFireWireSBP2Lib;
+			productReference = 4D0AF49206389035001DAB44;
+			productType = "com.apple.product-type.bundle";
+		};
+		4D0AF47C06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+				4D0AF47D06389034001DAB44,
+				4D0AF47E06389034001DAB44,
+				4D0AF47F06389034001DAB44,
+				4D0AF48006389034001DAB44,
+				4D0AF48106389034001DAB44,
+				4D0AF48206389034001DAB44,
+				4D0AF48306389034001DAB44,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF47D06389034001DAB44 = {
+			fileRef = 02848066FFCB4CC111CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47E06389034001DAB44 = {
+			fileRef = 02848082FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF47F06389034001DAB44 = {
+			fileRef = 02848083FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48006389034001DAB44 = {
+			fileRef = 02848085FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48106389034001DAB44 = {
+			fileRef = 02848087FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48206389034001DAB44 = {
+			fileRef = 02848089FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48306389034001DAB44 = {
+			fileRef = 0284808BFFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48406389034001DAB44 = {
+			buildActionMask = 12;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/sbp2/";
+			dstSubfolderSpec = 0;
+			files = (
+				4D0AF48506389034001DAB44,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF48506389034001DAB44 = {
+			fileRef = 02848083FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF48606389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF48706389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+				4D0AF48806389034001DAB44,
+				4D0AF48906389034001DAB44,
+				4D0AF48A06389034001DAB44,
+				4D0AF48B06389034001DAB44,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF48806389034001DAB44 = {
+			fileRef = 02848084FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48906389034001DAB44 = {
+			fileRef = 02848086FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48A06389034001DAB44 = {
+			fileRef = 02848088FFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48B06389034001DAB44 = {
+			fileRef = 0284808AFFCB4DC711CE233C;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		4D0AF48C06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+				4D0AF48D06389034001DAB44,
+				4D0AF48E06389034001DAB44,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF48D06389034001DAB44 = {
+			fileRef = 00F0F48EFFCA2ACA11CE233C;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF48E06389034001DAB44 = {
+			fileRef = F5278E6000D571A901CE2124;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		4D0AF48F06389034001DAB44 = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4D0AF49106389035001DAB44 = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "Info-IOFireWireSBP2Lib.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		4D0AF49206389035001DAB44 = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOFireWireSBP2Lib.plugin;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		4D0AF49306389035001DAB44 = {
+			containerPortal = 00F0F431FFCA255711CE233C;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 4D0AF45306389034001DAB44;
+			remoteInfo = "IOFireWireSBP2 (Kernel Extension) (Upgraded)";
+		};
+		4D0AF49406389035001DAB44 = {
+			isa = PBXTargetDependency;
+			target = 4D0AF45306389034001DAB44;
+			targetProxy = 4D0AF49306389035001DAB44;
+		};
+		4D0AF49506389035001DAB44 = {
+			containerPortal = 00F0F431FFCA255711CE233C;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 4D0AF47B06389034001DAB44;
+			remoteInfo = "IOFireWireSBP2Lib (Upgraded)";
+		};
+		4D0AF49606389035001DAB44 = {
+			isa = PBXTargetDependency;
+			target = 4D0AF47B06389034001DAB44;
+			targetProxy = 4D0AF49506389035001DAB44;
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5278E6000D571A901CE2124 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		F5278E6100D571A901CE2124 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		F59DA0840357872A01444BF0 = {
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+		F5D1B4A603F8C1BB01126B9C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			path = IOFWSBP2PseudoAddressSpace.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5D1B4A703F8C1BB01126B9C = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			path = IOFWSBP2PseudoAddressSpace.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 00F0F431FFCA255711CE233C;
+}

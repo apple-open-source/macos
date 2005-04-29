@@ -107,8 +107,12 @@ of an array; there is no difference between the two except when they
 appear within double quotes.
 `tt("$foo[*]")' evaluates to `tt("$foo[1] $foo[2] )...tt(")', whereas
 `tt("$foo[@]")' evaluates to `tt("$foo[1]" "$foo[2]" )...'.  For
-associative arrays, `tt([*])' or `tt([@])' evaluate to all the values (not
-the keys, but see em(Subscript Flags) below), in no particular order.
+associative arrays, `tt([*])' or `tt([@])' evaluate to all the values,
+in no particular order.  Note that this does not substitute
+the keys; see the documentation for the `tt(k)' flag under
+ifzman(em(Parameter Expansion Flags) in zmanref(zshexpn))\
+ifnzman(noderef(Parameter Expansion))
+for complete details.
 When an array parameter is referenced as `tt($)var(name)' (with no
 subscript) it evaluates to `tt($)var(name)tt([*])', unless the tt(KSH_ARRAYS)
 option is set in which case it evaluates to `tt(${)var(name)tt([0]})' (for
@@ -194,14 +198,14 @@ word (if the parameter is an array, if it is a scalar, or if it is a
 scalar and the `tt(w)' flag is given, respectively).  The subscript used
 is the number of the matching element, so that pairs of subscripts such as
 `tt($foo[(r))var(??)tt(,3])' and `tt($foo[(r))var(??)tt(,(r)f*])' are
-possible.  If the parameter is an associative array, only the value part
-of each pair is compared to the pattern, and the result is that value.
-Reverse subscripts may be used for assigning to ordinary array elements,
-but not for assigning to associative arrays.
+possible if the parameter is not an associative array.  If the
+parameter is an associative array, only the value part of each pair is
+compared to the pattern, and the result is that value.
 )
 item(tt(R))(
 Like `tt(r)', but gives the last match.  For associative arrays, gives
-all possible matches.
+all possible matches. May be used for assigning to ordinary array
+elements, but not for assigning to associative arrays.
 )
 item(tt(i))(
 Like `tt(r)', but gives the index of the match instead; this may not be
@@ -256,6 +260,16 @@ This discussion applies mainly to associative array key strings and to
 patterns used for reverse subscripting (the `tt(r)', `tt(R)', `tt(i)',
 etc. flags), but it may also affect parameter substitutions that appear
 as part of an arithmetic expression in an ordinary subscript.
+
+It is possible to avoid the use of subscripts in assignments to associative
+array elements by using the syntax:
+
+example(
+   aa+=('key with "*strange*" characters' 'value string')
+)
+
+This adds a new key/value pair if the key is not already present, and
+replaces the value for the existing key if it is.
 
 The basic rule to remember when writing a subscript expression is that all
 text between the opening `tt([)' and the closing `tt(])' is interpreted
@@ -510,7 +524,8 @@ item(tt(ERRNO) <S>)(
 The value of errno (see manref(errno)(3))
 as set by the most recently failed system call.
 This value is system dependent and is intended for debugging
-purposes.
+purposes.  It is also useful with the tt(zsh/system) module which
+allows the number to be turned into a name or message.
 )
 vindex(GID)
 item(tt(GID) <S>)(
@@ -519,6 +534,12 @@ you may change the group ID of the shell process by assigning to this
 parameter.  Also (assuming sufficient privileges), you may start a single
 command under a different
 group ID by `tt(LPAR()GID=)var(gid)tt(; command+RPAR())'
+)
+vindex(HISTCMD)
+item(tt(HISTCMD))(
+The current history line number in an interactive shell, in other
+words the line number for the command that caused tt($HISTCMD)
+to be read.
 )
 vindex(HOST)
 item(tt(HOST))(
@@ -603,6 +624,14 @@ Incremented by one each time a new shell is started.
 vindex(signals)
 item(tt(signals))(
 An array containing the names of the signals.
+)
+vindex(TRY_BLOCK_ERROR)
+item(tt(TRY_BLOCK_ERROR) <S>)(
+In an tt(always) block, indicates whether the preceding list of code
+caused an error.  The value is 1 to indicate an error, 0 otherwise.
+It may be reset, clearing the error condition.  See
+ifzman(em(Complex Commands) in zmanref(zshmisc))\
+ifnzman(noderef(Complex Commands))
 )
 vindex(TTY)
 item(tt(TTY))(
@@ -1024,14 +1053,34 @@ vindex(TIMEFMT)
 item(tt(TIMEFMT))(
 The format of process time reports with the tt(time) keyword.
 The default is `tt(%E real  %U user  %S system  %P %J)'.
-Recognizes the following escape sequences:
+Recognizes the following escape sequences, although not all
+may be available on all systems, and some that are available
+may not be useful:
 
 startsitem()
 sitem(tt(%%))(A `tt(%)'.)
 sitem(tt(%U))(CPU seconds spent in user mode.)
 sitem(tt(%S))(CPU seconds spent in kernel mode.)
 sitem(tt(%E))(Elapsed time in seconds.)
-sitem(tt(%P))(The CPU percentage, computed as (tt(%U)PLUS()tt(%S))/tt(%E).)
+sitem(tt(%P))(The CPU percentage, computed as
+(100*tt(%U)PLUS()tt(%S))/tt(%E).)
+sitem(tt(%W))(Number of times the process was swapped.)
+sitem(tt(%X))(The average amount in (shared) text space used in Kbytes.)
+sitem(tt(%D))(The average amount in (unshared) data/stack space used in
+Kbytes.)
+sitem(tt(%K))(The total space used (%X+%D) in Kbytes.)
+sitem(tt(%M))(The  maximum memory the process had in use at any time in
+Kbytes.)
+sitem(tt(%F))(The number of major page faults (page needed to be brought
+from disk).)
+sitem(tt(%R))(The number of minor page faults.)
+sitem(tt(%I))(The number of input operations.)
+sitem(tt(%O))(The number of output operations.)
+sitem(tt(%r))(The number of socket messages received.)
+sitem(tt(%s))(The number of socket messages sent.)
+sitem(tt(%k))(The number of signals received.)
+sitem(tt(%w))(Number of voluntary context switches (waits).)
+sitem(tt(%c))(Number of involuntary context switches.)
 sitem(tt(%J))(The name of this job.)
 endsitem()
 

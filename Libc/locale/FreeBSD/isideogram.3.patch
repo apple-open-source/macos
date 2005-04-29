@@ -1,0 +1,12 @@
+--- isideogram.3.orig	Fri Mar 11 19:25:22 2005
++++ isideogram.3	Fri Mar 11 19:26:54 2005
+@@ -49,7 +49,8 @@
+ .Sh SEE ALSO
+ .Xr ctype 3 ,
+ .Xr isphonogram 3 ,
+-.Xr iswideogram 3
++.Xr iswideogram 3 ,
++.Xr isalnum_l
+ .Sh HISTORY
+ The
+ .Fn isideogram

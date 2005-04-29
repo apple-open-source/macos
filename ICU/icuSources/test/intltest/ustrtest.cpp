@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2003, International Business Machines Corporation and
+ * Copyright (c) 1997-2004, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -24,17 +24,15 @@ using namespace std;
 
 #endif
 
-#define LENGTHOF(array) (sizeof(array)/sizeof((array)[0]))
+#define LENGTHOF(array) (int32_t)((sizeof(array)/sizeof((array)[0])))
+
+UnicodeStringTest::~UnicodeStringTest() {}
 
 void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &name, char *par)
 {
     if (exec) logln("TestSuite UnicodeStringTest: ");
     switch (index) {
-        case 0: name = "TestBasicManipulation"; if (exec) TestBasicManipulation(); break;
-        case 1: name = "TestCompare"; if (exec) TestCompare(); break;
-        case 2: name = "TestExtract"; if (exec) TestExtract(); break;
-        case 3: name = "TestRemoveReplace"; if (exec) TestRemoveReplace(); break;
-        case 4:
+        case 0:
             name = "StringCaseTest";
             if (exec) {
                 logln("StringCaseTest---"); logln("");
@@ -42,6 +40,10 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
                 callTest(test, par);
             }
             break;
+        case 1: name = "TestBasicManipulation"; if (exec) TestBasicManipulation(); break;
+        case 2: name = "TestCompare"; if (exec) TestCompare(); break;
+        case 3: name = "TestExtract"; if (exec) TestExtract(); break;
+        case 4: name = "TestRemoveReplace"; if (exec) TestRemoveReplace(); break;
         case 5: name = "TestSearching"; if (exec) TestSearching(); break;
         case 6: name = "TestSpacePadding"; if (exec) TestSpacePadding(); break;
         case 7: name = "TestPrefixAndSuffix"; if (exec) TestPrefixAndSuffix(); break;
@@ -52,6 +54,7 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
         case 12: name = "TestStackAllocation"; if (exec) TestStackAllocation(); break;
         case 13: name = "TestUnescape"; if (exec) TestUnescape(); break;
         case 14: name = "TestCountChar32"; if (exec) TestCountChar32(); break;
+        case 15: name = "TestStringEnumeration"; if (exec) TestStringEnumeration(); break;
 
         default: name = ""; break; //needed to end loop
     }
@@ -154,21 +157,72 @@ UnicodeStringTest::TestBasicManipulation()
         }
     }
 
-	{
-		// test new 2.2 constructors and setTo function that parallel Java's substring function.
-		UnicodeString src("Hello folks how are you?");
-		UnicodeString target1("how are you?");
-		if (target1 != UnicodeString(src, 12)) {
-			errln("UnicodeString(const UnicodeString&, int32_t) failed");
-		}
-		UnicodeString target2("folks");
-		if (target2 != UnicodeString(src, 6, 5)) {
-			errln("UnicodeString(const UnicodeString&, int32_t, int32_t) failed");
-		}
-		if (target1 != target2.setTo(src, 12)) {
-			errln("UnicodeString::setTo(const UnicodeString&, int32_t) failed");
-		}
-	}
+    {
+        // test new 2.2 constructors and setTo function that parallel Java's substring function.
+        UnicodeString src("Hello folks how are you?");
+        UnicodeString target1("how are you?");
+        if (target1 != UnicodeString(src, 12)) {
+            errln("UnicodeString(const UnicodeString&, int32_t) failed");
+        }
+        UnicodeString target2("folks");
+        if (target2 != UnicodeString(src, 6, 5)) {
+            errln("UnicodeString(const UnicodeString&, int32_t, int32_t) failed");
+        }
+        if (target1 != target2.setTo(src, 12)) {
+            errln("UnicodeString::setTo(const UnicodeString&, int32_t) failed");
+        }
+    }
+
+    {
+        // op+ is new in ICU 2.8
+        UnicodeString s=UnicodeString("abc", "")+UnicodeString("def", "")+UnicodeString("ghi", "");
+        if(s!=UnicodeString("abcdefghi", "")) {
+            errln("operator+(UniStr, UniStr) failed");
+        }
+    }
+
+    {
+        // tests for Jitterbug 2360
+        // verify that APIs with source pointer + length accept length == -1
+        // mostly test only where modified, only few functions did not already do this
+        if(UnicodeString("abc", -1, "")!=UnicodeString("abc", "")) {
+            errln("UnicodeString(codepageData, dataLength, codepage) does not work with dataLength==-1");
+        }
+
+        UChar buffer[10]={ 0x61, 0x62, 0x20ac, 0xd900, 0xdc05, 0,   0x62, 0xffff, 0xdbff, 0xdfff };
+        UnicodeString s, t(buffer, -1, LENGTHOF(buffer));
+
+        if(s.setTo(buffer, -1, LENGTHOF(buffer)).length()!=u_strlen(buffer)) {
+            errln("UnicodeString.setTo(buffer, length, capacity) does not work with length==-1");
+        }
+        if(t.length()!=u_strlen(buffer)) {
+            errln("UnicodeString(buffer, length, capacity) does not work with length==-1");
+        }
+
+        if(0!=s.caseCompare(buffer, -1, U_FOLD_CASE_DEFAULT)) {
+            errln("UnicodeString.caseCompare(const UChar *, length, options) does not work with length==-1");
+        }
+
+        buffer[u_strlen(buffer)]=0xe4;
+        UnicodeString u(buffer, -1, LENGTHOF(buffer));
+        if(s.setTo(buffer, -1, LENGTHOF(buffer)).length()!=LENGTHOF(buffer)) {
+            errln("UnicodeString.setTo(buffer without NUL, length, capacity) does not work with length==-1");
+        }
+        if(u.length()!=LENGTHOF(buffer)) {
+            errln("UnicodeString(buffer without NUL, length, capacity) does not work with length==-1");
+        }
+
+        static const char cs[]={ 0x61, (char)0xe4, (char)0x85, 0 };
+        UConverter *cnv;
+        UErrorCode errorCode=U_ZERO_ERROR;
+
+        cnv=ucnv_open("ISO-8859-1", &errorCode);
+        UnicodeString v(cs, -1, cnv, errorCode);
+        ucnv_close(cnv);
+        if(v!=UnicodeString("a\\xe4\\x85").unescape()) {
+            errln("UnicodeString(const char *, length, cnv, errorCode) does not work with length==-1");
+        }
+    }
 }
 
 void
@@ -386,6 +440,13 @@ UnicodeStringTest::TestExtract()
     if (test1.extract(11, 12, test4) != 12 || test4[12] != 0) {
         errln("UnicodeString.extract(char *) failed to return the correct size of destination buffer.");
     }
+
+    // test proper pinning in extractBetween()
+    test1.extractBetween(-3, 7, test5);
+    if(test5!=UNICODE_STRING("Now is ", 7)) {
+        errln("UnicodeString.extractBetween(-3, 7) did not pin properly.");
+    }
+
     test1.extractBetween(11, 23, test5);
     if (test1.extract(60, 71, test6) != 9) {
         errln("UnicodeString.extract() failed to return the correct size of destination buffer for end of buffer.");
@@ -1466,5 +1527,99 @@ UnicodeStringTest::TestBogus() {
     test2.remove();
     if(test1>=test2 || !(test2>test1) || test1.compare(test2)>=0 || !(test2.compare(test1)>0)) {
         errln("bogus<empty failed");
+    }
+}
+
+// StringEnumeration ------------------------------------------------------- ***
+// most of StringEnumeration is tested elsewhere
+// this test improves code coverage
+
+static const char *const
+testEnumStrings[]={
+    "a",
+    "b",
+    "c",
+    "this is a long string which helps us test some buffer limits",
+    "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+};
+
+class TestEnumeration : public StringEnumeration {
+public:
+    TestEnumeration() : i(0) {}
+
+    virtual int32_t count(UErrorCode& /*status*/) const {
+        return LENGTHOF(testEnumStrings);
+    }
+
+    virtual const UnicodeString *snext(UErrorCode &status) {
+        if(U_SUCCESS(status) && i<LENGTHOF(testEnumStrings)) {
+            unistr=UnicodeString(testEnumStrings[i++], "");
+            return &unistr;
+        }
+
+        return NULL;
+    }
+
+    virtual void reset(UErrorCode& /*status*/) {
+        i=0;
+    }
+
+    static inline UClassID getStaticClassID() {
+        return (UClassID)&fgClassID;
+    }
+    virtual UClassID getDynamicClassID() const {
+        return getStaticClassID();
+    }
+
+private:
+    static const char fgClassID;
+
+    int32_t i, length;
+};
+
+const char TestEnumeration::fgClassID=0;
+
+void
+UnicodeStringTest::TestStringEnumeration() {
+    UnicodeString s;
+    TestEnumeration ten;
+    int32_t i, length;
+    UErrorCode status;
+
+    const UChar *pu;
+    const char *pc;
+
+    // test the next() default implementation and ensureCharsCapacity()
+    for(i=0; i<LENGTHOF(testEnumStrings); ++i) {
+        status=U_ZERO_ERROR;
+        pc=ten.next(&length, status);
+        s=UnicodeString(testEnumStrings[i], "");
+        if(U_FAILURE(status) || pc==NULL || length!=s.length() || UnicodeString(pc, length, "")!=s) {
+            errln("StringEnumeration.next(%d) failed", i);
+        }
+    }
+    status=U_ZERO_ERROR;
+    if(ten.next(&length, status)!=NULL) {
+        errln("StringEnumeration.next(done)!=NULL");
+    }
+
+    // test the unext() default implementation
+    ten.reset(status);
+    for(i=0; i<LENGTHOF(testEnumStrings); ++i) {
+        status=U_ZERO_ERROR;
+        pu=ten.unext(&length, status);
+        s=UnicodeString(testEnumStrings[i], "");
+        if(U_FAILURE(status) || pu==NULL || length!=s.length() || UnicodeString(TRUE, pu, length)!=s) {
+            errln("StringEnumeration.unext(%d) failed", i);
+        }
+    }
+    status=U_ZERO_ERROR;
+    if(ten.unext(&length, status)!=NULL) {
+        errln("StringEnumeration.unext(done)!=NULL");
+    }
+
+    // test that the default clone() implementation works, and returns NULL
+    if(ten.clone()!=NULL) {
+        errln("StringEnumeration.clone()!=NULL");
     }
 }

@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ADMIN_H__
+#define __ADMIN_H__
+
+
 /* command for administration. */
 /* NOTE: host byte order. */
 struct admin_com {
@@ -75,3 +79,7 @@ struct admin_com_indexes {
 };
 
 extern int admin2pfkey_proto __P((u_int));
+
+
+#endif /* __ADMIN_H__ */
+

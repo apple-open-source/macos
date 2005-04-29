@@ -34,6 +34,7 @@
 // Written by Benjamin Kosnik <bkoz@redhat.com>
 
 #include <locale>
+#include <bits/c++locale_internal.h>
 
 namespace std
 {
@@ -41,7 +42,7 @@ namespace std
     void
     numpunct<char>::_M_initialize_numpunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = '.';
@@ -75,7 +76,7 @@ namespace std
     void
     numpunct<wchar_t>::_M_initialize_numpunct(__c_locale __cloc)
     {
-      if (__cloc == _S_c_locale)
+      if (!__cloc)
 	{
 	  // "C" locale
 	  _M_decimal_point = L'.';

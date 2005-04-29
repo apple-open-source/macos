@@ -1,27 +1,6 @@
-/* $Id: pushback.c,v 1.4 2002/01/06 23:23:52 shebs Exp $
+/* $Id: pushback.c,v 1.2 2000/12/14 18:45:35 ghazi Exp $
 
    $Log: pushback.c,v $
-   Revision 1.4  2002/01/06 23:23:52  shebs
-   Resolve conflicts due to import of 2002-01-06.
-
-   Revision 1.1.1.2  2002/01/06 21:18:32  shebs
-   Import GCC mainline sources as of midnight 2002-01-06.
-
-   Revision 1.3  2002/01/03 04:57:56  rodrigc
-   2001-01-02  Craig Rodrigues  <rodrigc@gcc.gnu.org>
-
-           PR bootstrap/5117
-           * configure.in (AC_CHECK_HEADERS): Check for stdlib.h.
-           * Makefile.am: Move grepjar to bin_PROGRAMS.
-           * config.h.in: Regenerated.
-           * Makefile.in: Regenerated.
-           * aclocal.m4: Regenerated.
-           * jargrep.c: Eliminate some signed/unsigned and default
-           uninitialized warnings. Use HAVE_STDLIB_H instead of
-           STDC_HEADERS macro.
-           * jartool.c: Likewise.
-           * compress.c: Likewise.
-
    Revision 1.2  2000/12/14 18:45:35  ghazi
    Warning fixes:
 

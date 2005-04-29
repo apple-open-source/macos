@@ -41,7 +41,7 @@
 .\" of this documentation for any purpose.
 .\" It is provided ``as is'' without express or implied warranty.
 .\"
-.\" $XFree86: xc/doc/man/X11/XOpenOM.man,v 1.4 2001/02/09 03:47:45 tsi Exp $
+.\" $XFree86: xc/doc/man/X11/XOpenOM.man,v 1.5 2003/04/28 22:17:55 herrb Exp $
 .\"
 .ds xT X Toolkit Intrinsics \- C Language Interface
 .ds xW Athena X Widgets \- C Language X Toolkit Interface
@@ -145,35 +145,19 @@
 .SH NAME
 XOpenOM, XCloseOM, XSetOMValues, XGetOMValues, XDisplayOfOM, XLocaleOfOM \- open output methods
 .SH SYNTAX
-XOM XOpenOM\^(\^\fIdisplay\fP\^, \fIdb\fP\^, \fIres_name\fP\^, \fIres_class\fP\^)
-.br
-      Display *\fIdisplay\fP\^;
-.br
-      XrmDatabase \fIdb\fP\^;
-.br
-      char *\fIres_name\fP\^;
-.br
-      char *\fIres_class\fP\^;
-.LP
-Status XCloseOM\^(\^\fIom\fP\^)
-.br
-      XOM \fIom\fP\^;
-.LP
-char * XSetOMValues\^(\^\fIom\fP\^, ...)
-.br
-      XOM \fIom\fP\^; 
-.LP
-char * XGetOMValues\^(\^\fIom\fP\^, ...)
-.br
-      XOM \fIom\fP\^; 
-.LP
-Display * XDisplayOfOM\^(\^\fIom\fP\^)
-.br
-	XOM \fIom\fP\^;
-.LP
-char * XLocaleOfOM\^(\^\fIom\fP\^)
-.br
-      XOM \fIom\fP\^; 
+.HP
+XOM XOpenOM\^(\^Display *\fIdisplay\fP\^, XrmDatabase \fIdb\fP\^, char
+*\fIres_name\fP\^, char *\fIres_class\fP\^); 
+.HP
+Status XCloseOM\^(\^XOM \fIom\fP\^); 
+.HP
+char *XSetOMValues\^(\^XOM \fIom\fP\^); 
+.HP
+char *XGetOMValues\^(\^XOM \fIom\fP\^); 
+.HP
+Display *XDisplayOfOM\^(\^XOM \fIom\fP\^); 
+.HP
+char *XLocaleOfOM\^(\^XOM \fIom\fP\^); 
 .SH ARGUMENTS
 .IP \fIdisplay\fP 1i
 Specifies the connection to the X server.

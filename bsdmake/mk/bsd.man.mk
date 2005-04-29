@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.man.mk,v 1.32 2000/05/21 03:14:38 hoek Exp $
+# $FreeBSD: src/share/mk/bsd.man.mk,v 1.53 2003/09/07 12:59:22 ru Exp $
 #
 # The include file <bsd.man.mk> handles installing manual pages and 
 # their links.
@@ -19,11 +19,8 @@
 # MANSUBDIR	Subdirectory under the manual page section, i.e. "/i386"
 #		or "/tahoe" for machine specific manual pages.
 #
-# MAN${sect}	The manual pages to be installed. For sections see
+# MAN		The manual pages to be installed. For sections see
 #		variable ${SECTIONS}
-#
-# _MANPAGES	List of all man pages to be installed.
-#		(``_MANPAGES=$MAN1 $MAN2 ... $MANn'')
 #
 # MCOMPRESS_CMD	Program to compress man pages. Output is to
 #		stdout. [${COMPRESS_CMD}]
@@ -52,34 +49,35 @@
 #		Install the manual pages and their links.
 #
 
-MANSRC?=	${.CURDIR}
-MINSTALL=	${INSTALL} ${COPY} -o ${MANOWN} -g ${MANGRP} -m ${MANMODE}
+.if !target(__<bsd.init.mk>__)
+.error bsd.man.mk cannot be included directly.
+.endif
+
+MINSTALL?=	${INSTALL} -o ${MANOWN} -g ${MANGRP} -m ${MANMODE}
 
 CATDIR=		${MANDIR:H:S/$/\/cat/}
 CATEXT=		.cat
-MROFF_CMD?=	groff -Tascii -man
+MROFF_CMD?=	groff -Tascii -mtty-char -man -t
 
 MCOMPRESS_CMD?=	${COMPRESS_CMD}
 MCOMPRESS_EXT?=	${COMPRESS_EXT}
 
-SECTIONS=	1 1aout 2 3 4 5 6 7 8 9 n
+SECTIONS=	1 1aout 2 3 4 5 6 7 8 9
+.SUFFIXES:	${SECTIONS:S/^/./g}
 
-.undef _MANPAGES
+# Backwards compatibility.
+.if !defined(MAN)
 .for sect in ${SECTIONS}
 .if defined(MAN${sect}) && !empty(MAN${sect})
-.SUFFIXES: .${sect}
-.PATH.${sect}: ${MANSRC}
-_MANPAGES+= ${MAN${sect}}
+MAN+=	${MAN${sect}}
 .endif
 .endfor
+.endif
 
-# XXX MANDEPEND is only used for groff, man/man, man/manpath, at and atrun.
-# It should be named more generally.
-all-man: ${MANDEPEND}
+_manpages:
+all-man: _manpages
 
 .if defined(NOMANCOMPRESS)
-
-COPY=		-c
 
 # Make special arrangements to filter to a temporary file at build time
 # for NOMANCOMPRESS.
@@ -92,54 +90,51 @@ FILTEXTENSION=
 ZEXT=
 
 .if defined(MANFILTER)
-.for sect in ${SECTIONS}
-.if defined(MAN${sect}) && !empty(MAN${sect})
-CLEANFILES+=	${MAN${sect}:T:S/$/${FILTEXTENSION}/g}
-CLEANFILES+=	${MAN${sect}:T:S/$/${CATEXT}${FILTEXTENSION}/g}
-.for page in ${MAN${sect}}
+.if defined(MAN) && !empty(MAN)
+CLEANFILES+=	${MAN:T:S/$/${FILTEXTENSION}/g}
+CLEANFILES+=	${MAN:T:S/$/${CATEXT}${FILTEXTENSION}/g}
+.for page in ${MAN}
 .for target in ${page:T:S/$/${FILTEXTENSION}/g}
-all-man: ${target}
+_manpages: ${target}
 ${target}: ${page}
 	${MANFILTER} < ${.ALLSRC} > ${.TARGET}
 .endfor
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
 .for target in ${page:T:S/$/${CATEXT}${FILTEXTENSION}/g}
-all-man: ${target}
+_manpages: ${target}
 ${target}: ${page}
 	${MANFILTER} < ${.ALLSRC} | ${MROFF_CMD} > ${.TARGET}
 .endfor
 .endif
 .endfor
 .endif
-.endfor
 .else
-.for sect in ${SECTIONS}
-.if defined(MAN${sect}) && !empty(MAN${sect})
-CLEANFILES+=	${MAN${sect}:T:S/$/${CATEXT}/g}
+.if defined(MAN) && !empty(MAN)
+CLEANFILES+=	${MAN:T:S/$/${CATEXT}/g}
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
-.for page in ${MAN${sect}}
+.for page in ${MAN}
 .for target in ${page:T:S/$/${CATEXT}/g}
-all-man: ${target}
+_manpages: ${target}
 ${target}: ${page}
 	${MROFF_CMD} ${.ALLSRC} > ${.TARGET}
 .endfor
 .endfor
+.else
+_manpages: ${MAN}
 .endif
 .endif
-.endfor
 .endif
 
 .else
 
 ZEXT=		${MCOMPRESS_EXT}
 
-.for sect in ${SECTIONS}
-.if defined(MAN${sect}) && !empty(MAN${sect})
-CLEANFILES+=	${MAN${sect}:T:S/$/${MCOMPRESS_EXT}/g}
-CLEANFILES+=	${MAN${sect}:T:S/$/${CATEXT}${MCOMPRESS_EXT}/g}
-.for page in ${MAN${sect}}
+.if defined(MAN) && !empty(MAN)
+CLEANFILES+=	${MAN:T:S/$/${MCOMPRESS_EXT}/g}
+CLEANFILES+=	${MAN:T:S/$/${CATEXT}${MCOMPRESS_EXT}/g}
+.for page in ${MAN}
 .for target in ${page:T:S/$/${MCOMPRESS_EXT}/}
-all-man: ${target}
+_manpages: ${target}
 ${target}: ${page}
 .if defined(MANFILTER)
 	${MANFILTER} < ${.ALLSRC} | ${MCOMPRESS_CMD} > ${.TARGET}
@@ -149,7 +144,7 @@ ${target}: ${page}
 .endfor
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
 .for target in ${page:T:S/$/${CATEXT}${MCOMPRESS_EXT}/}
-all-man: ${target}
+_manpages: ${target}
 ${target}: ${page}
 .if defined(MANFILTER)
 	${MANFILTER} < ${.ALLSRC} | ${MROFF_CMD} | ${MCOMPRESS_CMD} > ${.TARGET}
@@ -160,48 +155,56 @@ ${target}: ${page}
 .endif
 .endfor
 .endif
-.endfor
 
 .endif
 
-maninstall::
-.for sect in ${SECTIONS}
-.if defined(MAN${sect}) && !empty(MAN${sect})
-maninstall:: ${MAN${sect}}
+maninstall: _maninstall
+_maninstall:
+.if defined(MAN) && !empty(MAN)
+_maninstall: ${MAN}
 .if defined(NOMANCOMPRESS)
 .if defined(MANFILTER)
-.for page in ${MAN${sect}}
+.for page in ${MAN}
 	${MINSTALL} ${page:T:S/$/${FILTEXTENSION}/g} \
-		${DESTDIR}${MANDIR}${sect}${MANSUBDIR}/${page}
+		${DESTDIR}${MANDIR}${page:E}${MANSUBDIR}/${page}
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
 	${MINSTALL} ${page:T:S/$/${CATEXT}${FILTEXTENSION}/g} \
-		${DESTDIR}${CATDIR}${sect}${MANSUBDIR}/${page}
+		${DESTDIR}${CATDIR}${page:E}${MANSUBDIR}/${page}
 .endif
 .endfor
 .else
-	${MINSTALL} ${.ALLSRC} ${DESTDIR}${MANDIR}${sect}${MANSUBDIR}
+	@set ${.ALLSRC:C/\.([^.]*)$/.\1 \1/}; \
+	while : ; do \
+		case $$# in \
+			0) break;; \
+			1) echo "warn: missing extension: $$1"; break;; \
+		esac; \
+		page=$$1; shift; sect=$$1; shift; \
+		d=${DESTDIR}${MANDIR}$${sect}${MANSUBDIR}; \
+		${ECHO} ${MINSTALL} $${page} $${d}; \
+		${MINSTALL} $${page} $${d}; \
+	done
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
-.for page in ${MAN${sect}}
+.for page in ${MAN}
 	${MINSTALL} ${page:T:S/$/${CATEXT}/} \
-		${DESTDIR}${CATDIR}${sect}${MANSUBDIR}/${page:T}
+		${DESTDIR}${CATDIR}${page:E}${MANSUBDIR}/${page:T}
 .endfor
 .endif
 .endif
 .else
-	${MINSTALL} ${.ALLSRC:T:S/$/${MCOMPRESS_EXT}/g} \
-		${DESTDIR}${MANDIR}${sect}${MANSUBDIR}
+.for page in ${MAN}
+	${MINSTALL} ${page:T:S/$/${MCOMPRESS_EXT}/g} \
+		${DESTDIR}${MANDIR}${page:E}${MANSUBDIR}
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
-.for page in ${MAN${sect}}
 	${MINSTALL} ${page:T:S/$/${CATEXT}${MCOMPRESS_EXT}/g} \
-		${DESTDIR}${CATDIR}${sect}${MANSUBDIR}/${page:T:S/$/${MCOMPRESS_EXT}/}
-.endfor
-.endif
-.endif
+		${DESTDIR}${CATDIR}${page:E}${MANSUBDIR}/${page:T:S/$/${MCOMPRESS_EXT}/}
 .endif
 .endfor
+.endif
+.endif
 
 .if !defined(NOMLINKS) && defined(MLINKS) && !empty(MLINKS)
-	@set `echo ${MLINKS} " " | sed 's/\.\([^.]*\) /.\1 \1 /g'`; \
+	@set ${MLINKS:C/\.([^.]*)$/.\1 \1/}; \
 	while : ; do \
 		case $$# in \
 			0) break;; \
@@ -216,7 +219,7 @@ maninstall:: ${MAN${sect}}
 		ln $${l}${ZEXT} $${t}${ZEXT}; \
 	done
 .if defined(MANBUILDCAT) && !empty(MANBUILDCAT)
-	@set `echo ${MLINKS} " " | sed 's/\.\([^.]*\) /.\1 \1 /g'`; \
+	@set ${MLINKS:C/\.([^.]*)$/.\1 \1/}; \
 	while : ; do \
 		case $$# in \
 			0) break;; \
@@ -231,4 +234,17 @@ maninstall:: ${MAN${sect}}
 		ln $${l}${ZEXT} $${t}${ZEXT}; \
 	done
 .endif
+.endif
+
+manlint:
+.if defined(MAN) && !empty(MAN)
+.for page in ${MAN}
+manlint: ${page}lint
+${page}lint: ${page}
+.if defined(MANFILTER)
+	${MANFILTER} < ${.ALLSRC} | ${MROFF_CMD} -ww -z
+.else
+	${MROFF_CMD} -ww -z ${.ALLSRC}
+.endif
+.endfor
 .endif

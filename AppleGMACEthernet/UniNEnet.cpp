@@ -33,8 +33,6 @@
 
 //void call_kdp(void);
 
-#include <libkern/OSByteOrder.h>
-#include <IOKit/IOBufferMemoryDescriptor.h>
 #include "UniNEnet.h"
 #include "UniNEnetMII.h"
 
@@ -186,8 +184,8 @@ void UniNEnet::EvLog( UInt32 a, UInt32 b, UInt32 ascii, char* str )
 	if ( pe->evLogFlag == 'step' )
 	{	static char code[ 5 ] = {0,0,0,0,0};
 		*(UInt32*)&code = ascii;
-	//	kprintf( "%8x: %8x %8x %s		   %s\n", time.tv_nsec>>10, a, b, code, str );
-	//	kprintf( "%8x: %8x %8x %s\n", time.tv_nsec>>10, a, b, code );
+	//	kprintf( "%8x UniNEnet: %8x %8x %s		   %s\n", time.tv_nsec>>10, a, b, code, str );
+	//	kprintf( "%8x UniNEnet: %8x %8x %s\n", time.tv_nsec>>10, a, b, code );
 		IOLog( "%8x UniNEnet: %8x %8x\t%s\n",
 					 time.tv_nsec>>10, (unsigned int)a, (unsigned int)b, code );
 		IOSleep( 2 );
@@ -282,7 +280,8 @@ bool UniNEnet::init( OSDictionary *properties )
 	fCellClockEnabled	= true;
 	fAutoNegotiate		= true;
 	fMediumType			= kIOMediumEthernetAuto;	// default to autoNegotiation
-	txRingIndexLast		= ~0;
+	fSendPauseCommand	= kSendPauseCommand_default;
+	fTxRingIndexLast	= ~0;
     return true;
 }/* end init */
 
@@ -409,7 +408,6 @@ bool UniNEnet::start( IOService *provider )
     {	ALRT( 0, NETWORK_BUFSIZE, 'KDP-', "UniNEnet::start - Couldn't allocate KDB buffer." );
         return false;
     }
-	txDebuggerPkt->m_next = 0;
 
 		/* Cache my MAC address:	*/
 
@@ -638,7 +636,6 @@ bool UniNEnet::createWorkLoop()
 
 IOWorkLoop* UniNEnet::getWorkLoop() const
 {
-	ELG( 0, fWorkLoop, 'g WL', "UniNEnet::getWorkLoop" );
 	return fWorkLoop;
 }/* end getWorkLoop */
 
@@ -663,7 +660,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
 	if ( fBuiltin )	lockState = IODebuggerLock( this );
 
-	interruptStatus = READ_REGISTER( Status );
+	interruptStatus = READ_REGISTER( Status );	// auto-clear register
 	ELG( READ_REGISTER( RxCompletion ), interruptStatus, 'Int+', "interruptOccurred - got status" );
 	fTxCompletion = interruptStatus >> 19;
 		/* Bump statistics if either the Rx ring or the Rx FIFO overflowed:	*/
@@ -673,6 +670,8 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 	if ( interruptStatus & kStatus_Rx_Buffer_Not_Available
 		|| rxMACStatus & kRX_MAC_Status_Rx_Overflow )
 	{		/* If either overflowed:	*/
+	///	if ( fMACControlConfiguration & kMACControlConfiguration_Send_Pause_Enable )
+	///		WRITE_REGISTER( SendPauseCommand, fSendPauseCommand | 0x10000 );
 		ELG( 0, rxMACStatus, 'Rx--', "interruptOccurred - Rx overflow" );
 		ETHERNET_STAT_ADD( dot3RxExtraEntry.overruns );
 		NETWORK_STAT_ADD( inputErrors );
@@ -692,10 +691,11 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 
 	doFlushQueue = false;
 
-///	if ( interruptStatus & kStatus_RX_DONE )
+	if ( interruptStatus & kStatus_RX_DONE )
 	{
 		KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_START, 0, 0, 0, 0, 0 );
-		doFlushQueue = receivePackets( false );
+		doFlushQueue	= receivePackets( false );
+		fRxMACStatus	= 0;	// Rx not hung - clear any FIFO overflow condition for timeout
 		KERNEL_DEBUG( DBG_GEM_RXIRQ | DBG_FUNC_END,   0, 0, 0, 0, 0 );
 		ETHERNET_STAT_ADD( dot3RxExtraEntry.interrupts );
 	}
@@ -725,7 +725,7 @@ void UniNEnet::interruptOccurred( IOInterruptEventSource *src, int /*count*/ )
 }/* end interruptOccurred */
 
 
-UInt32 UniNEnet::outputPacket( struct mbuf *pkt, void *param )
+UInt32 UniNEnet::outputPacket( mbuf_t pkt, void *param )
 {
 	IODebuggerLockState	lockState = kIODebuggerLockTaken;
 	UInt32				ret = kIOReturnOutputSuccess;
@@ -733,10 +733,10 @@ UInt32 UniNEnet::outputPacket( struct mbuf *pkt, void *param )
 		/*** Caution - this method runs on the client's	***/
 		/*** thread not the workloop thread.			***/
 
-    KERNEL_DEBUG( DBG_GEM_TXQUEUE | DBG_FUNC_NONE, (int)pkt, (int)pkt->m_pkthdr.len, 0, 0, 0 );
+    KERNEL_DEBUG( DBG_GEM_TXQUEUE | DBG_FUNC_NONE, (int)pkt, (int)mbuf_len(), 0, 0, 0 );
 
 	ELG( READ_REGISTER( TxFIFOPacketCounter ) << 16 | READ_REGISTER( TxCompletion ),
-						pkt->m_pkthdr.len,
+						mbuf_len( pkt ),
 						'OutP', "outputPacket" );
 ///	ELG( pkt, READ_REGISTER( StatusAlias ), 'OutP', "outputPacket" );
 
@@ -793,13 +793,13 @@ void UniNEnet::putToSleep( bool sleepCellClockOnly )
 
 	fWorkLoop->disableAllInterrupts();
 
-	medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
-	setLinkStatus( 0 ); // Link status is unknown - not kIONetworkLinkValid.
-
 	if ( sleepCellClockOnly == false )
 	{
+		nub->saveDeviceState();
 		stopChip();					// stop the DMA engines.
 		stopPHY();					// Set up for wake on Magic Packet if wanted.
+		medium = IONetworkMedium::getMediumWithType( fMediumDict, mediumType );
+		setLinkStatus( kIONetworkLinkValid );	// Link status is valid/not active. Was "unknown" until Radar 3872249.
 	}
 
 	flushRings( true, false );		// Flush all mbufs from TX ring.
@@ -840,7 +840,8 @@ bool UniNEnet::wakeUp( bool wakeCellClockOnly )
 
 	if ( !wakeCellClockOnly )
 	{
-		nub->configWrite32( 0x04, 0x16 );	// BUS MASTER, MEM I/O Space, MEM WR & INV --> Config space
+		nub->restoreDeviceState();
+	/// nub->configWrite32( 0x04, 0x16 );	// BUS MASTER, MEM I/O Space, MEM WR & INV --> Config space
 	}
 
 	if ( !initRxRing() || !initTxRing() ) 
@@ -938,7 +939,7 @@ IOReturn UniNEnet::enable( IONetworkInterface* netif )
 
 		/* Start our IOOutputQueue object:	*/
 
-    transmitQueue->setCapacity( TRANSMIT_QUEUE_SIZE );
+    transmitQueue->setCapacity( fTxQueueSize );
     transmitQueue->start();
 
     return kIOReturnSuccess;
@@ -1088,8 +1089,8 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         return; 
     }    
 
-	x			  = READ_REGISTER( TxMACStatus );
-	fRxMACStatus |= READ_REGISTER( RxMACStatus );
+	x			  = READ_REGISTER( TxMACStatus );	// auto-clear register
+	fRxMACStatus |= READ_REGISTER( RxMACStatus );	// auto-clear register
 	ELG( x, fRxMACStatus, 'MACS', "timeoutOccurred - Tx and Rx MAC Status regs" );
 
 		/* Update statistics from the GMAC statistics registers:	*/
@@ -1144,16 +1145,18 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 
 	lockState = IODebuggerLock( this );
 
-	if ( (fIntStatusForTO & (kStatus_TX_DONE |  kStatus_RX_DONE)) == 0 )
+	fIntStatusForTO |= READ_REGISTER( StatusAlias );
+	if ( (fIntStatusForTO & (kStatus_TX_INT_ME | kStatus_RX_DONE)) == 0 )
 		monitorLinkStatus( false );	// Don't do this if neither Tx nor Rx are moving
 
 		// if the link went down (fLinkStatus is updated in monitorLinkStatus),
 		// disable the ethernet clock and exit this function.
 	if ( fLinkStatus == kLinkStatusDown )
-	{ 
+	{
 		putToSleep( true );
 		timerSource->setTimeoutMS( WATCHDOG_TIMER_MS );
 		IODebuggerUnlock( lockState );
+		fIntStatusForTO = 0;
 		return;
 	} 
 
@@ -1168,7 +1171,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	else
 	{		/* If the hardware Tx pointer did not move since	*/
 			/* the last check, increment the txWDCount.			*/
-		if ( fTxCompletion == txRingIndexLast )
+		if ( fTxCompletion == fTxRingIndexLast )
 		{							/* Transmitter may be stuck.	*/
 			txWDCount++;			/* bump the watchdog count.		*/
 		}
@@ -1192,14 +1195,15 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 				txWDCount = 0;			/* All is now ok - reset watchdog count.	*/
 			else
             {
-				UInt32		intStatus, compReg, kickReg;
+				UInt32		intStatus, compReg, kickReg, macControlStatus;
  
 					/* This may be bad - the transmitter has work to do but		*/
 					/* is not progressing. We may be getting flow controlled.	*/
  
-				intStatus		= READ_REGISTER( StatusAlias );	// don't use auto-clear reg
-				compReg			= READ_REGISTER( TxCompletion );
-				kickReg			= READ_REGISTER( TxKick );
+				intStatus			= READ_REGISTER( StatusAlias );	// don't use auto-clear reg
+				compReg				= READ_REGISTER( TxCompletion );
+				kickReg				= READ_REGISTER( TxKick );
+				macControlStatus	= READ_REGISTER( MACControlStatus );// Pause interrupts
 
 				if ( compReg != kickReg )
 				{
@@ -1212,7 +1216,7 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
         }/* end IF txWDCount > 8 periods	*/
     }/* end ELSE no transmissions completed this period	*/
 
-	txRingIndexLast = fTxCompletion;
+	fTxRingIndexLast = fTxCompletion;
 
 		/* Check for Rx deafness:	*/
 
@@ -1220,8 +1224,8 @@ void UniNEnet::timeoutOccurred( IOTimerEventSource* /*timer*/ )
 	{
 		rxWDCount = 0;			// Reset watchdog timer count
 	}
-	else if ((rxWDCount++ > (5 * 1000 / WATCHDOG_TIMER_MS))	// give about 5 seconds
-		  && (fRxMACStatus & kRX_MAC_Status_Rx_Overflow) )	// and require overflow
+	else if ( (rxWDCount++ > (5 * 1000 / WATCHDOG_TIMER_MS))	// give about 5 seconds
+		  &&  (fRxMACStatus & kRX_MAC_Status_Rx_Overflow) )		// and require FIFO overflow
     {
 			/* There are 3  possibilities here:									*/
 			/* 1) There really was no traffic on the link.						*/
@@ -1519,8 +1523,8 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 		anar |= MII_ANAR_100BASETX;
 		break;
 
-	case kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex:	// 1000 Full
-	case kIOMediumEthernet1000BaseTX | kIOMediumOptionHalfDuplex:	// 1000 Half
+	case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:	// 1000 Full
+	case kIOMediumEthernet1000BaseT | kIOMediumOptionHalfDuplex:	// 1000 Half
 		break;	//	gigabit is vendor specific - do it there
 
 	default:		/* unknown	*/
@@ -1564,11 +1568,11 @@ IOReturn UniNEnet::negotiateSpeedDuplex()
 		switch ( mtyp )
 		{					// gig/Full:
 		case kIOMediumEthernetAuto:
-		case kIOMediumEthernet1000BaseTX | kIOMediumOptionFullDuplex:
+		case kIOMediumEthernet1000BaseT | kIOMediumOptionFullDuplex:
 			gigReg |= MII_1000BASETCONTROL_FULLDUPLEXCAP;
 			break;
 							// gig/Half:
-		case kIOMediumEthernet1000BaseTX | kIOMediumOptionHalfDuplex:
+		case kIOMediumEthernet1000BaseT | kIOMediumOptionHalfDuplex:
 			gigReg |= MII_1000BASETCONTROL_HALFDUPLEXCAP;
 			break;
 		}/* end SWITCH on Marvell gig/Full or gig/Half */
@@ -1622,7 +1626,7 @@ IOReturn UniNEnet::forceSpeedDuplex()
 		controlReg = MII_CONTROL_SPEED_SELECTION;
 		break;
 
-	case kIOMediumEthernet1000BaseTX:
+	case kIOMediumEthernet1000BaseT:
 		controlReg = MII_CONTROL_SPEED_SELECTION_2;
 		break;
 	}/* end SWITCH */
@@ -1634,7 +1638,7 @@ IOReturn UniNEnet::forceSpeedDuplex()
 	switch ( fPHYType )
 	{
 	case 0x1011:										// Marvell:
-			/* Disable Crossover cable:	*/
+			/* Disable auto crossover:	*/
 		br = miiReadWord( &gigReg, MII_MARVELL_PHY_SPECIFIC_CONTROL );
 		gigReg &= ~(MII_MARVELL_PHY_SPECIFIC_CONTROL_AUTOL_MDIX
 				  | MII_MARVELL_PHY_SPECIFIC_CONTROL_MANUAL_MDIX);
@@ -2127,6 +2131,9 @@ IOReturn UniNEnetUserClient::writeOneGMACReg(	void		*pIn,		void		*pOut,
 
 	regValue = req->bufSize;
 	OSWriteLittleInt32(  (UInt32*)fProvider->fpRegs, reg, regValue );
+
+	if ( reg == offsetof( GMAC_Registers, SendPauseCommand ) )
+		fProvider->fSendPauseCommand = regValue & 0x0000FFFF;
 
 ///	IOLog( "UniNEnetUserClient::writeOneGMACReg %d, 0x%x\n", reg, regValue );
 

@@ -1,0 +1,25 @@
+--- putwc.3.orig	Fri Mar 11 17:08:50 2005
++++ putwc.3	Fri Mar 11 16:21:00 2005
+@@ -79,6 +79,12 @@
+ .Fn putwc
+ with an output stream of
+ .Dv stdout .
++.Pp
++Extended locale versions of these functions are documented in
++.Xr putwc_l 3 .
++See
++.Xr xlocale 3
++for more information.
+ .Sh RETURN VALUES
+ The
+ .Fn fputwc ,
+@@ -95,7 +101,8 @@
+ .Xr fopen 3 ,
+ .Xr getwc 3 ,
+ .Xr putc 3 ,
+-.Xr stdio 3
++.Xr stdio 3 ,
++.Xr putwc_l 3
+ .Sh STANDARDS
+ The
+ .Fn fputwc ,

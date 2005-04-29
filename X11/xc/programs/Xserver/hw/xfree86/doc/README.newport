@@ -60,7 +60,7 @@ However, if you have problems with auto-detection, you can specify:
 
    o all the guys who wrote the newport_con linux kernel code
 
-     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/newport.sgml,v 1.6 2003/02/25 19:31:02 dawes Exp $
+     Generated from XFree86: xc/programs/Xserver/hw/xfree86/doc/sgml/newport.sgml,v 1.7 dawes Exp $
 
 
-$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.newport,v 1.7 2003/02/25 21:32:35 dawes Exp $
+$XFree86: xc/programs/Xserver/hw/xfree86/doc/README.newport,v 1.9 2003/10/19 19:57:14 dawes Exp $

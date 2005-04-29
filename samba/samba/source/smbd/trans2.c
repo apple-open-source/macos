@@ -954,8 +954,13 @@ static BOOL get_lanman2_dir_entry(connection_struct *conn,
 			allocation_size = get_allocation_size(NULL,&sbuf);
 			mdate = sbuf.st_mtime;
 			adate = sbuf.st_atime;
+		#if defined(ATTR_CMN_CRTIME)
+			if (!(get_creation_time_attr(fname, &cdate, 1) == 0))  {
+		#endif
 			cdate = get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn)));
-
+		#if defined(ATTR_CMN_CRTIME)
+			}
+		#endif
 			if (lp_dos_filetime_resolution(SNUM(conn))) {
 				cdate &= ~1;
 				mdate &= ~1;
@@ -2414,8 +2419,13 @@ static int call_trans2qfilepathinfo(connection_struct *conn,
 
 	memset((char *)pdata,'\0',data_size);
 
+#if defined(ATTR_CMN_CRTIME)
+	if (!(get_creation_time_attr(fname, &c_time, 1) == 0))  {
+#endif
 	c_time = get_create_time(&sbuf,lp_fake_dir_create_times(SNUM(conn)));
-
+#if defined(ATTR_CMN_CRTIME)
+	}
+#endif
 	if (lp_dos_filetime_resolution(SNUM(conn))) {
 		c_time &= ~1;
 		sbuf.st_atime &= ~1;

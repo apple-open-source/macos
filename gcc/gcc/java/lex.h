@@ -1,21 +1,22 @@
 /* Language lexer definitions for the GNU compiler for the Java(TM) language.
-   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004
+   Free Software Foundation, Inc.
    Contributed by Alexandre Petit-Bianco (apbianco@cygnus.com)
 
-This file is part of GNU CC.
+This file is part of GCC.
 
-GNU CC is free software; you can redistribute it and/or modify
+GCC is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2, or (at your option)
 any later version.
 
-GNU CC is distributed in the hope that it will be useful,
+GCC is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
-along with GNU CC; see the file COPYING.  If not, write to
+along with GCC; see the file COPYING.  If not, write to
 the Free Software Foundation, 59 Temple Place - Suite 330,
 Boston, MA 02111-1307, USA.
 
@@ -26,79 +27,24 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #ifndef GCC_JAVA_LEX_H
 #define GCC_JAVA_LEX_H
 
+#include "input.h"
+
 /* Extern global variables declarations  */
 extern FILE *finput;
-extern int   lineno;
 
 /* A Unicode character, as read from the input file  */
 typedef unsigned short unicode_t;
 
-#ifdef HAVE_ICONV
+#if defined HAVE_ICONV_H && defined HAVE_ICONV
 #include <iconv.h>
 #endif /* HAVE_ICONV */
 
 /* Default encoding to use if no encoding is specified.  */
 #define DEFAULT_ENCODING "UTF-8"
 
-/* Debug macro to print-out what we match  */
-#ifdef JAVA_LEX_DEBUG
-#ifdef JAVA_LEX_DEBUG_CHAR
-#define JAVA_LEX_CHAR(c)      printf ("java_lex:%d: char '%c'.%d\n", 	\
-				      lineno, (c < 128 ? c : '.'), c);
-#else
-#define JAVA_LEX_CHAR(c)
-#endif
-#define JAVA_LEX_KW(c)        printf ("java_lex:%d: keyword: '%s'\n", lineno,c)
-#define JAVA_LEX_ID(s)        printf ("java_lex:%d: ID: '%s'\n",	\
-				      lineno,				\
-				      (all_ascii ? s : "<U>"))
-#define JAVA_LEX_LIT(s, r)    printf ("java_lex:%d: literal '%s'_%d\n",	\
-				      lineno, s, r)
-#define JAVA_LEX_CHAR_LIT(s)  printf ("java_lex:%d: literal '%d'\n", lineno, s)
-#define JAVA_LEX_STR_LIT(s)   {						 \
-				 int i;					 \
-				 printf ("java_lex:%d: literal '%s'\n",  \
-					 lineno, s);			 \
-			       }
-#define JAVA_LEX_SEP(c)       printf ("java_lex:%d: separator '%c'\n",lineno,c)
-#define JAVA_LEX_OP(c)        printf ("java_lex:%d: operator '%s'\n", lineno,c)
-#else
-#define JAVA_LEX_CHAR(c)
-#define JAVA_LEX_KW(c)
-#define JAVA_LEX_ID(s)
-#define JAVA_LEX_LIT(s,r)
-#define JAVA_LEX_CHAR_LIT(s)
-#define JAVA_LEX_STR_LIT(s)
-#define JAVA_LEX_SEP(c)
-#define JAVA_LEX_OP(s)
-#endif
-
-/* Line information containers  */
-struct java_line {
-  unicode_t *line;		/* The line's unicode */
-  char      *unicode_escape_p;	/* The matching char was a unicode escape */
-  unicode_t ahead[1];		/* Character ahead */
-  char unicode_escape_ahead_p;	/* Character ahead is a unicode escape */
-  int max;			/* buffer's max size */
-  int size;			/* number of unicodes */
-  int current;			/* Current position, unicode based */
-  int char_col;			/* Current position, input char based */
-  int lineno;			/* Its line number */
-  int white_space_only;		/* If it contains only white spaces */
-};
-#define JAVA_COLUMN_DELTA(p)						\
-  (ctxp->c_line->unicode_escape_p [ctxp->c_line->current+(p)] ? 6 : 	\
-   (ctxp->c_line->line [ctxp->c_line->current+(p)] == '\t' ? 8 : 1))
-
-struct java_error {
-  struct java_line *line;
-  int error;
-};
-
 typedef struct java_lc_s GTY(()) {
-  int line;
-  int prev_col;
-  int col;
+  int line;		/* line number (1-based) */
+  int col;		/* column number number (1-based) */
 } java_lc;
 
 struct java_lexer
@@ -109,22 +55,43 @@ struct java_lexer
   /* Number of consecutive backslashes we've read.  */
   int bs_count;
 
-  /* If nonzero, a value that was pushed back.  */
+  /* Next available Unicode character.
+   * This is post-Unicode-escape-processing. -1 if EOF. */
+  int next_unicode;
+
+  /* True if next_unicode is next available character, or EOF. */
+  bool avail_unicode;
+
+  /* Number of source columns of the previous Unicode character (next_unicode).
+     If next_unicode==-2, then this is the number of columns of the previous
+     Unicode character (most recent result of java_{get,peek}_unicode). */
+  int next_columns;
+
+  /* If nonzero, a value that was pushed back.  This is a unicode character,
+     but (unlike next_unicode) is pre-'\uXXXX'-processing.  It is also used
+     when a '\r' is *not* followed by a '\n'. */
   unicode_t unget_value;
 
-  /* If nonzero, we've hit EOF.  Used only by java_get_unicode().  */
-  int hit_eof : 1;
+  /* Name of the character encoding we're using.  */
+  const char *encoding;
+
+  /* Current source position. */
+  java_lc position;
+
+#ifndef USE_MAPPED_LOCATION
+  java_lc token_start;		     /* Error's line column info */
+#endif
 
 #ifdef HAVE_ICONV
   /* Nonzero if we've read any bytes.  We only recognize the
      byte-order-marker (BOM) as the first word.  */
-  int read_anything : 1;
+  unsigned int read_anything : 1;
 
   /* Nonzero if we have to byte swap.  */
-  int byte_swap : 1;
+  unsigned int byte_swap : 1;
 
   /* Nonzero if we're using the fallback decoder.  */
-  int use_fallback : 1;
+  unsigned int use_fallback : 1;
 
   /* The handle for the iconv converter we're using.  */
   iconv_t handle;
@@ -158,12 +125,17 @@ struct java_lexer
 typedef struct java_lexer java_lexer;
 
 /* Destroy a lexer object.  */
-extern void java_destroy_lexer PARAMS ((java_lexer *));
+extern void java_destroy_lexer (java_lexer *);
 
 #define JAVA_LINE_MAX 80
 
 /* Build a location compound integer */
-#define BUILD_LOCATION() ((ctxp->elc.line << 12) | (ctxp->elc.col & 0xfff))
+#ifdef USE_MAPPED_LOCATION
+#define BUILD_LOCATION() input_location
+#else
+#define BUILD_LOCATION() ((ctxp->lexer->token_start.line << 12) \
+			  | (ctxp->lexer->token_start.col & 0xfff))
+#endif
 
 /* Those macros are defined differently if we compile jc1-lite
    (JC1_LITE defined) or jc1.  */
@@ -183,10 +155,9 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
 #define BUILD_OPERATOR(TOKEN)	return TOKEN
 #define BUILD_OPERATOR2(TOKEN)	return ASSIGN_ANY_TK
 #define SET_LVAL_NODE(NODE)
-#define SET_LVAL_NODE_TYPE(NODE, TYPE)
 #define BUILD_ID_WFL(EXP) (EXP)
 #define JAVA_FLOAT_RANGE_ERROR(S) {}
-#define JAVA_INTEGRAL_RANGE_ERROR(S) do { } while (0)
+#define JAVA_RANGE_ERROR(S) do { } while (0)
 
 #else
 
@@ -220,29 +191,22 @@ extern void java_destroy_lexer PARAMS ((java_lexer *));
   }
 /* Set java_lval->node and TREE_TYPE(java_lval->node) in macros */
 #define SET_LVAL_NODE(NODE) java_lval->node = (NODE)
-#define SET_LVAL_NODE_TYPE(NODE,TYPE)		\
-  {						\
-    java_lval->node = (NODE);			\
-    TREE_TYPE (java_lval->node) = (TYPE);	\
-  }
 /* Wrap identifier around a wfl */
 #define BUILD_ID_WFL(EXP) build_wfl_node ((EXP))
 /* Special ways to report error on numeric literals  */
-#define JAVA_FLOAT_RANGE_ERROR(m)					  \
-  {									  \
-    char msg [1024];							  \
-    int i = ctxp->c_line->current;					  \
-    ctxp->c_line->current = number_beginning;				  \
-    sprintf (msg, "Floating point literal exceeds range of `%s'", (m)); \
-    java_lex_error (msg, 0);						  \
-    ctxp->c_line->current = i;						  \
+#define JAVA_FLOAT_RANGE_ERROR(m)					\
+  {									\
+    char *msg = xmalloc (100 + strlen (m));				\
+    sprintf (msg, "Floating point literal exceeds range of `%s'", (m));	\
+    JAVA_RANGE_ERROR(msg);						\
+    free (msg);								\
   }
-#define JAVA_INTEGRAL_RANGE_ERROR(m)		\
-  do {						\
-    int i = ctxp->c_line->current;		\
-    ctxp->c_line->current = number_beginning;	\
-    java_lex_error (m, 0);			\
-    ctxp->c_line->current = i;			\
+#define JAVA_RANGE_ERROR(msg)						\
+  do {									\
+    int save_col = ctxp->lexer->position.col;				\
+    ctxp->lexer->position.col = number_beginning;			\
+    java_lex_error (msg, 0);						\
+    ctxp->lexer->position.col = save_col;				\
   } while (0)
 
 #endif /* Definitions for jc1 compilation only */

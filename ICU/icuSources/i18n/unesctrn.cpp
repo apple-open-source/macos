@@ -1,12 +1,12 @@
 /*
-**********************************************************************
-*   Copyright (c) 2001, International Business Machines
-*   Corporation and others.  All Rights Reserved.
-**********************************************************************
-*   Date        Name        Description
-*   11/19/2001  aliu        Creation.
-**********************************************************************
-*/
+ **********************************************************************
+ *   Copyright (c) 2001-2004, International Business Machines
+ *   Corporation and others.  All Rights Reserved.
+ **********************************************************************
+ *   Date        Name        Description
+ *   11/19/2001  aliu        Creation.
+ **********************************************************************
+ */
 
 #include "unicode/utypes.h"
 
@@ -73,7 +73,7 @@ static const UChar SPEC_Any[] = {
     END
 };
 
-const char UnescapeTransliterator::fgClassID=0;
+UOBJECT_DEFINE_RTTI_IMPLEMENTATION(UnescapeTransliterator)
 
 /**
  * Factory methods.  Ignore the context.
@@ -107,19 +107,19 @@ Transliterator* UnescapeTransliterator::_createAny(const UnicodeString& ID, Toke
 void UnescapeTransliterator::registerIDs() {
     Token t = integerToken(0);
 
-    Transliterator::_registerFactory("Hex-Any/Unicode", _createUnicode, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/Unicode"), _createUnicode, t);
 
-    Transliterator::_registerFactory("Hex-Any/Java", _createJava, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/Java"), _createJava, t);
 
-    Transliterator::_registerFactory("Hex-Any/C", _createC, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/C"), _createC, t);
 
-    Transliterator::_registerFactory("Hex-Any/XML", _createXML, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/XML"), _createXML, t);
 
-    Transliterator::_registerFactory("Hex-Any/XML10", _createXML10, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/XML10"), _createXML10, t);
 
-    Transliterator::_registerFactory("Hex-Any/Perl", _createPerl, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any/Perl"), _createPerl, t);
 
-    Transliterator::_registerFactory("Hex-Any", _createAny, t);
+    Transliterator::_registerFactory(UNICODE_STRING_SIMPLE("Hex-Any"), _createAny, t);
 }
 
 /**

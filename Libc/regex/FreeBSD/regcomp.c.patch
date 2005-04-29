@@ -1,0 +1,397 @@
+--- regcomp.c.orig	2004-11-25 11:38:32.000000000 -0800
++++ regcomp.c	2005-02-24 13:46:56.000000000 -0800
+@@ -43,6 +43,8 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/regex/regcomp.c,v 1.34 2004/10/03 15:42:59 stefanf Exp $");
+ 
++#include "xlocale_private.h"
++
+ #include <sys/types.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -73,6 +75,9 @@
+ 	sopno ssize;		/* malloced strip size (allocated) */
+ 	sopno slen;		/* malloced strip length (used) */
+ 	int ncsalloc;		/* number of csets allocated */
++#if __DARWIN_UNIX03
++	int zerorepeats;
++#endif /* __DARWIN_UNIX03 */
+ 	struct re_guts *g;
+ #	define	NPAREN	10	/* we need to remember () 1-9 for back refs */
+ 	sopno pbegin[NPAREN];	/* -> ( ([0] unused) */
+@@ -97,7 +102,7 @@
+ static void p_b_eclass(struct parse *p, cset *cs);
+ static wint_t p_b_symbol(struct parse *p);
+ static wint_t p_b_coll_elem(struct parse *p, wint_t endc);
+-static wint_t othercase(wint_t ch);
++static wint_t othercase(wint_t ch, locale_t loc);
+ static void bothcases(struct parse *p, wint_t ch);
+ static void ordinary(struct parse *p, wint_t ch);
+ static void nonnewline(struct parse *p);
+@@ -108,7 +113,7 @@
+ static void CHadd(struct parse *p, cset *cs, wint_t ch);
+ static void CHaddrange(struct parse *p, cset *cs, wint_t min, wint_t max);
+ static void CHaddtype(struct parse *p, cset *cs, wctype_t wct);
+-static wint_t singleton(cset *cs);
++static wint_t singleton(cset *cs, locale_t loc);
+ static sopno dupl(struct parse *p, sopno start, sopno finish);
+ static void doemit(struct parse *p, sop op, size_t opnd);
+ static void doinsert(struct parse *p, sop op, size_t opnd, sopno pos);
+@@ -227,10 +232,14 @@
+ 	p->end = p->next + len;
+ 	p->error = 0;
+ 	p->ncsalloc = 0;
++#if __DARWIN_UNIX03
++	p->zerorepeats = 0;
++#endif /* __DARWIN_UNIX03 */
+ 	for (i = 0; i < NPAREN; i++) {
+ 		p->pbegin[i] = 0;
+ 		p->pend[i] = 0;
+ 	}
++	g->loc = __current_locale();
+ 	g->sets = NULL;
+ 	g->ncsets = 0;
+ 	g->cflags = cflags;
+@@ -308,8 +317,12 @@
+ 		conc = HERE();
+ 		while (MORE() && (c = PEEK()) != '|' && c != stop)
+ 			p_ere_exp(p);
++#if __DARWIN_UNIX03
++ 		if (!p->zerorepeats) REQUIRE(HERE() != conc, REG_EMPTY);	/* require nonempty */
++		else p->zerorepeats--;
++#else
+ 		(void)REQUIRE(HERE() != conc, REG_EMPTY);	/* require nonempty */
+-
++#endif
+ 		if (!EAT('|'))
+ 			break;		/* NOTE BREAK OUT */
+ 
+@@ -417,7 +430,7 @@
+ 		ordinary(p, wc);
+ 		break;
+ 	case '{':		/* okay as ordinary except if digit follows */
+-		(void)REQUIRE(!MORE() || !isdigit((uch)PEEK()), REG_BADRPT);
++		(void)REQUIRE(!MORE() || !isdigit_l((uch)PEEK(), p->g->loc), REG_BADRPT);
+ 		/* FALLTHROUGH */
+ 	default:
+ 		p->next--;
+@@ -431,7 +444,7 @@
+ 	c = PEEK();
+ 	/* we call { a repetition if followed by a digit */
+ 	if (!( c == '*' || c == '+' || c == '?' ||
+-				(c == '{' && MORE2() && isdigit((uch)PEEK2())) ))
++				(c == '{' && MORE2() && isdigit_l((uch)PEEK2(), p->g->loc)) ))
+ 		return;		/* no repetition, we're done */
+ 	NEXT();
+ 
+@@ -460,7 +473,7 @@
+ 	case '{':
+ 		count = p_count(p);
+ 		if (EAT(',')) {
+-			if (isdigit((uch)PEEK())) {
++			if (isdigit_l((uch)PEEK(), p->g->loc)) {
+ 				count2 = p_count(p);
+ 				(void)REQUIRE(count <= count2, REG_BADBR);
+ 			} else		/* single number with comma */
+@@ -481,7 +494,7 @@
+ 		return;
+ 	c = PEEK();
+ 	if (!( c == '*' || c == '+' || c == '?' ||
+-				(c == '{' && MORE2() && isdigit((uch)PEEK2())) ) )
++				(c == '{' && MORE2() && isdigit_l((uch)PEEK2(), p->g->loc)) ) )
+ 		return;
+ 	SETERROR(REG_BADRPT);
+ }
+@@ -494,7 +507,12 @@
+ p_str(p)
+ struct parse *p;
+ {
++#if __DARWIN_UNIX03
++ 	if (!p->zerorepeats) REQUIRE(MORE(), REG_EMPTY);
++	else p->zerorepeats--;
++#else  /* !__DARWIN_UNIX03 */
+ 	(void)REQUIRE(MORE(), REG_EMPTY);
++#endif /* __DARWIN_UNIX03 */
+ 	while (MORE())
+ 		ordinary(p, WGETNEXT());
+ }
+@@ -534,8 +552,12 @@
+ 		p->g->iflags |= USEEOL;
+ 		p->g->neol++;
+ 	}
+-
++#if __DARWIN_UNIX03
++	if (!p->zerorepeats) REQUIRE(HERE() != start, REG_EMPTY);	/* require nonempty */
++	else p->zerorepeats--;
++#else  /* !__DARWIN_UNIX03 */
+ 	(void)REQUIRE(HERE() != start, REG_EMPTY);	/* require nonempty */
++#endif /* __DARWIN_UNIX03 */
+ }
+ 
+ /*
+@@ -639,7 +661,7 @@
+ 	} else if (EATTWO('\\', '{')) {
+ 		count = p_count(p);
+ 		if (EAT(',')) {
+-			if (MORE() && isdigit((uch)PEEK())) {
++			if (MORE() && isdigit_l((uch)PEEK(), p->g->loc)) {
+ 				count2 = p_count(p);
+ 				(void)REQUIRE(count <= count2, REG_BADBR);
+ 			} else		/* single number with comma */
+@@ -670,7 +692,7 @@
+ 	int count = 0;
+ 	int ndigits = 0;
+ 
+-	while (MORE() && isdigit((uch)PEEK()) && count <= DUPMAX) {
++	while (MORE() && isdigit_l((uch)PEEK(), p->g->loc) && count <= DUPMAX) {
+ 		count = count*10 + (GETNEXT() - '0');
+ 		ndigits++;
+ 	}
+@@ -709,10 +731,21 @@
+ 		cs->icase = 1;
+ 	if (EAT('^'))
+ 		cs->invert = 1;
++#if __DARWIN_UNIX03
++	if (PEEK2() != '-') {	/* Don't eat '-' or ']' if they're part of ranges */
++		if (EAT(']'))
++			CHadd(p, cs, ']');
++		else if (EAT('-'))
++			CHadd(p, cs, '-');
++	}
++	if (MORE() && !SEETWO('-',']')) /* Parse RE []-'] */
++		p_b_term(p, cs);
++#else /* !__DARWIN_UNIX03 */
+ 	if (EAT(']'))
+ 		CHadd(p, cs, ']');
+ 	else if (EAT('-'))
+ 		CHadd(p, cs, '-');
++#endif /* __DARWIN_UNIX03 */
+ 	while (MORE() && PEEK() != ']' && !SEETWO('-', ']'))
+ 		p_b_term(p, cs);
+ 	if (EAT('-'))
+@@ -725,7 +758,7 @@
+ 	if (cs->invert && p->g->cflags&REG_NEWLINE)
+ 		cs->bmp['\n' >> 3] |= 1 << ('\n' & 7);
+ 
+-	if ((ch = singleton(cs)) != OUT) {	/* optimize singleton sets */
++	if ((ch = singleton(cs, p->g->loc)) != OUT) {	/* optimize singleton sets */
+ 		ordinary(p, ch);
+ 		freeset(p, cs);
+ 	} else
+@@ -751,8 +784,16 @@
+ 		c = (MORE2()) ? PEEK2() : '\0';
+ 		break;
+ 	case '-':
++#if __DARWIN_UNIX03
++ 		if (PEEK2() != '-') { /* Allow [---] */
++			SETERROR(REG_ERANGE);
++			return;			/* NOTE RETURN */
++		} else
++			c = '-';
++#else  /* !__DARWIN_UNIX03 */
+ 		SETERROR(REG_ERANGE);
+ 		return;			/* NOTE RETURN */
++#endif /* __DARWIN_UNIX03 */
+ 		break;
+ 	default:
+ 		c = '\0';
+@@ -773,7 +814,11 @@
+ 		NEXT2();
+ 		(void)REQUIRE(MORE(), REG_EBRACK);
+ 		c = PEEK();
++#if __DARWIN_UNIX03
++ 		REQUIRE(c != '-', REG_ECOLLATE); /* allow [=]=] */
++#else  /* !__DARWIN_UNIX03 */
+ 		(void)REQUIRE(c != '-' && c != ']', REG_ECOLLATE);
++#endif /* __DARWIN_UNIX03 */
+ 		p_b_eclass(p, cs);
+ 		(void)REQUIRE(MORE(), REG_EBRACK);
+ 		(void)REQUIRE(EATTWO('=', ']'), REG_ECOLLATE);
+@@ -792,14 +837,14 @@
+ 		if (start == finish)
+ 			CHadd(p, cs, start);
+ 		else {
+-			if (__collate_load_error) {
++			if (p->g->loc->__collate_load_error) {
+ 				(void)REQUIRE((uch)start <= (uch)finish, REG_ERANGE);
+ 				CHaddrange(p, cs, start, finish);
+ 			} else {
+-				(void)REQUIRE(__collate_range_cmp(start, finish) <= 0, REG_ERANGE);
++				(void)REQUIRE(__collate_range_cmp(start, finish, p->g->loc) <= 0, REG_ERANGE);
+ 				for (i = 0; i <= UCHAR_MAX; i++) {
+-					if (   __collate_range_cmp(start, i) <= 0
+-					    && __collate_range_cmp(i, finish) <= 0
++					if (   __collate_range_cmp(start, i, p->g->loc) <= 0
++					    && __collate_range_cmp(i, finish, p->g->loc) <= 0
+ 					   )
+ 						CHadd(p, cs, i);
+ 				}
+@@ -823,7 +868,7 @@
+ 	wctype_t wct;
+ 	char clname[16];
+ 
+-	while (MORE() && isalpha((uch)PEEK()))
++	while (MORE() && isalpha_l((uch)PEEK(), p->g->loc))
+ 		NEXT();
+ 	len = p->next - sp;
+ 	if (len >= sizeof(clname) - 1) {
+@@ -832,7 +877,7 @@
+ 	}
+ 	memcpy(clname, sp, len);
+ 	clname[len] = '\0';
+-	if ((wct = wctype(clname)) == 0) {
++	if ((wct = wctype_l(clname, p->g->loc)) == 0) {
+ 		SETERROR(REG_ECTYPE);
+ 		return;
+ 	}
+@@ -903,7 +948,7 @@
+ 		if (strncmp(cp->name, sp, len) == 0 && cp->name[len] == '\0')
+ 			return(cp->code);	/* known name */
+ 	memset(&mbs, 0, sizeof(mbs));
+-	if ((clen = mbrtowc(&wc, sp, len, &mbs)) == len)
++	if ((clen = mbrtowc_l(&wc, sp, len, &mbs, p->g->loc)) == len)
+ 		return (wc);			/* single character */
+ 	else if (clen == (size_t)-1 || clen == (size_t)-2)
+ 		SETERROR(REG_ILLSEQ);
+@@ -914,17 +959,18 @@
+ 
+ /*
+  - othercase - return the case counterpart of an alphabetic
+- == static char othercase(int ch);
++ == static char othercase(int ch, locale_t loc);
+  */
+ static wint_t			/* if no counterpart, return ch */
+-othercase(ch)
++othercase(ch, loc)
+ wint_t ch;
++locale_t loc;
+ {
+-	assert(iswalpha(ch));
+-	if (iswupper(ch))
+-		return(towlower(ch));
+-	else if (iswlower(ch))
+-		return(towupper(ch));
++	assert(iswalpha_l(ch, loc));
++	if (iswupper_l(ch, loc))
++		return(towlower_l(ch, loc));
++	else if (iswlower_l(ch, loc))
++		return(towupper_l(ch, loc));
+ 	else			/* peculiar, but could happen */
+ 		return(ch);
+ }
+@@ -946,10 +992,10 @@
+ 	size_t n;
+ 	mbstate_t mbs;
+ 
+-	assert(othercase(ch) != ch);	/* p_bracket() would recurse */
++	assert(othercase(ch, p->g->loc) != ch);	/* p_bracket() would recurse */
+ 	p->next = bracket;
+ 	memset(&mbs, 0, sizeof(mbs));
+-	n = wcrtomb(bracket, ch, &mbs);
++	n = wcrtomb_l(bracket, ch, &mbs, p->g->loc);
+ 	assert(n != (size_t)-1);
+ 	bracket[n] = ']';
+ 	bracket[n + 1] = '\0';
+@@ -971,7 +1017,7 @@
+ {
+ 	cset *cs;
+ 
+-	if ((p->g->cflags&REG_ICASE) && iswalpha(ch) && othercase(ch) != ch)
++	if ((p->g->cflags&REG_ICASE) && iswalpha_l(ch, p->g->loc) && othercase(ch, p->g->loc) != ch)
+ 		bothcases(p, ch);
+ 	else if ((ch & OPDMASK) == ch)
+ 		EMIT(OCHAR, ch);
+@@ -1039,6 +1085,9 @@
+ 	switch (REP(MAP(from), MAP(to))) {
+ 	case REP(0, 0):			/* must be user doing this */
+ 		DROP(finish-start);	/* drop the operand */
++#if __DARWIN_UNIX03
++		p->zerorepeats++;
++#endif /* __DARWIN_UNIX03 */
+ 		break;
+ 	case REP(0, 1):			/* as x{1,1}? */
+ 	case REP(0, N):			/* as x{1,n}? */
+@@ -1099,7 +1148,7 @@
+ 	size_t n;
+ 
+ 	memset(&mbs, 0, sizeof(mbs));
+-	n = mbrtowc(&wc, p->next, p->end - p->next, &mbs);
++	n = mbrtowc_l(&wc, p->next, p->end - p->next, &mbs, p->g->loc);
+ 	if (n == (size_t)-1 || n == (size_t)-2) {
+ 		SETERROR(REG_ILLSEQ);
+ 		return (0);
+@@ -1172,13 +1221,14 @@
+  - returning it if so, otherwise returning OUT.
+  */
+ static wint_t
+-singleton(cs)
++singleton(cs, loc)
+ cset *cs;
++locale_t loc;
+ {
+ 	wint_t i, s, n;
+ 
+ 	for (i = n = 0; i < NC; i++)
+-		if (CHIN(cs, i)) {
++		if (CHIN(cs, i, loc)) {
+ 			n++;
+ 			s = i;
+ 		}
+@@ -1215,9 +1265,9 @@
+ 		cs->wides[cs->nwides++] = ch;
+ 	}
+ 	if (cs->icase) {
+-		if ((nch = towlower(ch)) < NC)
++		if ((nch = towlower_l(ch, p->g->loc)) < NC)
+ 			cs->bmp[nch >> 3] |= 1 << (nch & 7);
+-		if ((nch = towupper(ch)) < NC)
++		if ((nch = towupper_l(ch, p->g->loc)) < NC)
+ 			cs->bmp[nch >> 3] |= 1 << (nch & 7);
+ 	}
+ }
+@@ -1262,7 +1312,7 @@
+ 	wctype_t *newtypes;
+ 
+ 	for (i = 0; i < NC; i++)
+-		if (iswctype(i, wct))
++		if (iswctype_l(i, wct, p->g->loc))
+ 			CHadd(p, cs, i);
+ 	newtypes = realloc(cs->types, (cs->ntypes + 1) *
+ 	    sizeof(*cs->types));
+@@ -1451,6 +1501,7 @@
+ 	char buf[MB_LEN_MAX];
+ 	size_t clen;
+ 	mbstate_t mbs;
++	struct __xlocale_st_runelocale *rl = p->g->loc->__lc_ctype;
+ 
+ 	/* avoid making error situations worse */
+ 	if (p->error != 0)
+@@ -1461,8 +1512,8 @@
+ 	 * multibyte character strings, but it's safe for at least
+ 	 * UTF-8 (see RFC 3629).
+ 	 */
+-	if (MB_CUR_MAX > 1 &&
+-	    strcmp(_CurrentRuneLocale->__encoding, "UTF-8") != 0)
++	if (rl->__mb_cur_max > 1 &&
++	    strcmp(rl->_CurrentRuneLocale.__encoding, "UTF-8") != 0)
+ 		return;
+ 
+ 	/* find the longest OCHAR sequence in strip */
+@@ -1478,7 +1529,7 @@
+ 				memset(&mbs, 0, sizeof(mbs));
+ 				newstart = scan - 1;
+ 			}
+-			clen = wcrtomb(buf, OPND(s), &mbs);
++			clen = wcrtomb_l(buf, OPND(s), &mbs, p->g->loc);
+ 			if (clen == (size_t)-1)
+ 				goto toohard;
+ 			newlen += clen;
+@@ -1597,7 +1648,7 @@
+ 	while (cp < g->must + g->mlen) {
+ 		while (OP(s = *scan++) != OCHAR)
+ 			continue;
+-		clen = wcrtomb(cp, OPND(s), &mbs);
++		clen = wcrtomb_l(cp, OPND(s), &mbs, p->g->loc);
+ 		assert(clen != (size_t)-1);
+ 		cp += clen;
+ 	}

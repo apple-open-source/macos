@@ -1,7 +1,7 @@
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx1_accel.c,v 1.5 2003/02/11 13:36:41 alanh Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nsc/nsc_gx1_accel.c,v 1.8 2003/12/07 23:18:16 alanh Exp $ */
 /*
  * $Workfile: nsc_gx1_accel.c $
- * $Revision: 1.1.1.1 $
+ * $Revision: 1.1.1.2 $
  * $Author: jharper $
  *
  * File Contents: This file is consists of main Xfree
@@ -171,7 +171,6 @@ static int Geodesrcx;
 static int Geodesrcy;
 static int Geodewidth;
 static int Geodeheight;
-static int Geodebpp;
 static int GeodeCounter;
 
 #if !defined(STB_X)
@@ -181,7 +180,9 @@ static unsigned short Geode_vector_mode = 0;
 static unsigned short Geode_buffer_width = 0;
 #endif
 static unsigned int gu1_bpp = 0;
+#if SCR2SCREXP
 static unsigned int gu1_xshift = 1;
+#endif
 static unsigned int gu1_yshift = 1;
 static unsigned short GeodebufferWidthPixels;
 static unsigned int ImgBufOffset;
@@ -189,9 +190,11 @@ static unsigned short Geodebb0Base;
 static unsigned short Geodebb1Base;
 static XAAInfoRecPtr localRecPtr;
 
+#if SCR2SCREXP
 #define CALC_FBOFFSET(_SrcX, _SrcY) \
 	(((unsigned int) (_SrcY) << gu1_yshift) |\
 		(((unsigned int) (_SrcX)) << gu1_xshift))
+#endif
 
 #define GFX_WAIT_BUSY while(READ_REG16(GP_BLIT_STATUS) & BS_BLIT_BUSY) { ; }
 #define GFX_WAIT_PENDING while(READ_REG16(GP_BLIT_STATUS) & BS_BLIT_PENDING) { ; }
@@ -270,9 +273,11 @@ void OPTGX1SubsequentBresenhamLine(ScrnInfoPtr pScreenInfo, int x1, int y1,
 void OPTGX1SubsequentSolidTwoPointLine(ScrnInfoPtr pScreenInfo,
 				       int x0, int y0, int x1, int y1,
 				       int flags);
+#if 0 /* disabled due to bugs */
 void OPTGX1SubsequentHorVertLine(ScrnInfoPtr pScreenInfo, int x, int y,
 				 int len, int dir);
 
+#endif
 void OPTGX1SetupForScanlineImageWrite(ScrnInfoPtr pScreenInfo,
 				      int rop, unsigned int planemask,
 				      int transparency_color, int bpp,
@@ -473,7 +478,7 @@ GX1Subsequent8x8PatternColorExpand(ScrnInfoPtr pScreenInfo,
  *       fg		:Specifies the foreground color
  *       bg     :Specifies the background color
  *	planemask	:Specifies the value of masking from rop data
-
+ *
  * Returns		:none.
  *
  * Comments     :none.
@@ -670,7 +675,6 @@ GX1SetupForScanlineImageWrite(ScrnInfoPtr pScreenInfo,
    /* SAVE TRANSPARENCY FLAG */
    GeodeTransparent = (transparency_color == -1) ? 0 : 1;
    GeodeTransColor = transparency_color;
-   Geodebpp = bpp;
 }
 
 /*----------------------------------------------------------------------------
@@ -1369,7 +1373,6 @@ OPTGX1SetupForScanlineImageWrite(ScrnInfoPtr pScreenInfo,
 				 int rop, unsigned int planemask,
 				 int transparency_color, int bpp, int depth)
 {
-   Geodebpp = bpp;
    OPTGX1SetupForScreenToScreenCopy(pScreenInfo,
 				    0, 0, rop, planemask, transparency_color);
 }
@@ -1606,6 +1609,7 @@ OPTGX1SubsequentSolidTwoPointLine(ScrnInfoPtr pScreenInfo,
    WRITE_REG16(GP_VECTOR_MODE, (Geode_vector_mode | vec_flags));
 }
 
+#if 0 /* disabled due to bugs - can't fallback to fillrectsolid */
 /*---------------------------------------------------------------------------
  * OPTGX1SubsequentHorVertLine
  *
@@ -1632,6 +1636,7 @@ OPTGX1SubsequentHorVertLine(ScrnInfoPtr pScreenInfo,
 				 (unsigned short)((dir == DEGREES_0) ? 1 :
 						  len));
 }
+#endif
 #endif
 
 /*----------------------------------------------------------------------------
@@ -1667,7 +1672,9 @@ GX1AccelInit(ScreenPtr pScreen)
       break;
    }
 
+#if SCR2SCREXP
    gu1_xshift = pScreenInfo->bitsPerPixel >> 4;
+#endif
 
    switch (pGeode->Pitch) {
    case 1024:
@@ -1735,8 +1742,10 @@ GX1AccelInit(ScreenPtr pScreen)
    localRecPtr->SetupForSolidLine = OPTACCEL(GX1SetupForSolidLine);
    localRecPtr->SubsequentSolidBresenhamLine =
 	 OPTACCEL(GX1SubsequentBresenhamLine);
+#if !defined(OPT_ACCEL)
    localRecPtr->SubsequentSolidHorVertLine =
 	 OPTACCEL(GX1SubsequentHorVertLine);
+#endif
    localRecPtr->SubsequentSolidTwoPointLine =
 	 OPTACCEL(GX1SubsequentSolidTwoPointLine);
    localRecPtr->SolidBresenhamLineErrorTermBits = 15;

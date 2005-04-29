@@ -1,4 +1,13 @@
-SYSTYPE	= RHAPSODY5
+# Usage: 
+#	make makefiles [CC=compiler] [OPT=compiler-flags] [DEBUG=debug-flags]
+#
+# The defaults are: CC=gcc, OPT=-O, and DEBUG=-g. Examples:
+#
+#	make makefiles
+#	make makefiles CC="purify cc"
+#	make makefiles CC=cc OPT=
+#
+SYSTYPE	= MACOSX
 AR	= ar
 ARFL	= rv
 RANLIB	= ranlib
@@ -17,8 +26,8 @@ DIRS	= src/util src/global src/dns src/master src/postfix src/smtpstone \
 	src/lmtp src/trivial-rewrite src/qmgr src/smtp src/bounce src/pipe \
 	src/showq src/postalias src/postcat src/postconf src/postdrop \
 	src/postkick src/postlock src/postlog src/postmap src/postqueue \
-	src/postsuper src/nqmgr src/qmqpd src/spawn src/flush src/virtual \
-	src/proxymap src/tlsmgr
+	src/postsuper src/oqmgr src/qmqpd src/spawn src/flush src/virtual \
+	src/proxymap src/tlsmgr src/verify
 MANDIRS	= proto man html
 
 default: update

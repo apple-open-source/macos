@@ -46,16 +46,16 @@ Includes
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/sockio.h>
+#include <kern/locks.h>
 #include <net/if_types.h>
-
-#include <net/if_types.h>
-#include <net/dlil.h>
+#include <net/if.h>
+#include <netinet/in.h>
 
 #include "ppp_defs.h"		// public ppp values
 #include "if_ppp.h"		// public ppp API
 #include "if_ppplink.h"		// public link API
-#include "ppp_if.h"
 #include "ppp_domain.h"
+#include "ppp_if.h"
 
 /* -----------------------------------------------------------------------------
 Definitions
@@ -67,12 +67,12 @@ Definitions
 #define LKNAME(lk) 		(((struct ppp_link*)lk)->lk_name)
 #define LKUNIT(lk) 		(((struct ppp_link*)lk)->lk_unit)
 
-#define LKIFFDEBUG(lk) 		(LKIFNET(lk) ? LKIFNET(lk)->if_flags & IFF_DEBUG : 0 )
-#define LKIFNAME(lk) 		(LKIFNET(lk) ? LKIFNET(lk)->if_name : "???")
-#define LKIFUNIT(lk) 		(LKIFNET(lk) ? LKIFNET(lk)->if_unit : 0)
+#define LKIFFDEBUG(lk) 		(LKIFNET(lk) ? ifnet_flags(LKIFNET(lk)) & IFF_DEBUG : 0 )
+#define LKIFNAME(lk) 		(LKIFNET(lk) ? ifnet_name(LKIFNET(lk)) : "???")
+#define LKIFUNIT(lk) 		(LKIFNET(lk) ? ifnet_unit(LKIFNET(lk)) : 0)
 
 #define LOGLKDBG(lk, text) \
-    if (LKIFNET(lk) && (LKIFNET(lk)->if_flags & IFF_DEBUG)) {	\
+    if (LKIFNET(lk) && (ifnet_flags(LKIFNET(lk)) & IFF_DEBUG)) {	\
         log text; 		\
     }
 
@@ -100,7 +100,7 @@ Globals
 ----------------------------------------------------------------------------- */
 
 static TAILQ_HEAD(, ppp_link) 	ppp_link_head;
-
+extern lck_mtx_t   *ppp_domain_mutex;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -129,6 +129,8 @@ u_short ppp_link_findfreeindex()
 {
     struct ppp_link  	*link = TAILQ_FIRST(&ppp_link_head);
     u_short 		index = 0;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     while (link) {
     	if (link->lk_index == index) {
@@ -149,6 +151,8 @@ int ppp_link_attach(struct ppp_link *link)
 #ifdef USE_PRIVATE_STRUCT
     struct ppp_priv *priv;
 #endif
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (!link->lk_ioctl || !link->lk_output) {
         return EINVAL;
@@ -180,6 +184,8 @@ int ppp_link_detach(struct ppp_link *link)
     struct ppp_priv 	*priv = (struct ppp_priv *)link->lk_ppp_private;
 #endif
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+
     LOGLKDBG(link, (LOGVAL, "ppp_link_detach : (link = %s%d)\n", LKNAME(link), LKUNIT(link)));
     ppp_if_detachlink(link);
 #ifdef USE_PRIVATE_STRUCT
@@ -198,6 +204,8 @@ int ppp_link_detach(struct ppp_link *link)
 int ppp_link_event(struct ppp_link *link, u_int32_t event, void *data)
 {
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+
     switch (event) {
         case PPP_LINK_EVT_XMIT_OK:
             if (link->lk_ifnet)
@@ -213,21 +221,23 @@ int ppp_link_event(struct ppp_link *link, u_int32_t event, void *data)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_link_input(struct ppp_link *link, struct mbuf *m)
+int ppp_link_input(struct ppp_link *link, mbuf_t m)
 {
 #ifdef USE_PRIVATE_STRUCT
     struct ppp_priv 	*priv = (struct ppp_priv *)link->lk_ppp_private;
 #endif
     u_char 		*p;
     u_int16_t		proto, len;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    if (link->lk_ifnet && (link->lk_ifnet->if_flags & PPP_LOG_INPKT)) 
+    if (link->lk_ifnet && (ifnet_flags(link->lk_ifnet) & PPP_LOG_INPKT)) 
         ppp_link_logmbuf(link, "ppp_link_input", m);
 
-    p = mtod(m, u_char *);
+    p = mbuf_data(m);
     if ((p[0] == PPP_ALLSTATIONS) && (p[1] == PPP_UI)) {
-        m_adj(m, 2);
-        p = mtod(m, u_char *);
+        mbuf_adj(m, 2);
+        p = mbuf_data(m);
     }
     proto = p[0];
     len = 1;
@@ -255,6 +265,8 @@ int ppp_link_control(struct ppp_link *link, u_int32_t cmd, void *data)
 {
     int 	error = 0;
     u_int32_t	flags, mru;    
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
         
     switch (cmd) {
         case PPPIOCCONNECT:
@@ -333,13 +345,19 @@ int ppp_link_attachclient(u_short index, void *host, struct ppp_link **data)
     struct ppp_priv	*priv;
 #endif
 
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
+
     TAILQ_FOREACH(link, &ppp_link_head, lk_next) {
         if (link->lk_index == index) {
             *data = (void *)link;
 #ifdef USE_PRIVATE_STRUCT
             priv = (struct ppp_priv *)link->lk_ppp_private;
+			if (priv->host)
+				return EBUSY;	/* a client is already attached */
             priv->host = host;
 #else
+			if (link->lk_ppp_private)
+				return EBUSY;	/* a client is already attached */
             link->lk_ppp_private = host;
 #endif
             return 0;
@@ -354,6 +372,8 @@ void ppp_link_detachclient(struct ppp_link *link, void *host)
 {
 #ifdef USE_PRIVATE_STRUCT
     struct ppp_priv	*priv = (struct ppp_priv *)link->lk_ppp_private;
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     if (priv && (priv->host == host))
         priv->host = 0;
@@ -368,14 +388,16 @@ we wend packet without link framing (FF03)
 it's the reponsability of the driver to add the header, it the links need it.
 it should be done accordingly to the ppp negociation as well.
 ----------------------------------------------------------------------------- */
-int ppp_link_send(struct ppp_link *link, struct mbuf *m)
+int ppp_link_send(struct ppp_link *link, mbuf_t m)
 {
-    u_char 	*p = mtod(m, u_char *);
+    u_char 	*p = mbuf_data(m);
     u_int16_t 	proto = ((u_int16_t)p[0] << 8) + p[1];
+	
+	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
 
     // if pcomp has been negociated, remove leading 0 byte
     if ((link->lk_flags & SC_COMP_PROT) && !p[0]) {
-	m_adj(m, 1);
+	mbuf_adj(m, 1);
     }
     
     // if accomp has not been negociated, or if the needs FF03, add the header
@@ -383,25 +405,29 @@ int ppp_link_send(struct ppp_link *link, struct mbuf *m)
         if ((proto == PPP_LCP)
             || !(link->lk_flags & SC_COMP_AC)) {
         
-        M_PREPEND(m, 2, M_DONTWAIT);
-        if (m == 0) 
+        if (mbuf_prepend(&m, 2, MBUF_DONTWAIT) != 0) 
             return ENOBUFS;
         
-        p = mtod(m, u_char *);
+        p = mbuf_data(m);
         p[0] = PPP_ALLSTATIONS;
         p[1] = PPP_UI;
       }
     }
     
-    if (link->lk_ifnet && (link->lk_ifnet->if_flags & PPP_LOG_OUTPKT)) 
+    if (link->lk_ifnet && (ifnet_flags(link->lk_ifnet) & PPP_LOG_OUTPKT)) 
         ppp_link_logmbuf(link, "ppp_link_send", m);
-    
+
+	/* link level packet are send oot of band */
+    if ((proto >= 0xC000) && 
+		(link->lk_support & PPP_LINK_OOB_QUEUE))
+		mbuf_settype(m, MBUF_TYPE_OOBDATA);
+		
     return (*link->lk_output)(link, m);
 }
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-void ppp_link_logmbuf(struct ppp_link *link, char *msg, struct mbuf *m) 
+void ppp_link_logmbuf(struct ppp_link *link, char *msg, mbuf_t m) 
 {
     int 	i, lcount, copycount, count;
     char 	lbuf[16], *data;
@@ -412,15 +438,15 @@ void ppp_link_logmbuf(struct ppp_link *link, char *msg, struct mbuf *m)
     log(LOGVAL, "%s: [ifnet = %s%d] [link = %s%d]\n", msg,
             LKIFNAME(link), LKIFUNIT(link), LKNAME(link), LKUNIT(link));
 
-    for (count = m->m_len, data = mtod(m, char*); m != NULL; ) {
+    for (count = mbuf_len(m), data = mbuf_data(m); m != NULL; ) {
         /* build a line of output */
         for(lcount = 0; lcount < sizeof(lbuf); lcount += copycount) {
             if (!count) {
-                m = m->m_next;
+                m = mbuf_next(m);
                 if (m == NULL)
                     break;
-                count = m->m_len;
-                data  = mtod(m,char*);
+                count = mbuf_len(m);
+                data  = mbuf_data(m);
             }
             copycount = (count > sizeof(lbuf) - lcount) ? sizeof(lbuf) - lcount : count;
             bcopy(data, &lbuf[lcount], copycount);

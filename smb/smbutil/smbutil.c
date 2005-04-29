@@ -34,18 +34,8 @@ static struct commands {
 } commands[] = {
 	{"crypt",	cmd_crypt,	NULL, CMDFL_NO_KMOD},
 	{"help",	cmd_help,	help_usage, CMDFL_NO_KMOD},
-#ifndef APPLE
-	{"lc",		cmd_dumptree,	NULL, 0},
-	{"login",	cmd_login,	login_usage, 0},
-	{"logout",	cmd_logout,	logout_usage, 0},
-#endif
 	{"lookup",	cmd_lookup,	lookup_usage, CMDFL_NO_KMOD},
-#ifndef APPLE
-	{"print",	cmd_print,	print_usage, 0},
-#endif
-#ifdef APPLE
 	{"status",	cmd_status,	status_usage, 0},
-#endif
 	{"view",	cmd_view,	view_usage, 0},
 	{NULL, NULL, NULL, 0}
 };
@@ -105,11 +95,9 @@ main(int argc, char *argv[])
 	struct commands *cmd;
 	char *cp;
 	int opt;
-#ifdef APPLE
         extern void dropsuid();
 
 	dropsuid();
-#endif /* APPLE */
 
 	if (argc < 2)
 		help();
@@ -157,9 +145,7 @@ help(void) {
 	" logout 	logout from specified host\n"
 	" lookup 	resolve NetBIOS name to IP address\n"
 	" print		print file to the specified remote printer\n"
-#ifdef APPLE
 	" status 	resolve IP address or DNS name to NetBIOS names\n"
-#endif
 	" view		list resources on specified host\n"
 	"\n");
 	exit(1);

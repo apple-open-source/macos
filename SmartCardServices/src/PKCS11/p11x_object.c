@@ -1,6 +1,6 @@
 /******************************************************************************
 ** 
-**  $Id: p11x_object.c,v 1.2 2003/02/13 20:06:41 ghoo Exp $
+**  $Id: p11x_object.c,v 1.3 2004/10/14 20:33:36 mb Exp $
 **
 **  Package: PKCS-11
 **  Author : Chris Osgood <oznet@mac.com>
@@ -249,7 +249,7 @@ CK_RV object_UpdateKeyInfo(CK_SESSION_HANDLE hSession, CK_OBJECT_HANDLE *hObject
     {
         CK_BYTE key_obj_id[3] = "k ";
 
-        key_obj_id[1] = pKeyInfo->keyNum > 9 ? 55 + pKeyInfo->keyNum : 48 + pKeyInfo->keyNum;
+        key_obj_id[1] = pKeyInfo->keyNum > 9 ? 65 + pKeyInfo->keyNum : 48 + pKeyInfo->keyNum;  /* Vinnie 1749 A-F (55-65) */
 
         object_FreeAllAttributes(new_obj->attrib);
         new_obj->attrib = 0;
@@ -1425,7 +1425,7 @@ CK_RV object_WriteAttributes(CK_SESSION_HANDLE hSession, P11_Object *object)
     if (object->msc_key)
     {
         obj_id[0] = 'k';
-        obj_id[1] = object->msc_key->keyNum + 1 > 9 ? 55 + object->msc_key->keyNum : 48 + object->msc_key->keyNum;
+        obj_id[1] = object->msc_key->keyNum + 1 > 9 ? 65 + object->msc_key->keyNum : 48 + object->msc_key->keyNum;
 
         data_hdr[0] = 0; // Fixme: Key object type
 

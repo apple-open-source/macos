@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2001-2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2005 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -28,9 +26,9 @@
  *  bless
  *
  *  Created by Shantonu Sen <ssen@apple.com> on Wed Feb 28 2002.
- *  Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
+ *  Copyright (c) 2002-2005 Apple Computer, Inc. All rights reserved.
  *
- *  $Id: bless_private.h,v 1.12 2003/07/22 15:58:27 ssen Exp $
+ *  $Id: bless_private.h,v 1.17 2005/02/03 00:42:23 ssen Exp $
  *
  */
 
@@ -38,7 +36,7 @@
 
 #include "bless.h"
 
-#define kBootBlocksSize 1024 // in bytes
+#define kBootBlocksSize 1024
 #define kBootBlockTradOSSig 0x4c4b
 
 /* Calculate a shift-1-left & add checksum of all
@@ -49,14 +47,15 @@ uint32_t BLBlockChecksum(const void *buf , uint32_t length);
 /*
  * write the CFData to a file
  */
-int BLCopyFileFromCFData(BLContextPtr context, CFDataRef data,
-	     unsigned char dest[], int shouldPreallocate);
+int BLCopyFileFromCFData(BLContextPtr context, const CFDataRef data,
+	     const unsigned char dest[], int shouldPreallocate);
 
 
 /*
  * check if the context is null. if not, check if the log funcion is null
  */
 int contextprintf(BLContextPtr context, int loglevel, char const *fmt, ...);
+//			__attribute__ ((format (printf, 3, 4)));
 
 /*
  * stringify the OSType into the caller-provided buffer

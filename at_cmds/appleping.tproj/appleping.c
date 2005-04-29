@@ -117,7 +117,7 @@ char *argv[];
 			"Usage:  appleping net.node [data size] [npackets]\n"\
 		   		"or:  appleping name:type@zone [data size] [npackets]\n"\
 		   	"\n"\
-		   	"examples:  appleping 'John Sculley:Macintosh SE@Pepsi' \n"\
+		   	"examples:  appleping 'John Doe:Macintosh SE@EndZone' \n"\
 				"or:  appleping 6b16.54 \n"));
 		exit(1);
 	}

@@ -53,7 +53,7 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
 */
-/* $XFree86: xc/lib/Xt/Threads.c,v 3.6 2001/12/14 19:56:31 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Threads.c,v 3.7 2003/04/21 16:34:29 herrb Exp $ */
 
 #include "IntrinsicI.h"
 
@@ -165,13 +165,7 @@ ProcessUnlock(void)
 
 
 static void
-#if NeedFunctionPrototypes
-AppLock(
-    XtAppContext app)
-#else
-AppLock(app)
-    XtAppContext app;
-#endif
+AppLock(XtAppContext app)
 {
     LockPtr app_lock = app->lock_info;
 #ifdef _XMUTEX_NESTS
@@ -201,13 +195,7 @@ AppLock(app)
 }
 
 static void
-#if NeedFunctionPrototypes
-AppUnlock(
-    XtAppContext app)
-#else
-AppUnlock(app)
-    XtAppContext app;
-#endif
+AppUnlock(XtAppContext app)
 {
     LockPtr app_lock = app->lock_info;
 #ifdef _XMUTEX_NESTS
@@ -231,19 +219,11 @@ AppUnlock(app)
 }
 
 static void
-#if NeedFunctionPrototypes
 YieldAppLock(
     XtAppContext app,
     Boolean* push_thread,
     Boolean* pushed_thread,
     int* level)
-#else
-YieldAppLock(app, push_thread, pushed_thread, level)
-    XtAppContext app;
-    Boolean* push_thread;
-    Boolean* pushed_thread;
-    int* level;
-#endif
 {
     LockPtr app_lock = app->lock_info;
     xthread_t self = xthread_self();
@@ -284,17 +264,10 @@ YieldAppLock(app, push_thread, pushed_thread, level)
 }
 
 static void
-#if NeedFunctionPrototypes
 RestoreAppLock(
     XtAppContext app, 
     int level,
     Boolean* pushed_thread)
-#else
-RestoreAppLock(app, level, pushed_thread)
-    XtAppContext app;
-    int level;
-    Boolean* pushed_thread;
-#endif
 {
     LockPtr app_lock = app->lock_info;
     xthread_t self = xthread_self();
@@ -343,13 +316,7 @@ RestoreAppLock(app, level, pushed_thread)
 }
 
 static void
-#if NeedFunctionPrototypes
-FreeAppLock(
-    XtAppContext app)
-#else
-FreeAppLock(app)
-    XtAppContext app;
-#endif
+FreeAppLock(XtAppContext app)
 {
     int ii;
     LockPtr app_lock = app->lock_info;
@@ -374,13 +341,7 @@ FreeAppLock(app)
 }
 
 static void
-#if NeedFunctionPrototypes
-InitAppLock(
-    XtAppContext app)
-#else
-InitAppLock(app)
-    XtAppContext app;
-#endif
+InitAppLock(XtAppContext app)
 {
     int ii;
     LockPtr app_lock;
@@ -412,13 +373,7 @@ InitAppLock(app)
 
 #endif /* defined(XTHREADS) */
 
-#if NeedFunctionPrototypes
-void XtAppLock(
-    XtAppContext app)
-#else
-void XtAppLock(app)
-    XtAppContext app;
-#endif
+void XtAppLock(XtAppContext app)
 {
 #ifdef XTHREADS
     if(app->lock)
@@ -426,13 +381,7 @@ void XtAppLock(app)
 #endif
 }
 
-#if NeedFunctionPrototypes
-void XtAppUnlock(
-    XtAppContext app)
-#else
-void XtAppUnlock(app)
-    XtAppContext app;
-#endif
+void XtAppUnlock(XtAppContext app)
 {
 #ifdef XTHREADS
     if(app->unlock)
@@ -440,7 +389,7 @@ void XtAppUnlock(app)
 #endif
 }
 
-void XtProcessLock()
+void XtProcessLock(void)
 {
 #ifdef XTHREADS
     if(_XtProcessLock)
@@ -448,7 +397,7 @@ void XtProcessLock()
 #endif
 }
 
-void XtProcessUnlock()
+void XtProcessUnlock(void)
 {
 #ifdef XTHREADS
     if(_XtProcessUnlock)

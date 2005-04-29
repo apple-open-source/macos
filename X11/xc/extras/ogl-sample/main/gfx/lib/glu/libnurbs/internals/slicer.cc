@@ -31,7 +31,7 @@
 ** published by SGI, but has not been independently verified as being
 ** compliant with the OpenGL(R) version 1.2.1 Specification.
 */
-/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/internals/slicer.cc,v 1.2 2003/01/12 03:55:45 tsi Exp $ */
+/* $XFree86: xc/extras/ogl-sample/main/gfx/lib/glu/libnurbs/internals/slicer.cc,v 1.3 2003/10/22 19:20:57 tsi Exp $ */
 
 /*
  * slicer.c++
@@ -84,6 +84,7 @@ Int num_quads = 0;
 #define ZERO 0.00001 /*determing whether a loop is a rectngle or not*/
 #define equalRect(a,b) ((fabs(a-b) <= ZERO)? 1:0) //only used in tessellating a rectangle
 
+#ifdef UNUSED
 static Int is_Convex(Arc_ptr loop)
 {
   if(area(loop->tail(), loop->head(), loop->next->head()) <0 )
@@ -95,9 +96,11 @@ static Int is_Convex(Arc_ptr loop)
     }
   return 1;
 }
+#endif
 
 /******triangulate a monotone polygon**************/
 #include "monoTriangulation.h"
+#ifdef UNUSED
 static int is_U_monotone(Arc_ptr loop)
 {
   int n_changes=0;
@@ -126,6 +129,7 @@ static int is_U_monotone(Arc_ptr loop)
   else
     return 0;
 }
+#endif
 
 inline int compInY(REAL a[2], REAL b[2])
 {
@@ -192,7 +196,6 @@ void monoTriangulationLoop(Arc_ptr loop, Backend& backend, primStream* pStream)
 	{
 	  inc_chain.appendVertex(jarc->pwlArc->pts[i].param);
 	}
-      
     }
   vertexArray dec_chain(50);
   for(jarc = top->prev; jarc != bot; jarc = jarc->prev)
@@ -257,7 +260,7 @@ if(loop->next->tail()[1] == loop->next->head()[1])
     return 0;
 }
 
-
+#ifdef USE_OPTTT
 //a line with the same u for opt
 static void evalLineNOGE_BU(TrimVertex *verts, int n, Backend& backend)
 {
@@ -290,7 +293,7 @@ static void evalLineNOGE(TrimVertex *verts, int n, Backend& backend)
 	backend.tmeshvertNOGE(&verts[i]);
     }
 }
-
+#endif
 
 inline void  OPT_OUTVERT(TrimVertex& vv, Backend& backend) 
 {
@@ -310,7 +313,6 @@ static void triangulateRectAux(PwlArc* top, PwlArc* bot, PwlArc* left, PwlArc* r
 
 static void triangulateRect(Arc_ptr loop, Backend& backend, int TB_or_LR, int ulinear, int vlinear)
 {
-  int i;
   //we know the loop is a rectangle, but not sure which is top
   Arc_ptr top, bot, left, right;
   if(loop->tail()[1] == loop->head()[1])
@@ -464,9 +466,7 @@ static void triangulateRectAux(PwlArc* top, PwlArc* bot, PwlArc* left, PwlArc* r
 	    for(i=d; i< right->npts; i++)
 	      {
 		//	  backend.tmeshvert(& right->pts[i]);
-		
 		OPT_OUTVERT(right->pts[i], backend);
-		
 	      }
 	    backend.endtfan();
 	  }
@@ -478,7 +478,6 @@ static void triangulateRectAux(PwlArc* top, PwlArc* bot, PwlArc* left, PwlArc* r
 	  {
 	    //	  backend.tmeshvert(& right->pts[i]);
 	    OPT_OUTVERT(right->pts[i], backend);
-	    
 	  }
 	
 	//      backend.tmeshvert(& top->pts[1]);
@@ -493,7 +492,6 @@ static void triangulateRectAux(PwlArc* top, PwlArc* bot, PwlArc* left, PwlArc* r
 	botd_left = 1;
 	botd_right = bot->npts-2; //botd_left<= bot_dright
 
-	
 	if(top->npts < bot->npts)
 	  {
 	    int delta=bot->npts - top->npts;
@@ -563,18 +561,18 @@ static void triangulateRectAux(PwlArc* top, PwlArc* bot, PwlArc* left, PwlArc* r
 	    OPT_OUTVERT(bot->pts[j], backend);
 	  }
 	backend.endqstrip();
-	
       }
     }
 }
 
-  
 static void triangulateRectCenter(int n_ulines, REAL* u_val, 
 				  int n_vlines, REAL* v_val,
 				  Backend& backend)
 {
+  /*
   TrimVertex trimVert;
-  trimVert.nuid = 0;//????
+  trimVert.nuid = 0;
+  */
 
   backend.surfgrid(u_val[0], u_val[n_ulines-1], n_ulines-1, 
 		   v_val[n_vlines-1], v_val[0], n_vlines-1);
@@ -752,13 +750,8 @@ static void triangulateRectTopGen(Arc_ptr arc, int n_ulines, REAL* u_val, Real v
 	  trimVert.param[0] = v;
 	}
 	backend.tmeshvert(&trimVert);
-
-
-	
       }
     backend.endqstrip();
-
-
   }
   if(dir == 0)  //temp_u_val was mallocated
     free(temp_u_val);
@@ -854,12 +847,9 @@ return;
 
   free(u_val);
   free(v_val);
-  
 }
 
-
-  
-
+#ifdef USE_READ_FLAG
 /**********for reading newtess_flag from a file**********/
 static Int read_flag(char* name)
 {
@@ -874,7 +864,7 @@ static Int read_flag(char* name)
   fclose(fp);
   return ret;
 }
-  
+#endif
 
 /***********nextgen tess****************/
 #include "sampleMonoPoly.h"
@@ -934,8 +924,6 @@ directedLine* arcToMultDLines(directedLine* original, Arc_ptr arc)
     }
 }
   
-     
-	
 directedLine* arcLoopToDLineLoop(Arc_ptr loop)
 {
   directedLine* ret;
@@ -1053,9 +1041,6 @@ void Slicer::evalStream(primStream* pStream)
   free(trimVert);
 }
 	   
-	   
-	    
-
 void Slicer::slice_new(Arc_ptr loop)
 {
 //count++;
@@ -1163,8 +1148,6 @@ void Slicer::slice(Arc_ptr loop)
 #endif
 
 }
-
-  
 
 Slicer::Slicer( Backend &b ) 
 	: CoveAndTiler( b ), Mesher( b ), backend( b )

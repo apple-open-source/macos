@@ -1,8 +1,8 @@
 .TH SLAPD-META 5 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" Copyright 1998-2003 The OpenLDAP Foundation, All Rights Reserved.
+.\" Copyright 1998-2004 The OpenLDAP Foundation, All Rights Reserved.
 .\" Copying restrictions apply.  See the COPYRIGHT file.
 .\" Copyright 2001, Pierangelo Masarati, All rights reserved. <ando@sys-net.it>
-.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-meta.5,v 1.6.2.4 2003/03/03 17:10:03 kurt Exp $
+.\" $OpenLDAP: pkg/ldap/doc/man/man5/slapd-meta.5,v 1.15.2.7 2004/04/12 18:21:07 kurt Exp $
 .\"
 .\" Portions of this document should probably be moved to slapd-ldap(5)
 .\" and maybe manual pages for librewrite.
@@ -99,9 +99,10 @@ Target specification starts with a "uri" directive:
 .B uri <protocol>://[<host>[:<port>]]/<naming context>
 The "server" directive that was allowed in the LDAP backend (although
 deprecated) has been discarded in the Meta backend.
-The <protocol> part can be anything ldap_initialize(3) accepts
-({ldap|ldaps|ldapi} and variants); <host> and <port> may be omitted,
-defaulting to whatever is set in /etc/ldap.conf.
+The <protocol> part can be anything
+.BR ldap_initialize (3)
+accepts ({ldap|ldaps|ldapi} and variants); <host> and <port> may be
+omitted, defaulting to whatever is set in /etc/ldap.conf.
 The <naming context> part is mandatory.
 It must end with one of the naming contexts defined for the backend,
 e.g.:
@@ -169,7 +170,8 @@ It has been obsoleted by the rewriting tools.
 However, both for backward compatibility and for ease of configuration
 when simple suffix massage is required, it has been preserved.
 It wraps the basic rewriting instructions that perform suffix
-massaging.
+massaging.  See the "REWRITING" section for a detailed list 
+of the rewrite rules it implies.
 .LP
 Note: this also fixes a flaw in suffix massaging, which operated
 on (case insensitive) DNs instead of normalized DNs,
@@ -331,8 +333,8 @@ server will possibly enforce additional restrictions to "foo".
 A string is rewritten according to a set of rules, called a `rewrite
 context'.
 The rules are based on Regular Expressions (POSIX regex) with
-substring matching; extensions are planned to allow basic variable
-substitution and map resolution of substrings.
+substring matching; basic variable substitution and map resolution 
+of substrings is allowed by specific mechanisms detailed in the following.
 The behavior of pattern matching/substitution can be altered by a set
 of flags.
 .LP
@@ -340,14 +342,17 @@ The underlying concept is to build a lightweight rewrite module
 for the slapd server (initially dedicated to the LDAP backend).
 .SH Passes
 An incoming string is matched agains a set of rules.
-Rules are made of a match pattern, a substitution pattern and a set of
-actions.
+Rules are made of a regex match pattern, a substitution pattern
+and a set of actions, described by a set of flags.
 In case of match a string rewriting is performed according to the
 substitution pattern that allows to refer to substrings matched in the
 incoming string.
 The actions, if any, are finally performed.
 The substitution pattern allows map resolution of substrings.
 A map is a generic object that maps a substitution pattern to a value.
+The flags are divided in "Pattern matching Flags" and "Action Flags";
+the former alter the regex match pattern behaviorm while the latter
+alter the action that is taken after substitution.
 .SH "Pattern Matching Flags"
 .TP
 .B `C'
@@ -355,31 +360,58 @@ honors case in matching (default is case insensitive)
 .TP
 .B `R'
 use POSIX Basic Regular Expressions (default is Extended)
+.TP
+.B `M{n}'
+allow no more than
+.B n
+recursive passes for a specific rule; does not alter the max total count
+of passes, so it can only enforce a stricter limit for a specific rule.
 .SH "Action Flags"
 .TP
 .B `:'
 apply the rule once only (default is recursive)
 .TP
 .B `@'
-stop applying rules in case of match.
+stop applying rules in case of match; the current rule is still applied 
+recursively; combine with `:' to apply the current rule only once 
+and then stop.
 .TP
 .B `#'
 stop current operation if the rule matches, and issue an `unwilling to
 perform' error.
 .TP
 .B `G{n}'
-jump n rules back and forth (watch for loops!).
+jump
+.B n
+rules back and forth (watch for loops!).
 Note that `G{1}' is implicit in every rule.
 .TP
 .B `I'
 ignores errors in rule; this means, in case of error, e.g. issued by a
 map, the error is treated as a missed match.
 The `unwilling to perform' is not overridden.
+.TP
+.B `U{n}'
+uses
+.B
+n
+as return code if the rule matches; the flag does not alter the recursive
+behavior of the rule, so, to have it performed only once, it must be used 
+in combination with `:', e.g.
+.B `:U{16}'
+returns the value `16' after exactly one execution of the rule, if the
+pattern matches.
+As a consequence, its behavior is equivalent to `@', with the return
+code set to
+.BR n ;
+or, in other words, `@' is equivalent to `U{0}'.
+By convention, the freely available codes are above 16 included;
+the others are reserved.
 .LP
-The ordering of the flags is significant.
+The ordering of the flags can be significant.
 For instance: `IG{2}' means ignore errors and jump two lines ahead
 both in case of match and in case of error, while `G{2}I' means ignore
-errors, but jump thwo lines ahead only in case of match.
+errors, but jump two lines ahead only in case of match.
 .LP
 More flags (mainly Action Flags) will be added as needed.
 .SH "Pattern matching:"
@@ -482,17 +514,22 @@ client -> server:
 .LP
 .RS
 .nf
-(default)      if defined and no specific context 
-               is available
-bindDn         bind
-searchBase     search
-searchFilter   search
-compareDn      compare
-addDn          add
-modifyDn       modify
-modrDn         modrdn
-newSuperiorDn  modrdn
-deleteDn       delete
+(default)            if defined and no specific context 
+                     is available
+bindDN               bind
+searchBase           search
+searchFilter         search
+searchFilterAttrDN   search
+compareDN            compare
+compareAttrDN        compare AVA
+addDN                add
+addAttrDN            add AVA
+modifyDN             modify
+modifyAttrDN         modify AVA
+modrDN               modrdn
+newSuperiorDN        modrdn
+deleteDN             delete
+exopPasswdDN         passwd exop DN if proxy
 .fi
 .RE
 .LP
@@ -500,11 +537,11 @@ server -> client:
 .LP
 .RS
 .nf
-searchResult   search (only if defined; no default;
-               acts on DN and DN-syntax attributes 
-               of search results)
-matchedDn      all ops (only if defined; no default;
-               NOT IMPL. except in search)
+searchResult         search (only if defined; no default;
+                     acts on DN and DN-syntax attributes 
+                     of search results)
+searchAttrDN         search AVA
+matchedDN            all ops (only if applicable)
 .fi
 .RE
 .LP
@@ -523,12 +560,12 @@ A context may aliase another one.
 In this case the alias context contains no rule, and any reference to
 it will result in accessing the aliased one.
 .TP
-.B rewriteRule "<regex pattern>" "<substitution pattern>" "[ <flags> ]"
-Determines how a tring can be rewritten if a pattern is matched.
+.B rewriteRule "<regex match pattern>" "<substitution pattern>" "[ <flags> ]"
+Determines how a string can be rewritten if a pattern is matched.
 Examples are reported below.
 .SH "Additional configuration syntax:"
 .TP
-.B rewriteMap "<map name>" "<map type>" "[ <map attrs> ]"
+.B rewriteMap "<map type>" "<map name>" "[ <map attrs> ]"
 Allows to define a map that transforms substring rewriting into
 something else.
 The map is referenced inside the substitution pattern of a rule.
@@ -537,13 +574,33 @@ The map is referenced inside the substitution pattern of a rule.
 Sets a value with global scope, that can be dereferenced by the
 command `%{$paramName}'.
 .TP
-.B rewriteMaxPasses <number of passes>
+.B rewriteMaxPasses <number of passes> [<number of passes per rule>]
 Sets the maximum number of total rewriting passes that can be
 performed in a single rewrite operation (to avoid loops).
+A safe default is set to 100; note that reaching this limit is still
+treated as a success; recursive invocation of rules is simply 
+interrupted.
+The count applies to the rewriting operation as a whole, not 
+to any single rule; an optional per-rule limit can be set.
+This limit is overridden by setting specific per-rule limits
+with the `M{n}' flag.
 .SH "Configuration examples:"
 .nf
 # set to `off' to disable rewriting
 rewriteEngine on
+
+# the rules the "suffixmassage" directive implies
+rewriteEngine on
+# all dataflow from client to server referring to DNs
+rewriteContext default
+rewriteRule "(.*)<virtualnamingcontext>$" "%1<realnamingcontext>" ":"
+# empty filter rule
+rewriteContext searchFilter
+# all dataflow from server to client
+rewriteContext searchResult
+rewriteRule "(.*)<realnamingcontext>$" "%1<virtualnamingcontext>" ":"
+rewriteContext searchAttrDN alias searchResult
+rewriteContext matchedDN alias searchResult
 
 # Everything defined here goes into the `default' context.
 # This rule changes the naming context of anything sent
@@ -586,10 +643,10 @@ rewriteRule     ".*" "%{>addBlanks(%0)}" ":"
 .\" 
 .\" # Finally, in a bind, if one uses a `uid=username' DN,
 .\" # it is rewritten in `cn=name surname' if possible.
-.\" rewriteContext  bindDn
+.\" rewriteContext  bindDN
 .\" rewriteRule     ".*" "%{>addBlanks(%{>uid2Gecos(%0)})}" ":"
 .\" 
-# Rewrite the search base  according to `default' rules.
+# Rewrite the search base according to `default' rules.
 rewriteContext  searchBase alias default
 
 # Search results with OpenLDAP DN are rewritten back with
@@ -611,8 +668,8 @@ rewriteMap ldap attr2dn "ldap://host/dc=my,dc=org?dn?sub"
 # to real naming contexts, we also need to rewrite
 # regular DNs, because the definition of a bindDn
 # rewrite context overrides the default definition.
-rewriteContext bindDn
-rewriteRule "^mail=[^,]+@[^,]+$" "%{attr2dn(%0)}" "@I"
+rewriteContext bindDN
+rewriteRule "^mail=[^,]+@[^,]+$" "%{attr2dn(%0)}" ":@I"
 
 # This is a rather sophisticated example. It massages a
 # search filter in case who performs the search has
@@ -620,7 +677,7 @@ rewriteRule "^mail=[^,]+@[^,]+$" "%{attr2dn(%0)}" "@I"
 # track of the bind DN of the incoming request, which is
 # stored in a variable called `binddn' with session scope,
 # and left in place to allow regular binding:
-rewriteContext  bindDn
+rewriteContext  bindDN
 rewriteRule     ".+" "%{&&binddn(%0)}%0" ":"
 
 # A search filter containing `uid=' is rewritten only
@@ -641,8 +698,18 @@ rewriteRule "(.*\e\e()uid=([a-z0-9_]+)(\e\e).*)"
   "%{**binddn}<>%{&prefix(%1)}%{&arg(%2)}%{&suffix(%3)}"
   ":I"
 rewriteRule "[^,]+,ou=admin,dc=home,dc=net"
-  "%{*prefix}|(uid=%{*arg})(cn=%{*arg})%{*suffix}" "@I"
+  "%{*prefix}|(uid=%{*arg})(cn=%{*arg})%{*suffix}" ":@I"
 rewriteRule ".*<>" "%{*prefix}uid=%{*arg}%{*suffix}" ":"
+
+# This example shows how to strip unwanted DN-valued
+# attribute values from a search result; the first rule
+# matches DN values below "ou=People,dc=example,dc=com";
+# in case of match the rewriting exits successfully.
+# The second rule matches everything else and causes
+# the value to be rejected.
+rewriteContext searchResult
+rewriteRule ".*,ou=People,dc=example,dc=com" "%0" ":@"
+rewriteRule ".*" "" "#"
 .fi
 .SH "LDAP Proxy resolution (a possible evolution of slapd\-ldap(5)):"
 In case the rewritten DN is an LDAP URI, the operation is initiated
@@ -652,19 +719,97 @@ E.g.:
 .LP
 .nf
   rewriteRule '^cn=root,.*' '%0'                     'G{3}'
-  rewriteRule '^cn=[a-l].*' 'ldap://ldap1.my.org/%0' '@'
-  rewriteRule '^cn=[m-z].*' 'ldap://ldap2.my.org/%0' '@'
-  rewriteRule '.*'          'ldap://ldap3.my.org/%0' '@'
+  rewriteRule '^cn=[a-l].*' 'ldap://ldap1.my.org/%0' ':@'
+  rewriteRule '^cn=[m-z].*' 'ldap://ldap2.my.org/%0' ':@'
+  rewriteRule '.*'          'ldap://ldap3.my.org/%0' ':@'
 .fi
 .LP
 (Rule 1 is simply there to illustrate the `G{n}' action; it could have
 been written:
 .LP
 .nf
-  rewriteRule '^cn=root,.*' 'ldap://ldap3.my.org/%0' '@'
+  rewriteRule '^cn=root,.*' 'ldap://ldap3.my.org/%0' ':@'
 .fi
 .LP
 with the advantage of saving one rewrite pass ...)
+.SH PROXY CACHE OVERLAY
+The proxy cache overlay 
+allows caching of LDAP search requests (queries) in a local database.
+For an incoming query, the
+proxy cache determines its corresponding \fBtemplate\fP. If the template was
+specified as cacheable using the \fBproxytemplate\fP directive and the request is
+contained in a cached request, it is answered from the proxy cache. Otherwise,
+the search is performed as usual and cacheable search results are saved in the
+cache for use in future queries.
+.LP
+
+A template is defined by a filter string and an index identifying a set of
+attributes. The \fBtemplate string\fP for a query can be obtained by
+removing assertion values from the RFC 2254 representation of its search
+filter. A query belongs to a template if its template string and set of
+projected attributes correspond to a cacheable template. Examples of template strings are (mail=), (|(sn=)(cn=)), (&(sn=)(givenName=)).    
+
+.LP 
+The following cache specific directives can be used to configure the proxy
+cache: 
+.TP
+.B overlay proxycache
+This directive adds the proxycache overlay to the current backend. The
+proxycache overlay may be used with any backend but is intended for use
+with the
+.B ldap
+and
+.B meta
+backends.
+.TP
+.B proxycache <database> <max_entries> <numattrsets> <entry_limit> <cc_period> 
+The directive enables proxy caching in the current backend and sets general
+cache parameters. A <database> backend will be used internally to maintain
+the cached entries. The chosen database will need to be configured as well,
+as shown below. Cache replacement is invoked when the cache size grows to 
+<max_entries> entries and continues till the cache size drops below this size.
+<numattrsets> should be equal to the number of following \fBproxyattrset\fP
+directives. Queries are cached only if they correspond to a cacheable template
+(specified by the \fBproxytemplate\fP directive) and the number of entries
+returned is less than <entry_limit>. Consistency check is performed every
+<cc_period> duration (specified in secs). In each cycle queries with expired
+"time to live(\fBTTL\fP)" are removed. A sample cache configuration is: 
+.LP
+.RS
+proxycache \fBbdb 10000 1 50 100\fP
+.RE
+.TP
+.B proxyattrset <index> <attrs...>
+Used to associate a set of attributes <attrs..> with an <index>. Each attribute
+set is associated with an integer from 0 to <numattrsets>-1. These indices are
+used by the \fBproxytemplate\fP directive to define cacheable templates. 
+
+.TP
+.B proxytemplate <template_string> <attrset_index> <ttl> 
+Specifies a cacheable template and "time to live" (in sec) <ttl> of queries 
+belonging to the template. 
+
+.LP
+The following adds a template with filter string (&sn=)(givenName=)) and attributes mail, postaladdress, telephonenumber and a TTL of 1 hour. 
+.LP
+.RS
+.nf
+proxyattrset \fB0 mail postaladdress telephonenumber\fP
+proxytemplate \fB(&(sn=)(givenName=)) 0 3600\fP
+.fi
+.RE
+.LP
+Directives for configuring the underlying database must also be given, as
+shown here:
+.LP
+.RS
+.nf
+directory /var/tmp/cache
+cachesize 100
+.fi
+.RE
+.LP
+Any valid directives for the chosen database type may be used.
 .SH FILES
 .TP
 /etc/openldap/slapd.conf
@@ -674,3 +819,5 @@ default slapd configuration file
 .BR slapd\-ldap (5),
 .BR slapd (8),
 .BR regex (7).
+.SH AUTHOR
+Pierangelo Masarati, based on back-ldap by Howard Chu

@@ -41,7 +41,7 @@ interest in or to any trademark, service mark, logo or trade name of
 Sun Microsystems, Inc. or its licensors is granted.
 
 */
-/* $XFree86: xc/lib/X11/XDefaultIMIF.c,v 1.2 2001/11/19 15:33:38 tsi Exp $ */
+/* $XFree86: xc/lib/X11/XDefaultIMIF.c,v 1.4 2003/11/17 22:20:08 dawes Exp $ */
 
 #include <stdio.h>
 #define NEED_EVENTS
@@ -74,27 +74,19 @@ typedef struct _StaticXIM {
 } StaticXIMRec;
 
 static Status _CloseIM(
-#if NeedFunctionPrototypes
 	XIM
-#endif
 );
 
 static char *_SetIMValues(
-#if NeedFunctionPrototypes
 	XIM, XIMArg *
-#endif
 );
 
 static char *_GetIMValues(
-#if NeedFunctionPrototypes
 	XIM, XIMArg*
-#endif
 );
 
 static XIC _CreateIC(
-#if NeedFunctionPrototypes
 	XIM, XIMArg*
-#endif
 );
 
 static _Xconst XIMMethodsRec local_im_methods = {
@@ -107,49 +99,31 @@ static _Xconst XIMMethodsRec local_im_methods = {
 };
 
 static void _DestroyIC(
-#if NeedFunctionPrototypes
 		       XIC
-#endif
 );
 static void _SetFocus(
-#if NeedFunctionPrototypes
 		      XIC
-#endif
 );
 static void _UnsetFocus(
-#if NeedFunctionPrototypes
 			XIC
-#endif
 );
 static char* _SetICValues(
-#if NeedFunctionPrototypes
 			 XIC, XIMArg *
-#endif
 );
 static char* _GetICValues(
-#if NeedFunctionPrototypes
 			 XIC, XIMArg *
-#endif
 );
 static char *_MbReset(
-#if NeedFunctionPrototypes
 		      XIC
-#endif
 );
 static wchar_t *_WcReset(
-#if NeedFunctionPrototypes
 			 XIC
-#endif
 );
 static int _MbLookupString(
-#if NeedFunctionPrototypes
 	XIC, XKeyEvent *, char *, int, KeySym *, Status *
-#endif
 );
 static int _WcLookupString(
-#if NeedFunctionPrototypes
 	XIC, XKeyEvent *, wchar_t *, int, KeySym *, Status *
-#endif
 );
 
 static _Xconst XICMethodsRec local_ic_methods = {
@@ -167,11 +141,12 @@ static _Xconst XICMethodsRec local_ic_methods = {
 };
 
 XIM
-_XDefaultOpenIM(lcd, dpy, rdb, res_name, res_class)
-XLCd		 lcd;
-Display		*dpy;
-XrmDatabase	 rdb;
-char		*res_name, *res_class;
+_XDefaultOpenIM(
+    XLCd                lcd,
+    Display             *dpy,
+    XrmDatabase         rdb,
+    char                *res_name,
+    char                *res_class)
 {
     StaticXIM im;
     XIMStaticXIMRec *local_impart;
@@ -251,8 +226,7 @@ Error2 :
 }
 
 static Status
-_CloseIM(xim)
-XIM xim;
+_CloseIM(XIM xim)
 {
     StaticXIM im = (StaticXIM)xim;
     _XlcCloseConverter(im->private->ctom_conv);
@@ -296,10 +270,7 @@ XIMArg *values;
 }
 
 static char*
-_SetICValueData(ic, values, mode)
-XIC ic;
-XIMArg *values;
-XICOp_t mode;
+_SetICValueData(XIC ic, XIMArg *values, XICOp_t mode)
 {
     XIMArg *p;
     char *return_name = NULL;
@@ -325,10 +296,7 @@ XICOp_t mode;
 }
 
 static char*
-_GetICValueData(ic, values, mode)
-XIC ic;
-XIMArg *values;
-XICOp_t mode;
+_GetICValueData(XIC ic, XIMArg *values, XICOp_t mode)
 {
     XIMArg *p;
     char *return_name = NULL;
@@ -355,9 +323,7 @@ XICOp_t mode;
 }
 
 static XIC
-_CreateIC(im, arg)
-XIM im;
-XIMArg *arg;
+_CreateIC(XIM im, XIMArg *arg)
 {
     XIC ic;
 
@@ -381,9 +347,8 @@ err_return:
     return ((XIC)NULL);
 }
 
-static  void
-_DestroyIC(ic)
-XIC ic;
+static void
+_DestroyIC(XIC ic)
 {
 /*BugId4255571. This Xfree() should be removed because XDestroyIC() still need ic after invoking _DestroyIC() and there is a XFree(ic) at the end of XDestroyIC() already.
    if(ic)
@@ -397,15 +362,12 @@ XIC ic;
 }
 
 static void
-_UnsetFocus(ic)
-XIC ic;
+_UnsetFocus(XIC ic)
 {
 }
 
 static char*
-_SetICValues(ic, args)
-XIC ic;
-XIMArg *args;
+_SetICValues(XIC ic, XIMArg *args)
 {
     char *ret = NULL;
     if (!ic) {
@@ -416,9 +378,7 @@ XIMArg *args;
 }
 
 static char*
-_GetICValues(ic, args)
-XIC ic;
-XIMArg *args;
+_GetICValues(XIC ic, XIMArg *args)
 {
     char *ret = NULL;
     if (!ic) {
@@ -429,27 +389,25 @@ XIMArg *args;
 }
 
 static char *
-_MbReset(xic)
-XIC xic;
+_MbReset(XIC xic)
 {
     return(NULL);
 }
 
 static wchar_t *
-_WcReset(xic)
-XIC xic;
+_WcReset(XIC xic)
 {
     return(NULL);
 }
 
 static int
-_MbLookupString(xic, ev, buffer, bytes, keysym, status)
-XIC xic;
-XKeyEvent *ev;
-char * buffer;
-int bytes;
-KeySym *keysym;
-Status *status;
+_MbLookupString(
+    XIC xic,
+    XKeyEvent *ev,
+    char * buffer,
+    int bytes,
+    KeySym *keysym,
+    Status *status)
 {
     XComposeStatus NotSupportedYet ;
     int length;
@@ -467,13 +425,13 @@ Status *status;
 }
 
 static int
-_WcLookupString(xic, ev, buffer, wlen, keysym, status)
-XIC xic;
-XKeyEvent *ev;
-wchar_t * buffer;
-int wlen;
-KeySym *keysym;
-Status *status;
+_WcLookupString(
+    XIC xic,
+    XKeyEvent *ev,
+    wchar_t * buffer,
+    int wlen,
+    KeySym *keysym,
+    Status *status)
 {
     XComposeStatus NotSupportedYet ;
     int length;

@@ -1,5 +1,5 @@
 XCOMM X-TrueType Server - TrueType rasterizer for X
-XCOMM $XFree86: xc/lib/font/X-TrueType/module/Imakefile,v 1.8 2002/02/13 21:32:48 dawes Exp $
+XCOMM $XFree86: xc/lib/font/X-TrueType/module/Imakefile,v 1.9 2003/09/06 23:38:05 dawes Exp $
 
 #define IHaveModules
 #include <Server.tmpl>
@@ -24,7 +24,7 @@ XTT_CCONV_MOUDLE_DEFINES = -DCCONV_MODULE -DCCONV_MODULE_DIR=\"$(MODULEDIR)/code
 DEFINES = -DTT_MAKE_OPTION_SINGLE_OBJECT=1 -DTT_CONFIG_OPTION_EXTEND_ENGINE \
 	  -DFONTMODULE \
 	  $(XTT_DEBUG_FLAGS) $(XTT_CCONV_MOUDLE_DEFINES) \
-	  $(XTT_USE_OPT_ENC_DEFINES)
+	  $(XTT_USE_OPT_ENC_DEFINES) Freetype1BuildDefines
 
 MODULE_C = xttmodule.c
 MODULE_O = xttmodule.o

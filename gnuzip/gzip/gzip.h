@@ -1,4 +1,5 @@
 /* gzip.h -- common declarations for all gzip modules
+ * Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
  * Copyright (C) 1992-1993 Jean-loup Gailly.
  * This is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License, see the file COPYING.
@@ -16,13 +17,14 @@
    typedef char *voidp;
 #endif
 
-/* I don't like nested includes, but the string and io functions are used
+/* I don't like nested includes, but the following headers are used
  * too often
  */
 #include <stdio.h>
-#if !defined(NO_STRING_H) || defined(STDC_HEADERS)
+#include <sys/types.h> /* for off_t, time_t */
+#if defined HAVE_STRING_H || defined STDC_HEADERS
 #  include <string.h>
-#  if !defined(STDC_HEADERS) && !defined(NO_MEMORY_H) && !defined(__GNUC__)
+#  if !defined STDC_HEADERS && defined HAVE_MEMORY_H && !defined __GNUC__
 #    include <memory.h>
 #  endif
 #  define memzero(s, n)     memset ((voidp)(s), 0, (n))
@@ -132,12 +134,9 @@ extern unsigned insize; /* valid bytes in inbuf */
 extern unsigned inptr;  /* index of next byte to be processed in inbuf */
 extern unsigned outcnt; /* bytes in output buffer */
 
-extern long bytes_in;   /* number of input bytes */
-extern long bytes_out;  /* number of output bytes */
-extern long header_bytes;/* number of bytes in gzip header */
-
-#define isize bytes_in
-/* for compatibility with old zip sources (to be cleaned) */
+extern off_t bytes_in;   /* number of input bytes */
+extern off_t bytes_out;  /* number of output bytes */
+extern off_t header_bytes;/* number of bytes in gzip header */
 
 extern int  ifd;        /* input file descriptor */
 extern int  ofd;        /* output file descriptor */
@@ -145,8 +144,8 @@ extern char ifname[];   /* input file name or "stdin" */
 extern char ofname[];   /* output file name or "stdout" */
 extern char *progname;  /* program name */
 
-extern long time_stamp; /* original time stamp (modification time) */
-extern long ifile_size; /* input file size, -1 for devices (debug only) */
+extern time_t time_stamp; /* original time stamp (modification time) */
+extern off_t ifile_size; /* input file size, -1 for devices (debug only) */
 
 typedef int file_t;     /* Do not use stdio */
 #define NO_FILE  (-1)   /* in memory compression */
@@ -232,7 +231,7 @@ extern int save_orig_name; /* set if original name must be saved */
 #define seekable()    0  /* force sequential output */
 #define translate_eol 0  /* no option -a yet */
 
-#define tolow(c)  (isupper(c) ? (c)-'A'+'a' : (c))    /* force to lower case */
+#define tolow(c)  (isupper (c) ? tolower (c) : (c))  /* force to lower case */
 
 /* Macros for getting two-byte and four-byte header values */
 #define SH(p) ((ush)(uch)((p)[0]) | ((ush)(uch)((p)[1]) << 8))
@@ -277,12 +276,12 @@ RETSIGTYPE abort_gzip OF((void));
 
         /* in deflate.c */
 void lm_init OF((int pack_level, ush *flags));
-ulg  deflate OF((void));
+off_t deflate OF((void));
 
         /* in trees.c */
 void ct_init     OF((ush *attr, int *method));
 int  ct_tally    OF((int dist, int lc));
-ulg  flush_block OF((char *buf, ulg stored_len, int eof));
+off_t flush_block OF((char *buf, ulg stored_len, int eof));
 
         /* in bits.c */
 void     bi_init    OF((file_t zipfile));
@@ -301,15 +300,20 @@ extern void flush_outbuf  OF((void));
 extern void flush_window  OF((void));
 extern void write_buf     OF((int fd, voidp buf, unsigned cnt));
 extern char *strlwr       OF((char *s));
-extern char *basename     OF((char *fname));
+extern char *base_name    OF((char *fname));
+extern int xunlink        OF((char *fname));
 extern void make_simple_name OF((char *name));
 extern char *add_envopt   OF((int *argcp, char ***argvp, char *env));
 extern void error         OF((char *m));
-extern void warn          OF((char *a, char *b));
+extern void warning       OF((char *m));
 extern void read_error    OF((void));
 extern void write_error   OF((void));
-extern void display_ratio OF((long num, long den, FILE *file));
+extern void display_ratio OF((off_t num, off_t den, FILE *file));
+extern void fprint_off    OF((FILE *, off_t, int));
 extern voidp xmalloc      OF((unsigned int size));
 
 	/* in inflate.c */
 extern int inflate OF((void));
+
+	/* in yesno.c */
+extern int yesno OF((void));

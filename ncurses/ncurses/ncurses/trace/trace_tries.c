@@ -35,7 +35,7 @@
 
 #include <curses.priv.h>
 
-MODULE_ID("$Id: trace_tries.c,v 1.1.1.1 2001/11/29 20:40:58 jevans Exp $")
+MODULE_ID("$Id: trace_tries.c,v 1.10 2001/10/20 22:42:51 tom Exp $")
 
 #ifdef TRACE
 static unsigned char *buffer;

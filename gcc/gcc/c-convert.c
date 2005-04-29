@@ -1,5 +1,6 @@
 /* Language-level data type conversion for GNU C.
-   Copyright (C) 1987, 1988, 1991, 1998, 2002 Free Software Foundation, Inc.
+   Copyright (C) 1987, 1988, 1991, 1998, 2002, 2003, 2004
+   Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,10 +27,16 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
 
 #include "config.h"
 #include "system.h"
+#include "coretypes.h"
+#include "tm.h"
 #include "tree.h"
 #include "flags.h"
 #include "convert.h"
 #include "c-common.h"
+/* APPLE LOCAL begin IMA aggregate types */
+#include "c-tree.h"
+/* APPLE LOCAL end IMA aggregate types */
+#include "langhooks.h"
 #include "toplev.h"
 
 /* Change of width--truncation and extension of integers or reals--
@@ -60,8 +67,7 @@ Software Foundation, 59 Temple Place - Suite 330, Boston, MA
    not permitted by the language being compiled.  */
 
 tree
-convert (type, expr)
-     tree type, expr;
+convert (tree type, tree expr)
 {
   tree e = expr;
   enum tree_code code = TREE_CODE (type);
@@ -92,7 +98,10 @@ convert (type, expr)
     return fold (convert_to_integer (type, e));
   if (code == BOOLEAN_TYPE)
     {
-      tree t = c_common_truthvalue_conversion (expr);
+      tree t = lang_hooks.truthvalue_conversion (expr);
+      if (TREE_CODE (t) == ERROR_MARK)
+	return t;
+
       /* If it returns a NOP_EXPR, we must fold it here to avoid
 	 infinite recursion between fold () and convert ().  */
       if (TREE_CODE (t) == NOP_EXPR)
@@ -108,6 +117,9 @@ convert (type, expr)
     return fold (convert_to_complex (type, e));
   if (code == VECTOR_TYPE)
     return fold (convert_to_vector (type, e));
+  if ((code == RECORD_TYPE || code == UNION_TYPE)
+      && lang_hooks.types_compatible_p (type, TREE_TYPE (expr)))
+      return e;
 
   error ("conversion to non-scalar type requested");
   return error_mark_node;

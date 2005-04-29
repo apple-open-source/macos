@@ -1,0 +1,20 @@
+--- Makefile.in.orig	Mon Sep 30 05:28:48 2002
++++ Makefile.in	Tue Mar  1 00:31:38 2005
+@@ -725,7 +725,7 @@
+ 
+ info-am: $(INFO_DEPS)
+ 
+-install-data-am: install-info-am install-man
++install-data-am: install-man
+ 
+ install-exec-am: install-binPROGRAMS install-binSCRIPTS
+ 	@$(NORMAL_INSTALL)
+@@ -815,7 +815,7 @@
+ 	sed \
+ 		-e '$(SEDCMD)' \
+ 		-e 's|/bin/sh|$(SHELL)|g' \
+-		-e 's|BINDIR|$(bindir)|g' \
++		-e 's|BINDIR|/usr/bin|g' \
+ 		$(srcdir)/$@.in >$@
+ 	chmod a+x $@
+ 

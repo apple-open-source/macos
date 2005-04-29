@@ -445,7 +445,7 @@ IOReturn IOFWWriteQuadCommand::execute()
     }
     else 
 	{
-        IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
+//        IOLog("IOFWReadCommand::execute: Out of tLabels?\n");
         result = kIOFireWireOutOfTLabels;
     }
 
@@ -467,9 +467,9 @@ IOReturn IOFWWriteQuadCommand::execute()
 //
 
 void IOFWWriteQuadCommand::gotPacket( int rcode, const void* data, int size )
-{	
+{
 	setResponseCode( rcode );
-
+	
     if( rcode != kFWResponseComplete ) 
 	{
         //kprintf("Received rcode %d for command 0x%x\n", rcode, this);

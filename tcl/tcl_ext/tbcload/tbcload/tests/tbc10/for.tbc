@@ -1,0 +1,59 @@
+# for.tcl --
+#
+#  Test file for compilation.
+#  Contains nested for loops, used to check generation of the exception
+#  ranges arrays.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: for.tbc,v 1.2 2000/05/30 22:19:08 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+7 0 54 9 2 0 40 1 3 7 7 -1 -1
+54
+w0E<!:B`W!;btt!,`yTv<TA9v<Gwjw1A^=!3TW<!GG's!4UM<!-W&=!05bpv(0*!!-!!
+7
+-WW!!Gur!
+7
+OdxWv1N<!
+9
+x
+6
+7,V`FW+%
+x
+0
+
+x
+3
+uju,
+i
+8
+x
+12
+5'WTAfW0`F1?0bE
+i
+1
+x
+142
+6dV<+.5|,EwAoC+7,V`FF2qT,5'WTAfW0`F1?0bEu!V<+7+:eDMwf*F/MqcB+-0bEbkTKD8%
+DE+e(Z<+CA:JDUaQZ6>5cDFUZS<4gG6^D8?0bEbkTKD@n&<I?G=JD+GqcB+-0bEbkTKD@n&<
+I%#um#sT2TA1neZE1fsiCCH*8wLdV<+S@!
+x
+6
+sT2TAIPw
+x
+4
+HW?87
+2
+L 1 27 3 38 31 -1
+L 1 31 4 38 -1 -1
+0
+}

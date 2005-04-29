@@ -1,0 +1,81 @@
+# procbod2.tcl --
+#
+#  Test file for compilation.
+#  Contains two procs; the first is compiled, the second is not.
+#  The body for the second is generated from a "info body" command on the
+#  first; this is a construct that we don't support with the debugger, and
+#  an error is generated when the second proc is executed.
+#  Checks that the correct error is generated.
+#
+# Copyright (c) 1998-2000 Ajuba Solutions
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# 
+# RCS: @(#) $Id: procbod2.tbc,v 1.2 2000/05/30 22:19:09 wart Exp $
+# TclPro::Compiler::Include
+
+if {[catch {package require tbcload 1.0} err] == 1} {
+    error "The TclPro ByteCode Loader is not available"
+}
+tbcload::bceval {
+TclPro ByteCode 1 0 1.0 8.0
+5 0 39 10 0 0 24 0 6 5 5 -1 -1
+39
+-KE<!(H&s!/HW<!'E`<!*Ki<!/`vpv1fAs!.`A9v2o8X!)'!!
+5
+=t-Ow#!
+5
+O4%4w'!
+10
+x
+4
+,CHr@
+x
+1
+-v
+x
+3
+/MHw
+p
+1 0 13 2 0 0 4 0 3 1 1 -1 -1
+13
+,|&v!-`&v!1`8X!z
+1
+z
+1
+-!
+2
+x
+6
+82_`FWnw
+x
+3
+F<Fw
+0
+0
+1 1
+1
+Dv
+0 0 257
+x
+1
+.v
+x
+4
+wm<eD
+x
+4
+&i:vH
+x
+4
+4/;EF
+x
+4
+b4Z)<
+x
+15
+rpwhC;Z2b3<?<+EfqT+
+0
+0
+}

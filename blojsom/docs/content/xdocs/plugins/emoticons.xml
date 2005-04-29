@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE document PUBLIC "-//APACHE//DTD Documentation V1.2//EN" "document-v12.dtd">
+<document>
+    <header>
+        <title>Emoticons plugin</title>
+   </header>
+
+    <body>
+        <section>
+            <title>description</title>
+            <p>
+                The emoticons plugin expands emoticon references such as :) or ;) to images like
+                <img alt="happy" src="images/emoticons/happy.gif"/> and
+                <img alt="wink" src="images/emoticons/wink.gif"/>.
+            </p>
+
+            <section>
+                <title>installation and setup</title>
+                <p>
+                    In your global
+                    <code>plugin.properties</code> file, add the following line:
+                </p>
+                <source>
+                    emoticons=org.blojsom.plugin.emoticons.EmoticonsPlugin
+                </source>
+                <p>You may then add "emoticons" to one of the flavor-based plugin chains.
+                These plugin chains can be found in the individual user's
+                <code>plugin.properties</code> file. For example:
+                </p>
+                <source>
+                    html.blojsom-plugin-chain=emoticons
+                </source>
+                <p>
+                    The emoticons plugin has its own configuration file,
+                    <em>emoticons.properties</em>, that is referenced in
+                    <em>web.xml</em>.
+                </p>
+                <source>
+                    &lt;init-param&gt;
+                    &lt;param-name&gt;plugin-emoticons&lt;/param-name&gt;
+                    &lt;param-value&gt;emoticons.properties&lt;/param-value&gt;
+                    &lt;/init-param&gt;
+                </source>
+                <p>
+
+                    The
+                    <em>emoticons.properties</em> file will be located in the respective
+                    <code>/WEB-INF/(user-id)</code> directory and contains
+                    <em>key=value</em> pairs like the following:
+                </p>
+                <source>
+                    happy=/images/emoticons/happy.gif
+                    sad=/images/emoticons/sad.gif
+                    grin=/images/emoticons/grin.gif
+                    love=/images/emoticons/love.gif
+                    mischief=/images/emoticons/mischief.gif
+                    cool=/images/emoticons/cool.gif
+                    devil=/images/emoticons/devil.gif
+                    silly=/images/emoticons/silly.gif
+                    angry=/images/emoticons/angry.gif
+                    laugh=/images/emoticons/laugh.gif
+                    wink=/images/emoticons/wink.gif
+                    blush=/images/emoticons/blush.gif
+                    cry=/images/emoticons/cry.gif
+                    confused=/images/emoticons/confused.gif
+                    shocked=/images/emoticons/shocked.gif
+                    plain=/images/emoticons/plain.gif
+                </source>
+                <p>
+                    The directories referenced here are relative to the root context of the web application. They
+                    will be used in constructing the proper URL to the image by appending the proper image
+                    filename to the blog URL.
+                </p>
+                <p>
+                    You may download the
+                    <link href="http://www.jivesoftware.com/builds/jive-emoticons.zip">Jive
+                        Emoticons</link> image pack
+                    for use in your weblog. Due to copyright restrictions, we cannot re-distribute the emoticons
+                    pack with blojsom. To use the Jive Emoticons image pack, unzip the
+                    <em>jive-emoticons.zip</em>
+                    and move the images sub-directory over to your web application's root context directory.
+                </p>
+                <warning>To use the Jive Emoticons image pack, you must also include
+                    "Emoticon images copyright
+                    Jive Software. Used with permission." on your website.</warning>
+
+            </section>
+            <section>
+                <title>usage and URL parameters</title>
+
+                <section>
+                    <title>usage</title>
+                    <p>
+                        The following table lists the strings that will generate the different image references.
+                    </p>
+                    <table>
+                        <tr>
+                            <th>Emoticon string</th>
+                            <th>Image generated</th>
+                        </tr>
+                        <tr>
+                            <td>:)</td>
+                            <td>happy</td>
+                        </tr>
+                        <tr>
+                            <td>:(</td>
+                            <td>sad</td>
+                        </tr>
+                        <tr>
+                            <td>:D</td>
+                            <td>grin</td>
+                        </tr>
+                        <tr>
+                            <td>&lt;3</td>
+                            <td>love</td>
+                        </tr>
+                        <tr>
+                            <td>;7)</td>
+                            <td>mischief</td>
+                        </tr>
+                        <tr>
+                            <td>])</td>
+                            <td>cool</td>
+                        </tr>
+                        <tr>
+                            <td>})</td>
+                            <td>devil</td>
+                        </tr>
+                        <tr>
+                            <td>:P</td>
+                            <td>silly</td>
+                        </tr>
+                        <tr>
+                            <td>&gt;(</td>
+                            <td>angry</td>
+                        </tr>
+                        <tr>
+                            <td>(D</td>
+                            <td>laugh</td>
+                        </tr>
+                        <tr>
+                            <td>;)</td>
+                            <td>wink</td>
+                        </tr>
+                        <tr>
+                            <td>*^_^*</td>
+                            <td>blush</td>
+                        </tr>
+                        <tr>
+                            <td>:'(</td>
+                            <td>cry</td>
+                        </tr>
+                        <tr>
+                            <td>`:|</td>
+                            <td>confused</td>
+                        </tr>
+                        <tr>
+                            <td>:O</td>
+                            <td>shocked</td>
+                        </tr>
+                        <tr>
+                            <td>:|</td>
+                            <td>plain</td>
+                        </tr>
+                    </table>
+                </section>
+                <section>
+                    <title>URL parameters</title>
+                    <p>There are no URL parameters to control the operation of the emoticons plugin.
+                    </p>
+                </section>
+            </section>
+        </section>
+
+    </body>
+</document>
+

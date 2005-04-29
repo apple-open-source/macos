@@ -32,6 +32,6 @@ int NXIsCntrl(c)
 {
 	FIXSIGNEDCHAR(c);
 	if (c < 256)
-		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_C)));
+		return ((unsigned int)((_NX_CTypeTable_ + 1)[c] & (_CTYPE_C)));
 	return 0;
 }

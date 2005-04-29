@@ -1,13 +1,12 @@
 ------------------------------------------------------------------------------
 --                                                                          --
---                        GBIND BINDER COMPONENTS                           --
+--                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
 --                             B I N D U S G                                --
 --                                                                          --
 --                                B o d y                                   --
 --                                                                          --
---                                                                          --
---          Copyright (C) 1992-2001 Free Software Foundation, Inc.          --
+--          Copyright (C) 1992-2004 Free Software Foundation, Inc.          --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -74,6 +73,11 @@ begin
    Write_Str ("  -C        Generate binder program in C");
    Write_Eol;
 
+   --  Line for D switch
+
+   Write_Str ("  -Dnnn     Default secondary stack size = nnn bytes");
+   Write_Eol;
+
    --  Line for -e switch
 
    Write_Str ("  -e        Output complete list of elabor");
@@ -83,6 +87,13 @@ begin
    --  Line for -E switch
 
    Write_Str ("  -E        Store tracebacks in Exception occurrences");
+   Write_Eol;
+
+   --  The -f switch is voluntarily omitted, because it is obsolete
+
+   --  Line for -F switch
+
+   Write_Str ("  -F        Force checking of elaboration Flags");
    Write_Eol;
 
    --  Line for -h switch
@@ -124,7 +135,7 @@ begin
    --  Line for -m switch
 
    Write_Str ("  -mnnn     Limit number of detected error");
-   Write_Str ("s to nnn (1-999)");
+   Write_Str ("s to nnn (1-999999)");
    Write_Eol;
 
    --  Line for -n switch
@@ -195,7 +206,7 @@ begin
 
    --  Line for -T switch
 
-   Write_Str ("  -Tn       Set time slice value to n microseconds (n >= 0)");
+   Write_Str ("  -Tn       Set time slice value to n milliseconds (n >= 0)");
    Write_Eol;
 
    --  Line for -v switch

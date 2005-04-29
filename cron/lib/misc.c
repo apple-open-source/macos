@@ -410,7 +410,7 @@ int
 allowed(username)
 	char *username;
 {
-	FILE	*allow, *deny;
+	FILE	*allow = NULL, *deny = NULL;
 	int	isallowed;
 
 	isallowed = FALSE;

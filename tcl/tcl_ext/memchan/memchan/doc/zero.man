@@ -1,0 +1,45 @@
+[comment {-*- tcl -*- doctools}]
+[manpage_begin zero n 2.2]
+[moddesc   {Memory channels}]
+[titledesc {Create and manipulate zero channels}]
+[copyright {2004 Pat Thoyts <patthoyts@users.sourceforge.net>}]
+[require Tcl]
+[require memchan]
+[description]
+[para]
+The command described here is only available in a not-yet released
+version of the package. Use the CVS to get the sources.
+
+[list_begin definitions]
+
+[call [cmd zero]]
+
+creates a zero channel which absorbs everything written into
+it. Reading from a zero channel will return the requested number of null 
+bytes. These channels are essentially Tcl-specific variants of the
+zero device for unixoid operating systems (/dev/zero). Transfering the
+generated channel between interpreters is possible but does not make
+much sense.
+
+[list_end]
+
+[section OPTIONS]
+
+Memory channels created by [cmd zero] provide one additional option to
+set or query.
+
+[list_begin definitions]
+
+    [lst_item [arg "-delay [opt milliseconds]"]]
+
+    A [cmd zero] channel is always writable and readable. This means
+    that all [cmd fileevent]-handlers will fire continuously.  To
+    avoid starvation of other event sources the events raised by this
+    channel type have a configurable delay. This option is set in
+    milliseconds and defaults to 5.
+
+[list_end]
+
+[see_also memchan fifo fifo2 null random]
+[keywords zero null {in-memory channel} channel i/o]
+[manpage_end]

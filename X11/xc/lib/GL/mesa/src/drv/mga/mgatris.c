@@ -24,10 +24,7 @@
  * Authors:
  *    Keith Whitwell <keith@tungstengraphics.com>
  */
-/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgatris.c,v 1.10 2002/10/30 12:51:36 alanh Exp $ */
-
-#include <stdio.h>
-#include <math.h>
+/* $XFree86: xc/lib/GL/mesa/src/drv/mga/mgatris.c,v 1.12 2003/12/02 13:02:38 alanh Exp $ */
 
 #include "mtypes.h"
 #include "macros.h"
@@ -676,31 +673,21 @@ static void mgaFastRenderClippedPoly( GLcontext *ctx, const GLuint *elts,
 /**********************************************************************/
 
 
-
-#define _MGA_NEW_RENDERSTATE (_DD_NEW_LINE_STIPPLE |		\
-			       _DD_NEW_TRI_UNFILLED |		\
-			       _DD_NEW_TRI_LIGHT_TWOSIDE |	\
-			       _DD_NEW_TRI_OFFSET |		\
-			       _DD_NEW_TRI_STIPPLE |		\
-			       _NEW_POLYGONSTIPPLE)
-
-
 #define POINT_FALLBACK (DD_POINT_SMOOTH)
 #define LINE_FALLBACK (DD_LINE_SMOOTH | DD_LINE_STIPPLE)
 #define TRI_FALLBACK (DD_TRI_SMOOTH | DD_TRI_UNFILLED)
-#define ANY_FALLBACK_FLAGS (POINT_FALLBACK|LINE_FALLBACK|TRI_FALLBACK| \
-                            DD_TRI_STIPPLE)
+#define ANY_FALLBACK_FLAGS (POINT_FALLBACK|LINE_FALLBACK|TRI_FALLBACK)
 #define ANY_RASTER_FLAGS (DD_FLATSHADE|DD_TRI_LIGHT_TWOSIDE|DD_TRI_OFFSET| \
                           DD_TRI_UNFILLED)
 
-static void mgaChooseRenderState(GLcontext *ctx)
+void mgaChooseRenderState(GLcontext *ctx)
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
    mgaContextPtr mmesa = MGA_CONTEXT(ctx);
    GLuint flags = ctx->_TriangleCaps;
    GLuint index = 0;
 
-   if (flags & (ANY_FALLBACK_FLAGS|ANY_RASTER_FLAGS)) {
+   if (flags & (ANY_FALLBACK_FLAGS|ANY_RASTER_FLAGS|DD_TRI_STIPPLE)) {
       if (flags & ANY_RASTER_FLAGS) {
 	 if (flags & DD_TRI_LIGHT_TWOSIDE)    index |= MGA_TWOSIDE_BIT;
 	 if (flags & DD_TRI_OFFSET)	      index |= MGA_OFFSET_BIT;
@@ -725,9 +712,11 @@ static void mgaChooseRenderState(GLcontext *ctx)
 	 if (flags & TRI_FALLBACK) 
 	    mmesa->draw_tri = mga_fallback_tri;
 	 
-	 if ((flags & DD_TRI_STIPPLE) && !mmesa->haveHwStipple)
-	    mmesa->draw_tri = mga_fallback_tri;
-      
+	 index |= MGA_FALLBACK_BIT;
+      }
+
+      if ((flags & DD_TRI_STIPPLE) && !mmesa->haveHwStipple) {
+	 mmesa->draw_tri = mga_fallback_tri;
 	 index |= MGA_FALLBACK_BIT;
       }
    }
@@ -759,36 +748,6 @@ static void mgaChooseRenderState(GLcontext *ctx)
 /**********************************************************************/
 
 
-static void mgaRunPipeline( GLcontext *ctx )
-{
-   mgaContextPtr mmesa = MGA_CONTEXT(ctx);
-
-   if (mmesa->new_state) {
-      mgaDDUpdateHwState( ctx );
-   }
-
-   if (!mmesa->Fallback && mmesa->new_gl_state) {
-      if (mmesa->new_gl_state & _MGA_NEW_RASTERSETUP)
-	 mgaChooseVertexState( ctx );
-      
-      if (mmesa->new_gl_state & _MGA_NEW_RENDERSTATE)
-	 mgaChooseRenderState( ctx );
-      
-      mmesa->new_gl_state = 0;
-
-      /* Circularity: mgaDDUpdateHwState can affect mmesa->Fallback,
-       * but mgaChooseVertexState can affect mmesa->new_state.  Hence
-       * the second check.  (Fix this...)
-       */
-      if (mmesa->new_state) {
-	 mgaDDUpdateHwState( ctx );
-      }
-   }
-
-   _tnl_run_pipeline( ctx );
-}
-
-
 static GLenum reduced_prim[GL_POLYGON+1] = {
    GL_POINTS,
    GL_LINES,
@@ -812,18 +771,21 @@ void mgaRasterPrimitive( GLcontext *ctx, GLenum prim, GLuint hwprim )
    mgaContextPtr mmesa = MGA_CONTEXT( ctx );
 
    FLUSH_BATCH( mmesa );
+
+   /* Update culling */
+   if (mmesa->raster_primitive != prim)
+      mmesa->dirty |= MGA_UPLOAD_CONTEXT;
+
    mmesa->raster_primitive = prim;
 /*     mmesa->hw_primitive = hwprim; */
    mmesa->hw_primitive = MGA_WA_TRIANGLES; /* disable mgarender.c for now */
-   mgaUpdateCull(ctx);   
 
    if (ctx->Polygon.StippleFlag && mmesa->haveHwStipple)
    {
       mmesa->dirty |= MGA_UPLOAD_CONTEXT;
+      mmesa->setup.dwgctl &= ~(0xf<<20);
       if (mmesa->raster_primitive == GL_TRIANGLES)
 	 mmesa->setup.dwgctl |= mmesa->poly_stipple;
-      else
-	 mmesa->setup.dwgctl &= ~(0xf<<20);
    }
 }
 
@@ -864,6 +826,28 @@ static void mgaRenderFinish( GLcontext *ctx )
 /*               Manage total rasterization fallbacks                 */
 /**********************************************************************/
 
+static const char * const fallbackStrings[] = {
+   "Texture mode",
+   "glDrawBuffer(GL_FRONT_AND_BACK)",
+   "read buffer",
+   "glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ZERO)",
+   "glRenderMode(selection or feedback)",
+   "No hardware stencil",
+   "glDepthFunc( GL_NEVER )",
+   "Mixing GL_CLAMP_TO_EDGE and GL_CLAMP"
+};
+
+static const char *getFallbackString(GLuint bit)
+{
+   int i = 0;
+   while (bit > 1) {
+      i++;
+      bit >>= 1;
+   }
+   return fallbackStrings[i];
+}
+
+
 void mgaFallback( GLcontext *ctx, GLuint bit, GLboolean mode )
 {
    TNLcontext *tnl = TNL_CONTEXT(ctx);
@@ -876,6 +860,10 @@ void mgaFallback( GLcontext *ctx, GLuint bit, GLboolean mode )
 	 FLUSH_BATCH(mmesa);
 	 _swsetup_Wakeup( ctx );
 	 mmesa->RenderIndex = ~0;
+         if (MGA_DEBUG & DEBUG_VERBOSE_FALLBACK) {
+            fprintf(stderr, "MGA begin rasterization fallback: 0x%x %s\n",
+                    bit, getFallbackString(bit));
+         }
       }
    }
    else {
@@ -886,8 +874,12 @@ void mgaFallback( GLcontext *ctx, GLuint bit, GLboolean mode )
 	 tnl->Driver.Render.PrimitiveNotify = mgaRenderPrimitive;
 	 tnl->Driver.Render.Finish = mgaRenderFinish;
 	 tnl->Driver.Render.BuildVertices = mgaBuildVertices;
-	 mmesa->new_gl_state |= (_MGA_NEW_RENDERSTATE |
-				 _MGA_NEW_RASTERSETUP);
+	 mmesa->NewGLState |= (_MGA_NEW_RENDERSTATE |
+			       _MGA_NEW_RASTERSETUP);
+         if (MGA_DEBUG & DEBUG_VERBOSE_FALLBACK) {
+            fprintf(stderr, "MGA end rasterization fallback: 0x%x %s\n",
+                    bit, getFallbackString(bit));
+         }
       }
    }
 }
@@ -905,7 +897,6 @@ void mgaDDInitTriFuncs( GLcontext *ctx )
 
    mmesa->RenderIndex = ~0;
 	
-   tnl->Driver.RunPipeline               = mgaRunPipeline;
    tnl->Driver.Render.Start              = mgaCheckTexSizes;
    tnl->Driver.Render.Finish             = mgaRenderFinish; 
    tnl->Driver.Render.PrimitiveNotify    = mgaRenderPrimitive;

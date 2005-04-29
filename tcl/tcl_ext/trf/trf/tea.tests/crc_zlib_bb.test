@@ -1,0 +1,31 @@
+# -*- tcl -*-
+# Commands covered:	crc-zlib
+#
+# This file contains a collection of tests for one or more of the commands
+# the TRF extension. Sourcing this file into Tcl runs the tests and generates
+# output for errors.  No output means no errors were found.
+#
+# Copyright (c) 1996 Andreas Kupries (a.kupries@westend.com)
+#
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+#
+# $Id: crc_zlib_bb.test,v 1.1 1999/09/19 10:33:30 aku Exp $
+
+
+foreach {i in digest} {
+    0 {hello world} 85114A0D
+} {
+    if {[info tclversion] < 8.0} {
+	test crc_zlib-4.$i-7.6 {crc_zlib, immediate} {hasZlib} {
+	    exec_md crc-zlib [text2hex $in]
+	} $digest
+    } else {
+	test crc_zlib-4.$i-8.x {crc_zlib, immediate} {hasZlib} {
+	    hex -m e [crc-zlib $in]
+	} $digest
+    }
+}
+
+
+::tcltest::cleanupTests

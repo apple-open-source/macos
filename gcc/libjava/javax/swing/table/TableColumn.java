@@ -37,21 +37,20 @@ exception statement from your version. */
 
 package javax.swing.table;
 
-// Imports
-import java.beans.*;
-import java.io.*;
-import javax.swing.event.*;
+import java.beans.PropertyChangeListener;
+import java.io.Serializable;
+import javax.swing.event.SwingPropertyChangeSupport;
+
 
 /**
  * TableColumn
  * @author	Andrew Selkirk
  * @version	1.0
  */
-public class TableColumn implements Serializable {
-
-	//-------------------------------------------------------------
-	// Variables --------------------------------------------------
-	//-------------------------------------------------------------
+public class TableColumn
+  implements Serializable
+{
+  static final long serialVersionUID = -6113660025878112608L;
 
 	/**
 	 * COLUMN_WIDTH_PROPERTY
@@ -136,36 +135,35 @@ public class TableColumn implements Serializable {
 	/**
 	 * changeSupport
 	 */
-	private SwingPropertyChangeSupport changeSupport = new SwingPropertyChangeSupport(this);
-
-
-	//-------------------------------------------------------------
-	// Initialization ---------------------------------------------
-	//-------------------------------------------------------------
+  private SwingPropertyChangeSupport changeSupport =
+    new SwingPropertyChangeSupport(this);
 
 	/**
 	 * Constructor TableColumn
 	 */
-	public TableColumn() {
+  public TableColumn()
+  {
 		this(0, 75, null, null);
-	} // TableColumn()
+  }
 
 	/**
 	 * Constructor TableColumn
 	 * @param modelIndex TODO
 	 */
-	public TableColumn(int modelIndex) {
+  public TableColumn(int modelIndex)
+  {
 		this(modelIndex, 75, null, null);
-	} // TableColumn()
+  }
 
 	/**
 	 * Constructor TableColumn
 	 * @param modelIndex TODO
 	 * @param width TODO
 	 */
-	public TableColumn(int modelIndex, int width) {
+  public TableColumn(int modelIndex, int width)
+  {
 		this(modelIndex, width, null, null);
-	} // TableColumn()
+  }
 
 	/**
 	 * Constructor TableColumn
@@ -175,7 +173,8 @@ public class TableColumn implements Serializable {
 	 * @param cellEditor TODO
 	 */
 	public TableColumn(int modelIndex, int width,
-			TableCellRenderer cellRenderer, TableCellEditor cellEditor) {
+                     TableCellRenderer cellRenderer, TableCellEditor cellEditor)
+  {
 		this.modelIndex = modelIndex;
 		this.width = width;
 		this.preferredWidth = width;
@@ -183,12 +182,7 @@ public class TableColumn implements Serializable {
 		this.cellEditor = cellEditor;
 		this.headerValue = null;
 		this.identifier = null;
-	} // TableColumn()
-
-
-	//-------------------------------------------------------------
-	// Methods ----------------------------------------------------
-	//-------------------------------------------------------------
+  }
 
 	/**
 	 * firePropertyChange
@@ -196,9 +190,11 @@ public class TableColumn implements Serializable {
 	 * @param oldValue TODO
 	 * @param newValue TODO
 	 */
-	private void firePropertyChange(String property, Object oldValue, Object newValue) {
+  private void firePropertyChange(String property, Object oldValue,
+                                  Object newValue)
+  {
 		changeSupport.firePropertyChange(property, oldValue, newValue);
-	} // firePropertyChange()
+  }
 
 	/**
 	 * firePropertyChange
@@ -206,9 +202,10 @@ public class TableColumn implements Serializable {
 	 * @param oldValue TODO
 	 * @param newValue TODO
 	 */
-	private void firePropertyChange(String property, int oldValue, int newValue) {
+  private void firePropertyChange(String property, int oldValue, int newValue)
+  {
 		firePropertyChange(property, new Integer(oldValue), new Integer(newValue));
-	} // firePropertyChange()
+  }
 
 	/**
 	 * firePropertyChange
@@ -216,51 +213,56 @@ public class TableColumn implements Serializable {
 	 * @param oldValue TODO
 	 * @param newValue TODO
 	 */
-	private void firePropertyChange(String property, boolean oldValue, boolean newValue) {
+  private void firePropertyChange(String property, boolean oldValue,
+                                  boolean newValue)
+	{
 		firePropertyChange(property, new Boolean(oldValue), new Boolean(newValue));
-	} // firePropertyChange()
+	}
 
 	/**
 	 * setModelIndex
 	 * @param modelIndex TODO
 	 */
-	public void setModelIndex(int modelIndex) {
+  public void setModelIndex(int modelIndex)
+  {
 		this.modelIndex = modelIndex;
-	} // setModelIndex()
+  }
 
 	/**
 	 * getModelIndex
-	 * @returns int
+   * @return int
 	 */
-	public int getModelIndex() {
+  public int getModelIndex()
+  {
 		return modelIndex;
-	} // getModelIndex()
+  }
 
 	/**
 	 * setIdentifier
 	 * @param identifier TODO
 	 */
-	public void setIdentifier(Object identifier) {
+  public void setIdentifier(Object identifier)
+  {
 		this.identifier = identifier;
-	} // setIdentifier()
+  }
 
 	/**
 	 * getIdentifier
-	 * @returns Object
+   * @return Object
 	 */
-	public Object getIdentifier() {
-		if (identifier == null) {
+  public Object getIdentifier()
+  {
+    if (identifier == null)
 			return getHeaderValue();
-		} // if
 		return identifier;
-	} // getIdentifier()
+  }
 
 	/**
 	 * setHeaderValue
 	 * @param headerValue TODO
 	 */
-	public void setHeaderValue(Object headerValue) {
-
+  public void setHeaderValue(Object headerValue)
+  {
 		// Variables
 		Object	oldValue;
 
@@ -271,245 +273,243 @@ public class TableColumn implements Serializable {
 		this.headerValue = headerValue;
 
 		// Notify Listeners of change
-		firePropertyChange(HEADER_VALUE_PROPERTY, 
-				oldValue, headerValue);
-
-	} // setHeaderValue()
+    firePropertyChange(HEADER_VALUE_PROPERTY, oldValue, headerValue);
+  }
 
 	/**
 	 * getHeaderValue
-	 * @returns Object
+   * @return Object
 	 */
-	public Object getHeaderValue() {
+  public Object getHeaderValue()
+  {
 		return headerValue;
-	} // getHeaderValue()
+  }
 
-	/**
-	 * setHeaderRenderer
-	 * @param headerRenderer TODO
-	 */
-	public void setHeaderRenderer(TableCellRenderer headerRenderer) {
-
-		// Variables
-		TableCellRenderer	oldRenderer;
-
-		// Get Old Renderer
-		oldRenderer = this.headerRenderer;
-
-		// Set Property
-		this.headerRenderer = headerRenderer;
-
-		// Notify Listeners of change
-		firePropertyChange(HEADER_RENDERER_PROPERTY, 
-				oldRenderer, headerRenderer);
-
-	} // setHeaderRenderer()
+  /**
+   * setHeaderRenderer
+   * @param headerRenderer TODO
+   */
+  public void setHeaderRenderer(TableCellRenderer renderer)
+  {
+    if (headerRenderer == renderer)
+      return;
+    
+    TableCellRenderer oldRenderer = headerRenderer;
+    headerRenderer = renderer;
+    firePropertyChange(HEADER_RENDERER_PROPERTY, 
+		       oldRenderer, headerRenderer);
+  }
 
 	/**
 	 * getHeaderRenderer
-	 * @returns TableCellRenderer
+   * @return TableCellRenderer
 	 */
-	public TableCellRenderer getHeaderRenderer() {
+  public TableCellRenderer getHeaderRenderer()
+  {
 		return headerRenderer;
-	} // getHeaderRenderer()
+  }
 
-	/**
-	 * setCellRenderer
-	 * @param cellRenderer TODO
-	 */
-	public void setCellRenderer(TableCellRenderer cellRenderer) {
-
-		// Variables
-		TableCellRenderer	oldRenderer;
-
-		// Get Old Renderer
-		oldRenderer = this.cellRenderer;
-
-		// Set Property
-		this.cellRenderer = cellRenderer;
-
-		// Notify Listeners of change
-		firePropertyChange(CELL_RENDERER_PROPERTY, 
-				oldRenderer, cellRenderer);
-
-	} // setCellRenderer()
+  /**
+   * setCellRenderer
+   * @param cellRenderer TODO
+   */
+  public void setCellRenderer(TableCellRenderer renderer)
+  {
+    if (cellRenderer == renderer)
+      return;
+    
+    TableCellRenderer oldRenderer = cellRenderer;
+    cellRenderer = renderer;
+    firePropertyChange(CELL_RENDERER_PROPERTY, 
+		       oldRenderer, cellRenderer);
+  }
 
 	/**
 	 * getCellRenderer
-	 * @returns TableCellRenderer
+   * @return TableCellRenderer
 	 */
-	public TableCellRenderer getCellRenderer() {
+  public TableCellRenderer getCellRenderer()
+  {
 		return cellRenderer;
-	} // getCellRenderer()
+  }
 
 	/**
 	 * setCellEditor
 	 * @param cellEditor TODO
 	 */
-	public void setCellEditor(TableCellEditor cellEditor) {
+  public void setCellEditor(TableCellEditor cellEditor)
+  {
 		this.cellEditor = cellEditor;
-	} // setCellEditor()
+  }
 
 	/**
 	 * getCellEditor
-	 * @returns TableCellEditor
+   * @return TableCellEditor
 	 */
-	public TableCellEditor getCellEditor() {
+  public TableCellEditor getCellEditor()
+  {
 		return cellEditor;
-	} // getCellEditor()
+  }
 
-	/**
-	 * setWidth
-	 * @param width TODO
-	 */
-	public void setWidth(int width) {
+  /**
+   * setWidth
+   * @param newWidth TODO
+   */
+  public void setWidth(int newWidth)
+  {
+    int	oldWidth = width;
 
-		// Variables
-		int	oldWidth;
+    if (newWidth < minWidth)
+      width = minWidth;
+    else if (newWidth > maxWidth)
+      width = maxWidth;
+    else
+      width = newWidth;
 
-		// Get Old Width
-		oldWidth = this.width;
+    if (width == oldWidth)
+      return;
 
-		// Adjust Width within Limits
-		if (width < minWidth) {
-			this.width = minWidth;
-		} else if (width > maxWidth) {
-			this.width = maxWidth;
-		} else {
-			this.width = width;
-		} // if
-
-		// Fire Property Change
-		firePropertyChange(COLUMN_WIDTH_PROPERTY, oldWidth, this.width);
-
-	} // setWidth()
+    firePropertyChange(COLUMN_WIDTH_PROPERTY, oldWidth, width);
+  }
 
 	/**
 	 * getWidth
-	 * @returns int
+   * @return int
 	 */
-	public int getWidth() {
+  public int getWidth()
+  {
 		return width;
-	} // getWidth()
+  }
 
 	/**
 	 * setPreferredWidth
 	 * @param preferredWidth TODO
 	 */
-	public void setPreferredWidth(int preferredWidth) {
-		if (preferredWidth < minWidth) {
+  public void setPreferredWidth(int preferredWidth)
+  {
+    if (preferredWidth < minWidth)
 			this.preferredWidth = minWidth;
-		} else if (preferredWidth > maxWidth) {
+    else if (preferredWidth > maxWidth)
 			this.preferredWidth = maxWidth;
-		} else {
+    else
 			this.preferredWidth = preferredWidth;
-		} // if
-	} // setPreferredWidth()
+  }
 
 	/**
 	 * getPreferredWidth
-	 * @returns int
+   * @return int
 	 */
-	public int getPreferredWidth() {
+  public int getPreferredWidth()
+  {
 		return preferredWidth;
-	} // getPreferredWidth()
+  }
 
 	/**
 	 * setMinWidth
 	 * @param minWidth TODO
 	 */
-	public void setMinWidth(int minWidth) {
+  public void setMinWidth(int minWidth)
+  {
 		this.minWidth = minWidth;
 		setWidth(getWidth());
 		setPreferredWidth(getPreferredWidth());
-	} // setMinWidth()
+  }
 
 	/**
 	 * getMinWidth
-	 * @returns int
+   * @return int
 	 */
-	public int getMinWidth() {
+  public int getMinWidth()
+  {
 		return minWidth;
-	} // getMinWidth()
+  }
 
 	/**
 	 * setMaxWidth
 	 * @param maxWidth TODO
 	 */
-	public void setMaxWidth(int maxWidth) {
+  public void setMaxWidth(int maxWidth)
+  {
 		this.maxWidth = maxWidth;
 		setWidth(getWidth());
 		setPreferredWidth(getPreferredWidth());
-	} // setMaxWidth()
+  }
 
 	/**
 	 * getMaxWidth
-	 * @returns int
+   * @return int
 	 */
-	public int getMaxWidth() {
+  public int getMaxWidth()
+  {
 		return maxWidth;
-	} // getMaxWidth()
+  }
 
 	/**
 	 * setResizable
 	 * @param isResizable TODO
 	 */
-	public void setResizable(boolean isResizable) {
+  public void setResizable(boolean isResizable)
+  {
 		this.isResizable = isResizable;
-	} // setResizable()
+  }
 
 	/**
 	 * getResizable
-	 * @returns boolean
+   * @return boolean
 	 */
-	public boolean getResizable() {
+  public boolean getResizable()
+  {
 		return isResizable;
-	} // getResizable()
+  }
 
 	/**
 	 * sizeWidthToFit
 	 */
-	public void sizeWidthToFit() {
+  public void sizeWidthToFit()
+  {
 		// TODO
-	} // sizeWidthToFit()
+  }
 
 	/**
 	 * disableResizedPosting
 	 */
-	public void disableResizedPosting() {
+  public void disableResizedPosting()
+  {
 		// Does nothing
-	} // disableResizedPosting()
+  }
 
 	/**
 	 * enableResizedPosting
 	 */
-	public void enableResizedPosting() {
+  public void enableResizedPosting()
+  {
 		// Does nothing
-	} // enableResizedPosting()
+  }
 
 	/**
 	 * addPropertyChangeListener
-	 * @param listener TODO
+   * @param listener the listener to all
 	 */
-	public synchronized void addPropertyChangeListener(PropertyChangeListener listener) {
+  public synchronized void addPropertyChangeListener(PropertyChangeListener listener)
+  {
 		changeSupport.addPropertyChangeListener(listener);
-	} // addPropertyChangeListener()
+  }
 
 	/**
 	 * removePropertyChangeListener
-	 * @param listener TODO
+   * @param listener the listener to remove
 	 */
-	public synchronized void removePropertyChangeListener(PropertyChangeListener listener) {
+  public synchronized void removePropertyChangeListener(PropertyChangeListener listener)
+  {
 		changeSupport.removePropertyChangeListener(listener);
-	} // removePropertyChangeListener()
+  }
 
 	/**
 	 * createDefaultHeaderRenderer
-	 * @returns TableCellRenderer
+   * @return TableCellRenderer
 	 */
-	protected TableCellRenderer createDefaultHeaderRenderer() {
+  protected TableCellRenderer createDefaultHeaderRenderer()
+  {
 		return new DefaultTableCellRenderer();
-	} // createDefaultHeaderRenderer()
-
-
-} // TableColumn
+  }
+}

@@ -12,7 +12,7 @@
  * FIX  Devise a test for {set,get}_enginetime(..., FALSE).
  */
 
-static char    *rcsid = "$Id: etimetest.c,v 1.1.1.2 2003/05/29 00:03:12 rbraun Exp $";    /* */
+static char    *rcsid = "$Id: etimetest.c,v 5.0 2002/04/20 07:30:22 hardaker Exp $";    /* */
 
 
 #include <net-snmp/net-snmp-config.h>

@@ -33,10 +33,11 @@
  *
  *
  */
-/* $XFree86: xc/lib/X11/XRGB.c,v 3.3 2001/07/29 05:01:11 tsi Exp $ */
+/* $XFree86: xc/lib/X11/XRGB.c,v 3.4 2003/04/13 19:22:19 dawes Exp $ */
 
 #include "Xlibint.h"
 #include "Xcmsint.h"
+#include "Cv.h"
 
 /*
  *      LOCAL VARIABLES
@@ -77,10 +78,10 @@ static unsigned short const MASK[17] = {
  *	SYNOPSIS
  */
 void
-_XcmsRGB_to_XColor(pColors, pXColors, nColors)
-    XcmsColor *pColors;
-    XColor *pXColors;
-    unsigned int nColors;
+_XcmsRGB_to_XColor(
+    XcmsColor *pColors,
+    XColor *pXColors,
+    unsigned int nColors)
 /*
  *	DESCRIPTION
  *	    Translates a color specification in XcmsRGBFormat in a XcmsColor
@@ -107,11 +108,11 @@ _XcmsRGB_to_XColor(pColors, pXColors, nColors)
  *	SYNOPSIS
  */
 void
-_XColor_to_XcmsRGB(ccc, pXColors, pColors, nColors)
-    XcmsCCC ccc;
-    XColor *pXColors;
-    XcmsColor *pColors;
-    unsigned int nColors;
+_XColor_to_XcmsRGB(
+    XcmsCCC ccc,
+    XColor *pXColors,
+    XcmsColor *pColors,
+    unsigned int nColors)
 /*
  *	DESCRIPTION
  *		Translates an RGB color specification in an XColor
@@ -145,9 +146,9 @@ _XColor_to_XcmsRGB(ccc, pXColors, pColors, nColors)
  *	SYNOPSIS
  */
 void
-_XcmsResolveColor(ccc, pXcmsColor)
-    XcmsCCC ccc;
-    XcmsColor *pXcmsColor;
+_XcmsResolveColor(
+    XcmsCCC ccc,
+    XcmsColor *pXcmsColor)
 /*
  *	DESCRIPTION
  *	    Uses the X Server ResolveColor() algorithm to
@@ -191,9 +192,9 @@ _XcmsResolveColor(ccc, pXcmsColor)
  *	SYNOPSIS
  */
 void
-_XcmsUnresolveColor(ccc, pColor)
-    XcmsCCC ccc;
-    XcmsColor *pColor;
+_XcmsUnresolveColor(
+    XcmsCCC ccc,
+    XcmsColor *pColor)
 /*
  *	DESCRIPTION
  *		Masks out insignificant bits.
@@ -220,9 +221,9 @@ _XcmsUnresolveColor(ccc, pColor)
  *	SYNOPSIS
  */
 void
-_XUnresolveColor(ccc, pXColor)
-    XcmsCCC ccc;
-    XColor *pXColor;
+_XUnresolveColor(
+    XcmsCCC ccc,
+    XColor *pXColor)
 /*
  *	DESCRIPTION
  *		Masks out insignificant bits.

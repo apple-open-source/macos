@@ -1,0 +1,36 @@
+.Dd February 3, 2005
+.Dt MBR_CHECKMEMBERSHIP 3
+.Os
+.Sh NAME
+.Nm mbr_check_membership
+.Nd check whether a user is a member of a group
+.Sh LIBRARY
+.Lb libc
+.Sh SYNOPSIS
+.In membership.h
+.Ft int
+.Fn mbr_check_membership "uuid_t user" "uuid_t group" "int* ismember"
+.Sh DESCRIPTION
+.Fn mbr_uid_to_uuid
+eliminates the 16 group limit inherent in getgroups(3).  It will always return if
+a given user is a member of a given group, even if the membership is due to nesting of groups.
+.Fa ismember
+is set to 1 if the user is a member of the group, and 0 otherwise.  
+.Pp
+There are two special cases. If the two uuids are equal, then 
+.Fa ismember
+is set to 1.  If the
+.Fa group
+uuid is equal to the reserved "everyone" uuid (ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000000C), then
+.Fa ismember
+will be set to 1 for any valid user.
+.Sh RETURN VALUES
+.Fn mbr_uid_to_uuid
+will return EIO if it is unable to talk to memberd.  If
+.Fa user
+cannot be found it will return ENOENT.  Note that it makes no attempt to determine whether
+.Fa group
+exists or not.  Querying membership about a nonexistant group will simply return the user is not a
+member.
+.Sh SEE ALSO
+.Xr mbr_uid_to_uuid 3

@@ -40,7 +40,7 @@
  *
  */
 /*
- * $Id: smtpclient.h,v 1.2 2003/10/22 18:02:59 rjs3 Exp $
+ * $Id: smtpclient.h,v 1.4 2005/03/05 00:37:06 dasenbro Exp $
  */
 
 #ifndef INCLUDED_SMTPCLIENT_H

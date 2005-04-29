@@ -12,7 +12,8 @@
 #   p db["root"]
 # end
 
-require "ftools"
+require "fileutils"
+require "digest/md5"
 
 class PStore
   class Error < StandardError
@@ -22,9 +23,6 @@ class PStore
     dir = File::dirname(file)
     unless File::directory? dir
       raise PStore::Error, format("directory %s does not exist", dir)
-    end
-    unless File::writable? dir
-      raise PStore::Error, format("directory %s not writable", dir)
     end
     if File::exist? file and not File::readable? file
       raise PStore::Error, format("file %s not readable", file)
@@ -37,21 +35,32 @@ class PStore
   def in_transaction
     raise PStore::Error, "not in transaction" unless @transaction
   end
-  private :in_transaction
+  def in_transaction_wr()
+    in_transaction()
+    raise PStore::Error, "in read-only transaction" if @rdonly
+  end
+  private :in_transaction, :in_transaction_wr
 
   def [](name)
     in_transaction
-    unless @table.key? name
-      raise PStore::Error, format("undefined root name `%s'", name)
-    end
     @table[name]
   end
+  def fetch(name, default=PStore::Error)
+    unless @table.key? name
+      if default==PStore::Error
+	raise PStore::Error, format("undefined root name `%s'", name)
+      else
+	default
+      end
+    end
+    self[name]
+  end
   def []=(name, value)
-    in_transaction
+    in_transaction_wr()
     @table[name] = value
   end
   def delete(name)
-    in_transaction
+    in_transaction_wr()
     @table.delete name
   end
 
@@ -78,25 +87,44 @@ class PStore
     throw :pstore_abort_transaction
   end
 
-  def transaction
+  def transaction(read_only=false)
     raise PStore::Error, "nested transaction" if @transaction
     begin
+      @rdonly = read_only
+      @abort = false
       @transaction = true
       value = nil
-      backup = @filename+"~"
-      if File::exist?(@filename)
-	file = File::open(@filename, "rb+")
-	orig = true
+      new_file = @filename + ".new"
+
+      content = nil
+      unless read_only
+        file = File.open(@filename, File::RDWR | File::CREAT)
+        file.binmode
+        file.flock(File::LOCK_EX)
+        commit_new(file) if FileTest.exist?(new_file)
+        content = file.read()
+      else
+        begin
+          file = File.open(@filename, File::RDONLY)
+          file.binmode
+          file.flock(File::LOCK_SH)
+          content = (File.read(new_file) rescue file.read())
+        rescue Errno::ENOENT
+          content = ""
+        end
+      end
+
+      if content != ""
+	@table = load(content)
+        if !read_only
+          size = content.size
+          md5 = Digest::MD5.digest(content)
+        end
       else
 	@table = {}
-	file = File::open(@filename, "wb+")
-	Marshal::dump(@table, file)
       end
-      file.flock(File::LOCK_EX)
-      if orig
-	File::copy @filename, backup
-	@table = Marshal::load(file)
-      end
+      content = nil		# unreference huge data
+
       begin
 	catch(:pstore_abort_transaction) do
 	  value = yield(self)
@@ -105,20 +133,19 @@ class PStore
 	@abort = true
 	raise
       ensure
-	unless @abort
-	  begin
-	    file.rewind
-	    Marshal::dump(@table, file)
-	    file.truncate(file.pos)
-	  rescue
-	    File::rename backup, @filename if File::exist?(backup)
-	    raise
-	  end
+	if !read_only and !@abort
+          tmp_file = @filename + ".tmp"
+	  content = dump(@table)
+	  if !md5 || size != content.size || md5 != Digest::MD5.digest(content)
+            File.open(tmp_file, "w") {|t|
+              t.binmode
+              t.write(content)
+            }
+            File.rename(tmp_file, new_file)
+            commit_new(file)
+          end
+          content = nil		# unreference huge data
 	end
-	if @abort and !orig
-	  File.unlink(@filename)
-	end
-	@abort = false
       end
     ensure
       @table = nil
@@ -126,6 +153,30 @@ class PStore
       file.close if file
     end
     value
+  end
+
+  def dump(table)
+    Marshal::dump(table)
+  end
+
+  def load(content)
+    Marshal::load(content)
+  end
+
+  def load_file(file)
+    Marshal::load(file)
+  end
+
+  private
+  def commit_new(f)
+    f.truncate(0)
+    f.rewind
+    new_file = @filename + ".new"
+    File.open(new_file) do |nf|
+      nf.binmode
+      FileUtils.copy_stream(nf, f)
+    end
+    File.unlink(new_file)
   end
 end
 
@@ -142,5 +193,9 @@ if __FILE__ == $0
       db["root"][0] += 1
       p db["root"][0]
     end
+  end
+
+  db.transaction(true) do
+    p db["root"]
   end
 end

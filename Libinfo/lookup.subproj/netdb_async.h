@@ -34,6 +34,9 @@
 #define getipnodebyaddr_async_handle_reply getipnodebyaddr_async_handleReply
 #define getipnodebyname_async_handle_reply getipnodebyname_async_handleReply
 
+/* SPI for parallel / fast getaddrinfo */
+#define	AI_PARALLEL	0x00000008
+
 __BEGIN_DECLS
 
 /*

@@ -14,7 +14,7 @@ PROJECT_TYPE = Tool
 
 CFILES = nfsd.c
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.dist nfsd.8
+OTHERSRCS = Makefile.preamble Makefile Makefile.dist nfsd.8 Makefile.postamble
 
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles

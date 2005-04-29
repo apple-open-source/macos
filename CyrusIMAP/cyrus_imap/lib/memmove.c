@@ -1,7 +1,7 @@
 /* memmove.c -- replacement memmove() routine
  * Only handles overlapping strings when moving data upwards
  
- $Id: memmove.c,v 1.8 2003/02/13 20:15:41 rjs3 Exp $
+ $Id: memmove.c,v 1.5 2005/03/05 00:37:17 dasenbro Exp $
  
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

@@ -1,0 +1,170 @@
+BAD_CONFIG_FILE
+	"Konfigurationsfilen er uforståelig\n"
+CONFIG_OPEN_ERROR
+	"Advarsel: kan ikke åbne konfigurationsfilen %s\n"
+PARSE_ERROR_IN_CONFIG
+	"Fejl ved analyse af konfigurationsfilen\n"
+INCOMPAT
+	"Inkompatible parametre %s og %s\n"
+NO_ALTERNATE
+	"Desværre er der ingen understøttelse af alternative systemer\n"
+NO_COMPRESS
+	"Man var oversat med automatisk komprimering af preformaterede sider,\n\
+men konfigurationsfilen definerer ikke COMPRESS.\n"
+NO_NAME_FROM_SECTION
+	"Hvilken manualside ønskes fra kapitel %s?\n"
+NO_NAME_NO_SECTION
+	"Hvilken manualside ønskes?\n"
+NO_SUCH_ENTRY_IN_SECTION
+	"Intet opslag for %s i kapitel %s af manualen\n"
+NO_SUCH_ENTRY
+	"Intet opslag for %s\n"
+PAGER_IS
+	"\nbruger %s til visning af sider\n"
+SYSTEM_FAILED
+	"Fejl ved udførsel af formaterings- eller udskriftskommando.\n\
+System kommandoen %s returnerede med status %d.\n"
+VERSION
+	"%s, version %s\n\n"
+OUT_OF_MEMORY
+	"Ingen ledig hukommelse - kan ikke allokere %d bytes\n"
+ROFF_CMD_FROM_FILE_ERROR
+	"Fejl ved analyse af *roff kommando fra filen %s\n"
+MANROFFSEQ_ERROR
+	"Fejl ved analyse af MANROFFSEQ. Bruger derfor systemets normalværdier.\n"
+ROFF_CMD_FROM_COMMANDLINE_ERROR
+	"Fejl ved analyse af *roff kommando fra kommandolinien.\n"
+UNRECOGNIZED_LINE
+	"Uforståelig linie i konfigurationsfilen (ignoreret)\n%s\n"
+GETVAL_ERROR
+	"man-config.c: intern fejl: strengen %s er ikke fundet\n"
+FOUND_MANDIR
+	"har fundet manual katalog %s\n"
+FOUND_MAP
+	"har fundet mansti map %s --> %s\n"
+FOUND_CATDIR
+	"korresponderende katalog til preformaterede sider er %s\n"
+LINE_TOO_LONG
+	"Linien i konfigurationsfilen er for lang\n"
+SECTION
+	"\nkapitel: %s\n"
+UNLINKED
+	"unlinked %s\n"
+GLOBBING
+	"globbing %s\n"
+EXPANSION_FAILED
+	"Forsøg [%s] på at udpakke manualsiden fejlede\n"
+OPEN_ERROR
+	"Kan ikke åbne manualsiden %s\n"
+READ_ERROR
+	"Fejl ved læsning af manualsiden %s\n"
+FOUND_EQN
+	"eqn(1) direktiv fundet\n"
+FOUND_GRAP
+	"grap(1) direktiv fundet\n"
+FOUND_PIC
+	"pic(1) direktiv fundet\n"
+FOUND_TBL
+	"tbl(1) direktiv fundet\n"
+FOUND_VGRIND
+	"vgrind(1) direktiv fundet\n"
+FOUND_REFER
+	"refer(1) direktiv fundet\n"
+ROFF_FROM_COMMAND_LINE
+	"analyserer direktiv fra kommandolinien\n"
+ROFF_FROM_FILE
+	"analyserer direktiv fra filen %s\n"
+ROFF_FROM_ENV
+	"analyserer direktiv fra parameterblokken\n"
+USING_DEFAULT
+	"anvender standard preprocessor sekvens\n"
+PLEASE_WAIT
+	"et øjeblik, siden formateres...\n"
+CHANGED_MODE
+	"fil status for %s ændret til %o\n"
+CAT_OPEN_ERROR
+	"filen %s kan ikke åbnes for skrivning.\n"
+PROPOSED_CATFILE
+	"vil om nødvendigt skrive filen %s\n"
+IS_NEWER_RESULT
+	"status fra is_newer() = %d\n"
+TRYING_SECTION
+	"prøver kapitel %s\n"
+SEARCHING
+	"\nsøger i %s\n"
+ALREADY_IN_MANPATH
+	"men %s er allerede i manualstien\n"
+CANNOT_STAT
+	"Advarsel: stat() af fil %s er slået fejl!\n"
+IS_NO_DIR
+	"Advarsel: %s er ikke et katalog!\n"
+ADDING_TO_MANPATH
+	"tilføjer %s til manualstien\n"
+PATH_DIR
+	"\nsti katalog %s "
+IS_IN_CONFIG
+	"findes i konfigurationsfilen\n"
+IS_NOT_IN_CONFIG
+	"findes ikke i konfigurationsfilen\n"
+MAN_NEARBY
+	"men der findes et manual katalog i nærheden\n"
+NO_MAN_NEARBY
+	"intet manual katalog fundet i nærheden\n"
+ADDING_MANDIRS
+	"\ntilføjer obligatoriske manual kataloger\n\n"
+CATNAME_IS
+	"cat_name i convert_to_cat () er: %s\n"
+NO_EXEC
+	"\nudfører ikke kommando:\n  %s\n"
+USAGE1
+	"syntaks: %s [-adfhktwW] [kapitel] [-M sti] [-P pager] [-S liste]\n\t"
+USAGE2
+	"[-m system] "
+USAGE3
+	"[-p streng] opslagsord ...\n\n"
+USAGE4
+	"  a : find alle matchende opslag\n\
+  c : brug ikke preformateret side\n\
+  d : udskriver fejlsøgningsinformation\n\
+  D : som -d, men udskriver også siden\n\
+  f : ækvivalent med whatis(1)\n\
+  h : udskriv denne hjælpetekst\n\
+  k : ækvivalent med apropos(1)\n\
+  K : søg efter en tekststreng i alle siderne\n"
+USAGE5
+	"  t : brug troff til formatering af siderne for printer udskrift\n"
+USAGE6
+	"\
+  w : udskriv lokaliteten på manualsiden eller siderne som ville blive vist\n\
+      (hvis intet navn er givet: udskriv katalogerne der ville blive gennemsøgt)\n\
+  W : som -w, men kun filnavn vises\n\
+  C fil    : anvend `fil' som konfigurationsfil\n\
+  M sti    : set søgestien for manualsiderne til `sti'\n\
+  P pager  : brug programmet `pager' til at vise siderne med\n\
+  S liste  : kolon separeret kapitel liste\n"
+USAGE7
+	"  m system : gennemsøg et alternativt manualside system\n"
+USAGE8
+	"  p streng : streng angiver hvilken preprocessore som skal udføres\n\
+               e - [n]eqn(1)   p - pic(1)    t - tbl(1)\n\
+               g - grap(1)     r - refer(1)  v - vgrind(1)\n"
+USER_CANNOT_OPEN_CAT
+	"og den rigtige bruger kan heller ikke åbne den preformaterede side\n"
+USER_CAN_OPEN_CAT
+	"men den rigtige bruger kan åbne den preformaterede side\n"
+CANNOT_FORK
+	"Afgrening af kommandoen _%s_ er slået fejl\n"
+WAIT_FAILED
+	"Fejl mens der afventes afslutning af barneproces _%s_\n"
+GOT_WRONG_PID
+	"Forkert pid returneret mens der afventes afslutning af barneproces\n"
+CHILD_TERMINATED_ABNORMALLY
+	"fatal fejl: kommandoen _%s_ er afsluttet unormalt\n"
+IDENTICAL
+	"Manualside %s er identisk med %s\n"
+MAN_FOUND
+	"Har fundet manualsiden:\n"
+NO_TROFF
+	"Fejl: ingen TROFF kommando specificeret i %s\n"
+NO_CAT_FOR_NONSTD_LL
+	"ingen preformateret side er gemt på grund af unormal linielængde\n"

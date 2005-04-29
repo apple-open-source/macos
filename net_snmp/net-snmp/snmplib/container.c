@@ -2,6 +2,8 @@
 #include <net-snmp/net-snmp-includes.h>
 #include <net-snmp/library/container.h>
 #include <net-snmp/library/container_binary_array.h>
+#include <net-snmp/library/container_list_ssll.h>
+#include <net-snmp/library/container_null.h>
 
 /*------------------------------------------------------------------
  */
@@ -12,30 +14,75 @@ typedef struct container_type_s {
    netsnmp_factory            *factory;
 } container_type;
 
+netsnmp_factory *
+netsnmp_container_get_factory(const char *type);
+
+/*------------------------------------------------------------------
+ */
+static void 
+_factory_free(container_type *data, void *context)
+{
+    if (data == NULL)
+	return;
+    
+    if (data->name != NULL) {
+        DEBUGMSGTL(("container", "  _factory_free_list() called for %s\n",
+                    data->name));
+	free((void *)data->name); /* SNMP_FREE wasted on object about to be freed */
+    }
+    free(data); /* SNMP_FREE wasted on param */
+}
 
 /*------------------------------------------------------------------
  */
 void
 netsnmp_container_init_list(void)
 {
-    container_type *ct;
-    
     if (NULL != containers)
         return;
 
+    /*
+     * create a binary arry container to hold container
+     * factories
+     */
     containers = netsnmp_container_get_binary_array();
     containers->compare = netsnmp_compare_cstring;
 
     /*
+     * register containers
      */
-    ct = SNMP_MALLOC_TYPEDEF(container_type);
-    if (NULL == ct)
-        return;
-    ct->name = "binary_array";
-    ct->factory = netsnmp_container_get_binary_array_factory();
-    CONTAINER_INSERT(containers, ct);
+    netsnmp_container_binary_array_init();
+    netsnmp_container_ssll_init();
+    netsnmp_container_null_init();
 
-    netsnmp_container_register("table_container", ct->factory);
+    /*
+     * default aliases for some containers
+     */
+    netsnmp_container_register("table_container",
+                               netsnmp_container_get_factory("binary_array"));
+    netsnmp_container_register("linked_list",
+                               netsnmp_container_get_factory("sorted_singly_linked_list"));
+    netsnmp_container_register("ssll_container",
+                               netsnmp_container_get_factory("sorted_singly_linked_list"));
+}
+
+void
+netsnmp_container_free_list(void)
+{
+    DEBUGMSGTL(("container", "netsnmp_container_free_list() called\n"));
+    if (containers == NULL)
+	return;
+
+    /*
+     * free memory used by each factory entry
+     */
+    CONTAINER_FOR_EACH(containers, _factory_free, NULL);
+
+    /*
+     * free factory container
+     */
+    CONTAINER_FREE(containers);
+    containers = NULL;
 }
 
 int
@@ -82,17 +129,18 @@ netsnmp_container_find_factory(const char *type_list)
 {
     netsnmp_factory   *f = NULL;
     char              *list, *entry;
+    char              *st;
 
     if (NULL==type_list)
         return NULL;
 
     list = strdup(type_list);
-    entry = strtok(list, ":");
+    entry = strtok_r(list, ":", &st);
     while(entry) {
         f = netsnmp_container_get_factory(entry);
         if (NULL != f)
             break;
-        entry = strtok(NULL, ":");
+        entry = strtok_r(NULL, ":", &st);
     }
 
     free(list);
@@ -111,36 +159,21 @@ netsnmp_container_get(const char *type)
     return NULL;
 }
 
-int
-netsnmp_container_get_noalloc(const char *type, netsnmp_container *mem)
-{
-    netsnmp_factory *f = netsnmp_container_get_factory(type);
-    if (f)
-        return f->produce_noalloc(mem);
-
-    return FACTORY_NOTFOUND;
-}
-
 /*------------------------------------------------------------------
  */
 netsnmp_container *
 netsnmp_container_find(const char *type)
 {
     netsnmp_factory *f = netsnmp_container_find_factory(type);
-    if (f)
-        return f->produce();
+    netsnmp_container *c = f ? f->produce() : NULL;
 
-    return NULL;
-}
+    /*
+     * provide default compare
+     */
+    if (c && (NULL == c->compare))
+        c->compare = netsnmp_compare_netsnmp_index;
 
-int
-netsnmp_container_find_noalloc(const char *type, netsnmp_container *mem)
-{
-    netsnmp_factory *f = netsnmp_container_find_factory(type);
-    if (f)
-        return f->produce_noalloc(mem);
-
-    return FACTORY_NOTFOUND;
+    return c;
 }
 
 /*------------------------------------------------------------------
@@ -149,32 +182,40 @@ void
 netsnmp_container_add_index(netsnmp_container *primary,
                             netsnmp_container *new_index)
 {
-    while(primary->next)
-        primary = primary->next;
+    netsnmp_container *curr = primary;
 
-    primary->next = new_index;
+    if((NULL == new_index) || (NULL == primary)) {
+        snmp_log(LOG_ERR, "add index called with null pointer\n");
+        return;
+    }
+
+    while(curr->next)
+        curr = curr->next;
+
+    curr->next = new_index;
+    new_index->prev = curr;
 }
 
-#ifdef NETSNMP_NO_INLINE /* default is to inline */
+#ifndef NETSNMP_USE_INLINE /* default is to inline */
 
 /*------------------------------------------------------------------
  * These functions should EXACTLY match the inline version in
  * container.h. If you chance one, change them both.
  */
 int CONTAINER_INSERT(netsnmp_container *x, const void *k)
-{
-    int rc;
-
-    rc = x->insert(x,k);
-    if (NULL != x->next) {
-        netsnmp_container *tmp = x->next;
-        int                rc2;
-        while(tmp) {
-            rc2 = tmp->insert(tmp,k);
-            if (rc)
-                snmp_log(LOG_ERR,"error on subcontainer insert (%d)", rc2);
-            tmp = tmp->next;
+{ 
+    int rc2, rc = 0;
+    
+    /** start at first container */
+    while(x->prev)
+        x = x->prev;
+    while(x) {
+        rc2 = x->insert(x,k);
+        if (rc2) {
+            snmp_log(LOG_ERR,"error on subcontainer insert (%d)\n", rc2);
+            rc = rc2;
         }
+        x = x->next;
     }
     return rc;
 }
@@ -185,19 +226,21 @@ int CONTAINER_INSERT(netsnmp_container *x, const void *k)
  */
 int CONTAINER_REMOVE(netsnmp_container *x, const void *k)
 {
-    if (NULL != x->next) {
-        netsnmp_container *tmp = x->next;
-        int                rc;
-        while(tmp->next)
-            tmp = tmp->next;
-        while(tmp) {
-            rc = tmp->remove(tmp,k);
-            if (rc)
-                snmp_log(LOG_ERR,"error on subcontainer remove (%d)", rc);
-            tmp = tmp->prev;
+    int rc2, rc = 0;
+    
+    /** start at last container */
+    while(x->next)
+        x = x->next;
+    while(x) {
+        rc2 = x->remove(x,k);
+        if (rc2) {
+            snmp_log(LOG_ERR,"error on subcontainer remove (%d)\n", rc2);
+            rc = rc2;
         }
+        x = x->prev;
+        
     }
-    return x->remove(x,k);
+    return rc;
 }
 
 /*------------------------------------------------------------------
@@ -206,20 +249,70 @@ int CONTAINER_REMOVE(netsnmp_container *x, const void *k)
  */
 int CONTAINER_FREE(netsnmp_container *x)
 {
-
-    if (NULL != x->next) {
-        netsnmp_container *tmp = x->next;
-        int                rc;
-        while(tmp->next)
-            tmp = tmp->next;
-        while(tmp) {
-            rc = tmp->cfree(tmp);
-            if (rc)
-                snmp_log(LOG_ERR,"error on subcontainer free (%d)", rc);
-            tmp = tmp->prev;
+    int  rc2, rc = 0;
+        
+    /** start at last container */
+    while(x->next)
+        x = x->next;
+    while(x) {
+        netsnmp_container *tmp;
+        tmp = x->prev;
+        if (NULL != x->container_name)
+            SNMP_FREE(x->container_name);
+        rc2 = x->cfree(x);
+        if (rc2) {
+            snmp_log(LOG_ERR,"error on subcontainer cfree (%d)\n", rc2);
+            rc = rc2;
         }
+        x = tmp;
     }
-    return x->cfree(x);
+    return rc;
+}
+
+/*------------------------------------------------------------------
+ * These functions should EXACTLY match the function version in
+ * container.c. If you change one, change them both.
+ */
+/*
+ * clear all containers. When clearing the *first* container, and
+ * *only* the first container, call the function f for each item.
+ * After calling this function, all containers should be empty.
+ */
+void CONTAINER_CLEAR(netsnmp_container *x, netsnmp_container_obj_func *f,
+                    void *c)
+{
+    /** start at last container */
+    while(x->next)
+        x = x->next;
+    while(x->prev) {
+        x->clear(x, NULL, c);
+        x = x->prev;
+    }
+    x->clear(x, f, c);
+}
+
+/*------------------------------------------------------------------
+ * These functions should EXACTLY match the function version in
+ * container.c. If you change one, change them both.
+ */
+/*
+ * Find a sub-container with the given name
+ */
+netsnmp_container *SUBCONTAINER_FIND(netsnmp_container *x,
+                                     const char* name)
+{
+    if ((NULL == x) || (NULL == name))
+        return NULL;
+    
+    /** start at first container */
+    while(x->prev)
+        x = x->prev;
+    while(x) {
+        if ((NULL != x->container_name) && (0 == strcmp(name,x->container_name)))
+            break;
+        x = x->next;
+    }
+    return x;
 }
 #endif
 
@@ -257,21 +350,21 @@ int
 netsnmp_compare_netsnmp_index(const void *lhs, const void *rhs)
 {
     int rc;
-#ifndef NDEBUG
+    netsnmp_assert((NULL != lhs) && (NULL != rhs));
     DEBUGIF("compare:index") {
         DEBUGMSGT(("compare:index", "compare "));
-        DEBUGMSGOID(("compare:index", ((const netsnmp_index *) lhs)->oids,
+        DEBUGMSGSUBOID(("compare:index", ((const netsnmp_index *) lhs)->oids,
                      ((const netsnmp_index *) lhs)->len));
         DEBUGMSG(("compare:index", " to "));
-        DEBUGMSGOID(("compare:index", ((const netsnmp_index *) rhs)->oids,
+        DEBUGMSGSUBOID(("compare:index", ((const netsnmp_index *) rhs)->oids,
                      ((const netsnmp_index *) rhs)->len));
         DEBUGMSG(("compare:index", "\n"));
     }
-#endif
     rc = snmp_oid_compare(((const netsnmp_index *) lhs)->oids,
                           ((const netsnmp_index *) lhs)->len,
                           ((const netsnmp_index *) rhs)->oids,
                           ((const netsnmp_index *) rhs)->len);
+    DEBUGMSGT(("compare:index", "result was %d\n", rc));
     return rc;
 }
 
@@ -279,22 +372,22 @@ int
 netsnmp_ncompare_netsnmp_index(const void *lhs, const void *rhs)
 {
     int rc;
-#ifndef NDEBUG
+    netsnmp_assert((NULL != lhs) && (NULL != rhs));
     DEBUGIF("compare:index") {
         DEBUGMSGT(("compare:index", "compare "));
-        DEBUGMSGOID(("compare:index", ((const netsnmp_index *) lhs)->oids,
+        DEBUGMSGSUBOID(("compare:index", ((const netsnmp_index *) lhs)->oids,
                      ((const netsnmp_index *) lhs)->len));
         DEBUGMSG(("compare:index", " to "));
-        DEBUGMSGOID(("compare:index", ((const netsnmp_index *) rhs)->oids,
+        DEBUGMSGSUBOID(("compare:index", ((const netsnmp_index *) rhs)->oids,
                      ((const netsnmp_index *) rhs)->len));
         DEBUGMSG(("compare:index", "\n"));
     }
-#endif
     rc = snmp_oid_ncompare(((const netsnmp_index *) lhs)->oids,
                            ((const netsnmp_index *) lhs)->len,
                            ((const netsnmp_index *) rhs)->oids,
                            ((const netsnmp_index *) rhs)->len,
                            ((const netsnmp_index *) rhs)->len);
+    DEBUGMSGT(("compare:index", "result was %d\n", rc));
     return rc;
 }
 
@@ -313,6 +406,13 @@ netsnmp_ncompare_cstring(const void * lhs, const void * rhs)
                    strlen(((const container_type*)rhs)->name));
 }
 
+/*
+ * compare two memory buffers
+ *
+ * since snmp strings aren't NULL terminated, we can't use strcmp. So
+ * compare up to the length of the smaller, and then use length to
+ * break any ties.
+ */
 int
 netsnmp_compare_mem(const char * lhs, size_t lhs_len,
                     const char * rhs, size_t rhs_len)
@@ -328,4 +428,22 @@ netsnmp_compare_mem(const char * lhs, size_t lhs_len,
     }
 
     return rc;
+}
+
+/*------------------------------------------------------------------
+ * netsnmp_container_simple_free
+ *
+ * useful function to pass to CONTAINER_FOR_EACH, when a simple
+ * free is needed for every item.
+ */
+void 
+netsnmp_container_simple_free(void *data, void *context)
+{
+    if (data == NULL)
+	return;
+    
+    DEBUGMSGTL(("verbose:container",
+                "netsnmp_container_simple_free) called for %p/%p\n",
+                data, context));
+    free((void*)data); /* SNMP_FREE wasted on param */
 }

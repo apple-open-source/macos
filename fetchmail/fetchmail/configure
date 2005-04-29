@@ -13009,9 +13009,9 @@ _ACEOF
           echo "$as_me:$LINENO: result: found" >&5
 echo "${ECHO_T}found" >&6
           ac_krblibs="-lcom_err"
-           echo "$as_me:$LINENO: checking for krb5_des_string_to_key in -lcrypto" >&5
-echo $ECHO_N "checking for krb5_des_string_to_key in -lcrypto... $ECHO_C" >&6
-if test "${ac_cv_lib_crypto_krb5_des_string_to_key+set}" = set; then
+           echo "$as_me:$LINENO: checking for des_string_to_key in -lcrypto" >&5
+echo $ECHO_N "checking for des_string_to_key in -lcrypto... $ECHO_C" >&6
+if test "${ac_cv_lib_crypto_des_string_to_key+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -13030,11 +13030,11 @@ extern "C"
 #endif
 /* We use char because int might match the return type of a gcc2
    builtin and then its argument prototype would still apply.  */
-char krb5_des_string_to_key ();
+char des_string_to_key ();
 int
 main ()
 {
-krb5_des_string_to_key ();
+des_string_to_key ();
   ;
   return 0;
 }
@@ -13051,24 +13051,24 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_crypto_krb5_des_string_to_key=yes
+  ac_cv_lib_crypto_des_string_to_key=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_crypto_krb5_des_string_to_key=no
+ac_cv_lib_crypto_des_string_to_key=no
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_krb5_des_string_to_key" >&5
-echo "${ECHO_T}$ac_cv_lib_crypto_krb5_des_string_to_key" >&6
-if test $ac_cv_lib_crypto_krb5_des_string_to_key = yes; then
+echo "$as_me:$LINENO: result: $ac_cv_lib_crypto_des_string_to_key" >&5
+echo "${ECHO_T}$ac_cv_lib_crypto_des_string_to_key" >&6
+if test $ac_cv_lib_crypto_des_string_to_key = yes; then
   libk5crypto=-lcrypto
 else
-  echo "$as_me:$LINENO: checking for krb5_des_string_to_key in -lk5crypto" >&5
-echo $ECHO_N "checking for krb5_des_string_to_key in -lk5crypto... $ECHO_C" >&6
-if test "${ac_cv_lib_k5crypto_krb5_des_string_to_key+set}" = set; then
+  echo "$as_me:$LINENO: checking for des_string_to_key in -lk5crypto" >&5
+echo $ECHO_N "checking for des_string_to_key in -lk5crypto... $ECHO_C" >&6
+if test "${ac_cv_lib_k5crypto_des_string_to_key+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -13087,11 +13087,11 @@ extern "C"
 #endif
 /* We use char because int might match the return type of a gcc2
    builtin and then its argument prototype would still apply.  */
-char krb5_des_string_to_key ();
+char des_string_to_key ();
 int
 main ()
 {
-krb5_des_string_to_key ();
+des_string_to_key ();
   ;
   return 0;
 }
@@ -13108,24 +13108,83 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_k5crypto_krb5_des_string_to_key=yes
+  ac_cv_lib_k5crypto_des_string_to_key=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_k5crypto_krb5_des_string_to_key=no
+ac_cv_lib_k5crypto_des_string_to_key=no
 fi
 rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_k5crypto_krb5_des_string_to_key" >&5
-echo "${ECHO_T}$ac_cv_lib_k5crypto_krb5_des_string_to_key" >&6
-if test $ac_cv_lib_k5crypto_krb5_des_string_to_key = yes; then
+echo "$as_me:$LINENO: result: $ac_cv_lib_k5crypto_des_string_to_key" >&5
+echo "${ECHO_T}$ac_cv_lib_k5crypto_des_string_to_key" >&6
+if test $ac_cv_lib_k5crypto_des_string_to_key = yes; then
+  libk5crypto=-lk5crypto
+else
+  echo "$as_me:$LINENO: checking for krb5_c_string_to_key in -lk5crypto" >&5
+echo $ECHO_N "checking for krb5_c_string_to_key in -lk5crypto... $ECHO_C" >&6
+if test "${ac_cv_lib_k5crypto_krb5_c_string_to_key+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lk5crypto ${LDEFLAGS} ${ac_krblibs} $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_c_string_to_key ();
+int
+main ()
+{
+krb5_c_string_to_key ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_k5crypto_krb5_c_string_to_key=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_k5crypto_krb5_c_string_to_key=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_k5crypto_krb5_c_string_to_key" >&5
+echo "${ECHO_T}$ac_cv_lib_k5crypto_krb5_c_string_to_key" >&6
+if test $ac_cv_lib_k5crypto_krb5_c_string_to_key = yes; then
   libk5crypto=-lk5crypto
 else
   { { echo "$as_me:$LINENO: error: Kerberos 5 DES libraries not found" >&5
 echo "$as_me: error: Kerberos 5 DES libraries not found" >&2;}
    { (exit 1); exit 1; }; }
+fi
+
 fi
 
 fi
@@ -13195,6 +13254,70 @@ _ACEOF
 
 else
   continue
+fi
+
+        echo "$as_me:$LINENO: checking for krb5_init_ets in -lkrb5" >&5
+echo $ECHO_N "checking for krb5_init_ets in -lkrb5... $ECHO_C" >&6
+if test "${ac_cv_lib_krb5_krb5_init_ets+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lkrb5  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+#line $LINENO "configure"
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char krb5_init_ets ();
+int
+main ()
+{
+krb5_init_ets ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+         { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_krb5_krb5_init_ets=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_krb5_krb5_init_ets=no
+fi
+rm -f conftest.$ac_objext conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_krb5_krb5_init_ets" >&5
+echo "${ECHO_T}$ac_cv_lib_krb5_krb5_init_ets" >&6
+if test $ac_cv_lib_krb5_krb5_init_ets = yes; then
+  cat >>confdefs.h <<\_ACEOF
+#define HAVE_KRB5_INIT_ETS 1
+_ACEOF
+
+else
+  echo "$as_me:$LINENO: result: Kerberos V library loads its own error tables" >&5
+echo "${ECHO_T}Kerberos V library loads its own error tables" >&6
 fi
 
         cat >>confdefs.h <<\_ACEOF

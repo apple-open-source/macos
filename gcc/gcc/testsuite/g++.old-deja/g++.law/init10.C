@@ -1,4 +1,4 @@
-// Build don't link: 
+// { dg-do assemble  }
 // GROUPS passed initialization
 // init file
 // From: Ingo Donasch <ingo@specs.de>
@@ -20,7 +20,7 @@ public:
         b();
 };
 
-b::b() : three(this)
-{ // ERROR - bad array initializer
+b::b() : three(this)  // { dg-error "bad array initializer" }
+{
 }
 

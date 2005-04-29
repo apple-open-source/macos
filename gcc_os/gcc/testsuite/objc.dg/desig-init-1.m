@@ -1,8 +1,7 @@
-/* APPLE LOCAL file designated initializers */
 /* Test Objective-C capability for handling GNU/C99 designated
    initializers, and distinguishing them from message sends.  */
 /* Contributed by Ziemowit Laski <zlaski@apple.com>.  */
-/* { dg-options "-std=gnu99 -lobjc" } */
+/* { dg-options "-std=gnu99" } */
 /* { dg-do run } */
 
 #include <stdio.h>           

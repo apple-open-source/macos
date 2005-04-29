@@ -1,0 +1,187 @@
+/*
+ *  Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ *
+ *  @APPLE_LICENSE_HEADER_START@
+ *  
+ *  This file contains Original Code and/or Modifications of Original Code
+ *  as defined in and that are subject to the Apple Public Source License
+ *  Version 2.0 (the 'License'). You may not use this file except in
+ *  compliance with the License. Please obtain a copy of the License at
+ *  http://www.opensource.apple.com/apsl/ and read it before using this
+ *  file.
+ *  
+ *  The Original Code and all software distributed under the License are
+ *  distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ *  EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ *  INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ *  Please see the License for the specific language governing rights and
+ *  limitations under the License.
+ *  
+ *  @APPLE_LICENSE_HEADER_END@
+ */
+ 
+/*!
+    @header tokend.defs
+    @abstract Mach RPC interface between securityd and tokend.
+ */
+
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+#include <securityd_client/ss_types.defs>
+
+subsystem tokend 2000;
+serverprefix tokend_server_;
+userprefix tokend_client_;
+
+import "tokend.h";
+import "tdclient.h";
+import <SecurityTokend/tokend_types.h>;
+
+
+type TokenScore = uint32_t;
+type EstablishFlags = uint32_t;
+type TokenUidString = c_string[*:256];	//@@@ initial guess
+
+
+/*
+ * Common argument profiles
+ */
+#define TOKEND_PORTS requestport sport: mach_port_t; \
+    replyport rport: mach_port_make_send_t; \
+    out rcode: CSSM_RETURN
+
+
+//
+// Setup and control calls
+//
+routine probe(TOKEND_PORTS; out score: TokenScore; out uid: TokenUidString);
+
+routine establish(TOKEND_PORTS; in guid: Guid; in ssid: uint32;
+	in state: uint32; in cacheDirectory: FilePath; in workDirectory: FilePath;
+	out mdsDirectory: FilePathOut; out printName: FilePathOut);
+
+simpleroutine terminate(requestport sport: mach_port_t; in reason: uint32; in options: uint32);
+
+
+//
+// DL I/O and search functions
+//
+routine findFirst(TOKEND_PORTS; IN_BLOB(query,CssmQuery);
+	IN_BLOB(inAttributes,CssmDbRecordAttributeData);
+	in getData: boolean_t; out data: Data; out hKey: KeyHandle;
+	OUT_BLOB(outAttributes,CssmDbRecordAttributeData);
+	out search: SearchHandle; out record: RecordHandle);
+
+routine findNext(TOKEND_PORTS; in hSearch: SearchHandle;
+	IN_BLOB(inAttributes,CssmDbRecordAttributeData);
+	in getData: boolean_t; out data: Data; out hKey: KeyHandle;
+	OUT_BLOB(outAttributes,CssmDbRecordAttributeData);
+	out record: RecordHandle);
+	
+routine findRecordHandle(TOKEND_PORTS; in hRecord: RecordHandle;
+	IN_BLOB(inAttributes,CssmDbRecordAttributeData);
+	in getData: boolean_t; out data: Data; out hKey: KeyHandle;
+	OUT_BLOB(outAttributes,CssmDbRecordAttributeData));
+	
+routine insertRecord(TOKEND_PORTS; in recordType: CSSM_DB_RECORDTYPE;
+	IN_BLOB(attributes,CssmDbRecordAttributeData);
+	in data: Data; out hRecord: RecordHandle);
+
+routine modifyRecord(TOKEND_PORTS; in recordType: CSSM_DB_RECORDTYPE;
+	inout hRecord: RecordHandle; IN_BLOB(attributes,CssmDbRecordAttributeData);
+	in setData: boolean_t; in data: Data; in modifyMode: CSSM_DB_MODIFY_MODE);
+	
+routine deleteRecord(TOKEND_PORTS; in record: RecordHandle);
+
+routine releaseSearch(TOKEND_PORTS; in hSearch: SearchHandle);
+routine releaseRecord(TOKEND_PORTS; in hRecord: RecordHandle);
+
+
+//
+// Key management
+//
+routine releaseKey(TOKEND_PORTS; in key: KeyHandle);
+routine queryKeySizeInBits(TOKEND_PORTS; in key: KeyHandle; out length: CSSM_KEY_SIZE);
+routine getOutputSize(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle;
+    in inputSize: uint32; in encrypt: boolean_t; out outputSize: uint32);
+
+
+//
+// Cryptographic operations
+//
+routine generateSignature(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle;
+    in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; out signature: Data);
+routine verifySignature(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in signOnlyAlgorithm: CSSM_ALGORITHMS; in data: Data; in signature: Data);
+routine generateMac(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; out signature: Data);
+routine verifyMac(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle;
+	in data: Data; in signature: Data);
+
+routine encrypt(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle; in clear: Data; out cipher: Data);
+routine decrypt(TOKEND_PORTS; IN_CONTEXT; in key: KeyHandle; in cipher: Data; out clear: Data);
+
+routine generateKey(TOKEND_PORTS; IN_CONTEXT;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in keyUsage: uint32; in keyAttrs: uint32;
+	out hKey: KeyHandle; out key: CssmKeyBlob; out keyBase: CssmKeyPtr);
+routine generateKeyPair(TOKEND_PORTS; IN_CONTEXT;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in pubUsage: uint32; in pubAttrs: uint32; in privUsage: uint32; in privAttrs: uint32;
+	out hPubKey: KeyHandle; out pubKey: CssmKeyBlob; out pubKeyBase: CssmKeyPtr;
+    out hPrivKey: KeyHandle; out privKey: CssmKeyBlob; out privKeyBase: CssmKeyPtr);
+
+routine wrapKey(TOKEND_PORTS; IN_CONTEXT; in hWrappingKey: KeyHandle; IN_BLOB(wrappingKey, CssmKey);
+    IN_BLOB(accessCredentials,AccessCredentials);
+	in hSubjectKey: KeyHandle; IN_BLOB(subjectKey, CssmKey);
+	in data: Data; OUT_BLOB(wrappedKey, CssmKey));
+routine unwrapKey(TOKEND_PORTS; IN_CONTEXT; in hWrappingKey: KeyHandle; IN_BLOB(wrappingKey, CssmKey);
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+	in hPublicKey: KeyHandle; IN_BLOB(publicKey, CssmKey); IN_BLOB(wrappedKey, CssmKey);
+	in usage: uint32; in attributes: uint32; out data: Data; 
+    out hKey: KeyHandle; out key: CssmKeyBlob; out keyBase: CssmKeyPtr);
+routine deriveKey(TOKEND_PORTS; IN_CONTEXT; in hSourceKey: KeyHandle; IN_BLOB(sourceKey, CssmKey);
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclEntryPrototype,AclEntryPrototype);
+    IN_BLOB(paramInput,CssmDeriveData); out paramOutput: Data;
+	in keyUsage: uint32; in keyAttrs: uint32;
+	out hKey: KeyHandle; OUT_BLOB(key, CssmKey));
+
+routine generateRandom(TOKEND_PORTS; IN_CONTEXT; out data: Data);
+
+
+//
+// ACL management
+//
+routine getOwner(TOKEND_PORTS; in kind: AclKind; in key: GenericHandle;
+	out proto: AclOwnerPrototypeBlob; out protoBase: AclOwnerPrototypePtr);
+routine setOwner(TOKEND_PORTS; in kind: AclKind; in key: GenericHandle;
+	IN_BLOB(accessCredentials,AccessCredentials); IN_BLOB(aclOwnerPrototype,AclOwnerPrototype));
+routine getAcl(TOKEND_PORTS; in kind: AclKind; in key: GenericHandle;
+	in haveTag: boolean_t; in tag: CssmString;
+	out count: uint32; out acls: AclEntryInfoBlob; out aclsBase: AclEntryInfoPtr);
+routine changeAcl(TOKEND_PORTS; in kind: AclKind; in key: GenericHandle;
+	IN_BLOB(accessCredentials,AccessCredentials);
+	in mode: CSSM_ACL_EDIT_MODE; in handle: CSSM_ACL_HANDLE;
+	IN_BLOB(aclEntryInput,AclEntryInput));
+
+routine authenticate(TOKEND_PORTS;
+	in mode: CSSM_DB_ACCESS_TYPE; IN_BLOB(accessCredentials, AccessCredentials));
+
+routine login(TOKEND_PORTS; IN_BLOB(accessCredentials,AccessCredentials); in name: Data);
+routine logout(TOKEND_PORTS);
+
+ 
+//
+// Miscellanea
+//
+routine getStatistics(TOKEND_PORTS; out statistics: CSPOperationalStatistics);
+routine getTime(TOKEND_PORTS; in algorithm: CSSM_ALGORITHMS; out data: Data);
+routine getCounter(TOKEND_PORTS; out data: Data);
+routine selfVerify(TOKEND_PORTS);
+
+routine cspPassThrough(TOKEND_PORTS; in id: uint32; IN_CONTEXT; in hKey: KeyHandle; IN_BLOB(key, CssmKey);
+	in inData: Data; out outData: Data);
+routine dlPassThrough(TOKEND_PORTS; in id: uint32; in inData: Data; out outData: Data);
+
+routine isLocked(TOKEND_PORTS; out locked: uint32);

@@ -1,7 +1,7 @@
 
 /*
  * Mesa 3-D graphics library
- * Version:  4.0.3
+ * Version:  4.1
  *
  * Copyright (C) 1999-2002  Brian Paul   All Rights Reserved.
  *
@@ -23,11 +23,11 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
  * Authors:
- *    Keith Whitwell <keithw@valinux.com>
+ *    Keith Whitwell <keith@tungstengraphics.com>
  */
 
 #include "glheader.h"
-#include "mem.h"
+#include "imports.h"
 #include "mtypes.h"
 
 #include "t_imm_alloc.h"
@@ -37,8 +37,7 @@ static int id = 0;  /* give each struct immediate a unique ID number */
 
 static struct immediate *real_alloc_immediate( GLcontext *ctx )
 {
-   struct immediate *IM = ALIGN_MALLOC_STRUCT( immediate, 32 );
-   GLuint j;
+   struct immediate *IM = ALIGN_CALLOC_STRUCT( immediate, 32 );
 
    if (!IM)
       return 0;
@@ -47,7 +46,6 @@ static struct immediate *real_alloc_immediate( GLcontext *ctx )
 
    IM->id = id++;
    IM->ref_count = 0;
-   IM->backref = ctx;
    IM->FlushElt = 0;
    IM->LastPrimitive = IMM_MAX_COPIED_VERTS;
    IM->Count = IMM_MAX_COPIED_VERTS;
@@ -61,23 +59,6 @@ static struct immediate *real_alloc_immediate( GLcontext *ctx )
    IM->CopyTexSize = 0;
    IM->CopyStart = IM->Start;
 
-
-   /* TexCoord0 is special.
-    */
-   IM->TexCoord[0] = IM->TexCoord0;
-
-   for (j = 1; j < ctx->Const.MaxTextureUnits; j++) {
-      IM->TexCoord[j] = (GLfloat (*)[4])
-         ALIGN_MALLOC( IMM_SIZE * sizeof(GLfloat) * 4, 32 );
-   }
-
-   /* KW: Removed initialization of normals as these are now treated
-    * identically to all other data types.
-    */
-
-   MEMSET(IM->Flag, 0, sizeof(IM->Flag));
-   MEMSET(IM->Normal, 0.0 , sizeof(IM->Normal));
-
    return IM;
 }
 
@@ -85,7 +66,6 @@ static struct immediate *real_alloc_immediate( GLcontext *ctx )
 static void real_free_immediate( struct immediate *IM )
 {
    static int freed = 0;
-   GLuint j;
 
    if (IM->Material) {
       FREE( IM->Material );
@@ -93,9 +73,6 @@ static void real_free_immediate( struct immediate *IM )
       IM->Material = 0;
       IM->MaterialMask = 0;
    }
-
-   for (j = 1; j < IM->MaxTextureUnits; j++)
-      ALIGN_FREE( IM->TexCoord[j] );
 
    if (IM->NormalLengthPtr)
       ALIGN_FREE( IM->NormalLengthPtr );

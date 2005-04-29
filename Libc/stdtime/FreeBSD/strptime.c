@@ -59,12 +59,12 @@ static char copyright[] __unused =
 static char sccsid[] __unused = "@(#)strptime.c	0.1 (Powerdog) 94/03/27";
 #endif /* !defined NOID */
 #endif /* not lint */
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.34 2003/04/30 10:25:57 mtm Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 nectar Exp $");
 
 #include "namespace.h"
 #include <time.h>
 #include <ctype.h>
-#include <limits.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -444,11 +444,18 @@ label:
 		case 's':
 			{
 			char *cp;
+			int sverrno;
+			long n;
 			time_t t;
 
-			t = strtol(buf, &cp, 10);
-			if (t == LONG_MAX)
+			sverrno = errno;
+			errno = 0;
+			n = strtol(buf, &cp, 10);
+			if (errno == ERANGE || (long)(t = n) != n) {
+				errno = sverrno;
 				return 0;
+			}
+			errno = sverrno;
 			buf = cp;
 			gmtime_r(&t, tm);
 			*GMTp = 1;

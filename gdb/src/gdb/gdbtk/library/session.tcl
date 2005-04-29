@@ -122,7 +122,9 @@ namespace eval Session {
       lassign $spec create enabled condition commands
 
       # Create the breakpoint
-      gdb_cmd $create
+      if {[catch {gdb_cmd $create} txt]} {
+	dbug W $txt
+      }
 
       # Below we use `\$bpnum'.  This means we don't have to figure out
       # the number of the breakpoint when doing further manipulations.

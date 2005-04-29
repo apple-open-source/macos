@@ -46,7 +46,7 @@ in this Software without prior written authorization from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  * 
  */
-/* $XFree86: xc/programs/lbxproxy/include/colormap.h,v 1.6 2001/12/14 20:00:55 dawes Exp $ */
+/* $XFree86: xc/programs/lbxproxy/include/colormap.h,v 1.7 2003/11/17 22:20:48 dawes Exp $ */
 
 #ifndef COLORMAP_H_
 #define COLORMAP_H_
@@ -127,164 +127,125 @@ typedef struct _cmap {
 
 
 extern void (* LbxResolveColor)(
-#if NeedNestedPrototypes
     LbxVisualPtr /* pVisual */,
     CARD16* /* red */,
     CARD16* /* green */,
     CARD16* /* blue */
-#endif
 );
 
 extern void ResolveColor(
-#if NeedFunctionPrototypes
     LbxVisualPtr /* pVisual */,
     CARD16* /* red */,
     CARD16* /* green */,
     CARD16* /* blue */
-#endif
 );
 
 extern Pixel (* LbxFindFreePixel)(
-#if NeedFunctionPrototypes
     ColormapPtr /* pmap */,
     CARD32 	/* red */,
     CARD32	/* green */,
     CARD32	/* blue */
-#endif
 );
 
 extern Pixel FindFreePixel(
-#if NeedFunctionPrototypes
     ColormapPtr /* pmap */,
     CARD32 	/* red */,
     CARD32	/* green */,
     CARD32	/* blue */
-#endif
 );
 
 extern Entry * (* LbxFindBestPixel)(
-#if NeedNestedPrototypes
     ColormapPtr /* pmap */,
     CARD32	/* red */,
     CARD32	/* green */,
     CARD32	/* blue */,
     int		/* channels */
-#endif
 );
 
 extern Entry * FindBestPixel(
-#if NeedNestedPrototypes
     ColormapPtr	/* pmap */,
     CARD32	/* red */,
     CARD32	/* green */,
     CARD32	/* blue */,
     int		/* channels */
-#endif
 );
 
 extern void ReleaseCmap(
-#if NeedFunctionPrototypes
     ClientPtr	/* client */,
     ColormapPtr	/* pmap */
-#endif
 );
 
 extern int CreateColormap(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Colormap /*cmap*/,
     VisualID /*visual*/
-#endif
 );
 
 extern int FreeColormap(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     Colormap /*cmap*/
-#endif
 );
 
 extern int CreateVisual(
-#if NeedFunctionPrototypes
     int /*depth*/,
     xVisualType * /*vis*/
-#endif
 );
 
 extern LbxVisualPtr GetVisual(
-#if NeedFunctionPrototypes
      VisualID /*vid*/
-#endif
 );
 
 extern Bool InitColors(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern RGBEntryPtr FindColorName(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     char * /*name*/,
     int /*len*/,
     LbxVisualPtr /*pVisual*/
-#endif
 );
 
 extern Bool AddColorName(
-#if NeedFunctionPrototypes
     XServerPtr /*server*/,
     char * /*name*/,
     int /*len*/,
     RGBEntryRec * /*rgbe*/
-#endif
 );
 
 extern void FreeColors(
-#if NeedFunctionPrototypes
     void
-#endif
 );
 
 extern int DestroyColormap(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     pointer /*pmap*/,
     XID /*id*/
-#endif
 );
 
 extern int FindPixel(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     ColormapPtr /*pmap*/,
     CARD32 /*red*/,
     CARD32 /*green*/,
     CARD32 /*blue*/,
     Entry ** /*pent*/
-#endif
 );
 
 extern int IncrementPixel(
-#if NeedFunctionPrototypes
     ClientPtr /*pclient*/,
     ColormapPtr /*pmap*/,
     Entry * /*pent*/,
     Bool /*from_server*/
-#endif
 );
 
 extern int AllocCell(
-#if NeedFunctionPrototypes
     ClientPtr /*pclient*/,
     ColormapPtr /*pmap*/,
     Pixel /*pixel*/
-#endif
 );
 
 extern int StorePixel(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     ColormapPtr /*pmap*/,
     CARD32 /*red*/,
@@ -292,40 +253,31 @@ extern int StorePixel(
     CARD32 /*blue*/,
     Pixel /*pixel*/,
     Bool /*from_server*/
-#endif
 );
 
 extern void GotServerFreeCellsEvent(
-#if NeedFunctionPrototypes
     ColormapPtr	/* pmap */,
     Pixel	/* pixel_start */,
     Pixel	/* pixel_end */
-#endif
 );
 
 extern void FreeAllClientPixels(
-#if NeedFunctionPrototypes
     ColormapPtr /* pmap */,
     int         /* client */
-#endif
 );
 
 extern int FreeClientPixels(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     pointer /*pcr*/,
     XID /*id*/
-#endif
 );
 
 extern int FreePixels(
-#if NeedFunctionPrototypes
     ClientPtr /*client*/,
     ColormapPtr /*pmap*/,
     int /*num*/,
     Pixel * /*pixels*/,
     Pixel /*mask*/
-#endif
 );
 
 #endif				/* COLORMAP_H_ */

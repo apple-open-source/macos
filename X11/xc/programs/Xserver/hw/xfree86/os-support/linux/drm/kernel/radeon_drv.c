@@ -1,6 +1,11 @@
-/* radeon_drv.c -- ATI Radeon driver -*- linux-c -*-
- * Created: Wed Feb 14 17:10:04 2001 by gareth@valinux.com
+/**
+ * \file radeon_drv.c
+ * ATI Radeon driver
  *
+ * \author Gareth Hughes <gareth@valinux.com>
+ */
+
+/*
  * Copyright 2000 VA Linux Systems, Inc., Sunnyvale, California.
  * All Rights Reserved.
  *
@@ -22,10 +27,8 @@
  * OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
- *
- * Authors:
- *    Gareth Hughes <gareth@valinux.com>
  */
+
 
 #include <linux/config.h>
 #include "radeon.h"
@@ -45,6 +48,7 @@
 #include "drm_fops.h"
 #include "drm_init.h"
 #include "drm_ioctl.h"
+#include "drm_irq.h"
 #include "drm_lock.h"
 #include "drm_memory.h"
 #include "drm_proc.h"

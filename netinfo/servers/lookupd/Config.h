@@ -47,6 +47,7 @@
 	unsigned int source;
 	unsigned int initsource;
 	ni_shared_handle_t *sourceDomain;
+	BOOL sourceDomainIsRawLocal;
 	char *sourcePath;
 	char *sourceDomainName;
 }

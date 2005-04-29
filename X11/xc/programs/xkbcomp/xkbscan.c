@@ -24,7 +24,7 @@
  THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
  ********************************************************/
-/* $XFree86: xc/programs/xkbcomp/xkbscan.c,v 3.11 2002/06/05 00:00:38 dawes Exp $ */
+/* $XFree86: xc/programs/xkbcomp/xkbscan.c,v 3.12 2003/08/06 14:04:05 eich Exp $ */
 
 #include <stdio.h>
 #include <ctype.h>
@@ -173,34 +173,37 @@ int ch;
 		    int tmp,stop;
 		    ch = stop = 0;
 		    if (((tmp=getc(yyin))!=EOF) && (isdigit(tmp)) && 
-						(tmp!='8') && (tmp!='9')) {
+			                        (tmp!='8') && (tmp!='9')) {
 			ch= (ch*8)+(tmp-'0');
 		    }
 		    else {
 			stop= 1;
 			ungetc(tmp,yyin);
 		    }
-		    if ((!stop) && ((tmp=getc(yyin))!=EOF) && (isdigit(tmp)) && 
+		    if (!stop) {
+			if (((tmp=getc(yyin))!=EOF) && (isdigit(tmp)) && 
 						(tmp!='8') && (tmp!='9')) {
-			ch= (ch*8)+(tmp-'0');
+			    ch= (ch*8)+(tmp-'0');
+			}
+			else {
+			    stop= 1;
+			    ungetc(tmp,yyin);
+			}
 		    }
-		    else {
-			stop= 1;
-			ungetc(tmp,yyin);
-		    }
-		    if ((!stop) && ((tmp=getc(yyin))!=EOF) && (isdigit(tmp)) && 
+		    if (!stop) {
+			if (((tmp=getc(yyin))!=EOF) && (isdigit(tmp)) && 
 						(tmp!='8') && (tmp!='9')) {
-			ch= (ch*8)+(tmp-'0');
-		    }
-		    else {
-			stop= 1;
-			ungetc(tmp,yyin);
+			    ch= (ch*8)+(tmp-'0');
+			}
+			else {
+			    stop= 1;
+			    ungetc(tmp,yyin);
+			}
 		    }
 		}
 	    }
 	    else return ERROR_TOK;
 	}
-
 	if ( nInBuf < BUFSIZE-1 ) 
 	    buf[nInBuf++] = ch;
     }

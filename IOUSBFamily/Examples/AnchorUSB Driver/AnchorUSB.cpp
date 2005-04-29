@@ -207,7 +207,7 @@ com_apple_AnchorUSB::stop(IOService *provider)
 
 
 bool 
-com_apple_AnchorUSB::handleOpen(IOService *forClient, IOOptionBits options = 0, void *arg = 0 )
+com_apple_AnchorUSB::handleOpen(IOService *forClient, IOOptionBits options, void *arg )
 {
     IOLog("%s(%p)::handleOpen\n", getName(), this);
     return super::handleOpen(forClient, options, arg);
@@ -216,7 +216,7 @@ com_apple_AnchorUSB::handleOpen(IOService *forClient, IOOptionBits options = 0, 
 
 
 void 
-com_apple_AnchorUSB::handleClose(IOService *forClient, IOOptionBits options = 0 )
+com_apple_AnchorUSB::handleClose(IOService *forClient, IOOptionBits options )
 {
     IOLog("%s(%p)::handleClose\n", getName(), this);
     super::handleClose(forClient, options);
@@ -254,7 +254,7 @@ com_apple_AnchorUSB::message(UInt32 type, IOService *provider, void *argument)
 
 
 bool 
-com_apple_AnchorUSB::terminate(IOOptionBits options = 0)
+com_apple_AnchorUSB::terminate(IOOptionBits options)
 {
     IOLog("%s(%p)::terminate\n", getName(), this);
     return super::terminate(options);

@@ -29,6 +29,10 @@
  * SUCH DAMAGE.
  */
 
+#ifndef __ISAKMP_QUICK_H__
+#define __ISAKMP_QUICK_H__
+
+
 extern int quick_i1prep __P((struct ph2handle *, vchar_t *));
 extern int quick_i1send __P((struct ph2handle *, vchar_t *));
 extern int quick_i2recv __P((struct ph2handle *, vchar_t *));
@@ -41,3 +45,6 @@ extern int quick_r2send __P((struct ph2handle *, vchar_t *));
 extern int quick_r3recv __P((struct ph2handle *, vchar_t *));
 extern int quick_r3send __P((struct ph2handle *, vchar_t *));
 extern int quick_r3prep __P((struct ph2handle *, vchar_t *));
+
+#endif /* __ISAKMP_QUICK_H__ */
+

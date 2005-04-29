@@ -4,7 +4,7 @@ XCOMM	This file contains locale database file names
 XCOMM	The first word is the locale database file name and
 XCOMM	the second word is the full locale name.
 XCOMM
-XCOMM	$XFree86: xc/nls/locale.dir,v 1.42 2003/01/15 03:59:46 dawes Exp $
+XCOMM	$XFree86: xc/nls/locale.dir,v 1.45 2004/02/09 01:35:18 dawes Exp $
 XCOMM
 
 C/XLC_LOCALE:				C
@@ -218,7 +218,7 @@ iso8859-1/XLC_LOCALE:			wa_BE.ISO8859-1
 iso8859-15/XLC_LOCALE:			wa_BE.ISO8859-15
 microsoft-cp1255/XLC_LOCALE:		yi_US.CP1255
 zh_CN/XLC_LOCALE:			zh_CN.eucCN
-zh_CN/XLC_LOCALE:			zh_CN.GB2312
+zh_CN/XLC_LOCALE:			zh_CN.gb2312
 zh_CN.gbk/XLC_LOCALE:			zh_CN.gbk
 zh_HK.big5/XLC_LOCALE:			zh_HK.big5
 zh_HK.big5hkscs/XLC_LOCALE:		zh_HK.big5-hkscs
@@ -365,10 +365,11 @@ en_US.UTF-8/XLC_LOCALE:			tr_TR.UTF-8
 en_US.UTF-8/XLC_LOCALE:			tt_RU.UTF-8
 en_US.UTF-8/XLC_LOCALE:			uk_UA.UTF-8
 en_US.UTF-8/XLC_LOCALE:			ur_PK.UTF-8
+en_US.UTF-8/XLC_LOCALE:			uz_UZ.UTF-8
 en_US.UTF-8/XLC_LOCALE:			vi_VN.UTF-8
 en_US.UTF-8/XLC_LOCALE:			wa_BE.UTF-8
 en_US.UTF-8/XLC_LOCALE:			yi_US.UTF-8
-en_US.UTF-8/XLC_LOCALE:			zh_CN.UTF-8
+zh_CN.UTF-8/XLC_LOCALE:			zh_CN.UTF-8
 zh_TW.UTF-8/XLC_LOCALE:			zh_TW.UTF-8
 #ifdef __uxp__
 ja.U90/XLC_LOCALE:			ja_JP.U90

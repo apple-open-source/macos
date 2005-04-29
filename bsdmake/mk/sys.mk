@@ -1,7 +1,8 @@
 #	from: @(#)sys.mk	8.2 (Berkeley) 3/21/94
-# $FreeBSD: src/share/mk/sys.mk,v 1.46 2000/04/21 23:51:58 kris Exp $
+# $FreeBSD: src/share/mk/sys.mk,v 1.80 2004/08/09 10:54:05 harti Exp $
 
 unix		?=	We run Darwin, not UNIX.
+.FreeBSD	?=	false
 
 # If the special target .POSIX appears (without prerequisites or
 # commands) before the first noncomment line in the makefile, make shall
@@ -15,10 +16,8 @@ unix		?=	We run Darwin, not UNIX.
 .if defined(%POSIX)
 .SUFFIXES:	.o .c .y .l .a .sh .f
 .else
-.SUFFIXES:	.out .a .ln .o .c .cc .cpp .cxx .C .m .F .f .e .r .y .l .S .s .cl .p .h .sh
+.SUFFIXES:	.out .a .ln .o .c .cc .cpp .cxx .C .m .F .f .e .r .y .l .S .asm .s .cl .p .h .sh
 .endif
-
-.LIBS:		.a
 
 X11BASE		?=	/usr/X11R6
 
@@ -35,17 +34,18 @@ AFLAGS		?=
 
 .if defined(%POSIX)
 CC		?=	c89
+CFLAGS		?=	-O
 .else
 CC		?=	cc
-.endif
 CFLAGS		?=	-O -pipe ${ARCH_FLAGS}
+.endif
 
 CXX		?=	c++
-CXXFLAGS	?=	${CXXINCLUDES} ${CFLAGS}
+CXXFLAGS	?=	${CFLAGS:N-std=*:N-Wnested-externs:N-W*-prototypes}
 
 CPP		?=	cpp
 
-.if ${.MAKEFLAGS:M-s} == ""
+.if empty(.MAKEFLAGS:M-s)
 ECHO		?=	echo
 ECHODIR		?=	echo
 .else
@@ -55,6 +55,12 @@ ECHODIR		?=	echo
 .else
 ECHODIR		?=	true
 .endif
+.endif
+
+.if !empty(.MAKEFLAGS:M-n) && ${.MAKEFLAGS:M-n} == "-n"
+_+_		?=
+.else
+_+_		?=	+
 .endif
 
 .if defined(%POSIX)
@@ -71,12 +77,15 @@ INSTALL		?=	install
 LEX		?=	lex
 LFLAGS		?=
 
-#LD		?=	ld
 LD		?=	cc -nostdlib
 LDFLAGS		?=	${ARCH_FLAGS}
 
 LINT		?=	lint
-LINTFLAGS	?=	-chapbx
+LINTFLAGS	?=	-cghapbx
+LINTKERNFLAGS	?=	${LINTFLAGS}
+LINTOBJFLAGS	?=	-cghapbxu -i
+LINTOBJKERNFLAGS?=	${LINTOBJFLAGS}
+LINTLIBFLAGS	?=	-cghapbxu -C ${LIB}
 
 MAKE		?=	make
 
@@ -105,11 +114,8 @@ YFLAGS		?=	-d
 # as an i386 architecture.
 MACHINE_ARCH	?=	i386
 
-# For tags rule.
-GTAGSFLAGS=	-o
-HTAGSFLAGS=
-
 .if defined(%POSIX)
+
 # Posix 1003.2 mandated rules
 #
 # Quoted directly from the Posix 1003.2 draft, only the macros
@@ -169,15 +175,26 @@ HTAGSFLAGS=
 
 # non-Posix rule set
 
-.c:
-	${CC} ${CFLAGS} ${LDFLAGS} ${.IMPSRC} ${LDLIBS} -o ${.TARGET}
-
 .sh:
 	cp -p ${.IMPSRC} ${.TARGET}
 	chmod a+x ${.TARGET}
 
+.c.ln:
+	${LINT} ${LINTOBJFLAGS} ${CFLAGS:M-[DIU]*} ${.IMPSRC} || \
+	    touch ${.TARGET}
+
+.cc.ln .C.ln .cpp.ln .cxx.ln:
+	${LINT} ${LINTOBJFLAGS} ${CXXFLAGS:M-[DIU]*} ${.IMPSRC} || \
+	    touch ${.TARGET}
+
+.c:
+	${CC} ${CFLAGS} ${LDFLAGS} ${.IMPSRC} ${LDLIBS} -o ${.TARGET}
+
 .c.o:
 	${CC} ${CFLAGS} -c ${.IMPSRC}
+
+.cc .cpp .cxx .C:
+	${CXX} ${CXXFLAGS} ${LDFLAGS} ${.IMPSRC} ${LDLIBS} -o ${.TARGET}
 
 .cc.o .cpp.o .cxx.o .C.o:
 	${CXX} ${CXXFLAGS} -c ${.IMPSRC}
@@ -188,11 +205,18 @@ HTAGSFLAGS=
 .p.o:
 	${PC} ${PFLAGS} -c ${.IMPSRC}
 
+.e .r .F .f:
+	${FC} ${RFLAGS} ${EFLAGS} ${FFLAGS} ${LDFLAGS} ${.IMPSRC} ${LDLIBS} \
+	    -o ${.TARGET}
+
 .e.o .r.o .F.o .f.o:
 	${FC} ${RFLAGS} ${EFLAGS} ${FFLAGS} -c ${.IMPSRC}
 
 .S.o:
 	${CC} ${CFLAGS} -c ${.IMPSRC}
+
+.asm.o:
+	${CC} -x assembler-with-cpp ${CFLAGS} -c ${.IMPSRC}
 
 .s.o:
 	${AS} ${AFLAGS} -o ${.TARGET} ${.IMPSRC}
@@ -235,20 +259,16 @@ HTAGSFLAGS=
 	${CC} ${CFLAGS} ${LDFLAGS} ${.PREFIX}.tmp.c ${LDLIBS} -ll -o ${.TARGET}
 	rm -f ${.PREFIX}.tmp.c
 
+# FreeBSD build pollution.  Hide it in the non-POSIX part of the ifdef.
+__MAKE_CONF?=/etc/make.conf
+.if exists(${__MAKE_CONF})
+.include "${__MAKE_CONF}"
 .endif
 
-.if exists(/etc/defaults/make.conf)
-.include </etc/defaults/make.conf>
+# Default executable format
+# XXX hint for bsd.port.mk
+OBJFORMAT?=	mach-o
+
 .endif
 
-.if exists(/etc/make.conf)
-.include </etc/make.conf>
-.endif
-
-.if exists(/etc/make.conf.local)
-.error Error, original /etc/make.conf should be moved to the /etc/defaults/ directory and /etc/make.conf.local should be renamed to /etc/make.conf.
-.include </etc/make.conf.local>
-.endif
-
-
-.include <bsd.own.mk>
+.include <bsd.cpu.mk>

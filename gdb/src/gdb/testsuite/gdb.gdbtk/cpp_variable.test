@@ -1,4 +1,5 @@
-#   Copyright (C) 1998 Cygnus Solutions
+# Varobj Tests (C++ language)
+# Copyright (C) 1998, 2003 Red Hat, Inc.
 #
 # This Program Is Free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +16,7 @@
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 # Please email any bugs, comments, and/or additions to this file to:
-# bug-gdb@prep.ai.mit.edu
+# insight@sources.redhat.com
 
 # This file was written by Keith Seitz (keiths@cygnus.com)
 
@@ -36,18 +37,22 @@ if {[catch {gdbtk_test_file $program} t]} {
 # The variables that are created are stored in an array called "var".
 
 # proc to tell us which of the variables are changed/out of scope
-# FIXME: ALWAYS returning out={}!
 proc check_update {} {
   global var
 
   set out {}
   set changed {}
   foreach ind [array names var] {
-    set changed [concat $changed [$var($ind) update]]
+    set ret [$var($ind) update]
+    if {$ret == -1} {
+	lappend out $ind
+    } elseif {$ret != ""} {
+        lappend changed $ret
+    }
   }
-
   return [list $changed $out]
 }
+
 
 # proc to create a variable
 proc create_variable {expr} {
@@ -204,10 +209,9 @@ gdbtk_test cpp_variable-1.6a {step over "V *v = new V;"} {
 # Desc: check value of v changed
 gdbtk_test cpp_variable-1.7 {check value of v changed} {
   set changes [check_update]
-
   # It is undefined whether the children will change values
   # or not, so ignore them.
-  expr {[lsearch [lindex $changes 0] v] != -1}
+  expr {[lsearch [lindex [lindex $changes 0] 0] v] != -1}
 } {1}
 
 # Test: cpp_variable-1.8
@@ -256,7 +260,7 @@ gdbtk_test cpp_variable-2.2a {set variable v.v_pub_int=2112} {
 # Desc: value of v.v_pub_int changed
 gdbtk_test cpp_variable-2.3 {value of v.v_pub_int changed} {
   check_update
-} {v.public.v_pub_int {}}
+} {v.public.v_pub_int {v.private.v_priv_charp v.VB v.private.v_priv_int v.VC v.public.v_pub_charp v.public.v_pub_int v.private v.public v.VA}}
 
 # Test: cpp_variable-2.4
 # Desc: value of v.v_pub_int
@@ -336,7 +340,7 @@ gdbtk_test cpp_variable-2.22a {set variable v->v_priv_charp=2112} {
 # Desc: value of v.v_priv_charp changed
 gdbtk_test cpp_variable-2.23 {value of v.v_priv_charp changed} {
   check_update
-} {v.private.v_priv_charp {}}
+} {{{v.public.v_pub_int v.private.v_priv_charp}} {v.private.v_priv_charp v.VB v.private.v_priv_int v.VC v.public.v_pub_charp v.public.v_pub_int v.private v.public v.VA}}
 
 # Test: cpp_variable-2.24
 # Desc: value of v.v_priv_charp
@@ -406,7 +410,7 @@ gdbtk_test cpp_variable-2.42 {format of v.VA} {
 # Desc: value of v.VA changed
 gdbtk_test cpp_variable-2.43 {value of v.VA changed} {
   check_update
-} {{} {}}
+} {v.private.v_priv_charp {v.private.v_priv_charp v.VB v.private.v_priv_int v.VC v.public.v_pub_charp v.private.v_priv_charp.*v_priv_charp v.public.v_pub_int v.private v.public v.VA}}
 
 # Test: cpp_variable-2.44
 # Desc: value of v.VA
@@ -479,7 +483,7 @@ gdbtk_test cpp_variable-2.62 {format of v.VB} {
 # Desc: value of v.VB changed
 gdbtk_test cpp_variable-2.63 {value of v.VB changed} {
   check_update
-} {{} {}}
+} {{} {v.VA.protected v.private.v_priv_charp.*v_priv_charp v.VA.private v.VA.public.va_pub_int v.private.v_priv_int v.public.v_pub_int v.VA.public.va_pub_charp v.private.v_priv_charp v.VA.public v.public.v_pub_charp v.VA.private.va_priv_int v.VA v.public v.VB v.VC v.VA.protected.bar v.VA.private.va_priv_charp v.private}}
 
 # Test: cpp_variable-2.64
  # Desc: value of v.VB
@@ -559,7 +563,7 @@ gdbtk_test cpp_variable-2.71a {set variable v->v_pub_int=2112} {
 # Desc: value of v.vb_pub_int changed
 gdbtk_test cpp_variable-2.72 {value of v.vb_pub_int changed} {
   check_update
-} {v.VB.public.vb_pub_int {}}
+} {v.VB.public.vb_pub_int {v.VB.public v.VA.protected v.private.v_priv_charp.*v_priv_charp v.VA.private v.VB.private.vb_priv_int v.VB.private v.VA.public.va_pub_int v.private.v_priv_int v.VB.public.vb_pub_int v.public.v_pub_int v.VB.private.vb_priv_charp v.VA.public.va_pub_charp v.private.v_priv_charp v.VA.public v.public.v_pub_charp v.VA.private.va_priv_int v.VA v.public v.VB v.VC v.VA.protected.bar v.VA.private.va_priv_charp v.private}}
 
 # Test: cpp_variable-2.73
 # Desc: value of v.VB.vb_pub_int
@@ -585,4 +589,6 @@ gdbtk_test cpp_variable-2.75 {changed value of v.VB.public.vb_pub_int} {
 #
 gdbtk_test_done
 
+#Local Variables:
+#mode: tcl
 

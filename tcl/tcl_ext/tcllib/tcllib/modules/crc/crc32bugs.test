@@ -1,0 +1,84 @@
+# crc32bugs.test - Copyright (C) 2002 Pat Thoyts <patthoyts@users.sf.net>
+#
+# Bug finding for crc32 module.
+# In particular we are looking for byte order problems, and issues between
+# the trf code and tcl-only code.
+#
+# -------------------------------------------------------------------------
+# See the file "license.terms" for information on usage and redistribution
+# of this file, and for a DISCLAIMER OF ALL WARRANTIES.
+# -------------------------------------------------------------------------
+# RCS: @(#) $Id: crc32bugs.test,v 1.3 2004/01/15 06:36:12 andreas_kupries Exp $
+
+# -------------------------------------------------------------------------
+# Initialise the test package
+#
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+}
+
+# -------------------------------------------------------------------------
+# Ensure we test _this_ local copy and one installed somewhere else.
+#
+package forget crc32
+#catch {namespace delete ::crc}
+if {[catch {source [file join [file dirname [info script]] crc32.tcl]} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+
+package forget crc16
+#catch {namespace delete ::crc}
+if {[catch {source [file join [file dirname [info script]] crc16.tcl]} msg]} {
+    puts "skipped [file tail [info script]]: $msg"
+    return
+}
+
+# -------------------------------------------------------------------------
+# Setup any constraints
+#
+
+# -------------------------------------------------------------------------
+# Now the package specific tests....
+# -------------------------------------------------------------------------
+
+if {[catch {package present Trf}]} {
+    puts "- crc32bugs (pure Tcl) $::tcl_platform(byteOrder)"
+} else {
+    puts "- crc32bugs (Trf based) $::tcl_platform(byteOrder)"
+}
+
+# -------------------------------------------------------------------------
+
+foreach {n msg expected} {
+    1  ""                 "0"
+    2  "\x00"             "d202ef8d"
+    3  "\x00\x00"         "41d912ff"
+    4  "\x00\x00\x00"     "ff41d912"
+    5  "\x00\x00\x00\x00" "2144df1c"
+    6  "\xFF"             "ff000000"
+    7  "\xFF\xFF"         "ffff0000"
+    8  "\xFF\xFF\xFF"     "ffffff00"
+    9  "\xFF\xFF\xFF\xFF" "ffffffff"
+   10  "\x00\x00\x00\x01" "5643ef8a"
+   11  "\x80\x00\x00\x00" "cc1d6927"
+} {
+    test crc32bugs-2.$n {crc32 (Trf and and crc-32 comparison} {
+	list [catch {
+            list \
+                [::crc::crc32 -format %x $msg] \
+                [format %x [::crc::Crc32_tcl $msg]] \
+                [::crc::crc-32 -format %x $msg]
+        } msg] $msg
+    } [list 0 [list $expected $expected $expected]]
+}
+
+# -------------------------------------------------------------------------
+
+::tcltest::cleanupTests
+
+# Local Variables:
+#  mode: tcl
+#  indent-tabs-mode: nil
+# End:

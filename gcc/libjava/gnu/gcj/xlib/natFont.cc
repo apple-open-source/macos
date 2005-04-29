@@ -1,4 +1,4 @@
-/* Copyright (C) 2000  Free Software Foundation
+/* Copyright (C) 2000, 2003  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -44,38 +44,56 @@ jint gnu::gcj::xlib::Font::getXIDFromStruct(gnu::gcj::RawData* structure)
 jint gnu::gcj::xlib::Font::getMaxAscent()
 {
   XFontStruct* fontStruct = (XFontStruct*) structure;
-  return fontStruct->max_bounds.ascent;
+  return fontStruct->max_bounds.ascent+1;   // +1 to include the baseline
 }
 
 jint gnu::gcj::xlib::Font::getMaxDescent()
 {
   XFontStruct* fontStruct = (XFontStruct*) structure;
-  return fontStruct->max_bounds.descent;
+  return fontStruct->max_bounds.descent-1;  // -1 to exclude the baseline
 }
 
 jint gnu::gcj::xlib::Font::getAscent()
 {
   XFontStruct* fontStruct = (XFontStruct*) structure;
-  return fontStruct->ascent;
+  jint returnValue = fontStruct->ascent;
+  if (fontStruct->min_byte1==0 && fontStruct->min_char_or_byte2<=(unsigned)'O')
+    returnValue = fontStruct
+        ->per_char[(unsigned)'O'-fontStruct->min_char_or_byte2]
+        .ascent;
+  return returnValue+1;  // +1 to include the baseline
 }
 
 jint gnu::gcj::xlib::Font::getDescent()
 {
   XFontStruct* fontStruct = (XFontStruct*) structure;
-  return fontStruct->ascent;
+  jint returnValue = fontStruct->descent;
+  if (fontStruct->min_byte1==0 && fontStruct->min_char_or_byte2<=(unsigned)'y')
+    returnValue = fontStruct
+        ->per_char[(unsigned)'y'-fontStruct->min_char_or_byte2]
+        .descent;
+  return returnValue-1;  // -1 to exclude the baseline
 }
 
 jint gnu::gcj::xlib::Font::getStringWidth(java::lang::String* text)
 {
   XFontStruct* fontStruct = (XFontStruct*) structure;
   
-  // FIXME: make proper unicode conversion
-  int len = JvGetStringUTFLength(text);
-  char ctxt[len+1];
-  JvGetStringUTFRegion(text, 0, text->length(), ctxt);
-  ctxt[len] = '\0';
-  int width = XTextWidth(fontStruct, ctxt, len);
-  return width;
+  // FIXME: Convert to the character set used in the font, which may
+  // or may not be unicode. For now, treat everything as 16-bit and
+  // use character codes directly, which should be OK for unicode or
+  // 8-bit ascii fonts.
+  jint length = text->length();
+  jchar* txt = JvGetStringChars(text);
+  XChar2b xwchars[length];
+  for (int i=0; i<length; i++)
+    {
+      XChar2b* xc = &(xwchars[i]);
+      jchar jc = txt[i];
+      xc->byte1 = (jc >> 8) & 0xff;
+      xc->byte2 = jc & 0xff;
+    }
+  return XTextWidth16(fontStruct, xwchars, length);
 }
 
 void gnu::gcj::xlib::Font::finalize()

@@ -2,8 +2,8 @@
 #
 #               biorhythm.rb - 
 #                       $Release Version: $
-#                       $Revision: 1.1.1.1 $
-#                       $Date: 2002/05/27 17:59:50 $
+#                       $Revision: 1.9 $
+#                       $Date: 2003/05/05 14:02:14 $
 #                       by Yasuo OHBA(STAFS Development Room)
 #
 # --
@@ -51,6 +51,7 @@ end
 
 def getPosition(z)
   pi = Math::PI
+  z = Integer(z)
   phys = (50.0 * (1.0 + sin((z / 23.0 - (z / 23)) * 360.0 * pi / 180.0))).to_i
   emot = (50.0 * (1.0 + sin((z / 28.0 - (z / 28)) * 360.0 * pi / 180.0))).to_i
   geist =(50.0 * (1.0 + sin((z / 33.0 - (z / 33)) * 360.0 * pi / 180.0))).to_i
@@ -58,7 +59,7 @@ def getPosition(z)
 end
 
 def parsedate(s)
-  ParseDate::parsedate(s).indexes(0, 1, 2)
+  ParseDate::parsedate(s).values_at(0, 1, 2)
 end
 
 def name_of_week(date)
@@ -78,40 +79,38 @@ else
   if $OPT_birthday
     bd = Date.new(*parsedate($OPT_birthday))
   else
-    printf(STDERR, "Birthday                      (YYYYMMDD) : ")
-    if (si = STDIN.gets.chop) != ""
+    STDERR.print("Birthday                      (YYYYMMDD) : ")
+    unless (si = STDIN.gets.chop).empty?
       bd = Date.new(*parsedate(si))
     end
   end
   if !bd
-    printf STDERR, "BAD Input Birthday!!\n"
+    STDERR.print "BAD Input Birthday!!\n"
     exit()
   end
-  
+
   if $OPT_sdate
     dd = Date.today
   elsif $OPT_date
     dd = Date.new(*parsedate($OPT_date))
   else
-    printf(STDERR, "Date        [<RETURN> for Systemdate] (YYYYMMDD) : ")
-    if (si = STDIN.gets.chop) != ""
+    STDERR.print("Date        [<RETURN> for Systemdate] (YYYYMMDD) : ")
+    unless (si = STDIN.gets.chop).empty?
       dd = Date.new(*parsedate(si))
     end
   end
-  if !dd
-    dd = Date.today
-  end
+  dd ||= Date.today
 
   if $OPT_v
     ausgabeart = "v"
   elsif $OPT_g
     ausgabeart = "g"
   else
-    printf(STDERR, "Values for today or Graph  (v/g) [default g] : ")
+    STDERR.print("Values for today or Graph  (v/g) [default g] : ")
     ausgabeart = STDIN.gets.chop
   end
 end
-if (ausgabeart == "v")
+if ausgabeart == "v"
   printHeader(bd.year, bd.month, bd.day, dd - bd, name_of_week(bd))
   print "\n"
   
@@ -127,9 +126,9 @@ else
   elsif $OPT_D
     display_period = 9
   else
-    printf(STDERR, "Graph for how many days     [default 10] : ")
+    STDERR.printf("Graph for how many days     [default 10] : ")
     display_period = STDIN.gets.chop
-    if (display_period == "")
+    if display_period.empty?
       display_period = 9
     else
       display_period = display_period.to_i - 1
@@ -142,7 +141,7 @@ else
   print "                     Bad Condition    |    Good Condition\n"
   print "             -------------------------+-------------------------\n"
   
-  for z in (dd - bd)..(dd - bd + display_period)
+  (dd - bd).step(dd - bd + display_period) do |z|
     phys, emot, geist = getPosition(z)
     
     printf "%04d.%02d.%02d : ", dd.year, dd.month, dd.day

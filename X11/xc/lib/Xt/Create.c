@@ -32,7 +32,7 @@ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION  WITH
 THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ******************************************************************/
-/* $XFree86: xc/lib/Xt/Create.c,v 3.10 2002/12/17 04:50:58 dawes Exp $ */
+/* $XFree86: xc/lib/Xt/Create.c,v 3.11 2003/04/21 16:34:26 herrb Exp $ */
 
 /*
 
@@ -563,7 +563,6 @@ _XtCreateWidget(
     return (widget);
 }
 
-#if NeedFunctionPrototypes
 Widget 
 XtCreateWidget(
     _Xconst char* name,
@@ -572,15 +571,6 @@ XtCreateWidget(
     ArgList 	args,
     Cardinal    num_args
     )
-#else
-Widget 
-XtCreateWidget(name, widget_class, parent, args, num_args)
-    String	name;
-    WidgetClass widget_class;
-    Widget   	parent;
-    ArgList 	args;
-    Cardinal    num_args;
-#endif
 {
     Widget retval;
     WIDGET_TO_APPCON(parent);
@@ -593,7 +583,6 @@ XtCreateWidget(name, widget_class, parent, args, num_args)
 }
 
 
-#if NeedFunctionPrototypes
 Widget 
 XtCreateManagedWidget(
     _Xconst char* name,
@@ -602,15 +591,6 @@ XtCreateManagedWidget(
     ArgList     args,
     Cardinal    num_args
     )
-#else
-Widget 
-XtCreateManagedWidget(name, widget_class, parent, args, num_args)
-    String      name;
-    WidgetClass widget_class;
-    Widget      parent;
-    ArgList     args;
-    Cardinal    num_args;
-#endif
 {
     register Widget	    widget;
     WIDGET_TO_APPCON(parent);
@@ -673,7 +653,6 @@ _XtCreatePopupShell(name, widget_class, parent, args, num_args,
     return(widget);
 }
 
-#if NeedFunctionPrototypes
 Widget 
 XtCreatePopupShell(
     _Xconst char* name,
@@ -682,15 +661,6 @@ XtCreatePopupShell(
     ArgList     args,
     Cardinal    num_args
     )
-#else
-Widget 
-XtCreatePopupShell(name, widget_class, parent, args, num_args)
-    String      name;
-    WidgetClass widget_class;
-    Widget      parent;
-    ArgList     args;
-    Cardinal    num_args;
-#endif
 {
     Widget retval;
     WIDGET_TO_APPCON(parent);
@@ -736,7 +706,6 @@ _XtAppCreateShell(name, class, widget_class, display, args, num_args,
     return shell;
 }
 
-#if NeedFunctionPrototypes
 Widget 
 XtAppCreateShell(
     _Xconst char*       name,
@@ -746,15 +715,6 @@ XtAppCreateShell(
     ArgList             args,
     Cardinal            num_args
     )
-#else
-Widget 
-XtAppCreateShell(name, class, widget_class, display, args, num_args)
-    String              name, class;
-    WidgetClass         widget_class;
-    Display             *display;
-    ArgList             args;
-    Cardinal            num_args;
-#endif
 {
     Widget retval;
     DPY_TO_APPCON(display);
@@ -767,7 +727,6 @@ XtAppCreateShell(name, class, widget_class, display, args, num_args)
 }
 
 /* ARGSUSED */
-#if NeedFunctionPrototypes
 Widget 
 XtCreateApplicationShell(
     _Xconst char* name,		/* unused in R3 and later */
@@ -775,14 +734,6 @@ XtCreateApplicationShell(
     ArgList     args,
     Cardinal    num_args
     )
-#else
-Widget 
-XtCreateApplicationShell(name, widget_class, args, num_args)
-    String      name;		/* unused in R3 and later */
-    WidgetClass widget_class;
-    ArgList     args;
-    Cardinal    num_args;
-#endif
 {
     Widget retval;
     Display* dpy;

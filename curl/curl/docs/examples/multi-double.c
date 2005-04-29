@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___ 
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: multi-double.c,v 1.1.1.1 2002/11/26 19:07:44 zarzycki Exp $
+ * $Id: multi-double.c,v 1.3 2002/12/03 12:34:43 bagder Exp $
  *
  * This is a very simple example using the multi interface.
  */
@@ -80,7 +80,8 @@ int main(int argc, char **argv)
     case 0:
     default:
       /* timeout or readable/writable sockets */
-      curl_multi_perform(multi_handle, &still_running);
+      while(CURLM_CALL_MULTI_PERFORM ==
+            curl_multi_perform(multi_handle, &still_running));
       break;
     }
   }

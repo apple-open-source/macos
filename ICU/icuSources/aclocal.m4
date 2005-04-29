@@ -1,5 +1,5 @@
 dnl aclocal.m4 for ICU
-dnl Copyright (c) 1999-2003, International Business Machines Corporation and
+dnl Copyright (c) 1999-2004, International Business Machines Corporation and
 dnl others. All Rights Reserved.
 dnl Stephen F. Booth
 
@@ -13,33 +13,49 @@ AC_DEFUN(ICU_CHECK_MH_FRAG, [
 		[
 case "${host}" in
 *-*-solaris*)
-	if test "$ac_cv_prog_gcc" = yes; then	
+	if test "$GCC" = yes; then	
 		icu_cv_host_frag=mh-solaris-gcc 
 	else
 		icu_cv_host_frag=mh-solaris
 	fi ;;
 alpha*-*-linux-gnu)
-	if test "$ac_cv_prog_gcc" = yes; then
+	if test "$GCC" = yes; then
 		icu_cv_host_frag=mh-alpha-linux-gcc
 	else  
 		icu_cv_host_frag=mh-alpha-linux-cc
 	fi ;;
+powerpc*-*-linux*)
+	if test "$GCC" = yes; then
+	  	icu_cv_host_frag=mh-linux
+	else
+	  	icu_cv_host_frag=mh-linux-va
+	fi ;;
 *-*-linux*) icu_cv_host_frag=mh-linux ;;
 *-*-cygwin)
-	if test "$ac_cv_prog_gcc" = yes; then
+	if test "$GCC" = yes; then
 	  	icu_cv_host_frag=mh-cygwin
+	else
+	  	icu_cv_host_frag=mh-cygwin-msvc
+	fi ;;
+*-*-mingw32)
+	if test "$GCC" = yes; then
+	  	icu_cv_host_frag=mh-mingw
 	else
 	  	icu_cv_host_frag=mh-cygwin-msvc
 	fi ;;
 *-*-*bsd*) 	icu_cv_host_frag=mh-bsd-gcc ;;
 *-*-aix*)
-	if test -n "`$CXX --help 2>&1 | grep 'IBM C and C++ Compilers$'`"; then
-		icu_cv_host_frag=mh-aix
+	if test "$GCC" = yes; then
+		icu_cv_host_frag=mh-aix-gcc
 	else
-		icu_cv_host_frag=mh-aix-va
+		if test -n "`$CXX --help 2>&1 | grep 'IBM C and C++ Compilers$'`"; then
+			icu_cv_host_frag=mh-aix
+		else
+			icu_cv_host_frag=mh-aix-va
+		fi
 	fi ;;
 *-*-hpux*)
-	if test "$ac_cv_prog_gcc" = yes; then
+	if test "$GCC" = yes; then
 		icu_cv_host_frag=mh-hpux-gcc
 	else
 		case "$CXX" in
@@ -51,9 +67,11 @@ alpha*-*-linux-gnu)
 *-*-os400*)	icu_cv_host_frag=mh-os400 ;;
 *-apple-rhapsody*)	icu_cv_host_frag=mh-darwin ;;
 *-apple-darwin*)	icu_cv_host_frag=mh-darwin ;;
+*-*-beos)	icu_cv_host_frag=mh-beos ;;
 *-*-irix*)	icu_cv_host_frag=mh-irix ;;
 *-dec-osf*) icu_cv_host_frag=mh-alpha-osf ;;
 *-*-nto*)	icu_cv_host_frag=mh-qnx ;;
+*-ncr-*)	icu_cv_host_frag=mh-mpras ;;
 *-sequent-*) 	icu_cv_host_frag=mh-ptx ;;
 *) 		icu_cv_host_frag=mh-unknown ;;
 esac
@@ -61,16 +79,13 @@ esac
 	)
 ])
 
-dnl ICU_CONDITIONAL - Taken from Automake 1.4
+dnl ICU_CONDITIONAL - similar example taken from Automake 1.4
 AC_DEFUN(ICU_CONDITIONAL,
 [AC_SUBST($1_TRUE)
-AC_SUBST($1_FALSE)
 if $2; then
   $1_TRUE=
-  $1_FALSE='#'
 else
   $1_TRUE='#'
-  $1_FALSE=
 fi])
 
 dnl AC_SEARCH_LIBS_FIRST(FUNCTION, SEARCH-LIBS [, ACTION-IF-FOUND
@@ -109,22 +124,15 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
     )
     dnl These results can't be cached because is sets compiler flags.
     AC_MSG_CHECKING([for 64-bit executable support])
-    if test "$ENABLE_64BIT_LIBS" = no; then
-        case "${host}" in
-        *-*-hpux*)
-            case "${CXX}" in
-            *CC)
-                CFLAGS="${CFLAGS} +DAportable"
-                CXXFLAGS="${CXXFLAGS} +DAportable"
-                ;;
-            esac;;
-        esac
-    else
+    if test "$ENABLE_64BIT_LIBS" != no; then
         case "${host}" in
         *-*-solaris*)
-            if test "$ac_cv_prog_gcc" = no; then
+            SPARCV9=`isainfo -n 2>&1 | grep sparcv9`
+            if test "$GCC" = yes; then
+                # We could add a check for -m64 depending on the gcc version.
+                ENABLE_64BIT_LIBS=no
+            else
                 SOL64=`$CXX -xarch=v9 2>&1 && $CC -xarch=v9 2>&1 | grep -v usage:`
-                SPARCV9=`isainfo -n 2>&1 | grep sparcv9`
                 if test -z "$SOL64" && test -n "$SPARCV9"; then
                     CFLAGS="${CFLAGS} -xtarget=ultra -xarch=v9"
                     CXXFLAGS="${CXXFLAGS} -xtarget=ultra -xarch=v9"
@@ -133,37 +141,87 @@ AC_DEFUN(AC_CHECK_64BIT_LIBS,
                 else
                     ENABLE_64BIT_LIBS=no
                 fi
+            fi
+            ;;
+        ia64-*-linux*)
+            if test "$GCC" = yes; then
+                # gcc compiler support
+                if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
+                    ENABLE_64BIT_LIBS=yes
+                else
+                    ENABLE_64BIT_LIBS=no
+                fi
             else
+                # check for ecc/ecpc compiler support
+                if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Intel`"; then
+                    if test -n "`$CXX --help 2>&1 && $CC --help 2>&1 | grep -v Itanium`"; then
+                        ENABLE_64BIT_LIBS=yes
+                    else
+                        ENABLE_64BIT_LIBS=no
+                    fi
+                else
+                    # unknown
+                    ENABLE_64BIT_LIBS=no
+                fi
+            fi
+            ;;
+        x86_64-*-linux*)
+            if test "$GCC" = yes; then
+                if test -n "`$CXX -dumpspecs 2>&1 && $CC -dumpspecs 2>&1 | grep -v __LP64__`"; then
+                    ENABLE_64BIT_LIBS=yes
+                else
+                    ENABLE_64BIT_LIBS=no
+                fi
+            else
+                # unknown
                 ENABLE_64BIT_LIBS=no
             fi
             ;;
-        *-*-aix*)
-            OLD_CFLAGS="${CFLAGS}"
-            OLD_CXXFLAGS="${CXXFLAGS}"
-            OLD_LDFLAGS="${LDFLAGS}"
-            CFLAGS="${CFLAGS} -q64"
-            CXXFLAGS="${CXXFLAGS} -q64"
-            LDFLAGS="${LDFLAGS} -q64"
-            AC_TRY_RUN(int main(void) {return 0;},
-                ENABLE_64BIT_LIBS=yes, ENABLE_64BIT_LIBS=no, ENABLE_64BIT_LIBS=no)
-            if test "$ENABLE_64BIT_LIBS" = no; then
-                CFLAGS="${OLD_CFLAGS}"
-                CXXFLAGS="${OLD_CXXFLAGS}"
-                LDFLAGS="${OLD_LDFLAGS}"
-            else
-                ARFLAGS="${ARFLAGS} -X64"
+        *-*-aix*|powerpc64-*-linux*)
+            if test "$ac_cv_prog_gcc" = no; then
+                # Note: Have not tested 64-bitness with gcc.
+                # Maybe the flag "-maix64" could be used with gcc?
+                OLD_CFLAGS="${CFLAGS}"
+                OLD_CXXFLAGS="${CXXFLAGS}"
+                OLD_LDFLAGS="${LDFLAGS}"
+                CFLAGS="${CFLAGS} -q64"
+                CXXFLAGS="${CXXFLAGS} -q64"
+                LDFLAGS="${LDFLAGS} -q64"
+                AC_TRY_RUN(int main(void) {return 0;},
+                   ENABLE_64BIT_LIBS=yes, ENABLE_64BIT_LIBS=no, ENABLE_64BIT_LIBS=no)
+                if test "$ENABLE_64BIT_LIBS" = no; then
+                    CFLAGS="${OLD_CFLAGS}"
+                    CXXFLAGS="${OLD_CXXFLAGS}"
+                    LDFLAGS="${OLD_LDFLAGS}"
+                else
+                    case "${host}" in
+                    *-*-aix*)
+                        ARFLAGS="${ARFLAGS} -X64"
+                    esac
+                fi
             fi
             ;;
         *-*-hpux*)
+            dnl First we try the newer +DD64, if that doesn't work,
+            dnl try other options.
+
             OLD_CFLAGS="${CFLAGS}"
             OLD_CXXFLAGS="${CXXFLAGS}"
-            CFLAGS="${CFLAGS} +DA2.0W"
-            CXXFLAGS="${CXXFLAGS} +DA2.0W"
+            CFLAGS="${CFLAGS} +DD64"
+            CXXFLAGS="${CXXFLAGS} +DD64"
             AC_TRY_RUN(int main(void) {return 0;},
                 ENABLE_64BIT_LIBS=yes, ENABLE_64BIT_LIBS=no, ENABLE_64BIT_LIBS=no)
             if test "$ENABLE_64BIT_LIBS" = no; then
                 CFLAGS="${OLD_CFLAGS}"
                 CXXFLAGS="${OLD_CXXFLAGS}"
+                CFLAGS="${CFLAGS} +DA2.0W"
+                CXXFLAGS="${CXXFLAGS} +DA2.0W"
+                AC_TRY_RUN(int main(void) {return 0;},
+                    ENABLE_64BIT_LIBS=yes, ENABLE_64BIT_LIBS=no, ENABLE_64BIT_LIBS=no)
+                if test "$ENABLE_64BIT_LIBS" = no; then
+                    CFLAGS="${OLD_CFLAGS}"
+                    CXXFLAGS="${OLD_CXXFLAGS}"
+                fi
             fi
             ;;
         *)
@@ -180,11 +238,11 @@ AC_DEFUN(AC_CHECK_STRICT_COMPILE,
 [
     AC_MSG_CHECKING([whether strict compiling is on])
     AC_ARG_ENABLE(strict,[  --enable-strict         compile with strict compiler options [default=no]], [
-    	if test "$enableval" = no
-    	then
-	    ac_use_strict_options=no
+        if test "$enableval" = no
+        then
+            ac_use_strict_options=no
         else
-	    ac_use_strict_options=yes
+            ac_use_strict_options=yes
         fi
       ], [ac_use_strict_options=no])
     AC_MSG_RESULT($ac_use_strict_options)
@@ -193,18 +251,34 @@ AC_DEFUN(AC_CHECK_STRICT_COMPILE,
     then
         if test "$GCC" = yes
         then
-            CFLAGS="$CFLAGS -Wall -ansi -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Winline"
+            CFLAGS="$CFLAGS -Wall -ansi -pedantic -Wshadow -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Winline -Wno-long-long"
             case "${host}" in
             *-*-solaris*)
                 CFLAGS="$CFLAGS -D__STDC__=0";;
             esac
+        else
+            case "${host}" in
+            *-*-cygwin)
+                if test "`$CC /help 2>&1 | head -c9`" = "Microsoft"
+                then
+                    CFLAGS="$CFLAGS /W4"
+                fi
+            esac
         fi
         if test "$GXX" = yes
         then
-            CXXFLAGS="$CXXFLAGS -W -Wall -ansi -pedantic -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Winline"
+            CXXFLAGS="$CXXFLAGS -W -Wall -ansi -pedantic -Wpointer-arith -Wmissing-prototypes -Wwrite-strings -Winline -Wno-long-long"
             case "${host}" in
             *-*-solaris*)
                 CXXFLAGS="$CXXFLAGS -D__STDC__=0";;
+            esac
+        else
+            case "${host}" in
+            *-*-cygwin)
+                if test "`$CXX /help 2>&1 | head -c9`" = "Microsoft"
+                then
+                    CXXFLAGS="$CXXFLAGS /W4"
+                fi
             esac
         fi
     fi
@@ -236,3 +310,4 @@ AC_DEFINE_UNQUOTED(AC_TYPE_NAME, $AC_CV_NAME)
 undefine([AC_TYPE_NAME])dnl
 undefine([AC_CV_NAME])dnl
 ])
+

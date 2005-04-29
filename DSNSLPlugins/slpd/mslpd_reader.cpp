@@ -145,10 +145,7 @@ static void     set_sa_srvtype_attr(const SAStore *pstore);
 
 void delete_regfile(const char *pcFile) 
 {
-    char*	command = (char*)malloc(strlen(pcFile) + 4);
-    sprintf( command, "rm %s", pcFile );
-    system( command );
-    free(command);
+    unlink( pcFile );
 }
 /*
  * process_regfile
@@ -226,7 +223,9 @@ SLPInternalError process_regfile(SAStore *pstore, const char *pcFile)
 		if ((err = fill_attrs(fp, pcLine, pstore, item, pcSL)) != SLP_OK) 
 		{
             fclose(fp);
+#ifdef ENABLE_SLP_LOGGING
 			SLP_LOG(SLP_LOG_DEBUG,"mslpd_reader.c, process_regfile(), fill_attrs: (%d)", err);
+#endif
             return err;
 		}
      
@@ -291,13 +290,14 @@ SLPInternalError process_regfile(SAStore *pstore, const char *pcFile)
 		} /* for each entry */
 	} /* there is a store and we're debugging */
 	
+#ifdef ENABLE_SLP_LOGGING
     {
         char	logStr[256];
         
         sprintf( logStr, "process_regfile finished, %d items are currently registered", pstore->size );
-        LOG( SLP_LOG_REG, logStr );
+        SLPLOG( SLP_LOG_REG, logStr );
     }
-    
+#endif    
 	return SLP_OK;
 }
 
@@ -412,7 +412,9 @@ static SLPInternalError parse_url_props(const char *pcLine,
   
   if (c == '\0' || c == '\n' || c == EOF ||
       !(pstore->lang[item] = get_next_string(",",pcLine,&index,&c))) {
-    LOG(SLP_LOG_DEBUG,"process_regfile no language: set to default language.");
+#ifdef ENABLE_SLP_LOGGING
+    SLPLOG(SLP_LOG_DEBUG,"process_regfile no language: set to default language.");
+#endif
     pstore->lang[item] = safe_malloc(strlen(pcLoc)+1,pcLoc,strlen(pcLoc));
   }
 
@@ -422,7 +424,9 @@ static SLPInternalError parse_url_props(const char *pcLine,
    */
   if (c == '\0' || c == '\n' || c == EOF ||
       !(pcTemp = get_next_string(",",pcLine,&index,&c))) {
-    LOG(SLP_LOG_DEBUG,"process_regfile bad lifetime - ignored.");
+#ifdef ENABLE_SLP_LOGGING
+    SLPLOG(SLP_LOG_DEBUG,"process_regfile bad lifetime - ignored.");
+#endif
   }
   if (pcTemp == NULL) {
     pstore->life[item] = 0xffff; /* use default */
@@ -431,7 +435,9 @@ static SLPInternalError parse_url_props(const char *pcLine,
     pstore->life[item] = strtol(pcTemp,&endPtr,10);
     if (pstore->life[item] < 1 || pstore->life[item] > 0xffff) {
       pstore->life[item] = 0xffff;
-      LOG(SLP_LOG_DEBUG,"process_regfile: lifetime <min or >max, use default");
+#ifdef ENABLE_SLP_LOGGING
+      SLPLOG(SLP_LOG_DEBUG,"process_regfile: lifetime <min or >max, use default");
+#endif
     }
   }
     
@@ -599,10 +605,12 @@ SLPInternalError fill_value(Values *pv, int i, const char *pc, int *piOffset) {
 
     } else {
 
+#ifdef ENABLE_SLP_LOGGING
       if (errno == ERANGE) {
 	mslplog(SLP_LOG_DEBUG,"fill_value: Value over or under allowed integer: ",
 		pcVal);
       }
+#endif
       result = isAttrvalEscapedOK(pcVal);
       if (result < 0) return (SLPInternalError) result;
       /* for now leave the string escaped */

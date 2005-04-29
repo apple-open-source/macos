@@ -1,4 +1,4 @@
-/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tex.h,v 1.7 2002/02/22 21:44:58 dawes Exp $ */
+/* $XFree86: xc/lib/GL/mesa/src/drv/r128/r128_tex.h,v 1.8 2003/09/28 20:15:21 alanh Exp $ */
 /**************************************************************************
 
 Copyright 1999, 2000 ATI Technologies Inc. and Precision Insight, Inc.,
@@ -40,17 +40,9 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 extern void r128UpdateTextureState( GLcontext *ctx );
 
-extern void r128SwapOutTexObj( r128ContextPtr rmesa, r128TexObjPtr t );
-
 extern void r128UploadTexImages( r128ContextPtr rmesa, r128TexObjPtr t );
 
-extern void r128AgeTextures( r128ContextPtr rmesa, int heap );
 extern void r128DestroyTexObj( r128ContextPtr rmesa, r128TexObjPtr t );
-
-extern void r128UpdateTexLRU( r128ContextPtr rmesa, r128TexObjPtr t );
-
-extern void r128PrintLocalLRU( r128ContextPtr rmesa, int heap );
-extern void r128PrintGlobalLRU( r128ContextPtr rmesa, int heap );
 
 extern void r128DDInitTextureFuncs( GLcontext *ctx );
 

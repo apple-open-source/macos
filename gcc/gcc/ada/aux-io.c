@@ -6,8 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *                                                                          *
- *           Copyright (C) 1992-2001 Free Software Foundation, Inc.         *
+ *           Copyright (C) 1992-2003 Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -44,29 +43,29 @@
 /* Function wrappers are needed to access the values from Ada which are
    defined as C macros.  */
 
-FILE *c_stdin         PARAMS ((void));
-FILE *c_stdout        PARAMS ((void));
-FILE *c_stderr        PARAMS ((void));
-int seek_set_function PARAMS ((void));
-int seek_end_function PARAMS ((void));
-void *null_function   PARAMS ((void));
-int c_fileno          PARAMS ((FILE *));
+FILE *c_stdin (void);
+FILE *c_stdout (void);
+FILE *c_stderr (void);
+int seek_set_function (void);
+int seek_end_function (void);
+void *null_function (void);
+int c_fileno (FILE *);
 
 FILE *
-c_stdin () 
-{ 
-  return stdin; 
+c_stdin (void)
+{
+  return stdin;
 }
 
 FILE *
-c_stdout () 
-{ 
+c_stdout (void)
+{
   return stdout;
 }
 
 FILE *
-c_stderr () 
-{ 
+c_stderr (void)
+{
   return stderr;
 }
 
@@ -76,26 +75,25 @@ c_stderr ()
 #define SEEK_END 2  /* Set file pointer to the size of the file plus offset */
 #endif
 
-int   
-seek_set_function ()  
-{ 
-  return SEEK_SET; 
+int
+seek_set_function (void)
+{
+  return SEEK_SET;
 }
 
-int   
-seek_end_function ()  
-{ 
-  return SEEK_END; 
+int
+seek_end_function (void)
+{
+  return SEEK_END;
 }
 
-void *null_function ()  
-{ 
-  return NULL;     
+void *null_function (void)
+{
+  return NULL;
 }
 
-int 
-c_fileno (s) 
-     FILE *s;
-{ 
-  return fileno (s); 
+int
+c_fileno (FILE *s)
+{
+  return fileno (s);
 }

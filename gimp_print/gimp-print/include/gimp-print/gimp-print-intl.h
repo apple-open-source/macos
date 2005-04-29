@@ -1,7 +1,7 @@
 /*
- * "$Id: gimp-print-intl.h,v 1.1.1.1 2003/01/27 19:05:31 jlovell Exp $"
+ * "$Id: gimp-print-intl.h,v 1.1.1.2 2004/07/23 06:26:27 jlovell Exp $"
  *
- *   I18N header file for the gimp-print.
+ *   I18N header file for Gimp-Print.
  *
  *   Copyright 1997-2000 Michael Sweet (mike@easysw.com),
  *	Robert Krawitz (rlk@alum.mit.edu) and Michael Natterer (mitch@gimp.org)
@@ -21,8 +21,29 @@
  *   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#ifndef __GIMP_PRINT_INTL_H__
-#define __GIMP_PRINT_INTL_H__
+/**
+ * @file gimp-print-intl.h
+ * @brief Internationalisation functions.
+ */
+
+#ifndef GIMP_PRINT_INTL_H
+#define GIMP_PRINT_INTL_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+  /**
+   * Internationalisation functions are used to localise Gimp-Print by
+   * translating strings into the user's native language.
+   *
+   * The macros defined in this header are convenience wrappers around
+   * the gettext functions provided by libintl library (or directly by
+   * libc on GNU systems).
+   *
+   * @defgroup intl intl
+   * @{
+   */
 
 #ifdef INCLUDE_LOCALE_H
 INCLUDE_LOCALE_H
@@ -34,14 +55,18 @@ INCLUDE_LOCALE_H
 
 #include <libintl.h>
 #ifndef _
+/** Translate String. */
 #define _(String) gettext (String)
 #endif
 #ifndef gettext_noop
+/** Mark String for translation, but don't translate it right now. */
 #define gettext_noop(String) (String)
 #endif
 #ifdef gettext_noop
+/** Mark String for translation, but don't translate it right now. */
 # define N_(String) gettext_noop (String)
 #else
+/** Mark String for translation, but don't translate it right now. */
 # define N_(String) (String)
 #endif
 
@@ -57,4 +82,10 @@ INCLUDE_LOCALE_H
 
 #endif
 
-#endif /* __GIMP_PRINT_INTL_H__ */
+  /** @} */
+
+#ifdef __cplusplus
+  }
+#endif
+
+#endif /* GIMP_PRINT_INTL_H */

@@ -1,5 +1,5 @@
 Mailman - The GNU Mailing List Management System
-Copyright (C) 1998-2003 by the Free Software Foundation, Inc.
+Copyright (C) 1998-2004 by the Free Software Foundation, Inc.
 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
 The following folks are or have been the primary maintainers of Mailman:
@@ -48,6 +48,7 @@ in answering questions on mailman-users.
     Anton Antonov
     Mike Avery
     Stonewall Ballard
+    Moreno Baricevic
     Jeff Berliner
     Stuart Bishop
     David Blomquist
@@ -77,6 +78,7 @@ in answering questions on mailman-users.
     Fred Drake
     Maxim Dzumanenko
     Rob Ellis
+    Kerem Erkan
     Fil
     Patrick Finnerty
     Erik Forsberg
@@ -110,6 +112,7 @@ in answering questions on mailman-users.
     Ashley M. Kirchner
     Matthias Klose
     Harald Koch
+    Eddie Kohler
     Chris Kolar
     Uros Kositer
     Andrew Kuchling
@@ -133,6 +136,7 @@ in answering questions on mailman-users.
     Nigel Metheringham
     Dan Mick
     Garey Mills
+    Michael Fischer v. Mollard
     David Martínez Moreno
     Jonas Muerer
     Erik Myllymaki
@@ -145,6 +149,7 @@ in answering questions on mailman-users.
     Timothy O'Malley
     Jason R. Mastaler
     Michael Meltzer
+    Martin Mokrejs
     Dirk Mueller
     "office"
     Dan Ohnesorg
@@ -162,6 +167,7 @@ in answering questions on mailman-users.
     Don Porter
     Francesco Potortì
     Bob Puff
+    Michael Ranner
     John Read
     Sean Reifschneider
     Christian Reis
@@ -176,6 +182,8 @@ in answering questions on mailman-users.
     Chris Ryan
     Cabel Sasser
     Bartosz Sawicki
+    Karoly Segesdi
+    SHIGENO Kazutaka
     Gleydson Mazioli da Silva
     Pasi Sjöholm
     Chris Snell
@@ -201,9 +209,11 @@ in answering questions on mailman-users.
     Ousmane Wilane
     Dan Wilder
     Seb Wills
+    YASUDA Yukihiro
     Michael Yount
     Blair Zajac
     Noam Zeilberger
+    Daniel Zeiss
     Todd Zullinger
 
 And everyone else on mailman-developers@python.org and

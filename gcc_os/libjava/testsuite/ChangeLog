@@ -1,3 +1,344 @@
+2003-03-02  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Remove all AcuniaPropertiesTest failures
+
+2003-02-16  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Add Class.reflect2 and String.getBytes FAILs.
+
+2003-02-15  Mark Wielaard  <mark@klomp.org>
+
+       * lib/libjava.exp (test_libjava_from_javac): Use regsub not string map.
+       * libjava.mauve/mauve.exp (mauve_compute_uses): Likewise.
+       (test_mauve): Likewise.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* lib/libjava.exp (test_libjava_from_javac): Don't create .o files
+	containing $ characters and always quote class files with "'"s.
+
+2003-02-14  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/mauve.exp (mauve_compute_uses): Add inner class
+	object files by changing all occurances of $ to ^.
+	(test_mauve): Replace ^ with $ for class file names and quote
+	them with "'"s.
+
+2003-02-13  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.mauve/xfails: Added entries for an unimplemented Class
+	method.
+
+2003-02-07  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Add new entries for
+	gnu.testlet.java.text.CollationElementIterator.jdk11
+
+2003-02-03  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_write): Set LD_LIBRARY_PATH
+	to find libgcc_s.  Set JAVA_CLASSPATH to find libgcj.jar.
+
+2003-01-31  Mark Wielaard  <mark@klomp.org>
+ 
+	* lib/libjava.exp (libjava_prune_warnings): Remove all unreachable
+	bytecode warnings.
+
+2003-01-28  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: More lexer tests now pass.
+
+2003-01-27  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/consthrow.java: New file.
+	* libjava.compile/consthrow.xfail: New file.
+
+2003-01-27  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* libjava.lang/pr8823.xfail: New file, add "xfail-byte".
+
+2003-01-24  Ranjit Mathew  <rmathew@hotmail.com>
+
+	* libjava.jni/calls.c (Java_calls_docall): Define with
+	JNIEXPORT and JNICALL method attributes.
+	* libjava.jni/field.c (Java_field_fetch): Likewise.
+	* libjava.jni/final_method.c (Java_final_1method_meth): Likewise.
+	* libjava.jni/findclass.c (Java_findclass_doit): Likewise.
+	* libjava.jni/invoke.c (Java_invoke_val): Likewise.
+	* libjava.jni/martin.c (Java_martin_myNative): Likewise.
+	* libjava.jni/noclass.c (Java_noclass_find_1it): Likewise.
+	* libjava.jni/overload.c (Java_overload_over__I): Likewise.
+	(Java_overload_over__II): Likewise.
+	* libjava.jni/register.c (JNI_OnLoad): Likewise.
+	* libjava.jni/simple_int.c (Java_simple_1int_nat): Likewise.
+	* libjava.jni/throwit.c (Java_throwit_throwit): Likewise.
+	* libjava.jni/virtual.c (Java_virtual_equals): Likewise.
+
+2003-01-21  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: All 8.4.3 tests and 9.4-modifier-10
+	now pass.
+
+2003-01-12  Tom Tromey  <tromey@redhat.com>
+
+	Fix for PR libgcj/9139:
+	* lib/libjava.exp (find_javac): Put value of libgcj_jar into
+	return value when gcj is used.
+	* libjava.mauve/mauve.exp (test_mauve): Use libgcj_jar global.
+
+2003-01-03  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/pr8712.java: New file, for PR java/8712.
+
+2003-01-01  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/pr8955.java: New test, for PR java/8955.
+
+2002-12-19  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.xfail: Updated.
+
+2002-12-18  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/pr8945.java: New file.
+	* libjava.lang/pr8945.out: New file.
+
+2002-12-12  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.loader/loader.exp (gcj_loader_test_one): Use
+	libjava_prune_warnings.
+	(gcj_loader_run): Likewise.
+	* libjava.mauve/mauve.exp (test_mauve): Use
+	libjava_prune_warnings.
+	(test_mauve_sim): Likewise.
+	* libjava.jni/jni.exp (gcj_jni_compile_c_to_so): Use
+	libjava_prune_warnings.
+	(gcj_jni_build_header): Likewise.
+	* lib/libjava.exp (libjava_prune_warnings): New proc.
+	(gcj_link): Use it.
+	(test_libjava_from_source): Likewise.
+	(test_libjava_from_javac): Likewise.
+
+2002-12-08  Tom Tromey  <tromey@redhat.com>
+
+	Test for PR libgcj/8823:
+	* libjava.lang/pr8823.java: New file.
+	* libjava.lang/pr8823.out: New file.
+
+2002-12-05  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/override.java: New file.
+	* libjava.lang/override.out: New file.
+
+2002-12-01  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp (gcj_jacks_setup_xfail): New function.
+	(gcj_jacks_parse): Use it; set up xfails.
+	* libjava.jacks/jacks.xfail: New file.
+
+2002-12-01  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Remove Inspector FAILs that now PASS.
+
+2002-11-21  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/8676:
+	* libjava.lang/pr8676.java: New file.
+	* libjava.lang/pr8676.out: New file.
+
+2002-11-21  Ulrich Weigand  <uweigand@de.ibm.com>
+
+	* libjava.loader/loader.exp (gcj_loader_test_one): Fix typo in
+	'type' argument to libjava_tcompile.
+	(gcj_loader_run): Use libjava_tcompile instead of running
+	GCJ_UNDER_TEST directly.
+
+2002-11-05  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.jacks/jacks.exp: New file.
+
+2002-11-04  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/pr7912.java: New file.
+
+2002-11-04  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/utilTest.java: New.
+	* libjava.lang/utilTest.out: New.
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/MyLoader.java: New constructor.
+	* libjava.loader/TestParent.java: New file.
+	* libjava.loader/TestParent.out: New file.
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/TestEarlyGC.java,
+	libjava.loader/TestEarlyGC.out: New files (from
+	Jeff Sturm).
+
+2002-11-04  Anthony Green  <green@redhat.com>
+
+	* libjava.loader/dummy.java, libjava.loader/loader.exp,
+	libjava.loader/MyLoader.java, libjava.loader/TestLeak.java,
+	libjava.loader/TestLeak.out, libjava.loader/TestMultiple.java,
+	libjava.loader/TestMultiple.out: New files.
+
+2002-11-02  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/initexc.java (fail): Static initializers must be
+	able to complete normally.  From Eric Blake.
+
+	* libjava.lang/initexc.java: New file.
+	* libjava.lang/initexc.out: New file.
+
+2002-11-01  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/8415:
+	* libjava.lang/pr8415.java: New file.
+	* libjava.lang/pr8415.out: New file.
+
+	* libjava.mauve/mauve.exp (find_mauve_sources): New proc.
+	(test_mauve): Use it.
+	(test_mauve_sim): Likewise.
+
+2002-10-24  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/Primes.java: Removed.
+	* libjava.lang/Primes.out: Removed.
+
+2002-10-23  Tom Tromey  <tromey@redhat.com>
+
+	For PR java/6388:
+	* libjava.lang/pr6388.java: New file.
+	* libjava.lang/pr6388.out: New file.
+
+2002-10-15  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/EvaluationOrder.java (EvaluationOrder): New.
+	* libjava.lang/EvaluationOrder.out (EvaluationOrder): New.
+
+2002-10-14  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/StaticConstructor.java: New.
+	* libjava.lang/StaticConstructor.out: New.
+
+2002-10-13  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfails: Remove tests that now XPASS.
+
+2002-10-03  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/Array_3.java (baz): New.
+	(main): Call baz.
+
+2002-09-29  Anthony Green  <green@redhat.com>
+
+	* libjava.lang/TestProxy.java: New file.
+	* libjava.lang/TestProxy.out: Ditto.
+
+2002-09-29  Anthony Green  <green@redhat.com>
+
+	* libjava.lang/utf8concat.java: New file.
+	* libjava.lang/utf8concat.out: Ditto.
+
+2002-08-26  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/narrow_case.java: New file.
+
+2002-08-25  Adam Megacz <adam@xwt.org>
+
+	* lib/libjava.exp: don't apply -no-install when platform is mingw.
+
+2002-08-16  H.J. Lu <hjl@gnu.org>
+
+	* lib/libjava.exp (gcc_version): Removed.
+	(libgcj_jar): New.
+	(libjava_init): Set libgcj_jar with tcl glob.
+	(libjava_arguments): Use libgcj_jar.
+
+2002-07-22  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/zeroexp.java: New file.
+
+2002-07-18  Rainer Orth  <ro@TechFak.Uni-Bielefeld.DE>
+
+	* libjava.compile/compile.exp: Sort sources.
+	* libjava.jni/jni.exp (gcj_jni_run): Likewise.
+	* libjava.lang/lang.exp: Likewise.
+
+2002-07-02  Andrew Haley  <aph@redhat.com>
+
+	* libjava.lang/inline.java: New file.
+	* libjava.lang/inline.out: Likewise.
+
+	* libjava.lang/Array_3.java: Add another case.
+
+2002-06-23  Tom Tromey  <tromey@redhat.com>
+
+	* Makefile.in: Rebuilt.
+	* Makefile.am (RUNTEST): Added AM_RUNTESTFLAGS.
+	(AM_RUNTESTFLAGS): New variable.
+	(RUNTESTFLAGS): Don't define.
+	* lib/libjava.exp (libjava_invoke): New proc.
+	(test_libjava_from_source): Use it.
+	(test_libjava_from_javac): Likewise.
+	(libjava_find_gij): New proc.
+
+2002-06-12  Tom Tromey  <tromey@redhat.com>
+
+	* lib/libjava.exp (test_libjava): Fixed typo.
+	* libjava.compile/PR6865.xfail: New file.
+
+2002-06-11  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/PR6865.java: New file.  For PR java/6865.
+
+	* libjava.lang/PR6520.java: Fixed typo.
+
+2002-06-10  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.lang/PR6520.java: New file.  For PR java/6520.
+
+2002-06-04  Tom Tromey  <tromey@redhat.com>
+
+	* libjava.compile/T20020604.java: New file.
+
+	For PR libgcj/6389:
+	* libjava.mauve/xfails: Now passes System.getProperty test.
+
+	For PR java/1343 and PR java/6336:
+	* libjava.compile/PR1343.java: New file.
+
+	For PR java/5913:
+	* libjava.compile/PR5913.xfail: Removed.
+
+2002-05-29  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.compile/T20020529.java: New file.
+
+2002-05-27  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/PR6820.java: New file.
+	* libjava.lang/PR6820.out: New file.
+
+2002-05-23  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/PR6729.java: New file.
+	* libjava.lang/PR6729.out: New file.
+
+2002-05-04  Mark Wielaard  <mark@klomp.org>
+
+	For PR java/6519:
+	* libjava.lang/emptystring.java: New.
+	* libjava.lang/emptystring.out: New.
+
+2002-04-21  Mark Wielaard  <mark@klomp.org>
+
+	* libjava.mauve/xfail: Expect failures for PR java/6391 and
+	libgcj/6389.
+
 2002-04-16  Mark Wielaard  <mark@klomp.org>
 
 	* libjava.lang/negzero.java: New.
@@ -5,17 +346,27 @@
 
 2002-04-14  Mark Wielaard  <mark@klomp.org>
 
-	* libjava.mauve/xfails: Expect failures for PR libgcj/6302 and
-	libgcj/6298.
+        * libjava.mauve/xfails: Expect failures for PR libgcj/6302 and
+        libgcj/6298.
 
 2002-04-14  Mark Wielaard  <mark@klomp.org>
 
 	* libjava.mauve/xfails: Expect failures for PR libgcj/6293,
 	libgcj/6295, libgcj/6296 and libgcj/6297.
 
-2002-04-11  Anthony Green  <green@redhat.com>
+2002-04-12  Anthony Green  <green@redhat.com>
 
-	* lib/libjava.exp: Use libgcj-3.1.jar, not libgcj.jar.
+	* lib/libjava.exp: Use libgcj-VERSION.jar, not libgcj.jar.
+
+2002-04-12  Loren J. Rittle <ljrittle@acm.org>
+
+	* libjava.lang/SyncGlobal.java, libjava.lang/SyncGlobal.out:
+	New test case.
+
+2002-04-09  Bryce McKinlay  <bryce@waitaki.otago.ac.nz>
+
+	* libjava.lang/PR6204.java, libjava.lang/PR6204.out: New test case.
+	* libjava.lang/PR6085.java, libjava.lang/PR6085.out: Likewise.
 
 2002-04-07  Mark Wielaard  <mark@klomp.org>
 

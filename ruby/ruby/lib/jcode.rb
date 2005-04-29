@@ -1,15 +1,15 @@
 # jcode.rb - ruby code to handle japanese (EUC/SJIS) string
 
 if $VERBOSE && $KCODE == "NONE"
-  STDERR.puts "Warning: $KCODE is NONE."
+  warn "Warning: $KCODE is NONE."
 end
 
 $vsave, $VERBOSE = $VERBOSE, false
 class String
-  printf STDERR, "feel free for some warnings:\n" if $VERBOSE
+  warn "feel free for some warnings:\n" if $VERBOSE
 
   def _regex_quote(str)
-    str.gsub(/(\\[][\-\\])|\\(.)|([][\\])/) do
+    str.gsub(/(\\[\[\]\-\\])|\\(.)|([\[\]\\])/) do
       $1 || $2 || '\\' + $3
     end
   end
@@ -19,9 +19,9 @@ class String
   PATTERN_EUC = '[\xa1-\xfe][\xa1-\xfe]'
   PATTERN_UTF8 = '[\xc0-\xdf][\x80-\xbf]|[\xe0-\xef][\x80-\xbf][\x80-\xbf]'
 
-  RE_SJIS = Regexp.new(PATTERN_SJIS, 'n')
-  RE_EUC = Regexp.new(PATTERN_EUC, 'n')
-  RE_UTF8 = Regexp.new(PATTERN_UTF8, 'n')
+  RE_SJIS = Regexp.new(PATTERN_SJIS, 0, 'n')
+  RE_EUC = Regexp.new(PATTERN_EUC, 0, 'n')
+  RE_UTF8 = Regexp.new(PATTERN_UTF8, 0, 'n')
 
   SUCC = {}
   SUCC['s'] = Hash.new(1)
@@ -59,13 +59,13 @@ class String
   def end_regexp
     case $KCODE[0]
     when ?s, ?S
-      /#{PATTERN_SJIS}$/o
+      /#{PATTERN_SJIS}$/on
     when ?e, ?E
-      /#{PATTERN_EUC}$/o
+      /#{PATTERN_EUC}$/on
     when ?u, ?U
-      /#{PATTERN_UTF8}$/o
+      /#{PATTERN_UTF8}$/on
     else
-      /.$/o
+      /.$/on
     end
   end
 
@@ -90,7 +90,8 @@ class String
   end
 
   def succ
-    (str = self.dup).succ! or str
+    str = self.dup
+    str.succ! or str
   end
 
   private
@@ -130,7 +131,8 @@ class String
   public
 
   def tr!(from, to)
-    return self.delete!(from) if to.length == 0
+    return nil if from == ""
+    return self.delete!(from) if to == ""
 
     pattern = TrPatternCache[from] ||= /[#{_regex_quote(from)}]/
     if from[0] == ?^
@@ -147,6 +149,7 @@ class String
   end
 
   def delete!(del)
+    return nil if del == ""
     self.gsub!(DeletePatternCache[del] ||= /[#{_regex_quote(del)}]+/, '')
   end
 
@@ -155,6 +158,7 @@ class String
   end
 
   def squeeze!(del=nil)
+    return nil if del == ""
     pattern =
       if del
 	SqueezePatternCache[del] ||= /([#{_regex_quote(del)}])\1+/

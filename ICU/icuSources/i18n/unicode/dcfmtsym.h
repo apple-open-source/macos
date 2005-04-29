@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 1997-2003, International Business Machines
+*   Copyright (C) 1997-2004, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -112,6 +112,9 @@ public:
         kInfinitySymbol,
         /** Nan symbol */
         kNaNSymbol,
+        /** Significant digit symbol
+         * @draft ICU 3.0 */
+        kSignificantDigitSymbol,
         /** count symbol constants */
         kFormatSymbolCount
     };
@@ -154,7 +157,7 @@ public:
      * Destructor.
      * @stable ICU 2.0
      */
-    ~DecimalFormatSymbols();
+    virtual ~DecimalFormatSymbols();
 
     /**
      * Return true if another object is semantically equal to this one.
@@ -183,7 +186,7 @@ public:
      * @return    the format symbols by the param 'symbol'
      * @stable ICU 2.0
      */
-    UnicodeString getSymbol(ENumberFormatSymbol symbol) const;
+    inline UnicodeString getSymbol(ENumberFormatSymbol symbol) const;
 
     /**
      * Set one of the format symbols by its enum constant.
@@ -203,18 +206,25 @@ public:
     inline Locale getLocale() const;
 
     /**
+     * Returns the locale for this object. Two flavors are available:
+     * valid and actual locale.
+     * @draft ICU 2.8 likely to change in ICU 3.0, based on feedback
+     */
+    Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const;
+
+    /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    virtual inline UClassID getDynamicClassID() const;
+    virtual UClassID getDynamicClassID() const;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 2.2
+     * @stable ICU 2.2
      */
-    static inline UClassID getStaticClassID();
+    static UClassID U_EXPORT2 getStaticClassID();
 
 private:
     DecimalFormatSymbols(); // default constructor not implemented
@@ -238,7 +248,7 @@ private:
      * @param numberElements    the number format symbols
      * @param numberElementsLength length of numberElements
      */
-    void initialize(const UnicodeString* numberElements, int32_t numberElementsLength);
+    void initialize(const UChar** numberElements, int32_t *numberElementsStrLen, int32_t numberElementsLength);
 
     /**
      * Initialize the symbols with default values.
@@ -287,41 +297,32 @@ private:
 
     Locale locale;
 
-    static const char fgNumberElements[];
-
-    /**
-     * The address of this static class variable serves as this class's ID
-     * for ICU "poor man's RTTI".
-     */
-    static const char fgClassID;
+    char actualLocale[ULOC_FULLNAME_CAPACITY];
+    char validLocale[ULOC_FULLNAME_CAPACITY];
 };
-
-inline UClassID
-DecimalFormatSymbols::getStaticClassID()
-{ return (UClassID)&fgClassID; }
-
-inline UClassID
-DecimalFormatSymbols::getDynamicClassID() const
-{ return DecimalFormatSymbols::getStaticClassID(); }
 
 // -------------------------------------
 
 inline UnicodeString
 DecimalFormatSymbols::getSymbol(ENumberFormatSymbol symbol) const {
-    if(symbol<kFormatSymbolCount) {
-        return fSymbols[symbol];
+    const UnicodeString *strPtr;
+    if(symbol < kFormatSymbolCount) {
+        strPtr = &fSymbols[symbol];
     } else {
-        return UnicodeString();
+        strPtr = &fNoSymbol;
     }
+    return *strPtr;
 }
 
 inline const UnicodeString &
 DecimalFormatSymbols::getConstSymbol(ENumberFormatSymbol symbol) const {
-    if(symbol<kFormatSymbolCount) {
-        return fSymbols[symbol];
+    const UnicodeString *strPtr;
+    if(symbol < kFormatSymbolCount) {
+        strPtr = &fSymbols[symbol];
     } else {
-        return fNoSymbol;
+        strPtr = &fNoSymbol;
     }
+    return *strPtr;
 }
 
 // -------------------------------------

@@ -298,6 +298,15 @@ convert_to_pointer_force (type, expr)
   
   if (form == POINTER_TYPE)
     {
+      /* APPLE LOCAL begin XJR */
+      /* Casts to a (pointer to a) specific ObjC class (or 'id' or
+	 'Class') should always be retained, because this information aids
+	 in method lookup.  */
+      if (flag_objc 
+	  && (objc_is_object_ptr_type (type, 1)))
+	return build1 (NOP_EXPR, type, expr);
+      /* APPLE LOCAL end XJR */
+
       intype = TYPE_MAIN_VARIANT (intype);
 
       if (TYPE_MAIN_VARIANT (type) != intype
@@ -308,15 +317,6 @@ convert_to_pointer_force (type, expr)
 	{
 	  enum tree_code code = PLUS_EXPR;
 	  tree binfo;
-
-	  /* APPLE LOCAL begin Objective-C++ */
-	  /* Casts to a (pointer to a) specific ObjC class (or 'id' or
-	     'Class') should always be retained, because this information aids 
-	     in method lookup.  */
-	  if (flag_objc 
-	      && (objc_is_id (type) || is_class_name (TREE_TYPE (type))))
-	    return build1 (NOP_EXPR, type, expr);
-	  /* APPLE LOCAL end Objective-C++ */
 
 	  binfo = lookup_base (TREE_TYPE (intype), TREE_TYPE (type),
 			       ba_ignore, NULL);
@@ -370,7 +370,7 @@ build_up_reference (type, arg, flags, decl)
 	 here because it needs to live as long as DECL.  */
       tree targ = arg;
 
-      arg = make_temporary_var_for_ref_to_temp (decl);
+      arg = make_temporary_var_for_ref_to_temp (decl, TREE_TYPE (arg));
 
       /* Process the initializer for the declaration.  */
       DECL_INITIAL (arg) = targ;

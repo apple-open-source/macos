@@ -1,5 +1,5 @@
 /* mailbox.h -- Mailbox format definitions
- * $Id: mailbox.h,v 1.81 2004/01/22 21:17:09 ken3 Exp $
+ * $Id: mailbox.h,v 1.5 2005/03/05 00:36:58 dasenbro Exp $
  *
  * Copyright (c) 1998-2003 Carnegie Mellon University.  All rights reserved.
  *

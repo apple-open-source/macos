@@ -1,0 +1,23 @@
+%(listname)s mesaj listesi için listeden çýkma onay bildirimi
+
+%(remote)s, "%(email)s" olan e-posta adresinizin çýkarýlmasý için bir
+istek aldýk. Bu listeden çýkmak istediðinizi onaylamak için bu
+mesajý, Konu: baþlýðýný deðiþtirmeden yanýtlayýn. Veya bu web
+sayfasýna gidin:
+
+    %(confirmurl)s
+
+Veya bir mesaja aþaðýdaki satýrý -- sadece aþaðýdaki satýrý --
+yazarak %(requestaddr)s adresine gönderin:
+
+    confirm %(cookie)s
+
+Basitçe bu mesajý `yanýtlamak', çoðu e-posta okuma programýnda
+çalýþýr, çünkü bu durumda Konu: satýrý doðru biçimde kalýr
+(Konu: içinde fazladan "Re:" veya "Ynt:" olmasý sorun deðildir).
+
+Eðer bu listeden çýkmak istemiyorsanýz, bu mesajý gözardý edin.
+Eðer bu listeden kötü niyetle çýkarýlmak istediðinizi
+düþünüyorsanýz veya baþka sorularýnýz varsa, bunlarý %(listadmin)s
+adresine gönderin.
+

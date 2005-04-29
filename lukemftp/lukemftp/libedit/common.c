@@ -1,4 +1,4 @@
-/*	$NetBSD: common.c,v 1.9 2000/09/04 22:06:29 lukem Exp $	*/
+/*	$NetBSD: common.c,v 1.11 2002/03/18 16:00:51 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,12 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * common.c: Common Editor functions
  */
-#include "sys.h"
 #include "el.h"
 
 /* ed_end_of_file():
@@ -70,8 +72,11 @@ ed_insert(EditLine *el, int c)
 		return (CC_ERROR);
 
 	if (el->el_line.lastchar + el->el_state.argument >=
-	    el->el_line.limit)
-		return (CC_ERROR);	/* end of buffer space */
+	    el->el_line.limit) {
+		/* end of buffer space, try to allocate more */
+		if (!ch_enlargebufs(el, (size_t) el->el_state.argument))
+			return CC_ERROR;	/* error allocating more */
+	}
 
 	if (el->el_state.argument == 1) {
 		if (el->el_state.inputmode != MODE_INSERT) {
@@ -401,8 +406,10 @@ ed_digit(EditLine *el, int c)
 		}
 		return (CC_ARGHACK);
 	} else {
-		if (el->el_line.lastchar + 1 >= el->el_line.limit)
-			return (CC_ERROR);
+		if (el->el_line.lastchar + 1 >= el->el_line.limit) {
+			if (!ch_enlargebufs(el, 1))
+				return (CC_ERROR);
+		}
 
 		if (el->el_state.inputmode != MODE_INSERT) {
 			el->el_chared.c_undo.buf[el->el_chared.c_undo.isize++] =

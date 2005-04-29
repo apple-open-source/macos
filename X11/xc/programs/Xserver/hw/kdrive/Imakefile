@@ -1,5 +1,5 @@
 XCOMM $XConsortium: Imakefile /main/10 1996/12/02 10:20:33 lehors $
-XCOMM $XFree86: xc/programs/Xserver/hw/kdrive/Imakefile,v 1.8 2001/05/29 04:54:10 keithp Exp $
+XCOMM $XFree86: xc/programs/Xserver/hw/kdrive/Imakefile,v 1.9 2003/11/12 19:10:32 dawes Exp $
 KDRIVE=.
 #include "Kdrive.tmpl"
 
@@ -31,4 +31,5 @@ NormalLibraryTarget(kdrive,$(OBJS))
 SpecialCObjectRule(kdrive,,$(EXT_DEFINES))
 
 InstallManPage(Xkdrive,$(MANDIR))
+InstallManPageAliases(Xkdrive,$(MANDIR),TinyX)
 DependTarget()

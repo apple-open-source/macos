@@ -23,7 +23,7 @@
 .\" other dealings in this Software without prior written authorization
 .\" from The Open Group.
 .\"
-.\" $XFree86: xc/programs/xclock/xclock.man,v 1.13 2002/10/21 13:33:08 alanh Exp $
+.\" $XFree86: xc/programs/xclock/xclock.man,v 1.16 2003/07/07 15:34:29 eich Exp $
 .\"
 .TH XCLOCK 1 __xorgversion__
 .SH NAME
@@ -35,6 +35,10 @@ xclock \- analog / digital clock for X
 [ \fB\-hl\fP \fIcolor\fP ] [ \fB\-update\fP \fIseconds\fP ]
 [ \fB\-strftime\fP \fIformat\fP ]
 [ \fB\-padding\fP \fInumber\fP ]
+[ \fB\-norender\fP ]
+[ \fB\-render\fP ]
+[ \fB\-sharp\fP ]
+[ \fB\-face\fP \fIpattern\fP ]
 .SH DESCRIPTION
 The
 .I xclock 
@@ -84,10 +88,12 @@ once on the half hour and twice on the hour.
 \fB\-hands\fP \fIcolor\fP (or \fB\-hd\fP \fIcolor\fP)
 This option specifies the color of the hands on an analog clock.  The default
 is \fIblack\fP.
+This option is effectively ignored when Xrender is in use.
 .TP 8
 \fB\-highlight\fP \fIcolor\fP (or \fB\-hl\fP \fIcolor\fP)
 This option specifies the color of the edges of the hands on an analog clock,
 and is only useful on color displays.  The default is \fIblack\fP.
+This option is effectively ignored when Xrender is in use.
 .TP 8
 .B \-update \fIseconds\fP
 This option specifies the frequency in seconds at which \fIxclock\fP
@@ -99,6 +105,24 @@ second hand on an analog clock.  The default is 60 seconds.
 This option specifies the width in pixels of the padding 
 between the window border and clock text or picture.  The default is 10
 on a digital clock and 8 on an analog clock.
+.TP 8
+.B \-render
+This option tells \fIxclock\fP to use the Xrender extension to draw an
+anti-aliased face. This is the default if \fIxclock\fP has been
+compiled with Xrender support.
+Note that the color selection options and resources used when Xrender is
+in effect differ from the standard options.
+.TP 8
+.B \-norender
+This option turns off the use of Xrender to draw the clock.
+.TP 8 
+.B \-sharp
+This option tells \fIxclock\fP to use sharper edges when drawn using
+the Xrender extension. 
+.TP 8
+.B \-face \fIpattern\fP
+This option specifies the font to use in digital mode when the
+Xrender extension is used. 
 .SH X DEFAULTS
 This program uses the 
 .I Clock
@@ -119,22 +143,24 @@ clock when displayed in the chosen font.
 Specifies the frequency in seconds at which the time should be redisplayed.
 .TP 8
 .B foreground (\fPclass\fB Foreground)
-Specifies the color for the tic marks. The default is depends on whether
+Specifies the color for the tick marks. The default depends on whether
 \fIreverseVideo\fP is specified.  If \fIreverseVideo\fP is specified
 the default is \fIlwhite\fP, otherwise the default is \fIblack\fP. 
 
 .TP 8
 .B hands (\fPclass\fB Foreground)
-Specifies the color of the insides of the clock's hands. The default is 
+Specifies the color of the insides of the clock's hands. The default 
 depends on whether
 \fIreverseVideo\fP is specified.  If \fIreverseVideo\fP is specified
 the default is \fIlwhite\fP, otherwise the default is \fIblack\fP.
+Note that this resource is not used when Xrender is in effect.
 .TP 8
 .B highlight (\fPclass\fB Foreground)
 Specifies the color used to highlight the clock's hands. The default is
  depends on whether
 \fIreverseVideo\fP is specified.  If \fIreverseVideo\fP is specified
 the default is \fIlwhite\fP, otherwise the default is \fIblack\fP.
+Note that this resource is not used when Xrender is in effect.
 .TP 8
 .B analog (\fPclass\fB Boolean)
 Specifies whether or not an analog clock should be used instead of a digital
@@ -154,6 +180,48 @@ Specifies the amount of internal padding in pixels to be used.  The default is
 .B font (\fPclass\fB Font)
 Specifies the font to be used for the digital clock.  Note that variable width
 fonts currently will not always display correctly.
+This font is only used when Xrender is not in effect.
+.TP 8
+.B render (\fPclass\fB Boolean)
+Specifies whether or not the Xrender extension should be used for the 
+display. The default is True if \fIxclock\fP has been compiled with
+Xrender support.
+.PP
+When Xrender is in effect, the following additional resources are
+understood:
+.PP
+.TP 8
+.B face (\fPclass\fB FaceName)
+Specify the pattern for the font to be used for the digital clock when
+Xrender is used. 
+.TP 8
+.B sharp (\fPclass\fB Boolean)
+Specifies if sharp edges should be used when rendering the clock. 
+The default is False. 
+.TP 8
+.B buffer (\fPclass\fB Boolean)
+Specifies that the updates of the image are drawn to a pixmap before copied
+into the window instead drawing them into the window directly.
+.PP
+The defaults of the following color resources depend on whether
+\fIreverseVideo\fP is specified.
+If \fIreverseVideo\fP is specified the default is \fIlwhite\fP,
+otherwise the default is \fIblack\fP.
+.TP 8
+.B hourColor (\fPclass\fB Foreground)
+The color of the hour hand.
+.TP 8
+.B minuteColor (\fPclass\fB Foreground)
+The color of the minute hand.
+.TP 8
+.B secondColor (\fPclass\fB Foreground)
+The color of the second hand.
+.TP 8
+.B majorColor (\fPclass\fB Foreground)
+The color of the major scale ticks (i. e. each five minutes).
+.TP 8
+.B minorColor (\fPclass\fB Foreground)
+The color of the minor scale ticks (between major ticks).
 .SH WIDGETS
 In order to specify resources, it is useful to know the hierarchy of
 the widgets which compose \fIxclock\fR.  In the notation below,
@@ -161,7 +229,7 @@ indentation indicates hierarchical structure.  The widget class name
 is given first, followed by the widget instance name.
 .sp
 .nf
-.TA .5i 
+.\".TA .5i 
 .ta .5i 
 XClock  xclock
 	Clock  clock

@@ -1,0 +1,13 @@
+/*
+ * Host.def for building Linux/amd64 bindists
+ *
+ * $XFree86: xc/programs/Xserver/hw/xfree86/etc/bindist/Linux-amd64/host.def,v 1.1 2004/02/29 00:09:28 dawes Exp $
+ */
+
+#define InstallEmptyHostDef
+#define BuildBindist
+
+#define BuildXF86DRI YES
+
+#define ForceNormalLib YES
+

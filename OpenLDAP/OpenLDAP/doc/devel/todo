@@ -30,29 +30,34 @@ OpenLDAP 2.x Projects
 
 Large projects
 --------------
-Localize slapd
-Implement X.500 administrative models (e.g. subentries, etc.)
-Implement LDAP component matching
-Implement LDAP sorted search results control
+Implement character string localization 
+Implement X.500 administrative models (e.g. subentries (RFC 3672), etc.)
+Implement LDAP sorted search results control (RFC 2891)
 
 
 Medium projects
 ---------------
-Implement authPassword (RFC 3112)
+Add DSML capabilities to command line tools
 Implement DIT Structure Rules and Name Forms
-Implement LDAP Assertion Control
-Implement LDAP Transactions extension
+Implement native support for simple SASL mechanisms
+	(e.g. EXTERNAL and PLAIN)
+Redesign slapd to use poll(2) instead of select(2)
 Redesign slapd memory allocation fault handling
 Localize tools
 
 
 Small projects
 --------------
-Add DSML capabilities to command line tools
+Implement authPassword (RFC 3112)
+Add LDIFv2 (XML) support to command line tools
+Implement LDAPprep and SASLprep
+Implement additional matching rules (RFC 3698)
+Add syncrepl "turn" support
 Add dumpasn1 logging support
 Add tests to test suite
-Convert utfconv.txt into man page(s).
+Add jail(2) support
 Recode linked-list structs to use <ldap_queue.h> macros
+Convert utfconv.txt into man page(s).
 Update any manual page
 
 
@@ -65,4 +70,4 @@ JLDAP TODO items, see:
   http://www.openldap.org/devel/cvsweb.cgi/~checkout~/design/todo.txt?rev=1&cvsroot=JLDAP
 
 ---
-$OpenLDAP: pkg/ldap/doc/devel/todo,v 1.91.2.17 2003/05/15 19:38:50 kurt Exp $
+$OpenLDAP: pkg/ldap/doc/devel/todo,v 1.119.2.10 2004/10/20 20:06:51 kurt Exp $

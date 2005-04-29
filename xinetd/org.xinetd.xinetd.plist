@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN"
+	"http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.xinetd.xinetd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>xinetd</string>
+		<string>-dontfork</string>
+		<string>-stayalive</string>
+		<string>-inetd_compat</string>
+		<string>-pidfile</string>
+		<string>/var/run/xinetd.pid</string>
+	</array>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/etc/xinetd.d</string>
+	</array>
+</dict>
+</plist>

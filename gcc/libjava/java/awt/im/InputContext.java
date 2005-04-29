@@ -1,5 +1,5 @@
 /* InputContext.java -- provides the context for text input
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2003 Free Software Foundation, Inc.
 
 This file is part of GNU Classpath.
 
@@ -46,7 +46,6 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -87,22 +86,22 @@ public class InputContext
   private static final ArrayList descriptors = new ArrayList();
   static
   {
-    Enumeration enum;
+    Enumeration e;
     try
       {
-        enum = ClassLoader.getSystemResources
+        e = ClassLoader.getSystemResources
           ("META_INF/services/java.awt.im.spi.InputMethodDescriptor");
       }
     catch (IOException ex)
       {
         // XXX Should we do something else?
-        enum = EmptyEnumeration.getInstance();
+        e = EmptyEnumeration.getInstance();
       }
-    while (enum.hasMoreElements())
+    while (e.hasMoreElements())
       {
-        URL url = (URL) enum.nextElement();
-        BufferedReader in;
-        String line;
+        URL url = (URL) e.nextElement();
+        BufferedReader in = null;
+        String line = null;
         try
           {
             in = new BufferedReader
@@ -126,7 +125,7 @@ public class InputContext
                   }
                 line = in.readLine().trim();
               }
-            catch (IOException e)
+            catch (IOException ex)
               {
                 continue outer;
               }
@@ -340,7 +339,6 @@ public class InputContext
    *
    * @throws UnsupportedOperationException if there is no current input method,
    *         or the input method does not support reconversion
-   * @throws UnsupportedOperationException if ther
    * @since 1.3
    */
   public void reconvert()

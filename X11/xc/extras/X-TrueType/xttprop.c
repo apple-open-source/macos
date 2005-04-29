@@ -30,11 +30,14 @@
 
 Notice===
 */
+/* $XFree86: xc/extras/X-TrueType/xttprop.c,v 1.6 2003/11/06 18:37:54 tsi Exp $ */
 
 #include "xttversion.h"
 
+#if 0
 static char const * const releaseID =
     _XTT_RELEASE_NAME;
+#endif
 
 /* THIS FILE IS BASED ON Speedo Font lib spinfo.c */
 
@@ -102,7 +105,7 @@ from the X Consortium.
 #define STRETCH_FACTOR  120
 
 enum scaleType {
-    atom, truncate_atom, pixel_size, point_size, resolution_x,
+    none, atom, truncate_atom, pixel_size, point_size, resolution_x,
     resolution_y, average_width
 };
 
@@ -133,13 +136,13 @@ static fontProp fontNamePropTable[] = {
    defines after it. */
 
 static fontProp extraProps[] = {
-    { "FONT", 0, 0 },
-    { "COPYRIGHT", 0, 0 },
-    { "RAW_PIXEL_SIZE", 0, 0 },
-    { "RAW_POINT_SIZE", 0, 0 },
-    { "RAW_ASCENT", 0, 0 },
-    { "RAW_DESCENT", 0, 0 },
-    { "RAW_AVERAGE_WIDTH", 0, 0 },
+    { "FONT", 0, none },
+    { "COPYRIGHT", 0, none },
+    { "RAW_PIXEL_SIZE", 0, none },
+    { "RAW_POINT_SIZE", 0, none },
+    { "RAW_ASCENT", 0, none },
+    { "RAW_DESCENT", 0, none },
+    { "RAW_AVERAGE_WIDTH", 0, none },
 };
 
 /* this is a bit kludgy */
@@ -155,8 +158,6 @@ static fontProp extraProps[] = {
 #define NEXTRAPROPS (sizeof(extraProps) / sizeof(fontProp))
 
 #define NPROPS  (NNAMEPROPS + NEXTRAPROPS)
-
-extern Atom MakeAtom(char *string, unsigned len, Bool makeit);
 
 void
 freetype_make_standard_props(void)
@@ -239,6 +240,8 @@ freetype_compute_props(FontInfoPtr pinfo,
         case average_width:
             pp->value = vals->width;
             break;
+	default:
+	    break;
         }
     }
 

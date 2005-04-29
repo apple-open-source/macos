@@ -85,13 +85,17 @@ private ItemListener item_listeners;
  * Constructors
  */
 
-/**
-  * Initializes a new instance of <code>Choice</code>.
-  */
-public
-Choice()
-{
-}
+  /**
+   * Initializes a new instance of <code>Choice</code>.
+   *
+   * @exception HeadlessException If GraphicsEnvironment.isHeadless()
+   * returns true
+   */
+  public Choice()
+  {
+    if (GraphicsEnvironment.isHeadless())
+      throw new HeadlessException ();
+  }
 
 /*************************************************************************/
 
@@ -146,12 +150,16 @@ getItem(int index)
   * Adds the specified item to this choice box.
   *
   * @param item The item to add.
+  *
+  * @exception NullPointerException If the item's value is null
+  *
+  * @since 1.1
   */
 public synchronized void
 add(String item)
 {
   if (item == null)
-    throw new IllegalArgumentException ("item must be non-null");
+    throw new NullPointerException ("item must be non-null");
 
   pItems.addElement(item);
 
@@ -171,7 +179,12 @@ add(String item)
 /**
   * Adds the specified item to this choice box.
   *
+  * This method is oboslete since Java 2 platform 1.1. Please use @see add
+  * instead.
+  *
   * @param item The item to add.
+  *
+  * @exception NullPointerException If the item's value is equal to null
   */
 public synchronized void
 addItem(String item)
@@ -189,10 +202,15 @@ addItem(String item)
  *
  * @param item The item to add.
  * @param index The index at which the item should be inserted.
+ *
+ * @exception IllegalArgumentException If index is less than 0
  */
 public synchronized void
 insert(String item, int index)
 {
+  if (index < 0)
+    throw new IllegalArgumentException ("index may not be less then 0");
+
   if (index > getItemCount ())
     index = getItemCount ();
 
@@ -215,7 +233,7 @@ insert(String item, int index)
   *
   * @param item The item to remove.
   *
-  * @param IllegalArgumentException If the specified item doesn't exist.
+  * @exception IllegalArgumentException If the specified item doesn't exist.
   */
 public synchronized void
 remove(String item)
@@ -234,7 +252,7 @@ remove(String item)
   *
   * @param index The index of the item to remove.
   *
-  * @exception ArrayIndexOutOfBoundException If the index is not valid.
+  * @exception IndexOutOfBoundsException If the index is not valid.
   */
 public synchronized void
 remove(int index)
@@ -325,7 +343,7 @@ getSelectedIndex()
   *
   * @param index The index of the row to make selected.
   *
-  * @param IllegalArgumentException If the specified index is invalid.
+  * @exception IllegalArgumentException If the specified index is invalid.
   */
 public synchronized void
 select(int index)
@@ -429,6 +447,18 @@ processItemEvent(ItemEvent event)
 {
   if (item_listeners != null)
     item_listeners.itemStateChanged(event);
+}
+
+void
+dispatchEventImpl(AWTEvent e)
+{
+  if (e.id <= ItemEvent.ITEM_LAST
+      && e.id >= ItemEvent.ITEM_FIRST
+      && (item_listeners != null 
+	  || (eventMask & AWTEvent.ITEM_EVENT_MASK) != 0))
+    processEvent(e);
+  else
+    super.dispatchEventImpl(e);
 }
 
 /*************************************************************************/

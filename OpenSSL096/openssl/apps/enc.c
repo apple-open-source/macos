@@ -246,6 +246,9 @@ bad:
 			BIO_printf(bio_err,"des     : 56 bit key DES encryption\n");
 			BIO_printf(bio_err,"des_ede :112 bit key ede DES encryption\n");
 			BIO_printf(bio_err,"des_ede3:168 bit key ede DES encryption\n");
+#ifndef NO_IDEA
+			BIO_printf(bio_err,"idea    :128 bit key IDEA encryption\n");
+#endif
 #ifndef NO_RC4
 			BIO_printf(bio_err,"rc2     :128 bit key RC2 encryption\n");
 #endif
@@ -275,6 +278,12 @@ bad:
 			BIO_printf(bio_err," -%-4s (%s)\n",
 				"des3", LN_des_ede3_cbc);
 
+#ifndef NO_IDEA
+			BIO_printf(bio_err," -%-12s -%-12s -%-12s -%-12s",
+				LN_idea_ecb, LN_idea_cbc,
+				LN_idea_cfb64, LN_idea_ofb64);
+			BIO_printf(bio_err," -%-4s (%s)\n","idea",LN_idea_cbc);
+#endif
 #ifndef NO_RC2
 			BIO_printf(bio_err," -%-12s -%-12s -%-12s -%-12s",
 				LN_rc2_ecb, LN_rc2_cbc,

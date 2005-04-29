@@ -1,0 +1,159 @@
+#   Copyright (C) 2004 Free Software Foundation, Inc.
+#
+# This Program Is Free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+# Please email any bugs, comments, and/or additions to this file to:
+# bug-gdb@prep.ai.mit.edu
+
+# Test xcode's stack-list-frames-lite command.
+#
+# Written by Jason Molenda (jmolenda@apple.com)
+
+load_lib mi-support.exp
+set MIFLAGS "-i=mi1"
+
+gdb_exit
+if [mi_gdb_start] {
+    continue
+}
+
+set testfile "callfuncs"
+set srcfile ${testfile}.c
+set binfile ${objdir}/${subdir}/${testfile}
+if  { [gdb_compile "${srcdir}/${subdir}/${srcfile}" "${binfile}" executable {debug}] != "" } {
+    gdb_suppress_entire_file "Testcase compile failed, so all tests in this file will automatically fail."
+}
+
+mi_delete_breakpoints
+mi_gdb_reinitialize_dir $srcdir/$subdir
+mi_gdb_load ${binfile}
+
+send_gdb "100-break-insert foo4\n"
+gdb_expect {
+    -re "100\\^done,bkpt=\{number=\"1\",type=\"breakpoint\",disp=\"keep\",enabled=\"y\",addr=\"$hex\",func=\".*foo4.*\",file=\".*callfuncs.c\",line=\"($decimal)\",shlib=\"$binfile\",times=\"0\"\}\[\r\n\]+$mi_gdb_prompt$"  {
+    pass "break-insert foo4"
+  }
+  -re ".*$mi_gdb_prompt$" {
+    fail "break-insert foo4"
+  }
+  timeout {
+    fail "(timeout) break-insert foo4"
+  }
+}
+
+mi_run_cmd
+# The running part has been checked already by mi_run_cmd
+
+mi_get_bp_stopped "1" "\[01\]" "" "foo4" "callfuncs.c" ".*" "run to foo4"
+
+mi_gdb_test "103-mi-verify-command stack-list-frames-lite" {103\^done,name="stack-list-frames-lite",defined="true",implemented="true"} "Verify stack-list-frames-lite defined"
+
+mi_gdb_test "104-stack-list-frames-lite -limit 500" \
+  "104\\^done,frames=\\\[0=\{pc=\"$hex\",fp=\"$hex\"\},1=\{pc=\"$hex\",fp=\"$hex\"\},2=\{pc=\"$hex\",fp=\"$hex\"\},3=\{pc=\"$hex\",fp=\"$hex\"\},4=\{pc=\"$hex\",fp=\"$hex\"\}\\\],valid=\"1\",count=\"5\"" "-stack-list-frames-lite works"
+
+mi_gdb_test "105-stack-info-depth" \
+  "105\\^done,depth=\"5\"" "check stack depth is as expected"
+
+# SWEET GOD I HATE TCL DIE DIE DIE DIE EVIL TCL DIE EVIL TCL
+#
+#send_gdb "110-stack-list-frames 0 3\n"
+#gdb_expect {
+#  -re "110\\^done,stack=\\\[frame=\{level=\"0\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo4\",.*\},frame=\{level=\"1\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo3\",.*\},frame=\{level=\"2\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo2\",.*\},frame=\{level=\"3\",addr=\"($hex)\",fp=\"($hex)\",func=\"foo1\",.*\}\\\]\[\r\n\]+$mi_gdb_prompt$" {
+#    pass "get values from stack-list-frames"
+#    set foo4_addr $expect_out(1, string)
+#    set foo4_fp $expect_out(2, string)
+#    set foo3_addr $expect_out(3, string)
+#    set foo3_fp $expect_out(4, string)
+#    set foo2_addr $expect_out(5, string)
+#    set foo2_fp $expect_out(6, string)
+#    set foo1_addr $expect_out(7, string)
+#    set foo1_fp $expect_out(8, string)
+#  }
+#  -re ".*$mi_gdb_prompt$" {
+#    fail "get values from stack-list-frames"
+#  }
+#  timeout {
+#    fail "(timeout) get values from stack-list-frames"
+#  }
+#}
+#
+#send_gdb "120-stack-list-frames-lite -limit 500\n"
+#gdb_expect {
+#  -re "120\\^done,frames=\\\[0=\{pc=\"($hex)\",fp=\"($hex)\"\},1=\{pc=\"($hex)\",fp=\"($hex)\"\},2=\{pc=\"($hex)\",fp=\"($hex)\"\},3=\{pc=\"($hex)\",fp=\"($hex)\"\},4=\{pc=\"($hex)\",fp=\"($hex)\"\}\\\],valid=\"1\",count=\"5\"\[\r\n\]+$mi_gdb_prompt$" {
+#  pass "get values from stack-list-frames-lite"
+#  set foo4_lite_addr $expect_out(1, string)
+#  set foo4_lite_fp $expect_out(2, string)
+#  set foo3_lite_addr $expect_out(3, string)
+#  set foo3_lite_fp $expect_out(4, string)
+#  set foo2_lite_addr $expect_out(5, string)
+#  set foo2_lite_fp $expect_out(6, string)
+#  set foo1_lite_addr $expect_out(7, string)
+#  set foo1_lite_fp $expect_out(8, string)
+#  }
+#  -re ".*$mi_gdb_prompt$" {
+#    fail "get values from stack-list-frames-lite"
+#  }
+#  timeout {
+#    fail "(timeout) get values from stack-list-frames-lite"
+#  }
+#}
+#
+#if {$foo4_addr == $foo4_lite_addr} {
+#  pass "foo4() address from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo4() address from stack-list-frames and stack-list-frames-lite matches"
+#}
+#if {$foo4_fp == $foo4_lite_fp} {
+#  pass "foo4() fp from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo4() fp from stack-list-frames and stack-list-frames-lite matches"
+#}
+#
+#if {$foo3_addr == $foo3_lite_addr} {
+#  pass "foo3() address from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo3() address from stack-list-frames and stack-list-frames-lite matches"
+#}
+#if {$foo3_fp == $foo3_lite_fp} {
+#  pass "foo3() fp from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo3() fp from stack-list-frames and stack-list-frames-lite matches"
+#}
+#
+#if {$foo2_addr == $foo2_lite_addr} {
+#  pass "foo2() address from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo2() address from stack-list-frames and stack-list-frames-lite matches"
+#}
+#if {$foo2_fp == $foo2_lite_fp} {
+#  pass "foo2() fp from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo2() fp from stack-list-frames and stack-list-frames-lite matches"
+#}
+#
+#if {$foo1_addr == $foo1_lite_addr} {
+#  pass "foo1() address from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo1() address from stack-list-frames and stack-list-frames-lite matches"
+#}
+#if {$foo1_fp == $foo1_lite_fp} {
+#  pass "foo1() fp from stack-list-frames and stack-list-frames-lite matches"
+#} else {
+#  fail "foo1() fp from stack-list-frames and stack-list-frames-lite matches"
+#}
+#
+
+mi_gdb_exit
+return 0

@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-# $Id: chk.nl,v 1.1.1.1 2003/02/15 04:56:18 zarzycki Exp $
+# $Id: chk.nl,v 1.2 2004/03/30 01:24:37 jtownsen Exp $
 #
 # Check to make sure that there are no trailing newlines in __db_err calls.
 
@@ -54,7 +54,8 @@ chk(fp, name)
 			++line;
 			continue;
 		}
-		if (ch != '_') continue;
+		if (!isspace(ch)) continue;
+		if ((ch = getc(fp)) != '_') continue;
 		if ((ch = getc(fp)) != '_') continue;
 		if ((ch = getc(fp)) != 'd') continue;
 		if ((ch = getc(fp)) != 'b') continue;
@@ -62,6 +63,7 @@ chk(fp, name)
 		if ((ch = getc(fp)) != 'e') continue;
 		if ((ch = getc(fp)) != 'r') continue;
 		if ((ch = getc(fp)) != 'r') continue;
+		if ((ch = getc(fp)) != '(') continue;
 		while ((ch = getc(fp)) != '"') {
 			if (ch == EOF)
 				return (exitv);

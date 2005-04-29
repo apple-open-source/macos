@@ -1,0 +1,596 @@
+info mam static 00000 1994-07-17 make (AT&T Research) 4.4 2004-02-29
+setv INSTALLROOT ../../..
+setv PACKAGE_ast ${INSTALLROOT}
+setv PACKAGE_ast_INCLUDE ${PACKAGE_ast}/include/ast
+setv PACKAGE_ast_LIB ${PACKAGE_ast}/lib
+setv PACKAGEROOT ../../../../..
+setv AR ar
+setv ARFLAGS cr
+setv AS as
+setv ASFLAGS
+setv CC cc
+setv mam_cc_FLAGS ${mam_cc_DLL}
+setv CCFLAGS ${debug?1?${mam_cc_DEBUG} -D_BLD_DEBUG?${mam_cc_OPTIMIZE}?}
+setv COTEMP $$
+setv CPIO cpio
+setv CPIOFLAGS
+setv CPP "${CC} -E"
+setv F77 f77
+setv HOSTCC ${CC}
+setv IGNORE
+setv LD ld
+setv LDFLAGS 
+setv LEX lex
+setv LEXFLAGS
+setv LPR lpr
+setv LPRFLAGS
+setv M4FLAGS 
+setv NMAKE nmake
+setv NMAKEFLAGS
+setv PR pr
+setv PRFLAGS
+setv SHELL /bin/sh
+setv SILENT
+setv TAR tar
+setv YACC yacc
+setv YACCFLAGS -d
+make ../../../lib/package/ast.lic
+done ../../../lib/package/ast.lic
+make install
+make cmd
+make libcmd.a archive
+make cmd.req
+exec - set -
+exec - echo 'main(){return(0);}' > 1.${COTEMP}.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}    -c 1.${COTEMP}.c &&
+exec - x=`${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o -l'*' 2>&1 | sed -e 's/[][()+@?]/#/g' || :` &&
+exec - {
+exec - case "" in
+exec - *?)	echo " " ;;
+exec - esac
+exec - for i in cmd fsg ast
+exec - do	case $i in
+exec - 	"cmd"|cmd)
+exec - 		;;
+exec - 	*)	if	test ! -f ${INSTALLROOT}/lib/lib$i.a
+exec - 		then	case `{ ${CC} ${mam_cc_FLAGS} ${CCFLAGS}     ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o  -l$i 2>&1 || echo '' $x ;} | sed -e 's/[][()+@?]/#/g' || :` in
+exec - 			*$x*)	case `{ ${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS}  -o 1.${COTEMP}.x 1.${COTEMP}.o  -l$i 2>&1 || echo '' $x ;} | sed -e 's/[][()+@?]/#/g' || :` in
+exec - 				*$x*) continue ;;
+exec - 				esac
+exec - 				;;
+exec - 			esac
+exec - 		fi
+exec - 		;;
+exec - 	esac
+exec - 	echo " -l$i"
+exec - done
+exec - } > cmd.req
+exec - rm -f 1.${COTEMP}.*
+done cmd.req generated
+make cmdinit.o
+make cmdinit.c
+make cmdlib.h implicit
+make ../../../include/ast/stak.h implicit
+make ../../../include/ast/stk.h implicit
+make ../../../include/ast/sfio.h implicit
+make ../../../include/ast/sfio_s.h implicit
+done ../../../include/ast/sfio_s.h dontcare
+make ../../../include/ast/ast_common.h implicit
+done ../../../include/ast/ast_common.h dontcare
+make ../../../include/ast/ast_std.h implicit
+make ../../../include/ast/ast_botch.h implicit
+done ../../../include/ast/ast_botch.h dontcare
+make ../../../include/ast/ast_unistd.h implicit
+done ../../../include/ast/ast_unistd.h dontcare
+make ../../../include/ast/re_comp.h implicit
+make ../../../include/ast/prototyped.h implicit
+make ../../../include/prototyped.h implicit
+done ../../../include/prototyped.h dontcare
+done ../../../include/ast/prototyped.h dontcare
+done ../../../include/ast/re_comp.h dontcare
+make ../../../include/ast/getopt.h implicit
+make ../../../include/ast/ast_getopt.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_getopt.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/getopt.h dontcare
+make ../../../include/ast/ast_fcntl.h implicit
+make ../../../include/ast/ls.h implicit
+make ../../../include/ast/ast_mode.h implicit
+done ../../../include/ast/ast_mode.h dontcare
+make ../../../include/ast/ast_fs.h implicit
+make error?--?old?ethernet?address?at?wrong?offset implicit
+done error?--?old?ethernet?address?at?wrong?offset dontcare virtual
+done ../../../include/ast/ast_fs.h dontcare
+prev ../../../include/ast/ast_std.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ls.h dontcare
+prev ../../../include/ast/ast_fs.h implicit
+done ../../../include/ast/ast_fcntl.h dontcare
+make ../../../include/ast/ast_types.h implicit
+done ../../../include/ast/ast_types.h dontcare
+make ../../../include/ast/ast_map.h implicit
+done ../../../include/ast/ast_map.h dontcare
+make ../../../include/ast/stdio.h implicit
+make ../../../include/ast/ast_stdio.h implicit
+prev ../../../include/ast/sfio_s.h implicit
+prev ../../../include/ast/ast_common.h implicit
+done ../../../include/ast/ast_stdio.h dontcare
+done ../../../include/ast/stdio.h dontcare
+prev ../../../include/ast/getopt.h implicit
+make ../../../include/ast/limits.h implicit
+make ../../../include/ast/ast_limits.h implicit
+done ../../../include/ast/ast_limits.h dontcare
+done ../../../include/ast/limits.h dontcare
+make ../../../include/ast/ast_hdr.h implicit
+done ../../../include/ast/ast_hdr.h dontcare
+prev ../../../include/ast/ast_getopt.h implicit
+make ../../../include/ast/ast_lib.h implicit
+done ../../../include/ast/ast_lib.h dontcare
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_std.h dontcare
+done ../../../include/ast/sfio.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/stk.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/stak.h dontcare
+make ../../../include/ast/error.h implicit
+make ../../../include/ast/option.h implicit
+make ../../../include/ast/ast.h implicit
+make ../../../include/ast/vmalloc.h implicit
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/ast_std.h implicit
+done ../../../include/ast/vmalloc.h dontcare
+prev ../../../include/ast/sfio.h implicit
+prev ../../../include/ast/ast_std.h implicit
+make ../../../include/ast/ast_version.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast_version.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ast.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/option.h dontcare
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/error.h dontcare
+make cmd.h implicit
+make ../../../include/ast/dlldefs.h implicit
+done ../../../include/ast/dlldefs.h dontcare ignore
+prev ../../../include/ast/stak.h implicit
+prev ../../../include/ast/error.h implicit
+prev ../../../include/ast/ast.h implicit
+done cmd.h dontcare
+prev ../../../include/ast/ast.h implicit
+done cmdlib.h
+done cmdinit.c
+prev cmdinit.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_cmd -c cmdinit.c
+done cmdinit.o generated
+make cmdrecurse.o
+make cmdrecurse.c
+make ../../../include/ast/ftwalk.h implicit
+make ../../../include/ast/fts.h implicit
+prev ../../../include/ast/ls.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/fts.h dontcare
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ftwalk.h
+make ../../../include/ast/proc.h implicit
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/proc.h
+prev cmdlib.h implicit
+done cmdrecurse.c
+prev cmdrecurse.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_cmd -c cmdrecurse.c
+done cmdrecurse.o generated
+make basename.o
+make basename.c
+prev cmdlib.h implicit
+done basename.c
+prev basename.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c basename.c
+done basename.o generated
+make cat.o
+make cat.c
+prev cmdlib.h implicit
+done cat.c
+prev cat.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -D_PACKAGE_ast -D_BLD_cmd -c cat.c
+done cat.o generated
+make chgrp.o
+make chgrp.c
+make FEATURE/symlink implicit
+make features/symlink
+done features/symlink
+prev cmd.req
+bind -last
+exec - iffe -v -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS} '  ref ${mam_cc_L+-L${PACKAGE_ast_LIB}} -I${PACKAGE_ast_INCLUDE} -I${INSTALLROOT}/include ${mam_libast} ${mam_libast} : run features/symlink
+done FEATURE/symlink generated
+make ../../../include/ast/sfstr.h implicit
+prev ../../../include/ast/sfio.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/sfstr.h
+prev ../../../include/ast/fts.h implicit
+prev ../../../include/ast/ls.h implicit
+make ../../../include/ast/cdt.h implicit
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/ast_std.h implicit
+done ../../../include/ast/cdt.h
+prev cmdlib.h implicit
+done chgrp.c
+prev chgrp.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c chgrp.c
+done chgrp.o generated
+make chmod.o
+make chmod.c
+prev FEATURE/symlink implicit
+prev ../../../include/ast/fts.h implicit
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done chmod.c
+prev chmod.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c chmod.c
+done chmod.o generated
+make chown.o
+make chown.c
+prev cmdlib.h implicit
+done chown.c
+prev chown.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_cmd -c chown.c
+done chown.o generated
+make cmp.o
+make cmp.c
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done cmp.c
+prev cmp.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c cmp.c
+done cmp.o generated
+make comm.o
+make comm.c
+prev cmdlib.h implicit
+done comm.c
+prev comm.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c comm.c
+done comm.o generated
+make cp.o
+make cp.c
+prev ../../../include/ast/stk.h implicit
+prev ../../../include/ast/sfstr.h implicit
+make ../../../include/ast/hashkey.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/hashkey.h
+make ../../../include/ast/fs3d.h implicit
+prev ../../../include/ast/ast_fs.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/fs3d.h
+prev ../../../include/ast/ftwalk.h implicit
+make ../../../include/ast/times.h implicit
+make ../../../include/ast/ast_time.h implicit
+done ../../../include/ast/ast_time.h dontcare
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/times.h
+prev ../../../include/ast/ls.h implicit
+prev cmd.h implicit
+done cp.c
+prev cp.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c cp.c
+done cp.o generated
+make cut.o
+make cut.c
+prev cmdlib.h implicit
+done cut.c
+prev cut.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c cut.c
+done cut.o generated
+make dirname.o
+make dirname.c
+prev cmdlib.h implicit
+done dirname.c
+prev dirname.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c dirname.c
+done dirname.o generated
+make date.o
+make date.c
+make FEATURE/time implicit
+make features/time
+done features/time
+prev cmd.req
+exec - iffe -v -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS} '  ref ${mam_cc_L+-L${PACKAGE_ast_LIB}} -I${PACKAGE_ast_INCLUDE} -I${INSTALLROOT}/include ${mam_libast} ${mam_libast} : run features/time
+done FEATURE/time generated
+prev ../../../include/ast/times.h implicit
+make ../../../include/ast/tm.h implicit
+prev ../../../include/ast/times.h implicit
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/tm.h
+prev ../../../include/ast/proc.h implicit
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done date.c
+prev date.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c date.c
+done date.o generated
+make expr.o
+make expr.c
+make ../../../include/ast/regex.h implicit
+prev ../../../include/ast/ast_common.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/regex.h
+prev cmd.h implicit
+done expr.c
+prev expr.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_BLD_cmd -D_PACKAGE_ast -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c expr.c
+done expr.o generated
+make fmt.o
+make fmt.c
+prev cmdlib.h implicit
+done fmt.c
+prev fmt.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c fmt.c
+done fmt.o generated
+make fold.o
+make fold.c
+prev cmdlib.h implicit
+done fold.c
+prev fold.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c fold.c
+done fold.o generated
+make getconf.o
+make getconf.c
+prev cmdlib.h implicit
+done getconf.c
+prev getconf.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c getconf.c
+done getconf.o generated
+make head.o
+make head.c
+prev cmdlib.h implicit
+done head.c
+prev head.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c head.c
+done head.o generated
+make id.o
+make id.c
+make fsg.h implicit
+done fsg.h dontcare virtual
+prev ../../../include/ast/stdio.h implicit
+prev ../../../include/ast/stdio.h implicit
+make FEATURE/ids implicit
+make features/ids
+done features/ids
+prev cmd.req
+exec - iffe -v -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS} '  ref ${mam_cc_L+-L${PACKAGE_ast_LIB}} -I${PACKAGE_ast_INCLUDE} -I${INSTALLROOT}/include ${mam_libast} ${mam_libast} : run features/ids
+done FEATURE/ids generated
+prev cmdlib.h implicit
+done id.c
+prev id.c
+exec - ${CC} ${mam_cc_FLAGS} ${debug?1?${mam_cc_DEBUG} -D_BLD_DEBUG??} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c id.c
+done id.o generated
+make join.o
+make join.c
+make ../../../include/ast/sfdisc.h implicit
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/sfdisc.h
+prev cmdlib.h implicit
+done join.c
+prev join.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c join.c
+done join.o generated
+make ln.o
+make ln.c
+prev cmd.h implicit
+done ln.c
+prev ln.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_cmd -D_PACKAGE_ast -c ln.c
+done ln.o generated
+make logname.o
+make logname.c
+prev cmdlib.h implicit
+done logname.c
+prev logname.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c logname.c
+done logname.o generated
+make mkdir.o
+make mkdir.c
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done mkdir.c
+prev mkdir.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c mkdir.c
+done mkdir.o generated
+make mkfifo.o
+make mkfifo.c
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done mkfifo.c
+prev mkfifo.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c mkfifo.c
+done mkfifo.o generated
+make mv.o
+make mv.c
+prev cmd.h implicit
+done mv.c
+prev mv.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_BLD_cmd -D_PACKAGE_ast -c mv.c
+done mv.o generated
+make paste.o
+make paste.c
+prev cmdlib.h implicit
+done paste.c
+prev paste.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c paste.c
+done paste.o generated
+make pathchk.o
+make pathchk.c
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done pathchk.c
+prev pathchk.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c pathchk.c
+done pathchk.o generated
+make rev.o
+make rev.c
+prev cmdlib.h implicit
+done rev.c
+prev rev.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c rev.c
+done rev.o generated
+make rm.o
+make rm.c
+prev ../../../include/ast/fs3d.h implicit
+prev ../../../include/ast/ftwalk.h implicit
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done rm.c
+prev rm.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c rm.c
+done rm.o generated
+make rmdir.o
+make rmdir.c
+prev cmdlib.h implicit
+done rmdir.c
+prev rmdir.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c rmdir.c
+done rmdir.o generated
+make stty.o
+make stty.c
+make ../../../include/ast/ast_tty.h implicit
+done ../../../include/ast/ast_tty.h
+make ../../../include/ast/ccode.h implicit
+make ../../../include/ast/ast_ccode.h implicit
+done ../../../include/ast/ast_ccode.h dontcare
+prev ../../../include/ast/ast.h implicit
+prev ../../../include/ast/prototyped.h implicit
+done ../../../include/ast/ccode.h
+prev ../../../include/ast/error.h implicit
+prev ../../../include/ast/ast.h implicit
+prev cmd.h implicit
+done stty.c
+prev stty.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c stty.c
+done stty.o generated
+make tail.o
+make tail.c
+prev ../../../include/ast/tm.h implicit
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done tail.c
+prev tail.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c tail.c
+done tail.o generated
+make tee.o
+make tee.c
+make ../../../include/ast/sig.h implicit
+done ../../../include/ast/sig.h
+prev ../../../include/ast/ls.h implicit
+prev cmdlib.h implicit
+done tee.c
+prev tee.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c tee.c
+done tee.o generated
+make tty.o
+make tty.c
+prev cmdlib.h implicit
+done tty.c
+prev tty.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c tty.c
+done tty.o generated
+make uname.o
+make uname.c
+make FEATURE/utsname implicit
+make features/utsname
+done features/utsname
+prev cmd.req
+exec - iffe -v -c '${CC} ${mam_cc_FLAGS} ${CCFLAGS}    ${LDFLAGS} '  ref ${mam_cc_L+-L${PACKAGE_ast_LIB}} -I${PACKAGE_ast_INCLUDE} -I${INSTALLROOT}/include ${mam_libast} ${mam_libast} : run features/utsname
+done FEATURE/utsname generated
+prev ../../../include/ast/proc.h implicit
+prev cmdlib.h implicit
+done uname.c
+prev uname.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -DHOSTTYPE=\""${mam_cc_HOSTTYPE}"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c uname.c
+done uname.o generated
+make uniq.o
+make uniq.c
+prev cmdlib.h implicit
+done uniq.c
+prev uniq.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c uniq.c
+done uniq.o generated
+make wc.o
+make wc.c
+prev ../../../include/ast/ls.h implicit
+make wc.h implicit
+prev ../../../include/ast/ast.h implicit
+done wc.h
+prev cmdlib.h implicit
+done wc.c
+prev wc.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -DERROR_CATALOG=\""libcmd"\" -D_PACKAGE_ast -D_BLD_cmd -DUSAGE_LICENSE=\""[-author?Glenn Fowler <gsf@research.att.com>][-author?David Korn <dgk@research.att.com>][-copyright?Copyright (c) 1992-2004 AT&T Corp.][-license?http://www.research.att.com/sw/license/ast-open.html][--catalog?libcmd]"\" -c wc.c
+done wc.o generated
+make revlib.o
+make revlib.c
+prev cmdlib.h implicit
+done revlib.c
+prev revlib.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_cmd -c revlib.c
+done revlib.o generated
+make wclib.o
+make wclib.c
+prev wc.h implicit
+prev cmdlib.h implicit
+done wclib.c
+prev wclib.c
+exec - ${CC} ${mam_cc_FLAGS} ${CCFLAGS} ${ARCH_CCFLAGS}  -I. -I${PACKAGE_ast_INCLUDE} -D_PACKAGE_ast -D_BLD_cmd -c wclib.c
+done wclib.o generated
+exec - ${AR} cr libcmd.a cmdinit.o cmdrecurse.o basename.o cat.o chgrp.o chmod.o chown.o cmp.o comm.o cp.o cut.o dirname.o date.o expr.o fmt.o fold.o getconf.o head.o id.o join.o ln.o logname.o mkdir.o mkfifo.o mv.o paste.o pathchk.o rev.o rm.o rmdir.o
+exec - ${AR} cr libcmd.a stty.o tail.o tee.o tty.o uname.o uniq.o wc.o revlib.o wclib.o
+exec - (ranlib libcmd.a) >/dev/null 2>&1 || true
+done libcmd.a generated
+done cmd virtual
+prev libcmd.a archive
+make ../../../lib
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_LIB}
+exec - then	set -x && mkdir -p ${PACKAGE_ast_LIB} 		    		   
+exec - fi
+done ../../../lib generated
+make ../../../lib/libcmd.a archive
+prev ../../../lib
+prev libcmd.a archive
+exec - test '' = 'libcmd.a' || ${STDCMP} 2>/dev/null -s libcmd.a ${PACKAGE_ast_LIB}/libcmd.a || { ${STDMV} ${PACKAGE_ast_LIB}/libcmd.a ${PACKAGE_ast_LIB}/libcmd.a.old 2>/dev/null || true; ${STDCP} libcmd.a ${PACKAGE_ast_LIB}/libcmd.a  		    		    ;}
+exec - (ranlib ${PACKAGE_ast_LIB}/libcmd.a) >/dev/null 2>&1 || true
+done ../../../lib/libcmd.a generated
+make ../../../lib/lib
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_LIB}/lib
+exec - then	set -x && mkdir -p ${PACKAGE_ast_LIB}/lib 		    		   
+exec - fi
+done ../../../lib/lib generated
+make ../../../lib/lib/cmd
+prev ../../../lib/lib
+prev cmd.req
+exec - test '' = 'cmd.req' || ${STDCMP} 2>/dev/null -s cmd.req ${PACKAGE_ast_LIB}/lib/cmd || { ${STDMV} ${PACKAGE_ast_LIB}/lib/cmd ${PACKAGE_ast_LIB}/lib/cmd.old 2>/dev/null || true; ${STDCP} cmd.req ${PACKAGE_ast_LIB}/lib/cmd  		    		    ;}
+done ../../../lib/lib/cmd generated
+make ../../../include/ast
+exec - set -
+exec - if	test ! -d ${PACKAGE_ast_INCLUDE}
+exec - then	set -x && mkdir -p ${PACKAGE_ast_INCLUDE} 		    		   
+exec - fi
+done ../../../include/ast generated
+make ../../../include/ast/cmd.h
+prev ../../../include/ast
+prev cmd.h
+exec - proto -p -s -l ${PACKAGE_ast_LIB}/package/ast.lic '-o since=1992,author=gsf+dgk'  cmd.h > 1.${COTEMP}.x
+exec - if	cmp 2>/dev/null -s ${PACKAGE_ast_INCLUDE}/cmd.h 1.${COTEMP}.x
+exec - then	rm -f 1.${COTEMP}.x
+exec - else	mv 1.${COTEMP}.x ${PACKAGE_ast_INCLUDE}/cmd.h
+exec - fi
+done ../../../include/ast/cmd.h generated
+done install virtual
+make test
+done test dontcare virtual

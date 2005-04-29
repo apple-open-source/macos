@@ -1,0 +1,995 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 39;
+	objects = {
+		06AA1265FFB2107B11CA28AA = {
+			buildSettings = {
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				OPTIMIZATION_CFLAGS = "-O0";
+				ZERO_LINK = YES;
+			};
+			isa = PBXBuildStyle;
+			name = Development;
+		};
+		06AA1266FFB2107B11CA28AA = {
+			buildSettings = {
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ZERO_LINK = NO;
+			};
+			isa = PBXBuildStyle;
+			name = Deployment;
+		};
+//060
+//061
+//062
+//063
+//064
+//080
+//081
+//082
+//083
+//084
+		089C1669FE841209C02AAC07 = {
+			buildSettings = {
+			};
+			buildStyles = (
+				06AA1265FFB2107B11CA28AA,
+				06AA1266FFB2107B11CA28AA,
+				4D537F06039BEFC400CE20D6,
+			);
+			hasScannedForEncodings = 1;
+			isa = PBXProject;
+			mainGroup = 089C166AFE841209C02AAC07;
+			projectDirPath = "";
+			targets = (
+				7DDEC04A064B0D6C001B4C4A,
+				7DDEC04D064B0D6C001B4C4A,
+				7DDEC071064B0D6D001B4C4A,
+			);
+		};
+		089C166AFE841209C02AAC07 = {
+			children = (
+				8C29B9A4019B12E704CE206E,
+				8C7A0D96019B097604CE206E,
+				247142CAFF3F8F9811CA285C,
+				F5B0423F04210C6F01A80366,
+				089C167CFE841241C02AAC07,
+				19C28FB6FE9D52B211CA2CBB,
+				7DDEC06F064B0D6C001B4C4A,
+				7DDEC085064B0D6D001B4C4A,
+			);
+			isa = PBXGroup;
+			name = IOAVCFamily;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 = {
+			children = (
+			);
+			isa = PBXGroup;
+			name = Resources;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//080
+//081
+//082
+//083
+//084
+//190
+//191
+//192
+//193
+//194
+		19C28FB6FE9D52B211CA2CBB = {
+			children = (
+				7DDEC070064B0D6D001B4C4A,
+				7DDEC086064B0D6D001B4C4A,
+			);
+			isa = PBXGroup;
+			name = Products;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//190
+//191
+//192
+//193
+//194
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+		1A224C3EFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCUnit.h;
+			path = IOFireWireAVC/IOFireWireAVCUnit.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		1A224C3FFF42367911CA2CB7 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCUnit.cpp;
+			path = IOFireWireAVC/IOFireWireAVCUnit.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//1A0
+//1A1
+//1A2
+//1A3
+//1A4
+//240
+//241
+//242
+//243
+//244
+		247142CAFF3F8F9811CA285C = {
+			children = (
+				8C35357901809B2B04CE206D,
+				8C35357B01809B5304CE206D,
+				8C2A8E8B0190D8BB04CE206D,
+				8C2A8E8C0190D8BB04CE206D,
+				1A224C3FFF42367911CA2CB7,
+				1A224C3EFF42367911CA2CB7,
+				8C29B9AA019B17B304CE206E,
+				8C29B9AC019B181104CE206E,
+				8C274CA0018F448104CE206D,
+				8C274CA1018F448104CE206D,
+				8C2DA8C7019C864904CE206E,
+				8C2DA8C8019C864904CE206E,
+				F5AE80690418130E01A80366,
+				F5AE806A0418130E01A80366,
+				F5EE79F6044C6ED201CD2849,
+				F5EE79F7044C6ED201CD2849,
+			);
+			isa = PBXGroup;
+			name = Kernel;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//240
+//241
+//242
+//243
+//244
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+		4D537F06039BEFC400CE20D6 = {
+			buildSettings = {
+				OPTIMIZATION_CFLAGS = "-O0";
+				OTHER_CFLAGS = "-DFIRELOG=1";
+			};
+			isa = PBXBuildStyle;
+			name = FireLog;
+		};
+//4D0
+//4D1
+//4D2
+//4D3
+//4D4
+//7D0
+//7D1
+//7D2
+//7D3
+//7D4
+		7DDEC04A064B0D6C001B4C4A = {
+			buildPhases = (
+			);
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = All;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+			};
+			dependencies = (
+				7DDEC08A064B0D6D001B4C4A,
+				7DDEC088064B0D6D001B4C4A,
+			);
+			isa = PBXAggregateTarget;
+			name = All;
+			productName = All;
+		};
+		7DDEC04D064B0D6C001B4C4A = {
+			buildPhases = (
+				7DDEC04E064B0D6C001B4C4A,
+				7DDEC04F064B0D6C001B4C4A,
+				7DDEC058064B0D6C001B4C4A,
+				7DDEC061064B0D6C001B4C4A,
+				7DDEC062064B0D6C001B4C4A,
+				7DDEC06B064B0D6C001B4C4A,
+				7DDEC06C064B0D6C001B4C4A,
+				7DDEC06D064B0D6C001B4C4A,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
+				HEADER_SEARCH_PATHS = "";
+				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				KERNEL_MODULE = YES;
+				LIBRARY_SEARCH_PATHS = "";
+				MODULE_IOKIT = YES;
+				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
+				MODULE_VERSION = 1.8.1;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = IOFireWireAVC;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = kext;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = IOFireWireAVC;
+			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+			productName = IOAVCFamily;
+			productReference = 7DDEC070064B0D6D001B4C4A;
+			productType = "com.apple.product-type.kernel-extension.iokit";
+		};
+		7DDEC04E064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7DDEC04F064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/avc";
+			dstSubfolderSpec = 0;
+			files = (
+				7DDEC050064B0D6C001B4C4A,
+				7DDEC051064B0D6C001B4C4A,
+				7DDEC052064B0D6C001B4C4A,
+				7DDEC053064B0D6C001B4C4A,
+				7DDEC054064B0D6C001B4C4A,
+				7DDEC055064B0D6C001B4C4A,
+				7DDEC056064B0D6C001B4C4A,
+				7DDEC057064B0D6C001B4C4A,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC050064B0D6C001B4C4A = {
+			fileRef = 8C35357D0180A4C604CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC051064B0D6C001B4C4A = {
+			fileRef = 8C35357B01809B5304CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC052064B0D6C001B4C4A = {
+			fileRef = F5EE79F7044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC053064B0D6C001B4C4A = {
+			fileRef = 8C2A8E8C0190D8BB04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC054064B0D6C001B4C4A = {
+			fileRef = F5AE806A0418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC055064B0D6C001B4C4A = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC056064B0D6C001B4C4A = {
+			fileRef = 8C29B9A7019B162504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC057064B0D6C001B4C4A = {
+			fileRef = 8C274CA1018F448104CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC058064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+				7DDEC059064B0D6C001B4C4A,
+				7DDEC05A064B0D6C001B4C4A,
+				7DDEC05B064B0D6C001B4C4A,
+				7DDEC05C064B0D6C001B4C4A,
+				7DDEC05D064B0D6C001B4C4A,
+				7DDEC05E064B0D6C001B4C4A,
+				7DDEC05F064B0D6C001B4C4A,
+				7DDEC060064B0D6C001B4C4A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC059064B0D6C001B4C4A = {
+			fileRef = 1A224C3EFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7DDEC05A064B0D6C001B4C4A = {
+			fileRef = 8C35357B01809B5304CE206D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7DDEC05B064B0D6C001B4C4A = {
+			fileRef = 8C35357D0180A4C604CE206D;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7DDEC05C064B0D6C001B4C4A = {
+			fileRef = 8C29B9A7019B162504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC05D064B0D6C001B4C4A = {
+			fileRef = 8C29B9AC019B181104CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC05E064B0D6C001B4C4A = {
+			fileRef = 8C2DA8C8019C864904CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC05F064B0D6C001B4C4A = {
+			fileRef = F5AE806A0418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC060064B0D6C001B4C4A = {
+			fileRef = F5EE79F7044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC061064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC062064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+				7DDEC063064B0D6C001B4C4A,
+				7DDEC064064B0D6C001B4C4A,
+				7DDEC065064B0D6C001B4C4A,
+				7DDEC066064B0D6C001B4C4A,
+				7DDEC067064B0D6C001B4C4A,
+				7DDEC068064B0D6C001B4C4A,
+				7DDEC069064B0D6C001B4C4A,
+				7DDEC06A064B0D6C001B4C4A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC063064B0D6C001B4C4A = {
+			fileRef = 1A224C3FFF42367911CA2CB7;
+			isa = PBXBuildFile;
+			settings = {
+				ATTRIBUTES = (
+				);
+			};
+		};
+		7DDEC064064B0D6C001B4C4A = {
+			fileRef = 8C35357901809B2B04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC065064B0D6C001B4C4A = {
+			fileRef = 8C274CA0018F448104CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC066064B0D6C001B4C4A = {
+			fileRef = 8C2A8E8B0190D8BB04CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC067064B0D6C001B4C4A = {
+			fileRef = 8C29B9AA019B17B304CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC068064B0D6C001B4C4A = {
+			fileRef = 8C2DA8C7019C864904CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC069064B0D6C001B4C4A = {
+			fileRef = F5AE80690418130E01A80366;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC06A064B0D6C001B4C4A = {
+			fileRef = F5EE79F6044C6ED201CD2849;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC06B064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC06C064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC06D064B0D6C001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXShellScriptBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+		};
+		7DDEC06F064B0D6C001B4C4A = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "Info-IOFireWireAVC.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		7DDEC070064B0D6D001B4C4A = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOFireWireAVC.kext;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		7DDEC071064B0D6D001B4C4A = {
+			buildPhases = (
+				7DDEC072064B0D6D001B4C4A,
+				7DDEC078064B0D6D001B4C4A,
+				7DDEC07B064B0D6D001B4C4A,
+				7DDEC07C064B0D6D001B4C4A,
+				7DDEC080064B0D6D001B4C4A,
+				7DDEC083064B0D6D001B4C4A,
+			);
+			buildRules = (
+			);
+			buildSettings = {
+				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "-bundle -undefined error";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = IOFireWireAVCLib;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = "-Wmost -Wno-four-char-constants -Wno-unknown-pragmas";
+				WRAPPER_EXTENSION = plugin;
+			};
+			dependencies = (
+			);
+			isa = PBXNativeTarget;
+			name = IOFireWireAVCLib;
+			productInstallPath = /System/Library/Extensions;
+			productName = IOFireWireAVCLib;
+			productReference = 7DDEC086064B0D6D001B4C4A;
+			productType = "com.apple.product-type.bundle";
+		};
+		7DDEC072064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+				7DDEC073064B0D6D001B4C4A,
+				7DDEC074064B0D6D001B4C4A,
+				7DDEC075064B0D6D001B4C4A,
+				7DDEC076064B0D6D001B4C4A,
+				7DDEC077064B0D6D001B4C4A,
+			);
+			isa = PBXHeadersBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC073064B0D6D001B4C4A = {
+			fileRef = 8C7A0D94019B08CD04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC074064B0D6D001B4C4A = {
+			fileRef = 8C35357D0180A4C604CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC075064B0D6D001B4C4A = {
+			fileRef = 8C29B9A7019B162504CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC076064B0D6D001B4C4A = {
+			fileRef = F6F8ECA602342C4001298369;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC077064B0D6D001B4C4A = {
+			fileRef = F6F8ECAD023455D501298369;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC078064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/avc/";
+			dstSubfolderSpec = 0;
+			files = (
+				7DDEC079064B0D6D001B4C4A,
+				7DDEC07A064B0D6D001B4C4A,
+			);
+			isa = PBXCopyFilesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC079064B0D6D001B4C4A = {
+			fileRef = 8C7A0D94019B08CD04CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC07A064B0D6D001B4C4A = {
+			fileRef = 8C35357D0180A4C604CE206D;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC07B064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXResourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC07C064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+				7DDEC07D064B0D6D001B4C4A,
+				7DDEC07E064B0D6D001B4C4A,
+				7DDEC07F064B0D6D001B4C4A,
+			);
+			isa = PBXSourcesBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC07D064B0D6D001B4C4A = {
+			fileRef = 8C2D18F7019C8DB604CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC07E064B0D6D001B4C4A = {
+			fileRef = F6F8ECA502342C4001298369;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC07F064B0D6D001B4C4A = {
+			fileRef = F6F8ECAC023455D501298369;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC080064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+				7DDEC081064B0D6D001B4C4A,
+				7DDEC082064B0D6D001B4C4A,
+			);
+			isa = PBXFrameworksBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC081064B0D6D001B4C4A = {
+			fileRef = 8C7A0D97019B09B804CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC082064B0D6D001B4C4A = {
+			fileRef = 8C7A0D98019B09B804CE206E;
+			isa = PBXBuildFile;
+			settings = {
+			};
+		};
+		7DDEC083064B0D6D001B4C4A = {
+			buildActionMask = 2147483647;
+			files = (
+			);
+			isa = PBXRezBuildPhase;
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7DDEC085064B0D6D001B4C4A = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xml;
+			path = "Info-IOFireWireAVCLib.plist";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		7DDEC086064B0D6D001B4C4A = {
+			explicitFileType = wrapper.cfbundle;
+			includeInIndex = 0;
+			isa = PBXFileReference;
+			path = IOFireWireAVCLib.plugin;
+			refType = 3;
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		7DDEC087064B0D6D001B4C4A = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7DDEC04D064B0D6C001B4C4A;
+			remoteInfo = "IOFireWireAVC (Upgraded)";
+		};
+		7DDEC088064B0D6D001B4C4A = {
+			isa = PBXTargetDependency;
+			target = 7DDEC04D064B0D6C001B4C4A;
+			targetProxy = 7DDEC087064B0D6D001B4C4A;
+		};
+		7DDEC089064B0D6D001B4C4A = {
+			containerPortal = 089C1669FE841209C02AAC07;
+			isa = PBXContainerItemProxy;
+			proxyType = 1;
+			remoteGlobalIDString = 7DDEC071064B0D6D001B4C4A;
+			remoteInfo = "IOFireWireAVCLib (Upgraded)";
+		};
+		7DDEC08A064B0D6D001B4C4A = {
+			isa = PBXTargetDependency;
+			target = 7DDEC071064B0D6D001B4C4A;
+			targetProxy = 7DDEC089064B0D6D001B4C4A;
+		};
+//7D0
+//7D1
+//7D2
+//7D3
+//7D4
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+		8C274CA0018F448104CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWirePCRSpace.cpp;
+			path = IOFireWireAVC/IOFireWirePCRSpace.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C274CA1018F448104CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWirePCRSpace.h;
+			path = IOFireWireAVC/IOFireWirePCRSpace.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C29B9A4019B12E704CE206E = {
+			children = (
+				8C29B9A7019B162504CE206E,
+				8C35357D0180A4C604CE206D,
+			);
+			isa = PBXGroup;
+			name = Common;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C29B9A7019B162504CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCUserClientCommon.h;
+			path = IOFireWireAVC/IOFireWireAVCUserClientCommon.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C29B9AA019B17B304CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCUserClient.cpp;
+			path = IOFireWireAVC/IOFireWireAVCUserClient.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C29B9AC019B181104CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCUserClient.h;
+			path = IOFireWireAVC/IOFireWireAVCUserClient.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C2A8E8B0190D8BB04CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCRequestSpace.cpp;
+			path = IOFireWireAVC/IOFireWireAVCRequestSpace.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C2A8E8C0190D8BB04CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCRequestSpace.h;
+			path = IOFireWireAVC/IOFireWireAVCRequestSpace.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C2D18F7019C8DB604CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.c;
+			name = IOFireWireAVCLibProtocol.c;
+			path = IOFireWireAVCLib/IOFireWireAVCLibProtocol.c;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C2DA8C7019C864904CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCProtocolUserClient.cpp;
+			path = IOFireWireAVC/IOFireWireAVCProtocolUserClient.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C2DA8C8019C864904CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCProtocolUserClient.h;
+			path = IOFireWireAVC/IOFireWireAVCProtocolUserClient.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C35357901809B2B04CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCCommand.cpp;
+			path = IOFireWireAVC/IOFireWireAVCCommand.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C35357B01809B5304CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCCommand.h;
+			path = IOFireWireAVC/IOFireWireAVCCommand.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C35357D0180A4C604CE206D = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCConsts.h;
+			path = IOFireWireAVC/IOFireWireAVCConsts.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C7A0D94019B08CD04CE206E = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCLib.h;
+			path = IOFireWireAVCLib/IOFireWireAVCLib.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C7A0D96019B097604CE206E = {
+			children = (
+				8C7A0D94019B08CD04CE206E,
+				F6F8ECAC023455D501298369,
+				F6F8ECAD023455D501298369,
+				F6F8ECA502342C4001298369,
+				F6F8ECA602342C4001298369,
+				8C2D18F7019C8DB604CE206E,
+			);
+			isa = PBXGroup;
+			name = Library;
+			path = "";
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		8C7A0D97019B09B804CE206E = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = IOKit.framework;
+			path = /System/Library/Frameworks/IOKit.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		8C7A0D98019B09B804CE206E = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = CoreFoundation.framework;
+			path = /System/Library/Frameworks/CoreFoundation.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+//8C0
+//8C1
+//8C2
+//8C3
+//8C4
+//F50
+//F51
+//F52
+//F53
+//F54
+		F5AE80690418130E01A80366 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCTargetSpace.cpp;
+			path = IOFireWireAVC/IOFireWireAVCTargetSpace.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5AE806A0418130E01A80366 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCTargetSpace.h;
+			path = IOFireWireAVC/IOFireWireAVCTargetSpace.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5B0423F04210C6F01A80366 = {
+			children = (
+				8C7A0D97019B09B804CE206E,
+				8C7A0D98019B09B804CE206E,
+				F5B0424304210C9A01A80366,
+			);
+			isa = PBXGroup;
+			name = FrameWorks;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5B0424304210C9A01A80366 = {
+			isa = PBXFileReference;
+			lastKnownFileType = wrapper.framework;
+			name = Kernel.framework;
+			path = /System/Library/Frameworks/Kernel.framework;
+			refType = 0;
+			sourceTree = "<absolute>";
+		};
+		F5EE79F6044C6ED201CD2849 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCLocalNode.cpp;
+			path = IOFireWireAVC/IOFireWireAVCLocalNode.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F5EE79F7044C6ED201CD2849 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCLocalNode.h;
+			path = IOFireWireAVC/IOFireWireAVCLocalNode.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+//F50
+//F51
+//F52
+//F53
+//F54
+//F60
+//F61
+//F62
+//F63
+//F64
+		F6F8ECA502342C4001298369 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCLibUnit.cpp;
+			path = IOFireWireAVCLib/IOFireWireAVCLibUnit.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F6F8ECA602342C4001298369 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCLibUnit.h;
+			path = IOFireWireAVCLib/IOFireWireAVCLibUnit.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F6F8ECAC023455D501298369 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.cpp.cpp;
+			name = IOFireWireAVCLibConsumer.cpp;
+			path = IOFireWireAVCLib/IOFireWireAVCLibConsumer.cpp;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+		F6F8ECAD023455D501298369 = {
+			fileEncoding = 30;
+			isa = PBXFileReference;
+			lastKnownFileType = sourcecode.c.h;
+			name = IOFireWireAVCLibConsumer.h;
+			path = IOFireWireAVCLib/IOFireWireAVCLibConsumer.h;
+			refType = 4;
+			sourceTree = "<group>";
+		};
+	};
+	rootObject = 089C1669FE841209C02AAC07;
+}

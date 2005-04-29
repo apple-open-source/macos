@@ -8,7 +8,7 @@
  ************************************************************************/
 #ifdef RCS
 static /*const*/char rcsid[]=
- "$Id: variables.c,v 1.1.1.1 2001/07/20 19:38:19 bbraun Exp $";
+ "$Id: variables.c,v 1.1.1.2 2003/10/14 23:13:23 rbraun Exp $";
 #endif
 #include "procmail.h"
 #include "acommon.h"		/* for hostname() */
@@ -36,7 +36,8 @@ struct varstr strenstr[]={{"SHELLMETAS",DEFshellmetas},{"LOCKEXT",DEFlockext},
 #define MAXvarvals	 maxindex(strenvvar)
 #define MAXvarstrs	 maxindex(strenstr)
 
-const char lastfolder[]="LASTFOLDER",maildir[]="MAILDIR";
+const char lastfolder[]="LASTFOLDER",maildir[]="MAILDIR",scomsat[]="COMSAT",
+ offvalue[]="no";
 int didchd;
 long Stdfilled;
 char*Stdout;
@@ -44,7 +45,7 @@ char*Stdout;
 static void asenvtext P((const char*const chp));      /* needed by retStdout */
 
 static const char slinebuf[]="LINEBUF",pmoverflow[]="PROCMAIL_OVERFLOW=yes",
- exitcode[]="EXITCODE",scomsat[]="COMSAT";
+ exitcode[]="EXITCODE";
 static int setxit;
 
 static struct dynstring*myenv;
@@ -91,7 +92,7 @@ void primeStdout(varname)const char*const varname;   /* changes are allowed! */
 }
 
 void retStdout(newmyenv,fail,unset)		/* see note on primeStdout() */
- char*const newmyenv;int fail,unset;
+ char*const newmyenv;const int fail,unset;
 { char*var,*p;
   if(fail&&unset)				     /* on second thought... */
    { myenv=((struct dynstring*)newmyenv)->enext;	 /* pull it back out */
@@ -159,7 +160,7 @@ void cleanupenv(preserve)int preserve;
 	   if(!strncmp(*pp,p,len)&&(p[len]=='='||p[len-1]=='_'))
 	    { *ep= *emax;			      /* it's fine, swap 'em */
 	      *emax++=p;
-	      if(p[len]=='=')		  /* if this wasn't a wildcard match */
+	      if(p[len-1]!='_')		  /* if this wasn't a wildcard match */
 		break;			 /* then go on to next keepenv entry */
 	    }
       }
@@ -216,8 +217,8 @@ void initdefenv(pass,fallback,do_presets)auth_identity*pass;
      while(i--);
      setdef(host,hostname());		       /* the other standard presets */
      sputenv(lastfolder);
-     sputenv(scomsat);setcomsat(empty);
      sputenv(exitcode);
+     eputenv(defpath,buf);
      for(pp=prestenv;*pp;pp++)			     /* non-standard presets */
 	eputenv(*pp,buf);
    }
@@ -301,11 +302,19 @@ int asenvcpy(src)char*src;
      *	really change the uid now, since it would not be safe to
      *	evaluate the extra command line arguments otherwise
      */
-   { erestrict=1;setids();chp++;strncpy(buf,src,chp-src);
-     src=buf+(chp-src);
-     if(chp=eputenv(chp,src))
-      { src[-1]='\0';
-	asenv(chp);
+   { size_t len=chp++-src+1;			      /* variable name + '=' */
+     erestrict=1;setids();				   /* always do this */
+     if(len>linebuf-XTRAlinebuf-1)			/* too long of name? */
+      { setoverflow();
+	nlog("Assignment to variable with excessively long name skipped\n");
+      }
+     else
+      { memcpy(buf,src,len);
+	src=buf+len;
+	if(chp=eputenv(chp,src))
+	 { src[-1]='\0';
+	   asenv(chp);
+	 }
       }
      return 1;
    }
@@ -365,7 +374,9 @@ void asenv(chp)const char*const chp;
   else if(!strcmp(buf,lastfolder))
      setlfcs(chp);
   else if(!strcmp(buf,scomsat))
-     setcomsat(chp);
+   { if(!setcomsat(chp))
+	setdef(scomsat,offvalue);		/* set it to "no" on failure */
+   }
   else if(!strcmp(buf,shift))
    { int i;
      if((i=renvint(0L,chp))>0)

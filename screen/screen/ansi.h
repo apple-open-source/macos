@@ -19,7 +19,7 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA
  *
  ****************************************************************
- * $Id: ansi.h,v 1.1.1.2 2003/03/19 21:16:18 landonf Exp $ FAU
+ * $Id: ansi.h,v 1.6 1994/05/31 12:31:28 mlschroe Exp $ FAU
  */
 
 #define NATTR		6

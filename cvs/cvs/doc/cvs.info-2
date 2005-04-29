@@ -1,0 +1,1070 @@
+This is cvs.info, produced by makeinfo version 4.5 from cvs.texinfo.
+
+INFO-DIR-SECTION GNU Packages
+START-INFO-DIR-ENTRY
+* CVS: (cvs).                   Concurrent Versions System
+END-INFO-DIR-ENTRY
+INFO-DIR-SECTION Individual utilities
+START-INFO-DIR-ENTRY
+* cvs: (cvs)CVS commands.       Concurrent Versions System
+END-INFO-DIR-ENTRY
+
+
+File: cvs.info,  Node: Working directory storage,  Next: Intro administrative files,  Prev: Repository storage,  Up: Repository
+
+How data is stored in the working directory
+===========================================
+
+   While we are discussing CVS internals which may become visible from
+time to time, we might as well talk about what CVS puts in the `CVS'
+directories in the working directories.  As with the repository, CVS
+handles this information and one can usually access it via CVS
+commands.  But in some cases it may be useful to look at it, and other
+programs, such as the `jCVS' graphical user interface or the `VC'
+package for emacs, may need to look at it.  Such programs should follow
+the recommendations in this section if they hope to be able to work
+with other programs which use those files, including future versions of
+the programs just mentioned and the command-line CVS client.
+
+   The `CVS' directory contains several files.  Programs which are
+reading this directory should silently ignore files which are in the
+directory but which are not documented here, to allow for future
+expansion.
+
+   The files are stored according to the text file convention for the
+system in question.  This means that working directories are not
+portable between systems with differing conventions for storing text
+files.  This is intentional, on the theory that the files being managed
+by CVS probably will not be portable between such systems either.
+
+`Root'
+     This file contains the current CVS root, as described in *Note
+     Specifying a repository::.
+
+`Repository'
+     This file contains the directory within the repository which the
+     current directory corresponds with.  It can be either an absolute
+     pathname or a relative pathname; CVS has had the ability to read
+     either format since at least version 1.3 or so.  The relative
+     pathname is relative to the root, and is the more sensible
+     approach, but the absolute pathname is quite common and
+     implementations should accept either.  For example, after the
+     command
+
+          cvs -d :local:/usr/local/cvsroot checkout yoyodyne/tc
+
+     `Root' will contain
+
+          :local:/usr/local/cvsroot
+
+     and `Repository' will contain either
+
+          /usr/local/cvsroot/yoyodyne/tc
+
+     or
+
+          yoyodyne/tc
+
+     If the particular working directory does not correspond to a
+     directory in the repository, then `Repository' should contain
+     `CVSROOT/Emptydir'.
+
+`Entries'
+     This file lists the files and directories in the working directory.
+     The first character of each line indicates what sort of line it
+     is.  If the character is unrecognized, programs reading the file
+     should silently skip that line, to allow for future expansion.
+
+     If the first character is `/', then the format is:
+
+          /NAME/REVISION/TIMESTAMP[+CONFLICT]/OPTIONS/TAGDATE
+
+     where `[' and `]' are not part of the entry, but instead indicate
+     that the `+' and conflict marker are optional.  NAME is the name
+     of the file within the directory.  REVISION is the revision that
+     the file in the working derives from, or `0' for an added file, or
+     `-' followed by a revision for a removed file.  TIMESTAMP is the
+     timestamp of the file at the time that CVS created it; if the
+     timestamp differs with the actual modification time of the file it
+     means the file has been modified.  It is stored in the format used
+     by the ISO C asctime() function (for example, `Sun Apr  7 01:29:26
+     1996').  One may write a string which is not in that format, for
+     example, `Result of merge', to indicate that the file should
+     always be considered to be modified.  This is not a special case;
+     to see whether a file is modified a program should take the
+     timestamp of the file and simply do a string compare with
+     TIMESTAMP.  If there was a conflict, CONFLICT can be set to the
+     modification time of the file after the file has been written with
+     conflict markers (*note Conflicts example::).  Thus if CONFLICT is
+     subsequently the same as the actual modification time of the file
+     it means that the user has obviously not resolved the conflict.
+     OPTIONS contains sticky options (for example `-kb' for a binary
+     file).  TAGDATE contains `T' followed by a tag name, or `D' for a
+     date, followed by a sticky tag or date.  Note that if TIMESTAMP
+     contains a pair of timestamps separated by a space, rather than a
+     single timestamp, you are dealing with a version of CVS earlier
+     than CVS 1.5 (not documented here).
+
+     The timezone on the timestamp in CVS/Entries (local or universal)
+     should be the same as the operating system stores for the
+     timestamp of the file itself.  For example, on Unix the file's
+     timestamp is in universal time (UT), so the timestamp in
+     CVS/Entries should be too.  On VMS, the file's timestamp is in
+     local time, so CVS on VMS should use local time.  This rule is so
+     that files do not appear to be modified merely because the
+     timezone changed (for example, to or from summer time).
+
+     If the first character of a line in `Entries' is `D', then it
+     indicates a subdirectory.  `D' on a line all by itself indicates
+     that the program which wrote the `Entries' file does record
+     subdirectories (therefore, if there is such a line and no other
+     lines beginning with `D', one knows there are no subdirectories).
+     Otherwise, the line looks like:
+
+          D/NAME/FILLER1/FILLER2/FILLER3/FILLER4
+
+     where NAME is the name of the subdirectory, and all the FILLER
+     fields should be silently ignored, for future expansion.  Programs
+     which modify `Entries' files should preserve these fields.
+
+     The lines in the `Entries' file can be in any order.
+
+`Entries.Log'
+     This file does not record any information beyond that in
+     `Entries', but it does provide a way to update the information
+     without having to rewrite the entire `Entries' file, including the
+     ability to preserve the information even if the program writing
+     `Entries' and `Entries.Log' abruptly aborts.  Programs which are
+     reading the `Entries' file should also check for `Entries.Log'.
+     If the latter exists, they should read `Entries' and then apply
+     the changes mentioned in `Entries.Log'.  After applying the
+     changes, the recommended practice is to rewrite `Entries' and then
+     delete `Entries.Log'.  The format of a line in `Entries.Log' is a
+     single character command followed by a space followed by a line in
+     the format specified for a line in `Entries'.  The single
+     character command is `A' to indicate that the entry is being added,
+     `R' to indicate that the entry is being removed, or any other
+     character to indicate that the entire line in `Entries.Log' should
+     be silently ignored (for future expansion).  If the second
+     character of the line in `Entries.Log' is not a space, then it was
+     written by an older version of CVS (not documented here).
+
+     Programs which are writing rather than reading can safely ignore
+     `Entries.Log' if they so choose.
+
+`Entries.Backup'
+     This is a temporary file.  Recommended usage is to write a new
+     entries file to `Entries.Backup', and then to rename it
+     (atomically, where possible) to `Entries'.
+
+`Entries.Static'
+     The only relevant thing about this file is whether it exists or
+     not.  If it exists, then it means that only part of a directory
+     was gotten and CVS will not create additional files in that
+     directory.  To clear it, use the `update' command with the `-d'
+     option, which will get the additional files and remove
+     `Entries.Static'.
+
+`Tag'
+     This file contains per-directory sticky tags or dates.  The first
+     character is `T' for a branch tag, `N' for a non-branch tag, or
+     `D' for a date, or another character to mean the file should be
+     silently ignored, for future expansion.  This character is
+     followed by the tag or date.  Note that per-directory sticky tags
+     or dates are used for things like applying to files which are
+     newly added; they might not be the same as the sticky tags or
+     dates on individual files.  For general information on sticky tags
+     and dates, see *Note Sticky tags::.
+
+`Notify'
+     This file stores notifications (for example, for `edit' or
+     `unedit') which have not yet been sent to the server.  Its format
+     is not yet documented here.
+
+`Notify.tmp'
+     This file is to `Notify' as `Entries.Backup' is to `Entries'.
+     That is, to write `Notify', first write the new contents to
+     `Notify.tmp' and then (atomically where possible), rename it to
+     `Notify'.
+
+`Base'
+     If watches are in use, then an `edit' command stores the original
+     copy of the file in the `Base' directory.  This allows the
+     `unedit' command to operate even if it is unable to communicate
+     with the server.
+
+`Baserev'
+     The file lists the revision for each of the files in the `Base'
+     directory.  The format is:
+
+          BNAME/REV/EXPANSION
+
+     where EXPANSION should be ignored, to allow for future expansion.
+
+`Baserev.tmp'
+     This file is to `Baserev' as `Entries.Backup' is to `Entries'.
+     That is, to write `Baserev', first write the new contents to
+     `Baserev.tmp' and then (atomically where possible), rename it to
+     `Baserev'.
+
+`Template'
+     This file contains the template specified by the `rcsinfo' file
+     (*note rcsinfo::).  It is only used by the client; the
+     non-client/server CVS consults `rcsinfo' directly.
+
+
+File: cvs.info,  Node: Intro administrative files,  Next: Multiple repositories,  Prev: Working directory storage,  Up: Repository
+
+The administrative files
+========================
+
+   The directory `$CVSROOT/CVSROOT' contains some "administrative
+files".  *Note Administrative files::, for a complete description.  You
+can use CVS without any of these files, but some commands work better
+when at least the `modules' file is properly set up.
+
+   The most important of these files is the `modules' file.  It defines
+all modules in the repository.  This is a sample `modules' file.
+
+     CVSROOT         CVSROOT
+     modules         CVSROOT modules
+     cvs             gnu/cvs
+     rcs             gnu/rcs
+     diff            gnu/diff
+     tc              yoyodyne/tc
+
+   The `modules' file is line oriented.  In its simplest form each line
+contains the name of the module, whitespace, and the directory where
+the module resides.  The directory is a path relative to `$CVSROOT'.
+The last four lines in the example above are examples of such lines.
+
+   The line that defines the module called `modules' uses features that
+are not explained here.  *Note modules::, for a full explanation of all
+the available features.
+
+Editing administrative files
+----------------------------
+
+   You edit the administrative files in the same way that you would edit
+any other module.  Use `cvs checkout CVSROOT' to get a working copy,
+edit it, and commit your changes in the normal way.
+
+   It is possible to commit an erroneous administrative file.  You can
+often fix the error and check in a new revision, but sometimes a
+particularly bad error in the administrative file makes it impossible
+to commit new revisions.
+
+
+File: cvs.info,  Node: Multiple repositories,  Next: Creating a repository,  Prev: Intro administrative files,  Up: Repository
+
+Multiple repositories
+=====================
+
+   In some situations it is a good idea to have more than one
+repository, for instance if you have two development groups that work
+on separate projects without sharing any code.  All you have to do to
+have several repositories is to specify the appropriate repository,
+using the `CVSROOT' environment variable, the `-d' option to CVS, or
+(once you have checked out a working directory) by simply allowing CVS
+to use the repository that was used to check out the working directory
+(*note Specifying a repository::).
+
+   The big advantage of having multiple repositories is that they can
+reside on different servers.  With CVS version 1.10, a single command
+cannot recurse into directories from different repositories.  With
+development versions of CVS, you can check out code from multiple
+servers into your working directory.  CVS will recurse and handle all
+the details of making connections to as many server machines as
+necessary to perform the requested command.  Here is an example of how
+to set up a working directory:
+
+     cvs -d server1:/cvs co dir1
+     cd dir1
+     cvs -d server2:/root co sdir
+     cvs update
+
+   The `cvs co' commands set up the working directory, and then the
+`cvs update' command will contact server2, to update the dir1/sdir
+subdirectory, and server1, to update everything else.
+
+
+File: cvs.info,  Node: Creating a repository,  Next: Backing up,  Prev: Multiple repositories,  Up: Repository
+
+Creating a repository
+=====================
+
+   To set up a CVS repository, first choose the machine and disk on
+which you want to store the revision history of the source files.  CPU
+and memory requirements are modest, so most machines should be
+adequate.  For details see *Note Server requirements::.
+
+   To estimate disk space requirements, if you are importing RCS files
+from another system, the size of those files is the approximate initial
+size of your repository, or if you are starting without any version
+history, a rule of thumb is to allow for the server approximately three
+times the size of the code to be under CVS for the repository (you will
+eventually outgrow this, but not for a while).  On the machines on
+which the developers will be working, you'll want disk space for
+approximately one working directory for each developer (either the
+entire tree or a portion of it, depending on what each developer uses).
+
+   The repository should be accessible (directly or via a networked
+file system) from all machines which want to use CVS in server or local
+mode; the client machines need not have any access to it other than via
+the CVS protocol.  It is not possible to use CVS to read from a
+repository which one only has read access to; CVS needs to be able to
+create lock files (*note Concurrency::).
+
+   To create a repository, run the `cvs init' command.  It will set up
+an empty repository in the CVS root specified in the usual way (*note
+Repository::).  For example,
+
+     cvs -d /usr/local/cvsroot init
+
+   `cvs init' is careful to never overwrite any existing files in the
+repository, so no harm is done if you run `cvs init' on an already
+set-up repository.
+
+   `cvs init' will enable history logging; if you don't want that,
+remove the history file after running `cvs init'.  *Note history file::.
+
+
+File: cvs.info,  Node: Backing up,  Next: Moving a repository,  Prev: Creating a repository,  Up: Repository
+
+Backing up a repository
+=======================
+
+   There is nothing particularly magical about the files in the
+repository; for the most part it is possible to back them up just like
+any other files.  However, there are a few issues to consider.
+
+   The first is that to be paranoid, one should either not use CVS
+during the backup, or have the backup program lock CVS while doing the
+backup.  To not use CVS, you might forbid logins to machines which can
+access the repository, turn off your CVS server, or similar mechanisms.
+The details would depend on your operating system and how you have CVS
+set up.  To lock CVS, you would create `#cvs.rfl' locks in each
+repository directory.  See *Note Concurrency::, for more on CVS locks.
+Having said all this, if you just back up without any of these
+precautions, the results are unlikely to be particularly dire.
+Restoring from backup, the repository might be in an inconsistent
+state, but this would not be particularly hard to fix manually.
+
+   When you restore a repository from backup, assuming that changes in
+the repository were made after the time of the backup, working
+directories which were not affected by the failure may refer to
+revisions which no longer exist in the repository.  Trying to run CVS
+in such directories will typically produce an error message.  One way
+to get those changes back into the repository is as follows:
+
+   * Get a new working directory.
+
+   * Copy the files from the working directory from before the failure
+     over to the new working directory (do not copy the contents of the
+     `CVS' directories, of course).
+
+   * Working in the new working directory, use commands such as `cvs
+     update' and `cvs diff' to figure out what has changed, and then
+     when you are ready, commit the changes into the repository.
+
+
+File: cvs.info,  Node: Moving a repository,  Next: Remote repositories,  Prev: Backing up,  Up: Repository
+
+Moving a repository
+===================
+
+   Just as backing up the files in the repository is pretty much like
+backing up any other files, if you need to move a repository from one
+place to another it is also pretty much like just moving any other
+collection of files.
+
+   The main thing to consider is that working directories point to the
+repository.  The simplest way to deal with a moved repository is to
+just get a fresh working directory after the move.  Of course, you'll
+want to make sure that the old working directory had been checked in
+before the move, or you figured out some other way to make sure that
+you don't lose any changes.  If you really do want to reuse the existing
+working directory, it should be possible with manual surgery on the
+`CVS/Repository' files.  You can see *Note Working directory storage::,
+for information on the `CVS/Repository' and `CVS/Root' files, but
+unless you are sure you want to bother, it probably isn't worth it.
+
+
+File: cvs.info,  Node: Remote repositories,  Next: Read-only access,  Prev: Moving a repository,  Up: Repository
+
+Remote repositories
+===================
+
+   Your working copy of the sources can be on a different machine than
+the repository.  Using CVS in this manner is known as "client/server"
+operation.  You run CVS on a machine which can mount your working
+directory, known as the "client", and tell it to communicate to a
+machine which can mount the repository, known as the "server".
+Generally, using a remote repository is just like using a local one,
+except that the format of the repository name is:
+
+     [:METHOD:][[USER][:PASSWORD]@]HOSTNAME[:[PORT]]/path/to/repository
+
+   Specifying a password in the repository name is not recommended
+during checkout, since this will cause CVS to store a cleartext copy of
+the password in each created directory.  `cvs login' first instead
+(*note Password authentication client::).
+
+   The details of exactly what needs to be set up depend on how you are
+connecting to the server.
+
+   If METHOD is not specified, and the repository name contains `:',
+then the default is `ext' or `server', depending on your platform; both
+are described in *Note Connecting via rsh::.
+
+* Menu:
+
+* Server requirements::         Memory and other resources for servers
+* Connecting via rsh::          Using the `rsh' program to connect
+* Password authenticated::      Direct connections using passwords
+* GSSAPI authenticated::        Direct connections using GSSAPI
+* Kerberos authenticated::      Direct connections with Kerberos
+* Connecting via fork::         Using a forked `cvs server' to connect
+
+
+File: cvs.info,  Node: Server requirements,  Next: Connecting via rsh,  Up: Remote repositories
+
+Server requirements
+-------------------
+
+   The quick answer to what sort of machine is suitable as a server is
+that requirements are modest--a server with 32M of memory or even less
+can handle a fairly large source tree with a fair amount of activity.
+
+   The real answer, of course, is more complicated.  Estimating the
+known areas of large memory consumption should be sufficient to
+estimate memory requirements.  There are two such areas documented
+here; other memory consumption should be small by comparison (if you
+find that is not the case, let us know, as described in *Note BUGS::,
+so we can update this documentation).
+
+   The first area of big memory consumption is large checkouts, when
+using the CVS server.  The server consists of two processes for each
+client that it is serving.  Memory consumption on the child process
+should remain fairly small.  Memory consumption on the parent process,
+particularly if the network connection to the client is slow, can be
+expected to grow to slightly more than the size of the sources in a
+single directory, or two megabytes, whichever is larger.
+
+   Multiplying the size of each CVS server by the number of servers
+which you expect to have active at one time should give an idea of
+memory requirements for the server.  For the most part, the memory
+consumed by the parent process probably can be swap space rather than
+physical memory.
+
+   The second area of large memory consumption is `diff', when checking
+in large files.  This is required even for binary files.  The rule of
+thumb is to allow about ten times the size of the largest file you will
+want to check in, although five times may be adequate.  For example, if
+you want to check in a file which is 10 megabytes, you should have 100
+megabytes of memory on the machine doing the checkin (the server
+machine for client/server, or the machine running CVS for
+non-client/server).  This can be swap space rather than physical
+memory.  Because the memory is only required briefly, there is no
+particular need to allow memory for more than one such checkin at a
+time.
+
+   Resource consumption for the client is even more modest--any machine
+with enough capacity to run the operating system in question should
+have little trouble.
+
+   For information on disk space requirements, see *Note Creating a
+repository::.
+
+
+File: cvs.info,  Node: Connecting via rsh,  Next: Password authenticated,  Prev: Server requirements,  Up: Remote repositories
+
+Connecting with rsh
+-------------------
+
+   CVS uses the `rsh' protocol to perform these operations, so the
+remote user host needs to have a `.rhosts' file which grants access to
+the local user.
+
+   For example, suppose you are the user `mozart' on the local machine
+`toe.example.com', and the server machine is `faun.example.org'.  On
+faun, put the following line into the file `.rhosts' in `bach''s home
+directory:
+
+     toe.example.com  mozart
+
+Then test that `rsh' is working with
+
+     rsh -l bach faun.example.org 'echo $PATH'
+
+   Next you have to make sure that `rsh' will be able to find the
+server.  Make sure that the path which `rsh' printed in the above
+example includes the directory containing a program named `cvs' which
+is the server.  You need to set the path in `.bashrc', `.cshrc', etc.,
+not `.login' or `.profile'.  Alternately, you can set the environment
+variable `CVS_SERVER' on the client machine to the filename of the
+server you want to use, for example `/usr/local/bin/cvs-1.6'.
+
+   There is no need to edit `inetd.conf' or start a CVS server daemon.
+
+   There are two access methods that you use in `CVSROOT' for rsh.
+`:server:' specifies an internal rsh client, which is supported only by
+some CVS ports.  `:ext:' specifies an external rsh program.  By default
+this is `rsh' but you may set the `CVS_RSH' environment variable to
+invoke another program which can access the remote server (for example,
+`remsh' on HP-UX 9 because `rsh' is something different).  It must be a
+program which can transmit data to and from the server without modifying
+it; for example the Windows NT `rsh' is not suitable since it by
+default translates between CRLF and LF.  The OS/2 CVS port has a hack
+to pass `-b' to `rsh' to get around this, but since this could
+potentially cause problems for programs other than the standard `rsh',
+it may change in the future.  If you set `CVS_RSH' to `SSH' or some
+other rsh replacement, the instructions in the rest of this section
+concerning `.rhosts' and so on are likely to be inapplicable; consult
+the documentation for your rsh replacement.
+
+   Continuing our example, supposing you want to access the module
+`foo' in the repository `/usr/local/cvsroot/', on machine
+`faun.example.org', you are ready to go:
+
+     cvs -d :ext:bach@faun.example.org:/usr/local/cvsroot checkout foo
+
+(The `bach@' can be omitted if the username is the same on both the
+local and remote hosts.)
+
+
+File: cvs.info,  Node: Password authenticated,  Next: GSSAPI authenticated,  Prev: Connecting via rsh,  Up: Remote repositories
+
+Direct connection with password authentication
+----------------------------------------------
+
+   The CVS client can also connect to the server using a password
+protocol.  This is particularly useful if using `rsh' is not feasible
+(for example, the server is behind a firewall), and Kerberos also is
+not available.
+
+   To use this method, it is necessary to make some adjustments on both
+the server and client sides.
+
+* Menu:
+
+* Password authentication server::     Setting up the server
+* Password authentication client::     Using the client
+* Password authentication security::   What this method does and does not do
+
+
+File: cvs.info,  Node: Password authentication server,  Next: Password authentication client,  Up: Password authenticated
+
+Setting up the server for password authentication
+.................................................
+
+   First of all, you probably want to tighten the permissions on the
+`$CVSROOT' and `$CVSROOT/CVSROOT' directories.  See *Note Password
+authentication security::, for more details.
+
+   On the server side, the file `/etc/inetd.conf' needs to be edited so
+`inetd' knows to run the command `cvs pserver' when it receives a
+connection on the right port.  By default, the port number is 2401; it
+would be different if your client were compiled with `CVS_AUTH_PORT'
+defined to something else, though.  This can also be specified in the
+CVSROOT variable (*note Remote repositories::) or overridden with the
+CVS_CLIENT_PORT environment variable (*note Environment variables::).
+
+   If your `inetd' allows raw port numbers in `/etc/inetd.conf', then
+the following (all on a single line in `inetd.conf') should be
+sufficient:
+
+     2401  stream  tcp  nowait  root  /usr/local/bin/cvs
+     cvs -f --allow-root=/usr/cvsroot pserver
+
+(You could also use the `-T' option to specify a temporary directory.)
+
+   The `--allow-root' option specifies the allowable CVSROOT directory.
+Clients which attempt to use a different CVSROOT directory will not be
+allowed to connect.  If there is more than one CVSROOT directory which
+you want to allow, repeat the option.  (Unfortunately, many versions of
+`inetd' have very small limits on the number of arguments and/or the
+total length of the command.  The usual solution to this problem is to
+have `inetd' run a shell script which then invokes CVS with the
+necessary arguments.)
+
+   If your `inetd' wants a symbolic service name instead of a raw port
+number, then put this in `/etc/services':
+
+     cvspserver      2401/tcp
+
+and put `cvspserver' instead of `2401' in `inetd.conf'.
+
+   If your system uses `xinetd' instead of `inetd', the procedure is
+slightly different.  Create a file called `/etc/xinetd.d/cvspserver'
+containing the following:
+
+     service cvspserver
+     {
+        port        = 2401
+        socket_type = stream
+        protocol    = tcp
+        wait        = no
+        user        = root
+        passenv     = PATH
+        server      = /usr/local/bin/cvs
+        server_args = -f --allow-root=/usr/cvsroot pserver
+     }
+
+(If `cvspserver' is defined in `/etc/services', you can omit the `port'
+line.)
+
+   Once the above is taken care of, restart your `inetd', or do
+whatever is necessary to force it to reread its initialization files.
+
+   If you are having trouble setting this up, see *Note Connection::.
+
+   Because the client stores and transmits passwords in cleartext
+(almost--see *Note Password authentication security::, for details), a
+separate CVS password file is generally used, so people don't compromise
+their regular passwords when they access the repository.  This file is
+`$CVSROOT/CVSROOT/passwd' (*note Intro administrative files::).  It
+uses a colon-separated format, similar to `/etc/passwd' on Unix systems,
+except that it has fewer fields: CVS username, optional password, and
+an optional system username for CVS to run as if authentication
+succeeds.  Here is an example `passwd' file with five entries:
+
+     anonymous:
+     bach:ULtgRLXo7NRxs
+     spwang:1sOp854gDF3DY
+     melissa:tGX1fS8sun6rY:pubcvs
+     qproj:XR4EZcEs0szik:pubcvs
+
+(The passwords are encrypted according to the standard Unix `crypt()'
+function, so it is possible to paste in passwords directly from regular
+Unix `/etc/passwd' files.)
+
+   The first line in the example will grant access to any CVS client
+attempting to authenticate as user `anonymous', no matter what password
+they use, including an empty password.  (This is typical for sites
+granting anonymous read-only access; for information on how to do the
+"read-only" part, see *Note Read-only access::.)
+
+   The second and third lines will grant access to `bach' and `spwang'
+if they supply their respective plaintext passwords.
+
+   The fourth line will grant access to `melissa', if she supplies the
+correct password, but her CVS operations will actually run on the
+server side under the system user `pubcvs'.  Thus, there need not be
+any system user named `melissa', but there _must_ be one named `pubcvs'.
+
+   The fifth line shows that system user identities can be shared: any
+client who successfully authenticates as `qproj' will actually run as
+`pubcvs', just as `melissa' does.  That way you could create a single,
+shared system user for each project in your repository, and give each
+developer their own line in the `$CVSROOT/CVSROOT/passwd' file.  The CVS
+username on each line would be different, but the system username would
+be the same.  The reason to have different CVS usernames is that CVS
+will log their actions under those names: when `melissa' commits a
+change to a project, the checkin is recorded in the project's history
+under the name `melissa', not `pubcvs'.  And the reason to have them
+share a system username is so that you can arrange permissions in the
+relevant area of the repository such that only that account has
+write-permission there.
+
+   If the system-user field is present, all password-authenticated CVS
+commands run as that user; if no system user is specified, CVS simply
+takes the CVS username as the system username and runs commands as that
+user.  In either case, if there is no such user on the system, then the
+CVS operation will fail (regardless of whether the client supplied a
+valid password).
+
+   The password and system-user fields can both be omitted (and if the
+system-user field is omitted, then also omit the colon that would have
+separated it from the encrypted password).  For example, this would be a
+valid `$CVSROOT/CVSROOT/passwd' file:
+
+     anonymous::pubcvs
+     fish:rKa5jzULzmhOo:kfogel
+     sussman:1sOp854gDF3DY
+
+When the password field is omitted or empty, then the client's
+authentication attempt will succeed with any password, including the
+empty string.  However, the colon after the CVS username is always
+necessary, even if the password is empty.
+
+   CVS can also fall back to use system authentication.  When
+authenticating a password, the server first checks for the user in the
+`$CVSROOT/CVSROOT/passwd' file.  If it finds the user, it will use that
+entry for authentication as described above.  But if it does not find
+the user, or if the CVS `passwd' file does not exist, then the server
+can try to authenticate the username and password using the operating
+system's user-lookup routines (this "fallback" behavior can be disabled
+by setting `SystemAuth=no' in the CVS `config' file, *note config::).
+Be aware, however, that falling back to system authentication might be
+a security risk: CVS operations would then be authenticated with that
+user's regular login password, and the password flies across the
+network in plaintext.  See *Note Password authentication security:: for
+more on this.
+
+   Right now, the only way to put a password in the CVS `passwd' file
+is to paste it there from somewhere else.  Someday, there may be a `cvs
+passwd' command.
+
+   Unlike many of the files in `$CVSROOT/CVSROOT', it is normal to edit
+the `passwd' file in-place, rather than via CVS.  This is because of the
+possible security risks of having the `passwd' file checked out to
+people's working copies.  If you do want to include the `passwd' file
+in checkouts of `$CVSROOT/CVSROOT', see *Note checkoutlist::.
+
+
+File: cvs.info,  Node: Password authentication client,  Next: Password authentication security,  Prev: Password authentication server,  Up: Password authenticated
+
+Using the client with password authentication
+.............................................
+
+   To run a CVS command on a remote repository via the
+password-authenticating server, one specifies the `pserver' protocol,
+optional username, repository host, an optional port number, and path
+to the repository.  For example:
+
+     cvs -d :pserver:faun.example.org:/usr/local/cvsroot checkout someproj
+
+or
+
+     CVSROOT=:pserver:bach@faun.example.org:2401/usr/local/cvsroot
+     cvs checkout someproj
+
+   However, unless you're connecting to a public-access repository
+(i.e., one where that username doesn't require a password), you'll need
+to supply a password or "log in" first.  Logging in verifies your
+password with the repository and stores it in a file.  It's done with
+the `login' command, which will prompt you interactively for the
+password if you didn't supply one as part of $CVSROOT:
+
+     cvs -d :pserver:bach@faun.example.org:/usr/local/cvsroot login
+     CVS password:
+
+or
+
+     cvs -d :pserver:bach:p4ss30rd@faun.example.org:/usr/local/cvsroot login
+
+   After you enter the password, CVS verifies it with the server.  If
+the verification succeeds, then that combination of username, host,
+repository, and password is permanently recorded, so future
+transactions with that repository won't require you to run `cvs login'.
+(If verification fails, CVS will exit complaining that the password
+was incorrect, and nothing will be recorded.)
+
+   The records are stored, by default, in the file `$HOME/.cvspass'.
+That file's format is human-readable, and to a degree human-editable,
+but note that the passwords are not stored in cleartext--they are
+trivially encoded to protect them from "innocent" compromise (i.e.,
+inadvertent viewing by a system administrator or other non-malicious
+person).
+
+   You can change the default location of this file by setting the
+`CVS_PASSFILE' environment variable.  If you use this variable, make
+sure you set it _before_ `cvs login' is run.  If you were to set it
+after running `cvs login', then later CVS commands would be unable to
+look up the password for transmission to the server.
+
+   Once you have logged in, all CVS commands using that remote
+repository and username will authenticate with the stored password.
+So, for example
+
+     cvs -d :pserver:bach@faun.example.org:/usr/local/cvsroot checkout foo
+
+should just work (unless the password changes on the server side, in
+which case you'll have to re-run `cvs login').
+
+   Note that if the `:pserver:' were not present in the repository
+specification, CVS would assume it should use `rsh' to connect with the
+server instead (*note Connecting via rsh::).
+
+   Of course, once you have a working copy checked out and are running
+CVS commands from within it, there is no longer any need to specify the
+repository explicitly, because CVS can deduce the repository from the
+working copy's `CVS' subdirectory.
+
+   The password for a given remote repository can be removed from the
+`CVS_PASSFILE' by using the `cvs logout' command.
+
+
+File: cvs.info,  Node: Password authentication security,  Prev: Password authentication client,  Up: Password authenticated
+
+Security considerations with password authentication
+....................................................
+
+   The passwords are stored on the client side in a trivial encoding of
+the cleartext, and transmitted in the same encoding.  The encoding is
+done only to prevent inadvertent password compromises (i.e., a system
+administrator accidentally looking at the file), and will not prevent
+even a naive attacker from gaining the password.
+
+   The separate CVS password file (*note Password authentication
+server::) allows people to use a different password for repository
+access than for login access.  On the other hand, once a user has
+non-read-only access to the repository, she can execute programs on the
+server system through a variety of means.  Thus, repository access
+implies fairly broad system access as well.  It might be possible to
+modify CVS to prevent that, but no one has done so as of this writing.
+
+   Note that because the `$CVSROOT/CVSROOT' directory contains `passwd'
+and other files which are used to check security, you must control the
+permissions on this directory as tightly as the permissions on `/etc'.
+The same applies to the `$CVSROOT' directory itself and any directory
+above it in the tree.  Anyone who has write access to such a directory
+will have the ability to become any user on the system.  Note that
+these permissions are typically tighter than you would use if you are
+not using pserver.
+
+   In summary, anyone who gets the password gets repository access
+(which may imply some measure of general system access as well).  The
+password is available to anyone who can sniff network packets or read a
+protected (i.e., user read-only) file.  If you want real security, get
+Kerberos.
+
+
+File: cvs.info,  Node: GSSAPI authenticated,  Next: Kerberos authenticated,  Prev: Password authenticated,  Up: Remote repositories
+
+Direct connection with GSSAPI
+-----------------------------
+
+   GSSAPI is a generic interface to network security systems such as
+Kerberos 5.  If you have a working GSSAPI library, you can have CVS
+connect via a direct TCP connection, authenticating with GSSAPI.
+
+   To do this, CVS needs to be compiled with GSSAPI support; when
+configuring CVS it tries to detect whether GSSAPI libraries using
+Kerberos version 5 are present.  You can also use the `--with-gssapi'
+flag to configure.
+
+   The connection is authenticated using GSSAPI, but the message stream
+is _not_ authenticated by default.  You must use the `-a' global option
+to request stream authentication.
+
+   The data transmitted is _not_ encrypted by default.  Encryption
+support must be compiled into both the client and the server; use the
+`--enable-encrypt' configure option to turn it on.  You must then use
+the `-x' global option to request encryption.
+
+   GSSAPI connections are handled on the server side by the same server
+which handles the password authentication server; see *Note Password
+authentication server::.  If you are using a GSSAPI mechanism such as
+Kerberos which provides for strong authentication, you will probably
+want to disable the ability to authenticate via cleartext passwords.
+To do so, create an empty `CVSROOT/passwd' password file, and set
+`SystemAuth=no' in the config file (*note config::).
+
+   The GSSAPI server uses a principal name of cvs/HOSTNAME, where
+HOSTNAME is the canonical name of the server host.  You will have to
+set this up as required by your GSSAPI mechanism.
+
+   To connect using GSSAPI, use the `:gserver:' method.  For example,
+
+     cvs -d :gserver:faun.example.org:/usr/local/cvsroot checkout foo
+
+
+File: cvs.info,  Node: Kerberos authenticated,  Next: Connecting via fork,  Prev: GSSAPI authenticated,  Up: Remote repositories
+
+Direct connection with Kerberos
+-------------------------------
+
+   The easiest way to use Kerberos is to use the Kerberos `rsh', as
+described in *Note Connecting via rsh::.  The main disadvantage of
+using rsh is that all the data needs to pass through additional
+programs, so it may be slower.  So if you have Kerberos installed you
+can connect via a direct TCP connection, authenticating with Kerberos.
+
+   This section concerns the Kerberos network security system, version
+4.  Kerberos version 5 is supported via the GSSAPI generic network
+security interface, as described in the previous section.
+
+   To do this, CVS needs to be compiled with Kerberos support; when
+configuring CVS it tries to detect whether Kerberos is present or you
+can use the `--with-krb4' flag to configure.
+
+   The data transmitted is _not_ encrypted by default.  Encryption
+support must be compiled into both the client and server; use the
+`--enable-encryption' configure option to turn it on.  You must then
+use the `-x' global option to request encryption.
+
+   You need to edit `inetd.conf' on the server machine to run `cvs
+kserver'.  The client uses port 1999 by default; if you want to use
+another port specify it in the `CVSROOT' (*note Remote repositories::)
+or the `CVS_CLIENT_PORT' environment variable (*note Environment
+variables::) on the client.
+
+   When you want to use CVS, get a ticket in the usual way (generally
+`kinit'); it must be a ticket which allows you to log into the server
+machine.  Then you are ready to go:
+
+     cvs -d :kserver:faun.example.org:/usr/local/cvsroot checkout foo
+
+   Previous versions of CVS would fall back to a connection via rsh;
+this version will not do so.
+
+
+File: cvs.info,  Node: Connecting via fork,  Prev: Kerberos authenticated,  Up: Remote repositories
+
+Connecting with fork
+--------------------
+
+   This access method allows you to connect to a repository on your
+local disk via the remote protocol.  In other words it does pretty much
+the same thing as `:local:', but various quirks, bugs and the like are
+those of the remote CVS rather than the local CVS.
+
+   For day-to-day operations you might prefer either `:local:' or
+`:fork:', depending on your preferences.  Of course `:fork:' comes in
+particularly handy in testing or debugging `cvs' and the remote
+protocol.  Specifically, we avoid all of the network-related
+setup/configuration, timeouts, and authentication inherent in the other
+remote access methods but still create a connection which uses the
+remote protocol.
+
+   To connect using the `fork' method, use `:fork:' and the pathname to
+your local repository.  For example:
+
+     cvs -d :fork:/usr/local/cvsroot checkout foo
+
+   As with `:ext:', the server is called `cvs' by default, or the value
+of the `CVS_SERVER' environment variable.
+
+
+File: cvs.info,  Node: Read-only access,  Next: Server temporary directory,  Prev: Remote repositories,  Up: Repository
+
+Read-only repository access
+===========================
+
+   It is possible to grant read-only repository access to people using
+the password-authenticated server (*note Password authenticated::).
+(The other access methods do not have explicit support for read-only
+users because those methods all assume login access to the repository
+machine anyway, and therefore the user can do whatever local file
+permissions allow her to do.)
+
+   A user who has read-only access can do only those CVS operations
+which do not modify the repository, except for certain "administrative"
+files (such as lock files and the history file).  It may be desirable
+to use this feature in conjunction with user-aliasing (*note Password
+authentication server::).
+
+   Unlike with previous versions of CVS, read-only users should be able
+merely to read the repository, and not to execute programs on the
+server or otherwise gain unexpected levels of access.  Or to be more
+accurate, the _known_ holes have been plugged.  Because this feature is
+new and has not received a comprehensive security audit, you should use
+whatever level of caution seems warranted given your attitude concerning
+security.
+
+   There are two ways to specify read-only access for a user: by
+inclusion, and by exclusion.
+
+   "Inclusion" means listing that user specifically in the
+`$CVSROOT/CVSROOT/readers' file, which is simply a newline-separated
+list of users.  Here is a sample `readers' file:
+
+     melissa
+     splotnik
+     jrandom
+
+(Don't forget the newline after the last user.)
+
+   "Exclusion" means explicitly listing everyone who has _write_
+access--if the file
+
+     $CVSROOT/CVSROOT/writers
+
+exists, then only those users listed in it have write access, and
+everyone else has read-only access (of course, even the read-only users
+still need to be listed in the CVS `passwd' file).  The `writers' file
+has the same format as the `readers' file.
+
+   Note: if your CVS `passwd' file maps cvs users onto system users
+(*note Password authentication server::), make sure you deny or grant
+read-only access using the _cvs_ usernames, not the system usernames.
+That is, the `readers' and `writers' files contain cvs usernames, which
+may or may not be the same as system usernames.
+
+   Here is a complete description of the server's behavior in deciding
+whether to grant read-only or read-write access:
+
+   If `readers' exists, and this user is listed in it, then she gets
+read-only access.  Or if `writers' exists, and this user is NOT listed
+in it, then she also gets read-only access (this is true even if
+`readers' exists but she is not listed there).  Otherwise, she gets
+full read-write access.
+
+   Of course there is a conflict if the user is listed in both files.
+This is resolved in the more conservative way, it being better to
+protect the repository too much than too little: such a user gets
+read-only access.
+
+
+File: cvs.info,  Node: Server temporary directory,  Prev: Read-only access,  Up: Repository
+
+Temporary directories for the server
+====================================
+
+   While running, the CVS server creates temporary directories.  They
+are named
+
+     cvs-servPID
+
+where PID is the process identification number of the server.  They are
+located in the directory specified by the `-T' global option (*note
+Global options::), the `TMPDIR' environment variable (*note Environment
+variables::), or, failing that, `/tmp'.
+
+   In most cases the server will remove the temporary directory when it
+is done, whether it finishes normally or abnormally.  However, there
+are a few cases in which the server does not or cannot remove the
+temporary directory, for example:
+
+   * If the server aborts due to an internal server error, it may
+     preserve the directory to aid in debugging
+
+   * If the server is killed in a way that it has no way of cleaning up
+     (most notably, `kill -KILL' on unix).
+
+   * If the system shuts down without an orderly shutdown, which tells
+     the server to clean up.
+
+   In cases such as this, you will need to manually remove the
+`cvs-servPID' directories.  As long as there is no server running with
+process identification number PID, it is safe to do so.
+
+
+File: cvs.info,  Node: Starting a new project,  Next: Revisions,  Prev: Repository,  Up: Top
+
+Starting a project with CVS
+***************************
+
+   Because renaming files and moving them between directories is
+somewhat inconvenient, the first thing you do when you start a new
+project should be to think through your file organization.  It is not
+impossible to rename or move files, but it does increase the potential
+for confusion and CVS does have some quirks particularly in the area of
+renaming directories.  *Note Moving files::.
+
+   What to do next depends on the situation at hand.
+
+* Menu:
+
+* Setting up the files::        Getting the files into the repository
+* Defining the module::         How to make a module of the files
+
+
+File: cvs.info,  Node: Setting up the files,  Next: Defining the module,  Up: Starting a new project
+
+Setting up the files
+====================
+
+   The first step is to create the files inside the repository.  This
+can be done in a couple of different ways.
+
+* Menu:
+
+* From files::                  This method is useful with old projects
+                                where files already exists.
+* From other version control systems::  Old projects where you want to
+                                        preserve history from another system.
+* From scratch::                Creating a directory tree from scratch.
+

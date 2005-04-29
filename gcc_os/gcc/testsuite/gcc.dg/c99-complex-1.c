@@ -1,8 +1,8 @@
 /* Test for _Complex: in C99 only.  A few basic tests.  */
 /* Origin: Joseph Myers <jsm28@cam.ac.uk> */
 /* { dg-do compile } */
-/* { dg-options "-std=iso9899:1999 -pedantic-errors" } */
-
+/* APPLE LOCAL -Wlong-double */
+/* { dg-options "-std=iso9899:1999 -pedantic-errors -Wno-long-double" } */
 /* Test _Complex allowed on floating types.  */
 
 float _Complex a;

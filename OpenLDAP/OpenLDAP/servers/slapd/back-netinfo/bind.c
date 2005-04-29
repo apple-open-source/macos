@@ -38,17 +38,11 @@
 
 int
 netinfo_back_bind(
-	BackendDB *be,
-	Connection *conn,
-	Operation *op,
-	struct berval *dn,
-	struct berval *ndn,
-	int method,
-	struct berval *cred,
-	struct berval *edn
+	struct slap_op *op, 
+	struct slap_rep *rs
 )
 {
-	struct dsinfo *di = (struct dsinfo *)be->be_private;
+	struct dsinfo *di = (struct dsinfo *)op->o_bd->be_private;
 	int rc;
 	u_int32_t dsid;
 	struct atmap map;
@@ -59,36 +53,36 @@ netinfo_back_bind(
 	dsattribute *authAuthorityAttr;
 	char *authAuthority;
 
-	edn->bv_val = NULL;
-	edn->bv_len = 0;
+	op->orb_edn.bv_val = NULL;
+	op->orb_edn.bv_len = 0;
 
 	rc = LDAP_INVALID_CREDENTIALS;
 
 #ifdef NEW_LOGGING
 	LDAP_LOG(("backend", LDAP_LEVEL_ARGS, "netinfo_back_bind: DN %s\n",
-		dn != NULL ? dn->bv_val : "(null)"));
+		op->o_req_dn != NULL ? op->o_req_dn->bv_val : "(null)"));
 #else
-	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_bind dn=%s\n", dn ? dn->bv_val : "(null)", 0, 0);
+	Debug(LDAP_DEBUG_TRACE, "==> netinfo_back_bind dn=%s\n", op->o_req_dn.bv_val ? op->o_req_dn.bv_val : "(null)", 0, 0);
 #endif
 
-	if (method != LDAP_AUTH_SIMPLE)
+	if (op->orb_method != LDAP_AUTH_SIMPLE)
 	{
-		send_ldap_result(conn, op, LDAP_AUTH_METHOD_NOT_SUPPORTED, NULL,
-			"Only simple authentication supported by NetInfo", NULL, NULL);
+		send_ldap_error( op, rs, LDAP_AUTH_METHOD_NOT_SUPPORTED,
+				"Only simple authentication supported by NetInfo" );
 		return LDAP_AUTH_METHOD_NOT_SUPPORTED;
 	}
 
-	if (be_isroot_pw(be, conn, ndn, cred))
+	if (be_isroot_pw(op))
 	{
-		ber_dupbv(edn, be_root_dn(be));
+		ber_dupbv(&op->orb_edn, be_root_dn(op->o_bd));
 		return LDAP_SUCCESS; /* FE sends result */
 	}
 
-	if (cred != NULL && cred->bv_val != NULL)
+	if (op->orb_cred.bv_val != NULL)
 	{
 		ENGINE_LOCK(di);
 
-		status = netinfo_back_dn_pathmatch(be, ndn, &dsid);
+		status = netinfo_back_dn_pathmatch(op->o_bd, &op->o_req_ndn, &dsid);
 		if (status != DSStatusOK)
 		{
 			ENGINE_UNLOCK(di);
@@ -97,10 +91,10 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: pathmatch failed\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
-		status = netinfo_back_access_allowed(be, conn, op, dsid, slap_schema.si_ad_authAuthority, NULL, ACL_AUTH);
+		status = netinfo_back_access_allowed(op, dsid, slap_schema.si_ad_authAuthority, NULL, ACL_AUTH);
 		if (status != DSStatusOK)
 		{
 			ENGINE_UNLOCK(di);
@@ -109,10 +103,10 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: access to authAuthority denied\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
-		status = netinfo_back_access_allowed(be, conn, op, dsid, slap_schema.si_ad_userPassword, NULL, ACL_AUTH);
+		status = netinfo_back_access_allowed(op, dsid, slap_schema.si_ad_userPassword, NULL, ACL_AUTH);
 		if (status != DSStatusOK)
 		{
 			ENGINE_UNLOCK(di);
@@ -121,7 +115,7 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: access to userPassword denied\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		status = dsengine_fetch(di->engine, dsid, &user);
@@ -133,10 +127,10 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: fetch user record failed\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
-		status = schemamap_x500_to_ni_at(be, SUPER(user), slap_schema.si_ad_authAuthority, &map);
+		status = schemamap_x500_to_ni_at(op->o_bd, SUPER(user), slap_schema.si_ad_authAuthority, &map);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(user);
@@ -146,7 +140,7 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: could not map authAuthority\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		authAuthorityAttr = dsrecord_attribute(user, map.ni_key, map.selector);
@@ -164,11 +158,11 @@ netinfo_back_bind(
 				if (nameAttr != NULL && nameAttr->count > 0)
 					name = dsdata_to_cstring(nameAttr->value[0]);
 
-				status = (DoPSAuth(name, cred->bv_val, authAuthority) == kAuthNoError) ? DSStatusOK : DSStatusAccessRestricted;
+				status = (DoPSAuth(name, op->orb_cred.bv_val, authAuthority) == kAuthNoError) ? DSStatusOK : DSStatusAccessRestricted;
 				if (status == DSStatusOK)
 				{
 					/* Set the DN. */
-					status = netinfo_back_global_dn(be, user->dsid, edn);
+					status = netinfo_back_global_dn(op->o_bd, user->dsid, &op->orb_edn);
 				}
 
 				dsrecord_release(user);
@@ -176,14 +170,14 @@ netinfo_back_bind(
 				dsattribute_release(nameAttr);
 				dsattribute_release(authAuthorityAttr);
 				ENGINE_UNLOCK(di);
-				return netinfo_back_op_result(be, conn, op, status);
+				return netinfo_back_op_result(op, rs, status);
 			}
 		}
 
 		dsattribute_release(authAuthorityAttr);
 		schemamap_atmap_release(&map);
 
-		status = schemamap_x500_to_ni_at(be, SUPER(user), slap_schema.si_ad_userPassword, &map);
+		status = schemamap_x500_to_ni_at(op->o_bd, SUPER(user), slap_schema.si_ad_userPassword, &map);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(user);
@@ -193,7 +187,7 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: could not map userPassword\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		passwd = dsrecord_attribute(user, map.ni_key, map.selector);
@@ -207,10 +201,10 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: user has no userPassword attribute\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, DSStatusInvalidKey);
+			return netinfo_back_op_result(op, rs, DSStatusInvalidKey);
 		}
 
-		status = dsattribute_to_bervals(be, &vals, passwd, &map);
+		status = dsattribute_to_bervals(op->o_bd, &vals, passwd, &map);
 		if (status != DSStatusOK)
 		{
 			dsrecord_release(user);
@@ -222,12 +216,12 @@ netinfo_back_bind(
 #else
 			Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind: user has no userPassword attribute\n", 0, 0, 0);
 #endif
-			return netinfo_back_op_result(be, conn, op, status);
+			return netinfo_back_op_result(op, rs, status);
 		}
 
 		for (bvp = vals; bvp->bv_val != NULL; bvp++)
 		{
-			if (lutil_passwd(bvp, cred, NULL) == 0)
+			if (lutil_passwd(bvp, &op->orb_cred, NULL, NULL) == 0)
 			{
 				rc = LDAP_SUCCESS;
 				break;
@@ -240,7 +234,7 @@ netinfo_back_bind(
 		 */
 		if (rc == LDAP_SUCCESS)
 		{
-			status = netinfo_back_global_dn(be, user->dsid, edn);
+			status = netinfo_back_global_dn(op->o_bd, user->dsid, &op->orb_edn);
 			rc = dsstatus_to_ldap_err(status);
 		}
 
@@ -253,7 +247,11 @@ netinfo_back_bind(
 		ber_bvarray_free(vals);
 	}
 
-	send_ldap_result(conn, op, rc, NULL, NULL, NULL, NULL);
+	rs->sr_err = rc;
+	if (rc != LDAP_SUCCESS)
+	{
+		send_ldap_result(op, rs);
+	}
 
 #ifdef NEW_LOGGING
 	LDAP_LOG(("backend", LDAP_LEVEL_INFO, "netinfo_back_bind: done rc=%d\n", rc));
@@ -261,6 +259,7 @@ netinfo_back_bind(
 	Debug(LDAP_DEBUG_TRACE, "<== netinfo_back_bind done rc=%d\n", rc, 0, 0);
 #endif
 
-	return rc;
+	/* front end will send result on success (rs->sr_err==0) */
+	return rs->sr_err;
 }
 

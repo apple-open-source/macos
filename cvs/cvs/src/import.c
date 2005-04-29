@@ -20,7 +20,7 @@
 #include "savecwd.h"
 #include <assert.h>
 
-static char *get_comment PROTO((char *user));
+static char *get_comment PROTO((const char *user));
 static int add_rev PROTO((char *message, RCSNode *rcs, char *vfile,
 			  char *vers));
 static int add_tags PROTO((RCSNode *rcs, char *vfile, char *vtag, int targc,
@@ -91,9 +91,20 @@ import (argc, argv)
 #endif
 		    error (1, 0,
 			   "-q or -Q must be specified before \"%s\"",
-			   command_name);
+			   cvs_cmd_name);
 		break;
 	    case 'd':
+#ifdef SERVER_SUPPORT
+		if (server_active)
+		{
+		    /* CVS 1.10 and older clients will send this, but it
+		       doesn't do any good.  So tell the user we can't
+		       cope, rather than silently losing.  */
+		    error (0, 0,
+			   "warning: not setting the time of import from the file");
+		    error (0, 0, "due to client limitations");
+		}
+#endif
 		use_file_modtime = 1;
 		break;
 	    case 'b':
@@ -132,6 +143,35 @@ import (argc, argv)
     if (argc < 3)
 	usage (import_usage);
 
+#ifdef SERVER_SUPPORT
+    /* This is for handling the Checkin-time request.  It might seem a
+       bit odd to enable the use_file_modtime code even in the case
+       where Checkin-time was not sent for a particular file.  The
+       effect is that we use the time of upload, rather than the time
+       when we call RCS_checkin.  Since those times are both during
+       CVS's run, that seems OK, and it is easier to implement than
+       putting the "was Checkin-time sent" flag in CVS/Entries or some
+       such place.  */
+
+    if (server_active)
+	use_file_modtime = 1;
+#endif
+
+    /* Don't allow "CVS" as any directory in module path.
+     *
+     * Could abstract this to valid_module_path, but I don't think we'll need
+     * to call it from anywhere else.
+     */
+    if ((cp = strstr(argv[0], "CVS")) &&   /* path contains "CVS" AND ... */
+        ((cp == argv[0]) || ISDIRSEP(*(cp-1))) && /* /^CVS/ OR m#/CVS# AND ... */
+        ((*(cp+3) == '\0') || ISDIRSEP(*(cp+3))) /* /CVS$/ OR m#CVS/# */
+       )
+    {
+        error (0, 0,
+               "The word `CVS' is reserved by CVS and may not be used");
+        error (1, 0, "as a directory in a path or as a file name.");
+    }
+
     for (i = 1; i < argc; i++)		/* check the tags for validity */
     {
 	int j;
@@ -143,24 +183,27 @@ import (argc, argv)
     }
 
     /* XXX - this should be a module, not just a pathname */
-    if (! isabsolute (argv[0]))
+    if (!isabsolute (argv[0]) && pathname_levels (argv[0]) == 0)
     {
-	if (CVSroot_directory == NULL)
+	if (current_parsed_root == NULL)
 	{
 	    error (0, 0, "missing CVSROOT environment variable\n");
 	    error (1, 0, "Set it or specify the '-d' option to %s.",
 		   program_name);
 	}
-	repository = xmalloc (strlen (CVSroot_directory) + strlen (argv[0])
-			      + 10);
-	(void) sprintf (repository, "%s/%s", CVSroot_directory, argv[0]);
-	repos_len = strlen (CVSroot_directory);
+	repository = xmalloc (strlen (current_parsed_root->directory)
+			      + strlen (argv[0])
+			      + 2);
+	(void) sprintf (repository, "%s/%s", current_parsed_root->directory, argv[0]);
+	repos_len = strlen (current_parsed_root->directory);
     }
     else
     {
-	repository = xmalloc (strlen (argv[0]) + 5);
-	(void) strcpy (repository, argv[0]);
-	repos_len = 0;
+	/* It is somewhere between a security hole and "unexpected" to
+	   let the client start mucking around outside the cvsroot
+	   (wouldn't get the right CVSROOT configuration, &c).  */
+	error (1, 0, "directory %s not relative within the repository",
+	       argv[0]);
     }
 
     /*
@@ -169,17 +212,27 @@ import (argc, argv)
      * support branching to a single level, so the specified vendor branch
      * must only have two dots in it (like "1.1.1").
      */
-    for (cp = vbranch; *cp != '\0'; cp++)
-	if (!isdigit (*cp) && *cp != '.')
-	    error (1, 0, "%s is not a numeric branch", vbranch);
-    if (numdots (vbranch) != 2)
-	error (1, 0, "Only branches with two dots are supported: %s", vbranch);
+    {
+	regex_t pat;
+	assert (!regcomp (&pat, "^[1-9][0-9]*\\.[1-9][0-9]*\\.[1-9][0-9]*$",
+			  REG_EXTENDED));
+	if (regexec (&pat, vbranch, 0, NULL, 0))
+	{
+	    error (1, 0,
+"Only numeric branch specifications with two dots are\n"
+"supported by import, not `%s'.  For example: `1.1.1'.",
+		   vbranch);
+	}
+	regfree (&pat);
+    }
+
+    /* Set vhead to the branch's parent.  */
     vhead = xstrdup (vbranch);
     cp = strrchr (vhead, '.');
     *cp = '\0';
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	/* For rationale behind calling start_server before do_editor, see
 	   commit.c  */
@@ -187,12 +240,20 @@ import (argc, argv)
     }
 #endif
 
-    if (use_editor)
+    if (
+#ifdef SERVER_SUPPORT
+        !server_active &&
+#endif
+        use_editor)
     {
-	do_editor ((char *) NULL, &message, repository,
+	do_editor ((char *) NULL, &message,
+#ifdef CLIENT_SUPPORT
+		   current_parsed_root->isremote ? (char *) NULL :
+#endif
+			repository,
 		   (List *) NULL);
     }
-    do_verify (message, repository);
+    do_verify (&message, repository);
     msglen = message == NULL ? 0 : strlen (message);
     if (msglen == 0 || message[msglen - 1] != '\n')
     {
@@ -208,17 +269,13 @@ import (argc, argv)
     }
 
 #ifdef CLIENT_SUPPORT
-    if (client_active)
+    if (current_parsed_root->isremote)
     {
 	int err;
 
-	if (use_file_modtime)
-	    send_arg("-d");
-
 	if (vbranch[0] != '\0')
 	    option_with_arg ("-b", vbranch);
-	if (message)
-	    option_with_arg ("-m", message);
+	option_with_arg ("-m", message ? message : "");
 	if (keyword_opt != NULL)
 	    option_with_arg ("-k", keyword_opt);
 	/* The only ignore processing which takes place on the server side
@@ -241,11 +298,21 @@ import (argc, argv)
 	client_import_setup (repository);
 	err = import_descend (message, argv[1], argc - 2, argv + 2);
 	client_import_done ();
+	if (message)
+	    free (message);
+	free (repository);
+	free (vbranch);
+	free (vhead);
 	send_to_server ("import\012", 0);
 	err += get_responses_and_close ();
 	return err;
     }
 #endif
+
+    if (!safe_location ( NULL ))
+    {
+	error (1, 0, "attempt to import the repository");
+    }
 
     /*
      * Make all newly created directories writable.  Should really use a more
@@ -255,8 +322,7 @@ import (argc, argv)
     make_directories (repository);
 
     /* Create the logfile that will be logged upon completion */
-    tmpfile = cvs_temp_name ();
-    if ((logfp = CVS_FOPEN (tmpfile, "w+")) == NULL)
+    if ((logfp = cvs_temp_file (&tmpfile)) == NULL)
 	error (1, errno, "cannot create temporary file `%s'", tmpfile);
     /* On systems where we can unlink an open file, do so, so it will go
        away no matter how we exit.  FIXME-maybe: Should be checking for
@@ -275,29 +341,48 @@ import (argc, argv)
     {
 	if (!really_quiet)
 	{
-	    char buf[80];
-	    sprintf (buf, "\n%d conflicts created by this import.\n",
-		     conflicts);
-	    cvs_output (buf, 0);
-	    cvs_output ("Use the following command to help the merge:\n\n",
-			0);
-	    cvs_output ("\t", 1);
-	    cvs_output (program_name, 0);
-	    cvs_output (" checkout -j", 0);
-	    cvs_output (argv[1], 0);
-	    cvs_output (":yesterday -j", 0);
-	    cvs_output (argv[1], 0);
-	    cvs_output (" ", 1);
-	    cvs_output (argv[0], 0);
-	    cvs_output ("\n\n", 0);
+	    char buf[20];
+
+	    cvs_output_tagged ("+importmergecmd", NULL);
+	    cvs_output_tagged ("newline", NULL);
+	    sprintf (buf, "%d", conflicts);
+	    cvs_output_tagged ("conflicts", buf);
+	    cvs_output_tagged ("text", " conflicts created by this import.");
+	    cvs_output_tagged ("newline", NULL);
+	    cvs_output_tagged ("text",
+			       "Use the following command to help the merge:");
+	    cvs_output_tagged ("newline", NULL);
+	    cvs_output_tagged ("newline", NULL);
+	    cvs_output_tagged ("text", "\t");
+	    cvs_output_tagged ("text", program_name);
+	    if (CVSroot_cmdline != NULL)
+	    {
+		cvs_output_tagged ("text", " -d ");
+		cvs_output_tagged ("text", CVSroot_cmdline);
+	    }
+	    cvs_output_tagged ("text", " checkout -j");
+	    cvs_output_tagged ("mergetag1", "<prev_rel_tag>");
+	    cvs_output_tagged ("text", " -j");
+	    cvs_output_tagged ("mergetag2", argv[2]);
+	    cvs_output_tagged ("text", " ");
+	    cvs_output_tagged ("repository", argv[0]);
+	    cvs_output_tagged ("newline", NULL);
+	    cvs_output_tagged ("newline", NULL);
+	    cvs_output_tagged ("-importmergecmd", NULL);
 	}
 
+	/* FIXME: I'm not sure whether we need to put this information
+           into the loginfo.  If we do, then note that it does not
+           report any required -d option.  There is no particularly
+           clean way to tell the server about the -d option used by
+           the client.  */
 	(void) fprintf (logfp, "\n%d conflicts created by this import.\n",
 			conflicts);
 	(void) fprintf (logfp,
 			"Use the following command to help the merge:\n\n");
-	(void) fprintf (logfp, "\t%s checkout -j%s:yesterday -j%s %s\n\n",
-			program_name, argv[1], argv[1], argv[0]);
+	(void) fprintf (logfp, "\t%s checkout ", program_name);
+	(void) fprintf (logfp, "-j%s:yesterday -j%s %s\n\n",
+			argv[1], argv[1], argv[0]);
     }
     else
     {
@@ -318,7 +403,7 @@ import (argc, argv)
     li->type = T_TITLE;
     li->tag = xstrdup (vbranch);
     li->rev_old = li->rev_new = NULL;
-    p->data = (char *) li;
+    p->data = li;
     (void) addnode (ulist, p);
     Update_Logfile (repository, message, logfp, ulist);
     dellist (&ulist);
@@ -340,9 +425,9 @@ import (argc, argv)
     return (err);
 }
 
-/*
- * process all the files in ".", then descend into other directories.
- */
+/* Process all the files in ".", then descend into other directories.
+   Returns 0 for success, or >0 on error (in which case a message
+   will have been printed).  */
 static int
 import_descend (message, vtag, targc, targv)
     char *message;
@@ -361,25 +446,27 @@ import_descend (message, vtag, targc, targv)
 
     if ((dirp = CVS_OPENDIR (".")) == NULL)
     {
+	error (0, errno, "cannot open directory");
 	err++;
     }
     else
     {
-	while ((dp = readdir (dirp)) != NULL)
+	errno = 0;
+	while ((dp = CVS_READDIR (dirp)) != NULL)
 	{
 	    if (strcmp (dp->d_name, ".") == 0 || strcmp (dp->d_name, "..") == 0)
-		continue;
+		goto one_more_time_boys;
 #ifdef SERVER_SUPPORT
 	    /* CVS directories are created in the temp directory by
 	       server.c because it doesn't special-case import.  So
 	       don't print a message about them, regardless of -I!.  */
 	    if (server_active && strcmp (dp->d_name, CVSADM) == 0)
-		continue;
+		goto one_more_time_boys;
 #endif
 	    if (ign_name (dp->d_name))
 	    {
 		add_log ('I', dp->d_name);
-		continue;
+		goto one_more_time_boys;
 	    }
 
 	    if (
@@ -403,9 +490,12 @@ import_descend (message, vtag, targc, targv)
 	    }
 	    else if (
 #ifdef DT_DIR
-		dp->d_type == DT_LNK || dp->d_type == DT_UNKNOWN &&
+		     dp->d_type == DT_LNK
+		     || (dp->d_type == DT_UNKNOWN && islink (dp->d_name))
+#else
+		     islink (dp->d_name)
 #endif
-		islink (dp->d_name))
+		     )
 	    {
 		add_log ('L', dp->d_name);
 		err++;
@@ -413,19 +503,27 @@ import_descend (message, vtag, targc, targv)
 	    else
 	    {
 #ifdef CLIENT_SUPPORT
-		if (client_active)
+		if (current_parsed_root->isremote)
 		    err += client_process_import_file (message, dp->d_name,
                                                        vtag, targc, targv,
                                                        repository,
                                                        keyword_opt != NULL &&
-                                                       keyword_opt[0] == 'b');
+						       keyword_opt[0] == 'b',
+						       use_file_modtime);
 		else
 #endif
 		    err += process_import_file (message, dp->d_name,
 						vtag, targc, targv);
 	    }
+	one_more_time_boys:
+	    errno = 0;
 	}
-	(void) closedir (dirp);
+	if (errno != 0)
+	{
+	    error (0, errno, "cannot read directory");
+	    ++err;
+	}
+	(void) CVS_CLOSEDIR (dirp);
     }
 
     if (dirlist != NULL)
@@ -499,7 +597,8 @@ process_import_file (message, vfile, vtag, targc, targv)
 		node = findnode_fn (entries, vfile);
 		if (node != NULL)
 		{
-		    Entnode *entdata = (Entnode *) node->data;
+		    Entnode *entdata = node->data;
+
 		    if (entdata->type == ENT_FILE)
 		    {
 			assert (entdata->options[0] == '-'
@@ -547,6 +646,7 @@ update_rcs_file (message, vfile, vtag, targc, targv, inattic)
     Vers_TS *vers;
     int letter;
     char *tocvsPath;
+    char *expand;
     struct file_info finfo;
 
     memset (&finfo, 0, sizeof finfo);
@@ -576,7 +676,10 @@ update_rcs_file (message, vfile, vtag, targc, targv, inattic)
 	tocvsPath = wrap_tocvs_process_file (vfile);
 	/* FIXME: Why don't we pass tocvsPath to RCS_cmp_file if it is
            not NULL?  */
-	different = RCS_cmp_file (vers->srcfile, vers->vn_rcs, "-ko", vfile);
+	expand = vers->srcfile->expand != NULL &&
+			vers->srcfile->expand[0] == 'b' ? "-kb" : "-ko";
+	different = RCS_cmp_file( vers->srcfile, vers->vn_rcs, (char **)NULL,
+	                          (char *)NULL, expand, vfile );
 	if (tocvsPath)
 	    if (unlink_file_dir (tocvsPath) < 0)
 		error (0, errno, "cannot remove %s", tocvsPath);
@@ -655,7 +758,7 @@ add_rev (message, rcs, vfile, vers)
     tocvsPath = wrap_tocvs_process_file (vfile);
 
     status = RCS_checkin (rcs, tocvsPath == NULL ? vfile : tocvsPath,
-			  message, vbranch,
+			  message, vbranch, 0,
 			  (RCS_FLAGS_QUIET | RCS_FLAGS_KEEPFILE
 			   | (use_file_modtime ? RCS_FLAGS_MODTIME : 0)));
     ierrno = errno;
@@ -667,8 +770,8 @@ add_rev (message, rcs, vfile, vers)
     {
 	if (!noexec)
 	{
-	    fperror (logfp, 0, status == -1 ? ierrno : 0,
-		     "ERROR: Check-in of %s failed", rcs->path);
+	    fperrmsg (logfp, 0, status == -1 ? ierrno : 0,
+		      "ERROR: Check-in of %s failed", rcs->path);
 	    error (0, status == -1 ? ierrno : 0,
 		   "ERROR: Check-in of %s failed", rcs->path);
 	}
@@ -707,8 +810,8 @@ add_tags (rcs, vfile, vtag, targc, targv)
     if ((retcode = RCS_settag(rcs, vtag, vbranch)) != 0)
     {
 	ierrno = errno;
-	fperror (logfp, 0, retcode == -1 ? ierrno : 0,
-		 "ERROR: Failed to set tag %s in %s", vtag, rcs->path);
+	fperrmsg (logfp, 0, retcode == -1 ? ierrno : 0,
+		  "ERROR: Failed to set tag %s in %s", vtag, rcs->path);
 	error (0, retcode == -1 ? ierrno : 0,
 	       "ERROR: Failed to set tag %s in %s", vtag, rcs->path);
 	return (1);
@@ -731,9 +834,9 @@ add_tags (rcs, vfile, vtag, targc, targv)
 	else
 	{
 	    ierrno = errno;
-	    fperror (logfp, 0, retcode == -1 ? ierrno : 0,
-		     "WARNING: Couldn't add tag %s to %s", targv[i],
-		     rcs->path);
+	    fperrmsg (logfp, 0, retcode == -1 ? ierrno : 0,
+		      "WARNING: Couldn't add tag %s to %s", targv[i],
+		      rcs->path);
 	    error (0, retcode == -1 ? ierrno : 0,
 		   "WARNING: Couldn't add tag %s to %s", targv[i],
 		   rcs->path);
@@ -855,7 +958,7 @@ static const struct compair comtable[] =
 
 static char *
 get_comment (user)
-    char *user;
+    const char *user;
 {
     char *cp, *suffix;
     char *suffix_path;
@@ -874,7 +977,7 @@ get_comment (user)
 	 */
 	(void) strcpy (suffix_path, cp);
 	for (cp = suffix_path; *cp; cp++)
-	    if (isupper (*cp))
+	    if (isupper ((unsigned char) *cp))
 		*cp = tolower (*cp);
 	suffix = suffix_path;
     }
@@ -911,34 +1014,34 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
 	      add_vbranch, vtag, targc, targv,
 	      desctext, desclen, add_logfp)
     /* Log message for the addition.  Not used if add_vhead == NULL.  */
-    char *message;
+    const char *message;
     /* Filename of the RCS file to create.  */
-    char *rcs;
+    const char *rcs;
     /* Filename of the file to serve as the contents of the initial
        revision.  Even if add_vhead is NULL, we use this to determine
        the modes to give the new RCS file.  */
-    char *user;
+    const char *user;
 
     /* Revision number of head that we are adding.  Normally 1.1 but
        could be another revision as long as ADD_VBRANCH is a branch
        from it.  If NULL, then just add an empty file without any
        revisions (similar to the one created by "rcs -i").  */
-    char *add_vhead;
+    const char *add_vhead;
 
     /* Keyword expansion mode, e.g., "b" for binary.  NULL means the
        default behavior.  */
-    char *key_opt;
+    const char *key_opt;
 
     /* Vendor branch to import to, or NULL if none.  If non-NULL, then
        vtag should also be non-NULL.  */
-    char *add_vbranch;
-    char *vtag;
+    const char *add_vbranch;
+    const char *vtag;
     int targc;
     char *targv[];
 
     /* If non-NULL, description for the file.  If NULL, the description
        will be empty.  */
-    char *desctext;
+    const char *desctext;
     size_t desclen;
 
     /* Write errors to here as well as via error (), or NULL if we should
@@ -954,8 +1057,7 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
     int i, ierrno, err = 0;
     mode_t mode;
     char *tocvsPath;
-    char *userfile;
-    char *local_opt = key_opt;
+    const char *userfile;
     char *free_opt = NULL;
     mode_t file_type;
 
@@ -969,11 +1071,11 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
        or the other.  Before making a change of this sort, should think
        about what is best, document it (in cvs.texinfo and NEWS), &c.  */
 
-    if (local_opt == NULL)
+    if (key_opt == NULL)
     {
 	if (wrap_name_has (user, WRAP_RCSOPTION))
 	{
-	    local_opt = free_opt = wrap_rcsoption (user, 0);
+	    key_opt = free_opt = wrap_rcsoption (user, 0);
 	}
     }
 
@@ -996,14 +1098,21 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
        stat the file before opening it. -twp */
 
     if (CVS_LSTAT (userfile, &sb) < 0)
-	error (1, errno, "cannot lstat %s", user);
+    {
+	/* not fatal, continue import */
+	if (add_logfp != NULL)
+	    fperrmsg (add_logfp, 0, errno,
+			  "ERROR: cannot lstat file %s", userfile);
+	error (0, errno, "cannot lstat file %s", userfile);
+	goto read_error;
+    }
     file_type = sb.st_mode & S_IFMT;
 
     fpuser = NULL;
     if (!preserve_perms || file_type == S_IFREG)
     {
 	fpuser = CVS_FOPEN (userfile,
-			    ((local_opt != NULL && strcmp (local_opt, "b") == 0)
+			    ((key_opt != NULL && strcmp (key_opt, "b") == 0)
 			     ? "rb"
 			     : "r")
 	    );
@@ -1011,8 +1120,8 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
 	{
 	    /* not fatal, continue import */
 	    if (add_logfp != NULL)
-		fperror (add_logfp, 0, errno,
-			 "ERROR: cannot read file %s", userfile);
+		fperrmsg (add_logfp, 0, errno,
+			  "ERROR: cannot read file %s", userfile);
 	    error (0, errno, "ERROR: cannot read file %s", userfile);
 	    goto read_error;
 	}
@@ -1073,9 +1182,9 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
 	goto write_error;
     }
 
-    if (local_opt != NULL)
+    if (key_opt != NULL && strcmp (key_opt, "kv") != 0)
     {
-	if (fprintf (fprcs, "expand   @%s@;\012", local_opt) < 0)
+	if (fprintf (fprcs, "expand   @%s@;\012", key_opt) < 0)
 	{
 	    goto write_error;
 	}
@@ -1144,12 +1253,18 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
 		    case S_IFREG: break;
 		    case S_IFCHR:
 		    case S_IFBLK:
+#ifdef HAVE_STRUCT_STAT_ST_RDEV
 			if (fprintf (fprcs, "special\t%s %lu;\012",
 				     (file_type == S_IFCHR
 				      ? "character"
 				      : "block"),
 				     (unsigned long) sb.st_rdev) < 0)
 			    goto write_error;
+#else
+			error (0, 0,
+"can't import %s: unable to import device files on this system",
+userfile);
+#endif
 			break;
 		    default:
 			error (0, 0,
@@ -1195,12 +1310,18 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
 			case S_IFREG: break;
 			case S_IFCHR:
 			case S_IFBLK:
+#ifdef HAVE_STRUCT_STAT_ST_RDEV
 			    if (fprintf (fprcs, "special\t%s %lu;\012",
 					 (file_type == S_IFCHR
 					  ? "character"
 					  : "block"),
 					 (unsigned long) sb.st_rdev) < 0)
 				goto write_error;
+#else
+			    error (0, 0,
+"can't import %s: unable to import device files on this system",
+userfile);
+#endif
 			    break;
 			default:
 			    error (0, 0,
@@ -1319,8 +1440,8 @@ add_rcs_file (message, rcs, user, add_vhead, key_opt,
     {
 	ierrno = errno;
 	if (add_logfp != NULL)
-	    fperror (add_logfp, 0, ierrno,
-		     "WARNING: cannot change mode of file %s", rcs);
+	    fperrmsg (add_logfp, 0, ierrno,
+		      "WARNING: cannot change mode of file %s", rcs);
 	error (0, ierrno, "WARNING: cannot change mode of file %s", rcs);
 	err++;
     }
@@ -1339,14 +1460,14 @@ write_error_noclose:
     if (fclose (fpuser) < 0)
 	error (0, errno, "cannot close %s", user);
     if (add_logfp != NULL)
-	fperror (add_logfp, 0, ierrno, "ERROR: cannot write file %s", rcs);
+	fperrmsg (add_logfp, 0, ierrno, "ERROR: cannot write file %s", rcs);
     error (0, ierrno, "ERROR: cannot write file %s", rcs);
     if (ierrno == ENOSPC)
     {
 	if (CVS_UNLINK (rcs) < 0)
 	    error (0, errno, "cannot remove %s", rcs);
 	if (add_logfp != NULL)
-	    fperror (add_logfp, 0, 0, "ERROR: out of space - aborting");
+	    fperrmsg (add_logfp, 0, 0, "ERROR: out of space - aborting");
 	error (1, 0, "ERROR: out of space - aborting");
     }
 read_error:
@@ -1367,19 +1488,16 @@ read_error:
  */
 int
 expand_at_signs (buf, size, fp)
-    char *buf;
+    const char *buf;
     off_t size;
     FILE *fp;
 {
-    register char *cp, *next;
+    register const char *cp, *next;
 
     cp = buf;
     while ((next = memchr (cp, '@', size)) != NULL)
     {
-	int len;
-
-	++next;
-	len = next - cp;
+	size_t len = ++next - cp;
 	if (fwrite (cp, 1, len, fp) != len)
 	    return EOF;
 	if (putc ('@', fp) == EOF)
@@ -1455,7 +1573,7 @@ import_descend_dir (message, dir, vtag, targc, targv)
 	return (0);
     if (save_cwd (&cwd))
     {
-	fperror (logfp, 0, 0, "ERROR: cannot get working directory");
+	fperrmsg (logfp, 0, 0, "ERROR: cannot get working directory");
 	return (1);
     }
 
@@ -1477,7 +1595,7 @@ import_descend_dir (message, dir, vtag, targc, targv)
     }
 
 #ifdef CLIENT_SUPPORT
-    if (!quiet && !client_active)
+    if (!quiet && !current_parsed_root->isremote)
 #else
     if (!quiet)
 #endif
@@ -1486,13 +1604,13 @@ import_descend_dir (message, dir, vtag, targc, targv)
     if ( CVS_CHDIR (dir) < 0)
     {
 	ierrno = errno;
-	fperror (logfp, 0, ierrno, "ERROR: cannot chdir to %s", repository);
+	fperrmsg (logfp, 0, ierrno, "ERROR: cannot chdir to %s", repository);
 	error (0, ierrno, "ERROR: cannot chdir to %s", repository);
 	err = 1;
 	goto out;
     }
 #ifdef CLIENT_SUPPORT
-    if (!client_active && !isdir (repository))
+    if (!current_parsed_root->isremote && !isdir (repository))
 #else
     if (!isdir (repository))
 #endif
@@ -1501,9 +1619,9 @@ import_descend_dir (message, dir, vtag, targc, targv)
 	(void) sprintf (rcs, "%s%s", repository, RCSEXT);
 	if (isfile (repository) || isfile(rcs))
 	{
-	    fperror (logfp, 0, 0,
-		     "ERROR: %s is a file, should be a directory!",
-		     repository);
+	    fperrmsg (logfp, 0, 0,
+		      "ERROR: %s is a file, should be a directory!",
+		      repository);
 	    error (0, 0, "ERROR: %s is a file, should be a directory!",
 		   repository);
 	    err = 1;
@@ -1512,8 +1630,8 @@ import_descend_dir (message, dir, vtag, targc, targv)
 	if (noexec == 0 && CVS_MKDIR (repository, 0777) < 0)
 	{
 	    ierrno = errno;
-	    fperror (logfp, 0, ierrno,
-		     "ERROR: cannot mkdir %s -- not added", repository);
+	    fperrmsg (logfp, 0, ierrno,
+		      "ERROR: cannot mkdir %s -- not added", repository);
 	    error (0, ierrno,
 		   "ERROR: cannot mkdir %s -- not added", repository);
 	    err = 1;

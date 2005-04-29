@@ -47,15 +47,18 @@
 #include <sys/termios.h>
 #endif
 
-static char const rcsid[] = "$Id: input.c,v 1.6 2002/01/09 23:49:02 umeshv Exp $";
+static char const rcsid[] = "$Id: input.c,v 1.7 2004/07/09 21:34:44 nicolai Exp $";
 
 static	jmp_buf	env;		/* setjmp/longjmp buffer */
 static	int	prevchar;	/* previous, ungotten character */
 
+/* Internal prototypes: */
+static	RETSIGTYPE	catchint(int sig);
+
 /* catch the interrupt signal */
 
 /*ARGSUSED*/
-RETSIGTYPE
+static RETSIGTYPE
 catchint(int sig)
 {
  	(void) sig;		/* 'use' it, to avoid a warning */
@@ -76,7 +79,7 @@ myungetch(int c)
 int
 mygetch(void)
 {
-	RETSIGTYPE	(*savesig)();		/* old value of signal */
+	RETSIGTYPE	(*savesig)(int); /* old value of signal */
 	int	c;
 
 	/* change an interrupt signal to a break key character */
@@ -130,22 +133,14 @@ getline(char s[], unsigned size, int firstchar, BOOL iscaseless)
 	/* until the end of the line is reached */
 	while ((c = mygetch()) != '\r' && c != '\n' && c != KEY_ENTER) {
 
-#if TERMINFO
 		if (c == KEY_LEFT || c == ctrl('B')) {	/* left */
-#else
-		if (c == ctrl('B')) {	/* left */
-#endif
 			if (i > 0) {
 				addch('\b');
 				/* move this char into the second (rhs) string */
 				sright[ri++] = s[--i];
 			}
 		}
-#if TERMINFO
 		else if (c == KEY_RIGHT || c == ctrl('F')) {	/* right */
-#else
-		else if (c == ctrl('F')) {	/* right */
-#endif
 			if (i < size && ri > 0) {
 				/* move this char to the left of the cursor */
 				s[i++] = sright[--ri];
@@ -259,10 +254,6 @@ askforreturn(void)
 {
 	(void) fprintf(stderr, "Press the RETURN key to continue: ");
 	(void) getchar();
-#if Darwin
-	(void) clear();
-	move(0, 0);
-#endif
 }
 
 /* expand the ~ and $ shell meta characters in a path */

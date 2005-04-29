@@ -1,4 +1,4 @@
-# $FreeBSD: src/share/mk/bsd.info.mk,v 1.58 2000/05/15 14:17:50 bde Exp $
+# $FreeBSD: src/share/mk/bsd.info.mk,v 1.68 2004/01/27 23:22:15 ru Exp $
 #
 # The include file <bsd.info.mk> handles installing GNU (tech)info files.
 # Texinfo is a documentation system that uses a single source
@@ -10,8 +10,6 @@
 # CLEANFILES	Additional files to remove for the clean and cleandir targets.
 #
 # DESTDIR	Change the tree where the info files gets installed. [not set]
-#
-# DISTRIBUTION	Name of distribution. [info]
 #
 # DVIPS		A program which convert a TeX DVI file to PostScript [dvips]
 #
@@ -65,25 +63,13 @@
 #
 # +++ targets +++
 #
-#	distribute:
-#		This is a variant of install, which will
-#		put the stuff into the right "distribution".
-#
 #	install:
 #		Install the info files.
-#
-#	maninstall:
-#		Dummy target, do nothing.
 #
 #
 # bsd.obj.mk: cleandir and obj
 
-.if !target(__initialized__)
-__initialized__:
-.if exists(${.CURDIR}/../Makefile.inc)
-.include "${.CURDIR}/../Makefile.inc"
-.endif
-.endif
+.include <bsd.init.mk>
 
 MAKEINFO?=	makeinfo
 MAKEINFOFLAGS+=	--no-split # simplify some things, e.g., compression
@@ -100,8 +86,6 @@ TEX?=		tex
 DVIPS?=		dvips
 DVIPS2ASCII?=	dvips2ascii
 
-.MAIN: all
-
 .SUFFIXES: ${ICOMPRESS_EXT} .info .texi .texinfo .dvi .ps .latin1 .html
 
 .texi.info .texinfo.info:
@@ -109,18 +93,18 @@ DVIPS2ASCII?=	dvips2ascii
 		-o ${.TARGET}
 
 .texi.dvi .texinfo.dvi:
-	env TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
+	TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
 		${TEX} ${.IMPSRC} </dev/null
-# Run again to reolve cross references.
-	env TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
+# Run again to resolve cross references.
+	TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
 		${TEX} ${.IMPSRC} </dev/null
 
 .texinfo.latin1 .texi.latin1:
 	perl -npe 's/(^\s*\\input\s+texinfo\s+)/$$1\n@tex\n\\global\\hsize=120mm\n@end tex\n\n/' ${.IMPSRC} >> ${.IMPSRC:T:R}-la.texi
-	env TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
+	TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
 		${TEX} ${.IMPSRC:T:R}-la.texi </dev/null
-# Run again to reolve cross references.
-	env TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
+# Run again to resolve cross references.
+	TEXINPUTS=${.CURDIR}:${SRCDIR}:$$TEXINPUTS \
 		${TEX} ${.IMPSRC:T:R}-la.texi </dev/null
 	${DVIPS} -o /dev/stdout ${.IMPSRC:T:R}-la.dvi | \
 		${DVIPS2ASCII} > ${.TARGET}.new
@@ -144,10 +128,10 @@ CLEANFILES+=	${IFILENS}
 .if !defined(NOINFOCOMPRESS)
 CLEANFILES+=	${IFILENS:S/$/${ICOMPRESS_EXT}/}
 IFILES=	${IFILENS:S/$/${ICOMPRESS_EXT}/:S/.html${ICOMPRESS_EXT}/.html/}
-all: ${IFILES} _SUBDIR
+all: ${IFILES}
 .else
 IFILES=	${IFILENS}
-all: ${IFILES} _SUBDIR
+all: ${IFILES}
 .endif
 .else
 all:
@@ -160,7 +144,7 @@ ${x:S/$/${ICOMPRESS_EXT}/}:	${x}
 
 .for x in ${INFO}
 INSTALLINFODIRS+= ${x:S/$/-install/}
-${x:S/$/-install/}: ${DESTDIR}${INFODIR}/${INFODIRFILE}
+${x:S/$/-install/}:
 	${INSTALLINFO} ${INSTALLINFOFLAGS} \
 	    --defsection=${INFOSECTION} \
 	    --defentry=${INFOENTRY_${x}} \
@@ -169,15 +153,6 @@ ${x:S/$/-install/}: ${DESTDIR}${INFODIR}/${INFODIRFILE}
 
 .PHONY: ${INSTALLINFODIRS}
 
-DISTRIBUTION?=	bin
-
-.if !target(distribute)
-distribute: _SUBDIR
-.for dist in ${DISTRIBUTION}
-	cd ${.CURDIR} ; $(MAKE) install DESTDIR=${DISTDIR}/${dist} SHARED=copies
-.endfor
-.endif
-
 .if defined(SRCS)
 CLEANFILES+=	${INFO}.texi
 ${INFO}.texi: ${SRCS}
@@ -185,25 +160,25 @@ ${INFO}.texi: ${SRCS}
 .endif
 
 # tex garbage
-.if ${FORMATS:Mps} || ${FORMATS:Mdvi} || ${FORMATS:Mlatin1}
+.if !empty(FORMATS:Mps) || !empty(FORMATS:Mdvi) || !empty(FORMATS:Mlatin1)
 .for _f in aux cp fn ky log out pg toc tp vr dvi
 CLEANFILES+=	${INFO:S/$/.${_f}/} ${INFO:S/$/-la.${_f}/}
 .endfor
 CLEANFILES+=	${INFO:S/$/-la.texi/}
 .endif
 
-.if ${FORMATS:Mhtml}
+.if !empty(FORMATS:Mhtml)
 CLEANFILES+=	${INFO:S/$/.info.*.html/} ${INFO:S/$/.info/}
 .endif
 
 .if !defined(NOINFO) && defined(INFO)
-install: ${INSTALLINFODIRS} _SUBDIR
-.if ${IFILES:N*.html}
-	${INSTALL} ${COPY} -o ${INFOOWN} -g ${INFOGRP} -m ${INFOMODE} \
+install: ${INSTALLINFODIRS}
+.if !empty(IFILES:N*.html)
+	${INSTALL} -o ${INFOOWN} -g ${INFOGRP} -m ${INFOMODE} \
 		${IFILES:N*.html} ${DESTDIR}${INFODIR}
 .endif
-.if ${FORMATS:Mhtml}
-	${INSTALL} ${COPY} -o ${INFOOWN} -g ${INFOGRP} -m ${INFOMODE} \
+.if !empty(FORMATS:Mhtml)
+	${INSTALL} -o ${INFOOWN} -g ${INFOGRP} -m ${INFOMODE} \
 		${INFO:S/$/.info.*.html/} ${DESTDIR}${INFODIR}
 .endif
 .else
@@ -213,14 +188,6 @@ install: ${INSTALLINFODIRS} _SUBDIR
 # is no source file named __null_install.sh.
 install: __null_install
 __null_install:
-.endif
-
-.if !target(maninstall)
-maninstall: _SUBDIR
-.endif
-
-.if !target(regress)
-regress:
 .endif
 
 .include <bsd.obj.mk>

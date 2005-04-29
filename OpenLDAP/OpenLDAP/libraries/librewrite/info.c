@@ -1,26 +1,21 @@
-/******************************************************************************
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/info.c,v 1.4.4.4 2004/01/01 18:16:32 kurt Exp $ */
+/* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright (C) 2000 Pierangelo Masarati, <ando@sys-net.it>
+ * Copyright 2000-2004 The OpenLDAP Foundation.
  * All rights reserved.
  *
- * Permission is granted to anyone to use this software for any purpose
- * on any computer system, and to alter it and redistribute it, subject
- * to the following restrictions:
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted only as authorized by the OpenLDAP
+ * Public License.
  *
- * 1. The author is not responsible for the consequences of use of this
- * software, no matter how awful, even if they arise from flaws in it.
- *
- * 2. The origin of this software must not be misrepresented, either by
- * explicit claim or by omission.  Since few users ever read sources,
- * credits should appear in the documentation.
- *
- * 3. Altered versions must be plainly marked as such, and must not be
- * misrepresented as being the original software.  Since few users
- * ever read sources, credits should appear in the documentation.
- * 
- * 4. This notice may not be removed or altered.
- *
- ******************************************************************************/
+ * A copy of this license is available in the file LICENSE in the
+ * top-level directory of the distribution or, alternatively, at
+ * <http://www.OpenLDAP.org/license.html>.
+ */
+/* ACKNOWLEDGEMENT:
+ * This work was initially developed by Pierangelo Masarati for
+ * inclusion in OpenLDAP Software.
+ */
 
 #include <portable.h>
 
@@ -35,7 +30,7 @@
  * rewrite_parse; it can be altered only by a 
  * rewriteContext config line or by a change in info.
  */
-struct rewrite_context *__curr_context = NULL;
+struct rewrite_context *rewrite_int_curr_context = NULL;
 
 /*
  * Inits the info
@@ -63,7 +58,7 @@ rewrite_info_init(
 	/*
 	 * Resets the running context for parsing ...
 	 */
-	__curr_context = NULL;
+	rewrite_int_curr_context = NULL;
 
 	info = calloc( sizeof( struct rewrite_info ), 1 );
 	if ( info == NULL ) {
@@ -72,6 +67,7 @@ rewrite_info_init(
 
 	info->li_state = REWRITE_DEFAULT;
 	info->li_max_passes = REWRITE_MAX_PASSES;
+	info->li_max_passes_per_rule = REWRITE_MAX_PASSES;
 	info->li_rewrite_mode = mode;
 
 	/*
@@ -102,19 +98,40 @@ rewrite_info_init(
  */
 int
 rewrite_info_delete(
-		struct rewrite_info *info
+		struct rewrite_info **pinfo
 )
 {
-	assert( info != NULL );
+	struct rewrite_info	*info;
+
+	assert( pinfo != NULL );
+	assert( *pinfo != NULL );
+
+	info = *pinfo;
 	
+	if ( info->li_context ) {
+		avl_free( info->li_context, rewrite_context_free );
+	}
+	info->li_context = NULL;
+
+	if ( info->li_maps ) {
+		avl_free( info->li_maps, rewrite_builtin_map_free );
+	}
+	info->li_context = NULL;
+
 	rewrite_session_destroy( info );
+
+#ifdef USE_REWRITE_LDAP_PVT_THREADS
+	ldap_pvt_thread_rdwr_destroy( &info->li_cookies_mutex );
+#endif /* USE_REWRITE_LDAP_PVT_THREADS */
 
 	rewrite_param_destroy( info );
 	
 #ifdef USE_REWRITE_LDAP_PVT_THREADS
-	ldap_pvt_thread_rdwr_destroy( &info->li_cookies_mutex );
 	ldap_pvt_thread_rdwr_destroy( &info->li_params_mutex );
 #endif /* USE_REWRITE_LDAP_PVT_THREADS */
+
+	free( info );
+	*pinfo = NULL;
 
 	return REWRITE_SUCCESS;
 }
@@ -156,7 +173,7 @@ rewrite_session(
 )
 {
 	struct rewrite_context *context;
-	struct rewrite_op op = { 0, 0, NULL, NULL, NULL, NULL };
+	struct rewrite_op op = { 0, 0, NULL, NULL, NULL };
 	int rc;
 	
 	assert( info != NULL );
@@ -189,34 +206,40 @@ rewrite_session(
 		case REWRITE_MODE_ERR:
 			rc = REWRITE_REGEXEC_ERR;
 			goto rc_return;
+			
 		case REWRITE_MODE_OK:
 			rc = REWRITE_REGEXEC_OK;
 			goto rc_return;
+
 		case REWRITE_MODE_COPY_INPUT:
 			*result = strdup( string );
 			rc = REWRITE_REGEXEC_OK;
 			goto rc_return;
+
 		case REWRITE_MODE_USE_DEFAULT:
 			context = rewrite_context_find( info,
 					REWRITE_DEFAULT_CONTEXT );
 			break;
 		}
 	}
-	
+
+#if 0 /* FIXME: not used anywhere! (debug? then, why strdup?) */
 	op.lo_string = strdup( string );
 	if ( op.lo_string == NULL ) {
 		rc = REWRITE_REGEXEC_ERR;
 		goto rc_return;
 	}
+#endif
 	
 	/*
 	 * Applies rewrite context
 	 */
-	rc = rewrite_context_apply(info, &op, context, string, result );
+	rc = rewrite_context_apply( info, &op, context, string, result );
 	assert( op.lo_depth == 0 );
 
-	/* ?!? */
+#if 0 /* FIXME: not used anywhere! (debug? then, why strdup?) */	
 	free( op.lo_string );
+#endif
 	
 	switch ( rc ) {
 	/*
@@ -237,11 +260,13 @@ rewrite_session(
 	 */
 	case REWRITE_REGEXEC_UNWILLING:
 	case REWRITE_REGEXEC_ERR:
-	default:
 		if ( *result != NULL ) {
 			free( *result );
 			*result = NULL;
 		}
+
+	default:
+		break;
 	}
 
 rc_return:;

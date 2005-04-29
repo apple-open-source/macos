@@ -34,7 +34,7 @@ other dealings in this Software without prior written authorization
 from The Open Group.
 
     ------------------------------------------------------------------------ **/
-/* $XFree86: xc/programs/xwd/multiVis.c,v 1.8 2002/12/10 22:38:50 tsi Exp $ */
+/* $XFree86: xc/programs/xwd/multiVis.c,v 1.10 2003/11/17 22:20:54 dawes Exp $ */
 
 #include <stdlib.h>
 #include <X11/Xlib.h>
@@ -119,79 +119,53 @@ extern unsigned int list_length();
 
 /* Prototype Declarations for Static Functions */
 static int QueryColorMap(
-#if NeedFunctionPrototypes
            Display *, Colormap , Visual *, 
            XColor **, int *, int *, int *
-#endif
 	   );
 static void TransferImage(
-#if NeedFunctionPrototypes
            Display *, XImage *,int, int , image_region_type*,
            XImage *,int ,int 
-#endif
 	   );
 static XImage * ReadRegionsInList(
-#if NeedFunctionPrototypes
            Display *, Visual *, int ,int ,int ,
            int , XRectangle, list_ptr 
-#endif
            );
 
 static list_ptr make_region_list( 
-#if NeedFunctionPrototypes
                   Display*, Window, XRectangle*,
                   int*, int, XVisualInfo**, int	*
-#endif
          );
 
 static void destroy_region_list( 
-#if NeedFunctionPrototypes
             list_ptr 
-#endif
             ) ;
 static void subtr_rect_from_image_region( 
-#if NeedFunctionPrototypes
            image_region_type *, int , int , int , int 
-#endif
      );
 static void add_rect_to_image_region( 
-#if NeedFunctionPrototypes
            image_region_type *,
            int , int , int , int 
-#endif
      );
 static int src_in_region_list( 
-#if NeedFunctionPrototypes
     image_win_type *, list_ptr 
-#endif
     );
 static void add_window_to_list(
-#if NeedFunctionPrototypes
     list_ptr, Window, int, int ,
     int	, int , int , int, int,
     Visual*, Colormap, Window
-#endif
     );
 static int src_in_image( 
-#if NeedFunctionPrototypes
     image_win_type 	*, int	, XVisualInfo**
-#endif
     );
 static int src_in_overlay( 
-#if NeedFunctionPrototypes
     image_region_type *, int, OverlayInfo *, int*, int*
-#endif 
     );
 static void make_src_list(
-#if NeedFunctionPrototypes
     Display *, list_ptr, XRectangle *, Window,
     int, int, XWindowAttributes *, XRectangle *
-#endif 
 );
 static void destroy_image_region(
-#if NeedFunctionPrototypes
     image_region_type *
-#endif
 );
 
 /* End of Prototype Declarations */
@@ -337,16 +311,12 @@ XImage *reg_image,*target_image ;
 image_region_type	*reg;
 int srcw,srch,dst_x , dst_y ;
 {
-    int ncolors;
     int i,j,old_pixel,new_pixel,red_ind,green_ind,blue_ind ;
     XColor *colors;
     int rShift,gShift,bShift;
-    int targetBytesPerLine ;
 
-    ncolors = QueryColorMap(disp,reg->cmap,reg->vis,&colors,
+    (void) QueryColorMap(disp,reg->cmap,reg->vis,&colors,
 	 &rShift,&gShift,&bShift) ;
-
-    targetBytesPerLine = target_image->bytes_per_line;  
 
     switch (reg->vis->class) {
     case TrueColor : 
@@ -529,7 +499,9 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
     Visual		fakeVis ;
     int 	x1, y1;
     XImage	*image;
+#if 0
     unsigned char 	*pmData ,  *ipmData ;
+#endif
     int                 transparentColor, transparentType;
     int			srcRect_x,srcRect_y,srcRect_width,srcRect_height ;
     int			diff ;
@@ -547,14 +519,18 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
     depth = 24 ;
     ximage = ReadRegionsInList(disp,&fakeVis,depth,format,width,height,
 	     bbox,vis_regions) ;
+#if 0
     pmData = (unsigned char *)ximage -> data ;
+#endif
 
 /* if transparency possible do it again, but this time for image planes only */
     if (vis_image_regions && (vis_image_regions->next) && !allImage)
     {
 	ximage_ipm = ReadRegionsInList(disp,&fakeVis,depth,format,width,height,
 		     bbox,vis_image_regions) ;
+#if 0
         ipmData = (unsigned char *)ximage_ipm -> data ;
+#endif
     }
 /* Now tranverse the overlay visual windows and test for transparency index.  */
 /* If you find one, subsitute the value from the matching image plane pixmap. */
@@ -593,11 +569,11 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
 		    {
 			if (*pixel_ptr++ == transparentColor)
 			{
-			/*
+#if 0
 			    *pmData++ = *ipmData++;
 			    *pmData++ = *ipmData++;
 			    *pmData++ = *ipmData++;
-			*/
+#endif
 	                pixel = XGetPixel(ximage_ipm,dst_x+x1,dst_y+y1) ;
                         XPutPixel(ximage,dst_x+x1, dst_y+y1,pixel);
 			    
@@ -605,12 +581,12 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
 			   test = 1 ;
 			}
 			}
-			/*
+#if 0
 			else {
 			    pmData +=3;
 			    ipmData +=3;
 			}
-			*/
+#endif
 		    }
 		    start_of_line += image->bytes_per_line;
 		}
@@ -622,23 +598,23 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
 			    int pixel_value = XGetPixel(image, x1, y1);
 			    if (pixel_value == transparentColor)
 			    {
-			    /*
+#if 0
 				*pmData++ = *ipmData++;
 				*pmData++ = *ipmData++;
 				*pmData++ = *ipmData++;
-			    */
+#endif
 	                pixel = XGetPixel(ximage_ipm,dst_x+x1,dst_y+y1) ;
                         XPutPixel(ximage,dst_x+x1, dst_y+y1,pixel);
 			if(!test){
 			   test = 1 ;
 			}
 			    }
-			    /*
+#if 0
 			    else {
 				pmData +=3;
 				ipmData +=3;
 			    }
-			    */
+#endif
 			}
 		    }
 		} else {
@@ -648,23 +624,23 @@ XImage *ReadAreaToImage(disp, srcRootWinid, x, y, width, height,
 			    int pixel_value = XGetPixel(image, x1, y1);
 			    if (pixel_value & transparentColor)
 			    {
-			    /*
+#if 0
 				*pmData++ = *ipmData++;
 				*pmData++ = *ipmData++;
 				*pmData++ = *ipmData++;
-			    */
+#endif
 	                        pixel = XGetPixel(ximage_ipm,dst_x+x1,dst_y+y1) ;
                                 XPutPixel(ximage,dst_x+x1, dst_y+y1,pixel);
 			if(!test){
 			   test = 1 ;
 			}
 			    }
-			    /*
+#if 0
 			    else {
 				pmData +=3;
 				ipmData +=3;
 			    }
-			    */
+#endif
 			}
 		    }
 		}

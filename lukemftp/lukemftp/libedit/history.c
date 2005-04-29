@@ -1,4 +1,4 @@
-/*	$NetBSD: history.c,v 1.16 2000/09/04 22:06:30 lukem Exp $	*/
+/*	$NetBSD: history.c,v 1.19 2002/03/18 16:00:54 christos Exp $	*/
 
 /*-
  * Copyright (c) 1992, 1993
@@ -36,10 +36,16 @@
  * SUCH DAMAGE.
  */
 
+#include "lukemftp.h"
+#include "sys.h"
+
 /*
  * hist.c: History access functions
  */
-#include "sys.h"
+#include <string.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <sys/stat.h>
 
 static const char hist_cookie[] = "_HiStOrY_V2_\n";
 
@@ -76,6 +82,12 @@ struct history {
 #define	h_malloc(a)	malloc(a)
 #define	h_realloc(a, b)	realloc((a), (b))
 #define	h_free(a)	free(a)
+
+typedef struct {
+    int		num;
+    char	*str;
+} HistEventPrivate;
+
 
 
 private int history_setsize(History *, HistEvent *, int);
@@ -316,10 +328,11 @@ history_def_add(ptr_t p, HistEvent *ev, const char *str)
 	history_t *h = (history_t *) p;
 	size_t len;
 	char *s;
+	HistEventPrivate *evp = (void *)&h->cursor->ev;
 
 	if (h->cursor == &h->list)
 		return (history_def_enter(p, ev, str));
-	len = strlen(h->cursor->ev.str) + strlen(str) + 1;
+	len = strlen(evp->str) + strlen(str) + 1;
 	s = (char *) h_malloc(len);
 	if (!s) {
 		he_seterrev(ev, _HE_MALLOC_FAILED);
@@ -327,9 +340,8 @@ history_def_add(ptr_t p, HistEvent *ev, const char *str)
 	}
 	(void) strlcpy(s, h->cursor->ev.str, len);
 	(void) strlcat(s, str, len);
-	/* LINTED const cast */
-	h_free((ptr_t) h->cursor->ev.str);
-	h->cursor->ev.str = s;
+	h_free(evp->str);
+	evp->str = s;
 	*ev = h->cursor->ev;
 	return (0);
 }
@@ -342,13 +354,12 @@ history_def_add(ptr_t p, HistEvent *ev, const char *str)
 private void
 history_def_delete(history_t *h, HistEvent *ev, hentry_t *hp)
 {
-
+	HistEventPrivate *evp = (void *)&hp->ev;
 	if (hp == &h->list)
 		abort();
 	hp->prev->next = hp->next;
 	hp->next->prev = hp->prev;
-	/* LINTED const cast */
-	h_free((ptr_t) hp->ev.str);
+	h_free((ptr_t) evp->str);
 	h_free(hp);
 	h->cur--;
 }
@@ -395,7 +406,7 @@ history_def_enter(ptr_t p, HistEvent *ev, const char *str)
          * Always keep at least one entry.
          * This way we don't have to check for the empty list.
          */
-	while (h->cur - 1 > h->max)
+	while (h->cur > h->max && h->cur > 0)
 		history_def_delete(h, ev, h->list.prev);
 
 	return (0);
@@ -630,6 +641,7 @@ history_save(History *h, const char *fname)
 	if ((fp = fopen(fname, "w")) == NULL)
 		return (-1);
 
+	(void) fchmod(fileno(fp), S_IRUSR|S_IWUSR);
 	(void) fputs(hist_cookie, fp);
 	ptr = h_malloc(max_size = 1024);
 	for (retval = HLAST(h, &ev);

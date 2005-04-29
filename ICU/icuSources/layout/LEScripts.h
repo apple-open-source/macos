@@ -1,17 +1,15 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2003. All Rights Reserved.
+ * (C) Copyright IBM Corp. 1998-2004. All Rights Reserved.
  *
  * WARNING: THIS FILE IS MACHINE GENERATED. DO NOT HAND EDIT IT UNLESS
  * YOU REALLY KNOW WHAT YOU'RE DOING.
- *
- * $Source: /cvs/root/ICU/icuSources/layout/LEScripts.h,v $
- * $Date: 2003/07/03 18:13:45 $
- * $Revision: 1.1.1.2 $
  */
 
 #ifndef __LESCRIPTS_H
 #define __LESCRIPTS_H
+
+#include "LETypes.h"
 
 U_NAMESPACE_BEGIN
 
@@ -77,8 +75,9 @@ enum ScriptCodes {
     shawScriptCode = 51,
     taleScriptCode = 52,
     ugarScriptCode = 53,
+    hrktScriptCode = 54,
 
-    scriptCodeCount = 54
+    scriptCodeCount = 55
 };
 
 U_NAMESPACE_END

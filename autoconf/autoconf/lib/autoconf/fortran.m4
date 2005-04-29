@@ -1,6 +1,6 @@
 # This file is part of Autoconf.                       -*- Autoconf -*-
 # Fortran languages support.
-# Copyright 2001
+# Copyright (C) 2001, 2003
 # Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
@@ -48,6 +48,17 @@
 # Written by David MacKenzie, with help from
 # Franc,ois Pinard, Karl Berry, Richard Pixley, Ian Lance Taylor,
 # Roland McGrath, Noah Friedman, david d zuhn, and many others.
+
+# Fortran vs. Fortran 77:
+#   This file contains macros for both "Fortran 77" and "Fortran", where
+# the former is the "classic" autoconf Fortran interface and is intended
+# for legacy F77 codes, while the latter is intended to support newer Fortran
+# dialects.  Fortran 77 uses environment variables F77, FFLAGS, and FLIBS,
+# while Fortran uses FC, FCFLAGS, and FCLIBS.  For each user-callable AC_*
+# macro, there is generally both an F77 and an FC version, where both versions
+# share the same _AC_*_FC_* backend.  This backend macro requires that
+# the appropriate language be AC_LANG_PUSH'ed, and uses _AC_LANG_ABBREV and
+# _AC_LANG_PREFIX in order to name cache and environment variables, etc.
 
 
 # _AC_LIST_MEMBER_IF(ELEMENT, LIST, [ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
@@ -120,9 +131,9 @@ fi[]dnl
 ## ----------------------- ##
 
 
-# ----------------------------- #
-# 1d. The Fortran 77 language.  #
-# ----------------------------- #
+# -------------------------- #
+# 1d. The Fortran language.  #
+# -------------------------- #
 
 
 # AC_LANG(Fortran 77)
@@ -135,15 +146,54 @@ ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 ])
 
 
+# AC_LANG(Fortran)
+# ----------------
+m4_define([AC_LANG(Fortran)],
+[ac_ext=${FC_SRCEXT-f}
+ac_compile='$FC -c $FCFLAGS $FCFLAGS_SRCEXT conftest.$ac_ext >&AS_MESSAGE_LOG_FD'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $FCFLAGS_SRCEXT conftest.$ac_ext $LIBS >&AS_MESSAGE_LOG_FD'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+])
+
 # AC_LANG_FORTRAN77
 # -----------------
 AU_DEFUN([AC_LANG_FORTRAN77], [AC_LANG(Fortran 77)])
+
+
+# _AC_FORTRAN_ASSERT
+# ------------------
+# Current language must be Fortran or Fortran 77.
+m4_defun([_AC_FORTRAN_ASSERT],
+[m4_if(_AC_LANG, [Fortran], [],
+       [m4_if(_AC_LANG, [Fortran 77], [],
+              [m4_fatal([$0: current language is not Fortran: ] _AC_LANG)])])])
 
 
 # _AC_LANG_ABBREV(Fortran 77)
 # ---------------------------
 m4_define([_AC_LANG_ABBREV(Fortran 77)], [f77])
 
+# _AC_LANG_ABBREV(Fortran)
+# ------------------------
+m4_define([_AC_LANG_ABBREV(Fortran)], [fc])
+
+
+# _AC_LANG_PREFIX(Fortran 77)
+# ---------------------------
+m4_define([_AC_LANG_PREFIX(Fortran 77)], [F])
+
+# _AC_LANG_PREFIX(Fortran)
+# ------------------------
+m4_define([_AC_LANG_PREFIX(Fortran)], [FC])
+
+
+# _AC_FC
+# ------
+# Return F77 or FC, depending upon the language.
+AC_DEFUN([_AC_FC],
+[_AC_FORTRAN_ASSERT()dnl
+AC_LANG_CASE([Fortran 77], [F77],
+             [Fortran],    [FC])])
 
 
 ## ---------------------- ##
@@ -151,16 +201,19 @@ m4_define([_AC_LANG_ABBREV(Fortran 77)], [f77])
 ## ---------------------- ##
 
 
-# ------------------------ #
-# 2d. Fortran 77 sources.  #
-# ------------------------ #
+# --------------------- #
+# 2d. Fortran sources.  #
+# --------------------- #
 
 # AC_LANG_SOURCE(Fortran 77)(BODY)
+# AC_LANG_SOURCE(Fortran)(BODY)
 # --------------------------------
 # FIXME: Apparently, according to former AC_TRY_COMPILER, the CPP
 # directives must not be included.  But AC_TRY_RUN_NATIVE was not
 # avoiding them, so?
 m4_define([AC_LANG_SOURCE(Fortran 77)],
+[$1])
+m4_define([AC_LANG_SOURCE(Fortran)],
 [$1])
 
 
@@ -168,6 +221,17 @@ m4_define([AC_LANG_SOURCE(Fortran 77)],
 # -----------------------------------------------
 # Yes, we discard the PROLOGUE.
 m4_define([AC_LANG_PROGRAM(Fortran 77)],
+[m4_ifval([$1],
+       [m4_warn([syntax], [$0: ignoring PROLOGUE: $1])])dnl
+      program main
+$2
+      end])
+
+
+# AC_LANG_PROGRAM(Fortran)([PROLOGUE], [BODY])
+# -----------------------------------------------
+# FIXME: can the PROLOGUE be used?
+m4_define([AC_LANG_PROGRAM(Fortran)],
 [m4_ifval([$1],
        [m4_warn([syntax], [$0: ignoring PROLOGUE: $1])])dnl
       program main
@@ -183,6 +247,13 @@ m4_define([AC_LANG_CALL(Fortran 77)],
 [      call $2])])
 
 
+# AC_LANG_CALL(Fortran)(PROLOGUE, FUNCTION)
+# --------------------------------------------
+# FIXME: This is a guess, help!
+m4_define([AC_LANG_CALL(Fortran)],
+[AC_LANG_PROGRAM([$1],
+[      call $2])])
+
 
 
 ## -------------------------------------------- ##
@@ -190,15 +261,22 @@ m4_define([AC_LANG_CALL(Fortran 77)],
 ## -------------------------------------------- ##
 
 
-# ----------------------------- #
-# 3d. The Fortran 77 compiler.  #
-# ----------------------------- #
+# -------------------------- #
+# 3d. The Fortran compiler.  #
+# -------------------------- #
 
 
 # AC_LANG_PREPROC(Fortran 77)
 # ---------------------------
 # Find the Fortran 77 preprocessor.  Must be AC_DEFUN'd to be AC_REQUIRE'able.
 AC_DEFUN([AC_LANG_PREPROC(Fortran 77)],
+[m4_warn([syntax],
+	 [$0: No preprocessor defined for ]_AC_LANG)])
+
+# AC_LANG_PREPROC(Fortran)
+# ---------------------------
+# Find the Fortran preprocessor.  Must be AC_DEFUN'd to be AC_REQUIRE'able.
+AC_DEFUN([AC_LANG_PREPROC(Fortran)],
 [m4_warn([syntax],
          [$0: No preprocessor defined for ]_AC_LANG)])
 
@@ -210,6 +288,13 @@ AC_DEFUN([AC_LANG_PREPROC(Fortran 77)],
 AC_DEFUN([AC_LANG_COMPILER(Fortran 77)],
 [AC_REQUIRE([AC_PROG_F77])])
 
+# AC_LANG_COMPILER(Fortran)
+# ----------------------------
+# Find the Fortran compiler.  Must be AC_DEFUN'd to be
+# AC_REQUIRE'able.
+AC_DEFUN([AC_LANG_COMPILER(Fortran)],
+[AC_REQUIRE([AC_PROG_FC])])
+
 
 # ac_cv_prog_g77
 # --------------
@@ -218,36 +303,60 @@ AU_DEFUN([ac_cv_prog_g77],
 [ac_cv_f77_compiler_gnu])
 
 
-# AC_PROG_F77([COMPILERS...])
-# ---------------------------
-# COMPILERS is a space separated list of Fortran 77 compilers to search
-# for.  Fortran 95 isn't strictly backwards-compatible with Fortran 77,
-# but `f95' is worth trying.
+# _AC_FC_DIALECT_YEAR([DIALECT])
+# ------------------------------
+# Given a Fortran DIALECT, which is Fortran [YY]YY or simply [YY]YY,
+# convert to a 4-digit year.  The dialect must be one of Fortran 77,
+# 90, 95, or 2000, currently.  If DIALECT is simply Fortran or the
+# empty string, returns the empty string.
+AC_DEFUN([_AC_FC_DIALECT_YEAR],
+[m4_case(m4_bpatsubsts(m4_tolower([$1]), [fortran],[], [ *],[]),
+	 [77],[1977], [1977],[1977],
+	 [90],[1990], [1990],[1990],
+	 [95],[1995], [1995],[1995],
+	 [2000],[2000],
+         [],[],
+         [m4_fatal([unknown Fortran dialect])])])
+
+
+# _AC_PROG_FC([DIALECT], [COMPILERS...])
+# --------------------------------------
+# DIALECT is a Fortran dialect, given by Fortran [YY]YY or simply [YY]YY,
+# and must be one of those supported by _AC_FC_DIALECT_YEAR
 #
-# Compilers are ordered by
-#  1. F77, F90, F95
-#  2. Good/tested native compilers, bad/untested native compilers
-#  3. Wrappers around f2c go last.
+# If DIALECT is supplied, then we search for compilers of that dialect
+# first, and then later dialects.  Otherwise, we search for compilers
+# of the newest dialect first, and then earlier dialects in increasing age.
+# This search order is necessarily imperfect because the dialect cannot
+# always be inferred from the compiler name.
 #
-# `fort77' is a wrapper around `f2c'.
-# It is believed that under HP-UX `fort77' is the name of the native
-# compiler.  On some Cray systems, fort77 is a native compiler.
-# frt is the Fujitsu F77 compiler.
-# pgf77 and pgf90 are the Portland Group F77 and F90 compilers.
-# xlf/xlf90/xlf95 are IBM (AIX) F77/F90/F95 compilers.
-# lf95 is the Lahey-Fujitsu compiler.
-# fl32 is the Microsoft Fortran "PowerStation" compiler.
-# af77 is the Apogee F77 compiler for Intergraph hardware running CLIX.
-# epcf90 is the "Edinburgh Portable Compiler" F90.
-# fort is the Compaq Fortran 90 (now 95) compiler for Tru64 and Linux/Alpha.
-AC_DEFUN([AC_PROG_F77],
-[AC_LANG_PUSH(Fortran 77)dnl
-AC_ARG_VAR([F77],    [Fortran 77 compiler command])dnl
-AC_ARG_VAR([FFLAGS], [Fortran 77 compiler flags])dnl
-_AC_ARG_VAR_LDFLAGS()dnl
-AC_CHECK_TOOLS(F77,
-      [m4_default([$1],
-                  [g77 f77 xlf frt pgf77 fl32 af77 fort77 f90 xlf90 pgf90 epcf90 f95 fort xlf95 lf95 g95])])
+# Known compilers:
+#  f77/f90/f95: generic compiler names
+#  g77: GNU Fortran 77 compiler
+#  gfortran: putative GNU Fortran 95+ compiler (in progress)
+#  fort77: native F77 compiler under HP-UX (and some older Crays)
+#  frt: Fujitsu F77 compiler
+#  pgf77/pgf90/pgf95: Portland Group F77/F90/F95 compilers
+#  xlf/xlf90/xlf95: IBM (AIX) F77/F90/F95 compilers
+#  lf95: Lahey-Fujitsu F95 compiler
+#  fl32: Microsoft Fortran 77 "PowerStation" compiler
+#  af77: Apogee F77 compiler for Intergraph hardware running CLIX
+#  epcf90: "Edinburgh Portable Compiler" F90
+#  fort: Compaq (now HP) Fortran 90/95 compiler for Tru64 and Linux/Alpha
+#  ifc: Intel Fortran 95 compiler for Linux/x86
+#  efc: Intel Fortran 95 compiler for IA64
+m4_define([_AC_F95_FC], [f95 fort xlf95 ifc efc pgf95 lf95 gfortran])
+m4_define([_AC_F90_FC], [f90 xlf90 pgf90 epcf90])
+m4_define([_AC_F77_FC], [g77 f77 xlf frt pgf77 fort77 fl32 af77])
+AC_DEFUN([_AC_PROG_FC],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CHECK_TOOLS([]_AC_FC[],
+      m4_default([$2],
+	m4_case(_AC_FC_DIALECT_YEAR([$1]),
+		[1995], [_AC_F95_FC],
+		[1990], [_AC_F90_FC _AC_F95_FC],
+		[1977], [_AC_F77_FC _AC_F90_FC _AC_F95_FC],
+		[_AC_F95_FC _AC_F90_FC _AC_F77_FC])))
 
 # Provide some information about the compiler.
 echo "$as_me:__oline__:" \
@@ -256,87 +365,135 @@ ac_compiler=`set X $ac_compile; echo $[2]`
 _AC_EVAL([$ac_compiler --version </dev/null >&AS_MESSAGE_LOG_FD])
 _AC_EVAL([$ac_compiler -v </dev/null >&AS_MESSAGE_LOG_FD])
 _AC_EVAL([$ac_compiler -V </dev/null >&AS_MESSAGE_LOG_FD])
+rm -f a.out
 
 m4_expand_once([_AC_COMPILER_EXEEXT])[]dnl
 m4_expand_once([_AC_COMPILER_OBJEXT])[]dnl
 # If we don't use `.F' as extension, the preprocessor is not run on the
-# input file.
+# input file.  (Note that this only needs to work for GNU compilers.)
 ac_save_ext=$ac_ext
 ac_ext=F
 _AC_LANG_COMPILER_GNU
 ac_ext=$ac_save_ext
+_AC_PROG_FC_G
+])# _AC_PROG_FC
+
+
+# AC_PROG_F77([COMPILERS...])
+# ---------------------------
+# COMPILERS is a space separated list of Fortran 77 compilers to search
+# for.  See also _AC_PROG_FC.
+AC_DEFUN([AC_PROG_F77],
+[AC_LANG_PUSH(Fortran 77)dnl
+AC_ARG_VAR([F77],    [Fortran 77 compiler command])dnl
+AC_ARG_VAR([FFLAGS], [Fortran 77 compiler flags])dnl
+_AC_ARG_VAR_LDFLAGS()dnl
+_AC_PROG_FC([Fortran 77], [$1])
 G77=`test $ac_compiler_gnu = yes && echo yes`
-_AC_PROG_F77_G
 AC_LANG_POP(Fortran 77)dnl
 ])# AC_PROG_F77
 
 
-# _AC_PROG_F77_G
-# --------------
-# Check whether -g works, even if FFLAGS is set, in case the package
-# plays around with FFLAGS (such as to build both debugging and normal
+# AC_PROG_FC([COMPILERS...], [DIALECT])
+# -------------------------------------
+# COMPILERS is a space separated list of Fortran 77 compilers to search
+# for, and [DIALECT] is an optional dialect.  See also _AC_PROG_FC.
+AC_DEFUN([AC_PROG_FC],
+[AC_LANG_PUSH(Fortran)dnl
+AC_ARG_VAR([FC],    [Fortran compiler command])dnl
+AC_ARG_VAR([FCFLAGS], [Fortran compiler flags])dnl
+_AC_ARG_VAR_LDFLAGS()dnl
+_AC_PROG_FC([$2], [$1])
+AC_LANG_POP(Fortran)dnl
+])# AC_PROG_FC
+
+
+# _AC_PROG_FC_G
+# -------------
+# Check whether -g works, even if F[C]FLAGS is set, in case the package
+# plays around with F[C]FLAGS (such as to build both debugging and normal
 # versions of a library), tasteless as that idea is.
-m4_define([_AC_PROG_F77_G],
-[ac_test_FFLAGS=${FFLAGS+set}
-ac_save_FFLAGS=$FFLAGS
-FFLAGS=
-AC_CACHE_CHECK(whether $F77 accepts -g, ac_cv_prog_f77_g,
-[FFLAGS=-g
+m4_define([_AC_PROG_FC_G],
+[_AC_FORTRAN_ASSERT()dnl
+ac_test_FFLAGS=${[]_AC_LANG_PREFIX[]FLAGS+set}
+ac_save_FFLAGS=$[]_AC_LANG_PREFIX[]FLAGS
+_AC_LANG_PREFIX[]FLAGS=
+AC_CACHE_CHECK(whether $[]_AC_FC[] accepts -g, ac_cv_prog_[]_AC_LANG_ABBREV[]_g,
+[_AC_LANG_PREFIX[]FLAGS=-g
 _AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
-[ac_cv_prog_f77_g=yes],
-[ac_cv_prog_f77_g=no])
+[ac_cv_prog_[]_AC_LANG_ABBREV[]_g=yes],
+[ac_cv_prog_[]_AC_LANG_ABBREV[]_g=no])
 ])
 if test "$ac_test_FFLAGS" = set; then
-  FFLAGS=$ac_save_FFLAGS
-elif test $ac_cv_prog_f77_g = yes; then
-  if test "$G77" = yes; then
-    FFLAGS="-g -O2"
+  _AC_LANG_PREFIX[]FLAGS=$ac_save_FFLAGS
+elif test $ac_cv_prog_[]_AC_LANG_ABBREV[]_g = yes; then
+  if test "x$ac_cv_[]_AC_LANG_ABBREV[]_compiler_gnu" = xyes; then
+    _AC_LANG_PREFIX[]FLAGS="-g -O2"
   else
-    FFLAGS="-g"
+    _AC_LANG_PREFIX[]FLAGS="-g"
   fi
 else
-  if test "$G77" = yes; then
-    FFLAGS="-O2"
+  if test "x$ac_cv_[]_AC_LANG_ABBREV[]_compiler_gnu" = xyes; then
+    _AC_LANG_PREFIX[]FLAGS="-O2"
   else
-    FFLAGS=
+    _AC_LANG_PREFIX[]FLAGS=
   fi
 fi[]dnl
-])# _AC_PROG_F77_G
+])# _AC_PROG_FC_G
 
 
-# AC_PROG_F77_C_O
+# _AC_PROG_FC_C_O
 # ---------------
-# Test if the Fortran 77 compiler accepts the options `-c' and `-o'
-# simultaneously, and define `F77_NO_MINUS_C_MINUS_O' if it does not.
+# Test if the Fortran compiler accepts the options `-c' and `-o'
+# simultaneously, and define `[F77/FC]_NO_MINUS_C_MINUS_O' if it does not.
 #
 # The usefulness of this macro is questionable, as I can't really see
 # why anyone would use it.  The only reason I include it is for
 # completeness, since a similar test exists for the C compiler.
-AC_DEFUN([AC_PROG_F77_C_O],
-[AC_REQUIRE([AC_PROG_F77])dnl
-AC_CACHE_CHECK([whether $F77 understand -c and -o together],
-               [ac_cv_prog_f77_c_o],
+#
+# FIXME: it seems like we could merge the C/Fortran versions of this.
+AC_DEFUN([_AC_PROG_FC_C_O],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CACHE_CHECK([whether $[]_AC_FC[] understands -c and -o together],
+               [ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o],
 [AC_LANG_CONFTEST([AC_LANG_PROGRAM([])])
 # We test twice because some compilers refuse to overwrite an existing
 # `.o' file with `-o', although they will create one.
-ac_try='$F77 $FFLAGS -c conftest.$ac_ext -o conftest.$ac_objext >&AS_MESSAGE_LOG_FD'
+ac_try='$[]_AC_FC[] $[]_AC_LANG_PREFIX[]FLAGS -c conftest.$ac_ext -o conftest.$ac_objext >&AS_MESSAGE_LOG_FD'
 if AC_TRY_EVAL(ac_try) &&
      test -f conftest.$ac_objext &&
      AC_TRY_EVAL(ac_try); then
-  ac_cv_prog_f77_c_o=yes
+  ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o=yes
 else
-  ac_cv_prog_f77_c_o=no
+  ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o=no
 fi
 rm -f conftest*])
-if test $ac_cv_prog_f77_c_o = no; then
-  AC_DEFINE(F77_NO_MINUS_C_MINUS_O, 1,
-            [Define to 1 if your Fortran 77 compiler doesn't accept
+if test $ac_cv_prog_[]_AC_LANG_ABBREV[]_c_o = no; then
+  AC_DEFINE([]_AC_FC[]_NO_MINUS_C_MINUS_O, 1,
+            [Define to 1 if your Fortran compiler doesn't accept
              -c and -o together.])
 fi
+])# _AC_PROG_FC_C_O
+
+
+# AC_PROG_F77_C_O
+# ---------------
+AC_DEFUN([AC_PROG_F77_C_O],
+[AC_REQUIRE([AC_PROG_F77])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_PROG_FC_C_O
+AC_LANG_POP(Fortran 77)dnl
 ])# AC_PROG_F77_C_O
 
 
-
+# AC_PROG_FC_C_O
+# ---------------
+AC_DEFUN([AC_PROG_FC_C_O],
+[AC_REQUIRE([AC_PROG_FC])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_PROG_FC_C_O
+AC_LANG_POP(Fortran)dnl
+])# AC_PROG_FC_C_O
 
 
 ## ------------------------------- ##
@@ -349,156 +506,159 @@ fi
 # ---------------------------------------- #
 
 
-# _AC_PROG_F77_V_OUTPUT([FLAG = $ac_cv_prog_f77_v])
+# _AC_PROG_FC_V_OUTPUT([FLAG = $ac_cv_prog_{f77/fc}_v])
 # -------------------------------------------------
 # Link a trivial Fortran program, compiling with a verbose output FLAG
-# (which default value, $ac_cv_prog_f77_v, is computed by
-# _AC_PROG_F77_V), and return the output in $ac_f77_v_output.  This
-# output is processed in the way expected by AC_F77_LIBRARY_LDFLAGS,
+# (whose default value, $ac_cv_prog_{f77/fc}_v, is computed by
+# _AC_PROG_FC_V), and return the output in $ac_{f77/fc}_v_output.  This
+# output is processed in the way expected by _AC_FC_LIBRARY_LDFLAGS,
 # so that any link flags that are echoed by the compiler appear as
 # space-separated items.
-AC_DEFUN([_AC_PROG_F77_V_OUTPUT],
-[AC_REQUIRE([AC_PROG_F77])dnl
-AC_LANG_PUSH(Fortran 77)dnl
-
+AC_DEFUN([_AC_PROG_FC_V_OUTPUT],
+[_AC_FORTRAN_ASSERT()dnl
 AC_LANG_CONFTEST([AC_LANG_PROGRAM([])])
 
 # Compile and link our simple test program by passing a flag (argument
-# 1 to this macro) to the Fortran 77 compiler in order to get
-# "verbose" output that we can then parse for the Fortran 77 linker
+# 1 to this macro) to the Fortran compiler in order to get
+# "verbose" output that we can then parse for the Fortran linker
 # flags.
-ac_save_FFLAGS=$FFLAGS
-FFLAGS="$FFLAGS m4_default([$1], [$ac_cv_prog_f77_v])"
+ac_save_FFLAGS=$[]_AC_LANG_PREFIX[]FLAGS
+_AC_LANG_PREFIX[]FLAGS="$[]_AC_LANG_PREFIX[]FLAGS m4_default([$1], [$ac_cv_prog_[]_AC_LANG_ABBREV[]_v])"
 (eval echo $as_me:__oline__: \"$ac_link\") >&AS_MESSAGE_LOG_FD
-ac_f77_v_output=`eval $ac_link AS_MESSAGE_LOG_FD>&1 2>&1 | grep -v 'Driving:'`
-echo "$ac_f77_v_output" >&AS_MESSAGE_LOG_FD
-FFLAGS=$ac_save_FFLAGS
+ac_[]_AC_LANG_ABBREV[]_v_output=`eval $ac_link AS_MESSAGE_LOG_FD>&1 2>&1 | grep -v 'Driving:'`
+echo "$ac_[]_AC_LANG_ABBREV[]_v_output" >&AS_MESSAGE_LOG_FD
+_AC_LANG_PREFIX[]FLAGS=$ac_save_FFLAGS
 
 rm -f conftest*
-AC_LANG_POP(Fortran 77)dnl
-
-# If we are using xlf then replace all the commas with spaces.
-if echo $ac_f77_v_output | grep xlfentry >/dev/null 2>&1; then
-  ac_f77_v_output=`echo $ac_f77_v_output | sed 's/,/ /g'`
-fi
 
 # On HP/UX there is a line like: "LPATH is: /foo:/bar:/baz" where
 # /foo, /bar, and /baz are search directories for the Fortran linker.
 # Here, we change these into -L/foo -L/bar -L/baz (and put it first):
-ac_f77_v_output="`echo $ac_f77_v_output |
+ac_[]_AC_LANG_ABBREV[]_v_output="`echo $ac_[]_AC_LANG_ABBREV[]_v_output |
 	grep 'LPATH is:' |
-	sed 's,.*LPATH is\(: *[[^ ]]*\).*,\1,;s,: */, -L/,g'` $ac_f77_v_output"
+	sed 's,.*LPATH is\(: *[[^ ]]*\).*,\1,;s,: */, -L/,g'` $ac_[]_AC_LANG_ABBREV[]_v_output"
 
-# If we are using Cray Fortran then delete quotes.
-# Use "\"" instead of '"' for font-lock-mode.
-# FIXME: a more general fix for quoted arguments with spaces?
-if echo $ac_f77_v_output | grep cft90 >/dev/null 2>&1; then
-  ac_f77_v_output=`echo $ac_f77_v_output | sed "s/\"//g"`
-fi[]dnl
-])# _AC_PROG_F77_V_OUTPUT
+case $ac_[]_AC_LANG_ABBREV[]_v_output in
+  # If we are using xlf then replace all the commas with spaces.
+  *xlfentry*)
+    ac_[]_AC_LANG_ABBREV[]_v_output=`echo $ac_[]_AC_LANG_ABBREV[]_v_output | sed 's/,/ /g'` ;;
+
+  # With Intel ifc, ignore the quoted -mGLOB_options_string stuff (quoted
+  # $LIBS confuse us, and the libraries appear later in the output anyway).
+  *mGLOB_options_string*)
+    ac_[]_AC_LANG_ABBREV[]_v_output=`echo $ac_[]_AC_LANG_ABBREV[]_v_output | sed 's/\"-mGLOB[[^\"]]*\"/ /g'` ;;
+
+  # If we are using Cray Fortran then delete quotes.
+  # Use "\"" instead of '"' for font-lock-mode.
+  # FIXME: a more general fix for quoted arguments with spaces?
+  *cft90*)
+    ac_[]_AC_LANG_ABBREV[]_v_output=`echo $ac_[]_AC_LANG_ABBREV[]_v_output | sed "s/\"//g"` ;;
+esac
+
+])# _AC_PROG_FC_V_OUTPUT
 
 
-# _AC_PROG_F77_V
+# _AC_PROG_FC_V
 # --------------
 #
-# Determine the flag that causes the Fortran 77 compiler to print
+# Determine the flag that causes the Fortran compiler to print
 # information of library and object files (normally -v)
-# Needed for AC_F77_LIBRARY_FLAGS
+# Needed for _AC_FC_LIBRARY_FLAGS
 # Some compilers don't accept -v (Lahey: -verbose, xlf: -V, Fujitsu: -###)
-AC_DEFUN([_AC_PROG_F77_V],
-[AC_CACHE_CHECK([how to get verbose linking output from $F77],
-                [ac_cv_prog_f77_v],
-[AC_LANG_ASSERT(Fortran 77)
-AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
-[ac_cv_prog_f77_v=
+AC_DEFUN([_AC_PROG_FC_V],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CACHE_CHECK([how to get verbose linking output from $[]_AC_FC[]],
+                [ac_cv_prog_[]_AC_LANG_ABBREV[]_v],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM()],
+[ac_cv_prog_[]_AC_LANG_ABBREV[]_v=
 # Try some options frequently used verbose output
 for ac_verb in -v -verbose --verbose -V -\#\#\#; do
-  _AC_PROG_F77_V_OUTPUT($ac_verb)
+  _AC_PROG_FC_V_OUTPUT($ac_verb)
   # look for -l* and *.a constructs in the output
-  for ac_arg in $ac_f77_v_output; do
+  for ac_arg in $ac_[]_AC_LANG_ABBREV[]_v_output; do
      case $ac_arg in
         [[\\/]]*.a | ?:[[\\/]]*.a | -[[lLRu]]*)
-          ac_cv_prog_f77_v=$ac_verb
+          ac_cv_prog_[]_AC_LANG_ABBREV[]_v=$ac_verb
           break 2 ;;
      esac
   done
 done
-if test -z "$ac_cv_prog_f77_v"; then
-   AC_MSG_WARN([cannot determine how to obtain linking information from $F77])
+if test -z "$ac_cv_prog_[]_AC_LANG_ABBREV[]_v"; then
+   AC_MSG_WARN([cannot determine how to obtain linking information from $[]_AC_FC[]])
 fi],
                   [AC_MSG_WARN([compilation failed])])
-])])# _AC_PROG_F77_V
+])])# _AC_PROG_FC_V
 
 
-# AC_F77_LIBRARY_LDFLAGS
+# _AC_FC_LIBRARY_LDFLAGS
 # ----------------------
 #
-# Determine the linker flags (e.g. "-L" and "-l") for the Fortran 77
+# Determine the linker flags (e.g. "-L" and "-l") for the Fortran
 # intrinsic and run-time libraries that are required to successfully
-# link a Fortran 77 program or shared library.  The output variable
-# FLIBS is set to these flags.
+# link a Fortran program or shared library.  The output variable
+# FLIBS/FCLIBS is set to these flags.
 #
 # This macro is intended to be used in those situations when it is
-# necessary to mix, e.g. C++ and Fortran 77, source code into a single
+# necessary to mix, e.g. C++ and Fortran, source code into a single
 # program or shared library.
 #
-# For example, if object files from a C++ and Fortran 77 compiler must
+# For example, if object files from a C++ and Fortran compiler must
 # be linked together, then the C++ compiler/linker must be used for
 # linking (since special C++-ish things need to happen at link time
 # like calling global constructors, instantiating templates, enabling
 # exception support, etc.).
 #
-# However, the Fortran 77 intrinsic and run-time libraries must be
+# However, the Fortran intrinsic and run-time libraries must be
 # linked in as well, but the C++ compiler/linker doesn't know how to
-# add these Fortran 77 libraries.  Hence, the macro
-# "AC_F77_LIBRARY_LDFLAGS" was created to determine these Fortran 77
+# add these Fortran libraries.  Hence, the macro
+# "AC_F77_LIBRARY_LDFLAGS" was created to determine these Fortran
 # libraries.
 #
 # This macro was packaged in its current form by Matthew D. Langston.
 # However, nearly all of this macro came from the "OCTAVE_FLIBS" macro
 # in "octave-2.0.13/aclocal.m4", and full credit should go to John
 # W. Eaton for writing this extremely useful macro.  Thank you John.
-AC_DEFUN([AC_F77_LIBRARY_LDFLAGS],
-[AC_LANG_PUSH(Fortran 77)dnl
-_AC_PROG_F77_V
-AC_CACHE_CHECK([for Fortran 77 libraries], ac_cv_flibs,
-[if test "x$FLIBS" != "x"; then
-  ac_cv_flibs="$FLIBS" # Let the user override the test.
+AC_DEFUN([_AC_FC_LIBRARY_LDFLAGS],
+[_AC_FORTRAN_ASSERT()dnl
+_AC_PROG_FC_V
+AC_CACHE_CHECK([for Fortran libraries of $[]_AC_FC[]], ac_cv_[]_AC_LANG_ABBREV[]_libs,
+[if test "x$[]_AC_LANG_PREFIX[]LIBS" != "x"; then
+  ac_cv_[]_AC_LANG_ABBREV[]_libs="$[]_AC_LANG_PREFIX[]LIBS" # Let the user override the test.
 else
 
-_AC_PROG_F77_V_OUTPUT
+_AC_PROG_FC_V_OUTPUT
 
-ac_cv_flibs=
+ac_cv_[]_AC_LANG_ABBREV[]_libs=
 
 # Save positional arguments (if any)
 ac_save_positional="$[@]"
 
-set X $ac_f77_v_output
+set X $ac_[]_AC_LANG_ABBREV[]_v_output
 while test $[@%:@] != 1; do
   shift
   ac_arg=$[1]
   case $ac_arg in
         [[\\/]]*.a | ?:[[\\/]]*.a)
-          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_flibs, ,
-              ac_cv_flibs="$ac_cv_flibs $ac_arg")
+          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_[]_AC_LANG_ABBREV[]_libs, ,
+              ac_cv_[]_AC_LANG_ABBREV[]_libs="$ac_cv_[]_AC_LANG_ABBREV[]_libs $ac_arg")
           ;;
         -bI:*)
-          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_flibs, ,
-             [_AC_LINKER_OPTION([$ac_arg], ac_cv_flibs)])
+          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_[]_AC_LANG_ABBREV[]_libs, ,
+             [_AC_LINKER_OPTION([$ac_arg], ac_cv_[]_AC_LANG_ABBREV[]_libs)])
           ;;
           # Ignore these flags.
-        -lang* | -lcrt0.o | -lc | -lgcc | -libmil | -LANG:=*)
+        -lang* | -lcrt[[01]].o | -lcrtbegin.o | -lc | -lgcc | -libmil | -LANG:=*)
           ;;
         -lkernel32)
-          test x"$CYGWIN" != xyes && ac_cv_flibs="$ac_cv_flibs $ac_arg"
+          test x"$CYGWIN" != xyes && ac_cv_[]_AC_LANG_ABBREV[]_libs="$ac_cv_[]_AC_LANG_ABBREV[]_libs $ac_arg"
           ;;
         -[[LRuY]])
           # These flags, when seen by themselves, take an argument.
           # We remove the space between option and argument and re-iterate
           # unless we find an empty arg or a new option (starting with -)
 	  case $[2] in
-             "" | -*);;
-             *)
+	     "" | -*);;
+	     *)
 		ac_arg="$ac_arg$[2]"
 		shift; shift
 		set X $ac_arg "$[@]"
@@ -507,14 +667,14 @@ while test $[@%:@] != 1; do
           ;;
         -YP,*)
           for ac_j in `echo $ac_arg | sed -e 's/-YP,/-L/;s/:/ -L/g'`; do
-            _AC_LIST_MEMBER_IF($ac_j, $ac_cv_flibs, ,
+            _AC_LIST_MEMBER_IF($ac_j, $ac_cv_[]_AC_LANG_ABBREV[]_libs, ,
                                [ac_arg="$ac_arg $ac_j"
-                               ac_cv_flibs="$ac_cv_flibs $ac_j"])
+                               ac_cv_[]_AC_LANG_ABBREV[]_libs="$ac_cv_[]_AC_LANG_ABBREV[]_libs $ac_j"])
           done
           ;;
         -[[lLR]]*)
-          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_flibs, ,
-                             ac_cv_flibs="$ac_cv_flibs $ac_arg")
+          _AC_LIST_MEMBER_IF($ac_arg, $ac_cv_[]_AC_LANG_ABBREV[]_libs, ,
+                             ac_cv_[]_AC_LANG_ABBREV[]_libs="$ac_cv_[]_AC_LANG_ABBREV[]_libs $ac_arg")
           ;;
           # Ignore everything else.
   esac
@@ -527,33 +687,52 @@ set X $ac_save_positional; shift
 # must begin with a "/").
 case `(uname -sr) 2>/dev/null` in
    "SunOS 5"*)
-      ac_ld_run_path=`echo $ac_f77_v_output |
+      ac_ld_run_path=`echo $ac_[]_AC_LANG_ABBREV[]_v_output |
                         sed -n 's,^.*LD_RUN_PATH *= *\(/[[^ ]]*\).*$,-R\1,p'`
       test "x$ac_ld_run_path" != x &&
-        _AC_LINKER_OPTION([$ac_ld_run_path], ac_cv_flibs)
+        _AC_LINKER_OPTION([$ac_ld_run_path], ac_cv_[]_AC_LANG_ABBREV[]_libs)
       ;;
 esac
-fi # test "x$FLIBS" = "x"
+fi # test "x$[]_AC_LANG_PREFIX[]LIBS" = "x"
 ])
-FLIBS="$ac_cv_flibs"
-AC_SUBST(FLIBS)
+[]_AC_LANG_PREFIX[]LIBS="$ac_cv_[]_AC_LANG_ABBREV[]_libs"
+AC_SUBST([]_AC_LANG_PREFIX[]LIBS)
+])# _AC_FC_LIBRARY_LDFLAGS
+
+
+# AC_F77_LIBRARY_LDFLAGS
+# ----------------------
+AC_DEFUN([AC_F77_LIBRARY_LDFLAGS],
+[AC_REQUIRE([AC_PROG_F77])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_FC_LIBRARY_LDFLAGS
 AC_LANG_POP(Fortran 77)dnl
 ])# AC_F77_LIBRARY_LDFLAGS
 
 
-# AC_F77_DUMMY_MAIN([ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
+# AC_FC_LIBRARY_LDFLAGS
+# ----------------------
+AC_DEFUN([AC_FC_LIBRARY_LDFLAGS],
+[AC_REQUIRE([AC_PROG_FC])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_FC_LIBRARY_LDFLAGS
+AC_LANG_POP(Fortran)dnl
+])# AC_FC_LIBRARY_LDFLAGS
+
+
+# _AC_FC_DUMMY_MAIN([ACTION-IF-FOUND], [ACTION-IF-NOT-FOUND])
 # -----------------------------------------------------------
 #
 # Detect name of dummy main routine required by the Fortran libraries,
-# (if any) and define F77_DUMMY_MAIN to this name (which should be
+# (if any) and define {F77,FC}_DUMMY_MAIN to this name (which should be
 # used for a dummy declaration, if it is defined).  On some systems,
 # linking a C program to the Fortran library does not work unless you
 # supply a dummy function called something like MAIN__.
 #
 # Execute ACTION-IF-NOT-FOUND if no way of successfully linking a C
-# program with the F77 libs is found; default to exiting with an error
+# program with the {F77,FC} libs is found; default to exiting with an error
 # message.  Execute ACTION-IF-FOUND if a dummy routine name is needed
-# and found or if it is not needed (default to defining F77_DUMMY_MAIN
+# and found or if it is not needed (default to defining {F77,FC}_DUMMY_MAIN
 # when needed).
 #
 # What is technically happening is that the Fortran libraries provide
@@ -565,7 +744,7 @@ AC_LANG_POP(Fortran 77)dnl
 #
 # Of course, programs that want to allow Fortran subroutines to do
 # I/O, etcetera, should call their main routine MAIN__() (or whatever)
-# instead of main().  A separate autoconf test (AC_F77_MAIN) checks
+# instead of main().  A separate autoconf test (_AC_FC_MAIN) checks
 # for the routine to use in this case (since the semantics of the test
 # are slightly different).  To link to e.g. purely numerical
 # libraries, this is normally not necessary, however, and most C/C++
@@ -575,236 +754,458 @@ AC_LANG_POP(Fortran 77)dnl
 #   MAIN__ (g77, MAIN__ required on some systems; IRIX, MAIN__ optional)
 #   MAIN_, __main (SunOS)
 #   MAIN _MAIN __MAIN main_ main__ _main (we follow DDD and try these too)
-AC_DEFUN([AC_F77_DUMMY_MAIN],
-[AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])dnl
-m4_define([_AC_LANG_PROGRAM_C_F77_HOOKS],
-[#ifdef F77_DUMMY_MAIN
-#  ifdef __cplusplus
+AC_DEFUN([_AC_FC_DUMMY_MAIN],
+[_AC_FORTRAN_ASSERT()dnl
+m4_define(_AC_LANG_PROGRAM_C_[]_AC_FC[]_HOOKS,
+[#ifdef ]_AC_FC[_DUMMY_MAIN
+]AC_LANG_CASE([Fortran], [#ifndef FC_DUMMY_MAIN_EQ_F77])
+[#  ifdef __cplusplus
      extern "C"
 #  endif
-   int F77_DUMMY_MAIN() { return 1; }
-#endif
+   int ]_AC_FC[_DUMMY_MAIN() { return 1; }
+]AC_LANG_CASE([Fortran], [#endif])
+[#endif
 ])
-AC_CACHE_CHECK([for dummy main to link with Fortran 77 libraries],
-               ac_cv_f77_dummy_main,
-[AC_LANG_PUSH(C)dnl
- ac_f77_dm_save_LIBS=$LIBS
- LIBS="$LIBS $FLIBS"
+AC_CACHE_CHECK([for dummy main to link with Fortran libraries],
+               ac_cv_[]_AC_LANG_ABBREV[]_dummy_main,
+[ac_[]_AC_LANG_ABBREV[]_dm_save_LIBS=$LIBS
+ LIBS="$LIBS $[]_AC_LANG_PREFIX[]LIBS"
+ ac_fortran_dm_var=[]_AC_FC[]_DUMMY_MAIN
+ AC_LANG_PUSH(C)dnl
 
  # First, try linking without a dummy main:
  AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
-                [ac_cv_f77_dummy_main=none],
-                [ac_cv_f77_dummy_main=unknown])
+                [ac_cv_fortran_dummy_main=none],
+                [ac_cv_fortran_dummy_main=unknown])
 
- if test $ac_cv_f77_dummy_main = unknown; then
+ if test $ac_cv_fortran_dummy_main = unknown; then
    for ac_func in MAIN__ MAIN_ __main MAIN _MAIN __MAIN main_ main__ _main; do
-     AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@define F77_DUMMY_MAIN $ac_func]])],
-                    [ac_cv_f77_dummy_main=$ac_func; break])
+     AC_LINK_IFELSE([AC_LANG_PROGRAM([[@%:@define $ac_fortran_dm_var $ac_func]])],
+                    [ac_cv_fortran_dummy_main=$ac_func; break])
    done
  fi
- rm -f conftest*
- LIBS=$ac_f77_dm_save_LIBS
  AC_LANG_POP(C)dnl
+ ac_cv_[]_AC_LANG_ABBREV[]_dummy_main=$ac_cv_fortran_dummy_main
+ rm -f conftest*
+ LIBS=$ac_[]_AC_LANG_ABBREV[]_dm_save_LIBS
 ])
-F77_DUMMY_MAIN=$ac_cv_f77_dummy_main
-AS_IF([test "$F77_DUMMY_MAIN" != unknown],
+[]_AC_FC[]_DUMMY_MAIN=$ac_cv_[]_AC_LANG_ABBREV[]_dummy_main
+AS_IF([test "$[]_AC_FC[]_DUMMY_MAIN" != unknown],
       [m4_default([$1],
-[if test $F77_DUMMY_MAIN != none; then
-  AC_DEFINE_UNQUOTED([F77_DUMMY_MAIN], $F77_DUMMY_MAIN,
+[if test $[]_AC_FC[]_DUMMY_MAIN != none; then
+  AC_DEFINE_UNQUOTED([]_AC_FC[]_DUMMY_MAIN, $[]_AC_FC[]_DUMMY_MAIN,
                      [Define to dummy `main' function (if any) required to
-                      link to the Fortran 77 libraries.])
+                      link to the Fortran libraries.])
+  if test "x$ac_cv_fc_dummy_main" = "x$ac_cv_f77_dummy_main"; then
+	AC_DEFINE([FC_DUMMY_MAIN_EQ_F77], 1,
+                  [Define if F77 and FC dummy `main' functions are identical.])
+  fi
 fi])],
       [m4_default([$2],
             [AC_MSG_FAILURE([linking to Fortran libraries from C fails])])])
+])# _AC_FC_DUMMY_MAIN
+
+
+# AC_F77_DUMMY_MAIN
+# ----------------------
+AC_DEFUN([AC_F77_DUMMY_MAIN],
+[AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_FC_DUMMY_MAIN
+AC_LANG_POP(Fortran 77)dnl
 ])# AC_F77_DUMMY_MAIN
+
+
+# AC_FC_DUMMY_MAIN
+# ----------------------
+AC_DEFUN([AC_FC_DUMMY_MAIN],
+[AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_FC_DUMMY_MAIN
+AC_LANG_POP(Fortran)dnl
+])# AC_FC_DUMMY_MAIN
+
+
+# _AC_FC_MAIN
+# -----------
+# Define {F77,FC}_MAIN to name of alternate main() function for use with
+# the Fortran libraries.  (Typically, the libraries may define their
+# own main() to initialize I/O, etcetera, that then call your own
+# routine called MAIN__ or whatever.)  See _AC_FC_DUMMY_MAIN, above.
+# If no such alternate name is found, just define {F77,FC}_MAIN to main.
+#
+AC_DEFUN([_AC_FC_MAIN],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CACHE_CHECK([for alternate main to link with Fortran libraries],
+               ac_cv_[]_AC_LANG_ABBREV[]_main,
+[ac_[]_AC_LANG_ABBREV[]_m_save_LIBS=$LIBS
+ LIBS="$LIBS $[]_AC_LANG_PREFIX[]LIBS"
+ ac_fortran_dm_var=[]_AC_FC[]_DUMMY_MAIN
+ AC_LANG_PUSH(C)dnl
+ ac_cv_fortran_main="main" # default entry point name
+ for ac_func in MAIN__ MAIN_ __main MAIN _MAIN __MAIN main_ main__ _main; do
+   AC_LINK_IFELSE([AC_LANG_PROGRAM([@%:@ifdef FC_DUMMY_MAIN_EQ_F77
+@%:@  undef F77_DUMMY_MAIN
+@%:@  undef FC_DUMMY_MAIN
+@%:@else
+@%:@  undef $ac_fortran_dm_var
+@%:@endif
+@%:@define main $ac_func])],
+                  [ac_cv_fortran_main=$ac_func; break])
+ done
+ AC_LANG_POP(C)dnl
+ ac_cv_[]_AC_LANG_ABBREV[]_main=$ac_cv_fortran_main
+ rm -f conftest*
+ LIBS=$ac_[]_AC_LANG_ABBREV[]_m_save_LIBS
+])
+AC_DEFINE_UNQUOTED([]_AC_FC[]_MAIN, $ac_cv_[]_AC_LANG_ABBREV[]_main,
+                   [Define to alternate name for `main' routine that is
+                    called from a `main' in the Fortran libraries.])
+])# _AC_FC_MAIN
 
 
 # AC_F77_MAIN
 # -----------
-# Define F77_MAIN to name of alternate main() function for use with
-# the Fortran libraries.  (Typically, the libraries may define their
-# own main() to initialize I/O, etcetera, that then call your own
-# routine called MAIN__ or whatever.)  See AC_F77_DUMMY_MAIN, above.
-# If no such alternate name is found, just define F77_MAIN to main.
-#
 AC_DEFUN([AC_F77_MAIN],
 [AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])dnl
-AC_CACHE_CHECK([for alternate main to link with Fortran 77 libraries],
-               ac_cv_f77_main,
-[AC_LANG_PUSH(C)dnl
- ac_f77_m_save_LIBS=$LIBS
- LIBS="$LIBS $FLIBS"
- ac_cv_f77_main="main" # default entry point name
-
- for ac_func in MAIN__ MAIN_ __main MAIN _MAIN __MAIN main_ main__ _main; do
-   AC_LINK_IFELSE([AC_LANG_PROGRAM([@%:@undef F77_DUMMY_MAIN
-@%:@define main $ac_func])],
-                  [ac_cv_f77_main=$ac_func; break])
- done
- rm -f conftest*
- LIBS=$ac_f77_m_save_LIBS
- AC_LANG_POP(C)dnl
-])
-AC_DEFINE_UNQUOTED([F77_MAIN], $ac_cv_f77_main,
-                   [Define to alternate name for `main' routine that is
-                    called from a `main' in the Fortran libraries.])
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_FC_MAIN
+AC_LANG_POP(Fortran 77)dnl
 ])# AC_F77_MAIN
 
 
-# _AC_F77_NAME_MANGLING
+# AC_FC_MAIN
+# ----------
+AC_DEFUN([AC_FC_MAIN],
+[AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_FC_MAIN
+AC_LANG_POP(Fortran)dnl
+])# AC_FC_MAIN
+
+
+# __AC_FC_NAME_MANGLING
 # ---------------------
-# Test for the name mangling scheme used by the Fortran 77 compiler.
+# Test for the name mangling scheme used by the Fortran compiler.
 #
-# Sets ac_cv_f77_mangling. The value contains three fields, separated
+# Sets ac_cv_{f77,fc}_mangling. The value contains three fields, separated
 # by commas:
 #
 # lower case / upper case:
-#    case translation of the Fortran 77 symbols
+#    case translation of the Fortran symbols
 # underscore / no underscore:
 #    whether the compiler appends "_" to symbol names
 # extra underscore / no extra underscore:
 #    whether the compiler appends an extra "_" to symbol names already
 #    containing at least one underscore
 #
-AC_DEFUN([_AC_F77_NAME_MANGLING],
-[AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])dnl
-AC_REQUIRE([AC_F77_DUMMY_MAIN])dnl
-AC_CACHE_CHECK([for Fortran 77 name-mangling scheme],
-               ac_cv_f77_mangling,
-[AC_LANG_PUSH(Fortran 77)dnl
-AC_COMPILE_IFELSE(
+AC_DEFUN([__AC_FC_NAME_MANGLING],
+[_AC_FORTRAN_ASSERT()dnl
+AC_CACHE_CHECK([for Fortran name-mangling scheme],
+               ac_cv_[]_AC_LANG_ABBREV[]_mangling,
+[AC_COMPILE_IFELSE(
 [      subroutine foobar()
       return
       end
       subroutine foo_bar()
       return
       end],
-[mv conftest.$ac_objext cf77_test.$ac_objext
-
-  AC_LANG_PUSH(C)dnl
+[mv conftest.$ac_objext cfortran_test.$ac_objext
 
   ac_save_LIBS=$LIBS
-  LIBS="cf77_test.$ac_objext $LIBS $FLIBS"
+  LIBS="cfortran_test.$ac_objext $LIBS $[]_AC_LANG_PREFIX[]LIBS"
 
+  AC_LANG_PUSH(C)dnl
   ac_success=no
   for ac_foobar in foobar FOOBAR; do
     for ac_underscore in "" "_"; do
       ac_func="$ac_foobar$ac_underscore"
       AC_LINK_IFELSE([AC_LANG_CALL([], [$ac_func])],
-                     [ac_success=yes; break 2])
+		     [ac_success=yes; break 2])
     done
   done
+  AC_LANG_POP(C)dnl
 
   if test "$ac_success" = "yes"; then
      case $ac_foobar in
-        foobar)
-           ac_case=lower
-           ac_foo_bar=foo_bar
-           ;;
-        FOOBAR)
-           ac_case=upper
-           ac_foo_bar=FOO_BAR
-           ;;
+	foobar)
+	   ac_case=lower
+	   ac_foo_bar=foo_bar
+	   ;;
+	FOOBAR)
+	   ac_case=upper
+	   ac_foo_bar=FOO_BAR
+	   ;;
      esac
 
+     AC_LANG_PUSH(C)dnl
      ac_success_extra=no
      for ac_extra in "" "_"; do
-        ac_func="$ac_foo_bar$ac_underscore$ac_extra"
-        AC_LINK_IFELSE([AC_LANG_CALL([], [$ac_func])],
-                       [ac_success_extra=yes; break])
+	ac_func="$ac_foo_bar$ac_underscore$ac_extra"
+	AC_LINK_IFELSE([AC_LANG_CALL([], [$ac_func])],
+		       [ac_success_extra=yes; break])
      done
+     AC_LANG_POP(C)dnl
 
      if test "$ac_success_extra" = "yes"; then
-	ac_cv_f77_mangling="$ac_case case"
+	ac_cv_[]_AC_LANG_ABBREV[]_mangling="$ac_case case"
         if test -z "$ac_underscore"; then
-           ac_cv_f77_mangling="$ac_cv_f77_mangling, no underscore"
+           ac_cv_[]_AC_LANG_ABBREV[]_mangling="$ac_cv_[]_AC_LANG_ABBREV[]_mangling, no underscore"
 	else
-           ac_cv_f77_mangling="$ac_cv_f77_mangling, underscore"
+           ac_cv_[]_AC_LANG_ABBREV[]_mangling="$ac_cv_[]_AC_LANG_ABBREV[]_mangling, underscore"
         fi
         if test -z "$ac_extra"; then
-           ac_cv_f77_mangling="$ac_cv_f77_mangling, no extra underscore"
+           ac_cv_[]_AC_LANG_ABBREV[]_mangling="$ac_cv_[]_AC_LANG_ABBREV[]_mangling, no extra underscore"
 	else
-           ac_cv_f77_mangling="$ac_cv_f77_mangling, extra underscore"
+           ac_cv_[]_AC_LANG_ABBREV[]_mangling="$ac_cv_[]_AC_LANG_ABBREV[]_mangling, extra underscore"
         fi
       else
-	ac_cv_f77_mangling="unknown"
+	ac_cv_[]_AC_LANG_ABBREV[]_mangling="unknown"
       fi
   else
-     ac_cv_f77_mangling="unknown"
+     ac_cv_[]_AC_LANG_ABBREV[]_mangling="unknown"
   fi
 
   LIBS=$ac_save_LIBS
-  AC_LANG_POP(C)dnl
-  rm -f cf77_test* conftest*],
+  rm -f cfortran_test* conftest*],
   [AC_MSG_FAILURE([cannot compile a simple Fortran program])])
-AC_LANG_POP(Fortran 77)dnl
 ])
-])# _AC_F77_NAME_MANGLING
+])# __AC_FC_NAME_MANGLING
 
 # The replacement is empty.
 AU_DEFUN([AC_F77_NAME_MANGLING], [])
 
 
-# AC_F77_WRAPPERS
+# _AC_F77_NAME_MANGLING
+# ----------------------
+AC_DEFUN([_AC_F77_NAME_MANGLING],
+[AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])dnl
+AC_REQUIRE([AC_F77_DUMMY_MAIN])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+__AC_FC_NAME_MANGLING
+AC_LANG_POP(Fortran 77)dnl
+])# _AC_F77_NAME_MANGLING
+
+
+# _AC_FC_NAME_MANGLING
+# ----------------------
+AC_DEFUN([_AC_FC_NAME_MANGLING],
+[AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])dnl
+AC_REQUIRE([AC_FC_DUMMY_MAIN])dnl
+AC_LANG_PUSH(Fortran)dnl
+__AC_FC_NAME_MANGLING
+AC_LANG_POP(Fortran)dnl
+])# _AC_FC_NAME_MANGLING
+
+
+# _AC_FC_WRAPPERS
 # ---------------
-# Defines C macros F77_FUNC(name,NAME) and F77_FUNC_(name,NAME) to
+# Defines C macros {F77,FC}_FUNC(name,NAME) and {F77,FC}_FUNC_(name,NAME) to
 # properly mangle the names of C identifiers, and C identifiers with
 # underscores, respectively, so that they match the name mangling
-# scheme used by the Fortran 77 compiler.
-AC_DEFUN([AC_F77_WRAPPERS],
-[AC_REQUIRE([_AC_F77_NAME_MANGLING])dnl
-AH_TEMPLATE([F77_FUNC],
+# scheme used by the Fortran compiler.
+AC_DEFUN([_AC_FC_WRAPPERS],
+[_AC_FORTRAN_ASSERT()dnl
+AH_TEMPLATE(_AC_FC[_FUNC],
     [Define to a macro mangling the given C identifier (in lower and upper
      case), which must not contain underscores, for linking with Fortran.])dnl
-AH_TEMPLATE([F77_FUNC_],
-    [As F77_FUNC, but for C identifiers containing underscores.])dnl
-case $ac_cv_f77_mangling in
+AH_TEMPLATE(_AC_FC[_FUNC_],
+    [As ]_AC_FC[_FUNC, but for C identifiers containing underscores.])dnl
+case $ac_cv_[]_AC_LANG_ABBREV[]_mangling in
   "lower case, no underscore, no extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [name])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [name]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [name])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [name]) ;;
   "lower case, no underscore, extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [name])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [name ## _]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [name])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [name ## _]) ;;
   "lower case, underscore, no extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [name ## _])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [name ## _]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [name ## _])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [name ## _]) ;;
   "lower case, underscore, extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [name ## _])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [name ## __]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [name ## _])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [name ## __]) ;;
   "upper case, no underscore, no extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [NAME])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [NAME]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [NAME])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [NAME]) ;;
   "upper case, no underscore, extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [NAME])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [NAME ## _]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [NAME])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [NAME ## _]) ;;
   "upper case, underscore, no extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [NAME ## _])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [NAME ## _]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [NAME ## _])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [NAME ## _]) ;;
   "upper case, underscore, extra underscore")
-          AC_DEFINE([F77_FUNC(name,NAME)],  [NAME ## _])
-          AC_DEFINE([F77_FUNC_(name,NAME)], [NAME ## __]) ;;
+          AC_DEFINE(_AC_FC[_FUNC(name,NAME)],  [NAME ## _])
+          AC_DEFINE(_AC_FC[_FUNC_(name,NAME)], [NAME ## __]) ;;
   *)
-          AC_MSG_WARN([unknown Fortran 77 name-mangling scheme])
+          AC_MSG_WARN([unknown Fortran name-mangling scheme])
           ;;
 esac
+])# _AC_FC_WRAPPERS
+
+
+# AC_F77_WRAPPERS
+# ---------------
+AC_DEFUN([AC_F77_WRAPPERS],
+[AC_REQUIRE([_AC_F77_NAME_MANGLING])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_FC_WRAPPERS
+AC_LANG_POP(Fortran 77)dnl
 ])# AC_F77_WRAPPERS
 
 
-# AC_F77_FUNC(NAME, [SHELLVAR = NAME])
+# AC_FC_WRAPPERS
+# --------------
+AC_DEFUN([AC_FC_WRAPPERS],
+[AC_REQUIRE([_AC_FC_NAME_MANGLING])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_FC_WRAPPERS
+AC_LANG_POP(Fortran)dnl
+])# AC_FC_WRAPPERS
+
+
+# _AC_FC_FUNC(NAME, [SHELLVAR = NAME])
 # ------------------------------------
 # For a Fortran subroutine of given NAME, define a shell variable
-# $SHELLVAR to the Fortran-77 mangled name.  If the SHELLVAR
+# $SHELLVAR to the Fortran-mangled name.  If the SHELLVAR
 # argument is not supplied, it defaults to NAME.
-AC_DEFUN([AC_F77_FUNC],
-[AC_REQUIRE([_AC_F77_NAME_MANGLING])dnl
-case $ac_cv_f77_mangling in
+AC_DEFUN([_AC_FC_FUNC],
+[_AC_FORTRAN_ASSERT()dnl
+case $ac_cv_[]_AC_LANG_ABBREV[]_mangling in
   upper*) ac_val="m4_toupper([$1])" ;;
   lower*) ac_val="m4_tolower([$1])" ;;
   *)      ac_val="unknown" ;;
 esac
-case $ac_cv_f77_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+case $ac_cv_[]_AC_LANG_ABBREV[]_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
 m4_if(m4_index([$1],[_]),-1,[],
-[case $ac_cv_f77_mangling in *," extra underscore"*) ac_val="$ac_val"_ ;; esac
+[case $ac_cv_[]_AC_LANG_ABBREV[]_mangling in *," extra underscore"*) ac_val="$ac_val"_ ;; esac
 ])
 m4_default([$2],[$1])="$ac_val"
+])# _AC_FC_FUNC
+
+
+# AC_F77_FUNC(NAME, [SHELLVAR = NAME])
+# ------------------------------------
+AC_DEFUN([AC_F77_FUNC],
+[AC_REQUIRE([_AC_F77_NAME_MANGLING])dnl
+AC_LANG_PUSH(Fortran 77)dnl
+_AC_FC_FUNC([$1],[$2])
+AC_LANG_POP(Fortran 77)dnl
 ])# AC_F77_FUNC
+
+
+# AC_FC_FUNC(NAME, [SHELLVAR = NAME])
+# -----------------------------------
+AC_DEFUN([AC_FC_FUNC],
+[AC_REQUIRE([_AC_FC_NAME_MANGLING])dnl
+AC_LANG_PUSH(Fortran)dnl
+_AC_FC_FUNC([$1],[$2])
+AC_LANG_POP(Fortran)dnl
+])# AC_FC_FUNC
+
+
+# AC_FC_SRCEXT(EXT, [ACTION-IF-SUCCESS], [ACTION-IF-FAILURE])
+# -----------------------------------------------------------
+# Set the source-code extension used in Fortran (FC) tests to EXT (which
+# defaults to f).  Also, look for any necessary additional FCFLAGS needed
+# to allow this extension, and store them in the output variable
+# FCFLAGS_<EXT> (e.g. FCFLAGS_f90 for EXT=f90).  If successful,
+# call ACTION-IF-SUCCESS.  If unable to compile source code with EXT,
+# call ACTION-IF-FAILURE, which defaults to failing with an error
+# message.
+#
+# (The flags for the current source-code extension, if any, are stored
+# in the FCFLAGS_SRCEXT variable and are automatically used in subsequent
+# autoconf tests.)
+#
+# For ordinary extensions like f90, etcetera, the modified FCFLAGS
+# are currently needed for IBM's xlf* and Intel's ifc (grrr).  Unfortunately,
+# xlf* will only take flags to recognize one extension at a time, so if the
+# user wants to compile multiple extensions (.f90 and .f95, say), she
+# will need to use the FCFLAGS_F90 and FCFLAGS_F95 individually rather
+# than just adding them all to FCFLAGS, for example.
+#
+# Also, for Intel's ifc compiler (which does not accept .f95 by default in
+# some versions), the $FCFLAGS_<EXT> variable *must* go immediately before
+# the source file on the command line, unlike other $FCFLAGS.  Ugh.
+AC_DEFUN([AC_FC_SRCEXT],
+[AC_LANG_ASSERT(Fortran)dnl
+AC_CACHE_CHECK([for Fortran flag to compile .$1 files],
+                ac_cv_fc_srcext_$1,
+[ac_ext=$1
+ac_fc_srcext_FCFLAGS_SRCEXT_save=$FCFLAGS_SRCEXT
+FCFLAGS_SRCEXT=""
+ac_cv_fc_srcext_$1=unknown
+for ac_flag in none -qsuffix=f=$1 -Tf; do
+  test "x$ac_flag" != xnone && FCFLAGS_SRCEXT="$ac_flag"
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM()], [ac_cv_fc_srcext_$1=$ac_flag; break])
+done
+rm -f conftest.$ac_objext conftest.$1
+FCFLAGS_SRCEXT=$ac_fc_srcext_FCFLAGS_SRCEXT_save
+])
+if test "x$ac_cv_fc_srcext_$1" = xunknown; then
+  m4_default([$3],[AC_MSG_ERROR([Fortran could not compile .$1 files])])
+else
+  FC_SRCEXT=$1
+  if test "x$ac_cv_fc_srcext_$1" = xnone; then
+    FCFLAGS_SRCEXT=""
+    FCFLAGS_[]$1[]=""
+  else
+    FCFLAGS_SRCEXT=$ac_cv_fc_srcext_$1
+    FCFLAGS_[]$1[]=$ac_cv_fc_srcext_$1
+  fi
+  AC_SUBST(FCFLAGS_[]$1)
+  $2
+fi
+])# AC_FC_SRCEXT
+
+
+# AC_FC_FREEFORM([ACTION-IF-SUCCESS], [ACTION-IF-FAILURE = FAILURE])
+# ------------------------------------------------------------------
+# Look for a compiler flag to make the Fortran (FC) compiler accept
+# free-format source code, and adds it to FCFLAGS.  Call
+# ACTION-IF-SUCCESS (defaults to nothing) if successful (i.e. can
+# compile code using new extension) and ACTION-IF-FAILURE (defaults to
+# failing with an error message) if not.  (Defined via DEFUN_ONCE to
+# prevent flag from being added to FCFLAGS multiple times.)
+#
+# The known flags are:
+#        -ffree-form: GNU g77
+#                -FR: Intel compiler (icc, ecc)
+#              -free: Compaq compiler (fort)
+#             -qfree: IBM compiler (xlf)
+# -Mfree, -Mfreeform: Portland Group compiler
+#          -freeform: SGI compiler
+#            -f free: Absoft Fortran
+# We try to test the "more popular" flags first, by some prejudiced
+# notion of popularity.
+AC_DEFUN_ONCE([AC_FC_FREEFORM],
+[AC_LANG_ASSERT([Fortran])dnl
+AC_CACHE_CHECK([for Fortran flag needed to allow free-form source],
+                ac_cv_fc_freeform,
+[ac_cv_fc_freeform=unknown
+ac_fc_freeform_FCFLAGS_save=$FCFLAGS
+for ac_flag in none -ffree-form -FR -free -qfree -Mfree -Mfreeform \
+               -freeform "-f free"
+do
+  test "x$ac_flag" != xnone && FCFLAGS="$ac_fc_freeform_FCFLAGS_save $ac_flag"
+  AC_COMPILE_IFELSE([
+  program freeform
+       ! FIXME: how to best confuse non-freeform compilers?
+       print *, 'Hello ', &
+           'world.'
+       end],
+                    [ac_cv_fc_freeform=$ac_flag; break])
+done
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+FCFLAGS=$ac_fc_freeform_FCFLAGS_save
+])
+if test "x$ac_cv_fc_freeform" = xunknown; then
+  m4_default([$2],
+             [AC_MSG_ERROR([Fortran does not accept free-form source], 77)])
+else
+  if test "x$ac_cv_fc_freeform" != xnone; then
+    FCFLAGS="$FCFLAGS $ac_cv_fc_freeform"
+  fi
+  $1
+fi
+])# AC_FC_FREEFORM

@@ -1,27 +1,31 @@
 /* util.c -- utility functions for gzip support
+ * Copyright (C) 1997, 1998, 1999, 2001 Free Software Foundation, Inc.
  * Copyright (C) 1992-1993 Jean-loup Gailly
  * This is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License, see the file COPYING.
  */
 
 #ifdef RCSID
-static char rcsid[] = "$Id: util.c,v 1.1.1.2 1999/04/23 01:06:13 wsanchez Exp $";
+static char rcsid[] = "$Id: util.c,v 0.15 1993/06/15 09:04:13 jloup Exp $";
 #endif
 
+#include <config.h>
 #include <ctype.h>
 #include <errno.h>
-#include <sys/types.h>
 
 #include "tailor.h"
 
+#ifdef HAVE_LIMITS_H
+#  include <limits.h>
+#endif
 #ifdef HAVE_UNISTD_H
 #  include <unistd.h>
 #endif
-#ifndef NO_FCNTL_H
+#ifdef HAVE_FCNTL_H
 #  include <fcntl.h>
 #endif
 
-#if defined(STDC_HEADERS) || !defined(NO_STDLIB_H)
+#if defined STDC_HEADERS || defined HAVE_STDLIB_H
 #  include <stdlib.h>
 #else
    extern int errno;
@@ -29,6 +33,10 @@ static char rcsid[] = "$Id: util.c,v 1.1.1.2 1999/04/23 01:06:13 wsanchez Exp $"
 
 #include "gzip.h"
 #include "crypt.h"
+
+#ifndef CHAR_BIT
+#  define CHAR_BIT 8
+#endif
 
 extern ulg crc_32_tab[];   /* crc table, defined below */
 
@@ -40,12 +48,12 @@ int copy(in, out)
     int in, out;   /* input and output file descriptors */
 {
     errno = 0;
-    while (insize != 0 && (int)insize != EOF) {
+    while (insize != 0 && (int)insize != -1) {
 	write_buf(out, (char*)inbuf, insize);
 	bytes_out += insize;
 	insize = read(in, (char*)inbuf, INBUFSIZ);
     }
-    if ((int)insize == EOF && errno != 0) {
+    if ((int)insize == -1) {
 	read_error();
     }
     bytes_in = bytes_out;
@@ -97,18 +105,23 @@ int fill_inbuf(eof_ok)
 
     /* Read as much as possible */
     insize = 0;
-    errno = 0;
     do {
 	len = read(ifd, (char*)inbuf+insize, INBUFSIZ-insize);
-        if (len == 0 || len == EOF) break;
+	if (len == 0) break;
+	if (len == -1) {
+	  read_error();
+	  break;
+	}
 	insize += len;
     } while (insize < INBUFSIZ);
 
     if (insize == 0) {
 	if (eof_ok) return EOF;
+	flush_window();
+	errno = 0;
 	read_error();
     }
-    bytes_in += (ulg)insize;
+    bytes_in += (off_t)insize;
     inptr = 1;
     return inbuf[0];
 }
@@ -122,7 +135,7 @@ void flush_outbuf()
     if (outcnt == 0) return;
 
     write_buf(ofd, (char *)outbuf, outcnt);
-    bytes_out += (ulg)outcnt;
+    bytes_out += (off_t)outcnt;
     outcnt = 0;
 }
 
@@ -138,7 +151,7 @@ void flush_window()
     if (!test) {
 	write_buf(ofd, (char *)window, outcnt);
     }
-    bytes_out += (ulg)outcnt;
+    bytes_out += (off_t)outcnt;
     outcnt = 0;
 }
 
@@ -169,7 +182,8 @@ char *strlwr(s)
     char *s;
 {
     char *t;
-    for (t = s; *t; t++) *t = tolow(*t);
+    for (t = s; *t; t++)
+      *t = tolow ((unsigned char) *t);
     return s;
 }
 
@@ -178,7 +192,7 @@ char *strlwr(s)
  * any version suffix). For systems with file names that are not
  * case sensitive, force the base name to lower case.
  */
-char *basename(fname)
+char *base_name(fname)
     char *fname;
 {
     char *p;
@@ -195,6 +209,31 @@ char *basename(fname)
 #endif
     if (casemap('A') == 'a') strlwr(fname);
     return fname;
+}
+
+/* ========================================================================
+ * Unlink a file, working around the unlink readonly bug (if present).
+ */
+int xunlink (filename)
+     char *filename;
+{
+  int r = unlink (filename);
+
+#ifdef UNLINK_READONLY_BUG
+  if (r != 0)
+    {
+      int e = errno;
+      if (chmod (filename, S_IWUSR) != 0)
+	{
+	  errno = e;
+	  return -1;
+	}
+
+      r = unlink (filename);
+    }
+#endif
+
+  return r;
 }
 
 /* ========================================================================
@@ -217,7 +256,7 @@ void make_simple_name(name)
 }
 
 
-#if defined(NO_STRING_H) && !defined(STDC_HEADERS)
+#if !defined HAVE_STRING_H && !defined STDC_HEADERS
 
 /* Provide missing strspn and strcspn functions. */
 
@@ -267,7 +306,7 @@ int strcspn(s, reject)
     return count;
 }
 
-#endif /* NO_STRING_H */
+#endif
 
 /* ========================================================================
  * Add an environment variable (if any) before argv, and update argc.
@@ -340,19 +379,18 @@ void error(m)
     abort_gzip();
 }
 
-#ifdef __APPLE__
-__private_extern__
-#endif
-void warn(a, b)
-    char *a, *b;            /* message strings juxtaposed in output */
+void warning (m)
+    char *m;
 {
-    WARN((stderr, "%s: %s: warning: %s%s\n", progname, ifname, a, b));
+    WARN ((stderr, "%s: %s: warning: %s\n", progname, ifname, m));
 }
 
 void read_error()
 {
+    int e = errno;
     fprintf(stderr, "\n%s: ", progname);
-    if (errno != 0) {
+    if (e != 0) {
+	errno = e;
 	perror(ifname);
     } else {
 	fprintf(stderr, "%s: unexpected end of file\n", ifname);
@@ -362,7 +400,9 @@ void read_error()
 
 void write_error()
 {
+    int e = errno;
     fprintf(stderr, "\n%s: ", progname);
+    errno = e;
     perror(ofname);
     abort_gzip();
 }
@@ -371,28 +411,45 @@ void write_error()
  * Display compression ratio on the given stream on 6 characters.
  */
 void display_ratio(num, den, file)
-    long num;
-    long den;
+    off_t num;
+    off_t den;
     FILE *file;
 {
-    long ratio;  /* 1000 times the compression ratio */
-
-    if (den == 0) {
-	ratio = 0; /* no compression */
-    } else if (den < 2147483L) { /* (2**31 -1)/1000 */
-	ratio = 1000L*num/den;
-    } else {
-	ratio = num/(den/1000L);
-    }
-    if (ratio < 0) {
-	putc('-', file);
-	ratio = -ratio;
-    } else {
-	putc(' ', file);
-    }
-    fprintf(file, "%2ld.%1ld%%", ratio / 10L, ratio % 10L);
+    fprintf(file, "%5.1f%%", den == 0 ? 0 : 100.0 * num / den);
 }
 
+/* ========================================================================
+ * Print an off_t.  There's no completely portable way to use printf,
+ * so we do it ourselves.
+ */
+void fprint_off(file, offset, width)
+    FILE *file;
+    off_t offset;
+    int width;
+{
+    char buf[CHAR_BIT * sizeof (off_t)];
+    char *p = buf + sizeof buf;
+
+    /* Don't negate offset here; it might overflow.  */
+    if (offset < 0) {
+	do
+	  *--p = '0' - offset % 10;
+	while ((offset /= 10) != 0);
+
+	*--p = '-';
+    } else {
+	do
+	  *--p = '0' + offset % 10;
+	while ((offset /= 10) != 0);
+    }
+
+    width -= buf + sizeof buf - p;
+    while (0 < width--) {
+	putc (' ', file);
+    }
+    for (;  p < buf + sizeof buf;  p++)
+	putc (*p, file);
+}
 
 /* ========================================================================
  * Semi-safe malloc -- never returns NULL.

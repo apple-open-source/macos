@@ -3,29 +3,26 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
+ * The contents of this file constitute Original Code as defined in and
+ * are subject to the Apple Public Source License Version 1.1 (the
+ * "License").  You may not use this file except in compliance with the
+ * License.  Please obtain a copy of the License at
+ * http://www.apple.com/publicsource and read it before using this file.
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * This Original Code and all software distributed under the License are
+ * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
+ * License for the specific language governing rights and limitations
+ * under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
  *  hfs.c - File System Module for HFS and HFS+.
  *
- *  Copyright (c) 1999-2002 Apple Computer, Inc.
+ *  Copyright (c) 1999-2004 Apple Computer, Inc.
  *
  *  DRI: Josh de Cesare
  */
@@ -52,9 +49,10 @@ static HFSMasterDirectoryBlock *gHFSMDB =(HFSMasterDirectoryBlock*)gHFSMdbVib;
 static char                    gHFSPlusHeader[kBlockSize];
 static HFSPlusVolumeHeader     *gHFSPlus =(HFSPlusVolumeHeader*)gHFSPlusHeader;
 static char                    gLinkTemp[64];
+static long long               gVolID;
 
 
-static long ReadFile(void *file, long *length);
+static long ReadFile(void *file, long *length, void *base, long offset);
 static long GetCatalogEntryInfo(void *entry, long *flags, long *time);
 static long ResolvePathToCatalogEntry(char *filePath, long *flags,
 				      void *entry, long dirID, long *dirIndex);
@@ -119,6 +117,9 @@ long HFSInitPartition(CICell ih)
       gBlockSize = gHFSMDB->drAlBlkSiz;
       CacheInit(ih, gBlockSize);
       gCurrentIH = ih;
+
+      // grab the 64 bit volume ID
+      bcopy(&gHFSMDB->drFndrInfo[6], &gVolID, 8);
       
       // Get the Catalog BTree node size.
       extent     = (HFSExtentDescriptor *)&gHFSMDB->drCTExtRec;
@@ -142,15 +143,20 @@ long HFSInitPartition(CICell ih)
   Seek(ih, gAllocationOffset + kMDBBaseOffset);
   Read(ih, (long)gHFSPlusHeader, kBlockSize);
   
+//printf("checking signatures...\n");
   // Not a HFS[+] volume.
   if ((gHFSPlus->signature != kHFSPlusSigWord) &&
       (gHFSPlus->signature != kHFSXSigWord)) return -1;
-  
+//printf("continuing with HFS\n");
+        
   gIsHFSPlus = 1;
   gBlockSize = gHFSPlus->blockSize;
   CacheInit(ih, gBlockSize);
   gCurrentIH = ih;
   
+  // grab the 64 bit volume ID
+  bcopy(&gHFSPlus->finderInfo[24], &gVolID, 8);
+
   // Get the Catalog BTree node size.
   extent     = &gHFSPlus->catalogFile.extents;
   extentSize = gHFSPlus->catalogFile.logicalSize;
@@ -167,12 +173,19 @@ long HFSInitPartition(CICell ih)
 
 long HFSLoadFile(CICell ih, char *filePath)
 {
+  return HFSReadFile(ih, filePath, (void *)kLoadAddr, 0, 0);
+}
+
+extern long HFSReadFile(CICell ih, char *filePath, void *base,
+			unsigned long offset, unsigned long length)
+{
   char entry[512];
-  long dirID, result, length, flags;
+  long dirID, result, flags;
   
   if (HFSInitPartition(ih) == -1) return -1;
   
-  printf("Loading HFS%s file: [%s] from %x.\n",
+  printf("%s HFS%s file: [%s] from %x.\n",
+	 (((offset == 0) && (length == 0)) ? "Loading" : "Reading"),
 	 (gIsHFSPlus ? "+" : ""), filePath, ih);
   
   dirID = kHFSRootFolderID;
@@ -191,9 +204,12 @@ long HFSLoadFile(CICell ih, char *filePath)
   if ((result == -1) || ((flags & kFileTypeMask) != kFileTypeFlat)) return -1;
   
   // Check file owner and permissions.
-  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) return -1;
+  if (flags & (kOwnerNotRoot | kPermGroupWrite | kPermOtherWrite)) {
+    printf("%s: permissions incorrect\n", filePath);
+    return -1;
+  }
   
-  result = ReadFile(entry, &length);
+  result = ReadFile(entry, &length, base, offset);
   if (result == -1) return -1;
   
   return length;
@@ -234,24 +250,41 @@ long HFSGetDirEntry(CICell ih, char *dirPath, long *dirIndex, char **name,
   return 0;
 }
 
+long HFSGetUUID(CICell ih, char *uuidStr)
+{
+  if (HFSInitPartition(ih) == -1) return -1;
+  if (gVolID == 0LL)  return -1;
+
+  return CreateUUIDString((uint8_t*)(&gVolID), sizeof(gVolID), uuidStr);
+}
+
 
 // Private Functions
 
-static long ReadFile(void *file, long *length)
+static long ReadFile(void *file, long *length, void *base, long offset)
 {
   void               *extents;
-  long               fileID;
+  long               fileID, fileLength;
   HFSCatalogFile     *hfsFile     = file;
   HFSPlusCatalogFile *hfsPlusFile = file;
   
   if (gIsHFSPlus) {
     fileID  = hfsPlusFile->fileID;
-    *length = hfsPlusFile->dataFork.logicalSize;
+    fileLength = hfsPlusFile->dataFork.logicalSize;
     extents = &hfsPlusFile->dataFork.extents;
   } else {
     fileID  = hfsFile->fileID;
-    *length = hfsFile->dataLogicalSize;
+    fileLength = hfsFile->dataLogicalSize;
     extents = &hfsFile->dataExtents;
+  }
+  
+  if (offset > fileLength) {
+    printf("Offset is too large.\n");
+    return -1;
+  }
+  
+  if ((*length == 0) || ((offset + *length) > fileLength)) {
+    *length = fileLength - offset;
   }
   
   if (*length > kLoadSize) {
@@ -259,15 +292,15 @@ static long ReadFile(void *file, long *length)
     return -1;
   }
   
-  *length = ReadExtent((char *)extents, *length, fileID,
-		       0, *length, (char *)kLoadAddr, 0);
+  *length = ReadExtent((char *)extents, fileLength, fileID,
+		       offset, *length, base, 0);
   
   return 0;
 }
 
 static long GetCatalogEntryInfo(void *entry, long *flags, long *time)
 {
-  long tmpTime;
+  long tmpTime = 0;
   
   // Get information about the file.
   switch (*(short *)entry) {
@@ -279,8 +312,13 @@ static long GetCatalogEntryInfo(void *entry, long *flags, long *time)
   case kHFSPlusFolderRecord       :
     *flags = kFileTypeDirectory |
       (((HFSPlusCatalogFolder *)entry)->bsdInfo.fileMode & kPermMask);
-    if (((HFSPlusCatalogFolder *)entry)->bsdInfo.ownerID != 0)
+    if (((HFSPlusCatalogFolder *)entry)->bsdInfo.ownerID != 0) {
+      static int nwarnings = 0;
+      if(nwarnings++ < 25)  // so we don't warn for all in an Extensions walk
+      printf("non-root file owner detected: %d\n",
+	  ((HFSPlusCatalogFolder *)entry)->bsdInfo.ownerID);
       *flags |= kOwnerNotRoot;
+    }
     tmpTime = ((HFSPlusCatalogFolder *)entry)->contentModDate;
     break;
     
@@ -292,8 +330,11 @@ static long GetCatalogEntryInfo(void *entry, long *flags, long *time)
   case kHFSPlusFileRecord         :
     *flags = kFileTypeFlat |
       (((HFSPlusCatalogFile *)entry)->bsdInfo.fileMode & kPermMask);
-    if (((HFSPlusCatalogFile *)entry)->bsdInfo.ownerID != 0)
+    if (((HFSPlusCatalogFile *)entry)->bsdInfo.ownerID != 0) {
+      printf("non-root file owner detected: %d\n",
+	  ((HFSPlusCatalogFile *)entry)->bsdInfo.ownerID);
       *flags |= kOwnerNotRoot;
+    }
     tmpTime = ((HFSPlusCatalogFile *)entry)->contentModDate;
     break;
     
@@ -318,7 +359,7 @@ static long ResolvePathToCatalogEntry(char *filePath, long *flags,
 				      void *entry, long dirID, long *dirIndex)
 {
   char                 *restPath;
-  long                 result, cnt, subFolderID, tmpDirIndex;
+  long                 result, cnt, subFolderID = 0, tmpDirIndex;
   HFSPlusCatalogFile   *hfsPlusFile;
   
   // Copy the file name to gTempStr
@@ -469,8 +510,8 @@ static long ReadBTreeEntry(long btree, void *key, char *entry, long *dirIndex)
   short            extentFile;
   char             *nodeBuf;
   BTNodeDescriptor *node;
-  long             nodeSize, result, entrySize;
-  long             curNode, index, lowerBound, upperBound;
+  long             nodeSize, result = 0, entrySize = 0;
+  long             curNode, index = 0, lowerBound, upperBound;
   char             *testKey, *recordData;
   
   // Figure out which tree is being looked at.

@@ -34,7 +34,7 @@
  *
  *
  */
-/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_driver.c,v 1.12 2003/02/14 18:06:58 dawes Exp $ */
+/* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/s3/s3_driver.c,v 1.20 2003/11/03 05:11:28 tsi Exp $ */
 
 
 #include "xf86.h"
@@ -132,6 +132,8 @@ static SymTabRec S3Chipsets[] = {
 	{ PCI_CHIP_968,		"968" },
 	{ PCI_CHIP_TRIO, 	"Trio32/64" },
 	{ PCI_CHIP_AURORA64VP,	"Aurora64V+" },
+	{ PCI_CHIP_TRIO64UVP, 		"Trio64UV+" },
+	{ PCI_CHIP_TRIO64V2_DXGX,	"Trio64V2/DX/GX" },
 	{ -1, NULL }
 };
 
@@ -142,6 +144,8 @@ static PciChipsets S3PciChipsets[] = {
 	{ PCI_CHIP_968, 	PCI_CHIP_968, 		RES_SHARED_VGA },
 	{ PCI_CHIP_TRIO, 	PCI_CHIP_TRIO, 		RES_SHARED_VGA },
 	{ PCI_CHIP_AURORA64VP,	PCI_CHIP_AURORA64VP, 	RES_SHARED_VGA },
+	{ PCI_CHIP_TRIO64UVP,	PCI_CHIP_TRIO64UVP, 	RES_SHARED_VGA },
+	{ PCI_CHIP_TRIO64V2_DXGX,	PCI_CHIP_TRIO64V2_DXGX, 	RES_SHARED_VGA },
 	{ -1,			-1,	      		RES_UNDEFINED }
 };
 
@@ -241,6 +245,7 @@ static const char *xaaSymbols[] = {
 	NULL
 };
 
+static int s3AccelLinePitches[] = { 640, 800, 1024, 1280, 1600 };
 
 #ifdef XFree86LOADER
 
@@ -395,7 +400,7 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
         
         pScrn->monitor = pScrn->confScreen->monitor;
         
-        if (!xf86SetDepthBpp(pScrn, 8, 8, 8, Support24bppFb | Support32bppFb))
+        if (!xf86SetDepthBpp(pScrn, 0, 0, 0, Support24bppFb | Support32bppFb))
                 return FALSE;
 
         switch (pScrn->depth) {
@@ -531,6 +536,8 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
 	case PCI_CHIP_AURORA64VP:		/* ??? */
 		pS3->S3NewMMIO = FALSE;
 		break;
+	case PCI_CHIP_TRIO64V2_DXGX:
+	case PCI_CHIP_TRIO64UVP:
 	case PCI_CHIP_968:
 		pS3->S3NewMMIO = TRUE;
 		break;
@@ -540,10 +547,10 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
 	if (pS3->S3NewMMIO)
 		pS3->IOAddress = pS3->FBAddress + S3_NEWMMIO_REGBASE;
 
-	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Framebuffer @ 0x%x\n",
+	xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "Framebuffer @ 0x%lx\n",
 		   pS3->FBAddress);
 	if (pS3->S3NewMMIO)
-		xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "MMIO @ 0x%x\n",
+		xf86DrvMsg(pScrn->scrnIndex, X_PROBED, "MMIO @ 0x%lx\n",
 			   pS3->IOAddress);
 
 	pS3->PCIRetry = FALSE;		/* not supported yet */
@@ -579,6 +586,15 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
 	outb(0x46e8, 0x10);
 	outb(0x102, 0x01);
 	outb(0x46e8, 0x08);
+
+	if (pS3->Chipset == PCI_CHIP_TRIO64V2_DXGX)
+	{
+	  outb (0x3d4, 0x86);
+	  outb (0x3d5, 0x80);
+	  
+	  outb (0x3d4, 0x90);
+	  outb (0x3d5, 0x00);
+	}
 
 	if (!pScrn->videoRam) {
 		/* probe videoram */
@@ -691,17 +707,19 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
 
 	clockRanges = xnfcalloc(sizeof(ClockRange), 1);
 	clockRanges->next = NULL;
-	clockRanges->minClock = 16000;	/* guess */
+	clockRanges->minClock = 15600;
 	clockRanges->maxClock = pS3->MaxClock;
 	clockRanges->clockIndex = -1;
 	clockRanges->interlaceAllowed = FALSE;	/* not yet */
-	clockRanges->doubleScanAllowed = FALSE;	/* not yet */
-
+	clockRanges->doubleScanAllowed = TRUE;	/* not yet */
+	
         i = xf86ValidateModes(pScrn, pScrn->monitor->Modes,
                               pScrn->display->modes, clockRanges,
-                              NULL, 256, 2048, pScrn->bitsPerPixel,
-                              128, 2048, pScrn->display->virtualX,
-                              pScrn->display->virtualY, pScrn->videoRam * 1024,
+                              pS3->NoAccel ? NULL : s3AccelLinePitches,
+			      256, 2048,
+			      pScrn->bitsPerPixel, 128, 2048,
+			      pScrn->display->virtualX,
+			      pScrn->display->virtualY, pScrn->videoRam * 1024,
                               LOOKUP_BEST_REFRESH);
 
         if (i == -1) {
@@ -725,7 +743,7 @@ static Bool S3PreInit(ScrnInfoPtr pScrn, int flags)
  
 #ifdef S3_USEFB
         xf86LoadSubModule(pScrn, "fb");
-        xf86LoaderReqSymbols("fbScreenInit", NULL);
+        xf86LoaderReqSymLists(fbSymbols, NULL);
 #else
 	{
 		switch (pScrn->bitsPerPixel) {
@@ -935,14 +953,9 @@ static void S3Save(ScrnInfoPtr pScrn)
 	S3RegPtr save = &pS3->SavedRegs;
 	vgaHWPtr hwp = VGAHWPTR(pScrn);
         vgaRegPtr pVga = &hwp->SavedReg;
-	RamDacHWRecPtr pRAMDAC;
-	RamDacRegRecPtr RAMDACreg;
 	int vgaCRIndex = pS3->vgaCRIndex, vgaCRReg = pS3->vgaCRReg;
 	int i;
 	unsigned char cr5c = 0;
-
-	pRAMDAC = RAMDACHWPTR(pScrn);
-	RAMDACreg = &pRAMDAC->SavedReg;
 
 	S3BankZero(pScrn);
 
@@ -1046,7 +1059,7 @@ Bool S3CloseScreen(int scrnIndex, ScreenPtr pScreen)
 
 Bool S3SwitchMode(int scrnIndex, DisplayModePtr mode, int flags)
 {    
-	return S3ModeInit(xf86Screens[scrnIndex], xf86Screens[scrnIndex]->currentMode);
+	return S3ModeInit(xf86Screens[scrnIndex], mode);
 
 }
 
@@ -1118,7 +1131,9 @@ static int S3GetPixMuxShift(ScrnInfoPtr pScrn)
 
 	if (pS3->Chipset == PCI_CHIP_968)
 		shift = 1;	/* XXX IBMRGB */
-	else if (pS3->Chipset == PCI_CHIP_TRIO)
+	else if (pS3->Chipset == PCI_CHIP_TRIO || 
+	         pS3->Chipset == PCI_CHIP_TRIO64UVP || 
+	         pS3->Chipset == PCI_CHIP_TRIO64V2_DXGX)
 		shift = -(pS3->s3Bpp >> 1);
 
 	return shift;
@@ -1138,6 +1153,7 @@ static Bool S3ModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	pS3->pixMuxShift = S3GetPixMuxShift(pScrn);
 
 	pS3->s3BppDisplayWidth = pScrn->displayWidth * pS3->s3Bpp;
+	pS3->hwCursor = (mode->Flags & V_DBLSCAN) ? FALSE : TRUE;
 	pS3->HDisplay = mode->HDisplay;
 
 	pS3->s3ScissB = ((pScrn->videoRam * 1024) / pS3->s3BppDisplayWidth) - 1;
@@ -1146,7 +1162,7 @@ static Bool S3ModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 	if (mode->HTotal == mode->CrtcHTotal) {
 		if (pS3->pixMuxShift > 0) {
 			/* XXX hack */
-			mode->Flags |= V_PIXMUX;	
+/* 			mode->Flags |= V_PIXMUX; */
 
 			mode->CrtcHTotal >>= pS3->pixMuxShift;
 			mode->CrtcHDisplay >>= pS3->pixMuxShift;
@@ -1154,7 +1170,7 @@ static Bool S3ModeInit(ScrnInfoPtr pScrn, DisplayModePtr mode)
 			mode->CrtcHSyncEnd >>= pS3->pixMuxShift;
 			mode->CrtcHSkew >>= pS3->pixMuxShift;
 		} else if (pS3->pixMuxShift < 0) {
-			mode->Flags |= V_PIXMUX;
+/* 			mode->Flags |= V_PIXMUX; */
 
 			mode->CrtcHTotal <<= -pS3->pixMuxShift;
 			mode->CrtcHDisplay <<= -pS3->pixMuxShift;

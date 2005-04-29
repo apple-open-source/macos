@@ -33,7 +33,7 @@ The print plugin for the GIMP and printing library
 **************************************************
 
    This file documents the libgimpprint library and associated programs
-used for high quality printing. This edition documents version 4.2.5.
+used for high quality printing. This edition documents version 4.2.6.
 
    *Note Problems::, for information on how to report problems with
 GIMP-Print.
@@ -607,7 +607,7 @@ properly configured and installed.
 `--version' option:
 
      roger@whinlatter:~/gimpprint/devel$ gimpprint-config --version
-     4.2.5
+     4.2.6
 
    The correct `CFLAGS' to use can be obtained with the `--cflags'
 option:

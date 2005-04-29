@@ -1,5 +1,5 @@
 /* NameFinder.java -- Translates addresses to StackTraceElements.
-   Copyright (C) 2002 Free Software Foundation, Inc.
+   Copyright (C) 2002, 2004 Free Software Foundation, Inc.
 
    This file is part of libgcj.
 
@@ -103,6 +103,11 @@ public class NameFinder
   private BufferedReader addr2lineIn;
 
   /**
+   * Flag set if using addr2name.awk instead of addr2line from binutils.
+   */
+  private boolean usingAddr2name = false;
+
+  /**
    * Creates a new NameFinder. Call close to get rid of any resources
    * created while using the <code>lookup</code> methods.
    */
@@ -142,24 +147,17 @@ public class NameFinder
 	      {
 		String[] exec = new String[] {"addr2name.awk", executable};
 		addr2line = runtime.exec(exec);
+		usingAddr2name = true;
 	      }
 	    catch (IOException ioe2) { addr2line = null; }
 	  }
 
 	if (addr2line != null)
 	  {
-	    try
-	      {
-		addr2lineIn = new BufferedReader
-			(new InputStreamReader(addr2line.getInputStream()));
-		addr2lineOut = new BufferedWriter
-			(new OutputStreamWriter(addr2line.getOutputStream()));
-	      }
-	    catch (IOException ioe)
-	      {  
-		addr2line.destroy();
-		addr2line = null;
-	      }
+	    addr2lineIn = new BufferedReader
+	      (new InputStreamReader(addr2line.getInputStream()));
+	    addr2lineOut = new BufferedWriter
+	      (new OutputStreamWriter(addr2line.getOutputStream()));
 	  }
       }
   }
@@ -179,6 +177,11 @@ public class NameFinder
    * Returns the nth element from the stack as a hex encoded String.
    */
   native private String getAddrAsString(RawData addrs, int n);
+
+  /**
+   * Returns the label that is exported for the given method name.
+   */
+  native private String getExternalLabel(String name);
 
   /**
    * If nth element of stack is an interpreted frame, return the
@@ -212,6 +215,15 @@ public class NameFinder
 		addr2lineOut.flush();
 		name = addr2lineIn.readLine();
 		file = addr2lineIn.readLine();
+
+                // addr2line uses symbolic debugging information instead
+                // of the actually exported labels as addr2name.awk does.
+                // This name might need some modification, depending on 
+                // the system, to make it a label like that returned 
+                // by addr2name.awk or dladdr.
+                if (! usingAddr2name)
+                  if (name != null && ! "??".equals (name))
+                    name = getExternalLabel (name);
 	      }
 	    catch (IOException ioe) { addr2line = null; }
 	  }
@@ -229,8 +241,11 @@ public class NameFinder
    * Given an Throwable and a native stacktrace returns an array of
    * StackTraceElement containing class, method, file and linenumbers.
    */
-  public StackTraceElement[] lookup(Throwable t, RawData addrs, int length)
+  public StackTraceElement[] lookup(Throwable t, StackTrace trace)
   {
+    RawData addrs = trace.stackTraceAddrs();
+    int length = trace.length();
+
     StackTraceElement[] elements = new StackTraceElement[length];
     for (int i=0; i < length; i++)
       elements[i] = lookup(addrs, i);
@@ -341,6 +356,16 @@ public class NameFinder
   }
 
   /**
+   * Native helper method to create a StackTraceElement. Needed to work
+   * around normal Java access restrictions.
+   */
+  native private StackTraceElement newElement(String fileName,
+                                              int lineNumber,
+                                              String className,
+                                              String methName,
+                                              boolean isNative);
+
+  /**
    * Creates a StackTraceElement given a string and a filename.
    * Splits the given string into the class and method part.
    * The string name will be a demangled to a fully qualified java method
@@ -351,7 +376,7 @@ public class NameFinder
   private StackTraceElement createStackTraceElement(String name, String file)
   {
     if (!demangle)
-      return new StackTraceElement(file, -1, null, name, false);
+      return newElement(file, -1, null, name, false);
 
     String s = demangleName(name);
     String methodName = s;
@@ -397,7 +422,7 @@ public class NameFinder
 	  }
       }
 
-    return new StackTraceElement(fileName, line, className, methodName, false);
+    return newElement(fileName, line, className, methodName, false);
   }
 
   /**

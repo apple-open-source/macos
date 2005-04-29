@@ -1,6 +1,6 @@
 // Class.java - Representation of a Java class.
 
-/* Copyright (C) 1998, 1999, 2000  Free Software Foundation
+/* Copyright (C) 1998, 1999, 2000, 2002  Free Software Foundation
 
    This file is part of libgcj.
 
@@ -65,9 +65,31 @@ public final class Class implements Serializable
   public native Field getDeclaredField (String fieldName)
     throws NoSuchFieldException, SecurityException;
   public native Field[] getDeclaredFields () throws SecurityException;
-  public native Method getDeclaredMethod (String methodName,
-					  Class[] parameterTypes)
-    throws NoSuchMethodException, SecurityException;
+
+  private native Method _getDeclaredMethod (String methodName,
+					    Class[] parameterTypes);
+
+  public Method getDeclaredMethod (String methodName, Class[] parameterTypes)
+    throws NoSuchMethodException, SecurityException
+  {
+    SecurityManager sm = System.getSecurityManager();
+    if (sm != null)
+      {
+	sm.checkMemberAccess(this, Member.DECLARED);
+	Package p = getPackage();
+	if (p != null)
+	  sm.checkPackageAccess(p.getName());
+      }
+
+    if ("<init>".equals(methodName) || "<clinit>".equals(methodName))
+      throw new NoSuchMethodException(methodName);
+
+    Method m = _getDeclaredMethod(methodName, parameterTypes);
+    if (m == null)
+      throw new NoSuchMethodException (methodName);
+    return m;
+  }
+
   public native Method[] getDeclaredMethods () throws SecurityException;
 
   // This is marked as unimplemented in the JCL book.
@@ -121,8 +143,29 @@ public final class Class implements Serializable
   private static final native String getSignature (Class[] parameterTypes,
 						   boolean is_construtor);
 
-  public native Method getMethod (String methodName, Class[] parameterTypes)
-    throws NoSuchMethodException, SecurityException;
+  public native Method _getMethod (String methodName, Class[] parameterTypes);
+
+  public Method getMethod (String methodName, Class[] parameterTypes)
+    throws NoSuchMethodException, SecurityException
+  {
+    SecurityManager sm = System.getSecurityManager();
+    if (sm != null)
+      {
+	sm.checkMemberAccess(this, Member.PUBLIC);
+	Package p = getPackage();
+	if (p != null)
+	  sm.checkPackageAccess(p.getName());
+      }
+
+    if ("<init>".equals(methodName) || "<clinit>".equals(methodName))
+      throw new NoSuchMethodException(methodName);
+
+    Method m = _getMethod(methodName, parameterTypes);
+    if (m == null)
+      throw new NoSuchMethodException (methodName);
+    return m;
+  }
+
   private native int _getMethods (Method[] result, int offset);
   public native Method[] getMethods () throws SecurityException;
 
@@ -217,6 +260,75 @@ public final class Class implements Serializable
     return (isInterface () ? "interface " : "class ") + getName ();
   }
 
+  /**
+   * Returns the desired assertion status of this class, if it were to be
+   * initialized at this moment. The class assertion status, if set, is
+   * returned; the backup is the default package status; then if there is
+   * a class loader, that default is returned; and finally the system default
+   * is returned. This method seldom needs calling in user code, but exists
+   * for compilers to implement the assert statement. Note that there is no
+   * guarantee that the result of this method matches the class's actual
+   * assertion status.
+   *
+   * @return the desired assertion status
+   * @see ClassLoader#setClassAssertionStatus(String, boolean)
+   * @see ClassLoader#setPackageAssertionStatus(String, boolean)
+   * @see ClassLoader#setDefaultAssertionStatus(boolean)
+   * @since 1.4
+   */
+  public boolean desiredAssertionStatus()
+  {
+    ClassLoader c = getClassLoader();
+    Object status;
+    if (c == null)
+      return VMClassLoader.defaultAssertionStatus();
+    if (c.classAssertionStatus != null)
+      synchronized (c)
+        {
+          status = c.classAssertionStatus.get(getName());
+          if (status != null)
+            return status.equals(Boolean.TRUE);
+        }
+    else
+      {
+        status = ClassLoader.systemClassAssertionStatus.get(getName());
+        if (status != null)
+          return status.equals(Boolean.TRUE);
+      }
+    if (c.packageAssertionStatus != null)
+      synchronized (c)
+        {
+          String name = getPackagePortion(getName());
+          if ("".equals(name))
+            status = c.packageAssertionStatus.get(null);
+          else
+            do
+              {
+                status = c.packageAssertionStatus.get(name);
+                name = getPackagePortion(name);
+              }
+            while (! "".equals(name) && status == null);
+          if (status != null)
+            return status.equals(Boolean.TRUE);
+        }
+    else
+      {
+        String name = getPackagePortion(getName());
+        if ("".equals(name))
+          status = ClassLoader.systemPackageAssertionStatus.get(null);
+        else
+          do
+            {
+              status = ClassLoader.systemPackageAssertionStatus.get(name);
+              name = getPackagePortion(name);
+            }
+          while (! "".equals(name) && status == null);
+        if (status != null)
+          return status.equals(Boolean.TRUE);
+      }
+    return c.defaultAssertionStatus;
+  }
+
   // Don't allow new classes to be made.
   private Class ()
   {
@@ -235,4 +347,18 @@ public final class Class implements Serializable
 
   // finalization
   protected native void finalize ();
+
+  /**
+   * Strip the last portion of the name (after the last dot).
+   *
+   * @param name the name to get package of
+   * @return the package name, or "" if no package
+   */
+  private static String getPackagePortion(String name)
+  {
+    int lastInd = name.lastIndexOf('.');
+    if (lastInd == -1)
+      return "";
+    return name.substring(0, lastInd);
+  }
 }

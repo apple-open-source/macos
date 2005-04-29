@@ -1,6 +1,6 @@
 .TH LBER_ENCODE 3 "RELEASEDATE" "OpenLDAP LDVERSION"
-.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-encode.3,v 1.11.2.5 2003/03/03 17:10:02 kurt Exp $
-.\" Copyright 1998-2003 The OpenLDAP Foundation All Rights Reserved.
+.\" $OpenLDAP: pkg/ldap/doc/man/man3/lber-encode.3,v 1.17.2.2 2004/01/01 18:16:27 kurt Exp $
+.\" Copyright 1998-2004 The OpenLDAP Foundation All Rights Reserved.
 .\" Copying restrictions apply.  See COPYRIGHT/LICENSE.
 .SH NAME
 ber_alloc_t, ber_flush, ber_printf, ber_put_int, ber_put_enum, ber_put_ostring, ber_put_string, ber_put_null, ber_put_boolean, ber_put_bitstring, ber_start_seq, ber_start_set, ber_put_seq, ber_put_set \- LBER simplified Basic Encoding Rules library routines for encoding
@@ -244,7 +244,7 @@ can be achieved like so:
       ber = ber_alloc_t( LBER_USE_DER );
 
       if ( ber == NULL ) {
-		/* error */
+              /* error */
       }
 
       rc = ber_printf( ber, "{siiiib{v}}", dn, scope, ali,
@@ -269,7 +269,7 @@ The return values for all of these functions are declared in the
 .BR lber-sockbuf (3),
 .BR lber-types (3)
 .SH ACKNOWLEDGEMENTS
-.B	OpenLDAP
+.B OpenLDAP
 is developed and maintained by The OpenLDAP Project (http://www.openldap.org/).
-.B	OpenLDAP
+.B OpenLDAP
 is derived from University of Michigan LDAP 3.3 Release.  

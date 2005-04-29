@@ -4,7 +4,7 @@
 //                          Nicolas Mailhot <Nicolas.Mailhot @ laposte.net>
 //                              (XFree86 submission)
 //
-//  $XFree86: xc/programs/xkbcomp/symbols/pc/fr-latin9,v 1.1 2002/12/20 02:07:11 dawes Exp $
+//  $XFree86: xc/programs/xkbcomp/symbols/pc/fr-latin9,v 1.2 2003/04/19 12:22:12 pascal Exp $
 //
 // This layout has long been distributed and refined outside official channels.
 // To this day it remains more feature-rich and popular than the 'fr' layout.
@@ -130,11 +130,7 @@ xkb_symbols "basic" {
     // Will take effect when KP_Decimal is mapped to the locale decimal separator
     key <KPDL>  { [       KP_Delete,          period,           KP_Delete,           KP_Decimal ] };
 
-    key <RALT>  { type[Group1]="TWO_LEVEL",
-                  [ ISO_Level3_Shift, Multi_key ] };
-
-    modifier_map Mod5   { <RALT> };
-
+    include "level3(ralt_switch_multikey)"
 };
 
 partial alphanumeric_keys

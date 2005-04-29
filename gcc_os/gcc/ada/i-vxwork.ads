@@ -6,9 +6,8 @@
 --                                                                          --
 --                                   S p e c                                --
 --                                                                          --
---                               $Revision: 1.1.1.1 $
 --                                                                          --
---            Copyright (C) 1999 - 2001 Ada Core Technologies, Inc.         --
+--            Copyright (C) 1999 - 2002 Ada Core Technologies, Inc.         --
 --                                                                          --
 -- GNARL is free software; you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --

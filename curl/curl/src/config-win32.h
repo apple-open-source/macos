@@ -2,12 +2,18 @@
 /* Define if you have the stricmp function.  */
 #define HAVE_STRICMP 1
 
+/* Define to 1 if you want the built-in manual */
+#define USE_MANUAL 1
+
 /* Define cpu-machine-OS */
-#define OS "win32"
+#define OS "i386-pc-win32"
 
 /* Define if you have the <io.h> header file.  */
 #define HAVE_IO_H 1
- 
+
+/* Define if you have the <limits.h> header file */
+#define HAVE_LIMITS_H 1
+
 /* Define if you have the strdup function.  */
 #define HAVE_STRDUP 1
 
@@ -15,17 +21,28 @@
 #define HAVE_FCNTL_H 1
 
 /* Define if you have utime() */
+#if !defined(__BORLANDC__)
 #define HAVE_UTIME 1
 
 /* Define if you have the <sys/utime.h> header file */
 #define HAVE_SYS_UTIME_H 1
+#endif
+
+/* Define if you have the <locale.h> header file */
+#define HAVE_LOCALE_H 1
+
+/* Define if you have the setlocale() function. */
+#define HAVE_SETLOCALE 1
 
 /*************************************************
  * This section is for compiler specific defines.*
  *************************************************/
-#ifdef MINGW32 /* Borland and MS don't have this */
+/* Borland and MS don't have this */
+#if defined(__MINGW32__) || defined(__WATCOMC__) || defined(__LCC__)
 
 /* Define if you have the <unistd.h> header file.  */
 #define HAVE_UNISTD_H 1
+
+#else
 
 #endif

@@ -12,28 +12,26 @@ NAME = notifyd
 PROJECTVERSION = 2.8
 PROJECT_TYPE = Tool
 
-CLASSES =
-MFILES =
+HFILES = common.h daemon.h file_watcher.h notify_ipc_types.h service.h\
+         table.h w_event.h watcher.h
 
-HFILES = common.h daemon.h file_watcher.h notify_ipc_types.h service.h table.h w_event.h watcher.h
+CFILES = daemon.c file_watcher.c notify_proc.c service.c w_event.c\
+         watcher.c
 
-CFILES = daemon.c file_watcher.c notify_proc.c service.c w_event.c watcher.c
+OTHERSRCS = Makefile.preamble Makefile Makefile.postamble notify.conf\
+            notify_ipc.defs notifyd.plist notifyd.8
 
-OTHERSRCS = Makefile.preamble Makefile Makefile.postamble\
-	notify.conf notify_ipc.defs notifyd.plist notifyd.8
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 CODE_GEN_STYLE = DYNAMIC
 MAKEFILE = tool.make
 NEXTSTEP_INSTALLDIR = /usr/sbin
-WINDOWS_INSTALLDIR = /usr/etc
-PDO_UNIX_INSTALLDIR = /usr/etc
 LIBS = 
 DEBUG_LIBS = $(LIBS)
 PROF_LIBS = $(LIBS)
 
-FRAMEWORK_PATHS =
-FRAMEWORKS =
+
+
 
 NEXTSTEP_OBJCPLUS_COMPILER = /usr/bin/cc
 WINDOWS_OBJCPLUS_COMPILER = $(DEVDIR)/gcc

@@ -1,0 +1,17 @@
+--- system.c.orig	2003-05-20 15:23:25.000000000 -0700
++++ system.c	2004-08-31 12:00:07.000000000 -0700
+@@ -58,8 +58,12 @@
+ 	struct sigaction ign, intact, quitact;
+ 	sigset_t newsigblock, oldsigblock;
+ 
+-	if (!command)		/* just checking... */
+-		return(1);
++	if (!command) {		/* just checking... */
++		if (access(_PATH_BSHELL, F_OK) == -1)	/* if no sh or no access */
++			return(0);
++		else
++			return(1);
++	}
+ 
+ 	/*
+ 	 * Ignore SIGINT and SIGQUIT, block SIGCHLD. Remember to save
